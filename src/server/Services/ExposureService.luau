@@ -217,10 +217,35 @@ end
 
 -- ── Blackout ───────────────────────────────────────────────────────────
 
+--- Where a blacked-out player wakes up.
+---
+--- This used to be FindFirstChildWhichIsA("SpawnLocation") — which searches DIRECT
+--- CHILDREN OF WORKSPACE ONLY. BaseCamp parents its spawn inside the camp model, so
+--- the search never matched and every blackout fell through to the hardcoded
+--- CFrame.new(0, 8, 0) below. That point sat inside Zone 1's footprint: blacking out
+--- teleported you into the radioactive field you had just escaped. It was silent for
+--- the entire life of the project, which is why the last resort now warns.
+---
+--- The anchor is a NAMED part rather than "whichever SpawnLocation turns up first",
+--- because the world now contains seven of those and picking one arbitrarily would
+--- have swapped one wrong answer for another. It sits on the camp's shower grate, so
+--- you come round already being flushed — a relief beat instead of a punishment one.
+local warnedNoAnchor = false
+
 local function baseCampCFrame(): CFrame
-	local spawn = Workspace:FindFirstChildWhichIsA("SpawnLocation")
+	local anchor = Workspace:FindFirstChild("RespawnAnchor", true)
+	if anchor and anchor:IsA("BasePart") then
+		return anchor.CFrame + Vector3.new(0, 4, 0)
+	end
+
+	local spawn = Workspace:FindFirstChildWhichIsA("SpawnLocation", true)
 	if spawn then
 		return spawn.CFrame + Vector3.new(0, 4, 0)
+	end
+
+	if not warnedNoAnchor then
+		warnedNoAnchor = true
+		warn("[exposure] no RespawnAnchor and no SpawnLocation in Workspace — blacking out to (0, 8, 0), which may be inside a zone")
 	end
 	return CFrame.new(0, 8, 0)
 end

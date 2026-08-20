@@ -1,0 +1,250 @@
+--!strict
+--[[
+	Scenery.luau — barrels, spills and rubble. Everything on the zones that is not
+	the zone.
+
+	    require(game.ServerScriptService.Server.build.Scenery).rebuild()
+
+	WHY THIS IS A SEPARATE MODULE FROM ZoneFields.
+	Workspace.Zones must contain the four plates and NOTHING else. ZoneService walks
+	that folder's children ten times a second per player, and — much worse — a prop
+	that accidentally carried a ZoneId attribute would register as a zone. Overlapping
+	zones resolve as "smallest XZ area wins", so one stray barrel would silently
+	become the zone every nearby player is standing in. Keeping decor in a different
+	folder makes that class of bug impossible rather than merely unlikely.
+
+	THE OOZE IS THE SURFACE, NOT A HAZARD.
+	Per the design call: the plate itself is the sludge you wade through, and the
+	pools and spills here are visual variation with NO gameplay rules attached.
+	ZoneService.hotPocketFor stays a stub returning 1. This matters for a young
+	audience — one rule ("the green ground is dangerous, the paths are not") beats
+	two rules ("...but the BRIGHT green is extra dangerous") when the second one is
+	only telegraphed by shade.
+
+	NOTHING HERE MAY RISE THROUGH THE DIG SURFACE. DigService buries items on the
+	plate's top face and the haul part rises to exactly that plane, so a prop sitting
+	proud of it can hide an item surfacing underneath. Props are thin and sit just
+	above; anything tall is CanCollide=false so a player can walk out of it.
+
+	Placement is a jittered grid, not pure random. Pure random clumps and leaves bald
+	patches; a jittered grid reads as scattered while still covering the field, and
+	it is deterministic per zone so a rebuild does not reshuffle the whole world.
+]]
+
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage.Shared
+local Zones = require(Shared.Config.Zones)
+
+local Kit = require(script.Parent.Kit)
+
+local Scenery = {}
+local BUILDER_SOURCE = "src/server/build/Scenery.luau"
+local BUILDER_VERSION = 1
+
+local C, R = Kit.C, Kit.R
+local build, light = Kit.build, Kit.light
+
+--- Just above the plate's top face — close enough to read as lying on the ground,
+--- high enough not to z-fight with it.
+local SKIM = 0.12
+
+--- Per-zone character. `props` is roughly how many set pieces to scatter; the pool
+--- count scales with area so a big zone does not look empty.
+local THEME = {
+	[1] = { props = 14, pools = 10, kind = "trees" },
+	[2] = { props = 20, pools = 14, kind = "houses" },
+	[3] = { props = 24, pools = 20, kind = "sirens" },
+	[4] = { props = 10, pools = 16, kind = "barriers" },
+}
+
+--- A leaking barrel: the story prop. Tipped or standing, always dripping.
+local function barrel(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+	local tipped = rng:NextNumber() < 0.35
+	local color = if rng:NextNumber() < 0.5 then C.barrelYellow else C.barrelRust
+
+	build(parent, origin, {
+		name = "Barrel",
+		pos = { x, if tipped then 1.1 else 2.1, z },
+		size = { 4.2, 2.4, 2.4 },
+		color = color,
+		material = "Metal",
+		shape = "Cylinder",
+		rot = if tipped then R.cylAlongZ else R.cylUpFlipped,
+	})
+
+	-- The spill coming out of it. This is the bit that sells "oozing".
+	local spill = build(parent, origin, {
+		name = "Spill",
+		pos = { x + rng:NextNumber(-3, 3), SKIM, z + rng:NextNumber(-3, 3) },
+		size = { rng:NextNumber(6, 11), 0.24, rng:NextNumber(6, 11) },
+		color = C.oozeBright,
+		material = "Neon",
+		shape = "Cylinder",
+		rot = R.cylUp,
+		transparency = 0.2,
+		canCollide = false,
+	})
+	light(spill, C.oozeBright, 14, 1.4)
+end
+
+--- Zone-specific silhouette, so the four fields do not read as one field.
+local function prop(parent: Instance, origin: CFrame, kind: string, x: number, z: number, rng: Random)
+	if kind == "trees" then
+		build(parent, origin, {
+			name = "DeadTree",
+			pos = { x, 4, z },
+			size = { 1.1, 8, 1.1 },
+			color = C.wood,
+			material = "Wood",
+			canCollide = false,
+		})
+		for _ = 1, 3 do
+			build(parent, origin, {
+				name = "Branch",
+				pos = { x + rng:NextNumber(-1.8, 1.8), rng:NextNumber(5, 7.5), z + rng:NextNumber(-1.8, 1.8) },
+				size = { 3.2, 0.35, 0.35 },
+				color = C.wood,
+				material = "Wood",
+				rot = Kit.ang(0, rng:NextNumber(0, 180), rng:NextNumber(-25, 25)),
+				canCollide = false,
+			})
+		end
+	elseif kind == "houses" then
+		-- A collapsed shell: two standing walls and a leaning roof slab.
+		local w = rng:NextNumber(9, 15)
+		build(parent, origin, { name = "Wall", pos = { x, 3, z }, size = { w, 6, 0.8 }, color = C.plazaWarm, material = "Brick" })
+		build(parent, origin, { name = "Wall", pos = { x - w / 2, 2.4, z + 5 }, size = { 0.8, 5, 10 }, color = C.plazaEdge, material = "Brick" })
+		build(parent, origin, {
+			name = "RoofSlab",
+			pos = { x + 2, 4.4, z + 6 },
+			size = { w, 0.6, 9 },
+			color = C.barrelRust,
+			material = "Slate",
+			rot = Kit.ang(0, 0, rng:NextNumber(14, 26)),
+			canCollide = false,
+		})
+	elseif kind == "sirens" then
+		build(parent, origin, { name = "SirenPost", pos = { x, 6, z }, size = { 0.8, 12, 0.8 }, color = C.steelDark, material = "Metal" })
+		local head = build(parent, origin, {
+			name = "SirenHead",
+			pos = { x, 12.4, z },
+			size = { 2.6, 1.8, 2.6 },
+			color = C.barrelRust,
+			material = "Neon",
+			canCollide = false,
+		})
+		light(head, C.barrelRust, 22, 2)
+	else -- "barriers" — Zone 4. Sparse on purpose: PLAN §15 wants it content-free.
+		build(parent, origin, {
+			name = "Barrier",
+			pos = { x, 1.6, z },
+			size = { 9, 3.2, 1.4 },
+			color = C.plazaEdge,
+			material = "Concrete",
+			rot = Kit.ang(0, rng:NextNumber(-40, 40), 0),
+		})
+		build(parent, origin, {
+			name = "HazardStripe",
+			pos = { x, 3.3, z },
+			size = { 9, 0.4, 1.5 },
+			color = C.barrelYellow,
+			material = "Neon",
+			canCollide = false,
+		})
+	end
+end
+
+local function buildZoneScenery(parent: Instance, id: number)
+	local theme = THEME[id]
+	if theme == nil then
+		return
+	end
+
+	local def = Zones.get(id)
+	local folder = Instance.new("Folder")
+	folder.Name = `Zone{id}`
+
+	-- Deterministic per zone: a rebuild reproduces the same field, so "it looked
+	-- better before" is never something you have to chase.
+	local rng = Random.new(1000 + id)
+
+	-- Everything is placed relative to the zone's own surface plane.
+	local origin = CFrame.new(def.center[1], Zones.SURFACE_Y, def.center[2])
+	local hx, hz = def.size[1] / 2 - 14, def.size[2] / 2 - 14
+
+	-- Ooze pools first, so props sit on top of them.
+	for _ = 1, theme.pools do
+		local x, z = rng:NextNumber(-hx, hx), rng:NextNumber(-hz, hz)
+		local pool = build(folder, origin, {
+			name = "OozePool",
+			pos = { x, SKIM, z },
+			size = { rng:NextNumber(14, 30), 0.22, rng:NextNumber(14, 30) },
+			color = C.oozeBright,
+			material = "Neon",
+			shape = "Cylinder",
+			rot = R.cylUp,
+			transparency = 0.3,
+			canCollide = false,
+		})
+		light(pool, C.ooze, 20, 1)
+	end
+
+	-- Then barrels and set pieces on a jittered grid.
+	local cols = math.ceil(math.sqrt(theme.props))
+	local placed = 0
+	for row = 0, cols - 1 do
+		for col = 0, cols - 1 do
+			if placed >= theme.props then
+				break
+			end
+			placed += 1
+
+			local x = -hx + (col + 0.5) * (2 * hx / cols) + rng:NextNumber(-12, 12)
+			local z = -hz + (row + 0.5) * (2 * hz / cols) + rng:NextNumber(-12, 12)
+			x = math.clamp(x, -hx, hx)
+			z = math.clamp(z, -hz, hz)
+
+			if placed % 2 == 0 then
+				barrel(folder, origin, x, z, rng)
+			else
+				prop(folder, origin, theme.kind, x, z, rng)
+			end
+		end
+	end
+
+	folder.Parent = parent
+end
+
+local function createScenery(): Model
+	local scenery = Instance.new("Model")
+	scenery.Name = "Scenery"
+	Kit.stamp(scenery, BUILDER_SOURCE, BUILDER_VERSION)
+
+	for _, id in Zones.builtIds() do
+		buildZoneScenery(scenery, id)
+	end
+
+	-- Nothing in here may claim to be a zone. This is the invariant the whole
+	-- module/folder split exists to protect, so it is asserted, not trusted.
+	for _, d in scenery:GetDescendants() do
+		assert(d:GetAttribute("ZoneId") == nil, `scenery part {d:GetFullName()} carries a ZoneId — it would register as a zone`)
+	end
+
+	return scenery
+end
+
+function Scenery.build(parent: Instance?): Model
+	local scenery = createScenery()
+	scenery.Parent = parent or Workspace
+	return scenery
+end
+
+function Scenery.rebuild(parent: Instance?): Model
+	local scenery = Kit.swap("Scenery", createScenery, parent) :: Model
+	print(`[build] Scenery rebuilt — {#scenery:GetDescendants()} parts`)
+	return scenery
+end
+
+return Scenery
