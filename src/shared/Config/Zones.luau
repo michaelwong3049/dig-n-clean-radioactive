@@ -29,6 +29,12 @@
 -- zone then feels the same to search, and the difficulty gradient comes entirely
 -- from radiation — which is what PLAN §3 says the differentiator is supposed to be.
 --
+-- COLOUR NOTE: the plate is the SLUDGE and it is deliberately a deep, muted green.
+-- The bright acid green belongs to the pools and spills in build/Scenery, which are
+-- Neon. Making the plate pale too was the first attempt and it read as a golf course
+-- from ground level: with no tonal gap between ground and pool, nothing glowed and
+-- nothing looked toxic. Contrast is what sells "radioactive", not brightness.
+--
 --     zone 1   300x265   r=12 (T1)   c = 0.256
 --     zone 2   400x350   r=16 (T2)   c = 0.259
 --     zone 3   510x460   r=21 (T3)   c = 0.266
@@ -92,7 +98,7 @@ Zones.DEFS = {
 		loot = { Scrap = 55, Common = 28, Uncommon = 12, Rare = 4, Epic = 0.8, Legendary = 0.15, Mythic = 0.04, Anomaly = 0.002 },
 		center = { 310, 0 },
 		size = { 300, 265 },
-		color = "9FE07A",
+		color = "6F9636",
 		material = "Sand",
 		built = true,
 	},
@@ -108,7 +114,7 @@ Zones.DEFS = {
 		loot = { Scrap = 42, Common = 30, Uncommon = 18, Rare = 7, Epic = 2, Legendary = 0.5, Mythic = 0.1, Anomaly = 0.004 },
 		center = { -470, 27 },
 		size = { 400, 350 },
-		color = "8CD95C",
+		color = "538C28",
 		material = "Sand",
 		built = true,
 	},
@@ -124,8 +130,8 @@ Zones.DEFS = {
 		loot = { Scrap = 28, Common = 30, Uncommon = 24, Rare = 12, Epic = 4.5, Legendary = 1.2, Mythic = 0.28, Anomaly = 0.01 },
 		center = { 0, -490 },
 		size = { 510, 460 },
-		color = "7CE05A",
-		material = "Glass",
+		color = "3E7A1C",
+		material = "Slate",
 		built = true,
 	},
 	{
@@ -145,8 +151,8 @@ Zones.DEFS = {
 		loot = { Scrap = 15, Common = 24, Uncommon = 28, Rare = 20, Epic = 9, Legendary = 3, Mythic = 0.8, Anomaly = 0.03 },
 		center = { 0, 310 },
 		size = { 290, 260 },
-		color = "5FD838",
-		material = "Glass",
+		color = "2F6B14",
+		material = "Slate",
 		built = true,
 	},
 	{

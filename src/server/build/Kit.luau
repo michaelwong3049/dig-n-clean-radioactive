@@ -75,9 +75,14 @@ Kit.C = {
 	road = "E8DCC0",
 
 	-- Radiation. The ONLY Neon green in the world.
-	ooze = "7CE05A",
-	oozeBright = "B6FF6E",
-	oozeDeep = "4FA832",
+	--
+	-- These are green-DOMINANT on purpose. Neon renders a colour at full emission and
+	-- bloom pushes it further, so a yellow-green like B6FF6E comes out of the pipeline
+	-- as cream and stops reading as toxic at all. Keep red well under green here or
+	-- the ooze turns into custard.
+	ooze = "4FD11A",
+	oozeBright = "6BEE2E",
+	oozeDeep = "2A6B10",
 
 	barrelYellow = "F2C33C",
 	barrelRust = "E2603C",

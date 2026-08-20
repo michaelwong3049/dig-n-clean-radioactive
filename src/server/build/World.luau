@@ -44,6 +44,7 @@ local ZoneFields = require(script.Parent.ZoneFields)
 local Shops = require(script.Parent.Shops)
 local Plots = require(script.Parent.Plots)
 local Scenery = require(script.Parent.Scenery)
+local Daylight = require(script.Parent.Daylight)
 
 local World = {}
 
@@ -63,6 +64,7 @@ function World.rebuild()
 	Shops.rebuild()
 	Plots.rebuild()
 	Scenery.rebuild()
+	Daylight.apply()
 
 	local elapsed = (os.clock() - started) * 1000
 	print(`[build] world rebuilt in {string.format("%.0f", elapsed)}ms`)

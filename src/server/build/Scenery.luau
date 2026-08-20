@@ -48,15 +48,18 @@ local build, light = Kit.build, Kit.light
 
 --- Just above the plate's top face — close enough to read as lying on the ground,
 --- high enough not to z-fight with it.
-local SKIM = 0.12
+local SKIM = 0.26
 
 --- Per-zone character. `props` is roughly how many set pieces to scatter; the pool
 --- count scales with area so a big zone does not look empty.
+--- Pool counts climb with the zone: Ash Flats is barely contaminated, the Belt is
+--- more ooze than ground. That gradient is the map teaching you what "deeper" means
+--- before any number on the HUD does.
 local THEME = {
-	[1] = { props = 14, pools = 10, kind = "trees" },
-	[2] = { props = 20, pools = 14, kind = "houses" },
-	[3] = { props = 24, pools = 20, kind = "sirens" },
-	[4] = { props = 10, pools = 16, kind = "barriers" },
+	[1] = { props = 26, pools = 26, kind = "trees" },
+	[2] = { props = 34, pools = 40, kind = "houses" },
+	[3] = { props = 40, pools = 58, kind = "sirens" },
+	[4] = { props = 18, pools = 46, kind = "barriers" },
 }
 
 --- A leaking barrel: the story prop. Tipped or standing, always dripping.
@@ -75,18 +78,19 @@ local function barrel(parent: Instance, origin: CFrame, x: number, z: number, rn
 	})
 
 	-- The spill coming out of it. This is the bit that sells "oozing".
+	local spillW = rng:NextNumber(8, 14)
 	local spill = build(parent, origin, {
 		name = "Spill",
 		pos = { x + rng:NextNumber(-3, 3), SKIM, z + rng:NextNumber(-3, 3) },
-		size = { rng:NextNumber(6, 11), 0.24, rng:NextNumber(6, 11) },
+		size = { 0.44, spillW, spillW },
 		color = C.oozeBright,
 		material = "Neon",
 		shape = "Cylinder",
 		rot = R.cylUp,
-		transparency = 0.2,
+		transparency = 0.04,
 		canCollide = false,
 	})
-	light(spill, C.oozeBright, 14, 1.4)
+	light(spill, C.oozeBright, 18, 2)
 end
 
 --- Zone-specific silhouette, so the four fields do not read as one field.
@@ -177,18 +181,37 @@ local function buildZoneScenery(parent: Instance, id: number)
 	-- Ooze pools first, so props sit on top of them.
 	for _ = 1, theme.pools do
 		local x, z = rng:NextNumber(-hx, hx), rng:NextNumber(-hz, hz)
+		local d = rng:NextNumber(18, 46)
 		local pool = build(folder, origin, {
 			name = "OozePool",
 			pos = { x, SKIM, z },
-			size = { rng:NextNumber(14, 30), 0.22, rng:NextNumber(14, 30) },
+			-- A Cylinder's axis is its X size, so this is {thickness, diameter,
+			-- diameter}. Writing it {d, 0.5, d} makes a thin ellipse standing on
+			-- edge instead of a puddle -- which is exactly what the first pass did,
+			-- and why the fields looked like bare lawn.
+			size = { 0.5, d, d },
 			color = C.oozeBright,
 			material = "Neon",
 			shape = "Cylinder",
 			rot = R.cylUp,
-			transparency = 0.3,
+			-- Near-opaque on purpose. Transparent Neon over a green plate is
+			-- invisible in daylight -- the first pass looked like a lawn.
+			transparency = 0.06,
 			canCollide = false,
 		})
-		light(pool, C.ooze, 20, 1)
+		-- A darker rim, so a pool reads as a hole full of something rather than as
+		-- a decal painted on the floor.
+		build(folder, origin, {
+			name = "OozeRim",
+			pos = { x, SKIM - 0.12, z },
+			size = { 0.4, d + 5, d + 5 },
+			color = C.oozeDeep,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = R.cylUp,
+			canCollide = false,
+		})
+		light(pool, C.ooze, 26, 2)
 	end
 
 	-- Then barrels and set pieces on a jittered grid.
