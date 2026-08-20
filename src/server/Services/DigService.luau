@@ -128,7 +128,15 @@ end
 --- Zone 1 has no Mythic or Anomaly entries but its loot table can still roll them.
 --- Step down until the catalogue actually has something, rather than erroring or
 --- silently dropping the dig.
-local function rollItemId(zoneId: number, rarity: string): (string, string)
+---
+--- Returns nil when the zone has NOTHING at any rarity. That used to be an error(),
+--- which was a live landmine: this runs inside the 10 Hz tick, so an unstocked zone
+--- threw ten times a second and — before Ticker gained per-subscriber isolation —
+--- took down every service booted after this one. An unstocked zone is a content
+--- gap, not a crash; it should degrade to "no signals here" and say so once.
+local unstockedWarned: { [number]: boolean } = {}
+
+local function rollItemId(zoneId: number, rarity: string): (string?, string?)
 	local order = Rarity.get(rarity).order
 
 	for step = order, 1, -1 do
@@ -139,7 +147,11 @@ local function rollItemId(zoneId: number, rarity: string): (string, string)
 		end
 	end
 
-	error(`zone {zoneId} has no items at any rarity — Items.lua is empty for it`)
+	if not unstockedWarned[zoneId] then
+		unstockedWarned[zoneId] = true
+		warn(`[dig] zone {zoneId} has no items at any rarity — Config/Items.luau does not stock it. No signals will spawn there.`)
+	end
+	return nil, nil
 end
 
 -- ── The signal field ────────────────────────────────────────────────────
@@ -168,6 +180,9 @@ local function spawnSignal(zoneId: number)
 
 	local rarity = rollRarity(zoneId)
 	local itemId, actualRarity = rollItemId(zoneId, rarity)
+	if itemId == nil or actualRarity == nil then
+		return -- zone isn't stocked; rollItemId has already said so, once
+	end
 	local order = Rarity.get(actualRarity).order
 
 	local signal: Signal = {
