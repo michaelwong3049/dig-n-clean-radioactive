@@ -49,13 +49,15 @@ local ZoneService = require(script.Parent.ZoneService)
 local DigService = {}
 
 
--- ── Tuning that is Phase-1 shaped and will move to Config once it settles ────────
+-- ── Field tuning ────────────────────────────────────────────────────────────────
 
-local SIGNALS_PER_ZONE = 45
-local DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
-local DEPTH_BASE = 1.0
-local DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate
-local DEPTH_JITTER = 1.0
+-- Moved into Config/Tuning so Spec can check burial depth against the zone plate
+-- thickness that has to contain it. Aliased so the call sites below are unchanged.
+local SIGNALS_PER_ZONE = Tuning.SIGNALS_PER_ZONE
+local DIG_RADIUS = Tuning.DIG_RADIUS
+local DEPTH_BASE = Tuning.DIG_DEPTH_BASE
+local DEPTH_PER_RARITY = Tuning.DIG_DEPTH_PER_RARITY
+local DEPTH_JITTER = Tuning.DIG_DEPTH_JITTER
 local PULL_SECONDS_PER_STUD = 1.2
 local SLIP_RATE = 1.6 -- let go and it sinks back faster than you raised it
 local STRAIN_CEILING = 0.25 -- how far an under-rated magnet gets before it stalls

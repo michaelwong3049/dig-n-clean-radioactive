@@ -31,134 +31,25 @@
 
 local Workspace = game:GetService("Workspace")
 
+local Kit = require(script.Parent.Kit)
+
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 1
+local BUILDER_VERSION = 2
 
 -- Where the camp sits. This is the Floor's centre; everything else is relative to it,
 -- so moving the whole camp is a one-line change (or an argument to build()).
 local DEFAULT_ORIGIN = CFrame.new(0, 0.9, 136)
 
--- ── Palette ───────────────────────────────────────────────────────────────────
--- Named so a re-skin is one edit rather than a find-and-replace over hex codes.
-local C = {
-	floor = "C9C4B8",
-	concrete = "8E9689",
+-- ── Primitives ────────────────────────────────────────────────────────────────
+-- Lifted into build/Kit.luau so the hub, shops, plots, zones and scenery generators
+-- all share one part-builder instead of four that drift. Aliased to the original
+-- local names so every call site below is unchanged from the version that was
+-- verified against the live place to the stud.
+local C, R = Kit.C, Kit.R
+local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
-	wood = "5A4630",
-	woodLight = "A9743F",
-	canvas = "E0A33C",
-	canvasPale = "EFE3C8",
-	gold = "F0C64B",
-
-	steel = "9FB6C4",
-	steelDark = "4A5560",
-	showerSteel = "42505C",
-	drain = "2C363F",
-
-	cyan = "7FD0FF",
-	glass = "BFE6FF",
-	hazard = "E8C33C",
-
-	labelText = "F2F5EE",
-	signText = "2B2415",
-	lampWarm = "FFD9A0",
-}
-
--- ── Orientations ──────────────────────────────────────────────────────────────
--- Every part in the camp uses one of these six. Degrees, XYZ euler.
--- A Roblox Cylinder's axis is its X size, so "upright" means rotating X onto Y.
-local function ang(x: number, y: number, z: number): CFrame
-	return CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
-end
-
-local R = {
-	flat = ang(0, 0, 0),
-	yaw180 = ang(-180, 0, -180), -- same box, facing the other way
-	cylUp = ang(0, 0, 90), -- cylinder standing upright
-	cylUpFlipped = ang(-180, 0, -90), -- upright, yawed 180 (invisible on a cylinder, kept for fidelity)
-	cylAlongZ = ang(90, 90, 0), -- cylinder lying front-to-back
-	lidTilt = ang(-125, 0, -180), -- the cash box lid, propped open
-}
-
--- ── Builders ──────────────────────────────────────────────────────────────────
-
-export type Spec = {
-	name: string,
-	pos: { number }, -- {x, y, z} relative to origin
-	size: { number },
-	color: string,
-	material: string,
-	rot: CFrame?,
-	shape: string?, -- "Block" (default) | "Cylinder" | "Ball"
-	transparency: number?,
-	canCollide: boolean?,
-	class: string?, -- "Part" (default) | "SpawnLocation"
-	attributes: { [string]: any }?,
-}
-
-local function build(parent: Instance, origin: CFrame, spec: Spec): BasePart
-	local p = Instance.new(spec.class or "Part") :: any
-	p.Name = spec.name
-	p.Size = Vector3.new(spec.size[1], spec.size[2], spec.size[3])
-	p.Color = Color3.fromHex(spec.color)
-	p.Material = Enum.Material[spec.material]
-	p.Transparency = spec.transparency or 0
-	p.Anchored = true
-	p.CanCollide = if spec.canCollide == nil then true else spec.canCollide
-
-	if p:IsA("Part") then
-		p.Shape = Enum.PartType[spec.shape or "Block"]
-	end
-
-	p.CFrame = origin * CFrame.new(spec.pos[1], spec.pos[2], spec.pos[3]) * (spec.rot or R.flat)
-
-	for key, value in spec.attributes or {} do
-		p:SetAttribute(key, value)
-	end
-
-	p.Parent = parent
-	return p
-end
-
-local function light(part: BasePart, color: string, range: number, brightness: number)
-	local l = Instance.new("PointLight")
-	l.Color = Color3.fromHex(color)
-	l.Range = range
-	l.Brightness = brightness
-	l.Parent = part
-end
-
---- The floating "TRADER / turn it into cash" card over each station.
-local function billboard(part: BasePart, width: number, height: number, title: string, subtitle: string, subColor: string)
-	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromOffset(width, 52)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, height, 0)
-	gui.AlwaysOnTop = true
-	gui.MaxDistance = math.huge
-	gui.Parent = part
-
-	local head = Instance.new("TextLabel")
-	head.Size = UDim2.new(1, 0, 0, 30)
-	head.BackgroundTransparency = 1
-	head.Font = Enum.Font.GothamBold
-	head.TextSize = 22
-	head.TextColor3 = Color3.fromHex(C.labelText)
-	head.TextStrokeTransparency = 0.4
-	head.Text = title
-	head.Parent = gui
-
-	local sub = Instance.new("TextLabel")
-	sub.Position = UDim2.fromOffset(0, 28)
-	sub.Size = UDim2.new(1, 0, 0, 20)
-	sub.BackgroundTransparency = 1
-	sub.Font = Enum.Font.GothamMedium
-	sub.TextSize = 14
-	sub.TextColor3 = Color3.fromHex(subColor)
-	sub.TextStrokeTransparency = 0.5
-	sub.Text = subtitle
-	sub.Parent = gui
-end
+export type Spec = Kit.Spec
 
 -- ── The camp ──────────────────────────────────────────────────────────────────
 
@@ -488,8 +379,7 @@ end
 local function createCamp(origin: CFrame): Model
 	local camp = Instance.new("Model")
 	camp.Name = "BaseCamp"
-	camp:SetAttribute("GeneratedBy", BUILDER_SOURCE)
-	camp:SetAttribute("BuilderVersion", BUILDER_VERSION)
+	Kit.stamp(camp, BUILDER_SOURCE, BUILDER_VERSION)
 
 	buildShell(camp, origin)
 	buildTrader(camp, origin)
@@ -507,14 +397,12 @@ function BaseCamp.build(origin: CFrame?, parent: Instance?): Model
 end
 
 --- Replace the camp in the world. This is the one you run after editing this file.
-function BaseCamp.rebuild(origin: CFrame?): Model
-	-- Build first. If a bad edit throws, the camp currently in Workspace survives.
-	local camp = createCamp(origin or DEFAULT_ORIGIN)
-	local existing = Workspace:FindFirstChild("BaseCamp")
-	if existing then
-		existing:Destroy()
-	end
-	camp.Parent = Workspace
+--- Kit.swap builds first and only then destroys, so a bad edit that throws leaves
+--- the camp currently in the world untouched.
+function BaseCamp.rebuild(origin: CFrame?, parent: Instance?): Model
+	local camp = Kit.swap("BaseCamp", function()
+		return createCamp(origin or DEFAULT_ORIGIN)
+	end, parent) :: Model
 	print(`[build] BaseCamp rebuilt — {#camp:GetDescendants()} descendants`)
 	return camp
 end

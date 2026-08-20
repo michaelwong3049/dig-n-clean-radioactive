@@ -70,6 +70,21 @@ Tuning.CARRY_EMISSION = { 0.006, 0.012, 0.03, 0.07, 0.16, 0.36, 0.8, 1.8 }
 Tuning.FREEZE_ON_LOGOUT = true
 
 -- ── Economy (PLAN §2 step 5) ──────────────────────────────────────────────────
+-- ── The signal field (PLAN §2 steps 1-2) ────────────────────────────────
+--
+-- These lived as bare locals inside DigService, which put the numbers that decide
+-- how deep an item buries in a different file from the plate thickness that has to
+-- contain it. Shared/Util/Spec now checks the two against each other, and it can
+-- only do that if both are data.
+--
+-- SIGNALS_PER_ZONE is GLOBAL and does not scale with zone area. That makes zone
+-- area the only lever on search density -- see the coverage note in Config/Zones.
+Tuning.SIGNALS_PER_ZONE = 45
+Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
+Tuning.DIG_DEPTH_BASE = 1.0
+Tuning.DIG_DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate
+Tuning.DIG_DEPTH_JITTER = 1.0
+
 Tuning.DIRTY_SELL_MULTIPLIER = 0.20
 Tuning.ASSAY_FEE_FRACTION = 0.02
 
