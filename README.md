@@ -4,7 +4,7 @@ Sweep the wasteland with a detector, haul what pings up through the soil with a 
 and get it home before the decay clock turns it to slag. Then scrub the fallout off it
 and sell it — or put it on a pedestal and let it pay you forever.
 
-- **[PLAN_4.md](PLAN_4.md)** — the design document. What the game is and why.
+- **[PLAN.md](PLAN.md)** — the design document. What the game is and why.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — the module map, the server/client boundary,
   the world-instance contract, and the tuning workflow. Read this before changing code.
 

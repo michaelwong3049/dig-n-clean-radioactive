@@ -5,7 +5,7 @@ add new sections as new features start. Each item keeps a one-line status plus a
 summary underneath — the summary is the "what and why," not a changelog.
 
 Related reading: [`ARCHITECTURE.md`](ARCHITECTURE.md) (module map, world contract, boot
-order), [`PLAN_4.md`](PLAN_4.md) (game design), [`README.md`](README.md) (getting started).
+order), [`PLAN.md`](PLAN.md) (game design), [`README.md`](README.md) (getting started).
 
 ---
 
@@ -56,10 +56,10 @@ audio) genuinely is later: each one either extends a system that doesn't exist y
 | Phase | What | Section | Status |
 |-|-|-|-|
 | 0 | Rojo port | §1 | done |
-| 1 | **The map** — world geometry as code | §2 | in progress |
-| 2 | **Map-anchored features** — verify Trader/Decon, build the Exhibition/Row | §3 | not started |
-| 3 | **Economy & state backbone extensions** the Exhibition needs | §4 | not started |
-| 4 | **Mechanical loop content expansion** — Zones 2–6 items so the new map has a loop on it | §5 | not started |
+| 1 | **The map** — world geometry as code | §2 | **done** |
+| 2 | **Map-anchored features** — shops built and working; Exhibition world + contract done, income pending | §3 | **mostly done** |
+| 3 | **Economy & state backbone** — spend path landed; exhibit accrual pending | §4 | in progress |
+| 4 | **Mechanical loop content** — Zones 2–4 stocked (41 items) | §5 | **done for MVP** |
 | — | Version control workflow for world content (cross-cutting, not sequenced) | §6 | in progress |
 | — | Hardening — bugs found during review (cross-cutting, blocks specific phases — see §7) | §7 | not started |
 | — | Documentation (cross-cutting) | §8 | in progress |
@@ -103,191 +103,74 @@ since the point of this phase was parity with the working game, not improving it
 
 ---
 
-## 2. The map — world geometry as code — Phase 1
+## 2. The map — world geometry as code — Phase 1 ✅
 
-The place file (`.rbxlx`) is gitignored, so historically the *world* — zones, base camp,
-tool models — lived nowhere but Studio and nowhere in version control. Two generators that
-originally built parts of it (base camp, tool tiers) were run once from the command bar and
-never saved, which is the exact failure mode this section exists to stop happening again.
-
-This phase comes first because everything downstream reads real `Instance`s out of the
-world — `StationKind`, `ZoneId`, `Shower`, `Radius` attributes that `DeconService`,
-`ExposureService`, and `ZoneService` all key off of. There is no feature to build *on* the
-map until the map exists.
+**Done, verified in Studio.** The whole world is now generated from committed code and
+checked by an automated contract pass. `require(...build.World).rebuild()` regenerates
+everything and then runs `World.verify()` over the result.
 
 - [x] Reverse-engineer and rebuild `BaseCamp` as a `.luau` generator
-- [x] Statically verify the world contract: `StationKind`/`Shower`/`Radius` attribute names,
-      types, and the `"BaseCamp"` model name were checked line-by-line against every
-      `GetAttribute` call in `DeconService.luau`/`ExposureService.luau` — exact match
-      (Counter → `StationKind="trader"`, Basin → `StationKind="decon"`, Grate →
-      `Shower=true`, all `Radius=`12/12/7`).
-- [x] Run `BaseCamp.rebuild()` in Studio and confirm it reproduces the camp visually —
-      done 2026-08-19. Before rebuilding, `BaseCamp.build()` was run into a scratch
-      folder alongside the live hand-placed camp and diff-checked: total descendant
-      count (121 vs 121), and every station's exact `Position` (Floor, SpawnLocation,
-      Trader.Counter, DeconStation.Basin, DeconShower.Grate) matched the live camp to
-      the stud. Screenshot confirmed it reads as the camp (gate, awning, shower gantry).
-- [x] Confirm the attributes land correctly **at runtime** — after the swap, read back
-      `StationKind`/`Radius`/`Shower` directly off the new live instances; all six values
-      correct (`trader`/12, `decon`/12, `true`/7).
-- [x] Delete/replace the hand-placed `BaseCamp` in the live place — done. The old
-      hand-placed `Folder` was destroyed and replaced with the generator's `Model`
-      (stamped `GeneratedBy`/`BuilderVersion`) via `BaseCamp.rebuild()`. No visual or
-      functional regressions found; nothing needed fixing in `BaseCamp.luau` itself.
-- [~] Reconstruct the `ToolTiers` generator (recolors/rescales `_Base` models into `T1..Tn`)
-      — **re-scoped, not just unstarted.** All 21 live variants (`Detector.T1-T8`,
-      `Magnet.T1-T6`, `Cleaner.T1-T7`) already exist in Studio and are not broken — this
-      isn't blocking anything today. But it's a bigger reverse-engineering job than it
-      looked: checked whether live part sizes are `_Base size × ToolTiers.luau's scale`
-      and they are not (e.g. Detector T5's `Grip` scales at ×1.22, but `ToolTiers.Detector[5].scale`
-      is 1.12 — off by a full tier, and `Model:GetScale()` doesn't line up with tier
-      scale either, since these models were already scaled down once for hand-carry
-      before any tier scaling was applied on top). The real transform needs the same
-      per-part dump-and-diff treatment BaseCamp got, across 21 variants instead of one
-      model. Scoping this as its own task rather than guessing — see note below.
-- [ ] Write a `Zones` generator (six boxes, positions, sizes, `ZoneId` — driven by `Config/Zones.luau`)
-      — **blocked on missing data, not missing code.** `Config/Zones.luau` has zero
-      spatial fields (no position, no size — only `baseRads`, `soilHardness`,
-      `stationDistance`, `fogColor`, `loot`). The only zone that exists live,
-      `Workspace.Zones.Zone1`, is a single flat `Part` (300×2×265 @ `(0, 0, -17.5)`,
-      Sand) with no scenery. There's no prior layout to reverse-engineer here, unlike
-      BaseCamp — this one needs a layout decided, not discovered. Holding for your
-      direction on how the six zones should be arranged before writing anything.
-- [x] Decide fate of `ReplicatedStorage.Assets.Tools` base meshes — confirmed by
-      inspection: `_Base.Magnet` variants are `UnionOperation`s, `_Base.Cleaner.Handle`
-      carries a `SpecialMesh`, `_Base.Detector` wraps an imported "Metal Detector Ctx 3030"
-      model. All genuinely non-proceduralizable geometry — stays binary, referenced by
-      the existing Studio instances, not rewritten as code. No action needed.
-- [ ] Place Zones 2–3 geometry (full content, per MVP slice PLAN §15) and Zone 4 (empty
-      but diggable and lethal — PLAN §15 explicitly wants Zone 4 buildable with *only* a
-      loot table and rad rate, no hand-built content, as the cheapest possible test of
-      whether players Dive) — blocked on the same layout direction as the Zones generator above
+- [x] Extract the builder primitives into `build/Kit.luau` — **gated on a byte-diff**:
+      the migrated camp reproduces the pre-refactor camp exactly (121 descendants,
+      101 BaseParts, checksum `1150820216`, length `10882`), proven against a freshly
+      cloned module so a stale `require` cache could not fake the result
+- [x] `build/ZoneFields.luau` — four dig plates, name and `ZoneId` written from the same
+      loop index so `DigService` (by name) and `ZoneService` (by attribute) cannot disagree
+- [x] `build/Hub.luau` — 260×260 plaza, three roads, the north fence with one gap, spawn anchor
+- [x] `build/Shops.luau`, `build/Plots.luau`, `build/Scenery.luau`, `build/Daylight.luau`
+- [x] `build/World.luau` — composer + `verify()`, currently **0 failures**
+- [x] Zone sizes derived from coverage math rather than guessed, and confirmed
+      empirically in-engine: predicted `c` 0.256 / 0.259 / 0.266 against measured ping
+      chance 0.223 / 0.197 / 0.215, and **burial-plane error of exactly 0** on all four
+- [x] Decide fate of `ReplicatedStorage.Assets.Tools` base meshes — genuinely
+      hand-authored (unions, a `SpecialMesh`, an imported model), so they stay binary
+- [x] Fix the blackout respawn, which sent players *into Zone 1* — see §7
 
-**2026-08-19 validation note.** Ran the actual validation pass with a connected Studio
-session. Base camp: **fully done**, generator-owned, verified live, nothing to fix. Tool
-tiers: **not broken, but reconstructing the generator is a separate, real task** — flagged
-rather than guessed at, since a wrong reconstruction risks overwriting 21 correct live
-models with incorrect ones and there's no git history for the place file to recover from.
-Zones: genuinely blocked on a design decision (spatial layout), not an implementation gap —
-this is the map-building direction still to come.
-
-**Summary.** `src/server/build/BaseCamp.luau` is a from-scratch generator, not a transcription
-— it was built by dumping every part's transform, size, color, material, and attributes out
-of the live `BaseCamp` model (101 parts, confirmed zero unions/meshes, so 100% reconstructable
-in code), then rewriting that dump as loops: 7 awning slats on a 1.25 pitch, 5 shower jets on
-a 2.1 pitch, 4 corner posts, mirrored gate lamps, etc., instead of 101 hardcoded positions.
-Only 6 distinct part rotations exist across the whole model, all clean whole-degree Euler
-angles, which is what made the loop form possible.
-
-It exposes `BaseCamp.build(origin?, parent?)` and `BaseCamp.rebuild(origin?)` — the latter
-destroys and replaces whatever's currently at `Workspace.BaseCamp`. It is a **build tool**,
-not a service: nothing requires it at boot, and it's meant to be run deliberately from the
-command bar after an edit. Each generated model is stamped with `GeneratedBy` /
-`BuilderVersion` attributes so a stray hand-edit is identifiable later.
-
-This is the pattern going forward for anything without real mesh/union geometry: describe it
-in a `.luau` file, commit that, run it once to materialize. The tradeoff, stated plainly for
-whoever edits this next — once a structure is generator-owned, **dragging it in Studio is a
-lie**: the next `rebuild()` reverts silent hand-edits. Change the number in the file instead.
-
-Not yet done: actually running the new generator against the live place and eyeballing the
-result. Until that happens this is "written and internally consistent," not "verified."
-Also not yet done, and newly scoped into this section rather than left implicit: the actual
-Zone 2–4 geometry. The mechanical loop (§5) has nowhere to run without it.
-
----
+**Deferred deliberately:** the `ToolTiers` generator. All 21 tool variants exist and
+work; reproducing them needs a per-part dump like BaseCamp got, because the live scale
+does not match `ToolTiers.luau`'s `scale` field (Detector T5 is ×1.22 live against a
+configured 1.12). Guessing would risk overwriting 21 correct models with wrong ones and
+the place file has no git history to recover from.
 
 ## 3. Map-anchored features — Phase 2
 
-The things that live physically on the map, in the order the player would actually meet
-them. The Trader and Decon Station already exist as geometry + service logic; what's new
-here is verifying that pair end-to-end and then building the one big physical feature the
-game doesn't have yet.
+- [x] **Three upgrade shops built and working** — Detector, Magnet, Cleaner, colour-coded
+      on the plaza. `StationKind="shop"` + `StationId=<Gear.TRACKS name>`.
+- [x] **Outfitter bench** — Suit, Boots and Satchel. Not in the original ask, but three
+      shops left those three tracks *priced and unbuyable*, and the Suit gates every
+      zone, so Zone 2 would have become the locked door PLAN §3.5 promises never to
+      build. `Shops.luau` now asserts at build time that every `Gear.TRACKS` entry is
+      sold somewhere.
+- [x] **Six Exhibition plots** with claim boards, per-plot spawns and pedestal slots
+      (3 unlocked, 12 built, 40 addressable). World + data contract only.
+- [ ] Verify the Trader and Decon stations end-to-end in Play (blocked — see §9)
+- [ ] Exhibition **income accrual**: yield loop, offline banking, 60s uncrate, duplicate
+      damping. Every constant it needs already exists in `Tuning.EXHIBIT_*`; only the
+      service is missing. This is the next plan.
+- [ ] Set `MaxPlayers = 6` in Studio Game Settings so plots and players are 1:1
+      (a place setting — Rojo cannot capture it)
 
-- [ ] **Verify the Trader stall end-to-end.** `BaseCamp.luau` places a part with
-      `StationKind = "trader"`; `EconomyService.sell` and the dirty-sell tax are written.
-      Confirm the client can actually walk up, prompt, and sell once §2's `rebuild()` step
-      is verified — this is wiring verification, not new code.
-- [ ] **Verify the Decon Station end-to-end** the same way (`StationKind = "decon"`,
-      `DeconService`'s station matching, `StationController` on the client).
-- [ ] **Build the Exhibition / Row (PLAN §8).** Not started at all — no pedestal instances,
-      no display state, no yield accrual anywhere in the codebase today. Scope for the MVP
-      slice (PLAN §15): 6 pedestal slots, one vitrine tier, tourists + collectors only, no
-      sets, no Row cosmetics, **but with offline banking** (the number PLAN §15 says is
-      worth the most real data).
-  - [ ] Pedestal instances at base camp (map geometry — belongs in `BaseCamp.luau` or a
-        sibling generator, not hand-placed, per the §2 rule)
-  - [ ] Server-side display/undisplay flow: lock item from selling while displayed, 60s
-        "crating" delay to pull one off (PLAN §8.7)
-  - [ ] Yield accrual loop (base rate by rarity, PLAN §8.2 table) + offline banking (25% of
-        online rate, capped 4h)
-  - [ ] Guard: Slag cannot be displayed (PLAN §3.6, §8.7)
-  - [ ] Minimal visitor stub: tourists only for MVP (constant small admission); collectors
-        can wait for buyout offers to matter
-- [ ] Create a plan for the Exhibition build (per this project's CLAUDE.md: any feature
-      this size gets a plan reviewed with the user before implementation starts) — this
-      TODO entry is the placeholder for that; write the actual plan when Phase 2 starts.
+## 4. Economy & state backbone — Phase 3
 
-**Why this phase, not later.** The old version of this doc filed the Exhibition under
-"not started / not yet scoped," grouped with rebirth and the rail network — systems that
-genuinely are late-game. But the Exhibition isn't gated on anything except the map (§2) and
-the economy backbone (§4, which mostly already exists). It's the second thing a new player
-does in the scripted first-session flow (PLAN §12, the "put it up — people pay to look"
-beat at 2:30), and per the build-order rule in §0, a map-anchored feature belongs right
-after the map, not at the end of the list.
+- [x] **`EconomyService.spend`/`award`** — the missing debit. `data.cash += value` in
+      `sell` was the only line in the codebase that touched money; check-and-debit are
+      one function so two purchases cannot both clear against the same balance.
+- [x] `Gear.PROFILE_KEY` — one capitalised-track → lowercase-profile mapping for all six
+      tracks, replacing a 3-entry local in `ToolService`
+- [ ] Per-pedestal display state in the profile (extends the existing `exhibit` field)
+- [ ] Yield accrual + offline banking (see §3)
+- [ ] `StatResolver` hook for exhibition-yield multipliers
 
----
+## 5. Mechanical loop content — Phase 4
 
-## 4. Economy & state backbone extensions — Phase 3
-
-`EconomyService` and `DataService` already handle cash, profile persistence, the sell
-pipeline, and the Quarantine Locker — that groundwork does not need to be rebuilt. What's
-missing is the slice of state the Exhibition (§3) specifically needs, which didn't exist
-because nothing has needed it yet.
-
-- [ ] Per-pedestal display state in the player profile (which item, since when, current
-      vitrine tier) — extends the existing `ProfileStore` schema, doesn't replace it
-- [ ] Yield accrual: either a `Ticker`-driven per-second job (matches the existing pattern
-      in `ExposureService`) or a lazy compute-on-read from a stored timestamp — decide based
-      on how offline banking (§3) is implemented, since offline players can't run a live tick
-- [ ] `StatResolver` hook for exhibition-yield multipliers (rebirth/gamepass hooks already
-      exist there for `sellMultiplier` — same pattern, new stat)
-- [ ] Decide where "duplicate damping" (PLAN §8.2 — 2nd copy 40%, 3rd 15%, 4th+ 5%) is
-      computed: per-pedestal at accrual time, keyed off how many other displayed items
-      share the same item id
-
-**Why this phase, not folded into §3.** These are backbone changes (schema, accrual timing,
-`StatResolver` wiring) that the Exhibition's server logic will call into, same relationship
-`EconomyService`/`DataService` already have with `DigService`/`DeconService`. Splitting them
-out keeps "what does the pedestal instance do when you interact with it" (§3) separate from
-"what does the profile actually store" (this section) — useful because the schema decision
-should get nailed down once, not iterated per pedestal feature.
-
----
-
-## 5. Mechanical loop content expansion — Phase 4
-
-`DigService`, `ToolService`, `DeconService`, and `ExposureService` already implement sweep →
-pull → haul → decontaminate → sell/display for Zone 1. This phase is *content*, not new
-systems: give Zones 2–4 (the ones §2 places geometry for) something to actually run the
-existing loop against.
-
-- [ ] Zone 2–4 item catalogues in `Config/Items.luau` (currently only Zone 1 is stocked —
-      this is also what §7's zone-2 landmine bug is waiting on; do not place Zone 2 without
-      it, see §7)
-- [ ] Zone 2–4 rad rates / rated-suit tuning per PLAN §4's table
-- [ ] Detector/magnet/cleaning-tool tiers needed to farm Zones 2–4 (PLAN §6 lines; MVP slice
-      per PLAN §15: detector 1–4, magnet 1–3, cleaning tool 1–4, suit 1–3, boots 1–3,
-      satchel 1–2)
-- [ ] Radiation burn / suit tolerance / survivability countdown (PLAN §3.5) — the mechanic
-      that makes an unrated Zone 4 walkable-but-lethal instead of walled off
-- [ ] Hot pockets for Zone 1–4 (`ZoneService.hotPocketFor` is currently a stub returning 1
-      always — see §7)
-
-**Deliberately excludes** Zones 5–6, which the MVP slice (PLAN §15) doesn't call for and
-which don't need to exist for the Phase-1-through-4 loop to be testable end to end.
-
----
+- [x] **Zones 2–4 stocked** — 41 items total (was 13), themed per PLAN §4. Verified:
+      unique ids, every `baseValue` inside its Rarity band, every nonzero loot weight
+      in every zone resolves to a real item.
+- [x] Zone 2–4 rad rates and spatial layout (`Config/Zones.luau`)
+- [ ] Radiation burn / suit tolerance / survivability countdown (PLAN §3.5) — the
+      HUD countdown is the piece that makes Zone 4 a *choice*; see §9
+- [ ] Hot pockets — deliberately NOT built. The design call was "the ooze is the dig
+      surface", so `ZoneService.hotPocketFor` stays a stub returning 1.
 
 ## 6. Version control workflow for world content
 
@@ -324,13 +207,17 @@ in Studio before touching any of it. Nothing below has been changed. Re-verify a
 since line numbers may drift with any edit. Two of these are flagged **blocking** because a
 later phase runs straight into them.
 
-- [ ] **Zone-2+ landmine — blocks Phase 4.** `DigService.rollItemId` hard-`error()`s for any
+- [x] **Zone-2+ landmine — FIXED.** `DigService.rollItemId` hard-`error()`s for any
       zone whose item catalogue is empty (`Items.luau` currently only stocks Zone 1). The
       call is unprotected in `topUpField()`/`start()`, and `Ticker` has no per-subscriber
       `pcall`, so the throw can starve every service registered after `DigService` in
       `ORDER`. Fix this *as part of* stocking Zone 2's catalogue in §5, not before — the fix
-      and the content are the same piece of work.
-- [ ] **Ungated debug console — should land before any real playtesting.** `/gear`, `/dig`,
+      and the content are the same piece of work. Done both ways: `rollItemId` now
+      warns once and returns nil instead of throwing, `Ticker` isolates each subscriber
+      in a pcall so one thrower can no longer starve every service after it, and
+      `Items.luau` stocks Zones 2-4. Boot log confirms `180 buried signal(s)` (4 x 45)
+      with all 10 services up and zero failures.
+- [x] **Ungated debug console — FIXED.** `/gear`, `/dig`,
       `/flush` etc. register for every player on every server with no `RunService:IsStudio()`
       or allowlist check, and write straight to the persisted profile. Fine in solo testing,
       not fine the moment Phase 2/3 work needs a second person in the server to look at an
@@ -343,6 +230,14 @@ later phase runs straight into them.
       reported "greed" fraction over-reports (up to ~1.67× at max level) and clamps to 100%
       for high-level players. `Spec.luau`'s tests don't catch it because every test case uses
       `levelResist = 0`.
+- [x] **Blackout dropped players INTO Zone 1 — FIXED.** `ExposureService` looked up the
+      respawn with `FindFirstChildWhichIsA("SpawnLocation")`, which searches direct
+      children of Workspace only; `BaseCamp` nests its spawn, so every blackout fell
+      through to a hardcoded `(0, 8, 0)` that sat inside Zone 1's footprint. Silent for
+      the life of the project. Now resolves a named `RespawnAnchor` (on the shower
+      grate, so you wake up mid-flush), falls back recursively, and **warns** on the
+      last resort.
+- [x] **`Ticker:stop()` mutating mid-iteration — FIXED** alongside the pcall work.
 - [ ] **`bagContents` leak** — a dropped bag nobody fully recovers is destroyed by `Debris`
       after 90s, but the `Instance` key into `bagContents` is never cleared, so the destroyed
       part and its item payload stay referenced for the life of the server.
@@ -351,9 +246,12 @@ later phase runs straight into them.
 - [ ] **Orphaned haul part** — if a player's character disappears mid-pull (death, despawn),
       the in-progress haul part is left anchored in the world, visible to everyone, marking a
       buried item's exact spot until the player's character exists again.
-- [ ] Minor/latent (no current caller triggers them, but worth knowing): `Ticker.every`
-      ignores the rate of any call after the first subscriber; `Ticker:stop()` mutates
-      `subscribers` mid-iteration; `DataService.onPlayerAdded` has a narrow double-session
+- [x] **Sell button rendered `SELL  $$340`** — pre-existing double-`$`. In Luau backtick
+      strings `${x}` is a literal `$` plus an interpolation, so `$${x}` prints two. Fixed
+      on both the sell and the new buy button.
+- [ ] Minor/latent: `Ticker.every` still ignores the rate of any call after the first
+      subscriber (documented in place rather than changed, since everything runs at
+      `Tuning.TICK_RATE`); `DataService.onPlayerAdded` has a narrow double-session
       window; `DeconService` can leave a stale `holding` flag with a spurious toast.
 
 **Summary.** Three angles of review — port fidelity, Luau correctness (which independently
@@ -373,11 +271,16 @@ pass, per your original call.
       instance/attribute contract, persistence & the logout rule, tuning workflow
 - [x] `README.md` — getting started, layout, tuning commands
 - [x] `TODO.md` — this file
-- [ ] Fold the BaseCamp generator's existence + usage into `ARCHITECTURE.md` once verified
-- [ ] Document the `ToolTiers`/`Zones` generators the same way, once they exist
-- [ ] Document the Exhibition's world/attribute contract in `ARCHITECTURE.md` once §3 lands
-      (pedestal instance shape, display-state attributes) — same treatment the world
-      contract already gets for stations and zones
+- [x] `ARCHITECTURE.md` — station attribute table extended (`shop`/`plot`/`pedestal`,
+      `StationId`, the `Station` tag), the zone plate contract documented as a table of
+      rules-and-why, and the "remaining gap" note rewritten now that the world is code
+- [x] `PLAN.md` §14 rewritten — the old "desaturated ash-grey" direction contradicted
+      the built world. The rule is now *saturated everywhere, radiation is the only
+      thing that glows*, which keeps §14's real insight (one channel means danger) and
+      changes only which channel
+- [x] Fixed stale `PLAN_4.md` links across `ARCHITECTURE.md`, `README.md`, `TODO.md`
+- [ ] Document the Exhibition's income contract once the accrual service lands
+- [ ] Document a `ToolTiers` generator if/when it is reconstructed
 
 **Summary.** `ARCHITECTURE.md` documents contracts that were previously implicit —
 instance/attribute names services expect to find in the place file (`ZoneId`, `Shower`,
@@ -390,9 +293,28 @@ callouts, and a missing `/pocket` command in the console list).
 
 ---
 
-## 9. Meta / late game — Phase 5, not yet scoped
+## 9. Blocked / needs a human
 
-Pulled from `PLAN_4.md` for later triage — nothing here has been sized or planned yet.
+- [ ] **Studio's Play toggle is wedged.** `start_stop_play` reports "Start play hasn't
+      finished yet" and will not enter or leave Play. Needs a manual Play/Stop (or a
+      Studio restart) to clear. Everything below is waiting on that, not on code.
+- [ ] Live purchase test: buy at $200 (expect gear 1→2, cash exactly −120, held model
+      swaps within ~0.5s), then retry at $80 and assert it is refused **with no state
+      change** — the negative case matters more than the positive one, since a shop
+      that debits on failure is worse than no shop.
+- [ ] Live blackout test: `/zone 4`, wait for blackout, assert the player lands at the
+      `RespawnAnchor` and `zoneOf == nil`.
+- [ ] Trader / Decon end-to-end regression after the `StationService` migration.
+- [ ] Border warning card (PLAN §4) — Zone 4 is ~7 seconds to blackout in a Cloth Wrap
+      and sits 50 studs behind the camp wall. The fence, verge and sign are in; the
+      HUD countdown is not. `ZoneService.onChanged` and `Radiation.survivableSeconds`
+      both already exist and are unused, so this is ~60 lines.
+
+---
+
+## 10. Meta / late game — Phase 5, not yet scoped
+
+Pulled from `PLAN.md` for later triage — nothing here has been sized or planned yet.
 Listed so it's visible, not because it's next. Each depends on either the Exhibition (§3)
 existing or on there being more than one real zone (§5) to make the system meaningful —
 that's what makes this genuinely last rather than an arbitrary ordering choice.

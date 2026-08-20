@@ -354,7 +354,7 @@ local function render()
 			-- the tier's NAME means nothing to someone who has not memorised the list.
 			ui.shopDeltas.Text = table.concat(offer.deltas, "\n")
 			ui.buyButton.Visible = true
-			ui.buyButton.Text = `BUY  $${offer.price}`
+			ui.buyButton.Text = `BUY  ${offer.price}`
 			ui.buyButton.TextColor3 = if offer.affordable then COLOR.amber else COLOR.red
 		end
 
@@ -438,7 +438,7 @@ local function render()
 		ui.scrubButton.TextColor3 = COLOR.blue
 	end
 
-	ui.sellButton.Text = if chosen then `SELL  $${chosen.value}` else "SELL"
+	ui.sellButton.Text = if chosen then `SELL  ${chosen.value}` else "SELL"
 end
 
 local function toast(message: string)
