@@ -138,6 +138,68 @@ local function build(): ScreenGui
 	corner.CornerRadius = UDim.new(0, 10)
 	corner.Parent = panel
 
+	-- ── Shop mode ────────────────────────────────────────────────────
+	-- A shop IS a station, so it reuses this panel and the StationState /
+	-- StationAction / StationResult triad rather than inventing a parallel one.
+	-- The panel already "shows the same list at both stations but offers different
+	-- verbs"; the shop is a third verb set on the same surface.
+	local shop = Instance.new("Frame")
+	shop.Name = "Shop"
+	shop.LayoutOrder = 25
+	shop.Size = UDim2.fromScale(1, 0)
+	shop.AutomaticSize = Enum.AutomaticSize.Y
+	shop.BackgroundTransparency = 1
+	shop.Visible = false
+	shop.Parent = panel
+	ui.shop = shop
+
+	local shopLayout = Instance.new("UIListLayout")
+	shopLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	shopLayout.Padding = UDim.new(0, 6)
+	shopLayout.Parent = shop
+
+	ui.shopUpgrade = Instance.new("TextLabel")
+	ui.shopUpgrade.LayoutOrder = 1
+	ui.shopUpgrade.Size = UDim2.new(1, 0, 0, 24)
+	ui.shopUpgrade.BackgroundTransparency = 1
+	ui.shopUpgrade.Font = Enum.Font.GothamBold
+	ui.shopUpgrade.TextSize = 16
+	ui.shopUpgrade.TextXAlignment = Enum.TextXAlignment.Left
+	ui.shopUpgrade.TextColor3 = COLOR.amber
+	ui.shopUpgrade.Text = ""
+	ui.shopUpgrade.Parent = shop
+
+	ui.shopDeltas = Instance.new("TextLabel")
+	ui.shopDeltas.LayoutOrder = 2
+	ui.shopDeltas.Size = UDim2.fromScale(1, 0)
+	ui.shopDeltas.AutomaticSize = Enum.AutomaticSize.Y
+	ui.shopDeltas.BackgroundTransparency = 1
+	ui.shopDeltas.Font = Enum.Font.Code
+	ui.shopDeltas.TextSize = 13
+	ui.shopDeltas.TextXAlignment = Enum.TextXAlignment.Left
+	ui.shopDeltas.TextYAlignment = Enum.TextYAlignment.Top
+	ui.shopDeltas.TextColor3 = COLOR.green
+	ui.shopDeltas.Text = ""
+	ui.shopDeltas.Parent = shop
+
+	ui.buyButton = Instance.new("TextButton")
+	ui.buyButton.Name = "Buy"
+	ui.buyButton.LayoutOrder = 3
+	ui.buyButton.Size = UDim2.new(1, 0, 0, 38)
+	ui.buyButton.BackgroundColor3 = COLOR.panel
+	ui.buyButton.BackgroundTransparency = 0.25
+	ui.buyButton.BorderSizePixel = 0
+	ui.buyButton.AutoButtonColor = true
+	ui.buyButton.Font = Enum.Font.GothamBold
+	ui.buyButton.TextSize = 15
+	ui.buyButton.TextColor3 = COLOR.amber
+	ui.buyButton.Text = "BUY"
+	ui.buyButton.Parent = shop
+
+	local buyCorner = Instance.new("UICorner")
+	buyCorner.CornerRadius = UDim.new(0, 8)
+	buyCorner.Parent = ui.buyButton
+
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = COLOR.stroke
 	stroke.Thickness = 2
@@ -265,6 +327,50 @@ local function render()
 
 	ui.panel.Visible = true
 
+	-- Shop mode replaces the item list entirely: you are not carrying anything
+	-- relevant to this transaction, so showing your backpack is noise.
+	local atShop = state.station == "shop"
+	ui.shop.Visible = atShop
+	if atShop then
+		local offer = state.offer
+		ui.title.Text = `{string.upper(state.stationId or "SHOP")} SHOP`
+		ui.title.TextColor3 = COLOR.amber
+		ui.panelStroke.Color = COLOR.amber
+		ui.subtitle.Text = string.format("$%d", state.cash or 0)
+
+		if offer == nil then
+			ui.shopUpgrade.Text = "nothing for sale here"
+			ui.shopDeltas.Text = ""
+			ui.buyButton.Visible = false
+		elseif offer.maxed then
+			ui.shopUpgrade.Text = `{offer.currentName} \u{2014} best there is`
+			ui.shopUpgrade.TextColor3 = COLOR.green
+			ui.shopDeltas.Text = ""
+			ui.buyButton.Visible = false
+		else
+			ui.shopUpgrade.Text = `{offer.currentName}  \u{2192}  {offer.nextName}`
+			ui.shopUpgrade.TextColor3 = COLOR.amber
+			-- The deltas are the whole pitch. "radius 21 -> 27" sells the upgrade;
+			-- the tier's NAME means nothing to someone who has not memorised the list.
+			ui.shopDeltas.Text = table.concat(offer.deltas, "\n")
+			ui.buyButton.Visible = true
+			ui.buyButton.Text = `BUY  $${offer.price}`
+			ui.buyButton.TextColor3 = if offer.affordable then COLOR.amber else COLOR.red
+		end
+
+		for _, row in ui.rows do
+			row.Visible = false
+		end
+		for _, row in ui.lockerRows do
+			row.Visible = false
+		end
+		ui.lockerTitle.Visible = false
+		ui.scrubButton.Visible = false
+		ui.rackButton.Visible = false
+		ui.sellButton.Visible = false
+		return
+	end
+
 	local atDecon = state.station == "decon"
 	ui.title.Text = if atDecon then "DECON STATION" else "TRADER"
 	ui.title.TextColor3 = if atDecon then COLOR.blue else COLOR.amber
@@ -383,6 +489,14 @@ function Station.start()
 	ui.sellButton.MouseButton1Click:Connect(function()
 		if selected then
 			actionRemote:FireServer({ action = "sell", uid = selected })
+		end
+	end)
+
+	ui.buyButton.MouseButton1Click:Connect(function()
+		-- Track only. The server re-derives which shop this is from where the
+		-- player is standing, so a crafted payload buys nothing.
+		if state.stationId then
+			actionRemote:FireServer({ action = "buy", track = state.stationId })
 		end
 	end)
 

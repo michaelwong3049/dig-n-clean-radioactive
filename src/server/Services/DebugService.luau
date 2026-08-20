@@ -19,6 +19,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local TextChatService = game:GetService("TextChatService")
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -246,6 +247,22 @@ COMMANDS["/gear"] = {
 	end,
 }
 
+COMMANDS["/cash"] = {
+	help = "/cash <amount> — set your wallet (testing the shop needs a way to be rich)",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		local amount = tonumber(args[1])
+		if amount == nil then
+			return "usage: /cash <amount>"
+		end
+		data.cash = math.max(0, math.floor(amount))
+		return `cash -> ${data.cash}`
+	end,
+}
+
 COMMANDS["/pocket"] = {
 	help = "/pocket — hot pockets belong to ZoneService and arrive in Phase 4",
 	run = function(_player, _sandbox, _args)
@@ -295,6 +312,29 @@ local function dispatch(player: Player, line: string): string
 	return if ok then result else `ERROR {result}`
 end
 
+--- Who may use the tuning console.
+---
+--- This used to be EVERYONE, on EVERY server, with no check at all -- and the
+--- commands write straight to the persisted profile, so any player could hand
+--- themselves max gear and unlimited cash on a live server. It was survivable only
+--- while the game had never shipped and nobody else had ever joined.
+---
+--- Adding /cash is what made this urgent rather than theoretical, so it is fixed
+--- here rather than filed. Studio is always allowed (that is the whole point of the
+--- console); in a real server it is the place owner and nobody else.
+local function mayUseConsole(player: Player): boolean
+	if RunService:IsStudio() then
+		return true
+	end
+
+	-- Group-owned places have no single owner id; fall back to closed.
+	if game.CreatorType == Enum.CreatorType.User and player.UserId == game.CreatorId then
+		return true
+	end
+
+	return false
+end
+
 -- The scriptable hook. Roblox's command bar runs in its own Luau VM with its own
 -- module cache, so `require(DebugService)` from there gets a fresh copy with an
 -- empty sandbox table and cannot touch the live service. Instances ARE shared,
@@ -306,6 +346,9 @@ end
 -- chat lines.
 local function attachScriptableHook(player: Player)
 	player:GetAttributeChangedSignal("DebugCmd"):Connect(function()
+		if not mayUseConsole(player) then
+			return
+		end
 		local line = player:GetAttribute("DebugCmd")
 		if type(line) ~= "string" or line == "" then
 			return
@@ -326,6 +369,9 @@ local function registerCommands()
 		command.Triggered:Connect(function(source: TextSource, text: string)
 			local player = Players:GetPlayerByUserId(source.UserId)
 			if player == nil then
+				return
+			end
+			if not mayUseConsole(player) then
 				return
 			end
 			print(`[debug] {player.Name} {text}: {dispatch(player, text)}`)

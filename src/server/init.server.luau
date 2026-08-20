@@ -23,7 +23,9 @@ local ORDER = {
 	"ExposureService", -- Phase 2: the rad meter, burn and blackout
 	"DigService", -- Phase 1: the signal field, sweep and haul
 	"EconomyService", -- prices and the till; DeconService calls into it
-	"DeconService", -- base camp: docking, scrubbing, racking
+	"StationService", -- what you are standing at; DeconService and ShopService read it
+	"ShopService", -- turning cash back into capability; needs Station + Economy
+	"DeconService", -- base camp: docking, scrubbing, racking, and the shop panel
 	"ToolService", -- held models; reads DigService + DeconService state
 	"DebugService", -- the tuning console; reads the services above
 }
