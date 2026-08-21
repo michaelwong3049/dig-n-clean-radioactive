@@ -34,34 +34,53 @@
 	*instance* — the two modules build independently and Hub has no idea Plots
 	exists, which keeps `World.rebuild()`'s ordering irrelevant here.
 
-	Plot INTERNALS are untouched — same claim board, same spawn, same pedestal
-	grid, still facing south. Nothing about station detection cares which way a
-	plot faces (it's all radius-based), so re-stacking them cost zero gameplay
-	risk; only the connective tissue is new.
+	Plot INTERNALS still face south (claim board and spawn near the front) —
+	nothing about station detection cares which way a plot faces, it's all
+	radius-based, so re-stacking the six plots into this column cost zero
+	gameplay risk. The internal arrangement itself (stands + cleansing station)
+	changed since; see "THE BASE LAYOUT" below.
 
-	SLOTS: 3 UNLOCKED, 12 BUILT, 40 ADDRESSABLE.
-	Tuning.EXHIBIT_STARTING_SLOTS is 3 and EXHIBIT_MAX_SLOTS is 40. Building all 40
-	plinths on all 6 plots would put 480 parts and 240 station entries into the world
-	before anyone has displayed anything, so only VISIBLE_SLOTS are materialised: the
-	3 you own plus the next 9, capped and dim. Locked plinths are the visible form of
-	Gear.pedestalPrice() (PLAN §8.5's endgame money sink) and a wish list you can walk
-	around inside beats a number in a menu — but you only need to SEE the next few to
-	feel that, not all thirty-seven.
+	THE BASE LAYOUT — cleansing station at the top, stands flanking left and
+	right, per the requested sketch:
 
-	The grid geometry addresses all 40 regardless (slotOffset is defined for every
-	slot), so raising VISIBLE_SLOTS is the only change needed to show more.
+	    ┌─────────────────────────────────────┐
+	    │              CLEANSING               │
+	    │  [stand]                   [stand]   │
+	    │  [stand]                   [stand]   │
+	    │  [stand]         .                   │
+	    │  [stand]                   [stand]   │
+	    │                                       │
+	    └─────────────────────────────────────┘
+
+	Eight stands, four per side, in two flanking columns — `slotOffset` pairs
+	them off row by row (slot 1 = left row 1, slot 2 = right row 1, slot 3 = left
+	row 2, ...) rather than filling a centred grid, and the cleansing station
+	moved from the pad's back-third to right up near the back wall so it reads
+	as the "top" of the base the sketch asks for.
+
+	SLOTS: 3 UNLOCKED, 8 BUILT, 40 ADDRESSABLE.
+	Tuning.EXHIBIT_STARTING_SLOTS is 3 and EXHIBIT_MAX_SLOTS is 40; VISIBLE_SLOTS
+	is the 8 the sketch actually shows. Locked stands are the visible form of
+	Gear.pedestalPrice() (PLAN §8.5's endgame money sink) — a wish list you can
+	walk around beats a number in a menu, but you only need to SEE the next few
+	to feel that, not all thirty-seven.
+
+	slotOffset is defined for every slot up to EXHIBIT_MAX_SLOTS (rows 5+ extend
+	the same two columns further out), so raising VISIBLE_SLOTS past 8 is still
+	the only change needed to show more — it just won't match the sketch's exact
+	8-stand picture once you do.
 
 	THE WORLD CONTRACT:
 	    Pad         PlotIndex = n
 	    ClaimBoard  StationKind = "plot",     StationId = "<n>",        Radius = 10
-	    Plinth      StationKind = "pedestal", StationId = "<n>:<slot>", Radius = 7
+	    Stand       StationKind = "pedestal", StationId = "<n>:<slot>", Radius = 7
 	                PlotIndex = n, SlotIndex = s, Locked = true|false
 	    PlotSpawn   SpawnLocation, Enabled = false until the plot is claimed
 	    Basin       StationKind = "decon", Shower = true, Radius = 9 — the cleansing
 	                station (see buildCleansingStation below). One per base, replacing
 	                the single shared station + shower that used to live at camp.
 
-	The plinth's StationId is "plot:slot" so the server can resolve exactly which
+	The stand's StationId is "plot:slot" so the server can resolve exactly which
 	pedestal a player is standing at without a spatial search of its own.
 ]]
 
@@ -76,13 +95,13 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 3
+local BUILDER_VERSION = 4
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
 Plots.COUNT = 6
-Plots.VISIBLE_SLOTS = 12
+Plots.VISIBLE_SLOTS = 8
 Plots.PAD = { width = 66, depth = 52, topY = 1.5, thickness = 3 }
 
 --- One column, one X. Stacked along Z so the whole block reads as a single line
@@ -107,18 +126,21 @@ Plots.CENTERS = {
 --- -80 → -140 here).
 Plots.SPINE_X = -140
 
---- 5 columns x 8 rows addresses 40 positions, matching Tuning.EXHIBIT_MAX_SLOTS.
---- Only the first Plots.VISIBLE_SLOTS of them are actually built — see the header.
-local GRID_COLS = 5
-local GRID_PITCH_X = 11
-local GRID_PITCH_Z = 5.6
+--- Two flanking columns, paired off row by row — odd slots go left, even slots
+--- go right, and each pair shares a Z so the sketch's row-by-row symmetry holds.
+--- ROW_TOP_Z is the FIRST row, closest to the cleansing station at the back;
+--- rows count DOWN from there toward the entrance. Defined for every slot up to
+--- EXHIBIT_MAX_SLOTS (not just the 8 that are actually built — see the header),
+--- so raising VISIBLE_SLOTS just adds more rows further toward the front.
+local COL_X = 25
+local ROW_TOP_Z = 15
+local ROW_PITCH = 10
 
 local function slotOffset(slot: number): (number, number)
-	local index = slot - 1
-	local col = index % GRID_COLS
-	local row = math.floor(index / GRID_COLS)
-	local x = (col - (GRID_COLS - 1) / 2) * GRID_PITCH_X
-	local z = -14 + row * GRID_PITCH_Z
+	local row = math.floor((slot - 1) / 2)
+	local isLeft = slot % 2 == 1
+	local x = if isLeft then -COL_X else COL_X
+	local z = ROW_TOP_Z - row * ROW_PITCH
 	return x, z
 end
 
@@ -139,15 +161,16 @@ end
 --- steps away — no trip back to base camp required, and every player's loop is
 --- entirely local to their own plot.
 ---
---- Placed in the pad's open back third: clear of the claim board and spawn
---- (both near the front, local z roughly -23 to -15) and clear of the pedestal
---- grid (local z roughly -15 to -1.5), with room to spare before the back wall
---- (local z = 25).
+--- AT THE TOP, per the sketch: pushed up near the back wall (local z = 25)
+--- rather than the pad's middle third, so it's the first thing that reads when
+--- you look at the base from the front. Clear of both stand columns (COL_X, at
+--- x = ±25) by construction — the station is centred on x = 0 and never
+--- overlaps them regardless of how close their rows get to the back wall.
 local function buildCleansingStation(parent: Instance, origin: CFrame, accent: string)
 	local m = Instance.new("Model")
 	m.Name = "CleansingStation"
 	local pad = Plots.PAD
-	local cz = 11
+	local cz = 20
 
 	-- THE DOCK + THE FLUSH, one part. StationKind="decon" is what DeconService
 	-- matches on; Shower=true is what ExposureService scans for.
@@ -293,8 +316,8 @@ local function buildPlot(parent: Instance, index: number)
 		local ox, oz = slotOffset(slot)
 		local locked = slot > Tuning.EXHIBIT_STARTING_SLOTS
 
-		local plinth = build(m, origin, {
-			name = `Plinth{slot}`,
+		local stand = build(m, origin, {
+			name = `Stand{slot}`,
 			pos = { ox, pad.topY + 2, oz },
 			size = { 2.6, 4, 2.6 },
 			color = if locked then C.plazaEdge else C.plazaWarm,
@@ -325,7 +348,7 @@ local function buildPlot(parent: Instance, index: number)
 		})
 
 		if not locked then
-			light(plinth, accent, 8, 0.6)
+			light(stand, accent, 8, 0.6)
 		end
 	end
 
@@ -434,7 +457,7 @@ end
 
 function Plots.rebuild(parent: Instance?): Model
 	local row = Kit.swap("Plots", createPlots, parent) :: Model
-	print(`[build] Plots rebuilt — {Plots.COUNT} plots, {Plots.VISIBLE_SLOTS} plinths each ({Tuning.EXHIBIT_STARTING_SLOTS} unlocked, {Tuning.EXHIBIT_MAX_SLOTS} addressable)`)
+	print(`[build] Plots rebuilt — {Plots.COUNT} plots, {Plots.VISIBLE_SLOTS} stands each ({Tuning.EXHIBIT_STARTING_SLOTS} unlocked, {Tuning.EXHIBIT_MAX_SLOTS} addressable)`)
 	return row
 end
 

@@ -156,13 +156,23 @@ the place file has no git history to recover from.
       build. `Shops.luau` now asserts at build time that every `Gear.TRACKS` entry is
       sold somewhere.
 - [x] **Six Exhibition plots** with claim boards, per-plot spawns and pedestal slots
-      (3 unlocked, 12 built, 40 addressable). World + data contract only.
+      (3 unlocked, 40 addressable). World + data contract only.
+- [x] **Base layout revamped to match the requested sketch** — cleansing station at
+      the top of the base (pushed to local z=20, right under the name sign) with
+      8 stands flanking it in two columns of 4 (`Plots.COL_X = ±25`, paired off
+      row by row via `slotOffset`), replacing the old centred 5-wide grid.
+      `Plots.VISIBLE_SLOTS` dropped from 12 to 8 to match. Stand instances renamed
+      `Plinth{n}` → `Stand{n}` (cosmetic only — `StationKind` stays `"pedestal"`
+      everywhere, nothing reads the instance name). Verified: `World.verify()`
+      passes with 0 failures; world-space positions checked directly
+      (`CleansingStation.Basin` local z=20, row-1 stands z=15, row-4 stands
+      z=-15) rather than trusted from a screenshot alone.
 - [x] **Decon moved off camp, onto every base.** The shared Decon Station and Decon
       Shower are gone from `BaseCamp.luau`; each plot now builds its own
       `CleansingStation` — one part carrying both `StationKind="decon"` and
-      `Shower=true`, sharing a `Radius`, in the open back third of the pad. Clean +
-      flush + rack, all local to your own plot. `World.verify()`'s decon census
-      updated from "exactly 1" to "== `Plots.COUNT`"; verified 6 decon stations /
+      `Shower=true`, sharing a `Radius`. Clean + flush + rack, all local to your
+      own plot. `World.verify()`'s decon census updated from "exactly 1" to
+      "== `Plots.COUNT`"; verified 6 decon stations /
       6 showers in the world, 0 at camp, 0 verify failures.
 - [x] **Camp walls and the Trader removed.** The camp used to be a walled box
       (5 wall parts) sitting inside the open plaza with the trader stall boxed off
