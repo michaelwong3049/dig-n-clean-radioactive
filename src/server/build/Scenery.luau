@@ -6,7 +6,7 @@
 	    require(game.ServerScriptService.Server.build.Scenery).rebuild()
 
 	WHY THIS IS A SEPARATE MODULE FROM ZoneFields.
-	Workspace.Zones must contain the four plates and NOTHING else. ZoneService walks
+	Workspace.Zones must contain the one radioactive plate and NOTHING else. ZoneService walks
 	that folder's children ten times a second per player, and — much worse — a prop
 	that accidentally carried a ZoneId attribute would register as a zone. Overlapping
 	zones resolve as "smallest XZ area wins", so one stray barrel would silently
@@ -44,7 +44,7 @@ local BUILDER_SOURCE = "src/server/build/Scenery.luau"
 local BUILDER_VERSION = 1
 
 local C, R = Kit.C, Kit.R
-local build, light = Kit.build, Kit.light
+local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
 --- Just above the plate's top face — close enough to read as lying on the ground,
 --- high enough not to z-fight with it.
@@ -240,6 +240,71 @@ local function buildZoneScenery(parent: Instance, id: number)
 	folder.Parent = parent
 end
 
+--- Three readable progression gates inside the one radioactive field. They are
+--- deliberately open in the centre for now: the visual contract and unlock tier
+--- are present, while the future progression service can own opening the gate
+--- without turning Workspace.Zones into three separate radiation zones.
+local function buildStageGates(parent: Instance, zoneId: number)
+	local def = Zones.get(zoneId)
+	local folder = Instance.new("Folder")
+	folder.Name = "RadiationStageGates"
+	local origin = CFrame.new(def.center[1], Zones.SURFACE_Y, def.center[2])
+	local halfDepth = def.size[2] / 2
+	local opening = 18
+
+	for _, stage in Zones.STAGES do
+		local gate = Instance.new("Model")
+		gate.Name = `Stage{stage.id}Gate`
+		local x = stage.minX
+		local segmentDepth = halfDepth - opening / 2
+
+		for _, side in { -1, 1 } do
+			build(gate, origin, {
+				name = `Wall_{side}`,
+				pos = { x, 5, side * (opening / 2 + segmentDepth / 2) },
+				size = { 2, 10, segmentDepth },
+				color = stage.color,
+				material = "Concrete",
+				attributes = { StageId = stage.id, UnlockTier = stage.unlockTier },
+			})
+		end
+
+		local leftPost = build(gate, origin, {
+			name = "GatePostLeft",
+			pos = { x, 5, -opening / 2 },
+			size = { 3, 10, 2 },
+			color = stage.color,
+			material = "Metal",
+			attributes = { StageId = stage.id, UnlockTier = stage.unlockTier },
+		})
+		local rightPost = build(gate, origin, {
+			name = "GatePostRight",
+			pos = { x, 5, opening / 2 },
+			size = { 3, 10, 2 },
+			color = stage.color,
+			material = "Metal",
+			attributes = { StageId = stage.id, UnlockTier = stage.unlockTier },
+		})
+
+		local sign = build(gate, origin, {
+			name = "StageSign",
+			pos = { x, 11, 0 },
+			size = { 12, 3, 0.5 },
+			color = stage.color,
+			material = "Neon",
+			canCollide = false,
+			attributes = { StageId = stage.id, UnlockTier = stage.unlockTier },
+		})
+		billboard(sign, 180, 3.6, `STAGE {stage.id}`, stage.name, stage.color)
+		light(leftPost, stage.color, 16, 1.2)
+		light(rightPost, stage.color, 16, 1.2)
+
+		gate.Parent = folder
+	end
+
+	folder.Parent = parent
+end
+
 local function createScenery(): Model
 	local scenery = Instance.new("Model")
 	scenery.Name = "Scenery"
@@ -248,6 +313,7 @@ local function createScenery(): Model
 	for _, id in Zones.builtIds() do
 		buildZoneScenery(scenery, id)
 	end
+	buildStageGates(scenery, 1)
 
 	-- Nothing in here may claim to be a zone. This is the invariant the whole
 	-- module/folder split exists to protect, so it is asserted, not trusted.

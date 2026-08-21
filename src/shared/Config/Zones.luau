@@ -35,9 +35,9 @@
 -- from ground level: with no tonal gap between ground and pool, nothing glowed and
 -- nothing looked toxic. Contrast is what sells "radioactive", not brightness.
 --
---     zone 1   300x265   r=12 (T1)   c = 0.256
---     zone 2   400x350   r=16 (T2)   c = 0.259
---     zone 3   510x460   r=21 (T3)   c = 0.266
+--     active field  660x320   r=12 (T1)   c ~= 0.10 across the full field
+--     zone 2   220x280   r=16 (T2)   c ~= 0.33
+--     zone 3   260x320   r=21 (T3)   c ~= 0.37
 --     zone 4   290x260   r=27 (T4)   c = 1.37   <- deliberately inverted, see below
 --
 -- Hard ceiling: area <= 785 * r^2. Past that a zone is unplayable at its rated tier,
@@ -70,6 +70,17 @@ export type ZoneDef = {
 	built: boolean, -- false => the generator skips it and verify() ignores it
 }
 
+export type StageDef = {
+	id: number,
+	name: string,
+	minX: number,
+	maxX: number,
+	unlockTier: number,
+	loot: { [string]: number },
+	itemZoneId: number,
+	color: string,
+}
+
 local Zones = {}
 
 --- The top face of every zone plate. One stud and a half BELOW the plaza, so you
@@ -92,12 +103,12 @@ Zones.DEFS = {
 		baseRads = 0.5,
 		soilHardness = 1,
 		ratedSuitTier = 1,
-		stationDistance = 342,
+		stationDistance = 230,
 		fogColor = Color3.fromHex("CFF3FF"),
 		fogEnd = 900,
 		loot = { Scrap = 55, Common = 28, Uncommon = 12, Rare = 4, Epic = 0.8, Legendary = 0.15, Mythic = 0.04, Anomaly = 0.002 },
-		center = { 310, 0 },
-		size = { 300, 265 },
+		center = { 470, 0 },
+		size = { 660, 320 },
 		color = "6F9636",
 		material = "Sand",
 		built = true,
@@ -108,15 +119,15 @@ Zones.DEFS = {
 		baseRads = 2,
 		soilHardness = 2,
 		ratedSuitTier = 2,
-		stationDistance = 460,
+		stationDistance = 470,
 		fogColor = Color3.fromHex("D8F0B8"),
 		fogEnd = 800,
 		loot = { Scrap = 42, Common = 30, Uncommon = 18, Rare = 7, Epic = 2, Legendary = 0.5, Mythic = 0.1, Anomaly = 0.004 },
-		center = { -470, 27 },
-		size = { 400, 350 },
+		center = { 470, 0 },
+		size = { 220, 280 },
 		color = "538C28",
 		material = "Sand",
-		built = true,
+		built = false, -- loot pool retained for radiation stage 2
 	},
 	{
 		id = 3,
@@ -124,15 +135,15 @@ Zones.DEFS = {
 		baseRads = 6,
 		soilHardness = 3,
 		ratedSuitTier = 3,
-		stationDistance = 592,
+		stationDistance = 760,
 		fogColor = Color3.fromHex("A8F06A"),
 		fogEnd = 700,
 		loot = { Scrap = 28, Common = 30, Uncommon = 24, Rare = 12, Epic = 4.5, Legendary = 1.2, Mythic = 0.28, Anomaly = 0.01 },
-		center = { 0, -490 },
-		size = { 510, 460 },
+		center = { 760, 0 },
+		size = { 260, 320 },
 		color = "3E7A1C",
 		material = "Slate",
-		built = true,
+		built = false, -- loot pool retained for radiation stage 3
 	},
 	{
 		id = 4,
@@ -153,7 +164,7 @@ Zones.DEFS = {
 		size = { 290, 260 },
 		color = "2F6B14",
 		material = "Slate",
-		built = true,
+		built = false, -- reserved for a future fourth stage
 	},
 	{
 		id = 5,
@@ -192,6 +203,43 @@ Zones.DEFS = {
 	},
 } :: { ZoneDef }
 
+-- One radiation field, three stages. Stage bounds are local X offsets from the
+-- field centre, so the field can move without the progression walls drifting away
+-- from the loot they protect. The later stages reuse the existing zone item pools
+-- until the catalogue is split into an explicitly staged content model.
+Zones.STAGES = {
+	{
+		id = 1,
+		name = "Outer Ash",
+		minX = -330,
+		maxX = -110,
+		unlockTier = 1,
+		loot = Zones.DEFS[1].loot,
+		itemZoneId = 1,
+		color = "6F9636",
+	},
+	{
+		id = 2,
+		name = "Hot Wreckage",
+		minX = -110,
+		maxX = 100,
+		unlockTier = 2,
+		loot = Zones.DEFS[2].loot,
+		itemZoneId = 2,
+		color = "538C28",
+	},
+	{
+		id = 3,
+		name = "Deep Fallout",
+		minX = 100,
+		maxX = 330,
+		unlockTier = 3,
+		loot = Zones.DEFS[3].loot,
+		itemZoneId = 3,
+		color = "3E7A1C",
+	},
+}
+
 function Zones.get(id: number): ZoneDef
 	local z = Zones.DEFS[id]
 	assert(z, `unknown zone {id}`)
@@ -207,6 +255,17 @@ function Zones.builtIds(): { number }
 		end
 	end
 	return ids
+end
+
+function Zones.stageAt(zoneId: number, worldX: number): StageDef
+	local zone = Zones.get(zoneId)
+	local localX = worldX - zone.center[1]
+	for _, stage in Zones.STAGES do
+		if localX >= stage.minX and localX <= stage.maxX then
+			return stage
+		end
+	end
+	return Zones.STAGES[#Zones.STAGES]
 end
 
 --- The plate's CFrame: centred in XZ, sunk so its TOP face lands on SURFACE_Y.

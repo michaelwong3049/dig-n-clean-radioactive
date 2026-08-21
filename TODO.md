@@ -114,17 +114,29 @@ everything and then runs `World.verify()` over the result.
       the migrated camp reproduces the pre-refactor camp exactly (121 descendants,
       101 BaseParts, checksum `1150820216`, length `10882`), proven against a freshly
       cloned module so a stale `require` cache could not fake the result
-- [x] `build/ZoneFields.luau` — four dig plates, name and `ZoneId` written from the same
-      loop index so `DigService` (by name) and `ZoneService` (by attribute) cannot disagree
-- [x] `build/Hub.luau` — 260×260 plaza, three roads, the north fence with one gap, spawn anchor
+- [x] `build/ZoneFields.luau` — one active radioactive dig plate, with the field kept under a
+      single `ZoneId` so radiation remains one area rather than three separate zones
+- [x] Three staged radiation gates — Stage 1, Stage 2 and Stage 3 sit inside the one field;
+      each gate carries `StageId` and `UnlockTier` attributes for future unlock behavior
+- [x] `build/Hub.luau` — compact 160×160 central plaza with one straight road into the field
 - [x] `build/Shops.luau`, `build/Plots.luau`, `build/Scenery.luau`, `build/Daylight.luau`
+- [x] Linear map layout — six plots in a west-side block, shops in the centre, radiation to
+      the east, with the three progression stages arranged farther into the field
 - [x] `build/World.luau` — composer + `verify()`, currently **0 failures**
-- [x] Zone sizes derived from coverage math rather than guessed, and confirmed
-      empirically in-engine: predicted `c` 0.256 / 0.259 / 0.266 against measured ping
-      chance 0.223 / 0.197 / 0.215, and **burial-plane error of exactly 0** on all four
+- [x] One 660×320 radiation field with stage-specific loot: the outer stage uses the former
+      Zone 1 pool, the middle stage uses the former Zone 2 pool, and the deep stage uses the
+      former Zone 3 pool
+- [x] **Burial-plane contract remains intact** — generated field geometry keeps the dig surface
+      at the configured Y plane and `World.verify()` still checks the plate thickness and name/
+      attribute agreement
 - [x] Decide fate of `ReplicatedStorage.Assets.Tools` base meshes — genuinely
       hand-authored (unions, a `SpecialMesh`, an imported model), so they stay binary
 - [x] Fix the blackout respawn, which sent players *into Zone 1* — see §7
+
+**Current map direction.** The MVP world is intentionally one radiation area. The old
+Zones 2–4 geometry is not generated, but the useful loot pools remain available as the
+three internal stages of the main field. This keeps the first map easy to read: plots →
+shops → Stage 1 → Stage 2 → Stage 3.
 
 **Deferred deliberately:** the `ToolTiers` generator. All 21 tool variants exist and
 work; reproducing them needs a per-part dump like BaseCamp got, because the live scale
@@ -163,10 +175,14 @@ the place file has no git history to recover from.
 
 ## 5. Mechanical loop content — Phase 4
 
-- [x] **Zones 2–4 stocked** — 41 items total (was 13), themed per PLAN §4. Verified:
+- [x] **Stage loot pools stocked** — 41 items total (was 13), themed per PLAN §4. The
+      former Zones 1–4 catalogue remains available, while the active map rolls the former
+      Zone 1/2/3 pools in its three internal stages. Verified:
       unique ids, every `baseValue` inside its Rarity band, every nonzero loot weight
       in every zone resolves to a real item.
-- [x] Zone 2–4 rad rates and spatial layout (`Config/Zones.luau`)
+- [x] Stage 2 and Stage 3 loot progression (`Config/Zones.luau` + `DigService.luau`)
+- [ ] Stage gate unlock interaction — gates currently expose `StageId`/`UnlockTier`; wire
+      them to the player's progression and open/close behavior when the unlock rule is chosen
 - [ ] Radiation burn / suit tolerance / survivability countdown (PLAN §3.5) — the
       HUD countdown is the piece that makes Zone 4 a *choice*; see §9
 - [ ] Hot pockets — deliberately NOT built. The design call was "the ooze is the dig

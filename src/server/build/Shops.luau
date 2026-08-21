@@ -48,16 +48,16 @@ local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 --- The three plaza stalls. `at` is world XZ; they face south, toward the fountainless
 --- middle of the plaza where a player walks in from the south gate.
 local STALLS = {
-	{ track = "Detector", at = { -70, 30 }, color = C.shopDetector, tagline = "find it deeper" },
-	{ track = "Magnet", at = { 0, 30 }, color = C.shopMagnet, tagline = "pull it harder" },
-	{ track = "Cleaner", at = { 70, 30 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
+	{ track = "Detector", at = { -42, 45 }, color = C.shopDetector, tagline = "find it deeper" },
+	{ track = "Magnet", at = { 0, 45 }, color = C.shopMagnet, tagline = "pull it harder" },
+	{ track = "Cleaner", at = { 42, 45 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
 }
 
 --- The outfitter's three counters, on one bench between the stalls and the camp gate.
 --- Radius 6 at a 13-stud pitch, so no two counters' circles overlap and standing at
 --- one is unambiguous.
 local OUTFITTER = {
-	at = { 0, 58 },
+	at = { 0, -48 },
 	pitch = 13,
 	counters = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },

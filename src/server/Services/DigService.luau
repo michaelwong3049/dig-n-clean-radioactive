@@ -88,8 +88,8 @@ local unearthedRemote: any = nil
 
 -- ── Rolling ───────────────────────────────────────────────────────────
 
-local function rollRarity(zoneId: number): string
-	local loot = Zones.get(zoneId).loot
+local function rollRarity(stageId: number): string
+	local loot = Zones.STAGES[stageId].loot
 
 	local total = 0
 	for _, weight in loot do
@@ -180,8 +180,10 @@ local function spawnSignal(zoneId: number)
 		return
 	end
 
-	local rarity = rollRarity(zoneId)
-	local itemId, actualRarity = rollItemId(zoneId, rarity)
+	local position = randomPointOn(part)
+	local stage = Zones.stageAt(zoneId, position.X)
+	local rarity = rollRarity(stage.id)
+	local itemId, actualRarity = rollItemId(stage.itemZoneId, rarity)
 	if itemId == nil or actualRarity == nil then
 		return -- zone isn't stocked; rollItemId has already said so, once
 	end
@@ -190,7 +192,7 @@ local function spawnSignal(zoneId: number)
 	local signal: Signal = {
 		uid = HttpService:GenerateGUID(false),
 		zoneId = zoneId,
-		position = randomPointOn(part),
+		position = position,
 		itemId = itemId,
 		rarity = actualRarity,
 		modifier = rollModifier(),
