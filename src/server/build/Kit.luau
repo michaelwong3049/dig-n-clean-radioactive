@@ -61,6 +61,7 @@ Kit.C = {
 	cyan = "7FD0FF",
 	glass = "BFE6FF",
 	hazard = "E8C33C",
+	hazardBlack = "1A1A1A", -- crisp cartoon black for trefoil blades and outline trim
 
 	labelText = "F2F5EE",
 	signText = "2B2415",

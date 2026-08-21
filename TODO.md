@@ -150,6 +150,24 @@ the place file has no git history to recover from.
 
 - [x] **Three upgrade shops built and working** — Detector, Magnet, Cleaner, colour-coded
       on the plaza. `StationKind="shop"` + `StationId=<Gear.TRACKS name>`.
+- [x] **Shops reskinned cartoony/nuclear.** Wood-plank market stalls → glossy
+      SmoothPlastic toxic-waste drums: chunky barrel body, black hazard-stripe
+      bands, a rounded dome canopy on posts, a hand-built radiation trefoil
+      (`buildTrefoil` — three blocks radiating from a hub, no image asset needed),
+      and a black "outline" plate behind each sign for a toy-packaging pop.
+      Applied to all three stalls and the Outfitter's three counters. The one
+      glow accent (a small vial on each counter) is **cyan, not green** —
+      PLAN §14's rule is that acid green means danger exclusively, so the
+      product glow deliberately uses a different colour rather than diluting
+      that signal. World positions and both Radius values (12 stalls, 6
+      outfitter) are untouched; this only changed what things look like.
+      Two real sizing bugs caught by screenshot and fixed before commit: the
+      first-pass dome was 22 studs wide over a 6-wide barrel (read as a giant
+      balloon on a stick) and the sign board was still sized for the old
+      20-wide wooden deck. Also caught two Cylinder axis-ordering mistakes
+      (`size[1]` is always the axis length, not the diameter) that would have
+      rendered the glow vial as a squat oval and the trefoil discs as thin
+      tubes poking at the viewer instead of flat coins.
 - [x] **Outfitter bench** — Suit, Boots and Satchel. Not in the original ask, but three
       shops left those three tracks *priced and unbuyable*, and the Suit gates every
       zone, so Zone 2 would have become the locked door PLAN §3.5 promises never to
