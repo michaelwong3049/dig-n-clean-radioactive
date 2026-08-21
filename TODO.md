@@ -168,6 +168,25 @@ the place file has no git history to recover from.
       (`size[1]` is always the axis length, not the diameter) that would have
       rendered the glow vial as a squat oval and the trefoil discs as thin
       tubes poking at the viewer instead of flat coins.
+- [x] **Each shop now sells a recognisable prop of the actual item, not just a
+      colour.** The barrel reskin told you "this is a shop"; it didn't tell you
+      *which* one without reading the sign. Six new hand-built props, one per
+      `Gear.TRACKS` entry: a detector (flat coil + shaft + control box + grip),
+      a horseshoe magnet (classic red-with-white-tips, not the shop's own
+      colour — the cliché colouring is what makes the shape read instantly),
+      a bucket + suds + scrub brush for the cleaner, and for the Outfitter a
+      standing hazmat mannequin, a pair of boots, and a satchel with a strap.
+      `buildIdentityProp` dispatches on track so `buildStall`/`buildOutfitter`
+      call one function without caring which shop they're building.
+      Two placement bugs caught by screenshot, not shipped: the outfitter
+      props first sat directly behind their barrel on the approach axis, where
+      the barrel's own silhouette hid almost the whole prop — moved to a small
+      sideways offset instead, mirroring how the main stalls already place
+      their prop beside the barrel rather than behind it. And boots/satchel
+      first used `C.canvas`, which is close enough to the outfitter's own
+      yellow that both nearly vanished against the bench — switched to
+      `C.wood` (dark brown) for actual contrast. World positions, both Radius
+      values, and the barrel/dome/trefoil kit are all unchanged.
 - [x] **Outfitter bench** — Suit, Boots and Satchel. Not in the original ask, but three
       shops left those three tracks *priced and unbuyable*, and the Suit gates every
       zone, so Zone 2 would have become the locked door PLAN §3.5 promises never to

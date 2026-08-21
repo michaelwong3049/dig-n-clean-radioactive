@@ -59,7 +59,7 @@ local Kit = require(script.Parent.Kit)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 2
+local BUILDER_VERSION = 3
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -237,6 +237,128 @@ local function buildBarrel(parent: Instance, origin: CFrame, spec: BarrelSpec): 
 	return lid
 end
 
+-- ── Shop-specific props ─────────────────────────────────────────────────────────
+--
+-- The barrel + dome + trefoil kit above is identical for every shop except colour,
+-- which was the actual complaint: nothing about the SHAPE said "this is the magnet
+-- one" versus "this is the cleaner one." Each shop gets one big, silhouette-clear
+-- prop of the actual thing it sells, standing next to the counter, on top of the
+-- colour-coding rather than instead of it. All canCollide=false — display pieces,
+-- not obstacles to path around.
+
+--- A metal detector: flat coil on the ground, a shaft rising from it, a control
+--- box and a crossbar grip near the top. The coil-and-shaft silhouette is the one
+--- unmistakable "detector" shape, so it carries the whole prop.
+local function buildDetectorProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
+	build(parent, origin, { name = "DetectorCoil", pos = { x, 0.3, z }, size = { 0.4, 4.2, 4.2 }, color = C.steelDark, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "DetectorCoilTrim", pos = { x, 0.55, z }, size = { 0.15, 3.4, 3.4 }, color = color, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "DetectorShaft", pos = { x, 3.6, z }, size = { 6.5, 0.35, 0.35 }, color = C.steel, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "DetectorBox", pos = { x, 5.6, z }, size = { 1.1, 1.3, 0.8 }, color = color, material = "SmoothPlastic", canCollide = false })
+	build(parent, origin, { name = "DetectorGrip", pos = { x, 6.9, z }, size = { 1.8, 0.3, 0.3 }, color = C.steel, material = "SmoothPlastic", canCollide = false })
+end
+
+--- A horseshoe magnet: two vertical prongs, a connecting bar at the bottom, white
+--- tip caps at the top. Classic red-body-white-tips colouring rather than the
+--- shop's own colour — the shape only reads as "magnet" instantly if the colours
+--- match the cliché everyone already knows.
+local function buildMagnetProp(parent: Instance, origin: CFrame, x: number, z: number)
+	for _, dx in { -0.9, 0.9 } do
+		build(parent, origin, { name = "MagnetProng", pos = { x + dx, 2.5, z }, size = { 5, 0.9, 0.9 }, color = C.barrelRust, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+		build(parent, origin, { name = "MagnetTip", pos = { x + dx, 5.1, z }, size = { 0.3, 1.0, 1.0 }, color = C.labelText, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	end
+	-- Unrotated: a Cylinder's axis is local X by default, which is exactly the
+	-- direction that needs to span between the two prongs — no rot needed.
+	build(parent, origin, { name = "MagnetBase", pos = { x, 0.45, z }, size = { 2.7, 0.9, 0.9 }, color = C.barrelRust, material = "SmoothPlastic", shape = "Cylinder", canCollide = false })
+end
+
+--- A bucket, suds and a scrub brush leaning against it.
+local function buildCleanerProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
+	build(parent, origin, { name = "Bucket", pos = { x, 1.1, z }, size = { 2.2, 2.6, 2.6 }, color = color, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "BucketRim", pos = { x, 2.25, z }, size = { 0.2, 2.8, 2.8 }, color = C.labelText, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+
+	for _, offset in { { -0.5, 0 }, { 0.4, 0.3 }, { 0, -0.4 } } do
+		build(parent, origin, {
+			name = "Suds",
+			pos = { x + offset[1], 2.7, z + offset[2] },
+			size = { 0.7, 0.7, 0.7 },
+			color = C.labelText,
+			material = "SmoothPlastic",
+			shape = "Ball",
+			transparency = 0.15,
+			canCollide = false,
+		})
+	end
+
+	build(parent, origin, { name = "BrushHandle", pos = { x + 2.0, 2.0, z }, size = { 4.0, 0.3, 0.3 }, color = C.canvas, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "BrushHead", pos = { x + 2.0, 4.2, z }, size = { 0.6, 1.6, 1.6 }, color = C.labelText, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+end
+
+--- A standing hazmat suit: torso, helmet with a visor, boots, arms.
+local function buildSuitProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
+	build(parent, origin, { name = "SuitTorso", pos = { x, 2.6, z }, size = { 2.2, 1.8, 1.2 }, color = color, material = "SmoothPlastic", canCollide = false })
+	build(parent, origin, { name = "SuitHelmet", pos = { x, 4.1, z }, size = { 1.6, 1.6, 1.6 }, color = C.labelText, material = "SmoothPlastic", shape = "Ball", canCollide = false })
+	build(parent, origin, { name = "SuitVisor", pos = { x, 4.1, z - 0.75 }, size = { 0.9, 0.7, 0.15 }, color = C.cyan, material = "SmoothPlastic", canCollide = false })
+	for _, dx in { -1.4, 1.4 } do
+		build(parent, origin, { name = "SuitArm", pos = { x + dx, 2.7, z }, size = { 1.5, 0.5, 0.5 }, color = color, material = "SmoothPlastic", canCollide = false })
+	end
+	for _, dx in { -0.5, 0.5 } do
+		build(parent, origin, { name = "SuitBoot", pos = { x + dx, 0.6, z }, size = { 0.7, 0.7, 1.0 }, color = C.hazardBlack, material = "SmoothPlastic", canCollide = false })
+	end
+end
+
+--- A pair of boots side by side: foot, ankle shaft, sole.
+--- Colour note: this and the satchel below use C.wood (dark brown), not
+--- C.canvas — canvas is close enough to the outfitter's own yellow that a
+--- first pass all but disappeared against the bench and backboard. Dark
+--- brown is also just what boots and satchels actually look like.
+local function buildBootsProp(parent: Instance, origin: CFrame, x: number, z: number)
+	for _, dx in { -1.1, 1.1 } do
+		build(parent, origin, { name = "BootFoot", pos = { x + dx, 0.55, z + 0.3 }, size = { 1.5, 0.7, 1.5 }, color = C.wood, material = "SmoothPlastic", canCollide = false })
+		build(parent, origin, { name = "BootSole", pos = { x + dx, 0.18, z + 0.3 }, size = { 1.6, 0.15, 1.6 }, color = C.hazardBlack, material = "SmoothPlastic", canCollide = false })
+		build(parent, origin, { name = "BootShaft", pos = { x + dx, 1.5, z - 0.4 }, size = { 0.9, 1.4, 0.9 }, color = C.wood, material = "SmoothPlastic", canCollide = false })
+		build(parent, origin, { name = "BootLace", pos = { x + dx, 1.5, z - 0.85 }, size = { 0.3, 1.3, 0.15 }, color = C.shopOutfitter, material = "SmoothPlastic", canCollide = false })
+	end
+end
+
+--- A satchel: a rounded bag body, a flap, a buckle, and a strap made from two
+--- angled struts meeting above the bag rather than a true arc — Roblox parts
+--- don't bend, and two straight struts read as a handle loop close enough at
+--- this chunky, low-poly scale.
+local function buildSatchelProp(parent: Instance, origin: CFrame, x: number, z: number)
+	build(parent, origin, { name = "SatchelBody", pos = { x, 1.6, z }, size = { 1.8, 1.6, 1.1 }, color = C.wood, material = "SmoothPlastic", shape = "Ball", canCollide = false })
+	build(parent, origin, { name = "SatchelFlap", pos = { x, 2.0, z - 0.55 }, size = { 1.6, 0.9, 0.3 }, color = C.woodLight, material = "SmoothPlastic", canCollide = false })
+	build(parent, origin, { name = "SatchelBuckle", pos = { x, 1.9, z - 0.72 }, size = { 0.35, 0.35, 0.15 }, color = C.hazard, material = "SmoothPlastic", canCollide = false })
+	for _, side in { -1, 1 } do
+		build(parent, origin, {
+			name = "SatchelStrap",
+			pos = { x + side * 0.5, 2.7, z },
+			size = { 1.3, 0.22, 0.22 },
+			color = C.woodLight,
+			material = "SmoothPlastic",
+			rot = Kit.ang(0, 0, side * -35),
+			canCollide = false,
+		})
+	end
+end
+
+--- Dispatches on track so buildStall/buildOutfitter can call one function without
+--- caring which shop they're building.
+local function buildIdentityProp(parent: Instance, origin: CFrame, track: string, x: number, z: number, color: string)
+	if track == "Detector" then
+		buildDetectorProp(parent, origin, x, z, color)
+	elseif track == "Magnet" then
+		buildMagnetProp(parent, origin, x, z)
+	elseif track == "Cleaner" then
+		buildCleanerProp(parent, origin, x, z, color)
+	elseif track == "Suit" then
+		buildSuitProp(parent, origin, x, z, color)
+	elseif track == "Boots" then
+		buildBootsProp(parent, origin, x, z)
+	elseif track == "Satchel" then
+		buildSatchelProp(parent, origin, x, z)
+	end
+end
+
 -- ── The plaza stalls ────────────────────────────────────────────────────────────
 
 --- One toxic-drum stall: a round deck, the barrel (the counter you buy from), a
@@ -336,9 +458,11 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 
 	buildTrefoil(m, origin, { 0, 5.5, 8.1 }, 1.1)
 
-	-- Mini clutter barrels, irregular on purpose.
-	buildBarrel(m, origin, { color = C.barrelYellow, diameter = 2.2, height = 2.6, baseY = 0, z = 6.5 })
-	buildBarrel(m, origin, { color = spec.color, diameter = 1.9, height = 2.1, baseY = 0, z = 5.5 })
+	-- THE ACTUAL POINT OF THIS PASS: a big, shape-clear prop of the thing this
+	-- shop sells, standing beside the counter. The barrel told you "a shop"; this
+	-- tells you WHICH one, without reading a sign. Position checked against the
+	-- 10-stud deck radius (sqrt(7.5^2 + 5^2) ~= 9.0), so it stays on the deck.
+	buildIdentityProp(m, origin, spec.track, 7.5, -5, spec.color)
 
 	m.Parent = parent
 	return m
@@ -381,6 +505,14 @@ local function buildOutfitter(parent: Instance)
 			radius = 6,
 		})
 		billboard(lid, 200, 4.4, counter.label, counter.tagline, C.shopOutfitter)
+
+		-- Same idea as the plaza stalls, scaled to the bench: the actual gear,
+		-- not just a coloured barrel. Offset to the SIDE, not straight in front
+		-- — a first pass put it directly behind the barrel on the approach
+		-- axis, where the barrel's own silhouette occluded almost the whole
+		-- prop. 2.2 studs of sideways clearance is nothing next to the 13-stud
+		-- counter pitch, so it can't drift into a neighbour's space.
+		buildIdentityProp(m, counterOrigin, counter.track, 2.3, 1.0, C.shopOutfitter)
 	end
 
 	m.Parent = parent
