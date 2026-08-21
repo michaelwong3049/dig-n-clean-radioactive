@@ -120,8 +120,10 @@ everything and then runs `World.verify()` over the result.
       each gate carries `StageId` and `UnlockTier` attributes for future unlock behavior
 - [x] `build/Hub.luau` — compact 160×160 central plaza with one straight road into the field
 - [x] `build/Shops.luau`, `build/Plots.luau`, `build/Scenery.luau`, `build/Daylight.luau`
-- [x] Linear map layout — six plots in a west-side block, shops in the centre, radiation to
-      the east, with the three progression stages arranged farther into the field
+- [x] Linear map layout — six plots **in a single column**, each on its own stub feeding
+      one spine into the hub (per the requested layout: `[PLOT]--|` x6 into one spine
+      into `[SHOP AREA]` into `[RADIATION]`), shops in the centre, radiation to the east,
+      with the three progression stages arranged farther into the field
 - [x] `build/World.luau` — composer + `verify()`, currently **0 failures**
 - [x] One 660×320 radiation field with stage-specific loot: the outer stage uses the former
       Zone 1 pool, the middle stage uses the former Zone 2 pool, and the deep stage uses the
