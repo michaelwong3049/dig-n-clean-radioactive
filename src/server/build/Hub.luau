@@ -135,14 +135,22 @@ end
 --- radioactive field. Making it a search over a class that now has seven instances
 --- in the world would have replaced one arbitrary answer with another.
 ---
---- It sits ON the camp's shower grate, so you wake up mid-flush. That turns the
---- punishment beat into a relief beat, which for this audience is worth more than
---- the four studs it costs.
+--- It used to sit ON the camp's shower grate, so you woke up mid-flush — a
+--- relief beat instead of a punishment one. The shower moved to a per-base
+--- cleansing station on every plot (see Plots.buildCleansingStation) and isn't
+--- at camp any more, so that instant flush is gone: a blacked-out player now
+--- lands here with whatever exposure they had, same as anyone else who's just
+--- standing in a zero-rad zone. Base camp is still "no zone" (zero rads, 6x
+--- health regen per ExposureService), so exposure still drains here — just on
+--- the normal passive curve, not an instant reset.
 local function buildSpawns(hub: Model)
 	local spawns = Instance.new("Folder")
 	spawns.Name = "Spawns"
 
-	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, -14) -- BaseCamp's Grate, in world space
+	-- The offset is arbitrary now (there's no grate to sit on any more) — kept
+	-- as "just inside the gate, not in the middle of the road" rather than
+	-- recentred on nothing in particular.
+	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, -14)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",
 		pos = { grate.X, Hub.PLAZA.topY + 0.5, grate.Z },

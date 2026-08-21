@@ -194,7 +194,11 @@ function World.verify(): (boolean, { string })
 	end
 
 	check((census.trader or 0) == 1, `expected exactly 1 trader, found {census.trader or 0}`)
-	check((census.decon or 0) == 1, `expected exactly 1 decon station, found {census.decon or 0}`)
+	-- One cleansing station per base now, not one shared station at camp.
+	check(
+		(census.decon or 0) == Plots.COUNT,
+		`expected {Plots.COUNT} decon stations (one per base), found {census.decon or 0}`
+	)
 	check((census.shop or 0) >= #Gear.TRACKS, `expected at least {#Gear.TRACKS} shop counters, found {census.shop or 0}`)
 	check((census.plot or 0) == Plots.COUNT, `expected {Plots.COUNT} plot boards, found {census.plot or 0}`)
 

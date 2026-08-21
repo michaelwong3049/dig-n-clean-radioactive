@@ -53,10 +53,13 @@
 
 	THE WORLD CONTRACT:
 	    Pad         PlotIndex = n
-	    ClaimBoard  StationKind = "plot",     StationId = "<n>",       Radius = 10
+	    ClaimBoard  StationKind = "plot",     StationId = "<n>",        Radius = 10
 	    Plinth      StationKind = "pedestal", StationId = "<n>:<slot>", Radius = 7
 	                PlotIndex = n, SlotIndex = s, Locked = true|false
 	    PlotSpawn   SpawnLocation, Enabled = false until the plot is claimed
+	    Basin       StationKind = "decon", Shower = true, Radius = 9 — the cleansing
+	                station (see buildCleansingStation below). One per base, replacing
+	                the single shared station + shower that used to live at camp.
 
 	The plinth's StationId is "plot:slot" so the server can resolve exactly which
 	pedestal a player is standing at without a spatial search of its own.
@@ -73,7 +76,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 2
+local BUILDER_VERSION = 3
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -117,6 +120,88 @@ local function slotOffset(slot: number): (number, number)
 	local x = (col - (GRID_COLS - 1) / 2) * GRID_PITCH_X
 	local z = -14 + row * GRID_PITCH_Z
 	return x, z
+end
+
+--- The cleansing station — replaces the camp's old central Decon Station and
+--- Decon Shower with one combined stop on EVERY base, per the request. A single
+--- part carries BOTH `StationKind = "decon"` (freezes carried items' decay
+--- clocks and lets you scrub, exactly like the old camp station) AND
+--- `Shower = true` (flushes your own exposure, exactly like the old camp
+--- shower). The two systems already read their attributes independently —
+--- DeconService only cares whether `StationKind` is set, ExposureService only
+--- cares whether `Shower` is `true` — so nothing stops one part being both, and
+--- putting both on one part means "clean my loot" and "clean myself" happen in
+--- the same spot instead of two separate structures at camp. They share one
+--- `Radius`, which is fine: it's the same "how close do I need to be" question
+--- either way.
+---
+--- Walk home from the field, dock here, rack the clean item on a pedestal three
+--- steps away — no trip back to base camp required, and every player's loop is
+--- entirely local to their own plot.
+---
+--- Placed in the pad's open back third: clear of the claim board and spawn
+--- (both near the front, local z roughly -23 to -15) and clear of the pedestal
+--- grid (local z roughly -15 to -1.5), with room to spare before the back wall
+--- (local z = 25).
+local function buildCleansingStation(parent: Instance, origin: CFrame, accent: string)
+	local m = Instance.new("Model")
+	m.Name = "CleansingStation"
+	local pad = Plots.PAD
+	local cz = 11
+
+	-- THE DOCK + THE FLUSH, one part. StationKind="decon" is what DeconService
+	-- matches on; Shower=true is what ExposureService scans for.
+	local basin = build(m, origin, {
+		name = "Basin",
+		pos = { 0, pad.topY + 0.9, cz },
+		size = { 7, 1.8, 5 },
+		color = C.steel,
+		material = "Metal",
+		attributes = { StationKind = "decon", Shower = true, Radius = 9 },
+	})
+	billboard(basin, 240, 4.6, "CLEANSING STATION", "clean it, flush it, rack it", accent)
+
+	build(m, origin, { name = "Water", pos = { 0, pad.topY + 1.85, cz }, size = { 6.2, 0.25, 4.2 }, color = C.cyan, material = "Neon", transparency = 0.35 })
+
+	for _, x in { -3.2, 3.2 } do
+		build(m, origin, { name = "Post", pos = { x, pad.topY + 3.5, cz + 1.5 }, size = { 0.4, 4, 0.4 }, color = C.steelDark, material = "Metal" })
+	end
+	build(m, origin, { name = "GantryBeam", pos = { 0, pad.topY + 5.4, cz + 1.5 }, size = { 7.2, 0.4, 0.4 }, color = C.steelDark, material = "Metal" })
+	build(m, origin, { name = "NozzleArm", pos = { 0, pad.topY + 5.4, cz + 0.7 }, size = { 0.35, 0.35, 1.6 }, color = C.steelDark, material = "Metal" })
+	build(m, origin, {
+		name = "ShowerHead",
+		pos = { 0, pad.topY + 5.1, cz },
+		size = { 0.5, 1.6, 1.6 },
+		color = C.steel,
+		material = "Metal",
+		shape = "Cylinder",
+		rot = Kit.R.cylUpFlipped,
+		canCollide = false,
+	})
+	build(m, origin, {
+		name = "Jet",
+		pos = { 0, pad.topY + 3.3, cz },
+		size = { 0.16, 2.8, 0.16 },
+		color = C.cyan,
+		material = "Neon",
+		transparency = 0.5,
+		canCollide = false,
+	})
+
+	-- Lamp in the plot's own accent colour, so the station reads as part of
+	-- THIS base rather than a generic fixture repeated six times.
+	local lamp = build(m, origin, {
+		name = "Lamp",
+		pos = { 0, pad.topY + 5.9, cz + 1.5 },
+		size = { 0.5, 0.5, 0.5 },
+		color = accent,
+		material = "Neon",
+		shape = "Ball",
+		canCollide = false,
+	})
+	light(lamp, accent, 14, 1.6)
+
+	m.Parent = parent
 end
 
 local function buildPlot(parent: Instance, index: number)
@@ -243,6 +328,8 @@ local function buildPlot(parent: Instance, index: number)
 			light(plinth, accent, 8, 0.6)
 		end
 	end
+
+	buildCleansingStation(m, origin, accent)
 
 	m.Parent = parent
 	return m

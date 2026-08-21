@@ -24,9 +24,15 @@
 	jets on a 2.1-stud pitch, 4 posts at the corners. Editing "step" beats editing
 	seven positions and hoping you got them all.
 
-	THE WORLD CONTRACT lives here too — the StationKind / Shower / Radius attributes
-	that DeconService and ExposureService read (see ARCHITECTURE.md). They are set
-	below, on Counter, Basin and Grate. Removing one silently disables that station.
+	THE WORLD CONTRACT lives here too — the StationKind / Radius attributes that
+	DeconService reads (see ARCHITECTURE.md). Set below on Counter. Removing it
+	silently disables the trader.
+
+	NO DECON STATION AND NO SHOWER HERE ANY MORE. Both moved to `build/Plots.luau`
+	— one combined "cleansing station" per base instead of one shared pair at
+	camp, so a player docks and flushes exposure right where they're about to
+	rack the item, not on a round trip back here. See Plots.luau's
+	`buildCleansingStation` for the replacement and the reasoning.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -35,7 +41,7 @@ local Kit = require(script.Parent.Kit)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 2
+local BUILDER_VERSION = 3
 
 -- Where the camp sits. This is the Floor's centre; everything else is relative to it,
 -- so moving the whole camp is a one-line change (or an argument to build()).
@@ -222,156 +228,6 @@ local function buildTrader(camp: Model, origin: CFrame)
 	m.Parent = camp
 end
 
---- The decon STATION. This is the one that freezes decay clocks (PLAN §3.6).
-local function buildDeconStation(camp: Model, origin: CFrame)
-	local m = Instance.new("Model")
-	m.Name = "DeconStation"
-
-	build(m, origin, { name = "Pad", pos = { -16, 0.8, 12 }, size = { 9, 0.4, 8 }, color = C.steelDark, material = "DiamondPlate", rot = R.yaw180 })
-
-	-- THE DOCK. StationKind="decon" is the win condition for a run.
-	local basin = build(m, origin, {
-		name = "Basin",
-		pos = { -16, 1.9, 12 },
-		size = { 6, 1.8, 4.4 },
-		color = C.steel,
-		material = "Metal",
-		rot = R.yaw180,
-		attributes = { StationKind = "decon", Radius = 12 },
-	})
-	billboard(basin, 240, 4.6, "DECON STATION", "scrub it clean", "6FA8C7")
-
-	build(m, origin, { name = "Water", pos = { -16, 2.75, 12 }, size = { 5.5, 0.25, 3.9 }, color = C.cyan, material = "Neon", rot = R.yaw180, transparency = 0.35 })
-	build(m, origin, { name = "BackPanel", pos = { -16, 3.9, 14.4 }, size = { 7, 5.5, 0.5 }, color = C.steel, material = "Metal", rot = R.yaw180 })
-
-	-- Gantry: two uprights and the beam across them.
-	for _, x in { -13.1, -18.9 } do
-		build(m, origin, { name = "Gantry", pos = { x, 4.8, 14 }, size = { 0.5, 4.2, 0.5 }, color = C.steelDark, material = "Metal", rot = R.yaw180 })
-	end
-	build(m, origin, { name = "GantryBeam", pos = { -16, 6.8, 14 }, size = { 6.4, 0.5, 0.5 }, color = C.steelDark, material = "Metal", rot = R.yaw180 })
-
-	-- Twin tanks, capped, feeding the shower head.
-	for _, x in { -18.4, -13.6 } do
-		build(m, origin, { name = "Tank", pos = { x, 4, 15.1 }, size = { 3.2, 1.5, 1.5 }, color = C.cyan, material = "Metal", shape = "Cylinder", rot = R.cylUpFlipped })
-		build(m, origin, { name = "TankCap", pos = { x, 5.7, 15.1 }, size = { 0.5, 1.7, 1.7 }, color = C.steelDark, material = "Metal", shape = "Cylinder", rot = R.cylUpFlipped })
-	end
-	for _, x in { -14.6, -17.4 } do
-		build(m, origin, { name = "Pipe", pos = { x, 4.6, 14.1 }, size = { 2.6, 0.35, 0.35 }, color = C.steel, material = "Metal", shape = "Cylinder", rot = R.cylUpFlipped })
-	end
-
-	build(m, origin, { name = "NozzleArm", pos = { -16, 6.8, 13 }, size = { 0.4, 0.4, 2.2 }, color = C.steelDark, material = "Metal", rot = R.yaw180 })
-	build(m, origin, { name = "ShowerHead", pos = { -16, 6.5, 12 }, size = { 0.6, 2.2, 2.2 }, color = C.steel, material = "Metal", shape = "Cylinder", rot = R.cylUpFlipped, canCollide = false })
-
-	-- Three jets on a 0.7 pitch.
-	for i = -1, 1 do
-		build(m, origin, {
-			name = "Jet",
-			pos = { -16 + i * 0.7, 4.7, 12 },
-			size = { 0.18, 3.4, 0.18 },
-			color = C.cyan,
-			material = "Neon",
-			rot = R.yaw180,
-			transparency = 0.55,
-			canCollide = false,
-		})
-	end
-
-	-- Hazard chevrons on the deck, 3.4 apart.
-	for i = -1, 1 do
-		build(m, origin, {
-			name = "HazardStripe",
-			pos = { -16 + i * 3.4, 0.81, 12 },
-			size = { 0.9, 0.44, 8 },
-			color = C.hazard,
-			material = "DiamondPlate",
-			rot = R.yaw180,
-		})
-	end
-
-	local lamp = build(m, origin, { name = "Lamp", pos = { -16, 7.4, 14 }, size = { 0.7, 0.7, 0.7 }, color = C.cyan, material = "Neon", shape = "Ball", rot = R.yaw180 })
-	light(lamp, C.cyan, 20, 2)
-
-	m.Parent = camp
-end
-
---- The decon SHOWER. Flushes the PLAYER only — it does not touch carried items,
---- which is why it is a separate structure from the station.
-local function buildDeconShower(camp: Model, origin: CFrame)
-	local m = Instance.new("Model")
-	m.Name = "DeconShower"
-
-	-- THE SHOWER. Shower=true / Radius=7 is what ExposureService scans for.
-	local grate = build(m, origin, {
-		name = "Grate",
-		pos = { 0, 0.75, -14 },
-		size = { 11, 0.3, 7 },
-		color = C.showerSteel,
-		material = "DiamondPlate",
-		attributes = { Shower = true, Radius = 7 },
-	})
-	billboard(grate, 250, 3.2, "DECON SHOWER", "cleans you, not your loot", C.cyan)
-
-	-- Four corner posts.
-	for _, x in { -5, 5 } do
-		for _, z in { -11, -17 } do
-			build(m, origin, { name = "Post", pos = { x, 4.4, z }, size = { 0.9, 7, 0.9 }, color = C.showerSteel, material = "Metal" })
-		end
-		build(m, origin, { name = "Pipe", pos = { x, 4.8, -16.4 }, size = { 6.4, 0.4, 0.4 }, color = C.steel, material = "Metal", shape = "Cylinder", rot = R.cylUp })
-		build(m, origin, { name = "SplashPanel", pos = { x, 4.4, -14 }, size = { 0.35, 6, 5.6 }, color = C.glass, material = "Glass", transparency = 0.55, canCollide = false })
-	end
-
-	build(m, origin, { name = "Gantry", pos = { 0, 8.2, -14 }, size = { 12, 1, 7.6 }, color = C.steel, material = "Metal" })
-	build(m, origin, { name = "NozzleRail", pos = { 0, 7.6, -14 }, size = { 9.5, 0.35, 0.35 }, color = C.showerSteel, material = "Metal" })
-	for _, z in { -17.6, -10.4 } do
-		build(m, origin, { name = "GantryTrim", pos = { 0, 7.7, z }, size = { 12.4, 0.35, 0.5 }, color = C.hazard, material = "Metal", canCollide = false })
-	end
-	for _, z in { -17.2, -10.8 } do
-		build(m, origin, { name = "HazardEdge", pos = { 0, 0.77, z }, size = { 11, 0.34, 0.7 }, color = C.hazard, material = "DiamondPlate", canCollide = false })
-	end
-
-	-- Five nozzles and the jets falling from them, on a 2.1 pitch.
-	for i = -2, 2 do
-		local x = i * 2.1
-		build(m, origin, { name = "Nozzle", pos = { x, 7.3, -14 }, size = { 0.45, 0.8, 0.8 }, color = C.steel, material = "Metal", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-		build(m, origin, { name = "Jet", pos = { x, 4.7, -14 }, size = { 0.5, 5.1, 0.5 }, color = C.cyan, material = "Neon", shape = "Cylinder", transparency = 0.72, canCollide = false })
-	end
-
-	-- Five drain channels on a 1.8 pitch.
-	for i = -2, 2 do
-		build(m, origin, {
-			name = "DrainChannel",
-			pos = { i * 1.8, 0.76, -14 },
-			size = { 0.5, 0.34, 6.4 },
-			color = C.drain,
-			material = "Metal",
-			canCollide = false,
-		})
-	end
-
-	-- Three bands of mist drifting front to back.
-	for i = -1, 1 do
-		build(m, origin, {
-			name = "Mist",
-			pos = { 0, 1.5, -14 + i * 1.6 },
-			size = { 10, 0.9, 2.2 },
-			color = C.cyan,
-			material = "Neon",
-			transparency = 0.88,
-			canCollide = false,
-		})
-	end
-
-	-- Header tank, lying across the top.
-	build(m, origin, { name = "Tank", pos = { -3, 9.6, -14 }, size = { 4, 1.8, 1.8 }, color = C.cyan, material = "Metal", shape = "Cylinder", rot = R.cylAlongZ })
-	build(m, origin, { name = "TankCap", pos = { -5.1, 9.6, -14 }, size = { 0.5, 2, 2 }, color = C.showerSteel, material = "Metal", shape = "Cylinder", rot = R.cylAlongZ })
-	build(m, origin, { name = "TankFeed", pos = { -1, 8.9, -14 }, size = { 1.6, 0.45, 0.45 }, color = C.steel, material = "Metal", shape = "Cylinder", rot = R.cylUp })
-
-	local lamp = build(m, origin, { name = "Lamp", pos = { 4.4, 9.1, -14 }, size = { 0.8, 0.8, 0.8 }, color = C.cyan, material = "Neon", shape = "Ball", canCollide = false })
-	light(lamp, C.cyan, 26, 2.4)
-
-	m.Parent = camp
-end
-
 -- ── Entry points ──────────────────────────────────────────────────────────────
 
 --- Construct a complete, unparented camp. Keeping it out of the DataModel while it
@@ -383,8 +239,6 @@ local function createCamp(origin: CFrame): Model
 
 	buildShell(camp, origin)
 	buildTrader(camp, origin)
-	buildDeconStation(camp, origin)
-	buildDeconShower(camp, origin)
 
 	return camp
 end

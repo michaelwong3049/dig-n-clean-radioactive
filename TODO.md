@@ -157,7 +157,16 @@ the place file has no git history to recover from.
       sold somewhere.
 - [x] **Six Exhibition plots** with claim boards, per-plot spawns and pedestal slots
       (3 unlocked, 12 built, 40 addressable). World + data contract only.
-- [ ] Verify the Trader and Decon stations end-to-end in Play (blocked — see §9)
+- [x] **Decon moved off camp, onto every base.** The shared Decon Station and Decon
+      Shower are gone from `BaseCamp.luau`; each plot now builds its own
+      `CleansingStation` — one part carrying both `StationKind="decon"` and
+      `Shower=true`, sharing a `Radius`, in the open back third of the pad. Clean +
+      flush + rack, all local to your own plot; the trip back to camp is sell-only
+      now. `World.verify()`'s decon census updated from "exactly 1" to
+      "== `Plots.COUNT`"; verified 6 decon stations / 6 showers in the world, 0 at
+      camp, 0 verify failures.
+- [ ] Verify the Trader and the six per-base Decon stations end-to-end in Play
+      (blocked — see §9)
 - [ ] Exhibition **income accrual**: yield loop, offline banking, 60s uncrate, duplicate
       damping. Every constant it needs already exists in `Tuning.EXHIBIT_*`; only the
       service is missing. This is the next plan.

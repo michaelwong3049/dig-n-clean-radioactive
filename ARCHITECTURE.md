@@ -46,7 +46,7 @@ src/
       ExposureService         the rad meter, burn, blackout, dropped bags
       DigService              the buried signal field, sweep and haul
       EconomyService          what an item is worth, and the till
-      DeconService            base camp: docking, scrubbing, racking, selling
+      DeconService            docking, scrubbing and racking at every base; selling at the trader
       ToolService             puts the right model in the player's hands
       DebugService            the tuning console + debug telemetry
 
@@ -54,7 +54,7 @@ src/
     init.client.luau          bootstrap: mirrors the server's ORDER / init / start
     Controllers/
       DetectorController      sweep dial, ping audio, hold-to-pull
-      StationController       the base camp panel
+      StationController       the station panel (trader, decon, shop, plot, pedestal)
       HudController           rad meter, vignette, distortion, blackout curtain
       GeigerController        the click bed (reads HudController)
       DebugHudController      every number at once. F3 toggles.
@@ -149,7 +149,7 @@ Also required, and each corresponds to a real silent failure:
 | Top face at `Zones.SURFACE_Y` | That plane *is* the walk surface. |
 | Thickness ≥ max burial depth (`Tuning.DIG_DEPTH_*`, currently 13.2) | The haul part rises from below the top face; a thin plate lets it show through the underside. |
 | `Workspace.Zones` holds plates and **nothing else** | A decoration carrying a `ZoneId` becomes a zone, and smallest-area-wins means a stray barrel silently becomes the zone you are in. Decor lives in `Workspace.Scenery`. |
-| any BasePart in `Workspace` | `Shower` | boolean | Decon shower. Flushes player exposure, does **not** touch items. |
+| any BasePart in `Workspace` | `Shower` | boolean | Decon shower. Flushes player exposure, does **not** touch items. Since `build/Plots.luau`, each base's cleansing station carries this **on the same part** as `StationKind="decon"` — one stop for both, sharing one `Radius` — rather than two separate structures the way camp used to have them. |
 | ″ | `Radius` | number | Shower radius in studs. Optional, default 10. |
 | any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"plot"` \| `"pedestal"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; plot is an exhibition claim board; pedestal is one display slot. |
 | ″ | `StationId` | string | Discriminator within a kind. For `"shop"` it is the **exact `Gear.TRACKS` spelling** (`"Detector"`, `"Suit"`, …). For `"plot"` it is the plot number; for `"pedestal"` it is `"<plot>:<slot>"`. |
@@ -172,8 +172,9 @@ list in `Config/Gear.luau`.
 > 2. **`MaxPlayers = 6`** is a Studio *Game Settings* value, not repo state. It has to
 >    be 6 for the six exhibition plots to be 1:1 with players.
 > 3. **Everything else is now code.** `build/World.rebuild()` regenerates the hub, the
->    camp, the four zone plates, the shops, the plots, the scenery and the Lighting, and
->    then runs `World.verify()` over the result. A fresh clone needs one command.
+>    camp, the radiation field, the shops, the plots (each with its own cleansing
+>    station), the scenery and the Lighting, and then runs `World.verify()` over the
+>    result. A fresh clone needs one command.
 
 ---
 
