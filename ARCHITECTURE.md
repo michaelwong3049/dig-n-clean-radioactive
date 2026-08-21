@@ -46,7 +46,7 @@ src/
       ExposureService         the rad meter, burn, blackout, dropped bags
       DigService              the buried signal field, sweep and haul
       EconomyService          what an item is worth, and the till
-      DeconService            docking, scrubbing and racking at every base; selling at the trader
+      DeconService            docking, scrubbing and racking at every base; sell() exists, no world trader triggers it currently
       ToolService             puts the right model in the player's hands
       DebugService            the tuning console + debug telemetry
 

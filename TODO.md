@@ -161,12 +161,26 @@ the place file has no git history to recover from.
       Shower are gone from `BaseCamp.luau`; each plot now builds its own
       `CleansingStation` — one part carrying both `StationKind="decon"` and
       `Shower=true`, sharing a `Radius`, in the open back third of the pad. Clean +
-      flush + rack, all local to your own plot; the trip back to camp is sell-only
-      now. `World.verify()`'s decon census updated from "exactly 1" to
-      "== `Plots.COUNT`"; verified 6 decon stations / 6 showers in the world, 0 at
-      camp, 0 verify failures.
-- [ ] Verify the Trader and the six per-base Decon stations end-to-end in Play
-      (blocked — see §9)
+      flush + rack, all local to your own plot. `World.verify()`'s decon census
+      updated from "exactly 1" to "== `Plots.COUNT`"; verified 6 decon stations /
+      6 showers in the world, 0 at camp, 0 verify failures.
+- [x] **Camp walls and the Trader removed.** The camp used to be a walled box
+      (5 wall parts) sitting inside the open plaza with the trader stall boxed off
+      inside it; both are gone now, so the plaza reads as one open shop area —
+      floor, gate posts/lamps and the sign are all that's left of `BaseCamp.luau`
+      (12 descendants, down from 52). **This means there is currently no sell
+      point anywhere in the world** — `EconomyService.sell` and the `"sell"` verb
+      in `DeconService`'s action router still work, nothing in the world can
+      trigger them until a trader (or some other cash-out point) is placed again.
+      Flagged loudly in `BaseCamp.luau`'s header, not silently dropped.
+      `World.verify()` no longer asserts a trader count. Verified: `World.verify()`
+      passes with 0 failures against the emptied camp.
+- [ ] **No sell point exists.** Decide where cash-out lives now — back at camp as a
+      single shared trader again, one per base like the cleansing station, folded
+      into the cleansing station itself, or deferred entirely in favour of the
+      Exhibition income loop once that's built. Blocks any real economy testing
+      until decided.
+- [ ] Verify the six per-base Decon stations end-to-end in Play (blocked — see §9)
 - [ ] Exhibition **income accrual**: yield loop, offline banking, 60s uncrate, duplicate
       damping. Every constant it needs already exists in `Tuning.EXHIBIT_*`; only the
       service is missing. This is the next plan.
@@ -331,7 +345,8 @@ callouts, and a missing `/pocket` command in the console list).
       that debits on failure is worse than no shop.
 - [ ] Live blackout test: `/zone 4`, wait for blackout, assert the player lands at the
       `RespawnAnchor` and `zoneOf == nil`.
-- [ ] Trader / Decon end-to-end regression after the `StationService` migration.
+- [ ] Decon end-to-end regression after the `StationService` migration. No trader
+      to regression-test any more — it's been removed from the world (see §3).
 - [ ] Border warning card (PLAN §4) — Zone 4 is ~7 seconds to blackout in a Cloth Wrap
       and sits 50 studs behind the camp wall. The fence, verge and sign are in; the
       HUD countdown is not. `ZoneService.onChanged` and `Radiation.survivableSeconds`
