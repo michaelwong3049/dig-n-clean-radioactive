@@ -73,7 +73,10 @@ local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 --- middle of the plaza where a player walks in from the south gate.
 local STALLS = {
 	{ track = "Detector", at = { -42, 45 }, color = C.shopDetector, tagline = "find it deeper" },
-	{ track = "Magnet", at = { 0, 45 }, color = C.shopMagnet, tagline = "pull it harder" },
+	-- roofStyle="arch" is a second reference photo's look (a bowed, rolled-edge
+	-- awning rather than the flat scalloped one) tried on this one stall first,
+	-- deliberately, rather than rolled out to all three at once.
+	{ track = "Magnet", at = { 0, 45 }, color = C.shopMagnet, tagline = "pull it harder", roofStyle = "arch" },
 	{ track = "Cleaner", at = { 42, 45 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
 }
 
@@ -125,6 +128,68 @@ local function buildAwning(parent: Instance, origin: CFrame, centerZ: number, ro
 			canCollide = false,
 		})
 	end
+end
+
+-- ── The bowed awning ─────────────────────────────────────────────────────────
+
+--- A second awning style — a bowed, rolled-edge canopy rather than a flat one, from
+--- a second reference photo. Built as SEGMENTS flat panels walked around a shallow
+--- arc (a cheap fake-curve trick this project's chunky low-poly language already
+--- leans on elsewhere) instead of a real curved surface, which Roblox parts can't
+--- do at all. Each segment is a Block, so unlike the scalloped awning's spheres,
+--- ITS SIZE STAYS {length, depth, thickness} REGARDLESS OF ROTATION — a Block's
+--- local axes rotate WITH it, unlike a Cylinder's fixed local axis, so there is no
+--- "which number is the axis" trap here to get backwards.
+---
+--- Returns the arc's peak Y so the caller can float the sign above it without
+--- re-deriving the same trig.
+local function buildArchAwning(parent: Instance, origin: CFrame, centerZ: number, baseY: number, depth: number, color: string): number
+	local segments = 7
+	local halfAngle = 35 -- degrees either side of the peak
+	local radius = 12
+	local pivotY = baseY + radius * (1 - math.cos(math.rad(halfAngle)))
+
+	for i = 0, segments - 1 do
+		local angle = -halfAngle + i * (2 * halfAngle) / (segments - 1)
+		local rad = math.rad(angle)
+		local x = radius * math.sin(rad)
+		local y = pivotY - radius * (1 - math.cos(rad))
+		local stripeColor = if i % 2 == 0 then color else C.labelText
+		-- Only Z rotates (Kit.ang(0,0,angle)), so local Y and Z stay world Y and
+		-- Z: Y has to be the thin dimension and Z the stall's depth, or this
+		-- renders as a wall of vertical spikes instead of a flat roof panel.
+		build(parent, origin, {
+			name = "ArchSegment",
+			pos = { x, y, centerZ },
+			size = { 2.6, 0.6, depth },
+			color = stripeColor,
+			material = "SmoothPlastic",
+			rot = Kit.ang(0, 0, angle),
+			canCollide = false,
+		})
+	end
+
+	-- The rolled scroll ends -- the chunky wood "log" the fabric wraps around at
+	-- each edge, the detail that reads as "bowed canopy" rather than just "two
+	-- ramps." A Cylinder's axis is ALWAYS size[1] regardless of rot, so length
+	-- goes first here even though it reads oddly next to the two diameters.
+	for _, side in { -1, 1 } do
+		local rad = math.rad(side * halfAngle)
+		local x = radius * math.sin(rad)
+		local y = pivotY - radius * (1 - math.cos(rad))
+		build(parent, origin, {
+			name = "AwningScroll",
+			pos = { x, y, centerZ },
+			size = { depth + 1, 1.6, 1.6 },
+			color = C.wood,
+			material = "Wood",
+			shape = "Cylinder",
+			rot = R.cylAlongZ,
+			canCollide = false,
+		})
+	end
+
+	return pivotY
 end
 
 -- ── The shopkeeper ────────────────────────────────────────────────────────────
@@ -347,11 +412,12 @@ end
 --- awning, a shopkeeper behind the counter, a glowing sign over the roof, a floor
 --- marker for the buy radius, and the shop's signature prop plus a crate of
 --- clutter beside it.
-local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, tagline: string })
+local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, tagline: string, roofStyle: string? })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
 	local origin = CFrame.new(spec.at[1], 0, spec.at[2])
+	local isArch = spec.roofStyle == "arch"
 
 	build(m, origin, {
 		name = "Deck",
@@ -363,14 +429,17 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		rot = R.cylUp,
 	})
 
-	-- Four wood posts holding the awning up.
-	local POST_HEIGHT = 7
-	for _, dx in { -6.5, 6.5 } do
+	-- Four wood posts holding the awning up. The arch style's posts sit wider
+	-- (matching buildArchAwning's edge x, ±6.9) and shorter (6 vs 7) -- its
+	-- reference photo reads as a squatter, cosier kiosk than the flat-roofed one.
+	local POST_HEIGHT = if isArch then 6 else 7
+	local POST_DX = if isArch then 6.9 else 6.5
+	for _, dx in { -POST_DX, POST_DX } do
 		for _, dz in { -10, 2 } do
 			build(m, origin, {
 				name = "Post",
 				pos = { dx, POST_HEIGHT / 2, dz },
-				size = { POST_HEIGHT, 0.8, 0.8 },
+				size = { POST_HEIGHT, if isArch then 1.1 else 0.8, if isArch then 1.1 else 0.8 },
 				color = C.wood,
 				material = "Wood",
 				shape = "Cylinder",
@@ -379,11 +448,14 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		end
 	end
 
-	-- Back and side walls of the booth. Open at the front (+Z), where the counter
-	-- and the approach are.
-	build(m, origin, { name = "BoothBack", pos = { 0, 2.2, -9.6 }, size = { 4.4, 13, 0.4 }, color = C.wood, material = "Wood" })
-	for _, dx in { -6.3, 6.3 } do
-		build(m, origin, { name = "BoothSide", pos = { dx, 2.2, -6.8 }, size = { 4.4, 0.4, 5.6 }, color = C.wood, material = "Wood" })
+	-- Back and side walls of the booth -- the flat-roofed style only. The arch
+	-- style's reference photo is open on all sides, no booth at all, just the
+	-- posts, the roof, and the bench.
+	if not isArch then
+		build(m, origin, { name = "BoothBack", pos = { 0, 2.2, -9.6 }, size = { 4.4, 13, 0.4 }, color = C.wood, material = "Wood" })
+		for _, dx in { -6.3, 6.3 } do
+			build(m, origin, { name = "BoothSide", pos = { dx, 2.2, -6.8 }, size = { 4.4, 0.4, 5.6 }, color = C.wood, material = "Wood" })
+		end
 	end
 
 	-- THE COUNTER. This is the part the whole file exists to place correctly.
@@ -400,18 +472,25 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 
 	buildShopkeeper(m, origin, 0, -7.2, spec.color)
 
-	-- The awning: alternating colour/white stripes across the same footprint the
-	-- old dome used (14 wide, 12 deep, centred on the post span), scalloped along
-	-- the front (+Z) edge, facing the approach.
-	local roofY = POST_HEIGHT - 0.3
-	buildAwning(m, origin, -4, roofY, 14, 12, 2, spec.color)
+	-- The awning, and the Y the sign should float above. The flat style's
+	-- footprint (14 wide, 12 deep, centred on the post span) is the old dome's;
+	-- the arch style returns its own peak height since that's a function of the
+	-- radius and half-angle, not a number worth re-deriving at the call site.
+	local roofTop: number
+	if isArch then
+		roofTop = buildArchAwning(m, origin, -4, POST_HEIGHT, 12, spec.color)
+	else
+		buildAwning(m, origin, -4, POST_HEIGHT - 0.3, 14, 12, 2, spec.color)
+		roofTop = POST_HEIGHT - 0.3
+	end
 
 	-- The glowing bubble sign, floating over the roof peak. Block size is always
 	-- {X, Y, Z} in local space with no rotation applied here, so width has to be
 	-- FIRST and height SECOND or this renders as a tall obelisk instead of a
 	-- wide sign board.
-	build(m, origin, { name = "SignOutline", pos = { 0, roofY + 2.6, -4.2 }, size = { 9.6, 2.6, 0.3 }, color = C.hazardBlack, material = "SmoothPlastic", canCollide = false })
-	local sign = build(m, origin, { name = "Sign", pos = { 0, roofY + 2.6, -3.8 }, size = { 9, 2.2, 0.4 }, color = spec.color, material = "Neon", canCollide = false })
+	local signY = roofTop + 2.6
+	build(m, origin, { name = "SignOutline", pos = { 0, signY, -4.2 }, size = { 9.6, 2.6, 0.3 }, color = C.hazardBlack, material = "SmoothPlastic", canCollide = false })
+	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, -3.8 }, size = { 9, 2.2, 0.4 }, color = spec.color, material = "Neon", canCollide = false })
 	-- Back (local +Z), not Front (-Z): players approach this booth from +Z,
 	-- coming down from the higher local-z porch toward the counter at z=-6, so
 	-- the face pointing back AT them is Back, not Front. Got this backwards on

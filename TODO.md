@@ -211,6 +211,25 @@ the place file has no git history to recover from.
       signs) was blowing its own text out to a blank wash, because `SurfaceGui`
       defaults to full `LightInfluence`. Fixed once, at the shared helper, so every
       sign in the game benefits rather than working around it per caller.
+- [x] **Magnet shop tried a second awning style — a bowed, rolled-edge canopy.** A
+      third reference photo (a different game's "Sell Loot" kiosk) showed a curved
+      rather than flat awning, with thick rolled wood scrolls at each edge and no
+      side/back walls at all. Tried on the Magnet stall alone, deliberately, rather
+      than rolled out to all three — `STALLS` entries now take an optional
+      `roofStyle` field, and `buildStall` branches on it. The curve is faked with 7
+      flat panels walked around a shallow arc (`buildArchAwning`), since Roblox
+      parts can't bend; posts are wider and shorter to match. Green stripes in the
+      reference became the shop's own cyan — green stays reserved for radiation
+      (PLAN §14), so the reference's colour choice didn't carry over, only its shape
+      did. Two real bugs caught by screenshot before shipping, both arithmetic: the
+      arc segments' Y-rotation logic put the stall's DEPTH in the wrong size slot
+      (rendered as a wall of vertical spikes, not roof panels), and the peak-height
+      formula was missing a term (`pivotY - R*cos` instead of `pivotY -
+      R*(1-cos)`), which put the entire arch underground. Fixed by checking a
+      straight-on screenshot against the actual reference photo, not just
+      confirming `World.verify()` stayed green — verify only checks the world
+      CONTRACT (station census, zone plates, no overlaps), never geometry someone
+      would recognise as "wrong shape."
 - [x] **Outfitter bench** — Suit, Boots and Satchel. Not in the original ask, but three
       shops left those three tracks *priced and unbuyable*, and the Suit gates every
       zone, so Zone 2 would have become the locked door PLAN §3.5 promises never to
