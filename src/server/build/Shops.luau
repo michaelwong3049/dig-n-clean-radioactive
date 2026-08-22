@@ -115,7 +115,7 @@ local function buildAwning(parent: Instance, origin: CFrame, centerZ: number, ro
 			pos = { x, roofY, centerZ },
 			size = { 0.5, stripeW - 0.15, depth },
 			color = stripeColor,
-			material = "SmoothPlastic",
+			material = "Plastic",
 			canCollide = false,
 		})
 		build(parent, origin, {
@@ -123,7 +123,7 @@ local function buildAwning(parent: Instance, origin: CFrame, centerZ: number, ro
 			pos = { x, roofY - 0.6, frontZ },
 			size = { bobble, bobble, bobble },
 			color = stripeColor,
-			material = "SmoothPlastic",
+			material = "Plastic",
 			shape = "Ball",
 			canCollide = false,
 		})
@@ -163,7 +163,7 @@ local function buildArchAwning(parent: Instance, origin: CFrame, centerZ: number
 			pos = { x, y, centerZ },
 			size = { 2.6, 0.6, depth },
 			color = stripeColor,
-			material = "SmoothPlastic",
+			material = "Plastic",
 			rot = Kit.ang(0, 0, angle),
 			canCollide = false,
 		})
@@ -198,10 +198,10 @@ end
 --- Friendlier than the Outfitter's hazmat mannequin prop: bare peach head, no
 --- helmet, torso in the shop's own colour like a shirt.
 local function buildShopkeeper(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "KeeperTorso", pos = { x, 3.6, z }, size = { 2.0, 1.8, 1.0 }, color = color, material = "SmoothPlastic", canCollide = false })
-	build(parent, origin, { name = "KeeperHead", pos = { x, 5.1, z }, size = { 1.3, 1.3, 1.3 }, color = C.lampWarm, material = "SmoothPlastic", shape = "Ball", canCollide = false })
+	build(parent, origin, { name = "KeeperTorso", pos = { x, 3.6, z }, size = { 2.0, 1.8, 1.0 }, color = color, material = "Plastic", canCollide = false })
+	build(parent, origin, { name = "KeeperHead", pos = { x, 5.1, z }, size = { 1.3, 1.3, 1.3 }, color = C.lampWarm, material = "Plastic", shape = "Ball", canCollide = false })
 	for _, dx in { -1.25, 1.25 } do
-		build(parent, origin, { name = "KeeperArm", pos = { x + dx, 3.6, z }, size = { 1.6, 0.5, 0.5 }, color = color, material = "SmoothPlastic", shape = "Cylinder", canCollide = false })
+		build(parent, origin, { name = "KeeperArm", pos = { x + dx, 3.6, z }, size = { 1.6, 0.5, 0.5 }, color = color, material = "Plastic", shape = "Cylinder", canCollide = false })
 	end
 end
 
@@ -241,11 +241,11 @@ end
 --- box and a crossbar grip near the top. The coil-and-shaft silhouette is the one
 --- unmistakable "detector" shape, so it carries the whole prop.
 local function buildDetectorProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "DetectorCoil", pos = { x, 0.3, z }, size = { 0.4, 4.2, 4.2 }, color = C.steelDark, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-	build(parent, origin, { name = "DetectorCoilTrim", pos = { x, 0.55, z }, size = { 0.15, 3.4, 3.4 }, color = color, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-	build(parent, origin, { name = "DetectorShaft", pos = { x, 3.6, z }, size = { 6.5, 0.35, 0.35 }, color = C.steel, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-	build(parent, origin, { name = "DetectorBox", pos = { x, 5.6, z }, size = { 1.1, 1.3, 0.8 }, color = color, material = "SmoothPlastic", canCollide = false })
-	build(parent, origin, { name = "DetectorGrip", pos = { x, 6.9, z }, size = { 1.8, 0.3, 0.3 }, color = C.steel, material = "SmoothPlastic", canCollide = false })
+	build(parent, origin, { name = "DetectorCoil", pos = { x, 0.3, z }, size = { 0.4, 4.2, 4.2 }, color = C.steelDark, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "DetectorCoilTrim", pos = { x, 0.55, z }, size = { 0.15, 3.4, 3.4 }, color = color, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "DetectorShaft", pos = { x, 3.6, z }, size = { 6.5, 0.35, 0.35 }, color = C.steel, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "DetectorBox", pos = { x, 5.6, z }, size = { 1.1, 1.3, 0.8 }, color = color, material = "Plastic", canCollide = false })
+	build(parent, origin, { name = "DetectorGrip", pos = { x, 6.9, z }, size = { 1.8, 0.3, 0.3 }, color = C.steel, material = "Plastic", canCollide = false })
 end
 
 --- A horseshoe magnet: two vertical prongs, a connecting bar at the bottom, white
@@ -254,18 +254,18 @@ end
 --- match the cliché everyone already knows.
 local function buildMagnetProp(parent: Instance, origin: CFrame, x: number, z: number)
 	for _, dx in { -0.9, 0.9 } do
-		build(parent, origin, { name = "MagnetProng", pos = { x + dx, 2.5, z }, size = { 5, 0.9, 0.9 }, color = C.barrelRust, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-		build(parent, origin, { name = "MagnetTip", pos = { x + dx, 5.1, z }, size = { 0.3, 1.0, 1.0 }, color = C.labelText, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+		build(parent, origin, { name = "MagnetProng", pos = { x + dx, 2.5, z }, size = { 5, 0.9, 0.9 }, color = C.barrelRust, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+		build(parent, origin, { name = "MagnetTip", pos = { x + dx, 5.1, z }, size = { 0.3, 1.0, 1.0 }, color = C.labelText, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
 	end
 	-- Unrotated: a Cylinder's axis is local X by default, which is exactly the
 	-- direction that needs to span between the two prongs — no rot needed.
-	build(parent, origin, { name = "MagnetBase", pos = { x, 0.45, z }, size = { 2.7, 0.9, 0.9 }, color = C.barrelRust, material = "SmoothPlastic", shape = "Cylinder", canCollide = false })
+	build(parent, origin, { name = "MagnetBase", pos = { x, 0.45, z }, size = { 2.7, 0.9, 0.9 }, color = C.barrelRust, material = "Plastic", shape = "Cylinder", canCollide = false })
 end
 
 --- A bucket, suds and a scrub brush leaning against it.
 local function buildCleanerProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "Bucket", pos = { x, 1.1, z }, size = { 2.2, 2.6, 2.6 }, color = color, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-	build(parent, origin, { name = "BucketRim", pos = { x, 2.25, z }, size = { 0.2, 2.8, 2.8 }, color = C.labelText, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "Bucket", pos = { x, 1.1, z }, size = { 2.2, 2.6, 2.6 }, color = color, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "BucketRim", pos = { x, 2.25, z }, size = { 0.2, 2.8, 2.8 }, color = C.labelText, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
 
 	for _, offset in { { -0.5, 0 }, { 0.4, 0.3 }, { 0, -0.4 } } do
 		build(parent, origin, {
@@ -273,27 +273,27 @@ local function buildCleanerProp(parent: Instance, origin: CFrame, x: number, z: 
 			pos = { x + offset[1], 2.7, z + offset[2] },
 			size = { 0.7, 0.7, 0.7 },
 			color = C.labelText,
-			material = "SmoothPlastic",
+			material = "Plastic",
 			shape = "Ball",
 			transparency = 0.15,
 			canCollide = false,
 		})
 	end
 
-	build(parent, origin, { name = "BrushHandle", pos = { x + 2.0, 2.0, z }, size = { 4.0, 0.3, 0.3 }, color = C.canvas, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-	build(parent, origin, { name = "BrushHead", pos = { x + 2.0, 4.2, z }, size = { 0.6, 1.6, 1.6 }, color = C.labelText, material = "SmoothPlastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "BrushHandle", pos = { x + 2.0, 2.0, z }, size = { 4.0, 0.3, 0.3 }, color = C.canvas, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
+	build(parent, origin, { name = "BrushHead", pos = { x + 2.0, 4.2, z }, size = { 0.6, 1.6, 1.6 }, color = C.labelText, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
 end
 
 --- A standing hazmat suit: torso, helmet with a visor, boots, arms.
 local function buildSuitProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "SuitTorso", pos = { x, 2.6, z }, size = { 2.2, 1.8, 1.2 }, color = color, material = "SmoothPlastic", canCollide = false })
-	build(parent, origin, { name = "SuitHelmet", pos = { x, 4.1, z }, size = { 1.6, 1.6, 1.6 }, color = C.labelText, material = "SmoothPlastic", shape = "Ball", canCollide = false })
-	build(parent, origin, { name = "SuitVisor", pos = { x, 4.1, z - 0.75 }, size = { 0.9, 0.7, 0.15 }, color = C.cyan, material = "SmoothPlastic", canCollide = false })
+	build(parent, origin, { name = "SuitTorso", pos = { x, 2.6, z }, size = { 2.2, 1.8, 1.2 }, color = color, material = "Plastic", canCollide = false })
+	build(parent, origin, { name = "SuitHelmet", pos = { x, 4.1, z }, size = { 1.6, 1.6, 1.6 }, color = C.labelText, material = "Plastic", shape = "Ball", canCollide = false })
+	build(parent, origin, { name = "SuitVisor", pos = { x, 4.1, z - 0.75 }, size = { 0.9, 0.7, 0.15 }, color = C.cyan, material = "Plastic", canCollide = false })
 	for _, dx in { -1.4, 1.4 } do
-		build(parent, origin, { name = "SuitArm", pos = { x + dx, 2.7, z }, size = { 1.5, 0.5, 0.5 }, color = color, material = "SmoothPlastic", canCollide = false })
+		build(parent, origin, { name = "SuitArm", pos = { x + dx, 2.7, z }, size = { 1.5, 0.5, 0.5 }, color = color, material = "Plastic", canCollide = false })
 	end
 	for _, dx in { -0.5, 0.5 } do
-		build(parent, origin, { name = "SuitBoot", pos = { x + dx, 0.6, z }, size = { 0.7, 0.7, 1.0 }, color = C.hazardBlack, material = "SmoothPlastic", canCollide = false })
+		build(parent, origin, { name = "SuitBoot", pos = { x + dx, 0.6, z }, size = { 0.7, 0.7, 1.0 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
 	end
 end
 
@@ -304,10 +304,10 @@ end
 --- brown is also just what boots and satchels actually look like.
 local function buildBootsProp(parent: Instance, origin: CFrame, x: number, z: number)
 	for _, dx in { -1.1, 1.1 } do
-		build(parent, origin, { name = "BootFoot", pos = { x + dx, 0.55, z + 0.3 }, size = { 1.5, 0.7, 1.5 }, color = C.wood, material = "SmoothPlastic", canCollide = false })
-		build(parent, origin, { name = "BootSole", pos = { x + dx, 0.18, z + 0.3 }, size = { 1.6, 0.15, 1.6 }, color = C.hazardBlack, material = "SmoothPlastic", canCollide = false })
-		build(parent, origin, { name = "BootShaft", pos = { x + dx, 1.5, z - 0.4 }, size = { 0.9, 1.4, 0.9 }, color = C.wood, material = "SmoothPlastic", canCollide = false })
-		build(parent, origin, { name = "BootLace", pos = { x + dx, 1.5, z - 0.85 }, size = { 0.3, 1.3, 0.15 }, color = C.shopOutfitter, material = "SmoothPlastic", canCollide = false })
+		build(parent, origin, { name = "BootFoot", pos = { x + dx, 0.55, z + 0.3 }, size = { 1.5, 0.7, 1.5 }, color = C.wood, material = "Plastic", canCollide = false })
+		build(parent, origin, { name = "BootSole", pos = { x + dx, 0.18, z + 0.3 }, size = { 1.6, 0.15, 1.6 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
+		build(parent, origin, { name = "BootShaft", pos = { x + dx, 1.5, z - 0.4 }, size = { 0.9, 1.4, 0.9 }, color = C.wood, material = "Plastic", canCollide = false })
+		build(parent, origin, { name = "BootLace", pos = { x + dx, 1.5, z - 0.85 }, size = { 0.3, 1.3, 0.15 }, color = C.shopOutfitter, material = "Plastic", canCollide = false })
 	end
 end
 
@@ -316,16 +316,16 @@ end
 --- don't bend, and two straight struts read as a handle loop close enough at
 --- this chunky, low-poly scale.
 local function buildSatchelProp(parent: Instance, origin: CFrame, x: number, z: number)
-	build(parent, origin, { name = "SatchelBody", pos = { x, 1.6, z }, size = { 1.8, 1.6, 1.1 }, color = C.wood, material = "SmoothPlastic", shape = "Ball", canCollide = false })
-	build(parent, origin, { name = "SatchelFlap", pos = { x, 2.0, z - 0.55 }, size = { 1.6, 0.9, 0.3 }, color = C.woodLight, material = "SmoothPlastic", canCollide = false })
-	build(parent, origin, { name = "SatchelBuckle", pos = { x, 1.9, z - 0.72 }, size = { 0.35, 0.35, 0.15 }, color = C.hazard, material = "SmoothPlastic", canCollide = false })
+	build(parent, origin, { name = "SatchelBody", pos = { x, 1.6, z }, size = { 1.8, 1.6, 1.1 }, color = C.wood, material = "Plastic", shape = "Ball", canCollide = false })
+	build(parent, origin, { name = "SatchelFlap", pos = { x, 2.0, z - 0.55 }, size = { 1.6, 0.9, 0.3 }, color = C.woodLight, material = "Plastic", canCollide = false })
+	build(parent, origin, { name = "SatchelBuckle", pos = { x, 1.9, z - 0.72 }, size = { 0.35, 0.35, 0.15 }, color = C.hazard, material = "Plastic", canCollide = false })
 	for _, side in { -1, 1 } do
 		build(parent, origin, {
 			name = "SatchelStrap",
 			pos = { x + side * 0.5, 2.7, z },
 			size = { 1.3, 0.22, 0.22 },
 			color = C.woodLight,
-			material = "SmoothPlastic",
+			material = "Plastic",
 			rot = Kit.ang(0, 0, side * -35),
 			canCollide = false,
 		})
@@ -367,7 +367,7 @@ local function buildCrateProp(parent: Instance, origin: CFrame, x: number, z: nu
 			canCollide = false,
 		})
 	end
-	build(parent, origin, { name = "CrateGoods", pos = { x, 2.55, z }, size = { 0.9, 0.9, 0.9 }, color = color, material = "SmoothPlastic", shape = "Ball", canCollide = false })
+	build(parent, origin, { name = "CrateGoods", pos = { x, 2.55, z }, size = { 0.9, 0.9, 0.9 }, color = color, material = "Plastic", shape = "Ball", canCollide = false })
 end
 
 -- ── The counter ───────────────────────────────────────────────────────────────
@@ -401,7 +401,7 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 		attributes = attrs,
 	})
 
-	build(parent, origin, { name = "CounterTrim", pos = { 0, 2.25, z }, size = { 0.3, w + 0.4, d + 0.4 }, color = spec.color, material = "SmoothPlastic", canCollide = false })
+	build(parent, origin, { name = "CounterTrim", pos = { 0, 2.25, z }, size = { 0.3, w + 0.4, d + 0.4 }, color = spec.color, material = "Plastic", canCollide = false })
 
 	return desk
 end
@@ -424,7 +424,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		pos = { 0, -0.3, 0 },
 		size = { 0.6, 20, 20 },
 		color = C.plazaWarm,
-		material = "SmoothPlastic",
+		material = "Plastic",
 		shape = "Cylinder",
 		rot = R.cylUp,
 	})
@@ -489,7 +489,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- FIRST and height SECOND or this renders as a tall obelisk instead of a
 	-- wide sign board.
 	local signY = roofTop + 2.6
-	build(m, origin, { name = "SignOutline", pos = { 0, signY, -4.2 }, size = { 9.6, 2.6, 0.3 }, color = C.hazardBlack, material = "SmoothPlastic", canCollide = false })
+	build(m, origin, { name = "SignOutline", pos = { 0, signY, -4.2 }, size = { 9.6, 2.6, 0.3 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
 	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, -3.8 }, size = { 9, 2.2, 0.4 }, color = spec.color, material = "Neon", canCollide = false })
 	-- Back (local +Z), not Front (-Z): players approach this booth from +Z,
 	-- coming down from the higher local-z porch toward the counter at z=-6, so
@@ -529,7 +529,7 @@ local function buildOutfitter(parent: Instance)
 
 	build(m, origin, { name = "Bench", pos = { 0, -0.2, 0 }, size = { span + 18, 0.4, 12 }, color = C.wood, material = "Wood" })
 
-	build(m, origin, { name = "BackboardOutline", pos = { 0, 3.3, 5.2 }, size = { span + 19, 6.4, 0.4 }, color = C.hazardBlack, material = "SmoothPlastic" })
+	build(m, origin, { name = "BackboardOutline", pos = { 0, 3.3, 5.2 }, size = { span + 19, 6.4, 0.4 }, color = C.hazardBlack, material = "Plastic" })
 	local backboard = build(m, origin, { name = "Backboard", pos = { 0, 3.3, 5 }, size = { span + 18, 6, 0.5 }, color = C.shopOutfitter, material = "Neon" })
 	Kit.surfaceText(backboard, Enum.NormalId.Front, "OUTFITTER", C.signText)
 	light(backboard, C.shopOutfitter, 24, 1.8)
