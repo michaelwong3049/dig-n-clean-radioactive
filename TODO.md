@@ -147,6 +147,32 @@ everything and then runs `World.verify()` over the result.
       "looks like" that value), and `Glass` was properly translucent but tinted
       everything blue instead of acid green. Settled on `Neon` at 0.82 transparency
       — sand and props visibly show through, colour stays correct.
+- [x] **Plots, shop plaza and the radiation field pulled together into one
+      connected complex**, per the requested layout: base column — shop area —
+      radiation, directly adjacent rather than distant blocks joined by long empty
+      roads. Both connectors (`Hub.luau`'s `CampToRadiationRoad`, `Plots.luau`'s
+      west trunk) shrank from 60 studs to 20. `Hub.luau` now derives the east
+      connector's endpoint from `Zones.get(1)`'s actual west edge instead of a
+      second hardcoded `140` next to `Zones.luau`'s own number — one source of
+      truth instead of two that could drift. `Plots.PLOT_X`/`SPINE_X` moved
+      together by the same 40 studs so the plot-to-spine stub length is
+      unchanged; only the spine-to-hub trunk got shorter. `Zone1.center` moved
+      from `{470,0}` to `{430,0}`; `stationDistance` re-measured by the same 40
+      studs (230→190) per the file's own "measured, not aspirational" rule.
+      **Real bug found verifying this**: updating a ModuleScript's `.Source` live
+      in Studio does NOT reload code already `require()`'d elsewhere in the same
+      session — Luau caches by Instance identity, and
+      `ReplicatedStorage.Shared.Config.Zones` had been `require()`'d many times
+      earlier in this session through the "fresh-clone-the-Server-folder"
+      verification pattern this project uses. Cloning `Server` makes fresh
+      copies of everything *under* it, but `Zones` lives in
+      `ReplicatedStorage.Shared`, outside that clone, so every "fresh" test was
+      still resolving the STALE cached table — `World.verify()` kept passing
+      while `workspace.Zones.Zone1` sat exactly where it always had. Caught by
+      directly measuring the live part's position and finding it hadn't moved,
+      not by trusting a green checkmark. Fixed by destroying and recreating the
+      `Zones` ModuleScript instance itself (same name, same parent, same
+      source) to force a genuine cache miss on the next `require`.
 
 **Current map direction.** The MVP world is intentionally one radiation area. The old
 Zones 2–4 geometry is not generated, but the useful loot pools remain available as the

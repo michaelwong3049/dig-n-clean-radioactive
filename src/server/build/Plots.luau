@@ -95,7 +95,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 4
+local BUILDER_VERSION = 5
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -106,7 +106,7 @@ Plots.PAD = { width = 66, depth = 52, topY = 1.5, thickness = 3 }
 
 --- One column, one X. Stacked along Z so the whole block reads as a single line
 --- of plots, per the requested layout — see the header diagram.
-Plots.PLOT_X = -200
+Plots.PLOT_X = -160
 
 --- Spacing = pad.depth (52) + a 14-stud gap, so plots pack tight without
 --- touching. Six values, symmetric about z=0.
@@ -120,11 +120,14 @@ Plots.CENTERS = {
 }
 
 --- Where the north-south spine sits. Far enough east of the plot column that each
---- stub (from `PLOT_X + pad.width/2` to here) reads as a short private lane, far
---- enough west of the hub that the trunk into the west gate matches the east
---- road's 60-stud length (`Hub.PLAZA.size/2` = 80 → 140 is the same span as
---- -80 → -140 here).
-Plots.SPINE_X = -140
+--- stub (from `PLOT_X + pad.width/2` to here) still reads as a short private
+--- lane, close enough to the hub that the trunk into the west gate is a short
+--- connector (20 studs, `Hub.PLAZA.size/2` = 80 → 100) rather than a long empty
+--- road — matching the east side, where Hub.luau derives the same kind of short
+--- connector from Zone 1's actual edge. Both PLOT_X and SPINE_X moved together
+--- by the same 40 studs from their original values (-200, -140) so the stub
+--- length between them is unchanged; only the trunk got shorter.
+Plots.SPINE_X = -100
 
 --- Two flanking columns, paired off row by row — odd slots go left, even slots
 --- go right, and each pair shares a Z so the sketch's row-by-row symmetry holds.

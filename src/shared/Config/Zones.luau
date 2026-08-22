@@ -103,11 +103,17 @@ Zones.DEFS = {
 		baseRads = 0.5,
 		soilHardness = 1,
 		ratedSuitTier = 1,
-		stationDistance = 230,
+		-- Was 230 before the hub-to-field connector shrank by 40 studs (Hub.luau's
+		-- CampToRadiationRoad) so the plaza and the field read as one connected
+		-- complex rather than two places joined by a long empty road. Re-measured
+		-- by that same 40, not re-walked stud-for-stud — close enough to stay
+		-- honest per the header's "measured, not aspirational" rule without
+		-- re-deriving the whole number from scratch.
+		stationDistance = 190,
 		fogColor = Color3.fromHex("CFF3FF"),
 		fogEnd = 900,
 		loot = { Scrap = 55, Common = 28, Uncommon = 12, Rare = 4, Epic = 0.8, Legendary = 0.15, Mythic = 0.04, Anomaly = 0.002 },
-		center = { 470, 0 },
+		center = { 430, 0 },
 		size = { 660, 320 },
 		color = "6F9636",
 		material = "Sand",

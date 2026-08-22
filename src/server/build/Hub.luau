@@ -18,12 +18,14 @@
 ]]
 
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Zones = require(ReplicatedStorage.Shared.Config.Zones)
 local Kit = require(script.Parent.Kit)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 1
+local BUILDER_VERSION = 2
 
 local C = Kit.C
 local build = Kit.build
@@ -121,8 +123,15 @@ end
 local function buildRoads(hub: Model)
 	local half = Hub.PLAZA.size / 2
 	-- A single straight route teaches the map order: plots and camp are west,
-	-- then each radioactive field begins after a short safe connector.
-	buildRoad(hub, "CampToRadiationRoad", Vector3.new(half, 0, 0), Vector3.new(140, 0, 0), 34)
+	-- then each radioactive field begins after a short safe connector. The
+	-- connector's far end is DERIVED from Zone 1's actual west edge, not a
+	-- second hardcoded number next to Zones.luau's — a short connector is the
+	-- whole point (the plaza and the field read as one connected complex, not
+	-- two places joined by a long empty road), and a mismatched literal here
+	-- would either strand the road short of the field or run it into the ooze.
+	local zone1 = Zones.get(1)
+	local zone1WestEdge = zone1.center[1] - zone1.size[1] / 2
+	buildRoad(hub, "CampToRadiationRoad", Vector3.new(half, 0, 0), Vector3.new(zone1WestEdge, 0, 0), 34)
 end
 
 --- THE BLACKOUT ANCHOR — see ExposureService.baseCampCFrame.
