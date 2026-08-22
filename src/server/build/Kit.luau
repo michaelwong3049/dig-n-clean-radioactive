@@ -179,12 +179,18 @@ function Kit.light(part: BasePart, color: string, range: number, brightness: num
 end
 
 --- The floating "TRADER / turn it into cash" card over each station.
-function Kit.billboard(part: BasePart, width: number, height: number, title: string, subtitle: string, subColor: string)
+---
+--- `maxDistance` defaults to 40 studs -- far enough to read the label while
+--- you're still walking up, close enough that it isn't cluttering the screen
+--- from clear across the plaza or the field. `math.huge` (every label, every
+--- station, visible from anywhere) was the previous behaviour and is exactly
+--- the "taking up a lot of screen real estate" complaint this fixes.
+function Kit.billboard(part: BasePart, width: number, height: number, title: string, subtitle: string, subColor: string, maxDistance: number?)
 	local gui = Instance.new("BillboardGui")
 	gui.Size = UDim2.fromOffset(width, 52)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, height, 0)
 	gui.AlwaysOnTop = true
-	gui.MaxDistance = math.huge
+	gui.MaxDistance = maxDistance or 40
 	gui.Parent = part
 
 	local head = Instance.new("TextLabel")
