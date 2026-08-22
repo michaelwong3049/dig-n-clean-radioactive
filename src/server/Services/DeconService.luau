@@ -34,6 +34,7 @@ local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local StationService = require(script.Parent.StationService)
 local ShopService = require(script.Parent.ShopService)
+local ExhibitService = require(script.Parent.ExhibitService)
 
 local DeconService = {}
 
@@ -233,10 +234,23 @@ local function stepPlayer(player: Player, dt: number)
 	local current = scrubbing[player]
 	local offer = if kind == "shop" and stationId then ShopService.offerFor(data, stationId) else nil
 
+	-- Plot/pedestal panels reuse this same tick+payload rather than a fourth
+	-- remote — see the trader/decon/shop precedent this file already sets.
+	local plotView = if kind == "plot" and stationId then ExhibitService.plotViewFor(player, tonumber(stationId) :: number, data) else nil
+	local standView = nil
+	if kind == "pedestal" and stationId then
+		local plotIndex, slotStr = string.match(stationId, "^(%d+):(%d+)$")
+		if plotIndex and slotStr then
+			standView = ExhibitService.standViewFor(player, tonumber(plotIndex) :: number, tonumber(slotStr) :: number, data)
+		end
+	end
+
 	stateRemote:FireClient(player, {
 		station = kind,
 		stationId = stationId,
 		offer = offer,
+		plotView = plotView,
+		standView = standView,
 		cash = data.cash,
 		xp = data.xp,
 		potency = stats.cleanPotency,
@@ -325,6 +339,30 @@ function DeconService.start()
 			resultRemote:FireClient(player, message)
 			if ok then
 				print(`[shop] {player.Name}: {message}`)
+			end
+		elseif request.action == "display" then
+			local ok, message = ExhibitService.display(player, tostring(request.uid))
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[exhibit] {player.Name}: {message}`)
+			end
+		elseif request.action == "undisplay" then
+			local ok, message = ExhibitService.undisplay(player)
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[exhibit] {player.Name}: {message}`)
+			end
+		elseif request.action == "collect" then
+			local ok, message = ExhibitService.collect(player)
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[exhibit] {player.Name}: {message}`)
+			end
+		elseif request.action == "buySlot" then
+			local ok, message = ExhibitService.buySlot(player)
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[exhibit] {player.Name}: {message}`)
 			end
 		elseif request.action == "rack" then
 			if kind ~= "decon" then

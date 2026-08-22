@@ -228,9 +228,20 @@ the place file has no git history to recover from.
       Exhibition income loop once that's built. Blocks any real economy testing
       until decided.
 - [ ] Verify the six per-base Decon stations end-to-end in Play (blocked — see §9)
-- [ ] Exhibition **income accrual**: yield loop, offline banking, 60s uncrate, duplicate
-      damping. Every constant it needs already exists in `Tuning.EXHIBIT_*`; only the
-      service is missing. This is the next plan.
+- [x] Exhibition **income accrual**: `ExhibitService.luau` — plot assignment (per-session,
+      never persisted, matching `Plots.luau`'s own contract), yield loop (duplicate damping,
+      hourly cap approximated as a rate clamp), offline banking, 60s uncrate delay, and
+      the four new actions (`display`/`undisplay`/`collect`/`buySlot`) wired through the
+      existing `StationState`/`StationAction`/`StationResult` triad — no new remotes,
+      mirroring the `ShopService` delegation pattern exactly. `StationController.luau` grew
+      matching "plot" (claim board: banked cash, COLLECT, next-slot price, BUY SLOT) and
+      "pedestal" (locked/occupied/empty states; the empty+unlocked picker reuses the same
+      carry-list rows the decon panel already draws) panels. `World.verify()` passes; a
+      function-level smoke test against a freshly-cloned `Server` folder confirmed
+      `plotViewFor`/`standViewFor` compute correctly and `display`/`collect` fail closed
+      for a player with no loaded profile. **Full Play-mode regression (buy at $200, retry
+      at $80, display/undisplay/collect with a real character) is still blocked — see §9,
+      same wedged Play toggle.**
 - [ ] Set `MaxPlayers = 6` in Studio Game Settings so plots and players are 1:1
       (a place setting — Rojo cannot capture it)
 
@@ -241,9 +252,13 @@ the place file has no git history to recover from.
       one function so two purchases cannot both clear against the same balance.
 - [x] `Gear.PROFILE_KEY` — one capitalised-track → lowercase-profile mapping for all six
       tracks, replacing a 3-entry local in `ToolService`
-- [ ] Per-pedestal display state in the profile (extends the existing `exhibit` field)
-- [ ] Yield accrual + offline banking (see §3)
-- [ ] `StatResolver` hook for exhibition-yield multipliers
+- [x] Per-pedestal display state in the profile — `data.exhibit.pedestals` stays a dense
+      array (each entry carries its own `slot` field) to satisfy ProfileStore's no-gaps
+      rule rather than being indexed by slot number; see §3
+- [x] Yield accrual + offline banking (see §3)
+- [x] `StatResolver` hook for exhibition-yield multipliers — `yieldMultiplier` already
+      existed (Curator perk hook, built before `ExhibitService` existed to read it);
+      `ExhibitService.rawRatePerSecond` is the first caller
 
 ## 5. Mechanical loop content — Phase 4
 
@@ -383,9 +398,11 @@ callouts, and a missing `/pocket` command in the console list).
 
 ## 9. Blocked / needs a human
 
-- [ ] **Studio's Play toggle is wedged.** `start_stop_play` reports "Start play hasn't
-      finished yet" and will not enter or leave Play. Needs a manual Play/Stop (or a
-      Studio restart) to clear. Everything below is waiting on that, not on code.
+- [ ] **Studio's Play toggle is wedged.** `start_stop_play` times out and will not enter
+      or leave Play (reconfirmed this pass — a fresh attempt failed with a request
+      timeout after 2+ minutes, Studio left cleanly in Edit mode). Needs a manual
+      Play/Stop (or a Studio restart) to clear. Everything below is waiting on that,
+      not on code.
 - [ ] Live purchase test: buy at $200 (expect gear 1→2, cash exactly −120, held model
       swaps within ~0.5s), then retry at $80 and assert it is refused **with no state
       change** — the negative case matters more than the positive one, since a shop
@@ -394,6 +411,14 @@ callouts, and a missing `/pocket` command in the console list).
       `RespawnAnchor` and `zoneOf == nil`.
 - [ ] Decon end-to-end regression after the `StationService` migration. No trader
       to regression-test any more — it's been removed from the world (see §3).
+- [ ] Live Exhibition test: display an item at your own stand (real carry list, real
+      station derived from standing at a real pedestal), confirm it renders on the
+      physical stand and blocks undisplay for 60s, then collect banked cash at the
+      claim board and buy the next pedestal slot. `ExhibitService`'s pure logic
+      (`plotViewFor`/`standViewFor`, fail-closed with no profile) is already smoke-tested
+      outside Play — see §3 — but nothing has exercised the position-derived station
+      security property or the actual `Workspace` render (`Display{n}` color/transparency)
+      with a real character yet.
 - [ ] Border warning card (PLAN §4) — Zone 4 is ~7 seconds to blackout in a Cloth Wrap
       and sits 50 studs behind the camp wall. The fence, verge and sign are in; the
       HUD countdown is not. `ZoneService.onChanged` and `Radiation.survivableSeconds`

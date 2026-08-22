@@ -200,6 +200,148 @@ local function build(): ScreenGui
 	buyCorner.CornerRadius = UDim.new(0, 8)
 	buyCorner.Parent = ui.buyButton
 
+	-- ── Plot mode (claim board) ─────────────────────────────────────────
+	-- Same reasoning as Shop mode: a claim board IS a station, so it reuses
+	-- this panel and the StationAction triad rather than a parallel one.
+	local plot = Instance.new("Frame")
+	plot.Name = "Plot"
+	plot.LayoutOrder = 26
+	plot.Size = UDim2.fromScale(1, 0)
+	plot.AutomaticSize = Enum.AutomaticSize.Y
+	plot.BackgroundTransparency = 1
+	plot.Visible = false
+	plot.Parent = panel
+	ui.plot = plot
+
+	local plotLayout = Instance.new("UIListLayout")
+	plotLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	plotLayout.Padding = UDim.new(0, 6)
+	plotLayout.Parent = plot
+
+	ui.plotBanked = Instance.new("TextLabel")
+	ui.plotBanked.LayoutOrder = 1
+	ui.plotBanked.Size = UDim2.new(1, 0, 0, 22)
+	ui.plotBanked.BackgroundTransparency = 1
+	ui.plotBanked.Font = Enum.Font.Code
+	ui.plotBanked.TextSize = 15
+	ui.plotBanked.TextXAlignment = Enum.TextXAlignment.Left
+	ui.plotBanked.TextColor3 = COLOR.green
+	ui.plotBanked.Text = ""
+	ui.plotBanked.Parent = plot
+
+	ui.collectButton = Instance.new("TextButton")
+	ui.collectButton.Name = "Collect"
+	ui.collectButton.LayoutOrder = 2
+	ui.collectButton.Size = UDim2.new(1, 0, 0, 38)
+	ui.collectButton.BackgroundColor3 = COLOR.panel
+	ui.collectButton.BackgroundTransparency = 0.25
+	ui.collectButton.BorderSizePixel = 0
+	ui.collectButton.AutoButtonColor = true
+	ui.collectButton.Font = Enum.Font.GothamBold
+	ui.collectButton.TextSize = 15
+	ui.collectButton.TextColor3 = COLOR.green
+	ui.collectButton.Text = "COLLECT"
+	ui.collectButton.Parent = plot
+
+	local collectCorner = Instance.new("UICorner")
+	collectCorner.CornerRadius = UDim.new(0, 8)
+	collectCorner.Parent = ui.collectButton
+
+	ui.slotsInfo = Instance.new("TextLabel")
+	ui.slotsInfo.LayoutOrder = 3
+	ui.slotsInfo.Size = UDim2.new(1, 0, 0, 20)
+	ui.slotsInfo.BackgroundTransparency = 1
+	ui.slotsInfo.Font = Enum.Font.Code
+	ui.slotsInfo.TextSize = 13
+	ui.slotsInfo.TextXAlignment = Enum.TextXAlignment.Left
+	ui.slotsInfo.TextColor3 = COLOR.dim
+	ui.slotsInfo.Text = ""
+	ui.slotsInfo.Parent = plot
+
+	ui.buySlotButton = Instance.new("TextButton")
+	ui.buySlotButton.Name = "BuySlot"
+	ui.buySlotButton.LayoutOrder = 4
+	ui.buySlotButton.Size = UDim2.new(1, 0, 0, 38)
+	ui.buySlotButton.BackgroundColor3 = COLOR.panel
+	ui.buySlotButton.BackgroundTransparency = 0.25
+	ui.buySlotButton.BorderSizePixel = 0
+	ui.buySlotButton.AutoButtonColor = true
+	ui.buySlotButton.Font = Enum.Font.GothamBold
+	ui.buySlotButton.TextSize = 15
+	ui.buySlotButton.TextColor3 = COLOR.amber
+	ui.buySlotButton.Text = "BUY SLOT"
+	ui.buySlotButton.Parent = plot
+
+	local buySlotCorner = Instance.new("UICorner")
+	buySlotCorner.CornerRadius = UDim.new(0, 8)
+	buySlotCorner.Parent = ui.buySlotButton
+
+	-- ── Pedestal mode (stand) ────────────────────────────────────────────
+	-- Empty+unlocked reuses the SAME carry rows the decon/trader panel already
+	-- draws — "an item picker" is just those rows with a different verb attached,
+	-- exactly like Shop mode reused the panel instead of inventing new list UI.
+	local pedestal = Instance.new("Frame")
+	pedestal.Name = "Pedestal"
+	pedestal.LayoutOrder = 27
+	pedestal.Size = UDim2.fromScale(1, 0)
+	pedestal.AutomaticSize = Enum.AutomaticSize.Y
+	pedestal.BackgroundTransparency = 1
+	pedestal.Visible = false
+	pedestal.Parent = panel
+	ui.pedestal = pedestal
+
+	local pedestalLayout = Instance.new("UIListLayout")
+	pedestalLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	pedestalLayout.Padding = UDim.new(0, 6)
+	pedestalLayout.Parent = pedestal
+
+	ui.standInfo = Instance.new("TextLabel")
+	ui.standInfo.LayoutOrder = 1
+	ui.standInfo.Size = UDim2.new(1, 0, 0, 22)
+	ui.standInfo.BackgroundTransparency = 1
+	ui.standInfo.Font = Enum.Font.Code
+	ui.standInfo.TextSize = 14
+	ui.standInfo.TextXAlignment = Enum.TextXAlignment.Left
+	ui.standInfo.TextColor3 = COLOR.text
+	ui.standInfo.Text = ""
+	ui.standInfo.Parent = pedestal
+
+	ui.displayButton = Instance.new("TextButton")
+	ui.displayButton.Name = "Display"
+	ui.displayButton.LayoutOrder = 2
+	ui.displayButton.Size = UDim2.new(1, 0, 0, 38)
+	ui.displayButton.BackgroundColor3 = COLOR.panel
+	ui.displayButton.BackgroundTransparency = 0.25
+	ui.displayButton.BorderSizePixel = 0
+	ui.displayButton.AutoButtonColor = true
+	ui.displayButton.Font = Enum.Font.GothamBold
+	ui.displayButton.TextSize = 15
+	ui.displayButton.TextColor3 = COLOR.green
+	ui.displayButton.Text = "DISPLAY"
+	ui.displayButton.Parent = pedestal
+
+	local displayCorner = Instance.new("UICorner")
+	displayCorner.CornerRadius = UDim.new(0, 8)
+	displayCorner.Parent = ui.displayButton
+
+	ui.undisplayButton = Instance.new("TextButton")
+	ui.undisplayButton.Name = "Undisplay"
+	ui.undisplayButton.LayoutOrder = 3
+	ui.undisplayButton.Size = UDim2.new(1, 0, 0, 38)
+	ui.undisplayButton.BackgroundColor3 = COLOR.panel
+	ui.undisplayButton.BackgroundTransparency = 0.25
+	ui.undisplayButton.BorderSizePixel = 0
+	ui.undisplayButton.AutoButtonColor = true
+	ui.undisplayButton.Font = Enum.Font.GothamBold
+	ui.undisplayButton.TextSize = 15
+	ui.undisplayButton.TextColor3 = COLOR.amber
+	ui.undisplayButton.Text = "UNDISPLAY"
+	ui.undisplayButton.Parent = pedestal
+
+	local undisplayCorner = Instance.new("UICorner")
+	undisplayCorner.CornerRadius = UDim.new(0, 8)
+	undisplayCorner.Parent = ui.undisplayButton
+
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = COLOR.stroke
 	stroke.Thickness = 2
@@ -330,7 +472,11 @@ local function render()
 	-- Shop mode replaces the item list entirely: you are not carrying anything
 	-- relevant to this transaction, so showing your backpack is noise.
 	local atShop = state.station == "shop"
+	local atPlot = state.station == "plot"
+	local atPedestal = state.station == "pedestal"
 	ui.shop.Visible = atShop
+	ui.plot.Visible = atPlot
+	ui.pedestal.Visible = atPedestal
 	if atShop then
 		local offer = state.offer
 		ui.title.Text = `{string.upper(state.stationId or "SHOP")} SHOP`
@@ -360,6 +506,117 @@ local function render()
 
 		for _, row in ui.rows do
 			row.Visible = false
+		end
+		for _, row in ui.lockerRows do
+			row.Visible = false
+		end
+		ui.lockerTitle.Visible = false
+		ui.scrubButton.Visible = false
+		ui.rackButton.Visible = false
+		ui.sellButton.Visible = false
+		return
+	end
+
+	if atPlot then
+		local view = state.plotView
+		ui.title.Text = if view then `PLOT {view.plotIndex}` else "CLAIM BOARD"
+		ui.title.TextColor3 = COLOR.green
+		ui.panelStroke.Color = COLOR.green
+		ui.subtitle.Text = if view and view.isOwner then "your plot" else "not your plot"
+
+		if view and view.isOwner then
+			ui.plotBanked.Text = string.format("banked  $%d", view.bankedCash)
+			ui.collectButton.Visible = true
+			ui.collectButton.Text = string.format("COLLECT  $%d", view.bankedCash)
+			ui.collectButton.TextColor3 = if view.bankedCash > 0 then COLOR.green else COLOR.dim
+
+			ui.slotsInfo.Text = string.format("slots %d / %d", view.slots, view.maxSlots)
+			if view.nextSlotPrice then
+				ui.buySlotButton.Visible = true
+				ui.buySlotButton.Text = string.format("BUY SLOT  $%d", view.nextSlotPrice)
+			else
+				ui.buySlotButton.Visible = false
+			end
+		else
+			ui.plotBanked.Text = ""
+			ui.collectButton.Visible = false
+			ui.slotsInfo.Text = view and string.format("slots %d / %d", view.slots, view.maxSlots) or ""
+			ui.buySlotButton.Visible = false
+		end
+
+		for _, row in ui.rows do
+			row.Visible = false
+		end
+		for _, row in ui.lockerRows do
+			row.Visible = false
+		end
+		ui.lockerTitle.Visible = false
+		ui.scrubButton.Visible = false
+		ui.rackButton.Visible = false
+		ui.sellButton.Visible = false
+		return
+	end
+
+	if atPedestal then
+		local view = state.standView
+		ui.title.Text = if view then `STAND {view.slot}` else "STAND"
+		ui.title.TextColor3 = COLOR.blue
+		ui.panelStroke.Color = COLOR.blue
+		ui.subtitle.Text = if view and view.isOwner then "your plot" else "not your plot"
+
+		-- A picker only makes sense on your own, unlocked, empty stand -- every
+		-- other case is a status message with at most one verb.
+		local showPicker = view ~= nil and view.isOwner and not view.locked and not view.occupied
+
+		if view == nil or not view.isOwner then
+			ui.standInfo.Text = "not your plot"
+			ui.standInfo.TextColor3 = COLOR.dim
+			ui.displayButton.Visible = false
+			ui.undisplayButton.Visible = false
+		elseif view.locked then
+			ui.standInfo.Text = "locked \u{2014} buy this slot at the claim board"
+			ui.standInfo.TextColor3 = COLOR.red
+			ui.displayButton.Visible = false
+			ui.undisplayButton.Visible = false
+		elseif view.occupied then
+			local left = view.uncrateSecondsLeft or 0
+			if left > 0 then
+				ui.standInfo.Text = string.format("%s \u{2014} crating, %ds left", view.itemName or "item", left)
+				ui.standInfo.TextColor3 = COLOR.amber
+				ui.undisplayButton.Visible = false
+			else
+				ui.standInfo.Text = string.format("%s (%s)", view.itemName or "item", view.rarity or "")
+				ui.standInfo.TextColor3 = rarityColor(view.rarity or "")
+				ui.undisplayButton.Visible = true
+			end
+			ui.displayButton.Visible = false
+		else
+			ui.standInfo.Text = "empty \u{2014} pick an item below"
+			ui.standInfo.TextColor3 = COLOR.dim
+			ui.displayButton.Visible = true
+			ui.undisplayButton.Visible = false
+		end
+
+		-- Keep the selection valid against carry, same rule the decon/trader
+		-- path uses below -- this panel picks from the SAME list.
+		local stillThere = false
+		for _, item in state.items do
+			if item.uid == selected then
+				stillThere = true
+				break
+			end
+		end
+		if not stillThere then
+			selected = if #state.items > 0 then state.items[1].uid else nil
+		end
+
+		for index, row in ui.rows do
+			local item = state.items[index]
+			if item and showPicker then
+				paintRow(row, item, item.uid == selected, nil, 0)
+			else
+				row.Visible = false
+			end
 		end
 		for _, row in ui.lockerRows do
 			row.Visible = false
@@ -504,6 +761,24 @@ function Station.start()
 		if selected then
 			actionRemote:FireServer({ action = "rack", uid = selected })
 		end
+	end)
+
+	ui.collectButton.MouseButton1Click:Connect(function()
+		actionRemote:FireServer({ action = "collect" })
+	end)
+
+	ui.buySlotButton.MouseButton1Click:Connect(function()
+		actionRemote:FireServer({ action = "buySlot" })
+	end)
+
+	ui.displayButton.MouseButton1Click:Connect(function()
+		if selected then
+			actionRemote:FireServer({ action = "display", uid = selected })
+		end
+	end)
+
+	ui.undisplayButton.MouseButton1Click:Connect(function()
+		actionRemote:FireServer({ action = "undisplay" })
 	end)
 
 	Net.get("StationState").OnClientEvent:Connect(function(payload)
