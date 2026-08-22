@@ -27,12 +27,15 @@
 
 	Six plots stack along Z at a single X (`Plots.PLOT_X`), each connected to the
 	hub by its own short east-west stub. The stubs all feed one north-south spine
-	(`Plots.SPINE_X`), and the spine feeds a single trunk into the hub's west gate —
-	the same 60-stud length as `Hub.luau`'s east road into the radioactive field, so
-	the two wings read as a matched pair. `buildWestNetwork` owns all of this; it
-	requires `Hub` only to read `Hub.PLAZA` (size/topY/thickness), never any Hub
-	*instance* — the two modules build independently and Hub has no idea Plots
-	exists, which keeps `World.rebuild()`'s ordering irrelevant here.
+	(`Plots.SPINE_X`), and the spine's east edge lands EXACTLY on the plaza's west
+	edge — no trunk road between them any more (there used to be one; per the
+	requested layout, plots — shop area — radiation should be directly touching,
+	not three places joined by roads, and `Hub.luau`'s plaza grew to meet the
+	radiation field's edge the same way on the other side). `buildWestNetwork`
+	owns all of this; it requires `Hub` only to read `Hub.PLAZA`
+	(halfX/halfZ/topY/thickness), never any Hub *instance* — the two modules
+	build independently and Hub has no idea Plots exists, which keeps
+	`World.rebuild()`'s ordering irrelevant here.
 
 	Plot INTERNALS still face south (claim board and spawn near the front) —
 	nothing about station detection cares which way a plot faces, it's all
@@ -95,7 +98,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 5
+local BUILDER_VERSION = 6
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -106,7 +109,7 @@ Plots.PAD = { width = 66, depth = 52, topY = 1.5, thickness = 3 }
 
 --- One column, one X. Stacked along Z so the whole block reads as a single line
 --- of plots, per the requested layout — see the header diagram.
-Plots.PLOT_X = -160
+Plots.PLOT_X = -170
 
 --- Spacing = pad.depth (52) + a 14-stud gap, so plots pack tight without
 --- touching. Six values, symmetric about z=0.
@@ -119,15 +122,12 @@ Plots.CENTERS = {
 	{ Plots.PLOT_X, 165 },
 }
 
---- Where the north-south spine sits. Far enough east of the plot column that each
---- stub (from `PLOT_X + pad.width/2` to here) still reads as a short private
---- lane, close enough to the hub that the trunk into the west gate is a short
---- connector (20 studs, `Hub.PLAZA.size/2` = 80 → 100) rather than a long empty
---- road — matching the east side, where Hub.luau derives the same kind of short
---- connector from Zone 1's actual edge. Both PLOT_X and SPINE_X moved together
---- by the same 40 studs from their original values (-200, -140) so the stub
---- length between them is unchanged; only the trunk got shorter.
-Plots.SPINE_X = -100
+--- Where the north-south spine sits. The spine is a lane 20 studs wide (see
+--- `buildWestNetwork`), so its own east edge is `SPINE_X + 10` — and that edge
+--- has to land EXACTLY on `Hub.PLAZA`'s west edge (`-Hub.PLAZA.halfX` = -100)
+--- for the plaza and the plot block to touch directly, with no trunk road
+--- filling the gap between them any more. Hence -110, not -100.
+Plots.SPINE_X = -110
 
 --- Two flanking columns, paired off row by row — odd slots go left, even slots
 --- go right, and each pair shares a Z so the sketch's row-by-row symmetry holds.
@@ -406,16 +406,12 @@ local function buildLane(parent: Instance, name: string, from: Vector3, to: Vect
 end
 
 --- The connective tissue for the diagram in the header: a stub per plot, one
---- spine collecting them, one trunk into the hub. All safe ground (no ZoneId),
---- same as every other road in the map.
+--- spine collecting them. No trunk any more — the spine's east edge lands
+--- exactly on the plaza's west edge (see `Plots.SPINE_X`'s own comment), so the
+--- plot block and the shop area butt directly against each other. All safe
+--- ground (no ZoneId), same as every other road in the map.
 local function buildWestNetwork(parent: Instance)
-	local half = Hub.PLAZA.size / 2 -- 80: the hub's west edge
 	local pad = Plots.PAD
-
-	-- Trunk: hub's west gate out to where the spine begins. Deliberately the same
-	-- 60-stud span as the east road into the radioactive field, so the hub reads
-	-- as symmetric — plots on one wing, danger on the other.
-	buildLane(parent, "PlotTrunk", Vector3.new(-half, 0, 0), Vector3.new(Plots.SPINE_X, 0, 0), 34)
 
 	-- Spine: one north-south lane every stub feeds into. Spans the full plot
 	-- column with a 20-stud margin at each end so the top and bottom stubs don't

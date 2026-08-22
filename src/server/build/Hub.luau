@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Hub.luau — the plaza at the middle of the world, its roads, and the fence.
+	Hub.luau — the plaza at the middle of the world.
 
 	    require(game.ServerScriptService.Server.build.Hub).rebuild()
 
@@ -13,37 +13,42 @@
 
 	THE NORTH SIDE HAS NO ROAD, ON PURPOSE.
 	The west side is a compact block of player plots. The camp and shop stalls sit in
-	the small central rest area. Three radioactive fields then run east in increasing
-	difficulty, with short safe connectors between them.
+	the small central rest area. The radioactive field sits directly east.
+
+	NO CONNECTOR ROADS EITHER, as of this pass. The plaza used to be a fixed
+	160x160 square with short paved strips running out to the plot spine and to
+	the field, each with its own name and its own grass verges. Per the
+	requested layout (plots — shop area — radiation, directly touching, not
+	three places joined by roads), the plaza's own footprint now stretches far
+	enough to reach both: its west edge lands exactly on the plot spine's east
+	edge, its east edge exactly on Zone 1's west edge. Zero gap, not a short
+	one — `rectsOverlap` treats an exactly-shared edge as touching, not
+	overlapping, so this is safe against the "no zone may overlap the plaza"
+	check in `World.verify()`.
 ]]
 
 local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Zones = require(ReplicatedStorage.Shared.Config.Zones)
 local Kit = require(script.Parent.Kit)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 2
+local BUILDER_VERSION = 3
 
 local C = Kit.C
 local build = Kit.build
 
 -- ── Layout ────────────────────────────────────────────────────────────────────
--- Everything here is world space. The plaza is centred on the origin, its walking
--- surface at Y = 0, and the zone plates sit 1.5 studs lower so you step DOWN into
--- the sludge. See Config/Zones.SURFACE_Y.
-
-Hub.PLAZA = { size = 160, thickness = 8, topY = 0 }
+-- Everything here is world space. The plaza's walking surface is at Y = 0, and
+-- the zone plate sits 1.5 studs lower so you step DOWN into the sludge. See
+-- Config/Zones.SURFACE_Y.
+--
+-- NOT a symmetric square any more: halfX reaches from the origin out to
+-- Zone 1's actual west edge (100) on the east side, and the same 100 happens to
+-- also be what the west side needs to reach the plot spine's east edge -- see
+-- Plots.SPINE_X's own comment for why that number is -110, not -100.
+Hub.PLAZA = { halfX = 100, halfZ = 80, thickness = 8, topY = 0 }
 Hub.CAMP_ORIGIN = CFrame.new(0, -0.6, 0) -- BaseCamp's floor top lands on Y = 0
-
--- Gaps in the plaza edge that roads run through. The west side is the plot block;
--- the east side is the radioactive progression.
-Hub.GATES = {
-	east = { axis = "x", at = 80, along = 0, width = 34 },
-	west = { axis = "x", at = -80, along = 0, width = 34 },
-}
 
 local function buildPlaza(hub: Model)
 	local p = Hub.PLAZA
@@ -52,86 +57,25 @@ local function buildPlaza(hub: Model)
 	build(hub, origin, {
 		name = "Plaza",
 		pos = { 0, p.topY - p.thickness / 2, 0 },
-		size = { p.size, p.thickness, p.size },
+		size = { p.halfX * 2, p.thickness, p.halfZ * 2 },
 		color = C.plazaWarm,
 		material = "Pavement",
 	})
 
-	-- A rim, purely so the plaza edge reads as an edge from ground level.
+	-- A rim, purely so the plaza edge reads as an edge from ground level. Only
+	-- on the north/south (Z) edges now -- the east and west edges butt straight
+	-- into the zone plate and the plot spine, and a rim there would draw a false
+	-- seam across a boundary that is supposed to read as continuous.
 	for _, side in { -1, 1 } do
-		build(hub, origin, {
-			name = "PlazaRimX",
-			pos = { side * (p.size / 2 - 0.6), p.topY - 0.2, 0 },
-			size = { 1.2, 0.6, p.size },
-			color = C.plazaEdge,
-			material = "Concrete",
-			canCollide = false,
-		})
 		build(hub, origin, {
 			name = "PlazaRimZ",
-			pos = { 0, p.topY - 0.2, side * (p.size / 2 - 0.6) },
-			size = { p.size, 0.6, 1.2 },
+			pos = { 0, p.topY - 0.2, side * (p.halfZ - 0.6) },
+			size = { p.halfX * 2, 0.6, 1.2 },
 			color = C.plazaEdge,
 			material = "Concrete",
 			canCollide = false,
 		})
 	end
-end
-
---- One road, from the plaza edge out to a zone's near edge. Safe ground: no ZoneId,
---- so ExposureService treats it exactly like base camp.
-local function buildRoad(hub: Model, name: string, from: Vector3, to: Vector3, width: number)
-	local origin = CFrame.new(0, 0, 0)
-	local mid = (from + to) / 2
-	local span = (to - from).Magnitude
-	local alongX = math.abs(to.X - from.X) > math.abs(to.Z - from.Z)
-
-	build(hub, origin, {
-		name = name,
-		pos = { mid.X, Hub.PLAZA.topY - Hub.PLAZA.thickness / 2, mid.Z },
-		size = {
-			if alongX then span else width,
-			Hub.PLAZA.thickness,
-			if alongX then width else span,
-		},
-		color = C.road,
-		material = "Pavement",
-	})
-
-	-- Verge strips either side, so the safe corridor is visually unambiguous
-	-- against the ooze it runs through.
-	for _, side in { -1, 1 } do
-		build(hub, origin, {
-			name = `{name}Verge`,
-			pos = {
-				mid.X + (if alongX then 0 else side * (width / 2 + 2)),
-				Hub.PLAZA.topY - 0.3,
-				mid.Z + (if alongX then side * (width / 2 + 2) else 0),
-			},
-			size = {
-				if alongX then span else 4,
-				0.8,
-				if alongX then 4 else span,
-			},
-			color = C.grass,
-			material = "Grass",
-			canCollide = false,
-		})
-	end
-end
-
-local function buildRoads(hub: Model)
-	local half = Hub.PLAZA.size / 2
-	-- A single straight route teaches the map order: plots and camp are west,
-	-- then each radioactive field begins after a short safe connector. The
-	-- connector's far end is DERIVED from Zone 1's actual west edge, not a
-	-- second hardcoded number next to Zones.luau's — a short connector is the
-	-- whole point (the plaza and the field read as one connected complex, not
-	-- two places joined by a long empty road), and a mismatched literal here
-	-- would either strand the road short of the field or run it into the ooze.
-	local zone1 = Zones.get(1)
-	local zone1WestEdge = zone1.center[1] - zone1.size[1] / 2
-	buildRoad(hub, "CampToRadiationRoad", Vector3.new(half, 0, 0), Vector3.new(zone1WestEdge, 0, 0), 34)
 end
 
 --- THE BLACKOUT ANCHOR — see ExposureService.baseCampCFrame.
@@ -179,7 +123,6 @@ local function createHub(): Model
 	Kit.stamp(hub, BUILDER_SOURCE, BUILDER_VERSION)
 
 	buildPlaza(hub)
-	buildRoads(hub)
 	buildSpawns(hub)
 
 	return hub

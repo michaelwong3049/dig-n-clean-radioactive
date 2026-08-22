@@ -153,10 +153,15 @@ function World.verify(): (boolean, { string })
 				)
 			end
 
-			local half = Hub.PLAZA.size / 2
+			-- Not a symmetric square any more (see Hub.PLAZA's own comment) — the
+			-- plaza's east edge is DELIBERATELY exactly on Zone 1's west edge, so
+			-- this has to accept touching, not just reject overlap. rectsOverlap
+			-- already does (an exactly-shared edge fails `<`, not `<=`), which is
+			-- the whole reason the connected layout is safe against this check.
 			local ax, az, bx, bz = Zones.bounds(built[i])
+			local p = Hub.PLAZA
 			check(
-				not rectsOverlap({ ax, az, bx, bz }, { -half, -half, half, half }),
+				not rectsOverlap({ ax, az, bx, bz }, { -p.halfX, -p.halfZ, p.halfX, p.halfZ }),
 				`Zone{built[i]} overlaps the hub plaza — base camp would irradiate the people standing in it`
 			)
 		end

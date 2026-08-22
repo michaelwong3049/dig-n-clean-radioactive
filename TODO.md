@@ -173,6 +173,25 @@ everything and then runs `World.verify()` over the result.
       not by trusting a green checkmark. Fixed by destroying and recreating the
       `Zones` ModuleScript instance itself (same name, same parent, same
       source) to force a genuine cache miss on the next `require`.
+- [x] **The 20-stud connectors above were still a visible "pathway" — removed
+      outright, replaced by the plaza's own floor reaching both neighbours
+      directly.** `Hub.PLAZA` is no longer a symmetric 160×160 square; it's a
+      rectangle (`halfX=100, halfZ=80`) whose east edge lands exactly on Zone
+      1's west edge and whose west edge lands exactly on the plot spine's east
+      edge — zero gap, not a short one. `Hub.luau`'s `buildRoad`/`buildRoads`
+      (the `CampToRadiationRoad`) and the unused `Hub.GATES` table are deleted;
+      `Plots.luau`'s `PlotTrunk` lane is deleted the same way, and
+      `PLOT_X`/`SPINE_X` shifted another 10 studs (to `-170`/`-110`) so the
+      spine's own east edge (`SPINE_X + 10`, the lane's half-width) lands on
+      the plaza's new west edge exactly. `World.verify()`'s plaza-overlap check
+      updated for the rectangle (`halfX`/`halfZ` instead of one `size`) —
+      `rectsOverlap` already treats an exactly-shared edge as touching, not
+      overlapping, so a zero-gap boundary was already safe against it, just
+      needed the check itself to stop assuming a square. Verified: `World.verify()`
+      passes against a freshly-cloned `Server` folder; live position checks
+      confirm the plaza's edges and the spine/zone edges land on the same
+      coordinate on both sides; screenshot confirms no gap or road strip
+      remains, and each plot still reaches the spine via its own stub.
 
 **Current map direction.** The MVP world is intentionally one radiation area. The old
 Zones 2–4 geometry is not generated, but the useful loot pools remain available as the
