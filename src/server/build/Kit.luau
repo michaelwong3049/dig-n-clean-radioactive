@@ -219,6 +219,14 @@ end
 function Kit.surfaceText(part: BasePart, face: Enum.NormalId, text: string, color: string, alwaysOnTop: boolean?)
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = face
+	-- PixelsPerStud is silently IGNORED unless SizingMode is explicitly set to
+	-- use it -- the default SizingMode uses a fixed square-ish CanvasSize no
+	-- matter what shape the part's face actually is. Every non-square sign in
+	-- the game (any board wider than it is tall, which is all of them) was
+	-- laying text out on that square canvas and then stretching the whole thing
+	-- onto the real, much wider face -- the actual cause of "the text itself
+	-- looks stretched horizontally," not the board's own proportions.
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 50
 	gui.AlwaysOnTop = alwaysOnTop or false
 	-- Several callers (Shops.luau's signs) attach a PointLight to this same part

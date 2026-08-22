@@ -268,12 +268,19 @@ the place file has no git history to recover from.
       four posts for a stall, a full building for the Outfitter), and the bowed
       canopy is gone completely. `buildArchAwning` deleted as fully dead code —
       nothing called it any more once the Outfitter stopped too.
-- [x] **Outfitter sign shrunk — it was reading as "stretched-out" text.** The board
-      spanned the whole ~46-wide building (38 studs wide, 2.6 tall), so
-      "OUTFITTER" sat in the middle of a comically long, thin plank. `TextScaled`
-      itself never distorts a glyph; the board's own proportions were the actual
-      problem. Fixed size now (15×3), matching the plaza stalls' proportions
-      instead of scaling with the building width.
+- [x] **Outfitter sign shrunk, AND the real cause of the stretch fixed underneath
+      it.** First pass shrank the board (38→15 studs wide) on the theory that
+      `TextScaled` never distorts glyphs, so the board's own proportions had to be
+      the problem. Wrong, or at least incomplete — the actual letters were still
+      stretched horizontally afterward, on every sign, not just this one.
+      `Kit.surfaceText`'s `SurfaceGui.PixelsPerStud` was being silently ignored
+      the whole time: that property does nothing unless `SizingMode` is
+      explicitly set to `Enum.SurfaceGuiSizingMode.PixelsPerStud`. Without it,
+      every sign's canvas defaulted to a fixed roughly-square size regardless of
+      the part's actual face shape, so text got laid out square and then the
+      whole canvas was squashed/stretched onto the real (much wider) face — the
+      true source of "the text itself is stretched," on every board in the game,
+      not a per-sign sizing issue. Fixed once at the shared helper.
 - [x] **Six Exhibition plots** with claim boards, per-plot spawns and pedestal slots
       (3 unlocked, 40 addressable). World + data contract only.
 - [x] **Base layout revamped to match the requested sketch** — cleansing station at
