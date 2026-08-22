@@ -33,13 +33,19 @@
 	NO WALLS AND NO TRADER HERE EITHER, as of this pass. The camp used to be a
 	walled enclosure sitting inside the open plaza, boxing the trader off from the
 	shops around it; both the walls and the trader are gone now, so the camp is
-	just a floor pad with the entrance gate/sign and the join spawn — the plaza
-	reads as one open shop area instead of a plaza with a smaller walled camp
-	inside it. THIS MEANS THERE IS CURRENTLY NO `StationKind = "trader"` ANYWHERE
-	IN THE WORLD — `EconomyService.sell` and the "sell" verb in `DeconService`'s
-	action router are still there and still work, but nothing in the world can
-	trigger them until a trader (or some other sell point) is placed again
-	somewhere. Flagged, not silently dropped — see TODO.md.
+	just a floor pad and the join spawn — the plaza reads as one open shop area
+	instead of a plaza with a smaller walled camp inside it. THIS MEANS THERE IS
+	CURRENTLY NO `StationKind = "trader"` ANYWHERE IN THE WORLD — `EconomyService.sell`
+	and the "sell" verb in `DeconService`'s action router are still there and still
+	work, but nothing in the world can trigger them until a trader (or some other
+	sell point) is placed again somewhere. Flagged, not silently dropped — see
+	TODO.md.
+
+	NO ENTRANCE GATE EITHER. The two posts, their lamps, and the "BASE CAMP" sign
+	spanning between them read as an archway framing the approach, which wasn't
+	wanted — removed rather than reworked into something smaller. The camp is
+	identified by what's standing on it (the shops, the plots), not a sign over
+	the door.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -48,7 +54,7 @@ local Kit = require(script.Parent.Kit)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 4
+local BUILDER_VERSION = 5
 
 -- Where the camp sits. This is the Floor's centre; everything else is relative to it,
 -- so moving the whole camp is a one-line change (or an argument to build()).
@@ -60,14 +66,13 @@ local DEFAULT_ORIGIN = CFrame.new(0, 0.9, 136)
 -- local names so every call site below is unchanged from the version that was
 -- verified against the live place to the stud.
 local C = Kit.C
-local build, light = Kit.build, Kit.light
+local build = Kit.build
 
 export type Spec = Kit.Spec
 
 -- ── The camp ──────────────────────────────────────────────────────────────────
 
 local FLOOR = { width = 64, depth = 46 }
-local GATE_X = 10 -- half-spacing between the two entrance posts
 
 local function buildShell(camp: Model, origin: CFrame)
 	build(camp, origin, {
@@ -78,52 +83,9 @@ local function buildShell(camp: Model, origin: CFrame)
 		material = "Pavement",
 	})
 
-	-- No enclosing walls any more — removed so the camp reads as part of the
-	-- open shop area rather than a smaller walled box sitting inside it. The
-	-- gate posts and their lamps stay, mirrored either side of the entrance, as
-	-- a freestanding marker on the south approach.
-	for _, side in { -1, 1 } do
-		local x = GATE_X * side
-		build(camp, origin, {
-			name = `GatePost_{x}`,
-			pos = { x, 5.1, -22.5 },
-			size = { 2.4, 9, 2.4 },
-			color = C.concrete,
-			material = "Metal",
-		})
-		local lamp = build(camp, origin, {
-			name = `GateLamp_{x}`,
-			pos = { x, 9.8, -22.5 },
-			size = { 1.6, 0.8, 1.6 },
-			color = C.canvas,
-			material = "Neon",
-		})
-		light(lamp, C.lampWarm, 34, 2.6)
-	end
-
-	-- The BASE CAMP sign over the gate.
-	local sign = build(camp, origin, {
-		name = "Sign",
-		pos = { 0, 11.1, -22.5 },
-		size = { 20, 3.6, 0.8 },
-		color = C.canvas,
-		material = "Metal",
-	})
-	local signGui = Instance.new("SurfaceGui")
-	signGui.Face = Enum.NormalId.Front
-	signGui.PixelsPerStud = 50
-	signGui.AlwaysOnTop = false
-	signGui.Parent = sign
-
-	local signText = Instance.new("TextLabel")
-	signText.Size = UDim2.fromScale(1, 1)
-	signText.BackgroundTransparency = 1
-	signText.Font = Enum.Font.GothamBlack
-	signText.TextScaled = true
-	signText.TextColor3 = Color3.fromHex(C.signText)
-	signText.TextStrokeTransparency = 1
-	signText.Text = "BASE CAMP"
-	signText.Parent = signGui
+	-- No enclosing walls, no entrance gate. Both used to box the camp off from
+	-- the plaza it sits in; the camp now reads as one open shop area, identified
+	-- by what's standing on it rather than a walled box with a sign over the door.
 
 	local spawn = build(camp, origin, {
 		name = "SpawnLocation",

@@ -311,6 +311,13 @@ the place file has no git history to recover from.
       Flagged loudly in `BaseCamp.luau`'s header, not silently dropped.
       `World.verify()` no longer asserts a trader count. Verified: `World.verify()`
       passes with 0 failures against the emptied camp.
+- [x] **Camp entrance gate removed too.** The two gate posts, their lamps, and the
+      "BASE CAMP" sign spanning between them read as an archway framing the
+      approach — same complaint as the shops' arch canopy, different structure.
+      Removed rather than reworked into something smaller; the camp is now just
+      the floor and the join `SpawnLocation`, identified by what's standing on it
+      (the shops, the plots) rather than a sign over the door. `BUILDER_VERSION`
+      bumped to 5. Verified: `World.verify()` passes with 0 failures.
 - [ ] **No sell point exists.** Decide where cash-out lives now — back at camp as a
       single shared trader again, one per base like the cleansing station, folded
       into the cleansing station itself, or deferred entirely in favour of the
