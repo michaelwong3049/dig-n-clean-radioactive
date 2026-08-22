@@ -15,27 +15,32 @@
 	setting, not repo state — Rojo does not capture it — so it is written down in
 	ARCHITECTURE.md as one of the things a fresh clone cannot reconstruct.
 
-	ONE COLUMN, ONE SPINE — the requested layout:
+	ONE COLUMN, DIRECTLY AGAINST THE SHOP AREA — the requested layout:
 
-	    [PLOT] --|
-	             |
-	    [PLOT] --|
-	             | ----- [SHOP AREA]  --- [RADIOACTIVE AREA]
-	    [PLOT] --|
-	             |
-	    [PLOT] --|
+	    [PLOT]|
+	    [PLOT]| [SHOP AREA]  --- [RADIOACTIVE AREA]
+	    [PLOT]|
+	    [PLOT]|
 
-	Six plots stack along Z at a single X (`Plots.PLOT_X`), each connected to the
-	hub by its own short east-west stub. The stubs all feed one north-south spine
-	(`Plots.SPINE_X`), and the spine's east edge lands EXACTLY on the plaza's west
-	edge — no trunk road between them any more (there used to be one; per the
-	requested layout, plots — shop area — radiation should be directly touching,
-	not three places joined by roads, and `Hub.luau`'s plaza grew to meet the
-	radiation field's edge the same way on the other side). `buildWestNetwork`
-	owns all of this; it requires `Hub` only to read `Hub.PLAZA`
-	(halfX/halfZ/topY/thickness), never any Hub *instance* — the two modules
-	build independently and Hub has no idea Plots exists, which keeps
-	`World.rebuild()`'s ordering irrelevant here.
+	Six plots stack along Z at a single X (`Plots.PLOT_X`). There used to be a
+	stub-per-plot feeding a shared spine feeding a trunk road into the hub; all
+	of it is gone now. Per the requested layout, plots — shop area — radiation
+	should be directly touching, not places joined by roads, so `Hub.luau`'s
+	plaza grew west until its own edge landed exactly on the plot pads' east
+	edge (`Plots.PLOT_X + Plots.PAD.width/2`) and grew in Z until it spans the
+	whole column (`Plots.CENTERS`' extremes +/- half of `Plots.PAD.depth`) — see
+	`Hub.PLAZA`'s own comment for the exact numbers. All six plots now border
+	the plaza along one continuous seam instead of feeding into it through a
+	lane network.
+
+	THIS FILE NO LONGER REQUIRES `Hub` AT ALL — the dependency flipped direction.
+	It used to read `Hub.PLAZA` (topY/thickness) to build the lane network at the
+	right height; with the lane network gone, nothing here needs to know
+	anything about the hub any more. `Hub.luau` is now the one carrying
+	knowledge of `Plots.luau`'s constants (in a comment, since requiring Plots
+	back would be circular), so keeping the two in sync when either changes is a
+	manual, commented-one-way obligation — Hub.luau's problem to remember, not
+	this file's.
 
 	Plot INTERNALS still face south (claim board and spawn near the front) —
 	nothing about station detection cares which way a plot faces, it's all
@@ -94,11 +99,10 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 
 local Kit = require(script.Parent.Kit)
-local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 6
+local BUILDER_VERSION = 7
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -121,13 +125,6 @@ Plots.CENTERS = {
 	{ Plots.PLOT_X, 99 },
 	{ Plots.PLOT_X, 165 },
 }
-
---- Where the north-south spine sits. The spine is a lane 20 studs wide (see
---- `buildWestNetwork`), so its own east edge is `SPINE_X + 10` — and that edge
---- has to land EXACTLY on `Hub.PLAZA`'s west edge (`-Hub.PLAZA.halfX` = -100)
---- for the plaza and the plot block to touch directly, with no trunk road
---- filling the gap between them any more. Hence -110, not -100.
-Plots.SPINE_X = -110
 
 --- Two flanking columns, paired off row by row — odd slots go left, even slots
 --- go right, and each pair shares a Z so the sketch's row-by-row symmetry holds.
@@ -361,78 +358,6 @@ local function buildPlot(parent: Instance, index: number)
 	return m
 end
 
--- ── The west network: stubs, spine, trunk ────────────────────────────────────
--- Same shape as Hub.luau's buildRoad (flat pavement strip + grass verges either
--- side), kept as its own local copy rather than shared through Kit: each
--- generator's road-shape logic has stayed self-contained by convention so far,
--- and this is the only other file that needs it.
-local function buildLane(parent: Instance, name: string, from: Vector3, to: Vector3, width: number)
-	local origin = CFrame.new(0, 0, 0)
-	local mid = (from + to) / 2
-	local span = (to - from).Magnitude
-	local alongX = math.abs(to.X - from.X) > math.abs(to.Z - from.Z)
-	local topY, thickness = Hub.PLAZA.topY, Hub.PLAZA.thickness
-
-	build(parent, origin, {
-		name = name,
-		pos = { mid.X, topY - thickness / 2, mid.Z },
-		size = {
-			if alongX then span else width,
-			thickness,
-			if alongX then width else span,
-		},
-		color = C.road,
-		material = "Pavement",
-	})
-
-	for _, side in { -1, 1 } do
-		build(parent, origin, {
-			name = `{name}Verge`,
-			pos = {
-				mid.X + (if alongX then 0 else side * (width / 2 + 2)),
-				topY - 0.3,
-				mid.Z + (if alongX then side * (width / 2 + 2) else 0),
-			},
-			size = {
-				if alongX then span else 4,
-				0.8,
-				if alongX then 4 else span,
-			},
-			color = C.grass,
-			material = "Grass",
-			canCollide = false,
-		})
-	end
-end
-
---- The connective tissue for the diagram in the header: a stub per plot, one
---- spine collecting them. No trunk any more — the spine's east edge lands
---- exactly on the plaza's west edge (see `Plots.SPINE_X`'s own comment), so the
---- plot block and the shop area butt directly against each other. All safe
---- ground (no ZoneId), same as every other road in the map.
-local function buildWestNetwork(parent: Instance)
-	local pad = Plots.PAD
-
-	-- Spine: one north-south lane every stub feeds into. Spans the full plot
-	-- column with a 20-stud margin at each end so the top and bottom stubs don't
-	-- join it right at a corner.
-	local topZ, bottomZ = Plots.CENTERS[1][2], Plots.CENTERS[1][2]
-	for _, center in Plots.CENTERS do
-		topZ = math.max(topZ, center[2])
-		bottomZ = math.min(bottomZ, center[2])
-	end
-	buildLane(parent, "PlotSpine", Vector3.new(Plots.SPINE_X, 0, bottomZ - 20), Vector3.new(Plots.SPINE_X, 0, topZ + 20), 20)
-
-	-- One stub per plot: its own east edge straight into the spine. Narrower than
-	-- the spine and trunk (16 vs 20/34) so the hierarchy — private lane feeds
-	-- neighbourhood spine feeds main road — is readable at a glance.
-	for index, center in Plots.CENTERS do
-		local from = Vector3.new(center[1] + pad.width / 2, 0, center[2])
-		local to = Vector3.new(Plots.SPINE_X, 0, center[2])
-		buildLane(parent, `PlotStub{index}`, from, to, 16)
-	end
-end
-
 local function createPlots(): Model
 	local row = Instance.new("Model")
 	row.Name = "Plots"
@@ -443,7 +368,6 @@ local function createPlots(): Model
 	for index = 1, Plots.COUNT do
 		buildPlot(row, index)
 	end
-	buildWestNetwork(row)
 
 	return row
 end

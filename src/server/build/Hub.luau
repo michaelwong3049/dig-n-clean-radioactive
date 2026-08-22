@@ -15,16 +15,18 @@
 	The west side is a compact block of player plots. The camp and shop stalls sit in
 	the small central rest area. The radioactive field sits directly east.
 
-	NO CONNECTOR ROADS EITHER, as of this pass. The plaza used to be a fixed
-	160x160 square with short paved strips running out to the plot spine and to
-	the field, each with its own name and its own grass verges. Per the
-	requested layout (plots — shop area — radiation, directly touching, not
-	three places joined by roads), the plaza's own footprint now stretches far
-	enough to reach both: its west edge lands exactly on the plot spine's east
-	edge, its east edge exactly on Zone 1's west edge. Zero gap, not a short
-	one — `rectsOverlap` treats an exactly-shared edge as touching, not
-	overlapping, so this is safe against the "no zone may overlap the plaza"
-	check in `World.verify()`.
+	NO CONNECTOR ROADS EITHER, as of this pass, AND NO SPINE/STUB NETWORK ON THE
+	WEST SIDE EITHER, as of the one after it. The plaza used to be a fixed
+	160x160 square with short paved strips running out to a plot spine and to
+	the field. Per the requested layout (plots — shop area — radiation, directly
+	touching, not places joined by roads), the plaza's own footprint now
+	stretches far enough to reach both directly: its east edge lands exactly on
+	Zone 1's west edge, and its west edge lands exactly on the plot pads' own
+	east edge — not a spine's edge, the PADS' edge, so all six plots border the
+	plaza along one continuous seam instead of feeding into it through a lane
+	network. Zero gap on both sides, not a short one — `rectsOverlap` treats an
+	exactly-shared edge as touching, not overlapping, so this is safe against
+	the "no zone may overlap the plaza" check in `World.verify()`.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -33,7 +35,7 @@ local Kit = require(script.Parent.Kit)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 3
+local BUILDER_VERSION = 4
 
 local C = Kit.C
 local build = Kit.build
@@ -43,34 +45,46 @@ local build = Kit.build
 -- the zone plate sits 1.5 studs lower so you step DOWN into the sludge. See
 -- Config/Zones.SURFACE_Y.
 --
--- NOT a symmetric square any more: halfX reaches from the origin out to
--- Zone 1's actual west edge (100) on the east side, and the same 100 happens to
--- also be what the west side needs to reach the plot spine's east edge -- see
--- Plots.SPINE_X's own comment for why that number is -110, not -100.
-Hub.PLAZA = { halfX = 100, halfZ = 80, thickness = 8, topY = 0 }
+-- Not a square, and not centred on the origin any more -- it's sized to reach
+-- exactly two things this file can't require without a circular dependency
+-- (Plots.luau already requires Hub, so Hub can't require Plots back):
+--   minX = -137  MUST equal Plots.PLOT_X + Plots.PAD.width/2  (-170 + 33)
+--                -- the plot pads' own east edge.
+--   minZ = -191  MUST equal the plot column's outer south edge
+--   maxZ =  191  MUST equal the plot column's outer north edge
+--                -- both from Plots.CENTERS' extremes (-165, 165) +/- half of
+--                -- Plots.PAD.depth (26).
+--   maxX =  100  Zone 1's west edge (Zones.get(1).center[1] - size[1]/2).
+-- If any of Plots.PLOT_X, Plots.PAD, Plots.CENTERS, or Zone 1's position/size
+-- change, these four numbers need updating by hand to match -- there is no
+-- assertion that catches drift here the way `Plots.SPINE_X`'s comment used to
+-- reference `Hub.PLAZA.halfX` (that whole spine is gone now anyway).
+Hub.PLAZA = { minX = -137, maxX = 100, minZ = -191, maxZ = 191, thickness = 8, topY = 0 }
 Hub.CAMP_ORIGIN = CFrame.new(0, -0.6, 0) -- BaseCamp's floor top lands on Y = 0
 
 local function buildPlaza(hub: Model)
 	local p = Hub.PLAZA
 	local origin = CFrame.new(0, 0, 0)
+	local width, depth = p.maxX - p.minX, p.maxZ - p.minZ
+	local centerX, centerZ = (p.minX + p.maxX) / 2, (p.minZ + p.maxZ) / 2
 
 	build(hub, origin, {
 		name = "Plaza",
-		pos = { 0, p.topY - p.thickness / 2, 0 },
-		size = { p.halfX * 2, p.thickness, p.halfZ * 2 },
+		pos = { centerX, p.topY - p.thickness / 2, centerZ },
+		size = { width, p.thickness, depth },
 		color = C.plazaWarm,
 		material = "Pavement",
 	})
 
 	-- A rim, purely so the plaza edge reads as an edge from ground level. Only
-	-- on the north/south (Z) edges now -- the east and west edges butt straight
-	-- into the zone plate and the plot spine, and a rim there would draw a false
-	-- seam across a boundary that is supposed to read as continuous.
-	for _, side in { -1, 1 } do
+	-- on the north/south (Z) edges now -- east butts into the zone plate, west
+	-- butts into the plot pads, and a rim on either would draw a false seam
+	-- across a boundary that is supposed to read as continuous.
+	for _, z in { p.minZ, p.maxZ } do
 		build(hub, origin, {
 			name = "PlazaRimZ",
-			pos = { 0, p.topY - 0.2, side * (p.halfZ - 0.6) },
-			size = { p.halfX * 2, 0.6, 1.2 },
+			pos = { centerX, p.topY - 0.2, z + (if z == p.minZ then 0.6 else -0.6) },
+			size = { width, 0.6, 1.2 },
 			color = C.plazaEdge,
 			material = "Concrete",
 			canCollide = false,

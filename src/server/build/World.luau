@@ -161,7 +161,7 @@ function World.verify(): (boolean, { string })
 			local ax, az, bx, bz = Zones.bounds(built[i])
 			local p = Hub.PLAZA
 			check(
-				not rectsOverlap({ ax, az, bx, bz }, { -p.halfX, -p.halfZ, p.halfX, p.halfZ }),
+				not rectsOverlap({ ax, az, bx, bz }, { p.minX, p.minZ, p.maxX, p.maxZ }),
 				`Zone{built[i]} overlaps the hub plaza — base camp would irradiate the people standing in it`
 			)
 		end

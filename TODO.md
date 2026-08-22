@@ -192,6 +192,30 @@ everything and then runs `World.verify()` over the result.
       confirm the plaza's edges and the spine/zone edges land on the same
       coordinate on both sides; screenshot confirms no gap or road strip
       remains, and each plot still reaches the spine via its own stub.
+- [x] **That spine was still a visible pathway between the plots and the shop
+      area — deleted outright, plaza grown to touch every plot pad directly.**
+      Screenshot feedback: the radiation side read as attached, the plot side
+      still didn't — a thin diagonal lane with six stubs branching off it is
+      still "a pathway," even a short one. `Hub.PLAZA` is no longer expressed as
+      half-extents from the origin; it's `{minX=-137, maxX=100, minZ=-191,
+      maxZ=191}` — `minX` is the plot pads' own east edge
+      (`Plots.PLOT_X + Plots.PAD.width/2`), `minZ`/`maxZ` span the whole plot
+      column (`Plots.CENTERS`' extremes ± half of `Plots.PAD.depth`), so all six
+      plots border the plaza along one continuous seam instead of feeding into
+      it through a lane network. `Plots.SPINE_X`, `buildWestNetwork`, and
+      `buildLane` are all deleted from `Plots.luau`. The dependency direction
+      flipped: `Plots.luau` no longer requires `Hub` at all (nothing left to
+      read `Hub.PLAZA` for); `Hub.luau` now carries hand-written, commented
+      knowledge of `Plots.luau`'s constants instead, since Hub can't require
+      Plots back without a cycle (Plots already requires Hub in the other
+      commit's world). Keeping the two in sync when either changes is now a
+      manual, comment-documented obligation on Hub.luau's side — flagged
+      explicitly in both files' headers so it isn't a silent trap later.
+      Verified: `World.verify()` passes against a freshly-cloned `Server`
+      folder; live position checks confirm the plaza's west edge and BOTH the
+      first and last plot's pad edges land on the exact same coordinate
+      (-137); screenshot confirms the plaza now spans the full plot column
+      height with zero gap or road anywhere along that edge.
 
 **Current map direction.** The MVP world is intentionally one radiation area. The old
 Zones 2–4 geometry is not generated, but the useful loot pools remain available as the
