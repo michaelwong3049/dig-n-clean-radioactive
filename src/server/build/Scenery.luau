@@ -21,10 +21,24 @@
 	two rules ("...but the BRIGHT green is extra dangerous") when the second one is
 	only telegraphed by shade.
 
-	NOTHING HERE MAY RISE THROUGH THE DIG SURFACE. DigService buries items on the
-	plate's top face and the haul part rises to exactly that plane, so a prop sitting
-	proud of it can hide an item surfacing underneath. Props are thin and sit just
-	above; anything tall is CanCollide=false so a player can walk out of it.
+	"WADE THROUGH" IS NOW LITERAL, NOT JUST WORDING. `OozeSurface` is one
+	translucent Neon plate per zone, sized to the whole plate, floating
+	`WADE_HEIGHT` above the real floor — about half a leg on a default character.
+	Walking into the field sinks your legs into visible ooze instead of just
+	standing on tinted ground. It is a SEPARATE part from the actual walking
+	surface, not a raised version of it: `Zones.SURFACE_Y` (what DigService buries
+	against and what a player's feet actually rest on) never moves. CanCollide is
+	false, same as everything else in this file, so it changes nothing about
+	movement, burial, or exposure — purely a second, higher, see-through layer.
+
+	NOTHING HERE MAY RISE THROUGH THE DIG SURFACE IN A WAY THAT HIDES IT.
+	DigService buries items on the plate's top face and the haul part rises to
+	exactly that plane, so anything opaque and tall enough to block the view would
+	hide an item surfacing underneath. Props are thin and sit just above;
+	anything tall is CanCollide=false so a player can walk out of it.
+	`OozeSurface` is the one exception that legitimately sits well above the
+	plane — but it stays translucent for exactly this reason, so a surfacing item
+	is dimmed, never hidden.
 
 	Placement is a jittered grid, not pure random. Pure random clumps and leaves bald
 	patches; a jittered grid reads as scattered while still covering the field, and
@@ -41,7 +55,7 @@ local Kit = require(script.Parent.Kit)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 1
+local BUILDER_VERSION = 2
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -49,6 +63,16 @@ local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 --- Just above the plate's top face — close enough to read as lying on the ground,
 --- high enough not to z-fight with it.
 local SKIM = 0.26
+
+--- Roughly half a leg's height on a default character, so walking into the field
+--- reads as WADING into the ooze rather than standing on tinted ground. Purely
+--- visual: this is a separate, CanCollide=false plate floating above the real
+--- floor, never the floor itself. DigService buries against and a player's actual
+--- footing rests on Zones.SURFACE_Y exactly as before -- moving that plane is
+--- exactly what ZoneFields.luau's header warns never to do ("tilt or bump a
+--- plate and items surface underground"). This gets the same visual without
+--- touching it.
+local WADE_HEIGHT = 1.1
 
 --- Per-zone character. `props` is roughly how many set pieces to scatter; the pool
 --- count scales with area so a big zone does not look empty.
@@ -177,6 +201,25 @@ local function buildZoneScenery(parent: Instance, id: number)
 	-- Everything is placed relative to the zone's own surface plane.
 	local origin = CFrame.new(def.center[1], Zones.SURFACE_Y, def.center[2])
 	local hx, hz = def.size[1] / 2 - 14, def.size[2] / 2 - 14
+
+	-- The wading surface: one translucent plate over the WHOLE zone, raised to
+	-- WADE_HEIGHT, so the field reads as something you sink into rather than
+	-- ground that happens to be green. Sized to the actual plate (not inset like
+	-- the pools/props below), so its edge lines up with the zone boundary.
+	build(folder, origin, {
+		name = "OozeSurface",
+		pos = { 0, WADE_HEIGHT, 0 },
+		size = { def.size[1], 0.3, def.size[2] },
+		color = C.oozeBright,
+		material = "Neon",
+		-- High transparency on purpose. Neon's brightness is emissive rather than
+		-- a true translucent tint, and bloom pushes an opaque-looking plate this
+		-- size to a wall of solid colour well before Transparency looks like it
+		-- "should" (0.55 first pass still read as solid ground, not a layer over
+		-- it). 0.82 is the point props and the sand below actually show through.
+		transparency = 0.82,
+		canCollide = false,
+	})
 
 	-- Ooze pools first, so props sit on top of them.
 	for _ = 1, theme.pools do

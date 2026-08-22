@@ -134,6 +134,19 @@ everything and then runs `World.verify()` over the result.
 - [x] Decide fate of `ReplicatedStorage.Assets.Tools` base meshes — genuinely
       hand-authored (unions, a `SpecialMesh`, an imported model), so they stay binary
 - [x] Fix the blackout respawn, which sent players *into Zone 1* — see §7
+- [x] **The field is now literally something you wade into**, not just tinted
+      ground. `Scenery.luau` gained `OozeSurface` — one translucent Neon plate per
+      zone, sized to the whole plate, floating `WADE_HEIGHT` (1.1 studs) above the
+      real floor, about half a leg on a default character. It's a second,
+      `CanCollide=false` layer, never a change to `Zones.SURFACE_Y` itself — that
+      plane is still exactly what `DigService` buries against and what a player's
+      feet actually rest on, per `ZoneFields.luau`'s own "tilt or bump a plate and
+      items surface underground" warning. Took two live-tuned passes to get the
+      material right: `Neon` at 0.55 transparency still read as solid ground (bloom
+      pushes a plate this size to a wall of colour well before `Transparency`
+      "looks like" that value), and `Glass` was properly translucent but tinted
+      everything blue instead of acid green. Settled on `Neon` at 0.82 transparency
+      — sand and props visibly show through, colour stays correct.
 
 **Current map direction.** The MVP world is intentionally one radiation area. The old
 Zones 2–4 geometry is not generated, but the useful loot pools remain available as the
