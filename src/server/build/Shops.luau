@@ -18,22 +18,27 @@
 	promises never to build. The bench costs nothing to add because the shop system
 	is track-generic: it is three more counters with three more StationIds.
 
-	THE LOOK — cartoony toxic-waste-barrel stalls, not market stalls.
-	Every stall used to be a wood-plank-and-canvas farmers' market booth. Reskinned
-	around one clear idea instead: each shop IS a big friendly radioactive drum —
-	bright glossy SmoothPlastic body, chunky black hazard-stripe bands, a rounded
-	dome roof, and a hand-built trefoil badge (three blocks radiating from a hub —
-	see `buildTrefoil`) rather than a photo or decal, because there is no image
-	asset to reference and low-poly chunky blocks are this game's whole art
-	language anyway (PLAN §14). Bold black OUTLINE plates sit behind the coloured
-	signs — the cheapest way to get a "toy packaging" pop out of flat Roblox parts.
+	THE LOOK, SECOND PASS — a classic toy-store kiosk, not a toxic drum.
+	The nuclear-drum reskin (round barrel counter, dome roof, trefoil badge) is
+	gone, replaced with the generic friendly "Roblox shop" silhouette a reference
+	photo asked for directly: a wood counter booth under a candy-striped, scalloped
+	awning on four wood posts, a little blocky shopkeeper standing behind the
+	counter, and a glowing bubble sign floating over the roof peak. Per-shop
+	colour-coding survives the swap intact — the awning stripes, the sign, and the
+	floor marker all use `spec.color`, so "the coral one is the detector shop"
+	still holds exactly as before.
 
-	ONE DELIBERATE GLOW, AND IT IS NOT GREEN. PLAN §14's whole rule is "radiation is
-	the only thing that glows [acid green]" — a shop glowing the same colour as the
-	danger fields would dilute the one signal the whole map is built to teach. Each
-	counter gets a single small glass vial that DOES glow (it is, thematically, the
-	radioactive product on the shelf) but in cyan, not ooze green, so "glowing
-	green" still means exactly one thing anywhere you stand.
+	IDENTITY STILL COMES FROM THE PROP, NOT THE BOOTH SHAPE. Every stall's booth is
+	now the same shape, so the differentiator is still the same big, silhouette-
+	clear prop of the actual thing sold (a detector, a horseshoe magnet, a
+	bucket-and-brush) standing beside the counter, now paired with a crate of
+	clutter for the "goods stacked outside the stall" read the reference photo
+	has and the drum stalls didn't.
+
+	THE GLOW STAYS OUT OF GREEN. Two glowing elements per stall — the bubble sign
+	and a floor outline marking the buy radius — both use the shop's own accent
+	colour, never green, so "glowing green" still means exactly one thing anywhere
+	in the world: the ooze (PLAN §14).
 
 	THE WORLD CONTRACT (unchanged by the reskin):
 	    StationKind = "shop"      -- what kind of thing you are standing at
@@ -59,7 +64,7 @@ local Kit = require(script.Parent.Kit)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 3
+local BUILDER_VERSION = 4
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -85,166 +90,87 @@ local OUTFITTER = {
 	},
 }
 
--- ── The trefoil ───────────────────────────────────────────────────────────────
+-- ── The scalloped awning ────────────────────────────────────────────────────────
 
---- The radiation symbol, built from parts: a yellow backing disc, a black hub, and
---- three black blades at 120°.
----
---- Kit.build composes `origin * CFrame.new(pos) * rot`, which rotates a part IN
---- PLACE around its own centre AFTER it has already been moved to `pos` — it does
---- NOT sweep the part around some other shared centre. That is exactly what is
---- wanted here, but only because `pos` for each blade is already the pre-rotated
---- orbit point (`radius * cos/sin(angle)`), not a fixed offset relied on `rot` to
---- also relocate. Rotating a symmetric block around its own centre after it is
---- correctly positioned looks identical to true orbital rotation; relying on `rot`
---- alone to both move and turn it would not.
----
---- `pos` is the badge centre in the caller's local space; the blades' plane is
---- local X/Y, thickness along local Z, so mount this on anything whose face
---- normal points along Z (every sign board in this file already does).
-local function buildTrefoil(parent: Instance, origin: CFrame, pos: { number }, radius: number)
-	-- Cylinder size is {axisLength, diameter, diameter} in local space, and the
-	-- axis is ALWAYS the first number — cylAlongZ then points that axis along
-	-- world Z. So the THIN dimension goes first, or this bulges into a stubby
-	-- tube facing the viewer instead of a flat coin.
-	build(parent, origin, {
-		name = "TrefoilBacking",
-		pos = pos,
-		size = { 0.15, radius * 2.3, radius * 2.3 },
-		color = C.hazard,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = R.cylAlongZ,
-		canCollide = false,
-	})
-
-	build(parent, origin, {
-		name = "TrefoilHub",
-		pos = { pos[1], pos[2], pos[3] + 0.12 },
-		size = { 0.2, radius * 0.7, radius * 0.7 },
-		color = C.hazardBlack,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = R.cylAlongZ,
-		canCollide = false,
-	})
-
-	for i = 0, 2 do
-		local angle = i * 120
-		local dx = radius * 0.62 * math.cos(math.rad(angle))
-		local dy = radius * 0.62 * math.sin(math.rad(angle))
+--- A candy-striped canopy: alternating colour/white panels across a flat roof, plus
+--- a row of little round scallops hanging off the front edge — the classic market-
+--- stall-awning silhouette, built from blocks and spheres rather than a mesh since
+--- that is this game's whole art language anyway. `frontZ` is the edge the scallops
+--- hang from (the side facing the approach). Each scallop is a UNIFORM sphere
+--- (equal size in all three axes) rather than a squashed one deliberately — this
+--- project has twice shipped a Cylinder axis-order bug from exactly this kind of
+--- "flatten it a little" shortcut, and a sphere has no axis to get backwards.
+local function buildAwning(parent: Instance, origin: CFrame, centerZ: number, roofY: number, width: number, depth: number, frontZ: number, color: string)
+	local stripes = 7
+	local stripeW = width / stripes
+	local bobble = stripeW - 0.3
+	for i = 0, stripes - 1 do
+		local x = -width / 2 + stripeW * (i + 0.5)
+		local stripeColor = if i % 2 == 0 then color else C.labelText
 		build(parent, origin, {
-			name = "TrefoilBlade",
-			pos = { pos[1] + dx, pos[2] + dy, pos[3] + 0.12 },
-			size = { radius * 0.85, radius * 0.42, 0.2 },
-			color = C.hazardBlack,
+			name = "AwningStripe",
+			pos = { x, roofY, centerZ },
+			size = { 0.5, stripeW - 0.15, depth },
+			color = stripeColor,
 			material = "SmoothPlastic",
-			rot = Kit.ang(0, 0, angle),
+			canCollide = false,
+		})
+		build(parent, origin, {
+			name = "AwningScallop",
+			pos = { x, roofY - 0.6, frontZ },
+			size = { bobble, bobble, bobble },
+			color = stripeColor,
+			material = "SmoothPlastic",
+			shape = "Ball",
 			canCollide = false,
 		})
 	end
 end
 
--- ── The barrel ────────────────────────────────────────────────────────────────
+-- ── The shopkeeper ────────────────────────────────────────────────────────────
 
-export type BarrelSpec = {
-	color: string,
-	diameter: number,
-	height: number,
-	baseY: number,
-	z: number,
-	stationKind: string?,
-	stationId: string?,
-	radius: number?,
-}
+--- A little blocky vendor standing behind the counter — head, torso, two arms.
+--- Friendlier than the Outfitter's hazmat mannequin prop: bare peach head, no
+--- helmet, torso in the shop's own colour like a shirt.
+local function buildShopkeeper(parent: Instance, origin: CFrame, x: number, z: number, color: string)
+	build(parent, origin, { name = "KeeperTorso", pos = { x, 3.6, z }, size = { 2.0, 1.8, 1.0 }, color = color, material = "SmoothPlastic", canCollide = false })
+	build(parent, origin, { name = "KeeperHead", pos = { x, 5.1, z }, size = { 1.3, 1.3, 1.3 }, color = C.lampWarm, material = "SmoothPlastic", shape = "Ball", canCollide = false })
+	for _, dx in { -1.25, 1.25 } do
+		build(parent, origin, { name = "KeeperArm", pos = { x + dx, 3.6, z }, size = { 1.6, 0.5, 0.5 }, color = color, material = "SmoothPlastic", shape = "Cylinder", canCollide = false })
+	end
+end
 
---- The drum, its hazard stripes, its lid (the interactive part) and its one
---- deliberate cyan glow. Returns the lid so the caller can billboard it.
----
---- `stationKind`/`stationId`/`radius` are optional so this doubles as pure set
---- dressing for the clutter barrels — pass none of them and it is just a drum.
-local function buildBarrel(parent: Instance, origin: CFrame, spec: BarrelSpec): BasePart
-	local dia, h, baseY, z = spec.diameter, spec.height, spec.baseY, spec.z
+-- ── The floor marker ─────────────────────────────────────────────────────────
 
-	build(parent, origin, {
-		name = "Barrel",
-		pos = { 0, baseY + h / 2, z },
-		size = { h, dia, dia },
-		color = spec.color,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = R.cylUp,
-	})
-
-	for _, frac in { 0.32, 0.68 } do
+--- A glowing rectangular outline on the ground marking the buy radius — the
+--- reference photo's neon floor square, recoloured per shop instead of always
+--- blue so it keeps doing the colour-navigation job instead of flattening it.
+--- Four thin Neon bars rather than a filled plate, matching the "outline, not
+--- fill" read the photo actually has.
+local function buildFloorMarker(parent: Instance, origin: CFrame, x: number, z: number, width: number, depth: number, color: string)
+	local thickness = 0.4
+	for _, bar in {
+		{ w = width, d = thickness, dx = 0, dz = -depth / 2 },
+		{ w = width, d = thickness, dx = 0, dz = depth / 2 },
+		{ w = thickness, d = depth, dx = -width / 2, dz = 0 },
+		{ w = thickness, d = depth, dx = width / 2, dz = 0 },
+	} do
 		build(parent, origin, {
-			name = "HazardStripe",
-			pos = { 0, baseY + h * frac, z },
-			size = { h * 0.16, dia + 0.3, dia + 0.3 },
-			color = C.hazardBlack,
-			material = "SmoothPlastic",
-			shape = "Cylinder",
-			rot = R.cylUp,
+			name = "FloorMarker",
+			pos = { x + bar.dx, 0.08, z + bar.dz },
+			size = { 0.15, bar.w, bar.d },
+			color = color,
+			material = "Neon",
+			canCollide = false,
 		})
 	end
-
-	local attrs = nil
-	if spec.stationKind then
-		attrs = { StationKind = spec.stationKind, StationId = spec.stationId, Radius = spec.radius }
-	end
-
-	local lid = build(parent, origin, {
-		name = "Lid",
-		pos = { 0, baseY + h + 0.5, z },
-		size = { 1.0, dia + 2, dia + 2 },
-		color = spec.color,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = R.cylUp,
-		attributes = attrs,
-	})
-
-	-- THE GLOW. Cyan, never green — see the file header for why.
-	--
-	-- Cylinder size is {axisLength, diameter, diameter} in the part's OWN local
-	-- space, and cylUp then reorients that axis onto world Y — so the FIRST
-	-- number has to be the tall one or this renders as a squat oval, not a vial.
-	local vialHeight = dia * 0.5
-	local vialY = baseY + h + 1.6
-	local vial = build(parent, origin, {
-		name = "Vial",
-		pos = { 0, vialY, z },
-		size = { vialHeight, dia * 0.28, dia * 0.28 },
-		color = C.cyan,
-		material = "Neon",
-		shape = "Cylinder",
-		rot = R.cylUp,
-		transparency = 0.15,
-		canCollide = false,
-	})
-	build(parent, origin, {
-		name = "VialCap",
-		pos = { 0, vialY + vialHeight / 2, z },
-		size = { dia * 0.1, dia * 0.34, dia * 0.34 },
-		color = C.hazardBlack,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = R.cylUp,
-		canCollide = false,
-	})
-	light(vial, C.cyan, 12, 1.4)
-
-	return lid
 end
 
 -- ── Shop-specific props ─────────────────────────────────────────────────────────
 --
--- The barrel + dome + trefoil kit above is identical for every shop except colour,
--- which was the actual complaint: nothing about the SHAPE said "this is the magnet
--- one" versus "this is the cleaner one." Each shop gets one big, silhouette-clear
--- prop of the actual thing it sells, standing next to the counter, on top of the
--- colour-coding rather than instead of it. All canCollide=false — display pieces,
--- not obstacles to path around.
+-- One big, silhouette-clear prop of the actual thing each shop sells, standing
+-- beside the counter — the differentiator now that every booth is the same shape.
+-- All canCollide=false — display pieces, not obstacles to path around.
 
 --- A metal detector: flat coil on the ground, a shaft rising from it, a control
 --- box and a crossbar grip near the top. The coil-and-shaft silhouette is the one
@@ -359,11 +285,68 @@ local function buildIdentityProp(parent: Instance, origin: CFrame, track: string
 	end
 end
 
+--- A wood shipping crate: a box with an X of cross-braces on the front face and one
+--- small coloured item peeking over the rim — the "goods stacked outside the
+--- stall" clutter the reference photo has (crates, a barrel, a boombox) that the
+--- old single-prop stalls didn't.
+local function buildCrateProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
+	build(parent, origin, { name = "CrateBox", pos = { x, 1.1, z }, size = { 2.2, 2.2, 2.2 }, color = C.wood, material = "Wood", canCollide = false })
+	for _, angle in { 35, -35 } do
+		build(parent, origin, {
+			name = "CrateBrace",
+			pos = { x, 1.1, z },
+			size = { 0.25, 2.9, 0.25 },
+			color = C.woodLight,
+			material = "Wood",
+			rot = Kit.ang(0, 0, angle),
+			canCollide = false,
+		})
+	end
+	build(parent, origin, { name = "CrateGoods", pos = { x, 2.55, z }, size = { 0.9, 0.9, 0.9 }, color = color, material = "SmoothPlastic", shape = "Ball", canCollide = false })
+end
+
+-- ── The counter ───────────────────────────────────────────────────────────────
+
+export type CounterSpec = {
+	color: string,
+	width: number,
+	depth: number,
+	z: number,
+	stationKind: string?,
+	stationId: string?,
+	radius: number?,
+}
+
+--- The wood counter desk — the interactive part — with a coloured trim cap on
+--- top. Returns the desk so the caller can billboard it.
+local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec): BasePart
+	local w, d, z = spec.width, spec.depth, spec.z
+
+	local attrs = nil
+	if spec.stationKind then
+		attrs = { StationKind = spec.stationKind, StationId = spec.stationId, Radius = spec.radius }
+	end
+
+	local desk = build(parent, origin, {
+		name = "Counter",
+		pos = { 0, 1.1, z },
+		size = { 2.2, w, d },
+		color = C.wood,
+		material = "Wood",
+		attributes = attrs,
+	})
+
+	build(parent, origin, { name = "CounterTrim", pos = { 0, 2.25, z }, size = { 0.3, w + 0.4, d + 0.4 }, color = spec.color, material = "SmoothPlastic", canCollide = false })
+
+	return desk
+end
+
 -- ── The plaza stalls ────────────────────────────────────────────────────────────
 
---- One toxic-drum stall: a round deck, the barrel (the counter you buy from), a
---- rounded canopy on four posts, a sign with a trefoil badge above it, and a
---- couple of mini barrels for clutter.
+--- One toy-store kiosk: a wood counter booth on four posts under a candy-striped
+--- awning, a shopkeeper behind the counter, a glowing sign over the roof, a floor
+--- marker for the buy radius, and the shop's signature prop plus a crate of
+--- clutter beside it.
 local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, tagline: string })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
@@ -380,89 +363,72 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		rot = R.cylUp,
 	})
 
-	-- THE COUNTER. This is the part the whole file exists to place correctly.
-	local lid = buildBarrel(m, origin, {
-		color = spec.color,
-		diameter = 6,
-		height = 4.4,
-		baseY = 0,
-		z = -6,
-		stationKind = "shop",
-		stationId = spec.track,
-		radius = 12,
-	})
-	billboard(lid, 260, 5.6, `{string.upper(spec.track)} SHOP`, spec.tagline, spec.color)
-
-	-- Four chunky posts holding the canopy up. Height is sized to the dome
-	-- below, not guessed independently — see the note there.
-	local POST_HEIGHT = 6.5
+	-- Four wood posts holding the awning up.
+	local POST_HEIGHT = 7
 	for _, dx in { -6.5, 6.5 } do
 		for _, dz in { -10, 2 } do
 			build(m, origin, {
 				name = "Post",
 				pos = { dx, POST_HEIGHT / 2, dz },
-				size = { POST_HEIGHT, 1.0, 1.0 },
-				color = C.hazardBlack,
-				material = "SmoothPlastic",
+				size = { POST_HEIGHT, 0.8, 0.8 },
+				color = C.wood,
+				material = "Wood",
 				shape = "Cylinder",
 				rot = R.cylUp,
 			})
 		end
 	end
 
-	-- The dome. A squashed Ball reads as a rounded canopy without needing an
-	-- actual mesh — chunky and toy-like, which is the point. Sized to the
-	-- BARREL, not to fill space: the first pass used a 22-wide dome over a
-	-- 6-wide barrel and it read as a giant balloon on a stick, floating above
-	-- a tiny stall rather than a roof over it.
-	--
-	-- An ellipsoid tapers to a POINT at its bottom pole, so sitting it flush on
-	-- the posts (bounding boxes just touching) still reads as floating — the
-	-- actual dome surface right above the post tops is razor-thin near that
-	-- point. Pushed down further instead, so the posts visibly disappear a
-	-- couple of studs into the dome's lower curve rather than stopping short
-	-- of it.
-	local DOME_W, DOME_H, DOME_D = 14, 4, 12
-	local domeY = POST_HEIGHT - 1.5 + DOME_H / 2
-	build(m, origin, {
-		name = "Dome",
-		pos = { 0, domeY, -4 },
-		size = { DOME_W, DOME_H, DOME_D },
+	-- Back and side walls of the booth. Open at the front (+Z), where the counter
+	-- and the approach are.
+	build(m, origin, { name = "BoothBack", pos = { 0, 2.2, -9.6 }, size = { 4.4, 13, 0.4 }, color = C.wood, material = "Wood" })
+	for _, dx in { -6.3, 6.3 } do
+		build(m, origin, { name = "BoothSide", pos = { dx, 2.2, -6.8 }, size = { 4.4, 0.4, 5.6 }, color = C.wood, material = "Wood" })
+	end
+
+	-- THE COUNTER. This is the part the whole file exists to place correctly.
+	local counter = buildCounter(m, origin, {
 		color = spec.color,
-		material = "SmoothPlastic",
-		shape = "Ball",
-		canCollide = false,
+		width = 12,
+		depth = 3,
+		z = -6,
+		stationKind = "shop",
+		stationId = spec.track,
+		radius = 12,
 	})
-	build(m, origin, {
-		name = "DomeTrim",
-		pos = { 0, POST_HEIGHT - 0.5, -4 },
-		size = { 0.7, DOME_W - 1, DOME_D - 1 },
-		color = C.hazard,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = R.cylUp,
-		canCollide = false,
-	})
+	billboard(counter, 260, 5.6, `{string.upper(spec.track)} SHOP`, spec.tagline, spec.color)
 
-	-- The sign: a black outline plate behind a bright board, plus the trefoil
-	-- badge floating above it. The outline is the whole "toy packaging" trick —
-	-- a flat colour on a slightly bigger black backing reads as a bold cartoon
-	-- outline without any actual line-drawing tool available in Roblox parts.
-	-- Sized to the BARREL below it, not to the old 20-wide wooden deck — an
-	-- 18-wide board dwarfed the new 6-wide barrel the same way the first-pass
-	-- dome did.
-	build(m, origin, { name = "BoardOutline", pos = { 0, 3.1, 8.3 }, size = { 11.6, 3.0, 0.3 }, color = C.hazardBlack, material = "SmoothPlastic" })
-	local board = build(m, origin, { name = "Board", pos = { 0, 3.1, 8.1 }, size = { 11, 2.6, 0.4 }, color = spec.color, material = "Neon" })
-	Kit.surfaceText(board, Enum.NormalId.Front, string.upper(spec.track), C.signText)
-	light(board, spec.color, 26, 2.2)
+	buildShopkeeper(m, origin, 0, -7.2, spec.color)
 
-	buildTrefoil(m, origin, { 0, 5.5, 8.1 }, 1.1)
+	-- The awning: alternating colour/white stripes across the same footprint the
+	-- old dome used (14 wide, 12 deep, centred on the post span), scalloped along
+	-- the front (+Z) edge, facing the approach.
+	local roofY = POST_HEIGHT - 0.3
+	buildAwning(m, origin, -4, roofY, 14, 12, 2, spec.color)
 
-	-- THE ACTUAL POINT OF THIS PASS: a big, shape-clear prop of the thing this
-	-- shop sells, standing beside the counter. The barrel told you "a shop"; this
-	-- tells you WHICH one, without reading a sign. Position checked against the
-	-- 10-stud deck radius (sqrt(7.5^2 + 5^2) ~= 9.0), so it stays on the deck.
+	-- The glowing bubble sign, floating over the roof peak. Block size is always
+	-- {X, Y, Z} in local space with no rotation applied here, so width has to be
+	-- FIRST and height SECOND or this renders as a tall obelisk instead of a
+	-- wide sign board.
+	build(m, origin, { name = "SignOutline", pos = { 0, roofY + 2.6, -4.2 }, size = { 9.6, 2.6, 0.3 }, color = C.hazardBlack, material = "SmoothPlastic", canCollide = false })
+	local sign = build(m, origin, { name = "Sign", pos = { 0, roofY + 2.6, -3.8 }, size = { 9, 2.2, 0.4 }, color = spec.color, material = "Neon", canCollide = false })
+	-- Back (local +Z), not Front (-Z): players approach this booth from +Z,
+	-- coming down from the higher local-z porch toward the counter at z=-6, so
+	-- the face pointing back AT them is Back, not Front. Got this backwards on
+	-- the first pass and shipped a sign whose text only ever faced away from
+	-- the approach -- caught by checking from the actual approach camera angle,
+	-- not just confirming the parts existed.
+	Kit.surfaceText(sign, Enum.NormalId.Back, string.upper(spec.track), C.signText)
+	light(sign, spec.color, 26, 2.2)
+
+	-- The floor marker: a glowing outline of the buy radius, in the shop's own
+	-- colour — never green, see the header.
+	buildFloorMarker(m, origin, 0, -2, 10, 8, spec.color)
+
+	-- THE ACTUAL POINT OF THIS PASS: a big, shape-clear prop of the thing this shop
+	-- sells, standing beside the counter, plus a crate of clutter next to it.
 	buildIdentityProp(m, origin, spec.track, 7.5, -5, spec.color)
+	buildCrateProp(m, origin, 8.2, -1, spec.color)
 
 	m.Parent = parent
 	return m
@@ -470,8 +436,11 @@ end
 
 -- ── The outfitter ─────────────────────────────────────────────────────────────
 
---- The outfitter: one long bench, three mini-barrel counters on it, one shared
---- trefoil on the backboard instead of three crowded together.
+--- The outfitter: one long wood bench, three counters on it, a striped awning trim
+--- along the backboard, and a glowing sign — same visual language as the plaza
+--- stalls, scaled down for three counters sharing one bench (no room for three
+--- shopkeepers, so the identity props keep doing the "which counter is which" job
+--- here, exactly as they already did before this pass).
 local function buildOutfitter(parent: Instance)
 	local m = Instance.new("Model")
 	m.Name = "Outfitter"
@@ -479,24 +448,24 @@ local function buildOutfitter(parent: Instance)
 	local origin = CFrame.new(OUTFITTER.at[1], 0, OUTFITTER.at[2])
 	local span = OUTFITTER.pitch * (#OUTFITTER.counters - 1)
 
-	build(m, origin, { name = "Bench", pos = { 0, -0.2, 0 }, size = { span + 18, 0.4, 12 }, color = C.steelDark, material = "DiamondPlate" })
+	build(m, origin, { name = "Bench", pos = { 0, -0.2, 0 }, size = { span + 18, 0.4, 12 }, color = C.wood, material = "Wood" })
 
 	build(m, origin, { name = "BackboardOutline", pos = { 0, 3.3, 5.2 }, size = { span + 19, 6.4, 0.4 }, color = C.hazardBlack, material = "SmoothPlastic" })
-	local backboard = build(m, origin, { name = "Backboard", pos = { 0, 3.3, 5 }, size = { span + 18, 6, 0.5 }, color = C.shopOutfitter, material = "Metal" })
+	local backboard = build(m, origin, { name = "Backboard", pos = { 0, 3.3, 5 }, size = { span + 18, 6, 0.5 }, color = C.shopOutfitter, material = "Neon" })
 	Kit.surfaceText(backboard, Enum.NormalId.Front, "OUTFITTER", C.signText)
 	light(backboard, C.shopOutfitter, 24, 1.8)
 
-	buildTrefoil(m, origin, { 0, 7.5, 5 }, 1.6)
+	buildAwning(m, origin, 5, 6.6, span + 18, 1.6, 5.8, C.shopOutfitter)
+	buildFloorMarker(m, origin, 0, -3, span + 16, 8, C.shopOutfitter)
 
 	for index, counter in OUTFITTER.counters do
 		local x = -span / 2 + (index - 1) * OUTFITTER.pitch
 		local counterOrigin = origin * CFrame.new(x, 0, 0)
 
-		local lid = buildBarrel(m, counterOrigin, {
+		local desk = buildCounter(m, counterOrigin, {
 			color = C.shopOutfitter,
-			diameter = 3.6,
-			height = 2.6,
-			baseY = 0,
+			width = 4,
+			depth = 2.4,
 			z = -1.5,
 			stationKind = "shop",
 			stationId = counter.track,
@@ -504,14 +473,12 @@ local function buildOutfitter(parent: Instance)
 			-- standing at one of them has to be unambiguous.
 			radius = 6,
 		})
-		billboard(lid, 200, 4.4, counter.label, counter.tagline, C.shopOutfitter)
+		billboard(desk, 200, 4.4, counter.label, counter.tagline, C.shopOutfitter)
 
 		-- Same idea as the plaza stalls, scaled to the bench: the actual gear,
-		-- not just a coloured barrel. Offset to the SIDE, not straight in front
-		-- — a first pass put it directly behind the barrel on the approach
-		-- axis, where the barrel's own silhouette occluded almost the whole
-		-- prop. 2.2 studs of sideways clearance is nothing next to the 13-stud
-		-- counter pitch, so it can't drift into a neighbour's space.
+		-- not just the counter. Offset to the SIDE, not straight in front — a
+		-- first pass put it directly behind the counter on the approach axis,
+		-- where the counter's own silhouette occluded almost the whole prop.
 		buildIdentityProp(m, counterOrigin, counter.track, 2.3, 1.0, C.shopOutfitter)
 	end
 

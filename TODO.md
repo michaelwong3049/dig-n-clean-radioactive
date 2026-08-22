@@ -187,6 +187,30 @@ the place file has no git history to recover from.
       yellow that both nearly vanished against the bench — switched to
       `C.wood` (dark brown) for actual contrast. World positions, both Radius
       values, and the barrel/dome/trefoil kit are all unchanged.
+- [x] **Shops reskinned again — toy-store kiosk, not toxic drum.** The nuclear-drum
+      look above is gone, replaced with the generic "friendly Roblox shop" a
+      reference photo asked for directly: a wood counter booth on four wood posts
+      under a candy-striped, scalloped awning, a little blocky shopkeeper standing
+      behind the counter, a glowing bubble sign floating over the roof peak, and a
+      glowing floor outline marking the buy radius. Per-shop colour-coding and the
+      identity-prop system both carry over unchanged — the booth shape is now
+      identical for every shop, so the prop beside the counter (plus a new wood
+      crate of clutter next to it) is still the only thing that says *which* shop
+      it is. `buildTrefoil`/`buildBarrel` removed (dead code, nothing referenced
+      their output once the drum was gone); `Kit.C` already had wood tones from the
+      boots/satchel props, no new palette entries needed. World positions and both
+      Radius values (12 stalls, 6 outfitter) are untouched — same promise as the
+      first reskin. Two real bugs caught by screenshot, not shipped: the sign's
+      width/height were swapped in the size array (rendered as a giant black
+      obelisk instead of a wide board), and the sign's `SurfaceGui` text was
+      painted on the face pointing away from the direction players actually
+      approach from (silently blank from every angle a player would ever stand at
+      — caught by checking from the approach camera angle, not just confirming the
+      parts existed). A third bug turned out to be in `Kit.surfaceText` itself, not
+      Shops.luau: any sign with a `PointLight` on the same part (the new glowing
+      signs) was blowing its own text out to a blank wash, because `SurfaceGui`
+      defaults to full `LightInfluence`. Fixed once, at the shared helper, so every
+      sign in the game benefits rather than working around it per caller.
 - [x] **Outfitter bench** — Suit, Boots and Satchel. Not in the original ask, but three
       shops left those three tracks *priced and unbuyable*, and the Suit gates every
       zone, so Zone 2 would have become the locked door PLAN §3.5 promises never to

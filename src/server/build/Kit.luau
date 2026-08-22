@@ -215,6 +215,11 @@ function Kit.surfaceText(part: BasePart, face: Enum.NormalId, text: string, colo
 	gui.Face = face
 	gui.PixelsPerStud = 50
 	gui.AlwaysOnTop = alwaysOnTop or false
+	-- Several callers (Shops.luau's signs) attach a PointLight to this same part
+	-- for the "glowing sign" look. LightInfluence defaults to 1, so that light
+	-- was blowing its own text out to a blank wash right next to the source.
+	-- Text should read the same whether or not the part happens to glow.
+	gui.LightInfluence = 0
 	gui.Parent = part
 
 	local label = Instance.new("TextLabel")
