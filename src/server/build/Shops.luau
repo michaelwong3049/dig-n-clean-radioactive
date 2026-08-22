@@ -468,30 +468,87 @@ end
 
 -- ── The outfitter ─────────────────────────────────────────────────────────────
 
---- The outfitter: one long wood bench, three counters on it, a striped awning trim
---- along the backboard, and a glowing sign — same visual language as the plaza
---- stalls, scaled down for three counters sharing one bench (no room for three
---- shopkeepers, so the identity props keep doing the "which counter is which" job
---- here, exactly as they already did before this pass).
+--- A simple peaked roof: two flat panels sloping up from the wall tops to a ridge
+--- along the building's centreline, plus a capping ridge beam. `halfDepth` is the
+--- distance from centre to each wall, `rise` how far the ridge climbs above the
+--- wall tops. Positions are derived from the two literal points each panel spans
+--- (wall-top eave, centre-line ridge) rather than reasoned out in the abstract --
+--- this project has gotten CFrame rotation signs backwards from pure reasoning
+--- more than once this session, and deriving from known points is the version
+--- that's checkable by eye against the numbers.
+---
+--- Returns the ridge Y so the caller can float a sign above it.
+local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number, wallHeight: number, halfDepth: number, rise: number, width: number, color: string): number
+	local slopeLen = math.sqrt(halfDepth ^ 2 + rise ^ 2)
+	local ridgeY = wallHeight + rise
+	local tiltDeg = math.deg(math.atan2(rise, halfDepth))
+
+	for _, side in { -1, 1 } do
+		-- Eave point: (side*halfDepth, wallHeight). Ridge point: (0, ridgeY).
+		-- The panel's own centre sits halfway between them.
+		build(parent, origin, {
+			name = "RoofPanel",
+			pos = { 0, wallHeight + rise / 2, centerZ + side * halfDepth / 2 },
+			size = { width, 0.6, slopeLen },
+			color = color,
+			material = "Wood",
+			rot = Kit.ang(side * tiltDeg, 0, 0),
+			canCollide = false,
+		})
+	end
+
+	build(parent, origin, {
+		name = "RoofRidge",
+		pos = { 0, ridgeY, centerZ },
+		size = { width, 1.1, 1.1 },
+		color = C.wood,
+		material = "Wood",
+		shape = "Cylinder",
+		rot = R.cylAlongX,
+		canCollide = false,
+	})
+
+	return ridgeY
+end
+
+--- The outfitter: a proper building, not a bench under a trim strip. Three
+--- shops left Suit, Boots and Satchel priced but unbuyable, and hazard gear that
+--- actually reduces incoming damage earns more than a picnic table — four walls,
+--- a peaked roof, and a real doorway facing the camp gate, with the three
+--- counters inside. No room for three shopkeepers under one roof, so the
+--- identity props keep doing the "which counter is which" job, exactly as they
+--- already did before this pass.
 local function buildOutfitter(parent: Instance)
 	local m = Instance.new("Model")
 	m.Name = "Outfitter"
 
 	local origin = CFrame.new(OUTFITTER.at[1], 0, OUTFITTER.at[2])
 	local span = OUTFITTER.pitch * (#OUTFITTER.counters - 1)
+	local width = span + 20
+	local halfDepth = 8
+	local wallHeight = 7
 
-	build(m, origin, { name = "Bench", pos = { 0, -0.2, 0 }, size = { span + 18, 0.4, 12 }, color = C.wood, material = "Wood" })
+	build(m, origin, { name = "Floor", pos = { 0, -0.2, 0 }, size = { width, 0.4, halfDepth * 2 }, color = C.plazaWarm, material = "Plastic" })
 
-	build(m, origin, { name = "BackboardOutline", pos = { 0, 3.3, 5.2 }, size = { span + 19, 6.4, 0.4 }, color = C.hazardBlack, material = "Plastic" })
-	local backboard = build(m, origin, { name = "Backboard", pos = { 0, 3.3, 5 }, size = { span + 18, 6, 0.5 }, color = C.shopOutfitter, material = "Neon" })
-	Kit.surfaceText(backboard, Enum.NormalId.Front, "OUTFITTER", C.signText)
-	light(backboard, C.shopOutfitter, 24, 1.8)
+	-- Back wall and two side walls. Open at the front (+Z, facing the camp
+	-- gate) -- that's the doorway, not a fourth wall.
+	build(m, origin, { name = "BackWall", pos = { 0, wallHeight / 2, -halfDepth }, size = { width, wallHeight, 0.6 }, color = C.wood, material = "Wood" })
+	for _, dx in { -width / 2, width / 2 } do
+		build(m, origin, { name = "SideWall", pos = { dx, wallHeight / 2, 0 }, size = { 0.6, wallHeight, halfDepth * 2 }, color = C.wood, material = "Wood" })
+	end
 
-	-- A much shallower bow than the plaza stalls (12° vs 35°) -- this is a wide
-	-- decorative trim capping the backboard, not a canopy overhead, so a deep
-	-- arch here would tower awkwardly over a shared bench.
-	buildArchAwning(m, origin, 5, 6.6, 1.6, span + 16, 12, C.shopOutfitter)
-	buildFloorMarker(m, origin, 0, -3, span + 16, 8, C.shopOutfitter)
+	local ridgeY = buildGableRoof(m, origin, 0, wallHeight, halfDepth, 4, width + 2, C.shopOutfitter)
+
+	-- The glowing sign, floating over the doorway, facing the approach from the
+	-- camp gate -- same Back-face convention the plaza stalls use, for the same
+	-- reason: whoever is walking toward this building is standing on the +Z side.
+	local signY = ridgeY + 2.2
+	build(m, origin, { name = "SignOutline", pos = { 0, signY, halfDepth - 0.2 }, size = { width - 8, 2.6, 0.3 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
+	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, halfDepth + 0.2 }, size = { width - 8.6, 2.2, 0.4 }, color = C.shopOutfitter, material = "Neon", canCollide = false })
+	Kit.surfaceText(sign, Enum.NormalId.Back, "OUTFITTER", C.signText)
+	light(sign, C.shopOutfitter, 26, 2.2)
+
+	buildFloorMarker(m, origin, 0, halfDepth - 3, width - 6, 8, C.shopOutfitter)
 
 	for index, counter in OUTFITTER.counters do
 		local x = -span / 2 + (index - 1) * OUTFITTER.pitch
@@ -501,20 +558,20 @@ local function buildOutfitter(parent: Instance)
 			color = C.shopOutfitter,
 			width = 4,
 			depth = 2.4,
-			z = -1.5,
+			z = -halfDepth + 3.5,
 			stationKind = "shop",
 			stationId = counter.track,
-			-- Tighter than the plaza stalls: three counters on one bench, and
-			-- standing at one of them has to be unambiguous.
+			-- Tighter than the plaza stalls: three counters share one building,
+			-- and standing at one of them has to be unambiguous.
 			radius = 6,
 		})
 		billboard(desk, 200, 4.4, counter.label, counter.tagline, C.shopOutfitter)
 
-		-- Same idea as the plaza stalls, scaled to the bench: the actual gear,
-		-- not just the counter. Offset to the SIDE, not straight in front — a
-		-- first pass put it directly behind the counter on the approach axis,
-		-- where the counter's own silhouette occluded almost the whole prop.
-		buildIdentityProp(m, counterOrigin, counter.track, 2.3, 1.0, C.shopOutfitter)
+		-- Same idea as the plaza stalls: the actual gear, not just the counter.
+		-- Offset to the SIDE, not straight in front — a first pass put it
+		-- directly behind the counter on the approach axis, where the counter's
+		-- own silhouette occluded almost the whole prop.
+		buildIdentityProp(m, counterOrigin, counter.track, 2.3, -halfDepth + 5.5, C.shopOutfitter)
 	end
 
 	m.Parent = parent

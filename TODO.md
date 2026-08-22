@@ -248,6 +248,19 @@ the place file has no git history to recover from.
       zone, so Zone 2 would have become the locked door PLAN §3.5 promises never to
       build. `Shops.luau` now asserts at build time that every `Gear.TRACKS` entry is
       sold somewhere.
+- [x] **Outfitter rebuilt as a real building, not a bench.** It sells the gear
+      that reduces incoming damage — hazard suits, boots, satchels — so it earns a
+      building rather than a picnic table under a trim strip. Four walls (open at
+      the front, facing the camp gate), a real peaked roof (`buildGableRoof`: two
+      flat panels tilted up from the wall tops to a centre ridge, plus a ridge cap
+      — this project's usual "fake the curve/slope with flat blocks" trick), and
+      the three counters moved inside against the back wall. The bowed awning trim
+      that capped the old backboard is gone entirely, replaced by the roof.
+      World positions and all three Radius values (6 each) are untouched. Verified
+      in Studio from an angled camera (a dead-on front view hid the ridge and made
+      the roof read as flat, which cost one confused screenshot before checking
+      the actual part positions/rotations directly and finding the geometry was
+      correct all along).
 - [x] **Six Exhibition plots** with claim boards, per-plot spawns and pedestal slots
       (3 unlocked, 40 addressable). World + data contract only.
 - [x] **Base layout revamped to match the requested sketch** — cleansing station at
