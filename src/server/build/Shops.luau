@@ -10,25 +10,24 @@
 	detector shop" once and then navigates by colour rather than by reading signs,
 	which is the cheapest legibility win available anywhere in this map.
 
-	PLUS AN OUTFITTER BENCH, and this one is not decoration.
+	PLUS AN OUTFITTER, a real building, and this one is not decoration.
 	Gear.TRACKS has six entries. Three stalls covers Detector, Magnet and Cleaner and
 	leaves Suit, Boots and Satchel priced but unbuyable — and the SUIT is the gate on
 	every zone in the game. Without a way to buy one, Zone 2 stops being "you can go
 	there and here is what it costs" and becomes exactly the locked door PLAN §3.5
-	promises never to build. The bench costs nothing to add because the shop system
+	promises never to build. It costs nothing to add because the shop system
 	is track-generic: it is three more counters with three more StationIds.
 
-	THE LOOK — a classic toy-store kiosk, not a toxic drum, not a booth.
-	The nuclear-drum reskin (round barrel counter, dome roof, trefoil badge) is
-	long gone, replaced with a wood counter on four wood posts under a bowed,
-	candy-striped, rolled-edge canopy (`buildArchAwning`), a little blocky
-	shopkeeper standing behind the counter, and a glowing bubble sign floating
-	over the roof peak. Open on all sides — no booth walls anywhere — matching
-	the reference photo this shape came from. All three plaza stalls and the
-	Outfitter's backboard trim share the one awning builder, just at different
-	scales: a deep 35° bow for a stall roof you stand under, a wide, shallow 12°
-	bow for a trim strip capping a shared bench. Per-shop colour-coding survives
-	fully intact — the awning stripes, the sign, and the floor marker all use
+	THE LOOK — a classic toy-store kiosk, not a toxic drum, not an archway.
+	The nuclear-drum reskin (round barrel counter, dome roof, trefoil badge) and,
+	later, a bowed rolled-edge canopy are both long gone, replaced with a wood
+	counter on four wood posts under a real peaked roof (`buildGableRoof` — two
+	flat panels tilted up to a centre ridge, this project's usual way of faking a
+	slope out of flat blocks), a little blocky shopkeeper standing behind the
+	counter, and a glowing bubble sign floating over the roof peak. Open on all
+	sides — no booth walls on the stalls themselves. The Outfitter shares the same
+	roof builder at building scale, over real walls. Per-shop colour-coding
+	survives fully intact — the roof colour, the sign, and the floor marker all use
 	`spec.color`, so "the coral one is the detector shop" still holds.
 
 	IDENTITY STILL COMES FROM THE PROP, NOT THE STALL SHAPE. Every stall is the
@@ -91,77 +90,6 @@ local OUTFITTER = {
 		{ track = "Satchel", label = "SATCHELS", tagline = "buy the clock time" },
 	},
 }
-
--- ── The bowed awning ─────────────────────────────────────────────────────────
-
---- A bowed, rolled-edge canopy — every stall and the Outfitter's backboard trim
---- share this now. Built as SEGMENTS flat panels walked around a shallow arc (a
---- cheap fake-curve trick this project's chunky low-poly language already leans
---- on elsewhere) instead of a real curved surface, which Roblox parts can't do at
---- all. Each segment is a Block, so ITS SIZE STAYS {length, thickness, depth}
---- REGARDLESS OF ROTATION — a Block's local axes rotate WITH it, unlike a
---- Cylinder's fixed local axis, so there is no "which number is the axis" trap
---- here to get backwards.
----
---- `width` is the arc's total span end-to-end and `halfAngle` how deep the bow is
---- (degrees either side of the peak) — kept separate rather than a fixed radius
---- because this same shape has to cover both a ~14-wide stall canopy (a deep,
---- dramatic bow) and the Outfitter's ~40-wide backboard trim (a wide, shallow
---- one); one hardcoded radius could not do both.
----
---- Returns the arc's peak Y so the caller can float the sign above it without
---- re-deriving the same trig.
-local function buildArchAwning(parent: Instance, origin: CFrame, centerZ: number, baseY: number, depth: number, width: number, halfAngle: number, color: string): number
-	local segments = 7
-	local radius = width / (2 * math.sin(math.rad(halfAngle)))
-	local pivotY = baseY + radius * (1 - math.cos(math.rad(halfAngle)))
-	local angleStep = (2 * halfAngle) / (segments - 1)
-	-- A little longer than the pure chord length so consecutive segments
-	-- overlap slightly instead of leaving hairline gaps at the seams.
-	local segmentLen = 2 * radius * math.sin(math.rad(angleStep / 2)) * 1.2
-
-	for i = 0, segments - 1 do
-		local angle = -halfAngle + i * angleStep
-		local rad = math.rad(angle)
-		local x = radius * math.sin(rad)
-		local y = pivotY - radius * (1 - math.cos(rad))
-		local stripeColor = if i % 2 == 0 then color else C.labelText
-		-- Only Z rotates (Kit.ang(0,0,angle)), so local Y and Z stay world Y and
-		-- Z: Y has to be the thin dimension and Z the stall's depth, or this
-		-- renders as a wall of vertical spikes instead of a flat roof panel.
-		build(parent, origin, {
-			name = "ArchSegment",
-			pos = { x, y, centerZ },
-			size = { segmentLen, 0.6, depth },
-			color = stripeColor,
-			material = "Plastic",
-			rot = Kit.ang(0, 0, angle),
-			canCollide = false,
-		})
-	end
-
-	-- The rolled scroll ends -- the chunky wood "log" the fabric wraps around at
-	-- each edge, the detail that reads as "bowed canopy" rather than just "two
-	-- ramps." A Cylinder's axis is ALWAYS size[1] regardless of rot, so length
-	-- goes first here even though it reads oddly next to the two diameters.
-	for _, side in { -1, 1 } do
-		local rad = math.rad(side * halfAngle)
-		local x = radius * math.sin(rad)
-		local y = pivotY - radius * (1 - math.cos(rad))
-		build(parent, origin, {
-			name = "AwningScroll",
-			pos = { x, y, centerZ },
-			size = { depth + 1, 1.6, 1.6 },
-			color = C.wood,
-			material = "Wood",
-			shape = "Cylinder",
-			rot = R.cylAlongZ,
-			canCollide = false,
-		})
-	end
-
-	return pivotY
-end
 
 -- ── The shopkeeper ────────────────────────────────────────────────────────────
 
@@ -377,96 +305,7 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 	return desk
 end
 
--- ── The plaza stalls ────────────────────────────────────────────────────────────
-
---- One toy-store kiosk: a wood counter on four posts under a bowed, candy-striped
---- awning, a shopkeeper behind the counter, a glowing sign over the roof, a floor
---- marker for the buy radius, and the shop's signature prop plus a crate of
---- clutter beside it. Open on all sides — no booth walls — matching the arch
---- awning's own reference photo, which all three stalls now share.
-local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, tagline: string })
-	local m = Instance.new("Model")
-	m.Name = `{spec.track}Shop`
-
-	local origin = CFrame.new(spec.at[1], 0, spec.at[2])
-
-	build(m, origin, {
-		name = "Deck",
-		pos = { 0, -0.3, 0 },
-		size = { 0.6, 20, 20 },
-		color = C.plazaWarm,
-		material = "Plastic",
-		shape = "Cylinder",
-		rot = R.cylUp,
-	})
-
-	-- Four chunky wood posts holding the awning up, positioned under the arch's
-	-- own edge x (±6.9, see buildArchAwning) so post-top and roof-edge line up.
-	local POST_HEIGHT = 6
-	local POST_DX = 6.9
-	for _, dx in { -POST_DX, POST_DX } do
-		for _, dz in { -10, 2 } do
-			build(m, origin, {
-				name = "Post",
-				pos = { dx, POST_HEIGHT / 2, dz },
-				size = { POST_HEIGHT, 1.1, 1.1 },
-				color = C.wood,
-				material = "Wood",
-				shape = "Cylinder",
-				rot = R.cylUp,
-			})
-		end
-	end
-
-	-- THE COUNTER. This is the part the whole file exists to place correctly.
-	local counter = buildCounter(m, origin, {
-		color = spec.color,
-		width = 12,
-		depth = 3,
-		z = -6,
-		stationKind = "shop",
-		stationId = spec.track,
-		radius = 12,
-	})
-	billboard(counter, 260, 5.6, `{string.upper(spec.track)} SHOP`, spec.tagline, spec.color)
-
-	buildShopkeeper(m, origin, 0, -7.2, spec.color)
-
-	-- The awning, and the Y the sign should float above -- a function of the
-	-- radius and half-angle buildArchAwning uses, not a number worth
-	-- re-deriving at the call site.
-	local roofTop = buildArchAwning(m, origin, -4, POST_HEIGHT, 12, 2 * POST_DX, 35, spec.color)
-
-	-- The glowing bubble sign, floating over the roof peak. Block size is always
-	-- {X, Y, Z} in local space with no rotation applied here, so width has to be
-	-- FIRST and height SECOND or this renders as a tall obelisk instead of a
-	-- wide sign board.
-	local signY = roofTop + 2.6
-	build(m, origin, { name = "SignOutline", pos = { 0, signY, -4.2 }, size = { 9.6, 2.6, 0.3 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
-	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, -3.8 }, size = { 9, 2.2, 0.4 }, color = spec.color, material = "Neon", canCollide = false })
-	-- Back (local +Z), not Front (-Z): players approach this booth from +Z,
-	-- coming down from the higher local-z porch toward the counter at z=-6, so
-	-- the face pointing back AT them is Back, not Front. Got this backwards on
-	-- the first pass and shipped a sign whose text only ever faced away from
-	-- the approach -- caught by checking from the actual approach camera angle,
-	-- not just confirming the parts existed.
-	Kit.surfaceText(sign, Enum.NormalId.Back, string.upper(spec.track), C.signText)
-	light(sign, spec.color, 26, 2.2)
-
-	-- The floor marker: a glowing outline of the buy radius, in the shop's own
-	-- colour — never green, see the header.
-	buildFloorMarker(m, origin, 0, -2, 10, 8, spec.color)
-
-	-- THE ACTUAL POINT OF THIS PASS: a big, shape-clear prop of the thing this shop
-	-- sells, standing beside the counter, plus a crate of clutter next to it.
-	buildIdentityProp(m, origin, spec.track, 7.5, -5, spec.color)
-	buildCrateProp(m, origin, 8.2, -1, spec.color)
-
-	m.Parent = parent
-	return m
-end
-
--- ── The outfitter ─────────────────────────────────────────────────────────────
+-- ── The gable roof ───────────────────────────────────────────────────────────
 
 --- A simple peaked roof: two flat panels sloping up from the wall tops to a ridge
 --- along the building's centreline, plus a capping ridge beam. `halfDepth` is the
@@ -477,7 +316,9 @@ end
 --- more than once this session, and deriving from known points is the version
 --- that's checkable by eye against the numbers.
 ---
---- Returns the ridge Y so the caller can float a sign above it.
+--- Returns the ridge Y so the caller can float a sign above it. Shared by the
+--- plaza stalls (a small roof on posts) and the Outfitter (a much bigger one
+--- over real walls) -- the same shape at two different scales.
 local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number, wallHeight: number, halfDepth: number, rise: number, width: number, color: string): number
 	local slopeLen = math.sqrt(halfDepth ^ 2 + rise ^ 2)
 	local ridgeY = wallHeight + rise
@@ -511,6 +352,97 @@ local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number,
 	return ridgeY
 end
 
+-- ── The plaza stalls ────────────────────────────────────────────────────────────
+
+--- One toy-store kiosk: a wood counter on four posts under a bowed, candy-striped
+--- awning, a shopkeeper behind the counter, a glowing sign over the roof, a floor
+--- marker for the buy radius, and the shop's signature prop plus a crate of
+--- clutter beside it. Open on all sides — no booth walls — matching the arch
+--- awning's own reference photo, which all three stalls now share.
+local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, tagline: string })
+	local m = Instance.new("Model")
+	m.Name = `{spec.track}Shop`
+
+	local origin = CFrame.new(spec.at[1], 0, spec.at[2])
+
+	build(m, origin, {
+		name = "Deck",
+		pos = { 0, -0.3, 0 },
+		size = { 0.6, 20, 20 },
+		color = C.plazaWarm,
+		material = "Plastic",
+		shape = "Cylinder",
+		rot = R.cylUp,
+	})
+
+	-- Four chunky wood posts holding the roof up.
+	local POST_HEIGHT = 6
+	local POST_DX = 6.5
+	for _, dx in { -POST_DX, POST_DX } do
+		for _, dz in { -10, 2 } do
+			build(m, origin, {
+				name = "Post",
+				pos = { dx, POST_HEIGHT / 2, dz },
+				size = { POST_HEIGHT, 1.1, 1.1 },
+				color = C.wood,
+				material = "Wood",
+				shape = "Cylinder",
+				rot = R.cylUp,
+			})
+		end
+	end
+
+	-- THE COUNTER. This is the part the whole file exists to place correctly.
+	local counter = buildCounter(m, origin, {
+		color = spec.color,
+		width = 12,
+		depth = 3,
+		z = -6,
+		stationKind = "shop",
+		stationId = spec.track,
+		radius = 12,
+	})
+	billboard(counter, 260, 5.6, `{string.upper(spec.track)} SHOP`, spec.tagline, spec.color)
+
+	buildShopkeeper(m, origin, 0, -7.2, spec.color)
+
+	-- A real peaked roof -- same builder and the same reasoning as the
+	-- Outfitter building, not the bowed/rolled-edge canopy this stall used to
+	-- have. `halfDepth = 6` matches the post span exactly (dz -10 to +2, centred
+	-- on -4), so the eaves land right at the post tops.
+	local roofTop = buildGableRoof(m, origin, -4, POST_HEIGHT, 6, 3, 14, spec.color)
+
+	-- The glowing bubble sign, floating over the roof peak. Block size is always
+	-- {X, Y, Z} in local space with no rotation applied here, so width has to be
+	-- FIRST and height SECOND or this renders as a tall obelisk instead of a
+	-- wide sign board.
+	local signY = roofTop + 2.6
+	build(m, origin, { name = "SignOutline", pos = { 0, signY, -4.2 }, size = { 9.6, 2.6, 0.3 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
+	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, -3.8 }, size = { 9, 2.2, 0.4 }, color = spec.color, material = "Neon", canCollide = false })
+	-- Back (local +Z), not Front (-Z): players approach this booth from +Z,
+	-- coming down from the higher local-z porch toward the counter at z=-6, so
+	-- the face pointing back AT them is Back, not Front. Got this backwards on
+	-- the first pass and shipped a sign whose text only ever faced away from
+	-- the approach -- caught by checking from the actual approach camera angle,
+	-- not just confirming the parts existed.
+	Kit.surfaceText(sign, Enum.NormalId.Back, string.upper(spec.track), C.signText)
+	light(sign, spec.color, 26, 2.2)
+
+	-- The floor marker: a glowing outline of the buy radius, in the shop's own
+	-- colour — never green, see the header.
+	buildFloorMarker(m, origin, 0, -2, 10, 8, spec.color)
+
+	-- THE ACTUAL POINT OF THIS PASS: a big, shape-clear prop of the thing this shop
+	-- sells, standing beside the counter, plus a crate of clutter next to it.
+	buildIdentityProp(m, origin, spec.track, 7.5, -5, spec.color)
+	buildCrateProp(m, origin, 8.2, -1, spec.color)
+
+	m.Parent = parent
+	return m
+end
+
+-- ── The outfitter ─────────────────────────────────────────────────────────────
+
 --- The outfitter: a proper building, not a bench under a trim strip. Three
 --- shops left Suit, Boots and Satchel priced but unbuyable, and hazard gear that
 --- actually reduces incoming damage earns more than a picnic table — four walls,
@@ -542,9 +474,14 @@ local function buildOutfitter(parent: Instance)
 	-- The glowing sign, floating over the doorway, facing the approach from the
 	-- camp gate -- same Back-face convention the plaza stalls use, for the same
 	-- reason: whoever is walking toward this building is standing on the +Z side.
+	-- Fixed size, not derived from the building's width — a sign that spans the
+	-- whole 46-wide storefront came out as a comically long, thin plank with
+	-- "OUTFITTER" lost in the middle of it, which read as stretched-out text even
+	-- though TextScaled itself never distorts a glyph. The board's own proportions
+	-- were the actual problem.
 	local signY = ridgeY + 2.2
-	build(m, origin, { name = "SignOutline", pos = { 0, signY, halfDepth - 0.2 }, size = { width - 8, 2.6, 0.3 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
-	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, halfDepth + 0.2 }, size = { width - 8.6, 2.2, 0.4 }, color = C.shopOutfitter, material = "Neon", canCollide = false })
+	build(m, origin, { name = "SignOutline", pos = { 0, signY, halfDepth - 0.2 }, size = { 15, 3.0, 0.3 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
+	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, halfDepth + 0.2 }, size = { 14.4, 2.6, 0.4 }, color = C.shopOutfitter, material = "Neon", canCollide = false })
 	Kit.surfaceText(sign, Enum.NormalId.Back, "OUTFITTER", C.signText)
 	light(sign, C.shopOutfitter, 26, 2.2)
 

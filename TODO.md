@@ -261,6 +261,19 @@ the place file has no git history to recover from.
       the roof read as flat, which cost one confused screenshot before checking
       the actual part positions/rotations directly and finding the geometry was
       correct all along).
+- [x] **The bowed arch canopy removed from the plaza stalls too, replaced with
+      `buildGableRoof` at stall scale.** After going up on the Outfitter, the same
+      "archway" look on Detector/Magnet/Cleaner didn't land either — every shop now
+      uses the one peaked-roof builder, at two different scales (a small roof on
+      four posts for a stall, a full building for the Outfitter), and the bowed
+      canopy is gone completely. `buildArchAwning` deleted as fully dead code —
+      nothing called it any more once the Outfitter stopped too.
+- [x] **Outfitter sign shrunk — it was reading as "stretched-out" text.** The board
+      spanned the whole ~46-wide building (38 studs wide, 2.6 tall), so
+      "OUTFITTER" sat in the middle of a comically long, thin plank. `TextScaled`
+      itself never distorts a glyph; the board's own proportions were the actual
+      problem. Fixed size now (15×3), matching the plaza stalls' proportions
+      instead of scaling with the building width.
 - [x] **Six Exhibition plots** with claim boards, per-plot spawns and pedestal slots
       (3 unlocked, 40 addressable). World + data contract only.
 - [x] **Base layout revamped to match the requested sketch** — cleansing station at
