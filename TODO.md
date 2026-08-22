@@ -230,6 +230,19 @@ the place file has no git history to recover from.
       confirming `World.verify()` stayed green — verify only checks the world
       CONTRACT (station census, zone plates, no overlaps), never geometry someone
       would recognise as "wrong shape."
+- [x] **Shop parts switched from `SmoothPlastic` to `Plastic`.** Every shop part
+      except the wood posts/counters and the deliberately-glowing Neon signs was on
+      `SmoothPlastic` — Roblox's glossiest finish, close to acrylic — which read as
+      shiny rather than the flat toy-block look the rest of the world uses. Plain
+      `Plastic` (matte, bumpy) everywhere else instead.
+- [x] **The bowed awning rolled out to all three plaza stalls plus the Outfitter,
+      replacing the flat scalloped one everywhere.** `buildArchAwning` gained
+      `width`/`halfAngle` parameters instead of a hardcoded radius, since the same
+      shape now has to cover both a ~14-wide stall roof (a deep 35° bow) and the
+      Outfitter's ~40-wide backboard trim (a wide, shallow 12° bow) — one fixed
+      radius could not do both. `roofStyle`/`isArch` branching and the now-fully-dead
+      `buildAwning` (flat stripes + ball scallops) were removed rather than left
+      behind unused.
 - [x] **Outfitter bench** — Suit, Boots and Satchel. Not in the original ask, but three
       shops left those three tracks *priced and unbuyable*, and the Suit gates every
       zone, so Zone 2 would have become the locked door PLAN §3.5 promises never to

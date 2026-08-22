@@ -18,22 +18,24 @@
 	promises never to build. The bench costs nothing to add because the shop system
 	is track-generic: it is three more counters with three more StationIds.
 
-	THE LOOK, SECOND PASS — a classic toy-store kiosk, not a toxic drum.
+	THE LOOK — a classic toy-store kiosk, not a toxic drum, not a booth.
 	The nuclear-drum reskin (round barrel counter, dome roof, trefoil badge) is
-	gone, replaced with the generic friendly "Roblox shop" silhouette a reference
-	photo asked for directly: a wood counter booth under a candy-striped, scalloped
-	awning on four wood posts, a little blocky shopkeeper standing behind the
-	counter, and a glowing bubble sign floating over the roof peak. Per-shop
-	colour-coding survives the swap intact — the awning stripes, the sign, and the
-	floor marker all use `spec.color`, so "the coral one is the detector shop"
-	still holds exactly as before.
+	long gone, replaced with a wood counter on four wood posts under a bowed,
+	candy-striped, rolled-edge canopy (`buildArchAwning`), a little blocky
+	shopkeeper standing behind the counter, and a glowing bubble sign floating
+	over the roof peak. Open on all sides — no booth walls anywhere — matching
+	the reference photo this shape came from. All three plaza stalls and the
+	Outfitter's backboard trim share the one awning builder, just at different
+	scales: a deep 35° bow for a stall roof you stand under, a wide, shallow 12°
+	bow for a trim strip capping a shared bench. Per-shop colour-coding survives
+	fully intact — the awning stripes, the sign, and the floor marker all use
+	`spec.color`, so "the coral one is the detector shop" still holds.
 
-	IDENTITY STILL COMES FROM THE PROP, NOT THE BOOTH SHAPE. Every stall's booth is
-	now the same shape, so the differentiator is still the same big, silhouette-
-	clear prop of the actual thing sold (a detector, a horseshoe magnet, a
-	bucket-and-brush) standing beside the counter, now paired with a crate of
-	clutter for the "goods stacked outside the stall" read the reference photo
-	has and the drum stalls didn't.
+	IDENTITY STILL COMES FROM THE PROP, NOT THE STALL SHAPE. Every stall is the
+	same shape, so the differentiator is still the same big, silhouette-clear
+	prop of the actual thing sold (a detector, a horseshoe magnet, a
+	bucket-and-brush) standing beside the counter, paired with a crate of
+	clutter for a "goods stacked outside the stall" read.
 
 	THE GLOW STAYS OUT OF GREEN. Two glowing elements per stall — the bubble sign
 	and a floor outline marking the buy radius — both use the shop's own accent
@@ -73,10 +75,7 @@ local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 --- middle of the plaza where a player walks in from the south gate.
 local STALLS = {
 	{ track = "Detector", at = { -42, 45 }, color = C.shopDetector, tagline = "find it deeper" },
-	-- roofStyle="arch" is a second reference photo's look (a bowed, rolled-edge
-	-- awning rather than the flat scalloped one) tried on this one stall first,
-	-- deliberately, rather than rolled out to all three at once.
-	{ track = "Magnet", at = { 0, 45 }, color = C.shopMagnet, tagline = "pull it harder", roofStyle = "arch" },
+	{ track = "Magnet", at = { 0, 45 }, color = C.shopMagnet, tagline = "pull it harder" },
 	{ track = "Cleaner", at = { 42, 45 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
 }
 
@@ -93,64 +92,36 @@ local OUTFITTER = {
 	},
 }
 
--- ── The scalloped awning ────────────────────────────────────────────────────────
-
---- A candy-striped canopy: alternating colour/white panels across a flat roof, plus
---- a row of little round scallops hanging off the front edge — the classic market-
---- stall-awning silhouette, built from blocks and spheres rather than a mesh since
---- that is this game's whole art language anyway. `frontZ` is the edge the scallops
---- hang from (the side facing the approach). Each scallop is a UNIFORM sphere
---- (equal size in all three axes) rather than a squashed one deliberately — this
---- project has twice shipped a Cylinder axis-order bug from exactly this kind of
---- "flatten it a little" shortcut, and a sphere has no axis to get backwards.
-local function buildAwning(parent: Instance, origin: CFrame, centerZ: number, roofY: number, width: number, depth: number, frontZ: number, color: string)
-	local stripes = 7
-	local stripeW = width / stripes
-	local bobble = stripeW - 0.3
-	for i = 0, stripes - 1 do
-		local x = -width / 2 + stripeW * (i + 0.5)
-		local stripeColor = if i % 2 == 0 then color else C.labelText
-		build(parent, origin, {
-			name = "AwningStripe",
-			pos = { x, roofY, centerZ },
-			size = { 0.5, stripeW - 0.15, depth },
-			color = stripeColor,
-			material = "Plastic",
-			canCollide = false,
-		})
-		build(parent, origin, {
-			name = "AwningScallop",
-			pos = { x, roofY - 0.6, frontZ },
-			size = { bobble, bobble, bobble },
-			color = stripeColor,
-			material = "Plastic",
-			shape = "Ball",
-			canCollide = false,
-		})
-	end
-end
-
 -- ── The bowed awning ─────────────────────────────────────────────────────────
 
---- A second awning style — a bowed, rolled-edge canopy rather than a flat one, from
---- a second reference photo. Built as SEGMENTS flat panels walked around a shallow
---- arc (a cheap fake-curve trick this project's chunky low-poly language already
---- leans on elsewhere) instead of a real curved surface, which Roblox parts can't
---- do at all. Each segment is a Block, so unlike the scalloped awning's spheres,
---- ITS SIZE STAYS {length, depth, thickness} REGARDLESS OF ROTATION — a Block's
---- local axes rotate WITH it, unlike a Cylinder's fixed local axis, so there is no
---- "which number is the axis" trap here to get backwards.
+--- A bowed, rolled-edge canopy — every stall and the Outfitter's backboard trim
+--- share this now. Built as SEGMENTS flat panels walked around a shallow arc (a
+--- cheap fake-curve trick this project's chunky low-poly language already leans
+--- on elsewhere) instead of a real curved surface, which Roblox parts can't do at
+--- all. Each segment is a Block, so ITS SIZE STAYS {length, thickness, depth}
+--- REGARDLESS OF ROTATION — a Block's local axes rotate WITH it, unlike a
+--- Cylinder's fixed local axis, so there is no "which number is the axis" trap
+--- here to get backwards.
+---
+--- `width` is the arc's total span end-to-end and `halfAngle` how deep the bow is
+--- (degrees either side of the peak) — kept separate rather than a fixed radius
+--- because this same shape has to cover both a ~14-wide stall canopy (a deep,
+--- dramatic bow) and the Outfitter's ~40-wide backboard trim (a wide, shallow
+--- one); one hardcoded radius could not do both.
 ---
 --- Returns the arc's peak Y so the caller can float the sign above it without
 --- re-deriving the same trig.
-local function buildArchAwning(parent: Instance, origin: CFrame, centerZ: number, baseY: number, depth: number, color: string): number
+local function buildArchAwning(parent: Instance, origin: CFrame, centerZ: number, baseY: number, depth: number, width: number, halfAngle: number, color: string): number
 	local segments = 7
-	local halfAngle = 35 -- degrees either side of the peak
-	local radius = 12
+	local radius = width / (2 * math.sin(math.rad(halfAngle)))
 	local pivotY = baseY + radius * (1 - math.cos(math.rad(halfAngle)))
+	local angleStep = (2 * halfAngle) / (segments - 1)
+	-- A little longer than the pure chord length so consecutive segments
+	-- overlap slightly instead of leaving hairline gaps at the seams.
+	local segmentLen = 2 * radius * math.sin(math.rad(angleStep / 2)) * 1.2
 
 	for i = 0, segments - 1 do
-		local angle = -halfAngle + i * (2 * halfAngle) / (segments - 1)
+		local angle = -halfAngle + i * angleStep
 		local rad = math.rad(angle)
 		local x = radius * math.sin(rad)
 		local y = pivotY - radius * (1 - math.cos(rad))
@@ -161,7 +132,7 @@ local function buildArchAwning(parent: Instance, origin: CFrame, centerZ: number
 		build(parent, origin, {
 			name = "ArchSegment",
 			pos = { x, y, centerZ },
-			size = { 2.6, 0.6, depth },
+			size = { segmentLen, 0.6, depth },
 			color = stripeColor,
 			material = "Plastic",
 			rot = Kit.ang(0, 0, angle),
@@ -408,16 +379,16 @@ end
 
 -- ── The plaza stalls ────────────────────────────────────────────────────────────
 
---- One toy-store kiosk: a wood counter booth on four posts under a candy-striped
+--- One toy-store kiosk: a wood counter on four posts under a bowed, candy-striped
 --- awning, a shopkeeper behind the counter, a glowing sign over the roof, a floor
 --- marker for the buy radius, and the shop's signature prop plus a crate of
---- clutter beside it.
-local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, tagline: string, roofStyle: string? })
+--- clutter beside it. Open on all sides — no booth walls — matching the arch
+--- awning's own reference photo, which all three stalls now share.
+local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, tagline: string })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
 	local origin = CFrame.new(spec.at[1], 0, spec.at[2])
-	local isArch = spec.roofStyle == "arch"
 
 	build(m, origin, {
 		name = "Deck",
@@ -429,32 +400,21 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		rot = R.cylUp,
 	})
 
-	-- Four wood posts holding the awning up. The arch style's posts sit wider
-	-- (matching buildArchAwning's edge x, ±6.9) and shorter (6 vs 7) -- its
-	-- reference photo reads as a squatter, cosier kiosk than the flat-roofed one.
-	local POST_HEIGHT = if isArch then 6 else 7
-	local POST_DX = if isArch then 6.9 else 6.5
+	-- Four chunky wood posts holding the awning up, positioned under the arch's
+	-- own edge x (±6.9, see buildArchAwning) so post-top and roof-edge line up.
+	local POST_HEIGHT = 6
+	local POST_DX = 6.9
 	for _, dx in { -POST_DX, POST_DX } do
 		for _, dz in { -10, 2 } do
 			build(m, origin, {
 				name = "Post",
 				pos = { dx, POST_HEIGHT / 2, dz },
-				size = { POST_HEIGHT, if isArch then 1.1 else 0.8, if isArch then 1.1 else 0.8 },
+				size = { POST_HEIGHT, 1.1, 1.1 },
 				color = C.wood,
 				material = "Wood",
 				shape = "Cylinder",
 				rot = R.cylUp,
 			})
-		end
-	end
-
-	-- Back and side walls of the booth -- the flat-roofed style only. The arch
-	-- style's reference photo is open on all sides, no booth at all, just the
-	-- posts, the roof, and the bench.
-	if not isArch then
-		build(m, origin, { name = "BoothBack", pos = { 0, 2.2, -9.6 }, size = { 4.4, 13, 0.4 }, color = C.wood, material = "Wood" })
-		for _, dx in { -6.3, 6.3 } do
-			build(m, origin, { name = "BoothSide", pos = { dx, 2.2, -6.8 }, size = { 4.4, 0.4, 5.6 }, color = C.wood, material = "Wood" })
 		end
 	end
 
@@ -472,17 +432,10 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 
 	buildShopkeeper(m, origin, 0, -7.2, spec.color)
 
-	-- The awning, and the Y the sign should float above. The flat style's
-	-- footprint (14 wide, 12 deep, centred on the post span) is the old dome's;
-	-- the arch style returns its own peak height since that's a function of the
-	-- radius and half-angle, not a number worth re-deriving at the call site.
-	local roofTop: number
-	if isArch then
-		roofTop = buildArchAwning(m, origin, -4, POST_HEIGHT, 12, spec.color)
-	else
-		buildAwning(m, origin, -4, POST_HEIGHT - 0.3, 14, 12, 2, spec.color)
-		roofTop = POST_HEIGHT - 0.3
-	end
+	-- The awning, and the Y the sign should float above -- a function of the
+	-- radius and half-angle buildArchAwning uses, not a number worth
+	-- re-deriving at the call site.
+	local roofTop = buildArchAwning(m, origin, -4, POST_HEIGHT, 12, 2 * POST_DX, 35, spec.color)
 
 	-- The glowing bubble sign, floating over the roof peak. Block size is always
 	-- {X, Y, Z} in local space with no rotation applied here, so width has to be
@@ -534,7 +487,10 @@ local function buildOutfitter(parent: Instance)
 	Kit.surfaceText(backboard, Enum.NormalId.Front, "OUTFITTER", C.signText)
 	light(backboard, C.shopOutfitter, 24, 1.8)
 
-	buildAwning(m, origin, 5, 6.6, span + 18, 1.6, 5.8, C.shopOutfitter)
+	-- A much shallower bow than the plaza stalls (12° vs 35°) -- this is a wide
+	-- decorative trim capping the backboard, not a canopy overhead, so a deep
+	-- arch here would tower awkwardly over a shared bench.
+	buildArchAwning(m, origin, 5, 6.6, 1.6, span + 16, 12, C.shopOutfitter)
 	buildFloorMarker(m, origin, 0, -3, span + 16, 8, C.shopOutfitter)
 
 	for index, counter in OUTFITTER.counters do
