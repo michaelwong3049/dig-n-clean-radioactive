@@ -1,13 +1,30 @@
 --[[
 	DetectorController.lua — the sweep, rendered.
 
-	The server sends a world-space ANGLE and a STRENGTH, ten times a second, and
-	nothing else. It never sends where anything is buried. Everything on screen here
-	is derived from those two numbers.
+	WHAT THIS DRAWS NOW, AND WHAT IT USED TO DRAW.
+	It used to be a NEEDLE. The server sent one angle and one strength and the whole
+	screen was derived from those two numbers, because the field was a secret and a
+	direction was the most the client was allowed to know.
 
-	Hot/cold is carried mostly by SOUND — ping rate and pitch both rise as you close
-	in. PLAN §10.7 wants a player able to sweep with their eyes half shut, and the
-	ping is the lead instrument. The visuals are the backup, not the other way round.
+	The detector no longer works that way. Its radius REVEALS: every registerable
+	signal inside it stands up out of the ground as an aura, and the server sends this
+	client the ones it personally registers, as offsets from the player. So the dial
+	is a RADAR SCOPE — you at the centre, your radius as the ring, a blip per contact.
+	The direction problem the needle existed to solve does not exist any more; the
+	world answers it directly.
+
+	THE SCOPE IS NOT REDUNDANT WITH THE AURAS, and the reason is worth keeping.
+	An aura is one shared part that every player in the server can see, so it cannot
+	say anything that is supposed to be private — and rarity is private, gated per
+	player by detectorClarity (PLAN §2 step 1). The aura says "something is here"; the
+	BLIP is where "and it is Legendary" gets to live, because the blip is drawn from a
+	payload only this client receives. Delete the scope and the entire clarity upgrade
+	track loses its display.
+
+	Hot/cold is still carried by SOUND. PLAN §10.7 wants a player able to sweep with
+	their eyes half shut, so there are two cues: a CHIRP the moment a new contact
+	enters the radius (the server counts them — the client has no uids to diff), and
+	the old rate-and-pitch ping keyed to how close the nearest one is.
 ]]
 
 local Players = game:GetService("Players")
@@ -18,6 +35,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
+local Tuning = require(Shared.Config.Tuning)
 local Net = require(Shared.Net)
 
 local Detector = {}
@@ -27,10 +45,12 @@ local COLOR = {
 	stroke = Color3.fromHex("2A3324"),
 	text = Color3.fromHex("E4E9DE"),
 	dim = Color3.fromHex("7C8874"),
-	track = Color3.fromHex("1E241A"),
 	green = Color3.fromHex("8FE04A"),
 	amber = Color3.fromHex("F59E0B"),
 	red = Color3.fromHex("EF4444"),
+	-- The instrument cyan the auras are built from, so the scope and the world are
+	-- obviously the same instrument. See build/SignalAura.
+	scope = Color3.fromHex("8FD8FF"),
 }
 
 -- Ping pacing. At strength 0 it is a slow lonely tick; at 1 it is a stutter.
@@ -39,11 +59,23 @@ local PING_INTERVAL_NEAR = 0.09
 local PING_PITCH_FAR = 0.75
 local PING_PITCH_NEAR = 1.85
 
+-- The new-contact chirp. Same asset as the ping, deliberately: it is pitched and
+-- loud enough to be unmistakable, and reusing it means the reveal cue cannot go
+-- missing because an asset id rotted.
+local CHIRP_PITCH = 2.3
+
+local DIAL_SIZE = 150
+local SCOPE_RADIUS = 62 -- px from the centre of the dial to the radius ring
+local MAX_BLIPS = 12 -- matches DigService.MAX_CONTACTS; more would never arrive
+
+type Contact = { dx: number, dz: number, rarity: string? }
+
 local state = {
 	inZone = false,
 	hasSignal = false,
 	strength = 0,
-	angle = 0,
+	radius = 0,
+	contacts = {} :: { Contact },
 	rarityHint = nil :: string?,
 	inRange = false,
 	blocked = nil :: string?,
@@ -53,7 +85,7 @@ local state = {
 }
 
 local ui = {}
-local displayedRotation = 0
+local blips: { Frame } = {}
 local pingClock = 0
 local isHolding = false
 
@@ -63,6 +95,105 @@ end
 
 -- ── Build ───────────────────────────────────────────────────────────
 
+local function buildScope(parent: GuiObject)
+	-- The radius ring. This is the stat you are buying, drawn at its actual size
+	-- relative to the blips inside it, so a detector upgrade is legible on the HUD
+	-- and not just in the shop.
+	local edge = Instance.new("Frame")
+	edge.Name = "RadiusRing"
+	edge.AnchorPoint = Vector2.new(0.5, 0.5)
+	edge.Position = UDim2.fromScale(0.5, 0.5)
+	edge.Size = UDim2.fromOffset(SCOPE_RADIUS * 2, SCOPE_RADIUS * 2)
+	edge.BackgroundTransparency = 1
+	edge.Parent = parent
+
+	local edgeCorner = Instance.new("UICorner")
+	edgeCorner.CornerRadius = UDim.new(1, 0)
+	edgeCorner.Parent = edge
+
+	local edgeStroke = Instance.new("UIStroke")
+	edgeStroke.Color = COLOR.scope
+	edgeStroke.Transparency = 0.55
+	edgeStroke.Thickness = 1
+	edgeStroke.Parent = edge
+	ui.edgeStroke = edgeStroke
+
+	-- Half-radius ring, purely so distance on the scope is readable rather than just
+	-- ordinal. Without it every blip is "somewhere in the circle".
+	local inner = Instance.new("Frame")
+	inner.Name = "HalfRing"
+	inner.AnchorPoint = Vector2.new(0.5, 0.5)
+	inner.Position = UDim2.fromScale(0.5, 0.5)
+	inner.Size = UDim2.fromOffset(SCOPE_RADIUS, SCOPE_RADIUS)
+	inner.BackgroundTransparency = 1
+	inner.Parent = parent
+
+	local innerCorner = Instance.new("UICorner")
+	innerCorner.CornerRadius = UDim.new(1, 0)
+	innerCorner.Parent = inner
+
+	local innerStroke = Instance.new("UIStroke")
+	innerStroke.Color = COLOR.scope
+	innerStroke.Transparency = 0.82
+	innerStroke.Thickness = 1
+	innerStroke.Parent = inner
+
+	-- The sweep arm. One revolution per RANGE_RING_PERIOD, off the same clock as the
+	-- range ring the detector throws on the ground, so the HUD and the world are
+	-- visibly the same pulse rather than two unrelated animations.
+	local arm = Instance.new("Frame")
+	arm.Name = "SweepArm"
+	arm.AnchorPoint = Vector2.new(0.5, 1)
+	arm.Position = UDim2.fromScale(0.5, 0.5)
+	arm.Size = UDim2.fromOffset(2, SCOPE_RADIUS)
+	arm.BackgroundColor3 = COLOR.scope
+	arm.BackgroundTransparency = 0.6
+	arm.BorderSizePixel = 0
+	arm.Parent = parent
+	ui.arm = arm
+
+	-- You. A fixed dot so the blips read as "relative to me" instantly.
+	local origin = Instance.new("Frame")
+	origin.Name = "Origin"
+	origin.AnchorPoint = Vector2.new(0.5, 0.5)
+	origin.Position = UDim2.fromScale(0.5, 0.5)
+	origin.Size = UDim2.fromOffset(4, 4)
+	origin.BackgroundColor3 = COLOR.text
+	origin.BackgroundTransparency = 0.35
+	origin.BorderSizePixel = 0
+	origin.Parent = parent
+
+	local originCorner = Instance.new("UICorner")
+	originCorner.CornerRadius = UDim.new(1, 0)
+	originCorner.Parent = origin
+
+	-- Pooled. Contacts churn every tick as the player walks, and building and
+	-- destroying twelve frames ten times a second to show the same twelve dots is
+	-- pure garbage collection for no visible gain.
+	for index = 1, MAX_BLIPS do
+		local blip = Instance.new("Frame")
+		blip.Name = `Blip{index}`
+		blip.AnchorPoint = Vector2.new(0.5, 0.5)
+		blip.Size = UDim2.fromOffset(8, 8)
+		blip.BackgroundColor3 = COLOR.scope
+		blip.BorderSizePixel = 0
+		blip.Visible = false
+		blip.ZIndex = 2
+		blip.Parent = parent
+
+		local blipCorner = Instance.new("UICorner")
+		blipCorner.CornerRadius = UDim.new(1, 0)
+		blipCorner.Parent = blip
+
+		local blipStroke = Instance.new("UIStroke")
+		blipStroke.Color = COLOR.panel
+		blipStroke.Thickness = 1
+		blipStroke.Parent = blip
+
+		blips[index] = blip
+	end
+end
+
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "DetectorHud"
@@ -70,14 +201,15 @@ local function build(): ScreenGui
 	gui.IgnoreGuiInset = true
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Sweep dial, bottom centre
+	-- Radar scope, bottom centre. Same frame the needle dial used to live in.
 	local dial = Instance.new("Frame")
-	dial.Name = "Dial"
+	dial.Name = "Scope"
 	dial.AnchorPoint = Vector2.new(0.5, 1)
-	dial.Position = UDim2.new(0.5, 0, 1, -150)
-	dial.Size = UDim2.fromOffset(150, 150)
+	dial.Position = UDim2.new(0.5, 0, 1, -128)
+	dial.Size = UDim2.fromOffset(DIAL_SIZE, DIAL_SIZE)
 	dial.BackgroundColor3 = COLOR.panel
 	dial.BackgroundTransparency = 0.25
+	dial.ClipsDescendants = true
 	dial.Parent = gui
 
 	local round = Instance.new("UICorner")
@@ -90,58 +222,27 @@ local function build(): ScreenGui
 	ring.Parent = dial
 	ui.ring = ring
 
-	-- The needle. A glyph rather than a mesh: this is placeholder art and the
-	-- rotation is the only part that has to be right.
-	local needle = Instance.new("TextLabel")
-	needle.Name = "Needle"
-	needle.AnchorPoint = Vector2.new(0.5, 0.5)
-	needle.Position = UDim2.fromScale(0.5, 0.5)
-	needle.Size = UDim2.fromScale(1, 1)
-	needle.BackgroundTransparency = 1
-	needle.Font = Enum.Font.GothamBold
-	needle.Text = "\u{25B2}"
-	needle.TextSize = 34
-	needle.TextColor3 = COLOR.green
-	needle.TextYAlignment = Enum.TextYAlignment.Top
-	needle.Parent = dial
-	ui.needle = needle
+	buildScope(dial)
 
 	local centre = Instance.new("TextLabel")
 	centre.AnchorPoint = Vector2.new(0.5, 0.5)
-	centre.Position = UDim2.fromScale(0.5, 0.5)
-	centre.Size = UDim2.fromScale(0.8, 0.4)
+	centre.Position = UDim2.new(0.5, 0, 0.5, 44)
+	centre.Size = UDim2.fromOffset(140, 18)
 	centre.BackgroundTransparency = 1
 	centre.Font = Enum.Font.GothamBold
-	centre.TextSize = 15
+	centre.TextSize = 13
 	centre.TextColor3 = COLOR.dim
+	centre.ZIndex = 3
 	centre.Text = ""
 	centre.Parent = dial
 	ui.centre = centre
-
-	-- Signal strength (depth/proximity), directly under the dial
-	local strengthTrack = Instance.new("Frame")
-	strengthTrack.Name = "Strength"
-	strengthTrack.AnchorPoint = Vector2.new(0.5, 1)
-	strengthTrack.Position = UDim2.new(0.5, 0, 1, -128)
-	strengthTrack.Size = UDim2.fromOffset(190, 8)
-	strengthTrack.BackgroundColor3 = COLOR.track
-	strengthTrack.BorderSizePixel = 0
-	strengthTrack.Parent = gui
-
-	local strengthFill = Instance.new("Frame")
-	strengthFill.Name = "Fill"
-	strengthFill.Size = UDim2.fromScale(0, 1)
-	strengthFill.BackgroundColor3 = COLOR.green
-	strengthFill.BorderSizePixel = 0
-	strengthFill.Parent = strengthTrack
-	ui.strengthFill = strengthFill
 
 	-- Status line
 	local status = Instance.new("TextLabel")
 	status.Name = "Status"
 	status.AnchorPoint = Vector2.new(0.5, 1)
 	status.Position = UDim2.new(0.5, 0, 1, -104)
-	status.Size = UDim2.fromOffset(420, 20)
+	status.Size = UDim2.fromOffset(460, 20)
 	status.BackgroundTransparency = 1
 	status.Font = Enum.Font.GothamBold
 	status.TextSize = 15
@@ -272,39 +373,69 @@ local function signalColor(): Color3
 			return def.color
 		end
 	end
-	return COLOR.green
+	return COLOR.scope
 end
 
-local function renderFrame(dt: number)
+--- Contacts arrive as WORLD-space offsets from the player. The scope is drawn in
+--- camera space so "up" is wherever the player is looking — a radar that stays
+--- locked to world north forces the player to do the rotation in their head, every
+--- frame, forever.
+---
+--- The sign convention here is the needle's, kept deliberately: an angle measured
+--- from the camera's look direction maps straight onto clockwise-from-up, which is
+--- what both the old Rotation property and this offset use.
+local function renderBlips()
 	local camera = Workspace.CurrentCamera
 	if camera == nil then
 		return
 	end
 
+	local look = camera.CFrame.LookVector
+	local cameraYaw = math.atan2(look.Z, look.X)
+	local radius = if state.radius > 0 then state.radius else 1
+
+	for index = 1, MAX_BLIPS do
+		local blip = blips[index]
+		local contact = state.contacts[index]
+
+		if contact == nil then
+			blip.Visible = false
+			continue
+		end
+
+		local distance = math.sqrt(contact.dx * contact.dx + contact.dz * contact.dz)
+		local relative = math.atan2(contact.dz, contact.dx) - cameraYaw
+		-- Clamped, not hidden: a contact fractionally outside the ring because the
+		-- player moved between ticks should sit ON the ring, not blink out.
+		local reach = math.min(distance / radius, 1) * SCOPE_RADIUS
+
+		blip.Position = UDim2.new(0.5, math.sin(relative) * reach, 0.5, -math.cos(relative) * reach)
+
+		local def = if contact.rarity then Rarity.DEFS[contact.rarity] else nil
+		blip.BackgroundColor3 = if def then def.color else COLOR.scope
+
+		-- The nearest contact is the one every other part of the HUD is talking
+		-- about, so it is drawn bigger. Without this the scope reads as a cloud and
+		-- the status line appears to be describing an arbitrary member of it.
+		local lead = index == 1
+		blip.Size = UDim2.fromOffset(if lead then 11 else 7, if lead then 11 else 7)
+		blip.Visible = true
+	end
+end
+
+local function renderFrame(_dt: number)
 	local colour = signalColor()
 
-	if state.hasSignal then
-		-- Server angle is world-space. Subtract the camera's yaw so the needle points
-		-- where the player is actually looking.
-		local look = camera.CFrame.LookVector
-		local cameraYaw = math.atan2(look.Z, look.X)
-		local relative = state.angle - cameraYaw
-		local target = math.deg(relative)
+	renderBlips()
 
-		-- Shortest-path so it never spins the long way round the dial.
-		local diff = (target - displayedRotation + 180) % 360 - 180
-		displayedRotation += diff * math.min(1, dt * 12)
-
-		ui.needle.Rotation = displayedRotation
-		ui.needle.TextTransparency = 0
-		ui.needle.TextColor3 = colour
-	else
-		ui.needle.TextTransparency = 0.85
-	end
+	-- One revolution per pulse period, sharing os.clock with FieldController's ground
+	-- ring so the two land together without either one owning the other's timing.
+	local phase = (os.clock() % Tuning.RANGE_RING_PERIOD) / Tuning.RANGE_RING_PERIOD
+	ui.arm.Rotation = phase * 360
+	ui.arm.BackgroundTransparency = if state.inZone then 0.6 else 0.9
 
 	ui.ring.Color = if state.hasSignal then colour else COLOR.stroke
-	ui.strengthFill.Size = UDim2.fromScale(state.strength, 1)
-	ui.strengthFill.BackgroundColor3 = colour
+	ui.edgeStroke.Color = if state.hasSignal then colour else COLOR.scope
 	ui.digFill.Size = UDim2.fromScale(state.digProgress, 1)
 end
 
@@ -319,10 +450,22 @@ local function renderState()
 	end
 
 	ui.carry.Text = `bag {state.carrying}/{state.capacity}`
+	ui.centre.Text = `{math.floor(state.radius + 0.5)} stud sweep`
+	ui.centre.TextColor3 = COLOR.dim
 
 	if not state.hasSignal then
-		ui.centre.Text = ""
-		ui.status.Text = "sweeping\u{2026}"
+		-- Standing in a glow that somebody else's detector put there. This is a real
+		-- state, not an error: auras are public, the tier gates are not.
+		if state.blocked == "unregistered" then
+			ui.status.Text = "that signal is past your detector \u{2014} you cannot lock on"
+			ui.status.TextColor3 = COLOR.red
+			ui.digButton.Text = "CANNOT LOCK ON"
+			ui.digButton.TextColor3 = COLOR.red
+			ui.digStroke.Color = COLOR.red
+			return
+		end
+
+		ui.status.Text = "sweeping\u{2026} nothing in range"
 		ui.status.TextColor3 = COLOR.dim
 		ui.digButton.Text = "HOLD  E  TO PULL"
 		ui.digStroke.Color = COLOR.stroke
@@ -330,8 +473,8 @@ local function renderState()
 		return
 	end
 
-	ui.centre.Text = state.rarityHint or ""
-	ui.centre.TextColor3 = signalColor()
+	local count = #state.contacts
+	local named = if state.rarityHint then ` \u{2014} nearest reads {string.lower(state.rarityHint)}` else ""
 
 	if state.blocked == "weak" then
 		-- It still moves. It just will not come free — and the player can see that.
@@ -347,13 +490,14 @@ local function renderState()
 		ui.digButton.TextColor3 = COLOR.red
 		ui.digStroke.Color = COLOR.red
 	elseif state.inRange then
-		ui.status.Text = "something is right under you"
+		ui.status.Text = `you are standing on it{named}`
 		ui.status.TextColor3 = COLOR.green
 		ui.digButton.Text = if isHolding then "PULLING\u{2026}" else "HOLD  E  TO PULL"
 		ui.digButton.TextColor3 = COLOR.green
 		ui.digStroke.Color = COLOR.green
 	else
-		ui.status.Text = "signal \u{2014} follow the needle"
+		local plural = if count == 1 then "signal" else "signals"
+		ui.status.Text = `{count} {plural} in range \u{2014} walk to the glow{named}`
 		ui.status.TextColor3 = COLOR.amber
 		ui.digButton.Text = "GET CLOSER"
 		ui.digButton.TextColor3 = COLOR.dim
@@ -364,6 +508,7 @@ end
 -- ── Ping ────────────────────────────────────────────────────────────
 
 local pingSound: Sound? = nil
+local chirpSound: Sound? = nil
 
 local function stepPing(dt: number)
 	if pingSound == nil or not state.hasSignal then
@@ -378,6 +523,16 @@ local function stepPing(dt: number)
 	pingClock = lerp(PING_INTERVAL_FAR, PING_INTERVAL_NEAR, state.strength)
 	pingSound.PlaybackSpeed = lerp(PING_PITCH_FAR, PING_PITCH_NEAR, state.strength)
 	pingSound:Play()
+end
+
+--- The reveal cue. The server counts new contacts because only the server has uids
+--- to diff; the client would have to infer it from the contact count, which is wrong
+--- every time one signal leaves the radius as another enters.
+local function chirp(count: number)
+	if chirpSound == nil or count <= 0 then
+		return
+	end
+	chirpSound:Play()
 end
 
 -- ── Banner ──────────────────────────────────────────────────────────
@@ -420,6 +575,13 @@ end
 
 -- ── Lifecycle ────────────────────────────────────────────────────────
 
+--- Read by FieldController so the ground ring is drawn at the radius the server
+--- actually resolved, rather than the client guessing from its own gear numbers —
+--- perks fold into detectorRadius and only StatResolver knows the answer.
+function Detector.radius(): number
+	return if state.inZone then state.radius else 0
+end
+
 function Detector.start()
 	local player = Players.LocalPlayer
 	local gui = build()
@@ -431,19 +593,28 @@ function Detector.start()
 	pingSound.Volume = 0.45
 	pingSound.Parent = gui
 
+	chirpSound = Instance.new("Sound")
+	chirpSound.Name = "DetectorChirp"
+	chirpSound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
+	chirpSound.Volume = 0.7
+	chirpSound.PlaybackSpeed = CHIRP_PITCH
+	chirpSound.Parent = gui
+
 	digInput = Net.get("DigInput")
 
 	Net.get("SweepState").OnClientEvent:Connect(function(payload)
 		state.inZone = payload.inZone == true
 		state.hasSignal = payload.hasSignal == true
 		state.strength = payload.strength or 0
-		state.angle = payload.angle or 0
+		state.radius = payload.radius or 0
+		state.contacts = payload.contacts or {}
 		state.rarityHint = payload.rarityHint
 		state.inRange = payload.inRange == true
 		state.blocked = payload.blocked
 		state.digProgress = payload.digProgress or 0
 		state.carrying = payload.carrying or state.carrying
 		state.capacity = payload.capacity or state.capacity
+		chirp(payload.newContacts or 0)
 		renderState()
 	end)
 

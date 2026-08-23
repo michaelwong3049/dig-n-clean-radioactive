@@ -82,18 +82,36 @@ top-tier artifact. Fast enough to feel like a clicker, slow enough that a rare f
 
 ### Step 1 — Sweep
 
-Player walks a zone holding a detector. Detector emits pings that increase in rate and pitch
-as they near a buried item — classic hot/cold. A radial sweep indicator on-screen shows
-direction and a "signal strength" bar shows depth.
+Player walks a zone holding a detector. The detector **reveals**: every buried signal
+inside its radius that the detector can register surfaces an **aura** at its exact spot — a
+glow standing up out of the ground. You walk to the glow and pull it out. A ring pulses
+out from the player once a second showing exactly how far the detector reaches, and an
+on-screen **radar scope** puts a blip on each contact with you at the centre.
+
+> **This replaced a hot/cold needle**, and the change is worth recording because the
+> original text here described one. The old detector sent a direction and a strength and
+> the player followed an arrow until it got loud. It worked, but it made the ENTIRE search
+> an on-screen instrument-reading exercise with the world as a backdrop — you played the
+> dial, not the ground. The reveal puts the search back in the world: the ground itself
+> tells you where the thing is, and the detector's only job is deciding how much ground is
+> allowed to talk. The needle also let the top-tier detector's radius run to 65 studs for
+> free, because a direction hint stays readable at any distance; a *reveal* at that range
+> lights up half a stage and there is no game left in it. Hence the flat curve in §6.
 
 Detector tier determines:
 
-* **Sweep radius** — how much ground you cover per second (pure speed).
+* **Reveal radius** — how much ground lights up around you. This is the whole search game
+now, and it is deliberately a shallow curve (13 studs to 34 across eight tiers). Widening
+it is the one lever that must **not** be used to make the top of the track feel better.
 * **Sensitivity floor** — the minimum rarity the detector can even register. A Bent Coil
-detector physically cannot see a Reactor Core; it just won't beep. This is the key gate.
+detector physically cannot see a Reactor Core; it just won't beep. This is the key gate,
+and under the reveal it does more work than it used to: auras are visible to everyone in
+the server, so this is what stops a cheap detector cashing in on an expensive one's finds.
 * **Depth range** — deeper items are rarer.
-* **Signal clarity** — high-tier detectors show a rarity color on the ping before you
-pull, so you stop wasting time hauling Scrap out of the ground.
+* **Signal clarity** — high-tier detectors show a rarity color before you pull, so you
+stop wasting time hauling Scrap out of the ground. It rides on the **radar blip**, not on
+the aura: the aura is one shared part that the whole server can see, so it cannot carry a
+per-player secret.
 
 ### Step 2 — Pull
 
@@ -936,6 +954,12 @@ Commit to sound. The detector ping, the item's own emission, the decay-stage ala
 suit-failure shriek, the ambient zone bed, and the danger warning are six distinct layers of
 clicking and tone. A skilled player should be able to play with their eyes half-closed. This
 is cheap to build and is the thing that will define the game's identity in clips.
+
+The reveal detector (§2 step 1) kept this promise by splitting the ping in two: a **chirp**
+the instant a new signal enters your radius, and the old rate-and-pitch **ping** tracking
+how close the nearest one is. The chirp is the one that matters — it is what lets a player
+sweep a field looking at the horizon rather than at the ground, which is the eyes-half-shut
+test this section is actually asking for.
 
 ### 10.8 Fallout Storms — *server event*
 

@@ -1,0 +1,283 @@
+--[[
+	FieldController.lua — the detector's world-space half.
+
+	DetectorController owns the screen. This owns the ground: the range ring the
+	detector throws around you, and the breathing of the auras standing over buried
+	signals. Splitting them is not tidiness — the two have completely different
+	sources. Everything on the HUD is drawn from a payload only this client receives,
+	whereas the auras are SERVER parts that every player in the server can see, and
+	this controller may only ever change how they LOOK. Never where they are, never
+	whether they exist. If it ever decides that, the reveal has moved to the client
+	and the field is a free ESP.
+
+	THE RANGE RING EXISTS BECAUSE THE NEEDLE DIED.
+	The old detector answered "which way" continuously, so its range never had to be
+	legible — you just followed the arrow until it got loud. A reveal detector answers
+	nothing at all outside its radius, which makes that radius the single most
+	important number a player owns and, without this, an invisible one. So the ring is
+	drawn twice: a faint steady outline sitting exactly on the radius, and a pulse
+	that runs out to it once a second so the boundary reads while you are moving.
+
+	It is built from segments rather than a textured decal on purpose. A ring texture
+	is an asset id that can rot, needs a decent resolution to survive being scaled to
+	a 34-stud circle, and gets washed out by the zone fog; forty-eight thin neon parts
+	cost less than that and look the same at every radius.
+
+	CLIENT-SIDE, so it is yours alone. Contrast the auras, which are deliberately
+	public — see Config/Tuning, "the reveal".
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local Tuning = require(ReplicatedStorage.Shared.Config.Tuning)
+
+local Field = {}
+
+local GLOW = Color3.fromHex("8FD8FF") -- the instrument cyan, as build/SignalAura
+local IN_RANGE = Color3.fromHex("8FE04A") -- close enough to get the magnet on it
+
+local RING_FOLDER = "DetectorRange"
+local SEGMENTS = Tuning.RANGE_RING_SEGMENTS
+local SEGMENT_GAP = 0.72 -- fraction of the arc a segment fills; the rest reads as dashes
+local RING_HEIGHT = 0.06 -- lifted off the plate so it does not z-fight the ground
+
+local DetectorController = nil
+
+type Ring = { parts: { BasePart } }
+
+local steady: Ring? = nil
+local pulse: Ring? = nil
+local ringFolder: Folder? = nil
+
+-- Tracked rather than re-queried: CollectionService:GetTagged allocates a fresh table
+-- on every call, and this runs every frame.
+type Tracked = { pillar: BasePart, ring: BasePart, phase: number }
+local tracked: { [Model]: Tracked } = {}
+
+-- Auras whose tag arrived before their children did. Usually empty — the server
+-- builds each one unparented and parents it complete, so the subtree replicates in
+-- one go — but "usually" is not "always" across a bad connection, and an aura that
+-- lost its race would otherwise sit in the field permanently un-animated.
+local pending: { [Model]: boolean } = {}
+
+-- ── The range ring ──────────────────────────────────────────────────
+
+local function makeRing(name: string): Ring
+	local parts: { BasePart } = {}
+
+	for index = 1, SEGMENTS do
+		local part = Instance.new("Part")
+		part.Name = `{name}{index}`
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Locked = true
+		part.Material = Enum.Material.Neon
+		part.Color = GLOW
+		part.Size = Vector3.new(1, 0.08, 0.22)
+		part.Parent = ringFolder
+		parts[index] = part
+	end
+
+	return { parts = parts }
+end
+
+--- Lay a ring of segments flat on the ground, centred on `centre`.
+---
+--- The rotation is the fiddly half. A part's long axis is its local X, and the
+--- tangent at angle t is (-sin t, 0, cos t); the yaw that maps one onto the other is
+--- -(t + pi/2). Getting it wrong yields segments pointing at the player like spokes,
+--- which looks like a deliberate and much worse design rather than a bug.
+local function layRing(ring: Ring, centre: Vector3, radius: number, transparency: number, colour: Color3)
+	local arc = 2 * math.pi * radius / SEGMENTS
+
+	for index, part in ring.parts do
+		local t = (index - 1) / SEGMENTS * 2 * math.pi
+		part.Size = Vector3.new(math.max(arc * SEGMENT_GAP, 0.05), 0.08, 0.22)
+		part.CFrame = CFrame.new(centre + Vector3.new(math.cos(t) * radius, 0, math.sin(t) * radius))
+			* CFrame.Angles(0, -(t + math.pi / 2), 0)
+		part.Transparency = transparency
+		part.Color = colour
+	end
+end
+
+local function hideRing(ring: Ring)
+	for _, part in ring.parts do
+		part.Transparency = 1
+	end
+end
+
+--- Where the ring should sit. One ray, straight down from the player.
+---
+--- The zone plates are flat, so a single sample is honest here — sampling per segment
+--- would let the ring drape over scenery, which is prettier and also means the ring
+--- can be occluded by the very clutter it is supposed to be measured against.
+local function groundY(root: BasePart): number
+	-- Everything the detector itself put in the world has to be excluded, or the ring
+	-- lands on top of an aura pillar the moment the player stands next to one.
+	local ignore: { Instance } = { root.Parent :: Instance }
+	if ringFolder then
+		table.insert(ignore, ringFolder)
+	end
+	local auraFolder = Workspace:FindFirstChild(Tuning.AURA_FOLDER)
+	if auraFolder then
+		table.insert(ignore, auraFolder)
+	end
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = ignore
+
+	local hit = Workspace:Raycast(root.Position, Vector3.new(0, -12, 0), params)
+	if hit then
+		return hit.Position.Y + RING_HEIGHT
+	end
+
+	-- A HumanoidRootPart floats about three studs over whatever it is standing on.
+	-- Not exact, but the ring only has to be on the floor, not welded to it.
+	return root.Position.Y - 3 + RING_HEIGHT
+end
+
+local function stepRings()
+	if steady == nil or pulse == nil then
+		return
+	end
+
+	local player = Players.LocalPlayer
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local radius = if DetectorController then DetectorController.radius() else 0
+
+	if root == nil or not root:IsA("BasePart") or radius <= 0 then
+		hideRing(steady)
+		hideRing(pulse)
+		return
+	end
+
+	local centre = Vector3.new(root.Position.X, groundY(root), root.Position.Z)
+
+	layRing(steady, centre, radius, 0.72, GLOW)
+
+	-- Shares os.clock with the sweep arm on the HUD scope, so the arm crossing the top
+	-- of the dial and the ring leaving your feet are the same event.
+	local phase = (os.clock() % Tuning.RANGE_RING_PERIOD) / Tuning.RANGE_RING_PERIOD
+	layRing(pulse, centre, radius * phase, 0.15 + phase * 0.8, GLOW)
+end
+
+-- ── The auras ───────────────────────────────────────────────────────
+
+local function track(instance: Instance)
+	if not instance:IsA("Model") then
+		return
+	end
+
+	local pillar = instance:FindFirstChild("Pillar")
+	local ring = instance:FindFirstChild("Ring")
+	if pillar == nil or not pillar:IsA("BasePart") or ring == nil or not ring:IsA("BasePart") then
+		pending[instance] = true -- children have not replicated yet; retried each frame
+		return
+	end
+
+	pending[instance] = nil
+	tracked[instance] = {
+		pillar = pillar,
+		ring = ring,
+		-- Derived from the position so it is stable across frames and DIFFERENT per
+		-- aura. Pulsing a field of them in lockstep looks like a screen refresh
+		-- artefact rather than like several separate things breathing.
+		phase = (pillar.Position.X * 0.7 + pillar.Position.Z * 1.3) % (2 * math.pi),
+	}
+end
+
+local function stepAuras()
+	local player = Players.LocalPlayer
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local here = if root and root:IsA("BasePart") then root.Position else nil
+
+	local clock = os.clock() * 2 * math.pi * Tuning.AURA_PULSE_HZ
+
+	for model, entry in tracked do
+		if entry.pillar.Parent == nil then
+			tracked[model] = nil
+			continue
+		end
+
+		local breathe = 0.5 + 0.5 * math.sin(clock + entry.phase)
+
+		local close = false
+		if here then
+			local dx = entry.ring.Position.X - here.X
+			local dz = entry.ring.Position.Z - here.Z
+			close = dx * dx + dz * dz <= Tuning.DIG_RADIUS * Tuning.DIG_RADIUS
+		end
+
+		-- Standing on it is the moment the player has been walking towards, so the
+		-- aura stops breathing and goes solid green. The HUD says the same thing in
+		-- words; this says it where their eyes already are.
+		if close then
+			entry.pillar.Color = IN_RANGE
+			entry.ring.Color = IN_RANGE
+			entry.pillar.Transparency = 0.12
+			entry.ring.Transparency = 0.05
+		else
+			entry.pillar.Color = GLOW
+			entry.ring.Color = GLOW
+			entry.pillar.Transparency = 0.28 + breathe * 0.22
+			entry.ring.Transparency = 0.18 + breathe * 0.18
+		end
+	end
+end
+
+-- ── Lifecycle ───────────────────────────────────────────────────────
+
+function Field.start()
+	-- Sibling controller, required lazily so load order between the two never matters.
+	DetectorController = require(script.Parent.DetectorController)
+
+	local folder = Instance.new("Folder")
+	folder.Name = RING_FOLDER
+	folder.Parent = Workspace
+	ringFolder = folder
+
+	local steadyRing = makeRing("Steady")
+	local pulseRing = makeRing("Pulse")
+	hideRing(steadyRing)
+	hideRing(pulseRing)
+	steady = steadyRing
+	pulse = pulseRing
+
+	for _, instance in CollectionService:GetTagged(Tuning.AURA_TAG) do
+		track(instance)
+	end
+	CollectionService:GetInstanceAddedSignal(Tuning.AURA_TAG):Connect(track)
+	CollectionService:GetInstanceRemovedSignal(Tuning.AURA_TAG):Connect(function(instance)
+		if instance:IsA("Model") then
+			tracked[instance] = nil
+			pending[instance] = nil
+		end
+	end)
+
+	-- RenderStepped, unlike its siblings: this is purely cosmetic geometry and there
+	-- is no reason to move it on a frame the client is not drawing. The audio cues
+	-- that must not stall live on Heartbeat over in DetectorController.
+	RunService.RenderStepped:Connect(function()
+		-- Retry only the ones that actually lost the race. Re-querying GetTagged here
+		-- would allocate a table per frame to answer a question that is almost always
+		-- "nothing changed".
+		for model in pending do
+			track(model)
+		end
+
+		stepRings()
+		stepAuras()
+	end)
+end
+
+return Field

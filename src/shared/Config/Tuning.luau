@@ -85,6 +85,37 @@ Tuning.DIG_DEPTH_BASE = 1.0
 Tuning.DIG_DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate
 Tuning.DIG_DEPTH_JITTER = 1.0
 
+-- ── The reveal (Gear.Detector.radius) ───────────────────────────────────
+--
+-- A signal inside your detector's radius that clears the maxRarity and depth gates
+-- surfaces an AURA at its exact spot. The aura is a real Workspace part built by the
+-- server, so EVERY player sees it, not only the one whose detector found it. That is
+-- a deliberate design call and it has a known cost — a low-tier player tailing a
+-- high-tier one gets to walk to glows they could never have revealed. maxRarity and
+-- depth still gate the PULL, so the deep and rare stuff stays locked to them; what
+-- leaks is the shallow common end. Do not "fix" this by making auras per-player
+-- without saying so, because the shared-sighting moment is the point.
+--
+-- Rarity is NOT on the aura. The aura says "something is here" to the whole server;
+-- the colour that says "and it is Legendary" lives on the client's radar blips, where
+-- detectorClarity can still gate it per-player.
+-- Tag and folder name live HERE rather than on the server builder because both sides
+-- need them: the server creates and tags the auras, the client finds them by tag to
+-- animate them, and a client cannot require a module out of ServerScriptService. Two
+-- hardcoded copies of a tag string is how one of them quietly becomes "SignalAuras".
+Tuning.AURA_TAG = "SignalAura"
+Tuning.AURA_FOLDER = "SignalAuras"
+Tuning.AURA_HEIGHT = 5.5 -- studs the pillar stands above the surface
+Tuning.AURA_WIDTH = 0.55 -- pillar diameter
+Tuning.AURA_RING = 2.4 -- ground ring diameter, marks the spot to stand on
+Tuning.AURA_PULSE_HZ = 1.1 -- client-side breathe rate, cosmetic only
+
+-- The range ring the detector draws on the ground around YOU. Client-side, so unlike
+-- the auras it is yours alone — it answers "what am I actually sweeping right now",
+-- which stopped being obvious the moment the needle went away.
+Tuning.RANGE_RING_PERIOD = 1.0 -- seconds between expanding pulses
+Tuning.RANGE_RING_SEGMENTS = 48 -- thin parts per ring; asset-free, so no texture to load
+
 Tuning.DIRTY_SELL_MULTIPLIER = 0.20
 Tuning.ASSAY_FEE_FRACTION = 0.02
 

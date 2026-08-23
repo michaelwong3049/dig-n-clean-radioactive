@@ -20,14 +20,42 @@
 -- constant — it does not scale with area — so area is the only lever on how hard a
 -- zone is to search. Define coverage:
 --
---     c = 45 * pi * r^2 / area      (fraction of the surface inside some ping disk)
+--     c = 45 * pi * r^2 / area
 --
--- Zone 1 as originally hand-built is the known-good calibration point: 300x265 with
--- a tier-1 detector (radius 12) gives c = 0.256, and that is verified playable.
+-- Under the reveal detector c has a much more direct reading than it used to: it is
+-- the EXPECTED NUMBER OF CONTACTS lit up around a player standing still. c = 0.11
+-- means nine times out of ten you are looking at empty ground and have to walk.
 --
--- So every zone is sized so that ITS OWN RATED DETECTOR reproduces c ~= 0.26. Each
--- zone then feels the same to search, and the difficulty gradient comes entirely
--- from radiation — which is what PLAN §3 says the differentiator is supposed to be.
+-- THE METRIC THAT ACTUALLY DRIVES THE FEEL IS TIME, NOT AREA. A reveal detector
+-- sweeps a corridor of width 2r as the player walks, so what a player experiences is
+-- the gap between one glow going out and the next coming up:
+--
+--     seconds between contacts = (area / 45) / (2 * r * walkSpeed)
+--
+-- That is Zones.secondsBetweenContacts, and it is the number to tune against. PLAN
+-- §2 wants a 20-40s loop at the low end; the walk is supposed to be a chunk of that,
+-- not all of it.
+--
+--     zone   size       rated r   c      walk to next contact (16 studs/sec)
+--     1      660x320    13 (T1)   0.11   11.3s
+--     2      220x280    16 (T2)   0.59    2.7s
+--     3      260x320    19 (T3)   0.61    2.7s
+--     4      290x260    22 (T4)   0.91    2.4s
+--     5      600x520    25 (T5)   0.28    7.8s
+--     6      360x320    28 (T6)   0.96    2.9s
+--
+-- ONLY ZONE 1 IS BUILT, and it is the only line above that has ever been played. The
+-- other five were sized against a c ~= 0.26 target back when the detector was a
+-- needle and c meant "fraction of ground where the arrow points at something" — a
+-- reading that no longer exists. Their numbers are recomputed here so the table is
+-- not lying, NOT endorsed: every one of them is a farm where you are never without a
+-- target, and they want re-sizing against the time column before they are built.
+--
+-- The header used to carry a hard ceiling of area <= 785 * r^2, i.e. c >= 0.18. Zone
+-- 1 has been over that ceiling since the field was grown to 660x320 — it was already
+-- at c = 0.096 under the old radius — so the rule described a zone layout that no
+-- longer exists and is left here as history rather than as a check. Use the time
+-- column.
 --
 -- COLOUR NOTE: the plate is the SLUDGE and it is deliberately a deep, muted green.
 -- The bright acid green belongs to the pools and spills in build/Scenery, which are
@@ -35,15 +63,7 @@
 -- from ground level: with no tonal gap between ground and pool, nothing glowed and
 -- nothing looked toxic. Contrast is what sells "radioactive", not brightness.
 --
---     active field  660x320   r=12 (T1)   c ~= 0.10 across the full field
---     zone 2   220x280   r=16 (T2)   c ~= 0.33
---     zone 3   260x320   r=21 (T3)   c ~= 0.37
---     zone 4   290x260   r=27 (T4)   c = 1.37   <- deliberately inverted, see below
---
--- Hard ceiling: area <= 785 * r^2. Past that a zone is unplayable at its rated tier,
--- and it presents as "the detector feels bad" rather than as any kind of error.
---
--- Zone 4 breaks the rule ON PURPOSE. It is a dive, not a farm (PLAN §3.5): you get
+-- Zone 4 is the deliberate inversion. It is a dive, not a farm (PLAN §3.5): you get
 -- roughly 35 seconds in it one tier under. A field where you nearly always have a
 -- ping is exactly right for "grab one thing and run", and it means that window is
 -- spent hauling rather than searching. Without the inversion the Zone 4 dive would
@@ -291,10 +311,22 @@ function Zones.area(id: number): number
 	return z.size[1] * z.size[2]
 end
 
---- The coverage metric from the header. Spec asserts on it so a resize that makes
---- a zone unsearchable fails loudly instead of just feeling bad.
+--- The coverage metric from the header: the expected number of signals lit up around
+--- a player standing still.
 function Zones.coverage(id: number, detectorRadius: number, signalsPerZone: number): number
 	return signalsPerZone * math.pi * detectorRadius * detectorRadius / Zones.area(id)
+end
+
+--- Seconds of walking between one contact and the next, which is the number a player
+--- actually feels. A reveal detector sweeps a corridor of width 2r, so this is the
+--- area each signal has to itself divided by the area swept per second.
+---
+--- Deliberately ignores the fact that a real player walks in curves and re-covers
+--- ground: it is a floor, not a prediction, and a zone that fails it on paper is
+--- worse than it reads here rather than better.
+function Zones.secondsBetweenContacts(id: number, detectorRadius: number, walkSpeed: number, signalsPerZone: number): number
+	local perSignal = Zones.area(id) / signalsPerZone
+	return perSignal / (2 * detectorRadius * walkSpeed)
 end
 
 --- Mean distance to the nearest buried signal, in studs.

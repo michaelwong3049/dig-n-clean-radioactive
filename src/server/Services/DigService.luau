@@ -2,13 +2,34 @@
 --[[
 	DigService.lua — the buried signal field, and the two verbs on top of it.
 
-	THE ONE RULE THIS FILE EXISTS TO ENFORCE (ARCHITECTURE.md, server/client boundary):
-	buried item positions never leave this server. Not as a position, not as a list,
-	not "just the nearest one's coordinates". The client is told a DIRECTION and a
-	STRENGTH for where it is currently standing, which is exactly what the sweep
-	indicator needs to draw and nothing more. A dig game that replicates loot
-	positions has an ESP script written for it inside a week, and at that point the
-	rarity economy — which is the entire product — is dead.
+	THE REVEAL — this is the mechanic. Read it before changing anything below.
+	A detector has a RADIUS. Every buried signal inside that radius which clears the
+	tier gates surfaces an AURA at its exact spot: a glow standing up out of the
+	ground. You walk to the glow and haul it out. There is no direction hint and no
+	hot/cold needle any more — the ground tells you where the thing is, and your
+	detector decides how much ground is talking.
+
+	WHAT CROSSES THE BOUNDARY, AND WHY IT CHANGED (ARCHITECTURE.md, server/client).
+	This file used to send an angle and a strength and nothing else, because the whole
+	field had to stay secret. Under the reveal it cannot: auras are real parts in
+	Workspace, so every client can already read where they are. The rule is therefore
+	scoped rather than absolute —
+
+	    positions INSIDE YOUR OWN REVEAL RADIUS may cross. The FIELD never does.
+
+	The payload carries offsets RELATIVE TO THE PLAYER, never world coordinates, and
+	never anything outside the radius. An exploiter reading it gets what an honest
+	player is already looking at. The other forty-odd buried signals in the zone stay
+	exactly as invisible as they were, and that is the property actually worth
+	defending: a dig game that replicates the whole field has an ESP script written
+	for it inside a week, and at that point the rarity economy — which is the entire
+	product — is dead.
+
+	AURAS ARE PUBLIC. Everyone sees every aura, not only whoever revealed it (see
+	Config/Tuning, "the reveal", for the cost of that call). The part that matters
+	here: revealing is not the same as being allowed to take it. The gates below run
+	per-player against whoever is pulling, so a Bent Coil can stand in an Oracle's
+	glow and be told, in as many words, that it cannot lock on.
 
 	The client also never names what it wants to dig. It sends "I am holding the
 	button"; the server decides which signal that means, based on where the player
@@ -18,7 +39,9 @@
 	the soil. Holding the button raises it; letting go lets it sink back. What survives
 	out here is metal and whatever the fallout soaked into, so the magnet is the tool.
 
-	THREE GATES, all from Gear.lua, all enforced here:
+	FOUR GATES, all from Gear.lua, all enforced here:
+	  detector.radius    — how much ground reveals itself around you. This IS the
+	                       search game now, which is why Gear's curve is flat.
 	  detector.maxRarity — a Bent Coil physically cannot register a Rare. It does not
 	                       ping quietly; it does not ping at all. (PLAN §2 step 1)
 	  detector.depth     — deeper items are rarer, and a weak detector cannot see them.
@@ -42,6 +65,8 @@ local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
+
+local SignalAura = require(script.Parent.Parent.build.SignalAura)
 
 local DataService = require(script.Parent.DataService)
 local ZoneService = require(script.Parent.ZoneService)
@@ -67,7 +92,10 @@ local STRAIN_CEILING = 0.25 -- how far an under-rated magnet gets before it stal
 type Signal = {
 	uid: string,
 	zoneId: number,
-	position: Vector3, -- SERVER ONLY. Never put this on a remote.
+	-- SERVER ONLY as an absolute. It reaches a client in exactly two shapes, both
+	-- scoped to the reveal: as an aura part in Workspace, and as an offset relative
+	-- to a player already standing inside its radius. Never as a world coordinate.
+	position: Vector3,
 	itemId: string,
 	rarity: string,
 	modifier: string,
@@ -76,6 +104,13 @@ type Signal = {
 }
 
 local signalsByZone: { [number]: { Signal } } = {}
+
+-- One aura per REVEALED signal, keyed by uid, and the set of signals somebody
+-- revealed on the current tick. `revealed` is rebuilt from scratch every tick and
+-- `auras` is then dragged into line with it — see reconcileAuras.
+local auras: { [string]: Model } = {}
+local revealed: { [string]: Signal } = {}
+
 local holding: { [Player]: boolean } = {}
 local pulling: { [Player]: boolean } = {} -- holding AND actually on a signal
 local overSignal: { [Player]: boolean } = {} -- standing on one, hauling or not
@@ -85,6 +120,57 @@ local digTarget: { [Player]: string? } = {}
 local sweepRemote: any = nil
 local digRemote: any = nil
 local unearthedRemote: any = nil
+
+-- ── The auras ─────────────────────────────────────────────────────────
+
+local function auraFolder(): Folder
+	local existing = Workspace:FindFirstChild(SignalAura.FOLDER)
+	if existing and existing:IsA("Folder") then
+		return existing
+	end
+
+	local folder = Instance.new("Folder")
+	folder.Name = SignalAura.FOLDER
+	folder.Parent = Workspace
+	return folder
+end
+
+local function clearAura(uid: string)
+	local model = auras[uid]
+	if model then
+		model:Destroy()
+		auras[uid] = nil
+	end
+end
+
+--- Drag the world into line with whatever the players revealed this tick.
+---
+--- Runs ONCE after the whole player loop, never per player. Two people standing over
+--- the same signal have to produce one aura between them, and a set union computed
+--- across every player is the only cheap way to say that. Doing it inside stepPlayer
+--- instead would have the second player's pass destroy the first player's aura and
+--- rebuild it, ten times a second, forever.
+local function reconcileAuras()
+	local folder = auraFolder()
+
+	for uid, signal in revealed do
+		if auras[uid] == nil then
+			local model = SignalAura.create(signal.position, Tuning.AURA_HEIGHT, Tuning.AURA_WIDTH, Tuning.AURA_RING)
+			model.Parent = folder
+			auras[uid] = model
+		end
+	end
+
+	local stale: { string } = {}
+	for uid in auras do
+		if revealed[uid] == nil then
+			table.insert(stale, uid)
+		end
+	end
+	for _, uid in stale do
+		clearAura(uid)
+	end
+end
 
 -- ── Rolling ───────────────────────────────────────────────────────────
 
@@ -204,6 +290,12 @@ local function spawnSignal(zoneId: number)
 end
 
 local function removeSignal(zoneId: number, uid: string)
+	-- The glow goes with it, this tick, not next. A stale aura is worse than a missing
+	-- one: it stands over ground with nothing left in it, and somebody will walk all
+	-- the way to it and hold E at nothing.
+	clearAura(uid)
+	revealed[uid] = nil
+
 	local list = signalsByZone[zoneId]
 	for index, signal in list do
 		if signal.uid == uid then
@@ -227,16 +319,25 @@ end
 
 -- ── The sweep ─────────────────────────────────────────────────────────
 
---- Nearest signal this player's detector can actually register. Both gates are
---- absolute: an unregisterable signal is invisible, not faint.
-local function nearestVisible(zoneId: number, position: Vector3, stats: any): (Signal?, number)
+type Contact = { signal: Signal, distance: number }
+
+--- A maxed detector standing on a dense patch could otherwise put twenty entries on a
+--- 10 Hz remote to feed a radar that shows a handful. The list is sorted by distance,
+--- so what falls off the end is always the furthest thing — which is also the thing
+--- least likely to be what the player is walking towards.
+local MAX_CONTACTS = 12
+
+--- Every signal this player's detector actually registers, nearest first. Both tier
+--- gates are ABSOLUTE: an unregisterable signal is invisible, not faint.
+local function registeredFor(zoneId: number, position: Vector3, stats: any): { Contact }
+	local found: { Contact } = {}
+
 	local list = signalsByZone[zoneId]
 	if list == nil then
-		return nil, math.huge
+		return found
 	end
 
-	local best: Signal? = nil
-	local bestDistance = math.huge
+	local radius = stats.detectorRadius
 
 	for _, signal in list do
 		if Rarity.get(signal.rarity).order > stats.detectorMaxRarity then
@@ -248,17 +349,53 @@ local function nearestVisible(zoneId: number, position: Vector3, stats: any): (S
 
 		local delta = signal.position - position
 		local distance = math.sqrt(delta.X * delta.X + delta.Z * delta.Z) -- XZ only
-		if distance < bestDistance then
-			best = signal
-			bestDistance = distance
+		if distance <= radius then
+			table.insert(found, { signal = signal, distance = distance })
 		end
 	end
 
-	if best == nil or bestDistance > stats.detectorRadius then
-		return nil, math.huge
+	table.sort(found, function(a: Contact, b: Contact): boolean
+		return a.distance < b.distance
+	end)
+
+	while #found > MAX_CONTACTS do
+		table.remove(found)
 	end
-	return best, bestDistance
+
+	return found
 end
+
+--- Is the player standing on a glow they personally cannot lock onto? Auras are
+--- public but the gates are not, so without this state a Bent Coil standing in an
+--- Oracle's reveal gets a pillar of light and a HUD reading "sweeping…" — which
+--- looks like the game is broken rather than like the detector is too cheap.
+---
+--- Only ever consulted when the player has no contact of their own in range, so the
+--- scan cost lands on the frames where nothing else is happening.
+local function standingOnUnregistered(zoneId: number, position: Vector3, stats: any): boolean
+	local list = signalsByZone[zoneId]
+	if list == nil then
+		return false
+	end
+
+	for _, signal in list do
+		if auras[signal.uid] == nil then
+			continue -- nobody revealed it, so there is nothing to be confused by
+		end
+
+		local delta = signal.position - position
+		if delta.X * delta.X + delta.Z * delta.Z > DIG_RADIUS * DIG_RADIUS then
+			continue
+		end
+
+		if Rarity.get(signal.rarity).order > stats.detectorMaxRarity or signal.depth > stats.detectorDepth then
+			return true
+		end
+	end
+
+	return false
+end
+
 
 --- What the ping is allowed to reveal before you dig. PLAN §2 step 1: high-tier
 --- detectors show rarity on the ping so you stop wasting time digging Scrap.
@@ -270,6 +407,62 @@ local function hintFor(signal: Signal, clarity: number): (string?, string?)
 		return signal.rarity, signal.modifier
 	end
 	return signal.rarity, nil
+end
+
+--- Player-relative XZ offsets, plus whatever detectorClarity lets THIS player know
+--- about each contact. Relative, not absolute: a radar only ever needs "where is it
+--- from me", and world coordinates on the wire is exactly what the boundary rule in
+--- the header is about.
+---
+--- Rarity rides here rather than on the aura on purpose. The aura is one shared
+--- instance and clarity is a per-player gate, so a shared instance physically cannot
+--- express it — put the colour on the aura and every Bent Coil in the server reads
+--- Legendary off someone else's detector for free.
+local function contactPayload(contacts: { Contact }, position: Vector3, clarity: number): { any }
+	local out = {}
+
+	for _, entry in contacts do
+		local rarity = hintFor(entry.signal, clarity)
+		table.insert(out, {
+			dx = entry.signal.position.X - position.X,
+			dz = entry.signal.position.Z - position.Z,
+			rarity = rarity,
+		})
+	end
+
+	return out
+end
+
+--- Mark every contact as revealed on this tick. reconcileAuras turns the accumulated
+--- set into actual parts once the whole player loop has had its say.
+local function markRevealed(contacts: { Contact })
+	for _, entry in contacts do
+		revealed[entry.signal.uid] = entry.signal
+	end
+end
+
+-- What each player could see last tick, so the server can tell the client how many
+-- contacts are NEW and it can chirp for them. This is a server decision like every
+-- other one: the client is never given uids — deliberately — so it has nothing to
+-- diff and could only guess from the count, which miscounts every time one signal
+-- leaves the radius as another enters.
+local lastContacts: { [Player]: { [string]: boolean } } = {}
+
+local function noteContacts(player: Player, contacts: { Contact }): number
+	local previous = lastContacts[player]
+	local current: { [string]: boolean } = {}
+	local fresh = 0
+
+	for _, entry in contacts do
+		local uid = entry.signal.uid
+		current[uid] = true
+		if previous == nil or not previous[uid] then
+			fresh += 1
+		end
+	end
+
+	lastContacts[player] = current
+	return fresh
 end
 
 -- ── The dig ──────────────────────────────────────────────────────────
@@ -372,6 +565,7 @@ local function stepPlayer(player: Player, dt: number)
 		pulling[player] = false
 		overSignal[player] = false
 		clearHaul(player)
+		noteContacts(player, {}) -- so walking back in chirps for the field again
 		-- carrying/capacity ride along on EVERY payload: the bag counter should be
 		-- true all the time, not only while something is pinging.
 		sweepRemote:FireClient(player, {
@@ -382,10 +576,12 @@ local function stepPlayer(player: Player, dt: number)
 		return
 	end
 
-	local signal, distance = nearestVisible(zoneId, position, stats)
+	local contacts = registeredFor(zoneId, position, stats)
+	markRevealed(contacts)
 
+	local nearest = contacts[1]
 
-	if signal == nil then
+	if nearest == nil then
 		digProgress[player] = 0
 		digTarget[player] = nil
 		pulling[player] = false
@@ -394,14 +590,22 @@ local function stepPlayer(player: Player, dt: number)
 		sweepRemote:FireClient(player, {
 			inZone = true,
 			zoneId = zoneId,
+			radius = stats.detectorRadius,
 			hasSignal = false,
+			contacts = {},
+			newContacts = noteContacts(player, contacts),
+			-- Standing in a glow somebody else revealed. Nothing to pull, but the
+			-- player deserves to be told which of the two "nothing here" states
+			-- they are in.
+			blocked = if standingOnUnregistered(zoneId, position, stats) then "unregistered" else nil,
 			carrying = #data.carry,
 			capacity = stats.capacity,
 		})
 		return
 	end
 
-	local delta = signal.position - position
+	local signal = nearest.signal
+	local distance = nearest.distance
 	local strength = math.clamp(1 - (distance / stats.detectorRadius), 0, 1)
 	local rarityHint, modifierHint = hintFor(signal, stats.detectorClarity)
 
@@ -441,10 +645,30 @@ local function stepPlayer(player: Player, dt: number)
 			digProgress[player] = 0
 			digTarget[player] = nil
 			unearth(player, data, signal)
+
+			-- Everything ELSE in range is still in range; only the thing that came out
+			-- of the ground is gone. Sending an empty payload here and waiting for the
+			-- next tick to repopulate makes the radar blink, and — because the server
+			-- diffs contacts to decide when to chirp — fires a fresh-contact chirp for
+			-- signals the player has been walking towards for twenty seconds.
+			local surviving: { Contact } = {}
+			for _, entry in contacts do
+				if entry.signal.uid ~= signal.uid then
+					table.insert(surviving, entry)
+				end
+			end
+
+			local following = surviving[1]
 			sweepRemote:FireClient(player, {
 				inZone = true,
 				zoneId = zoneId,
-				hasSignal = false,
+				radius = stats.detectorRadius,
+				hasSignal = following ~= nil,
+				strength = if following then math.clamp(1 - (following.distance / stats.detectorRadius), 0, 1) else 0,
+				rarityHint = if following then (hintFor(following.signal, stats.detectorClarity)) else nil,
+				contacts = contactPayload(surviving, position, stats.detectorClarity),
+				newContacts = noteContacts(player, surviving),
+				digProgress = 0,
 				carrying = #data.carry,
 				capacity = stats.capacity,
 			})
@@ -458,13 +682,16 @@ local function stepPlayer(player: Player, dt: number)
 	digProgress[player] = progress
 	updateHaul(player, signal, progress, rarityHint)
 
-	-- DIRECTION AND STRENGTH ONLY. No position, no uid, no list.
+	-- OFFSETS INSIDE THE REVEAL RADIUS ONLY. No world coordinates, no uids, and
+	-- nothing the player is not already looking at a glow for.
 	sweepRemote:FireClient(player, {
 		inZone = true,
 		zoneId = zoneId,
+		radius = stats.detectorRadius,
 		hasSignal = true,
 		strength = strength,
-		angle = math.atan2(delta.Z, delta.X),
+		contacts = contactPayload(contacts, position, stats.detectorClarity),
+		newContacts = noteContacts(player, contacts),
 		rarityHint = rarityHint,
 		modifierHint = modifierHint,
 		inRange = inRange,
@@ -502,6 +729,15 @@ function DigService.init()
 	digRemote = Net.get("DigInput")
 	unearthedRemote = Net.get("Unearthed")
 
+	-- Auras are runtime objects, but Workspace is a thing people save from Studio, so
+	-- a folder full of them can absolutely end up published into the place. Those
+	-- ghosts would never be reconciled away — `auras` starts empty and nothing else
+	-- knows they exist — leaving permanent glows over ground with nothing under it.
+	local stale = Workspace:FindFirstChild(SignalAura.FOLDER)
+	if stale then
+		stale:Destroy()
+	end
+
 	-- Phase 1 is one zone. The loop is written for all six.
 	for _, zone in Zones.DEFS do
 		signalsByZone[zone.id] = {}
@@ -521,17 +757,31 @@ function DigService.start()
 		digTarget[player] = nil
 		pulling[player] = nil
 		overSignal[player] = nil
+		lastContacts[player] = nil
 		clearHaul(player)
+		-- Their auras are not cleaned up here. They are rebuilt from the surviving
+		-- players on the next tick, and anything only this player could see falls out
+		-- of `revealed` on its own — one shared reconcile, one place to be wrong.
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)
 		topUpField()
+
+		-- Rebuilt from nothing every tick rather than maintained incrementally. A
+		-- reveal set that is only ever added to and subtracted from drifts the moment
+		-- one stepPlayer call throws — and stepPlayer is deliberately wrapped in a
+		-- pcall, so it will. Recomputing costs one table clear and leaves a dropped
+		-- tick self-healing instead of permanently stranding a glow in the field.
+		table.clear(revealed)
+
 		for _, player in Players:GetPlayers() do
 			local ok, err = pcall(stepPlayer, player, dt)
 			if not ok then
 				warn(`[dig] tick failed for {player.Name}: {err}`)
 			end
 		end
+
+		reconcileAuras()
 	end)
 
 	local total = 0

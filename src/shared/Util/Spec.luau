@@ -25,6 +25,7 @@
 local Config = script.Parent.Parent.Config
 local Zones = require(Config.Zones)
 local Gear = require(Config.Gear)
+local Tuning = require(Config.Tuning)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
 local StatResolver = require(script.Parent.Parent.StatResolver)
@@ -152,6 +153,36 @@ function Spec.run(): boolean
 	check("§9.2 Sure Footing halves the haul penalty", math.abs(stats.haulPenalty - Gear.tier("Boots", 2).haulPenalty * 0.5) < 1e-9)
 	check("§5.1 a full bag physically slows you", StatResolver.effectiveWalkSpeed(stats, stats.capacity, false) < stats.walkSpeed)
 	check("§5.1 but never immobilises you", StatResolver.effectiveWalkSpeed(stats, 999, false) >= 6)
+
+	-- PLAN §2 step 1 — the reveal. These are the checks that catch someone "fixing"
+	-- the Detector track's weak payoff by widening the radius, which is the one lever
+	-- the design says must not move (see the header of Config/Gear).
+	local ascending = true
+	for tier = 2, Gear.maxTier("Detector") do
+		if Gear.tier("Detector", tier).radius <= Gear.tier("Detector", tier - 1).radius then
+			ascending = false
+		end
+	end
+	check("§2.1 every detector tier reveals further than the last", ascending)
+
+	-- Revealing is not the same as reaching. If the pull radius ever grows into the
+	-- reveal radius, the walk to the glow disappears and the loop is one button.
+	check(
+		string.format("§2.1 the walk to the glow survives (dig %d vs reveal %d)", Tuning.DIG_RADIUS, Gear.tier("Detector", 1).radius),
+		Tuning.DIG_RADIUS * 2 < Gear.tier("Detector", 1).radius
+	)
+
+	local field = Zones.builtIds()[1]
+	if field then
+		local walk = Gear.tier("Boots", 1).walkSpeed
+		local lo = Gear.tier("Detector", 1).radius
+		local hi = Gear.tier("Detector", Gear.maxTier("Detector")).radius
+		local slow = Zones.secondsBetweenContacts(field, lo, walk, Tuning.SIGNALS_PER_ZONE)
+		local fast = Zones.secondsBetweenContacts(field, hi, walk, Tuning.SIGNALS_PER_ZONE)
+		check(string.format("§2.1 starting detector walks %.1fs between contacts (want 5-20)", slow), slow >= 5 and slow <= 20)
+		check(string.format("§2.1 a maxed detector still has to walk: %.1fs (want >= 2)", fast), fast >= 2)
+		check(string.format("§2.1 the reveal curve stays flat: %.1fx end to end (want <= 4)", slow / fast), slow / fast <= 4)
+	end
 
 	-- PLAN §3.5 — no zone is gated by anything except arithmetic
 	for _, zone in Zones.DEFS do

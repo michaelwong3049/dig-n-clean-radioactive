@@ -19,9 +19,13 @@ local REMOTES: { [string]: string } = {
 
 	-- Phase 1: the sweep/dig loop.
 	--
-	-- SweepState carries DIRECTION AND STRENGTH ONLY — never a position, never a
-	-- list. A digging game that replicates buried loot positions gets an ESP script
-	-- written for it inside a week, and the rarity economy is the whole product.
+	-- SweepState carries contacts INSIDE THE PLAYER'S OWN REVEAL RADIUS, as offsets
+	-- relative to that player — never world coordinates, and never anything outside
+	-- the radius. Those signals are already standing in the world as auras that every
+	-- client can see, so the payload leaks nothing a player is not looking at. The
+	-- rest of the field never crosses: a digging game that replicates buried loot
+	-- positions gets an ESP script written for it inside a week, and the rarity
+	-- economy is the whole product. See the header of Services/DigService.
 	SweepState = "RemoteEvent", -- server -> client, one payload per tick
 	DigInput = "RemoteEvent", -- client -> server, hold-to-dig on/off
 	Unearthed = "RemoteEvent", -- server -> client, the slot-machine moment

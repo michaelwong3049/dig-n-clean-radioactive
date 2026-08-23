@@ -87,11 +87,31 @@ decide. Anything touching cash, radiation, or item state is the server's call.
 
 Two rules worth stating separately because they are the ones that get eroded:
 
-1. **Buried positions never leave the server.** `DigService` sends a world-space
-   *angle* and a *strength* — never a position, never a uid, never a list. A digging
-   game that replicates loot positions has an ESP script written for it inside a week,
-   and the rarity economy is the entire product. The one exception is the single part
-   the player is actively hauling, which is safe: they are already standing on it.
+1. **The field never leaves the server; your own reveal radius may.** This rule used
+   to be absolute — `DigService` sent an angle and a strength and nothing else. The
+   reveal detector made that impossible to keep as written: a signal inside your
+   radius stands up in the world as an **aura**, a real part every client can see, so
+   pretending its position is secret would protect nothing while making the HUD worse.
+
+   The rule is therefore scoped rather than dropped:
+
+   * `SweepState` carries contacts **inside the player's own detector radius**, as
+     **offsets relative to that player** — never world coordinates, never a uid, and
+     never anything the player is not already looking at a glow for.
+   * Everything else in the zone — the other forty-odd buried signals — stays exactly
+     as invisible as it was.
+
+   That is the property actually worth defending. A digging game that replicates the
+   whole field has an ESP script written for it inside a week, and the rarity economy
+   is the entire product; a game that tells you where the thing you can already see is
+   has lost nothing. The single part the player is actively hauling remains fine for
+   the same reason it always was: they are standing on it.
+
+   **Auras are public on purpose.** Every player sees every aura, not just whoever
+   revealed it. The cost — a cheap detector tailing an expensive one — is written down
+   in `Config/Tuning` under "the reveal". Revealing is still not the same as taking:
+   `maxRarity` and `depth` gate the *pull* per-player, so a Bent Coil standing in an
+   Oracle's glow gets told it cannot lock on.
 
 2. **The client never names what it wants to dig.** It sends "I am holding the button".
    The server decides which signal that means from where the player actually is.
@@ -116,6 +136,7 @@ with the place.
 |---|---|---|
 | `Workspace.Zones` (Folder) | `ZoneService:36`, `DigService:148` | nobody is ever in a zone; no signals spawn |
 | `Workspace.Zones.Zone<id>` (BasePart) | `DigService:152`, `DebugService:141` | that zone spawns no signals; `/zone <id>` refuses |
+| `Workspace.SignalAuras` (Folder) | created and owned by `DigService` | nothing — it is created on demand at runtime and wiped on boot. Do **not** hand-edit or save it with the place; `DigService.init` destroys any copy it finds, because a saved one would be full of glows over empty ground. |
 | `Workspace.BaseCamp` (Model) | `DeconService:54` | `stationOf` is always nil — no docking, scrubbing or selling, anywhere. Generate it with `BaseCamp.rebuild()` as documented in the README. |
 | a `SpawnLocation` anywhere in `Workspace` | `ExposureService:221` | blackout respawns to a hardcoded `CFrame.new(0, 8, 0)` |
 | `ReplicatedStorage.Assets.Tools` (Folder) | `ToolService:39` | **`require(ToolService)` throws** — see the note below |

@@ -35,15 +35,28 @@ local Gear = {}
 -- PLAN §5 wording note: the design calls this a "sensitivity floor", but the behaviour
 -- described (a Bent Coil physically cannot see a Reactor Core) is a CEILING on rarity.
 -- Named for the behaviour, not the doc.
+--
+-- `radius` IS THE REVEAL RANGE, NOT A SENSING RANGE. Every registerable signal inside
+-- it surfaces an aura at its exact spot (DigService, "the reveal"). It used to mean
+-- "how far away the needle still points at something", which is why the old curve ran
+-- 12 -> 65: a direction hint stays readable at any range, so the top end could be huge
+-- for free. A REVEAL at 65 studs lights up most of a stage at once and there is no
+-- game left in it, so the curve is now a flat +3 per tier.
+--
+-- What that costs, stated plainly so nobody re-derives it in six months: max-tier
+-- reveal AREA is 6.8x tier 1, where the old curve was 29x. The Detector track is
+-- therefore a much weaker purchase than its price ladder implies. If that ladder needs
+-- to feel earned again, move the value into maxRarity/depth/clarity — they gate what
+-- you can have at all, and they do not flatten. Do NOT fix it by widening `radius`.
 Gear.Detector = {
-	{ name = "Bent Coil", price = 0, radius = 12, maxRarity = 3, depth = 6, clarity = 0 },
+	{ name = "Bent Coil", price = 0, radius = 13, maxRarity = 3, depth = 6, clarity = 0 },
 	{ name = "Scavenger MkI", price = 120, radius = 16, maxRarity = 4, depth = 9, clarity = 0 },
-	{ name = "Surplus Geiger", price = 290, radius = 21, maxRarity = 5, depth = 12, clarity = 1 },
-	{ name = "Pulse Array", price = 700, radius = 27, maxRarity = 5, depth = 16, clarity = 1 },
-	{ name = "Isotope Scanner", price = 1680, radius = 34, maxRarity = 6, depth = 21, clarity = 2 },
-	{ name = "Resonance Mapper", price = 4030, radius = 42, maxRarity = 7, depth = 27, clarity = 2 },
-	{ name = "Deep Core Array", price = 9670, radius = 52, maxRarity = 8, depth = 34, clarity = 3 },
-	{ name = "The Oracle", price = 23200, radius = 65, maxRarity = 8, depth = 44, clarity = 3 },
+	{ name = "Surplus Geiger", price = 290, radius = 19, maxRarity = 5, depth = 12, clarity = 1 },
+	{ name = "Pulse Array", price = 700, radius = 22, maxRarity = 5, depth = 16, clarity = 1 },
+	{ name = "Isotope Scanner", price = 1680, radius = 25, maxRarity = 6, depth = 21, clarity = 2 },
+	{ name = "Resonance Mapper", price = 4030, radius = 28, maxRarity = 7, depth = 27, clarity = 2 },
+	{ name = "Deep Core Array", price = 9670, radius = 31, maxRarity = 8, depth = 34, clarity = 3 },
+	{ name = "The Oracle", price = 23200, radius = 34, maxRarity = 8, depth = 44, clarity = 3 },
 }
 
 -- The extraction track. You do not dig — you drop a magnet and haul the thing up
