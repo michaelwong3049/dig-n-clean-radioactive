@@ -100,7 +100,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 7
+local BUILDER_VERSION = 8
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -146,6 +146,45 @@ Plots.CENTERS = {
 	{ x = MID_X + SPREAD, z = PLAZA.minZ - HALF_D, facing = 180 },
 	{ x = MID_X - SPREAD, z = PLAZA.minZ - HALF_D, facing = 180 },
 	{ x = PLAZA.minX - HALF_D, z = MID_Z - SPREAD, facing = -90 },
+}
+
+--- A pad's XZ footprint in world space. A pad is built width-along-X, depth-along-Z
+--- and then YAWED into place, so the two pads on the west side — the ones facing east
+--- — have those two numbers the other way round. Only right angles occur in the ring,
+--- so this is a swap rather than a rotation.
+local function padBounds(c: { x: number, z: number, facing: number }): (number, number, number, number)
+	local sideways = c.facing == 90 or c.facing == -90
+	local halfX = if sideways then HALF_D else HALF_W
+	local halfZ = if sideways then HALF_W else HALF_D
+	return c.x - halfX, c.z - halfZ, c.x + halfX, c.z + halfZ
+end
+
+--- THE APRON — the ground in the gaps BETWEEN the bases.
+---
+--- The six pads sit in a corridor one pad-depth wide wrapped around three sides of
+--- the plaza, but they do not fill it. SPREAD leaves a 16-stud slot between each
+--- pair, and where the west side meets the north and south sides there is a much
+--- bigger L-shaped hole. All of it was open sky: you could see the void under the map
+--- from the middle of the camp, and there was no way to walk from one base to the one
+--- beside it without cutting all the way back across the plaza.
+---
+--- FILLING IT IS THREE RECTANGLES, NOT NINE. Tile the whole corridor and punch the
+--- pads back out with a skip predicate, rather than enumerating the gaps by hand.
+--- Same result, and it cannot fall out of step with the ring — nine hand-written
+--- rectangles would be wrong the moment SPREAD, PAD or the plaza changes, and wrong
+--- silently, as a hole somebody notices weeks later.
+---
+--- THE EAST EDGE STOPS DEAD ON PLAZA.maxX, which is also Zone 1's west edge. The
+--- corridor may touch the field and must never cross into it: apron is zero-rad
+--- ground, and a strip of it inside the zone would be a safe pocket in the middle of
+--- the radiation — the one property the whole "paths are safe, the green is not" rule
+--- rests on. `Hub.tileRect` clips edge tiles to the rectangle for this reason.
+local RING = Plots.PAD.depth
+
+local APRON: { Hub.Rect } = {
+	{ minX = PLAZA.minX - RING, maxX = PLAZA.maxX, minZ = PLAZA.maxZ, maxZ = PLAZA.maxZ + RING },
+	{ minX = PLAZA.minX - RING, maxX = PLAZA.maxX, minZ = PLAZA.minZ - RING, maxZ = PLAZA.minZ },
+	{ minX = PLAZA.minX - RING, maxX = PLAZA.minX, minZ = PLAZA.minZ, maxZ = PLAZA.maxZ },
 }
 
 --- Two flanking columns, paired off row by row — odd slots go left, even slots
@@ -384,6 +423,32 @@ local function buildPlot(parent: Instance, index: number)
 	return m
 end
 
+--- Lay the apron. Lives in this file rather than in Hub.luau because the corridor is
+--- derived from the pad ring, and Hub cannot see the ring: Plots requires Hub, so a
+--- require back the other way would be a cycle. Hub owns the PATTERN and exports it;
+--- this file owns the SHAPE and asks for it to be tiled.
+local function buildApron(row: Model)
+	local apron = Instance.new("Folder")
+	apron.Name = "Apron"
+
+	local function insidePad(x: number, z: number): boolean
+		for _, c in Plots.CENTERS do
+			local x0, z0, x1, z1 = padBounds(c)
+			if x > x0 and x < x1 and z > z0 and z < z1 then
+				return true
+			end
+		end
+		return false
+	end
+
+	for index, rect in APRON do
+		Hub.groundSlab(apron, rect, `ApronSlab{index}`)
+		Hub.tileRect(apron, rect, insidePad)
+	end
+
+	apron.Parent = row
+end
+
 local function createPlots(): Model
 	local row = Instance.new("Model")
 	row.Name = "Plots"
@@ -394,6 +459,8 @@ local function createPlots(): Model
 	for index = 1, Plots.COUNT do
 		buildPlot(row, index)
 	end
+
+	buildApron(row)
 
 	return row
 end
@@ -406,7 +473,11 @@ end
 
 function Plots.rebuild(parent: Instance?): Model
 	local row = Kit.swap("Plots", createPlots, parent) :: Model
-	print(`[build] Plots rebuilt — {Plots.COUNT} plots, {Plots.VISIBLE_SLOTS} stands each ({Tuning.EXHIBIT_STARTING_SLOTS} unlocked, {Tuning.EXHIBIT_MAX_SLOTS} addressable)`)
+	print(
+		`[build] Plots rebuilt — {Plots.COUNT} plots, {Plots.VISIBLE_SLOTS} stands each `
+			.. `({Tuning.EXHIBIT_STARTING_SLOTS} unlocked, {Tuning.EXHIBIT_MAX_SLOTS} addressable), `
+			.. `{#row.Apron:GetChildren()} apron parts`
+	)
 	return row
 end
 

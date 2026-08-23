@@ -54,10 +54,12 @@ local Kit = require(script.Parent.Kit)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 5
+local BUILDER_VERSION = 6
 
--- Where the camp sits. This is the Floor's centre; everything else is relative to it,
--- so moving the whole camp is a one-line change (or an argument to build()).
+-- Where the camp sits. Everything else is relative to it, so moving the whole camp
+-- is a one-line change (or an argument to build()). This used to be described as the
+-- Floor's centre; the floor is gone (see buildShell) and the origin is now just the
+-- camp's own datum, which is what it always actually was.
 local DEFAULT_ORIGIN = CFrame.new(0, 0.9, 136)
 
 -- ── Primitives ────────────────────────────────────────────────────────────────
@@ -65,23 +67,28 @@ local DEFAULT_ORIGIN = CFrame.new(0, 0.9, 136)
 -- all share one part-builder instead of four that drift. Aliased to the original
 -- local names so every call site below is unchanged from the version that was
 -- verified against the live place to the stud.
-local C = Kit.C
+-- `C` used to be aliased here too. The only thing in the camp that referenced the
+-- palette was the floor pad, so it went with it; the spawn carries its own colour.
 local build = Kit.build
 
 export type Spec = Kit.Spec
 
 -- ── The camp ──────────────────────────────────────────────────────────────────
 
-local FLOOR = { width = 64, depth = 46 }
-
 local function buildShell(camp: Model, origin: CFrame)
-	build(camp, origin, {
-		name = "Floor",
-		pos = { 0, 0, 0 },
-		size = { FLOOR.width, 1.2, FLOOR.depth },
-		color = C.floor,
-		material = "Pavement",
-	})
+	-- NO FLOOR PAD. There used to be a 64x46 slab of cream Pavement here whose top
+	-- face landed on exactly Y = 0 — the same plane as the plaza it sits inside. That
+	-- was invisible while the plaza was cream too: two coplanar faces in the same
+	-- colour z-fight against each other every frame and nobody can tell. The plaza is
+	-- a navy-and-grey checkerboard now, so the fight became a 64x46 patch of cream
+	-- squares flickering through the pattern in the dead centre of the map.
+	--
+	-- Deleted rather than nudged up a hair, because the pad had no job left. It was
+	-- the camp's ground back when the camp was a walled enclosure standing on open
+	-- plaza; the walls went, the trader went, the gate went, and what remained was a
+	-- rectangle of floor drawn on top of identical floor. The plaza IS the camp's
+	-- ground. Nothing stood on the pad — the spawn below is positioned off the camp
+	-- ORIGIN, not off the pad's top face — so removing it moves nothing.
 
 	-- No enclosing walls, no entrance gate. Both used to box the camp off from
 	-- the plaza it sits in; the camp now reads as one open shop area, identified

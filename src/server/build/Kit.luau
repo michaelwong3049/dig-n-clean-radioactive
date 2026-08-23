@@ -71,6 +71,13 @@ Kit.C = {
 	skyMint = "BFF3E4",
 	plazaWarm = "F2E3B8",
 	plazaEdge = "D8C79A",
+
+	-- The plaza floor's checkerboard. Deliberately NOT plazaWarm/plazaEdge: those
+	-- two are the warm cream the plots, the stalls and the courtyard walls are all
+	-- painted in, and the floor is now the one surface that is not. Tune the pattern
+	-- here — every tile in the world reads one of these two.
+	plazaTileDark = "212639",
+	plazaTileLight = "545A66",
 	grass = "8FD86A",
 	grassDark = "6FB84E",
 	road = "E8DCC0",

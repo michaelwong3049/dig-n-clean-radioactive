@@ -65,7 +65,7 @@ local Kit = require(script.Parent.Kit)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 4
+local BUILDER_VERSION = 5
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -365,9 +365,14 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 
 	local origin = CFrame.new(spec.at[1], 0, spec.at[2])
 
+	-- LIFTED 0.1 CLEAR OF THE PLAZA, and that tenth of a stud is load-bearing. The
+	-- deck is 0.6 thick, so at y = -0.3 its top face landed on exactly Y = 0 — the
+	-- same plane as the plaza's own surface. Two coplanar faces z-fight, which was
+	-- invisible while both were cream and is not now that the floor underneath is a
+	-- checkerboard. A pad lying ON the floor should sit on it, not in it.
 	build(m, origin, {
 		name = "Deck",
-		pos = { 0, -0.3, 0 },
+		pos = { 0, -0.2, 0 },
 		size = { 0.6, 20, 20 },
 		color = C.plazaWarm,
 		material = "Plastic",
@@ -460,7 +465,9 @@ local function buildOutfitter(parent: Instance)
 	local halfDepth = 8
 	local wallHeight = 7
 
-	build(m, origin, { name = "Floor", pos = { 0, -0.2, 0 }, size = { width, 0.4, halfDepth * 2 }, color = C.plazaWarm, material = "Plastic" })
+	-- Same 0.1 lift as the stall decks, for the same reason: 0.4 thick at y = -0.2 put
+	-- this floor's top face on the plaza's own plane and the two z-fought.
+	build(m, origin, { name = "Floor", pos = { 0, -0.1, 0 }, size = { width, 0.4, halfDepth * 2 }, color = C.plazaWarm, material = "Plastic" })
 
 	-- Back wall and two side walls. Open at the front (+Z, facing the camp
 	-- gate) -- that's the doorway, not a fourth wall.
