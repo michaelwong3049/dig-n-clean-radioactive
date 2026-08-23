@@ -31,6 +31,7 @@ local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
+local CarryService = require(script.Parent.CarryService)
 local EconomyService = require(script.Parent.EconomyService)
 local StationService = require(script.Parent.StationService)
 local ShopService = require(script.Parent.ShopService)
@@ -77,15 +78,6 @@ end
 
 -- ── Actions ───────────────────────────────────────────────────────────
 
-local function cleanerNameFor(potencyNeeded: number): string
-	for _, tier in Gear.Cleaner do
-		if tier.potency >= potencyNeeded then
-			return tier.name
-		end
-	end
-	return "something stronger"
-end
-
 local function beginScrub(player: Player, data: any, stats: any, uid: string): string?
 	local item = EconomyService.find(data, uid)
 	if item == nil then
@@ -107,7 +99,7 @@ local function beginScrub(player: Player, data: any, stats: any, uid: string): s
 	end
 
 	if not reachable and blocked then
-		return `nothing you can shift \u{2014} needs {cleanerNameFor(blocked)}`
+		return `nothing you can shift \u{2014} needs {CarryService.cleanerNameFor(blocked)}`
 	end
 
 	-- Target the easiest remaining patch, so progress feels steady and the wall
@@ -141,35 +133,12 @@ local function rack(player: Player, data: any, uid: string): string
 	local def = Items.get(item.itemId)
 	local blocked = Contamination.blockedBy(item.patches or {}, StatResolver.get(data).cleanPotency)
 	if blocked then
-		return `{def.name} racked \u{2014} waiting on {cleanerNameFor(blocked)}`
+		return `{def.name} racked \u{2014} waiting on {CarryService.cleanerNameFor(blocked)}`
 	end
 	return `{def.name} racked`
 end
 
 -- ── Tick ────────────────────────────────────────────────────────────
-
-local function describe(item: any, stats: any): any
-	local def = Items.get(item.itemId)
-	local patches = item.patches or {}
-	local value, clean = EconomyService.valueOf(item, stats)
-	local _, stage = Decay.stageOf(item, stats.satchelFuseMult)
-	local blocked = Contamination.blockedBy(patches, stats.cleanPotency)
-
-	return {
-		uid = item.uid,
-		name = def.name,
-		flavor = def.flavor,
-		rarity = item.rarity,
-		modifier = item.modifier,
-		patches = table.clone(patches),
-		clean = clean,
-		blockedBy = blocked,
-		needs = if blocked then cleanerNameFor(blocked) else nil,
-		value = value,
-		stage = stage.name,
-		frozen = item.frozen,
-	}
-end
 
 local function stepPlayer(player: Player, dt: number)
 	local character = player.Character
@@ -223,12 +192,12 @@ local function stepPlayer(player: Player, dt: number)
 
 	local carried = {}
 	for _, item in data.carry do
-		table.insert(carried, describe(item, stats))
+		table.insert(carried, CarryService.describe(item, stats))
 	end
 
 	local locker = {}
 	for _, item in data.locker do
-		table.insert(locker, describe(item, stats))
+		table.insert(locker, CarryService.describe(item, stats))
 	end
 
 	local current = scrubbing[player]

@@ -23,6 +23,7 @@ local ORDER = {
 	"ExposureService", -- Phase 2: the rad meter, burn and blackout
 	"DigService", -- Phase 1: the signal field, sweep and haul
 	"EconomyService", -- prices and the till; DeconService calls into it
+	"CarryService", -- describes the backpack for every surface that renders it; needs Economy
 	"StationService", -- what you are standing at; DeconService, ShopService and ExhibitService read it
 	"ShopService", -- turning cash back into capability; needs Station + Economy
 	"ExhibitService", -- plot assignment, display/undisplay, yield accrual; needs Station + Economy

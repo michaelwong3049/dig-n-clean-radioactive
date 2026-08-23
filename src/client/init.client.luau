@@ -12,6 +12,7 @@ local CONTROLLERS = script.Controllers
 local ORDER = {
 	"DetectorController", -- Phase 1: radar scope, ping audio, hold-to-pull
 	"FieldController", -- Phase 1: the range ring and the aura pulse; reads DetectorController
+	"InventoryController", -- Phase 1: the hotbar and its detail card; reads CarryState
 	"StationController", -- Phase 1: base camp — scrub, sell, rack
 	"HudController", -- Phase 2: rad meter, vignette, distortion, blackout
 	"GeigerController", -- Phase 2: the click bed (reads HudController)

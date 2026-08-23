@@ -80,8 +80,6 @@ local state = {
 	inRange = false,
 	blocked = nil :: string?,
 	digProgress = 0,
-	carrying = 0,
-	capacity = 0,
 }
 
 local ui = {}
@@ -201,11 +199,15 @@ local function build(): ScreenGui
 	gui.IgnoreGuiInset = true
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Radar scope, bottom centre. Same frame the needle dial used to live in.
+	-- Radar scope, BOTTOM RIGHT. It sat bottom-centre while it was the only thing
+	-- down there; the hotbar wants that strip and has a better claim on it, because
+	-- the inventory is what a player looks at deliberately while the scope is read
+	-- out of the corner of the eye. Parked opposite the rad meter (bottom-left) so
+	-- the two instrument readouts bracket the action in the middle.
 	local dial = Instance.new("Frame")
 	dial.Name = "Scope"
-	dial.AnchorPoint = Vector2.new(0.5, 1)
-	dial.Position = UDim2.new(0.5, 0, 1, -128)
+	dial.AnchorPoint = Vector2.new(1, 1)
+	dial.Position = UDim2.new(1, -18, 1, -18)
 	dial.Size = UDim2.fromOffset(DIAL_SIZE, DIAL_SIZE)
 	dial.BackgroundColor3 = COLOR.panel
 	dial.BackgroundTransparency = 0.25
@@ -241,7 +243,7 @@ local function build(): ScreenGui
 	local status = Instance.new("TextLabel")
 	status.Name = "Status"
 	status.AnchorPoint = Vector2.new(0.5, 1)
-	status.Position = UDim2.new(0.5, 0, 1, -104)
+	status.Position = UDim2.new(0.5, 0, 1, -152)
 	status.Size = UDim2.fromOffset(460, 20)
 	status.BackgroundTransparency = 1
 	status.Font = Enum.Font.GothamBold
@@ -255,7 +257,7 @@ local function build(): ScreenGui
 	local digButton = Instance.new("TextButton")
 	digButton.Name = "DigButton"
 	digButton.AnchorPoint = Vector2.new(0.5, 1)
-	digButton.Position = UDim2.new(0.5, 0, 1, -46)
+	digButton.Position = UDim2.new(0.5, 0, 1, -96)
 	digButton.Size = UDim2.fromOffset(230, 48)
 	digButton.BackgroundColor3 = COLOR.panel
 	digButton.BackgroundTransparency = 0.15
@@ -290,20 +292,6 @@ local function build(): ScreenGui
 	local fillCorner = Instance.new("UICorner")
 	fillCorner.CornerRadius = UDim.new(0, 8)
 	fillCorner.Parent = digFill
-
-	-- Carry counter
-	local carry = Instance.new("TextLabel")
-	carry.Name = "Carry"
-	carry.AnchorPoint = Vector2.new(0.5, 1)
-	carry.Position = UDim2.new(0.5, 0, 1, -14)
-	carry.Size = UDim2.fromOffset(230, 18)
-	carry.BackgroundTransparency = 1
-	carry.Font = Enum.Font.Gotham
-	carry.TextSize = 13
-	carry.TextColor3 = COLOR.dim
-	carry.Text = ""
-	carry.Parent = gui
-	ui.carry = carry
 
 	-- Unearth banner
 	local banner = Instance.new("Frame")
@@ -449,7 +437,6 @@ local function renderState()
 		return
 	end
 
-	ui.carry.Text = `bag {state.carrying}/{state.capacity}`
 	ui.centre.Text = `{math.floor(state.radius + 0.5)} stud sweep`
 	ui.centre.TextColor3 = COLOR.dim
 
@@ -612,14 +599,15 @@ function Detector.start()
 		state.inRange = payload.inRange == true
 		state.blocked = payload.blocked
 		state.digProgress = payload.digProgress or 0
-		state.carrying = payload.carrying or state.carrying
-		state.capacity = payload.capacity or state.capacity
+		-- payload.carrying / payload.capacity are deliberately ignored: the hotbar
+		-- (InventoryController, fed by CarryState) is the authority on the bag now,
+		-- and two widgets answering "how full am I" from two different remotes is how
+		-- they end up disagreeing by a tick.
 		chirp(payload.newContacts or 0)
 		renderState()
 	end)
 
 	Net.get("Unearthed").OnClientEvent:Connect(function(found)
-		state.carrying = found.carrying or state.carrying
 		showUnearthed(found)
 	end)
 

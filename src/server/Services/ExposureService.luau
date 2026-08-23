@@ -296,11 +296,17 @@ local function stepPlayer(player: Player, dt: number)
 	local stats = StatResolver.get(data)
 	local zoneId = ZoneService.zoneOf(player)
 	local ambient = ZoneService.ambientFor(player)
-	-- The decay clock. CarryService owns this properly in Phase 3; it runs here
-	-- meanwhile because this is already the one service walking the backpack every
-	-- tick, and the clock must not stop merely because its permanent home is not
-	-- built yet. It used to live in DebugService, which was worse: the real decay
-	-- mechanic depending on a scaffolding file.
+	-- The decay clock. CarryService now EXISTS and is the obvious owner by name — it
+	-- deliberately does not take this, and the reason is ordering. Ticker fires in
+	-- boot order, CarryService boots after this service (it needs EconomyService),
+	-- so moving the tick there would make the emission read three lines below run
+	-- against a bag that is one tick stale. That is a radiation change wearing an
+	-- inventory change's clothes, and it is not worth making as a side effect.
+	--
+	-- To move it: put CarryService ahead of ExposureService in the boot ORDER first,
+	-- which means breaking its EconomyService dependency. Until someone wants that,
+	-- ticking here — where the bag is already being walked once per tick anyway — is
+	-- the honest place for it.
 	for _, item in data.carry do
 		local changedTo = Decay.tick(item, dt, stats.satchelFuseMult)
 		if changedTo then

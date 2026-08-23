@@ -30,6 +30,12 @@ local REMOTES: { [string]: string } = {
 	DigInput = "RemoteEvent", -- client -> server, hold-to-dig on/off
 	Unearthed = "RemoteEvent", -- server -> client, the slot-machine moment
 
+	-- The backpack, as the player sees it. Fires only when the bag actually CHANGES
+	-- (contents, decay stage, value or clean state) rather than on every tick — the
+	-- bag is static for most of a run, and the smooth countdown on the detail card is
+	-- computed client-side from Shared/Decay instead of being streamed.
+	CarryState = "RemoteEvent", -- server -> client, on change
+
 	-- Phase 1: base camp. Decontamination and the trader.
 	StationState = "RemoteEvent", -- server -> client, what you're standing at and what's in your bag
 	StationAction = "RemoteEvent", -- client -> server, scrub / sell / rack
