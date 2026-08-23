@@ -267,9 +267,26 @@ Zones.DEFS = {
 } :: { ZoneDef }
 
 -- One radiation field, three stages. Stage bounds are local X offsets from the
--- field centre, so the field can move without the progression walls drifting away
--- from the loot they protect. The later stages reuse the existing zone item pools
+-- field centre, so the field can move without the stage boundaries drifting away
+-- from the loot they divide. The later stages reuse the existing zone item pools
 -- until the catalogue is split into an explicitly staged content model.
+--
+-- `color` is what actually separates them on the ground. There used to be a concrete
+-- barrier at each boundary; build/Scenery paints the plate in these three colours
+-- with a blended seam instead, because a wall standing in open ground read as
+-- unnatural and gated nothing.
+--
+-- THESE HAVE TO BE FAR APART, AND THEY DID NOT USED TO BE. The first set was
+-- 6F9636 / 538C28 / 3E7A1C — three shades of one green, which was fine while the
+-- colour only ever tinted a gate post, and completely invisible the moment it became
+-- the ground: the field renders under a bright Neon ooze layer whose glow swallowed
+-- the difference, and the first attempt at this came out one flat green. They now run
+-- ashen olive -> green -> dark cool green, moving in LIGHTNESS and HUE together, which
+-- is what survives being seen through that layer.
+--
+-- The reading is also the fiction: Outer Ash is dusty and barely contaminated, Deep
+-- Fallout is dark and wet with it. Keep them distinguishable at a glance — the loot
+-- table changes at the seam, so a player has to be able to see which one they are on.
 Zones.STAGES = {
 	{
 		id = 1,
@@ -279,7 +296,7 @@ Zones.STAGES = {
 		unlockTier = 1,
 		loot = Zones.DEFS[1].loot,
 		itemZoneId = 1,
-		color = "6F9636",
+		color = "9DA857",
 	},
 	{
 		id = 2,
@@ -289,7 +306,7 @@ Zones.STAGES = {
 		unlockTier = 2,
 		loot = Zones.DEFS[2].loot,
 		itemZoneId = 2,
-		color = "538C28",
+		color = "5F8C2E",
 	},
 	{
 		id = 3,
@@ -299,7 +316,7 @@ Zones.STAGES = {
 		unlockTier = 3,
 		loot = Zones.DEFS[3].loot,
 		itemZoneId = 3,
-		color = "3E7A1C",
+		color = "2B6135",
 	},
 }
 

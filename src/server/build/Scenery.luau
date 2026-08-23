@@ -21,8 +21,8 @@
 	two rules ("...but the BRIGHT green is extra dangerous") when the second one is
 	only telegraphed by shade.
 
-	"WADE THROUGH" IS NOW LITERAL, NOT JUST WORDING. `OozeSurface` is one
-	translucent Neon plate per zone, sized to the whole plate, floating
+	"WADE THROUGH" IS NOW LITERAL, NOT JUST WORDING. `OozeSurface` is one translucent
+	Neon plate per zone, sized to the whole plate, floating
 	`WADE_HEIGHT` above the real floor — about half a leg on a default character.
 	Walking into the field sinks your legs into visible ooze instead of just
 	standing on tinted ground. It is a SEPARATE part from the actual walking
@@ -40,6 +40,13 @@
 	plane — but it stays translucent for exactly this reason, so a surfacing item
 	is dimmed, never hidden.
 
+	THE STAGES ARE TOLD APART BY GROUND COLOUR, NOT BY WALLS. buildStageGround paints
+	the plate's three stages in their own colours with a short blended seam between
+	them; buildStageMarkers puts a signed post and some debris at each boundary so the
+	stage still has a name. The concrete barrier that used to stand there is gone — it
+	gated nothing and read as unnatural. See buildStageGround for why the colour is a
+	layer on top rather than the plate itself.
+
 	Placement is a jittered grid, not pure random. Pure random clumps and leaves bald
 	patches; a jittered grid reads as scattered while still covering the field, and
 	it is deterministic per zone so a rebuild does not reshuffle the whole world.
@@ -55,7 +62,7 @@ local Kit = require(script.Parent.Kit)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 2
+local BUILDER_VERSION = 3
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -63,6 +70,78 @@ local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 --- Just above the plate's top face — close enough to read as lying on the ground,
 --- high enough not to z-fight with it.
 local SKIM = 0.26
+
+--- The stage colour layer sits BELOW the pools, so a pool still reads as spilled on
+--- the ground rather than buried under it. Low enough to be invisible as a step.
+local GROUND_SKIM = 0.06
+
+--- How wide the seam between two stage colours is, in studs. The colour interpolates
+--- across this band instead of changing on a line — a dead-straight edge across open
+--- ground is its own kind of unnatural, which is the thing being fixed here. Narrow
+--- enough that the boundary is still locatable: the loot table changes there, so the
+--- player has to be able to tell.
+local SEAM_BLEND = 25
+local SEAM_STEPS = 8
+
+--- Paint the field in bands across X, one colour per stage, blended at the seams.
+---
+--- ONLY THE GROUND LAYER IS BANDED, AND THAT WAS NOT THE FIRST ANSWER. The ooze sheet
+--- above it was banded too at one point, on the theory that a bright Neon layer would
+--- otherwise wash the ground out. It does not — the stage colours carry through it
+--- fine once they are actually far apart (see Config/Zones) — and banding it looked
+--- much worse: the slabs abut exactly, so at every internal seam two TRANSPARENT
+--- faces land on the same plane, the alpha stacks, and the field renders as a set of
+--- hard stripes at exactly the grazing angle a player sees it from. One sheet, no
+--- coincident faces, no stripes. Do not band a transparent layer.
+local function paintBands(folder: Instance, origin: CFrame, def: any, spec: any)
+	local stages = Zones.STAGES
+	local depth = def.size[2]
+	local half = SEAM_BLEND / 2
+
+	local function band(suffix: string, fromX: number, toX: number, colour: Color3)
+		local width = toX - fromX
+		if width <= 0 then
+			return
+		end
+		local part = build(folder, origin, {
+			name = `{spec.name}{suffix}`,
+			pos = { (fromX + toX) / 2, spec.y, 0 },
+			size = { width, spec.thickness, depth },
+			-- Kit.build takes a hex STRING and these are interpolated Color3s, so the
+			-- real colour is assigned straight after.
+			color = stages[1].color,
+			material = spec.material,
+			transparency = spec.transparency,
+			canCollide = false,
+		})
+		part.Color = colour
+		-- Out of raycasts, so FieldController's range ring still lands on the plate
+		-- exactly as it did before either of these layers existed.
+		part.CanQuery = false
+	end
+
+	for index, stage in stages do
+		local colour = Color3.fromHex(stage.color)
+
+		-- The stage's own solid colour, pulled back from each INTERNAL seam. The
+		-- outer edges are the field boundary, not a seam, so those run to the end.
+		local fromX = if index == 1 then stage.minX else stage.minX + half
+		local toX = if index == #stages then stage.maxX else stage.maxX - half
+		band(`_Stage{stage.id}`, fromX, toX, colour)
+
+		-- The seam itself, stepped across so one ground gives way to the next rather
+		-- than meeting it on a drawn line. Eight steps over 25 studs is already past
+		-- where the eye reads banding at head height.
+		if index < #stages then
+			local nextColour = Color3.fromHex(stages[index + 1].color)
+			local step = SEAM_BLEND / SEAM_STEPS
+			for s = 0, SEAM_STEPS - 1 do
+				local x0 = stage.maxX - half + s * step
+				band(`_Seam{stage.id}_{s}`, x0, x0 + step, colour:Lerp(nextColour, (s + 0.5) / SEAM_STEPS))
+			end
+		end
+	end
+end
 
 --- Roughly half a leg's height on a default character, so walking into the field
 --- reads as WADING into the ooze rather than standing on tinted ground. Purely
@@ -202,21 +281,26 @@ local function buildZoneScenery(parent: Instance, id: number)
 	local origin = CFrame.new(def.center[1], Zones.SURFACE_Y, def.center[2])
 	local hx, hz = def.size[1] / 2 - 14, def.size[2] / 2 - 14
 
-	-- The wading surface: one translucent plate over the WHOLE zone, raised to
-	-- WADE_HEIGHT, so the field reads as something you sink into rather than
-	-- ground that happens to be green. Sized to the actual plate (not inset like
-	-- the pools/props below), so its edge lines up with the zone boundary.
+	-- The wading surface: ONE translucent plate over the whole zone, raised to
+	-- WADE_HEIGHT, so the field reads as something you sink into rather than ground
+	-- that happens to be green. Sized to the actual plate (not inset like the
+	-- pools/props below), so its edge lines up with the zone boundary.
+	--
+	-- IT STAYS ONE PART. Splitting it per stage to reinforce the ground colour is the
+	-- obvious next idea and it produces hard stripes across the field — see paintBands
+	-- for why. The stage colours read through this perfectly well on their own.
+	--
+	-- High transparency on purpose. Neon's brightness is emissive rather than a true
+	-- translucent tint, and bloom pushes an opaque-looking plate this size to a wall
+	-- of solid colour well before Transparency looks like it "should" (0.55 first pass
+	-- still read as solid ground, not a layer over it). 0.82 is the point props and
+	-- the sand below actually show through — including, now, the stage colour.
 	build(folder, origin, {
 		name = "OozeSurface",
 		pos = { 0, WADE_HEIGHT, 0 },
 		size = { def.size[1], 0.3, def.size[2] },
 		color = C.oozeBright,
 		material = "Neon",
-		-- High transparency on purpose. Neon's brightness is emissive rather than
-		-- a true translucent tint, and bloom pushes an opaque-looking plate this
-		-- size to a wall of solid colour well before Transparency looks like it
-		-- "should" (0.55 first pass still read as solid ground, not a layer over
-		-- it). 0.82 is the point props and the sand below actually show through.
 		transparency = 0.82,
 		canCollide = false,
 	})
@@ -283,66 +367,107 @@ local function buildZoneScenery(parent: Instance, id: number)
 	folder.Parent = parent
 end
 
---- Three readable progression gates inside the one radioactive field. They are
---- deliberately open in the centre for now: the visual contract and unlock tier
---- are present, while the future progression service can own opening the gate
---- without turning Workspace.Zones into three separate radiation zones.
-local function buildStageGates(parent: Instance, zoneId: number)
+--- The three stages, told apart by the GROUND rather than by a wall.
+---
+--- WHAT USED TO BE HERE, AND WHY IT WENT.
+--- A 10-stud concrete barrier across the field at each boundary, with an 18-stud
+--- hole in the middle. It read as unnatural because it was: a wall standing in open
+--- ground, gating nothing. Nothing ever read its UnlockTier attribute — it was a
+--- visual placeholder for a progression service that still does not exist. The
+--- colour change carries the boundary now, and buildStageMarkers puts the label back
+--- without the barrier.
+---
+--- WHY THIS IS A SEPARATE LAYER AND NOT SIMPLY THE PLATE'S COLOUR.
+--- The obvious implementation is to cut Workspace.Zones.Zone1 into three coloured
+--- plates, and it is the one thing this file's header forbids. ZoneService walks that
+--- folder at 10 Hz and resolves overlaps as "smallest XZ area wins", so three plates
+--- would quietly make the stage you stand in the ZONE you are in; and
+--- DigService.zonePart looks "Zone1" up BY NAME and would find nothing at all, so the
+--- field would stop spawning signals. One plate, always. The colour goes on top,
+--- here, where it is free to be as many parts as it likes.
+---
+--- Thin, CanCollide and CanQuery false, and below SKIM so the ooze pools still read
+--- as lying on this rather than under it. Footing and burial are untouched: a player
+--- still stands on Zones.SURFACE_Y and DigService still buries against it.
+local function buildStageGround(parent: Instance, zoneId: number)
 	local def = Zones.get(zoneId)
 	local folder = Instance.new("Folder")
-	folder.Name = "RadiationStageGates"
+	folder.Name = "StageGround"
+
+	paintBands(folder, CFrame.new(def.center[1], Zones.SURFACE_Y, def.center[2]), def, {
+		name = "Ground",
+		y = GROUND_SKIM,
+		thickness = 0.12,
+		material = def.material,
+	})
+
+	folder.Parent = parent
+end
+
+--- What is left of the gates: a signed post and some weathered debris at each
+--- boundary, instead of a barrier across it.
+---
+--- SCATTERED, NOT LINED UP. Three posts in a row is a fence, which is the thing being
+--- removed. The label post sits near the middle where a player walking the field will
+--- pass it; the other two are thrown out across the depth so the sign reads as part of
+--- the landscape rather than as a planted marker.
+local function buildStageMarkers(parent: Instance, zoneId: number)
+	local def = Zones.get(zoneId)
+	local folder = Instance.new("Folder")
+	folder.Name = "StageMarkers"
+
 	local origin = CFrame.new(def.center[1], Zones.SURFACE_Y, def.center[2])
-	local halfDepth = def.size[2] / 2
-	local opening = 18
+	local hx, hz = def.size[1] / 2 - 4, def.size[2] / 2 - 20
 
 	for _, stage in Zones.STAGES do
-		local gate = Instance.new("Model")
-		gate.Name = `Stage{stage.id}Gate`
-		local x = stage.minX
-		local segmentDepth = halfDepth - opening / 2
+		-- Deterministic per stage, same reason as the rest of this file: a rebuild
+		-- reproduces the same field rather than reshuffling it.
+		local rng = Random.new(4000 + stage.id)
+		local model = Instance.new("Model")
+		model.Name = `Stage{stage.id}Marker`
 
-		for _, side in { -1, 1 } do
-			build(gate, origin, {
-				name = `Wall_{side}`,
-				pos = { x, 5, side * (opening / 2 + segmentDepth / 2) },
-				size = { 2, 10, segmentDepth },
-				color = stage.color,
-				material = "Concrete",
+		for i = 1, 3 do
+			local signPost = i == 1
+			local height = if signPost then 3.8 else rng:NextNumber(1.5, 2.6)
+			-- Stage 1's boundary IS the western edge of the plate, so the jitter has
+			-- to be clamped or its markers hang off the side of the world.
+			local x = math.clamp(stage.minX + rng:NextNumber(-7, 7), -hx, hx)
+			local z = if signPost then rng:NextNumber(-16, 16) else rng:NextNumber(-hz, hz)
+
+			-- The sign post stays near-upright so its plate does not float away from
+			-- it; the debris leans properly.
+			local lean = if signPost then 5 else 14
+			local post = build(model, origin, {
+				name = if signPost then "MarkerPost" else `Debris{i}`,
+				pos = { x, height / 2, z },
+				size = { 0.55, height, 0.55 },
+				color = if i % 2 == 0 then C.steelDark else C.wood,
+				material = if i % 2 == 0 then "Metal" else "Wood",
+				rot = Kit.ang(rng:NextNumber(-lean, lean), rng:NextNumber(0, 360), rng:NextNumber(-lean, lean)),
+				canCollide = false,
 				attributes = { StageId = stage.id, UnlockTier = stage.unlockTier },
 			})
+			post.CanQuery = false
+
+			if signPost then
+				local plate = build(model, origin, {
+					name = "StagePlate",
+					pos = { x, height - 0.6, z },
+					size = { 2.6, 1.4, 0.18 },
+					color = stage.color,
+					material = "Metal",
+					canCollide = false,
+					attributes = { StageId = stage.id, UnlockTier = stage.unlockTier },
+				})
+				plate.CanQuery = false
+				-- Further than the gate sign's default 40 studs: a low marker has to be
+				-- legible from further out than a ten-stud wall did.
+				billboard(plate, 180, 2.4, `STAGE {stage.id}`, stage.name, stage.color, 150)
+				light(plate, stage.color, 10, 0.7)
+			end
 		end
 
-		local leftPost = build(gate, origin, {
-			name = "GatePostLeft",
-			pos = { x, 5, -opening / 2 },
-			size = { 3, 10, 2 },
-			color = stage.color,
-			material = "Metal",
-			attributes = { StageId = stage.id, UnlockTier = stage.unlockTier },
-		})
-		local rightPost = build(gate, origin, {
-			name = "GatePostRight",
-			pos = { x, 5, opening / 2 },
-			size = { 3, 10, 2 },
-			color = stage.color,
-			material = "Metal",
-			attributes = { StageId = stage.id, UnlockTier = stage.unlockTier },
-		})
-
-		local sign = build(gate, origin, {
-			name = "StageSign",
-			pos = { x, 11, 0 },
-			size = { 12, 3, 0.5 },
-			color = stage.color,
-			material = "Neon",
-			canCollide = false,
-			attributes = { StageId = stage.id, UnlockTier = stage.unlockTier },
-		})
-		billboard(sign, 180, 3.6, `STAGE {stage.id}`, stage.name, stage.color)
-		light(leftPost, stage.color, 16, 1.2)
-		light(rightPost, stage.color, 16, 1.2)
-
-		gate.Parent = folder
+		model.Parent = folder
 	end
 
 	folder.Parent = parent
@@ -356,7 +481,8 @@ local function createScenery(): Model
 	for _, id in Zones.builtIds() do
 		buildZoneScenery(scenery, id)
 	end
-	buildStageGates(scenery, 1)
+	buildStageGround(scenery, 1)
+	buildStageMarkers(scenery, 1)
 
 	-- Nothing in here may claim to be a zone. This is the invariant the whole
 	-- module/folder split exists to protect, so it is asserted, not trusted.
