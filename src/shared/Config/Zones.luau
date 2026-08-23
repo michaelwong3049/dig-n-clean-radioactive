@@ -37,19 +37,21 @@
 -- not all of it.
 --
 --     zone   size       rated r   c      walk to next contact (16 studs/sec)
---     1      660x320    13 (T1)   0.11   11.3s
---     2      220x280    16 (T2)   0.59    2.7s
---     3      260x320    19 (T3)   0.61    2.7s
---     4      290x260    22 (T4)   0.91    2.4s
---     5      600x520    25 (T5)   0.28    7.8s
---     6      360x320    28 (T6)   0.96    2.9s
+--     1      660x320    13 (T1)   0.23    5.6s
+--     2      220x280    16 (T2)   1.18    1.3s
+--     3      260x320    19 (T3)   1.23    1.5s
+--     4      290x260    22 (T4)   1.81    1.2s
+--     5      600x520    25 (T5)   0.57    4.3s
+--     6      360x320    28 (T6)   1.92    1.4s
 --
 -- ONLY ZONE 1 IS BUILT, and it is the only line above that has ever been played. The
 -- other five were sized against a c ~= 0.26 target back when the detector was a
 -- needle and c meant "fraction of ground where the arrow points at something" — a
 -- reading that no longer exists. Their numbers are recomputed here so the table is
--- not lying, NOT endorsed: every one of them is a farm where you are never without a
--- target, and they want re-sizing against the time column before they are built.
+-- not lying, NOT endorsed: at c > 1 you are never without a target, so they are farms
+-- rather than searches, and they want re-sizing against the time column before they
+-- are built. Doubling SIGNALS_PER_ZONE made that worse, not better; it was the right
+-- call for the one zone that exists and it defers a decision on five that do not.
 --
 -- The header used to carry a hard ceiling of area <= 785 * r^2, i.e. c >= 0.18. Zone
 -- 1 has been over that ceiling since the field was grown to 660x320 — it was already
@@ -70,6 +72,41 @@
 -- fail its own validation test (PLAN §15, question 2) for the wrong reason.
 --
 -- `stationDistance` is measured, not aspirational — see the note on it below.
+--
+-- ── HOW THE LOOT WEIGHTS WERE RE-DERIVED, WHICH IS ALSO NOT ARBITRARY ────────
+-- These are RELATIVE weights, normalised at roll time, so only their ratios matter.
+--
+-- Zones 1-3 were re-weighted when SIGNALS_PER_ZONE doubled to 90. The reason is one
+-- line of arithmetic that is very easy to get wrong: doubling the number of buried
+-- signals doubles the rate of every rarity in the table, Legendaries included. Left
+-- alone, "more items" would silently have meant "twice as many Legendaries", which
+-- is the one thing a rarity economy cannot afford.
+--
+-- So the transformation was:
+--   * every weight at Rare and above    -> halved, cancelling the density multiplier
+--                                          exactly, so Rare+ arrives at the same
+--                                          wall-clock rate it did at 45 signals
+--   * Uncommon                          -> x0.7, a partial increase (about 1.4x)
+--   * Scrap and Common                  -> absorb everything freed up, tilted toward
+--                                          Common so what you dig up is mostly worth
+--                                          picking up rather than mostly junk
+--
+-- Net effect in zone 1: ~2x the pulls, ~2.9x the Commons, ~1.7x the Scrap, and Rare
+-- or better unchanged. Shared/Util/Spec pins that last property — it asserts the
+-- field holds ~4.9 Rare-or-better signals across the three stages, which is what it
+-- held before the change.
+--
+-- ZONES 4-6 WERE DELIBERATELY NOT RE-WEIGHTED. Their identity is "everything here is
+-- good" (PLAN §4 — the Crater is 18% Legendary on purpose), and halving their top end
+-- to hold a wall-clock rate would be a redesign of the zones rather than a rebalance
+-- of this one. They are `built = false` and no stage references their loot, so nothing
+-- rolls on them today. Decide it when they are actually built and playable, and note
+-- that they will arrive at DOUBLE their intended rare rate if nobody does.
+--
+-- CAVEAT ON ALL OF THE ABOVE: DigService.rollItemId steps DOWN when Config/Items does
+-- not stock the rolled rarity in that zone, so the delivered distribution is always
+-- at least as common as this table says, never rarer. Zone 1 stocks no Mythic or
+-- Anomaly, so its top two rows are aspirational.
 
 export type ZoneDef = {
 	id: number,
@@ -132,7 +169,7 @@ Zones.DEFS = {
 		stationDistance = 190,
 		fogColor = Color3.fromHex("CFF3FF"),
 		fogEnd = 900,
-		loot = { Scrap = 55, Common = 28, Uncommon = 12, Rare = 4, Epic = 0.8, Legendary = 0.15, Mythic = 0.04, Anomaly = 0.002 },
+		loot = { Scrap = 48, Common = 41, Uncommon = 8.4, Rare = 2, Epic = 0.4, Legendary = 0.075, Mythic = 0.02, Anomaly = 0.001 },
 		center = { 430, 0 },
 		size = { 660, 320 },
 		color = "6F9636",
@@ -148,7 +185,7 @@ Zones.DEFS = {
 		stationDistance = 470,
 		fogColor = Color3.fromHex("D8F0B8"),
 		fogEnd = 800,
-		loot = { Scrap = 42, Common = 30, Uncommon = 18, Rare = 7, Epic = 2, Legendary = 0.5, Mythic = 0.1, Anomaly = 0.004 },
+		loot = { Scrap = 43, Common = 39, Uncommon = 12.6, Rare = 3.5, Epic = 1, Legendary = 0.25, Mythic = 0.05, Anomaly = 0.002 },
 		center = { 470, 0 },
 		size = { 220, 280 },
 		color = "538C28",
@@ -164,7 +201,7 @@ Zones.DEFS = {
 		stationDistance = 760,
 		fogColor = Color3.fromHex("A8F06A"),
 		fogEnd = 700,
-		loot = { Scrap = 28, Common = 30, Uncommon = 24, Rare = 12, Epic = 4.5, Legendary = 1.2, Mythic = 0.28, Anomaly = 0.01 },
+		loot = { Scrap = 34, Common = 40, Uncommon = 16.8, Rare = 6, Epic = 2.25, Legendary = 0.6, Mythic = 0.14, Anomaly = 0.005 },
 		center = { 760, 0 },
 		size = { 260, 320 },
 		color = "3E7A1C",

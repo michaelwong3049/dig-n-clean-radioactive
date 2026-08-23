@@ -26,6 +26,7 @@ local Config = script.Parent.Parent.Config
 local Zones = require(Config.Zones)
 local Gear = require(Config.Gear)
 local Tuning = require(Config.Tuning)
+local Rarity = require(Config.Rarity)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
 local StatResolver = require(script.Parent.Parent.StatResolver)
@@ -179,9 +180,54 @@ function Spec.run(): boolean
 		local hi = Gear.tier("Detector", Gear.maxTier("Detector")).radius
 		local slow = Zones.secondsBetweenContacts(field, lo, walk, Tuning.SIGNALS_PER_ZONE)
 		local fast = Zones.secondsBetweenContacts(field, hi, walk, Tuning.SIGNALS_PER_ZONE)
-		check(string.format("§2.1 starting detector walks %.1fs between contacts (want 5-20)", slow), slow >= 5 and slow <= 20)
+		-- Band retargeted when SIGNALS_PER_ZONE doubled. The ceiling came DOWN as well
+		-- as the floor: 20s of walking was acceptable when the goal was only "a search
+		-- exists", and is not acceptable now that the stated goal is "items turn up".
+		check(string.format("§2.1 starting detector walks %.1fs between contacts (want 3-12)", slow), slow >= 3 and slow <= 12)
 		check(string.format("§2.1 a maxed detector still has to walk: %.1fs (want >= 2)", fast), fast >= 2)
 		check(string.format("§2.1 the reveal curve stays flat: %.1fx end to end (want <= 4)", slow / fast), slow / fast <= 4)
+	end
+
+	-- PLAN §7 — DENSITY AND THE LOOT TABLES ARE ONE DECISION, NOT TWO.
+	--
+	-- SIGNALS_PER_ZONE was doubled to 90 so the reveal has something to reveal, and
+	-- every weight at Rare and above was halved to cancel that multiplier exactly.
+	-- This is the check that catches someone doing only the first half: raise the
+	-- density on its own and the field quietly starts holding twice the jackpots,
+	-- which is invisible in play until the economy is already ruined.
+	--
+	-- Counted across Zones.STAGES, because that is where signals actually roll — the
+	-- built field is one plate carrying three stages, and Zones.DEFS[4..6] are not
+	-- reachable by any of them.
+	local function shareAtOrAbove(loot: { [string]: number }, minOrder: number): number
+		local total, wanted = 0, 0
+		for name, weight in loot do
+			total += weight
+			if Rarity.get(name).order >= minOrder then
+				wanted += weight
+			end
+		end
+		return if total > 0 then wanted / total else 0
+	end
+
+	local perStage = Tuning.SIGNALS_PER_ZONE / #Zones.STAGES
+	local rarePlus = 0
+	for _, stage in Zones.STAGES do
+		rarePlus += perStage * shareAtOrAbove(stage.loot, 4) -- Rare and up
+	end
+	check(
+		string.format("§7 the field holds %.1f Rare-or-better signals (want 4.0-5.8, was 4.9 at 45 signals)", rarePlus),
+		rarePlus >= 4.0 and rarePlus <= 5.8
+	)
+
+	-- ...and the flip side: the extra signals have to be junk, or "more items" just
+	-- means "more of everything" with extra steps.
+	for _, stage in Zones.STAGES do
+		local plentiful = 1 - shareAtOrAbove(stage.loot, 3) -- Scrap + Common
+		check(
+			string.format("§2.1 stage %d is mostly Scrap/Common: %.0f%% (want >= 70)", stage.id, plentiful * 100),
+			plentiful >= 0.70
+		)
 	end
 
 	-- PLAN §3.5 — no zone is gated by anything except arithmetic

@@ -80,6 +80,17 @@ Getting it home is the game. (§3.6)
 **Loop timing target:** 20–40 seconds per item at the low end, up to 3–4 minutes for a
 top-tier artifact. Fast enough to feel like a clicker, slow enough that a rare find is an event.
 
+> **The build is currently under this target and it was a deliberate choice.** At tier 1
+> the loop measures roughly 5.6s of walking + ~3s of hauling + ~6s of amortised walk home
+> = **~15s per item**, against the 20–40s written above. Doubling `SIGNALS_PER_ZONE` to 90
+> is what moved it (it was ~20s before, right at the band's floor), and that was done on
+> purpose: the reveal detector answers nothing outside its radius, so the sparser field
+> read as dead ground rather than as a search. The number to change if this is wrong is
+> `Tuning.SIGNALS_PER_ZONE` — but note the loot weights were re-derived against it, so
+> the two move together or the rare economy moves with them. `Shared/Util/Spec` fails if
+> only one of them is touched. **Either retune the density or lower this target — do not
+> leave them disagreeing silently.**
+
 ### Step 1 — Sweep
 
 Player walks a zone holding a detector. The detector **reveals**: every buried signal

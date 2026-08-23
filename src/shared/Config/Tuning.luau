@@ -79,7 +79,24 @@ Tuning.FREEZE_ON_LOGOUT = true
 --
 -- SIGNALS_PER_ZONE is GLOBAL and does not scale with zone area. That makes zone
 -- area the only lever on search density -- see the coverage note in Config/Zones.
-Tuning.SIGNALS_PER_ZONE = 45
+--
+-- DOUBLED FROM 45 WHEN THE REVEAL LANDED. The needle always had something to point
+-- at, so 45 read as "sparse but guided"; the reveal answers nothing at all outside
+-- your radius, so the same field read as dead ground. 90 puts a contact roughly every
+-- 5.6 seconds of walking at tier 1 instead of every 11.3, which is a search rather
+-- than a commute.
+--
+-- THE LOOT TABLES WERE RE-WEIGHTED IN THE SAME BREATH AND THE TWO CANNOT BE SEPARATED.
+-- Doubling density doubles the rate of EVERYTHING, Legendaries included, which is the
+-- opposite of what a rarity economy wants. So every weight at Rare and above was
+-- halved to cancel this multiplier exactly, and the freed share went to Scrap and
+-- Common. Net effect: about twice as many pulls, nearly three times as many Commons,
+-- and Rare-or-better arriving at the same wall-clock rate it always did.
+--
+-- If you change this number, you MUST re-weight Config/Zones to match or you have
+-- quietly multiplied the top of the loot table. Shared/Util/Spec pins the invariant
+-- ("the field holds ~4.9 Rare-or-better signals") and will fail if you do not.
+Tuning.SIGNALS_PER_ZONE = 90
 Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
 Tuning.DIG_DEPTH_BASE = 1.0
 Tuning.DIG_DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate
