@@ -122,6 +122,28 @@ end
 
 Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Boots", "Satchel" }
 
+--- Track name (capitalised, as used here and in the world's StationId attribute)
+--- to profile field (lowercase, as used in DataService's TEMPLATE.gear).
+---
+--- This mapping used to live as a 3-entry local inside ToolService, covering only
+--- the tracks that have held models. The shop needs all six, and two copies of a
+--- translation table is how you end up writing data.gear.Detector alongside
+--- data.gear.detector and losing a purchase. One table, here, next to the data.
+Gear.PROFILE_KEY = {
+	Detector = "detector",
+	Magnet = "magnet",
+	Cleaner = "cleaner",
+	Suit = "suit",
+	Boots = "boots",
+	Satchel = "satchel",
+}
+
+function Gear.profileKey(track: string): string
+	local key = Gear.PROFILE_KEY[track]
+	assert(key, `unknown gear track "{track}"`)
+	return key
+end
+
 function Gear.tier(track: string, index: number): GearTier
 	local list = (Gear :: any)[track]
 	assert(list, `unknown gear track "{track}"`)

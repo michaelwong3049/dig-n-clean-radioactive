@@ -1108,24 +1108,54 @@ entirely out of things the player personally went and got.
 
 ## 14\. Art \& Audio Direction
 
-* **Palette:** desaturated ash-grey and bone-white ground, sickly green for radiation,
-amber for value/rarity. Radiation should be the **only** saturated color in the world, so
-the eye is trained to read green = money = danger. This one rule does most of the art work.
-* **The one exception is suit failure**, which blooms **white**, not green (§3.5). A second
-color language, used exactly once, for the one state that means something categorically
-different. Because it's the only white in the game, it will read instantly and forever.
-* **The Row is the other exception:** exhibits are warm, lit, indoor, clean. Walking base
-camp's main street should feel like relief after the wasteland, and it should make the
-wasteland look worse by comparison.
-* **Lighting:** heavy fog, low sun, per-zone fog color shift (grey → green → orange at the crater).
+> **Revised.** The original §14 called for desaturated ash-grey with radiation as the
+> only saturated colour in the world. That is the right rule for a survival-horror
+> game and the wrong one for this audience — the game is aimed at younger Roblox
+> players and needs to look bright, outdoor and inviting from the first second.
+>
+> The *insight* under the original rule survives intact and is worth restating,
+> because it is the most valuable sentence in this section: **one visual channel means
+> danger, so the eye trains itself without being taught.** What changed is which
+> channel. It is no longer saturation. It is emission.
+
+**The rule:**
+
+> **Saturated everywhere. Radiation is the only thing that GLOWS.**
+
+* **Palette:** sunny and high-value. Warm cream plazas, painted timber, mint concrete,
+coral / cyan / violet shop awnings, per-plot accent colours. The world should look
+like somewhere you want to be, so that leaving it costs something.
+* **Radiation is `#4FD11A` acid green on `Material.Neon`, with a `PointLight`, and
+nothing else in the world may use that combination.** Not a sign, not a lamp, not a
+UI accent. It is the one uncontaminated channel and it is what makes "the green stuff
+is the game" legible to a six-year-old in about one second.
+  * Practical note learned the hard way: keep the ooze **green-dominant**. A
+  yellow-green like `#B6FF6E` comes out of Neon + bloom as cream and stops reading as
+  toxic at all.
+  * And keep a **tonal gap** between the sludge ground and the pools on top of it.
+  Both pale reads as a lawn; deep ground with bright pools reads as contamination.
+  Contrast sells "radioactive", not brightness.
+* **The one exception is suit failure, which blooms WHITE, not green** (§3.5). A second
+colour language, used exactly once, for the one state that means something
+categorically different. Because it is the only white in the game, it will read
+instantly and forever. This rule is unchanged and should be protected.
+* **The paths are safe, the green is not.** The hub plaza and every road are outside
+every zone volume, which in code means zero rads and 6× health regen. That single
+rule is the whole map's tutorial and it costs nothing to enforce.
+* **Lighting:** high sun, thin atmosphere, no depth of field. Blurring the horizon in
+a game whose entire tension is *how far away is base camp* fights the design directly.
+Bloom is threshold-gated so Neon blooms and paint does not.
+* **Per-zone fog** carries the gradient: bright and open at camp (`fogEnd` 900) closing
+in to toxic and near (600) at the Exclusion Belt, so the deep zones literally shrink
+around you. Tinted per zone from `Config/Zones`.
 * **Models:** low-poly, chunky, readable at distance. Roblox-native, no realism attempt.
 * **Audio:** Geiger clicks are the lead instrument. Sparse ambient drone, distant wind,
-occasional far-off structural groan. The Crater is near-silent except for your own suit.
-Silence is the scariest zone effect available and it's free.
-* **The decay stages are an audio ladder:** Fresh is a slow tick from your bag. Hot adds a
-second, faster layer. Critical adds a chirping alarm every three seconds. Slag goes
+occasional far-off structural groan. The Crater is near-silent except for your own
+suit. Silence is the scariest zone effect available and it is free.
+* **The decay stages are an audio ladder:** Fresh is a slow tick from your bag. Hot adds
+a second, faster layer. Critical adds a chirping alarm every three seconds. Slag goes
 *silent* — and that silence, after two minutes of escalating noise, is how the player
-learns they've lost it without a single line of UI text.
+learns they have lost it without a single line of UI text.
 
 \---
 

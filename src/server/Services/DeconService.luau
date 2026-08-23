@@ -18,7 +18,6 @@
 ]]
 
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
@@ -33,6 +32,9 @@ local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local StationService = require(script.Parent.StationService)
+local ShopService = require(script.Parent.ShopService)
+local ExhibitService = require(script.Parent.ExhibitService)
 
 local DeconService = {}
 
@@ -42,7 +44,6 @@ type Scrub = { uid: string, elapsed: number, target: number, hardness: number }
 
 local scrubbing: { [Player]: Scrub? } = {}
 local holding: { [Player]: boolean } = {}
-local atStation: { [Player]: string? } = {}
 
 local stateRemote: any = nil
 local actionRemote: any = nil
@@ -50,33 +51,14 @@ local resultRemote: any = nil
 
 -- ── Where are you standing ──────────────────────────────────────────────────
 
-local function stationAt(position: Vector3): string?
-	local camp = Workspace:FindFirstChild("BaseCamp")
-	if camp == nil then
-		return nil
-	end
-
-	local bestKind: string? = nil
-	local bestDistance = math.huge
-
-	-- Descendants, not children: a station is a MODEL made of many parts, and only
-	-- one of them carries the attributes. Scanning children only worked while the
-	-- stations were single cubes.
-	for _, part in camp:GetDescendants() do
-		if part:IsA("BasePart") then
-			local kind = part:GetAttribute("StationKind") :: string?
-			local radius = (part:GetAttribute("Radius") :: number?) or 12
-			if kind then
-				local distance = (part.Position - position).Magnitude
-				if distance <= radius and distance < bestDistance then
-					bestKind, bestDistance = kind, distance
-				end
-			end
-		end
-	end
-
-	return bestKind
-end
+-- Station detection now lives in StationService, which indexes by CollectionService
+-- tag instead of walking Workspace.BaseCamp's descendants per player per tick. The
+-- old scan was both O(#camp) at 10 Hz AND scoped to the camp model, which made every
+-- shop on the plaza and every pedestal on a plot structurally invisible to the game.
+--
+-- DigService.zoneOf already set the precedent of keeping a thin delegate so callers
+-- written against the old name keep working; stationOf below does the same, which is
+-- why ToolService needed no changes at all.
 
 --- PLAN §3.6: reaching a station stops the clock, for good.
 local function dock(player: Player, data: any)
@@ -202,17 +184,8 @@ local function stepPlayer(player: Player, dt: number)
 	end
 
 	local stats = StatResolver.get(data)
-	local kind = stationAt(root.Position)
-
-	if kind ~= atStation[player] then
-		atStation[player] = kind
-		if kind == "decon" then
-			dock(player, data)
-		end
-		if kind == nil then
-			scrubbing[player] = nil
-		end
-	end
+	local kind = StationService.kindOf(player)
+	local stationId = StationService.idOf(player)
 
 	if kind == nil then
 		stateRemote:FireClient(player, { station = nil })
@@ -259,8 +232,25 @@ local function stepPlayer(player: Player, dt: number)
 	end
 
 	local current = scrubbing[player]
+	local offer = if kind == "shop" and stationId then ShopService.offerFor(data, stationId) else nil
+
+	-- Plot/pedestal panels reuse this same tick+payload rather than a fourth
+	-- remote — see the trader/decon/shop precedent this file already sets.
+	local plotView = if kind == "plot" and stationId then ExhibitService.plotViewFor(player, tonumber(stationId) :: number, data) else nil
+	local standView = nil
+	if kind == "pedestal" and stationId then
+		local plotIndex, slotStr = string.match(stationId, "^(%d+):(%d+)$")
+		if plotIndex and slotStr then
+			standView = ExhibitService.standViewFor(player, tonumber(plotIndex) :: number, tonumber(slotStr) :: number, data)
+		end
+	end
+
 	stateRemote:FireClient(player, {
 		station = kind,
+		stationId = stationId,
+		offer = offer,
+		plotView = plotView,
+		standView = standView,
 		cash = data.cash,
 		xp = data.xp,
 		potency = stats.cleanPotency,
@@ -278,7 +268,7 @@ end
 --- "decon", "trader" or nil. Read by ToolService to put the brush in your hands
 --- when you are somewhere it makes sense to be scrubbing.
 function DeconService.stationOf(player: Player): string?
-	return atStation[player]
+	return StationService.kindOf(player)
 end
 
 function DeconService.init()
@@ -288,6 +278,23 @@ function DeconService.init()
 end
 
 function DeconService.start()
+	-- DOCKING IS AN EDGE, NOT A STATE (PLAN §3.6). Freezing the decay clock has to
+	-- happen once, on ARRIVAL at the decon station -- it used to be driven by
+	-- comparing this tick's station against last tick's. StationService now owns
+	-- that comparison, so the trigger moves here rather than being recomputed.
+	StationService.onChanged(function(player, kind, _id, _prevKind, _prevId)
+		local data = DataService.data(player)
+		if data == nil then
+			return
+		end
+		if kind == "decon" then
+			dock(player, data)
+		end
+		if kind == nil then
+			scrubbing[player] = nil
+		end
+	end)
+
 	actionRemote.OnServerEvent:Connect(function(player: Player, request: any)
 		if type(request) ~= "table" or type(request.action) ~= "string" then
 			return
@@ -298,7 +305,7 @@ function DeconService.start()
 			return
 		end
 		local stats = StatResolver.get(data)
-		local kind = atStation[player]
+		local kind = StationService.kindOf(player)
 
 		if request.action == "scrub" then
 			if kind ~= "decon" then
@@ -325,6 +332,38 @@ function DeconService.start()
 			if ok then
 				print(`[econ] {player.Name}: {message}`)
 			end
+		elseif request.action == "buy" then
+			-- ShopService re-derives the station from the player's position itself,
+			-- so this is not the security boundary -- it is just a better message.
+			local ok, message = ShopService.buy(player, tostring(request.track))
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[shop] {player.Name}: {message}`)
+			end
+		elseif request.action == "display" then
+			local ok, message = ExhibitService.display(player, tostring(request.uid))
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[exhibit] {player.Name}: {message}`)
+			end
+		elseif request.action == "undisplay" then
+			local ok, message = ExhibitService.undisplay(player)
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[exhibit] {player.Name}: {message}`)
+			end
+		elseif request.action == "collect" then
+			local ok, message = ExhibitService.collect(player)
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[exhibit] {player.Name}: {message}`)
+			end
+		elseif request.action == "buySlot" then
+			local ok, message = ExhibitService.buySlot(player)
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[exhibit] {player.Name}: {message}`)
+			end
 		elseif request.action == "rack" then
 			if kind ~= "decon" then
 				resultRemote:FireClient(player, "racking happens at the decon station")
@@ -337,7 +376,6 @@ function DeconService.start()
 	Players.PlayerRemoving:Connect(function(player)
 		scrubbing[player] = nil
 		holding[player] = nil
-		atStation[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)

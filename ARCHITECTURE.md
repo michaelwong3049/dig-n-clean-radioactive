@@ -3,7 +3,7 @@
 The code cites this file by name in a dozen headers. This is that file: the map, the
 boundaries, and the handful of contracts that are not visible from any single module.
 
-`PLAN_4.md` is the design. This is the shape the design was built into.
+`PLAN.md` is the design. This is the shape the design was built into.
 
 ---
 
@@ -46,7 +46,7 @@ src/
       ExposureService         the rad meter, burn, blackout, dropped bags
       DigService              the buried signal field, sweep and haul
       EconomyService          what an item is worth, and the till
-      DeconService            base camp: docking, scrubbing, racking, selling
+      DeconService            docking, scrubbing and racking at every base; sell() exists, no world trader triggers it currently
       ToolService             puts the right model in the player's hands
       DebugService            the tuning console + debug telemetry
 
@@ -54,7 +54,7 @@ src/
     init.client.luau          bootstrap: mirrors the server's ORDER / init / start
     Controllers/
       DetectorController      sweep dial, ping audio, hold-to-pull
-      StationController       the base camp panel
+      StationController       the station panel (trader, decon, shop, plot, pedestal)
       HudController           rad meter, vignette, distortion, blackout curtain
       GeigerController        the click bed (reads HudController)
       DebugHudController      every number at once. F3 toggles.
@@ -130,10 +130,31 @@ still start.
 | Where | Attribute | Type | Meaning |
 |---|---|---|---|
 | `Workspace.Zones.*` (BasePart) | `ZoneId` | number | Which `Config/Zones` entry this volume is. Y is ignored; smallest containing XZ volume wins. |
-| any BasePart in `Workspace` | `Shower` | boolean | Decon shower. Flushes player exposure, does **not** touch items. |
+
+**The zone plate contract**, enforced by `build/ZoneFields.luau` and checked by
+`World.verify()`. Two *independent* lookups have to agree on the same part, and
+missing either one fails silently in a different direction:
+
+- `DigService.zonePart` finds it **by name** — `Workspace.Zones.Zone<id>`. Miss this
+  and no signals ever spawn there.
+- `ZoneService.zoneAt` finds it **by attribute** — `ZoneId`. Miss this and nobody is
+  ever considered to be standing in it, so the field fills with items no one can find.
+
+Also required, and each corresponds to a real silent failure:
+
+| Rule | Why |
+|---|---|
+| A single `BasePart`, direct child of `Workspace.Zones` | Both lookups use non-recursive child access. Terrain cannot be a zone — there are no raycasts anywhere in `src/`. |
+| Rotation must be identity | Items bury on the flat top face; a tilted plate puts them under the visible ground. |
+| Top face at `Zones.SURFACE_Y` | That plane *is* the walk surface. |
+| Thickness ≥ max burial depth (`Tuning.DIG_DEPTH_*`, currently 13.2) | The haul part rises from below the top face; a thin plate lets it show through the underside. |
+| `Workspace.Zones` holds plates and **nothing else** | A decoration carrying a `ZoneId` becomes a zone, and smallest-area-wins means a stray barrel silently becomes the zone you are in. Decor lives in `Workspace.Scenery`. |
+| any BasePart in `Workspace` | `Shower` | boolean | Decon shower. Flushes player exposure, does **not** touch items. Since `build/Plots.luau`, each base's cleansing station carries this **on the same part** as `StationKind="decon"` — one stop for both, sharing one `Radius` — rather than two separate structures the way camp used to have them. |
 | ″ | `Radius` | number | Shower radius in studs. Optional, default 10. |
-| any BasePart under `Workspace.BaseCamp` | `StationKind` | `"decon"` \| `"trader"` | Decon station freezes decay clocks; trader is only a till. |
+| any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"plot"` \| `"pedestal"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; plot is an exhibition claim board; pedestal is one display slot. |
+| ″ | `StationId` | string | Discriminator within a kind. For `"shop"` it is the **exact `Gear.TRACKS` spelling** (`"Detector"`, `"Suit"`, …). For `"plot"` it is the plot number; for `"pedestal"` it is `"<plot>:<slot>"`. |
 | ″ | `Radius` | number | Station radius in studs. Optional, default 12. |
+| ″ | *CollectionService tag* `Station` | — | Index only — `StationService` scans tagged parts instead of walking Workspace. `Kit.build` adds it whenever it sets `StationKind`, and `World.verify()` asserts attribute and tag agree in **both** directions. The attribute stays the source of truth. |
 | `ReplicatedStorage.Assets.Tools.<Track>.T<n>` (Model) | `HoldCFrame` | CFrame | Offset from the attach point. Optional, defaults to `CFrame.new()`. Tuned in Studio against a live character. |
 | ″ | `HoldPart` | string | Body part to weld to. **Optional.** Absent, set to `"RightHand"`, or naming a part the character lacks all fall through to the right hand (R15 `RightHand`, then R6 `Right Arm`). Set it to `HumanoidRootPart` for the detector, which must not bob. |
 | ″ | *PrimaryPart* | — | Must be set (the `Grip`). The model's pivot is the handle. |
@@ -142,10 +163,18 @@ still start.
 `<Track>` is one of `Detector`, `Magnet`, `Cleaner`, and `T<n>` indexes the matching
 list in `Config/Gear.luau`.
 
-> **Remaining gap:** the place file is gitignored. The base camp can be reconstructed
-> from its versioned builder, but a fresh `rojo build` still has no generated camp until
-> the builder is run, and has no zones or tool models at all. Those assets still need a
-> versioned source before the entire world can be reconstructed from the repository.
+> **Remaining gap:** the place file is gitignored, and three things still cannot be
+> reconstructed from the repository alone.
+>
+> 1. **The tool models** (`ReplicatedStorage.Assets.Tools`) are genuinely hand-authored
+>    — unions, a `SpecialMesh`, an imported detector model — so they stay binary. They
+>    are not Rojo-managed and never will be.
+> 2. **`MaxPlayers = 6`** is a Studio *Game Settings* value, not repo state. It has to
+>    be 6 for the six exhibition plots to be 1:1 with players.
+> 3. **Everything else is now code.** `build/World.rebuild()` regenerates the hub, the
+>    camp, the radiation field, the shops, the plots (each with its own cleansing
+>    station), the scenery and the Lighting, and then runs `World.verify()` over the
+>    result. A fresh clone needs one command.
 
 ---
 

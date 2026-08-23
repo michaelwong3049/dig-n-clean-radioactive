@@ -24,10 +24,33 @@ export type Handle = {
 	stop: (Handle) -> (),
 	setPaused: (Handle, boolean) -> (),
 	isPaused: (Handle) -> boolean,
+	failures: (Handle) -> number,
 }
 
 local activeConnection: RBXScriptConnection? = nil
 local subscribers: { any } = {}
+local hasDead = false
+
+-- One throwing subscriber used to take down every subscriber registered after it,
+-- forever, because they all share this single Heartbeat connection. DigService is
+-- 4th in the boot ORDER, so a single bad zone silently killed docking, scrubbing,
+-- selling, tool-equipping and the debug console — server-wide, until restart.
+--
+-- Now a thrower is isolated and loud. It is warned about ONCE, not ten times a
+-- second: a 10 Hz error spamming the output is how you lose the rest of the log,
+-- which is the log you need to diagnose it.
+local function runSubscriber(sub: any, step: number)
+	local ok, err = pcall(sub.fn, step)
+	if ok then
+		return
+	end
+
+	sub.failures += 1
+	if not sub.warned then
+		sub.warned = true
+		warn(`[ticker] subscriber "{sub.name}" errored and is now isolated: {err}`)
+	end
+end
 
 local function ensureLoop(rateHz: number)
 	if activeConnection then
@@ -46,23 +69,54 @@ local function ensureLoop(rateHz: number)
 		while accumulator >= step and steps < maxSteps do
 			accumulator -= step
 			steps += 1
-			for _, sub in subscribers do
-				if not sub.paused then
-					sub.fn(step)
+			-- Indexed, not generic-for: a subscriber is allowed to call stop() on
+			-- itself or on anything else from inside its own callback, and that
+			-- used to mutate this array mid-iteration.
+			for index = 1, #subscribers do
+				local sub = subscribers[index]
+				if sub and not sub.paused and not sub.dead then
+					runSubscriber(sub, step)
 				end
 			end
 		end
 		if steps >= maxSteps then
 			accumulator = 0
 		end
+
+		-- Compact outside the iteration, and only when something actually died.
+		if hasDead then
+			hasDead = false
+			for index = #subscribers, 1, -1 do
+				if subscribers[index].dead then
+					table.remove(subscribers, index)
+				end
+			end
+			if #subscribers == 0 and activeConnection then
+				activeConnection:Disconnect()
+				activeConnection = nil
+			end
+		end
 	end)
 end
 
 --- Register a callback to run every fixed step. Returns a handle you must stop().
-function Ticker.every(rateHz: number, fn: (dt: number) -> ()): Handle
+---
+--- NOTE: the rate is set by the FIRST caller and every later subscriber inherits it.
+--- That is fine today because everything runs at Tuning.TICK_RATE, but it means a
+--- second rate passed here is silently ignored rather than honoured.
+---
+--- `name` is optional and only used to make a thrown error identifiable in the log.
+function Ticker.every(rateHz: number, fn: (dt: number) -> (), name: string?): Handle
 	ensureLoop(rateHz)
 
-	local sub = { fn = fn, paused = false }
+	local sub = {
+		fn = fn,
+		paused = false,
+		dead = false,
+		warned = false,
+		failures = 0,
+		name = name or "anonymous",
+	}
 	table.insert(subscribers, sub)
 
 	local handle = setmetatable({}, Ticker)
@@ -70,15 +124,19 @@ function Ticker.every(rateHz: number, fn: (dt: number) -> ()): Handle
 	return (handle :: any) :: Handle
 end
 
+--- Safe to call from inside a tick callback — the entry is flagged here and swept
+--- after the iteration finishes, never removed underneath the loop.
 function Ticker:stop()
-	local index = table.find(subscribers, self._sub)
-	if index then
-		table.remove(subscribers, index)
+	if self._sub.dead then
+		return
 	end
-	if #subscribers == 0 and activeConnection then
-		activeConnection:Disconnect()
-		activeConnection = nil
-	end
+	self._sub.dead = true
+	hasDead = true
+end
+
+--- How many times this subscriber has thrown. Zero for a healthy one.
+function Ticker:failures(): number
+	return self._sub.failures
 end
 
 function Ticker:setPaused(paused: boolean)

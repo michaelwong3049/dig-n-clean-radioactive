@@ -28,6 +28,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
+local Gear = require(Shared.Config.Gear)
 local Ticker = require(Shared.Util.Ticker)
 
 local DataService = require(script.Parent.DataService)
@@ -42,7 +43,8 @@ local HELD_NAME = "HeldTool"
 local equipped: { [Player]: string? } = {}
 
 -- Track name in Assets/Tools -> the key it upgrades under in profile.gear.
-local GEAR_KEY = { Detector = "detector", Magnet = "magnet", Cleaner = "cleaner" }
+-- Shared with the shop, which needs all six tracks. See Config/Gear.luau.
+local GEAR_KEY = Gear.PROFILE_KEY
 
 -- ── Two-handed carry ──────────────────────────────────────────────────────
 --

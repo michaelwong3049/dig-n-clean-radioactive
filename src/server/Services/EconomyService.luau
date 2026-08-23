@@ -87,6 +87,43 @@ function EconomyService.sell(player: Player, uid: string): (boolean, string)
 	return true, `sold {def.name} for ${value}{note}`
 end
 
+--- Take cash off a player, or refuse. THE ONLY DEBIT IN THE GAME.
+---
+--- `data.cash += value` in sell() above was, until this function existed, the only
+--- line in the entire codebase that touched a player's money. That is a property
+--- worth keeping: one file owns the wallet, so "where did my cash go" has exactly
+--- one place to look. Shops call this rather than reaching into the profile.
+---
+--- Check-and-debit are deliberately in the same function. Split across two calls
+--- they become a window where a second purchase can be approved against money the
+--- first one already spent.
+function EconomyService.spend(player: Player, amount: number): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+
+	assert(amount >= 0, "spend() takes a positive amount; use award() to give cash")
+	local price = math.floor(amount + 0.5)
+
+	if data.cash < price then
+		return false, `you need ${price - data.cash} more`
+	end
+
+	data.cash -= price
+	return true, `paid ${price}`
+end
+
+--- The counterpart, so refunds and payouts do not open-code the field either.
+function EconomyService.award(player: Player, amount: number): boolean
+	local data = DataService.data(player)
+	if data == nil then
+		return false
+	end
+	data.cash += math.max(0, math.floor(amount + 0.5))
+	return true
+end
+
 function EconomyService.init() end
 function EconomyService.start() end
 

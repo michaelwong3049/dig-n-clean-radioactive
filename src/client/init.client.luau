@@ -14,6 +14,7 @@ local ORDER = {
 	"StationController", -- Phase 1: base camp — scrub, sell, rack
 	"HudController", -- Phase 2: rad meter, vignette, distortion, blackout
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
+	"AtmosphereController", -- per-zone fog; reads zoneId off ExposureState
 	"DebugHudController",
 }
 
