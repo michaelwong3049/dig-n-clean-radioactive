@@ -11,22 +11,27 @@
 	true by construction and costs nothing to enforce. For a young audience that is
 	the single most legible rule in the game, and it is free.
 
-	THE NORTH SIDE HAS NO ROAD, ON PURPOSE.
-	The west side is a compact block of player plots. The camp and shop stalls sit in
-	the small central rest area. The radioactive field sits directly east.
+	THE PLOTS RING IT ON THREE SIDES. Two north, two south, two west, each pad butted
+	against the plaza edge and rotated to face inward. The east side is the radiation
+	field and always will be, so the ring is open there — you walk out of the
+	courtyard directly into the sludge.
 
-	NO CONNECTOR ROADS EITHER, as of this pass, AND NO SPINE/STUB NETWORK ON THE
-	WEST SIDE EITHER, as of the one after it. The plaza used to be a fixed
-	160x160 square with short paved strips running out to a plot spine and to
-	the field. Per the requested layout (plots — shop area — radiation, directly
-	touching, not places joined by roads), the plaza's own footprint now
-	stretches far enough to reach both directly: its east edge lands exactly on
-	Zone 1's west edge, and its west edge lands exactly on the plot pads' own
-	east edge — not a spine's edge, the PADS' edge, so all six plots border the
-	plaza along one continuous seam instead of feeding into it through a lane
-	network. Zero gap on both sides, not a short one — `rectsOverlap` treats an
-	exactly-shared edge as touching, not overlapping, so this is safe against
-	the "no zone may overlap the plaza" check in `World.verify()`.
+	NO CONNECTOR ROADS. The plaza used to be a fixed 160x160 square with paved strips
+	running out to a plot spine and to the field. Per the requested layout (plots —
+	shop area — radiation, directly touching, not places joined by roads), the plaza's
+	footprint reaches its neighbours directly: its east edge lands exactly on Zone 1's
+	west edge, and the pads sit flush against its other three. Zero gap, not a short
+	one — `rectsOverlap` treats an exactly-shared edge as touching, not overlapping,
+	so this is safe against the "no zone may overlap the plaza" check in
+	`World.verify()`.
+
+	IT USED TO BE 237x382, AND THAT WAS NOT A DESIGN DECISION. It was that deep for
+	one reason: all six plots were a single column down the west side, and the plaza
+	had been stretched in Z until it spanned the whole column so they could all border
+	it. Ringing the plots removed that constraint, and the plaza went back to being
+	sized by what is actually standing on it — the camp and the stalls occupy roughly
+	110x120 — rather than by the length of something parked beside it. 200x200 now,
+	down from 237x382: a little under half the area.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -35,7 +40,7 @@ local Kit = require(script.Parent.Kit)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 4
+local BUILDER_VERSION = 5
 
 local C = Kit.C
 local build = Kit.build
@@ -45,21 +50,25 @@ local build = Kit.build
 -- the zone plate sits 1.5 studs lower so you step DOWN into the sludge. See
 -- Config/Zones.SURFACE_Y.
 --
--- Not a square, and not centred on the origin any more -- it's sized to reach
--- exactly two things this file can't require without a circular dependency
--- (Plots.luau already requires Hub, so Hub can't require Plots back):
---   minX = -137  MUST equal Plots.PLOT_X + Plots.PAD.width/2  (-170 + 33)
---                -- the plot pads' own east edge.
---   minZ = -191  MUST equal the plot column's outer south edge
---   maxZ =  191  MUST equal the plot column's outer north edge
---                -- both from Plots.CENTERS' extremes (-165, 165) +/- half of
---                -- Plots.PAD.depth (26).
---   maxX =  100  Zone 1's west edge (Zones.get(1).center[1] - size[1]/2).
--- If any of Plots.PLOT_X, Plots.PAD, Plots.CENTERS, or Zone 1's position/size
--- change, these four numbers need updating by hand to match -- there is no
--- assertion that catches drift here the way `Plots.SPINE_X`'s comment used to
--- reference `Hub.PLAZA.halfX` (that whole spine is gone now anyway).
-Hub.PLAZA = { minX = -137, maxX = 100, minZ = -191, maxZ = 191, thickness = 8, topY = 0 }
+-- THIS RECTANGLE IS NOW THE SOURCE, NOT THE FOLLOWER. It used to be hand-synced to
+-- Plots.luau's constants through a comment, with four numbers that had to be edited
+-- together and nothing to catch it if they were not. That is backwards: the plaza is
+-- the thing the map is arranged around. Plots.luau requires this file and derives its
+-- pad ring from these four numbers, so moving the plaza moves the plots with it and
+-- there is no pair to keep in step. (Hub requires only Kit, so that direction is not
+-- circular — do not add a require of Plots here or it becomes one.)
+--
+--   maxX = 100  is the one number NOT free to move: it is Zone 1's west edge
+--               (Zones.get(1).center[1] - size[1]/2), and the plaza touching the
+--               field directly is the whole point of the layout.
+--
+-- SYMMETRIC ABOUT X=0 ON PURPOSE, and it is worth 20 studs of extra width to keep it
+-- that way. Everything standing on the plaza is centred on x=0 — the camp floor, the
+-- three stalls, the outfitter bench — and the plot ring is DERIVED from this
+-- rectangle, so an off-centre plaza puts the whole ring out of line with the shops it
+-- is supposed to face. At minX = -80 the centre landed on x=10 and the pads sat ten
+-- studs west of everything they framed. Shrink this by moving maxX, never minX.
+Hub.PLAZA = { minX = -100, maxX = 100, minZ = -100, maxZ = 100, thickness = 8, topY = 0 }
 Hub.CAMP_ORIGIN = CFrame.new(0, -0.6, 0) -- BaseCamp's floor top lands on Y = 0
 
 local function buildPlaza(hub: Model)
@@ -76,10 +85,11 @@ local function buildPlaza(hub: Model)
 		material = "Pavement",
 	})
 
-	-- A rim, purely so the plaza edge reads as an edge from ground level. Only
-	-- on the north/south (Z) edges now -- east butts into the zone plate, west
-	-- butts into the plot pads, and a rim on either would draw a false seam
-	-- across a boundary that is supposed to read as continuous.
+	-- A rim, purely so the plaza edge reads as an edge from ground level. On three
+	-- sides now, not two: the plots no longer cover a whole edge between them, so the
+	-- west side needs one as well. The EAST edge still gets none — it butts into the
+	-- zone plate, and a rim there would draw a false seam across the one boundary
+	-- that is supposed to read as continuous ground.
 	for _, z in { p.minZ, p.maxZ } do
 		build(hub, origin, {
 			name = "PlazaRimZ",
@@ -90,6 +100,15 @@ local function buildPlaza(hub: Model)
 			canCollide = false,
 		})
 	end
+
+	build(hub, origin, {
+		name = "PlazaRimX",
+		pos = { p.minX + 0.6, p.topY - 0.2, centerZ },
+		size = { 1.2, 0.6, depth },
+		color = C.plazaEdge,
+		material = "Concrete",
+		canCollide = false,
+	})
 end
 
 --- THE BLACKOUT ANCHOR — see ExposureService.baseCampCFrame.

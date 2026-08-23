@@ -15,32 +15,29 @@
 	setting, not repo state — Rojo does not capture it — so it is written down in
 	ARCHITECTURE.md as one of the things a fresh clone cannot reconstruct.
 
-	ONE COLUMN, DIRECTLY AGAINST THE SHOP AREA — the requested layout:
+	A RING AROUND THE PLAZA, DIRECTLY AGAINST IT — the requested layout:
 
-	    [PLOT]|
-	    [PLOT]| [SHOP AREA]  --- [RADIOACTIVE AREA]
-	    [PLOT]|
-	    [PLOT]|
+	          [PLOT] [PLOT]
+	    [PLOT] ┌───────────┐
+	           │ SHOP AREA │ === [RADIOACTIVE AREA]
+	    [PLOT] └───────────┘
+	          [PLOT] [PLOT]
 
-	Six plots stack along Z at a single X (`Plots.PLOT_X`). There used to be a
-	stub-per-plot feeding a shared spine feeding a trunk road into the hub; all
-	of it is gone now. Per the requested layout, plots — shop area — radiation
-	should be directly touching, not places joined by roads, so `Hub.luau`'s
-	plaza grew west until its own edge landed exactly on the plot pads' east
-	edge (`Plots.PLOT_X + Plots.PAD.width/2`) and grew in Z until it spans the
-	whole column (`Plots.CENTERS`' extremes +/- half of `Plots.PAD.depth`) — see
-	`Hub.PLAZA`'s own comment for the exact numbers. All six plots now border
-	the plaza along one continuous seam instead of feeding into it through a
-	lane network.
+	Two north, two south, two west, each pad butted flush against the plaza edge and
+	rotated to face inward. The east side is the radiation field, so the ring is open
+	there and always will be — you leave the courtyard by walking into the sludge.
 
-	THIS FILE NO LONGER REQUIRES `Hub` AT ALL — the dependency flipped direction.
-	It used to read `Hub.PLAZA` (topY/thickness) to build the lane network at the
-	right height; with the lane network gone, nothing here needs to know
-	anything about the hub any more. `Hub.luau` is now the one carrying
-	knowledge of `Plots.luau`'s constants (in a comment, since requiring Plots
-	back would be circular), so keeping the two in sync when either changes is a
-	manual, commented-one-way obligation — Hub.luau's problem to remember, not
-	this file's.
+	IT WAS A SINGLE COLUMN DOWN THE WEST SIDE UNTIL NOW, and that had a cost nobody
+	had priced: the plaza had been stretched to 382 studs deep purely so it could span
+	the column and let all six plots border it. Ringing them freed the plaza to be
+	sized by what actually stands on it, and it came back to 180x200 — a little over
+	half the area. The plots did not get smaller; the car park between them did.
+
+	THE DEPENDENCY FLIPPED, AGAIN, AND THIS TIME IT IS DERIVED RATHER THAN COMMENTED.
+	This file used to require `Hub`, then stopped, and `Hub.luau` carried a comment
+	listing four of this file's constants that its plaza had to be hand-matched to. It
+	requires `Hub` again now — but to READ `Hub.PLAZA` and compute the ring from it, so
+	the two cannot drift. Hub requires only Kit, so the direction is safe.
 
 	Plot INTERNALS still face south (claim board and spawn near the front) —
 	nothing about station detection cares which way a plot faces, it's all
@@ -99,6 +96,7 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 
 local Kit = require(script.Parent.Kit)
+local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
@@ -111,19 +109,43 @@ Plots.COUNT = 6
 Plots.VISIBLE_SLOTS = 8
 Plots.PAD = { width = 66, depth = 52, topY = 1.5, thickness = 3 }
 
---- One column, one X. Stacked along Z so the whole block reads as a single line
---- of plots, per the requested layout — see the header diagram.
-Plots.PLOT_X = -170
+--- THE RING. Six pads butted against the plaza edge, each rotated to face inward.
+---
+--- DERIVED FROM Hub.PLAZA, NOT HAND-SYNCED TO IT. This used to be a single column at
+--- a literal `Plots.PLOT_X = -170`, with Hub.luau carrying a four-number comment about
+--- how its plaza had been stretched to match — two files, one shared geometry, and
+--- nothing to catch them drifting apart. The dependency now runs one way: the plaza is
+--- the source, this reads it, and moving the plaza moves the pads with it. Hub requires
+--- only Kit, so requiring it here is not circular.
+---
+--- `facing` is a yaw in degrees. A pad is built with its back wall at +Z and its claim
+--- board at -Z, so 0 faces south and each side of the ring turns to look at the plaza:
+---
+---              [ 2 ]   [ 3 ]          north pads face south  (0)
+---        [ 1 ]  ┌───────────┐
+---               │   PLAZA   │  ==>  RADIATION      east is the field; the
+---        [ 6 ]  └───────────┘                      ring is open there
+---              [ 5 ]   [ 4 ]          south pads face north  (180)
+---                                     west pads face east    (-90)
+---
+--- Numbered clockwise from the west side's north half. The jump from 3 to 4 crosses
+--- the open east side, which is the one place the ring cannot close.
+local PLAZA = Hub.PLAZA
+local HALF_W, HALF_D = Plots.PAD.width / 2, Plots.PAD.depth / 2
+local MID_X, MID_Z = (PLAZA.minX + PLAZA.maxX) / 2, (PLAZA.minZ + PLAZA.maxZ) / 2
 
---- Spacing = pad.depth (52) + a 14-stud gap, so plots pack tight without
---- touching. Six values, symmetric about z=0.
+--- Half the centre-to-centre spacing of the two pads on a side. HALF_W plus a gap, so
+--- the pair sits either side of the midpoint with a walkable slot between them rather
+--- than as one 132-stud slab.
+local SPREAD = HALF_W + 8
+
 Plots.CENTERS = {
-	{ Plots.PLOT_X, -165 },
-	{ Plots.PLOT_X, -99 },
-	{ Plots.PLOT_X, -33 },
-	{ Plots.PLOT_X, 33 },
-	{ Plots.PLOT_X, 99 },
-	{ Plots.PLOT_X, 165 },
+	{ x = PLAZA.minX - HALF_D, z = MID_Z + SPREAD, facing = -90 },
+	{ x = MID_X - SPREAD, z = PLAZA.maxZ + HALF_D, facing = 0 },
+	{ x = MID_X + SPREAD, z = PLAZA.maxZ + HALF_D, facing = 0 },
+	{ x = MID_X + SPREAD, z = PLAZA.minZ - HALF_D, facing = 180 },
+	{ x = MID_X - SPREAD, z = PLAZA.minZ - HALF_D, facing = 180 },
+	{ x = PLAZA.minX - HALF_D, z = MID_Z - SPREAD, facing = -90 },
 }
 
 --- Two flanking columns, paired off row by row — odd slots go left, even slots
@@ -232,7 +254,11 @@ local function buildPlot(parent: Instance, index: number)
 	m.Name = `Plot{index}`
 
 	local center = Plots.CENTERS[index]
-	local origin = CFrame.new(center[1], 0, center[2])
+	-- The yaw is applied to the ORIGIN, so every part in this function stays written
+	-- in the pad's own space and the whole plot turns as one. Rotating the parts
+	-- individually would leave the claim board, the spawn and the stands facing
+	-- whichever way each was authored.
+	local origin = CFrame.new(center.x, 0, center.z) * CFrame.Angles(0, math.rad(center.facing), 0)
 	local accent = Kit.PLOT_ACCENT[((index - 1) % #Kit.PLOT_ACCENT) + 1]
 	local pad = Plots.PAD
 

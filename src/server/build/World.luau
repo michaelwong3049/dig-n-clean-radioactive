@@ -167,6 +167,47 @@ function World.verify(): (boolean, { string })
 		end
 	end
 
+	-- ── Plot pads: on the ring, not in it ────────────────────────────────
+	-- New with the ring layout, and worth checking precisely BECAUSE it is new. The
+	-- old single column could not collide with anything: it sat at one X, west of
+	-- everything, and the plaza was stretched to meet it. Six pads placed around a
+	-- rectangle can absolutely land on top of it, on a zone, or on each other, and
+	-- every one of those is invisible until someone walks into a wall.
+	local function padBounds(centre: any): { number }
+		-- A pad is PAD.width along its own X and PAD.depth along its own Z. At +/-90
+		-- those swap in world space; getting this backwards is the whole reason to
+		-- compute it rather than eyeball it.
+		local turned = math.abs(centre.facing) == 90
+		local halfX = if turned then Plots.PAD.depth / 2 else Plots.PAD.width / 2
+		local halfZ = if turned then Plots.PAD.width / 2 else Plots.PAD.depth / 2
+		return { centre.x - halfX, centre.z - halfZ, centre.x + halfX, centre.z + halfZ }
+	end
+
+	local plaza = Hub.PLAZA
+	for i, centre in Plots.CENTERS do
+		local a = padBounds(centre)
+
+		check(
+			not rectsOverlap(a, { plaza.minX, plaza.minZ, plaza.maxX, plaza.maxZ }),
+			`plot {i} overlaps the plaza — the pad is a step up, so it would sit in the middle of the pavement`
+		)
+
+		for _, id in Zones.builtIds() do
+			local ax, az, bx, bz = Zones.bounds(id)
+			check(
+				not rectsOverlap(a, { ax, az, bx, bz }),
+				`plot {i} overlaps Zone{id} — a plot inside a zone irradiates whoever is standing on it`
+			)
+		end
+
+		for j = i + 1, #Plots.CENTERS do
+			check(
+				not rectsOverlap(a, padBounds(Plots.CENTERS[j])),
+				`plot {i} overlaps plot {j}`
+			)
+		end
+	end
+
 	-- ── Scenery may not pretend to be a zone ─────────────────────────────
 	local scenery = Workspace:FindFirstChild("Scenery")
 	if scenery then
