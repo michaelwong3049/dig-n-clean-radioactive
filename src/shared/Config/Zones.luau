@@ -160,11 +160,13 @@
 -- at least as common as this table says, never rarer. Zone 1 stocks no Mythic or
 -- Anomaly, so its top two rows are aspirational.
 --
--- AND ZONES 5 AND 6 STOCK NOTHING AT ALL. rollItemId finds no pool at any rarity,
--- warns once and returns nil, so no signals spawn there. Both fields are real, both
--- irradiate, both can be walked and neither has anything buried in it. That is a
--- content gap held open on purpose — building the world and writing the catalogue are
--- separate jobs — and it is the one thing to fix before either zone is playable.
+-- ZONES 5 AND 6 ARE NOW STOCKED (Config/Items.luau), which means the debt this
+-- header already warned about is live rather than deferred: their loot weights
+-- above were never re-derived for the doubled SIGNALS_PER_ZONE the way 1-3 were,
+-- and "decide when they're built and playable" was the whole plan for that
+-- decision. They are. See TODO.md — re-weighting is a real pass against
+-- Config/Gear's detector radii, not a quick edit, and is intentionally not part
+-- of stocking the catalogue.
 
 export type ZoneDef = {
 	id: number,
@@ -372,10 +374,6 @@ Zones.DEFS = {
 		color = "A02268",
 		material = "Glass",
 		ooze = { bright = "FF3D9A", deep = "7A0F45", glow = "FF3D9A" },
-		-- NOTHING IS BURIED HERE YET. Config/Items stocks zones 1-4 only, so
-		-- DigService.rollItemId finds no pool at any rarity, warns once and spawns no
-		-- signals. The field is real, irradiates correctly and can be walked; it is
-		-- empty until items are written for it. Deliberate, and flagged in TODO.md.
 		built = true,
 	},
 	{
@@ -408,7 +406,6 @@ Zones.DEFS = {
 		-- which is the rule every other zone already follows.
 		material = "Glass",
 		ooze = { bright = "A855FF", deep = "3B1070", glow = "A855FF" },
-		-- Unstocked, exactly as Zone 5 — see the note there.
 		built = true,
 	},
 } :: { ZoneDef }

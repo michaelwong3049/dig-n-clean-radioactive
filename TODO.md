@@ -452,12 +452,11 @@ the place file has no git history to recover from.
       HUD countdown is the piece that makes Zone 4 a *choice*; see §9
 - [ ] Hot pockets — deliberately NOT built. The design call was "the ooze is the dig
       surface", so `ZoneService.hotPocketFor` stays a stub returning 1.
-- [ ] **Stock Zone 5 (Reactor Grounds) and Zone 6 (The Crater)** — both fields are built,
-      reachable, irradiate correctly and have nothing buried in them. `Config/Items.luau`
-      stocks zones 1–4 only, so `DigService.rollItemId` finds no pool at any rarity, warns
-      once per zone at boot and spawns no signals. The console says so on every run; it is
-      a content gap held open on purpose, not a bug, but it is the one thing standing
-      between "the zone exists" and "the zone is playable".
+- [x] **Stock Zone 5 (Reactor Grounds) and Zone 6 (The Crater)** — 23 items added
+      (12 + 11), themed per PLAN §4 (fuel rods/control tech/black-box data; anomalies/
+      one-of-a-kind relics). `reactor_control` extends across the Zone 4/5 boundary;
+      `crater_relics` is new for Zone 6's showpiece tier. Both fields now roll real
+      loot instead of hitting the empty-pool warning.
 - [ ] **Re-weight zones 4–6 for the doubled signal density** — `SIGNALS_PER_ZONE` went to
       90 and zones 1–3 were re-weighted to hold their wall-clock rare rate. Zones 4–6 were
       deliberately left alone because their identity is "everything here is good", with the
