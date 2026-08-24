@@ -415,36 +415,47 @@ end
 --- colours, which is correct: a rusted siren head is rust everywhere. Anything a prop
 --- glows with because the FIELD is hot has to come from here, or Reactor Grounds gets
 --- acid-green vents standing in a hot pink field.
---- How far apart LEGO-style studs sit across a block's top face, in studs.
-local STUD_SPACING = 2.2
-
---- A grid of studs across the TOP face of a block — literally "made of stud", per
---- the user: Zone 1's life-pocket props (liveTree's canopy, brush) read too
---- realistic built the first way (Grass material's photographic blade texture, a
---- smooth Ball canopy), next to a game that is flat cartoon SmoothPlastic/Neon
---- everywhere else. Chunky blocks plus a visible stud grid is the toy-brick look
---- the rest of the world already has (see Kit.C's "studded checkerboard" plaza).
-local function studs(parent: Instance, origin: CFrame, blockPos: { number }, blockSize: { number }, color: string)
-	local cols = math.max(1, math.floor(blockSize[1] / STUD_SPACING))
-	local rows = math.max(1, math.floor(blockSize[3] / STUD_SPACING))
-	local topY = blockPos[2] + blockSize[2] / 2 + 0.35
-	for row = 0, rows - 1 do
-		for col = 0, cols - 1 do
-			build(parent, origin, {
-				name = "Stud",
-				pos = {
-					blockPos[1] - blockSize[1] / 2 + (col + 0.5) * (blockSize[1] / cols),
-					topY,
-					blockPos[3] - blockSize[3] / 2 + (row + 0.5) * (blockSize[3] / rows),
-				},
-				size = { STUD_SPACING * 0.45, 0.7, STUD_SPACING * 0.45 },
-				color = color,
-				material = "SmoothPlastic",
-				shape = "Cylinder",
-				rot = R.cylUp,
-				canCollide = false,
-			})
+--- A rounded, FACETED clump of foliage — the "low-poly toy tree" look (reference:
+--- a chunky rounded canopy built from visible flat cube facets, not a smooth
+--- sphere or one flat box) has to come from many small cube blocks jittered
+--- inside a sphere, since this generator only has Block/Cylinder/Ball/Wedge to
+--- work with. Distance is weighted toward the sphere's surface so the clump
+--- reads as a full round mass rather than clumping in the middle, and every
+--- cube gets its own small random tilt so the facets actually show — a grid of
+--- axis-aligned cubes reads as a cube pile, not a rounded blob.
+local function foliageBlob(parent: Instance, origin: CFrame, center: { number }, radius: number, color: string, darkColor: string, rng: Random)
+	for _ = 1, rng:NextInteger(7, 10) do
+		local dir = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-0.5, 1), rng:NextNumber(-1, 1))
+		if dir.Magnitude < 0.05 then
+			dir = Vector3.new(0, 1, 0)
 		end
+		dir = dir.Unit
+		local dist = radius * rng:NextNumber(0.35, 1)
+		local size = rng:NextNumber(radius * 0.55, radius * 0.85)
+		build(parent, origin, {
+			name = "Foliage",
+			pos = { center[1] + dir.X * dist, center[2] + dir.Y * dist, center[3] + dir.Z * dist },
+			size = { size, size, size },
+			color = if rng:NextNumber() < 0.25 then darkColor else color,
+			material = "SmoothPlastic",
+			rot = Kit.ang(rng:NextNumber(0, 45), rng:NextNumber(0, 90), rng:NextNumber(0, 45)),
+			canCollide = false,
+		})
+	end
+	-- A couple of little berries, half-sunk into the surface so they read as
+	-- growing out of the foliage rather than floating on top of it.
+	for _ = 1, rng:NextInteger(1, 2) do
+		local dir = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-0.2, 1), rng:NextNumber(-1, 1)).Unit
+		local dist = radius * rng:NextNumber(0.75, 1)
+		build(parent, origin, {
+			name = "Berry",
+			pos = { center[1] + dir.X * dist, center[2] + dir.Y * dist, center[3] + dir.Z * dist },
+			size = { 0.6, 0.6, 0.6 },
+			color = "C23B3B",
+			material = "SmoothPlastic",
+			shape = "Ball",
+			canCollide = false,
+		})
 	end
 end
 
@@ -479,48 +490,53 @@ local function prop(
 		end
 	elseif kind == "brush" then
 		-- Zone 1's Outer Ash stage only (see propKindFor): live scrub, not the dead
-		-- "trees" kind the rest of the zone uses — a handful of small studded
-		-- blocks rather than a trunk, deliberately reading as smaller and lower
-		-- than DeadTree so the two never get mistaken for one another at a glance.
-		for _ = 1, rng:NextInteger(2, 3) do
-			local pos = { x + rng:NextNumber(-2.2, 2.2), rng:NextNumber(0.7, 1.1), z + rng:NextNumber(-2.2, 2.2) }
-			local size = { rng:NextNumber(1.8, 2.6), rng:NextNumber(1.2, 1.8), rng:NextNumber(1.8, 2.6) }
-			build(parent, origin, {
-				name = "Brush",
-				pos = pos,
-				size = size,
-				color = "6B8F3E",
-				material = "SmoothPlastic",
-				canCollide = false,
-			})
-			studs(parent, origin, pos, size, "6B8F3E")
+		-- "trees" kind the rest of the zone uses — one or two small foliage blobs
+		-- low to the ground, deliberately reading as smaller than both DeadTree and
+		-- liveTree so none of the three get mistaken for one another at a glance.
+		for _ = 1, rng:NextInteger(1, 2) do
+			local center = { x + rng:NextNumber(-2, 2), rng:NextNumber(0.9, 1.3), z + rng:NextNumber(-2, 2) }
+			foliageBlob(parent, origin, center, rng:NextNumber(1.1, 1.5), "6B8F3E", "547231", rng)
 		end
 	elseif kind == "liveTree" then
-		-- Zone 1's Outer Ash stage only, same as "brush" — a trunk with a full
-		-- studded canopy instead of DeadTree's bare branches, the one prop in the
-		-- game with real foliage. Canopy colour matches Stage 1's own ground green
-		-- rather than "brush"'s slightly different shade, so trunk-and-leaves reads
-		-- as one plant family with the grass it stands on.
-		local h = rng:NextNumber(6, 9)
+		-- Zone 1's Outer Ash stage only — a branching trunk carrying several
+		-- rounded foliage clusters, matching the reference the user gave (a
+		-- chunky, low-poly toy tree, not one flat canopy block or DeadTree's bare
+		-- branches). Canopy colour matches Stage 1's own ground green so
+		-- trunk-and-leaves reads as one plant family with the grass it stands on.
+		local h = rng:NextNumber(5, 6.5)
 		build(parent, origin, {
 			name = "TreeTrunk",
 			pos = { x, h / 2, z },
-			size = { 1.2, h, 1.2 },
+			size = { 1.3, h, 1.3 },
 			color = C.wood,
 			material = "Wood",
 			canCollide = false,
 		})
-		local canopyPos = { x, h + rng:NextNumber(1.6, 2.4), z }
-		local canopySize = { rng:NextNumber(5, 7.5), rng:NextNumber(4.5, 6.5), rng:NextNumber(5, 7.5) }
-		build(parent, origin, {
-			name = "TreeCanopy",
-			pos = canopyPos,
-			size = canopySize,
-			color = "5C9A34",
-			material = "SmoothPlastic",
-			canCollide = false,
-		})
-		studs(parent, origin, canopyPos, canopySize, "5C9A34")
+
+		local clusterCount = rng:NextInteger(3, 4)
+		for i = 1, clusterCount do
+			local angle = (i - 1) * (360 / clusterCount) + rng:NextNumber(-20, 20)
+			local reach = rng:NextNumber(2.4, 3.6)
+			local clusterX = x + math.cos(math.rad(angle)) * reach
+			local clusterZ = z + math.sin(math.rad(angle)) * reach
+			local clusterY = h + rng:NextNumber(1.2, 2.8)
+
+			-- A short angled branch reaching roughly toward the cluster — same
+			-- jittered-angle technique DeadTree's own branches already use, not a
+			-- precise line to the cluster's exact position; it does not need to be,
+			-- the foliage covers the join.
+			build(parent, origin, {
+				name = "Branch",
+				pos = { x + math.cos(math.rad(angle)) * reach * 0.55, h + rng:NextNumber(0.6, 1.6), z + math.sin(math.rad(angle)) * reach * 0.55 },
+				size = { reach, 0.55, 0.55 },
+				color = C.wood,
+				material = "Wood",
+				rot = Kit.ang(0, -angle, rng:NextNumber(20, 35)),
+				canCollide = false,
+			})
+
+			foliageBlob(parent, origin, { clusterX, clusterY, clusterZ }, rng:NextNumber(2, 2.7), "5C9A34", "4A7D29", rng)
+		end
 	elseif kind == "houses" then
 		-- A collapsed shell: two standing walls and a leaning roof slab.
 		local w = rng:NextNumber(9, 15)
