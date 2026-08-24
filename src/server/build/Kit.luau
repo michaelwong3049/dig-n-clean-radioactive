@@ -72,12 +72,26 @@ Kit.C = {
 	plazaWarm = "F2E3B8",
 	plazaEdge = "D8C79A",
 
-	-- The plaza floor's checkerboard. Deliberately NOT plazaWarm/plazaEdge: those
-	-- two are the warm cream the plots, the stalls and the courtyard walls are all
-	-- painted in, and the floor is now the one surface that is not. Tune the pattern
-	-- here — every tile in the world reads one of these two.
-	plazaTileDark = "212639",
-	plazaTileLight = "545A66",
+	-- ── The checkerboard, in its two palettes ────────────────────────────────
+	-- One pattern, one grid, two colour schemes: the plaza and its apron in green,
+	-- the six player bases in navy and grey, a step above it. Walking onto a base
+	-- changes the colour under your feet without breaking the board — the tiles stay
+	-- in register across the edge because the grid is the plaza's for both.
+	--
+	-- THE GREENS ARE DELIBERATELY DESATURATED, and that is not a taste call. Green is
+	-- spoken for in this world: "the paths are safe, the green is not" is the rule the
+	-- hub's own header calls the most legible thing in the game. The radiation fields
+	-- are saturated yellow-green under glowing Neon; these are muted, cool and matte,
+	-- and they are laid in a hard-edged studded grid that no field has. That is what
+	-- keeps a green courtyard from reading as ground you should not stand on. Do not
+	-- brighten them toward the fields.
+	plazaTileDark = "33512F",
+	plazaTileLight = "486B42",
+
+	-- The bases. These are the colours the plaza wore first — a base is now the one
+	-- place in the world that is not some shade of green.
+	baseTileDark = "212639",
+	baseTileLight = "545A66",
 	grass = "8FD86A",
 	grassDark = "6FB84E",
 	road = "E8DCC0",
@@ -88,6 +102,18 @@ Kit.C = {
 	-- bloom pushes it further, so a yellow-green like B6FF6E comes out of the pipeline
 	-- as cream and stops reading as toxic at all. Keep red well under green here or
 	-- the ooze turns into custard.
+	--
+	-- THESE THREE ARE NO LONGER THE WHOLE HAZARD CHANNEL. They are zones 1-3's share
+	-- of it. From Zone 4 the fields turn plum, hot pink and violet, and each zone
+	-- carries its own bright/deep/glow triple in Config/Zones (`ZoneDef.ooze`) — which
+	-- is where to go to retune a field, not here. These stay because the greens are
+	-- still what three of the six zones are painted in, and because the rule they
+	-- encode travels: keep the dominant channel dominant or bloom eats the colour.
+	--
+	-- What is still absolute is the OTHER half of the original rule: nothing OUTSIDE a
+	-- zone may use Material.Neon in any of these hazard colours. That channel means
+	-- danger and it stays uncontaminated — the shop signs and the plot accents are
+	-- bright, but never in these.
 	ooze = "4FD11A",
 	oozeBright = "6BEE2E",
 	oozeDeep = "2A6B10",

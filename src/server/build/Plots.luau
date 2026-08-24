@@ -33,6 +33,14 @@
 	sized by what actually stands on it, and it came back to 180x200 — a little over
 	half the area. The plots did not get smaller; the car park between them did.
 
+	A BASE WEARS THE PLAZA'S BOARD IN ITS OWN COLOURS. The pad is not a slab of
+	concrete any more: it is the same studded checkerboard the courtyard is paved in,
+	on the same grid, in navy and grey instead of green, one step up. That makes the
+	six bases the only thing in the world that is not some shade of green, and it
+	makes walking onto one a change of colour rather than a change of surface. See
+	`buildPlot` — the tiles are placed in WORLD space, not this model's yawed local
+	space, which is the one detail that is easy to get wrong.
+
 	THE DEPENDENCY FLIPPED, AGAIN, AND THIS TIME IT IS DERIVED RATHER THAN COMMENTED.
 	This file used to require `Hub`, then stopped, and `Hub.luau` carried a comment
 	listing four of this file's constants that its plaza had to be hand-matched to. It
@@ -301,16 +309,31 @@ local function buildPlot(parent: Instance, index: number)
 	local accent = Kit.PLOT_ACCENT[((index - 1) % #Kit.PLOT_ACCENT) + 1]
 	local pad = Plots.PAD
 
-	-- The stage. One step up from the plaza — a plot should feel like somewhere you
-	-- walk onto, not part of the pavement.
-	build(m, origin, {
-		name = "Pad",
-		pos = { 0, pad.topY - pad.thickness / 2, 0 },
-		size = { pad.width, pad.thickness, pad.depth },
-		color = C.plazaEdge,
-		material = "Concrete",
-		attributes = { PlotIndex = index },
-	})
+	-- THE STAGE, WEARING THE SAME BOARD AS THE PLAZA IN ITS OWN COLOURS. One step up
+	-- from the apron — a plot should feel like somewhere you walk onto, not part of
+	-- the pavement — and navy-and-grey against the courtyard's green, so the six bases
+	-- are the one thing in the world that is not some shade of it.
+	--
+	-- BUILT IN WORLD SPACE, NOT THIS MODEL'S LOCAL SPACE, which is the one thing to be
+	-- careful about here. Everything else in this function is placed against `origin`,
+	-- which is YAWED to face the plaza; the tiles are not, because they have to land on
+	-- the plaza's own grid to stay in register with the apron the pad sits on. Yawing
+	-- them 90 degrees on the west pads would rotate the board out of alignment with
+	-- itself. A pad's footprint is axis-aligned in world space at every facing the ring
+	-- uses, so tiling the footprint directly is exact, not an approximation.
+	local x0, z0, x1, z1 = padBounds(Plots.CENTERS[index])
+	local rect: Hub.Rect = { minX = x0, maxX = x1, minZ = z0, maxZ = z1 }
+	local tint: Hub.TileOpts = { topY = pad.topY, dark = C.baseTileDark, light = C.baseTileLight }
+
+	-- The slab underneath carries PlotIndex, because that is the world contract this
+	-- file's header publishes and a folder of 350 tiles cannot carry it.
+	local slab = Hub.groundSlab(m, rect, "Pad", pad.thickness, tint)
+	slab:SetAttribute("PlotIndex", index)
+
+	local tiles = Instance.new("Folder")
+	tiles.Name = "PadTiles"
+	Hub.tileRect(tiles, rect, tint)
+	tiles.Parent = m
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza.
 	for _, side in { -1, 1 } do
@@ -443,7 +466,7 @@ local function buildApron(row: Model)
 
 	for index, rect in APRON do
 		Hub.groundSlab(apron, rect, `ApronSlab{index}`)
-		Hub.tileRect(apron, rect, insidePad)
+		Hub.tileRect(apron, rect, { skip = insidePad })
 	end
 
 	apron.Parent = row

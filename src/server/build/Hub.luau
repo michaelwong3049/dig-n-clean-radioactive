@@ -33,8 +33,12 @@
 	110x120 — rather than by the length of something parked beside it. 200x200 now,
 	down from 237x382: a little under half the area.
 
-	THE FLOOR IS A CHECKERBOARD NOW, and it is the only surface in the world wearing
-	classic studs. See `Hub.TILES` below for the how and the why.
+	THE FLOOR IS A CHECKERBOARD, and it is not only this floor. `Hub.TILES` below is
+	the grid; `tileRect` and `groundSlab` are exported so the plot ring and the six
+	player bases can lay the same board. The plaza and its apron wear it in two shades
+	of green, the bases wear it in navy and grey a step above — one pattern, one grid,
+	two palettes, and they stay in register across every edge because the grid belongs
+	to the plaza rather than to whoever is asking for tiles.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -102,23 +106,44 @@ local CAP = 0.4
 
 export type Rect = { minX: number, maxX: number, minZ: number, maxZ: number }
 
+--- What to lay, and where to lay its top face.
+---
+--- ALL FOUR ARE OPTIONAL AND ALL FOUR DEFAULT TO THE PLAZA. That is the point: a
+--- caller that wants the plaza's board asks for nothing, and a caller that wants the
+--- same board in a different palette at a different height overrides only what
+--- differs. The tile SIZE and the colour PARITY are deliberately not in here —
+--- they come from the plaza's grid for every caller, which is what keeps six plot
+--- pads, the apron and the plaza reading as one board rather than eight.
+export type TileOpts = {
+	topY: number?, -- default PLAZA.topY
+	dark: string?, -- default C.plazaTileDark
+	light: string?, -- default C.plazaTileLight
+	skip: ((x: number, z: number) -> boolean)?,
+}
+
 --- The structural slab a tiled rectangle rides on: same footprint, recessed by
 --- exactly the cap thickness so the tiles laid on it top out at PLAZA.topY.
 ---
 --- Exported for the same reason `tileRect` is. Plots.luau needs one under the ring
 --- it fills, and an apron that is only the 0.4 of the tile layer reads as a wafer
 --- bridging two 3-thick pads rather than as ground you are standing on.
-function Hub.groundSlab(parent: Instance, rect: Rect, name: string): BasePart
-	local p = Hub.PLAZA
+--- `thickness` is the slab's own, not the plaza's, because a plot pad is 3 studs
+--- thick and the plaza is 8. Everything else comes from `opts` exactly as it does
+--- for `tileRect`, so a slab and the tiles laid on it cannot disagree about where
+--- the surface is.
+function Hub.groundSlab(parent: Instance, rect: Rect, name: string, thickness: number?, opts: TileOpts?): BasePart
+	local o = opts or {}
+	local topY = o.topY or Hub.PLAZA.topY
+	local deep = thickness or Hub.PLAZA.thickness
 	return build(parent, CFrame.new(0, 0, 0), {
 		name = name,
 		pos = {
 			(rect.minX + rect.maxX) / 2,
-			p.topY - CAP - p.thickness / 2,
+			topY - CAP - deep / 2,
 			(rect.minZ + rect.maxZ) / 2,
 		},
-		size = { rect.maxX - rect.minX, p.thickness, rect.maxZ - rect.minZ },
-		color = C.plazaTileDark,
+		size = { rect.maxX - rect.minX, deep, rect.maxZ - rect.minZ },
+		color = o.dark or C.plazaTileDark,
 		material = "SmoothPlastic",
 	})
 end
@@ -139,16 +164,28 @@ end
 --- fussiness — the ring's east edge is Zone 1's west edge, and one tile of overhang
 --- there would put walkable, zero-rad floor inside the radioactive field.
 ---
---- `skip` is called with each tile's centre; returning true drops that tile. Plots
---- uses it to punch its six pads out of the ring. A tile straddling a pad edge is
---- KEPT, and ends up buried inside the pad — the pad is 3 studs thick with its top
+--- `opts.skip` is called with each tile's centre; returning true drops that tile.
+--- Plots uses it to punch its six pads out of the ring. A tile straddling a pad edge
+--- is KEPT, and ends up buried inside the pad — the pad is 3 studs thick with its top
 --- 1.5 above this layer, so it swallows the overlap completely.
+---
+--- `opts.topY`, `opts.dark` and `opts.light` are how the plot pads wear this board in
+--- their own colours a step above the plaza's. The GRID is still the plaza's, so a pad
+--- lines up with the apron it sits on even though nothing about their sizes divides
+--- evenly — walk off a pad and the tiles continue in register, one step down and in a
+--- different palette.
 ---
 --- Studs are the look, and they only render on Plastic — the plaza's old Pavement
 --- swallowed them completely, which is why every other surface in this world is
 --- smooth. TopSurface is already Studs on a fresh Part, so there is nothing to set.
-function Hub.tileRect(parent: Instance, rect: Rect, skip: ((x: number, z: number) -> boolean)?): number
+function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	local p = Hub.PLAZA
+	local o = opts or {}
+	local topY = o.topY or p.topY
+	local dark = o.dark or C.plazaTileDark
+	local light = o.light or C.plazaTileLight
+	local skip = o.skip
+
 	local origin = CFrame.new(0, 0, 0)
 	local size = (p.maxX - p.minX) / Hub.TILES
 
@@ -177,12 +214,12 @@ function Hub.tileRect(parent: Instance, rect: Rect, skip: ((x: number, z: number
 
 			build(parent, origin, {
 				name = "Tile",
-				pos = { cx, p.topY - CAP / 2, cz },
+				pos = { cx, topY - CAP / 2, cz },
 				size = { x1 - x0, CAP, z1 - z0 },
 				-- Parity off the GLOBAL index, never the loop counter: ix already
 				-- counts from the plaza's corner, so a rectangle out at the plot ring
 				-- inherits the phase instead of starting its own.
-				color = if (ix + iz) % 2 == 0 then C.plazaTileDark else C.plazaTileLight,
+				color = if (ix + iz) % 2 == 0 then dark else light,
 				material = "Plastic",
 			})
 			built += 1
@@ -195,7 +232,7 @@ end
 local function buildPlaza(hub: Model)
 	local p = Hub.PLAZA
 
-	Hub.groundSlab(hub, p, "Plaza")
+	Hub.groundSlab(hub, p, "Plaza", p.thickness)
 
 	-- Foldered because 4096 siblings makes the Hub model unopenable in the explorer,
 	-- and every one of them is the same decorative cap. The handful of parts that

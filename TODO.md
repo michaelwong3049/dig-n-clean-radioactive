@@ -452,6 +452,22 @@ the place file has no git history to recover from.
       HUD countdown is the piece that makes Zone 4 a *choice*; see §9
 - [ ] Hot pockets — deliberately NOT built. The design call was "the ooze is the dig
       surface", so `ZoneService.hotPocketFor` stays a stub returning 1.
+- [ ] **Stock Zone 5 (Reactor Grounds) and Zone 6 (The Crater)** — both fields are built,
+      reachable, irradiate correctly and have nothing buried in them. `Config/Items.luau`
+      stocks zones 1–4 only, so `DigService.rollItemId` finds no pool at any rarity, warns
+      once per zone at boot and spawns no signals. The console says so on every run; it is
+      a content gap held open on purpose, not a bug, but it is the one thing standing
+      between "the zone exists" and "the zone is playable".
+- [ ] **Re-weight zones 4–6 for the doubled signal density** — `SIGNALS_PER_ZONE` went to
+      90 and zones 1–3 were re-weighted to hold their wall-clock rare rate. Zones 4–6 were
+      deliberately left alone because their identity is "everything here is good", with the
+      decision deferred until they were built and playable. Zone 4 is now both: it is
+      diggable today at roughly double its intended rare rate. 5 and 6 inherit the same
+      debt the moment they are stocked. See the header of `Config/Zones.luau`.
+- [ ] **An on-site station for The Crater** — PLAN §16 calls it a heist, not a hike, and
+      "short" has to mean short from its own station. At the far end of the east chain the
+      honest walk from the nearest cleansing station is ~1800 studs, about two minutes.
+      `stationDistance = 1799` is the warning, not the design.
 
 ## 6. Version control workflow for world content
 

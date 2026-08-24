@@ -75,6 +75,16 @@ local SKIM = 0.26
 --- the ground rather than buried under it. Low enough to be invisible as a step.
 local GROUND_SKIM = 0.06
 
+--- Roughly half a leg's height on a default character, so walking into the field
+--- reads as WADING into the ooze rather than standing on tinted ground. Purely
+--- visual: this is a separate, CanCollide=false plate floating above the real
+--- floor, never the floor itself. DigService buries against and a player's actual
+--- footing rests on Zones.SURFACE_Y exactly as before -- moving that plane is
+--- exactly what ZoneFields.luau's header warns never to do ("tilt or bump a
+--- plate and items surface underground"). This gets the same visual without
+--- touching it.
+local WADE_HEIGHT = 1.1
+
 --- How wide the seam between two stage colours is, in studs. The colour interpolates
 --- across this band instead of changing on a line — a dead-straight edge across open
 --- ground is its own kind of unnatural, which is the thing being fixed here. Narrow
@@ -143,15 +153,126 @@ local function paintBands(folder: Instance, origin: CFrame, def: any, spec: any)
 	end
 end
 
---- Roughly half a leg's height on a default character, so walking into the field
---- reads as WADING into the ooze rather than standing on tinted ground. Purely
---- visual: this is a separate, CanCollide=false plate floating above the real
---- floor, never the floor itself. DigService buries against and a player's actual
---- footing rests on Zones.SURFACE_Y exactly as before -- moving that plane is
---- exactly what ZoneFields.luau's header warns never to do ("tilt or bump a
---- plate and items surface underground"). This gets the same visual without
---- touching it.
-local WADE_HEIGHT = 1.1
+--- THE PLACE WHERE THE WORLD TURNS PINK.
+---
+--- Zones 1-3 are green and Zone 5 is hot pink, and they meet on a straight line at
+--- x = 1240 with nothing in between: two fields parked against each other rather than
+--- one becoming the other. This lays the same stepped blend `paintBands` uses between
+--- Zone 1's stages across that boundary, half on each side.
+---
+--- IT IS DRAWN ON BOTH PLATES, WHICH IS THE WHOLE DIFFICULTY. A stage seam lives
+--- inside one zone and can be positioned in that zone's local space; this one spans
+--- two, so every band is placed in WORLD space and each is clipped to the plate it
+--- actually lies on. A band hanging over the edge of both plates would be a strip of
+--- floating colour over the void.
+---
+--- Wider than a stage seam — 25 studs reads as a seam between two shades of the same
+--- family, and this is a change of family. 90 reads as ground that is going wrong.
+local ZONE_BLEND = 90
+local ZONE_BLEND_STEPS = 14
+
+--- Which boundaries get one. Read by `buildZoneScenery` as well as by the builder
+--- below, because a blend is not something you can add on top: the zone's own ooze
+--- sheet has to get out of the way first. See `oozeInset`.
+local ZONE_BLENDS = { { from = 3, to = 5 } }
+
+--- How far this zone's ooze sheet must stop short of its west and east edges.
+---
+--- THE FIRST VERSION OF THE BLEND DID NOT DO THIS AND WAS INVISIBLE. It painted a
+--- lovely fourteen-step gradient on the GROUND, and then each zone's ooze sheet — one
+--- Neon plate covering the whole field, with a dead-straight edge exactly on the zone
+--- boundary — was drawn over the top of it. The bright layer is what you actually
+--- see; blending only what is underneath it changes nothing. Both layers have to
+--- break at the same place, which is what this is for.
+local function oozeInset(zoneId: number): (number, number)
+	local west, east = 0, 0
+	for _, blend in ZONE_BLENDS do
+		if blend.to == zoneId then
+			west = ZONE_BLEND / 2
+		elseif blend.from == zoneId then
+			east = ZONE_BLEND / 2
+		end
+	end
+	return west, east
+end
+
+--- Lay the blend. Two bands per step: the ground colour underneath and the ooze
+--- colour above it, so the field changes at the same rate at both heights.
+local function buildZoneBlend(parent: Instance, fromId: number, toId: number)
+	local from, to = Zones.get(fromId), Zones.get(toId)
+	local atX = to.center[1] - to.size[1] / 2
+	assert(
+		math.abs(atX - (from.center[1] + from.size[1] / 2)) < 0.001,
+		`zones {fromId} and {toId} do not share an edge — there is nothing to blend across`
+	)
+
+	local folder = Instance.new("Folder")
+	folder.Name = `Blend{fromId}to{toId}`
+
+	local fromGround, toGround = Color3.fromHex(from.color), Color3.fromHex(to.color)
+	local fromOoze, toOoze = Color3.fromHex(from.ooze.bright), Color3.fromHex(to.ooze.bright)
+	local step = ZONE_BLEND / ZONE_BLEND_STEPS
+
+	for i = 0, ZONE_BLEND_STEPS - 1 do
+		local x0 = atX - ZONE_BLEND / 2 + i * step
+		local x1 = x0 + step
+		-- Which plate is this band on, and how deep is that plate? The two zones are
+		-- rarely the same depth, so a band takes the depth of whichever side it fell
+		-- on — otherwise the wider zone's half hangs over the void.
+		local side = if x1 <= atX then from else to
+		local origin = CFrame.new(0, Zones.SURFACE_Y, side.center[2])
+		local t = (i + 0.5) / ZONE_BLEND_STEPS
+
+		local ground = build(folder, origin, {
+			name = `BlendGround{i}`,
+			pos = { (x0 + x1) / 2, GROUND_SKIM, 0 },
+			size = { step, 0.12, side.size[2] },
+			color = from.color, -- overwritten below; Kit.build takes a hex STRING
+			material = "SmoothPlastic",
+			transparency = 0.12,
+			canCollide = false,
+		})
+		ground.Color = fromGround:Lerp(toGround, t)
+		ground.CanQuery = false
+
+		-- The same 0.3-thick Neon sheet at the same height and the same transparency
+		-- the zones use, so this reads as their sheet continuing rather than as a
+		-- separate object laid across the seam.
+		local sheet = build(folder, origin, {
+			name = `BlendOoze{i}`,
+			pos = { (x0 + x1) / 2, WADE_HEIGHT, 0 },
+			size = { step, 0.3, side.size[2] },
+			color = from.ooze.bright,
+			material = "Neon",
+			transparency = 0.82,
+			canCollide = false,
+		})
+		sheet.Color = fromOoze:Lerp(toOoze, t)
+		sheet.CanQuery = false
+	end
+
+	folder.Parent = parent
+end
+
+--- HOW MANY POOL LIGHTS A FIELD MAY HAVE, however many pools it has.
+---
+--- Every pool used to get its own PointLight. That was 39 lights when Zone 1 was the
+--- only field in the world and nobody had to think about it; at six fields, with the
+--- pink zones carrying 74 and 92 pools each because the pools ARE their colour, it
+--- came to 532 and the renderer fell over — screen capture timed out before this was
+--- even a gameplay question.
+---
+--- The cap is safe because a light is not what makes a pool glow. The pool is Neon:
+--- it is emissive on its own, at full brightness, whether or not anything is lit
+--- beside it. The PointLight only spills that colour onto the props and the ground
+--- AROUND it, and eight per field does that job — you cannot tell which pools have
+--- one without counting, and a field lit by eight looks the same as one lit by
+--- ninety-two.
+local ZONE_LIGHT_BUDGET = 8
+
+--- Same argument, applied to the barrels: the spill is Neon and glows regardless, so
+--- only every fifth one also throws light.
+local BARREL_LIGHT_EVERY = 5
 
 --- Per-zone character. `props` is roughly how many set pieces to scatter; the pool
 --- count scales with area so a big zone does not look empty.
@@ -163,10 +284,29 @@ local THEME = {
 	[2] = { props = 34, pools = 40, kind = "houses" },
 	[3] = { props = 40, pools = 58, kind = "sirens" },
 	[4] = { props = 18, pools = 46, kind = "barriers" },
+	-- The two pink zones. Pool counts climb with the rads because the pools ARE the
+	-- colour — the plate underneath is deliberately muted, so a field with few pools
+	-- reads as dark ground rather than as hot ground. Prop counts do not climb with
+	-- them: past Zone 3 the story is that there is nothing left standing.
+	[5] = { props = 22, pools = 74, kind = "reactor" },
+	[6] = { props = 26, pools = 92, kind = "shards" },
 }
 
 --- A leaking barrel: the story prop. Tipped or standing, always dripping.
-local function barrel(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+---
+--- The DRUM is yellow or rust in every field — it is the same drum wherever it was
+--- dumped. The SPILL is the zone's own Neon, because the spill is what the field is
+--- made of: a barrel leaking acid green into a hot pink Reactor Grounds says the
+--- ground got its colour from somewhere else, which is the one thing it did not.
+local function barrel(
+	parent: Instance,
+	origin: CFrame,
+	x: number,
+	z: number,
+	rng: Random,
+	ooze: { bright: string, deep: string, glow: string },
+	lit: boolean
+)
 	local tipped = rng:NextNumber() < 0.35
 	local color = if rng:NextNumber() < 0.5 then C.barrelYellow else C.barrelRust
 
@@ -186,18 +326,33 @@ local function barrel(parent: Instance, origin: CFrame, x: number, z: number, rn
 		name = "Spill",
 		pos = { x + rng:NextNumber(-3, 3), SKIM, z + rng:NextNumber(-3, 3) },
 		size = { 0.44, spillW, spillW },
-		color = C.oozeBright,
+		color = ooze.bright,
 		material = "Neon",
 		shape = "Cylinder",
 		rot = R.cylUp,
 		transparency = 0.04,
 		canCollide = false,
 	})
-	light(spill, C.oozeBright, 18, 2)
+	if lit then
+		light(spill, ooze.glow, 18, 2)
+	end
 end
 
 --- Zone-specific silhouette, so the four fields do not read as one field.
-local function prop(parent: Instance, origin: CFrame, kind: string, x: number, z: number, rng: Random)
+--- `ooze` is the ZONE's Neon triple (Config/Zones ZoneDef.ooze), not a global. Only
+--- the two pink kinds read it today — the older kinds are lit in their own prop
+--- colours, which is correct: a rusted siren head is rust everywhere. Anything a prop
+--- glows with because the FIELD is hot has to come from here, or Reactor Grounds gets
+--- acid-green vents standing in a hot pink field.
+local function prop(
+	parent: Instance,
+	origin: CFrame,
+	kind: string,
+	x: number,
+	z: number,
+	rng: Random,
+	ooze: { bright: string, deep: string, glow: string }
+)
 	if kind == "trees" then
 		build(parent, origin, {
 			name = "DeadTree",
@@ -243,6 +398,77 @@ local function prop(parent: Instance, origin: CFrame, kind: string, x: number, z
 			canCollide = false,
 		})
 		light(head, C.barrelRust, 22, 2)
+	elseif kind == "reactor" then
+		-- Reactor Grounds: cooling stacks, cracked and still lit from inside. Tapered
+		-- by stacking two cylinders rather than using a cone, which the Kit has no
+		-- shape for — and a straight pipe reads as scaffolding, not as a reactor.
+		local h = rng:NextNumber(16, 26)
+		build(parent, origin, {
+			name = "Stack",
+			pos = { x, h / 2, z },
+			size = { h, 9, 9 },
+			color = C.steelDark,
+			material = "Concrete",
+			shape = "Cylinder",
+			rot = R.cylUp,
+		})
+		build(parent, origin, {
+			name = "StackNeck",
+			pos = { x, h + 2, z },
+			size = { 4, 6.4, 6.4 },
+			color = C.rubble,
+			material = "Concrete",
+			shape = "Cylinder",
+			rot = R.cylUp,
+		})
+		-- The crack. Neon in the ZONE's own colour, so this glows pink here and would
+		-- glow whatever the field glows if the theme is ever reused.
+		local vent = build(parent, origin, {
+			name = "StackVent",
+			pos = { x, h + 5.4, z },
+			size = { 1.2, 6.8, 6.8 },
+			color = ooze.bright,
+			material = "Neon",
+			shape = "Cylinder",
+			rot = R.cylUp,
+			canCollide = false,
+		})
+		light(vent, ooze.glow, 30, 2.5)
+	elseif kind == "shards" then
+		-- The Crater: whatever the blast fused, standing up out of the ground. Three
+		-- leaning spikes per cluster, each tilted off vertical by a different amount,
+		-- because three identical uprights read as a fence.
+		for spike = 1, 3 do
+			local h = rng:NextNumber(7, 19)
+			local shard = build(parent, origin, {
+				name = "Shard",
+				pos = { x + rng:NextNumber(-5, 5), h / 2, z + rng:NextNumber(-5, 5) },
+				size = { rng:NextNumber(1.4, 3.2), h, rng:NextNumber(1.4, 3.2) },
+				color = ooze.bright,
+				material = "Neon",
+				rot = Kit.ang(rng:NextNumber(-22, 22), rng:NextNumber(0, 180), rng:NextNumber(-22, 22)),
+				transparency = 0.15,
+				canCollide = false,
+			})
+			-- One light for the cluster, not one per spike. Three overlapping lights
+			-- on three touching Neon spikes is indistinguishable from one and costs
+			-- three times as much — see ZONE_LIGHT_BUDGET.
+			if spike == 1 then
+				light(shard, ooze.glow, 22, 2)
+			end
+		end
+		-- A dark base so a cluster reads as something that grew out of the ground
+		-- rather than as three lights hovering over it.
+		build(parent, origin, {
+			name = "ShardBase",
+			pos = { x, 0.6, z },
+			size = { 1.2, 15, 15 },
+			color = ooze.deep,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = R.cylUp,
+			canCollide = false,
+		})
 	else -- "barriers" — Zone 4. Sparse on purpose: PLAN §15 wants it content-free.
 		build(parent, origin, {
 			name = "Barrier",
@@ -295,18 +521,23 @@ local function buildZoneScenery(parent: Instance, id: number)
 	-- of solid colour well before Transparency looks like it "should" (0.55 first pass
 	-- still read as solid ground, not a layer over it). 0.82 is the point props and
 	-- the sand below actually show through — including, now, the stage colour.
+	local westInset, eastInset = oozeInset(id)
 	build(folder, origin, {
 		name = "OozeSurface",
-		pos = { 0, WADE_HEIGHT, 0 },
-		size = { def.size[1], 0.3, def.size[2] },
-		color = C.oozeBright,
+		-- Centred on the plate unless one edge is blended, in which case the sheet
+		-- stops short of it and buildZoneBlend fills the gap with the stepped
+		-- version. `(west - east) / 2` recentres what is left of the sheet.
+		pos = { (westInset - eastInset) / 2, WADE_HEIGHT, 0 },
+		size = { def.size[1] - westInset - eastInset, 0.3, def.size[2] },
+		color = def.ooze.bright,
 		material = "Neon",
 		transparency = 0.82,
 		canCollide = false,
 	})
 
 	-- Ooze pools first, so props sit on top of them.
-	for _ = 1, theme.pools do
+	local lightEvery = math.max(1, math.ceil(theme.pools / ZONE_LIGHT_BUDGET))
+	for index = 1, theme.pools do
 		local x, z = rng:NextNumber(-hx, hx), rng:NextNumber(-hz, hz)
 		local d = rng:NextNumber(18, 46)
 		local pool = build(folder, origin, {
@@ -317,7 +548,7 @@ local function buildZoneScenery(parent: Instance, id: number)
 			-- edge instead of a puddle -- which is exactly what the first pass did,
 			-- and why the fields looked like bare lawn.
 			size = { 0.5, d, d },
-			color = C.oozeBright,
+			color = def.ooze.bright,
 			material = "Neon",
 			shape = "Cylinder",
 			rot = R.cylUp,
@@ -332,13 +563,15 @@ local function buildZoneScenery(parent: Instance, id: number)
 			name = "OozeRim",
 			pos = { x, SKIM - 0.12, z },
 			size = { 0.4, d + 5, d + 5 },
-			color = C.oozeDeep,
+			color = def.ooze.deep,
 			material = "SmoothPlastic",
 			shape = "Cylinder",
 			rot = R.cylUp,
 			canCollide = false,
 		})
-		light(pool, C.ooze, 26, 2)
+		if index % lightEvery == 0 then
+			light(pool, def.ooze.glow, 26, 2)
+		end
 	end
 
 	-- Then barrels and set pieces on a jittered grid.
@@ -357,9 +590,9 @@ local function buildZoneScenery(parent: Instance, id: number)
 			z = math.clamp(z, -hz, hz)
 
 			if placed % 2 == 0 then
-				barrel(folder, origin, x, z, rng)
+				barrel(folder, origin, x, z, rng, def.ooze, placed % BARREL_LIGHT_EVERY == 0)
 			else
-				prop(folder, origin, theme.kind, x, z, rng)
+				prop(folder, origin, theme.kind, x, z, rng, def.ooze)
 			end
 		end
 	end
@@ -483,6 +716,12 @@ local function createScenery(): Model
 	end
 	buildStageGround(scenery, 1)
 	buildStageMarkers(scenery, 1)
+
+	-- The one place on the east chain where the ground changes family rather than
+	-- shade. Zones 1-3 are green, 5 and 6 are pink and violet, so this is drawn once,
+	-- at the 3/5 boundary. 5 to 6 gets none: pink into violet is a step along one
+	-- scale, and the plates read as continuous without help.
+	buildZoneBlend(scenery, 3, 5)
 
 	-- Nothing in here may claim to be a zone. This is the invariant the whole
 	-- module/folder split exists to protect, so it is asserted, not trusted.

@@ -196,9 +196,12 @@ function Spec.run(): boolean
 	-- density on its own and the field quietly starts holding twice the jackpots,
 	-- which is invisible in play until the economy is already ruined.
 	--
-	-- Counted across Zones.STAGES, because that is where signals actually roll — the
-	-- built field is one plate carrying three stages, and Zones.DEFS[4..6] are not
-	-- reachable by any of them.
+	-- Counted across Zones.STAGES, and ONLY across them, which needs saying now that
+	-- all six zones are built. This assertion is about the STARTER field: Zone 1 is
+	-- one plate carrying three stages, and those three stage loot tables are what a
+	-- new player rolls against. Zones 4, 5 and 6 have their own tables and are
+	-- deliberately far richer — the Crater is 18% Legendary on purpose — so folding
+	-- them in here would not tighten this check, it would destroy it.
 	local function shareAtOrAbove(loot: { [string]: number }, minOrder: number): number
 		local total, wanted = 0, 0
 		for name, weight in loot do
@@ -233,6 +236,45 @@ function Spec.run(): boolean
 	-- PLAN §3.5 — no zone is gated by anything except arithmetic
 	for _, zone in Zones.DEFS do
 		check(string.format("§3.5 zone %d has no unlock field", zone.id), (zone :: any).locked == nil and (zone :: any).requiresGamepass == nil)
+	end
+
+	-- PLAN §4 — A ZONE PAYS OUT ITS OWN LOOT TABLE.
+	--
+	-- This exists because it was false and nothing noticed. DigService resolved every
+	-- signal's loot through Zones.stageAt, which slices a plate into Zone 1's three
+	-- stages by LOCAL X — correct while Zone 1 was the only field in the world, and
+	-- silently wrong for all five others the moment they were built. Every zone handed
+	-- out Ash Flats, Suburbs and Fallout Fields items; the Crater's 18%-Legendary
+	-- table, the entire reason that zone exists, was never read by anything.
+	--
+	-- The failure was invisible in play: a Crater signal digs at Crater soil hardness,
+	-- through Crater rads, on a two-minute walk, and then hands you Scrap. You would
+	-- have to know the table to know you had been robbed. Pinned here so it cannot
+	-- come back the next time a zone is added.
+	for _, id in Zones.builtIds() do
+		local _, itemZoneId = Zones.lootAt(id, Zones.get(id).center[1])
+		local ownsItsLoot = id == Zones.STAGED_ZONE or itemZoneId == id
+		check(string.format("§4 zone %d rolls its own loot, not another zone's", id), ownsItsLoot)
+	end
+
+	-- And the staged zone still is staged: all three of its stages must be reachable
+	-- somewhere on the plate, or a "graded field" is a field with a dead band in it.
+	do
+		local staged = Zones.get(Zones.STAGED_ZONE)
+		local seen: { [number]: boolean } = {}
+		for i = 0, 40 do
+			local x = staged.center[1] - staged.size[1] / 2 + (i / 40) * staged.size[1]
+			local _, itemZoneId = Zones.lootAt(Zones.STAGED_ZONE, x)
+			seen[itemZoneId] = true
+		end
+		local reachable = 0
+		for _ in seen do
+			reachable += 1
+		end
+		check(
+			string.format("§2.1 the staged field still spans all %d stages (found %d)", #Zones.STAGES, reachable),
+			reachable == #Zones.STAGES
+		)
 	end
 
 	table.insert(lines, string.format("\n%d passed, %d failed", passed, failed))

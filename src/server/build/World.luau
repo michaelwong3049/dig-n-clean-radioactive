@@ -165,6 +165,63 @@ function World.verify(): (boolean, { string })
 				`Zone{built[i]} overlaps the hub plaza — base camp would irradiate the people standing in it`
 			)
 		end
+
+		-- ── Every zone has to be REACHABLE ON FOOT ───────────────────────
+		-- There is no terrain in this world: off the built parts is void. A zone with
+		-- a gap between it and the nearest floor is a zone nobody can get to, and
+		-- nothing else in this function would notice — it would have a correct plate,
+		-- a correct attribute, correct thickness, and be unplayable.
+		--
+		-- This is a REACHABILITY check, not a contact check, so it is a flood fill
+		-- rather than six independent tests. A zone counts as reached if it shares an
+		-- edge with the camp landmass or with a zone already reached, which is what
+		-- lets the east chain work: only Zone 1 touches camp, and 2, 3, 5 and 6 are
+		-- reached through each other.
+		local function touches(a: { number }, b: { number }): boolean
+			-- Overlapping in one axis and sharing (or crossing) the boundary in the
+			-- other. Tolerance because these come from centre/size arithmetic, not
+			-- from integers: an edge that lands 0.0001 short is still an edge.
+			local e = 0.01
+			local xOverlap = a[3] >= b[1] - e and b[3] >= a[1] - e
+			local zOverlap = a[4] >= b[2] - e and b[4] >= a[2] - e
+			return xOverlap and zOverlap
+		end
+
+		-- The camp landmass: the plaza plus the ring corridor the plots sit in. (`p`
+		-- above is scoped to the per-zone loop; this block runs after it.)
+		local p = Hub.PLAZA
+		local ring = Plots.PAD.depth
+		local reached: { { number } } = {
+			{ p.minX, p.minZ, p.maxX, p.maxZ },
+			{ p.minX - ring, p.maxZ, p.maxX, p.maxZ + ring },
+			{ p.minX - ring, p.minZ - ring, p.maxX, p.minZ },
+			{ p.minX - ring, p.minZ, p.minX, p.maxZ },
+		}
+
+		local pending: { number } = table.clone(built)
+		local grew = true
+		while grew do
+			grew = false
+			for index = #pending, 1, -1 do
+				local ax, az, bx, bz = Zones.bounds(pending[index])
+				local rect = { ax, az, bx, bz }
+				for _, land in reached do
+					if touches(rect, land) then
+						table.insert(reached, rect)
+						table.remove(pending, index)
+						grew = true
+						break
+					end
+				end
+			end
+		end
+
+		for _, id in pending do
+			check(
+				false,
+				`Zone{id} does not touch the camp or any zone connected to it — there is no terrain in this world, so it is a plate across open void that no player can walk to`
+			)
+		end
 	end
 
 	-- ── Plot pads: on the ring, not in it ────────────────────────────────

@@ -44,14 +44,44 @@
 --     5      600x520    25 (T5)   0.57    4.3s
 --     6      360x320    28 (T6)   1.92    1.4s
 --
--- ONLY ZONE 1 IS BUILT, and it is the only line above that has ever been played. The
--- other five were sized against a c ~= 0.26 target back when the detector was a
--- needle and c meant "fraction of ground where the arrow points at something" — a
--- reading that no longer exists. Their numbers are recomputed here so the table is
--- not lying, NOT endorsed: at c > 1 you are never without a target, so they are farms
--- rather than searches, and they want re-sizing against the time column before they
--- are built. Doubling SIGNALS_PER_ZONE made that worse, not better; it was the right
--- call for the one zone that exists and it defers a decision on five that do not.
+-- ALL SIX ARE BUILT NOW, BUT ONLY ZONE 1 HAS EVER BEEN PLAYED, and the distinction
+-- still matters. The other five were sized against a c ~= 0.26 target back when the
+-- detector was a needle and c meant "fraction of ground where the arrow points at
+-- something" — a reading that no longer exists. Their numbers are recomputed here so
+-- the table is not lying, NOT endorsed: at c > 1 you are never without a target, so
+-- 2, 3, 4 and 6 are farms rather than searches and they want re-sizing against the
+-- time column. Doubling SIGNALS_PER_ZONE made that worse, not better.
+--
+-- Building them did not fix that and was not meant to. Every zone kept its exact
+-- configured SIZE through the move — only centres changed — precisely so this table
+-- stays true and the re-sizing decision stays open rather than being quietly
+-- pre-empted by a build pass.
+--
+-- ── WHERE THEY ARE, AND WHY THEY MOVED ──────────────────────────────────────
+-- There is no terrain in this world: off the built parts is void, so a zone that
+-- touches nothing walkable is a zone nobody can reach. Four of the five needed
+-- moving for that reason or because they overlapped Zone 1.
+--
+--     camp ═══> [ 1 Ash Flats ] [ 2 Suburbs ] [ 3 Fallout ] [ 5 Reactor ] [ 6 Crater ]
+--       ║          x 100-760      760-980      980-1240     1240-1840     1840-2200
+--       ╚═> [ 4 Exclusion Belt ]   (north, z 152-412 — the dive, deliberately close)
+--
+-- The east chain shares edges exactly, the same way the plaza's east edge already
+-- lands on Zone 1's west edge: `rectsOverlap` fails on `<`, not `<=`, so a shared
+-- edge is touching rather than overlapping and World.verify() accepts it. Walk east
+-- and it gets worse; that is the whole layout.
+--
+-- ── THE COLOUR TURNS AT ZONE 4 ──────────────────────────────────────────────
+-- Zones 1-3 are the known world and stay green. From Zone 4 the ground goes plum,
+-- then hot pink, then violet — a different KIND of place rather than more of the same
+-- one, which is the thing a player reads before they read any number.
+--
+-- The muted-plate / bright-Neon rule below is not suspended for them, it is the
+-- reason they work: the plate is a deep plum or violet and the POOLS are the bright
+-- magenta. Keep the dominant channel dominant when tuning these. The colour note
+-- explains why a yellow-green plate blooms to cream; the same arithmetic turns a
+-- balanced pink to white and a pale violet to lavender-grey. Pink stays red-dominant,
+-- violet stays blue-dominant.
 --
 -- The header used to carry a hard ceiling of area <= 785 * r^2, i.e. c >= 0.18. Zone
 -- 1 has been over that ceiling since the field was grown to 660x320 — it was already
@@ -59,9 +89,10 @@
 -- longer exists and is left here as history rather than as a check. Use the time
 -- column.
 --
--- COLOUR NOTE: the plate is the SLUDGE and it is deliberately a deep, muted green.
--- The bright acid green belongs to the pools and spills in build/Scenery, which are
--- Neon. Making the plate pale too was the first attempt and it read as a golf course
+-- COLOUR NOTE: the plate is the SLUDGE and it is deliberately deep and muted. The
+-- bright colour belongs to the pools and spills in build/Scenery, which are Neon —
+-- each zone's own, from its `ooze` field, since the field stopped being green at Zone
+-- 4. Making the plate pale too was the first attempt and it read as a golf course
 -- from ground level: with no tonal gap between ground and pool, nothing glowed and
 -- nothing looked toxic. Contrast is what sells "radioactive", not brightness.
 --
@@ -96,17 +127,24 @@
 -- field holds ~4.9 Rare-or-better signals across the three stages, which is what it
 -- held before the change.
 --
--- ZONES 4-6 WERE DELIBERATELY NOT RE-WEIGHTED. Their identity is "everything here is
--- good" (PLAN §4 — the Crater is 18% Legendary on purpose), and halving their top end
--- to hold a wall-clock rate would be a redesign of the zones rather than a rebalance
--- of this one. They are `built = false` and no stage references their loot, so nothing
--- rolls on them today. Decide it when they are actually built and playable, and note
--- that they will arrive at DOUBLE their intended rare rate if nobody does.
+-- ZONES 4-6 WERE DELIBERATELY NOT RE-WEIGHTED, AND THAT DEBT IS NOW LIVE. Their
+-- identity is "everything here is good" (PLAN §4 — the Crater is 18% Legendary on
+-- purpose), and halving their top end to hold a wall-clock rate would be a redesign of
+-- the zones rather than a rebalance of this one. The old note said to decide it when
+-- they are built and playable. They are built: Zone 4 is stocked and diggable TODAY at
+-- double its intended rare rate. Zones 5 and 6 are not stocked yet, so their share of
+-- the debt is still deferred. See TODO.md.
 --
 -- CAVEAT ON ALL OF THE ABOVE: DigService.rollItemId steps DOWN when Config/Items does
 -- not stock the rolled rarity in that zone, so the delivered distribution is always
 -- at least as common as this table says, never rarer. Zone 1 stocks no Mythic or
 -- Anomaly, so its top two rows are aspirational.
+--
+-- AND ZONES 5 AND 6 STOCK NOTHING AT ALL. rollItemId finds no pool at any rarity,
+-- warns once and returns nil, so no signals spawn there. Both fields are real, both
+-- irradiate, both can be walked and neither has anything buried in it. That is a
+-- content gap held open on purpose — building the world and writing the catalogue are
+-- separate jobs — and it is the one thing to fix before either zone is playable.
 
 export type ZoneDef = {
 	id: number,
@@ -124,6 +162,13 @@ export type ZoneDef = {
 	size: { number }, -- { x, z } footprint in studs
 	color: string, -- hex; the ooze colour of this zone's surface
 	material: string, -- Enum.Material name
+
+	-- The zone's Neon channel: the wading surface, the pools, their rims and their
+	-- lights. Per-zone since the harder zones stopped being green — build/Scenery
+	-- used to paint every field from three globals in Kit.C, which would have left
+	-- The Crater's violet ground under acid-green puddles.
+	ooze: { bright: string, deep: string, glow: string },
+
 	built: boolean, -- false => the generator skips it and verify() ignores it
 }
 
@@ -174,6 +219,7 @@ Zones.DEFS = {
 		size = { 660, 320 },
 		color = "6F9636",
 		material = "Sand",
+		ooze = { bright = "6BEE2E", deep = "2A6B10", glow = "4FD11A" },
 		built = true,
 	},
 	{
@@ -182,15 +228,22 @@ Zones.DEFS = {
 		baseRads = 2,
 		soilHardness = 2,
 		ratedSuitTier = 2,
-		stationDistance = 470,
+		stationDistance = 719,
 		fogColor = Color3.fromHex("D8F0B8"),
 		fogEnd = 800,
 		loot = { Scrap = 43, Common = 39, Uncommon = 12.6, Rare = 3.5, Epic = 1, Legendary = 0.25, Mythic = 0.05, Anomaly = 0.002 },
-		center = { 470, 0 },
+		-- MOVED EAST, OUT OF ZONE 1. This used to sit at x = 470, which put it
+		-- ENTIRELY INSIDE Zone 1 (x 100-760) — fine while it was never built, fatal
+		-- the moment it was, because overlapping zones resolve smallest-area-wins and
+		-- "which zone am I standing in" stops having an answer. Its west edge is now
+		-- exactly Zone 1's east edge. Size is untouched, so the header's coverage and
+		-- seconds-between-contacts figures for this zone still hold.
+		center = { 870, 0 },
 		size = { 220, 280 },
 		color = "538C28",
 		material = "Sand",
-		built = false, -- loot pool retained for radiation stage 2
+		ooze = { bright = "6BEE2E", deep = "2A6B10", glow = "4FD11A" },
+		built = true,
 	},
 	{
 		id = 3,
@@ -198,15 +251,18 @@ Zones.DEFS = {
 		baseRads = 6,
 		soilHardness = 3,
 		ratedSuitTier = 3,
-		stationDistance = 760,
+		stationDistance = 939,
 		fogColor = Color3.fromHex("A8F06A"),
 		fogEnd = 700,
 		loot = { Scrap = 34, Common = 40, Uncommon = 16.8, Rare = 6, Epic = 2.25, Legendary = 0.6, Mythic = 0.14, Anomaly = 0.005 },
-		center = { 760, 0 },
+		-- Also moved east — its old centre at x = 760 was Zone 1's east EDGE, so half
+		-- of it lay inside Zone 1. Butted onto Zone 2 instead. Size untouched.
+		center = { 1110, 0 },
 		size = { 260, 320 },
 		color = "3E7A1C",
 		material = "Slate",
-		built = false, -- loot pool retained for radiation stage 3
+		ooze = { bright = "6BEE2E", deep = "2A6B10", glow = "4FD11A" },
+		built = true,
 	},
 	{
 		id = 4,
@@ -214,20 +270,30 @@ Zones.DEFS = {
 		baseRads = 15,
 		soilHardness = 4,
 		ratedSuitTier = 4,
-		-- Deliberately SHORT. Zone 4 sits directly behind the camp's back wall,
-		-- behind a fence with a hole in it, in plain sight of the trader's counter.
-		-- PLAN §15's second validation question is "do players cross into Zone 4
-		-- unrated, on purpose, more than once?" — putting the lethal field 200
-		-- studs from the decon basin is what makes that question answerable.
-		stationDistance = 209,
+		-- Deliberately SHORT, and it got shorter. PLAN §15's second validation
+		-- question is "do players cross into Zone 4 unrated, on purpose, more than
+		-- once?", and it is only answerable if the lethal field is somewhere you are
+		-- standing anyway rather than somewhere you make an expedition to.
+		--
+		-- The old description of where that was — behind the camp's back wall, behind
+		-- a fence with a hole in it, in plain sight of the trader's counter — is three
+		-- things that no longer exist. What puts it under your nose now is the plot
+		-- ring: this field's south edge IS the north edge of the apron between the two
+		-- north bases, so you step off your own doorstep into 15 rads. The cleansing
+		-- station on that pad is 6 studs behind you, which is the point.
+		stationDistance = 6,
 		fogColor = Color3.fromHex("6FE04A"),
 		fogEnd = 600,
 		loot = { Scrap = 15, Common = 24, Uncommon = 28, Rare = 20, Epic = 9, Legendary = 3, Mythic = 0.8, Anomaly = 0.03 },
-		center = { 0, 310 },
+		-- Moved south and west to touch that apron edge (z = 152) and to stop dead on
+		-- Zone 1's west edge (x = 100) rather than crossing it. Size untouched.
+		center = { -45, 282 },
 		size = { 290, 260 },
-		color = "2F6B14",
+		-- WHERE THE GREEN STOPS. See "THE COLOUR TURNS" in the header.
+		color = "73246B",
 		material = "Slate",
-		built = false, -- reserved for a future fourth stage
+		ooze = { bright = "FF2FA8", deep = "6B0A47", glow = "FF2FA8" },
+		built = true,
 	},
 	{
 		id = 5,
@@ -235,15 +301,23 @@ Zones.DEFS = {
 		baseRads = 40,
 		soilHardness = 5,
 		ratedSuitTier = 5,
-		stationDistance = 995, -- measured from the decon basin, not aspirational
+		stationDistance = 1199, -- measured from the nearest cleansing station
 		fogColor = Color3.fromHex("C8E85A"),
 		fogEnd = 500,
 		loot = { Scrap = 7, Common = 15, Uncommon = 25, Rare = 26, Epic = 17, Legendary = 7, Mythic = 2.4, Anomaly = 0.1 },
-		center = { -700, -620 },
+		-- Was an island at (-700, -620) with several hundred studs of open void
+		-- between it and the nearest floor. Moved onto the east chain, butted against
+		-- Zone 3. Size untouched.
+		center = { 1540, 0 },
 		size = { 600, 520 },
-		color = "B6FF6E",
+		color = "A02268",
 		material = "Glass",
-		built = false, -- beyond the MVP slice; no items stock it yet
+		ooze = { bright = "FF3D9A", deep = "7A0F45", glow = "FF3D9A" },
+		-- NOTHING IS BURIED HERE YET. Config/Items stocks zones 1-4 only, so
+		-- DigService.rollItemId finds no pool at any rarity, warns once and spawns no
+		-- signals. The field is real, irradiates correctly and can be walked; it is
+		-- empty until items are written for it. Deliberate, and flagged in TODO.md.
+		built = true,
 	},
 	{
 		id = 6,
@@ -252,17 +326,28 @@ Zones.DEFS = {
 		soilHardness = 6,
 		ratedSuitTier = 6,
 		-- The Crater is a heist, not a hike (PLAN §16) — but "short" has to mean
-		-- short from its OWN on-site station, which does not exist yet. This is the
-		-- honest walk from base camp until that station is built.
-		stationDistance = 658,
+		-- short from its OWN on-site station, which still does not exist. This is the
+		-- honest walk from the nearest cleansing station until that station is built,
+		-- and it is now the far end of the east chain rather than an island, so the
+		-- number went UP. Two minutes of walking to reach the endgame field is the
+		-- strongest argument yet for building it its own station; until then this
+		-- number is the warning, not the design.
+		stationDistance = 1799,
 		fogColor = Color3.fromHex("FFD24A"),
 		fogEnd = 400,
 		loot = { Scrap = 2, Common = 6, Uncommon = 15, Rare = 24, Epic = 26, Legendary = 18, Mythic = 8, Anomaly = 0.8 },
-		center = { 0, 760 },
+		center = { 2020, 0 },
 		size = { 360, 320 },
-		color = "FFE066",
-		material = "Neon",
-		built = false, -- beyond the MVP slice; no items stock it yet
+		color = "5B1FA8",
+		-- Glass, not Neon. The plate used to be Neon gold, which at Brightness 2.4
+		-- with bloom is a 360x320 light source rather than ground — survivable while
+		-- it was theoretical, and the exact failure the header's colour note warns
+		-- about. The violet reads as violet on Glass and the POOLS do the glowing,
+		-- which is the rule every other zone already follows.
+		material = "Glass",
+		ooze = { bright = "A855FF", deep = "3B1070", glow = "A855FF" },
+		-- Unstocked, exactly as Zone 5 — see the note there.
+		built = true,
 	},
 } :: { ZoneDef }
 
@@ -337,6 +422,21 @@ function Zones.builtIds(): { number }
 	return ids
 end
 
+--- THE ONE ZONE THAT IS SUBDIVIDED INTO STAGES.
+---
+--- Zone 1 is the graded starter field: three loot tables across one plate, so a new
+--- player meets an escalating field before they meet a second zone. Every other zone
+--- is a single place with a single table — that is what makes it a zone rather than a
+--- stage.
+---
+--- THIS CONSTANT EXISTS BECAUSE THE SUBDIVISION WAS ACCIDENTALLY GLOBAL. DigService
+--- resolved EVERY signal's loot through `stageAt`, which was invisibly correct while
+--- Zone 1 was the only field in the world and quietly wrong the moment it was not:
+--- stage bounds are LOCAL X offsets, so each new zone got sliced into stages by its
+--- own width and handed out Zone 1, 2 and 3's items. The Crater's 18%-Legendary table
+--- was never consulted by anything. Ask `lootAt`, not `stageAt`.
+Zones.STAGED_ZONE = 1
+
 function Zones.stageAt(zoneId: number, worldX: number): StageDef
 	local zone = Zones.get(zoneId)
 	local localX = worldX - zone.center[1]
@@ -346,6 +446,22 @@ function Zones.stageAt(zoneId: number, worldX: number): StageDef
 		end
 	end
 	return Zones.STAGES[#Zones.STAGES]
+end
+
+--- What a signal at `worldX` in this zone should roll against: its rarity weights,
+--- and the id whose item pool the rolled rarity is drawn from.
+---
+--- The two are separate because they diverge in exactly one place. Zone 1's stages
+--- carry Zone 2 and Zone 3's loot tables and item pools — that is the whole point of
+--- a graded field, and it is why `itemZoneId` exists on StageDef. Everywhere else the
+--- zone answers for both.
+function Zones.lootAt(zoneId: number, worldX: number): ({ [string]: number }, number)
+	if zoneId == Zones.STAGED_ZONE then
+		local stage = Zones.stageAt(zoneId, worldX)
+		return stage.loot, stage.itemZoneId
+	end
+	local zone = Zones.get(zoneId)
+	return zone.loot, zoneId
 end
 
 --- The plate's CFrame: centred in XZ, sunk so its TOP face lands on SURFACE_Y.
