@@ -50,9 +50,16 @@
 	and lets one client panel be parameterised by track. It is deliberately the
 	capitalised Gear.TRACKS spelling, so no case conversion happens at the world
 	boundary — the single lowercase translation lives in Gear.profileKey and nowhere
-	else. World positions (STALLS.at, OUTFITTER.at/pitch) and both Radius values are
-	untouched — this file only changed what things look like, not where they are or
-	how close you need to stand.
+	else. Both Radius values are untouched by the reskin — this file only changed what
+	things look like, not how close you need to stand.
+
+	STALLS.at / OUTFITTER.at ARE NOT UNTOUCHED ANY MORE. Both were written when
+	Hub.PLAZA was symmetric about world X=0, so "centred at x=0" and "centred on the
+	plaza" were the same statement. They stopped being the same statement when the
+	plaza's compaction pass pinned its east edge to Zone 1 and pulled its west edge in
+	instead (see Hub.PLAZA's own comment) — the rectangle's midpoint moved to x=17.5,
+	so every X here carries that same +17.5 to stay centred on the plaza rather than on
+	a world coordinate the plaza no longer straddles.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -65,7 +72,7 @@ local Kit = require(script.Parent.Kit)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 5
+local BUILDER_VERSION = 6
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -73,16 +80,16 @@ local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 --- The three plaza stalls. `at` is world XZ; they face south, toward the fountainless
 --- middle of the plaza where a player walks in from the south gate.
 local STALLS = {
-	{ track = "Detector", at = { -42, 45 }, color = C.shopDetector, tagline = "find it deeper" },
-	{ track = "Magnet", at = { 0, 45 }, color = C.shopMagnet, tagline = "pull it harder" },
-	{ track = "Cleaner", at = { 42, 45 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
+	{ track = "Detector", at = { -24.5, 45 }, color = C.shopDetector, tagline = "find it deeper" },
+	{ track = "Magnet", at = { 17.5, 45 }, color = C.shopMagnet, tagline = "pull it harder" },
+	{ track = "Cleaner", at = { 59.5, 45 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
 }
 
 --- The outfitter's three counters, on one bench between the stalls and the camp gate.
 --- Radius 6 at a 13-stud pitch, so no two counters' circles overlap and standing at
 --- one is unambiguous.
 local OUTFITTER = {
-	at = { 0, -48 },
+	at = { 17.5, -48 },
 	pitch = 13,
 	counters = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },

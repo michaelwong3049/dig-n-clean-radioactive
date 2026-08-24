@@ -30,8 +30,10 @@
 	had been stretched in Z until it spanned the whole column so they could all border
 	it. Ringing the plots removed that constraint, and the plaza went back to being
 	sized by what is actually standing on it — the camp and the stalls occupy roughly
-	110x120 — rather than by the length of something parked beside it. 200x200 now,
-	down from 237x382: a little under half the area.
+	110x120 — rather than by the length of something parked beside it. Went to 200x200
+	next (a little under half the 237x382 area), then to the current 165x140 (see
+	Hub.PLAZA below) once 200x200 turned out to still be carrying 40+ studs of dead
+	space beyond the westmost stall's own footprint — walking distance for nothing.
 
 	THE FLOOR IS A CHECKERBOARD, and it is not only this floor. `Hub.TILES` below is
 	the grid; `tileRect` and `groundSlab` are exported so the plot ring and the six
@@ -47,7 +49,7 @@ local Kit = require(script.Parent.Kit)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 6
+local BUILDER_VERSION = 7
 
 local C = Kit.C
 local build = Kit.build
@@ -69,14 +71,25 @@ local build = Kit.build
 --               (Zones.get(1).center[1] - size[1]/2), and the plaza touching the
 --               field directly is the whole point of the layout.
 --
--- SYMMETRIC ABOUT X=0 ON PURPOSE, and it is worth 20 studs of extra width to keep it
--- that way. Everything standing on the plaza is centred on x=0 — the camp floor, the
--- three stalls, the outfitter bench — and the plot ring is DERIVED from this
--- rectangle, so an off-centre plaza puts the whole ring out of line with the shops it
--- is supposed to face. At minX = -80 the centre landed on x=10 and the pads sat ten
--- studs west of everything they framed. Shrink this by moving maxX, never minX.
-Hub.PLAZA = { minX = -100, maxX = 100, minZ = -100, maxZ = 100, thickness = 8, topY = 0 }
-Hub.CAMP_ORIGIN = CFrame.new(0, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
+-- NO LONGER SYMMETRIC ABOUT WORLD X=0, AND THAT IS FINE. It used to be, and the old
+-- guidance here ("shrink by moving maxX, never minX") assumed that could stay true —
+-- it cannot, once maxX is pinned to Zone 1 (above) and the west side is the only one
+-- left to compact. COMPACTED, PLAN: "a lot of walking to the zones" — the old 200x200
+-- square left 40+ studs of dead space beyond the westmost stall's own footprint doing
+-- nothing but padding the walk. minX moved -100 -> -65 (35 studs off the west edge);
+-- minZ/maxZ moved -100/100 -> -70/70 for the same reason on the other two open sides.
+--
+-- What actually matters is not world-X=0, it's the RECTANGLE'S OWN midpoint — camp
+-- floor, the three stalls, the outfitter bench and the plot ring (derived from this
+-- rectangle) all still have to agree on where "centre" is, or the ring reads out of
+-- line with the shops it faces, same failure the old comment described (at minX=-80,
+-- centre landed on x=10 and the pads sat ten studs off). The fix that generalises: the
+-- midpoint moved from x=0 to x=17.5 (`(minX+maxX)/2`), and everything hardcoded
+-- against the old centre — Hub.CAMP_ORIGIN below, Shops.luau's STALLS/OUTFITTER — moved
+-- the same +17.5, so they are exactly as centred on the new, smaller rectangle as they
+-- were on the old one.
+Hub.PLAZA = { minX = -65, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = 0 }
+Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
 
 -- ── The floor ─────────────────────────────────────────────────────────────────
 -- THE PLAZA IS A CHECKERBOARD OF STUDDED TILES, not one flat slab. At 200x200 a
