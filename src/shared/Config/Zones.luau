@@ -251,7 +251,17 @@ Zones.DEFS = {
 		-- what borders Zone 2 across the boundary blend. See "LIFE FADING INTO A
 		-- DEAD WASTELAND" below for the whole Zone 1-3 palette.
 		color = "C2A171",
-		material = "Sand",
+		-- Sand, not Ground, was the first choice here — closer to the name — but
+		-- Sand's baked texture is a directional dune-ripple normal map, and a plate
+		-- this large viewed at the grazing angle a WALKING PLAYER actually sees
+		-- (never top-down) renders that ripple as a set of hard parallel stripes
+		-- receding to the horizon. Confirmed live: swapping to Ground on the same
+		-- camera angle removes them completely and keeps the same dirt/sand family
+		-- and tone — Ground's noise is scattered rather than directional, so it
+		-- doesn't tile into visible lines. Zones 2 and 3 below made the same swap
+		-- for the same reason, since all three share this material for the
+		-- gradient's continuity — see "LIFE FADING INTO A DEAD WASTELAND" below.
+		material = "Ground",
 		-- Muted on purpose — see the note below. Nowhere near today's old 6BEE2E,
 		-- and nowhere near Zones 4-6's neon-pink/violet territory either.
 		ooze = { bright = "7CBF52", deep = "35501F", glow = "5C9A3C" },
@@ -280,7 +290,10 @@ Zones.DEFS = {
 		size = { 220, 240 },
 		-- Dun/tan, not green — see "LIFE FADING INTO A DEAD WASTELAND" below.
 		color = "B8935F",
-		material = "Sand",
+		-- Ground, not Sand — see Zone 1's note. Same swap, same reason: Sand's
+		-- dune-ripple texture reads as hard parallel lines at the angle a player
+		-- actually walks the field at.
+		material = "Ground",
 		-- Corrected after a live look: the first pass (8FB358) was not green-DOMINANT
 		-- enough — R was 80% of G, and Neon + bloom pushed it to cream, the exact
 		-- failure this file's own header warns about ("a yellow-green like #B6FF6E
@@ -309,9 +322,10 @@ Zones.DEFS = {
 		size = { 260, 240 },
 		-- Deeper desert khaki-brown — the endpoint of the Zone 1-3 gradient. Slate
 		-- read as dark grey rock and broke continuity with the sand family this
-		-- whole stretch depends on, so material moved to Sand too.
+		-- whole stretch depends on, so material moved off Slate. Ground, not Sand,
+		-- for the same dune-ripple reason as Zones 1 and 2's note.
 		color = "A67C4E",
-		material = "Sand",
+		material = "Ground",
 		-- Same green-dominance fix as Zone 2's — see that zone's comment. Slightly
 		-- darker again, the gradient's endpoint, but the same hue family throughout.
 		ooze = { bright = "649C42", deep = "2C4018", glow = "488432" },
