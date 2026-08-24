@@ -174,7 +174,7 @@ local ZONE_BLEND_STEPS = 14
 --- Which boundaries get one. Read by `buildZoneScenery` as well as by the builder
 --- below, because a blend is not something you can add on top: the zone's own ooze
 --- sheet has to get out of the way first. See `oozeInset`.
-local ZONE_BLENDS = { { from = 3, to = 5 } }
+local ZONE_BLENDS = { { from = 3, to = 4 } }
 
 --- How far this zone's ooze sheet must stop short of its west and east edges.
 ---
@@ -729,10 +729,12 @@ local function createScenery(): Model
 	buildStageMarkers(scenery, 1)
 
 	-- The one place on the east chain where the ground changes family rather than
-	-- shade. Zones 1-3 are green, 5 and 6 are pink and violet, so this is drawn once,
-	-- at the 3/5 boundary. 5 to 6 gets none: pink into violet is a step along one
-	-- scale, and the plates read as continuous without help.
-	buildZoneBlend(scenery, 3, 5)
+	-- shade. Zones 1-3 are green, 4-6 are plum/pink/violet, so this is drawn once, at
+	-- the 3/4 boundary — moved here from 3/5 when Zone 4 was pulled out of its old
+	-- spot by camp and slotted into the chain ahead of Zone 5. 4 to 5 and 5 to 6 get
+	-- none: plum into pink into violet is a step along one scale, and the plates read
+	-- as continuous without help.
+	buildZoneBlend(scenery, 3, 4)
 
 	-- Nothing in here may claim to be a zone. This is the invariant the whole
 	-- module/folder split exists to protect, so it is asserted, not trusted.
