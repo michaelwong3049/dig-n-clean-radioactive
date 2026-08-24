@@ -279,17 +279,28 @@ local BARREL_LIGHT_EVERY = 5
 --- Pool counts climb with the zone: Ash Flats is barely contaminated, the Belt is
 --- more ooze than ground. That gradient is the map teaching you what "deeper" means
 --- before any number on the HUD does.
+---
+--- REBALANCED, BACK-LOADED. The old counts (26/40/58/46/74/92) were not actually the
+--- climb the comment above describes — 58 to 46 is a DIP at Zone 4, and Zone 1 was
+--- already the sparsest field by a wide margin while 2 and 3 were denser than the
+--- pink zones that are supposed to read as more contaminated. The new counts are a
+--- clean monotonic climb, lighter everywhere (208 pools total, down from 336) and
+--- specifically lighter at the front: Zones 1-3 lost roughly two thirds of their
+--- pools each and now hold 21% of the field's total (was 37%), while Zones 5-6 lost
+--- only a sixth to a fifth and now hold 66% of it (was 49%). Early zones should read
+--- clean enough that a pool is a landmark; the Crater should still read as more ooze
+--- than ground.
 local THEME = {
-	[1] = { props = 26, pools = 26, kind = "trees" },
-	[2] = { props = 34, pools = 40, kind = "houses" },
-	[3] = { props = 40, pools = 58, kind = "sirens" },
-	[4] = { props = 18, pools = 46, kind = "barriers" },
+	[1] = { props = 26, pools = 10, kind = "trees" },
+	[2] = { props = 34, pools = 14, kind = "houses" },
+	[3] = { props = 40, pools = 20, kind = "sirens" },
+	[4] = { props = 18, pools = 26, kind = "barriers" },
 	-- The two pink zones. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
 	-- reads as dark ground rather than as hot ground. Prop counts do not climb with
 	-- them: past Zone 3 the story is that there is nothing left standing.
-	[5] = { props = 22, pools = 74, kind = "reactor" },
-	[6] = { props = 26, pools = 92, kind = "shards" },
+	[5] = { props = 22, pools = 60, kind = "reactor" },
+	[6] = { props = 26, pools = 78, kind = "shards" },
 }
 
 --- A leaking barrel: the story prop. Tipped or standing, always dripping.
