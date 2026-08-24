@@ -44,16 +44,6 @@
 --     5      600x520    25 (T5)   0.57    4.3s
 --     6      360x320    28 (T6)   1.92    1.4s
 --
--- STALE, AND FLAGGED RATHER THAN GUESSED AT. The UNIFORM WIDTH PASS below put
--- every zone at 495 wide, so every "size" and everything the "size" column feeds
--- (c, walk-to-next-contact) here is now wrong: Zone 1 and Zone 5 got smaller and
--- got FASTER to search (confirmed — Spec's own "still has to walk >= 2s" check on
--- Zone 1 fails post-resize), Zones 2/3/4/6 got wider and got SLOWER. Recomputing
--- six rows properly means pulling each zone's rated-tier detector radius from
--- Config/Gear too, which is a real pass, not a five-minute edit — left undone on
--- purpose rather than half-done. Use `World.coverageReport()` for live numbers
--- until this table gets that pass.
---
 -- ALL SIX ARE BUILT NOW, BUT ONLY ZONE 1 HAS EVER BEEN PLAYED, and the distinction
 -- still matters. The other five were sized against a c ~= 0.26 target back when the
 -- detector was a needle and c meant "fraction of ground where the arrow points at
@@ -73,7 +63,7 @@
 -- moving for that reason or because they overlapped Zone 1.
 --
 --     camp ═══> [ 1 Ash Flats ] [ 2 Suburbs ] [ 3 Fallout ] [ 4 Exclusion ] [ 5 Reactor ] [ 6 Crater ]
---       x            100-595      595-1090     1090-1585    1585-2080       2080-2575     2575-3070
+--       x            100-760      760-980      980-1240     1240-1530       1530-2130     2130-2490
 --
 -- ONE STRAIGHT CHAIN NOW, TIER-ORDERED, NOT A SIDE SPUR. Zone 4 used to sit north of
 -- Zone 1, touching only its west edge — close enough to camp that a fresh player
@@ -84,19 +74,11 @@
 -- 5-6 tier progression rather than a spur. That trades away the accidental-dive
 -- framing PLAN §3.5 describes; see the note on the Zone 4 def below.
 --
--- ALL SIX NOW SHARE ONE WIDTH, 495 STUDS — 0.75x Zone 1's own former width, applied
--- uniformly rather than each zone keeping its own. The old spread (220 to 660) read
--- as "overwhelmingly large and uneven" walking the chain; 495 is not a shrink for
--- every zone — only Zone 1 (was 660) and Zone 5 (was 600) actually got smaller,
--- Zones 2, 3, 4 and 6 (220/260/290/360) all grew to meet it — but it does mean every
--- zone now takes the same distance to cross, which is the actual thing being fixed.
--- Depth (size[2], the north-south dimension) is untouched on all six; this is a
--- width-only pass.
---
 -- The chain shares edges exactly, the same way the plaza's east edge already lands
 -- on Zone 1's west edge: `rectsOverlap` fails on `<`, not `<=`, so a shared edge is
--- touching rather than overlapping and World.verify() accepts it. Every centre below
--- is just "previous zone's east edge + 247.5" now that width is uniform.
+-- touching rather than overlapping and World.verify() accepts it. Walk east and it
+-- gets worse; that is the whole layout. Zones 5 and 6 both shifted +290 (Zone 4's
+-- width) east of their old centres to open the gap Zone 4 now fills.
 --
 -- ── THE COLOUR TURNS AT ZONE 4 ──────────────────────────────────────────────
 -- Zones 1-3 are the known world and stay green. From Zone 4 the ground goes plum,
@@ -237,17 +219,13 @@ Zones.DEFS = {
 		-- complex rather than two places joined by a long empty road. Re-measured
 		-- by that same 40, not re-walked stud-for-stud — close enough to stay
 		-- honest per the header's "measured, not aspirational" rule without
-		-- re-deriving the whole number from scratch. Still holds after the width
-		-- pass below: the west edge (x = 100) never moved, only the east one did.
+		-- re-deriving the whole number from scratch.
 		stationDistance = 190,
 		fogColor = Color3.fromHex("CFF3FF"),
 		fogEnd = 900,
 		loot = { Scrap = 48, Common = 41, Uncommon = 8.4, Rare = 2, Epic = 0.4, Legendary = 0.075, Mythic = 0.02, Anomaly = 0.001 },
-		-- UNIFORM WIDTH PASS: every zone is now 495 studs wide (0.75x Zone 1's own
-		-- former 660) — see "ALL SIX NOW SHARE ONE WIDTH" in the header. Centre
-		-- moves to keep the west edge at x = 100, flush on the plaza as always.
-		center = { 347.5, 0 },
-		size = { 495, 320 },
+		center = { 430, 0 },
+		size = { 660, 320 },
 		-- Matches STAGES[3]'s colour below, not STAGES[1]'s: paintBands covers this
 		-- plate edge-to-edge in stage bands, so this base colour is never actually
 		-- seen — it is only the fallback under a seam gap, and the fallback should
@@ -267,9 +245,6 @@ Zones.DEFS = {
 		baseRads = 2,
 		soilHardness = 2,
 		ratedSuitTier = 2,
-		-- STALE after the width pass below (was measured against the old, narrower
-		-- Zone 2) — flag for re-measuring in Studio, same honesty rule as Zone 4/6's
-		-- placeholders rather than guessing a new number.
 		stationDistance = 719,
 		-- Was a pale yellow-green — clashed with the dun/tan ground once that
 		-- stopped being green. Dusty tan haze instead.
@@ -280,14 +255,10 @@ Zones.DEFS = {
 		-- ENTIRELY INSIDE Zone 1 (x 100-760) — fine while it was never built, fatal
 		-- the moment it was, because overlapping zones resolve smallest-area-wins and
 		-- "which zone am I standing in" stops having an answer. Its west edge is now
-		-- exactly Zone 1's east edge.
-		--
-		-- UNIFORM WIDTH PASS: 220 -> 495, same rule as every other zone — this one
-		-- actually GREW (it was the narrowest zone by far). The header's coverage
-		-- and seconds-between-contacts figures for this zone are now stale too;
-		-- flagged in the header rather than recomputed here.
-		center = { 842.5, 0 },
-		size = { 495, 280 },
+		-- exactly Zone 1's east edge. Size is untouched, so the header's coverage and
+		-- seconds-between-contacts figures for this zone still hold.
+		center = { 870, 0 },
+		size = { 220, 280 },
 		-- Dun/tan, not green — see "LIFE FADING INTO A DEAD WASTELAND" below.
 		color = "B8935F",
 		material = "Sand",
@@ -306,7 +277,6 @@ Zones.DEFS = {
 		baseRads = 6,
 		soilHardness = 3,
 		ratedSuitTier = 3,
-		-- STALE, same as Zone 2's — see that zone's note.
 		stationDistance = 939,
 		-- Was a bright yellow-green — same clash as Zone 2's, deeper. Warmer dusty
 		-- khaki haze for the gradient's endpoint.
@@ -314,11 +284,9 @@ Zones.DEFS = {
 		fogEnd = 700,
 		loot = { Scrap = 34, Common = 40, Uncommon = 16.8, Rare = 6, Epic = 2.25, Legendary = 0.6, Mythic = 0.14, Anomaly = 0.005 },
 		-- Also moved east — its old centre at x = 760 was Zone 1's east EDGE, so half
-		-- of it lay inside Zone 1. Butted onto Zone 2 instead.
-		--
-		-- UNIFORM WIDTH PASS: 260 -> 495, same rule as every other zone.
-		center = { 1337.5, 0 },
-		size = { 495, 320 },
+		-- of it lay inside Zone 1. Butted onto Zone 2 instead. Size untouched.
+		center = { 1110, 0 },
+		size = { 260, 320 },
 		-- Deeper desert khaki-brown — the endpoint of the Zone 1-3 gradient. Slate
 		-- read as dark grey rock and broke continuity with the sand family this
 		-- whole stretch depends on, so material moved to Sand too.
@@ -343,24 +311,21 @@ Zones.DEFS = {
 		-- real trade: the accidental/impulsive dive PLAN §3.5 describes now requires
 		-- walking past three zones first, so it reads more like "the next zone" than
 		-- "a lethal thing twenty feet from home." The short-and-brutal tuning (15
-		-- rads ambient) is unchanged and still makes it a real risk to under-tiered
-		-- players passing through the chain, though the plate itself grew with the
-		-- width pass below (was 290x260).
+		-- rads ambient over a 290x260 plate) is unchanged and still makes it a real
+		-- risk to under-tiered players passing through the chain.
 		--
-		-- stationDistance below is STALE (was an interpolation for the old, narrower
-		-- plate) — flag it for re-measuring in Studio next time someone is touching
-		-- this file, same as Zone 6's honest placeholder.
+		-- stationDistance below is a rough interpolation between Zone 3's 939 and
+		-- Zone 5's (new) 1489, NOT walked — flag it for re-measuring in Studio next
+		-- time someone is touching this file, same as Zone 6's honest placeholder.
 		stationDistance = 1200,
 		fogColor = Color3.fromHex("6FE04A"),
 		fogEnd = 600,
 		loot = { Scrap = 15, Common = 24, Uncommon = 28, Rare = 20, Epic = 9, Legendary = 3, Mythic = 0.8, Anomaly = 0.03 },
-		-- Slotted flush between Zone 3's east edge and Zone 5's west edge — exactly
-		-- its own width, zero gap either side, same as before. z centring (0,
-		-- matching the rest of the chain) untouched.
-		--
-		-- UNIFORM WIDTH PASS: 290 -> 495, same rule as every other zone.
-		center = { 1832.5, 0 },
-		size = { 495, 260 },
+		-- Slotted flush between Zone 3's east edge (x = 1240) and Zone 5's new west
+		-- edge (x = 1530) — exactly its own width, zero gap either side. Size and z
+		-- centring (0, matching the rest of the chain) untouched.
+		center = { 1385, 0 },
+		size = { 290, 260 },
 		-- WHERE THE GREEN STOPS. See "THE COLOUR TURNS" in the header.
 		color = "73246B",
 		material = "Slate",
@@ -373,19 +338,16 @@ Zones.DEFS = {
 		baseRads = 40,
 		soilHardness = 5,
 		ratedSuitTier = 5,
-		stationDistance = 1489, -- STALE again after the width pass below; not re-walked
+		stationDistance = 1489, -- was 1199; +290 from Zone 4's insertion, still not re-walked
 		fogColor = Color3.fromHex("C8E85A"),
 		fogEnd = 500,
 		loot = { Scrap = 7, Common = 15, Uncommon = 25, Rare = 26, Epic = 17, Legendary = 7, Mythic = 2.4, Anomaly = 0.1 },
 		-- Was an island at (-700, -620) with several hundred studs of open void
 		-- between it and the nearest floor. Moved onto the east chain, then shifted
-		-- +290 when Zone 4 was inserted ahead of it — now butted against Zone 4
-		-- instead of Zone 3 directly.
-		--
-		-- UNIFORM WIDTH PASS: 600 -> 495, same rule as every other zone — this is
-		-- one of only two zones (with Zone 1) that actually got smaller.
-		center = { 2327.5, 0 },
-		size = { 495, 520 },
+		-- +290 again (Zone 4's width) when Zone 4 was inserted ahead of it — now
+		-- butted against Zone 4 instead of Zone 3 directly. Size untouched.
+		center = { 1830, 0 },
+		size = { 600, 520 },
 		color = "A02268",
 		material = "Glass",
 		ooze = { bright = "FF3D9A", deep = "7A0F45", glow = "FF3D9A" },
@@ -407,16 +369,15 @@ Zones.DEFS = {
 		-- and it is now the far end of the east chain rather than an island, so the
 		-- number went UP. Two minutes of walking to reach the endgame field is the
 		-- strongest argument yet for building it its own station; until then this
-		-- number is the warning, not the design. It went up AGAIN when Zone 4 was
-		-- inserted earlier in the chain, and is STALE YET AGAIN after the width pass
-		-- below — still not re-walked, same honesty caveat as before.
+		-- number is the warning, not the design. It went up AGAIN, by the same +290,
+		-- when Zone 4 was inserted earlier in the chain and pushed everything after
+		-- it east — still not re-walked, same honesty caveat as before.
 		stationDistance = 2089,
 		fogColor = Color3.fromHex("FFD24A"),
 		fogEnd = 400,
 		loot = { Scrap = 2, Common = 6, Uncommon = 15, Rare = 24, Epic = 26, Legendary = 18, Mythic = 8, Anomaly = 0.8 },
-		-- UNIFORM WIDTH PASS: 360 -> 495, same rule as every other zone.
-		center = { 2822.5, 0 },
-		size = { 495, 320 },
+		center = { 2310, 0 },
+		size = { 360, 320 },
 		color = "5B1FA8",
 		-- Glass, not Neon. The plate used to be Neon gold, which at Brightness 2.4
 		-- with bloom is a 360x320 light source rather than ground — survivable while
@@ -434,10 +395,6 @@ Zones.DEFS = {
 -- field centre, so the field can move without the stage boundaries drifting away
 -- from the loot they divide. The later stages reuse the existing zone item pools
 -- until the catalogue is split into an explicitly staged content model.
---
--- Bounds below are scaled by exactly 0.75, same as Zone 1's own width (660 ->
--- 495) in the UNIFORM WIDTH PASS above — clean scaling since 495 IS 660*0.75, so
--- each stage keeps the same proportional third of the (now smaller) field.
 --
 -- `color` is what actually separates them on the ground. There used to be a concrete
 -- barrier at each boundary; build/Scenery paints the plate in these three colours
@@ -461,8 +418,8 @@ Zones.STAGES = {
 	{
 		id = 1,
 		name = "Outer Ash",
-		minX = -247.5,
-		maxX = -82.5,
+		minX = -330,
+		maxX = -110,
 		unlockTier = 1,
 		loot = Zones.DEFS[1].loot,
 		itemZoneId = 1,
@@ -471,8 +428,8 @@ Zones.STAGES = {
 	{
 		id = 2,
 		name = "Hot Wreckage",
-		minX = -82.5,
-		maxX = 75,
+		minX = -110,
+		maxX = 100,
 		unlockTier = 2,
 		loot = Zones.DEFS[2].loot,
 		itemZoneId = 2,
@@ -481,8 +438,8 @@ Zones.STAGES = {
 	{
 		id = 3,
 		name = "Deep Fallout",
-		minX = 75,
-		maxX = 247.5,
+		minX = 100,
+		maxX = 330,
 		unlockTier = 3,
 		loot = Zones.DEFS[3].loot,
 		itemZoneId = 3,
