@@ -44,6 +44,17 @@
 --     5      600x520    25 (T5)   0.57    4.3s
 --     6      360x320    28 (T6)   1.92    1.4s
 --
+-- STALE, AND FLAGGED RATHER THAN GUESSED AT. The UNIFORM DEPTH PASS further below
+-- set every zone's Z (second size number) to 240, so every "size" and everything
+-- it feeds (c, walk-to-next-contact) here is wrong again — every zone's area
+-- shrank this time, Zone 1's by 25% specifically (confirmed live: Spec's own
+-- "still has to walk >= 2s" check on Zone 1 fails post-resize, same failure as
+-- the earlier width pass produced before it was reverted). Recomputing six rows
+-- properly means pulling each zone's rated-tier detector radius from Config/Gear
+-- too, which is a real pass, not a five-minute edit — left undone on purpose
+-- rather than half-done. Use `World.coverageReport()` for live numbers until this
+-- table gets that pass.
+--
 -- ALL SIX ARE BUILT NOW, BUT ONLY ZONE 1 HAS EVER BEEN PLAYED, and the distinction
 -- still matters. The other five were sized against a c ~= 0.26 target back when the
 -- detector was a needle and c meant "fraction of ground where the arrow points at
@@ -225,7 +236,12 @@ Zones.DEFS = {
 		fogEnd = 900,
 		loot = { Scrap = 48, Common = 41, Uncommon = 8.4, Rare = 2, Epic = 0.4, Legendary = 0.075, Mythic = 0.02, Anomaly = 0.001 },
 		center = { 430, 0 },
-		size = { 660, 320 },
+		-- UNIFORM DEPTH PASS: every zone's side-to-side breadth (the Z dimension,
+		-- perpendicular to the camp-to-Crater chain) is now 240 — 0.75x Zone 1's own
+		-- former 320 — same rule as the earlier, since-corrected width pass, but on
+		-- the axis actually meant: how wide the field feels standing in it, not how
+		-- far you walk crossing it. See the header note below the chain diagram.
+		size = { 660, 240 },
 		-- Matches STAGES[3]'s colour below, not STAGES[1]'s: paintBands covers this
 		-- plate edge-to-edge in stage bands, so this base colour is never actually
 		-- seen — it is only the fallback under a seam gap, and the fallback should
@@ -258,7 +274,8 @@ Zones.DEFS = {
 		-- exactly Zone 1's east edge. Size is untouched, so the header's coverage and
 		-- seconds-between-contacts figures for this zone still hold.
 		center = { 870, 0 },
-		size = { 220, 280 },
+		-- UNIFORM DEPTH PASS: 280 -> 240, see Zone 1's note.
+		size = { 220, 240 },
 		-- Dun/tan, not green — see "LIFE FADING INTO A DEAD WASTELAND" below.
 		color = "B8935F",
 		material = "Sand",
@@ -286,7 +303,8 @@ Zones.DEFS = {
 		-- Also moved east — its old centre at x = 760 was Zone 1's east EDGE, so half
 		-- of it lay inside Zone 1. Butted onto Zone 2 instead. Size untouched.
 		center = { 1110, 0 },
-		size = { 260, 320 },
+		-- UNIFORM DEPTH PASS: 320 -> 240, see Zone 1's note.
+		size = { 260, 240 },
 		-- Deeper desert khaki-brown — the endpoint of the Zone 1-3 gradient. Slate
 		-- read as dark grey rock and broke continuity with the sand family this
 		-- whole stretch depends on, so material moved to Sand too.
@@ -325,7 +343,8 @@ Zones.DEFS = {
 		-- edge (x = 1530) — exactly its own width, zero gap either side. Size and z
 		-- centring (0, matching the rest of the chain) untouched.
 		center = { 1385, 0 },
-		size = { 290, 260 },
+		-- UNIFORM DEPTH PASS: 260 -> 240, see Zone 1's note.
+		size = { 290, 240 },
 		-- WHERE THE GREEN STOPS. See "THE COLOUR TURNS" in the header.
 		color = "73246B",
 		material = "Slate",
@@ -347,7 +366,9 @@ Zones.DEFS = {
 		-- +290 again (Zone 4's width) when Zone 4 was inserted ahead of it — now
 		-- butted against Zone 4 instead of Zone 3 directly. Size untouched.
 		center = { 1830, 0 },
-		size = { 600, 520 },
+		-- UNIFORM DEPTH PASS: 520 -> 240, see Zone 1's note — the biggest change of
+		-- the six, this was by far the deepest field.
+		size = { 600, 240 },
 		color = "A02268",
 		material = "Glass",
 		ooze = { bright = "FF3D9A", deep = "7A0F45", glow = "FF3D9A" },
@@ -377,7 +398,8 @@ Zones.DEFS = {
 		fogEnd = 400,
 		loot = { Scrap = 2, Common = 6, Uncommon = 15, Rare = 24, Epic = 26, Legendary = 18, Mythic = 8, Anomaly = 0.8 },
 		center = { 2310, 0 },
-		size = { 360, 320 },
+		-- UNIFORM DEPTH PASS: 320 -> 240, see Zone 1's note.
+		size = { 360, 240 },
 		color = "5B1FA8",
 		-- Glass, not Neon. The plate used to be Neon gold, which at Brightness 2.4
 		-- with bloom is a 360x320 light source rather than ground — survivable while
