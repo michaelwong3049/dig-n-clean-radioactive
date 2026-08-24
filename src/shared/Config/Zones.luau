@@ -62,14 +62,23 @@
 -- touches nothing walkable is a zone nobody can reach. Four of the five needed
 -- moving for that reason or because they overlapped Zone 1.
 --
---     camp ═══> [ 1 Ash Flats ] [ 2 Suburbs ] [ 3 Fallout ] [ 5 Reactor ] [ 6 Crater ]
---       ║          x 100-760      760-980      980-1240     1240-1840     1840-2200
---       ╚═> [ 4 Exclusion Belt ]   (north, z 152-412 — the dive, deliberately close)
+--     camp ═══> [ 1 Ash Flats ] [ 2 Suburbs ] [ 3 Fallout ] [ 4 Exclusion ] [ 5 Reactor ] [ 6 Crater ]
+--       x            100-760      760-980      980-1240     1240-1530       1530-2130     2130-2490
 --
--- The east chain shares edges exactly, the same way the plaza's east edge already
--- lands on Zone 1's west edge: `rectsOverlap` fails on `<`, not `<=`, so a shared
--- edge is touching rather than overlapping and World.verify() accepts it. Walk east
--- and it gets worse; that is the whole layout.
+-- ONE STRAIGHT CHAIN NOW, TIER-ORDERED, NOT A SIDE SPUR. Zone 4 used to sit north of
+-- Zone 1, touching only its west edge — close enough to camp that a fresh player
+-- crossed into it by accident, which was the point: PLAN §3.5's "the Dive" wants the
+-- lethal field to be somewhere you are standing anyway, not an expedition. Pulled out
+-- of the camp's doorstep and slotted between Zone 3 and Zone 5 instead, so walking
+-- straight into it now means passing through Zones 1-3 first — a deliberate 1-2-3-4-
+-- 5-6 tier progression rather than a spur. That trades away the accidental-dive
+-- framing PLAN §3.5 describes; see the note on the Zone 4 def below.
+--
+-- The chain shares edges exactly, the same way the plaza's east edge already lands
+-- on Zone 1's west edge: `rectsOverlap` fails on `<`, not `<=`, so a shared edge is
+-- touching rather than overlapping and World.verify() accepts it. Walk east and it
+-- gets worse; that is the whole layout. Zones 5 and 6 both shifted +290 (Zone 4's
+-- width) east of their old centres to open the gap Zone 4 now fills.
 --
 -- ── THE COLOUR TURNS AT ZONE 4 ──────────────────────────────────────────────
 -- Zones 1-3 are the known world and stay green. From Zone 4 the ground goes plum,
@@ -270,24 +279,28 @@ Zones.DEFS = {
 		baseRads = 15,
 		soilHardness = 4,
 		ratedSuitTier = 4,
-		-- Deliberately SHORT, and it got shorter. PLAN §15's second validation
-		-- question is "do players cross into Zone 4 unrated, on purpose, more than
-		-- once?", and it is only answerable if the lethal field is somewhere you are
-		-- standing anyway rather than somewhere you make an expedition to.
+		-- Deliberately SHORT. PLAN §15's second validation question is "do players
+		-- cross into Zone 4 unrated, on purpose, more than once?" — that used to be
+		-- answerable because the field sat right off the camp's doorstep. MOVED INTO
+		-- THE EAST CHAIN, between Zone 3 and Zone 5, so the map reads as one straight
+		-- tier-ordered progression instead of a side spur (see the header). That is a
+		-- real trade: the accidental/impulsive dive PLAN §3.5 describes now requires
+		-- walking past three zones first, so it reads more like "the next zone" than
+		-- "a lethal thing twenty feet from home." The short-and-brutal tuning (15
+		-- rads ambient over a 290x260 plate) is unchanged and still makes it a real
+		-- risk to under-tiered players passing through the chain.
 		--
-		-- The old description of where that was — behind the camp's back wall, behind
-		-- a fence with a hole in it, in plain sight of the trader's counter — is three
-		-- things that no longer exist. What puts it under your nose now is the plot
-		-- ring: this field's south edge IS the north edge of the apron between the two
-		-- north bases, so you step off your own doorstep into 15 rads. The cleansing
-		-- station on that pad is 6 studs behind you, which is the point.
-		stationDistance = 6,
+		-- stationDistance below is a rough interpolation between Zone 3's 939 and
+		-- Zone 5's (new) 1489, NOT walked — flag it for re-measuring in Studio next
+		-- time someone is touching this file, same as Zone 6's honest placeholder.
+		stationDistance = 1200,
 		fogColor = Color3.fromHex("6FE04A"),
 		fogEnd = 600,
 		loot = { Scrap = 15, Common = 24, Uncommon = 28, Rare = 20, Epic = 9, Legendary = 3, Mythic = 0.8, Anomaly = 0.03 },
-		-- Moved south and west to touch that apron edge (z = 152) and to stop dead on
-		-- Zone 1's west edge (x = 100) rather than crossing it. Size untouched.
-		center = { -45, 282 },
+		-- Slotted flush between Zone 3's east edge (x = 1240) and Zone 5's new west
+		-- edge (x = 1530) — exactly its own width, zero gap either side. Size and z
+		-- centring (0, matching the rest of the chain) untouched.
+		center = { 1385, 0 },
 		size = { 290, 260 },
 		-- WHERE THE GREEN STOPS. See "THE COLOUR TURNS" in the header.
 		color = "73246B",
@@ -301,14 +314,15 @@ Zones.DEFS = {
 		baseRads = 40,
 		soilHardness = 5,
 		ratedSuitTier = 5,
-		stationDistance = 1199, -- measured from the nearest cleansing station
+		stationDistance = 1489, -- was 1199; +290 from Zone 4's insertion, still not re-walked
 		fogColor = Color3.fromHex("C8E85A"),
 		fogEnd = 500,
 		loot = { Scrap = 7, Common = 15, Uncommon = 25, Rare = 26, Epic = 17, Legendary = 7, Mythic = 2.4, Anomaly = 0.1 },
 		-- Was an island at (-700, -620) with several hundred studs of open void
-		-- between it and the nearest floor. Moved onto the east chain, butted against
-		-- Zone 3. Size untouched.
-		center = { 1540, 0 },
+		-- between it and the nearest floor. Moved onto the east chain, then shifted
+		-- +290 again (Zone 4's width) when Zone 4 was inserted ahead of it — now
+		-- butted against Zone 4 instead of Zone 3 directly. Size untouched.
+		center = { 1830, 0 },
 		size = { 600, 520 },
 		color = "A02268",
 		material = "Glass",
@@ -331,12 +345,14 @@ Zones.DEFS = {
 		-- and it is now the far end of the east chain rather than an island, so the
 		-- number went UP. Two minutes of walking to reach the endgame field is the
 		-- strongest argument yet for building it its own station; until then this
-		-- number is the warning, not the design.
-		stationDistance = 1799,
+		-- number is the warning, not the design. It went up AGAIN, by the same +290,
+		-- when Zone 4 was inserted earlier in the chain and pushed everything after
+		-- it east — still not re-walked, same honesty caveat as before.
+		stationDistance = 2089,
 		fogColor = Color3.fromHex("FFD24A"),
 		fogEnd = 400,
 		loot = { Scrap = 2, Common = 6, Uncommon = 15, Rare = 24, Epic = 26, Legendary = 18, Mythic = 8, Anomaly = 0.8 },
-		center = { 2020, 0 },
+		center = { 2310, 0 },
 		size = { 360, 320 },
 		color = "5B1FA8",
 		-- Glass, not Neon. The plate used to be Neon gold, which at Brightness 2.4
