@@ -132,7 +132,7 @@ Dock.ROW_MAX_WIDTH = 1400 -- absolute cap so an ultrawide monitor does not stret
 
 Dock.BAGCOUNT_HEIGHT = 18
 
-Dock.METER_SIZE = UDim2.fromOffset(280, 60) -- was 240x46
+Dock.METER_SIZE = UDim2.fromOffset(280, 144) -- was 240x46, then 280x60 before HEALTH joined RADS in one panel
 Dock.DIGBUTTON_SIZE = UDim2.fromOffset(260, 60) -- was 230x48
 Dock.SCOPE_DIAL = 180 -- was DetectorController.DIAL_SIZE 150
 

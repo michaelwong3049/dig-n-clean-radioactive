@@ -42,6 +42,12 @@ local state = {
 	inShower = false,
 	zoneName = "Base Camp",
 	downed = false,
+
+	health = 100,
+	maxHealth = 100,
+	healthBurn = 0,
+	survivable = -1, -- -1 mirrors DebugService's "never" convention
+	threat = "",
 }
 
 local ui = {}
@@ -49,6 +55,21 @@ local shakeSeed = 0
 
 local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
+end
+
+--- Mirrors DebugHudController's formatting exactly, so the countdown a player sees here
+--- and the one a dev sees on F3 never disagree. -1 is "never" (indefinite), not a real
+--- duration — see ExposureService's `finite()`.
+local function clock(seconds: number): string
+	if seconds < 0 then
+		return "never"
+	end
+	if seconds >= 3600 then
+		return "1h+"
+	end
+	local m = math.floor(seconds / 60)
+	local s = math.floor(seconds % 60)
+	return string.format("%d:%02d", m, s)
 end
 
 -- ── Build ───────────────────────────────────────────────────────────
@@ -94,11 +115,11 @@ local function build(): ScreenGui
 	}
 
 	-- The meter. Left half of the instrument band, mirrored across the dig button
-	-- from the detector dial — see UIKit.Dock for the whole band's layout. It used to
-	-- stand alone in the bottom-left corner with no background of its own; now that
-	-- it is packed into a dense cluster with the button and the dial either side of
-	-- it, it needs a real panel to read as one instrument rather than bleeding into
-	-- its neighbours.
+	-- from the detector dial — see UIKit.Dock for the whole band's layout. HEALTH and
+	-- RADS stack as two instrument rows in one panel rather than two panels, so the
+	-- dock's shared layout math (Dock.INSTRUMENT_HEIGHT and everything derived from
+	-- it) never has to know a second panel exists — see UIKit.Dock.METER_SIZE's
+	-- comment for why growing this panel taller is safe.
 	local panel, meterStroke = UIKit.panel(gui, {
 		name = "Meter",
 		size = Dock.METER_SIZE,
@@ -107,52 +128,106 @@ local function build(): ScreenGui
 		color = UIKit.C.panel,
 		transparency = 0.25,
 		cornerRadius = UIKit.Radius.card,
+		strokeThickness = UIKit.Stroke.thick,
 		zIndex = 4,
 	})
 	ui.meterStroke = meterStroke
 
-	ui.caption = UIKit.label(panel, {
-		name = "Caption",
-		position = UDim2.fromOffset(16, 8),
-		size = UDim2.new(1, -32, 0, 20),
+	--- One "CAPTION ... VALUE" row plus a rounded track/fill bar underneath, the
+	--- shape both HEALTH and RADS share. Returns the pieces render() needs to drive.
+	local function instrumentRow(prefix: string, y: number, captionText: string, barHeight: number)
+		local caption = UIKit.label(panel, {
+			name = prefix .. "Caption",
+			position = UDim2.fromOffset(16, y),
+			size = UDim2.new(1, -32, 0, 18),
+			font = UIKit.Font.body,
+			textSize = 16,
+			color = DIM,
+			text = captionText,
+			zIndex = 4,
+		})
+
+		local value = UIKit.label(panel, {
+			name = prefix .. "Value",
+			position = UDim2.fromOffset(16, y),
+			size = UDim2.new(1, -32, 0, 18),
+			font = UIKit.Font.body,
+			textSize = 16,
+			color = DIM,
+			xAlign = Enum.TextXAlignment.Right,
+			zIndex = 4,
+		})
+
+		local track = Instance.new("Frame")
+		track.Name = prefix .. "Track"
+		track.Position = UDim2.fromOffset(16, y + 22)
+		track.Size = UDim2.new(1, -32, 0, barHeight)
+		track.BackgroundColor3 = UIKit.C.empty
+		track.BackgroundTransparency = 0.25
+		track.BorderSizePixel = 0
+		track.ZIndex = 4
+		track.Parent = panel
+
+		local trackCorner = Instance.new("UICorner")
+		trackCorner.CornerRadius = UDim.new(0, barHeight / 2)
+		trackCorner.Parent = track
+
+		local fill = Instance.new("Frame")
+		fill.Name = prefix .. "Fill"
+		fill.Size = UDim2.fromScale(0, 1)
+		fill.BackgroundColor3 = GREEN
+		fill.BorderSizePixel = 0
+		fill.ZIndex = 5
+		fill.Parent = track
+
+		local fillCorner = Instance.new("UICorner")
+		fillCorner.CornerRadius = UDim.new(0, barHeight / 2)
+		fillCorner.Parent = fill
+
+		return caption, value, fill
+	end
+
+	-- Row 1: HEALTH — the taller, primary bar. Suit-failure countdown lives in the
+	-- quiet row right underneath it, reserved but invisible until there's something
+	-- to say (PLAN §3.1: escalate by feel, not by readout the player has to hunt for).
+	ui.healthCaption, ui.healthValue, ui.healthFill = instrumentRow("Health", 8, "HEALTH", 16)
+
+	ui.countdown = UIKit.label(panel, {
+		name = "Countdown",
+		position = UDim2.fromOffset(16, 50),
+		size = UDim2.new(1, -32, 0, 16),
 		font = UIKit.Font.body,
-		textSize = 16,
-		color = DIM,
-		text = "RADS",
+		textSize = 14,
+		color = UIKit.C.burn,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "",
+		visible = false,
 		zIndex = 4,
 	})
 
-	local track = Instance.new("Frame")
-	track.Position = UDim2.fromOffset(16, 30)
-	track.Size = UDim2.new(1, -32, 0, 14)
-	track.BackgroundColor3 = Color3.fromHex("14180F")
-	track.BackgroundTransparency = 0.25
-	track.BorderSizePixel = 0
-	track.ZIndex = 4
-	track.Parent = panel
-
-	local trackCorner = Instance.new("UICorner")
-	trackCorner.CornerRadius = UDim.new(0, 7)
-	trackCorner.Parent = track
-
-	ui.fill = Instance.new("Frame")
-	ui.fill.Size = UDim2.fromScale(0, 1)
-	ui.fill.BackgroundColor3 = GREEN
-	ui.fill.BorderSizePixel = 0
-	ui.fill.ZIndex = 5
-	ui.fill.Parent = track
-
-	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.new(0, 7)
-	fillCorner.Parent = ui.fill
+	-- Row 2: RADS — the exposure meter, unchanged in spirit, just given the same
+	-- caption+value shape as HEALTH above.
+	ui.caption, ui.percentValue, ui.fill = instrumentRow("Rads", 72, "RADS", 14)
 
 	ui.readout = UIKit.label(panel, {
 		name = "Readout",
-		position = UDim2.fromOffset(16, 46),
-		size = UDim2.new(1, -32, 0, 13),
+		position = UDim2.fromOffset(16, 112),
+		size = UDim2.new(1, -32, 0, 16),
 		font = UIKit.Font.body,
 		textSize = 15,
 		color = DIM,
+		text = "",
+		zIndex = 4,
+	})
+
+	ui.zoneLabel = UIKit.label(panel, {
+		name = "ZoneLabel",
+		position = UDim2.fromOffset(16, 112),
+		size = UDim2.new(1, -32, 0, 16),
+		font = UIKit.Font.body,
+		textSize = 13,
+		color = DIM,
+		xAlign = Enum.TextXAlignment.Right,
 		text = "",
 		zIndex = 4,
 	})
@@ -231,7 +306,33 @@ local function render(dt: number)
 	local label = if state.inShower then "RADS  \u{2014}  FLUSHING" else "RADS"
 	ui.caption.Text = label
 	ui.caption.TextColor3 = if frac >= Tuning.EXPOSURE_DANGER then colour else DIM
-	ui.readout.Text = string.format("%d%%   %+.2f r/s   %s", math.floor(frac * 100 + 0.5), state.net, state.zoneName)
+	ui.percentValue.Text = string.format("%d%%", math.floor(frac * 100 + 0.5))
+	ui.percentValue.TextColor3 = if frac >= Tuning.EXPOSURE_DANGER then colour else DIM
+	ui.readout.Text = string.format("%+.2f r/s", state.net)
+	ui.zoneLabel.Text = state.zoneName
+
+	-- HEALTH. Green is exposure's colour and exposure's alone (PLAN §14's one-colour
+	-- rule), so a hurting suit reads amber -> red the same way any other game's HP bar
+	-- would, and only turns white — the ONE white in the game — once failing is real.
+	local healthFrac = state.health / math.max(state.maxHealth, 1)
+	local healthColour = if state.failing then WHITE elseif healthFrac < 0.3 then UIKit.C.red else UIKit.C.amber
+	ui.healthFill.Size = UDim2.fromScale(math.clamp(healthFrac, 0, 1), 1)
+	ui.healthFill.BackgroundColor3 = healthColour
+	ui.healthValue.Text = string.format("%d/%d", math.floor(state.health + 0.5), state.maxHealth)
+	ui.healthValue.TextColor3 = healthColour
+	ui.healthCaption.TextColor3 = if state.failing then healthColour else DIM
+
+	-- The countdown PLAN §3.5 calls "the single most important UI element" for suit
+	-- failure — but only while it means something. Downed and showering both already
+	-- have their own loud signals (the curtain, "FLUSHING"), so this stays hidden
+	-- there too rather than repeating the news.
+	local showCountdown = not state.downed and not state.inShower and state.survivable >= 0
+	ui.countdown.Visible = showCountdown
+	if showCountdown then
+		local burning = state.threat == "burn"
+		ui.countdown.Text = string.format("%s  %s", if burning then "SUIT FAILING \u{2014}" else "SURVIVABLE \u{2014}", clock(state.survivable))
+		ui.countdown.TextColor3 = if burning then WHITE else GREEN
+	end
 
 	-- Above the danger threshold the world starts moving. PLAN §3.1 wants vision
 	-- distorted here, not merely tinted — the player should be uncomfortable.
@@ -305,6 +406,14 @@ function Hud.start()
 		state.inShower = payload.inShower == true
 		state.zoneName = payload.zoneName or ""
 		state.downed = payload.downed == true
+
+		-- maxHealth before health: health / maxHealth is divided every render frame,
+		-- so a stale maxHealth from an old payload must never outlive its own health.
+		state.maxHealth = payload.maxHealth or state.maxHealth
+		state.health = payload.health or state.health
+		state.healthBurn = payload.healthBurn or 0
+		state.survivable = if payload.survivable ~= nil then payload.survivable else -1
+		state.threat = payload.threat or ""
 	end)
 
 	Net.get("Blackout").OnClientEvent:Connect(function(info)
