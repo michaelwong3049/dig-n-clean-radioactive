@@ -158,10 +158,10 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT + Dock.GAP
 -- the dock.
 Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 
--- The instrument row: dig button sits dead-center on X as the primary touch/click
--- target; meter and dial sit either side of it, each offset by half the button's
--- width plus one gap.
-Dock.METER_RIGHT_OFFSET = Dock.DIGBUTTON_SIZE.X.Offset / 2 + Dock.INSTRUMENT_GAP
+-- Dig button sits dead-center on X as the primary touch/click target; the dial sits
+-- to its right, offset by half the button's width plus one gap. The meter now lives
+-- on its own at the bottom-left screen edge (see HudController), so it no longer
+-- needs a same-row offset from the button.
 Dock.DIAL_LEFT_OFFSET = Dock.DIGBUTTON_SIZE.X.Offset / 2 + Dock.INSTRUMENT_GAP
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────

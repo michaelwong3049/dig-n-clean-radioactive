@@ -114,17 +114,19 @@ local function build(): ScreenGui
 		edge(gui, "EdgeRight", UDim2.new(0, 260, 1, 0), UDim2.new(1, -260, 0, 0), 0),
 	}
 
-	-- The meter. Left half of the instrument band, mirrored across the dig button
-	-- from the detector dial — see UIKit.Dock for the whole band's layout. HEALTH and
-	-- RADS stack as two instrument rows in one panel rather than two panels, so the
-	-- dock's shared layout math (Dock.INSTRUMENT_HEIGHT and everything derived from
-	-- it) never has to know a second panel exists — see UIKit.Dock.METER_SIZE's
-	-- comment for why growing this panel taller is safe.
+	-- The meter. Bottom-left screen edge, clear of the dig button/dial cluster — it
+	-- shares the dig button's baseline (Dock.INSTRUMENT_BOTTOM) so it still sits in
+	-- the same reserved instrument row and never encroaches on the status line above
+	-- or the bag count/hotbar below, just anchored to the left edge instead of the
+	-- button's side. HEALTH and RADS stack as two instrument rows in one panel rather
+	-- than two panels, so the dock's shared layout math (Dock.INSTRUMENT_HEIGHT and
+	-- everything derived from it) never has to know a second panel exists — see
+	-- UIKit.Dock.METER_SIZE's comment for why growing this panel taller is safe.
 	local panel, meterStroke = UIKit.panel(gui, {
 		name = "Meter",
 		size = Dock.METER_SIZE,
-		position = UDim2.new(0.5, -Dock.METER_RIGHT_OFFSET, 1, -Dock.INSTRUMENT_BOTTOM),
-		anchorPoint = Vector2.new(1, 1),
+		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -Dock.INSTRUMENT_BOTTOM),
+		anchorPoint = Vector2.new(0, 1),
 		color = UIKit.C.panel,
 		transparency = 0.25,
 		cornerRadius = UIKit.Radius.card,
