@@ -17,6 +17,7 @@ local ORDER = {
 	"HudController", -- Phase 2: rad meter, vignette, distortion, blackout
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
 	"AtmosphereController", -- per-zone fog; reads zoneId off ExposureState
+	"IndexController", -- the item index GUI; bottom-right button, reads IndexState + Unearthed
 	"DebugHudController",
 }
 

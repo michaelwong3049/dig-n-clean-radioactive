@@ -120,6 +120,7 @@ local digTarget: { [Player]: string? } = {}
 local sweepRemote: any = nil
 local digRemote: any = nil
 local unearthedRemote: any = nil
+local indexRemote: any = nil
 
 -- ── The auras ─────────────────────────────────────────────────────────
 
@@ -732,6 +733,7 @@ function DigService.init()
 	sweepRemote = Net.get("SweepState")
 	digRemote = Net.get("DigInput")
 	unearthedRemote = Net.get("Unearthed")
+	indexRemote = Net.get("IndexState")
 
 	-- Auras are runtime objects, but Workspace is a thing people save from Studio, so
 	-- a folder full of them can absolutely end up published into the place. Those
@@ -750,6 +752,14 @@ end
 
 function DigService.start()
 	topUpField()
+
+	-- The index GUI's one and only snapshot. Everything discovered AFTER this fires
+	-- arrives incrementally instead, via the itemId already riding along on every
+	-- unearthedRemote fire below — no second remote needed to keep the client caught
+	-- up, just this one at load to seed it with what a returning player already knew.
+	DataService.onLoaded(function(player, data)
+		indexRemote:FireClient(player, data.discovered)
+	end)
 
 	digRemote.OnServerEvent:Connect(function(player: Player, isHolding: any)
 		holding[player] = isHolding == true

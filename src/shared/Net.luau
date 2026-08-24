@@ -44,6 +44,11 @@ local REMOTES: { [string]: string } = {
 	-- Phase 2: exposure.
 	ExposureState = "RemoteEvent", -- server -> client, the rad meter, once per tick
 	Blackout = "RemoteEvent", -- server -> client, you went down and what it cost
+
+	-- The index GUI. One snapshot of data.discovered on load; the client tops it up
+	-- itself from Unearthed's itemId as new discoveries happen, so this never needs
+	-- to fire a second time.
+	IndexState = "RemoteEvent", -- server -> client, once per load
 }
 
 local Net = {}
