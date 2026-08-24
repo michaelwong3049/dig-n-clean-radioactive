@@ -43,7 +43,15 @@ local IN_RANGE = Color3.fromHex("8FE04A") -- close enough to get the magnet on i
 local RING_FOLDER = "DetectorRange"
 local SEGMENTS = Tuning.RANGE_RING_SEGMENTS
 local SEGMENT_GAP = 0.72 -- fraction of the arc a segment fills; the rest reads as dashes
-local RING_HEIGHT = 0.06 -- lifted off the plate so it does not z-fight the ground
+-- Lifted off the plate so it does not z-fight the ground — except it did: this used
+-- to be 0.06, which exactly matches build/Scenery.luau's GROUND_SKIM (the height of
+-- Zone 1's opaque stage-colour ground layer, paintBands). Two independently-set
+-- constants in different files landing on the same number is invisible everywhere
+-- but Zone 1, the one place that layer exists — there, the opaque band sat exactly
+-- on top of the ring every frame and hid it completely, not a flicker, since the
+-- z-fight was an exact tie rather than a near-miss. 0.1 clears both that (0.06) and
+-- OozePool's OozeRim (SKIM - 0.12 = 0.14) by a real margin either side.
+local RING_HEIGHT = 0.1
 
 local DetectorController = nil
 
