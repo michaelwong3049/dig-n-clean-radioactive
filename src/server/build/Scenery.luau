@@ -459,6 +459,30 @@ local function prop(
 				canCollide = false,
 			})
 		end
+	elseif kind == "liveTree" then
+		-- Zone 1's Outer Ash stage only, same as "brush" — a trunk with a full
+		-- rounded canopy instead of DeadTree's bare branches, the one prop in the
+		-- game with real foliage. Canopy colour matches Stage 1's own ground green
+		-- rather than "brush"'s slightly different shade, so trunk-and-leaves reads
+		-- as one plant family with the grass it stands on.
+		local h = rng:NextNumber(6, 9)
+		build(parent, origin, {
+			name = "TreeTrunk",
+			pos = { x, h / 2, z },
+			size = { 1.2, h, 1.2 },
+			color = C.wood,
+			material = "Wood",
+			canCollide = false,
+		})
+		build(parent, origin, {
+			name = "TreeCanopy",
+			pos = { x, h + rng:NextNumber(1.6, 2.4), z },
+			size = { rng:NextNumber(5, 7.5), rng:NextNumber(4.5, 6.5), rng:NextNumber(5, 7.5) },
+			color = "5C9A34",
+			material = "Grass",
+			shape = "Ball",
+			canCollide = false,
+		})
 	elseif kind == "houses" then
 		-- A collapsed shell: two standing walls and a leaning roof slab.
 		local w = rng:NextNumber(9, 15)
@@ -699,9 +723,14 @@ local function buildZoneScenery(parent: Instance, id: number)
 				barrel(folder, origin, x, z, rng, def.ooze, placed % BARREL_LIGHT_EVERY == 0)
 			else
 				-- Zone 1's Outer Ash stage (the untouched west third, see LIFE FADING
-				-- INTO A DEAD WASTELAND) gets live "brush" instead of its zone's
-				-- normal "trees" kind, which is already dead wood everywhere else.
-				local kind = if id == 1 and x <= Zones.STAGES[1].maxX then "brush" else theme.kind
+				-- INTO A DEAD WASTELAND) gets a mix of live "brush" and "liveTree"
+				-- instead of its zone's normal "trees" kind, which is already dead
+				-- wood everywhere else. Trees sparser than bushes -- a tree is a
+				-- landmark, not ground cover.
+				local kind = theme.kind
+				if id == 1 and x <= Zones.STAGES[1].maxX then
+					kind = if rng:NextNumber() < 0.3 then "liveTree" else "brush"
+				end
 				prop(folder, origin, kind, x, z, rng, def.ooze)
 			end
 		end
