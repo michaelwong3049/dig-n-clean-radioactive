@@ -115,6 +115,43 @@ local function renderAll(index: number, data: any)
 	end
 end
 
+-- ── Spawning ──────────────────────────────────────────────────────────────────
+--
+-- BaseCamp no longer carries a spawn of its own (see BaseCamp.luau) — every
+-- player's character has to land on their own assigned PlotSpawn instead, and
+-- setting player.RespawnLocation alone is not enough for that: it only takes
+-- effect on the player's NEXT respawn, and by the time assign() runs (after
+-- DataService's async load) the player's character has usually already spawned
+-- once, at Roblox's undefined "no enabled SpawnLocation yet" fallback position.
+-- This moves that already-existing character over explicitly, the one time it
+-- matters — every respawn after this one is already correctly routed by
+-- RespawnLocation on its own.
+
+--- Move `player`'s current character onto `spawn`, waiting for the character to
+--- exist first if this somehow runs before it does (should not happen in
+--- practice — CharacterAutoLoads fires immediately on join, well before a
+--- profile finishes loading — but a spawn point silently doing nothing is a
+--- much worse failure than a few seconds of extra caution here).
+local function teleportToSpawn(player: Player, spawn: SpawnLocation)
+	local character = player.Character
+	if character == nil then
+		local connection
+		connection = player.CharacterAdded:Connect(function(newCharacter)
+			connection:Disconnect()
+			local root = newCharacter:WaitForChild("HumanoidRootPart", 5)
+			if root then
+				root.CFrame = spawn.CFrame + Vector3.new(0, 4, 0)
+			end
+		end)
+		return
+	end
+
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root then
+		root.CFrame = spawn.CFrame + Vector3.new(0, 4, 0)
+	end
+end
+
 -- ── Plot assignment ──────────────────────────────────────────────────────────
 
 function ExhibitService.plotOf(player: Player): number?
@@ -133,6 +170,7 @@ local function assign(player: Player)
 				if spawn then
 					spawn.Enabled = true
 					player.RespawnLocation = spawn
+					teleportToSpawn(player, spawn)
 				end
 			end
 
@@ -144,9 +182,12 @@ local function assign(player: Player)
 		end
 	end
 	-- All 6 plots taken (should not happen with MaxPlayers = 6, but a place
-	-- setting is not something this code can enforce). Selling and upgrading
-	-- still work; there is just nowhere to display.
-	warn(`[exhibit] no free plot for {player.Name} — all {PLOT_COUNT} are taken`)
+	-- setting is not something this code can enforce). Used to mean only "nowhere
+	-- to display"; now that BaseCamp carries no fallback spawn, it also means this
+	-- player never gets a RespawnLocation or a teleport, and is stuck wherever
+	-- their character's initial undefined-position spawn happened to land. Selling
+	-- and upgrading still work regardless.
+	warn(`[exhibit] no free plot for {player.Name} — all {PLOT_COUNT} are taken, and they have nowhere to spawn`)
 end
 
 local function release(player: Player)

@@ -54,7 +54,7 @@ local Kit = require(script.Parent.Kit)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 6
+local BUILDER_VERSION = 7
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -63,13 +63,10 @@ local BUILDER_VERSION = 6
 local DEFAULT_ORIGIN = CFrame.new(0, 0.9, 136)
 
 -- ── Primitives ────────────────────────────────────────────────────────────────
--- Lifted into build/Kit.luau so the hub, shops, plots, zones and scenery generators
--- all share one part-builder instead of four that drift. Aliased to the original
--- local names so every call site below is unchanged from the version that was
--- verified against the live place to the stud.
--- `C` used to be aliased here too. The only thing in the camp that referenced the
--- palette was the floor pad, so it went with it; the spawn carries its own colour.
-local build = Kit.build
+-- `build`/`C` used to be aliased here from Kit, for the floor pad and the spawn.
+-- Both are gone now (see buildShell) and nothing left in this file builds a part
+-- directly, so there is nothing left to alias — Kit itself is still required
+-- above for Kit.stamp and Kit.swap, which the rebuild plumbing below still uses.
 
 export type Spec = Kit.Spec
 
@@ -94,18 +91,23 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- the plaza it sits in; the camp now reads as one open shop area, identified
 	-- by what's standing on it rather than a walled box with a sign over the door.
 
-	local spawn = build(camp, origin, {
-		name = "SpawnLocation",
-		class = "SpawnLocation",
-		pos = { 0, 1.1, 16 },
-		size = { 12, 1, 12 },
-		color = "A8B0A0",
-		material = "Pavement",
-	})
-	local decal = Instance.new("Decal")
-	decal.Texture = "rbxasset://textures/SpawnLocation.png"
-	decal.Face = Enum.NormalId.Top
-	decal.Parent = spawn
+	-- NO SPAWN HERE ANY MORE EITHER. This used to be the join spawn AND the sole
+	-- fallback while a player's data (and their assigned base) was still loading —
+	-- "the middle checkpoint", central in the plaza while the 6 PlotSpawns ring it.
+	-- Removed on purpose: every player belongs at their own personal base, not a
+	-- shared camp pad, so the game now teleports each player to their assigned
+	-- PlotSpawn directly (ExhibitService.assign()) instead of relying on a spawn
+	-- point ever existing here. The cost is a brief undefined moment on a
+	-- player's very first join, between the automatic character spawn and their
+	-- data finishing loading — accepted, not fixed, since fixing it for real means
+	-- delaying character creation until after data loads, a bigger change than
+	-- was asked for.
+	--
+	-- This leaves buildShell() building nothing at all, and that is fine, not a
+	-- bug to clean up: BaseCamp.luau stays because it is still where a trader (or
+	-- some other sell point, see the header's TODO note) belongs when one gets
+	-- built again — an empty placeholder generator beats deleting the file and
+	-- re-inventing the camp's origin/rebuild plumbing from scratch later.
 end
 
 -- ── Entry points ──────────────────────────────────────────────────────────────

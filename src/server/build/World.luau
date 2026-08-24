@@ -326,13 +326,20 @@ function World.verify(): (boolean, { string })
 		"no RespawnAnchor in Workspace — blackout falls back to a hardcoded (0, 8, 0)"
 	)
 
-	local enabled = 0
+	-- No SpawnLocation is Enabled at build time by design, not oversight — there is
+	-- no camp-wide fallback spawn any more. Every one of the 6 PlotSpawns starts
+	-- disabled and is switched on (plus the player teleported to it directly) by
+	-- ExhibitService.assign() the moment that player's plot is decided, so "zero
+	-- enabled right after a fresh build, before anyone has joined" is the correct
+	-- state, not a bug. What this checks instead: the CAPACITY to spawn someone
+	-- exists at all — one SpawnLocation per plot, ready for assign() to claim.
+	local spawnCount = 0
 	for _, d in Workspace:GetDescendants() do
-		if d:IsA("SpawnLocation") and d.Enabled then
-			enabled += 1
+		if d:IsA("SpawnLocation") then
+			spawnCount += 1
 		end
 	end
-	check(enabled >= 1, "no enabled SpawnLocation in the world — players have nowhere to spawn")
+	check(spawnCount == Plots.COUNT, `expected {Plots.COUNT} SpawnLocations (one per plot), found {spawnCount} — a player assigned a plot with none would have nowhere to spawn`)
 
 	check(Workspace.Terrain:GetAttribute("ZoneId") == nil, "Terrain carries a ZoneId")
 
