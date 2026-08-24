@@ -13,6 +13,9 @@
 	share a shade. Green means "the meter is filling". White means "your suit is coming
 	apart" — a different category of dying, not a worse degree of the same one. White is
 	used exactly once in this entire game, which is why it will read instantly forever.
+
+	THE METER NOW LIVES IN THE DOCK, not alone in the corner. See UIKit.Dock for the
+	whole bottom-center layout — this file only needs to know its own offset within it.
 ]]
 
 local Players = game:GetService("Players")
@@ -23,11 +26,14 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Net = require(Shared.Net)
 
+local UIKit = require(script.Parent.Parent.UIKit)
+local Dock = UIKit.Dock
+
 local Hud = {}
 
-local GREEN = Color3.fromHex("8FE04A")
-local WHITE = Color3.fromHex("FFFFFF")
-local DIM = Color3.fromHex("7C8874")
+local GREEN = UIKit.C.green
+local WHITE = UIKit.C.burn
+local DIM = UIKit.C.dim
 
 local state = {
 	exposureFrac = 0,
@@ -79,6 +85,7 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 100
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
+	-- Unchanged. Not part of the dock — this is a full-screen tint, not a panel.
 	ui.edges = {
 		edge(gui, "EdgeTop", UDim2.new(1, 0, 0, 190), UDim2.fromScale(0, 0), 270),
 		edge(gui, "EdgeBottom", UDim2.new(1, 0, 0, 190), UDim2.new(0, 0, 1, -190), 90),
@@ -86,36 +93,47 @@ local function build(): ScreenGui
 		edge(gui, "EdgeRight", UDim2.new(0, 260, 1, 0), UDim2.new(1, -260, 0, 0), 0),
 	}
 
-	-- The meter. Bottom-left, out of the way of the sweep dial.
-	local panel = Instance.new("Frame")
-	panel.Name = "Meter"
-	panel.AnchorPoint = Vector2.new(0, 1)
-	panel.Position = UDim2.new(0, 18, 1, -18)
-	panel.Size = UDim2.fromOffset(240, 46)
-	panel.BackgroundTransparency = 1
-	panel.ZIndex = 4
-	panel.Parent = gui
+	-- The meter. Left half of the instrument band, mirrored across the dig button
+	-- from the detector dial — see UIKit.Dock for the whole band's layout. It used to
+	-- stand alone in the bottom-left corner with no background of its own; now that
+	-- it is packed into a dense cluster with the button and the dial either side of
+	-- it, it needs a real panel to read as one instrument rather than bleeding into
+	-- its neighbours.
+	local panel, meterStroke = UIKit.panel(gui, {
+		name = "Meter",
+		size = Dock.METER_SIZE,
+		position = UDim2.new(0.5, -Dock.METER_RIGHT_OFFSET, 1, -Dock.INSTRUMENT_BOTTOM),
+		anchorPoint = Vector2.new(1, 1),
+		color = UIKit.C.panel,
+		transparency = 0.25,
+		cornerRadius = UIKit.Radius.card,
+		zIndex = 4,
+	})
+	ui.meterStroke = meterStroke
 
-	ui.caption = Instance.new("TextLabel")
-	ui.caption.Size = UDim2.new(1, 0, 0, 16)
-	ui.caption.BackgroundTransparency = 1
-	ui.caption.Font = Enum.Font.GothamBold
-	ui.caption.TextSize = 13
-	ui.caption.TextXAlignment = Enum.TextXAlignment.Left
-	ui.caption.TextColor3 = DIM
-	ui.caption.TextStrokeTransparency = 0.6
-	ui.caption.Text = "RADS"
-	ui.caption.ZIndex = 4
-	ui.caption.Parent = panel
+	ui.caption = UIKit.label(panel, {
+		name = "Caption",
+		position = UDim2.fromOffset(16, 8),
+		size = UDim2.new(1, -32, 0, 20),
+		font = UIKit.Font.body,
+		textSize = 16,
+		color = DIM,
+		text = "RADS",
+		zIndex = 4,
+	})
 
 	local track = Instance.new("Frame")
-	track.Position = UDim2.fromOffset(0, 20)
-	track.Size = UDim2.new(1, 0, 0, 12)
+	track.Position = UDim2.fromOffset(16, 30)
+	track.Size = UDim2.new(1, -32, 0, 14)
 	track.BackgroundColor3 = Color3.fromHex("14180F")
 	track.BackgroundTransparency = 0.25
 	track.BorderSizePixel = 0
 	track.ZIndex = 4
 	track.Parent = panel
+
+	local trackCorner = Instance.new("UICorner")
+	trackCorner.CornerRadius = UDim.new(0, 7)
+	trackCorner.Parent = track
 
 	ui.fill = Instance.new("Frame")
 	ui.fill.Size = UDim2.fromScale(0, 1)
@@ -124,20 +142,23 @@ local function build(): ScreenGui
 	ui.fill.ZIndex = 5
 	ui.fill.Parent = track
 
-	ui.readout = Instance.new("TextLabel")
-	ui.readout.Position = UDim2.fromOffset(0, 33)
-	ui.readout.Size = UDim2.new(1, 0, 0, 14)
-	ui.readout.BackgroundTransparency = 1
-	ui.readout.Font = Enum.Font.Code
-	ui.readout.TextSize = 12
-	ui.readout.TextXAlignment = Enum.TextXAlignment.Left
-	ui.readout.TextColor3 = DIM
-	ui.readout.TextStrokeTransparency = 0.6
-	ui.readout.Text = ""
-	ui.readout.ZIndex = 4
-	ui.readout.Parent = panel
+	local fillCorner = Instance.new("UICorner")
+	fillCorner.CornerRadius = UDim.new(0, 7)
+	fillCorner.Parent = ui.fill
 
-	-- Blackout curtain.
+	ui.readout = UIKit.label(panel, {
+		name = "Readout",
+		position = UDim2.fromOffset(16, 46),
+		size = UDim2.new(1, -32, 0, 13),
+		font = UIKit.Font.body,
+		textSize = 15,
+		color = DIM,
+		text = "",
+		zIndex = 4,
+	})
+
+	-- Blackout curtain. Full-screen background, unchanged; the text on it is bigger
+	-- and centred exactly as before — it already lived at true screen-centre.
 	ui.curtain = Instance.new("Frame")
 	ui.curtain.Name = "Curtain"
 	ui.curtain.Size = UDim2.fromScale(1, 1)
@@ -148,17 +169,37 @@ local function build(): ScreenGui
 	ui.curtain.Visible = false
 	ui.curtain.Parent = gui
 
-	ui.curtainText = Instance.new("TextLabel")
-	ui.curtainText.AnchorPoint = Vector2.new(0.5, 0.5)
-	ui.curtainText.Position = UDim2.fromScale(0.5, 0.5)
-	ui.curtainText.Size = UDim2.fromOffset(700, 90)
-	ui.curtainText.BackgroundTransparency = 1
-	ui.curtainText.Font = Enum.Font.GothamBold
-	ui.curtainText.TextSize = 26
-	ui.curtainText.TextColor3 = GREEN
-	ui.curtainText.Text = ""
-	ui.curtainText.ZIndex = 21
-	ui.curtainText.Parent = ui.curtain
+	-- SPLIT FROM ONE LABEL INTO TWO. LuckiestGuy is a heavy display face — it reads
+	-- as a punch of a headline and badly as a full sentence, and the drop-items line
+	-- is a full sentence. The headline's TEXT never changes (it is always "YOU WENT
+	-- DOWN" — only the cause, the body line, and both labels' colour/fade vary per
+	-- call), so it is set once here and playBlackout() never touches its Text again.
+	ui.curtainHeadline = UIKit.label(ui.curtain, {
+		name = "Headline",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.new(0.5, 0, 0.5, -50),
+		size = UDim2.fromOffset(900, 70),
+		font = UIKit.Font.hero,
+		textSize = UIKit.TextSize.hero,
+		color = GREEN,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "YOU WENT DOWN",
+		zIndex = 21,
+	})
+
+	ui.curtainBody = UIKit.label(ui.curtain, {
+		name = "Body",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.new(0.5, 0, 0.5, 45),
+		size = UDim2.fromOffset(860, 90),
+		font = UIKit.Font.body,
+		textSize = 20,
+		color = GREEN,
+		xAlign = Enum.TextXAlignment.Center,
+		wrapped = true,
+		text = "",
+		zIndex = 21,
+	})
 
 	return gui
 end
@@ -185,6 +226,7 @@ local function render(dt: number)
 
 	ui.fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
 	ui.fill.BackgroundColor3 = colour
+	ui.meterStroke.Color = colour
 
 	local label = if state.inShower then "RADS  \u{2014}  FLUSHING" else "RADS"
 	ui.caption.Text = label
@@ -219,11 +261,14 @@ local function playBlackout(info)
 	local burn = info.cause == "burn"
 	local dropped = info.itemsDropped or 0
 
+	local textColor = if burn then Color3.new(0.1, 0.1, 0.1) else GREEN
+
 	ui.curtain.BackgroundColor3 = if burn then Color3.new(1, 1, 1) else Color3.new(0, 0, 0)
-	ui.curtainText.TextColor3 = if burn then Color3.new(0.1, 0.1, 0.1) else GREEN
-	ui.curtainText.Text = if dropped > 0
-		then `YOU WENT DOWN\n\ndropped {dropped} item(s) where you fell \u{2014} 90 seconds to get back`
-		else "YOU WENT DOWN\n\nnothing to lose \u{2014} your bag was empty"
+	ui.curtainHeadline.TextColor3 = textColor
+	ui.curtainBody.TextColor3 = textColor
+	ui.curtainBody.Text = if dropped > 0
+		then `dropped {dropped} item(s) where you fell \u{2014} 90 seconds to get back`
+		else "nothing to lose \u{2014} your bag was empty"
 	ui.curtain.Visible = true
 	ui.curtain.BackgroundTransparency = 0
 
@@ -231,11 +276,13 @@ local function playBlackout(info)
 		task.wait(1.6)
 		for i = 1, 30 do
 			ui.curtain.BackgroundTransparency = i / 30
-			ui.curtainText.TextTransparency = i / 30
+			ui.curtainHeadline.TextTransparency = i / 30
+			ui.curtainBody.TextTransparency = i / 30
 			task.wait(0.03)
 		end
 		ui.curtain.Visible = false
-		ui.curtainText.TextTransparency = 0
+		ui.curtainHeadline.TextTransparency = 0
+		ui.curtainBody.TextTransparency = 0
 	end)
 end
 

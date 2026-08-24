@@ -9,6 +9,23 @@
 	The panel deliberately shows the SAME list at both stations but offers different
 	verbs, because that is the design's actual shape — the decon station is where the
 	clock stops and dirt comes off, the trader is only a till.
+
+	THE PANEL NOW SITS AT TRUE SCREEN-CENTRE, BIASED UPWARD. DetectorController's
+	scope/status/dig-button and InventoryController's hotbar never hide, even away
+	from a station — see UIKit.Dock.RESERVE — so a literal screen-centre anchor would
+	sit inside the dock's reserved band more often than not. `Position = UDim2.new(0.5,
+	0, 0.5, -Dock.RESERVE / 2)` centres this panel in whatever space is left ABOVE the
+	dock instead, at any resolution — the offset is algebraically equivalent to
+	`(screenHeight - RESERVE) / 2`, so it needs no per-resolution tuning.
+
+	THE ROW HEIGHT DID NOT GROW WITH EVERYTHING ELSE, ON PURPOSE. It multiplies across
+	up to 12 rows (9 items + 3 locker) where every other element appears once — the
+	"bigger" budget went into width, title, buttons and padding instead of a number
+	that compounds twelve times. Even so, a maxed decon view (full bag, full locker) is
+	the one case that can still reach into the dock's reserved band on a short
+	viewport; DisplayOrder settles it (see build()) rather than the layout eliminating
+	it outright, because it self-resolves the moment the player scrubs, sells or racks
+	a single item.
 ]]
 
 local Players = game:GetService("Players")
@@ -18,19 +35,14 @@ local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
 local Net = require(Shared.Net)
 
+local UIKit = require(script.Parent.Parent.UIKit)
+local Dock = UIKit.Dock
+
 local Station = {}
 
-local COLOR = {
-	panel = Color3.fromHex("0C0F0A"),
-	stroke = Color3.fromHex("2A3324"),
-	selected = Color3.fromHex("3E5A2E"),
-	text = Color3.fromHex("E4E9DE"),
-	dim = Color3.fromHex("7C8874"),
-	green = Color3.fromHex("8FE04A"),
-	amber = Color3.fromHex("F59E0B"),
-	red = Color3.fromHex("EF4444"),
-	blue = Color3.fromHex("6FA8C7"),
-}
+-- Same fields UIKit.C already carries (panel/stroke/selected/text/dim/green/amber/
+-- red/blue), aliased so every COLOR.xxx read below keeps working unchanged.
+local COLOR = UIKit.C
 
 local ROWS = 9
 local LOCKER_ROWS = 3
@@ -48,26 +60,31 @@ end
 
 -- ── Build ───────────────────────────────────────────────────────────
 
+--- One item row. USED TO BE ONE TextButton whose whole Text was a single
+--- string.format("%-22s %-7s %-7s $%d", ...) call — columns only lined up because
+--- Font.Code is monospace, and no rounded display font has fixed character widths.
+--- Four child labels instead: name flexes, stage/pips/value are fixed-width. The
+--- button itself, its Uid attribute and its scrub-progress Fill are unchanged — only
+--- what is drawn INSIDE it changes. Reached the same way Fill always was, via
+--- Roblox's child-by-name lookup (row.ItemNameLabel, row.Fill, ...), so every
+--- existing row.Visible / row:SetAttribute call elsewhere in this file needs no
+--- changes at all.
 local function makeRow(parent: Instance, order: number): TextButton
 	local row = Instance.new("TextButton")
 	row.LayoutOrder = order
-	row.Size = UDim2.new(1, 0, 0, 24)
+	row.Size = UDim2.new(1, 0, 0, 26)
 	row.BackgroundColor3 = COLOR.panel
 	row.BackgroundTransparency = 1
 	row.AutoButtonColor = false
-	row.Font = Enum.Font.Code
-	row.TextSize = 14
-	row.TextXAlignment = Enum.TextXAlignment.Left
-	row.TextColor3 = COLOR.text
 	row.Text = ""
 	row.Visible = false
 	row.Parent = parent
 
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 4)
+	corner.CornerRadius = UDim.new(0, 6)
 	corner.Parent = row
 
-	-- scrub progress, drawn behind the label
+	-- scrub progress, drawn behind the labels
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
 	fill.Size = UDim2.fromScale(0, 1)
@@ -78,40 +95,41 @@ local function makeRow(parent: Instance, order: number): TextButton
 	fill.Parent = row
 
 	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.new(0, 4)
+	fillCorner.CornerRadius = UDim.new(0, 6)
 	fillCorner.Parent = fill
 
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, 8)
-	padding.Parent = row
+	UIKit.label(row, {
+		name = "ItemNameLabel",
+		position = UDim2.fromOffset(8, 0),
+		size = UDim2.fromOffset(270, 26),
+		font = UIKit.Font.body,
+		textSize = 15,
+	})
+	UIKit.label(row, {
+		name = "StageLabel",
+		position = UDim2.fromOffset(286, 0),
+		size = UDim2.fromOffset(90, 26),
+		font = UIKit.Font.body,
+		textSize = 15,
+	})
+	UIKit.label(row, {
+		name = "PipsLabel",
+		position = UDim2.fromOffset(384, 0),
+		size = UDim2.fromOffset(80, 26),
+		font = UIKit.Font.body,
+		textSize = 15,
+		xAlign = Enum.TextXAlignment.Center,
+	})
+	UIKit.label(row, {
+		name = "ValueLabel",
+		position = UDim2.fromOffset(472, 0),
+		size = UDim2.fromOffset(108, 26),
+		font = UIKit.Font.body,
+		textSize = 15,
+		xAlign = Enum.TextXAlignment.Right,
+	})
 
 	return row
-end
-
-local function makeButton(parent: Instance, order: number, text: string, colour: Color3): TextButton
-	local button = Instance.new("TextButton")
-	button.LayoutOrder = order
-	button.Size = UDim2.new(0.32, 0, 0, 38)
-	button.BackgroundColor3 = COLOR.panel
-	button.BackgroundTransparency = 0.1
-	button.AutoButtonColor = false
-	button.Font = Enum.Font.GothamBold
-	button.TextSize = 15
-	button.TextColor3 = colour
-	button.Text = text
-	button.Parent = parent
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 6)
-	corner.Parent = button
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = COLOR.stroke
-	stroke.Thickness = 2
-	stroke.Parent = button
-	button:SetAttribute("HasStroke", true)
-
-	return button
 end
 
 local function build(): ScreenGui
@@ -119,24 +137,25 @@ local function build(): ScreenGui
 	gui.Name = "StationHud"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
+	-- Below the dock (60) on purpose — see the file header. The rad meter and the
+	-- hotbar never hide, and exposure from a hot bag keeps accruing even while this
+	-- panel is open, so the dock is the one thing that should never end up covered.
+	gui.DisplayOrder = 40
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0, 0.5)
-	panel.Position = UDim2.new(0, 16, 0.5, 0)
-	panel.Size = UDim2.fromOffset(470, 0)
-	panel.AutomaticSize = Enum.AutomaticSize.Y
-	panel.BackgroundColor3 = COLOR.panel
-	panel.BackgroundTransparency = 0.08
-	panel.BorderSizePixel = 0
-	panel.Visible = false
-	panel.Parent = gui
+	local panel, panelStroke = UIKit.panel(gui, {
+		name = "Panel",
+		size = UDim2.fromOffset(620, 0),
+		position = UDim2.new(0.5, 0, 0.5, -Dock.RESERVE / 2),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		color = COLOR.panel,
+		transparency = 0.08,
+		cornerRadius = UIKit.Radius.panel,
+		automaticSizeY = true,
+		visible = false,
+	})
 	ui.panel = panel
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 10)
-	corner.Parent = panel
+	ui.panelStroke = panelStroke
 
 	-- ── Shop mode ────────────────────────────────────────────────────
 	-- A shop IS a station, so it reuses this panel and the StationState /
@@ -155,50 +174,40 @@ local function build(): ScreenGui
 
 	local shopLayout = Instance.new("UIListLayout")
 	shopLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	shopLayout.Padding = UDim.new(0, 6)
+	shopLayout.Padding = UDim.new(0, 8)
 	shopLayout.Parent = shop
 
-	ui.shopUpgrade = Instance.new("TextLabel")
+	ui.shopUpgrade = UIKit.label(shop, {
+		name = "Upgrade",
+		size = UDim2.new(1, 0, 0, 28),
+		font = UIKit.Font.body,
+		textSize = 18,
+		color = COLOR.amber,
+	})
 	ui.shopUpgrade.LayoutOrder = 1
-	ui.shopUpgrade.Size = UDim2.new(1, 0, 0, 24)
-	ui.shopUpgrade.BackgroundTransparency = 1
-	ui.shopUpgrade.Font = Enum.Font.GothamBold
-	ui.shopUpgrade.TextSize = 16
-	ui.shopUpgrade.TextXAlignment = Enum.TextXAlignment.Left
-	ui.shopUpgrade.TextColor3 = COLOR.amber
-	ui.shopUpgrade.Text = ""
-	ui.shopUpgrade.Parent = shop
 
-	ui.shopDeltas = Instance.new("TextLabel")
+	ui.shopDeltas = UIKit.label(shop, {
+		name = "Deltas",
+		size = UDim2.fromScale(1, 0),
+		font = UIKit.Font.body,
+		textSize = 15,
+		color = COLOR.green,
+		yAlign = Enum.TextYAlignment.Top,
+		wrapped = true,
+	})
 	ui.shopDeltas.LayoutOrder = 2
-	ui.shopDeltas.Size = UDim2.fromScale(1, 0)
 	ui.shopDeltas.AutomaticSize = Enum.AutomaticSize.Y
-	ui.shopDeltas.BackgroundTransparency = 1
-	ui.shopDeltas.Font = Enum.Font.Code
-	ui.shopDeltas.TextSize = 13
-	ui.shopDeltas.TextXAlignment = Enum.TextXAlignment.Left
-	ui.shopDeltas.TextYAlignment = Enum.TextYAlignment.Top
-	ui.shopDeltas.TextColor3 = COLOR.green
-	ui.shopDeltas.Text = ""
-	ui.shopDeltas.Parent = shop
 
-	ui.buyButton = Instance.new("TextButton")
-	ui.buyButton.Name = "Buy"
+	ui.buyButton = UIKit.button(shop, {
+		name = "Buy",
+		size = UDim2.new(1, 0, 0, 48),
+		font = UIKit.Font.body,
+		textSize = 19,
+		color = COLOR.amber,
+		fillTransparency = 0.25,
+		text = "BUY",
+	})
 	ui.buyButton.LayoutOrder = 3
-	ui.buyButton.Size = UDim2.new(1, 0, 0, 38)
-	ui.buyButton.BackgroundColor3 = COLOR.panel
-	ui.buyButton.BackgroundTransparency = 0.25
-	ui.buyButton.BorderSizePixel = 0
-	ui.buyButton.AutoButtonColor = true
-	ui.buyButton.Font = Enum.Font.GothamBold
-	ui.buyButton.TextSize = 15
-	ui.buyButton.TextColor3 = COLOR.amber
-	ui.buyButton.Text = "BUY"
-	ui.buyButton.Parent = shop
-
-	local buyCorner = Instance.new("UICorner")
-	buyCorner.CornerRadius = UDim.new(0, 8)
-	buyCorner.Parent = ui.buyButton
 
 	-- ── Plot mode (claim board) ─────────────────────────────────────────
 	-- Same reasoning as Shop mode: a claim board IS a station, so it reuses
@@ -215,66 +224,48 @@ local function build(): ScreenGui
 
 	local plotLayout = Instance.new("UIListLayout")
 	plotLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	plotLayout.Padding = UDim.new(0, 6)
+	plotLayout.Padding = UDim.new(0, 8)
 	plotLayout.Parent = plot
 
-	ui.plotBanked = Instance.new("TextLabel")
+	ui.plotBanked = UIKit.label(plot, {
+		name = "Banked",
+		size = UDim2.new(1, 0, 0, 26),
+		font = UIKit.Font.body,
+		textSize = 17,
+		color = COLOR.green,
+	})
 	ui.plotBanked.LayoutOrder = 1
-	ui.plotBanked.Size = UDim2.new(1, 0, 0, 22)
-	ui.plotBanked.BackgroundTransparency = 1
-	ui.plotBanked.Font = Enum.Font.Code
-	ui.plotBanked.TextSize = 15
-	ui.plotBanked.TextXAlignment = Enum.TextXAlignment.Left
-	ui.plotBanked.TextColor3 = COLOR.green
-	ui.plotBanked.Text = ""
-	ui.plotBanked.Parent = plot
 
-	ui.collectButton = Instance.new("TextButton")
-	ui.collectButton.Name = "Collect"
+	ui.collectButton = UIKit.button(plot, {
+		name = "Collect",
+		size = UDim2.new(1, 0, 0, 48),
+		font = UIKit.Font.body,
+		textSize = 19,
+		color = COLOR.green,
+		fillTransparency = 0.25,
+		text = "COLLECT",
+	})
 	ui.collectButton.LayoutOrder = 2
-	ui.collectButton.Size = UDim2.new(1, 0, 0, 38)
-	ui.collectButton.BackgroundColor3 = COLOR.panel
-	ui.collectButton.BackgroundTransparency = 0.25
-	ui.collectButton.BorderSizePixel = 0
-	ui.collectButton.AutoButtonColor = true
-	ui.collectButton.Font = Enum.Font.GothamBold
-	ui.collectButton.TextSize = 15
-	ui.collectButton.TextColor3 = COLOR.green
-	ui.collectButton.Text = "COLLECT"
-	ui.collectButton.Parent = plot
 
-	local collectCorner = Instance.new("UICorner")
-	collectCorner.CornerRadius = UDim.new(0, 8)
-	collectCorner.Parent = ui.collectButton
-
-	ui.slotsInfo = Instance.new("TextLabel")
+	ui.slotsInfo = UIKit.label(plot, {
+		name = "SlotsInfo",
+		size = UDim2.new(1, 0, 0, 24),
+		font = UIKit.Font.body,
+		textSize = 15,
+		color = COLOR.dim,
+	})
 	ui.slotsInfo.LayoutOrder = 3
-	ui.slotsInfo.Size = UDim2.new(1, 0, 0, 20)
-	ui.slotsInfo.BackgroundTransparency = 1
-	ui.slotsInfo.Font = Enum.Font.Code
-	ui.slotsInfo.TextSize = 13
-	ui.slotsInfo.TextXAlignment = Enum.TextXAlignment.Left
-	ui.slotsInfo.TextColor3 = COLOR.dim
-	ui.slotsInfo.Text = ""
-	ui.slotsInfo.Parent = plot
 
-	ui.buySlotButton = Instance.new("TextButton")
-	ui.buySlotButton.Name = "BuySlot"
+	ui.buySlotButton = UIKit.button(plot, {
+		name = "BuySlot",
+		size = UDim2.new(1, 0, 0, 48),
+		font = UIKit.Font.body,
+		textSize = 19,
+		color = COLOR.amber,
+		fillTransparency = 0.25,
+		text = "BUY SLOT",
+	})
 	ui.buySlotButton.LayoutOrder = 4
-	ui.buySlotButton.Size = UDim2.new(1, 0, 0, 38)
-	ui.buySlotButton.BackgroundColor3 = COLOR.panel
-	ui.buySlotButton.BackgroundTransparency = 0.25
-	ui.buySlotButton.BorderSizePixel = 0
-	ui.buySlotButton.AutoButtonColor = true
-	ui.buySlotButton.Font = Enum.Font.GothamBold
-	ui.buySlotButton.TextSize = 15
-	ui.buySlotButton.TextColor3 = COLOR.amber
-	ui.buySlotButton.Text = "BUY SLOT"
-	ui.buySlotButton.Parent = plot
-
-	local buySlotCorner = Instance.new("UICorner")
-	buySlotCorner.CornerRadius = UDim.new(0, 8)
-	buySlotCorner.Parent = ui.buySlotButton
 
 	-- ── Pedestal mode (stand) ────────────────────────────────────────────
 	-- Empty+unlocked reuses the SAME carry rows the decon/trader panel already
@@ -292,112 +283,84 @@ local function build(): ScreenGui
 
 	local pedestalLayout = Instance.new("UIListLayout")
 	pedestalLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	pedestalLayout.Padding = UDim.new(0, 6)
+	pedestalLayout.Padding = UDim.new(0, 8)
 	pedestalLayout.Parent = pedestal
 
-	ui.standInfo = Instance.new("TextLabel")
+	ui.standInfo = UIKit.label(pedestal, {
+		name = "StandInfo",
+		size = UDim2.new(1, 0, 0, 26),
+		font = UIKit.Font.body,
+		textSize = 16,
+		color = COLOR.text,
+	})
 	ui.standInfo.LayoutOrder = 1
-	ui.standInfo.Size = UDim2.new(1, 0, 0, 22)
-	ui.standInfo.BackgroundTransparency = 1
-	ui.standInfo.Font = Enum.Font.Code
-	ui.standInfo.TextSize = 14
-	ui.standInfo.TextXAlignment = Enum.TextXAlignment.Left
-	ui.standInfo.TextColor3 = COLOR.text
-	ui.standInfo.Text = ""
-	ui.standInfo.Parent = pedestal
 
-	ui.displayButton = Instance.new("TextButton")
-	ui.displayButton.Name = "Display"
+	ui.displayButton = UIKit.button(pedestal, {
+		name = "Display",
+		size = UDim2.new(1, 0, 0, 48),
+		font = UIKit.Font.body,
+		textSize = 19,
+		color = COLOR.green,
+		fillTransparency = 0.25,
+		text = "DISPLAY",
+	})
 	ui.displayButton.LayoutOrder = 2
-	ui.displayButton.Size = UDim2.new(1, 0, 0, 38)
-	ui.displayButton.BackgroundColor3 = COLOR.panel
-	ui.displayButton.BackgroundTransparency = 0.25
-	ui.displayButton.BorderSizePixel = 0
-	ui.displayButton.AutoButtonColor = true
-	ui.displayButton.Font = Enum.Font.GothamBold
-	ui.displayButton.TextSize = 15
-	ui.displayButton.TextColor3 = COLOR.green
-	ui.displayButton.Text = "DISPLAY"
-	ui.displayButton.Parent = pedestal
 
-	local displayCorner = Instance.new("UICorner")
-	displayCorner.CornerRadius = UDim.new(0, 8)
-	displayCorner.Parent = ui.displayButton
-
-	ui.undisplayButton = Instance.new("TextButton")
-	ui.undisplayButton.Name = "Undisplay"
+	ui.undisplayButton = UIKit.button(pedestal, {
+		name = "Undisplay",
+		size = UDim2.new(1, 0, 0, 48),
+		font = UIKit.Font.body,
+		textSize = 19,
+		color = COLOR.amber,
+		fillTransparency = 0.25,
+		text = "UNDISPLAY",
+	})
 	ui.undisplayButton.LayoutOrder = 3
-	ui.undisplayButton.Size = UDim2.new(1, 0, 0, 38)
-	ui.undisplayButton.BackgroundColor3 = COLOR.panel
-	ui.undisplayButton.BackgroundTransparency = 0.25
-	ui.undisplayButton.BorderSizePixel = 0
-	ui.undisplayButton.AutoButtonColor = true
-	ui.undisplayButton.Font = Enum.Font.GothamBold
-	ui.undisplayButton.TextSize = 15
-	ui.undisplayButton.TextColor3 = COLOR.amber
-	ui.undisplayButton.Text = "UNDISPLAY"
-	ui.undisplayButton.Parent = pedestal
-
-	local undisplayCorner = Instance.new("UICorner")
-	undisplayCorner.CornerRadius = UDim.new(0, 8)
-	undisplayCorner.Parent = ui.undisplayButton
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = COLOR.stroke
-	stroke.Thickness = 2
-	stroke.Parent = panel
-	ui.panelStroke = stroke
 
 	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 12)
-	padding.PaddingBottom = UDim.new(0, 12)
-	padding.PaddingLeft = UDim.new(0, 12)
-	padding.PaddingRight = UDim.new(0, 12)
+	padding.PaddingTop = UDim.new(0, 16)
+	padding.PaddingBottom = UDim.new(0, 16)
+	padding.PaddingLeft = UDim.new(0, 16)
+	padding.PaddingRight = UDim.new(0, 16)
 	padding.Parent = panel
 
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 3)
+	layout.Padding = UDim.new(0, 6)
 	layout.Parent = panel
 
-	ui.title = Instance.new("TextLabel")
+	ui.title = UIKit.label(panel, {
+		name = "Title",
+		size = UDim2.new(1, 0, 0, 30),
+		font = UIKit.Font.body,
+		textSize = 26,
+		color = COLOR.text,
+	})
 	ui.title.LayoutOrder = 1
-	ui.title.Size = UDim2.new(1, 0, 0, 24)
-	ui.title.BackgroundTransparency = 1
-	ui.title.Font = Enum.Font.GothamBold
-	ui.title.TextSize = 19
-	ui.title.TextXAlignment = Enum.TextXAlignment.Left
-	ui.title.TextColor3 = COLOR.text
-	ui.title.Text = ""
-	ui.title.Parent = panel
 
-	ui.subtitle = Instance.new("TextLabel")
+	ui.subtitle = UIKit.label(panel, {
+		name = "Subtitle",
+		size = UDim2.new(1, 0, 0, 20),
+		font = UIKit.Font.body,
+		textSize = 16,
+		color = COLOR.dim,
+	})
 	ui.subtitle.LayoutOrder = 2
-	ui.subtitle.Size = UDim2.new(1, 0, 0, 18)
-	ui.subtitle.BackgroundTransparency = 1
-	ui.subtitle.Font = Enum.Font.Code
-	ui.subtitle.TextSize = 13
-	ui.subtitle.TextXAlignment = Enum.TextXAlignment.Left
-	ui.subtitle.TextColor3 = COLOR.dim
-	ui.subtitle.Text = ""
-	ui.subtitle.Parent = panel
 
 	ui.rows = {}
 	for index = 1, ROWS do
 		table.insert(ui.rows, makeRow(panel, 10 + index))
 	end
 
-	ui.lockerTitle = Instance.new("TextLabel")
+	ui.lockerTitle = UIKit.label(panel, {
+		name = "LockerTitle",
+		size = UDim2.new(1, 0, 0, 22),
+		font = UIKit.Font.body,
+		textSize = 15,
+		color = COLOR.red,
+		visible = false,
+	})
 	ui.lockerTitle.LayoutOrder = 40
-	ui.lockerTitle.Size = UDim2.new(1, 0, 0, 20)
-	ui.lockerTitle.BackgroundTransparency = 1
-	ui.lockerTitle.Font = Enum.Font.GothamBold
-	ui.lockerTitle.TextSize = 13
-	ui.lockerTitle.TextXAlignment = Enum.TextXAlignment.Left
-	ui.lockerTitle.TextColor3 = COLOR.red
-	ui.lockerTitle.Text = ""
-	ui.lockerTitle.Visible = false
-	ui.lockerTitle.Parent = panel
 
 	ui.lockerRows = {}
 	for index = 1, LOCKER_ROWS do
@@ -406,7 +369,7 @@ local function build(): ScreenGui
 
 	local actions = Instance.new("Frame")
 	actions.LayoutOrder = 60
-	actions.Size = UDim2.new(1, 0, 0, 44)
+	actions.Size = UDim2.new(1, 0, 0, 48)
 	actions.BackgroundTransparency = 1
 	actions.Parent = panel
 
@@ -417,20 +380,44 @@ local function build(): ScreenGui
 	actionLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 	actionLayout.Parent = actions
 
-	ui.scrubButton = makeButton(actions, 1, "HOLD TO SCRUB", COLOR.blue)
-	ui.sellButton = makeButton(actions, 2, "SELL", COLOR.amber)
-	ui.rackButton = makeButton(actions, 3, "RACK", COLOR.dim)
+	ui.scrubButton = UIKit.button(actions, {
+		name = "Scrub",
+		size = UDim2.new(0.32, 0, 1, 0),
+		font = UIKit.Font.body,
+		textSize = 17,
+		color = COLOR.blue,
+		text = "HOLD TO SCRUB",
+	})
+	ui.scrubButton.LayoutOrder = 1
 
-	ui.toast = Instance.new("TextLabel")
+	ui.sellButton = UIKit.button(actions, {
+		name = "Sell",
+		size = UDim2.new(0.32, 0, 1, 0),
+		font = UIKit.Font.body,
+		textSize = 17,
+		color = COLOR.amber,
+		text = "SELL",
+	})
+	ui.sellButton.LayoutOrder = 2
+
+	ui.rackButton = UIKit.button(actions, {
+		name = "Rack",
+		size = UDim2.new(0.32, 0, 1, 0),
+		font = UIKit.Font.body,
+		textSize = 17,
+		color = COLOR.dim,
+		text = "RACK",
+	})
+	ui.rackButton.LayoutOrder = 3
+
+	ui.toast = UIKit.label(panel, {
+		name = "Toast",
+		size = UDim2.new(1, 0, 0, 22),
+		font = UIKit.Font.body,
+		textSize = 16,
+		color = COLOR.green,
+	})
 	ui.toast.LayoutOrder = 70
-	ui.toast.Size = UDim2.new(1, 0, 0, 20)
-	ui.toast.BackgroundTransparency = 1
-	ui.toast.Font = Enum.Font.GothamMedium
-	ui.toast.TextSize = 14
-	ui.toast.TextXAlignment = Enum.TextXAlignment.Left
-	ui.toast.TextColor3 = COLOR.green
-	ui.toast.Text = ""
-	ui.toast.Parent = panel
 
 	return gui
 end
@@ -447,14 +434,24 @@ end
 
 local function paintRow(row: TextButton, item, isSelected: boolean, scrubUid: string?, scrubProgress: number)
 	row.Visible = true
-	row.Text = string.format(
-		"%-22s %-7s %-7s $%d",
-		string.sub(item.name, 1, 22),
-		string.lower(item.stage),
-		patchPips(item),
-		item.value
-	)
-	row.TextColor3 = rarityColor(item.rarity)
+
+	local colour = rarityColor(item.rarity)
+	-- All four keep the SAME single colour, exactly as the old one-string row did —
+	-- this is a rendering restructure, not a new visual design for the row.
+	local nameLabel = row.ItemNameLabel :: TextLabel
+	local stageLabel = row.StageLabel :: TextLabel
+	local pipsLabel = row.PipsLabel :: TextLabel
+	local valueLabel = row.ValueLabel :: TextLabel
+
+	nameLabel.Text = string.sub(item.name, 1, 26)
+	nameLabel.TextColor3 = colour
+	stageLabel.Text = string.lower(item.stage)
+	stageLabel.TextColor3 = colour
+	pipsLabel.Text = patchPips(item)
+	pipsLabel.TextColor3 = colour
+	valueLabel.Text = `${item.value}`
+	valueLabel.TextColor3 = colour
+
 	row.BackgroundTransparency = if isSelected then 0.55 else 1
 	row.BackgroundColor3 = COLOR.selected
 	row.Fill.Size = if scrubUid == item.uid then UDim2.fromScale(scrubProgress, 1) else UDim2.fromScale(0, 1)

@@ -25,6 +25,15 @@
 	their eyes half shut, so there are two cues: a CHIRP the moment a new contact
 	enters the radius (the server counts them — the client has no uids to diff), and
 	the old rate-and-pitch ping keyed to how close the nearest one is.
+
+	THE SCOPE, THE DIG BUTTON AND THE RAD METER SHARE ONE INSTRUMENT BAND NOW — see
+	UIKit.Dock. DIAL_SIZE moved into that shared table (Dock.SCOPE_DIAL) because
+	HudController's meter needs to know it too, to sit level with it; SCOPE_RADIUS
+	stays local because nothing outside this file reads it, but it is DERIVED from
+	the shared dial size rather than a second hardcode, because it drives the ring
+	sizes, the sweep arm's length AND the blip polar-placement maths all at once —
+	change the dial without updating this and blips cluster inside a ring that no
+	longer matches what is drawn.
 ]]
 
 local Players = game:GetService("Players")
@@ -38,20 +47,15 @@ local Rarity = require(Shared.Config.Rarity)
 local Tuning = require(Shared.Config.Tuning)
 local Net = require(Shared.Net)
 
+local UIKit = require(script.Parent.Parent.UIKit)
+local Dock = UIKit.Dock
+
 local Detector = {}
 
-local COLOR = {
-	panel = Color3.fromHex("0C0F0A"),
-	stroke = Color3.fromHex("2A3324"),
-	text = Color3.fromHex("E4E9DE"),
-	dim = Color3.fromHex("7C8874"),
-	green = Color3.fromHex("8FE04A"),
-	amber = Color3.fromHex("F59E0B"),
-	red = Color3.fromHex("EF4444"),
-	-- The instrument cyan the auras are built from, so the scope and the world are
-	-- obviously the same instrument. See build/SignalAura.
-	scope = Color3.fromHex("8FD8FF"),
-}
+-- Same fields UIKit.C already carries (panel/stroke/text/dim/green/amber/red/scope),
+-- so every COLOR.xxx read throughout render/state logic below keeps working
+-- unchanged — this is an alias, not a copy, on purpose.
+local COLOR = UIKit.C
 
 -- Ping pacing. At strength 0 it is a slow lonely tick; at 1 it is a stutter.
 local PING_INTERVAL_FAR = 1.10
@@ -64,8 +68,8 @@ local PING_PITCH_NEAR = 1.85
 -- missing because an asset id rotted.
 local CHIRP_PITCH = 2.3
 
-local DIAL_SIZE = 150
-local SCOPE_RADIUS = 62 -- px from the centre of the dial to the radius ring
+local DIAL_SIZE = Dock.SCOPE_DIAL
+local SCOPE_RADIUS = Dock.SCOPE_DIAL / 2 - 15 -- px from the centre of the dial to the radius ring
 local MAX_BLIPS = 12 -- matches DigService.MAX_CONTACTS; more would never arrive
 
 type Contact = { dx: number, dz: number, rarity: string? }
@@ -197,89 +201,74 @@ local function build(): ScreenGui
 	gui.Name = "DetectorHud"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 60
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Radar scope, BOTTOM RIGHT. It sat bottom-centre while it was the only thing
-	-- down there; the hotbar wants that strip and has a better claim on it, because
-	-- the inventory is what a player looks at deliberately while the scope is read
-	-- out of the corner of the eye. Parked opposite the rad meter (bottom-left) so
-	-- the two instrument readouts bracket the action in the middle.
-	local dial = Instance.new("Frame")
-	dial.Name = "Scope"
-	dial.AnchorPoint = Vector2.new(1, 1)
-	dial.Position = UDim2.new(1, -18, 1, -18)
-	dial.Size = UDim2.fromOffset(DIAL_SIZE, DIAL_SIZE)
-	dial.BackgroundColor3 = COLOR.panel
-	dial.BackgroundTransparency = 0.25
+	-- Radar scope: right half of the instrument band, mirrored across the dig
+	-- button from the rad meter — see UIKit.Dock. AnchorPoint(0,1) so
+	-- Dock.DIAL_LEFT_OFFSET places its LEFT edge (not its centre), the same way
+	-- HudController's meter anchors its right edge — the two stay symmetric around
+	-- the button between them.
+	local dial, ring = UIKit.panel(gui, {
+		name = "Scope",
+		size = UDim2.fromOffset(DIAL_SIZE, DIAL_SIZE),
+		position = UDim2.new(0.5, Dock.DIAL_LEFT_OFFSET, 1, -Dock.INSTRUMENT_BOTTOM),
+		anchorPoint = Vector2.new(0, 1),
+		color = COLOR.panel,
+		transparency = 0.25,
+		cornerRadius = UIKit.Radius.pill,
+		strokeColor = COLOR.stroke,
+	})
 	dial.ClipsDescendants = true
-	dial.Parent = gui
-
-	local round = Instance.new("UICorner")
-	round.CornerRadius = UDim.new(1, 0)
-	round.Parent = dial
-
-	local ring = Instance.new("UIStroke")
-	ring.Color = COLOR.stroke
-	ring.Thickness = 2
-	ring.Parent = dial
 	ui.ring = ring
 
 	buildScope(dial)
 
-	local centre = Instance.new("TextLabel")
-	centre.AnchorPoint = Vector2.new(0.5, 0.5)
-	centre.Position = UDim2.new(0.5, 0, 0.5, 44)
-	centre.Size = UDim2.fromOffset(140, 18)
-	centre.BackgroundTransparency = 1
-	centre.Font = Enum.Font.GothamBold
-	centre.TextSize = 13
-	centre.TextColor3 = COLOR.dim
-	centre.ZIndex = 3
-	centre.Text = ""
-	centre.Parent = dial
-	ui.centre = centre
+	ui.centre = UIKit.label(dial, {
+		name = "Centre",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.new(0.5, 0, 0.5, 53),
+		size = UDim2.fromOffset(170, 22),
+		font = UIKit.Font.body,
+		textSize = 15,
+		color = COLOR.dim,
+		xAlign = Enum.TextXAlignment.Center,
+		zIndex = 3,
+	})
 
-	-- Status line
-	local status = Instance.new("TextLabel")
-	status.Name = "Status"
-	status.AnchorPoint = Vector2.new(0.5, 1)
-	status.Position = UDim2.new(0.5, 0, 1, -152)
-	status.Size = UDim2.fromOffset(460, 20)
-	status.BackgroundTransparency = 1
-	status.Font = Enum.Font.GothamBold
-	status.TextSize = 15
-	status.TextColor3 = COLOR.dim
-	status.Text = ""
-	status.Parent = gui
-	ui.status = status
+	-- Status line: dead centre, above the instrument band.
+	ui.status = UIKit.label(gui, {
+		name = "Status",
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -Dock.STATUS_BOTTOM),
+		size = UDim2.fromOffset(640, Dock.STATUS_HEIGHT),
+		font = UIKit.Font.body,
+		textSize = 18,
+		color = COLOR.dim,
+		xAlign = Enum.TextXAlignment.Center,
+	})
 
-	-- Dig button. Big and obvious — it is also the touch control.
-	local digButton = Instance.new("TextButton")
-	digButton.Name = "DigButton"
-	digButton.AnchorPoint = Vector2.new(0.5, 1)
-	digButton.Position = UDim2.new(0.5, 0, 1, -96)
-	digButton.Size = UDim2.fromOffset(230, 48)
-	digButton.BackgroundColor3 = COLOR.panel
-	digButton.BackgroundTransparency = 0.15
-	digButton.AutoButtonColor = false
-	digButton.Font = Enum.Font.GothamBold
-	digButton.TextSize = 17
-	digButton.TextColor3 = COLOR.dim
-	digButton.Text = "HOLD  E  TO PULL"
-	digButton.Parent = gui
+	-- Dig button. Dead centre of the instrument band — the primary touch/click
+	-- target, so it gets the middle rather than either instrument either side of it.
+	local digButton, digStroke = UIKit.button(gui, {
+		name = "DigButton",
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -Dock.INSTRUMENT_BOTTOM),
+		size = Dock.DIGBUTTON_SIZE,
+		font = UIKit.Font.body,
+		textSize = 20,
+		color = COLOR.dim,
+		fillColor = COLOR.panel,
+		fillTransparency = 0.15,
+		strokeColor = COLOR.stroke,
+		cornerRadius = UIKit.Radius.button,
+		text = "HOLD  E  TO PULL",
+	})
 	ui.digButton = digButton
-
-	local digCorner = Instance.new("UICorner")
-	digCorner.CornerRadius = UDim.new(0, 8)
-	digCorner.Parent = digButton
-
-	local digStroke = Instance.new("UIStroke")
-	digStroke.Color = COLOR.stroke
-	digStroke.Thickness = 2
-	digStroke.Parent = digButton
 	ui.digStroke = digStroke
 
-	-- Dig progress, drawn as a fill sliding under the button label
+	-- Dig progress, drawn as a fill sliding under the button label. Scale-based, so
+	-- it tracks the button's new size with no change of its own.
 	local digFill = Instance.new("Frame")
 	digFill.Size = UDim2.fromScale(0, 1)
 	digFill.BackgroundColor3 = COLOR.green
@@ -290,64 +279,60 @@ local function build(): ScreenGui
 	ui.digFill = digFill
 
 	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.new(0, 8)
+	fillCorner.CornerRadius = UIKit.Radius.button
 	fillCorner.Parent = digFill
 
-	-- Unearth banner
-	local banner = Instance.new("Frame")
-	banner.Name = "Banner"
-	banner.AnchorPoint = Vector2.new(0.5, 0.5)
-	banner.Position = UDim2.fromScale(0.5, 0.32)
-	banner.Size = UDim2.fromOffset(440, 96)
-	banner.BackgroundColor3 = COLOR.panel
-	banner.BackgroundTransparency = 0.1
-	banner.Visible = false
-	banner.Parent = gui
+	-- Unearth banner: true centre, upper-third of the screen. Already lived there
+	-- before this pass; only the size and type grew.
+	local banner, bannerStroke = UIKit.panel(gui, {
+		name = "Banner",
+		size = UDim2.fromOffset(640, 160),
+		position = UDim2.fromScale(0.5, 0.32),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		color = COLOR.panel,
+		transparency = 0.1,
+		cornerRadius = UIKit.Radius.panel,
+		strokeThickness = UIKit.Stroke.thick,
+		visible = false,
+	})
 	ui.banner = banner
-
-	local bannerCorner = Instance.new("UICorner")
-	bannerCorner.CornerRadius = UDim.new(0, 10)
-	bannerCorner.Parent = banner
-
-	local bannerStroke = Instance.new("UIStroke")
-	bannerStroke.Thickness = 3
-	bannerStroke.Color = COLOR.stroke
-	bannerStroke.Parent = banner
 	ui.bannerStroke = bannerStroke
 
-	local bannerRarity = Instance.new("TextLabel")
-	bannerRarity.Position = UDim2.fromOffset(0, 10)
-	bannerRarity.Size = UDim2.new(1, 0, 0, 16)
-	bannerRarity.BackgroundTransparency = 1
-	bannerRarity.Font = Enum.Font.GothamBold
-	bannerRarity.TextSize = 13
-	bannerRarity.Text = ""
-	bannerRarity.Parent = banner
-	ui.bannerRarity = bannerRarity
+	ui.bannerRarity = UIKit.label(banner, {
+		name = "Rarity",
+		position = UDim2.fromOffset(0, 14),
+		size = UDim2.new(1, 0, 0, 22),
+		font = UIKit.Font.body,
+		textSize = 18,
+		xAlign = Enum.TextXAlignment.Center,
+	})
 
-	local bannerName = Instance.new("TextLabel")
-	bannerName.Position = UDim2.fromOffset(0, 28)
-	bannerName.Size = UDim2.new(1, 0, 0, 28)
-	bannerName.BackgroundTransparency = 1
-	bannerName.Font = Enum.Font.GothamBold
-	bannerName.TextSize = 24
-	bannerName.TextColor3 = COLOR.text
-	bannerName.Text = ""
-	bannerName.Parent = banner
-	ui.bannerName = bannerName
+	ui.bannerName = UIKit.label(banner, {
+		name = "NameLabel", -- NOT "Name" — every Instance already has a .Name
+		-- property, so a child actually named "Name" is unreachable by
+		-- Banner.Name (that resolves to the property, a string, not the child).
+		-- Harmless here since every reader uses the captured ui.bannerName
+		-- reference, never a re-lookup, but it is a landmine for anyone who
+		-- later does try to reach it by path.
+		position = UDim2.fromOffset(0, 40),
+		size = UDim2.new(1, 0, 0, 50),
+		font = UIKit.Font.hero,
+		textSize = UIKit.TextSize.hero - 4,
+		color = COLOR.text,
+		xAlign = Enum.TextXAlignment.Center,
+	})
 
-	local bannerFlavor = Instance.new("TextLabel")
-	bannerFlavor.AnchorPoint = Vector2.new(0.5, 0)
-	bannerFlavor.Position = UDim2.new(0.5, 0, 0, 58)
-	bannerFlavor.Size = UDim2.new(1, -24, 0, 32)
-	bannerFlavor.BackgroundTransparency = 1
-	bannerFlavor.Font = Enum.Font.GothamMedium
-	bannerFlavor.TextSize = 14
-	bannerFlavor.TextColor3 = COLOR.dim
-	bannerFlavor.TextWrapped = true
-	bannerFlavor.Text = ""
-	bannerFlavor.Parent = banner
-	ui.bannerFlavor = bannerFlavor
+	ui.bannerFlavor = UIKit.label(banner, {
+		name = "Flavor",
+		anchorPoint = Vector2.new(0.5, 0),
+		position = UDim2.new(0.5, 0, 0, 96),
+		size = UDim2.new(1, -40, 0, 50),
+		font = UIKit.Font.body,
+		textSize = 17,
+		color = COLOR.dim,
+		xAlign = Enum.TextXAlignment.Center,
+		wrapped = true,
+	})
 
 	return gui
 end

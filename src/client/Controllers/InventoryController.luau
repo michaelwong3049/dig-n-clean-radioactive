@@ -21,6 +21,12 @@
 	they are how a player sees the headroom a suit upgrade bought them, and PLAN §3.4
 	makes capacity one of the six tracks. A hotbar that only draws what you own hides
 	the entire upgrade.
+
+	THE DETAIL CARD USED TO BE HAND-TUNED AGAINST DetectorController'S PRIVATE
+	NUMBERS — a comment here used to read "if DetectorController's stack moves, this
+	number moves with it," which was true and unenforced. It now reads its position
+	off UIKit.Dock.CARD_BOTTOM, the same shared table DetectorController and
+	HudController read theirs from. No file has to know another file's layout again.
 ]]
 
 local Players = game:GetService("Players")
@@ -34,26 +40,21 @@ local Rarity = require(Shared.Config.Rarity)
 local Decay = require(Shared.Decay)
 local Net = require(Shared.Net)
 
+local UIKit = require(script.Parent.Parent.UIKit)
+local Dock = UIKit.Dock
+
 local Inventory = {}
 
-local COLOR = {
-	panel = Color3.fromHex("0C0F0A"),
-	stroke = Color3.fromHex("2A3324"),
-	text = Color3.fromHex("E4E9DE"),
-	dim = Color3.fromHex("7C8874"),
-	empty = Color3.fromHex("1E241A"),
-	green = Color3.fromHex("8FE04A"),
-	amber = Color3.fromHex("F59E0B"),
-	red = Color3.fromHex("EF4444"),
-}
+-- Same fields UIKit.C already carries, aliased so every COLOR.xxx read below keeps
+-- working unchanged.
+local COLOR = UIKit.C
 
 -- Slots shrink as capacity grows so a maxed satchel still fits one row. Below the
 -- floor the name is unreadable anyway, so the row is allowed to run wider instead.
-local SLOT_MAX = 78
-local SLOT_MIN = 52
-local SLOT_GAP = 6
-local SLOT_HEIGHT = 62
-local ROW_WIDTH_TARGET = 1080
+local SLOT_MAX = Dock.SLOT_MAX
+local SLOT_MIN = Dock.SLOT_MIN
+local SLOT_GAP = Dock.SLOT_GAP
+local SLOT_HEIGHT = Dock.HOTBAR_HEIGHT
 
 -- Number keys only reach so far. Slots past this are visible and perfectly usable,
 -- they just have no key — which is the normal hotbar bargain.
@@ -145,41 +146,38 @@ local function makeSlot(parent: Instance, index: number)
 	slot.Parent = parent
 
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 6)
+	corner.CornerRadius = UIKit.Radius.slot
 	corner.Parent = slot
 
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = COLOR.stroke
-	stroke.Thickness = 2
+	stroke.Thickness = UIKit.Stroke.thin
 	stroke.Parent = slot
 
 	-- The slot's number, top-left, dim. Present on every slot including the ones past
 	-- the bindable range so the row does not look ragged.
-	local key = Instance.new("TextLabel")
-	key.Name = "Key"
-	key.Position = UDim2.fromOffset(5, 2)
-	key.Size = UDim2.fromOffset(14, 12)
-	key.BackgroundTransparency = 1
-	key.Font = Enum.Font.GothamBold
-	key.TextSize = 10
-	key.TextXAlignment = Enum.TextXAlignment.Left
-	key.TextColor3 = COLOR.dim
-	key.Text = tostring(index)
-	key.Parent = slot
+	local key = UIKit.label(slot, {
+		name = "Key",
+		position = UDim2.fromOffset(7, 4),
+		size = UDim2.fromOffset(18, 16),
+		font = UIKit.Font.body,
+		textSize = 13,
+		color = COLOR.dim,
+		text = tostring(index),
+	})
 
-	local name = Instance.new("TextLabel")
-	name.Name = "ItemName"
-	name.AnchorPoint = Vector2.new(0.5, 1)
-	name.Position = UDim2.new(0.5, 0, 1, -6)
-	name.Size = UDim2.new(1, -8, 0, 40)
-	name.BackgroundTransparency = 1
-	name.Font = Enum.Font.GothamBold
-	name.TextSize = 11
-	name.TextWrapped = true
-	name.TextYAlignment = Enum.TextYAlignment.Bottom
-	name.TextColor3 = COLOR.text
-	name.Text = ""
-	name.Parent = slot
+	local name = UIKit.label(slot, {
+		name = "ItemName",
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -8),
+		size = UDim2.new(1, -10, 0, 46),
+		font = UIKit.Font.body,
+		textSize = 14,
+		color = COLOR.text,
+		xAlign = Enum.TextXAlignment.Center,
+		yAlign = Enum.TextYAlignment.Bottom,
+		wrapped = true,
+	})
 
 	slot.MouseButton1Click:Connect(function()
 		Inventory.select(index)
@@ -189,88 +187,62 @@ local function makeSlot(parent: Instance, index: number)
 end
 
 local function buildCard(parent: Instance): Frame
-	local card = Instance.new("Frame")
-	card.Name = "Detail"
-	card.AnchorPoint = Vector2.new(0.5, 1)
-	-- Clear of the whole centre column, which stacks upward from the hotbar as
-	-- hotbar (-14..-76) / bag count (-80) / pull button (-96..-144) / status
-	-- (-172..-152, since it is bottom-anchored and 20 tall). At -92 this sat straight
-	-- on top of the pull button; at -162 it still clipped the top ten pixels of the
-	-- status line. If DetectorController's stack moves, this number moves with it.
-	card.Position = UDim2.new(0.5, 0, 1, -178)
-	card.Size = UDim2.fromOffset(330, 116)
-	card.BackgroundColor3 = COLOR.panel
-	card.BackgroundTransparency = 0.08
-	card.Visible = false
-	card.Parent = parent
+	-- Position derived from UIKit.Dock.CARD_BOTTOM — see the file header. Nothing
+	-- here has to know DetectorController's numbers any more.
+	local card, cardStroke = UIKit.panel(parent, {
+		name = "Detail",
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -Dock.CARD_BOTTOM),
+		size = Dock.CARD_SIZE,
+		color = COLOR.panel,
+		transparency = 0.08,
+		cornerRadius = UIKit.Radius.card,
+		visible = false,
+	})
+	ui.cardStroke = cardStroke
 
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 8)
-	corner.Parent = card
+	ui.cardTitle = UIKit.label(card, {
+		name = "Title",
+		position = UDim2.fromOffset(16, 12),
+		size = UDim2.new(1, -32, 0, 26),
+		font = UIKit.Font.body,
+		textSize = 22,
+		color = COLOR.text,
+	})
 
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 2
-	stroke.Color = COLOR.stroke
-	stroke.Parent = card
-	ui.cardStroke = stroke
+	ui.cardSub = UIKit.label(card, {
+		name = "Sub",
+		position = UDim2.fromOffset(16, 38),
+		size = UDim2.new(1, -32, 0, 18),
+		font = UIKit.Font.body,
+		textSize = 14,
+	})
 
-	local title = Instance.new("TextLabel")
-	title.Position = UDim2.fromOffset(12, 9)
-	title.Size = UDim2.new(1, -24, 0, 20)
-	title.BackgroundTransparency = 1
-	title.Font = Enum.Font.GothamBold
-	title.TextSize = 16
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.TextColor3 = COLOR.text
-	title.Text = ""
-	title.Parent = card
-	ui.cardTitle = title
+	ui.cardDecay = UIKit.label(card, {
+		name = "Decay",
+		position = UDim2.fromOffset(16, 60),
+		size = UDim2.new(1, -32, 0, 20),
+		font = UIKit.Font.body,
+		textSize = 16,
+	})
 
-	local sub = Instance.new("TextLabel")
-	sub.Position = UDim2.fromOffset(12, 29)
-	sub.Size = UDim2.new(1, -24, 0, 14)
-	sub.BackgroundTransparency = 1
-	sub.Font = Enum.Font.GothamBold
-	sub.TextSize = 11
-	sub.TextXAlignment = Enum.TextXAlignment.Left
-	sub.Text = ""
-	sub.Parent = card
-	ui.cardSub = sub
+	ui.cardDirt = UIKit.label(card, {
+		name = "Dirt",
+		position = UDim2.fromOffset(16, 82),
+		size = UDim2.new(1, -32, 0, 20),
+		font = UIKit.Font.body,
+		textSize = 16,
+	})
 
-	local decay = Instance.new("TextLabel")
-	decay.Position = UDim2.fromOffset(12, 50)
-	decay.Size = UDim2.new(1, -24, 0, 16)
-	decay.BackgroundTransparency = 1
-	decay.Font = Enum.Font.GothamMedium
-	decay.TextSize = 13
-	decay.TextXAlignment = Enum.TextXAlignment.Left
-	decay.Text = ""
-	decay.Parent = card
-	ui.cardDecay = decay
-
-	local dirt = Instance.new("TextLabel")
-	dirt.Position = UDim2.fromOffset(12, 68)
-	dirt.Size = UDim2.new(1, -24, 0, 16)
-	dirt.BackgroundTransparency = 1
-	dirt.Font = Enum.Font.GothamMedium
-	dirt.TextSize = 13
-	dirt.TextXAlignment = Enum.TextXAlignment.Left
-	dirt.Text = ""
-	dirt.Parent = card
-	ui.cardDirt = dirt
-
-	local worth = Instance.new("TextLabel")
-	worth.AnchorPoint = Vector2.new(0, 1)
-	worth.Position = UDim2.new(0, 12, 1, -8)
-	worth.Size = UDim2.new(1, -24, 0, 18)
-	worth.BackgroundTransparency = 1
-	worth.Font = Enum.Font.GothamBold
-	worth.TextSize = 15
-	worth.TextXAlignment = Enum.TextXAlignment.Left
-	worth.TextColor3 = COLOR.green
-	worth.Text = ""
-	worth.Parent = card
-	ui.cardWorth = worth
+	ui.cardWorth = UIKit.label(card, {
+		name = "Worth",
+		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(0, 16, 1, -12),
+		size = UDim2.new(1, -32, 0, 22),
+		font = UIKit.Font.body,
+		textSize = 19,
+		color = COLOR.green,
+	})
 
 	return card
 end
@@ -280,29 +252,43 @@ local function build(): ScreenGui
 	gui.Name = "InventoryHud"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 60
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	local header = Instance.new("TextLabel")
-	header.Name = "BagCount"
-	header.AnchorPoint = Vector2.new(0.5, 1)
-	header.Position = UDim2.new(0.5, 0, 1, -80)
-	header.Size = UDim2.fromOffset(240, 14)
-	header.BackgroundTransparency = 1
-	header.Font = Enum.Font.GothamBold
-	header.TextSize = 11
-	header.TextColor3 = COLOR.dim
-	header.Text = ""
-	header.Parent = gui
-	ui.header = header
+	ui.header = UIKit.label(gui, {
+		name = "BagCount",
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -Dock.BAGCOUNT_BOTTOM),
+		size = UDim2.fromOffset(280, Dock.BAGCOUNT_HEIGHT),
+		font = UIKit.Font.body,
+		textSize = 14,
+		color = COLOR.dim,
+		xAlign = Enum.TextXAlignment.Center,
+	})
 
+	-- Scale-based, not a fixed offset — a fixed 1080px row was fine bottom-centred
+	-- alone, but the dock now packs the meter/button/dial band above it on the same
+	-- centre line, and a narrower viewport needs the hotbar to shrink with it rather
+	-- than run off the edges. UISizeConstraint caps it so an ultrawide monitor does
+	-- not stretch it absurdly wide either.
 	local row = Instance.new("Frame")
 	row.Name = "Hotbar"
 	row.AnchorPoint = Vector2.new(0.5, 1)
-	row.Position = UDim2.new(0.5, 0, 1, -14)
-	row.Size = UDim2.fromOffset(ROW_WIDTH_TARGET, SLOT_HEIGHT)
+	row.Position = UDim2.new(0.5, 0, 1, -Dock.HOTBAR_BOTTOM)
+	row.Size = UDim2.new(1, -2 * Dock.ROW_SIDE_MARGIN, 0, SLOT_HEIGHT)
 	row.BackgroundTransparency = 1
+	-- Safety net, not a fix: slotWidth()'s shrink-to-fit clamp can already run wider
+	-- than its target at max capacity (SLOT_MIN floors before the row runs out of
+	-- room) — pre-existing, invisible only because nothing clipped it. A narrower
+	-- live target on small viewports widens that gap; this keeps it from spilling
+	-- into whatever sits either side of the hotbar instead of fixing the clamp math.
+	row.ClipsDescendants = true
 	row.Parent = gui
 	ui.row = row
+
+	local rowConstraint = Instance.new("UISizeConstraint")
+	rowConstraint.MaxSize = Vector2.new(Dock.ROW_MAX_WIDTH, math.huge)
+	rowConstraint.Parent = row
 
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
@@ -333,11 +319,20 @@ end
 
 --- Slot width for the current capacity. Shrinks toward SLOT_MIN as the bag grows so
 --- a Containment Rig's twenty slots still land on one row.
+---
+--- READS THE ROW'S LIVE AbsoluteSize NOW, not a compile-time target — the row is
+--- Scale-based (see build()), so its actual pixel width depends on the viewport.
+--- AbsoluteSize can read 0 for one frame before the GUI's first layout pass
+--- resolves; the fallback below is just "use the default until it does."
 local function slotWidth(): number
 	if state.capacity <= 0 then
 		return SLOT_MAX
 	end
-	local fit = (ROW_WIDTH_TARGET - SLOT_GAP * (state.capacity - 1)) / state.capacity
+	local available = ui.row.AbsoluteSize.X
+	if available <= 0 then
+		return SLOT_MAX
+	end
+	local fit = (available - SLOT_GAP * (state.capacity - 1)) / state.capacity
 	return math.clamp(math.floor(fit), SLOT_MIN, SLOT_MAX)
 end
 
@@ -372,7 +367,7 @@ local function renderSlots()
 			slot.button.BackgroundColor3 = COLOR.empty
 			slot.button.BackgroundTransparency = 0.55
 			slot.stroke.Color = COLOR.stroke
-			slot.stroke.Thickness = 1
+			slot.stroke.Thickness = UIKit.Stroke.thin
 			continue
 		end
 
@@ -382,7 +377,7 @@ local function renderSlots()
 		slot.button.BackgroundColor3 = COLOR.panel
 		slot.button.BackgroundTransparency = 0.25
 		slot.stroke.Color = colour
-		slot.stroke.Thickness = if item.uid == selected then 3 else 2
+		slot.stroke.Thickness = if item.uid == selected then UIKit.Stroke.selected else UIKit.Stroke.thin
 	end
 
 	local count = #state.items
@@ -522,6 +517,12 @@ function Inventory.start()
 
 		renderSlots()
 		renderCard()
+	end)
+
+	-- New: the row is Scale-based now, so a viewport resize (window resize, phone
+	-- rotation) changes how many pixels slotWidth() has to divide up.
+	ui.row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		renderSlots()
 	end)
 
 	UserInputService.InputBegan:Connect(function(input, processed)
