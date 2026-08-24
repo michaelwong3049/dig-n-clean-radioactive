@@ -1153,9 +1153,19 @@ entirely out of things the player personally went and got.
 > danger, so the eye trains itself without being taught.** What changed is which
 > channel. It is no longer saturation. It is emission.
 
+> **Revised again, Zones 1-3 only.** "Saturated everywhere" was true of the whole
+> map; it is now true starting from Zone 4. Zones 1-3 open the game on a deliberate
+> fade instead — a small pocket of vivid grass right at Zone 1's camp-facing edge,
+> dying out through the back half of Zone 1 and all of Zone 2, dead realistic desert
+> sand by Zone 3. The rule below still holds completely inside that fade: radiation
+> is still the only thing that glows, it is just dimmer and sparser here on purpose,
+> intensifying again from Zone 4 on exactly as already written. A return to
+> saturated, colourful ground earlier than Zone 4 is a deliberate future addition,
+> not implemented yet — do not read its absence here as an oversight.
+
 **The rule:**
 
-> **Saturated everywhere. Radiation is the only thing that GLOWS.**
+> **Saturated everywhere from Zone 4 on. Radiation is the only thing that GLOWS.**
 
 * **Palette:** sunny and high-value. Warm cream plazas, painted timber, mint concrete,
 coral / cyan / violet shop awnings, per-plot accent colours. The world should look
@@ -1163,7 +1173,9 @@ like somewhere you want to be, so that leaving it costs something.
 * **Radiation is `#4FD11A` acid green on `Material.Neon`, with a `PointLight`, and
 nothing else in the world may use that combination.** Not a sign, not a lamp, not a
 UI accent. It is the one uncontaminated channel and it is what makes "the green stuff
-is the game" legible to a six-year-old in about one second.
+is the game" legible to a six-year-old in about one second. That exact hex is Zone
+4 on; Zones 1-3 use their own muted greens per the fade above, on the same Neon +
+PointLight channel and no other — the vividness is what moved, not which channel.
   * Practical note learned the hard way: keep the ooze **green-dominant**. A
   yellow-green like `#B6FF6E` comes out of Neon + bloom as cream and stops reading as
   toxic at all.

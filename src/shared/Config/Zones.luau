@@ -226,9 +226,17 @@ Zones.DEFS = {
 		loot = { Scrap = 48, Common = 41, Uncommon = 8.4, Rare = 2, Epic = 0.4, Legendary = 0.075, Mythic = 0.02, Anomaly = 0.001 },
 		center = { 430, 0 },
 		size = { 660, 320 },
-		color = "6F9636",
+		-- Matches STAGES[3]'s colour below, not STAGES[1]'s: paintBands covers this
+		-- plate edge-to-edge in stage bands, so this base colour is never actually
+		-- seen — it is only the fallback under a seam gap, and the fallback should
+		-- match the zone's OWN east/dead end, not its green west end, since that is
+		-- what borders Zone 2 across the boundary blend. See "LIFE FADING INTO A
+		-- DEAD WASTELAND" below for the whole Zone 1-3 palette.
+		color = "C2A171",
 		material = "Sand",
-		ooze = { bright = "6BEE2E", deep = "2A6B10", glow = "4FD11A" },
+		-- Muted on purpose — see the note below. Nowhere near today's old 6BEE2E,
+		-- and nowhere near Zones 4-6's neon-pink/violet territory either.
+		ooze = { bright = "7CBF52", deep = "35501F", glow = "5C9A3C" },
 		built = true,
 	},
 	{
@@ -238,7 +246,9 @@ Zones.DEFS = {
 		soilHardness = 2,
 		ratedSuitTier = 2,
 		stationDistance = 719,
-		fogColor = Color3.fromHex("D8F0B8"),
+		-- Was a pale yellow-green — clashed with the dun/tan ground once that
+		-- stopped being green. Dusty tan haze instead.
+		fogColor = Color3.fromHex("E8D9B0"),
 		fogEnd = 800,
 		loot = { Scrap = 43, Common = 39, Uncommon = 12.6, Rare = 3.5, Epic = 1, Legendary = 0.25, Mythic = 0.05, Anomaly = 0.002 },
 		-- MOVED EAST, OUT OF ZONE 1. This used to sit at x = 470, which put it
@@ -249,9 +259,16 @@ Zones.DEFS = {
 		-- seconds-between-contacts figures for this zone still hold.
 		center = { 870, 0 },
 		size = { 220, 280 },
-		color = "538C28",
+		-- Dun/tan, not green — see "LIFE FADING INTO A DEAD WASTELAND" below.
+		color = "B8935F",
 		material = "Sand",
-		ooze = { bright = "6BEE2E", deep = "2A6B10", glow = "4FD11A" },
+		-- Corrected after a live look: the first pass (8FB358) was not green-DOMINANT
+		-- enough — R was 80% of G, and Neon + bloom pushed it to cream, the exact
+		-- failure this file's own header warns about ("a yellow-green like #B6FF6E
+		-- comes out of Neon + bloom as cream and stops reading as toxic at all").
+		-- Same family as Zone 1's ooze, just a touch deeper — R/G ratio close to
+		-- Zone 1's ~0.65 instead of drifting toward yellow.
+		ooze = { bright = "6FA84A", deep = "30481C", glow = "519438" },
 		built = true,
 	},
 	{
@@ -261,16 +278,23 @@ Zones.DEFS = {
 		soilHardness = 3,
 		ratedSuitTier = 3,
 		stationDistance = 939,
-		fogColor = Color3.fromHex("A8F06A"),
+		-- Was a bright yellow-green — same clash as Zone 2's, deeper. Warmer dusty
+		-- khaki haze for the gradient's endpoint.
+		fogColor = Color3.fromHex("D4B896"),
 		fogEnd = 700,
 		loot = { Scrap = 34, Common = 40, Uncommon = 16.8, Rare = 6, Epic = 2.25, Legendary = 0.6, Mythic = 0.14, Anomaly = 0.005 },
 		-- Also moved east — its old centre at x = 760 was Zone 1's east EDGE, so half
 		-- of it lay inside Zone 1. Butted onto Zone 2 instead. Size untouched.
 		center = { 1110, 0 },
 		size = { 260, 320 },
-		color = "3E7A1C",
-		material = "Slate",
-		ooze = { bright = "6BEE2E", deep = "2A6B10", glow = "4FD11A" },
+		-- Deeper desert khaki-brown — the endpoint of the Zone 1-3 gradient. Slate
+		-- read as dark grey rock and broke continuity with the sand family this
+		-- whole stretch depends on, so material moved to Sand too.
+		color = "A67C4E",
+		material = "Sand",
+		-- Same green-dominance fix as Zone 2's — see that zone's comment. Slightly
+		-- darker again, the gradient's endpoint, but the same hue family throughout.
+		ooze = { bright = "649C42", deep = "2C4018", glow = "488432" },
 		built = true,
 	},
 	{
@@ -378,16 +402,18 @@ Zones.DEFS = {
 -- unnatural and gated nothing.
 --
 -- THESE HAVE TO BE FAR APART, AND THEY DID NOT USED TO BE. The first set was
--- 6F9636 / 538C28 / 3E7A1C — three shades of one green, which was fine while the
--- colour only ever tinted a gate post, and completely invisible the moment it became
--- the ground: the field renders under a bright Neon ooze layer whose glow swallowed
--- the difference, and the first attempt at this came out one flat green. They now run
--- ashen olive -> green -> dark cool green, moving in LIGHTNESS and HUE together, which
--- is what survives being seen through that layer.
+-- 6F9636 / 538C28 / 3E7A1C — three shades of one green. LIFE FADING INTO A DEAD
+-- WASTELAND (see PLAN.md §14's revision note) replaced that with a genuine family
+-- change instead of three shades of one hue: vivid grass green -> khaki-olive dying
+-- middle -> pale dead sand, matching Zone 2/3's own now-desaturated tan/khaki-brown
+-- ground so Zone 1's own internal gradient hands off into the zone-to-zone one
+-- seamlessly instead of two unrelated systems meeting at a coincidence.
 --
--- The reading is also the fiction: Outer Ash is dusty and barely contaminated, Deep
--- Fallout is dark and wet with it. Keep them distinguishable at a glance — the loot
--- table changes at the seam, so a player has to be able to see which one they are on.
+-- The reading is also the fiction, same names, new meaning: Outer Ash is the
+-- untouched edge right off camp's doorstep, barely ashen at all yet; Hot Wreckage is
+-- where it is visibly dying; Deep Fallout is where the ecosystem lost. Keep them
+-- distinguishable at a glance — the loot table changes at the seam, so a player has
+-- to be able to see which one they are on.
 Zones.STAGES = {
 	{
 		id = 1,
@@ -397,7 +423,7 @@ Zones.STAGES = {
 		unlockTier = 1,
 		loot = Zones.DEFS[1].loot,
 		itemZoneId = 1,
-		color = "9DA857",
+		color = "5C9A34",
 	},
 	{
 		id = 2,
@@ -407,7 +433,7 @@ Zones.STAGES = {
 		unlockTier = 2,
 		loot = Zones.DEFS[2].loot,
 		itemZoneId = 2,
-		color = "5F8C2E",
+		color = "8E7C48",
 	},
 	{
 		id = 3,
@@ -417,7 +443,7 @@ Zones.STAGES = {
 		unlockTier = 3,
 		loot = Zones.DEFS[3].loot,
 		itemZoneId = 3,
-		color = "2B6135",
+		color = "C2A171",
 	},
 }
 

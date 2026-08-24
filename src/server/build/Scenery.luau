@@ -62,7 +62,7 @@ local Kit = require(script.Parent.Kit)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 3
+local BUILDER_VERSION = 4
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -174,7 +174,13 @@ local ZONE_BLEND_STEPS = 14
 --- Which boundaries get one. Read by `buildZoneScenery` as well as by the builder
 --- below, because a blend is not something you can add on top: the zone's own ooze
 --- sheet has to get out of the way first. See `oozeInset`.
-local ZONE_BLENDS = { { from = 3, to = 4 } }
+---
+--- 1/2 and 2/3 joined 3/4 when the Zone 1-3 gradient (LIFE FADING INTO A DEAD
+--- WASTELAND, see Config/Zones) gave every zone in the chain a genuinely different
+--- ground/ooze colour instead of three shades of one green — Zone 1's own pale-sand
+--- endpoint into Zone 2's dun tan, and Zone 2's tan into Zone 3's deeper khaki-brown,
+--- are real family changes now, same as 3/4 already was.
+local ZONE_BLENDS = { { from = 1, to = 2 }, { from = 2, to = 3 }, { from = 3, to = 4 } }
 
 --- How far this zone's ooze sheet must stop short of its west and east edges.
 ---
@@ -254,6 +260,55 @@ local function buildZoneBlend(parent: Instance, fromId: number, toId: number)
 	folder.Parent = parent
 end
 
+--- How many thin bands Zone 1's own ooze fade uses. Same technique buildZoneBlend
+--- already proves safe (many thin steps, small delta each) rather than the FEW WIDE
+--- bands buildZoneScenery's OozeSurface comment warns produces hard stripes — 24
+--- steps across a 660-stud plate is finer-grained than buildZoneBlend's 14 steps
+--- across 90.
+local LIFE_FADE_STEPS = 24
+
+--- Presence, not hue, carries "life fading into a wasteland": Zone 1's ooze colour
+--- never changes across this fade, only how transparent it is. Near-invisible at
+--- the untouched west edge, climbing to every other zone's normal 0.82 by the start
+--- of Deep Fallout (STAGES[3]) — flat thereafter, so nothing distinguishes Zone 1's
+--- own east third from Zone 2 onward except the ground colour underneath it.
+local LIFE_FADE_START_TRANSPARENCY = 0.985
+
+--- Zone 1 only: the OozeSurface as many thin transparency-graded bands instead of
+--- buildZoneScenery's usual one flat part. A transparency fade with a small
+--- per-step delta never creates a visible seam the way a hue change would — that is
+--- what keeps this from becoming the "few wide bands" mistake, not the band count
+--- alone.
+local function buildGradientOozeSurface(folder: Instance, origin: CFrame, def: any, westInset: number, eastInset: number)
+	local startX = -def.size[1] / 2 + westInset
+	local endX = def.size[1] / 2 - eastInset
+	local fadeEndX = math.clamp(Zones.STAGES[#Zones.STAGES].minX, startX, endX)
+	local fadeSpan = fadeEndX - startX
+
+	local step = (endX - startX) / LIFE_FADE_STEPS
+	for i = 0, LIFE_FADE_STEPS - 1 do
+		local x0 = startX + i * step
+		local x1 = x0 + step
+		local mid = (x0 + x1) / 2
+
+		local transparency = if fadeSpan <= 0
+			then 0.82
+			else LIFE_FADE_START_TRANSPARENCY
+				+ (0.82 - LIFE_FADE_START_TRANSPARENCY) * math.clamp((mid - startX) / fadeSpan, 0, 1)
+
+		local sheet = build(folder, origin, {
+			name = `OozeSurfaceFade{i}`,
+			pos = { mid, WADE_HEIGHT, 0 },
+			size = { step, 0.3, def.size[2] },
+			color = def.ooze.bright,
+			material = "Neon",
+			transparency = transparency,
+			canCollide = false,
+		})
+		sheet.CanQuery = false
+	end
+end
+
 --- HOW MANY POOL LIGHTS A FIELD MAY HAVE, however many pools it has.
 ---
 --- Every pool used to get its own PointLight. That was 39 lights when Zone 1 was the
@@ -290,9 +345,14 @@ local BARREL_LIGHT_EVERY = 5
 --- only a sixth to a fifth and now hold 66% of it (was 49%). Early zones should read
 --- clean enough that a pool is a landmark; the Crater should still read as more ooze
 --- than ground.
+--- Zone 1 and 2's pool counts dropped again (10->8, 14->10) for LIFE FADING INTO A
+--- DEAD WASTELAND — on top of buildGradientOozeSurface's own west-to-east thinning
+--- within Zone 1 itself, the zone should already read sparser at a glance than the
+--- rebalance above assumed. The percentages in the paragraph above are now stale by
+--- a few points, not worth re-deriving for a six-pool difference.
 local THEME = {
-	[1] = { props = 26, pools = 10, kind = "trees" },
-	[2] = { props = 34, pools = 14, kind = "houses" },
+	[1] = { props = 26, pools = 8, kind = "trees" },
+	[2] = { props = 34, pools = 10, kind = "houses" },
 	[3] = { props = 40, pools = 20, kind = "sirens" },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
 	-- The two pink zones. Pool counts climb with the rads because the pools ARE the
@@ -381,6 +441,21 @@ local function prop(
 				color = C.wood,
 				material = "Wood",
 				rot = Kit.ang(0, rng:NextNumber(0, 180), rng:NextNumber(-25, 25)),
+				canCollide = false,
+			})
+		end
+	elseif kind == "brush" then
+		-- Zone 1's Outer Ash stage only (see propKindFor): live scrub, not the dead
+		-- "trees" kind the rest of the zone uses — a handful of small rounded clumps
+		-- rather than a trunk, deliberately reading as smaller and lower than
+		-- DeadTree so the two never get mistaken for one another at a glance.
+		for _ = 1, rng:NextInteger(2, 3) do
+			build(parent, origin, {
+				name = "Brush",
+				pos = { x + rng:NextNumber(-2.2, 2.2), rng:NextNumber(0.8, 1.6), z + rng:NextNumber(-2.2, 2.2) },
+				size = { rng:NextNumber(1.8, 2.8), rng:NextNumber(1.4, 2.2), rng:NextNumber(1.8, 2.8) },
+				color = "6B8F3E",
+				material = "Grass",
 				canCollide = false,
 			})
 		end
@@ -533,24 +608,44 @@ local function buildZoneScenery(parent: Instance, id: number)
 	-- still read as solid ground, not a layer over it). 0.82 is the point props and
 	-- the sand below actually show through — including, now, the stage colour.
 	local westInset, eastInset = oozeInset(id)
-	build(folder, origin, {
-		name = "OozeSurface",
-		-- Centred on the plate unless one edge is blended, in which case the sheet
-		-- stops short of it and buildZoneBlend fills the gap with the stepped
-		-- version. `(west - east) / 2` recentres what is left of the sheet.
-		pos = { (westInset - eastInset) / 2, WADE_HEIGHT, 0 },
-		size = { def.size[1] - westInset - eastInset, 0.3, def.size[2] },
-		color = def.ooze.bright,
-		material = "Neon",
-		transparency = 0.82,
-		canCollide = false,
-	})
+	if id == 1 then
+		-- Zone 1 only: LIFE FADING INTO A DEAD WASTELAND (see Config/Zones) means
+		-- this zone's own ooze is not uniform west-to-east the way every other
+		-- zone's is — see buildGradientOozeSurface for why that is still one
+		-- technique, not the banned "few wide bands" one.
+		buildGradientOozeSurface(folder, origin, def, westInset, eastInset)
+	else
+		build(folder, origin, {
+			name = "OozeSurface",
+			-- Centred on the plate unless one edge is blended, in which case the sheet
+			-- stops short of it and buildZoneBlend fills the gap with the stepped
+			-- version. `(west - east) / 2` recentres what is left of the sheet.
+			pos = { (westInset - eastInset) / 2, WADE_HEIGHT, 0 },
+			size = { def.size[1] - westInset - eastInset, 0.3, def.size[2] },
+			color = def.ooze.bright,
+			material = "Neon",
+			transparency = 0.82,
+			canCollide = false,
+		})
+	end
 
 	-- Ooze pools first, so props sit on top of them.
 	local lightEvery = math.max(1, math.ceil(theme.pools / ZONE_LIGHT_BUDGET))
 	for index = 1, theme.pools do
 		local x, z = rng:NextNumber(-hx, hx), rng:NextNumber(-hz, hz)
 		local d = rng:NextNumber(18, 46)
+
+		-- Zone 1 only: pools thin out and shrink heading toward the west/life edge,
+		-- matching the OozeSurface fade above. t=0 at the untouched west edge, t=1
+		-- at the east edge bordering Zone 2.
+		if id == 1 then
+			local t = (x + hx) / (2 * hx)
+			if rng:NextNumber() < 0.75 * (1 - t) then
+				continue
+			end
+			d *= 0.35 + 0.65 * t
+		end
+
 		local pool = build(folder, origin, {
 			name = "OozePool",
 			pos = { x, SKIM, z },
@@ -603,7 +698,11 @@ local function buildZoneScenery(parent: Instance, id: number)
 			if placed % 2 == 0 then
 				barrel(folder, origin, x, z, rng, def.ooze, placed % BARREL_LIGHT_EVERY == 0)
 			else
-				prop(folder, origin, theme.kind, x, z, rng, def.ooze)
+				-- Zone 1's Outer Ash stage (the untouched west third, see LIFE FADING
+				-- INTO A DEAD WASTELAND) gets live "brush" instead of its zone's
+				-- normal "trees" kind, which is already dead wood everywhere else.
+				local kind = if id == 1 and x <= Zones.STAGES[1].maxX then "brush" else theme.kind
+				prop(folder, origin, kind, x, z, rng, def.ooze)
 			end
 		end
 	end
@@ -728,12 +827,17 @@ local function createScenery(): Model
 	buildStageGround(scenery, 1)
 	buildStageMarkers(scenery, 1)
 
-	-- The one place on the east chain where the ground changes family rather than
-	-- shade. Zones 1-3 are green, 4-6 are plum/pink/violet, so this is drawn once, at
-	-- the 3/4 boundary — moved here from 3/5 when Zone 4 was pulled out of its old
-	-- spot by camp and slotted into the chain ahead of Zone 5. 4 to 5 and 5 to 6 get
-	-- none: plum into pink into violet is a step along one scale, and the plates read
-	-- as continuous without help.
+	-- Zone 1's pale-sand endpoint into Zone 2's dun tan, and Zone 2's tan into Zone
+	-- 3's deeper khaki-brown, are real family changes now that Zones 1-3 are a life-
+	-- to-wasteland gradient rather than three shades of one green — see ZONE_BLENDS.
+	buildZoneBlend(scenery, 1, 2)
+	buildZoneBlend(scenery, 2, 3)
+
+	-- Zones 1-3 are the (now muted) dead-sand family, 4-6 are plum/pink/violet, so
+	-- this is drawn once more, at the 3/4 boundary — moved here from 3/5 when Zone 4
+	-- was pulled out of its old spot by camp and slotted into the chain ahead of
+	-- Zone 5. 4 to 5 and 5 to 6 get none: plum into pink into violet is a step along
+	-- one scale, and the plates read as continuous without help.
 	buildZoneBlend(scenery, 3, 4)
 
 	-- Nothing in here may claim to be a zone. This is the invariant the whole
