@@ -415,6 +415,39 @@ end
 --- colours, which is correct: a rusted siren head is rust everywhere. Anything a prop
 --- glows with because the FIELD is hot has to come from here, or Reactor Grounds gets
 --- acid-green vents standing in a hot pink field.
+--- How far apart LEGO-style studs sit across a block's top face, in studs.
+local STUD_SPACING = 2.2
+
+--- A grid of studs across the TOP face of a block — literally "made of stud", per
+--- the user: Zone 1's life-pocket props (liveTree's canopy, brush) read too
+--- realistic built the first way (Grass material's photographic blade texture, a
+--- smooth Ball canopy), next to a game that is flat cartoon SmoothPlastic/Neon
+--- everywhere else. Chunky blocks plus a visible stud grid is the toy-brick look
+--- the rest of the world already has (see Kit.C's "studded checkerboard" plaza).
+local function studs(parent: Instance, origin: CFrame, blockPos: { number }, blockSize: { number }, color: string)
+	local cols = math.max(1, math.floor(blockSize[1] / STUD_SPACING))
+	local rows = math.max(1, math.floor(blockSize[3] / STUD_SPACING))
+	local topY = blockPos[2] + blockSize[2] / 2 + 0.35
+	for row = 0, rows - 1 do
+		for col = 0, cols - 1 do
+			build(parent, origin, {
+				name = "Stud",
+				pos = {
+					blockPos[1] - blockSize[1] / 2 + (col + 0.5) * (blockSize[1] / cols),
+					topY,
+					blockPos[3] - blockSize[3] / 2 + (row + 0.5) * (blockSize[3] / rows),
+				},
+				size = { STUD_SPACING * 0.45, 0.7, STUD_SPACING * 0.45 },
+				color = color,
+				material = "SmoothPlastic",
+				shape = "Cylinder",
+				rot = R.cylUp,
+				canCollide = false,
+			})
+		end
+	end
+end
+
 local function prop(
 	parent: Instance,
 	origin: CFrame,
@@ -446,22 +479,25 @@ local function prop(
 		end
 	elseif kind == "brush" then
 		-- Zone 1's Outer Ash stage only (see propKindFor): live scrub, not the dead
-		-- "trees" kind the rest of the zone uses — a handful of small rounded clumps
-		-- rather than a trunk, deliberately reading as smaller and lower than
-		-- DeadTree so the two never get mistaken for one another at a glance.
+		-- "trees" kind the rest of the zone uses — a handful of small studded
+		-- blocks rather than a trunk, deliberately reading as smaller and lower
+		-- than DeadTree so the two never get mistaken for one another at a glance.
 		for _ = 1, rng:NextInteger(2, 3) do
+			local pos = { x + rng:NextNumber(-2.2, 2.2), rng:NextNumber(0.7, 1.1), z + rng:NextNumber(-2.2, 2.2) }
+			local size = { rng:NextNumber(1.8, 2.6), rng:NextNumber(1.2, 1.8), rng:NextNumber(1.8, 2.6) }
 			build(parent, origin, {
 				name = "Brush",
-				pos = { x + rng:NextNumber(-2.2, 2.2), rng:NextNumber(0.8, 1.6), z + rng:NextNumber(-2.2, 2.2) },
-				size = { rng:NextNumber(1.8, 2.8), rng:NextNumber(1.4, 2.2), rng:NextNumber(1.8, 2.8) },
+				pos = pos,
+				size = size,
 				color = "6B8F3E",
-				material = "Grass",
+				material = "SmoothPlastic",
 				canCollide = false,
 			})
+			studs(parent, origin, pos, size, "6B8F3E")
 		end
 	elseif kind == "liveTree" then
 		-- Zone 1's Outer Ash stage only, same as "brush" — a trunk with a full
-		-- rounded canopy instead of DeadTree's bare branches, the one prop in the
+		-- studded canopy instead of DeadTree's bare branches, the one prop in the
 		-- game with real foliage. Canopy colour matches Stage 1's own ground green
 		-- rather than "brush"'s slightly different shade, so trunk-and-leaves reads
 		-- as one plant family with the grass it stands on.
@@ -474,15 +510,17 @@ local function prop(
 			material = "Wood",
 			canCollide = false,
 		})
+		local canopyPos = { x, h + rng:NextNumber(1.6, 2.4), z }
+		local canopySize = { rng:NextNumber(5, 7.5), rng:NextNumber(4.5, 6.5), rng:NextNumber(5, 7.5) }
 		build(parent, origin, {
 			name = "TreeCanopy",
-			pos = { x, h + rng:NextNumber(1.6, 2.4), z },
-			size = { rng:NextNumber(5, 7.5), rng:NextNumber(4.5, 6.5), rng:NextNumber(5, 7.5) },
+			pos = canopyPos,
+			size = canopySize,
 			color = "5C9A34",
-			material = "Grass",
-			shape = "Ball",
+			material = "SmoothPlastic",
 			canCollide = false,
 		})
+		studs(parent, origin, canopyPos, canopySize, "5C9A34")
 	elseif kind == "houses" then
 		-- A collapsed shell: two standing walls and a leaning roof slab.
 		local w = rng:NextNumber(9, 15)
