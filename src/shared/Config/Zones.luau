@@ -233,8 +233,18 @@ Zones.DEFS = {
 		-- Zone 5 specifically to leave Zone 6 room to clear it without also
 		-- breaking Zone 6's own dive/Crater checks -- see Zone 5 and Zone 6's own
 		-- notes). See Zones.radsAt for how the two combine.
+		--
+		-- ZONE 1'S OWN GAP, closed in the second harshening pass: entrance (0.5) is
+		-- BELOW the starting Cloth Wrap suit's tolerance (1.0) by design -- Zone 1's
+		-- rated suit tier IS the starting tier, so a no-gear player must be able to
+		-- farm the entrance forever (Spec's own farmable check requires it). But the
+		-- old deepRads (1.25) only produced a soft, easy-to-miss ~141s clock at the
+		-- far edge -- and every player walks there, since Zone 1's loot stages span
+		-- its full width. Steepened to 1.8 (still comfortably < Zone 2's baseRads of
+		-- 2.0, a 10% ordering margin) so the deep edge is a real ~39s clock under the
+		-- new BURN_COEF, without touching the entrance at all.
 		baseRads = 0.5,
-		deepRads = 1.25, -- 2.5x
+		deepRads = 1.8, -- 3.6x
 		soilHardness = 1,
 		ratedSuitTier = 1,
 		-- Was 230 before the hub-to-field connector shrank by 40 studs (Hub.luau's

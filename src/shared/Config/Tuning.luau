@@ -27,12 +27,23 @@ Tuning.SHOWER_FLUSH_RATE = 200 -- rads/sec removed while standing in a decon sho
 -- healthBurn (HP/sec) = BURN_COEF * (ambientRads - suitTolerance) ^ BURN_EXPONENT
 --
 -- These two constants were fitted so that the model reproduces the design targets:
---   * unsuited survival matches §3.5's table (50s / 15s / 7s / 3s / instant)
---   * ONE TIER UNDER lands at ~35s in every zone — the "one dig" window §3.5 asks for
---   * a full Containment Rig buys 1:30 in the Crater — §4's "timed heist"
+--   * unsuited survival matches the harsher, second-pass targets (33s / 10s / 5s / 2s / instant)
+--   * ONE TIER UNDER lands at ~23s in every zone — the tightened "one dig" window
+--   * a full Containment Rig buys 1:30 in the Crater — §4's "timed heist" (unaffected --
+--     that scenario is exposure-bound, not burn-bound, so COEF doesn't touch it)
+--
+-- COEF raised 2.0 -> 3.0 in the second harshening pass: a pure scalar on every
+-- zone/tier combination's burn-track survival time (multiplies "how fast you die once
+-- you're over-tier" by the same ratio everywhere), chosen over touching zone ambient
+-- rates or suit tolerances directly because those cascade through the cross-zone
+-- ordering constraint and the farmable/dive-window Spec checks simultaneously -- see
+-- Zones.luau's depth-pass header for what happened the last time entrance rates moved.
+-- EXPONENT deliberately untouched: raising it toward 1 would make small-`excess`
+-- scenarios (the one-tier-under dive) comparatively LESS punishing while barely
+-- affecting the already-near-instant over-tier deaths, the opposite of "more punishing."
 --
 -- Run Shared.Util.TuningReport to regenerate that matrix after any change here.
-Tuning.BURN_COEF = 2.0
+Tuning.BURN_COEF = 3.0
 Tuning.BURN_EXPONENT = 0.75
 Tuning.MAX_HEALTH = 100
 

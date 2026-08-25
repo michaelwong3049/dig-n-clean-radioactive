@@ -4,22 +4,28 @@
 
 	SUIT NUMBERS ARE FITTED, NOT GUESSED.
 	`reduction` and `tolerance` were solved so the model in Shared/Radiation.lua
-	reproduces the design's stated intent:
+	reproduces the design's stated intent. Table below regenerated via
+	Shared/Util/TuningReport after the second radiation-harshening pass
+	(Tuning.BURN_COEF 2.0 -> 3.0, Zone 1's deepRads 1.25 -> 1.8) — all figures are at
+	each zone's ENTRANCE (depthFrac=0); the deep edge of every zone is meaningfully
+	worse, see Zones.radsAt/Zones.DEFS:
 
 	                     Z1      Z2      Z3      Z4      Z5      Z6
-	  Cloth Wrap         inf     50s     15s      7s      3s   instant
-	  Rubber Suit        inf     inf     35s      9s      3s   instant
-	  Lead-Lined         inf     inf     inf     35s      4s   instant
-	  Reinforced Hazmat  inf     inf     inf     inf     35s      2s
-	  Sealed Exo-Suit    inf     inf     inf     inf     inf     35s
+	  Cloth Wrap         inf     33s     10s      5s      2s  instant
+	  Rubber Suit        inf     inf     23s      6s      2s  instant
+	  Lead-Lined         inf     inf     inf     23s      3s  instant
+	  Reinforced Hazmat  inf     inf     inf     inf     23s  instant
+	  Sealed Exo-Suit    inf     inf     inf     inf     inf     23s
 	  Containment Rig    inf     inf     inf   10:00    3:45    1:30
 
 	Three properties that matter fall out of that table:
-	  * ONE TIER UNDER is ~35s in every zone. That is one dig. That is the Dive (§3.5).
-	  * TWO TIERS UNDER is 2-9s. A suicide sprint, exactly as intended.
+	  * ONE TIER UNDER is ~23s in every zone (was ~35s before this pass). That is one
+	    dig, tighter than before. That is the Dive (§3.5).
+	  * TWO TIERS UNDER is instant-to-6s. A suicide sprint, more punishing than ever.
 	  * Even a full Containment Rig gets 1:30 in the Crater — §4's "timed heist",
 	    preserved by giving the Rig a deliberately imperfect reduction rather than
-	    a special-case rule.
+	    a special-case rule. Unaffected by the COEF change: this scenario is
+	    exposure-bound, not burn-bound.
 
 	Regenerate this table with Shared/Util/TuningReport after ANY change here.
 ]]

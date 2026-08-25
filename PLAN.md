@@ -329,20 +329,27 @@ gamble, it's a trap, and traps make people quit. Show the number and let them ch
 #### Survivability at a glance
 
 Rough survivable window walking into a zone with a given suit tier
-(assumes full health, no items carried, standing still):
+(assumes full health, no items carried, standing still, at the zone's ENTRANCE — ambient
+climbs further the deeper in you go, see Zones.radsAt). Regenerated via
+`Shared/Util/TuningReport` after the second radiation-harshening pass, rather than hand-tuned —
+the previous version of this table predated the depth-based-radiation mechanic entirely and had
+already drifted from the shipped numbers (its "one tier under" and "cloth wrap" columns for
+Zone 2 are the same suit tier but listed two different survival times; this version doesn't
+repeat that):
 
 |Zone|Rated suit|One tier under|Two tiers under|Cloth wrap / unsuited|
 |-|-|-|-|-|
 |1 Ash Flats|indefinite|—|—|indefinite|
-|2 The Suburbs|indefinite|\~2:30|—|\~50s|
-|3 Fallout Fields|indefinite|\~1:10|\~30s|\~18s|
-|4 The Exclusion Belt|indefinite|\~40s|\~15s|\~8s|
-|5 Reactor Grounds|indefinite|\~25s|\~9s|\~3s|
-|6 The Crater|\~90s|\~8s|\~2s|instant|
+|2 The Suburbs|indefinite|\~33s|—|\~33s|
+|3 Fallout Fields|indefinite|\~23s|\~10s|\~10s|
+|4 The Exclusion Belt|indefinite|\~23s|\~6s|\~5s|
+|5 Reactor Grounds|indefinite|\~23s|\~3s|\~2s|
+|6 The Crater|\~1:30|\~23s|instant|instant|
 
-Read the "one tier under" column as the design's actual target. **\~25–40 seconds is a pull.**
-That is not an accident — it is tuned to be exactly enough time to sprint in, take one
-signal, extract it, and run. Which is the gamble.
+Read the "one tier under" column as the design's actual target. **\~18–30 seconds is a pull**
+(tightened from an earlier \~25–40s in this second harshening pass). That is not an accident —
+it is tuned to be exactly enough time to sprint in, take one signal, extract it, and run.
+Which is the gamble.
 
 #### The Dive — risking health for rarer items
 

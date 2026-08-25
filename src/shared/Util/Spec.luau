@@ -82,9 +82,14 @@ function Spec.run(): boolean
 	-- depth pass on purpose (see Zones.luau's header note). Real depth-driven
 	-- danger is checked separately below, directly against Zones.radsAt, rather
 	-- than folded into this already-precisely-tuned survival-time math.
+	--
+	-- BAND TIGHTENED 25-40 -> 18-30 in the second harshening pass (BURN_COEF
+	-- 2.0->3.0, Tuning.luau): the dive is deliberately less forgiving now (lands at
+	-- ~23s, was ~35s) -- still "sprint in, grab one signal, extract, run," just
+	-- tighter, per the same PLAN §3.5 language.
 	for zoneId = 3, 6 do
 		local s = survive(zoneId, Zones.get(zoneId).ratedSuitTier - 1, 1, 0)
-		check(string.format("§3.5 dive window in zone %d = %.0fs (want 25-40)", zoneId, s), s >= 25 and s <= 40)
+		check(string.format("§3.5 dive window in zone %d = %.0fs (want 18-30)", zoneId, s), s >= 18 and s <= 30)
 	end
 
 	-- PLAN §3.4 — a rated suit means you can work, not just survive. Entrance,

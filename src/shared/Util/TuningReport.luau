@@ -16,8 +16,9 @@
 	numbers move, and the design doc stops drifting away from the game.
 
 	The shipped Config values are fitted so this prints:
-	  * unsuited survival matching §3.5's intent  (50s / 15s / 7s / 3s / instant)
-	  * ~35s one tier under, in every zone — §3.5's "one dig" Dive window
+	  * unsuited survival matching §3.5's intent, tightened in the second harshening
+	    pass  (33s / 10s / 5s / 2s / instant)
+	  * ~23s one tier under, in every zone — §3.5's tightened "one dig" Dive window
 	  * 1:30 for a full Containment Rig in the Crater — §4's timed heist
 ]]
 
@@ -103,12 +104,12 @@ function TuningReport.run()
 		table.insert(out, row)
 	end
 
-	table.insert(out, "\n=== THE DIVE: one tier under rated, at the zone's deepest point (PLAN §3.5 target: 25-40s) ===\n")
+	table.insert(out, "\n=== THE DIVE: one tier under rated, at the zone's deepest point (PLAN §3.5 target: 18-30s) ===\n")
 	for zoneId = 2, #Zones.DEFS do
 		local zone = Zones.get(zoneId)
 		local underTier = zone.ratedSuitTier - 1
 		local s = TuningReport.survive(zoneId, underTier, 1)
-		local flag = if s >= 25 and s <= 40 then "ok" else "OUT OF BAND"
+		local flag = if s >= 18 and s <= 30 then "ok" else "OUT OF BAND"
 		-- Zone 2 is knowingly out of band at ~50s. One tier under Rubber IS Cloth Wrap,
 		-- and Cloth Wrap's numbers are pinned by the harder requirement that Zone 1 be
 		-- survivable forever. Zone 2 is where a player takes their first dive, so a 40%
