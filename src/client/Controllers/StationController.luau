@@ -81,8 +81,8 @@ local LOCKER_ROWS = 3
 -- that rebuilds its children on every StationState tick would churn 8 frames' worth
 -- of instances ten times a second.
 local CARD_SLOTS = 8
-local CARD_WIDTH = 240
-local CARD_HEIGHT = 376
+local CARD_WIDTH = 270
+local CARD_HEIGHT = 420
 local CARD_GAP = 16
 
 -- The panel widens for shop mode only, and the width is DERIVED from the card size
@@ -93,6 +93,15 @@ local CARD_GAP = 16
 local PANEL_PAD = 16
 local PANEL_WIDTH = 620
 local SHOP_PANEL_WIDTH = 4 * CARD_WIDTH + 3 * CARD_GAP + 2 * PANEL_PAD + CARD_GAP + 30
+
+-- THE WIDTHS ABOVE ARE A CEILING, NOT A SIZE, and that distinction is load-bearing.
+-- The panel is laid out as "the viewport minus a margin, but never wider than the
+-- ceiling" (Size scale 1 + a UISizeConstraint), so a big screen gets exactly the
+-- four-card row the ceiling describes and a small one gets a narrower panel that
+-- still fits, with the card row simply scrolling sooner. Sizing it at a flat
+-- SHOP_PANEL_WIDTH offset put 200px of panel off each side of an 800px viewport —
+-- the cards do not shrink to fit, so the panel has to.
+local SCREEN_MARGIN = 24
 
 local ui = {}
 local state = { station = nil, items = {}, locker = {} }
@@ -203,27 +212,27 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	card.LayoutOrder = order
 
 	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 14)
-	pad.PaddingBottom = UDim.new(0, 14)
-	pad.PaddingLeft = UDim.new(0, 14)
-	pad.PaddingRight = UDim.new(0, 14)
+	pad.PaddingTop = UDim.new(0, 16)
+	pad.PaddingBottom = UDim.new(0, 16)
+	pad.PaddingLeft = UDim.new(0, 16)
+	pad.PaddingRight = UDim.new(0, 16)
 	pad.Parent = card
 
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 8)
+	layout.Padding = UDim.new(0, 10)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.Parent = card
 
-	-- 48 + 150 + 72 + 46 plus three 8px gaps = 340, inside the 348 the padding
+	-- 52 + 172 + 80 + 50 plus three 10px gaps = 384, inside the 388 the padding
 	-- leaves. Fixed heights rather than AutomaticSize: every card in the row has to
 	-- put its button on the same baseline, and a 2-line name on one card must not
 	-- push that card's button below its neighbours'.
 	local nameLabel = UIKit.label(card, {
 		name = "CardName",
-		size = UDim2.new(1, 0, 0, 48),
+		size = UDim2.new(1, 0, 0, 52),
 		font = UIKit.Font.title,
-		textSize = 20,
+		textSize = 21,
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
 	})
@@ -232,7 +241,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	local art = Instance.new("ImageLabel")
 	art.Name = "CardArt"
 	art.LayoutOrder = 2
-	art.Size = UDim2.new(1, 0, 0, 150)
+	art.Size = UDim2.new(1, 0, 0, 172)
 	art.BackgroundColor3 = COLOR.panel
 	art.BackgroundTransparency = 0.35
 	art.BorderSizePixel = 0
@@ -246,9 +255,9 @@ local function makeShopCard(parent: Instance, order: number): Frame
 
 	local stats = UIKit.label(card, {
 		name = "CardStats",
-		size = UDim2.new(1, 0, 0, 72),
+		size = UDim2.new(1, 0, 0, 80),
 		font = UIKit.Font.body,
-		textSize = 15,
+		textSize = 16,
 		color = COLOR.dim,
 		xAlign = Enum.TextXAlignment.Center,
 		yAlign = Enum.TextYAlignment.Top,
@@ -258,9 +267,9 @@ local function makeShopCard(parent: Instance, order: number): Frame
 
 	local buy = UIKit.button(card, {
 		name = "CardBuy",
-		size = UDim2.new(1, 0, 0, 46),
+		size = UDim2.new(1, 0, 0, 50),
 		font = UIKit.Font.title,
-		textSize = 17,
+		textSize = 18,
 		cornerRadius = UDim.new(0, 12),
 		strokeThickness = UIKit.Stroke.thin,
 	})
@@ -290,7 +299,7 @@ local function build(): ScreenGui
 
 	local panel, panelStroke = UIKit.panel(gui, {
 		name = "Panel",
-		size = UDim2.fromOffset(PANEL_WIDTH, 0),
+		size = UDim2.new(1, -2 * SCREEN_MARGIN, 0, 0),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		color = COLOR.panel,
@@ -301,6 +310,15 @@ local function build(): ScreenGui
 	})
 	ui.panel = panel
 	ui.panelStroke = panelStroke
+
+	-- The ceiling half of "viewport minus a margin, but never wider than". render()
+	-- retunes MaxSize.X per mode; MinSize stops a phone-width viewport collapsing the
+	-- panel to something narrower than one card.
+	local panelSize = Instance.new("UISizeConstraint")
+	panelSize.MinSize = Vector2.new(CARD_WIDTH + 2 * PANEL_PAD, 0)
+	panelSize.MaxSize = Vector2.new(PANEL_WIDTH, math.huge)
+	panelSize.Parent = panel
+	ui.panelSize = panelSize
 
 	-- ── Shop mode ────────────────────────────────────────────────────
 	-- A shop IS a station, so it reuses this panel and the StationState /
@@ -369,9 +387,9 @@ local function build(): ScreenGui
 	-- last thing you read before you decide, rather than a number in the header.
 	ui.shopCash = UIKit.label(shop, {
 		name = "Cash",
-		size = UDim2.new(1, 0, 0, 34),
+		size = UDim2.new(1, 0, 0, 36),
 		font = UIKit.Font.title,
-		textSize = 24,
+		textSize = 25,
 		color = COLOR.green,
 	})
 	ui.shopCash.LayoutOrder = 3
@@ -500,9 +518,9 @@ local function build(): ScreenGui
 
 	ui.title = UIKit.label(panel, {
 		name = "Title",
-		size = UDim2.new(1, 0, 0, 40),
+		size = UDim2.new(1, 0, 0, 44),
 		font = UIKit.Font.title,
-		textSize = 32,
+		textSize = 34,
 		color = COLOR.text,
 	})
 	ui.title.LayoutOrder = 1
@@ -724,7 +742,7 @@ local function render()
 	-- Storefronts centre their sign; a station panel that is really a list keeps its
 	-- title on the same left margin as the rows underneath it.
 	ui.title.TextXAlignment = if atShop then Enum.TextXAlignment.Center else Enum.TextXAlignment.Left
-	ui.panel.Size = UDim2.fromOffset(if atShop then SHOP_PANEL_WIDTH else PANEL_WIDTH, 0)
+	ui.panelSize.MaxSize = Vector2.new(if atShop then SHOP_PANEL_WIDTH else PANEL_WIDTH, math.huge)
 	if atShop then
 		local offer = state.offer
 		local tiers = if offer then offer.tiers else nil
