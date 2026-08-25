@@ -1,15 +1,14 @@
 --!strict
 --[[
-	BottleCap.luau — the first real catalogue model.
+	BottleCap.luau — a clean, unprinted crown cap.
 
-	This is deliberately built from Roblox primitives instead of an uploaded MeshId.
-	It stays versioned with the game, cannot lose its asset permission, and can be
-	instantiated both for the live haul and for exhibition pedestals. Twenty-one
-	individual crimps give the silhouette the same scalloped edge as a crown cap;
-	three are displaced to sell the catalogue's "bent double" description.
+	The reference shape is a shallow pressed-metal crown with a broad flat face,
+	rounded shoulder and a deeper fluted skirt. It is built from Roblox primitives so
+	the source stays in Git and never depends on an uploaded mesh permission. Twenty-one
+	vertical crimps form the industry-standard crown silhouette.
 
-	Authored around the origin with the printed face pointing +Y. Callers own its
-	placement and should move the complete Model with PivotTo.
+	Authored around the origin with the blank face pointing +Y. Callers own placement
+	and move the complete Model with PivotTo.
 ]]
 
 local BottleCap = {}
@@ -17,11 +16,9 @@ local BottleCap = {}
 local CRIMP_COUNT = 21
 local CYLINDER_UP = CFrame.Angles(0, 0, math.rad(90))
 
-local SILVER = Color3.fromHex("AEB4B8")
-local SILVER_LIGHT = Color3.fromHex("D7DBDD")
-local SILVER_DARK = Color3.fromHex("666C70")
-local OXIDATION = Color3.fromHex("75684F")
-local PRINT = Color3.fromHex("315B61")
+local SILVER = Color3.fromHex("D4D8DA")
+local SILVER_LIGHT = Color3.fromHex("EEF0F1")
+local SILVER_SHADOW = Color3.fromHex("9DA4A8")
 
 local function basePart(name: string, size: Vector3, cframe: CFrame, color: Color3, shape: Enum.PartType?): Part
 	local part = Instance.new("Part")
@@ -40,127 +37,79 @@ local function basePart(name: string, size: Vector3, cframe: CFrame, color: Colo
 	return part
 end
 
-local function addLogo(face: BasePart)
-	local surface = Instance.new("SurfaceGui")
-	surface.Name = "FadedLogo"
-	-- A cylinder's circular caps are Left/Right before its CFrame rotation. The
-	-- +X cap becomes the upward face after CYLINDER_UP.
-	surface.Face = Enum.NormalId.Right
-	surface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	surface.PixelsPerStud = 80
-	surface.LightInfluence = 0.35
-	surface.Parent = face
-
-	local mark = Instance.new("TextLabel")
-	mark.Name = "Mark"
-	mark.AnchorPoint = Vector2.new(0.5, 0.5)
-	mark.Position = UDim2.fromScale(0.5, 0.5)
-	mark.Size = UDim2.fromScale(0.62, 0.3)
-	mark.BackgroundTransparency = 1
-	mark.Font = Enum.Font.GothamBold
-	mark.Text = "DNC"
-	mark.TextColor3 = PRINT
-	mark.TextScaled = true
-	mark.TextTransparency = 0.48
-	mark.Rotation = -8
-	mark.Parent = surface
-end
-
 function BottleCap.create(): Model
 	local model = Instance.new("Model")
 	model.Name = "BottleCap"
+	-- Lock an identity pivot before the first rotated cylinder is parented. Without
+	-- this, Roblox inherits that cylinder's orientation as the Model pivot and a
+	-- later PivotTo turns the finished cap onto its edge.
+	model.WorldPivot = CFrame.identity
 	model:SetAttribute("ItemModel", "BottleCap")
 	model:SetAttribute("DisplayName", "Bottle Cap")
-	model:SetAttribute("HaulRotation", CFrame.Angles(math.rad(24), 0, math.rad(10)))
-	model:SetAttribute("DisplayRotation", CFrame.Angles(math.rad(14), math.rad(25), math.rad(-8)))
-	model:SetAttribute("GalleryRotation", CFrame.Angles(math.rad(28), math.rad(25), math.rad(-10)))
+	model:SetAttribute("GallerySize", 2.2)
+	model:SetAttribute("HaulRotation", CFrame.Angles(math.rad(18), 0, math.rad(7)))
+	model:SetAttribute("DisplayRotation", CFrame.Angles(math.rad(12), math.rad(25), math.rad(-5)))
+	model:SetAttribute("GalleryRotation", CFrame.Angles(math.rad(18), math.rad(25), math.rad(-6)))
 
-	-- The dark underside peeks through between the crimps and keeps the cap from
-	-- reading as one flat silver coin when it spins out of the soil.
+	-- The shadowed underside is only visible at low angles, giving the thin metal a
+	-- real edge rather than letting the bright skirt blend into the ground.
 	local underside = basePart(
 		"Underside",
-		Vector3.new(0.13, 1.58, 1.58),
-		CFrame.new(0, -0.055, 0) * CYLINDER_UP,
-		SILVER_DARK,
+		Vector3.new(0.1, 1.24, 1.24),
+		CFrame.new(0, -0.245, 0) * CYLINDER_UP,
+		SILVER_SHADOW,
 		Enum.PartType.Cylinder
 	)
 	underside.Parent = model
 
-	local shell = basePart(
-		"Shell",
-		Vector3.new(0.19, 1.64, 1.64),
-		CFrame.new(0, 0.015, 0) * CYLINDER_UP,
+	-- A continuous inner skirt prevents gaps between the flutes. The crimp lobes
+	-- overlap it and provide the scalloped outer silhouette.
+	local skirt = basePart(
+		"Skirt",
+		Vector3.new(0.42, 1.24, 1.24),
+		CFrame.new(0, -0.07, 0) * CYLINDER_UP,
 		SILVER,
 		Enum.PartType.Cylinder
 	)
-	shell.Parent = model
+	skirt.Parent = model
 
-	-- Crown caps conventionally carry 21 teeth. The ellipsoids overlap the shell,
-	-- leaving only their outer lobes visible and producing a rounded pressed-metal
-	-- flute without relying on external mesh data.
 	for index = 1, CRIMP_COUNT do
 		local angle = ((index - 1) / CRIMP_COUNT) * math.pi * 2
 		local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		local radius = 0.79
-		local y = 0.005
-		local bend = 0
-		local color = if index % 5 == 0 then SILVER_LIGHT else SILVER
-
-		-- One crushed patch gives this specific collectible its story instead of
-		-- producing a generic factory-new cap. Adjacent teeth move as a group so the
-		-- damage reads as a dent, not random assembly error.
-		if index == 12 then
-			radius = 0.72
-			y = -0.09
-			bend = -18
-			color = OXIDATION
-		elseif index == 11 or index == 13 then
-			radius = 0.75
-			y = -0.045
-			bend = -10
-			color = SILVER_DARK
-		end
-
-		local position = radial * radius + Vector3.new(0, y, 0)
-		local orientation = CFrame.lookAt(position, Vector3.new(0, y, 0), Vector3.yAxis)
-			* CFrame.Angles(math.rad(bend), 0, 0)
+		local position = radial * 0.69 + Vector3.new(0, -0.07, 0)
+		local orientation = CFrame.lookAt(position, Vector3.new(0, -0.07, 0), Vector3.yAxis)
+			* CFrame.Angles(math.rad(-4), 0, 0)
 		local crimp = basePart(
 			`Crimp{index}`,
-			Vector3.new(0.17, 0.24, 0.37),
+			Vector3.new(0.15, 0.48, 0.27),
 			orientation,
-			color,
-			Enum.PartType.Ball
+			SILVER,
+			nil
 		)
 		crimp.Parent = model
 	end
 
-	-- The inset printed face is slightly out of plane with the shell. Along with
-	-- the crushed teeth, that tiny asymmetry catches highlights like bent sheet
-	-- metal while keeping the cap readable at its small in-game scale.
-	local face = basePart(
-		"PrintedFace",
-		Vector3.new(0.075, 1.46, 1.46),
-		CFrame.new(0.012, 0.132, -0.01)
-			* CFrame.Angles(math.rad(-1.8), 0, math.rad(2.4))
-			* CYLINDER_UP,
+	-- The broad shoulder hides the tops of the individual lobes, making them read
+	-- as pressed flutes descending from one continuous cap instead of attached beads.
+	local shoulder = basePart(
+		"Shoulder",
+		Vector3.new(0.18, 1.56, 1.56),
+		CFrame.new(0, 0.105, 0) * CYLINDER_UP,
 		SILVER_LIGHT,
 		Enum.PartType.Cylinder
 	)
-	face.Parent = model
-	addLogo(face)
+	shoulder.Parent = model
 
-	-- A shallow oxidized crease makes the dent legible even under flat lighting.
-	local crease = basePart(
-		"DentCrease",
-		Vector3.new(0.32, 0.025, 0.075),
-		CFrame.new(-0.49, 0.181, -0.18) * CFrame.Angles(0, math.rad(-18), math.rad(4)),
-		OXIDATION,
-		Enum.PartType.Ball
+	-- Blank and nearly flush with the shoulder, matching the supplied unprinted cap.
+	local face = basePart(
+		"BlankFace",
+		Vector3.new(0.065, 1.42, 1.42),
+		CFrame.new(0, 0.225, 0) * CYLINDER_UP,
+		SILVER,
+		Enum.PartType.Cylinder
 	)
-	crease.Material = Enum.Material.SmoothPlastic
-	crease.Parent = model
+	face.Parent = model
 
-	model:PivotTo(CFrame.new())
 	return model
 end
 

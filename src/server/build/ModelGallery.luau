@@ -103,7 +103,9 @@ local function placeOnPedestal(model: Model, target: CFrame)
 	local size = model:GetExtentsSize()
 	local longest = math.max(size.X, size.Y, size.Z)
 	if longest > 0 then
-		model:ScaleTo(MAX_MODEL_SIZE / longest)
+		local requested = model:GetAttribute("GallerySize")
+		local targetSize = if typeof(requested) == "number" and requested > 0 then requested else MAX_MODEL_SIZE
+		model:ScaleTo(targetSize / longest)
 	end
 
 	model:PivotTo(target * ItemModels.rotation(model, "Gallery"))
