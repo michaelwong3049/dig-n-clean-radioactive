@@ -83,19 +83,36 @@ function Spec.run(): boolean
 	-- danger is checked separately below, directly against Zones.radsAt, rather
 	-- than folded into this already-precisely-tuned survival-time math.
 	--
-	-- BAND TIGHTENED 25-40 -> 18-30 in the second harshening pass (BURN_COEF
-	-- 2.0->3.0, Tuning.luau): the dive is deliberately less forgiving now (lands at
-	-- ~23s, was ~35s) -- still "sprint in, grab one signal, extract, run," just
-	-- tighter, per the same PLAN §3.5 language.
+	-- BAND TIGHTENED 25-40 -> 18-30 (second pass) -> 8-15 (third pass, BURN_COEF
+	-- 3.0->6.0, Tuning.luau): the dive now lands at ~12s, was ~23s, was ~35s
+	-- originally. This band moved a second time as a direct, unavoidable side
+	-- effect of an explicit Zone 3 unsuited-survival target, NOT an independent
+	-- decision to keep tightening the Dive on its own -- see Tuning.luau's
+	-- BURN_COEF comment for the full reasoning on why the two couldn't be
+	-- decoupled. Still "sprint in, grab one signal, extract, run," just a much
+	-- faster sprint than PLAN §3.5 originally imagined.
 	for zoneId = 3, 6 do
 		local s = survive(zoneId, Zones.get(zoneId).ratedSuitTier - 1, 1, 0)
-		check(string.format("§3.5 dive window in zone %d = %.0fs (want 18-30)", zoneId, s), s >= 18 and s <= 30)
+		check(string.format("§3.5 dive window in zone %d = %.0fs (want 8-15)", zoneId, s), s >= 8 and s <= 15)
 	end
 
 	-- PLAN §3.4 — a rated suit means you can work, not just survive. Entrance,
 	-- same reasoning as the Dive above.
-	for zoneId = 1, 5 do
+	--
+	-- ZONE 1 IS DELIBERATELY EXCLUDED FROM THIS LOOP as of the third harshening
+	-- pass. Zone 1's rated suit tier IS Cloth Wrap (the starting/no-gear tier), so
+	-- this check used to mean "a fresh player can stand in Zone 1 forever" -- true
+	-- before this pass (it was exposure-bound at ~33 minutes), no longer true by
+	-- explicit design choice (capped at 9 minutes via Cloth Wrap's own `reduction`,
+	-- see Gear.luau). Checked on its own immediately below instead of silently
+	-- dropped, so a future change can't quietly regress it back past 15 minutes
+	-- without this file complaining.
+	for zoneId = 2, 5 do
 		check(string.format("§3.4 rated suit farmable in zone %d", zoneId), survive(zoneId, Zones.get(zoneId).ratedSuitTier, 1, 0) > 900)
+	end
+	do
+		local s = survive(1, 1, 1, 0)
+		check(string.format("§3.4 zone 1 unsuited capped at ~9min = %.0fs (want 480-600)", s), s >= 480 and s <= 600)
 	end
 
 	-- PLAN §4 — the Crater never becomes a farm, at any gear level, forever.
