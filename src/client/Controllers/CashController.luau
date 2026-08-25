@@ -1,5 +1,6 @@
 --[[
-	CashController.lua — the persistent cash badge. Top-left, always on screen.
+	CashController.lua — the persistent cash badge. Bottom-left, stacked directly
+	above the health/rads meter, always on screen.
 
 	THERE WAS NO PERSISTENT CASH READOUT BEFORE THIS. data.cash only ever reached the
 	client inside StationState's payload, which fires only while standing at a
@@ -7,6 +8,11 @@
 	CashState (Shared/Net.luau) exists to fix exactly that: one snapshot on load
 	(EconomyService.start()'s DataService.onLoaded hook) plus a fire on every real
 	change (sell/spend/award, and DebugService's /cash), never per-tick.
+
+	POSITION IS A FORMULA OVER Dock, NOT A FRESH NUMBER (UIKit.luau's own rule) --
+	same left margin as the meter, same width, sitting directly above it with one
+	Dock.GAP between them, so the two read as one stacked instrument cluster in the
+	corner rather than two unrelated floating panels.
 
 	COLOUR IS AMBER, NOT GREEN, ON PURPOSE. The reference image this was built from
 	used green for the dollar text, but HudController's ONE COLOUR RULE (PLAN §14)
@@ -22,11 +28,13 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Dock = UIKit.Dock
 
 local Cash = {}
 
-local MARGIN = 18
-local BADGE_SIZE = UDim2.fromOffset(160, 56)
+-- Same width as the meter panel, so the two share both edges when stacked.
+local BADGE_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 56)
+local BADGE_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
 
 local ui = {}
 
@@ -53,7 +61,8 @@ local function build(): ScreenGui
 	local badge = UIKit.panel(gui, {
 		name = "CashBadge",
 		size = BADGE_SIZE,
-		position = UDim2.fromOffset(MARGIN, MARGIN),
+		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -BADGE_BOTTOM),
+		anchorPoint = Vector2.new(0, 1),
 		color = UIKit.C.panel,
 		transparency = 0.1,
 		cornerRadius = UIKit.Radius.card,
