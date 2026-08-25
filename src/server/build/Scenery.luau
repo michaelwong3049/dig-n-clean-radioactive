@@ -283,54 +283,30 @@ local function buildZoneBlend(parent: Instance, fromId: number, toId: number)
 	folder.Parent = parent
 end
 
---- How many thin bands Zone 1's own ooze fade uses. Same technique buildZoneBlend
---- already proves safe (many thin steps, small delta each) rather than the FEW WIDE
---- bands buildZoneScenery's OozeSurface comment warns produces hard stripes — 24
---- steps across a 660-stud plate is finer-grained than buildZoneBlend's 14 steps
---- across 90.
-local LIFE_FADE_STEPS = 24
-
---- Presence, not hue, carries "life fading into a wasteland": Zone 1's ooze colour
---- never changes across this fade, only how transparent it is. Near-invisible at
---- the untouched west edge, climbing to every other zone's normal 0.82 by the start
---- of Deep Fallout (STAGES[3]) — flat thereafter, so nothing distinguishes Zone 1's
---- own east third from Zone 2 onward except the ground colour underneath it.
-local LIFE_FADE_START_TRANSPARENCY = 0.985
-
---- Zone 1 only: the OozeSurface as many thin transparency-graded bands instead of
---- buildZoneScenery's usual one flat part. A transparency fade with a small
---- per-step delta never creates a visible seam the way a hue change would — that is
---- what keeps this from becoming the "few wide bands" mistake, not the band count
---- alone.
-local function buildGradientOozeSurface(folder: Instance, origin: CFrame, def: any, westInset: number, eastInset: number)
-	local startX = -def.size[1] / 2 + westInset
-	local endX = def.size[1] / 2 - eastInset
-	local fadeEndX = math.clamp(Zones.STAGES[#Zones.STAGES].minX, startX, endX)
-	local fadeSpan = fadeEndX - startX
-
-	local step = (endX - startX) / LIFE_FADE_STEPS
-	for i = 0, LIFE_FADE_STEPS - 1 do
-		local x0 = startX + i * step
-		local x1 = x0 + step
-		local mid = (x0 + x1) / 2
-
-		local transparency = if fadeSpan <= 0
-			then 0.82
-			else LIFE_FADE_START_TRANSPARENCY
-				+ (0.82 - LIFE_FADE_START_TRANSPARENCY) * math.clamp((mid - startX) / fadeSpan, 0, 1)
-
-		local sheet = build(folder, origin, {
-			name = `OozeSurfaceFade{i}`,
-			pos = { mid, WADE_HEIGHT, 0 },
-			size = { step, 0.3, def.size[2] },
-			color = def.ooze.bright,
-			material = "Neon",
-			transparency = transparency,
-			canCollide = false,
-		})
-		sheet.CanQuery = false
-	end
-end
+--- WHAT USED TO BE HERE: `buildGradientOozeSurface`. Zone 1's ooze surface was 24
+--- thin Neon bands (LIFE_FADE_STEPS) stepping transparency from near-invisible at
+--- the west edge up to every other zone's flat 0.82, so "life fading into a
+--- wasteland" read in the ooze itself, not just the ground colour under it.
+---
+--- REMOVED: THE BANDS WERE VISIBLE AS FLOATING LINES, ON REPORT FROM A LIVE PLAY
+--- SESSION. The comment that used to sit here argued a transparency fade's small
+--- per-step delta "never creates a visible seam the way a hue change would" — the
+--- premise this whole technique rode on, and the one buildZoneScenery's own
+--- OozeSurface comment already warns against for a HUE fade ("splitting it per
+--- stage... produces hard stripes"). In practice a fade does not need a hue jump to
+--- show a seam: 24 separate Neon parts sitting edge-to-edge at WADE_HEIGHT (1.1
+--- studs up — "about half a leg", exactly where a seam reads as "floating" rather
+--- than "in the ground") each carry their own face normals, so the boundary between
+--- two nearly-identical transparencies still renders as a thin line, worst at the
+--- shallow viewing angle a standing player actually has. Zone 1 now uses
+--- buildZoneScenery's ordinary single-part OozeSurface, same as every other zone —
+--- one part has no internal boundary to show a seam at.
+---
+--- The "west edge feels alive, east edge doesn't" storytelling is not entirely
+--- gone: the POOLS still thin out and shrink toward the west (see the `id == 1`
+--- branch a little further down, and THEME's own comment above it) — that is
+--- individual props being placed, not one surface split into many, so it was never
+--- the source of this bug and did not need to change.
 
 --- HOW MANY POOL LIGHTS A FIELD MAY HAVE, however many pools it has.
 ---
@@ -369,10 +345,11 @@ local BARREL_LIGHT_EVERY = 5
 --- clean enough that a pool is a landmark; the Crater should still read as more ooze
 --- than ground.
 --- Zone 1 and 2's pool counts dropped again (10->8, 14->10) for LIFE FADING INTO A
---- DEAD WASTELAND — on top of buildGradientOozeSurface's own west-to-east thinning
---- within Zone 1 itself, the zone should already read sparser at a glance than the
---- rebalance above assumed. The percentages in the paragraph above are now stale by
---- a few points, not worth re-deriving for a six-pool difference.
+--- DEAD WASTELAND — on top of the per-pool west-to-east thinning inside Zone 1's own
+--- placement loop (buildZoneScenery's `id == 1` branch, below), the zone should
+--- already read sparser at a glance than the rebalance above assumed. The
+--- percentages in the paragraph above are now stale by a few points, not worth
+--- re-deriving for a six-pool difference.
 local THEME = {
 	[1] = { props = 26, pools = 8, kind = "trees" },
 	[2] = { props = 34, pools = 10, kind = "houses" },
@@ -708,27 +685,24 @@ local function buildZoneScenery(parent: Instance, id: number)
 	-- of solid colour well before Transparency looks like it "should" (0.55 first pass
 	-- still read as solid ground, not a layer over it). 0.82 is the point props and
 	-- the sand below actually show through — including, now, the stage colour.
+	-- Zone 1 used to take a different path here — see the removal note above
+	-- LIFE_FADE_STEPS's old spot — and now takes this same one like every other
+	-- zone. No west-to-east transparency fade on the ooze any more; the pool
+	-- thinning just below is still Zone-1-specific and still carries that part of
+	-- the storytelling.
 	local westInset, eastInset = oozeInset(id)
-	if id == 1 then
-		-- Zone 1 only: LIFE FADING INTO A DEAD WASTELAND (see Config/Zones) means
-		-- this zone's own ooze is not uniform west-to-east the way every other
-		-- zone's is — see buildGradientOozeSurface for why that is still one
-		-- technique, not the banned "few wide bands" one.
-		buildGradientOozeSurface(folder, origin, def, westInset, eastInset)
-	else
-		build(folder, origin, {
-			name = "OozeSurface",
-			-- Centred on the plate unless one edge is blended, in which case the sheet
-			-- stops short of it and buildZoneBlend fills the gap with the stepped
-			-- version. `(west - east) / 2` recentres what is left of the sheet.
-			pos = { (westInset - eastInset) / 2, WADE_HEIGHT, 0 },
-			size = { def.size[1] - westInset - eastInset, 0.3, def.size[2] },
-			color = def.ooze.bright,
-			material = "Neon",
-			transparency = 0.82,
-			canCollide = false,
-		})
-	end
+	build(folder, origin, {
+		name = "OozeSurface",
+		-- Centred on the plate unless one edge is blended, in which case the sheet
+		-- stops short of it and buildZoneBlend fills the gap with the stepped
+		-- version. `(west - east) / 2` recentres what is left of the sheet.
+		pos = { (westInset - eastInset) / 2, WADE_HEIGHT, 0 },
+		size = { def.size[1] - westInset - eastInset, 0.3, def.size[2] },
+		color = def.ooze.bright,
+		material = "Neon",
+		transparency = 0.82,
+		canCollide = false,
+	})
 
 	-- Ooze pools first, so props sit on top of them.
 	local lightEvery = math.max(1, math.ceil(theme.pools / ZONE_LIGHT_BUDGET))
