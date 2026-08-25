@@ -22,13 +22,14 @@
 	track loses its display. It WAS deleted for one pass, for exactly that reason it
 	should not have been, and it is back.
 
-	IT IS IN THE BOTTOM-RIGHT CORNER NOW, NOT IN THE INSTRUMENT BAND. It used to sit
-	beside the dig button in the middle of the dock, which put a 180px dial in the
+	IT IS IN THE BOTTOM-RIGHT CORNER NOW, ALONE, NOT IN THE INSTRUMENT BAND. It used to
+	sit beside the dig button in the middle of the dock, which put a 180px dial in the
 	busiest part of the screen and made INSTRUMENT_HEIGHT (and so RESERVE, and so
 	every centred panel's headroom) 36px taller than the meter needed. Corner-anchored
-	it costs the layout nothing: it shares only the INSTRUMENT_BOTTOM baseline with
-	the meter diagonally opposite, and the index button stacks above it — see
-	Dock.SCOPE_BOTTOM / Dock.INDEX_BOTTOM.
+	it costs the layout nothing: it shares only the INSTRUMENT_BOTTOM baseline with the
+	meter diagonally opposite it — see Dock.SCOPE_BOTTOM. The index button briefly
+	stacked above it here too, but has since moved to the opposite corner, above the
+	cash badge; nothing shares this corner with the scope any more.
 
 	Hot/cold is still carried by SOUND. PLAN §10.7 wants a player able to sweep with
 	their eyes half shut, so there are two cues: a CHIRP the moment a new contact

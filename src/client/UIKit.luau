@@ -103,13 +103,14 @@ UIKit.Stroke = {
 
 -- ── The dock ─────────────────────────────────────────────────────────────────────
 -- One horizontal instrument band — [METER | DIG BUTTON] — with the status line above
--- it, bag count below it, hotbar at the screen edge, the radar scope and the index
--- button stacked in the bottom-right corner, and the detail card floating above all
--- of it when a slot is selected:
+-- it, bag count below it, hotbar at the screen edge, a bottom-LEFT column stacking
+-- [INDEX] over [CASH] over the meter, the radar scope alone in the bottom-right
+-- corner, and the detail card floating above all of it when a slot is selected:
 --
 --     ┌───────────────────────────────────────┐  <- Detail card (only if selected)
---     │              Status line       [INDEX] │
---     │    [METER]   [DIG BUTTON]      ( SCOPE)│  <- band 144px; scope is NOT in it
+--     │[INDEX]        Status line               │
+--     │[CASH ]                                  │
+--     │[METER]       [DIG BUTTON]      ( SCOPE )│  <- band 144px; scope is NOT in it
 --     │              Bag count                  │
 --     │   [1][2][3][4][5][6][7][8][9]...        │  <- hotbar, screen edge
 --     └───────────────────────────────────────┘
@@ -125,6 +126,10 @@ UIKit.Stroke = {
 --
 -- `DIAL_LEFT_OFFSET` is gone for the same reason: the scope is corner-anchored now,
 -- so it is not positioned relative to the dig button any more.
+--
+-- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN. It now stacks
+-- directly above CashController's badge, on the meter's own left margin, rather than
+-- floating alone in the opposite corner — see Dock.INDEX_BOTTOM below.
 --
 -- ONE WIDE BAND, NOT STACKED ROWS. Meter and dig button sit side by side inside one
 -- INSTRUMENT_HEIGHT-tall band rather than stacking vertically, which would cost
@@ -169,13 +174,21 @@ Dock.INSTRUMENT_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT + Dock.GAP
 
--- The bottom-right stack, bottom-up: scope on the meter's baseline, index above it.
--- INDEX_BOTTOM is derived from SCOPE_DIAL rather than typed, so IndexController never
--- has to know how big the scope is — resize the dial and the button moves with it.
--- This is the same "no file hardcodes another file's layout" rule the whole dock
--- exists to enforce; it is exactly the class of bug the old `-178` was.
+-- The bottom-RIGHT corner: just the scope, on the meter's baseline.
 Dock.SCOPE_BOTTOM = Dock.INSTRUMENT_BOTTOM
-Dock.INDEX_BOTTOM = Dock.SCOPE_BOTTOM + Dock.SCOPE_DIAL + Dock.GAP
+
+-- The bottom-LEFT column, bottom-up: meter on the instrument baseline, cash badge
+-- above it, index button above that. Each one's bottom is the previous one's top plus
+-- a gap, so the column stays packed however any single element is resized.
+--
+-- CASH_SIZE/CASH_BOTTOM WERE PRIVATE LOCALS IN CashController until the index button
+-- moved into this column. They had to come here the moment a second file needed to
+-- stack on top of them — IndexController working out its own offset from the cash
+-- badge's height would be precisely the "-178 hand-tuned against another file" bug
+-- this table exists to prevent. Same width as the meter, so all three share edges.
+Dock.CASH_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 56)
+Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
+Dock.INDEX_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.GAP
 
 -- The dock's total reserved height with no card open. IndexController still biases
 -- its own anchor upward by half of this so it lands in the space the dock does not

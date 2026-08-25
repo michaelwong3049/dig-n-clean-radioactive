@@ -195,18 +195,20 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 90
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- The button. Bottom-right, but STACKED ABOVE THE RADAR SCOPE rather than sitting
-	-- on the instrument baseline itself — the scope moved into this corner and took
-	-- that baseline, so INDEX moved up by exactly the scope's height plus a gap.
+	-- The button. BOTTOM-LEFT now, not bottom-right — stacked directly above the cash
+	-- badge, which sits directly above the meter, on the meter's own left margin. It
+	-- has moved twice: first from inside the instrument band out to the (then empty)
+	-- bottom-right corner beside the newly-relocated radar scope, and now across to
+	-- the left column entirely, out of the scope's way, above the money.
 	--
-	-- Dock.INDEX_BOTTOM, never `INSTRUMENT_BOTTOM + 180 + 10`. The whole reason the
-	-- dock table exists is that this file must not know how tall the scope is; resize
-	-- Dock.SCOPE_DIAL and this button follows on its own.
+	-- Dock.INDEX_BOTTOM, never a typed offset. It is derived from Dock.CASH_BOTTOM
+	-- and Dock.CASH_SIZE, so this file still does not need to know either the cash
+	-- badge's or the meter's height — resize either one and the button follows.
 	local button, buttonStroke = UIKit.button(gui, {
 		name = "IndexButton",
 		size = UDim2.fromOffset(BUTTON_SIZE, BUTTON_SIZE),
-		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM),
-		anchorPoint = Vector2.new(1, 1),
+		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM),
+		anchorPoint = Vector2.new(0, 1),
 		text = "INDEX",
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.body,
