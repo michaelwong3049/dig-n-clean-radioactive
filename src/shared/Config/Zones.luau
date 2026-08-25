@@ -251,31 +251,7 @@ Zones.DEFS = {
 		-- what borders Zone 2 across the boundary blend. See "LIFE FADING INTO A
 		-- DEAD WASTELAND" below for the whole Zone 1-3 palette.
 		color = "C2A171",
-		-- Sand was the first choice — closer to the name — but its baked texture is
-		-- a directional dune-ripple normal map, and a plate this large viewed at the
-		-- grazing angle a WALKING PLAYER actually sees (never top-down) renders that
-		-- ripple as hard parallel stripes receding to the horizon.
-		--
-		-- Ground was the SECOND choice, and it was wrong too, in a way that stayed
-		-- hidden for a while: edit-mode `screen_capture` with an overridden camera
-		-- angle looked completely clean, and a real Play-mode screenshot at what
-		-- SHOULD have been the same angle also looked clean at first pass — but a
-		-- live player screenshot at true grazing incidence still showed the same
-		-- stripes, just fainter. Every built-in Material with a baked procedural
-		-- texture TILES across a large flat part, and tiling has a period in world
-		-- space — at a shallow enough viewing angle ANY periodic texture becomes a
-		-- set of parallel lines converging toward the vanishing point, regardless of
-		-- which specific material it is. Sand's tile edges just have more directional
-		-- contrast than Ground's, so it was worse, not unique.
-		--
-		-- SmoothPlastic has no baked texture at all — flat colour plus lighting only
-		-- — so there is no tile period to alias into lines at any angle. Confirmed
-		-- live, in an actual Play session (not an edit-mode camera override, which is
-		-- what produced the false-clean reading the first time): completely clean at
-		-- the exact grazing angle that showed the stripes under both Sand and Ground.
-		-- Zones 2 and 3 below made the same swap, same reason — all three still share
-		-- one material for the gradient's continuity.
-		material = "SmoothPlastic",
+		material = "Sand",
 		-- Muted on purpose — see the note below. Nowhere near today's old 6BEE2E,
 		-- and nowhere near Zones 4-6's neon-pink/violet territory either.
 		ooze = { bright = "7CBF52", deep = "35501F", glow = "5C9A3C" },
@@ -304,10 +280,7 @@ Zones.DEFS = {
 		size = { 220, 240 },
 		-- Dun/tan, not green — see "LIFE FADING INTO A DEAD WASTELAND" below.
 		color = "B8935F",
-		-- SmoothPlastic — see Zone 1's note. Any tiled procedural texture (Sand,
-		-- then Ground) aliases into lines at a grazing viewing angle; only a flat,
-		-- untextured material is actually clean at every angle.
-		material = "SmoothPlastic",
+		material = "Sand",
 		-- Corrected after a live look: the first pass (8FB358) was not green-DOMINANT
 		-- enough — R was 80% of G, and Neon + bloom pushed it to cream, the exact
 		-- failure this file's own header warns about ("a yellow-green like #B6FF6E
@@ -336,10 +309,9 @@ Zones.DEFS = {
 		size = { 260, 240 },
 		-- Deeper desert khaki-brown — the endpoint of the Zone 1-3 gradient. Slate
 		-- read as dark grey rock and broke continuity with the sand family this
-		-- whole stretch depends on, so material moved off Slate. SmoothPlastic now,
-		-- for the tiling reason in Zone 1's note.
+		-- whole stretch depends on, so material moved to Sand too.
 		color = "A67C4E",
-		material = "SmoothPlastic",
+		material = "Sand",
 		-- Same green-dominance fix as Zone 2's — see that zone's comment. Slightly
 		-- darker again, the gradient's endpoint, but the same hue family throughout.
 		ooze = { bright = "649C42", deep = "2C4018", glow = "488432" },
