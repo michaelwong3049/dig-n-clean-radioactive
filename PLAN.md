@@ -329,20 +329,31 @@ gamble, it's a trap, and traps make people quit. Show the number and let them ch
 #### Survivability at a glance
 
 Rough survivable window walking into a zone with a given suit tier
-(assumes full health, no items carried, standing still):
+(assumes full health, no items carried, standing still, at the zone's ENTRANCE — ambient
+climbs further the deeper in you go, see Zones.radsAt). Regenerated via
+`Shared/Util/TuningReport` after the THIRD radiation-harshening pass, rather than hand-tuned:
 
 |Zone|Rated suit|One tier under|Two tiers under|Cloth wrap / unsuited|
 |-|-|-|-|-|
-|1 Ash Flats|indefinite|—|—|indefinite|
-|2 The Suburbs|indefinite|\~2:30|—|\~50s|
-|3 Fallout Fields|indefinite|\~1:10|\~30s|\~18s|
-|4 The Exclusion Belt|indefinite|\~40s|\~15s|\~8s|
-|5 Reactor Grounds|indefinite|\~25s|\~9s|\~3s|
-|6 The Crater|\~90s|\~8s|\~2s|instant|
+|1 Ash Flats|\~9:00 (capped, see below)|—|—|\~9:00|
+|2 The Suburbs|indefinite|\~17s|—|\~17s|
+|3 Fallout Fields|indefinite|\~12s|\~5s|\~5s|
+|4 The Exclusion Belt|indefinite|\~12s|\~3s|\~2s|
+|5 Reactor Grounds|indefinite|\~12s|instant|instant|
+|6 The Crater|\~1:30|\~12s|instant|instant|
 
-Read the "one tier under" column as the design's actual target. **\~25–40 seconds is a pull.**
-That is not an accident — it is tuned to be exactly enough time to sprint in, take one
-signal, extract it, and run. Which is the gamble.
+Read the "one tier under" column as the design's actual target — except Zone 1, which has no
+suit tier under its own rated tier to test. **\~8–15 seconds is a pull** (tightened twice now:
+\~25–40s originally, \~18–30s after the second pass). Getting here cost the Dive real breathing
+room — see `Tuning.luau`'s `BURN_COEF` comment for why a third explicit push on Zone 3's unsuited
+survival time couldn't be made without also compressing this column.
+
+**Zone 1 is no longer "forever."** It was, until the third pass — Zone 1's rated suit tier IS
+the starting tier, so "rated suit farmable" and "unsuited" used to be the same guarantee. That
+guarantee is now capped at 9 minutes by design (was ~33 minutes), tuned via Cloth Wrap's own
+`reduction` stat rather than Zone 1's ambient rate, specifically so Zone 1 stays a pure
+exposure-track ("green screen") zone with no burn risk at all for a fresh player — see
+`Gear.luau`'s header for why.
 
 #### The Dive — risking health for rarer items
 

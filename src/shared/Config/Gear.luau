@@ -4,22 +4,48 @@
 
 	SUIT NUMBERS ARE FITTED, NOT GUESSED.
 	`reduction` and `tolerance` were solved so the model in Shared/Radiation.lua
-	reproduces the design's stated intent:
+	reproduces the design's stated intent. Table below regenerated via
+	Shared/Util/TuningReport after four radiation-harshening passes today
+	(Tuning.BURN_COEF 2.0 -> 3.0 -> 6.0, Zone 1's deepRads 1.25 -> 1.8 -> 1.97,
+	Cloth Wrap's `reduction` 0.9000 -> 0.6296) — all figures below are at each
+	zone's ENTRANCE (depthFrac=0); the deep edge of every zone is meaningfully
+	worse, see Zones.radsAt/Zones.DEFS. Zone 1's deepRads specifically governs
+	Zones.STAGES' "Deep Fallout" sub-band (the far third of Zone 1 itself, NOT
+	the separate, distant Zone 3 "Fallout Fields" its name resembles) — see
+	Zones.luau's Zone 1 comment and Spec.luau's Stage 3 check for that story:
 
 	                     Z1      Z2      Z3      Z4      Z5      Z6
-	  Cloth Wrap         inf     50s     15s      7s      3s   instant
-	  Rubber Suit        inf     inf     35s      9s      3s   instant
-	  Lead-Lined         inf     inf     inf     35s      4s   instant
-	  Reinforced Hazmat  inf     inf     inf     inf     35s      2s
-	  Sealed Exo-Suit    inf     inf     inf     inf     inf     35s
+	  Cloth Wrap        9:00    17s      5s       2s  instant  instant
+	  Rubber Suit        inf     inf     12s      3s  instant  instant
+	  Lead-Lined         inf     inf     inf     12s  instant  instant
+	  Reinforced Hazmat  inf     inf     inf     inf     12s  instant
+	  Sealed Exo-Suit    inf     inf     inf     inf     inf     12s
 	  Containment Rig    inf     inf     inf   10:00    3:45    1:30
 
+	ZONE 1's CLOTH WRAP CELL IS NOT "inf" ANY MORE, AND IT DID NOT MOVE VIA BURN.
+	Zone 1's ambient (0.5) is still below Cloth Wrap's tolerance (1.0) -- it never
+	enters the burn/white-screen track at all, by design (Zone 1's rated suit tier IS
+	the starting tier, and Spec still requires SOME zone to be a true no-pressure
+	tutorial space). The 9:00 instead comes entirely from lowering Cloth Wrap's own
+	`reduction` (0.9000 -> 0.6296), which only touches the EXPOSURE/green-screen track
+	-- raising Zone 1's ambient far enough to trigger burn at exactly 9 minutes would
+	have required an ambient value within about 0.02 rads/sec of Cloth Wrap's exact
+	tolerance, a razor-thin, un-maintainable number given how steeply burn responds to
+	`excess`. Lowering `reduction` instead needed no such precision and is provably
+	isolated to Zone 1: every other zone already burns Cloth Wrap long before its
+	exposure meter would matter, so `reduction` is inert everywhere else for this tier.
+
 	Three properties that matter fall out of that table:
-	  * ONE TIER UNDER is ~35s in every zone. That is one dig. That is the Dive (§3.5).
-	  * TWO TIERS UNDER is 2-9s. A suicide sprint, exactly as intended.
+	  * ONE TIER UNDER is ~12s in every zone (was ~35s originally, ~23s after the
+	    second pass). That is the Dive (§3.5), now considerably tighter -- a kept
+	    side effect of the BURN_COEF raise, not something asked for on its own --
+	    see Tuning.luau's BURN_COEF comment.
+	  * TWO TIERS UNDER is instant almost everywhere now. A suicide sprint, more
+	    punishing than ever.
 	  * Even a full Containment Rig gets 1:30 in the Crater — §4's "timed heist",
 	    preserved by giving the Rig a deliberately imperfect reduction rather than
-	    a special-case rule.
+	    a special-case rule. Unaffected by either COEF change: this scenario is
+	    exposure-bound, not burn-bound.
 
 	Regenerate this table with Shared/Util/TuningReport after ANY change here.
 ]]
@@ -89,8 +115,12 @@ Gear.Cleaner = {
 -- reduction: fraction of AMBIENT rads/sec removed  (exposure track, green screen)
 -- tolerance: ambient rads/sec the suit handles before it fails (burn track, white screen)
 -- capacity : hot items carried before it gets unmanageable (PLAN §3.4)
+--
+-- Cloth Wrap's reduction dropped 0.9000 -> 0.6296 in the third harshening pass, SOLELY
+-- to hit an explicit Zone 1 target (unsuited survival capped at 9 minutes, was ~33
+-- minutes) without touching Zone 1's ambient rate itself -- see this file's header.
 Gear.Suit = {
-	{ name = "Cloth Wrap", price = 0, reduction = 0.9000, tolerance = 1.0, capacity = 4 },
+	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.0, capacity = 4 },
 	{ name = "Rubber Suit", price = 450, reduction = 0.9750, tolerance = 4.4, capacity = 6 },
 	{ name = "Lead-Lined", price = 1080, reduction = 0.9920, tolerance = 13.4, capacity = 8 },
 	{ name = "Reinforced Hazmat", price = 2600, reduction = 0.9970, tolerance = 38.4, capacity = 11 },

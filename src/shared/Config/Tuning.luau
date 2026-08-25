@@ -27,12 +27,40 @@ Tuning.SHOWER_FLUSH_RATE = 200 -- rads/sec removed while standing in a decon sho
 -- healthBurn (HP/sec) = BURN_COEF * (ambientRads - suitTolerance) ^ BURN_EXPONENT
 --
 -- These two constants were fitted so that the model reproduces the design targets:
---   * unsuited survival matches §3.5's table (50s / 15s / 7s / 3s / instant)
---   * ONE TIER UNDER lands at ~35s in every zone — the "one dig" window §3.5 asks for
---   * a full Containment Rig buys 1:30 in the Crater — §4's "timed heist"
+--   * unsuited survival matches the third-pass targets (17s / 5s / 2s / 1s / instant)
+--     for zones 2-6 -- Zone 1 is a separate, exposure-only case, see Gear.luau's
+--     Cloth Wrap `reduction` note for why it isn't in this list.
+--   * ONE TIER UNDER lands at ~12s in every zone (3-6) -- tightened again, see the
+--     note below on why this and the Zone 3 unsuited target could not both be hit
+--     without moving this number a second time.
+--   * a full Containment Rig buys 1:30 in the Crater — §4's "timed heist" (unaffected --
+--     that scenario is exposure-bound, not burn-bound, so COEF doesn't touch it)
+--
+-- COEF raised 2.0 -> 3.0 -> 6.0 across two harshening passes today. The second raise
+-- was driven by an explicit target: Zone 3 unsuited (Cloth Wrap) should die in well
+-- under 5 seconds at the entrance, not the ~10s the first pass produced. Zone 3's own
+-- ambient rate was deliberately NOT what moved to hit that -- raising Zone 3's
+-- baseRads instead would have closed the gap between its entrance and deepest rates,
+-- flattening exactly the within-zone depth gradient this file's earlier pass exists to
+-- create. A global COEF raise scales every zone's entrance:deepest RATIO unchanged,
+-- so the depth gradient stays exactly as pronounced, just faster everywhere.
+--
+-- THE UNAVOIDABLE COST: this also compresses the one-tier-under "Dive" window (zones
+-- 3-6) from ~23s down to ~12s, because Zone 3's ambient (6 r/s) sits close enough to
+-- both Cloth Wrap's tolerance (1.0) and Rubber Suit's (4.4) that no pure COEF or
+-- tolerance scalar can push the Cloth Wrap number down without dragging the Rubber
+-- Suit number down with it -- the two are locked to the same zone ambient, and their
+-- burn values differ only by a ratio COEF cancels out of. Decoupling them for real
+-- would mean widening the gap between suit tiers' tolerances, a much bigger change
+-- than was asked for here. Flagged rather than hidden: the "one dig" pacing from
+-- PLAN §3.5 is now noticeably tighter than originally designed.
+--
+-- EXPONENT deliberately untouched: raising it toward 1 would make small-`excess`
+-- scenarios (the one-tier-under dive) comparatively LESS punishing while barely
+-- affecting the already-near-instant over-tier deaths, the opposite of "more punishing."
 --
 -- Run Shared.Util.TuningReport to regenerate that matrix after any change here.
-Tuning.BURN_COEF = 2.0
+Tuning.BURN_COEF = 6.0
 Tuning.BURN_EXPONENT = 0.75
 Tuning.MAX_HEALTH = 100
 

@@ -16,8 +16,9 @@
 	numbers move, and the design doc stops drifting away from the game.
 
 	The shipped Config values are fitted so this prints:
-	  * unsuited survival matching §3.5's intent  (50s / 15s / 7s / 3s / instant)
-	  * ~35s one tier under, in every zone — §3.5's "one dig" Dive window
+	  * unsuited survival matching §3.5's intent, tightened across three harshening
+	    passes  (9:00 in Zone 1 specifically / 17s / 5s / 2s / instant / instant)
+	  * ~12s one tier under, in every zone — §3.5's tightened "one dig" Dive window
 	  * 1:30 for a full Containment Rig in the Crater — §4's timed heist
 ]]
 
@@ -103,19 +104,20 @@ function TuningReport.run()
 		table.insert(out, row)
 	end
 
-	table.insert(out, "\n=== THE DIVE: one tier under rated, at the zone's deepest point (PLAN §3.5 target: 25-40s) ===\n")
+	table.insert(out, "\n=== THE DIVE: one tier under rated, at the zone's deepest point (PLAN §3.5 target: 8-15s) ===\n")
 	for zoneId = 2, #Zones.DEFS do
 		local zone = Zones.get(zoneId)
 		local underTier = zone.ratedSuitTier - 1
 		local s = TuningReport.survive(zoneId, underTier, 1)
-		local flag = if s >= 25 and s <= 40 then "ok" else "OUT OF BAND"
-		-- Zone 2 is knowingly out of band at ~50s. One tier under Rubber IS Cloth Wrap,
-		-- and Cloth Wrap's numbers are pinned by the harder requirement that Zone 1 be
-		-- survivable forever. Zone 2 is where a player takes their first dive, so a 40%
-		-- more forgiving window there is a feature. Do not "fix" this without also
-		-- deciding what Cloth Wrap does in Zone 1.
+		local flag = if s >= 8 and s <= 15 then "ok" else "OUT OF BAND"
+		-- Zone 2's one-tier-under IS Cloth Wrap, same tier as the Zone 1 unsuited
+		-- target, but tested at Zone 2's DEEPEST point (deepRads=5.0) rather than
+		-- Zone 1's (capped separately, see Gear.luau) -- these were never going to
+		-- land in the same band as zones 3+, they're a different suit-vs-zone pairing
+		-- entirely. Flagged rather than force-fit into the same 8-15s band the
+		-- zone-3-to-6 dives share.
 		if zoneId == 2 then
-			flag = "ok (accepted: tutorial dive, see comment)"
+			flag = "ok (accepted: different pairing, see comment)"
 		end
 		table.insert(out, string.format("  %-20s with %-18s %8s   %s", zone.name, Gear.tier("Suit", underTier).name, fmt(s), flag))
 	end
