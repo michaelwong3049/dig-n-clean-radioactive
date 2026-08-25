@@ -50,6 +50,14 @@
 	Placement is a jittered grid, not pure random. Pure random clumps and leaves bald
 	patches; a jittered grid reads as scattered while still covering the field, and
 	it is deterministic per zone so a rebuild does not reshuffle the whole world.
+
+	THE BOUNDARY WALLS ARE THE ONE EXCEPTION TO "CanCollide IS FALSE, SAME AS
+	EVERYTHING ELSE IN THIS FILE" ABOVE. Confirmed with the user before building it
+	that way: there is no terrain past the built plates, and without a real
+	boundary a player can just walk off the chain's north or south edge into void.
+	`buildBoundaryWalls` is a genuine collidable barrier, not a decoration wearing
+	one — everything else's CanCollide=false reasoning (haul visibility, walking
+	through props) does not apply to it and should not be assumed to.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -92,6 +100,18 @@ local WADE_HEIGHT = 1.1
 --- player has to be able to tell.
 local SEAM_BLEND = 25
 local SEAM_STEPS = 8
+
+--- The chain's north/south boundary walls. Tile size is 8, not the plaza's 3.125
+--- (Hub.tileRect) -- the chain runs ~2,390 studs long, so the plaza's fine grid
+--- would be ~6,900 parts per side; 8 studs is ~1,050 per side and still plenty of
+--- resolution for something seen mostly at walking distance, not underfoot.
+local WALL_HEIGHT = 28
+local WALL_THICKNESS = 4
+local WALL_TILE = 8
+local WALL_DARK = "B5573A" -- rust
+local WALL_LIGHT = "D98B6B" -- salmon-tan; one uniform palette for the whole chain,
+-- deliberately not tinted per zone -- an engineered containment barrier reads as
+-- one consistent material, not something that shares each zone's own theme.
 
 --- Paint the field in bands across X, one colour per stage, blended at the seams.
 ---
@@ -899,6 +919,69 @@ local function buildStageMarkers(parent: Instance, zoneId: number)
 	folder.Parent = parent
 end
 
+--- One checkerboard wall, the full length of the chain, at a fixed Z. `faceProperty`
+--- is whichever side face actually points back toward the chain on an unrotated
+--- part -- "BackSurface" (+Z) for the north wall, "FrontSurface" (-Z) for the south
+--- wall -- so the studs render on the side a player can actually see.
+local function buildWall(parent: Instance, name: string, minX: number, maxX: number, atZ: number, faceProperty: string)
+	local baseY = Zones.SURFACE_Y
+	local cols = math.ceil((maxX - minX) / WALL_TILE)
+	local rows = math.ceil(WALL_HEIGHT / WALL_TILE)
+
+	for ix = 0, cols - 1 do
+		local x0 = minX + ix * WALL_TILE
+		local x1 = math.min(x0 + WALL_TILE, maxX)
+		local w = x1 - x0
+		if w <= 1e-3 then
+			continue
+		end
+
+		for iy = 0, rows - 1 do
+			local y0 = baseY + iy * WALL_TILE
+			local y1 = math.min(y0 + WALL_TILE, baseY + WALL_HEIGHT)
+			local h = y1 - y0
+			if h <= 1e-3 then
+				continue
+			end
+
+			local tile = build(parent, CFrame.new(0, 0, 0), {
+				name = name,
+				pos = { (x0 + x1) / 2, (y0 + y1) / 2, atZ },
+				size = { w, h, WALL_THICKNESS },
+				color = if (ix + iy) % 2 == 0 then WALL_DARK else WALL_LIGHT,
+				material = "Plastic", -- studs only render on Plastic, per Hub.tileRect's note
+				canCollide = true, -- see the header: the one deliberate exception in this file
+			});
+			(tile :: any)[faceProperty] = Enum.SurfaceType.Studs
+		end
+	end
+end
+
+--- The chain's north and south edges. ONE WALL PER SIDE, NOT SIX -- every zone
+--- shares the same Z footprint since the uniform-depth pass, so this is one long
+--- straight boundary the full length of the chain rather than a per-zone piece,
+--- the same way buildZoneBlend already treats the chain as one span.
+---
+--- BOUNDS ARE READ, NOT ASSUMED. This chain has moved, resized and had zones
+--- reordered more than once already -- hardcoding today's numbers would just be
+--- tomorrow's silent bug the next time it changes.
+local function buildBoundaryWalls(parent: Instance)
+	local minX, minZ, maxX, maxZ = math.huge, math.huge, -math.huge, -math.huge
+	for _, id in Zones.builtIds() do
+		local ax, az, bx, bz = Zones.bounds(id)
+		minX, minZ = math.min(minX, ax), math.min(minZ, az)
+		maxX, maxZ = math.max(maxX, bx), math.max(maxZ, bz)
+	end
+
+	local folder = Instance.new("Folder")
+	folder.Name = "BoundaryWalls"
+
+	buildWall(folder, "NorthWall", minX, maxX, minZ - WALL_THICKNESS / 2, "BackSurface")
+	buildWall(folder, "SouthWall", minX, maxX, maxZ + WALL_THICKNESS / 2, "FrontSurface")
+
+	folder.Parent = parent
+end
+
 local function createScenery(): Model
 	local scenery = Instance.new("Model")
 	scenery.Name = "Scenery"
@@ -922,6 +1005,8 @@ local function createScenery(): Model
 	-- Zone 5. 4 to 5 and 5 to 6 get none: plum into pink into violet is a step along
 	-- one scale, and the plates read as continuous without help.
 	buildZoneBlend(scenery, 3, 4)
+
+	buildBoundaryWalls(scenery)
 
 	-- Nothing in here may claim to be a zone. This is the invariant the whole
 	-- module/folder split exists to protect, so it is asserted, not trusted.
