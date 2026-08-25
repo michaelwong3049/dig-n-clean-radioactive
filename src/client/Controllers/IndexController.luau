@@ -195,14 +195,20 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 90
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- The button. Bottom-right, mirroring HudController's meter at bottom-left —
-	-- both anchor to the same INSTRUMENT_BOTTOM baseline so the dock reads as one
-	-- deliberate row, not two unrelated floating pieces.
+	-- The button. BOTTOM-LEFT now, not bottom-right — stacked directly above the cash
+	-- badge, which sits directly above the meter, on the meter's own left margin. It
+	-- has moved twice: first from inside the instrument band out to the (then empty)
+	-- bottom-right corner beside the newly-relocated radar scope, and now across to
+	-- the left column entirely, out of the scope's way, above the money.
+	--
+	-- Dock.INDEX_BOTTOM, never a typed offset. It is derived from Dock.CASH_BOTTOM
+	-- and Dock.CASH_SIZE, so this file still does not need to know either the cash
+	-- badge's or the meter's height — resize either one and the button follows.
 	local button, buttonStroke = UIKit.button(gui, {
 		name = "IndexButton",
 		size = UDim2.fromOffset(BUTTON_SIZE, BUTTON_SIZE),
-		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -Dock.INSTRUMENT_BOTTOM),
-		anchorPoint = Vector2.new(1, 1),
+		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM),
+		anchorPoint = Vector2.new(0, 1),
 		text = "INDEX",
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.body,

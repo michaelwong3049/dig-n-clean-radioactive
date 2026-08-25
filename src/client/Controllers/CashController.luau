@@ -14,6 +14,14 @@
 	Dock.GAP between them, so the two read as one stacked instrument cluster in the
 	corner rather than two unrelated floating panels.
 
+	SIZE AND BOTTOM ARE Dock.CASH_SIZE / Dock.CASH_BOTTOM NOW, NOT LOCALS HERE. They
+	moved into the shared table the moment IndexController needed to stack the INDEX
+	button on top of this badge — a second file computing its offset from this file's
+	private numbers would be exactly the cross-file magic-number coupling Dock exists
+	to prevent. This file still OWNS the values in the sense that nothing else builds
+	the badge, but the numbers themselves now live in Dock so a resize here is not a
+	silent breakage there.
+
 	COLOUR IS AMBER, NOT GREEN, ON PURPOSE. The reference image this was built from
 	used green for the dollar text, but HudController's ONE COLOUR RULE (PLAN §14)
 	reserves green for exposure and nothing else, ever -- reusing it here would be
@@ -32,9 +40,9 @@ local Dock = UIKit.Dock
 
 local Cash = {}
 
--- Same width as the meter panel, so the two share both edges when stacked.
-local BADGE_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 56)
-local BADGE_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
+-- Dock.CASH_SIZE / Dock.CASH_BOTTOM, not local numbers — see the header.
+local BADGE_SIZE = Dock.CASH_SIZE
+local BADGE_BOTTOM = Dock.CASH_BOTTOM
 
 local ui = {}
 

@@ -52,22 +52,29 @@ UIKit.C = {
 }
 
 -- ── Type scale ───────────────────────────────────────────────────────────────────
--- Two faces, not one, and not a bold/medium pair the way Gotham did it. LuckiestGuy
--- is a heavy all-caps poster face — it reads great as a short, one-off, celebratory
--- headline and degrades badly below ~20px or on anything longer than a few words.
--- FredokaOne is the rounded workhorse for everything else: buttons, item names,
--- status lines, numeric readouts. Hierarchy comes from ROLE + SIZE, not from
--- swapping the family.
+-- ONE FAMILY IN THREE WEIGHTS, which is the formal-typography move and the opposite
+-- of what this used to be. The old pair was LuckiestGuy (a heavy all-caps poster
+-- face) over FredokaOne (a rounded workhorse) — two unrelated novelty families whose
+-- only relationship was "both are chunky". That reads as a toy, and the shop's card
+-- grid is where it showed worst: a price ladder wants to look like a storefront, not
+-- a birthday card.
 --
--- Both render visibly larger and heavier than Gotham at the same TextSize (wider
--- glyphs, taller x-height) — the sizes below are starting points, calibrated once in
--- Studio, not derived from any formula. Expect to trim, not to need a rewrite.
+-- Gotham is the replacement across the board. Hierarchy now comes from WEIGHT + SIZE
+-- inside one family instead of from swapping to a different typeface, so a heading
+-- and the line under it visibly belong together. `hero` is still reserved for the
+-- same short, one-off, celebratory strings it always was (the blackout headline, the
+-- loot banner's item name) — it is a weight now, not a different font, but the rule
+-- that nothing repeated or sentence-length uses it is unchanged.
+--
+-- SIZES WERE CALIBRATED FOR THE OLD FACES AND ARE NOW SLIGHTLY UNDERSET. LuckiestGuy
+-- and FredokaOne render wider glyphs and a taller x-height than Gotham at the same
+-- TextSize, so everything reads a touch smaller than it did. That is a deliberate
+-- "change one thing at a time" — retune UIKit.TextSize after looking at it in
+-- Studio, rather than pre-compensating blind here.
 UIKit.Font = {
-	hero = Enum.Font.LuckiestGuy, -- ONLY short, one-off, celebratory strings:
-	-- the blackout headline, the loot banner's item name. Never a sentence, never a
-	-- repeated element — anything that appears in a list or runs to more than a few
-	-- words belongs in `body` instead.
-	body = Enum.Font.FredokaOne,
+	hero = Enum.Font.GothamBlack, -- ONLY short, one-off, celebratory strings
+	title = Enum.Font.GothamBold, -- panel titles, card names, primary buttons
+	body = Enum.Font.GothamMedium, -- everything else: rows, status lines, readouts
 }
 
 UIKit.TextSize = {
@@ -95,22 +102,40 @@ UIKit.Stroke = {
 }
 
 -- ── The dock ─────────────────────────────────────────────────────────────────────
--- One horizontal instrument band — [METER | DIG BUTTON | DIAL] — with the status
--- line above it, bag count below it, hotbar at the screen edge, and the detail card
--- floating above all of it when a slot is selected:
+-- One horizontal instrument band — [METER | DIG BUTTON] — with the status line above
+-- it, bag count below it, hotbar at the screen edge, a bottom-LEFT column stacking
+-- [INDEX] over [CASH] over the meter, the radar scope alone in the bottom-right
+-- corner, and the detail card floating above all of it when a slot is selected:
 --
 --     ┌───────────────────────────────────────┐  <- Detail card (only if selected)
---     │              Status line                │
---     │    [METER]   [DIG BUTTON]   [DIAL]      │  <- one shared baseline, 180px
+--     │[INDEX]        Status line               │
+--     │[CASH ]                                  │
+--     │[METER]       [DIG BUTTON]      ( SCOPE )│  <- band 144px; scope is NOT in it
 --     │              Bag count                  │
 --     │   [1][2][3][4][5][6][7][8][9]...        │  <- hotbar, screen edge
 --     └───────────────────────────────────────┘
 --
--- ONE WIDE BAND, NOT THREE STACKED ROWS. Meter, dig button and dial sit side by side
--- inside one INSTRUMENT_HEIGHT-tall band rather than stacking vertically, which would
--- cost roughly 300px on its own. That choice is the entire reason "bigger and
--- centered" does not also mean "covers the ground you are digging" — see RESERVE
--- below, which is the dock's total reserved height with no card open.
+-- THE SCOPE IS IN THE CORNER, NOT IN THE BAND, AND THAT IS THE WHOLE POINT OF THIS
+-- LAYOUT. It used to sit inside the instrument band, to the dig button's right, where
+-- being the tallest thing in the row (180 vs the meter's 144) pushed INSTRUMENT_HEIGHT
+-- and therefore RESERVE up for everything else. It is now anchored to the bottom-right
+-- corner on its own, sharing only the INSTRUMENT_BOTTOM baseline with the meter
+-- opposite it, so `SCOPE_DIAL` is deliberately ABSENT from INSTRUMENT_HEIGHT below.
+-- Put it back in that max() and the centred station panel loses 36px of headroom for
+-- a widget that is no longer in the row.
+--
+-- `DIAL_LEFT_OFFSET` is gone for the same reason: the scope is corner-anchored now,
+-- so it is not positioned relative to the dig button any more.
+--
+-- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN. It now stacks
+-- directly above CashController's badge, on the meter's own left margin, rather than
+-- floating alone in the opposite corner — see Dock.INDEX_BOTTOM below.
+--
+-- ONE WIDE BAND, NOT STACKED ROWS. Meter and dig button sit side by side inside one
+-- INSTRUMENT_HEIGHT-tall band rather than stacking vertically, which would cost
+-- roughly 200px on its own. That choice is the entire reason "bigger and centered"
+-- does not also mean "covers the ground you are digging" — see RESERVE below, which
+-- is the dock's total reserved height with no card open.
 --
 -- EVERY DOWNSTREAM POSITION IS A FORMULA OVER THESE, NEVER A FRESH NUMBER. That is
 -- the whole point: the old `-178` in InventoryController existed because nothing
@@ -141,8 +166,7 @@ Dock.CARD_SIZE = UDim2.fromOffset(400, 136) -- was 330x116
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
-Dock.INSTRUMENT_HEIGHT =
-	math.max(Dock.METER_SIZE.Y.Offset, Dock.DIGBUTTON_SIZE.Y.Offset, Dock.SCOPE_DIAL)
+Dock.INSTRUMENT_HEIGHT = math.max(Dock.METER_SIZE.Y.Offset, Dock.DIGBUTTON_SIZE.Y.Offset)
 
 Dock.HOTBAR_BOTTOM = Dock.MARGIN_BOTTOM
 Dock.BAGCOUNT_BOTTOM = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP
@@ -150,19 +174,32 @@ Dock.INSTRUMENT_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT + Dock.GAP
 
--- The dock's total reserved height with no card open — StationController reads this
--- to bias its own center-anchor upward, into the region the dock does not cover,
--- rather than the literal screen center. See StationController.luau for the maths;
--- the short version is that the biased anchor collapses to (screenHeight - RESERVE)
--- / 2 at any resolution, so the panel always centers in whatever space is left above
--- the dock.
+-- The bottom-RIGHT corner: just the scope, on the meter's baseline.
+Dock.SCOPE_BOTTOM = Dock.INSTRUMENT_BOTTOM
+
+-- The bottom-LEFT column, bottom-up: meter on the instrument baseline, cash badge
+-- above it, index button above that. Each one's bottom is the previous one's top plus
+-- a gap, so the column stays packed however any single element is resized.
+--
+-- CASH_SIZE/CASH_BOTTOM WERE PRIVATE LOCALS IN CashController until the index button
+-- moved into this column. They had to come here the moment a second file needed to
+-- stack on top of them — IndexController working out its own offset from the cash
+-- badge's height would be precisely the "-178 hand-tuned against another file" bug
+-- this table exists to prevent. Same width as the meter, so all three share edges.
+Dock.CASH_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 56)
+Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
+Dock.INDEX_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.GAP
+
+-- The dock's total reserved height with no card open. IndexController still biases
+-- its own anchor upward by half of this so it lands in the space the dock does not
+-- cover; StationController deliberately does NOT any more (see its header — its
+-- panel is centered on the screen itself now, and clears the dock on its own).
 Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 
--- Dig button sits dead-center on X as the primary touch/click target; the dial sits
--- to its right, offset by half the button's width plus one gap. The meter now lives
--- on its own at the bottom-left screen edge (see HudController), so it no longer
--- needs a same-row offset from the button.
-Dock.DIAL_LEFT_OFFSET = Dock.DIGBUTTON_SIZE.X.Offset / 2 + Dock.INSTRUMENT_GAP
+-- The dig button sits dead-center on X as the primary touch/click target. The meter
+-- lives on its own at the bottom-left screen edge (see HudController), so it needs no
+-- same-row offset from the button — and with the radar scope gone, nothing sits to
+-- the button's right at all, which is why `DIAL_LEFT_OFFSET` no longer exists.
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace

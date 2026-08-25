@@ -19,20 +19,27 @@
 	player by detectorClarity (PLAN §2 step 1). The aura says "something is here"; the
 	BLIP is where "and it is Legendary" gets to live, because the blip is drawn from a
 	payload only this client receives. Delete the scope and the entire clarity upgrade
-	track loses its display.
+	track loses its display. It WAS deleted for one pass, for exactly that reason it
+	should not have been, and it is back.
+
+	IT IS IN THE BOTTOM-RIGHT CORNER NOW, ALONE, NOT IN THE INSTRUMENT BAND. It used to
+	sit beside the dig button in the middle of the dock, which put a 180px dial in the
+	busiest part of the screen and made INSTRUMENT_HEIGHT (and so RESERVE, and so
+	every centred panel's headroom) 36px taller than the meter needed. Corner-anchored
+	it costs the layout nothing: it shares only the INSTRUMENT_BOTTOM baseline with the
+	meter diagonally opposite it — see Dock.SCOPE_BOTTOM. The index button briefly
+	stacked above it here too, but has since moved to the opposite corner, above the
+	cash badge; nothing shares this corner with the scope any more.
 
 	Hot/cold is still carried by SOUND. PLAN §10.7 wants a player able to sweep with
 	their eyes half shut, so there are two cues: a CHIRP the moment a new contact
 	enters the radius (the server counts them — the client has no uids to diff), and
 	the old rate-and-pitch ping keyed to how close the nearest one is.
 
-	THE SCOPE, THE DIG BUTTON AND THE RAD METER SHARE ONE INSTRUMENT BAND NOW — see
-	UIKit.Dock. DIAL_SIZE moved into that shared table (Dock.SCOPE_DIAL) because
-	HudController's meter needs to know it too, to sit level with it; SCOPE_RADIUS
-	stays local because nothing outside this file reads it, but it is DERIVED from
-	the shared dial size rather than a second hardcode, because it drives the ring
-	sizes, the sweep arm's length AND the blip polar-placement maths all at once —
-	change the dial without updating this and blips cluster inside a ring that no
+	SCOPE_RADIUS stays local because nothing outside this file reads it, but it is
+	DERIVED from Dock.SCOPE_DIAL rather than a second hardcode, because it drives the
+	ring sizes, the sweep arm's length AND the blip polar-placement maths all at once
+	— change the dial without updating this and blips cluster inside a ring that no
 	longer matches what is drawn.
 ]]
 
@@ -40,6 +47,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
@@ -196,6 +204,7 @@ local function buildScope(parent: GuiObject)
 	end
 end
 
+
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "DetectorHud"
@@ -204,16 +213,17 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 60
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Radar scope: right half of the instrument band, mirrored across the dig
-	-- button from the rad meter — see UIKit.Dock. AnchorPoint(0,1) so
-	-- Dock.DIAL_LEFT_OFFSET places its LEFT edge (not its centre), the same way
-	-- HudController's meter anchors its right edge — the two stay symmetric around
-	-- the button between them.
+	-- Radar scope: bottom-right corner, on the same INSTRUMENT_BOTTOM baseline as the
+	-- rad meter diagonally opposite it, with the index button stacked above. It used
+	-- to live inside the instrument band beside the dig button; out here it is clear
+	-- of the screen's centre and no longer inflates the band's height for everything
+	-- else. AnchorPoint(1,1) so the position places its bottom-RIGHT corner, which is
+	-- what makes ROW_SIDE_MARGIN read as a margin from the screen edge.
 	local dial, ring = UIKit.panel(gui, {
 		name = "Scope",
 		size = UDim2.fromOffset(DIAL_SIZE, DIAL_SIZE),
-		position = UDim2.new(0.5, Dock.DIAL_LEFT_OFFSET, 1, -Dock.INSTRUMENT_BOTTOM),
-		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -Dock.SCOPE_BOTTOM),
+		anchorPoint = Vector2.new(1, 1),
 		color = COLOR.panel,
 		transparency = 0.25,
 		cornerRadius = UIKit.Radius.pill,
@@ -414,9 +424,26 @@ end
 
 local function renderState()
 	if not state.inZone then
+		-- BLANK, AND THE BUTTON GOES WITH IT. Out of a zone means you are in the plaza
+		-- shopping, banking or racking. A status line telling you that you cannot dig
+		-- on the shop floor, and a PULL button that does nothing when pressed, are
+		-- both noise printed over the top of whatever panel you actually came here to
+		-- use — and between them they are what stopped the station panel from being
+		-- able to sit at screen centre. Every other branch below still speaks,
+		-- because every other branch is about a zone you are standing in.
+		--
+		-- The button costs nothing to lose here: it is inert out of a zone (the
+		-- server has no signal to give), and E still works, so nothing is unreachable
+		-- — it reappears the moment you step onto sludge, which is also the moment it
+		-- starts meaning something.
+		--
+		-- The SCOPE stays, unlike the button. It is the detector itself rather than a
+		-- verb attached to it, it now lives out in the corner where it is not in the
+		-- way of anything, and a dial that vanished every time you walked into the
+		-- plaza would read as broken hardware rather than as a quiet one.
+		ui.status.Text = ""
 		ui.centre.Text = ""
-		ui.status.Text = "no ground to sweep here"
-		ui.status.TextColor3 = COLOR.dim
+		ui.digButton.Visible = false
 		ui.digButton.Text = "HOLD  E  TO PULL"
 		ui.digStroke.Color = COLOR.stroke
 		return
@@ -424,6 +451,7 @@ local function renderState()
 
 	ui.centre.Text = `{math.floor(state.radius + 0.5)} stud sweep`
 	ui.centre.TextColor3 = COLOR.dim
+	ui.digButton.Visible = true
 
 	if not state.hasSignal then
 		-- Standing in a glow that somebody else's detector put there. This is a real
