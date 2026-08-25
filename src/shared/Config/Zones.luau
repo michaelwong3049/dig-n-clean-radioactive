@@ -261,7 +261,22 @@ Zones.DEFS = {
 		-- what borders Zone 2 across the boundary blend. See "LIFE FADING INTO A
 		-- DEAD WASTELAND" below for the whole Zone 1-3 palette.
 		color = "C2A171",
-		material = "Sand",
+		-- GRASS, NOT SAND, ON REQUEST -- Zone 1 only. `material` here is the ONE
+		-- material every stage band and the base plate both render in
+		-- (buildStageGround passes `def.material` through unchanged for all three
+		-- bands, see Scenery.luau), so this reads as real grass under Outer Ash's
+		-- green and as dry, dying grass under Hot Wreckage's khaki and Deep
+		-- Fallout's tan -- not sand under any of them any more.
+		--
+		-- THIS BREAKS THE "SAND FAMILY" ZONES 1-3 USED TO SHARE. Zone 3's own
+		-- comment below (`material = "Sand"`) explains why it moved off Slate onto
+		-- Sand: continuity with the rest of this stretch. Zones 2 and 3 are still
+		-- Sand, so Zone 1's Deep Fallout stage now meets Zone 2's Suburbs across a
+		-- material seam even though `buildZoneBlend` still blends their COLOUR
+		-- smoothly -- texture does not blend, only hue does. Left as the honest
+		-- cost of a Zone-1-only change rather than silently reskinning zones
+		-- nobody asked to change.
+		material = "Grass",
 		-- Muted on purpose — see the note below. Nowhere near today's old 6BEE2E,
 		-- and nowhere near Zones 4-6's neon-pink/violet territory either.
 		ooze = { bright = "7CBF52", deep = "35501F", glow = "5C9A3C" },
@@ -470,7 +485,16 @@ Zones.STAGES = {
 		unlockTier = 1,
 		loot = Zones.DEFS[1].loot,
 		itemZoneId = 1,
-		color = "5C9A34",
+		-- Darkened on request from 5C9A34, and tuned LIVE rather than by formula.
+		-- A flat 65%-value scale (3C6422) barely moved the rendered result — Grass
+		-- material's own texture carries a lot of baked-in brightness that a plain
+		-- SmoothPlastic or Sand tint of the same hex would not have, so the same
+		-- darkening math that works elsewhere in this file undershoots badly here.
+		-- This value was picked by screenshotting the actual rendered ground at
+		-- several steps and stopping at the first one that reads as dark, natural
+		-- grass rather than a lawn — expect any FUTURE colour on Grass material to
+		-- need the same live-tuning pass rather than a hue/saturation/value formula.
+		color = "17300F",
 	},
 	{
 		id = 2,
