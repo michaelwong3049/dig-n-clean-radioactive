@@ -130,13 +130,21 @@ Gear.Suit = {
 
 -- PLAN §5.2: boots are the most economically dangerous track in the game.
 -- Priced on a steeper ~2.8x curve than everything else, deliberately.
+--
+-- Every tier's walkSpeed +4 on request ("base speed is too slow"): 16->20 for the
+-- starting tier, same +4 straight up the ladder so the relative gaps between tiers
+-- (and their haulPenalty/stamina pairing) are untouched -- only the floor moved.
+-- This used to be inert data: nothing set Humanoid.WalkSpeed from it at all outside
+-- the /speed debug command (see DebugService.luau). ExposureService's per-tick loop
+-- now applies StatResolver.effectiveWalkSpeed live, so this table finally means
+-- something in actual play, not just in Spec's math.
 Gear.Boots = {
-	{ name = "Taped Boots", price = 0, walkSpeed = 16, haulPenalty = 1.20, stamina = 4, canVault = false, canDash = false },
-	{ name = "Tread Boots", price = 350, walkSpeed = 18, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false },
-	{ name = "Field Runners", price = 980, walkSpeed = 20, haulPenalty = 0.80, stamina = 6, canVault = true, canDash = false },
-	{ name = "Servo Braces", price = 2740, walkSpeed = 22, haulPenalty = 0.55, stamina = 7, canVault = true, canDash = false },
-	{ name = "Powered Frame", price = 7670, walkSpeed = 24, haulPenalty = 0.30, stamina = 8, canVault = true, canDash = true },
-	{ name = "Strider Rig", price = 21480, walkSpeed = 26, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true },
+	{ name = "Taped Boots", price = 0, walkSpeed = 20, haulPenalty = 1.20, stamina = 4, canVault = false, canDash = false },
+	{ name = "Tread Boots", price = 350, walkSpeed = 22, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false },
+	{ name = "Field Runners", price = 980, walkSpeed = 24, haulPenalty = 0.80, stamina = 6, canVault = true, canDash = false },
+	{ name = "Servo Braces", price = 2740, walkSpeed = 26, haulPenalty = 0.55, stamina = 7, canVault = true, canDash = false },
+	{ name = "Powered Frame", price = 7670, walkSpeed = 28, haulPenalty = 0.30, stamina = 8, canVault = true, canDash = true },
+	{ name = "Strider Rig", price = 21480, walkSpeed = 30, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true },
 }
 
 -- The satchel does two jobs, and the second one matters more than PLAN §3.7 realised:
