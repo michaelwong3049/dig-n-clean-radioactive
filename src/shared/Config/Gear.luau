@@ -5,11 +5,14 @@
 	SUIT NUMBERS ARE FITTED, NOT GUESSED.
 	`reduction` and `tolerance` were solved so the model in Shared/Radiation.lua
 	reproduces the design's stated intent. Table below regenerated via
-	Shared/Util/TuningReport after the THIRD radiation-harshening pass today
-	(Tuning.BURN_COEF 2.0 -> 3.0 -> 6.0, Zone 1's deepRads 1.25 -> 1.8, Cloth Wrap's
-	`reduction` 0.9000 -> 0.6296) — all figures are at each zone's ENTRANCE
-	(depthFrac=0); the deep edge of every zone is meaningfully worse, see
-	Zones.radsAt/Zones.DEFS:
+	Shared/Util/TuningReport after four radiation-harshening passes today
+	(Tuning.BURN_COEF 2.0 -> 3.0 -> 6.0, Zone 1's deepRads 1.25 -> 1.8 -> 1.97,
+	Cloth Wrap's `reduction` 0.9000 -> 0.6296) — all figures below are at each
+	zone's ENTRANCE (depthFrac=0); the deep edge of every zone is meaningfully
+	worse, see Zones.radsAt/Zones.DEFS. Zone 1's deepRads specifically governs
+	Zones.STAGES' "Deep Fallout" sub-band (the far third of Zone 1 itself, NOT
+	the separate, distant Zone 3 "Fallout Fields" its name resembles) — see
+	Zones.luau's Zone 1 comment and Spec.luau's Stage 3 check for that story:
 
 	                     Z1      Z2      Z3      Z4      Z5      Z6
 	  Cloth Wrap        9:00    17s      5s       2s  instant  instant
@@ -34,9 +37,9 @@
 
 	Three properties that matter fall out of that table:
 	  * ONE TIER UNDER is ~12s in every zone (was ~35s originally, ~23s after the
-	    second pass). That is the Dive (§3.5), now considerably tighter -- see
-	    Tuning.luau's BURN_COEF comment for why this couldn't be avoided while also
-	    hitting the Zone 3 unsuited target below.
+	    second pass). That is the Dive (§3.5), now considerably tighter -- a kept
+	    side effect of the BURN_COEF raise, not something asked for on its own --
+	    see Tuning.luau's BURN_COEF comment.
 	  * TWO TIERS UNDER is instant almost everywhere now. A suicide sprint, more
 	    punishing than ever.
 	  * Even a full Containment Rig gets 1:30 in the Crater — §4's "timed heist",

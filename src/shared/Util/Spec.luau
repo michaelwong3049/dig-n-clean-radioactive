@@ -115,6 +115,22 @@ function Spec.run(): boolean
 		check(string.format("§3.4 zone 1 unsuited capped at ~9min = %.0fs (want 480-600)", s), s >= 480 and s <= 600)
 	end
 
+	-- ZONES.STAGES' "Deep Fallout" (Stage 3) is the far third of ZONE 1 itself
+	-- (depthFrac 0.651515-1.0 of Zone 1's own gradient), not the separate, distant
+	-- Zone 3 "Fallout Fields" its name resembles -- a genuine, confusing near-
+	-- collision this file's earlier checks didn't distinguish because they only
+	-- ever sampled real Zone ids. The actual ask, once that mixup got sorted out,
+	-- was "unsuited should die within 30s inside Stage 3" -- checked at Stage 3's
+	-- own START (its worst case for this bound, since ambient only climbs further
+	-- in), tuned via Zone 1's deepRads specifically (see Zones.luau's Zone 1
+	-- comment for why 1.97 and not higher -- any higher breaks "Zone 1 is the
+	-- safest zone" against Zone 2's own entrance).
+	do
+		local STAGE_3_START_DEPTH_FRAC = 0.651515 -- (100 - (-330)) / 660, Zones.STAGES[3].minX
+		local s = survive(1, 1, 1, 0, STAGE_3_START_DEPTH_FRAC)
+		check(string.format("§new Stage 3 (Deep Fallout) unsuited dies within 30s = %.0fs", s), s < 30)
+	end
+
 	-- PLAN §4 — the Crater never becomes a farm, at any gear level, forever.
 	-- Entrance, same reasoning.
 	local crater = survive(6, 6, 1, 0)

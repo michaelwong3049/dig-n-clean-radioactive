@@ -237,14 +237,27 @@ Zones.DEFS = {
 		-- ZONE 1'S OWN GAP, closed in the second harshening pass: entrance (0.5) is
 		-- BELOW the starting Cloth Wrap suit's tolerance (1.0) by design -- Zone 1's
 		-- rated suit tier IS the starting tier, so a no-gear player must be able to
-		-- farm the entrance forever (Spec's own farmable check requires it). But the
-		-- old deepRads (1.25) only produced a soft, easy-to-miss ~141s clock at the
-		-- far edge -- and every player walks there, since Zone 1's loot stages span
-		-- its full width. Steepened to 1.8 (still comfortably < Zone 2's baseRads of
-		-- 2.0, a 10% ordering margin) so the deep edge is a real ~39s clock under the
-		-- new BURN_COEF, without touching the entrance at all.
+		-- farm the entrance forever (Spec's own farmable check requires it, though
+		-- as of the third pass "forever" at the entrance is actually a ~9min cap --
+		-- see Gear.luau's Cloth Wrap `reduction` note; that's an EXPOSURE-track
+		-- change and does not touch this deepRads value at all).
+		--
+		-- deepRads RAISED AGAIN in the third pass, for a target that turns out to be
+		-- about THIS number, not the far-away Zone 3: Zones.STAGES divides this
+		-- zone's own width into three named sub-bands (Outer Ash / Hot Wreckage /
+		-- Deep Fallout) for loot-flavour reasons, and "Deep Fallout" (Stage 3,
+		-- depthFrac 0.652-1.0 of THIS zone) is what a player actually means by "the
+		-- third area" long before they've walked far enough to reach the real,
+		-- separate Zone 3 ("Fallout Fields") kilometres away. The ask was "die in
+		-- under 30s within Stage 3" -- 1.97 puts Stage 3's own start at ~30s and its
+		-- far edge (this zone's true deepest point) at ~17s, while staying just
+		-- under Zone 2's baseRads (2.0), a thin but real 1.5% ordering margin. Going
+		-- any higher breaks "Zone 1 is the safest zone" outright (Zone 2's own
+		-- entrance would no longer be the harsher of the two) -- see Spec.luau's new
+		-- explicit Stage 3 check and Tuning.luau's BURN_COEF comment for why an
+		-- earlier pass chased a DIFFERENT, wrong target (the real Zone 3) instead.
 		baseRads = 0.5,
-		deepRads = 1.8, -- 3.6x
+		deepRads = 1.97, -- 3.94x
 		soilHardness = 1,
 		ratedSuitTier = 1,
 		-- Was 230 before the hub-to-field connector shrank by 40 studs (Hub.luau's
