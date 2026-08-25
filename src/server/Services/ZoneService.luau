@@ -70,12 +70,31 @@ function ZoneService.zoneOf(player: Player): number?
 end
 
 --- Ambient rads/sec where this player is standing, before any gear.
+---
+--- DEPTH-BASED, NOT FLAT. `Zones.radsAt` interpolates between a zone's entrance
+--- and deepest rate; depthFrac here comes from this player's live X position
+--- against the zone's own bounds, so walking further in climbs toward the peak
+--- and crossing into the next zone resets to a fresh, higher entrance rate. See
+--- Zones.radsAt's header for why this is a separate gradient from the loot-table
+--- Stage system, which happens to run the same direction in Zone 1.
 function ZoneService.ambientFor(player: Player): number
 	local id = current[player]
 	if id == nil then
 		return 0
 	end
-	return Zones.get(id).baseRads * ZoneService.hotPocketFor(player)
+
+	local depthFrac = 0
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		local minX, _minZ, maxX, _maxZ = Zones.bounds(id)
+		local width = maxX - minX
+		if width > 0 then
+			depthFrac = (root.Position.X - minX) / width
+		end
+	end
+
+	return Zones.radsAt(id, depthFrac) * ZoneService.hotPocketFor(player)
 end
 
 --- PLAN §4's roaming high-radiation patches. Phase 4 owns them; until then every

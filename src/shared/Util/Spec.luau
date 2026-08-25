@@ -44,8 +44,12 @@ local function statsFor(suitTier: number, satchelTier: number)
 	}
 end
 
-local function survive(zoneId: number, suitTier: number, satchelTier: number, carried: number): number
-	local reading = Radiation.resolve(Radiation.ambientAt(Zones.get(zoneId).baseRads), carried, statsFor(suitTier, satchelTier))
+--- `depthFrac` picks WHERE in the zone to test: 0 (entrance) for "can you work
+--- here safely", 1 (deepest) for "what happens if you actually push in" -- see
+--- Zones.radsAt. Defaults to 0 so existing call sites that don't care about depth
+--- keep testing the same "just inside the zone" point they always did.
+local function survive(zoneId: number, suitTier: number, satchelTier: number, carried: number, depthFrac: number?): number
+	local reading = Radiation.resolve(Radiation.ambientAt(Zones.radsAt(zoneId, depthFrac or 0)), carried, statsFor(suitTier, satchelTier))
 	return Radiation.survivableSeconds(reading, 0, 100)
 end
 
@@ -71,32 +75,58 @@ function Spec.run(): boolean
 		end
 	end
 
-	-- PLAN §3.5 — the Dive is ~one dig, in every zone
+	-- PLAN §3.5 — the Dive is ~one dig, in every zone. Tested at the ENTRANCE
+	-- (depthFrac=0), same as before this file's depth-based radiation pass -- this
+	-- check is about "one tier under, at all," and the entrance rate is exactly
+	-- the number these targets were originally fitted against, unchanged by the
+	-- depth pass on purpose (see Zones.luau's header note). Real depth-driven
+	-- danger is checked separately below, directly against Zones.radsAt, rather
+	-- than folded into this already-precisely-tuned survival-time math.
 	for zoneId = 3, 6 do
 		local s = survive(zoneId, Zones.get(zoneId).ratedSuitTier - 1, 1, 0)
 		check(string.format("§3.5 dive window in zone %d = %.0fs (want 25-40)", zoneId, s), s >= 25 and s <= 40)
 	end
 
-	-- PLAN §3.4 — a rated suit means you can work, not just survive
+	-- PLAN §3.4 — a rated suit means you can work, not just survive. Entrance,
+	-- same reasoning as the Dive above.
 	for zoneId = 1, 5 do
 		check(string.format("§3.4 rated suit farmable in zone %d", zoneId), survive(zoneId, Zones.get(zoneId).ratedSuitTier, 1, 0) > 900)
 	end
 
-	-- PLAN §4 — the Crater never becomes a farm, at any gear level, forever
+	-- PLAN §4 — the Crater never becomes a farm, at any gear level, forever.
+	-- Entrance, same reasoning.
 	local crater = survive(6, 6, 1, 0)
 	check(string.format("§4 Crater with full Rig = %.0fs (want 60-130, a heist)", crater), crater > 60 and crater < 130)
 
-	-- PLAN §3.5 — over-tier is the WHITE failure state and it ignores your bag
-	local overEmpty = survive(5, 3, 1, 0)
-	local overFull = survive(5, 3, 1, Decay.totalEmission(bagOf("Rare", "None", 8, 0), 1))
+	-- NEW: depth-based radiation itself (PLAN's "make it harsher, and make going
+	-- deeper and crossing zones feel like it" request). Checked directly against
+	-- Zones.radsAt rather than through survival-time math, which is sensitive
+	-- enough to small ambient changes that it's the wrong tool for pinning a
+	-- geometry fact.
+	for _, id in Zones.builtIds() do
+		check(string.format("§new zone %d radiation climbs with depth", id), Zones.radsAt(id, 1) > Zones.radsAt(id, 0))
+	end
+	for id = 2, #Zones.builtIds() do
+		check(
+			string.format("§new zone %d entrance beats zone %d's deepest point", id, id - 1),
+			Zones.radsAt(id, 0) > Zones.radsAt(id - 1, 1)
+		)
+	end
+
+	-- PLAN §3.5 — over-tier is the WHITE failure state and it ignores your bag.
+	-- Tested at depthFrac=0: if being under-tiered fails you even at the shallow
+	-- edge, it fails you everywhere, which is the point being checked.
+	local overEmpty = survive(5, 3, 1, 0, 0)
+	local overFull = survive(5, 3, 1, Decay.totalEmission(bagOf("Rare", "None", 8, 0), 1), 0)
 	check("§3.5 over-tier burn is unaffected by what you carry", math.abs(overEmpty - overFull) < 1)
-	local overReading = Radiation.resolve(Radiation.ambientAt(Zones.get(5).baseRads), 0, statsFor(3, 1))
+	local overReading = Radiation.resolve(Radiation.ambientAt(Zones.radsAt(5, 0)), 0, statsFor(3, 1))
 	check("§3.5 over-tier flags suit failure", overReading.failing)
 	check("§3.5 over-tier dominant threat is burn", Radiation.dominantThreat(overReading, 0, 100) == "burn")
 
-	-- PLAN §3.3 — the greed dial. Carrying loot is the GREEN threat, never the white one.
+	-- PLAN §3.3 — the greed dial. Carrying loot is the GREEN threat, never the
+	-- white one. Tested at depthFrac=0, same "safe at the entrance" reasoning.
 	local hotBag = { bagOf("Epic", "None", 1, 0)[1], bagOf("Legendary", "Irradiated", 1, 200)[1] }
-	local hotReading = Radiation.resolve(Radiation.ambientAt(Zones.get(3).baseRads), Decay.totalEmission(hotBag, 1), statsFor(3, 1))
+	local hotReading = Radiation.resolve(Radiation.ambientAt(Zones.radsAt(3, 0)), Decay.totalEmission(hotBag, 1), statsFor(3, 1))
 	check("§3.3 a hot bag does NOT trip suit failure in your rated zone", not hotReading.failing)
 	check("§3.3 a hot bag's threat is exposure, not burn", Radiation.dominantThreat(hotReading, 0, 100) == "exposure")
 	local hotS = Radiation.survivableSeconds(hotReading, 0, 100)

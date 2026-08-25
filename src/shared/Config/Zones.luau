@@ -171,7 +171,8 @@
 export type ZoneDef = {
 	id: number,
 	name: string,
-	baseRads: number,
+	baseRads: number, -- rads/sec at this zone's ENTRANCE (west) edge. See Zones.radsAt.
+	deepRads: number, -- rads/sec at this zone's DEEPEST (east) edge. See Zones.radsAt.
 	soilHardness: number,
 	ratedSuitTier: number,
 	stationDistance: number,
@@ -224,7 +225,16 @@ Zones.DEFS = {
 	{
 		id = 1,
 		name = "Ash Flats",
+		-- DEPTH-BASED RADIATION PASS. Entrance (baseRads) is UNCHANGED from the old
+		-- flat rate on every zone, deliberately -- every existing Spec check that
+		-- reads "how safe is this zone" samples the entrance, so leaving it alone
+		-- means none of that carefully-fitted tuning silently breaks. deepRads is
+		-- the new number, 2.2x-2.5x the entrance depending on the zone (thinner on
+		-- Zone 5 specifically to leave Zone 6 room to clear it without also
+		-- breaking Zone 6's own dive/Crater checks -- see Zone 5 and Zone 6's own
+		-- notes). See Zones.radsAt for how the two combine.
 		baseRads = 0.5,
+		deepRads = 1.25, -- 2.5x
 		soilHardness = 1,
 		ratedSuitTier = 1,
 		-- Was 230 before the hub-to-field connector shrank by 40 studs (Hub.luau's
@@ -261,6 +271,7 @@ Zones.DEFS = {
 		id = 2,
 		name = "The Suburbs",
 		baseRads = 2,
+		deepRads = 5.0, -- 2.5x
 		soilHardness = 2,
 		ratedSuitTier = 2,
 		stationDistance = 719,
@@ -294,6 +305,9 @@ Zones.DEFS = {
 		id = 3,
 		name = "Fallout Fields",
 		baseRads = 6,
+		deepRads = 14.4, -- 2.4x, not 2.5 -- clears Zone 2's deepest (5.0) with room,
+		-- and 2.4 rather than 2.5 leaves Zone 4's unchanged entrance (15) a small
+		-- but real margin over this zone's deepest instead of landing exactly on it.
 		soilHardness = 3,
 		ratedSuitTier = 3,
 		stationDistance = 939,
@@ -321,6 +335,7 @@ Zones.DEFS = {
 		id = 4,
 		name = "The Exclusion Belt",
 		baseRads = 15,
+		deepRads = 37.5, -- 2.5x
 		soilHardness = 4,
 		ratedSuitTier = 4,
 		-- Deliberately SHORT. PLAN §15's second validation question is "do players
@@ -357,6 +372,12 @@ Zones.DEFS = {
 		id = 5,
 		name = "Reactor Grounds",
 		baseRads = 40,
+		deepRads = 88, -- 2.2x, not 2.5 -- Tier 5's suit tolerance (98.4) and Tier 6's
+		-- (105) sit only 6.7% apart, so Zone 6's unchanged entrance (100) has very
+		-- little headroom to clear this zone's deepest point without ALSO blowing
+		-- past what a Sealed Exo-Suit or Containment Rig can absorb (breaking Zone
+		-- 6's own dive/Crater checks). Softening this zone's own multiplier is what
+		-- buys that room back, rather than inflating Zone 6 to compensate.
 		soilHardness = 5,
 		ratedSuitTier = 5,
 		stationDistance = 1489, -- was 1199; +290 from Zone 4's insertion, still not re-walked
@@ -379,7 +400,14 @@ Zones.DEFS = {
 	{
 		id = 6,
 		name = "The Crater",
+		-- Entrance unchanged at 100, clearing Zone 5's (softened) deepest of 88 with
+		-- real room -- see that zone's note. deepRads is the steepest ramp of the
+		-- six (2.5x) since nothing crosses OUT of the Crater, so its own far edge
+		-- doesn't have to leave headroom for a zone 7 that doesn't exist -- the
+		-- "never a farm, at any gear level, forever" zone gets to be the most
+		-- extreme one, right where PLAN §16 already says it should be.
 		baseRads = 100,
+		deepRads = 250, -- 2.5x
 		soilHardness = 6,
 		ratedSuitTier = 6,
 		-- The Crater is a heist, not a hike (PLAN §16) — but "short" has to mean
@@ -523,6 +551,26 @@ function Zones.lootAt(zoneId: number, worldX: number): ({ [string]: number }, nu
 	end
 	local zone = Zones.get(zoneId)
 	return zone.loot, zoneId
+end
+
+--- Ambient rads/sec for a given DEPTH into a zone, 0 (the entrance, west edge --
+--- where you arrive from camp or the previous zone) to 1 (the deepest point, east
+--- edge -- where the next zone begins). Linear between `baseRads` and `deepRads`,
+--- the same interpolation `Scenery.luau`'s stage-colour seams already use.
+---
+--- SEPARATE FROM `stageAt`/`lootAt` ON PURPOSE. Zone 1's Stage system grades the
+--- LOOT table over this same west-to-east span, for an unrelated reason (a new
+--- player meeting an escalating field before a second zone) -- the two gradients
+--- run the same direction by coincidence, not because they're the same mechanic.
+--- Coupling them would mean a loot-table change silently retunes radiation too.
+---
+--- ZoneService.ambientFor is the only live caller; Spec.luau and TuningReport.luau
+--- call this directly with a fixed depthFrac (0 or 1) to test a specific point
+--- rather than a moving player position.
+function Zones.radsAt(zoneId: number, depthFrac: number): number
+	local zone = Zones.get(zoneId)
+	local t = math.clamp(depthFrac, 0, 1)
+	return zone.baseRads + (zone.deepRads - zone.baseRads) * t
 end
 
 --- The plate's CFrame: centred in XZ, sunk so its TOP face lands on SURFACE_Y.

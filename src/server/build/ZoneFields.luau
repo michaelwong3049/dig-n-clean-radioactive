@@ -81,8 +81,11 @@ local function createFields(): Folder
 				ZoneId = id,
 				ZoneName = def.name,
 				-- Not read by anything; here so someone inspecting a plate in Studio
-				-- can see what it is without going and finding the config.
+				-- can see what it is without going and finding the config. BaseRads
+				-- is now specifically the entrance rate, DeepRads the far-edge one --
+				-- see Zones.radsAt.
 				BaseRads = def.baseRads,
+				DeepRads = def.deepRads,
 			},
 		})
 

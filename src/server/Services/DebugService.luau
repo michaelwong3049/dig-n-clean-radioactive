@@ -153,7 +153,13 @@ COMMANDS["/zone"] = {
 
 		root.CFrame = CFrame.new(part.Position + Vector3.new(0, part.Size.Y / 2 + 4, 0))
 		local zone = Zones.get(id)
-		return `moved into zone {id}: {zone.name} — {zone.baseRads} rads/s ambient`
+		-- Lands at the plate's centre, i.e. depthFrac ~0.5 -- computed live rather
+		-- than printing the old flat baseRads, which would understate what's
+		-- actually here now that radiation ramps with depth. ZoneService's own
+		-- tick hasn't caught up to the teleport yet, so this can't just call
+		-- ambientFor(player) -- same depthFrac math, evaluated immediately instead.
+		local ambientHere = Zones.radsAt(id, 0.5)
+		return `moved into zone {id}: {zone.name} — {zone.baseRads}-{zone.deepRads} rads/s across the zone, ~{string.format("%.1f", ambientHere)} here`
 	end,
 }
 

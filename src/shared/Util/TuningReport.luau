@@ -55,12 +55,12 @@ local function duration(seconds: number): string
 end
 
 --- Survivable seconds for an empty-handed, full-health player standing in `zoneId`
---- wearing suit tier `suitTier`.
-function TuningReport.survive(zoneId: number, suitTier: number): number
-	local zone = Zones.get(zoneId)
+--- wearing suit tier `suitTier`. `depthFrac` (default 0, the entrance) picks where
+--- in the zone -- see Zones.radsAt; Spec.luau uses the same convention.
+function TuningReport.survive(zoneId: number, suitTier: number, depthFrac: number?): number
 	local suit = Gear.tier("Suit", suitTier)
 
-	local reading = Radiation.resolve(Radiation.ambientAt(zone.baseRads), 0, {
+	local reading = Radiation.resolve(Radiation.ambientAt(Zones.radsAt(zoneId, depthFrac or 0)), 0, {
 		suitReduction = suit.reduction,
 		suitTolerance = suit.tolerance,
 		satchelShielding = 0,
@@ -71,12 +71,11 @@ end
 
 --- Survivable seconds while HAULING. This is the number the greed dial (PLAN §3.3)
 --- actually turns, and the one most worth watching in playtest telemetry.
-function TuningReport.surviveCarrying(zoneId: number, suitTier: number, satchelTier: number, carriedEmission: number): number
-	local zone = Zones.get(zoneId)
+function TuningReport.surviveCarrying(zoneId: number, suitTier: number, satchelTier: number, carriedEmission: number, depthFrac: number?): number
 	local suit = Gear.tier("Suit", suitTier)
 	local satchel = Gear.tier("Satchel", satchelTier)
 
-	local reading = Radiation.resolve(Radiation.ambientAt(zone.baseRads), carriedEmission, {
+	local reading = Radiation.resolve(Radiation.ambientAt(Zones.radsAt(zoneId, depthFrac or 0)), carriedEmission, {
 		suitReduction = suit.reduction,
 		suitTolerance = suit.tolerance,
 		satchelShielding = satchel.shielding,
@@ -104,11 +103,11 @@ function TuningReport.run()
 		table.insert(out, row)
 	end
 
-	table.insert(out, "\n=== THE DIVE: one tier under rated (PLAN §3.5 target: 25-40s) ===\n")
+	table.insert(out, "\n=== THE DIVE: one tier under rated, at the zone's deepest point (PLAN §3.5 target: 25-40s) ===\n")
 	for zoneId = 2, #Zones.DEFS do
 		local zone = Zones.get(zoneId)
 		local underTier = zone.ratedSuitTier - 1
-		local s = TuningReport.survive(zoneId, underTier)
+		local s = TuningReport.survive(zoneId, underTier, 1)
 		local flag = if s >= 25 and s <= 40 then "ok" else "OUT OF BAND"
 		-- Zone 2 is knowingly out of band at ~50s. One tier under Rubber IS Cloth Wrap,
 		-- and Cloth Wrap's numbers are pinned by the harder requirement that Zone 1 be
