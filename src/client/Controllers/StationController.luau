@@ -17,11 +17,12 @@
 	That bias is 173px of lift, and with the shop's cards it read as a panel stuck to
 	the top of the screen rather than a panel in the middle of it.
 
-	Two things make plain `fromScale(0.5, 0.5)` safe now. The radar scope is gone, so
-	the instrument band lost 36px and RESERVE fell with it; and the status line is
-	blank whenever you are out of a zone, which is exactly when a station panel is
-	open (every station is in the zero-rad plaza). What is left below the centred
-	panel is the dig button and the hotbar, both far enough down to clear it.
+	Two things make plain `fromScale(0.5, 0.5)` safe now. The radar scope moved out of
+	the instrument band into its own bottom-right corner (see DetectorController), so
+	the band lost 36px and RESERVE fell with it; and the status line is blank whenever
+	you are out of a zone, which is exactly when a station panel is open (every
+	station is in the zero-rad plaza). What is left below the centred panel is the dig
+	button and the hotbar, both far enough down to clear it.
 
 	This is the one thing here that is resolution-DEPENDENT rather than derived: a
 	tall panel on a short viewport can still reach the dig button. StationHud's
@@ -36,9 +37,12 @@
 	worst on the left to best on the right, each with the tier's own stats and its
 	price, with the one purchasable card the only solid-filled button on screen.
 
-	What that does NOT change is what a click buys. `ShopService.buy` still sells
-	`currentTier + 1` and derives the shop from the player's position, so the locked
-	cards to the right are a shop window, not a menu.
+	ANY CARD YOU CAN AFFORD IS A LIVE BUTTON, NOT JUST THE NEXT ONE. `ShopService.buy`
+	used to only ever sell `currentTier + 1`; now it sells whichever tier the clicked
+	card names, at that tier's own price, as long as you do not already own it — buy
+	The Oracle straight from Bent Coil and you pay The Oracle's price, nothing more.
+	The shop still derives itself from the player's position server-side, so a card is
+	still only ever a shop window into what THIS shop actually sells.
 
 	THE ROW HEIGHT DID NOT GROW WITH EVERYTHING ELSE, ON PURPOSE. It multiplies across
 	up to 12 rows (9 items + 3 locker) where every other element appears once — the
@@ -651,12 +655,14 @@ local function paintRow(row: TextButton, item, isSelected: boolean, scrubUid: st
 	row:SetAttribute("Uid", item.uid)
 end
 
---- Four states, and only one of them is a button you can press.
+--- Three states, and two of them are a button you can press.
 ---
---- OWNED and LOCKED both render as dead chrome on purpose, but they are not the same
---- thing and must not look it: behind you (bought, greyed, price gone) versus ahead
---- of you (still priced, still a goal). Collapsing them into one grey is how a shop
---- stops communicating direction.
+--- Every tier past what you already own is buyable now — there is no locked-because-
+--- you-skipped-a-rung state left to draw, so this is only ever current / owned /
+--- buyable. OWNED still renders as dead chrome (bought, greyed, price gone) so it
+--- reads as behind you rather than as a goal; buyable always shows its own price and
+--- is always a live button, just split green/red by whether THIS tier's price fits
+--- what you have right now.
 local function paintShopCard(card: Frame, entry)
 	local nameLabel = card.CardName :: TextLabel
 	local stats = card.CardStats :: TextLabel
@@ -667,6 +673,7 @@ local function paintShopCard(card: Frame, entry)
 	nameLabel.Text = entry.name
 	stats.Text = table.concat(entry.stats, "\n")
 	card:SetAttribute("Buyable", entry.buyable == true)
+	card:SetAttribute("Tier", entry.tier)
 
 	if entry.current then
 		nameLabel.TextColor3 = COLOR.green
@@ -707,16 +714,10 @@ local function paintShopCard(card: Frame, entry)
 		buy.BackgroundColor3 = if entry.affordable then COLOR.green else COLOR.red
 		buy.BackgroundTransparency = if entry.affordable then 0 else 0.8
 		buyStroke.Color = if entry.affordable then COLOR.green else COLOR.red
-	else
-		nameLabel.TextColor3 = COLOR.dim
-		cardStroke.Color = COLOR.stroke
-		cardStroke.Thickness = UIKit.Stroke.thin
-		buy.Text = `${entry.price}`
-		buy.TextColor3 = COLOR.dim
-		buy.BackgroundColor3 = COLOR.panel
-		buy.BackgroundTransparency = 0.6
-		buyStroke.Color = COLOR.stroke
 	end
+	-- No trailing `else`: current, owned and buyable are exhaustive over every tier
+	-- (current ⊂ owned by tier number, buyable is everything else), so there is no
+	-- fourth case left to paint.
 end
 
 local function render()
@@ -1013,16 +1014,18 @@ function Station.start()
 		end
 	end)
 
-	-- Every card's button is bound, but only the one card the server marked buyable
-	-- does anything. The guard is presentation, not security: the request carries a
-	-- track and nothing else, and ShopService independently re-derives both the shop
-	-- you are standing at and which tier is next, so a click on a locked card cannot
-	-- buy that tier even if this check were removed.
+	-- Every card's button is bound, and now more than one can be live at once — any
+	-- tier past what you own is a real purchase, not a preview. The request carries
+	-- the clicked card's own tier; `Buyable` is presentation only (it is false on
+	-- OWNED/EQUIPPED cards so clicking them is a no-op), never the security boundary
+	-- — ShopService independently re-derives the shop you are standing at, validates
+	-- the tier is real and not already owned, and prices it off Gear.tier() itself,
+	-- so a crafted tier number buys nothing a genuine click could not.
 	for _, card in ui.shopCards do
 		local buy = card.CardBuy :: TextButton
 		buy.MouseButton1Click:Connect(function()
 			if card:GetAttribute("Buyable") and state.stationId then
-				actionRemote:FireServer({ action = "buy", track = state.stationId })
+				actionRemote:FireServer({ action = "buy", track = state.stationId, tier = card:GetAttribute("Tier") })
 			end
 		end)
 	end

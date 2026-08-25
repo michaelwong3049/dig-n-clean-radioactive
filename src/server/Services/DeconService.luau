@@ -304,7 +304,9 @@ function DeconService.start()
 		elseif request.action == "buy" then
 			-- ShopService re-derives the station from the player's position itself,
 			-- so this is not the security boundary -- it is just a better message.
-			local ok, message = ShopService.buy(player, tostring(request.track))
+			-- tonumber(nil) is nil, not an error, so an omitted/malformed tier reaches
+			-- ShopService.buy as nil and fails its own type check there.
+			local ok, message = ShopService.buy(player, tostring(request.track), tonumber(request.tier))
 			resultRemote:FireClient(player, message)
 			if ok then
 				print(`[shop] {player.Name}: {message}`)
