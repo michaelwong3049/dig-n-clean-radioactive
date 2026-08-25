@@ -72,7 +72,7 @@ local Kit = require(script.Parent.Kit)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 6
+local BUILDER_VERSION = 9
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -132,6 +132,48 @@ local function buildFloorMarker(parent: Instance, origin: CFrame, x: number, z: 
 			size = { 0.15, bar.w, bar.d },
 			color = color,
 			material = "Neon",
+			canCollide = false,
+		})
+	end
+end
+
+-- ── The pennant awning ───────────────────────────────────────────────────────
+
+--- A row of alternating-colour triangular flags hung from a thin rail along the
+--- stall's front eave — the reference photo's candy-striped bunting canopy.
+--- Each flag is a single WedgePart rather than a mirrored pair, which renders as
+--- a right-triangle "shark tooth" pennant instead of a symmetric one: a
+--- legitimate bunting style, and one part per flag instead of two.
+---
+--- WedgePart's uncut face sits in local Y-Z with the taper running along Z, so
+--- `rot = Kit.ang(180, 90, 0)` is what turns that into a flat top edge, a
+--- vertical left edge and a hypotenuse reaching down to the bottom-right when
+--- viewed from the +Z approach — verified once against the actual approach
+--- camera, the same way the sign's Back-face convention above was, rather than
+--- trusted from rotation math alone.
+---
+--- Alternates `color` with a pale canvas rather than plain white — every other
+--- colour already used in this file is a warm off-white (`C.canvasPale`,
+--- `C.labelText`), and true white would be the one stark exception.
+local function buildPennantAwning(parent: Instance, origin: CFrame, centerX: number, z: number, y: number, count: number, flagWidth: number, color: string)
+	local flagHeight = 1.6
+	local thickness = 0.2
+	local totalWidth = count * flagWidth
+	local startX = centerX - totalWidth / 2
+
+	build(parent, origin, { name = "AwningRail", pos = { centerX, y, z }, size = { totalWidth + 0.4, 0.25, 0.25 }, color = C.hazardBlack, material = "Metal", shape = "Cylinder", rot = R.cylAlongX, canCollide = false })
+
+	for i = 1, count do
+		local flagColor = (i % 2 == 1) and color or C.canvasPale
+		local flagX = startX + (i - 0.5) * flagWidth
+		build(parent, origin, {
+			name = `PennantFlag{i}`,
+			pos = { flagX, y - flagHeight / 2, z },
+			size = { thickness, flagHeight, flagWidth - 0.15 },
+			color = flagColor,
+			material = "Fabric",
+			class = "WedgePart",
+			rot = Kit.ang(180, 90, 0),
 			canCollide = false,
 		})
 	end
@@ -261,19 +303,37 @@ end
 --- stall" clutter the reference photo has (crates, a barrel, a boombox) that the
 --- old single-prop stalls didn't.
 local function buildCrateProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "CrateBox", pos = { x, 1.1, z }, size = { 2.2, 2.2, 2.2 }, color = C.wood, material = "Wood", canCollide = false })
+	build(parent, origin, { name = "CrateBox", pos = { x, 1.1, z }, size = { 2.2, 2.2, 2.2 }, color = C.wood, material = "Plastic", canCollide = false })
 	for _, angle in { 35, -35 } do
 		build(parent, origin, {
 			name = "CrateBrace",
 			pos = { x, 1.1, z },
 			size = { 0.25, 2.9, 0.25 },
 			color = C.woodLight,
-			material = "Wood",
+			material = "Plastic",
 			rot = Kit.ang(0, 0, angle),
 			canCollide = false,
 		})
 	end
 	build(parent, origin, { name = "CrateGoods", pos = { x, 2.55, z }, size = { 0.9, 0.9, 0.9 }, color = color, material = "Plastic", shape = "Ball", canCollide = false })
+end
+
+--- A small open chest: a wood base, a dark metal band, and a lid tilted back on
+--- a single X-axis rotation so it reads as propped open, plus a glowing
+--- spec.color peek of "contents" — the reference photo's open trunk, and one
+--- more piece of "goods stacked outside the stall" clutter alongside the crate.
+---
+--- The lid's `pos` is solved rather than eyeballed: for `rot = Kit.ang(-70, 0, 0)`
+--- and lid thickness/depth `t`/`d`, keeping the lid's local back-bottom edge
+--- pinned to the chest's own back-top edge (so the lid reads as hinged there,
+--- not floating) requires pos.y = chestTop - (-t/2*cos(-70°) - d/2*sin(-70°)) and
+--- pos.z = (z - d/2) - (t/2*sin(-70°) - d/2*cos(-70°)).
+local function buildOpenChestProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
+	local chestHeight = 1.0
+	build(parent, origin, { name = "ChestBase", pos = { x, chestHeight / 2, z }, size = { 1.6, chestHeight, 1.2 }, color = C.wood, material = "Plastic", canCollide = false })
+	build(parent, origin, { name = "ChestBand", pos = { x, chestHeight / 2, z }, size = { 1.7, 0.2, 1.3 }, color = C.hazardBlack, material = "Metal", canCollide = false })
+	build(parent, origin, { name = "ChestLid", pos = { x, 1.59, z - 0.465 }, size = { 1.5, 0.15, 1.1 }, color = C.woodLight, material = "Plastic", rot = Kit.ang(-70, 0, 0), canCollide = false })
+	build(parent, origin, { name = "ChestGlow", pos = { x, 1.1, z - 0.15 }, size = { 0.7, 0.35, 0.5 }, color = color, material = "Neon", shape = "Ball", canCollide = false })
 end
 
 -- ── The counter ───────────────────────────────────────────────────────────────
@@ -286,10 +346,14 @@ export type CounterSpec = {
 	stationKind: string?,
 	stationId: string?,
 	radius: number?,
+	material: string?,
 }
 
 --- The wood counter desk — the interactive part — with a coloured trim cap on
---- top. Returns the desk so the caller can billboard it.
+--- top. Returns the desk so the caller can billboard it. `material` defaults to
+--- "Wood" (the Outfitter's own look); the plaza stalls pass "Plastic" instead,
+--- since Roblox's stud-bump texture only renders on Plastic, and that studded
+--- look is the whole point of the reskin.
 local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec): BasePart
 	local w, d, z = spec.width, spec.depth, spec.z
 
@@ -303,7 +367,7 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 		pos = { 0, 1.1, z },
 		size = { 2.2, w, d },
 		color = C.wood,
-		material = "Wood",
+		material = spec.material or "Wood",
 		attributes = attrs,
 	})
 
@@ -325,21 +389,38 @@ end
 ---
 --- Returns the ridge Y so the caller can float a sign above it. Shared by the
 --- plaza stalls (a small roof on posts) and the Outfitter (a much bigger one
---- over real walls) -- the same shape at two different scales.
-local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number, wallHeight: number, halfDepth: number, rise: number, width: number, color: string): number
+--- over real walls) -- the same shape at two different scales. `material`
+--- defaults to "Wood" (the Outfitter's own look, unchanged); the plaza stalls
+--- pass "Plastic" so the roof shows Roblox's stud-bump texture, matching the
+--- reference market stall's studded-block look.
+---
+--- CLEARANCE, NOT JUST THE CENTRELINE. The eave/ridge points above describe
+--- where the panel's own zero-thickness centreline sits -- but a real board has
+--- thickness on both sides of that line, so the panel's PHYSICAL underside sits
+--- `(thickness/2)*cos(tilt)` below it. Left uncorrected, a flat-topped post
+--- built to exactly `wallHeight` pokes up into that underside by that same
+--- amount -- invisible on the original round, shallow-pitched posts, and very
+--- visible once the posts went square and the roof steeper. `clearance` raises
+--- the whole roof (both panels AND the ridge beam, so they stay flush with each
+--- other) by that offset, so it's the underside that touches the wall top.
+local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number, wallHeight: number, halfDepth: number, rise: number, width: number, color: string, material: string?): number
+	local thickness = 0.6
 	local slopeLen = math.sqrt(halfDepth ^ 2 + rise ^ 2)
-	local ridgeY = wallHeight + rise
 	local tiltDeg = math.deg(math.atan2(rise, halfDepth))
+	local clearance = (thickness / 2) * math.cos(math.rad(tiltDeg))
+	local ridgeY = wallHeight + rise + clearance
+	local mat = material or "Wood"
 
 	for _, side in { -1, 1 } do
-		-- Eave point: (side*halfDepth, wallHeight). Ridge point: (0, ridgeY).
-		-- The panel's own centre sits halfway between them.
+		-- Eave point: (side*halfDepth, wallHeight). Ridge point: (0, wallHeight + rise).
+		-- The panel's own centre sits halfway between them, then the whole
+		-- panel is lifted by `clearance` (see above).
 		build(parent, origin, {
 			name = "RoofPanel",
-			pos = { 0, wallHeight + rise / 2, centerZ + side * halfDepth / 2 },
-			size = { width, 0.6, slopeLen },
+			pos = { 0, wallHeight + rise / 2 + clearance, centerZ + side * halfDepth / 2 },
+			size = { width, thickness, slopeLen },
 			color = color,
-			material = "Wood",
+			material = mat,
 			rot = Kit.ang(side * tiltDeg, 0, 0),
 			canCollide = false,
 		})
@@ -350,7 +431,7 @@ local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number,
 		pos = { 0, ridgeY, centerZ },
 		size = { width, 1.1, 1.1 },
 		color = C.wood,
-		material = "Wood",
+		material = mat,
 		shape = "Cylinder",
 		rot = R.cylAlongX,
 		canCollide = false,
@@ -377,34 +458,59 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- same plane as the plaza's own surface. Two coplanar faces z-fight, which was
 	-- invisible while both were cream and is not now that the floor underneath is a
 	-- checkerboard. A pad lying ON the floor should sit on it, not in it.
+	--
+	-- CENTRED ON THE STALL, NOT ON THE ORIGIN. The posts/roof/counter cluster
+	-- sits between dz=-10 (back posts) and dz=+2 (front posts) -- centred on
+	-- z=-4, not z=0 -- because the origin is the OLD bowed-canopy stall's
+	-- centre, not this one's. A disc centred at z=0 put half its own radius
+	-- hanging out in front of the stall with nothing on it. Radius bumped
+	-- 10->11 too, since the widened posts' outer corners (see POST_DX/size
+	-- below) sit about 10.3 studs out from that centre.
 	build(m, origin, {
 		name = "Deck",
-		pos = { 0, -0.2, 0 },
-		size = { 0.6, 20, 20 },
+		pos = { 0, -0.2, -4 },
+		size = { 0.6, 22, 22 },
 		color = C.plazaWarm,
 		material = "Plastic",
 		shape = "Cylinder",
 		rot = R.cylUp,
 	})
 
-	-- Four chunky wood posts holding the roof up.
-	local POST_HEIGHT = 6
+	-- Four chunky wood posts holding the roof up. Square-cut lumber, not round
+	-- logs — the reference photo's posts read as sawn beams, and Block needs no
+	-- rot (unlike Cylinder, whose long axis is local X and needs R.cylUp to
+	-- stand it upright) since a Block's size is already literal {X,Y,Z}.
+	-- Plastic, not Wood: Roblox's stud-bump texture only renders on Plastic
+	-- (the same reason the plaza's own checkerboard tiles are Plastic), and
+	-- that studded look is what makes this read as the chunky reference stall
+	-- instead of a plain wood kiosk. Taller than the original kiosk, too — the
+	-- reference stall reads as a proper standing structure, not a picnic table.
+	--
+	-- 2x2, not 1.1x1.1: the stud pattern needs a couple of repeats across a
+	-- face to actually read as studded rather than a flat colour -- the same
+	-- reason the checkerboard tiles were tuned to exactly 3x3 studs. A 1.1-wide
+	-- post face was too narrow for the pattern to be legible even though the
+	-- material was already correct.
+	local POST_HEIGHT = 9
+	local POST_SIZE = 2
 	local POST_DX = 6.5
 	for _, dx in { -POST_DX, POST_DX } do
 		for _, dz in { -10, 2 } do
 			build(m, origin, {
 				name = "Post",
 				pos = { dx, POST_HEIGHT / 2, dz },
-				size = { POST_HEIGHT, 1.1, 1.1 },
+				size = { POST_SIZE, POST_HEIGHT, POST_SIZE },
 				color = C.wood,
-				material = "Wood",
-				shape = "Cylinder",
-				rot = R.cylUp,
+				material = "Plastic",
+				shape = "Block",
 			})
 		end
 	end
 
 	-- THE COUNTER. This is the part the whole file exists to place correctly.
+	-- material = "Plastic" here (not buildCounter's own "Wood" default) so the
+	-- studded look stays consistent across the whole stall -- the Outfitter's
+	-- call to the same function passes no material and keeps its original Wood.
 	local counter = buildCounter(m, origin, {
 		color = spec.color,
 		width = 12,
@@ -413,6 +519,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		stationKind = "shop",
 		stationId = spec.track,
 		radius = 12,
+		material = "Plastic",
 	})
 	billboard(counter, 260, 5.6, `{string.upper(spec.track)} SHOP`, spec.tagline, spec.color)
 
@@ -421,24 +528,48 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- A real peaked roof -- same builder and the same reasoning as the
 	-- Outfitter building, not the bowed/rolled-edge canopy this stall used to
 	-- have. `halfDepth = 6` matches the post span exactly (dz -10 to +2, centred
-	-- on -4), so the eaves land right at the post tops.
-	local roofTop = buildGableRoof(m, origin, -4, POST_HEIGHT, 6, 3, 14, spec.color)
+	-- on -4), so the eaves land right at the post tops (buildGableRoof's own
+	-- `clearance` now accounts for the panel's physical thickness on top of
+	-- that). `rise = 4` (was 3) to keep the peak's proportions with the taller
+	-- posts. `width = 15.4` (was 14) so the roof still overhangs the now-2-wide
+	-- posts (outer edge at x=±7.5) by a bit, instead of the posts poking out
+	-- past a roof sized for the old 1.1-wide ones. Plastic, same reason as the
+	-- posts and counter -- the Outfitter's own call is untouched.
+	local roofTop = buildGableRoof(m, origin, -4, POST_HEIGHT, 6, 4, 15.4, spec.color, "Plastic")
 
-	-- The glowing bubble sign, floating over the roof peak. Block size is always
-	-- {X, Y, Z} in local space with no rotation applied here, so width has to be
-	-- FIRST and height SECOND or this renders as a tall obelisk instead of a
-	-- wide sign board.
-	local signY = roofTop + 2.6
-	build(m, origin, { name = "SignOutline", pos = { 0, signY, -4.2 }, size = { 9.6, 2.6, 0.3 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
-	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, -3.8 }, size = { 9, 2.2, 0.4 }, color = spec.color, material = "Neon", canCollide = false })
+	-- The candy-striped bunting awning, hung along the front eave. z=3.5 (was
+	-- 2.6) and flagWidth=1.1 (was 1.2) both shift to clear the now-2-wide front
+	-- posts: post face sits at z=3 (dz=2 + POST_SIZE/2), so the rail needs to
+	-- hang past that, and the flag row's half-width (5.5) now matches the
+	-- posts' new inner edge (6.5-1) instead of overlapping it.
+	buildPennantAwning(m, origin, 0, 3.5, POST_HEIGHT, 10, 1.1, spec.color)
+
+	-- The big tilted signboard -- the reference photo's storefront board, angled
+	-- back so it reads from ground level, floating clear above the roof ridge
+	-- rather than nested into the gable (nothing there to clip into at any tilt).
+	-- Block size is always {X, Y, Z} in local space with no rotation applied
+	-- here, so width has to be FIRST and height SECOND or this renders as a tall
+	-- obelisk instead of a wide sign board.
+	-- SignFrame is thinner than Sign, not thicker: the two share the same centre,
+	-- so whichever one is thicker pokes through and is what's actually visible
+	-- head-on. The old small sign relied on exactly this (SignOutline 0.3 thick
+	-- behind a 0.4-thick Sign) -- making the frame the thicker box here was
+	-- backwards and hid the glowing coloured panel and its text entirely behind
+	-- a solid wood face. Same ratio as before, just scaled up with the board.
+	local SIGN_TILT = Kit.ang(18, 0, 0)
+	local signY = roofTop + 2.9
+	local signZ = -3.6
+	build(m, origin, { name = "SignFrame", pos = { 0, signY, signZ }, size = { 10.6, 4.6, 0.32 }, color = C.wood, material = "Plastic", rot = SIGN_TILT, canCollide = false })
+	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, signZ }, size = { 9.8, 3.8, 0.44 }, color = spec.color, material = "Neon", rot = SIGN_TILT, canCollide = false })
 	-- Back (local +Z), not Front (-Z): players approach this booth from +Z,
 	-- coming down from the higher local-z porch toward the counter at z=-6, so
 	-- the face pointing back AT them is Back, not Front. Got this backwards on
 	-- the first pass and shipped a sign whose text only ever faced away from
 	-- the approach -- caught by checking from the actual approach camera angle,
-	-- not just confirming the parts existed.
+	-- not just confirming the parts existed. A pure X-axis tilt doesn't relabel
+	-- local faces, so Back still means the same thing on the tilted board.
 	Kit.surfaceText(sign, Enum.NormalId.Back, string.upper(spec.track), C.signText)
-	light(sign, spec.color, 26, 2.2)
+	light(sign, spec.color, 30, 2.4)
 
 	-- The floor marker: a glowing outline of the buy radius, in the shop's own
 	-- colour — never green, see the header.
@@ -446,8 +577,12 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 
 	-- THE ACTUAL POINT OF THIS PASS: a big, shape-clear prop of the thing this shop
 	-- sells, standing beside the counter, plus a crate of clutter next to it.
-	buildIdentityProp(m, origin, spec.track, 7.5, -5, spec.color)
-	buildCrateProp(m, origin, 8.2, -1, spec.color)
+	-- x offsets nudged out by 0.5 on both sides from the original 7.5/8.2/-8 --
+	-- the post's outer edge moved from x=7.05 to x=7.5 when it went from
+	-- 1.1-wide to 2-wide, and these need to keep clearing it.
+	buildIdentityProp(m, origin, spec.track, 8.0, -5, spec.color)
+	buildCrateProp(m, origin, 8.7, -1, spec.color)
+	buildOpenChestProp(m, origin, -8.5, -2, spec.color)
 
 	m.Parent = parent
 	return m
