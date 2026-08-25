@@ -72,7 +72,7 @@ local Kit = require(script.Parent.Kit)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 7
+local BUILDER_VERSION = 8
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -303,14 +303,14 @@ end
 --- stall" clutter the reference photo has (crates, a barrel, a boombox) that the
 --- old single-prop stalls didn't.
 local function buildCrateProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "CrateBox", pos = { x, 1.1, z }, size = { 2.2, 2.2, 2.2 }, color = C.wood, material = "Wood", canCollide = false })
+	build(parent, origin, { name = "CrateBox", pos = { x, 1.1, z }, size = { 2.2, 2.2, 2.2 }, color = C.wood, material = "Plastic", canCollide = false })
 	for _, angle in { 35, -35 } do
 		build(parent, origin, {
 			name = "CrateBrace",
 			pos = { x, 1.1, z },
 			size = { 0.25, 2.9, 0.25 },
 			color = C.woodLight,
-			material = "Wood",
+			material = "Plastic",
 			rot = Kit.ang(0, 0, angle),
 			canCollide = false,
 		})
@@ -330,9 +330,9 @@ end
 --- pos.z = (z - d/2) - (t/2*sin(-70°) - d/2*cos(-70°)).
 local function buildOpenChestProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
 	local chestHeight = 1.0
-	build(parent, origin, { name = "ChestBase", pos = { x, chestHeight / 2, z }, size = { 1.6, chestHeight, 1.2 }, color = C.wood, material = "Wood", canCollide = false })
+	build(parent, origin, { name = "ChestBase", pos = { x, chestHeight / 2, z }, size = { 1.6, chestHeight, 1.2 }, color = C.wood, material = "Plastic", canCollide = false })
 	build(parent, origin, { name = "ChestBand", pos = { x, chestHeight / 2, z }, size = { 1.7, 0.2, 1.3 }, color = C.hazardBlack, material = "Metal", canCollide = false })
-	build(parent, origin, { name = "ChestLid", pos = { x, 1.59, z - 0.465 }, size = { 1.5, 0.15, 1.1 }, color = C.woodLight, material = "Wood", rot = Kit.ang(-70, 0, 0), canCollide = false })
+	build(parent, origin, { name = "ChestLid", pos = { x, 1.59, z - 0.465 }, size = { 1.5, 0.15, 1.1 }, color = C.woodLight, material = "Plastic", rot = Kit.ang(-70, 0, 0), canCollide = false })
 	build(parent, origin, { name = "ChestGlow", pos = { x, 1.1, z - 0.15 }, size = { 0.7, 0.35, 0.5 }, color = color, material = "Neon", shape = "Ball", canCollide = false })
 end
 
@@ -346,10 +346,14 @@ export type CounterSpec = {
 	stationKind: string?,
 	stationId: string?,
 	radius: number?,
+	material: string?,
 }
 
 --- The wood counter desk — the interactive part — with a coloured trim cap on
---- top. Returns the desk so the caller can billboard it.
+--- top. Returns the desk so the caller can billboard it. `material` defaults to
+--- "Wood" (the Outfitter's own look); the plaza stalls pass "Plastic" instead,
+--- since Roblox's stud-bump texture only renders on Plastic, and that studded
+--- look is the whole point of the reskin.
 local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec): BasePart
 	local w, d, z = spec.width, spec.depth, spec.z
 
@@ -363,7 +367,7 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 		pos = { 0, 1.1, z },
 		size = { 2.2, w, d },
 		color = C.wood,
-		material = "Wood",
+		material = spec.material or "Wood",
 		attributes = attrs,
 	})
 
@@ -385,11 +389,15 @@ end
 ---
 --- Returns the ridge Y so the caller can float a sign above it. Shared by the
 --- plaza stalls (a small roof on posts) and the Outfitter (a much bigger one
---- over real walls) -- the same shape at two different scales.
-local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number, wallHeight: number, halfDepth: number, rise: number, width: number, color: string): number
+--- over real walls) -- the same shape at two different scales. `material`
+--- defaults to "Wood" (the Outfitter's own look, unchanged); the plaza stalls
+--- pass "Plastic" so the roof shows Roblox's stud-bump texture, matching the
+--- reference market stall's studded-block look.
+local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number, wallHeight: number, halfDepth: number, rise: number, width: number, color: string, material: string?): number
 	local slopeLen = math.sqrt(halfDepth ^ 2 + rise ^ 2)
 	local ridgeY = wallHeight + rise
 	local tiltDeg = math.deg(math.atan2(rise, halfDepth))
+	local mat = material or "Wood"
 
 	for _, side in { -1, 1 } do
 		-- Eave point: (side*halfDepth, wallHeight). Ridge point: (0, ridgeY).
@@ -399,7 +407,7 @@ local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number,
 			pos = { 0, wallHeight + rise / 2, centerZ + side * halfDepth / 2 },
 			size = { width, 0.6, slopeLen },
 			color = color,
-			material = "Wood",
+			material = mat,
 			rot = Kit.ang(side * tiltDeg, 0, 0),
 			canCollide = false,
 		})
@@ -410,7 +418,7 @@ local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number,
 		pos = { 0, ridgeY, centerZ },
 		size = { width, 1.1, 1.1 },
 		color = C.wood,
-		material = "Wood",
+		material = mat,
 		shape = "Cylinder",
 		rot = R.cylAlongX,
 		canCollide = false,
@@ -451,7 +459,12 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- logs — the reference photo's posts read as sawn beams, and Block needs no
 	-- rot (unlike Cylinder, whose long axis is local X and needs R.cylUp to
 	-- stand it upright) since a Block's size is already literal {X,Y,Z}.
-	local POST_HEIGHT = 6
+	-- Plastic, not Wood: Roblox's stud-bump texture only renders on Plastic
+	-- (the same reason the plaza's own checkerboard tiles are Plastic), and
+	-- that studded look is what makes this read as the chunky reference stall
+	-- instead of a plain wood kiosk. Taller than the original kiosk, too — the
+	-- reference stall reads as a proper standing structure, not a picnic table.
+	local POST_HEIGHT = 9
 	local POST_DX = 6.5
 	for _, dx in { -POST_DX, POST_DX } do
 		for _, dz in { -10, 2 } do
@@ -460,13 +473,16 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 				pos = { dx, POST_HEIGHT / 2, dz },
 				size = { 1.1, POST_HEIGHT, 1.1 },
 				color = C.wood,
-				material = "Wood",
+				material = "Plastic",
 				shape = "Block",
 			})
 		end
 	end
 
 	-- THE COUNTER. This is the part the whole file exists to place correctly.
+	-- material = "Plastic" here (not buildCounter's own "Wood" default) so the
+	-- studded look stays consistent across the whole stall -- the Outfitter's
+	-- call to the same function passes no material and keeps its original Wood.
 	local counter = buildCounter(m, origin, {
 		color = spec.color,
 		width = 12,
@@ -475,6 +491,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		stationKind = "shop",
 		stationId = spec.track,
 		radius = 12,
+		material = "Plastic",
 	})
 	billboard(counter, 260, 5.6, `{string.upper(spec.track)} SHOP`, spec.tagline, spec.color)
 
@@ -483,8 +500,10 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- A real peaked roof -- same builder and the same reasoning as the
 	-- Outfitter building, not the bowed/rolled-edge canopy this stall used to
 	-- have. `halfDepth = 6` matches the post span exactly (dz -10 to +2, centred
-	-- on -4), so the eaves land right at the post tops.
-	local roofTop = buildGableRoof(m, origin, -4, POST_HEIGHT, 6, 3, 14, spec.color)
+	-- on -4), so the eaves land right at the post tops. `rise = 4` (was 3) to
+	-- keep the peak's proportions with the taller posts. Plastic, same reason
+	-- as the posts and counter -- the Outfitter's own call is untouched.
+	local roofTop = buildGableRoof(m, origin, -4, POST_HEIGHT, 6, 4, 14, spec.color, "Plastic")
 
 	-- The candy-striped bunting awning, hung along the front eave (roofTop's own
 	-- wallHeight/halfDepth math puts the front eave at y=POST_HEIGHT, z=2).
@@ -505,7 +524,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	local SIGN_TILT = Kit.ang(18, 0, 0)
 	local signY = roofTop + 2.9
 	local signZ = -3.6
-	build(m, origin, { name = "SignFrame", pos = { 0, signY, signZ }, size = { 10.6, 4.6, 0.32 }, color = C.wood, material = "Wood", rot = SIGN_TILT, canCollide = false })
+	build(m, origin, { name = "SignFrame", pos = { 0, signY, signZ }, size = { 10.6, 4.6, 0.32 }, color = C.wood, material = "Plastic", rot = SIGN_TILT, canCollide = false })
 	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, signZ }, size = { 9.8, 3.8, 0.44 }, color = spec.color, material = "Neon", rot = SIGN_TILT, canCollide = false })
 	-- Back (local +Z), not Front (-Z): players approach this booth from +Z,
 	-- coming down from the higher local-z porch toward the counter at z=-6, so
