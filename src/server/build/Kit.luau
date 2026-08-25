@@ -85,7 +85,7 @@ Kit.C = {
 	-- and they are laid in a hard-edged studded grid that no field has. That is what
 	-- keeps a green courtyard from reading as ground you should not stand on. Do not
 	-- brighten them toward the fields.
-	plazaTileDark = "33512F",
+	plazaTileDark = "3F5E3A",
 	plazaTileLight = "486B42",
 
 	-- The bases. These are the colours the plaza wore first — a base is now the one
