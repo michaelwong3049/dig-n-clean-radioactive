@@ -27,6 +27,9 @@ src/
       Gear.luau               the 6 upgrade tracks
       Items.luau              the item catalogue (+ id / zone-rarity indexes)
       ToolTiers.luau          per-tier look: scale, colours, material, glow
+    ItemModels/               versioned item-art factories; nil keys use placeholders
+      init.luau               model-key registry used by haul + exhibition rendering
+      BottleCap.luau          first catalogue model (21-crimp damaged crown cap)
     Util/
       Ticker.luau             the fixed-timestep clock everything runs on
       Spec.luau               design-intent assertions — run after retuning
@@ -40,6 +43,7 @@ src/
   server/
     init.server.luau          bootstrap: explicit ORDER, two-phase init/start
     lib/ProfileStore.luau     vendored, unmodified (MadStudioRoblox/ProfileStore)
+    build/ModelGallery.luau   manual temporary lot for reviewing all real item models
     Services/
       DataService             ProfileStore wrapper, session-locked persistence
       ZoneService             who is standing where

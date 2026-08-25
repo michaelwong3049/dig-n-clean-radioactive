@@ -63,6 +63,23 @@ Do not make lasting edits by dragging generated parts in Studio; the next rebuil
 replace them. GitHub stores the recipe, while the saved/published place stores the
 instances players actually see.
 
+## Temporary item-model gallery
+
+To review every catalogue item that currently has real 3D art, generate the temporary
+preview lot west of the player-base ring:
+
+```lua
+require(game.ServerScriptService.Server.build.ModelGallery).rebuild()
+```
+
+The lot is intentionally excluded from `World.rebuild()`. It updates from the item-model
+registry whenever the command is rerun. Remove it before saving or publishing when the
+review is finished:
+
+```lua
+require(game.ServerScriptService.Server.build.ModelGallery).remove()
+```
+
 ## Working on it
 
 Run both of these in Studio's command bar after changing anything in `Config/`:

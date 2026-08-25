@@ -27,6 +27,8 @@ local Zones = require(Config.Zones)
 local Gear = require(Config.Gear)
 local Tuning = require(Config.Tuning)
 local Rarity = require(Config.Rarity)
+local Items = require(Config.Items)
+local ItemModels = require(script.Parent.Parent.ItemModels)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
 local StatResolver = require(script.Parent.Parent.StatResolver)
@@ -72,6 +74,15 @@ function Spec.run(): boolean
 		else
 			failed += 1
 			table.insert(lines, "  FAIL  " .. label)
+		end
+	end
+
+	-- Catalogue art is intentionally arriving item by item, but every key that has
+	-- been assigned must resolve. A typo here would otherwise degrade silently to a
+	-- placeholder and make a finished asset look as though it had never shipped.
+	for _, item in Items.DEFS do
+		if item.model then
+			check(`item model resolves: {item.id} -> {item.model}`, ItemModels.has(item.model))
 		end
 	end
 

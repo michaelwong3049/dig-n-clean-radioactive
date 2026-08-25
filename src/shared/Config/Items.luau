@@ -26,8 +26,8 @@
 	carries a Legendary: PLAN §4 wants "it could happen right here" live from minute
 	one, because that chance is what keeps a new player sweeping.
 
-	No `model` field yet — DigService renders a rarity-coloured placeholder until art
-	exists.
+	`model` is optional while the catalogue art is produced. Entries without one keep
+	the rarity-coloured placeholder; entries with one resolve through Shared.ItemModels.
 ]]
 
 export type ItemDef = {
@@ -39,6 +39,7 @@ export type ItemDef = {
 	appeal: string, -- "Researcher" | "Collector" | "Gearhead"
 	sets: { string },
 	baseValue: number,
+	model: string?,
 }
 
 local Items = {}
@@ -54,6 +55,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 3,
+		model = "BottleCap",
 	},
 	{
 		id = "rebar_stub",

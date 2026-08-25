@@ -40,6 +40,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
+local ItemModels = require(Shared.ItemModels)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
@@ -82,10 +83,9 @@ local function renderName(index: number, displayName: string?)
 	end
 end
 
---- Repaint one stand: coloured and lit when occupied, transparent when empty. The
---- colour matches DigService.updateHaul's convention for the same rarity, so the
---- colour on the plinth is the same one the player watched come out of the ground.
-local function renderStand(index: number, slot: number, rarity: string?)
+--- Repaint one stand with real item art when it exists, or the old rarity-coloured
+--- block while that catalogue entry is still waiting for a model.
+local function renderStand(index: number, slot: number, itemId: string?, rarity: string?)
 	local plot = plotModel(index)
 	if plot == nil then
 		return
@@ -94,7 +94,29 @@ local function renderStand(index: number, slot: number, rarity: string?)
 	if display == nil then
 		return
 	end
-	if rarity then
+
+	local previous = display:FindFirstChild("ItemModel")
+	if previous then
+		previous:Destroy()
+	end
+
+	local model: Model? = nil
+	if itemId then
+		local item = Items.get(itemId)
+		model = ItemModels.create(item.model)
+	end
+
+	if model then
+		display.Transparency = 1
+		model.Name = "ItemModel"
+		model:SetAttribute("ItemId", itemId)
+		model.Parent = display
+		model:PivotTo(
+			display.CFrame
+				* CFrame.new(0, -0.72, 0)
+				* ItemModels.rotation(model, "Display")
+		)
+	elseif rarity then
 		display.Color = Rarity.get(rarity).color
 		display.Transparency = 0
 	else
@@ -108,10 +130,10 @@ local function renderAll(index: number, data: any)
 	local owner = plotOwner[index]
 	renderName(index, if owner then owner.DisplayName else nil)
 	for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
-		renderStand(index, slot, nil)
+		renderStand(index, slot, nil, nil)
 	end
 	for _, entry in data.exhibit.pedestals do
-		renderStand(index, entry.slot, entry.rarity)
+		renderStand(index, entry.slot, entry.itemId, entry.rarity)
 	end
 end
 
@@ -206,7 +228,7 @@ local function release(player: Player)
 		end
 		renderName(index, nil)
 		for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
-			renderStand(index, slot, nil)
+			renderStand(index, slot, nil, nil)
 		end
 	end
 end
@@ -403,7 +425,7 @@ function ExhibitService.display(player: Player, uid: string): (boolean, string)
 		placedAt = os.time(),
 	})
 
-	renderStand(plot, slot, item.rarity)
+	renderStand(plot, slot, item.itemId, item.rarity)
 	return true, `{Items.get(item.itemId).name} is on display`
 end
 
@@ -459,7 +481,7 @@ function ExhibitService.undisplay(player: Player): (boolean, string)
 		patches = {},
 	})
 
-	renderStand(plot, slot, nil)
+	renderStand(plot, slot, nil, nil)
 	return true, `{Items.get(entry.itemId).name} back in your bag`
 end
 
@@ -521,7 +543,7 @@ function ExhibitService.buySlot(player: Player): (boolean, string)
 	data.exhibit.slots = nextSlot
 	local plot = plotOf[player]
 	if plot then
-		renderStand(plot, nextSlot, nil) -- clears the locked look; still empty
+		renderStand(plot, nextSlot, nil, nil) -- clears the locked look; still empty
 	end
 	return true, `slot {nextSlot} unlocked for ${price}`
 end
