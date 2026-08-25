@@ -46,6 +46,7 @@ type State = {
 	exposure: number,
 	health: number,
 	downed: boolean,
+	survivableRatchet: number?, -- see stepPlayer's "the countdown does not recover" note
 }
 
 local states: { [Player]: State } = {}
@@ -64,7 +65,7 @@ local function stateFor(player: Player): State
 	if existing then
 		return existing
 	end
-	local fresh: State = { exposure = 0, health = Tuning.MAX_HEALTH, downed = false }
+	local fresh: State = { exposure = 0, health = Tuning.MAX_HEALTH, downed = false, survivableRatchet = nil }
 	states[player] = fresh
 	return fresh
 end
@@ -264,6 +265,7 @@ local function blackout(player: Player, state: State, cause: string)
 
 	state.exposure = 0
 	state.health = Tuning.MAX_HEALTH
+	state.survivableRatchet = nil
 
 	if root and root:IsA("BasePart") then
 		root.CFrame = baseCampCFrame()
@@ -341,6 +343,35 @@ local function stepPlayer(player: Player, dt: number)
 		end
 	end
 
+	-- THE DISPLAYED COUNTDOWN DOES NOT RECOVER FROM A PARTIAL RETREAT. Left as a
+	-- live recomputation, walking a few steps back out of a hot pocket (or into a
+	-- shallower part of a depth-graded zone, PLAN's depth pass) would make
+	-- SURVIVABLE jump straight back up, because it is just (cap - exposure) / net
+	-- at whatever net happens to be RIGHT NOW. That defeats the point of a deep
+	-- push costing a real walk home: the number should read as "you are committed
+	-- to getting back to safety by roughly here," not "how do I feel this instant."
+	--
+	-- So it only ever improves for one reason -- reaching genuine safety (net <= 0
+	-- and no burn, or an active shower) -- and otherwise ratchets: it can always
+	-- drop immediately (things got worse, show that right away), but if the live
+	-- number would be BETTER than what's already showing, it ticks down in real
+	-- time instead of jumping to match. A player who fully makes it home sees the
+	-- pressure actually lift; one who ducks back a few studs into the same zone
+	-- does not get to bank that as extra time.
+	local liveSurvivable = Radiation.survivableSeconds(reading, state.exposure, state.health)
+	local trulySafe = showering or (reading.net <= 0 and reading.healthBurn <= 0)
+	local survivable: number
+	if trulySafe then
+		state.survivableRatchet = nil
+		survivable = liveSurvivable
+	elseif state.survivableRatchet == nil or liveSurvivable < state.survivableRatchet then
+		state.survivableRatchet = liveSurvivable
+		survivable = liveSurvivable
+	else
+		state.survivableRatchet = math.max(0, state.survivableRatchet - dt)
+		survivable = state.survivableRatchet
+	end
+
 	stateRemote:FireClient(player, {
 		zoneId = zoneId,
 		zoneName = if zoneId then Zones.get(zoneId).name else "Base Camp",
@@ -360,7 +391,7 @@ local function stepPlayer(player: Player, dt: number)
 		failing = reading.failing,
 
 		greed = Radiation.greedFraction(reading, stats),
-		survivable = finite(Radiation.survivableSeconds(reading, state.exposure, state.health)),
+		survivable = finite(survivable),
 		threat = Radiation.dominantThreat(reading, state.exposure, state.health),
 
 		carrying = #data.carry,
@@ -386,6 +417,7 @@ function ExposureService.flush(player: Player)
 	state.exposure = 0
 	state.health = Tuning.MAX_HEALTH
 	state.downed = false
+	state.survivableRatchet = nil
 end
 
 function ExposureService.init()
