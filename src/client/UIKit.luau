@@ -103,21 +103,28 @@ UIKit.Stroke = {
 
 -- ── The dock ─────────────────────────────────────────────────────────────────────
 -- One horizontal instrument band — [METER | DIG BUTTON] — with the status line above
--- it, bag count below it, hotbar at the screen edge, and the detail card floating
--- above all of it when a slot is selected:
+-- it, bag count below it, hotbar at the screen edge, the radar scope and the index
+-- button stacked in the bottom-right corner, and the detail card floating above all
+-- of it when a slot is selected:
 --
 --     ┌───────────────────────────────────────┐  <- Detail card (only if selected)
---     │              Status line                │
---     │    [METER]   [DIG BUTTON]                │  <- one shared baseline, 144px
+--     │              Status line       [INDEX] │
+--     │    [METER]   [DIG BUTTON]      ( SCOPE)│  <- band 144px; scope is NOT in it
 --     │              Bag count                  │
 --     │   [1][2][3][4][5][6][7][8][9]...        │  <- hotbar, screen edge
 --     └───────────────────────────────────────┘
 --
--- THE RADAR SCOPE USED TO SIT TO THE BUTTON'S RIGHT and it is gone — removed on
--- request, along with `Dock.SCOPE_DIAL` (180) and `Dock.DIAL_LEFT_OFFSET`. It was the
--- tallest thing in the band, so INSTRUMENT_HEIGHT fell 180 -> 144 (the meter is now
--- the tallest) and RESERVE fell with it. See DetectorController's header for what
--- that costs: detector `clarity` no longer has anywhere on screen to be seen.
+-- THE SCOPE IS IN THE CORNER, NOT IN THE BAND, AND THAT IS THE WHOLE POINT OF THIS
+-- LAYOUT. It used to sit inside the instrument band, to the dig button's right, where
+-- being the tallest thing in the row (180 vs the meter's 144) pushed INSTRUMENT_HEIGHT
+-- and therefore RESERVE up for everything else. It is now anchored to the bottom-right
+-- corner on its own, sharing only the INSTRUMENT_BOTTOM baseline with the meter
+-- opposite it, so `SCOPE_DIAL` is deliberately ABSENT from INSTRUMENT_HEIGHT below.
+-- Put it back in that max() and the centred station panel loses 36px of headroom for
+-- a widget that is no longer in the row.
+--
+-- `DIAL_LEFT_OFFSET` is gone for the same reason: the scope is corner-anchored now,
+-- so it is not positioned relative to the dig button any more.
 --
 -- ONE WIDE BAND, NOT STACKED ROWS. Meter and dig button sit side by side inside one
 -- INSTRUMENT_HEIGHT-tall band rather than stacking vertically, which would cost
@@ -147,6 +154,7 @@ Dock.BAGCOUNT_HEIGHT = 18
 
 Dock.METER_SIZE = UDim2.fromOffset(280, 144) -- was 240x46, then 280x60 before HEALTH joined RADS in one panel
 Dock.DIGBUTTON_SIZE = UDim2.fromOffset(260, 60) -- was 230x48
+Dock.SCOPE_DIAL = 180 -- was DetectorController.DIAL_SIZE 150
 
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(400, 136) -- was 330x116
@@ -160,6 +168,14 @@ Dock.BAGCOUNT_BOTTOM = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP
 Dock.INSTRUMENT_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT + Dock.GAP
+
+-- The bottom-right stack, bottom-up: scope on the meter's baseline, index above it.
+-- INDEX_BOTTOM is derived from SCOPE_DIAL rather than typed, so IndexController never
+-- has to know how big the scope is — resize the dial and the button moves with it.
+-- This is the same "no file hardcodes another file's layout" rule the whole dock
+-- exists to enforce; it is exactly the class of bug the old `-178` was.
+Dock.SCOPE_BOTTOM = Dock.INSTRUMENT_BOTTOM
+Dock.INDEX_BOTTOM = Dock.SCOPE_BOTTOM + Dock.SCOPE_DIAL + Dock.GAP
 
 -- The dock's total reserved height with no card open. IndexController still biases
 -- its own anchor upward by half of this so it lands in the space the dock does not

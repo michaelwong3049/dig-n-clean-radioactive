@@ -195,13 +195,17 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 90
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- The button. Bottom-right, mirroring HudController's meter at bottom-left —
-	-- both anchor to the same INSTRUMENT_BOTTOM baseline so the dock reads as one
-	-- deliberate row, not two unrelated floating pieces.
+	-- The button. Bottom-right, but STACKED ABOVE THE RADAR SCOPE rather than sitting
+	-- on the instrument baseline itself — the scope moved into this corner and took
+	-- that baseline, so INDEX moved up by exactly the scope's height plus a gap.
+	--
+	-- Dock.INDEX_BOTTOM, never `INSTRUMENT_BOTTOM + 180 + 10`. The whole reason the
+	-- dock table exists is that this file must not know how tall the scope is; resize
+	-- Dock.SCOPE_DIAL and this button follows on its own.
 	local button, buttonStroke = UIKit.button(gui, {
 		name = "IndexButton",
 		size = UDim2.fromOffset(BUTTON_SIZE, BUTTON_SIZE),
-		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -Dock.INSTRUMENT_BOTTOM),
+		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM),
 		anchorPoint = Vector2.new(1, 1),
 		text = "INDEX",
 		font = UIKit.Font.body,
