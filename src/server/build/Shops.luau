@@ -72,7 +72,7 @@ local Kit = require(script.Parent.Kit)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 8
+local BUILDER_VERSION = 9
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -393,19 +393,32 @@ end
 --- defaults to "Wood" (the Outfitter's own look, unchanged); the plaza stalls
 --- pass "Plastic" so the roof shows Roblox's stud-bump texture, matching the
 --- reference market stall's studded-block look.
+---
+--- CLEARANCE, NOT JUST THE CENTRELINE. The eave/ridge points above describe
+--- where the panel's own zero-thickness centreline sits -- but a real board has
+--- thickness on both sides of that line, so the panel's PHYSICAL underside sits
+--- `(thickness/2)*cos(tilt)` below it. Left uncorrected, a flat-topped post
+--- built to exactly `wallHeight` pokes up into that underside by that same
+--- amount -- invisible on the original round, shallow-pitched posts, and very
+--- visible once the posts went square and the roof steeper. `clearance` raises
+--- the whole roof (both panels AND the ridge beam, so they stay flush with each
+--- other) by that offset, so it's the underside that touches the wall top.
 local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number, wallHeight: number, halfDepth: number, rise: number, width: number, color: string, material: string?): number
+	local thickness = 0.6
 	local slopeLen = math.sqrt(halfDepth ^ 2 + rise ^ 2)
-	local ridgeY = wallHeight + rise
 	local tiltDeg = math.deg(math.atan2(rise, halfDepth))
+	local clearance = (thickness / 2) * math.cos(math.rad(tiltDeg))
+	local ridgeY = wallHeight + rise + clearance
 	local mat = material or "Wood"
 
 	for _, side in { -1, 1 } do
-		-- Eave point: (side*halfDepth, wallHeight). Ridge point: (0, ridgeY).
-		-- The panel's own centre sits halfway between them.
+		-- Eave point: (side*halfDepth, wallHeight). Ridge point: (0, wallHeight + rise).
+		-- The panel's own centre sits halfway between them, then the whole
+		-- panel is lifted by `clearance` (see above).
 		build(parent, origin, {
 			name = "RoofPanel",
-			pos = { 0, wallHeight + rise / 2, centerZ + side * halfDepth / 2 },
-			size = { width, 0.6, slopeLen },
+			pos = { 0, wallHeight + rise / 2 + clearance, centerZ + side * halfDepth / 2 },
+			size = { width, thickness, slopeLen },
 			color = color,
 			material = mat,
 			rot = Kit.ang(side * tiltDeg, 0, 0),
@@ -445,10 +458,18 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- same plane as the plaza's own surface. Two coplanar faces z-fight, which was
 	-- invisible while both were cream and is not now that the floor underneath is a
 	-- checkerboard. A pad lying ON the floor should sit on it, not in it.
+	--
+	-- CENTRED ON THE STALL, NOT ON THE ORIGIN. The posts/roof/counter cluster
+	-- sits between dz=-10 (back posts) and dz=+2 (front posts) -- centred on
+	-- z=-4, not z=0 -- because the origin is the OLD bowed-canopy stall's
+	-- centre, not this one's. A disc centred at z=0 put half its own radius
+	-- hanging out in front of the stall with nothing on it. Radius bumped
+	-- 10->11 too, since the widened posts' outer corners (see POST_DX/size
+	-- below) sit about 10.3 studs out from that centre.
 	build(m, origin, {
 		name = "Deck",
-		pos = { 0, -0.2, 0 },
-		size = { 0.6, 20, 20 },
+		pos = { 0, -0.2, -4 },
+		size = { 0.6, 22, 22 },
 		color = C.plazaWarm,
 		material = "Plastic",
 		shape = "Cylinder",
@@ -464,14 +485,21 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- that studded look is what makes this read as the chunky reference stall
 	-- instead of a plain wood kiosk. Taller than the original kiosk, too — the
 	-- reference stall reads as a proper standing structure, not a picnic table.
+	--
+	-- 2x2, not 1.1x1.1: the stud pattern needs a couple of repeats across a
+	-- face to actually read as studded rather than a flat colour -- the same
+	-- reason the checkerboard tiles were tuned to exactly 3x3 studs. A 1.1-wide
+	-- post face was too narrow for the pattern to be legible even though the
+	-- material was already correct.
 	local POST_HEIGHT = 9
+	local POST_SIZE = 2
 	local POST_DX = 6.5
 	for _, dx in { -POST_DX, POST_DX } do
 		for _, dz in { -10, 2 } do
 			build(m, origin, {
 				name = "Post",
 				pos = { dx, POST_HEIGHT / 2, dz },
-				size = { 1.1, POST_HEIGHT, 1.1 },
+				size = { POST_SIZE, POST_HEIGHT, POST_SIZE },
 				color = C.wood,
 				material = "Plastic",
 				shape = "Block",
@@ -500,14 +528,21 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- A real peaked roof -- same builder and the same reasoning as the
 	-- Outfitter building, not the bowed/rolled-edge canopy this stall used to
 	-- have. `halfDepth = 6` matches the post span exactly (dz -10 to +2, centred
-	-- on -4), so the eaves land right at the post tops. `rise = 4` (was 3) to
-	-- keep the peak's proportions with the taller posts. Plastic, same reason
-	-- as the posts and counter -- the Outfitter's own call is untouched.
-	local roofTop = buildGableRoof(m, origin, -4, POST_HEIGHT, 6, 4, 14, spec.color, "Plastic")
+	-- on -4), so the eaves land right at the post tops (buildGableRoof's own
+	-- `clearance` now accounts for the panel's physical thickness on top of
+	-- that). `rise = 4` (was 3) to keep the peak's proportions with the taller
+	-- posts. `width = 15.4` (was 14) so the roof still overhangs the now-2-wide
+	-- posts (outer edge at x=±7.5) by a bit, instead of the posts poking out
+	-- past a roof sized for the old 1.1-wide ones. Plastic, same reason as the
+	-- posts and counter -- the Outfitter's own call is untouched.
+	local roofTop = buildGableRoof(m, origin, -4, POST_HEIGHT, 6, 4, 15.4, spec.color, "Plastic")
 
-	-- The candy-striped bunting awning, hung along the front eave (roofTop's own
-	-- wallHeight/halfDepth math puts the front eave at y=POST_HEIGHT, z=2).
-	buildPennantAwning(m, origin, 0, 2.6, POST_HEIGHT, 10, 1.2, spec.color)
+	-- The candy-striped bunting awning, hung along the front eave. z=3.5 (was
+	-- 2.6) and flagWidth=1.1 (was 1.2) both shift to clear the now-2-wide front
+	-- posts: post face sits at z=3 (dz=2 + POST_SIZE/2), so the rail needs to
+	-- hang past that, and the flag row's half-width (5.5) now matches the
+	-- posts' new inner edge (6.5-1) instead of overlapping it.
+	buildPennantAwning(m, origin, 0, 3.5, POST_HEIGHT, 10, 1.1, spec.color)
 
 	-- The big tilted signboard -- the reference photo's storefront board, angled
 	-- back so it reads from ground level, floating clear above the roof ridge
@@ -542,9 +577,12 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 
 	-- THE ACTUAL POINT OF THIS PASS: a big, shape-clear prop of the thing this shop
 	-- sells, standing beside the counter, plus a crate of clutter next to it.
-	buildIdentityProp(m, origin, spec.track, 7.5, -5, spec.color)
-	buildCrateProp(m, origin, 8.2, -1, spec.color)
-	buildOpenChestProp(m, origin, -8, -2, spec.color)
+	-- x offsets nudged out by 0.5 on both sides from the original 7.5/8.2/-8 --
+	-- the post's outer edge moved from x=7.05 to x=7.5 when it went from
+	-- 1.1-wide to 2-wide, and these need to keep clearing it.
+	buildIdentityProp(m, origin, spec.track, 8.0, -5, spec.color)
+	buildCrateProp(m, origin, 8.7, -1, spec.color)
+	buildOpenChestProp(m, origin, -8.5, -2, spec.color)
 
 	m.Parent = parent
 	return m
