@@ -52,22 +52,29 @@ UIKit.C = {
 }
 
 -- ── Type scale ───────────────────────────────────────────────────────────────────
--- Two faces, not one, and not a bold/medium pair the way Gotham did it. LuckiestGuy
--- is a heavy all-caps poster face — it reads great as a short, one-off, celebratory
--- headline and degrades badly below ~20px or on anything longer than a few words.
--- FredokaOne is the rounded workhorse for everything else: buttons, item names,
--- status lines, numeric readouts. Hierarchy comes from ROLE + SIZE, not from
--- swapping the family.
+-- ONE FAMILY IN THREE WEIGHTS, which is the formal-typography move and the opposite
+-- of what this used to be. The old pair was LuckiestGuy (a heavy all-caps poster
+-- face) over FredokaOne (a rounded workhorse) — two unrelated novelty families whose
+-- only relationship was "both are chunky". That reads as a toy, and the shop's card
+-- grid is where it showed worst: a price ladder wants to look like a storefront, not
+-- a birthday card.
 --
--- Both render visibly larger and heavier than Gotham at the same TextSize (wider
--- glyphs, taller x-height) — the sizes below are starting points, calibrated once in
--- Studio, not derived from any formula. Expect to trim, not to need a rewrite.
+-- Gotham is the replacement across the board. Hierarchy now comes from WEIGHT + SIZE
+-- inside one family instead of from swapping to a different typeface, so a heading
+-- and the line under it visibly belong together. `hero` is still reserved for the
+-- same short, one-off, celebratory strings it always was (the blackout headline, the
+-- loot banner's item name) — it is a weight now, not a different font, but the rule
+-- that nothing repeated or sentence-length uses it is unchanged.
+--
+-- SIZES WERE CALIBRATED FOR THE OLD FACES AND ARE NOW SLIGHTLY UNDERSET. LuckiestGuy
+-- and FredokaOne render wider glyphs and a taller x-height than Gotham at the same
+-- TextSize, so everything reads a touch smaller than it did. That is a deliberate
+-- "change one thing at a time" — retune UIKit.TextSize after looking at it in
+-- Studio, rather than pre-compensating blind here.
 UIKit.Font = {
-	hero = Enum.Font.LuckiestGuy, -- ONLY short, one-off, celebratory strings:
-	-- the blackout headline, the loot banner's item name. Never a sentence, never a
-	-- repeated element — anything that appears in a list or runs to more than a few
-	-- words belongs in `body` instead.
-	body = Enum.Font.FredokaOne,
+	hero = Enum.Font.GothamBlack, -- ONLY short, one-off, celebratory strings
+	title = Enum.Font.GothamBold, -- panel titles, card names, primary buttons
+	body = Enum.Font.GothamMedium, -- everything else: rows, status lines, readouts
 }
 
 UIKit.TextSize = {

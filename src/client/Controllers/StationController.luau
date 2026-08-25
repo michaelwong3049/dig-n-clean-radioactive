@@ -18,6 +18,18 @@
 	dock instead, at any resolution — the offset is algebraically equivalent to
 	`(screenHeight - RESERVE) / 2`, so it needs no per-resolution tuning.
 
+	THE SHOP IS A STOREFRONT, NOT A PROMPT. It used to render exactly one thing —
+	"Bent Coil → Scavenger MkI", the deltas between them, and a BUY button — which
+	answered "what can I buy right now" and nothing else. A player could not see that
+	the Detector track runs eight tiers, what the top of it costs, or whether saving
+	past the next rung was worth it. The panel now draws the WHOLE ladder as cards,
+	worst on the left to best on the right, each with the tier's own stats and its
+	price, with the one purchasable card the only solid-filled button on screen.
+
+	What that does NOT change is what a click buys. `ShopService.buy` still sells
+	`currentTier + 1` and derives the shop from the player's position, so the locked
+	cards to the right are a shop window, not a menu.
+
 	THE ROW HEIGHT DID NOT GROW WITH EVERYTHING ELSE, ON PURPOSE. It multiplies across
 	up to 12 rows (9 items + 3 locker) where every other element appears once — the
 	"bigger" budget went into width, title, buttons and padding instead of a number
@@ -46,6 +58,27 @@ local COLOR = UIKit.C
 
 local ROWS = 9
 local LOCKER_ROWS = 3
+
+-- ── Shop card grid ──────────────────────────────────────────────────
+-- The shop is a storefront now, not a one-line upgrade prompt: every tier of the
+-- track laid out worst-to-best as cards in a horizontal scroller, so the ladder you
+-- are climbing is visible before you have climbed it.
+--
+-- CARD_SLOTS IS A CEILING OVER ALL SIX TRACKS, NOT A GUESS. The longest is Detector
+-- at 8 tiers (Config/Gear); the rest run 5-7. Cards are built once at that count and
+-- hidden, the same reuse the item ROWS above have always used, because a shop panel
+-- that rebuilds its children on every StationState tick would churn 8 frames' worth
+-- of instances ten times a second.
+local CARD_SLOTS = 8
+local CARD_WIDTH = 176
+local CARD_HEIGHT = 260
+local CARD_GAP = 12
+
+-- The panel widens for shop mode only. 620 fits three cards and a sliver, which
+-- reads as "the row was cut off" rather than "the row scrolls"; 760 shows four
+-- whole ones and leaves the scroll obviously a scroll.
+local PANEL_WIDTH = 620
+local SHOP_PANEL_WIDTH = 760
 
 local ui = {}
 local state = { station = nil, items = {}, locker = {} }
@@ -132,6 +165,96 @@ local function makeRow(parent: Instance, order: number): TextButton
 	return row
 end
 
+--- One shop card: name, art well, stat block, purchase button.
+---
+--- THE ART WELL IS DELIBERATELY EMPTY. `CardArt` is a real ImageLabel with no Image
+--- set, sized and positioned as the finished thing will be, so dropping in artwork
+--- later is one assignment per tier and not a re-layout. It is not a placeholder
+--- rectangle to be replaced — it is the frame the art goes in.
+---
+--- Children are reached by `card.CardXxx` at paint time, so none of them may be
+--- named `Name`: every Instance already has a `.Name` property and Roblox never
+--- falls back to child lookup when a property of that name exists, which would make
+--- the label permanently unreachable. Hence `CardName`, matching `ItemNameLabel`
+--- above for the same reason.
+local function makeShopCard(parent: Instance, order: number): Frame
+	local card = UIKit.panel(parent, {
+		name = `Card{order}`,
+		size = UDim2.fromOffset(CARD_WIDTH, CARD_HEIGHT),
+		color = COLOR.empty,
+		transparency = 0.15,
+		cornerRadius = UIKit.Radius.card,
+		visible = false,
+	})
+	card.LayoutOrder = order
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 10)
+	pad.PaddingBottom = UDim.new(0, 10)
+	pad.PaddingLeft = UDim.new(0, 10)
+	pad.PaddingRight = UDim.new(0, 10)
+	pad.Parent = card
+
+	local layout = Instance.new("UIListLayout")
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 6)
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.Parent = card
+
+	-- 36 + 96 + 50 + 34 plus three 6px gaps = 234, inside the 240 the padding
+	-- leaves. Fixed heights rather than AutomaticSize: every card in the row has to
+	-- put its button on the same baseline, and a 2-line name on one card must not
+	-- push that card's button below its neighbours'.
+	local nameLabel = UIKit.label(card, {
+		name = "CardName",
+		size = UDim2.new(1, 0, 0, 36),
+		font = UIKit.Font.title,
+		textSize = 16,
+		xAlign = Enum.TextXAlignment.Center,
+		wrapped = true,
+	})
+	nameLabel.LayoutOrder = 1
+
+	local art = Instance.new("ImageLabel")
+	art.Name = "CardArt"
+	art.LayoutOrder = 2
+	art.Size = UDim2.new(1, 0, 0, 96)
+	art.BackgroundColor3 = COLOR.panel
+	art.BackgroundTransparency = 0.35
+	art.BorderSizePixel = 0
+	art.Image = ""
+	art.ScaleType = Enum.ScaleType.Fit
+	art.Parent = card
+
+	local artCorner = Instance.new("UICorner")
+	artCorner.CornerRadius = UDim.new(0, 10)
+	artCorner.Parent = art
+
+	local stats = UIKit.label(card, {
+		name = "CardStats",
+		size = UDim2.new(1, 0, 0, 50),
+		font = UIKit.Font.body,
+		textSize = 12,
+		color = COLOR.dim,
+		xAlign = Enum.TextXAlignment.Center,
+		yAlign = Enum.TextYAlignment.Top,
+		wrapped = true,
+	})
+	stats.LayoutOrder = 3
+
+	local buy = UIKit.button(card, {
+		name = "CardBuy",
+		size = UDim2.new(1, 0, 0, 34),
+		font = UIKit.Font.title,
+		textSize = 14,
+		cornerRadius = UDim.new(0, 10),
+		strokeThickness = UIKit.Stroke.thin,
+	})
+	buy.LayoutOrder = 4
+
+	return card
+end
+
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "StationHud"
@@ -145,7 +268,7 @@ local function build(): ScreenGui
 
 	local panel, panelStroke = UIKit.panel(gui, {
 		name = "Panel",
-		size = UDim2.fromOffset(620, 0),
+		size = UDim2.fromOffset(PANEL_WIDTH, 0),
 		position = UDim2.new(0.5, 0, 0.5, -Dock.RESERVE / 2),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		color = COLOR.panel,
@@ -174,40 +297,62 @@ local function build(): ScreenGui
 
 	local shopLayout = Instance.new("UIListLayout")
 	shopLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	shopLayout.Padding = UDim.new(0, 8)
+	shopLayout.Padding = UDim.new(0, 10)
 	shopLayout.Parent = shop
 
-	ui.shopUpgrade = UIKit.label(shop, {
-		name = "Upgrade",
+	-- The storefront row. AutomaticCanvasSize.X + a horizontal UIListLayout means the
+	-- canvas is whatever the visible cards add up to, so a 5-tier track scrolls less
+	-- far than an 8-tier one without anyone computing a canvas width.
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Name = "Cards"
+	scroll.LayoutOrder = 1
+	scroll.Size = UDim2.new(1, 0, 0, CARD_HEIGHT + 18)
+	scroll.BackgroundTransparency = 1
+	scroll.BorderSizePixel = 0
+	scroll.ScrollingDirection = Enum.ScrollingDirection.X
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.X
+	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.ScrollBarThickness = 6
+	scroll.ScrollBarImageColor3 = COLOR.dim
+	scroll.ScrollBarImageTransparency = 0.3
+	scroll.Parent = shop
+	ui.shopScroll = scroll
+
+	local cardLayout = Instance.new("UIListLayout")
+	cardLayout.FillDirection = Enum.FillDirection.Horizontal
+	cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	cardLayout.Padding = UDim.new(0, CARD_GAP)
+	cardLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+	cardLayout.Parent = scroll
+
+	ui.shopCards = {}
+	for index = 1, CARD_SLOTS do
+		table.insert(ui.shopCards, makeShopCard(scroll, index))
+	end
+
+	-- Shown instead of the row when a shop has no track behind it at all.
+	ui.shopEmpty = UIKit.label(shop, {
+		name = "Empty",
 		size = UDim2.new(1, 0, 0, 28),
 		font = UIKit.Font.body,
+		textSize = 16,
+		color = COLOR.dim,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "nothing for sale here",
+		visible = false,
+	})
+	ui.shopEmpty.LayoutOrder = 2
+
+	-- The wallet lives under the row, the way the reference storefront has it —
+	-- last thing you read before you decide, rather than a number in the header.
+	ui.shopCash = UIKit.label(shop, {
+		name = "Cash",
+		size = UDim2.new(1, 0, 0, 26),
+		font = UIKit.Font.title,
 		textSize = 18,
-		color = COLOR.amber,
-	})
-	ui.shopUpgrade.LayoutOrder = 1
-
-	ui.shopDeltas = UIKit.label(shop, {
-		name = "Deltas",
-		size = UDim2.fromScale(1, 0),
-		font = UIKit.Font.body,
-		textSize = 15,
 		color = COLOR.green,
-		yAlign = Enum.TextYAlignment.Top,
-		wrapped = true,
 	})
-	ui.shopDeltas.LayoutOrder = 2
-	ui.shopDeltas.AutomaticSize = Enum.AutomaticSize.Y
-
-	ui.buyButton = UIKit.button(shop, {
-		name = "Buy",
-		size = UDim2.new(1, 0, 0, 48),
-		font = UIKit.Font.body,
-		textSize = 19,
-		color = COLOR.amber,
-		fillTransparency = 0.25,
-		text = "BUY",
-	})
-	ui.buyButton.LayoutOrder = 3
+	ui.shopCash.LayoutOrder = 3
 
 	-- ── Plot mode (claim board) ─────────────────────────────────────────
 	-- Same reasoning as Shop mode: a claim board IS a station, so it reuses
@@ -332,7 +477,7 @@ local function build(): ScreenGui
 	ui.title = UIKit.label(panel, {
 		name = "Title",
 		size = UDim2.new(1, 0, 0, 30),
-		font = UIKit.Font.body,
+		font = UIKit.Font.title,
 		textSize = 26,
 		color = COLOR.text,
 	})
@@ -372,6 +517,12 @@ local function build(): ScreenGui
 	actions.Size = UDim2.new(1, 0, 0, 48)
 	actions.BackgroundTransparency = 1
 	actions.Parent = panel
+	-- Hiding the three buttons individually is not enough: UIListLayout skips
+	-- INVISIBLE children, so an empty-but-visible container still charges the panel
+	-- its full 48px plus a gap. Shop/plot/pedestal modes all hide every button in
+	-- here, and the shop is the tallest mode in the panel, so that dead band is the
+	-- cheapest 54px available.
+	ui.actions = actions
 
 	local actionLayout = Instance.new("UIListLayout")
 	actionLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -458,6 +609,74 @@ local function paintRow(row: TextButton, item, isSelected: boolean, scrubUid: st
 	row:SetAttribute("Uid", item.uid)
 end
 
+--- Four states, and only one of them is a button you can press.
+---
+--- OWNED and LOCKED both render as dead chrome on purpose, but they are not the same
+--- thing and must not look it: behind you (bought, greyed, price gone) versus ahead
+--- of you (still priced, still a goal). Collapsing them into one grey is how a shop
+--- stops communicating direction.
+local function paintShopCard(card: Frame, entry)
+	local nameLabel = card.CardName :: TextLabel
+	local stats = card.CardStats :: TextLabel
+	local buy = card.CardBuy :: TextButton
+	local cardStroke = card:FindFirstChildOfClass("UIStroke") :: UIStroke
+	local buyStroke = buy:FindFirstChildOfClass("UIStroke") :: UIStroke
+
+	nameLabel.Text = entry.name
+	stats.Text = table.concat(entry.stats, "\n")
+	card:SetAttribute("Buyable", entry.buyable == true)
+
+	if entry.current then
+		nameLabel.TextColor3 = COLOR.green
+		cardStroke.Color = COLOR.green
+		cardStroke.Thickness = UIKit.Stroke.normal
+		buy.Text = "EQUIPPED"
+		-- Light text on a green WASH, not green text on black. Saturated green at
+		-- 14px bold over near-black smears into an illegible bar at play-window
+		-- scale — the green still reads as "this one is yours" through the fill and
+		-- the card's stroke, where it has area to be seen in.
+		buy.TextColor3 = COLOR.text
+		buy.BackgroundColor3 = COLOR.green
+		buy.BackgroundTransparency = 0.78
+		buyStroke.Color = COLOR.green
+	elseif entry.owned then
+		nameLabel.TextColor3 = COLOR.dim
+		cardStroke.Color = COLOR.stroke
+		cardStroke.Thickness = UIKit.Stroke.thin
+		buy.Text = "OWNED"
+		buy.TextColor3 = COLOR.dim
+		buy.BackgroundColor3 = COLOR.panel
+		buy.BackgroundTransparency = 0.6
+		buyStroke.Color = COLOR.stroke
+	elseif entry.buyable then
+		nameLabel.TextColor3 = COLOR.text
+		cardStroke.Color = if entry.affordable then COLOR.green else COLOR.red
+		cardStroke.Thickness = UIKit.Stroke.normal
+		buy.Text = `Purchase  ${entry.price}`
+		-- Affordable is the ONE solid fill anywhere on this panel. Everything else
+		-- is outlined or washed, so the single thing worth clicking is the single
+		-- thing that looks clickable.
+		--
+		-- Can't-afford gets the same light-text-on-a-wash treatment as EQUIPPED, for
+		-- the same reason: saturated red at 14px bold over near-black smears into an
+		-- unreadable bar. The colour lives in the fill and the card stroke, where it
+		-- has the area to carry it.
+		buy.TextColor3 = if entry.affordable then COLOR.panel else COLOR.text
+		buy.BackgroundColor3 = if entry.affordable then COLOR.green else COLOR.red
+		buy.BackgroundTransparency = if entry.affordable then 0 else 0.8
+		buyStroke.Color = if entry.affordable then COLOR.green else COLOR.red
+	else
+		nameLabel.TextColor3 = COLOR.dim
+		cardStroke.Color = COLOR.stroke
+		cardStroke.Thickness = UIKit.Stroke.thin
+		buy.Text = `${entry.price}`
+		buy.TextColor3 = COLOR.dim
+		buy.BackgroundColor3 = COLOR.panel
+		buy.BackgroundTransparency = 0.6
+		buyStroke.Color = COLOR.stroke
+	end
+end
+
 local function render()
 	if state.station == nil then
 		ui.panel.Visible = false
@@ -474,32 +693,38 @@ local function render()
 	ui.shop.Visible = atShop
 	ui.plot.Visible = atPlot
 	ui.pedestal.Visible = atPedestal
+	-- Shop mode carries its own wallet line under the card row, so the header's
+	-- subtitle would just print the same number twice.
+	ui.subtitle.Visible = not atShop
+	ui.actions.Visible = not (atShop or atPlot or atPedestal)
+	-- Storefronts centre their sign; a station panel that is really a list keeps its
+	-- title on the same left margin as the rows underneath it.
+	ui.title.TextXAlignment = if atShop then Enum.TextXAlignment.Center else Enum.TextXAlignment.Left
+	ui.panel.Size = UDim2.fromOffset(if atShop then SHOP_PANEL_WIDTH else PANEL_WIDTH, 0)
 	if atShop then
 		local offer = state.offer
+		local tiers = if offer then offer.tiers else nil
+
 		ui.title.Text = `{string.upper(state.stationId or "SHOP")} SHOP`
 		ui.title.TextColor3 = COLOR.amber
 		ui.panelStroke.Color = COLOR.amber
-		ui.subtitle.Text = string.format("$%d", state.cash or 0)
 
-		if offer == nil then
-			ui.shopUpgrade.Text = "nothing for sale here"
-			ui.shopDeltas.Text = ""
-			ui.buyButton.Visible = false
-		elseif offer.maxed then
-			ui.shopUpgrade.Text = `{offer.currentName} \u{2014} best there is`
-			ui.shopUpgrade.TextColor3 = COLOR.green
-			ui.shopDeltas.Text = ""
-			ui.buyButton.Visible = false
-		else
-			ui.shopUpgrade.Text = `{offer.currentName}  \u{2192}  {offer.nextName}`
-			ui.shopUpgrade.TextColor3 = COLOR.amber
-			-- The deltas are the whole pitch. "radius 21 -> 27" sells the upgrade;
-			-- the tier's NAME means nothing to someone who has not memorised the list.
-			ui.shopDeltas.Text = table.concat(offer.deltas, "\n")
-			ui.buyButton.Visible = true
-			ui.buyButton.Text = `BUY  ${offer.price}`
-			ui.buyButton.TextColor3 = if offer.affordable then COLOR.amber else COLOR.red
+		local count = if tiers then #tiers else 0
+		ui.shopScroll.Visible = count > 0
+		ui.shopEmpty.Visible = count == 0
+
+		for index, card in ui.shopCards do
+			local entry = if tiers then tiers[index] else nil
+			card.Visible = entry ~= nil
+			if entry then
+				paintShopCard(card, entry)
+			end
 		end
+
+		-- Reads as the wallet, not as a stat line: this is the number the whole
+		-- row of prices is being compared against.
+		ui.shopCash.Text = string.format("You have  $%d", state.cash or 0)
+		ui.shopCash.TextColor3 = if offer and offer.maxed then COLOR.green else COLOR.text
 
 		for _, row in ui.rows do
 			row.Visible = false
@@ -746,13 +971,19 @@ function Station.start()
 		end
 	end)
 
-	ui.buyButton.MouseButton1Click:Connect(function()
-		-- Track only. The server re-derives which shop this is from where the
-		-- player is standing, so a crafted payload buys nothing.
-		if state.stationId then
-			actionRemote:FireServer({ action = "buy", track = state.stationId })
-		end
-	end)
+	-- Every card's button is bound, but only the one card the server marked buyable
+	-- does anything. The guard is presentation, not security: the request carries a
+	-- track and nothing else, and ShopService independently re-derives both the shop
+	-- you are standing at and which tier is next, so a click on a locked card cannot
+	-- buy that tier even if this check were removed.
+	for _, card in ui.shopCards do
+		local buy = card.CardBuy :: TextButton
+		buy.MouseButton1Click:Connect(function()
+			if card:GetAttribute("Buyable") and state.stationId then
+				actionRemote:FireServer({ action = "buy", track = state.stationId })
+			end
+		end)
+	end
 
 	ui.rackButton.MouseButton1Click:Connect(function()
 		if selected then

@@ -14,6 +14,13 @@
 	Resist the urge to add machinery here. Anything that fires an event on purchase
 	is duplicating a path that already works.
 
+	THE OFFER CARRIES THE WHOLE LADDER, THE BUY STILL SELLS ONE RUNG.
+	`offerFor` returns a `tiers` catalog — every tier of the track, worst first, each
+	tagged owned/current/buyable/affordable — because the panel draws all of them as
+	cards. That is presentation only. `buy()` below is unchanged and still sells
+	exactly `currentTier + 1`, so a client that renders a locked tier's card cannot
+	buy it by clicking harder: the request carries a track name, never a tier.
+
 	THE CLIENT IS NEVER TRUSTED ABOUT WHERE IT IS STANDING.
 	The buy request carries a track name and nothing else. The server independently
 	asks StationService which shop this player is actually at and refuses if it is
@@ -32,6 +39,25 @@ local StationService = require(script.Parent.StationService)
 
 local ShopService = {}
 
+--- One rung of the ladder, as the shop panel draws it.
+---
+--- `buyable` IS NOT `not owned`. Tiers are bought strictly in sequence — `buy()`
+--- below only ever sells `currentTier + 1` — so exactly one entry in a catalog is
+--- ever buyable and everything past it is visible-but-locked. The panel shows the
+--- locked ones anyway, on purpose: seeing the whole ladder is what makes the next
+--- rung worth buying, and a shop that only ever renders one item cannot tell you
+--- where the money goes.
+export type CatalogEntry = {
+	tier: number,
+	name: string,
+	price: number,
+	stats: { string },
+	owned: boolean, -- tier <= currentTier
+	current: boolean, -- tier == currentTier: what is in your hands now
+	buyable: boolean, -- tier == currentTier + 1
+	affordable: boolean, -- buyable AND you have the cash
+}
+
 export type Offer = {
 	track: string,
 	currentTier: number,
@@ -42,6 +68,7 @@ export type Offer = {
 	maxed: boolean,
 	affordable: boolean,
 	deltas: { string },
+	tiers: { CatalogEntry },
 }
 
 local function isTrack(track: string?): boolean
@@ -85,6 +112,75 @@ local function deltasBetween(current: any, next: any): { string }
 	return lines
 end
 
+--- 0.9970 and 0.9988 are two different suits; "1.00" and "1.00" are not. Suit
+--- `reduction` is the one stat whose whole ladder lives in the fourth decimal, so
+--- format wide and trim the trailing zeros rather than picking a fixed precision
+--- that flattens it. (`deltasBetween` above still uses %.2f — it only ever renders
+--- pairs that already differ, so it cannot collapse two rungs into one line.)
+local function num(value: number): string
+	if value % 1 == 0 then
+		return tostring(value)
+	end
+	local s = string.format("%.4f", value)
+	s = string.gsub(s, "0+$", "")
+	s = string.gsub(s, "%.$", "")
+	return s
+end
+
+--- `maxRarity` is a field name; "max rarity" is a label. The catalog is read by a
+--- player, not by whoever wrote Config/Gear.
+local function pretty(key: string): string
+	local spaced = string.gsub(key, "(%l)(%u)", "%1 %2")
+	return string.lower(spaced)
+end
+
+--- Everything this tier IS, rather than what it adds. Absolute stats on every card
+--- so the ladder can be read across — deltas describe one step and are useless for
+--- comparing rung 2 against rung 7 at a glance.
+local function statLines(def: any): { string }
+	local lines = {}
+	for key, value in def do
+		if key == "name" or key == "price" then
+			continue
+		end
+		if type(value) == "number" then
+			table.insert(lines, `{pretty(key)} {num(value)}`)
+		elseif type(value) == "boolean" and value then
+			table.insert(lines, pretty(key))
+		end
+	end
+	table.sort(lines)
+	return lines
+end
+
+--- Every tier of `track`, worst first, tagged with where the player sits on it.
+---
+--- Worst-first needs no sorting: Config/Gear already lists each track in ascending
+--- tier order, and `Gear.tier(track, n)` indexes that list directly. If a track is
+--- ever reordered there, this comes out reordered too — which is correct, since the
+--- tier NUMBER is the thing the profile stores.
+local function catalogFor(data: any, track: string): { CatalogEntry }
+	local currentTier = data.gear[Gear.profileKey(track)] or 1
+	local entries = {}
+
+	for tier = 1, Gear.maxTier(track) do
+		local def = Gear.tier(track, tier)
+		local buyable = tier == currentTier + 1
+		table.insert(entries, {
+			tier = tier,
+			name = def.name,
+			price = def.price,
+			stats = statLines(def),
+			owned = tier <= currentTier,
+			current = tier == currentTier,
+			buyable = buyable,
+			affordable = buyable and data.cash >= def.price,
+		})
+	end
+
+	return entries
+end
+
 --- Pure. Safe to call every tick to drive the panel.
 function ShopService.offerFor(data: any, track: string): Offer?
 	if not isTrack(track) or data == nil then
@@ -107,6 +203,7 @@ function ShopService.offerFor(data: any, track: string): Offer?
 			maxed = true,
 			affordable = false,
 			deltas = {},
+			tiers = catalogFor(data, track),
 		}
 	end
 
@@ -123,6 +220,7 @@ function ShopService.offerFor(data: any, track: string): Offer?
 		maxed = false,
 		affordable = data.cash >= nextDef.price,
 		deltas = deltasBetween(currentDef, nextDef),
+		tiers = catalogFor(data, track),
 	}
 end
 
