@@ -10,13 +10,23 @@
 	verbs, because that is the design's actual shape — the decon station is where the
 	clock stops and dirt comes off, the trader is only a till.
 
-	THE PANEL NOW SITS AT TRUE SCREEN-CENTRE, BIASED UPWARD. DetectorController's
-	scope/status/dig-button and InventoryController's hotbar never hide, even away
-	from a station — see UIKit.Dock.RESERVE — so a literal screen-centre anchor would
-	sit inside the dock's reserved band more often than not. `Position = UDim2.new(0.5,
-	0, 0.5, -Dock.RESERVE / 2)` centres this panel in whatever space is left ABOVE the
-	dock instead, at any resolution — the offset is algebraically equivalent to
-	`(screenHeight - RESERVE) / 2`, so it needs no per-resolution tuning.
+	THE PANEL SITS AT LITERAL SCREEN-CENTRE, AND IT DID NOT USED TO.
+	It was anchored at `UDim2.new(0.5, 0, 0.5, -Dock.RESERVE / 2)` — centred in the
+	space left ABOVE the dock rather than on the screen — because the dock's status
+	line, dig button, radar scope and hotbar never hide, even away from a station.
+	That bias is 173px of lift, and with the shop's cards it read as a panel stuck to
+	the top of the screen rather than a panel in the middle of it.
+
+	Two things make plain `fromScale(0.5, 0.5)` safe now. The radar scope is gone, so
+	the instrument band lost 36px and RESERVE fell with it; and the status line is
+	blank whenever you are out of a zone, which is exactly when a station panel is
+	open (every station is in the zero-rad plaza). What is left below the centred
+	panel is the dig button and the hotbar, both far enough down to clear it.
+
+	This is the one thing here that is resolution-DEPENDENT rather than derived: a
+	tall panel on a short viewport can still reach the dig button. StationHud's
+	DisplayOrder (40) is below DetectorHud's (60), so the button wins that overlap
+	rather than being hidden under the panel.
 
 	THE SHOP IS A STOREFRONT, NOT A PROMPT. It used to render exactly one thing —
 	"Bent Coil → Scavenger MkI", the deltas between them, and a BUY button — which
@@ -47,8 +57,9 @@ local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
 local Net = require(Shared.Net)
 
+-- No `Dock` alias any more: this panel is centred on the screen rather than on the
+-- space above the dock, so it no longer reads Dock.RESERVE. See the header.
 local UIKit = require(script.Parent.Parent.UIKit)
-local Dock = UIKit.Dock
 
 local Station = {}
 
@@ -70,15 +81,18 @@ local LOCKER_ROWS = 3
 -- that rebuilds its children on every StationState tick would churn 8 frames' worth
 -- of instances ten times a second.
 local CARD_SLOTS = 8
-local CARD_WIDTH = 176
-local CARD_HEIGHT = 260
-local CARD_GAP = 12
+local CARD_WIDTH = 240
+local CARD_HEIGHT = 376
+local CARD_GAP = 16
 
--- The panel widens for shop mode only. 620 fits three cards and a sliver, which
--- reads as "the row was cut off" rather than "the row scrolls"; 760 shows four
--- whole ones and leaves the scroll obviously a scroll.
+-- The panel widens for shop mode only, and the width is DERIVED from the card size
+-- rather than typed: four whole cards, their three gaps, the panel's own padding, and
+-- a deliberate 30px sliver of the fifth. The sliver is the scroll affordance — four
+-- cards ending flush at the edge reads as "that is the whole stock", and nobody
+-- scrolls a row they believe they can already see all of.
+local PANEL_PAD = 16
 local PANEL_WIDTH = 620
-local SHOP_PANEL_WIDTH = 760
+local SHOP_PANEL_WIDTH = 4 * CARD_WIDTH + 3 * CARD_GAP + 2 * PANEL_PAD + CARD_GAP + 30
 
 local ui = {}
 local state = { station = nil, items = {}, locker = {} }
@@ -189,27 +203,27 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	card.LayoutOrder = order
 
 	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 10)
-	pad.PaddingBottom = UDim.new(0, 10)
-	pad.PaddingLeft = UDim.new(0, 10)
-	pad.PaddingRight = UDim.new(0, 10)
+	pad.PaddingTop = UDim.new(0, 14)
+	pad.PaddingBottom = UDim.new(0, 14)
+	pad.PaddingLeft = UDim.new(0, 14)
+	pad.PaddingRight = UDim.new(0, 14)
 	pad.Parent = card
 
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 6)
+	layout.Padding = UDim.new(0, 8)
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.Parent = card
 
-	-- 36 + 96 + 50 + 34 plus three 6px gaps = 234, inside the 240 the padding
+	-- 48 + 150 + 72 + 46 plus three 8px gaps = 340, inside the 348 the padding
 	-- leaves. Fixed heights rather than AutomaticSize: every card in the row has to
 	-- put its button on the same baseline, and a 2-line name on one card must not
 	-- push that card's button below its neighbours'.
 	local nameLabel = UIKit.label(card, {
 		name = "CardName",
-		size = UDim2.new(1, 0, 0, 36),
+		size = UDim2.new(1, 0, 0, 48),
 		font = UIKit.Font.title,
-		textSize = 16,
+		textSize = 20,
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
 	})
@@ -218,7 +232,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	local art = Instance.new("ImageLabel")
 	art.Name = "CardArt"
 	art.LayoutOrder = 2
-	art.Size = UDim2.new(1, 0, 0, 96)
+	art.Size = UDim2.new(1, 0, 0, 150)
 	art.BackgroundColor3 = COLOR.panel
 	art.BackgroundTransparency = 0.35
 	art.BorderSizePixel = 0
@@ -227,14 +241,14 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	art.Parent = card
 
 	local artCorner = Instance.new("UICorner")
-	artCorner.CornerRadius = UDim.new(0, 10)
+	artCorner.CornerRadius = UDim.new(0, 12)
 	artCorner.Parent = art
 
 	local stats = UIKit.label(card, {
 		name = "CardStats",
-		size = UDim2.new(1, 0, 0, 50),
+		size = UDim2.new(1, 0, 0, 72),
 		font = UIKit.Font.body,
-		textSize = 12,
+		textSize = 15,
 		color = COLOR.dim,
 		xAlign = Enum.TextXAlignment.Center,
 		yAlign = Enum.TextYAlignment.Top,
@@ -244,10 +258,10 @@ local function makeShopCard(parent: Instance, order: number): Frame
 
 	local buy = UIKit.button(card, {
 		name = "CardBuy",
-		size = UDim2.new(1, 0, 0, 34),
+		size = UDim2.new(1, 0, 0, 46),
 		font = UIKit.Font.title,
-		textSize = 14,
-		cornerRadius = UDim.new(0, 10),
+		textSize = 17,
+		cornerRadius = UDim.new(0, 12),
 		strokeThickness = UIKit.Stroke.thin,
 	})
 	buy.LayoutOrder = 4
@@ -259,7 +273,15 @@ local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "StationHud"
 	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
+	-- FALSE, AND THIS IS THE WHOLE "IT LOOKS TOO HIGH" BUG. IgnoreGuiInset = true
+	-- shifts a ScreenGui's origin UP by the topbar inset (58px here), so a child at
+	-- Position 0.5/AnchorPoint 0.5 centres in a coordinate space that starts above
+	-- the screen — it measures as perfectly centred and renders 58px high. Every
+	-- other HUD wants that, because they anchor to the BOTTOM edge where the inset
+	-- does not matter. This panel is the only one anchored to the middle, so it is
+	-- the only one the inset misplaces. With it off, the panel centres in the region
+	-- the player can actually see, below the topbar.
+	gui.IgnoreGuiInset = false
 	-- Below the dock (60) on purpose — see the file header. The rad meter and the
 	-- hotbar never hide, and exposure from a hot bag keeps accruing even while this
 	-- panel is open, so the dock is the one thing that should never end up covered.
@@ -269,7 +291,7 @@ local function build(): ScreenGui
 	local panel, panelStroke = UIKit.panel(gui, {
 		name = "Panel",
 		size = UDim2.fromOffset(PANEL_WIDTH, 0),
-		position = UDim2.new(0.5, 0, 0.5, -Dock.RESERVE / 2),
+		position = UDim2.fromScale(0.5, 0.5),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		color = COLOR.panel,
 		transparency = 0.08,
@@ -347,9 +369,9 @@ local function build(): ScreenGui
 	-- last thing you read before you decide, rather than a number in the header.
 	ui.shopCash = UIKit.label(shop, {
 		name = "Cash",
-		size = UDim2.new(1, 0, 0, 26),
+		size = UDim2.new(1, 0, 0, 34),
 		font = UIKit.Font.title,
-		textSize = 18,
+		textSize = 24,
 		color = COLOR.green,
 	})
 	ui.shopCash.LayoutOrder = 3
@@ -462,11 +484,13 @@ local function build(): ScreenGui
 	})
 	ui.undisplayButton.LayoutOrder = 3
 
+	-- PANEL_PAD, not a literal 16: SHOP_PANEL_WIDTH is derived from this, so a typed
+	-- number here would silently stop four cards fitting the moment it was retuned.
 	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 16)
-	padding.PaddingBottom = UDim.new(0, 16)
-	padding.PaddingLeft = UDim.new(0, 16)
-	padding.PaddingRight = UDim.new(0, 16)
+	padding.PaddingTop = UDim.new(0, PANEL_PAD)
+	padding.PaddingBottom = UDim.new(0, PANEL_PAD)
+	padding.PaddingLeft = UDim.new(0, PANEL_PAD)
+	padding.PaddingRight = UDim.new(0, PANEL_PAD)
 	padding.Parent = panel
 
 	local layout = Instance.new("UIListLayout")
@@ -476,9 +500,9 @@ local function build(): ScreenGui
 
 	ui.title = UIKit.label(panel, {
 		name = "Title",
-		size = UDim2.new(1, 0, 0, 30),
+		size = UDim2.new(1, 0, 0, 40),
 		font = UIKit.Font.title,
-		textSize = 26,
+		textSize = 32,
 		color = COLOR.text,
 	})
 	ui.title.LayoutOrder = 1

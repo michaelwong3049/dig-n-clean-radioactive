@@ -102,22 +102,28 @@ UIKit.Stroke = {
 }
 
 -- ── The dock ─────────────────────────────────────────────────────────────────────
--- One horizontal instrument band — [METER | DIG BUTTON | DIAL] — with the status
--- line above it, bag count below it, hotbar at the screen edge, and the detail card
--- floating above all of it when a slot is selected:
+-- One horizontal instrument band — [METER | DIG BUTTON] — with the status line above
+-- it, bag count below it, hotbar at the screen edge, and the detail card floating
+-- above all of it when a slot is selected:
 --
 --     ┌───────────────────────────────────────┐  <- Detail card (only if selected)
 --     │              Status line                │
---     │    [METER]   [DIG BUTTON]   [DIAL]      │  <- one shared baseline, 180px
+--     │    [METER]   [DIG BUTTON]                │  <- one shared baseline, 144px
 --     │              Bag count                  │
 --     │   [1][2][3][4][5][6][7][8][9]...        │  <- hotbar, screen edge
 --     └───────────────────────────────────────┘
 --
--- ONE WIDE BAND, NOT THREE STACKED ROWS. Meter, dig button and dial sit side by side
--- inside one INSTRUMENT_HEIGHT-tall band rather than stacking vertically, which would
--- cost roughly 300px on its own. That choice is the entire reason "bigger and
--- centered" does not also mean "covers the ground you are digging" — see RESERVE
--- below, which is the dock's total reserved height with no card open.
+-- THE RADAR SCOPE USED TO SIT TO THE BUTTON'S RIGHT and it is gone — removed on
+-- request, along with `Dock.SCOPE_DIAL` (180) and `Dock.DIAL_LEFT_OFFSET`. It was the
+-- tallest thing in the band, so INSTRUMENT_HEIGHT fell 180 -> 144 (the meter is now
+-- the tallest) and RESERVE fell with it. See DetectorController's header for what
+-- that costs: detector `clarity` no longer has anywhere on screen to be seen.
+--
+-- ONE WIDE BAND, NOT STACKED ROWS. Meter and dig button sit side by side inside one
+-- INSTRUMENT_HEIGHT-tall band rather than stacking vertically, which would cost
+-- roughly 200px on its own. That choice is the entire reason "bigger and centered"
+-- does not also mean "covers the ground you are digging" — see RESERVE below, which
+-- is the dock's total reserved height with no card open.
 --
 -- EVERY DOWNSTREAM POSITION IS A FORMULA OVER THESE, NEVER A FRESH NUMBER. That is
 -- the whole point: the old `-178` in InventoryController existed because nothing
@@ -141,15 +147,13 @@ Dock.BAGCOUNT_HEIGHT = 18
 
 Dock.METER_SIZE = UDim2.fromOffset(280, 144) -- was 240x46, then 280x60 before HEALTH joined RADS in one panel
 Dock.DIGBUTTON_SIZE = UDim2.fromOffset(260, 60) -- was 230x48
-Dock.SCOPE_DIAL = 180 -- was DetectorController.DIAL_SIZE 150
 
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(400, 136) -- was 330x116
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
-Dock.INSTRUMENT_HEIGHT =
-	math.max(Dock.METER_SIZE.Y.Offset, Dock.DIGBUTTON_SIZE.Y.Offset, Dock.SCOPE_DIAL)
+Dock.INSTRUMENT_HEIGHT = math.max(Dock.METER_SIZE.Y.Offset, Dock.DIGBUTTON_SIZE.Y.Offset)
 
 Dock.HOTBAR_BOTTOM = Dock.MARGIN_BOTTOM
 Dock.BAGCOUNT_BOTTOM = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP
@@ -157,19 +161,16 @@ Dock.INSTRUMENT_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT + Dock.GAP
 
--- The dock's total reserved height with no card open — StationController reads this
--- to bias its own center-anchor upward, into the region the dock does not cover,
--- rather than the literal screen center. See StationController.luau for the maths;
--- the short version is that the biased anchor collapses to (screenHeight - RESERVE)
--- / 2 at any resolution, so the panel always centers in whatever space is left above
--- the dock.
+-- The dock's total reserved height with no card open. IndexController still biases
+-- its own anchor upward by half of this so it lands in the space the dock does not
+-- cover; StationController deliberately does NOT any more (see its header — its
+-- panel is centered on the screen itself now, and clears the dock on its own).
 Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 
--- Dig button sits dead-center on X as the primary touch/click target; the dial sits
--- to its right, offset by half the button's width plus one gap. The meter now lives
--- on its own at the bottom-left screen edge (see HudController), so it no longer
--- needs a same-row offset from the button.
-Dock.DIAL_LEFT_OFFSET = Dock.DIGBUTTON_SIZE.X.Offset / 2 + Dock.INSTRUMENT_GAP
+-- The dig button sits dead-center on X as the primary touch/click target. The meter
+-- lives on its own at the bottom-left screen edge (see HudController), so it needs no
+-- same-row offset from the button — and with the radar scope gone, nothing sits to
+-- the button's right at all, which is why `DIAL_LEFT_OFFSET` no longer exists.
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace
