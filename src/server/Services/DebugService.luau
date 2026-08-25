@@ -274,6 +274,30 @@ COMMANDS["/cash"] = {
 	end,
 }
 
+COMMANDS["/speed"] = {
+	-- Sets Humanoid.WalkSpeed directly rather than routing through boots gear,
+	-- because there is currently nothing TO route through: StatResolver.
+	-- effectiveWalkSpeed exists and Spec.luau checks its math (PLAN §5.1), but
+	-- nothing in the live game ever assigns its result to a real Humanoid --
+	-- confirmed by grep, zero hits outside that one Spec check. Boots gear does
+	-- not actually change how fast you walk yet. Flagged, not fixed here; this
+	-- command exists to test speed without waiting on that.
+	help = "/speed <value> — set WalkSpeed directly (boots gear doesn't apply live yet, see comment)",
+	run = function(player, _sandbox, args)
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid == nil then
+			return "no character to move"
+		end
+		local value = tonumber(args[1])
+		if value == nil then
+			return "usage: /speed <value>"
+		end
+		humanoid.WalkSpeed = math.max(0, value)
+		return `WalkSpeed -> {humanoid.WalkSpeed}`
+	end,
+}
+
 COMMANDS["/pocket"] = {
 	help = "/pocket — hot pockets belong to ZoneService and arrive in Phase 4",
 	run = function(_player, _sandbox, _args)
