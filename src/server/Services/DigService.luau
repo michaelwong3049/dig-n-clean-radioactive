@@ -61,6 +61,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Zones = require(Shared.Config.Zones)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
+local ItemModels = require(Shared.ItemModels)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
@@ -476,14 +477,49 @@ end
 -- the world, and it is safe to: the player is already standing within DIG_RADIUS of
 -- it and has committed to the pull. The FIELD stays invisible — only the one thing
 -- you are actively hauling shows itself.
-local hauled: { [Player]: BasePart } = {}
+type Haul = {
+	itemId: string,
+	model: Model,
+	placeholder: BasePart?,
+}
+
+local hauled: { [Player]: Haul } = {}
 
 local function clearHaul(player: Player)
-	local part = hauled[player]
-	if part then
-		part:Destroy()
+	local haul = hauled[player]
+	if haul then
+		haul.model:Destroy()
 		hauled[player] = nil
 	end
+end
+
+local function createHaul(player: Player, signal: Signal): Haul
+	local item = Items.get(signal.itemId)
+	local model = ItemModels.create(item.model)
+	local placeholder: BasePart? = nil
+
+	if model == nil then
+		model = Instance.new("Model")
+		placeholder = Instance.new("Part")
+		placeholder.Name = "Placeholder"
+		placeholder.Size = Vector3.new(1.4, 1.4, 1.4)
+		placeholder.Material = Enum.Material.Metal
+		placeholder.Anchored = true
+		placeholder.CanCollide = false
+		placeholder.CanQuery = false
+		placeholder.CanTouch = false
+		placeholder.Parent = model
+	end
+
+	model.Name = `Haul_{player.Name}`
+	model:SetAttribute("ItemId", signal.itemId)
+	model.Parent = Workspace
+
+	return {
+		itemId = signal.itemId,
+		model = model,
+		placeholder = placeholder,
+	}
 end
 
 local function updateHaul(player: Player, signal: Signal, progress: number, rarityHint: string?)
@@ -492,24 +528,26 @@ local function updateHaul(player: Player, signal: Signal, progress: number, rari
 		return
 	end
 
-	local part = hauled[player]
-	if part == nil or part.Parent == nil then
-		part = Instance.new("Part")
-		part.Name = `Haul_{player.Name}`
-		part.Size = Vector3.new(1.4, 1.4, 1.4)
-		part.Anchored = true
-		part.CanCollide = false
-		part.CanQuery = false
-		part.Material = Enum.Material.Metal
-		part.Parent = Workspace
-		hauled[player] = part
+	local haul = hauled[player]
+	if haul == nil or haul.model.Parent == nil or haul.itemId ~= signal.itemId then
+		clearHaul(player)
+		haul = createHaul(player, signal)
+		hauled[player] = haul
 	end
 
 	-- Only wear a rarity colour if the detector was good enough to reveal it. A Bent
 	-- Coil user hauls up an anonymous lump and finds out when it breaks the surface.
-	part.Color = if rarityHint then Rarity.get(rarityHint).color else Color3.fromHex("6E6A62")
-	part.CFrame = CFrame.new(signal.position - Vector3.new(0, signal.depth * (1 - progress), 0))
-		* CFrame.Angles(0, progress * 8, 0)
+	-- Authored models keep their real materials; only not-yet-modelled placeholders
+	-- need this colour channel.
+	if haul.placeholder then
+		haul.placeholder.Color = if rarityHint then Rarity.get(rarityHint).color else Color3.fromHex("6E6A62")
+	end
+
+	haul.model:PivotTo(
+		CFrame.new(signal.position - Vector3.new(0, signal.depth * (1 - progress), 0))
+			* CFrame.Angles(0, progress * 8, 0)
+			* ItemModels.rotation(haul.model, "Haul")
+	)
 end
 
 local function unearth(player: Player, data: any, signal: Signal)
