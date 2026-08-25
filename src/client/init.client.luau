@@ -18,6 +18,7 @@ local ORDER = {
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
 	"AtmosphereController", -- per-zone fog; reads zoneId off ExposureState
 	"IndexController", -- the item index GUI; bottom-right button, reads IndexState + Unearthed
+	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"DebugHudController",
 }
 

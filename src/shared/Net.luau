@@ -49,6 +49,11 @@ local REMOTES: { [string]: string } = {
 	-- itself from Unearthed's itemId as new discoveries happen, so this never needs
 	-- to fire a second time.
 	IndexState = "RemoteEvent", -- server -> client, once per load
+
+	-- The persistent cash badge. Fires only when data.cash actually changes (sell,
+	-- spend, award, or a debug /cash) plus once on load -- not per tick, since cash
+	-- moves far less often than exposure does.
+	CashState = "RemoteEvent", -- server -> client, on change
 }
 
 local Net = {}

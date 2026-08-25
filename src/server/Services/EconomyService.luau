@@ -25,10 +25,25 @@ local Items = require(Shared.Config.Items)
 local Decay = require(Shared.Decay)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
+local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
 
 local EconomyService = {}
+
+local cashRemote: any = nil
+
+--- The wallet's one broadcast point, matching the file's own "one place to look"
+--- rule for MUTATING data.cash -- this is that rule's other half, for anyone who
+--- needs to tell the client it changed. DebugService's /cash calls this too, since
+--- it pokes data.cash directly the same way /gear pokes data.gear.
+function EconomyService.pushCash(player: Player)
+	local data = DataService.data(player)
+	if data == nil then
+		return
+	end
+	cashRemote:FireClient(player, data.cash)
+end
 
 --- Find an item in either the backpack or the Quarantine Locker. Returns the item,
 --- the list it lives in, and its index.
@@ -82,6 +97,7 @@ function EconomyService.sell(player: Player, uid: string): (boolean, string)
 
 	table.remove(list, index)
 	data.cash += value
+	EconomyService.pushCash(player)
 
 	local note = if clean then "" else ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
 	return true, `sold {def.name} for ${value}{note}`
@@ -111,6 +127,7 @@ function EconomyService.spend(player: Player, amount: number): (boolean, string)
 	end
 
 	data.cash -= price
+	EconomyService.pushCash(player)
 	return true, `paid ${price}`
 end
 
@@ -121,10 +138,21 @@ function EconomyService.award(player: Player, amount: number): boolean
 		return false
 	end
 	data.cash += math.max(0, math.floor(amount + 0.5))
+	EconomyService.pushCash(player)
 	return true
 end
 
-function EconomyService.init() end
-function EconomyService.start() end
+function EconomyService.init()
+	cashRemote = Net.get("CashState")
+end
+
+function EconomyService.start()
+	-- The initial snapshot, same shape as DigService's IndexState hook: a returning
+	-- player's badge should show their real balance from the first frame, not $0
+	-- until their next sell/spend.
+	DataService.onLoaded(function(player, _data)
+		EconomyService.pushCash(player)
+	end)
+end
 
 return EconomyService

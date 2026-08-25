@@ -39,6 +39,7 @@ local Net = require(Shared.Net)
 local DataService = require(script.Parent.DataService)
 local ZoneService = require(script.Parent.ZoneService)
 local ExposureService = require(script.Parent.ExposureService)
+local EconomyService = require(script.Parent.EconomyService)
 
 local Workspace = game:GetService("Workspace")
 
@@ -259,6 +260,10 @@ COMMANDS["/cash"] = {
 			return "usage: /cash <amount>"
 		end
 		data.cash = math.max(0, math.floor(amount))
+		-- Pokes data.cash directly, same as /gear does with data.gear -- so it also
+		-- has to push the badge itself rather than going through EconomyService's
+		-- own mutation paths.
+		EconomyService.pushCash(player)
 		return `cash -> ${data.cash}`
 	end,
 }
