@@ -101,17 +101,20 @@ local WADE_HEIGHT = 1.1
 local SEAM_BLEND = 25
 local SEAM_STEPS = 8
 
---- The chain's north/south boundary walls. Tile size is 8, not the plaza's 3.125
---- (Hub.tileRect) -- the chain runs ~2,390 studs long, so the plaza's fine grid
---- would be ~6,900 parts per side; 8 studs is ~1,050 per side and still plenty of
---- resolution for something seen mostly at walking distance, not underfoot.
-local WALL_HEIGHT = 28
+--- The chain's north/south boundary walls. Doubled to 56 tall and dropped to a
+--- 4-stud tile (from 28/8) after a live look -- ~8,400 parts per side at this size
+--- (2,390/4 x 56/4), noticeably more than the first pass's ~1,050 but still well
+--- inside what this file's own plaza-adjacent builders already tolerate (the plaza
+--- itself is 4,096 tiles alone).
+local WALL_HEIGHT = 56
 local WALL_THICKNESS = 4
-local WALL_TILE = 8
+local WALL_TILE = 4
 local WALL_DARK = "B5573A" -- rust
-local WALL_LIGHT = "D98B6B" -- salmon-tan; one uniform palette for the whole chain,
--- deliberately not tinted per zone -- an engineered containment barrier reads as
--- one consistent material, not something that shares each zone's own theme.
+local WALL_LIGHT = "9C4A2F" -- a close, subtly darker rust variant -- NOT the first
+-- pass's salmon-tan, which read as too bold a two-tone checker up close. One
+-- uniform palette for the whole chain either way, deliberately not tinted per
+-- zone -- an engineered containment barrier reads as one consistent material, not
+-- something that shares each zone's own theme.
 
 --- Paint the field in bands across X, one colour per stage, blended at the seams.
 ---
