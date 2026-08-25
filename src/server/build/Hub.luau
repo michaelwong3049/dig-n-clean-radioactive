@@ -92,29 +92,29 @@ Hub.PLAZA = { minX = -65, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY
 Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
 
 -- ── The floor ─────────────────────────────────────────────────────────────────
--- THE PLAZA IS A CHECKERBOARD OF STUDDED TILES, not one flat slab. At 200x200 a
--- single colour reads as a void with things parked on it: nothing tells you how big
--- the courtyard is or how far you have walked across it. A regular grid does both for
--- free, and classic Roblox studs are the cheapest way to get a surface that catches
--- the light instead of sitting there as a matte rectangle.
+-- THE PLAZA IS A CHECKERBOARD OF STUDDED TILES, not one flat slab. A single colour
+-- reads as a void with things parked on it: nothing tells you how big the courtyard
+-- is or how far you have walked across it. A regular grid does both for free, and
+-- classic Roblox studs are the cheapest way to get a surface that catches the light
+-- instead of sitting there as a matte rectangle.
 --
 -- TILES IS A COUNT PER AXIS, NOT A STUD SIZE, and it is the one number to turn when
--- the pattern reads wrong. 64 gives 200/64 = 3.125-stud tiles and 64^2 = 4096 of
--- them; halving it doubles the tile and quarters the part count.
+-- the pattern reads wrong. The plaza is 165 studs wide (PLAZA.maxX - PLAZA.minX,
+-- post "compact the plaza" pass — was 200 when this file's numbers were first
+-- picked), so 55 gives an exact 165/55 = 3-stud tile with no rounding, 55^2 = 3025
+-- of them.
 --
 -- Studs are laid out on a one-per-stud pitch centred on each face, so a tile whose
 -- side is a whole number of studs is the one that comes out exactly like the classic
--- brick: 50 gives 4-stud tiles wearing a clean 4x4. 3.125 rounds down to the same
--- 3x3 on every tile with an even hairline margin, which is why it still reads square
--- — but it is a rounding, not an alignment, and that is the reason to prefer 50, 40
--- or 25 over an arbitrary count if the studs ever start looking crowded.
+-- brick — which is why 55 was chosen over an arbitrary nearby count: it lands on
+-- exactly 3, not a rounding that happens to look close to 3.
 --
--- THE TILES ARE A CAP LAYER OVER A STRUCTURAL SLAB, rather than 4096 full-thickness
--- blocks. Two reasons: the plaza's exposed side stays one clean dark face instead of
--- a 64-tooth checkered stripe, and the slab is what everything actually stands on.
--- The slab's top is recessed by exactly CAP, so the walking surface is still
--- PLAZA.topY and nothing standing on the plaza has to move.
-Hub.TILES = 64
+-- THE TILES ARE A CAP LAYER OVER A STRUCTURAL SLAB, rather than thousands of
+-- full-thickness blocks. Two reasons: the plaza's exposed side stays one clean dark
+-- face instead of a many-toothed checkered stripe, and the slab is what everything
+-- actually stands on. The slab's top is recessed by exactly CAP, so the walking
+-- surface is still PLAZA.topY and nothing standing on the plaza has to move.
+Hub.TILES = 55
 local CAP = 0.4
 
 export type Rect = { minX: number, maxX: number, minZ: number, maxZ: number }
@@ -172,7 +172,8 @@ end
 --- continuing, not a patch laid over a hole.
 ---
 --- RECTANGLES DO NOT HAVE TO FALL ON TILE BOUNDARIES, and the ring around the plaza
---- does not: its edges come from pad sizes that have nothing to do with 3.125. Edge
+--- does not: its edges come from pad sizes that have nothing to do with the tile's 3
+--- studs. Edge
 --- tiles are CLIPPED to the rectangle rather than allowed to overhang it. That is not
 --- fussiness — the ring's east edge is Zone 1's west edge, and one tile of overhang
 --- there would put walkable, zero-rad floor inside the radioactive field.
@@ -247,9 +248,10 @@ local function buildPlaza(hub: Model)
 
 	Hub.groundSlab(hub, p, "Plaza", p.thickness)
 
-	-- Foldered because 4096 siblings makes the Hub model unopenable in the explorer,
-	-- and every one of them is the same decorative cap. The handful of parts that
-	-- actually matter stay visible next to the folder instead of buried in it.
+	-- Foldered because thousands of siblings (Hub.TILES^2) makes the Hub model
+	-- unopenable in the explorer, and every one of them is the same decorative cap.
+	-- The handful of parts that actually matter stay visible next to the folder
+	-- instead of buried in it.
 	local tiles = Instance.new("Folder")
 	tiles.Name = "Tiles"
 	Hub.tileRect(tiles, p)
