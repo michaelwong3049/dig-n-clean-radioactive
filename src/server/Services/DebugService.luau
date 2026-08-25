@@ -275,14 +275,14 @@ COMMANDS["/cash"] = {
 }
 
 COMMANDS["/speed"] = {
-	-- Sets Humanoid.WalkSpeed directly rather than routing through boots gear,
-	-- because there is currently nothing TO route through: StatResolver.
-	-- effectiveWalkSpeed exists and Spec.luau checks its math (PLAN §5.1), but
-	-- nothing in the live game ever assigns its result to a real Humanoid --
-	-- confirmed by grep, zero hits outside that one Spec check. Boots gear does
-	-- not actually change how fast you walk yet. Flagged, not fixed here; this
-	-- command exists to test speed without waiting on that.
-	help = "/speed <value> — set WalkSpeed directly (boots gear doesn't apply live yet, see comment)",
+	-- ExposureService now applies StatResolver.effectiveWalkSpeed to every player's
+	-- Humanoid every tick (10Hz), so boots gear DOES apply live as of the base-speed
+	-- pass -- this command's own override now only lasts until that next tick, at
+	-- most ~0.1s, before getting silently overwritten back to whatever the player's
+	-- actual gear/carry state computes to. Use `/gear boots <tier>` instead to test a
+	-- specific tier's speed for real, sustained through normal play; this command is
+	-- now only useful for a one-tick sanity check of the Humanoid itself.
+	help = "/speed <value> — set WalkSpeed directly for one tick (overwritten by boots gear immediately after; use /gear boots <tier> to test for real)",
 	run = function(player, _sandbox, args)
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")

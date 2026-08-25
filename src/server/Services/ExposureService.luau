@@ -298,6 +298,22 @@ local function stepPlayer(player: Player, dt: number)
 	local stats = StatResolver.get(data)
 	local zoneId = ZoneService.zoneOf(player)
 	local ambient = ZoneService.ambientFor(player)
+
+	-- BOOTS GEAR APPLIED LIVE, HERE, FOR THE SAME REASON THE DECAY CLOCK IS: this loop
+	-- already resolves `stats` (which carries `walkSpeed`/`haulPenalty` off the
+	-- player's current Boots tier) and already has `root`/`character` in hand for
+	-- every player, every tick. Before this, NOTHING ever wrote to Humanoid.WalkSpeed
+	-- outside the /speed debug command (see DebugService.luau) -- StatResolver.
+	-- effectiveWalkSpeed existed and Spec.luau checked its math, but no live system
+	-- actually applied it, so buying Boots did nothing you could feel. Recomputing it
+	-- every tick rather than hooking the purchase event follows ShopService's own
+	-- stated rule ("resist the urge to add machinery here... StatResolver.get() is
+	-- recomputed every tick, and ToolService... re-equips on a mismatch") -- the same
+	-- reason a new tier is in your hands within a third of a second with no event.
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.WalkSpeed = StatResolver.effectiveWalkSpeed(stats, #data.carry, false)
+	end
 	-- The decay clock. CarryService now EXISTS and is the obvious owner by name — it
 	-- deliberately does not take this, and the reason is ordering. Ticker fires in
 	-- boot order, CarryService boots after this service (it needs EconomyService),
