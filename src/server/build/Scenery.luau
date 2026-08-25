@@ -623,88 +623,19 @@ local function buildZoneScenery(parent: Instance, id: number)
 		canCollide = false,
 	})
 
-	-- Ooze pools first, so props sit on top of them.
-	local lightEvery = math.max(1, math.ceil(theme.pools / ZONE_LIGHT_BUDGET))
-	for index = 1, theme.pools do
-		local x, z = rng:NextNumber(-hx, hx), rng:NextNumber(-hz, hz)
-		local d = rng:NextNumber(18, 46)
-
-		-- Zone 1 only: pools thin out and shrink heading toward the west/life edge,
-		-- matching the OozeSurface fade above. t=0 at the untouched west edge, t=1
-		-- at the east edge bordering Zone 2.
-		if id == 1 then
-			local t = (x + hx) / (2 * hx)
-			if rng:NextNumber() < 0.75 * (1 - t) then
-				continue
-			end
-			d *= 0.35 + 0.65 * t
-		end
-
-		local pool = build(folder, origin, {
-			name = "OozePool",
-			pos = { x, SKIM, z },
-			-- A Cylinder's axis is its X size, so this is {thickness, diameter,
-			-- diameter}. Writing it {d, 0.5, d} makes a thin ellipse standing on
-			-- edge instead of a puddle -- which is exactly what the first pass did,
-			-- and why the fields looked like bare lawn.
-			size = { 0.5, d, d },
-			color = def.ooze.bright,
-			material = "Neon",
-			shape = "Cylinder",
-			rot = R.cylUp,
-			-- Near-opaque on purpose. Transparent Neon over a green plate is
-			-- invisible in daylight -- the first pass looked like a lawn.
-			transparency = 0.06,
-			canCollide = false,
-		})
-		-- A darker rim, so a pool reads as a hole full of something rather than as
-		-- a decal painted on the floor.
-		build(folder, origin, {
-			name = "OozeRim",
-			pos = { x, SKIM - 0.12, z },
-			size = { 0.4, d + 5, d + 5 },
-			color = def.ooze.deep,
-			material = "SmoothPlastic",
-			shape = "Cylinder",
-			rot = R.cylUp,
-			canCollide = false,
-		})
-		if index % lightEvery == 0 then
-			light(pool, def.ooze.glow, 26, 2)
-		end
-	end
-
-	-- Then barrels and set pieces on a jittered grid.
-	local cols = math.ceil(math.sqrt(theme.props))
-	local placed = 0
-	for row = 0, cols - 1 do
-		for col = 0, cols - 1 do
-			if placed >= theme.props then
-				break
-			end
-			placed += 1
-
-			local x = -hx + (col + 0.5) * (2 * hx / cols) + rng:NextNumber(-12, 12)
-			local z = -hz + (row + 0.5) * (2 * hz / cols) + rng:NextNumber(-12, 12)
-			x = math.clamp(x, -hx, hx)
-			z = math.clamp(z, -hz, hz)
-
-			if placed % 2 == 0 then
-				barrel(folder, origin, x, z, rng, def.ooze, placed % BARREL_LIGHT_EVERY == 0)
-			else
-				-- Zone 1's Outer Ash stage (the untouched west third, see LIFE FADING
-				-- INTO A DEAD WASTELAND) gets a mix of live "brush" and "liveTree"
-				-- instead of its zone's normal "trees" kind, which is already dead
-				-- wood everywhere else. Trees sparser than bushes -- a tree is a
-				-- landmark, not ground cover.
-				local kind = theme.kind
-				if id == 1 and x <= Zones.STAGES[1].maxX then
-					kind = if rng:NextNumber() < 0.3 then "liveTree" else "brush"
-				end
-				prop(folder, origin, kind, x, z, rng, def.ooze)
-			end
-		end
-	end
+	-- POOLS AND SCATTERED PROPS (OozePool/OozeRim, DeadTree/liveTree/brush, barrels,
+	-- houses/sirens/barriers/reactor/shards) DELIBERATELY REMOVED ON REQUEST, TO BE
+	-- REWORKED. This used to be two loops here: one scattering `theme.pools` ooze
+	-- pools (with Zone 1's own west-to-east thinning), and one scattering
+	-- `theme.props` set pieces on a jittered grid via `barrel`/`prop`. Both are gone
+	-- for now rather than commented out in place -- the full previous version,
+	-- including all its tuning rationale (pool counts per zone, the Zone 1 fade, the
+	-- brush/liveTree mix), is in git history on this file rather than left as dead
+	-- code here. `THEME`, `theme.pools`/`theme.props`, `prop()`, `barrel()`, and
+	-- `ZONE_LIGHT_BUDGET`/`BARREL_LIGHT_EVERY` are all still defined above and
+	-- untouched, ready for whatever replaces this. The OozeSurface wading plate above
+	-- stays -- that is the zone's colour-identity system (PLAN's "the coral one is
+	-- the detector shop" rule extended to zones), not a decoration.
 
 	folder.Parent = parent
 end
