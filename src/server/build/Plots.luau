@@ -129,7 +129,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 11
+local BUILDER_VERSION = 12
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -262,13 +262,40 @@ end
 --- east of the field's own west edge, the same clipping mechanism that already
 --- keeps the plaza's own east edge from overhanging into Zone 1 (`Hub.tileRect`
 --- clips every tile to the rect it's given).
+--- How far inside the plaza's own literal edge a tile's CENTRE has to land
+--- before this treats it as safely covered by the plaza's own floor and skips
+--- it here. NOT zero, and here is why: Hub.PLAZA is 140 studs in Z (70*2) and
+--- the tile grid is 3 studs (Hub.TILES) — 140 isn't a multiple of 3, so the
+--- plaza's own northmost/southmost tile ROW is a partial-height tile clipped
+--- to the plaza's real edge (exactly what Hub.tileRect's own header says edge
+--- tiles do, correctly, on its own). This apron's tiling is a SEPARATE,
+--- independently-clipped grid over a different, bigger rect, so its own tile
+--- touching that same edge has a different centre and a different clip. At
+--- zero margin a boundary tile whose centre lands JUST inside the plaza (by
+--- this apron's own grid) got skipped here on the assumption the plaza already
+--- covers it -- but the plaza's own clipped tile does NOT reach as far as this
+--- apron tile's far edge, since the two grids clip independently. Net result,
+--- confirmed live: a real gap, one stud wide, running the length of the
+--- boundary, showing as a dark recessed seam (the structural backing slab
+--- underneath, visible through the missing cap). A full tile width of margin
+--- guarantees any tile whose true footprint reaches past the plaza's edge gets
+--- built here too, even though its centre reads as "inside" — redundant with
+--- the plaza's own edge tile there, but a doubled, coincident, same-colour,
+--- same-height tile is invisible, unlike the seam it replaces.
+local PLAZA_SKIP_MARGIN = 3
+
 local function apronSkip(x: number, z: number): boolean
 	local dx, dz = x - Plots.RING_CENTER.x, z - Plots.RING_CENTER.z
 	if dx * dx + dz * dz > Plots.RING_OUTER * Plots.RING_OUTER then
 		return true -- outside the disc
 	end
-	if x > PLAZA.minX and x < PLAZA.maxX and z > PLAZA.minZ and z < PLAZA.maxZ then
-		return true -- the plaza already has its own floor
+	if
+		x > PLAZA.minX + PLAZA_SKIP_MARGIN
+		and x < PLAZA.maxX - PLAZA_SKIP_MARGIN
+		and z > PLAZA.minZ + PLAZA_SKIP_MARGIN
+		and z < PLAZA.maxZ - PLAZA_SKIP_MARGIN
+	then
+		return true -- safely inside the plaza's own floor, well past its edge tiles
 	end
 	for _, c in Plots.CENTERS do
 		if Kit.pointInOrientedRect(x, z, padRect(c)) then
