@@ -11,12 +11,14 @@
 	true by construction and costs nothing to enforce. For a young audience that is
 	the single most legible rule in the game, and it is free.
 
-	THE PLOTS RING IT AS A SEMICIRCLE. Six pads on the exterior of a circle centred
-	on the plaza's own midpoint, each rotated to face the shop cluster at the
-	centre. The eastern half is open — the plaza connects straight through to Zone
-	1 there, same as always — so the ring only occupies the western 180 degrees;
-	you still walk out of the courtyard directly into the sludge. See Plots.luau
-	for the actual circle math (Plots.RING_CENTER/RING_RADIUS/RING_ANGLES).
+	THE PLOTS RING IT AS A SEMICIRCLE. Six pads on the exterior of a circle pulled
+	toward Zone 1 (not centred on the plaza's own midpoint any more — see
+	Plots.luau's own comment on RING_CENTER for why), each rotated to face the
+	shop cluster at the centre. The eastern half is open — the plaza connects
+	straight through to Zone 1 there, same as always — so the ring only occupies
+	the western 180 degrees; you still walk out of the courtyard directly into
+	the sludge. See Plots.luau for the actual circle math
+	(Plots.RING_CENTER/RING_RADIUS/RING_ANGLES).
 
 	NO CONNECTOR ROADS. The plaza used to be a fixed 160x160 square with paved strips
 	running out to a plot spine and to the field. Per the requested layout (plots —

@@ -129,7 +129,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 9
+local BUILDER_VERSION = 10
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -142,14 +142,24 @@ Plots.VISIBLE_SLOTS = 8
 -- silently becoming a different absolute step.
 Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3 }
 
---- THE RING. Six pads on the exterior of a circle centred on the plaza's own
---- midpoint, each rotated to face the centre.
+--- THE RING. Six pads on the exterior of a circle pulled toward Zone 1, each
+--- rotated to face the centre.
 ---
 --- DERIVED FROM Hub.PLAZA, NOT HAND-SYNCED TO IT — same property the rectangular
 --- ring before this had: the plaza is the source, this reads it, and moving the
 --- plaza moves the ring with it. Hub requires only Kit, so requiring it here is
 --- not circular.
 ---
+--- RING_CENTER USED TO BE THE PLAZA'S OWN MIDPOINT (MID_X, MID_Z) — moved
+--- toward Zone 1 on request, to shorten the walk from the shop cluster to the
+--- field. How far it could move is bounded by the shop cluster's OWN footprint,
+--- not by the pads: `SHOP_CLUSTER_EAST_REACH` below is Shops.luau's own
+--- eastmost stall (the "Cleaner" counter, `at.x` = centre + 42) plus its own
+--- ~11-stud half-width — the shop cluster, not any pad, is the first thing that
+--- would cross into Zone 1 if this moved further east than it does.
+--- `FIELD_CLEARANCE` is the margin kept past that. (The pads have far more room
+--- to spare here — see World.verify()'s own overlap checks, which are the real
+--- authority on safety, not this comment.)
 --- `facing` is a yaw in degrees. A pad is built with its back wall at +Z and its
 --- claim board at -Z, so 0 faces south, 180 faces north, -90 faces east — and
 --- because every pad's position below is constructed as
@@ -179,9 +189,11 @@ Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3
 --- between the last pad short of due-north and the first pad short of due-south.
 local PLAZA = Hub.PLAZA
 local HALF_W, HALF_D = Plots.PAD.width / 2, Plots.PAD.depth / 2
-local MID_X, MID_Z = (PLAZA.minX + PLAZA.maxX) / 2, (PLAZA.minZ + PLAZA.maxZ) / 2
+local MID_Z = (PLAZA.minZ + PLAZA.maxZ) / 2
 
-Plots.RING_CENTER = { x = MID_X, z = MID_Z }
+local SHOP_CLUSTER_EAST_REACH = 53
+local FIELD_CLEARANCE = 15
+Plots.RING_CENTER = { x = PLAZA.maxX - SHOP_CLUSTER_EAST_REACH - FIELD_CLEARANCE, z = MID_Z }
 
 --- Pad-CENTRE orbit radius. 180 gives a uniform ~16-stud gap between every one
 --- of the 6 pads' oriented rectangles at 30-degree spacing (checked with real
@@ -194,10 +206,17 @@ Plots.RING_RADIUS = 180
 
 --- The walkway's outer disc radius — has to clear the farthest PAD CORNER from
 --- RING_CENTER, not just the farthest pad centre: `sqrt((RING_RADIUS+HALF_D)^2 +
---- HALF_W^2)` = ~208.6 studs. 215 leaves a safety margin over that reach. Also
---- what World.verify()'s reachability check uses as the ring's landmass bound —
---- see that function's own comment.
-Plots.RING_OUTER = 215
+--- HALF_W^2)` = ~208.6 studs.
+---
+--- 290, NOT A TIGHT FIT OVER THAT REACH, ON REQUEST — the disc used to stop
+--- barely 6 studs past the pads' own farthest corner, which read as the
+--- walkway ending right where the pads do rather than as land the camp sits
+--- on. The extra ~80 studs is a real buffer of tiled ground beyond every pad
+--- in every direction, not a tighter safety margin on the same number: nothing
+--- else in this file needed to change for it, since `apronSkip`, the backing
+--- bands and World.verify()'s landmass square all already read this constant
+--- rather than a hardcoded reach.
+Plots.RING_OUTER = 290
 
 --- 30-degree spacing, sector MIDPOINTS (see this section's own comment above for
 --- why not the sector edges). Order matches the numbering diagram above.

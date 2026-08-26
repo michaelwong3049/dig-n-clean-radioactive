@@ -64,15 +64,29 @@
 	Z MOVED TOO, WHEN THE BASE RING BECAME A SEMICIRCLE. The two rows used to sit at
 	the edges of a plaza the pad ring surrounded on three sides (stalls z=45,
 	Outfitter z=-48); now that all six pads face one central shop cluster
-	(Plots.luau's RING_CENTER, which is this same plaza midpoint), the two rows
-	pulled in tight around it instead: stalls z=45 -> 22, Outfitter z=-48 -> -22,
-	symmetric about z=0. That leaves a clean 20-stud aisle between them (a stall
-	deck's southmost point at z=7, the Outfitter's northmost wall at z=-13) and puts
-	the whole cluster's farthest reach from centre at only ~60 studs — well short of
-	the new ring's 154-stud inner pad edge, so every pad has a clear, unobstructed
-	line of sight to the cluster it's built to face. Each shop's own internal facing
-	(stalls south, Outfitter north) is untouched — only the row positions moved, not
-	which way anything points.
+	(Plots.luau's RING_CENTER), the two rows pulled in tight around it instead:
+	stalls z=45 -> 22, Outfitter z=-48 -> -22, symmetric about z=0. That leaves a
+	clean 20-stud aisle between them (a stall deck's southmost point at z=7, the
+	Outfitter's northmost wall at z=-13) and puts the whole cluster's farthest
+	reach from centre at only ~60 studs — well short of the ring's 154-stud inner
+	pad edge, so every pad has a clear, unobstructed line of sight to the cluster
+	it's built to face. Each shop's own internal facing (stalls south, Outfitter
+	north) is untouched — only the row positions moved, not which way anything
+	points.
+
+	X MOVED AGAIN, WHEN RING_CENTER PULLED TOWARD ZONE 1. RING_CENTER is no
+	longer the plaza's own midpoint (see Plots.luau's own comment on why) — it
+	moved from x=17.5 to x=32, so every X here carries that same +14.5 to stay
+	centred under it, same reasoning as the +17.5 correction above. THIS ROW'S
+	OWN FOOTPRINT IS WHAT CAPPED HOW FAR RING_CENTER COULD MOVE, not the pads —
+	the eastmost stall (Cleaner, at.x = centre + 42) plus its own ~11-stud
+	half-width is the first thing that would cross into Zone 1 (world x=100) if
+	pushed further; Plots.luau's SHOP_CLUSTER_EAST_REACH constant is that exact
+	number, kept in sync with these three x values by hand since this file has no
+	way to read Plots.luau's own layout (Plots requires Hub, and Hub requires
+	only Kit — a Shops<->Plots require would be fine on its own, but this file
+	stays a pure reskin of positions Plots.luau already computed, not a new
+	dependency, for the same reason the Z move above didn't add one either).
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -86,7 +100,7 @@ local Hub = require(script.Parent.Hub)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 10
+local BUILDER_VERSION = 11
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -95,16 +109,16 @@ local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 --- cluster's own centre (Plots.RING_CENTER) that every base on the semicircle
 --- faces in turn.
 local STALLS = {
-	{ track = "Detector", at = { -24.5, 22 }, color = C.shopDetector, tagline = "find it deeper" },
-	{ track = "Magnet", at = { 17.5, 22 }, color = C.shopMagnet, tagline = "pull it harder" },
-	{ track = "Cleaner", at = { 59.5, 22 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
+	{ track = "Detector", at = { -10, 22 }, color = C.shopDetector, tagline = "find it deeper" },
+	{ track = "Magnet", at = { 32, 22 }, color = C.shopMagnet, tagline = "pull it harder" },
+	{ track = "Cleaner", at = { 74, 22 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
 }
 
 --- The outfitter's three counters, on one bench facing the stalls across the
 --- shop cluster's own centre aisle. Radius 6 at a 13-stud pitch, so no two
 --- counters' circles overlap and standing at one is unambiguous.
 local OUTFITTER = {
-	at = { 17.5, -22 },
+	at = { 32, -22 },
 	pitch = 13,
 	counters = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },
