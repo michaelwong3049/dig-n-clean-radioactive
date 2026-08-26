@@ -14,7 +14,7 @@
 	A backpack is static for most of a run. Streaming twenty described items ten times
 	a second to say "still the same twenty items" is most of a remote's budget spent on
 	nothing. This fires only when the bag's SIGNATURE moves, which in practice is on a
-	pull, a sale, a scrub tick, a stage transition and a dock. What counts as the
+	pull, a sale, a scrub tick, a condition transition and a dock. What counts as the
 	signature is spelled out at signatureOf, and the rule that keeps this honest is
 	there too: anything the client can render has to be in it, or it goes stale.
 
@@ -73,7 +73,7 @@ function CarryService.describe(item: any, stats: any): any
 	local def = Items.get(item.itemId)
 	local patches = item.patches or {}
 	local value, clean = EconomyService.valueOf(item, stats)
-	local _, stage = Decay.stageOf(item, stats.satchelFuseMult)
+	local _, condition = Decay.conditionOf(item, stats.satchelFuseMult)
 	local blocked = Contamination.blockedBy(patches, stats.cleanPotency)
 
 	-- What this item would earn per second on a pedestal, IF you displayed it —
@@ -101,7 +101,7 @@ function CarryService.describe(item: any, stats: any): any
 		needs = if blocked then CarryService.cleanerNameFor(blocked) else nil,
 		value = value,
 		perSecond = perSecond,
-		stage = stage.name,
+		condition = condition.name,
 		elapsed = item.elapsed,
 		frozen = item.frozen,
 	}
@@ -112,7 +112,7 @@ end
 --- has to be, because ANYTHING the card can render but the signature cannot see is a
 --- field that silently goes stale on the client forever.
 ---
---- That is not hypothetical. The first version was uid + stage + value + clean, and
+--- That is not hypothetical. The first version was uid + condition + value + clean, and
 --- `frozen` is none of those: docking at a station stopped the clocks server-side
 --- while the hotbar carried on counting down, because nothing in the signature had
 --- moved. The rule when adding to the payload is to add here too.
@@ -128,7 +128,7 @@ local function signatureOf(described: { any }, capacity: number): string
 	for _, item in described do
 		table.insert(
 			parts,
-			`{item.uid}:{item.stage}:{item.value}:{item.perSecond}:{tostring(item.clean)}:{tostring(item.frozen)}:{#item.patches}:{tostring(item.blockedBy)}`
+			`{item.uid}:{item.condition}:{item.value}:{item.perSecond}:{tostring(item.clean)}:{tostring(item.frozen)}:{#item.patches}:{tostring(item.blockedBy)}`
 		)
 	end
 	return table.concat(parts, "|")

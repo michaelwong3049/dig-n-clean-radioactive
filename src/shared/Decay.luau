@@ -33,27 +33,27 @@ function Decay.fuseFor(item: CarriedItem, satchelFuseMult: number): number
 	return base * satchelFuseMult * mod.fuseMult
 end
 
---- Returns stage index (1..4) and the definition. Fresh / Hot / Critical / Slag.
-function Decay.stageOf(item: CarriedItem, satchelFuseMult: number): (number, any)
+--- Returns condition index (1..4) and the definition. Fresh / Hot / Critical / Slag.
+function Decay.conditionOf(item: CarriedItem, satchelFuseMult: number): (number, any)
 	local fuse = Decay.fuseFor(item, satchelFuseMult)
 	if fuse == math.huge or fuse <= 0 then
-		return 1, Tuning.DECAY_STAGES[1] -- Prewar Sealed never starts
+		return 1, Tuning.DECAY_CONDITIONS[1] -- Prewar Sealed never starts
 	end
 
 	local multiple = item.elapsed / fuse
 	local index = 1
-	for i = #Tuning.DECAY_STAGES, 1, -1 do
-		if multiple >= Tuning.DECAY_STAGES[i].atFuseMultiple then
+	for i = #Tuning.DECAY_CONDITIONS, 1, -1 do
+		if multiple >= Tuning.DECAY_CONDITIONS[i].atFuseMultiple then
 			index = i
 			break
 		end
 	end
-	return index, Tuning.DECAY_STAGES[index]
+	return index, Tuning.DECAY_CONDITIONS[index]
 end
 
---- Seconds until this item drops to the NEXT stage. math.huge if it is already Slag
+--- Seconds until this item drops to the NEXT condition. math.huge if it is already Slag
 --- or frozen. This is what the fuse bar counts down.
-function Decay.secondsToNextStage(item: CarriedItem, satchelFuseMult: number): number
+function Decay.secondsToNextCondition(item: CarriedItem, satchelFuseMult: number): number
 	if item.frozen then
 		return math.huge
 	end
@@ -62,21 +62,21 @@ function Decay.secondsToNextStage(item: CarriedItem, satchelFuseMult: number): n
 		return math.huge
 	end
 
-	local index = Decay.stageOf(item, satchelFuseMult)
-	local nextStage = Tuning.DECAY_STAGES[index + 1]
-	if not nextStage then
+	local index = Decay.conditionOf(item, satchelFuseMult)
+	local nextCondition = Tuning.DECAY_CONDITIONS[index + 1]
+	if not nextCondition then
 		return math.huge
 	end
-	return (nextStage.atFuseMultiple * fuse) - item.elapsed
+	return (nextCondition.atFuseMultiple * fuse) - item.elapsed
 end
 
 --- rads/sec this single item contributes to the player right now.
 function Decay.emissionOf(item: CarriedItem, satchelFuseMult: number): number
-	local _, stage = Decay.stageOf(item, satchelFuseMult)
+	local _, condition = Decay.conditionOf(item, satchelFuseMult)
 	local order = Rarity.get(item.rarity).order
 	local base = Tuning.CARRY_EMISSION[order] or 0
 	local mod = Rarity.MODIFIERS[item.modifier] or Rarity.MODIFIERS.None
-	return base * stage.emission * mod.emissionMult
+	return base * condition.emission * mod.emissionMult
 end
 
 --- Total rads/sec from a whole backpack. Feeds Radiation.resolve().
@@ -93,19 +93,19 @@ end
 --- Fraction of base value this item is still worth. PLAN §3.6 — the value BLEEDS,
 --- it does not fall off a cliff, so every second of the run home has a felt cost.
 function Decay.valueRetained(item: CarriedItem, satchelFuseMult: number): number
-	local _, stage = Decay.stageOf(item, satchelFuseMult)
-	return stage.valueRetained
+	local _, condition = Decay.conditionOf(item, satchelFuseMult)
+	return condition.valueRetained
 end
 
---- Advance one item by dt. Returns the new stage index if it CHANGED, else nil —
+--- Advance one item by dt. Returns the new condition index if it CHANGED, else nil —
 --- callers use that to fire the audio ladder and the "your Legendary is cooking" alert.
 function Decay.tick(item: CarriedItem, dt: number, satchelFuseMult: number): number?
 	if item.frozen then
 		return nil
 	end
-	local before = Decay.stageOf(item, satchelFuseMult)
+	local before = Decay.conditionOf(item, satchelFuseMult)
 	item.elapsed += dt
-	local after = Decay.stageOf(item, satchelFuseMult)
+	local after = Decay.conditionOf(item, satchelFuseMult)
 	return if after ~= before then after else nil
 end
 

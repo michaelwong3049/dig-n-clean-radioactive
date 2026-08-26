@@ -160,7 +160,7 @@ local function build(): ScreenGui
 	panel.AnchorPoint = Vector2.new(1, 0)
 	panel.Position = UDim2.new(1, -12, 0, 12) -- top-right; chat owns top-left
 	-- Wide enough for the longest line, which is a carry row: rarity + modifier,
-	-- stage, countdown, emission and value retained. 400 clipped the gear readout.
+	-- condition, countdown, emission and value retained. 400 clipped the gear readout.
 	panel.Size = UDim2.new(0, 560, 0, 0)
 	panel.AutomaticSize = Enum.AutomaticSize.Y
 	panel.BackgroundColor3 = COLOR.panel
@@ -309,7 +309,7 @@ local function render(state)
 		row.Text = string.format(
 			" %-22s %-8s %6s  %s r/s  %s",
 			item.rarity .. mod,
-			string.upper(item.stage),
+			string.upper(item.condition),
 			next_,
 			rate(item.emission),
 			pct(item.valueRetained)

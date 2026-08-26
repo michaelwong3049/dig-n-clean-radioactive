@@ -71,16 +71,16 @@ Tuning.MAX_HEALTH = 100
 -- deaths (green screen). Two states, two colors, no overlap.
 
 -- ── Decay clock (PLAN §3.6) ───────────────────────────────────────────────────
--- Stage boundaries are multiples of the item's fuse (T): Fresh <T, Hot <2T, Critical <3T, Slag.
-Tuning.DECAY_STAGES = {
+-- Condition boundaries are multiples of the item's fuse (T): Fresh <T, Hot <2T, Critical <3T, Slag.
+Tuning.DECAY_CONDITIONS = {
 	{ name = "Fresh", atFuseMultiple = 0, emission = 1.0, valueRetained = 1.00 },
 	{ name = "Hot", atFuseMultiple = 1, emission = 2.5, valueRetained = 0.90 },
 	{ name = "Critical", atFuseMultiple = 2, emission = 5.0, valueRetained = 0.55 },
 	{ name = "Slag", atFuseMultiple = 3, emission = 8.0, valueRetained = 0.10 },
 }
 
--- Base rads/sec a carried item contributes at Fresh stage, by rarity order (1..8).
--- Multiplied by the stage emission above, and shielded by the SATCHEL (not the suit —
+-- Base rads/sec a carried item contributes at Fresh condition, by rarity order (1..8).
+-- Multiplied by the condition emission above, and shielded by the SATCHEL (not the suit —
 -- see the header of Shared/Radiation.lua for why).
 --
 -- Calibrated against three checks, all asserted in Shared/Util/Spec. Measured in
