@@ -43,7 +43,7 @@ local Kit = require(script.Parent.Kit)
 
 local ZoneFields = {}
 local BUILDER_SOURCE = "src/server/build/ZoneFields.luau"
-local BUILDER_VERSION = 1
+local BUILDER_VERSION = 2
 
 --- The deepest an item is ever buried. The plate has to be thicker than this or a
 --- haul in progress is visible poking out of the underside of the world.

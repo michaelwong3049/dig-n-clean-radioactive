@@ -78,7 +78,7 @@ local Hub = require(script.Parent.Hub)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 4
+local BUILDER_VERSION = 5
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
