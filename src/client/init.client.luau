@@ -16,7 +16,7 @@ local ORDER = {
 	"InventoryController", -- Phase 1: the hotbar and its detail card; reads CarryState + StationController
 	"HudController", -- Phase 2: rad meter, vignette, distortion, blackout
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
-	"AtmosphereController", -- per-zone fog; reads zoneId off ExposureState
+	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState
 	"IndexController", -- the item index GUI; bottom-right button, reads IndexState + Unearthed
 	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"DebugHudController",

@@ -26,7 +26,7 @@
 	Six pads on the exterior of one circle, evenly spaced across its western 180
 	degrees, each rotated to face the shop cluster at the centre. The eastern half
 	is open — the plaza (`Hub.PLAZA`, untouched by this file, still sitting between
-	the shop cluster and Zone 1) is the connector, so the ring is open there and
+	the shop cluster and Stage 1) is the connector, so the ring is open there and
 	always will be — you leave the courtyard by walking into the sludge. See
 	RING_CENTER/RING_RADIUS/RING_ANGLES below for the actual circle.
 
@@ -136,13 +136,13 @@ local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
 Plots.COUNT = 6
 Plots.VISIBLE_SLOTS = 8
--- topY is a deliberate step UP from the plaza (the mirror of Zones.SURFACE_Y's own
+-- topY is a deliberate step UP from the plaza (the mirror of Stages.SURFACE_Y's own
 -- step down), expressed relative to Hub.PLAZA.topY rather than as a bare literal so
 -- it keeps meaning "+1.5 above the plaza" if that ever moves again, instead of
 -- silently becoming a different absolute step.
 Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3 }
 
---- THE RING. Six pads on the exterior of a circle pulled toward Zone 1, each
+--- THE RING. Six pads on the exterior of a circle pulled toward Stage 1, each
 --- rotated to face the centre.
 ---
 --- DERIVED FROM Hub.PLAZA, NOT HAND-SYNCED TO IT — same property the rectangular
@@ -151,12 +151,12 @@ Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3
 --- not circular.
 ---
 --- RING_CENTER USED TO BE THE PLAZA'S OWN MIDPOINT (MID_X, MID_Z) — moved
---- toward Zone 1 on request, to shorten the walk from the shop cluster to the
+--- toward Stage 1 on request, to shorten the walk from the shop cluster to the
 --- field. How far it could move is bounded by the shop cluster's OWN footprint,
 --- not by the pads: `SHOP_CLUSTER_EAST_REACH` below is Shops.luau's own
 --- eastmost stall (the "Cleaner" counter, `at.x` = centre + 42) plus its own
 --- ~11-stud half-width — the shop cluster, not any pad, is the first thing that
---- would cross into Zone 1 if this moved further east than it does.
+--- would cross into Stage 1 if this moved further east than it does.
 --- `FIELD_CLEARANCE` is the margin kept past that. (The pads have far more room
 --- to spare here — see World.verify()'s own overlap checks, which are the real
 --- authority on safety, not this comment.)
@@ -278,9 +278,9 @@ end
 --- THE OPEN MOUTH COMES FREE FROM THE BOUNDING RECT ITSELF: capping it at
 --- `maxX = PLAZA.maxX` (see `buildApron`'s own comment on why that, and not
 --- RING_CENTER.x) still only ever tiles at most the disc's western half plus
---- the sliver flanking the plaza on its way out to Zone 1 — never anything
+--- the sliver flanking the plaza on its way out to Stage 1 — never anything
 --- east of the field's own west edge, the same clipping mechanism that already
---- keeps the plaza's own east edge from overhanging into Zone 1 (`Hub.tileRect`
+--- keeps the plaza's own east edge from overhanging into Stage 1 (`Hub.tileRect`
 --- clips every tile to the rect it's given).
 --- How far inside the plaza's own literal edge a tile's CENTRE has to land
 --- before this treats it as safely covered by the plaza's own floor and skips
@@ -579,7 +579,7 @@ end
 --- this file owns the SHAPE and asks for it to be tiled.
 ---
 --- THE VISIBLE CAP is one `Hub.tileRect` call over a square bounding RING_OUTER,
---- clipped at `maxX = PLAZA.maxX` (Zone 1's own west edge, touching not
+--- clipped at `maxX = PLAZA.maxX` (Stage 1's own west edge, touching not
 --- crossing it — the same shared-edge convention the plaza's own east side
 --- already uses) and punched by `apronSkip` (plaza + every pad's own oriented
 --- footprint) — see that function's own comment above.
@@ -587,7 +587,7 @@ end
 --- CLIPPED AT THE FIELD, NOT AT RING_CENTER, ON REQUEST. The disc used to stop
 --- dead at `RING_CENTER.x`, which is west of the plaza's own east edge — the
 --- plaza itself (165x140, its own fixed rectangle) was the only thing carrying
---- the ground from there out to Zone 1, and it is narrower in Z (+/-70) than
+--- the ground from there out to Stage 1, and it is narrower in Z (+/-70) than
 --- either the disc beside it or the field beyond it, so it read as a bridge
 --- with void visible on both sides. Moving the clip out to PLAZA.maxX lets the
 --- SAME circle (still centred on RING_CENTER, still radius RING_OUTER) keep

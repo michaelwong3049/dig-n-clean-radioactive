@@ -10,7 +10,7 @@
 	WHICH TOOL, in priority order:
 	  at the decon station -> Cleaner   (you are here to scrub)
 	  standing on a signal -> Magnet    (found it — now get the magnet out)
-	  standing in a zone   -> Detector  (sweeping is the default verb)
+	  standing in a stage   -> Detector  (sweeping is the default verb)
 	  otherwise            -> nothing   (base camp, hands free)
 
 	The magnet keys off STANDING ON a signal, not off actively hauling. Hauling lasts
@@ -298,7 +298,7 @@ local function wanted(player: Player): string?
 	if DigService.isOverSignal(player) then
 		return "Magnet"
 	end
-	if DigService.zoneOf(player) ~= nil then
+	if DigService.stageOf(player) ~= nil then
 		return "Detector"
 	end
 	return nil

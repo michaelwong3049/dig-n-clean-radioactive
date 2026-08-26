@@ -83,7 +83,7 @@ local MAX_BLIPS = 12 -- matches DigService.MAX_CONTACTS; more would never arrive
 type Contact = { dx: number, dz: number, rarity: string? }
 
 local state = {
-	inZone = false,
+	inStage = false,
 	hasSignal = false,
 	strength = 0,
 	radius = 0,
@@ -415,7 +415,7 @@ local function renderFrame(_dt: number)
 	-- ring so the two land together without either one owning the other's timing.
 	local phase = (os.clock() % Tuning.RANGE_RING_PERIOD) / Tuning.RANGE_RING_PERIOD
 	ui.arm.Rotation = phase * 360
-	ui.arm.BackgroundTransparency = if state.inZone then 0.6 else 0.9
+	ui.arm.BackgroundTransparency = if state.inStage then 0.6 else 0.9
 
 	ui.ring.Color = if state.hasSignal then colour else COLOR.stroke
 	ui.edgeStroke.Color = if state.hasSignal then colour else COLOR.scope
@@ -423,16 +423,16 @@ local function renderFrame(_dt: number)
 end
 
 local function renderState()
-	if not state.inZone then
-		-- BLANK, AND THE BUTTON GOES WITH IT. Out of a zone means you are in the plaza
+	if not state.inStage then
+		-- BLANK, AND THE BUTTON GOES WITH IT. Out of a stage means you are in the plaza
 		-- shopping, banking or racking. A status line telling you that you cannot dig
 		-- on the shop floor, and a PULL button that does nothing when pressed, are
 		-- both noise printed over the top of whatever panel you actually came here to
 		-- use — and between them they are what stopped the station panel from being
 		-- able to sit at screen centre. Every other branch below still speaks,
-		-- because every other branch is about a zone you are standing in.
+		-- because every other branch is about a stage you are standing in.
 		--
-		-- The button costs nothing to lose here: it is inert out of a zone (the
+		-- The button costs nothing to lose here: it is inert out of a stage (the
 		-- server has no signal to give), and E still works, so nothing is unreachable
 		-- — it reappears the moment you step onto sludge, which is also the moment it
 		-- starts meaning something.
@@ -579,7 +579,7 @@ end
 --- actually resolved, rather than the client guessing from its own gear numbers —
 --- perks fold into detectorRadius and only StatResolver knows the answer.
 function Detector.radius(): number
-	return if state.inZone then state.radius else 0
+	return if state.inStage then state.radius else 0
 end
 
 function Detector.start()
@@ -603,7 +603,7 @@ function Detector.start()
 	digInput = Net.get("DigInput")
 
 	Net.get("SweepState").OnClientEvent:Connect(function(payload)
-		state.inZone = payload.inZone == true
+		state.inStage = payload.inStage == true
 		state.hasSignal = payload.hasSignal == true
 		state.strength = payload.strength or 0
 		state.radius = payload.radius or 0

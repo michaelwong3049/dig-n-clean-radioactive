@@ -19,7 +19,7 @@
 
 	The payload carries offsets RELATIVE TO THE PLAYER, never world coordinates, and
 	never anything outside the radius. An exploiter reading it gets what an honest
-	player is already looking at. The other forty-odd buried signals in the zone stay
+	player is already looking at. The other forty-odd buried signals in the stage stay
 	exactly as invisible as they were, and that is the property actually worth
 	defending: a dig game that replicates the whole field has an ESP script written
 	for it inside a week, and at that point the rarity economy — which is the entire
@@ -58,7 +58,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
-local Zones = require(Shared.Config.Zones)
+local Stages = require(Shared.Config.Stages)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local ItemModels = require(Shared.ItemModels)
@@ -70,16 +70,16 @@ local Net = require(Shared.Net)
 local SignalAura = require(script.Parent.Parent.build.SignalAura)
 
 local DataService = require(script.Parent.DataService)
-local ZoneService = require(script.Parent.ZoneService)
+local StageService = require(script.Parent.StageService)
 
 local DigService = {}
 
 
 -- ── Field tuning ────────────────────────────────────────────────────────────────
 
--- Moved into Config/Tuning so Spec can check burial depth against the zone plate
+-- Moved into Config/Tuning so Spec can check burial depth against the stage plate
 -- thickness that has to contain it. Aliased so the call sites below are unchanged.
-local SIGNALS_PER_ZONE = Tuning.SIGNALS_PER_ZONE
+local SIGNALS_PER_STAGE = Tuning.SIGNALS_PER_STAGE
 local DIG_RADIUS = Tuning.DIG_RADIUS
 local DEPTH_BASE = Tuning.DIG_DEPTH_BASE
 local DEPTH_PER_RARITY = Tuning.DIG_DEPTH_PER_RARITY
@@ -92,7 +92,7 @@ local STRAIN_CEILING = 0.25 -- how far an under-rated magnet gets before it stal
 
 type Signal = {
 	uid: string,
-	zoneId: number,
+	stageId: number,
 	-- SERVER ONLY as an absolute. It reaches a client in exactly two shapes, both
 	-- scoped to the reveal: as an aura part in Workspace, and as an offset relative
 	-- to a player already standing inside its radius. Never as a world coordinate.
@@ -104,7 +104,7 @@ type Signal = {
 	soil: number,
 }
 
-local signalsByZone: { [number]: { Signal } } = {}
+local signalsByStage: { [number]: { Signal } } = {}
 
 -- One aura per REVEALED signal, keyed by uid, and the set of signals somebody
 -- revealed on the current tick. `revealed` is rebuilt from scratch every tick and
@@ -176,9 +176,9 @@ end
 
 -- ── Rolling ───────────────────────────────────────────────────────────
 
---- Takes the loot TABLE directly rather than a zone id, so callers can hand it
---- whichever zone's table applies without this function knowing anything about
---- zones itself.
+--- Takes the loot TABLE directly rather than a stage id, so callers can hand it
+--- whichever stage's table applies without this function knowing anything about
+--- stages itself.
 local function rollRarity(loot: { [string]: number }): string
 	local total = 0
 	for _, weight in loot do
@@ -216,43 +216,43 @@ local function rollModifier(): string
 	return "None"
 end
 
---- Zone 1 has no Mythic or Anomaly entries but its loot table can still roll them.
+--- Stage 1 has no Mythic or Anomaly entries but its loot table can still roll them.
 --- Step down until the catalogue actually has something, rather than erroring or
 --- silently dropping the dig.
 ---
---- Returns nil when the zone has NOTHING at any rarity. That used to be an error(),
---- which was a live landmine: this runs inside the 10 Hz tick, so an unstocked zone
+--- Returns nil when the stage has NOTHING at any rarity. That used to be an error(),
+--- which was a live landmine: this runs inside the 10 Hz tick, so an unstocked stage
 --- threw ten times a second and — before Ticker gained per-subscriber isolation —
---- took down every service booted after this one. An unstocked zone is a content
+--- took down every service booted after this one. An unstocked stage is a content
 --- gap, not a crash; it should degrade to "no signals here" and say so once.
 local unstockedWarned: { [number]: boolean } = {}
 
-local function rollItemId(zoneId: number, rarity: string): (string?, string?)
+local function rollItemId(stageId: number, rarity: string): (string?, string?)
 	local order = Rarity.get(rarity).order
 
 	for step = order, 1, -1 do
 		local name = Rarity.ORDER[step]
-		local pool = Items.inZone(zoneId, name)
+		local pool = Items.inStage(stageId, name)
 		if #pool > 0 then
 			return pool[math.random(1, #pool)].id, name
 		end
 	end
 
-	if not unstockedWarned[zoneId] then
-		unstockedWarned[zoneId] = true
-		warn(`[dig] zone {zoneId} has no items at any rarity — Config/Items.luau does not stock it. No signals will spawn there.`)
+	if not unstockedWarned[stageId] then
+		unstockedWarned[stageId] = true
+		warn(`[dig] stage {stageId} has no items at any rarity — Config/Items.luau does not stock it. No signals will spawn there.`)
 	end
 	return nil, nil
 end
 
 -- ── The signal field ────────────────────────────────────────────────────
 
-local function zonePart(zoneId: number): BasePart?
-	local folder = Workspace:FindFirstChild("Zones")
+local function stagePart(stageId: number): BasePart?
+	local folder = Workspace:FindFirstChild("Stages")
 	if folder == nil then
 		return nil
 	end
-	local part = folder:FindFirstChild(`Zone{zoneId}`)
+	local part = folder:FindFirstChild(`Stage{stageId}`)
 	return if part and part:IsA("BasePart") then part else nil
 end
 
@@ -263,43 +263,43 @@ local function randomPointOn(part: BasePart): Vector3
 	return part.CFrame:PointToWorldSpace(Vector3.new(x, size.Y / 2, z))
 end
 
-local function spawnSignal(zoneId: number)
-	local part = zonePart(zoneId)
+local function spawnSignal(stageId: number)
+	local part = stagePart(stageId)
 	if part == nil then
 		return
 	end
 
 	local position = randomPointOn(part)
-	local zone = Zones.get(zoneId)
-	local rarity = rollRarity(zone.loot)
-	local itemId, actualRarity = rollItemId(zoneId, rarity)
+	local stage = Stages.get(stageId)
+	local rarity = rollRarity(stage.loot)
+	local itemId, actualRarity = rollItemId(stageId, rarity)
 	if itemId == nil or actualRarity == nil then
-		return -- zone isn't stocked; rollItemId has already said so, once
+		return -- stage isn't stocked; rollItemId has already said so, once
 	end
 	local order = Rarity.get(actualRarity).order
 
 	local signal: Signal = {
 		uid = HttpService:GenerateGUID(false),
-		zoneId = zoneId,
+		stageId = stageId,
 		position = position,
 		itemId = itemId,
 		rarity = actualRarity,
 		modifier = rollModifier(),
 		depth = DEPTH_BASE + (order - 1) * DEPTH_PER_RARITY + math.random() * DEPTH_JITTER,
-		soil = Zones.get(zoneId).soilHardness,
+		soil = Stages.get(stageId).soilHardness,
 	}
 
-	table.insert(signalsByZone[zoneId], signal)
+	table.insert(signalsByStage[stageId], signal)
 end
 
-local function removeSignal(zoneId: number, uid: string)
+local function removeSignal(stageId: number, uid: string)
 	-- The glow goes with it, this tick, not next. A stale aura is worse than a missing
 	-- one: it stands over ground with nothing left in it, and somebody will walk all
 	-- the way to it and hold E at nothing.
 	clearAura(uid)
 	revealed[uid] = nil
 
-	local list = signalsByZone[zoneId]
+	local list = signalsByStage[stageId]
 	for index, signal in list do
 		if signal.uid == uid then
 			table.remove(list, index)
@@ -309,12 +309,12 @@ local function removeSignal(zoneId: number, uid: string)
 end
 
 local function topUpField()
-	for zoneId, list in signalsByZone do
-		while #list < SIGNALS_PER_ZONE do
+	for stageId, list in signalsByStage do
+		while #list < SIGNALS_PER_STAGE do
 			local before = #list
-			spawnSignal(zoneId)
+			spawnSignal(stageId)
 			if #list == before then
-				break -- no zone part in the world yet; try again next tick
+				break -- no stage part in the world yet; try again next tick
 			end
 		end
 	end
@@ -332,10 +332,10 @@ local MAX_CONTACTS = 12
 
 --- Every signal this player's detector actually registers, nearest first. Both tier
 --- gates are ABSOLUTE: an unregisterable signal is invisible, not faint.
-local function registeredFor(zoneId: number, position: Vector3, stats: any): { Contact }
+local function registeredFor(stageId: number, position: Vector3, stats: any): { Contact }
 	local found: { Contact } = {}
 
-	local list = signalsByZone[zoneId]
+	local list = signalsByStage[stageId]
 	if list == nil then
 		return found
 	end
@@ -375,8 +375,8 @@ end
 ---
 --- Only ever consulted when the player has no contact of their own in range, so the
 --- scan cost lands on the frames where nothing else is happening.
-local function standingOnUnregistered(zoneId: number, position: Vector3, stats: any): boolean
-	local list = signalsByZone[zoneId]
+local function standingOnUnregistered(stageId: number, position: Vector3, stats: any): boolean
+	local list = signalsByStage[stageId]
 	if list == nil then
 		return false
 	end
@@ -565,8 +565,8 @@ local function unearth(player: Player, data: any, signal: Signal)
 
 	data.discovered[signal.itemId] = true
 
-	removeSignal(signal.zoneId, signal.uid)
-	spawnSignal(signal.zoneId) -- keep the field populated
+	removeSignal(signal.stageId, signal.uid)
+	spawnSignal(signal.stageId) -- keep the field populated
 
 	unearthedRemote:FireClient(player, {
 		itemId = item.id,
@@ -597,9 +597,9 @@ local function stepPlayer(player: Player, dt: number)
 
 	local stats = StatResolver.get(data)
 	local position = root.Position
-	local zoneId = ZoneService.zoneOf(player)
+	local stageId = StageService.stageOf(player)
 
-	if zoneId == nil then
+	if stageId == nil then
 		digProgress[player] = 0
 		digTarget[player] = nil
 		pulling[player] = false
@@ -609,14 +609,14 @@ local function stepPlayer(player: Player, dt: number)
 		-- carrying/capacity ride along on EVERY payload: the bag counter should be
 		-- true all the time, not only while something is pinging.
 		sweepRemote:FireClient(player, {
-			inZone = false,
+			inStage = false,
 			carrying = #data.carry,
 			capacity = stats.capacity,
 		})
 		return
 	end
 
-	local contacts = registeredFor(zoneId, position, stats)
+	local contacts = registeredFor(stageId, position, stats)
 	markRevealed(contacts)
 
 	local nearest = contacts[1]
@@ -628,8 +628,8 @@ local function stepPlayer(player: Player, dt: number)
 		overSignal[player] = false
 		clearHaul(player)
 		sweepRemote:FireClient(player, {
-			inZone = true,
-			zoneId = zoneId,
+			inStage = true,
+			stageId = stageId,
 			radius = stats.detectorRadius,
 			hasSignal = false,
 			contacts = {},
@@ -637,7 +637,7 @@ local function stepPlayer(player: Player, dt: number)
 			-- Standing in a glow somebody else revealed. Nothing to pull, but the
 			-- player deserves to be told which of the two "nothing here" states
 			-- they are in.
-			blocked = if standingOnUnregistered(zoneId, position, stats) then "unregistered" else nil,
+			blocked = if standingOnUnregistered(stageId, position, stats) then "unregistered" else nil,
 			carrying = #data.carry,
 			capacity = stats.capacity,
 		})
@@ -700,8 +700,8 @@ local function stepPlayer(player: Player, dt: number)
 
 			local following = surviving[1]
 			sweepRemote:FireClient(player, {
-				inZone = true,
-				zoneId = zoneId,
+				inStage = true,
+				stageId = stageId,
 				radius = stats.detectorRadius,
 				hasSignal = following ~= nil,
 				strength = if following then math.clamp(1 - (following.distance / stats.detectorRadius), 0, 1) else 0,
@@ -725,8 +725,8 @@ local function stepPlayer(player: Player, dt: number)
 	-- OFFSETS INSIDE THE REVEAL RADIUS ONLY. No world coordinates, no uids, and
 	-- nothing the player is not already looking at a glow for.
 	sweepRemote:FireClient(player, {
-		inZone = true,
-		zoneId = zoneId,
+		inStage = true,
+		stageId = stageId,
 		radius = stats.detectorRadius,
 		hasSignal = true,
 		strength = strength,
@@ -759,9 +759,9 @@ function DigService.isOverSignal(player: Player): boolean
 end
 
 --- Kept as a thin delegate so callers written during Phase 1 keep working.
---- ZoneService is the authority now.
-function DigService.zoneOf(player: Player): number?
-	return ZoneService.zoneOf(player)
+--- StageService is the authority now.
+function DigService.stageOf(player: Player): number?
+	return StageService.stageOf(player)
 end
 
 function DigService.init()
@@ -779,9 +779,9 @@ function DigService.init()
 		stale:Destroy()
 	end
 
-	-- Phase 1 is one zone. The loop is written for all six.
-	for _, zone in Zones.DEFS do
-		signalsByZone[zone.id] = {}
+	-- Phase 1 is one stage. The loop is written for all six.
+	for _, stage in Stages.DEFS do
+		signalsByStage[stage.id] = {}
 	end
 end
 
@@ -834,7 +834,7 @@ function DigService.start()
 	end)
 
 	local total = 0
-	for _, list in signalsByZone do
+	for _, list in signalsByStage do
 		total += #list
 	end
 	print(`[dig] signal field seeded — {total} buried signal(s)`)

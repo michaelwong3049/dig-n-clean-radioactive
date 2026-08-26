@@ -1,14 +1,14 @@
 --!strict
 --[[
-	ZoneService.lua — who is standing where.
+	StageService.lua — who is standing where.
 
-	One owner for the question "which zone is this player in", because by Phase 4 four
+	One owner for the question "which stage is this player in", because by Phase 4 four
 	different systems need the answer and they must never disagree: exposure reads the
 	rad rate from it, the loot table reads its odds from it, the border warning card
 	fires on its transitions, and the HUD names it on screen.
 
-	ZONES ARE PARTS IN THE WORLD, not numbers in a file. Each is a BasePart under
-	Workspace.Zones carrying a ZoneId attribute, so the boundaries can be dragged and
+	STAGES ARE PARTS IN THE WORLD, not numbers in a file. Each is a BasePart under
+	Workspace.Stages carrying a StageId attribute, so the boundaries can be dragged and
 	resized in Studio. PLAN §4 makes station distance the primary tension lever and says
 	to tune it before rad rates — that is a level-design job, and level designers should
 	not be editing Lua to do it.
@@ -24,28 +24,28 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
-local Zones = require(Shared.Config.Zones)
+local Stages = require(Shared.Config.Stages)
 local Ticker = require(Shared.Util.Ticker)
 
-local ZoneService = {}
+local StageService = {}
 
 local current: { [Player]: number? } = {}
-local listeners: { (player: Player, newZone: number?, oldZone: number?) -> () } = {}
+local listeners: { (player: Player, newStage: number?, oldStage: number?) -> () } = {}
 
-local function zoneAt(position: Vector3): number?
-	local folder = Workspace:FindFirstChild("Zones")
+local function stageAt(position: Vector3): number?
+	local folder = Workspace:FindFirstChild("Stages")
 	if folder == nil then
 		return nil
 	end
 
-	-- Smallest containing volume wins, so a small zone can sit inside a larger one
+	-- Smallest containing volume wins, so a small stage can sit inside a larger one
 	-- without the big one swallowing it.
 	local best: number? = nil
 	local bestVolume = math.huge
 
 	for _, part in folder:GetChildren() do
 		if part:IsA("BasePart") then
-			local id = part:GetAttribute("ZoneId") :: number?
+			local id = part:GetAttribute("StageId") :: number?
 			if id then
 				local localPos = part.CFrame:PointToObjectSpace(position)
 				local half = part.Size / 2
@@ -64,20 +64,20 @@ local function zoneAt(position: Vector3): number?
 	return best
 end
 
---- Which zone this player is in, or nil for base camp / off the map.
-function ZoneService.zoneOf(player: Player): number?
+--- Which stage this player is in, or nil for base camp / off the map.
+function StageService.stageOf(player: Player): number?
 	return current[player]
 end
 
 --- Ambient rads/sec where this player is standing, before any gear.
 ---
---- DEPTH-BASED, NOT FLAT. `Zones.radsAt` interpolates between a zone's entrance
+--- DEPTH-BASED, NOT FLAT. `Stages.radsAt` interpolates between a stage's entrance
 --- and deepest rate; depthFrac here comes from this player's live X position
---- against the zone's own bounds, so walking further in climbs toward the peak
---- and crossing into the next zone resets to a fresh, higher entrance rate. See
---- Zones.radsAt's header for why this is a separate gradient from the loot-table
---- Stage system, which happens to run the same direction in Zone 1.
-function ZoneService.ambientFor(player: Player): number
+--- against the stage's own bounds, so walking further in climbs toward the peak
+--- and crossing into the next stage resets to a fresh, higher entrance rate. See
+--- Stages.radsAt's header for why this is a separate gradient from the loot-table
+--- Stage system, which happens to run the same direction in Stage 1.
+function StageService.ambientFor(player: Player): number
 	local id = current[player]
 	if id == nil then
 		return 0
@@ -87,31 +87,31 @@ function ZoneService.ambientFor(player: Player): number
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if root and root:IsA("BasePart") then
-		local minX, _minZ, maxX, _maxZ = Zones.bounds(id)
+		local minX, _minZ, maxX, _maxZ = Stages.bounds(id)
 		local width = maxX - minX
 		if width > 0 then
 			depthFrac = (root.Position.X - minX) / width
 		end
 	end
 
-	return Zones.radsAt(id, depthFrac) * ZoneService.hotPocketFor(player)
+	return Stages.radsAt(id, depthFrac) * StageService.hotPocketFor(player)
 end
 
 --- PLAN §4's roaming high-radiation patches. Phase 4 owns them; until then every
 --- patch of ground is equally hot and this is always 1.
-function ZoneService.hotPocketFor(_player: Player): number
+function StageService.hotPocketFor(_player: Player): number
 	return 1
 end
 
 --- Fires when a player crosses a border. Phase 4 hangs the survivability warning
 --- card off this.
-function ZoneService.onChanged(fn: (player: Player, newZone: number?, oldZone: number?) -> ())
+function StageService.onChanged(fn: (player: Player, newStage: number?, oldStage: number?) -> ())
 	table.insert(listeners, fn)
 end
 
-function ZoneService.init() end
+function StageService.init() end
 
-function ZoneService.start()
+function StageService.start()
 	Players.PlayerRemoving:Connect(function(player)
 		current[player] = nil
 	end)
@@ -121,20 +121,20 @@ function ZoneService.start()
 			local character = player.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart")
 
-			local zone: number? = nil
+			local stage: number? = nil
 			if root and root:IsA("BasePart") then
-				zone = zoneAt(root.Position)
+				stage = stageAt(root.Position)
 			end
 
 			local previous = current[player]
-			if zone ~= previous then
-				current[player] = zone
+			if stage ~= previous then
+				current[player] = stage
 				for _, fn in listeners do
-					task.spawn(fn, player, zone, previous)
+					task.spawn(fn, player, stage, previous)
 				end
 			end
 		end
 	end)
 end
 
-return ZoneService
+return StageService

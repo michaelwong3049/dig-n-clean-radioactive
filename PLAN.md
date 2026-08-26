@@ -15,7 +15,7 @@ The radiation layer is not paint. It adds four things the original loop doesn't 
 * a **second gate on every item** — contamination (§2, step 4);
 * a **timer on every item you unearth** — the decay clock, which turns the walk home into
 the tensest part of the loop (§3.6);
-* and a **soft, physical wall around every zone** — radiation burn instead of a locked door,
+* and a **soft, physical wall around every stage** — radiation burn instead of a locked door,
 which turns "you can't go there" into "you can, and here's what it costs" (§3.5).
 
 It also changes the extraction tool: **no shovel — a magnet.** Everything worth money out
@@ -33,7 +33,7 @@ Scope decisions locked with the user:
 * **Shared server, solo progression** — everyone digs the same wasteland and sees each other;
 cash, inventory and upgrades are per-player.
 * **Full vision doc**, with an MVP slice marked at the end.
-* **No hard zone locks.** The wasteland is physically open end to end from minute one.
+* **No hard stage locks.** The wasteland is physically open end to end from minute one.
 Radiation, not a barrier, is what stops you. (§3.5)
 * **Selling is not the only exit** for an item. Cleaned items can be **displayed** for
 passive income instead. (§8)
@@ -47,7 +47,7 @@ passive income instead. (§8)
 > Sweep the ash with a Geiger-detector, rip what beeps out of the ground with a magnet, then
 > get it home and scrub the radiation off it before it eats through your gloves. The hotter the item, the more it's
 > worth, and the worse it is to hold. Sell it, or bolt it to a pedestal and let the world
-> come pay to look at it. Buy a better suit. Walk further into the dead zone than you should.
+> come pay to look at it. Buy a better suit. Walk further into the dead stage than you should.
 
 **One-line hook:** *the thing that makes an item valuable is the same thing that's killing you.*
 
@@ -82,18 +82,18 @@ top-tier artifact. Fast enough to feel like a clicker, slow enough that a rare f
 
 > **The build is currently under this target and it was a deliberate choice.** At tier 1
 > the loop measures roughly 5.6s of walking + ~3s of hauling + ~6s of amortised walk home
-> = **~15s per item**, against the 20–40s written above. Doubling `SIGNALS_PER_ZONE` to 90
+> = **~15s per item**, against the 20–40s written above. Doubling `SIGNALS_PER_STAGE` to 90
 > is what moved it (it was ~20s before, right at the band's floor), and that was done on
 > purpose: the reveal detector answers nothing outside its radius, so the sparser field
 > read as dead ground rather than as a search. The number to change if this is wrong is
-> `Tuning.SIGNALS_PER_ZONE` — but note the loot weights were re-derived against it, so
+> `Tuning.SIGNALS_PER_STAGE` — but note the loot weights were re-derived against it, so
 > the two move together or the rare economy moves with them. `Shared/Util/Spec` fails if
 > only one of them is touched. **Either retune the density or lower this target — do not
 > leave them disagreeing silently.**
 
 ### Step 1 — Sweep
 
-Player walks a zone holding a detector. The detector **reveals**: every buried signal
+Player walks a stage holding a detector. The detector **reveals**: every buried signal
 inside its radius that the detector can register surfaces an **aura** at its exact spot — a
 glow standing up out of the ground. You walk to the glow and pull it out. A ring pulses
 out from the player once a second showing exactly how far the detector reaches, and an
@@ -142,10 +142,10 @@ what the player feels immediately: a better magnet means the same item takes hal
 you gained the instant you slow down. High tiers hold their ground and start pulling on
 their own, which turns frantic mashing into steady, comfortable clicking. **Draw is the
 comfort stat, and it's what people actually buy the top tiers for.**
-* **Lock strength** — the **hard gate**. Every item has a mass; every deep-zone item is
+* **Lock strength** — the **hard gate**. Every item has a mass; every deep-stage item is
 half-fused into vitrified crust. Below the required lock strength the magnet snaps off the
 item entirely and you get a failed-lock buzz. A Bent Horseshoe will never move a Reactor
-Core no matter how fast you click. This is the gate that keeps deep zones honest — the
+Core no matter how fast you click. This is the gate that keeps deep stages honest — the
 detector says *there is something here*, the magnet decides *whether you get it*.
 
 Pulling is where **exposure** first spikes: the moment the item surfaces, it starts emitting.
@@ -160,7 +160,7 @@ extraction an *active* input instead of a hold, which gives the loop a second sk
 
 **Mobile:** tap-to-pull, same math. Mobile players click slower, so **Draw** is tuned to be
 generous enough that a mid-tier magnet is comfortable on a phone. Never balance the pull
-around desktop mash rate — that quietly locks half the Roblox audience out of deep zones.
+around desktop mash rate — that quietly locks half the Roblox audience out of deep stages.
 
 **It is also the moment the decay clock starts.** (§3.6) The banner that tells you what you
 found also tells you how long you have to get it home.
@@ -171,11 +171,11 @@ Not a menu step — a *physical* one, and the reason movement speed is a real up
 
 Everything you are carrying is emitting into you (§3.3) and getting hotter by the second
 (§3.6). Base camp is behind you and the good dirt is ahead. This is the step where the
-player's greed is actually charged interest, and it's what makes deep zones feel deep.
+player's greed is actually charged interest, and it's what makes deep stages feel deep.
 
 ### Step 4 — Decontaminate (the new pillar)
 
-The item goes to your **Decon Station** (a portable rig at the zone entrance, or a personal
+The item goes to your **Decon Station** (a portable rig at the stage entrance, or a personal
 one you upgrade). Cleaning is a **skill mini-interaction**, not a progress bar:
 
 * The item is displayed with **contamination patches** — glowing hotspots on its surface.
@@ -212,8 +212,8 @@ players are the ones who stay for months.
 
 ### Step 6 — Upgrade
 
-Cash buys the six upgrade tracks (§6). Better gear opens deeper zones, faster hauls, and
-bigger exhibits. Deeper zones hold rarer items. Rarer items are worth more — as cash or as
+Cash buys the six upgrade tracks (§6). Better gear opens deeper stages, faster hauls, and
+bigger exhibits. Deeper stages hold rarer items. Rarer items are worth more — as cash or as
 income. Loop closes.
 
 \---
@@ -224,10 +224,10 @@ This is the design's spine and what separates it from every other dig game.
 
 ### 3.1 Player Exposure (rads)
 
-A rad meter fills as you spend time in a zone. Rate is:
+A rad meter fills as you spend time in a stage. Rate is:
 
 ```
-rads/sec = (zone base rate)
+rads/sec = (stage base rate)
          + (sum of carried items' current emission)   ← rises over time, §3.6
          - (suit mitigation)
          - (level-earned resistance)
@@ -252,8 +252,8 @@ That is a *fantastic* free social system and costs almost nothing to build.
 
 ### 3.2 Decontamination showers
 
-Free rad-flush stations at each zone entrance and at base camp. Instant, no cost.
-Their placement is a level-design lever: deep zones put the shower *far* from the good dirt,
+Free rad-flush stations at each stage entrance and at base camp. Instant, no cost.
+Their placement is a level-design lever: deep stages put the shower *far* from the good dirt,
 so a run into the hot core is a genuine round-trip commitment.
 
 Showers flush **your** exposure. They do **not** clean items and they do **not** stop the
@@ -284,15 +284,15 @@ Suits are the most important purchase in the game and carry three separate stats
 |**Capacity**|How many hot items you can haul before the rate becomes unmanageable. This is the inventory system, expressed as radiation instead of slots.|
 |**Tolerance**|The rads/sec ceiling the suit can physically handle before it starts **failing** and you start taking direct damage. (§3.5)|
 
-Tolerance is the new one and it is what replaces the old zone lock. A suit doesn't say
-"you may not enter Zone 4." It says "above 15 rads/sec I start to come apart, and so do you."
+Tolerance is the new one and it is what replaces the old stage lock. A suit doesn't say
+"you may not enter Stage 4." It says "above 15 rads/sec I start to come apart, and so do you."
 
-### 3.5 Over-Tier Zones — no walls, just consequences
+### 3.5 Over-Tier Stages — no walls, just consequences
 
-**There are no locked doors in this game.** Every zone is walkable from minute one.
+**There are no locked doors in this game.** Every stage is walkable from minute one.
 Borders are fences with holes in them, collapsed checkpoints, and a lot of very clear
 warning signage. Nothing stops you. This is a deliberate reversal of the standard Roblox
-"buy the gamepass to enter Zone 4" wall, and it buys three things:
+"buy the gamepass to enter Stage 4" wall, and it buys three things:
 
 1. **It reads as a real place.** A world where you physically cannot walk down a road is a
 menu with trees. A world where you can walk down the road and die is a world.
@@ -308,7 +308,7 @@ When incoming rads/sec exceeds your suit's **tolerance**, two things happen on t
 exposure:
 
 ```
-excess          = zone rate − suit tolerance
+excess          = stage rate − suit tolerance
 exposure gain   = normal accrual + (excess × 2)      ← the meter fills brutally fast
 health burn     = 2 HP/sec for every 10 rads/sec of excess
 ```
@@ -328,12 +328,12 @@ gamble, it's a trap, and traps make people quit. Show the number and let them ch
 
 #### Survivability at a glance
 
-Rough survivable window walking into a zone with a given suit tier
-(assumes full health, no items carried, standing still, at the zone's ENTRANCE — ambient
-climbs further the deeper in you go, see Zones.radsAt). Regenerated via
+Rough survivable window walking into a stage with a given suit tier
+(assumes full health, no items carried, standing still, at the stage's ENTRANCE — ambient
+climbs further the deeper in you go, see Stages.radsAt). Regenerated via
 `Shared/Util/TuningReport` after the THIRD radiation-harshening pass, rather than hand-tuned:
 
-|Zone|Rated suit|One tier under|Two tiers under|Cloth wrap / unsuited|
+|Stage|Rated suit|One tier under|Two tiers under|Cloth wrap / unsuited|
 |-|-|-|-|-|
 |1 Ash Flats|\~9:00 (capped, see below)|—|—|\~9:00|
 |2 The Suburbs|indefinite|\~17s|—|\~17s|
@@ -342,17 +342,17 @@ climbs further the deeper in you go, see Zones.radsAt). Regenerated via
 |5 Reactor Grounds|indefinite|\~12s|instant|instant|
 |6 The Crater|\~1:30|\~12s|instant|instant|
 
-Read the "one tier under" column as the design's actual target — except Zone 1, which has no
+Read the "one tier under" column as the design's actual target — except Stage 1, which has no
 suit tier under its own rated tier to test. **\~8–15 seconds is a pull** (tightened twice now:
 \~25–40s originally, \~18–30s after the second pass). Getting here cost the Dive real breathing
-room — see `Tuning.luau`'s `BURN_COEF` comment for why a third explicit push on Zone 3's unsuited
+room — see `Tuning.luau`'s `BURN_COEF` comment for why a third explicit push on Stage 3's unsuited
 survival time couldn't be made without also compressing this column.
 
-**Zone 1 is no longer "forever."** It was, until the third pass — Zone 1's rated suit tier IS
+**Stage 1 is no longer "forever."** It was, until the third pass — Stage 1's rated suit tier IS
 the starting tier, so "rated suit farmable" and "unsuited" used to be the same guarantee. That
 guarantee is now capped at 9 minutes by design (was ~33 minutes), tuned via Cloth Wrap's own
-`reduction` stat rather than Zone 1's ambient rate, specifically so Zone 1 stays a pure
-exposure-track ("green screen") zone with no burn risk at all for a fresh player — see
+`reduction` stat rather than Stage 1's ambient rate, specifically so Stage 1 stays a pure
+exposure-track ("green screen") stage with no burn risk at all for a fresh player — see
 `Gear.luau`'s header for why.
 
 #### The Dive — risking health for rarer items
@@ -362,13 +362,13 @@ or two signals from a much better item pool, and get out before the meter or you
 
 Why it works as a system:
 
-* **The reward is real and needs no artificial bonus.** A Zone 4 item pulled by a Zone 2
+* **The reward is real and needs no artificial bonus.** A Stage 4 item pulled by a Stage 2
 player is genuinely worth an order of magnitude more than anything in their normal loop.
-The zone's own loot table is the prize. Resist the urge to add a "bravery multiplier" on
+The stage's own loot table is the prize. Resist the urge to add a "bravery multiplier" on
 top — the temptation to over-reward this is the fastest way to break the economy.
 * **It is self-balancing, and this is the elegant part.** A dived item is still an
-*uncleaned* item, and a Zone 4 item's contamination hardness will almost certainly exceed
-a Zone 2 player's scrubber. So a successful dive usually produces a **Quarantine Locker**
+*uncleaned* item, and a Stage 4 item's contamination hardness will almost certainly exceed
+a Stage 2 player's scrubber. So a successful dive usually produces a **Quarantine Locker**
 entry (§10.2) — a trophy you can see, can't clean, and can only dirty-sell at 20%.
 The dive pays out *some* cash immediately and creates *enormous* upgrade motivation.
 It lets a bold player punch above their tier without letting them skip the economy.
@@ -380,8 +380,8 @@ low-level trick; it's a permanent skill ceiling that sits on top of the gear cei
 
 **Design guards on the Dive:**
 
-* Deep-zone item pools should never contain items whose contamination hardness is *below*
-the zone's rated cleaning tool tier — otherwise diving becomes strictly optimal.
+* Deep-stage item pools should never contain items whose contamination hardness is *below*
+the stage's rated cleaning tool tier — otherwise diving becomes strictly optimal.
 * Health regenerates out of radiation, slowly, and fully at base camp. No healing items in
 the field for MVP; a consumable stim is a natural later addition and an obvious monetization
 hook, but it needs a hard cooldown or it eats the whole tension of this section.
@@ -429,7 +429,7 @@ kill you before it becomes worthless. The bag gets heavier the longer you hesita
 **Rarer items burn faster.** This is the whole point of the mechanic and it's worth being
 explicit about why: it inverts the greed dial exactly when the greed dial matters most.
 Common junk you can carry all day. The Legendary you just pulled is a live grenade — and it
-pulled *you* into the deepest zone in the first place. The best find of your session is the
+pulled *you* into the deepest stage in the first place. The best find of your session is the
 one that gives you the least time to enjoy having found it.
 
 That is the moment the whole game is for. The Geiger scream, the banner, the rarity color —
@@ -447,15 +447,15 @@ would sour a mechanic that works because it's short and sharp.
 not the decontamination shower (§3.2) — the shower saves *you*, not your loot. Two
 different problems, deliberately.
 * **Being in base camp is not the same as being at the rig.** The clock runs until the item
-is docked, and in the later zones the walk from the gate to the station is not short.
+is docked, and in the later stages the walk from the gate to the station is not short.
 * **Slag is not zero.** It sells for a token amount and still grants full Decon XP and
 discovery credit for the collection (§10.10). A wasted run is never a *fully* wasted run —
 that's the anti-frustration floor this mechanic needs to stay fun rather than punishing.
 
 #### Interaction with everything else
 
-* **With the Dive (§3.5):** a dive isn't over when you clear the fence. You pulled a Zone 5
-item with a 2-minute fuse and you're four zones from home. The dive's real difficulty is
+* **With the Dive (§3.5):** a dive isn't over when you clear the fence. You pulled a Stage 5
+item with a 2-minute fuse and you're four stages from home. The dive's real difficulty is
 the *exit*, which is a much better design than making the entrance hard.
 * **With movement (§5):** this is what makes speed a genuine power stat rather than comfort.
 Boots convert directly into value retained.
@@ -482,16 +482,16 @@ reduction in travel time that the player builds themselves.
 
 \---
 
-## 4\. Zones (The Wasteland)
+## 4\. Stages (The Wasteland)
 
-Six zones radiating outward from base camp toward the crater. Each is visually distinct,
+Six stages radiating outward from base camp toward the crater. Each is visually distinct,
 has its own item pool, base rad rate, and soil hardness.
 
-**None of them are locked.** The "suit" column below is what the zone is *rated* for —
-the tier at which it becomes farmable rather than survivable. Every zone is enterable at
+**None of them are locked.** The "suit" column below is what the stage is *rated* for —
+the tier at which it becomes farmable rather than survivable. Every stage is enterable at
 any time by anyone willing to pay for it in health. (§3.5)
 
-|#|Zone|Base rads/s|Rated suit|Unsuited survival|Flavor|Signature items|
+|#|Stage|Base rads/s|Rated suit|Unsuited survival|Flavor|Signature items|
 |-|-|-|-|-|-|-|
 |1|**Ash Flats**|0.5|Cloth Wrap|indefinite|Grey dust, dead trees, tutorial ground|Bottle caps, steel rods, coins|
 |2|**The Suburbs**|2|Rubber Suit|\~50s|Collapsed houses, half-buried cars|Jewelry, tools, family heirlooms|
@@ -500,25 +500,25 @@ any time by anyone willing to pay for it in health. (§3.5)
 |5|**Reactor Grounds**|40|Sealed Exo-Suit|\~3s|Cooling towers, visible heat shimmer|Fuel rods, control tech, black-box data|
 |6|**The Crater**|100|Containment Rig|instant|Glassed floor, sky-glow, no ambient sound|Anomalies, one-of-a-kind relics|
 
-### Zone design rules
+### Stage design rules
 
-* **Every zone keeps a full rarity range**, just with shifted odds. A Zone 1 player can
+* **Every stage keeps a full rarity range**, just with shifted odds. A Stage 1 player can
 hit a 1-in-50,000 legendary. That "it could happen right here" chance is what keeps early
 players sweeping instead of quitting.
 * **Borders are visible and legible, never solid.** A rusted fence with a hole in it. A
 toppled checkpoint. A hand-painted sign that says DON'T. Crossing one triggers a full-screen
 warning card with the survivability number (§3.5) and then gets out of the way. No
 confirmation dialog — asking "are you sure?" kills the impulse that makes this fun.
-* **Distance to the nearest decon station scales super-linearly with zone number.** This is
-the primary lever on run tension and it should be tuned before rad rates are. Zone 5's
-station should be a genuinely intimidating distance from Zone 5's good dirt.
-* **Hot pockets:** each zone has 2–3 roaming high-radiation patches (visible as heat shimmer
+* **Distance to the nearest decon station scales super-linearly with stage number.** This is
+the primary lever on run tension and it should be tuned before rad rates are. Stage 5's
+station should be a genuinely intimidating distance from Stage 5's good dirt.
+* **Hot pockets:** each stage has 2–3 roaming high-radiation patches (visible as heat shimmer
 
   * audible Geiger spike). They triple the rad rate but also triple the rarity roll.
 Voluntary risk, clearly telegraphed. This gives skilled players a way to punch above
-their gear tier *inside* their own zone, the same way the Dive lets them punch above it
+their gear tier *inside* their own stage, the same way the Dive lets them punch above it
 outside — same verb, two scales.
-* **Zone 6 stays special by physics, not by permission.** Even a full Containment Rig only
+* **Stage 6 stays special by physics, not by permission.** Even a full Containment Rig only
 buys \~90 seconds inside, and Anomalies carry a 1:15 fuse, so a Crater run is a timed heist
 with a live bomb in your hands. It never becomes a farm, at any gear level, forever.
 
@@ -544,7 +544,7 @@ Each tier moves four stats, so an upgrade is always felt on multiple axes:
 |**Walk speed**|Base movement|The floor. Affects every second of play.|
 |**Sprint + Stamina**|Burst speed on a drainable meter that refills when walking|Makes the run home an *active* skill, not a hold-forward. Lets a player spend a resource to save an item.|
 |**Haul penalty**|Reduces the slow applied per carried hot item|The key one. See below.|
-|**Traversal**|T3 unlocks vault/climb over rubble; T5 unlocks a short dash|Turns level geometry into skill expression — good players learn the fast lines out of Zone 5.|
+|**Traversal**|T3 unlocks vault/climb over rubble; T5 unlocks a short dash|Turns level geometry into skill expression — good players learn the fast lines out of Stage 5.|
 
 **The haul penalty is the important stat.** Carrying hot items should physically slow you
 down — a full bag is heavy and you are visibly staggering. This creates the tradeoff that
@@ -566,8 +566,8 @@ Three guards:
 stay a commitment or §3.6 stops meaning anything.
 * **Sprint costs stamina, stamina does not scale as fast as speed.** Top-tier boots make you
 fast in bursts, not permanently fast. Preserves the decision.
-* **Deep-zone station distances scale with expected player boot tier.** As the player gets
-faster, the deep zones get further. Net tension stays flat; net *comfort* rises, which is
+* **Deep-stage station distances scale with expected player boot tier.** As the player gets
+faster, the deep stages get further. Net tension stays flat; net *comfort* rises, which is
 exactly the right outcome — the player feels the upgrade without the game getting easier.
 
 ### 5.3 The Rail Network — the structural answer
@@ -575,15 +575,15 @@ exactly the right outcome — the player feels the upgrade without the game gett
 The best version of "make the walk shorter" isn't a speed number, it's **infrastructure the
 player restores themselves**.
 
-Each zone contains a derelict **extraction rail station**. Find and pull its three missing
-parts (they're zone-specific items in the normal loot table, uncommon-tier, so you'll get
+Each stage contains a derelict **extraction rail station**. Find and pull its three missing
+parts (they're stage-specific items in the normal loot table, uncommon-tier, so you'll get
 them incidentally while doing everything else), and the line comes online — permanently,
 for you, and **visibly for the whole server**. Lights come on. The car starts moving. A
 piece of the wasteland is no longer dead.
 
 Rules:
 
-* Rail runs **one way only: outward zone → base camp.** It is an *extraction* line, never a
+* Rail runs **one way only: outward stage → base camp.** It is an *extraction* line, never a
 commute. You always walk in and you can always ride out. This preserves the entire tension
 of the trip in while removing the tedium of the trip back.
 * Riding does **not** pause the decay clock — it just beats it. Speed is the point.
@@ -668,7 +668,7 @@ frustration the player just personally experienced sells itself.
 
 ### Rarity tiers
 
-|Tier|Color|Base odds (Zone 1)|Contam. hardness|Fuse (T)|Value band|
+|Tier|Color|Base odds (Stage 1)|Contam. hardness|Fuse (T)|Value band|
 |-|-|-|-|-|-|
 |Scrap|Grey|55%|1|5:00|$1–5|
 |Common|White|28%|1|5:00|$5–25|
@@ -679,11 +679,11 @@ frustration the player just personally experienced sells itself.
 |Mythic|Red|0.04%|6|1:30|$30k–250k|
 |**Anomaly**|Prismatic|0.002%|7|1:15|$250k–2M|
 
-Odds shift heavily toward the top as zone number increases; by Zone 6, Scrap is under 5%.
+Odds shift heavily toward the top as stage number increases; by Stage 6, Scrap is under 5%.
 
 Three gates now sit on the same rarity number, which is why one column can drive the whole
 game: **hardness** decides whether you can clean it, **fuse** decides whether you can get it
-home, and the zone it spawns in decides whether you can survive collecting it. A rare item is
+home, and the stage it spawns in decides whether you can survive collecting it. A rare item is
 hard to find, hard to keep, and hard to finish — and the player understands all three from a
 single color.
 
@@ -705,7 +705,7 @@ modifier the player inflicts on themselves, and the reason the others feel like 
 
 ### Item catalogue direction
 
-Roughly 120 items at full scope, themed per zone. Bias toward objects that carry a *story*
+Roughly 120 items at full scope, themed per stage. Bias toward objects that carry a *story*
 in one line of flavor text — "Child's lunchbox, dented, still latched" hits far harder than
 "Rare Metal Object #7." Collection UI shows flavor text on discovery. Cheap, high-impact.
 
@@ -738,7 +738,7 @@ the single strongest retention mechanic on Roblox, and this is a version of it t
 *earned by play* rather than bought. You can't buy income; you have to go get it.
 * **It makes the shared server matter.** Right now the shared server is scenery — you see
 other players and nothing else. An Exhibition Row means you *see what other people found*,
-permanently, and that is the strongest possible advertisement for the deep zones.
+permanently, and that is the strongest possible advertisement for the deep stages.
 * **It answers "what is the point of a Mythic."** A Mythic sells for money you'll spend and
 forget. A Mythic on a pedestal is a landmark on the server with your name under it.
 
@@ -777,7 +777,7 @@ investment to get there.
 
 **Duplicate damping:** a second copy of the same item yields 40%, a third 15%, a fourth and
 beyond 5%. You cannot farm one good item into an income machine. Breadth beats depth, which
-pushes players back into zones they've "finished."
+pushes players back into stages they've "finished."
 
 **Offline earnings:** accrue at **25%** of your online rate, banked up to **4 hours**
 (8 with a gamepass). Enough that logging in tomorrow is rewarding, capped low enough that
@@ -831,7 +831,7 @@ endgame money sink.
 sealed containment display. Yield multiplier plus a real visual upgrade to the room.
 * **Sets** are themed groups defined in the item catalogue — "Suburban Kitchen," "Field
 Medicine," "Reactor Control," "Children's Toys." Completing one lights a plaque, adds a
-yield multiplier to every item in it, and permanently increases luck for that set's zone.
+yield multiplier to every item in it, and permanently increases luck for that set's stage.
 This is where the Exhibition and the Museum (§10.10) merge into one system rather than two
 overlapping ones.
 * **Layout is free.** Let players place pedestals where they want. Zero gameplay value,
@@ -947,7 +947,7 @@ much as your luck.
 
 ### 10.3 The Dive — *core*
 
-Walking into a zone you can't survive, taking one signal, and running (§3.5). No unlock, no
+Walking into a stage you can't survive, taking one signal, and running (§3.5). No unlock, no
 gamepass, no permission — just a countdown on your HUD and a decision. It's the highest-skill
 expression in the game, it's available from minute one, and it's free to build because it
 consists entirely of *not* putting up a wall.
@@ -962,7 +962,7 @@ digging game and exactly right for this one.
 ### 10.5 Hot Pockets — *core*
 
 Roaming radiation surges. Telegraphed, voluntary, high-risk/high-reward. Lets skill and
-nerve substitute for gear inside your own zone, the same way the Dive does outside it.
+nerve substitute for gear inside your own stage, the same way the Dive does outside it.
 
 ### 10.6 The Row — *social*
 
@@ -973,7 +973,7 @@ leaderboards, and Anomaly pins on the map.
 ### 10.7 Geiger Audio as the Primary Feedback Channel
 
 Commit to sound. The detector ping, the item's own emission, the decay-stage alarm, the
-suit-failure shriek, the ambient zone bed, and the danger warning are six distinct layers of
+suit-failure shriek, the ambient stage bed, and the danger warning are six distinct layers of
 clicking and tone. A skilled player should be able to play with their eyes half-closed. This
 is cheap to build and is the thing that will define the game's identity in clips.
 
@@ -987,7 +987,7 @@ test this section is actually asking for.
 
 Every \~20 minutes, a server-wide storm rolls in. 90-second warning siren, then:
 
-* All zone rad rates ×3.
+* All stage rad rates ×3.
 * Rarity odds ×5.
 * **Decay clocks run at double speed.**
 * Fresh items are seeded into the ground (the storm "uncovers" things).
@@ -1012,8 +1012,8 @@ spectator moment generated by systems already built.
 
 ### 10.10 Museum / Collection Wall
 
-Base camp gallery of every item you've discovered, per zone, with flavor text. Completion of
-a zone set grants a permanent luck bonus in that zone. Completionists are the most durable
+Base camp gallery of every item you've discovered, per stage, with flavor text. Completion of
+a stage set grants a permanent luck bonus in that stage. Completionists are the most durable
 segment of a Roblox audience; give them a wall.
 
 The Museum is *discovery* (have you ever held it) and the Exhibition (§8) is *possession*
@@ -1027,12 +1027,12 @@ announcement plus a permanent entry on the museum wall** listing who found it an
 Roughly one per server-week. The rarest thing in the game should leave a permanent mark on
 the world, not just a number in a wallet.
 
-With §3.6 in play, an Anomaly is a 1:15 fuse in the deepest zone in the game. Recovering one
+With §3.6 in play, an Anomaly is a 1:15 fuse in the deepest stage in the game. Recovering one
 successfully should be, and will be, the hardest thing anyone does in this game.
 
 ### 10.12 Rail Network — *world progression*
 
-Repairable one-way extraction lines out of each zone (§5.3). The world visibly improves
+Repairable one-way extraction lines out of each stage (§5.3). The world visibly improves
 because of the player's work, and the improvement is permanent and shared.
 
 ### 10.13 The Assay Bench — *depth*
@@ -1095,7 +1095,7 @@ exhibit cosmetics the most-seen surface in the game.
 * Immunity to the decay clock, or a permanent stop on it. Slowing is purchasable; stopping
 is not.
 * Immunity to radiation burn, or any increase to suit tolerance. **You cannot buy your way
-into a zone.** Since there are no zone locks to sell (§3.5), the temptation here is to sell
+into a stage.** Since there are no stage locks to sell (§3.5), the temptation here is to sell
 survivability instead — don't. The moment burn is purchasable, the Dive stops being brave.
 * Exhibition income multipliers beyond the slot/offline conveniences above. You can buy more
 room; you cannot buy a better collection.
@@ -1122,7 +1122,7 @@ people pay to look."* One free pedestal is granted. Player displays the item and
 their first tourist within 20 seconds. **The second loop is now open.**
 7. **3:00** — Rad meter crosses 50% for the first time; vignette and audio shift teach the
 danger state without a death.
-8. **4:00** — Player is walked past the Zone 2 border — a leaning fence with a gap in it.
+8. **4:00** — Player is walked past the Stage 2 border — a leaning fence with a gap in it.
 No lock, no gate, no price. Crossing pops the survivability card: `UNSUITED — SURVIVABLE: 0:50`. **They will cross it.** Everyone crosses it. They get ten seconds of
 white-edged screen and an alarm, and they run back out, and they understand the entire
 game now.
@@ -1164,19 +1164,19 @@ entirely out of things the player personally went and got.
 > danger, so the eye trains itself without being taught.** What changed is which
 > channel. It is no longer saturation. It is emission.
 
-> **Revised again, Zones 1-3 only.** "Saturated everywhere" was true of the whole
-> map; it is now true starting from Zone 4. Zones 1-3 open the game on a deliberate
-> fade instead — a small pocket of vivid grass right at Zone 1's camp-facing edge,
-> dying out through the back half of Zone 1 and all of Zone 2, dead realistic desert
-> sand by Zone 3. The rule below still holds completely inside that fade: radiation
+> **Revised again, Stages 1-3 only.** "Saturated everywhere" was true of the whole
+> map; it is now true starting from Stage 4. Stages 1-3 open the game on a deliberate
+> fade instead — a small pocket of vivid grass right at Stage 1's camp-facing edge,
+> dying out through the back half of Stage 1 and all of Stage 2, dead realistic desert
+> sand by Stage 3. The rule below still holds completely inside that fade: radiation
 > is still the only thing that glows, it is just dimmer and sparser here on purpose,
-> intensifying again from Zone 4 on exactly as already written. A return to
-> saturated, colourful ground earlier than Zone 4 is a deliberate future addition,
+> intensifying again from Stage 4 on exactly as already written. A return to
+> saturated, colourful ground earlier than Stage 4 is a deliberate future addition,
 > not implemented yet — do not read its absence here as an oversight.
 
 **The rule:**
 
-> **Saturated everywhere from Zone 4 on. Radiation is the only thing that GLOWS.**
+> **Saturated everywhere from Stage 4 on. Radiation is the only thing that GLOWS.**
 
 * **Palette:** sunny and high-value. Warm cream plazas, painted timber, mint concrete,
 coral / cyan / violet shop awnings, per-plot accent colours. The world should look
@@ -1184,8 +1184,8 @@ like somewhere you want to be, so that leaving it costs something.
 * **Radiation is `#4FD11A` acid green on `Material.Neon`, with a `PointLight`, and
 nothing else in the world may use that combination.** Not a sign, not a lamp, not a
 UI accent. It is the one uncontaminated channel and it is what makes "the green stuff
-is the game" legible to a six-year-old in about one second. That exact hex is Zone
-4 on; Zones 1-3 use their own muted greens per the fade above, on the same Neon +
+is the game" legible to a six-year-old in about one second. That exact hex is Stage
+4 on; Stages 1-3 use their own muted greens per the fade above, on the same Neon +
 PointLight channel and no other — the vividness is what moved, not which channel.
   * Practical note learned the hard way: keep the ooze **green-dominant**. A
   yellow-green like `#B6FF6E` comes out of Neon + bloom as cream and stops reading as
@@ -1198,18 +1198,18 @@ colour language, used exactly once, for the one state that means something
 categorically different. Because it is the only white in the game, it will read
 instantly and forever. This rule is unchanged and should be protected.
 * **The paths are safe, the green is not.** The hub plaza and every road are outside
-every zone volume, which in code means zero rads and 6× health regen. That single
+every stage volume, which in code means zero rads and 6× health regen. That single
 rule is the whole map's tutorial and it costs nothing to enforce.
 * **Lighting:** high sun, thin atmosphere, no depth of field. Blurring the horizon in
 a game whose entire tension is *how far away is base camp* fights the design directly.
 Bloom is threshold-gated so Neon blooms and paint does not.
-* **Per-zone fog** carries the gradient: bright and open at camp (`fogEnd` 900) closing
-in to toxic and near (600) at the Exclusion Belt, so the deep zones literally shrink
-around you. Tinted per zone from `Config/Zones`.
+* **Per-stage fog** carries the gradient: bright and open at camp (`fogEnd` 900) closing
+in to toxic and near (600) at the Exclusion Belt, so the deep stages literally shrink
+around you. Tinted per stage from `Config/Stages`.
 * **Models:** low-poly, chunky, readable at distance. Roblox-native, no realism attempt.
 * **Audio:** Geiger clicks are the lead instrument. Sparse ambient drone, distant wind,
 occasional far-off structural groan. The Crater is near-silent except for your own
-suit. Silence is the scariest zone effect available and it is free.
+suit. Silence is the scariest stage effect available and it is free.
 * **The decay stages are an audio ladder:** Fresh is a slow tick from your bag. Hot adds
 a second, faster layer. Critical adds a chirping alarm every three seconds. Slag goes
 *silent* — and that silence, after two minutes of escalating noise, is how the player
@@ -1221,9 +1221,9 @@ learns they have lost it without a single line of UI text.
 
 Everything above is the full vision. Ship this first and validate the loop:
 
-* Zones **1–3** fully built, **4 reachable and lethal** (§3.5). Zone 4 needs no content in
+* Stages **1–3** fully built, **4 reachable and lethal** (§3.5). Stage 4 needs no content in
 MVP beyond its loot table and its rad rate — an empty, deadly, diggable field is enough to
-test whether players dive into it. That test is worth more than a finished Zone 4.
+test whether players dive into it. That test is worth more than a finished Stage 4.
 * Detector tiers **1–4**, magnet **1–3**, cleaning tool **1–4**, suit **1–3**,
 **boots 1–3**, **satchel 1–2**.
 * \~35 items across 5 rarity tiers (Scrap → Epic). No modifiers except Cracked, Pristine and
@@ -1252,7 +1252,7 @@ retention strategy.
 
 1. *Do players voluntarily push past 80% exposure?* If yes, the greed dial works and the rest
 of the game is worth building.
-2. *Do players cross into Zone 4 unrated, on purpose, more than once?* Once is curiosity.
+2. *Do players cross into Stage 4 unrated, on purpose, more than once?* Once is curiosity.
 Twice is a mechanic. If they don't come back for a second dive, the reward isn't worth the
 burn and the loot tables need to move before anything else does.
 3. *Do items reach Critical stage in players' hands, and does it change their route?*
@@ -1278,7 +1278,7 @@ are in place (§3.7, §5.4, gradual value bleed rather than a cliff, Slag still 
 and discovery credit) but this needs the closest possible watch in playtest. If the data
 says people quit after their first Slagged Legendary, soften the top-tier fuses before
 touching anything else.
-* **Anomaly fuse of 1:15 in Zone 6 may be impossible**, and "impossible" here means "the
+* **Anomaly fuse of 1:15 in Stage 6 may be impossible**, and "impossible" here means "the
 rarest item in the game is unobtainable," which is the worst possible outcome. Likely
 answer: Anomalies come pre-shielded (fuse doesn't start until you leave the Crater), or the
 Crater gets its own on-site Decon Station as the reward for reaching it. Decide before the

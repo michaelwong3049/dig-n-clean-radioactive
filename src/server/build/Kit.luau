@@ -5,7 +5,7 @@
 	WHY THIS EXISTS
 	These functions were private to BaseCamp.luau, which was fine while the camp was
 	the only generated structure in the world. It no longer is: the hub, the shops,
-	the plots, the zone plates and the scenery are all built the same way, and four
+	the plots, the stage plates and the scenery are all built the same way, and four
 	copies of a part-builder is how they quietly drift apart.
 
 	Everything here except `swap`, `stamp` and `surfaceText` is lifted from
@@ -40,7 +40,7 @@ Kit.SHOWER_TAG = "Shower"
 -- The first block is the base camp's original palette, unchanged — the camp still
 -- looks exactly as it did. The second is the bright outdoor world (PLAN §14, as
 -- rewritten): saturated everywhere, and radiation is the only thing that GLOWS.
--- Nothing outside a zone may use Material.Neon in acid green; that channel means
+-- Nothing outside a stage may use Material.Neon in acid green; that channel means
 -- danger and it stays uncontaminated.
 Kit.C = {
 	-- Base camp (original values — do not repaint without rebuilding the camp)
@@ -103,15 +103,15 @@ Kit.C = {
 	-- as cream and stops reading as toxic at all. Keep red well under green here or
 	-- the ooze turns into custard.
 	--
-	-- THESE THREE ARE NO LONGER THE WHOLE HAZARD CHANNEL. They are zones 1-3's share
-	-- of it. From Zone 4 the fields turn plum, hot pink and violet, and each zone
-	-- carries its own bright/deep/glow triple in Config/Zones (`ZoneDef.ooze`) — which
+	-- THESE THREE ARE NO LONGER THE WHOLE HAZARD CHANNEL. They are stages 1-3's share
+	-- of it. From Stage 4 the fields turn plum, hot pink and violet, and each stage
+	-- carries its own bright/deep/glow triple in Config/Stages (`StageDef.ooze`) — which
 	-- is where to go to retune a field, not here. These stay because the greens are
-	-- still what three of the six zones are painted in, and because the rule they
+	-- still what three of the six stages are painted in, and because the rule they
 	-- encode travels: keep the dominant channel dominant or bloom eats the colour.
 	--
 	-- What is still absolute is the OTHER half of the original rule: nothing OUTSIDE a
-	-- zone may use Material.Neon in any of these hazard colours. That channel means
+	-- stage may use Material.Neon in any of these hazard colours. That channel means
 	-- danger and it stays uncontaminated — the shop signs and the plot accents are
 	-- bright, but never in these.
 	ooze = "4FD11A",
@@ -203,7 +203,7 @@ end
 --- overlap, the rectangles overlap; if any single axis separates them, they do
 --- not. `<=` counts as touching, not overlapping -- the direct generalisation of
 --- World.luau's own axis-aligned `rectsOverlap`, which already treats an
---- exactly-shared edge as legal (that's what makes the plaza/Zone-1 shared edge
+--- exactly-shared edge as legal (that's what makes the plaza/Stage-1 shared edge
 --- safe today).
 function Kit.orientedRectsOverlap(a: OrientedRect, b: OrientedRect): boolean
 	local function axes(r: OrientedRect): { { number } }
@@ -281,9 +281,9 @@ function Kit.build(parent: Instance, origin: CFrame, spec: Spec): BasePart
 	return p
 end
 
---- Blend two hex colours, `t` = 0 -> a, 1 -> b. Used to bake a zone's bright
+--- Blend two hex colours, `t` = 0 -> a, 1 -> b. Used to bake a stage's bright
 --- ooze tint straight into a ground colour instead of layering a separate
---- translucent plate over it (see Zones.GROUND_OOZE_TINT).
+--- translucent plate over it (see Stages.GROUND_OOZE_TINT).
 function Kit.blendHex(a: string, b: string, t: number): string
 	return Color3.fromHex(a):Lerp(Color3.fromHex(b), t):ToHex()
 end
@@ -333,7 +333,7 @@ function Kit.billboard(part: BasePart, width: number, height: number, title: str
 	sub.Parent = gui
 end
 
---- Painted text on a face — the BASE CAMP sign, zone border warnings, plot names.
+--- Painted text on a face — the BASE CAMP sign, stage border warnings, plot names.
 function Kit.surfaceText(part: BasePart, face: Enum.NormalId, text: string, color: string, alwaysOnTop: boolean?)
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = face

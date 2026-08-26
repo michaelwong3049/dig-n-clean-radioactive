@@ -34,8 +34,8 @@ local Daylight = {}
 local BUILDER_SOURCE = "src/server/build/Daylight.luau"
 local BUILDER_VERSION = 1
 
---- Base fog. Per-zone fog is a CLIENT concern (Lighting is global, but each player
---- should see their own zone's air), so AtmosphereController tweens from here.
+--- Base fog. Per-stage fog is a CLIENT concern (Lighting is global, but each player
+--- should see their own stage's air), so AtmosphereController tweens from here.
 --- These values are the base camp look.
 Daylight.BASE_FOG_COLOR = Color3.fromHex("CFF3FF")
 Daylight.BASE_FOG_END = 900

@@ -33,7 +33,7 @@ local hasDead = false
 
 -- One throwing subscriber used to take down every subscriber registered after it,
 -- forever, because they all share this single Heartbeat connection. DigService is
--- 4th in the boot ORDER, so a single bad zone silently killed docking, scrubbing,
+-- 4th in the boot ORDER, so a single bad stage silently killed docking, scrubbing,
 -- selling, tool-equipping and the debug console — server-wide, until restart.
 --
 -- Now a thrower is isolated and loud. It is warned about ONCE, not ten times a

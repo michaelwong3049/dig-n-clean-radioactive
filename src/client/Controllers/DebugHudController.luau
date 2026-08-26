@@ -192,7 +192,7 @@ local function build(): ScreenGui
 
 	divider(panel, 2)
 
-	ui.zone = label(panel, 3)
+	ui.stage = label(panel, 3)
 	ui.exposure = bar(panel, 4, "EXPOSURE")
 	ui.netBreakdown = label(panel, 5)
 	ui.netBreakdown.TextColor3 = COLOR.dim
@@ -226,13 +226,13 @@ end
 local function render(state)
 	local pocket = if (state.hotPocket or 1) > 1 then string.format("  HOT POCKET x%.1f", state.hotPocket) else ""
 
-	-- A nil zone is a real state, not a missing value: it means "not standing in
-	-- any zone", which is exactly what base camp is. Only the wasteland has a number.
-	local where = if state.zoneId
-		then string.format("ZONE %d  %s", state.zoneId, state.zoneName)
-		else tostring(state.zoneName)
-	ui.zone.Text = string.format("%-26s %s r/s ambient%s", where, rate(state.ambient), pocket)
-	ui.zone.TextColor3 = if state.failing then COLOR.white else COLOR.text
+	-- A nil stage is a real state, not a missing value: it means "not standing in
+	-- any stage", which is exactly what base camp is. Only the wasteland has a number.
+	local where = if state.stageId
+		then string.format("STAGE %d  %s", state.stageId, state.stageName)
+		else tostring(state.stageName)
+	ui.stage.Text = string.format("%-26s %s r/s ambient%s", where, rate(state.ambient), pocket)
+	ui.stage.TextColor3 = if state.failing then COLOR.white else COLOR.text
 
 	ui.exposure.set(
 		state.exposureFrac,

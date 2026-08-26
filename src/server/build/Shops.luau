@@ -13,7 +13,7 @@
 	PLUS AN OUTFITTER, a real building, and this one is not decoration.
 	Gear.TRACKS has six entries. Three stalls covers Detector, Magnet and Cleaner and
 	leaves Suit, Boots and Satchel priced but unbuyable — and the SUIT is the gate on
-	every zone in the game. Without a way to buy one, Zone 2 stops being "you can go
+	every stage in the game. Without a way to buy one, Stage 2 stops being "you can go
 	there and here is what it costs" and becomes exactly the locked door PLAN §3.5
 	promises never to build. It costs nothing to add because the shop system
 	is track-generic: it is three more counters with three more StationIds.
@@ -56,7 +56,7 @@
 	STALLS.at / OUTFITTER.at ARE NOT UNTOUCHED ANY MORE. Both were written when
 	Hub.PLAZA was symmetric about world X=0, so "centred at x=0" and "centred on the
 	plaza" were the same statement. They stopped being the same statement when the
-	plaza's compaction pass pinned its east edge to Zone 1 and pulled its west edge in
+	plaza's compaction pass pinned its east edge to Stage 1 and pulled its west edge in
 	instead (see Hub.PLAZA's own comment) — the rectangle's midpoint moved to x=17.5,
 	so every X here carries that same +17.5 to stay centred on the plaza rather than on
 	a world coordinate the plaza no longer straddles.
@@ -74,13 +74,13 @@
 	north) is untouched — only the row positions moved, not which way anything
 	points.
 
-	X MOVED AGAIN, WHEN RING_CENTER PULLED TOWARD ZONE 1. RING_CENTER is no
+	X MOVED AGAIN, WHEN RING_CENTER PULLED TOWARD STAGE 1. RING_CENTER is no
 	longer the plaza's own midpoint (see Plots.luau's own comment on why) — it
 	moved from x=17.5 to x=32, so every X here carries that same +14.5 to stay
 	centred under it, same reasoning as the +17.5 correction above. THIS ROW'S
 	OWN FOOTPRINT IS WHAT CAPPED HOW FAR RING_CENTER COULD MOVE, not the pads —
 	the eastmost stall (Cleaner, at.x = centre + 42) plus its own ~11-stud
-	half-width is the first thing that would cross into Zone 1 (world x=100) if
+	half-width is the first thing that would cross into Stage 1 (world x=100) if
 	pushed further; Plots.luau's SHOP_CLUSTER_EAST_REACH constant is that exact
 	number, kept in sync with these three x values by hand since this file has no
 	way to read Plots.luau's own layout (Plots requires Hub, and Hub requires
@@ -482,7 +482,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 
 	-- Y comes from Hub.PLAZA.topY, not a bare 0 -- the stall has to sit on whatever
 	-- plane the plaza itself is actually on, and that stopped being world Y=0 once
-	-- the plaza moved down to match Zones.SURFACE_Y (see Hub.luau's own comment on
+	-- the plaza moved down to match Stages.SURFACE_Y (see Hub.luau's own comment on
 	-- Hub.PLAZA). Every part below is a LOCAL offset from this origin, so this one
 	-- line is the only thing that needed to change for the whole stall to move.
 	local origin = CFrame.new(spec.at[1], Hub.PLAZA.topY, spec.at[2])

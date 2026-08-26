@@ -40,7 +40,7 @@ local state = {
 	net = 0,
 	failing = false,
 	inShower = false,
-	zoneName = "Base Camp",
+	stageName = "Base Camp",
 	downed = false,
 
 	health = 100,
@@ -222,8 +222,8 @@ local function build(): ScreenGui
 		zIndex = 4,
 	})
 
-	ui.zoneLabel = UIKit.label(panel, {
-		name = "ZoneLabel",
+	ui.stageLabel = UIKit.label(panel, {
+		name = "StageLabel",
 		position = UDim2.fromOffset(16, 112),
 		size = UDim2.new(1, -32, 0, 16),
 		font = UIKit.Font.body,
@@ -311,7 +311,7 @@ local function render(dt: number)
 	ui.percentValue.Text = string.format("%d%%", math.floor(frac * 100 + 0.5))
 	ui.percentValue.TextColor3 = if frac >= Tuning.EXPOSURE_DANGER then colour else DIM
 	ui.readout.Text = string.format("%+.2f r/s", state.net)
-	ui.zoneLabel.Text = state.zoneName
+	ui.stageLabel.Text = state.stageName
 
 	-- HEALTH. Green is exposure's colour and exposure's alone (PLAN §14's one-colour
 	-- rule), so a hurting suit reads amber -> red the same way any other game's HP bar
@@ -406,7 +406,7 @@ function Hud.start()
 		state.net = payload.net or 0
 		state.failing = payload.failing == true
 		state.inShower = payload.inShower == true
-		state.zoneName = payload.zoneName or ""
+		state.stageName = payload.stageName or ""
 		state.downed = payload.downed == true
 
 		-- maxHealth before health: health / maxHealth is divided every render frame,

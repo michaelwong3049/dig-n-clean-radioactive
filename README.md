@@ -32,7 +32,7 @@ rojo serve          # then connect from the Rojo plugin in Studio
 are no package dependencies to install.
 
 > **The place file is not in this repo.** The base camp has a versioned builder, but
-> zones and tool models still live only in the gitignored `.rbxlx`. See the "world
+> stages and tool models still live only in the gitignored `.rbxlx`. See the "world
 > contract" section of ARCHITECTURE.md.
 
 ## Building the base camp
@@ -90,6 +90,6 @@ require(game.ReplicatedStorage.Shared.Util.TuningReport).run()  -- the survivabi
 ```
 
 In game: **F3** toggles the debug HUD, and `/radhelp` lists the tuning console commands
-(`/zone`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/pocket`).
+(`/stage`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/pocket`).
 
 Lint with [selene](https://kampfkarren.github.io/selene/) (`selene src`).
