@@ -20,7 +20,7 @@
 	Two things make plain `fromScale(0.5, 0.5)` safe now. The radar scope moved out of
 	the instrument band into its own bottom-right corner (see DetectorController), so
 	the band lost 36px and RESERVE fell with it; and the status line is blank whenever
-	you are out of a zone, which is exactly when a station panel is open (every
+	you are out of a stage, which is exactly when a station panel is open (every
 	station is in the zero-rad plaza). What is left below the centred panel is the dig
 	button and the hotbar, both far enough down to clear it.
 

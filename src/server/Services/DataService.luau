@@ -58,9 +58,9 @@ local TEMPLATE = {
 	cleanTokens = 0,
 	rebirths = 0,
 
-	railStations = {}, -- zoneId -> parts found (PLAN §5.3)
+	railStations = {}, -- stageId -> parts found (PLAN §5.3)
 
-	stats = { deepestZone = 1, itemsCleaned = 0, slagged = 0, dives = 0 },
+	stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0 },
 }
 
 local STORE_VERSION = 1 -- bump to abandon all existing saves

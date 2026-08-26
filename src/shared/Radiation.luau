@@ -15,14 +15,14 @@
 	(PLAN §14: green screen vs white screen). This module keeps them separate by
 	construction:
 
-	    AMBIENT (the zone)   -> shielded by the SUIT     -> can cause BURN  (white)
+	    AMBIENT (the stage)   -> shielded by the SUIT     -> can cause BURN  (white)
 	    CARRIED (your loot)  -> shielded by the SATCHEL  -> only fills EXPOSURE (green)
 
 	Two consequences worth stating out loud, because both were bugs in the first draft:
 
 	1. Suit tolerance is checked against AMBIENT ONLY. If carried emission counted
 	   toward burn, a full backpack would trigger suit failure inside your own rated
-	   zone — the white-screen "you should not be here" state firing while you are
+	   stage — the white-screen "you should not be here" state firing while you are
 	   exactly where you should be. Nonsense, and it collapses two clear signals
 	   into one muddy one.
 
@@ -50,7 +50,7 @@ export type Stats = {
 }
 
 export type Reading = {
-	ambient: number, -- raw zone rads/sec, before the suit
+	ambient: number, -- raw stage rads/sec, before the suit
 	carried: number, -- raw backpack rads/sec, before the satchel
 	net: number, -- rads/sec actually accumulating on the exposure meter
 	excess: number, -- ambient rads/sec past suit tolerance (0 = suit holding)
@@ -63,7 +63,7 @@ export type Reading = {
 function Radiation.resolve(ambient: number, carried: number, stats: Stats): Reading
 	local resist = 1 - math.clamp(stats.levelResist, 0, Tuning.RESIST_CAP)
 
-	local fromZone = ambient * (1 - math.clamp(stats.suitReduction, 0, 1)) * resist
+	local fromStage = ambient * (1 - math.clamp(stats.suitReduction, 0, 1)) * resist
 	local fromBag = carried * (1 - math.clamp(stats.satchelShielding, 0, 1)) * resist
 
 	-- AMBIENT ONLY. See the header.
@@ -73,16 +73,16 @@ function Radiation.resolve(ambient: number, carried: number, stats: Stats): Read
 	return {
 		ambient = ambient,
 		carried = carried,
-		net = fromZone + fromBag,
+		net = fromStage + fromBag,
 		excess = excess,
 		healthBurn = healthBurn,
 		failing = excess > 0,
 	}
 end
 
---- Zone rads/sec, including any hot pocket the player is standing in (PLAN §4).
-function Radiation.ambientAt(zoneBaseRads: number, hotPocketMult: number?): number
-	return zoneBaseRads * (hotPocketMult or 1)
+--- Stage rads/sec, including any hot pocket the player is standing in (PLAN §4).
+function Radiation.ambientAt(stageBaseRads: number, hotPocketMult: number?): number
+	return stageBaseRads * (hotPocketMult or 1)
 end
 
 --- Seconds until the player goes down, from either cause. This is the number that

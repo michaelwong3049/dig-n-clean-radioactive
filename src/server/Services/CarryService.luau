@@ -121,7 +121,7 @@ end
 ---   #patches   — a scrub removes them one at a time; `clean` only flips at the end
 ---   blockedBy  — buying a better cleaner unblocks an item with no change to patches
 ---   perSecond  — depends on stats.yieldMultiplier, which the Index completion bonus
----                (DigService.grantZoneCompletionBonus) can change mid-session with
+---                (DigService.grantStageCompletionBonus) can change mid-session with
 ---                nothing else about the item itself moving
 local function signatureOf(described: { any }, capacity: number): string
 	local parts = { tostring(capacity) }

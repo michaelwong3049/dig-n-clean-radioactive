@@ -6,12 +6,12 @@
 	`reduction` and `tolerance` were solved so the model in Shared/Radiation.lua
 	reproduces the design's stated intent. Table below regenerated via
 	Shared/Util/TuningReport after four radiation-harshening passes today
-	(Tuning.BURN_COEF 2.0 -> 3.0 -> 6.0, Zone 1's deepRads 1.25 -> 1.8 -> 1.97,
+	(Tuning.BURN_COEF 2.0 -> 3.0 -> 6.0, Stage 1's deepRads 1.25 -> 1.8 -> 1.97,
 	Cloth Wrap's `reduction` 0.9000 -> 0.6296) — all figures below are at each
-	zone's ENTRANCE (depthFrac=0); the deep edge of every zone is meaningfully
-	worse, see Zones.radsAt/Zones.DEFS. Zone 1's deepRads specifically governs
-	its OWN far edge (NOT the separate, distant Zone 3 "Fallout Fields" its old
-	sub-band naming used to resemble) — see Zones.luau's Zone 1 comment for that
+	stage's ENTRANCE (depthFrac=0); the deep edge of every stage is meaningfully
+	worse, see Stages.radsAt/Stages.DEFS. Stage 1's deepRads specifically governs
+	its OWN far edge (NOT the separate, distant Stage 3 "Fallout Fields" its old
+	sub-band naming used to resemble) — see Stages.luau's Stage 1 comment for that
 	story:
 
 	                     Z1      Z2      Z3      Z4      Z5      Z6
@@ -22,21 +22,21 @@
 	  Sealed Exo-Suit    inf     inf     inf     inf     inf     12s
 	  Containment Rig    inf     inf     inf   10:00    3:45    1:30
 
-	ZONE 1's CLOTH WRAP CELL IS NOT "inf" ANY MORE, AND IT DID NOT MOVE VIA BURN.
-	Zone 1's ambient (0.5) is still below Cloth Wrap's tolerance (1.0) -- it never
-	enters the burn/white-screen track at all, by design (Zone 1's rated suit tier IS
-	the starting tier, and Spec still requires SOME zone to be a true no-pressure
+	STAGE 1's CLOTH WRAP CELL IS NOT "inf" ANY MORE, AND IT DID NOT MOVE VIA BURN.
+	Stage 1's ambient (0.5) is still below Cloth Wrap's tolerance (1.0) -- it never
+	enters the burn/white-screen track at all, by design (Stage 1's rated suit tier IS
+	the starting tier, and Spec still requires SOME stage to be a true no-pressure
 	tutorial space). The 9:00 instead comes entirely from lowering Cloth Wrap's own
 	`reduction` (0.9000 -> 0.6296), which only touches the EXPOSURE/green-screen track
-	-- raising Zone 1's ambient far enough to trigger burn at exactly 9 minutes would
+	-- raising Stage 1's ambient far enough to trigger burn at exactly 9 minutes would
 	have required an ambient value within about 0.02 rads/sec of Cloth Wrap's exact
 	tolerance, a razor-thin, un-maintainable number given how steeply burn responds to
 	`excess`. Lowering `reduction` instead needed no such precision and is provably
-	isolated to Zone 1: every other zone already burns Cloth Wrap long before its
+	isolated to Stage 1: every other stage already burns Cloth Wrap long before its
 	exposure meter would matter, so `reduction` is inert everywhere else for this tier.
 
 	Three properties that matter fall out of that table:
-	  * ONE TIER UNDER is ~12s in every zone (was ~35s originally, ~23s after the
+	  * ONE TIER UNDER is ~12s in every stage (was ~35s originally, ~23s after the
 	    second pass). That is the Dive (§3.5), now considerably tighter -- a kept
 	    side effect of the BURN_COEF raise, not something asked for on its own --
 	    see Tuning.luau's BURN_COEF comment.
@@ -90,7 +90,7 @@ Gear.Detector = {
 -- soaked. Same slot in the six tracks the shovel used to hold, same price curve.
 --
 -- pullSpeed: how fast it hauls (was digSpeed)
--- maxGrip  : the toughest ground it can rip something out of, vs Zones.soilHardness.
+-- maxGrip  : the toughest ground it can rip something out of, vs Stages.soilHardness.
 --            Under-rated magnets do not fail with a message — they lift the item a
 --            little way and stall, in view, which sells the upgrade by itself.
 Gear.Magnet = {
@@ -117,8 +117,8 @@ Gear.Cleaner = {
 -- capacity : hot items carried before it gets unmanageable (PLAN §3.4)
 --
 -- Cloth Wrap's reduction dropped 0.9000 -> 0.6296 in the third harshening pass, SOLELY
--- to hit an explicit Zone 1 target (unsuited survival capped at 9 minutes, was ~33
--- minutes) without touching Zone 1's ambient rate itself -- see this file's header.
+-- to hit an explicit Stage 1 target (unsuited survival capped at 9 minutes, was ~33
+-- minutes) without touching Stage 1's ambient rate itself -- see this file's header.
 Gear.Suit = {
 	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.0, capacity = 4 },
 	{ name = "Rubber Suit", price = 450, reduction = 0.9750, tolerance = 4.4, capacity = 6 },

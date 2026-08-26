@@ -23,9 +23,9 @@ src/
     Config/                   DATA ONLY. No logic, no requires outside Config/.
       Tuning.luau             global knobs — every magic number in the game
       Rarity.luau             the 8 rarities + the roll-on modifiers
-      Zones.luau              the 6 zones
+      Stages.luau              the 6 stages
       Gear.luau               the 6 upgrade tracks
-      Items.luau              the item catalogue (+ id / zone-rarity indexes)
+      Items.luau              the item catalogue (+ id / stage-rarity indexes)
       ToolTiers.luau          per-tier look: scale, colours, material, glow
     ItemModels/               versioned item-art factories; nil keys use placeholders
       init.luau               model-key registry used by haul + exhibition rendering
@@ -50,7 +50,7 @@ src/
     build/ModelGallery.luau   manual temporary lot for reviewing all real item models
     Services/
       DataService             ProfileStore wrapper, session-locked persistence
-      ZoneService             who is standing where
+      StageService             who is standing where
       ExposureService         the rad meter, burn, blackout, dropped bags
       DigService              the buried signal field, sweep and haul
       EconomyService          what an item is worth, and the till
@@ -106,7 +106,7 @@ Two rules worth stating separately because they are the ones that get eroded:
    * `SweepState` carries contacts **inside the player's own detector radius**, as
      **offsets relative to that player** — never world coordinates, never a uid, and
      never anything the player is not already looking at a glow for.
-   * Everything else in the zone — the other forty-odd buried signals — stays exactly
+   * Everything else in the stage — the other forty-odd buried signals — stays exactly
      as invisible as it was.
 
    That is the property actually worth defending. A digging game that replicates the
@@ -132,8 +132,8 @@ out of the same function, so they cannot disagree.
 
 ## The world contract
 
-`ZoneService`, `ExposureService`, `DeconService` and `ToolService` read **attributes on
-instances in Workspace**, not paths in code. The zones and tool models currently live
+`StageService`, `ExposureService`, `DeconService` and `ToolService` read **attributes on
+instances in Workspace**, not paths in code. The stages and tool models currently live
 only in the `.rbxlx`. The base camp is the exception: its authoritative recipe is
 `src/server/build/BaseCamp.luau`, then the generated instances are saved or published
 with the place.
@@ -142,8 +142,8 @@ with the place.
 
 | Instance | Read by | If missing |
 |---|---|---|
-| `Workspace.Zones` (Folder) | `ZoneService:36`, `DigService:148` | nobody is ever in a zone; no signals spawn |
-| `Workspace.Zones.Zone<id>` (BasePart) | `DigService:152`, `DebugService:141` | that zone spawns no signals; `/zone <id>` refuses |
+| `Workspace.Stages` (Folder) | `StageService:36`, `DigService:251` | nobody is ever in a stage; no signals spawn |
+| `Workspace.Stages.Stage<id>` (BasePart) | `DigService:255`, `DebugService:142` | that stage spawns no signals; `/stage <id>` refuses |
 | `Workspace.SignalAuras` (Folder) | created and owned by `DigService` | nothing — it is created on demand at runtime and wiped on boot. Do **not** hand-edit or save it with the place; `DigService.init` destroys any copy it finds, because a saved one would be full of glows over empty ground. |
 | `Workspace.BaseCamp` (Model) | `DeconService:54` | `stationOf` is always nil — no docking, scrubbing or selling, anywhere. Generate it with `BaseCamp.rebuild()` as documented in the README. |
 | a `SpawnLocation` anywhere in `Workspace` | `ExposureService:221` | blackout respawns to a hardcoded `CFrame.new(0, 8, 0)` |
@@ -158,26 +158,26 @@ still start.
 
 | Where | Attribute | Type | Meaning |
 |---|---|---|---|
-| `Workspace.Zones.*` (BasePart) | `ZoneId` | number | Which `Config/Zones` entry this volume is. Y is ignored; smallest containing XZ volume wins. |
+| `Workspace.Stages.*` (BasePart) | `StageId` | number | Which `Config/Stages` entry this volume is. Y is ignored; smallest containing XZ volume wins. |
 
-**The zone plate contract**, enforced by `build/ZoneFields.luau` and checked by
+**The stage plate contract**, enforced by `build/StageFields.luau` and checked by
 `World.verify()`. Two *independent* lookups have to agree on the same part, and
 missing either one fails silently in a different direction:
 
-- `DigService.zonePart` finds it **by name** — `Workspace.Zones.Zone<id>`. Miss this
+- `DigService.stagePart` finds it **by name** — `Workspace.Stages.Stage<id>`. Miss this
   and no signals ever spawn there.
-- `ZoneService.zoneAt` finds it **by attribute** — `ZoneId`. Miss this and nobody is
+- `StageService.stageAt` finds it **by attribute** — `StageId`. Miss this and nobody is
   ever considered to be standing in it, so the field fills with items no one can find.
 
 Also required, and each corresponds to a real silent failure:
 
 | Rule | Why |
 |---|---|
-| A single `BasePart`, direct child of `Workspace.Zones` | Both lookups use non-recursive child access. Terrain cannot be a zone — there are no raycasts anywhere in `src/`. |
+| A single `BasePart`, direct child of `Workspace.Stages` | Both lookups use non-recursive child access. Terrain cannot be a stage — there are no raycasts anywhere in `src/`. |
 | Rotation must be identity | Items bury on the flat top face; a tilted plate puts them under the visible ground. |
-| Top face at `Zones.SURFACE_Y` | That plane *is* the walk surface. |
+| Top face at `Stages.SURFACE_Y` | That plane *is* the walk surface. |
 | Thickness ≥ max burial depth (`Tuning.DIG_DEPTH_*`, currently 13.2) | The haul part rises from below the top face; a thin plate lets it show through the underside. |
-| `Workspace.Zones` holds plates and **nothing else** | A decoration carrying a `ZoneId` becomes a zone, and smallest-area-wins means a stray barrel silently becomes the zone you are in. Decor lives in `Workspace.Scenery`. |
+| `Workspace.Stages` holds plates and **nothing else** | A decoration carrying a `StageId` becomes a stage, and smallest-area-wins means a stray barrel silently becomes the stage you are in. Decor lives in `Workspace.Scenery`. |
 | any BasePart in `Workspace` | `Shower` | boolean | Decon shower. Flushes player exposure, does **not** touch items. Since `build/Plots.luau`, each base's cleansing station carries this **on the same part** as `StationKind="decon"` — one stop for both, sharing one `Radius` — rather than two separate structures the way camp used to have them. |
 | ″ | `Radius` | number | Shower radius in studs. Optional, default 10. |
 | any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"plot"` \| `"pedestal"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; plot is an exhibition claim board; pedestal is one display slot. |
@@ -274,7 +274,7 @@ The profile itself — `TEMPLATE` in `DataService`, which is the authoritative c
     multipliers = {},  -- rebirth / gamepass / pet, pre-summed. Read by StatResolver.
     cleanTokens = 0, rebirths = 0,
     railStations = {},
-    stats = { deepestZone = 1, itemsCleaned = 0, slagged = 0, dives = 0 },
+    stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0 },
 }
 ```
 
@@ -296,7 +296,7 @@ Consequences that were both bugs in the first draft, and are now pinned by `Util
 
 - Suit tolerance is checked against **ambient only**. If carried emission counted toward
   burn, a full backpack would trigger the "you should not be here" white screen inside
-  your own rated zone.
+  your own rated stage.
 - The suit does **not** shield you from your own backpack — the loot is inside the suit
   with you. That is what gives the Satchel track its real job, and without it the greed
   dial stops working the moment you buy a mid-tier suit.
@@ -322,7 +322,7 @@ regenerates the survivability matrix that `Config/Gear.luau`'s header documents;
 its output back into the design doc so the doc stops drifting away from the game.
 
 In-game, **F3** toggles the debug HUD and `/radhelp` lists the tuning console
-(`DebugService`): `/zone`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/pocket`
+(`DebugService`): `/stage`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/pocket`
 (a stub that reports hot pockets are unbuilt), and `/radhelp` itself. `/radhelp`
 enumerates `COMMANDS` at runtime, so anything added there shows up without being
 listed here.

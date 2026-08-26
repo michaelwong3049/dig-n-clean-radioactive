@@ -20,7 +20,7 @@
 
 	It is built from segments rather than a textured decal on purpose. A ring texture
 	is an asset id that can rot, needs a decent resolution to survive being scaled to
-	a 34-stud circle, and gets washed out by the zone fog; forty-eight thin neon parts
+	a 34-stud circle, and gets washed out by the stage fog; forty-eight thin neon parts
 	cost less than that and look the same at every radius.
 
 	CLIENT-SIDE, so it is yours alone. Contrast the auras, which are deliberately
@@ -45,9 +45,9 @@ local SEGMENTS = Tuning.RANGE_RING_SEGMENTS
 local SEGMENT_GAP = 0.72 -- fraction of the arc a segment fills; the rest reads as dashes
 -- Lifted off the plate so it does not z-fight the ground — except it did: this used
 -- to be 0.06, which exactly matches build/Scenery.luau's GROUND_SKIM (the height of
--- Zone 1's opaque stage-colour ground layer, paintBands). Two independently-set
+-- Stage 1's opaque stage-colour ground layer, paintBands). Two independently-set
 -- constants in different files landing on the same number is invisible everywhere
--- but Zone 1, the one place that layer exists — there, the opaque band sat exactly
+-- but Stage 1, the one place that layer exists — there, the opaque band sat exactly
 -- on top of the ring every frame and hid it completely, not a flicker, since the
 -- z-fight was an exact tie rather than a near-miss. 0.1 clears both that (0.06) and
 -- OozePool's OozeRim (SKIM - 0.12 = 0.14) by a real margin either side.
@@ -123,7 +123,7 @@ end
 
 --- Where the ring should sit. One ray, straight down from the player.
 ---
---- The zone plates are flat, so a single sample is honest here — sampling per segment
+--- The stage plates are flat, so a single sample is honest here — sampling per segment
 --- would let the ring drape over scenery, which is prettier and also means the ring
 --- can be occluded by the very clutter it is supposed to be measured against.
 local function groundY(root: BasePart): number

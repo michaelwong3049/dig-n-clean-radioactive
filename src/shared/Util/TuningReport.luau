@@ -8,7 +8,7 @@
 	WHY THIS EXISTS
 	PLAN.md §3.5 and §4 each contain a survivability table. Those tables were written
 	by hand and cannot both be satisfied by any single formula — §4's "one tier under"
-	column for Zone 2 is Cloth Wrap, which §3.5 also lists as "unsuited", with two
+	column for Stage 2 is Cloth Wrap, which §3.5 also lists as "unsuited", with two
 	different numbers.
 
 	The fix is not to argue with the doc. It is to make the CONFIG the source of truth
@@ -17,14 +17,14 @@
 
 	The shipped Config values are fitted so this prints:
 	  * unsuited survival matching §3.5's intent, tightened across three harshening
-	    passes  (9:00 in Zone 1 specifically / 17s / 5s / 2s / instant / instant)
-	  * ~12s one tier under, in every zone — §3.5's tightened "one dig" Dive window
+	    passes  (9:00 in Stage 1 specifically / 17s / 5s / 2s / instant / instant)
+	  * ~12s one tier under, in every stage — §3.5's tightened "one dig" Dive window
 	  * 1:30 for a full Containment Rig in the Crater — §4's timed heist
 ]]
 
 local Config = script.Parent.Parent.Config
 local Tuning = require(Config.Tuning)
-local Zones = require(Config.Zones)
+local Stages = require(Config.Stages)
 local Gear = require(Config.Gear)
 local Radiation = require(script.Parent.Parent.Radiation)
 
@@ -55,13 +55,13 @@ local function duration(seconds: number): string
 	return string.format("%ds", math.round(seconds))
 end
 
---- Survivable seconds for an empty-handed, full-health player standing in `zoneId`
+--- Survivable seconds for an empty-handed, full-health player standing in `stageId`
 --- wearing suit tier `suitTier`. `depthFrac` (default 0, the entrance) picks where
---- in the zone -- see Zones.radsAt; Spec.luau uses the same convention.
-function TuningReport.survive(zoneId: number, suitTier: number, depthFrac: number?): number
+--- in the stage -- see Stages.radsAt; Spec.luau uses the same convention.
+function TuningReport.survive(stageId: number, suitTier: number, depthFrac: number?): number
 	local suit = Gear.tier("Suit", suitTier)
 
-	local reading = Radiation.resolve(Radiation.ambientAt(Zones.radsAt(zoneId, depthFrac or 0)), 0, {
+	local reading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(stageId, depthFrac or 0)), 0, {
 		suitReduction = suit.reduction,
 		suitTolerance = suit.tolerance,
 		satchelShielding = 0,
@@ -72,11 +72,11 @@ end
 
 --- Survivable seconds while HAULING. This is the number the greed dial (PLAN §3.3)
 --- actually turns, and the one most worth watching in playtest telemetry.
-function TuningReport.surviveCarrying(zoneId: number, suitTier: number, satchelTier: number, carriedEmission: number, depthFrac: number?): number
+function TuningReport.surviveCarrying(stageId: number, suitTier: number, satchelTier: number, carriedEmission: number, depthFrac: number?): number
 	local suit = Gear.tier("Suit", suitTier)
 	local satchel = Gear.tier("Satchel", satchelTier)
 
-	local reading = Radiation.resolve(Radiation.ambientAt(Zones.radsAt(zoneId, depthFrac or 0)), carriedEmission, {
+	local reading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(stageId, depthFrac or 0)), carriedEmission, {
 		suitReduction = suit.reduction,
 		suitTolerance = suit.tolerance,
 		satchelShielding = satchel.shielding,
@@ -89,8 +89,8 @@ function TuningReport.run()
 	local out = { "\n=== SURVIVABILITY MATRIX (empty bag, full health, level 1) ===\n" }
 
 	local header = string.rep(" ", 20)
-	for _, zone in Zones.DEFS do
-		header ..= string.format("%13s", string.sub(zone.name, 1, 12))
+	for _, stage in Stages.DEFS do
+		header ..= string.format("%13s", string.sub(stage.name, 1, 12))
 	end
 	table.insert(out, header)
 	table.insert(out, string.rep("-", #header))
@@ -98,28 +98,28 @@ function TuningReport.run()
 	for suitTier = 1, Gear.maxTier("Suit") do
 		local suit = Gear.tier("Suit", suitTier)
 		local row = string.format("%-20s", suit.name)
-		for _, zone in Zones.DEFS do
-			row ..= string.format("%13s", fmt(TuningReport.survive(zone.id, suitTier)))
+		for _, stage in Stages.DEFS do
+			row ..= string.format("%13s", fmt(TuningReport.survive(stage.id, suitTier)))
 		end
 		table.insert(out, row)
 	end
 
-	table.insert(out, "\n=== THE DIVE: one tier under rated, at the zone's deepest point (PLAN §3.5 target: 8-15s) ===\n")
-	for zoneId = 2, #Zones.DEFS do
-		local zone = Zones.get(zoneId)
-		local underTier = zone.ratedSuitTier - 1
-		local s = TuningReport.survive(zoneId, underTier, 1)
+	table.insert(out, "\n=== THE DIVE: one tier under rated, at the stage's deepest point (PLAN §3.5 target: 8-15s) ===\n")
+	for stageId = 2, #Stages.DEFS do
+		local stage = Stages.get(stageId)
+		local underTier = stage.ratedSuitTier - 1
+		local s = TuningReport.survive(stageId, underTier, 1)
 		local flag = if s >= 8 and s <= 15 then "ok" else "OUT OF BAND"
-		-- Zone 2's one-tier-under IS Cloth Wrap, same tier as the Zone 1 unsuited
-		-- target, but tested at Zone 2's DEEPEST point (deepRads=5.0) rather than
-		-- Zone 1's (capped separately, see Gear.luau) -- these were never going to
-		-- land in the same band as zones 3+, they're a different suit-vs-zone pairing
+		-- Stage 2's one-tier-under IS Cloth Wrap, same tier as the Stage 1 unsuited
+		-- target, but tested at Stage 2's DEEPEST point (deepRads=5.0) rather than
+		-- Stage 1's (capped separately, see Gear.luau) -- these were never going to
+		-- land in the same band as stages 3+, they're a different suit-vs-stage pairing
 		-- entirely. Flagged rather than force-fit into the same 8-15s band the
-		-- zone-3-to-6 dives share.
-		if zoneId == 2 then
+		-- stage-3-to-6 dives share.
+		if stageId == 2 then
 			flag = "ok (accepted: different pairing, see comment)"
 		end
-		table.insert(out, string.format("  %-20s with %-18s %8s   %s", zone.name, Gear.tier("Suit", underTier).name, fmt(s), flag))
+		table.insert(out, string.format("  %-20s with %-18s %8s   %s", stage.name, Gear.tier("Suit", underTier).name, fmt(s), flag))
 	end
 
 	table.insert(out, "\n=== DECAY: time from unearth to Slag, per rarity (PLAN §3.6) ===\n")
@@ -130,7 +130,7 @@ function TuningReport.run()
 	end
 
 	table.insert(out, "\n=== THE GREED DIAL: seconds to blackout while hauling (PLAN §3.3) ===")
-	table.insert(out, "  Zone 3, Lead-Lined suit, Canvas Bag (no shielding)\n")
+	table.insert(out, "  Stage 3, Lead-Lined suit, Canvas Bag (no shielding)\n")
 	local Decay = require(script.Parent.Parent.Decay)
 	local cases = {
 		{ label = "8x Rare, all Fresh", rarity = "Rare", modifier = "None", count = 8, elapsed = 0 },

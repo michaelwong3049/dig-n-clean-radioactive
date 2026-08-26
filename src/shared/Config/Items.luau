@@ -2,14 +2,14 @@
 --[[
 	Items.lua — the catalogue. Data only, like everything else in Config/.
 
-	Zones 1-6, ~64 items, Scrap through Anomaly.
+	Stages 1-6, ~64 items, Scrap through Anomaly.
 
-	A ZONE WITH NO ITEMS IS NOT A CRASH ANY MORE, BUT IT IS STILL BROKEN. DigService
-	rolls a rarity from the zone's loot table and then steps DOWN through the
+	A STAGE WITH NO ITEMS IS NOT A CRASH ANY MORE, BUT IT IS STILL BROKEN. DigService
+	rolls a rarity from the stage's loot table and then steps DOWN through the
 	catalogue looking for something to hand you. That step-down only goes downward —
-	so a zone stocked only at Rare and above silently fails every Scrap and Common
+	so a stage stocked only at Rare and above silently fails every Scrap and Common
 	roll and fills its field at a fraction of the intended rate. Stock the LOW end of
-	every zone you add, not just the exciting end.
+	every stage you add, not just the exciting end.
 
 	TWO RULES, both from ARCHITECTURE.md, both cheap now and miserable to retrofit:
 
@@ -22,7 +22,7 @@
 	   field is what turns a loot table into a museum, and adding it across a finished
 	   catalogue later is exactly the job nobody does.
 
-	baseValue must sit inside its rarity's band in Rarity.DEFS. Zone 1 deliberately
+	baseValue must sit inside its rarity's band in Rarity.DEFS. Stage 1 deliberately
 	carries a Legendary: PLAN §4 wants "it could happen right here" live from minute
 	one, because that chance is what keeps a new player sweeping.
 
@@ -35,7 +35,7 @@ export type ItemDef = {
 	name: string,
 	flavor: string,
 	rarity: string,
-	zones: { number },
+	stages: { number },
 	appeal: string, -- "Researcher" | "Collector" | "Gearhead"
 	sets: { string },
 	baseValue: number,
@@ -51,7 +51,7 @@ Items.DEFS = {
 		name = "Bottle Cap",
 		flavor = "Bent double. The logo is still readable if you squint.",
 		rarity = "Scrap",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 3,
@@ -62,7 +62,7 @@ Items.DEFS = {
 		name = "Steel Rod",
 		flavor = "Snapped clean through. Something very large came this way.",
 		rarity = "Scrap",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 4,
@@ -73,7 +73,7 @@ Items.DEFS = {
 		name = "Fused Glass Lump",
 		flavor = "Sand that stood too close.",
 		rarity = "Scrap",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 5,
@@ -85,7 +85,7 @@ Items.DEFS = {
 		name = "Dented Tin Can",
 		flavor = "Peaches. The label survived better than the peaches did.",
 		rarity = "Common",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 12,
@@ -96,7 +96,7 @@ Items.DEFS = {
 		name = "House Key",
 		flavor = "Still on its ring, with two smaller ones beside it.",
 		rarity = "Common",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 18,
@@ -107,7 +107,7 @@ Items.DEFS = {
 		name = "Stopped Wristwatch",
 		flavor = "Stopped at 8:14. So did everyone else's.",
 		rarity = "Common",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 22,
@@ -124,7 +124,7 @@ Items.DEFS = {
 		name = "Tin Soldier",
 		flavor = "Paint worn off the face. Still standing at attention.",
 		rarity = "Uncommon",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Collector",
 		sets = { "childrens_toys" },
 		baseValue = 45,
@@ -134,7 +134,7 @@ Items.DEFS = {
 		name = "Field Multimeter",
 		flavor = "Needle pinned hard right. It was working when it stopped.",
 		rarity = "Uncommon",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
 		baseValue = 60,
@@ -144,7 +144,7 @@ Items.DEFS = {
 		name = "Wedding Band",
 		flavor = "Inscribed inside. The engraving outlasted everything it was about.",
 		rarity = "Uncommon",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 85,
@@ -156,7 +156,7 @@ Items.DEFS = {
 		name = "Prewar Geiger Handset",
 		flavor = "Someone taped a photograph to the back. It did not survive.",
 		rarity = "Rare",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
 		baseValue = 340,
@@ -166,7 +166,7 @@ Items.DEFS = {
 		name = "Sealed Film Canister",
 		flavor = "Thirty-six exposures. Nobody has ever looked at them.",
 		rarity = "Rare",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 480,
@@ -178,26 +178,26 @@ Items.DEFS = {
 		name = "Lab Sample Case",
 		flavor = "Six vials, five intact. The sixth is why the grass here is white.",
 		rarity = "Epic",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Researcher",
 		sets = { "field_medicine" },
 		baseValue = 1900,
 	},
 
 	-- ── Legendary ── $4k-30k ────────────────────────────────────────────
-	-- 0.15% in Zone 1. Almost nobody will see this. That is the point.
+	-- 0.15% in Stage 1. Almost nobody will see this. That is the point.
 	{
 		id = "evac_ledger",
 		name = "Evacuation Ledger",
 		flavor = "Four hundred names. Three hundred and eleven crossed out.",
 		rarity = "Legendary",
-		zones = { 1 },
+		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 9500,
 	},
 
-	-- ══ ZONE 2 — THE SUBURBS ═══════════════════════════════════════════════
+	-- ══ STAGE 2 — THE SUBURBS ═══════════════════════════════════════════════
 	-- Collapsed houses and half-buried cars (PLAN §4). The theme is a life
 	-- interrupted mid-sentence, so the flavor leans domestic rather than martial.
 
@@ -206,7 +206,7 @@ Items.DEFS = {
 		name = "Cracked Tile",
 		flavor = "Someone chose this pattern. Stood in a shop and chose it.",
 		rarity = "Scrap",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
 		baseValue = 3,
@@ -216,7 +216,7 @@ Items.DEFS = {
 		name = "Door Hinge",
 		flavor = "Still swings. There is no longer a door, or a wall.",
 		rarity = "Scrap",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 4,
@@ -226,7 +226,7 @@ Items.DEFS = {
 		name = "Cutlery Set",
 		flavor = "Wrapped in a napkin, in a drawer, waiting for a dinner that never happened.",
 		rarity = "Common",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
 		baseValue = 14,
@@ -236,7 +236,7 @@ Items.DEFS = {
 		name = "Garden Trowel",
 		flavor = "Left in the soil, handle up, like it would be picked up tomorrow.",
 		rarity = "Common",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 19,
@@ -246,7 +246,7 @@ Items.DEFS = {
 		name = "Porcelain Doll Head",
 		flavor = "The eyes still open and close. Please stop testing whether the eyes still open and close.",
 		rarity = "Common",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Collector",
 		sets = { "childrens_toys" },
 		baseValue = 23,
@@ -256,7 +256,7 @@ Items.DEFS = {
 		name = "Charm Bracelet",
 		flavor = "Eleven charms. A tiny bicycle, a tiny cat, a tiny house.",
 		rarity = "Uncommon",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 55,
@@ -266,7 +266,7 @@ Items.DEFS = {
 		name = "Socket Wrench Set",
 		flavor = "Every socket in its slot. Whoever owned this was particular about it.",
 		rarity = "Uncommon",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 72,
@@ -276,7 +276,7 @@ Items.DEFS = {
 		name = "Photo Locket",
 		flavor = "Two faces, one hinge. The catch still works.",
 		rarity = "Uncommon",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 98,
@@ -286,7 +286,7 @@ Items.DEFS = {
 		name = "Pearl Necklace",
 		flavor = "Kept for good occasions. There was one more, and nobody knew.",
 		rarity = "Rare",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 310,
@@ -296,7 +296,7 @@ Items.DEFS = {
 		name = "Ignition Coil",
 		flavor = "Pulled from a car pointed away from the city, tank full, doors open.",
 		rarity = "Rare",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 450,
@@ -306,7 +306,7 @@ Items.DEFS = {
 		name = "Grandfather Clock Movement",
 		flavor = "Brass, hand-cut, unbothered. It would run today if you wound it.",
 		rarity = "Epic",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 1650,
@@ -316,15 +316,15 @@ Items.DEFS = {
 		name = "Safe Deposit Box",
 		flavor = "Whatever was worth a bank vault is still inside, and still yours now.",
 		rarity = "Legendary",
-		zones = { 2 },
+		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 8200,
 	},
 
-	-- ══ ZONE 3 — FALLOUT FIELDS ════════════════════════════════════════════
+	-- ══ STAGE 3 — FALLOUT FIELDS ════════════════════════════════════════════
 	-- Military tags, ordnance, gold (PLAN §4). Several of these are also tagged
-	-- for Zone 4: the Exclusion Belt is the same war, further in, and a dive needs
+	-- for Stage 4: the Exclusion Belt is the same war, further in, and a dive needs
 	-- a stocked catalogue at EVERY rarity or rollItemId's step-down finds nothing.
 
 	{
@@ -332,7 +332,7 @@ Items.DEFS = {
 		name = "Spent Casing",
 		flavor = "Brass lasts. That is the whole story of this place, in one object.",
 		rarity = "Scrap",
-		zones = { 3, 4 },
+		stages = { 3, 4 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 4,
@@ -342,7 +342,7 @@ Items.DEFS = {
 		name = "Melted Button",
 		flavor = "Uniform issue. The thread survived; the man did not.",
 		rarity = "Scrap",
-		zones = { 3, 4 },
+		stages = { 3, 4 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 5,
@@ -352,7 +352,7 @@ Items.DEFS = {
 		name = "Dog Tag",
 		flavor = "Stamped, notched, and still legible. Someone is owed this back.",
 		rarity = "Common",
-		zones = { 3, 4 },
+		stages = { 3, 4 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 16,
@@ -362,7 +362,7 @@ Items.DEFS = {
 		name = "Ration Tin",
 		flavor = "Unopened. The label promises peaches.",
 		rarity = "Common",
-		zones = { 3, 4 },
+		stages = { 3, 4 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 21,
@@ -372,7 +372,7 @@ Items.DEFS = {
 		name = "Field Dressing Kit",
 		flavor = "Opened, used, repacked, opened again. Somebody was very busy here.",
 		rarity = "Uncommon",
-		zones = { 3, 4 },
+		stages = { 3, 4 },
 		appeal = "Researcher",
 		sets = { "field_medicine" },
 		baseValue = 58,
@@ -382,7 +382,7 @@ Items.DEFS = {
 		name = "Signal Flare",
 		flavor = "Never fired. Whatever it was meant to summon was not coming.",
 		rarity = "Uncommon",
-		zones = { 3 },
+		stages = { 3 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 80,
@@ -392,7 +392,7 @@ Items.DEFS = {
 		name = "Officer's Compass",
 		flavor = "The needle spins here. It has been spinning for a long time.",
 		rarity = "Uncommon",
-		zones = { 3 },
+		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 110,
@@ -402,7 +402,7 @@ Items.DEFS = {
 		name = "Gold Signet Ring",
 		flavor = "Gold does not care about any of this. That is why it is worth something.",
 		rarity = "Rare",
-		zones = { 3 },
+		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 380,
@@ -412,7 +412,7 @@ Items.DEFS = {
 		name = "Inert Mortar Round",
 		flavor = "The fuse was pulled. Probably. The magnet does not ask.",
 		rarity = "Rare",
-		zones = { 3 },
+		stages = { 3 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 560,
@@ -422,7 +422,7 @@ Items.DEFS = {
 		name = "Radiation Dosimeter",
 		flavor = "Pegged at maximum and stayed there. Its owner did not leave with it.",
 		rarity = "Rare",
-		zones = { 3, 4 },
+		stages = { 3, 4 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 640,
@@ -432,7 +432,7 @@ Items.DEFS = {
 		name = "Gold Bullion Bar",
 		flavor = "Someone carried this out of a vault, into a field, and got no further.",
 		rarity = "Epic",
-		zones = { 3 },
+		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 2400,
@@ -442,7 +442,7 @@ Items.DEFS = {
 		name = "Encrypted Field Radio",
 		flavor = "Set to a frequency that still, very occasionally, answers.",
 		rarity = "Epic",
-		zones = { 3, 4 },
+		stages = { 3, 4 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 3100,
@@ -452,24 +452,24 @@ Items.DEFS = {
 		name = "Command Cipher Case",
 		flavor = "The orders are inside. Nobody has wanted to be the one to read them.",
 		rarity = "Legendary",
-		zones = { 3, 4 },
+		stages = { 3, 4 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 12000,
 	},
 
-	-- ══ ZONE 4 — THE EXCLUSION BELT ════════════════════════════════════════
+	-- ══ STAGE 4 — THE EXCLUSION BELT ════════════════════════════════════════
 	-- Prewar tech and lab samples (PLAN §4). Deliberately thin and top-heavy:
-	-- PLAN §15 wants Zone 4 to have a loot table and a rad rate and nothing else,
+	-- PLAN §15 wants Stage 4 to have a loot table and a rad rate and nothing else,
 	-- because its job is to answer "will players dive?", not to be farmed. The
-	-- Zone-3 items tagged { 3, 4 } above carry its lower rarities.
+	-- Stage-3 items tagged { 3, 4 } above carry its lower rarities.
 
 	{
 		id = "sealed_sample",
 		name = "Sealed Lab Sample",
 		flavor = "Still sealed. Still humming. Still, by every measure, alive.",
 		rarity = "Rare",
-		zones = { 4 },
+		stages = { 4 },
 		appeal = "Researcher",
 		sets = { "field_medicine" },
 		baseValue = 660,
@@ -479,7 +479,7 @@ Items.DEFS = {
 		name = "Prewar Microprocessor",
 		flavor = "Nobody left knows how to make one of these. Several would like to.",
 		rarity = "Epic",
-		zones = { 4 },
+		stages = { 4 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 3400,
@@ -489,15 +489,15 @@ Items.DEFS = {
 		name = "Reactor Control Rod",
 		flavor = "It did its job. It is the reason there is a Belt and not a second Crater.",
 		rarity = "Legendary",
-		zones = { 4 },
+		stages = { 4 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 18000,
 	},
 
-	-- ══ ZONE 5 — REACTOR GROUNDS ═══════════════════════════════════════════
+	-- ══ STAGE 5 — REACTOR GROUNDS ═══════════════════════════════════════════
 	-- Cooling towers and heat shimmer (PLAN §4). Fuel rods, control tech, black-box
-	-- data. `reactor_control` extends across the Zone 4 boundary on purpose — Zone 5
+	-- data. `reactor_control` extends across the Stage 4 boundary on purpose — Stage 5
 	-- sits right next to the Belt in the chain and both are reactor-adjacent tech,
 	-- so the set reads as one storyline rather than two unrelated tags.
 
@@ -506,7 +506,7 @@ Items.DEFS = {
 		name = "Coolant Pipe Fragment",
 		flavor = "Split down a seam. Whatever it carried, it isn't carrying it anymore.",
 		rarity = "Scrap",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 4,
@@ -516,7 +516,7 @@ Items.DEFS = {
 		name = "Turbine Fin Shard",
 		flavor = "Curved like a blade because it was one, once, before the heat won.",
 		rarity = "Scrap",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 5,
@@ -526,7 +526,7 @@ Items.DEFS = {
 		name = "Radiation Warning Placard",
 		flavor = "The symbol is still bright. Everything around it stopped being.",
 		rarity = "Common",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Collector",
 		sets = {},
 		baseValue = 15,
@@ -536,7 +536,7 @@ Items.DEFS = {
 		name = "Pressure Gauge",
 		flavor = "Needle buried past the red. It was the last thing anyone checked.",
 		rarity = "Common",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 20,
@@ -546,7 +546,7 @@ Items.DEFS = {
 		name = "Control Room Headset",
 		flavor = "One earpiece crushed, one intact. Someone was still listening on one side.",
 		rarity = "Uncommon",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Gearhead",
 		sets = { "reactor_control" },
 		baseValue = 65,
@@ -556,7 +556,7 @@ Items.DEFS = {
 		name = "Cooling Valve Wheel",
 		flavor = "Turned all the way. It did not open fast enough.",
 		rarity = "Uncommon",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 90,
@@ -566,7 +566,7 @@ Items.DEFS = {
 		name = "Reactor Logbook",
 		flavor = "The last entry is a single word, underlined twice.",
 		rarity = "Rare",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 420,
@@ -576,7 +576,7 @@ Items.DEFS = {
 		name = "Shielded Data Cartridge",
 		flavor = "Lead-cased and locked. Whoever built this expected exactly this day.",
 		rarity = "Rare",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 580,
@@ -586,7 +586,7 @@ Items.DEFS = {
 		name = "Black-Box Recorder",
 		flavor = "Built to survive anything. It has had a lot of practice.",
 		rarity = "Epic",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 2600,
@@ -596,7 +596,7 @@ Items.DEFS = {
 		name = "Sealed Fuel Rod Casing",
 		flavor = "Empty. Whatever it held left the hard way, and left this behind.",
 		rarity = "Epic",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 3200,
@@ -606,7 +606,7 @@ Items.DEFS = {
 		name = "Reactor Core Sample",
 		flavor = "Warm through three layers of lead. It has never once cooled down.",
 		rarity = "Legendary",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 15000,
@@ -616,24 +616,24 @@ Items.DEFS = {
 		name = "Live Fuel Rod",
 		flavor = "Still hot. Still working. Still exactly as dangerous as the day it was loaded.",
 		rarity = "Mythic",
-		zones = { 5 },
+		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 90000,
 	},
 
-	-- ══ ZONE 6 — THE CRATER ════════════════════════════════════════════════
+	-- ══ STAGE 6 — THE CRATER ════════════════════════════════════════════════
 	-- Glassed floor, sky-glow, no ambient sound (PLAN §4). Anomalies, one-of-a-kind
 	-- relics. `crater_relics` is a new set — the three showpiece items, tying
 	-- "someone got here before you" into one thread, the way `left_behind` does
-	-- for Zone 1.
+	-- for Stage 1.
 
 	{
 		id = "vitrified_glass_shard",
 		name = "Vitrified Glass Shard",
 		flavor = "The sand did not burn. It turned to glass instead, all at once.",
 		rarity = "Scrap",
-		zones = { 6 },
+		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 5,
@@ -643,7 +643,7 @@ Items.DEFS = {
 		name = "Scorched Containment Plate",
 		flavor = "Rated to hold back anything. It held back nothing.",
 		rarity = "Common",
-		zones = { 6 },
+		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 18,
@@ -653,7 +653,7 @@ Items.DEFS = {
 		name = "Rig Air Filter",
 		flavor = "Still sealed in its wrapper. Nobody who needed it got the chance to open it.",
 		rarity = "Uncommon",
-		zones = { 6 },
+		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 70,
@@ -663,7 +663,7 @@ Items.DEFS = {
 		name = "Bent Blast Door Wheel",
 		flavor = "Spun the wrong way by something with a lot more force than a hand.",
 		rarity = "Uncommon",
-		zones = { 6 },
+		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 105,
@@ -673,7 +673,7 @@ Items.DEFS = {
 		name = "Cracked Radiation Badge",
 		flavor = "Went black in under a second. That was the only reading it ever needed to take.",
 		rarity = "Rare",
-		zones = { 6 },
+		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 460,
@@ -683,7 +683,7 @@ Items.DEFS = {
 		name = "Slag-Fused Tool Roll",
 		flavor = "Every tool welded to the canvas, to each other, to the ground.",
 		rarity = "Rare",
-		zones = { 6 },
+		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 640,
@@ -693,7 +693,7 @@ Items.DEFS = {
 		name = "Untouched Ground Sample",
 		flavor = "One square foot of ordinary dirt, sealed in glass, found at the centre of everything.",
 		rarity = "Epic",
-		zones = { 6 },
+		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 3300,
@@ -703,7 +703,7 @@ Items.DEFS = {
 		name = "Sky-Glow Core Fragment",
 		flavor = "It is what lights the crater up at night. Nobody has explained how, this far out.",
 		rarity = "Epic",
-		zones = { 6 },
+		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 3900,
@@ -713,7 +713,7 @@ Items.DEFS = {
 		name = "First Containment Rig",
 		flavor = "Worn by whoever mapped this place first. It is why there is a map at all.",
 		rarity = "Legendary",
-		zones = { 6 },
+		stages = { 6 },
 		appeal = "Collector",
 		sets = { "crater_relics" },
 		baseValue = 21000,
@@ -723,7 +723,7 @@ Items.DEFS = {
 		name = "The Second Hand",
 		flavor = "A single watch hand, alone, pointing at nothing that still exists.",
 		rarity = "Mythic",
-		zones = { 6 },
+		stages = { 6 },
 		appeal = "Collector",
 		sets = { "crater_relics" },
 		baseValue = 140000,
@@ -733,7 +733,7 @@ Items.DEFS = {
 		name = "Unlabeled Containment Cylinder",
 		flavor = "Sealed, unmarked, and heavier than it looks. Every question about it answers itself the moment you consider opening it.",
 		rarity = "Anomaly",
-		zones = { 6 },
+		stages = { 6 },
 		appeal = "Researcher",
 		sets = { "crater_relics" },
 		baseValue = 900000,
@@ -743,22 +743,22 @@ Items.DEFS = {
 -- ── Indexes, built once ──────────────────────────────────────────────────
 
 local byId: { [string]: ItemDef } = {}
-local byZoneRarity: { [number]: { [string]: { ItemDef } } } = {}
+local byStageRarity: { [number]: { [string]: { ItemDef } } } = {}
 
 for _, item in Items.DEFS do
 	assert(byId[item.id] == nil, `duplicate item id "{item.id}"`)
 	byId[item.id] = item
 
-	for _, zoneId in item.zones do
-		local zone = byZoneRarity[zoneId]
-		if zone == nil then
-			zone = {}
-			byZoneRarity[zoneId] = zone
+	for _, stageId in item.stages do
+		local stage = byStageRarity[stageId]
+		if stage == nil then
+			stage = {}
+			byStageRarity[stageId] = stage
 		end
-		local bucket = zone[item.rarity]
+		local bucket = stage[item.rarity]
 		if bucket == nil then
 			bucket = {}
-			zone[item.rarity] = bucket
+			stage[item.rarity] = bucket
 		end
 		table.insert(bucket, item)
 	end
@@ -770,19 +770,19 @@ function Items.get(id: string): ItemDef
 	return item
 end
 
---- Every item of one rarity that can spawn in one zone. May be empty — Zone 1 has
+--- Every item of one rarity that can spawn in one stage. May be empty — Stage 1 has
 --- no Mythic or Anomaly entries, and the loot table can still roll them, so callers
 --- must handle the empty case rather than assuming a hit.
-function Items.inZone(zoneId: number, rarity: string): { ItemDef }
-	local zone = byZoneRarity[zoneId]
-	if zone == nil then
+function Items.inStage(stageId: number, rarity: string): { ItemDef }
+	local stage = byStageRarity[stageId]
+	if stage == nil then
 		return {}
 	end
-	return zone[rarity] or {}
+	return stage[rarity] or {}
 end
 
-function Items.hasAny(zoneId: number, rarity: string): boolean
-	return #Items.inZone(zoneId, rarity) > 0
+function Items.hasAny(stageId: number, rarity: string): boolean
+	return #Items.inStage(stageId, rarity) > 0
 end
 
 return Items

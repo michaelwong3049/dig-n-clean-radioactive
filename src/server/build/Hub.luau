@@ -5,17 +5,17 @@
 	    require(game.ServerScriptService.Server.build.Hub).rebuild()
 
 	THE HUB IS A REST POCKET, AND THAT IS A CODE FACT, NOT A DECORATION.
-	A player standing in no zone gets zero rads and 6x health regen
+	A player standing in no stage gets zero rads and 6x health regen
 	(ExposureService). The plaza and every road leading off it are deliberately
-	OUTSIDE all four zone rectangles, so "the paths are safe, the green is not" is
+	OUTSIDE all four stage rectangles, so "the paths are safe, the green is not" is
 	true by construction and costs nothing to enforce. For a young audience that is
 	the single most legible rule in the game, and it is free.
 
 	THE PLOTS RING IT AS A SEMICIRCLE. Six pads on the exterior of a circle pulled
-	toward Zone 1 (not centred on the plaza's own midpoint any more — see
+	toward Stage 1 (not centred on the plaza's own midpoint any more — see
 	Plots.luau's own comment on RING_CENTER for why), each rotated to face the
 	shop cluster at the centre. The eastern half is open — the plaza connects
-	straight through to Zone 1 there, same as always — so the ring only occupies
+	straight through to Stage 1 there, same as always — so the ring only occupies
 	the western 180 degrees; you still walk out of the courtyard directly into
 	the sludge. See Plots.luau for the actual circle math
 	(Plots.RING_CENTER/RING_RADIUS/RING_ANGLES).
@@ -23,10 +23,10 @@
 	NO CONNECTOR ROADS. The plaza used to be a fixed 160x160 square with paved strips
 	running out to a plot spine and to the field. Per the requested layout (plots —
 	shop area — radiation, directly touching, not places joined by roads), the plaza's
-	footprint reaches its neighbours directly: its east edge lands exactly on Zone 1's
+	footprint reaches its neighbours directly: its east edge lands exactly on Stage 1's
 	west edge, and the pads sit flush against its other three. Zero gap, not a short
 	one — `rectsOverlap` treats an exactly-shared edge as touching, not overlapping,
-	so this is safe against the "no zone may overlap the plaza" check in
+	so this is safe against the "no stage may overlap the plaza" check in
 	`World.verify()`.
 
 	IT USED TO BE 237x382, AND THAT WAS NOT A DESIGN DECISION. It was that deep for
@@ -61,11 +61,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Kit = require(script.Parent.Kit)
 -- Hub otherwise requires only Kit (see Hub.PLAZA's own comment on why: Plots.luau
--- requires Hub, so Hub requiring Plots would be circular). Zones is safe -- it is
+-- requires Hub, so Hub requiring Plots would be circular). Stages is safe -- it is
 -- pure config, requires nothing under build/, and Scenery.luau already requires
--- both Hub and Zones together with no cycle. Needed for PLAZA_DARK/PLAZA_LIGHT
+-- both Hub and Stages together with no cycle. Needed for PLAZA_DARK/PLAZA_LIGHT
 -- below.
-local Zones = require(ReplicatedStorage.Shared.Config.Zones)
+local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
@@ -74,23 +74,23 @@ local BUILDER_VERSION = 9
 local C = Kit.C
 local build = Kit.build
 
---- The plaza/apron's own checkerboard, tinted to match Zone 1's ground exactly the
---- way it already visually promises to. Scenery.luau's buildZone1Checkerboard
---- starts ITS gradient at these two colours (Hub.PLAZA's own comment: "Zone 1's
+--- The plaza/apron's own checkerboard, tinted to match Stage 1's ground exactly the
+--- way it already visually promises to. Scenery.luau's buildStage1Checkerboard
+--- starts ITS gradient at these two colours (Hub.PLAZA's own comment: "Stage 1's
 --- checkerboard gradient now starting at the plaza's own tile colours") and then
---- bakes Zones.GROUND_OOZE_TINT into every tile uniformly, camp included in that
+--- bakes Stages.GROUND_OOZE_TINT into every tile uniformly, camp included in that
 --- promise or not -- so leaving these two constants untinted would draw a colour
---- jump right at Zone 1's edge, exactly the seam the checkerboard rewrite was
+--- jump right at Stage 1's edge, exactly the seam the checkerboard rewrite was
 --- built to avoid. Same formula, same weight, applied once here instead of at
---- every tile: Kit.blendHex(rawColour, Zone 1's own ooze.bright, the shared
+--- every tile: Kit.blendHex(rawColour, Stage 1's own ooze.bright, the shared
 --- tint weight).
-local PLAZA_DARK = Kit.blendHex(C.plazaTileDark, Zones.get(1).ooze.bright, Zones.GROUND_OOZE_TINT)
-local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Zones.get(1).ooze.bright, Zones.GROUND_OOZE_TINT)
+local PLAZA_DARK = Kit.blendHex(C.plazaTileDark, Stages.get(1).ooze.bright, Stages.GROUND_OOZE_TINT)
+local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, Stages.GROUND_OOZE_TINT)
 
 -- ── Layout ────────────────────────────────────────────────────────────────────
 -- Everything here is world space. The plaza's walking surface is at Y = 0, and
--- the zone plate sits 1.5 studs lower so you step DOWN into the sludge. See
--- Config/Zones.SURFACE_Y.
+-- the stage plate sits 1.5 studs lower so you step DOWN into the sludge. See
+-- Config/Stages.SURFACE_Y.
 --
 -- THIS RECTANGLE IS NOW THE SOURCE, NOT THE FOLLOWER. It used to be hand-synced to
 -- Plots.luau's constants through a comment, with four numbers that had to be edited
@@ -100,14 +100,14 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Zones.get(1).ooze.bright, Zon
 -- there is no pair to keep in step. (Hub requires only Kit, so that direction is not
 -- circular — do not add a require of Plots here or it becomes one.)
 --
---   maxX = 100  is the one number NOT free to move: it is Zone 1's west edge
---               (Zones.get(1).center[1] - size[1]/2), and the plaza touching the
+--   maxX = 100  is the one number NOT free to move: it is Stage 1's west edge
+--               (Stages.get(1).center[1] - size[1]/2), and the plaza touching the
 --               field directly is the whole point of the layout.
 --
 -- NO LONGER SYMMETRIC ABOUT WORLD X=0, AND THAT IS FINE. It used to be, and the old
 -- guidance here ("shrink by moving maxX, never minX") assumed that could stay true —
--- it cannot, once maxX is pinned to Zone 1 (above) and the west side is the only one
--- left to compact. COMPACTED, PLAN: "a lot of walking to the zones" — the old 200x200
+-- it cannot, once maxX is pinned to Stage 1 (above) and the west side is the only one
+-- left to compact. COMPACTED, PLAN: "a lot of walking to the stages" — the old 200x200
 -- square left 40+ studs of dead space beyond the westmost stall's own footprint doing
 -- nothing but padding the walk. minX moved -100 -> -65 (35 studs off the west edge);
 -- minZ/maxZ moved -100/100 -> -70/70 for the same reason on the other two open sides.
@@ -121,12 +121,12 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Zones.get(1).ooze.bright, Zon
 -- against the old centre — Hub.CAMP_ORIGIN below, Shops.luau's STALLS/OUTFITTER — moved
 -- the same +17.5, so they are exactly as centred on the new, smaller rectangle as they
 -- were on the old one.
--- topY MATCHES Zones.SURFACE_Y (-1.5), ON REQUEST. The plaza used to sit at Y=0, a
--- full 1.5 studs above the zone plates -- a deliberate "step down into the sludge"
--- cue, per Zones.SURFACE_Y's own comment. That cue is gone now, in favour of camp
--- flowing into Zone 1 at one level -- reinforced by Zone 1's checkerboard gradient
+-- topY MATCHES Stages.SURFACE_Y (-1.5), ON REQUEST. The plaza used to sit at Y=0, a
+-- full 1.5 studs above the stage plates -- a deliberate "step down into the sludge"
+-- cue, per Stages.SURFACE_Y's own comment. That cue is gone now, in favour of camp
+-- flowing into Stage 1 at one level -- reinforced by Stage 1's checkerboard gradient
 -- now starting at the plaza's own tile colours (Scenery.luau's
--- buildZone1Checkerboard). Both cues (colour AND height) were pointing the same
+-- buildStage1Checkerboard). Both cues (colour AND height) were pointing the same
 -- direction anyway; this just stops fighting the other one.
 Hub.PLAZA = { minX = -65, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = -1.5 }
 Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
@@ -169,10 +169,10 @@ export type Rect = { minX: number, maxX: number, minZ: number, maxZ: number }
 --- pads, the apron and the plaza reading as one board rather than eight.
 export type TileOpts = {
 	topY: number?, -- default PLAZA.topY
-	dark: string?, -- default PLAZA_DARK (C.plazaTileDark, tinted to match Zone 1)
-	light: string?, -- default PLAZA_LIGHT (C.plazaTileLight, tinted to match Zone 1)
+	dark: string?, -- default PLAZA_DARK (C.plazaTileDark, tinted to match Stage 1)
+	light: string?, -- default PLAZA_LIGHT (C.plazaTileLight, tinted to match Stage 1)
 	skip: ((x: number, z: number) -> boolean)?,
-	-- Per-tile colour override, for a board whose colour is itself a gradient (Zone
+	-- Per-tile colour override, for a board whose colour is itself a gradient (Stage
 	-- 1's checkerboard) rather than one fixed pair. Called with each tile's own
 	-- centre, same as `skip`; returns that ONE tile's (dark, light), which the
 	-- existing parity below still picks between exactly as it does for the fixed
@@ -224,7 +224,7 @@ end
 --- does not: its edges come from pad sizes that have nothing to do with the tile's 3
 --- studs. Edge
 --- tiles are CLIPPED to the rectangle rather than allowed to overhang it. That is not
---- fussiness — the ring's east edge is Zone 1's west edge, and one tile of overhang
+--- fussiness — the ring's east edge is Stage 1's west edge, and one tile of overhang
 --- there would put walkable, zero-rad floor inside the radioactive field.
 ---
 --- `opts.skip` is called with each tile's centre; returning true drops that tile.
@@ -331,7 +331,7 @@ local function buildPlaza(hub: Model)
 	-- had turned into a bright seam drawn across the middle of a continuous surface.
 	--
 	-- The east edge never had one, for a version of the same argument: it butts into
-	-- the zone plate, and a rim there would draw a false seam across the boundary that
+	-- the stage plate, and a rim there would draw a false seam across the boundary that
 	-- is supposed to read as continuous ground. All four edges agree now.
 end
 
@@ -341,7 +341,7 @@ end
 --- lookup was Workspace:FindFirstChildWhichIsA("SpawnLocation"), which searches
 --- DIRECT CHILDREN ONLY — and BaseCamp parents its spawn inside the camp model, so
 --- the search failed and fell through to a hardcoded CFrame.new(0, 8, 0). With the
---- old layout that point was inside Zone 1: blacking out teleported you into the
+--- old layout that point was inside Stage 1: blacking out teleported you into the
 --- radioactive field. Making it a search over a class that now has seven instances
 --- in the world would have replaced one arbitrary answer with another.
 ---
@@ -350,7 +350,7 @@ end
 --- cleansing station on every plot (see Plots.buildCleansingStation) and isn't
 --- at camp any more, so that instant flush is gone: a blacked-out player now
 --- lands here with whatever exposure they had, same as anyone else who's just
---- standing in a zero-rad zone. Base camp is still "no zone" (zero rads, 6x
+--- standing in a zero-rad stage. Base camp is still "no stage" (zero rads, 6x
 --- health regen per ExposureService), so exposure still drains here — just on
 --- the normal passive curve, not an instant reset.
 local function buildSpawns(hub: Model)

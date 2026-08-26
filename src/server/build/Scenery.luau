@@ -1,38 +1,38 @@
 --!strict
 --[[
-	Scenery.luau — barrels, spills and rubble. Everything on the zones that is not
-	the zone.
+	Scenery.luau — barrels, spills and rubble. Everything on the stages that is not
+	the stage.
 
 	    require(game.ServerScriptService.Server.build.Scenery).rebuild()
 
-	WHY THIS IS A SEPARATE MODULE FROM ZoneFields.
-	Workspace.Zones must contain the one radioactive plate and NOTHING else. ZoneService walks
+	WHY THIS IS A SEPARATE MODULE FROM StageFields.
+	Workspace.Stages must contain the one radioactive plate and NOTHING else. StageService walks
 	that folder's children ten times a second per player, and — much worse — a prop
-	that accidentally carried a ZoneId attribute would register as a zone. Overlapping
-	zones resolve as "smallest XZ area wins", so one stray barrel would silently
-	become the zone every nearby player is standing in. Keeping decor in a different
+	that accidentally carried a StageId attribute would register as a stage. Overlapping
+	stages resolve as "smallest XZ area wins", so one stray barrel would silently
+	become the stage every nearby player is standing in. Keeping decor in a different
 	folder makes that class of bug impossible rather than merely unlikely.
 
 	THE OOZE IS THE SURFACE, NOT A HAZARD.
 	Per the design call: the ground itself is the sludge you walk through, and the
 	pools and spills here are visual variation with NO gameplay rules attached.
-	ZoneService.hotPocketFor stays a stub returning 1. This matters for a young
+	StageService.hotPocketFor stays a stub returning 1. This matters for a young
 	audience — one rule ("the green ground is dangerous, the paths are not") beats
 	two rules ("...but the BRIGHT green is extra dangerous") when the second one is
 	only telegraphed by shade.
 
-	WHAT USED TO BE HERE: `OozeSurface`, a translucent Neon plate per zone, sized
+	WHAT USED TO BE HERE: `OozeSurface`, a translucent Neon plate per stage, sized
 	to the whole plate and floating WADE_HEIGHT (1.1 studs, "about half a leg" on a
 	default character) above the real floor, so walking into a field sank your
 	legs into visible ooze instead of just standing on tinted ground.
 
 	REMOVED ON REQUEST — THE WADING EFFECT WAS NEVER APPROVED. The tint it left on
 	the ground WAS liked, so that part is kept, just moved: it is baked directly
-	into the ground colour now (Zones.GROUND_OOZE_TINT, applied in ZoneFields.luau
-	for zones 2-6 and in buildZone1Checkerboard's colorAt below for Zone 1)
+	into the ground colour now (Stages.GROUND_OOZE_TINT, applied in StageFields.luau
+	for stages 2-6 and in buildStage1Checkerboard's colorAt below for Stage 1)
 	instead of arriving via a second, higher, see-through plate. Zero gap between
 	a player's feet and the coloured ground now, same as before this plate existed
-	at all — `Zones.SURFACE_Y` (what DigService buries against and what a player's
+	at all — `Stages.SURFACE_Y` (what DigService buries against and what a player's
 	feet actually rest on) was never touched by this either way.
 
 	NOTHING HERE MAY RISE THROUGH THE DIG SURFACE IN A WAY THAT HIDES IT.
@@ -43,19 +43,19 @@
 	in this file sits above the plane the way `OozeSurface` used to — the ground
 	colour itself carries no such risk, it's the plate's own top face.
 
-	ZONE 1'S GROUND IS A GRADIENT, NOT A FLAT COLOUR. buildZone1Checkerboard tiles the
+	STAGE 1'S GROUND IS A GRADIENT, NOT A FLAT COLOUR. buildStage1Checkerboard tiles the
 	plate in a studded, two-tone checkerboard (same board as the plaza and base pads,
 	Hub.tileRect) whose colour is a continuous per-tile blend from the plaza's own
-	tile colours at the west edge to Zone 1's own colour at the east edge — a softer
-	hand-off than a flat colour would read as. See buildZone1Checkerboard for why the
+	tile colours at the west edge to Stage 1's own colour at the east edge — a softer
+	hand-off than a flat colour would read as. See buildStage1Checkerboard for why the
 	colour is a layer on top rather than the plate itself, and for why a tiled
 	gradient sidesteps the banded-seam problem two earlier, now-removed systems here
 	both hit (see the removal notes still kept below for
-	`buildZoneBlend`/`buildGradientOozeSurface`).
+	`buildStageBlend`/`buildGradientOozeSurface`).
 
 	Placement is a jittered grid, not pure random. Pure random clumps and leaves bald
 	patches; a jittered grid reads as scattered while still covering the field, and
-	it is deterministic per zone so a rebuild does not reshuffle the whole world.
+	it is deterministic per stage so a rebuild does not reshuffle the whole world.
 
 	THE BOUNDARY WALLS ARE THE ONE EXCEPTION TO "CanCollide IS FALSE, SAME AS
 	EVERYTHING ELSE IN THIS FILE" ABOVE. Confirmed with the user before building it
@@ -70,7 +70,7 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
-local Zones = require(Shared.Config.Zones)
+local Stages = require(Shared.Config.Stages)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
@@ -102,8 +102,8 @@ local WALL_DARK = "B5573A" -- rust
 local WALL_LIGHT = "9C4A2F" -- a close, subtly darker rust variant -- NOT the first
 -- pass's salmon-tan, which read as too bold a two-tone checker up close. One
 -- uniform palette for the whole chain either way, deliberately not tinted per
--- zone -- an engineered containment barrier reads as one consistent material, not
--- something that shares each zone's own theme.
+-- stage -- an engineered containment barrier reads as one consistent material, not
+-- something that shares each stage's own theme.
 
 --- Derive a (dark, light) checkerboard pair from one existing colour, at roughly the
 --- same brightness ratio the plaza's own hand-picked pair already sits at (measured:
@@ -117,10 +117,10 @@ local function twoTone(hex: string): (Color3, Color3)
 	return Color3.new(c.R * 0.937, c.G * 0.937, c.B * 0.937), Color3.new(c.R * 1.068, c.G * 1.068, c.B * 1.068)
 end
 
---- WHAT USED TO BE HERE: `buildZoneBlend`, `oozeInset`, `ZONE_BLEND(S)`. The
---- boundaries between Zones 1-4 (the "dead-sand family") each had a 90-stud,
+--- WHAT USED TO BE HERE: `buildStageBlend`, `oozeInset`, `STAGE_BLEND(S)`. The
+--- boundaries between Stages 1-4 (the "dead-sand family") each had a 90-stud,
 --- 14-step blend — a ground-colour band UNDER an ooze-colour band, both stepping
---- from one zone's hex to the next's, so "Zone 1's pale sand into Zone 2's dun tan"
+--- from one stage's hex to the next's, so "Stage 1's pale sand into Stage 2's dun tan"
 --- read as one thing becoming another instead of two fields parked against each
 --- other. 4/5 and 5/6 never got one on purpose: plum into pink into violet was
 --- judged to read as continuous without help.
@@ -128,37 +128,37 @@ end
 --- REMOVED FOR THE SAME REASON `buildGradientOozeSurface` WAS: BANDING A
 --- TRANSLUCENT LAYER MAKES A SEAM, NOT A GRADIENT, REGARDLESS OF STEP COUNT. This
 --- is the second time that exact bet did not pay off — the ooze half of this blend
---- was structurally identical to Zone 1's own since-removed fade (many thin Neon
+--- was structurally identical to Stage 1's own since-removed fade (many thin Neon
 --- parts at WADE_HEIGHT, abutting), and reported live at all three boundaries (1/2,
 --- 2/3, 3/4) as the same floating lines. The GROUND half was not exempt either:
 --- 14 abutting SmoothPlastic bands at GROUND_SKIM, even opaque-ish and barely off
 --- the floor, still showed a visible seam at each boundary in the same screenshots.
 ---
---- Every zone boundary is a hard cut now, the same technique 4/5 and 5/6 already
+--- Every stage boundary is a hard cut now, the same technique 4/5 and 5/6 already
 --- proved clean (see the header's own "two fields parked against each other" line —
---- that description is simply accurate everywhere now, not just past Zone 4). The
+--- that description is simply accurate everywhere now, not just past Stage 4). The
 --- "one thing becoming another" storytelling for 1-2-3-4 is a real loss, recorded
 --- rather than hidden: if it needs to come back, it needs an actual gradient
 --- (a texture/decal with a baked alpha or colour ramp), not more bands — no count
 --- of abutting parts has produced a seamless result here twice running.
 
---- WHAT USED TO BE HERE: `buildGradientOozeSurface`. Zone 1's ooze surface was 24
+--- WHAT USED TO BE HERE: `buildGradientOozeSurface`. Stage 1's ooze surface was 24
 --- thin Neon bands (LIFE_FADE_STEPS) stepping transparency from near-invisible at
---- the west edge up to every other zone's flat 0.82, so "life fading into a
+--- the west edge up to every other stage's flat 0.82, so "life fading into a
 --- wasteland" read in the ooze itself, not just the ground colour under it.
 ---
 --- REMOVED: THE BANDS WERE VISIBLE AS FLOATING LINES, ON REPORT FROM A LIVE PLAY
 --- SESSION. The comment that used to sit here argued a transparency fade's small
 --- per-step delta "never creates a visible seam the way a hue change would" — the
---- premise this whole technique rode on, and the one buildZoneScenery's own
+--- premise this whole technique rode on, and the one buildStageScenery's own
 --- OozeSurface comment already warns against for a HUE fade ("splitting it per
 --- stage... produces hard stripes"). In practice a fade does not need a hue jump to
 --- show a seam: 24 separate Neon parts sitting edge-to-edge at WADE_HEIGHT (1.1
 --- studs up — "about half a leg", exactly where a seam reads as "floating" rather
 --- than "in the ground") each carry their own face normals, so the boundary between
 --- two nearly-identical transparencies still renders as a thin line, worst at the
---- shallow viewing angle a standing player actually has. Zone 1 now uses
---- buildZoneScenery's ordinary single-part OozeSurface, same as every other zone —
+--- shallow viewing angle a standing player actually has. Stage 1 now uses
+--- buildStageScenery's ordinary single-part OozeSurface, same as every other stage —
 --- one part has no internal boundary to show a seam at.
 ---
 --- The "west edge feels alive, east edge doesn't" storytelling is not entirely
@@ -169,9 +169,9 @@ end
 
 --- HOW MANY POOL LIGHTS A FIELD MAY HAVE, however many pools it has.
 ---
---- Every pool used to get its own PointLight. That was 39 lights when Zone 1 was the
+--- Every pool used to get its own PointLight. That was 39 lights when Stage 1 was the
 --- only field in the world and nobody had to think about it; at six fields, with the
---- pink zones carrying 74 and 92 pools each because the pools ARE their colour, it
+--- pink stages carrying 74 and 92 pools each because the pools ARE their colour, it
 --- came to 532 and the renderer fell over — screen capture timed out before this was
 --- even a gameplay question.
 ---
@@ -181,31 +181,31 @@ end
 --- AROUND it, and eight per field does that job — you cannot tell which pools have
 --- one without counting, and a field lit by eight looks the same as one lit by
 --- ninety-two.
-local ZONE_LIGHT_BUDGET = 8
+local STAGE_LIGHT_BUDGET = 8
 
 --- Same argument, applied to the barrels: the spill is Neon and glows regardless, so
 --- only every fifth one also throws light.
 local BARREL_LIGHT_EVERY = 5
 
---- Per-zone character. `props` is roughly how many set pieces to scatter; the pool
---- count scales with area so a big zone does not look empty.
---- Pool counts climb with the zone: Ash Flats is barely contaminated, the Belt is
+--- Per-stage character. `props` is roughly how many set pieces to scatter; the pool
+--- count scales with area so a big stage does not look empty.
+--- Pool counts climb with the stage: Ash Flats is barely contaminated, the Belt is
 --- more ooze than ground. That gradient is the map teaching you what "deeper" means
 --- before any number on the HUD does.
 ---
 --- REBALANCED, BACK-LOADED. The old counts (26/40/58/46/74/92) were not actually the
---- climb the comment above describes — 58 to 46 is a DIP at Zone 4, and Zone 1 was
+--- climb the comment above describes — 58 to 46 is a DIP at Stage 4, and Stage 1 was
 --- already the sparsest field by a wide margin while 2 and 3 were denser than the
---- pink zones that are supposed to read as more contaminated. The new counts are a
+--- pink stages that are supposed to read as more contaminated. The new counts are a
 --- clean monotonic climb, lighter everywhere (208 pools total, down from 336) and
---- specifically lighter at the front: Zones 1-3 lost roughly two thirds of their
---- pools each and now hold 21% of the field's total (was 37%), while Zones 5-6 lost
---- only a sixth to a fifth and now hold 66% of it (was 49%). Early zones should read
+--- specifically lighter at the front: Stages 1-3 lost roughly two thirds of their
+--- pools each and now hold 21% of the field's total (was 37%), while Stages 5-6 lost
+--- only a sixth to a fifth and now hold 66% of it (was 49%). Early stages should read
 --- clean enough that a pool is a landmark; the Crater should still read as more ooze
 --- than ground.
---- Zone 1 and 2's pool counts dropped again (10->8, 14->10) for LIFE FADING INTO A
---- DEAD WASTELAND — on top of the per-pool west-to-east thinning inside Zone 1's own
---- placement loop (buildZoneScenery's `id == 1` branch, below), the zone should
+--- Stage 1 and 2's pool counts dropped again (10->8, 14->10) for LIFE FADING INTO A
+--- DEAD WASTELAND — on top of the per-pool west-to-east thinning inside Stage 1's own
+--- placement loop (buildStageScenery's `id == 1` branch, below), the stage should
 --- already read sparser at a glance than the rebalance above assumed. The
 --- percentages in the paragraph above are now stale by a few points, not worth
 --- re-deriving for a six-pool difference.
@@ -214,10 +214,10 @@ local THEME = {
 	[2] = { props = 34, pools = 10, kind = "houses" },
 	[3] = { props = 40, pools = 20, kind = "sirens" },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
-	-- The two pink zones. Pool counts climb with the rads because the pools ARE the
+	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
 	-- reads as dark ground rather than as hot ground. Prop counts do not climb with
-	-- them: past Zone 3 the story is that there is nothing left standing.
+	-- them: past Stage 3 the story is that there is nothing left standing.
 	[5] = { props = 22, pools = 60, kind = "reactor" },
 	[6] = { props = 26, pools = 78, kind = "shards" },
 }
@@ -225,7 +225,7 @@ local THEME = {
 --- A leaking barrel: the story prop. Tipped or standing, always dripping.
 ---
 --- The DRUM is yellow or rust in every field — it is the same drum wherever it was
---- dumped. The SPILL is the zone's own Neon, because the spill is what the field is
+--- dumped. The SPILL is the stage's own Neon, because the spill is what the field is
 --- made of: a barrel leaking acid green into a hot pink Reactor Grounds says the
 --- ground got its colour from somewhere else, which is the one thing it did not.
 local function barrel(
@@ -268,8 +268,8 @@ local function barrel(
 	end
 end
 
---- Zone-specific silhouette, so the four fields do not read as one field.
---- `ooze` is the ZONE's Neon triple (Config/Zones ZoneDef.ooze), not a global. Only
+--- Stage-specific silhouette, so the four fields do not read as one field.
+--- `ooze` is the STAGE's Neon triple (Config/Stages StageDef.ooze), not a global. Only
 --- the two pink kinds read it today — the older kinds are lit in their own prop
 --- colours, which is correct: a rusted siren head is rust everywhere. Anything a prop
 --- glows with because the FIELD is hot has to come from here, or Reactor Grounds gets
@@ -348,8 +348,8 @@ local function prop(
 			})
 		end
 	elseif kind == "brush" then
-		-- Zone 1's Outer Ash stage only (see propKindFor): live scrub, not the dead
-		-- "trees" kind the rest of the zone uses — one or two small foliage blobs
+		-- Stage 1's Outer Ash stage only (see propKindFor): live scrub, not the dead
+		-- "trees" kind the rest of the stage uses — one or two small foliage blobs
 		-- low to the ground, deliberately reading as smaller than both DeadTree and
 		-- liveTree so none of the three get mistaken for one another at a glance.
 		for _ = 1, rng:NextInteger(1, 2) do
@@ -357,10 +357,10 @@ local function prop(
 			foliageBlob(parent, origin, center, rng:NextNumber(1.1, 1.5), "6B8F3E", "547231", rng)
 		end
 	elseif kind == "liveTree" then
-		-- Zone 1's Outer Ash stage only — a branching trunk carrying several
+		-- Stage 1's Outer Ash stage only — a branching trunk carrying several
 		-- rounded foliage clusters, matching the reference the user gave (a
 		-- chunky, low-poly toy tree, not one flat canopy block or DeadTree's bare
-		-- branches). Canopy colour matches Zone 1's own ground green so
+		-- branches). Canopy colour matches Stage 1's own ground green so
 		-- trunk-and-leaves reads as one plant family with the grass it stands on.
 		local h = rng:NextNumber(5, 6.5)
 		build(parent, origin, {
@@ -444,7 +444,7 @@ local function prop(
 			shape = "Cylinder",
 			rot = R.cylUp,
 		})
-		-- The crack. Neon in the ZONE's own colour, so this glows pink here and would
+		-- The crack. Neon in the STAGE's own colour, so this glows pink here and would
 		-- glow whatever the field glows if the theme is ever reused.
 		local vent = build(parent, origin, {
 			name = "StackVent",
@@ -475,7 +475,7 @@ local function prop(
 			})
 			-- One light for the cluster, not one per spike. Three overlapping lights
 			-- on three touching Neon spikes is indistinguishable from one and costs
-			-- three times as much — see ZONE_LIGHT_BUDGET.
+			-- three times as much — see STAGE_LIGHT_BUDGET.
 			if spike == 1 then
 				light(shard, ooze.glow, 22, 2)
 			end
@@ -492,7 +492,7 @@ local function prop(
 			rot = R.cylUp,
 			canCollide = false,
 		})
-	else -- "barriers" — Zone 4. Sparse on purpose: PLAN §15 wants it content-free.
+	else -- "barriers" — Stage 4. Sparse on purpose: PLAN §15 wants it content-free.
 		build(parent, origin, {
 			name = "Barrier",
 			pos = { x, 1.6, z },
@@ -512,79 +512,79 @@ local function prop(
 	end
 end
 
-local function buildZoneScenery(parent: Instance, id: number)
+local function buildStageScenery(parent: Instance, id: number)
 	local theme = THEME[id]
 	if theme == nil then
 		return
 	end
 
-	local def = Zones.get(id)
+	local def = Stages.get(id)
 	local folder = Instance.new("Folder")
-	folder.Name = `Zone{id}`
+	folder.Name = `Stage{id}`
 
-	-- Deterministic per zone: a rebuild reproduces the same field, so "it looked
+	-- Deterministic per stage: a rebuild reproduces the same field, so "it looked
 	-- better before" is never something you have to chase.
 	local rng = Random.new(1000 + id)
 
-	-- Everything is placed relative to the zone's own surface plane.
-	local origin = CFrame.new(def.center[1], Zones.SURFACE_Y, def.center[2])
+	-- Everything is placed relative to the stage's own surface plane.
+	local origin = CFrame.new(def.center[1], Stages.SURFACE_Y, def.center[2])
 	local hx, hz = def.size[1] / 2 - 14, def.size[2] / 2 - 14
 
 	-- WHAT USED TO BE HERE: the OozeSurface build call -- one translucent Neon
-	-- plate over the whole zone, raised WADE_HEIGHT above the floor. REMOVED, see
-	-- this file's own header. The zone's colour identity (PLAN's "the coral one
-	-- is the detector shop" rule extended to zones) is no longer this plate's
+	-- plate over the whole stage, raised WADE_HEIGHT above the floor. REMOVED, see
+	-- this file's own header. The stage's colour identity (PLAN's "the coral one
+	-- is the detector shop" rule extended to stages) is no longer this plate's
 	-- job -- it now lives in the ground colour itself, baked in by
-	-- Zones.GROUND_OOZE_TINT: ZoneFields.luau's plate paint for zones 2-6, and
-	-- buildZone1Checkerboard's colorAt below for Zone 1. `origin`, `hx`, `hz` and
+	-- Stages.GROUND_OOZE_TINT: StageFields.luau's plate paint for stages 2-6, and
+	-- buildStage1Checkerboard's colorAt below for Stage 1. `origin`, `hx`, `hz` and
 	-- `rng` above are unused now that this function has nothing left to place
 	-- with them, kept for whatever replaces the props/pools below.
 
 	-- POOLS AND SCATTERED PROPS (OozePool/OozeRim, DeadTree/liveTree/brush, barrels,
 	-- houses/sirens/barriers/reactor/shards) DELIBERATELY REMOVED ON REQUEST, TO BE
 	-- REWORKED. This used to be two loops here: one scattering `theme.pools` ooze
-	-- pools (with Zone 1's own west-to-east thinning), and one scattering
+	-- pools (with Stage 1's own west-to-east thinning), and one scattering
 	-- `theme.props` set pieces on a jittered grid via `barrel`/`prop`. Both are gone
 	-- for now rather than commented out in place -- the full previous version,
-	-- including all its tuning rationale (pool counts per zone, the Zone 1 fade, the
+	-- including all its tuning rationale (pool counts per stage, the Stage 1 fade, the
 	-- brush/liveTree mix), is in git history on this file rather than left as dead
 	-- code here. `THEME`, `theme.pools`/`theme.props`, `prop()`, `barrel()`, and
-	-- `ZONE_LIGHT_BUDGET`/`BARREL_LIGHT_EVERY` are all still defined above and
+	-- `STAGE_LIGHT_BUDGET`/`BARREL_LIGHT_EVERY` are all still defined above and
 	-- untouched, ready for whatever replaces this.
 
 	folder.Parent = parent
 end
 
---- Zone 1's ground, a gradient rather than a flat colour.
+--- Stage 1's ground, a gradient rather than a flat colour.
 ---
 --- WHAT USED TO BE HERE, AND WHY IT WENT.
---- Zone 1 used to be internally subdivided into three named sub-bands ("Outer
+--- Stage 1 used to be internally subdivided into three named sub-bands ("Outer
 --- Ash"/"Hot Wreckage"/"Deep Fallout") that graded its loot table AND told
 --- themselves apart with three colours meeting at two boundaries — themselves
 --- replacing an even older 10-stud concrete barrier at each boundary. The
 --- sub-band system was removed (it collided with an unrelated top-level
---- naming decision), so Zone 1 is now a single place with a single loot table,
---- same as every other zone. The gradient below is the one piece of that system
+--- naming decision), so Stage 1 is now a single place with a single loot table,
+--- same as every other stage. The gradient below is the one piece of that system
 --- worth keeping on its own merits: a flat colour reads as a harder edge against
 --- the plaza than the soft hand-off this produces.
 ---
 --- WHY THIS IS A SEPARATE LAYER AND NOT SIMPLY THE PLATE'S COLOUR.
---- The obvious implementation is to cut Workspace.Zones.Zone1 into three coloured
---- plates, and it is the one thing this file's header forbids. ZoneService walks that
+--- The obvious implementation is to cut Workspace.Stages.Stage1 into three coloured
+--- plates, and it is the one thing this file's header forbids. StageService walks that
 --- folder at 10 Hz and resolves overlaps as "smallest XZ area wins", so three plates
---- would quietly make the stage you stand in the ZONE you are in; and
---- DigService.zonePart looks "Zone1" up BY NAME and would find nothing at all, so the
+--- would quietly make the stage you stand in the STAGE you are in; and
+--- DigService.stagePart looks "Stage1" up BY NAME and would find nothing at all, so the
 --- field would stop spawning signals. One plate, always. The colour goes on top,
 --- here, where it is free to be as many parts as it likes.
 ---
 --- Thin, CanCollide and CanQuery false, and at GROUND_SKIM so a player's footing and
---- burial are untouched: a player still stands on Zones.SURFACE_Y and DigService
+--- burial are untouched: a player still stands on Stages.SURFACE_Y and DigService
 --- still buries against it, exactly as before this replaced the flat-band version.
 ---
 --- THE CHECKERBOARD IS ITS OWN GRADIENT MECHANISM, ON REQUEST -- a rework of the look
 --- (studded two-tone tiles, matching the plaza/base-pad board, `Hub.tileRect`) that
 --- turns out to sidestep this file's own documented failure mode for free. The two
---- removed systems above (`buildZoneBlend`, `buildGradientOozeSurface`) both tried to
+--- removed systems above (`buildStageBlend`, `buildGradientOozeSurface`) both tried to
 --- fake a smooth colour gradient with a HANDFUL of large abutting Parts, each one
 --- stepping a Color3 Lerp, and both produced a visible seam at every step regardless
 --- of step count. A checkerboard doesn't have that problem: it's already thousands of
@@ -592,34 +592,34 @@ end
 --- CONTINUOUS lerp based on its own world position -- there's no small band count to
 --- tune and no coincident seam plane, just a resolution limit of one tile (3 studs).
 ---
---- THE GRADIENT CONNECTS TO THE PLAZA. Two waypoints across Zone 1's own width:
+--- THE GRADIENT CONNECTS TO THE PLAZA. Two waypoints across Stage 1's own width:
 --- the plaza's own tile colours (`C.plazaTileDark`/`plazaTileLight`) at the west
---- edge, right where a player arrives from camp, blending to Zone 1's own
+--- edge, right where a player arrives from camp, blending to Stage 1's own
 --- already-shipped `color` (twoTone() above derives a matching two-tone pair from
 --- it, at the same brightness ratio the plaza's own hand-picked pair sits at) at
 --- the east edge. No new palette invented; the second endpoint is a colour this
 --- file already ships elsewhere. Z position never affects colour.
-local function buildZone1Checkerboard(parent: Instance)
-	local def = Zones.get(1)
+local function buildStage1Checkerboard(parent: Instance)
+	local def = Stages.get(1)
 	local minX = def.center[1] - def.size[1] / 2
 	local maxX = def.center[1] + def.size[1] / 2
 	local minZ = def.center[2] - def.size[2] / 2
 	local maxZ = def.center[2] + def.size[2] / 2
 
 	local plazaDark, plazaLight = Color3.fromHex(C.plazaTileDark), Color3.fromHex(C.plazaTileLight)
-	local zoneDark, zoneLight = twoTone(def.color)
+	local stageDark, stageLight = twoTone(def.color)
 
 	local waypoints = {
 		{ x = minX, dark = plazaDark, light = plazaLight },
-		{ x = maxX, dark = zoneDark, light = zoneLight },
+		{ x = maxX, dark = stageDark, light = stageLight },
 	}
 
-	-- Every tile gets Zone 1's ooze tint blended in on top of its gradient colour
-	-- (Zones.GROUND_OOZE_TINT -- see that constant's comment for why this exists:
+	-- Every tile gets Stage 1's ooze tint blended in on top of its gradient colour
+	-- (Stages.GROUND_OOZE_TINT -- see that constant's comment for why this exists:
 	-- it's the removed OozeSurface's tint, now baked into the tile instead of
 	-- arriving via a separate plate floating above it).
 	local function tint(c: Color3): string
-		return Kit.blendHex(c:ToHex(), def.ooze.bright, Zones.GROUND_OOZE_TINT)
+		return Kit.blendHex(c:ToHex(), def.ooze.bright, Stages.GROUND_OOZE_TINT)
 	end
 
 	local function colorAt(x: number, _z: number): (string, string)
@@ -639,12 +639,12 @@ local function buildZone1Checkerboard(parent: Instance)
 	folder.Name = "Checkerboard"
 
 	Hub.tileRect(folder, { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }, {
-		topY = Zones.SURFACE_Y + GROUND_SKIM,
+		topY = Stages.SURFACE_Y + GROUND_SKIM,
 		colorAt = colorAt,
 	})
 
 	-- Matches the old ground layer's own CanCollide/CanQuery=false exactly (see this
-	-- function's own header): footing/burial stay on Zones.SURFACE_Y, and
+	-- function's own header): footing/burial stay on Stages.SURFACE_Y, and
 	-- FieldController's range ring still lands on the real plate underneath, not this
 	-- thin cap layer. Hub.tileRect has no such option -- the plaza/base pads
 	-- legitimately want collidable, queryable tiles, so this is a deliberate
@@ -665,7 +665,7 @@ end
 --- part -- "BackSurface" (+Z) for the north wall, "FrontSurface" (-Z) for the south
 --- wall -- so the studs render on the side a player can actually see.
 local function buildWall(parent: Instance, name: string, minX: number, maxX: number, atZ: number, faceProperty: string)
-	local baseY = Zones.SURFACE_Y
+	local baseY = Stages.SURFACE_Y
 	local cols = math.ceil((maxX - minX) / WALL_TILE)
 	local rows = math.ceil(WALL_HEIGHT / WALL_TILE)
 
@@ -698,17 +698,17 @@ local function buildWall(parent: Instance, name: string, minX: number, maxX: num
 	end
 end
 
---- The chain's north and south edges. ONE WALL PER SIDE, NOT SIX -- every zone
+--- The chain's north and south edges. ONE WALL PER SIDE, NOT SIX -- every stage
 --- shares the same Z footprint since the uniform-depth pass, so this is one long
---- straight boundary the full length of the chain rather than a per-zone piece.
+--- straight boundary the full length of the chain rather than a per-stage piece.
 ---
---- BOUNDS ARE READ, NOT ASSUMED. This chain has moved, resized and had zones
+--- BOUNDS ARE READ, NOT ASSUMED. This chain has moved, resized and had stages
 --- reordered more than once already -- hardcoding today's numbers would just be
 --- tomorrow's silent bug the next time it changes.
 local function buildBoundaryWalls(parent: Instance)
 	local minX, minZ, maxX, maxZ = math.huge, math.huge, -math.huge, -math.huge
-	for _, id in Zones.builtIds() do
-		local ax, az, bx, bz = Zones.bounds(id)
+	for _, id in Stages.builtIds() do
+		local ax, az, bx, bz = Stages.bounds(id)
 		minX, minZ = math.min(minX, ax), math.min(minZ, az)
 		maxX, maxZ = math.max(maxX, bx), math.max(maxZ, bz)
 	end
@@ -727,20 +727,20 @@ local function createScenery(): Model
 	scenery.Name = "Scenery"
 	Kit.stamp(scenery, BUILDER_SOURCE, BUILDER_VERSION)
 
-	for _, id in Zones.builtIds() do
-		buildZoneScenery(scenery, id)
+	for _, id in Stages.builtIds() do
+		buildStageScenery(scenery, id)
 	end
-	buildZone1Checkerboard(scenery)
+	buildStage1Checkerboard(scenery)
 
-	-- No zone-to-zone blend any more anywhere in the chain -- see the removal note
-	-- above ZONE_BLEND's old spot, just above buildZoneScenery. Every boundary,
+	-- No stage-to-stage blend any more anywhere in the chain -- see the removal note
+	-- above STAGE_BLEND's old spot, just above buildStageScenery. Every boundary,
 	-- 1/2 through 5/6, is a hard cut now.
 	buildBoundaryWalls(scenery)
 
-	-- Nothing in here may claim to be a zone. This is the invariant the whole
+	-- Nothing in here may claim to be a stage. This is the invariant the whole
 	-- module/folder split exists to protect, so it is asserted, not trusted.
 	for _, d in scenery:GetDescendants() do
-		assert(d:GetAttribute("ZoneId") == nil, `scenery part {d:GetFullName()} carries a ZoneId — it would register as a zone`)
+		assert(d:GetAttribute("StageId") == nil, `scenery part {d:GetFullName()} carries a StageId — it would register as a stage`)
 	end
 
 	return scenery

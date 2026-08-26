@@ -33,14 +33,14 @@ The useful discovery from auditing the current code against that rule: **the bot
 layers are already built.** `EconomyService` (sell, dirty-sell tax, Quarantine Locker) and
 `DataService` (profile persistence, cash) are the money/state backbone. `DigService`,
 `ToolService`, `DeconService`, and `ExposureService` are the mechanical loop that feeds
-them — sweep, pull, haul, decontaminate, sell, all wired end to end for Zone 1. The Trader
+them — sweep, pull, haul, decontaminate, sell, all wired end to end for Stage 1. The Trader
 stall and Decon Station are real geometry in `BaseCamp.luau` with `StationKind` attributes
 `DeconService` already matches on. None of that is scaffolding — it's a working vertical
 slice of the core loop (PLAN §2).
 
 What's actually missing is exactly the two layers the rule says come *first*:
 
-- **The map.** Only Zone 1 / base camp exists, and even that generator hasn't been run and
+- **The map.** Only Stage 1 / base camp exists, and even that generator hasn't been run and
   eyeballed yet (§2 below).
 - **The next map-anchored feature.** The Trader (sell) is built. The Exhibition/Row
   (PLAN §8 — display instead of sell) is not, and it's a *physical* feature — pedestals are
@@ -49,7 +49,7 @@ What's actually missing is exactly the two layers the rule says come *first*:
 
 Everything else (rebirth, storms, rail network, monetization, pets, contracts, museum, real
 audio) genuinely is later: each one either extends a system that doesn't exist yet
-(Exhibition) or only pays off once there's more than one zone to play in.
+(Exhibition) or only pays off once there's more than one stage to play in.
 
 **Phase order:**
 
@@ -59,7 +59,7 @@ audio) genuinely is later: each one either extends a system that doesn't exist y
 | 1 | **The map** — world geometry as code | §2 | **done** |
 | 2 | **Map-anchored features** — shops built and working; Exhibition world + contract done, income pending | §3 | **mostly done** |
 | 3 | **Economy & state backbone** — spend path landed; exhibit accrual pending | §4 | in progress |
-| 4 | **Mechanical loop content** — Zones 2–4 stocked (41 items) | §5 | **done for MVP** |
+| 4 | **Mechanical loop content** — Stages 2–4 stocked (41 items) | §5 | **done for MVP** |
 | — | Version control workflow for world content (cross-cutting, not sequenced) | §6 | in progress |
 | — | Hardening — bugs found during review (cross-cutting, blocks specific phases — see §7) | §7 | not started |
 | — | Documentation (cross-cutting) | §8 | in progress |
@@ -67,7 +67,7 @@ audio) genuinely is later: each one either extends a system that doesn't exist y
 
 Work top to bottom within a phase; phases themselves are mostly sequential, but §6/§7/§8 are
 cross-cutting and get touched whenever the phase in progress calls for them (e.g. a bug in
-§7 that blocks Zone 2 content gets fixed during Phase 4, not deferred to the end).
+§7 that blocks Stage 2 content gets fixed during Phase 4, not deferred to the end).
 
 ---
 
@@ -114,8 +114,8 @@ everything and then runs `World.verify()` over the result.
       the migrated camp reproduces the pre-refactor camp exactly (121 descendants,
       101 BaseParts, checksum `1150820216`, length `10882`), proven against a freshly
       cloned module so a stale `require` cache could not fake the result
-- [x] `build/ZoneFields.luau` — one active radioactive dig plate, with the field kept under a
-      single `ZoneId` so radiation remains one area rather than three separate zones
+- [x] `build/StageFields.luau` — one active radioactive dig plate, with the field kept under a
+      single `StageId` so radiation remains one area rather than three separate stages
 - [x] Three staged radiation gates — Stage 1, Stage 2 and Stage 3 sit inside the one field;
       each gate carries `StageId` and `UnlockTier` attributes for future unlock behavior
 - [x] `build/Hub.luau` — compact 160×160 central plaza with one straight road into the field
@@ -126,21 +126,21 @@ everything and then runs `World.verify()` over the result.
       with the three progression stages arranged farther into the field
 - [x] `build/World.luau` — composer + `verify()`, currently **0 failures**
 - [x] One 660×320 radiation field with stage-specific loot: the outer stage uses the former
-      Zone 1 pool, the middle stage uses the former Zone 2 pool, and the deep stage uses the
-      former Zone 3 pool
+      Stage 1 pool, the middle stage uses the former Stage 2 pool, and the deep stage uses the
+      former Stage 3 pool
 - [x] **Burial-plane contract remains intact** — generated field geometry keeps the dig surface
       at the configured Y plane and `World.verify()` still checks the plate thickness and name/
       attribute agreement
 - [x] Decide fate of `ReplicatedStorage.Assets.Tools` base meshes — genuinely
       hand-authored (unions, a `SpecialMesh`, an imported model), so they stay binary
-- [x] Fix the blackout respawn, which sent players *into Zone 1* — see §7
+- [x] Fix the blackout respawn, which sent players *into Stage 1* — see §7
 - [x] **The field is now literally something you wade into**, not just tinted
       ground. `Scenery.luau` gained `OozeSurface` — one translucent Neon plate per
-      zone, sized to the whole plate, floating `WADE_HEIGHT` (1.1 studs) above the
+      stage, sized to the whole plate, floating `WADE_HEIGHT` (1.1 studs) above the
       real floor, about half a leg on a default character. It's a second,
-      `CanCollide=false` layer, never a change to `Zones.SURFACE_Y` itself — that
+      `CanCollide=false` layer, never a change to `Stages.SURFACE_Y` itself — that
       plane is still exactly what `DigService` buries against and what a player's
-      feet actually rest on, per `ZoneFields.luau`'s own "tilt or bump a plate and
+      feet actually rest on, per `StageFields.luau`'s own "tilt or bump a plate and
       items surface underground" warning. Took two live-tuned passes to get the
       material right: `Neon` at 0.55 transparency still read as solid ground (bloom
       pushes a plate this size to a wall of colour well before `Transparency`
@@ -152,31 +152,31 @@ everything and then runs `World.verify()` over the result.
       radiation, directly adjacent rather than distant blocks joined by long empty
       roads. Both connectors (`Hub.luau`'s `CampToRadiationRoad`, `Plots.luau`'s
       west trunk) shrank from 60 studs to 20. `Hub.luau` now derives the east
-      connector's endpoint from `Zones.get(1)`'s actual west edge instead of a
-      second hardcoded `140` next to `Zones.luau`'s own number — one source of
+      connector's endpoint from `Stages.get(1)`'s actual west edge instead of a
+      second hardcoded `140` next to `Stages.luau`'s own number — one source of
       truth instead of two that could drift. `Plots.PLOT_X`/`SPINE_X` moved
       together by the same 40 studs so the plot-to-spine stub length is
-      unchanged; only the spine-to-hub trunk got shorter. `Zone1.center` moved
+      unchanged; only the spine-to-hub trunk got shorter. `Stage1.center` moved
       from `{470,0}` to `{430,0}`; `stationDistance` re-measured by the same 40
       studs (230→190) per the file's own "measured, not aspirational" rule.
       **Real bug found verifying this**: updating a ModuleScript's `.Source` live
       in Studio does NOT reload code already `require()`'d elsewhere in the same
       session — Luau caches by Instance identity, and
-      `ReplicatedStorage.Shared.Config.Zones` had been `require()`'d many times
+      `ReplicatedStorage.Shared.Config.Stages` had been `require()`'d many times
       earlier in this session through the "fresh-clone-the-Server-folder"
       verification pattern this project uses. Cloning `Server` makes fresh
-      copies of everything *under* it, but `Zones` lives in
+      copies of everything *under* it, but `Stages` lives in
       `ReplicatedStorage.Shared`, outside that clone, so every "fresh" test was
       still resolving the STALE cached table — `World.verify()` kept passing
-      while `workspace.Zones.Zone1` sat exactly where it always had. Caught by
+      while `workspace.Stages.Stage1` sat exactly where it always had. Caught by
       directly measuring the live part's position and finding it hadn't moved,
       not by trusting a green checkmark. Fixed by destroying and recreating the
-      `Zones` ModuleScript instance itself (same name, same parent, same
+      `Stages` ModuleScript instance itself (same name, same parent, same
       source) to force a genuine cache miss on the next `require`.
 - [x] **The 20-stud connectors above were still a visible "pathway" — removed
       outright, replaced by the plaza's own floor reaching both neighbours
       directly.** `Hub.PLAZA` is no longer a symmetric 160×160 square; it's a
-      rectangle (`halfX=100, halfZ=80`) whose east edge lands exactly on Zone
+      rectangle (`halfX=100, halfZ=80`) whose east edge lands exactly on Stage
       1's west edge and whose west edge lands exactly on the plot spine's east
       edge — zero gap, not a short one. `Hub.luau`'s `buildRoad`/`buildRoads`
       (the `CampToRadiationRoad`) and the unused `Hub.GATES` table are deleted;
@@ -189,7 +189,7 @@ everything and then runs `World.verify()` over the result.
       overlapping, so a zero-gap boundary was already safe against it, just
       needed the check itself to stop assuming a square. Verified: `World.verify()`
       passes against a freshly-cloned `Server` folder; live position checks
-      confirm the plaza's edges and the spine/zone edges land on the same
+      confirm the plaza's edges and the spine/stage edges land on the same
       coordinate on both sides; screenshot confirms no gap or road strip
       remains, and each plot still reaches the spine via its own stub.
 - [x] **That spine was still a visible pathway between the plots and the shop
@@ -218,7 +218,7 @@ everything and then runs `World.verify()` over the result.
       height with zero gap or road anywhere along that edge.
 
 **Current map direction.** The MVP world is intentionally one radiation area. The old
-Zones 2–4 geometry is not generated, but the useful loot pools remain available as the
+Stages 2–4 geometry is not generated, but the useful loot pools remain available as the
 three internal stages of the main field. This keeps the first map easy to read: plots →
 shops → Stage 1 → Stage 2 → Stage 3.
 
@@ -310,7 +310,7 @@ the place file has no git history to recover from.
       R*(1-cos)`), which put the entire arch underground. Fixed by checking a
       straight-on screenshot against the actual reference photo, not just
       confirming `World.verify()` stayed green — verify only checks the world
-      CONTRACT (station census, zone plates, no overlaps), never geometry someone
+      CONTRACT (station census, stage plates, no overlaps), never geometry someone
       would recognise as "wrong shape."
 - [x] **Shop parts switched from `SmoothPlastic` to `Plastic`.** Every shop part
       except the wood posts/counters and the deliberately-glowing Neon signs was on
@@ -327,7 +327,7 @@ the place file has no git history to recover from.
       behind unused.
 - [x] **Outfitter bench** — Suit, Boots and Satchel. Not in the original ask, but three
       shops left those three tracks *priced and unbuyable*, and the Suit gates every
-      zone, so Zone 2 would have become the locked door PLAN §3.5 promises never to
+      stage, so Stage 2 would have become the locked door PLAN §3.5 promises never to
       build. `Shops.luau` now asserts at build time that every `Gear.TRACKS` entry is
       sold somewhere.
 - [x] **Outfitter rebuilt as a real building, not a bench.** It sells the gear
@@ -441,28 +441,28 @@ the place file has no git history to recover from.
 ## 5. Mechanical loop content — Phase 4
 
 - [x] **Stage loot pools stocked** — 41 items total (was 13), themed per PLAN §4. The
-      former Zones 1–4 catalogue remains available, while the active map rolls the former
-      Zone 1/2/3 pools in its three internal stages. Verified:
+      former Stages 1–4 catalogue remains available, while the active map rolls the former
+      Stage 1/2/3 pools in its three internal stages. Verified:
       unique ids, every `baseValue` inside its Rarity band, every nonzero loot weight
-      in every zone resolves to a real item.
-- [x] Stage 2 and Stage 3 loot progression (`Config/Zones.luau` + `DigService.luau`)
+      in every stage resolves to a real item.
+- [x] Stage 2 and Stage 3 loot progression (`Config/Stages.luau` + `DigService.luau`)
 - [ ] Stage gate unlock interaction — gates currently expose `StageId`/`UnlockTier`; wire
       them to the player's progression and open/close behavior when the unlock rule is chosen
 - [ ] Radiation burn / suit tolerance / survivability countdown (PLAN §3.5) — the
-      HUD countdown is the piece that makes Zone 4 a *choice*; see §9
+      HUD countdown is the piece that makes Stage 4 a *choice*; see §9
 - [ ] Hot pockets — deliberately NOT built. The design call was "the ooze is the dig
-      surface", so `ZoneService.hotPocketFor` stays a stub returning 1.
-- [x] **Stock Zone 5 (Reactor Grounds) and Zone 6 (The Crater)** — 23 items added
+      surface", so `StageService.hotPocketFor` stays a stub returning 1.
+- [x] **Stock Stage 5 (Reactor Grounds) and Stage 6 (The Crater)** — 23 items added
       (12 + 11), themed per PLAN §4 (fuel rods/control tech/black-box data; anomalies/
-      one-of-a-kind relics). `reactor_control` extends across the Zone 4/5 boundary;
-      `crater_relics` is new for Zone 6's showpiece tier. Both fields now roll real
+      one-of-a-kind relics). `reactor_control` extends across the Stage 4/5 boundary;
+      `crater_relics` is new for Stage 6's showpiece tier. Both fields now roll real
       loot instead of hitting the empty-pool warning.
-- [ ] **Re-weight zones 4–6 for the doubled signal density** — `SIGNALS_PER_ZONE` went to
-      90 and zones 1–3 were re-weighted to hold their wall-clock rare rate. Zones 4–6 were
+- [ ] **Re-weight stages 4–6 for the doubled signal density** — `SIGNALS_PER_STAGE` went to
+      90 and stages 1–3 were re-weighted to hold their wall-clock rare rate. Stages 4–6 were
       deliberately left alone because their identity is "everything here is good", with the
-      decision deferred until they were built and playable. Zone 4 is now both: it is
+      decision deferred until they were built and playable. Stage 4 is now both: it is
       diggable today at roughly double its intended rare rate. 5 and 6 inherit the same
-      debt the moment they are stocked. See the header of `Config/Zones.luau`.
+      debt the moment they are stocked. See the header of `Config/Stages.luau`.
 - [ ] **An on-site station for The Crater** — PLAN §16 calls it a heist, not a hike, and
       "short" has to mean short from its own station. At the far end of the east chain the
       honest walk from the nearest cleansing station is ~1800 studs, about two minutes.
@@ -503,15 +503,15 @@ in Studio before touching any of it. Nothing below has been changed. Re-verify a
 since line numbers may drift with any edit. Two of these are flagged **blocking** because a
 later phase runs straight into them.
 
-- [x] **Zone-2+ landmine — FIXED.** `DigService.rollItemId` hard-`error()`s for any
-      zone whose item catalogue is empty (`Items.luau` currently only stocks Zone 1). The
+- [x] **Stage-2+ landmine — FIXED.** `DigService.rollItemId` hard-`error()`s for any
+      stage whose item catalogue is empty (`Items.luau` currently only stocks Stage 1). The
       call is unprotected in `topUpField()`/`start()`, and `Ticker` has no per-subscriber
       `pcall`, so the throw can starve every service registered after `DigService` in
-      `ORDER`. Fix this *as part of* stocking Zone 2's catalogue in §5, not before — the fix
+      `ORDER`. Fix this *as part of* stocking Stage 2's catalogue in §5, not before — the fix
       and the content are the same piece of work. Done both ways: `rollItemId` now
       warns once and returns nil instead of throwing, `Ticker` isolates each subscriber
       in a pcall so one thrower can no longer starve every service after it, and
-      `Items.luau` stocks Zones 2-4. Boot log confirms `180 buried signal(s)` (4 x 45)
+      `Items.luau` stocks Stages 2-4. Boot log confirms `180 buried signal(s)` (4 x 45)
       with all 10 services up and zero failures.
 - [x] **Ungated debug console — FIXED.** `/gear`, `/dig`,
       `/flush` etc. register for every player on every server with no `RunService:IsStudio()`
@@ -526,10 +526,10 @@ later phase runs straight into them.
       reported "greed" fraction over-reports (up to ~1.67× at max level) and clamps to 100%
       for high-level players. `Spec.luau`'s tests don't catch it because every test case uses
       `levelResist = 0`.
-- [x] **Blackout dropped players INTO Zone 1 — FIXED.** `ExposureService` looked up the
+- [x] **Blackout dropped players INTO Stage 1 — FIXED.** `ExposureService` looked up the
       respawn with `FindFirstChildWhichIsA("SpawnLocation")`, which searches direct
       children of Workspace only; `BaseCamp` nests its spawn, so every blackout fell
-      through to a hardcoded `(0, 8, 0)` that sat inside Zone 1's footprint. Silent for
+      through to a hardcoded `(0, 8, 0)` that sat inside Stage 1's footprint. Silent for
       the life of the project. Now resolves a named `RespawnAnchor` (on the shower
       grate, so you wake up mid-flush), falls back recursively, and **warns** on the
       last resort.
@@ -568,7 +568,7 @@ pass, per your original call.
 - [x] `README.md` — getting started, layout, tuning commands
 - [x] `TODO.md` — this file
 - [x] `ARCHITECTURE.md` — station attribute table extended (`shop`/`plot`/`pedestal`,
-      `StationId`, the `Station` tag), the zone plate contract documented as a table of
+      `StationId`, the `Station` tag), the stage plate contract documented as a table of
       rules-and-why, and the "remaining gap" note rewritten now that the world is code
 - [x] `PLAN.md` §14 rewritten — the old "desaturated ash-grey" direction contradicted
       the built world. The rule is now *saturated everywhere, radiation is the only
@@ -579,7 +579,7 @@ pass, per your original call.
 - [ ] Document a `ToolTiers` generator if/when it is reconstructed
 
 **Summary.** `ARCHITECTURE.md` documents contracts that were previously implicit —
-instance/attribute names services expect to find in the place file (`ZoneId`, `Shower`,
+instance/attribute names services expect to find in the place file (`StageId`, `Shower`,
 `StationKind`, `HoldPart`, `HoldCFrame`), which fields are optional vs. required and what
 happens when they're missing, the `DebugCmd` attribute hook, and the full profile schema —
 each fact checked against the actual code, not asserted from memory. It was revised once
@@ -600,8 +600,8 @@ callouts, and a missing `/pocket` command in the console list).
       swaps within ~0.5s), then retry at $80 and assert it is refused **with no state
       change** — the negative case matters more than the positive one, since a shop
       that debits on failure is worse than no shop.
-- [ ] Live blackout test: `/zone 4`, wait for blackout, assert the player lands at the
-      `RespawnAnchor` and `zoneOf == nil`.
+- [ ] Live blackout test: `/stage 4`, wait for blackout, assert the player lands at the
+      `RespawnAnchor` and `stageOf == nil`.
 - [ ] Decon end-to-end regression after the `StationService` migration. No trader
       to regression-test any more — it's been removed from the world (see §3).
 - [ ] Live Exhibition test: display an item at your own stand (real carry list, real
@@ -612,9 +612,9 @@ callouts, and a missing `/pocket` command in the console list).
       outside Play — see §3 — but nothing has exercised the position-derived station
       security property or the actual `Workspace` render (`Display{n}` color/transparency)
       with a real character yet.
-- [ ] Border warning card (PLAN §4) — Zone 4 is ~7 seconds to blackout in a Cloth Wrap
+- [ ] Border warning card (PLAN §4) — Stage 4 is ~7 seconds to blackout in a Cloth Wrap
       and sits 50 studs behind the camp wall. The fence, verge and sign are in; the
-      HUD countdown is not. `ZoneService.onChanged` and `Radiation.survivableSeconds`
+      HUD countdown is not. `StageService.onChanged` and `Radiation.survivableSeconds`
       both already exist and are unused, so this is ~60 lines.
 
 ---
@@ -623,15 +623,15 @@ callouts, and a missing `/pocket` command in the console list).
 
 Pulled from `PLAN.md` for later triage — nothing here has been sized or planned yet.
 Listed so it's visible, not because it's next. Each depends on either the Exhibition (§3)
-existing or on there being more than one real zone (§5) to make the system meaningful —
+existing or on there being more than one real stage (§5) to make the system meaningful —
 that's what makes this genuinely last rather than an arbitrary ordering choice.
 
-- [ ] Zones 5–6 content (Reactor Grounds, The Crater — beyond the MVP slice)
+- [ ] Stages 5–6 content (Reactor Grounds, The Crater — beyond the MVP slice)
 - [ ] Rebirth / "Decontamination Protocol" (PLAN §9.3) — depends on the Exhibition existing,
       since the entire design point is "the Exhibition survives rebirth and nothing else does"
-- [ ] Rail network (PLAN §5.3, §10.12) — needs multiple zones with real distance to matter
-- [ ] Fallout storms (PLAN §4, §10.8) — needs multiple zones to feel server-wide
-- [ ] Museum / Collection Wall (PLAN §10.10) — needs an item catalogue bigger than Zone 1's
+- [ ] Rail network (PLAN §5.3, §10.12) — needs multiple stages with real distance to matter
+- [ ] Fallout storms (PLAN §4, §10.8) — needs multiple stages to feel server-wide
+- [ ] Museum / Collection Wall (PLAN §10.10) — needs an item catalogue bigger than Stage 1's
 - [ ] Field Contracts (PLAN §10.14), Pets (PLAN §10.15)
 - [ ] Monetization (PLAN §11) — deliberately last; PLAN §11 itself says nothing sold should
       be required to reach the Crater, so this can't be tuned before the Crater loop exists

@@ -1,9 +1,9 @@
 --[[
 	IndexController.lua — the item index. Browse every item that can be found, by
-	zone, and see which ones you've actually held.
+	stage, and see which ones you've actually held.
 
 	THIS IS THE GUI HALF OF PLAN §10.10, NOT THE WHOLE THING. The full "Museum /
-	Collection Wall" — a physical base-camp gallery, zone-completion luck bonuses —
+	Collection Wall" — a physical base-camp gallery, stage-completion luck bonuses —
 	is explicitly a long-term / post-MVP feature there. This is scoped to exactly
 	what was asked for: a small button, bottom-right, that opens a browsable list.
 	No new world geometry, no completion bonus.
@@ -24,7 +24,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
-local Zones = require(Shared.Config.Zones)
+local Stages = require(Shared.Config.Stages)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Net = require(Shared.Net)
@@ -41,25 +41,25 @@ local totalItems = #Items.DEFS
 
 local ui = {}
 
--- An item can belong to more than one zone (several span {3, 4}), so it gets a
--- SEPARATE row built per zone section it appears in — this has to be a list per
--- item, not one row, or discovering it would only ever repaint whichever zone's
+-- An item can belong to more than one stage (several span {3, 4}), so it gets a
+-- SEPARATE row built per stage section it appears in — this has to be a list per
+-- item, not one row, or discovering it would only ever repaint whichever stage's
 -- row happened to be built last.
 type ItemRow = { nameLabel: TextLabel, flavorLabel: TextLabel }
 local itemRows: { [string]: { ItemRow } } = {}
-local zoneCountLabels: { [number]: TextLabel } = {}
+local stageCountLabels: { [number]: TextLabel } = {}
 
---- itemId -> its ZoneDef list, precomputed once. Items.DEFS is small (41 at MVP
+--- itemId -> its StageDef list, precomputed once. Items.DEFS is small (41 at MVP
 --- scope) so this is cheap, and it means the panel build below is a lookup per
---- item rather than an `zones` array scan per item per zone.
-local itemsByZone: { [number]: { any } } = {}
-for _, zone in Zones.DEFS do
-	itemsByZone[zone.id] = {}
+--- item rather than an `stages` array scan per item per stage.
+local itemsByStage: { [number]: { any } } = {}
+for _, stage in Stages.DEFS do
+	itemsByStage[stage.id] = {}
 end
 for _, item in Items.DEFS do
-	for _, zoneId in item.zones do
-		if itemsByZone[zoneId] then
-			table.insert(itemsByZone[zoneId], item)
+	for _, stageId in item.stages do
+		if itemsByStage[stageId] then
+			table.insert(itemsByStage[stageId], item)
 		end
 	end
 end
@@ -114,13 +114,13 @@ local function buildItemRow(parent: Instance, layoutOrder: number, item: any)
 	table.insert(rows, { nameLabel = nameLabel, flavorLabel = flavorLabel })
 end
 
---- One zone section: a header (name + this zone's own discovered count) and its
---- item rows, or an honest "nothing catalogued here yet" line for zones 5-6, which
+--- One stage section: a header (name + this stage's own discovered count) and its
+--- item rows, or an honest "nothing catalogued here yet" line for stages 5-6, which
 --- stock nothing at MVP scope — flagged rather than silently skipped, same ethic
 --- DigService's own console warnings already use for the same gap.
-local function buildZoneSection(parent: Instance, layoutOrder: number, zone: any)
+local function buildStageSection(parent: Instance, layoutOrder: number, stage: any)
 	local section = Instance.new("Frame")
-	section.Name = `Zone{zone.id}`
+	section.Name = `Stage{stage.id}`
 	section.Size = UDim2.new(1, 0, 0, 0)
 	section.AutomaticSize = Enum.AutomaticSize.Y
 	section.BackgroundTransparency = 1
@@ -138,16 +138,16 @@ local function buildZoneSection(parent: Instance, layoutOrder: number, zone: any
 	header.Parent = section
 
 	UIKit.label(header, {
-		name = "ZoneName",
+		name = "StageName",
 		size = UDim2.new(1, -80, 1, 0),
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.header,
 		color = UIKit.C.text,
-		text = string.upper(zone.name),
+		text = string.upper(stage.name),
 		zIndex = 2,
 	})
 
-	local zoneItems = itemsByZone[zone.id]
+	local stageItems = itemsByStage[stage.id]
 	local countLabel = UIKit.label(header, {
 		name = "Count",
 		anchorPoint = Vector2.new(1, 0),
@@ -161,7 +161,7 @@ local function buildZoneSection(parent: Instance, layoutOrder: number, zone: any
 		zIndex = 2,
 	})
 
-	if #zoneItems == 0 then
+	if #stageItems == 0 then
 		UIKit.label(section, {
 			name = "Empty",
 			size = UDim2.new(1, 0, 0, 24),
@@ -172,19 +172,19 @@ local function buildZoneSection(parent: Instance, layoutOrder: number, zone: any
 			zIndex = 2,
 		})
 		countLabel.Text = ""
-		zoneCountLabels[zone.id] = countLabel
+		stageCountLabels[stage.id] = countLabel
 		return
 	end
 
-	table.sort(zoneItems, function(a, b)
+	table.sort(stageItems, function(a, b)
 		return Rarity.DEFS[a.rarity].order < Rarity.DEFS[b.rarity].order
 	end)
 
-	for i, item in zoneItems do
+	for i, item in stageItems do
 		buildItemRow(section, i + 1, item)
 	end
 
-	zoneCountLabels[zone.id] = countLabel
+	stageCountLabels[stage.id] = countLabel
 end
 
 local function build(): ScreenGui
@@ -298,8 +298,8 @@ local function build(): ScreenGui
 	listLayout.Padding = UDim.new(0, 14)
 	listLayout.Parent = scroller
 
-	for i, zone in Zones.DEFS do
-		buildZoneSection(scroller, i, zone)
+	for i, stage in Stages.DEFS do
+		buildStageSection(scroller, i, stage)
 	end
 
 	local function toggle()
@@ -332,14 +332,14 @@ local function renderItem(item: any)
 	end
 end
 
-local function renderZoneCount(zoneId: number)
-	local label = zoneCountLabels[zoneId]
+local function renderStageCount(stageId: number)
+	local label = stageCountLabels[stageId]
 	if label == nil then
 		return
 	end
 
 	local found, total = 0, 0
-	for _, item in itemsByZone[zoneId] do
+	for _, item in itemsByStage[stageId] do
 		total += 1
 		if discovered[item.id] then
 			found += 1
@@ -352,8 +352,8 @@ local function renderAll()
 	for _, item in Items.DEFS do
 		renderItem(item)
 	end
-	for _, zone in Zones.DEFS do
-		renderZoneCount(zone.id)
+	for _, stage in Stages.DEFS do
+		renderStageCount(stage.id)
 	end
 	ui.totalLabel.Text = string.format("%d / %d found", discoveredCount(), totalItems)
 end
@@ -377,8 +377,8 @@ function Index.start()
 			discovered[info.itemId] = true
 			local item = Items.get(info.itemId)
 			renderItem(item)
-			for _, zoneId in item.zones do
-				renderZoneCount(zoneId)
+			for _, stageId in item.stages do
+				renderStageCount(stageId)
 			end
 			ui.totalLabel.Text = string.format("%d / %d found", discoveredCount(), totalItems)
 		end

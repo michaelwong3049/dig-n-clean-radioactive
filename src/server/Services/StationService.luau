@@ -2,7 +2,7 @@
 --[[
 	StationService.lua — what are you standing at, and who cares.
 
-	Shaped exactly like ZoneService (a cached spatial lookup plus an onChanged
+	Shaped exactly like StageService (a cached spatial lookup plus an onChanged
 	edge), because it is the same problem: a cheap per-tick "where is this player"
 	that several services need and none of them should each be computing.
 

@@ -25,7 +25,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
-local Zones = require(Shared.Config.Zones)
+local Stages = require(Shared.Config.Stages)
 local Radiation = require(Shared.Radiation)
 local Decay = require(Shared.Decay)
 local Contamination = require(Shared.Contamination)
@@ -34,7 +34,7 @@ local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
-local ZoneService = require(script.Parent.ZoneService)
+local StageService = require(script.Parent.StageService)
 
 local ExposureService = {}
 
@@ -78,7 +78,7 @@ end
 
 -- Cached, because the naive version walked EVERY descendant of Workspace once per
 -- player per tick. That is 10 full-world scans a second per player, against a world
--- that will eventually hold six zones of scenery — it was fine at 60 parts and would
+-- that will eventually hold six stages of scenery — it was fine at 60 parts and would
 -- have quietly become the most expensive thing in the game.
 local showerCache: { { position: Vector3, radius: number } } = {}
 local cacheAge = math.huge
@@ -223,7 +223,7 @@ end
 --- This used to be FindFirstChildWhichIsA("SpawnLocation") — which searches DIRECT
 --- CHILDREN OF WORKSPACE ONLY. BaseCamp parents its spawn inside the camp model, so
 --- the search never matched and every blackout fell through to the hardcoded
---- CFrame.new(0, 8, 0) below. That point sat inside Zone 1's footprint: blacking out
+--- CFrame.new(0, 8, 0) below. That point sat inside Stage 1's footprint: blacking out
 --- teleported you into the radioactive field you had just escaped. It was silent for
 --- the entire life of the project, which is why the last resort now warns.
 ---
@@ -246,7 +246,7 @@ local function baseCampCFrame(): CFrame
 
 	if not warnedNoAnchor then
 		warnedNoAnchor = true
-		warn("[exposure] no RespawnAnchor and no SpawnLocation in Workspace — blacking out to (0, 8, 0), which may be inside a zone")
+		warn("[exposure] no RespawnAnchor and no SpawnLocation in Workspace — blacking out to (0, 8, 0), which may be inside a stage")
 	end
 	return CFrame.new(0, 8, 0)
 end
@@ -296,8 +296,8 @@ local function stepPlayer(player: Player, dt: number)
 
 	local state = stateFor(player)
 	local stats = StatResolver.get(data)
-	local zoneId = ZoneService.zoneOf(player)
-	local ambient = ZoneService.ambientFor(player)
+	local stageId = StageService.stageOf(player)
+	local ambient = StageService.ambientFor(player)
 
 	-- BOOTS GEAR APPLIED LIVE, HERE, FOR THE SAME REASON THE DECAY CLOCK IS: this loop
 	-- already resolves `stats` (which carries `walkSpeed`/`haulPenalty` off the
@@ -348,7 +348,7 @@ local function stepPlayer(player: Player, dt: number)
 			state.health = math.max(0, state.health - reading.healthBurn * dt)
 		else
 			-- ...and fully at base camp (PLAN §3.5).
-			local rate = if zoneId == nil then HEALTH_REGEN_PER_SEC * 6 else HEALTH_REGEN_PER_SEC
+			local rate = if stageId == nil then HEALTH_REGEN_PER_SEC * 6 else HEALTH_REGEN_PER_SEC
 			state.health = math.min(Tuning.MAX_HEALTH, state.health + rate * dt)
 		end
 
@@ -361,7 +361,7 @@ local function stepPlayer(player: Player, dt: number)
 
 	-- THE DISPLAYED COUNTDOWN DOES NOT RECOVER FROM A PARTIAL RETREAT. Left as a
 	-- live recomputation, walking a few steps back out of a hot pocket (or into a
-	-- shallower part of a depth-graded zone, PLAN's depth pass) would make
+	-- shallower part of a depth-graded stage, PLAN's depth pass) would make
 	-- SURVIVABLE jump straight back up, because it is just (cap - exposure) / net
 	-- at whatever net happens to be RIGHT NOW. That defeats the point of a deep
 	-- push costing a real walk home: the number should read as "you are committed
@@ -372,7 +372,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- drop immediately (things got worse, show that right away), but if the live
 	-- number would be BETTER than what's already showing, it ticks down in real
 	-- time instead of jumping to match. A player who fully makes it home sees the
-	-- pressure actually lift; one who ducks back a few studs into the same zone
+	-- pressure actually lift; one who ducks back a few studs into the same stage
 	-- does not get to bank that as extra time.
 	local liveSurvivable = Radiation.survivableSeconds(reading, state.exposure, state.health)
 	local trulySafe = showering or (reading.net <= 0 and reading.healthBurn <= 0)
@@ -389,8 +389,8 @@ local function stepPlayer(player: Player, dt: number)
 	end
 
 	stateRemote:FireClient(player, {
-		zoneId = zoneId,
-		zoneName = if zoneId then Zones.get(zoneId).name else "Base Camp",
+		stageId = stageId,
+		stageName = if stageId then Stages.get(stageId).name else "Base Camp",
 		ambient = ambient,
 		inShower = showering,
 

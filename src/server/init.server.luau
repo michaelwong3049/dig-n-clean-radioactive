@@ -19,7 +19,7 @@ local SERVICES = script.Services
 -- because it is the only place that graph is written down.
 local ORDER = {
 	"DataService", -- everything downstream needs a profile
-	"ZoneService", -- who is standing where; exposure and digging both read it
+	"StageService", -- who is standing where; exposure and digging both read it
 	"ExposureService", -- Phase 2: the rad meter, burn and blackout
 	"DigService", -- Phase 1: the signal field, sweep and haul
 	"EconomyService", -- prices and the till; DeconService calls into it

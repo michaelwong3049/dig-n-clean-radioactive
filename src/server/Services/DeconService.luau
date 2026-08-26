@@ -57,7 +57,7 @@ local resultRemote: any = nil
 -- old scan was both O(#camp) at 10 Hz AND scoped to the camp model, which made every
 -- shop on the plaza and every pedestal on a plot structurally invisible to the game.
 --
--- DigService.zoneOf already set the precedent of keeping a thin delegate so callers
+-- DigService.stageOf already set the precedent of keeping a thin delegate so callers
 -- written against the old name keep working; stationOf below does the same, which is
 -- why ToolService needed no changes at all.
 

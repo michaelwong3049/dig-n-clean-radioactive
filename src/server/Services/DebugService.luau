@@ -8,8 +8,8 @@
 	is Phase 2 and the backpack is Phase 3 — so a HUD alone would render zeroes
 	forever.
 
-	PHASE 2 UPDATE: that is no longer what this is. ZoneService and ExposureService
-	exist now and own the zone, the meter, the health and the blackout for real. This
+	PHASE 2 UPDATE: that is no longer what this is. StageService and ExposureService
+	exist now and own the stage, the meter, the health and the blackout for real. This
 	file kept its promise and gave all of that up — nothing here simulates anything any
 	more. It READS the live services and renders them to the debug HUD, and it carries
 	the tuning console.
@@ -26,7 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
-local Zones = require(Shared.Config.Zones)
+local Stages = require(Shared.Config.Stages)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Contamination = require(Shared.Contamination)
@@ -37,7 +37,7 @@ local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
-local ZoneService = require(script.Parent.ZoneService)
+local StageService = require(script.Parent.StageService)
 local ExposureService = require(script.Parent.ExposureService)
 local EconomyService = require(script.Parent.EconomyService)
 
@@ -67,8 +67,8 @@ local function step(player: Player, _dt: number)
 	end
 
 	local stats = StatResolver.get(data)
-	local zoneId = ZoneService.zoneOf(player)
-	local ambient = ZoneService.ambientFor(player)
+	local stageId = StageService.stageOf(player)
+	local ambient = StageService.ambientFor(player)
 	local carried = Decay.totalEmission(data.carry, stats.satchelFuseMult)
 	local reading = Radiation.resolve(ambient, carried, stats)
 
@@ -93,10 +93,10 @@ local function step(player: Player, _dt: number)
 	end
 
 	stateRemote:FireClient(player, {
-		zoneId = zoneId,
-		zoneName = if zoneId then Zones.get(zoneId).name else "Base Camp",
+		stageId = stageId,
+		stageName = if stageId then Stages.get(stageId).name else "Base Camp",
 		ambient = ambient,
-		hotPocket = ZoneService.hotPocketFor(player),
+		hotPocket = StageService.hotPocketFor(player),
 
 		exposure = exposure,
 		exposureFrac = Radiation.exposureFraction(exposure),
@@ -129,20 +129,20 @@ end
 
 local COMMANDS: { [string]: { help: string, run: (Player, Sandbox, { string }) -> string } } = {}
 
-COMMANDS["/zone"] = {
-	-- Zones are physical volumes now, so this teleports rather than overriding a
-	-- number. You cannot be in a zone you are not standing in.
-	help = "/zone <1-6> — teleport into that zone's field",
+COMMANDS["/stage"] = {
+	-- Stages are physical volumes now, so this teleports rather than overriding a
+	-- number. You cannot be in a stage you are not standing in.
+	help = "/stage <1-6> — teleport into that stage's field",
 	run = function(player, _sandbox, args)
 		local id = tonumber(args[1])
-		if id == nil or Zones.DEFS[id] == nil then
-			return "usage: /zone <1-6>"
+		if id == nil or Stages.DEFS[id] == nil then
+			return "usage: /stage <1-6>"
 		end
 
-		local folder = Workspace:FindFirstChild("Zones")
-		local part = folder and folder:FindFirstChild(`Zone{id}`)
+		local folder = Workspace:FindFirstChild("Stages")
+		local part = folder and folder:FindFirstChild(`Stage{id}`)
 		if part == nil or not part:IsA("BasePart") then
-			return `zone {id} ({Zones.get(id).name}) has no field built in the world yet`
+			return `stage {id} ({Stages.get(id).name}) has no field built in the world yet`
 		end
 
 		local character = player.Character
@@ -152,14 +152,14 @@ COMMANDS["/zone"] = {
 		end
 
 		root.CFrame = CFrame.new(part.Position + Vector3.new(0, part.Size.Y / 2 + 4, 0))
-		local zone = Zones.get(id)
+		local stage = Stages.get(id)
 		-- Lands at the plate's centre, i.e. depthFrac ~0.5 -- computed live rather
 		-- than printing the old flat baseRads, which would understate what's
-		-- actually here now that radiation ramps with depth. ZoneService's own
+		-- actually here now that radiation ramps with depth. StageService's own
 		-- tick hasn't caught up to the teleport yet, so this can't just call
 		-- ambientFor(player) -- same depthFrac math, evaluated immediately instead.
-		local ambientHere = Zones.radsAt(id, 0.5)
-		return `moved into zone {id}: {zone.name} — {zone.baseRads}-{zone.deepRads} rads/s across the zone, ~{string.format("%.1f", ambientHere)} here`
+		local ambientHere = Stages.radsAt(id, 0.5)
+		return `moved into stage {id}: {stage.name} — {stage.baseRads}-{stage.deepRads} rads/s across the stage, ~{string.format("%.1f", ambientHere)} here`
 	end,
 }
 
@@ -184,9 +184,9 @@ COMMANDS["/dig"] = {
 		-- Must be a REAL catalogue item: everything downstream does Items.get(itemId)
 		-- and asserts. A synthetic "debug_item" blew up DeconService the moment you
 		-- carried one to a station.
-		local pool = Items.inZone(1, rarity)
+		local pool = Items.inStage(1, rarity)
 		if #pool == 0 then
-			return `zone 1 has no {rarity} items in the catalogue yet`
+			return `stage 1 has no {rarity} items in the catalogue yet`
 		end
 		local def = pool[math.random(1, #pool)]
 
@@ -299,7 +299,7 @@ COMMANDS["/speed"] = {
 }
 
 COMMANDS["/pocket"] = {
-	help = "/pocket — hot pockets belong to ZoneService and arrive in Phase 4",
+	help = "/pocket — hot pockets belong to StageService and arrive in Phase 4",
 	run = function(_player, _sandbox, _args)
 		return "hot pockets are not built yet (PLAN §4, Phase 4)"
 	end,
@@ -318,7 +318,7 @@ COMMANDS["/radhelp"] = {
 }
 
 --- Run one console line for a player. Chat and the scriptable hook below both go
---- through here, so the two can never drift apart. Accepts "/zone 3" or "zone 3".
+--- through here, so the two can never drift apart. Accepts "/stage 3" or "stage 3".
 local function dispatch(player: Player, line: string): string
 	local sandbox = sandboxes[player]
 	if sandbox == nil then
