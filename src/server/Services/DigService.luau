@@ -176,9 +176,9 @@ end
 
 -- ── Rolling ───────────────────────────────────────────────────────────
 
---- Takes the loot TABLE rather than a stage id. It used to take a stage id and look
---- the table up in Zones.STAGES, which hard-wired every signal in the world to Zone
---- 1's three stages — see Zones.STAGED_ZONE for why that was wrong and invisible.
+--- Takes the loot TABLE directly rather than a zone id, so callers can hand it
+--- whichever zone's table applies without this function knowing anything about
+--- zones itself.
 local function rollRarity(loot: { [string]: number }): string
 	local total = 0
 	for _, weight in loot do
@@ -270,12 +270,9 @@ local function spawnSignal(zoneId: number)
 	end
 
 	local position = randomPointOn(part)
-	-- Zone 1 answers with the stage the point fell in; every other zone answers for
-	-- itself. Both come back through one call so this line cannot drift from the
-	-- config's own idea of which zones are subdivided.
-	local loot, itemZoneId = Zones.lootAt(zoneId, position.X)
-	local rarity = rollRarity(loot)
-	local itemId, actualRarity = rollItemId(itemZoneId, rarity)
+	local zone = Zones.get(zoneId)
+	local rarity = rollRarity(zone.loot)
+	local itemId, actualRarity = rollItemId(zoneId, rarity)
 	if itemId == nil or actualRarity == nil then
 		return -- zone isn't stocked; rollItemId has already said so, once
 	end
