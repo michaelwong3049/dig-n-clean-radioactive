@@ -195,17 +195,6 @@ export type ZoneDef = {
 	built: boolean, -- false => the generator skips it and verify() ignores it
 }
 
-export type StageDef = {
-	id: number,
-	name: string,
-	minX: number,
-	maxX: number,
-	unlockTier: number,
-	loot: { [string]: number },
-	itemZoneId: number,
-	color: string,
-}
-
 local Zones = {}
 
 --- The top face of every zone plate. Used to sit 1.5 studs below the plaza on
@@ -258,19 +247,15 @@ Zones.DEFS = {
 		-- change and does not touch this deepRads value at all).
 		--
 		-- deepRads RAISED AGAIN in the third pass, for a target that turns out to be
-		-- about THIS number, not the far-away Zone 3: Zones.STAGES divides this
-		-- zone's own width into three named sub-bands (Outer Ash / Hot Wreckage /
-		-- Deep Fallout) for loot-flavour reasons, and "Deep Fallout" (Stage 3,
-		-- depthFrac 0.652-1.0 of THIS zone) is what a player actually means by "the
-		-- third area" long before they've walked far enough to reach the real,
-		-- separate Zone 3 ("Fallout Fields") kilometres away. The ask was "die in
-		-- under 30s within Stage 3" -- 1.97 puts Stage 3's own start at ~30s and its
-		-- far edge (this zone's true deepest point) at ~17s, while staying just
-		-- under Zone 2's baseRads (2.0), a thin but real 1.5% ordering margin. Going
-		-- any higher breaks "Zone 1 is the safest zone" outright (Zone 2's own
-		-- entrance would no longer be the harsher of the two) -- see Spec.luau's new
-		-- explicit Stage 3 check and Tuning.luau's BURN_COEF comment for why an
-		-- earlier pass chased a DIFFERENT, wrong target (the real Zone 3) instead.
+		-- about THIS zone's OWN far end, not the separate, far-away Zone 3: by
+		-- depthFrac 0.652 (about two-thirds of the way across this zone) a player is
+		-- under 30s from death, and by depthFrac 1.0 (this zone's true deepest point,
+		-- its east edge) that is down to ~17s -- while staying just under Zone 2's
+		-- baseRads (2.0), a thin but real 1.5% ordering margin. Going any higher
+		-- breaks "Zone 1 is the safest zone" outright (Zone 2's own entrance would no
+		-- longer be the harsher of the two) -- see Spec.luau's own depthFrac check
+		-- and Tuning.luau's BURN_COEF comment for why an earlier pass chased a
+		-- DIFFERENT, wrong target (the real Zone 3) instead.
 		baseRads = 0.5,
 		deepRads = 1.97, -- 3.94x
 		soilHardness = 1,
@@ -292,28 +277,26 @@ Zones.DEFS = {
 		-- the axis actually meant: how wide the field feels standing in it, not how
 		-- far you walk crossing it. See the header note below the chain diagram.
 		size = { 660, 240 },
-		-- Matches STAGES[3]'s colour below, not STAGES[1]'s: paintBands covers this
-		-- plate edge-to-edge in stage bands, so this base colour is never actually
-		-- seen — it is only the fallback under a seam gap, and the fallback should
-		-- match the zone's OWN east/dead end, not its green west end, since that is
-		-- what borders Zone 2 across the boundary blend. See "LIFE FADING INTO A
-		-- DEAD WASTELAND" below for the whole Zone 1-3 palette.
+		-- The east-edge endpoint of buildZone1Checkerboard's plaza-to-here gradient
+		-- (see Scenery.luau) — this base colour is never actually seen as a flat
+		-- fill, only blended toward across the plate, and the fallback should match
+		-- the zone's OWN east/dead end, not its green west end, since that is what
+		-- borders Zone 2 across the boundary blend. See "LIFE FADING INTO A DEAD
+		-- WASTELAND" below for the whole Zone 1-3 palette.
 		color = "C2A171",
-		-- GRASS, NOT SAND, ON REQUEST -- Zone 1 only. `material` here is the ONE
-		-- material every stage band and the base plate both render in
-		-- (buildStageGround passes `def.material` through unchanged for all three
-		-- bands, see Scenery.luau), so this reads as real grass under Outer Ash's
-		-- green and as dry, dying grass under Hot Wreckage's khaki and Deep
-		-- Fallout's tan -- not sand under any of them any more.
+		-- GRASS, NOT SAND, ON REQUEST -- Zone 1 only. `material` applies to the whole
+		-- plate uniformly (see Scenery.luau), so this reads as real grass under the
+		-- green west end and as dry, dying grass under the tan east end -- not sand
+		-- under either any more.
 		--
 		-- THIS BREAKS THE "SAND FAMILY" ZONES 1-3 USED TO SHARE. Zone 3's own
 		-- comment below (`material = "Sand"`) explains why it moved off Slate onto
 		-- Sand: continuity with the rest of this stretch. Zones 2 and 3 are still
-		-- Sand, so Zone 1's Deep Fallout stage now meets Zone 2's Suburbs across a
-		-- material seam even though `buildZoneBlend` still blends their COLOUR
-		-- smoothly -- texture does not blend, only hue does. Left as the honest
-		-- cost of a Zone-1-only change rather than silently reskinning zones
-		-- nobody asked to change.
+		-- Sand, so Zone 1's own east edge meets Zone 2's Suburbs across a material
+		-- seam even though `buildZoneBlend` still blends their COLOUR smoothly --
+		-- texture does not blend, only hue does. Left as the honest cost of a
+		-- Zone-1-only change rather than silently reskinning zones nobody asked to
+		-- change.
 		material = "Grass",
 		-- Muted on purpose — see the note below. Nowhere near today's old 6BEE2E,
 		-- and nowhere near Zones 4-6's neon-pink/violet territory either.
@@ -491,71 +474,6 @@ Zones.DEFS = {
 	},
 } :: { ZoneDef }
 
--- One radiation field, three stages. Stage bounds are local X offsets from the
--- field centre, so the field can move without the stage boundaries drifting away
--- from the loot they divide. The later stages reuse the existing zone item pools
--- until the catalogue is split into an explicitly staged content model.
---
--- `color` is what actually separates them on the ground. There used to be a concrete
--- barrier at each boundary; build/Scenery paints the plate in these three colours
--- with a blended seam instead, because a wall standing in open ground read as
--- unnatural and gated nothing.
---
--- THESE HAVE TO BE FAR APART, AND THEY DID NOT USED TO BE. The first set was
--- 6F9636 / 538C28 / 3E7A1C — three shades of one green. LIFE FADING INTO A DEAD
--- WASTELAND (see PLAN.md §14's revision note) replaced that with a genuine family
--- change instead of three shades of one hue: vivid grass green -> khaki-olive dying
--- middle -> pale dead sand, matching Zone 2/3's own now-desaturated tan/khaki-brown
--- ground so Zone 1's own internal gradient hands off into the zone-to-zone one
--- seamlessly instead of two unrelated systems meeting at a coincidence.
---
--- The reading is also the fiction, same names, new meaning: Outer Ash is the
--- untouched edge right off camp's doorstep, barely ashen at all yet; Hot Wreckage is
--- where it is visibly dying; Deep Fallout is where the ecosystem lost. Keep them
--- distinguishable at a glance — the loot table changes at the seam, so a player has
--- to be able to see which one they are on.
-Zones.STAGES = {
-	{
-		id = 1,
-		name = "Outer Ash",
-		minX = -330,
-		maxX = -110,
-		unlockTier = 1,
-		loot = Zones.DEFS[1].loot,
-		itemZoneId = 1,
-		-- Darkened on request from 5C9A34, and tuned LIVE rather than by formula.
-		-- A flat 65%-value scale (3C6422) barely moved the rendered result — Grass
-		-- material's own texture carries a lot of baked-in brightness that a plain
-		-- SmoothPlastic or Sand tint of the same hex would not have, so the same
-		-- darkening math that works elsewhere in this file undershoots badly here.
-		-- This value was picked by screenshotting the actual rendered ground at
-		-- several steps and stopping at the first one that reads as dark, natural
-		-- grass rather than a lawn — expect any FUTURE colour on Grass material to
-		-- need the same live-tuning pass rather than a hue/saturation/value formula.
-		color = "17300F",
-	},
-	{
-		id = 2,
-		name = "Hot Wreckage",
-		minX = -110,
-		maxX = 100,
-		unlockTier = 2,
-		loot = Zones.DEFS[2].loot,
-		itemZoneId = 2,
-		color = "8E7C48",
-	},
-	{
-		id = 3,
-		name = "Deep Fallout",
-		minX = 100,
-		maxX = 330,
-		unlockTier = 3,
-		loot = Zones.DEFS[3].loot,
-		itemZoneId = 3,
-		color = "C2A171",
-	},
-}
-
 function Zones.get(id: number): ZoneDef
 	local z = Zones.DEFS[id]
 	assert(z, `unknown zone {id}`)
@@ -573,58 +491,9 @@ function Zones.builtIds(): { number }
 	return ids
 end
 
---- THE ONE ZONE THAT IS SUBDIVIDED INTO STAGES.
----
---- Zone 1 is the graded starter field: three loot tables across one plate, so a new
---- player meets an escalating field before they meet a second zone. Every other zone
---- is a single place with a single table — that is what makes it a zone rather than a
---- stage.
----
---- THIS CONSTANT EXISTS BECAUSE THE SUBDIVISION WAS ACCIDENTALLY GLOBAL. DigService
---- resolved EVERY signal's loot through `stageAt`, which was invisibly correct while
---- Zone 1 was the only field in the world and quietly wrong the moment it was not:
---- stage bounds are LOCAL X offsets, so each new zone got sliced into stages by its
---- own width and handed out Zone 1, 2 and 3's items. The Crater's 18%-Legendary table
---- was never consulted by anything. Ask `lootAt`, not `stageAt`.
-Zones.STAGED_ZONE = 1
-
-function Zones.stageAt(zoneId: number, worldX: number): StageDef
-	local zone = Zones.get(zoneId)
-	local localX = worldX - zone.center[1]
-	for _, stage in Zones.STAGES do
-		if localX >= stage.minX and localX <= stage.maxX then
-			return stage
-		end
-	end
-	return Zones.STAGES[#Zones.STAGES]
-end
-
---- What a signal at `worldX` in this zone should roll against: its rarity weights,
---- and the id whose item pool the rolled rarity is drawn from.
----
---- The two are separate because they diverge in exactly one place. Zone 1's stages
---- carry Zone 2 and Zone 3's loot tables and item pools — that is the whole point of
---- a graded field, and it is why `itemZoneId` exists on StageDef. Everywhere else the
---- zone answers for both.
-function Zones.lootAt(zoneId: number, worldX: number): ({ [string]: number }, number)
-	if zoneId == Zones.STAGED_ZONE then
-		local stage = Zones.stageAt(zoneId, worldX)
-		return stage.loot, stage.itemZoneId
-	end
-	local zone = Zones.get(zoneId)
-	return zone.loot, zoneId
-end
-
 --- Ambient rads/sec for a given DEPTH into a zone, 0 (the entrance, west edge --
 --- where you arrive from camp or the previous zone) to 1 (the deepest point, east
---- edge -- where the next zone begins). Linear between `baseRads` and `deepRads`,
---- the same interpolation `Scenery.luau`'s stage-colour seams already use.
----
---- SEPARATE FROM `stageAt`/`lootAt` ON PURPOSE. Zone 1's Stage system grades the
---- LOOT table over this same west-to-east span, for an unrelated reason (a new
---- player meeting an escalating field before a second zone) -- the two gradients
---- run the same direction by coincidence, not because they're the same mechanic.
---- Coupling them would mean a loot-table change silently retunes radiation too.
+--- edge -- where the next zone begins). Linear between `baseRads` and `deepRads`.
 ---
 --- ZoneService.ambientFor is the only live caller; Spec.luau and TuningReport.luau
 --- call this directly with a fixed depthFrac (0 or 1) to test a specific point

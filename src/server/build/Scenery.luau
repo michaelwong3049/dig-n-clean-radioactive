@@ -43,16 +43,15 @@
 	in this file sits above the plane the way `OozeSurface` used to — the ground
 	colour itself carries no such risk, it's the plate's own top face.
 
-	THE STAGES ARE TOLD APART BY GROUND COLOUR, NOT BY WALLS. buildZone1Checkerboard
-	tiles the plate in a studded, two-tone checkerboard (same board as the plaza and
-	base pads, Hub.tileRect) whose colour is a continuous per-tile gradient across the
-	three stages, connecting to the plaza's own tile colours at the west edge;
-	buildStageMarkers puts a signed post and some debris at each boundary so the stage
-	still has a name. The concrete barrier that used to stand there is gone — it gated
-	nothing and read as unnatural. See buildZone1Checkerboard for why the colour is a
-	layer on top rather than the plate itself, and for why a tiled gradient sidesteps
-	the banded-seam problem two earlier, now-removed systems here both hit (see the
-	removal notes still kept below for `buildZoneBlend`/`buildGradientOozeSurface`).
+	ZONE 1'S GROUND IS A GRADIENT, NOT A FLAT COLOUR. buildZone1Checkerboard tiles the
+	plate in a studded, two-tone checkerboard (same board as the plaza and base pads,
+	Hub.tileRect) whose colour is a continuous per-tile blend from the plaza's own
+	tile colours at the west edge to Zone 1's own colour at the east edge — a softer
+	hand-off than a flat colour would read as. See buildZone1Checkerboard for why the
+	colour is a layer on top rather than the plate itself, and for why a tiled
+	gradient sidesteps the banded-seam problem two earlier, now-removed systems here
+	both hit (see the removal notes still kept below for
+	`buildZoneBlend`/`buildGradientOozeSurface`).
 
 	Placement is a jittered grid, not pure random. Pure random clumps and leaves bald
 	patches; a jittered grid reads as scattered while still covering the field, and
@@ -361,7 +360,7 @@ local function prop(
 		-- Zone 1's Outer Ash stage only — a branching trunk carrying several
 		-- rounded foliage clusters, matching the reference the user gave (a
 		-- chunky, low-poly toy tree, not one flat canopy block or DeadTree's bare
-		-- branches). Canopy colour matches Stage 1's own ground green so
+		-- branches). Canopy colour matches Zone 1's own ground green so
 		-- trunk-and-leaves reads as one plant family with the grass it stands on.
 		local h = rng:NextNumber(5, 6.5)
 		build(parent, origin, {
@@ -556,15 +555,18 @@ local function buildZoneScenery(parent: Instance, id: number)
 	folder.Parent = parent
 end
 
---- The three stages, told apart by the GROUND rather than by a wall.
+--- Zone 1's ground, a gradient rather than a flat colour.
 ---
 --- WHAT USED TO BE HERE, AND WHY IT WENT.
---- A 10-stud concrete barrier across the field at each boundary, with an 18-stud
---- hole in the middle. It read as unnatural because it was: a wall standing in open
---- ground, gating nothing. Nothing ever read its UnlockTier attribute — it was a
---- visual placeholder for a progression service that still does not exist. The
---- colour change carries the boundary now, and buildStageMarkers puts the label back
---- without the barrier.
+--- Zone 1 used to be internally subdivided into three named sub-bands ("Outer
+--- Ash"/"Hot Wreckage"/"Deep Fallout") that graded its loot table AND told
+--- themselves apart with three colours meeting at two boundaries — themselves
+--- replacing an even older 10-stud concrete barrier at each boundary. The
+--- sub-band system was removed (it collided with an unrelated top-level
+--- naming decision), so Zone 1 is now a single place with a single loot table,
+--- same as every other zone. The gradient below is the one piece of that system
+--- worth keeping on its own merits: a flat colour reads as a harder edge against
+--- the plaza than the soft hand-off this produces.
 ---
 --- WHY THIS IS A SEPARATE LAYER AND NOT SIMPLY THE PLATE'S COLOUR.
 --- The obvious implementation is to cut Workspace.Zones.Zone1 into three coloured
@@ -590,15 +592,13 @@ end
 --- CONTINUOUS lerp based on its own world position -- there's no small band count to
 --- tune and no coincident seam plane, just a resolution limit of one tile (3 studs).
 ---
---- THE GRADIENT CONNECTS TO THE PLAZA, THEN THE STAGES. Four waypoints across Zone
---- 1's own width: the plaza's own tile colours (`C.plazaTileDark`/`plazaTileLight`)
---- at the west edge -- Stage 1's start, right where a player arrives from camp -- then
---- each stage boundary carrying THAT stage's own already-shipped `color` (twoTone()
---- above derives a matching two-tone pair from it, at the same brightness ratio the
---- plaza's own hand-picked pair sits at), ending at the east edge in Stage 3's tone.
---- No new palette invented; every endpoint but the first is a colour this file
---- already ships elsewhere. Z position never affects colour -- Zones.STAGES' own
---- bounds are X-only, so this is too.
+--- THE GRADIENT CONNECTS TO THE PLAZA. Two waypoints across Zone 1's own width:
+--- the plaza's own tile colours (`C.plazaTileDark`/`plazaTileLight`) at the west
+--- edge, right where a player arrives from camp, blending to Zone 1's own
+--- already-shipped `color` (twoTone() above derives a matching two-tone pair from
+--- it, at the same brightness ratio the plaza's own hand-picked pair sits at) at
+--- the east edge. No new palette invented; the second endpoint is a colour this
+--- file already ships elsewhere. Z position never affects colour.
 local function buildZone1Checkerboard(parent: Instance)
 	local def = Zones.get(1)
 	local minX = def.center[1] - def.size[1] / 2
@@ -607,29 +607,11 @@ local function buildZone1Checkerboard(parent: Instance)
 	local maxZ = def.center[2] + def.size[2] / 2
 
 	local plazaDark, plazaLight = Color3.fromHex(C.plazaTileDark), Color3.fromHex(C.plazaTileLight)
-	local stage2Dark, stage2Light = twoTone(Zones.STAGES[2].color)
-	local stage3Dark, stage3Light = twoTone(Zones.STAGES[3].color)
+	local zoneDark, zoneLight = twoTone(def.color)
 
-	-- STAGES' minX/maxX are LOCAL offsets from the zone's own centre (Zones.stageAt's
-	-- own convention) -- converted to world X here since that's what tiles are built
-	-- in. Stage 2's own maxX is the Stage2/3 boundary; Zone 1's own minX/maxX
-	-- (already world space) are the outer two waypoints.
-	--
-	-- STAGE 1 IS NOW A FLAT CONTINUATION OF THE PLAZA, ON REQUEST -- both ends of its
-	-- span (the zone's own west edge AND the Stage 1/2 boundary) use the plaza's own
-	-- tile colours, not a Stage-1-derived tone (`twoTone(Zones.STAGES[1].color)`,
-	-- which used to sit here, is gone; Stage 1's own `17300F` still exists and still
-	-- colours everything else in this file that reads it -- STATIC props, the flat
-	-- ZoneFields plate underneath -- it's specifically dropped from THIS gradient).
-	-- That reads as camp's own floor extending almost seamlessly through the whole
-	-- of Stage 1, rather than touching the plaza only at the very first tile before
-	-- drifting away -- the visible transition into the zone's own hues now begins at
-	-- the Stage 1/2 boundary instead of at the zone's entrance.
 	local waypoints = {
 		{ x = minX, dark = plazaDark, light = plazaLight },
-		{ x = def.center[1] + Zones.STAGES[1].maxX, dark = plazaDark, light = plazaLight },
-		{ x = def.center[1] + Zones.STAGES[2].maxX, dark = stage2Dark, light = stage2Light },
-		{ x = maxX, dark = stage3Dark, light = stage3Light },
+		{ x = maxX, dark = zoneDark, light = zoneLight },
 	}
 
 	-- Every tile gets Zone 1's ooze tint blended in on top of its gradient colour
@@ -673,75 +655,6 @@ local function buildZone1Checkerboard(parent: Instance)
 			tile.CanCollide = false
 			tile.CanQuery = false
 		end
-	end
-
-	folder.Parent = parent
-end
-
---- What is left of the gates: a signed post and some weathered debris at each
---- boundary, instead of a barrier across it.
----
---- SCATTERED, NOT LINED UP. Three posts in a row is a fence, which is the thing being
---- removed. The label post sits near the middle where a player walking the field will
---- pass it; the other two are thrown out across the depth so the sign reads as part of
---- the landscape rather than as a planted marker.
-local function buildStageMarkers(parent: Instance, zoneId: number)
-	local def = Zones.get(zoneId)
-	local folder = Instance.new("Folder")
-	folder.Name = "StageMarkers"
-
-	local origin = CFrame.new(def.center[1], Zones.SURFACE_Y, def.center[2])
-	local hx, hz = def.size[1] / 2 - 4, def.size[2] / 2 - 20
-
-	for _, stage in Zones.STAGES do
-		-- Deterministic per stage, same reason as the rest of this file: a rebuild
-		-- reproduces the same field rather than reshuffling it.
-		local rng = Random.new(4000 + stage.id)
-		local model = Instance.new("Model")
-		model.Name = `Stage{stage.id}Marker`
-
-		for i = 1, 3 do
-			local signPost = i == 1
-			local height = if signPost then 3.8 else rng:NextNumber(1.5, 2.6)
-			-- Stage 1's boundary IS the western edge of the plate, so the jitter has
-			-- to be clamped or its markers hang off the side of the world.
-			local x = math.clamp(stage.minX + rng:NextNumber(-7, 7), -hx, hx)
-			local z = if signPost then rng:NextNumber(-16, 16) else rng:NextNumber(-hz, hz)
-
-			-- The sign post stays near-upright so its plate does not float away from
-			-- it; the debris leans properly.
-			local lean = if signPost then 5 else 14
-			local post = build(model, origin, {
-				name = if signPost then "MarkerPost" else `Debris{i}`,
-				pos = { x, height / 2, z },
-				size = { 0.55, height, 0.55 },
-				color = if i % 2 == 0 then C.steelDark else C.wood,
-				material = if i % 2 == 0 then "Metal" else "Wood",
-				rot = Kit.ang(rng:NextNumber(-lean, lean), rng:NextNumber(0, 360), rng:NextNumber(-lean, lean)),
-				canCollide = false,
-				attributes = { StageId = stage.id, UnlockTier = stage.unlockTier },
-			})
-			post.CanQuery = false
-
-			if signPost then
-				local plate = build(model, origin, {
-					name = "StagePlate",
-					pos = { x, height - 0.6, z },
-					size = { 2.6, 1.4, 0.18 },
-					color = stage.color,
-					material = "Metal",
-					canCollide = false,
-					attributes = { StageId = stage.id, UnlockTier = stage.unlockTier },
-				})
-				plate.CanQuery = false
-				-- Further than the gate sign's default 40 studs: a low marker has to be
-				-- legible from further out than a ten-stud wall did.
-				billboard(plate, 180, 2.4, `STAGE {stage.id}`, stage.name, stage.color, 150)
-				light(plate, stage.color, 10, 0.7)
-			end
-		end
-
-		model.Parent = folder
 	end
 
 	folder.Parent = parent
@@ -818,7 +731,6 @@ local function createScenery(): Model
 		buildZoneScenery(scenery, id)
 	end
 	buildZone1Checkerboard(scenery)
-	buildStageMarkers(scenery, 1)
 
 	-- No zone-to-zone blend any more anywhere in the chain -- see the removal note
 	-- above ZONE_BLEND's old spot, just above buildZoneScenery. Every boundary,

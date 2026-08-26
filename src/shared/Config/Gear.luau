@@ -10,9 +10,9 @@
 	Cloth Wrap's `reduction` 0.9000 -> 0.6296) — all figures below are at each
 	zone's ENTRANCE (depthFrac=0); the deep edge of every zone is meaningfully
 	worse, see Zones.radsAt/Zones.DEFS. Zone 1's deepRads specifically governs
-	Zones.STAGES' "Deep Fallout" sub-band (the far third of Zone 1 itself, NOT
-	the separate, distant Zone 3 "Fallout Fields" its name resembles) — see
-	Zones.luau's Zone 1 comment and Spec.luau's Stage 3 check for that story:
+	its OWN far edge (NOT the separate, distant Zone 3 "Fallout Fields" its old
+	sub-band naming used to resemble) — see Zones.luau's Zone 1 comment for that
+	story:
 
 	                     Z1      Z2      Z3      Z4      Z5      Z6
 	  Cloth Wrap        9:00    17s      5s       2s  instant  instant
