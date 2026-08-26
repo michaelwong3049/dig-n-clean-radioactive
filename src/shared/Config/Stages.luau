@@ -351,7 +351,12 @@ Stages.DEFS = {
 		-- khaki haze for the gradient's endpoint.
 		fogColor = Color3.fromHex("D4B896"),
 		fogEnd = 700,
-		loot = { Scrap = 34, Common = 40, Uncommon = 16.8, Rare = 6, Epic = 2.25, Legendary = 0.6, Mythic = 0.14, Anomaly = 0.005 },
+		-- NO SCRAP TIER, ON REQUEST (Config/Items.luau's own header) -- Stage 3's old
+		-- Scrap weight (34) folded straight into Common (40 -> 74) rather than left
+		-- allocated to a rarity the catalogue no longer stocks here, which would
+		-- otherwise silently produce dead rolls (DigService.rollItemId's step-down
+		-- bottoms out at Scrap with nothing below it to fall back to).
+		loot = { Common = 74, Uncommon = 16.8, Rare = 6, Epic = 2.25, Legendary = 0.6, Mythic = 0.14, Anomaly = 0.005 },
 		-- Also moved east — its old centre at x = 760 was Stage 1's east EDGE, so half
 		-- of it lay inside Stage 1. Butted onto Stage 2 instead. Size untouched.
 		center = { 1110, 0 },
@@ -391,7 +396,9 @@ Stages.DEFS = {
 		stationDistance = 1200,
 		fogColor = Color3.fromHex("6FE04A"),
 		fogEnd = 600,
-		loot = { Scrap = 15, Common = 24, Uncommon = 28, Rare = 20, Epic = 9, Legendary = 3, Mythic = 0.8, Anomaly = 0.03 },
+		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
+		-- fold, this stage's old Scrap weight (15) folded into Common (24 -> 39).
+		loot = { Common = 39, Uncommon = 28, Rare = 20, Epic = 9, Legendary = 3, Mythic = 0.8, Anomaly = 0.03 },
 		-- Slotted flush between Stage 3's east edge (x = 1240) and Stage 5's new west
 		-- edge (x = 1530) — exactly its own width, zero gap either side. Size and z
 		-- centring (0, matching the rest of the chain) untouched.
@@ -419,7 +426,9 @@ Stages.DEFS = {
 		stationDistance = 1489, -- was 1199; +290 from Stage 4's insertion, still not re-walked
 		fogColor = Color3.fromHex("C8E85A"),
 		fogEnd = 500,
-		loot = { Scrap = 7, Common = 15, Uncommon = 25, Rare = 26, Epic = 17, Legendary = 7, Mythic = 2.4, Anomaly = 0.1 },
+		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
+		-- fold, this stage's old Scrap weight (7) folded into Common (15 -> 22).
+		loot = { Common = 22, Uncommon = 25, Rare = 26, Epic = 17, Legendary = 7, Mythic = 2.4, Anomaly = 0.1 },
 		-- Was an island at (-700, -620) with several hundred studs of open void
 		-- between it and the nearest floor. Moved onto the east chain, then shifted
 		-- +290 again (Stage 4's width) when Stage 4 was inserted ahead of it — now
@@ -458,7 +467,9 @@ Stages.DEFS = {
 		stationDistance = 2089,
 		fogColor = Color3.fromHex("FFD24A"),
 		fogEnd = 400,
-		loot = { Scrap = 2, Common = 6, Uncommon = 15, Rare = 24, Epic = 26, Legendary = 18, Mythic = 8, Anomaly = 0.8 },
+		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
+		-- fold, this stage's old Scrap weight (2) folded into Common (6 -> 8).
+		loot = { Common = 8, Uncommon = 15, Rare = 24, Epic = 26, Legendary = 18, Mythic = 8, Anomaly = 0.8 },
 		center = { 2310, 0 },
 		-- UNIFORM DEPTH PASS: 320 -> 240, see Stage 1's note.
 		size = { 360, 240 },

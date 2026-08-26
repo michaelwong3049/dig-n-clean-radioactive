@@ -2,7 +2,17 @@
 --[[
 	Items.lua — the catalogue. Data only, like everything else in Config/.
 
-	Stages 1-6, ~64 items, Scrap through Anomaly.
+	Stages 1-6, ~68 items, Scrap through Anomaly.
+
+	REWORKED FOR A LIGHTER, TREASURE-HUNT TONE, ON REQUEST. The catalogue used to
+	lean on real-world war and disaster imagery (dog tags, mortar rounds, cipher
+	cases, an evacuation ledger counting the dead) — evocative, but too dark and
+	too specific for the audience this game is actually for. The radioactive
+	wasteland setting stays; what changed is what you find in it. Gold, jewelry,
+	old toys, and a few things that are frankly a little silly (a rubber duck,
+	a mutant carrot, a mini nuke) read as "dig for treasure" instead of "excavate
+	a tragedy" — same six stages, same rarity ladder, same six items with real 3D
+	models untouched (bottle_cap, steel_rod, tin_can, house_key, stopped_watch).
 
 	A STAGE WITH NO ITEMS IS NOT A CRASH ANY MORE, BUT IT IS STILL BROKEN. DigService
 	rolls a rarity from the stage's loot table and then steps DOWN through the
@@ -10,6 +20,12 @@
 	so a stage stocked only at Rare and above silently fails every Scrap and Common
 	roll and fills its field at a fraction of the intended rate. Stock the LOW end of
 	every stage you add, not just the exciting end.
+
+	STAGES 3-6 NO LONGER STOCK SCRAP, ON REQUEST. Their old Scrap-tier items folded
+	up into Common (and Stage 5/6 also promoted one former Common slot to Uncommon),
+	so the loot FLOOR for those four stages is now Common rather than Scrap. See
+	Config/Stages.luau's own loot-odds tables — their Scrap weight was folded into
+	Common to match, so a Scrap roll there doesn't produce a dead roll.
 
 	TWO RULES, both from ARCHITECTURE.md, both cheap now and miserable to retrofit:
 
@@ -69,9 +85,9 @@ Items.DEFS = {
 		model = "SteelRod",
 	},
 	{
-		id = "fused_glass",
-		name = "Fused Glass Lump",
-		flavor = "Sand that stood too close.",
+		id = "glass_pebble",
+		name = "Glass Pebble",
+		flavor = "Sand that got so hot it melted into a smooth little marble.",
 		rarity = "Scrap",
 		stages = { 1 },
 		appeal = "Researcher",
@@ -113,6 +129,16 @@ Items.DEFS = {
 		baseValue = 22,
 		model = "Wristwatch",
 	},
+	{
+		id = "radioactive_rubber_duck",
+		name = "Radioactive Rubber Duck",
+		flavor = "It glows in the dark. It always did, actually.",
+		rarity = "Common",
+		stages = { 1 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 14,
+	},
 
 	-- ── Uncommon ── $25-120 ─────────────────────────────────────────────
 	-- NOTE: Uncommon is hardness 2 and a Wire Brush is potency 1, so the first of
@@ -122,7 +148,7 @@ Items.DEFS = {
 	{
 		id = "tin_soldier",
 		name = "Tin Soldier",
-		flavor = "Paint worn off the face. Still standing at attention.",
+		flavor = "A tiny toy soldier, paint chipped, forever standing guard.",
 		rarity = "Uncommon",
 		stages = { 1 },
 		appeal = "Collector",
@@ -130,9 +156,9 @@ Items.DEFS = {
 		baseValue = 45,
 	},
 	{
-		id = "field_multimeter",
-		name = "Field Multimeter",
-		flavor = "Needle pinned hard right. It was working when it stopped.",
+		id = "wind_up_flashlight",
+		name = "Wind-Up Flashlight",
+		flavor = "Give the crank a few turns and it still lights up, just for a second.",
 		rarity = "Uncommon",
 		stages = { 1 },
 		appeal = "Gearhead",
@@ -140,9 +166,9 @@ Items.DEFS = {
 		baseValue = 60,
 	},
 	{
-		id = "wedding_band",
-		name = "Wedding Band",
-		flavor = "Inscribed inside. The engraving outlasted everything it was about.",
+		id = "gold_ring",
+		name = "Gold Ring",
+		flavor = "A plain gold ring, still shining under all the dust.",
 		rarity = "Uncommon",
 		stages = { 1 },
 		appeal = "Collector",
@@ -152,9 +178,9 @@ Items.DEFS = {
 
 	-- ── Rare ── $120-700 ───────────────────────────────────────────────
 	{
-		id = "geiger_handset",
-		name = "Prewar Geiger Handset",
-		flavor = "Someone taped a photograph to the back. It did not survive.",
+		id = "radiation_scanner",
+		name = "Radiation Scanner",
+		flavor = "Clicks faster the closer you get to something glowing.",
 		rarity = "Rare",
 		stages = { 1 },
 		appeal = "Gearhead",
@@ -164,7 +190,7 @@ Items.DEFS = {
 	{
 		id = "film_canister",
 		name = "Sealed Film Canister",
-		flavor = "Thirty-six exposures. Nobody has ever looked at them.",
+		flavor = "Thirty-six photos, never developed. Who knows what's on them.",
 		rarity = "Rare",
 		stages = { 1 },
 		appeal = "Researcher",
@@ -174,22 +200,22 @@ Items.DEFS = {
 
 	-- ── Epic ── $700-4k ─────────────────────────────────────────────────
 	{
-		id = "lab_sample_case",
-		name = "Lab Sample Case",
-		flavor = "Six vials, five intact. The sixth is why the grass here is white.",
+		id = "sample_case",
+		name = "Sample Case",
+		flavor = "Six glass vials. One of them glows all on its own.",
 		rarity = "Epic",
 		stages = { 1 },
 		appeal = "Researcher",
-		sets = { "field_medicine" },
+		sets = {},
 		baseValue = 1900,
 	},
 
 	-- ── Legendary ── $4k-30k ────────────────────────────────────────────
 	-- 0.15% in Stage 1. Almost nobody will see this. That is the point.
 	{
-		id = "evac_ledger",
-		name = "Evacuation Ledger",
-		flavor = "Four hundred names. Three hundred and eleven crossed out.",
+		id = "treasure_map",
+		name = "Old Treasure Map",
+		flavor = "A hand-drawn map, half burnt. Something's marked with three stars and no name.",
 		rarity = "Legendary",
 		stages = { 1 },
 		appeal = "Researcher",
@@ -204,7 +230,7 @@ Items.DEFS = {
 	{
 		id = "cracked_tile",
 		name = "Cracked Tile",
-		flavor = "Someone chose this pattern. Stood in a shop and chose it.",
+		flavor = "Someone chose this pattern once.",
 		rarity = "Scrap",
 		stages = { 2 },
 		appeal = "Collector",
@@ -214,7 +240,7 @@ Items.DEFS = {
 	{
 		id = "door_hinge",
 		name = "Door Hinge",
-		flavor = "Still swings. There is no longer a door, or a wall.",
+		flavor = "Still swings, even with no door left to hold.",
 		rarity = "Scrap",
 		stages = { 2 },
 		appeal = "Gearhead",
@@ -224,7 +250,7 @@ Items.DEFS = {
 	{
 		id = "cutlery_set",
 		name = "Cutlery Set",
-		flavor = "Wrapped in a napkin, in a drawer, waiting for a dinner that never happened.",
+		flavor = "Wrapped in a napkin, waiting for a dinner that never happened.",
 		rarity = "Common",
 		stages = { 2 },
 		appeal = "Collector",
@@ -244,7 +270,7 @@ Items.DEFS = {
 	{
 		id = "doll_head",
 		name = "Porcelain Doll Head",
-		flavor = "The eyes still open and close. Please stop testing whether the eyes still open and close.",
+		flavor = "The eyes still blink open and shut. A little spooky, a little funny.",
 		rarity = "Common",
 		stages = { 2 },
 		appeal = "Collector",
@@ -254,7 +280,7 @@ Items.DEFS = {
 	{
 		id = "charm_bracelet",
 		name = "Charm Bracelet",
-		flavor = "Eleven charms. A tiny bicycle, a tiny cat, a tiny house.",
+		flavor = "Eleven tiny charms — a bicycle, a cat, a little house.",
 		rarity = "Uncommon",
 		stages = { 2 },
 		appeal = "Collector",
@@ -264,7 +290,7 @@ Items.DEFS = {
 	{
 		id = "socket_set",
 		name = "Socket Wrench Set",
-		flavor = "Every socket in its slot. Whoever owned this was particular about it.",
+		flavor = "Every socket still in its slot. Whoever owned this was particular about it.",
 		rarity = "Uncommon",
 		stages = { 2 },
 		appeal = "Gearhead",
@@ -274,7 +300,7 @@ Items.DEFS = {
 	{
 		id = "photo_locket",
 		name = "Photo Locket",
-		flavor = "Two faces, one hinge. The catch still works.",
+		flavor = "Two tiny photos, one hinge. The catch still works.",
 		rarity = "Uncommon",
 		stages = { 2 },
 		appeal = "Collector",
@@ -282,9 +308,19 @@ Items.DEFS = {
 		baseValue = 98,
 	},
 	{
+		id = "mutant_carrot",
+		name = "Mutant Carrot",
+		flavor = "Three feet long and still bright orange. The rabbits are thrilled.",
+		rarity = "Uncommon",
+		stages = { 2 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 50,
+	},
+	{
 		id = "pearl_necklace",
 		name = "Pearl Necklace",
-		flavor = "Kept for good occasions. There was one more, and nobody knew.",
+		flavor = "Kept for good occasions — there was one more pearl, somewhere.",
 		rarity = "Rare",
 		stages = { 2 },
 		appeal = "Collector",
@@ -294,7 +330,7 @@ Items.DEFS = {
 	{
 		id = "ignition_coil",
 		name = "Ignition Coil",
-		flavor = "Pulled from a car pointed away from the city, tank full, doors open.",
+		flavor = "Pulled from a car pointed away from town, tank full, doors open.",
 		rarity = "Rare",
 		stages = { 2 },
 		appeal = "Gearhead",
@@ -304,7 +340,7 @@ Items.DEFS = {
 	{
 		id = "clock_movement",
 		name = "Grandfather Clock Movement",
-		flavor = "Brass, hand-cut, unbothered. It would run today if you wound it.",
+		flavor = "Brass gears, hand-cut, unbothered. It would still run today.",
 		rarity = "Epic",
 		stages = { 2 },
 		appeal = "Collector",
@@ -314,7 +350,7 @@ Items.DEFS = {
 	{
 		id = "deposit_box",
 		name = "Safe Deposit Box",
-		flavor = "Whatever was worth a bank vault is still inside, and still yours now.",
+		flavor = "Whatever was worth a bank vault is still inside, and it's yours now.",
 		rarity = "Legendary",
 		stages = { 2 },
 		appeal = "Collector",
@@ -323,34 +359,39 @@ Items.DEFS = {
 	},
 
 	-- ══ STAGE 3 — FALLOUT FIELDS ════════════════════════════════════════════
-	-- Military tags, ordnance, gold (PLAN §4). Several of these are also tagged
-	-- for Stage 4: the Exclusion Belt is the same war, further in, and a dive needs
-	-- a stocked catalogue at EVERY rarity or rollItemId's step-down finds nothing.
+	-- Old farmland scorched by the fallout, not a battlefield — reworked on
+	-- request to drop the military angle (dog tags, ordnance, cipher cases)
+	-- in favor of what you'd actually expect buried under an abandoned
+	-- homestead: buried coins, gold, farm tools, everyday relics. NO SCRAP
+	-- TIER (see this file's header) — its old Scrap items folded into Common.
+	-- Several of these are also tagged for Stage 4: the Exclusion Belt is the
+	-- same stretch of country, further in, and a dive needs a stocked
+	-- catalogue at EVERY rarity or rollItemId's step-down finds nothing.
 
 	{
-		id = "spent_casing",
-		name = "Spent Casing",
-		flavor = "Brass lasts. That is the whole story of this place, in one object.",
-		rarity = "Scrap",
+		id = "rusty_horseshoe",
+		name = "Rusty Horseshoe",
+		flavor = "A rusted horseshoe. There was a barn out here once.",
+		rarity = "Common",
 		stages = { 3, 4 },
 		appeal = "Gearhead",
-		sets = {},
-		baseValue = 4,
+		sets = { "abandoned_farm" },
+		baseValue = 8,
 	},
 	{
-		id = "melted_button",
-		name = "Melted Button",
-		flavor = "Uniform issue. The thread survived; the man did not.",
-		rarity = "Scrap",
+		id = "gate_latch",
+		name = "Bent Gate Latch",
+		flavor = "Snapped clean off. The fence went with it.",
+		rarity = "Common",
 		stages = { 3, 4 },
-		appeal = "Researcher",
-		sets = {},
-		baseValue = 5,
+		appeal = "Gearhead",
+		sets = { "abandoned_farm" },
+		baseValue = 11,
 	},
 	{
-		id = "dog_tag",
-		name = "Dog Tag",
-		flavor = "Stamped, notched, and still legible. Someone is owed this back.",
+		id = "old_food_tin",
+		name = "Old Food Tin",
+		flavor = "Unopened. The label wore off long ago.",
 		rarity = "Common",
 		stages = { 3, 4 },
 		appeal = "Collector",
@@ -358,49 +399,49 @@ Items.DEFS = {
 		baseValue = 16,
 	},
 	{
-		id = "ration_tin",
-		name = "Ration Tin",
-		flavor = "Unopened. The label promises peaches.",
-		rarity = "Common",
-		stages = { 3, 4 },
-		appeal = "Collector",
-		sets = {},
-		baseValue = 21,
-	},
-	{
-		id = "dressing_kit",
-		name = "Field Dressing Kit",
-		flavor = "Opened, used, repacked, opened again. Somebody was very busy here.",
+		id = "first_aid_tin",
+		name = "First-Aid Tin",
+		flavor = "A little dented, but everything inside is still sealed.",
 		rarity = "Uncommon",
 		stages = { 3, 4 },
 		appeal = "Researcher",
-		sets = { "field_medicine" },
-		baseValue = 58,
+		sets = {},
+		baseValue = 45,
 	},
 	{
-		id = "signal_flare",
-		name = "Signal Flare",
-		flavor = "Never fired. Whatever it was meant to summon was not coming.",
+		id = "unlit_signal_flare",
+		name = "Unlit Signal Flare",
+		flavor = "Never got its chance to light up the sky.",
 		rarity = "Uncommon",
 		stages = { 3 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 80,
+		baseValue = 75,
 	},
 	{
-		id = "officers_compass",
-		name = "Officer's Compass",
-		flavor = "The needle spins here. It has been spinning for a long time.",
+		id = "old_compass",
+		name = "Old Compass",
+		flavor = "Still points somewhere — just not always north anymore.",
 		rarity = "Uncommon",
 		stages = { 3 },
-		appeal = "Collector",
+		appeal = "Researcher",
 		sets = {},
-		baseValue = 110,
+		baseValue = 65,
+	},
+	{
+		id = "broken_lantern",
+		name = "Broken Lantern",
+		flavor = "No oil left, but it still swings a little in the wind.",
+		rarity = "Uncommon",
+		stages = { 3, 4 },
+		appeal = "Gearhead",
+		sets = { "abandoned_farm" },
+		baseValue = 95,
 	},
 	{
 		id = "gold_signet",
 		name = "Gold Signet Ring",
-		flavor = "Gold does not care about any of this. That is why it is worth something.",
+		flavor = "Gold doesn't care about any of this. That's why it's worth something.",
 		rarity = "Rare",
 		stages = { 3 },
 		appeal = "Collector",
@@ -408,24 +449,24 @@ Items.DEFS = {
 		baseValue = 380,
 	},
 	{
-		id = "inert_mortar",
-		name = "Inert Mortar Round",
-		flavor = "The fuse was pulled. Probably. The magnet does not ask.",
-		rarity = "Rare",
-		stages = { 3 },
-		appeal = "Gearhead",
-		sets = {},
-		baseValue = 560,
-	},
-	{
-		id = "dosimeter",
-		name = "Radiation Dosimeter",
-		flavor = "Pegged at maximum and stayed there. Its owner did not leave with it.",
+		id = "radiation_badge",
+		name = "Radiation Badge",
+		flavor = "Changes color the longer it sits out here. It's been out here a while.",
 		rarity = "Rare",
 		stages = { 3, 4 },
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 640,
+	},
+	{
+		id = "buried_coin_jar",
+		name = "Buried Coin Jar",
+		flavor = "A glass jar, still packed with old coins. Somebody was saving up.",
+		rarity = "Rare",
+		stages = { 3 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 560,
 	},
 	{
 		id = "bullion_bar",
@@ -438,46 +479,47 @@ Items.DEFS = {
 		baseValue = 2400,
 	},
 	{
-		id = "field_radio",
-		name = "Encrypted Field Radio",
-		flavor = "Set to a frequency that still, very occasionally, answers.",
+		id = "diamond_brooch",
+		name = "Diamond Brooch",
+		flavor = "A stone that catches light no one else out here can see.",
 		rarity = "Epic",
-		stages = { 3, 4 },
-		appeal = "Researcher",
-		sets = { "reactor_control" },
-		baseValue = 3100,
+		stages = { 3 },
+		appeal = "Collector",
+		sets = {},
+		baseValue = 2800,
 	},
 	{
-		id = "cipher_case",
-		name = "Command Cipher Case",
-		flavor = "The orders are inside. Nobody has wanted to be the one to read them.",
+		id = "rusted_farm_safe",
+		name = "Rusted Farm Safe",
+		flavor = "Buried under the old farmhouse. Whatever's inside has been waiting a long time.",
 		rarity = "Legendary",
 		stages = { 3, 4 },
-		appeal = "Researcher",
+		appeal = "Collector",
 		sets = {},
-		baseValue = 12000,
+		baseValue = 9000,
 	},
 
 	-- ══ STAGE 4 — THE EXCLUSION BELT ════════════════════════════════════════
 	-- Prewar tech and lab samples (PLAN §4). Deliberately thin and top-heavy:
 	-- PLAN §15 wants Stage 4 to have a loot table and a rad rate and nothing else,
 	-- because its job is to answer "will players dive?", not to be farmed. The
-	-- Stage-3 items tagged { 3, 4 } above carry its lower rarities.
+	-- Stage-3 items tagged { 3, 4 } above carry its lower rarities; no Scrap tier
+	-- here either, same as Stage 3.
 
 	{
-		id = "sealed_sample",
-		name = "Sealed Lab Sample",
-		flavor = "Still sealed. Still humming. Still, by every measure, alive.",
+		id = "glowing_sample_jar",
+		name = "Glowing Sample Jar",
+		flavor = "A jar that glows a soft green, even in the dark.",
 		rarity = "Rare",
 		stages = { 4 },
 		appeal = "Researcher",
-		sets = { "field_medicine" },
+		sets = {},
 		baseValue = 660,
 	},
 	{
-		id = "microprocessor",
-		name = "Prewar Microprocessor",
-		flavor = "Nobody left knows how to make one of these. Several would like to.",
+		id = "strange_metal_chip",
+		name = "Strange Metal Chip",
+		flavor = "Covered in markings nobody recognizes. Hums faintly if you hold it.",
 		rarity = "Epic",
 		stages = { 4 },
 		appeal = "Researcher",
@@ -485,9 +527,9 @@ Items.DEFS = {
 		baseValue = 3400,
 	},
 	{
-		id = "control_rod",
-		name = "Reactor Control Rod",
-		flavor = "It did its job. It is the reason there is a Belt and not a second Crater.",
+		id = "reactor_rod",
+		name = "The Reactor Rod",
+		flavor = "The rod that kept the reactor calm. It's the whole reason there's a Belt and not something worse.",
 		rarity = "Legendary",
 		stages = { 4 },
 		appeal = "Researcher",
@@ -499,32 +541,34 @@ Items.DEFS = {
 	-- Cooling towers and heat shimmer (PLAN §4). Fuel rods, control tech, black-box
 	-- data. `reactor_control` extends across the Stage 4 boundary on purpose — Stage 5
 	-- sits right next to the Belt in the chain and both are reactor-adjacent tech,
-	-- so the set reads as one storyline rather than two unrelated tags.
+	-- so the set reads as one storyline rather than two unrelated tags. NO SCRAP
+	-- TIER (see this file's header) — its old Scrap items folded into Common, and
+	-- the old pressure_gauge Common slot promoted to Uncommon.
 
 	{
-		id = "coolant_pipe_fragment",
-		name = "Coolant Pipe Fragment",
-		flavor = "Split down a seam. Whatever it carried, it isn't carrying it anymore.",
-		rarity = "Scrap",
+		id = "old_pipe_scrap",
+		name = "Old Pipe Scrap",
+		flavor = "Split down a seam. Whatever it carried isn't in it anymore.",
+		rarity = "Common",
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 4,
+		baseValue = 9,
 	},
 	{
-		id = "turbine_fin_shard",
-		name = "Turbine Fin Shard",
-		flavor = "Curved like a blade because it was one, once, before the heat won.",
-		rarity = "Scrap",
+		id = "shiny_metal_blade",
+		name = "Shiny Metal Blade",
+		flavor = "Curved like it was cutting something, once.",
+		rarity = "Common",
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 5,
+		baseValue = 10,
 	},
 	{
 		id = "rad_warning_placard",
 		name = "Radiation Warning Placard",
-		flavor = "The symbol is still bright. Everything around it stopped being.",
+		flavor = "The symbol's still bright. Everything around it isn't.",
 		rarity = "Common",
 		stages = { 5 },
 		appeal = "Collector",
@@ -534,17 +578,17 @@ Items.DEFS = {
 	{
 		id = "pressure_gauge",
 		name = "Pressure Gauge",
-		flavor = "Needle buried past the red. It was the last thing anyone checked.",
-		rarity = "Common",
+		flavor = "Needle buried past the red.",
+		rarity = "Uncommon",
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 20,
+		baseValue = 60,
 	},
 	{
-		id = "control_headset",
-		name = "Control Room Headset",
-		flavor = "One earpiece crushed, one intact. Someone was still listening on one side.",
+		id = "old_headphones",
+		name = "Old Headphones",
+		flavor = "Big and cushioned. Only one side still crackles with static.",
 		rarity = "Uncommon",
 		stages = { 5 },
 		appeal = "Gearhead",
@@ -554,7 +598,7 @@ Items.DEFS = {
 	{
 		id = "cooling_valve_wheel",
 		name = "Cooling Valve Wheel",
-		flavor = "Turned all the way. It did not open fast enough.",
+		flavor = "A big metal wheel that used to turn off the water. It won't budge now.",
 		rarity = "Uncommon",
 		stages = { 5 },
 		appeal = "Gearhead",
@@ -564,7 +608,7 @@ Items.DEFS = {
 	{
 		id = "reactor_logbook",
 		name = "Reactor Logbook",
-		flavor = "The last entry is a single word, underlined twice.",
+		flavor = "The last page has one word on it, underlined twice.",
 		rarity = "Rare",
 		stages = { 5 },
 		appeal = "Researcher",
@@ -572,9 +616,9 @@ Items.DEFS = {
 		baseValue = 420,
 	},
 	{
-		id = "shielded_data_cartridge",
-		name = "Shielded Data Cartridge",
-		flavor = "Lead-cased and locked. Whoever built this expected exactly this day.",
+		id = "sealed_data_drive",
+		name = "Sealed Data Drive",
+		flavor = "Locked in a lead case. Someone wanted this kept safe.",
 		rarity = "Rare",
 		stages = { 5 },
 		appeal = "Researcher",
@@ -584,7 +628,7 @@ Items.DEFS = {
 	{
 		id = "blackbox_recorder",
 		name = "Black-Box Recorder",
-		flavor = "Built to survive anything. It has had a lot of practice.",
+		flavor = "Built to survive anything. Lots of practice at it.",
 		rarity = "Epic",
 		stages = { 5 },
 		appeal = "Researcher",
@@ -594,7 +638,7 @@ Items.DEFS = {
 	{
 		id = "sealed_fuel_casing",
 		name = "Sealed Fuel Rod Casing",
-		flavor = "Empty. Whatever it held left the hard way, and left this behind.",
+		flavor = "Empty now, but it used to hold something that glowed.",
 		rarity = "Epic",
 		stages = { 5 },
 		appeal = "Gearhead",
@@ -604,7 +648,7 @@ Items.DEFS = {
 	{
 		id = "reactor_core_sample",
 		name = "Reactor Core Sample",
-		flavor = "Warm through three layers of lead. It has never once cooled down.",
+		flavor = "Warm through three layers of metal. Never once cooled down.",
 		rarity = "Legendary",
 		stages = { 5 },
 		appeal = "Researcher",
@@ -614,7 +658,7 @@ Items.DEFS = {
 	{
 		id = "live_fuel_rod",
 		name = "Live Fuel Rod",
-		flavor = "Still hot. Still working. Still exactly as dangerous as the day it was loaded.",
+		flavor = "Still glowing. Still humming. Exactly as dangerous as the day it was made.",
 		rarity = "Mythic",
 		stages = { 5 },
 		appeal = "Gearhead",
@@ -624,24 +668,26 @@ Items.DEFS = {
 
 	-- ══ STAGE 6 — THE CRATER ════════════════════════════════════════════════
 	-- Glassed floor, sky-glow, no ambient sound (PLAN §4). Anomalies, one-of-a-kind
-	-- relics. `crater_relics` is a new set — the three showpiece items, tying
-	-- "someone got here before you" into one thread, the way `left_behind` does
-	-- for Stage 1.
+	-- relics — plus a couple of fun, deliberately-not-realistic finds (on request,
+	-- the game doesn't have to play it straight everywhere). `crater_relics` ties
+	-- the three showpiece items into one thread, the way `left_behind` does for
+	-- Stage 1. NO SCRAP TIER (see this file's header) — its old Scrap item folded
+	-- into Common.
 
 	{
-		id = "vitrified_glass_shard",
-		name = "Vitrified Glass Shard",
-		flavor = "The sand did not burn. It turned to glass instead, all at once.",
-		rarity = "Scrap",
+		id = "glassy_ground_chip",
+		name = "Glassy Ground Chip",
+		flavor = "The sand didn't burn — it turned to glass, all at once.",
+		rarity = "Common",
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 5,
+		baseValue = 7,
 	},
 	{
-		id = "scorched_containment_plate",
-		name = "Scorched Containment Plate",
-		flavor = "Rated to hold back anything. It held back nothing.",
+		id = "scorched_metal_plate",
+		name = "Scorched Metal Plate",
+		flavor = "Rated to hold back anything. Didn't.",
 		rarity = "Common",
 		stages = { 6 },
 		appeal = "Gearhead",
@@ -649,9 +695,9 @@ Items.DEFS = {
 		baseValue = 18,
 	},
 	{
-		id = "rig_air_filter",
-		name = "Rig Air Filter",
-		flavor = "Still sealed in its wrapper. Nobody who needed it got the chance to open it.",
+		id = "sealed_air_filter",
+		name = "Sealed Air Filter",
+		flavor = "Still wrapped. Nobody who needed it got the chance to open it.",
 		rarity = "Uncommon",
 		stages = { 6 },
 		appeal = "Gearhead",
@@ -659,9 +705,9 @@ Items.DEFS = {
 		baseValue = 70,
 	},
 	{
-		id = "bent_blast_door_wheel",
-		name = "Bent Blast Door Wheel",
-		flavor = "Spun the wrong way by something with a lot more force than a hand.",
+		id = "bent_door_wheel",
+		name = "Bent Door Wheel",
+		flavor = "Spun the wrong way, hard.",
 		rarity = "Uncommon",
 		stages = { 6 },
 		appeal = "Gearhead",
@@ -669,9 +715,9 @@ Items.DEFS = {
 		baseValue = 105,
 	},
 	{
-		id = "cracked_rad_badge",
-		name = "Cracked Radiation Badge",
-		flavor = "Went black in under a second. That was the only reading it ever needed to take.",
+		id = "cracked_glow_badge",
+		name = "Cracked Glow Badge",
+		flavor = "Went dark in under a second.",
 		rarity = "Rare",
 		stages = { 6 },
 		appeal = "Researcher",
@@ -679,9 +725,9 @@ Items.DEFS = {
 		baseValue = 460,
 	},
 	{
-		id = "slag_fused_toolroll",
-		name = "Slag-Fused Tool Roll",
-		flavor = "Every tool welded to the canvas, to each other, to the ground.",
+		id = "fused_tool_roll",
+		name = "Fused Tool Roll",
+		flavor = "Every tool welded to the canvas, and to each other.",
 		rarity = "Rare",
 		stages = { 6 },
 		appeal = "Gearhead",
@@ -691,7 +737,7 @@ Items.DEFS = {
 	{
 		id = "untouched_ground_sample",
 		name = "Untouched Ground Sample",
-		flavor = "One square foot of ordinary dirt, sealed in glass, found at the centre of everything.",
+		flavor = "One square foot of ordinary dirt, sealed in glass, found at the center of everything.",
 		rarity = "Epic",
 		stages = { 6 },
 		appeal = "Researcher",
@@ -701,7 +747,7 @@ Items.DEFS = {
 	{
 		id = "skyglow_core_fragment",
 		name = "Sky-Glow Core Fragment",
-		flavor = "It is what lights the crater up at night. Nobody has explained how, this far out.",
+		flavor = "Lights the crater up at night. Nobody's explained how, this far out.",
 		rarity = "Epic",
 		stages = { 6 },
 		appeal = "Researcher",
@@ -709,9 +755,19 @@ Items.DEFS = {
 		baseValue = 3900,
 	},
 	{
-		id = "containment_rig_helmet",
-		name = "First Containment Rig",
-		flavor = "Worn by whoever mapped this place first. It is why there is a map at all.",
+		id = "ufo_fragment",
+		name = "UFO Fragment",
+		flavor = "Not from here. Not from anywhere else, as far as anyone can tell.",
+		rarity = "Epic",
+		stages = { 6 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 3600,
+	},
+	{
+		id = "explorers_helmet",
+		name = "Explorer's Helmet",
+		flavor = "Worn by whoever mapped this place first. It's why there's a map at all.",
 		rarity = "Legendary",
 		stages = { 6 },
 		appeal = "Collector",
@@ -719,9 +775,19 @@ Items.DEFS = {
 		baseValue = 21000,
 	},
 	{
+		id = "mini_nuke",
+		name = "Mini Nuke",
+		flavor = "Bright yellow, comically oversized, and definitely not armed. Probably.",
+		rarity = "Legendary",
+		stages = { 6 },
+		appeal = "Gearhead",
+		sets = {},
+		baseValue = 24000,
+	},
+	{
 		id = "stopped_second_hand",
 		name = "The Second Hand",
-		flavor = "A single watch hand, alone, pointing at nothing that still exists.",
+		flavor = "A single watch hand, glowing faintly, pointing at nothing in particular.",
 		rarity = "Mythic",
 		stages = { 6 },
 		appeal = "Collector",
@@ -731,7 +797,7 @@ Items.DEFS = {
 	{
 		id = "unlabeled_cylinder",
 		name = "Unlabeled Containment Cylinder",
-		flavor = "Sealed, unmarked, and heavier than it looks. Every question about it answers itself the moment you consider opening it.",
+		flavor = "Heavier than it looks. Nobody's brave enough to open it.",
 		rarity = "Anomaly",
 		stages = { 6 },
 		appeal = "Researcher",

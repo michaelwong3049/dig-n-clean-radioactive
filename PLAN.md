@@ -495,7 +495,7 @@ any time by anyone willing to pay for it in health. (§3.5)
 |-|-|-|-|-|-|-|
 |1|**Ash Flats**|0.5|Cloth Wrap|indefinite|Grey dust, dead trees, tutorial ground|Bottle caps, steel rods, coins|
 |2|**The Suburbs**|2|Rubber Suit|\~50s|Collapsed houses, half-buried cars|Jewelry, tools, family heirlooms|
-|3|**Fallout Fields**|6|Lead-Lined|\~18s|Green haze, glass-fused soil, sirens|Military tags, ordnance, gold|
+|3|**Fallout Fields**|6|Lead-Lined|\~18s|Green haze, glass-fused soil, sirens|Farm relics, buried coins, gold|
 |4|**The Exclusion Belt**|15|Reinforced Hazmat|\~8s|Concrete barriers, tipped choppers, silence|Prewar tech, lab samples|
 |5|**Reactor Grounds**|40|Sealed Exo-Suit|\~3s|Cooling towers, visible heat shimmer|Fuel rods, control tech, black-box data|
 |6|**The Crater**|100|Containment Rig|instant|Glassed floor, sky-glow, no ambient sound|Anomalies, one-of-a-kind relics|
@@ -799,8 +799,8 @@ should be the reason a player stands in their own exhibit watching instead of le
 |**Tourists**|Nothing specific — pure prestige volume|Small, constant admission. The baseline hum.|
 |**Researchers**|Lab samples, prewar tech, fuel rods, black-box data, Anomalies|**Research grants**: cash lump sum + a large XP payout. Occasionally leave a **Data Cache** (10 min of ×2 luck).|
 |**Collectors**|Pristine, Prewar Sealed, heirlooms, story items|High admission, and **buyout offers** (§8.4).|
-|**Gearheads**|Tools, detectors, military kit, ordnance|Small frequent tips, plus **parts**: a 15% discount voucher on your next purchase in one upgrade track.|
-|**Rival Curator**|High-prestige exhibits only|Issues a themed challenge ("show me three Fallout Fields military pieces by tomorrow") for a large payout. Ties into Field Contracts (§10.14).|
+|**Gearheads**|Tools, detectors, salvaged gadgets|Small frequent tips, plus **parts**: a 15% discount voucher on your next purchase in one upgrade track.|
+|**Rival Curator**|High-prestige exhibits only|Issues a themed challenge ("show me three Fallout Fields relics by tomorrow") for a large payout. Ties into Field Contracts (§10.14).|
 
 Researchers are the load-bearing one for the fantasy the pitch promises — *scientists come to
 look at what you dug up*. Give them the best behavior: they linger longest, they bring
@@ -1046,7 +1046,7 @@ and much more valuable now that there's a clock to triage against.
 
 Rotating daily/weekly objectives from an NPC quartermaster: "Recover 3 Rare items from
 Fallout Fields," "Survive a Fallout Storm at 80%+ exposure," "Clean an Exclusion Belt item
-while wearing a Lead-Lined suit," "Bring home a Legendary at Fresh stage," "Host 50 visitors."
+while wearing a Lead-Lined suit," "Bring home a Legendary at Fresh condition," "Host 50 visitors."
 Rewards: cash, XP, Clean Tokens, Containment Cells, cosmetic dyes. Standard, and it works.
 
 ### 10.15 Pets — *the Roblox tax*
