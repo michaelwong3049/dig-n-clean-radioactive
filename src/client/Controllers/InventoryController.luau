@@ -42,6 +42,7 @@ local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Dock = UIKit.Dock
+local StationController = require(script.Parent.StationController)
 
 local Inventory = {}
 
@@ -212,10 +213,24 @@ local function buildCard(parent: Instance): Frame
 	})
 	ui.cardStroke = cardStroke
 
+	-- Row heights stacked top-down (title/sub/decay/dirt), each Y derived from
+	-- the one above it instead of its own hardcoded offset. That's what let the
+	-- worth row silently overlap the dirt row above it when CARD_SIZE last
+	-- shrunk 136 -> 118: every row's offset was tuned against the old height
+	-- and nothing moved when it changed. Shrink TITLE_H/SUB_H/DECAY_H/DIRT_H/
+	-- WORTH_H or the pads below and the rows still stack without touching.
+	local TOP_PAD, BOTTOM_PAD = 6, 6
+	local TITLE_H, SUB_H, DECAY_H, DIRT_H, WORTH_H = 24, 16, 18, 18, 20
+
+	local titleY = TOP_PAD
+	local subY = titleY + TITLE_H
+	local decayY = subY + SUB_H
+	local dirtY = decayY + DECAY_H
+
 	ui.cardTitle = UIKit.label(card, {
 		name = "Title",
-		position = UDim2.fromOffset(16, 12),
-		size = UDim2.new(1, -32, 0, 26),
+		position = UDim2.fromOffset(16, titleY),
+		size = UDim2.new(1, -32, 0, TITLE_H),
 		font = UIKit.Font.body,
 		textSize = 22,
 		color = COLOR.text,
@@ -223,24 +238,24 @@ local function buildCard(parent: Instance): Frame
 
 	ui.cardSub = UIKit.label(card, {
 		name = "Sub",
-		position = UDim2.fromOffset(16, 38),
-		size = UDim2.new(1, -32, 0, 18),
+		position = UDim2.fromOffset(16, subY),
+		size = UDim2.new(1, -32, 0, SUB_H),
 		font = UIKit.Font.body,
 		textSize = 14,
 	})
 
 	ui.cardDecay = UIKit.label(card, {
 		name = "Decay",
-		position = UDim2.fromOffset(16, 60),
-		size = UDim2.new(1, -32, 0, 20),
+		position = UDim2.fromOffset(16, decayY),
+		size = UDim2.new(1, -32, 0, DECAY_H),
 		font = UIKit.Font.body,
 		textSize = 16,
 	})
 
 	ui.cardDirt = UIKit.label(card, {
 		name = "Dirt",
-		position = UDim2.fromOffset(16, 82),
-		size = UDim2.new(1, -32, 0, 20),
+		position = UDim2.fromOffset(16, dirtY),
+		size = UDim2.new(1, -32, 0, DIRT_H),
 		font = UIKit.Font.body,
 		textSize = 16,
 	})
@@ -248,8 +263,8 @@ local function buildCard(parent: Instance): Frame
 	ui.cardWorth = UIKit.label(card, {
 		name = "Worth",
 		anchorPoint = Vector2.new(0, 1),
-		position = UDim2.new(0, 16, 1, -12),
-		size = UDim2.new(1, -32, 0, 22),
+		position = UDim2.new(0, 16, 1, -BOTTOM_PAD),
+		size = UDim2.new(1, -32, 0, WORTH_H),
 		font = UIKit.Font.body,
 		textSize = 19,
 		color = COLOR.green,
@@ -405,9 +420,14 @@ local function clockText(seconds: number): string
 end
 
 --- The one part that runs every frame. Everything else waits for CarryState.
+--
+-- Checking StationController.isOpen() here rather than caching it off a
+-- StationState listener means there is nothing to keep in sync: a CLOSE click sets
+-- StationController's own `dismissed` flag same-frame, and the very next Heartbeat
+-- reads it back true, no second signal required.
 local function renderCard()
 	local item = itemByUid(selected)
-	if item == nil then
+	if item == nil or StationController.isOpen() then
 		ui.card.Visible = false
 		return
 	end
