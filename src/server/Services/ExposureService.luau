@@ -328,7 +328,7 @@ local function stepPlayer(player: Player, dt: number)
 	for _, item in data.carry do
 		local changedTo = Decay.tick(item, dt, stats.satchelFuseMult)
 		if changedTo then
-			print(`[decay] {player.Name}: {item.modifier} {item.rarity} -> {Tuning.DECAY_STAGES[changedTo].name}`)
+			print(`[decay] {player.Name}: {item.modifier} {item.rarity} -> {Tuning.DECAY_CONDITIONS[changedTo].name}`)
 		end
 	end
 

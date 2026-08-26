@@ -8,7 +8,7 @@ export type RarityDef = {
 	order: number,
 	color: Color3,
 	hardness: number,
-	fuse: number, -- seconds per decay stage
+	fuse: number, -- seconds per decay condition
 	displayYield: number, -- fraction of sale value paid per minute on a pedestal
 	minValue: number,
 	maxValue: number,

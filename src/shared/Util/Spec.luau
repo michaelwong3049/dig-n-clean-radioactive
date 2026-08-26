@@ -193,25 +193,25 @@ function Spec.run(): boolean
 	local leg = bagOf("Legendary", "None", 1, 0)[1]
 	check("§3.6 Legendary fuse is 2:00", Decay.fuseFor(leg, 1) == 120)
 	leg.elapsed = 119
-	local s1 = Decay.stageOf(leg, 1)
+	local s1 = Decay.conditionOf(leg, 1)
 	leg.elapsed = 121
-	local s2 = Decay.stageOf(leg, 1)
+	local s2 = Decay.conditionOf(leg, 1)
 	leg.elapsed = 361
-	local s3 = Decay.stageOf(leg, 1)
+	local s3 = Decay.conditionOf(leg, 1)
 	check("§3.6 Fresh -> Hot at T, Slag past 3T", s1 == 1 and s2 == 2 and s3 == 4)
 	check("§3.6 rarer items burn faster", Decay.fuseFor(bagOf("Anomaly", "None", 1, 0)[1], 1) < Decay.fuseFor(bagOf("Common", "None", 1, 0)[1], 1))
 	check("§3.6 Slag still retains a token 10%", math.abs(Decay.valueRetained(leg, 1) - 0.10) < 1e-9)
 
 	-- PLAN §7 — Prewar Sealed is the jackpot: no clean, no clock
 	local sealed = bagOf("Mythic", "PrewarSealed", 1, 99999)[1]
-	check("§7 Prewar Sealed never leaves Fresh", Decay.stageOf(sealed, 1) == 1)
+	check("§7 Prewar Sealed never leaves Fresh", Decay.conditionOf(sealed, 1) == 1)
 	check("§7 Prewar Sealed emits nothing", Decay.emissionOf(sealed, 1) == 0)
 
 	-- PLAN §3.6 — freezing is total and one-way
 	local frozen = bagOf("Mythic", "None", 1, 10)[1]
 	frozen.frozen = true
 	Decay.tick(frozen, 5, 1)
-	check("§3.6 a docked item stops emitting, ticking, and counting down", Decay.totalEmission({ frozen }, 1) == 0 and frozen.elapsed == 10 and Decay.secondsToNextStage(frozen, 1) == math.huge)
+	check("§3.6 a docked item stops emitting, ticking, and counting down", Decay.totalEmission({ frozen }, 1) == 0 and frozen.elapsed == 10 and Decay.secondsToNextCondition(frozen, 1) == math.huge)
 
 	-- PLAN §9.2 / §5.1 — one resolver, perks folded in exactly once
 	local profile = {

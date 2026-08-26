@@ -134,7 +134,7 @@ end
 --- One item row. USED TO BE ONE TextButton whose whole Text was a single
 --- string.format("%-22s %-7s %-7s $%d", ...) call — columns only lined up because
 --- Font.Code is monospace, and no rounded display font has fixed character widths.
---- Four child labels instead: name flexes, stage/pips/value are fixed-width. The
+--- Four child labels instead: name flexes, condition/pips/value are fixed-width. The
 --- button itself, its Uid attribute and its scrub-progress Fill are unchanged — only
 --- what is drawn INSIDE it changes. Reached the same way Fill always was, via
 --- Roblox's child-by-name lookup (row.ItemNameLabel, row.Fill, ...), so every
@@ -177,7 +177,7 @@ local function makeRow(parent: Instance, order: number): TextButton
 		textSize = 15,
 	})
 	UIKit.label(row, {
-		name = "StageLabel",
+		name = "ConditionLabel",
 		position = UDim2.fromOffset(286, 0),
 		size = UDim2.fromOffset(90, 26),
 		font = UIKit.Font.body,
@@ -680,14 +680,14 @@ local function paintRow(row: TextButton, item, isSelected: boolean, scrubUid: st
 	-- All four keep the SAME single colour, exactly as the old one-string row did —
 	-- this is a rendering restructure, not a new visual design for the row.
 	local nameLabel = row.ItemNameLabel :: TextLabel
-	local stageLabel = row.StageLabel :: TextLabel
+	local conditionLabel = row.ConditionLabel :: TextLabel
 	local pipsLabel = row.PipsLabel :: TextLabel
 	local valueLabel = row.ValueLabel :: TextLabel
 
 	nameLabel.Text = string.sub(item.name, 1, 26)
 	nameLabel.TextColor3 = colour
-	stageLabel.Text = string.lower(item.stage)
-	stageLabel.TextColor3 = colour
+	conditionLabel.Text = string.lower(item.condition)
+	conditionLabel.TextColor3 = colour
 	pipsLabel.Text = patchPips(item)
 	pipsLabel.TextColor3 = colour
 	valueLabel.Text = `${item.value}`

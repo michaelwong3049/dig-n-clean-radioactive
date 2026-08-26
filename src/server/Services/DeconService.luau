@@ -7,7 +7,7 @@
 	safe" and "my loot is safe" stay two different problems.
 
 	DOCKING IS THE WIN CONDITION (PLAN §3.6). Walking into the decon station's radius
-	freezes every carried item at whatever stage it arrived in, permanently. Cleaning
+	freezes every carried item at whatever condition it arrived in, permanently. Cleaning
 	it afterwards is unhurried — the run home was the challenge, and turning "clean
 	your backlog before it rots" into a second chore would sour a mechanic that works
 	because it is short and sharp. So the freeze is generous and one-way.

@@ -78,16 +78,16 @@ local function step(player: Player, _dt: number)
 
 	local items = {}
 	for _, item in data.carry do
-		local stageIndex, stage = Decay.stageOf(item, stats.satchelFuseMult)
+		local conditionIndex, condition = Decay.conditionOf(item, stats.satchelFuseMult)
 		table.insert(items, {
 			uid = item.uid,
 			rarity = item.rarity,
 			modifier = item.modifier,
-			stage = stage.name,
-			stageIndex = stageIndex,
-			toNext = finite(Decay.secondsToNextStage(item, stats.satchelFuseMult)),
+			condition = condition.name,
+			conditionIndex = conditionIndex,
+			toNext = finite(Decay.secondsToNextCondition(item, stats.satchelFuseMult)),
 			emission = Decay.emissionOf(item, stats.satchelFuseMult),
-			valueRetained = stage.valueRetained,
+			valueRetained = condition.valueRetained,
 			frozen = item.frozen,
 		})
 	end

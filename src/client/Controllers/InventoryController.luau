@@ -4,7 +4,7 @@
 	WHAT THE SLOTS SAY, AND WHAT THEY DELIBERATELY DO NOT.
 	A slot shows the ITEM: its name, in its rarity colour. That is all. The obvious
 	temptation is to hang the whole decay apparatus off every slot — a draining fuse
-	bar, a stage tint, the value — and it is the wrong call. Twenty slots each running
+	bar, a condition tint, the value — and it is the wrong call. Twenty slots each running
 	their own countdown is twenty things moving in the corner of your eye while you
 	are trying to read the ground, and the eye stops being able to find any of them.
 	The hotbar answers "what have I got"; press a number and the card answers
@@ -96,7 +96,7 @@ local state = {
 -- when the bag CHANGES, so `elapsed` on an item is a snapshot from whenever that
 -- last happened — usually the moment it came out of the ground. Reading the clock
 -- straight off it gives a countdown that sits perfectly still for two minutes and
--- then jumps a whole stage, which looks like the decay system is broken.
+-- then jumps a whole condition, which looks like the decay system is broken.
 --
 -- So the client predicts: advance a local offset every frame and add it to `elapsed`
 -- before asking Shared/Decay anything. The server still owns the real number and
@@ -107,7 +107,7 @@ local drift = 0
 -- just to add one number to one field.
 local scratch = { uid = "", rarity = "", modifier = "None", elapsed = 0, frozen = false }
 
--- The lowest remaining-time this stage has shown, so a correction can never push the
+-- The lowest remaining-time this condition has shown, so a correction can never push the
 -- countdown UP.
 --
 -- The server's clock and this one do not tick the same way, and that is not a bug in
@@ -120,7 +120,7 @@ local scratch = { uid = "", rarity = "", modifier = "None", elapsed = 0, frozen 
 -- backwards, which is the one thing a countdown may never do. So corrections are
 -- accepted only DOWNWARD. The error that survives is showing slightly less time than
 -- you really have, which is the safe direction to be wrong about a decay clock.
-local floorFor: { [string]: { stage: string, remaining: number } } = {}
+local floorFor: { [string]: { condition: string, remaining: number } } = {}
 
 --- The item as it would be RIGHT NOW, rather than as of the last broadcast.
 local function asOfNow(item: any): any
@@ -446,14 +446,14 @@ local function renderCard()
 	-- Run the clock locally off `elapsed` + drift. The server sent the item, not the
 	-- ticking; see the note on `drift`.
 	local now = asOfNow(item)
-	local left = Decay.secondsToNextStage(now, state.fuseMult)
-	local _, stage = Decay.stageOf(now, state.fuseMult)
+	local left = Decay.secondsToNextCondition(now, state.fuseMult)
+	local _, condition = Decay.conditionOf(now, state.fuseMult)
 
-	-- Monotonic within a stage; a new stage starts a fresh floor.
+	-- Monotonic within a condition; a new condition starts a fresh floor.
 	if left ~= math.huge then
 		local seen = floorFor[item.uid]
-		if seen == nil or seen.stage ~= stage.name then
-			floorFor[item.uid] = { stage = stage.name, remaining = left }
+		if seen == nil or seen.condition ~= condition.name then
+			floorFor[item.uid] = { condition = condition.name, remaining = left }
 		else
 			left = math.min(left, seen.remaining)
 			seen.remaining = left
@@ -463,13 +463,13 @@ local function renderCard()
 	if item.frozen then
 		ui.cardDecay.Text = "clock stopped \u{2014} safe"
 		ui.cardDecay.TextColor3 = COLOR.green
-	elseif stage.name == "Slag" then
+	elseif condition.name == "Slag" then
 		ui.cardDecay.Text = "SLAG \u{2014} it is gone"
 		ui.cardDecay.TextColor3 = COLOR.red
 	else
-		ui.cardDecay.Text = `{string.lower(stage.name)} \u{2014} {clockText(left)} to next stage`
+		ui.cardDecay.Text = `{string.lower(condition.name)} \u{2014} {clockText(left)} to next condition`
 		-- Under thirty seconds is the point where the honest advice is "run".
-		ui.cardDecay.TextColor3 = if left < 30 then COLOR.red elseif stage.name ~= "Fresh" then COLOR.amber else COLOR.dim
+		ui.cardDecay.TextColor3 = if left < 30 then COLOR.red elseif condition.name ~= "Fresh" then COLOR.amber else COLOR.dim
 	end
 
 	if item.clean then
