@@ -162,7 +162,7 @@ Dock.DIGBUTTON_SIZE = UDim2.fromOffset(260, 60) -- was 230x48
 Dock.SCOPE_DIAL = 180 -- was DetectorController.DIAL_SIZE 150
 
 Dock.STATUS_HEIGHT = 24
-Dock.CARD_SIZE = UDim2.fromOffset(400, 136) -- was 330x116
+Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
@@ -172,7 +172,16 @@ Dock.HOTBAR_BOTTOM = Dock.MARGIN_BOTTOM
 Dock.BAGCOUNT_BOTTOM = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP
 Dock.INSTRUMENT_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
-Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT + Dock.GAP
+-- A REQUESTED LOWER POSITION, WITH AN HONEST COST. The stack above this point (hotbar
+-- -> bagcount -> instrument -> status) has no slack in it — every band sits Dock.GAP
+-- above the one before it, contiguously, all the way from the screen edge. "Lower"
+-- therefore has nowhere to come from except the status line's own reserved height, so
+-- this drops the "+ Dock.STATUS_HEIGHT" term that used to clear it entirely. The card's
+-- bottom slice now sits over the LAST ~14px of the status line's band instead of fully
+-- above it. Acceptable because the card is a transient popup (only up while a hotbar
+-- item is selected) over a single line of read-only text, not over the meter or the dig
+-- button — reconsider this the moment that stops being true.
+Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 
 -- The bottom-RIGHT corner: just the scope, on the meter's baseline.
 Dock.SCOPE_BOTTOM = Dock.INSTRUMENT_BOTTOM

@@ -60,6 +60,17 @@ local SLOT_HEIGHT = Dock.HOTBAR_HEIGHT
 -- they just have no key — which is the normal hotbar bargain.
 local BINDABLE = 9
 
+--- $2.00/sec under a thousand, $5.2K/sec into the thousands — same convention
+--- StationController's own formatRate uses for the same number on the pedestal
+--- panel; duplicated rather than shared for the same reason CashController's
+--- formatCash is duplicated everywhere else it appears.
+local function formatRate(perSecond: number): string
+	if perSecond >= 1_000 then
+		return string.format("$%.1fK/sec", perSecond / 1_000)
+	end
+	return string.format("$%.2f/sec", perSecond)
+end
+
 local KEYS = {
 	[Enum.KeyCode.One] = 1,
 	[Enum.KeyCode.Two] = 2,
@@ -452,7 +463,13 @@ local function renderCard()
 		ui.cardDirt.TextColor3 = COLOR.amber
 	end
 
-	ui.cardWorth.Text = `${item.value}`
+	-- The rate only ever rides along when CarryService actually computed one —
+	-- dirty and Slagged items get perSecond = nil, matching exactly what
+	-- ExhibitService.display would refuse, so this line never promises a payout
+	-- the game won't honour if you walk it to a pedestal instead of selling it.
+	ui.cardWorth.Text = if item.perSecond
+		then string.format("$%d \u{2022} %s", item.value, formatRate(item.perSecond))
+		else `${item.value}`
 	ui.cardWorth.TextColor3 = if item.clean then COLOR.green else COLOR.dim
 end
 
