@@ -88,7 +88,14 @@ local build = Kit.build
 -- against the old centre — Hub.CAMP_ORIGIN below, Shops.luau's STALLS/OUTFITTER — moved
 -- the same +17.5, so they are exactly as centred on the new, smaller rectangle as they
 -- were on the old one.
-Hub.PLAZA = { minX = -65, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = 0 }
+-- topY MATCHES Zones.SURFACE_Y (-1.5), ON REQUEST. The plaza used to sit at Y=0, a
+-- full 1.5 studs above the zone plates -- a deliberate "step down into the sludge"
+-- cue, per Zones.SURFACE_Y's own comment. That cue is gone now, in favour of camp
+-- flowing into Zone 1 at one level -- reinforced by Zone 1's checkerboard gradient
+-- now starting at the plaza's own tile colours (Scenery.luau's
+-- buildZone1Checkerboard). Both cues (colour AND height) were pointing the same
+-- direction anyway; this just stops fighting the other one.
+Hub.PLAZA = { minX = -65, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = -1.5 }
 Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
 
 -- ── The floor ─────────────────────────────────────────────────────────────────

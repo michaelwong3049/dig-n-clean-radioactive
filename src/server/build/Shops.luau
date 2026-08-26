@@ -69,6 +69,7 @@ local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 
 local Kit = require(script.Parent.Kit)
+local Hub = require(script.Parent.Hub)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
@@ -451,13 +452,19 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
-	local origin = CFrame.new(spec.at[1], 0, spec.at[2])
+	-- Y comes from Hub.PLAZA.topY, not a bare 0 -- the stall has to sit on whatever
+	-- plane the plaza itself is actually on, and that stopped being world Y=0 once
+	-- the plaza moved down to match Zones.SURFACE_Y (see Hub.luau's own comment on
+	-- Hub.PLAZA). Every part below is a LOCAL offset from this origin, so this one
+	-- line is the only thing that needed to change for the whole stall to move.
+	local origin = CFrame.new(spec.at[1], Hub.PLAZA.topY, spec.at[2])
 
 	-- LIFTED 0.1 CLEAR OF THE PLAZA, and that tenth of a stud is load-bearing. The
-	-- deck is 0.6 thick, so at y = -0.3 its top face landed on exactly Y = 0 — the
-	-- same plane as the plaza's own surface. Two coplanar faces z-fight, which was
-	-- invisible while both were cream and is not now that the floor underneath is a
-	-- checkerboard. A pad lying ON the floor should sit on it, not in it.
+	-- deck is 0.6 thick, so at local y = -0.3 its top face lands exactly on origin's
+	-- own Y — the same plane as the plaza's own surface, whatever that plane
+	-- currently is. Two coplanar faces z-fight, which was invisible while both were
+	-- cream and is not now that the floor underneath is a checkerboard. A pad lying
+	-- ON the floor should sit on it, not in it.
 	--
 	-- CENTRED ON THE STALL, NOT ON THE ORIGIN. The posts/roof/counter cluster
 	-- sits between dz=-10 (back posts) and dz=+2 (front posts) -- centred on
@@ -601,7 +608,9 @@ local function buildOutfitter(parent: Instance)
 	local m = Instance.new("Model")
 	m.Name = "Outfitter"
 
-	local origin = CFrame.new(OUTFITTER.at[1], 0, OUTFITTER.at[2])
+	-- Same reasoning as buildStall's own origin: Y comes from Hub.PLAZA.topY, not a
+	-- bare 0, so the building sits on the plaza's actual current plane.
+	local origin = CFrame.new(OUTFITTER.at[1], Hub.PLAZA.topY, OUTFITTER.at[2])
 	local span = OUTFITTER.pitch * (#OUTFITTER.counters - 1)
 	local width = span + 20
 	local halfDepth = 8

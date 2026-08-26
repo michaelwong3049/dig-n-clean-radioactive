@@ -642,17 +642,27 @@ local function buildZone1Checkerboard(parent: Instance)
 	local maxZ = def.center[2] + def.size[2] / 2
 
 	local plazaDark, plazaLight = Color3.fromHex(C.plazaTileDark), Color3.fromHex(C.plazaTileLight)
-	local stage1Dark, stage1Light = twoTone(Zones.STAGES[1].color)
 	local stage2Dark, stage2Light = twoTone(Zones.STAGES[2].color)
 	local stage3Dark, stage3Light = twoTone(Zones.STAGES[3].color)
 
 	-- STAGES' minX/maxX are LOCAL offsets from the zone's own centre (Zones.stageAt's
 	-- own convention) -- converted to world X here since that's what tiles are built
-	-- in. Stage 1's own maxX is the Stage1/2 boundary, Stage 2's maxX the Stage2/3
-	-- one; Zone 1's own minX/maxX (already world space) are the outer two waypoints.
+	-- in. Stage 2's own maxX is the Stage2/3 boundary; Zone 1's own minX/maxX
+	-- (already world space) are the outer two waypoints.
+	--
+	-- STAGE 1 IS NOW A FLAT CONTINUATION OF THE PLAZA, ON REQUEST -- both ends of its
+	-- span (the zone's own west edge AND the Stage 1/2 boundary) use the plaza's own
+	-- tile colours, not a Stage-1-derived tone (`twoTone(Zones.STAGES[1].color)`,
+	-- which used to sit here, is gone; Stage 1's own `17300F` still exists and still
+	-- colours everything else in this file that reads it -- STATIC props, the flat
+	-- ZoneFields plate underneath -- it's specifically dropped from THIS gradient).
+	-- That reads as camp's own floor extending almost seamlessly through the whole
+	-- of Stage 1, rather than touching the plaza only at the very first tile before
+	-- drifting away -- the visible transition into the zone's own hues now begins at
+	-- the Stage 1/2 boundary instead of at the zone's entrance.
 	local waypoints = {
 		{ x = minX, dark = plazaDark, light = plazaLight },
-		{ x = def.center[1] + Zones.STAGES[1].maxX, dark = stage1Dark, light = stage1Light },
+		{ x = def.center[1] + Zones.STAGES[1].maxX, dark = plazaDark, light = plazaLight },
 		{ x = def.center[1] + Zones.STAGES[2].maxX, dark = stage2Dark, light = stage2Light },
 		{ x = maxX, dark = stage3Dark, light = stage3Light },
 	}

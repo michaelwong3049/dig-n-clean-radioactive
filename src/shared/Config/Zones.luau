@@ -208,9 +208,12 @@ export type StageDef = {
 
 local Zones = {}
 
---- The top face of every zone plate. One stud and a half BELOW the plaza, so you
---- physically step down into the sludge and the boundary reads from a distance
---- without any extra geometry. A humanoid clears 1.5 studs without a ramp.
+--- The top face of every zone plate. Used to sit 1.5 studs below the plaza on
+--- purpose (a physical "step down into the sludge" cue) -- that step is gone now,
+--- on request: Hub.PLAZA.topY was moved to match this value exactly instead, so
+--- camp flows into Zone 1 at one level. See Hub.luau's own comment on Hub.PLAZA for
+--- why. This constant itself is unchanged; it was always the target, not the thing
+--- that moved.
 Zones.SURFACE_Y = -1.5
 
 --- Plate thickness. DERIVED, not chosen: DigService buries at up to
