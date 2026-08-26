@@ -29,7 +29,11 @@ src/
       ToolTiers.luau          per-tier look: scale, colours, material, glow
     ItemModels/               versioned item-art factories; nil keys use placeholders
       init.luau               model-key registry used by haul + exhibition rendering
-      BottleCap.luau          first catalogue model (21-crimp damaged crown cap)
+      BottleCap.luau          clean 21-crimp crown cap
+      DentedTinCan.luau       asymmetrically crushed ribbed food tin
+      HouseKey.luau           pressed-silver key with open bow and stepped teeth
+      SteelRod.luau           dark reinforcing-steel offcut with diagonal ribs
+      Wristwatch.luau         stopped analog dial on a linked oval bracelet
     Util/
       Ticker.luau             the fixed-timestep clock everything runs on
       Spec.luau               design-intent assertions — run after retuning

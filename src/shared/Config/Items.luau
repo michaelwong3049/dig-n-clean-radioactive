@@ -58,14 +58,15 @@ Items.DEFS = {
 		model = "BottleCap",
 	},
 	{
-		id = "rebar_stub",
-		name = "Rebar Stub",
+		id = "steel_rod",
+		name = "Steel Rod",
 		flavor = "Snapped clean through. Something very large came this way.",
 		rarity = "Scrap",
 		zones = { 1 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 4,
+		model = "SteelRod",
 	},
 	{
 		id = "fused_glass",
@@ -88,6 +89,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 12,
+		model = "DentedTinCan",
 	},
 	{
 		id = "house_key",
@@ -98,6 +100,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 18,
+		model = "HouseKey",
 	},
 	{
 		id = "stopped_watch",
@@ -108,6 +111,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 22,
+		model = "Wristwatch",
 	},
 
 	-- ── Uncommon ── $25-120 ─────────────────────────────────────────────
