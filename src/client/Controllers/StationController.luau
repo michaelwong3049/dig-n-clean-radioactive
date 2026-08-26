@@ -113,6 +113,17 @@ local selected: string? = nil
 local actionRemote: any = nil
 local toastToken = 0
 
+-- Player-closed, independent of whether the server still has you standing in the
+-- station's radius. Walking away always closed the panel because that also zeroed
+-- `state.station`; a CLOSE button doesn't move you, so it needs its own flag rather
+-- than piggybacking on that field. `lastKey` is what clears it again: it fingerprints
+-- "which station, which id" so the panel reopens the moment that changes -- leaving
+-- and coming back, or walking straight from one station into another -- without
+-- reopening on every one of the ~10Hz StationState ticks this same station keeps
+-- sending while you stand still.
+local dismissed = false
+local lastKey: string? = nil
+
 local function rarityColor(name: string): Color3
 	local def = Rarity.DEFS[name]
 	return if def then def.color else COLOR.text
@@ -314,6 +325,39 @@ local function build(): ScreenGui
 	})
 	ui.panel = panel
 	ui.panelStroke = panelStroke
+
+	-- Parented to `gui`, a SIBLING of the panel, not a child of it. Every direct
+	-- child of `panel` is claimed by the UIListLayout added near the bottom of this
+	-- function -- a close button dropped in there would become another row in the
+	-- stack, not a badge floating over a corner. Living outside that layout means
+	-- tracking the panel's own corner by hand instead of getting it for free, hence
+	-- repositionClose() below, re-run whenever the panel moves or resizes (it does
+	-- both: automaticSizeY, and MaxSize swaps between shop/list widths per mode).
+	local closeButton = UIKit.button(gui, {
+		name = "Close",
+		size = UDim2.fromOffset(32, 32),
+		anchorPoint = Vector2.new(1, 0),
+		font = UIKit.Font.title,
+		textSize = 20,
+		color = Color3.new(1, 1, 1),
+		fillColor = COLOR.red,
+		fillTransparency = 0,
+		cornerRadius = UDim.new(0, 10),
+		strokeThickness = 0,
+		text = "\u{2715}",
+	})
+	closeButton.ZIndex = 10
+	ui.closeButton = closeButton
+
+	local function repositionClose()
+		closeButton.Position = UDim2.fromOffset(
+			panel.AbsolutePosition.X + panel.AbsoluteSize.X - 14,
+			panel.AbsolutePosition.Y + 14
+		)
+	end
+	panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(repositionClose)
+	panel:GetPropertyChangedSignal("AbsolutePosition"):Connect(repositionClose)
+	repositionClose()
 
 	-- The ceiling half of "viewport minus a margin, but never wider than". render()
 	-- retunes MaxSize.X per mode; MinSize stops a phone-width viewport collapsing the
@@ -721,12 +765,14 @@ local function paintShopCard(card: Frame, entry)
 end
 
 local function render()
-	if state.station == nil then
+	if state.station == nil or dismissed then
 		ui.panel.Visible = false
+		ui.closeButton.Visible = false
 		return
 	end
 
 	ui.panel.Visible = true
+	ui.closeButton.Visible = true
 
 	-- Shop mode replaces the item list entirely: you are not carrying anything
 	-- relevant to this transaction, so showing your backpack is noise.
@@ -963,6 +1009,15 @@ local function render()
 	ui.sellButton.Text = if chosen then `SELL  ${chosen.value}` else "SELL"
 end
 
+--- Read by InventoryController: the hotbar detail card hides itself while this
+--- panel is actually on screen, which is "the server says you're at a station" AND
+--- "you haven't closed it" -- either one alone would either leave the card hidden
+--- forever after a CLOSE click, or bring it back overlapping a panel you're still
+--- standing in front of.
+function Station.isOpen(): boolean
+	return state.station ~= nil and not dismissed
+end
+
 local function toast(message: string)
 	ui.toast.Text = message
 	toastToken += 1
@@ -1054,7 +1109,22 @@ function Station.start()
 		actionRemote:FireServer({ action = "undisplay" })
 	end)
 
+	ui.closeButton.MouseButton1Click:Connect(function()
+		dismissed = true
+		render()
+	end)
+
 	Net.get("StationState").OnClientEvent:Connect(function(payload)
+		-- Fingerprint "which station, which id" rather than comparing tables: this
+		-- fires at TICK_RATE (~10Hz) the whole time you stand still, and payload is a
+		-- new table every tick, so an equality check on it would never match and
+		-- `dismissed` would clear itself on the very next tick after the click above.
+		local key = if payload.station then `{payload.station}:{tostring(payload.stationId)}` else nil
+		if key ~= lastKey then
+			dismissed = false
+			lastKey = key
+		end
+
 		state = payload
 		state.items = payload.items or {}
 		state.locker = payload.locker or {}

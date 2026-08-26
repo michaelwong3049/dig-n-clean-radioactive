@@ -36,6 +36,7 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear)
 local Items = require(Shared.Config.Items)
+local Rarity = require(Shared.Config.Rarity)
 local Decay = require(Shared.Decay)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
@@ -75,6 +76,19 @@ function CarryService.describe(item: any, stats: any): any
 	local _, stage = Decay.stageOf(item, stats.satchelFuseMult)
 	local blocked = Contamination.blockedBy(patches, stats.cleanPotency)
 
+	-- What this item would earn per second on a pedestal, IF you displayed it —
+	-- undamped, since ExhibitService's duplicate-copy damping depends on what
+	-- else is already on your own plot, which this function has no visibility
+	-- into (it describes a bag item, not a placement). nil whenever
+	-- ExhibitService.display would actually refuse it (dirty, or Slagged), so
+	-- this is never a number the game won't actually pay out.
+	local perSecond: number? = nil
+	if clean and item.modifier ~= "Slagged" then
+		local rarity = Rarity.get(item.rarity)
+		local mod = Rarity.MODIFIERS[item.modifier] or Rarity.MODIFIERS.None
+		perSecond = def.baseValue * mod.valueMult * rarity.displayYield * stats.yieldMultiplier / 60
+	end
+
 	return {
 		uid = item.uid,
 		name = def.name,
@@ -86,6 +100,7 @@ function CarryService.describe(item: any, stats: any): any
 		blockedBy = blocked,
 		needs = if blocked then CarryService.cleanerNameFor(blocked) else nil,
 		value = value,
+		perSecond = perSecond,
 		stage = stage.name,
 		elapsed = item.elapsed,
 		frozen = item.frozen,
@@ -105,12 +120,15 @@ end
 ---   frozen     — docking and the locker stop the clock without touching anything else
 ---   #patches   — a scrub removes them one at a time; `clean` only flips at the end
 ---   blockedBy  — buying a better cleaner unblocks an item with no change to patches
+---   perSecond  — depends on stats.yieldMultiplier, which the Index completion bonus
+---                (DigService.grantZoneCompletionBonus) can change mid-session with
+---                nothing else about the item itself moving
 local function signatureOf(described: { any }, capacity: number): string
 	local parts = { tostring(capacity) }
 	for _, item in described do
 		table.insert(
 			parts,
-			`{item.uid}:{item.stage}:{item.value}:{tostring(item.clean)}:{tostring(item.frozen)}:{#item.patches}:{tostring(item.blockedBy)}`
+			`{item.uid}:{item.stage}:{item.value}:{item.perSecond}:{tostring(item.clean)}:{tostring(item.frozen)}:{#item.patches}:{tostring(item.blockedBy)}`
 		)
 	end
 	return table.concat(parts, "|")
