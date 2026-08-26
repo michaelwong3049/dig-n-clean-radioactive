@@ -44,15 +44,35 @@
 ]]
 
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Kit = require(script.Parent.Kit)
+-- Hub otherwise requires only Kit (see Hub.PLAZA's own comment on why: Plots.luau
+-- requires Hub, so Hub requiring Plots would be circular). Zones is safe -- it is
+-- pure config, requires nothing under build/, and Scenery.luau already requires
+-- both Hub and Zones together with no cycle. Needed for PLAZA_DARK/PLAZA_LIGHT
+-- below.
+local Zones = require(ReplicatedStorage.Shared.Config.Zones)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 7
+local BUILDER_VERSION = 8
 
 local C = Kit.C
 local build = Kit.build
+
+--- The plaza/apron's own checkerboard, tinted to match Zone 1's ground exactly the
+--- way it already visually promises to. Scenery.luau's buildZone1Checkerboard
+--- starts ITS gradient at these two colours (Hub.PLAZA's own comment: "Zone 1's
+--- checkerboard gradient now starting at the plaza's own tile colours") and then
+--- bakes Zones.GROUND_OOZE_TINT into every tile uniformly, camp included in that
+--- promise or not -- so leaving these two constants untinted would draw a colour
+--- jump right at Zone 1's edge, exactly the seam the checkerboard rewrite was
+--- built to avoid. Same formula, same weight, applied once here instead of at
+--- every tile: Kit.blendHex(rawColour, Zone 1's own ooze.bright, the shared
+--- tint weight).
+local PLAZA_DARK = Kit.blendHex(C.plazaTileDark, Zones.get(1).ooze.bright, Zones.GROUND_OOZE_TINT)
+local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Zones.get(1).ooze.bright, Zones.GROUND_OOZE_TINT)
 
 -- ── Layout ────────────────────────────────────────────────────────────────────
 -- Everything here is world space. The plaza's walking surface is at Y = 0, and
@@ -136,8 +156,8 @@ export type Rect = { minX: number, maxX: number, minZ: number, maxZ: number }
 --- pads, the apron and the plaza reading as one board rather than eight.
 export type TileOpts = {
 	topY: number?, -- default PLAZA.topY
-	dark: string?, -- default C.plazaTileDark
-	light: string?, -- default C.plazaTileLight
+	dark: string?, -- default PLAZA_DARK (C.plazaTileDark, tinted to match Zone 1)
+	light: string?, -- default PLAZA_LIGHT (C.plazaTileLight, tinted to match Zone 1)
 	skip: ((x: number, z: number) -> boolean)?,
 	-- Per-tile colour override, for a board whose colour is itself a gradient (Zone
 	-- 1's checkerboard) rather than one fixed pair. Called with each tile's own
@@ -171,7 +191,7 @@ function Hub.groundSlab(parent: Instance, rect: Rect, name: string, thickness: n
 			(rect.minZ + rect.maxZ) / 2,
 		},
 		size = { rect.maxX - rect.minX, deep, rect.maxZ - rect.minZ },
-		color = o.dark or C.plazaTileDark,
+		color = o.dark or PLAZA_DARK,
 		material = "SmoothPlastic",
 	})
 end
@@ -211,8 +231,8 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	local p = Hub.PLAZA
 	local o = opts or {}
 	local topY = o.topY or p.topY
-	local dark = o.dark or C.plazaTileDark
-	local light = o.light or C.plazaTileLight
+	local dark = o.dark or PLAZA_DARK
+	local light = o.light or PLAZA_LIGHT
 	local skip = o.skip
 	local colorAt = o.colorAt
 
