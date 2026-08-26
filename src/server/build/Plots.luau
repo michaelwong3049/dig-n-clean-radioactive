@@ -115,7 +115,11 @@ local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
 Plots.COUNT = 6
 Plots.VISIBLE_SLOTS = 8
-Plots.PAD = { width = 66, depth = 52, topY = 1.5, thickness = 3 }
+-- topY is a deliberate step UP from the plaza (the mirror of Zones.SURFACE_Y's own
+-- step down), expressed relative to Hub.PLAZA.topY rather than as a bare literal so
+-- it keeps meaning "+1.5 above the plaza" if that ever moves again, instead of
+-- silently becoming a different absolute step.
+Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3 }
 
 --- THE RING. Six pads butted against the plaza edge, each rotated to face inward.
 ---
