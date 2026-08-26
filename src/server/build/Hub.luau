@@ -132,6 +132,14 @@ export type TileOpts = {
 	dark: string?, -- default C.plazaTileDark
 	light: string?, -- default C.plazaTileLight
 	skip: ((x: number, z: number) -> boolean)?,
+	-- Per-tile colour override, for a board whose colour is itself a gradient (Zone
+	-- 1's checkerboard) rather than one fixed pair. Called with each tile's own
+	-- centre, same as `skip`; returns that ONE tile's (dark, light), which the
+	-- existing parity below still picks between exactly as it does for the fixed
+	-- case. `dark`/`light` above are simply never read when this is set. Kept
+	-- optional and additive so every existing caller (the plaza itself, Plots'
+	-- pads/apron) is untouched -- none of them pass this.
+	colorAt: ((x: number, z: number) -> (string, string))?,
 }
 
 --- The structural slab a tiled rectangle rides on: same footprint, recessed by
@@ -199,6 +207,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	local dark = o.dark or C.plazaTileDark
 	local light = o.light or C.plazaTileLight
 	local skip = o.skip
+	local colorAt = o.colorAt
 
 	local origin = CFrame.new(0, 0, 0)
 	local size = (p.maxX - p.minX) / Hub.TILES
@@ -226,6 +235,11 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 				continue
 			end
 
+			local tileDark, tileLight = dark, light
+			if colorAt then
+				tileDark, tileLight = colorAt(cx, cz)
+			end
+
 			build(parent, origin, {
 				name = "Tile",
 				pos = { cx, topY - CAP / 2, cz },
@@ -233,7 +247,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 				-- Parity off the GLOBAL index, never the loop counter: ix already
 				-- counts from the plaza's corner, so a rectangle out at the plot ring
 				-- inherits the phase instead of starting its own.
-				color = if (ix + iz) % 2 == 0 then dark else light,
+				color = if (ix + iz) % 2 == 0 then tileDark else tileLight,
 				material = "Plastic",
 			})
 			built += 1

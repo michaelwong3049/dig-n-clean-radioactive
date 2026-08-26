@@ -40,12 +40,16 @@
 	plane — but it stays translucent for exactly this reason, so a surfacing item
 	is dimmed, never hidden.
 
-	THE STAGES ARE TOLD APART BY GROUND COLOUR, NOT BY WALLS. buildStageGround paints
-	the plate's three stages in their own colours with a short blended seam between
-	them; buildStageMarkers puts a signed post and some debris at each boundary so the
-	stage still has a name. The concrete barrier that used to stand there is gone — it
-	gated nothing and read as unnatural. See buildStageGround for why the colour is a
-	layer on top rather than the plate itself.
+	THE STAGES ARE TOLD APART BY GROUND COLOUR, NOT BY WALLS. buildZone1Checkerboard
+	tiles the plate in a studded, two-tone checkerboard (same board as the plaza and
+	base pads, Hub.tileRect) whose colour is a continuous per-tile gradient across the
+	three stages, connecting to the plaza's own tile colours at the west edge;
+	buildStageMarkers puts a signed post and some debris at each boundary so the stage
+	still has a name. The concrete barrier that used to stand there is gone — it gated
+	nothing and read as unnatural. See buildZone1Checkerboard for why the colour is a
+	layer on top rather than the plate itself, and for why a tiled gradient sidesteps
+	the banded-seam problem two earlier, now-removed systems here both hit (see the
+	removal notes still kept below for `buildZoneBlend`/`buildGradientOozeSurface`).
 
 	Placement is a jittered grid, not pure random. Pure random clumps and leaves bald
 	patches; a jittered grid reads as scattered while still covering the field, and
@@ -67,6 +71,7 @@ local Shared = ReplicatedStorage.Shared
 local Zones = require(Shared.Config.Zones)
 
 local Kit = require(script.Parent.Kit)
+local Hub = require(script.Parent.Hub)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
@@ -93,14 +98,6 @@ local GROUND_SKIM = 0.06
 --- touching it.
 local WADE_HEIGHT = 1.1
 
---- How wide the seam between two stage colours is, in studs. The colour interpolates
---- across this band instead of changing on a line — a dead-straight edge across open
---- ground is its own kind of unnatural, which is the thing being fixed here. Narrow
---- enough that the boundary is still locatable: the loot table changes there, so the
---- player has to be able to tell.
-local SEAM_BLEND = 25
-local SEAM_STEPS = 8
-
 --- The chain's north/south boundary walls. Doubled to 56 tall and dropped to a
 --- 4-stud tile (from 28/8) after a live look -- ~8,400 parts per side at this size
 --- (2,390/4 x 56/4), noticeably more than the first pass's ~1,050 but still well
@@ -116,64 +113,16 @@ local WALL_LIGHT = "9C4A2F" -- a close, subtly darker rust variant -- NOT the fi
 -- zone -- an engineered containment barrier reads as one consistent material, not
 -- something that shares each zone's own theme.
 
---- Paint the field in bands across X, one colour per stage, blended at the seams.
----
---- ONLY THE GROUND LAYER IS BANDED, AND THAT WAS NOT THE FIRST ANSWER. The ooze sheet
---- above it was banded too at one point, on the theory that a bright Neon layer would
---- otherwise wash the ground out. It does not — the stage colours carry through it
---- fine once they are actually far apart (see Config/Zones) — and banding it looked
---- much worse: the slabs abut exactly, so at every internal seam two TRANSPARENT
---- faces land on the same plane, the alpha stacks, and the field renders as a set of
---- hard stripes at exactly the grazing angle a player sees it from. One sheet, no
---- coincident faces, no stripes. Do not band a transparent layer.
-local function paintBands(folder: Instance, origin: CFrame, def: any, spec: any)
-	local stages = Zones.STAGES
-	local depth = def.size[2]
-	local half = SEAM_BLEND / 2
-
-	local function band(suffix: string, fromX: number, toX: number, colour: Color3)
-		local width = toX - fromX
-		if width <= 0 then
-			return
-		end
-		local part = build(folder, origin, {
-			name = `{spec.name}{suffix}`,
-			pos = { (fromX + toX) / 2, spec.y, 0 },
-			size = { width, spec.thickness, depth },
-			-- Kit.build takes a hex STRING and these are interpolated Color3s, so the
-			-- real colour is assigned straight after.
-			color = stages[1].color,
-			material = spec.material,
-			transparency = spec.transparency,
-			canCollide = false,
-		})
-		part.Color = colour
-		-- Out of raycasts, so FieldController's range ring still lands on the plate
-		-- exactly as it did before either of these layers existed.
-		part.CanQuery = false
-	end
-
-	for index, stage in stages do
-		local colour = Color3.fromHex(stage.color)
-
-		-- The stage's own solid colour, pulled back from each INTERNAL seam. The
-		-- outer edges are the field boundary, not a seam, so those run to the end.
-		local fromX = if index == 1 then stage.minX else stage.minX + half
-		local toX = if index == #stages then stage.maxX else stage.maxX - half
-		band(`_Stage{stage.id}`, fromX, toX, colour)
-
-		-- The seam itself, stepped across so one ground gives way to the next rather
-		-- than meeting it on a drawn line. Eight steps over 25 studs is already past
-		-- where the eye reads banding at head height.
-		if index < #stages then
-			local nextColour = Color3.fromHex(stages[index + 1].color)
-			local step = SEAM_BLEND / SEAM_STEPS
-			for s = 0, SEAM_STEPS - 1 do
-				local x0 = stage.maxX - half + s * step
-				band(`_Seam{stage.id}_{s}`, x0, x0 + step, colour:Lerp(nextColour, (s + 0.5) / SEAM_STEPS))
-			end
-		end
-	end
+--- Derive a (dark, light) checkerboard pair from one existing colour, at roughly the
+--- same brightness ratio the plaza's own hand-picked pair already sits at (measured:
+--- light is ~1.14x dark, per channel, on C.plazaTileDark/plazaTileLight). Treats the
+--- given colour as that pair's MIDPOINT, splitting the ratio symmetrically in
+--- log-space (0.937x / 1.068x) so the input colour is recoverable as roughly the
+--- average of what comes out -- used so every waypoint below stays anchored to an
+--- ALREADY-SHIPPED colour (a stage's own single `color`) rather than a new palette.
+local function twoTone(hex: string): (Color3, Color3)
+	local c = Color3.fromHex(hex)
+	return Color3.new(c.R * 0.937, c.G * 0.937, c.B * 0.937), Color3.new(c.R * 1.068, c.G * 1.068, c.B * 1.068)
 end
 
 --- WHAT USED TO BE HERE: `buildZoneBlend`, `oozeInset`, `ZONE_BLEND(S)`. The
@@ -591,12 +540,14 @@ local function buildZoneScenery(parent: Instance, id: number)
 
 	-- The wading surface: ONE translucent plate over the whole zone, raised to
 	-- WADE_HEIGHT, so the field reads as something you sink into rather than ground
-	-- that happens to be green. Sized to the actual plate (not inset like the
-	-- pools/props below), so its edge lines up with the zone boundary.
+	-- that happens to be green. Sized to the actual plate, so its edge lines up with
+	-- the zone boundary.
 	--
 	-- IT STAYS ONE PART. Splitting it per stage to reinforce the ground colour is the
-	-- obvious next idea and it produces hard stripes across the field — see paintBands
-	-- for why. The stage colours read through this perfectly well on their own.
+	-- obvious next idea and it produces hard stripes across the field — the two now-
+	-- removed banded-gradient systems below (`buildZoneBlend`, `buildGradientOozeSurface`)
+	-- both hit exactly this with far more steps than a per-stage split ever would.
+	-- The stage/checkerboard colours read through this perfectly well on their own.
 	--
 	-- High transparency on purpose. Neon's brightness is emissive rather than a true
 	-- translucent tint, and bloom pushes an opaque-looking plate this size to a wall
@@ -659,20 +610,87 @@ end
 --- field would stop spawning signals. One plate, always. The colour goes on top,
 --- here, where it is free to be as many parts as it likes.
 ---
---- Thin, CanCollide and CanQuery false, and below SKIM so the ooze pools still read
---- as lying on this rather than under it. Footing and burial are untouched: a player
---- still stands on Zones.SURFACE_Y and DigService still buries against it.
-local function buildStageGround(parent: Instance, zoneId: number)
-	local def = Zones.get(zoneId)
-	local folder = Instance.new("Folder")
-	folder.Name = "StageGround"
+--- Thin, CanCollide and CanQuery false, and at GROUND_SKIM so a player's footing and
+--- burial are untouched: a player still stands on Zones.SURFACE_Y and DigService
+--- still buries against it, exactly as before this replaced the flat-band version.
+---
+--- THE CHECKERBOARD IS ITS OWN GRADIENT MECHANISM, ON REQUEST -- a rework of the look
+--- (studded two-tone tiles, matching the plaza/base-pad board, `Hub.tileRect`) that
+--- turns out to sidestep this file's own documented failure mode for free. The two
+--- removed systems above (`buildZoneBlend`, `buildGradientOozeSurface`) both tried to
+--- fake a smooth colour gradient with a HANDFUL of large abutting Parts, each one
+--- stepping a Color3 Lerp, and both produced a visible seam at every step regardless
+--- of step count. A checkerboard doesn't have that problem: it's already thousands of
+--- small tiles, so EACH TILE can independently compute its own colour from a
+--- CONTINUOUS lerp based on its own world position -- there's no small band count to
+--- tune and no coincident seam plane, just a resolution limit of one tile (3 studs).
+---
+--- THE GRADIENT CONNECTS TO THE PLAZA, THEN THE STAGES. Four waypoints across Zone
+--- 1's own width: the plaza's own tile colours (`C.plazaTileDark`/`plazaTileLight`)
+--- at the west edge -- Stage 1's start, right where a player arrives from camp -- then
+--- each stage boundary carrying THAT stage's own already-shipped `color` (twoTone()
+--- above derives a matching two-tone pair from it, at the same brightness ratio the
+--- plaza's own hand-picked pair sits at), ending at the east edge in Stage 3's tone.
+--- No new palette invented; every endpoint but the first is a colour this file
+--- already ships elsewhere. Z position never affects colour -- Zones.STAGES' own
+--- bounds are X-only, so this is too.
+local function buildZone1Checkerboard(parent: Instance)
+	local def = Zones.get(1)
+	local minX = def.center[1] - def.size[1] / 2
+	local maxX = def.center[1] + def.size[1] / 2
+	local minZ = def.center[2] - def.size[2] / 2
+	local maxZ = def.center[2] + def.size[2] / 2
 
-	paintBands(folder, CFrame.new(def.center[1], Zones.SURFACE_Y, def.center[2]), def, {
-		name = "Ground",
-		y = GROUND_SKIM,
-		thickness = 0.12,
-		material = def.material,
+	local plazaDark, plazaLight = Color3.fromHex(C.plazaTileDark), Color3.fromHex(C.plazaTileLight)
+	local stage1Dark, stage1Light = twoTone(Zones.STAGES[1].color)
+	local stage2Dark, stage2Light = twoTone(Zones.STAGES[2].color)
+	local stage3Dark, stage3Light = twoTone(Zones.STAGES[3].color)
+
+	-- STAGES' minX/maxX are LOCAL offsets from the zone's own centre (Zones.stageAt's
+	-- own convention) -- converted to world X here since that's what tiles are built
+	-- in. Stage 1's own maxX is the Stage1/2 boundary, Stage 2's maxX the Stage2/3
+	-- one; Zone 1's own minX/maxX (already world space) are the outer two waypoints.
+	local waypoints = {
+		{ x = minX, dark = plazaDark, light = plazaLight },
+		{ x = def.center[1] + Zones.STAGES[1].maxX, dark = stage1Dark, light = stage1Light },
+		{ x = def.center[1] + Zones.STAGES[2].maxX, dark = stage2Dark, light = stage2Light },
+		{ x = maxX, dark = stage3Dark, light = stage3Light },
+	}
+
+	local function colorAt(x: number, _z: number): (string, string)
+		local cx = math.clamp(x, waypoints[1].x, waypoints[#waypoints].x)
+		for i = 1, #waypoints - 1 do
+			local a, b = waypoints[i], waypoints[i + 1]
+			if cx >= a.x and cx <= b.x then
+				local t = if b.x > a.x then (cx - a.x) / (b.x - a.x) else 0
+				return a.dark:Lerp(b.dark, t):ToHex(), a.light:Lerp(b.light, t):ToHex()
+			end
+		end
+		local last = waypoints[#waypoints]
+		return last.dark:ToHex(), last.light:ToHex()
+	end
+
+	local folder = Instance.new("Folder")
+	folder.Name = "Checkerboard"
+
+	Hub.tileRect(folder, { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }, {
+		topY = Zones.SURFACE_Y + GROUND_SKIM,
+		colorAt = colorAt,
 	})
+
+	-- Matches the old ground layer's own CanCollide/CanQuery=false exactly (see this
+	-- function's own header): footing/burial stay on Zones.SURFACE_Y, and
+	-- FieldController's range ring still lands on the real plate underneath, not this
+	-- thin cap layer. Hub.tileRect has no such option -- the plaza/base pads
+	-- legitimately want collidable, queryable tiles, so this is a deliberate
+	-- after-the-fact override of this folder's own tiles only, not a change to that
+	-- shared function's default for every other caller.
+	for _, tile in folder:GetChildren() do
+		if tile:IsA("BasePart") then
+			tile.CanCollide = false
+			tile.CanQuery = false
+		end
+	end
 
 	folder.Parent = parent
 end
@@ -816,7 +834,7 @@ local function createScenery(): Model
 	for _, id in Zones.builtIds() do
 		buildZoneScenery(scenery, id)
 	end
-	buildStageGround(scenery, 1)
+	buildZone1Checkerboard(scenery)
 	buildStageMarkers(scenery, 1)
 
 	-- No zone-to-zone blend any more anywhere in the chain -- see the removal note
