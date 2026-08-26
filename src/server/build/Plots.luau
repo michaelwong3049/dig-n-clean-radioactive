@@ -129,7 +129,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 13
+local BUILDER_VERSION = 14
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -214,15 +214,15 @@ Plots.RING_RADIUS = 180
 --- RING_CENTER, not just the farthest pad centre: `sqrt((RING_RADIUS+HALF_D)^2 +
 --- HALF_W^2)` = ~208.6 studs.
 ---
---- 290, NOT A TIGHT FIT OVER THAT REACH, ON REQUEST — the disc used to stop
---- barely 6 studs past the pads' own farthest corner, which read as the
---- walkway ending right where the pads do rather than as land the camp sits
---- on. The extra ~80 studs is a real buffer of tiled ground beyond every pad
---- in every direction, not a tighter safety margin on the same number: nothing
---- else in this file needed to change for it, since `apronSkip`, the backing
---- bands and World.verify()'s landmass square all already read this constant
---- rather than a hardcoded reach.
-Plots.RING_OUTER = 290
+--- 235, TRIMMED BACK DOWN FROM 290, ON REQUEST — 290's ~80-stud buffer past
+--- every pad's farthest corner read as a wide belt of empty tiled ground
+--- ringing the whole camp (most visible on the west cap, farthest from the
+--- plaza, where nothing but the walkway itself ever stood). 235 keeps a real
+--- ~26-stud margin past the 208.6 reach — still comfortably more than the
+--- previous 215's ~6-stud margin, just nowhere near 290's — without any other
+--- change: `apronSkip`, the backing bands and World.verify()'s landmass
+--- square all already read this constant rather than a hardcoded reach.
+Plots.RING_OUTER = 235
 
 --- 34-degree spacing (was 30, widened on request for more breathing room
 --- between pads at the same radius), sector MIDPOINTS (see this section's own
