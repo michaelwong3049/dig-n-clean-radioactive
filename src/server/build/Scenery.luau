@@ -14,31 +14,34 @@
 	folder makes that class of bug impossible rather than merely unlikely.
 
 	THE OOZE IS THE SURFACE, NOT A HAZARD.
-	Per the design call: the plate itself is the sludge you wade through, and the
+	Per the design call: the ground itself is the sludge you walk through, and the
 	pools and spills here are visual variation with NO gameplay rules attached.
 	ZoneService.hotPocketFor stays a stub returning 1. This matters for a young
 	audience — one rule ("the green ground is dangerous, the paths are not") beats
 	two rules ("...but the BRIGHT green is extra dangerous") when the second one is
 	only telegraphed by shade.
 
-	"WADE THROUGH" IS NOW LITERAL, NOT JUST WORDING. `OozeSurface` is one translucent
-	Neon plate per zone, sized to the whole plate, floating
-	`WADE_HEIGHT` above the real floor — about half a leg on a default character.
-	Walking into the field sinks your legs into visible ooze instead of just
-	standing on tinted ground. It is a SEPARATE part from the actual walking
-	surface, not a raised version of it: `Zones.SURFACE_Y` (what DigService buries
-	against and what a player's feet actually rest on) never moves. CanCollide is
-	false, same as everything else in this file, so it changes nothing about
-	movement, burial, or exposure — purely a second, higher, see-through layer.
+	WHAT USED TO BE HERE: `OozeSurface`, a translucent Neon plate per zone, sized
+	to the whole plate and floating WADE_HEIGHT (1.1 studs, "about half a leg" on a
+	default character) above the real floor, so walking into a field sank your
+	legs into visible ooze instead of just standing on tinted ground.
+
+	REMOVED ON REQUEST — THE WADING EFFECT WAS NEVER APPROVED. The tint it left on
+	the ground WAS liked, so that part is kept, just moved: it is baked directly
+	into the ground colour now (Zones.GROUND_OOZE_TINT, applied in ZoneFields.luau
+	for zones 2-6 and in buildZone1Checkerboard's colorAt below for Zone 1)
+	instead of arriving via a second, higher, see-through plate. Zero gap between
+	a player's feet and the coloured ground now, same as before this plate existed
+	at all — `Zones.SURFACE_Y` (what DigService buries against and what a player's
+	feet actually rest on) was never touched by this either way.
 
 	NOTHING HERE MAY RISE THROUGH THE DIG SURFACE IN A WAY THAT HIDES IT.
 	DigService buries items on the plate's top face and the haul part rises to
 	exactly that plane, so anything opaque and tall enough to block the view would
 	hide an item surfacing underneath. Props are thin and sit just above;
-	anything tall is CanCollide=false so a player can walk out of it.
-	`OozeSurface` is the one exception that legitimately sits well above the
-	plane — but it stays translucent for exactly this reason, so a surfacing item
-	is dimmed, never hidden.
+	anything tall is CanCollide=false so a player can walk out of it. Nothing left
+	in this file sits above the plane the way `OozeSurface` used to — the ground
+	colour itself carries no such risk, it's the plate's own top face.
 
 	THE STAGES ARE TOLD APART BY GROUND COLOUR, NOT BY WALLS. buildZone1Checkerboard
 	tiles the plate in a studded, two-tone checkerboard (same board as the plaza and
@@ -87,16 +90,6 @@ local SKIM = 0.26
 --- The stage colour layer sits BELOW the pools, so a pool still reads as spilled on
 --- the ground rather than buried under it. Low enough to be invisible as a step.
 local GROUND_SKIM = 0.06
-
---- Roughly half a leg's height on a default character, so walking into the field
---- reads as WADING into the ooze rather than standing on tinted ground. Purely
---- visual: this is a separate, CanCollide=false plate floating above the real
---- floor, never the floor itself. DigService buries against and a player's actual
---- footing rests on Zones.SURFACE_Y exactly as before -- moving that plane is
---- exactly what ZoneFields.luau's header warns never to do ("tilt or bump a
---- plate and items surface underground"). This gets the same visual without
---- touching it.
-local WADE_HEIGHT = 1.1
 
 --- The chain's north/south boundary walls. Doubled to 56 tall and dropped to a
 --- 4-stud tile (from 28/8) after a live look -- ~8,400 parts per side at this size
@@ -538,41 +531,15 @@ local function buildZoneScenery(parent: Instance, id: number)
 	local origin = CFrame.new(def.center[1], Zones.SURFACE_Y, def.center[2])
 	local hx, hz = def.size[1] / 2 - 14, def.size[2] / 2 - 14
 
-	-- The wading surface: ONE translucent plate over the whole zone, raised to
-	-- WADE_HEIGHT, so the field reads as something you sink into rather than ground
-	-- that happens to be green. Sized to the actual plate, so its edge lines up with
-	-- the zone boundary.
-	--
-	-- IT STAYS ONE PART. Splitting it per stage to reinforce the ground colour is the
-	-- obvious next idea and it produces hard stripes across the field — the two now-
-	-- removed banded-gradient systems below (`buildZoneBlend`, `buildGradientOozeSurface`)
-	-- both hit exactly this with far more steps than a per-stage split ever would.
-	-- The stage/checkerboard colours read through this perfectly well on their own.
-	--
-	-- High transparency on purpose. Neon's brightness is emissive rather than a true
-	-- translucent tint, and bloom pushes an opaque-looking plate this size to a wall
-	-- of solid colour well before Transparency looks like it "should" (0.55 first pass
-	-- still read as solid ground, not a layer over it). 0.82 is the point props and
-	-- the sand below actually show through — including, now, the stage colour.
-	-- Zone 1 used to take a different path here — see the removal note above
-	-- LIFE_FADE_STEPS's old spot — and now takes this same one like every other
-	-- zone. No west-to-east transparency fade on the ooze any more; the pool
-	-- thinning just below is still Zone-1-specific and still carries that part of
-	-- the storytelling.
-	--
-	-- FULL WIDTH, CENTRED, NO INSET. This used to stop short of a blended edge and
-	-- let `buildZoneBlend` fill the gap with a stepped version of the same sheet —
-	-- see the removal note above ZONE_BLEND's old spot. Every boundary is a hard
-	-- cut now, so every zone's own sheet just runs edge to edge.
-	build(folder, origin, {
-		name = "OozeSurface",
-		pos = { 0, WADE_HEIGHT, 0 },
-		size = { def.size[1], 0.3, def.size[2] },
-		color = def.ooze.bright,
-		material = "Neon",
-		transparency = 0.82,
-		canCollide = false,
-	})
+	-- WHAT USED TO BE HERE: the OozeSurface build call -- one translucent Neon
+	-- plate over the whole zone, raised WADE_HEIGHT above the floor. REMOVED, see
+	-- this file's own header. The zone's colour identity (PLAN's "the coral one
+	-- is the detector shop" rule extended to zones) is no longer this plate's
+	-- job -- it now lives in the ground colour itself, baked in by
+	-- Zones.GROUND_OOZE_TINT: ZoneFields.luau's plate paint for zones 2-6, and
+	-- buildZone1Checkerboard's colorAt below for Zone 1. `origin`, `hx`, `hz` and
+	-- `rng` above are unused now that this function has nothing left to place
+	-- with them, kept for whatever replaces the props/pools below.
 
 	-- POOLS AND SCATTERED PROPS (OozePool/OozeRim, DeadTree/liveTree/brush, barrels,
 	-- houses/sirens/barriers/reactor/shards) DELIBERATELY REMOVED ON REQUEST, TO BE
@@ -584,9 +551,7 @@ local function buildZoneScenery(parent: Instance, id: number)
 	-- brush/liveTree mix), is in git history on this file rather than left as dead
 	-- code here. `THEME`, `theme.pools`/`theme.props`, `prop()`, `barrel()`, and
 	-- `ZONE_LIGHT_BUDGET`/`BARREL_LIGHT_EVERY` are all still defined above and
-	-- untouched, ready for whatever replaces this. The OozeSurface wading plate above
-	-- stays -- that is the zone's colour-identity system (PLAN's "the coral one is
-	-- the detector shop" rule extended to zones), not a decoration.
+	-- untouched, ready for whatever replaces this.
 
 	folder.Parent = parent
 end
@@ -667,17 +632,25 @@ local function buildZone1Checkerboard(parent: Instance)
 		{ x = maxX, dark = stage3Dark, light = stage3Light },
 	}
 
+	-- Every tile gets Zone 1's ooze tint blended in on top of its gradient colour
+	-- (Zones.GROUND_OOZE_TINT -- see that constant's comment for why this exists:
+	-- it's the removed OozeSurface's tint, now baked into the tile instead of
+	-- arriving via a separate plate floating above it).
+	local function tint(c: Color3): string
+		return Kit.blendHex(c:ToHex(), def.ooze.bright, Zones.GROUND_OOZE_TINT)
+	end
+
 	local function colorAt(x: number, _z: number): (string, string)
 		local cx = math.clamp(x, waypoints[1].x, waypoints[#waypoints].x)
 		for i = 1, #waypoints - 1 do
 			local a, b = waypoints[i], waypoints[i + 1]
 			if cx >= a.x and cx <= b.x then
 				local t = if b.x > a.x then (cx - a.x) / (b.x - a.x) else 0
-				return a.dark:Lerp(b.dark, t):ToHex(), a.light:Lerp(b.light, t):ToHex()
+				return tint(a.dark:Lerp(b.dark, t)), tint(a.light:Lerp(b.light, t))
 			end
 		end
 		local last = waypoints[#waypoints]
-		return last.dark:ToHex(), last.light:ToHex()
+		return tint(last.dark), tint(last.light)
 	end
 
 	local folder = Instance.new("Folder")

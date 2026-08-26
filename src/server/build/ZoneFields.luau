@@ -70,11 +70,15 @@ local function createFields(): Folder
 		-- Built through Kit like everything else, but positioned absolutely: a zone's
 		-- centre is world space, not an offset from some origin, because the plates
 		-- are the frame everything else is measured against.
+		-- Painted with the zone's ooze tint baked in (Zones.GROUND_OOZE_TINT), not
+		-- the raw def.color -- see that constant's comment. There is no separate
+		-- OozeSurface any more to supply the bright half of the ground's colour,
+		-- so this plate is the whole of it now.
 		local plate = Kit.build(folder, cframe, {
 			name = `Zone{id}`,
 			pos = { 0, 0, 0 },
 			size = { size.X, size.Y, size.Z },
-			color = def.color,
+			color = Kit.blendHex(def.color, def.ooze.bright, Zones.GROUND_OOZE_TINT),
 			material = def.material,
 			rot = Kit.R.flat,
 			attributes = {

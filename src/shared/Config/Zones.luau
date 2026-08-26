@@ -216,6 +216,18 @@ local Zones = {}
 --- that moved.
 Zones.SURFACE_Y = -1.5
 
+--- How strongly each zone's bright `ooze` colour is baked into its ground
+--- colour. Replaces the old `OozeSurface` -- a separate translucent Neon plate
+--- floating WADE_HEIGHT above the real floor -- which was removed on request
+--- (the wading effect was never approved; the tint it produced was liked and
+--- is kept here instead, flush with the ground). 0.55 rather than the old
+--- part's nominal 0.18 opacity (1 - 0.82 transparency): Neon is emissive and
+--- bloom pushes a translucent plate's apparent colour well past its raw alpha
+--- (see build/Scenery.luau's old OozeSurface comment), so a plain alpha-style
+--- blend at 0.18 reads far too faint next to what the removed layer actually
+--- looked like. Tuned live against Zone 1, the only zone anyone has stood in.
+Zones.GROUND_OOZE_TINT = 0.55
+
 --- Plate thickness. DERIVED, not chosen: DigService buries at up to
 --- DEPTH_BASE + 7*DEPTH_PER_RARITY + DEPTH_JITTER = 13.2 studs, and the haul part
 --- is drawn at signal.position - depth while it rises. At 16 the deepest haul sits

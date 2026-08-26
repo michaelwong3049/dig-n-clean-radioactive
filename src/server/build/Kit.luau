@@ -203,6 +203,13 @@ function Kit.build(parent: Instance, origin: CFrame, spec: Spec): BasePart
 	return p
 end
 
+--- Blend two hex colours, `t` = 0 -> a, 1 -> b. Used to bake a zone's bright
+--- ooze tint straight into a ground colour instead of layering a separate
+--- translucent plate over it (see Zones.GROUND_OOZE_TINT).
+function Kit.blendHex(a: string, b: string, t: number): string
+	return Color3.fromHex(a):Lerp(Color3.fromHex(b), t):ToHex()
+end
+
 function Kit.light(part: BasePart, color: string, range: number, brightness: number)
 	local l = Instance.new("PointLight")
 	l.Color = Color3.fromHex(color)
