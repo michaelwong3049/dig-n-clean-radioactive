@@ -187,15 +187,28 @@ function World.verify(): (boolean, { string })
 			return xOverlap and zOverlap
 		end
 
-		-- The camp landmass: the plaza plus the ring corridor the plots sit in. (`p`
-		-- above is scoped to the per-zone loop; this block runs after it.)
+		-- The camp landmass: the plaza, plus one bounding square over the
+		-- semicircular pad ring (Plots.RING_CENTER/RING_OUTER). (`p` above is
+		-- scoped to the per-zone loop; this block runs after it.)
+		--
+		-- ONE SQUARE, NOT A TRACED CURVE. Every zone in this codebase chains
+		-- reachability off the plaza rectangle alone -- Zones.DEFS is one
+		-- straight chain starting at Zone 1, whose west edge is exactly
+		-- Hub.PLAZA.maxX -- so the ring's own landmass has never actually been
+		-- load-bearing for a zone's reachability, only for keeping this
+		-- description honest. A single generous square still does that job:
+		-- this check only ever produces a boolean "touches", never a rendered
+		-- shape, so over-covering the ring's true circular footprint is
+		-- harmless.
 		local p = Hub.PLAZA
-		local ring = Plots.PAD.depth
 		local reached: { { number } } = {
 			{ p.minX, p.minZ, p.maxX, p.maxZ },
-			{ p.minX - ring, p.maxZ, p.maxX, p.maxZ + ring },
-			{ p.minX - ring, p.minZ - ring, p.maxX, p.minZ },
-			{ p.minX - ring, p.minZ, p.minX, p.maxZ },
+			{
+				Plots.RING_CENTER.x - Plots.RING_OUTER,
+				Plots.RING_CENTER.z - Plots.RING_OUTER,
+				Plots.RING_CENTER.x,
+				Plots.RING_CENTER.z + Plots.RING_OUTER,
+			},
 		}
 
 		local pending: { number } = table.clone(built)
@@ -225,41 +238,48 @@ function World.verify(): (boolean, { string })
 	end
 
 	-- ── Plot pads: on the ring, not in it ────────────────────────────────
-	-- New with the ring layout, and worth checking precisely BECAUSE it is new. The
-	-- old single column could not collide with anything: it sat at one X, west of
-	-- everything, and the plaza was stretched to meet it. Six pads placed around a
-	-- rectangle can absolutely land on top of it, on a zone, or on each other, and
-	-- every one of those is invisible until someone walks into a wall.
-	local function padBounds(centre: any): { number }
-		-- A pad is PAD.width along its own X and PAD.depth along its own Z. At +/-90
-		-- those swap in world space; getting this backwards is the whole reason to
-		-- compute it rather than eyeball it.
-		local turned = math.abs(centre.facing) == 90
-		local halfX = if turned then Plots.PAD.depth / 2 else Plots.PAD.width / 2
-		local halfZ = if turned then Plots.PAD.width / 2 else Plots.PAD.depth / 2
-		return { centre.x - halfX, centre.z - halfZ, centre.x + halfX, centre.z + halfZ }
+	-- Six pads on the semicircular ring can absolutely land on the plaza, on a
+	-- zone, or on each other, and every one of those is invisible until someone
+	-- walks into a wall.
+	--
+	-- ORIENTED, NOT AXIS-ALIGNED. The old rectangular ring only ever used
+	-- facings that were multiples of 90, so an axis-aligned bounding box (this
+	-- function used to just swap width/depth at +/-90) was exact. None of the
+	-- six facings on the semicircular ring are multiples of 90 any more, so
+	-- this needs the pad's real, rotated footprint -- Kit.orientedRectsOverlap,
+	-- the same separating-axis test Plots.luau's own apron uses to punch pads
+	-- out of the walkway.
+	local function padRect(centre: { x: number, z: number, facing: number }): Kit.OrientedRect
+		return { cx = centre.x, cz = centre.z, halfWidth = Plots.PAD.width / 2, halfDepth = Plots.PAD.depth / 2, yawDeg = centre.facing }
+	end
+
+	-- An axis-aligned rectangle expressed the same way, so the plaza and a zone
+	-- plate (both yaw 0) can be tested against a pad with the same function.
+	local function axisRect(minX: number, minZ: number, maxX: number, maxZ: number): Kit.OrientedRect
+		return { cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2, halfWidth = (maxX - minX) / 2, halfDepth = (maxZ - minZ) / 2, yawDeg = 0 }
 	end
 
 	local plaza = Hub.PLAZA
+	local plazaRect = axisRect(plaza.minX, plaza.minZ, plaza.maxX, plaza.maxZ)
 	for i, centre in Plots.CENTERS do
-		local a = padBounds(centre)
+		local a = padRect(centre)
 
 		check(
-			not rectsOverlap(a, { plaza.minX, plaza.minZ, plaza.maxX, plaza.maxZ }),
+			not Kit.orientedRectsOverlap(a, plazaRect),
 			`plot {i} overlaps the plaza — the pad is a step up, so it would sit in the middle of the pavement`
 		)
 
 		for _, id in Zones.builtIds() do
 			local ax, az, bx, bz = Zones.bounds(id)
 			check(
-				not rectsOverlap(a, { ax, az, bx, bz }),
+				not Kit.orientedRectsOverlap(a, axisRect(ax, az, bx, bz)),
 				`plot {i} overlaps Zone{id} — a plot inside a zone irradiates whoever is standing on it`
 			)
 		end
 
 		for j = i + 1, #Plots.CENTERS do
 			check(
-				not rectsOverlap(a, padBounds(Plots.CENTERS[j])),
+				not Kit.orientedRectsOverlap(a, padRect(Plots.CENTERS[j])),
 				`plot {i} overlaps plot {j}`
 			)
 		end
