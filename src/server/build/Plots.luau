@@ -15,31 +15,52 @@
 	setting, not repo state — Rojo does not capture it — so it is written down in
 	ARCHITECTURE.md as one of the things a fresh clone cannot reconstruct.
 
-	A RING AROUND THE PLAZA, DIRECTLY AGAINST IT — the requested layout:
+	A SEMICIRCLE AROUND THE SHOP CLUSTER — the requested layout:
 
-	          [PLOT] [PLOT]
-	    [PLOT] ┌───────────┐
-	           │ SHOP AREA │ === [RADIOACTIVE AREA]
-	    [PLOT] └───────────┘
-	          [PLOT] [PLOT]
+	              [PLOT] [PLOT]
+	         [PLOT]   .-'''-.
+	                 (  SHOPS ) === [RADIOACTIVE AREA]
+	         [PLOT]   `-...-'
+	              [PLOT] [PLOT]
 
-	Two north, two south, two west, each pad butted flush against the plaza edge and
-	rotated to face inward. The east side is the radiation field, so the ring is open
-	there and always will be — you leave the courtyard by walking into the sludge.
+	Six pads on the exterior of one circle, evenly spaced across its western 180
+	degrees, each rotated to face the shop cluster at the centre. The eastern half
+	is open — the plaza (`Hub.PLAZA`, untouched by this file, still sitting between
+	the shop cluster and Zone 1) is the connector, so the ring is open there and
+	always will be — you leave the courtyard by walking into the sludge. See
+	RING_CENTER/RING_RADIUS/RING_ANGLES below for the actual circle.
 
-	IT WAS A SINGLE COLUMN DOWN THE WEST SIDE UNTIL NOW, and that had a cost nobody
-	had priced: the plaza had been stretched to 382 studs deep purely so it could span
-	the column and let all six plots border it. Ringing them freed the plaza to be
-	sized by what actually stands on it, and it came back to 180x200 — a little over
-	half the area. The plots did not get smaller; the car park between them did.
+	IT WAS A RECTANGULAR RING BEFORE THIS — two pads on each of the plaza's north,
+	south and west edges, butted flush against it. That shape hard-assumed every
+	pad sat at a multiple of 90 degrees (both in the old `padBounds` here and in
+	World.luau's own copy, and in how a pad's own tiles were built — see
+	`buildPlot`'s comment on that below); a circle needs a real fix for both, not a
+	new set of coordinates plugged into the old assumptions. `Kit.orientedRect*`
+	(added alongside this rework) is what makes an arbitrary facing angle safe to
+	overlap-test and tile.
+
+	IT WAS A SINGLE COLUMN DOWN THE WEST SIDE BEFORE THAT, and that had a cost
+	nobody had priced: the plaza had been stretched to 382 studs deep purely so it
+	could span the column and let all six plots border it. Ringing them freed the
+	plaza to be sized by what actually stands on it. The plots did not get
+	smaller through any of these reshuffles; the car park between them did.
 
 	A BASE WEARS THE PLAZA'S BOARD IN ITS OWN COLOURS. The pad is not a slab of
 	concrete any more: it is the same studded checkerboard the courtyard is paved in,
 	on the same grid, in navy and grey instead of green, one step up. That makes the
 	six bases the only thing in the world that is not some shade of green, and it
-	makes walking onto one a change of colour rather than a change of surface. See
-	`buildPlot` — the tiles are placed in WORLD space, not this model's yawed local
-	space, which is the one detail that is easy to get wrong.
+	makes walking onto one a change of colour rather than a change of surface.
+
+	A PAD'S OWN TILES ARE BUILT IN ITS YAWED LOCAL SPACE, NOT WORLD SPACE — the
+	opposite of how this used to work, and the semicircle is exactly why: a pad's
+	footprint was axis-aligned in world space at every facing the old rectangular
+	ring used (only multiples of 90), so tiling that world-space bounding box was
+	exact. None of the six facings on the semicircular ring are multiples of 90 any
+	more, so the old approach would tile a diamond of excess area outside the
+	pad's real, rotated footprint. See `buildPlot` and `Hub.TileOpts.origin`. The
+	one cost: a pad's board can no longer phase-lock with the apron's grid across
+	their shared edge (only possible at 90-degree multiples) — still an exact 3x3
+	checkerboard, just an incidental phase instead of a matched one.
 
 	THE DEPENDENCY FLIPPED, AGAIN, AND THIS TIME IT IS DERIVED RATHER THAN COMMENTED.
 	This file used to require `Hub`, then stopped, and `Hub.luau` carried a comment
@@ -108,7 +129,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 8
+local BUILDER_VERSION = 9
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -121,83 +142,120 @@ Plots.VISIBLE_SLOTS = 8
 -- silently becoming a different absolute step.
 Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3 }
 
---- THE RING. Six pads butted against the plaza edge, each rotated to face inward.
+--- THE RING. Six pads on the exterior of a circle centred on the plaza's own
+--- midpoint, each rotated to face the centre.
 ---
---- DERIVED FROM Hub.PLAZA, NOT HAND-SYNCED TO IT. This used to be a single column at
---- a literal `Plots.PLOT_X = -170`, with Hub.luau carrying a four-number comment about
---- how its plaza had been stretched to match — two files, one shared geometry, and
---- nothing to catch them drifting apart. The dependency now runs one way: the plaza is
---- the source, this reads it, and moving the plaza moves the pads with it. Hub requires
---- only Kit, so requiring it here is not circular.
+--- DERIVED FROM Hub.PLAZA, NOT HAND-SYNCED TO IT — same property the rectangular
+--- ring before this had: the plaza is the source, this reads it, and moving the
+--- plaza moves the ring with it. Hub requires only Kit, so requiring it here is
+--- not circular.
 ---
---- `facing` is a yaw in degrees. A pad is built with its back wall at +Z and its claim
---- board at -Z, so 0 faces south and each side of the ring turns to look at the plaza:
+--- `facing` is a yaw in degrees. A pad is built with its back wall at +Z and its
+--- claim board at -Z, so 0 faces south, 180 faces north, -90 faces east — and
+--- because every pad's position below is constructed as
+--- `RING_CENTER + RING_RADIUS * (sin(bearing), cos(bearing))`, its `facing`
+--- equals that same bearing (normalised into the -180..180 range this file
+--- already used for the old west-side pads' -90): a pad built this way always
+--- looks straight back at RING_CENTER by construction, no separate aim step
+--- needed. Checked against the three cases the old rectangular ring had: bearing
+--- 0 (due north of centre) faces south (0) toward it, bearing 180 (due south)
+--- faces north (180), bearing 270 (due west) faces east (-90) — all three match.
 ---
----              [ 2 ]   [ 3 ]          north pads face south  (0)
----        [ 1 ]  ┌───────────┐
----               │   PLAZA   │  ==>  RADIATION      east is the field; the
----        [ 6 ]  └───────────┘                      ring is open there
----              [ 5 ]   [ 4 ]          south pads face north  (180)
----                                     west pads face east    (-90)
+--- RING_ANGLES is 6 bearings at 30-degree SECTOR MIDPOINTS across the western
+--- 180 (195, 225, ... 345), not the sector edges (180, 210, ... 360) — so no pad
+--- sits exactly on the north/south line where the ring's open mouth begins.
 ---
---- Numbered clockwise from the west side's north half. The jump from 3 to 4 crosses
---- the open east side, which is the one place the ring cannot close.
+---                    (north, bearing 0)
+---                [ 6 ]           [ 1 ]
+---           [ 5 ]     .-'''-.        <open mouth>
+---                    ( SHOPS  )  ==>  RADIATION
+---           [ 4 ]     `-...-'
+---                [ 3 ]           [ 2 ]
+---                    (south, bearing 180)
+---
+--- Numbered clockwise starting just west of due south. Unlike the old ring
+--- (whose single "jump" crossed the entire east side in one step, 3 to 4), the
+--- open mouth here is symmetric: it's the gap on BOTH sides of the 6-to-1 seam,
+--- between the last pad short of due-north and the first pad short of due-south.
 local PLAZA = Hub.PLAZA
 local HALF_W, HALF_D = Plots.PAD.width / 2, Plots.PAD.depth / 2
 local MID_X, MID_Z = (PLAZA.minX + PLAZA.maxX) / 2, (PLAZA.minZ + PLAZA.maxZ) / 2
 
---- Half the centre-to-centre spacing of the two pads on a side. HALF_W plus a gap, so
---- the pair sits either side of the midpoint with a walkable slot between them rather
---- than as one 132-stud slab.
-local SPREAD = HALF_W + 8
+Plots.RING_CENTER = { x = MID_X, z = MID_Z }
 
-Plots.CENTERS = {
-	{ x = PLAZA.minX - HALF_D, z = MID_Z + SPREAD, facing = -90 },
-	{ x = MID_X - SPREAD, z = PLAZA.maxZ + HALF_D, facing = 0 },
-	{ x = MID_X + SPREAD, z = PLAZA.maxZ + HALF_D, facing = 0 },
-	{ x = MID_X + SPREAD, z = PLAZA.minZ - HALF_D, facing = 180 },
-	{ x = MID_X - SPREAD, z = PLAZA.minZ - HALF_D, facing = 180 },
-	{ x = PLAZA.minX - HALF_D, z = MID_Z - SPREAD, facing = -90 },
-}
+--- Pad-CENTRE orbit radius. 180 gives a uniform ~16-stud gap between every one
+--- of the 6 pads' oriented rectangles at 30-degree spacing (checked with real
+--- oriented-rectangle distance, not a small-angle approximation) — matching the
+--- old rectangular ring's own 16-stud SPREAD gap between paired pads. Comfortably
+--- more spread out than the old ring's west-side reach (~134.5 studs from
+--- centre): this radius alone is already 180, before a pad's own half-depth is
+--- added on top.
+Plots.RING_RADIUS = 180
 
---- A pad's XZ footprint in world space. A pad is built width-along-X, depth-along-Z
---- and then YAWED into place, so the two pads on the west side — the ones facing east
---- — have those two numbers the other way round. Only right angles occur in the ring,
---- so this is a swap rather than a rotation.
-local function padBounds(c: { x: number, z: number, facing: number }): (number, number, number, number)
-	local sideways = c.facing == 90 or c.facing == -90
-	local halfX = if sideways then HALF_D else HALF_W
-	local halfZ = if sideways then HALF_W else HALF_D
-	return c.x - halfX, c.z - halfZ, c.x + halfX, c.z + halfZ
+--- The walkway's outer disc radius — has to clear the farthest PAD CORNER from
+--- RING_CENTER, not just the farthest pad centre: `sqrt((RING_RADIUS+HALF_D)^2 +
+--- HALF_W^2)` = ~208.6 studs. 215 leaves a safety margin over that reach. Also
+--- what World.verify()'s reachability check uses as the ring's landmass bound —
+--- see that function's own comment.
+Plots.RING_OUTER = 215
+
+--- 30-degree spacing, sector MIDPOINTS (see this section's own comment above for
+--- why not the sector edges). Order matches the numbering diagram above.
+local RING_ANGLES = { 195, 225, 255, 285, 315, 345 }
+
+Plots.CENTERS = {}
+for i, bearing in RING_ANGLES do
+	local rad = math.rad(bearing)
+	Plots.CENTERS[i] = {
+		x = Plots.RING_CENTER.x + Plots.RING_RADIUS * math.sin(rad),
+		z = Plots.RING_CENTER.z + Plots.RING_RADIUS * math.cos(rad),
+		facing = if bearing > 180 then bearing - 360 else bearing,
+	}
 end
 
---- THE APRON — the ground in the gaps BETWEEN the bases.
----
---- The six pads sit in a corridor one pad-depth wide wrapped around three sides of
---- the plaza, but they do not fill it. SPREAD leaves a 16-stud slot between each
---- pair, and where the west side meets the north and south sides there is a much
---- bigger L-shaped hole. All of it was open sky: you could see the void under the map
---- from the middle of the camp, and there was no way to walk from one base to the one
---- beside it without cutting all the way back across the plaza.
----
---- FILLING IT IS THREE RECTANGLES, NOT NINE. Tile the whole corridor and punch the
---- pads back out with a skip predicate, rather than enumerating the gaps by hand.
---- Same result, and it cannot fall out of step with the ring — nine hand-written
---- rectangles would be wrong the moment SPREAD, PAD or the plaza changes, and wrong
---- silently, as a hole somebody notices weeks later.
----
---- THE EAST EDGE STOPS DEAD ON PLAZA.maxX, which is also Zone 1's west edge. The
---- corridor may touch the field and must never cross into it: apron is zero-rad
---- ground, and a strip of it inside the zone would be a safe pocket in the middle of
---- the radiation — the one property the whole "paths are safe, the green is not" rule
---- rests on. `Hub.tileRect` clips edge tiles to the rectangle for this reason.
-local RING = Plots.PAD.depth
+--- A pad's true, ROTATED footprint — an `Kit.OrientedRect`, not an axis-aligned
+--- bounding box. Only right angles occurred in the old rectangular ring, which is
+--- what let that ring get away with a "swap width/depth" axis-aligned shortcut;
+--- none of the six facings here are multiples of 90, so overlap/containment
+--- tests need the real oriented rectangle. `Kit.pointInOrientedRect` and
+--- `Kit.orientedRectsOverlap` (used by this file's apron and by
+--- World.verify()'s pad checks) both take this same shape.
+local function padRect(c: { x: number, z: number, facing: number }): Kit.OrientedRect
+	return { cx = c.x, cz = c.z, halfWidth = HALF_W, halfDepth = HALF_D, yawDeg = c.facing }
+end
 
-local APRON: { Hub.Rect } = {
-	{ minX = PLAZA.minX - RING, maxX = PLAZA.maxX, minZ = PLAZA.maxZ, maxZ = PLAZA.maxZ + RING },
-	{ minX = PLAZA.minX - RING, maxX = PLAZA.maxX, minZ = PLAZA.minZ - RING, maxZ = PLAZA.minZ },
-	{ minX = PLAZA.minX - RING, maxX = PLAZA.minX, minZ = PLAZA.minZ, maxZ = PLAZA.maxZ },
-}
+--- THE APRON — the disc of ground between the shop cluster and the pads, minus
+--- the plaza (which already has its own floor) and minus every pad's own
+--- footprint.
+---
+--- ONE TILED DISC, NOT SIX SPOKES. Tile a square bounding RING_OUTER and drop
+--- whatever falls outside the disc, inside the plaza, or inside a pad, via a
+--- skip predicate — the same "tile the whole area, punch the exceptions back
+--- out" approach the old rectangular apron used, generalised from three
+--- rectangles to a circle. It cannot fall out of step with the ring for the same
+--- reason the old version couldn't: everything here reads RING_CENTER,
+--- RING_OUTER and CENTERS directly rather than duplicating a shape.
+---
+--- THE OPEN MOUTH COMES FREE FROM THE BOUNDING RECT ITSELF: capping it at
+--- `maxX = RING_CENTER.x` only ever tiles the western half of the disc, the same
+--- clipping mechanism that already keeps the plaza's own east edge from
+--- overhanging into Zone 1 (`Hub.tileRect` clips every tile to the rect it's
+--- given).
+local function apronSkip(x: number, z: number): boolean
+	local dx, dz = x - Plots.RING_CENTER.x, z - Plots.RING_CENTER.z
+	if dx * dx + dz * dz > Plots.RING_OUTER * Plots.RING_OUTER then
+		return true -- outside the disc
+	end
+	if x > PLAZA.minX and x < PLAZA.maxX and z > PLAZA.minZ and z < PLAZA.maxZ then
+		return true -- the plaza already has its own floor
+	end
+	for _, c in Plots.CENTERS do
+		if Kit.pointInOrientedRect(x, z, padRect(c)) then
+			return true
+		end
+	end
+	return false
+end
 
 --- Two flanking columns, paired off row by row — odd slots go left, even slots
 --- go right, and each pair shares a Z so the sketch's row-by-row symmetry holds.
@@ -318,16 +376,13 @@ local function buildPlot(parent: Instance, index: number)
 	-- the pavement — and navy-and-grey against the courtyard's green, so the six bases
 	-- are the one thing in the world that is not some shade of it.
 	--
-	-- BUILT IN WORLD SPACE, NOT THIS MODEL'S LOCAL SPACE, which is the one thing to be
-	-- careful about here. Everything else in this function is placed against `origin`,
-	-- which is YAWED to face the plaza; the tiles are not, because they have to land on
-	-- the plaza's own grid to stay in register with the apron the pad sits on. Yawing
-	-- them 90 degrees on the west pads would rotate the board out of alignment with
-	-- itself. A pad's footprint is axis-aligned in world space at every facing the ring
-	-- uses, so tiling the footprint directly is exact, not an approximation.
-	local x0, z0, x1, z1 = padBounds(Plots.CENTERS[index])
-	local rect: Hub.Rect = { minX = x0, maxX = x1, minZ = z0, maxZ = z1 }
-	local tint: Hub.TileOpts = { topY = pad.topY, dark = C.baseTileDark, light = C.baseTileLight }
+	-- BUILT IN THIS MODEL'S YAWED LOCAL SPACE, THROUGH `origin`, LIKE EVERYTHING ELSE
+	-- IN THIS FUNCTION — the opposite of how this used to work (see this file's own
+	-- header on why: a pad's footprint stopped being axis-aligned in world space the
+	-- moment the ring stopped using only 90-degree facings). `rect` is a LOCAL
+	-- rectangle centred on the pad's own origin, not a world-space one.
+	local rect: Hub.Rect = { minX = -HALF_W, maxX = HALF_W, minZ = -HALF_D, maxZ = HALF_D }
+	local tint: Hub.TileOpts = { topY = pad.topY, dark = C.baseTileDark, light = C.baseTileLight, origin = origin }
 
 	-- The slab underneath carries PlotIndex, because that is the world contract this
 	-- file's header publishes and a folder of 350 tiles cannot carry it.
@@ -450,27 +505,49 @@ local function buildPlot(parent: Instance, index: number)
 	return m
 end
 
---- Lay the apron. Lives in this file rather than in Hub.luau because the corridor is
+--- Lay the apron. Lives in this file rather than in Hub.luau because the disc is
 --- derived from the pad ring, and Hub cannot see the ring: Plots requires Hub, so a
 --- require back the other way would be a cycle. Hub owns the PATTERN and exports it;
 --- this file owns the SHAPE and asks for it to be tiled.
+---
+--- THE VISIBLE CAP is one `Hub.tileRect` call over a square bounding RING_OUTER,
+--- clipped to the western half (`maxX = RING_CENTER.x`) and punched by
+--- `apronSkip` (plaza + every pad's own oriented footprint) — see that
+--- function's own comment above.
+---
+--- THE STRUCTURAL BACKING underneath is N horizontal bands rather than one big
+--- rectangle, each inscribed so its own farthest corner lands exactly on the
+--- RING_OUTER circle — a single bounding rectangle would round the disc's curve
+--- out to a square and leave the tiled cap's corners floating over open air.
+--- Purely cosmetic backing (World.verify() never inspects apron shape): if it
+--- ever needs to look tidier from underneath, BANDS is the one knob to turn.
 local function buildApron(row: Model)
 	local apron = Instance.new("Folder")
 	apron.Name = "Apron"
 
-	local function insidePad(x: number, z: number): boolean
-		for _, c in Plots.CENTERS do
-			local x0, z0, x1, z1 = padBounds(c)
-			if x > x0 and x < x1 and z > z0 and z < z1 then
-				return true
-			end
-		end
-		return false
-	end
+	local discBounds: Hub.Rect = {
+		minX = Plots.RING_CENTER.x - Plots.RING_OUTER,
+		maxX = Plots.RING_CENTER.x,
+		minZ = Plots.RING_CENTER.z - Plots.RING_OUTER,
+		maxZ = Plots.RING_CENTER.z + Plots.RING_OUTER,
+	}
+	Hub.tileRect(apron, discBounds, { skip = apronSkip })
 
-	for index, rect in APRON do
-		Hub.groundSlab(apron, rect, `ApronSlab{index}`)
-		Hub.tileRect(apron, rect, { skip = insidePad })
+	local BANDS = 12
+	local bandHeight = (2 * Plots.RING_OUTER) / BANDS
+	for i = 0, BANDS - 1 do
+		local zLo = Plots.RING_CENTER.z - Plots.RING_OUTER + i * bandHeight
+		local zHi = zLo + bandHeight
+		local reach = math.max(math.abs(zLo - Plots.RING_CENTER.z), math.abs(zHi - Plots.RING_CENTER.z))
+		if reach < Plots.RING_OUTER then
+			local safeHalfX = math.sqrt(Plots.RING_OUTER ^ 2 - reach ^ 2)
+			Hub.groundSlab(apron, {
+				minX = Plots.RING_CENTER.x - safeHalfX,
+				maxX = Plots.RING_CENTER.x,
+				minZ = zLo,
+				maxZ = zHi,
+			}, `ApronSlab{i + 1}`)
+		end
 	end
 
 	apron.Parent = row

@@ -11,10 +11,12 @@
 	true by construction and costs nothing to enforce. For a young audience that is
 	the single most legible rule in the game, and it is free.
 
-	THE PLOTS RING IT ON THREE SIDES. Two north, two south, two west, each pad butted
-	against the plaza edge and rotated to face inward. The east side is the radiation
-	field and always will be, so the ring is open there — you walk out of the
-	courtyard directly into the sludge.
+	THE PLOTS RING IT AS A SEMICIRCLE. Six pads on the exterior of a circle centred
+	on the plaza's own midpoint, each rotated to face the shop cluster at the
+	centre. The eastern half is open — the plaza connects straight through to Zone
+	1 there, same as always — so the ring only occupies the western 180 degrees;
+	you still walk out of the courtyard directly into the sludge. See Plots.luau
+	for the actual circle math (Plots.RING_CENTER/RING_RADIUS/RING_ANGLES).
 
 	NO CONNECTOR ROADS. The plaza used to be a fixed 160x160 square with paved strips
 	running out to a plot spine and to the field. Per the requested layout (plots —
@@ -39,8 +41,17 @@
 	the grid; `tileRect` and `groundSlab` are exported so the plot ring and the six
 	player bases can lay the same board. The plaza and its apron wear it in two shades
 	of green, the bases wear it in navy and grey a step above — one pattern, one grid,
-	two palettes, and they stay in register across every edge because the grid belongs
-	to the plaza rather than to whoever is asking for tiles.
+	two palettes, staying in register across the apron's own edges because the grid
+	belongs to the plaza rather than to whoever is asking for tiles.
+
+	A PAD'S OWN BOARD IS THE ONE EXCEPTION, AND ONLY SINCE THE SEMICIRCLE. Both
+	builders below take an optional `opts.origin` CFrame so a caller can tile a
+	rectangle defined in ITS OWN local frame instead of always in world space —
+	added because a pad's facing is no longer a multiple of 90 degrees, so its
+	footprint is no longer axis-aligned in world space the way the grid math here
+	assumes. A pad's tiles stay an exact 3x3 checkerboard, they just no longer
+	phase-lock with the apron's grid across the shared edge the way a 90-degree pad
+	could. See Plots.buildPlot.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -56,7 +67,7 @@ local Zones = require(ReplicatedStorage.Shared.Config.Zones)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 8
+local BUILDER_VERSION = 9
 
 local C = Kit.C
 local build = Kit.build
@@ -167,6 +178,7 @@ export type TileOpts = {
 	-- optional and additive so every existing caller (the plaza itself, Plots'
 	-- pads/apron) is untouched -- none of them pass this.
 	colorAt: ((x: number, z: number) -> (string, string))?,
+	origin: CFrame?, -- default identity -- see this type's own comment above
 }
 
 --- The structural slab a tiled rectangle rides on: same footprint, recessed by
@@ -183,7 +195,7 @@ function Hub.groundSlab(parent: Instance, rect: Rect, name: string, thickness: n
 	local o = opts or {}
 	local topY = o.topY or Hub.PLAZA.topY
 	local deep = thickness or Hub.PLAZA.thickness
-	return build(parent, CFrame.new(0, 0, 0), {
+	return build(parent, o.origin or CFrame.new(0, 0, 0), {
 		name = name,
 		pos = {
 			(rect.minX + rect.maxX) / 2,
@@ -219,10 +231,21 @@ end
 --- 1.5 above this layer, so it swallows the overlap completely.
 ---
 --- `opts.topY`, `opts.dark` and `opts.light` are how the plot pads wear this board in
---- their own colours a step above the plaza's. The GRID is still the plaza's, so a pad
---- lines up with the apron it sits on even though nothing about their sizes divides
---- evenly — walk off a pad and the tiles continue in register, one step down and in a
---- different palette.
+--- their own colours a step above the plaza's. For a `rect` given in world space
+--- (every caller except a pad's own tiles, see `opts.origin` below) the GRID is
+--- still the plaza's, so walking off e.g. the apron onto ground built the same way
+--- keeps the tiles in register, one step down and in a different palette.
+---
+--- `opts.origin` (default identity) lets a caller give `rect` in ITS OWN local
+--- frame instead of world space — every part `build` places still goes through
+--- `origin`, same as everywhere else in this file. Added for pads on the
+--- semicircular ring, whose facing is no longer a multiple of 90 degrees: at an
+--- arbitrary yaw a pad's true footprint is a rotated rectangle, not the
+--- axis-aligned one this grid math otherwise assumes, so tiling it in world space
+--- would tile a diamond of excess area outside the pad. The one cost: a pad tiled
+--- this way is still an exact 3x3 checkerboard, it just no longer phase-locks
+--- with the apron's grid across their shared edge — only possible at 90-degree
+--- multiples. See Plots.buildPlot.
 ---
 --- Studs are the look, and they only render on Plastic — the plaza's old Pavement
 --- swallowed them completely, which is why every other surface in this world is
@@ -236,7 +259,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	local skip = o.skip
 	local colorAt = o.colorAt
 
-	local origin = CFrame.new(0, 0, 0)
+	local origin = o.origin or CFrame.new(0, 0, 0)
 	local size = (p.maxX - p.minX) / Hub.TILES
 
 	local built = 0
@@ -332,10 +355,13 @@ local function buildSpawns(hub: Model)
 	local spawns = Instance.new("Folder")
 	spawns.Name = "Spawns"
 
-	-- The offset is arbitrary now (there's no grate to sit on any more) — kept
-	-- as "just inside the gate, not in the middle of the road" rather than
-	-- recentred on nothing in particular.
-	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, -14)
+	-- z moved 0 <- -14: that offset used to read as "just inside the gate," but
+	-- the gate is gone and -14 now lands inside the Outfitter's new footprint
+	-- (Shops.luau's OUTFITTER moved to z=-22, reaching to about z=-13). 0 sits in
+	-- the open aisle between the two shop rows (STALLS at z=22, OUTFITTER at
+	-- z=-22) — still an arbitrary point, just no longer one that lands inside a
+	-- building.
+	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",
 		pos = { grate.X, Hub.PLAZA.topY + 0.5, grate.Z },

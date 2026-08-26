@@ -153,6 +153,84 @@ Kit.R = {
 	lidTilt = Kit.ang(-125, 0, -180), -- the cash box lid, propped open
 }
 
+-- ── Oriented-rectangle geometry ─────────────────────────────────────────────
+-- For pads whose facing is no longer a multiple of 90 (the semicircular base
+-- ring): a plain axis-aligned bounding box is wrong at an arbitrary yaw, so
+-- overlap/containment tests need the pad's real, rotated footprint.
+
+export type OrientedRect = {
+	cx: number,
+	cz: number,
+	halfWidth: number, -- half-extent along the rect's own local X
+	halfDepth: number, -- half-extent along the rect's own local Z
+	yawDeg: number, -- same convention as a pad's `facing`
+}
+
+--- The four corners of a rotated rectangle, in world XZ. At yawDeg = 0/90/180/-90
+--- this reduces to exactly the same 4 points the old axis-aligned
+--- "swap width/depth" trick produced -- cos/sin of a multiple of 90 degrees is
+--- exactly 0 or +/-1, so nothing here is a new answer for the old cases, only a
+--- generalisation to angles they never had to handle.
+function Kit.orientedRectCorners(r: OrientedRect): { { number } }
+	local th = math.rad(r.yawDeg)
+	local c, s = math.cos(th), math.sin(th)
+	local pts = {}
+	for _, lx in { -r.halfWidth, r.halfWidth } do
+		for _, lz in { -r.halfDepth, r.halfDepth } do
+			table.insert(pts, { r.cx + lx * c + lz * s, r.cz - lx * s + lz * c })
+		end
+	end
+	return pts
+end
+
+--- Whether a world point falls inside a rotated rectangle: rotate the point INTO
+--- the rectangle's own local frame (the inverse of the rotation `build` applies),
+--- then a plain axis-aligned bounds check. Strict `<`, so a point exactly on the
+--- edge counts as outside -- the same convention the old apron `insidePad` check
+--- used (`x > x0 and x < x1`).
+function Kit.pointInOrientedRect(x: number, z: number, r: OrientedRect): boolean
+	local th = math.rad(r.yawDeg)
+	local c, s = math.cos(th), math.sin(th)
+	local dx, dz = x - r.cx, z - r.cz
+	local lx = c * dx - s * dz
+	local lz = s * dx + c * dz
+	return lx > -r.halfWidth and lx < r.halfWidth and lz > -r.halfDepth and lz < r.halfDepth
+end
+
+--- Separating-axis test for two rectangles at arbitrary yaws. Two rectangles have
+--- only 4 candidate separating axes between them (each one's own two face
+--- normals) -- if the rectangles' projections onto EVERY one of those 4 axes
+--- overlap, the rectangles overlap; if any single axis separates them, they do
+--- not. `<=` counts as touching, not overlapping -- the direct generalisation of
+--- World.luau's own axis-aligned `rectsOverlap`, which already treats an
+--- exactly-shared edge as legal (that's what makes the plaza/Zone-1 shared edge
+--- safe today).
+function Kit.orientedRectsOverlap(a: OrientedRect, b: OrientedRect): boolean
+	local function axes(r: OrientedRect): { { number } }
+		local th = math.rad(r.yawDeg)
+		local c, s = math.cos(th), math.sin(th)
+		return { { c, -s }, { s, c } }
+	end
+
+	local cornersA, cornersB = Kit.orientedRectCorners(a), Kit.orientedRectCorners(b)
+	for _, ax in { axes(a)[1], axes(a)[2], axes(b)[1], axes(b)[2] } do
+		local aLo, aHi = math.huge, -math.huge
+		for _, p in cornersA do
+			local d = p[1] * ax[1] + p[2] * ax[2]
+			aLo, aHi = math.min(aLo, d), math.max(aHi, d)
+		end
+		local bLo, bHi = math.huge, -math.huge
+		for _, p in cornersB do
+			local d = p[1] * ax[1] + p[2] * ax[2]
+			bLo, bHi = math.min(bLo, d), math.max(bHi, d)
+		end
+		if aHi <= bLo or bHi <= aLo then
+			return false
+		end
+	end
+	return true
+end
+
 -- ── Builders ──────────────────────────────────────────────────────────────────
 
 export type Spec = {
