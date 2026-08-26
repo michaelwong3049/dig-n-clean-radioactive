@@ -32,6 +32,7 @@ src/
       BottleCap.luau          clean 21-crimp crown cap
       DentedTinCan.luau       asymmetrically crushed ribbed food tin
       HouseKey.luau           pressed-silver key with open bow and stepped teeth
+      SteelRod.luau           dark reinforcing-steel offcut with diagonal ribs
       Wristwatch.luau         stopped analog dial on a linked oval bracelet
     Util/
       Ticker.luau             the fixed-timestep clock everything runs on

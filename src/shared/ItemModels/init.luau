@@ -11,6 +11,7 @@
 local BottleCap = require(script.BottleCap)
 local DentedTinCan = require(script.DentedTinCan)
 local HouseKey = require(script.HouseKey)
+local SteelRod = require(script.SteelRod)
 local Wristwatch = require(script.Wristwatch)
 
 local ItemModels = {}
@@ -19,6 +20,7 @@ local factories: { [string]: () -> Model } = {
 	BottleCap = BottleCap.create,
 	DentedTinCan = DentedTinCan.create,
 	HouseKey = HouseKey.create,
+	SteelRod = SteelRod.create,
 	Wristwatch = Wristwatch.create,
 }
 

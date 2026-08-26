@@ -493,7 +493,7 @@ any time by anyone willing to pay for it in health. (§3.5)
 
 |#|Zone|Base rads/s|Rated suit|Unsuited survival|Flavor|Signature items|
 |-|-|-|-|-|-|-|
-|1|**Ash Flats**|0.5|Cloth Wrap|indefinite|Grey dust, dead trees, tutorial ground|Bottle caps, rebar, coins|
+|1|**Ash Flats**|0.5|Cloth Wrap|indefinite|Grey dust, dead trees, tutorial ground|Bottle caps, steel rods, coins|
 |2|**The Suburbs**|2|Rubber Suit|\~50s|Collapsed houses, half-buried cars|Jewelry, tools, family heirlooms|
 |3|**Fallout Fields**|6|Lead-Lined|\~18s|Green haze, glass-fused soil, sirens|Military tags, ordnance, gold|
 |4|**The Exclusion Belt**|15|Reinforced Hazmat|\~8s|Concrete barriers, tipped choppers, silence|Prewar tech, lab samples|

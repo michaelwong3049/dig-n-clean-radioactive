@@ -58,14 +58,15 @@ Items.DEFS = {
 		model = "BottleCap",
 	},
 	{
-		id = "rebar_stub",
-		name = "Rebar Stub",
+		id = "steel_rod",
+		name = "Steel Rod",
 		flavor = "Snapped clean through. Something very large came this way.",
 		rarity = "Scrap",
 		zones = { 1 },
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 4,
+		model = "SteelRod",
 	},
 	{
 		id = "fused_glass",
