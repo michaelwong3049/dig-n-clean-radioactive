@@ -109,6 +109,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 22,
+		model = "Wristwatch",
 	},
 
 	-- ── Uncommon ── $25-120 ─────────────────────────────────────────────

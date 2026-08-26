@@ -31,6 +31,7 @@ src/
       init.luau               model-key registry used by haul + exhibition rendering
       BottleCap.luau          clean 21-crimp crown cap
       HouseKey.luau           pressed-silver key with open bow and stepped teeth
+      Wristwatch.luau         stopped analog dial on a linked oval bracelet
     Util/
       Ticker.luau             the fixed-timestep clock everything runs on
       Spec.luau               design-intent assertions — run after retuning

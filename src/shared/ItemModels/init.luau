@@ -10,12 +10,14 @@
 
 local BottleCap = require(script.BottleCap)
 local HouseKey = require(script.HouseKey)
+local Wristwatch = require(script.Wristwatch)
 
 local ItemModels = {}
 
 local factories: { [string]: () -> Model } = {
 	BottleCap = BottleCap.create,
 	HouseKey = HouseKey.create,
+	Wristwatch = Wristwatch.create,
 }
 
 function ItemModels.has(modelKey: string): boolean
