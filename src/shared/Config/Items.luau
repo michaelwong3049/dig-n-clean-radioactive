@@ -88,6 +88,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 12,
+		model = "DentedTinCan",
 	},
 	{
 		id = "house_key",

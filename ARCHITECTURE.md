@@ -30,6 +30,7 @@ src/
     ItemModels/               versioned item-art factories; nil keys use placeholders
       init.luau               model-key registry used by haul + exhibition rendering
       BottleCap.luau          clean 21-crimp crown cap
+      DentedTinCan.luau       asymmetrically crushed ribbed food tin
       HouseKey.luau           pressed-silver key with open bow and stepped teeth
       Wristwatch.luau         stopped analog dial on a linked oval bracelet
     Util/
