@@ -129,7 +129,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 10
+local BUILDER_VERSION = 11
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -256,10 +256,12 @@ end
 --- RING_OUTER and CENTERS directly rather than duplicating a shape.
 ---
 --- THE OPEN MOUTH COMES FREE FROM THE BOUNDING RECT ITSELF: capping it at
---- `maxX = RING_CENTER.x` only ever tiles the western half of the disc, the same
---- clipping mechanism that already keeps the plaza's own east edge from
---- overhanging into Zone 1 (`Hub.tileRect` clips every tile to the rect it's
---- given).
+--- `maxX = PLAZA.maxX` (see `buildApron`'s own comment on why that, and not
+--- RING_CENTER.x) still only ever tiles at most the disc's western half plus
+--- the sliver flanking the plaza on its way out to Zone 1 — never anything
+--- east of the field's own west edge, the same clipping mechanism that already
+--- keeps the plaza's own east edge from overhanging into Zone 1 (`Hub.tileRect`
+--- clips every tile to the rect it's given).
 local function apronSkip(x: number, z: number): boolean
 	local dx, dz = x - Plots.RING_CENTER.x, z - Plots.RING_CENTER.z
 	if dx * dx + dz * dz > Plots.RING_OUTER * Plots.RING_OUTER then
@@ -530,9 +532,22 @@ end
 --- this file owns the SHAPE and asks for it to be tiled.
 ---
 --- THE VISIBLE CAP is one `Hub.tileRect` call over a square bounding RING_OUTER,
---- clipped to the western half (`maxX = RING_CENTER.x`) and punched by
---- `apronSkip` (plaza + every pad's own oriented footprint) — see that
---- function's own comment above.
+--- clipped at `maxX = PLAZA.maxX` (Zone 1's own west edge, touching not
+--- crossing it — the same shared-edge convention the plaza's own east side
+--- already uses) and punched by `apronSkip` (plaza + every pad's own oriented
+--- footprint) — see that function's own comment above.
+---
+--- CLIPPED AT THE FIELD, NOT AT RING_CENTER, ON REQUEST. The disc used to stop
+--- dead at `RING_CENTER.x`, which is west of the plaza's own east edge — the
+--- plaza itself (165x140, its own fixed rectangle) was the only thing carrying
+--- the ground from there out to Zone 1, and it is narrower in Z (+/-70) than
+--- either the disc beside it or the field beyond it, so it read as a bridge
+--- with void visible on both sides. Moving the clip out to PLAZA.maxX lets the
+--- SAME circle (still centred on RING_CENTER, still radius RING_OUTER) keep
+--- tapering outward past the plaza's own edges instead of stopping there —
+--- `apronSkip`'s existing `insidePlaza` check already excludes the plaza's own
+--- footprint from this pass, so this only ever fills genuinely empty ground
+--- flanking it, never doubles up on the plaza's own floor.
 ---
 --- THE STRUCTURAL BACKING underneath is N horizontal bands rather than one big
 --- rectangle, each inscribed so its own farthest corner lands exactly on the
@@ -546,7 +561,7 @@ local function buildApron(row: Model)
 
 	local discBounds: Hub.Rect = {
 		minX = Plots.RING_CENTER.x - Plots.RING_OUTER,
-		maxX = Plots.RING_CENTER.x,
+		maxX = PLAZA.maxX,
 		minZ = Plots.RING_CENTER.z - Plots.RING_OUTER,
 		maxZ = Plots.RING_CENTER.z + Plots.RING_OUTER,
 	}
@@ -562,7 +577,7 @@ local function buildApron(row: Model)
 			local safeHalfX = math.sqrt(Plots.RING_OUTER ^ 2 - reach ^ 2)
 			Hub.groundSlab(apron, {
 				minX = Plots.RING_CENTER.x - safeHalfX,
-				maxX = Plots.RING_CENTER.x,
+				maxX = PLAZA.maxX,
 				minZ = zLo,
 				maxZ = zHi,
 			}, `ApronSlab{i + 1}`)
