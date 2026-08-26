@@ -129,7 +129,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 12
+local BUILDER_VERSION = 13
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -171,9 +171,10 @@ Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3
 --- 0 (due north of centre) faces south (0) toward it, bearing 180 (due south)
 --- faces north (180), bearing 270 (due west) faces east (-90) — all three match.
 ---
---- RING_ANGLES is 6 bearings at 30-degree SECTOR MIDPOINTS across the western
---- 180 (195, 225, ... 345), not the sector edges (180, 210, ... 360) — so no pad
---- sits exactly on the north/south line where the ring's open mouth begins.
+--- RING_ANGLES is 6 bearings at 34-degree SECTOR MIDPOINTS symmetric about due
+--- west (185, 219, ... 355), not the sector edges — so no pad sits exactly on
+--- the north/south line where the ring's open mouth begins. See RING_ANGLES'
+--- own comment for why 34 and not wider.
 ---
 ---                    (north, bearing 0)
 ---                [ 6 ]           [ 1 ]
@@ -195,13 +196,18 @@ local SHOP_CLUSTER_EAST_REACH = 53
 local FIELD_CLEARANCE = 15
 Plots.RING_CENTER = { x = PLAZA.maxX - SHOP_CLUSTER_EAST_REACH - FIELD_CLEARANCE, z = MID_Z }
 
---- Pad-CENTRE orbit radius. 180 gives a uniform ~16-stud gap between every one
---- of the 6 pads' oriented rectangles at 30-degree spacing (checked with real
---- oriented-rectangle distance, not a small-angle approximation) — matching the
---- old rectangular ring's own 16-stud SPREAD gap between paired pads. Comfortably
---- more spread out than the old ring's west-side reach (~134.5 studs from
---- centre): this radius alone is already 180, before a pad's own half-depth is
---- added on top.
+--- Pad-CENTRE orbit radius. 180 gave a uniform ~16-stud gap between every one of
+--- the 6 pads' oriented rectangles at the original 30-degree spacing (checked
+--- with real oriented-rectangle distance, not a small-angle approximation) —
+--- matching the old rectangular ring's own 16-stud SPREAD gap between paired
+--- pads. Widening the spacing to 34 degrees (see RING_ANGLES below) only grows
+--- that gap further at this same radius, so 180 was left untouched rather than
+--- re-derived — the number that mattered (minimum gap, at whatever the current
+--- spacing is) is checked live by World.verify() every rebuild, not pinned to a
+--- comment that would need re-deriving each time either constant moves.
+--- Comfortably more spread out than the old ring's west-side reach (~134.5
+--- studs from centre): this radius alone is already 180, before a pad's own
+--- half-depth is added on top.
 Plots.RING_RADIUS = 180
 
 --- The walkway's outer disc radius — has to clear the farthest PAD CORNER from
@@ -218,9 +224,23 @@ Plots.RING_RADIUS = 180
 --- rather than a hardcoded reach.
 Plots.RING_OUTER = 290
 
---- 30-degree spacing, sector MIDPOINTS (see this section's own comment above for
---- why not the sector edges). Order matches the numbering diagram above.
-local RING_ANGLES = { 195, 225, 255, 285, 315, 345 }
+--- 34-degree spacing (was 30, widened on request for more breathing room
+--- between pads at the same radius), sector MIDPOINTS (see this section's own
+--- comment above for why not the sector edges).
+---
+--- 34, NOT WIDER, IS CLOSE TO THE ACTUAL CEILING HERE, NOT A ROUND NUMBER. Six
+--- pads symmetric about bearing 270 (due west) at spacing S sit at
+--- 270 +/- 0.5S, +/- 1.5S, +/- 2.5S — the two extremes are 2.5S off 270, and
+--- once either one reaches 90 degrees off 270 (bearing 180 or 360, due south
+--- or due north exactly) its centre's world X stops being west of RING_CENTER
+--- at all (sin of the bearing crosses zero there) and starts swinging back
+--- toward the field on the OTHER side of that cardinal point. That puts a hard
+--- ceiling at S = 90/2.5 = 36; 34 leaves each extreme 5 degrees short of it —
+--- enough that the pad's own half-width doesn't need a separate check on top
+--- of the centre-point one, confirmed by World.verify()'s actual oriented-rect
+--- overlap math rather than trusted on this angle alone. Order matches the
+--- numbering diagram above.
+local RING_ANGLES = { 185, 219, 253, 287, 321, 355 }
 
 Plots.CENTERS = {}
 for i, bearing in RING_ANGLES do
