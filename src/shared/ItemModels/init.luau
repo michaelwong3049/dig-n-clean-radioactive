@@ -9,11 +9,13 @@
 ]]
 
 local BottleCap = require(script.BottleCap)
+local HouseKey = require(script.HouseKey)
 
 local ItemModels = {}
 
 local factories: { [string]: () -> Model } = {
 	BottleCap = BottleCap.create,
+	HouseKey = HouseKey.create,
 }
 
 function ItemModels.has(modelKey: string): boolean

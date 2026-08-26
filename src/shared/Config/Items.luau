@@ -98,6 +98,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 18,
+		model = "HouseKey",
 	},
 	{
 		id = "stopped_watch",

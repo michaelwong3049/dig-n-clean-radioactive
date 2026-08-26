@@ -29,7 +29,8 @@ src/
       ToolTiers.luau          per-tier look: scale, colours, material, glow
     ItemModels/               versioned item-art factories; nil keys use placeholders
       init.luau               model-key registry used by haul + exhibition rendering
-      BottleCap.luau          first catalogue model (21-crimp damaged crown cap)
+      BottleCap.luau          clean 21-crimp crown cap
+      HouseKey.luau           pressed-silver key with open bow and stepped teeth
     Util/
       Ticker.luau             the fixed-timestep clock everything runs on
       Spec.luau               design-intent assertions — run after retuning
