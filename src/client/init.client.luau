@@ -19,6 +19,7 @@ local ORDER = {
 	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState
 	"IndexController", -- the item index GUI; bottom-right button, reads IndexState + Unearthed
 	"CashController", -- the persistent cash badge; top-left, reads CashState
+	"LiquidController", -- the wash pad's roll reveal + loaded-liquid badge; reads LiquidState + LiquidRoll
 	"DebugHudController",
 }
 

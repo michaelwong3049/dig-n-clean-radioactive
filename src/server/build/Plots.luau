@@ -113,6 +113,8 @@
 	    Basin       StationKind = "decon", Shower = true, Radius = 9 — the cleansing
 	                station (see buildCleansingStation below). One per base, replacing
 	                the single shared station + shower that used to live at camp.
+	    Plate       StationKind = "roller", Radius = 6 — the wash pad (see
+	                buildWashPad below). One per base, three steps from the basin.
 
 	The stand's StationId is "plot:slot" so the server can resolve exactly which
 	pedestal a player is standing at without a spatial search of its own.
@@ -123,13 +125,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
+local Liquids = require(Shared.Config.Liquids)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 14
+local BUILDER_VERSION = 15
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -426,6 +429,109 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	m.Parent = parent
 end
 
+--- The wash pad — step on it, roll a liquid (Config/Liquids, Services/LiquidService).
+---
+--- A PRESSURE PLATE, NOT A KIOSK, and the shape is the instruction. There is no
+--- button to press and no panel to open first: `StationKind = "roller"` plus
+--- StationService's entry edge means arriving IS the input. A five-year-old walks
+--- onto a lit circle to see what happens, which is the entire onboarding this
+--- mechanic gets, so the circle has to look like something you step on.
+---
+--- BESIDE THE BASIN, BUT THE TWO RADII MUST NOT TOUCH, and that is a correctness
+--- constraint rather than a layout preference. Rolling fires off StationService's
+--- ENTRY EDGE and costs cash, so a player scrubbing at the basin who drifts into an
+--- overlapping roller radius gets charged for a roll they never asked for. Nearest
+--- station wins, which resolves an overlap for *rendering* but not for that edge.
+---
+--- So: basin at local (0, 20) with radius 9, pad at (18, 18) with radius 6. Centres
+--- 18.1 studs apart against a 15-stud combined reach, leaving a ~3-stud dead band
+--- between them that a player has to cross deliberately. Keep that gap if either
+--- number moves.
+---
+--- THE SHELF BEHIND IT IS THE ODDS TABLE, RENDERED. Five canisters in the colours of
+--- the top five liquids, biggest prize at the far end. It teaches "there are better
+--- ones than what you just got" without a tooltip, and it costs five parts.
+local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
+	local m = Instance.new("Model")
+	m.Name = "WashPad"
+	local pad = Plots.PAD
+	local cx, cz = 18, 18
+
+	-- The plate. Cylinder on its end (Kit.R.cylUp), so `size` reads
+	-- {thickness, diameter, diameter} -- see the ShowerHead above for the same idiom.
+	local plate = build(m, origin, {
+		name = "Plate",
+		pos = { cx, pad.topY + 0.25, cz },
+		size = { 0.5, 9, 9 },
+		color = C.steelDark,
+		material = "Metal",
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		attributes = { StationKind = "roller", Radius = 6 },
+	})
+	billboard(plate, 250, 4.8, "WASH PAD", "step on it, roll a liquid", accent)
+
+	-- The lit inner disc, a hair proud of the plate so it reads as glowing paint
+	-- rather than as a second slab. Water's own colour: the pad always pays out
+	-- SOMETHING, and the floor of the table is the honest thing to advertise.
+	local disc = build(m, origin, {
+		name = "Glow",
+		pos = { cx, pad.topY + 0.55, cz },
+		size = { 0.2, 7.4, 7.4 },
+		color = Liquids.get(Liquids.WATER).color,
+		material = "Neon",
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		transparency = 0.25,
+		canCollide = false,
+	})
+	light(disc, Liquids.get(Liquids.WATER).color, 16, 1.4)
+
+	-- The shelf: a low bench behind the plate carrying one canister per prize.
+	build(m, origin, {
+		name = "Shelf",
+		pos = { cx, pad.topY + 1.4, cz + 5.6 },
+		size = { 10, 0.4, 1.6 },
+		color = C.wood,
+		material = "Wood",
+	})
+	for _, post in { -4.6, 4.6 } do
+		build(m, origin, { name = "ShelfLeg", pos = { cx + post, pad.topY + 0.7, cz + 5.6 }, size = { 0.4, 1.4, 1.4 }, color = C.steelDark, material = "Metal" })
+	end
+
+	-- WALKED BACKWARDS FROM THE TOP OF Liquids.ORDER, so the shelf re-sorts itself
+	-- the moment the catalogue does. Hard-coding five ids here is how the shelf ends
+	-- up advertising a liquid that was renamed two commits ago.
+	local shown = {}
+	for index = #Liquids.ORDER, 1, -1 do
+		local id = Liquids.ORDER[index]
+		if Liquids.isRollable(id) then
+			table.insert(shown, 1, id)
+		end
+		if #shown >= 5 then
+			break
+		end
+	end
+
+	for index, id in shown do
+		local def = Liquids.get(id)
+		local x = cx - 4 + (index - 1) * 2
+		build(m, origin, {
+			name = `Canister{index}`,
+			pos = { x, pad.topY + 2.4, cz + 5.6 },
+			size = { 1.6, 1.6, 1.6 },
+			color = def.color,
+			material = "Neon",
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+			transparency = 0.15,
+			canCollide = false,
+		})
+	end
+
+	m.Parent = parent
+end
+
 local function buildPlot(parent: Instance, index: number)
 	local m = Instance.new("Model")
 	m.Name = `Plot{index}`
@@ -568,6 +674,7 @@ local function buildPlot(parent: Instance, index: number)
 	end
 
 	buildCleansingStation(m, origin, accent)
+	buildWashPad(m, origin, accent)
 
 	m.Parent = parent
 	return m

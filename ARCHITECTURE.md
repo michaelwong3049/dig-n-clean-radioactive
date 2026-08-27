@@ -24,7 +24,8 @@ src/
       Tuning.luau             global knobs — every magic number in the game
       Rarity.luau             the 8 rarities + the roll-on modifiers
       Stages.luau              the 6 stages
-      Gear.luau               the 6 upgrade tracks
+      Gear.luau               the 7 upgrade tracks
+      Liquids.luau            the wash pad's 10 cleaning liquids + the luck curve
       Items.luau              the item catalogue (+ id / stage-rarity indexes)
       ToolTiers.luau          per-tier look: scale, colours, material, glow
     ItemModels/               versioned item-art factories; nil keys use placeholders
@@ -37,7 +38,7 @@ src/
     Util/
       Ticker.luau             the fixed-timestep clock everything runs on
       Spec.luau               design-intent assertions — run after retuning
-      TuningReport.luau       generates the survivability matrix from Config/
+      TuningReport.luau       generates the survivability matrix + wash pad odds
     Net.luau                  every remote in the game, one table
     Radiation.luau            pure math: exposure, burn, survivable seconds
     Decay.luau                pure math: the decay clock
@@ -55,6 +56,7 @@ src/
       DigService              the buried signal field, sweep and haul
       EconomyService          what an item is worth, and the till
       DeconService            docking, scrubbing and racking at every base; sell() exists, no world trader triggers it currently
+      LiquidService           the wash pad: rolling liquids, charges, equip
       ToolService             puts the right model in the player's hands
       DebugService            the tuning console + debug telemetry
 
@@ -62,7 +64,8 @@ src/
     init.client.luau          bootstrap: mirrors the server's ORDER / init / start
     Controllers/
       DetectorController      sweep dial, ping audio, hold-to-pull
-      StationController       the station panel (trader, decon, shop, plot, pedestal)
+      StationController       the station panel (trader, decon, shop, plot, pedestal, roller)
+      LiquidController        the roll reveal + the loaded-liquid badge
       HudController           rad meter, vignette, distortion, blackout curtain
       GeigerController        the click bed (reads HudController)
       DebugHudController      every number at once. F3 toggles.
@@ -190,7 +193,9 @@ Also required, and each corresponds to a real silent failure:
 | a `Player` | `DebugCmd` | string | Scriptable entry point to the tuning console (`DebugService:308`). Set it and the line runs, then the attribute is cleared so the same line can repeat. Exists because Studio's command bar gets its own module cache and cannot reach the live service. |
 
 `<Track>` is one of `Detector`, `Magnet`, `Cleaner`, and `T<n>` indexes the matching
-list in `Config/Gear.luau`.
+list in `Config/Gear.luau`. The other four tracks (`Suit`, `Boots`, `Satchel`, `Luck`)
+are priced and buyable but have no held model — `Luck` deliberately never will, since
+it is a charm on a workbench rather than a tool.
 
 > **Remaining gap:** the place file is gitignored, and three things still cannot be
 > reconstructed from the repository alone.
@@ -265,16 +270,22 @@ The profile itself — `TEMPLATE` in `DataService`, which is the authoritative c
 ```lua
 {
     cash = 0, xp = 0, level = 1,
-    gear    = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1 },
+    gear    = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1, luck = 1 },
     carry   = {},   -- array of the carried item above. The backpack.
     locker  = {},   -- Quarantine Locker: found, not yet cleanable.
     exhibit = { slots = 3, pedestals = {}, bankedCash = 0, bankedAt = 0 },
+    liquids        = {},  -- liquid id -> charges remaining. Plain Water is NEVER in
+                          -- here: an empty table IS "on water" (Config/Liquids), and
+                          -- an unlimited liquid has no finite charge count to store.
+    equippedLiquid = "",  -- "" is water. Never nil — Reconcile() cannot fill a key
+                          -- the template does not have, and a template nil is not a key.
+
     discovered  = {},  -- itemId -> true, drives the museum
     perks       = {},  -- perkId -> true, read by StatResolver
     multipliers = {},  -- rebirth / gamepass / pet, pre-summed. Read by StatResolver.
     cleanTokens = 0, rebirths = 0,
     railStations = {},
-    stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0 },
+    stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0, rolls = 0 },
 }
 ```
 
@@ -322,10 +333,16 @@ regenerates the survivability matrix that `Config/Gear.luau`'s header documents;
 its output back into the design doc so the doc stops drifting away from the game.
 
 In-game, **F3** toggles the debug HUD and `/radhelp` lists the tuning console
-(`DebugService`): `/stage`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/pocket`
-(a stub that reports hot pockets are unbuilt), and `/radhelp` itself. `/radhelp`
-enumerates `COMMANDS` at runtime, so anything added there shows up without being
-listed here.
+(`DebugService`): `/stage`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/liquid`,
+`/odds`, `/pocket` (a stub that reports hot pockets are unbuilt), and `/radhelp`
+itself. `/radhelp` enumerates `COMMANDS` at runtime, so anything added there shows up
+without being listed here.
+
+`/odds` prints the wash pad's table at your current luck straight out of
+`Liquids.oddsAt` — the same function `LiquidService` rolls against and the panel
+displays. That is the point: a pad advertising 1-in-40 while rolling 1-in-800 is the
+single worst bug this system could ship, and none of the three surfaces owns a copy
+of the math.
 
 > The console has **no authorisation check** — the commands register for every
 > player on every server. `/gear` and `/dig` write straight to the profile and persist.

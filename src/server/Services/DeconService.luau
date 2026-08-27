@@ -15,6 +15,19 @@
 	THE POTENCY GATE is the other half. A patch harder than your cleaner never comes
 	off. The item is not destroyed and not lost — it can be racked in the Quarantine
 	Locker as a labelled reminder of exactly which tool you need, or dirty-sold at 20%.
+
+	THE GATE NOW HAS A SECOND, RENTED KEY (Config/Liquids). The liquid loaded in the
+	hose lends up to +2 potency on top of the cleaner, so every scrub decision below
+	reads `stats.effectivePotency`, never `stats.cleanPotency`. The two are genuinely
+	different questions and this file asks the first one everywhere:
+
+	    cleanPotency       what you can clean AT ALL, forever. What the Cleaner shop
+	                       sells and what the Quarantine Locker's label names.
+	    effectivePotency   what you can clean RIGHT NOW, with what is in the hose.
+
+	The cap is what keeps this from eating the Cleaner track — see Config/Liquids'
+	header for the argument. Every patch cleared spends one charge, so the rented key
+	runs out; that is LiquidService.spendCharge, called at exactly one site below.
 ]]
 
 local Players = game:GetService("Players")
@@ -25,6 +38,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Items = require(Shared.Config.Items)
 local Gear = require(Shared.Config.Gear)
 local Decay = require(Shared.Decay)
+local Liquids = require(Shared.Config.Liquids)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
@@ -32,6 +46,7 @@ local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
 local CarryService = require(script.Parent.CarryService)
+local LiquidService = require(script.Parent.LiquidService)
 local EconomyService = require(script.Parent.EconomyService)
 local StationService = require(script.Parent.StationService)
 local ShopService = require(script.Parent.ShopService)
@@ -89,16 +104,25 @@ local function beginScrub(player: Player, data: any, stats: any, uid: string): s
 		return "already clean"
 	end
 
-	local blocked = Contamination.blockedBy(patches, stats.cleanPotency)
+	local blocked = Contamination.blockedBy(patches, stats.effectivePotency)
 	local reachable = false
 	for _, hardness in patches do
-		if hardness <= stats.cleanPotency then
+		if hardness <= stats.effectivePotency then
 			reachable = true
 			break
 		end
 	end
 
 	if not reachable and blocked then
+		-- Name the liquid when one would actually close the gap, because "go roll
+		-- for Molten Lava" is a thing the player can do in the next thirty seconds
+		-- and "go save up for a Chem Bath" is not. The cleaner is still named first:
+		-- it is the permanent fix, and the liquid is a loan.
+		local shortfall = blocked - stats.cleanPotency
+		local rescue = Liquids.cheapestWithPotency(shortfall)
+		if rescue then
+			return `nothing you can shift \u{2014} needs {CarryService.cleanerNameFor(blocked)}, or {rescue.name} in the hose`
+		end
 		return `nothing you can shift \u{2014} needs {CarryService.cleanerNameFor(blocked)}`
 	end
 
@@ -106,7 +130,7 @@ local function beginScrub(player: Player, data: any, stats: any, uid: string): s
 	-- (if there is one) arrives last.
 	local easiest = math.huge
 	for _, hardness in patches do
-		if hardness <= stats.cleanPotency and hardness < easiest then
+		if hardness <= stats.effectivePotency and hardness < easiest then
 			easiest = hardness
 		end
 	end
@@ -114,7 +138,7 @@ local function beginScrub(player: Player, data: any, stats: any, uid: string): s
 	scrubbing[player] = {
 		uid = uid,
 		elapsed = 0,
-		target = Contamination.secondsFor(easiest, stats.scrubRate),
+		target = Contamination.secondsFor(easiest, stats.scrubRate * stats.liquidRate),
 		hardness = easiest,
 	}
 	return nil
@@ -131,6 +155,9 @@ local function rack(player: Player, data: any, uid: string): string
 	Decay.freeze(item)
 
 	local def = Items.get(item.itemId)
+	-- cleanPotency, NOT effectivePotency: the locker's label is a shopping list, and
+	-- a shopping list written against a liquid you are three patches from running out
+	-- of is worse than no label. The Locker names the permanent fix.
 	local blocked = Contamination.blockedBy(item.patches or {}, StatResolver.get(data).cleanPotency)
 	if blocked then
 		return `{def.name} racked \u{2014} waiting on {CarryService.cleanerNameFor(blocked)}`
@@ -170,10 +197,23 @@ local function stepPlayer(player: Player, dt: number)
 		else
 			scrub.elapsed += dt
 			if scrub.elapsed >= scrub.target then
-				local cleared = Contamination.clearOne(item.patches, stats.cleanPotency)
+				local cleared = Contamination.clearOne(item.patches, stats.effectivePotency)
 				if cleared then
 					-- Partial progress pays. PLAN §2: a failed clean is never wasted.
-					data.xp += cleared * XP_PER_HARDNESS
+					data.xp += math.floor(cleared * XP_PER_HARDNESS * stats.liquidXp + 0.5)
+					-- ONE CHARGE PER PATCH, and this is the only site that spends one.
+					-- Deliberately charged for the patch that came off rather than for
+					-- starting a scrub: a player who walks away mid-patch has spent
+					-- nothing, which is the only version of this that survives someone
+					-- getting disconnected halfway through a Legendary.
+					LiquidService.spendCharge(data)
+					-- RE-RESOLVE, because the line above can have just emptied the
+					-- canister and dropped the player back to Plain Water. `stats` was
+					-- captured at the top of this tick, so the next patch would
+					-- otherwise be timed at the spent liquid's rate and cleared
+					-- against its potency — a free extra patch at Stardust speed,
+					-- every single time a canister runs dry.
+					stats = StatResolver.get(data)
 				end
 				scrubbing[player] = nil
 
@@ -203,6 +243,12 @@ local function stepPlayer(player: Player, dt: number)
 	local current = scrubbing[player]
 	local offer = if kind == "shop" and stationId then ShopService.offerFor(data, stationId) else nil
 
+	-- The wash pad reuses this same tick+payload, the fifth panel mode to do so
+	-- (shop, plot, pedestal, and now roller). The roll RESULT does not come through
+	-- here -- that is LiquidRoll, a one-shot event, for the reason Net.luau spells
+	-- out: a reveal folded into an idempotent state payload replays itself.
+	local rollerView = if kind == "roller" then LiquidService.viewFor(data) else nil
+
 	-- Plot/pedestal panels reuse this same tick+payload rather than a fourth
 	-- remote — see the trader/decon/shop precedent this file already sets.
 	local plotView = if kind == "plot" and stationId then ExhibitService.plotViewFor(player, tonumber(stationId) :: number, data) else nil
@@ -220,9 +266,14 @@ local function stepPlayer(player: Player, dt: number)
 		offer = offer,
 		plotView = plotView,
 		standView = standView,
+		rollerView = rollerView,
 		cash = data.cash,
 		xp = data.xp,
 		potency = stats.cleanPotency,
+		effectivePotency = stats.effectivePotency,
+		liquidName = Liquids.get(stats.liquidId).name,
+		liquidColor = Liquids.get(stats.liquidId).color,
+		liquidCharges = data.liquids[stats.liquidId] or 0,
 		cleanerName = Gear.tier("Cleaner", data.gear.cleaner or 1).name,
 		capacity = stats.capacity,
 		items = carried,
@@ -334,6 +385,16 @@ function DeconService.start()
 			resultRemote:FireClient(player, message)
 			if ok then
 				print(`[exhibit] {player.Name}: {message}`)
+			end
+		elseif request.action == "equipLiquid" then
+			-- Deliberately NOT gated on standing at the roller. Running dry mid-scrub
+			-- and having to walk back to the pad to put a different canister on is a
+			-- chore with no decision in it, and LiquidService.equip already refuses
+			-- anything you do not actually hold — which is the boundary that matters.
+			local ok, message = LiquidService.equip(player, tostring(request.liquid))
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[liquid] {player.Name}: {message}`)
 			end
 		elseif request.action == "rack" then
 			if kind ~= "decon" then

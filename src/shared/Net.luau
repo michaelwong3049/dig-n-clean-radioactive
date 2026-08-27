@@ -41,6 +41,18 @@ local REMOTES: { [string]: string } = {
 	StationAction = "RemoteEvent", -- client -> server, scrub / sell / rack
 	StationResult = "RemoteEvent", -- server -> client, "sold for $340", "needs Chem Bath"
 
+	-- The wash pad (Config/Liquids). LiquidState is the inventory + the live odds,
+	-- change-driven like CarryState rather than per-tick, because a shelf of
+	-- canisters moves on a roll, an equip and a spent charge and at no other time.
+	--
+	-- LiquidRoll is the reveal, and it is separate on purpose: the state payload has
+	-- to be idempotent (the panel re-renders from it whenever it likes), while the
+	-- reveal is an EVENT that must fire exactly once and animate. Folding a
+	-- "lastRoll" field into LiquidState would replay the slot-machine moment on every
+	-- unrelated inventory change. Same split, same reason, as SweepState vs Unearthed.
+	LiquidState = "RemoteEvent", -- server -> client, on change
+	LiquidRoll = "RemoteEvent", -- server -> client, the pad paid out
+
 	-- Phase 2: exposure.
 	ExposureState = "RemoteEvent", -- server -> client, the rad meter, once per tick
 	Blackout = "RemoteEvent", -- server -> client, you went down and what it cost

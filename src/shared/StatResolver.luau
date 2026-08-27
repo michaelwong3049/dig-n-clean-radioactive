@@ -19,6 +19,7 @@
 local Config = script.Parent.Config
 local Tuning = require(Config.Tuning)
 local Gear = require(Config.Gear)
+local Liquids = require(Config.Liquids)
 
 local StatResolver = {}
 
@@ -27,6 +28,12 @@ export type Profile = {
 	gear: { [string]: number },
 	perks: { [string]: boolean },
 	multipliers: { [string]: number }?, -- rebirth / gamepass / pet, all pre-summed
+	-- The wash pad's rolled liquids (Config/Liquids). Both optional because
+	-- Util/Spec builds fake profiles by hand and every existing call site predates
+	-- them -- an absent pair means "on Plain Water", which is a real, correct state
+	-- rather than a degraded one.
+	liquids: { [string]: number }?, -- liquid id -> charges remaining
+	equippedLiquid: string?,
 }
 
 export type Stats = {
@@ -52,6 +59,12 @@ export type Stats = {
 	cleanPotency: number,
 	scrubRate: number,
 	satchelFuseMult: number,
+	-- the wash pad
+	liquidId: string,
+	liquidPotency: number,
+	liquidRate: number,
+	liquidXp: number,
+	effectivePotency: number,
 	-- economy
 	sellMultiplier: number,
 	luckMultiplier: number,
@@ -61,6 +74,30 @@ export type Stats = {
 local function mult(profile: Profile, key: string): number
 	local m = profile.multipliers
 	return if m and m[key] then m[key] else 1
+end
+
+--- The equipped liquid, but only if it is actually loaded. An id with no charges
+--- left is the same thing as no id at all, and resolving that HERE rather than at
+--- each call site is the whole point of this module: DeconService, CarryService and
+--- the panel would otherwise each need their own copy of "...unless it ran out",
+--- and the first one to forget it hands the player a free Stardust forever.
+---
+--- Plain Water is the floor and carries no charges (Config/Liquids), so it is
+--- returned unconditionally when nothing else is live. The id comes back alongside
+--- the def because "which liquid is loaded" stops agreeing with "what the equipped
+--- field says" the moment charges run out, and every surface that labels the hose
+--- needs the first answer, not the second.
+local function liquidFor(profile: Profile): (string, Liquids.LiquidDef)
+	local id = profile.equippedLiquid
+	if id == nil or id == "" or not Liquids.isRollable(id) then
+		return Liquids.WATER, Liquids.get(Liquids.WATER)
+	end
+
+	local charges = profile.liquids and profile.liquids[id] or 0
+	if charges <= 0 then
+		return Liquids.WATER, Liquids.get(Liquids.WATER)
+	end
+	return id, Liquids.get(id)
 end
 
 function StatResolver.get(profile: Profile): Stats
@@ -73,6 +110,15 @@ function StatResolver.get(profile: Profile): Stats
 	local suit = Gear.tier("Suit", g.suit or 1)
 	local boots = Gear.tier("Boots", g.boots or 1)
 	local satchel = Gear.tier("Satchel", g.satchel or 1)
+	local luckCharm = Gear.tier("Luck", g.luck or 1)
+	local liquidId, liquid = liquidFor(profile)
+
+	-- Steady Hands (PLAN §9.2) is a PERK on the tool, so it belongs to the permanent
+	-- capability; the liquid bonus is deliberately kept out of `cleanPotency` and
+	-- surfaced separately. Two numbers, because two questions get asked of them:
+	-- "what can I clean at all" (the Locker's question, and the Cleaner shop's) and
+	-- "what can I clean right now" (the wash bay's).
+	local cleanPotency = cleaner.potency + (if perks.steadyHands then 1 else 0)
 
 	local capacity = suit.capacity + math.floor(profile.level / Tuning.CAPACITY_EVERY_N_LEVELS)
 
@@ -97,13 +143,24 @@ function StatResolver.get(profile: Profile): Stats
 		detectorClarity = detector.clarity + (if perks.bloodhound then 1 else 0),
 		pullSpeed = magnet.pullSpeed,
 		maxGrip = magnet.maxGrip,
-		-- Steady Hands (PLAN §9.2)
-		cleanPotency = cleaner.potency + (if perks.steadyHands then 1 else 0),
+		cleanPotency = cleanPotency,
 		scrubRate = cleaner.scrubRate,
 		satchelFuseMult = satchel.fuseMult * mult(profile, "fuse"),
 
+		liquidId = liquidId,
+		liquidPotency = liquid.potency,
+		liquidRate = liquid.rateMult,
+		liquidXp = liquid.xpMult,
+		effectivePotency = cleanPotency + liquid.potency,
+
 		sellMultiplier = mult(profile, "sell"),
-		luckMultiplier = mult(profile, "luck"),
+		-- REPURPOSED, and it used to be inert. This was `mult(profile, "luck")` alone
+		-- -- the PLAN §11 "2x Luck" gamepass slot -- and nothing in the game read it,
+		-- because nothing in the game rolled anything a player could influence. The
+		-- wash pad does, so the Gear.Luck track folds in here where every other piece
+		-- of gear math already lives. The gamepass multiplier stacks on top of the
+		-- track exactly as it was always meant to.
+		luckMultiplier = luckCharm.luck * mult(profile, "luck"),
 		-- Curator (PLAN §9.2)
 		yieldMultiplier = mult(profile, "yield") * (if perks.curator then 1.15 else 1),
 	}

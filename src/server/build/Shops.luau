@@ -11,12 +11,18 @@
 	which is the cheapest legibility win available anywhere in this map.
 
 	PLUS AN OUTFITTER, a real building, and this one is not decoration.
-	Gear.TRACKS has six entries. Three stalls covers Detector, Magnet and Cleaner and
-	leaves Suit, Boots and Satchel priced but unbuyable — and the SUIT is the gate on
-	every stage in the game. Without a way to buy one, Stage 2 stops being "you can go
+	Gear.TRACKS has seven entries. Three stalls covers Detector, Magnet and Cleaner and
+	leaves Suit, Boots, Satchel and Luck priced but unbuyable — and the SUIT is the gate
+	on every stage in the game. Without a way to buy one, Stage 2 stops being "you can go
 	there and here is what it costs" and becomes exactly the locked door PLAN §3.5
 	promises never to build. It costs nothing to add because the shop system
-	is track-generic: it is three more counters with three more StationIds.
+	is track-generic: it is four more counters with four more StationIds.
+
+	THE SPLIT BETWEEN THE STALLS AND THIS BENCH IS "DO YOU HOLD IT". The three stalls
+	sell the three things ToolService can put in your hands; the Outfitter sells the
+	three you wear and, since the wash pad landed, the one you do not physically have
+	at all — Luck is a charm on a workbench, not a machine, and the counter names in
+	Config/Gear.Luck say so on purpose.
 
 	THE LOOK — a classic toy-store kiosk, not a toxic drum, not an archway.
 	The nuclear-drum reskin (round barrel counter, dome roof, trefoil badge) and,
@@ -100,7 +106,7 @@ local Hub = require(script.Parent.Hub)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 11
+local BUILDER_VERSION = 12
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -124,6 +130,12 @@ local OUTFITTER = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },
 		{ track = "Boots", label = "BOOTS", tagline = "get home faster" },
 		{ track = "Satchel", label = "SATCHELS", tagline = "buy the clock time" },
+		-- Luck is the seventh track (Config/Gear) and the only one that is not
+		-- equipment. It belongs on this bench rather than in a fourth plaza stall for
+		-- exactly the reason the other three are here: the stalls are for the thing
+		-- you HOLD -- detector, magnet, cleaner -- and everything else outfits you.
+		-- The bench's width is derived from #counters, so this cost one line.
+		{ track = "Luck", label = "LUCK", tagline = "bend the odds" },
 	},
 }
 
@@ -309,6 +321,32 @@ local function buildSatchelProp(parent: Instance, origin: CFrame, x: number, z: 
 	end
 end
 
+--- A four-leaf clover on a stem. The Luck counter is the one shop selling something
+--- with no physical form at all — you cannot draw "a 4.3x weight exponent" — so the
+--- prop carries the entire identity here rather than merely reinforcing it, which is
+--- why it is the largest and the only one that glows. Four ball leaves on a cross,
+--- each rotated to sit on the diagonal, so it reads as a clover from any approach
+--- angle instead of only from the front.
+local function buildLuckProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
+	build(parent, origin, { name = "CloverStem", pos = { x, 1.4, z }, size = { 0.28, 2.8, 0.28 }, color = C.grassDark, material = "Plastic", canCollide = false })
+	for _, corner in { { -1, -1 }, { -1, 1 }, { 1, -1 }, { 1, 1 } } do
+		build(parent, origin, {
+			name = "CloverLeaf",
+			pos = { x + corner[1] * 0.72, 3.5, z + corner[2] * 0.72 },
+			size = { 1.5, 0.5, 1.5 },
+			color = C.grass,
+			material = "Plastic",
+			shape = "Ball",
+			canCollide = false,
+		})
+	end
+	-- The one glowing bead at the centre, in the shop's own accent rather than in
+	-- green: green means the ooze everywhere else in this world (PLAN §14), and a
+	-- glowing green clover on the plaza would be the one exception that breaks it.
+	local heart = build(parent, origin, { name = "CloverHeart", pos = { x, 3.7, z }, size = { 0.55, 0.55, 0.55 }, color = color, material = "Neon", shape = "Ball", canCollide = false })
+	light(heart, color, 10, 1.2)
+end
+
 --- Dispatches on track so buildStall/buildOutfitter can call one function without
 --- caring which shop they're building.
 local function buildIdentityProp(parent: Instance, origin: CFrame, track: string, x: number, z: number, color: string)
@@ -324,6 +362,8 @@ local function buildIdentityProp(parent: Instance, origin: CFrame, track: string
 		buildBootsProp(parent, origin, x, z)
 	elseif track == "Satchel" then
 		buildSatchelProp(parent, origin, x, z)
+	elseif track == "Luck" then
+		buildLuckProp(parent, origin, x, z, color)
 	end
 end
 

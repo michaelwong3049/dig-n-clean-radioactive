@@ -20,6 +20,11 @@
 	    passes  (9:00 in Stage 1 specifically / 17s / 5s / 2s / instant / instant)
 	  * ~12s one tier under, in every stage — §3.5's tightened "one dig" Dive window
 	  * 1:30 for a full Containment Rig in the Crater — §4's timed heist
+
+	It also regenerates the WASH PAD ODDS TABLE that Config/Liquids' own header
+	documents. That header is the argument for every weight in the file, so it has to
+	be re-pasted from here whenever a weight or a luckBias moves — a header describing
+	a curve the code no longer produces is worse than no header at all.
 ]]
 
 local Config = script.Parent.Parent.Config
@@ -145,6 +150,56 @@ function TuningReport.run()
 		end
 		local emission = Decay.totalEmission(bag, 1)
 		table.insert(out, string.format("    %-38s %10s", case.label, fmt(TuningReport.surviveCarrying(3, 3, 1, emission))))
+	end
+
+	-- ── The wash pad ─────────────────────────────────────────────────
+	-- Paste this straight back into Config/Liquids' header. The whole point of the
+	-- Luck track is that its effect is visible across the ladder, and the only way to
+	-- see that is a column per tier.
+	table.insert(out, "\n=== WASH PAD: roll odds across the Gear.Luck ladder (Config/Liquids) ===\n")
+	local Liquids = require(Config.Liquids)
+
+	local luckRow = string.rep(" ", 18)
+	local columns: { number } = {}
+	for tier = 1, Gear.maxTier("Luck") do
+		local luck = Gear.tier("Luck", tier).luck
+		table.insert(columns, luck)
+		luckRow ..= string.format("%8.3g", luck)
+	end
+	table.insert(out, luckRow)
+	table.insert(out, string.rep("-", #luckRow))
+
+	local tables: { { [string]: number } } = {}
+	for _, luck in columns do
+		table.insert(tables, Liquids.oddsAt(luck))
+	end
+
+	for _, id in Liquids.ORDER do
+		if not Liquids.isRollable(id) then
+			continue
+		end
+		local row = string.format("  %-16s", Liquids.get(id).name)
+		for _, odds in tables do
+			row ..= string.format("%7.2f%%", (odds[id] or 0) * 100)
+		end
+		table.insert(out, row)
+	end
+
+	-- The two aggregate lines are what the design is actually tuned against: a
+	-- per-liquid row answers "how likely is Nano-Foam", and neither the Cleaner gate
+	-- nor the Luck track's value proposition is a question about one liquid.
+	for bonus = 1, Liquids.MAX_POTENCY_BONUS do
+		local row = string.format("  %-16s", `any +{bonus} potency`)
+		for _, odds in tables do
+			local total = 0
+			for id, chance in odds do
+				if Liquids.get(id).potency == bonus then
+					total += chance
+				end
+			end
+			row ..= string.format("%7.2f%%", total * 100)
+		end
+		table.insert(out, row)
 	end
 
 	print(table.concat(out, "\n"))

@@ -27,6 +27,7 @@ local Stages = require(Config.Stages)
 local Gear = require(Config.Gear)
 local Tuning = require(Config.Tuning)
 local Rarity = require(Config.Rarity)
+local Liquids = require(Config.Liquids)
 local Items = require(Config.Items)
 local ItemModels = require(script.Parent.Parent.ItemModels)
 local Radiation = require(script.Parent.Parent.Radiation)
@@ -227,6 +228,140 @@ function Spec.run(): boolean
 	check("§9.2 Sure Footing halves the haul penalty", math.abs(stats.haulPenalty - Gear.tier("Boots", 2).haulPenalty * 0.5) < 1e-9)
 	check("§5.1 a full bag physically slows you", StatResolver.effectiveWalkSpeed(stats, stats.capacity, false) < stats.walkSpeed)
 	check("§5.1 but never immobilises you", StatResolver.effectiveWalkSpeed(stats, 999, false) >= 6)
+
+	-- The liquid folds into effectivePotency and NOWHERE ELSE. `cleanPotency` is the
+	-- permanent capability the Locker and the Cleaner shop both read; the day someone
+	-- "simplifies" this by adding the bonus into cleanPotency directly, the Locker
+	-- starts promising items it cannot keep once the canister empties.
+	check("§2.4 no liquid loaded means the two potencies agree", stats.effectivePotency == stats.cleanPotency)
+
+	local hosed = table.clone(profile) :: any
+	hosed.liquids = { lava = 3 }
+	hosed.equippedLiquid = "lava"
+	local hosedStats = StatResolver.get(hosed)
+	check("§2.4 a loaded liquid raises effectivePotency", hosedStats.effectivePotency == stats.cleanPotency + Liquids.get("lava").potency)
+	check("§2.4 ...and leaves cleanPotency alone", hosedStats.cleanPotency == stats.cleanPotency)
+
+	-- AN EMPTY CANISTER IS THE SAME THING AS NO CANISTER. StatResolver.liquidFor is
+	-- the single place that rule is written down, which is the only reason
+	-- DeconService, CarryService and the panel cannot each forget it separately.
+	local dry = table.clone(profile) :: any
+	dry.liquids = { lava = 0 }
+	dry.equippedLiquid = "lava"
+	local dryStats = StatResolver.get(dry)
+	check("§2.4 a spent canister falls back to Plain Water", dryStats.liquidId == Liquids.WATER and dryStats.effectivePotency == stats.cleanPotency)
+
+	-- ── The wash pad (Config/Liquids, Config/Gear.Luck) ──────────────────
+	--
+	-- THE ONE THAT MATTERS MOST IS THE POTENCY CAP. Liquids lend potency on top of
+	-- the Cleaner track, and the Cleaner track is PLAN §2 step 4's second hard gate —
+	-- the thing that makes the Quarantine Locker fill and the Cleaner shop sell.
+	-- Nudging one liquid's `potency` to 5 because a playtester found the wall
+	-- annoying would silently delete that gate, and it would not fail anywhere else.
+	local worstBonus = 0
+	for _, id in Liquids.ORDER do
+		worstBonus = math.max(worstBonus, Liquids.get(id).potency)
+	end
+	check(
+		string.format("§2.4 no liquid lends more than +%d potency (found +%d)", Liquids.MAX_POTENCY_BONUS, worstBonus),
+		worstBonus <= Liquids.MAX_POTENCY_BONUS
+	)
+
+	-- The starting brush plus the best possible roll must still hit a wall inside the
+	-- catalogue, or the Cleaner track is decorative for a lucky player.
+	local startingReach = Gear.tier("Cleaner", 1).potency + Liquids.MAX_POTENCY_BONUS
+	check(
+		string.format("§2.4 Wire Brush + the best liquid reaches hardness %d, short of Epic (%d)", startingReach, Rarity.get("Epic").hardness),
+		startingReach < Rarity.get("Epic").hardness
+	)
+
+	-- PLAIN WATER IS THE FLOOR, AND IT IS THE ANTI-SOFTLOCK. A player with no cash
+	-- and no canisters must still be able to clean something, or "I cannot progress
+	-- and cannot fix it" becomes reachable — the one state this design has no answer
+	-- for. Three properties make that true and all three are load-bearing.
+	local water = Liquids.get(Liquids.WATER)
+	check("§2.4 Plain Water is the bottom of the table", water.order == 1)
+	check("§2.4 Plain Water lends no potency (it cannot be a gate key)", water.potency == 0)
+	check("§2.4 Plain Water is never rolled (it is always simply there)", not Liquids.isRollable(Liquids.WATER))
+
+	-- LUCK MUST NEVER MAKE ANYTHING YOU WANTED RARER. `effectiveWeight` raises luck
+	-- to a per-entry exponent, so a negative or accidentally-zero bias on a top-end
+	-- entry would make buying the Luck track actively harmful — invisible in play
+	-- until someone with a Shooting Star notices they stopped seeing Stardust.
+	local luckFloor = Gear.tier("Luck", 1).luck
+	local luckCeiling = Gear.tier("Luck", Gear.maxTier("Luck")).luck
+	local oddsLo, oddsHi = Liquids.oddsAt(luckFloor), Liquids.oddsAt(luckCeiling)
+
+	-- THE INVARIANT IS "MASS MOVES UP THE TABLE", NOT "EVERY ENTRY GETS LIKELIER",
+	-- and the first draft of this check asserted the second one and failed. It failed
+	-- CORRECTLY: Fizzy Pop's share drops 25.4% -> 15.1% across the ladder despite a
+	-- positive bias, because it gains on Soapy Suds while losing to everything above
+	-- it. That is what a luck curve is supposed to do. What must never happen is an
+	-- INVERSION -- a rarer liquid becoming relatively rarer than a commoner one --
+	-- so the pairwise ratio is the thing to pin.
+	local rollable: { string } = {}
+	for _, id in Liquids.ORDER do
+		if Liquids.isRollable(id) then
+			table.insert(rollable, id)
+		end
+	end
+
+	local monotone = true
+	local biasAscending = true
+	for index = 2, #rollable do
+		local rarer, commoner = rollable[index], rollable[index - 1]
+		if oddsHi[rarer] / oddsHi[commoner] <= oddsLo[rarer] / oddsLo[commoner] then
+			monotone = false
+		end
+		if Liquids.get(rarer).luckBias <= Liquids.get(commoner).luckBias then
+			biasAscending = false
+		end
+	end
+	check("§6 luck only ever moves mass UP the table (no inversions)", monotone)
+	check("§6 luckBias rises with every rung, which is what guarantees that", biasAscending)
+
+	local sumLo, sumHi = 0, 0
+	for _, chance in oddsLo do
+		sumLo += chance
+	end
+	for _, chance in oddsHi do
+		sumHi += chance
+	end
+	check("§6 the odds table is a probability distribution at both ends", math.abs(sumLo - 1) < 1e-9 and math.abs(sumHi - 1) < 1e-9)
+
+	-- THE FLOOR NEVER DISAPPEARS. A roll you can predict is not a roll; if maxed luck
+	-- ever pushes the commonest liquid under ~10% the pad has become a vending
+	-- machine and the reveal animation is lying about there being a moment.
+	local commonest = Liquids.ORDER[2]
+	check(
+		string.format("§6 the common end survives maxed luck: %s at %.1f%% (want >= 10%%)", Liquids.get(commonest).name, oddsHi[commonest] * 100),
+		oddsHi[commonest] >= 0.10
+	)
+
+	-- ...and the jackpot has to visibly move, or the ladder reads as a tax.
+	local jackpot = Liquids.ORDER[#Liquids.ORDER]
+	check(
+		string.format("§6 maxed luck multiplies the jackpot %.1fx (want >= 5x)", oddsHi[jackpot] / oddsLo[jackpot]),
+		oddsHi[jackpot] / oddsLo[jackpot] >= 5
+	)
+
+	local luckAscending = true
+	for tier = 2, Gear.maxTier("Luck") do
+		local better = Gear.tier("Luck", tier)
+		local worse = Gear.tier("Luck", tier - 1)
+		if better.luck <= worse.luck or better.price <= worse.price then
+			luckAscending = false
+		end
+	end
+	check("§6 every Luck tier is both luckier and pricier than the last", luckAscending)
+
+	-- A ROLL MUST BE WORTH LESS THAN WHAT IT CLEANS. The pad charges cash per roll and
+	-- pays in charges; if a roll ever costs more than the cheapest item in the game is
+	-- worth, the pad is a trap for exactly the players with the least money.
+	check(
+		string.format("§6 a roll ($%d) costs less than a Common sells for ($%d)", Tuning.LIQUID_ROLL_COST, Rarity.get("Common").maxValue),
+		Tuning.LIQUID_ROLL_COST < Rarity.get("Common").maxValue
+	)
 
 	-- PLAN §2 step 1 — the reveal. These are the checks that catch someone "fixing"
 	-- the Detector track's weak payoff by widening the radius, which is the one lever

@@ -35,7 +35,7 @@ local TEMPLATE = {
 	xp = 0,
 	level = 1,
 
-	gear = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1 },
+	gear = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1, luck = 1 },
 
 	carry = {}, -- array of Decay.CarriedItem. The backpack.
 	locker = {}, -- Quarantine Locker (PLAN §10.2): found but not yet cleanable.
@@ -46,6 +46,15 @@ local TEMPLATE = {
 		bankedCash = 0,
 		bankedAt = 0,
 	},
+
+	-- The wash pad (Config/Liquids). `liquids` is liquid id -> charges remaining;
+	-- Plain Water is deliberately NOT in here, because "no entries" already means
+	-- "on water" and storing an infinite charge count is how math.huge ends up in a
+	-- DataStore. `equippedLiquid` is "" for water, never nil -- ProfileStore's
+	-- Reconcile fills a missing key from the template, and a template nil is not a
+	-- key at all.
+	liquids = {},
+	equippedLiquid = "",
 
 	discovered = {}, -- itemId -> true. Drives the museum (PLAN §10.10).
 	perks = {}, -- perkId -> true. Read by StatResolver.
@@ -60,7 +69,7 @@ local TEMPLATE = {
 
 	railStations = {}, -- stageId -> parts found (PLAN §5.3)
 
-	stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0 },
+	stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0, rolls = 0 },
 }
 
 local STORE_VERSION = 1 -- bump to abandon all existing saves

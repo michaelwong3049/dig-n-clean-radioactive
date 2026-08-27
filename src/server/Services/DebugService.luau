@@ -29,6 +29,8 @@ local Tuning = require(Shared.Config.Tuning)
 local Stages = require(Shared.Config.Stages)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
+local Gear = require(Shared.Config.Gear)
+local Liquids = require(Shared.Config.Liquids)
 local Contamination = require(Shared.Contamination)
 local Radiation = require(Shared.Radiation)
 local Decay = require(Shared.Decay)
@@ -238,8 +240,20 @@ COMMANDS["/flush"] = {
 	end,
 }
 
+-- DERIVED FROM Gear.TRACKS, not typed out. The old hardcoded list went stale the
+-- moment Luck became the seventh track: the command still WORKED (it validates
+-- against data.gear, not against the help string), so nothing failed loudly -- the
+-- help text just quietly stopped mentioning a whole track.
+local GEAR_USAGE = `/gear <{table.concat((function()
+	local keys = {}
+	for _, track in Gear.TRACKS do
+		table.insert(keys, Gear.profileKey(track))
+	end
+	return keys
+end)(), "|")}> <tier>`
+
 COMMANDS["/gear"] = {
-	help = "/gear <detector|magnet|cleaner|suit|boots|satchel> <tier>",
+	help = GEAR_USAGE,
 	run = function(player, _sandbox, args)
 		local data = DataService.data(player)
 		if data == nil then
@@ -247,7 +261,7 @@ COMMANDS["/gear"] = {
 		end
 		local track, tier = args[1], tonumber(args[2])
 		if track == nil or data.gear[track] == nil or tier == nil then
-			return "usage: /gear <detector|magnet|cleaner|suit|boots|satchel> <tier>"
+			return `usage: {GEAR_USAGE}`
 		end
 		data.gear[track] = math.max(1, math.floor(tier))
 		return `{track} -> tier {data.gear[track]}`
@@ -302,6 +316,61 @@ COMMANDS["/pocket"] = {
 	help = "/pocket — hot pockets belong to StageService and arrive in Phase 4",
 	run = function(_player, _sandbox, _args)
 		return "hot pockets are not built yet (PLAN §4, Phase 4)"
+	end,
+}
+
+COMMANDS["/liquid"] = {
+	help = "/liquid <id> [charges] — put a canister in the hose without paying the pad",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+
+		local id = args[1]
+		if id == nil or (id ~= Liquids.WATER and not Liquids.isRollable(id)) then
+			local ids = {}
+			for _, key in Liquids.ORDER do
+				table.insert(ids, key)
+			end
+			return `usage: /liquid <{table.concat(ids, "|")}> [charges]`
+		end
+
+		if id == Liquids.WATER then
+			data.equippedLiquid = ""
+			return "hose -> Plain Water"
+		end
+
+		local def = Liquids.get(id)
+		local charges = math.max(1, math.floor(tonumber(args[2]) or def.charges))
+		data.liquids[id] = charges
+		data.equippedLiquid = id
+		return `hose -> {def.name}, {charges} charge(s), +{def.potency} potency`
+	end,
+}
+
+COMMANDS["/odds"] = {
+	help = "/odds — the wash pad's table at your current luck",
+	run = function(player)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+
+		-- Reads Liquids.oddsAt, the SAME function LiquidService rolls against and the
+		-- panel displays. This command is only useful if it cannot disagree with
+		-- either, which is exactly why none of the three has its own copy.
+		local stats = StatResolver.get(data)
+		local odds = Liquids.oddsAt(stats.luckMultiplier)
+		local lines = { string.format("luck %.3gx (%s)", stats.luckMultiplier, Gear.tier("Luck", data.gear.luck or 1).name) }
+		for _, id in Liquids.ORDER do
+			local chance = odds[id]
+			if chance then
+				local def = Liquids.get(id)
+				table.insert(lines, string.format("  %-16s %6.2f%%   1 in %d", def.name, chance * 100, math.floor(1 / chance + 0.5)))
+			end
+		end
+		return table.concat(lines, "\n")
 	end,
 }
 

@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Gear.lua — the six upgrade tracks (PLAN §6) plus exhibit slots.
+	Gear.lua — the seven upgrade tracks (PLAN §6) plus exhibit slots.
 
 	SUIT NUMBERS ARE FITTED, NOT GUESSED.
 	`reduction` and `tolerance` were solved so the model in Shared/Radiation.lua
@@ -164,6 +164,35 @@ Gear.Satchel = {
 	{ name = "Containment Pack", price = 8300, fuseMult = 3.12, shielding = 0.78 },
 }
 
+-- THE SEVENTH TRACK, AND THE ONLY ONE THAT BUYS NOTHING YOU HOLD. Luck does exactly
+-- one thing: it bends the liquid roll at the wash pad (Config/Liquids) toward the top
+-- of the table. It has no radius, no tolerance, no speed — the number IS the odds.
+--
+-- `luck` is the base of the exponent in Liquids.effectiveWeight, so the whole ladder
+-- is legible from Liquids.luau's own odds table rather than from anything here. End
+-- to end (1.0 -> 8.0) the jackpot moves 1-in-814 to 1-in-40, and the chance of any
+-- gate-cracking (+2 potency) liquid moves 1.84% -> 15.86%.
+--
+-- PRICED ON THE SAME ~2.4x CURVE AS EVERYTHING ELSE (PLAN §6, "pricing philosophy"),
+-- deliberately NOT the Boots line's steeper 2.8x. Boots are steep because speed is
+-- the most economically dangerous stat in the game; luck is self-limiting, because
+-- what a good roll gets you is `charges` — a fixed handful of patches — rather than
+-- a permanent capability. Rolling well twice as often is still not a permanent
+-- upgrade to anything, which is exactly why it can be priced normally.
+--
+-- The names are charms rather than machines on purpose. Every other track is
+-- equipment you wear or hold; this one is a rabbit's foot on the workbench, and the
+-- naming is the fastest way to communicate that it does not go in your hands.
+Gear.Luck = {
+	{ name = "Rusty Horseshoe", price = 0, luck = 1.0 },
+	{ name = "Rabbit's Foot", price = 200, luck = 1.5 },
+	{ name = "Four-Leaf Clover", price = 480, luck = 2.2 },
+	{ name = "Wishbone Charm", price = 1150, luck = 3.1 },
+	{ name = "Lucky Penny Jar", price = 2760, luck = 4.3 },
+	{ name = "Golden Horseshoe", price = 6640, luck = 6.0 },
+	{ name = "Shooting Star", price = 15930, luck = 8.0 },
+}
+
 Gear.SPRINT_MULTIPLIER = 1.35
 
 -- The endgame money sink (PLAN §8.5). Index = slot number being bought.
@@ -171,7 +200,7 @@ function Gear.pedestalPrice(nextSlot: number): number
 	return math.floor(900 * (1.28 ^ (nextSlot - 3)))
 end
 
-Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Boots", "Satchel" }
+Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Boots", "Satchel", "Luck" }
 
 --- Track name (capitalised, as used here and in the world's StationId attribute)
 --- to profile field (lowercase, as used in DataService's TEMPLATE.gear).
@@ -187,6 +216,7 @@ Gear.PROFILE_KEY = {
 	Suit = "suit",
 	Boots = "boots",
 	Satchel = "satchel",
+	Luck = "luck",
 }
 
 function Gear.profileKey(track: string): string

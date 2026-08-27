@@ -328,6 +328,11 @@ function World.verify(): (boolean, { string })
 	)
 	check((census.shop or 0) >= #Gear.TRACKS, `expected at least {#Gear.TRACKS} shop counters, found {census.shop or 0}`)
 	check((census.plot or 0) == Plots.COUNT, `expected {Plots.COUNT} plot boards, found {census.plot or 0}`)
+	-- One wash pad per base, beside that base's cleansing station (Plots.buildWashPad).
+	check(
+		(census.roller or 0) == Plots.COUNT,
+		`expected {Plots.COUNT} wash pads (one per base), found {census.roller or 0}`
+	)
 
 	-- Every priced track must be buyable somewhere.
 	local sells: { [string]: boolean } = {}
@@ -338,6 +343,35 @@ function World.verify(): (boolean, { string })
 	end
 	for _, track in Gear.TRACKS do
 		check(sells[track] == true, `no shop sells "{track}" — it has prices in Gear.luau and nowhere to spend them`)
+	end
+
+	-- THE WASH PAD AND THE CLEANSING STATION MUST NOT OVERLAP, and this is a real
+	-- correctness check rather than a layout preference. Rolling fires off
+	-- StationService's ENTRY EDGE and charges cash, so a player scrubbing at the
+	-- basin who drifts into an overlapping roller radius is billed for a roll they
+	-- never asked for. Nearest-wins settles which panel opens; it does not settle
+	-- which edges fire. See Plots.buildWashPad for the numbers this protects.
+	local rollers: { BasePart } = {}
+	local decons: { BasePart } = {}
+	for _, d in Workspace:GetDescendants() do
+		if d:IsA("BasePart") then
+			local kind = d:GetAttribute("StationKind")
+			if kind == "roller" then
+				table.insert(rollers, d)
+			elseif kind == "decon" then
+				table.insert(decons, d)
+			end
+		end
+	end
+	for _, roller in rollers do
+		for _, decon in decons do
+			local reach = ((roller:GetAttribute("Radius") :: number?) or 12) + ((decon:GetAttribute("Radius") :: number?) or 12)
+			local gap = (roller.Position - decon.Position).Magnitude
+			check(
+				gap > reach,
+				`{roller:GetFullName()} and {decon:GetFullName()} are {gap // 1} studs apart but reach {reach} — walking between them would bill an unasked-for roll`
+			)
+		end
 	end
 
 	-- ── Spawning ─────────────────────────────────────────────────────────

@@ -60,6 +60,7 @@ audio) genuinely is later: each one either extends a system that doesn't exist y
 | 2 | **Map-anchored features** — shops built and working; Exhibition world + contract done, income pending | §3 | **mostly done** |
 | 3 | **Economy & state backbone** — spend path landed; exhibit accrual pending | §4 | in progress |
 | 4 | **Mechanical loop content** — Stages 2–4 stocked (41 items) | §5 | **done for MVP** |
+| 4 | **The wash bay** — liquid roll economy live; the hose minigame is next | §5b | in progress |
 | — | Version control workflow for world content (cross-cutting, not sequenced) | §6 | in progress |
 | — | Hardening — bugs found during review (cross-cutting, blocks specific phases — see §7) | §7 | not started |
 | — | Documentation (cross-cutting) | §8 | in progress |
@@ -467,6 +468,38 @@ the place file has no git history to recover from.
       "short" has to mean short from its own station. At the far end of the east chain the
       honest walk from the nearest cleansing station is ~1800 studs, about two minutes.
       `stationDistance = 1799` is the warning, not the design.
+
+## 5b. The wash bay — Phase 4
+
+PLAN §2 step 4 calls cleaning "a **skill mini-interaction**, not a progress bar" and §16
+hedges that if it doesn't work, fall back to a hold-to-clean bar with the potency gate.
+We shipped the fallback. This section is the two-slice plan to ship the real thing.
+
+- [x] **The liquid roll economy** — `Config/Liquids.luau` (10 liquids), the `Luck` gear
+      track (7 tiers), `LiquidService`, a **wash pad** on every base
+      (`StationKind = "roller"`, `build/Plots.buildWashPad`), a Luck counter at the
+      Outfitter, roller mode on the station panel, and `LiquidController`'s roll reveal
+      + loaded-liquid badge. Drives the EXISTING hold-to-scrub bar, so the whole economy
+      is playable and tunable before any camera work exists.
+      Three invariants, all pinned in `Util/Spec`: liquid potency is capped at **+2** so
+      the Cleaner track stays PLAN §2's second gate; **Plain Water is unlimited**, so no
+      player can ever be unable to clean; and luck only ever moves mass **up** the table,
+      never inverting a pair.
+- [ ] **The hose minigame** — the piece PLAN §2 actually asks for. `WashService` owns the
+      session (the client reports aim and intent, never progress — same boundary the
+      scrub timer already has); `WashController` takes the camera to a third-person
+      framing on a `WashBay` anchor in the cleansing station, renders the item from
+      `ItemModels`, scatters one glowing blob per contamination patch over it, and lets
+      the player hold-to-spray in the loaded liquid's colour. Patches above effective
+      potency render crusted and visibly repel the stream — the Quarantine Locker taught
+      in 3D rather than in a red button label. `StationController`'s `HOLD TO SCRUB`
+      becomes `CLEAN` and opens the bay; the headless scrub path stays as the fallback
+      the server still validates against.
+- [ ] **Replicate the spray** — the stream is client-local in the slice above, which is
+      against `ToolService`'s "what you hold is public storytelling" rule. It is
+      defensible only because every cleansing station sits on its owner's own private
+      base (`build/Plots.luau`) and there is no bystander to tell the story to. Revisit
+      if bases ever become walk-in.
 
 ## 6. Version control workflow for world content
 
