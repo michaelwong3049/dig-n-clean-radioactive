@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 7
+local BUILDER_VERSION = 8
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -123,11 +123,13 @@ local WALL_LIGHT = "9C4A2F" -- a close, subtly darker rust variant -- NOT the fi
 -- stage -- an engineered containment barrier reads as one consistent material, not
 -- something that shares each stage's own theme.
 
---- The stage-to-stage boundary lines. A flat hazard-checker strip laid across the
---- full width of each INTERNAL seam (Stage 1/2 through 5/6) so a player reads "new
---- stage" off the ground the instant they cross it, before any HUD number moves.
---- Not drawn at Stage 1's west edge (that seam is the walk in from camp, not a
---- stage-to-stage step) or Stage 6's east edge (that is the void wall).
+--- The boundary lines. A flat hazard-checker strip laid across the full width of the
+--- camp -> Stage 1 entrance AND every internal stage-to-stage seam (Stage 1/2
+--- through 5/6), so a player reads "new ground" off the floor the instant they cross
+--- it, before any HUD number moves. Only Stage 6's east edge (the void wall) has no
+--- line. The camp->Stage 1 line was added on request -- it is the walk in from
+--- camp, so it reads as "you are leaving the safe ground" rather than "new stage",
+--- but it is the same strip either way.
 ---
 --- 3 studs wide in the walk direction, on request. Two rows across that width so
 --- the checker alternates both ways rather than reading as a dashed line. Thin,
@@ -677,14 +679,15 @@ local function buildStageCheckerboard(parent: Instance, id: number)
 	folder.Parent = parent
 end
 
---- One hazard-checker strip per INTERNAL stage seam -- see BORDER_WIDTH's comment
---- for what it is and why the two end seams are skipped.
+--- The camp->Stage 1 entrance line plus one strip per INTERNAL stage seam -- see
+--- BORDER_WIDTH's comment for what these are and why only Stage 6's east edge has none.
 ---
 --- SEAMS ARE READ, NOT HARDCODED. Every stage's east edge is the next stage's west
 --- edge exactly (Config/Stages centres them that way and World.verify() rejects any
 --- overlap), so the seam X is the shared edge between consecutive stages once they
---- are sorted west-to-east. This chain has been reordered and resized more than
---- once already -- same reasoning as buildBoundaryWalls reading its own bounds.
+--- are sorted west-to-east; the camp line sits on the first stage's west edge, which
+--- is Hub.PLAZA.maxX. This chain has been reordered and resized more than once
+--- already -- same reasoning as buildBoundaryWalls reading its own bounds.
 local function buildStageBorderLines(parent: Instance)
 	local ids = table.clone(Stages.builtIds())
 	table.sort(ids, function(a, b)
@@ -697,20 +700,9 @@ local function buildStageBorderLines(parent: Instance)
 	local y = Stages.SURFACE_Y + SKIM
 	local rowWidth = BORDER_WIDTH / BORDER_ROWS
 
-	for i = 1, #ids - 1 do
-		local _, aMinZ, aMaxX, aMaxZ = Stages.bounds(ids[i])
-		local bMinX, bMinZ, _, bMaxZ = Stages.bounds(ids[i + 1])
-
-		-- Averaged rather than assumed equal: if a future edit ever leaves a hair
-		-- of gap or overlap between two plates, the line still lands in the middle
-		-- of it. Z span is the union of both plates' depth (identical since the
-		-- uniform-depth pass, taken as a union so this keeps covering the seam if
-		-- that stops being true).
-		local seamX = (aMaxX + bMinX) / 2
-		local minZ = math.min(aMinZ, bMinZ)
-		local maxZ = math.max(aMaxZ, bMaxZ)
+	-- One strip centred on `seamX`, spanning minZ..maxZ.
+	local function strip(seamX: number, minZ: number, maxZ: number, name: string)
 		local x0 = seamX - BORDER_WIDTH / 2
-
 		local cols = math.ceil((maxZ - minZ) / BORDER_CELL_Z)
 		for ix = 0, BORDER_ROWS - 1 do
 			local cx0 = x0 + ix * rowWidth
@@ -724,7 +716,7 @@ local function buildStageBorderLines(parent: Instance)
 
 				local yellow = (ix + iz) % 2 == 0
 				build(folder, CFrame.new(0, 0, 0), {
-					name = `Seam{ids[i]}-{ids[i + 1]}`,
+					name = name,
 					pos = { cx0 + rowWidth / 2, y, (z0 + z1) / 2 },
 					size = { rowWidth, 0.4, d },
 					color = if yellow then BORDER_YELLOW else BORDER_BLACK,
@@ -733,6 +725,25 @@ local function buildStageBorderLines(parent: Instance)
 				})
 			end
 		end
+	end
+
+	-- Camp -> Stage 1. Stage 1's west edge is exactly Hub.PLAZA.maxX; the strip spans
+	-- Stage 1's own Z extent so it reads as one line with the rest of the chain (the
+	-- plaza is narrower, but the field is what you are crossing into).
+	do
+		local wMinX, wMinZ, _, wMaxZ = Stages.bounds(ids[1])
+		strip(wMinX, wMinZ, wMaxZ, `Camp-Stage{ids[1]}`)
+	end
+
+	-- Every internal stage-to-stage seam. seamX is averaged rather than assumed
+	-- equal: if a future edit ever leaves a hair of gap or overlap between two
+	-- plates, the line still lands in the middle of it. Z span is the union of both
+	-- plates' depth (identical since the uniform passes, taken as a union so this
+	-- keeps covering the seam if that stops being true).
+	for i = 1, #ids - 1 do
+		local _, aMinZ, aMaxX, aMaxZ = Stages.bounds(ids[i])
+		local bMinX, bMinZ, _, bMaxZ = Stages.bounds(ids[i + 1])
+		strip((aMaxX + bMinX) / 2, math.min(aMinZ, bMinZ), math.max(aMaxZ, bMaxZ), `Seam{ids[i]}-{ids[i + 1]}`)
 	end
 
 	-- Same override buildStageCheckerboard's cap tiles take: a thin marker on the
@@ -989,9 +1000,9 @@ local function createScenery(): Model
 	floors.Parent = scenery
 
 	-- No stage-to-stage blend any more anywhere in the chain -- see the removal note
-	-- above STAGE_BLEND's old spot, just above buildStageScenery. Every boundary,
-	-- 1/2 through 5/6, is a hard cut now, marked by a hazard-checker line on the
-	-- ground (buildStageBorderLines) rather than smoothed with a colour fade.
+	-- above STAGE_BLEND's old spot, just above buildStageScenery. Every boundary --
+	-- camp/1 and 1/2 through 5/6 -- is a hard cut now, marked by a hazard-checker
+	-- line on the ground (buildStageBorderLines) rather than smoothed with a fade.
 	buildStageBorderLines(scenery)
 	buildBoundaryWalls(scenery)
 	buildBaseWalls(scenery)
