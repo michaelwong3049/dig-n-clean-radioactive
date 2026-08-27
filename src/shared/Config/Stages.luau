@@ -16,11 +16,13 @@
 -- The generator writes both from the same loop index so they cannot drift apart.
 --
 -- ── HOW SIZE WAS CHOSEN, WHICH IS NOT ARBITRARY ─────────────────────────────
--- DigService keeps SIGNALS_PER_STAGE = 45 buried signals per stage. That is a GLOBAL
+-- DigService keeps SIGNALS_PER_STAGE = 90 buried signals per stage. That is a GLOBAL
 -- constant — it does not scale with area — so area is the only lever on how hard a
--- stage is to search. Define coverage:
+-- stage is to search. Since the uniform-length pass, every stage has the SAME area —
+-- so that lever is now set once, globally, and hits every stage identically.
+-- Define coverage:
 --
---     c = 45 * pi * r^2 / area
+--     c = 90 * pi * r^2 / area
 --
 -- Under the reveal detector c has a much more direct reading than it used to: it is
 -- the EXPECTED NUMBER OF CONTACTS lit up around a player standing still. c = 0.11
@@ -30,43 +32,34 @@
 -- sweeps a corridor of width 2r as the player walks, so what a player experiences is
 -- the gap between one glow going out and the next coming up:
 --
---     seconds between contacts = (area / 45) / (2 * r * walkSpeed)
+--     seconds between contacts = (area / 90) / (2 * r * walkSpeed)
 --
 -- That is Stages.secondsBetweenContacts, and it is the number to tune against. PLAN
 -- §2 wants a 20-40s loop at the low end; the walk is supposed to be a chunk of that,
 -- not all of it.
 --
---     stage   size       rated r   c      walk to next contact (16 studs/sec)
---     1      660x320    13 (T1)   0.23    5.6s
---     2      220x280    16 (T2)   1.18    1.3s
---     3      260x320    19 (T3)   1.23    1.5s
---     4      290x260    22 (T4)   1.81    1.2s
---     5      600x520    25 (T5)   0.57    4.3s
---     6      360x320    28 (T6)   1.92    1.4s
+-- ── UNIFORM LENGTH PASS ────────────────────────────────────────────────────
+-- Every stage is now the SAME footprint: 400 long (X, the walk axis) by 240 wide
+-- (Z). This finishes what the earlier uniform-depth pass started — Stage 1 and
+-- Stage 5 used to be 600-660 long against 220-360 for the rest, which read on the
+-- ground as long empty walks through the two big stages and quick hops through
+-- the others. Identical footprints make SIGNALS_PER_STAGE (Config/Tuning) do
+-- exactly the job its own comment claims: one global knob for how hard EVERY
+-- stage is to search, with no per-stage area lever left to forget about.
 --
--- STALE, AND FLAGGED RATHER THAN GUESSED AT. The UNIFORM DEPTH PASS further below
--- set every stage's Z (second size number) to 240, so every "size" and everything
--- it feeds (c, walk-to-next-contact) here is wrong again — every stage's area
--- shrank this time, Stage 1's by 25% specifically (confirmed live: Spec's own
--- "still has to walk >= 2s" check on Stage 1 fails post-resize, same failure as
--- the earlier width pass produced before it was reverted). Recomputing six rows
--- properly means pulling each stage's rated-tier detector radius from Config/Gear
--- too, which is a real pass, not a five-minute edit — left undone on purpose
--- rather than half-done. Use `World.coverageReport()` for live numbers until this
--- table gets that pass.
+--     every stage:  400 x 240   area 96,000   90 signals   mean gap ~16 studs
 --
--- ALL SIX ARE BUILT NOW, BUT ONLY STAGE 1 HAS EVER BEEN PLAYED, and the distinction
--- still matters. The other five were sized against a c ~= 0.26 target back when the
--- detector was a needle and c meant "fraction of ground where the arrow points at
--- something" — a reading that no longer exists. Their numbers are recomputed here so
--- the table is not lying, NOT endorsed: at c > 1 you are never without a target, so
--- 2, 3, 4 and 6 are farms rather than searches and they want re-sizing against the
--- time column. Doubling SIGNALS_PER_STAGE made that worse, not better.
+-- WHAT THAT COSTS, RECORDED NOT HIDDEN: at 96,000 studs the starting detector
+-- (r=13) turns up a fresh contact about every 2s of walking and a maxed one
+-- (r=34) almost continuously — denser than the 20-40s "loop" PLAN §2 describes.
+-- That is the deliberate trade for uniform stages and no dead walking. Spec's two
+-- search-feel checks were re-banded to this reality rather than the geometry bent
+-- to keep the old numbers. Retune via SIGNALS_PER_STAGE alone from here — do not
+-- reintroduce per-stage sizes.
 --
--- Building them did not fix that and was not meant to. Every stage kept its exact
--- configured SIZE through the move — only centres changed — precisely so this table
--- stays true and the re-sizing decision stays open rather than being quietly
--- pre-empted by a build pass.
+-- ALL SIX ARE BUILT, BUT ONLY STAGE 1 HAS EVER BEEN PLAYED. The other five now
+-- share Stage 1's footprint exactly, so whatever the search feels like there is
+-- what it feels like everywhere — but 2-6 have never been walked to confirm it.
 --
 -- ── WHERE THEY ARE, AND WHY THEY MOVED ──────────────────────────────────────
 -- There is no terrain in this world: off the built parts is void, so a stage that
@@ -74,7 +67,7 @@
 -- moving for that reason or because they overlapped Stage 1.
 --
 --     camp ═══> [ 1 Ash Flats ] [ 2 Suburbs ] [ 3 Fallout ] [ 4 Exclusion ] [ 5 Reactor ] [ 6 Crater ]
---       x            100-760      760-980      980-1240     1240-1530       1530-2130     2130-2490
+--       x            100-500      500-900      900-1300     1300-1700       1700-2100     2100-2500
 --
 -- ONE STRAIGHT CHAIN NOW, TIER-ORDERED, NOT A SIDE SPUR. Stage 4 used to sit north of
 -- Stage 1, touching only its west edge — close enough to camp that a fresh player
@@ -88,8 +81,9 @@
 -- The chain shares edges exactly, the same way the plaza's east edge already lands
 -- on Stage 1's west edge: `rectsOverlap` fails on `<`, not `<=`, so a shared edge is
 -- touching rather than overlapping and World.verify() accepts it. Walk east and it
--- gets worse; that is the whole layout. Stages 5 and 6 both shifted +290 (Stage 4's
--- width) east of their old centres to open the gap Stage 4 now fills.
+-- gets worse; that is the whole layout. The uniform-length pass re-butted every
+-- centre off Stage 1's fixed west edge (x = 100) at a flat 400 pitch, so every
+-- stage from 2 on now sits at a different x than it did before.
 --
 -- ── THE COLOUR TURNS AT STAGE 4 ──────────────────────────────────────────────
 -- Stages 1-3 are the known world and stay green. From Stage 4 the ground goes plum,
@@ -103,11 +97,11 @@
 -- balanced pink to white and a pale violet to lavender-grey. Pink stays red-dominant,
 -- violet stays blue-dominant.
 --
--- The header used to carry a hard ceiling of area <= 785 * r^2, i.e. c >= 0.18. Stage
--- 1 has been over that ceiling since the field was grown to 660x320 — it was already
--- at c = 0.096 under the old radius — so the rule described a stage layout that no
--- longer exists and is left here as history rather than as a check. Use the time
--- column.
+-- The header used to carry a hard ceiling of area <= 785 * r^2, i.e. c >= 0.18. Every
+-- stage has been well over that ceiling for a long time (Stage 1 at c = 0.096 even
+-- before it grew), and the uniform-length pass drops the area further still — so the
+-- rule describes a stage layout that has not existed for many passes and is left here
+-- as history, not a check. Use the time column, and SIGNALS_PER_STAGE to move it.
 --
 -- COLOUR NOTE: the plate is the SLUDGE and it is deliberately deep and muted. The
 -- bright colour belongs to the pools and spills in build/Scenery, which are Neon —
@@ -270,13 +264,14 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("CFF3FF"),
 		fogEnd = 900,
 		loot = { Scrap = 48, Common = 41, Uncommon = 8.4, Rare = 2, Epic = 0.4, Legendary = 0.075, Mythic = 0.02, Anomaly = 0.001 },
-		center = { 430, 0 },
-		-- UNIFORM DEPTH PASS: every stage's side-to-side breadth (the Z dimension,
-		-- perpendicular to the camp-to-Crater chain) is now 240 — 0.75x Stage 1's own
-		-- former 320 — same rule as the earlier, since-corrected width pass, but on
-		-- the axis actually meant: how wide the field feels standing in it, not how
-		-- far you walk crossing it. See the header note below the chain diagram.
-		size = { 660, 240 },
+		-- West edge pinned at x = 100 (Hub.PLAZA.maxX); centre = 100 + 400/2.
+		center = { 300, 0 },
+		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint of all six stages —
+		-- see the header. Was 660 long (and 320, then 240, wide); this is the axis
+		-- that made Stage 1 a long empty walk. Stage 1's WEST edge did not move, so
+		-- its entrance-side tuning (stationDistance, the deepRads/depthFrac notes
+		-- above) is untouched; only the east half pulled in.
+		size = { 400, 240 },
 		-- The east-edge endpoint of buildStage1Checkerboard's plaza-to-here gradient
 		-- (see Scenery.luau) — this base colour is never actually seen as a flat
 		-- fill, only blended toward across the plate, and the fallback should match
@@ -310,21 +305,20 @@ Stages.DEFS = {
 		deepRads = 5.0, -- 2.5x
 		soilHardness = 2,
 		ratedSuitTier = 2,
-		stationDistance = 719,
+		-- Was 719 when this stage's entrance sat at x = 760; the uniform-length pass
+		-- pulled its west edge in to x = 500, so this is that walk minus ~260. Still
+		-- an estimate, not re-walked — same caveat as before.
+		stationDistance = 460,
 		-- Was a pale yellow-green — clashed with the dun/tan ground once that
 		-- stopped being green. Dusty tan haze instead.
 		fogColor = Color3.fromHex("E8D9B0"),
 		fogEnd = 800,
 		loot = { Scrap = 43, Common = 39, Uncommon = 12.6, Rare = 3.5, Epic = 1, Legendary = 0.25, Mythic = 0.05, Anomaly = 0.002 },
-		-- MOVED EAST, OUT OF STAGE 1. This used to sit at x = 470, which put it
-		-- ENTIRELY INSIDE Stage 1 (x 100-760) — fine while it was never built, fatal
-		-- the moment it was, because overlapping stages resolve smallest-area-wins and
-		-- "which stage am I standing in" stops having an answer. Its west edge is now
-		-- exactly Stage 1's east edge. Size is untouched, so the header's coverage and
-		-- seconds-between-contacts figures for this stage still hold.
-		center = { 870, 0 },
-		-- UNIFORM DEPTH PASS: 280 -> 240, see Stage 1's note.
-		size = { 220, 240 },
+		-- West edge = Stage 1's east edge (x = 500); centre = 500 + 400/2.
+		center = { 700, 0 },
+		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint — see the header. Was
+		-- 220 long, the shortest stage; it grew to match the rest.
+		size = { 400, 240 },
 		-- Dun/tan, not green — see "LIFE FADING INTO A DEAD WASTELAND" below.
 		color = "B8935F",
 		material = "Sand",
@@ -346,7 +340,9 @@ Stages.DEFS = {
 		-- but real margin over this stage's deepest instead of landing exactly on it.
 		soilHardness = 3,
 		ratedSuitTier = 3,
-		stationDistance = 939,
+		-- Was 939 at an x = 980 entrance; uniform-length pulled the west edge to
+		-- x = 900. Estimate, not re-walked.
+		stationDistance = 860,
 		-- Was a bright yellow-green — same clash as Stage 2's, deeper. Warmer dusty
 		-- khaki haze for the gradient's endpoint.
 		fogColor = Color3.fromHex("D4B896"),
@@ -357,11 +353,11 @@ Stages.DEFS = {
 		-- otherwise silently produce dead rolls (DigService.rollItemId's step-down
 		-- bottoms out at Scrap with nothing below it to fall back to).
 		loot = { Common = 74, Uncommon = 16.8, Rare = 6, Epic = 2.25, Legendary = 0.6, Mythic = 0.14, Anomaly = 0.005 },
-		-- Also moved east — its old centre at x = 760 was Stage 1's east EDGE, so half
-		-- of it lay inside Stage 1. Butted onto Stage 2 instead. Size untouched.
-		center = { 1110, 0 },
-		-- UNIFORM DEPTH PASS: 320 -> 240, see Stage 1's note.
-		size = { 260, 240 },
+		-- West edge = Stage 2's east edge (x = 900); centre = 900 + 400/2.
+		center = { 1100, 0 },
+		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint — see the header.
+		-- Was 260 long.
+		size = { 400, 240 },
 		-- Deeper desert khaki-brown — the endpoint of the Stage 1-3 gradient. Slate
 		-- read as dark grey rock and broke continuity with the sand family this
 		-- whole stretch depends on, so material moved to Sand too.
@@ -379,32 +375,32 @@ Stages.DEFS = {
 		deepRads = 37.5, -- 2.5x
 		soilHardness = 4,
 		ratedSuitTier = 4,
-		-- Deliberately SHORT. PLAN §15's second validation question is "do players
-		-- cross into Stage 4 unrated, on purpose, more than once?" — that used to be
-		-- answerable because the field sat right off the camp's doorstep. MOVED INTO
-		-- THE EAST CHAIN, between Stage 3 and Stage 5, so the map reads as one straight
-		-- tier-ordered progression instead of a side spur (see the header). That is a
-		-- real trade: the accidental/impulsive dive PLAN §3.5 describes now requires
-		-- walking past three stages first, so it reads more like "the next stage" than
-		-- "a lethal thing twenty feet from home." The short-and-brutal tuning (15
-		-- rads ambient over a 290x260 plate) is unchanged and still makes it a real
-		-- risk to under-tiered players passing through the chain.
+		-- USED TO BE DELIBERATELY SHORT, AND IS NOT ANY MORE. PLAN §15's second
+		-- validation question is "do players cross into Stage 4 unrated, on purpose,
+		-- more than once?" — once answerable because the field sat off the camp's
+		-- doorstep, then already traded away when Stage 4 moved into the east chain
+		-- between 3 and 5 (a straight tier-ordered progression, not a side spur — see
+		-- the header). The uniform-length pass finishes that trade: at 400 long like
+		-- every other stage it reads purely as "the next stage." The brutality is
+		-- unchanged — 15 rads at the entrance climbing to 37.5, now stretched across
+		-- 400 studs instead of 290 — and still a real risk to under-tiered players
+		-- passing through.
 		--
-		-- stationDistance below is a rough interpolation between Stage 3's 939 and
-		-- Stage 5's (new) 1489, NOT walked — flag it for re-measuring in Studio next
-		-- time someone is touching this file, same as Stage 6's honest placeholder.
-		stationDistance = 1200,
+		-- stationDistance: entrance moved from x = 1240 to x = 1300, so the old rough
+		-- 1200 nudges up. Still NOT walked — re-measure in Studio next time someone
+		-- is in this file, same as Stage 6's placeholder.
+		stationDistance = 1260,
 		fogColor = Color3.fromHex("6FE04A"),
 		fogEnd = 600,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
 		-- fold, this stage's old Scrap weight (15) folded into Common (24 -> 39).
 		loot = { Common = 39, Uncommon = 28, Rare = 20, Epic = 9, Legendary = 3, Mythic = 0.8, Anomaly = 0.03 },
-		-- Slotted flush between Stage 3's east edge (x = 1240) and Stage 5's new west
-		-- edge (x = 1530) — exactly its own width, zero gap either side. Size and z
-		-- centring (0, matching the rest of the chain) untouched.
-		center = { 1385, 0 },
-		-- UNIFORM DEPTH PASS: 260 -> 240, see Stage 1's note.
-		size = { 290, 240 },
+		-- West edge = Stage 3's east edge (x = 1300); centre = 1300 + 400/2.
+		center = { 1500, 0 },
+		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint — see the header. Was
+		-- 290 long, the "deliberately short" dive; that framing is gone (comment
+		-- above).
+		size = { 400, 240 },
 		-- WHERE THE GREEN STOPS. See "THE COLOUR TURNS" in the header.
 		color = "73246B",
 		material = "Slate",
@@ -423,20 +419,18 @@ Stages.DEFS = {
 		-- buys that room back, rather than inflating Stage 6 to compensate.
 		soilHardness = 5,
 		ratedSuitTier = 5,
-		stationDistance = 1489, -- was 1199; +290 from Stage 4's insertion, still not re-walked
+		stationDistance = 1660, -- entrance moved x=1530 -> x=1700 in the uniform-length pass; est., not re-walked
 		fogColor = Color3.fromHex("C8E85A"),
 		fogEnd = 500,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
 		-- fold, this stage's old Scrap weight (7) folded into Common (15 -> 22).
 		loot = { Common = 22, Uncommon = 25, Rare = 26, Epic = 17, Legendary = 7, Mythic = 2.4, Anomaly = 0.1 },
-		-- Was an island at (-700, -620) with several hundred studs of open void
-		-- between it and the nearest floor. Moved onto the east chain, then shifted
-		-- +290 again (Stage 4's width) when Stage 4 was inserted ahead of it — now
-		-- butted against Stage 4 instead of Stage 3 directly. Size untouched.
-		center = { 1830, 0 },
-		-- UNIFORM DEPTH PASS: 520 -> 240, see Stage 1's note — the biggest change of
-		-- the six, this was by far the deepest field.
-		size = { 600, 240 },
+		-- West edge = Stage 4's east edge (x = 1700); centre = 1700 + 400/2.
+		center = { 1900, 0 },
+		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint — see the header. Was
+		-- 600 long, the second of the two big empty-walk stages; the biggest single
+		-- shrink of the six.
+		size = { 400, 240 },
 		color = "A02268",
 		material = "Glass",
 		ooze = { bright = "FF3D9A", deep = "7A0F45", glow = "FF3D9A" },
@@ -461,21 +455,25 @@ Stages.DEFS = {
 		-- and it is now the far end of the east chain rather than an island, so the
 		-- number went UP. Two minutes of walking to reach the endgame field is the
 		-- strongest argument yet for building it its own station; until then this
-		-- number is the warning, not the design. It went up AGAIN, by the same +290,
-		-- when Stage 4 was inserted earlier in the chain and pushed everything after
-		-- it east — still not re-walked, same honesty caveat as before.
-		stationDistance = 2089,
+		-- number is the warning, not the design. The uniform-length pass barely moved
+		-- it: the Crater's entrance went x = 2130 -> x = 2100 (the whole chain still
+		-- ends at almost exactly the same x, 2500 vs the old 2490), so this ~2060 is
+		-- the old 2089 nudged down. Still not re-walked, same honesty caveat.
+		stationDistance = 2060,
 		fogColor = Color3.fromHex("FFD24A"),
 		fogEnd = 400,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
 		-- fold, this stage's old Scrap weight (2) folded into Common (6 -> 8).
 		loot = { Common = 8, Uncommon = 15, Rare = 24, Epic = 26, Legendary = 18, Mythic = 8, Anomaly = 0.8 },
-		center = { 2310, 0 },
-		-- UNIFORM DEPTH PASS: 320 -> 240, see Stage 1's note.
-		size = { 360, 240 },
+		-- West edge = Stage 5's east edge (x = 2100); centre = 2100 + 400/2. The chain
+		-- ends at x = 2500, within 10 studs of where it ended before.
+		center = { 2300, 0 },
+		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint — see the header. Was
+		-- 360 long.
+		size = { 400, 240 },
 		color = "5B1FA8",
 		-- Glass, not Neon. The plate used to be Neon gold, which at Brightness 2.4
-		-- with bloom is a 360x320 light source rather than ground — survivable while
+		-- with bloom is a 400x240 light source rather than ground — survivable while
 		-- it was theoretical, and the exact failure the header's colour note warns
 		-- about. The violet reads as violet on Glass and the POOLS do the glowing,
 		-- which is the rule every other stage already follows.
