@@ -50,6 +50,7 @@ local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Workspace = game:GetService("Workspace")
+local CollectionService = game:GetService("CollectionService")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
@@ -76,8 +77,22 @@ local MAX_BLIPS = 12 -- matches DigService.MAX_CONTACTS; more would never arrive
 -- off the local input instead, so the button answers the finger immediately while the
 -- bar catches up. It deliberately reports the INPUT, never the outcome -- it is not
 -- lying about progress the server may yet reject, it is confirming a click happened.
+-- How long E must be held to commit to a signal. Long enough to read as a deliberate
+-- act and to stop a stray E while running past a glow from rooting you mid-sprint;
+-- short enough that it never feels like waiting. Lives here rather than in Config
+-- because nothing about the game's balance reads it -- it is input feel, like the kick
+-- below.
+local LOCK_HOLD_SECONDS = 0.4
+
 local YANK_KICK_SECONDS = 0.12
 local YANK_KICK_SCALE = 0.05 -- how far the button swells at the peak of a kick
+
+-- The mash button's resting size. Named because TWO places need it and they have to
+-- agree: the build below, and the kick in renderFrame that scales it every frame. A
+-- literal in both is the same "hand-tuned against somewhere else" trap UIKit's header
+-- exists to stop, just inside one file.
+local HAULBUTTON_INSET = 48 -- px trimmed off the panel width, each side combined
+local HAULBUTTON_HEIGHT = 34
 
 -- How fast the fill chases the server's value (1/seconds). The bar is smoothed rather
 -- than snapped because drag is continuous and 10 Hz updates make a steady sink look
@@ -266,39 +281,54 @@ local function build(): ScreenGui
 		xAlign = Enum.TextXAlignment.Center,
 	})
 
-	-- Dig button. Dead centre of the instrument band — the primary touch/click
-	-- target, so it gets the middle rather than either instrument either side of it.
-	local digButton, digStroke = UIKit.button(gui, {
-		name = "DigButton",
-		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 1, -Dock.INSTRUMENT_BOTTOM),
-		size = Dock.DIGBUTTON_SIZE,
-		font = UIKit.Font.body,
-		textSize = 20,
-		color = COLOR.dim,
-		fillColor = COLOR.panel,
-		fillTransparency = 0.15,
-		strokeColor = COLOR.stroke,
-		cornerRadius = UIKit.Radius.button,
-		text = "TAP  E  TO LOCK ON",
-	})
-	ui.digButton = digButton
-	ui.digStroke = digStroke
+	-- ── The lock-on prompt ────────────────────────────────────────────
+	-- A ProximityPrompt over the glow itself, so the cue to commit is AT THE SPOT you
+	-- magnet the item rather than in a caption at the bottom of the screen.
+	--
+	-- Roblox's own prompt rather than a hand-rolled billboard, and it is not laziness:
+	-- HoldDuration gives the hold-to-commit and its fill ring for free, and the prompt
+	-- brings its own mobile button and gamepad glyph. That last part is what lets the
+	-- dock button go away without stranding touch players.
+	--
+	-- IT IS CLIENT-OWNED, PARENTED TO OUR OWN HOLDER PART, for two reasons that both
+	-- rule out putting it on the aura itself:
+	--   * auras are PUBLIC server parts. A prompt on one would offer HOLD E to players
+	--     whose detector cannot register that signal — the gates are per-player, the
+	--     glow is not.
+	--   * auras are destroyed the moment their signal is pulled, which would take a
+	--     prompt parented to one with it, mid-haul.
+	-- A part we own and move ourselves sidesteps both.
+	local holder = Instance.new("Part")
+	holder.Name = "LockPromptHolder"
+	holder.Anchored = true
+	holder.CanCollide = false
+	holder.CanQuery = false
+	holder.CanTouch = false
+	holder.Transparency = 1
+	holder.Size = Vector3.one
+	holder.Parent = Workspace
+	ui.promptHolder = holder
 
-	-- Dig progress, drawn as a fill sliding under the button label. Scale-based, so
-	-- it tracks the button's new size with no change of its own.
-	local digFill = Instance.new("Frame")
-	digFill.Size = UDim2.fromScale(0, 1)
-	digFill.BackgroundColor3 = COLOR.green
-	digFill.BackgroundTransparency = 0.7
-	digFill.BorderSizePixel = 0
-	digFill.ZIndex = 0
-	digFill.Parent = digButton
-	ui.digFill = digFill
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "LockPrompt"
+	prompt.ActionText = "Lock On"
+	prompt.ObjectText = "Buried Signal"
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.HoldDuration = LOCK_HOLD_SECONDS
+	-- The item is buried and the aura hugs the ground, so a sight test flickers as the
+	-- camera moves. Range is already gated by the server's own inRange below.
+	prompt.RequiresLineOfSight = false
+	prompt.MaxActivationDistance = Tuning.DIG_RADIUS
+	prompt.Enabled = false
+	prompt.Parent = holder
+	ui.prompt = prompt
 
-	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UIKit.Radius.button
-	fillCorner.Parent = digFill
+	-- NO DIG BUTTON HERE ANY MORE. It used to sit dead centre of the instrument band,
+	-- on screen for the whole time you were in a stage, saying GET CLOSER while you
+	-- walked — permanent furniture for something that only matters in the few seconds
+	-- you are stood on a glow, directly above the hotbar it competed with. Locking on
+	-- is the world prompt over the glow now (see the lock prompt further down), and
+	-- the haul panel carries the mash bar. The dock has no dig widget at all.
 
 	-- Unearth banner: true centre, upper-third of the screen. Already lived there
 	-- before this pass; only the size and type grew.
@@ -425,7 +455,7 @@ local function build(): ScreenGui
 		name = "HaulButton",
 		anchorPoint = Vector2.new(0.5, 0),
 		position = UDim2.new(0.5, 0, 0, 94),
-		size = UDim2.new(1, -48, 0, 34),
+		size = UDim2.new(1, -HAULBUTTON_INSET, 0, HAULBUTTON_HEIGHT),
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.header,
 		color = COLOR.green,
@@ -540,29 +570,68 @@ local function renderFrame(dt: number)
 	-- and oscillates the moment dt gets large, which on a bar the player is staring at
 	-- while mashing is very visible.
 	shownProgress += (state.digProgress - shownProgress) * (1 - math.exp(-FILL_LERP_RATE * dt))
-	local drawn = math.clamp(shownProgress, 0, 1)
-	ui.digFill.Size = UDim2.fromScale(drawn, 1)
-	-- Both bars read the SAME smoothed value. Two fills computing their own smoothing
-	-- off one server number is how they end up visibly disagreeing by a frame.
-	ui.haulFill.Size = UDim2.fromScale(drawn, 1)
+	ui.haulFill.Size = UDim2.fromScale(math.clamp(shownProgress, 0, 1), 1)
 
-	-- The kick. One ease-out swell per click, driven off the local timestamp so it
-	-- starts on the same frame the player pressed the key.
+	-- The kick: one ease-out swell per yank, driven off the local timestamp so it
+	-- starts on the same frame the key went down. It moved from the dock button (now
+	-- gone) onto the haul panel's own mash button, which is where the player's eyes
+	-- and finger both are during a haul. Still reports the INPUT, never the outcome --
+	-- it confirms a click happened, it does not promise the server honoured it.
 	local sinceYank = os.clock() - lastYankAt
 	local kick = if sinceYank < YANK_KICK_SECONDS then (1 - sinceYank / YANK_KICK_SECONDS) ^ 2 else 0
-	local swell = 1 + kick * YANK_KICK_SCALE
-	local base = Dock.DIGBUTTON_SIZE
-	-- Scaled about the button's own anchor (bottom-centre), so it swells upward out of
-	-- the instrument band rather than shoving the meters either side of it.
-	ui.digButton.Size = UDim2.new(
-		base.X.Scale * swell,
-		base.X.Offset * swell,
-		base.Y.Scale * swell,
-		base.Y.Offset * swell
-	)
+	ui.haulButton.Size =
+		UDim2.new(1, -HAULBUTTON_INSET, 0, math.floor(HAULBUTTON_HEIGHT * (1 + kick * YANK_KICK_SCALE)))
+end
+
+--- Park the lock prompt on the glow the player is standing over, or switch it off.
+--- Driven from renderState (10 Hz, on SweepState) rather than per frame: the tagged
+--- set is small, but there is no reason to walk it sixty times a second.
+---
+--- Gated on exactly what sendLock used to check. `not state.locked` is the important
+--- one -- see the E-key note on pressPull: while a prompt is enabled it also swallows
+--- E for its own hold, so leaving it on during a haul would fight the mash.
+local function updateLockPrompt()
+	local offerable = state.inStage and state.inRange and not state.locked and state.blocked ~= "full"
+	if not offerable then
+		ui.prompt.Enabled = false
+		return
+	end
+
+	-- Auras are tagged Models with a Core part (build/SignalAura); FieldController
+	-- enumerates them the same way. Nearest one wins, which matches the server's own
+	-- choice of target -- it hauls whatever contact is closest.
+	local character = Players.LocalPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root == nil or not root:IsA("BasePart") then
+		ui.prompt.Enabled = false
+		return
+	end
+
+	local best, bestDist = nil, math.huge
+	for _, aura in CollectionService:GetTagged(Tuning.AURA_TAG) do
+		local core = aura:FindFirstChild("Core")
+		if core and core:IsA("BasePart") then
+			local delta = core.Position - root.Position
+			local flat = delta.X * delta.X + delta.Z * delta.Z
+			if flat < bestDist then
+				best, bestDist = core, flat
+			end
+		end
+	end
+
+	if best == nil then
+		ui.prompt.Enabled = false
+		return
+	end
+
+	ui.promptHolder.Position = best.Position
+	ui.prompt.ObjectText = if state.rarityHint then string.upper(state.rarityHint) else "Buried Signal"
+	ui.prompt.Enabled = true
 end
 
 local function renderState()
+	updateLockPrompt()
+
 	-- THE PANEL IS DRIVEN OFF THE SERVER'S `locked`, NOT off anything the client
 	-- decided. Every release path lives on the server (bag full, signal gone, blackout,
 	-- item surfaced), so the panel closing is always downstream of the lock actually
@@ -603,15 +672,11 @@ local function renderState()
 		-- plaza would read as broken hardware rather than as a quiet one.
 		ui.status.Text = ""
 		ui.centre.Text = ""
-		ui.digButton.Visible = false
-		ui.digButton.Text = "TAP  E  TO LOCK ON"
-		ui.digStroke.Color = COLOR.stroke
 		return
 	end
 
 	ui.centre.Text = `{math.floor(state.radius + 0.5)} stud sweep`
 	ui.centre.TextColor3 = COLOR.dim
-	ui.digButton.Visible = true
 
 	if not state.hasSignal then
 		-- Standing in a glow that somebody else's detector put there. This is a real
@@ -619,18 +684,12 @@ local function renderState()
 		if state.blocked == "unregistered" then
 			ui.status.Text = "that signal is past your detector \u{2014} you cannot lock on"
 			ui.status.TextColor3 = COLOR.red
-			ui.digButton.Text = "CANNOT LOCK ON"
-			ui.digButton.TextColor3 = COLOR.red
-			ui.digStroke.Color = COLOR.red
 			return
 		end
 
 		-- Detector on, nothing revealed in range. The old "sweeping… nothing in
 		-- range" status line was removed on request -- the empty scope says it.
 		ui.status.Text = ""
-		ui.digButton.Text = "TAP  E  TO LOCK ON"
-		ui.digStroke.Color = COLOR.stroke
-		ui.digButton.TextColor3 = COLOR.dim
 		return
 	end
 
@@ -640,32 +699,18 @@ local function renderState()
 		-- It still moves. It just will not come free — and the player can see that.
 		ui.status.Text = "it shifts, then stops \u{2014} magnet is too weak"
 		ui.status.TextColor3 = COLOR.red
-		ui.digButton.Text = "MAGNET TOO WEAK"
-		ui.digButton.TextColor3 = COLOR.red
-		ui.digStroke.Color = COLOR.red
 	elseif state.blocked == "full" then
 		ui.status.Text = "bag is full"
 		ui.status.TextColor3 = COLOR.red
-		ui.digButton.Text = "BAG FULL"
-		ui.digButton.TextColor3 = COLOR.red
-		ui.digStroke.Color = COLOR.red
 	elseif state.inRange then
 		ui.status.Text = `you are standing on it{named}`
 		ui.status.TextColor3 = COLOR.green
-		-- Two phases, one button: it names the NEXT thing to do. Before the lock that
-		-- is committing; after it the dock button steps back, because the haul panel
-		-- is where the mashing is being reported.
-		ui.digButton.Text = if state.locked then "HAULING\u{2026}" else "TAP  E  TO LOCK ON"
-		ui.digButton.TextColor3 = COLOR.green
-		ui.digStroke.Color = COLOR.green
 	else
-		-- Signal(s) revealed but out of reach. The glow on the ground is the cue; a
-		-- status line counting them and saying "walk to the glow" was noise on top of
-		-- it (removed on request). The button still says GET CLOSER.
+		-- Signal(s) revealed but out of reach. The glow on the ground is the cue, and
+		-- it is now the ONLY cue -- the dock's GET CLOSER button is gone with the rest
+		-- of the dig widget. That is the intended reading of PLAN's reveal: the ground
+		-- tells you where the thing is, not a caption at the bottom of the screen.
 		ui.status.Text = ""
-		ui.digButton.Text = "GET CLOSER"
-		ui.digButton.TextColor3 = COLOR.dim
-		ui.digStroke.Color = COLOR.stroke
 	end
 end
 
@@ -715,9 +760,8 @@ local function sendYank()
 end
 
 --- Commit to whatever we are standing on. The server picks the actual signal; all this
---- says is "yes, this one". Gated on inRange so a tap in open ground is not a wasted
---- remote, but NOT on `blocked` -- an under-rated magnet is allowed to lock on and
---- discover it cannot finish, which is the lesson that sells the next magnet.
+--- says is "yes, this one". Called ONLY from the world prompt's Triggered, which fires
+--- after the hold completes -- see pressPull for why nothing else may call it.
 local function sendLock()
 	if not state.inStage or not state.inRange or state.locked or state.blocked == "full" then
 		return
@@ -733,13 +777,18 @@ local function sendRelease()
 	digLock:FireServer(false)
 end
 
---- E means different things either side of the commitment: the first press picks the
---- item, every press after that hauls on it.
+--- E while hauling. YANK-ONLY, and the missing "else lock on" branch is load-bearing.
+---
+--- ProximityPrompt does NOT mark its key input as game-processed, so InputBegan still
+--- sees E while the prompt is up. If this also locked on, a single tap would commit
+--- instantly and the hold would never mean anything -- the whole point of the change.
+--- So the prompt is the only thing that may call sendLock, and this only ever yanks.
+---
+--- The two can never both be live: updateLockPrompt disables the prompt the moment the
+--- player is locked, which is also what stops E re-triggering it mid-mash.
 local function pressPull()
 	if state.locked then
 		sendYank()
-	else
-		sendLock()
 	end
 end
 
@@ -797,14 +846,17 @@ function Detector.start()
 		end
 	end)
 
-	-- MouseButton1Click, not Down/Up. Click fires for touch taps too, so these three
-	-- are the whole mobile input path -- and unlike the Down/Up pair they need no
-	-- MouseLeave rescue, because there is no held state left to get stranded when a
-	-- finger slides off a button mid-press.
+	-- Locking on comes from the world prompt, not from a key handler -- it fires once,
+	-- after the hold completes. Nothing else is allowed to call sendLock; see pressPull.
+	ui.prompt.Triggered:Connect(sendLock)
+
+	-- MouseButton1Click, not Down/Up. Click fires for touch taps too, so these two plus
+	-- the prompt's own mobile button are the whole touch path -- and unlike the Down/Up
+	-- pair they need no MouseLeave rescue, because there is no held state left to get
+	-- stranded when a finger slides off a button mid-press.
 	--
-	-- The release button matters most of the three. A phone has no Q key, so without
-	-- it a touch player could commit to a haul and have no way to stop being rooted.
-	ui.digButton.MouseButton1Click:Connect(pressPull)
+	-- The release button matters most. A phone has no Q key, so without it a touch
+	-- player could commit to a haul and have no way to stop being rooted.
 	ui.haulButton.MouseButton1Click:Connect(sendYank)
 	ui.releaseButton.MouseButton1Click:Connect(sendRelease)
 
