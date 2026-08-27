@@ -241,15 +241,17 @@ local function stepAuras()
 
 		if close then
 			-- Standing on it is the moment the player has been walking towards. The
-			-- well stops rippling and locks: core solid, dome firm, every ring
-			-- snapped to the pickup radius as one bright steady outline. The HUD says
-			-- the same in words; this says it where their eyes already are.
+			-- well turns green and locks -- core solid, dome firm, the rings frozen
+			-- together at the dome's own edge as one steady outline. It stays the
+			-- SAME SIZE as idle: it does NOT balloon out to the pickup radius
+			-- (removed on request). The HUD says the same in words; this says it
+			-- where their eyes already are.
 			entry.core.Transparency = 0.1
 			entry.dome.Transparency = 0.22
 			for _, ripple in entry.ripples do
-				ripple.Size = Vector3.new(ripple.Size.X, reach * 2, reach * 2)
+				ripple.Size = Vector3.new(ripple.Size.X, Tuning.AURA_DOME, Tuning.AURA_DOME)
 				ripple.Color = colour
-				ripple.Transparency = 0.3
+				ripple.Transparency = 0.35
 			end
 		else
 			local breathe = 0.5 + 0.5 * math.sin(breatheClock + entry.phase)
