@@ -31,13 +31,22 @@
 	per-player against whoever is pulling, so a Bent Coil can stand in an Oracle's
 	glow and be told, in as many words, that it cannot lock on.
 
-	The client also never names what it wants to dig. It sends "I am holding the
-	button"; the server decides which signal that means, based on where the player
-	actually is.
+	The client also never names what it wants to dig. It sends "I clicked"; the server
+	decides which signal that means, based on where the player actually is.
 
-	EXTRACTION IS A HAUL, NOT A DIG. You drop a magnet and pull the thing up through
-	the soil. Holding the button raises it; letting go lets it sink back. What survives
-	out here is metal and whatever the fallout soaked into, so the magnet is the tool.
+	EXTRACTION IS A HAUL, NOT A DIG, AND IT IS A MASH, NOT A HOLD. You drop a magnet and
+	pull the thing up through the soil. Every click is a YANK that lurches it upward; the
+	soil drags it back down continuously in between. Click faster than the drag and it
+	breaks the surface, stop clicking and it sinks. What survives out here is metal and
+	whatever the fallout soaked into, so the magnet is the tool.
+
+	THIS USED TO BE A HOLD, and the change cost something worth writing down. Under the
+	hold, the client sent a boolean and the SERVER integrated it against real elapsed
+	time, which made the pull exploit-proof for free -- a spoofed client could hold the
+	button down, and holding the button down is what an honest player does anyway. A
+	per-click verb gives that property up: the client now drives the clock. The ceiling
+	has to be re-imposed by hand, and it is, in the token bucket below. Read the note
+	there before touching any of it.
 
 	FOUR GATES, all from Gear.lua, all enforced here:
 	  detector.radius    — how much ground reveals itself around you. This IS the
@@ -84,9 +93,18 @@ local DIG_RADIUS = Tuning.DIG_RADIUS
 local DEPTH_BASE = Tuning.DIG_DEPTH_BASE
 local DEPTH_PER_RARITY = Tuning.DIG_DEPTH_PER_RARITY
 local DEPTH_JITTER = Tuning.DIG_DEPTH_JITTER
-local PULL_SECONDS_PER_STUD = 1.2
-local SLIP_RATE = 1.6 -- let go and it sinks back faster than you raised it
 local STRAIN_CEILING = 0.25 -- how far an under-rated magnet gets before it stalls
+
+-- The mash. All five live in Config/Tuning -- Spec asserts on the click-rate curve
+-- they produce, and it cannot reach a local. SLIP_RATE went with the hold: the sink
+-- is no longer a punishment for letting go, it is the constant the yanks fight.
+local PULL_SECONDS_PER_STUD = Tuning.PULL_SECONDS_PER_STUD
+local PULL_DRAG_RATE = Tuning.PULL_DRAG_RATE
+local PULL_YANK_PER_CLICK = Tuning.PULL_YANK_PER_CLICK
+local PULL_YANK_HOLD_SECONDS = Tuning.PULL_YANK_HOLD_SECONDS
+local PULL_YANK_MIN_INTERVAL = Tuning.PULL_YANK_MIN_INTERVAL
+local PULL_YANK_SUSTAINED_CPS = Tuning.PULL_YANK_SUSTAINED_CPS
+local PULL_YANK_BURST = Tuning.PULL_YANK_BURST
 
 -- ── State ──────────────────────────────────────────────────────────────
 
@@ -112,8 +130,16 @@ local signalsByStage: { [number]: { Signal } } = {}
 local auras: { [string]: Model } = {}
 local revealed: { [string]: Signal } = {}
 
-local holding: { [Player]: boolean } = {}
-local pulling: { [Player]: boolean } = {} -- holding AND actually on a signal
+-- Yanks banked since the last tick, and the token bucket that decides which incoming
+-- clicks were allowed to bank. `lastYankAt` feeds `pulling` (below) as well as the
+-- minimum-interval check, so it is written on ACCEPTED yanks only -- a rejected click
+-- must not keep the magnet in someone's hands.
+local pendingYanks: { [Player]: number } = {}
+local yankTokens: { [Player]: number } = {}
+local yankRefilledAt: { [Player]: number } = {}
+local lastYankAt: { [Player]: number } = {}
+
+local pulling: { [Player]: boolean } = {} -- yanked recently AND actually on a signal
 local overSignal: { [Player]: boolean } = {} -- standing on one, hauling or not
 local digProgress: { [Player]: number } = {}
 local digTarget: { [Player]: string? } = {}
@@ -295,7 +321,7 @@ end
 local function removeSignal(stageId: number, uid: string)
 	-- The glow goes with it, this tick, not next. A stale aura is worse than a missing
 	-- one: it stands over ground with nothing left in it, and somebody will walk all
-	-- the way to it and hold E at nothing.
+	-- the way to it and mash E at nothing.
 	clearAura(uid)
 	revealed[uid] = nil
 
@@ -666,17 +692,43 @@ local function stepPlayer(player: Player, dt: number)
 		blocked = "full"
 	end
 
-	local required = PULL_SECONDS_PER_STUD * signal.depth / stats.pullSpeed
+	-- "How much rope is on this item", in pull-seconds. Depth ONLY -- pullSpeed lives
+	-- entirely on the yank now (see Tuning's note: counting it in both places would make
+	-- the magnet track scale quadratically).
+	local required = PULL_SECONDS_PER_STUD * signal.depth
 	local progress = digProgress[player] or 0
 
-	-- Drives which tool is visible in the player's hands (ToolService).
-	pulling[player] = holding[player] == true and inRange and blocked ~= "full"
-	overSignal[player] = inRange and blocked ~= "full"
+	-- Yanks banked since the last tick, taken whether or not they land, so a player
+	-- mashing at a full bag is not silently storing up clicks to spend the moment they
+	-- sell something.
+	local yanks = pendingYanks[player] or 0
+	pendingYanks[player] = 0
 
+	local canPull = inRange and blocked ~= "full"
+
+	-- Drives which tool is visible in the player's hands (ToolService). Keyed to a
+	-- RECENT yank rather than to a held button, because there is no held button any
+	-- more; the window is wide enough that the magnet does not blink between clicks.
+	local yankedRecently = (os.clock() - (lastYankAt[player] or -math.huge)) <= PULL_YANK_HOLD_SECONDS
+	pulling[player] = yankedRecently and canPull
+	overSignal[player] = canPull
+
+	-- THE MASH, in two halves. The soil pulls DOWN every tick no matter what, and each
+	-- yank is an impulse UP. Whether the item rises is just which of the two is winning,
+	-- which is why there is no "are they digging" branch here any more -- the drag is
+	-- unconditional and a slow clicker loses ground without the code having to decide
+	-- that they stopped.
+	--
+	-- `draw` is the magnet's passive lift, in the drag's own units, so (draw - drag) is
+	-- the net idle rate: strongly negative at tier 1, near zero at the top. That single
+	-- subtraction is the entire comfort curve the magnet track sells.
+	--
 	-- A full bag is the one hard stop — there is nowhere to put it. An under-rated
 	-- magnet still gets to try, and that trying is the whole teaching moment.
-	if holding[player] and inRange and blocked ~= "full" then
-		progress += dt / required
+	if canPull then
+		progress += (stats.draw - PULL_DRAG_RATE) * dt / required
+		progress += yanks * PULL_YANK_PER_CLICK * stats.pullSpeed / required
+		progress = math.max(progress, 0)
 		if not strongEnough then
 			progress = math.min(progress, STRAIN_CEILING)
 		end
@@ -715,8 +767,11 @@ local function stepPlayer(player: Player, dt: number)
 			return
 		end
 	else
-		-- Let go and it sinks. The haul is a commitment, not a checkpoint you bank.
-		progress = math.max(0, progress - dt * SLIP_RATE / required)
+		-- Out of range, or nowhere to put it. The magnet is not on the item at all, so it
+		-- gets the bare drag with NO draw against it -- passive lift is something a magnet
+		-- does to a thing it is gripping, and walking away is not gripping. The haul is a
+		-- commitment, not a checkpoint you bank.
+		progress = math.max(0, progress - PULL_DRAG_RATE * dt / required)
 	end
 
 	digProgress[player] = progress
@@ -766,7 +821,7 @@ end
 
 function DigService.init()
 	sweepRemote = Net.get("SweepState")
-	digRemote = Net.get("DigInput")
+	digRemote = Net.get("DigYank")
 	unearthedRemote = Net.get("Unearthed")
 	indexRemote = Net.get("IndexState")
 
@@ -796,12 +851,48 @@ function DigService.start()
 		indexRemote:FireClient(player, data.discovered)
 	end)
 
-	digRemote.OnServerEvent:Connect(function(player: Player, isHolding: any)
-		holding[player] = isHolding == true
+	-- THE YANK LIMITER. Every accepted click is progress the client asked for, so this
+	-- is the only thing standing between an autoclicker and a free economy. Two gates,
+	-- doing different jobs:
+	--
+	--   * MIN_INTERVAL is the instantaneous floor. It throws away the "fired the remote
+	--     forty times this frame" case outright, before any accounting happens.
+	--   * the token bucket is the SUSTAINED cap, and it is the one that actually matters.
+	--     Tokens refill at PULL_YANK_SUSTAINED_CPS and pool up to PULL_YANK_BURST, so a
+	--     human opening with a fast flurry spends banked tokens and is not punished for
+	--     it, while anyone trying to hold that rate forever is metered down to the refill.
+	--
+	-- Rejected yanks are dropped in SILENCE. No error, no remote back, no log line. Any
+	-- of those would hand an exploiter a free oracle for finding the exact ceiling, and
+	-- an honest player never reaches it.
+	digRemote.OnServerEvent:Connect(function(player: Player)
+		local now = os.clock()
+
+		if now - (lastYankAt[player] or -math.huge) < PULL_YANK_MIN_INTERVAL then
+			return
+		end
+
+		local tokens = math.min(
+			PULL_YANK_BURST,
+			(yankTokens[player] or PULL_YANK_BURST) + (now - (yankRefilledAt[player] or now)) * PULL_YANK_SUSTAINED_CPS
+		)
+		yankRefilledAt[player] = now
+
+		if tokens < 1 then
+			yankTokens[player] = tokens
+			return
+		end
+
+		yankTokens[player] = tokens - 1
+		lastYankAt[player] = now
+		pendingYanks[player] = (pendingYanks[player] or 0) + 1
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
-		holding[player] = nil
+		pendingYanks[player] = nil
+		yankTokens[player] = nil
+		yankRefilledAt[player] = nil
+		lastYankAt[player] = nil
 		digProgress[player] = nil
 		digTarget[player] = nil
 		pulling[player] = nil

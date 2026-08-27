@@ -48,6 +48,7 @@ export type Stats = {
 	detectorDepth: number,
 	detectorClarity: number,
 	pullSpeed: number,
+	draw: number,
 	maxGrip: number,
 	cleanPotency: number,
 	scrubRate: number,
@@ -96,6 +97,7 @@ function StatResolver.get(profile: Profile): Stats
 		-- Bloodhound (PLAN §9.2)
 		detectorClarity = detector.clarity + (if perks.bloodhound then 1 else 0),
 		pullSpeed = magnet.pullSpeed,
+		draw = magnet.draw,
 		maxGrip = magnet.maxGrip,
 		-- Steady Hands (PLAN §9.2)
 		cleanPotency = cleaner.potency + (if perks.steadyHands then 1 else 0),

@@ -70,6 +70,24 @@ local DIAL_SIZE = Dock.SCOPE_DIAL
 local SCOPE_RADIUS = Dock.SCOPE_DIAL / 2 - 15 -- px from the centre of the dial to the radius ring
 local MAX_BLIPS = 12 -- matches DigService.MAX_CONTACTS; more would never arrive
 
+-- How long after a click the button keeps saying PULLING. Comfortably longer than the
+-- gap between mashes so the label does not strobe between the two texts.
+local YANK_LABEL_SECONDS = 0.45
+
+-- The button's per-click kick. This is the ONLY instant feedback the mash has, and it
+-- earns its place: SweepState arrives at 10 Hz, so the progress bar can be up to 100ms
+-- behind a click, which on a verb this fast reads as unresponsiveness. The kick fires
+-- off the local input instead, so the button answers the finger immediately while the
+-- bar catches up. It deliberately reports the INPUT, never the outcome -- it is not
+-- lying about progress the server may yet reject, it is confirming a click happened.
+local YANK_KICK_SECONDS = 0.12
+local YANK_KICK_SCALE = 0.05 -- how far the button swells at the peak of a kick
+
+-- How fast the fill chases the server's value (1/seconds). The bar is smoothed rather
+-- than snapped because drag is continuous and 10 Hz updates make a steady sink look
+-- like a stutter; fast enough that a yank still lands as a visible jump.
+local FILL_LERP_RATE = 14
+
 type Contact = { dx: number, dz: number, rarity: string? }
 
 local state = {
@@ -85,7 +103,13 @@ local state = {
 
 local ui = {}
 local blips: { Frame } = {}
-local isHolding = false
+-- What the fill is currently DRAWING, chasing state.digProgress. Separate from the
+-- server's value so smoothing never feeds back into what we think progress is.
+local shownProgress = 0
+-- When the player last clicked, in os.clock. Replaces a held-button boolean: the pull
+-- is a mash now, so "are they pulling" is a question about recency, not about a key
+-- being down. Also drives the button's own kick animation.
+local lastYankAt = -math.huge
 
 -- ── Build ───────────────────────────────────────────────────────────
 
@@ -256,7 +280,7 @@ local function build(): ScreenGui
 		fillTransparency = 0.15,
 		strokeColor = COLOR.stroke,
 		cornerRadius = UIKit.Radius.button,
-		text = "HOLD  E  TO PULL",
+		text = "MASH  E  TO PULL",
 	})
 	ui.digButton = digButton
 	ui.digStroke = digStroke
@@ -390,7 +414,7 @@ local function renderBlips()
 	end
 end
 
-local function renderFrame(_dt: number)
+local function renderFrame(dt: number)
 	local colour = signalColor()
 
 	renderBlips()
@@ -403,7 +427,28 @@ local function renderFrame(_dt: number)
 
 	ui.ring.Color = if state.hasSignal then colour else COLOR.stroke
 	ui.edgeStroke.Color = if state.hasSignal then colour else COLOR.scope
-	ui.digFill.Size = UDim2.fromScale(state.digProgress, 1)
+
+	-- Chase rather than snap. Exponential so it converges at the same visual rate
+	-- whatever the framerate -- the naive `+= (target - shown) * rate * dt` overshoots
+	-- and oscillates the moment dt gets large, which on a bar the player is staring at
+	-- while mashing is very visible.
+	shownProgress += (state.digProgress - shownProgress) * (1 - math.exp(-FILL_LERP_RATE * dt))
+	ui.digFill.Size = UDim2.fromScale(math.clamp(shownProgress, 0, 1), 1)
+
+	-- The kick. One ease-out swell per click, driven off the local timestamp so it
+	-- starts on the same frame the player pressed the key.
+	local sinceYank = os.clock() - lastYankAt
+	local kick = if sinceYank < YANK_KICK_SECONDS then (1 - sinceYank / YANK_KICK_SECONDS) ^ 2 else 0
+	local swell = 1 + kick * YANK_KICK_SCALE
+	local base = Dock.DIGBUTTON_SIZE
+	-- Scaled about the button's own anchor (bottom-centre), so it swells upward out of
+	-- the instrument band rather than shoving the meters either side of it.
+	ui.digButton.Size = UDim2.new(
+		base.X.Scale * swell,
+		base.X.Offset * swell,
+		base.Y.Scale * swell,
+		base.Y.Offset * swell
+	)
 end
 
 local function renderState()
@@ -428,7 +473,7 @@ local function renderState()
 		ui.status.Text = ""
 		ui.centre.Text = ""
 		ui.digButton.Visible = false
-		ui.digButton.Text = "HOLD  E  TO PULL"
+		ui.digButton.Text = "MASH  E  TO PULL"
 		ui.digStroke.Color = COLOR.stroke
 		return
 	end
@@ -452,7 +497,7 @@ local function renderState()
 		-- Detector on, nothing revealed in range. The old "sweeping… nothing in
 		-- range" status line was removed on request -- the empty scope says it.
 		ui.status.Text = ""
-		ui.digButton.Text = "HOLD  E  TO PULL"
+		ui.digButton.Text = "MASH  E  TO PULL"
 		ui.digStroke.Color = COLOR.stroke
 		ui.digButton.TextColor3 = COLOR.dim
 		return
@@ -476,7 +521,7 @@ local function renderState()
 	elseif state.inRange then
 		ui.status.Text = `you are standing on it{named}`
 		ui.status.TextColor3 = COLOR.green
-		ui.digButton.Text = if isHolding then "PULLING\u{2026}" else "HOLD  E  TO PULL"
+		ui.digButton.Text = if os.clock() - lastYankAt <= YANK_LABEL_SECONDS then "PULLING\u{2026}" else "MASH  E  TO PULL"
 		ui.digButton.TextColor3 = COLOR.green
 		ui.digStroke.Color = COLOR.green
 	else
@@ -517,14 +562,20 @@ end
 
 -- ── Input ───────────────────────────────────────────────────────────
 
-local digInput: any = nil
+local digYank: any = nil
 
-local function setHolding(value: boolean)
-	if isHolding == value then
+--- One click, one yank. There is deliberately NO local rate limit and no debounce
+--- here: the server's token bucket is the authority on what counts, and a second
+--- limiter on the client would only ever disagree with it -- quietly eating clicks
+--- the server would have honoured, which reads as input lag on a verb whose whole
+--- appeal is that it answers instantly.
+local function sendYank()
+	if not state.inStage or not state.inRange or state.blocked == "full" then
 		return
 	end
-	isHolding = value
-	digInput:FireServer(value)
+
+	lastYankAt = os.clock()
+	digYank:FireServer()
 	renderState()
 end
 
@@ -542,7 +593,7 @@ function Detector.start()
 	local gui = build()
 	gui.Parent = player:WaitForChild("PlayerGui")
 
-	digInput = Net.get("DigInput")
+	digYank = Net.get("DigYank")
 
 	Net.get("SweepState").OnClientEvent:Connect(function(payload)
 		state.inStage = payload.inStage == true
@@ -565,32 +616,24 @@ function Detector.start()
 		showUnearthed(found)
 	end)
 
+	-- InputBegan only, and no InputEnded partner. Roblox does not auto-repeat a held
+	-- key through InputBegan, so holding E down yields exactly one yank -- which is
+	-- precisely the behaviour this feature wants. Nothing has to suppress the hold;
+	-- the platform already does.
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed then
 			return
 		end
 		if input.KeyCode == Enum.KeyCode.E then
-			setHolding(true)
+			sendYank()
 		end
 	end)
 
-	UserInputService.InputEnded:Connect(function(input)
-		if input.KeyCode == Enum.KeyCode.E then
-			setHolding(false)
-		end
-	end)
-
-	ui.digButton.MouseButton1Down:Connect(function()
-		setHolding(true)
-	end)
-	ui.digButton.MouseButton1Up:Connect(function()
-		setHolding(false)
-	end)
-	ui.digButton.MouseLeave:Connect(function()
-		if isHolding then
-			setHolding(false)
-		end
-	end)
+	-- MouseButton1Click, not Down/Up. Click fires for touch taps too, so this is the
+	-- whole mobile input path -- and unlike the Down/Up pair it needs no MouseLeave
+	-- rescue, because there is no held state left to get stranded when a finger
+	-- slides off the button mid-press.
+	ui.digButton.MouseButton1Click:Connect(sendYank)
 
 	-- Heartbeat, NOT RenderStepped. This used to matter because the ping audio ran
 	-- here and could not be allowed to stall with the render loop; the ping is gone
