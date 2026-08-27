@@ -161,11 +161,6 @@ Tuning.PULL_DRAG_RATE = 0.75
 -- What one yank is worth, in pull-seconds, before pullSpeed scales it.
 Tuning.PULL_YANK_PER_CLICK = 0.30
 
--- How long after a yank the player still counts as "pulling" for ToolService's
--- magnet-in-hand check. Comfortably longer than the gap between mashes, so the model
--- does not flicker between clicks.
-Tuning.PULL_YANK_HOLD_SECONDS = 0.5
-
 -- ── Yank rate limiting (anti-exploit) ───────────────────────────────────
 --
 -- READ THIS BEFORE RAISING ANY OF THEM. The hold-to-pull version of this feature was

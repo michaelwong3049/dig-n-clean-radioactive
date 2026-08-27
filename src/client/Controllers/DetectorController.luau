@@ -70,10 +70,6 @@ local DIAL_SIZE = Dock.SCOPE_DIAL
 local SCOPE_RADIUS = Dock.SCOPE_DIAL / 2 - 15 -- px from the centre of the dial to the radius ring
 local MAX_BLIPS = 12 -- matches DigService.MAX_CONTACTS; more would never arrive
 
--- How long after a click the button keeps saying PULLING. Comfortably longer than the
--- gap between mashes so the label does not strobe between the two texts.
-local YANK_LABEL_SECONDS = 0.45
-
 -- The button's per-click kick. This is the ONLY instant feedback the mash has, and it
 -- earns its place: SweepState arrives at 10 Hz, so the progress bar can be up to 100ms
 -- behind a click, which on a verb this fast reads as unresponsiveness. The kick fires
@@ -99,6 +95,10 @@ local state = {
 	inRange = false,
 	blocked = nil :: string?,
 	digProgress = 0,
+	-- Committed to a signal and rooted in place. The server is the authority on this;
+	-- the client never decides it is locked on its own, because being locked is what
+	-- takes the player's movement away.
+	locked = false,
 }
 
 local ui = {}
@@ -106,9 +106,9 @@ local blips: { Frame } = {}
 -- What the fill is currently DRAWING, chasing state.digProgress. Separate from the
 -- server's value so smoothing never feeds back into what we think progress is.
 local shownProgress = 0
--- When the player last clicked, in os.clock. Replaces a held-button boolean: the pull
--- is a mash now, so "are they pulling" is a question about recency, not about a key
--- being down. Also drives the button's own kick animation.
+-- When the player last clicked, in os.clock. Drives the button's kick animation and
+-- nothing else -- "are they hauling" is answered by state.locked now, which comes from
+-- the server, rather than by guessing from how recently a key was pressed.
 local lastYankAt = -math.huge
 
 -- ── Build ───────────────────────────────────────────────────────────
@@ -280,7 +280,7 @@ local function build(): ScreenGui
 		fillTransparency = 0.15,
 		strokeColor = COLOR.stroke,
 		cornerRadius = UIKit.Radius.button,
-		text = "MASH  E  TO PULL",
+		text = "TAP  E  TO LOCK ON",
 	})
 	ui.digButton = digButton
 	ui.digStroke = digStroke
@@ -351,6 +351,113 @@ local function build(): ScreenGui
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
 	})
+
+	-- ── The haul panel ────────────────────────────────────────────────
+	-- Up only while locked onto a signal. This is the second beat of the pull: the
+	-- first tap commits you to one buried thing and plants your feet, and everything
+	-- from there happens in here.
+	--
+	-- It sits just above the dock rather than at screen centre, so the item climbing out
+	-- of the soil stays visible above it. The whole reason the haul is a physical model
+	-- in the world rather than a number is that you get to watch it surface; a panel
+	-- over the middle of the screen would hide exactly that. Anchored off
+	-- Dock.HAULPANEL_BOTTOM so it clears the instrument band on every viewport -- see
+	-- that constant for why a screen fraction was wrong.
+	local haul, haulStroke = UIKit.panel(gui, {
+		name = "HaulPanel",
+		size = Dock.HAULPANEL_SIZE,
+		position = UDim2.new(0.5, 0, 1, -Dock.HAULPANEL_BOTTOM),
+		anchorPoint = Vector2.new(0.5, 1),
+		color = COLOR.panel,
+		transparency = 0.08,
+		cornerRadius = UIKit.Radius.panel,
+		strokeThickness = UIKit.Stroke.normal,
+		visible = false,
+	})
+	ui.haul = haul
+	ui.haulStroke = haulStroke
+
+	-- What you committed to. Carries the rarity when the detector is good enough to
+	-- resolve it and "unknown mass" when it is not -- the same per-player gate the
+	-- radar blips use, so a cheap detector still buys you a blind haul.
+	ui.haulTitle = UIKit.label(haul, {
+		name = "HaulTitle",
+		anchorPoint = Vector2.new(0.5, 0),
+		position = UDim2.new(0.5, 0, 0, 18),
+		size = UDim2.new(1, -40, 0, 30),
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.header,
+		color = COLOR.text,
+		xAlign = Enum.TextXAlignment.Center,
+	})
+
+	-- The haul bar. Bigger than the dock's own fill and the thing the player is
+	-- actually watching while mashing; the dock button keeps its little fill for
+	-- continuity but this is the readout that matters now.
+	local track = Instance.new("Frame")
+	track.Name = "Track"
+	track.AnchorPoint = Vector2.new(0.5, 0)
+	track.Position = UDim2.new(0.5, 0, 0, 58)
+	track.Size = UDim2.new(1, -48, 0, 26)
+	track.BackgroundColor3 = COLOR.empty
+	track.BorderSizePixel = 0
+	track.Parent = haul
+
+	local trackCorner = Instance.new("UICorner")
+	trackCorner.CornerRadius = UIKit.Radius.button
+	trackCorner.Parent = track
+
+	local haulFill = Instance.new("Frame")
+	haulFill.Name = "Fill"
+	haulFill.Size = UDim2.fromScale(0, 1)
+	haulFill.BackgroundColor3 = COLOR.green
+	haulFill.BorderSizePixel = 0
+	haulFill.Parent = track
+	ui.haulFill = haulFill
+
+	local haulFillCorner = Instance.new("UICorner")
+	haulFillCorner.CornerRadius = UIKit.Radius.button
+	haulFillCorner.Parent = haulFill
+
+	-- The mash prompt doubles as the touch target: a phone has no E key, so without a
+	-- tappable control here the entire second beat would be keyboard-only.
+	local haulButton, haulButtonStroke = UIKit.button(haul, {
+		name = "HaulButton",
+		anchorPoint = Vector2.new(0.5, 0),
+		position = UDim2.new(0.5, 0, 0, 94),
+		size = UDim2.new(1, -48, 0, 34),
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.header,
+		color = COLOR.green,
+		fillColor = COLOR.panel,
+		fillTransparency = 0.2,
+		strokeColor = COLOR.stroke,
+		cornerRadius = UIKit.Radius.button,
+		text = "MASH  E  TO HAUL",
+	})
+	ui.haulButton = haulButton
+	ui.haulButtonStroke = haulButtonStroke
+
+	-- RELEASE HAS TO BE VISIBLE. Locking roots the character, so a player who cannot
+	-- find the way out is stuck standing in a field. It is a real button rather than
+	-- only a key hint for the same reason the mash prompt is: on touch there is no Q.
+	local releaseButton = UIKit.button(haul, {
+		name = "ReleaseButton",
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -10),
+		size = UDim2.new(1, -48, 0, 20),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.caption,
+		color = COLOR.dim,
+		fillColor = COLOR.panel,
+		fillTransparency = 1,
+		-- No outline: this is a quiet way out, not a second call to action competing
+		-- with the mash prompt directly above it.
+		strokeThickness = 0,
+		cornerRadius = UIKit.Radius.button,
+		text = "Q  to release",
+	})
+	ui.releaseButton = releaseButton
 
 	return gui
 end
@@ -433,7 +540,11 @@ local function renderFrame(dt: number)
 	-- and oscillates the moment dt gets large, which on a bar the player is staring at
 	-- while mashing is very visible.
 	shownProgress += (state.digProgress - shownProgress) * (1 - math.exp(-FILL_LERP_RATE * dt))
-	ui.digFill.Size = UDim2.fromScale(math.clamp(shownProgress, 0, 1), 1)
+	local drawn = math.clamp(shownProgress, 0, 1)
+	ui.digFill.Size = UDim2.fromScale(drawn, 1)
+	-- Both bars read the SAME smoothed value. Two fills computing their own smoothing
+	-- off one server number is how they end up visibly disagreeing by a frame.
+	ui.haulFill.Size = UDim2.fromScale(drawn, 1)
 
 	-- The kick. One ease-out swell per click, driven off the local timestamp so it
 	-- starts on the same frame the player pressed the key.
@@ -452,6 +563,26 @@ local function renderFrame(dt: number)
 end
 
 local function renderState()
+	-- THE PANEL IS DRIVEN OFF THE SERVER'S `locked`, NOT off anything the client
+	-- decided. Every release path lives on the server (bag full, signal gone, blackout,
+	-- item surfaced), so the panel closing is always downstream of the lock actually
+	-- being dropped -- it can never linger over a lock the server has already let go
+	-- of, and it can never hide one that is still holding the player's feet.
+	ui.haul.Visible = state.locked
+	if state.locked then
+		local named = if state.rarityHint then string.upper(state.rarityHint) else "UNKNOWN MASS"
+		ui.haulTitle.Text = `LOCKED ON \u{2014} {named}`
+		ui.haulTitle.TextColor3 = signalColor()
+		ui.haulStroke.Color = signalColor()
+		-- An under-rated magnet still locks on and still visibly strains -- it just
+		-- stalls at STRAIN_CEILING. Saying so here is the whole teaching moment, and
+		-- the panel is now where the player is looking when it happens.
+		local weak = state.blocked == "weak"
+		ui.haulFill.BackgroundColor3 = if weak then COLOR.red else COLOR.green
+		ui.haulButton.Text = if weak then "MAGNET TOO WEAK" else "MASH  E  TO HAUL"
+		ui.haulButton.TextColor3 = if weak then COLOR.red else COLOR.green
+	end
+
 	if not state.inStage then
 		-- BLANK, AND THE BUTTON GOES WITH IT. Out of a stage means you are in the plaza
 		-- shopping, banking or racking. A status line telling you that you cannot dig
@@ -473,7 +604,7 @@ local function renderState()
 		ui.status.Text = ""
 		ui.centre.Text = ""
 		ui.digButton.Visible = false
-		ui.digButton.Text = "MASH  E  TO PULL"
+		ui.digButton.Text = "TAP  E  TO LOCK ON"
 		ui.digStroke.Color = COLOR.stroke
 		return
 	end
@@ -497,7 +628,7 @@ local function renderState()
 		-- Detector on, nothing revealed in range. The old "sweeping… nothing in
 		-- range" status line was removed on request -- the empty scope says it.
 		ui.status.Text = ""
-		ui.digButton.Text = "MASH  E  TO PULL"
+		ui.digButton.Text = "TAP  E  TO LOCK ON"
 		ui.digStroke.Color = COLOR.stroke
 		ui.digButton.TextColor3 = COLOR.dim
 		return
@@ -521,7 +652,10 @@ local function renderState()
 	elseif state.inRange then
 		ui.status.Text = `you are standing on it{named}`
 		ui.status.TextColor3 = COLOR.green
-		ui.digButton.Text = if os.clock() - lastYankAt <= YANK_LABEL_SECONDS then "PULLING\u{2026}" else "MASH  E  TO PULL"
+		-- Two phases, one button: it names the NEXT thing to do. Before the lock that
+		-- is committing; after it the dock button steps back, because the haul panel
+		-- is where the mashing is being reported.
+		ui.digButton.Text = if state.locked then "HAULING\u{2026}" else "TAP  E  TO LOCK ON"
 		ui.digButton.TextColor3 = COLOR.green
 		ui.digStroke.Color = COLOR.green
 	else
@@ -563,6 +697,7 @@ end
 -- ── Input ───────────────────────────────────────────────────────────
 
 local digYank: any = nil
+local digLock: any = nil
 
 --- One click, one yank. There is deliberately NO local rate limit and no debounce
 --- here: the server's token bucket is the authority on what counts, and a second
@@ -570,13 +705,42 @@ local digYank: any = nil
 --- the server would have honoured, which reads as input lag on a verb whose whole
 --- appeal is that it answers instantly.
 local function sendYank()
-	if not state.inStage or not state.inRange or state.blocked == "full" then
+	if not state.locked then
 		return
 	end
 
 	lastYankAt = os.clock()
 	digYank:FireServer()
 	renderState()
+end
+
+--- Commit to whatever we are standing on. The server picks the actual signal; all this
+--- says is "yes, this one". Gated on inRange so a tap in open ground is not a wasted
+--- remote, but NOT on `blocked` -- an under-rated magnet is allowed to lock on and
+--- discover it cannot finish, which is the lesson that sells the next magnet.
+local function sendLock()
+	if not state.inStage or not state.inRange or state.locked or state.blocked == "full" then
+		return
+	end
+	digLock:FireServer(true)
+end
+
+--- Give up the haul. NEVER gated on client state: this is the only way out of a lock
+--- that has rooted the character, so it fires unconditionally and lets the server
+--- decide whether there was anything to release. A client-side `if` in front of this
+--- is a way for a player to get stuck standing in a field.
+local function sendRelease()
+	digLock:FireServer(false)
+end
+
+--- E means different things either side of the commitment: the first press picks the
+--- item, every press after that hauls on it.
+local function pressPull()
+	if state.locked then
+		sendYank()
+	else
+		sendLock()
+	end
 end
 
 -- ── Lifecycle ────────────────────────────────────────────────────────
@@ -594,6 +758,7 @@ function Detector.start()
 	gui.Parent = player:WaitForChild("PlayerGui")
 
 	digYank = Net.get("DigYank")
+	digLock = Net.get("DigLock")
 
 	Net.get("SweepState").OnClientEvent:Connect(function(payload)
 		state.inStage = payload.inStage == true
@@ -604,6 +769,7 @@ function Detector.start()
 		state.inRange = payload.inRange == true
 		state.blocked = payload.blocked
 		state.digProgress = payload.digProgress or 0
+		state.locked = payload.locked == true
 		-- payload.carrying / payload.capacity are deliberately ignored: the hotbar
 		-- (InventoryController, fed by CarryState) is the authority on the bag now,
 		-- and two widgets answering "how full am I" from two different remotes is how
@@ -625,15 +791,22 @@ function Detector.start()
 			return
 		end
 		if input.KeyCode == Enum.KeyCode.E then
-			sendYank()
+			pressPull()
+		elseif input.KeyCode == Enum.KeyCode.Q then
+			sendRelease()
 		end
 	end)
 
-	-- MouseButton1Click, not Down/Up. Click fires for touch taps too, so this is the
-	-- whole mobile input path -- and unlike the Down/Up pair it needs no MouseLeave
-	-- rescue, because there is no held state left to get stranded when a finger
-	-- slides off the button mid-press.
-	ui.digButton.MouseButton1Click:Connect(sendYank)
+	-- MouseButton1Click, not Down/Up. Click fires for touch taps too, so these three
+	-- are the whole mobile input path -- and unlike the Down/Up pair they need no
+	-- MouseLeave rescue, because there is no held state left to get stranded when a
+	-- finger slides off a button mid-press.
+	--
+	-- The release button matters most of the three. A phone has no Q key, so without
+	-- it a touch player could commit to a haul and have no way to stop being rooted.
+	ui.digButton.MouseButton1Click:Connect(pressPull)
+	ui.haulButton.MouseButton1Click:Connect(sendYank)
+	ui.releaseButton.MouseButton1Click:Connect(sendRelease)
 
 	-- Heartbeat, NOT RenderStepped. This used to matter because the ping audio ran
 	-- here and could not be allowed to stall with the render loop; the ping is gone

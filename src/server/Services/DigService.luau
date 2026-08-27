@@ -31,14 +31,28 @@
 	per-player against whoever is pulling, so a Bent Coil can stand in an Oracle's
 	glow and be told, in as many words, that it cannot lock on.
 
-	The client also never names what it wants to dig. It sends "I clicked"; the server
-	decides which signal that means, based on where the player actually is.
+	The client also never names what it wants to dig. It sends "I clicked" or "I want to
+	lock on"; the server decides which signal that means, based on where the player
+	actually is.
 
-	EXTRACTION IS A HAUL, NOT A DIG, AND IT IS A MASH, NOT A HOLD. You drop a magnet and
-	pull the thing up through the soil. Every click is a YANK that lurches it upward; the
-	soil drags it back down continuously in between. Click faster than the drag and it
-	breaks the surface, stop clicking and it sinks. What survives out here is metal and
-	whatever the fallout soaked into, so the magnet is the tool.
+	EXTRACTION IS A HAUL, NOT A DIG, AND IT IS TWO BEATS, NOT ONE. You drop a magnet and
+	pull the thing up through the soil.
+
+	  1. TAP to LOCK ON. One press commits you to one buried item. The character is
+	     ROOTED and a panel takes the screen: this is the moment you decide that this
+	     particular signal is worth standing still for.
+	  2. MASH to haul. Every click is a YANK that lurches it upward; the soil drags it
+	     back down continuously in between. Click faster than the drag and it breaks the
+	     surface, stop clicking and it sinks.
+
+	What survives out here is metal and whatever the fallout soaked into, so the magnet
+	is the tool.
+
+	THE LOCK IS THE DANGEROUS PART OF THIS FILE, because it roots the player. A rooted
+	player who cannot release is stuck in the world with no way out but rejoining, so
+	releaseLock is called from SEVEN places and every one of them is deliberate — see
+	the list on releaseLock itself. Adding a new way for a lock to become invalid means
+	adding a release with it.
 
 	THIS USED TO BE A HOLD, and the change cost something worth writing down. Under the
 	hold, the client sent a boolean and the SERVER integrated it against real elapsed
@@ -101,10 +115,15 @@ local STRAIN_CEILING = 0.25 -- how far an under-rated magnet gets before it stal
 local PULL_SECONDS_PER_STUD = Tuning.PULL_SECONDS_PER_STUD
 local PULL_DRAG_RATE = Tuning.PULL_DRAG_RATE
 local PULL_YANK_PER_CLICK = Tuning.PULL_YANK_PER_CLICK
-local PULL_YANK_HOLD_SECONDS = Tuning.PULL_YANK_HOLD_SECONDS
 local PULL_YANK_MIN_INTERVAL = Tuning.PULL_YANK_MIN_INTERVAL
 local PULL_YANK_SUSTAINED_CPS = Tuning.PULL_YANK_SUSTAINED_CPS
 local PULL_YANK_BURST = Tuning.PULL_YANK_BURST
+
+-- Lock requests are cheap for the server, so this is spam control rather than exploit
+-- control -- it stops a held key firing a remote every frame. It is deliberately NOT
+-- a Tuning knob: nothing about the game's balance reads it, and the release path is
+-- not allowed to consult it at all.
+local LOCK_MIN_INTERVAL = 0.25
 
 -- ── State ──────────────────────────────────────────────────────────────
 
@@ -139,13 +158,19 @@ local yankTokens: { [Player]: number } = {}
 local yankRefilledAt: { [Player]: number } = {}
 local lastYankAt: { [Player]: number } = {}
 
-local pulling: { [Player]: boolean } = {} -- yanked recently AND actually on a signal
+-- The signal uid each player has COMMITTED to, or nil. This is the difference between
+-- standing on a glow and hauling: progress only moves while it is set.
+local lockedTo: { [Player]: string? } = {}
+local lastLockAt: { [Player]: number } = {}
+
+local pulling: { [Player]: boolean } = {} -- locked on, and therefore hauling
 local overSignal: { [Player]: boolean } = {} -- standing on one, hauling or not
 local digProgress: { [Player]: number } = {}
 local digTarget: { [Player]: string? } = {}
 
 local sweepRemote: any = nil
 local digRemote: any = nil
+local lockRemote: any = nil
 local unearthedRemote: any = nil
 local indexRemote: any = nil
 
@@ -516,6 +541,25 @@ local function clearHaul(player: Player)
 	end
 end
 
+--- Drop the lock, whatever the reason. ROOTING IS THE STAKE HERE: while a player is
+--- locked, ExposureService holds their WalkSpeed at zero, so failing to release does
+--- not merely leave a stale flag — it leaves a person standing in a field unable to
+--- move, with no in-game way out. Every path that can invalidate a lock therefore ends
+--- up here:
+---
+---   1. the player presses Q                    (DigLock handler)
+---   2. the item breaks the surface             (unearth)
+---   3. their bag fills up                      (stepPlayer, blocked == "full")
+---   4. the signal is gone from under them      (stepPlayer, uid lookup fails)
+---   5. they walk out of the stage              (stepPlayer, stageId == nil)
+---   6. they BLACK OUT                          (via 5 — see the note there)
+---   7. they leave the game                     (PlayerRemoving)
+---
+--- Cheap and idempotent on purpose, so callers never have to check first.
+local function releaseLock(player: Player)
+	lockedTo[player] = nil
+end
+
 local function createHaul(player: Player, signal: Signal): Haul
 	local item = Items.get(signal.itemId)
 	local model = ItemModels.create(item.model)
@@ -628,6 +672,13 @@ local function stepPlayer(player: Player, dt: number)
 	if stageId == nil then
 		digProgress[player] = 0
 		digTarget[player] = nil
+		-- RELEASE 5, AND THE ONE THAT CATCHES BLACKOUTS (release 6). ExposureService's
+		-- blackout teleports the player to base camp but deliberately does NOT kill the
+		-- character, so nothing character-related fires to clean up after it -- no Died,
+		-- no CharacterAdded, no respawn. This branch is the only thing between "blacked
+		-- out while hauling" and "rooted at base camp forever". Do not make it
+		-- conditional on anything.
+		releaseLock(player)
 		pulling[player] = false
 		overSignal[player] = false
 		clearHaul(player)
@@ -636,6 +687,7 @@ local function stepPlayer(player: Player, dt: number)
 		-- true all the time, not only while something is pinging.
 		sweepRemote:FireClient(player, {
 			inStage = false,
+			locked = false,
 			carrying = #data.carry,
 			capacity = stats.capacity,
 		})
@@ -650,6 +702,9 @@ local function stepPlayer(player: Player, dt: number)
 	if nearest == nil then
 		digProgress[player] = 0
 		digTarget[player] = nil
+		-- Nothing registerable left within reach, so whatever they locked onto is not
+		-- theirs to hold any more.
+		releaseLock(player)
 		pulling[player] = false
 		overSignal[player] = false
 		clearHaul(player)
@@ -664,18 +719,45 @@ local function stepPlayer(player: Player, dt: number)
 			-- player deserves to be told which of the two "nothing here" states
 			-- they are in.
 			blocked = if standingOnUnregistered(stageId, position, stats) then "unregistered" else nil,
+			locked = false,
 			carrying = #data.carry,
 			capacity = stats.capacity,
 		})
 		return
 	end
 
-	local signal = nearest.signal
-	local distance = nearest.distance
+	-- WHICH SIGNAL THIS TICK IS ABOUT. Normally the nearest one -- but a LOCKED player
+	-- is committed to a specific uid, and that commitment outranks proximity. Rooting
+	-- means the locked signal is almost always still the nearest anyway; what this
+	-- guards is the case that is not about the player moving at all, which is somebody
+	-- ELSE hauling the same signal out from under them (auras are public, and two
+	-- people can stand in one glow).
+	local held: Contact? = nil
+	if lockedTo[player] ~= nil then
+		for _, entry in contacts do
+			if entry.signal.uid == lockedTo[player] then
+				held = entry
+				break
+			end
+		end
+
+		if held == nil then
+			-- RELEASE 4: the thing they committed to is not in reach any more, so the
+			-- commitment cannot survive either. Progress goes with it -- there is
+			-- nothing left to be partway out of the ground.
+			releaseLock(player)
+			digProgress[player] = 0
+		end
+	end
+
+	local working = held or nearest
+	local signal = working.signal
+	local distance = working.distance
 	local strength = math.clamp(1 - (distance / stats.detectorRadius), 0, 1)
 	local rarityHint, modifierHint = hintFor(signal, stats.detectorClarity)
 
-	-- Reset progress if they wandered off this signal onto another one.
+	-- Reset progress if they wandered off this signal onto another one. While locked
+	-- this never fires, which is the point: the target cannot drift mid-haul.
 	if digTarget[player] ~= signal.uid then
 		digTarget[player] = signal.uid
 		digProgress[player] = 0
@@ -692,6 +774,13 @@ local function stepPlayer(player: Player, dt: number)
 		blocked = "full"
 	end
 
+	-- RELEASE 3: a full bag is the one thing that makes a lock pointless rather than
+	-- merely hard, and a rooted player staring at a panel they cannot finish is the
+	-- worst version of this feature. Let them go immediately.
+	if blocked == "full" then
+		releaseLock(player)
+	end
+
 	-- "How much rope is on this item", in pull-seconds. Depth ONLY -- pullSpeed lives
 	-- entirely on the yank now (see Tuning's note: counting it in both places would make
 	-- the magnet track scale quadratically).
@@ -704,14 +793,17 @@ local function stepPlayer(player: Player, dt: number)
 	local yanks = pendingYanks[player] or 0
 	pendingYanks[player] = 0
 
-	local canPull = inRange and blocked ~= "full"
+	-- PROGRESS ONLY MOVES WHILE LOCKED. This is the whole two-beat change in one line:
+	-- standing on a glow does nothing at all until you have committed to it.
+	local isLocked = lockedTo[player] ~= nil
+	local canPull = isLocked and inRange and blocked ~= "full"
 
-	-- Drives which tool is visible in the player's hands (ToolService). Keyed to a
-	-- RECENT yank rather than to a held button, because there is no held button any
-	-- more; the window is wide enough that the magnet does not blink between clicks.
-	local yankedRecently = (os.clock() - (lastYankAt[player] or -math.huge)) <= PULL_YANK_HOLD_SECONDS
-	pulling[player] = yankedRecently and canPull
-	overSignal[player] = canPull
+	-- Drives which tool is visible in the player's hands (ToolService). The lock is a
+	-- much better signal for this than the old "yanked in the last half second" was:
+	-- it is true for the entire haul, so the magnet stops flickering in and out
+	-- between clicks and simply stays in their hands until they are done.
+	pulling[player] = isLocked
+	overSignal[player] = inRange and blocked ~= "full"
 
 	-- THE MASH, in two halves. The soil pulls DOWN every tick no matter what, and each
 	-- yank is an impulse UP. Whether the item rises is just which of the two is winning,
@@ -736,6 +828,9 @@ local function stepPlayer(player: Player, dt: number)
 		if progress >= 1 then
 			digProgress[player] = 0
 			digTarget[player] = nil
+			-- RELEASE 2: it is out of the ground. Nothing left to hold on to, and the
+			-- player gets their feet back the instant the banner fires.
+			releaseLock(player)
 			unearth(player, data, signal)
 
 			-- Everything ELSE in range is still in range; only the thing that came out
@@ -761,6 +856,7 @@ local function stepPlayer(player: Player, dt: number)
 				contacts = contactPayload(surviving, position, stats.detectorClarity),
 				newContacts = noteContacts(player, surviving),
 				digProgress = 0,
+				locked = false,
 				carrying = #data.carry,
 				capacity = stats.capacity,
 			})
@@ -791,6 +887,11 @@ local function stepPlayer(player: Player, dt: number)
 		modifierHint = modifierHint,
 		inRange = inRange,
 		blocked = blocked,
+		-- Recomputed rather than reusing `isLocked` from the top of the tick, because
+		-- the releases above (bag full, signal gone, item surfaced) can all have fired
+		-- since. The payload has to describe the world AFTER this tick settled, or the
+		-- client draws a haul panel for a lock the server already dropped.
+		locked = lockedTo[player] ~= nil,
 		digProgress = digProgress[player] or 0,
 		carrying = #data.carry,
 		capacity = stats.capacity,
@@ -803,6 +904,13 @@ end
 --- whether the magnet or the detector belongs in their hands.
 function DigService.isPulling(player: Player): boolean
 	return pulling[player] == true
+end
+
+--- Has this player committed to a signal? Read by ExposureService, which owns
+--- Humanoid.WalkSpeed and holds it at zero while this is true — the lock ROOTS you,
+--- and this is how the one system allowed to write WalkSpeed finds that out.
+function DigService.isLocked(player: Player): boolean
+	return lockedTo[player] ~= nil
 end
 
 --- Standing close enough to haul, whether or not they have started. ToolService
@@ -822,6 +930,7 @@ end
 function DigService.init()
 	sweepRemote = Net.get("SweepState")
 	digRemote = Net.get("DigYank")
+	lockRemote = Net.get("DigLock")
 	unearthedRemote = Net.get("Unearthed")
 	indexRemote = Net.get("IndexState")
 
@@ -888,7 +997,65 @@ function DigService.start()
 		pendingYanks[player] = (pendingYanks[player] or 0) + 1
 	end)
 
+	-- LOCK ON / RELEASE. The client sends a boolean and nothing else -- never a uid, so
+	-- it cannot ask to lock onto something it is not standing over; the server resolves
+	-- the target here exactly the way the tick does.
+	--
+	-- ONLY THE LOCK DIRECTION IS RATE LIMITED, and the asymmetry is deliberate. A
+	-- debounced lock costs a player one keypress. A debounced RELEASE costs them their
+	-- character: they are rooted until it goes through, so releasing has to be
+	-- unconditional, instant, and impossible to throttle. If you ever add a guard to
+	-- this handler, add it above the release branch, never below it.
+	lockRemote.OnServerEvent:Connect(function(player: Player, wantLock: any)
+		if wantLock ~= true then
+			-- RELEASE 1. No checks of any kind on this path, on purpose.
+			releaseLock(player)
+			return
+		end
+
+		local now = os.clock()
+		if now - (lastLockAt[player] or -math.huge) < LOCK_MIN_INTERVAL then
+			return
+		end
+		lastLockAt[player] = now
+
+		if lockedTo[player] ~= nil then
+			return -- already committed; a second tap is not a re-target
+		end
+
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if root == nil or not root:IsA("BasePart") then
+			return
+		end
+
+		local data = DataService.data(player)
+		local stageId = StageService.stageOf(player)
+		if data == nil or stageId == nil then
+			return
+		end
+
+		-- Same resolution the tick uses, so "what you can lock onto" and "what you can
+		-- haul" can never drift apart into two different answers.
+		local stats = StatResolver.get(data)
+		local nearest = registeredFor(stageId, root.Position, stats)[1]
+		if nearest == nil or nearest.distance > DIG_RADIUS then
+			return
+		end
+
+		-- A full bag is refused UP FRONT rather than locked and then released a tick
+		-- later, which would root the player for a moment and flash a panel at them.
+		if #data.carry >= stats.capacity then
+			return
+		end
+
+		lockedTo[player] = nearest.signal.uid
+	end)
+
 	Players.PlayerRemoving:Connect(function(player)
+		-- RELEASE 7.
+		releaseLock(player)
+		lastLockAt[player] = nil
 		pendingYanks[player] = nil
 		yankTokens[player] = nil
 		yankRefilledAt[player] = nil

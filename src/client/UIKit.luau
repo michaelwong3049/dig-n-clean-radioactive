@@ -164,6 +164,17 @@ Dock.SCOPE_DIAL = 180 -- was DetectorController.DIAL_SIZE 150
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
 
+-- THE HAUL PANEL. Up only while a player is locked onto a signal and mashing it out.
+-- It is deliberately NOT centered on the screen: the payoff of a haul is watching the
+-- thing rise out of the ground in front of your character, and a dead-center panel
+-- covers exactly that. Sitting low keeps the item in view above it; HAULPANEL_BOTTOM
+-- below is what actually places it, clear of the dock.
+-- 168, not 150: at 150 the bottom-anchored release button overlapped the mash prompt
+-- above it by 8px. The four rows inside are laid out top-down at fixed offsets and the
+-- release button hangs off the BOTTOM edge, so panel height is what sets the gap
+-- between the last two -- shrinking this re-collides them.
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 168)
+
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
 Dock.INSTRUMENT_HEIGHT = math.max(Dock.METER_SIZE.Y.Offset, Dock.DIGBUTTON_SIZE.Y.Offset)
@@ -204,6 +215,13 @@ Dock.INDEX_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.GAP
 -- cover; StationController deliberately does NOT any more (see its header — its
 -- panel is centered on the screen itself now, and clears the dock on its own).
 Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
+
+-- Anchored off the DOCK, not off a screen fraction. A fixed 0.62 scale looked right on
+-- a 1080p window and collided with the instrument band on anything shorter -- at 900px
+-- it overlapped the dock by ~50px, because the dock's reserved height is a fixed pixel
+-- stack while the fraction is not. Bottom-anchored against RESERVE is the rule the rest
+-- of this file already follows, and it clears on every viewport by construction.
+Dock.HAULPANEL_BOTTOM = Dock.RESERVE + Dock.GAP
 
 -- The dig button sits dead-center on X as the primary touch/click target. The meter
 -- lives on its own at the bottom-left screen edge (see HudController), so it needs no
