@@ -86,19 +86,20 @@
 -- stage from 2 on now sits at a different x than it did before.
 --
 -- ── THE COLOUR TURNS AT STAGE 4 ──────────────────────────────────────────────
--- Stages 1-3 are the known world and stay green-to-tan. Stage 4 is where it goes
--- wrong: a dead muddy brown, the ground of a place nothing grows in any more (was
--- a deep plum — changed on request). Then Stages 5-6 go hot — magenta, then violet
--- — a different KIND of place rather than more of the same one, which is the thing
--- a player reads before they read any number.
+-- Stages 1-3 are the known world and stay green-to-tan. Then each of the last three
+-- is its own KIND of place rather than more of the same one — the thing a player
+-- reads before they read any number (all changed from the original plum/magenta/
+-- violet trio on request):
+--   4  dead muddy brown  — nothing grows here
+--   5  soft light pink   — candy-bright, wrong, after the brown
+--   6  violet            — the Crater (unchanged)
 --
--- The muted-plate / bright-Neon rule below is not suspended for 5-6, it is the
--- reason they work: the plate is a deep magenta or violet and the POOLS are the
--- bright neon. Keep the dominant channel dominant when tuning those two. The colour
--- note explains why a yellow-green plate blooms to cream; the same arithmetic turns
--- a balanced pink to white and a pale violet to lavender-grey. Pink stays
--- red-dominant, violet stays blue-dominant. Stage 4's brown has no such trap — it
--- is dark and low-saturation on every channel.
+-- The muted-plate / bright-Neon colour-note below was written for the old deep
+-- plum/magenta plates and the Neon POOLS over them. It no longer bites here: the
+-- floor is now an UNtinted studded checkerboard (build/Scenery), Plastic not Neon,
+-- so there is no bloom to turn a balanced pink to white — Stage 5 gets to just be
+-- light pink. Still worth reading before touching Stage 6's violet or the pools if
+-- the scenery rework brings Neon back.
 --
 -- The header used to carry a hard ceiling of area <= 785 * r^2, i.e. c >= 0.18. Every
 -- stage has been well over that ceiling for a long time (Stage 1 at c = 0.096 even
@@ -296,9 +297,9 @@ Stages.DEFS = {
 		-- Stage-1-only change rather than silently reskinning stages nobody asked to
 		-- change.
 		material = "Grass",
-		-- Muted on purpose — see the note below. Nowhere near today's old 6BEE2E,
-		-- and nowhere near Stages 5-6's neon-magenta/violet territory either (Stage 4
-		-- is a muddy brown now).
+		-- Muted on purpose — see the note below. Nowhere near today's old 6BEE2E, and
+		-- nowhere near the last three stages' territory either (muddy brown, light
+		-- pink, violet now — see the header).
 		ooze = { bright = "7CBF52", deep = "35501F", glow = "5C9A3C" },
 		built = true,
 	},
@@ -407,9 +408,9 @@ Stages.DEFS = {
 		size = { 400, 240 },
 		-- WHERE THE GREEN STOPS. See "THE COLOUR TURNS" in the header. A dead muddy
 		-- brown, on request (was a deep plum, "73246B") — nothing grows here any
-		-- more; the hot magenta/violet doesn't start until Stage 5. The checkerboard
-		-- floor (build/Scenery buildStageCheckerboard) is UNtinted, so this is exactly
-		-- the colour the ground reads as.
+		-- more; the pink/violet doesn't start until Stage 5. The checkerboard floor
+		-- (build/Scenery buildStageCheckerboard) is UNtinted, so this is exactly the
+		-- colour the ground reads as.
 		color = "3F2D1D",
 		material = "Slate",
 		ooze = { bright = "FF2FA8", deep = "6B0A47", glow = "FF2FA8" },
@@ -439,7 +440,13 @@ Stages.DEFS = {
 		-- 600 long, the second of the two big empty-walk stages; the biggest single
 		-- shrink of the six.
 		size = { 400, 240 },
-		color = "A02268",
+		-- Light pink, on request (was a deep magenta, "A02268"). After Stage 4's dead
+		-- brown the ground going soft candy-pink reads as a jump to a different KIND
+		-- of place, not more of the same. The checkerboard floor is UNtinted
+		-- (build/Scenery buildStageCheckerboard) so this is the colour the ground
+		-- reads as; twoTone splits it just under white (R clips, G/B carry the two
+		-- shades).
+		color = "FFB6C1",
 		material = "Glass",
 		ooze = { bright = "FF3D9A", deep = "7A0F45", glow = "FF3D9A" },
 		built = true,
