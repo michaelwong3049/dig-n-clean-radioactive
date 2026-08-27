@@ -93,7 +93,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 5
+local BUILDER_VERSION = 6
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -120,6 +120,22 @@ local WALL_LIGHT = "9C4A2F" -- a close, subtly darker rust variant -- NOT the fi
 -- uniform palette for the whole chain either way, deliberately not tinted per
 -- stage -- an engineered containment barrier reads as one consistent material, not
 -- something that shares each stage's own theme.
+
+--- The stage-to-stage boundary lines. A flat hazard-checker strip laid across the
+--- full width of each INTERNAL seam (Stage 1/2 through 5/6) so a player reads "new
+--- stage" off the ground the instant they cross it, before any HUD number moves.
+--- Not drawn at Stage 1's west edge (that seam is the walk in from camp, not a
+--- stage-to-stage step) or Stage 6's east edge (that is the void wall).
+---
+--- 3 studs wide in the walk direction, on request. Two rows across that width so
+--- the checker alternates both ways rather than reading as a dashed line. Thin,
+--- CanCollide/CanQuery false and only SKIM above the surface, same as every other
+--- ground layer in this file -- footing and burial stay on Stages.SURFACE_Y.
+local BORDER_WIDTH = 3 -- studs along X (the walk direction)
+local BORDER_ROWS = 2 -- cells across BORDER_WIDTH; row width is BORDER_WIDTH / BORDER_ROWS
+local BORDER_CELL_Z = 3 -- checker cell length along the seam
+local BORDER_YELLOW = C.barrelYellow
+local BORDER_BLACK = C.hazardBlack
 
 --- Derive a (dark, light) checkerboard pair from one existing colour, at roughly the
 --- same brightness ratio the plaza's own hand-picked pair already sits at (measured:
@@ -676,6 +692,75 @@ local function buildStage1Checkerboard(parent: Instance)
 	folder.Parent = parent
 end
 
+--- One hazard-checker strip per INTERNAL stage seam -- see BORDER_WIDTH's comment
+--- for what it is and why the two end seams are skipped.
+---
+--- SEAMS ARE READ, NOT HARDCODED. Every stage's east edge is the next stage's west
+--- edge exactly (Config/Stages centres them that way and World.verify() rejects any
+--- overlap), so the seam X is the shared edge between consecutive stages once they
+--- are sorted west-to-east. This chain has been reordered and resized more than
+--- once already -- same reasoning as buildBoundaryWalls reading its own bounds.
+local function buildStageBorderLines(parent: Instance)
+	local ids = table.clone(Stages.builtIds())
+	table.sort(ids, function(a, b)
+		return Stages.get(a).center[1] < Stages.get(b).center[1]
+	end)
+
+	local folder = Instance.new("Folder")
+	folder.Name = "StageBorders"
+
+	local y = Stages.SURFACE_Y + SKIM
+	local rowWidth = BORDER_WIDTH / BORDER_ROWS
+
+	for i = 1, #ids - 1 do
+		local _, aMinZ, aMaxX, aMaxZ = Stages.bounds(ids[i])
+		local bMinX, bMinZ, _, bMaxZ = Stages.bounds(ids[i + 1])
+
+		-- Averaged rather than assumed equal: if a future edit ever leaves a hair
+		-- of gap or overlap between two plates, the line still lands in the middle
+		-- of it. Z span is the union of both plates' depth (identical since the
+		-- uniform-depth pass, taken as a union so this keeps covering the seam if
+		-- that stops being true).
+		local seamX = (aMaxX + bMinX) / 2
+		local minZ = math.min(aMinZ, bMinZ)
+		local maxZ = math.max(aMaxZ, bMaxZ)
+		local x0 = seamX - BORDER_WIDTH / 2
+
+		local cols = math.ceil((maxZ - minZ) / BORDER_CELL_Z)
+		for ix = 0, BORDER_ROWS - 1 do
+			local cx0 = x0 + ix * rowWidth
+			for iz = 0, cols - 1 do
+				local z0 = minZ + iz * BORDER_CELL_Z
+				local z1 = math.min(z0 + BORDER_CELL_Z, maxZ)
+				local d = z1 - z0
+				if d <= 1e-3 then
+					continue
+				end
+
+				local yellow = (ix + iz) % 2 == 0
+				build(folder, CFrame.new(0, 0, 0), {
+					name = `Seam{ids[i]}-{ids[i + 1]}`,
+					pos = { cx0 + rowWidth / 2, y, (z0 + z1) / 2 },
+					size = { rowWidth, 0.4, d },
+					color = if yellow then BORDER_YELLOW else BORDER_BLACK,
+					material = if yellow then "Neon" else "SmoothPlastic",
+					canCollide = false,
+				})
+			end
+		end
+	end
+
+	-- Same override buildStage1Checkerboard's own cap layer takes: a thin marker on
+	-- the floor must not intercept the detector's range-ring raycast or a dig probe.
+	for _, tile in folder:GetChildren() do
+		if tile:IsA("BasePart") then
+			tile.CanQuery = false
+		end
+	end
+
+	folder.Parent = parent
+end
+
 --- One checkerboard wall, the full length of the chain, at a fixed Z. `faceProperty`
 --- is whichever side face actually points back toward the chain on an unrotated
 --- part -- "BackSurface" (+Z) for the north wall, "FrontSurface" (-Z) for the south
@@ -913,7 +998,9 @@ local function createScenery(): Model
 
 	-- No stage-to-stage blend any more anywhere in the chain -- see the removal note
 	-- above STAGE_BLEND's old spot, just above buildStageScenery. Every boundary,
-	-- 1/2 through 5/6, is a hard cut now.
+	-- 1/2 through 5/6, is a hard cut now, marked by a hazard-checker line on the
+	-- ground (buildStageBorderLines) rather than smoothed with a colour fade.
+	buildStageBorderLines(scenery)
 	buildBoundaryWalls(scenery)
 	buildBaseWalls(scenery)
 
