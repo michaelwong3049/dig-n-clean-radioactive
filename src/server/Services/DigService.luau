@@ -157,7 +157,7 @@ local function reconcileAuras()
 
 	for uid, signal in revealed do
 		if auras[uid] == nil then
-			local model = SignalAura.create(signal.position, Tuning.AURA_HEIGHT, Tuning.AURA_WIDTH, Tuning.AURA_RING)
+			local model = SignalAura.create(signal.position, Tuning.AURA_RING, Tuning.AURA_DOME, Tuning.AURA_PULSE_REACH)
 			model.Parent = folder
 			auras[uid] = model
 		end

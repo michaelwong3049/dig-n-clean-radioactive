@@ -2,7 +2,7 @@
 	FieldController.lua — the detector's world-space half.
 
 	DetectorController owns the screen. This owns the ground: the range ring the
-	detector throws around you, and the breathing of the auras standing over buried
+	detector throws around you, and the ripple of the aura wells that sit over buried
 	signals. Splitting them is not tidiness — the two have completely different
 	sources. Everything on the HUD is drawn from a payload only this client receives,
 	whereas the auras are SERVER parts that every player in the server can see, and
@@ -63,7 +63,7 @@ local ringFolder: Folder? = nil
 
 -- Tracked rather than re-queried: CollectionService:GetTagged allocates a fresh table
 -- on every call, and this runs every frame.
-type Tracked = { pillar: BasePart, ring: BasePart, phase: number }
+type Tracked = { core: BasePart, dome: BasePart, ripples: { BasePart }, phase: number }
 local tracked: { [Model]: Tracked } = {}
 
 -- Auras whose tag arrived before their children did. Usually empty — the server
@@ -128,7 +128,7 @@ end
 --- can be occluded by the very clutter it is supposed to be measured against.
 local function groundY(root: BasePart): number
 	-- Everything the detector itself put in the world has to be excluded, or the ring
-	-- lands on top of an aura pillar the moment the player stands next to one.
+	-- lands on top of an aura dome the moment the player stands next to one.
 	local ignore: { Instance } = { root.Parent :: Instance }
 	if ringFolder then
 		table.insert(ignore, ringFolder)
@@ -185,21 +185,29 @@ local function track(instance: Instance)
 		return
 	end
 
-	local pillar = instance:FindFirstChild("Pillar")
-	local ring = instance:FindFirstChild("Ring")
-	if pillar == nil or not pillar:IsA("BasePart") or ring == nil or not ring:IsA("BasePart") then
+	local core = instance:FindFirstChild("Core")
+	local dome = instance:FindFirstChild("Dome")
+	local ripples: { BasePart } = {}
+	for _, child in instance:GetChildren() do
+		if child:IsA("BasePart") and string.sub(child.Name, 1, 6) == "Ripple" then
+			table.insert(ripples, child)
+		end
+	end
+
+	if core == nil or not core:IsA("BasePart") or dome == nil or not dome:IsA("BasePart") or #ripples == 0 then
 		pending[instance] = true -- children have not replicated yet; retried each frame
 		return
 	end
 
 	pending[instance] = nil
 	tracked[instance] = {
-		pillar = pillar,
-		ring = ring,
+		core = core,
+		dome = dome,
+		ripples = ripples,
 		-- Derived from the position so it is stable across frames and DIFFERENT per
 		-- aura. Pulsing a field of them in lockstep looks like a screen refresh
 		-- artefact rather than like several separate things breathing.
-		phase = (pillar.Position.X * 0.7 + pillar.Position.Z * 1.3) % (2 * math.pi),
+		phase = (core.Position.X * 0.7 + core.Position.Z * 1.3) % (2 * math.pi),
 	}
 end
 
@@ -209,36 +217,57 @@ local function stepAuras()
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local here = if root and root:IsA("BasePart") then root.Position else nil
 
-	local clock = os.clock() * 2 * math.pi * Tuning.AURA_PULSE_HZ
+	local now = os.clock()
+	local breatheClock = now * 2 * math.pi * Tuning.AURA_PULSE_HZ
+	local rippleClock = now * Tuning.AURA_PULSE_HZ
+	local reach = Tuning.AURA_PULSE_REACH
 
 	for model, entry in tracked do
-		if entry.pillar.Parent == nil then
+		if entry.core.Parent == nil then
 			tracked[model] = nil
 			continue
 		end
 
-		local breathe = 0.5 + 0.5 * math.sin(clock + entry.phase)
-
 		local close = false
 		if here then
-			local dx = entry.ring.Position.X - here.X
-			local dz = entry.ring.Position.Z - here.Z
+			local dx = entry.core.Position.X - here.X
+			local dz = entry.core.Position.Z - here.Z
 			close = dx * dx + dz * dz <= Tuning.DIG_RADIUS * Tuning.DIG_RADIUS
 		end
 
-		-- Standing on it is the moment the player has been walking towards, so the
-		-- aura stops breathing and goes solid green. The HUD says the same thing in
-		-- words; this says it where their eyes already are.
+		local colour = if close then IN_RANGE else GLOW
+		entry.core.Color = colour
+		entry.dome.Color = colour
+
 		if close then
-			entry.pillar.Color = IN_RANGE
-			entry.ring.Color = IN_RANGE
-			entry.pillar.Transparency = 0.12
-			entry.ring.Transparency = 0.05
+			-- Standing on it is the moment the player has been walking towards. The
+			-- well stops rippling and locks: core solid, dome firm, every ring
+			-- snapped to the pickup radius as one bright steady outline. The HUD says
+			-- the same in words; this says it where their eyes already are.
+			entry.core.Transparency = 0.1
+			entry.dome.Transparency = 0.22
+			for _, ripple in entry.ripples do
+				ripple.Size = Vector3.new(ripple.Size.X, reach * 2, reach * 2)
+				ripple.Color = colour
+				ripple.Transparency = 0.3
+			end
 		else
-			entry.pillar.Color = GLOW
-			entry.ring.Color = GLOW
-			entry.pillar.Transparency = 0.28 + breathe * 0.22
-			entry.ring.Transparency = 0.18 + breathe * 0.18
+			local breathe = 0.5 + 0.5 * math.sin(breatheClock + entry.phase)
+			entry.core.Transparency = 0.22 + breathe * 0.14
+			entry.dome.Transparency = 0.42 + breathe * 0.12
+
+			local count = #entry.ripples
+			for i, ripple in entry.ripples do
+				-- Each ring runs its own outward sweep, offset so they chase each
+				-- other out of the well. p: 0 at the core, 1 fully expanded. It fades
+				-- IN off the core and OUT again as it reaches the rim (sin curve), so
+				-- what you see is a ring travelling, not a disc filling.
+				local p = (rippleClock + entry.phase / (2 * math.pi) + (i - 1) / count) % 1
+				local d = 1.0 + (2 * reach - 1.0) * p
+				ripple.Size = Vector3.new(ripple.Size.X, d, d)
+				ripple.Color = GLOW
+				ripple.Transparency = 1 - math.sin(p * math.pi) * 0.5
+			end
 		end
 	end
 end
