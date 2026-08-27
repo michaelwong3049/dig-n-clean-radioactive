@@ -28,12 +28,13 @@
 
 	REMOVED ON REQUEST — THE WADING EFFECT WAS NEVER APPROVED. The tint it left on
 	the ground WAS liked, so that part is kept, just moved: it is baked directly
-	into the ground colour now (Stages.GROUND_OOZE_TINT, applied in StageFields.luau
-	for stages 2-6 and in buildStage1Checkerboard's colorAt below for Stage 1)
+	into the plate colour now (Stages.GROUND_OOZE_TINT, applied in StageFields.luau)
 	instead of arriving via a second, higher, see-through plate. Zero gap between
 	a player's feet and the coloured ground now, same as before this plate existed
 	at all — `Stages.SURFACE_Y` (what DigService buries against and what a player's
-	feet actually rest on) was never touched by this either way.
+	feet actually rest on) was never touched by this either way. NB the checkerboard
+	cap that now covers every plate (buildStageCheckerboard) is UNtinted on request,
+	so the tint on the plate under it is only ever seen if that cap fails to build.
 
 	NOTHING HERE MAY RISE THROUGH THE DIG SURFACE IN A WAY THAT HIDES IT.
 	DigService buries items on the plate's top face and the haul part rises to
@@ -43,14 +44,15 @@
 	in this file sits above the plane the way `OozeSurface` used to — the ground
 	colour itself carries no such risk, it's the plate's own top face.
 
-	STAGE 1'S GROUND IS A GRADIENT, NOT A FLAT COLOUR. buildStage1Checkerboard tiles the
-	plate in a studded, two-tone checkerboard (same board as the plaza and base pads,
-	Hub.tileRect) whose colour is a continuous per-tile blend from the plaza's own
-	tile colours at the west edge to Stage 1's own colour at the east edge — a softer
-	hand-off than a flat colour would read as. See buildStage1Checkerboard for why the
-	colour is a layer on top rather than the plate itself, and for why a tiled
-	gradient sidesteps the banded-seam problem two earlier, now-removed systems here
-	both hit (see the removal notes still kept below for
+	EVERY STAGE'S GROUND IS A STUDDED TWO-TONE CHECKERBOARD. buildStageCheckerboard
+	caps each plate with a studded checkerboard (same board as the plaza and base
+	pads, Hub.tileRect), two near-identical shades of that stage's own colour. Stage 1
+	is the one exception: its board is a continuous per-tile blend from the plaza's
+	tile colours at the west edge to Stage 1's colour at the east edge — a softer
+	hand-off into the field than a flat colour reads as. See buildStageCheckerboard
+	for why the colour is a layer on top rather than the plate itself, and for why a
+	tiled gradient sidesteps the banded-seam problem two earlier, now-removed systems
+	here both hit (see the removal notes still kept below for
 	`buildStageBlend`/`buildGradientOozeSurface`).
 
 	Placement is a jittered grid, not pure random. Pure random clumps and leaves bald
@@ -93,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 6
+local BUILDER_VERSION = 7
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -566,11 +568,10 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- plate over the whole stage, raised WADE_HEIGHT above the floor. REMOVED, see
 	-- this file's own header. The stage's colour identity (PLAN's "the coral one
 	-- is the detector shop" rule extended to stages) is no longer this plate's
-	-- job -- it now lives in the ground colour itself, baked in by
-	-- Stages.GROUND_OOZE_TINT: StageFields.luau's plate paint for stages 2-6, and
-	-- buildStage1Checkerboard's colorAt below for Stage 1. `origin`, `hx`, `hz` and
-	-- `rng` above are unused now that this function has nothing left to place
-	-- with them, kept for whatever replaces the props/pools below.
+	-- job -- it now lives in the floor, from buildStageCheckerboard's two-tone board
+	-- (and StageFields.luau's plate paint underneath as a fallback). `origin`, `hx`,
+	-- `hz` and `rng` above are unused now that this function has nothing left to
+	-- place with them, kept for whatever replaces the props/pools below.
 
 	-- POOLS AND SCATTERED PROPS (OozePool/OozeRim, DeadTree/liveTree/brush, barrels,
 	-- houses/sirens/barriers/reactor/shards) DELIBERATELY REMOVED ON REQUEST, TO BE
@@ -587,101 +588,85 @@ local function buildStageScenery(parent: Instance, id: number)
 	folder.Parent = parent
 end
 
---- Stage 1's ground, a gradient rather than a flat colour.
+--- Every stage's ground: a studded two-tone checkerboard cap, the same 3-stud board
+--- as the plaza and the base pads (`Hub.tileRect`, one shared grid so the tiles stay
+--- in register across every edge), painted in each stage's own colour.
 ---
---- WHAT USED TO BE HERE, AND WHY IT WENT.
---- Stage 1 used to be internally subdivided into three named sub-bands ("Outer
---- Ash"/"Hot Wreckage"/"Deep Fallout") that graded its loot table AND told
---- themselves apart with three colours meeting at two boundaries — themselves
---- replacing an even older 10-stud concrete barrier at each boundary. The
---- sub-band system was removed (it collided with an unrelated top-level
---- naming decision), so Stage 1 is now a single place with a single loot table,
---- same as every other stage. The gradient below is the one piece of that system
---- worth keeping on its own merits: a flat colour reads as a harder edge against
---- the plaza than the soft hand-off this produces.
+--- WAS STAGE 1 ONLY (`buildStage1Checkerboard`). Extended to all six on request —
+--- "the same floor texture on every stage". Stages 2-6 used to show their raw plate:
+--- Sand dots, Slate, Glass. Those materials are gone from view now (the plate keeps
+--- them as a fallback under the cap; nothing sees it).
 ---
---- WHY THIS IS A SEPARATE LAYER AND NOT SIMPLY THE PLATE'S COLOUR.
---- The obvious implementation is to cut Workspace.Stages.Stage1 into three coloured
+--- WHY A CAP LAYER AND NOT THE PLATE ITSELF.
+--- The obvious implementation is to cut Workspace.Stages.Stage{id} into coloured
 --- plates, and it is the one thing this file's header forbids. StageService walks that
---- folder at 10 Hz and resolves overlaps as "smallest XZ area wins", so three plates
---- would quietly make the stage you stand in the STAGE you are in; and
---- DigService.stagePart looks "Stage1" up BY NAME and would find nothing at all, so the
---- field would stop spawning signals. One plate, always. The colour goes on top,
---- here, where it is free to be as many parts as it likes.
+--- folder at 10 Hz and resolves overlaps as "smallest XZ area wins", so extra plates
+--- would quietly decide which stage you are standing in; and DigService.stagePart
+--- looks each stage up BY NAME and would find nothing. One plate per stage, always.
+--- The colour goes on top, here, where it is free to be as many parts as it likes.
 ---
---- Thin, CanCollide and CanQuery false, and at GROUND_SKIM so a player's footing and
---- burial are untouched: a player still stands on Stages.SURFACE_Y and DigService
---- still buries against it, exactly as before this replaced the flat-band version.
+--- Thin, CanCollide and CanQuery false, at GROUND_SKIM: a player still stands on
+--- Stages.SURFACE_Y, DigService still buries against it, and FieldController's
+--- range-ring raycast passes through to the real plate. `Hub.tileRect` has no option
+--- for that (the plaza and pads want solid, queryable tiles), so it is a deliberate
+--- after-the-fact override of these folders' own tiles only.
 ---
---- THE CHECKERBOARD IS ITS OWN GRADIENT MECHANISM, ON REQUEST -- a rework of the look
---- (studded two-tone tiles, matching the plaza/base-pad board, `Hub.tileRect`) that
---- turns out to sidestep this file's own documented failure mode for free. The two
---- removed systems above (`buildStageBlend`, `buildGradientOozeSurface`) both tried to
---- fake a smooth colour gradient with a HANDFUL of large abutting Parts, each one
---- stepping a Color3 Lerp, and both produced a visible seam at every step regardless
---- of step count. A checkerboard doesn't have that problem: it's already thousands of
---- small tiles, so EACH TILE can independently compute its own colour from a
---- CONTINUOUS lerp based on its own world position -- there's no small band count to
---- tune and no coincident seam plane, just a resolution limit of one tile (3 studs).
+--- THE TWO SHADES ARE twoTone(def.color) — the stage's one configured colour split
+--- into a near-identical dark/light pair (see twoTone). UNTINTED, on request: the
+--- ooze tint StageFields bakes into the plate is NOT carried up here, so the board
+--- reads as the stage's base colour (tan, plum, violet) rather than as glowing
+--- sludge.
 ---
---- THE GRADIENT CONNECTS TO THE PLAZA. Two waypoints across Stage 1's own width:
---- the plaza's own tile colours (`C.plazaTileDark`/`plazaTileLight`) at the west
---- edge, right where a player arrives from camp, blending to Stage 1's own
---- already-shipped `color` (twoTone() above derives a matching two-tone pair from
---- it, at the same brightness ratio the plaza's own hand-picked pair sits at) at
---- the east edge. No new palette invented; the second endpoint is a colour this
---- file already ships elsewhere. Z position never affects colour.
-local function buildStage1Checkerboard(parent: Instance)
-	local def = Stages.get(1)
+--- STAGE 1 KEEPS ITS GRADIENT, the one exception. A flat colour reads as a harder
+--- edge against the plaza than a soft hand-off does, so Stage 1's board fades across
+--- its width: the plaza's actual tile colours at the west edge (where a player
+--- arrives from camp — that one endpoint stays plaza-tinted, or the x=100 seam
+--- snaps), blending to Stage 1's own untinted twoTone at the east edge. Each tile
+--- computes its colour from a continuous lerp on its world X, so there is no band
+--- count to tune and no seam — the board is already thousands of small tiles. Z
+--- never affects colour.
+local function buildStageCheckerboard(parent: Instance, id: number)
+	local def = Stages.get(id)
 	local minX = def.center[1] - def.size[1] / 2
 	local maxX = def.center[1] + def.size[1] / 2
 	local minZ = def.center[2] - def.size[2] / 2
 	local maxZ = def.center[2] + def.size[2] / 2
 
-	local plazaDark, plazaLight = Color3.fromHex(C.plazaTileDark), Color3.fromHex(C.plazaTileLight)
-	local stageDark, stageLight = twoTone(def.color)
+	local stageDark, stageLight = twoTone(def.color) -- Color3 pair, untinted
 
-	local waypoints = {
-		{ x = minX, dark = plazaDark, light = plazaLight },
-		{ x = maxX, dark = stageDark, light = stageLight },
-	}
+	local colorAt: ((x: number, z: number) -> (string, string))? = nil
+	local flatDark: string? = nil
+	local flatLight: string? = nil
 
-	-- Every tile gets Stage 1's ooze tint blended in on top of its gradient colour
-	-- (Stages.GROUND_OOZE_TINT -- see that constant's comment for why this exists:
-	-- it's the removed OozeSurface's tint, now baked into the tile instead of
-	-- arriving via a separate plate floating above it).
-	local function tint(c: Color3): string
-		return Kit.blendHex(c:ToHex(), def.ooze.bright, Stages.GROUND_OOZE_TINT)
-	end
-
-	local function colorAt(x: number, _z: number): (string, string)
-		local cx = math.clamp(x, waypoints[1].x, waypoints[#waypoints].x)
-		for i = 1, #waypoints - 1 do
-			local a, b = waypoints[i], waypoints[i + 1]
-			if cx >= a.x and cx <= b.x then
-				local t = if b.x > a.x then (cx - a.x) / (b.x - a.x) else 0
-				return tint(a.dark:Lerp(b.dark, t)), tint(a.light:Lerp(b.light, t))
-			end
+	if id == 1 then
+		-- West endpoint = the plaza's real tile colours (C.plazaTile* blended toward
+		-- Stage 1's ooze, exactly as Hub's own PLAZA_DARK/LIGHT are), so the board is
+		-- continuous across x = Hub.PLAZA.maxX. East endpoint, and the whole of every
+		-- other stage, is the raw untinted twoTone.
+		local wD = Color3.fromHex(Kit.blendHex(C.plazaTileDark, def.ooze.bright, Stages.GROUND_OOZE_TINT))
+		local wL = Color3.fromHex(Kit.blendHex(C.plazaTileLight, def.ooze.bright, Stages.GROUND_OOZE_TINT))
+		colorAt = function(x: number, _z: number): (string, string)
+			local t = math.clamp((x - minX) / (maxX - minX), 0, 1)
+			return wD:Lerp(stageDark, t):ToHex(), wL:Lerp(stageLight, t):ToHex()
 		end
-		local last = waypoints[#waypoints]
-		return tint(last.dark), tint(last.light)
+	else
+		flatDark, flatLight = stageDark:ToHex(), stageLight:ToHex()
 	end
 
 	local folder = Instance.new("Folder")
-	folder.Name = "Checkerboard"
+	folder.Name = `Stage{id}`
 
 	Hub.tileRect(folder, { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }, {
 		topY = Stages.SURFACE_Y + GROUND_SKIM,
 		colorAt = colorAt,
+		dark = flatDark,
+		light = flatLight,
 	})
 
-	-- Matches the old ground layer's own CanCollide/CanQuery=false exactly (see this
-	-- function's own header): footing/burial stay on Stages.SURFACE_Y, and
-	-- FieldController's range ring still lands on the real plate underneath, not this
-	-- thin cap layer. Hub.tileRect has no such option -- the plaza/base pads
-	-- legitimately want collidable, queryable tiles, so this is a deliberate
-	-- after-the-fact override of this folder's own tiles only, not a change to that
-	-- shared function's default for every other caller.
+	-- See this function's header: footing / burial / the range-ring raycast all stay
+	-- on the real plate under this cap, so every tile drops out of physics and
+	-- queries. Hub.tileRect can't do this itself — the plaza and pads want the
+	-- opposite — so it's an override of these folders' tiles only.
 	for _, tile in folder:GetChildren() do
 		if tile:IsA("BasePart") then
 			tile.CanCollide = false
@@ -750,8 +735,8 @@ local function buildStageBorderLines(parent: Instance)
 		end
 	end
 
-	-- Same override buildStage1Checkerboard's own cap layer takes: a thin marker on
-	-- the floor must not intercept the detector's range-ring raycast or a dig probe.
+	-- Same override buildStageCheckerboard's cap tiles take: a thin marker on the
+	-- floor must not intercept the detector's range-ring raycast or a dig probe.
 	for _, tile in folder:GetChildren() do
 		if tile:IsA("BasePart") then
 			tile.CanQuery = false
@@ -994,7 +979,14 @@ local function createScenery(): Model
 	for _, id in Stages.builtIds() do
 		buildStageScenery(scenery, id)
 	end
-	buildStage1Checkerboard(scenery)
+
+	-- Every stage's floor board, foldered together. Was Stage 1 only.
+	local floors = Instance.new("Folder")
+	floors.Name = "StageFloors"
+	for _, id in Stages.builtIds() do
+		buildStageCheckerboard(floors, id)
+	end
+	floors.Parent = scenery
 
 	-- No stage-to-stage blend any more anywhere in the chain -- see the removal note
 	-- above STAGE_BLEND's old spot, just above buildStageScenery. Every boundary,
