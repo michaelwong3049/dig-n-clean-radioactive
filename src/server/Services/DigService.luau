@@ -370,8 +370,8 @@ end
 
 --- Is the player standing on a glow they personally cannot lock onto? Auras are
 --- public but the gates are not, so without this state a Bent Coil standing in an
---- Oracle's reveal gets a pillar of light and a HUD reading "sweeping…" — which
---- looks like the game is broken rather than like the detector is too cheap.
+--- Oracle's reveal gets a pillar of light and a blank detector HUD — which looks
+--- like the game is broken rather than like the detector is too cheap.
 ---
 --- Only ever consulted when the player has no contact of their own in range, so the
 --- scan cost lands on the frames where nothing else is happening.

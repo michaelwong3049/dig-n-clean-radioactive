@@ -465,15 +465,15 @@ local function renderState()
 			return
 		end
 
-		ui.status.Text = "sweeping\u{2026} nothing in range"
-		ui.status.TextColor3 = COLOR.dim
+		-- Detector on, nothing revealed in range. The old "sweeping… nothing in
+		-- range" status line was removed on request -- the empty scope says it.
+		ui.status.Text = ""
 		ui.digButton.Text = "HOLD  E  TO PULL"
 		ui.digStroke.Color = COLOR.stroke
 		ui.digButton.TextColor3 = COLOR.dim
 		return
 	end
 
-	local count = #state.contacts
 	local named = if state.rarityHint then ` \u{2014} nearest reads {string.lower(state.rarityHint)}` else ""
 
 	if state.blocked == "weak" then
@@ -496,9 +496,10 @@ local function renderState()
 		ui.digButton.TextColor3 = COLOR.green
 		ui.digStroke.Color = COLOR.green
 	else
-		local plural = if count == 1 then "signal" else "signals"
-		ui.status.Text = `{count} {plural} in range \u{2014} walk to the glow{named}`
-		ui.status.TextColor3 = COLOR.amber
+		-- Signal(s) revealed but out of reach. The glow on the ground is the cue; a
+		-- status line counting them and saying "walk to the glow" was noise on top of
+		-- it (removed on request). The button still says GET CLOSER.
+		ui.status.Text = ""
 		ui.digButton.Text = "GET CLOSER"
 		ui.digButton.TextColor3 = COLOR.dim
 		ui.digStroke.Color = COLOR.stroke
