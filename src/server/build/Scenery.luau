@@ -64,6 +64,21 @@
 	`buildBoundaryWalls` is a genuine collidable barrier, not a decoration wearing
 	one — everything else's CanCollide=false reasoning (haul visibility, walking
 	through props) does not apply to it and should not be assumed to.
+
+	THE CAMP HAD NO WALL OF ITS OWN UNTIL `buildBaseWalls`, ON REQUEST -- the same
+	void-fall risk `buildBoundaryWalls` exists to close for the stage chain was
+	sitting open on the camp side the whole time, just less obviously: Plots.luau's
+	circular apron around the base plots (radius Plots.RING_OUTER) is not a neat
+	semicircle tucked inside the corridor's own width, it bulges out to roughly
+	+-227 in Z right at the x = Hub.PLAZA.maxX seam, well past the corridor's own
+	+-120. Confirmed live via raycast, not assumed: a player standing on real apron
+	ground at (100, 200) could walk two steps east into the stage chain's own
+	airspace and find nothing under them -- Stage 1's plate does not reach that far
+	off-centre, and the corridor's own wall only guards its OWN z line, not the open
+	shoulder beside it. `buildBaseWalls` closes it with one curved wall following
+	the apron's true circular edge plus two short straight pieces bridging each
+	shoulder down to where the corridor wall already starts -- see that function's
+	own comment for why it is three pieces and not one.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -74,6 +89,7 @@ local Stages = require(Shared.Config.Stages)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
+local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
@@ -722,6 +738,169 @@ local function buildBoundaryWalls(parent: Instance)
 	folder.Parent = parent
 end
 
+--- A short straight run along Z at a fixed X -- the mirror image of `buildWall`
+--- (which runs along X at a fixed Z), swapped axes, for the two shoulder pieces
+--- below that bridge the base's curved wall to the corridor's straight one.
+--- Same tiling, same checkerboard, same stud treatment; the only real difference
+--- is which local face ends up pointing at the walkable interior. `buildWall`'s
+--- segments are unrotated and expose the field on their +-Z face (hence
+--- Front/BackSurface); these are unrotated too but expose it on their +-X face
+--- instead, so they take Left/RightSurface.
+local function buildShoulderWall(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, faceProperty: string)
+	local baseY = Stages.SURFACE_Y
+	local cols = math.ceil((maxZ - minZ) / WALL_TILE)
+	local rows = math.ceil(WALL_HEIGHT / WALL_TILE)
+
+	for iz = 0, cols - 1 do
+		local z0 = minZ + iz * WALL_TILE
+		local z1 = math.min(z0 + WALL_TILE, maxZ)
+		local d = z1 - z0
+		if d <= 1e-3 then
+			continue
+		end
+
+		for iy = 0, rows - 1 do
+			local y0 = baseY + iy * WALL_TILE
+			local y1 = math.min(y0 + WALL_TILE, baseY + WALL_HEIGHT)
+			local h = y1 - y0
+			if h <= 1e-3 then
+				continue
+			end
+
+			local tile = build(parent, CFrame.new(0, 0, 0), {
+				name = name,
+				pos = { atX, (y0 + y1) / 2, (z0 + z1) / 2 },
+				size = { WALL_THICKNESS, h, d },
+				color = if (iz + iy) % 2 == 0 then WALL_DARK else WALL_LIGHT,
+				material = "Plastic", -- studs only render on Plastic, per Hub.tileRect's note
+				canCollide = true,
+			});
+			(tile :: any)[faceProperty] = Enum.SurfaceType.Studs
+		end
+	end
+end
+
+--- The base camp's own perimeter -- see this file's header for WHY (there was no
+--- wall here at all, and there is a real, raycast-confirmed void-fall gap in the
+--- shoulders flanking the corridor's own wall). THREE PIECES, each closing one
+--- part of the true footprint's actual edge:
+---
+---   1. a curved wall following Plots.RING_OUTER's own circle, for every bearing
+---      the apron is actually built at -- i.e. everywhere EXCEPT the slice
+---      buildApron's own `x <= Hub.PLAZA.maxX` clip already cuts away. There is no
+---      ground on the far side of that clip for a wall to guard, so the arc stops
+---      exactly where the clip does, not a bearing further.
+---   2 & 3. two short straight "shoulder" pieces at x = Hub.PLAZA.maxX, one per
+---      side, bridging the arc's own clip-line endpoint down to wherever
+---      `buildBoundaryWalls`'s corridor wall already starts on that same side.
+---
+--- GET ANY ONE OF THE THREE PIECES' OWN JUNCTION COORDINATES WRONG AND IT IS NOT A
+--- GRAPHICAL GLITCH, IT IS A HOLE. All three are computed from the same live
+--- inputs (Plots.RING_CENTER/RING_OUTER, Hub.PLAZA.maxX, Stages.bounds) rather
+--- than measured once and hardcoded, for the same reason `buildBoundaryWalls`
+--- reads its own bounds instead of assuming them.
+---
+--- THE ARC DELIBERATELY SKIPS THE STUD-FACE TREATMENT'S USUAL PRECISION. Every
+--- straight wall segment in this file picks ONE fixed local face for its studs
+--- because it never rotates; the arc's columns each carry a different world-space
+--- yaw, and Roblox resolves a local face (`FrontSurface`) the same way regardless
+--- of that yaw, so one fixed face works for the whole curve too -- confirmed live,
+--- not just assumed from the geometry. What the arc does NOT attempt is
+--- phase-locking that texture's stud grid across columns the way a flat tiled
+--- surface would; at this radius the seam between columns is not worth the
+--- bookkeeping for a peripheral wall almost nobody stands next to.
+local function buildBaseWalls(parent: Instance)
+	local cx, cz = Plots.RING_CENTER.x, Plots.RING_CENTER.z
+	local wallRadius = Plots.RING_OUTER + WALL_THICKNESS / 2
+	local clipX = Hub.PLAZA.maxX
+
+	local stageMinZ, stageMaxZ = math.huge, -math.huge
+	for _, id in Stages.builtIds() do
+		local _, az, _, bz = Stages.bounds(id)
+		stageMinZ, stageMaxZ = math.min(stageMinZ, az), math.max(stageMaxZ, bz)
+	end
+	local corridorMinZ = stageMinZ - WALL_THICKNESS / 2
+	local corridorMaxZ = stageMaxZ + WALL_THICKNESS / 2
+
+	-- Where the wall's own circle (radius wallRadius, not RING_OUTER -- the wall
+	-- sits just outside the apron's real edge, same convention buildWall's own
+	-- minZ-thickness/2 / maxZ+thickness/2 already uses) crosses x = clipX. Using
+	-- Plots' own bearing convention (x = cx + r*sin, z = cz + r*cos): the +Z-side
+	-- crossing is bearing `crossing`, the -Z-side crossing is bearing
+	-- `180 - crossing`, and the arc that stays on the buildable side of the clip
+	-- (x <= clipX) is the LONG way round between them, through bearing 270 (the
+	-- far side of the circle from the stage chain), not the short way through 90.
+	local halfSpanZ = math.sqrt(wallRadius ^ 2 - (clipX - cx) ^ 2)
+	local crossing = math.deg(math.asin((clipX - cx) / wallRadius))
+	local startBearing = 180 - crossing
+	local endBearing = 360 + crossing
+
+	local folder = Instance.new("Folder")
+	folder.Name = "BaseWalls"
+
+	-- THE ARC. Columns sized to roughly WALL_TILE studs of CHORD, not of angle --
+	-- the two are only equal in the small-angle limit, and this radius is large
+	-- enough that the difference does not matter, but the chord is the one that
+	-- actually controls how faceted the curve looks.
+	local totalDeg = endBearing - startBearing
+	local stepDeg = math.deg(WALL_TILE / wallRadius)
+	local cols = math.max(1, math.ceil(totalDeg / stepDeg))
+	local rows = math.ceil(WALL_HEIGHT / WALL_TILE)
+	local baseY = Stages.SURFACE_Y
+
+	for ix = 0, cols - 1 do
+		local a0 = startBearing + ix * (totalDeg / cols)
+		local a1 = startBearing + (ix + 1) * (totalDeg / cols)
+		local aMid = math.rad((a0 + a1) / 2)
+		local halfStepRad = math.rad(a1 - a0) / 2
+		local chord = 2 * wallRadius * math.sin(halfStepRad)
+		-- The part's centre is the TRUE CHORD MIDPOINT connecting the circle points
+		-- at a0 and a1 -- which sits at radius wallRadius*cos(halfStepRad), a hair
+		-- inside the circle itself, not ON it. Centring on the circle (radius
+		-- wallRadius outright) would still get the chord LENGTH and YAW exactly
+		-- right, but every column's own corner would land slightly outside the
+		-- true circle point shared with its neighbour -- consecutive columns would
+		-- no longer share an exact corner, just a near one. At this step size the
+		-- miss is a fraction of a stud, but "a fraction of a stud" is still not
+		-- zero, and zero is free here: this is the one line that makes it exact.
+		local rMid = wallRadius * math.cos(halfStepRad)
+		local px = cx + rMid * math.sin(aMid)
+		local pz = cz + rMid * math.cos(aMid)
+		local origin = CFrame.new(px, 0, pz) * CFrame.Angles(0, aMid, 0)
+
+		for iy = 0, rows - 1 do
+			local y0 = baseY + iy * WALL_TILE
+			local y1 = math.min(y0 + WALL_TILE, baseY + WALL_HEIGHT)
+			local h = y1 - y0
+			if h <= 1e-3 then
+				continue
+			end
+
+			local tile = build(folder, origin, {
+				name = "ArcWall",
+				pos = { 0, (y0 + y1) / 2, 0 },
+				size = { chord, h, WALL_THICKNESS },
+				color = if (ix + iy) % 2 == 0 then WALL_DARK else WALL_LIGHT,
+				material = "Plastic",
+				canCollide = true,
+			});
+			(tile :: any).FrontSurface = Enum.SurfaceType.Studs
+		end
+	end
+
+	-- THE TWO SHOULDERS. -halfSpanZ/+halfSpanZ are the arc's own clip-line
+	-- endpoints; corridorMinZ/corridorMaxZ are where buildBoundaryWalls' corridor
+	-- wall already starts. A 1-stud overlap on the corridor side (not an exact
+	-- touch) is deliberate -- see Plots.luau's own PLAZA_SKIP_MARGIN comment for
+	-- why an exact-touching seam between two independently-computed edges is the
+	-- one that grows a gap first the next time either number moves.
+	local OVERLAP = 1
+	buildShoulderWall(folder, "ShoulderWallNeg", clipX, -halfSpanZ, corridorMinZ + OVERLAP, "LeftSurface")
+	buildShoulderWall(folder, "ShoulderWallPos", clipX, corridorMaxZ - OVERLAP, halfSpanZ, "LeftSurface")
+
+	folder.Parent = parent
+end
+
 local function createScenery(): Model
 	local scenery = Instance.new("Model")
 	scenery.Name = "Scenery"
@@ -736,6 +915,7 @@ local function createScenery(): Model
 	-- above STAGE_BLEND's old spot, just above buildStageScenery. Every boundary,
 	-- 1/2 through 5/6, is a hard cut now.
 	buildBoundaryWalls(scenery)
+	buildBaseWalls(scenery)
 
 	-- Nothing in here may claim to be a stage. This is the invariant the whole
 	-- module/folder split exists to protect, so it is asserted, not trusted.
