@@ -150,10 +150,15 @@ Tuning.DIG_DEPTH_JITTER = 1.0
 -- hardcoded copies of a tag string is how one of them quietly becomes "SignalAuras".
 Tuning.AURA_TAG = "SignalAura"
 Tuning.AURA_FOLDER = "SignalAuras"
-Tuning.AURA_HEIGHT = 5.5 -- studs the pillar stands above the surface
-Tuning.AURA_WIDTH = 0.55 -- pillar diameter
-Tuning.AURA_RING = 2.4 -- ground ring diameter, marks the spot to stand on
-Tuning.AURA_PULSE_HZ = 1.1 -- client-side breathe rate, cosmetic only
+-- The aura is a PULSING WELL OF LIGHT now, not a pillar (on request). Low and wide:
+-- a bright disc set into the ground with a soft dome over it, and ripple rings the
+-- client sends expanding outward from it. The old tall thin pillar was too close to
+-- PLAN 10.9's server-wide "Legendary pulled" beacon; a ground-hugging well cannot be
+-- mistaken for it at any distance.
+Tuning.AURA_RING = 2.4 -- the well's bright core disc, diameter in studs -- the spot to stand on
+Tuning.AURA_DOME = 3.2 -- the soft light dome over the well, diameter -- a touch wider than the core
+Tuning.AURA_PULSE_REACH = 5.0 -- how far the ripple rings travel out (== DIG_RADIUS, so the widest ripple shows the pickup range)
+Tuning.AURA_PULSE_HZ = 0.8 -- client-side ripple rate, cosmetic only (was the pillar's breathe rate)
 
 -- The range ring the detector draws on the ground around YOU. Client-side, so unlike
 -- the auras it is yours alone — it answers "what am I actually sweeping right now",

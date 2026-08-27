@@ -21,10 +21,16 @@
 	shared instance physically cannot express. The rarity read lives on the client's
 	radar blips instead, where the gate still works.
 
-	KEEP IT VISUALLY DISTINCT FROM THE BEACON. PLAN §10.9 spends a light pillar on
-	"somebody just pulled a Legendary, server-wide". If a routine reveal looks like a
-	short version of that, §10.9 stops landing the moment it ships. This one is small,
-	cold and cyan; the beacon is tall and rarity-coloured. Do not converge them.
+	IT IS A PULSING WELL OF LIGHT, NOT A PILLAR (changed on request). Low and wide: a
+	bright cyan disc set into the ground with a soft dome of light over it, and a few
+	ripple discs the client (FieldController) drives expanding outward from it. The
+	old tall thin pillar was too close to PLAN §10.9's server-wide "somebody pulled a
+	Legendary" beacon; that one is TALL and RARITY-COLOURED, this one hugs the ground
+	and is instrument cyan, and the two cannot be confused at any distance. Do not
+	grow this one upward.
+
+	The client OWNS how it looks (the ripple, the breathe, the lock-on) but never
+	where it is or whether it exists — see FieldController's header.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -43,20 +49,30 @@ SignalAura.TAG = Tuning.AURA_TAG
 --- Folder every aura lives under, so nothing has to walk Workspace to find them.
 SignalAura.FOLDER = Tuning.AURA_FOLDER
 
+--- How many ripple discs each well carries. The client animates `Ripple1`..`RippleN`
+--- expanding and fading on staggered phases; it finds them by that name prefix, so
+--- this count lives here (the structure) and not in Tuning (the tuning).
+SignalAura.RIPPLES = 3
+
 -- Instrument cyan, deliberately NOT the acid green of the sludge and the pools. Kit's
 -- palette note reserves neon acid green for "this is radioactive"; an aura is the
 -- detector talking to you, not the ground being dangerous, and the two readings have
 -- to stay separable at a glance.
-local GLOW = Color3.fromHex("8FD8FF")
+--
+-- A MID blue-cyan, not the old pale 8FD8FF. Daylight.luau blooms every Neon part, and
+-- bloom lightens toward white — a pale cyan blew out to a featureless white blob
+-- (the exact trap SignalAura's own header and Kit's palette note both warn about for
+-- green). This sits far enough down the channel that "cyan" survives the bloom.
+local GLOW = Color3.fromHex("2E9FD8")
 
-local function cylinder(name: string, diameter: number, length: number): BasePart
+--- A flat cyan disc: a cylinder whose length (its local X axis) is tiny, stood so
+--- that short axis points at world up. Getting the rotation wrong yields a coin
+--- standing on its edge, which reads as a bug in the position rather than the size.
+local function disc(name: string, diameter: number, thickness: number): BasePart
 	local part = Instance.new("Part")
 	part.Name = name
 	part.Shape = Enum.PartType.Cylinder
-	-- A cylinder's axis runs along X, so size is (length, diameter, diameter) and the
-	-- caller stands it up with a rotation. Getting this backwards yields a flat disc
-	-- lying in the wrong plane, which looks like a bug in the position, not the size.
-	part.Size = Vector3.new(length, diameter, diameter)
+	part.Size = Vector3.new(thickness, diameter, diameter)
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanQuery = false
@@ -69,56 +85,89 @@ local function cylinder(name: string, diameter: number, length: number): BasePar
 end
 
 --- Build one aura, unparented. `surface` is the world point on the ground the signal
---- is buried under — the spot the player has to stand on.
-function SignalAura.create(surface: Vector3, height: number, width: number, ringSize: number): Model
+--- is buried under — the spot the player has to stand on. `core` / `dome` are
+--- diameters; `reach` is how far the ripples travel (the client reads it off the
+--- part sizes, nothing is stored).
+function SignalAura.create(surface: Vector3, core: number, dome: number, reach: number): Model
 	local model = Instance.new("Model")
 	model.Name = "Aura"
 
-	local upright = CFrame.Angles(0, 0, math.pi / 2)
+	local flat = CFrame.Angles(0, 0, math.pi / 2) -- disc lying flat, short axis up
 
-	local pillar = cylinder("Pillar", width, height)
-	pillar.Transparency = 0.35
-	pillar.CFrame = CFrame.new(surface + Vector3.new(0, height / 2, 0)) * upright
-	pillar.Parent = model
+	-- The core: a small bright disc just proud of the ground — the bullseye. A touch
+	-- transparent so it reads as a spot of light, not a solid coin, once bloom gets
+	-- to it.
+	local coreDisc = disc("Core", core * 0.42, 0.25)
+	coreDisc.Transparency = 0.2
+	coreDisc.CFrame = CFrame.new(surface + Vector3.new(0, 0.12, 0)) * flat
+	coreDisc.Parent = model
 
-	-- Thin, and lifted a hair off the surface. Flush with the plate it z-fights with
-	-- the ground on half the hardware that will ever run this.
-	local ring = cylinder("Ring", ringSize, 0.15)
-	ring.Transparency = 0.25
-	ring.CFrame = CFrame.new(surface + Vector3.new(0, 0.08, 0)) * upright
-	ring.Parent = model
+	-- The dome: a FORCE FIELD ball centred on the ground so its bottom half is buried
+	-- and only the cap shows. ForceField, not Neon and not Glass — it renders as a
+	-- shimmering translucent energy shell that keeps its own colour instead of taking
+	-- the ground's and instead of blooming to white (the two problems those other
+	-- materials hit here). Wide and low: the whole aura stands barely a stud and a
+	-- half tall, nothing like PLAN 10.9's pillar.
+	local domeBall = Instance.new("Part")
+	domeBall.Name = "Dome"
+	domeBall.Shape = Enum.PartType.Ball
+	domeBall.Size = Vector3.new(dome, dome, dome)
+	domeBall.CFrame = CFrame.new(surface)
+	domeBall.Anchored = true
+	domeBall.CanCollide = false
+	domeBall.CanQuery = false
+	domeBall.CanTouch = false
+	domeBall.CastShadow = false
+	domeBall.Locked = true
+	domeBall.Material = Enum.Material.ForceField
+	domeBall.Color = GLOW
+	domeBall.Transparency = 0.35
+	domeBall.Parent = model
+
+	-- The ripples. Built at `reach` diameter but invisible; the client scales each
+	-- from a point out to here and fades it, staggered, so the well reads as pulsing.
+	-- Thin, so what shows is the glowing rim of the disc rather than a filled circle.
+	-- Server owns that they exist and where they sit (this file's header) — the
+	-- client only ever changes Size and Transparency.
+	for i = 1, SignalAura.RIPPLES do
+		local ripple = disc(`Ripple{i}`, reach * 2, 0.06)
+		ripple.Transparency = 1
+		-- Staggered a hair in Y so three coincident discs do not z-fight the instant
+		-- the client has them all small at once.
+		ripple.CFrame = CFrame.new(surface + Vector3.new(0, 0.05 + i * 0.015, 0)) * flat
+		ripple.Parent = model
+	end
+
+	-- A slow curl of motes rising out of the core, so an idle well still has life.
+	-- Low rate on purpose: this is a well, not a fire.
+	local motes = Instance.new("ParticleEmitter")
+	motes.Color = ColorSequence.new(GLOW)
+	motes.LightEmission = 1
+	motes.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.3),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	motes.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.45),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	motes.Lifetime = NumberRange.new(0.9, 1.6)
+	motes.Rate = 4
+	motes.Speed = NumberRange.new(1, 2.2)
+	motes.SpreadAngle = Vector2.new(14, 14)
+	-- The core is a cylinder stood flat, so its LOCAL +X is world up. Emit along it
+	-- or the motes fire sideways out of the rim.
+	motes.EmissionDirection = Enum.NormalId.Right
+	motes.Parent = coreDisc
 
 	local light = Instance.new("PointLight")
 	light.Color = GLOW
-	light.Range = 12
-	light.Brightness = 1.6
+	light.Range = 10
+	light.Brightness = 1.0
 	light.Shadows = false
-	light.Parent = ring
+	light.Parent = coreDisc
 
-	-- Self-animating, so an idle aura costs no script time on either side. The client
-	-- only ever touches the pulse; the drift runs itself.
-	local drift = Instance.new("ParticleEmitter")
-	drift.Color = ColorSequence.new(GLOW)
-	drift.LightEmission = 1
-	drift.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.35),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	drift.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.4),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	drift.Lifetime = NumberRange.new(0.8, 1.4)
-	drift.Rate = 7
-	drift.Speed = NumberRange.new(1.5, 3)
-	drift.SpreadAngle = Vector2.new(8, 8)
-	-- The pillar is a cylinder stood upright, so its LOCAL +X is world up. The default
-	-- emission direction (Top, local +Y) fires the particles sideways out of the side
-	-- of the pillar, which reads as a leak rather than a plume.
-	drift.EmissionDirection = Enum.NormalId.Right
-	drift.Parent = pillar
-
-	model.PrimaryPart = pillar
+	model.PrimaryPart = coreDisc
 	CollectionService:AddTag(model, SignalAura.TAG)
 
 	return model
