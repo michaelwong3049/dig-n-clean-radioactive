@@ -255,13 +255,14 @@ local BARREL_LIGHT_EVERY = 5
 --- re-deriving for a six-pool difference.
 --- `scatter = true` is what actually turns a field's props on -- the scatter pass in
 --- buildStageScenery is gated on it, so a stage stays bare until its own rework flips
---- the flag. Stage 2 is the first one back: a sparse stand of big dead trees, nothing
---- else. `props` is the tree count -- kept low on purpose so each one reads as a
---- landmark rather than ground cover.
+--- the flag. Stage 2 is the first one back: a handful of dead trees, nothing else,
+--- each rolled to its own size (see deadTree) so the stand has runts and giants
+--- rather than twelve of the same. `props` is the tree count -- deliberately tiny, so
+--- every tree is a landmark.
 type StageTheme = { props: number, pools: number, kind: string, scatter: boolean? }
 local THEME: { [number]: StageTheme } = {
 	[1] = { props = 26, pools = 8, kind = "trees" },
-	[2] = { props = 12, pools = 10, kind = "trees", scatter = true },
+	[2] = { props = 6, pools = 10, kind = "trees", scatter = true },
 	[3] = { props = 40, pools = 20, kind = "sirens" },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
@@ -459,11 +460,13 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 		end
 	end
 
-	-- Trunk-base length and thickness. Everything downstream is a ratio of these, so
-	-- this pair is the tree's overall size dial -- big on purpose here, so a sparse
-	-- Stage 2 reads as a few looming snags rather than scattered scrub. Typical result
-	-- is ~22 studs tall (roughly four characters), the tallest rolls near 28.
-	branch(base, rng:NextNumber(5.0, 6.4), rng:NextNumber(2.4, 3.1), 4)
+	-- Per-tree size. `scale` is rolled wide so a stand has clear runts and clear
+	-- giants, not a dozen of the same tree; length and thickness scale together so a
+	-- small tree is a proportionally small tree, never a thin tall one. Everything
+	-- downstream is a ratio of this trunk-base pair. At scale 1 a tree is ~22 studs
+	-- (roughly four characters); the roll spans ~13 studs to ~34.
+	local scale = rng:NextNumber(0.62, 1.5)
+	branch(base, rng:NextNumber(5.0, 5.9) * scale, rng:NextNumber(2.4, 3.0) * scale, 4)
 end
 
 local function prop(
@@ -650,24 +653,38 @@ end
 --- Pure random clumps and leaves bald patches, so it is a grid with per-cell jitter:
 --- reads as scattered while still covering the field, and it runs off the stage's own
 --- deterministic rng so a rebuild reproduces it. The jitter is wide against the low
---- tree count, so a 3x4-ish grid still reads as a natural stand, not rows.
+--- tree count so the grid never reads as rows.
+---
+--- The grid's shape follows the field's aspect (a wide field wants more columns than
+--- rows). A count that does not fill the grid fills whole rows first, then drops the
+--- remainder into RANDOM columns of the last row -- so six trees on a 3x2 read as
+--- spread across the depth, not left-packed into one corner.
 local function scatterStageProps(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
-	local cols = math.ceil(math.sqrt(count))
-	local placed = 0
-	for row = 0, cols - 1 do
-		for col = 0, cols - 1 do
-			if placed >= count then
-				break
-			end
-			placed += 1
+	local aspect = hx / hz
+	local cols = math.max(1, math.round(math.sqrt(count * aspect)))
+	local rows = math.ceil(count / cols)
 
-			local x = -hx + (col + 0.5) * (2 * hx / cols) + rng:NextNumber(-20, 20)
-			local z = -hz + (row + 0.5) * (2 * hz / cols) + rng:NextNumber(-20, 20)
-			x = math.clamp(x, -hx, hx)
-			z = math.clamp(z, -hz, hz)
+	-- Which of the rows*cols cells actually get a tree. Fill full rows, then scatter
+	-- the remainder across the last row rather than left-packing it.
+	local cells: { { number } } = {}
+	local full = (rows - 1) * cols
+	for i = 0, full - 1 do
+		table.insert(cells, { math.floor(i / cols), i % cols })
+	end
+	local lastRowCols = {}
+	for c = 0, cols - 1 do
+		table.insert(lastRowCols, c)
+	end
+	for _ = 1, count - full do
+		local pick = rng:NextInteger(1, #lastRowCols)
+		table.insert(cells, { rows - 1, table.remove(lastRowCols, pick) })
+	end
 
-			deadTree(folder, origin, x, z, rng)
-		end
+	for _, cell in cells do
+		local row, col = cell[1], cell[2]
+		local x = -hx + (col + 0.5) * (2 * hx / cols) + rng:NextNumber(-22, 22)
+		local z = -hz + (row + 0.5) * (2 * hz / rows) + rng:NextNumber(-22, 22)
+		deadTree(folder, origin, math.clamp(x, -hx, hx), math.clamp(z, -hz, hz), rng)
 	end
 end
 
