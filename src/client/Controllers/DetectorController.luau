@@ -31,10 +31,11 @@
 	stacked above it here too, but has since moved to the opposite corner, above the
 	cash badge; nothing shares this corner with the scope any more.
 
-	Hot/cold is still carried by SOUND. PLAN §10.7 wants a player able to sweep with
-	their eyes half shut, so there are two cues: a CHIRP the moment a new contact
-	enters the radius (the server counts them — the client has no uids to diff), and
-	the old rate-and-pitch ping keyed to how close the nearest one is.
+	NO SOUND. The detector used to carry hot/cold by audio — a rate-and-pitch ping
+	keyed to the nearest contact, plus a chirp on each new reveal (PLAN §10.7's
+	"sweep with your eyes half shut"). Both were removed on request. The feedback is
+	entirely visual now: the scope dial and its blips on screen, and out in the world
+	the aura wells and the range ring (FieldController).
 
 	SCOPE_RADIUS stays local because nothing outside this file reads it, but it is
 	DERIVED from Dock.SCOPE_DIAL rather than a second hardcode, because it drives the
@@ -65,17 +66,6 @@ local Detector = {}
 -- unchanged — this is an alias, not a copy, on purpose.
 local COLOR = UIKit.C
 
--- Ping pacing. At strength 0 it is a slow lonely tick; at 1 it is a stutter.
-local PING_INTERVAL_FAR = 1.10
-local PING_INTERVAL_NEAR = 0.09
-local PING_PITCH_FAR = 0.75
-local PING_PITCH_NEAR = 1.85
-
--- The new-contact chirp. Same asset as the ping, deliberately: it is pitched and
--- loud enough to be unmistakable, and reusing it means the reveal cue cannot go
--- missing because an asset id rotted.
-local CHIRP_PITCH = 2.3
-
 local DIAL_SIZE = Dock.SCOPE_DIAL
 local SCOPE_RADIUS = Dock.SCOPE_DIAL / 2 - 15 -- px from the centre of the dial to the radius ring
 local MAX_BLIPS = 12 -- matches DigService.MAX_CONTACTS; more would never arrive
@@ -85,7 +75,6 @@ type Contact = { dx: number, dz: number, rarity: string? }
 local state = {
 	inStage = false,
 	hasSignal = false,
-	strength = 0,
 	radius = 0,
 	contacts = {} :: { Contact },
 	rarityHint = nil :: string?,
@@ -96,12 +85,7 @@ local state = {
 
 local ui = {}
 local blips: { Frame } = {}
-local pingClock = 0
 local isHolding = false
-
-local function lerp(a: number, b: number, t: number): number
-	return a + (b - a) * t
-end
 
 -- ── Build ───────────────────────────────────────────────────────────
 
@@ -465,15 +449,15 @@ local function renderState()
 			return
 		end
 
-		ui.status.Text = "sweeping\u{2026} nothing in range"
-		ui.status.TextColor3 = COLOR.dim
+		-- Detector on, nothing revealed in range. The old "sweeping… nothing in
+		-- range" status line was removed on request -- the empty scope says it.
+		ui.status.Text = ""
 		ui.digButton.Text = "HOLD  E  TO PULL"
 		ui.digStroke.Color = COLOR.stroke
 		ui.digButton.TextColor3 = COLOR.dim
 		return
 	end
 
-	local count = #state.contacts
 	local named = if state.rarityHint then ` \u{2014} nearest reads {string.lower(state.rarityHint)}` else ""
 
 	if state.blocked == "weak" then
@@ -496,43 +480,14 @@ local function renderState()
 		ui.digButton.TextColor3 = COLOR.green
 		ui.digStroke.Color = COLOR.green
 	else
-		local plural = if count == 1 then "signal" else "signals"
-		ui.status.Text = `{count} {plural} in range \u{2014} walk to the glow{named}`
-		ui.status.TextColor3 = COLOR.amber
+		-- Signal(s) revealed but out of reach. The glow on the ground is the cue; a
+		-- status line counting them and saying "walk to the glow" was noise on top of
+		-- it (removed on request). The button still says GET CLOSER.
+		ui.status.Text = ""
 		ui.digButton.Text = "GET CLOSER"
 		ui.digButton.TextColor3 = COLOR.dim
 		ui.digStroke.Color = COLOR.stroke
 	end
-end
-
--- ── Ping ────────────────────────────────────────────────────────────
-
-local pingSound: Sound? = nil
-local chirpSound: Sound? = nil
-
-local function stepPing(dt: number)
-	if pingSound == nil or not state.hasSignal then
-		return
-	end
-
-	pingClock -= dt
-	if pingClock > 0 then
-		return
-	end
-
-	pingClock = lerp(PING_INTERVAL_FAR, PING_INTERVAL_NEAR, state.strength)
-	pingSound.PlaybackSpeed = lerp(PING_PITCH_FAR, PING_PITCH_NEAR, state.strength)
-	pingSound:Play()
-end
-
---- The reveal cue. The server counts new contacts because only the server has uids
---- to diff; the client would have to infer it from the contact count, which is wrong
---- every time one signal leaves the radius as another enters.
-local function chirp(count: number)
-	if chirpSound == nil or count <= 0 then
-		return
-	end
-	chirpSound:Play()
 end
 
 -- ── Banner ──────────────────────────────────────────────────────────
@@ -587,25 +542,11 @@ function Detector.start()
 	local gui = build()
 	gui.Parent = player:WaitForChild("PlayerGui")
 
-	pingSound = Instance.new("Sound")
-	pingSound.Name = "DetectorPing"
-	pingSound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
-	pingSound.Volume = 0.45
-	pingSound.Parent = gui
-
-	chirpSound = Instance.new("Sound")
-	chirpSound.Name = "DetectorChirp"
-	chirpSound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
-	chirpSound.Volume = 0.7
-	chirpSound.PlaybackSpeed = CHIRP_PITCH
-	chirpSound.Parent = gui
-
 	digInput = Net.get("DigInput")
 
 	Net.get("SweepState").OnClientEvent:Connect(function(payload)
 		state.inStage = payload.inStage == true
 		state.hasSignal = payload.hasSignal == true
-		state.strength = payload.strength or 0
 		state.radius = payload.radius or 0
 		state.contacts = payload.contacts or {}
 		state.rarityHint = payload.rarityHint
@@ -615,8 +556,8 @@ function Detector.start()
 		-- payload.carrying / payload.capacity are deliberately ignored: the hotbar
 		-- (InventoryController, fed by CarryState) is the authority on the bag now,
 		-- and two widgets answering "how full am I" from two different remotes is how
-		-- they end up disagreeing by a tick.
-		chirp(payload.newContacts or 0)
+		-- they end up disagreeing by a tick. payload.strength / payload.newContacts
+		-- too, since the audio cues they fed are gone.
 		renderState()
 	end)
 
@@ -651,14 +592,13 @@ function Detector.start()
 		end
 	end)
 
-	-- Heartbeat, NOT RenderStepped. RenderStepped only fires while the client is
-	-- actually drawing frames — it stops dead if the viewport isn't being rendered,
-	-- which took the needle AND the ping audio down with it. The ping is the lead
-	-- instrument of this whole mechanic (PLAN §10.7); it must not be a passenger on
-	-- the render loop. Heartbeat runs on the simulation step and keeps going.
+	-- Heartbeat, NOT RenderStepped. This used to matter because the ping audio ran
+	-- here and could not be allowed to stall with the render loop; the ping is gone
+	-- now, but the scope's sweep arm and blips are still driven off os.clock (not
+	-- dt), so Heartbeat vs RenderStepped only changes how often they refresh, never
+	-- what they show. Left on Heartbeat — moving it buys nothing.
 	RunService.Heartbeat:Connect(function(dt)
 		renderFrame(dt)
-		stepPing(dt)
 	end)
 
 	renderState()

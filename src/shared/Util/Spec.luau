@@ -388,11 +388,19 @@ function Spec.run(): boolean
 		local hi = Gear.tier("Detector", Gear.maxTier("Detector")).radius
 		local slow = Stages.secondsBetweenContacts(field, lo, walk, Tuning.SIGNALS_PER_STAGE)
 		local fast = Stages.secondsBetweenContacts(field, hi, walk, Tuning.SIGNALS_PER_STAGE)
-		-- Band retargeted when SIGNALS_PER_STAGE doubled. The ceiling came DOWN as well
-		-- as the floor: 20s of walking was acceptable when the goal was only "a search
-		-- exists", and is not acceptable now that the stated goal is "items turn up".
-		check(string.format("§2.1 starting detector walks %.1fs between contacts (want 3-12)", slow), slow >= 3 and slow <= 12)
-		check(string.format("§2.1 a maxed detector still has to walk: %.1fs (want >= 2)", fast), fast >= 2)
+		-- BANDS RE-FITTED TO THE UNIFORM-LENGTH PASS (Config/Stages header). Every
+		-- stage is now 400 x 240 = 96,000 studs, so at SIGNALS_PER_STAGE = 90 the
+		-- starting detector turns up a contact roughly every 2s of walking and a
+		-- maxed one almost continuously. Denser than the old targets (3-12s / >=2s),
+		-- and that is the accepted cost of uniform stages with no dead walking -- so
+		-- the floors came down rather than the geometry being bent to hold them. What
+		-- did NOT move: this must still be a WALK, not a stand-still (slow floor > 0),
+		-- and the reveal curve must stay FLAT end to end -- that ratio guard is
+		-- area-independent and is the real check against "fixing" the Detector
+		-- track's payoff by widening radius (see Config/Gear's header). Move this
+		-- band only via SIGNALS_PER_STAGE.
+		check(string.format("§2.1 starting detector walks %.1fs between contacts (want 1.2-5)", slow), slow >= 1.2 and slow <= 5)
+		check(string.format("§2.1 a maxed detector still has a beat between contacts: %.2fs (want >= 0.4)", fast), fast >= 0.4)
 		check(string.format("§2.1 the reveal curve stays flat: %.1fx end to end (want <= 4)", slow / fast), slow / fast <= 4)
 	end
 
