@@ -255,10 +255,10 @@ local BARREL_LIGHT_EVERY = 5
 --- re-deriving for a six-pool difference.
 --- `scatter = true` is what actually turns a field's props on -- the scatter pass in
 --- buildStageScenery is gated on it, so a stage stays bare until its own rework flips
---- the flag. Stage 2 is the first one back: a handful of dead trees, nothing else,
---- each rolled to its own size (see deadTree) so the stand has runts and giants
---- rather than twelve of the same. `props` is the tree count -- deliberately tiny, so
---- every tree is a landmark.
+--- the flag. Stage 2 is the first one back: a handful of big dead trees along the
+--- field's two long sides (the middle stays clear for walking and digging -- see
+--- scatterStageProps), each rolled to its own size so no two match. `props` is the
+--- tree count -- deliberately tiny, so every tree is a landmark.
 type StageTheme = { props: number, pools: number, kind: string, scatter: boolean? }
 local THEME: { [number]: StageTheme } = {
 	[1] = { props = 26, pools = 8, kind = "trees" },
@@ -460,13 +460,14 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 		end
 	end
 
-	-- Per-tree size. `scale` is rolled wide so a stand has clear runts and clear
-	-- giants, not a dozen of the same tree; length and thickness scale together so a
-	-- small tree is a proportionally small tree, never a thin tall one. Everything
-	-- downstream is a ratio of this trunk-base pair. At scale 1 a tree is ~22 studs
-	-- (roughly four characters); the roll spans ~13 studs to ~34.
-	local scale = rng:NextNumber(0.62, 1.5)
-	branch(base, rng:NextNumber(5.0, 5.9) * scale, rng:NextNumber(2.4, 3.0) * scale, 4)
+	-- Per-tree size. `scale` is rolled wide so the stand still has clearly smaller and
+	-- clearly bigger trees, but the whole band sits high -- these are looming dead
+	-- giants over the field, not scrub. Length and thickness scale together so a
+	-- smaller tree is a proportionally smaller tree, never a thin tall one. Everything
+	-- downstream is a ratio of this trunk-base pair; the roll spans ~30 studs tall to
+	-- ~45 (the tallest is ~9 characters).
+	local scale = rng:NextNumber(1.2, 1.8)
+	branch(base, rng:NextNumber(5.2, 6.2) * scale, rng:NextNumber(2.5, 3.1) * scale, 4)
 end
 
 local function prop(
@@ -645,46 +646,30 @@ local function prop(
 	end
 end
 
---- Scatter dead trees on a jittered grid -- a trimmed return of the loop removed in
---- the strip-for-rework pass (`1b6ff88`), and only for stages whose THEME entry sets
---- `scatter` (Stage 2 so far). The barrels, ooze pools and set-piece props that loop
---- also carried are still on the shelf.
+--- Scatter dead trees along the field's two LONG sides, leaving the whole travel
+--- corridor down the middle clear -- the centre of a stage is where the player walks
+--- its length and does the digging, so the trees frame it instead of blocking it. A
+--- trimmed return of the loop removed in the strip-for-rework pass (`1b6ff88`); only
+--- runs for stages whose THEME entry sets `scatter` (Stage 2 so far). The barrels,
+--- ooze pools and set-piece props that loop also carried are still on the shelf.
 ---
---- Pure random clumps and leaves bald patches, so it is a grid with per-cell jitter:
---- reads as scattered while still covering the field, and it runs off the stage's own
---- deterministic rng so a rebuild reproduces it. The jitter is wide against the low
---- tree count so the grid never reads as rows.
----
---- The grid's shape follows the field's aspect (a wide field wants more columns than
---- rows). A count that does not fill the grid fills whole rows first, then drops the
---- remainder into RANDOM columns of the last row -- so six trees on a 3x2 read as
---- spread across the depth, not left-packed into one corner.
+--- The count splits as evenly as it can between the north and south edges. Within a
+--- side the trees sit in even cells across the full width but each is jittered up to
+--- half a cell, and each is pushed a random amount IN off the wall -- so the treeline
+--- reads as scattered, never as a fence. Deterministic off the stage rng.
 local function scatterStageProps(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
-	local aspect = hx / hz
-	local cols = math.max(1, math.round(math.sqrt(count * aspect)))
-	local rows = math.ceil(count / cols)
+	local perSide = math.ceil(count / 2)
+	local placed = 0
 
-	-- Which of the rows*cols cells actually get a tree. Fill full rows, then scatter
-	-- the remainder across the last row rather than left-packing it.
-	local cells: { { number } } = {}
-	local full = (rows - 1) * cols
-	for i = 0, full - 1 do
-		table.insert(cells, { math.floor(i / cols), i % cols })
-	end
-	local lastRowCols = {}
-	for c = 0, cols - 1 do
-		table.insert(lastRowCols, c)
-	end
-	for _ = 1, count - full do
-		local pick = rng:NextInteger(1, #lastRowCols)
-		table.insert(cells, { rows - 1, table.remove(lastRowCols, pick) })
-	end
-
-	for _, cell in cells do
-		local row, col = cell[1], cell[2]
-		local x = -hx + (col + 0.5) * (2 * hx / cols) + rng:NextNumber(-22, 22)
-		local z = -hz + (row + 0.5) * (2 * hz / rows) + rng:NextNumber(-22, 22)
-		deadTree(folder, origin, math.clamp(x, -hx, hx), math.clamp(z, -hz, hz), rng)
+	for _, side in { -1, 1 } do -- -1 = north edge (z < 0), +1 = south edge (z > 0)
+		local n = math.min(perSide, count - placed)
+		for i = 0, n - 1 do
+			placed += 1
+			local cell = 2 * hx / n
+			local x = -hx + (i + 0.5 + rng:NextNumber(-0.5, 0.5)) * cell
+			local z = side * (hz - rng:NextNumber(4, 30))
+			deadTree(folder, origin, math.clamp(x, -hx, hx), z, rng)
+		end
 	end
 end
 
