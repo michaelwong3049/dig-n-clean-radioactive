@@ -138,6 +138,7 @@ end
 local ui = {}
 local slots: { any } = {}
 local selected: string? = nil -- uid, NOT an index: the bag reorders when you sell
+local holdRemote: any = nil
 
 local function rarityColor(name: string?): Color3
 	local def = if name then Rarity.DEFS[name] else nil
@@ -495,15 +496,28 @@ end
 
 -- ── Selection ───────────────────────────────────────────────────────
 
+--- SELECTING IS NOW ALSO HOLDING, and that is the whole reason the tub can refuse
+--- you. The hotbar has always been keyed by uid rather than by index (see `selected`
+--- above), so the same keypress that opens the detail card can tell the server which
+--- item is in your hands with no new input handling and no second concept for the
+--- player to learn: the thing the card is describing is the thing you are holding.
+---
+--- Fires even when the selection clears, because empty-handed is a state the tub
+--- checks for, not the absence of one.
 function Inventory.select(index: number)
 	local item = state.items[index]
 	if item == nil then
 		selected = nil
 	elseif selected == item.uid then
-		selected = nil -- pressing the same key again puts the card away
+		selected = nil -- pressing the same key again puts the card away, and puts it down
 	else
 		selected = item.uid
 	end
+
+	if holdRemote then
+		holdRemote:FireServer(selected)
+	end
+
 	renderSlots()
 	renderCard()
 end
@@ -530,6 +544,8 @@ function Inventory.start()
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
 	end)
 
+	holdRemote = Net.get("HoldInput")
+
 	Net.get("CarryState").OnClientEvent:Connect(function(payload)
 		state.capacity = payload.capacity or 0
 		state.fuseMult = payload.fuseMult or 1
@@ -541,6 +557,9 @@ function Inventory.start()
 		-- this is detectable at all: selling slot 2 shuffles everything after it.
 		if itemByUid(selected) == nil then
 			selected = nil
+			-- The server clears its own heldUid when an item leaves the bag
+			-- (CarryService's tick), so this is only keeping the two in step for the
+			-- NEXT keypress -- it is not what unloads the hand.
 		end
 
 		-- Sold, racked and slagged items must not keep a floor around: uids are

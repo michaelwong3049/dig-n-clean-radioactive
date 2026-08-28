@@ -113,8 +113,13 @@
 	    Basin       StationKind = "decon", Shower = true, Radius = 9 — the cleansing
 	                station (see buildCleansingStation below). One per base, replacing
 	                the single shared station + shower that used to live at camp.
+	                Carries a "Wash" ProximityPrompt; WashService wires it at boot.
+	    WashStand   IsWashStand = true — invisible; where the item sits during a wash.
+	    WashCam     invisible; the camera anchor WashController frames from.
 	    Plate       StationKind = "roller", Radius = 6 — the wash pad (see
 	                buildWashPad below). One per base, three steps from the basin.
+	    LuckBoard   SellsTrack = "Luck" + a ProximityPrompt — the wooden luck sign
+	                (see buildLuckSign). ShopService wires the prompt at boot.
 
 	The stand's StationId is "plot:slot" so the server can resolve exactly which
 	pedestal a player is standing at without a spatial search of its own.
@@ -126,13 +131,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Liquids = require(Shared.Config.Liquids)
+local Gear = require(Shared.Config.Gear)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 15
+local BUILDER_VERSION = 16
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -386,7 +392,61 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	})
 	billboard(basin, 240, 4.6, "CLEANSING STATION", "clean it, flush it, rack it", accent)
 
+	-- TUB WALLS. The basin used to be a bare slab with a blue plate on top, which read
+	-- as a table, not as something you wash a thing IN. Four low rims turn the same
+	-- footprint into a bath — and now that pressing E here starts a hosing animation
+	-- with the object sitting in it, "is this a container" stopped being cosmetic.
+	for _, side in { -1, 1 } do
+		build(m, origin, { name = "TubRim", pos = { side * 3.3, pad.topY + 2.1, cz }, size = { 0.5, 1.0, 5.2 }, color = C.steel, material = "Metal" })
+		build(m, origin, { name = "TubRim", pos = { 0, pad.topY + 2.1, cz + side * 2.35 }, size = { 7.0, 1.0, 0.5 }, color = C.steel, material = "Metal" })
+	end
+
 	build(m, origin, { name = "Water", pos = { 0, pad.topY + 1.85, cz }, size = { 6.2, 0.25, 4.2 }, color = C.cyan, material = "Neon", transparency = 0.35 })
+
+	-- WHERE THE ITEM SITS DURING A WASH, and where the camera watches it from. Both
+	-- are invisible anchors rather than numbers in WashController, for exactly the
+	-- reason ARCHITECTURE.md gives for the tool models' HoldCFrame attribute: framing
+	-- is a thing you judge by looking at it, so it has to be nudgeable in Studio
+	-- against live geometry instead of by editing code and rebooting.
+	local stand = build(m, origin, {
+		name = "WashStand",
+		pos = { 0, pad.topY + 2.6, cz },
+		size = { 1, 1, 1 },
+		color = C.steel,
+		material = "Metal",
+		transparency = 1,
+		canCollide = false,
+	})
+
+	local cam = build(m, origin, {
+		name = "WashCam",
+		pos = { 0, pad.topY + 4.6, cz - 7.5 },
+		size = { 1, 1, 1 },
+		color = C.steel,
+		material = "Metal",
+		transparency = 1,
+		canCollide = false,
+	})
+	-- Aimed at the stand rather than given a hand-written rotation. Kit.build's `rot`
+	-- takes fixed angles, and "point at that" is not a fixed angle once the plot's own
+	-- yaw is applied -- so the look-at is composed here, in the pad's local space,
+	-- and carried into world space by `origin` like everything else in this function.
+	cam.CFrame = origin * CFrame.lookAt(Vector3.new(0, pad.topY + 4.6, cz - 7.5), Vector3.new(0, pad.topY + 2.6, cz))
+
+	-- PRESS E TO WASH. Always enabled, because a ProximityPrompt is one shared
+	-- instance and cannot be shown to one player and hidden from another -- so the
+	-- "are you actually holding something dirty" test is the SERVER's, on trigger,
+	-- and it answers with a toast. That is also what makes "nothing happens if you
+	-- hold nothing" honest rather than a silent no-op.
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "Wash"
+	prompt.ActionText = "Wash"
+	prompt.ObjectText = "Cleansing Station"
+	prompt.HoldDuration = 0.3
+	prompt.MaxActivationDistance = 11
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = basin
+	stand:SetAttribute("IsWashStand", true)
 
 	for _, x in { -3.2, 3.2 } do
 		build(m, origin, { name = "Post", pos = { x, pad.topY + 3.5, cz + 1.5 }, size = { 0.4, 4, 0.4 }, color = C.steelDark, material = "Metal" })
@@ -528,6 +588,78 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 			canCollide = false,
 		})
 	end
+
+	m.Parent = parent
+end
+
+--- The luck sign — a wooden board you press E on to buy the next Luck tier.
+---
+--- LUCK IS THE ONE TRACK YOU DO NOT WEAR, so it was the one track that did not belong
+--- on a shop counter. It used to be a fourth desk at the Outfitter, visually identical
+--- to Suits and Boots and Satchels, selling something with no physical form at all.
+--- A hand-painted board staked next to the pad it actually affects says what it does
+--- before you read a word of it.
+---
+--- NO PANEL, NO STATION KIND, NO REMOTE. A ProximityPrompt's Triggered fires on the
+--- server and Roblox enforces MaxActivationDistance itself, so proximity is a
+--- precondition the engine established rather than a claim to be re-checked — see
+--- ShopService.buyTier's header for why that lets this skip StationService entirely.
+---
+--- THE WHOLE LADDER IS PAINTED ON THE BOARD, not just the next rung, and that is the
+--- same argument the shop's card grid makes: a player who cannot see that Luck runs
+--- to a 8x Shooting Star has no reason to save past the rung in front of them. It is
+--- STATIC text -- every tier and its price, identical for every player -- because a
+--- SurfaceGui is one shared instance and per-player world text would need one board
+--- per player. What is per-player (which rung you are on) is answered by the toast
+--- when you press E, and by /odds.
+local function buildLuckSign(parent: Instance, origin: CFrame, accent: string)
+	local m = Instance.new("Model")
+	m.Name = "LuckSign"
+	local pad = Plots.PAD
+	local cx, cz = 18, 9
+
+	for _, dx in { -1.6, 1.6 } do
+		build(m, origin, { name = "Post", pos = { cx + dx, pad.topY + 2.2, cz }, size = { 0.45, 4.4, 0.45 }, color = C.wood, material = "Wood" })
+	end
+
+	local board = build(m, origin, {
+		name = "LuckBoard",
+		pos = { cx, pad.topY + 4.4, cz },
+		size = { 8, 5.6, 0.4 },
+		color = C.woodLight,
+		material = "WoodPlanks",
+		attributes = { SellsTrack = "Luck" },
+	})
+
+	-- The ladder, painted on the face that greets you walking up from the pad.
+	local lines = { "LUCK" }
+	for tier = 1, Gear.maxTier("Luck") do
+		local def = Gear.tier("Luck", tier)
+		table.insert(lines, string.format("%-18s %sx   %s", def.name, tostring(def.luck), if def.price == 0 then "start" else `${def.price}`))
+	end
+	table.insert(lines, "")
+	table.insert(lines, "press E to upgrade")
+	Kit.surfaceText(board, Enum.NormalId.Front, table.concat(lines, "\n"), C.signText)
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "Upgrade"
+	prompt.ActionText = "Upgrade Luck"
+	prompt.ObjectText = "Luck"
+	prompt.HoldDuration = 0.4
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = board
+
+	local lamp = build(m, origin, {
+		name = "Lamp",
+		pos = { cx, pad.topY + 7.6, cz },
+		size = { 0.5, 0.5, 0.5 },
+		color = accent,
+		material = "Neon",
+		shape = "Ball",
+		canCollide = false,
+	})
+	light(lamp, accent, 12, 1.2)
 
 	m.Parent = parent
 end
@@ -675,6 +807,7 @@ local function buildPlot(parent: Instance, index: number)
 
 	buildCleansingStation(m, origin, accent)
 	buildWashPad(m, origin, accent)
+	buildLuckSign(m, origin, accent)
 
 	m.Parent = parent
 	return m

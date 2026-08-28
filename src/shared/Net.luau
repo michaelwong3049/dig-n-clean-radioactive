@@ -41,17 +41,27 @@ local REMOTES: { [string]: string } = {
 	StationAction = "RemoteEvent", -- client -> server, scrub / sell / rack
 	StationResult = "RemoteEvent", -- server -> client, "sold for $340", "needs Chem Bath"
 
-	-- The wash pad (Config/Liquids). LiquidState is the inventory + the live odds,
-	-- change-driven like CarryState rather than per-tick, because a shelf of
-	-- canisters moves on a roll, an equip and a spent charge and at no other time.
+	-- The wash pad (Config/Liquids). What is loaded and how much of it is left,
+	-- change-driven like CarryState rather than per-tick, because a canister moves on
+	-- a roll and on a spent charge and at no other time.
 	--
-	-- LiquidRoll is the reveal, and it is separate on purpose: the state payload has
-	-- to be idempotent (the panel re-renders from it whenever it likes), while the
-	-- reveal is an EVENT that must fire exactly once and animate. Folding a
-	-- "lastRoll" field into LiquidState would replay the slot-machine moment on every
-	-- unrelated inventory change. Same split, same reason, as SweepState vs Unearthed.
+	-- THERE WAS A SECOND REMOTE HERE, LiquidRoll, carrying the roll reveal. It is gone
+	-- with the panel it fed: the pad announces its own result in the world now (it
+	-- flashes the liquid's colour and names it on its own billboard, LiquidService),
+	-- which every player on that base can see rather than just the one who stepped on
+	-- it. The only client-side liquid surface left is a persistent corner badge, and a
+	-- badge renders fine from idempotent state.
 	LiquidState = "RemoteEvent", -- server -> client, on change
-	LiquidRoll = "RemoteEvent", -- server -> client, the pad paid out
+
+	-- Which carried item the player is physically holding. The tub refuses to wash
+	-- anything you are not holding, so this had to become real state rather than the
+	-- client-only hotbar selection it used to be.
+	HoldInput = "RemoteEvent", -- client -> server, "hold this uid" (or nil for nothing)
+
+	-- The wash bay. WashState is the session; WashInput is aim + intent, never
+	-- progress -- the server owns the clock, exactly as the scrub timer did before it.
+	WashState = "RemoteEvent", -- server -> client, the session (nil payload = ended)
+	WashInput = "RemoteEvent", -- client -> server, { spraying, patchIndex }
 
 	-- Phase 2: exposure.
 	ExposureState = "RemoteEvent", -- server -> client, the rad meter, once per tick

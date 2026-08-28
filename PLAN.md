@@ -178,12 +178,12 @@ player's greed is actually charged interest, and it's what makes deep stages fee
 The item goes to your **Decon Station** (a portable rig at the stage entrance, or a personal
 one you upgrade). Cleaning is a **skill mini-interaction**, not a progress bar:
 
-> **Build status:** the interaction itself is still the §16 fallback — a hold-to-clean bar
-> with the potency gate — and the **wash bay** that replaces it (third-person camera, the
-> item on a rack, patches as glowing blobs you hose off by hand) is the next slice. The
-> liquid economy below is built and live, and it drives the bar in the meantime, so
-> nothing about the numbers changes when the bay lands: it swaps *how* a patch comes off,
-> not *whether* it can.
+> **Build status: built.** Not the §16 fallback — the real thing. You hold the item, walk
+> to the tub at your base, and press **E**: the camera drops into third person, the item
+> goes on the stand, and you hose it down with whatever liquid the wash pad rolled you
+> until the contamination is gone. Patches your potency cannot reach render crusted and
+> visibly refuse the stream. None of the numbers moved when this landed — it changed
+> *how* a patch comes off, never *whether* it can.
 
 * The item is displayed with **contamination patches** — glowing hotspots on its surface.
 * Player scrubs with the equipped cleaning tool. Tool has a **potency** rating; each patch has
@@ -206,8 +206,13 @@ The cleaning tool is only half of what comes out of the hose. The other half is 
 **liquid**, and you do not buy it — you **roll** it.
 
 Every base has a lit **wash pad** three steps from its cleansing station. Stepping onto
-it *is* the roll: no button, no menu, no confirmation. It charges a small flat fee and
-hands back a canister from a weighted table.
+it *is* the roll: no button, no menu, no confirmation, and **no UI of any kind**. The pad
+answers in the world — it flashes the rolled liquid's colour and names it on its own
+sign — so the whole interaction is a thing you walk onto and a thing that lights up. It
+charges a small flat fee and hands back a canister from a weighted table.
+
+Next to it stands a **wooden luck sign** with the whole ladder painted on it. Press **E**
+to buy the next rung. That is the only place Luck is sold.
 
 |Liquid|potency|speed|XP|charges|
 |-|-|-|-|-|

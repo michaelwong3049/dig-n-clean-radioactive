@@ -34,6 +34,7 @@ local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
+local WashService = require(script.Parent.WashService)
 local StageService = require(script.Parent.StageService)
 
 local ExposureService = {}
@@ -312,7 +313,13 @@ local function stepPlayer(player: Player, dt: number)
 	-- reason a new tier is in your hands within a third of a second with no event.
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
-		humanoid.WalkSpeed = StatResolver.effectiveWalkSpeed(stats, #data.carry, false)
+		-- Pinned in place during a wash. You are standing at a tub aiming a hose in
+		-- third person; walking off mid-spray would drag the camera anchor with you.
+		-- A one-line READ of a fact WashService already owns, rather than new
+		-- machinery here -- this loop was already the only writer of WalkSpeed.
+		humanoid.WalkSpeed = if WashService.isWashing(player)
+			then 0
+			else StatResolver.effectiveWalkSpeed(stats, #data.carry, false)
 	end
 	-- The decay clock. CarryService now EXISTS and is the obvious owner by name — it
 	-- deliberately does not take this, and the reason is ordering. Ticker fires in

@@ -37,16 +37,20 @@
 	applies to sell and scrub.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
+local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local StationService = require(script.Parent.StationService)
 
 local ShopService = {}
+
+local resultRemote: any = nil
 
 --- One rung of the ladder, as the shop panel draws it.
 ---
@@ -178,7 +182,25 @@ end
 --- own — the price still comes from Gear.tier(track, tier), server-side, never from
 --- the request — they exist so a malformed tier fails with a message instead of
 --- indexing past the end of the array or silently re-selling something you own.
-function ShopService.buy(player: Player, track: string, tier: number?): (boolean, string)
+--- The purchase itself, with NO opinion about where the player is standing.
+---
+--- Split out of `buy` when the Luck track moved from a shop counter to a wooden sign
+--- with a ProximityPrompt on it (build/Plots.buildLuckSign). Everything that makes a
+--- purchase safe is in here — the track is checked against Gear.TRACKS before it can
+--- index anything, the tier against that track's own length and against what you
+--- already own, and the price is read back out of Gear.tier() and never taken from a
+--- caller. What is NOT in here is the proximity check, because the two call sites
+--- prove proximity in genuinely different ways:
+---
+---   buy()            a client sent a request naming a shop, so the server has to
+---                    re-derive the player's position itself and refuse a mismatch.
+---   the sign prompt  ProximityPrompt.Triggered fires ON THE SERVER, and Roblox
+---                    enforces MaxActivationDistance before it ever fires. The
+---                    proximity is not a claim to be checked; it is a precondition
+---                    the engine already established.
+---
+--- That is why the sign can skip StationService entirely and the counters cannot.
+function ShopService.buyTier(player: Player, track: string, tier: number?): (boolean, string)
 	local data = DataService.data(player)
 	if data == nil then
 		return false, "your save hasn't loaded"
@@ -187,14 +209,6 @@ function ShopService.buy(player: Player, track: string, tier: number?): (boolean
 	-- Reject anything that is not a real track before it can index a table.
 	if not isTrack(track) then
 		return false, "no such shop"
-	end
-
-	-- The player must actually be standing at THIS shop. Derived server-side from
-	-- their position, never taken from the request.
-	local kind = StationService.kindOf(player)
-	local id = StationService.idOf(player)
-	if kind ~= "shop" or id ~= track then
-		return false, "you aren't at that shop"
 	end
 
 	local maxTier = Gear.maxTier(track)
@@ -223,7 +237,93 @@ function ShopService.buy(player: Player, track: string, tier: number?): (boolean
 	return true, `bought {def.name} for ${def.price}`
 end
 
-function ShopService.init() end
-function ShopService.start() end
+--- The NEXT rung of a track, for callers that sell one step at a time rather than
+--- offering a ladder. The sign uses this: a wooden plank has no room for eight buy
+--- buttons, and "press E to upgrade" is the whole interaction.
+function ShopService.buyNext(player: Player, track: string): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+	if not isTrack(track) then
+		return false, "no such track"
+	end
+
+	local key = Gear.profileKey(track)
+	local nextTier = (data.gear[key] or 1) + 1
+	if nextTier > Gear.maxTier(track) then
+		return false, `{Gear.tier(track, Gear.maxTier(track)).name} is the top of the {track} line`
+	end
+	return ShopService.buyTier(player, track, nextTier)
+end
+
+function ShopService.buy(player: Player, track: string, tier: number?): (boolean, string)
+	-- THE CLIENT IS NEVER TRUSTED ABOUT WHERE IT IS STANDING. The request names a
+	-- shop; the server independently asks StationService which shop this player is
+	-- actually at and refuses if it is not the one they claim. Everything else about
+	-- the purchase lives in buyTier.
+	if not isTrack(track) then
+		return false, "no such shop"
+	end
+	local kind = StationService.kindOf(player)
+	local id = StationService.idOf(player)
+	if kind ~= "shop" or id ~= track then
+		return false, "you aren't at that shop"
+	end
+
+	return ShopService.buyTier(player, track, tier)
+end
+
+-- ── Upgrade signs ─────────────────────────────────────────────────────
+
+--- Matches Kit.UPGRADE_TAG. Hardcoded rather than required, for the same reason
+--- Tuning.AURA_TAG is: build/Kit lives in ServerScriptService and this is a service,
+--- so a require would work today and stop working the moment anything client-side
+--- needs the same string. One name, two places, and World.verify() asserts they agree.
+local UPGRADE_TAG = "Upgrade"
+
+--- Wire one world object that sells a track by proximity instead of by panel.
+---
+--- The prompt is created by the BUILDER (build/Plots.buildLuckSign) and saved with
+--- the place; this connects behaviour to it at boot. Splitting it that way is the
+--- same split every station already uses — geometry and attributes are build-time,
+--- behaviour is runtime — and it is what lets the sign be rebuilt without touching
+--- a service.
+local function wireUpgrade(part: Instance)
+	if not part:IsA("BasePart") then
+		return
+	end
+	local track = part:GetAttribute("SellsTrack")
+	if type(track) ~= "string" then
+		return
+	end
+	local prompt = part:FindFirstChildOfClass("ProximityPrompt")
+	if prompt == nil then
+		warn(`[shop] {part:GetFullName()} sells "{track}" but has no ProximityPrompt — nobody can buy from it`)
+		return
+	end
+
+	prompt.Triggered:Connect(function(player: Player)
+		local ok, message = ShopService.buyNext(player, track)
+		resultRemote:FireClient(player, message)
+		if ok then
+			print(`[shop] {player.Name}: {message}`)
+		end
+	end)
+end
+
+function ShopService.init()
+	resultRemote = Net.get("StationResult")
+end
+
+function ShopService.start()
+	-- Tag-indexed rather than a Workspace walk, and it covers signs that appear LATER:
+	-- World.rebuild() can be run from the command bar mid-session, and a sign built
+	-- then would otherwise sit there inert until the next server start.
+	for _, part in CollectionService:GetTagged(UPGRADE_TAG) do
+		wireUpgrade(part)
+	end
+	CollectionService:GetInstanceAddedSignal(UPGRADE_TAG):Connect(wireUpgrade)
+end
 
 return ShopService

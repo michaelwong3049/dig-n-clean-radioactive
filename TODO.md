@@ -485,16 +485,23 @@ We shipped the fallback. This section is the two-slice plan to ship the real thi
       the Cleaner track stays PLAN §2's second gate; **Plain Water is unlimited**, so no
       player can ever be unable to clean; and luck only ever moves mass **up** the table,
       never inverting a pair.
-- [ ] **The hose minigame** — the piece PLAN §2 actually asks for. `WashService` owns the
-      session (the client reports aim and intent, never progress — same boundary the
-      scrub timer already has); `WashController` takes the camera to a third-person
-      framing on a `WashBay` anchor in the cleansing station, renders the item from
-      `ItemModels`, scatters one glowing blob per contamination patch over it, and lets
-      the player hold-to-spray in the loaded liquid's colour. Patches above effective
-      potency render crusted and visibly repel the stream — the Quarantine Locker taught
-      in 3D rather than in a red button label. `StationController`'s `HOLD TO SCRUB`
-      becomes `CLEAN` and opens the bay; the headless scrub path stays as the fallback
-      the server still validates against.
+- [x] **The hose minigame** — the piece PLAN §2 actually asks for. `WashService` owns the
+      session (the client reports aim and intent, never progress — the same boundary the
+      scrub timer had); `WashController` takes the camera to a third-person framing on
+      the `WashCam` anchor, the item is rendered **server-side** on the `WashStand` so
+      bystanders see it, and one glowing blob per patch is scattered over it. Hold LMB to
+      spray in the loaded liquid's colour. Patches above effective potency render crusted
+      and visibly refuse the stream — the Quarantine Locker taught in 3D rather than in a
+      red button label. Entry is `press E while holding the item`, so `heldUid` became
+      real profile state (CarryService) and ToolService welds it into the off hand.
+      The scrub path is GONE from DeconService rather than kept as a fallback: two
+      implementations of one gate is how they drift.
+- [x] **Strip the pad's UI** — the roller panel mode, the roll reveal card and the
+      `LiquidRoll` remote are all deleted. The pad announces in the world instead, and
+      Luck moved from an Outfitter counter to a wooden sign with a ProximityPrompt.
+      `StationController` gained a `PANEL_KINDS` allowlist, because the decon branch is
+      the render fallthrough and deleting the roller branch made the wash pad open a
+      panel titled TRADER — caught in play, not in review.
 - [ ] **Replicate the spray** — the stream is client-local in the slice above, which is
       against `ToolService`'s "what you hold is public storytelling" rule. It is
       defensible only because every cleansing station sits on its owner's own private

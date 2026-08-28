@@ -29,16 +29,21 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear)
+local Items = require(Shared.Config.Items)
+local Rarity = require(Shared.Config.Rarity)
+local ItemModels = require(Shared.ItemModels)
 local Ticker = require(Shared.Util.Ticker)
 
 local DataService = require(script.Parent.DataService)
 local DigService = require(script.Parent.DigService)
 local DeconService = require(script.Parent.DeconService)
+local WashService = require(script.Parent.WashService)
 
 local ToolService = {}
 
 local LIBRARY = ReplicatedStorage.Assets.Tools
 local HELD_NAME = "HeldTool"
+local HELD_ITEM_NAME = "HeldItem"
 
 local equipped: { [Player]: string? } = {}
 
@@ -291,6 +296,94 @@ local function equip(character: Model, track: string, tier: number)
 	return true
 end
 
+-- ── The off hand: a carried item ──────────────────────────────────────
+
+--- Rebuild the left-hand item only when the uid actually changes. Same guard the
+--- tool slot uses: cloning is the most expensive thing in this file, and a bag that
+--- is not moving must not pay for it ten times a second.
+local function equipItem(character: Model, item: any?): boolean
+	local current = character:FindFirstChild(HELD_ITEM_NAME)
+	local currentUid = if current then current:GetAttribute("Uid") else nil
+	local wantedUid = if item then item.uid else nil
+
+	if currentUid == wantedUid then
+		return true
+	end
+	if current then
+		current:Destroy()
+	end
+	if item == nil then
+		return true
+	end
+
+	-- R15 first, then R6, mirroring handOf's own fallback. Left hand, so it never
+	-- fights the tool slot for the same attachment.
+	local hand = character:FindFirstChild("LeftHand") or character:FindFirstChild("Left Arm")
+	if hand == nil or not hand:IsA("BasePart") then
+		return false
+	end
+
+	local def = Items.get(item.itemId)
+	local model = ItemModels.create(def.model)
+
+	if model == nil then
+		-- THE SAME RARITY-COLOURED BLOCK the registry documents for unmodelled keys,
+		-- and the same one DigService's haul and ExhibitService's pedestals fall back
+		-- to. Only five of the catalogue's items have real art; a nil here has to be a
+		-- visible object, not an empty hand, or "you are holding something" stops
+		-- being true for most of the game.
+		local block = Instance.new("Part")
+		block.Name = "Placeholder"
+		block.Size = Vector3.new(0.9, 0.9, 0.9)
+		block.Color = Rarity.get(item.rarity).color
+		block.Material = Enum.Material.SmoothPlastic
+		block.CanCollide = false
+		block.Massless = true
+		block.Anchored = false
+
+		local wrapper = Instance.new("Model")
+		wrapper.Name = "Fallback"
+		block.Parent = wrapper
+		wrapper.PrimaryPart = block
+		model = wrapper
+	end
+
+	local held = model :: Model
+	held.Name = HELD_ITEM_NAME
+	held:SetAttribute("Uid", item.uid)
+
+	-- Nothing in the hand may collide or weigh anything, or the character shoves
+	-- itself around holding a tin can.
+	for _, part in held:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CanCollide = false
+			part.Massless = true
+			part.Anchored = false
+		end
+	end
+
+	local primary = held.PrimaryPart or held:FindFirstChildWhichIsA("BasePart")
+	if primary == nil then
+		held:Destroy()
+		return false
+	end
+	held.PrimaryPart = primary
+
+	held.Parent = character
+	-- `Hold` joins Display / Haul / Gallery as an ItemModels rotation context, so a
+	-- flat object like the bottle cap can be tilted toward the camera in the hand
+	-- without forcing that tilt on an upright one. Missing attribute = identity.
+	held:PivotTo(hand.CFrame * CFrame.new(0, -0.6, 0) * ItemModels.rotation(held, "Hold"))
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Name = "HoldWeld"
+	weld.Part0 = hand
+	weld.Part1 = primary
+	weld.Parent = primary
+
+	return true
+end
+
 local function wanted(player: Player): string?
 	if DeconService.stationOf(player) == "decon" then
 		return "Cleaner"
@@ -312,15 +405,32 @@ local function stepPlayer(player: Player)
 	end
 
 	local target = wanted(player)
+	local data = DataService.data(player)
+
+	-- ── The off hand ──────────────────────────────────────────────
+	-- Resolved BEFORE the early-out below, because the tool slot and the item slot
+	-- change for completely unrelated reasons: standing still at a base with the
+	-- Cleaner already in hand is exactly when a player cycles through their bag, and
+	-- an early return on the tool would freeze the item in their hand.
+	--
+	-- Suppressed while a wash is running: the item is sitting on the tub then, not in
+	-- your hand, and WashService owns rendering it there.
+	local heldItem: any = nil
+	if data and data.heldUid ~= "" and not WashService.isWashing(player) then
+		for _, item in data.carry do
+			if item.uid == data.heldUid then
+				heldItem = item
+				break
+			end
+		end
+	end
+	equipItem(character, heldItem)
 
 	-- Tier comes from the profile, so buying an upgrade changes what is in your hands
 	-- the moment it lands — no reconnect, no re-equip step.
 	local tier = 1
-	if target then
-		local data = DataService.data(player)
-		if data then
-			tier = data.gear[GEAR_KEY[target]] or 1
-		end
+	if target and data then
+		tier = data.gear[GEAR_KEY[target]] or 1
 	end
 
 	local current = character:FindFirstChild(HELD_NAME)

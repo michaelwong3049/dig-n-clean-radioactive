@@ -10,18 +10,25 @@
 	verbs, because that is the design's actual shape — the decon station is where the
 	clock stops and dirt comes off, the trader is only a till.
 
-	FIVE MODES, ONE PANEL, ONE REMOTE. decon/trader are the list above; shop, plot,
-	pedestal and now roller each replace the list with their own body and hide the
-	action row. Every one of them arrives on the SAME StationState tick (DeconService
-	fills `offer` / `plotView` / `standView` / `rollerView` depending on where you
-	stand), which is why adding a station kind has never needed a new remote and
-	should not start needing one.
+	FOUR MODES, ONE PANEL, ONE REMOTE. decon/trader are the list above; shop, plot and
+	pedestal each replace the list with their own body and hide the action row. Every
+	one of them arrives on the SAME StationState tick (DeconService fills `offer` /
+	`plotView` / `standView` depending on where you stand), which is why adding a
+	station kind has never needed a new remote and should not start needing one.
 
-	ROLLER MODE SHOWS THE ODDS, and that is not generosity. The Luck track's entire
-	product is a change in a probability, so a player who cannot watch Molten Lava go
-	from 1.23% to 7.98% has no way to know the $6,640 charm did anything. It is the
-	same argument the shop's card grid makes for drawing the whole ladder instead of
-	only the next rung.
+	THERE WAS A FIFTH MODE AND DELETING IT WAS THE POINT. The wash pad used to open a
+	panel here listing all ten liquids and their live odds. It was accurate, and it was
+	the wrong shape entirely: stepping on a big lit button in the world and having a
+	menu appear over the screen is a menu wearing a button's clothes. The pad now
+	answers in the world — it flashes the rolled liquid's colour and names it on its own
+	billboard (LiquidService) — and the only liquid UI left is LiquidController's
+	persistent corner badge, which never pops up because it is always there.
+
+	WASHING LEFT THIS PANEL TOO, for the same reason. `HOLD TO SCRUB` was a button that
+	cleaned an item you could not see; the tub at the cleansing station now owns that
+	verb, with the item physically on it (WashService / WashController). What is left
+	here is what still has no world object: the bag list, RACK, and the Quarantine
+	Locker.
 
 	THE PANEL SITS AT LITERAL SCREEN-CENTRE, AND IT DID NOT USED TO.
 	It was anchored at `UDim2.new(0.5, 0, 0.5, -Dock.RESERVE / 2)` — centred in the
@@ -72,7 +79,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
-local Liquids = require(Shared.Config.Liquids)
 local Net = require(Shared.Net)
 
 -- No `Dock` alias any more: this panel is centred on the screen rather than on the
@@ -88,12 +94,20 @@ local COLOR = UIKit.C
 local ROWS = 9
 local LOCKER_ROWS = 3
 
--- The wash pad's shelf: one row per rollable liquid, plus Plain Water at the top.
--- Water is prepended CLIENT-SIDE rather than sent in the payload, because
--- LiquidService.viewFor is explicitly the ROLLABLE table and water is not rollable —
--- putting it in the server payload would mean either a weight-0 entry the roll code
--- has to keep skipping, or an odds column with a meaningless 0.00% in it.
-local LIQUID_ROWS = #Liquids.ORDER
+-- WHICH STATION KINDS THIS PANEL HAS A BODY FOR, and it is an allowlist rather than
+-- a fallthrough for a reason that bit immediately. The decon/trader branch is LAST in
+-- render(), with no guard of its own, so it is what every unrecognised kind lands in
+-- — and the moment the roller branch was deleted, standing on the wash pad opened a
+-- panel titled TRADER. A station kind with no panel must open NOTHING, and the wash
+-- pad is deliberately the first one: it is a button in the world, and the whole point
+-- of this pass was that pressing it shows no UI at all.
+local PANEL_KINDS: { [string]: boolean } = {
+	decon = true,
+	trader = true,
+	shop = true,
+	plot = true,
+	pedestal = true,
+}
 
 -- ── Shop card grid ──────────────────────────────────────────────────
 -- The shop is a storefront now, not a one-line upgrade prompt: every tier of the
@@ -156,83 +170,13 @@ end
 --- string.format("%-22s %-7s %-7s $%d", ...) call — columns only lined up because
 --- Font.Code is monospace, and no rounded display font has fixed character widths.
 --- Four child labels instead: name flexes, condition/pips/value are fixed-width. The
---- button itself, its Uid attribute and its scrub-progress Fill are unchanged — only
---- what is drawn INSIDE it changes. Reached the same way Fill always was, via
---- Roblox's child-by-name lookup (row.ItemNameLabel, row.Fill, ...), so every
---- existing row.Visible / row:SetAttribute call elsewhere in this file needs no
---- changes at all.
---- One shelf row on the wash pad panel. Same shape as makeRow above — a TextButton
---- with fixed-width child labels rather than one monospaced string — and clicking it
---- IS the equip, exactly as clicking an item row is the selection. A separate LOAD
---- button per row would be nine more buttons for a verb the row already implies.
+--- button itself and its Uid attribute are unchanged — only what is drawn INSIDE it
+--- changes. Reached via Roblox's child-by-name lookup (row.ItemNameLabel, ...), so
+--- every existing row.Visible / row:SetAttribute call elsewhere needs no changes.
 ---
---- The colour chip is the row's real identity: nine liquid names in white are a list,
---- and the same nine with their own colours are a shelf you recognise at a glance,
---- matching the canisters on the pad's own geometry (build/Plots.buildWashPad).
-local function makeLiquidRow(parent: Instance, order: number): TextButton
-	local row = Instance.new("TextButton")
-	row.Name = "LiquidRow"
-	row.LayoutOrder = order
-	row.Size = UDim2.new(1, 0, 0, 30)
-	row.BackgroundColor3 = COLOR.selected
-	row.BackgroundTransparency = 1
-	row.AutoButtonColor = false
-	row.Text = ""
-	row.Visible = false
-	row.Parent = parent
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 6)
-	corner.Parent = row
-
-	local chip = Instance.new("Frame")
-	chip.Name = "Chip"
-	chip.Size = UDim2.fromOffset(12, 12)
-	chip.Position = UDim2.new(0, 6, 0.5, 0)
-	chip.AnchorPoint = Vector2.new(0, 0.5)
-	chip.BorderSizePixel = 0
-	chip.Parent = row
-
-	local chipCorner = Instance.new("UICorner")
-	chipCorner.CornerRadius = UIKit.Radius.pill
-	chipCorner.Parent = chip
-
-	UIKit.label(row, {
-		name = "LiquidNameLabel",
-		position = UDim2.fromOffset(26, 0),
-		size = UDim2.fromOffset(150, 30),
-		font = UIKit.Font.title,
-		textSize = 15,
-	})
-	UIKit.label(row, {
-		name = "LiquidStatLabel",
-		position = UDim2.fromOffset(180, 0),
-		size = UDim2.fromOffset(230, 30),
-		font = UIKit.Font.body,
-		textSize = 13,
-		color = COLOR.dim,
-	})
-	UIKit.label(row, {
-		name = "OddsLabel",
-		position = UDim2.fromOffset(415, 0),
-		size = UDim2.fromOffset(70, 30),
-		font = UIKit.Font.body,
-		textSize = 13,
-		color = COLOR.dim,
-		xAlign = Enum.TextXAlignment.Right,
-	})
-	UIKit.label(row, {
-		name = "HeldLabel",
-		position = UDim2.fromOffset(495, 0),
-		size = UDim2.fromOffset(85, 30),
-		font = UIKit.Font.body,
-		textSize = 13,
-		xAlign = Enum.TextXAlignment.Right,
-	})
-
-	return row
-end
-
+--- The scrub-progress `Fill` that used to sit behind these labels is gone with the
+--- scrub button: washing happens at the tub now and draws its progress there, on the
+--- object being washed, where the player is actually looking.
 local function makeRow(parent: Instance, order: number): TextButton
 	local row = Instance.new("TextButton")
 	row.LayoutOrder = order
@@ -247,20 +191,6 @@ local function makeRow(parent: Instance, order: number): TextButton
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 6)
 	corner.Parent = row
-
-	-- scrub progress, drawn behind the labels
-	local fill = Instance.new("Frame")
-	fill.Name = "Fill"
-	fill.Size = UDim2.fromScale(0, 1)
-	fill.BackgroundColor3 = COLOR.blue
-	fill.BackgroundTransparency = 0.6
-	fill.BorderSizePixel = 0
-	fill.ZIndex = 0
-	fill.Parent = row
-
-	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.new(0, 6)
-	fillCorner.Parent = fill
 
 	UIKit.label(row, {
 		name = "ItemNameLabel",
@@ -643,50 +573,6 @@ local function build(): ScreenGui
 	})
 	ui.undisplayButton.LayoutOrder = 3
 
-	-- ── Roller mode (the wash pad) ───────────────────────────────────────
-	-- The whole shelf, worst at the top, with the live odds beside each row. Showing
-	-- the odds is not generosity, it is the only thing that makes the Luck track
-	-- legible: a player who cannot see 1.23% become 7.98% has no way to tell that the
-	-- $6,640 charm did anything at all. Same argument the shop's card grid makes for
-	-- drawing the whole ladder instead of just the next rung.
-	local roller = Instance.new("Frame")
-	roller.Name = "Roller"
-	roller.LayoutOrder = 28
-	roller.Size = UDim2.fromScale(1, 0)
-	roller.AutomaticSize = Enum.AutomaticSize.Y
-	roller.BackgroundTransparency = 1
-	roller.Visible = false
-	roller.Parent = panel
-	ui.roller = roller
-
-	local rollerLayout = Instance.new("UIListLayout")
-	rollerLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	rollerLayout.Padding = UDim.new(0, 2)
-	rollerLayout.Parent = roller
-
-	ui.rollerHint = UIKit.label(roller, {
-		name = "RollerHint",
-		size = UDim2.new(1, 0, 0, 26),
-		font = UIKit.Font.body,
-		textSize = 15,
-		color = COLOR.green,
-	})
-	ui.rollerHint.LayoutOrder = 1
-
-	ui.liquidRows = {}
-	for index = 1, LIQUID_ROWS do
-		table.insert(ui.liquidRows, makeLiquidRow(roller, 10 + index))
-	end
-
-	ui.rollerFooter = UIKit.label(roller, {
-		name = "RollerFooter",
-		size = UDim2.new(1, 0, 0, 24),
-		font = UIKit.Font.body,
-		textSize = 14,
-		color = COLOR.dim,
-	})
-	ui.rollerFooter.LayoutOrder = 90
-
 	-- PANEL_PAD, not a literal 16: SHOP_PANEL_WIDTH is derived from this, so a typed
 	-- number here would silently stop four cards fitting the moment it was retuned.
 	local padding = Instance.new("UIPadding")
@@ -758,19 +644,9 @@ local function build(): ScreenGui
 	actionLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 	actionLayout.Parent = actions
 
-	ui.scrubButton = UIKit.button(actions, {
-		name = "Scrub",
-		size = UDim2.new(0.32, 0, 1, 0),
-		font = UIKit.Font.body,
-		textSize = 17,
-		color = COLOR.blue,
-		text = "HOLD TO SCRUB",
-	})
-	ui.scrubButton.LayoutOrder = 1
-
 	ui.sellButton = UIKit.button(actions, {
 		name = "Sell",
-		size = UDim2.new(0.32, 0, 1, 0),
+		size = UDim2.new(0.48, 0, 1, 0),
 		font = UIKit.Font.body,
 		textSize = 17,
 		color = COLOR.amber,
@@ -780,13 +656,26 @@ local function build(): ScreenGui
 
 	ui.rackButton = UIKit.button(actions, {
 		name = "Rack",
-		size = UDim2.new(0.32, 0, 1, 0),
+		size = UDim2.new(0.48, 0, 1, 0),
 		font = UIKit.Font.body,
 		textSize = 17,
 		color = COLOR.dim,
 		text = "RACK",
 	})
 	ui.rackButton.LayoutOrder = 3
+
+	-- WHERE THE SCRUB BUTTON USED TO BE, and deliberately a LABEL rather than another
+	-- button. There is no wash verb on this panel any more -- the tub owns it -- so
+	-- what belongs here is the answer to "what happens if I take this to the tub",
+	-- which is a sentence, not a control.
+	ui.washHint = UIKit.label(panel, {
+		name = "WashHint",
+		size = UDim2.new(1, 0, 0, 22),
+		font = UIKit.Font.body,
+		textSize = 15,
+		color = COLOR.blue,
+	})
+	ui.washHint.LayoutOrder = 55
 
 	ui.toast = UIKit.label(panel, {
 		name = "Toast",
@@ -810,7 +699,7 @@ local function patchPips(item): string
 	return pips
 end
 
-local function paintRow(row: TextButton, item, isSelected: boolean, scrubUid: string?, scrubProgress: number)
+local function paintRow(row: TextButton, item, isSelected: boolean)
 	row.Visible = true
 
 	local colour = rarityColor(item.rarity)
@@ -832,7 +721,6 @@ local function paintRow(row: TextButton, item, isSelected: boolean, scrubUid: st
 
 	row.BackgroundTransparency = if isSelected then 0.55 else 1
 	row.BackgroundColor3 = COLOR.selected
-	row.Fill.Size = if scrubUid == item.uid then UDim2.fromScale(scrubProgress, 1) else UDim2.fromScale(0, 1)
 	row:SetAttribute("Uid", item.uid)
 end
 
@@ -901,88 +789,8 @@ local function paintShopCard(card: Frame, entry)
 	-- fourth case left to paint.
 end
 
---- The wash pad's shelf. Water first and always, then every rollable liquid worst to
---- best in Liquids.ORDER.
----
---- WATER IS SYNTHESISED HERE, and it is the only row not present in the payload —
---- see LIQUID_ROWS above for why the server does not send it. It gets an infinity
---- glyph rather than a count and a blank odds cell rather than 0.00%, because both
---- of those are statements about a liquid the pad cannot hand you and never charges
---- you for.
-local function paintShelf(view)
-	local water = Liquids.get(Liquids.WATER)
-	local rows: { any } = {
-		{
-			id = Liquids.WATER,
-			name = water.name,
-			color = water.color,
-			potency = water.potency,
-			rateMult = water.rateMult,
-			xpMult = water.xpMult,
-			charges = 0,
-			odds = nil,
-			held = -1, -- the sentinel for "unlimited", never rendered as a number
-		},
-	}
-	for _, entry in view.liquids or {} do
-		table.insert(rows, entry)
-	end
-
-	for index, row in ui.liquidRows do
-		local entry = rows[index]
-		if entry == nil then
-			row.Visible = false
-			continue
-		end
-
-		row.Visible = true
-		local colour = Color3.fromHex(entry.color)
-		local loaded = entry.id == view.equipped
-		-- Held is what makes a row clickable, and water is always held. Anything at
-		-- zero is a preview of something you do not own -- readable, and deliberately
-		-- not a button, so a click never silently does nothing.
-		local owned = entry.held ~= 0
-
-		row.Chip.BackgroundColor3 = colour
-
-		local nameLabel = row.LiquidNameLabel :: TextLabel
-		nameLabel.Text = entry.name
-		nameLabel.TextColor3 = if owned then colour else COLOR.dim
-
-		local statLabel = row.LiquidStatLabel :: TextLabel
-		local parts = {}
-		if entry.potency > 0 then
-			table.insert(parts, `+{entry.potency} pot`)
-		end
-		table.insert(parts, string.format("%.2gx speed", entry.rateMult))
-		if entry.xpMult ~= 1 then
-			table.insert(parts, string.format("%.2gx XP", entry.xpMult))
-		end
-		if entry.charges > 0 then
-			table.insert(parts, `{entry.charges}/roll`)
-		end
-		statLabel.Text = table.concat(parts, "  ")
-
-		local oddsLabel = row.OddsLabel :: TextLabel
-		oddsLabel.Text = if entry.odds then string.format("%.2f%%", entry.odds * 100) else ""
-
-		local heldLabel = row.HeldLabel :: TextLabel
-		if entry.held < 0 then
-			heldLabel.Text = if loaded then "\u{221E}  LOADED" else "\u{221E}"
-		elseif entry.held == 0 then
-			heldLabel.Text = ""
-		else
-			heldLabel.Text = if loaded then `x{entry.held}  LOADED` else `x{entry.held}`
-		end
-		heldLabel.TextColor3 = if loaded then COLOR.green else COLOR.dim
-
-		row.BackgroundTransparency = if loaded then 0.55 else 1
-		row:SetAttribute("Liquid", if owned then entry.id else nil)
-	end
-end
-
 local function render()
-	if state.station == nil or dismissed then
+	if state.station == nil or dismissed or not PANEL_KINDS[state.station] then
 		ui.panel.Visible = false
 		ui.closeButton.Visible = false
 		return
@@ -996,15 +804,13 @@ local function render()
 	local atShop = state.station == "shop"
 	local atPlot = state.station == "plot"
 	local atPedestal = state.station == "pedestal"
-	local atRoller = state.station == "roller"
 	ui.shop.Visible = atShop
 	ui.plot.Visible = atPlot
 	ui.pedestal.Visible = atPedestal
-	ui.roller.Visible = atRoller
 	-- Shop mode carries its own wallet line under the card row, so the header's
 	-- subtitle would just print the same number twice.
 	ui.subtitle.Visible = not atShop
-	ui.actions.Visible = not (atShop or atPlot or atPedestal or atRoller)
+	ui.actions.Visible = not (atShop or atPlot or atPedestal)
 	-- Storefronts centre their sign; a station panel that is really a list keeps its
 	-- title on the same left margin as the rows underneath it.
 	ui.title.TextXAlignment = if atShop then Enum.TextXAlignment.Center else Enum.TextXAlignment.Left
@@ -1041,9 +847,9 @@ local function render()
 			row.Visible = false
 		end
 		ui.lockerTitle.Visible = false
-		ui.scrubButton.Visible = false
 		ui.rackButton.Visible = false
 		ui.sellButton.Visible = false
+		ui.washHint.Visible = false
 		return
 	end
 
@@ -1081,9 +887,9 @@ local function render()
 			row.Visible = false
 		end
 		ui.lockerTitle.Visible = false
-		ui.scrubButton.Visible = false
 		ui.rackButton.Visible = false
 		ui.sellButton.Visible = false
+		ui.washHint.Visible = false
 		return
 	end
 
@@ -1143,7 +949,7 @@ local function render()
 		for index, row in ui.rows do
 			local item = state.items[index]
 			if item and showPicker then
-				paintRow(row, item, item.uid == selected, nil, 0)
+				paintRow(row, item, item.uid == selected)
 			else
 				row.Visible = false
 			end
@@ -1152,50 +958,9 @@ local function render()
 			row.Visible = false
 		end
 		ui.lockerTitle.Visible = false
-		ui.scrubButton.Visible = false
 		ui.rackButton.Visible = false
 		ui.sellButton.Visible = false
-		return
-	end
-
-	if atRoller then
-		local view = state.rollerView
-		ui.title.Text = "WASH PAD"
-		ui.title.TextColor3 = COLOR.green
-		ui.panelStroke.Color = COLOR.green
-
-		if view == nil then
-			ui.subtitle.Text = ""
-			ui.rollerHint.Text = ""
-			ui.rollerFooter.Text = ""
-			for _, row in ui.liquidRows do
-				row.Visible = false
-			end
-		else
-			ui.subtitle.Text = string.format("$%d    luck %.2gx    $%d a roll", state.cash or 0, view.luck, view.cost)
-			ui.rollerHint.Text = if (state.cash or 0) >= view.cost
-				then "step off and back onto the plate to roll"
-				else `you need ${view.cost} to roll \u{2014} Plain Water is always free`
-			ui.rollerHint.TextColor3 = if (state.cash or 0) >= view.cost then COLOR.green else COLOR.red
-
-			paintShelf(view)
-
-			local bonus = (view.effectivePotency or 0) - (view.potency or 0)
-			ui.rollerFooter.Text = if bonus > 0
-				then string.format("loaded: %s \u{2014} potency %d (+%d from the hose)", view.equippedName, view.effectivePotency, bonus)
-				else string.format("loaded: %s \u{2014} potency %d", view.equippedName, view.effectivePotency or 0)
-		end
-
-		for _, row in ui.rows do
-			row.Visible = false
-		end
-		for _, row in ui.lockerRows do
-			row.Visible = false
-		end
-		ui.lockerTitle.Visible = false
-		ui.scrubButton.Visible = false
-		ui.rackButton.Visible = false
-		ui.sellButton.Visible = false
+		ui.washHint.Visible = false
 		return
 	end
 
@@ -1239,7 +1004,7 @@ local function render()
 	for index, row in ui.rows do
 		local item = state.items[index]
 		if item then
-			paintRow(row, item, item.uid == selected, state.scrubUid, state.scrubProgress or 0)
+			paintRow(row, item, item.uid == selected)
 		else
 			row.Visible = false
 		end
@@ -1250,7 +1015,7 @@ local function render()
 	for index, row in ui.lockerRows do
 		local item = state.locker[index]
 		if item then
-			paintRow(row, item, item.uid == selected, nil, 0)
+			paintRow(row, item, item.uid == selected)
 		else
 			row.Visible = false
 		end
@@ -1267,30 +1032,36 @@ local function render()
 		end
 	end
 
-	ui.scrubButton.Visible = atDecon
 	ui.rackButton.Visible = atDecon
 	ui.sellButton.Visible = not atDecon
+	ui.washHint.Visible = atDecon
 
-	if chosen and chosen.blockedBy then
-		-- Name the liquid when one would close the gap. A player three feet from a
-		-- wash pad can act on "NEEDS MOLTEN LAVA" this minute; "NEEDS CHEM BATH" is
-		-- a savings target. Both are true, and the actionable one goes on the button.
-		ui.scrubButton.Text = if chosen.rescueLiquid
-			then `ROLL FOR {string.upper(chosen.rescueLiquid)}`
-			else `NEEDS {string.upper(chosen.needs or "")}`
-		ui.scrubButton.TextColor3 = COLOR.red
-	elseif chosen and chosen.clean then
-		ui.scrubButton.Text = "CLEAN"
-		ui.scrubButton.TextColor3 = COLOR.green
-	elseif chosen and chosen.unlockedByLiquid then
-		-- The hose is the ONLY reason this item is scrubbable, so say so: without
-		-- it the player reads a green button and concludes their cleaner got better,
-		-- then watches the same item lock again when the canister empties.
-		ui.scrubButton.Text = "HOLD \u{2014} HOSE ONLY"
-		ui.scrubButton.TextColor3 = COLOR.amber
+	-- THE STATUS LINE IS ALL THAT IS LEFT OF THE OLD SCRUB BUTTON. The verb moved to
+	-- the tub, but the ANSWER to "why can't I clean this" still belongs on the card
+	-- you are looking at. The liquid is named first because a player three feet from
+	-- a wash pad can act on "roll for Molten Lava" this minute, where "save up for a
+	-- Chem Bath" is a target; and the two are labelled TOOL and LIQUID explicitly,
+	-- because the old single sentence ("needs Acid Sponge, or Glacier Melt in the
+	-- hose") named one of each with nothing to say they were different kinds of thing.
+	if chosen == nil then
+		ui.washHint.Text = ""
+	elseif chosen.clean then
+		ui.washHint.Text = "clean \u{2014} ready to sell or display"
+		ui.washHint.TextColor3 = COLOR.green
+	elseif chosen.blockedBy then
+		ui.washHint.Text = if chosen.rescueLiquid
+			then `locked \u{2014} roll {chosen.rescueLiquid} at the pad, or buy the {chosen.needs} tool`
+			else `locked \u{2014} needs the {chosen.needs} tool; no liquid reaches this`
+		ui.washHint.TextColor3 = COLOR.red
+	elseif chosen.unlockedByLiquid then
+		-- The hose is the ONLY reason this is washable. Say so, or the player reads a
+		-- green light, concludes their cleaner got better, and is baffled when the
+		-- same item locks again the moment the canister empties.
+		ui.washHint.Text = "hold it and press E at the tub \u{2014} your liquid is what unlocks this"
+		ui.washHint.TextColor3 = COLOR.amber
 	else
-		ui.scrubButton.Text = "HOLD TO SCRUB"
-		ui.scrubButton.TextColor3 = COLOR.blue
+		ui.washHint.Text = "hold it and press E at the tub to wash"
+		ui.washHint.TextColor3 = COLOR.blue
 	end
 
 	ui.sellButton.Text = if chosen then `SELL  ${chosen.value}` else "SELL"
@@ -1302,7 +1073,7 @@ end
 --- forever after a CLOSE click, or bring it back overlapping a panel you're still
 --- standing in front of.
 function Station.isOpen(): boolean
-	return state.station ~= nil and not dismissed
+	return state.station ~= nil and PANEL_KINDS[state.station] == true and not dismissed
 end
 
 local function toast(message: string)
@@ -1337,29 +1108,6 @@ function Station.start()
 	for _, row in ui.lockerRows do
 		bindRow(row)
 	end
-
-	-- Clicking a shelf row IS the equip. Rows you do not own carry no Liquid
-	-- attribute (paintShelf), so this fires on exactly the rows that can act.
-	for _, row in ui.liquidRows do
-		row.MouseButton1Click:Connect(function()
-			local id = row:GetAttribute("Liquid")
-			if id ~= nil then
-				actionRemote:FireServer({ action = "equipLiquid", liquid = id })
-			end
-		end)
-	end
-
-	ui.scrubButton.MouseButton1Down:Connect(function()
-		if selected then
-			actionRemote:FireServer({ action = "scrub", uid = selected, holding = true })
-		end
-	end)
-	ui.scrubButton.MouseButton1Up:Connect(function()
-		actionRemote:FireServer({ action = "scrub", holding = false })
-	end)
-	ui.scrubButton.MouseLeave:Connect(function()
-		actionRemote:FireServer({ action = "scrub", holding = false })
-	end)
 
 	ui.sellButton.MouseButton1Click:Connect(function()
 		if selected then

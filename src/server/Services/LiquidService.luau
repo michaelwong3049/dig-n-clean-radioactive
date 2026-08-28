@@ -24,13 +24,21 @@
 	all. The pad says so out loud rather than silently doing nothing, because a pad
 	that ignores you is indistinguishable from a pad that is broken.
 
-	THE ODDS COME OUT OF THE SAME FUNCTION THE PANEL DISPLAYS. `Liquids.oddsAt` is
-	shared, and `roll()` below walks `Liquids.ORDER` against `Liquids.effectiveWeight`
-	— the same deterministic-order weighted walk `DigService.rollRarity` uses, for the
-	same reason (`pairs()` order is not stable, and a weighted roll over an unstable
-	order has unstable odds). A pad that advertises 1-in-40 and rolls 1-in-800 is the
-	worst bug this feature could ship, and the only way to guarantee it cannot happen
-	is for both numbers to be the same code.
+	THE PAD ANSWERS IN THE WORLD, NOT ON A SCREEN. There used to be a panel here
+	listing all ten liquids and their live odds, and it was the wrong shape: a big lit
+	button you step on should not open a menu. `announce()` below flashes the plate in
+	the rolled liquid's colour and names it on the pad's own billboard instead, which
+	every player on that base sees rather than only whoever stepped on it.
+
+	The odds are still readable, just not mid-roll: the pad's shelf shows the top five
+	prizes as physical canisters (build/Plots.buildWashPad), the wooden Luck sign next
+	to it lists the whole ladder, and `/odds` prints the live table. All three read
+	`Liquids.oddsAt`, the same function `roll()` below samples against — the same
+	deterministic-order weighted walk `DigService.rollRarity` uses, for the same reason
+	(`pairs()` order is not stable, and a weighted roll over an unstable order has
+	unstable odds). A pad that advertises 1-in-40 and rolls 1-in-800 is the worst bug
+	this feature could ship, and the only way to guarantee it cannot happen is for
+	every one of those numbers to come out of the same code.
 
 	CHARGES ARE THE SCARCITY. A rolled liquid clears `def.charges` patches and then
 	quietly reverts to water — see StatResolver.liquidFor, which is the single place
@@ -41,6 +49,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
@@ -56,7 +65,6 @@ local StationService = require(script.Parent.StationService)
 local LiquidService = {}
 
 local stateRemote: any = nil
-local rollRemote: any = nil
 local resultRemote: any = nil
 
 --- Last roll time per player, for the debounce. Wall clock rather than a tick
@@ -146,6 +154,92 @@ local function pull(player: Player, data: any): (string?, string?)
 	return id, nil
 end
 
+-- ── The pad answers for itself ─────────────────────────────────────────
+
+--- How long the pad wears the rolled liquid before settling back.
+local ANNOUNCE_SECONDS = 4
+
+--- Per-pad token, so two rolls in quick succession cannot leave the earlier one's
+--- reset timer wiping the later one's announcement off the sign.
+local announceToken: { [BasePart]: number } = {}
+
+--- Show the roll ON THE PAD, in the world, rather than on anybody's screen.
+---
+--- This is the whole shape of the feature. A pad is a physical button; a physical
+--- button that opens a menu is a menu wearing a button's clothes. So the plate
+--- flashes the liquid's own colour and its existing billboard names what came out,
+--- and the panel that used to do this is gone (see StationController's header).
+---
+--- SERVER-SIDE ON PURPOSE, and it is the same argument ToolService's header makes
+--- for held models: everyone standing on that base sees the roll, not just whoever
+--- stepped on the plate. A client-local flash would be invisible to the person you
+--- are showing your base to, which is most of the point of rolling something rare.
+local function announce(pad: BasePart?, def: Liquids.LiquidDef, held: number)
+	if pad == nil then
+		return
+	end
+
+	local glow = pad.Parent and pad.Parent:FindFirstChild("Glow")
+	local sign = pad:FindFirstChild("Sign")
+	local title = if sign then sign:FindFirstChild("Title") else nil
+	local subtitle = if sign then sign:FindFirstChild("Subtitle") else nil
+
+	-- THE SIGN REMEMBERS ITS OWN RESTING STATE, captured once on the first roll and
+	-- read back on every reset. The alternative was a copy of the builder's title,
+	-- subtitle and label colour living here -- four constants duplicated out of
+	-- build/Plots.buildWashPad, which is precisely the drift this codebase keeps
+	-- writing headers about. Restore-what-was-there needs no constants at all, and it
+	-- stays correct the day somebody retitles the pad.
+	if title and title:IsA("TextLabel") and title:GetAttribute("RestText") == nil then
+		title:SetAttribute("RestText", title.Text)
+		title:SetAttribute("RestColor", title.TextColor3)
+	end
+	if subtitle and subtitle:IsA("TextLabel") and subtitle:GetAttribute("RestText") == nil then
+		subtitle:SetAttribute("RestText", subtitle.Text)
+	end
+	if glow and glow:IsA("BasePart") and glow:GetAttribute("RestColor") == nil then
+		glow:SetAttribute("RestColor", glow.Color)
+	end
+
+	announceToken[pad] = (announceToken[pad] or 0) + 1
+	local token = announceToken[pad]
+
+	-- Snap to the new colour, then ease back on the reset. Tweening in BOTH
+	-- directions reads as a slow fade with no event in it; a payout wants the hard cut.
+	if glow and glow:IsA("BasePart") then
+		glow.Color = Color3.fromHex(def.color)
+	end
+	if title and title:IsA("TextLabel") then
+		title.Text = string.upper(def.name)
+		title.TextColor3 = Color3.fromHex(def.color)
+	end
+	if subtitle and subtitle:IsA("TextLabel") then
+		subtitle.Text = if def.charges > 0 then `{held} washes in the shed` else "always free"
+	end
+
+	task.delay(ANNOUNCE_SECONDS, function()
+		if announceToken[pad] ~= token then
+			return -- a newer roll owns the sign now
+		end
+		if glow and glow:IsA("BasePart") and glow.Parent then
+			local rest = glow:GetAttribute("RestColor")
+			if typeof(rest) == "Color3" then
+				TweenService:Create(glow, TweenInfo.new(0.8), { Color = rest }):Play()
+			end
+		end
+		if title and title:IsA("TextLabel") and title.Parent then
+			title.Text = tostring(title:GetAttribute("RestText"))
+			local rest = title:GetAttribute("RestColor")
+			if typeof(rest) == "Color3" then
+				title.TextColor3 = rest
+			end
+		end
+		if subtitle and subtitle:IsA("TextLabel") and subtitle.Parent then
+			subtitle.Text = tostring(subtitle:GetAttribute("RestText"))
+		end
+	end)
+end
+
 -- ── Reading ───────────────────────────────────────────────────────────
 
 --- The loaded liquid: its id and its definition. Thin delegate over StatResolver so
@@ -176,8 +270,10 @@ function LiquidService.spendCharge(data: any): ()
 	end
 end
 
---- Everything the roll pad's panel draws: what is on the shelf, what is loaded,
---- and the live odds at this player's current luck.
+--- The whole shelf: what you hold of each liquid, what is loaded, and the live odds
+--- at this player's current luck. Read by LiquidController's badge (which uses only
+--- `equipped` and that entry's `held`) and by the `/odds` debug command, which is
+--- where the full table lives now that the panel is gone.
 function LiquidService.viewFor(data: any): any
 	local stats = StatResolver.get(data)
 	local odds = Liquids.oddsAt(stats.luckMultiplier)
@@ -270,7 +366,6 @@ end
 
 function LiquidService.init()
 	stateRemote = Net.get("LiquidState")
-	rollRemote = Net.get("LiquidRoll")
 	resultRemote = Net.get("StationResult")
 end
 
@@ -291,19 +386,20 @@ function LiquidService.start()
 			return
 		end
 
+		-- The pad itself is the only surface that reports this. Found by asking
+		-- StationService where the player is standing rather than being handed down
+		-- through onChanged, because onChanged's signature is shared by every station
+		-- kind and widening it for one caller would be the wrong trade.
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local pad: BasePart? = nil
+		if root and root:IsA("BasePart") then
+			local _, _, part = StationService.at(root.Position)
+			pad = part
+		end
+
 		local def = Liquids.get(id)
-		rollRemote:FireClient(player, {
-			id = id,
-			name = def.name,
-			color = def.color,
-			flavor = def.flavor,
-			potency = def.potency,
-			rateMult = def.rateMult,
-			xpMult = def.xpMult,
-			charges = def.charges,
-			held = data.liquids[id] or 0,
-			equipped = data.equippedLiquid == id,
-		})
+		announce(pad, def, data.liquids[id] or 0)
 		print(`[liquid] {player.Name} rolled {def.name}`)
 	end)
 

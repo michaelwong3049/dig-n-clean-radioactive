@@ -57,6 +57,7 @@ src/
       EconomyService          what an item is worth, and the till
       DeconService            docking, scrubbing and racking at every base; sell() exists, no world trader triggers it currently
       LiquidService           the wash pad: rolling liquids, charges, equip
+      WashService             the hose bay: the E-to-wash session and its clock
       ToolService             puts the right model in the player's hands
       DebugService            the tuning console + debug telemetry
 
@@ -64,8 +65,9 @@ src/
     init.client.luau          bootstrap: mirrors the server's ORDER / init / start
     Controllers/
       DetectorController      sweep dial, ping audio, hold-to-pull
-      StationController       the station panel (trader, decon, shop, plot, pedestal, roller)
-      LiquidController        the roll reveal + the loaded-liquid badge
+      StationController       the station panel (trader, decon, shop, plot, pedestal)
+      LiquidController        the loaded-liquid badge
+      WashController          the wash bay: camera, patch blobs, the hose stream
       HudController           rad meter, vignette, distortion, blackout curtain
       GeigerController        the click bed (reads HudController)
       DebugHudController      every number at once. F3 toggles.
@@ -183,7 +185,9 @@ Also required, and each corresponds to a real silent failure:
 | `Workspace.Stages` holds plates and **nothing else** | A decoration carrying a `StageId` becomes a stage, and smallest-area-wins means a stray barrel silently becomes the stage you are in. Decor lives in `Workspace.Scenery`. |
 | any BasePart in `Workspace` | `Shower` | boolean | Decon shower. Flushes player exposure, does **not** touch items. Since `build/Plots.luau`, each base's cleansing station carries this **on the same part** as `StationKind="decon"` — one stop for both, sharing one `Radius` — rather than two separate structures the way camp used to have them. |
 | ″ | `Radius` | number | Shower radius in studs. Optional, default 10. |
-| any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"plot"` \| `"pedestal"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; plot is an exhibition claim board; pedestal is one display slot. |
+| any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"plot"` \| `"pedestal"` \| `"roller"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; plot is an exhibition claim board; pedestal is one display slot; **roller is the wash pad — arriving inside its radius IS the roll**, and it charges cash, so its radius must never overlap a `decon` one (`World.verify()` asserts this). Only the first five open a panel: `StationController`'s `PANEL_KINDS` is an allowlist, because the decon branch is the fallthrough and an unrecognised kind would otherwise open a panel titled TRADER. |
+| ″ | `SellsTrack` | string | This part sells one `Gear.TRACKS` entry through a **ProximityPrompt**, with no panel and no station kind. `ShopService` scans by the `Upgrade` tag (added by `Kit.build` alongside the attribute) and wires the prompt to `ShopService.buyNext`. Currently just `"Luck"`, on the wooden sign at every base. A prompt's `Triggered` fires on the server with `MaxActivationDistance` already enforced by the engine, which is why this can skip the position re-derivation `ShopService.buy` has to do. |
+| ″ | `IsWashStand` | boolean | The invisible part inside a cleansing station where the item sits during a wash. `WashService` finds it as a sibling of the `decon` basin; a `WashCam` sibling is the camera anchor, so framing is tuned in Studio rather than in code. |
 | ″ | `StationId` | string | Discriminator within a kind. For `"shop"` it is the **exact `Gear.TRACKS` spelling** (`"Detector"`, `"Suit"`, …). For `"plot"` it is the plot number; for `"pedestal"` it is `"<plot>:<slot>"`. |
 | ″ | `Radius` | number | Station radius in studs. Optional, default 12. |
 | ″ | *CollectionService tag* `Station` | — | Index only — `StationService` scans tagged parts instead of walking Workspace. `Kit.build` adds it whenever it sets `StationKind`, and `World.verify()` asserts attribute and tag agree in **both** directions. The attribute stays the source of truth. |
@@ -274,6 +278,9 @@ The profile itself — `TEMPLATE` in `DataService`, which is the authoritative c
     carry   = {},   -- array of the carried item above. The backpack.
     locker  = {},   -- Quarantine Locker: found, not yet cleanable.
     exhibit = { slots = 3, pedestals = {}, bankedCash = 0, bankedAt = 0 },
+    heldUid        = "",  -- which carried item is IN YOUR HANDS. "" is empty-handed.
+                          -- The tub refuses to wash anything you are not holding, so
+                          -- this had to stop being the hotbar's private selection.
     liquids        = {},  -- liquid id -> charges remaining. Plain Water is NEVER in
                           -- here: an empty table IS "on water" (Config/Liquids), and
                           -- an unlimited liquid has no finite charge count to store.

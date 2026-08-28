@@ -1,9 +1,10 @@
 # Dig N Clean: Radioactive
 
 Sweep the wasteland with a detector, haul what pings up through the soil with a magnet,
-and get it home before the decay clock turns it to slag. Then hose the fallout off it
-with whatever the wash pad rolled you — soapy suds, if you're unlucky; molten lava, if
-you're not — and sell it, or put it on a pedestal and let it pay you forever.
+and get it home before the decay clock turns it to slag. Then hold it, press E at the tub,
+and hose the fallout off it with whatever the wash pad rolled you — soapy suds, if you're
+unlucky; molten lava, if you're not — and sell it, or put it on a pedestal and let it pay
+you forever.
 
 - **[PLAN.md](PLAN.md)** — the design document. What the game is and why.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — the module map, the server/client boundary,

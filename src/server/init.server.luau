@@ -28,8 +28,9 @@ local ORDER = {
 	"ShopService", -- turning cash back into capability; needs Station + Economy
 	"ExhibitService", -- plot assignment, display/undisplay, yield accrual; needs Station + Economy
 	"LiquidService", -- the wash pad: rolling liquids, charges, equip; needs Station + Economy
-	"DeconService", -- base camp: docking, scrubbing, racking, and the shop/plot panel
-	"ToolService", -- held models; reads DigService + DeconService state
+	"WashService", -- the hose bay: the E-to-wash session; needs Carry + Liquid + Economy
+	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel
+	"ToolService", -- held models; reads DigService + DeconService + WashService state
 	"DebugService", -- the tuning console; reads the services above
 }
 

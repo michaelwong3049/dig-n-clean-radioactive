@@ -56,6 +56,12 @@ local TEMPLATE = {
 	liquids = {},
 	equippedLiquid = "",
 
+	-- Which carried item is physically IN YOUR HANDS (ToolService welds it there).
+	-- "" is empty-handed, never nil, same reason as equippedLiquid above. The tub
+	-- refuses to wash anything you are not holding, which is what turned this from
+	-- the hotbar's client-only selection into real state.
+	heldUid = "",
+
 	discovered = {}, -- itemId -> true. Drives the museum (PLAN §10.10).
 	perks = {}, -- perkId -> true. Read by StatResolver.
 

@@ -50,6 +50,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local CarryService = {}
 
 local carryRemote: any = nil
+local holdRemote: any = nil
 local lastSignature: { [Player]: string } = {}
 
 --- The cheapest cleaner that can shift a patch of this hardness. Lives here rather
@@ -133,6 +134,35 @@ function CarryService.describe(item: any, stats: any): any
 	}
 end
 
+--- Put a carried item in the player's hands, or empty them.
+---
+--- Lives here rather than in ToolService because this file already owns "what is in
+--- your bag and what state it is in", and holding is a property of the bag, not of
+--- the models ToolService welds. ToolService READS heldUid and renders it; it does
+--- not decide it.
+function CarryService.hold(player: Player, uid: string?): boolean
+	local data = DataService.data(player)
+	if data == nil then
+		return false
+	end
+
+	if uid == nil or uid == "" then
+		data.heldUid = ""
+		return true
+	end
+
+	-- Only out of the BAG. The Quarantine Locker is a shelf, not a pocket: racking is
+	-- how you put something down, and being able to pull a racked item back into your
+	-- hands would quietly undo that.
+	for _, item in data.carry do
+		if item.uid == uid then
+			data.heldUid = uid
+			return true
+		end
+	end
+	return false
+end
+
 --- What has to change before the client is told anything. A bag sitting still costs
 --- one string compare per player per tick, so this can afford to be thorough — and it
 --- has to be, because ANYTHING the card can render but the signature cannot see is a
@@ -172,6 +202,15 @@ local function stepPlayer(player: Player)
 		return
 	end
 
+	-- SELF-HEALING RATHER THAN SIX CALL SITES. An item can leave the bag by being
+	-- sold, racked, slagged, or dropped on blackout, and each of those lives in a
+	-- different service. Patching all four to clear heldUid is four chances to forget
+	-- and one stale weld left in the player's hand; checking it here, where the bag is
+	-- already being walked every tick, cannot be forgotten.
+	if data.heldUid ~= "" and EconomyService.find(data, data.heldUid) == nil then
+		data.heldUid = ""
+	end
+
 	local stats = StatResolver.get(data)
 
 	local described = {}
@@ -198,9 +237,16 @@ end
 
 function CarryService.init()
 	carryRemote = Net.get("CarryState")
+	holdRemote = Net.get("HoldInput")
 end
 
 function CarryService.start()
+	holdRemote.OnServerEvent:Connect(function(player: Player, uid: any)
+		-- tostring(nil) is "nil", not nil, so guard the type rather than coercing:
+		-- an empty-hands request has to be expressible, and it is `nil` or "".
+		CarryService.hold(player, if type(uid) == "string" then uid else nil)
+	end)
+
 	Ticker.every(Tuning.TICK_RATE, function()
 		for _, player in Players:GetPlayers() do
 			local ok, err = pcall(stepPlayer, player)
