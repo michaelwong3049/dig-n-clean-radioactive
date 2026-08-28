@@ -48,6 +48,8 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
@@ -83,6 +85,14 @@ local MAX_BLIPS = 12 -- matches DigService.MAX_CONTACTS; more would never arrive
 -- because nothing about the game's balance reads it -- it is input feel, like the kick
 -- below.
 local LOCK_HOLD_SECONDS = 0.4
+
+-- The pick-up prompt's face. ProximityPrompt.Style is Custom (see build), so Roblox
+-- draws nothing itself and these drive our own billboard: how far it floats over the
+-- buried signal, and the two tweens it opens and closes with. A "Back" ease on the way
+-- in gives the card a small overshoot so it reads as landing on the spot.
+local LOCKGUI_RISE = 2.4 -- studs above the signal the card hovers at rest
+local LOCKGUI_SHOW_TWEEN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local LOCKGUI_HIDE_TWEEN = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 
 local YANK_KICK_SECONDS = 0.12
 local YANK_KICK_SCALE = 0.05 -- how far the button swells at the peak of a kick
@@ -121,6 +131,16 @@ local blips: { Frame } = {}
 -- What the fill is currently DRAWING, chasing state.digProgress. Separate from the
 -- server's value so smoothing never feeds back into what we think progress is.
 local shownProgress = 0
+
+-- Pick-up billboard transition state. `lockGuiShown` is where the card is HEADED (set
+-- the instant a show/hide starts); `lockGuiSettled` only turns true once the show tween
+-- has finished, and it is what gates renderFrame's idle bob/shimmer so those never
+-- fight the tween. The token lets a re-show that lands during a fade cancel the pending
+-- "switch the billboard off".
+local lockGuiShown = false
+local lockGuiSettled = false
+local lockGuiToken = 0
+local lockHoldTween: Tween? = nil
 -- When the player last clicked, in os.clock. Drives the button's kick animation and
 -- nothing else -- "are they hauling" is answered by state.locked now, which comes from
 -- the server, rather than by guessing from how recently a key was pressed.
@@ -227,6 +247,203 @@ local function buildScope(parent: GuiObject)
 	end
 end
 
+--- The pick-up prompt's whole face. The ProximityPrompt is Style = Custom, which means
+--- Roblox renders NOTHING for it -- this billboard is the entire visual, wired to the
+--- prompt through ProximityPromptService's Shown/Hidden/Hold events in start().
+---
+--- Custom style also drops the built-in mobile button and the gamepad glyph, so two
+--- things here stand in for them: the whole card is a TextButton that drives
+--- prompt:InputHoldBegin/End (without it the pick-up beat would be keyboard-and-gamepad
+--- only -- the exact stranding the vanished dock button used to cause), and the keycap
+--- text is swapped per input type on PromptShown.
+---
+--- NO CanvasGroup: its transparency does not render reliably inside a BillboardGui. The
+--- fade in/out instead walks `fades` (instance, property, shown-value) and tweens each;
+--- the UIScale on `card` does the landing bounce.
+local function buildLockPromptGui(adornee: BasePart)
+	local root = Instance.new("BillboardGui")
+	root.Name = "PickupPrompt"
+	root.Adornee = adornee
+	-- Offset (pixels), not scale (studs), so the card holds a constant on-screen size
+	-- for the whole 5-stud window it is up rather than ballooning as you close in. The
+	-- extra 12px of height is bottom margin the pin pokes into.
+	root.Size = UDim2.fromOffset(202, 96)
+	root.StudsOffsetWorldSpace = Vector3.new(0, LOCKGUI_RISE, 0)
+	root.AlwaysOnTop = true -- the signal is buried; the cue has to punch through the soil
+	root.MaxDistance = Tuning.DIG_RADIUS + 14
+	root.LightInfluence = 0
+	root.Enabled = false
+	root.Parent = adornee
+
+	-- Everything visible lives under `card` so one UIScale bounces the lot; `hit` sits
+	-- outside it so the tap target never moves or scales with the animation.
+	local card = Instance.new("Frame")
+	card.Name = "Card"
+	card.Size = UDim2.fromScale(1, 1)
+	card.BackgroundTransparency = 1
+	card.Parent = root
+
+	local scale = Instance.new("UIScale")
+	scale.Scale = 0.7
+	scale.Parent = card
+
+	-- Pin: a square turned 45deg, sat behind the panel on its bottom edge so only the
+	-- lower tip shows -- a downward arrow that plants the card on the spot.
+	local pin = Instance.new("Frame")
+	pin.Name = "Pin"
+	pin.AnchorPoint = Vector2.new(0.5, 0.5)
+	pin.Position = UDim2.new(0.5, 0, 1, -12)
+	pin.Size = UDim2.fromOffset(16, 16)
+	pin.Rotation = 45
+	pin.BackgroundColor3 = COLOR.panel
+	pin.BackgroundTransparency = 1
+	pin.BorderSizePixel = 0
+	pin.ZIndex = 1
+	pin.Parent = card
+
+	local panel = Instance.new("Frame")
+	panel.Name = "Panel"
+	panel.AnchorPoint = Vector2.new(0.5, 0)
+	panel.Position = UDim2.fromScale(0.5, 0)
+	panel.Size = UDim2.new(1, 0, 1, -12)
+	panel.BackgroundColor3 = COLOR.panel
+	panel.BackgroundTransparency = 1
+	panel.BorderSizePixel = 0
+	panel.ZIndex = 2
+	panel.Parent = card
+
+	local panelCorner = Instance.new("UICorner")
+	panelCorner.CornerRadius = UIKit.Radius.button
+	panelCorner.Parent = panel
+
+	local panelGrad = Instance.new("UIGradient")
+	panelGrad.Rotation = 90
+	panelGrad.Color = ColorSequence.new(Color3.fromHex("161C13"), COLOR.panel)
+	panelGrad.Parent = panel
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Name = "Accent"
+	stroke.Color = COLOR.scope
+	stroke.Thickness = 2
+	stroke.Transparency = 1
+	stroke.Parent = panel
+
+	-- Keycap. Fills bottom-up with the signal colour across the hold -- the fill IS the
+	-- hold timer, the same reading the haul panel's bar gives the mash.
+	local keycap = Instance.new("Frame")
+	keycap.Name = "Keycap"
+	keycap.AnchorPoint = Vector2.new(0, 0.5)
+	keycap.Position = UDim2.new(0, 12, 0.5, 0)
+	keycap.Size = UDim2.fromOffset(46, 46)
+	keycap.BackgroundColor3 = COLOR.empty
+	keycap.BackgroundTransparency = 1
+	keycap.BorderSizePixel = 0
+	keycap.ClipsDescendants = true
+	keycap.ZIndex = 3
+	keycap.Parent = panel
+
+	local keycapCorner = Instance.new("UICorner")
+	keycapCorner.CornerRadius = UIKit.Radius.slot
+	keycapCorner.Parent = keycap
+
+	local keycapStroke = Instance.new("UIStroke")
+	keycapStroke.Color = COLOR.scope
+	keycapStroke.Transparency = 1
+	keycapStroke.Thickness = 2
+	keycapStroke.Parent = keycap
+
+	local keycapFill = Instance.new("Frame")
+	keycapFill.Name = "Fill"
+	keycapFill.AnchorPoint = Vector2.new(0.5, 1)
+	keycapFill.Position = UDim2.fromScale(0.5, 1)
+	keycapFill.Size = UDim2.new(1, 0, 0, 0)
+	keycapFill.BackgroundColor3 = COLOR.scope
+	keycapFill.BackgroundTransparency = 1
+	keycapFill.BorderSizePixel = 0
+	keycapFill.ZIndex = 3
+	keycapFill.Parent = keycap
+
+	local keyLabel = Instance.new("TextLabel")
+	keyLabel.Name = "Key"
+	keyLabel.Size = UDim2.fromScale(1, 1)
+	keyLabel.BackgroundTransparency = 1
+	keyLabel.Font = UIKit.Font.title
+	keyLabel.Text = "E"
+	keyLabel.TextSize = 22
+	keyLabel.TextColor3 = COLOR.text
+	keyLabel.TextTransparency = 1
+	keyLabel.TextStrokeTransparency = 1
+	keyLabel.ZIndex = 4
+	keyLabel.Parent = keycap
+
+	local title = UIKit.label(panel, {
+		name = "Title",
+		position = UDim2.new(0, 70, 0, 13),
+		size = UDim2.new(1, -82, 0, 14),
+		font = UIKit.Font.body,
+		textSize = 11,
+		color = COLOR.dim,
+		xAlign = Enum.TextXAlignment.Left,
+		strokeTransparency = 1,
+		zIndex = 3,
+	})
+	title.Text = "BURIED SIGNAL"
+	title.TextTransparency = 1
+
+	local action = UIKit.label(panel, {
+		name = "Action",
+		position = UDim2.new(0, 70, 0, 28),
+		size = UDim2.new(1, -82, 0, 26),
+		font = UIKit.Font.title,
+		textSize = 20,
+		color = COLOR.scope,
+		xAlign = Enum.TextXAlignment.Left,
+		strokeTransparency = 1,
+		zIndex = 3,
+	})
+	action.Text = "PICK UP"
+	action.TextTransparency = 1
+
+	-- The card is the touch (and mouse) target; see the header. Transparent, full-bleed,
+	-- on top, and OUTSIDE `card` so the bounce never shifts it.
+	local hit = Instance.new("TextButton")
+	hit.Name = "Hit"
+	hit.Size = UDim2.fromScale(1, 1)
+	hit.BackgroundTransparency = 1
+	hit.Text = ""
+	hit.AutoButtonColor = false
+	hit.ZIndex = 5
+	hit.Parent = root
+
+	return {
+		root = root,
+		card = card,
+		scale = scale,
+		pin = pin,
+		panel = panel,
+		stroke = stroke,
+		keycap = keycap,
+		keycapStroke = keycapStroke,
+		keycapFill = keycapFill,
+		keyLabel = keyLabel,
+		title = title,
+		action = action,
+		hit = hit,
+		-- (instance, property, value-when-shown) -- revealLockGui tweens each of these
+		-- to its shown value on the way in and to 1 on the way out.
+		fades = {
+			{ pin, "BackgroundTransparency", 0.06 },
+			{ panel, "BackgroundTransparency", 0.06 },
+			{ stroke, "Transparency", 0.08 },
+			{ keycap, "BackgroundTransparency", 0 },
+			{ keycapStroke, "Transparency", 0 },
+			{ keycapFill, "BackgroundTransparency", 0.12 },
+			{ keyLabel, "TextTransparency", 0 },
+			{ title, "TextTransparency", 0 },
+			{ action, "TextTransparency", 0 },
+		},
+	}
+end
 
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
@@ -311,10 +528,15 @@ local function build(): ScreenGui
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "LockPrompt"
-	prompt.ActionText = "Lock On"
+	prompt.ActionText = "Pick Up"
 	prompt.ObjectText = "Buried Signal"
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
 	prompt.HoldDuration = LOCK_HOLD_SECONDS
+	-- Style = Custom: Roblox draws no prompt UI at all, we render our own billboard
+	-- (buildLockPromptGui) off ProximityPromptService's events in start(). The prompt
+	-- object still owns all the INPUT -- key, gamepad button, hold timing, the Triggered
+	-- fire -- so none of that logic moves; only the face changes.
+	prompt.Style = Enum.ProximityPromptStyle.Custom
 	-- The item is buried and the aura hugs the ground, so a sight test flickers as the
 	-- camera moves. Range is already gated by the server's own inRange below.
 	prompt.RequiresLineOfSight = false
@@ -322,6 +544,7 @@ local function build(): ScreenGui
 	prompt.Enabled = false
 	prompt.Parent = holder
 	ui.prompt = prompt
+	ui.lockGui = buildLockPromptGui(holder)
 
 	-- NO DIG BUTTON HERE ANY MORE. It used to sit dead centre of the instrument band,
 	-- on screen for the whole time you were in a stage, saying GET CLOSER while you
@@ -581,6 +804,82 @@ local function renderFrame(dt: number)
 	local kick = if sinceYank < YANK_KICK_SECONDS then (1 - sinceYank / YANK_KICK_SECONDS) ^ 2 else 0
 	ui.haulButton.Size =
 		UDim2.new(1, -HAULBUTTON_INSET, 0, math.floor(HAULBUTTON_HEIGHT * (1 + kick * YANK_KICK_SCALE)))
+
+	-- The pick-up card's idle life: a slow hover, and a stroke that breathes on the
+	-- aura's OWN pulse period so the card, the ground ring and the scope arm all beat
+	-- together. Only once the show tween has settled -- before that revealLockGui owns
+	-- both the offset and the stroke.
+	if lockGuiShown and lockGuiSettled then
+		local t = os.clock()
+		local g = ui.lockGui
+		g.root.StudsOffsetWorldSpace = Vector3.new(0, LOCKGUI_RISE + math.sin(t * 2.6) * 0.12, 0)
+		local pulse = 0.5 + 0.5 * math.sin(t * (2 * math.pi / Tuning.RANGE_RING_PERIOD))
+		g.stroke.Transparency = 0.05 + 0.22 * pulse
+	end
+end
+
+--- Fade + bounce the whole card in or out. Idempotent: called from the prompt's
+--- Shown/Hidden events, which already only fire on a real transition, but the guard
+--- keeps a double-fire from restarting the tween.
+local function revealLockGui(shown: boolean)
+	if shown == lockGuiShown then
+		return
+	end
+	lockGuiShown = shown
+	lockGuiSettled = false
+	lockGuiToken += 1
+	local token = lockGuiToken
+	local g = ui.lockGui
+	local info = if shown then LOCKGUI_SHOW_TWEEN else LOCKGUI_HIDE_TWEEN
+
+	if shown then
+		g.root.Enabled = true
+		g.scale.Scale = 0.7
+		g.keycapFill.Size = UDim2.new(1, 0, 0, 0)
+	elseif lockHoldTween then
+		lockHoldTween:Cancel()
+		lockHoldTween = nil
+	end
+
+	local scaleGoal = if shown then 1 else 0.7
+	TweenService:Create(g.scale, info, { Scale = scaleGoal }):Play()
+	for _, f in g.fades do
+		local goal = if shown then f[3] else 1
+		TweenService:Create(f[1], info, { [f[2]] = goal }):Play()
+	end
+
+	-- The tail: the LAST transition of the pair gets to finish the job. A newer one
+	-- bumps the token and this no-ops.
+	task.delay(info.Time, function()
+		if token ~= lockGuiToken then
+			return
+		end
+		if lockGuiShown then
+			lockGuiSettled = true
+		else
+			g.root.Enabled = false
+		end
+	end)
+end
+
+--- Keycap fill = the hold clock. Runs to full over exactly HoldDuration so it tops out
+--- on the frame the prompt Triggers; a release before then drains it back.
+local function setLockHold(holding: boolean)
+	local g = ui.lockGui
+	if lockHoldTween then
+		lockHoldTween:Cancel()
+		lockHoldTween = nil
+	end
+	if holding then
+		lockHoldTween = TweenService:Create(
+			g.keycapFill,
+			TweenInfo.new(ui.prompt.HoldDuration, Enum.EasingStyle.Linear),
+			{ Size = UDim2.new(1, 0, 1, 0) }
+		)
+		lockHoldTween:Play()
+	else
+		TweenService:Create(g.keycapFill, TweenInfo.new(0.1), { Size = UDim2.new(1, 0, 0, 0) }):Play()
+	end
 end
 
 --- Park the lock prompt on the glow the player is standing over, or switch it off.
@@ -625,7 +924,19 @@ local function updateLockPrompt()
 	end
 
 	ui.promptHolder.Position = best.Position
-	ui.prompt.ObjectText = if state.rarityHint then string.upper(state.rarityHint) else "Buried Signal"
+
+	-- The billboard's text and accent. Rarity if the detector resolved it, "BURIED
+	-- SIGNAL" and the scope blue if not -- the same per-player gate the radar blips and
+	-- the haul title use. Set every tick: cheap, and the hint can change under the card.
+	local hint = state.rarityHint
+	local accent = signalColor()
+	ui.prompt.ObjectText = if hint then string.upper(hint) else "Buried Signal"
+	ui.lockGui.title.Text = if hint then string.upper(hint) else "BURIED SIGNAL"
+	ui.lockGui.action.TextColor3 = accent
+	ui.lockGui.stroke.Color = accent
+	ui.lockGui.keycapStroke.Color = accent
+	ui.lockGui.keycapFill.BackgroundColor3 = accent
+
 	ui.prompt.Enabled = true
 end
 
@@ -682,7 +993,7 @@ local function renderState()
 		-- Standing in a glow that somebody else's detector put there. This is a real
 		-- state, not an error: auras are public, the tier gates are not.
 		if state.blocked == "unregistered" then
-			ui.status.Text = "that signal is past your detector \u{2014} you cannot lock on"
+			ui.status.Text = "that signal is past your detector \u{2014} you cannot pick it up"
 			ui.status.TextColor3 = COLOR.red
 			return
 		end
@@ -846,14 +1157,88 @@ function Detector.start()
 		end
 	end)
 
-	-- Locking on comes from the world prompt, not from a key handler -- it fires once,
-	-- after the hold completes. Nothing else is allowed to call sendLock; see pressPull.
-	ui.prompt.Triggered:Connect(sendLock)
+	-- ── The pick-up prompt ──────────────────────────────────────────────
+	-- Style = Custom, so ui.lockGui is the whole face and these events drive it. The
+	-- prompt object still owns the input; nothing here decides when to lock on except
+	-- its Triggered, which fires once after the hold completes (see pressPull for why
+	-- nothing else may call sendLock).
+	ProximityPromptService.PromptShown:Connect(function(prompt, inputType)
+		if prompt ~= ui.prompt then
+			return
+		end
+		-- Custom style also drops the gamepad glyph and the touch button, so the keycap
+		-- says what THIS player presses. Default GamepadKeyCode for a prompt is ButtonX.
+		if inputType == Enum.ProximityPromptInputType.Touch then
+			ui.lockGui.keyLabel.Text = "HOLD"
+			ui.lockGui.keyLabel.TextSize = 13
+		elseif inputType == Enum.ProximityPromptInputType.Gamepad then
+			ui.lockGui.keyLabel.Text = "X"
+			ui.lockGui.keyLabel.TextSize = 22
+		else
+			ui.lockGui.keyLabel.Text = "E"
+			ui.lockGui.keyLabel.TextSize = 22
+		end
+		revealLockGui(true)
+	end)
 
-	-- MouseButton1Click, not Down/Up. Click fires for touch taps too, so these two plus
-	-- the prompt's own mobile button are the whole touch path -- and unlike the Down/Up
-	-- pair they need no MouseLeave rescue, because there is no held state left to get
-	-- stranded when a finger slides off a button mid-press.
+	ProximityPromptService.PromptHidden:Connect(function(prompt)
+		if prompt ~= ui.prompt then
+			return
+		end
+		revealLockGui(false)
+	end)
+
+	ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
+		if prompt == ui.prompt then
+			setLockHold(true)
+		end
+	end)
+
+	ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt)
+		if prompt == ui.prompt then
+			setLockHold(false)
+		end
+	end)
+
+	ui.prompt.Triggered:Connect(function()
+		-- Snap the fill full on the frame it commits, then a tiny pop. Almost always the
+		-- server's `locked` comes straight back and PromptHidden fades the whole card
+		-- out; the delayed settle only matters if the lock is somehow refused and the
+		-- card stays up -- it should not sit there frozen mid-pop.
+		ui.lockGui.keycapFill.Size = UDim2.new(1, 0, 1, 0)
+		TweenService:Create(ui.lockGui.scale, TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.12 }):Play()
+		sendLock()
+		task.delay(0.16, function()
+			if lockGuiShown then
+				TweenService:Create(ui.lockGui.scale, TweenInfo.new(0.16), { Scale = 1 }):Play()
+				setLockHold(false)
+			end
+		end)
+	end)
+
+	-- Custom style means Roblox draws no mobile tap button, so the card itself is one:
+	-- a press drives the prompt's own hold, and its release -- or the pointer leaving the
+	-- card mid-press, which InputEnded also fires for -- ends it. This is the documented
+	-- way to trigger a custom prompt, and it hands mouse players a click-to-pick-up that
+	-- matches the click-to-yank mash. Keyboard and gamepad never touch this path.
+	local HOLD_INPUTS = {
+		[Enum.UserInputType.MouseButton1] = true,
+		[Enum.UserInputType.Touch] = true,
+	}
+	ui.lockGui.hit.InputBegan:Connect(function(input)
+		if HOLD_INPUTS[input.UserInputType] then
+			ui.prompt:InputHoldBegin()
+		end
+	end)
+	ui.lockGui.hit.InputEnded:Connect(function(input)
+		if HOLD_INPUTS[input.UserInputType] then
+			ui.prompt:InputHoldEnd()
+		end
+	end)
+
+	-- MouseButton1Click, not Down/Up. Click fires for touch taps too, and unlike the
+	-- Down/Up pair it needs no MouseLeave rescue, because there is no held state left to
+	-- get stranded when a finger slides off a button mid-press.
 	--
 	-- The release button matters most. A phone has no Q key, so without it a touch
 	-- player could commit to a haul and have no way to stop being rooted.
