@@ -270,7 +270,11 @@ local function buildLockPromptGui(adornee: BasePart)
 	root.Size = UDim2.fromOffset(202, 96)
 	root.StudsOffsetWorldSpace = Vector3.new(0, LOCKGUI_RISE, 0)
 	root.AlwaysOnTop = true -- the signal is buried; the cue has to punch through the soil
-	root.MaxDistance = Tuning.DIG_RADIUS + 14
+	-- NO MaxDistance cap. It is measured CAMERA-to-adornee, not character-to-adornee, and
+	-- a third-person camera sits 12-15+ studs behind the player (further if they zoom
+	-- out) -- a cap near DIG_RADIUS hid the card outright while the player stood on the
+	-- spot. Whether the card should show at all is already decided by the prompt's own
+	-- MaxActivationDistance and updateLockPrompt's enable gate; this just has to draw.
 	root.LightInfluence = 0
 	root.Enabled = false
 	root.Parent = adornee
