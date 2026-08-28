@@ -267,7 +267,7 @@ local function buildLockPromptGui(adornee: BasePart)
 	-- Offset (pixels), not scale (studs), so the card holds a constant on-screen size
 	-- for the whole 5-stud window it is up rather than ballooning as you close in. The
 	-- extra 12px of height is bottom margin the pin pokes into.
-	root.Size = UDim2.fromOffset(202, 96)
+	root.Size = UDim2.fromOffset(190, 76)
 	root.StudsOffsetWorldSpace = Vector3.new(0, LOCKGUI_RISE, 0)
 	root.AlwaysOnTop = true -- the signal is buried; the cue has to punch through the soil
 	-- NO MaxDistance cap. It is measured CAMERA-to-adornee, not character-to-adornee, and
@@ -380,26 +380,16 @@ local function buildLockPromptGui(adornee: BasePart)
 	keyLabel.ZIndex = 4
 	keyLabel.Parent = keycap
 
-	local title = UIKit.label(panel, {
-		name = "Title",
-		position = UDim2.new(0, 70, 0, 13),
-		size = UDim2.new(1, -82, 0, 14),
-		font = UIKit.Font.body,
-		textSize = 11,
-		color = COLOR.dim,
-		xAlign = Enum.TextXAlignment.Left,
-		strokeTransparency = 1,
-		zIndex = 3,
-	})
-	title.Text = "BURIED SIGNAL"
-	title.TextTransparency = 1
-
+	-- One line, centred beside the keycap. There used to be a smaller label above this
+	-- carrying the rarity ("LEGENDARY") or "BURIED SIGNAL"; dropped on request. The
+	-- rarity still shows, quietly, as the accent colour on the stroke and the keycap.
 	local action = UIKit.label(panel, {
 		name = "Action",
-		position = UDim2.new(0, 70, 0, 28),
-		size = UDim2.new(1, -82, 0, 26),
+		anchorPoint = Vector2.new(0, 0.5),
+		position = UDim2.new(0, 68, 0.5, 0),
+		size = UDim2.new(1, -80, 0, 28),
 		font = UIKit.Font.title,
-		textSize = 20,
+		textSize = 21,
 		color = COLOR.scope,
 		xAlign = Enum.TextXAlignment.Left,
 		strokeTransparency = 1,
@@ -430,7 +420,6 @@ local function buildLockPromptGui(adornee: BasePart)
 		keycapStroke = keycapStroke,
 		keycapFill = keycapFill,
 		keyLabel = keyLabel,
-		title = title,
 		action = action,
 		hit = hit,
 		-- (instance, property, value-when-shown) -- revealLockGui tweens each of these
@@ -443,7 +432,6 @@ local function buildLockPromptGui(adornee: BasePart)
 			{ keycapStroke, "Transparency", 0 },
 			{ keycapFill, "BackgroundTransparency", 0.12 },
 			{ keyLabel, "TextTransparency", 0 },
-			{ title, "TextTransparency", 0 },
 			{ action, "TextTransparency", 0 },
 		},
 	}
@@ -929,13 +917,12 @@ local function updateLockPrompt()
 
 	ui.promptHolder.Position = best.Position
 
-	-- The billboard's text and accent. Rarity if the detector resolved it, "BURIED
-	-- SIGNAL" and the scope blue if not -- the same per-player gate the radar blips and
-	-- the haul title use. Set every tick: cheap, and the hint can change under the card.
-	local hint = state.rarityHint
+	-- The card carries no rarity text any more, but the accent still does: rarity colour
+	-- on the stroke and keycap when the detector resolved it, scope blue when it did not
+	-- -- the same per-player gate the radar blips and the haul title use. Cheap, and the
+	-- hint can change under the card, so set it every tick.
 	local accent = signalColor()
-	ui.prompt.ObjectText = if hint then string.upper(hint) else "Buried Signal"
-	ui.lockGui.title.Text = if hint then string.upper(hint) else "BURIED SIGNAL"
+	ui.prompt.ObjectText = if state.rarityHint then string.upper(state.rarityHint) else "Buried Signal"
 	ui.lockGui.action.TextColor3 = accent
 	ui.lockGui.stroke.Color = accent
 	ui.lockGui.keycapStroke.Color = accent
