@@ -48,45 +48,50 @@ local GEAR_KEY = Gear.PROFILE_KEY
 
 -- ── Two-handed carry ──────────────────────────────────────────────────────
 --
--- A detector is carried in both hands, and those hands must not swing with the walk
--- cycle. Driving the joint's Transform cannot achieve that: the animator re-solves
--- every frame regardless of which RenderStep priority the write happens at. Measured
--- at three priorities; the arm moved 0.01 studs.
+-- A detector is carried braced against the chest and swept from the hips, so the whole
+-- upper body -- both arms AND the spine -- must hold still while the legs walk under
+-- it. Driving a joint's Transform cannot achieve that: the animator re-solves every
+-- frame regardless of which RenderStep priority the write happens at. Measured at three
+-- priorities; the arm moved 0.01 studs.
 --
--- So the shoulder joint is switched OFF and a rigid Weld holds the limb instead. The
--- animator keeps writing to a disabled joint and moves nothing.
+-- So each joint is switched OFF and a rigid Weld holds the limb instead. The animator
+-- keeps writing to a disabled joint and moves nothing.
 --
 -- TWO RIGS EXIST AND THIS MUST HANDLE BOTH. Classic characters join limbs with
 -- Motor6D (Part0/Part1/C0/C1); newer ones use AnimationConstraint driving a pair of
 -- Attachments, with a BallSocketConstraint doing the physical join. Assuming Motor6D
 -- made this silently do nothing on a constraint rig — no error, just an arm that
--- carried on swinging.
+-- carried on swinging. The ball socket is disabled alongside the joint: the Weld holds
+-- the limb rigidly, so the socket has no job left and an enabled one only drags the
+-- welded part around by physics.
 --
--- LEAVE THE BALL SOCKET ENABLED. Measured stride spread of the hand:
---     animated (baseline) .... 0.879 studs
---     weld, ball socket ON ... 0.319   <-- steadiest
---     weld, ball socket OFF .. 0.639   limb goes half-limp without it
--- The remaining 0.319 is the UpperTorso swaying and carrying the arm with it, which
--- is what a carried tool should do.
+-- Server-side on purpose: posing on the client would not replicate, and on a shared
+-- server everyone else would watch you carry it wrong.
 --
--- Server-side on purpose: arm posing on the client would not replicate, and on a
--- shared server everyone else would watch you carry it one-handed.
--- THE WHOLE ARM CHAIN, not just the shoulders. Locking shoulders alone left the
--- elbows and wrists still animating, and measurement showed exactly where the
--- jiggle entered:
---     tool grip ....... 0.000 studs   welded to the root, rock steady
---     upper arm ....... 0.133         shoulder locked, drifts with the torso
---     hand ............ 0.414         +0.28 added below the shoulder
--- The hands were sliding off a tool that was not moving.
-local ARM_POSE = {
-	{ limb = "RightUpperArm", joint = "RightShoulder", pitch = 35, roll = -25, toRoot = true, socket = "RightShoulderBallSocket" },
+-- THE WHOLE UPPER BODY, not just the shoulders. Two earlier passes each stopped short:
+--   * shoulders only -> elbows and wrists still animated; the hand slid 0.41 studs off
+--     a tool that was not moving (tool grip 0.000, upper arm 0.133, hand 0.414).
+--   * arms only -> the head still pitched up and back on every stride, because the
+--     walk cycle's lean and bounce ride the Waist and Neck. Locking those two, with
+--     UpperTorso re-anchored to the root, is what finally holds the head still.
+-- `above` names the limb this joint hangs off at rest, needed to compose the weld back
+-- to the root: shoulders hang off UpperTorso (the whole spine), the Waist off
+-- LowerTorso (just the Root joint). Ordered so a limb's parent is locked before it.
+local UPPER_BODY_POSE = {
+	-- Spine. UpperTorso onto the root kills the waist sway and the vertical bounce; the
+	-- Head then rides the now-rigid UpperTorso at its rest pose.
+	{ limb = "UpperTorso", joint = "Waist", above = "LowerTorso", pitch = 0, roll = 0, toRoot = true, socket = "WaistBallSocket" },
+	{ limb = "Head", joint = "Neck", pitch = 0, roll = 0 },
+	-- Arms. Shoulders onto the root and posed forward onto the grip; elbows and wrists
+	-- then hang off the limb above them.
+	{ limb = "RightUpperArm", joint = "RightShoulder", above = "UpperTorso", pitch = 35, roll = -25, toRoot = true, socket = "RightShoulderBallSocket" },
 	{ limb = "RightLowerArm", joint = "RightElbow", pitch = 0, roll = 0 },
 	{ limb = "RightHand", joint = "RightWrist", pitch = 0, roll = 0 },
-	{ limb = "LeftUpperArm", joint = "LeftShoulder", pitch = 35, roll = 25, toRoot = true, socket = "LeftShoulderBallSocket" },
+	{ limb = "LeftUpperArm", joint = "LeftShoulder", above = "UpperTorso", pitch = 35, roll = 25, toRoot = true, socket = "LeftShoulderBallSocket" },
 	{ limb = "LeftLowerArm", joint = "LeftElbow", pitch = 0, roll = 0 },
 	{ limb = "LeftHand", joint = "LeftWrist", pitch = 0, roll = 0 },
 }
-local LOCK_NAME = "ArmLock"
+local LOCK_NAME = "CarryLock"
 
 --- The two joined parts and their rest offsets, whichever rig this character uses.
 local function jointFrames(joint: Instance): (BasePart?, BasePart?, CFrame?, CFrame?)
@@ -129,8 +134,8 @@ local function torsoFromRoot(character: Model): CFrame
 	return CFrame.identity
 end
 
-local function unlockArms(character: Model)
-	for _, spec in ARM_POSE do
+local function unlockUpperBody(character: Model)
+	for _, spec in UPPER_BODY_POSE do
 		local limb = character:FindFirstChild(spec.limb)
 		if limb then
 			local existing = limb:FindFirstChild(LOCK_NAME)
@@ -155,11 +160,13 @@ local function unlockArms(character: Model)
 	end
 end
 
-local function lockArms(character: Model)
+local function lockUpperBody(character: Model)
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local spine = torsoFromRoot(character)
+	local lower = character:FindFirstChild("LowerTorso")
+	local lowerRest = (lower and restOffset(lower:FindFirstChild("Root"))) or CFrame.identity
 
-	for _, spec in ARM_POSE do
+	for _, spec in UPPER_BODY_POSE do
 		local limb = character:FindFirstChild(spec.limb)
 		local joint = limb and limb:FindFirstChild(spec.joint)
 		if joint and limb:FindFirstChild(LOCK_NAME) == nil then
@@ -170,11 +177,14 @@ local function lockArms(character: Model)
 				weld.Part1 = part1
 				weld.C1 = c1
 
-				-- Shoulders re-anchor to the root; the rest of the chain hangs off
-				-- the limb above it, which is already root-locked by then.
+				-- toRoot joints re-anchor to the root at their rest pose; `above` picks
+				-- what sits between them and the root (the whole spine for a shoulder,
+				-- just the Root joint for the Waist). Everything else hangs off the limb
+				-- above it, which this loop has already locked.
 				if spec.toRoot and root then
+					local prefix = if spec.above == "LowerTorso" then lowerRest else spine
 					weld.Part0 = root
-					weld.C0 = spine * c0 * CFrame.Angles(math.rad(spec.pitch), 0, math.rad(spec.roll))
+					weld.C0 = prefix * c0 * CFrame.Angles(math.rad(spec.pitch), 0, math.rad(spec.roll))
 				else
 					weld.Part0 = part0
 					weld.C0 = c0 * CFrame.Angles(math.rad(spec.pitch), 0, math.rad(spec.roll))
@@ -185,11 +195,10 @@ local function lockArms(character: Model)
 					(joint :: any).Enabled = false
 				end)
 
-				-- With the shoulder welded to the ROOT, the shoulder ball socket stops
-				-- being harmless and starts tying the torso to the root through the
-				-- arm — which flattens the walk cycle. Measured head bob: 0.139 with it
-				-- on, 0.240 with it off, against a 0.33 free-walking baseline. The weld
-				-- already holds the limb rigidly, so the socket has no job left to do.
+				-- Disable the ball socket alongside the joint. The Weld holds the limb
+				-- rigidly, so the socket has no job left -- and an enabled one only ties
+				-- the welded part to the root through physics, dragging on the very
+				-- stride it is meant to sit out.
 				if spec.socket then
 					local socket = limb:FindFirstChild(spec.socket)
 					if socket then
@@ -199,7 +208,7 @@ local function lockArms(character: Model)
 					end
 				end
 			else
-				warn(`[tool] unrecognised joint "{joint.ClassName}" on {spec.limb} — arm will still swing`)
+				warn(`[tool] unrecognised joint "{joint.ClassName}" on {spec.limb} — {spec.limb} will still animate`)
 			end
 		end
 	end
@@ -218,16 +227,17 @@ end
 --- carried in a fixed posture wants a body part instead.
 ---
 --- WHICH body part matters more than it sounds, and the answer is HumanoidRootPart
---- for both the tool AND the arms. They have to share one reference frame or the
---- hands drift off the grip, and it has to be the frame that does not bob:
+--- for the tool, the arms AND the spine (see UPPER_BODY_POSE). They have to share one
+--- reference frame or the hands drift off the grip, and it has to be the frame that
+--- does not bob:
 ---
 ---   tool on root, arms on torso .. hands slid 0.41 studs off the grip
 ---   tool on torso, arms on torso .. hands perfect, but the coil dug 0.26 into the
 ---                                   sand every time the chest dipped
 ---   both on root ................. hands perfect AND the coil holds its height
 ---
---- The torso still bobs through its full walk cycle underneath — only the carried
---- assembly is exempt, which is what carrying something steady actually looks like.
+--- The legs still walk their full cycle underneath — everything from the waist up is
+--- exempt, which is what carrying something braced actually looks like.
 local function attachPointOf(character: Model, template: Model): BasePart?
 	local wanted = template:GetAttribute("HoldPart")
 	if typeof(wanted) == "string" and wanted ~= "RightHand" then
@@ -260,11 +270,11 @@ local function equip(character: Model, track: string, tier: number)
 
 	unequip(character)
 
-	-- Only the detector is carried two-handed; everything else swings naturally.
+	-- Only the detector braces against the body; everything else swings naturally.
 	if track == "Detector" then
-		lockArms(character)
+		lockUpperBody(character)
 	else
-		unlockArms(character)
+		unlockUpperBody(character)
 	end
 
 	local clone = template:Clone()
@@ -333,7 +343,7 @@ local function stepPlayer(player: Player)
 
 	if target == nil then
 		unequip(character)
-		unlockArms(character)
+		unlockUpperBody(character)
 		equipped[player] = nil
 	elseif equip(character, target, tier) then
 		equipped[player] = target
