@@ -255,13 +255,13 @@ local BARREL_LIGHT_EVERY = 5
 --- re-deriving for a six-pool difference.
 --- `scatter = true` is what actually turns a field's props on -- the scatter pass in
 --- buildStageScenery is gated on it, so a stage stays bare until its own rework flips
---- the flag. Stage 2 is the first one back (dead trees, with the occasional collapsed
---- house shell mixed in: a dead suburban street). `props` is the total count; roughly
---- four in five are `deadTree`, the rest are `kind`.
+--- the flag. Stage 2 is the first one back: a sparse stand of big dead trees, nothing
+--- else. `props` is the tree count -- kept low on purpose so each one reads as a
+--- landmark rather than ground cover.
 type StageTheme = { props: number, pools: number, kind: string, scatter: boolean? }
 local THEME: { [number]: StageTheme } = {
 	[1] = { props = 26, pools = 8, kind = "trees" },
-	[2] = { props = 24, pools = 10, kind = "houses", scatter = true },
+	[2] = { props = 12, pools = 10, kind = "trees", scatter = true },
 	[3] = { props = 40, pools = 20, kind = "sirens" },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
@@ -459,7 +459,11 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 		end
 	end
 
-	branch(base, rng:NextNumber(3.6, 4.6), rng:NextNumber(1.6, 2.1), 4)
+	-- Trunk-base length and thickness. Everything downstream is a ratio of these, so
+	-- this pair is the tree's overall size dial -- big on purpose here, so a sparse
+	-- Stage 2 reads as a few looming snags rather than scattered scrub. Typical result
+	-- is ~22 studs tall (roughly four characters), the tallest rolls near 28.
+	branch(base, rng:NextNumber(5.0, 6.4), rng:NextNumber(2.4, 3.1), 4)
 end
 
 local function prop(
@@ -638,25 +642,16 @@ local function prop(
 	end
 end
 
---- Scatter a field's set pieces on a jittered grid -- a trimmed return of the loop
---- removed in the strip-for-rework pass (`1b6ff88`). The barrels and ooze pools that
---- loop also carried are still on the shelf; this is trees + shells only, and only for
---- stages whose THEME entry sets `scatter`.
+--- Scatter dead trees on a jittered grid -- a trimmed return of the loop removed in
+--- the strip-for-rework pass (`1b6ff88`), and only for stages whose THEME entry sets
+--- `scatter` (Stage 2 so far). The barrels, ooze pools and set-piece props that loop
+--- also carried are still on the shelf.
 ---
 --- Pure random clumps and leaves bald patches, so it is a grid with per-cell jitter:
 --- reads as scattered while still covering the field, and it runs off the stage's own
---- deterministic rng so a rebuild reproduces it. Roughly one placement in five is the
---- `kind` set piece (a collapsed house shell for Stage 2); the rest are dead trees.
-local function scatterStageProps(
-	folder: Instance,
-	origin: CFrame,
-	count: number,
-	kind: string,
-	ooze: { bright: string, deep: string, glow: string },
-	rng: Random,
-	hx: number,
-	hz: number
-)
+--- deterministic rng so a rebuild reproduces it. The jitter is wide against the low
+--- tree count, so a 3x4-ish grid still reads as a natural stand, not rows.
+local function scatterStageProps(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
 	local cols = math.ceil(math.sqrt(count))
 	local placed = 0
 	for row = 0, cols - 1 do
@@ -666,16 +661,12 @@ local function scatterStageProps(
 			end
 			placed += 1
 
-			local x = -hx + (col + 0.5) * (2 * hx / cols) + rng:NextNumber(-12, 12)
-			local z = -hz + (row + 0.5) * (2 * hz / cols) + rng:NextNumber(-12, 12)
+			local x = -hx + (col + 0.5) * (2 * hx / cols) + rng:NextNumber(-20, 20)
+			local z = -hz + (row + 0.5) * (2 * hz / cols) + rng:NextNumber(-20, 20)
 			x = math.clamp(x, -hx, hx)
 			z = math.clamp(z, -hz, hz)
 
-			if rng:NextNumber() < 0.2 then
-				prop(folder, origin, kind, x, z, rng, ooze)
-			else
-				deadTree(folder, origin, x, z, rng)
-			end
+			deadTree(folder, origin, x, z, rng)
 		end
 	end
 end
@@ -706,16 +697,17 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- (and StageFields.luau's plate paint underneath as a fallback).
 
 	-- THE REWORK, ONE STAGE AT A TIME. The strip-for-rework pass (`1b6ff88`) took out
-	-- two loops here -- ooze pools and a jittered-grid prop scatter. Props come back
-	-- first, and only for stages that opt in via `theme.scatter` (Stage 2 so far).
+	-- two loops here -- ooze pools and a jittered-grid prop scatter. A sparse dead-tree
+	-- scatter comes back first, and only for stages that opt in via `theme.scatter`
+	-- (Stage 2 so far).
 	--
 	-- STILL ON THE SHELF: ooze pools (`theme.pools`), barrels (`barrel()`), and every
-	-- other `prop()` kind for the fields that have not had their pass yet. `THEME`,
+	-- `prop()` set-piece kind for the fields that have not had their pass yet. `THEME`,
 	-- `prop()`, `barrel()` and the light-budget constants are all still defined above
 	-- and untouched -- the full previous implementation, with its per-stage tuning
 	-- rationale, is in git history on this file rather than dead code here.
 	if theme.scatter then
-		scatterStageProps(folder, origin, theme.props, theme.kind, def.ooze, rng, hx, hz)
+		scatterStageProps(folder, origin, theme.props, rng, hx, hz)
 	end
 
 	folder.Parent = parent
