@@ -792,7 +792,7 @@ end
 --- helpers take) so the bursts can sit right up against the border. Deterministic off
 --- the stage rng, consumed after scatterBushes.
 local function scatterStage1Cracks(folder: Instance, origin: CFrame, halfX: number, halfZ: number, rng: Random)
-	local PIXEL = 0.9
+	local PIXEL = 0.55
 	-- Local offset above the stage surface plane -- `origin` already sits at
 	-- Stages.SURFACE_Y. Clears the floor cap (at +GROUND_SKIM 0.06), below the
 	-- border line (at +SKIM 0.26).
@@ -827,21 +827,21 @@ local function scatterStage1Cracks(folder: Instance, origin: CFrame, halfX: numb
 		part.CanTouch = false
 	end
 
-	--- One crack arm: a pixel random-walk drifting along `heading`, chipping the odd
-	--- neighbour cell and, until `gen` hits 2, splitting off divergent child branches
-	--- that carry ~70% of the length still left.
+	--- One crack arm: a single-pixel-wide random-walk drifting along `heading`. Stays
+	--- one pixel wide (only a rare chip beside it), and until `gen` hits 2 splits off
+	--- the occasional divergent child branch carrying ~60% of the length still left.
 	local function arm(lx: number, lz: number, heading: number, steps: number, gen: number)
 		for step = 1, steps do
-			heading += rng:NextNumber(-18, 18)
+			heading += rng:NextNumber(-14, 14)
 			lx += math.cos(math.rad(heading)) * PIXEL
 			lz += math.sin(math.rad(heading)) * PIXEL
-			pixelAt(lx, lz, if rng:NextNumber() < 0.2 then "27272A" else C.hazardBlack)
-			if rng:NextNumber() < 0.15 then
+			pixelAt(lx, lz, if rng:NextNumber() < 0.18 then "2A2A2D" else C.hazardBlack)
+			if rng:NextNumber() < 0.04 then
 				pixelAt(lx + (if rng:NextNumber() < 0.5 then PIXEL else -PIXEL), lz, C.hazardBlack)
 			end
-			if gen < 2 and step > 2 and rng:NextNumber() < 0.33 then
-				local turn = (if rng:NextNumber() < 0.5 then 1 else -1) * rng:NextNumber(35, 70)
-				arm(lx, lz, heading + turn, math.max(3, math.floor((steps - step) * 0.7)), gen + 1)
+			if gen < 2 and step > 3 and rng:NextNumber() < 0.14 then
+				local turn = (if rng:NextNumber() < 0.5 then 1 else -1) * rng:NextNumber(30, 65)
+				arm(lx, lz, heading + turn, math.max(3, math.floor((steps - step) * 0.6)), gen + 1)
 			end
 		end
 	end
@@ -855,11 +855,11 @@ local function scatterStage1Cracks(folder: Instance, origin: CFrame, halfX: numb
 			halfZ - 6
 		)
 		pixelAt(cx, cz, C.hazardBlack)
-		local armCount = rng:NextInteger(4, 6)
+		local armCount = rng:NextInteger(3, 4)
 		local base = rng:NextNumber(0, 360)
 		for a = 1, armCount do
-			local heading = base + (a - 1) * (360 / armCount) + rng:NextNumber(-20, 20)
-			arm(cx, cz, heading, rng:NextInteger(6, 11), 0)
+			local heading = base + (a - 1) * (360 / armCount) + rng:NextNumber(-22, 22)
+			arm(cx, cz, heading, rng:NextInteger(8, 14), 0)
 		end
 	end
 end
