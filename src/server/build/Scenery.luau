@@ -782,8 +782,8 @@ local function scatterBushes(folder: Instance, origin: CFrame, count: number, re
 end
 
 --- Stage 1 -- pixelated shatter cracks in the dead tan ground near the Stage 2 seam.
---- A few radial bursts in the last ~30 studs before the border: the field's ground
---- starting to give out at the edge. Grid-snapped near-black pixels laid flat on the
+--- Half a dozen radial bursts in the last ~35 studs before the border: the field's
+--- ground starting to give out at the edge. Grid-snapped near-black pixels laid flat on the
 --- surface, non-colliding and non-queryable like every other ground layer in this
 --- file, so footing, burial and the detector raycast all stay on the real plate
 --- underneath. Physical breakage only -- no glow, no green (PLAN §14).
@@ -806,7 +806,7 @@ local function scatterStage1Cracks(folder: Instance, origin: CFrame, halfX: numb
 	local function pixelAt(lx: number, lz: number, shade: string)
 		local gx = math.round(lx / PIXEL) * PIXEL
 		local gz = math.round(lz / PIXEL) * PIXEL
-		if gx > seamX - PIXEL or gx < seamX - 46 or math.abs(gz) > halfZ - PIXEL then
+		if gx > seamX - PIXEL or gx < seamX - 54 or math.abs(gz) > halfZ - PIXEL then
 			return
 		end
 		local key = `{gx},{gz}`
@@ -846,20 +846,20 @@ local function scatterStage1Cracks(folder: Instance, origin: CFrame, halfX: numb
 		end
 	end
 
-	local bursts = 4
+	local bursts = 6
 	for i = 1, bursts do
-		local cx = seamX - rng:NextNumber(6, 32)
+		local cx = seamX - rng:NextNumber(6, 34)
 		local cz = math.clamp(
-			-halfZ + (i - 0.5 + rng:NextNumber(-0.4, 0.4)) * (2 * halfZ / bursts),
-			-halfZ + 6,
-			halfZ - 6
+			-halfZ + (i - 0.5 + rng:NextNumber(-0.28, 0.28)) * (2 * halfZ / bursts),
+			-halfZ + 10,
+			halfZ - 10
 		)
 		pixelAt(cx, cz, C.hazardBlack)
 		local armCount = rng:NextInteger(3, 4)
 		local base = rng:NextNumber(0, 360)
 		for a = 1, armCount do
 			local heading = base + (a - 1) * (360 / armCount) + rng:NextNumber(-22, 22)
-			arm(cx, cz, heading, rng:NextInteger(8, 14), 0)
+			arm(cx, cz, heading, rng:NextInteger(10, 16), 0)
 		end
 	end
 end
