@@ -501,15 +501,22 @@ local function bush(parent: Instance, origin: CFrame, x: number, z: number, rng:
 		local oz = if i == 1 then 0 else rng:NextNumber(-1.6, 1.6)
 		local oy = if i == 1 then 0 else (i - 1) * s * 0.3 + rng:NextNumber(-0.5, 0.5)
 		-- Base block sunk ~0.4 stud so the bush grows out of the grass, not off it.
-		build(parent, base, {
+		local block = build(parent, base, {
 			name = "Bush",
 			pos = { ox, h / 2 - 0.4 + oy, oz },
 			size = { w, h, d },
 			color = if rng:NextNumber() < 0.55 then BUSH_GREEN else BUSH_GREEN_DARK,
-			material = "SmoothPlastic",
+			-- Plastic, not SmoothPlastic: studs only render on Plastic (Hub.tileRect's
+			-- note), and studded blocks sit in this world -- which is studded floor to
+			-- studded wall -- far better than smooth blobs would. Every face, since a
+			-- tilted, stacked block shows more than its top.
+			material = "Plastic",
 			rot = Kit.ang(rng:NextNumber(-12, 12), rng:NextNumber(0, 90), rng:NextNumber(-12, 12)),
 			canCollide = false,
 		})
+		for _, face in { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" } do
+			(block :: any)[face] = Enum.SurfaceType.Studs
+		end
 	end
 end
 
