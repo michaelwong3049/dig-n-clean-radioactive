@@ -115,7 +115,7 @@ local GROUND_SKIM = 0.06
 
 -- Stage 1 road dimensions. Shared with scatterBushes so foliage never sprouts
 -- through the asphalt. ROAD_WIDTH is the asphalt itself; shoulders sit outside it.
-local ROAD_WIDTH = 42
+local ROAD_WIDTH = 26
 local ROAD_SHOULDER_WIDTH = 3
 local ROAD_BUSH_CLEARANCE = ROAD_WIDTH / 2 + 7
 local ROAD_ASPHALT = "34363A"
