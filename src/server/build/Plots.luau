@@ -129,7 +129,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 14
+local BUILDER_VERSION = 15
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -584,6 +584,14 @@ end
 --- already uses) and punched by `apronSkip` (plaza + every pad's own oriented
 --- footprint) — see that function's own comment above.
 ---
+--- `pad = true` on that call is the other half of Hub's grey central spine: the
+--- plaza paints the band down its own stretch, this carries it a little further north
+--- and south onto the apron — same grid, same `Hub.inPad` test (which caps the length
+--- at the Camp -> Stage 1 hazard border, well short of the bases) — so the strip runs
+--- unbroken across the plaza/apron seam and stops clean. Where it does reach, the band
+--- flows around any plot footprint exactly like the green does, since `apronSkip`
+--- punches those out before the colour is ever chosen.
+---
 --- CLIPPED AT THE FIELD, NOT AT RING_CENTER, ON REQUEST. The disc used to stop
 --- dead at `RING_CENTER.x`, which is west of the plaza's own east edge — the
 --- plaza itself (165x140, its own fixed rectangle) was the only thing carrying
@@ -612,7 +620,7 @@ local function buildApron(row: Model)
 		minZ = Plots.RING_CENTER.z - Plots.RING_OUTER,
 		maxZ = Plots.RING_CENTER.z + Plots.RING_OUTER,
 	}
-	Hub.tileRect(apron, discBounds, { skip = apronSkip })
+	Hub.tileRect(apron, discBounds, { skip = apronSkip, pad = true })
 
 	local BANDS = 12
 	local bandHeight = (2 * Plots.RING_OUTER) / BANDS
