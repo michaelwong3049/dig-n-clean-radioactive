@@ -87,13 +87,16 @@ local build = Kit.build
 local PLAZA_DARK = Kit.blendHex(C.plazaTileDark, Stages.get(1).ooze.bright, Stages.GROUND_OOZE_TINT)
 local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, Stages.GROUND_OOZE_TINT)
 
---- The central pad. A neutral-grey square inlaid dead-centre of the plaza -- the same
---- studded board on the same grid at the same height as the rest of the courtyard,
---- only a different palette, so it reads as a marked-out gathering pad rather than a
---- raised platform (no step, footing is unchanged). ~44 studs, sitting in the open
---- ground the three shop fronts face onto. The two greys keep the plaza pair's own
---- ~1.14x light/dark ratio so the checker reads the same, just decoloured.
-local PAD_HALF = 22
+--- The central pad. A big neutral-grey rectangle inlaid dead-centre of the plaza --
+--- the same studded board on the same grid at the same height as the rest of the
+--- courtyard, only a different palette, so it reads as a marked-out gathering floor
+--- rather than a raised platform (no step, footing is unchanged). It covers most of
+--- the courtyard, the shops standing at its edges, with a clear green border all
+--- round. Sized as a FRACTION of the plaza on each axis (wider than deep, a landscape
+--- rectangle) so it tracks the plaza if that ever resizes. The two greys keep the
+--- plaza pair's own ~1.14x light/dark ratio so the checker reads the same, decoloured.
+local PAD_FRAC_X = 0.9
+local PAD_FRAC_Z = 0.76
 local PAD_DARK = "63656B"
 local PAD_LIGHT = "767981"
 
@@ -165,9 +168,10 @@ Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands
 -- actually stands on. The slab's top is recessed by exactly CAP, so the walking
 -- surface is still PLAZA.topY and nothing standing on the plaza has to move.
 --
--- THE CENTRE OF THE BOARD IS A GREY PAD -- see PAD_DARK/PAD_LIGHT and buildPlaza. It
--- is not separate geometry, just those same cap tiles painted a different pair over a
--- ~44-stud square in the middle; footing and height are the plaza's everywhere.
+-- THE CENTRE OF THE BOARD IS A GREY PAD -- see PAD_FRAC_* / PAD_DARK / PAD_LIGHT and
+-- buildPlaza. It is not separate geometry, just those same cap tiles painted a
+-- different pair over a big rectangle in the middle; footing and height are the
+-- plaza's everywhere.
 Hub.TILES = 55
 local CAP = 0.4
 
@@ -340,9 +344,11 @@ local function buildPlaza(hub: Model)
 	-- on top) so there is one tile per square, no z-fight, and the checker parity
 	-- carries straight through the pad edge.
 	local cx, cz = (p.minX + p.maxX) / 2, (p.minZ + p.maxZ) / 2
+	local padHalfX = (p.maxX - p.minX) / 2 * PAD_FRAC_X
+	local padHalfZ = (p.maxZ - p.minZ) / 2 * PAD_FRAC_Z
 	Hub.tileRect(tiles, p, {
 		colorAt = function(x: number, z: number): (string, string)
-			if math.abs(x - cx) < PAD_HALF and math.abs(z - cz) < PAD_HALF then
+			if math.abs(x - cx) < padHalfX and math.abs(z - cz) < padHalfZ then
 				return PAD_DARK, PAD_LIGHT
 			end
 			return PLAZA_DARK, PLAZA_LIGHT
