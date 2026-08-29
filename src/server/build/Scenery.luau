@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 13
+local BUILDER_VERSION = 14
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -781,6 +781,89 @@ local function scatterBushes(folder: Instance, origin: CFrame, count: number, re
 	end
 end
 
+--- Stage 1 -- pixelated shatter cracks in the dead tan ground near the Stage 2 seam.
+--- A few radial bursts in the last ~30 studs before the border: the field's ground
+--- starting to give out at the edge. Grid-snapped near-black pixels laid flat on the
+--- surface, non-colliding and non-queryable like every other ground layer in this
+--- file, so footing, burial and the detector raycast all stay on the real plate
+--- underneath. Physical breakage only -- no glow, no green (PLAN §14).
+---
+--- `halfX` / `halfZ` are Stage 1's true half-extents (not the -14 inset the scatter
+--- helpers take) so the bursts can sit right up against the border. Deterministic off
+--- the stage rng, consumed after scatterBushes.
+local function scatterStage1Cracks(folder: Instance, origin: CFrame, halfX: number, halfZ: number, rng: Random)
+	local PIXEL = 0.9
+	-- Local offset above the stage surface plane -- `origin` already sits at
+	-- Stages.SURFACE_Y. Clears the floor cap (at +GROUND_SKIM 0.06), below the
+	-- border line (at +SKIM 0.26).
+	local y = 0.14
+	local seamX = halfX -- stage-local x of the Stage 1/2 border
+	local occupied: { [string]: boolean } = {}
+
+	--- Drop one crack pixel, snapped to the shared PIXEL grid. Clipped at the seam
+	--- (nothing spills into Stage 2), held a stud clear of the walls, and deduped so
+	--- overlapping arms never stack two parts in one cell.
+	local function pixelAt(lx: number, lz: number, shade: string)
+		local gx = math.round(lx / PIXEL) * PIXEL
+		local gz = math.round(lz / PIXEL) * PIXEL
+		if gx > seamX - PIXEL or gx < seamX - 46 or math.abs(gz) > halfZ - PIXEL then
+			return
+		end
+		local key = `{gx},{gz}`
+		if occupied[key] then
+			return
+		end
+		occupied[key] = true
+
+		local part = build(folder, origin, {
+			name = "GroundCrack",
+			pos = { gx, y, gz },
+			size = { PIXEL, 0.1, PIXEL },
+			color = shade,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+		part.CanQuery = false
+		part.CanTouch = false
+	end
+
+	--- One crack arm: a pixel random-walk drifting along `heading`, chipping the odd
+	--- neighbour cell and, until `gen` hits 2, splitting off divergent child branches
+	--- that carry ~70% of the length still left.
+	local function arm(lx: number, lz: number, heading: number, steps: number, gen: number)
+		for step = 1, steps do
+			heading += rng:NextNumber(-18, 18)
+			lx += math.cos(math.rad(heading)) * PIXEL
+			lz += math.sin(math.rad(heading)) * PIXEL
+			pixelAt(lx, lz, if rng:NextNumber() < 0.2 then "27272A" else C.hazardBlack)
+			if rng:NextNumber() < 0.15 then
+				pixelAt(lx + (if rng:NextNumber() < 0.5 then PIXEL else -PIXEL), lz, C.hazardBlack)
+			end
+			if gen < 2 and step > 2 and rng:NextNumber() < 0.33 then
+				local turn = (if rng:NextNumber() < 0.5 then 1 else -1) * rng:NextNumber(35, 70)
+				arm(lx, lz, heading + turn, math.max(3, math.floor((steps - step) * 0.7)), gen + 1)
+			end
+		end
+	end
+
+	local bursts = 4
+	for i = 1, bursts do
+		local cx = seamX - rng:NextNumber(6, 32)
+		local cz = math.clamp(
+			-halfZ + (i - 0.5 + rng:NextNumber(-0.4, 0.4)) * (2 * halfZ / bursts),
+			-halfZ + 6,
+			halfZ - 6
+		)
+		pixelAt(cx, cz, C.hazardBlack)
+		local armCount = rng:NextInteger(4, 6)
+		local base = rng:NextNumber(0, 360)
+		for a = 1, armCount do
+			local heading = base + (a - 1) * (360 / armCount) + rng:NextNumber(-20, 20)
+			arm(cx, cz, heading, rng:NextInteger(6, 11), 0)
+		end
+	end
+end
+
 local function buildStageScenery(parent: Instance, id: number)
 	local theme = THEME[id]
 	if theme == nil then
@@ -820,6 +903,7 @@ local function buildStageScenery(parent: Instance, id: number)
 	if theme.scatter then
 		if id == 1 then
 			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
+			scatterStage1Cracks(folder, origin, def.size[1] / 2, def.size[2] / 2, rng)
 		elseif id == 2 then
 			scatterEdgeTrees(folder, origin, theme.props, rng, hx, hz)
 		end
