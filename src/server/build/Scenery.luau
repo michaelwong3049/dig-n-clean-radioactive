@@ -55,6 +55,11 @@
 	here both hit (see the removal notes still kept below for
 	`buildStageBlend`/`buildGradientOozeSurface`).
 
+	STAGE 1 HAS A ROAD. A dark asphalt strip runs west-to-east from the plaza edge to
+	Stage 2, with concrete shoulders, double yellow edge lines and a dashed white
+	centreline. It is scenery only: thin, non-colliding and non-queryable, so stage
+	detection, digging and detector raycasts still resolve against the real stage plate.
+
 	Placement is a jittered grid, not pure random. Pure random clumps and leaves bald
 	patches; a jittered grid reads as scattered while still covering the field, and
 	it is deterministic per stage so a rebuild does not reshuffle the whole world.
@@ -95,7 +100,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 11
+local BUILDER_VERSION = 12
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -107,6 +112,16 @@ local SKIM = 0.26
 --- The stage colour layer sits BELOW the pools, so a pool still reads as spilled on
 --- the ground rather than buried under it. Low enough to be invisible as a step.
 local GROUND_SKIM = 0.06
+
+-- Stage 1 road dimensions. Shared with scatterBushes so foliage never sprouts
+-- through the asphalt. ROAD_WIDTH is the asphalt itself; shoulders sit outside it.
+local ROAD_WIDTH = 42
+local ROAD_SHOULDER_WIDTH = 3
+local ROAD_BUSH_CLEARANCE = ROAD_WIDTH / 2 + 7
+local ROAD_ASPHALT = "34363A"
+local ROAD_SHOULDER = "777B80"
+local ROAD_YELLOW = "E5C23A"
+local ROAD_WHITE = "F2F3ED"
 
 --- Dead wood, for `deadTree`. Darker and greyer than Kit.C.wood (5A4630, which is the
 --- warm living-wood brown the camp and the liveTree use) -- these are bark that has
@@ -728,11 +743,18 @@ end
 --- belongs on the living side. Bushes fill a grid over the western half of the field,
 --- each nudged only a third of a cell so the scatter stays even, and they are allowed
 --- near the centreline -- they are low ground cover you see over and walk through.
-local function scatterBushes(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+---
+--- All candidate bushes are built before the farthest ones are discarded. `bush`
+--- consumes the same deterministic RNG used by placement, so skipping a build in the
+--- loop would reshuffle every bush after it. Temporary folders let the surviving six
+--- retain their exact positions, sizes and colours while removing only the three with
+--- the greatest X coordinate (farthest east from the plaza entrance).
+local function scatterBushes(folder: Instance, origin: CFrame, count: number, removeFarthest: number, rng: Random, hx: number, hz: number)
 	local westEdge = -hx
 	local bandDepth = 2 * hx * 0.5 -- the western half of the field
 	local cols = math.ceil(math.sqrt(count * (bandDepth / (2 * hz))))
 	local rows = math.ceil(count / cols)
+	local candidates: { { folder: Folder, x: number } } = {}
 
 	local placed = 0
 	for row = 0, rows - 1 do
@@ -743,8 +765,28 @@ local function scatterBushes(folder: Instance, origin: CFrame, count: number, rn
 			placed += 1
 			local x = westEdge + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (bandDepth / cols)
 			local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
-			bush(folder, origin, math.clamp(x, westEdge, westEdge + bandDepth), math.clamp(z, -hz, hz), rng)
+			local candidate = Instance.new("Folder")
+			local clampedX = math.clamp(x, westEdge, westEdge + bandDepth)
+			local clampedZ = math.clamp(z, -hz, hz)
+			if math.abs(clampedZ) < ROAD_BUSH_CLEARANCE then
+				clampedZ = (if clampedZ < 0 then -1 else 1) * ROAD_BUSH_CLEARANCE
+			end
+			bush(candidate, origin, clampedX, clampedZ, rng)
+			table.insert(candidates, { folder = candidate, x = clampedX })
 		end
+	end
+
+	table.sort(candidates, function(a, b)
+		return a.x > b.x
+	end)
+	local removeCount = math.clamp(removeFarthest, 0, #candidates)
+	for index, candidate in candidates do
+		if index > removeCount then
+			for _, part in candidate.folder:GetChildren() do
+				part.Parent = folder
+			end
+		end
+		candidate.folder:Destroy()
 	end
 end
 
@@ -786,7 +828,7 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- rationale, is in git history on this file rather than dead code here.
 	if theme.scatter then
 		if id == 1 then
-			scatterBushes(folder, origin, theme.props, rng, hx, hz)
+			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
 		elseif id == 2 then
 			scatterEdgeTrees(folder, origin, theme.props, rng, hx, hz)
 		end
@@ -879,6 +921,73 @@ local function buildStageCheckerboard(parent: Instance, id: number)
 			tile.CanCollide = false
 			tile.CanQuery = false
 		end
+	end
+
+	folder.Parent = parent
+end
+
+--- A two-lane road running the full length of Stage 1, from the plaza at its west
+--- edge to Stage 2 at its east edge. Stage bounds are read rather than repeated so
+--- resizing or moving Stage 1 keeps the road attached to both seams automatically.
+--- Every part is a visual overlay only: the real Stage1 plate remains the walking,
+--- digging and stage-detection surface underneath it.
+local function buildStage1Road(parent: Instance)
+	local minX, _, maxX = Stages.bounds(1)
+	local length = maxX - minX
+	local centerX = (minX + maxX) / 2
+	local roadY = Stages.SURFACE_Y + 0.14
+	local markingY = Stages.SURFACE_Y + 0.25
+	local folder = Instance.new("Folder")
+	folder.Name = "Stage1Road"
+
+	local function roadPart(name: string, x: number, z: number, widthX: number, widthZ: number, color: string, material: string, y: number, height: number)
+		local part = build(folder, CFrame.identity, {
+			name = name,
+			pos = { x, y, z },
+			size = { widthX, height, widthZ },
+			color = color,
+			material = material,
+			canCollide = false,
+		})
+		part.CanQuery = false
+		part.CanTouch = false
+	end
+
+	-- Concrete shoulders go down first, slightly wider than the asphalt so a grey
+	-- border remains visible on both sides like the supplied reference.
+	for _, side in { -1, 1 } do
+		roadPart(
+			"RoadShoulder",
+			centerX,
+			side * (ROAD_WIDTH / 2 + ROAD_SHOULDER_WIDTH / 2),
+			length,
+			ROAD_SHOULDER_WIDTH,
+			ROAD_SHOULDER,
+			"Concrete",
+			roadY,
+			0.14
+		)
+	end
+	roadPart("Asphalt", centerX, 0, length, ROAD_WIDTH, ROAD_ASPHALT, "Asphalt", roadY, 0.16)
+
+	-- Two solid yellow lines inside each road edge.
+	local lineWidth = 0.55
+	for _, side in { -1, 1 } do
+		for offset = 0, 1 do
+			local inset = 1.8 + offset * 1.05
+			roadPart("YellowEdgeLine", centerX, side * (ROAD_WIDTH / 2 - inset), length, lineWidth, ROAD_YELLOW, "SmoothPlastic", markingY, 0.06)
+		end
+	end
+
+	-- Dashed white centreline, clipped cleanly at the two stage boundaries.
+	local dashLength = 10
+	local dashPitch = 18
+	local dashX = minX + 4
+	while dashX < maxX do
+		local x0 = dashX
+		local x1 = math.min(dashX + dashLength, maxX)
+		roadPart("CenterDash", (x0 + x1) / 2, 0, x1 - x0, 0.65, ROAD_WHITE, "SmoothPlastic", markingY, 0.06)
+		dashX += dashPitch
 	end
 
 	folder.Parent = parent
@@ -1203,6 +1312,7 @@ local function createScenery(): Model
 		buildStageCheckerboard(floors, id)
 	end
 	floors.Parent = scenery
+	buildStage1Road(scenery)
 
 	-- No stage-to-stage blend any more anywhere in the chain -- see the removal note
 	-- above STAGE_BLEND's old spot, just above buildStageScenery. Every boundary --
