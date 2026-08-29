@@ -35,12 +35,26 @@ local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
 local StageService = require(script.Parent.StageService)
+-- Read ONLY for DigService.isLocked, below. The direction is safe: DigService requires
+-- DataService and StageService but never this file, so there is no cycle. It is also
+-- the pattern ToolService already uses to ask DigService what the player is doing.
+local DigService = require(script.Parent.DigService)
 
 local ExposureService = {}
 
 local HEALTH_REGEN_PER_SEC = 2.5 -- PLAN §3.5: slowly out of radiation...
 local BAG_LIFETIME = 90 -- §3.1, exactly ninety seconds
 local DEFAULT_SHOWER_RADIUS = 10
+
+-- Roblox's own out-of-the-box jump values, restored whenever a player is not rooted by
+-- a dig lock. Hardcoding the engine defaults is safe here only because NOTHING else in
+-- the game writes to jump -- this loop is the sole owner, exactly as it is for
+-- WalkSpeed. If something ever does start tuning jump (a Boots perk, say), these stop
+-- being the right thing to restore and the pair should be captured per-character on
+-- spawn instead. Which of the two applies is decided by Humanoid.UseJumpPower, so both
+-- are written rather than guessing at the rig.
+local DEFAULT_JUMP_POWER = 50
+local DEFAULT_JUMP_HEIGHT = 7.2
 
 type State = {
 	exposure: number,
@@ -312,7 +326,28 @@ local function stepPlayer(player: Player, dt: number)
 	-- reason a new tier is in your hands within a third of a second with no event.
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
-		humanoid.WalkSpeed = StatResolver.effectiveWalkSpeed(stats, #data.carry, false)
+		-- LOCKED ON == ROOTED. Committing to a haul plants your feet (see DigService's
+		-- header), and this line is where that actually happens, because this loop is
+		-- the ONLY thing in the game allowed to write WalkSpeed. DigService cannot root
+		-- the player itself: whatever it wrote would be overwritten right here on the
+		-- very next tick, 100ms later.
+		--
+		-- Jump goes to zero with it, or "rooted" means standing still and hopping off
+		-- the signal anyway.
+		--
+		-- The safety of this rests entirely on DigService releasing the lock on every
+		-- path that can invalidate it -- including blacking out, which teleports the
+		-- player out of the stage without killing them. That list is enumerated on
+		-- releaseLock; a lock that is never released is a player who can never move.
+		if DigService.isLocked(player) then
+			humanoid.WalkSpeed = 0
+			humanoid.JumpPower = 0
+			humanoid.JumpHeight = 0
+		else
+			humanoid.WalkSpeed = StatResolver.effectiveWalkSpeed(stats, #data.carry, false)
+			humanoid.JumpPower = DEFAULT_JUMP_POWER
+			humanoid.JumpHeight = DEFAULT_JUMP_HEIGHT
+		end
 	end
 	-- The decay clock. CarryService now EXISTS and is the obvious owner by name — it
 	-- deliberately does not take this, and the reason is ordering. Ticker fires in

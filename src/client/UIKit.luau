@@ -89,53 +89,62 @@ UIKit.TextSize = {
 UIKit.Radius = {
 	panel = UDim.new(0, 20), -- station panel, banner
 	card = UDim.new(0, 16), -- detail card, meter panel
-	button = UDim.new(0, 14), -- dig button, station action / shop buttons
+	button = UDim.new(0, 14), -- haul panel / station action / shop buttons
 	slot = UDim.new(0, 12), -- hotbar slots
 	pill = UDim.new(1, 0), -- fully round — scope dial and its rings
 }
 
 UIKit.Stroke = {
 	thin = 2, -- unselected hotbar slot, secondary rings
-	normal = 3, -- panels, buttons, dig button, station panel
+	normal = 3, -- panels, buttons, haul panel, station panel
 	thick = 4, -- banner
 	selected = 5, -- selected hotbar slot
 }
 
 -- ── The dock ─────────────────────────────────────────────────────────────────────
--- One horizontal instrument band — [METER | DIG BUTTON] — with the status line above
--- it, bag count below it, hotbar at the screen edge, a bottom-LEFT column stacking
--- [INDEX] over [CASH] over the meter, the radar scope alone in the bottom-right
--- corner, and the detail card floating above all of it when a slot is selected:
+-- The instrument band — just the METER now — with the status line above it, bag count
+-- below it, hotbar at the screen edge, a bottom-LEFT column stacking [INDEX] over
+-- [CASH] over the meter, the radar scope alone in the bottom-right corner, and the
+-- detail card floating above all of it when a slot is selected:
 --
 --     ┌───────────────────────────────────────┐  <- Detail card (only if selected)
 --     │[INDEX]        Status line               │
 --     │[CASH ]                                  │
---     │[METER]       [DIG BUTTON]      ( SCOPE )│  <- band 144px; scope is NOT in it
+--     │[METER]                         ( SCOPE )│  <- band 144px; scope is NOT in it
 --     │              Bag count                  │
 --     │   [1][2][3][4][5][6][7][8][9]...        │  <- hotbar, screen edge
 --     └───────────────────────────────────────┘
 --
+-- THE DIG BUTTON USED TO SIT DEAD-CENTRE OF THAT BAND AND IS GONE. It was permanent
+-- furniture for something that only matters in the seconds you are stood on a glow —
+-- on screen the whole time you were in a stage, saying GET CLOSER, directly above the
+-- hotbar it competed with. Locking on is a ProximityPrompt over the glow itself now
+-- (DetectorController), and the haul panel carries the mash bar, so the dock has no
+-- dig widget at all. Nothing moved when it went: INSTRUMENT_HEIGHT was a max() that
+-- the meter already won.
+--
 -- THE SCOPE IS IN THE CORNER, NOT IN THE BAND, AND THAT IS THE WHOLE POINT OF THIS
--- LAYOUT. It used to sit inside the instrument band, to the dig button's right, where
--- being the tallest thing in the row (180 vs the meter's 144) pushed INSTRUMENT_HEIGHT
+-- LAYOUT. It used to sit inside the instrument band, where being the tallest thing in
+-- the row (180 vs the meter's 144) pushed INSTRUMENT_HEIGHT
 -- and therefore RESERVE up for everything else. It is now anchored to the bottom-right
 -- corner on its own, sharing only the INSTRUMENT_BOTTOM baseline with the meter
 -- opposite it, so `SCOPE_DIAL` is deliberately ABSENT from INSTRUMENT_HEIGHT below.
 -- Put it back in that max() and the centred station panel loses 36px of headroom for
 -- a widget that is no longer in the row.
 --
--- `DIAL_LEFT_OFFSET` is gone for the same reason: the scope is corner-anchored now,
--- so it is not positioned relative to the dig button any more.
+-- `DIAL_LEFT_OFFSET` is gone for the same reason: the scope is corner-anchored now, so
+-- it is not positioned relative to anything else in the row.
 --
 -- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN. It now stacks
 -- directly above CashController's badge, on the meter's own left margin, rather than
 -- floating alone in the opposite corner — see Dock.INDEX_BOTTOM below.
 --
--- ONE WIDE BAND, NOT STACKED ROWS. Meter and dig button sit side by side inside one
--- INSTRUMENT_HEIGHT-tall band rather than stacking vertically, which would cost
--- roughly 200px on its own. That choice is the entire reason "bigger and centered"
--- does not also mean "covers the ground you are digging" — see RESERVE below, which
--- is the dock's total reserved height with no card open.
+-- ONE WIDE BAND, NOT STACKED ROWS. What lives in the band sits side by side inside one
+-- INSTRUMENT_HEIGHT-tall row rather than stacking vertically, which would cost roughly
+-- 200px on its own. That choice is the entire reason "bigger and centered" does not
+-- also mean "covers the ground you are digging" — see RESERVE below, which is the
+-- dock's total reserved height with no card open. Anything added to this row later
+-- goes BESIDE the meter, not under it.
 --
 -- EVERY DOWNSTREAM POSITION IS A FORMULA OVER THESE, NEVER A FRESH NUMBER. That is
 -- the whole point: the old `-178` in InventoryController existed because nothing
@@ -158,15 +167,31 @@ Dock.ROW_MAX_WIDTH = 1400 -- absolute cap so an ultrawide monitor does not stret
 Dock.BAGCOUNT_HEIGHT = 18
 
 Dock.METER_SIZE = UDim2.fromOffset(280, 144) -- was 240x46, then 280x60 before HEALTH joined RADS in one panel
-Dock.DIGBUTTON_SIZE = UDim2.fromOffset(260, 60) -- was 230x48
 Dock.SCOPE_DIAL = 180 -- was DetectorController.DIAL_SIZE 150
 
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
 
+-- THE HAUL PANEL. Up only while a player is locked onto a signal and mashing it out.
+-- It is deliberately NOT centered on the screen: the payoff of a haul is watching the
+-- thing rise out of the ground in front of your character, and a dead-center panel
+-- covers exactly that. Sitting low keeps the item in view above it; HAULPANEL_BOTTOM
+-- below is what actually places it, clear of the dock.
+-- 168, not 150: at 150 the bottom-anchored release button overlapped the mash prompt
+-- above it by 8px. The four rows inside are laid out top-down at fixed offsets and the
+-- release button hangs off the BOTTOM edge, so panel height is what sets the gap
+-- between the last two -- shrinking this re-collides them.
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 168)
+
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
-Dock.INSTRUMENT_HEIGHT = math.max(Dock.METER_SIZE.Y.Offset, Dock.DIGBUTTON_SIZE.Y.Offset)
+-- Just the meter now. This was a math.max over the meter and the dig button until the
+-- dig button was removed from the dock entirely (lock-on moved to a world prompt over
+-- the glow, and the haul panel carries the mash bar). The max() resolved to the meter's
+-- 144 anyway, so RESERVE and everything positioned off it are UNCHANGED by that
+-- removal -- worth stating, because a shifting RESERVE would have moved the hotbar,
+-- the station panel and the haul panel all at once.
+Dock.INSTRUMENT_HEIGHT = Dock.METER_SIZE.Y.Offset
 
 Dock.HOTBAR_BOTTOM = Dock.MARGIN_BOTTOM
 Dock.BAGCOUNT_BOTTOM = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP
@@ -205,10 +230,12 @@ Dock.INDEX_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.GAP
 -- panel is centered on the screen itself now, and clears the dock on its own).
 Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 
--- The dig button sits dead-center on X as the primary touch/click target. The meter
--- lives on its own at the bottom-left screen edge (see HudController), so it needs no
--- same-row offset from the button — and with the radar scope gone, nothing sits to
--- the button's right at all, which is why `DIAL_LEFT_OFFSET` no longer exists.
+-- Anchored off the DOCK, not off a screen fraction. A fixed 0.62 scale looked right on
+-- a 1080p window and collided with the instrument band on anything shorter -- at 900px
+-- it overlapped the dock by ~50px, because the dock's reserved height is a fixed pixel
+-- stack while the fraction is not. Bottom-anchored against RESERVE is the rule the rest
+-- of this file already follows, and it clears on every viewport by construction.
+Dock.HAULPANEL_BOTTOM = Dock.RESERVE + Dock.GAP
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace

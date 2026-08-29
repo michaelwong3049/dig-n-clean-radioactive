@@ -27,7 +27,22 @@ local REMOTES: { [string]: string } = {
 	-- positions gets an ESP script written for it inside a week, and the rarity
 	-- economy is the whole product. See the header of Services/DigService.
 	SweepState = "RemoteEvent", -- server -> client, one payload per tick
-	DigInput = "RemoteEvent", -- client -> server, hold-to-dig on/off
+	--
+	-- DigYank replaced a DigInput boolean when the pull became a mash (PLAN §Step 2).
+	-- It carries NO PAYLOAD, and that is the security design, not laziness: the client
+	-- says "I clicked", never how hard, so the only thing it can lie about is HOW OFTEN.
+	-- That one remaining lie is capped by a token bucket on the server -- see the yank
+	-- limiter in Services/DigService, and Tuning's PULL_YANK_* block for why the ceiling
+	-- sits where it does.
+	DigYank = "RemoteEvent", -- client -> server, one per click, no payload
+	--
+	-- The pull is two beats: you TAP to commit to one buried item, and only then do you
+	-- mash it out. DigLock carries a single boolean -- lock, or release -- and never an
+	-- item id: the server picks whatever the player is standing on, exactly as it does
+	-- for a yank. Locking roots the character, so the RELEASE half of this remote is
+	-- load-bearing in a way most remotes are not; every path that can strand a rooted
+	-- player is enumerated in Services/DigService.
+	DigLock = "RemoteEvent", -- client -> server, true = lock on, false = release
 	Unearthed = "RemoteEvent", -- server -> client, the slot-machine moment
 
 	-- The backpack, as the player sees it. Fires only when the bag actually CHANGES

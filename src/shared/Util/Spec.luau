@@ -269,6 +269,61 @@ function Spec.run(): boolean
 		check(string.format("§2.1 the reveal curve stays flat: %.1fx end to end (want <= 4)", slow / fast), slow / fast <= 4)
 	end
 
+	-- PLAN §Step 2 — THE PULL IS A MASH, AND `draw` IS WHAT KEEPS IT PLAYABLE.
+	--
+	-- Every check below is a restatement of one number: the clicks per second a tier
+	-- needs just to HOLD an item where it is,
+	--     (PULL_DRAG_RATE - draw) / (PULL_YANK_PER_CLICK * pullSpeed)
+	-- which is the thing a player actually experiences when they buy a magnet. It is
+	-- worth pinning rather than eyeballing because it falls out of FOUR numbers spread
+	-- across two files, and moving any one of them silently moves it.
+	local function clicksToHold(tier: number): number
+		local magnet = Gear.tier("Magnet", tier)
+		return (Tuning.PULL_DRAG_RATE - magnet.draw) / (Tuning.PULL_YANK_PER_CLICK * magnet.pullSpeed)
+	end
+
+	do
+		local starting = clicksToHold(1)
+		check(
+			string.format("§Step2 the starting magnet is a real mash but a mashable one: %.2f clicks/sec (want 2-3.5)", starting),
+			starting >= 2 and starting <= 3.5
+		)
+
+		-- THE MOBILE CHECK, and the most load-bearing line in this block. PLAN §Step 2
+		-- is explicit that the pull must never be balanced around desktop mash rate,
+		-- because doing so quietly locks half the Roblox audience out of deep stages —
+		-- and a mash is exactly the mechanic most likely to drift that way under
+		-- "make tier 1 feel weightier" pressure. `draw` is the promise that it will
+		-- not, and this is where the promise is kept: by the mid magnet the answer has
+		-- to be about one click every two seconds, which is comfortable on a phone.
+		local mid = math.ceil(Gear.maxTier("Magnet") / 2) + 1
+		check(
+			string.format("§Step2 a mid magnet (%s) is comfortable on a phone: %.2f clicks/sec (want <= 1)", Gear.tier("Magnet", mid).name, clicksToHold(mid)),
+			clicksToHold(mid) <= 1
+		)
+
+		local easing = true
+		for tier = 2, Gear.maxTier("Magnet") do
+			if clicksToHold(tier) >= clicksToHold(tier - 1) then
+				easing = false
+			end
+		end
+		check("§Step2 every magnet tier asks for fewer clicks than the last", easing)
+
+		-- The pull must stay a BEAT, not a tap. The deepest item in the game against
+		-- the best magnet in the game is the fastest pull that can exist; if even that
+		-- is instant then the mash has stopped being a mechanic and the magnet track
+		-- has nothing left to sell.
+		local deepest = Tuning.DIG_DEPTH_BASE + (#Rarity.ORDER - 1) * Tuning.DIG_DEPTH_PER_RARITY
+		local best = Gear.tier("Magnet", Gear.maxTier("Magnet"))
+		local netPerSecond = 4 * Tuning.PULL_YANK_PER_CLICK * best.pullSpeed - (Tuning.PULL_DRAG_RATE - best.draw)
+		local fastest = (Tuning.PULL_SECONDS_PER_STUD * deepest) / netPerSecond
+		check(
+			string.format("§Step2 the deepest item still takes %.1fs at 4 clicks/sec with the best magnet (want >= 2)", fastest),
+			fastest >= 2
+		)
+	end
+
 	-- PLAN §7 — DENSITY AND THE LOOT TABLES ARE ONE DECISION, NOT TWO.
 	--
 	-- SIGNALS_PER_STAGE was doubled to 90 so the reveal has something to reveal, and
