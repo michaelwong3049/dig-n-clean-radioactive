@@ -243,6 +243,7 @@ export type Spec = {
 	shape: string?, -- "Block" (default) | "Cylinder" | "Ball" | "Wedge"
 	transparency: number?,
 	canCollide: boolean?,
+	studs: boolean?, -- stud every face (forces Material.Plastic — studs render on nothing else)
 	class: string?, -- "Part" (default) | "SpawnLocation" | "WedgePart"
 	attributes: { [string]: any }?,
 }
@@ -259,6 +260,16 @@ function Kit.build(parent: Instance, origin: CFrame, spec: Spec): BasePart
 
 	if p:IsA("Part") then
 		p.Shape = Enum.PartType[spec.shape or "Block"]
+	end
+
+	-- Studs need Material.Plastic AND every face set explicitly -- only TopSurface is
+	-- Studs by default on a fresh Part (see Hub.tileRect). This forces both, so a caller
+	-- gets the studded-brick look whatever material it happened to name.
+	if spec.studs then
+		p.Material = Enum.Material.Plastic
+		for _, face in { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" } do
+			p[face] = Enum.SurfaceType.Studs
+		end
 	end
 
 	p.CFrame = origin * CFrame.new(spec.pos[1], spec.pos[2], spec.pos[3]) * (spec.rot or Kit.R.flat)
