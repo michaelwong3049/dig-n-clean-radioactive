@@ -129,7 +129,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 14
+local BUILDER_VERSION = 15
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -152,13 +152,17 @@ Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3
 ---
 --- RING_CENTER USED TO BE THE PLAZA'S OWN MIDPOINT (MID_X, MID_Z) — moved
 --- toward Stage 1 on request, to shorten the walk from the shop cluster to the
---- field. How far it could move is bounded by the shop cluster's OWN footprint,
---- not by the pads: `SHOP_CLUSTER_EAST_REACH` below is Shops.luau's own
---- eastmost stall (the "Cleaner" counter, `at.x` = centre + 42) plus its own
---- ~11-stud half-width — the shop cluster, not any pad, is the first thing that
---- would cross into Stage 1 if this moved further east than it does.
---- `FIELD_CLEARANCE` is the margin kept past that. (The pads have far more room
---- to spare here — see World.verify()'s own overlap checks, which are the real
+--- field. How far it could move WAS bounded by the shop cluster's OWN footprint,
+--- not by the pads: `SHOP_CLUSTER_EAST_REACH = 53` below was Shops.luau's
+--- eastmost stall (the "Cleaner" counter, once at `RING_CENTER.x + 42`) plus its
+--- ~11-stud half-width, and `FIELD_CLEARANCE` the margin kept past that. THAT
+--- COUPLING IS NOW HISTORICAL: the shop row was re-centred on the plaza midpoint
+--- (Hub's grey central spine) rather than on RING_CENTER, so the Cleaner stall
+--- pulled ~14.5 studs back west and no longer reaches anywhere near Stage 1.
+--- `SHOP_CLUSTER_EAST_REACH` is deliberately left at 53 so RING_CENTER stays put
+--- — it is now the established ring position, a conservative bound rather than a
+--- live measurement of anything in Shops.luau. (The pads have far more room to
+--- spare here — see World.verify()'s own overlap checks, which are the real
 --- authority on safety, not this comment.)
 --- `facing` is a yaw in degrees. A pad is built with its back wall at +Z and its
 --- claim board at -Z, so 0 faces south, 180 faces north, -90 faces east — and
@@ -584,6 +588,14 @@ end
 --- already uses) and punched by `apronSkip` (plaza + every pad's own oriented
 --- footprint) — see that function's own comment above.
 ---
+--- `pad = true` on that call is the other half of Hub's grey central spine: the
+--- plaza paints the band down its own stretch, this carries it a little further north
+--- and south onto the apron — same grid, same `Hub.inPad` test (which caps the length
+--- at the Camp -> Stage 1 hazard border, well short of the bases) — so the strip runs
+--- unbroken across the plaza/apron seam and stops clean. Where it does reach, the band
+--- flows around any plot footprint exactly like the green does, since `apronSkip`
+--- punches those out before the colour is ever chosen.
+---
 --- CLIPPED AT THE FIELD, NOT AT RING_CENTER, ON REQUEST. The disc used to stop
 --- dead at `RING_CENTER.x`, which is west of the plaza's own east edge — the
 --- plaza itself (165x140, its own fixed rectangle) was the only thing carrying
@@ -612,7 +624,7 @@ local function buildApron(row: Model)
 		minZ = Plots.RING_CENTER.z - Plots.RING_OUTER,
 		maxZ = Plots.RING_CENTER.z + Plots.RING_OUTER,
 	}
-	Hub.tileRect(apron, discBounds, { skip = apronSkip })
+	Hub.tileRect(apron, discBounds, { skip = apronSkip, pad = true })
 
 	local BANDS = 12
 	local bandHeight = (2 * Plots.RING_OUTER) / BANDS

@@ -69,7 +69,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 9
+local BUILDER_VERSION = 11
 
 local C = Kit.C
 local build = Kit.build
@@ -86,6 +86,40 @@ local build = Kit.build
 --- tint weight).
 local PLAZA_DARK = Kit.blendHex(C.plazaTileDark, Stages.get(1).ooze.bright, Stages.GROUND_OOZE_TINT)
 local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, Stages.GROUND_OOZE_TINT)
+
+--- The central pad. The same studded board on the same grid at the same height as the
+--- rest of the courtyard, only a different palette, so it reads as a marked-out
+--- gathering floor rather than a raised platform (no step, footing is unchanged).
+---
+--- IT IS A NORTH-SOUTH SPINE, NOT A RECTANGLE IN THE PLAZA. Its WIDTH is a fraction of
+--- the plaza east-west (frac 0.76, ~123 studs), centred on the plaza's own X midpoint,
+--- leaving a wide green margin on the shop sides. Its LENGTH is not the plaza's -- it
+--- runs past the plaza's own north and south edges out onto the apron and stops level
+--- with the Camp -> Stage 1 hazard border (SPINE_HALF_Z, read from the same
+--- `Stages.bounds` that border uses), so the grey strip and the yellow line end on the
+--- same latitude. buildPlaza paints its plaza stretch; Plots.buildApron paints the rest
+--- on the one shared grid, so the two halves read as a single strip.
+---
+--- The two greys are a dark charcoal, a good step below the plaza's own greens in value
+--- and colour both, so the spine reads as a distinct surface rather than a decoloured
+--- patch of the same board. They hold the same ~1.2x light/dark ratio the plaza pair
+--- has, so the checker pattern itself reads identically, just darker.
+local PAD_FRAC_X = 0.76
+local PAD_DARK = "3D3F42"
+local PAD_LIGHT = "494B50"
+--- Half the spine's north-south length. Stage 1 (like every stage) is 240 studs deep
+--- and centred on z = 0, so its own edge -- where Scenery.buildStageBorderLines draws
+--- the Camp -> Stage 1 hazard line -- sits at z = +/-120. Tying the spine's ends to the
+--- same source keeps them on that line if a stage ever changes depth.
+local SPINE_HALF_Z = select(4, Stages.bounds(1))
+
+--- Each of the spine's four corners is chamfered by SPINE_CORNER_CUT studs on each leg.
+--- The cut is NOT punched out of the tile grid -- 3-stud tiles can only give a
+--- staircase, and the ask was a clean line -- it is a thin flat right-triangle plate
+--- (a WedgePart) in the plaza's own green, laid over each squared-off grey corner so
+--- the grey/green boundary there is one straight 45-degree edge. See `buildSpineCorners`;
+--- `Hub.inPad` itself stays a plain rectangle.
+local SPINE_CORNER_CUT = 16
 
 -- ── Layout ────────────────────────────────────────────────────────────────────
 -- Everything here is world space. The plaza's walking surface is at Y = 0, and
@@ -131,6 +165,20 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 Hub.PLAZA = { minX = -65, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = -1.5 }
 Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
 
+--- Is (x, z) inside the grey central spine? See PAD_FRAC_X (width) and SPINE_HALF_Z
+--- (length): a plain rectangle, `PAD_FRAC_X` of the plaza wide, centred on the plaza's
+--- own X midpoint and on z = 0, ending at +/-SPINE_HALF_Z (level with the Camp -> Stage 1
+--- hazard border). The four corners are eased separately, by `buildSpineCorners` laying
+--- a green plate over each -- not here -- so this stays a clean rectangle test both
+--- callers can agree on to the stud. Exported because Plots.buildApron carries the same
+--- band on past the plaza's north and south edges.
+function Hub.inPad(x: number, z: number): boolean
+	local p = Hub.PLAZA
+	local cx = (p.minX + p.maxX) / 2
+	local halfWidth = (p.maxX - p.minX) / 2 * PAD_FRAC_X
+	return math.abs(x - cx) < halfWidth and math.abs(z) < SPINE_HALF_Z
+end
+
 -- ── The floor ─────────────────────────────────────────────────────────────────
 -- THE PLAZA IS A CHECKERBOARD OF STUDDED TILES, not one flat slab. A single colour
 -- reads as a void with things parked on it: nothing tells you how big the courtyard
@@ -154,6 +202,15 @@ Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands
 -- face instead of a many-toothed checkered stripe, and the slab is what everything
 -- actually stands on. The slab's top is recessed by exactly CAP, so the walking
 -- surface is still PLAZA.topY and nothing standing on the plaza has to move.
+--
+-- A GREY SPINE RUNS DOWN THE CENTRE -- see PAD_FRAC_X / SPINE_HALF_Z / PAD_DARK /
+-- PAD_LIGHT, Hub.inPad and the `pad` flag on TileOpts. It is not separate geometry,
+-- just those same cap tiles painted a different pair in a north-south band; footing
+-- and height are the plaza's everywhere. The plaza paints its own stretch; the apron
+-- (Plots.buildApron) carries it a little past the plaza's north and south edges, out
+-- to where the Camp -> Stage 1 hazard border ends. The one bit of real geometry is
+-- `buildSpineCorners` -- four small green plates that ease the spine's square corners
+-- into a clean 45-degree line the tile grid could not.
 Hub.TILES = 55
 local CAP = 0.4
 
@@ -180,6 +237,12 @@ export type TileOpts = {
 	-- optional and additive so every existing caller (the plaza itself, Plots'
 	-- pads/apron) is untouched -- none of them pass this.
 	colorAt: ((x: number, z: number) -> (string, string))?,
+	-- Overlay the grey central spine (see `Hub.inPad` / PAD_DARK / PAD_LIGHT) on top of
+	-- whatever this rect would otherwise tile: any tile whose centre falls in the band
+	-- comes out grey instead. Applied AFTER `colorAt`, so a gradient board still wins
+	-- everywhere the spine does not reach. The plaza and the apron both set this so the
+	-- one strip runs unbroken across their shared edge.
+	pad: boolean?,
 	origin: CFrame?, -- default identity -- see this type's own comment above
 }
 
@@ -260,6 +323,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	local light = o.light or PLAZA_LIGHT
 	local skip = o.skip
 	local colorAt = o.colorAt
+	local padOverlay = o.pad
 
 	local origin = o.origin or CFrame.new(0, 0, 0)
 	local size = (p.maxX - p.minX) / Hub.TILES
@@ -291,6 +355,9 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 			if colorAt then
 				tileDark, tileLight = colorAt(cx, cz)
 			end
+			if padOverlay and Hub.inPad(cx, cz) then
+				tileDark, tileLight = PAD_DARK, PAD_LIGHT
+			end
 
 			build(parent, origin, {
 				name = "Tile",
@@ -320,7 +387,13 @@ local function buildPlaza(hub: Model)
 	-- instead of buried in it.
 	local tiles = Instance.new("Folder")
 	tiles.Name = "Tiles"
-	Hub.tileRect(tiles, p)
+
+	-- The board is one call: the whole plaza in its green pair, EXCEPT the central grey
+	-- spine, which `pad = true` paints on the same grid (not a second tileRect laid on
+	-- top) so there is one tile per square, no z-fight, and the checker parity carries
+	-- straight through the spine edge. Plots.buildApron makes the identical call over the
+	-- apron, so the strip runs unbroken north and south past the plaza's own edges.
+	Hub.tileRect(tiles, p, { pad = true })
 	tiles.Parent = hub
 
 	-- NO RIM ON ANY SIDE ANY MORE. Three cream strips used to run along the north,
@@ -333,6 +406,48 @@ local function buildPlaza(hub: Model)
 	-- The east edge never had one, for a version of the same argument: it butts into
 	-- the stage plate, and a rim there would draw a false seam across the boundary that
 	-- is supposed to read as continuous ground. All four edges agree now.
+end
+
+--- Ease the grey spine's four square corners into a clean 45-degree line. The tile grid
+--- can only staircase a diagonal, so each corner instead gets a thin flat right-triangle
+--- plate (a WedgePart) in the plaza's own light green, laid over the squared-off grey so
+--- the grey/green boundary there reads as one straight edge. SPINE_CORNER_CUT is each
+--- leg; the plate is nudged OVERHANG studs past the spine's edges so it fully covers the
+--- grey corner however the apron's tiles happened to clip there (the overhanging part is
+--- green over green, invisible).
+---
+--- All four corners sit at +/-SPINE_HALF_Z, which is out on the apron, not the plaza --
+--- but the plate is the spine's own detail, so it lives on the Hub model with the rest
+--- of the spine rather than in the apron folder.
+local function buildSpineCorners(hub: Model)
+	local p = Hub.PLAZA
+	local cx = (p.minX + p.maxX) / 2
+	local halfWidth = (p.maxX - p.minX) / 2 * PAD_FRAC_X
+	local leg = SPINE_CORNER_CUT
+	local OVERHANG = 3
+
+	-- At yaw 0 the plate's centre sits this far from its right-angle corner; it turns
+	-- with the plate for the other three.
+	local centreFromCorner = Vector3.new(leg / 2, 0, -leg / 2)
+
+	-- (sx, sz) picks the corner; yaw turns the right-angle to face the spine's interior.
+	for _, k in { { sx = -1, sz = 1, yaw = 0 }, { sx = 1, sz = 1, yaw = 90 }, { sx = 1, sz = -1, yaw = 180 }, { sx = -1, sz = -1, yaw = 270 } } do
+		local turn = Kit.ang(0, k.yaw, 0)
+		local corner = Vector3.new(cx + k.sx * (halfWidth + OVERHANG), 0, k.sz * (SPINE_HALF_Z + OVERHANG))
+		local centre = corner + turn * centreFromCorner
+		build(hub, CFrame.new(0, 0, 0), {
+			name = "SpineCornerCut",
+			class = "WedgePart",
+			pos = { centre.X, p.topY - 0.19, centre.Z },
+			-- WedgePart laid flat: (thin Y, leg along X, leg along Z), then turned.
+			size = { 0.4, leg, leg },
+			rot = turn * Kit.ang(0, 0, -90),
+			color = PLAZA_LIGHT,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
 end
 
 --- THE BLACKOUT ANCHOR — see ExposureService.baseCampCFrame.
@@ -383,6 +498,7 @@ local function createHub(): Model
 	Kit.stamp(hub, BUILDER_SOURCE, BUILDER_VERSION)
 
 	buildPlaza(hub)
+	buildSpineCorners(hub)
 	buildSpawns(hub)
 
 	return hub
