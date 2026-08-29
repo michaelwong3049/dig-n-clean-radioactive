@@ -65,6 +65,7 @@ local LEASH = 16
 type Session = {
 	uid: string,
 	stand: BasePart,
+	returnTo: CFrame?,
 	model: Instance?,
 	spraying: boolean,
 	patchIndex: number?,
@@ -74,6 +75,11 @@ type Session = {
 }
 
 local sessions: { [Player]: Session? } = {}
+
+-- Forward-declared: `begin` ends an existing session (pressing E again is how you
+-- leave) and is defined above `finish` in reading order, because starting a wash is
+-- the interesting half.
+local finish: (player: Player, reason: string?) -> ()
 
 local stateRemote: any = nil
 local inputRemote: any = nil
@@ -203,7 +209,7 @@ local function push(player: Player, session: Session?, data: any)
 	})
 end
 
-local function finish(player: Player, reason: string?)
+function finish(player: Player, reason: string?)
 	local session = sessions[player]
 	if session == nil then
 		return
@@ -213,6 +219,15 @@ local function finish(player: Player, reason: string?)
 	if session.model then
 		session.model:Destroy()
 	end
+
+	-- Step back off the mark, so ending a wash does not leave you standing inside the
+	-- tub's prompt re-triggering it by accident.
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if session.returnTo and root and root:IsA("BasePart") then
+		root.CFrame = session.returnTo
+	end
+
 	stateRemote:FireClient(player, nil)
 	if reason then
 		resultRemote:FireClient(player, reason)
@@ -225,8 +240,13 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 	if data == nil then
 		return false, "your save hasn't loaded"
 	end
+	-- PRESSING E AGAIN IS HOW YOU LEAVE. The player is planted on the mark for the
+	-- duration, so walking out of the leash -- the only other exit -- is precisely the
+	-- thing they cannot do. Without this the bay was a one-way door, which is exactly
+	-- how it was reported ("puts me in this weird view that i cannot exit").
 	if sessions[player] then
-		return false, "already washing"
+		finish(player, "stopped washing")
+		return false, ""
 	end
 
 	if data.heldUid == "" then
@@ -275,9 +295,14 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		return false, "this station is broken"
 	end
 
+	local spot = basin.Parent and basin.Parent:FindFirstChild("WashSpot")
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+
 	local session: Session = {
 		uid = item.uid,
 		stand = stand,
+		returnTo = if root and root:IsA("BasePart") then root.CFrame else nil,
 		model = nil,
 		spraying = false,
 		patchIndex = nil,
@@ -291,6 +316,16 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 
 	session.model = placeOnStand(stand, item)
 	sessions[player] = session
+
+	-- PLANT THEM ON THE MARK. The camera is a fixed side-on shot composed against
+	-- WashSpot and WashStand (build/Plots), so the framing is only right if the player
+	-- is actually standing where the geometry says. Approaching from an angle and
+	-- being framed from the front is what produced "a weird view where nothing
+	-- happens": the character was behind the camera and the item filled the screen.
+	if spot and spot:IsA("BasePart") and root and root:IsA("BasePart") then
+		root.CFrame = spot.CFrame
+	end
+
 	push(player, session, data)
 
 	return true, `washing {def.name} with {Liquids.get(stats.liquidId).name}`
@@ -402,6 +437,14 @@ function WashService.start()
 	inputRemote.OnServerEvent:Connect(function(player: Player, request: any)
 		local session = sessions[player]
 		if session == nil or type(request) ~= "table" then
+			return
+		end
+		if request.stop == true then
+			-- The keyboard escape hatch. The prompt re-press is the discoverable exit;
+			-- this is the one that works even if the prompt is somehow not showing,
+			-- because "stuck in a camera with no way out" must not be reachable by any
+			-- route at all.
+			finish(player, "stopped washing")
 			return
 		end
 		session.spraying = request.spraying == true

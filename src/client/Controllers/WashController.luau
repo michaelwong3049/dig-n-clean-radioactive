@@ -10,11 +10,24 @@
 
 	THE CAMERA MUST COME BACK ON EVERY PATH, and this is the one thing in here that is
 	genuinely dangerous. A player stuck in a Scriptable camera has no way out short of
-	rejoining, and there are five ways a session ends: finishing, walking out of the
-	leash, the item leaving the bag, a dead profile, and a respawn. All five arrive
-	here as the same thing — a nil WashState — and `stop()` is idempotent so it does
-	not matter how many times or in what order they land. CharacterAdded also calls it
-	blind, because a respawn mid-wash is the one case where no remote fires at all.
+	rejoining. Sessions end six ways: finishing, pressing E at the tub again, pressing
+	Q, walking out of the leash, the item leaving the bag, and a respawn. All of them
+	arrive here as the same thing — a nil WashState — and `stop()` is idempotent, so it
+	does not matter how many times or in what order they land. CharacterAdded also
+	calls it blind, because a respawn mid-wash is the one case where no remote fires.
+
+	THE FIRST VERSION HAD NO EXIT AT ALL, and it shipped that way. Walking out of the
+	leash was the only end condition, and the server pins WalkSpeed to 0 for the
+	duration — so the single way out was the single thing the player could not do. Two
+	were added: the prompt re-press (discoverable, it is the same button that got you
+	in) and Q (checked before `gameProcessedEvent`, so no GUI can swallow it).
+
+	THE SHOT IS SIDE-ON, framed from a WashCam anchor off to the left of a WashSpot the
+	player is planted on (build/Plots). The first version framed from in FRONT of the
+	tub, which put the camera roughly where the player was standing: you saw a tub
+	filling the screen, no character, and no hose. You are meant to see yourself in
+	profile holding the hose with the item across from you and the stream crossing
+	between the two.
 
 	PATCH BLOBS ARE PLACED DETERMINISTICALLY, from the patch's index through a
 	golden-angle spiral. They have to be: WashState arrives at 10 Hz, and blobs placed
@@ -377,7 +390,25 @@ function Wash.start()
 	end)
 
 	UserInputService.InputBegan:Connect(function(input, processed)
-		if processed or state == nil then
+		if state == nil then
+			return
+		end
+
+		-- THE ESCAPE HATCH, and it is checked BEFORE `processed` on purpose. Every
+		-- other input here is a game action that a GUI is entitled to swallow; "let me
+		-- out" is not. Being stuck in a Scriptable camera with the character pinned in
+		-- place is unrecoverable short of rejoining, so the way out must not depend on
+		-- no other UI happening to be under the cursor.
+		--
+		-- Pressing E at the tub again is the discoverable exit (the prompt is right
+		-- there and WashService ends the session on a re-trigger). This is the one that
+		-- works even if the prompt is somehow not showing.
+		if input.KeyCode == Enum.KeyCode.Q or input.KeyCode == Enum.KeyCode.ButtonB then
+			inputRemote:FireServer({ stop = true })
+			return
+		end
+
+		if processed then
 			return
 		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then

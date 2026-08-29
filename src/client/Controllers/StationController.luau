@@ -1,34 +1,39 @@
 --[[
 	StationController.lua — the base camp panel.
 
-	Appears when you are standing at the decon station or the trader, and lists what is
-	in your bag. Select a row, then act on it. Placeholder art, real information: the
-	point of Phase 1 is finding out whether the verbs feel good, and the verbs here are
-	SCRUB, SELL and RACK.
+	Appears at the trader, the shops, and the exhibition boards. Select a row, then act
+	on it. The one verb left on the list itself is SELL — scrubbing and racking both
+	left this file, see below.
 
-	The panel deliberately shows the SAME list at both stations but offers different
-	verbs, because that is the design's actual shape — the decon station is where the
-	clock stops and dirt comes off, the trader is only a till.
+	THREE MODES NOW, AND THE SHRINKING IS THE POINT. shop, plot and pedestal each
+	replace the list with their own body; trader is the list itself. Every one of them
+	arrives on the SAME StationState tick (DeconService fills `offer` / `plotView` /
+	`standView` depending on where you stand), which is why adding a station kind has
+	never needed a new remote and should not start needing one.
 
-	FOUR MODES, ONE PANEL, ONE REMOTE. decon/trader are the list above; shop, plot and
-	pedestal each replace the list with their own body and hide the action row. Every
-	one of them arrives on the SAME StationState tick (DeconService fills `offer` /
-	`plotView` / `standView` depending on where you stand), which is why adding a
-	station kind has never needed a new remote and should not start needing one.
+	TWO MODES WERE DELETED, ON REQUEST, AND BOTH DELETIONS FIXED SOMETHING.
 
-	THERE WAS A FIFTH MODE AND DELETING IT WAS THE POINT. The wash pad used to open a
-	panel here listing all ten liquids and their live odds. It was accurate, and it was
-	the wrong shape entirely: stepping on a big lit button in the world and having a
-	menu appear over the screen is a menu wearing a button's clothes. The pad now
-	answers in the world — it flashes the rolled liquid's colour and names it on its own
-	billboard (LiquidService) — and the only liquid UI left is LiquidController's
-	persistent corner badge, which never pops up because it is always there.
+	The wash pad used to open a panel listing all ten liquids and their live odds.
+	Stepping on a big lit button in the world and having a menu appear over the screen
+	is a menu wearing a button's clothes; the pad answers in the world now (it flashes
+	the rolled liquid's colour and names it on its own billboard, LiquidService).
 
-	WASHING LEFT THIS PANEL TOO, for the same reason. `HOLD TO SCRUB` was a button that
-	cleaned an item you could not see; the tub at the cleansing station now owns that
-	verb, with the item physically on it (WashService / WashController). What is left
-	here is what still has no world object: the bag list, RACK, and the Quarantine
-	Locker.
+	The decon station used to open the bag list with a HOLD TO SCRUB button. All of
+	that moved to the tub — hold the item, press E, hose it — and removing the panel
+	turned out to be load-bearing rather than cosmetic: it sat under the crosshair, so
+	the click meant to start the spray arrived with `gameProcessedEvent` true and the
+	hose never fired. "I press E and nothing happens" was this panel eating the input.
+
+	WHAT WENT WITH THE DECON PANEL, stated plainly because it is a real loss: the RACK
+	button and the Quarantine Locker rows. The locker still exists in the profile and
+	DeconService still implements `rack`, but nothing in the world triggers it any
+	more. PLAN §10.2 wants a physical locker anyway; see TODO §5b.
+
+	PANEL_KINDS IS AN ALLOWLIST, NOT A FALLTHROUGH, and that is not stylistic. The
+	trader branch is last and unguarded, so any station kind this file does not know
+	about lands in it — which is exactly what happened the first time a mode was
+	deleted: the wash pad started opening a panel titled TRADER.
+
 
 	THE PANEL SITS AT LITERAL SCREEN-CENTRE, AND IT DID NOT USED TO.
 	It was anchored at `UDim2.new(0.5, 0, 0.5, -Dock.RESERVE / 2)` — centred in the
@@ -92,7 +97,6 @@ local Station = {}
 local COLOR = UIKit.C
 
 local ROWS = 9
-local LOCKER_ROWS = 3
 
 -- WHICH STATION KINDS THIS PANEL HAS A BODY FOR, and it is an allowlist rather than
 -- a fallthrough for a reason that bit immediately. The decon/trader branch is LAST in
@@ -101,8 +105,14 @@ local LOCKER_ROWS = 3
 -- panel titled TRADER. A station kind with no panel must open NOTHING, and the wash
 -- pad is deliberately the first one: it is a button in the world, and the whole point
 -- of this pass was that pressing it shows no UI at all.
+--
+-- DECON IS NOT IN HERE ANY MORE, ON REQUEST. Walking up to the cleansing station used
+-- to open a panel over the screen; now the only thing there is the E prompt on the
+-- tub, which is the whole interaction. It also fixed a bug nobody had diagnosed yet:
+-- that panel sat under the crosshair, so the click that was supposed to start the
+-- hose arrived with `gameProcessedEvent` true and the spray never began. "Nothing
+-- happens" was the panel eating the input.
 local PANEL_KINDS: { [string]: boolean } = {
-	decon = true,
 	trader = true,
 	shop = true,
 	plot = true,
@@ -610,21 +620,6 @@ local function build(): ScreenGui
 		table.insert(ui.rows, makeRow(panel, 10 + index))
 	end
 
-	ui.lockerTitle = UIKit.label(panel, {
-		name = "LockerTitle",
-		size = UDim2.new(1, 0, 0, 22),
-		font = UIKit.Font.body,
-		textSize = 15,
-		color = COLOR.red,
-		visible = false,
-	})
-	ui.lockerTitle.LayoutOrder = 40
-
-	ui.lockerRows = {}
-	for index = 1, LOCKER_ROWS do
-		table.insert(ui.lockerRows, makeRow(panel, 40 + index))
-	end
-
 	local actions = Instance.new("Frame")
 	actions.LayoutOrder = 60
 	actions.Size = UDim2.new(1, 0, 0, 48)
@@ -644,38 +639,16 @@ local function build(): ScreenGui
 	actionLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 	actionLayout.Parent = actions
 
+	-- The only button left in this row: RACK went with the decon panel.
 	ui.sellButton = UIKit.button(actions, {
 		name = "Sell",
-		size = UDim2.new(0.48, 0, 1, 0),
+		size = UDim2.fromScale(1, 1),
 		font = UIKit.Font.body,
 		textSize = 17,
 		color = COLOR.amber,
 		text = "SELL",
 	})
 	ui.sellButton.LayoutOrder = 2
-
-	ui.rackButton = UIKit.button(actions, {
-		name = "Rack",
-		size = UDim2.new(0.48, 0, 1, 0),
-		font = UIKit.Font.body,
-		textSize = 17,
-		color = COLOR.dim,
-		text = "RACK",
-	})
-	ui.rackButton.LayoutOrder = 3
-
-	-- WHERE THE SCRUB BUTTON USED TO BE, and deliberately a LABEL rather than another
-	-- button. There is no wash verb on this panel any more -- the tub owns it -- so
-	-- what belongs here is the answer to "what happens if I take this to the tub",
-	-- which is a sentence, not a control.
-	ui.washHint = UIKit.label(panel, {
-		name = "WashHint",
-		size = UDim2.new(1, 0, 0, 22),
-		font = UIKit.Font.body,
-		textSize = 15,
-		color = COLOR.blue,
-	})
-	ui.washHint.LayoutOrder = 55
 
 	ui.toast = UIKit.label(panel, {
 		name = "Toast",
@@ -843,13 +816,7 @@ local function render()
 		for _, row in ui.rows do
 			row.Visible = false
 		end
-		for _, row in ui.lockerRows do
-			row.Visible = false
-		end
-		ui.lockerTitle.Visible = false
-		ui.rackButton.Visible = false
 		ui.sellButton.Visible = false
-		ui.washHint.Visible = false
 		return
 	end
 
@@ -883,13 +850,7 @@ local function render()
 		for _, row in ui.rows do
 			row.Visible = false
 		end
-		for _, row in ui.lockerRows do
-			row.Visible = false
-		end
-		ui.lockerTitle.Visible = false
-		ui.rackButton.Visible = false
 		ui.sellButton.Visible = false
-		ui.washHint.Visible = false
 		return
 	end
 
@@ -954,48 +915,25 @@ local function render()
 				row.Visible = false
 			end
 		end
-		for _, row in ui.lockerRows do
-			row.Visible = false
-		end
-		ui.lockerTitle.Visible = false
-		ui.rackButton.Visible = false
 		ui.sellButton.Visible = false
-		ui.washHint.Visible = false
 		return
 	end
 
-	local atDecon = state.station == "decon"
-	ui.title.Text = if atDecon then "DECON STATION" else "TRADER"
-	ui.title.TextColor3 = if atDecon then COLOR.blue else COLOR.amber
-	ui.panelStroke.Color = if atDecon then COLOR.blue else COLOR.amber
-
-	-- THE HOSE IS ON THE SUBTITLE, NEXT TO THE TOOL, because the two are added
-	-- together and the player has to be able to see the sum. Showing only the
-	-- cleaner's potency here while DeconService clears patches against
-	-- cleaner + liquid is exactly the drift CarryService's own header warns about,
-	-- one file up from the payload instead of inside it.
-	local bonus = (state.effectivePotency or 0) - (state.potency or 0)
-	ui.subtitle.Text = if atDecon
-		then (
-			if bonus > 0
-				then string.format(
-					"$%d    %s + %s (potency %d)    clocks stopped",
-					state.cash or 0,
-					state.cleanerName or "",
-					state.liquidName or "",
-					state.effectivePotency or 1
-				)
-				else string.format("$%d    %s (potency %d)    clocks stopped", state.cash or 0, state.cleanerName or "", state.potency or 1)
-		)
-		else string.format("$%d    dirty items sell at 20%%", state.cash or 0)
+	-- TRADER ONLY down here now. This used to be the decon/trader fork; the decon half
+	-- moved into the world (the tub's E prompt) and took the Quarantine Locker rows and
+	-- the RACK button with it -- see this file's header.
+	ui.title.Text = "TRADER"
+	ui.title.TextColor3 = COLOR.amber
+	ui.panelStroke.Color = COLOR.amber
+	ui.subtitle.Text = string.format("$%d    dirty items sell at 20%%", state.cash or 0)
 
 	-- keep the selection valid
 	local stillThere = false
 	for _, item in state.items do
-		if item.uid == selected then stillThere = true break end
-	end
-	for _, item in state.locker do
-		if item.uid == selected then stillThere = true break end
+		if item.uid == selected then
+			stillThere = true
+			break
+		end
 	end
 	if not stillThere then
 		selected = if #state.items > 0 then state.items[1].uid else nil
@@ -1010,60 +948,15 @@ local function render()
 		end
 	end
 
-	ui.lockerTitle.Visible = #state.locker > 0
-	ui.lockerTitle.Text = `QUARANTINE LOCKER \u{2014} {#state.locker} waiting on a better cleaner`
-	for index, row in ui.lockerRows do
-		local item = state.locker[index]
-		if item then
-			paintRow(row, item, item.uid == selected)
-		else
-			row.Visible = false
-		end
-	end
-
-	-- Find the selected item to label the buttons honestly.
 	local chosen = nil
 	for _, item in state.items do
-		if item.uid == selected then chosen = item break end
-	end
-	if chosen == nil then
-		for _, item in state.locker do
-			if item.uid == selected then chosen = item break end
+		if item.uid == selected then
+			chosen = item
+			break
 		end
 	end
 
-	ui.rackButton.Visible = atDecon
-	ui.sellButton.Visible = not atDecon
-	ui.washHint.Visible = atDecon
-
-	-- THE STATUS LINE IS ALL THAT IS LEFT OF THE OLD SCRUB BUTTON. The verb moved to
-	-- the tub, but the ANSWER to "why can't I clean this" still belongs on the card
-	-- you are looking at. The liquid is named first because a player three feet from
-	-- a wash pad can act on "roll for Molten Lava" this minute, where "save up for a
-	-- Chem Bath" is a target; and the two are labelled TOOL and LIQUID explicitly,
-	-- because the old single sentence ("needs Acid Sponge, or Glacier Melt in the
-	-- hose") named one of each with nothing to say they were different kinds of thing.
-	if chosen == nil then
-		ui.washHint.Text = ""
-	elseif chosen.clean then
-		ui.washHint.Text = "clean \u{2014} ready to sell or display"
-		ui.washHint.TextColor3 = COLOR.green
-	elseif chosen.blockedBy then
-		ui.washHint.Text = if chosen.rescueLiquid
-			then `locked \u{2014} roll {chosen.rescueLiquid} at the pad, or buy the {chosen.needs} tool`
-			else `locked \u{2014} needs the {chosen.needs} tool; no liquid reaches this`
-		ui.washHint.TextColor3 = COLOR.red
-	elseif chosen.unlockedByLiquid then
-		-- The hose is the ONLY reason this is washable. Say so, or the player reads a
-		-- green light, concludes their cleaner got better, and is baffled when the
-		-- same item locks again the moment the canister empties.
-		ui.washHint.Text = "hold it and press E at the tub \u{2014} your liquid is what unlocks this"
-		ui.washHint.TextColor3 = COLOR.amber
-	else
-		ui.washHint.Text = "hold it and press E at the tub to wash"
-		ui.washHint.TextColor3 = COLOR.blue
-	end
-
+	ui.sellButton.Visible = true
 	ui.sellButton.Text = if chosen then `SELL  ${chosen.value}` else "SELL"
 end
 
@@ -1105,10 +998,6 @@ function Station.start()
 	for _, row in ui.rows do
 		bindRow(row)
 	end
-	for _, row in ui.lockerRows do
-		bindRow(row)
-	end
-
 	ui.sellButton.MouseButton1Click:Connect(function()
 		if selected then
 			actionRemote:FireServer({ action = "sell", uid = selected })
@@ -1130,12 +1019,6 @@ function Station.start()
 			end
 		end)
 	end
-
-	ui.rackButton.MouseButton1Click:Connect(function()
-		if selected then
-			actionRemote:FireServer({ action = "rack", uid = selected })
-		end
-	end)
 
 	ui.collectButton.MouseButton1Click:Connect(function()
 		actionRemote:FireServer({ action = "collect" })

@@ -115,7 +115,8 @@
 	                the single shared station + shower that used to live at camp.
 	                Carries a "Wash" ProximityPrompt; WashService wires it at boot.
 	    WashStand   IsWashStand = true — invisible; where the item sits during a wash.
-	    WashCam     invisible; the camera anchor WashController frames from.
+	    WashSpot    invisible; where the player is planted during a wash, facing the tub.
+	    WashCam     invisible; the side-on camera anchor WashController frames from.
 	    Plate       StationKind = "roller", Radius = 6 — the wash pad (see
 	                buildWashPad below). One per base, three steps from the basin.
 	    LuckBoard   SellsTrack = "Luck" + a ProximityPrompt — the wooden luck sign
@@ -138,7 +139,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 16
+local BUILDER_VERSION = 17
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -403,11 +404,21 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	build(m, origin, { name = "Water", pos = { 0, pad.topY + 1.85, cz }, size = { 6.2, 0.25, 4.2 }, color = C.cyan, material = "Neon", transparency = 0.35 })
 
-	-- WHERE THE ITEM SITS DURING A WASH, and where the camera watches it from. Both
-	-- are invisible anchors rather than numbers in WashController, for exactly the
-	-- reason ARCHITECTURE.md gives for the tool models' HoldCFrame attribute: framing
-	-- is a thing you judge by looking at it, so it has to be nudgeable in Studio
-	-- against live geometry instead of by editing code and rebooting.
+	-- THREE ANCHORS, AND THE SHOT IS COMPOSED OUT OF THEM RATHER THAN OUT OF NUMBERS
+	-- IN THE CONTROLLER. Framing is a thing you judge by looking at it, so it has to
+	-- be nudgeable in Studio against live geometry — the same reasoning ARCHITECTURE.md
+	-- gives for the tool models' HoldCFrame attribute.
+	--
+	--   WashStand  where the item sits
+	--   WashSpot   where the PLAYER stands, facing the tub
+	--   WashCam    a SIDE-ON camera that frames both of them
+	--
+	-- WHY THE PLAYER GETS PINNED TO A SPOT. The first version let you trigger the
+	-- prompt from anywhere inside 11 studs and then framed the shot from in front of
+	-- the tub — which put the camera roughly where the player was standing, so you saw
+	-- a tub, no character, and no hose. A fixed mark is what makes the shot reliable:
+	-- the camera knows where both subjects are because the geometry decided, not the
+	-- player's approach angle.
 	local stand = build(m, origin, {
 		name = "WashStand",
 		pos = { 0, pad.topY + 2.6, cz },
@@ -417,36 +428,59 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 		transparency = 1,
 		canCollide = false,
 	})
+	stand:SetAttribute("IsWashStand", true)
 
-	local cam = build(m, origin, {
-		name = "WashCam",
-		pos = { 0, pad.topY + 4.6, cz - 7.5 },
+	local spot = build(m, origin, {
+		name = "WashSpot",
+		pos = { 0, pad.topY + 3, cz - 6 },
 		size = { 1, 1, 1 },
 		color = C.steel,
 		material = "Metal",
 		transparency = 1,
 		canCollide = false,
 	})
-	-- Aimed at the stand rather than given a hand-written rotation. Kit.build's `rot`
-	-- takes fixed angles, and "point at that" is not a fixed angle once the plot's own
-	-- yaw is applied -- so the look-at is composed here, in the pad's local space,
-	-- and carried into world space by `origin` like everything else in this function.
-	cam.CFrame = origin * CFrame.lookAt(Vector3.new(0, pad.topY + 4.6, cz - 7.5), Vector3.new(0, pad.topY + 2.6, cz))
+	-- Faces the stand, so WashService can drop the character straight onto this CFrame
+	-- and have them looking at what they are about to hose.
+	spot.CFrame = origin * CFrame.lookAt(Vector3.new(0, pad.topY + 3, cz - 6), Vector3.new(0, pad.topY + 3, cz))
 
-	-- PRESS E TO WASH. Always enabled, because a ProximityPrompt is one shared
-	-- instance and cannot be shown to one player and hidden from another -- so the
-	-- "are you actually holding something dirty" test is the SERVER's, on trigger,
-	-- and it answers with a toast. That is also what makes "nothing happens if you
-	-- hold nothing" honest rather than a silent no-op.
+	local cam = build(m, origin, {
+		name = "WashCam",
+		pos = { -13, pad.topY + 4.5, cz - 3 },
+		size = { 1, 1, 1 },
+		color = C.steel,
+		material = "Metal",
+		transparency = 1,
+		canCollide = false,
+	})
+	-- SIDE-ON, off to the left, aimed at the midpoint between the player's mark and
+	-- the item. That is the shot the design asked for: you see your own character
+	-- holding the hose in profile and the object across from them, with the stream
+	-- crossing the frame between the two. A camera in front of the tub cannot show
+	-- that, because the player is behind it.
+	--
+	-- Composed here with CFrame.lookAt rather than given to Kit.build as a `rot`,
+	-- because Kit.build's rot takes fixed angles and "point at that" stops being a
+	-- fixed angle once the plot's own yaw is applied. `origin` carries it to world
+	-- space like everything else in this function.
+	cam.CFrame = origin * CFrame.lookAt(Vector3.new(-13, pad.topY + 4.5, cz - 3), Vector3.new(0, pad.topY + 3.2, cz - 3))
+
+	-- PRESS E TO WASH, AND PRESS IT AGAIN TO STOP. Always enabled, because a
+	-- ProximityPrompt is one shared instance and cannot be shown to one player and
+	-- hidden from another — so the "are you actually holding something dirty" test is
+	-- the SERVER's, on trigger, and it answers with a toast. That is also what makes
+	-- "nothing happens if you hold nothing" honest rather than a silent no-op.
+	--
+	-- The re-press is not a nicety. The player is pinned in place during a wash, so
+	-- walking out of the leash — the only other way to end a session — is exactly the
+	-- thing they cannot do. Without this, entering the bay was a one-way door.
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Wash"
 	prompt.ActionText = "Wash"
 	prompt.ObjectText = "Cleansing Station"
 	prompt.HoldDuration = 0.3
-	prompt.MaxActivationDistance = 11
+	prompt.MaxActivationDistance = 14
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = basin
-	stand:SetAttribute("IsWashStand", true)
 
 	for _, x in { -3.2, 3.2 } do
 		build(m, origin, { name = "Post", pos = { x, pad.topY + 3.5, cz + 1.5 }, size = { 0.4, 4, 0.4 }, color = C.steelDark, material = "Metal" })

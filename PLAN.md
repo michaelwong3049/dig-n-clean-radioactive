@@ -179,9 +179,9 @@ The item goes to your **Decon Station** (a portable rig at the stage entrance, o
 one you upgrade). Cleaning is a **skill mini-interaction**, not a progress bar:
 
 > **Build status: built.** Not the §16 fallback — the real thing. You hold the item, walk
-> to the tub at your base, and press **E**: the camera drops into third person, the item
-> goes on the stand, and you hose it down with whatever liquid the wash pad rolled you
-> until the contamination is gone. Patches your potency cannot reach render crusted and
+> to the tub at your base, and press **E**: you are planted on a mark, the camera cuts to a
+> **side-on** shot of you and the item, and you hose it down with whatever liquid the wash
+> pad rolled you until the contamination is gone. Press **E** again (or **Q**) to leave. Patches your potency cannot reach render crusted and
 > visibly refuse the stream. None of the numbers moved when this landed — it changed
 > *how* a patch comes off, never *whether* it can.
 

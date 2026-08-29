@@ -502,6 +502,13 @@ We shipped the fallback. This section is the two-slice plan to ship the real thi
       `StationController` gained a `PANEL_KINDS` allowlist, because the decon branch is
       the render fallthrough and deleting the roller branch made the wash pad open a
       panel titled TRADER — caught in play, not in review.
+- [ ] **The Quarantine Locker needs a world object.** Removing the decon panel (on
+      request — walking up to the tub should show only the E prompt) took RACK and the
+      locker rows with it. The locker still exists in the profile and `DeconService`
+      still implements `rack`, but nothing in the world triggers either any more, so
+      PLAN §10.2's "wish list made of your own bad luck" is currently unreachable. It
+      wants to be a physical rack beside the tub with its own prompt — which is what
+      §10.2 describes anyway, and better than the row it lost.
 - [ ] **Replicate the spray** — the stream is client-local in the slice above, which is
       against `ToolService`'s "what you hold is public storytelling" rule. It is
       defensible only because every cleansing station sits on its owner's own private
