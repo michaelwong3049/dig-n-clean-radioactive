@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 8
+local BUILDER_VERSION = 9
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -107,6 +107,14 @@ local SKIM = 0.26
 --- The stage colour layer sits BELOW the pools, so a pool still reads as spilled on
 --- the ground rather than buried under it. Low enough to be invisible as a step.
 local GROUND_SKIM = 0.06
+
+--- Dead wood, for `deadTree`. Darker and greyer than Kit.C.wood (5A4630, which is the
+--- warm living-wood brown the camp and the liveTree use) -- these are bark that has
+--- had the colour weathered out of it. Builder-local, same as WALL_DARK/WALL_LIGHT:
+--- nothing outside this file's trees needs them. Roughly one segment in four takes the
+--- darker tone so the flat facets read against each other (the trick foliageBlob uses).
+local DEAD_WOOD = "4A3A29"
+local DEAD_WOOD_DARK = "372A1D"
 
 --- The chain's north/south boundary walls. Doubled to 56 tall and dropped to a
 --- 4-stud tile (from 28/8) after a live look -- ~8,400 parts per side at this size
@@ -245,9 +253,16 @@ local BARREL_LIGHT_EVERY = 5
 --- already read sparser at a glance than the rebalance above assumed. The
 --- percentages in the paragraph above are now stale by a few points, not worth
 --- re-deriving for a six-pool difference.
-local THEME = {
+--- `scatter = true` is what actually turns a field's props on -- the scatter pass in
+--- buildStageScenery is gated on it, so a stage stays bare until its own rework flips
+--- the flag. Stage 2 is the first one back: a handful of big dead trees along the
+--- field's two long sides (the middle stays clear for walking and digging -- see
+--- scatterStageProps), each rolled to its own size so no two match. `props` is the
+--- tree count -- deliberately tiny, so every tree is a landmark.
+type StageTheme = { props: number, pools: number, kind: string, scatter: boolean? }
+local THEME: { [number]: StageTheme } = {
 	[1] = { props = 26, pools = 8, kind = "trees" },
-	[2] = { props = 34, pools = 10, kind = "houses" },
+	[2] = { props = 6, pools = 10, kind = "trees", scatter = true },
 	[3] = { props = 40, pools = 20, kind = "sirens" },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
@@ -354,6 +369,107 @@ local function foliageBlob(parent: Instance, origin: CFrame, center: { number },
 	end
 end
 
+--- A bare, forked dead tree (reference: a low-poly wasteland snag -- a tapered angular
+--- trunk that carries up through the crown while two or three limbs fork off it, each
+--- forking again into branches that lean outward and taper to sharp points).
+---
+--- Built the only way this generator can: square-section Block segments for the wood,
+--- a Wedge cap on every tip. SQUARE section, not Cylinder, on purpose -- the flat
+--- facets and hard edges ARE the look, a round trunk reads as a telephone pole. Each
+--- segment carries a small roll so an edge faces out rather than a flat face.
+---
+--- Recurses down a length/thickness ramp. Everything CanCollide=false (walk through
+--- it) and thin -- the same rules the file header sets for anything tall over a dig
+--- field, and the same the old one-box DeadTree followed.
+local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(0, 360), 0)
+
+	-- depth 4..3 = trunk: two thick, near-vertical segments. The split happens at the
+	-- TOP of depth 3, so a clear tall trunk stands before anything forks -- the
+	-- reference's proportions, not a shrub branching from the ground.
+	-- depth 2 = main limbs, depth 1 = branches, depth 0 = twig + point.
+	local function branch(cf: CFrame, length: number, thick: number, depth: number)
+		local isTrunk = depth >= 3
+		build(parent, cf, {
+			name = if isTrunk then "Trunk" else "Limb",
+			pos = { 0, length / 2, 0 },
+			size = { thick, length, thick },
+			color = if rng:NextNumber() < 0.28 then DEAD_WOOD_DARK else DEAD_WOOD,
+			material = "SmoothPlastic",
+			-- Barely any roll on the trunk (a visible kink there reads as broken, not
+			-- weathered); the crown can twist more freely.
+			rot = Kit.ang(0, 0, if isTrunk then rng:NextNumber(-2, 2) else rng:NextNumber(-6, 6)),
+			canCollide = false,
+		})
+
+		local tip = cf * CFrame.new(0, length, 0)
+
+		if depth == 0 then
+			-- The point. One Wedge tapers in a single plane -- from the angles a player
+			-- sees a field prop that reads as a flattened spike, which is the
+			-- reference's branch tips. Kept roughly in line with the twig, not yawed
+			-- randomly, so it does not stick out sideways.
+			build(parent, tip * Kit.ang(0, rng:NextNumber(-20, 20), 0), {
+				name = "Tip",
+				pos = { 0, thick * 0.9, 0 },
+				size = { thick * 0.7, thick * 1.9, thick * 0.7 },
+				color = DEAD_WOOD_DARK,
+				material = "SmoothPlastic",
+				shape = "Wedge",
+				canCollide = false,
+			})
+			return
+		end
+
+		-- The stem carries straight on past every fork -- almost dead vertical through
+		-- the trunk, leaning more up in the crown -- so the trunk reads as running all
+		-- the way up through it. Trunk segments keep their bearing (no yaw before the
+		-- lean) so the two-piece trunk stays a clean line.
+		if isTrunk then
+			branch(
+				tip * Kit.ang(rng:NextNumber(0, 3), 0, rng:NextNumber(-3, 3)),
+				length * rng:NextNumber(0.82, 0.92),
+				thick * rng:NextNumber(0.85, 0.93),
+				depth - 1
+			)
+		else
+			branch(
+				tip * Kit.ang(0, rng:NextNumber(0, 360), 0) * Kit.ang(rng:NextNumber(6, 16), 0, 0),
+				length * rng:NextNumber(0.76, 0.9),
+				thick * rng:NextNumber(0.64, 0.8),
+				depth - 1
+			)
+		end
+
+		-- Side limbs fork off at the trunk top (2-3) and the primary limbs (1-2); past
+		-- that a limb just runs to its point. Each takes its own bearing and leans out
+		-- from vertical -- further the higher it is, so the tree reaches up then spreads.
+		-- Kept long (little length drop) so the crown is a few reaching branches, not a
+		-- tight ball of stubs.
+		local forks = if depth == 3 then rng:NextInteger(2, 3) elseif depth == 2 then rng:NextInteger(1, 2) else 0
+		local yaw0 = rng:NextNumber(0, 360)
+		for i = 1, forks do
+			local yaw = yaw0 + (i - 1) * (360 / forks) + rng:NextNumber(-24, 24)
+			local lean = if depth == 3 then rng:NextNumber(18, 32) else rng:NextNumber(26, 42)
+			branch(
+				tip * Kit.ang(0, yaw, 0) * Kit.ang(lean, 0, 0),
+				length * rng:NextNumber(0.66, 0.82),
+				thick * rng:NextNumber(0.55, 0.7),
+				depth - 1
+			)
+		end
+	end
+
+	-- Per-tree size. `scale` is rolled wide so the stand still has clearly smaller and
+	-- clearly bigger trees, but the whole band sits high -- these are looming dead
+	-- giants over the field, not scrub. Length and thickness scale together so a
+	-- smaller tree is a proportionally smaller tree, never a thin tall one. Everything
+	-- downstream is a ratio of this trunk-base pair; the roll spans ~30 studs tall to
+	-- ~45 (the tallest is ~9 characters).
+	local scale = rng:NextNumber(1.2, 1.8)
+	branch(base, rng:NextNumber(5.2, 6.2) * scale, rng:NextNumber(2.5, 3.1) * scale, 4)
+end
+
 local function prop(
 	parent: Instance,
 	origin: CFrame,
@@ -364,25 +480,7 @@ local function prop(
 	ooze: { bright: string, deep: string, glow: string }
 )
 	if kind == "trees" then
-		build(parent, origin, {
-			name = "DeadTree",
-			pos = { x, 4, z },
-			size = { 1.1, 8, 1.1 },
-			color = C.wood,
-			material = "Wood",
-			canCollide = false,
-		})
-		for _ = 1, 3 do
-			build(parent, origin, {
-				name = "Branch",
-				pos = { x + rng:NextNumber(-1.8, 1.8), rng:NextNumber(5, 7.5), z + rng:NextNumber(-1.8, 1.8) },
-				size = { 3.2, 0.35, 0.35 },
-				color = C.wood,
-				material = "Wood",
-				rot = Kit.ang(0, rng:NextNumber(0, 180), rng:NextNumber(-25, 25)),
-				canCollide = false,
-			})
-		end
+		deadTree(parent, origin, x, z, rng)
 	elseif kind == "brush" then
 		-- Stage 1's Outer Ash stage only (see propKindFor): live scrub, not the dead
 		-- "trees" kind the rest of the stage uses — one or two small foliage blobs
@@ -548,6 +646,33 @@ local function prop(
 	end
 end
 
+--- Scatter dead trees along the field's two LONG sides, leaving the whole travel
+--- corridor down the middle clear -- the centre of a stage is where the player walks
+--- its length and does the digging, so the trees frame it instead of blocking it. A
+--- trimmed return of the loop removed in the strip-for-rework pass (`1b6ff88`); only
+--- runs for stages whose THEME entry sets `scatter` (Stage 2 so far). The barrels,
+--- ooze pools and set-piece props that loop also carried are still on the shelf.
+---
+--- The count splits as evenly as it can between the north and south edges. Within a
+--- side the trees sit in even cells across the full width but each is jittered up to
+--- half a cell, and each is pushed a random amount IN off the wall -- so the treeline
+--- reads as scattered, never as a fence. Deterministic off the stage rng.
+local function scatterStageProps(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+	local perSide = math.ceil(count / 2)
+	local placed = 0
+
+	for _, side in { -1, 1 } do -- -1 = north edge (z < 0), +1 = south edge (z > 0)
+		local n = math.min(perSide, count - placed)
+		for i = 0, n - 1 do
+			placed += 1
+			local cell = 2 * hx / n
+			local x = -hx + (i + 0.5 + rng:NextNumber(-0.5, 0.5)) * cell
+			local z = side * (hz - rng:NextNumber(4, 30))
+			deadTree(folder, origin, math.clamp(x, -hx, hx), z, rng)
+		end
+	end
+end
+
 local function buildStageScenery(parent: Instance, id: number)
 	local theme = THEME[id]
 	if theme == nil then
@@ -571,21 +696,21 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- this file's own header. The stage's colour identity (PLAN's "the coral one
 	-- is the detector shop" rule extended to stages) is no longer this plate's
 	-- job -- it now lives in the floor, from buildStageCheckerboard's two-tone board
-	-- (and StageFields.luau's plate paint underneath as a fallback). `origin`, `hx`,
-	-- `hz` and `rng` above are unused now that this function has nothing left to
-	-- place with them, kept for whatever replaces the props/pools below.
+	-- (and StageFields.luau's plate paint underneath as a fallback).
 
-	-- POOLS AND SCATTERED PROPS (OozePool/OozeRim, DeadTree/liveTree/brush, barrels,
-	-- houses/sirens/barriers/reactor/shards) DELIBERATELY REMOVED ON REQUEST, TO BE
-	-- REWORKED. This used to be two loops here: one scattering `theme.pools` ooze
-	-- pools (with Stage 1's own west-to-east thinning), and one scattering
-	-- `theme.props` set pieces on a jittered grid via `barrel`/`prop`. Both are gone
-	-- for now rather than commented out in place -- the full previous version,
-	-- including all its tuning rationale (pool counts per stage, the Stage 1 fade, the
-	-- brush/liveTree mix), is in git history on this file rather than left as dead
-	-- code here. `THEME`, `theme.pools`/`theme.props`, `prop()`, `barrel()`, and
-	-- `STAGE_LIGHT_BUDGET`/`BARREL_LIGHT_EVERY` are all still defined above and
-	-- untouched, ready for whatever replaces this.
+	-- THE REWORK, ONE STAGE AT A TIME. The strip-for-rework pass (`1b6ff88`) took out
+	-- two loops here -- ooze pools and a jittered-grid prop scatter. A sparse dead-tree
+	-- scatter comes back first, and only for stages that opt in via `theme.scatter`
+	-- (Stage 2 so far).
+	--
+	-- STILL ON THE SHELF: ooze pools (`theme.pools`), barrels (`barrel()`), and every
+	-- `prop()` set-piece kind for the fields that have not had their pass yet. `THEME`,
+	-- `prop()`, `barrel()` and the light-budget constants are all still defined above
+	-- and untouched -- the full previous implementation, with its per-stage tuning
+	-- rationale, is in git history on this file rather than dead code here.
+	if theme.scatter then
+		scatterStageProps(folder, origin, theme.props, rng, hx, hz)
+	end
 
 	folder.Parent = parent
 end
