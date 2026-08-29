@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 10
+local BUILDER_VERSION = 11
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -118,9 +118,9 @@ local DEAD_WOOD_DARK = "372A1D"
 
 --- Living leaf green, for `bush` in Stage 1's alive west half. Brighter and more
 --- saturated than the old muted "brush"/"liveTree" scrub greens -- these are meant to
---- pop against the grass like the reference. SmoothPlastic, not Neon, so bloom never
---- touches them: the "green = danger" rule is a NEON-in-a-stage rule, and a matte
---- shrub in Stage 1's own green end reads as life, not hazard.
+--- pop against the grass like the reference. Plastic (studded), never Neon, so bloom
+--- never touches them: the "green = danger" rule is a NEON-in-a-stage rule, and a
+--- matte shrub in Stage 1's own green end reads as life, not hazard.
 local BUSH_GREEN = "63B83A"
 local BUSH_GREEN_DARK = "4C9029"
 
@@ -382,9 +382,10 @@ end
 --- forking again into branches that lean outward and taper to sharp points).
 ---
 --- Built the only way this generator can: square-section Block segments for the wood,
---- a Wedge cap on every tip. SQUARE section, not Cylinder, on purpose -- the flat
---- facets and hard edges ARE the look, a round trunk reads as a telephone pole. Each
---- segment carries a small roll so an edge faces out rather than a flat face.
+--- a Wedge cap on every tip, studded on every face like the floor and walls. SQUARE
+--- section, not Cylinder, on purpose -- the hard edges and studded facets ARE the
+--- look, a round trunk reads as a telephone pole. Each segment carries a small roll so
+--- an edge faces out rather than a flat face.
 ---
 --- Recurses down a length/thickness ramp. Everything CanCollide=false (walk through
 --- it) and thin -- the same rules the file header sets for anything tall over a dig
@@ -403,7 +404,8 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 			pos = { 0, length / 2, 0 },
 			size = { thick, length, thick },
 			color = if rng:NextNumber() < 0.28 then DEAD_WOOD_DARK else DEAD_WOOD,
-			material = "SmoothPlastic",
+			material = "Plastic",
+			studs = true, -- studded like everything else in this world (floor, walls, bushes)
 			-- Barely any roll on the trunk (a visible kink there reads as broken, not
 			-- weathered); the crown can twist more freely.
 			rot = Kit.ang(0, 0, if isTrunk then rng:NextNumber(-2, 2) else rng:NextNumber(-6, 6)),
@@ -422,7 +424,8 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 				pos = { 0, thick * 0.9, 0 },
 				size = { thick * 0.7, thick * 1.9, thick * 0.7 },
 				color = DEAD_WOOD_DARK,
-				material = "SmoothPlastic",
+				material = "Plastic",
+				studs = true,
 				shape = "Wedge",
 				canCollide = false,
 			})
@@ -501,22 +504,18 @@ local function bush(parent: Instance, origin: CFrame, x: number, z: number, rng:
 		local oz = if i == 1 then 0 else rng:NextNumber(-1.6, 1.6)
 		local oy = if i == 1 then 0 else (i - 1) * s * 0.3 + rng:NextNumber(-0.5, 0.5)
 		-- Base block sunk ~0.4 stud so the bush grows out of the grass, not off it.
-		local block = build(parent, base, {
+		-- Studded on every face like the floor, the walls and the trees -- a tilted,
+		-- stacked block shows more than its top, so all six.
+		build(parent, base, {
 			name = "Bush",
 			pos = { ox, h / 2 - 0.4 + oy, oz },
 			size = { w, h, d },
 			color = if rng:NextNumber() < 0.55 then BUSH_GREEN else BUSH_GREEN_DARK,
-			-- Plastic, not SmoothPlastic: studs only render on Plastic (Hub.tileRect's
-			-- note), and studded blocks sit in this world -- which is studded floor to
-			-- studded wall -- far better than smooth blobs would. Every face, since a
-			-- tilted, stacked block shows more than its top.
 			material = "Plastic",
+			studs = true,
 			rot = Kit.ang(rng:NextNumber(-12, 12), rng:NextNumber(0, 90), rng:NextNumber(-12, 12)),
 			canCollide = false,
 		})
-		for _, face in { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" } do
-			(block :: any)[face] = Enum.SurfaceType.Studs
-		end
 	end
 end
 
