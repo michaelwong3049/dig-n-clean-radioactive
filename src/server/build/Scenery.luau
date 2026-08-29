@@ -855,11 +855,13 @@ local function scatterStage1Cracks(folder: Instance, origin: CFrame, halfX: numb
 			halfZ - 10
 		)
 		pixelAt(cx, cz, C.hazardBlack)
-		local armCount = rng:NextInteger(3, 4)
+		-- Enough arms to read as a full radial shatter rather than a Y. Evenly spaced
+		-- around the circle with a wide jitter so no two clusters look alike.
+		local armCount = rng:NextInteger(5, 8)
 		local base = rng:NextNumber(0, 360)
 		for a = 1, armCount do
-			local heading = base + (a - 1) * (360 / armCount) + rng:NextNumber(-22, 22)
-			arm(cx, cz, heading, rng:NextInteger(10, 16), 0)
+			local heading = base + (a - 1) * (360 / armCount) + rng:NextNumber(-24, 24)
+			arm(cx, cz, heading, rng:NextInteger(9, 16), 0)
 		end
 	end
 end
