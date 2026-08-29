@@ -17,6 +17,7 @@ local ORDER = {
 	"HudController", -- Phase 2: rad meter, vignette, distortion, blackout
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
 	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState
+	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
 	"IndexController", -- the item index GUI; bottom-right button, reads IndexState + Unearthed
 	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"DebugHudController",
