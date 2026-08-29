@@ -116,7 +116,7 @@ local GROUND_SKIM = 0.06
 local DEAD_WOOD = "4A3A29"
 local DEAD_WOOD_DARK = "372A1D"
 
---- Living leaf green, for `bush` in Stage 1's alive west end. Brighter and more
+--- Living leaf green, for `bush` in Stage 1's alive west half. Brighter and more
 --- saturated than the old muted "brush"/"liveTree" scrub greens -- these are meant to
 --- pop against the grass like the reference. SmoothPlastic, not Neon, so bloom never
 --- touches them: the "green = danger" rule is a NEON-in-a-stage rule, and a matte
@@ -265,11 +265,11 @@ local BARREL_LIGHT_EVERY = 5
 --- buildStageScenery is gated on it (and dispatches per stage), so a field stays bare
 --- until its own rework flips the flag. `props` is the item count for that field's
 --- scatter:
----   Stage 1 -- chunky green bushes in the alive west end (scatterBushes).
+---   Stage 1 -- chunky green bushes across the alive west half (scatterBushes).
 ---   Stage 2 -- big dead trees flanking the corridor (scatterEdgeTrees).
 type StageTheme = { props: number, pools: number, kind: string, scatter: boolean? }
 local THEME: { [number]: StageTheme } = {
-	[1] = { props = 7, pools = 8, kind = "trees", scatter = true },
+	[1] = { props = 9, pools = 8, kind = "trees", scatter = true },
 	[2] = { props = 6, pools = 10, kind = "trees", scatter = true },
 	[3] = { props = 40, pools = 20, kind = "sirens" },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
@@ -724,14 +724,14 @@ local function scatterEdgeTrees(folder: Instance, origin: CFrame, count: number,
 	end
 end
 
---- Stage 1 -- chunky green bushes in the ALIVE WEST END only. Stage 1's ground fades
---- green (west, where you walk in from camp) to dead tan (east); the scrub belongs on
---- the living side. Bushes are placed in the western ~35% of the field, on a jittered
---- grid, and they are allowed near the centreline -- they are low ground cover you see
---- over and walk through, not a wall.
+--- Stage 1 -- chunky green bushes across the ALIVE WEST HALF only. Stage 1's ground
+--- fades green (west, where you walk in from camp) to dead tan (east); the scrub
+--- belongs on the living side. Bushes fill a grid over the western half of the field,
+--- each nudged only a third of a cell so the scatter stays even, and they are allowed
+--- near the centreline -- they are low ground cover you see over and walk through.
 local function scatterBushes(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
 	local westEdge = -hx
-	local bandDepth = 2 * hx * 0.35 -- how far east the scrub reaches
+	local bandDepth = 2 * hx * 0.5 -- the western half of the field
 	local cols = math.ceil(math.sqrt(count * (bandDepth / (2 * hz))))
 	local rows = math.ceil(count / cols)
 
@@ -742,8 +742,8 @@ local function scatterBushes(folder: Instance, origin: CFrame, count: number, rn
 				break
 			end
 			placed += 1
-			local x = westEdge + (col + 0.5 + rng:NextNumber(-0.6, 0.6)) * (bandDepth / cols)
-			local z = -hz + (row + 0.5 + rng:NextNumber(-0.6, 0.6)) * (2 * hz / rows)
+			local x = westEdge + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (bandDepth / cols)
+			local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
 			bush(folder, origin, math.clamp(x, westEdge, westEdge + bandDepth), math.clamp(z, -hz, hz), rng)
 		end
 	end
@@ -778,7 +778,7 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- two loops here -- ooze pools and a jittered-grid prop scatter. They come back per
 	-- stage, gated on `theme.scatter`, each with its own bespoke placement (see the
 	-- scatter* functions): Stage 2's dead trees flank the corridor, Stage 1's bushes
-	-- cluster in its living west end.
+	-- fill its living west half.
 	--
 	-- STILL ON THE SHELF: ooze pools (`theme.pools`), barrels (`barrel()`), and every
 	-- `prop()` set-piece kind for the fields that have not had their pass yet. `THEME`,
