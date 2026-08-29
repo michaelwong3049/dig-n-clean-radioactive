@@ -107,10 +107,11 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 local PAD_FRAC_X = 0.76
 local PAD_DARK = "3D3F42"
 local PAD_LIGHT = "494B50"
---- Half the spine's north-south length. Stage 1 (like every stage) is 240 studs deep
+--- Half the spine's north-south length. Stage 1 (like every stage) is 200 studs deep
 --- and centred on z = 0, so its own edge -- where Scenery.buildStageBorderLines draws
---- the Camp -> Stage 1 hazard line -- sits at z = +/-120. Tying the spine's ends to the
---- same source keeps them on that line if a stage ever changes depth.
+--- the Camp -> Stage 1 hazard line -- sits at z = +/-100. Tying the spine's ends to the
+--- same source keeps them on that line: the chain went 240 -> 200 wide once already
+--- and this followed with no edit here.
 local SPINE_HALF_Z = select(4, Stages.bounds(1))
 
 --- Each of the spine's four corners is chamfered by SPINE_CORNER_CUT studs on each leg.
