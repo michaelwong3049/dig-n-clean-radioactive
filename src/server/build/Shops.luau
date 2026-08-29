@@ -18,17 +18,11 @@
 	promises never to build. It costs nothing to add because the shop system
 	is track-generic: it is three more counters with three more StationIds.
 
-	THE LOOK — a classic toy-store kiosk, not a toxic drum, not an archway.
-	The nuclear-drum reskin (round barrel counter, dome roof, trefoil badge) and,
-	later, a bowed rolled-edge canopy are both long gone, replaced with a wood
-	counter on four wood posts under a real peaked roof (`buildGableRoof` — two
-	flat panels tilted up to a centre ridge, this project's usual way of faking a
-	slope out of flat blocks), a little blocky shopkeeper standing behind the
-	counter, and a glowing bubble sign floating over the roof peak. Open on all
-	sides — no booth walls on the stalls themselves. The Outfitter shares the same
-	roof builder at building scale, over real walls. Per-shop colour-coding
-	survives fully intact — the roof colour, the sign, and the floor marker all use
-	`spec.color`, so "the coral one is the detector shop" still holds.
+	THE LOOK — the supplied classic-Roblox Gear Store reference. Each tool stall
+	has studded wooden posts, a slatted rear wall, an open counter with a steel cap,
+	a shallow hot-pink-and-white striped canopy and matching valance, a tiny rubber
+	duck on the roof, and the floating "Gear Store / Buy Helpful Items!" sign. The
+	Outfitter remains the larger peaked-roof building across the aisle.
 
 	IDENTITY STILL COMES FROM THE PROP, NOT THE STALL SHAPE. Every stall is the
 	same shape, so the differentiator is still the same big, silhouette-clear
@@ -36,10 +30,9 @@
 	bucket-and-brush) standing beside the counter, paired with a crate of
 	clutter for a "goods stacked outside the stall" read.
 
-	THE GLOW STAYS OUT OF GREEN. Two glowing elements per stall — the bubble sign
-	and a floor outline marking the buy radius — both use the shop's own accent
-	colour, never green, so "glowing green" still means exactly one thing anywhere
-	in the world: the ooze (PLAN §14).
+	THE GLOW STAYS OUT OF GREEN. The floor outline marking the buy radius uses the
+	shop's own accent colour, never green, so "glowing green" still means exactly
+	one thing anywhere in the world: the ooze (PLAN §14).
 
 	THE WORLD CONTRACT (unchanged by the reskin):
 	    StationKind = "shop"      -- what kind of thing you are standing at
@@ -74,19 +67,24 @@
 	north) is untouched — only the row positions moved, not which way anything
 	points.
 
-	X MOVED AGAIN, WHEN RING_CENTER PULLED TOWARD STAGE 1. RING_CENTER is no
-	longer the plaza's own midpoint (see Plots.luau's own comment on why) — it
-	moved from x=17.5 to x=32, so every X here carries that same +14.5 to stay
-	centred under it, same reasoning as the +17.5 correction above. THIS ROW'S
-	OWN FOOTPRINT IS WHAT CAPPED HOW FAR RING_CENTER COULD MOVE, not the pads —
-	the eastmost stall (Cleaner, at.x = centre + 42) plus its own ~11-stud
-	half-width is the first thing that would cross into Stage 1 (world x=100) if
-	pushed further; Plots.luau's SHOP_CLUSTER_EAST_REACH constant is that exact
-	number, kept in sync with these three x values by hand since this file has no
-	way to read Plots.luau's own layout (Plots requires Hub, and Hub requires
-	only Kit — a Shops<->Plots require would be fine on its own, but this file
-	stays a pure reskin of positions Plots.luau already computed, not a new
-	dependency, for the same reason the Z move above didn't add one either).
+	X BRIEFLY MOVED TO RING_CENTER, THEN CAME BACK. For a while every X here
+	carried a further +14.5 on top of the +17.5 above, to sit centred under
+	Plots.RING_CENTER (x=32) rather than the plaza's own midpoint (x=17.5) — one
+	uniform offset from a world coordinate the plaza no longer straddled. That
+	correction is REVERTED. Hub's grey central spine is a north-south strip
+	centred on the plaza midpoint (x=17.5, which is also the camp spawn datum),
+	and the cluster has to sit square on the spine, not hang off its east edge
+	with a wide empty grey margin to the west. So the stalls are back to
+	`17.5 + {-42, 0, +42}` and the Outfitter to x=17.5 — centred on the plaza
+	exactly as para 1 already describes, with the RING_CENTER detour undone.
+	Every pad still looks essentially straight at the cluster: 14.5 studs of
+	offset from RING_CENTER is nothing at the ring's 180-stud radius. Plots.luau's
+	SHOP_CLUSTER_EAST_REACH (53) is deliberately LEFT ALONE — the pad ring is not
+	moving — so it is now a conservative bound on how far east the ring could sit,
+	not a tight measurement of the Cleaner stall's east edge (which pulled ~14.5
+	studs back west with the rest of the row). This file still reads nothing from
+	Plots.luau: Plots requires Hub, Hub requires only Kit, and Shops stays a pure
+	statement of positions rather than a new Shops<->Plots dependency.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -94,31 +92,33 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
+local ItemModels = require(Shared.ItemModels)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 11
+local BUILDER_VERSION = 13
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
---- The three plaza stalls. `at` is world XZ; they face south, toward the shop
---- cluster's own centre (Plots.RING_CENTER) that every base on the semicircle
---- faces in turn.
+--- The three plaza stalls. `at` is world XZ; they face south (−Z), across the
+--- shop cluster's own centre aisle at z=0 toward the Outfitter. The row is
+--- centred on x=17.5 — the plaza midpoint, the grey central spine's centreline
+--- and the camp spawn datum, all the same coordinate — at a 42-stud pitch.
 local STALLS = {
-	{ track = "Detector", at = { -10, 22 }, color = C.shopDetector, tagline = "find it deeper" },
-	{ track = "Magnet", at = { 32, 22 }, color = C.shopMagnet, tagline = "pull it harder" },
-	{ track = "Cleaner", at = { 74, 22 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
+	{ track = "Detector", at = { -24.5, 22 }, color = C.shopDetector, tagline = "find it deeper" },
+	{ track = "Magnet", at = { 17.5, 22 }, color = C.shopMagnet, tagline = "pull it harder" },
+	{ track = "Cleaner", at = { 59.5, 22 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
 }
 
 --- The outfitter's three counters, on one bench facing the stalls across the
 --- shop cluster's own centre aisle. Radius 6 at a 13-stud pitch, so no two
 --- counters' circles overlap and standing at one is unambiguous.
 local OUTFITTER = {
-	at = { 32, -22 },
+	at = { 17.5, -22 },
 	pitch = 13,
 	counters = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },
@@ -158,7 +158,7 @@ local function buildFloorMarker(parent: Instance, origin: CFrame, x: number, z: 
 		build(parent, origin, {
 			name = "FloorMarker",
 			pos = { x + bar.dx, 0.08, z + bar.dz },
-			size = { 0.15, bar.w, bar.d },
+			size = { bar.w, 0.15, bar.d },
 			color = color,
 			material = "Neon",
 			canCollide = false,
@@ -166,46 +166,127 @@ local function buildFloorMarker(parent: Instance, origin: CFrame, x: number, z: 
 	end
 end
 
--- ── The pennant awning ───────────────────────────────────────────────────────
+-- ── Reference gear-store details ─────────────────────────────────────────────
 
---- A row of alternating-colour triangular flags hung from a thin rail along the
---- stall's front eave — the reference photo's candy-striped bunting canopy.
---- Each flag is a single WedgePart rather than a mirrored pair, which renders as
---- a right-triangle "shark tooth" pennant instead of a symmetric one: a
---- legitimate bunting style, and one part per flag instead of two.
----
---- WedgePart's uncut face sits in local Y-Z with the taper running along Z, so
---- `rot = Kit.ang(180, 90, 0)` is what turns that into a flat top edge, a
---- vertical left edge and a hypotenuse reaching down to the bottom-right when
---- viewed from the +Z approach — verified once against the actual approach
---- camera, the same way the sign's Back-face convention above was, rather than
---- trusted from rotation math alone.
----
---- Alternates `color` with a pale canvas rather than plain white — every other
---- colour already used in this file is a warm off-white (`C.canvasPale`,
---- `C.labelText`), and true white would be the one stark exception.
-local function buildPennantAwning(parent: Instance, origin: CFrame, centerX: number, z: number, y: number, count: number, flagWidth: number, color: string)
-	local flagHeight = 1.6
-	local thickness = 0.2
-	local totalWidth = count * flagWidth
-	local startX = centerX - totalWidth / 2
+local GEAR_STORE_PINK = "FF00E5"
 
-	build(parent, origin, { name = "AwningRail", pos = { centerX, y, z }, size = { totalWidth + 0.4, 0.25, 0.25 }, color = C.hazardBlack, material = "Metal", shape = "Cylinder", rot = R.cylAlongX, canCollide = false })
+--- The reference roof is one shallow rectangular awning, striped front-to-back,
+--- with a short matching valance at the front. Separate studded Plastic parts
+--- keep every stripe crisp and give it the chunky classic-Roblox texture.
+local function buildStripedCanopy(parent: Instance, origin: CFrame): number
+	local stripeCount = 7
+	local stripeWidth = 2.5
+	local totalWidth = stripeCount * stripeWidth
+	local centerZ = -4
+	local centerY = 9.8
+	local depth = 14.5
+	local tiltDegrees = 4
+	local frontZ = centerZ + depth / 2
+	local frontY = centerY - math.sin(math.rad(tiltDegrees)) * (depth / 2)
 
-	for i = 1, count do
-		local flagColor = (i % 2 == 1) and color or C.canvasPale
-		local flagX = startX + (i - 0.5) * flagWidth
+	for index = 1, stripeCount do
+		local color = if index % 2 == 1 then GEAR_STORE_PINK else C.labelText
+		local x = -totalWidth / 2 + (index - 0.5) * stripeWidth
 		build(parent, origin, {
-			name = `PennantFlag{i}`,
-			pos = { flagX, y - flagHeight / 2, z },
-			size = { thickness, flagHeight, flagWidth - 0.15 },
-			color = flagColor,
-			material = "Fabric",
-			class = "WedgePart",
-			rot = Kit.ang(180, 90, 0),
+			name = `CanopyStripe{index}`,
+			pos = { x, centerY, centerZ },
+			size = { stripeWidth + 0.06, 0.45, depth },
+			color = color,
+			material = "Plastic",
+			rot = Kit.ang(tiltDegrees, 0, 0),
+			studs = true,
+			canCollide = false,
+		})
+		build(parent, origin, {
+			name = `CanopyValance{index}`,
+			pos = { x, frontY - 0.45, frontZ },
+			size = { stripeWidth + 0.06, 1.15, 0.45 },
+			color = color,
+			material = "Plastic",
+			studs = true,
 			canCollide = false,
 		})
 	end
+
+	for _, z in { centerZ - depth / 2 + 0.35, frontZ - 0.35 } do
+		local y = centerY - math.sin(math.rad(tiltDegrees)) * (z - centerZ) - 0.38
+		build(parent, origin, {
+			name = "CanopySupport",
+			pos = { 0, y, z },
+			size = { totalWidth, 0.4, 0.5 },
+			color = C.wood,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
+
+	return centerY + 0.25
+end
+
+--- Seven separated boards form the open slatted back seen most clearly in the
+--- third reference image. The gaps keep the booth airy instead of turning it
+--- into a solid shed.
+local function buildSlatWall(parent: Instance, origin: CFrame)
+	for index = 1, 7 do
+		build(parent, origin, {
+			name = `BackSlat{index}`,
+			pos = { 0, 0.8 + (index - 1) * 1.2, -10 },
+			size = { 14.8, 0.88, 0.55 },
+			color = C.woodLight,
+			material = "Plastic",
+			studs = true,
+		})
+	end
+end
+
+--- Large floating title copied from the reference's hierarchy: hot-pink store
+--- name with a black outline, then a smaller white call-to-action below it.
+local function buildGearStoreBillboard(adornee: BasePart)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "GearStoreSign"
+	gui.Adornee = adornee
+	gui.Size = UDim2.fromOffset(360, 90)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 12.4, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 40
+	gui.Parent = adornee
+
+	local title = Instance.new("TextLabel")
+	title.Name = "Title"
+	title.Size = UDim2.new(1, 0, 0, 54)
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.GothamBlack
+	title.Text = "Gear Store"
+	title.TextColor3 = Color3.fromHex(GEAR_STORE_PINK)
+	title.TextSize = 42
+	title.TextStrokeColor3 = Color3.fromHex(C.hazardBlack)
+	title.TextStrokeTransparency = 0
+	title.Parent = gui
+
+	local subtitle = Instance.new("TextLabel")
+	subtitle.Name = "Subtitle"
+	subtitle.Position = UDim2.fromOffset(0, 50)
+	subtitle.Size = UDim2.new(1, 0, 0, 34)
+	subtitle.BackgroundTransparency = 1
+	subtitle.Font = Enum.Font.GothamBold
+	subtitle.Text = "Buy Helpful Items!"
+	subtitle.TextColor3 = Color3.fromHex(C.labelText)
+	subtitle.TextSize = 25
+	subtitle.TextStrokeColor3 = Color3.fromHex(C.hazardBlack)
+	subtitle.TextStrokeTransparency = 0
+	subtitle.Parent = gui
+end
+
+local function buildRoofDuck(parent: Instance, origin: CFrame, roofY: number)
+	local duck = ItemModels.create("RubberDuck")
+	if duck == nil then
+		return
+	end
+	duck.Name = "RoofDuck"
+	duck:ScaleTo(0.55)
+	duck:PivotTo(origin * CFrame.new(0, roofY, -3.5) * CFrame.Angles(0, math.rad(15), 0))
+	duck.Parent = parent
 end
 
 -- ── Shop-specific props ─────────────────────────────────────────────────────────
@@ -376,6 +457,7 @@ export type CounterSpec = {
 	stationId: string?,
 	radius: number?,
 	material: string?,
+	studded: boolean?,
 }
 
 --- The wood counter desk — the interactive part — with a coloured trim cap on
@@ -394,13 +476,14 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 	local desk = build(parent, origin, {
 		name = "Counter",
 		pos = { 0, 1.1, z },
-		size = { 2.2, w, d },
+		size = { w, 2.2, d },
 		color = C.wood,
 		material = spec.material or "Wood",
+		studs = spec.studded,
 		attributes = attrs,
 	})
 
-	build(parent, origin, { name = "CounterTrim", pos = { 0, 2.25, z }, size = { 0.3, w + 0.4, d + 0.4 }, color = spec.color, material = "Plastic", canCollide = false })
+	build(parent, origin, { name = "CounterTrim", pos = { 0, 2.25, z }, size = { w + 0.4, 0.3, d + 0.4 }, color = spec.color, material = "Plastic", studs = spec.studded, canCollide = false })
 
 	return desk
 end
@@ -471,11 +554,10 @@ end
 
 -- ── The plaza stalls ────────────────────────────────────────────────────────────
 
---- One toy-store kiosk: a wood counter on four posts under a bowed, candy-striped
---- awning, a shopkeeper behind the counter, a glowing sign over the roof, a floor
---- marker for the buy radius, and the shop's signature prop plus a crate of
---- clutter beside it. Open on all sides — no booth walls — matching the arch
---- awning's own reference photo, which all three stalls now share.
+--- One classic-Roblox gear store: studded wood posts and rear slats, an open
+--- counter, a pink-and-white striped roof, a tiny display duck, and the reference
+--- image's floating two-line sign. The shop-specific prop and floor marker retain
+--- the gameplay colour-coding beneath the shared pink storefront.
 local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, tagline: string })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
@@ -487,28 +569,16 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- line is the only thing that needed to change for the whole stall to move.
 	local origin = CFrame.new(spec.at[1], Hub.PLAZA.topY, spec.at[2])
 
-	-- LIFTED 0.1 CLEAR OF THE PLAZA, and that tenth of a stud is load-bearing. The
-	-- deck is 0.6 thick, so at local y = -0.3 its top face lands exactly on origin's
-	-- own Y — the same plane as the plaza's own surface, whatever that plane
-	-- currently is. Two coplanar faces z-fight, which was invisible while both were
-	-- cream and is not now that the floor underneath is a checkerboard. A pad lying
-	-- ON the floor should sit on it, not in it.
-	--
-	-- CENTRED ON THE STALL, NOT ON THE ORIGIN. The posts/roof/counter cluster
-	-- sits between dz=-10 (back posts) and dz=+2 (front posts) -- centred on
-	-- z=-4, not z=0 -- because the origin is the OLD bowed-canopy stall's
-	-- centre, not this one's. A disc centred at z=0 put half its own radius
-	-- hanging out in front of the stall with nothing on it. Radius bumped
-	-- 10->11 too, since the widened posts' outer corners (see POST_DX/size
-	-- below) sit about 10.3 studs out from that centre.
+	-- A thin blue-grey floor is visible through the open sides in the reference.
+	-- It is non-colliding and lifted just enough to avoid z-fighting with the plaza.
 	build(m, origin, {
-		name = "Deck",
-		pos = { 0, -0.2, -4 },
-		size = { 0.6, 22, 22 },
-		color = C.plazaWarm,
+		name = "StallFloor",
+		pos = { 0, 0.05, -4 },
+		size = { 15, 0.1, 12 },
+		color = C.steelDark,
 		material = "Plastic",
-		shape = "Cylinder",
-		rot = R.cylUp,
+		studs = true,
+		canCollide = false,
 	})
 
 	-- Four chunky wood posts holding the roof up. Square-cut lumber, not round
@@ -526,89 +596,49 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- reason the checkerboard tiles were tuned to exactly 3x3 studs. A 1.1-wide
 	-- post face was too narrow for the pattern to be legible even though the
 	-- material was already correct.
-	local POST_HEIGHT = 9
-	local POST_SIZE = 2
-	local POST_DX = 6.5
+	local POST_SIZE = 1.5
+	local POST_DX = 7.1
 	for _, dx in { -POST_DX, POST_DX } do
 		for _, dz in { -10, 2 } do
+			local postHeight = if dz < 0 then 10 else 9.2
 			build(m, origin, {
 				name = "Post",
-				pos = { dx, POST_HEIGHT / 2, dz },
-				size = { POST_SIZE, POST_HEIGHT, POST_SIZE },
+				pos = { dx, postHeight / 2, dz },
+				size = { POST_SIZE, postHeight, POST_SIZE },
 				color = C.wood,
 				material = "Plastic",
 				shape = "Block",
+				studs = true,
 			})
 		end
 	end
+	buildSlatWall(m, origin)
 
 	-- THE COUNTER. This is the part the whole file exists to place correctly.
 	-- material = "Plastic" here (not buildCounter's own "Wood" default) so the
 	-- studded look stays consistent across the whole stall -- the Outfitter's
 	-- call to the same function passes no material and keeps its original Wood.
 	local counter = buildCounter(m, origin, {
-		color = spec.color,
-		width = 12,
-		depth = 3,
-		z = -6,
+		color = C.steel,
+		width = 14,
+		depth = 2.5,
+		z = 0.6,
 		stationKind = "shop",
 		stationId = spec.track,
 		radius = 12,
 		material = "Plastic",
+		studded = true,
 	})
-	billboard(counter, 260, 5.6, `{string.upper(spec.track)} SHOP`, spec.tagline, spec.color)
+	buildGearStoreBillboard(counter)
 
-	buildShopkeeper(m, origin, 0, -7.2, spec.color)
+	buildShopkeeper(m, origin, 0, -1.1, spec.color)
 
-	-- A real peaked roof -- same builder and the same reasoning as the
-	-- Outfitter building, not the bowed/rolled-edge canopy this stall used to
-	-- have. `halfDepth = 6` matches the post span exactly (dz -10 to +2, centred
-	-- on -4), so the eaves land right at the post tops (buildGableRoof's own
-	-- `clearance` now accounts for the panel's physical thickness on top of
-	-- that). `rise = 4` (was 3) to keep the peak's proportions with the taller
-	-- posts. `width = 15.4` (was 14) so the roof still overhangs the now-2-wide
-	-- posts (outer edge at x=±7.5) by a bit, instead of the posts poking out
-	-- past a roof sized for the old 1.1-wide ones. Plastic, same reason as the
-	-- posts and counter -- the Outfitter's own call is untouched.
-	local roofTop = buildGableRoof(m, origin, -4, POST_HEIGHT, 6, 4, 15.4, spec.color, "Plastic")
-
-	-- The candy-striped bunting awning, hung along the front eave. z=3.5 (was
-	-- 2.6) and flagWidth=1.1 (was 1.2) both shift to clear the now-2-wide front
-	-- posts: post face sits at z=3 (dz=2 + POST_SIZE/2), so the rail needs to
-	-- hang past that, and the flag row's half-width (5.5) now matches the
-	-- posts' new inner edge (6.5-1) instead of overlapping it.
-	buildPennantAwning(m, origin, 0, 3.5, POST_HEIGHT, 10, 1.1, spec.color)
-
-	-- The big tilted signboard -- the reference photo's storefront board, angled
-	-- back so it reads from ground level, floating clear above the roof ridge
-	-- rather than nested into the gable (nothing there to clip into at any tilt).
-	-- Block size is always {X, Y, Z} in local space with no rotation applied
-	-- here, so width has to be FIRST and height SECOND or this renders as a tall
-	-- obelisk instead of a wide sign board.
-	-- SignFrame is thinner than Sign, not thicker: the two share the same centre,
-	-- so whichever one is thicker pokes through and is what's actually visible
-	-- head-on. The old small sign relied on exactly this (SignOutline 0.3 thick
-	-- behind a 0.4-thick Sign) -- making the frame the thicker box here was
-	-- backwards and hid the glowing coloured panel and its text entirely behind
-	-- a solid wood face. Same ratio as before, just scaled up with the board.
-	local SIGN_TILT = Kit.ang(18, 0, 0)
-	local signY = roofTop + 2.9
-	local signZ = -3.6
-	build(m, origin, { name = "SignFrame", pos = { 0, signY, signZ }, size = { 10.6, 4.6, 0.32 }, color = C.wood, material = "Plastic", rot = SIGN_TILT, canCollide = false })
-	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, signZ }, size = { 9.8, 3.8, 0.44 }, color = spec.color, material = "Neon", rot = SIGN_TILT, canCollide = false })
-	-- Back (local +Z), not Front (-Z): players approach this booth from +Z,
-	-- coming down from the higher local-z porch toward the counter at z=-6, so
-	-- the face pointing back AT them is Back, not Front. Got this backwards on
-	-- the first pass and shipped a sign whose text only ever faced away from
-	-- the approach -- caught by checking from the actual approach camera angle,
-	-- not just confirming the parts existed. A pure X-axis tilt doesn't relabel
-	-- local faces, so Back still means the same thing on the tilted board.
-	Kit.surfaceText(sign, Enum.NormalId.Back, string.upper(spec.track), C.signText)
-	light(sign, spec.color, 30, 2.4)
+	local roofTop = buildStripedCanopy(m, origin)
+	buildRoofDuck(m, origin, roofTop)
 
 	-- The floor marker: a glowing outline of the buy radius, in the shop's own
 	-- colour — never green, see the header.
-	buildFloorMarker(m, origin, 0, -2, 10, 8, spec.color)
+	buildFloorMarker(m, origin, 0, 3.4, 10, 5, spec.color)
 
 	-- THE ACTUAL POINT OF THIS PASS: a big, shape-clear prop of the thing this shop
 	-- sells, standing beside the counter, plus a crate of clutter next to it.

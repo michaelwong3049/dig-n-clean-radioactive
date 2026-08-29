@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 11
+local BUILDER_VERSION = 12
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -107,6 +107,11 @@ local SKIM = 0.26
 --- The stage colour layer sits BELOW the pools, so a pool still reads as spilled on
 --- the ground rather than buried under it. Low enough to be invisible as a step.
 local GROUND_SKIM = 0.06
+
+-- Stage 1 keeps a clear lane down its centreline (z = 0), the walk-through path
+-- into the field -- scatterBushes pushes foliage at least this far off it so a
+-- bush never sprouts in the middle of the route.
+local BUSH_CENTRE_CLEARANCE = 28
 
 --- Dead wood, for `deadTree`. Darker and greyer than Kit.C.wood (5A4630, which is the
 --- warm living-wood brown the camp and the liveTree use) -- these are bark that has
@@ -726,13 +731,21 @@ end
 --- Stage 1 -- chunky green bushes across the ALIVE WEST HALF only. Stage 1's ground
 --- fades green (west, where you walk in from camp) to dead tan (east); the scrub
 --- belongs on the living side. Bushes fill a grid over the western half of the field,
---- each nudged only a third of a cell so the scatter stays even, and they are allowed
---- near the centreline -- they are low ground cover you see over and walk through.
-local function scatterBushes(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+--- each nudged only a third of a cell so the scatter stays even, and any that land
+--- within BUSH_CENTRE_CLEARANCE of z = 0 are pushed out to it so the walk-through
+--- lane down the middle of the field stays open.
+---
+--- All candidate bushes are built before the farthest ones are discarded. `bush`
+--- consumes the same deterministic RNG used by placement, so skipping a build in the
+--- loop would reshuffle every bush after it. Temporary folders let the surviving six
+--- retain their exact positions, sizes and colours while removing only the three with
+--- the greatest X coordinate (farthest east from the plaza entrance).
+local function scatterBushes(folder: Instance, origin: CFrame, count: number, removeFarthest: number, rng: Random, hx: number, hz: number)
 	local westEdge = -hx
 	local bandDepth = 2 * hx * 0.5 -- the western half of the field
 	local cols = math.ceil(math.sqrt(count * (bandDepth / (2 * hz))))
 	local rows = math.ceil(count / cols)
+	local candidates: { { folder: Folder, x: number } } = {}
 
 	local placed = 0
 	for row = 0, rows - 1 do
@@ -743,8 +756,28 @@ local function scatterBushes(folder: Instance, origin: CFrame, count: number, rn
 			placed += 1
 			local x = westEdge + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (bandDepth / cols)
 			local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
-			bush(folder, origin, math.clamp(x, westEdge, westEdge + bandDepth), math.clamp(z, -hz, hz), rng)
+			local candidate = Instance.new("Folder")
+			local clampedX = math.clamp(x, westEdge, westEdge + bandDepth)
+			local clampedZ = math.clamp(z, -hz, hz)
+			if math.abs(clampedZ) < BUSH_CENTRE_CLEARANCE then
+				clampedZ = (if clampedZ < 0 then -1 else 1) * BUSH_CENTRE_CLEARANCE
+			end
+			bush(candidate, origin, clampedX, clampedZ, rng)
+			table.insert(candidates, { folder = candidate, x = clampedX })
 		end
+	end
+
+	table.sort(candidates, function(a, b)
+		return a.x > b.x
+	end)
+	local removeCount = math.clamp(removeFarthest, 0, #candidates)
+	for index, candidate in candidates do
+		if index > removeCount then
+			for _, part in candidate.folder:GetChildren() do
+				part.Parent = folder
+			end
+		end
+		candidate.folder:Destroy()
 	end
 end
 
@@ -786,7 +819,7 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- rationale, is in git history on this file rather than dead code here.
 	if theme.scatter then
 		if id == 1 then
-			scatterBushes(folder, origin, theme.props, rng, hx, hz)
+			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
 		elseif id == 2 then
 			scatterEdgeTrees(folder, origin, theme.props, rng, hx, hz)
 		end
