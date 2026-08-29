@@ -269,7 +269,7 @@ local BARREL_LIGHT_EVERY = 5
 ---   Stage 2 -- big dead trees flanking the corridor (scatterEdgeTrees).
 type StageTheme = { props: number, pools: number, kind: string, scatter: boolean? }
 local THEME: { [number]: StageTheme } = {
-	[1] = { props = 14, pools = 8, kind = "trees", scatter = true },
+	[1] = { props = 7, pools = 8, kind = "trees", scatter = true },
 	[2] = { props = 6, pools = 10, kind = "trees", scatter = true },
 	[3] = { props = 40, pools = 20, kind = "sirens" },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
