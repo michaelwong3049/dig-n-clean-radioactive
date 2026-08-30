@@ -24,14 +24,18 @@
 -- SIGNALS_PER_STAGE USED TO BE KEPT PROPORTIONAL TO THAT SHARED AREA BY HAND, so
 -- `area / N` (and every search metric below) held constant regardless of the
 -- footprint: 96,000 / 90, then 80,000 / 75, both = 1066.67. THAT RATIO WAS
--- DELIBERATELY BROKEN, ON REQUEST: the 15%-smaller-footprint pass (400x200 ->
--- 340x170) kept N at 75, so `area / N` dropped to 770.67 and the search is now
--- ~28% denser everywhere. If you shrink the footprint again and want the search
--- feel back to where it was, that is the knob -- drop N to restore `area / N`.
+-- DELIBERATELY BROKEN, ON REQUEST, TWICE. The 15%-smaller-footprint pass (400x200
+-- -> 340x170) kept N at 75, dropping `area / N` to 770.67; the length-only pass
+-- after it (340x170 -> 290x170, X shrunk 15%, Z held) kept N at 75 again, dropping
+-- it further to 657.33. The search is ~38% denser than the 1066.67 days. Both-axis
+-- was ruled out at 290x144 because there is no N that clears Spec's search-feel
+-- floor (needs N <= 66) and its jackpot-count floor (needs N >= 69) at once. If you
+-- shrink again, dropping N is the lever -- and below ~69 the loot tables have to be
+-- re-weighted too (Spec §7 pins the Rare+ count on N alone).
 --
 -- Define coverage:
 --
---     c = N * pi * r^2 / area          (N / area held constant, so c is too)
+--     c = N * pi * r^2 / area          (N fixed while area shrinks, so c keeps rising)
 --
 -- Under the reveal detector c has a much more direct reading than it used to: it is
 -- the EXPECTED NUMBER OF CONTACTS lit up around a player standing still. c = 0.11
@@ -49,7 +53,7 @@
 --
 -- ── UNIFORM LENGTH PASS ────────────────────────────────────────────────────
 -- Every stage is the SAME footprint: FOOTPRINT_X long (X, the walk axis) by
--- FOOTPRINT_Z wide (Z), 340 x 170. This finishes what the earlier uniform-depth
+-- FOOTPRINT_Z wide (Z), 290 x 170. This finishes what the earlier uniform-depth
 -- pass started — Stage 1 and Stage 5 used to be 600-660 long against 220-360 for
 -- the rest, which read on the ground as long empty walks through the two big
 -- stages and quick hops through the others. Identical footprints make
@@ -57,22 +61,24 @@
 -- global knob for how hard EVERY stage is to search, with no per-stage area lever
 -- left to forget about.
 --
---     every stage:  340 x 170   area 57,800   75 signals   mean gap ~14 studs
+--     every stage:  290 x 170   area 49,300   75 signals   mean gap ~13 studs
 --
 -- WIDTH WENT 240 -> 200 (the whole chain got narrower, on request), then the whole
--- footprint went 400x200 -> 340x170 (15% shorter on BOTH axes, on request). The
--- 240->200 pass took N 90 -> 75 to hold `area / N` at 1066.67; the 15% pass did
--- NOT touch N (also on request), so `area / N` fell to 770.67 and the search got
--- ~28% denser. Every metric below (secondsBetweenContacts, coverage,
--- meanSignalGap) is a function of that one ratio.
+-- footprint went 400x200 -> 340x170 (15% shorter on BOTH axes, on request), then
+-- the LENGTH alone went 340 -> 290 (another 15% off the walk axis, Z held at 170,
+-- on request). The 240->200 pass took N 90 -> 75 to hold `area / N` at 1066.67; the
+-- two passes since did NOT touch N (also on request), so `area / N` fell 1066.67 ->
+-- 770.67 -> 657.33 and the search kept getting denser. Every metric below
+-- (secondsBetweenContacts, coverage, meanSignalGap) is a function of that one ratio.
 --
 -- WHAT THAT COSTS, RECORDED NOT HIDDEN: at this density the starting detector
--- (r=13) turns up a fresh contact roughly every 1.4s of walking and a maxed one
+-- (r=13) turns up a fresh contact roughly every 1.3s of walking and a maxed one
 -- (r=34) continuously — well past the 20-40s "loop" PLAN §2 describes, and denser
--- than the pre-15%-pass version already was. That is the accepted trade for
--- smaller stages with the signal count left alone. Spec's search-feel checks were
--- re-banded to this reality (§2.1). Retune search via SIGNALS_PER_STAGE from here;
--- do not reintroduce per-stage sizes.
+-- than either earlier pass already was. That is the accepted trade for smaller
+-- stages with the signal count left alone. Spec's §2.1 search-feel band still holds
+-- (slow ~1.3s against a 1.2 floor — the length pass ate most of the headroom the
+-- 15% pass left). Retune search via SIGNALS_PER_STAGE from here; do not reintroduce
+-- per-stage sizes.
 --
 -- ALL SIX ARE BUILT, BUT ONLY STAGE 1 HAS EVER BEEN PLAYED. The other five now
 -- share Stage 1's footprint exactly, so whatever the search feels like there is
@@ -84,7 +90,7 @@
 -- moving for that reason or because they overlapped Stage 1.
 --
 --     camp ═══> [ 1 Ash Flats ] [ 2 Suburbs ] [ 3 Fallout ] [ 4 Exclusion ] [ 5 Reactor ] [ 6 Crater ]
---       x            100-440      440-780      780-1120     1120-1460       1460-1800     1800-2140
+--       x            100-390      390-680      680-970      970-1260       1260-1550     1550-1840
 --
 -- ONE STRAIGHT CHAIN NOW, TIER-ORDERED, NOT A SIDE SPUR. Stage 4 used to sit north of
 -- Stage 1, touching only its west edge — close enough to camp that a fresh player
@@ -99,8 +105,8 @@
 -- on Stage 1's west edge: `rectsOverlap` fails on `<`, not `<=`, so a shared edge is
 -- touching rather than overlapping and World.verify() accepts it. Walk east and it
 -- gets worse; that is the whole layout. Every centre is butted off Stage 1's fixed
--- west edge (x = 100) at a flat FOOTPRINT_X pitch (was 400, now 340), so every
--- stage from 2 on sits at a different x each time the footprint moves.
+-- west edge (x = 100) at a flat FOOTPRINT_X pitch (was 400, then 340, now 290), so
+-- every stage from 2 on sits at a different x each time the footprint moves.
 --
 -- ── THE COLOUR TURNS AT STAGE 4 ──────────────────────────────────────────────
 -- Stages 1-3 are the known world and stay green-to-tan. Then each of the last three
@@ -243,10 +249,11 @@ Stages.PLATE_THICKNESS = 16
 --- The one footprint every stage shares (see the UNIFORM LENGTH PASS header). X is
 --- the walk axis; Z is the corridor width. `FOOTPRINT_X * FOOTPRINT_Z /
 --- SIGNALS_PER_STAGE` is the search constant that drives every search-feel number:
---- it was held at 1066.67 across earlier passes, then dropped to 770.67 on request
---- (the 15% pass shrank the footprint 400x200 -> 340x170 and left N at 75). Move
---- the footprint again and SIGNALS_PER_STAGE (Config/Tuning) is how you retarget it.
-local FOOTPRINT_X, FOOTPRINT_Z = 340, 170
+--- it was held at 1066.67 across earlier passes, then dropped to 770.67 (the 15%
+--- pass, 400x200 -> 340x170, N left at 75) and again to 657.33 (the length-only
+--- pass, 340 -> 290 on X with Z held, N left at 75) -- both on request. Move the
+--- footprint again and SIGNALS_PER_STAGE (Config/Tuning) is how you retarget it.
+local FOOTPRINT_X, FOOTPRINT_Z = 290, 170
 
 Stages.DEFS = {
 	{
@@ -293,12 +300,12 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("CFF3FF"),
 		fogEnd = 900,
 		loot = { Scrap = 48, Common = 41, Uncommon = 8.4, Rare = 2, Epic = 0.4, Legendary = 0.075, Mythic = 0.02, Anomaly = 0.001 },
-		-- West edge pinned at x = 100 (Hub.PLAZA.maxX); centre = 100 + 340/2.
-		center = { 270, 0 },
-		-- FOOTPRINT 340 x 170 (FOOTPRINT_X/Z), the shared footprint of all six stages —
-		-- see the header. Was 660 long (and 320, then 240, then 200, then 170 wide);
-		-- length is the axis that made Stage 1 a long empty walk. Stage 1's WEST edge
-		-- has never moved, so its entrance-side tuning (stationDistance, the
+		-- West edge pinned at x = 100 (Hub.PLAZA.maxX); centre = 100 + 290/2.
+		center = { 245, 0 },
+		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint of all six stages —
+		-- see the header. Was 660 long (then 400, then 340) and 320 wide (then 240,
+		-- 200, 170); length is the axis that made Stage 1 a long empty walk. Stage 1's
+		-- WEST edge has never moved, so its entrance-side tuning (stationDistance, the
 		-- deepRads/depthFrac notes above) is untouched; only the east half pulls in.
 		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		-- The east-edge endpoint of buildStage1Checkerboard's plaza-to-here gradient
@@ -336,19 +343,19 @@ Stages.DEFS = {
 		soilHardness = 2,
 		ratedSuitTier = 2,
 		-- Was 719 at an x = 760 entrance; the uniform-length pass pulled the west edge
-		-- to x = 500 (-260), and the 15% pass to x = 440 (another -60). Still an
-		-- estimate, not re-walked — same caveat as before.
-		stationDistance = 400,
+		-- to x = 500 (-260), the 15% pass to x = 440 (-60), the length pass to x = 390
+		-- (another -50). Still an estimate, not re-walked — same caveat as before.
+		stationDistance = 350,
 		-- Was a pale yellow-green — clashed with the dun/tan ground once that
 		-- stopped being green. Dusty tan haze instead.
 		fogColor = Color3.fromHex("E8D9B0"),
 		fogEnd = 800,
 		loot = { Scrap = 43, Common = 39, Uncommon = 12.6, Rare = 3.5, Epic = 1, Legendary = 0.25, Mythic = 0.05, Anomaly = 0.002 },
-		-- West edge = Stage 1's east edge (x = 440); centre = 440 + 340/2.
-		center = { 610, 0 },
-		-- FOOTPRINT 340 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
+		-- West edge = Stage 1's east edge (x = 390); centre = 390 + 290/2.
+		center = { 535, 0 },
+		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 220 long, the shortest stage; the uniform pass grew it to match the rest,
-		-- the 15% pass took the lot back down.
+		-- the 15% and length passes took the lot back down.
 		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		-- Dun/tan, not green — see "LIFE FADING INTO A DEAD WASTELAND" below.
 		color = "B8935F",
@@ -372,8 +379,9 @@ Stages.DEFS = {
 		soilHardness = 3,
 		ratedSuitTier = 3,
 		-- Was 939 at an x = 980 entrance; uniform-length pulled the west edge to
-		-- x = 900, the 15% pass to x = 780. Estimate, not re-walked.
-		stationDistance = 740,
+		-- x = 900, the 15% pass to x = 780, the length pass to x = 680. Estimate, not
+		-- re-walked.
+		stationDistance = 640,
 		-- Was a bright yellow-green — same clash as Stage 2's, deeper. Warmer dusty
 		-- khaki haze for the gradient's endpoint.
 		fogColor = Color3.fromHex("D4B896"),
@@ -384,9 +392,9 @@ Stages.DEFS = {
 		-- otherwise silently produce dead rolls (DigService.rollItemId's step-down
 		-- bottoms out at Scrap with nothing below it to fall back to).
 		loot = { Common = 74, Uncommon = 16.8, Rare = 6, Epic = 2.25, Legendary = 0.6, Mythic = 0.14, Anomaly = 0.005 },
-		-- West edge = Stage 2's east edge (x = 780); centre = 780 + 340/2.
-		center = { 950, 0 },
-		-- FOOTPRINT 340 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
+		-- West edge = Stage 2's east edge (x = 680); centre = 680 + 290/2.
+		center = { 825, 0 },
+		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 260 long.
 		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		-- Deeper desert khaki-brown — the endpoint of the Stage 1-3 gradient. Slate
@@ -414,24 +422,26 @@ Stages.DEFS = {
 		-- the header). The uniform-length pass finished that trade: at the shared
 		-- footprint like every other stage it reads purely as "the next stage." The
 		-- brutality is unchanged — 15 rads at the entrance climbing to 37.5, now
-		-- stretched across 340 studs (was 290, then 400) — and still a real risk to
-		-- under-tiered players passing through; the 15% pass makes that ramp a touch
-		-- steeper again in walk-terms.
+		-- stretched across 290 studs (was 290 as the dive, then 400, then 340) — and
+		-- still a real risk to under-tiered players passing through; each shrink makes
+		-- that ramp a touch steeper again in walk-terms.
 		--
 		-- stationDistance: entrance went x = 1240 -> 1300 (uniform pass) -> 1120 (15%
-		-- pass), so the old rough 1200 comes back down. Still NOT walked — re-measure
-		-- in Studio next time someone is in this file, same as Stage 6's placeholder.
-		stationDistance = 1080,
+		-- pass) -> 970 (length pass), so the old rough 1200 keeps coming down. Still
+		-- NOT walked — re-measure in Studio next time someone is in this file, same as
+		-- Stage 6's placeholder.
+		stationDistance = 930,
 		fogColor = Color3.fromHex("6FE04A"),
 		fogEnd = 600,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
 		-- fold, this stage's old Scrap weight (15) folded into Common (24 -> 39).
 		loot = { Common = 39, Uncommon = 28, Rare = 20, Epic = 9, Legendary = 3, Mythic = 0.8, Anomaly = 0.03 },
-		-- West edge = Stage 3's east edge (x = 1120); centre = 1120 + 340/2.
-		center = { 1290, 0 },
-		-- FOOTPRINT 340 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
+		-- West edge = Stage 3's east edge (x = 970); centre = 970 + 290/2.
+		center = { 1115, 0 },
+		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 290 long, the "deliberately short" dive; that framing is gone (comment
-		-- above).
+		-- above) — and now the shared length has landed back on that same 290 by a
+		-- different route.
 		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		-- WHERE THE GREEN STOPS. See "THE COLOUR TURNS" in the header. A dead muddy
 		-- brown, on request (was a deep plum, "73246B") — nothing grows here any
@@ -455,17 +465,17 @@ Stages.DEFS = {
 		-- buys that room back, rather than inflating Stage 6 to compensate.
 		soilHardness = 5,
 		ratedSuitTier = 5,
-		stationDistance = 1420, -- entrance x=1530 -> 1700 (uniform pass) -> 1460 (15% pass); est., not re-walked
+		stationDistance = 1220, -- entrance x=1530 -> 1700 (uniform) -> 1460 (15%) -> 1260 (length); est., not re-walked
 		fogColor = Color3.fromHex("C8E85A"),
 		fogEnd = 500,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
 		-- fold, this stage's old Scrap weight (7) folded into Common (15 -> 22).
 		loot = { Common = 22, Uncommon = 25, Rare = 26, Epic = 17, Legendary = 7, Mythic = 2.4, Anomaly = 0.1 },
-		-- West edge = Stage 4's east edge (x = 1460); centre = 1460 + 340/2.
-		center = { 1630, 0 },
-		-- FOOTPRINT 340 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
-		-- Was 600 long, the second of the two big empty-walk stages; the biggest single
-		-- shrink of the six.
+		-- West edge = Stage 4's east edge (x = 1260); centre = 1260 + 290/2.
+		center = { 1405, 0 },
+		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
+		-- Was 600 long, the second of the two big empty-walk stages; still the biggest
+		-- single shrink of the six.
 		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		-- Light pink, on request (was a deep magenta, "A02268"). After Stage 4's dead
 		-- brown the ground going soft candy-pink reads as a jump to a different KIND
@@ -495,22 +505,22 @@ Stages.DEFS = {
 		-- short from its OWN on-site station, which still does not exist. This is the
 		-- honest walk from the nearest cleansing station until that station is built,
 		-- and it is the far end of the east chain rather than an island, so the number
-		-- is still large. ~1760 is roughly a minute and a half of walking to reach the
+		-- is still large. ~1510 is still well over a minute of walking to reach the
 		-- endgame field — the strongest argument yet for building it its own station;
 		-- until then this number is the warning, not the design. The Crater's entrance
-		-- went x = 2130 -> 2100 (uniform pass) -> 1800 (15% pass, chain now ends at
-		-- x = 2140), so the old ~2060 comes down by that ~300. Still not re-walked,
-		-- same honesty caveat.
-		stationDistance = 1760,
+		-- went x = 2130 -> 2100 (uniform pass) -> 1800 (15% pass) -> 1550 (length pass,
+		-- chain now ends at x = 1840), so the old ~2060 has come down by ~550 total.
+		-- Still not re-walked, same honesty caveat.
+		stationDistance = 1510,
 		fogColor = Color3.fromHex("FFD24A"),
 		fogEnd = 400,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
 		-- fold, this stage's old Scrap weight (2) folded into Common (6 -> 8).
 		loot = { Common = 8, Uncommon = 15, Rare = 24, Epic = 26, Legendary = 18, Mythic = 8, Anomaly = 0.8 },
-		-- West edge = Stage 5's east edge (x = 1800); centre = 1800 + 340/2. The chain
-		-- ends at x = 2140 (was 2500 before the 15% pass).
-		center = { 1970, 0 },
-		-- FOOTPRINT 340 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
+		-- West edge = Stage 5's east edge (x = 1550); centre = 1550 + 290/2. The chain
+		-- ends at x = 1840 (was 2140 after the 15% pass, 2500 before it).
+		center = { 1695, 0 },
+		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 360 long.
 		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		color = "5B1FA8",
