@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 8
+local BUILDER_VERSION = 14
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -107,6 +107,27 @@ local SKIM = 0.26
 --- The stage colour layer sits BELOW the pools, so a pool still reads as spilled on
 --- the ground rather than buried under it. Low enough to be invisible as a step.
 local GROUND_SKIM = 0.06
+
+-- Stage 1 keeps a clear lane down its centreline (z = 0), the walk-through path
+-- into the field -- scatterBushes pushes foliage at least this far off it so a
+-- bush never sprouts in the middle of the route.
+local BUSH_CENTRE_CLEARANCE = 28
+
+--- Dead wood, for `deadTree`. Darker and greyer than Kit.C.wood (5A4630, which is the
+--- warm living-wood brown the camp and the liveTree use) -- these are bark that has
+--- had the colour weathered out of it. Builder-local, same as WALL_DARK/WALL_LIGHT:
+--- nothing outside this file's trees needs them. Roughly one segment in four takes the
+--- darker tone so the flat facets read against each other (the trick foliageBlob uses).
+local DEAD_WOOD = "4A3A29"
+local DEAD_WOOD_DARK = "372A1D"
+
+--- Living leaf green, for `bush` in Stage 1's alive west half. Brighter and more
+--- saturated than the old muted "brush"/"liveTree" scrub greens -- these are meant to
+--- pop against the grass like the reference. Plastic (studded), never Neon, so bloom
+--- never touches them: the "green = danger" rule is a NEON-in-a-stage rule, and a
+--- matte shrub in Stage 1's own green end reads as life, not hazard.
+local BUSH_GREEN = "63B83A"
+local BUSH_GREEN_DARK = "4C9029"
 
 --- The chain's north/south boundary walls. Doubled to 56 tall and dropped to a
 --- 4-stud tile (from 28/8) after a live look -- ~8,400 parts per side at this size
@@ -245,9 +266,16 @@ local BARREL_LIGHT_EVERY = 5
 --- already read sparser at a glance than the rebalance above assumed. The
 --- percentages in the paragraph above are now stale by a few points, not worth
 --- re-deriving for a six-pool difference.
-local THEME = {
-	[1] = { props = 26, pools = 8, kind = "trees" },
-	[2] = { props = 34, pools = 10, kind = "houses" },
+--- `scatter = true` is what turns a field's props on -- the scatter pass in
+--- buildStageScenery is gated on it (and dispatches per stage), so a field stays bare
+--- until its own rework flips the flag. `props` is the item count for that field's
+--- scatter:
+---   Stage 1 -- chunky green bushes across the alive west half (scatterBushes).
+---   Stage 2 -- big dead trees flanking the corridor (scatterEdgeTrees).
+type StageTheme = { props: number, pools: number, kind: string, scatter: boolean? }
+local THEME: { [number]: StageTheme } = {
+	[1] = { props = 9, pools = 8, kind = "trees", scatter = true },
+	[2] = { props = 6, pools = 10, kind = "trees", scatter = true },
 	[3] = { props = 40, pools = 20, kind = "sirens" },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
@@ -354,6 +382,148 @@ local function foliageBlob(parent: Instance, origin: CFrame, center: { number },
 	end
 end
 
+--- A bare, forked dead tree (reference: a low-poly wasteland snag -- a tapered angular
+--- trunk that carries up through the crown while two or three limbs fork off it, each
+--- forking again into branches that lean outward and taper to sharp points).
+---
+--- Built the only way this generator can: square-section Block segments for the wood,
+--- a Wedge cap on every tip, studded on every face like the floor and walls. SQUARE
+--- section, not Cylinder, on purpose -- the hard edges and studded facets ARE the
+--- look, a round trunk reads as a telephone pole. Each segment carries a small roll so
+--- an edge faces out rather than a flat face.
+---
+--- Recurses down a length/thickness ramp. Everything CanCollide=false (walk through
+--- it) and thin -- the same rules the file header sets for anything tall over a dig
+--- field, and the same the old one-box DeadTree followed.
+local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(0, 360), 0)
+
+	-- depth 4..3 = trunk: two thick, near-vertical segments. The split happens at the
+	-- TOP of depth 3, so a clear tall trunk stands before anything forks -- the
+	-- reference's proportions, not a shrub branching from the ground.
+	-- depth 2 = main limbs, depth 1 = branches, depth 0 = twig + point.
+	local function branch(cf: CFrame, length: number, thick: number, depth: number)
+		local isTrunk = depth >= 3
+		build(parent, cf, {
+			name = if isTrunk then "Trunk" else "Limb",
+			pos = { 0, length / 2, 0 },
+			size = { thick, length, thick },
+			color = if rng:NextNumber() < 0.28 then DEAD_WOOD_DARK else DEAD_WOOD,
+			material = "Plastic",
+			studs = true, -- studded like everything else in this world (floor, walls, bushes)
+			-- Barely any roll on the trunk (a visible kink there reads as broken, not
+			-- weathered); the crown can twist more freely.
+			rot = Kit.ang(0, 0, if isTrunk then rng:NextNumber(-2, 2) else rng:NextNumber(-6, 6)),
+			canCollide = false,
+		})
+
+		local tip = cf * CFrame.new(0, length, 0)
+
+		if depth == 0 then
+			-- The point. One Wedge tapers in a single plane -- from the angles a player
+			-- sees a field prop that reads as a flattened spike, which is the
+			-- reference's branch tips. Kept roughly in line with the twig, not yawed
+			-- randomly, so it does not stick out sideways.
+			build(parent, tip * Kit.ang(0, rng:NextNumber(-20, 20), 0), {
+				name = "Tip",
+				pos = { 0, thick * 0.9, 0 },
+				size = { thick * 0.7, thick * 1.9, thick * 0.7 },
+				color = DEAD_WOOD_DARK,
+				material = "Plastic",
+				studs = true,
+				shape = "Wedge",
+				canCollide = false,
+			})
+			return
+		end
+
+		-- The stem carries straight on past every fork -- almost dead vertical through
+		-- the trunk, leaning more up in the crown -- so the trunk reads as running all
+		-- the way up through it. Trunk segments keep their bearing (no yaw before the
+		-- lean) so the two-piece trunk stays a clean line.
+		if isTrunk then
+			branch(
+				tip * Kit.ang(rng:NextNumber(0, 3), 0, rng:NextNumber(-3, 3)),
+				length * rng:NextNumber(0.82, 0.92),
+				thick * rng:NextNumber(0.85, 0.93),
+				depth - 1
+			)
+		else
+			branch(
+				tip * Kit.ang(0, rng:NextNumber(0, 360), 0) * Kit.ang(rng:NextNumber(6, 16), 0, 0),
+				length * rng:NextNumber(0.76, 0.9),
+				thick * rng:NextNumber(0.64, 0.8),
+				depth - 1
+			)
+		end
+
+		-- Side limbs fork off at the trunk top (2-3) and the primary limbs (1-2); past
+		-- that a limb just runs to its point. Each takes its own bearing and leans out
+		-- from vertical -- further the higher it is, so the tree reaches up then spreads.
+		-- Kept long (little length drop) so the crown is a few reaching branches, not a
+		-- tight ball of stubs.
+		local forks = if depth == 3 then rng:NextInteger(2, 3) elseif depth == 2 then rng:NextInteger(1, 2) else 0
+		local yaw0 = rng:NextNumber(0, 360)
+		for i = 1, forks do
+			local yaw = yaw0 + (i - 1) * (360 / forks) + rng:NextNumber(-24, 24)
+			local lean = if depth == 3 then rng:NextNumber(18, 32) else rng:NextNumber(26, 42)
+			branch(
+				tip * Kit.ang(0, yaw, 0) * Kit.ang(lean, 0, 0),
+				length * rng:NextNumber(0.66, 0.82),
+				thick * rng:NextNumber(0.55, 0.7),
+				depth - 1
+			)
+		end
+	end
+
+	-- Per-tree size. `scale` is rolled wide so the stand still has clearly smaller and
+	-- clearly bigger trees, but the whole band sits high -- these are looming dead
+	-- giants over the field, not scrub. Length and thickness scale together so a
+	-- smaller tree is a proportionally smaller tree, never a thin tall one. Everything
+	-- downstream is a ratio of this trunk-base pair; the roll spans ~30 studs tall to
+	-- ~45 (the tallest is ~9 characters).
+	local scale = rng:NextNumber(1.2, 1.8)
+	branch(base, rng:NextNumber(5.2, 6.2) * scale, rng:NextNumber(2.5, 3.1) * scale, 4)
+end
+
+--- A chunky low-poly bush: three or four fat cube-ish blocks packed tightly together
+--- and tilted, some stacked, so they overlap into one rounded green mass (reference: a
+--- cluster of big rounded blocks, not the many-small-cube blob foliageBlob makes, and
+--- not a few spread-out crates). The first block sits on the ground; the rest are
+--- offset only a little and can ride up on top of it. Each block picks its own green
+--- from the two-tone so the facets read against each other and the bush pops off the
+--- grass. CanCollide=false and low enough to see over, like the old "brush" kind.
+local function bush(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(0, 360), 0)
+	local n = rng:NextInteger(3, 4)
+	local s = rng:NextNumber(4.2, 5.3) -- the base block's size; the whole bush scales off it
+
+	for i = 1, n do
+		-- Each block above the base is a step smaller and rides higher, so the cluster
+		-- builds into a rounded MOUND rather than sprawling flat.
+		local k = 1 - (i - 1) * 0.17
+		local w = s * k * rng:NextNumber(0.86, 1.08)
+		local h = s * k * rng:NextNumber(0.8, 1.0)
+		local d = s * k * rng:NextNumber(0.86, 1.08)
+		local ox = if i == 1 then 0 else rng:NextNumber(-1.6, 1.6)
+		local oz = if i == 1 then 0 else rng:NextNumber(-1.6, 1.6)
+		local oy = if i == 1 then 0 else (i - 1) * s * 0.3 + rng:NextNumber(-0.5, 0.5)
+		-- Base block sunk ~0.4 stud so the bush grows out of the grass, not off it.
+		-- Studded on every face like the floor, the walls and the trees -- a tilted,
+		-- stacked block shows more than its top, so all six.
+		build(parent, base, {
+			name = "Bush",
+			pos = { ox, h / 2 - 0.4 + oy, oz },
+			size = { w, h, d },
+			color = if rng:NextNumber() < 0.55 then BUSH_GREEN else BUSH_GREEN_DARK,
+			material = "Plastic",
+			studs = true,
+			rot = Kit.ang(rng:NextNumber(-12, 12), rng:NextNumber(0, 90), rng:NextNumber(-12, 12)),
+			canCollide = false,
+		})
+	end
+end
+
 local function prop(
 	parent: Instance,
 	origin: CFrame,
@@ -364,25 +534,7 @@ local function prop(
 	ooze: { bright: string, deep: string, glow: string }
 )
 	if kind == "trees" then
-		build(parent, origin, {
-			name = "DeadTree",
-			pos = { x, 4, z },
-			size = { 1.1, 8, 1.1 },
-			color = C.wood,
-			material = "Wood",
-			canCollide = false,
-		})
-		for _ = 1, 3 do
-			build(parent, origin, {
-				name = "Branch",
-				pos = { x + rng:NextNumber(-1.8, 1.8), rng:NextNumber(5, 7.5), z + rng:NextNumber(-1.8, 1.8) },
-				size = { 3.2, 0.35, 0.35 },
-				color = C.wood,
-				material = "Wood",
-				rot = Kit.ang(0, rng:NextNumber(0, 180), rng:NextNumber(-25, 25)),
-				canCollide = false,
-			})
-		end
+		deadTree(parent, origin, x, z, rng)
 	elseif kind == "brush" then
 		-- Stage 1's Outer Ash stage only (see propKindFor): live scrub, not the dead
 		-- "trees" kind the rest of the stage uses — one or two small foliage blobs
@@ -548,6 +700,172 @@ local function prop(
 	end
 end
 
+--- SCATTER IS BESPOKE PER STAGE during this incremental rework -- each field wants its
+--- props somewhere different, so `buildStageScenery` dispatches on `id` rather than
+--- running one shared loop. All of these:
+---   * only run for stages whose THEME entry sets `scatter`,
+---   * are deterministic off the stage rng (a rebuild reproduces the field),
+---   * leave barrels, ooze pools and every un-reworked `prop()` kind on the shelf.
+
+--- Stage 2 -- big dead trees along the two LONG sides, so the travel corridor down the
+--- middle stays clear. Count splits as evenly as it can between the north and south
+--- edges; within a side the trees sit in even cells across the width, each jittered up
+--- to half a cell and pushed a random amount IN off the wall, so the line reads as
+--- scattered, never a fence.
+local function scatterEdgeTrees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+	local perSide = math.ceil(count / 2)
+	local placed = 0
+
+	for _, side in { -1, 1 } do -- -1 = north edge (z < 0), +1 = south edge (z > 0)
+		local n = math.min(perSide, count - placed)
+		for i = 0, n - 1 do
+			placed += 1
+			local cell = 2 * hx / n
+			local x = -hx + (i + 0.5 + rng:NextNumber(-0.5, 0.5)) * cell
+			local z = side * (hz - rng:NextNumber(4, 30))
+			deadTree(folder, origin, math.clamp(x, -hx, hx), z, rng)
+		end
+	end
+end
+
+--- Stage 1 -- chunky green bushes across the ALIVE WEST HALF only. Stage 1's ground
+--- fades green (west, where you walk in from camp) to dead tan (east); the scrub
+--- belongs on the living side. Bushes fill a grid over the western half of the field,
+--- each nudged only a third of a cell so the scatter stays even, and any that land
+--- within BUSH_CENTRE_CLEARANCE of z = 0 are pushed out to it so the walk-through
+--- lane down the middle of the field stays open.
+---
+--- All candidate bushes are built before the farthest ones are discarded. `bush`
+--- consumes the same deterministic RNG used by placement, so skipping a build in the
+--- loop would reshuffle every bush after it. Temporary folders let the surviving six
+--- retain their exact positions, sizes and colours while removing only the three with
+--- the greatest X coordinate (farthest east from the plaza entrance).
+local function scatterBushes(folder: Instance, origin: CFrame, count: number, removeFarthest: number, rng: Random, hx: number, hz: number)
+	local westEdge = -hx
+	local bandDepth = 2 * hx * 0.5 -- the western half of the field
+	local cols = math.ceil(math.sqrt(count * (bandDepth / (2 * hz))))
+	local rows = math.ceil(count / cols)
+	local candidates: { { folder: Folder, x: number } } = {}
+
+	local placed = 0
+	for row = 0, rows - 1 do
+		for col = 0, cols - 1 do
+			if placed >= count then
+				break
+			end
+			placed += 1
+			local x = westEdge + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (bandDepth / cols)
+			local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
+			local candidate = Instance.new("Folder")
+			local clampedX = math.clamp(x, westEdge, westEdge + bandDepth)
+			local clampedZ = math.clamp(z, -hz, hz)
+			if math.abs(clampedZ) < BUSH_CENTRE_CLEARANCE then
+				clampedZ = (if clampedZ < 0 then -1 else 1) * BUSH_CENTRE_CLEARANCE
+			end
+			bush(candidate, origin, clampedX, clampedZ, rng)
+			table.insert(candidates, { folder = candidate, x = clampedX })
+		end
+	end
+
+	table.sort(candidates, function(a, b)
+		return a.x > b.x
+	end)
+	local removeCount = math.clamp(removeFarthest, 0, #candidates)
+	for index, candidate in candidates do
+		if index > removeCount then
+			for _, part in candidate.folder:GetChildren() do
+				part.Parent = folder
+			end
+		end
+		candidate.folder:Destroy()
+	end
+end
+
+--- Stage 1 -- pixelated shatter cracks in the dead tan ground near the Stage 2 seam.
+--- Half a dozen radial bursts in the last ~35 studs before the border: the field's
+--- ground starting to give out at the edge. Grid-snapped near-black pixels laid flat on the
+--- surface, non-colliding and non-queryable like every other ground layer in this
+--- file, so footing, burial and the detector raycast all stay on the real plate
+--- underneath. Physical breakage only -- no glow, no green (PLAN §14).
+---
+--- `halfX` / `halfZ` are Stage 1's true half-extents (not the -14 inset the scatter
+--- helpers take) so the bursts can sit right up against the border. Deterministic off
+--- the stage rng, consumed after scatterBushes.
+local function scatterStage1Cracks(folder: Instance, origin: CFrame, halfX: number, halfZ: number, rng: Random)
+	local PIXEL = 0.55
+	-- Local offset above the stage surface plane -- `origin` already sits at
+	-- Stages.SURFACE_Y. Clears the floor cap (at +GROUND_SKIM 0.06), below the
+	-- border line (at +SKIM 0.26).
+	local y = 0.14
+	local seamX = halfX -- stage-local x of the Stage 1/2 border
+	local occupied: { [string]: boolean } = {}
+
+	--- Drop one crack pixel, snapped to the shared PIXEL grid. Clipped at the seam
+	--- (nothing spills into Stage 2), held a stud clear of the walls, and deduped so
+	--- overlapping arms never stack two parts in one cell.
+	local function pixelAt(lx: number, lz: number, shade: string)
+		local gx = math.round(lx / PIXEL) * PIXEL
+		local gz = math.round(lz / PIXEL) * PIXEL
+		if gx > seamX - PIXEL or gx < seamX - 54 or math.abs(gz) > halfZ - PIXEL then
+			return
+		end
+		local key = `{gx},{gz}`
+		if occupied[key] then
+			return
+		end
+		occupied[key] = true
+
+		local part = build(folder, origin, {
+			name = "GroundCrack",
+			pos = { gx, y, gz },
+			size = { PIXEL, 0.1, PIXEL },
+			color = shade,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+		part.CanQuery = false
+		part.CanTouch = false
+	end
+
+	--- One crack arm: a single-pixel-wide random-walk drifting along `heading`. Stays
+	--- one pixel wide (only a rare chip beside it), and until `gen` hits 2 splits off
+	--- the occasional divergent child branch carrying ~60% of the length still left.
+	local function arm(lx: number, lz: number, heading: number, steps: number, gen: number)
+		for step = 1, steps do
+			heading += rng:NextNumber(-14, 14)
+			lx += math.cos(math.rad(heading)) * PIXEL
+			lz += math.sin(math.rad(heading)) * PIXEL
+			pixelAt(lx, lz, if rng:NextNumber() < 0.18 then "2A2A2D" else C.hazardBlack)
+			if rng:NextNumber() < 0.04 then
+				pixelAt(lx + (if rng:NextNumber() < 0.5 then PIXEL else -PIXEL), lz, C.hazardBlack)
+			end
+			if gen < 2 and step > 3 and rng:NextNumber() < 0.14 then
+				local turn = (if rng:NextNumber() < 0.5 then 1 else -1) * rng:NextNumber(30, 65)
+				arm(lx, lz, heading + turn, math.max(3, math.floor((steps - step) * 0.6)), gen + 1)
+			end
+		end
+	end
+
+	local bursts = 6
+	for i = 1, bursts do
+		local cx = seamX - rng:NextNumber(6, 34)
+		local cz = math.clamp(
+			-halfZ + (i - 0.5 + rng:NextNumber(-0.28, 0.28)) * (2 * halfZ / bursts),
+			-halfZ + 10,
+			halfZ - 10
+		)
+		pixelAt(cx, cz, C.hazardBlack)
+		-- Enough arms to read as a full radial shatter rather than a Y. Evenly spaced
+		-- around the circle with a wide jitter so no two clusters look alike.
+		local armCount = rng:NextInteger(5, 8)
+		local base = rng:NextNumber(0, 360)
+		for a = 1, armCount do
+			local heading = base + (a - 1) * (360 / armCount) + rng:NextNumber(-24, 24)
+			arm(cx, cz, heading, rng:NextInteger(9, 16), 0)
+		end
+	end
+end
+
 local function buildStageScenery(parent: Instance, id: number)
 	local theme = THEME[id]
 	if theme == nil then
@@ -571,21 +889,27 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- this file's own header. The stage's colour identity (PLAN's "the coral one
 	-- is the detector shop" rule extended to stages) is no longer this plate's
 	-- job -- it now lives in the floor, from buildStageCheckerboard's two-tone board
-	-- (and StageFields.luau's plate paint underneath as a fallback). `origin`, `hx`,
-	-- `hz` and `rng` above are unused now that this function has nothing left to
-	-- place with them, kept for whatever replaces the props/pools below.
+	-- (and StageFields.luau's plate paint underneath as a fallback).
 
-	-- POOLS AND SCATTERED PROPS (OozePool/OozeRim, DeadTree/liveTree/brush, barrels,
-	-- houses/sirens/barriers/reactor/shards) DELIBERATELY REMOVED ON REQUEST, TO BE
-	-- REWORKED. This used to be two loops here: one scattering `theme.pools` ooze
-	-- pools (with Stage 1's own west-to-east thinning), and one scattering
-	-- `theme.props` set pieces on a jittered grid via `barrel`/`prop`. Both are gone
-	-- for now rather than commented out in place -- the full previous version,
-	-- including all its tuning rationale (pool counts per stage, the Stage 1 fade, the
-	-- brush/liveTree mix), is in git history on this file rather than left as dead
-	-- code here. `THEME`, `theme.pools`/`theme.props`, `prop()`, `barrel()`, and
-	-- `STAGE_LIGHT_BUDGET`/`BARREL_LIGHT_EVERY` are all still defined above and
-	-- untouched, ready for whatever replaces this.
+	-- THE REWORK, ONE STAGE AT A TIME. The strip-for-rework pass (`1b6ff88`) took out
+	-- two loops here -- ooze pools and a jittered-grid prop scatter. They come back per
+	-- stage, gated on `theme.scatter`, each with its own bespoke placement (see the
+	-- scatter* functions): Stage 2's dead trees flank the corridor, Stage 1's bushes
+	-- fill its living west half.
+	--
+	-- STILL ON THE SHELF: ooze pools (`theme.pools`), barrels (`barrel()`), and every
+	-- `prop()` set-piece kind for the fields that have not had their pass yet. `THEME`,
+	-- `prop()`, `barrel()` and the light-budget constants are all still defined above
+	-- and untouched -- the full previous implementation, with its per-stage tuning
+	-- rationale, is in git history on this file rather than dead code here.
+	if theme.scatter then
+		if id == 1 then
+			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
+			scatterStage1Cracks(folder, origin, def.size[1] / 2, def.size[2] / 2, rng)
+		elseif id == 2 then
+			scatterEdgeTrees(folder, origin, theme.props, rng, hx, hz)
+		end
+	end
 
 	folder.Parent = parent
 end

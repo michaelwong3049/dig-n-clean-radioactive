@@ -105,30 +105,96 @@ Tuning.FREEZE_ON_LOGOUT = true
 -- contain it. Shared/Util/Spec now checks the two against each other, and it can
 -- only do that if both are data.
 --
--- SIGNALS_PER_STAGE is GLOBAL and does not scale with stage area. That makes stage
--- area the only lever on search density -- see the coverage note in Config/Stages.
+-- SIGNALS_PER_STAGE is GLOBAL -- one number for every stage -- but it is NOT free of
+-- stage area: it is kept PROPORTIONAL to the uniform footprint by hand, so that
+-- `area / SIGNALS_PER_STAGE` stays fixed at 1066.67. Every search metric in
+-- Config/Stages (secondsBetweenContacts, coverage, meanSignalGap) is a function of
+-- that ratio alone, so holding it means the search feels identical no matter how big
+-- the footprint is. It was 96,000 / 90; the chain narrowed to 400 x 200 and it
+-- became 80,000 / 75, same ratio, same feel.
 --
--- DOUBLED FROM 45 WHEN THE REVEAL LANDED. The needle always had something to point
--- at, so 45 read as "sparse but guided"; the reveal answers nothing at all outside
--- your radius, so the same field read as dead ground. 90 puts a contact roughly every
--- 5.6 seconds of walking at tier 1 instead of every 11.3, which is a search rather
--- than a commute.
+-- WENT 45 -> 90 WHEN THE REVEAL LANDED (the reveal answers nothing outside your
+-- radius, so 45 read as dead ground), THEN 90 -> 75 WITH THE 240 -> 200 WIDTH PASS.
+-- Only the first move changed the search density; the second held it.
 --
--- THE LOOT TABLES WERE RE-WEIGHTED IN THE SAME BREATH AND THE TWO CANNOT BE SEPARATED.
--- Doubling density doubles the rate of EVERYTHING, Legendaries included, which is the
--- opposite of what a rarity economy wants. So every weight at Rare and above was
--- halved to cancel this multiplier exactly, and the freed share went to Scrap and
--- Common. Net effect: about twice as many pulls, nearly three times as many Commons,
--- and Rare-or-better arriving at the same wall-clock rate it always did.
+-- THE LOOT TABLES WERE RE-WEIGHTED WITH THE 45 -> 90 MOVE AND THAT PART CANNOT BE
+-- UNDONE HERE. Raising density raised the rate of EVERYTHING, Legendaries included,
+-- so every weight at Rare and above was halved to cancel it and the freed share went
+-- to Scrap/Common. The 90 -> 75 move did NOT touch loot: per-dig rarity odds come
+-- from the table weights alone, and holding `area / N` holds the dig rate, so the
+-- per-second rate of every rarity is already unchanged.
 --
--- If you change this number, you MUST re-weight Config/Stages to match or you have
--- quietly multiplied the top of the loot table. Shared/Util/Spec pins the invariant
--- ("the field holds ~4.9 Rare-or-better signals") and will fail if you do not.
-Tuning.SIGNALS_PER_STAGE = 90
+-- RULE: change this number ONLY together with FOOTPRINT_Z in Config/Stages, keeping
+-- `area / SIGNALS_PER_STAGE` at 1066.67. Change it alone (without a footprint move)
+-- and you have re-scaled search density, which means re-weighting the loot tables
+-- too -- Shared/Util/Spec pins "the field holds ~1.9 Rare-or-better signals" and
+-- will fail if the two drift apart.
+Tuning.SIGNALS_PER_STAGE = 75
 Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
 Tuning.DIG_DEPTH_BASE = 1.0
 Tuning.DIG_DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate
 Tuning.DIG_DEPTH_JITTER = 1.0
+
+-- ── The pull (PLAN §Step 2) ─────────────────────────────────────────────
+--
+-- Extraction is a MASH, not a hold. Every click is a yank that lurches the item up
+-- through the soil; the ground drags it back down continuously. Click faster than the
+-- drag and it surfaces, stop clicking and it sinks. The three numbers here plus
+-- Gear.Magnet's pullSpeed/draw are the whole mechanic.
+--
+--   progress += (draw - PULL_DRAG_RATE) * dt / required        -- every tick
+--   progress += PULL_YANK_PER_CLICK * pullSpeed / required     -- every accepted yank
+--   required  = PULL_SECONDS_PER_STUD * depth
+--
+-- so the clicks-per-second needed just to HOLD an item where it is comes out as
+--   (PULL_DRAG_RATE - draw) / (PULL_YANK_PER_CLICK * pullSpeed)
+-- and that expression is the real dial on this feature. See Gear.Magnet for the
+-- resulting per-tier curve; Spec pins both ends of it.
+--
+-- NOTE pullSpeed deliberately does NOT divide `required` any more. It used to, back
+-- when the pull was a hold. Leaving it there while also scaling the yank would make
+-- the magnet track scale QUADRATICALLY -- the same stat counted twice. `required` is
+-- now purely "how much rope is on this item", and every magnet stat lives on the
+-- reeling side of the equation.
+Tuning.PULL_SECONDS_PER_STUD = 1.2
+
+-- How fast the soil takes it back, in pull-seconds per second. 0.75 means the ground
+-- undoes three quarters of a second of hauling every second you are not yanking, so a
+-- draw-less tier-1 magnet genuinely cannot be left alone for a moment.
+Tuning.PULL_DRAG_RATE = 0.75
+
+-- What one yank is worth, in pull-seconds, before pullSpeed scales it.
+Tuning.PULL_YANK_PER_CLICK = 0.30
+
+-- ── Yank rate limiting (anti-exploit) ───────────────────────────────────
+--
+-- READ THIS BEFORE RAISING ANY OF THEM. The hold-to-pull version of this feature was
+-- exploit-proof for free: the client sent a boolean and the SERVER integrated over
+-- real time, so a spoofed client gained exactly nothing. A per-click verb gives that
+-- up -- a hacked client can fire this remote hundreds of times per frame -- so the
+-- ceiling has to be re-imposed here, by hand.
+--
+-- A token bucket rather than a flat interval, because humans do not mash evenly: the
+-- burst capacity lets a real player open with a fast flurry, while the refill rate is
+-- what actually caps sustained cheating.
+--
+-- BURST MUST STAY WELL UNDER THE CLICKS A WHOLE PULL TAKES. This was measured wrong
+-- the first time and it is the trap worth naming: at BURST = 14 an autoclicker never
+-- reached the refill limit at all on a shallow item, because a Scrap only needs about
+-- seven accepted yanks end to end and the bucket handed out fourteen for free. The
+-- refill rate looked strict and did nothing -- the whole item fit inside the burst.
+-- A shallow pull is the CHEAPEST thing to automate and therefore the case to size
+-- against, not the deep one. Four is a real opening flurry and not a free Scrap.
+--
+-- The honest limit of all this, stated plainly so nobody thinks it is airtight: the cap
+-- has to admit a strong human (~8/sec sustained), so it also admits a bot at ~8/sec.
+-- Against a player mashing comfortably at 4/sec that is still roughly a 2x edge. That
+-- is the floor for ANY click-driven verb and it cannot be tuned away -- only removed,
+-- by giving up the click. What these numbers do buy is bounding it at 2x instead of
+-- the 13x measured before the burst was fixed.
+Tuning.PULL_YANK_MIN_INTERVAL = 0.1 -- hard floor between accepted yanks (10/sec)
+Tuning.PULL_YANK_SUSTAINED_CPS = 8 -- bucket refill rate; a strong human's sustained mash
+Tuning.PULL_YANK_BURST = 4 -- bucket capacity: an opening flurry, NOT a whole item
 
 -- ── The reveal (Gear.Detector.radius) ───────────────────────────────────
 --

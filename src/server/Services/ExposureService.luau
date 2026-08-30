@@ -36,12 +36,26 @@ local Net = require(Shared.Net)
 local DataService = require(script.Parent.DataService)
 local WashService = require(script.Parent.WashService)
 local StageService = require(script.Parent.StageService)
+-- Read ONLY for DigService.isLocked, below. The direction is safe: DigService requires
+-- DataService and StageService but never this file, so there is no cycle. It is also
+-- the pattern ToolService already uses to ask DigService what the player is doing.
+local DigService = require(script.Parent.DigService)
 
 local ExposureService = {}
 
 local HEALTH_REGEN_PER_SEC = 2.5 -- PLAN §3.5: slowly out of radiation...
 local BAG_LIFETIME = 90 -- §3.1, exactly ninety seconds
 local DEFAULT_SHOWER_RADIUS = 10
+
+-- Roblox's own out-of-the-box jump values, restored whenever a player is not rooted by
+-- a dig lock. Hardcoding the engine defaults is safe here only because NOTHING else in
+-- the game writes to jump -- this loop is the sole owner, exactly as it is for
+-- WalkSpeed. If something ever does start tuning jump (a Boots perk, say), these stop
+-- being the right thing to restore and the pair should be captured per-character on
+-- spawn instead. Which of the two applies is decided by Humanoid.UseJumpPower, so both
+-- are written rather than guessing at the rig.
+local DEFAULT_JUMP_POWER = 50
+local DEFAULT_JUMP_HEIGHT = 7.2
 
 type State = {
 	exposure: number,
@@ -219,7 +233,10 @@ end
 
 -- ── Blackout ───────────────────────────────────────────────────────────
 
---- Where a blacked-out player wakes up.
+--- Where a blacked-out player wakes up — and, since the top-of-screen warp bar,
+--- where "SHOPS" drops you too (WarpService). It is the one shared answer to "where
+--- do you land when you leave the field": the RespawnAnchor in the plaza aisle
+--- between the stalls and the Outfitter.
 ---
 --- This used to be FindFirstChildWhichIsA("SpawnLocation") — which searches DIRECT
 --- CHILDREN OF WORKSPACE ONLY. BaseCamp parents its spawn inside the camp model, so
@@ -234,7 +251,7 @@ end
 --- you come round already being flushed — a relief beat instead of a punishment one.
 local warnedNoAnchor = false
 
-local function baseCampCFrame(): CFrame
+function ExposureService.baseCampCFrame(): CFrame
 	local anchor = Workspace:FindFirstChild("RespawnAnchor", true)
 	if anchor and anchor:IsA("BasePart") then
 		return anchor.CFrame + Vector3.new(0, 4, 0)
@@ -269,7 +286,7 @@ local function blackout(player: Player, state: State, cause: string)
 	state.survivableRatchet = nil
 
 	if root and root:IsA("BasePart") then
-		root.CFrame = baseCampCFrame()
+		root.CFrame = ExposureService.baseCampCFrame()
 	end
 
 	blackoutRemote:FireClient(player, { cause = cause, itemsDropped = lost })
@@ -313,13 +330,31 @@ local function stepPlayer(player: Player, dt: number)
 	-- reason a new tier is in your hands within a third of a second with no event.
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
-		-- Pinned in place during a wash. You are standing at a tub aiming a hose in
-		-- third person; walking off mid-spray would drag the camera anchor with you.
-		-- A one-line READ of a fact WashService already owns, rather than new
-		-- machinery here -- this loop was already the only writer of WalkSpeed.
-		humanoid.WalkSpeed = if WashService.isWashing(player)
-			then 0
-			else StatResolver.effectiveWalkSpeed(stats, #data.carry, false)
+		-- LOCKED ON, OR WASHING == ROOTED. Two independent features each need to plant
+		-- the player's feet -- DigService's haul lock (see its own header: committing
+		-- to a haul plants your feet) and WashService's session (you are standing at a
+		-- tub aiming a hose in third person; walking off mid-spray would drag the
+		-- camera anchor with you) -- and this loop is the ONLY thing in the game
+		-- allowed to write WalkSpeed, so both read from here rather than fighting over
+		-- it on alternating ticks.
+		--
+		-- Jump goes to zero with it, or "rooted" means standing still and hopping off
+		-- the signal (or out of the wash) anyway.
+		--
+		-- The safety of this rests entirely on DigService/WashService releasing their
+		-- lock on every path that can invalidate it -- including blacking out, which
+		-- teleports the player out of the stage without killing them. That list is
+		-- enumerated on releaseLock/finish; a lock that is never released is a player
+		-- who can never move.
+		if DigService.isLocked(player) or WashService.isWashing(player) then
+			humanoid.WalkSpeed = 0
+			humanoid.JumpPower = 0
+			humanoid.JumpHeight = 0
+		else
+			humanoid.WalkSpeed = StatResolver.effectiveWalkSpeed(stats, #data.carry, false)
+			humanoid.JumpPower = DEFAULT_JUMP_POWER
+			humanoid.JumpHeight = DEFAULT_JUMP_HEIGHT
+		end
 	end
 	-- The decay clock. CarryService now EXISTS and is the obvious owner by name — it
 	-- deliberately does not take this, and the reason is ordering. Ticker fires in

@@ -399,28 +399,92 @@ function Spec.run(): boolean
 		local slow = Stages.secondsBetweenContacts(field, lo, walk, Tuning.SIGNALS_PER_STAGE)
 		local fast = Stages.secondsBetweenContacts(field, hi, walk, Tuning.SIGNALS_PER_STAGE)
 		-- BANDS RE-FITTED TO THE UNIFORM-LENGTH PASS (Config/Stages header). Every
-		-- stage is now 400 x 240 = 96,000 studs, so at SIGNALS_PER_STAGE = 90 the
-		-- starting detector turns up a contact roughly every 2s of walking and a
-		-- maxed one almost continuously. Denser than the old targets (3-12s / >=2s),
-		-- and that is the accepted cost of uniform stages with no dead walking -- so
-		-- the floors came down rather than the geometry being bent to hold them. What
-		-- did NOT move: this must still be a WALK, not a stand-still (slow floor > 0),
-		-- and the reveal curve must stay FLAT end to end -- that ratio guard is
-		-- area-independent and is the real check against "fixing" the Detector
-		-- track's payoff by widening radius (see Config/Gear's header). Move this
-		-- band only via SIGNALS_PER_STAGE.
+		-- stage is 400 x 200 = 80,000 studs, and SIGNALS_PER_STAGE tracks that area so
+		-- `area / N` = 1066.67 -- the starting detector turns up a contact roughly
+		-- every 2s of walking and a maxed one almost continuously. Denser than the old
+		-- targets (3-12s / >=2s), and that is the accepted cost of uniform stages with
+		-- no dead walking -- so the floors came down rather than the geometry being
+		-- bent to hold them. These bands did NOT move when the 240 -> 200 width pass
+		-- landed: `area / N` was held, so `slow` and `fast` are unchanged to the digit.
+		-- What else did NOT move: this must still be a WALK, not a stand-still (slow
+		-- floor > 0), and the reveal curve must stay FLAT end to end -- that ratio
+		-- guard is area-independent and is the real check against "fixing" the
+		-- Detector track's payoff by widening radius (see Config/Gear's header). Move
+		-- this band only via the FOOTPRINT_Z / SIGNALS_PER_STAGE pair, keeping the ratio.
 		check(string.format("§2.1 starting detector walks %.1fs between contacts (want 1.2-5)", slow), slow >= 1.2 and slow <= 5)
 		check(string.format("§2.1 a maxed detector still has a beat between contacts: %.2fs (want >= 0.4)", fast), fast >= 0.4)
 		check(string.format("§2.1 the reveal curve stays flat: %.1fx end to end (want <= 4)", slow / fast), slow / fast <= 4)
 	end
 
+	-- PLAN §Step 2 — THE PULL IS A MASH, AND `draw` IS WHAT KEEPS IT PLAYABLE.
+	--
+	-- Every check below is a restatement of one number: the clicks per second a tier
+	-- needs just to HOLD an item where it is,
+	--     (PULL_DRAG_RATE - draw) / (PULL_YANK_PER_CLICK * pullSpeed)
+	-- which is the thing a player actually experiences when they buy a magnet. It is
+	-- worth pinning rather than eyeballing because it falls out of FOUR numbers spread
+	-- across two files, and moving any one of them silently moves it.
+	local function clicksToHold(tier: number): number
+		local magnet = Gear.tier("Magnet", tier)
+		return (Tuning.PULL_DRAG_RATE - magnet.draw) / (Tuning.PULL_YANK_PER_CLICK * magnet.pullSpeed)
+	end
+
+	do
+		local starting = clicksToHold(1)
+		check(
+			string.format("§Step2 the starting magnet is a real mash but a mashable one: %.2f clicks/sec (want 2-3.5)", starting),
+			starting >= 2 and starting <= 3.5
+		)
+
+		-- THE MOBILE CHECK, and the most load-bearing line in this block. PLAN §Step 2
+		-- is explicit that the pull must never be balanced around desktop mash rate,
+		-- because doing so quietly locks half the Roblox audience out of deep stages —
+		-- and a mash is exactly the mechanic most likely to drift that way under
+		-- "make tier 1 feel weightier" pressure. `draw` is the promise that it will
+		-- not, and this is where the promise is kept: by the mid magnet the answer has
+		-- to be about one click every two seconds, which is comfortable on a phone.
+		local mid = math.ceil(Gear.maxTier("Magnet") / 2) + 1
+		check(
+			string.format("§Step2 a mid magnet (%s) is comfortable on a phone: %.2f clicks/sec (want <= 1)", Gear.tier("Magnet", mid).name, clicksToHold(mid)),
+			clicksToHold(mid) <= 1
+		)
+
+		local easing = true
+		for tier = 2, Gear.maxTier("Magnet") do
+			if clicksToHold(tier) >= clicksToHold(tier - 1) then
+				easing = false
+			end
+		end
+		check("§Step2 every magnet tier asks for fewer clicks than the last", easing)
+
+		-- The pull must stay a BEAT, not a tap. The deepest item in the game against
+		-- the best magnet in the game is the fastest pull that can exist; if even that
+		-- is instant then the mash has stopped being a mechanic and the magnet track
+		-- has nothing left to sell.
+		local deepest = Tuning.DIG_DEPTH_BASE + (#Rarity.ORDER - 1) * Tuning.DIG_DEPTH_PER_RARITY
+		local best = Gear.tier("Magnet", Gear.maxTier("Magnet"))
+		local netPerSecond = 4 * Tuning.PULL_YANK_PER_CLICK * best.pullSpeed - (Tuning.PULL_DRAG_RATE - best.draw)
+		local fastest = (Tuning.PULL_SECONDS_PER_STUD * deepest) / netPerSecond
+		check(
+			string.format("§Step2 the deepest item still takes %.1fs at 4 clicks/sec with the best magnet (want >= 2)", fastest),
+			fastest >= 2
+		)
+	end
+
 	-- PLAN §7 — DENSITY AND THE LOOT TABLES ARE ONE DECISION, NOT TWO.
 	--
-	-- SIGNALS_PER_STAGE was doubled to 90 so the reveal has something to reveal, and
+	-- SIGNALS_PER_STAGE was doubled 45 -> 90 so the reveal has something to reveal, and
 	-- every weight at Rare and above was halved to cancel that multiplier exactly.
 	-- This is the check that catches someone doing only the first half: raise the
 	-- density on its own and the field quietly starts holding twice the jackpots,
 	-- which is invisible in play until the economy is already ruined.
+	--
+	-- BAND FLOOR DROPPED 1.8 -> 1.7 WITH THE 240 -> 200 WIDTH PASS. That pass took
+	-- SIGNALS_PER_STAGE 90 -> 75 in step with the area, so per-dig rarity odds and the
+	-- per-second rate of Rare+ are both unchanged -- but the smaller field holds
+	-- proportionally fewer signals buried at once, so this SNAPSHOT count drops
+	-- ~2.25 -> ~1.87 with no change a player can feel. The floor moved to match rather
+	-- than pretend an 80,000-stud field buries as many jackpots as a 96,000 one did.
 	--
 	-- This assertion is about the STARTER field: Stage 1's own single loot table is
 	-- what a new player rolls against. Stages 4, 5 and 6 have their own tables and
@@ -439,8 +503,8 @@ function Spec.run(): boolean
 
 	local rarePlus = Tuning.SIGNALS_PER_STAGE * shareAtOrAbove(Stages.get(1).loot, 4) -- Rare and up
 	check(
-		string.format("§7 the field holds %.1f Rare-or-better signals (want 1.8-3.0, Stage 1's own table)", rarePlus),
-		rarePlus >= 1.8 and rarePlus <= 3.0
+		string.format("§7 the field holds %.1f Rare-or-better signals (want 1.7-3.0, Stage 1's own table)", rarePlus),
+		rarePlus >= 1.7 and rarePlus <= 3.0
 	)
 
 	-- ...and the flip side: the extra signals have to be junk, or "more items" just

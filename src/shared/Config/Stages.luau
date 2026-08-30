@@ -16,13 +16,19 @@
 -- The generator writes both from the same loop index so they cannot drift apart.
 --
 -- ── HOW SIZE WAS CHOSEN, WHICH IS NOT ARBITRARY ─────────────────────────────
--- DigService keeps SIGNALS_PER_STAGE = 90 buried signals per stage. That is a GLOBAL
--- constant — it does not scale with area — so area is the only lever on how hard a
--- stage is to search. Since the uniform-length pass, every stage has the SAME area —
--- so that lever is now set once, globally, and hits every stage identically.
+-- DigService keeps SIGNALS_PER_STAGE (Config/Tuning) buried signals per stage. It
+-- does not scale with area on its own, so area is the only lever on how hard a stage
+-- is to search. Since the uniform-length pass, every stage has the SAME area — so
+-- that lever is set once, globally, and hits every stage identically.
+--
+-- SIGNALS_PER_STAGE IS KEPT PROPORTIONAL TO THAT SHARED AREA BY HAND, so `area / N`
+-- (and therefore every search metric below) is a constant regardless of the
+-- footprint: it was 96,000 / 90 and is now 80,000 / 75, both = 1066.67. Change the
+-- footprint here and you MUST re-derive N in Config/Tuning to hold that ratio.
+--
 -- Define coverage:
 --
---     c = 90 * pi * r^2 / area
+--     c = N * pi * r^2 / area          (N / area held constant, so c is too)
 --
 -- Under the reveal detector c has a much more direct reading than it used to: it is
 -- the EXPECTED NUMBER OF CONTACTS lit up around a player standing still. c = 0.11
@@ -32,30 +38,36 @@
 -- sweeps a corridor of width 2r as the player walks, so what a player experiences is
 -- the gap between one glow going out and the next coming up:
 --
---     seconds between contacts = (area / 90) / (2 * r * walkSpeed)
+--     seconds between contacts = (area / N) / (2 * r * walkSpeed)
 --
 -- That is Stages.secondsBetweenContacts, and it is the number to tune against. PLAN
 -- §2 wants a 20-40s loop at the low end; the walk is supposed to be a chunk of that,
 -- not all of it.
 --
 -- ── UNIFORM LENGTH PASS ────────────────────────────────────────────────────
--- Every stage is now the SAME footprint: 400 long (X, the walk axis) by 240 wide
--- (Z). This finishes what the earlier uniform-depth pass started — Stage 1 and
--- Stage 5 used to be 600-660 long against 220-360 for the rest, which read on the
--- ground as long empty walks through the two big stages and quick hops through
--- the others. Identical footprints make SIGNALS_PER_STAGE (Config/Tuning) do
--- exactly the job its own comment claims: one global knob for how hard EVERY
--- stage is to search, with no per-stage area lever left to forget about.
+-- Every stage is the SAME footprint: FOOTPRINT_X long (X, the walk axis) by
+-- FOOTPRINT_Z wide (Z), 400 x 200. This finishes what the earlier uniform-depth
+-- pass started — Stage 1 and Stage 5 used to be 600-660 long against 220-360 for
+-- the rest, which read on the ground as long empty walks through the two big
+-- stages and quick hops through the others. Identical footprints make
+-- SIGNALS_PER_STAGE (Config/Tuning) do exactly the job its own comment claims: one
+-- global knob for how hard EVERY stage is to search, with no per-stage area lever
+-- left to forget about.
 --
---     every stage:  400 x 240   area 96,000   90 signals   mean gap ~16 studs
+--     every stage:  400 x 200   area 80,000   75 signals   mean gap ~16 studs
 --
--- WHAT THAT COSTS, RECORDED NOT HIDDEN: at 96,000 studs the starting detector
+-- WIDTH WENT 240 -> 200 (the whole chain got narrower, on request). N went 90 ->
+-- 75 in the same breath to hold `area / N` at 1066.67, so the search feels
+-- byte-for-byte identical: every metric below (secondsBetweenContacts, coverage,
+-- meanSignalGap) is a function of that ratio alone.
+--
+-- WHAT THAT COSTS, RECORDED NOT HIDDEN: at this density the starting detector
 -- (r=13) turns up a fresh contact about every 2s of walking and a maxed one
 -- (r=34) almost continuously — denser than the 20-40s "loop" PLAN §2 describes.
 -- That is the deliberate trade for uniform stages and no dead walking. Spec's two
--- search-feel checks were re-banded to this reality rather than the geometry bent
--- to keep the old numbers. Retune via SIGNALS_PER_STAGE alone from here — do not
--- reintroduce per-stage sizes.
+-- search-feel checks are banded to this reality, and did NOT move when the
+-- footprint shrank (the ratio held). Retune search via the FOOTPRINT_Z / N pair
+-- from here — keep the ratio, and do not reintroduce per-stage sizes.
 --
 -- ALL SIX ARE BUILT, BUT ONLY STAGE 1 HAS EVER BEEN PLAYED. The other five now
 -- share Stage 1's footprint exactly, so whatever the search feels like there is
@@ -223,6 +235,12 @@ Stages.GROUND_OOZE_TINT = 0.55
 --- Shared/Util/Spec.
 Stages.PLATE_THICKNESS = 16
 
+--- The one footprint every stage shares (see the UNIFORM LENGTH PASS header). X is
+--- the walk axis; Z is the corridor width. FOOTPRINT_Z and Tuning.SIGNALS_PER_STAGE
+--- move together — `FOOTPRINT_X * FOOTPRINT_Z / SIGNALS_PER_STAGE` is the search
+--- constant (1066.67) and must stay put, or every search-feel number shifts.
+local FOOTPRINT_X, FOOTPRINT_Z = 400, 200
+
 Stages.DEFS = {
 	{
 		id = 1,
@@ -270,12 +288,12 @@ Stages.DEFS = {
 		loot = { Scrap = 48, Common = 41, Uncommon = 8.4, Rare = 2, Epic = 0.4, Legendary = 0.075, Mythic = 0.02, Anomaly = 0.001 },
 		-- West edge pinned at x = 100 (Hub.PLAZA.maxX); centre = 100 + 400/2.
 		center = { 300, 0 },
-		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint of all six stages —
-		-- see the header. Was 660 long (and 320, then 240, wide); this is the axis
-		-- that made Stage 1 a long empty walk. Stage 1's WEST edge did not move, so
+		-- UNIFORM LENGTH PASS: 400 x 200 (FOOTPRINT_X/Z), the shared footprint of all six stages —
+		-- see the header. Was 660 long (and 320, then 240, then 200 wide); length is
+		-- the axis that made Stage 1 a long empty walk. Stage 1's WEST edge did not move, so
 		-- its entrance-side tuning (stationDistance, the deepRads/depthFrac notes
 		-- above) is untouched; only the east half pulled in.
-		size = { 400, 240 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		-- The east-edge endpoint of buildStage1Checkerboard's plaza-to-here gradient
 		-- (see Scenery.luau) — this base colour is never actually seen as a flat
 		-- fill, only blended toward across the plate, and the fallback should match
@@ -321,9 +339,9 @@ Stages.DEFS = {
 		loot = { Scrap = 43, Common = 39, Uncommon = 12.6, Rare = 3.5, Epic = 1, Legendary = 0.25, Mythic = 0.05, Anomaly = 0.002 },
 		-- West edge = Stage 1's east edge (x = 500); centre = 500 + 400/2.
 		center = { 700, 0 },
-		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint — see the header. Was
+		-- UNIFORM LENGTH PASS: 400 x 200 (FOOTPRINT_X/Z), the shared footprint — see the header. Was
 		-- 220 long, the shortest stage; it grew to match the rest.
-		size = { 400, 240 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		-- Dun/tan, not green — see "LIFE FADING INTO A DEAD WASTELAND" below.
 		color = "B8935F",
 		material = "Sand",
@@ -360,9 +378,9 @@ Stages.DEFS = {
 		loot = { Common = 74, Uncommon = 16.8, Rare = 6, Epic = 2.25, Legendary = 0.6, Mythic = 0.14, Anomaly = 0.005 },
 		-- West edge = Stage 2's east edge (x = 900); centre = 900 + 400/2.
 		center = { 1100, 0 },
-		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint — see the header.
+		-- UNIFORM LENGTH PASS: 400 x 200 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 260 long.
-		size = { 400, 240 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		-- Deeper desert khaki-brown — the endpoint of the Stage 1-3 gradient. Slate
 		-- read as dark grey rock and broke continuity with the sand family this
 		-- whole stretch depends on, so material moved to Sand too.
@@ -402,10 +420,10 @@ Stages.DEFS = {
 		loot = { Common = 39, Uncommon = 28, Rare = 20, Epic = 9, Legendary = 3, Mythic = 0.8, Anomaly = 0.03 },
 		-- West edge = Stage 3's east edge (x = 1300); centre = 1300 + 400/2.
 		center = { 1500, 0 },
-		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint — see the header. Was
+		-- UNIFORM LENGTH PASS: 400 x 200 (FOOTPRINT_X/Z), the shared footprint — see the header. Was
 		-- 290 long, the "deliberately short" dive; that framing is gone (comment
 		-- above).
-		size = { 400, 240 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		-- WHERE THE GREEN STOPS. See "THE COLOUR TURNS" in the header. A dead muddy
 		-- brown, on request (was a deep plum, "73246B") — nothing grows here any
 		-- more; the pink/violet doesn't start until Stage 5. The checkerboard floor
@@ -436,10 +454,10 @@ Stages.DEFS = {
 		loot = { Common = 22, Uncommon = 25, Rare = 26, Epic = 17, Legendary = 7, Mythic = 2.4, Anomaly = 0.1 },
 		-- West edge = Stage 4's east edge (x = 1700); centre = 1700 + 400/2.
 		center = { 1900, 0 },
-		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint — see the header. Was
+		-- UNIFORM LENGTH PASS: 400 x 200 (FOOTPRINT_X/Z), the shared footprint — see the header. Was
 		-- 600 long, the second of the two big empty-walk stages; the biggest single
 		-- shrink of the six.
-		size = { 400, 240 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		-- Light pink, on request (was a deep magenta, "A02268"). After Stage 4's dead
 		-- brown the ground going soft candy-pink reads as a jump to a different KIND
 		-- of place, not more of the same. The checkerboard floor is UNtinted
@@ -483,12 +501,12 @@ Stages.DEFS = {
 		-- West edge = Stage 5's east edge (x = 2100); centre = 2100 + 400/2. The chain
 		-- ends at x = 2500, within 10 studs of where it ended before.
 		center = { 2300, 0 },
-		-- UNIFORM LENGTH PASS: 400 x 240, the shared footprint — see the header. Was
+		-- UNIFORM LENGTH PASS: 400 x 200 (FOOTPRINT_X/Z), the shared footprint — see the header. Was
 		-- 360 long.
-		size = { 400, 240 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
 		color = "5B1FA8",
 		-- Glass, not Neon. The plate used to be Neon gold, which at Brightness 2.4
-		-- with bloom is a 400x240 light source rather than ground — survivable while
+		-- with bloom is a 400x200 light source rather than ground — survivable while
 		-- it was theoretical, and the exact failure the header's colour note warns
 		-- about. The violet reads as violet on Glass and the POOLS do the glowing,
 		-- which is the rule every other stage already follows.

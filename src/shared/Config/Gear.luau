@@ -89,17 +89,35 @@ Gear.Detector = {
 -- through the soil, because what survives out here is metal and anything the fallout
 -- soaked. Same slot in the six tracks the shovel used to hold, same price curve.
 --
--- pullSpeed: how fast it hauls (was digSpeed)
+-- THE PULL IS A MASH. Every click is a yank; the soil drags the item back down between
+-- them (Tuning.PULL_DRAG_RATE). These two stats are the two halves of that fight, and
+-- they are deliberately different KINDS of upgrade:
+--
+-- pullSpeed: what one yank is worth. The speed stat -- the one a player feels on the
+--            first click after buying, because the same item now takes half as many.
+-- draw     : passive lift between yanks, in the same units as the drag. This is the
+--            COMFORT stat and it is what the top of the track actually sells. At tier 1
+--            it is zero, so the ground takes back everything the instant you slow down;
+--            near the top it nearly cancels the drag, which turns frantic mashing into
+--            steady, unhurried clicking (PLAN §Step 2, "it sells you your hand back").
 -- maxGrip  : the toughest ground it can rip something out of, vs Stages.soilHardness.
 --            Under-rated magnets do not fail with a message — they lift the item a
 --            little way and stall, in view, which sells the upgrade by itself.
+--
+-- The trailing column is what falls out of pullSpeed and draw together: the clicks per
+-- second needed just to HOLD an item still. It is the number that decides whether a
+-- tier is playable, so it is worth keeping written down next to the inputs -- and
+-- MOBILE LIVES ON IT. PLAN §Step 2 is explicit that the pull must never be balanced
+-- around desktop mash rate, and `draw` is the lever that keeps that promise: by the
+-- Winch Coil the answer is about one click every two seconds, which is comfortable on
+-- a phone. Spec pins that tier specifically. If you retune draw, re-run it.
 Gear.Magnet = {
-	{ name = "Horseshoe Magnet", price = 0, pullSpeed = 1.0, maxGrip = 1 },
-	{ name = "Salvage Magnet", price = 100, pullSpeed = 1.3, maxGrip = 2 },
-	{ name = "Electromagnet", price = 240, pullSpeed = 1.7, maxGrip = 3 },
-	{ name = "Winch Coil", price = 580, pullSpeed = 2.2, maxGrip = 4 },
-	{ name = "Rail Coil", price = 1390, pullSpeed = 2.9, maxGrip = 5 },
-	{ name = "Singularity Coil", price = 3340, pullSpeed = 3.8, maxGrip = 6 },
+	{ name = "Horseshoe Magnet", price = 0, pullSpeed = 1.0, draw = 0.00, maxGrip = 1 }, -- 2.50 clicks/sec to hold
+	{ name = "Salvage Magnet", price = 100, pullSpeed = 1.3, draw = 0.12, maxGrip = 2 }, -- 1.62
+	{ name = "Electromagnet", price = 240, pullSpeed = 1.7, draw = 0.25, maxGrip = 3 }, -- 0.98
+	{ name = "Winch Coil", price = 580, pullSpeed = 2.2, draw = 0.40, maxGrip = 4 }, -- 0.53  <- the mobile target
+	{ name = "Rail Coil", price = 1390, pullSpeed = 2.9, draw = 0.55, maxGrip = 5 }, -- 0.23
+	{ name = "Singularity Coil", price = 3340, pullSpeed = 3.8, draw = 0.70, maxGrip = 6 }, -- 0.04, effectively hands-free
 }
 
 Gear.Cleaner = {

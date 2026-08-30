@@ -78,13 +78,17 @@
 	right, per the requested sketch:
 
 	    ┌─────────────────────────────────────┐
-	    │              CLEANSING               │
+	    │      [locker]   CLEANSING            │
 	    │  [stand]                   [stand]   │
 	    │  [stand]                   [stand]   │
 	    │  [stand]         .                   │
 	    │  [stand]                   [stand]   │
 	    │                                       │
 	    └─────────────────────────────────────┘
+
+	The Quarantine Locker (PLAN §10.2) sits against the back wall left of the
+	cleansing station — the physical rack of items you hauled home but can't clean
+	yet. Built here, filled by ExhibitService.renderLocker; see buildQuarantineLocker.
 
 	Eight stands, four per side, in two flanking columns — `slotOffset` pairs
 	them off row by row (slot 1 = left row 1, slot 2 = right row 1, slot 3 = left
@@ -109,6 +113,8 @@
 	    ClaimBoard  StationKind = "plot",     StationId = "<n>",        Radius = 10
 	    Stand       StationKind = "pedestal", StationId = "<n>:<slot>", Radius = 7
 	                PlotIndex = n, SlotIndex = s, Locked = true|false
+	                — the base course of the display plinth (StandTop / StandRim /
+	                Display are the rest of it); see buildDisplayStand.
 	    PlotSpawn   SpawnLocation, Enabled = false until the plot is claimed
 	    Basin       StationKind = "decon", Shower = true, Radius = 9 — the cleansing
 	                station (see buildCleansingStation below). One per base, replacing
@@ -121,6 +127,10 @@
 	                buildWashPad below). One per base, three steps from the basin.
 	    Button      SellsTrack = "Luck" + a ProximityPrompt — the luck button
 	                (see buildLuckButton). ShopService wires the prompt at boot.
+	    QuarantineLocker   no station attributes — a display cabinet. LockerSlot1..
+	                Plots.LOCKER_SLOTS are hidden item anchors; LockerDoor is a Model
+	                carrying ClosedPivot / OpenPivot CFrame attributes. Both are
+	                filled/animated by ExhibitService.renderLocker from data.locker.
 
 	The stand's StationId is "plot:slot" so the server can resolve exactly which
 	pedestal a player is standing at without a spatial search of its own.
@@ -146,6 +156,11 @@ local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
 Plots.COUNT = 6
 Plots.VISIBLE_SLOTS = 8
+-- Interior bays in the Quarantine Locker cabinet (buildQuarantineLocker). Kept in
+-- step with the cleansing-station panel's own LOCKER_ROWS; ExhibitService.renderLocker
+-- reads the same number. A locker with more than this many racked items just doesn't
+-- show the overflow, exactly like a plot past VISIBLE_SLOTS pedestals.
+Plots.LOCKER_SLOTS = 3
 -- topY is a deliberate step UP from the plaza (the mirror of Stages.SURFACE_Y's own
 -- step down), expressed relative to Hub.PLAZA.topY rather than as a bare literal so
 -- it keeps meaning "+1.5 above the plaza" if that ever moves again, instead of
@@ -162,13 +177,17 @@ Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3
 ---
 --- RING_CENTER USED TO BE THE PLAZA'S OWN MIDPOINT (MID_X, MID_Z) — moved
 --- toward Stage 1 on request, to shorten the walk from the shop cluster to the
---- field. How far it could move is bounded by the shop cluster's OWN footprint,
---- not by the pads: `SHOP_CLUSTER_EAST_REACH` below is Shops.luau's own
---- eastmost stall (the "Cleaner" counter, `at.x` = centre + 42) plus its own
---- ~11-stud half-width — the shop cluster, not any pad, is the first thing that
---- would cross into Stage 1 if this moved further east than it does.
---- `FIELD_CLEARANCE` is the margin kept past that. (The pads have far more room
---- to spare here — see World.verify()'s own overlap checks, which are the real
+--- field. How far it could move WAS bounded by the shop cluster's OWN footprint,
+--- not by the pads: `SHOP_CLUSTER_EAST_REACH = 53` below was Shops.luau's
+--- eastmost stall (the "Cleaner" counter, once at `RING_CENTER.x + 42`) plus its
+--- ~11-stud half-width, and `FIELD_CLEARANCE` the margin kept past that. THAT
+--- COUPLING IS NOW HISTORICAL: the shop row was re-centred on the plaza midpoint
+--- (Hub's grey central spine) rather than on RING_CENTER, so the Cleaner stall
+--- pulled ~14.5 studs back west and no longer reaches anywhere near Stage 1.
+--- `SHOP_CLUSTER_EAST_REACH` is deliberately left at 53 so RING_CENTER stays put
+--- — it is now the established ring position, a conservative bound rather than a
+--- live measurement of anything in Shops.luau. (The pads have far more room to
+--- spare here — see World.verify()'s own overlap checks, which are the real
 --- authority on safety, not this comment.)
 --- `facing` is a yaw in degrees. A pad is built with its back wall at +Z and its
 --- claim board at -Z, so 0 faces south, 180 faces north, -90 faces east — and
@@ -351,6 +370,113 @@ local function slotOffset(slot: number): (number, number)
 	local x = if isLeft then -COL_X else COL_X
 	local z = ROW_TOP_Z - row * ROW_PITCH
 	return x, z
+end
+
+--- THE DISPLAY STAND — a low two-course studded riser, on request, replacing the
+--- tall marble-and-slate column this used to be. The reference is a wide shallow
+--- plinth: a broad base course, a slightly inset top course stacked on it, and a
+--- raised lip framing a recessed panel the item rests in. Grey studded plastic —
+--- `studs = true` forces Material.Plastic and stud-textures every face (see
+--- Kit.build), and the greys are Kit.C.standGrey* (mid neutral grey, the one
+--- built-not-poured grey object on an otherwise navy-tiled base).
+---
+--- THE BASE COURSE IS THE STATION PART. It keeps the `Stand{slot}` name and every
+--- attribute the world contract (this file's header) publishes. Detection is
+--- radius-based off the part CENTRE (StationService, Radius = 7), so dropping that
+--- centre from pad.topY + 2 to pad.topY + ~0.5 costs nothing — a player at the
+--- plinth sits ~2.5 studs away in Y against a 7-stud reach.
+---
+--- RISER_SURFACE is the pad-local height of the top course's top face — where the
+--- item sits and where ExhibitService pivots a displayed model to. `Display{slot}`
+--- rides 1 stud above it, keeping the same item-to-surface gap the old column had
+--- (its top was pad.topY + 4, the item pivoted 0.28 above that).
+local RISER_BASE = { w = 4.8, h = 0.9 }
+local RISER_TOP = { w = 3.9, h = 0.7 }
+local RISER_RIM = { h = 0.22, thickness = 0.5 } -- the raised frame around the recessed panel
+local RISER_SURFACE = RISER_BASE.h + RISER_TOP.h
+
+local function buildDisplayStand(parent: Instance, origin: CFrame, index: number, slot: number, accent: string)
+	local pad = Plots.PAD
+	local ox, oz = slotOffset(slot)
+	local locked = slot > Tuning.EXHIBIT_STARTING_SLOTS
+	local dim = if locked then 0.45 else 0
+	-- Locked: the whole stack goes flat dark-grey and half-transparent, the same
+	-- "you can see what you're saving for" read the old capped-and-dim column had.
+	-- Unlocked: base course darker than the top course and its frame, so the two
+	-- courses read as lit from above.
+	local topGrey = if locked then C.standGreyDark else C.standGrey
+
+	local base = build(parent, origin, {
+		name = `Stand{slot}`,
+		pos = { ox, pad.topY + RISER_BASE.h / 2, oz },
+		size = { RISER_BASE.w, RISER_BASE.h, RISER_BASE.w },
+		color = C.standGreyDark,
+		material = "Plastic",
+		studs = true,
+		transparency = dim,
+		attributes = {
+			StationKind = "pedestal",
+			StationId = `{index}:{slot}`,
+			PlotIndex = index,
+			SlotIndex = slot,
+			Locked = locked,
+			Radius = 7,
+		},
+	})
+
+	build(parent, origin, {
+		name = `StandTop{slot}`,
+		pos = { ox, pad.topY + RISER_BASE.h + RISER_TOP.h / 2, oz },
+		size = { RISER_TOP.w, RISER_TOP.h, RISER_TOP.w },
+		color = topGrey,
+		material = "Plastic",
+		studs = true,
+		transparency = dim,
+	})
+
+	-- Four bars proud of the top course, framing the recessed panel — the routed
+	-- border the reference plinth has. CanCollide off so nothing catches on them.
+	local frameHalf = RISER_TOP.w / 2 - RISER_RIM.thickness / 2
+	local sideLen = RISER_TOP.w - 2 * RISER_RIM.thickness
+	for _, bar in {
+		{ dx = 0, dz = -frameHalf, sx = RISER_TOP.w, sz = RISER_RIM.thickness },
+		{ dx = 0, dz = frameHalf, sx = RISER_TOP.w, sz = RISER_RIM.thickness },
+		{ dx = -frameHalf, dz = 0, sx = RISER_RIM.thickness, sz = sideLen },
+		{ dx = frameHalf, dz = 0, sx = RISER_RIM.thickness, sz = sideLen },
+	} do
+		build(parent, origin, {
+			name = `StandRim{slot}`,
+			pos = { ox + bar.dx, pad.topY + RISER_SURFACE + RISER_RIM.h / 2, oz + bar.dz },
+			size = { bar.sx, RISER_RIM.h, bar.sz },
+			color = topGrey,
+			material = "Plastic",
+			studs = true,
+			transparency = dim,
+			canCollide = false,
+		})
+	end
+
+	-- The item sits on the panel. Transparent while the slot is empty; ExhibitService
+	-- colours it by rarity, or swaps in the real model, when something is displayed —
+	-- matching the colour the haul part used when it came out of the ground.
+	build(parent, origin, {
+		name = `Display{slot}`,
+		pos = { ox, pad.topY + RISER_SURFACE + 1, oz },
+		size = { 1.4, 1.4, 1.4 },
+		color = accent,
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+		attributes = { PlotIndex = index, SlotIndex = slot },
+	})
+
+	-- A dim WARM lift on the unlocked plinths (the old column carried an
+	-- accent-coloured PointLight here — that stained a grey plinth the plot's
+	-- accent and fought the "keep it grey" brief). Warm and low so it reads as a
+	-- gallery spot on the panel, not a coloured object; locked plinths stay unlit.
+	if not locked then
+		light(base, C.lampWarm, 6, 0.35)
+	end
 end
 
 --- The cleansing station — replaces the camp's old central Decon Station and
@@ -626,6 +752,104 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 	m.Parent = parent
 end
 
+--- THE QUARANTINE LOCKER (PLAN §10.2) — a steel cabinet beside the cleansing
+--- station holding what you hauled home but can't clean yet. THIS FILE BUILDS THE
+--- SHELL; the data (`data.locker`), the `rack` action and the dirty-sell already
+--- exist. ExhibitService.renderLocker fills `LockerSlot1..LOCKER_SLOTS` from the
+--- owner's `data.locker` and swings `LockerDoor` to `OpenPivot` whenever the
+--- locker holds anything, `ClosedPivot` when it's empty — a full locker reads as a
+--- red-lined taunt from across the base, an empty one is just a shut cabinet.
+---
+--- NO STATION ATTRIBUTES. Racking still happens at the cleansing station
+--- (DeconService gates it on `StationKind == "decon"`); this cabinet is a display,
+--- not a stop. Placed against the back wall LEFT of the cleansing station, opening
+--- toward the plot entrance (-Z), clear of the gantry posts (x = ±3.2) and the
+--- left stand column (x = -25) by ~8 studs each — World.verify() re-checks nothing
+--- overlaps on every rebuild.
+---
+--- THE DOOR IS ITS OWN MODEL, built CLOSED in a frame anchored at the hinge (the
+--- -X edge of the opening), so a yaw about that frame's own vertical axis swings
+--- it. The two pivots are stamped as CFrame attributes, so ExhibitService never
+--- has to know which way this plot faces.
+local function buildQuarantineLocker(parent: Instance, origin: CFrame, accent: string)
+	local m = Instance.new("Model")
+	m.Name = "QuarantineLocker"
+	local pad = Plots.PAD
+
+	local lx, lz = -13, 22.5
+	local baseY = pad.topY + 0.4 -- top of the plinth; the cabinet's own floor sits here
+	local midY = baseY + 2.7 -- centre of the 5.4-tall body
+
+	build(m, origin, { name = "Plinth", pos = { lx, pad.topY + 0.2, lz }, size = { 3.2, 0.4, 2.4 }, color = C.baseTileDark, material = "Metal" })
+
+	-- The open-front box.
+	build(m, origin, { name = "Back", pos = { lx, midY, lz + 0.85 }, size = { 2.6, 5.4, 0.2 }, color = C.steelDark, material = "Metal" })
+	for _, sx in { -1, 1 } do
+		build(m, origin, { name = "Side", pos = { lx + sx * 1.3, midY, lz }, size = { 0.2, 5.4, 1.9 }, color = C.steelDark, material = "Metal" })
+	end
+	build(m, origin, { name = "Floor", pos = { lx, baseY + 0.1, lz }, size = { 2.6, 0.2, 1.9 }, color = C.steelDark, material = "Metal" })
+	build(m, origin, { name = "Ceiling", pos = { lx, baseY + 5.3, lz }, size = { 2.6, 0.2, 1.9 }, color = C.steelDark, material = "Metal" })
+
+	-- Red interior lining — the one saturated colour in the base.
+	build(m, origin, { name = "Lining", pos = { lx, midY, lz + 0.7 }, size = { 2.4, 5.0, 0.1 }, color = C.quarantineRed, material = "SmoothPlastic" })
+	build(m, origin, { name = "LiningFloor", pos = { lx, baseY + 0.25, lz }, size = { 2.4, 0.12, 1.6 }, color = C.quarantineRed, material = "SmoothPlastic" })
+
+	-- Two shelves split the interior into LOCKER_SLOTS bays; a hidden anchor sits on
+	-- the floor of each. renderLocker seats a scaled item model on the anchor's
+	-- bottom face (anchor.Position.Y - anchor.Size.Y/2), so the anchor cube marks
+	-- the bay floor and needs no shared magic offset with ExhibitService.
+	local bayFloorY = { baseY + 0.31 }
+	for i = 1, Plots.LOCKER_SLOTS - 1 do
+		local shelfY = baseY + 0.31 + i * 1.6
+		build(m, origin, { name = `Shelf{i}`, pos = { lx, shelfY, lz }, size = { 2.4, 0.1, 1.6 }, color = C.steel, material = "Metal" })
+		table.insert(bayFloorY, shelfY + 0.05)
+	end
+	for i, floorY in bayFloorY do
+		build(m, origin, {
+			name = `LockerSlot{i}`,
+			pos = { lx, floorY + 0.45, lz },
+			size = { 0.9, 0.9, 0.9 },
+			color = accent,
+			material = "SmoothPlastic",
+			transparency = 1,
+			canCollide = false,
+		})
+	end
+
+	-- Header plate over the opening.
+	local sign = build(m, origin, { name = "Sign", pos = { lx, baseY + 5.7, lz - 0.95 }, size = { 2.6, 0.55, 0.1 }, color = C.steelDark, material = "Metal" })
+	Kit.surfaceText(sign, Enum.NormalId.Front, "QUARANTINE", C.quarantineRed)
+
+	-- THE DOOR. Hinge = the -X edge of the opening; build parts extending +X from it
+	-- (closed, across the opening). Slab is a hair wider than the gap so a shut
+	-- locker reads solid.
+	local hinge = origin * CFrame.new(lx - 1.3, midY, lz - 0.9)
+	local door = Instance.new("Model")
+	door.Name = "LockerDoor"
+
+	build(door, hinge, { name = "Slab", pos = { 1.25, 0, 0 }, size = { 2.5, 5.2, 0.14 }, color = C.steel, material = "Metal" })
+	for _, bankY in { 1.5, -1.4 } do
+		for s = 0, 3 do
+			build(door, hinge, {
+				name = "Louver",
+				pos = { 1.25, bankY - s * 0.34, -0.16 },
+				size = { 2.0, 0.12, 0.18 },
+				color = C.steelDark,
+				material = "Metal",
+				rot = Kit.ang(-22, 0, 0),
+				canCollide = false,
+			})
+		end
+	end
+
+	door.WorldPivot = hinge
+	door:SetAttribute("ClosedPivot", hinge)
+	door:SetAttribute("OpenPivot", hinge * CFrame.Angles(0, math.rad(110), 0))
+	door.Parent = m
+
+	m.Parent = parent
+end
+
 --- The luck button — mounted on the plot's own back wall, below the name, where you
 --- press E to buy the next +0.1x.
 ---
@@ -776,8 +1000,13 @@ local function buildPlot(parent: Instance, index: number)
 		material = "Neon",
 	})
 	Kit.surfaceText(sign, Enum.NormalId.Front, "UNCLAIMED", C.signText)
-	light(sign, accent, 22, 1.6)
-	light(wall, accent, 18, 0.8)
+	-- Dialled back from 22/1.6 and 18/0.8: the back-third accent wash was bright
+	-- enough to bounce the plot's colour onto the grey display plinths in front of
+	-- it (the Neon sign and Trim carry the "whose plot is this" cue on their own;
+	-- these lights only need to lift the nameplate and give the wall a gentle
+	-- tint, not floodlight the whole back of the pad).
+	light(sign, accent, 20, 1.0)
+	light(wall, accent, 14, 0.4)
 
 	-- The claim board: collect banked income, buy the next pedestal slot.
 	local board = build(m, origin, {
@@ -813,47 +1042,13 @@ local function buildPlot(parent: Instance, index: number)
 
 	-- Only the first EXHIBIT_STARTING_SLOTS are unlocked; the rest of the visible run
 	-- is capped and dim, which is the point — you can see what you are saving for.
+	-- See buildDisplayStand for the plinth's form.
 	for slot = 1, math.min(Plots.VISIBLE_SLOTS, Tuning.EXHIBIT_MAX_SLOTS) do
-		local ox, oz = slotOffset(slot)
-		local locked = slot > Tuning.EXHIBIT_STARTING_SLOTS
-
-		local stand = build(m, origin, {
-			name = `Stand{slot}`,
-			pos = { ox, pad.topY + 2, oz },
-			size = { 2.6, 4, 2.6 },
-			color = if locked then C.plazaEdge else C.plazaWarm,
-			material = if locked then "Slate" else "Marble",
-			transparency = if locked then 0.45 else 0,
-			attributes = {
-				StationKind = "pedestal",
-				StationId = `{index}:{slot}`,
-				PlotIndex = index,
-				SlotIndex = slot,
-				Locked = locked,
-				Radius = 7,
-			},
-		})
-
-		-- The item sits here. Transparent while the slot is empty; ExhibitService
-		-- colours it by rarity when something is displayed, matching the colour the
-		-- haul part used when it came out of the ground.
-		build(m, origin, {
-			name = `Display{slot}`,
-			pos = { ox, pad.topY + 5, oz },
-			size = { 1.4, 1.4, 1.4 },
-			color = accent,
-			material = "SmoothPlastic",
-			transparency = 1,
-			canCollide = false,
-			attributes = { PlotIndex = index, SlotIndex = slot },
-		})
-
-		if not locked then
-			light(stand, accent, 8, 0.6)
-		end
+		buildDisplayStand(m, origin, index, slot, accent)
 	end
 
 	buildCleansingStation(m, origin, accent)
+	buildQuarantineLocker(m, origin, accent)
 	buildWashPad(m, origin, accent)
 	buildLuckButton(m, origin)
 
@@ -871,6 +1066,14 @@ end
 --- crossing it — the same shared-edge convention the plaza's own east side
 --- already uses) and punched by `apronSkip` (plaza + every pad's own oriented
 --- footprint) — see that function's own comment above.
+---
+--- `pad = true` on that call is the other half of Hub's grey central spine: the
+--- plaza paints the band down its own stretch, this carries it a little further north
+--- and south onto the apron — same grid, same `Hub.inPad` test (which caps the length
+--- at the Camp -> Stage 1 hazard border, well short of the bases) — so the strip runs
+--- unbroken across the plaza/apron seam and stops clean. Where it does reach, the band
+--- flows around any plot footprint exactly like the green does, since `apronSkip`
+--- punches those out before the colour is ever chosen.
 ---
 --- CLIPPED AT THE FIELD, NOT AT RING_CENTER, ON REQUEST. The disc used to stop
 --- dead at `RING_CENTER.x`, which is west of the plaza's own east edge — the
@@ -900,7 +1103,7 @@ local function buildApron(row: Model)
 		minZ = Plots.RING_CENTER.z - Plots.RING_OUTER,
 		maxZ = Plots.RING_CENTER.z + Plots.RING_OUTER,
 	}
-	Hub.tileRect(apron, discBounds, { skip = apronSkip })
+	Hub.tileRect(apron, discBounds, { skip = apronSkip, pad = true })
 
 	local BANDS = 12
 	local bandHeight = (2 * Plots.RING_OUTER) / BANDS
@@ -949,6 +1152,7 @@ function Plots.rebuild(parent: Instance?): Model
 	print(
 		`[build] Plots rebuilt — {Plots.COUNT} plots, {Plots.VISIBLE_SLOTS} stands each `
 			.. `({Tuning.EXHIBIT_STARTING_SLOTS} unlocked, {Tuning.EXHIBIT_MAX_SLOTS} addressable), `
+			.. `{Plots.LOCKER_SLOTS}-bay quarantine locker each, `
 			.. `{#row.Apron:GetChildren()} apron parts`
 	)
 	return row

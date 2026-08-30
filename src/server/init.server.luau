@@ -27,6 +27,7 @@ local ORDER = {
 	"StationService", -- what you are standing at; DeconService, ShopService and ExhibitService read it
 	"ShopService", -- turning cash back into capability; needs Station + Economy
 	"ExhibitService", -- plot assignment, display/undisplay, yield accrual; needs Station + Economy
+	"WarpService", -- the top-of-screen bar's teleport; needs Stage + Dig + Exhibit + Exposure
 	"LiquidService", -- the wash pad: rolling liquids, charges, equip; needs Station + Economy
 	"WashService", -- the hose bay: the E-to-wash session; needs Carry + Liquid + Economy
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel

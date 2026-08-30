@@ -78,6 +78,21 @@ Kit.C = {
 	plazaWarm = "F2E3B8",
 	plazaEdge = "D8C79A",
 
+	-- The exhibition plinths on the plots (Plots.buildDisplayStand). Mid neutral
+	-- grey, deliberately the one grey object standing on a base that is otherwise
+	-- navy-and-grey tiles — a two-course studded riser reads as built furniture, not
+	-- poured ground. `standGreyDark` is the base course, `standGrey` the top course
+	-- and its frame, so the stack reads as lit from above. NOT a hazard channel:
+	-- never Neon, never one of the ooze greens.
+	standGrey = "A0A0A0",
+	standGreyDark = "787878",
+
+	-- The Quarantine Locker's interior lining (Plots.buildQuarantineLocker). The one
+	-- saturated red in the base — a hazard-adjacent colour, but NOT the acid-green
+	-- radiation channel, so it's allowed. Kept in the same family as the client
+	-- panel's own locker red (UIKit.C.red).
+	quarantineRed = "C4382E",
+
 	-- ── The checkerboard, in its two palettes ────────────────────────────────
 	-- One pattern, one grid, two colour schemes: the plaza and its apron in green,
 	-- the six player bases in navy and grey, a step above it. Walking onto a base
@@ -249,6 +264,7 @@ export type Spec = {
 	shape: string?, -- "Block" (default) | "Cylinder" | "Ball" | "Wedge"
 	transparency: number?,
 	canCollide: boolean?,
+	studs: boolean?, -- stud every face (forces Material.Plastic — studs render on nothing else)
 	class: string?, -- "Part" (default) | "SpawnLocation" | "WedgePart"
 	attributes: { [string]: any }?,
 }
@@ -265,6 +281,16 @@ function Kit.build(parent: Instance, origin: CFrame, spec: Spec): BasePart
 
 	if p:IsA("Part") then
 		p.Shape = Enum.PartType[spec.shape or "Block"]
+	end
+
+	-- Studs need Material.Plastic AND every face set explicitly -- only TopSurface is
+	-- Studs by default on a fresh Part (see Hub.tileRect). This forces both, so a caller
+	-- gets the studded-brick look whatever material it happened to name.
+	if spec.studs then
+		p.Material = Enum.Material.Plastic
+		for _, face in { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" } do
+			p[face] = Enum.SurfaceType.Studs
+		end
 	end
 
 	p.CFrame = origin * CFrame.new(spec.pos[1], spec.pos[2], spec.pos[3]) * (spec.rot or Kit.R.flat)

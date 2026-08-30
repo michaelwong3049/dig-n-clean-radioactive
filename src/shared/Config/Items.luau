@@ -11,8 +11,8 @@
 	wasteland setting stays; what changed is what you find in it. Gold, jewelry,
 	old toys, and a few things that are frankly a little silly (a rubber duck,
 	a mutant carrot, a mini nuke) read as "dig for treasure" instead of "excavate
-	a tragedy" — same six stages, same rarity ladder, same six items with real 3D
-	models untouched (bottle_cap, steel_rod, tin_can, house_key, stopped_watch).
+	a tragedy" — same six stages, same rarity ladder, with seven items modelled in 3D
+	(bottle_cap, steel_rod, tin_can, house_key, stopped_watch, rubber_duck, gold_ring).
 
 	A STAGE WITH NO ITEMS IS NOT A CRASH ANY MORE, BUT IT IS STILL BROKEN. DigService
 	rolls a rarity from the stage's loot table and then steps DOWN through the
@@ -138,6 +138,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 14,
+		model = "RubberDuck",
 	},
 
 	-- ── Uncommon ── $25-120 ─────────────────────────────────────────────
@@ -168,12 +169,13 @@ Items.DEFS = {
 	{
 		id = "gold_ring",
 		name = "Gold Ring",
-		flavor = "A plain gold ring, still shining under all the dust.",
+		flavor = "A gold ring, still shining under all the dust.",
 		rarity = "Uncommon",
 		stages = { 1 },
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 85,
+		model = "GoldRing",
 	},
 
 	-- ── Rare ── $120-700 ───────────────────────────────────────────────
