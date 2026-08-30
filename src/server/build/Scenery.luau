@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 14
+local BUILDER_VERSION = 15
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -270,11 +270,13 @@ local BARREL_LIGHT_EVERY = 5
 --- buildStageScenery is gated on it (and dispatches per stage), so a field stays bare
 --- until its own rework flips the flag. `props` is the item count for that field's
 --- scatter:
----   Stage 1 -- chunky green bushes across the alive west half (scatterBushes).
+---   Stage 1 -- chunky green bushes across the alive west half (scatterBushes),
+---            then `deadProps` knee-high dead snags across the dead-tan east half
+---            (scatterDeadBushes).
 ---   Stage 2 -- big dead trees flanking the corridor (scatterEdgeTrees).
-type StageTheme = { props: number, pools: number, kind: string, scatter: boolean? }
+type StageTheme = { props: number, pools: number, kind: string, scatter: boolean?, deadProps: number? }
 local THEME: { [number]: StageTheme } = {
-	[1] = { props = 9, pools = 8, kind = "trees", scatter = true },
+	[1] = { props = 9, deadProps = 7, pools = 8, kind = "trees", scatter = true },
 	[2] = { props = 6, pools = 10, kind = "trees", scatter = true },
 	[3] = { props = 40, pools = 20, kind = "sirens" },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
@@ -484,6 +486,72 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 	-- ~45 (the tallest is ~9 characters).
 	local scale = rng:NextNumber(1.2, 1.8)
 	branch(base, rng:NextNumber(5.2, 6.2) * scale, rng:NextNumber(2.5, 3.1) * scale, 4)
+end
+
+--- A knee-high dead shrub -- `deadTree` shrunk to scrub height and made to fork at the
+--- ground rather than carry a clear trunk first, and to SPLAY low and wide rather than
+--- reach up: a dead bush sprawls, it does not stand. Same square-section studded
+--- segments, same Wedge tips, same DEAD_WOOD palette as the trees, so the east end of
+--- Stage 1 reads as one dying stand at two scales. CanCollide=false and low, like every
+--- field prop over a dig plate.
+local function deadBush(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(0, 360), 0)
+
+	-- depth 2 = the stub, depth 1 = splayed limbs, depth 0 = twig + point. Mirrors
+	-- deadTree.branch but every lean angle is wider and every length drop steeper.
+	local function twig(cf: CFrame, length: number, thick: number, depth: number)
+		build(parent, cf, {
+			name = "DeadBush",
+			pos = { 0, length / 2, 0 },
+			size = { thick, length, thick },
+			color = if rng:NextNumber() < 0.3 then DEAD_WOOD_DARK else DEAD_WOOD,
+			material = "Plastic",
+			studs = true,
+			rot = Kit.ang(0, 0, rng:NextNumber(-5, 5)),
+			canCollide = false,
+		})
+
+		local tip = cf * CFrame.new(0, length, 0)
+
+		if depth == 0 then
+			build(parent, tip * Kit.ang(0, rng:NextNumber(-20, 20), 0), {
+				name = "Tip",
+				pos = { 0, thick * 0.8, 0 },
+				size = { thick * 0.7, thick * 1.7, thick * 0.7 },
+				color = DEAD_WOOD_DARK,
+				material = "Plastic",
+				studs = true,
+				shape = "Wedge",
+				canCollide = false,
+			})
+			return
+		end
+
+		-- The stem carries on, leaning outward; 2-3 limbs fork off the stub, 0-1 off a
+		-- limb. Wide leans (up to ~58 degrees) are what make it sprawl.
+		twig(
+			tip * Kit.ang(0, rng:NextNumber(0, 360), 0) * Kit.ang(rng:NextNumber(10, 24), 0, 0),
+			length * rng:NextNumber(0.62, 0.8),
+			thick * rng:NextNumber(0.6, 0.78),
+			depth - 1
+		)
+		local forks = if depth == 2 then rng:NextInteger(2, 3) else rng:NextInteger(0, 1)
+		local yaw0 = rng:NextNumber(0, 360)
+		for i = 1, forks do
+			local yaw = yaw0 + (i - 1) * (360 / forks) + rng:NextNumber(-28, 28)
+			twig(
+				tip * Kit.ang(0, yaw, 0) * Kit.ang(rng:NextNumber(34, 58), 0, 0),
+				length * rng:NextNumber(0.5, 0.7),
+				thick * rng:NextNumber(0.5, 0.66),
+				depth - 1
+			)
+		end
+	end
+
+	-- Short and stout. Everything downstream is a ratio of this pair; the roll spans
+	-- roughly a 2.5-stud snag to a 4.5-stud one -- knee to thigh, never tree height.
+	local scale = rng:NextNumber(0.85, 1.35)
+	twig(base, rng:NextNumber(1.5, 2.0) * scale, rng:NextNumber(0.7, 0.95) * scale, 2)
 end
 
 --- A chunky low-poly bush: three or four fat cube-ish blocks packed tightly together
@@ -866,6 +934,40 @@ local function scatterStage1Cracks(folder: Instance, origin: CFrame, halfX: numb
 	end
 end
 
+--- Stage 1 -- `count` knee-high dead snags across the EASTERN half, the dead-tan side
+--- where the green scrub (scatterBushes, west half) has died back and the ground is
+--- starting to crack. Same even grid + third-of-a-cell jitter as scatterBushes, and the
+--- same BUSH_CENTRE_CLEARANCE lane down z = 0. Sparser than the green side by count
+--- alone -- nothing thrives here. The band stops a few studs short of the Stage 1/2
+--- seam so a snag never straddles the border line.
+---
+--- Deterministic off the stage rng, and consumed AFTER scatterStage1Cracks in
+--- buildStageScenery so neither pass shifts the other's placement.
+local function scatterDeadBushes(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+	local bandStart = 6 -- a small gap east of dead centre, clear of the green scrub
+	local bandDepth = hx - 8 - bandStart -- ...to a few studs short of the seam at +hx
+	local cols = math.max(1, math.ceil(math.sqrt(count * (bandDepth / (2 * hz)))))
+	local rows = math.ceil(count / cols)
+
+	local placed = 0
+	for row = 0, rows - 1 do
+		for col = 0, cols - 1 do
+			if placed >= count then
+				break
+			end
+			placed += 1
+			local x = bandStart + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (bandDepth / cols)
+			local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
+			local clampedX = math.clamp(x, bandStart, bandStart + bandDepth)
+			local clampedZ = math.clamp(z, -hz, hz)
+			if math.abs(clampedZ) < BUSH_CENTRE_CLEARANCE then
+				clampedZ = (if clampedZ < 0 then -1 else 1) * BUSH_CENTRE_CLEARANCE
+			end
+			deadBush(folder, origin, clampedX, clampedZ, rng)
+		end
+	end
+end
+
 local function buildStageScenery(parent: Instance, id: number)
 	local theme = THEME[id]
 	if theme == nil then
@@ -906,6 +1008,7 @@ local function buildStageScenery(parent: Instance, id: number)
 		if id == 1 then
 			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
 			scatterStage1Cracks(folder, origin, def.size[1] / 2, def.size[2] / 2, rng)
+			scatterDeadBushes(folder, origin, theme.deadProps or 0, rng, hx, hz)
 		elseif id == 2 then
 			scatterEdgeTrees(folder, origin, theme.props, rng, hx, hz)
 		end
