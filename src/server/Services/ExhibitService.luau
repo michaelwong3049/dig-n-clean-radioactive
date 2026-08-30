@@ -37,7 +37,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
-local Gear = require(Shared.Config.Gear)
+local Gear = require(Shared.Config.Gear) -- renderLuck: the plot's luck-button billboard
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local ItemModels = require(Shared.ItemModels)
@@ -451,21 +451,15 @@ export type PlotView = {
 	bankedCash: number,
 	slots: number,
 	maxSlots: number,
-	nextSlotPrice: number?,
 }
 
 function ExhibitService.plotViewFor(player: Player, plotIndex: number, data: any): PlotView
-	local nextSlotPrice = if data.exhibit.slots < Tuning.EXHIBIT_MAX_SLOTS
-		then Gear.pedestalPrice(data.exhibit.slots + 1)
-		else nil
-
 	return {
 		plotIndex = plotIndex,
 		isOwner = plotOf[player] == plotIndex,
 		bankedCash = math.floor(data.exhibit.bankedCash),
 		slots = data.exhibit.slots,
 		maxSlots = Tuning.EXHIBIT_MAX_SLOTS,
-		nextSlotPrice = nextSlotPrice,
 	}
 end
 
@@ -473,7 +467,6 @@ export type StandView = {
 	plotIndex: number,
 	slot: number,
 	isOwner: boolean,
-	locked: boolean,
 	occupied: boolean,
 	itemName: string?,
 	rarity: string?,
@@ -499,7 +492,6 @@ function ExhibitService.standViewFor(player: Player, plotIndex: number, slot: nu
 		plotIndex = plotIndex,
 		slot = slot,
 		isOwner = plotOf[player] == plotIndex,
-		locked = slot > data.exhibit.slots,
 		occupied = entry ~= nil,
 		itemName = if entry then Items.get(entry.itemId).name else nil,
 		rarity = if entry then entry.rarity else nil,
@@ -531,8 +523,8 @@ function ExhibitService.display(player: Player, uid: string): (boolean, string)
 	if plotOf[player] ~= plot then
 		return false, "that isn't your plot"
 	end
-	if slot > data.exhibit.slots then
-		return false, `locked \u{2014} buy slot {slot} at the claim board first`
+	if slot < 1 or slot > data.exhibit.slots then
+		return false, "that stand doesn't exist"
 	end
 	for _, entry in data.exhibit.pedestals do
 		if entry.slot == slot then
@@ -648,48 +640,18 @@ function ExhibitService.collect(player: Player): (boolean, string)
 	return true, `collected ${amount}`
 end
 
---- Buy the next pedestal slot (PLAN §8.5's endgame money sink).
-function ExhibitService.buySlot(player: Player): (boolean, string)
-	local data = DataService.data(player)
-	if data == nil then
-		return false, "your save hasn't loaded"
-	end
-
-	local kind = StationService.kindOf(player)
-	local stationId = StationService.idOf(player)
-	if kind ~= "plot" or stationId == nil then
-		return false, "you need to be at a claim board"
-	end
-	if plotOf[player] ~= tonumber(stationId) then
-		return false, "that isn't your plot"
-	end
-
-	if data.exhibit.slots >= Tuning.EXHIBIT_MAX_SLOTS then
-		return false, "every slot is already yours"
-	end
-
-	local nextSlot = data.exhibit.slots + 1
-	local price = Gear.pedestalPrice(nextSlot)
-
-	local paid, reason = EconomyService.spend(player, price)
-	if not paid then
-		return false, reason
-	end
-
-	data.exhibit.slots = nextSlot
-	local plot = plotOf[player]
-	if plot then
-		renderStand(plot, nextSlot, nil, nil) -- clears the locked look; still empty
-	end
-	return true, `slot {nextSlot} unlocked for ${price}`
-end
-
 -- ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 function ExhibitService.init() end
 
 function ExhibitService.start()
 	DataService.onLoaded(function(player, data)
+		-- Saves made before every stand was free stored a lower slot count (the old
+		-- EXHIBIT_STARTING_SLOTS was 3, upgraded with cash). Bring anyone below the
+		-- current count up to it; Reconcile can't, since the key already exists.
+		if data.exhibit.slots < Tuning.EXHIBIT_MAX_SLOTS then
+			data.exhibit.slots = Tuning.EXHIBIT_MAX_SLOTS
+		end
 		bankOffline(data)
 		assign(player)
 	end)

@@ -274,8 +274,9 @@ Tuning.EXHIBIT_OFFLINE_RATE = 0.25
 Tuning.EXHIBIT_OFFLINE_BANK_HOURS = 4
 Tuning.EXHIBIT_DUPLICATE_YIELD = { 1.0, 0.40, 0.15, 0.05 } -- 4th+ uses the last entry
 Tuning.EXHIBIT_UNCRATE_SECONDS = 60
-Tuning.EXHIBIT_STARTING_SLOTS = 3
-Tuning.EXHIBIT_MAX_SLOTS = 40
+-- Every plot ships with all of its display stands usable — there is no slot to buy
+-- or unlock. Matches Plots.VISIBLE_SLOTS (the stands actually built per base).
+Tuning.EXHIBIT_MAX_SLOTS = 8
 -- Hard ceiling on passive income per real hour, as a multiple of Contractor Level.
 -- PLAN §16: ship this LOW. Raising an income cap is a beloved patch note.
 Tuning.EXHIBIT_HOURLY_CAP_PER_LEVEL = 250

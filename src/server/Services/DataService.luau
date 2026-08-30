@@ -41,7 +41,7 @@ local TEMPLATE = {
 	locker = {}, -- Quarantine Locker (PLAN §10.2): found but not yet cleanable.
 
 	exhibit = {
-		slots = Tuning.EXHIBIT_STARTING_SLOTS,
+		slots = Tuning.EXHIBIT_MAX_SLOTS, -- every stand is free; kept as a field so a save always carries it
 		pedestals = {},
 		bankedCash = 0,
 		bankedAt = 0,

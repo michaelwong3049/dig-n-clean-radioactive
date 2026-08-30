@@ -222,14 +222,13 @@ end
 
 Gear.SPRINT_MULTIPLIER = 1.35
 
--- The endgame money sink (PLAN §8.5). Index = slot number being bought.
-function Gear.pedestalPrice(nextSlot: number): number
-	return math.floor(900 * (1.28 ^ (nextSlot - 3)))
-end
-
 -- LUCK IS NOT HERE. It has no tiers to iterate, no `Gear.tier("Luck", n)` to call,
 -- and no per-track shop counter or SellsTrack-generic sell path to require one — see
 -- ShopService.buyLuck and the header above Gear.luckMultiplier for the replacement.
+--
+-- NEITHER IS A PEDESTAL PRICE. All 8 exhibit stands are free from the start
+-- (Tuning.EXHIBIT_MAX_SLOTS); the cash-bought slot track and its `pedestalPrice`
+-- curve were cut with it.
 Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Boots", "Satchel" }
 
 --- Track name (capitalised, as used here and in the world's StationId attribute)

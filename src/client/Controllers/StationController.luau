@@ -522,17 +522,6 @@ local function build(): ScreenGui
 	})
 	ui.slotsInfo.LayoutOrder = 3
 
-	ui.buySlotButton = UIKit.button(plot, {
-		name = "BuySlot",
-		size = UDim2.new(1, 0, 0, 48),
-		font = UIKit.Font.body,
-		textSize = 19,
-		color = COLOR.amber,
-		fillTransparency = 0.25,
-		text = "BUY SLOT",
-	})
-	ui.buySlotButton.LayoutOrder = 4
-
 	-- ── Pedestal mode (stand) ────────────────────────────────────────────
 	-- Empty+unlocked reuses the SAME carry rows the decon/trader panel already
 	-- draws — "an item picker" is just those rows with a different verb attached,
@@ -834,17 +823,10 @@ local function render()
 			ui.collectButton.TextColor3 = if view.bankedCash > 0 then COLOR.green else COLOR.dim
 
 			ui.slotsInfo.Text = string.format("slots %d / %d", view.slots, view.maxSlots)
-			if view.nextSlotPrice then
-				ui.buySlotButton.Visible = true
-				ui.buySlotButton.Text = string.format("BUY SLOT  $%d", view.nextSlotPrice)
-			else
-				ui.buySlotButton.Visible = false
-			end
 		else
 			ui.plotBanked.Text = ""
 			ui.collectButton.Visible = false
 			ui.slotsInfo.Text = view and string.format("slots %d / %d", view.slots, view.maxSlots) or ""
-			ui.buySlotButton.Visible = false
 		end
 
 		for _, row in ui.rows do
@@ -861,18 +843,13 @@ local function render()
 		ui.panelStroke.Color = COLOR.blue
 		ui.subtitle.Text = if view and view.isOwner then "your plot" else "not your plot"
 
-		-- A picker only makes sense on your own, unlocked, empty stand -- every
-		-- other case is a status message with at most one verb.
-		local showPicker = view ~= nil and view.isOwner and not view.locked and not view.occupied
+		-- A picker only makes sense on your own, empty stand -- every other case is
+		-- a status message with at most one verb.
+		local showPicker = view ~= nil and view.isOwner and not view.occupied
 
 		if view == nil or not view.isOwner then
 			ui.standInfo.Text = "not your plot"
 			ui.standInfo.TextColor3 = COLOR.dim
-			ui.displayButton.Visible = false
-			ui.undisplayButton.Visible = false
-		elseif view.locked then
-			ui.standInfo.Text = "locked \u{2014} buy this slot at the claim board"
-			ui.standInfo.TextColor3 = COLOR.red
 			ui.displayButton.Visible = false
 			ui.undisplayButton.Visible = false
 		elseif view.occupied then
@@ -1022,10 +999,6 @@ function Station.start()
 
 	ui.collectButton.MouseButton1Click:Connect(function()
 		actionRemote:FireServer({ action = "collect" })
-	end)
-
-	ui.buySlotButton.MouseButton1Click:Connect(function()
-		actionRemote:FireServer({ action = "buySlot" })
 	end)
 
 	ui.displayButton.MouseButton1Click:Connect(function()

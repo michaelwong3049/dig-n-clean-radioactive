@@ -421,6 +421,11 @@ the place file has no git history to recover from.
       for a player with no loaded profile. **Full Play-mode regression (buy at $200, retry
       at $80, display/undisplay/collect with a real character) is still blocked — see §9,
       same wedged Play toggle.**
+- [x] **All 8 display stands free from the start.** The cash-bought slot track is gone:
+      `EXHIBIT_STARTING_SLOTS`/`Gear.pedestalPrice`/`ExhibitService.buySlot`/the `"buySlot"`
+      action and the BUY SLOT panel button all removed; `EXHIBIT_MAX_SLOTS` is now 8 to
+      match `Plots.VISIBLE_SLOTS`. `data.exhibit.slots` stays in the schema (constant 8) and
+      is clamped up on load for pre-change saves. Stands build with no locked/dim state.
 - [ ] Set `MaxPlayers = 6` in Studio Game Settings so plots and players are 1:1
       (a place setting — Rojo cannot capture it)
 

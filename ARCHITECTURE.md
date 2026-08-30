@@ -277,7 +277,7 @@ The profile itself — `TEMPLATE` in `DataService`, which is the authoritative c
     gear    = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1, luck = 1 },
     carry   = {},   -- array of the carried item above. The backpack.
     locker  = {},   -- Quarantine Locker: found, not yet cleanable.
-    exhibit = { slots = 3, pedestals = {}, bankedCash = 0, bankedAt = 0 },
+    exhibit = { slots = 8, pedestals = {}, bankedCash = 0, bankedAt = 0 },  -- all 8 stands free; `slots` no longer changes
     heldUid        = "",  -- which carried item is IN YOUR HANDS. "" is empty-handed.
                           -- The tub refuses to wash anything you are not holding, so
                           -- this had to stop being the hotbar's private selection.
