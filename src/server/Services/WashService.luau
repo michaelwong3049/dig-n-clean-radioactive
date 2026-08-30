@@ -65,6 +65,7 @@ local LEASH = 16
 type Session = {
 	uid: string,
 	stand: BasePart,
+	prompt: ProximityPrompt?,
 	returnTo: CFrame?,
 	model: Instance?,
 	spraying: boolean,
@@ -220,6 +221,14 @@ function finish(player: Player, reason: string?)
 		session.model:Destroy()
 	end
 
+	-- RE-ENABLE THE PROMPT LAST, not first -- it was disabled the moment this session
+	-- began (see begin()), specifically so it could never be clicked or pressed again
+	-- while occupied. Restoring it here, once there is genuinely nothing left to
+	-- interrupt, is what makes the NEXT wash startable at all.
+	if session.prompt then
+		session.prompt.Enabled = true
+	end
+
 	-- Step back off the mark, so ending a wash does not leave you standing inside the
 	-- tub's prompt re-triggering it by accident.
 	local character = player.Character
@@ -240,13 +249,12 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 	if data == nil then
 		return false, "your save hasn't loaded"
 	end
-	-- PRESSING E AGAIN IS HOW YOU LEAVE. The player is planted on the mark for the
-	-- duration, so walking out of the leash -- the only other exit -- is precisely the
-	-- thing they cannot do. Without this the bay was a one-way door, which is exactly
-	-- how it was reported ("puts me in this weird view that i cannot exit").
+	-- Should not be reachable at all: begin() disables this basin's prompt for the
+	-- whole session (below), specifically so it cannot be re-triggered while occupied
+	-- -- see the header on WHY that disable exists. Kept as a defensive no-op rather
+	-- than an assert, in case a prompt somehow stays enabled through a race.
 	if sessions[player] then
-		finish(player, "stopped washing")
-		return false, ""
+		return false, "already washing"
 	end
 
 	if data.heldUid == "" then
@@ -299,9 +307,12 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 
+	local prompt = basin:FindFirstChild("Wash")
+
 	local session: Session = {
 		uid = item.uid,
 		stand = stand,
+		prompt = if prompt and prompt:IsA("ProximityPrompt") then prompt else nil,
 		returnTo = if root and root:IsA("BasePart") then root.CFrame else nil,
 		model = nil,
 		spraying = false,
@@ -316,6 +327,17 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 
 	session.model = placeOnStand(stand, item)
 	sessions[player] = session
+
+	-- DISABLE THE PROMPT FOR THE DURATION. Roblox's default ProximityPrompt widget can
+	-- be triggered by a MOUSE CLICK on its on-screen icon, not only the keyboard key --
+	-- and the player is about to spend the whole session clicking to spray, often
+	-- toward wherever this same prompt happens to render once the camera cuts to the
+	-- side-on wash shot. Left enabled, aiming the hose doubles as an accidental "press
+	-- E again" that ends the session out from under you. WashController's own E/Q
+	-- keyboard listener is the real, deliberate exit now; re-enabled in finish().
+	if session.prompt then
+		session.prompt.Enabled = false
+	end
 
 	-- PLANT THEM ON THE MARK. The camera is a fixed side-on shot composed against
 	-- WashSpot and WashStand (build/Plots), so the framing is only right if the player
