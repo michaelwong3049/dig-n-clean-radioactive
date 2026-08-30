@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 16
+local BUILDER_VERSION = 17
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -134,8 +134,20 @@ local BUSH_GREEN_DARK = "4C9029"
 --- (2,390/4 x 56/4), noticeably more than the first pass's ~1,050 but still well
 --- inside what this file's own plaza-adjacent builders already tolerate (the plaza
 --- itself is 4,096 tiles alone).
+---
+--- WALL_THICKNESS 4 -> 8, ON REQUEST -- every wall in this file reads twice as
+--- solid. The corridor walls' part count is unchanged (their tiles are counted off
+--- the X/Z span and height, never the depth), so the ~8,400/side figure above still
+--- holds; the base-camp arc gains ~30 columns because ITS column count comes off
+--- wallRadius (= Plots.RING_OUTER + WALL_THICKNESS/2), which grew 2 studs.
+--- The corridor walls and the arc pin their INNER face to the edge they guard and
+--- grow outward into void from there -- buildBoundaryWalls offsets its centreline
+--- by WALL_THICKNESS/2, and the shoulder junctions track that same half-offset. The
+--- two shoulder pieces themselves straddle x = clipX, which is shoulder void-fill
+--- either side, not walkable ground -- so doubling the depth never eats into a
+--- walking surface (verified live: north-wall inner face still exactly on z = minZ).
 local WALL_HEIGHT = 56
-local WALL_THICKNESS = 4
+local WALL_THICKNESS = 8
 local WALL_TILE = 4
 -- The camp / Stage 1 pair. A warm terracotta brown; the two sit ~8% apart per
 -- channel on purpose -- close enough that the checker reads as one brown material
