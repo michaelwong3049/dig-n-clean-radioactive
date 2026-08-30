@@ -326,18 +326,92 @@ function World.verify(): (boolean, { string })
 		(census.decon or 0) == Plots.COUNT,
 		`expected {Plots.COUNT} decon stations (one per base), found {census.decon or 0}`
 	)
-	check((census.shop or 0) >= #Gear.TRACKS, `expected at least {#Gear.TRACKS} shop counters, found {census.shop or 0}`)
+	-- NOT `>= #Gear.TRACKS` any more. That equated "a track" with "a shop counter",
+	-- which stopped being true when Luck moved to a wooden sign with a prompt — and it
+	-- was always the weaker statement anyway: a COUNT cannot tell you *which* track is
+	-- missing, and the per-track coverage loop below can, across both selling
+	-- mechanisms. This is left as a floor so that "the shops model failed to build at
+	-- all" still trips something loud and specific.
+	check((census.shop or 0) > 0, `no shop counters in the world at all, found {census.shop or 0}`)
 	check((census.plot or 0) == Plots.COUNT, `expected {Plots.COUNT} plot boards, found {census.plot or 0}`)
+	-- One wash pad per base, beside that base's cleansing station (Plots.buildWashPad).
+	check(
+		(census.roller or 0) == Plots.COUNT,
+		`expected {Plots.COUNT} wash pads (one per base), found {census.roller or 0}`
+	)
 
-	-- Every priced track must be buyable somewhere.
+	-- ...and one luck button per base, on the back wall of the pad it bends the odds for.
+	local luckButtons = 0
+	for _, d in Workspace:GetDescendants() do
+		if d:IsA("BasePart") and d:GetAttribute("SellsTrack") == "Luck" then
+			luckButtons += 1
+		end
+	end
+	check(luckButtons == Plots.COUNT, `expected {Plots.COUNT} luck buttons (one per base), found {luckButtons}`)
+
+	-- Every priced track must be buyable somewhere. TWO WAYS TO SELL ONE now, and the
+	-- check has to know both or moving a track between them looks like a clean
+	-- refactor and is actually a priced dead end:
+	--
+	--   StationKind = "shop"   a counter with a panel  (Detector, Magnet, Cleaner,
+	--                          Suit, Boots, Satchel)
+	--   SellsTrack = "<track>" a world object with a ProximityPrompt, no panel
+	--                          (used to be Luck; Luck itself left Gear.TRACKS the
+	--                          moment it stopped having a priced ladder to check
+	--                          against here — its button is still verified above,
+	--                          by count and by tag, just not by this loop)
 	local sells: { [string]: boolean } = {}
 	for _, d in Workspace:GetDescendants() do
-		if d:IsA("BasePart") and d:GetAttribute("StationKind") == "shop" then
-			sells[d:GetAttribute("StationId") :: string] = true
+		if d:IsA("BasePart") then
+			if d:GetAttribute("StationKind") == "shop" then
+				sells[d:GetAttribute("StationId") :: string] = true
+			end
+			local direct = d:GetAttribute("SellsTrack")
+			if type(direct) == "string" then
+				sells[direct] = true
+				-- A sign with no prompt is invisible to ShopService and sells nothing.
+				check(
+					d:FindFirstChildOfClass("ProximityPrompt") ~= nil,
+					`{d:GetFullName()} sells "{direct}" but has no ProximityPrompt — nobody can buy from it`
+				)
+				check(
+					CollectionService:HasTag(d, Kit.UPGRADE_TAG),
+					`{d:GetFullName()} has SellsTrack but no "{Kit.UPGRADE_TAG}" tag — ShopService scans by tag and will never wire it`
+				)
+			end
 		end
 	end
 	for _, track in Gear.TRACKS do
 		check(sells[track] == true, `no shop sells "{track}" — it has prices in Gear.luau and nowhere to spend them`)
+	end
+
+	-- THE WASH PAD AND THE CLEANSING STATION MUST NOT OVERLAP, and this is a real
+	-- correctness check rather than a layout preference. Rolling fires off
+	-- StationService's ENTRY EDGE and charges cash, so a player scrubbing at the
+	-- basin who drifts into an overlapping roller radius is billed for a roll they
+	-- never asked for. Nearest-wins settles which panel opens; it does not settle
+	-- which edges fire. See Plots.buildWashPad for the numbers this protects.
+	local rollers: { BasePart } = {}
+	local decons: { BasePart } = {}
+	for _, d in Workspace:GetDescendants() do
+		if d:IsA("BasePart") then
+			local kind = d:GetAttribute("StationKind")
+			if kind == "roller" then
+				table.insert(rollers, d)
+			elseif kind == "decon" then
+				table.insert(decons, d)
+			end
+		end
+	end
+	for _, roller in rollers do
+		for _, decon in decons do
+			local reach = ((roller:GetAttribute("Radius") :: number?) or 12) + ((decon:GetAttribute("Radius") :: number?) or 12)
+			local gap = (roller.Position - decon.Position).Magnitude
+			check(
+				gap > reach,
+				`{roller:GetFullName()} and {decon:GetFullName()} are {gap // 1} studs apart but reach {reach} — walking between them would bill an unasked-for roll`
+			)
+		end
 	end
 
 	-- ── Spawning ─────────────────────────────────────────────────────────

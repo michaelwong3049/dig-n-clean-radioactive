@@ -117,6 +117,14 @@
 	    Basin       StationKind = "decon", Shower = true, Radius = 9 — the cleansing
 	                station (see buildCleansingStation below). One per base, replacing
 	                the single shared station + shower that used to live at camp.
+	                Carries a "Wash" ProximityPrompt; WashService wires it at boot.
+	    WashStand   IsWashStand = true — invisible; where the item sits during a wash.
+	    WashSpot    invisible; where the player is planted during a wash, facing the tub.
+	    WashCam     invisible; the side-on camera anchor WashController frames from.
+	    Plate       StationKind = "roller", Radius = 6 — the wash pad (see
+	                buildWashPad below). One per base, three steps from the basin.
+	    Button      SellsTrack = "Luck" + a ProximityPrompt — the luck button
+	                (see buildLuckButton). ShopService wires the prompt at boot.
 	    QuarantineLocker   no station attributes — a display cabinet. LockerSlot1..
 	                Plots.LOCKER_SLOTS are hidden item anchors; LockerDoor is a Model
 	                carrying ClosedPivot / OpenPivot CFrame attributes. Both are
@@ -131,13 +139,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
+local Liquids = require(Shared.Config.Liquids)
+local Gear = require(Shared.Config.Gear)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 17
+local BUILDER_VERSION = 18
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -498,7 +508,94 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	})
 	billboard(basin, 240, 4.6, "CLEANSING STATION", "clean it, flush it, rack it", accent)
 
+	-- TUB WALLS. The basin used to be a bare slab with a blue plate on top, which read
+	-- as a table, not as something you wash a thing IN. Four low rims turn the same
+	-- footprint into a bath — and now that pressing E here starts a hosing animation
+	-- with the object sitting in it, "is this a container" stopped being cosmetic.
+	for _, side in { -1, 1 } do
+		build(m, origin, { name = "TubRim", pos = { side * 3.3, pad.topY + 2.1, cz }, size = { 0.5, 1.0, 5.2 }, color = C.steel, material = "Metal" })
+		build(m, origin, { name = "TubRim", pos = { 0, pad.topY + 2.1, cz + side * 2.35 }, size = { 7.0, 1.0, 0.5 }, color = C.steel, material = "Metal" })
+	end
+
 	build(m, origin, { name = "Water", pos = { 0, pad.topY + 1.85, cz }, size = { 6.2, 0.25, 4.2 }, color = C.cyan, material = "Neon", transparency = 0.35 })
+
+	-- THREE ANCHORS, AND THE SHOT IS COMPOSED OUT OF THEM RATHER THAN OUT OF NUMBERS
+	-- IN THE CONTROLLER. Framing is a thing you judge by looking at it, so it has to
+	-- be nudgeable in Studio against live geometry — the same reasoning ARCHITECTURE.md
+	-- gives for the tool models' HoldCFrame attribute.
+	--
+	--   WashStand  where the item sits
+	--   WashSpot   where the PLAYER stands, facing the tub
+	--   WashCam    a SIDE-ON camera that frames both of them
+	--
+	-- WHY THE PLAYER GETS PINNED TO A SPOT. The first version let you trigger the
+	-- prompt from anywhere inside 11 studs and then framed the shot from in front of
+	-- the tub — which put the camera roughly where the player was standing, so you saw
+	-- a tub, no character, and no hose. A fixed mark is what makes the shot reliable:
+	-- the camera knows where both subjects are because the geometry decided, not the
+	-- player's approach angle.
+	local stand = build(m, origin, {
+		name = "WashStand",
+		pos = { 0, pad.topY + 2.6, cz },
+		size = { 1, 1, 1 },
+		color = C.steel,
+		material = "Metal",
+		transparency = 1,
+		canCollide = false,
+	})
+	stand:SetAttribute("IsWashStand", true)
+
+	local spot = build(m, origin, {
+		name = "WashSpot",
+		pos = { 0, pad.topY + 3, cz - 6 },
+		size = { 1, 1, 1 },
+		color = C.steel,
+		material = "Metal",
+		transparency = 1,
+		canCollide = false,
+	})
+	-- Faces the stand, so WashService can drop the character straight onto this CFrame
+	-- and have them looking at what they are about to hose.
+	spot.CFrame = origin * CFrame.lookAt(Vector3.new(0, pad.topY + 3, cz - 6), Vector3.new(0, pad.topY + 3, cz))
+
+	local cam = build(m, origin, {
+		name = "WashCam",
+		pos = { -13, pad.topY + 4.5, cz - 3 },
+		size = { 1, 1, 1 },
+		color = C.steel,
+		material = "Metal",
+		transparency = 1,
+		canCollide = false,
+	})
+	-- SIDE-ON, off to the left, aimed at the midpoint between the player's mark and
+	-- the item. That is the shot the design asked for: you see your own character
+	-- holding the hose in profile and the object across from them, with the stream
+	-- crossing the frame between the two. A camera in front of the tub cannot show
+	-- that, because the player is behind it.
+	--
+	-- Composed here with CFrame.lookAt rather than given to Kit.build as a `rot`,
+	-- because Kit.build's rot takes fixed angles and "point at that" stops being a
+	-- fixed angle once the plot's own yaw is applied. `origin` carries it to world
+	-- space like everything else in this function.
+	cam.CFrame = origin * CFrame.lookAt(Vector3.new(-13, pad.topY + 4.5, cz - 3), Vector3.new(0, pad.topY + 3.2, cz - 3))
+
+	-- PRESS E TO WASH, AND PRESS IT AGAIN TO STOP. Always enabled, because a
+	-- ProximityPrompt is one shared instance and cannot be shown to one player and
+	-- hidden from another — so the "are you actually holding something dirty" test is
+	-- the SERVER's, on trigger, and it answers with a toast. That is also what makes
+	-- "nothing happens if you hold nothing" honest rather than a silent no-op.
+	--
+	-- The re-press is not a nicety. The player is pinned in place during a wash, so
+	-- walking out of the leash — the only other way to end a session — is exactly the
+	-- thing they cannot do. Without this, entering the bay was a one-way door.
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "Wash"
+	prompt.ActionText = "Wash"
+	prompt.ObjectText = "Cleansing Station"
+	prompt.HoldDuration = 0.3
+	prompt.MaxActivationDistance = 14
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = basin
 
 	for _, x in { -3.2, 3.2 } do
 		build(m, origin, { name = "Post", pos = { x, pad.topY + 3.5, cz + 1.5 }, size = { 0.4, 4, 0.4 }, color = C.steelDark, material = "Metal" })
@@ -537,6 +634,109 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 		canCollide = false,
 	})
 	light(lamp, accent, 14, 1.6)
+
+	m.Parent = parent
+end
+
+--- The wash pad — step on it, roll a liquid (Config/Liquids, Services/LiquidService).
+---
+--- A PRESSURE PLATE, NOT A KIOSK, and the shape is the instruction. There is no
+--- button to press and no panel to open first: `StationKind = "roller"` plus
+--- StationService's entry edge means arriving IS the input. A five-year-old walks
+--- onto a lit circle to see what happens, which is the entire onboarding this
+--- mechanic gets, so the circle has to look like something you step on.
+---
+--- BESIDE THE BASIN, BUT THE TWO RADII MUST NOT TOUCH, and that is a correctness
+--- constraint rather than a layout preference. Rolling fires off StationService's
+--- ENTRY EDGE and costs cash, so a player scrubbing at the basin who drifts into an
+--- overlapping roller radius gets charged for a roll they never asked for. Nearest
+--- station wins, which resolves an overlap for *rendering* but not for that edge.
+---
+--- So: basin at local (0, 20) with radius 9, pad at (18, 18) with radius 6. Centres
+--- 18.1 studs apart against a 15-stud combined reach, leaving a ~3-stud dead band
+--- between them that a player has to cross deliberately. Keep that gap if either
+--- number moves.
+---
+--- THE SHELF BEHIND IT IS THE ODDS TABLE, RENDERED. Five canisters in the colours of
+--- the top five liquids, biggest prize at the far end. It teaches "there are better
+--- ones than what you just got" without a tooltip, and it costs five parts.
+local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
+	local m = Instance.new("Model")
+	m.Name = "WashPad"
+	local pad = Plots.PAD
+	local cx, cz = 18, 18
+
+	-- The plate. Cylinder on its end (Kit.R.cylUp), so `size` reads
+	-- {thickness, diameter, diameter} -- see the ShowerHead above for the same idiom.
+	local plate = build(m, origin, {
+		name = "Plate",
+		pos = { cx, pad.topY + 0.25, cz },
+		size = { 0.5, 9, 9 },
+		color = C.steelDark,
+		material = "Metal",
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		attributes = { StationKind = "roller", Radius = 6 },
+	})
+	billboard(plate, 250, 4.8, "WASH PAD", "step on it, roll a liquid", accent)
+
+	-- The inner disc is coloured water, but it is deliberately matte. The pad is a
+	-- physical interaction surface; making its whole centre Neon made it compete
+	-- with the radioactive field and made the canisters read as light sources.
+	local disc = build(m, origin, {
+		name = "Glow",
+		pos = { cx, pad.topY + 0.55, cz },
+		size = { 0.2, 7.4, 7.4 },
+		color = Liquids.get(Liquids.WATER).color,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		transparency = 0.12,
+		canCollide = false,
+	})
+	light(disc, Liquids.get(Liquids.WATER).color, 10, 0.35)
+
+	-- The shelf: a low bench behind the plate carrying one canister per prize.
+	build(m, origin, {
+		name = "Shelf",
+		pos = { cx, pad.topY + 1.4, cz + 5.6 },
+		size = { 10, 0.4, 1.6 },
+		color = C.wood,
+		material = "Wood",
+	})
+	for _, post in { -4.6, 4.6 } do
+		build(m, origin, { name = "ShelfLeg", pos = { cx + post, pad.topY + 0.7, cz + 5.6 }, size = { 0.4, 1.4, 1.4 }, color = C.steelDark, material = "Metal" })
+	end
+
+	-- WALKED BACKWARDS FROM THE TOP OF Liquids.ORDER, so the shelf re-sorts itself
+	-- the moment the catalogue does. Hard-coding five ids here is how the shelf ends
+	-- up advertising a liquid that was renamed two commits ago.
+	local shown = {}
+	for index = #Liquids.ORDER, 1, -1 do
+		local id = Liquids.ORDER[index]
+		if Liquids.isRollable(id) then
+			table.insert(shown, 1, id)
+		end
+		if #shown >= 5 then
+			break
+		end
+	end
+
+	for index, id in shown do
+		local def = Liquids.get(id)
+		local x = cx - 4 + (index - 1) * 2
+		build(m, origin, {
+			name = `Canister{index}`,
+			pos = { x, pad.topY + 2.4, cz + 5.6 },
+			size = { 1.6, 1.6, 1.6 },
+			color = def.color,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+			transparency = 0.05,
+			canCollide = false,
+		})
+	end
 
 	m.Parent = parent
 end
@@ -635,6 +835,92 @@ local function buildQuarantineLocker(parent: Instance, origin: CFrame, accent: s
 	door:SetAttribute("ClosedPivot", hinge)
 	door:SetAttribute("OpenPivot", hinge * CFrame.Angles(0, math.rad(110), 0))
 	door.Parent = m
+
+	m.Parent = parent
+end
+
+--- The luck button — mounted on the plot's own back wall, below the name, where you
+--- press E to buy the next +0.1x.
+---
+--- LUCK IS THE ONE TRACK YOU DO NOT WEAR, so it was the one track that did not belong
+--- on a shop counter. It used to be a fourth desk at the Outfitter, visually identical
+--- to Suits and Boots and Satchels, selling something with no physical form at all —
+--- then a free-standing sign staked next to the pad, painting a whole seven-tier
+--- ladder on a board. Luck itself changed shape too (Config/Gear.luau's header): there
+--- is no ladder left to paint, only a flat +0.1x at a price that climbs every time, so
+--- the button just says the two numbers that are true right now.
+---
+--- ON THE BACK WALL, UNDER THE NAME, because both are "what is true about this base
+--- right now" and belong on the same console — unlike the pad and the tub, which sit
+--- out on the floor because they are things you walk up and DO.
+---
+--- NO PANEL, NO STATION KIND, NO REMOTE. A ProximityPrompt's Triggered fires on the
+--- server and Roblox enforces MaxActivationDistance itself, so proximity is a
+--- precondition the engine established rather than a claim to be re-checked — see
+--- ShopService.buyLuck's header for why that lets this skip StationService entirely.
+---
+--- GREEN, DELIBERATELY REUSING C.grass RATHER THAN THE PLOT'S OWN ACCENT COLOUR.
+--- Material.Neon in an acid/hazard green is reserved for radiation everywhere outside
+--- a stage (see Kit.C's header) — this is the same "safe" green the plaza and base
+--- camp already wear, not that one, so a glowing button two steps from a wash pad
+--- never reads as toxic.
+---
+--- THE BILLBOARD SHOWS YOUR MULTIPLIER AND THE NEXT PRICE, not a ladder — ShopService
+--- rewrites both the moment a purchase lands, and ExhibitService rewrites them again
+--- on plot assignment, the exact Sign/Title/Subtitle convention LiquidService.announce
+--- already uses to name a roll on the wash pad.
+local function buildLuckButton(parent: Instance, origin: CFrame)
+	local m = Instance.new("Model")
+	m.Name = "LuckButton"
+	local pad = Plots.PAD
+	local wallZ = pad.depth / 2 - 0.5 -- BackWall's own face, see buildPlot
+	local panelY = pad.topY + 4.6
+
+	-- A small backing plate on the back wall, below the name -- the same wall the
+	-- NameSign is bolted to, so the two read as one console.
+	build(m, origin, {
+		name = "Panel",
+		pos = { 0, panelY, wallZ - 0.55 },
+		size = { 3.6, 3.2, 0.3 },
+		color = C.steelDark,
+		material = "Metal",
+	})
+
+	-- The button — a Ball rather than an oriented Cylinder, because a sphere reads as
+	-- "press me" from every angle a player can walk up from and needs no rotation to
+	-- face the right way.
+	local button = build(m, origin, {
+		name = "Button",
+		pos = { 0, panelY, wallZ - 0.15 },
+		size = { 1.4, 1.4, 1.4 },
+		color = C.grass,
+		material = "Neon",
+		shape = "Ball",
+		canCollide = false,
+		attributes = { SellsTrack = "Luck" },
+	})
+	light(button, C.grass, 10, 1)
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "Upgrade"
+	prompt.ActionText = "Upgrade Luck"
+	prompt.ObjectText = "Luck"
+	prompt.HoldDuration = 0.4
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = button
+
+	-- Level 1 -- the only value that exists before any player has ever claimed this
+	-- plot. ShopService and ExhibitService both overwrite it the moment real
+	-- per-player state does.
+	billboard(
+		button,
+		220,
+		2.6,
+		string.format("LUCK %.1fx", Gear.luckMultiplier(1)),
+		string.format("+0.1x for $%d", Gear.luckPrice(1)),
+		C.grass
+	)
 
 	m.Parent = parent
 end
@@ -750,6 +1036,8 @@ local function buildPlot(parent: Instance, index: number)
 
 	buildCleansingStation(m, origin, accent)
 	buildQuarantineLocker(m, origin, accent)
+	buildWashPad(m, origin, accent)
+	buildLuckButton(m, origin)
 
 	m.Parent = parent
 	return m

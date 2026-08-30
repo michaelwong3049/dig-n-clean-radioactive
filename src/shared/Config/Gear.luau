@@ -1,6 +1,6 @@
 --!strict
 --[[
-	Gear.lua — the six upgrade tracks (PLAN §6) plus exhibit slots.
+	Gear.lua — the seven upgrade tracks (PLAN §6) plus exhibit slots.
 
 	SUIT NUMBERS ARE FITTED, NOT GUESSED.
 	`reduction` and `tolerance` were solved so the model in Shared/Radiation.lua
@@ -182,8 +182,53 @@ Gear.Satchel = {
 	{ name = "Containment Pack", price = 8300, fuseMult = 3.12, shielding = 0.78 },
 }
 
+-- THE SEVENTH TRACK, AND THE ONLY ONE THAT BUYS NOTHING YOU HOLD, AND THE ONLY ONE
+-- WITH NO TOP RUNG. Luck does exactly one thing: it bends the liquid roll at the wash
+-- pad (Config/Liquids) toward the top of the table. It has no radius, no tolerance,
+-- no speed — the number IS the odds.
+--
+-- USED TO BE A SEVEN-RUNG LADDER OF NAMED CHARMS (Rusty Horseshoe -> Shooting Star).
+-- It is now a button: every purchase is +LUCK_STEP flat, forever, at a price that
+-- climbs LUCK_PRICE_GROWTH per purchase — no names, no ceiling, because the button
+-- has nothing to paint a ladder ON. `level` is a 1-based purchase count (1 = never
+-- bought, matching every other track's "tier 1 is the free starting rung"
+-- convention) so DataService's TEMPLATE.gear.luck default of 1 needed no migration.
+--
+-- `luckMultiplier` is the base of the exponent in Liquids.effectiveWeight, so its
+-- effect on any given liquid's odds is legible from Liquids.luau's own odds table
+-- rather than from anything here.
+--
+-- COMPOUNDING PRICE, FLAT GAIN — the opposite shape from every tiered track, where
+-- gain grows AND price grows. Luck is self-limiting already (a good roll only ever
+-- hands out `charges`, a fixed handful of patches, never a permanent capability), so
+-- there is no need for the gain itself to taper — the compounding price is what
+-- keeps one more click from ever being free.
+Gear.LUCK_STEP = 0.1
+Gear.LUCK_START_PRICE = 100
+Gear.LUCK_PRICE_GROWTH = 1.10
+
+--- The multiplier a player sits at after `level - 1` purchases (level 1 = 1.0x,
+--- never bought). Matches Liquids.oddsAt's `luck` parameter exactly.
+function Gear.luckMultiplier(level: number): number
+	return 1.0 + Gear.LUCK_STEP * (math.max(level, 1) - 1)
+end
+
+--- What the NEXT purchase costs, given the buyer is currently at `level`.
+--- Rounded to the dollar — Liquids.effectiveWeight never sees this number, only
+--- luckMultiplier does, so rounding it costs nothing in the roll math.
+function Gear.luckPrice(level: number): number
+	return math.floor(Gear.LUCK_START_PRICE * Gear.LUCK_PRICE_GROWTH ^ (math.max(level, 1) - 1) + 0.5)
+end
+
 Gear.SPRINT_MULTIPLIER = 1.35
 
+-- LUCK IS NOT HERE. It has no tiers to iterate, no `Gear.tier("Luck", n)` to call,
+-- and no per-track shop counter or SellsTrack-generic sell path to require one — see
+-- ShopService.buyLuck and the header above Gear.luckMultiplier for the replacement.
+--
+-- NEITHER IS A PEDESTAL PRICE. All 8 exhibit stands are free from the start
+-- (Tuning.EXHIBIT_MAX_SLOTS); the cash-bought slot track and its `pedestalPrice`
+-- curve were cut with it.
 Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Boots", "Satchel" }
 
 --- Track name (capitalised, as used here and in the world's StationId attribute)

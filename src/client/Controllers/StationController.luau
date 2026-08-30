@@ -1,14 +1,39 @@
 --[[
 	StationController.lua — the base camp panel.
 
-	Appears when you are standing at the decon station or the trader, and lists what is
-	in your bag. Select a row, then act on it. Placeholder art, real information: the
-	point of Phase 1 is finding out whether the verbs feel good, and the verbs here are
-	SCRUB, SELL and RACK.
+	Appears at the trader, the shops, and the exhibition boards. Select a row, then act
+	on it. The one verb left on the list itself is SELL — scrubbing and racking both
+	left this file, see below.
 
-	The panel deliberately shows the SAME list at both stations but offers different
-	verbs, because that is the design's actual shape — the decon station is where the
-	clock stops and dirt comes off, the trader is only a till.
+	THREE MODES NOW, AND THE SHRINKING IS THE POINT. shop, plot and pedestal each
+	replace the list with their own body; trader is the list itself. Every one of them
+	arrives on the SAME StationState tick (DeconService fills `offer` / `plotView` /
+	`standView` depending on where you stand), which is why adding a station kind has
+	never needed a new remote and should not start needing one.
+
+	TWO MODES WERE DELETED, ON REQUEST, AND BOTH DELETIONS FIXED SOMETHING.
+
+	The wash pad used to open a panel listing all ten liquids and their live odds.
+	Stepping on a big lit button in the world and having a menu appear over the screen
+	is a menu wearing a button's clothes; the pad answers in the world now (it flashes
+	the rolled liquid's colour and names it on its own billboard, LiquidService).
+
+	The decon station used to open the bag list with a HOLD TO SCRUB button. All of
+	that moved to the tub — hold the item, press E, hose it — and removing the panel
+	turned out to be load-bearing rather than cosmetic: it sat under the crosshair, so
+	the click meant to start the spray arrived with `gameProcessedEvent` true and the
+	hose never fired. "I press E and nothing happens" was this panel eating the input.
+
+	WHAT WENT WITH THE DECON PANEL, stated plainly because it is a real loss: the RACK
+	button and the Quarantine Locker rows. The locker still exists in the profile and
+	DeconService still implements `rack`, but nothing in the world triggers it any
+	more. PLAN §10.2 wants a physical locker anyway; see TODO §5b.
+
+	PANEL_KINDS IS AN ALLOWLIST, NOT A FALLTHROUGH, and that is not stylistic. The
+	trader branch is last and unguarded, so any station kind this file does not know
+	about lands in it — which is exactly what happened the first time a mode was
+	deleted: the wash pad started opening a panel titled TRADER.
+
 
 	THE PANEL SITS AT LITERAL SCREEN-CENTRE, AND IT DID NOT USED TO.
 	It was anchored at `UDim2.new(0.5, 0, 0.5, -Dock.RESERVE / 2)` — centred in the
@@ -72,7 +97,27 @@ local Station = {}
 local COLOR = UIKit.C
 
 local ROWS = 9
-local LOCKER_ROWS = 3
+
+-- WHICH STATION KINDS THIS PANEL HAS A BODY FOR, and it is an allowlist rather than
+-- a fallthrough for a reason that bit immediately. The decon/trader branch is LAST in
+-- render(), with no guard of its own, so it is what every unrecognised kind lands in
+-- — and the moment the roller branch was deleted, standing on the wash pad opened a
+-- panel titled TRADER. A station kind with no panel must open NOTHING, and the wash
+-- pad is deliberately the first one: it is a button in the world, and the whole point
+-- of this pass was that pressing it shows no UI at all.
+--
+-- DECON IS NOT IN HERE ANY MORE, ON REQUEST. Walking up to the cleansing station used
+-- to open a panel over the screen; now the only thing there is the E prompt on the
+-- tub, which is the whole interaction. It also fixed a bug nobody had diagnosed yet:
+-- that panel sat under the crosshair, so the click that was supposed to start the
+-- hose arrived with `gameProcessedEvent` true and the spray never began. "Nothing
+-- happens" was the panel eating the input.
+local PANEL_KINDS: { [string]: boolean } = {
+	trader = true,
+	shop = true,
+	plot = true,
+	pedestal = true,
+}
 
 -- ── Shop card grid ──────────────────────────────────────────────────
 -- The shop is a storefront now, not a one-line upgrade prompt: every tier of the
@@ -135,11 +180,13 @@ end
 --- string.format("%-22s %-7s %-7s $%d", ...) call — columns only lined up because
 --- Font.Code is monospace, and no rounded display font has fixed character widths.
 --- Four child labels instead: name flexes, condition/pips/value are fixed-width. The
---- button itself, its Uid attribute and its scrub-progress Fill are unchanged — only
---- what is drawn INSIDE it changes. Reached the same way Fill always was, via
---- Roblox's child-by-name lookup (row.ItemNameLabel, row.Fill, ...), so every
---- existing row.Visible / row:SetAttribute call elsewhere in this file needs no
---- changes at all.
+--- button itself and its Uid attribute are unchanged — only what is drawn INSIDE it
+--- changes. Reached via Roblox's child-by-name lookup (row.ItemNameLabel, ...), so
+--- every existing row.Visible / row:SetAttribute call elsewhere needs no changes.
+---
+--- The scrub-progress `Fill` that used to sit behind these labels is gone with the
+--- scrub button: washing happens at the tub now and draws its progress there, on the
+--- object being washed, where the player is actually looking.
 local function makeRow(parent: Instance, order: number): TextButton
 	local row = Instance.new("TextButton")
 	row.LayoutOrder = order
@@ -154,20 +201,6 @@ local function makeRow(parent: Instance, order: number): TextButton
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 6)
 	corner.Parent = row
-
-	-- scrub progress, drawn behind the labels
-	local fill = Instance.new("Frame")
-	fill.Name = "Fill"
-	fill.Size = UDim2.fromScale(0, 1)
-	fill.BackgroundColor3 = COLOR.blue
-	fill.BackgroundTransparency = 0.6
-	fill.BorderSizePixel = 0
-	fill.ZIndex = 0
-	fill.Parent = row
-
-	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.new(0, 6)
-	fillCorner.Parent = fill
 
 	UIKit.label(row, {
 		name = "ItemNameLabel",
@@ -576,21 +609,6 @@ local function build(): ScreenGui
 		table.insert(ui.rows, makeRow(panel, 10 + index))
 	end
 
-	ui.lockerTitle = UIKit.label(panel, {
-		name = "LockerTitle",
-		size = UDim2.new(1, 0, 0, 22),
-		font = UIKit.Font.body,
-		textSize = 15,
-		color = COLOR.red,
-		visible = false,
-	})
-	ui.lockerTitle.LayoutOrder = 40
-
-	ui.lockerRows = {}
-	for index = 1, LOCKER_ROWS do
-		table.insert(ui.lockerRows, makeRow(panel, 40 + index))
-	end
-
 	local actions = Instance.new("Frame")
 	actions.LayoutOrder = 60
 	actions.Size = UDim2.new(1, 0, 0, 48)
@@ -610,35 +628,16 @@ local function build(): ScreenGui
 	actionLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 	actionLayout.Parent = actions
 
-	ui.scrubButton = UIKit.button(actions, {
-		name = "Scrub",
-		size = UDim2.new(0.32, 0, 1, 0),
-		font = UIKit.Font.body,
-		textSize = 17,
-		color = COLOR.blue,
-		text = "HOLD TO SCRUB",
-	})
-	ui.scrubButton.LayoutOrder = 1
-
+	-- The only button left in this row: RACK went with the decon panel.
 	ui.sellButton = UIKit.button(actions, {
 		name = "Sell",
-		size = UDim2.new(0.32, 0, 1, 0),
+		size = UDim2.fromScale(1, 1),
 		font = UIKit.Font.body,
 		textSize = 17,
 		color = COLOR.amber,
 		text = "SELL",
 	})
 	ui.sellButton.LayoutOrder = 2
-
-	ui.rackButton = UIKit.button(actions, {
-		name = "Rack",
-		size = UDim2.new(0.32, 0, 1, 0),
-		font = UIKit.Font.body,
-		textSize = 17,
-		color = COLOR.dim,
-		text = "RACK",
-	})
-	ui.rackButton.LayoutOrder = 3
 
 	ui.toast = UIKit.label(panel, {
 		name = "Toast",
@@ -662,7 +661,7 @@ local function patchPips(item): string
 	return pips
 end
 
-local function paintRow(row: TextButton, item, isSelected: boolean, scrubUid: string?, scrubProgress: number)
+local function paintRow(row: TextButton, item, isSelected: boolean)
 	row.Visible = true
 
 	local colour = rarityColor(item.rarity)
@@ -684,7 +683,6 @@ local function paintRow(row: TextButton, item, isSelected: boolean, scrubUid: st
 
 	row.BackgroundTransparency = if isSelected then 0.55 else 1
 	row.BackgroundColor3 = COLOR.selected
-	row.Fill.Size = if scrubUid == item.uid then UDim2.fromScale(scrubProgress, 1) else UDim2.fromScale(0, 1)
 	row:SetAttribute("Uid", item.uid)
 end
 
@@ -754,7 +752,7 @@ local function paintShopCard(card: Frame, entry)
 end
 
 local function render()
-	if state.station == nil or dismissed then
+	if state.station == nil or dismissed or not PANEL_KINDS[state.station] then
 		ui.panel.Visible = false
 		ui.closeButton.Visible = false
 		return
@@ -807,12 +805,6 @@ local function render()
 		for _, row in ui.rows do
 			row.Visible = false
 		end
-		for _, row in ui.lockerRows do
-			row.Visible = false
-		end
-		ui.lockerTitle.Visible = false
-		ui.scrubButton.Visible = false
-		ui.rackButton.Visible = false
 		ui.sellButton.Visible = false
 		return
 	end
@@ -840,12 +832,6 @@ local function render()
 		for _, row in ui.rows do
 			row.Visible = false
 		end
-		for _, row in ui.lockerRows do
-			row.Visible = false
-		end
-		ui.lockerTitle.Visible = false
-		ui.scrubButton.Visible = false
-		ui.rackButton.Visible = false
 		ui.sellButton.Visible = false
 		return
 	end
@@ -901,37 +887,30 @@ local function render()
 		for index, row in ui.rows do
 			local item = state.items[index]
 			if item and showPicker then
-				paintRow(row, item, item.uid == selected, nil, 0)
+				paintRow(row, item, item.uid == selected)
 			else
 				row.Visible = false
 			end
 		end
-		for _, row in ui.lockerRows do
-			row.Visible = false
-		end
-		ui.lockerTitle.Visible = false
-		ui.scrubButton.Visible = false
-		ui.rackButton.Visible = false
 		ui.sellButton.Visible = false
 		return
 	end
 
-	local atDecon = state.station == "decon"
-	ui.title.Text = if atDecon then "DECON STATION" else "TRADER"
-	ui.title.TextColor3 = if atDecon then COLOR.blue else COLOR.amber
-	ui.panelStroke.Color = if atDecon then COLOR.blue else COLOR.amber
-
-	ui.subtitle.Text = if atDecon
-		then string.format("$%d    %s (potency %d)    clocks stopped", state.cash or 0, state.cleanerName or "", state.potency or 1)
-		else string.format("$%d    dirty items sell at 20%%", state.cash or 0)
+	-- TRADER ONLY down here now. This used to be the decon/trader fork; the decon half
+	-- moved into the world (the tub's E prompt) and took the Quarantine Locker rows and
+	-- the RACK button with it -- see this file's header.
+	ui.title.Text = "TRADER"
+	ui.title.TextColor3 = COLOR.amber
+	ui.panelStroke.Color = COLOR.amber
+	ui.subtitle.Text = string.format("$%d    dirty items sell at 20%%", state.cash or 0)
 
 	-- keep the selection valid
 	local stillThere = false
 	for _, item in state.items do
-		if item.uid == selected then stillThere = true break end
-	end
-	for _, item in state.locker do
-		if item.uid == selected then stillThere = true break end
+		if item.uid == selected then
+			stillThere = true
+			break
+		end
 	end
 	if not stillThere then
 		selected = if #state.items > 0 then state.items[1].uid else nil
@@ -940,49 +919,21 @@ local function render()
 	for index, row in ui.rows do
 		local item = state.items[index]
 		if item then
-			paintRow(row, item, item.uid == selected, state.scrubUid, state.scrubProgress or 0)
+			paintRow(row, item, item.uid == selected)
 		else
 			row.Visible = false
 		end
 	end
 
-	ui.lockerTitle.Visible = #state.locker > 0
-	ui.lockerTitle.Text = `QUARANTINE LOCKER \u{2014} {#state.locker} waiting on a better cleaner`
-	for index, row in ui.lockerRows do
-		local item = state.locker[index]
-		if item then
-			paintRow(row, item, item.uid == selected, nil, 0)
-		else
-			row.Visible = false
-		end
-	end
-
-	-- Find the selected item to label the buttons honestly.
 	local chosen = nil
 	for _, item in state.items do
-		if item.uid == selected then chosen = item break end
-	end
-	if chosen == nil then
-		for _, item in state.locker do
-			if item.uid == selected then chosen = item break end
+		if item.uid == selected then
+			chosen = item
+			break
 		end
 	end
 
-	ui.scrubButton.Visible = atDecon
-	ui.rackButton.Visible = atDecon
-	ui.sellButton.Visible = not atDecon
-
-	if chosen and chosen.blockedBy then
-		ui.scrubButton.Text = `NEEDS {string.upper(chosen.needs or "")}`
-		ui.scrubButton.TextColor3 = COLOR.red
-	elseif chosen and chosen.clean then
-		ui.scrubButton.Text = "CLEAN"
-		ui.scrubButton.TextColor3 = COLOR.green
-	else
-		ui.scrubButton.Text = "HOLD TO SCRUB"
-		ui.scrubButton.TextColor3 = COLOR.blue
-	end
-
+	ui.sellButton.Visible = true
 	ui.sellButton.Text = if chosen then `SELL  ${chosen.value}` else "SELL"
 end
 
@@ -992,7 +943,7 @@ end
 --- forever after a CLOSE click, or bring it back overlapping a panel you're still
 --- standing in front of.
 function Station.isOpen(): boolean
-	return state.station ~= nil and not dismissed
+	return state.station ~= nil and PANEL_KINDS[state.station] == true and not dismissed
 end
 
 local function toast(message: string)
@@ -1024,22 +975,6 @@ function Station.start()
 	for _, row in ui.rows do
 		bindRow(row)
 	end
-	for _, row in ui.lockerRows do
-		bindRow(row)
-	end
-
-	ui.scrubButton.MouseButton1Down:Connect(function()
-		if selected then
-			actionRemote:FireServer({ action = "scrub", uid = selected, holding = true })
-		end
-	end)
-	ui.scrubButton.MouseButton1Up:Connect(function()
-		actionRemote:FireServer({ action = "scrub", holding = false })
-	end)
-	ui.scrubButton.MouseLeave:Connect(function()
-		actionRemote:FireServer({ action = "scrub", holding = false })
-	end)
-
 	ui.sellButton.MouseButton1Click:Connect(function()
 		if selected then
 			actionRemote:FireServer({ action = "sell", uid = selected })
@@ -1061,12 +996,6 @@ function Station.start()
 			end
 		end)
 	end
-
-	ui.rackButton.MouseButton1Click:Connect(function()
-		if selected then
-			actionRemote:FireServer({ action = "rack", uid = selected })
-		end
-	end)
 
 	ui.collectButton.MouseButton1Click:Connect(function()
 		actionRemote:FireServer({ action = "collect" })
