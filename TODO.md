@@ -457,12 +457,15 @@ the place file has no git history to recover from.
       one-of-a-kind relics). `reactor_control` extends across the Stage 4/5 boundary;
       `crater_relics` is new for Stage 6's showpiece tier. Both fields now roll real
       loot instead of hitting the empty-pool warning.
-- [ ] **Re-weight stages 4–6 for the doubled signal density** — `SIGNALS_PER_STAGE` went to
-      90 and stages 1–3 were re-weighted to hold their wall-clock rare rate. Stages 4–6 were
+- [ ] **Re-weight stages 4–6 for the doubled signal density** — density went to 90 and
+      stages 1–3 were re-weighted to hold their wall-clock rare rate. Stages 4–6 were
       deliberately left alone because their identity is "everything here is good", with the
       decision deferred until they were built and playable. Stage 4 is now both: it is
-      diggable today at roughly double its intended rare rate. 5 and 6 inherit the same
-      debt the moment they are stocked. See the header of `Config/Stages.luau`.
+      diggable today at roughly double its intended rare rate. 5 and 6 carry the same debt.
+      Signal density is per-stage now (`Config/Stages` `DEFS[].signals`): stages 1–3 were
+      calmed to 60 but **4–6 kept 75**, so the 90→halved-weights doubling still stands in
+      full for the dives — this debt is unchanged and now explicitly scoped to them. See
+      the header of `Config/Stages.luau`.
 - [ ] **An on-site station for The Crater** — PLAN §16 calls it a heist, not a hike, and
       "short" has to mean short from its own station. At the far end of the east chain the
       honest walk from the nearest cleansing station is ~1800 studs, about two minutes.

@@ -373,8 +373,8 @@ function World.coverageReport()
 	for _, id in Stages.builtIds() do
 		local def = Stages.get(id)
 		local radius = Gear.tier("Detector", def.ratedSuitTier).radius
-		local c = Stages.coverage(id, radius, Tuning.SIGNALS_PER_STAGE)
-		local gap = Stages.meanSignalGap(id, Tuning.SIGNALS_PER_STAGE)
+		local c = Stages.coverage(id, radius, def.signals)
+		local gap = Stages.meanSignalGap(id, def.signals)
 		print(string.format("  %-20s area %-8d r=%-3d c=%.3f  mean gap %.0f studs", def.name, Stages.area(id), radius, c, gap))
 	end
 end

@@ -16,15 +16,19 @@
 -- The generator writes both from the same loop index so they cannot drift apart.
 --
 -- ── HOW SIZE WAS CHOSEN, WHICH IS NOT ARBITRARY ─────────────────────────────
--- DigService keeps SIGNALS_PER_STAGE (Config/Tuning) buried signals per stage. It
--- does not scale with area on its own, so area is the only lever on how hard a stage
--- is to search. Since the uniform-length pass, every stage has the SAME area — so
--- that lever is set once, globally, and hits every stage identically.
+-- DigService tops each stage up to its own `signals` count (a StageDef field below)
+-- of buried signals. That count does not scale with area on its own, so for a fixed
+-- footprint `signals` is the only lever on how hard a stage is to search. Every
+-- stage shares one footprint since the uniform-length pass, so `area / signals` —
+-- and every search metric below — is decided by `signals` alone.
 --
--- SIGNALS_PER_STAGE IS KEPT PROPORTIONAL TO THAT SHARED AREA BY HAND, so `area / N`
--- (and therefore every search metric below) is a constant regardless of the
--- footprint: it was 96,000 / 90 and is now 80,000 / 75, both = 1066.67. Change the
--- footprint here and you MUST re-derive N in Config/Tuning to hold that ratio.
+-- IT USED TO BE ONE GLOBAL NUMBER (Tuning.SIGNALS_PER_STAGE, now deleted) held
+-- proportional to the footprint: 96,000 / 90, then 80,000 / 75, both = 1066.67. It is
+-- PER-STAGE now: the farm stages 1-3 run calmer at `signals = 60` (`area / 60` = 1333,
+-- a contact about every 2.6s on the starting detector); the dive stages 4-6 stay dense
+-- at 75, because a short lethal window (PLAN §3.5, §16) is time you want spent hauling,
+-- not searching. Change a stage's footprint and you re-derive that feel; `signals` is
+-- where you set it.
 --
 -- Define coverage:
 --
@@ -49,25 +53,26 @@
 -- FOOTPRINT_Z wide (Z), 400 x 200. This finishes what the earlier uniform-depth
 -- pass started — Stage 1 and Stage 5 used to be 600-660 long against 220-360 for
 -- the rest, which read on the ground as long empty walks through the two big
--- stages and quick hops through the others. Identical footprints make
--- SIGNALS_PER_STAGE (Config/Tuning) do exactly the job its own comment claims: one
--- global knob for how hard EVERY stage is to search, with no per-stage area lever
--- left to forget about.
+-- stages and quick hops through the others. Identical footprints take the area
+-- lever off the table, leaving each stage's `signals` count (below) as the one
+-- clean knob for how hard THAT stage is to search.
 --
---     every stage:  400 x 200   area 80,000   75 signals   mean gap ~16 studs
+--     farm 1-3:  400 x 200   area 80,000   60 signals   mean gap ~18 studs
+--     dive 4-6:  400 x 200   area 80,000   75 signals   mean gap ~16 studs
 --
--- WIDTH WENT 240 -> 200 (the whole chain got narrower, on request). N went 90 ->
--- 75 in the same breath to hold `area / N` at 1066.67, so the search feels
--- byte-for-byte identical: every metric below (secondsBetweenContacts, coverage,
--- meanSignalGap) is a function of that ratio alone.
+-- WIDTH WENT 240 -> 200 (the whole chain got narrower, on request); the then-global
+-- N went 90 -> 75 with it to hold the feel. Then the farm stages went 75 -> 60 on
+-- request — a contact every ~2s read as too busy — while the dives held at 75, so
+-- `signals` stopped being global. secondsBetweenContacts / coverage / meanSignalGap
+-- all take it as a parameter, so callers pass `def.signals`.
 --
--- WHAT THAT COSTS, RECORDED NOT HIDDEN: at this density the starting detector
--- (r=13) turns up a fresh contact about every 2s of walking and a maxed one
--- (r=34) almost continuously — denser than the 20-40s "loop" PLAN §2 describes.
--- That is the deliberate trade for uniform stages and no dead walking. Spec's two
--- search-feel checks are banded to this reality, and did NOT move when the
--- footprint shrank (the ratio held). Retune search via the FOOTPRINT_Z / N pair
--- from here — keep the ratio, and do not reintroduce per-stage sizes.
+-- WHAT 60 COSTS, RECORDED NOT HIDDEN: fewer buried signals means fewer digs per
+-- minute, so a lower wall-clock rate of EVERY rarity in the farm zones (~20% under
+-- 75). Per-dig rarity odds are UNCHANGED — those come from the loot weights alone
+-- (see the loot-weight section below). Spec's Stage-1 `rarePlus` floor moved to
+-- match the smaller buried-jackpot snapshot; its secondsBetweenContacts band
+-- (1.2-5s) still holds at 60 (~2.6s). Retune a stage's search from its own
+-- `signals`; footprints stay uniform.
 --
 -- ALL SIX ARE BUILT, BUT ONLY STAGE 1 HAS EVER BEEN PLAYED. The other five now
 -- share Stage 1's footprint exactly, so whatever the search feels like there is
@@ -117,7 +122,7 @@
 -- stage has been well over that ceiling for a long time (Stage 1 at c = 0.096 even
 -- before it grew), and the uniform-length pass drops the area further still — so the
 -- rule describes a stage layout that has not existed for many passes and is left here
--- as history, not a check. Use the time column, and SIGNALS_PER_STAGE to move it.
+-- as history, not a check. Use the time column, and a stage's own `signals` to move it.
 --
 -- COLOUR NOTE: the plate is the SLUDGE and it is deliberately deep and muted. The
 -- bright colour belongs to the pools and spills in build/Scenery, which are Neon —
@@ -137,7 +142,7 @@
 -- ── HOW THE LOOT WEIGHTS WERE RE-DERIVED, WHICH IS ALSO NOT ARBITRARY ────────
 -- These are RELATIVE weights, normalised at roll time, so only their ratios matter.
 --
--- Stages 1-3 were re-weighted when SIGNALS_PER_STAGE doubled to 90. The reason is one
+-- Stages 1-3 were re-weighted when signal density doubled to 90. The reason is one
 -- line of arithmetic that is very easy to get wrong: doubling the number of buried
 -- signals doubles the rate of every rarity in the table, Legendaries included. Left
 -- alone, "more items" would silently have meant "twice as many Legendaries", which
@@ -153,9 +158,15 @@
 --                                          picking up rather than mostly junk
 --
 -- Net effect in stage 1: ~2x the pulls, ~2.9x the Commons, ~1.7x the Scrap, and Rare
--- or better unchanged. Shared/Util/Spec pins that last property — it asserts the
--- field holds ~4.9 Rare-or-better signals across the three stages, which is what it
--- held before the change.
+-- or better unchanged. Shared/Util/Spec pins that last property — it asserts Stage 1's
+-- field holds a set number of Rare-or-better signals at once.
+--
+-- THE FARM ZONES THEN WENT 75 -> 60 WITH NO RE-WEIGHT, ON REQUEST (contacts felt too
+-- dense). Unlike the 45 -> 90 move, this one is NOT cancelled in the table: fewer
+-- signals is fewer digs, so the wall-clock rate of everything in stages 1-3 drops
+-- ~20% — Legendaries included, in proportion. That is the accepted cost of a calmer
+-- field; the per-dig ratios above do not move, so each dig FEELS the same, there are
+-- just fewer of them. The dives (4-6) held at 75 and are untouched.
 --
 -- STAGES 4-6 WERE DELIBERATELY NOT RE-WEIGHTED, AND THAT DEBT IS NOW LIVE. Their
 -- identity is "everything here is good" (PLAN §4 — the Crater is 18% Legendary on
@@ -172,7 +183,8 @@
 --
 -- STAGES 5 AND 6 ARE NOW STOCKED (Config/Items.luau), which means the debt this
 -- header already warned about is live rather than deferred: their loot weights
--- above were never re-derived for the doubled SIGNALS_PER_STAGE the way 1-3 were,
+-- above were never re-derived for the 45 -> 90 density jump the way 1-3 were (and
+-- they sit at 75, not the farm zones' 60, so the doubling still stands in full),
 -- and "decide when they're built and playable" was the whole plan for that
 -- decision. They are. See TODO.md — re-weighting is a real pass against
 -- Config/Gear's detector radii, not a quick edit, and is intentionally not part
@@ -189,6 +201,7 @@ export type StageDef = {
 	fogColor: Color3,
 	fogEnd: number,
 	loot: { [string]: number }, -- rarity name -> weight (normalised at roll time)
+	signals: number, -- buried signals DigService keeps topped up here. Per-stage — see the header.
 
 	-- Spatial. See the header.
 	center: { number }, -- { x, z } world space
@@ -236,9 +249,9 @@ Stages.GROUND_OOZE_TINT = 0.55
 Stages.PLATE_THICKNESS = 16
 
 --- The one footprint every stage shares (see the UNIFORM LENGTH PASS header). X is
---- the walk axis; Z is the corridor width. FOOTPRINT_Z and Tuning.SIGNALS_PER_STAGE
---- move together — `FOOTPRINT_X * FOOTPRINT_Z / SIGNALS_PER_STAGE` is the search
---- constant (1066.67) and must stay put, or every search-feel number shifts.
+--- the walk axis; Z is the corridor width. `area / signals` is what sets a stage's
+--- search feel — with the footprint uniform, each stage's own `signals` (a StageDef
+--- field) is the knob; move this footprint and every stage's feel shifts at once.
 local FOOTPRINT_X, FOOTPRINT_Z = 400, 200
 
 Stages.DEFS = {
@@ -286,6 +299,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("CFF3FF"),
 		fogEnd = 900,
 		loot = { Scrap = 48, Common = 41, Uncommon = 8.4, Rare = 2, Epic = 0.4, Legendary = 0.075, Mythic = 0.02, Anomaly = 0.001 },
+		signals = 60, -- farm zone: calmer than the dives. See the header.
 		-- West edge pinned at x = 100 (Hub.PLAZA.maxX); centre = 100 + 400/2.
 		center = { 300, 0 },
 		-- UNIFORM LENGTH PASS: 400 x 200 (FOOTPRINT_X/Z), the shared footprint of all six stages —
@@ -337,6 +351,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("E8D9B0"),
 		fogEnd = 800,
 		loot = { Scrap = 43, Common = 39, Uncommon = 12.6, Rare = 3.5, Epic = 1, Legendary = 0.25, Mythic = 0.05, Anomaly = 0.002 },
+		signals = 60, -- farm zone
 		-- West edge = Stage 1's east edge (x = 500); centre = 500 + 400/2.
 		center = { 700, 0 },
 		-- UNIFORM LENGTH PASS: 400 x 200 (FOOTPRINT_X/Z), the shared footprint — see the header. Was
@@ -376,6 +391,7 @@ Stages.DEFS = {
 		-- otherwise silently produce dead rolls (DigService.rollItemId's step-down
 		-- bottoms out at Scrap with nothing below it to fall back to).
 		loot = { Common = 74, Uncommon = 16.8, Rare = 6, Epic = 2.25, Legendary = 0.6, Mythic = 0.14, Anomaly = 0.005 },
+		signals = 60, -- farm zone
 		-- West edge = Stage 2's east edge (x = 900); centre = 900 + 400/2.
 		center = { 1100, 0 },
 		-- UNIFORM LENGTH PASS: 400 x 200 (FOOTPRINT_X/Z), the shared footprint — see the header.
@@ -418,6 +434,7 @@ Stages.DEFS = {
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
 		-- fold, this stage's old Scrap weight (15) folded into Common (24 -> 39).
 		loot = { Common = 39, Uncommon = 28, Rare = 20, Epic = 9, Legendary = 3, Mythic = 0.8, Anomaly = 0.03 },
+		signals = 75, -- dive: a ~35s window is time for hauling, not searching (PLAN §3.5). Stays dense.
 		-- West edge = Stage 3's east edge (x = 1300); centre = 1300 + 400/2.
 		center = { 1500, 0 },
 		-- UNIFORM LENGTH PASS: 400 x 200 (FOOTPRINT_X/Z), the shared footprint — see the header. Was
@@ -452,6 +469,7 @@ Stages.DEFS = {
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
 		-- fold, this stage's old Scrap weight (7) folded into Common (15 -> 22).
 		loot = { Common = 22, Uncommon = 25, Rare = 26, Epic = 17, Legendary = 7, Mythic = 2.4, Anomaly = 0.1 },
+		signals = 75, -- dive: stays dense
 		-- West edge = Stage 4's east edge (x = 1700); centre = 1700 + 400/2.
 		center = { 1900, 0 },
 		-- UNIFORM LENGTH PASS: 400 x 200 (FOOTPRINT_X/Z), the shared footprint — see the header. Was
@@ -498,6 +516,7 @@ Stages.DEFS = {
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
 		-- fold, this stage's old Scrap weight (2) folded into Common (6 -> 8).
 		loot = { Common = 8, Uncommon = 15, Rare = 24, Epic = 26, Legendary = 18, Mythic = 8, Anomaly = 0.8 },
+		signals = 75, -- heist, not a hike (PLAN §16): stays dense
 		-- West edge = Stage 5's east edge (x = 2100); centre = 2100 + 400/2. The chain
 		-- ends at x = 2500, within 10 studs of where it ended before.
 		center = { 2300, 0 },

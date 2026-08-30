@@ -19,7 +19,7 @@
 
 	The payload carries offsets RELATIVE TO THE PLAYER, never world coordinates, and
 	never anything outside the radius. An exploiter reading it gets what an honest
-	player is already looking at. The other forty-odd buried signals in the stage stay
+	player is already looking at. The other few dozen buried signals in the stage stay
 	exactly as invisible as they were, and that is the property actually worth
 	defending: a dig game that replicates the whole field has an ESP script written
 	for it inside a week, and at that point the rarity economy — which is the entire
@@ -102,7 +102,8 @@ local DigService = {}
 
 -- Moved into Config/Tuning so Spec can check burial depth against the stage plate
 -- thickness that has to contain it. Aliased so the call sites below are unchanged.
-local SIGNALS_PER_STAGE = Tuning.SIGNALS_PER_STAGE
+-- (How MANY signals a stage holds is per-stage — Stages.get(id).signals, read in
+-- topUpField — not a global any more.)
 local DIG_RADIUS = Tuning.DIG_RADIUS
 local DEPTH_BASE = Tuning.DIG_DEPTH_BASE
 local DEPTH_PER_RARITY = Tuning.DIG_DEPTH_PER_RARITY
@@ -361,7 +362,8 @@ end
 
 local function topUpField()
 	for stageId, list in signalsByStage do
-		while #list < SIGNALS_PER_STAGE do
+		local target = Stages.get(stageId).signals
+		while #list < target do
 			local before = #list
 			spawnSignal(stageId)
 			if #list == before then
