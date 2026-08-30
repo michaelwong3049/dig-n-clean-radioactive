@@ -603,8 +603,13 @@ local function buildPlot(parent: Instance, index: number)
 		material = "Neon",
 	})
 	Kit.surfaceText(sign, Enum.NormalId.Front, "UNCLAIMED", C.signText)
-	light(sign, accent, 22, 1.6)
-	light(wall, accent, 18, 0.8)
+	-- Dialled back from 22/1.6 and 18/0.8: the back-third accent wash was bright
+	-- enough to bounce the plot's colour onto the grey display plinths in front of
+	-- it (the Neon sign and Trim carry the "whose plot is this" cue on their own;
+	-- these lights only need to lift the nameplate and give the wall a gentle
+	-- tint, not floodlight the whole back of the pad).
+	light(sign, accent, 20, 1.0)
+	light(wall, accent, 14, 0.4)
 
 	-- The claim board: collect banked income, buy the next pedestal slot.
 	local board = build(m, origin, {
