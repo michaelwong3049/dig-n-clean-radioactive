@@ -203,9 +203,10 @@ local function stepPlayer(player: Player, dt: number)
 	local current = scrubbing[player]
 	local offer = if kind == "shop" and stationId then ShopService.offerFor(data, stationId) else nil
 
-	-- Plot/pedestal panels reuse this same tick+payload rather than a fourth
-	-- remote — see the trader/decon/shop precedent this file already sets.
-	local plotView = if kind == "plot" and stationId then ExhibitService.plotViewFor(player, tonumber(stationId) :: number, data) else nil
+	-- The pedestal panel reuses this same tick+payload rather than a fourth
+	-- remote — see the trader/decon/shop precedent this file already sets. (Plots
+	-- have no panel of their own any more: exhibit income auto-deposits, so a
+	-- claim board with nothing to collect was removed.)
 	local standView = nil
 	if kind == "pedestal" and stationId then
 		local plotIndex, slotStr = string.match(stationId, "^(%d+):(%d+)$")
@@ -218,7 +219,6 @@ local function stepPlayer(player: Player, dt: number)
 		station = kind,
 		stationId = stationId,
 		offer = offer,
-		plotView = plotView,
 		standView = standView,
 		cash = data.cash,
 		xp = data.xp,
@@ -322,12 +322,6 @@ function DeconService.start()
 			end
 		elseif request.action == "undisplay" then
 			local ok, message = ExhibitService.undisplay(player)
-			resultRemote:FireClient(player, message)
-			if ok then
-				print(`[exhibit] {player.Name}: {message}`)
-			end
-		elseif request.action == "collect" then
-			local ok, message = ExhibitService.collect(player)
 			resultRemote:FireClient(player, message)
 			if ok then
 				print(`[exhibit] {player.Name}: {message}`)

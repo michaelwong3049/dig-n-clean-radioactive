@@ -327,7 +327,6 @@ function World.verify(): (boolean, { string })
 		`expected {Plots.COUNT} decon stations (one per base), found {census.decon or 0}`
 	)
 	check((census.shop or 0) >= #Gear.TRACKS, `expected at least {#Gear.TRACKS} shop counters, found {census.shop or 0}`)
-	check((census.plot or 0) == Plots.COUNT, `expected {Plots.COUNT} plot boards, found {census.plot or 0}`)
 
 	-- Every priced track must be buyable somewhere.
 	local sells: { [string]: boolean } = {}

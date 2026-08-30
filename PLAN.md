@@ -779,6 +779,10 @@ investment to get there.
 beyond 5%. You cannot farm one good item into an income machine. Breadth beats depth, which
 pushes players back into stages they've "finished."
 
+**Payout is automatic.** Exhibition income lands straight in your wallet as it accrues —
+there is no pot to walk over to and no COLLECT button. The plot is a place to build a
+collection and be seen, not a machine to service.
+
 **Offline earnings:** accrue at **25%** of your online rate, banked up to **4 hours**
 (8 with a gamepass). Enough that logging in tomorrow is rewarding, capped low enough that
 logging in tomorrow *and playing* is much better. This is the single most valuable retention
@@ -1139,7 +1143,7 @@ somebody else's trophy, which is a much stronger pull.
 * **Session goal:** always a visible next purchase under \~5 minutes away.
 * **Session hook:** the exhibit is running while you play and banking while you don't.
 * **Daily:** login streak rewards, rotating contracts, one guaranteed free egg, and up to
-4 hours of banked exhibition income waiting at the door.
+4 hours of banked exhibition income, auto-deposited into your wallet the moment you log in.
 * **Weekly:** leaderboard reset (richest, most items cleaned, deepest run survived,
 most-visited exhibit).
 * **Long-term:** rebirth multipliers, museum completion, set completion, anomaly hunting,

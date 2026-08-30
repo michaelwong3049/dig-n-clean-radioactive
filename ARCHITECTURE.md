@@ -180,8 +180,8 @@ Also required, and each corresponds to a real silent failure:
 | `Workspace.Stages` holds plates and **nothing else** | A decoration carrying a `StageId` becomes a stage, and smallest-area-wins means a stray barrel silently becomes the stage you are in. Decor lives in `Workspace.Scenery`. |
 | any BasePart in `Workspace` | `Shower` | boolean | Decon shower. Flushes player exposure, does **not** touch items. Since `build/Plots.luau`, each base's cleansing station carries this **on the same part** as `StationKind="decon"` — one stop for both, sharing one `Radius` — rather than two separate structures the way camp used to have them. |
 | ″ | `Radius` | number | Shower radius in studs. Optional, default 10. |
-| any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"plot"` \| `"pedestal"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; plot is an exhibition claim board; pedestal is one display slot. |
-| ″ | `StationId` | string | Discriminator within a kind. For `"shop"` it is the **exact `Gear.TRACKS` spelling** (`"Detector"`, `"Suit"`, …). For `"plot"` it is the plot number; for `"pedestal"` it is `"<plot>:<slot>"`. |
+| any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"pedestal"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; pedestal is one display slot. |
+| ″ | `StationId` | string | Discriminator within a kind. For `"shop"` it is the **exact `Gear.TRACKS` spelling** (`"Detector"`, `"Suit"`, …). For `"pedestal"` it is `"<plot>:<slot>"`. |
 | ″ | `Radius` | number | Station radius in studs. Optional, default 12. |
 | ″ | *CollectionService tag* `Station` | — | Index only — `StationService` scans tagged parts instead of walking Workspace. `Kit.build` adds it whenever it sets `StationKind`, and `World.verify()` asserts attribute and tag agree in **both** directions. The attribute stays the source of truth. |
 | `ReplicatedStorage.Assets.Tools.<Track>.T<n>` (Model) | `HoldCFrame` | CFrame | Offset from the attach point. Optional, defaults to `CFrame.new()`. Tuned in Studio against a live character. |
@@ -268,7 +268,7 @@ The profile itself — `TEMPLATE` in `DataService`, which is the authoritative c
     gear    = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1 },
     carry   = {},   -- array of the carried item above. The backpack.
     locker  = {},   -- Quarantine Locker: found, not yet cleanable.
-    exhibit = { slots = 8, pedestals = {}, bankedCash = 0, bankedAt = 0 },  -- all 8 stands free; `slots` no longer changes
+    exhibit = { slots = 8, pedestals = {}, bankedCash = 0, bankedAt = 0 },  -- all 8 stands free; `slots` fixed; `bankedCash` is a sub-dollar buffer that auto-deposits into `cash`
     discovered  = {},  -- itemId -> true, drives the museum
     perks       = {},  -- perkId -> true, read by StatResolver
     multipliers = {},  -- rebirth / gamepass / pet, pre-summed. Read by StatResolver.

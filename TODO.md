@@ -57,8 +57,8 @@ audio) genuinely is later: each one either extends a system that doesn't exist y
 |-|-|-|-|
 | 0 | Rojo port | §1 | done |
 | 1 | **The map** — world geometry as code | §2 | **done** |
-| 2 | **Map-anchored features** — shops built and working; Exhibition world + contract done, income pending | §3 | **mostly done** |
-| 3 | **Economy & state backbone** — spend path landed; exhibit accrual pending | §4 | in progress |
+| 2 | **Map-anchored features** — shops built and working; Exhibition world + contract done, income auto-deposits | §3 | **mostly done** |
+| 3 | **Economy & state backbone** — spend path landed; exhibit accrual auto-deposits into `cash` | §4 | in progress |
 | 4 | **Mechanical loop content** — Stages 2–4 stocked (41 items) | §5 | **done for MVP** |
 | — | Version control workflow for world content (cross-cutting, not sequenced) | §6 | in progress |
 | — | Hardening — bugs found during review (cross-cutting, blocks specific phases — see §7) | §7 | not started |
@@ -425,6 +425,14 @@ the place file has no git history to recover from.
       action and the BUY SLOT panel button all removed; `EXHIBIT_MAX_SLOTS` is now 8 to
       match `Plots.VISIBLE_SLOTS`. `data.exhibit.slots` stays in the schema (constant 8) and
       is clamped up on load for pre-change saves. Stands build with no locked/dim state.
+- [x] **Exhibition income auto-deposits; the claim board is gone.** `ExhibitService`
+      sweeps accrued yield straight into `data.cash` on a ~5s cadence (and the offline
+      haul the moment a profile loads), so there is no pot to walk over to. Removed with
+      it: the `ClaimBoard` prop and its `PLOT n` billboard, the `"plot"` station kind,
+      `ExhibitService.collect`/`plotViewFor`/`PlotView`, the `collect` action in
+      `DeconService`, the client "plot" panel in `StationController`, and
+      `World.verify()`'s plot-board census check. `data.exhibit.bankedCash` is now just
+      a sub-dollar carry between deposits.
 - [ ] Set `MaxPlayers = 6` in Studio Game Settings so plots and players are 1:1
       (a place setting — Rojo cannot capture it)
 
@@ -611,12 +619,12 @@ callouts, and a missing `/pocket` command in the console list).
       to regression-test any more — it's been removed from the world (see §3).
 - [ ] Live Exhibition test: display an item at your own stand (real carry list, real
       station derived from standing at a real pedestal), confirm it renders on the
-      physical stand and blocks undisplay for 60s, then collect banked cash at the
-      claim board and buy the next pedestal slot. `ExhibitService`'s pure logic
-      (`plotViewFor`/`standViewFor`, fail-closed with no profile) is already smoke-tested
-      outside Play — see §3 — but nothing has exercised the position-derived station
-      security property or the actual `Workspace` render (`Display{n}` color/transparency)
-      with a real character yet.
+      physical stand and blocks undisplay for 60s, and that the cash badge ticks up on
+      its own (~5s cadence) while something is displayed — no claim board to visit.
+      `ExhibitService`'s pure logic (`standViewFor`, fail-closed with no profile) is
+      already smoke-tested outside Play — see §3 — but nothing has exercised the
+      position-derived station security property or the actual `Workspace` render
+      (`Display{n}` color/transparency) with a real character yet.
 - [ ] Border warning card (PLAN §4) — Stage 4 is ~7 seconds to blackout in a Cloth Wrap
       and sits 50 studs behind the camp wall. The fence, verge and sign are in; the
       HUD countdown is not. `StageService.onChanged` and `Radiation.survivableSeconds`

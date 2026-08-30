@@ -68,7 +68,7 @@
 	requires `Hub` again now — but to READ `Hub.PLAZA` and compute the ring from it, so
 	the two cannot drift. Hub requires only Kit, so the direction is safe.
 
-	Plot INTERNALS still face south (claim board and spawn near the front) —
+	Plot INTERNALS still face south (spawn near the front) —
 	nothing about station detection cares which way a plot faces, it's all
 	radius-based, so re-stacking the six plots into this column cost zero
 	gameplay risk. The internal arrangement itself (stands + cleansing station)
@@ -108,7 +108,6 @@
 
 	THE WORLD CONTRACT:
 	    Pad         PlotIndex = n
-	    ClaimBoard  StationKind = "plot",     StationId = "<n>",        Radius = 10
 	    Stand       StationKind = "pedestal", StationId = "<n>:<slot>", Radius = 7
 	                PlotIndex = n, SlotIndex = s
 	                — the base course of the display plinth (StandTop / StandRim /
@@ -137,7 +136,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 17
+local BUILDER_VERSION = 18
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -178,7 +177,7 @@ Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3
 --- spare here — see World.verify()'s own overlap checks, which are the real
 --- authority on safety, not this comment.)
 --- `facing` is a yaw in degrees. A pad is built with its back wall at +Z and its
---- claim board at -Z, so 0 faces south, 180 faces north, -90 faces east — and
+--- spawn at -Z, so 0 faces south, 180 faces north, -90 faces east — and
 --- because every pad's position below is constructed as
 --- `RING_CENTER + RING_RADIUS * (sin(bearing), cos(bearing))`, its `facing`
 --- equals that same bearing (normalised into the -180..180 range this file
@@ -646,7 +645,7 @@ local function buildPlot(parent: Instance, index: number)
 	local center = Plots.CENTERS[index]
 	-- The yaw is applied to the ORIGIN, so every part in this function stays written
 	-- in the pad's own space and the whole plot turns as one. Rotating the parts
-	-- individually would leave the claim board, the spawn and the stands facing
+	-- individually would leave the spawn and the stands facing
 	-- whichever way each was authored.
 	local origin = CFrame.new(center.x, 0, center.z) * CFrame.Angles(0, math.rad(center.facing), 0)
 	local accent = Kit.PLOT_ACCENT[((index - 1) % #Kit.PLOT_ACCENT) + 1]
@@ -711,21 +710,10 @@ local function buildPlot(parent: Instance, index: number)
 	light(sign, accent, 20, 1.0)
 	light(wall, accent, 14, 0.4)
 
-	-- The claim board: collect the exhibit's banked income.
-	local board = build(m, origin, {
-		name = "ClaimBoard",
-		pos = { 0, pad.topY + 2, -pad.depth / 2 + 3 },
-		size = { 8, 4, 1 },
-		color = accent,
-		material = "Metal",
-		attributes = {
-			StationKind = "plot",
-			StationId = tostring(index),
-			PlotIndex = index,
-			Radius = 10,
-		},
-	})
-	billboard(board, 240, 4.4, `PLOT {index}`, "collect banked income", accent)
+	-- No claim board any more: exhibit income is auto-deposited into the owner's
+	-- wallet (ExhibitService.deposit), so there is nothing here to walk up to and
+	-- collect. The nameplate on the back wall is the only thing that marks whose
+	-- plot this is.
 
 	-- Where this plot's owner respawns. Disabled until somebody owns it, so nobody
 	-- ever lands on a stranger's stage. ExhibitService flips this on assignment.
