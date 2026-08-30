@@ -174,8 +174,8 @@ Tuning.RANGE_RING_SEGMENTS = 48 -- thin parts per ring; asset-free, so no textur
 --
 -- WHICH MEANS THE COST IS THE ONLY THING STOPPING AN INFINITE RE-ROLL. A free pad is
 -- farmed: you hop on and off until Stardust lands, and every number in Liquids.luau
--- becomes decoration. The fee is what makes Gear.Luck an actual purchase — better
--- odds per dollar spent — rather than a formality you buy once for completeness.
+-- becomes decoration. The fee is what makes the Luck button an actual purchase —
+-- better odds per dollar spent — rather than a formality you buy once for completeness.
 -- Deliberately FLAT rather than scaling with luck or with rolls-this-session: a
 -- scaling fee punishes the player who engages with the mechanic most, and `charges`
 -- already limits how much value a good roll can be turned into.

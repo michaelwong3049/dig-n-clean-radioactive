@@ -37,7 +37,8 @@
 	on its own. That is deliberate: it keeps the pad worth stepping on after you have
 	already rolled well once, which a permanent liquid would not.
 
-	THE ROLL ODDS, as `oddsAt` computes them, across the whole Gear.Luck ladder.
+	THE ROLL ODDS, as `oddsAt` computes them, across a representative range of luck
+	values (Luck has no fixed ladder any more — see Config/Gear.luau's header).
 	Regenerate this table from Util/TuningReport after touching any weight or bias:
 
 	                   1.0     1.5     2.2     3.1     4.3     6.0     8.0

@@ -244,8 +244,14 @@ COMMANDS["/flush"] = {
 -- moment Luck became the seventh track: the command still WORKED (it validates
 -- against data.gear, not against the help string), so nothing failed loudly -- the
 -- help text just quietly stopped mentioning a whole track.
+--
+-- "luck" IS APPENDED BY HAND, not derived, because Luck left Gear.TRACKS the moment
+-- it stopped having tiers (Config/Gear.luau) -- but data.gear.luck is still a real,
+-- directly-settable field (now a purchase level, not a tier index), and this exact
+-- comment already warned once about a command silently going stale for Luck. Do not
+-- let it happen a second time by "cleaning up" this line.
 local GEAR_USAGE = `/gear <{table.concat((function()
-	local keys = {}
+	local keys = { "luck" }
 	for _, track in Gear.TRACKS do
 		table.insert(keys, Gear.profileKey(track))
 	end
@@ -362,7 +368,10 @@ COMMANDS["/odds"] = {
 		-- either, which is exactly why none of the three has its own copy.
 		local stats = StatResolver.get(data)
 		local odds = Liquids.oddsAt(stats.luckMultiplier)
-		local lines = { string.format("luck %.3gx (%s)", stats.luckMultiplier, Gear.tier("Luck", data.gear.luck or 1).name) }
+		local level = data.gear.luck or 1
+		local lines = {
+			string.format("luck %.3gx (level %d, next +0.1x for $%d)", stats.luckMultiplier, level, Gear.luckPrice(level)),
+		}
 		for _, id in Liquids.ORDER do
 			local chance = odds[id]
 			if chance then

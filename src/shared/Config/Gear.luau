@@ -164,34 +164,43 @@ Gear.Satchel = {
 	{ name = "Containment Pack", price = 8300, fuseMult = 3.12, shielding = 0.78 },
 }
 
--- THE SEVENTH TRACK, AND THE ONLY ONE THAT BUYS NOTHING YOU HOLD. Luck does exactly
--- one thing: it bends the liquid roll at the wash pad (Config/Liquids) toward the top
--- of the table. It has no radius, no tolerance, no speed — the number IS the odds.
+-- THE SEVENTH TRACK, AND THE ONLY ONE THAT BUYS NOTHING YOU HOLD, AND THE ONLY ONE
+-- WITH NO TOP RUNG. Luck does exactly one thing: it bends the liquid roll at the wash
+-- pad (Config/Liquids) toward the top of the table. It has no radius, no tolerance,
+-- no speed — the number IS the odds.
 --
--- `luck` is the base of the exponent in Liquids.effectiveWeight, so the whole ladder
--- is legible from Liquids.luau's own odds table rather than from anything here. End
--- to end (1.0 -> 8.0) the jackpot moves 1-in-814 to 1-in-40, and the chance of any
--- gate-cracking (+2 potency) liquid moves 1.84% -> 15.86%.
+-- USED TO BE A SEVEN-RUNG LADDER OF NAMED CHARMS (Rusty Horseshoe -> Shooting Star).
+-- It is now a button: every purchase is +LUCK_STEP flat, forever, at a price that
+-- climbs LUCK_PRICE_GROWTH per purchase — no names, no ceiling, because the button
+-- has nothing to paint a ladder ON. `level` is a 1-based purchase count (1 = never
+-- bought, matching every other track's "tier 1 is the free starting rung"
+-- convention) so DataService's TEMPLATE.gear.luck default of 1 needed no migration.
 --
--- PRICED ON THE SAME ~2.4x CURVE AS EVERYTHING ELSE (PLAN §6, "pricing philosophy"),
--- deliberately NOT the Boots line's steeper 2.8x. Boots are steep because speed is
--- the most economically dangerous stat in the game; luck is self-limiting, because
--- what a good roll gets you is `charges` — a fixed handful of patches — rather than
--- a permanent capability. Rolling well twice as often is still not a permanent
--- upgrade to anything, which is exactly why it can be priced normally.
+-- `luckMultiplier` is the base of the exponent in Liquids.effectiveWeight, so its
+-- effect on any given liquid's odds is legible from Liquids.luau's own odds table
+-- rather than from anything here.
 --
--- The names are charms rather than machines on purpose. Every other track is
--- equipment you wear or hold; this one is a rabbit's foot on the workbench, and the
--- naming is the fastest way to communicate that it does not go in your hands.
-Gear.Luck = {
-	{ name = "Rusty Horseshoe", price = 0, luck = 1.0 },
-	{ name = "Rabbit's Foot", price = 200, luck = 1.5 },
-	{ name = "Four-Leaf Clover", price = 480, luck = 2.2 },
-	{ name = "Wishbone Charm", price = 1150, luck = 3.1 },
-	{ name = "Lucky Penny Jar", price = 2760, luck = 4.3 },
-	{ name = "Golden Horseshoe", price = 6640, luck = 6.0 },
-	{ name = "Shooting Star", price = 15930, luck = 8.0 },
-}
+-- COMPOUNDING PRICE, FLAT GAIN — the opposite shape from every tiered track, where
+-- gain grows AND price grows. Luck is self-limiting already (a good roll only ever
+-- hands out `charges`, a fixed handful of patches, never a permanent capability), so
+-- there is no need for the gain itself to taper — the compounding price is what
+-- keeps one more click from ever being free.
+Gear.LUCK_STEP = 0.1
+Gear.LUCK_START_PRICE = 100
+Gear.LUCK_PRICE_GROWTH = 1.10
+
+--- The multiplier a player sits at after `level - 1` purchases (level 1 = 1.0x,
+--- never bought). Matches Liquids.oddsAt's `luck` parameter exactly.
+function Gear.luckMultiplier(level: number): number
+	return 1.0 + Gear.LUCK_STEP * (math.max(level, 1) - 1)
+end
+
+--- What the NEXT purchase costs, given the buyer is currently at `level`.
+--- Rounded to the dollar — Liquids.effectiveWeight never sees this number, only
+--- luckMultiplier does, so rounding it costs nothing in the roll math.
+function Gear.luckPrice(level: number): number
+	return math.floor(Gear.LUCK_START_PRICE * Gear.LUCK_PRICE_GROWTH ^ (math.max(level, 1) - 1) + 0.5)
+end
 
 Gear.SPRINT_MULTIPLIER = 1.35
 
@@ -200,7 +209,10 @@ function Gear.pedestalPrice(nextSlot: number): number
 	return math.floor(900 * (1.28 ^ (nextSlot - 3)))
 end
 
-Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Boots", "Satchel", "Luck" }
+-- LUCK IS NOT HERE. It has no tiers to iterate, no `Gear.tier("Luck", n)` to call,
+-- and no per-track shop counter or SellsTrack-generic sell path to require one — see
+-- ShopService.buyLuck and the header above Gear.luckMultiplier for the replacement.
+Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Boots", "Satchel" }
 
 --- Track name (capitalised, as used here and in the world's StationId attribute)
 --- to profile field (lowercase, as used in DataService's TEMPLATE.gear).
@@ -216,7 +228,6 @@ Gear.PROFILE_KEY = {
 	Suit = "suit",
 	Boots = "boots",
 	Satchel = "satchel",
-	Luck = "luck",
 }
 
 function Gear.profileKey(track: string): string

@@ -47,6 +47,7 @@ local Net = require(Shared.Net)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local StationService = require(script.Parent.StationService)
+local ExhibitService = require(script.Parent.ExhibitService)
 
 local ShopService = {}
 
@@ -184,8 +185,8 @@ end
 --- indexing past the end of the array or silently re-selling something you own.
 --- The purchase itself, with NO opinion about where the player is standing.
 ---
---- Split out of `buy` when the Luck track moved from a shop counter to a wooden sign
---- with a ProximityPrompt on it (build/Plots.buildLuckSign). Everything that makes a
+--- Split out of `buy` when the Luck track moved from a shop counter to a button
+--- with a ProximityPrompt on it (build/Plots.buildLuckButton). Everything that makes a
 --- purchase safe is in here — the track is checked against Gear.TRACKS before it can
 --- index anything, the tier against that track's own length and against what you
 --- already own, and the price is read back out of Gear.tier() and never taken from a
@@ -237,24 +238,27 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 	return true, `bought {def.name} for ${def.price}`
 end
 
---- The NEXT rung of a track, for callers that sell one step at a time rather than
---- offering a ladder. The sign uses this: a wooden plank has no room for eight buy
---- buttons, and "press E to upgrade" is the whole interaction.
-function ShopService.buyNext(player: Player, track: string): (boolean, string)
+--- The luck button's own purchase path — not a tier lookup, because Luck no longer
+--- has tiers to look up (Config/Gear.luau's header above `Gear.luckMultiplier`
+--- explains why). Same shape as `buyTier` otherwise: debit first, at the price for
+--- the level the player is CURRENTLY at, and only mutate the profile once the debit
+--- lands, so a failed purchase leaves nothing half-applied to unwind.
+function ShopService.buyLuck(player: Player): (boolean, string)
 	local data = DataService.data(player)
 	if data == nil then
 		return false, "your save hasn't loaded"
 	end
-	if not isTrack(track) then
-		return false, "no such track"
+
+	local level = data.gear.luck or 1
+	local price = Gear.luckPrice(level)
+
+	local paid, reason = EconomyService.spend(player, price)
+	if not paid then
+		return false, reason
 	end
 
-	local key = Gear.profileKey(track)
-	local nextTier = (data.gear[key] or 1) + 1
-	if nextTier > Gear.maxTier(track) then
-		return false, `{Gear.tier(track, Gear.maxTier(track)).name} is the top of the {track} line`
-	end
-	return ShopService.buyTier(player, track, nextTier)
+	data.gear.luck = level + 1
+	return true, string.format("Luck -> %.1fx (paid $%d)", Gear.luckMultiplier(data.gear.luck), price)
 end
 
 function ShopService.buy(player: Player, track: string, tier: number?): (boolean, string)
@@ -284,10 +288,10 @@ local UPGRADE_TAG = "Upgrade"
 
 --- Wire one world object that sells a track by proximity instead of by panel.
 ---
---- The prompt is created by the BUILDER (build/Plots.buildLuckSign) and saved with
+--- The prompt is created by the BUILDER (build/Plots.buildLuckButton) and saved with
 --- the place; this connects behaviour to it at boot. Splitting it that way is the
 --- same split every station already uses — geometry and attributes are build-time,
---- behaviour is runtime — and it is what lets the sign be rebuilt without touching
+--- behaviour is runtime — and it is what lets the button be rebuilt without touching
 --- a service.
 local function wireUpgrade(part: Instance)
 	if not part:IsA("BasePart") then
@@ -304,10 +308,23 @@ local function wireUpgrade(part: Instance)
 	end
 
 	prompt.Triggered:Connect(function(player: Player)
-		local ok, message = ShopService.buyNext(player, track)
+		-- LUCK IS THE ONLY THING SellsTrack NAMES TODAY, and unlike every tiered
+		-- track it has no ladder to sell a rung of — ShopService.buyLuck's header
+		-- explains why it needed its own purchase path instead of buyTier. If a
+		-- second non-panel track ever needs this wiring, branch on `track` here.
+		local ok: boolean, message: string
+		if track == "Luck" then
+			ok, message = ShopService.buyLuck(player)
+		else
+			ok, message = false, `no such track "{track}"`
+		end
 		resultRemote:FireClient(player, message)
 		if ok then
 			print(`[shop] {player.Name}: {message}`)
+			-- The button's own billboard names the buyer's multiplier, not a shop
+			-- panel that isn't there — see ExhibitService.refreshLuck's header for why
+			-- that lives in ExhibitService rather than here.
+			ExhibitService.refreshLuck(player)
 		end
 	end)
 end

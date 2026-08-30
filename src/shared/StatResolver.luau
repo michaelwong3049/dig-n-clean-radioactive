@@ -110,7 +110,7 @@ function StatResolver.get(profile: Profile): Stats
 	local suit = Gear.tier("Suit", g.suit or 1)
 	local boots = Gear.tier("Boots", g.boots or 1)
 	local satchel = Gear.tier("Satchel", g.satchel or 1)
-	local luckCharm = Gear.tier("Luck", g.luck or 1)
+	local luckMultiplier = Gear.luckMultiplier(g.luck or 1)
 	local liquidId, liquid = liquidFor(profile)
 
 	-- Steady Hands (PLAN §9.2) is a PERK on the tool, so it belongs to the permanent
@@ -157,10 +157,10 @@ function StatResolver.get(profile: Profile): Stats
 		-- REPURPOSED, and it used to be inert. This was `mult(profile, "luck")` alone
 		-- -- the PLAN §11 "2x Luck" gamepass slot -- and nothing in the game read it,
 		-- because nothing in the game rolled anything a player could influence. The
-		-- wash pad does, so the Gear.Luck track folds in here where every other piece
-		-- of gear math already lives. The gamepass multiplier stacks on top of the
-		-- track exactly as it was always meant to.
-		luckMultiplier = luckCharm.luck * mult(profile, "luck"),
+		-- wash pad does, so the Luck button's own multiplier folds in here where every
+		-- other piece of gear math already lives. The gamepass multiplier stacks on
+		-- top of it exactly as it was always meant to.
+		luckMultiplier = luckMultiplier * mult(profile, "luck"),
 		-- Curator (PLAN §9.2)
 		yieldMultiplier = mult(profile, "yield") * (if perks.curator then 1.15 else 1),
 	}

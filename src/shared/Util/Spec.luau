@@ -251,7 +251,7 @@ function Spec.run(): boolean
 	local dryStats = StatResolver.get(dry)
 	check("§2.4 a spent canister falls back to Plain Water", dryStats.liquidId == Liquids.WATER and dryStats.effectivePotency == stats.cleanPotency)
 
-	-- ── The wash pad (Config/Liquids, Config/Gear.Luck) ──────────────────
+	-- ── The wash pad (Config/Liquids, Config/Gear's luckMultiplier/luckPrice) ──────
 	--
 	-- THE ONE THAT MATTERS MOST IS THE POTENCY CAP. Liquids lend potency on top of
 	-- the Cleaner track, and the Cleaner track is PLAN §2 step 4's second hard gate —
@@ -286,10 +286,17 @@ function Spec.run(): boolean
 
 	-- LUCK MUST NEVER MAKE ANYTHING YOU WANTED RARER. `effectiveWeight` raises luck
 	-- to a per-entry exponent, so a negative or accidentally-zero bias on a top-end
-	-- entry would make buying the Luck track actively harmful — invisible in play
-	-- until someone with a Shooting Star notices they stopped seeing Stardust.
-	local luckFloor = Gear.tier("Luck", 1).luck
-	local luckCeiling = Gear.tier("Luck", Gear.maxTier("Luck")).luck
+	-- entry would make buying Luck actively harmful — invisible in play until someone
+	-- well into the button notices they stopped seeing Stardust.
+	--
+	-- LUCK HAS NO CEILING ANY MORE (Config/Gear.luau's header) — every purchase is a
+	-- flat +0.1x forever, at a compounding price. 8.0x is not a real cap; it is the
+	-- old seven-tier ladder's top rung, kept here as a fixed, well-understood
+	-- reference point so the invariants below (and the numbers in their own
+	-- descriptions, like "16.1%" and "20.4x") keep meaning the same thing across a
+	-- refactor of how a player actually GETS there.
+	local luckFloor = Gear.luckMultiplier(1)
+	local luckCeiling = 8.0
 	local oddsLo, oddsHi = Liquids.oddsAt(luckFloor), Liquids.oddsAt(luckCeiling)
 
 	-- THE INVARIANT IS "MASS MOVES UP THE TABLE", NOT "EVERY ENTRY GETS LIKELIER",
@@ -329,31 +336,34 @@ function Spec.run(): boolean
 	end
 	check("§6 the odds table is a probability distribution at both ends", math.abs(sumLo - 1) < 1e-9 and math.abs(sumHi - 1) < 1e-9)
 
-	-- THE FLOOR NEVER DISAPPEARS. A roll you can predict is not a roll; if maxed luck
-	-- ever pushes the commonest liquid under ~10% the pad has become a vending
-	-- machine and the reveal animation is lying about there being a moment.
+	-- THE FLOOR NEVER DISAPPEARS. A roll you can predict is not a roll; if pushing
+	-- luck this far ever drops the commonest liquid under ~10% the pad has become a
+	-- vending machine and the reveal animation is lying about there being a moment.
 	local commonest = Liquids.ORDER[2]
 	check(
-		string.format("§6 the common end survives maxed luck: %s at %.1f%% (want >= 10%%)", Liquids.get(commonest).name, oddsHi[commonest] * 100),
+		string.format("§6 the common end survives luck %.1fx: %s at %.1f%% (want >= 10%%)", luckCeiling, Liquids.get(commonest).name, oddsHi[commonest] * 100),
 		oddsHi[commonest] >= 0.10
 	)
 
-	-- ...and the jackpot has to visibly move, or the ladder reads as a tax.
+	-- ...and the jackpot has to visibly move, or the button reads as a tax.
 	local jackpot = Liquids.ORDER[#Liquids.ORDER]
 	check(
-		string.format("§6 maxed luck multiplies the jackpot %.1fx (want >= 5x)", oddsHi[jackpot] / oddsLo[jackpot]),
+		string.format("§6 luck %.1fx multiplies the jackpot %.1fx (want >= 5x)", luckCeiling, oddsHi[jackpot] / oddsLo[jackpot]),
 		oddsHi[jackpot] / oddsLo[jackpot] >= 5
 	)
 
+	-- EVERY PURCHASE MUST BE BOTH LUCKIER AND PRICIER THAN THE LAST, forever — the
+	-- one invariant a fixed ladder used to guarantee by construction and a formula
+	-- has to be checked instead. 200 purchases is arbitrary and large: a formula that
+	-- breaks monotonicity does so either immediately or via a slow float-precision
+	-- drift, and 200 steps is enough runway to catch either.
 	local luckAscending = true
-	for tier = 2, Gear.maxTier("Luck") do
-		local better = Gear.tier("Luck", tier)
-		local worse = Gear.tier("Luck", tier - 1)
-		if better.luck <= worse.luck or better.price <= worse.price then
+	for level = 2, 200 do
+		if Gear.luckMultiplier(level) <= Gear.luckMultiplier(level - 1) or Gear.luckPrice(level) <= Gear.luckPrice(level - 1) then
 			luckAscending = false
 		end
 	end
-	check("§6 every Luck tier is both luckier and pricier than the last", luckAscending)
+	check("§6 every luck purchase is both luckier and pricier than the last", luckAscending)
 
 	-- A ROLL MUST BE WORTH LESS THAN WHAT IT CLEANS. The pad charges cash per roll and
 	-- pays in charges; if a roll ever costs more than the cheapest item in the game is

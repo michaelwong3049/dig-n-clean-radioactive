@@ -119,8 +119,8 @@
 	    WashCam     invisible; the side-on camera anchor WashController frames from.
 	    Plate       StationKind = "roller", Radius = 6 — the wash pad (see
 	                buildWashPad below). One per base, three steps from the basin.
-	    LuckBoard   SellsTrack = "Luck" + a ProximityPrompt — the wooden luck sign
-	                (see buildLuckSign). ShopService wires the prompt at boot.
+	    Button      SellsTrack = "Luck" + a ProximityPrompt — the luck button
+	                (see buildLuckButton). ShopService wires the prompt at boot.
 
 	The stand's StationId is "plot:slot" so the server can resolve exactly which
 	pedestal a player is standing at without a spatial search of its own.
@@ -565,21 +565,21 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 	})
 	billboard(plate, 250, 4.8, "WASH PAD", "step on it, roll a liquid", accent)
 
-	-- The lit inner disc, a hair proud of the plate so it reads as glowing paint
-	-- rather than as a second slab. Water's own colour: the pad always pays out
-	-- SOMETHING, and the floor of the table is the honest thing to advertise.
+	-- The inner disc is coloured water, but it is deliberately matte. The pad is a
+	-- physical interaction surface; making its whole centre Neon made it compete
+	-- with the radioactive field and made the canisters read as light sources.
 	local disc = build(m, origin, {
 		name = "Glow",
 		pos = { cx, pad.topY + 0.55, cz },
 		size = { 0.2, 7.4, 7.4 },
 		color = Liquids.get(Liquids.WATER).color,
-		material = "Neon",
+		material = "SmoothPlastic",
 		shape = "Cylinder",
 		rot = Kit.R.cylUp,
-		transparency = 0.25,
+		transparency = 0.12,
 		canCollide = false,
 	})
-	light(disc, Liquids.get(Liquids.WATER).color, 16, 1.4)
+	light(disc, Liquids.get(Liquids.WATER).color, 10, 0.35)
 
 	-- The shelf: a low bench behind the plate carrying one canister per prize.
 	build(m, origin, {
@@ -615,10 +615,10 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 			pos = { x, pad.topY + 2.4, cz + 5.6 },
 			size = { 1.6, 1.6, 1.6 },
 			color = def.color,
-			material = "Neon",
+			material = "SmoothPlastic",
 			shape = "Cylinder",
 			rot = Kit.R.cylUp,
-			transparency = 0.15,
+			transparency = 0.05,
 			canCollide = false,
 		})
 	end
@@ -626,54 +626,67 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 	m.Parent = parent
 end
 
---- The luck sign — a wooden board you press E on to buy the next Luck tier.
+--- The luck button — mounted on the plot's own back wall, below the name, where you
+--- press E to buy the next +0.1x.
 ---
 --- LUCK IS THE ONE TRACK YOU DO NOT WEAR, so it was the one track that did not belong
 --- on a shop counter. It used to be a fourth desk at the Outfitter, visually identical
---- to Suits and Boots and Satchels, selling something with no physical form at all.
---- A hand-painted board staked next to the pad it actually affects says what it does
---- before you read a word of it.
+--- to Suits and Boots and Satchels, selling something with no physical form at all —
+--- then a free-standing sign staked next to the pad, painting a whole seven-tier
+--- ladder on a board. Luck itself changed shape too (Config/Gear.luau's header): there
+--- is no ladder left to paint, only a flat +0.1x at a price that climbs every time, so
+--- the button just says the two numbers that are true right now.
+---
+--- ON THE BACK WALL, UNDER THE NAME, because both are "what is true about this base
+--- right now" and belong on the same console — unlike the pad and the tub, which sit
+--- out on the floor because they are things you walk up and DO.
 ---
 --- NO PANEL, NO STATION KIND, NO REMOTE. A ProximityPrompt's Triggered fires on the
 --- server and Roblox enforces MaxActivationDistance itself, so proximity is a
 --- precondition the engine established rather than a claim to be re-checked — see
---- ShopService.buyTier's header for why that lets this skip StationService entirely.
+--- ShopService.buyLuck's header for why that lets this skip StationService entirely.
 ---
---- THE WHOLE LADDER IS PAINTED ON THE BOARD, not just the next rung, and that is the
---- same argument the shop's card grid makes: a player who cannot see that Luck runs
---- to a 8x Shooting Star has no reason to save past the rung in front of them. It is
---- STATIC text -- every tier and its price, identical for every player -- because a
---- SurfaceGui is one shared instance and per-player world text would need one board
---- per player. What is per-player (which rung you are on) is answered by the toast
---- when you press E, and by /odds.
-local function buildLuckSign(parent: Instance, origin: CFrame, accent: string)
+--- GREEN, DELIBERATELY REUSING C.grass RATHER THAN THE PLOT'S OWN ACCENT COLOUR.
+--- Material.Neon in an acid/hazard green is reserved for radiation everywhere outside
+--- a stage (see Kit.C's header) — this is the same "safe" green the plaza and base
+--- camp already wear, not that one, so a glowing button two steps from a wash pad
+--- never reads as toxic.
+---
+--- THE BILLBOARD SHOWS YOUR MULTIPLIER AND THE NEXT PRICE, not a ladder — ShopService
+--- rewrites both the moment a purchase lands, and ExhibitService rewrites them again
+--- on plot assignment, the exact Sign/Title/Subtitle convention LiquidService.announce
+--- already uses to name a roll on the wash pad.
+local function buildLuckButton(parent: Instance, origin: CFrame)
 	local m = Instance.new("Model")
-	m.Name = "LuckSign"
+	m.Name = "LuckButton"
 	local pad = Plots.PAD
-	local cx, cz = 18, 9
+	local wallZ = pad.depth / 2 - 0.5 -- BackWall's own face, see buildPlot
+	local panelY = pad.topY + 4.6
 
-	for _, dx in { -1.6, 1.6 } do
-		build(m, origin, { name = "Post", pos = { cx + dx, pad.topY + 2.2, cz }, size = { 0.45, 4.4, 0.45 }, color = C.wood, material = "Wood" })
-	end
-
-	local board = build(m, origin, {
-		name = "LuckBoard",
-		pos = { cx, pad.topY + 4.4, cz },
-		size = { 8, 5.6, 0.4 },
-		color = C.woodLight,
-		material = "WoodPlanks",
-		attributes = { SellsTrack = "Luck" },
+	-- A small backing plate on the back wall, below the name -- the same wall the
+	-- NameSign is bolted to, so the two read as one console.
+	build(m, origin, {
+		name = "Panel",
+		pos = { 0, panelY, wallZ - 0.55 },
+		size = { 3.6, 3.2, 0.3 },
+		color = C.steelDark,
+		material = "Metal",
 	})
 
-	-- The ladder, painted on the face that greets you walking up from the pad.
-	local lines = { "LUCK" }
-	for tier = 1, Gear.maxTier("Luck") do
-		local def = Gear.tier("Luck", tier)
-		table.insert(lines, string.format("%-18s %sx   %s", def.name, tostring(def.luck), if def.price == 0 then "start" else `${def.price}`))
-	end
-	table.insert(lines, "")
-	table.insert(lines, "press E to upgrade")
-	Kit.surfaceText(board, Enum.NormalId.Front, table.concat(lines, "\n"), C.signText)
+	-- The button — a Ball rather than an oriented Cylinder, because a sphere reads as
+	-- "press me" from every angle a player can walk up from and needs no rotation to
+	-- face the right way.
+	local button = build(m, origin, {
+		name = "Button",
+		pos = { 0, panelY, wallZ - 0.15 },
+		size = { 1.4, 1.4, 1.4 },
+		color = C.grass,
+		material = "Neon",
+		shape = "Ball",
+		canCollide = false,
+		attributes = { SellsTrack = "Luck" },
+	})
+	light(button, C.grass, 10, 1)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Upgrade"
@@ -682,18 +695,19 @@ local function buildLuckSign(parent: Instance, origin: CFrame, accent: string)
 	prompt.HoldDuration = 0.4
 	prompt.MaxActivationDistance = 10
 	prompt.RequiresLineOfSight = false
-	prompt.Parent = board
+	prompt.Parent = button
 
-	local lamp = build(m, origin, {
-		name = "Lamp",
-		pos = { cx, pad.topY + 7.6, cz },
-		size = { 0.5, 0.5, 0.5 },
-		color = accent,
-		material = "Neon",
-		shape = "Ball",
-		canCollide = false,
-	})
-	light(lamp, accent, 12, 1.2)
+	-- Level 1 -- the only value that exists before any player has ever claimed this
+	-- plot. ShopService and ExhibitService both overwrite it the moment real
+	-- per-player state does.
+	billboard(
+		button,
+		220,
+		2.6,
+		string.format("LUCK %.1fx", Gear.luckMultiplier(1)),
+		string.format("+0.1x for $%d", Gear.luckPrice(1)),
+		C.grass
+	)
 
 	m.Parent = parent
 end
@@ -841,7 +855,7 @@ local function buildPlot(parent: Instance, index: number)
 
 	buildCleansingStation(m, origin, accent)
 	buildWashPad(m, origin, accent)
-	buildLuckSign(m, origin, accent)
+	buildLuckButton(m, origin)
 
 	m.Parent = parent
 	return m

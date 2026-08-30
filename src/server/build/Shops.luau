@@ -20,9 +20,9 @@
 
 	THE SPLIT BETWEEN THE STALLS AND THIS BENCH IS "DO YOU HOLD IT". The three stalls
 	sell the three things ToolService can put in your hands; the Outfitter sells the
-	three you wear and, since the wash pad landed, the one you do not physically have
-	at all — Luck is a charm on a workbench, not a machine, and the counter names in
-	Config/Gear.Luck say so on purpose.
+	three you wear. Luck briefly sat here too, as a fourth desk selling something you
+	do not physically have at all — since moved out to its own button (see the LUCK
+	IS NOT HERE note below).
 
 	THE LOOK — a classic toy-store kiosk, not a toxic drum, not an archway.
 	The nuclear-drum reskin (round barrel counter, dome roof, trefoil badge) and,
@@ -129,8 +129,8 @@ local OUTFITTER = {
 		{ track = "Satchel", label = "SATCHELS", tagline = "buy the clock time" },
 		-- LUCK IS NOT HERE, and it briefly was. It is the one track you neither hold
 		-- nor wear, and a fourth desk here sold it as though it were a satchel. It
-		-- moved to a wooden board staked next to the wash pad it actually affects
-		-- (build/Plots.buildLuckSign) -- press E, no panel. World.verify() still
+		-- moved to a glowing button staked next to the wash pad it actually affects
+		-- (build/Plots.buildLuckButton) -- press E, no panel. World.verify() still
 		-- asserts every priced track is buyable somewhere; it accepts a `SellsTrack`
 		-- attribute as well as a shop counter, which is what keeps that check honest
 		-- after this move.
@@ -752,7 +752,7 @@ local function createShops(): Model
 	-- SELF-CONSISTENCY, NOT GLOBAL COVERAGE, and that distinction is new. This used to
 	-- assert every entry in Gear.TRACKS had a counter here — correct while this file
 	-- was the only thing in the world that sold anything, and wrong the moment Luck
-	-- moved to a wooden sign at each base (build/Plots.buildLuckSign). It failed the
+	-- moved to a button at each base (build/Plots.buildLuckButton). It failed the
 	-- next rebuild, which is exactly what a good assert does; it was just asking a
 	-- question this file can no longer answer.
 	--

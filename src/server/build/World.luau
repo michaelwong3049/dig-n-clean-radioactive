@@ -340,14 +340,14 @@ function World.verify(): (boolean, { string })
 		`expected {Plots.COUNT} wash pads (one per base), found {census.roller or 0}`
 	)
 
-	-- ...and one luck sign per base, beside the pad it bends the odds for.
-	local luckSigns = 0
+	-- ...and one luck button per base, on the back wall of the pad it bends the odds for.
+	local luckButtons = 0
 	for _, d in Workspace:GetDescendants() do
 		if d:IsA("BasePart") and d:GetAttribute("SellsTrack") == "Luck" then
-			luckSigns += 1
+			luckButtons += 1
 		end
 	end
-	check(luckSigns == Plots.COUNT, `expected {Plots.COUNT} luck signs (one per base), found {luckSigns}`)
+	check(luckButtons == Plots.COUNT, `expected {Plots.COUNT} luck buttons (one per base), found {luckButtons}`)
 
 	-- Every priced track must be buyable somewhere. TWO WAYS TO SELL ONE now, and the
 	-- check has to know both or moving a track between them looks like a clean
@@ -356,7 +356,10 @@ function World.verify(): (boolean, { string })
 	--   StationKind = "shop"   a counter with a panel  (Detector, Magnet, Cleaner,
 	--                          Suit, Boots, Satchel)
 	--   SellsTrack = "<track>" a world object with a ProximityPrompt, no panel
-	--                          (Luck, on the wooden sign at every base)
+	--                          (used to be Luck; Luck itself left Gear.TRACKS the
+	--                          moment it stopped having a priced ladder to check
+	--                          against here — its button is still verified above,
+	--                          by count and by tag, just not by this loop)
 	local sells: { [string]: boolean } = {}
 	for _, d in Workspace:GetDescendants() do
 		if d:IsA("BasePart") then

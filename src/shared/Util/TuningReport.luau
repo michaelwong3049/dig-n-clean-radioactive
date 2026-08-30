@@ -153,16 +153,21 @@ function TuningReport.run()
 	end
 
 	-- ── The wash pad ─────────────────────────────────────────────────
-	-- Paste this straight back into Config/Liquids' header. The whole point of the
-	-- Luck track is that its effect is visible across the ladder, and the only way to
-	-- see that is a column per tier.
-	table.insert(out, "\n=== WASH PAD: roll odds across the Gear.Luck ladder (Config/Liquids) ===\n")
+	-- Paste this straight back into Config/Liquids' header. The whole point of Luck
+	-- is that its effect is visible across a range of values, and the only way to see
+	-- that is a column per value.
+	table.insert(out, "\n=== WASH PAD: roll odds across representative luck values (Config/Liquids) ===\n")
 	local Liquids = require(Config.Liquids)
+
+	-- Luck no longer has fixed tiers (Config/Gear.luau's luckMultiplier is
+	-- continuous, +0.1x per purchase, no ceiling) -- these are reporting checkpoints
+	-- only, kept at the old seven-rung ladder's own values so this table's shape and
+	-- the story it tells don't change out from under whoever reads it.
+	local CHECKPOINTS = { 1.0, 1.5, 2.2, 3.1, 4.3, 6.0, 8.0 }
 
 	local luckRow = string.rep(" ", 18)
 	local columns: { number } = {}
-	for tier = 1, Gear.maxTier("Luck") do
-		local luck = Gear.tier("Luck", tier).luck
+	for _, luck in CHECKPOINTS do
 		table.insert(columns, luck)
 		luckRow ..= string.format("%8.3g", luck)
 	end
