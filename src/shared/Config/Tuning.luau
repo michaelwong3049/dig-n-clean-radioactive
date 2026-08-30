@@ -232,6 +232,40 @@ Tuning.AURA_PULSE_HZ = 0.8 -- client-side ripple rate, cosmetic only (was the pi
 Tuning.RANGE_RING_PERIOD = 1.0 -- seconds between expanding pulses
 Tuning.RANGE_RING_SEGMENTS = 48 -- thin parts per ring; asset-free, so no texture to load
 
+-- ── The wash pad (Config/Liquids) ───────────────────────────────────────
+--
+-- Stepping onto the pad IS the roll — it fires off StationService's entry edge, not
+-- off a button in a panel, because "step on it and something happens" is the whole
+-- charm and a confirmation dialog would kill it.
+--
+-- WHICH MEANS THE COST IS THE ONLY THING STOPPING AN INFINITE RE-ROLL. A free pad is
+-- farmed: you hop on and off until Stardust lands, and every number in Liquids.luau
+-- becomes decoration. The fee is what makes the Luck button an actual purchase —
+-- better odds per dollar spent — rather than a formality you buy once for completeness.
+-- Deliberately FLAT rather than scaling with luck or with rolls-this-session: a
+-- scaling fee punishes the player who engages with the mechanic most, and `charges`
+-- already limits how much value a good roll can be turned into.
+--
+-- The cooldown is not a balance lever, it is a debounce. Walking on and off the pad
+-- repeatedly would otherwise fire one roll per crossing, and the reveal animation is
+-- roughly this long, so a second roll landing mid-reveal reads as a dropped one.
+--
+-- 12, NOT 25, AND Util/Spec IS WHY. A Common sells for 5-25, so a 25 fee meant the
+-- pad cost a brand-new player their single best find per pull -- and a mechanic
+-- nobody can afford to try is a mechanic nobody discovers. At 12 it is roughly half
+-- a Common: cheap enough to be the first thing a new player spends money on, and
+-- still non-zero, which is all the fee has to be. It is irrelevant either way to a
+-- rich player, whose real limiter is `charges`, never cash.
+Tuning.LIQUID_ROLL_COST = 12
+Tuning.LIQUID_ROLL_COOLDOWN = 3 -- seconds between rolls, per player
+
+-- Charges stack when you roll the same liquid twice, up to this multiple of the
+-- liquid's own `charges`. Without a ceiling, an idle player parked on the pad
+-- accumulates an unbounded Stardust supply and the pad stops being somewhere you
+-- ever need to go back to — which is the exact failure the charge system exists to
+-- prevent. Five rolls' worth is generous enough that nobody hits it by accident.
+Tuning.LIQUID_MAX_STACK = 5
+
 Tuning.DIRTY_SELL_MULTIPLIER = 0.20
 Tuning.ASSAY_FEE_FRACTION = 0.02
 

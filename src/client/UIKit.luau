@@ -214,8 +214,9 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 Dock.SCOPE_BOTTOM = Dock.INSTRUMENT_BOTTOM
 
 -- The bottom-LEFT column, bottom-up: meter on the instrument baseline, cash badge
--- above it, index button above that. Each one's bottom is the previous one's top plus
--- a gap, so the column stays packed however any single element is resized.
+-- above it, index button above that, the loaded-liquid badge above that. Each one's
+-- bottom is the previous one's top plus a gap, so the column stays packed however any
+-- single element is resized.
 --
 -- CASH_SIZE/CASH_BOTTOM WERE PRIVATE LOCALS IN CashController until the index button
 -- moved into this column. They had to come here the moment a second file needed to
@@ -225,6 +226,19 @@ Dock.SCOPE_BOTTOM = Dock.INSTRUMENT_BOTTOM
 Dock.CASH_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 56)
 Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
 Dock.INDEX_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.GAP
+
+-- INDEX_SIZE WAS IndexController's PRIVATE `BUTTON_SIZE = 72` until the liquid badge
+-- needed to stack on top of it — the same migration CASH_SIZE went through one
+-- element earlier, for exactly the same reason. The square button is the only element
+-- in this column that is not meter-width, so it needs its own entry rather than being
+-- derivable from one.
+--
+-- The liquid badge is short on purpose: it carries one name and a charge count, and
+-- it is the fourth thing in a column that already reaches ~480px up a 720px viewport.
+-- If a fifth ever wants in, something here has to come out.
+Dock.INDEX_SIZE = 72
+Dock.LIQUID_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 48)
+Dock.LIQUID_BOTTOM = Dock.INDEX_BOTTOM + Dock.INDEX_SIZE + Dock.GAP
 
 -- The dock's total reserved height with no card open. IndexController still biases
 -- its own anchor upward by half of this so it lands in the space the dock does not

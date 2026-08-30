@@ -178,6 +178,13 @@ player's greed is actually charged interest, and it's what makes deep stages fee
 The item goes to your **Decon Station** (a portable rig at the stage entrance, or a personal
 one you upgrade). Cleaning is a **skill mini-interaction**, not a progress bar:
 
+> **Build status: built.** Not the §16 fallback — the real thing. You hold the item, walk
+> to the tub at your base, and press **E**: you are planted on a mark, the camera cuts to a
+> **side-on** shot of you and the item, and you hose it down with whatever liquid the wash
+> pad rolled you until the contamination is gone. Press **E** again (or **Q**) to leave. Patches your potency cannot reach render crusted and
+> visibly refuse the stream. None of the numbers moved when this landed — it changed
+> *how* a patch comes off, never *whether* it can.
+
 * The item is displayed with **contamination patches** — glowing hotspots on its surface.
 * Player scrubs with the equipped cleaning tool. Tool has a **potency** rating; each patch has
 a **hardness** rating derived from item rarity.
@@ -192,6 +199,51 @@ for the run home, and it's why the run is worth making.
 
 **Cleaning tool line:** Wire Brush → Acid Sponge → Pressure Washer → Chem Bath →
 Ultrasonic Rig → Ion Shower → Plasma Scour.
+
+#### The wash pad and the liquid roll
+
+The cleaning tool is only half of what comes out of the hose. The other half is the
+**liquid**, and you do not buy it — you **roll** it.
+
+Every base has a lit **wash pad** three steps from its cleansing station. Stepping onto
+it *is* the roll: no button, no menu, no confirmation, and **no UI of any kind**. The pad
+answers in the world — it flashes the rolled liquid's colour and names it on its own
+sign — so the whole interaction is a thing you walk onto and a thing that lights up. It
+charges a small flat fee and hands back a canister from a weighted table.
+
+Next to it stands a **wooden luck sign** with the whole ladder painted on it. Press **E**
+to buy the next rung. That is the only place Luck is sold.
+
+|Liquid|potency|speed|XP|charges|
+|-|-|-|-|-|
+|Plain Water|+0|×1.00|×1.00|**unlimited**|
+|Soapy Suds|+0|×1.35|×1.00|40|
+|Fizzy Pop|+0|×1.60|×1.10|30|
+|Bubblegum Gel|+0|×1.90|×1.25|24|
+|Glacier Melt|**+1**|×2.10|×1.20|18|
+|Honey Wax|**+1**|×1.80|×1.90|14|
+|Ghost Mist|**+1**|×2.60|×1.40|12|
+|Molten Lava|**+2**|×3.20|×1.50|8|
+|Nano-Foam|**+2**|×3.80|×1.90|6|
+|Stardust Rinse|**+2**|×5.00|×2.60|4|
+
+Three rules hold the whole thing together, and each one is protecting something the
+design already committed to:
+
+* **The potency bonus is capped at +2, forever.** A liquid lends reach on top of your
+  cleaner; it never replaces it. A Wire Brush plus the best possible roll reaches
+  hardness 3 (Rare) and stops — Epic and up still need real tools, so the second gate
+  above stays a gate and the Quarantine Locker keeps filling.
+* **Charges are the scarcity, not the odds.** One charge per patch cleared. Stardust
+  clears four patches and a Legendary carries five, so even the jackpot does not finish
+  a top-end item alone. That is what keeps the pad worth stepping on after you have
+  already rolled well once.
+* **Plain Water is the floor and never runs out.** A broke player with no canisters
+  cleans slowly rather than not at all. "I cannot progress and cannot fix it" is the
+  one state this design has no answer for, and water is that answer.
+
+The odds bend toward the top of the table with **Luck** (§6), and the pad shows them
+live so the track's effect is visible rather than asserted.
 
 ### Step 5 — Sell **or** Display
 
@@ -605,7 +657,7 @@ the answer available.
 
 ## 6\. Upgrade Tracks
 
-Six parallel tracks. The player is always saving toward *something*, and the tracks
+Seven parallel tracks. The player is always saving toward *something*, and the tracks
 deliberately gate different things so no single purchase trivializes the game.
 
 |Track|Gates|Tiers|Feels like|
@@ -616,6 +668,7 @@ deliberately gate different things so no single purchase trivializes the game.
 |**Hazmat suit**|*how long you survive, and how far over-tier you dare go*|6|Territory \& nerve|
 |**Boots**|*how much of what you found survives the trip*|6|Freedom|
 |**Satchel**|*how long the clock gives you*|5|Breathing room|
+|**Luck**|*what the wash pad hands you*|7|The good stuff, more often|
 
 Plus one non-gear track: **Exhibit pedestals** (§8.4), bought with cash, which gates how much
 passive income you can have running at once.
@@ -647,6 +700,21 @@ Taped Boots → Tread Boots → Field Runners → Servo Braces → Powered Frame
 
 Canvas Bag → Lined Pack → Lead Satchel → Shielded Case → Containment Pack
 
+### Luck line
+
+Rusty Horseshoe → Rabbit's Foot → Four-Leaf Clover → Wishbone Charm → Lucky Penny Jar
+→ Golden Horseshoe → **Shooting Star**
+
+The only track that is not equipment — a charm on the workbench, and the names say so.
+It buys nothing you hold and nothing you wear; it bends the wash pad's roll (§2 step 4)
+and does nothing else at all. End to end it moves the jackpot from 1-in-814 to 1-in-40,
+and the chance of any gate-cracking (+2 potency) liquid from 1.8% to 15.9%.
+
+Priced on the standard ~2.4× curve rather than the Boots line's steeper 2.8×, and
+deliberately so: luck is self-limiting, because a good roll pays out in **charges** —
+a fixed handful of patches — rather than in permanent capability. Rolling well twice as
+often is still not a permanent upgrade to anything.
+
 ### Pricing philosophy
 
 * Each tier costs roughly **2.4×** the previous. Sub-3× keeps upgrade cadence frequent.
@@ -656,11 +724,12 @@ the upgrade dopamine inside their first two minutes or they leave.
 "find better things → now clean better things → now survive longer → now get home faster."
 Price them so a player who buys straight down one track hits a visible wall.
 The wall is the teaching mechanism.
-* **Six tracks is a lot.** Do not show all six at once. Reveal them in the order the player
-first *feels the pain* they solve: detector and magnet at minute one, cleaning tool at the
-first uncleanable item, suit at the first border, boots at the first item that reaches Hot
-in the player's hands, satchel at the first item lost to Slag. A track introduced by a
-frustration the player just personally experienced sells itself.
+* **Seven tracks is a lot.** Do not show all seven at once. Reveal them in the order the
+player first *feels the pain* they solve: detector and magnet at minute one, cleaning tool at
+the first uncleanable item, suit at the first border, boots at the first item that reaches Hot
+in the player's hands, satchel at the first item lost to Slag, luck at the first time the wash
+pad hands them Soapy Suds three rolls running. A track introduced by a frustration the player
+just personally experienced sells itself.
 
 \---
 

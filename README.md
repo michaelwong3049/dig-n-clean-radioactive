@@ -1,8 +1,10 @@
 # Dig N Clean: Radioactive
 
 Sweep the wasteland with a detector, haul what pings up through the soil with a magnet,
-and get it home before the decay clock turns it to slag. Then scrub the fallout off it
-and sell it — or put it on a pedestal and let it pay you forever.
+and get it home before the decay clock turns it to slag. Then hold it, press E at the tub,
+and hose the fallout off it with whatever the wash pad rolled you — soapy suds, if you're
+unlucky; molten lava, if you're not — and sell it, or put it on a pedestal and let it pay
+you forever.
 
 - **[PLAN.md](PLAN.md)** — the design document. What the game is and why.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — the module map, the server/client boundary,
@@ -90,6 +92,10 @@ require(game.ReplicatedStorage.Shared.Util.TuningReport).run()  -- the survivabi
 ```
 
 In game: **F3** toggles the debug HUD, and `/radhelp` lists the tuning console commands
-(`/stage`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/pocket`).
+(`/stage`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/liquid`, `/odds`, `/pocket`).
+
+`/odds` prints the wash pad's roll table at your current luck, and `/liquid <id>` loads a
+canister without paying the pad — the two commands you want when tuning
+`Config/Liquids.luau`.
 
 Lint with [selene](https://kampfkarren.github.io/selene/) (`selene src`).

@@ -33,6 +33,12 @@ local Kit = {}
 --- and World.verify() asserts the two never disagree.
 Kit.STATION_TAG = "Station"
 Kit.SHOWER_TAG = "Shower"
+-- Anything with a `SellsTrack` attribute: a world object that sells one gear track
+-- through a ProximityPrompt rather than through a station panel. ShopService scans
+-- by this tag the same way StationService scans by STATION_TAG, so a sign can never
+-- exist un-wired -- which is the failure that would present as "this one sign just
+-- does nothing".
+Kit.UPGRADE_TAG = "Upgrade"
 
 -- ── Palette ───────────────────────────────────────────────────────────────────
 -- Named so a re-skin is one edit rather than a find-and-replace over hex codes.
@@ -302,6 +308,9 @@ function Kit.build(parent: Instance, origin: CFrame, spec: Spec): BasePart
 	if p:GetAttribute("Shower") == true then
 		CollectionService:AddTag(p, Kit.SHOWER_TAG)
 	end
+	if p:GetAttribute("SellsTrack") ~= nil then
+		CollectionService:AddTag(p, Kit.UPGRADE_TAG)
+	end
 
 	p.Parent = parent
 	return p
@@ -329,15 +338,29 @@ end
 --- from clear across the plaza or the field. `math.huge` (every label, every
 --- station, visible from anywhere) was the previous behaviour and is exactly
 --- the "taking up a lot of screen real estate" complaint this fixes.
+--- NAMED CHILDREN, so a caller can rewrite the text later. Every billboard in the
+--- world was write-once until the wash pad needed to announce a roll on its own sign
+--- (LiquidService) -- and an unnamed TextLabel is only reachable by index, which is
+--- exactly the kind of positional lookup that breaks the day someone adds a third
+--- label. Purely additive: nothing looked these up before.
 function Kit.billboard(part: BasePart, width: number, height: number, title: string, subtitle: string, subColor: string, maxDistance: number?)
 	local gui = Instance.new("BillboardGui")
+	gui.Name = "Sign"
 	gui.Size = UDim2.fromOffset(width, 52)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, height, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = maxDistance or 40
+	-- SAME BUG Kit.surfaceText DOCUMENTS AND FIXES, MISSED HERE UNTIL A PLAYER CAUGHT
+	-- IT ON THE WASH PAD. BillboardGui.LightInfluence defaults to 1, so any of these
+	-- signs sitting near a PointLight (which is most of them -- the wash pad's own
+	-- disc light, every plot's accent Lamp, every shop's glowing sign lamp) gets
+	-- washed toward white right along with whatever it is bolted to. A sign should
+	-- read the same whether or not the thing under it happens to glow.
+	gui.LightInfluence = 0
 	gui.Parent = part
 
 	local head = Instance.new("TextLabel")
+	head.Name = "Title"
 	head.Size = UDim2.new(1, 0, 0, 30)
 	head.BackgroundTransparency = 1
 	head.Font = Enum.Font.GothamBold
@@ -348,6 +371,7 @@ function Kit.billboard(part: BasePart, width: number, height: number, title: str
 	head.Parent = gui
 
 	local sub = Instance.new("TextLabel")
+	sub.Name = "Subtitle"
 	sub.Position = UDim2.fromOffset(0, 28)
 	sub.Size = UDim2.new(1, 0, 0, 20)
 	sub.BackgroundTransparency = 1

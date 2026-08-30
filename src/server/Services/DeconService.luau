@@ -15,6 +15,17 @@
 	THE POTENCY GATE is the other half. A patch harder than your cleaner never comes
 	off. The item is not destroyed and not lost — it can be racked in the Quarantine
 	Locker as a labelled reminder of exactly which tool you need, or dirty-sold at 20%.
+
+	SCRUBBING LEFT THIS FILE. It used to live here as a timer driven by a HOLD TO
+	SCRUB button on the station panel — you held a button and an item you could not
+	see got cleaner. That is now WashService: you hold the item, press E at the tub,
+	and hose it down in third person. The maths did not change at all (Contamination,
+	the potency gate, one charge per patch); only who owns the clock did.
+
+	What is left here is what still has no world object: docking, the bag list, RACK,
+	the Quarantine Locker, and the panel payload for the shop/plot/pedestal modes.
+	`rack()` below still reports the potency gate, so this file still reads
+	Contamination -- it just no longer runs a scrub.
 ]]
 
 local Players = game:GetService("Players")
@@ -25,6 +36,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Items = require(Shared.Config.Items)
 local Gear = require(Shared.Config.Gear)
 local Decay = require(Shared.Decay)
+local Liquids = require(Shared.Config.Liquids)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
@@ -38,13 +50,6 @@ local ShopService = require(script.Parent.ShopService)
 local ExhibitService = require(script.Parent.ExhibitService)
 
 local DeconService = {}
-
-local XP_PER_HARDNESS = 5
-
-type Scrub = { uid: string, elapsed: number, target: number, hardness: number }
-
-local scrubbing: { [Player]: Scrub? } = {}
-local holding: { [Player]: boolean } = {}
 
 local stateRemote: any = nil
 local actionRemote: any = nil
@@ -78,49 +83,10 @@ end
 
 -- ── Actions ───────────────────────────────────────────────────────────
 
-local function beginScrub(player: Player, data: any, stats: any, uid: string): string?
-	local item = EconomyService.find(data, uid)
-	if item == nil then
-		return "you aren't carrying that"
-	end
-
-	local patches = item.patches or {}
-	if #patches == 0 then
-		return "already clean"
-	end
-
-	local blocked = Contamination.blockedBy(patches, stats.cleanPotency)
-	local reachable = false
-	for _, hardness in patches do
-		if hardness <= stats.cleanPotency then
-			reachable = true
-			break
-		end
-	end
-
-	if not reachable and blocked then
-		return `nothing you can shift \u{2014} needs {CarryService.cleanerNameFor(blocked)}`
-	end
-
-	-- Target the easiest remaining patch, so progress feels steady and the wall
-	-- (if there is one) arrives last.
-	local easiest = math.huge
-	for _, hardness in patches do
-		if hardness <= stats.cleanPotency and hardness < easiest then
-			easiest = hardness
-		end
-	end
-
-	scrubbing[player] = {
-		uid = uid,
-		elapsed = 0,
-		target = Contamination.secondsFor(easiest, stats.scrubRate),
-		hardness = easiest,
-	}
-	return nil
-end
-
-local function rack(player: Player, data: any, uid: string): (boolean, string)
+-- beginScrub used to live here, driving a HOLD TO SCRUB timer. It left with the rest
+-- of scrubbing (see this file's header) -- WashService owns the hose session now, and
+-- nothing in this file calls into a `scrubbing` table any more.
+local function rack(_player: Player, data: any, uid: string): (boolean, string)
 	local item, list, index = EconomyService.find(data, uid)
 	if item == nil or list ~= data.carry or index == nil then
 		return false, "that isn't in your bag"
@@ -131,6 +97,9 @@ local function rack(player: Player, data: any, uid: string): (boolean, string)
 	Decay.freeze(item)
 
 	local def = Items.get(item.itemId)
+	-- cleanPotency, NOT effectivePotency: the locker's label is a shopping list, and
+	-- a shopping list written against a liquid you are three patches from running out
+	-- of is worse than no label. The Locker names the permanent fix.
 	local blocked = Contamination.blockedBy(item.patches or {}, StatResolver.get(data).cleanPotency)
 	if blocked then
 		return true, `{def.name} racked \u{2014} waiting on {CarryService.cleanerNameFor(blocked)}`
@@ -140,7 +109,7 @@ end
 
 -- ── Tick ────────────────────────────────────────────────────────────
 
-local function stepPlayer(player: Player, dt: number)
+local function stepPlayer(player: Player, _dt: number)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if root == nil or not root:IsA("BasePart") then
@@ -161,35 +130,6 @@ local function stepPlayer(player: Player, dt: number)
 		return
 	end
 
-	-- Scrub only happens at the decon station, and only while held.
-	local scrub = scrubbing[player]
-	if scrub and kind == "decon" and holding[player] then
-		local item = EconomyService.find(data, scrub.uid)
-		if item == nil then
-			scrubbing[player] = nil
-		else
-			scrub.elapsed += dt
-			if scrub.elapsed >= scrub.target then
-				local cleared = Contamination.clearOne(item.patches, stats.cleanPotency)
-				if cleared then
-					-- Partial progress pays. PLAN §2: a failed clean is never wasted.
-					data.xp += cleared * XP_PER_HARDNESS
-				end
-				scrubbing[player] = nil
-
-				if #item.patches == 0 then
-					data.stats.itemsCleaned += 1
-					resultRemote:FireClient(player, `{Items.get(item.itemId).name} is clean`)
-				else
-					local message = beginScrub(player, data, stats, scrub.uid)
-					if message then
-						resultRemote:FireClient(player, message)
-					end
-				end
-			end
-		end
-	end
-
 	local carried = {}
 	for _, item in data.carry do
 		table.insert(carried, CarryService.describe(item, stats))
@@ -200,7 +140,6 @@ local function stepPlayer(player: Player, dt: number)
 		table.insert(locker, CarryService.describe(item, stats))
 	end
 
-	local current = scrubbing[player]
 	local offer = if kind == "shop" and stationId then ShopService.offerFor(data, stationId) else nil
 
 	-- Plot/pedestal panels reuse this same tick+payload rather than a fourth
@@ -223,12 +162,14 @@ local function stepPlayer(player: Player, dt: number)
 		cash = data.cash,
 		xp = data.xp,
 		potency = stats.cleanPotency,
+		effectivePotency = stats.effectivePotency,
+		liquidName = Liquids.get(stats.liquidId).name,
+		liquidColor = Liquids.get(stats.liquidId).color,
+		liquidCharges = data.liquids[stats.liquidId] or 0,
 		cleanerName = Gear.tier("Cleaner", data.gear.cleaner or 1).name,
 		capacity = stats.capacity,
 		items = carried,
 		locker = locker,
-		scrubUid = if current then current.uid else nil,
-		scrubProgress = if current then math.clamp(current.elapsed / current.target, 0, 1) else 0,
 	})
 end
 
@@ -259,9 +200,6 @@ function DeconService.start()
 		if kind == "decon" then
 			dock(player, data)
 		end
-		if kind == nil then
-			scrubbing[player] = nil
-		end
 	end)
 
 	actionRemote.OnServerEvent:Connect(function(player: Player, request: any)
@@ -273,25 +211,9 @@ function DeconService.start()
 		if data == nil then
 			return
 		end
-		local stats = StatResolver.get(data)
 		local kind = StationService.kindOf(player)
 
-		if request.action == "scrub" then
-			if kind ~= "decon" then
-				resultRemote:FireClient(player, "you need to be at the decon station")
-				return
-			end
-			holding[player] = request.holding == true
-			if request.holding == true and type(request.uid) == "string" then
-				local existing = scrubbing[player]
-				if existing == nil or existing.uid ~= request.uid then
-					local message = beginScrub(player, data, stats, request.uid)
-					if message then
-						resultRemote:FireClient(player, message)
-					end
-				end
-			end
-		elseif request.action == "sell" then
+		if request.action == "sell" then
 			if kind ~= "trader" then
 				resultRemote:FireClient(player, "the trader is the other one")
 				return
@@ -350,11 +272,6 @@ function DeconService.start()
 				ExhibitService.refreshLocker(player)
 			end
 		end
-	end)
-
-	Players.PlayerRemoving:Connect(function(player)
-		scrubbing[player] = nil
-		holding[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)

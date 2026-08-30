@@ -24,7 +24,8 @@ src/
       Tuning.luau             global knobs — every magic number in the game
       Rarity.luau             the 8 rarities + the roll-on modifiers
       Stages.luau              the 6 stages
-      Gear.luau               the 6 upgrade tracks
+      Gear.luau               the 7 upgrade tracks
+      Liquids.luau            the wash pad's 10 cleaning liquids + the luck curve
       Items.luau              the item catalogue (+ id / stage-rarity indexes)
       ToolTiers.luau          per-tier look: scale, colours, material, glow
     ItemModels/               versioned item-art factories; nil keys use placeholders
@@ -37,7 +38,7 @@ src/
     Util/
       Ticker.luau             the fixed-timestep clock everything runs on
       Spec.luau               design-intent assertions — run after retuning
-      TuningReport.luau       generates the survivability matrix from Config/
+      TuningReport.luau       generates the survivability matrix + wash pad odds
     Net.luau                  every remote in the game, one table
     Radiation.luau            pure math: exposure, burn, survivable seconds
     Decay.luau                pure math: the decay clock
@@ -55,6 +56,8 @@ src/
       DigService              the buried signal field, sweep and haul
       EconomyService          what an item is worth, and the till
       DeconService            docking, scrubbing and racking at every base; sell() exists, no world trader triggers it currently
+      LiquidService           the wash pad: rolling liquids, charges, equip
+      WashService             the hose bay: the E-to-wash session and its clock
       ToolService             puts the right model in the player's hands
       DebugService            the tuning console + debug telemetry
 
@@ -63,6 +66,8 @@ src/
     Controllers/
       DetectorController      sweep dial, ping audio, hold-to-pull
       StationController       the station panel (trader, decon, shop, plot, pedestal)
+      LiquidController        the loaded-liquid badge
+      WashController          the wash bay: camera, patch blobs, the hose stream
       HudController           rad meter, vignette, distortion, blackout curtain
       GeigerController        the click bed (reads HudController)
       DebugHudController      every number at once. F3 toggles.
@@ -180,7 +185,9 @@ Also required, and each corresponds to a real silent failure:
 | `Workspace.Stages` holds plates and **nothing else** | A decoration carrying a `StageId` becomes a stage, and smallest-area-wins means a stray barrel silently becomes the stage you are in. Decor lives in `Workspace.Scenery`. |
 | any BasePart in `Workspace` | `Shower` | boolean | Decon shower. Flushes player exposure, does **not** touch items. Since `build/Plots.luau`, each base's cleansing station carries this **on the same part** as `StationKind="decon"` — one stop for both, sharing one `Radius` — rather than two separate structures the way camp used to have them. |
 | ″ | `Radius` | number | Shower radius in studs. Optional, default 10. |
-| any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"plot"` \| `"pedestal"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; plot is an exhibition claim board; pedestal is one display slot. |
+| any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"plot"` \| `"pedestal"` \| `"roller"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; plot is an exhibition claim board; pedestal is one display slot; **roller is the wash pad — arriving inside its radius IS the roll**, and it charges cash, so its radius must never overlap a `decon` one (`World.verify()` asserts this). Only the first five open a panel: `StationController`'s `PANEL_KINDS` is an allowlist, because the decon branch is the fallthrough and an unrecognised kind would otherwise open a panel titled TRADER. |
+| ″ | `SellsTrack` | string | This part sells one `Gear.TRACKS` entry through a **ProximityPrompt**, with no panel and no station kind. `ShopService` scans by the `Upgrade` tag (added by `Kit.build` alongside the attribute) and wires the prompt to `ShopService.buyNext`. Currently just `"Luck"`, on the wooden sign at every base. A prompt's `Triggered` fires on the server with `MaxActivationDistance` already enforced by the engine, which is why this can skip the position re-derivation `ShopService.buy` has to do. |
+| ″ | `IsWashStand` | boolean | The invisible part inside a cleansing station where the item sits during a wash. Two sibling anchors go with it: `WashSpot` (where the player is planted, facing the tub) and `WashCam` (a **side-on** camera aimed at the midpoint of the two, so you see your own character in profile holding the hose with the item across from them). All three are anchors rather than numbers in `WashController`, for the same reason `HoldCFrame` is an attribute: framing is judged by looking at it. |
 | ″ | `StationId` | string | Discriminator within a kind. For `"shop"` it is the **exact `Gear.TRACKS` spelling** (`"Detector"`, `"Suit"`, …). For `"plot"` it is the plot number; for `"pedestal"` it is `"<plot>:<slot>"`. |
 | ″ | `Radius` | number | Station radius in studs. Optional, default 12. |
 | ″ | *CollectionService tag* `Station` | — | Index only — `StationService` scans tagged parts instead of walking Workspace. `Kit.build` adds it whenever it sets `StationKind`, and `World.verify()` asserts attribute and tag agree in **both** directions. The attribute stays the source of truth. |
@@ -190,7 +197,9 @@ Also required, and each corresponds to a real silent failure:
 | a `Player` | `DebugCmd` | string | Scriptable entry point to the tuning console (`DebugService:308`). Set it and the line runs, then the attribute is cleared so the same line can repeat. Exists because Studio's command bar gets its own module cache and cannot reach the live service. |
 
 `<Track>` is one of `Detector`, `Magnet`, `Cleaner`, and `T<n>` indexes the matching
-list in `Config/Gear.luau`.
+list in `Config/Gear.luau`. The other four tracks (`Suit`, `Boots`, `Satchel`, `Luck`)
+are priced and buyable but have no held model — `Luck` deliberately never will, since
+it is a charm on a workbench rather than a tool.
 
 > **Remaining gap:** the place file is gitignored, and three things still cannot be
 > reconstructed from the repository alone.
@@ -265,16 +274,25 @@ The profile itself — `TEMPLATE` in `DataService`, which is the authoritative c
 ```lua
 {
     cash = 0, xp = 0, level = 1,
-    gear    = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1 },
+    gear    = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1, luck = 1 },
     carry   = {},   -- array of the carried item above. The backpack.
     locker  = {},   -- Quarantine Locker: found, not yet cleanable.
     exhibit = { slots = 3, pedestals = {}, bankedCash = 0, bankedAt = 0 },
+    heldUid        = "",  -- which carried item is IN YOUR HANDS. "" is empty-handed.
+                          -- The tub refuses to wash anything you are not holding, so
+                          -- this had to stop being the hotbar's private selection.
+    liquids        = {},  -- liquid id -> charges remaining. Plain Water is NEVER in
+                          -- here: an empty table IS "on water" (Config/Liquids), and
+                          -- an unlimited liquid has no finite charge count to store.
+    equippedLiquid = "",  -- "" is water. Never nil — Reconcile() cannot fill a key
+                          -- the template does not have, and a template nil is not a key.
+
     discovered  = {},  -- itemId -> true, drives the museum
     perks       = {},  -- perkId -> true, read by StatResolver
     multipliers = {},  -- rebirth / gamepass / pet, pre-summed. Read by StatResolver.
     cleanTokens = 0, rebirths = 0,
     railStations = {},
-    stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0 },
+    stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0, rolls = 0 },
 }
 ```
 
@@ -322,10 +340,16 @@ regenerates the survivability matrix that `Config/Gear.luau`'s header documents;
 its output back into the design doc so the doc stops drifting away from the game.
 
 In-game, **F3** toggles the debug HUD and `/radhelp` lists the tuning console
-(`DebugService`): `/stage`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/pocket`
-(a stub that reports hot pockets are unbuilt), and `/radhelp` itself. `/radhelp`
-enumerates `COMMANDS` at runtime, so anything added there shows up without being
-listed here.
+(`DebugService`): `/stage`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/liquid`,
+`/odds`, `/pocket` (a stub that reports hot pockets are unbuilt), and `/radhelp`
+itself. `/radhelp` enumerates `COMMANDS` at runtime, so anything added there shows up
+without being listed here.
+
+`/odds` prints the wash pad's table at your current luck straight out of
+`Liquids.oddsAt` — the same function `LiquidService` rolls against and the panel
+displays. That is the point: a pad advertising 1-in-40 while rolling 1-in-800 is the
+single worst bug this system could ship, and none of the three surfaces owns a copy
+of the math.
 
 > The console has **no authorisation check** — the commands register for every
 > player on every server. `/gear` and `/dig` write straight to the profile and persist.

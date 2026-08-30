@@ -4,45 +4,43 @@
 	WHAT THE SLOTS SAY, AND WHAT THEY DELIBERATELY DO NOT.
 	A slot shows the ITEM: its name, in its rarity colour. That is all. The obvious
 	temptation is to hang the whole decay apparatus off every slot — a draining fuse
-	bar, a condition tint, the value — and it is the wrong call. Twenty slots each running
-	their own countdown is twenty things moving in the corner of your eye while you
-	are trying to read the ground, and the eye stops being able to find any of them.
-	The hotbar answers "what have I got"; press a number and the card answers
-	everything else.
+	bar, a condition tint, the value — and it is the wrong call. Twenty slots each
+	running their own countdown is twenty things moving in the corner of your eye while
+	you are trying to read the ground, and the eye stops being able to find any of them.
 
-	THE COUNTDOWN IS COMPUTED HERE, NOT STREAMED.
-	CarryState sends `elapsed` and the satchel's fuse multiplier and fires only when
-	the bag changes. The card's ticking clock comes from running Shared/Decay against
-	those locally, every frame. That is the same reason Decay is a shared module at
-	all (ARCHITECTURE.md): the number the player watches and the number the server
-	enforces come out of one function, so they cannot drift apart.
+	PRESSING A NUMBER PICKS THE ITEM UP. That is the whole verb now. It fires HoldInput
+	and ToolService welds the thing into your off hand, which is what the tub checks
+	before it will wash anything.
+
+	THERE WAS A DETAIL CARD AND IT IS GONE, along with roughly a third of this file.
+	Selecting a slot used to open a panel listing the item's condition, its remaining
+	clock, its patch count and its pedestal rate. It was accurate and nobody needed it:
+	you are holding the object, you can see it, and the answer to "what do I do with
+	this" is now a prompt on a tub rather than a number on a card.
+
+	The card is also why this file used to run a per-frame decay PREDICTION — `drift`,
+	a scratch item, and a per-uid monotonic floor so a correction could never push the
+	countdown upward. All of it existed to make one label tick smoothly, and all of it
+	went with the label. The server still owns the clock; nothing here second-guesses
+	it any more, and there is no longer a Heartbeat connection in this file at all.
 
 	SLOT COUNT IS `capacity`, NOT THE NUMBER OF ITEMS. Empty slots are the point —
 	they are how a player sees the headroom a suit upgrade bought them, and PLAN §3.4
 	makes capacity one of the six tracks. A hotbar that only draws what you own hides
 	the entire upgrade.
-
-	THE DETAIL CARD USED TO BE HAND-TUNED AGAINST DetectorController'S PRIVATE
-	NUMBERS — a comment here used to read "if DetectorController's stack moves, this
-	number moves with it," which was true and unenforced. It now reads its position
-	off UIKit.Dock.CARD_BOTTOM, the same shared table DetectorController and
-	HudController read theirs from. No file has to know another file's layout again.
 ]]
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
-local Decay = require(Shared.Decay)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Dock = UIKit.Dock
-local StationController = require(script.Parent.StationController)
 
 local Inventory = {}
 
@@ -60,18 +58,6 @@ local SLOT_HEIGHT = Dock.HOTBAR_HEIGHT
 -- Number keys only reach so far. Slots past this are visible and perfectly usable,
 -- they just have no key — which is the normal hotbar bargain.
 local BINDABLE = 9
-
---- $2.00/sec under a thousand, $5.2K/sec into the thousands — same convention
---- StationController's own formatRate uses for the same number on the pedestal
---- panel; duplicated rather than shared for the same reason CashController's
---- formatCash is duplicated everywhere else it appears.
-local function formatRate(perSecond: number): string
-	if perSecond >= 1_000 then
-		return string.format("$%.1fK/sec", perSecond / 1_000)
-	end
-	return string.format("$%.2f/sec", perSecond)
-end
-
 local KEYS = {
 	[Enum.KeyCode.One] = 1,
 	[Enum.KeyCode.Two] = 2,
@@ -101,43 +87,10 @@ local state = {
 -- So the client predicts: advance a local offset every frame and add it to `elapsed`
 -- before asking Shared/Decay anything. The server still owns the real number and
 -- every CarryState resets this to zero, which is the correction half of the deal.
-local drift = 0
-
--- Reused so the per-frame card render does not allocate a table sixty times a second
--- just to add one number to one field.
-local scratch = { uid = "", rarity = "", modifier = "None", elapsed = 0, frozen = false }
-
--- The lowest remaining-time this condition has shown, so a correction can never push the
--- countdown UP.
---
--- The server's clock and this one do not tick the same way, and that is not a bug in
--- either. Shared/Util/Ticker runs a FIXED timestep — it advances decay in nominal
--- 0.1s steps and, past five steps in one frame, throws the backlog away rather than
--- firing fifty ticks at once. `drift` here is wall-clock. Under load the two diverge,
--- always in the same direction: this one runs ahead.
---
--- Snapping to each correction therefore shows a countdown that occasionally jumps
--- backwards, which is the one thing a countdown may never do. So corrections are
--- accepted only DOWNWARD. The error that survives is showing slightly less time than
--- you really have, which is the safe direction to be wrong about a decay clock.
-local floorFor: { [string]: { condition: string, remaining: number } } = {}
-
---- The item as it would be RIGHT NOW, rather than as of the last broadcast.
-local function asOfNow(item: any): any
-	if item.frozen then
-		return item -- a frozen clock is not running, so there is nothing to predict
-	end
-	scratch.uid = item.uid
-	scratch.rarity = item.rarity
-	scratch.modifier = item.modifier
-	scratch.elapsed = item.elapsed + drift
-	scratch.frozen = false
-	return scratch
-end
-
 local ui = {}
 local slots: { any } = {}
 local selected: string? = nil -- uid, NOT an index: the bag reorders when you sell
+local holdRemote: any = nil
 
 local function rarityColor(name: string?): Color3
 	local def = if name then Rarity.DEFS[name] else nil
@@ -198,80 +151,6 @@ local function makeSlot(parent: Instance, index: number)
 	slots[index] = { button = slot, stroke = stroke, key = key, name = name, uid = nil :: string? }
 end
 
-local function buildCard(parent: Instance): Frame
-	-- Position derived from UIKit.Dock.CARD_BOTTOM — see the file header. Nothing
-	-- here has to know DetectorController's numbers any more.
-	local card, cardStroke = UIKit.panel(parent, {
-		name = "Detail",
-		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 1, -Dock.CARD_BOTTOM),
-		size = Dock.CARD_SIZE,
-		color = COLOR.panel,
-		transparency = 0.08,
-		cornerRadius = UIKit.Radius.card,
-		visible = false,
-	})
-	ui.cardStroke = cardStroke
-
-	-- Row heights stacked top-down (title/sub/decay/dirt), each Y derived from
-	-- the one above it instead of its own hardcoded offset. That's what let the
-	-- worth row silently overlap the dirt row above it when CARD_SIZE last
-	-- shrunk 136 -> 118: every row's offset was tuned against the old height
-	-- and nothing moved when it changed. Shrink TITLE_H/SUB_H/DECAY_H/DIRT_H/
-	-- WORTH_H or the pads below and the rows still stack without touching.
-	local TOP_PAD, BOTTOM_PAD = 6, 6
-	local TITLE_H, SUB_H, DECAY_H, DIRT_H, WORTH_H = 24, 16, 18, 18, 20
-
-	local titleY = TOP_PAD
-	local subY = titleY + TITLE_H
-	local decayY = subY + SUB_H
-	local dirtY = decayY + DECAY_H
-
-	ui.cardTitle = UIKit.label(card, {
-		name = "Title",
-		position = UDim2.fromOffset(16, titleY),
-		size = UDim2.new(1, -32, 0, TITLE_H),
-		font = UIKit.Font.body,
-		textSize = 22,
-		color = COLOR.text,
-	})
-
-	ui.cardSub = UIKit.label(card, {
-		name = "Sub",
-		position = UDim2.fromOffset(16, subY),
-		size = UDim2.new(1, -32, 0, SUB_H),
-		font = UIKit.Font.body,
-		textSize = 14,
-	})
-
-	ui.cardDecay = UIKit.label(card, {
-		name = "Decay",
-		position = UDim2.fromOffset(16, decayY),
-		size = UDim2.new(1, -32, 0, DECAY_H),
-		font = UIKit.Font.body,
-		textSize = 16,
-	})
-
-	ui.cardDirt = UIKit.label(card, {
-		name = "Dirt",
-		position = UDim2.fromOffset(16, dirtY),
-		size = UDim2.new(1, -32, 0, DIRT_H),
-		font = UIKit.Font.body,
-		textSize = 16,
-	})
-
-	ui.cardWorth = UIKit.label(card, {
-		name = "Worth",
-		anchorPoint = Vector2.new(0, 1),
-		position = UDim2.new(0, 16, 1, -BOTTOM_PAD),
-		size = UDim2.new(1, -32, 0, WORTH_H),
-		font = UIKit.Font.body,
-		textSize = 19,
-		color = COLOR.green,
-	})
-
-	return card
-end
 
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
@@ -324,7 +203,6 @@ local function build(): ScreenGui
 	layout.Padding = UDim.new(0, SLOT_GAP)
 	layout.Parent = row
 
-	ui.card = buildCard(gui)
 
 	return gui
 end
@@ -410,102 +288,31 @@ local function renderSlots()
 	ui.header.Text = `BAG  {count}/{state.capacity}`
 	ui.header.TextColor3 = if count >= state.capacity and state.capacity > 0 then COLOR.red else COLOR.dim
 end
-
-local function clockText(seconds: number): string
-	if seconds == math.huge then
-		return "held"
-	end
-	local whole = math.max(0, math.floor(seconds))
-	return string.format("%d:%02d", whole // 60, whole % 60)
-end
-
---- The one part that runs every frame. Everything else waits for CarryState.
---
--- Checking StationController.isOpen() here rather than caching it off a
--- StationState listener means there is nothing to keep in sync: a CLOSE click sets
--- StationController's own `dismissed` flag same-frame, and the very next Heartbeat
--- reads it back true, no second signal required.
-local function renderCard()
-	local item = itemByUid(selected)
-	if item == nil or StationController.isOpen() then
-		ui.card.Visible = false
-		return
-	end
-
-	ui.card.Visible = true
-
-	local colour = rarityColor(item.rarity)
-	local modifier = if item.modifier == "None" then "" else item.modifier .. " "
-
-	ui.cardTitle.Text = item.name
-	ui.cardTitle.TextColor3 = colour
-	ui.cardSub.Text = string.upper(modifier .. item.rarity)
-	ui.cardSub.TextColor3 = colour
-	ui.cardStroke.Color = colour
-
-	-- Run the clock locally off `elapsed` + drift. The server sent the item, not the
-	-- ticking; see the note on `drift`.
-	local now = asOfNow(item)
-	local left = Decay.secondsToNextCondition(now, state.fuseMult)
-	local _, condition = Decay.conditionOf(now, state.fuseMult)
-
-	-- Monotonic within a condition; a new condition starts a fresh floor.
-	if left ~= math.huge then
-		local seen = floorFor[item.uid]
-		if seen == nil or seen.condition ~= condition.name then
-			floorFor[item.uid] = { condition = condition.name, remaining = left }
-		else
-			left = math.min(left, seen.remaining)
-			seen.remaining = left
-		end
-	end
-
-	if item.frozen then
-		ui.cardDecay.Text = "clock stopped \u{2014} safe"
-		ui.cardDecay.TextColor3 = COLOR.green
-	elseif condition.name == "Slag" then
-		ui.cardDecay.Text = "SLAG \u{2014} it is gone"
-		ui.cardDecay.TextColor3 = COLOR.red
-	else
-		ui.cardDecay.Text = `{string.lower(condition.name)} \u{2014} {clockText(left)} to next condition`
-		-- Under thirty seconds is the point where the honest advice is "run".
-		ui.cardDecay.TextColor3 = if left < 30 then COLOR.red elseif condition.name ~= "Fresh" then COLOR.amber else COLOR.dim
-	end
-
-	if item.clean then
-		ui.cardDirt.Text = "clean"
-		ui.cardDirt.TextColor3 = COLOR.green
-	elseif item.needs then
-		ui.cardDirt.Text = `{#item.patches} patch(es) \u{2014} needs {item.needs}`
-		ui.cardDirt.TextColor3 = COLOR.red
-	else
-		ui.cardDirt.Text = `{#item.patches} patch(es) \u{2014} scrubbable`
-		ui.cardDirt.TextColor3 = COLOR.amber
-	end
-
-	-- The rate only ever rides along when CarryService actually computed one —
-	-- dirty and Slagged items get perSecond = nil, matching exactly what
-	-- ExhibitService.display would refuse, so this line never promises a payout
-	-- the game won't honour if you walk it to a pedestal instead of selling it.
-	ui.cardWorth.Text = if item.perSecond
-		then string.format("$%d \u{2022} %s", item.value, formatRate(item.perSecond))
-		else `${item.value}`
-	ui.cardWorth.TextColor3 = if item.clean then COLOR.green else COLOR.dim
-end
-
 -- ── Selection ───────────────────────────────────────────────────────
 
+--- SELECTING IS NOW ALSO HOLDING, and that is the whole reason the tub can refuse
+--- you. The hotbar has always been keyed by uid rather than by index (see `selected`
+--- above), so the same keypress that opens the detail card can tell the server which
+--- item is in your hands with no new input handling and no second concept for the
+--- player to learn: the thing the card is describing is the thing you are holding.
+---
+--- Fires even when the selection clears, because empty-handed is a state the tub
+--- checks for, not the absence of one.
 function Inventory.select(index: number)
 	local item = state.items[index]
 	if item == nil then
 		selected = nil
 	elseif selected == item.uid then
-		selected = nil -- pressing the same key again puts the card away
+		selected = nil -- pressing the same key again puts the card away, and puts it down
 	else
 		selected = item.uid
 	end
+
+	if holdRemote then
+		holdRemote:FireServer(selected)
+	end
+
 	renderSlots()
-	renderCard()
 end
 
 -- ── Lifecycle ───────────────────────────────────────────────────────
@@ -530,30 +337,24 @@ function Inventory.start()
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
 	end)
 
+	holdRemote = Net.get("HoldInput")
+
 	Net.get("CarryState").OnClientEvent:Connect(function(payload)
 		state.capacity = payload.capacity or 0
 		state.fuseMult = payload.fuseMult or 1
 		state.items = payload.items or {}
-		drift = 0 -- the server just told us the truth; stop predicting from the old one
 
 		-- A selection whose item just left the bag — sold, racked, slagged — must not
 		-- keep a stale card on screen. Keyed by uid rather than index precisely so
 		-- this is detectable at all: selling slot 2 shuffles everything after it.
 		if itemByUid(selected) == nil then
 			selected = nil
-		end
-
-		-- Sold, racked and slagged items must not keep a floor around: uids are
-		-- unique, so this is a slow leak rather than a correctness bug, but a
-		-- long session is a lot of dead entries.
-		for uid in floorFor do
-			if itemByUid(uid) == nil then
-				floorFor[uid] = nil
-			end
+			-- The server clears its own heldUid when an item leaves the bag
+			-- (CarryService's tick), so this is only keeping the two in step for the
+			-- NEXT keypress -- it is not what unloads the hand.
 		end
 
 		renderSlots()
-		renderCard()
 	end)
 
 	-- New: the row is Scale-based now, so a viewport resize (window resize, phone
@@ -569,16 +370,6 @@ function Inventory.start()
 		local index = KEYS[input.KeyCode]
 		if index then
 			Inventory.select(index)
-		end
-	end)
-
-	-- Only the card animates, and only while something is selected. `drift` still has
-	-- to advance regardless, or opening the card after a minute of not looking at it
-	-- would show a clock a minute behind.
-	RunService.Heartbeat:Connect(function(dt)
-		drift += dt
-		if selected ~= nil then
-			renderCard()
 		end
 	end)
 

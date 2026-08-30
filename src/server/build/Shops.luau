@@ -11,12 +11,18 @@
 	which is the cheapest legibility win available anywhere in this map.
 
 	PLUS AN OUTFITTER, a real building, and this one is not decoration.
-	Gear.TRACKS has six entries. Three stalls covers Detector, Magnet and Cleaner and
-	leaves Suit, Boots and Satchel priced but unbuyable — and the SUIT is the gate on
-	every stage in the game. Without a way to buy one, Stage 2 stops being "you can go
+	Gear.TRACKS has seven entries. Three stalls covers Detector, Magnet and Cleaner and
+	leaves Suit, Boots and Satchel priced but unbuyable — and the SUIT is the gate
+	on every stage in the game. Without a way to buy one, Stage 2 stops being "you can go
 	there and here is what it costs" and becomes exactly the locked door PLAN §3.5
 	promises never to build. It costs nothing to add because the shop system
-	is track-generic: it is three more counters with three more StationIds.
+	is track-generic: it is four more counters with four more StationIds.
+
+	THE SPLIT BETWEEN THE STALLS AND THIS BENCH IS "DO YOU HOLD IT". The three stalls
+	sell the three things ToolService can put in your hands; the Outfitter sells the
+	three you wear. Luck briefly sat here too, as a fourth desk selling something you
+	do not physically have at all — since moved out to its own button (see the LUCK
+	IS NOT HERE note below).
 
 	THE LOOK — the supplied classic-Roblox Gear Store reference. Each tool stall
 	has studded wooden posts, a slatted rear wall, an open counter with a steel cap,
@@ -124,6 +130,13 @@ local OUTFITTER = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },
 		{ track = "Boots", label = "BOOTS", tagline = "get home faster" },
 		{ track = "Satchel", label = "SATCHELS", tagline = "buy the clock time" },
+		-- LUCK IS NOT HERE, and it briefly was. It is the one track you neither hold
+		-- nor wear, and a fourth desk here sold it as though it were a satchel. It
+		-- moved to a glowing button staked next to the wash pad it actually affects
+		-- (build/Plots.buildLuckButton) -- press E, no panel. World.verify() still
+		-- asserts every priced track is buyable somewhere; it accepts a `SellsTrack`
+		-- attribute as well as a shop counter, which is what keeps that check honest
+		-- after this move.
 	},
 }
 
@@ -390,6 +403,32 @@ local function buildSatchelProp(parent: Instance, origin: CFrame, x: number, z: 
 	end
 end
 
+--- A four-leaf clover on a stem. The Luck counter is the one shop selling something
+--- with no physical form at all — you cannot draw "a 4.3x weight exponent" — so the
+--- prop carries the entire identity here rather than merely reinforcing it, which is
+--- why it is the largest and the only one that glows. Four ball leaves on a cross,
+--- each rotated to sit on the diagonal, so it reads as a clover from any approach
+--- angle instead of only from the front.
+local function buildLuckProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
+	build(parent, origin, { name = "CloverStem", pos = { x, 1.4, z }, size = { 0.28, 2.8, 0.28 }, color = C.grassDark, material = "Plastic", canCollide = false })
+	for _, corner in { { -1, -1 }, { -1, 1 }, { 1, -1 }, { 1, 1 } } do
+		build(parent, origin, {
+			name = "CloverLeaf",
+			pos = { x + corner[1] * 0.72, 3.5, z + corner[2] * 0.72 },
+			size = { 1.5, 0.5, 1.5 },
+			color = C.grass,
+			material = "Plastic",
+			shape = "Ball",
+			canCollide = false,
+		})
+	end
+	-- The one glowing bead at the centre, in the shop's own accent rather than in
+	-- green: green means the ooze everywhere else in this world (PLAN §14), and a
+	-- glowing green clover on the plaza would be the one exception that breaks it.
+	local heart = build(parent, origin, { name = "CloverHeart", pos = { x, 3.7, z }, size = { 0.55, 0.55, 0.55 }, color = color, material = "Neon", shape = "Ball", canCollide = false })
+	light(heart, color, 10, 1.2)
+end
+
 --- Dispatches on track so buildStall/buildOutfitter can call one function without
 --- caring which shop they're building.
 local function buildIdentityProp(parent: Instance, origin: CFrame, track: string, x: number, z: number, color: string)
@@ -405,6 +444,8 @@ local function buildIdentityProp(parent: Instance, origin: CFrame, track: string
 		buildBootsProp(parent, origin, x, z)
 	elseif track == "Satchel" then
 		buildSatchelProp(parent, origin, x, z)
+	elseif track == "Luck" then
+		buildLuckProp(parent, origin, x, z, color)
 	end
 end
 
@@ -741,17 +782,37 @@ local function createShops(): Model
 	end
 	buildOutfitter(shops)
 
-	-- Every track in Gear must be buyable somewhere, or it is a priced dead end.
-	-- Checked here, at build time, because the failure is otherwise invisible until
-	-- a player saves up for something they can never spend it on.
+	-- SELF-CONSISTENCY, NOT GLOBAL COVERAGE, and that distinction is new. This used to
+	-- assert every entry in Gear.TRACKS had a counter here — correct while this file
+	-- was the only thing in the world that sold anything, and wrong the moment Luck
+	-- moved to a button at each base (build/Plots.buildLuckButton). It failed the
+	-- next rebuild, which is exactly what a good assert does; it was just asking a
+	-- question this file can no longer answer.
+	--
+	-- So it now checks only what this file DECLARES: every track named in STALLS or
+	-- OUTFITTER.counters actually got a counter built with that StationId. That
+	-- catches the real local failure (a typo'd track name, a counter that silently
+	-- did not build) without claiming to know about selling points it did not make.
+	--
+	-- "Every priced track is buyable SOMEWHERE" is still checked, once, in
+	-- World.verify() — which sees the whole world and knows about both a `shop`
+	-- counter and a `SellsTrack` prompt.
 	local covered: { [string]: boolean } = {}
 	for _, part in shops:GetDescendants() do
 		if part:IsA("BasePart") and part:GetAttribute("StationKind") == "shop" then
 			covered[part:GetAttribute("StationId") :: string] = true
 		end
 	end
-	for _, track in Gear.TRACKS do
-		assert(covered[track], `no shop sells the {track} track — it is priced but unbuyable`)
+
+	local declared: { string } = {}
+	for _, spec in STALLS do
+		table.insert(declared, spec.track)
+	end
+	for _, counter in OUTFITTER.counters do
+		table.insert(declared, counter.track)
+	end
+	for _, track in declared do
+		assert(covered[track], `{track} is listed in this file but no counter was built for it`)
 	end
 
 	return shops
@@ -765,7 +826,7 @@ end
 
 function Shops.rebuild(parent: Instance?): Model
 	local shops = Kit.swap("Shops", createShops, parent) :: Model
-	print(`[build] Shops rebuilt — {#shops:GetChildren()} storefronts, all {#Gear.TRACKS} tracks covered`)
+	print(`[build] Shops rebuilt — {#shops:GetChildren()} storefronts, {#STALLS} stalls + {#OUTFITTER.counters} outfitter counters`)
 	return shops
 end
 
