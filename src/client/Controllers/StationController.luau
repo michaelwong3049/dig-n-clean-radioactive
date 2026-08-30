@@ -926,12 +926,6 @@ function Station.start()
 		end)
 	end
 
-	ui.rackButton.MouseButton1Click:Connect(function()
-		if selected then
-			actionRemote:FireServer({ action = "rack", uid = selected })
-		end
-	end)
-
 	ui.displayButton.MouseButton1Click:Connect(function()
 		if selected then
 			actionRemote:FireServer({ action = "display", uid = selected })
