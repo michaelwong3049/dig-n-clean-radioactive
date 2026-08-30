@@ -177,11 +177,13 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- thing rise out of the ground in front of your character, and a dead-center panel
 -- covers exactly that. Sitting low keeps the item in view above it; HAULPANEL_BOTTOM
 -- below is what actually places it, clear of the dock.
--- 168, not 150: at 150 the bottom-anchored release button overlapped the mash prompt
--- above it by 8px. The four rows inside are laid out top-down at fixed offsets and the
--- release button hangs off the BOTTOM edge, so panel height is what sets the gap
--- between the last two -- shrinking this re-collides them.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 168)
+-- 134, down from 168 when the "LOCKED ON — UNKNOWN MASS" title row was dropped (the
+-- bar now tells that story with a "?" on its left and a magnet on its right instead).
+-- Three rows left, laid out top-down at fixed offsets: the bar at y20, the PULL button
+-- at y60, and the release hint hanging off the BOTTOM edge. Panel height is what sets
+-- the gap between the button and the release (10px here) — shrink it further and they
+-- re-collide.
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 134)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
