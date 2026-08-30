@@ -641,12 +641,12 @@ local function build(): ScreenGui
 	-- first tap commits you to one buried thing and plants your feet, and everything
 	-- from there happens in here.
 	--
-	-- It sits just above the dock rather than at screen centre, so the item climbing out
-	-- of the soil stays visible above it. The whole reason the haul is a physical model
-	-- in the world rather than a number is that you get to watch it surface; a panel
-	-- over the middle of the screen would hide exactly that. Anchored off
-	-- Dock.HAULPANEL_BOTTOM so it clears the instrument band on every viewport -- see
-	-- that constant for why a screen fraction was wrong.
+	-- It sits right above the hotbar rather than at screen centre, so the item climbing
+	-- out of the soil stays visible above it. The whole reason the haul is a physical
+	-- model in the world rather than a number is that you get to watch it surface; a
+	-- panel over the middle of the screen would hide exactly that. Anchored off
+	-- Dock.HAULPANEL_BOTTOM -- see that constant for where "right above the hotbar" puts
+	-- it and why it is left to overlay the (left-anchored) instrument band.
 	local haul, haulStroke = UIKit.panel(gui, {
 		name = "HaulPanel",
 		size = Dock.HAULPANEL_SIZE,

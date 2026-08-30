@@ -175,8 +175,8 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- THE HAUL PANEL. Up only while a player is locked onto a signal and mashing it out.
 -- It is deliberately NOT centered on the screen: the payoff of a haul is watching the
 -- thing rise out of the ground in front of your character, and a dead-center panel
--- covers exactly that. Sitting low keeps the item in view above it; HAULPANEL_BOTTOM
--- below is what actually places it, clear of the dock.
+-- covers exactly that. It sits as LOW as it can instead — right above the hotbar — so
+-- the item stays in view above it; HAULPANEL_BOTTOM below is what places it.
 -- 134, down from 168 when the "LOCKED ON — UNKNOWN MASS" title row was dropped (the
 -- bar now tells that story with a "?" on its left and a magnet on its right instead).
 -- Three rows left, laid out top-down at fixed offsets: the bar at y20, the PULL button
@@ -232,12 +232,19 @@ Dock.INDEX_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.GAP
 -- panel is centered on the screen itself now, and clears the dock on its own).
 Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 
--- Anchored off the DOCK, not off a screen fraction. A fixed 0.62 scale looked right on
--- a 1080p window and collided with the instrument band on anything shorter -- at 900px
--- it overlapped the dock by ~50px, because the dock's reserved height is a fixed pixel
--- stack while the fraction is not. Bottom-anchored against RESERVE is the rule the rest
--- of this file already follows, and it clears on every viewport by construction.
-Dock.HAULPANEL_BOTTOM = Dock.RESERVE + Dock.GAP
+-- RIGHT ABOVE THE HOTBAR, on request. Its bottom edge sits one GAP above the bag-count
+-- line (which is itself one GAP above the hotbar), so the whole hotbar cluster stays
+-- visible underneath and the panel drops as low as it possibly can without covering it.
+--
+-- This is a deliberate reversal of the old "clear the entire dock" placement
+-- (RESERVE + GAP). The panel now overlays the instrument band's vertical space — but
+-- that band is the meter / cash / index column, which is LEFT-anchored, while this
+-- panel is centred: on a 16:9 viewport the two never touch. On a very narrow one the
+-- panel's left edge tucks behind the meter, which has the higher DisplayOrder (100 vs
+-- DetectorHud's 60) and stays readable on top. Anchored off the hotbar rather than a
+-- screen fraction for the same reason everything else here is: a fraction that looked
+-- right at 1080p collided with the dock on shorter viewports.
+Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace
