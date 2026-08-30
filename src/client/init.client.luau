@@ -21,6 +21,7 @@ local ORDER = {
 	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"LiquidController", -- the loaded-liquid badge; reads LiquidState
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState
+	"NameTagController", -- subdued overhead player names; replaces Roblox's bright default tag
 	"DebugHudController",
 }
 

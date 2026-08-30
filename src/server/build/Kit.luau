@@ -324,6 +324,13 @@ function Kit.billboard(part: BasePart, width: number, height: number, title: str
 	gui.StudsOffsetWorldSpace = Vector3.new(0, height, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = maxDistance or 40
+	-- SAME BUG Kit.surfaceText DOCUMENTS AND FIXES, MISSED HERE UNTIL A PLAYER CAUGHT
+	-- IT ON THE WASH PAD. BillboardGui.LightInfluence defaults to 1, so any of these
+	-- signs sitting near a PointLight (which is most of them -- the wash pad's own
+	-- disc light, every plot's accent Lamp, every shop's glowing sign lamp) gets
+	-- washed toward white right along with whatever it is bolted to. A sign should
+	-- read the same whether or not the thing under it happens to glow.
+	gui.LightInfluence = 0
 	gui.Parent = part
 
 	local head = Instance.new("TextLabel")

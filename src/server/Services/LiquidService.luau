@@ -163,6 +163,21 @@ local ANNOUNCE_SECONDS = 4
 --- reset timer wiping the later one's announcement off the sign.
 local announceToken: { [BasePart]: number } = {}
 
+--- The flash colour is BLENDED TOWARD REST, not scaled toward black. First cut of
+--- this fix multiplied the raw liquid hex by a flat 0.5 -- an improvement, but still
+--- an ABSOLUTE colour with no relationship to whatever the disc's resting state
+--- actually renders as under this world's bright ambient (build/Daylight.apply(),
+--- Lighting.Brightness = 2.4, explicitly documented there as pushing things toward
+--- near-white). The rest colour is the one shade already proven to look calm in
+--- THIS lighting, on THIS material, next to THIS PointLight -- so the flash is now a
+--- partial step FROM it toward the liquid's hue, which can never render brighter
+--- than a straight blend of two colours the scene already renders acceptably.
+local FLASH_MIX = 0.4
+local function flashColor(rawHex: string, rest: Color3): Color3
+	local raw = Color3.fromHex(rawHex)
+	return rest:Lerp(raw, FLASH_MIX)
+end
+
 --- Show the roll ON THE PAD, in the world, rather than on anybody's screen.
 ---
 --- This is the whole shape of the feature. A pad is a physical button; a physical
@@ -207,7 +222,8 @@ local function announce(pad: BasePart?, def: Liquids.LiquidDef, held: number)
 	-- Snap to the new colour, then ease back on the reset. Tweening in BOTH
 	-- directions reads as a slow fade with no event in it; a payout wants the hard cut.
 	if glow and glow:IsA("BasePart") then
-		glow.Color = Color3.fromHex(def.color)
+		local rest = glow:GetAttribute("RestColor")
+		glow.Color = flashColor(def.color, if typeof(rest) == "Color3" then rest else glow.Color)
 	end
 	if title and title:IsA("TextLabel") then
 		title.Text = string.upper(def.name)
