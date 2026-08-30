@@ -97,39 +97,17 @@ Tuning.CARRY_EMISSION = { 0.006, 0.012, 0.03, 0.07, 0.16, 0.36, 0.8, 1.8 }
 -- player's bag while they were offline is the fastest way to lose them.
 Tuning.FREEZE_ON_LOGOUT = true
 
--- ── Economy (PLAN §2 step 5) ──────────────────────────────────────────────────
 -- ── The signal field (PLAN §2 steps 1-2) ────────────────────────────────
 --
--- These lived as bare locals inside DigService, which put the numbers that decide
--- how deep an item buries in a different file from the plate thickness that has to
--- contain it. Shared/Util/Spec now checks the two against each other, and it can
--- only do that if both are data.
+-- DIG_DEPTH_* live here rather than as bare locals in DigService so Shared/Util/Spec
+-- can check burial depth against the stage plate thickness that has to contain it.
 --
--- SIGNALS_PER_STAGE is GLOBAL -- one number for every stage -- but it is NOT free of
--- stage area: it is kept PROPORTIONAL to the uniform footprint by hand, so that
--- `area / SIGNALS_PER_STAGE` stays fixed at 1066.67. Every search metric in
--- Config/Stages (secondsBetweenContacts, coverage, meanSignalGap) is a function of
--- that ratio alone, so holding it means the search feels identical no matter how big
--- the footprint is. It was 96,000 / 90; the chain narrowed to 400 x 200 and it
--- became 80,000 / 75, same ratio, same feel.
---
--- WENT 45 -> 90 WHEN THE REVEAL LANDED (the reveal answers nothing outside your
--- radius, so 45 read as dead ground), THEN 90 -> 75 WITH THE 240 -> 200 WIDTH PASS.
--- Only the first move changed the search density; the second held it.
---
--- THE LOOT TABLES WERE RE-WEIGHTED WITH THE 45 -> 90 MOVE AND THAT PART CANNOT BE
--- UNDONE HERE. Raising density raised the rate of EVERYTHING, Legendaries included,
--- so every weight at Rare and above was halved to cancel it and the freed share went
--- to Scrap/Common. The 90 -> 75 move did NOT touch loot: per-dig rarity odds come
--- from the table weights alone, and holding `area / N` holds the dig rate, so the
--- per-second rate of every rarity is already unchanged.
---
--- RULE: change this number ONLY together with FOOTPRINT_Z in Config/Stages, keeping
--- `area / SIGNALS_PER_STAGE` at 1066.67. Change it alone (without a footprint move)
--- and you have re-scaled search density, which means re-weighting the loot tables
--- too -- Shared/Util/Spec pins "the field holds ~1.9 Rare-or-better signals" and
--- will fail if the two drift apart.
-Tuning.SIGNALS_PER_STAGE = 75
+-- HOW MANY signals a stage buries is PER-STAGE: Config/Stages `DEFS[].signals` (farm
+-- zones 1-3 at 60, dive zones 4-6 at 75). It used to be one global
+-- `Tuning.SIGNALS_PER_STAGE` held proportional to the shared footprint; it was split
+-- when the farm zones were calmed 75 -> 60 (a contact every ~2s read as too busy)
+-- while the dives held. See Config/Stages' header for the `area / signals` search-feel
+-- model and why per-dig rarity odds do not move when `signals` does.
 Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
 Tuning.DIG_DEPTH_BASE = 1.0
 Tuning.DIG_DEPTH_PER_RARITY = 1.6 -- rarer buries deeper, which is what makes depth a gate

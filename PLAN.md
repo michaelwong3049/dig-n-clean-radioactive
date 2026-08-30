@@ -80,16 +80,16 @@ Getting it home is the game. (§3.6)
 **Loop timing target:** 20–40 seconds per item at the low end, up to 3–4 minutes for a
 top-tier artifact. Fast enough to feel like a clicker, slow enough that a rare find is an event.
 
-> **The build is currently under this target and it was a deliberate choice.** At tier 1
-> the loop measures roughly 5.6s of walking + ~3s of hauling + ~6s of amortised walk home
-> = **~15s per item**, against the 20–40s written above. Doubling `SIGNALS_PER_STAGE` to 90
-> is what moved it (it was ~20s before, right at the band's floor), and that was done on
-> purpose: the reveal detector answers nothing outside its radius, so the sparser field
-> read as dead ground rather than as a search. The number to change if this is wrong is
-> `Tuning.SIGNALS_PER_STAGE` — but note the loot weights were re-derived against it, so
-> the two move together or the rare economy moves with them. `Shared/Util/Spec` fails if
-> only one of them is touched. **Either retune the density or lower this target — do not
-> leave them disagreeing silently.**
+> **The build has run under this target and it was a deliberate choice.** Doubling signal
+> density to 90 dropped the tier-1 loop to ~15s per item (from ~20s, right at the band's
+> floor): the reveal detector answers nothing outside its radius, so the sparser field
+> read as dead ground rather than as a search. The farm zones were then calmed back to
+> `signals = 60` (a contact every ~2s felt too busy), which spaces the walk out again
+> without touching the loot table. Signal density is now **per-stage** —
+> `Config/Stages` `DEFS[].signals`, farm zones 60 / dive zones 75 — and the loot weights
+> were re-derived only against the 45→90 jump, so raising a stage's `signals` past that
+> re-opens the "twice the jackpots" problem. `Shared/Util/Spec` guards Stage 1's snapshot
+> count. **Retune density per stage from `signals`; keep it and the loot weights honest.**
 
 ### Step 1 — Sweep
 
