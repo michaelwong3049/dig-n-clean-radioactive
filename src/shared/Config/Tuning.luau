@@ -111,28 +111,31 @@ Tuning.FREEZE_ON_LOGOUT = true
 -- size. It was 96,000 / 90; the 240 -> 200 width pass took it to 80,000 / 75, same
 -- ratio, same feel.
 --
--- THEN THE 15% PASS (footprint 400x200 -> 340x170) LEFT N AT 75, ON REQUEST. `area
--- / N` fell 1066.67 -> 770.67, so the search is ~28% denser than it was: the
--- starting detector turns up a contact about every 1.4s now (was ~2.0s). Every
--- search metric in Config/Stages (secondsBetweenContacts, coverage, meanSignalGap)
--- moved with that one ratio.
+-- THEN TWO FOOTPRINT PASSES LEFT N AT 75, ON REQUEST EACH TIME. The 15% pass
+-- (400x200 -> 340x170) took `area / N` 1066.67 -> 770.67; the length-only pass
+-- (340 -> 290 on X, Z held at 170) took it 770.67 -> 657.33. The search is ~38%
+-- denser than the 1066.67 days: the starting detector turns up a contact about
+-- every 1.3s now (was ~2.0s). Every search metric in Config/Stages
+-- (secondsBetweenContacts, coverage, meanSignalGap) moved with that one ratio.
 --
 -- WENT 45 -> 90 WHEN THE REVEAL LANDED (the reveal answers nothing outside your
 -- radius, so 45 read as dead ground), THEN 90 -> 75 WITH THE 240 -> 200 WIDTH PASS.
--- The 45->90 move changed search density; the 90->75 held it; the 15% pass changed
--- it again by holding N while the area shrank.
+-- The 45->90 move changed search density; the 90->75 held it; the two footprint
+-- passes since changed it again by holding N while the area shrank.
 --
 -- THE LOOT TABLES WERE RE-WEIGHTED WITH THE 45 -> 90 MOVE AND THAT PART CANNOT BE
 -- UNDONE HERE. Raising density raised the rate of EVERYTHING, Legendaries included,
 -- so every weight at Rare and above was halved to cancel it and the freed share went
--- to Scrap/Common. Neither the 90 -> 75 move nor the 15% pass touched loot: N itself
--- did not change across those two, so per-dig odds AND the count of jackpots buried
--- at once are both unchanged -- only the walk between digs got shorter.
+-- to Scrap/Common. None of the 90 -> 75 move, the 15% pass or the length pass
+-- touched loot: N itself held at 75 across all three, so per-dig odds AND the count
+-- of jackpots buried at once are both unchanged -- only the walk between digs got
+-- shorter.
 --
 -- RULE: this is now the sole search-density knob. Raise it and you re-scale density
 -- (and must re-weight the loot tables -- Shared/Util/Spec pins "the field holds
 -- ~1.9 Rare-or-better signals" on N alone and will fail if the two drift apart);
--- lower it to walk `area / N` back up toward where the search feel used to sit.
+-- lower it to walk `area / N` back up toward where the search feel used to sit --
+-- but Spec §7's Rare+ floor means N cannot go below ~69 without that re-weight.
 Tuning.SIGNALS_PER_STAGE = 75
 Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
 Tuning.DIG_DEPTH_BASE = 1.0

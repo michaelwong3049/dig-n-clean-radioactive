@@ -399,19 +399,21 @@ function Spec.run(): boolean
 		local slow = Stages.secondsBetweenContacts(field, lo, walk, Tuning.SIGNALS_PER_STAGE)
 		local fast = Stages.secondsBetweenContacts(field, hi, walk, Tuning.SIGNALS_PER_STAGE)
 		-- BANDS RE-FITTED TO THE UNIFORM-LENGTH PASS (Config/Stages header), then left
-		-- alone through two footprint moves because the numbers stayed inside them.
-		-- Every stage is 340 x 170 = 57,800 studs; SIGNALS_PER_STAGE is 75, so
-		-- `area / N` = 770.67 -- the starting detector turns up a contact about every
-		-- 1.5s of walking (slow) and a maxed one about every 0.57s (fast). Denser than
-		-- the old targets (3-12s / >=2s) and denser again since the 15% pass held N
-		-- while the area shrank; that is the accepted cost of small stages with the
-		-- signal count left alone. The 240 -> 200 width pass held `area / N` so slow
-		-- and fast did not move at all; the 15% pass dropped it to 0.7225x, so both
-		-- came down by that factor and still clear these floors. What must NEVER move:
-		-- this stays a WALK not a stand-still (slow floor > 0), and the reveal curve
-		-- stays FLAT end to end -- that ratio guard is area-independent and is the real
-		-- check against "fixing" the Detector track's payoff by widening radius (see
-		-- Config/Gear's header). Retarget via SIGNALS_PER_STAGE.
+		-- alone through three footprint moves because the numbers stayed inside them.
+		-- Every stage is 290 x 170 = 49,300 studs; SIGNALS_PER_STAGE is 75, so
+		-- `area / N` = 657.33 -- the starting detector turns up a contact about every
+		-- 1.3s of walking (slow) and a maxed one about every 0.48s (fast). Denser than
+		-- the old targets (3-12s / >=2s) and denser again with each footprint shrink
+		-- that held N; that is the accepted cost of small stages with the signal count
+		-- left alone. The 240 -> 200 width pass held `area / N` so slow and fast did
+		-- not move; the 15% pass dropped it to 0.7225x and the length pass to 0.853x
+		-- again, so both came down by those factors. `slow` is now ~1.26 against the
+		-- 1.2 floor -- the length pass was the last free one; a fourth shrink needs N
+		-- to drop with it (and see §7 -- below ~69 the loot tables move too). What must
+		-- NEVER move: this stays a WALK not a stand-still (slow floor > 0), and the
+		-- reveal curve stays FLAT end to end -- that ratio guard is area-independent
+		-- and is the real check against "fixing" the Detector track's payoff by
+		-- widening radius (see Config/Gear's header). Retarget via SIGNALS_PER_STAGE.
 		check(string.format("§2.1 starting detector walks %.1fs between contacts (want 1.2-5)", slow), slow >= 1.2 and slow <= 5)
 		check(string.format("§2.1 a maxed detector still has a beat between contacts: %.2fs (want >= 0.4)", fast), fast >= 0.4)
 		check(string.format("§2.1 the reveal curve stays flat: %.1fx end to end (want <= 4)", slow / fast), slow / fast <= 4)
@@ -482,9 +484,11 @@ function Spec.run(): boolean
 	--
 	-- BAND FLOOR DROPPED 1.8 -> 1.7 WITH THE 240 -> 200 WIDTH PASS (that pass took
 	-- SIGNALS_PER_STAGE 90 -> 75 in step with the area, dropping this SNAPSHOT count
-	-- ~2.25 -> ~1.87). The later 15% footprint pass did NOT move it again: it held N
-	-- at 75, and this count is `N * share` -- area does not enter it -- so it is still
-	-- ~1.87. The smaller field just buries those same ~1.87 jackpots in less dirt.
+	-- ~2.25 -> ~1.87). Neither footprint pass since moved it: both held N at 75, and
+	-- this count is `N * share` -- area does not enter it -- so it is still ~1.87. The
+	-- smaller field just buries those same ~1.87 jackpots in less dirt. This floor is
+	-- also why a fourth shrink cannot just drop N to hold the search feel: N < ~69
+	-- pushes this under 1.7 and the loot table has to be re-weighted to compensate.
 	--
 	-- This assertion is about the STARTER field: Stage 1's own single loot table is
 	-- what a new player rolls against. Stages 4, 5 and 6 have their own tables and
