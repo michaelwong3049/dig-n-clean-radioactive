@@ -333,7 +333,8 @@ function World.verify(): (boolean, { string })
 	-- mechanisms. This is left as a floor so that "the shops model failed to build at
 	-- all" still trips something loud and specific.
 	check((census.shop or 0) > 0, `no shop counters in the world at all, found {census.shop or 0}`)
-	check((census.plot or 0) == Plots.COUNT, `expected {Plots.COUNT} plot boards, found {census.plot or 0}`)
+	-- No plot-board census any more: exhibit income auto-deposits, so Plots.luau
+	-- builds no ClaimBoard and nothing emits StationKind = "plot".
 	-- One wash pad per base, beside that base's cleansing station (Plots.buildWashPad).
 	check(
 		(census.roller or 0) == Plots.COUNT,

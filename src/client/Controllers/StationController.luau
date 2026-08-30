@@ -1,15 +1,17 @@
 --[[
 	StationController.lua — the base camp panel.
 
-	Appears at the trader, the shops, and the exhibition boards. Select a row, then act
+	Appears at the trader, the shops, and the display stands. Select a row, then act
 	on it. The one verb left on the list itself is SELL — scrubbing and racking both
 	left this file, see below.
 
-	THREE MODES NOW, AND THE SHRINKING IS THE POINT. shop, plot and pedestal each
-	replace the list with their own body; trader is the list itself. Every one of them
-	arrives on the SAME StationState tick (DeconService fills `offer` / `plotView` /
-	`standView` depending on where you stand), which is why adding a station kind has
-	never needed a new remote and should not start needing one.
+	TWO MODES NOW, AND THE SHRINKING IS THE POINT. shop and pedestal each replace the
+	list with their own body; trader is the list itself. Both arrive on the SAME
+	StationState tick (DeconService fills `offer` / `standView` depending on where you
+	stand), which is why adding a station kind has never needed a new remote and
+	should not start needing one. The plot claim board was a third mode until exhibit
+	income went auto-deposit — with nothing left to COLLECT, the board and its panel
+	both went.
 
 	TWO MODES WERE DELETED, ON REQUEST, AND BOTH DELETIONS FIXED SOMETHING.
 
@@ -115,7 +117,6 @@ local ROWS = 9
 local PANEL_KINDS: { [string]: boolean } = {
 	trader = true,
 	shop = true,
-	plot = true,
 	pedestal = true,
 }
 
@@ -475,52 +476,9 @@ local function build(): ScreenGui
 	})
 	ui.shopCash.LayoutOrder = 3
 
-	-- ── Plot mode (claim board) ─────────────────────────────────────────
-	-- Same reasoning as Shop mode: a claim board IS a station, so it reuses
-	-- this panel and the StationAction triad rather than a parallel one.
-	local plot = Instance.new("Frame")
-	plot.Name = "Plot"
-	plot.LayoutOrder = 26
-	plot.Size = UDim2.fromScale(1, 0)
-	plot.AutomaticSize = Enum.AutomaticSize.Y
-	plot.BackgroundTransparency = 1
-	plot.Visible = false
-	plot.Parent = panel
-	ui.plot = plot
-
-	local plotLayout = Instance.new("UIListLayout")
-	plotLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	plotLayout.Padding = UDim.new(0, 8)
-	plotLayout.Parent = plot
-
-	ui.plotBanked = UIKit.label(plot, {
-		name = "Banked",
-		size = UDim2.new(1, 0, 0, 26),
-		font = UIKit.Font.body,
-		textSize = 17,
-		color = COLOR.green,
-	})
-	ui.plotBanked.LayoutOrder = 1
-
-	ui.collectButton = UIKit.button(plot, {
-		name = "Collect",
-		size = UDim2.new(1, 0, 0, 48),
-		font = UIKit.Font.body,
-		textSize = 19,
-		color = COLOR.green,
-		fillTransparency = 0.25,
-		text = "COLLECT",
-	})
-	ui.collectButton.LayoutOrder = 2
-
-	ui.slotsInfo = UIKit.label(plot, {
-		name = "SlotsInfo",
-		size = UDim2.new(1, 0, 0, 24),
-		font = UIKit.Font.body,
-		textSize = 15,
-		color = COLOR.dim,
-	})
-	ui.slotsInfo.LayoutOrder = 3
+	-- Plots have no panel any more: exhibit income auto-deposits into the owner's
+	-- wallet (server-side ExhibitService), so the claim board — whose only verb was
+	-- COLLECT — was removed along with the "plot" station kind.
 
 	-- ── Pedestal mode (stand) ────────────────────────────────────────────
 	-- Empty+unlocked reuses the SAME carry rows the decon/trader panel already
@@ -616,7 +574,7 @@ local function build(): ScreenGui
 	actions.Parent = panel
 	-- Hiding the three buttons individually is not enough: UIListLayout skips
 	-- INVISIBLE children, so an empty-but-visible container still charges the panel
-	-- its full 48px plus a gap. Shop/plot/pedestal modes all hide every button in
+	-- its full 48px plus a gap. Shop and pedestal modes both hide every button in
 	-- here, and the shop is the tallest mode in the panel, so that dead band is the
 	-- cheapest 54px available.
 	ui.actions = actions
@@ -764,15 +722,13 @@ local function render()
 	-- Shop mode replaces the item list entirely: you are not carrying anything
 	-- relevant to this transaction, so showing your backpack is noise.
 	local atShop = state.station == "shop"
-	local atPlot = state.station == "plot"
 	local atPedestal = state.station == "pedestal"
 	ui.shop.Visible = atShop
-	ui.plot.Visible = atPlot
 	ui.pedestal.Visible = atPedestal
 	-- Shop mode carries its own wallet line under the card row, so the header's
 	-- subtitle would just print the same number twice.
 	ui.subtitle.Visible = not atShop
-	ui.actions.Visible = not (atShop or atPlot or atPedestal)
+	ui.actions.Visible = not (atShop or atPedestal)
 	-- Storefronts centre their sign; a station panel that is really a list keeps its
 	-- title on the same left margin as the rows underneath it.
 	ui.title.TextXAlignment = if atShop then Enum.TextXAlignment.Center else Enum.TextXAlignment.Left
@@ -801,33 +757,6 @@ local function render()
 		-- row of prices is being compared against.
 		ui.shopCash.Text = string.format("You have  $%d", state.cash or 0)
 		ui.shopCash.TextColor3 = if offer and offer.maxed then COLOR.green else COLOR.text
-
-		for _, row in ui.rows do
-			row.Visible = false
-		end
-		ui.sellButton.Visible = false
-		return
-	end
-
-	if atPlot then
-		local view = state.plotView
-		ui.title.Text = if view then `PLOT {view.plotIndex}` else "CLAIM BOARD"
-		ui.title.TextColor3 = COLOR.green
-		ui.panelStroke.Color = COLOR.green
-		ui.subtitle.Text = if view and view.isOwner then "your plot" else "not your plot"
-
-		if view and view.isOwner then
-			ui.plotBanked.Text = string.format("banked  $%d", view.bankedCash)
-			ui.collectButton.Visible = true
-			ui.collectButton.Text = string.format("COLLECT  $%d", view.bankedCash)
-			ui.collectButton.TextColor3 = if view.bankedCash > 0 then COLOR.green else COLOR.dim
-
-			ui.slotsInfo.Text = string.format("slots %d / %d", view.slots, view.maxSlots)
-		else
-			ui.plotBanked.Text = ""
-			ui.collectButton.Visible = false
-			ui.slotsInfo.Text = view and string.format("slots %d / %d", view.slots, view.maxSlots) or ""
-		end
 
 		for _, row in ui.rows do
 			row.Visible = false
@@ -997,8 +926,10 @@ function Station.start()
 		end)
 	end
 
-	ui.collectButton.MouseButton1Click:Connect(function()
-		actionRemote:FireServer({ action = "collect" })
+	ui.rackButton.MouseButton1Click:Connect(function()
+		if selected then
+			actionRemote:FireServer({ action = "rack", uid = selected })
+		end
 	end)
 
 	ui.displayButton.MouseButton1Click:Connect(function()

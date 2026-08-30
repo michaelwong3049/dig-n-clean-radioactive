@@ -5,7 +5,7 @@
 	AN ITEM YOU SELL IS GONE. AN ITEM YOU DISPLAY KEEPS PAYING (PLAN §8). Everything
 	this file needs was already sitting in the codebase waiting for a service to
 	read it: the profile schema (`data.exhibit`), every tuning number
-	(`Tuning.EXHIBIT_*`), the world contract (`Plots.luau`'s ClaimBoard/Stand
+	(`Tuning.EXHIBIT_*`), the world contract (`Plots.luau`'s Stand
 	attributes), and even the multiplier hook (`StatResolver.yieldMultiplier`,
 	wired to the Curator perk before this file existed to use it). This is the
 	service that plugs all of that together.
@@ -406,8 +406,9 @@ local function cappedRatePerSecond(data: any, stats: any): number
 end
 
 --- Called once, right after a profile loads. Credits time spent offline into
---- bankedCash (not straight into cash) so it's something to walk over and
---- collect, matching the "waiting at the door" framing in PLAN §13.
+--- bankedCash; start()'s loaded hook then calls deposit() straight away, so the
+--- offline haul just lands in the wallet on login rather than waiting to be
+--- collected. Still capped at EXHIBIT_OFFLINE_BANK_HOURS.
 local function bankOffline(data: any)
 	local now = os.time()
 	if data.exhibit.bankedAt <= 0 then
@@ -430,7 +431,25 @@ local function bankOffline(data: any)
 	data.exhibit.bankedAt = now
 end
 
-local function tickPlayer(player: Player, dt: number)
+--- Whole dollars are swept from bankedCash into spendable cash on a slow cadence,
+--- not every tick: CashController documents that CashState must never fire per-tick,
+--- and passive income trickles slowly enough that a DEPOSIT_INTERVAL batch is
+--- invisible to the player — the badge just counts up on its own.
+local DEPOSIT_INTERVAL = 5
+local sinceDeposit = 0
+
+--- Move the whole-dollar part of this profile's accrued exhibit income into
+--- spendable cash, leaving the sub-dollar remainder in bankedCash so nothing is
+--- lost to flooring each deposit. EconomyService.award fires CashState itself.
+local function deposit(player: Player, data: any)
+	local whole = math.floor(data.exhibit.bankedCash)
+	if whole >= 1 then
+		data.exhibit.bankedCash -= whole
+		EconomyService.award(player, whole)
+	end
+end
+
+local function tickPlayer(player: Player, dt: number, flush: boolean)
 	local data = DataService.data(player)
 	if data == nil or #data.exhibit.pedestals == 0 then
 		return
@@ -440,29 +459,15 @@ local function tickPlayer(player: Player, dt: number)
 	local rate = cappedRatePerSecond(data, stats)
 	data.exhibit.bankedCash += rate * dt
 	data.exhibit.bankedAt = os.time()
+
+	if flush then
+		deposit(player, data)
+	end
 end
 
 -- ── Actions ───────────────────────────────────────────────────────────────────
 
---- Everything StationController needs to draw the plot / pedestal panels.
-export type PlotView = {
-	plotIndex: number,
-	isOwner: boolean,
-	bankedCash: number,
-	slots: number,
-	maxSlots: number,
-}
-
-function ExhibitService.plotViewFor(player: Player, plotIndex: number, data: any): PlotView
-	return {
-		plotIndex = plotIndex,
-		isOwner = plotOf[player] == plotIndex,
-		bankedCash = math.floor(data.exhibit.bankedCash),
-		slots = data.exhibit.slots,
-		maxSlots = Tuning.EXHIBIT_MAX_SLOTS,
-	}
-end
-
+--- Everything StationController needs to draw the pedestal (stand) panel.
 export type StandView = {
 	plotIndex: number,
 	slot: number,
@@ -613,33 +618,6 @@ function ExhibitService.undisplay(player: Player): (boolean, string)
 	return true, `{Items.get(entry.itemId).name} back in your bag`
 end
 
---- Drain bankedCash into spendable cash. Only the plot's owner, standing at
---- their own claim board.
-function ExhibitService.collect(player: Player): (boolean, string)
-	local data = DataService.data(player)
-	if data == nil then
-		return false, "your save hasn't loaded"
-	end
-
-	local kind = StationService.kindOf(player)
-	local stationId = StationService.idOf(player)
-	if kind ~= "plot" or stationId == nil then
-		return false, "you need to be at a claim board"
-	end
-	if plotOf[player] ~= tonumber(stationId) then
-		return false, "that isn't your plot"
-	end
-
-	local amount = math.floor(data.exhibit.bankedCash)
-	if amount <= 0 then
-		return false, "nothing banked yet"
-	end
-
-	data.exhibit.bankedCash -= amount
-	EconomyService.award(player, amount)
-	return true, `collected ${amount}`
-end
-
 -- ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 function ExhibitService.init() end
@@ -653,6 +631,7 @@ function ExhibitService.start()
 			data.exhibit.slots = Tuning.EXHIBIT_MAX_SLOTS
 		end
 		bankOffline(data)
+		deposit(player, data)
 		assign(player)
 	end)
 
@@ -661,8 +640,13 @@ function ExhibitService.start()
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)
+		sinceDeposit += dt
+		local flush = sinceDeposit >= DEPOSIT_INTERVAL
+		if flush then
+			sinceDeposit = 0
+		end
 		for _, player in Players:GetPlayers() do
-			local ok, err = pcall(tickPlayer, player, dt)
+			local ok, err = pcall(tickPlayer, player, dt, flush)
 			if not ok then
 				warn(`[exhibit] tick failed for {player.Name}: {err}`)
 			end

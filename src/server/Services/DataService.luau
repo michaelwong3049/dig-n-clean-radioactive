@@ -43,8 +43,8 @@ local TEMPLATE = {
 	exhibit = {
 		slots = Tuning.EXHIBIT_MAX_SLOTS, -- every stand is free; kept as a field so a save always carries it
 		pedestals = {},
-		bankedCash = 0,
-		bankedAt = 0,
+		bankedCash = 0, -- sub-dollar income remainder; ExhibitService sweeps whole dollars straight into `cash`
+		bankedAt = 0, -- os.time() of the last accrual, for the offline-earnings catch-up
 	},
 
 	-- The wash pad (Config/Liquids). `liquids` is liquid id -> charges remaining;
