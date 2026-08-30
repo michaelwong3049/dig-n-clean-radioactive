@@ -120,10 +120,10 @@ local function beginScrub(player: Player, data: any, stats: any, uid: string): s
 	return nil
 end
 
-local function rack(player: Player, data: any, uid: string): string
+local function rack(player: Player, data: any, uid: string): (boolean, string)
 	local item, list, index = EconomyService.find(data, uid)
 	if item == nil or list ~= data.carry or index == nil then
-		return "that isn't in your bag"
+		return false, "that isn't in your bag"
 	end
 
 	table.remove(data.carry, index)
@@ -133,9 +133,9 @@ local function rack(player: Player, data: any, uid: string): string
 	local def = Items.get(item.itemId)
 	local blocked = Contamination.blockedBy(item.patches or {}, StatResolver.get(data).cleanPotency)
 	if blocked then
-		return `{def.name} racked \u{2014} waiting on {CarryService.cleanerNameFor(blocked)}`
+		return true, `{def.name} racked \u{2014} waiting on {CarryService.cleanerNameFor(blocked)}`
 	end
-	return `{def.name} racked`
+	return true, `{def.name} racked`
 end
 
 -- ── Tick ────────────────────────────────────────────────────────────
@@ -300,6 +300,9 @@ function DeconService.start()
 			resultRemote:FireClient(player, message)
 			if ok then
 				print(`[econ] {player.Name}: {message}`)
+				-- The sold item may have been sitting in the Quarantine Locker; keep
+				-- the physical cabinet in step. Cheap and idempotent for a bag sale.
+				ExhibitService.refreshLocker(player)
 			end
 		elseif request.action == "buy" then
 			-- ShopService re-derives the station from the player's position itself,
@@ -340,7 +343,12 @@ function DeconService.start()
 				resultRemote:FireClient(player, "racking happens at the decon station")
 				return
 			end
-			resultRemote:FireClient(player, rack(player, data, tostring(request.uid)))
+			local ok, message = rack(player, data, tostring(request.uid))
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[decon] {player.Name}: {message}`)
+				ExhibitService.refreshLocker(player)
+			end
 		end
 	end)
 

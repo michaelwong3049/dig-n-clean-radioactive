@@ -52,6 +52,8 @@ local StationService = require(script.Parent.StationService)
 local ExhibitService = {}
 
 local PLOT_COUNT = 6 -- matches build/Plots.Plots.COUNT; not required so Services never depend on build/
+local LOCKER_VISIBLE = 3 -- matches build/Plots.Plots.LOCKER_SLOTS; overflow racked items just aren't shown
+local LOCKER_ITEM_SIZE = 1.2 -- longest axis a racked item model is scaled to; the cabinet bays are cramped
 
 -- Who is sitting on which physical plot this session. Never persisted — see header.
 local plotOf: { [Player]: number } = {}
@@ -124,6 +126,70 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 	end
 end
 
+--- Fill one plot's Quarantine Locker (build/Plots.buildQuarantineLocker) from
+--- `data.locker`, and swing its door: open the moment anything is racked, shut
+--- when the last item leaves. `data == nil` clears it — used on release.
+---
+--- The locker has no station of its own; racking still happens at the cleansing
+--- station. This only mirrors the profile's `locker` array onto the cabinet the
+--- same way renderStand mirrors `exhibit.pedestals` onto the plinths.
+local function renderLocker(index: number, data: any)
+	local plot = plotModel(index)
+	if plot == nil then
+		return
+	end
+
+	local locker = if data ~= nil then data.locker else {}
+
+	local door = plot:FindFirstChild("LockerDoor", true) :: Model?
+	if door then
+		local pivot = door:GetAttribute(if #locker > 0 then "OpenPivot" else "ClosedPivot")
+		if typeof(pivot) == "CFrame" then
+			door:PivotTo(pivot)
+		end
+	end
+
+	for i = 1, LOCKER_VISIBLE do
+		local anchor = plot:FindFirstChild(`LockerSlot{i}`, true) :: BasePart?
+		if anchor then
+			local previous = anchor:FindFirstChild("ItemModel")
+			if previous then
+				previous:Destroy()
+			end
+
+			local entry = locker[i]
+			if entry == nil then
+				anchor.Transparency = 1
+			else
+				local model = ItemModels.create(Items.get(entry.itemId).model)
+				if model then
+					anchor.Transparency = 1
+					model.Name = "ItemModel"
+					model:SetAttribute("ItemId", entry.itemId)
+					model.Parent = anchor
+
+					-- The bays are ~1.5 studs tall; normalise every model to a common
+					-- longest-axis size (unlike the pedestals, which show items life-ish
+					-- size on an open plinth) and seat it on the bay floor.
+					model:PivotTo(CFrame.identity)
+					local extents = model:GetExtentsSize()
+					local longest = math.max(extents.X, extents.Y, extents.Z)
+					if longest > 0 then
+						model:ScaleTo(LOCKER_ITEM_SIZE / longest)
+					end
+					model:PivotTo(anchor.CFrame * ItemModels.rotation(model, "Display"))
+					local bounds, size = model:GetBoundingBox()
+					local floorY = anchor.Position.Y - anchor.Size.Y / 2
+					model:PivotTo(model:GetPivot() + Vector3.new(0, floorY - (bounds.Position.Y - size.Y / 2) + 0.03, 0))
+				else
+					anchor.Color = Rarity.get(entry.rarity).color
+					anchor.Transparency = 0
+				end
+			end
+		end
+	end
+end
+
 --- Redraw everything on a plot from the profile — called once on assignment so a
 --- returning player's collection shows up on whichever physical plot they land on.
 local function renderAll(index: number, data: any)
@@ -135,6 +201,7 @@ local function renderAll(index: number, data: any)
 	for _, entry in data.exhibit.pedestals do
 		renderStand(index, entry.slot, entry.itemId, entry.rarity)
 	end
+	renderLocker(index, data)
 end
 
 -- ── Spawning ──────────────────────────────────────────────────────────────────
@@ -178,6 +245,17 @@ end
 
 function ExhibitService.plotOf(player: Player): number?
 	return plotOf[player]
+end
+
+--- Re-mirror `data.locker` onto this player's plot cabinet. Called by DeconService
+--- after a rack or a (dirty-)sell, since those are the only two things that move
+--- an item in or out of the locker. No-op if the player has no plot this session.
+function ExhibitService.refreshLocker(player: Player)
+	local index = plotOf[player]
+	local data = DataService.data(player)
+	if index ~= nil and data ~= nil then
+		renderLocker(index, data)
+	end
 end
 
 local function assign(player: Player)
@@ -230,6 +308,7 @@ local function release(player: Player)
 		for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
 			renderStand(index, slot, nil, nil)
 		end
+		renderLocker(index, nil)
 	end
 end
 

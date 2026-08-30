@@ -78,13 +78,17 @@
 	right, per the requested sketch:
 
 	    ┌─────────────────────────────────────┐
-	    │              CLEANSING               │
+	    │      [locker]   CLEANSING            │
 	    │  [stand]                   [stand]   │
 	    │  [stand]                   [stand]   │
 	    │  [stand]         .                   │
 	    │  [stand]                   [stand]   │
 	    │                                       │
 	    └─────────────────────────────────────┘
+
+	The Quarantine Locker (PLAN §10.2) sits against the back wall left of the
+	cleansing station — the physical rack of items you hauled home but can't clean
+	yet. Built here, filled by ExhibitService.renderLocker; see buildQuarantineLocker.
 
 	Eight stands, four per side, in two flanking columns — `slotOffset` pairs
 	them off row by row (slot 1 = left row 1, slot 2 = right row 1, slot 3 = left
@@ -115,6 +119,10 @@
 	    Basin       StationKind = "decon", Shower = true, Radius = 9 — the cleansing
 	                station (see buildCleansingStation below). One per base, replacing
 	                the single shared station + shower that used to live at camp.
+	    QuarantineLocker   no station attributes — a display cabinet. LockerSlot1..
+	                Plots.LOCKER_SLOTS are hidden item anchors; LockerDoor is a Model
+	                carrying ClosedPivot / OpenPivot CFrame attributes. Both are
+	                filled/animated by ExhibitService.renderLocker from data.locker.
 
 	The stand's StationId is "plot:slot" so the server can resolve exactly which
 	pedestal a player is standing at without a spatial search of its own.
@@ -131,13 +139,18 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 16
+local BUILDER_VERSION = 17
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
 Plots.COUNT = 6
 Plots.VISIBLE_SLOTS = 8
+-- Interior bays in the Quarantine Locker cabinet (buildQuarantineLocker). Kept in
+-- step with the cleansing-station panel's own LOCKER_ROWS; ExhibitService.renderLocker
+-- reads the same number. A locker with more than this many racked items just doesn't
+-- show the overflow, exactly like a plot past VISIBLE_SLOTS pedestals.
+Plots.LOCKER_SLOTS = 3
 -- topY is a deliberate step UP from the plaza (the mirror of Stages.SURFACE_Y's own
 -- step down), expressed relative to Hub.PLAZA.topY rather than as a bare literal so
 -- it keeps meaning "+1.5 above the plaza" if that ever moves again, instead of
@@ -539,6 +552,104 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	m.Parent = parent
 end
 
+--- THE QUARANTINE LOCKER (PLAN §10.2) — a steel cabinet beside the cleansing
+--- station holding what you hauled home but can't clean yet. THIS FILE BUILDS THE
+--- SHELL; the data (`data.locker`), the `rack` action and the dirty-sell already
+--- exist. ExhibitService.renderLocker fills `LockerSlot1..LOCKER_SLOTS` from the
+--- owner's `data.locker` and swings `LockerDoor` to `OpenPivot` whenever the
+--- locker holds anything, `ClosedPivot` when it's empty — a full locker reads as a
+--- red-lined taunt from across the base, an empty one is just a shut cabinet.
+---
+--- NO STATION ATTRIBUTES. Racking still happens at the cleansing station
+--- (DeconService gates it on `StationKind == "decon"`); this cabinet is a display,
+--- not a stop. Placed against the back wall LEFT of the cleansing station, opening
+--- toward the plot entrance (-Z), clear of the gantry posts (x = ±3.2) and the
+--- left stand column (x = -25) by ~8 studs each — World.verify() re-checks nothing
+--- overlaps on every rebuild.
+---
+--- THE DOOR IS ITS OWN MODEL, built CLOSED in a frame anchored at the hinge (the
+--- -X edge of the opening), so a yaw about that frame's own vertical axis swings
+--- it. The two pivots are stamped as CFrame attributes, so ExhibitService never
+--- has to know which way this plot faces.
+local function buildQuarantineLocker(parent: Instance, origin: CFrame, accent: string)
+	local m = Instance.new("Model")
+	m.Name = "QuarantineLocker"
+	local pad = Plots.PAD
+
+	local lx, lz = -13, 22.5
+	local baseY = pad.topY + 0.4 -- top of the plinth; the cabinet's own floor sits here
+	local midY = baseY + 2.7 -- centre of the 5.4-tall body
+
+	build(m, origin, { name = "Plinth", pos = { lx, pad.topY + 0.2, lz }, size = { 3.2, 0.4, 2.4 }, color = C.baseTileDark, material = "Metal" })
+
+	-- The open-front box.
+	build(m, origin, { name = "Back", pos = { lx, midY, lz + 0.85 }, size = { 2.6, 5.4, 0.2 }, color = C.steelDark, material = "Metal" })
+	for _, sx in { -1, 1 } do
+		build(m, origin, { name = "Side", pos = { lx + sx * 1.3, midY, lz }, size = { 0.2, 5.4, 1.9 }, color = C.steelDark, material = "Metal" })
+	end
+	build(m, origin, { name = "Floor", pos = { lx, baseY + 0.1, lz }, size = { 2.6, 0.2, 1.9 }, color = C.steelDark, material = "Metal" })
+	build(m, origin, { name = "Ceiling", pos = { lx, baseY + 5.3, lz }, size = { 2.6, 0.2, 1.9 }, color = C.steelDark, material = "Metal" })
+
+	-- Red interior lining — the one saturated colour in the base.
+	build(m, origin, { name = "Lining", pos = { lx, midY, lz + 0.7 }, size = { 2.4, 5.0, 0.1 }, color = C.quarantineRed, material = "SmoothPlastic" })
+	build(m, origin, { name = "LiningFloor", pos = { lx, baseY + 0.25, lz }, size = { 2.4, 0.12, 1.6 }, color = C.quarantineRed, material = "SmoothPlastic" })
+
+	-- Two shelves split the interior into LOCKER_SLOTS bays; a hidden anchor sits on
+	-- the floor of each. renderLocker seats a scaled item model on the anchor's
+	-- bottom face (anchor.Position.Y - anchor.Size.Y/2), so the anchor cube marks
+	-- the bay floor and needs no shared magic offset with ExhibitService.
+	local bayFloorY = { baseY + 0.31 }
+	for i = 1, Plots.LOCKER_SLOTS - 1 do
+		local shelfY = baseY + 0.31 + i * 1.6
+		build(m, origin, { name = `Shelf{i}`, pos = { lx, shelfY, lz }, size = { 2.4, 0.1, 1.6 }, color = C.steel, material = "Metal" })
+		table.insert(bayFloorY, shelfY + 0.05)
+	end
+	for i, floorY in bayFloorY do
+		build(m, origin, {
+			name = `LockerSlot{i}`,
+			pos = { lx, floorY + 0.45, lz },
+			size = { 0.9, 0.9, 0.9 },
+			color = accent,
+			material = "SmoothPlastic",
+			transparency = 1,
+			canCollide = false,
+		})
+	end
+
+	-- Header plate over the opening.
+	local sign = build(m, origin, { name = "Sign", pos = { lx, baseY + 5.7, lz - 0.95 }, size = { 2.6, 0.55, 0.1 }, color = C.steelDark, material = "Metal" })
+	Kit.surfaceText(sign, Enum.NormalId.Front, "QUARANTINE", C.quarantineRed)
+
+	-- THE DOOR. Hinge = the -X edge of the opening; build parts extending +X from it
+	-- (closed, across the opening). Slab is a hair wider than the gap so a shut
+	-- locker reads solid.
+	local hinge = origin * CFrame.new(lx - 1.3, midY, lz - 0.9)
+	local door = Instance.new("Model")
+	door.Name = "LockerDoor"
+
+	build(door, hinge, { name = "Slab", pos = { 1.25, 0, 0 }, size = { 2.5, 5.2, 0.14 }, color = C.steel, material = "Metal" })
+	for _, bankY in { 1.5, -1.4 } do
+		for s = 0, 3 do
+			build(door, hinge, {
+				name = "Louver",
+				pos = { 1.25, bankY - s * 0.34, -0.16 },
+				size = { 2.0, 0.12, 0.18 },
+				color = C.steelDark,
+				material = "Metal",
+				rot = Kit.ang(-22, 0, 0),
+				canCollide = false,
+			})
+		end
+	end
+
+	door.WorldPivot = hinge
+	door:SetAttribute("ClosedPivot", hinge)
+	door:SetAttribute("OpenPivot", hinge * CFrame.Angles(0, math.rad(110), 0))
+	door.Parent = m
+
+	m.Parent = parent
+end
+
 local function buildPlot(parent: Instance, index: number)
 	local m = Instance.new("Model")
 	m.Name = `Plot{index}`
@@ -651,6 +762,7 @@ local function buildPlot(parent: Instance, index: number)
 	end
 
 	buildCleansingStation(m, origin, accent)
+	buildQuarantineLocker(m, origin, accent)
 
 	m.Parent = parent
 	return m
@@ -752,6 +864,7 @@ function Plots.rebuild(parent: Instance?): Model
 	print(
 		`[build] Plots rebuilt — {Plots.COUNT} plots, {Plots.VISIBLE_SLOTS} stands each `
 			.. `({Tuning.EXHIBIT_STARTING_SLOTS} unlocked, {Tuning.EXHIBIT_MAX_SLOTS} addressable), `
+			.. `{Plots.LOCKER_SLOTS}-bay quarantine locker each, `
 			.. `{#row.Apron:GetChildren()} apron parts`
 	)
 	return row

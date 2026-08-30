@@ -81,6 +81,12 @@ Kit.C = {
 	standGrey = "A0A0A0",
 	standGreyDark = "787878",
 
+	-- The Quarantine Locker's interior lining (Plots.buildQuarantineLocker). The one
+	-- saturated red in the base — a hazard-adjacent colour, but NOT the acid-green
+	-- radiation channel, so it's allowed. Kept in the same family as the client
+	-- panel's own locker red (UIKit.C.red).
+	quarantineRed = "C4382E",
+
 	-- ── The checkerboard, in its two palettes ────────────────────────────────
 	-- One pattern, one grid, two colour schemes: the plaza and its apron in green,
 	-- the six player bases in navy and grey, a step above it. Walking onto a base
