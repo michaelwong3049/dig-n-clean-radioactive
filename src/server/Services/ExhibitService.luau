@@ -37,6 +37,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
+local Gear = require(Shared.Config.Gear) -- renderLuck: the plot's luck-button billboard
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local ItemModels = require(Shared.ItemModels)
@@ -81,6 +82,31 @@ local function renderName(index: number, displayName: string?)
 	local label = gui and gui:FindFirstChildWhichIsA("TextLabel")
 	if label then
 		(label :: TextLabel).Text = if displayName and displayName ~= "" then string.upper(displayName) else "UNCLAIMED"
+	end
+end
+
+--- Repaint one plot's luck button to the given profile's current multiplier and the
+--- price of the NEXT purchase, or to the starting values when `data` is nil (an
+--- unclaimed plot). The Sign/Title/Subtitle names match build/Plots.buildLuckButton
+--- exactly, the same convention LiquidService.announce uses to name a roll on the
+--- wash pad. Title carries the multiplier, Subtitle the price — Luck has no tier
+--- name left to put in Title's place now that a purchase is a flat +0.1x.
+local function renderLuck(index: number, data: any?)
+	local plot = plotModel(index)
+	if plot == nil then
+		return
+	end
+	local luckButton = plot:FindFirstChild("LuckButton", true)
+	local button = luckButton and luckButton:FindFirstChild("Button")
+	local sign = button and button:FindFirstChild("Sign")
+	local title = sign and sign:FindFirstChild("Title")
+	local subtitle = sign and sign:FindFirstChild("Subtitle")
+	local level = if data then (data.gear.luck or 1) else 1
+	if title then
+		(title :: TextLabel).Text = string.format("LUCK %.1fx", Gear.luckMultiplier(level))
+	end
+	if subtitle then
+		(subtitle :: TextLabel).Text = string.format("+0.1x for $%d", Gear.luckPrice(level))
 	end
 end
 
@@ -194,6 +220,7 @@ end
 local function renderAll(index: number, data: any)
 	local owner = plotOwner[index]
 	renderName(index, if owner then owner.DisplayName else nil)
+	renderLuck(index, data)
 	for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
 		renderStand(index, slot, nil, nil)
 	end
@@ -244,6 +271,36 @@ end
 
 function ExhibitService.plotOf(player: Player): number?
 	return plotOf[player]
+end
+
+--- Repaint a player's own luck button to their current multiplier. Called by
+--- ShopService right after a Luck purchase lands, since the button's billboard is
+--- world state ExhibitService already owns (the same object `assign` repaints for a
+--- brand-new owner) rather than something ShopService should learn to poke into.
+function ExhibitService.refreshLuck(player: Player)
+	local index = plotOf[player]
+	if index == nil then
+		return
+	end
+	renderLuck(index, DataService.data(player))
+end
+
+--- This player's assigned plot's spawn pad, or nil if they never got a plot this
+--- session (all six taken — see assign()'s trailing warn). assign() and release()
+--- already resolve this exact part this exact way; the top-of-screen warp bar's
+--- "BASE" button (WarpService) is the fourth reader, so the lookup lives here in the
+--- service that owns plot assignment rather than being reached for by string path
+--- from outside.
+function ExhibitService.plotSpawn(player: Player): SpawnLocation?
+	local index = plotOf[player]
+	if index == nil then
+		return nil
+	end
+	local plot = plotModel(index)
+	if plot == nil then
+		return nil
+	end
+	return plot:FindFirstChild("PlotSpawn", true) :: SpawnLocation?
 end
 
 --- Re-mirror `data.locker` onto this player's plot cabinet. Called by DeconService
@@ -304,6 +361,7 @@ local function release(player: Player)
 			spawn.Enabled = false
 		end
 		renderName(index, nil)
+		renderLuck(index, nil)
 		for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
 			renderStand(index, slot, nil, nil)
 		end

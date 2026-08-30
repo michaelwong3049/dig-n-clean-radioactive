@@ -437,6 +437,45 @@ local function buildLockPromptGui(adornee: BasePart)
 	}
 end
 
+--- A tiny horseshoe-magnet glyph, opening upward: a red "U" with two pale pole tips
+--- — the same red-body / white-tips cliché build/Shops.luau's buildMagnetProp leans
+--- on so the shape reads as "magnet" at a glance. Drawn from frames, no image asset,
+--- like every other piece of HUD here. Returns the 30x26 container for the caller to
+--- place.
+local function buildMagnetIcon(parent: Instance): Frame
+	local icon = Instance.new("Frame")
+	icon.Name = "MagnetIcon"
+	icon.Size = UDim2.fromOffset(30, 26)
+	icon.BackgroundTransparency = 1
+	icon.Parent = parent
+
+	local function piece(name: string, x: number, y: number, w: number, h: number, color: Color3, radius: number?)
+		local f = Instance.new("Frame")
+		f.Name = name
+		f.Position = UDim2.fromOffset(x, y)
+		f.Size = UDim2.fromOffset(w, h)
+		f.BackgroundColor3 = color
+		f.BorderSizePixel = 0
+		f.Parent = icon
+		if radius then
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(0, radius)
+			corner.Parent = f
+		end
+	end
+
+	-- The curved back of the horseshoe: a rounded slab across the bottom, its two
+	-- lower corners the magnet's arc. Then the two legs rising from it, then the pale
+	-- tips capping them.
+	piece("Bend", 1, 16, 28, 10, COLOR.red, 5)
+	piece("LegLeft", 1, 2, 9, 16, COLOR.red)
+	piece("LegRight", 20, 2, 9, 16, COLOR.red)
+	piece("TipLeft", 1, 0, 9, 5, COLOR.text, 1)
+	piece("TipRight", 20, 0, 9, 5, COLOR.text, 1)
+
+	return icon
+end
+
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "DetectorHud"
@@ -602,12 +641,12 @@ local function build(): ScreenGui
 	-- first tap commits you to one buried thing and plants your feet, and everything
 	-- from there happens in here.
 	--
-	-- It sits just above the dock rather than at screen centre, so the item climbing out
-	-- of the soil stays visible above it. The whole reason the haul is a physical model
-	-- in the world rather than a number is that you get to watch it surface; a panel
-	-- over the middle of the screen would hide exactly that. Anchored off
-	-- Dock.HAULPANEL_BOTTOM so it clears the instrument band on every viewport -- see
-	-- that constant for why a screen fraction was wrong.
+	-- It sits right above the hotbar rather than at screen centre, so the item climbing
+	-- out of the soil stays visible above it. The whole reason the haul is a physical
+	-- model in the world rather than a number is that you get to watch it surface; a
+	-- panel over the middle of the screen would hide exactly that. Anchored off
+	-- Dock.HAULPANEL_BOTTOM -- see that constant for where "right above the hotbar" puts
+	-- it and why it is left to overlay the (left-anchored) instrument band.
 	local haul, haulStroke = UIKit.panel(gui, {
 		name = "HaulPanel",
 		size = Dock.HAULPANEL_SIZE,
@@ -622,28 +661,16 @@ local function build(): ScreenGui
 	ui.haul = haul
 	ui.haulStroke = haulStroke
 
-	-- What you committed to. Carries the rarity when the detector is good enough to
-	-- resolve it and "unknown mass" when it is not -- the same per-player gate the
-	-- radar blips use, so a cheap detector still buys you a blind haul.
-	ui.haulTitle = UIKit.label(haul, {
-		name = "HaulTitle",
-		anchorPoint = Vector2.new(0.5, 0),
-		position = UDim2.new(0.5, 0, 0, 18),
-		size = UDim2.new(1, -40, 0, 30),
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.header,
-		color = COLOR.text,
-		xAlign = Enum.TextXAlignment.Center,
-	})
-
-	-- The haul bar. Bigger than the dock's own fill and the thing the player is
-	-- actually watching while mashing; the dock button keeps its little fill for
-	-- continuity but this is the readout that matters now.
+	-- The haul bar, flanked by a "?" (you don't necessarily know what you committed
+	-- to) on the left and a magnet (the thing pulling it) on the right. Those two
+	-- icons carry what the old "LOCKED ON — UNKNOWN MASS" title said in words; the
+	-- panel's stroke still tints to the rarity when the detector resolved it. The bar
+	-- is bigger than the dock's own fill and is what the player watches while mashing.
 	local track = Instance.new("Frame")
 	track.Name = "Track"
 	track.AnchorPoint = Vector2.new(0.5, 0)
-	track.Position = UDim2.new(0.5, 0, 0, 58)
-	track.Size = UDim2.new(1, -48, 0, 26)
+	track.Position = UDim2.new(0.5, 0, 0, 20)
+	track.Size = UDim2.new(1, -112, 0, 28)
 	track.BackgroundColor3 = COLOR.empty
 	track.BorderSizePixel = 0
 	track.Parent = haul
@@ -664,12 +691,31 @@ local function build(): ScreenGui
 	haulFillCorner.CornerRadius = UIKit.Radius.button
 	haulFillCorner.Parent = haulFill
 
+	-- LEFT OF THE BAR: a question mark. You committed to a lump in the dirt; whether
+	-- you get to know its rarity is the detector's job, not this panel's.
+	UIKit.label(haul, {
+		name = "HaulQuestion",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.fromOffset(32, 34),
+		size = UDim2.fromOffset(30, 34),
+		font = UIKit.Font.hero,
+		textSize = 30,
+		color = COLOR.dim,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "?",
+	})
+
+	-- RIGHT OF THE BAR: the magnet doing the pulling.
+	local magnet = buildMagnetIcon(haul)
+	magnet.AnchorPoint = Vector2.new(0.5, 0.5)
+	magnet.Position = UDim2.new(1, -32, 0, 34)
+
 	-- The mash prompt doubles as the touch target: a phone has no E key, so without a
 	-- tappable control here the entire second beat would be keyboard-only.
 	local haulButton, haulButtonStroke = UIKit.button(haul, {
 		name = "HaulButton",
 		anchorPoint = Vector2.new(0.5, 0),
-		position = UDim2.new(0.5, 0, 0, 94),
+		position = UDim2.new(0.5, 0, 0, 60),
 		size = UDim2.new(1, -HAULBUTTON_INSET, 0, HAULBUTTON_HEIGHT),
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.header,
@@ -678,7 +724,7 @@ local function build(): ScreenGui
 		fillTransparency = 0.2,
 		strokeColor = COLOR.stroke,
 		cornerRadius = UIKit.Radius.button,
-		text = "MASH  E  TO HAUL",
+		text = "PULL",
 	})
 	ui.haulButton = haulButton
 	ui.haulButtonStroke = haulButtonStroke
@@ -941,16 +987,17 @@ local function renderState()
 	-- of, and it can never hide one that is still holding the player's feet.
 	ui.haul.Visible = state.locked
 	if state.locked then
-		local named = if state.rarityHint then string.upper(state.rarityHint) else "UNKNOWN MASS"
-		ui.haulTitle.Text = `LOCKED ON \u{2014} {named}`
-		ui.haulTitle.TextColor3 = signalColor()
+		-- The panel stroke carries the rarity the detector resolved, or scope blue
+		-- when it did not -- the same per-player gate the radar blips use, so a cheap
+		-- detector still buys you a blind haul. The "?" on the bar is that idea at
+		-- rest; this is it in colour.
 		ui.haulStroke.Color = signalColor()
 		-- An under-rated magnet still locks on and still visibly strains -- it just
 		-- stalls at STRAIN_CEILING. Saying so here is the whole teaching moment, and
 		-- the panel is now where the player is looking when it happens.
 		local weak = state.blocked == "weak"
 		ui.haulFill.BackgroundColor3 = if weak then COLOR.red else COLOR.green
-		ui.haulButton.Text = if weak then "MAGNET TOO WEAK" else "MASH  E  TO HAUL"
+		ui.haulButton.Text = if weak then "MAGNET TOO WEAK" else "PULL"
 		ui.haulButton.TextColor3 = if weak then COLOR.red else COLOR.green
 	end
 

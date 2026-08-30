@@ -175,13 +175,15 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- THE HAUL PANEL. Up only while a player is locked onto a signal and mashing it out.
 -- It is deliberately NOT centered on the screen: the payoff of a haul is watching the
 -- thing rise out of the ground in front of your character, and a dead-center panel
--- covers exactly that. Sitting low keeps the item in view above it; HAULPANEL_BOTTOM
--- below is what actually places it, clear of the dock.
--- 168, not 150: at 150 the bottom-anchored release button overlapped the mash prompt
--- above it by 8px. The four rows inside are laid out top-down at fixed offsets and the
--- release button hangs off the BOTTOM edge, so panel height is what sets the gap
--- between the last two -- shrinking this re-collides them.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 168)
+-- covers exactly that. It sits as LOW as it can instead — right above the hotbar — so
+-- the item stays in view above it; HAULPANEL_BOTTOM below is what places it.
+-- 134, down from 168 when the "LOCKED ON — UNKNOWN MASS" title row was dropped (the
+-- bar now tells that story with a "?" on its left and a magnet on its right instead).
+-- Three rows left, laid out top-down at fixed offsets: the bar at y20, the PULL button
+-- at y60, and the release hint hanging off the BOTTOM edge. Panel height is what sets
+-- the gap between the button and the release (10px here) — shrink it further and they
+-- re-collide.
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 134)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
@@ -212,8 +214,9 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 Dock.SCOPE_BOTTOM = Dock.INSTRUMENT_BOTTOM
 
 -- The bottom-LEFT column, bottom-up: meter on the instrument baseline, cash badge
--- above it, index button above that. Each one's bottom is the previous one's top plus
--- a gap, so the column stays packed however any single element is resized.
+-- above it, index button above that, the loaded-liquid badge above that. Each one's
+-- bottom is the previous one's top plus a gap, so the column stays packed however any
+-- single element is resized.
 --
 -- CASH_SIZE/CASH_BOTTOM WERE PRIVATE LOCALS IN CashController until the index button
 -- moved into this column. They had to come here the moment a second file needed to
@@ -224,18 +227,38 @@ Dock.CASH_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 56)
 Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
 Dock.INDEX_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.GAP
 
+-- INDEX_SIZE WAS IndexController's PRIVATE `BUTTON_SIZE = 72` until the liquid badge
+-- needed to stack on top of it — the same migration CASH_SIZE went through one
+-- element earlier, for exactly the same reason. The square button is the only element
+-- in this column that is not meter-width, so it needs its own entry rather than being
+-- derivable from one.
+--
+-- The liquid badge is short on purpose: it carries one name and a charge count, and
+-- it is the fourth thing in a column that already reaches ~480px up a 720px viewport.
+-- If a fifth ever wants in, something here has to come out.
+Dock.INDEX_SIZE = 72
+Dock.LIQUID_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 48)
+Dock.LIQUID_BOTTOM = Dock.INDEX_BOTTOM + Dock.INDEX_SIZE + Dock.GAP
+
 -- The dock's total reserved height with no card open. IndexController still biases
 -- its own anchor upward by half of this so it lands in the space the dock does not
 -- cover; StationController deliberately does NOT any more (see its header — its
 -- panel is centered on the screen itself now, and clears the dock on its own).
 Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 
--- Anchored off the DOCK, not off a screen fraction. A fixed 0.62 scale looked right on
--- a 1080p window and collided with the instrument band on anything shorter -- at 900px
--- it overlapped the dock by ~50px, because the dock's reserved height is a fixed pixel
--- stack while the fraction is not. Bottom-anchored against RESERVE is the rule the rest
--- of this file already follows, and it clears on every viewport by construction.
-Dock.HAULPANEL_BOTTOM = Dock.RESERVE + Dock.GAP
+-- RIGHT ABOVE THE HOTBAR, on request. Its bottom edge sits one GAP above the bag-count
+-- line (which is itself one GAP above the hotbar), so the whole hotbar cluster stays
+-- visible underneath and the panel drops as low as it possibly can without covering it.
+--
+-- This is a deliberate reversal of the old "clear the entire dock" placement
+-- (RESERVE + GAP). The panel now overlays the instrument band's vertical space — but
+-- that band is the meter / cash / index column, which is LEFT-anchored, while this
+-- panel is centred: on a 16:9 viewport the two never touch. On a very narrow one the
+-- panel's left edge tucks behind the meter, which has the higher DisplayOrder (100 vs
+-- DetectorHud's 60) and stays readable on top. Anchored off the hotbar rather than a
+-- screen fraction for the same reason everything else here is: a fraction that looked
+-- right at 1080p collided with the dock on shorter viewports.
+Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace

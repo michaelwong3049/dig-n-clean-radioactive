@@ -34,6 +34,7 @@ local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
+local WashService = require(script.Parent.WashService)
 local StageService = require(script.Parent.StageService)
 -- Read ONLY for DigService.isLocked, below. The direction is safe: DigService requires
 -- DataService and StageService but never this file, so there is no cycle. It is also
@@ -232,7 +233,10 @@ end
 
 -- ── Blackout ───────────────────────────────────────────────────────────
 
---- Where a blacked-out player wakes up.
+--- Where a blacked-out player wakes up — and, since the top-of-screen warp bar,
+--- where "SHOPS" drops you too (WarpService). It is the one shared answer to "where
+--- do you land when you leave the field": the RespawnAnchor in the plaza aisle
+--- between the stalls and the Outfitter.
 ---
 --- This used to be FindFirstChildWhichIsA("SpawnLocation") — which searches DIRECT
 --- CHILDREN OF WORKSPACE ONLY. BaseCamp parents its spawn inside the camp model, so
@@ -247,7 +251,7 @@ end
 --- you come round already being flushed — a relief beat instead of a punishment one.
 local warnedNoAnchor = false
 
-local function baseCampCFrame(): CFrame
+function ExposureService.baseCampCFrame(): CFrame
 	local anchor = Workspace:FindFirstChild("RespawnAnchor", true)
 	if anchor and anchor:IsA("BasePart") then
 		return anchor.CFrame + Vector3.new(0, 4, 0)
@@ -282,7 +286,7 @@ local function blackout(player: Player, state: State, cause: string)
 	state.survivableRatchet = nil
 
 	if root and root:IsA("BasePart") then
-		root.CFrame = baseCampCFrame()
+		root.CFrame = ExposureService.baseCampCFrame()
 	end
 
 	blackoutRemote:FireClient(player, { cause = cause, itemsDropped = lost })
@@ -326,20 +330,23 @@ local function stepPlayer(player: Player, dt: number)
 	-- reason a new tier is in your hands within a third of a second with no event.
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
-		-- LOCKED ON == ROOTED. Committing to a haul plants your feet (see DigService's
-		-- header), and this line is where that actually happens, because this loop is
-		-- the ONLY thing in the game allowed to write WalkSpeed. DigService cannot root
-		-- the player itself: whatever it wrote would be overwritten right here on the
-		-- very next tick, 100ms later.
+		-- LOCKED ON, OR WASHING == ROOTED. Two independent features each need to plant
+		-- the player's feet -- DigService's haul lock (see its own header: committing
+		-- to a haul plants your feet) and WashService's session (you are standing at a
+		-- tub aiming a hose in third person; walking off mid-spray would drag the
+		-- camera anchor with you) -- and this loop is the ONLY thing in the game
+		-- allowed to write WalkSpeed, so both read from here rather than fighting over
+		-- it on alternating ticks.
 		--
 		-- Jump goes to zero with it, or "rooted" means standing still and hopping off
-		-- the signal anyway.
+		-- the signal (or out of the wash) anyway.
 		--
-		-- The safety of this rests entirely on DigService releasing the lock on every
-		-- path that can invalidate it -- including blacking out, which teleports the
-		-- player out of the stage without killing them. That list is enumerated on
-		-- releaseLock; a lock that is never released is a player who can never move.
-		if DigService.isLocked(player) then
+		-- The safety of this rests entirely on DigService/WashService releasing their
+		-- lock on every path that can invalidate it -- including blacking out, which
+		-- teleports the player out of the stage without killing them. That list is
+		-- enumerated on releaseLock/finish; a lock that is never released is a player
+		-- who can never move.
+		if DigService.isLocked(player) or WashService.isWashing(player) then
 			humanoid.WalkSpeed = 0
 			humanoid.JumpPower = 0
 			humanoid.JumpHeight = 0

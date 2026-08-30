@@ -38,6 +38,7 @@ local Gear = require(Shared.Config.Gear)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Decay = require(Shared.Decay)
+local Liquids = require(Shared.Config.Liquids)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
@@ -49,6 +50,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local CarryService = {}
 
 local carryRemote: any = nil
+local holdRemote: any = nil
 local lastSignature: { [Player]: string } = {}
 
 --- The cheapest cleaner that can shift a patch of this hardness. Lives here rather
@@ -74,7 +76,30 @@ function CarryService.describe(item: any, stats: any): any
 	local patches = item.patches or {}
 	local value, clean = EconomyService.valueOf(item, stats)
 	local _, condition = Decay.conditionOf(item, stats.satchelFuseMult)
-	local blocked = Contamination.blockedBy(patches, stats.cleanPotency)
+
+	-- TWO GATES, ASKED SEPARATELY, because the card has to answer two questions that
+	-- stopped having the same answer when Config/Liquids landed:
+	--
+	--   blocked        against effectivePotency -- "can I clean this RIGHT NOW", which
+	--                  is what the CLEAN button has to be honest about. A card that
+	--                  says NEEDS CHEM BATH over an item the loaded Molten Lava can
+	--                  crack is a card lying to the player about their own inventory.
+	--   blockedByTool  against cleanPotency -- "would this still be blocked once the
+	--                  canister runs out". This is what `needs` is named from and
+	--                  what the Quarantine Locker shops against, because a shopping
+	--                  list written against a rented key is worthless.
+	--
+	-- When they disagree, the liquid is the only reason this item is cleanable, and
+	-- `unlockedByLiquid` says so out loud so the UI can credit it rather than letting
+	-- the player think their cleaner quietly got better.
+	local blocked = Contamination.blockedBy(patches, stats.effectivePotency)
+	local blockedByTool = Contamination.blockedBy(patches, stats.cleanPotency)
+	local unlockedByLiquid = blocked == nil and blockedByTool ~= nil
+
+	-- The cheapest liquid that would close the gap, when one exists at all. nil once
+	-- the shortfall is past Liquids.MAX_POTENCY_BONUS, which is the honest answer:
+	-- past that point no roll saves you and only the Cleaner track will.
+	local rescue = if blocked then Liquids.cheapestWithPotency(blocked - stats.cleanPotency) else nil
 
 	-- What this item would earn per second on a pedestal, IF you displayed it —
 	-- undamped, since ExhibitService's duplicate-copy damping depends on what
@@ -99,12 +124,43 @@ function CarryService.describe(item: any, stats: any): any
 		clean = clean,
 		blockedBy = blocked,
 		needs = if blocked then CarryService.cleanerNameFor(blocked) else nil,
+		unlockedByLiquid = unlockedByLiquid,
+		rescueLiquid = if rescue then rescue.name else nil,
 		value = value,
 		perSecond = perSecond,
 		condition = condition.name,
 		elapsed = item.elapsed,
 		frozen = item.frozen,
 	}
+end
+
+--- Put a carried item in the player's hands, or empty them.
+---
+--- Lives here rather than in ToolService because this file already owns "what is in
+--- your bag and what state it is in", and holding is a property of the bag, not of
+--- the models ToolService welds. ToolService READS heldUid and renders it; it does
+--- not decide it.
+function CarryService.hold(player: Player, uid: string?): boolean
+	local data = DataService.data(player)
+	if data == nil then
+		return false
+	end
+
+	if uid == nil or uid == "" then
+		data.heldUid = ""
+		return true
+	end
+
+	-- Only out of the BAG. The Quarantine Locker is a shelf, not a pocket: racking is
+	-- how you put something down, and being able to pull a racked item back into your
+	-- hands would quietly undo that.
+	for _, item in data.carry do
+		if item.uid == uid then
+			data.heldUid = uid
+			return true
+		end
+	end
+	return false
 end
 
 --- What has to change before the client is told anything. A bag sitting still costs
@@ -120,6 +176,12 @@ end
 ---   frozen     — docking and the locker stop the clock without touching anything else
 ---   #patches   — a scrub removes them one at a time; `clean` only flips at the end
 ---   blockedBy  — buying a better cleaner unblocks an item with no change to patches
+---   unlockedByLiquid / rescueLiquid
+---              — loading, spending or running out of a liquid (Config/Liquids)
+---                moves BOTH of these with nothing about the item itself changing.
+---                `blockedBy` alone does not cover it: swapping Molten Lava for
+---                Nano-Foam leaves an already-unblocked item unblocked while the
+---                rescue name on the card changes underneath it.
 ---   perSecond  — depends on stats.yieldMultiplier, which the Index completion bonus
 ---                (DigService.grantStageCompletionBonus) can change mid-session with
 ---                nothing else about the item itself moving
@@ -128,7 +190,7 @@ local function signatureOf(described: { any }, capacity: number): string
 	for _, item in described do
 		table.insert(
 			parts,
-			`{item.uid}:{item.condition}:{item.value}:{item.perSecond}:{tostring(item.clean)}:{tostring(item.frozen)}:{#item.patches}:{tostring(item.blockedBy)}`
+			`{item.uid}:{item.condition}:{item.value}:{item.perSecond}:{tostring(item.clean)}:{tostring(item.frozen)}:{#item.patches}:{tostring(item.blockedBy)}:{tostring(item.unlockedByLiquid)}:{tostring(item.rescueLiquid)}`
 		)
 	end
 	return table.concat(parts, "|")
@@ -138,6 +200,15 @@ local function stepPlayer(player: Player)
 	local data = DataService.data(player)
 	if data == nil then
 		return
+	end
+
+	-- SELF-HEALING RATHER THAN SIX CALL SITES. An item can leave the bag by being
+	-- sold, racked, slagged, or dropped on blackout, and each of those lives in a
+	-- different service. Patching all four to clear heldUid is four chances to forget
+	-- and one stale weld left in the player's hand; checking it here, where the bag is
+	-- already being walked every tick, cannot be forgotten.
+	if data.heldUid ~= "" and EconomyService.find(data, data.heldUid) == nil then
+		data.heldUid = ""
 	end
 
 	local stats = StatResolver.get(data)
@@ -166,9 +237,16 @@ end
 
 function CarryService.init()
 	carryRemote = Net.get("CarryState")
+	holdRemote = Net.get("HoldInput")
 end
 
 function CarryService.start()
+	holdRemote.OnServerEvent:Connect(function(player: Player, uid: any)
+		-- tostring(nil) is "nil", not nil, so guard the type rather than coercing:
+		-- an empty-hands request has to be expressible, and it is `nil` or "".
+		CarryService.hold(player, if type(uid) == "string" then uid else nil)
+	end)
+
 	Ticker.every(Tuning.TICK_RATE, function()
 		for _, player in Players:GetPlayers() do
 			local ok, err = pcall(stepPlayer, player)

@@ -24,7 +24,7 @@
 	directions, so the tag can never silently drift out of sync with the world.
 
 	THE WORLD CONTRACT (see ARCHITECTURE.md):
-	    StationKind = "trader" | "decon" | "shop" | "plot" | "pedestal"
+	    StationKind = "trader" | "decon" | "shop" | "pedestal" | "roller"
 	    StationId   = optional discriminator within a kind ("Detector", "3:2", ...)
 	    Radius      = studs, default 12
 

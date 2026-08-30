@@ -34,7 +34,11 @@ local Dock = UIKit.Dock
 
 local Index = {}
 
-local BUTTON_SIZE = 72
+-- Dock.INDEX_SIZE, not a local number: LiquidController stacks its badge directly on
+-- top of this button, and a second file deriving its offset from this file's private
+-- constant is the exact coupling UIKit.Dock exists to prevent. Same migration
+-- CashController's own header describes for CASH_SIZE.
+local BUTTON_SIZE = Dock.INDEX_SIZE
 
 local discovered: { [string]: boolean } = {}
 local totalItems = #Items.DEFS
