@@ -398,19 +398,20 @@ function Spec.run(): boolean
 		local hi = Gear.tier("Detector", Gear.maxTier("Detector")).radius
 		local slow = Stages.secondsBetweenContacts(field, lo, walk, Tuning.SIGNALS_PER_STAGE)
 		local fast = Stages.secondsBetweenContacts(field, hi, walk, Tuning.SIGNALS_PER_STAGE)
-		-- BANDS RE-FITTED TO THE UNIFORM-LENGTH PASS (Config/Stages header). Every
-		-- stage is 400 x 200 = 80,000 studs, and SIGNALS_PER_STAGE tracks that area so
-		-- `area / N` = 1066.67 -- the starting detector turns up a contact roughly
-		-- every 2s of walking and a maxed one almost continuously. Denser than the old
-		-- targets (3-12s / >=2s), and that is the accepted cost of uniform stages with
-		-- no dead walking -- so the floors came down rather than the geometry being
-		-- bent to hold them. These bands did NOT move when the 240 -> 200 width pass
-		-- landed: `area / N` was held, so `slow` and `fast` are unchanged to the digit.
-		-- What else did NOT move: this must still be a WALK, not a stand-still (slow
-		-- floor > 0), and the reveal curve must stay FLAT end to end -- that ratio
-		-- guard is area-independent and is the real check against "fixing" the
-		-- Detector track's payoff by widening radius (see Config/Gear's header). Move
-		-- this band only via the FOOTPRINT_Z / SIGNALS_PER_STAGE pair, keeping the ratio.
+		-- BANDS RE-FITTED TO THE UNIFORM-LENGTH PASS (Config/Stages header), then left
+		-- alone through two footprint moves because the numbers stayed inside them.
+		-- Every stage is 340 x 170 = 57,800 studs; SIGNALS_PER_STAGE is 75, so
+		-- `area / N` = 770.67 -- the starting detector turns up a contact about every
+		-- 1.5s of walking (slow) and a maxed one about every 0.57s (fast). Denser than
+		-- the old targets (3-12s / >=2s) and denser again since the 15% pass held N
+		-- while the area shrank; that is the accepted cost of small stages with the
+		-- signal count left alone. The 240 -> 200 width pass held `area / N` so slow
+		-- and fast did not move at all; the 15% pass dropped it to 0.7225x, so both
+		-- came down by that factor and still clear these floors. What must NEVER move:
+		-- this stays a WALK not a stand-still (slow floor > 0), and the reveal curve
+		-- stays FLAT end to end -- that ratio guard is area-independent and is the real
+		-- check against "fixing" the Detector track's payoff by widening radius (see
+		-- Config/Gear's header). Retarget via SIGNALS_PER_STAGE.
 		check(string.format("§2.1 starting detector walks %.1fs between contacts (want 1.2-5)", slow), slow >= 1.2 and slow <= 5)
 		check(string.format("§2.1 a maxed detector still has a beat between contacts: %.2fs (want >= 0.4)", fast), fast >= 0.4)
 		check(string.format("§2.1 the reveal curve stays flat: %.1fx end to end (want <= 4)", slow / fast), slow / fast <= 4)
@@ -479,12 +480,11 @@ function Spec.run(): boolean
 	-- density on its own and the field quietly starts holding twice the jackpots,
 	-- which is invisible in play until the economy is already ruined.
 	--
-	-- BAND FLOOR DROPPED 1.8 -> 1.7 WITH THE 240 -> 200 WIDTH PASS. That pass took
-	-- SIGNALS_PER_STAGE 90 -> 75 in step with the area, so per-dig rarity odds and the
-	-- per-second rate of Rare+ are both unchanged -- but the smaller field holds
-	-- proportionally fewer signals buried at once, so this SNAPSHOT count drops
-	-- ~2.25 -> ~1.87 with no change a player can feel. The floor moved to match rather
-	-- than pretend an 80,000-stud field buries as many jackpots as a 96,000 one did.
+	-- BAND FLOOR DROPPED 1.8 -> 1.7 WITH THE 240 -> 200 WIDTH PASS (that pass took
+	-- SIGNALS_PER_STAGE 90 -> 75 in step with the area, dropping this SNAPSHOT count
+	-- ~2.25 -> ~1.87). The later 15% footprint pass did NOT move it again: it held N
+	-- at 75, and this count is `N * share` -- area does not enter it -- so it is still
+	-- ~1.87. The smaller field just buries those same ~1.87 jackpots in less dirt.
 	--
 	-- This assertion is about the STARTER field: Stage 1's own single loot table is
 	-- what a new player rolls against. Stages 4, 5 and 6 have their own tables and

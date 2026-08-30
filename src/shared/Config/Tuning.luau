@@ -105,30 +105,34 @@ Tuning.FREEZE_ON_LOGOUT = true
 -- contain it. Shared/Util/Spec now checks the two against each other, and it can
 -- only do that if both are data.
 --
--- SIGNALS_PER_STAGE is GLOBAL -- one number for every stage -- but it is NOT free of
--- stage area: it is kept PROPORTIONAL to the uniform footprint by hand, so that
--- `area / SIGNALS_PER_STAGE` stays fixed at 1066.67. Every search metric in
--- Config/Stages (secondsBetweenContacts, coverage, meanSignalGap) is a function of
--- that ratio alone, so holding it means the search feels identical no matter how big
--- the footprint is. It was 96,000 / 90; the chain narrowed to 400 x 200 and it
--- became 80,000 / 75, same ratio, same feel.
+-- SIGNALS_PER_STAGE is GLOBAL -- one number for every stage. It USED to be kept
+-- proportional to the uniform footprint by hand, so `area / SIGNALS_PER_STAGE`
+-- stayed fixed at 1066.67 and the search felt identical no matter the footprint
+-- size. It was 96,000 / 90; the 240 -> 200 width pass took it to 80,000 / 75, same
+-- ratio, same feel.
+--
+-- THEN THE 15% PASS (footprint 400x200 -> 340x170) LEFT N AT 75, ON REQUEST. `area
+-- / N` fell 1066.67 -> 770.67, so the search is ~28% denser than it was: the
+-- starting detector turns up a contact about every 1.4s now (was ~2.0s). Every
+-- search metric in Config/Stages (secondsBetweenContacts, coverage, meanSignalGap)
+-- moved with that one ratio.
 --
 -- WENT 45 -> 90 WHEN THE REVEAL LANDED (the reveal answers nothing outside your
 -- radius, so 45 read as dead ground), THEN 90 -> 75 WITH THE 240 -> 200 WIDTH PASS.
--- Only the first move changed the search density; the second held it.
+-- The 45->90 move changed search density; the 90->75 held it; the 15% pass changed
+-- it again by holding N while the area shrank.
 --
 -- THE LOOT TABLES WERE RE-WEIGHTED WITH THE 45 -> 90 MOVE AND THAT PART CANNOT BE
 -- UNDONE HERE. Raising density raised the rate of EVERYTHING, Legendaries included,
 -- so every weight at Rare and above was halved to cancel it and the freed share went
--- to Scrap/Common. The 90 -> 75 move did NOT touch loot: per-dig rarity odds come
--- from the table weights alone, and holding `area / N` holds the dig rate, so the
--- per-second rate of every rarity is already unchanged.
+-- to Scrap/Common. Neither the 90 -> 75 move nor the 15% pass touched loot: N itself
+-- did not change across those two, so per-dig odds AND the count of jackpots buried
+-- at once are both unchanged -- only the walk between digs got shorter.
 --
--- RULE: change this number ONLY together with FOOTPRINT_Z in Config/Stages, keeping
--- `area / SIGNALS_PER_STAGE` at 1066.67. Change it alone (without a footprint move)
--- and you have re-scaled search density, which means re-weighting the loot tables
--- too -- Shared/Util/Spec pins "the field holds ~1.9 Rare-or-better signals" and
--- will fail if the two drift apart.
+-- RULE: this is now the sole search-density knob. Raise it and you re-scale density
+-- (and must re-weight the loot tables -- Shared/Util/Spec pins "the field holds
+-- ~1.9 Rare-or-better signals" on N alone and will fail if the two drift apart);
+-- lower it to walk `area / N` back up toward where the search feel used to sit.
 Tuning.SIGNALS_PER_STAGE = 75
 Tuning.DIG_RADIUS = 5 -- studs you must be within to get a magnet onto a signal
 Tuning.DIG_DEPTH_BASE = 1.0
