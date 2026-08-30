@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 15
+local BUILDER_VERSION = 16
 
 local C, R = Kit.C, Kit.R
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -115,7 +115,7 @@ local BUSH_CENTRE_CLEARANCE = 28
 
 --- Dead wood, for `deadTree`. Darker and greyer than Kit.C.wood (5A4630, which is the
 --- warm living-wood brown the camp and the liveTree use) -- these are bark that has
---- had the colour weathered out of it. Builder-local, same as WALL_DARK/WALL_LIGHT:
+--- had the colour weathered out of it. Builder-local, same as WALL_BROWN_DARK/LIGHT:
 --- nothing outside this file's trees needs them. Roughly one segment in four takes the
 --- darker tone so the flat facets read against each other (the trick foliageBlob uses).
 local DEAD_WOOD = "4A3A29"
@@ -137,12 +137,35 @@ local BUSH_GREEN_DARK = "4C9029"
 local WALL_HEIGHT = 56
 local WALL_THICKNESS = 4
 local WALL_TILE = 4
-local WALL_DARK = "B5573A" -- rust
-local WALL_LIGHT = "9C4A2F" -- a close, subtly darker rust variant -- NOT the first
--- pass's salmon-tan, which read as too bold a two-tone checker up close. One
--- uniform palette for the whole chain either way, deliberately not tinted per
--- stage -- an engineered containment barrier reads as one consistent material, not
--- something that shares each stage's own theme.
+-- The camp / Stage 1 pair. A warm terracotta brown; the two sit ~8% apart per
+-- channel on purpose -- close enough that the checker reads as one brown material
+-- with a faint grid, not a two-tone pattern (the original rust pair, B5573A/9C4A2F,
+-- read as too bold up close).
+local WALL_BROWN_DARK = "8D4B2B"
+local WALL_BROWN_LIGHT = "9B5331"
+
+-- PER-STAGE WALL COLOUR. The chain used to wear ONE uniform rust its whole length,
+-- on the principle that an engineered containment barrier reads as one consistent
+-- material rather than sharing each stage's theme. OVERRIDDEN ON REQUEST: the wall
+-- now shifts colour with the stage behind it, so walking deeper reads on the
+-- boundary too. The camp wall (buildBaseWalls) and Stage 1 keep the brown above.
+--
+-- A stage's wall is either HAND-PICKED (WALL_STAGE_PIN below) or DERIVED as a
+-- lighter tint of that stage's own floor colour (Stages def.color): same hue,
+-- lifted this fraction of the way to full brightness and slightly desaturated, so
+-- the wall reads as "the floor, but paler" standing over it. Either way twoTone()
+-- splits the result into the close two-shade checker. See wallPair / lighterFloor.
+local WALL_FLOOR_LIFT = 0.5 -- fraction of the value headroom (1 - v) to add
+local WALL_FLOOR_DESAT = 0.8 -- saturation multiplier
+
+-- Hand-picked stage walls, keyed by stage id. A pinned stage ignores the
+-- lighter-floor derivation entirely; the hex here is the checker's MIDPOINT, same
+-- as twoTone treats every other input. Anything not listed is derived.
+local WALL_STAGE_PIN: { [number]: string } = {
+	[2] = "CD8C44", -- warm amber-gold, on request
+	[5] = "EF9DB2", -- rose pink -- the floor's already near-white, so this holds chroma instead of lightening
+	[6] = "946DC6", -- light amethyst -- the floor tinted toward white, staying violet rather than the derived blurple
+}
 
 --- The boundary lines. A flat hazard-checker strip laid across the full width of the
 --- camp -> Stage 1 entrance AND every internal stage-to-stage seam (Stage 1/2
@@ -169,9 +192,44 @@ local BORDER_BLACK = C.hazardBlack
 --- log-space (0.937x / 1.068x) so the input colour is recoverable as roughly the
 --- average of what comes out -- used so every waypoint below stays anchored to an
 --- ALREADY-SHIPPED colour (a stage's own single `color`) rather than a new palette.
+local function twoToneOf(c: Color3): (Color3, Color3)
+	-- clamp: the 1.068x lightening can push a near-white input (Stage 5's pink) past
+	-- 1.0, which :ToHex() would otherwise clamp with a console warning on every build.
+	local function ch(v: number): number
+		return math.clamp(v, 0, 1)
+	end
+	return Color3.new(ch(c.R * 0.937), ch(c.G * 0.937), ch(c.B * 0.937)),
+		Color3.new(ch(c.R * 1.068), ch(c.G * 1.068), ch(c.B * 1.068))
+end
 local function twoTone(hex: string): (Color3, Color3)
-	local c = Color3.fromHex(hex)
-	return Color3.new(c.R * 0.937, c.G * 0.937, c.B * 0.937), Color3.new(c.R * 1.068, c.G * 1.068, c.B * 1.068)
+	return twoToneOf(Color3.fromHex(hex))
+end
+
+--- A lighter tint of a stage's floor colour: same hue, value lifted toward 1 and
+--- saturation eased off, so the wall reads as the floor gone pale rather than as a
+--- new colour. Stage 4's floor (near-black brown) lifts to a mid clay; Stage 5's
+--- (already near-white pink) barely moves, which is correct -- there is little
+--- "lighter" left to go.
+local function lighterFloor(hex: string): Color3
+	local h, s, v = Color3.fromHex(hex):ToHSV()
+	return Color3.fromHSV(h, s * WALL_FLOOR_DESAT, v + (1 - v) * WALL_FLOOR_LIFT)
+end
+
+--- The (dark, light) hex pair for one stage's stretch of boundary wall. Stage 1 and
+--- anything not a stage (id 1 is the fallback) stay the camp brown; a pinned stage
+--- uses its hand-picked colour; every other stage is a lighterFloor() tint of its
+--- own floor. All three paths end in the same close two-tone split every
+--- checkerboard in this file uses.
+local function wallPair(id: number): (string, string)
+	if id == 1 then
+		return WALL_BROWN_DARK, WALL_BROWN_LIGHT
+	end
+
+	local pin = WALL_STAGE_PIN[id]
+	local mid = if pin then Color3.fromHex(pin) else lighterFloor(Stages.get(id).color)
+
+	local darkC, lightC = twoToneOf(mid)
+	return darkC:ToHex(), lightC:ToHex()
 end
 
 --- WHAT USED TO BE HERE: `buildStageBlend`, `oozeInset`, `STAGE_BLEND(S)`. The
@@ -1188,7 +1246,11 @@ end
 --- is whichever side face actually points back toward the chain on an unrotated
 --- part -- "BackSurface" (+Z) for the north wall, "FrontSurface" (-Z) for the south
 --- wall -- so the studs render on the side a player can actually see.
-local function buildWall(parent: Instance, name: string, minX: number, maxX: number, atZ: number, faceProperty: string)
+---
+--- `pairAt(x)` returns the (dark, light) hex pair for a column centred at world X --
+--- this is what carries the per-stage colour along the wall. Columns are 4 studs and
+--- every stage seam lands on a multiple of that, so no column straddles two stages.
+local function buildWall(parent: Instance, name: string, minX: number, maxX: number, atZ: number, faceProperty: string, pairAt: (number) -> (string, string))
 	local baseY = Stages.SURFACE_Y
 	local cols = math.ceil((maxX - minX) / WALL_TILE)
 	local rows = math.ceil(WALL_HEIGHT / WALL_TILE)
@@ -1200,6 +1262,8 @@ local function buildWall(parent: Instance, name: string, minX: number, maxX: num
 		if w <= 1e-3 then
 			continue
 		end
+
+		local darkHex, lightHex = pairAt((x0 + x1) / 2)
 
 		for iy = 0, rows - 1 do
 			local y0 = baseY + iy * WALL_TILE
@@ -1213,7 +1277,7 @@ local function buildWall(parent: Instance, name: string, minX: number, maxX: num
 				name = name,
 				pos = { (x0 + x1) / 2, (y0 + y1) / 2, atZ },
 				size = { w, h, WALL_THICKNESS },
-				color = if (ix + iy) % 2 == 0 then WALL_DARK else WALL_LIGHT,
+				color = if (ix + iy) % 2 == 0 then darkHex else lightHex,
 				material = "Plastic", -- studs only render on Plastic, per Hub.tileRect's note
 				canCollide = true, -- see the header: the one deliberate exception in this file
 			});
@@ -1240,8 +1304,23 @@ local function buildBoundaryWalls(parent: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "BoundaryWalls"
 
-	buildWall(folder, "NorthWall", minX, maxX, minZ - WALL_THICKNESS / 2, "BackSurface")
-	buildWall(folder, "SouthWall", minX, maxX, maxZ + WALL_THICKNESS / 2, "FrontSurface")
+	-- West-to-east stage list, so a column's X resolves to the stage behind it.
+	local ids = table.clone(Stages.builtIds())
+	table.sort(ids, function(a, b)
+		return Stages.get(a).center[1] < Stages.get(b).center[1]
+	end)
+	local function pairAt(x: number): (string, string)
+		for _, id in ids do
+			local _, _, bx = Stages.bounds(id)
+			if x < bx then
+				return wallPair(id)
+			end
+		end
+		return wallPair(ids[#ids])
+	end
+
+	buildWall(folder, "NorthWall", minX, maxX, minZ - WALL_THICKNESS / 2, "BackSurface", pairAt)
+	buildWall(folder, "SouthWall", minX, maxX, maxZ + WALL_THICKNESS / 2, "FrontSurface", pairAt)
 
 	folder.Parent = parent
 end
@@ -1279,7 +1358,7 @@ local function buildShoulderWall(parent: Instance, name: string, atX: number, mi
 				name = name,
 				pos = { atX, (y0 + y1) / 2, (z0 + z1) / 2 },
 				size = { WALL_THICKNESS, h, d },
-				color = if (iz + iy) % 2 == 0 then WALL_DARK else WALL_LIGHT,
+				color = if (iz + iy) % 2 == 0 then WALL_BROWN_DARK else WALL_BROWN_LIGHT,
 				material = "Plastic", -- studs only render on Plastic, per Hub.tileRect's note
 				canCollide = true,
 			});
@@ -1388,7 +1467,7 @@ local function buildBaseWalls(parent: Instance)
 				name = "ArcWall",
 				pos = { 0, (y0 + y1) / 2, 0 },
 				size = { chord, h, WALL_THICKNESS },
-				color = if (ix + iy) % 2 == 0 then WALL_DARK else WALL_LIGHT,
+				color = if (ix + iy) % 2 == 0 then WALL_BROWN_DARK else WALL_BROWN_LIGHT,
 				material = "Plastic",
 				canCollide = true,
 			});
