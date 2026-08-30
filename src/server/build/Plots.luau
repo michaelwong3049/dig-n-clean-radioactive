@@ -109,6 +109,8 @@
 	    ClaimBoard  StationKind = "plot",     StationId = "<n>",        Radius = 10
 	    Stand       StationKind = "pedestal", StationId = "<n>:<slot>", Radius = 7
 	                PlotIndex = n, SlotIndex = s, Locked = true|false
+	                — the base course of the display plinth (StandTop / StandRim /
+	                Display are the rest of it); see buildDisplayStand.
 	    PlotSpawn   SpawnLocation, Enabled = false until the plot is claimed
 	    Basin       StationKind = "decon", Shower = true, Radius = 9 — the cleansing
 	                station (see buildCleansingStation below). One per base, replacing
@@ -129,7 +131,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 15
+local BUILDER_VERSION = 16
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -347,6 +349,113 @@ local function slotOffset(slot: number): (number, number)
 	return x, z
 end
 
+--- THE DISPLAY STAND — a low two-course studded riser, on request, replacing the
+--- tall marble-and-slate column this used to be. The reference is a wide shallow
+--- plinth: a broad base course, a slightly inset top course stacked on it, and a
+--- raised lip framing a recessed panel the item rests in. Grey studded plastic —
+--- `studs = true` forces Material.Plastic and stud-textures every face (see
+--- Kit.build), and the greys are Kit.C.standGrey* (mid neutral grey, the one
+--- built-not-poured grey object on an otherwise navy-tiled base).
+---
+--- THE BASE COURSE IS THE STATION PART. It keeps the `Stand{slot}` name and every
+--- attribute the world contract (this file's header) publishes. Detection is
+--- radius-based off the part CENTRE (StationService, Radius = 7), so dropping that
+--- centre from pad.topY + 2 to pad.topY + ~0.5 costs nothing — a player at the
+--- plinth sits ~2.5 studs away in Y against a 7-stud reach.
+---
+--- RISER_SURFACE is the pad-local height of the top course's top face — where the
+--- item sits and where ExhibitService pivots a displayed model to. `Display{slot}`
+--- rides 1 stud above it, keeping the same item-to-surface gap the old column had
+--- (its top was pad.topY + 4, the item pivoted 0.28 above that).
+local RISER_BASE = { w = 4.8, h = 0.9 }
+local RISER_TOP = { w = 3.9, h = 0.7 }
+local RISER_RIM = { h = 0.22, thickness = 0.5 } -- the raised frame around the recessed panel
+local RISER_SURFACE = RISER_BASE.h + RISER_TOP.h
+
+local function buildDisplayStand(parent: Instance, origin: CFrame, index: number, slot: number, accent: string)
+	local pad = Plots.PAD
+	local ox, oz = slotOffset(slot)
+	local locked = slot > Tuning.EXHIBIT_STARTING_SLOTS
+	local dim = if locked then 0.45 else 0
+	-- Locked: the whole stack goes flat dark-grey and half-transparent, the same
+	-- "you can see what you're saving for" read the old capped-and-dim column had.
+	-- Unlocked: base course darker than the top course and its frame, so the two
+	-- courses read as lit from above.
+	local topGrey = if locked then C.standGreyDark else C.standGrey
+
+	local base = build(parent, origin, {
+		name = `Stand{slot}`,
+		pos = { ox, pad.topY + RISER_BASE.h / 2, oz },
+		size = { RISER_BASE.w, RISER_BASE.h, RISER_BASE.w },
+		color = C.standGreyDark,
+		material = "Plastic",
+		studs = true,
+		transparency = dim,
+		attributes = {
+			StationKind = "pedestal",
+			StationId = `{index}:{slot}`,
+			PlotIndex = index,
+			SlotIndex = slot,
+			Locked = locked,
+			Radius = 7,
+		},
+	})
+
+	build(parent, origin, {
+		name = `StandTop{slot}`,
+		pos = { ox, pad.topY + RISER_BASE.h + RISER_TOP.h / 2, oz },
+		size = { RISER_TOP.w, RISER_TOP.h, RISER_TOP.w },
+		color = topGrey,
+		material = "Plastic",
+		studs = true,
+		transparency = dim,
+	})
+
+	-- Four bars proud of the top course, framing the recessed panel — the routed
+	-- border the reference plinth has. CanCollide off so nothing catches on them.
+	local frameHalf = RISER_TOP.w / 2 - RISER_RIM.thickness / 2
+	local sideLen = RISER_TOP.w - 2 * RISER_RIM.thickness
+	for _, bar in {
+		{ dx = 0, dz = -frameHalf, sx = RISER_TOP.w, sz = RISER_RIM.thickness },
+		{ dx = 0, dz = frameHalf, sx = RISER_TOP.w, sz = RISER_RIM.thickness },
+		{ dx = -frameHalf, dz = 0, sx = RISER_RIM.thickness, sz = sideLen },
+		{ dx = frameHalf, dz = 0, sx = RISER_RIM.thickness, sz = sideLen },
+	} do
+		build(parent, origin, {
+			name = `StandRim{slot}`,
+			pos = { ox + bar.dx, pad.topY + RISER_SURFACE + RISER_RIM.h / 2, oz + bar.dz },
+			size = { bar.sx, RISER_RIM.h, bar.sz },
+			color = topGrey,
+			material = "Plastic",
+			studs = true,
+			transparency = dim,
+			canCollide = false,
+		})
+	end
+
+	-- The item sits on the panel. Transparent while the slot is empty; ExhibitService
+	-- colours it by rarity, or swaps in the real model, when something is displayed —
+	-- matching the colour the haul part used when it came out of the ground.
+	build(parent, origin, {
+		name = `Display{slot}`,
+		pos = { ox, pad.topY + RISER_SURFACE + 1, oz },
+		size = { 1.4, 1.4, 1.4 },
+		color = accent,
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+		attributes = { PlotIndex = index, SlotIndex = slot },
+	})
+
+	-- A dim WARM lift on the unlocked plinths (the old column carried an
+	-- accent-coloured PointLight here — that stained a grey plinth the plot's
+	-- accent and fought the "keep it grey" brief). Warm and low so it reads as a
+	-- gallery spot on the panel, not a coloured object; locked plinths stay unlit.
+	if not locked then
+		light(base, C.lampWarm, 6, 0.35)
+	end
+end
+
 --- The cleansing station — replaces the camp's old central Decon Station and
 --- Decon Shower with one combined stop on EVERY base, per the request. A single
 --- part carries BOTH `StationKind = "decon"` (freezes carried items' decay
@@ -494,8 +603,13 @@ local function buildPlot(parent: Instance, index: number)
 		material = "Neon",
 	})
 	Kit.surfaceText(sign, Enum.NormalId.Front, "UNCLAIMED", C.signText)
-	light(sign, accent, 22, 1.6)
-	light(wall, accent, 18, 0.8)
+	-- Dialled back from 22/1.6 and 18/0.8: the back-third accent wash was bright
+	-- enough to bounce the plot's colour onto the grey display plinths in front of
+	-- it (the Neon sign and Trim carry the "whose plot is this" cue on their own;
+	-- these lights only need to lift the nameplate and give the wall a gentle
+	-- tint, not floodlight the whole back of the pad).
+	light(sign, accent, 20, 1.0)
+	light(wall, accent, 14, 0.4)
 
 	-- The claim board: collect banked income, buy the next pedestal slot.
 	local board = build(m, origin, {
@@ -531,44 +645,9 @@ local function buildPlot(parent: Instance, index: number)
 
 	-- Only the first EXHIBIT_STARTING_SLOTS are unlocked; the rest of the visible run
 	-- is capped and dim, which is the point — you can see what you are saving for.
+	-- See buildDisplayStand for the plinth's form.
 	for slot = 1, math.min(Plots.VISIBLE_SLOTS, Tuning.EXHIBIT_MAX_SLOTS) do
-		local ox, oz = slotOffset(slot)
-		local locked = slot > Tuning.EXHIBIT_STARTING_SLOTS
-
-		local stand = build(m, origin, {
-			name = `Stand{slot}`,
-			pos = { ox, pad.topY + 2, oz },
-			size = { 2.6, 4, 2.6 },
-			color = if locked then C.plazaEdge else C.plazaWarm,
-			material = if locked then "Slate" else "Marble",
-			transparency = if locked then 0.45 else 0,
-			attributes = {
-				StationKind = "pedestal",
-				StationId = `{index}:{slot}`,
-				PlotIndex = index,
-				SlotIndex = slot,
-				Locked = locked,
-				Radius = 7,
-			},
-		})
-
-		-- The item sits here. Transparent while the slot is empty; ExhibitService
-		-- colours it by rarity when something is displayed, matching the colour the
-		-- haul part used when it came out of the ground.
-		build(m, origin, {
-			name = `Display{slot}`,
-			pos = { ox, pad.topY + 5, oz },
-			size = { 1.4, 1.4, 1.4 },
-			color = accent,
-			material = "SmoothPlastic",
-			transparency = 1,
-			canCollide = false,
-			attributes = { PlotIndex = index, SlotIndex = slot },
-		})
-
-		if not locked then
-			light(stand, accent, 8, 0.6)
-		end
+		buildDisplayStand(m, origin, index, slot, accent)
 	end
 
 	buildCleansingStation(m, origin, accent)
