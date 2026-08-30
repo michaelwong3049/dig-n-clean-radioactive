@@ -72,6 +72,15 @@ Kit.C = {
 	plazaWarm = "F2E3B8",
 	plazaEdge = "D8C79A",
 
+	-- The exhibition plinths on the plots (Plots.buildDisplayStand). Mid neutral
+	-- grey, deliberately the one grey object standing on a base that is otherwise
+	-- navy-and-grey tiles — a two-course studded riser reads as built furniture, not
+	-- poured ground. `standGreyDark` is the base course, `standGrey` the top course
+	-- and its frame, so the stack reads as lit from above. NOT a hazard channel:
+	-- never Neon, never one of the ooze greens.
+	standGrey = "A0A0A0",
+	standGreyDark = "787878",
+
 	-- ── The checkerboard, in its two palettes ────────────────────────────────
 	-- One pattern, one grid, two colour schemes: the plaza and its apron in green,
 	-- the six player bases in navy and grey, a step above it. Walking onto a base
