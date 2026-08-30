@@ -247,6 +247,24 @@ function ExhibitService.plotOf(player: Player): number?
 	return plotOf[player]
 end
 
+--- This player's assigned plot's spawn pad, or nil if they never got a plot this
+--- session (all six taken — see assign()'s trailing warn). assign() and release()
+--- already resolve this exact part this exact way; the top-of-screen warp bar's
+--- "BASE" button (WarpService) is the fourth reader, so the lookup lives here in the
+--- service that owns plot assignment rather than being reached for by string path
+--- from outside.
+function ExhibitService.plotSpawn(player: Player): SpawnLocation?
+	local index = plotOf[player]
+	if index == nil then
+		return nil
+	end
+	local plot = plotModel(index)
+	if plot == nil then
+		return nil
+	end
+	return plot:FindFirstChild("PlotSpawn", true) :: SpawnLocation?
+end
+
 --- Re-mirror `data.locker` onto this player's plot cabinet. Called by DeconService
 --- after a rack or a (dirty-)sell, since those are the only two things that move
 --- an item in or out of the locker. No-op if the player has no plot this session.

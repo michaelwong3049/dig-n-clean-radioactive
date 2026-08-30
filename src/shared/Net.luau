@@ -69,6 +69,14 @@ local REMOTES: { [string]: string } = {
 	-- spend, award, or a debug /cash) plus once on load -- not per tick, since cash
 	-- moves far less often than exposure does.
 	CashState = "RemoteEvent", -- server -> client, on change
+
+	-- The top-of-screen "getting around" bar (client WarpController). The client
+	-- sends only a destination NAME -- { dest = "base" | "shops" } -- never a
+	-- position, and WarpService re-derives the CFrame server-side, exactly the way
+	-- DigService re-derives which signal a yank means. It is REFUSED from inside a
+	-- stage (StageService.stageOf ~= nil) so it can never be an escape hatch out of a
+	-- lethal field; the bar hides itself there too, so that path is edge-only.
+	Warp = "RemoteEvent", -- client -> server, { dest = "base" | "shops" }
 }
 
 local Net = {}

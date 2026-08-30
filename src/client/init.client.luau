@@ -20,6 +20,7 @@ local ORDER = {
 	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
 	"IndexController", -- the item index GUI; bottom-right button, reads IndexState + Unearthed
 	"CashController", -- the persistent cash badge; top-left, reads CashState
+	"WarpController", -- the top-of-screen BASE / SHOPS bar; reads stageId off ExposureState
 	"DebugHudController",
 }
 
