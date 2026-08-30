@@ -332,12 +332,6 @@ function DeconService.start()
 			if ok then
 				print(`[exhibit] {player.Name}: {message}`)
 			end
-		elseif request.action == "buySlot" then
-			local ok, message = ExhibitService.buySlot(player)
-			resultRemote:FireClient(player, message)
-			if ok then
-				print(`[exhibit] {player.Name}: {message}`)
-			end
 		elseif request.action == "rack" then
 			if kind ~= "decon" then
 				resultRemote:FireClient(player, "racking happens at the decon station")

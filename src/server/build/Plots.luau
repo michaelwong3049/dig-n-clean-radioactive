@@ -96,23 +96,21 @@
 	moved from the pad's back-third to right up near the back wall so it reads
 	as the "top" of the base the sketch asks for.
 
-	SLOTS: 3 UNLOCKED, 8 BUILT, 40 ADDRESSABLE.
-	Tuning.EXHIBIT_STARTING_SLOTS is 3 and EXHIBIT_MAX_SLOTS is 40; VISIBLE_SLOTS
-	is the 8 the sketch actually shows. Locked stands are the visible form of
-	Gear.pedestalPrice() (PLAN §8.5's endgame money sink) — a wish list you can
-	walk around beats a number in a menu, but you only need to SEE the next few
-	to feel that, not all thirty-seven.
+	SLOTS: 8 BUILT, ALL FREE.
+	Tuning.EXHIBIT_MAX_SLOTS is 8 and VISIBLE_SLOTS is the 8 the sketch shows —
+	they're the same number now. Every stand is usable from the moment a plot is
+	claimed; there is no slot to buy or unlock.
 
-	slotOffset is defined for every slot up to EXHIBIT_MAX_SLOTS (rows 5+ extend
-	the same two columns further out), so raising VISIBLE_SLOTS past 8 is still
-	the only change needed to show more — it just won't match the sketch's exact
-	8-stand picture once you do.
+	slotOffset is defined for slots past 8 too (rows 5+ extend the same two columns
+	further out), so raising both VISIBLE_SLOTS and EXHIBIT_MAX_SLOTS is all it
+	takes to show more — it just won't match the sketch's exact 8-stand picture
+	once you do.
 
 	THE WORLD CONTRACT:
 	    Pad         PlotIndex = n
 	    ClaimBoard  StationKind = "plot",     StationId = "<n>",        Radius = 10
 	    Stand       StationKind = "pedestal", StationId = "<n>:<slot>", Radius = 7
-	                PlotIndex = n, SlotIndex = s, Locked = true|false
+	                PlotIndex = n, SlotIndex = s
 	                — the base course of the display plinth (StandTop / StandRim /
 	                Display are the rest of it); see buildDisplayStand.
 	    PlotSpawn   SpawnLocation, Enabled = false until the plot is claimed
@@ -347,9 +345,9 @@ end
 --- Two flanking columns, paired off row by row — odd slots go left, even slots
 --- go right, and each pair shares a Z so the sketch's row-by-row symmetry holds.
 --- ROW_TOP_Z is the FIRST row, closest to the cleansing station at the back;
---- rows count DOWN from there toward the entrance. Defined for every slot up to
---- EXHIBIT_MAX_SLOTS (not just the 8 that are actually built — see the header),
---- so raising VISIBLE_SLOTS just adds more rows further toward the front.
+--- rows count DOWN from there toward the entrance. The maths works for any slot
+--- number, not just the 8 that are built — so raising VISIBLE_SLOTS (and
+--- EXHIBIT_MAX_SLOTS with it) just adds more rows further toward the front.
 local COL_X = 25
 local ROW_TOP_Z = 15
 local ROW_PITCH = 10
@@ -388,13 +386,10 @@ local RISER_SURFACE = RISER_BASE.h + RISER_TOP.h
 local function buildDisplayStand(parent: Instance, origin: CFrame, index: number, slot: number, accent: string)
 	local pad = Plots.PAD
 	local ox, oz = slotOffset(slot)
-	local locked = slot > Tuning.EXHIBIT_STARTING_SLOTS
-	local dim = if locked then 0.45 else 0
-	-- Locked: the whole stack goes flat dark-grey and half-transparent, the same
-	-- "you can see what you're saving for" read the old capped-and-dim column had.
-	-- Unlocked: base course darker than the top course and its frame, so the two
-	-- courses read as lit from above.
-	local topGrey = if locked then C.standGreyDark else C.standGrey
+	-- Every stand is usable from the start — there is no locked/dim state any more.
+	-- Base course darker than the top course and its frame, so the two courses read
+	-- as lit from above.
+	local topGrey = C.standGrey
 
 	local base = build(parent, origin, {
 		name = `Stand{slot}`,
@@ -403,13 +398,11 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 		color = C.standGreyDark,
 		material = "Plastic",
 		studs = true,
-		transparency = dim,
 		attributes = {
 			StationKind = "pedestal",
 			StationId = `{index}:{slot}`,
 			PlotIndex = index,
 			SlotIndex = slot,
-			Locked = locked,
 			Radius = 7,
 		},
 	})
@@ -421,7 +414,6 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 		color = topGrey,
 		material = "Plastic",
 		studs = true,
-		transparency = dim,
 	})
 
 	-- Four bars proud of the top course, framing the recessed panel — the routed
@@ -441,7 +433,6 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 			color = topGrey,
 			material = "Plastic",
 			studs = true,
-			transparency = dim,
 			canCollide = false,
 		})
 	end
@@ -460,13 +451,11 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 		attributes = { PlotIndex = index, SlotIndex = slot },
 	})
 
-	-- A dim WARM lift on the unlocked plinths (the old column carried an
-	-- accent-coloured PointLight here — that stained a grey plinth the plot's
-	-- accent and fought the "keep it grey" brief). Warm and low so it reads as a
-	-- gallery spot on the panel, not a coloured object; locked plinths stay unlit.
-	if not locked then
-		light(base, C.lampWarm, 6, 0.35)
-	end
+	-- A dim WARM lift on the plinth (the old column carried an accent-coloured
+	-- PointLight here — that stained a grey plinth the plot's accent and fought the
+	-- "keep it grey" brief). Warm and low so it reads as a gallery spot on the
+	-- panel, not a coloured object.
+	light(base, C.lampWarm, 6, 0.35)
 end
 
 --- The cleansing station — replaces the camp's old central Decon Station and
@@ -722,7 +711,7 @@ local function buildPlot(parent: Instance, index: number)
 	light(sign, accent, 20, 1.0)
 	light(wall, accent, 14, 0.4)
 
-	-- The claim board: collect banked income, buy the next pedestal slot.
+	-- The claim board: collect the exhibit's banked income.
 	local board = build(m, origin, {
 		name = "ClaimBoard",
 		pos = { 0, pad.topY + 2, -pad.depth / 2 + 3 },
@@ -736,7 +725,7 @@ local function buildPlot(parent: Instance, index: number)
 			Radius = 10,
 		},
 	})
-	billboard(board, 240, 4.4, `PLOT {index}`, "collect and expand", accent)
+	billboard(board, 240, 4.4, `PLOT {index}`, "collect banked income", accent)
 
 	-- Where this plot's owner respawns. Disabled until somebody owns it, so nobody
 	-- ever lands on a stranger's stage. ExhibitService flips this on assignment.
@@ -754,9 +743,7 @@ local function buildPlot(parent: Instance, index: number)
 	spawn.Enabled = false
 	spawn.Neutral = true
 
-	-- Only the first EXHIBIT_STARTING_SLOTS are unlocked; the rest of the visible run
-	-- is capped and dim, which is the point — you can see what you are saving for.
-	-- See buildDisplayStand for the plinth's form.
+	-- Every stand is usable from the start. See buildDisplayStand for the plinth's form.
 	for slot = 1, math.min(Plots.VISIBLE_SLOTS, Tuning.EXHIBIT_MAX_SLOTS) do
 		buildDisplayStand(m, origin, index, slot, accent)
 	end
@@ -863,7 +850,7 @@ function Plots.rebuild(parent: Instance?): Model
 	local row = Kit.swap("Plots", createPlots, parent) :: Model
 	print(
 		`[build] Plots rebuilt — {Plots.COUNT} plots, {Plots.VISIBLE_SLOTS} stands each `
-			.. `({Tuning.EXHIBIT_STARTING_SLOTS} unlocked, {Tuning.EXHIBIT_MAX_SLOTS} addressable), `
+			.. `(all free), `
 			.. `{Plots.LOCKER_SLOTS}-bay quarantine locker each, `
 			.. `{#row.Apron:GetChildren()} apron parts`
 	)

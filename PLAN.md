@@ -617,8 +617,8 @@ deliberately gate different things so no single purchase trivializes the game.
 |**Boots**|*how much of what you found survives the trip*|6|Freedom|
 |**Satchel**|*how long the clock gives you*|5|Breathing room|
 
-Plus one non-gear track: **Exhibit pedestals** (§8.4), bought with cash, which gates how much
-passive income you can have running at once.
+Exhibit pedestals (§8.4) were once a seventh, cash-bought track. They are now free: every
+plot ships with all 8 display stands usable from the moment it is claimed.
 
 ### Detector line
 
@@ -824,9 +824,9 @@ Anomaly. Some things should be un-sellable so the player can feel that they're u
 
 ### 8.5 Pedestals, vitrines and sets
 
-* **Pedestal slots** start at **3** and upgrade with cash to a cap around **40**. This is the
-seventh purchase track and the one that keeps mattering after gear is maxed — the natural
-endgame money sink.
+* **Pedestal slots.** All 8 stands on a plot are free from the start — there is no slot to
+buy or unlock. (This was once a cash-bought track capping around 40; it was cut in favour of
+just handing players the room.)
 * **Vitrine tiers** upgrade individual pedestals: bare plinth → lit stand → glass case →
 sealed containment display. Yield multiplier plus a real visual upgrade to the room.
 * **Sets** are themed groups defined in the item catalogue — "Suburban Kitchen," "Field
@@ -1071,7 +1071,6 @@ Crater — a free player reaching endgame is what makes the game look worth spen
 * +50 Carry Capacity — 249 R$
 * VIP Bunker (private decon shower + trader + decon station, skip the walk) — 499 R$
 * Auto-Pull (the magnet draws on its own at your current tier; does not exceed it) — 149 R$
-* **+8 Pedestal Slots** — 349 R$
 * **Extended Offline Bank** (4h → 8h of exhibition income) — 299 R$
 * **Curator's Eye** (see exact fuse and modifiers without the Assay Bench) — 199 R$
 

@@ -184,11 +184,6 @@ Gear.Satchel = {
 
 Gear.SPRINT_MULTIPLIER = 1.35
 
--- The endgame money sink (PLAN §8.5). Index = slot number being bought.
-function Gear.pedestalPrice(nextSlot: number): number
-	return math.floor(900 * (1.28 ^ (nextSlot - 3)))
-end
-
 Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Boots", "Satchel" }
 
 --- Track name (capitalised, as used here and in the world's StationId attribute)
