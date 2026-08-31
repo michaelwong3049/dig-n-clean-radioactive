@@ -2,6 +2,13 @@
 --[[
 	Gear.lua — the seven upgrade tracks (PLAN §6) plus exhibit slots.
 
+	ECONOMY RESCALE (feat/economy-rescale-display-income): every `price` below and
+	`LUCK_START_PRICE` were multiplied by 20/3 (~6.667x) and rounded to two significant
+	figures -- the same factor applied to item baseValues in Config/Items and the rarity
+	bands in Config/Rarity, so "sell N finds to afford this tier" is unchanged. Only the
+	stat columns (radius, tolerance, pullSpeed, price ratios in comments) are untouched.
+	See Config/Rarity.luau's header for why displayYield alone moved differently.
+
 	SUIT NUMBERS ARE FITTED, NOT GUESSED.
 	`reduction` and `tolerance` were solved so the model in Shared/Radiation.lua
 	reproduces the design's stated intent. Table below regenerated via
@@ -76,13 +83,13 @@ local Gear = {}
 -- you can have at all, and they do not flatten. Do NOT fix it by widening `radius`.
 Gear.Detector = {
 	{ name = "Bent Coil", price = 0, radius = 13, maxRarity = 3, depth = 6, clarity = 0 },
-	{ name = "Scavenger MkI", price = 120, radius = 16, maxRarity = 4, depth = 9, clarity = 0 },
-	{ name = "Surplus Geiger", price = 290, radius = 19, maxRarity = 5, depth = 12, clarity = 1 },
-	{ name = "Pulse Array", price = 700, radius = 22, maxRarity = 5, depth = 16, clarity = 1 },
-	{ name = "Isotope Scanner", price = 1680, radius = 25, maxRarity = 6, depth = 21, clarity = 2 },
-	{ name = "Resonance Mapper", price = 4030, radius = 28, maxRarity = 7, depth = 27, clarity = 2 },
-	{ name = "Deep Core Array", price = 9670, radius = 31, maxRarity = 8, depth = 34, clarity = 3 },
-	{ name = "The Oracle", price = 23200, radius = 34, maxRarity = 8, depth = 44, clarity = 3 },
+	{ name = "Scavenger MkI", price = 800, radius = 16, maxRarity = 4, depth = 9, clarity = 0 },
+	{ name = "Surplus Geiger", price = 1900, radius = 19, maxRarity = 5, depth = 12, clarity = 1 },
+	{ name = "Pulse Array", price = 4700, radius = 22, maxRarity = 5, depth = 16, clarity = 1 },
+	{ name = "Isotope Scanner", price = 11000, radius = 25, maxRarity = 6, depth = 21, clarity = 2 },
+	{ name = "Resonance Mapper", price = 27000, radius = 28, maxRarity = 7, depth = 27, clarity = 2 },
+	{ name = "Deep Core Array", price = 64000, radius = 31, maxRarity = 8, depth = 34, clarity = 3 },
+	{ name = "The Oracle", price = 150000, radius = 34, maxRarity = 8, depth = 44, clarity = 3 },
 }
 
 -- The extraction track. You do not dig — you drop a magnet and haul the thing up
@@ -113,21 +120,21 @@ Gear.Detector = {
 -- a phone. Spec pins that tier specifically. If you retune draw, re-run it.
 Gear.Magnet = {
 	{ name = "Horseshoe Magnet", price = 0, pullSpeed = 1.0, draw = 0.00, maxGrip = 1 }, -- 2.50 clicks/sec to hold
-	{ name = "Salvage Magnet", price = 100, pullSpeed = 1.3, draw = 0.12, maxGrip = 2 }, -- 1.62
-	{ name = "Electromagnet", price = 240, pullSpeed = 1.7, draw = 0.25, maxGrip = 3 }, -- 0.98
-	{ name = "Winch Coil", price = 580, pullSpeed = 2.2, draw = 0.40, maxGrip = 4 }, -- 0.53  <- the mobile target
-	{ name = "Rail Coil", price = 1390, pullSpeed = 2.9, draw = 0.55, maxGrip = 5 }, -- 0.23
-	{ name = "Singularity Coil", price = 3340, pullSpeed = 3.8, draw = 0.70, maxGrip = 6 }, -- 0.04, effectively hands-free
+	{ name = "Salvage Magnet", price = 670, pullSpeed = 1.3, draw = 0.12, maxGrip = 2 }, -- 1.62
+	{ name = "Electromagnet", price = 1600, pullSpeed = 1.7, draw = 0.25, maxGrip = 3 }, -- 0.98
+	{ name = "Winch Coil", price = 3900, pullSpeed = 2.2, draw = 0.40, maxGrip = 4 }, -- 0.53  <- the mobile target
+	{ name = "Rail Coil", price = 9300, pullSpeed = 2.9, draw = 0.55, maxGrip = 5 }, -- 0.23
+	{ name = "Singularity Coil", price = 22000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6 }, -- 0.04, effectively hands-free
 }
 
 Gear.Cleaner = {
 	{ name = "Wire Brush", price = 0, potency = 1, scrubRate = 1.0 },
-	{ name = "Acid Sponge", price = 150, potency = 2, scrubRate = 1.2 },
-	{ name = "Pressure Washer", price = 360, potency = 3, scrubRate = 1.5 },
-	{ name = "Chem Bath", price = 865, potency = 4, scrubRate = 1.9 },
-	{ name = "Ultrasonic Rig", price = 2075, potency = 5, scrubRate = 2.4 },
-	{ name = "Ion Shower", price = 4980, potency = 6, scrubRate = 3.0 },
-	{ name = "Plasma Scour", price = 11950, potency = 7, scrubRate = 3.8 },
+	{ name = "Acid Sponge", price = 1000, potency = 2, scrubRate = 1.2 },
+	{ name = "Pressure Washer", price = 2400, potency = 3, scrubRate = 1.5 },
+	{ name = "Chem Bath", price = 5800, potency = 4, scrubRate = 1.9 },
+	{ name = "Ultrasonic Rig", price = 14000, potency = 5, scrubRate = 2.4 },
+	{ name = "Ion Shower", price = 33000, potency = 6, scrubRate = 3.0 },
+	{ name = "Plasma Scour", price = 80000, potency = 7, scrubRate = 3.8 },
 }
 
 -- reduction: fraction of AMBIENT rads/sec removed  (exposure track, green screen)
@@ -139,11 +146,11 @@ Gear.Cleaner = {
 -- minutes) without touching Stage 1's ambient rate itself -- see this file's header.
 Gear.Suit = {
 	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.0, capacity = 4 },
-	{ name = "Rubber Suit", price = 450, reduction = 0.9750, tolerance = 4.4, capacity = 6 },
-	{ name = "Lead-Lined", price = 1080, reduction = 0.9920, tolerance = 13.4, capacity = 8 },
-	{ name = "Reinforced Hazmat", price = 2600, reduction = 0.9970, tolerance = 38.4, capacity = 11 },
-	{ name = "Sealed Exo-Suit", price = 6240, reduction = 0.9988, tolerance = 98.4, capacity = 15 },
-	{ name = "Containment Rig", price = 14980, reduction = 0.9889, tolerance = 105.0, capacity = 20 },
+	{ name = "Rubber Suit", price = 3000, reduction = 0.9750, tolerance = 4.4, capacity = 6 },
+	{ name = "Lead-Lined", price = 7200, reduction = 0.9920, tolerance = 13.4, capacity = 8 },
+	{ name = "Reinforced Hazmat", price = 17000, reduction = 0.9970, tolerance = 38.4, capacity = 11 },
+	{ name = "Sealed Exo-Suit", price = 42000, reduction = 0.9988, tolerance = 98.4, capacity = 15 },
+	{ name = "Containment Rig", price = 100000, reduction = 0.9889, tolerance = 105.0, capacity = 20 },
 }
 
 -- PLAN §5.2: boots are the most economically dangerous track in the game.
@@ -158,11 +165,11 @@ Gear.Suit = {
 -- something in actual play, not just in Spec's math.
 Gear.Boots = {
 	{ name = "Taped Boots", price = 0, walkSpeed = 20, haulPenalty = 1.20, stamina = 4, canVault = false, canDash = false },
-	{ name = "Tread Boots", price = 350, walkSpeed = 22, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false },
-	{ name = "Field Runners", price = 980, walkSpeed = 24, haulPenalty = 0.80, stamina = 6, canVault = true, canDash = false },
-	{ name = "Servo Braces", price = 2740, walkSpeed = 26, haulPenalty = 0.55, stamina = 7, canVault = true, canDash = false },
-	{ name = "Powered Frame", price = 7670, walkSpeed = 28, haulPenalty = 0.30, stamina = 8, canVault = true, canDash = true },
-	{ name = "Strider Rig", price = 21480, walkSpeed = 30, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true },
+	{ name = "Tread Boots", price = 2300, walkSpeed = 22, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false },
+	{ name = "Field Runners", price = 6500, walkSpeed = 24, haulPenalty = 0.80, stamina = 6, canVault = true, canDash = false },
+	{ name = "Servo Braces", price = 18000, walkSpeed = 26, haulPenalty = 0.55, stamina = 7, canVault = true, canDash = false },
+	{ name = "Powered Frame", price = 51000, walkSpeed = 28, haulPenalty = 0.30, stamina = 8, canVault = true, canDash = true },
+	{ name = "Strider Rig", price = 140000, walkSpeed = 30, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true },
 }
 
 -- The satchel does two jobs, and the second one matters more than PLAN §3.7 realised:
@@ -176,10 +183,10 @@ Gear.Boots = {
 -- keep shielding under 1.0 forever — a bag that fully shields is a bag with no greed.
 Gear.Satchel = {
 	{ name = "Canvas Bag", price = 0, fuseMult = 1.00, shielding = 0.00 },
-	{ name = "Lined Pack", price = 600, fuseMult = 1.25, shielding = 0.25 },
-	{ name = "Lead Satchel", price = 1440, fuseMult = 1.61, shielding = 0.45 },
-	{ name = "Shielded Case", price = 3460, fuseMult = 2.17, shielding = 0.62 },
-	{ name = "Containment Pack", price = 8300, fuseMult = 3.12, shielding = 0.78 },
+	{ name = "Lined Pack", price = 4000, fuseMult = 1.25, shielding = 0.25 },
+	{ name = "Lead Satchel", price = 9600, fuseMult = 1.61, shielding = 0.45 },
+	{ name = "Shielded Case", price = 23000, fuseMult = 2.17, shielding = 0.62 },
+	{ name = "Containment Pack", price = 55000, fuseMult = 3.12, shielding = 0.78 },
 }
 
 -- THE SEVENTH TRACK, AND THE ONLY ONE THAT BUYS NOTHING YOU HOLD, AND THE ONLY ONE
@@ -204,7 +211,7 @@ Gear.Satchel = {
 -- there is no need for the gain itself to taper — the compounding price is what
 -- keeps one more click from ever being free.
 Gear.LUCK_STEP = 0.1
-Gear.LUCK_START_PRICE = 100
+Gear.LUCK_START_PRICE = 670 -- economy rescale: 100 * 20/3, same factor as every tiered price
 Gear.LUCK_PRICE_GROWTH = 1.10
 
 --- The multiplier a player sits at after `level - 1` purchases (level 1 = 1.0x,

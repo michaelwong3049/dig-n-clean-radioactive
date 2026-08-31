@@ -46,11 +46,14 @@ local BADGE_BOTTOM = Dock.CASH_BOTTOM
 
 local ui = {}
 
---- $340 under a thousand, $5.2K into the thousands, $1.4M into the millions -- the
---- reference image's own "$5K" convention, and compact enough to still read at a
---- glance at the values this economy actually reaches (an Anomaly sells up to $2M).
+--- $340 under a thousand, $5.2K into the thousands, $1.4M into the millions, $2.1B into
+--- the billions -- the reference image's own "$5K" convention, and compact enough to
+--- still read at a glance at the values this economy actually reaches (post-rescale an
+--- Anomaly sells up to ~$13M, and a built-out exhibit's banked $/hr runs into billions).
 local function formatCash(amount: number): string
-	if amount >= 1_000_000 then
+	if amount >= 1_000_000_000 then
+		return string.format("$%.1fB", amount / 1_000_000_000)
+	elseif amount >= 1_000_000 then
 		return string.format("$%.1fM", amount / 1_000_000)
 	elseif amount >= 1_000 then
 		return string.format("$%.1fK", amount / 1_000)

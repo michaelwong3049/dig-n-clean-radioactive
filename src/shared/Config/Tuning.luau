@@ -257,13 +257,14 @@ Tuning.RANGE_RING_SEGMENTS = 48 -- thin parts per ring; asset-free, so no textur
 -- repeatedly would otherwise fire one roll per crossing, and the reveal animation is
 -- roughly this long, so a second roll landing mid-reveal reads as a dropped one.
 --
--- 12, NOT 25, AND Util/Spec IS WHY. A Common sells for 5-25, so a 25 fee meant the
--- pad cost a brand-new player their single best find per pull -- and a mechanic
--- nobody can afford to try is a mechanic nobody discovers. At 12 it is roughly half
--- a Common: cheap enough to be the first thing a new player spends money on, and
--- still non-zero, which is all the fee has to be. It is irrelevant either way to a
--- rich player, whose real limiter is `charges`, never cash.
-Tuning.LIQUID_ROLL_COST = 12
+-- 80, NOT 170, AND Util/Spec IS WHY. A Common sells for 35-170, so a fee up near the
+-- top of that band meant the pad cost a brand-new player their single best find per
+-- pull -- and a mechanic nobody can afford to try is a mechanic nobody discovers. At
+-- 80 it is roughly half a mid Common: cheap enough to be the first thing a new player
+-- spends money on, and still non-zero, which is all the fee has to be. It is irrelevant
+-- either way to a rich player, whose real limiter is `charges`, never cash.
+-- (Economy rescale: was 12 against the old 5-25 Common band; 12 * 20/3 ~= 80.)
+Tuning.LIQUID_ROLL_COST = 80
 Tuning.LIQUID_ROLL_COOLDOWN = 3 -- seconds between rolls, per player
 
 -- Charges stack when you roll the same liquid twice, up to this multiple of the
@@ -286,7 +287,11 @@ Tuning.EXHIBIT_UNCRATE_SECONDS = 60
 Tuning.EXHIBIT_MAX_SLOTS = 8
 -- Hard ceiling on passive income per real hour, as a multiple of Contractor Level.
 -- PLAN §16: ship this LOW. Raising an income cap is a beloved patch note.
-Tuning.EXHIBIT_HOURLY_CAP_PER_LEVEL = 250
+-- Economy rescale: 250 -> 500000. Item baseValues moved x6.667 and Rarity.displayYield
+-- moved x300, so per-displayed-item income rose x2000 overall -- this moved x2000 to
+-- match, so the guard still bites exactly as hard as it did before (a lucky early
+-- Legendary is clamped ~18x at level 1, un-clamping as you level).
+Tuning.EXHIBIT_HOURLY_CAP_PER_LEVEL = 500000
 
 -- ── Progression (PLAN §9.2) ───────────────────────────────────────────────────
 Tuning.LEVEL_CAP = 100

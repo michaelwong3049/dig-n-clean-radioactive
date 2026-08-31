@@ -151,6 +151,184 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 	end
 end
 
+-- ── The playful "name / rarity / $-per-second" card over a displayed item ─────
+-- A world billboard on each occupied stand: the item's NAME, its RARITY above it in
+-- the rarity colour, and what the piece PAYS PER SECOND in a rounded pill. Built at
+-- runtime rather than in build/Plots for the same reason renderName and renderLuck
+-- rewrite their build-time shells instead of the geometry carrying the text -- it is
+-- all per-player content (the item, its roll modifier, the owner's Curator perk, and
+-- how many copies share the plot all move the number).
+
+local YIELD_TAG = "YieldTag"
+local TAG_FONT = Enum.Font.FredokaOne -- chunky and rounded, the toy-shop voice PLAN §14 asks for
+local RATE_COLOR = Color3.fromHex("F59E0B") -- the cash badge's amber (UIKit.C.amber)
+local PILL_COLOR = Color3.fromRGB(24, 20, 32)
+
+--- One displayed item's contribution to the plot's per-second yield. `damping` comes
+--- from the caller because it depends on how many EARLIER pedestals share the item id
+--- (Tuning.EXHIBIT_DUPLICATE_YIELD). Per-minute in the design doc, per-second here
+--- like everything else in this codebase. Shared by rawRatePerSecond (which sums it,
+--- then the hourly cap clamps the total) and refreshYieldTags (which prints it on the
+--- plinth), so a plinth's label can never disagree with what it pays into the wallet.
+local function entryYieldPerSecond(entry: any, damping: number, stats: any): number
+	local def = Items.get(entry.itemId)
+	local rarity = Rarity.get(entry.rarity)
+	local mod = Rarity.MODIFIERS[entry.modifier] or Rarity.MODIFIERS.None
+	return def.baseValue * mod.valueMult * rarity.displayYield * damping * stats.yieldMultiplier / 60
+end
+
+--- "$2.00/s", "$51.3/s", "$173/s", "$2.5K/s" -- same abbreviation ladder the cash
+--- badge uses (CashController.formatCash), so a rate and a balance read as one currency.
+local function formatRate(perSecond: number): string
+	if perSecond >= 1000 then
+		return string.format("$%.1fK/s", perSecond / 1000)
+	elseif perSecond >= 100 then
+		return string.format("$%.0f/s", perSecond)
+	elseif perSecond >= 10 then
+		return string.format("$%.1f/s", perSecond)
+	end
+	return string.format("$%.2f/s", perSecond)
+end
+
+--- Lay the card out once on a Display part. Everything item-specific (the text, the
+--- rarity colour) is filled in by setStandTag afterwards; this only builds the pieces.
+---
+--- FIXED TextSize on every label, never TextScaled -- exactly the Kit.billboard
+--- convention every other sign in the world follows. TextScaled sized each card's
+--- name by its own length (a short name ballooned, a long one shrank), and on an
+--- offset BillboardGui -- whose AbsoluteSize is a constant pixel size at ANY camera
+--- distance -- that read as the label resizing itself as you moved the camera. A flat
+--- TextSize is the same on every card and at every zoom; TextWrapped still lets a
+--- long name run onto a second line without changing the glyph size.
+local function buildTag(display: BasePart): BillboardGui
+	local gui = Instance.new("BillboardGui")
+	gui.Name = YIELD_TAG
+	gui.Size = UDim2.fromOffset(280, 116)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 3.3, 0)
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0 -- same wash-to-white bug Kit.billboard documents
+	-- MaxDistance is CAMERA-to-adornee, not character-to-adornee, and a third-person
+	-- camera sits ~28 studs back -- 120 covers every stand on your own ~66x52 pad from
+	-- any standing spot while stopping short of the next plot on the 180-radius ring.
+	gui.MaxDistance = 120
+
+	local rarity = Instance.new("TextLabel")
+	rarity.Name = "Rarity"
+	rarity.Size = UDim2.new(1, 0, 0, 20)
+	rarity.BackgroundTransparency = 1
+	rarity.Font = TAG_FONT
+	rarity.TextSize = 16
+	rarity.TextStrokeColor3 = Color3.new(0, 0, 0)
+	rarity.TextStrokeTransparency = 0
+	rarity.Parent = gui
+
+	local name = Instance.new("TextLabel")
+	name.Name = "ItemName"
+	name.Position = UDim2.fromOffset(0, 20)
+	name.Size = UDim2.new(1, 0, 0, 52)
+	name.BackgroundTransparency = 1
+	name.Font = TAG_FONT
+	name.TextSize = 23
+	name.TextWrapped = true
+	name.TextStrokeColor3 = Color3.new(0, 0, 0)
+	name.TextStrokeTransparency = 0
+	name.Parent = gui
+
+	local pill = Instance.new("Frame")
+	pill.Name = "RatePill"
+	pill.AnchorPoint = Vector2.new(0.5, 0)
+	pill.Position = UDim2.new(0.5, 0, 0, 80)
+	pill.Size = UDim2.fromOffset(132, 28)
+	pill.BackgroundColor3 = PILL_COLOR
+	pill.BackgroundTransparency = 0.2
+	pill.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = pill
+
+	local rate = Instance.new("TextLabel")
+	rate.Name = "Rate"
+	rate.Size = UDim2.fromScale(1, 1)
+	rate.BackgroundTransparency = 1
+	rate.Font = TAG_FONT
+	rate.TextSize = 17
+	rate.TextColor3 = RATE_COLOR
+	rate.Parent = pill
+
+	gui.Parent = display
+	return gui
+end
+
+--- Point the card at one item, or hide it (`info == nil`: an empty stand, or a
+--- released plot). The gui persists on the part once built and is just toggled --
+--- cheaper than churning an instance every display/undisplay, and it can't be left
+--- orphaned on a cleared slot.
+local function setStandTag(display: BasePart, info: { name: string, rarity: string, rate: number }?)
+	local gui = display:FindFirstChild(YIELD_TAG) :: BillboardGui?
+	if info == nil then
+		if gui then
+			gui.Enabled = false
+		end
+		return
+	end
+	gui = gui or buildTag(display)
+	gui.Enabled = true
+
+	local rarityColor = Rarity.get(info.rarity).color
+
+	local rarityLabel = gui:FindFirstChild("Rarity") :: TextLabel
+	rarityLabel.Text = string.upper(info.rarity)
+	rarityLabel.TextColor3 = rarityColor
+
+	local nameLabel = gui:FindFirstChild("ItemName") :: TextLabel
+	nameLabel.Text = info.name
+	-- Mostly white, washed toward the rarity colour, so the card reads as "this tier"
+	-- from further out than the word above it is legible.
+	nameLabel.TextColor3 = rarityColor:Lerp(Color3.new(1, 1, 1), 0.72)
+
+	local pill = gui:FindFirstChild("RatePill") :: Frame
+	;(pill:FindFirstChild("Rate") :: TextLabel).Text = formatRate(info.rate)
+end
+
+--- Redraw every stand's "$X/s" tag on one plot from the profile: hide them all, then
+--- light the occupied ones -- the same shape as renderAll. It walks `pedestals` in the
+--- same order rawRatePerSecond does, so the damping baked into each tag matches the
+--- damping that entry is actually paid at (a wall of one repeated Legendary visibly
+--- shows its 4th copy paying almost nothing). `data == nil` hides all of them.
+local function refreshYieldTags(index: number, data: any?)
+	local plot = plotModel(index)
+	if plot == nil then
+		return
+	end
+
+	for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
+		local display = plot:FindFirstChild(`Display{slot}`, true) :: BasePart?
+		if display then
+			setStandTag(display, nil)
+		end
+	end
+	if data == nil then
+		return
+	end
+
+	local stats = StatResolver.get(data)
+	local seen: { [string]: number } = {}
+	for _, entry in data.exhibit.pedestals do
+		local copyIndex = (seen[entry.itemId] or 0) + 1
+		seen[entry.itemId] = copyIndex
+		local damping = Tuning.EXHIBIT_DUPLICATE_YIELD[math.min(copyIndex, #Tuning.EXHIBIT_DUPLICATE_YIELD)]
+
+		local display = plot:FindFirstChild(`Display{entry.slot}`, true) :: BasePart?
+		if display then
+			setStandTag(display, {
+				name = Items.get(entry.itemId).name,
+				rarity = entry.rarity,
+				rate = entryYieldPerSecond(entry, damping, stats),
+			})
+		end
+	end
+end
+
 --- Fill one plot's Quarantine Locker (build/Plots.buildQuarantineLocker) from
 --- `data.locker`, and swing its door: open the moment anything is racked, shut
 --- when the last item leaves. `data == nil` clears it — used on release.
@@ -228,6 +406,7 @@ local function renderAll(index: number, data: any)
 		renderStand(index, entry.slot, entry.itemId, entry.rarity)
 	end
 	renderLocker(index, data)
+	refreshYieldTags(index, data)
 end
 
 -- ── Spawning ──────────────────────────────────────────────────────────────────
@@ -366,6 +545,7 @@ local function release(player: Player)
 			renderStand(index, slot, nil, nil)
 		end
 		renderLocker(index, nil)
+		refreshYieldTags(index, nil)
 	end
 end
 
@@ -374,7 +554,8 @@ end
 --- Dollars per second this profile's exhibit is currently worth, BEFORE the
 --- hourly cap. Duplicate damping (Tuning.EXHIBIT_DUPLICATE_YIELD) keys off how
 --- many other displayed pieces share the same item id, so breadth beats depth —
---- one of everything outperforms four of a single Legendary.
+--- one of everything outperforms four of a single Legendary. Per-entry math is
+--- entryYieldPerSecond (also what the plinth billboards print), so the two agree.
 local function rawRatePerSecond(data: any, stats: any): number
 	local seen: { [string]: number } = {}
 	local total = 0
@@ -383,15 +564,7 @@ local function rawRatePerSecond(data: any, stats: any): number
 		local copyIndex = (seen[entry.itemId] or 0) + 1
 		seen[entry.itemId] = copyIndex
 		local damping = Tuning.EXHIBIT_DUPLICATE_YIELD[math.min(copyIndex, #Tuning.EXHIBIT_DUPLICATE_YIELD)]
-
-		local def = Items.get(entry.itemId)
-		local rarity = Rarity.get(entry.rarity)
-		local mod = Rarity.MODIFIERS[entry.modifier] or Rarity.MODIFIERS.None
-
-		-- Per-minute in the design doc; converted to per-second here since that's
-		-- the unit everything else in this codebase ticks in.
-		local perMinute = def.baseValue * mod.valueMult * rarity.displayYield * damping * stats.yieldMultiplier
-		total += perMinute / 60
+		total += entryYieldPerSecond(entry, damping, stats)
 	end
 
 	return total
@@ -559,6 +732,7 @@ function ExhibitService.display(player: Player, uid: string): (boolean, string)
 	})
 
 	renderStand(plot, slot, item.itemId, item.rarity)
+	refreshYieldTags(plot, data)
 	return true, `{Items.get(item.itemId).name} is on display`
 end
 
@@ -615,6 +789,7 @@ function ExhibitService.undisplay(player: Player): (boolean, string)
 	})
 
 	renderStand(plot, slot, nil, nil)
+	refreshYieldTags(plot, data)
 	return true, `{Items.get(entry.itemId).name} back in your bag`
 end
 

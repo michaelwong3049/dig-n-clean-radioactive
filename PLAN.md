@@ -813,18 +813,21 @@ forget. A Mythic on a pedestal is a landmark on the server with your name under 
 
 ### 8.2 Yield math
 
-Base rate is a **percentage of the item's sale value paid out per minute**, and it decreases
-as rarity rises:
+Base rate is a **multiple of the item's sale value paid out per minute**, and it decreases
+as rarity rises. The Exhibition is the **primary income loop**, not a slow trickle: a
+displayed item earns back its own sale price in **seconds**, and then keeps paying.
+(Original design shipped this ~300× slower — payback in ~50 minutes — which made display
+a rounding error next to selling. The rescale flips that.)
 
 |Rarity|Base yield / min|Payback at base|Role|
 |-|-|-|-|
-|Scrap / Common|2.0%|\~50 min|Income filler|
-|Uncommon|1.8%|\~56 min|Income filler|
-|Rare|1.5%|\~67 min|Balanced|
-|Epic|1.2%|\~83 min|Balanced|
-|Legendary|0.8%|\~2:05|Prestige|
-|Mythic|0.5%|\~3:20|Prestige|
-|Anomaly|0.25%|\~6:40|Landmark|
+|Scrap / Common|600%|\~10 s|Income filler|
+|Uncommon|540%|\~11 s|Income filler|
+|Rare|450%|\~13 s|Balanced|
+|Epic|360%|\~17 s|Balanced|
+|Legendary|240%|\~25 s|Prestige|
+|Mythic|150%|\~40 s|Prestige|
+|Anomaly|75%|\~1:20|Landmark|
 
 This curve is doing deliberate work, and it produces the design's nicest emergent behavior:
 **cheap items are your income, rare items are your prestige.** A veteran's exhibit is a wall
@@ -840,9 +843,11 @@ gives the bottom 80% of the loot table a permanent reason to exist.
 |**Set bonus**|×1.1 → ×1.5|Themed groups (§8.5)|
 |**Traffic**|×0.5 → ×2.0|Driven by Prestige (§8.3)|
 
-So a fresh player's first displayed item pays back in about an hour of play — correctly bad.
-A built-out exhibit pays back in \~15–20 minutes — correctly excellent, and it took real
-investment to get there.
+So a fresh player's first displayed item has paid for itself inside a minute and is pure
+profit after that — the loop that used to be "sell for cash now, or wait an hour for the
+same money" is now "sell once, or display and out‑earn that sale almost immediately." The
+guard against this becoming a runaway is the per‑hour cap tied to Contractor Level (§8.7),
+which scales with the economy so a lucky early rare is still throttled until you level.
 
 **Duplicate damping:** a second copy of the same item yields 40%, a third 15%, a fourth and
 beyond 5%. You cannot farm one good item into an income machine. Breadth beats depth, which
@@ -1332,6 +1337,9 @@ If nothing ever cooks, the fuses are too long and the run home is still dead tim
 If everything slags, they're too short and the mechanic is a tax.
 4. *Does anyone choose to display instead of sell before hour three?* If nobody does, the
 yield curve is too shallow and the Exhibition is decoration rather than a second loop.
+(The economy rescale — §8.2 — deliberately tilts hard toward display: an item out‑earns
+its own sale price within ~a minute. The open question is now the opposite one — whether
+the per‑hour cap in §8.7 holds it back enough at low Contractor Level.)
 
 \---
 
@@ -1359,7 +1367,10 @@ Crater ships.
 is exactly the shape of thing that trivializes gear purchases by hour ten. The per-hour cap
 tied to Contractor Level (§8.7) is the intended guard, but the honest answer is that this
 number can only be found in live data. Ship it low. Raising an income cap is a beloved
-patch note; lowering one is a riot.
+patch note; lowering one is a riot. *(The economy rescale multiplied per‑displayed‑item
+income ×2000; `EXHIBIT_HOURLY_CAP_PER_LEVEL` moved ×2000 with it, to $500k×level, so the
+guard's bite is unchanged in relative terms — but "unchanged" was itself an untested
+guess, so this stays the #1 live‑data watch item for the economy.)*
 * **Movement speed is the most dangerous stat in the game** (§5.2). It multiplies sweep rate,
 round-trip time, decay retention, and dive viability simultaneously. If one thing in this
 document breaks the balance, it will be boots.
