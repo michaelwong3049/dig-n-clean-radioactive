@@ -151,15 +151,18 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 	end
 end
 
--- ── The "$X/s" tag floating over a displayed item ─────────────────────────────
--- A world billboard on each occupied stand, showing what that piece pays per second.
--- Built at runtime rather than in build/Plots for the same reason renderName and
--- renderLuck rewrite their build-time shells instead of the geometry carrying the
--- text: the number is per-player content -- the item, its roll modifier, the owner's
--- Curator perk, and how many copies share the plot all move it.
+-- ── The playful "name / rarity / $-per-second" card over a displayed item ─────
+-- A world billboard on each occupied stand: the item's NAME, its RARITY above it in
+-- the rarity colour, and what the piece PAYS PER SECOND in a rounded pill. Built at
+-- runtime rather than in build/Plots for the same reason renderName and renderLuck
+-- rewrite their build-time shells instead of the geometry carrying the text -- it is
+-- all per-player content (the item, its roll modifier, the owner's Curator perk, and
+-- how many copies share the plot all move the number).
 
 local YIELD_TAG = "YieldTag"
-local YIELD_COLOR = Color3.fromHex("F59E0B") -- the cash badge's amber (UIKit.C.amber)
+local TAG_FONT = Enum.Font.FredokaOne -- chunky and rounded, the toy-shop voice PLAN §14 asks for
+local RATE_COLOR = Color3.fromHex("F59E0B") -- the cash badge's amber (UIKit.C.amber)
+local PILL_COLOR = Color3.fromRGB(24, 20, 32)
 
 --- One displayed item's contribution to the plot's per-second yield. `damping` comes
 --- from the caller because it depends on how many EARLIER pedestals share the item id
@@ -187,43 +190,99 @@ local function formatRate(perSecond: number): string
 	return string.format("$%.2f/s", perSecond)
 end
 
---- Find-or-create the billboard on one Display part and set its text, or hide it when
---- `perSecond` is nil (an empty stand, or a released plot). The gui persists on the
---- part once made and is just toggled -- cheaper than churning an instance on every
---- display/undisplay, and it can never be left orphaned on a cleared slot.
-local function setStandTag(display: BasePart, perSecond: number?)
+--- Lay the card out once on a Display part. Everything item-specific (the text, the
+--- rarity colour) is filled in by setStandTag afterwards; this only builds the pieces.
+local function buildTag(display: BasePart): BillboardGui
+	local gui = Instance.new("BillboardGui")
+	gui.Name = YIELD_TAG
+	gui.Size = UDim2.fromOffset(264, 112)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 3.3, 0)
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0 -- same wash-to-white bug Kit.billboard documents
+	-- MaxDistance is CAMERA-to-adornee, not character-to-adornee, and a third-person
+	-- camera sits ~28 studs back -- 120 covers every stand on your own ~66x52 pad from
+	-- any standing spot while stopping short of the next plot on the 180-radius ring.
+	gui.MaxDistance = 120
+
+	local rarity = Instance.new("TextLabel")
+	rarity.Name = "Rarity"
+	rarity.Size = UDim2.new(1, 0, 0, 20)
+	rarity.BackgroundTransparency = 1
+	rarity.Font = TAG_FONT
+	rarity.TextSize = 17
+	rarity.TextStrokeColor3 = Color3.new(0, 0, 0)
+	rarity.TextStrokeTransparency = 0
+	rarity.Parent = gui
+
+	local name = Instance.new("TextLabel")
+	name.Name = "ItemName"
+	name.Position = UDim2.fromOffset(0, 18)
+	name.Size = UDim2.new(1, 0, 0, 48)
+	name.BackgroundTransparency = 1
+	name.Font = TAG_FONT
+	name.TextScaled = true
+	name.TextWrapped = true
+	name.TextStrokeColor3 = Color3.new(0, 0, 0)
+	name.TextStrokeTransparency = 0
+	name.Parent = gui
+	local nameCap = Instance.new("UITextSizeConstraint")
+	nameCap.MaxTextSize = 30
+	nameCap.Parent = name
+
+	local pill = Instance.new("Frame")
+	pill.Name = "RatePill"
+	pill.AnchorPoint = Vector2.new(0.5, 0)
+	pill.Position = UDim2.new(0.5, 0, 0, 78)
+	pill.Size = UDim2.fromOffset(132, 28)
+	pill.BackgroundColor3 = PILL_COLOR
+	pill.BackgroundTransparency = 0.2
+	pill.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = pill
+
+	local rate = Instance.new("TextLabel")
+	rate.Name = "Rate"
+	rate.Size = UDim2.fromScale(1, 1)
+	rate.BackgroundTransparency = 1
+	rate.Font = TAG_FONT
+	rate.TextSize = 20
+	rate.TextColor3 = RATE_COLOR
+	rate.Parent = pill
+
+	gui.Parent = display
+	return gui
+end
+
+--- Point the card at one item, or hide it (`info == nil`: an empty stand, or a
+--- released plot). The gui persists on the part once built and is just toggled --
+--- cheaper than churning an instance every display/undisplay, and it can't be left
+--- orphaned on a cleared slot.
+local function setStandTag(display: BasePart, info: { name: string, rarity: string, rate: number }?)
 	local gui = display:FindFirstChild(YIELD_TAG) :: BillboardGui?
-	if perSecond == nil then
+	if info == nil then
 		if gui then
 			gui.Enabled = false
 		end
 		return
 	end
-	if gui == nil then
-		gui = Instance.new("BillboardGui")
-		gui.Name = YIELD_TAG
-		gui.Size = UDim2.fromOffset(130, 30)
-		gui.StudsOffsetWorldSpace = Vector3.new(0, 2.8, 0)
-		gui.AlwaysOnTop = true
-		gui.LightInfluence = 0 -- same wash-to-white bug Kit.billboard documents
-		-- MaxDistance is CAMERA-to-adornee, not character-to-adornee, and a
-		-- third-person camera sits ~28 studs back -- 120 covers every stand on your
-		-- own ~66x52 pad from any standing spot while still stopping short of the
-		-- next plot on the 180-radius ring, so the Row isn't a wall of numbers.
-		gui.MaxDistance = 120
-		local label = Instance.new("TextLabel")
-		label.Name = "Amount"
-		label.Size = UDim2.fromScale(1, 1)
-		label.BackgroundTransparency = 1
-		label.Font = Enum.Font.GothamBold
-		label.TextSize = 20
-		label.TextColor3 = YIELD_COLOR
-		label.TextStrokeTransparency = 0.4
-		label.Parent = gui
-		gui.Parent = display
-	end
+	gui = gui or buildTag(display)
 	gui.Enabled = true
-	;(gui:FindFirstChild("Amount") :: TextLabel).Text = formatRate(perSecond)
+
+	local rarityColor = Rarity.get(info.rarity).color
+
+	local rarityLabel = gui:FindFirstChild("Rarity") :: TextLabel
+	rarityLabel.Text = string.upper(info.rarity)
+	rarityLabel.TextColor3 = rarityColor
+
+	local nameLabel = gui:FindFirstChild("ItemName") :: TextLabel
+	nameLabel.Text = info.name
+	-- Mostly white, washed toward the rarity colour, so the card reads as "this tier"
+	-- from further out than the word above it is legible.
+	nameLabel.TextColor3 = rarityColor:Lerp(Color3.new(1, 1, 1), 0.72)
+
+	local pill = gui:FindFirstChild("RatePill") :: Frame
+	;(pill:FindFirstChild("Rate") :: TextLabel).Text = formatRate(info.rate)
 end
 
 --- Redraw every stand's "$X/s" tag on one plot from the profile: hide them all, then
@@ -256,7 +315,11 @@ local function refreshYieldTags(index: number, data: any?)
 
 		local display = plot:FindFirstChild(`Display{entry.slot}`, true) :: BasePart?
 		if display then
-			setStandTag(display, entryYieldPerSecond(entry, damping, stats))
+			setStandTag(display, {
+				name = Items.get(entry.itemId).name,
+				rarity = entry.rarity,
+				rate = entryYieldPerSecond(entry, damping, stats),
+			})
 		end
 	end
 end
