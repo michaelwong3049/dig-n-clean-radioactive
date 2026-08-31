@@ -192,10 +192,18 @@ end
 
 --- Lay the card out once on a Display part. Everything item-specific (the text, the
 --- rarity colour) is filled in by setStandTag afterwards; this only builds the pieces.
+---
+--- FIXED TextSize on every label, never TextScaled -- exactly the Kit.billboard
+--- convention every other sign in the world follows. TextScaled sized each card's
+--- name by its own length (a short name ballooned, a long one shrank), and on an
+--- offset BillboardGui -- whose AbsoluteSize is a constant pixel size at ANY camera
+--- distance -- that read as the label resizing itself as you moved the camera. A flat
+--- TextSize is the same on every card and at every zoom; TextWrapped still lets a
+--- long name run onto a second line without changing the glyph size.
 local function buildTag(display: BasePart): BillboardGui
 	local gui = Instance.new("BillboardGui")
 	gui.Name = YIELD_TAG
-	gui.Size = UDim2.fromOffset(264, 112)
+	gui.Size = UDim2.fromOffset(280, 116)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 3.3, 0)
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0 -- same wash-to-white bug Kit.billboard documents
@@ -209,30 +217,27 @@ local function buildTag(display: BasePart): BillboardGui
 	rarity.Size = UDim2.new(1, 0, 0, 20)
 	rarity.BackgroundTransparency = 1
 	rarity.Font = TAG_FONT
-	rarity.TextSize = 17
+	rarity.TextSize = 16
 	rarity.TextStrokeColor3 = Color3.new(0, 0, 0)
 	rarity.TextStrokeTransparency = 0
 	rarity.Parent = gui
 
 	local name = Instance.new("TextLabel")
 	name.Name = "ItemName"
-	name.Position = UDim2.fromOffset(0, 18)
-	name.Size = UDim2.new(1, 0, 0, 48)
+	name.Position = UDim2.fromOffset(0, 20)
+	name.Size = UDim2.new(1, 0, 0, 52)
 	name.BackgroundTransparency = 1
 	name.Font = TAG_FONT
-	name.TextScaled = true
+	name.TextSize = 23
 	name.TextWrapped = true
 	name.TextStrokeColor3 = Color3.new(0, 0, 0)
 	name.TextStrokeTransparency = 0
 	name.Parent = gui
-	local nameCap = Instance.new("UITextSizeConstraint")
-	nameCap.MaxTextSize = 30
-	nameCap.Parent = name
 
 	local pill = Instance.new("Frame")
 	pill.Name = "RatePill"
 	pill.AnchorPoint = Vector2.new(0.5, 0)
-	pill.Position = UDim2.new(0.5, 0, 0, 78)
+	pill.Position = UDim2.new(0.5, 0, 0, 80)
 	pill.Size = UDim2.fromOffset(132, 28)
 	pill.BackgroundColor3 = PILL_COLOR
 	pill.BackgroundTransparency = 0.2
@@ -246,7 +251,7 @@ local function buildTag(display: BasePart): BillboardGui
 	rate.Size = UDim2.fromScale(1, 1)
 	rate.BackgroundTransparency = 1
 	rate.Font = TAG_FONT
-	rate.TextSize = 20
+	rate.TextSize = 17
 	rate.TextColor3 = RATE_COLOR
 	rate.Parent = pill
 
