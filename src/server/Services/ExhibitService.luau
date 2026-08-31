@@ -152,35 +152,17 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 end
 
 -- ── The playful "name / rarity / $-per-second" card over a displayed item ─────
--- A SurfaceGui on a thin invisible part floating over each occupied stand: the item's
--- NAME, its RARITY above it in the rarity colour, and what the piece PAYS PER SECOND
--- in a rounded pill.
---
--- IT IS A SIGN IN THE WORLD, NOT A SCREEN OVERLAY, and that is a deliberate choice
--- over the obvious BillboardGui. A BillboardGui is a fixed number of SCREEN pixels at
--- every camera distance -- so as you zoom out it keeps its size while the plot shrinks
--- around it, which reads as the card growing. A SurfaceGui painted on a real part is a
--- fixed number of STUDS: it shrinks with the rest of the world as the camera pulls
--- back, and its text has one definite size (TextSize / CARD_PPS studs tall) that is
--- identical on every card. The cost is that it faces one way -- toward the plot
--- entrance, the -Z the NameSign already reads from -- instead of turning to the camera.
---
--- Built at runtime rather than in build/Plots for the same reason renderName and
--- renderLuck rewrite their build-time shells: it is all per-player content (the item,
--- its roll modifier, the owner's Curator perk, and how many copies share the plot all
--- move the number).
+-- A world billboard on each occupied stand: the item's NAME, its RARITY above it in
+-- the rarity colour, and what the piece PAYS PER SECOND in a rounded pill. Built at
+-- runtime rather than in build/Plots for the same reason renderName and renderLuck
+-- rewrite their build-time shells instead of the geometry carrying the text -- it is
+-- all per-player content (the item, its roll modifier, the owner's Curator perk, and
+-- how many copies share the plot all move the number).
 
-local YIELD_TAG = "YieldCard"
+local YIELD_TAG = "YieldTag"
 local TAG_FONT = Enum.Font.FredokaOne -- chunky and rounded, the toy-shop voice PLAN §14 asks for
 local RATE_COLOR = Color3.fromHex("F59E0B") -- the cash badge's amber (UIKit.C.amber)
 local PILL_COLOR = Color3.fromRGB(24, 20, 32)
-
--- The card part in studs, and the canvas resolution painted onto its face. Every
--- TextSize below is in those canvas pixels, so a glyph is `TextSize / CARD_PPS` studs
--- tall -- one definite world size, the same on every card, at every zoom.
-local CARD_W, CARD_H = 4.6, 3.0
-local CARD_PPS = 64
-local CARD_LIFT = 3.4 -- studs above the Display part; clears a life-size item on the plinth
 
 --- One displayed item's contribution to the plot's per-second yield. `damping` comes
 --- from the caller because it depends on how many EARLIER pedestals share the item id
@@ -208,65 +190,58 @@ local function formatRate(perSecond: number): string
 	return string.format("$%.2f/s", perSecond)
 end
 
---- Lay the card out once above a Display part -- a thin invisible part carrying a
---- SurfaceGui on its front face. Everything item-specific (the text, the rarity
---- colour) is filled in by setStandTag afterwards; this only builds the pieces.
+--- Lay the card out once on a Display part. Everything item-specific (the text, the
+--- rarity colour) is filled in by setStandTag afterwards; this only builds the pieces.
 ---
---- FIXED TextSize on every label, never TextScaled: on the PixelsPerStud canvas a
---- flat TextSize is a flat number of studs, so the name is the same size on every
---- card whatever its length. TextWrapped still lets a long name run to a second line
---- without shrinking the glyphs.
-local function buildTag(display: BasePart): SurfaceGui
-	local part = Instance.new("Part")
-	part.Name = YIELD_TAG
-	part.Size = Vector3.new(CARD_W, CARD_H, 0.08)
-	part.Transparency = 1
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.Anchored = true
-	part.CFrame = display.CFrame * CFrame.new(0, CARD_LIFT, 0)
-	part.Parent = display
-
-	local sg = Instance.new("SurfaceGui")
-	sg.Name = "Card"
-	sg.Face = Enum.NormalId.Front -- -Z: toward the plot entrance, the way the NameSign reads
-	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	sg.PixelsPerStud = CARD_PPS
-	sg.LightInfluence = 0 -- same wash-to-white bug Kit.surfaceText documents
-	sg.Parent = part
+--- FIXED TextSize on every label, never TextScaled -- exactly the Kit.billboard
+--- convention every other sign in the world follows. TextScaled sized each card's
+--- name by its own length (a short name ballooned, a long one shrank), and on an
+--- offset BillboardGui -- whose AbsoluteSize is a constant pixel size at ANY camera
+--- distance -- that read as the label resizing itself as you moved the camera. A flat
+--- TextSize is the same on every card and at every zoom; TextWrapped still lets a
+--- long name run onto a second line without changing the glyph size.
+local function buildTag(display: BasePart): BillboardGui
+	local gui = Instance.new("BillboardGui")
+	gui.Name = YIELD_TAG
+	gui.Size = UDim2.fromOffset(280, 116)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 3.3, 0)
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0 -- same wash-to-white bug Kit.billboard documents
+	-- MaxDistance is CAMERA-to-adornee, not character-to-adornee, and a third-person
+	-- camera sits ~28 studs back -- 120 covers every stand on your own ~66x52 pad from
+	-- any standing spot while stopping short of the next plot on the 180-radius ring.
+	gui.MaxDistance = 120
 
 	local rarity = Instance.new("TextLabel")
 	rarity.Name = "Rarity"
-	rarity.Position = UDim2.fromOffset(0, 6)
-	rarity.Size = UDim2.new(1, 0, 0, 34)
+	rarity.Size = UDim2.new(1, 0, 0, 20)
 	rarity.BackgroundTransparency = 1
 	rarity.Font = TAG_FONT
-	rarity.TextSize = 26
+	rarity.TextSize = 16
 	rarity.TextStrokeColor3 = Color3.new(0, 0, 0)
 	rarity.TextStrokeTransparency = 0
-	rarity.Parent = sg
+	rarity.Parent = gui
 
 	local name = Instance.new("TextLabel")
 	name.Name = "ItemName"
-	name.Position = UDim2.fromOffset(0, 42)
-	name.Size = UDim2.new(1, 0, 0, 96)
+	name.Position = UDim2.fromOffset(0, 20)
+	name.Size = UDim2.new(1, 0, 0, 52)
 	name.BackgroundTransparency = 1
 	name.Font = TAG_FONT
-	name.TextSize = 40
+	name.TextSize = 23
 	name.TextWrapped = true
 	name.TextStrokeColor3 = Color3.new(0, 0, 0)
 	name.TextStrokeTransparency = 0
-	name.Parent = sg
+	name.Parent = gui
 
 	local pill = Instance.new("Frame")
 	pill.Name = "RatePill"
 	pill.AnchorPoint = Vector2.new(0.5, 0)
-	pill.Position = UDim2.new(0.5, 0, 0, 142)
-	pill.Size = UDim2.fromOffset(200, 46)
+	pill.Position = UDim2.new(0.5, 0, 0, 80)
+	pill.Size = UDim2.fromOffset(132, 28)
 	pill.BackgroundColor3 = PILL_COLOR
 	pill.BackgroundTransparency = 0.2
-	pill.Parent = sg
+	pill.Parent = gui
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(1, 0)
 	corner.Parent = pill
@@ -276,42 +251,42 @@ local function buildTag(display: BasePart): SurfaceGui
 	rate.Size = UDim2.fromScale(1, 1)
 	rate.BackgroundTransparency = 1
 	rate.Font = TAG_FONT
-	rate.TextSize = 30
+	rate.TextSize = 17
 	rate.TextColor3 = RATE_COLOR
 	rate.Parent = pill
 
-	return sg
+	gui.Parent = display
+	return gui
 end
 
 --- Point the card at one item, or hide it (`info == nil`: an empty stand, or a
---- released plot). The part persists on the stand once built and its SurfaceGui is
---- just toggled -- cheaper than churning instances every display/undisplay, and it
---- can't be left orphaned on a cleared slot.
+--- released plot). The gui persists on the part once built and is just toggled --
+--- cheaper than churning an instance every display/undisplay, and it can't be left
+--- orphaned on a cleared slot.
 local function setStandTag(display: BasePart, info: { name: string, rarity: string, rate: number }?)
-	local part = display:FindFirstChild(YIELD_TAG)
-	local sg = (part and part:FindFirstChild("Card")) :: SurfaceGui?
+	local gui = display:FindFirstChild(YIELD_TAG) :: BillboardGui?
 	if info == nil then
-		if sg then
-			sg.Enabled = false
+		if gui then
+			gui.Enabled = false
 		end
 		return
 	end
-	sg = sg or buildTag(display)
-	sg.Enabled = true
+	gui = gui or buildTag(display)
+	gui.Enabled = true
 
 	local rarityColor = Rarity.get(info.rarity).color
 
-	local rarityLabel = sg:FindFirstChild("Rarity") :: TextLabel
+	local rarityLabel = gui:FindFirstChild("Rarity") :: TextLabel
 	rarityLabel.Text = string.upper(info.rarity)
 	rarityLabel.TextColor3 = rarityColor
 
-	local nameLabel = sg:FindFirstChild("ItemName") :: TextLabel
+	local nameLabel = gui:FindFirstChild("ItemName") :: TextLabel
 	nameLabel.Text = info.name
 	-- Mostly white, washed toward the rarity colour, so the card reads as "this tier"
 	-- from further out than the word above it is legible.
 	nameLabel.TextColor3 = rarityColor:Lerp(Color3.new(1, 1, 1), 0.72)
 
-	local pill = sg:FindFirstChild("RatePill") :: Frame
+	local pill = gui:FindFirstChild("RatePill") :: Frame
 	;(pill:FindFirstChild("Rate") :: TextLabel).Text = formatRate(info.rate)
 end
 
