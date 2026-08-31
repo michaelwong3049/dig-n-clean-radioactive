@@ -146,7 +146,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 20
+local BUILDER_VERSION = 21
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -925,22 +925,24 @@ local function buildLuckButton(parent: Instance, origin: CFrame)
 	m.Parent = parent
 end
 
---- The plot's back wall. WAS a flat Concrete slab in warm peach; now a studded
---- two-tone checkerboard, the same stud treatment the boundary walls and every floor
---- in the world already wear, so the base reads as built out of the same blocks as
---- everything around it. Same footprint as the old slab (`pad.width` x 10 x 1, front
---- face at local z = `pad.depth / 2 - 0.5`), so the NameSign and the luck-button
---- panel still bolt straight to it with no repositioning.
-local BACKWALL_TILE = 3.3 -- ~20 columns across the 66-wide pad, ~3 rows up the 10 tall
+--- The plot's back wall. WAS a flat Concrete slab in warm peach; now a studded wall,
+--- the same stud treatment the boundary walls and every floor in the world already
+--- wear, so the base reads as built out of the same blocks as everything around it.
+--- ONE flat colour (the brighter of the old plaza pair, `C.plazaWarm`), on request —
+--- the two-tone checker read as busy behind the nameplate. Front face at local z =
+--- `pad.depth / 2 - 0.5` (unchanged), so the NameSign and the luck-button panel still
+--- bolt straight to it; taller than the old 10-stud slab, on request.
+local BACKWALL_TILE = 3.3 -- ~20 columns across the 66-wide pad, ~5 rows up the 16 tall
+local BACKWALL_HEIGHT = 16
 local function buildBackWall(parent: Instance, origin: CFrame)
 	local pad = Plots.PAD
 	local folder = Instance.new("Folder")
 	folder.Name = "BackWall"
 
-	local wallW, wallH, wallThick = pad.width, 10, 1
+	local wallW, wallThick = pad.width, 1
 	local frontZ = pad.depth / 2 - 0.5
 	local cols = math.ceil(wallW / BACKWALL_TILE)
-	local rows = math.ceil(wallH / BACKWALL_TILE)
+	local rows = math.ceil(BACKWALL_HEIGHT / BACKWALL_TILE)
 
 	for ix = 0, cols - 1 do
 		local x0 = -wallW / 2 + ix * BACKWALL_TILE
@@ -951,7 +953,7 @@ local function buildBackWall(parent: Instance, origin: CFrame)
 		end
 		for iy = 0, rows - 1 do
 			local y0 = iy * BACKWALL_TILE
-			local y1 = math.min(y0 + BACKWALL_TILE, wallH)
+			local y1 = math.min(y0 + BACKWALL_TILE, BACKWALL_HEIGHT)
 			local h = y1 - y0
 			if h <= 1e-3 then
 				continue
@@ -960,7 +962,7 @@ local function buildBackWall(parent: Instance, origin: CFrame)
 				name = "WallTile",
 				pos = { (x0 + x1) / 2, pad.topY + (y0 + y1) / 2, frontZ },
 				size = { w, h, wallThick },
-				color = if (ix + iy) % 2 == 0 then C.plazaEdge else C.plazaWarm,
+				color = C.plazaWarm,
 				material = "Plastic",
 				studs = true,
 			})
