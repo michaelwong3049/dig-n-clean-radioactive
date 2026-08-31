@@ -105,10 +105,10 @@ local Hub = require(script.Parent.Hub)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 13
+local BUILDER_VERSION = 14
 
 local C, R = Kit.C, Kit.R
-local build, light, billboard = Kit.build, Kit.light, Kit.billboard
+local build, billboard = Kit.build, Kit.billboard
 
 --- The three plaza stalls. `at` is world XZ; they face south (−Z), across the
 --- shop cluster's own centre aisle at z=0 toward the Outfitter. The row is
@@ -155,11 +155,10 @@ end
 
 -- ── The floor marker ─────────────────────────────────────────────────────────
 
---- A glowing rectangular outline on the ground marking the buy radius — the
---- reference photo's neon floor square, recoloured per shop instead of always
---- blue so it keeps doing the colour-navigation job instead of flattening it.
---- Four thin Neon bars rather than a filled plate, matching the "outline, not
---- fill" read the photo actually has.
+--- A rectangular outline on the ground marking the buy radius — the reference
+--- photo's floor square, recoloured per shop instead of always blue so it keeps
+--- doing the colour-navigation job instead of flattening it. Four thin matte bars
+--- rather than a filled plate, matching the "outline, not fill" read the photo has.
 local function buildFloorMarker(parent: Instance, origin: CFrame, x: number, z: number, width: number, depth: number, color: string)
 	local thickness = 0.4
 	for _, bar in {
@@ -173,7 +172,7 @@ local function buildFloorMarker(parent: Instance, origin: CFrame, x: number, z: 
 			pos = { x + bar.dx, 0.08, z + bar.dz },
 			size = { bar.w, 0.15, bar.d },
 			color = color,
-			material = "Neon",
+			material = "SmoothPlastic",
 			canCollide = false,
 		})
 	end
@@ -181,7 +180,11 @@ end
 
 -- ── Reference gear-store details ─────────────────────────────────────────────
 
-local GEAR_STORE_PINK = "FF00E5"
+-- Classic market-awning red. WAS a hot magenta "FF00E5" — retoned with the de-neon
+-- pass: that pink was the brightest thing in the plaza and read as neon even though
+-- the stripe is matte studded Plastic. This sits in the world's warm-red family
+-- (C.barrelRust / C.quarantineRed).
+local GEAR_STORE_STRIPE = "B4483D"
 
 --- The reference roof is one shallow rectangular awning, striped front-to-back,
 --- with a short matching valance at the front. Separate studded Plastic parts
@@ -198,7 +201,7 @@ local function buildStripedCanopy(parent: Instance, origin: CFrame): number
 	local frontY = centerY - math.sin(math.rad(tiltDegrees)) * (depth / 2)
 
 	for index = 1, stripeCount do
-		local color = if index % 2 == 1 then GEAR_STORE_PINK else C.labelText
+		local color = if index % 2 == 1 then GEAR_STORE_STRIPE else C.labelText
 		local x = -totalWidth / 2 + (index - 0.5) * stripeWidth
 		build(parent, origin, {
 			name = `CanopyStripe{index}`,
@@ -253,7 +256,7 @@ local function buildSlatWall(parent: Instance, origin: CFrame)
 	end
 end
 
---- Large floating title copied from the reference's hierarchy: hot-pink store
+--- Large floating title copied from the reference's hierarchy: awning-red store
 --- name with a black outline, then a smaller white call-to-action below it.
 local function buildGearStoreBillboard(adornee: BasePart)
 	local gui = Instance.new("BillboardGui")
@@ -271,7 +274,7 @@ local function buildGearStoreBillboard(adornee: BasePart)
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.GothamBlack
 	title.Text = "Gear Store"
-	title.TextColor3 = Color3.fromHex(GEAR_STORE_PINK)
+	title.TextColor3 = Color3.fromHex(GEAR_STORE_STRIPE)
 	title.TextSize = 42
 	title.TextStrokeColor3 = Color3.fromHex(C.hazardBlack)
 	title.TextStrokeTransparency = 0
@@ -422,11 +425,10 @@ local function buildLuckProp(parent: Instance, origin: CFrame, x: number, z: num
 			canCollide = false,
 		})
 	end
-	-- The one glowing bead at the centre, in the shop's own accent rather than in
-	-- green: green means the ooze everywhere else in this world (PLAN §14), and a
-	-- glowing green clover on the plaza would be the one exception that breaks it.
-	local heart = build(parent, origin, { name = "CloverHeart", pos = { x, 3.7, z }, size = { 0.55, 0.55, 0.55 }, color = color, material = "Neon", shape = "Ball", canCollide = false })
-	light(heart, color, 10, 1.2)
+	-- The bead at the centre, in the shop's own accent rather than in green: green
+	-- means the ooze everywhere else in this world (PLAN §14), so even matte it stays
+	-- the accent colour, not green.
+	build(parent, origin, { name = "CloverHeart", pos = { x, 3.7, z }, size = { 0.55, 0.55, 0.55 }, color = color, material = "SmoothPlastic", shape = "Ball", canCollide = false })
 end
 
 --- Dispatches on track so buildStall/buildOutfitter can call one function without
@@ -470,9 +472,9 @@ local function buildCrateProp(parent: Instance, origin: CFrame, x: number, z: nu
 end
 
 --- A small open chest: a wood base, a dark metal band, and a lid tilted back on
---- a single X-axis rotation so it reads as propped open, plus a glowing
---- spec.color peek of "contents" — the reference photo's open trunk, and one
---- more piece of "goods stacked outside the stall" clutter alongside the crate.
+--- a single X-axis rotation so it reads as propped open, plus a spec.color peek of
+--- "contents" — the reference photo's open trunk, and one more piece of "goods
+--- stacked outside the stall" clutter alongside the crate.
 ---
 --- The lid's `pos` is solved rather than eyeballed: for `rot = Kit.ang(-70, 0, 0)`
 --- and lid thickness/depth `t`/`d`, keeping the lid's local back-bottom edge
@@ -484,7 +486,7 @@ local function buildOpenChestProp(parent: Instance, origin: CFrame, x: number, z
 	build(parent, origin, { name = "ChestBase", pos = { x, chestHeight / 2, z }, size = { 1.6, chestHeight, 1.2 }, color = C.wood, material = "Plastic", canCollide = false })
 	build(parent, origin, { name = "ChestBand", pos = { x, chestHeight / 2, z }, size = { 1.7, 0.2, 1.3 }, color = C.hazardBlack, material = "Metal", canCollide = false })
 	build(parent, origin, { name = "ChestLid", pos = { x, 1.59, z - 0.465 }, size = { 1.5, 0.15, 1.1 }, color = C.woodLight, material = "Plastic", rot = Kit.ang(-70, 0, 0), canCollide = false })
-	build(parent, origin, { name = "ChestGlow", pos = { x, 1.1, z - 0.15 }, size = { 0.7, 0.35, 0.5 }, color = color, material = "Neon", shape = "Ball", canCollide = false })
+	build(parent, origin, { name = "ChestGlow", pos = { x, 1.1, z - 0.15 }, size = { 0.7, 0.35, 0.5 }, color = color, material = "SmoothPlastic", shape = "Ball", canCollide = false })
 end
 
 -- ── The counter ───────────────────────────────────────────────────────────────
@@ -728,9 +730,10 @@ local function buildOutfitter(parent: Instance)
 
 	local ridgeY = buildGableRoof(m, origin, 0, wallHeight, halfDepth, 4, width + 2, C.shopOutfitter)
 
-	-- The glowing sign, floating over the doorway, facing the approach from the
-	-- camp gate -- same Back-face convention the plaza stalls use, for the same
-	-- reason: whoever is walking toward this building is standing on the +Z side.
+	-- The sign, floating over the doorway, facing the approach from the camp gate --
+	-- same Back-face convention the plaza stalls use, for the same reason: whoever is
+	-- walking toward this building is standing on the +Z side. Matte, in the shop's
+	-- accent colour -- colour still does the navigation, it just doesn't glow.
 	-- Fixed size, not derived from the building's width — a sign that spans the
 	-- whole 46-wide storefront came out as a comically long, thin plank with
 	-- "OUTFITTER" lost in the middle of it, which read as stretched-out text even
@@ -738,9 +741,8 @@ local function buildOutfitter(parent: Instance)
 	-- were the actual problem.
 	local signY = ridgeY + 2.2
 	build(m, origin, { name = "SignOutline", pos = { 0, signY, halfDepth - 0.2 }, size = { 15, 3.0, 0.3 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
-	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, halfDepth + 0.2 }, size = { 14.4, 2.6, 0.4 }, color = C.shopOutfitter, material = "Neon", canCollide = false })
+	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, halfDepth + 0.2 }, size = { 14.4, 2.6, 0.4 }, color = C.shopOutfitter, material = "SmoothPlastic", canCollide = false })
 	Kit.surfaceText(sign, Enum.NormalId.Back, "OUTFITTER", C.signText)
-	light(sign, C.shopOutfitter, 26, 2.2)
 
 	buildFloorMarker(m, origin, 0, halfDepth - 3, width - 6, 8, C.shopOutfitter)
 

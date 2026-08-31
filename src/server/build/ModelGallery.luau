@@ -31,7 +31,7 @@ local ModelGallery = {}
 
 local NAME = "ModelGallery_TEMP"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 1
+local BUILDER_VERSION = 2
 
 local LAND_SIZE = 66
 local LAND_THICKNESS = 4
@@ -67,8 +67,10 @@ local function buildLand(gallery: Model, origin: CFrame)
 		material = "Concrete",
 	})
 
-	-- Bright trim makes the temporary footprint obvious in Studio and prevents it
-	-- from being mistaken for a seventh player plot.
+	-- Hazard-yellow trim makes the temporary footprint obvious in Studio and prevents
+	-- it from being mistaken for a seventh player plot. Matte, like the real world --
+	-- this lot is dev-only (never built by World.rebuild) but there is no reason for it
+	-- to be the one Neon thing left in the codebase.
 	for _, edge in {
 		{ pos = { 0, 0.12, -LAND_SIZE / 2 + 0.5 }, size = { LAND_SIZE, 0.24, 1 } },
 		{ pos = { 0, 0.12, LAND_SIZE / 2 - 0.5 }, size = { LAND_SIZE, 0.24, 1 } },
@@ -80,7 +82,7 @@ local function buildLand(gallery: Model, origin: CFrame)
 			pos = edge.pos,
 			size = edge.size,
 			color = Kit.C.hazard,
-			material = "Neon",
+			material = "SmoothPlastic",
 			canCollide = false,
 		})
 	end
