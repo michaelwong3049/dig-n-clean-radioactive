@@ -187,13 +187,17 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 	bag.Anchored = true
 	bag.CanCollide = false
 	bag.Color = Color3.fromHex("8FE04A")
-	bag.Material = Enum.Material.Neon
+	bag.Material = Enum.Material.SmoothPlastic
 	bag.Parent = Workspace
 
+	-- Matte since the de-neon pass; a low locator light stays, because this is a
+	-- recoverable stash sitting out in the world, not decoration -- you need to be able
+	-- to spot it to go back for it. Kept dim (was 2.2) so it marks the bag without
+	-- lighting the ground around it.
 	local light = Instance.new("PointLight")
 	light.Color = Color3.fromHex("8FE04A")
-	light.Range = 18
-	light.Brightness = 2.2
+	light.Range = 14
+	light.Brightness = 0.8
 	light.Parent = bag
 
 	local billboard = Instance.new("BillboardGui")

@@ -117,12 +117,12 @@
 --   5  soft light pink   — candy-bright, wrong, after the brown
 --   6  violet            — the Crater (unchanged)
 --
--- The muted-plate / bright-Neon colour-note below was written for the old deep
--- plum/magenta plates and the Neon POOLS over them. It no longer bites here: the
--- floor is now an UNtinted studded checkerboard (build/Scenery), Plastic not Neon,
--- so there is no bloom to turn a balanced pink to white — Stage 5 gets to just be
--- light pink. Still worth reading before touching Stage 6's violet or the pools if
--- the scenery rework brings Neon back.
+-- The muted-plate / bright-pool colour-note below was written for the old deep
+-- plum/magenta plates and the Neon POOLS over them. It no longer bites: the floor is
+-- an UNtinted studded checkerboard now (build/Scenery), and nothing in the world is
+-- Neon or blooms any more (the de-neon pass) — Stage 5 just gets to be light pink,
+-- and the pools are matte puddles in the stage's `ooze` colour. Read it for the
+-- ground/pool contrast reasoning, not for anything about emission.
 --
 -- The header used to carry a hard ceiling of area <= 785 * r^2, i.e. c >= 0.18. Every
 -- stage has been well over that ceiling for a long time (Stage 1 at c = 0.096 even
@@ -131,11 +131,12 @@
 -- as history, not a check. Use the time column, and SIGNALS_PER_STAGE to move it.
 --
 -- COLOUR NOTE: the plate is the SLUDGE and it is deliberately deep and muted. The
--- bright colour belongs to the pools and spills in build/Scenery, which are Neon —
--- each stage's own, from its `ooze` field, since the field stopped being green at Stage
--- 4. Making the plate pale too was the first attempt and it read as a golf course
--- from ground level: with no tonal gap between ground and pool, nothing glowed and
--- nothing looked toxic. Contrast is what sells "radioactive", not brightness.
+-- brighter colour belongs to the pools and spills in build/Scenery — each stage's
+-- own, from its `ooze` field, since the field stopped being green at Stage 4. Making
+-- the plate pale too was the first attempt and it read as a golf course from ground
+-- level: with no tonal gap between ground and pool, nothing looked toxic. Contrast is
+-- what sells "radioactive" — and now that neither one glows, the ground/pool contrast
+-- is doing all of that work, so keep the gap.
 --
 -- Stage 4 is the deliberate inversion. It is a dive, not a farm (PLAN §3.5): you get
 -- roughly 35 seconds in it one tier under. A field where you nearly always have a
@@ -207,10 +208,11 @@ export type StageDef = {
 	color: string, -- hex; the ooze colour of this stage's surface
 	material: string, -- Enum.Material name
 
-	-- The stage's Neon channel: the wading surface, the pools, their rims and their
-	-- lights. Per-stage since the harder stages stopped being green — build/Scenery
-	-- used to paint every field from three globals in Kit.C, which would have left
-	-- The Crater's violet ground under acid-green puddles.
+	-- The stage's pool colour: the wading surface, the pools and their rims (all matte
+	-- now — the de-neon pass; `glow` is just a third shade, nothing emits). Per-stage
+	-- since the harder stages stopped being green — build/Scenery used to paint every
+	-- field from three globals in Kit.C, which would have left The Crater's violet
+	-- ground under acid-green puddles.
 	ooze: { bright: string, deep: string, glow: string },
 
 	built: boolean, -- false => the generator skips it and verify() ignores it

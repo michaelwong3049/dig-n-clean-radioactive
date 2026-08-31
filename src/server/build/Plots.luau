@@ -146,7 +146,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 19
+local BUILDER_VERSION = 21
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -516,7 +516,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 		build(m, origin, { name = "TubRim", pos = { 0, pad.topY + 2.1, cz + side * 2.35 }, size = { 7.0, 1.0, 0.5 }, color = C.steel, material = "Metal" })
 	end
 
-	build(m, origin, { name = "Water", pos = { 0, pad.topY + 1.85, cz }, size = { 6.2, 0.25, 4.2 }, color = C.cyan, material = "Neon", transparency = 0.35 })
+	build(m, origin, { name = "Water", pos = { 0, pad.topY + 1.85, cz }, size = { 6.2, 0.25, 4.2 }, color = C.cyan, material = "Glass", transparency = 0.35 })
 
 	-- THREE ANCHORS, AND THE SHOT IS COMPOSED OUT OF THEM RATHER THAN OUT OF NUMBERS
 	-- IN THE CONTROLLER. Framing is a thing you judge by looking at it, so it has to
@@ -616,23 +616,25 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 		pos = { 0, pad.topY + 3.3, cz },
 		size = { 0.16, 2.8, 0.16 },
 		color = C.cyan,
-		material = "Neon",
+		material = "Glass",
 		transparency = 0.5,
 		canCollide = false,
 	})
 
 	-- Lamp in the plot's own accent colour, so the station reads as part of
-	-- THIS base rather than a generic fixture repeated six times.
+	-- THIS base rather than a generic fixture repeated six times. Matte now, with a
+	-- soft accent-tinted light -- the one coloured light left on a plot, kept low so
+	-- it warms the station without washing the grey plinths in front of it.
 	local lamp = build(m, origin, {
 		name = "Lamp",
 		pos = { 0, pad.topY + 5.9, cz + 1.5 },
 		size = { 0.5, 0.5, 0.5 },
 		color = accent,
-		material = "Neon",
+		material = "SmoothPlastic",
 		shape = "Ball",
 		canCollide = false,
 	})
-	light(lamp, accent, 14, 1.6)
+	light(lamp, accent, 12, 0.9)
 
 	m.Parent = parent
 end
@@ -859,10 +861,10 @@ end
 --- ShopService.buyLuck's header for why that lets this skip StationService entirely.
 ---
 --- GREEN, DELIBERATELY REUSING C.grass RATHER THAN THE PLOT'S OWN ACCENT COLOUR.
---- Material.Neon in an acid/hazard green is reserved for radiation everywhere outside
---- a stage (see Kit.C's header) — this is the same "safe" green the plaza and base
---- camp already wear, not that one, so a glowing button two steps from a wash pad
---- never reads as toxic.
+--- It sits two steps from a wash pad, so it wears the same "safe" green the plaza and
+--- base camp already do, not one of the hazard greens the stages use. Matte, like
+--- every surface in the world now (see Kit.C's header) — a button reads as "press me"
+--- from its shape and its billboard, it never needed to glow.
 ---
 --- THE BILLBOARD SHOWS YOUR MULTIPLIER AND THE NEXT PRICE, not a ladder — ShopService
 --- rewrites both the moment a purchase lands, and ExhibitService rewrites them again
@@ -893,12 +895,11 @@ local function buildLuckButton(parent: Instance, origin: CFrame)
 		pos = { 0, panelY, wallZ - 0.15 },
 		size = { 1.4, 1.4, 1.4 },
 		color = C.grass,
-		material = "Neon",
+		material = "SmoothPlastic",
 		shape = "Ball",
 		canCollide = false,
 		attributes = { SellsTrack = "Luck" },
 	})
-	light(button, C.grass, 10, 1)
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Upgrade"
@@ -922,6 +923,53 @@ local function buildLuckButton(parent: Instance, origin: CFrame)
 	)
 
 	m.Parent = parent
+end
+
+--- The plot's back wall. WAS a flat Concrete slab in warm peach; now a studded wall,
+--- the same stud treatment the boundary walls and every floor in the world already
+--- wear, so the base reads as built out of the same blocks as everything around it.
+--- ONE flat colour (the brighter of the old plaza pair, `C.plazaWarm`), on request —
+--- the two-tone checker read as busy behind the nameplate. Front face at local z =
+--- `pad.depth / 2 - 0.5` (unchanged), so the NameSign and the luck-button panel still
+--- bolt straight to it; taller than the old 10-stud slab, on request.
+local BACKWALL_TILE = 3.3 -- ~20 columns across the 66-wide pad, ~5 rows up the 16 tall
+local BACKWALL_HEIGHT = 16
+local function buildBackWall(parent: Instance, origin: CFrame)
+	local pad = Plots.PAD
+	local folder = Instance.new("Folder")
+	folder.Name = "BackWall"
+
+	local wallW, wallThick = pad.width, 1
+	local frontZ = pad.depth / 2 - 0.5
+	local cols = math.ceil(wallW / BACKWALL_TILE)
+	local rows = math.ceil(BACKWALL_HEIGHT / BACKWALL_TILE)
+
+	for ix = 0, cols - 1 do
+		local x0 = -wallW / 2 + ix * BACKWALL_TILE
+		local x1 = math.min(x0 + BACKWALL_TILE, wallW / 2)
+		local w = x1 - x0
+		if w <= 1e-3 then
+			continue
+		end
+		for iy = 0, rows - 1 do
+			local y0 = iy * BACKWALL_TILE
+			local y1 = math.min(y0 + BACKWALL_TILE, BACKWALL_HEIGHT)
+			local h = y1 - y0
+			if h <= 1e-3 then
+				continue
+			end
+			build(folder, origin, {
+				name = "WallTile",
+				pos = { (x0 + x1) / 2, pad.topY + (y0 + y1) / 2, frontZ },
+				size = { w, h, wallThick },
+				color = C.plazaWarm,
+				material = "Plastic",
+				studs = true,
+			})
+		end
+	end
+
+	folder.Parent = parent
 end
 
 local function buildPlot(parent: Instance, index: number)
@@ -960,41 +1008,32 @@ local function buildPlot(parent: Instance, index: number)
 	Hub.tileRect(tiles, rect, tint)
 	tiles.Parent = m
 
-	-- Accent trim, so whose plot is whose is readable from across the plaza.
+	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
+	-- the colour alone carries the "whose plot" cue now, no glow.
 	for _, side in { -1, 1 } do
 		build(m, origin, {
 			name = "Trim",
 			pos = { side * (pad.width / 2 - 0.5), pad.topY + 0.1, 0 },
 			size = { 1, 0.5, pad.depth },
 			color = accent,
-			material = "Neon",
+			material = "SmoothPlastic",
 			canCollide = false,
 		})
 	end
 
-	-- Back wall and the nameplate the owner's display name goes on.
-	local wall = build(m, origin, {
-		name = "BackWall",
-		pos = { 0, pad.topY + 5, pad.depth / 2 - 0.5 },
-		size = { pad.width, 10, 1 },
-		color = C.plazaWarm,
-		material = "Concrete",
-	})
+	-- Back wall (studded checkerboard, see buildBackWall) and the nameplate the owner's
+	-- display name goes on. The sign is matte in the plot's accent colour — the Trim
+	-- and the sign carry "whose plot is this" on hue alone; no accent light any more,
+	-- which used to bounce the plot's colour onto the grey plinths in front of it.
+	buildBackWall(m, origin)
 	local sign = build(m, origin, {
 		name = "NameSign",
 		pos = { 0, pad.topY + 8, pad.depth / 2 - 1.4 },
 		size = { 34, 4, 0.4 },
 		color = accent,
-		material = "Neon",
+		material = "SmoothPlastic",
 	})
 	Kit.surfaceText(sign, Enum.NormalId.Front, "UNCLAIMED", C.signText)
-	-- Dialled back from 22/1.6 and 18/0.8: the back-third accent wash was bright
-	-- enough to bounce the plot's colour onto the grey display plinths in front of
-	-- it (the Neon sign and Trim carry the "whose plot is this" cue on their own;
-	-- these lights only need to lift the nameplate and give the wall a gentle
-	-- tint, not floodlight the whole back of the pad).
-	light(sign, accent, 20, 1.0)
-	light(wall, accent, 14, 0.4)
 
 	-- No claim board any more: exhibit income is auto-deposited into the owner's
 	-- wallet (ExhibitService.deposit), so there is nothing here to walk up to and
@@ -1009,7 +1048,7 @@ local function buildPlot(parent: Instance, index: number)
 		pos = { 0, pad.topY + 0.5, -pad.depth / 2 + 8 },
 		size = { 6, 1, 6 },
 		color = accent,
-		material = "Neon",
+		material = "SmoothPlastic",
 		transparency = 0.4,
 		canCollide = false,
 		attributes = { PlotIndex = index },

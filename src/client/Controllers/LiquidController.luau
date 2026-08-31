@@ -22,9 +22,9 @@
 	the client allowed to do that. Config/Liquids owns a hex per liquid so the canister
 	on the pad's shelf, the stream out of the hose and this badge are provably the same
 	colour; picking a UIKit.C entry here would put the badge permanently out of step
-	with the world geometry. The one rule it still obeys: no liquid may be Neon green,
-	because green is the ooze and nothing else (PLAN §14) — enforced in Config/Liquids'
-	own palette, not here.
+	with the world geometry. The one rule it still obeys: no liquid may be the ooze
+	green, because that green is the field and nothing else (PLAN §14) — enforced in
+	Config/Liquids' own palette, not here.
 ]]
 
 local Players = game:GetService("Players")

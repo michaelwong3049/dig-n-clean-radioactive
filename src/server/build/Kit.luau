@@ -45,9 +45,12 @@ Kit.UPGRADE_TAG = "Upgrade"
 --
 -- The first block is the base camp's original palette, unchanged — the camp still
 -- looks exactly as it did. The second is the bright outdoor world (PLAN §14, as
--- rewritten): saturated everywhere, and radiation is the only thing that GLOWS.
--- Nothing outside a stage may use Material.Neon in acid green; that channel means
--- danger and it stays uncontaminated.
+-- rewritten): bright and colourful, and EVERYTHING IS MATTE. There is no
+-- Material.Neon anywhere in the game and no bloom (see build/Daylight) — the danger
+-- cue the world used to carry with emission ("only the ooze glows") is carried by
+-- colour and shape now. The ooze is still green, the hazard tape still yellow; they
+-- just don't light up. Keep it that way: no new Neon, and keep decorative colours
+-- muted enough that they read as paint, not as light.
 Kit.C = {
 	-- Base camp (original values — do not repaint without rebuilding the camp)
 	floor = "C9C4B8",
@@ -83,14 +86,13 @@ Kit.C = {
 	-- navy-and-grey tiles — a two-course studded riser reads as built furniture, not
 	-- poured ground. `standGreyDark` is the base course, `standGrey` the top course
 	-- and its frame, so the stack reads as lit from above. NOT a hazard channel:
-	-- never Neon, never one of the ooze greens.
+	-- never one of the ooze greens.
 	standGrey = "A0A0A0",
 	standGreyDark = "787878",
 
 	-- The Quarantine Locker's interior lining (Plots.buildQuarantineLocker). The one
-	-- saturated red in the base — a hazard-adjacent colour, but NOT the acid-green
-	-- radiation channel, so it's allowed. Kept in the same family as the client
-	-- panel's own locker red (UIKit.C.red).
+	-- saturated red in the base — a hazard-adjacent colour, not the ooze green. Kept
+	-- in the same family as the client panel's own locker red (UIKit.C.red).
 	quarantineRed = "C4382E",
 
 	-- ── The checkerboard, in its two palettes ────────────────────────────────
@@ -102,10 +104,11 @@ Kit.C = {
 	-- THE GREENS ARE DELIBERATELY DESATURATED, and that is not a taste call. Green is
 	-- spoken for in this world: "the paths are safe, the green is not" is the rule the
 	-- hub's own header calls the most legible thing in the game. The radiation fields
-	-- are saturated yellow-green under glowing Neon; these are muted, cool and matte,
-	-- and they are laid in a hard-edged studded grid that no field has. That is what
-	-- keeps a green courtyard from reading as ground you should not stand on. Do not
-	-- brighten them toward the fields.
+	-- are a saturated yellow-green; these are muted, cool, and laid in a hard-edged
+	-- studded grid that no field has. That is what keeps a green courtyard from reading
+	-- as ground you should not stand on -- now the fields don't glow, the grid and the
+	-- saturation gap are the whole cue, so hold them apart. Do not brighten these
+	-- toward the fields.
 	plazaTileDark = "3F5E3A",
 	plazaTileLight = "486B42",
 
@@ -117,24 +120,23 @@ Kit.C = {
 	grassDark = "6FB84E",
 	road = "E8DCC0",
 
-	-- Radiation. The ONLY Neon green in the world.
+	-- Radiation. The hazard green — matte like everything else now.
 	--
-	-- These are green-DOMINANT on purpose. Neon renders a colour at full emission and
-	-- bloom pushes it further, so a yellow-green like B6FF6E comes out of the pipeline
-	-- as cream and stops reading as toxic at all. Keep red well under green here or
-	-- the ooze turns into custard.
+	-- These are green-DOMINANT on purpose. They used to be rendered Neon, where a
+	-- yellow-green like B6FF6E blooms out to cream and stops reading as toxic; that
+	-- pressure is gone with the emission, but green-dominant still reads as "sick"
+	-- better than a yellow-green does, so keep red well under green here.
 	--
-	-- THESE THREE ARE NO LONGER THE WHOLE HAZARD CHANNEL. They are stages 1-3's share
-	-- of it. From Stage 4 the fields turn plum, hot pink and violet, and each stage
-	-- carries its own bright/deep/glow triple in Config/Stages (`StageDef.ooze`) — which
-	-- is where to go to retune a field, not here. These stay because the greens are
-	-- still what three of the six stages are painted in, and because the rule they
-	-- encode travels: keep the dominant channel dominant or bloom eats the colour.
+	-- THESE THREE ARE STAGES 1-3's SHARE OF THE HAZARD GREEN. From Stage 4 the fields
+	-- turn plum, hot pink and violet, and each stage carries its own bright/deep/glow
+	-- triple in Config/Stages (`StageDef.ooze`) — that's where to retune a field, not
+	-- here. (The `glow` slot of each triple is now just the pool colour; nothing
+	-- emits.) These stay because the greens are what three of the six stages are
+	-- painted in.
 	--
-	-- What is still absolute is the OTHER half of the original rule: nothing OUTSIDE a
-	-- stage may use Material.Neon in any of these hazard colours. That channel means
-	-- danger and it stays uncontaminated — the shop signs and the plot accents are
-	-- bright, but never in these.
+	-- The old rule "nothing outside a stage may use Neon in a hazard colour" is moot
+	-- now nothing is Neon at all. The soft version still holds: keep the shop and
+	-- plot accents out of this saturated green so "green = the field" stays clean.
 	ooze = "4FD11A",
 	oozeBright = "6BEE2E",
 	oozeDeep = "2A6B10",
@@ -144,16 +146,22 @@ Kit.C = {
 	rubble = "A8A093",
 
 	-- Shop identity colours. A young player learns "the coral one is the detector
-	-- shop" once and navigates by it forever, which is the single biggest
-	-- legibility win available for the price.
-	shopDetector = "FF7A5C",
-	shopMagnet = "4CC9F0",
-	shopCleaner = "B15CFF",
-	shopOutfitter = "FFC93C",
+	-- shop" once and navigates by it forever, which is the single biggest legibility
+	-- win available for the price. Retoned muted with the de-neon pass (were
+	-- FF7A5C / 4CC9F0 / B15CFF / FFC93C — the cyan and violet read as neon signage);
+	-- still four unmistakably different hues, just painted now, not lit.
+	shopDetector = "E06A4E",
+	shopMagnet = "4E9AAE",
+	shopCleaner = "9560B0",
+	shopOutfitter = "D9A93F",
 }
 
---- Per-plot accent colours. Index by plot number.
-Kit.PLOT_ACCENT = { "FF6B9D", "4CC9F0", "FFC93C", "7CE05A", "FF9F45", "B15CFF" }
+--- Per-plot accent colours. Index by plot number. Six clearly-different hues so
+--- "whose plot is this" reads from across the plaza — retoned muted with the de-neon
+--- pass (they were near-fluorescent: FF6B9D / 4CC9F0 / FFC93C / 7CE05A / FF9F45 /
+--- B15CFF). Now they read as painted trim, not as lights. None of them is the ooze
+--- green. Worn matte on the Trim, NameSign and the cleansing-station lamp.
+Kit.PLOT_ACCENT = { "A65A6E", "4E8C99", "C6A24E", "5F7A99", "C07E4C", "8A6BA6" }
 
 -- ── Orientations ──────────────────────────────────────────────────────────────
 -- Degrees, XYZ euler. A Roblox Cylinder's axis is its X size, so "upright" means

@@ -10,29 +10,29 @@
 	because somebody once dragged sliders in Studio is a world that looks wrong the
 	next time anyone opens a fresh clone. So the look is written down and applied.
 
-	THE ART DIRECTION THIS IMPLEMENTS (PLAN §14, as rewritten):
+	THE ART DIRECTION THIS IMPLEMENTS (PLAN §14, as rewritten twice):
 
-	    Saturated everywhere. Radiation is the only thing that GLOWS.
+	    Bright and colourful. Everything is matte. Colour alone carries meaning.
 
 	The original §14 asked for desaturated ash-grey with radiation as the only
-	saturated colour. That is a good rule for a survival horror game and the wrong
-	one for this audience. But the INSIGHT under it is worth keeping — one visual
-	channel means danger, so the eye trains itself without being taught. This moves
-	the channel from saturation to emission: the world is bright and colourful, and
-	the only things that glow acid green are the things that will hurt you.
+	saturated colour — right for survival horror, wrong for this audience. The second
+	pass kept the "one channel means danger" insight and moved it to emission: the
+	world glowed acid green where it was dangerous and nowhere else. That was undone
+	on request — every Neon surface in the game is matte now, and bloom is off. The
+	danger cue is back to colour and shape: the ooze is still green, the hazard tape
+	is still yellow-and-black, they just don't light up.
 
 	Concretely that means: a high sun, warm ambient, thin atmosphere so the map reads
-	as open rather than foggy, and just enough bloom that Neon ooze blooms while
-	painted timber does not. Depth of field is pushed out to nothing — blurring the
-	horizon in a game whose whole tension is "how far away is home" actively fights
-	the design.
+	as open rather than foggy, no bloom. Depth of field is pushed out to nothing —
+	blurring the horizon in a game whose whole tension is "how far away is home"
+	actively fights the design.
 ]]
 
 local Lighting = game:GetService("Lighting")
 
 local Daylight = {}
 local BUILDER_SOURCE = "src/server/build/Daylight.luau"
-local BUILDER_VERSION = 1
+local BUILDER_VERSION = 2
 
 --- Base fog. Per-stage fog is a CLIENT concern (Lighting is global, but each player
 --- should see their own stage's air), so AtmosphereController tweens from here.
@@ -90,14 +90,15 @@ function Daylight.apply()
 	atmosphere.Glare = 0.15
 	atmosphere.Haze = 0.6
 
-	-- Bloom tuned so Neon blooms and paint does not. Threshold is the important
-	-- number: drop it and the whole bright plaza starts glowing, which destroys
-	-- the "only radiation glows" rule this palette is built on.
+	-- Bloom OFF. It existed to make Neon ooze glow while painted timber did not;
+	-- nothing in the world is Neon or emissive any more (de-neon pass), so there is
+	-- nothing left for it to bloom. Kept as a disabled child rather than deleted so a
+	-- fresh apply() still clears any bloom a place file was saved with.
 	local bloom = child("BloomEffect", "Bloom") :: BloomEffect
-	bloom.Enabled = true
-	bloom.Intensity = 0.55
+	bloom.Enabled = false
+	bloom.Intensity = 0
 	bloom.Size = 20
-	bloom.Threshold = 1.15
+	bloom.Threshold = 2
 
 	-- Gentle saturation lift. Does the "colourful" work globally without needing
 	-- every part's colour retuned by hand.
@@ -130,7 +131,7 @@ function Daylight.apply()
 	Lighting:SetAttribute("GeneratedBy", BUILDER_SOURCE)
 	Lighting:SetAttribute("BuilderVersion", BUILDER_VERSION)
 
-	print("[build] Daylight applied — bright outdoor, thin atmosphere, bloom gated to Neon")
+	print("[build] Daylight applied — bright outdoor, thin atmosphere, no bloom (matte world)")
 end
 
 return Daylight

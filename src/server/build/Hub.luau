@@ -69,7 +69,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 11
+local BUILDER_VERSION = 12
 
 local C = Kit.C
 local build = Kit.build
@@ -485,7 +485,7 @@ local function buildSpawns(hub: Model)
 		pos = { grate.X, Hub.PLAZA.topY + 0.5, grate.Z },
 		size = { 4, 1, 4 },
 		color = C.cyan,
-		material = "Neon",
+		material = "SmoothPlastic",
 		transparency = 1,
 		canCollide = false,
 	})

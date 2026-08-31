@@ -95,10 +95,10 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 17
+local BUILDER_VERSION = 18
 
 local C, R = Kit.C, Kit.R
-local build, light, billboard = Kit.build, Kit.light, Kit.billboard
+local build = Kit.build
 
 --- Just above the plate's top face — close enough to read as lying on the ground,
 --- high enough not to z-fight with it.
@@ -294,25 +294,11 @@ end
 --- individual props being placed, not one surface split into many, so it was never
 --- the source of this bug and did not need to change.
 
---- HOW MANY POOL LIGHTS A FIELD MAY HAVE, however many pools it has.
----
---- Every pool used to get its own PointLight. That was 39 lights when Stage 1 was the
---- only field in the world and nobody had to think about it; at six fields, with the
---- pink stages carrying 74 and 92 pools each because the pools ARE their colour, it
---- came to 532 and the renderer fell over — screen capture timed out before this was
---- even a gameplay question.
----
---- The cap is safe because a light is not what makes a pool glow. The pool is Neon:
---- it is emissive on its own, at full brightness, whether or not anything is lit
---- beside it. The PointLight only spills that colour onto the props and the ground
---- AROUND it, and eight per field does that job — you cannot tell which pools have
---- one without counting, and a field lit by eight looks the same as one lit by
---- ninety-two.
-local STAGE_LIGHT_BUDGET = 8
-
---- Same argument, applied to the barrels: the spill is Neon and glows regardless, so
---- only every fifth one also throws light.
-local BARREL_LIGHT_EVERY = 5
+--- NO POOL/PROP LIGHTS ANY MORE. The pools and spills used to be Neon and every few
+--- of them threw a PointLight to spill that glow onto the ground around it; the whole
+--- world is matte now (see Kit.C's header), so the light-budget machinery that used to
+--- live here is gone. If the dormant `barrel()` / `prop()` set pieces are ever
+--- revived they render flat, like everything else.
 
 --- Per-stage character. `props` is roughly how many set pieces to scatter; the pool
 --- count scales with area so a big stage does not look empty.
@@ -360,10 +346,12 @@ local THEME: { [number]: StageTheme } = {
 
 --- A leaking barrel: the story prop. Tipped or standing, always dripping.
 ---
+--- DORMANT — `buildStageScenery` does not call this (see its "STILL ON THE SHELF"
+--- note). Kept as the reference implementation; git history has the rest.
+---
 --- The DRUM is yellow or rust in every field — it is the same drum wherever it was
---- dumped. The SPILL is the stage's own Neon, because the spill is what the field is
---- made of: a barrel leaking acid green into a hot pink Reactor Grounds says the
---- ground got its colour from somewhere else, which is the one thing it did not.
+--- dumped. The SPILL is the stage's own colour. IF THIS IS EVER RE-ENABLED it must be
+--- matte, not Neon: the world has no glowing surfaces any more (see Kit.C's header).
 local function barrel(
 	parent: Instance,
 	origin: CFrame,
@@ -371,7 +359,7 @@ local function barrel(
 	z: number,
 	rng: Random,
 	ooze: { bright: string, deep: string, glow: string },
-	lit: boolean
+	_lit: boolean
 )
 	local tipped = rng:NextNumber() < 0.35
 	local color = if rng:NextNumber() < 0.5 then C.barrelYellow else C.barrelRust
@@ -388,20 +376,17 @@ local function barrel(
 
 	-- The spill coming out of it. This is the bit that sells "oozing".
 	local spillW = rng:NextNumber(8, 14)
-	local spill = build(parent, origin, {
+	build(parent, origin, {
 		name = "Spill",
 		pos = { x + rng:NextNumber(-3, 3), SKIM, z + rng:NextNumber(-3, 3) },
 		size = { 0.44, spillW, spillW },
 		color = ooze.bright,
-		material = "Neon",
+		material = "SmoothPlastic",
 		shape = "Cylinder",
 		rot = R.cylUp,
 		transparency = 0.04,
 		canCollide = false,
 	})
-	if lit then
-		light(spill, ooze.glow, 18, 2)
-	end
 end
 
 --- Stage-specific silhouette, so the four fields do not read as one field.
@@ -738,15 +723,14 @@ local function prop(
 		})
 	elseif kind == "sirens" then
 		build(parent, origin, { name = "SirenPost", pos = { x, 6, z }, size = { 0.8, 12, 0.8 }, color = C.steelDark, material = "Metal" })
-		local head = build(parent, origin, {
+		build(parent, origin, {
 			name = "SirenHead",
 			pos = { x, 12.4, z },
 			size = { 2.6, 1.8, 2.6 },
 			color = C.barrelRust,
-			material = "Neon",
+			material = "SmoothPlastic",
 			canCollide = false,
 		})
-		light(head, C.barrelRust, 22, 2)
 	elseif kind == "reactor" then
 		-- Reactor Grounds: cooling stacks, cracked and still lit from inside. Tapered
 		-- by stacking two cylinders rather than using a cone, which the Kit has no
@@ -770,41 +754,33 @@ local function prop(
 			shape = "Cylinder",
 			rot = R.cylUp,
 		})
-		-- The crack. Neon in the STAGE's own colour, so this glows pink here and would
-		-- glow whatever the field glows if the theme is ever reused.
-		local vent = build(parent, origin, {
+		-- The crack, in the STAGE's own colour — matte, like every surface in the world.
+		build(parent, origin, {
 			name = "StackVent",
 			pos = { x, h + 5.4, z },
 			size = { 1.2, 6.8, 6.8 },
 			color = ooze.bright,
-			material = "Neon",
+			material = "SmoothPlastic",
 			shape = "Cylinder",
 			rot = R.cylUp,
 			canCollide = false,
 		})
-		light(vent, ooze.glow, 30, 2.5)
 	elseif kind == "shards" then
 		-- The Crater: whatever the blast fused, standing up out of the ground. Three
 		-- leaning spikes per cluster, each tilted off vertical by a different amount,
 		-- because three identical uprights read as a fence.
-		for spike = 1, 3 do
+		for _ = 1, 3 do
 			local h = rng:NextNumber(7, 19)
-			local shard = build(parent, origin, {
+			build(parent, origin, {
 				name = "Shard",
 				pos = { x + rng:NextNumber(-5, 5), h / 2, z + rng:NextNumber(-5, 5) },
 				size = { rng:NextNumber(1.4, 3.2), h, rng:NextNumber(1.4, 3.2) },
 				color = ooze.bright,
-				material = "Neon",
+				material = "SmoothPlastic",
 				rot = Kit.ang(rng:NextNumber(-22, 22), rng:NextNumber(0, 180), rng:NextNumber(-22, 22)),
 				transparency = 0.15,
 				canCollide = false,
 			})
-			-- One light for the cluster, not one per spike. Three overlapping lights
-			-- on three touching Neon spikes is indistinguishable from one and costs
-			-- three times as much — see STAGE_LIGHT_BUDGET.
-			if spike == 1 then
-				light(shard, ooze.glow, 22, 2)
-			end
 		end
 		-- A dark base so a cluster reads as something that grew out of the ground
 		-- rather than as three lights hovering over it.
@@ -832,7 +808,7 @@ local function prop(
 			pos = { x, 3.3, z },
 			size = { 9, 0.4, 1.5 },
 			color = C.barrelYellow,
-			material = "Neon",
+			material = "SmoothPlastic",
 			canCollide = false,
 		})
 	end
@@ -1071,9 +1047,10 @@ local function buildStageScenery(parent: Instance, id: number)
 	--
 	-- STILL ON THE SHELF: ooze pools (`theme.pools`), barrels (`barrel()`), and every
 	-- `prop()` set-piece kind for the fields that have not had their pass yet. `THEME`,
-	-- `prop()`, `barrel()` and the light-budget constants are all still defined above
-	-- and untouched -- the full previous implementation, with its per-stage tuning
-	-- rationale, is in git history on this file rather than dead code here.
+	-- `prop()` and `barrel()` are still defined above -- the full previous
+	-- implementation, with its per-stage tuning rationale, is in git history on this
+	-- file rather than dead code here. The de-neon pass swapped their materials to
+	-- matte and dropped their PointLights; revived, they render flat like everything.
 	if theme.scatter then
 		if id == 1 then
 			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
@@ -1217,7 +1194,7 @@ local function buildStageBorderLines(parent: Instance)
 					pos = { cx0 + rowWidth / 2, y, (z0 + z1) / 2 },
 					size = { rowWidth, 0.4, d },
 					color = if yellow then BORDER_YELLOW else BORDER_BLACK,
-					material = if yellow then "Neon" else "SmoothPlastic",
+					material = "SmoothPlastic", -- matte hazard tape; nothing in the world is Neon any more
 					canCollide = false,
 				})
 			end
