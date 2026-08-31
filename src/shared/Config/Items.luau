@@ -42,6 +42,13 @@
 	carries a Legendary: PLAN §4 wants "it could happen right here" live from minute
 	one, because that chance is what keeps a new player sweeping.
 
+	ECONOMY RESCALE (feat/economy-rescale-display-income): every baseValue below was
+	multiplied by 20/3 (~6.667x) and rounded to two significant figures, anchored so the
+	Bottle Cap sells for $20. The rarity bands in Rarity.DEFS moved by the same factor, so
+	every entry still sits inside its band. See Config/Rarity.luau's header for the whole
+	picture -- the short version is that shop prices moved by the same 20/3, so the
+	sell->buy loop is unchanged, and only Rarity.displayYield moved differently (x300).
+
 	`model` is optional while the catalogue art is produced. Entries without one keep
 	the rarity-coloured placeholder; entries with one resolve through Shared.ItemModels.
 ]]
@@ -61,7 +68,7 @@ export type ItemDef = {
 local Items = {}
 
 Items.DEFS = {
-	-- ── Scrap ── $1-5 ──────────────────────────────────────────────────────
+	-- ── Scrap ── $5-35 ──────────────────────────────────────────────────────
 	{
 		id = "bottle_cap",
 		name = "Bottle Cap",
@@ -70,7 +77,7 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 3,
+		baseValue = 20,
 		model = "BottleCap",
 	},
 	{
@@ -81,7 +88,7 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 4,
+		baseValue = 27,
 		model = "SteelRod",
 	},
 	{
@@ -92,10 +99,10 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 5,
+		baseValue = 33,
 	},
 
-	-- ── Common ── $5-25 ─────────────────────────────────────────────────
+	-- ── Common ── $35-170 ─────────────────────────────────────────────────
 	{
 		id = "tin_can",
 		name = "Dented Tin Can",
@@ -104,7 +111,7 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 12,
+		baseValue = 80,
 		model = "DentedTinCan",
 	},
 	{
@@ -115,7 +122,7 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Collector",
 		sets = { "left_behind" },
-		baseValue = 18,
+		baseValue = 120,
 		model = "HouseKey",
 	},
 	{
@@ -126,7 +133,7 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Collector",
 		sets = { "left_behind" },
-		baseValue = 22,
+		baseValue = 150,
 		model = "Wristwatch",
 	},
 	{
@@ -137,11 +144,11 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 14,
+		baseValue = 93,
 		model = "RubberDuck",
 	},
 
-	-- ── Uncommon ── $25-120 ─────────────────────────────────────────────
+	-- ── Uncommon ── $170-800 ─────────────────────────────────────────────
 	-- NOTE: Uncommon is hardness 2 and a Wire Brush is potency 1, so the first of
 	-- these a new player digs CANNOT be cleaned yet. That is the §6 staggered reveal
 	-- working — but it also contradicts PLAN §12, whose scripted tutorial has you
@@ -154,7 +161,7 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Collector",
 		sets = { "childrens_toys" },
-		baseValue = 45,
+		baseValue = 300,
 	},
 	{
 		id = "wind_up_flashlight",
@@ -164,7 +171,7 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
-		baseValue = 60,
+		baseValue = 400,
 	},
 	{
 		id = "gold_ring",
@@ -174,11 +181,11 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Collector",
 		sets = { "left_behind" },
-		baseValue = 85,
+		baseValue = 570,
 		model = "GoldRing",
 	},
 
-	-- ── Rare ── $120-700 ───────────────────────────────────────────────
+	-- ── Rare ── $800-4.7k ───────────────────────────────────────────────
 	{
 		id = "radiation_scanner",
 		name = "Radiation Scanner",
@@ -187,7 +194,7 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
-		baseValue = 340,
+		baseValue = 2300,
 	},
 	{
 		id = "film_canister",
@@ -197,10 +204,10 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 480,
+		baseValue = 3200,
 	},
 
-	-- ── Epic ── $700-4k ─────────────────────────────────────────────────
+	-- ── Epic ── $4.7k-27k ─────────────────────────────────────────────────
 	{
 		id = "sample_case",
 		name = "Sample Case",
@@ -209,10 +216,10 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 1900,
+		baseValue = 13000,
 	},
 
-	-- ── Legendary ── $4k-30k ────────────────────────────────────────────
+	-- ── Legendary ── $27k-200k ────────────────────────────────────────────
 	-- 0.15% in Stage 1. Almost nobody will see this. That is the point.
 	{
 		id = "treasure_map",
@@ -222,7 +229,7 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 9500,
+		baseValue = 63000,
 	},
 
 	-- ══ STAGE 2 — THE SUBURBS ═══════════════════════════════════════════════
@@ -237,7 +244,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
-		baseValue = 3,
+		baseValue = 20,
 	},
 	{
 		id = "door_hinge",
@@ -247,7 +254,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 4,
+		baseValue = 27,
 	},
 	{
 		id = "cutlery_set",
@@ -257,7 +264,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
-		baseValue = 14,
+		baseValue = 93,
 	},
 	{
 		id = "garden_trowel",
@@ -267,7 +274,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 19,
+		baseValue = 130,
 	},
 	{
 		id = "doll_head",
@@ -277,7 +284,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = { "childrens_toys" },
-		baseValue = 23,
+		baseValue = 150,
 	},
 	{
 		id = "charm_bracelet",
@@ -287,7 +294,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 55,
+		baseValue = 370,
 	},
 	{
 		id = "socket_set",
@@ -297,7 +304,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 72,
+		baseValue = 480,
 	},
 	{
 		id = "photo_locket",
@@ -307,7 +314,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 98,
+		baseValue = 650,
 	},
 	{
 		id = "mutant_carrot",
@@ -317,7 +324,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 50,
+		baseValue = 330,
 	},
 	{
 		id = "pearl_necklace",
@@ -327,7 +334,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 310,
+		baseValue = 2100,
 	},
 	{
 		id = "ignition_coil",
@@ -337,7 +344,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 450,
+		baseValue = 3000,
 	},
 	{
 		id = "clock_movement",
@@ -347,7 +354,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 1650,
+		baseValue = 11000,
 	},
 	{
 		id = "deposit_box",
@@ -357,7 +364,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 8200,
+		baseValue = 55000,
 	},
 
 	-- ══ STAGE 3 — FALLOUT FIELDS ════════════════════════════════════════════
@@ -378,7 +385,7 @@ Items.DEFS = {
 		stages = { 3, 4 },
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
-		baseValue = 8,
+		baseValue = 53,
 	},
 	{
 		id = "gate_latch",
@@ -388,7 +395,7 @@ Items.DEFS = {
 		stages = { 3, 4 },
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
-		baseValue = 11,
+		baseValue = 73,
 	},
 	{
 		id = "old_food_tin",
@@ -398,7 +405,7 @@ Items.DEFS = {
 		stages = { 3, 4 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 16,
+		baseValue = 110,
 	},
 	{
 		id = "first_aid_tin",
@@ -408,7 +415,7 @@ Items.DEFS = {
 		stages = { 3, 4 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 45,
+		baseValue = 300,
 	},
 	{
 		id = "unlit_signal_flare",
@@ -418,7 +425,7 @@ Items.DEFS = {
 		stages = { 3 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 75,
+		baseValue = 500,
 	},
 	{
 		id = "old_compass",
@@ -428,7 +435,7 @@ Items.DEFS = {
 		stages = { 3 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 65,
+		baseValue = 430,
 	},
 	{
 		id = "broken_lantern",
@@ -438,7 +445,7 @@ Items.DEFS = {
 		stages = { 3, 4 },
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
-		baseValue = 95,
+		baseValue = 630,
 	},
 	{
 		id = "gold_signet",
@@ -448,7 +455,7 @@ Items.DEFS = {
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 380,
+		baseValue = 2500,
 	},
 	{
 		id = "radiation_badge",
@@ -458,7 +465,7 @@ Items.DEFS = {
 		stages = { 3, 4 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 640,
+		baseValue = 4300,
 	},
 	{
 		id = "buried_coin_jar",
@@ -468,7 +475,7 @@ Items.DEFS = {
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 560,
+		baseValue = 3700,
 	},
 	{
 		id = "bullion_bar",
@@ -478,7 +485,7 @@ Items.DEFS = {
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 2400,
+		baseValue = 16000,
 	},
 	{
 		id = "diamond_brooch",
@@ -488,7 +495,7 @@ Items.DEFS = {
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 2800,
+		baseValue = 19000,
 	},
 	{
 		id = "rusted_farm_safe",
@@ -498,7 +505,7 @@ Items.DEFS = {
 		stages = { 3, 4 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 9000,
+		baseValue = 60000,
 	},
 
 	-- ══ STAGE 4 — THE EXCLUSION BELT ════════════════════════════════════════
@@ -516,7 +523,7 @@ Items.DEFS = {
 		stages = { 4 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 660,
+		baseValue = 4400,
 	},
 	{
 		id = "strange_metal_chip",
@@ -526,7 +533,7 @@ Items.DEFS = {
 		stages = { 4 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
-		baseValue = 3400,
+		baseValue = 23000,
 	},
 	{
 		id = "reactor_rod",
@@ -536,7 +543,7 @@ Items.DEFS = {
 		stages = { 4 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
-		baseValue = 18000,
+		baseValue = 120000,
 	},
 
 	-- ══ STAGE 5 — REACTOR GROUNDS ═══════════════════════════════════════════
@@ -555,7 +562,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 9,
+		baseValue = 60,
 	},
 	{
 		id = "shiny_metal_blade",
@@ -565,7 +572,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 10,
+		baseValue = 67,
 	},
 	{
 		id = "rad_warning_placard",
@@ -575,7 +582,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 15,
+		baseValue = 100,
 	},
 	{
 		id = "pressure_gauge",
@@ -585,7 +592,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 60,
+		baseValue = 400,
 	},
 	{
 		id = "old_headphones",
@@ -595,7 +602,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = { "reactor_control" },
-		baseValue = 65,
+		baseValue = 430,
 	},
 	{
 		id = "cooling_valve_wheel",
@@ -605,7 +612,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 90,
+		baseValue = 600,
 	},
 	{
 		id = "reactor_logbook",
@@ -615,7 +622,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
-		baseValue = 420,
+		baseValue = 2800,
 	},
 	{
 		id = "sealed_data_drive",
@@ -625,7 +632,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 580,
+		baseValue = 3900,
 	},
 	{
 		id = "blackbox_recorder",
@@ -635,7 +642,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
-		baseValue = 2600,
+		baseValue = 17000,
 	},
 	{
 		id = "sealed_fuel_casing",
@@ -645,7 +652,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 3200,
+		baseValue = 21000,
 	},
 	{
 		id = "reactor_core_sample",
@@ -655,7 +662,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
-		baseValue = 15000,
+		baseValue = 100000,
 	},
 	{
 		id = "live_fuel_rod",
@@ -665,7 +672,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 90000,
+		baseValue = 600000,
 	},
 
 	-- ══ STAGE 6 — THE CRATER ════════════════════════════════════════════════
@@ -684,7 +691,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 7,
+		baseValue = 47,
 	},
 	{
 		id = "scorched_metal_plate",
@@ -694,7 +701,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 18,
+		baseValue = 120,
 	},
 	{
 		id = "sealed_air_filter",
@@ -704,7 +711,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 70,
+		baseValue = 470,
 	},
 	{
 		id = "bent_door_wheel",
@@ -714,7 +721,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 105,
+		baseValue = 700,
 	},
 	{
 		id = "cracked_glow_badge",
@@ -724,7 +731,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 460,
+		baseValue = 3100,
 	},
 	{
 		id = "fused_tool_roll",
@@ -734,7 +741,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 640,
+		baseValue = 4300,
 	},
 	{
 		id = "untouched_ground_sample",
@@ -744,7 +751,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 3300,
+		baseValue = 22000,
 	},
 	{
 		id = "skyglow_core_fragment",
@@ -754,7 +761,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 3900,
+		baseValue = 26000,
 	},
 	{
 		id = "ufo_fragment",
@@ -764,7 +771,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 3600,
+		baseValue = 24000,
 	},
 	{
 		id = "explorers_helmet",
@@ -774,7 +781,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Collector",
 		sets = { "crater_relics" },
-		baseValue = 21000,
+		baseValue = 140000,
 	},
 	{
 		id = "mini_nuke",
@@ -784,7 +791,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 24000,
+		baseValue = 160000,
 	},
 	{
 		id = "stopped_second_hand",
@@ -794,7 +801,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Collector",
 		sets = { "crater_relics" },
-		baseValue = 140000,
+		baseValue = 930000,
 	},
 	{
 		id = "unlabeled_cylinder",
@@ -804,7 +811,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = { "crater_relics" },
-		baseValue = 900000,
+		baseValue = 6000000,
 	},
 } :: { ItemDef }
 
