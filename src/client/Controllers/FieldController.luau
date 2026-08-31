@@ -37,8 +37,13 @@ local Tuning = require(ReplicatedStorage.Shared.Config.Tuning)
 
 local Field = {}
 
-local GLOW = Color3.fromHex("8FD8FF") -- the instrument cyan, as build/SignalAura
-local IN_RANGE = Color3.fromHex("8FE04A") -- close enough to get the magnet on it
+-- The instrument cyan, kept in step with build/SignalAura's GLOW (the ripple discs
+-- this controller drives expand out of that core). A mid blue-cyan, not a pale one:
+-- the ring and the aura discs are matte SmoothPlastic since the de-neon pass, so a
+-- pale cyan just reads as washed grey against the ground — this holds its colour
+-- flat-lit.
+local GLOW = Color3.fromHex("2E9FD8")
+local IN_RANGE = Color3.fromHex("6FB63A") -- close enough to get the magnet on it
 
 local RING_FOLDER = "DetectorRange"
 local SEGMENTS = Tuning.RANGE_RING_SEGMENTS
@@ -86,7 +91,7 @@ local function makeRing(name: string): Ring
 		part.CanTouch = false
 		part.CastShadow = false
 		part.Locked = true
-		part.Material = Enum.Material.Neon
+		part.Material = Enum.Material.SmoothPlastic
 		part.Color = GLOW
 		part.Size = Vector3.new(1, 0.08, 0.22)
 		part.Parent = ringFolder

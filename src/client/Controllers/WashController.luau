@@ -44,13 +44,11 @@
 	with math.random would swarm over the item like flies. Same index in, same point
 	on the item out, every tick.
 
-	GREEN, AND YES, DELIBERATELY. Kit.C's palette header says nothing outside a stage
-	may use Neon in the hazard greens, so that "glowing green" only ever means the
-	ooze. A contamination patch is the SAME SUBSTANCE — PLAN §2 step 4 calls them
-	"glowing hotspots" and they are literally the fallout you are hosing off — so
-	painting them any other colour would be the actual dilution of that rule, not the
-	respect of it. The exception is narrow and stays narrow: client-local, only ever
-	visible during a session you opted into, and never on world geometry.
+	GREEN, AND YES, DELIBERATELY. A contamination patch is the SAME SUBSTANCE as the
+	ooze — PLAN §2 step 4 calls them "glowing hotspots" and they are literally the
+	fallout you are hosing off — so it wears the ooze's own green (Kit.C.oozeBright),
+	matte like every surface in the world since the de-neon pass. Painting it any other
+	colour would break the "this is the fallout" read.
 
 	THE SPRAY IS CLIENT-LOCAL, which is against ToolService's "what you hold is public
 	storytelling" rule. Defensible only because every cleansing station sits on its
@@ -383,7 +381,7 @@ local function paintBlobs()
 			blob.Anchored = true
 			blob.CanCollide = false
 			blob.CanQuery = false
-			blob.Material = Enum.Material.Neon
+			blob.Material = Enum.Material.SmoothPlastic
 			blob.Parent = ensureFolder()
 			blobs[patch.index] = blob
 		end
@@ -400,7 +398,7 @@ local function paintBlobs()
 		blob.Size = Vector3.new(scale, scale, scale) * 2
 		blob.Position = patchPoint(patch.index, pivot, size)
 		blob.Color = if patch.blocked then PATCH_CRUSTED else PATCH_GREEN
-		blob.Material = if patch.blocked then Enum.Material.Slate else Enum.Material.Neon
+		blob.Material = if patch.blocked then Enum.Material.Slate else Enum.Material.SmoothPlastic
 		blob.Transparency = if patch.blocked then 0.1 else 0.15
 	end
 

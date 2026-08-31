@@ -21,13 +21,15 @@
 	shared instance physically cannot express. The rarity read lives on the client's
 	radar blips instead, where the gate still works.
 
-	IT IS A PULSING WELL OF LIGHT, NOT A PILLAR (changed on request). Low and wide: a
-	bright cyan disc set into the ground with a soft dome of light over it, and a few
-	ripple discs the client (FieldController) drives expanding outward from it. The
-	old tall thin pillar was too close to PLAN §10.9's server-wide "somebody pulled a
-	Legendary" beacon; that one is TALL and RARITY-COLOURED, this one hugs the ground
-	and is instrument cyan, and the two cannot be confused at any distance. Do not
-	grow this one upward.
+	IT IS A LOW WELL, NOT A PILLAR (changed on request). Low and wide: a matte cyan
+	disc set into the ground, a shimmering ForceField dome over it, a low PointLight in
+	the core, and a few ripple discs the client (FieldController) drives expanding
+	outward from it. The discs used to be Neon; the de-neon pass took them matte along
+	with the rest of the world, so the dome, the light and the rising motes are what
+	give the well its life now. The old tall thin pillar was too close to PLAN §10.9's
+	server-wide "somebody pulled a Legendary" beacon; that one is TALL and
+	RARITY-COLOURED, this one hugs the ground and is instrument cyan, and the two
+	cannot be confused at any distance. Do not grow this one upward.
 
 	The client OWNS how it looks (the ripple, the breathe, the lock-on) but never
 	where it is or whether it exists — see FieldController's header.
@@ -54,15 +56,14 @@ SignalAura.FOLDER = Tuning.AURA_FOLDER
 --- this count lives here (the structure) and not in Tuning (the tuning).
 SignalAura.RIPPLES = 3
 
--- Instrument cyan, deliberately NOT the acid green of the sludge and the pools. Kit's
--- palette note reserves neon acid green for "this is radioactive"; an aura is the
--- detector talking to you, not the ground being dangerous, and the two readings have
--- to stay separable at a glance.
+-- Instrument cyan, deliberately NOT the green of the sludge and the pools. An aura is
+-- the detector talking to you, not the ground being dangerous, and the two readings
+-- have to stay separable at a glance.
 --
--- A MID blue-cyan, not the old pale 8FD8FF. Daylight.luau blooms every Neon part, and
--- bloom lightens toward white — a pale cyan blew out to a featureless white blob
--- (the exact trap SignalAura's own header and Kit's palette note both warn about for
--- green). This sits far enough down the channel that "cyan" survives the bloom.
+-- A MID blue-cyan, not a pale one. The discs are matte since the de-neon pass and the
+-- world no longer blooms, so a pale cyan would just read as washed-out grey against
+-- the ground; this sits far enough down the channel to hold its colour flat-lit, with
+-- the core's low PointLight doing the "this is a light source" work.
 local GLOW = Color3.fromHex("2E9FD8")
 
 --- A flat cyan disc: a cylinder whose length (its local X axis) is tiny, stood so
@@ -79,7 +80,7 @@ local function disc(name: string, diameter: number, thickness: number): BasePart
 	part.CanTouch = false
 	part.CastShadow = false
 	part.Locked = true
-	part.Material = Enum.Material.Neon
+	part.Material = Enum.Material.SmoothPlastic
 	part.Color = GLOW
 	return part
 end
@@ -103,11 +104,11 @@ function SignalAura.create(surface: Vector3, core: number, dome: number, reach: 
 	coreDisc.Parent = model
 
 	-- The dome: a FORCE FIELD ball centred on the ground so its bottom half is buried
-	-- and only the cap shows. ForceField, not Neon and not Glass — it renders as a
-	-- shimmering translucent energy shell that keeps its own colour instead of taking
-	-- the ground's and instead of blooming to white (the two problems those other
-	-- materials hit here). Wide and low: the whole aura stands barely a stud and a
-	-- half tall, nothing like PLAN 10.9's pillar.
+	-- and only the cap shows. ForceField, not SmoothPlastic and not Glass — it renders
+	-- as a shimmering translucent energy shell that keeps its own colour instead of
+	-- taking the ground's, and it is the one bit of the aura that still has any life to
+	-- it now the discs are matte. Wide and low: the whole aura stands barely a stud and
+	-- a half tall, nothing like PLAN 10.9's pillar.
 	local domeBall = Instance.new("Part")
 	domeBall.Name = "Dome"
 	domeBall.Shape = Enum.PartType.Ball
@@ -160,10 +161,15 @@ function SignalAura.create(surface: Vector3, core: number, dome: number, reach: 
 	motes.EmissionDirection = Enum.NormalId.Right
 	motes.Parent = coreDisc
 
+	-- The de-neon pass took the discs matte, so this is now the only thing making the
+	-- well read as light rather than as a painted coin on the ground. Kept (a locator
+	-- light is not a "glowing surface"), but low — it marks the spot without lighting
+	-- up the field around it. If the well ever gets hard to find at camera distance,
+	-- this brightness is the knob; do NOT put the discs back to Neon.
 	local light = Instance.new("PointLight")
 	light.Color = GLOW
 	light.Range = 10
-	light.Brightness = 1.0
+	light.Brightness = 0.55
 	light.Shadows = false
 	light.Parent = coreDisc
 
