@@ -9,7 +9,7 @@
 
 	The progression is deliberate, and it is the same story in all three tracks:
 	  scavenged junk  -> military surplus -> industrial -> laboratory -> exotic
-	  rust and wood   -> olive and steel  -> yellow     -> teal/violet -> neon white
+	  rust and wood   -> olive and steel  -> yellow     -> teal/violet -> bright white
 
 	TIER 1 IS NEVER REPAINTED. The base models were chosen because they look right;
 	tier 1 ships exactly as authored, and everything above it is a departure from that.
@@ -19,7 +19,9 @@
 	  body   — the large parts
 	  accent — the small parts (tips, boxes, fittings)
 	  material
-	  glow   — nil, or a colour: smallest parts turn Neon and the tool casts light
+	  glow   — nil, or a colour: an accent tint for the smallest parts (a bright cool
+	           colour on the exotic tiers). NB the world has no Neon or bloom any more
+	           (see Kit.C's header) -- whatever renders these must keep them matte.
 ]]
 
 export type TierLook = {
