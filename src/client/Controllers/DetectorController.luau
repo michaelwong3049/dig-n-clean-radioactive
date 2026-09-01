@@ -666,15 +666,32 @@ local function build(): ScreenGui
 	ui.haul = haul
 	ui.haulStroke = haulStroke
 
+	-- TITLE ROW. What the detector resolved about the thing you locked onto: the rarity
+	-- word once clarity clears the first gate, plus the "1 in N" odds once it clears the
+	-- modifier gate too (DigService.hintFor). Blank when the detector could not tell --
+	-- the "?" beside the bar is then the whole story, and you haul a blind lump. Tinted
+	-- to the rarity colour in step with the panel stroke.
+	ui.haulTitle = UIKit.label(haul, {
+		name = "Title",
+		anchorPoint = Vector2.new(0.5, 0),
+		position = UDim2.new(0.5, 0, 0, 10),
+		size = UDim2.new(1, -32, 0, 20),
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.header,
+		color = COLOR.scope,
+		xAlign = Enum.TextXAlignment.Center,
+		strokeTransparency = 1,
+	})
+
 	-- The haul bar, flanked by a "?" (you don't necessarily know what you committed
-	-- to) on the left and a magnet (the thing pulling it) on the right. Those two
-	-- icons carry what the old "LOCKED ON — UNKNOWN MASS" title said in words; the
-	-- panel's stroke still tints to the rarity when the detector resolved it. The bar
-	-- is bigger than the dock's own fill and is what the player watches while mashing.
+	-- to) on the left and a magnet (the thing pulling it) on the right. The "?" stands
+	-- in for the title above whenever the detector came back blank; the panel's stroke
+	-- tints to the rarity when it did resolve it. The bar is bigger than the dock's own
+	-- fill and is what the player watches while mashing.
 	local track = Instance.new("Frame")
 	track.Name = "Track"
 	track.AnchorPoint = Vector2.new(0.5, 0)
-	track.Position = UDim2.new(0.5, 0, 0, 20)
+	track.Position = UDim2.new(0.5, 0, 0, 36)
 	track.Size = UDim2.new(1, -112, 0, 28)
 	track.BackgroundColor3 = COLOR.empty
 	track.BorderSizePixel = 0
@@ -697,11 +714,13 @@ local function build(): ScreenGui
 	haulFillCorner.Parent = haulFill
 
 	-- LEFT OF THE BAR: a question mark. You committed to a lump in the dirt; whether
-	-- you get to know its rarity is the detector's job, not this panel's.
-	UIKit.label(haul, {
+	-- you get to know its rarity is the detector's job, not this panel's. Hidden the
+	-- moment the title row above resolves a rarity -- the two say the same thing, and
+	-- "LEGENDARY" next to a "?" reads as a bug.
+	ui.haulQuestion = UIKit.label(haul, {
 		name = "HaulQuestion",
 		anchorPoint = Vector2.new(0.5, 0.5),
-		position = UDim2.fromOffset(32, 34),
+		position = UDim2.fromOffset(32, 50),
 		size = UDim2.fromOffset(30, 34),
 		font = UIKit.Font.hero,
 		textSize = 30,
@@ -713,14 +732,14 @@ local function build(): ScreenGui
 	-- RIGHT OF THE BAR: the magnet doing the pulling.
 	local magnet = buildMagnetIcon(haul)
 	magnet.AnchorPoint = Vector2.new(0.5, 0.5)
-	magnet.Position = UDim2.new(1, -32, 0, 34)
+	magnet.Position = UDim2.new(1, -32, 0, 50)
 
 	-- The mash prompt doubles as the touch target: a phone has no E key, so without a
 	-- tappable control here the entire second beat would be keyboard-only.
 	local haulButton, haulButtonStroke = UIKit.button(haul, {
 		name = "HaulButton",
 		anchorPoint = Vector2.new(0.5, 0),
-		position = UDim2.new(0.5, 0, 0, 60),
+		position = UDim2.new(0.5, 0, 0, 76),
 		size = UDim2.new(1, -HAULBUTTON_INSET, 0, HAULBUTTON_HEIGHT),
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.header,
@@ -996,7 +1015,24 @@ local function renderState()
 		-- when it did not -- the same per-player gate the radar blips use, so a cheap
 		-- detector still buys you a blind haul. The "?" on the bar is that idea at
 		-- rest; this is it in colour.
-		ui.haulStroke.Color = signalColor()
+		local accent = signalColor()
+		ui.haulStroke.Color = accent
+
+		-- The title spells out what the stroke's colour only implies. Rarity word on
+		-- the first clarity gate (state.rarityHint), the "1 in N" odds on the modifier
+		-- gate (state.oddsHint) -- exactly what DigService.hintFor sent, so a cheap
+		-- detector still hauls a blind lump with the "?" standing in for the word.
+		if state.rarityHint then
+			local reads = state.rarityHint
+			if state.oddsHint then
+				reads ..= `  \u{00B7}  {Items.oddsText(state.oddsHint)}`
+			end
+			ui.haulTitle.Text = string.upper(reads)
+		else
+			ui.haulTitle.Text = ""
+		end
+		ui.haulTitle.TextColor3 = accent
+		ui.haulQuestion.Visible = not state.rarityHint
 		-- An under-rated magnet still locks on and still visibly strains -- it just
 		-- stalls at STRAIN_CEILING. Saying so here is the whole teaching moment, and
 		-- the panel is now where the player is looking when it happens.
