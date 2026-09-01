@@ -40,11 +40,13 @@ Weight.MAX = 250
 --   * the broad middle sits at exactly 1 — weight there does nothing to the roll
 -- Kept gentle at the light end so it nudges "small isn't overly common" without
 -- swinging a stage's rarity mix (Spec §7); the heavy end is where the real
--- suppression lives.
+-- suppression lives. HEAVY_START pulled in 0.60 -> 0.52 (penalty now bites from
+-- ~4kg, was ~8kg) and HEAVY_FLOOR down 0.35 -> 0.24, on request -- the first pass
+-- read too gentle.
 Weight.LIGHT_FLOOR = 0.85
 Weight.LIGHT_END = 0.12
-Weight.HEAVY_START = 0.60
-Weight.HEAVY_FLOOR = 0.35
+Weight.HEAVY_START = 0.52
+Weight.HEAVY_FLOOR = 0.24
 
 local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
@@ -60,30 +62,34 @@ function Weight.norm(kg: number): number
 	return clamp01(math.log(math.max(kg, Weight.MIN) / Weight.MIN) / math.log(Weight.MAX / Weight.MIN))
 end
 
+-- Heavy-end endpoints raised across the board on request (the first pass read too
+-- gentle): sizeScale 2.40 -> 3.00, auraScale 1.90 -> 2.40, pullFactor 2.20 -> 2.80,
+-- valueMult 1.60 -> 1.75. The light end and the linear-in-`norm` shape are unchanged.
+
 --- Model :ScaleTo multiplier — a feather is a bit over half size, the heaviest
---- things ~2.4x. Multiplies the authored model / placeholder size.
+--- things ~3x. Multiplies the authored model / placeholder size.
 function Weight.sizeScale(kg: number): number
-	return lerp(0.55, 2.40, Weight.norm(kg))
+	return lerp(0.55, 3.00, Weight.norm(kg))
 end
 
 --- How much wider the buried signal's glow well reads (core disc + dome). NOT the
 --- pickup radius — that stays Tuning.DIG_RADIUS. Purely "big thing, big glow".
 function Weight.auraScale(kg: number): number
-	return lerp(0.75, 1.90, Weight.norm(kg))
+	return lerp(0.75, 2.40, Weight.norm(kg))
 end
 
 --- Multiplies the pull's `required` seconds (DigService: PULL_SECONDS_PER_STUD *
 --- depth * this). Only ever lengthens the mash; it does not touch clicks-to-hold
 --- (that is weight-independent), so the mobile promise in Config/Gear is intact.
 function Weight.pullFactor(kg: number): number
-	return lerp(0.85, 2.20, Weight.norm(kg))
+	return lerp(0.85, 2.80, Weight.norm(kg))
 end
 
 --- Multiplies sale value and pedestal $/sec. Rides ON TOP of baseValue exactly
---- like Rarity.MODIFIERS' valueMult (and stays milder than Pristine's 2.0), so the
+--- like Rarity.MODIFIERS' valueMult (and stays under Pristine's 2.0), so the
 --- "baseValue sits in its rarity band" rule still describes the AUTHORED number.
 function Weight.valueMult(kg: number): number
-	return lerp(0.90, 1.60, Weight.norm(kg))
+	return lerp(0.90, 1.75, Weight.norm(kg))
 end
 
 --- Dig-roll weight multiplier, <= 1 always. U-shaped — see the knobs above.
