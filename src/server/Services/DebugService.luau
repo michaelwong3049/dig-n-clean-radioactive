@@ -349,8 +349,17 @@ COMMANDS["/field"] = {
 			end
 		end
 		table.insert(lines, "  ---")
+		table.insert(lines, string.format("  %-26s %8s %6s %10s   %s", "id", "roll%", "wt(kg)", "true", "shown"))
 		for _, e in ordered do
-			table.insert(lines, string.format("  %-26s %6.2f%%   1 in %d", e.id, e.chance * 100, math.floor(1 / e.chance + 0.5)))
+			local item = Items.get(e.id)
+			table.insert(lines, string.format(
+				"  %-26s %7.2f%% %6.4g   1 in %-6d   %s",
+				e.id,
+				e.chance * 100,
+				item.weight,
+				math.floor(1 / e.chance + 0.5),
+				Items.oddsText(Items.shownOdds(item))
+			))
 		end
 		return table.concat(lines, "\n")
 	end,

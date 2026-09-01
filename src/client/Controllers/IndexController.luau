@@ -35,6 +35,7 @@ local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
+local Weight = require(Shared.Config.Weight)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -113,6 +114,15 @@ local function formatValue(n: number): string
 		return string.format("$%.1fK", n / 1_000)
 	end
 	return string.format("$%d", n)
+end
+
+--- "0.05 kg", "0.4 kg", "12 kg", "220 kg" — two sig figs under a kilo, whole numbers
+--- above it (Config/Weight). Same small dup as DetectorController.formatWeight.
+local function formatWeight(kg: number): string
+	if kg < 1 then
+		return string.format("%.2g kg", kg)
+	end
+	return string.format("%d kg", math.floor(kg + 0.5))
 end
 
 -- ── Build ───────────────────────────────────────────────────────────
@@ -405,8 +415,9 @@ local function buildDetailColumn(panel: Instance)
 		rarity = detailField(meta, 1, "RARITY"),
 		value = detailField(meta, 2, "VALUE"),
 		odds = detailField(meta, 3, "FIND ODDS"),
-		appeal = detailField(meta, 4, "APPEAL"),
-		foundIn = detailField(meta, 5, "FOUND IN"),
+		weight = detailField(meta, 4, "WEIGHT"),
+		appeal = detailField(meta, 5, "APPEAL"),
+		foundIn = detailField(meta, 6, "FOUND IN"),
 		flavor = flavor,
 	}
 end
@@ -596,8 +607,12 @@ local function renderDetail()
 
 	d.rarity.Text = item.rarity
 	d.rarity.TextColor3 = rarity.color
-	d.value.Text = formatValue(item.baseValue)
-	d.odds.Text = Items.oddsText(item.odds)
+	-- Value and odds both carry the item's weight (Config/Weight): the sale floor is
+	-- baseValue * valueMult, and the shown "1 in N" is odds / rollBias — what the roll
+	-- actually does, not the raw authored headline.
+	d.value.Text = formatValue(math.floor(item.baseValue * Weight.valueMult(item.weight) + 0.5))
+	d.odds.Text = Items.oddsText(Items.shownOdds(item))
+	d.weight.Text = formatWeight(item.weight)
 	d.appeal.Text = item.appeal
 
 	local names = {}

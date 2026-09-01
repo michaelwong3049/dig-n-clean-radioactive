@@ -103,6 +103,7 @@ type Tracked = {
 	motes: ParticleEmitter?,
 	phase: number,
 	rarity: string?,
+	scale: number,
 }
 local tracked: { [Model]: Tracked } = {}
 
@@ -254,6 +255,12 @@ local function track(instance: Instance)
 		-- artefact rather than like several separate things breathing.
 		phase = (core.Position.X * 0.7 + core.Position.Z * 1.3) % (2 * math.pi),
 		rarity = nil,
+		-- How much wider this well is than a default one — a heavier buried thing gets
+		-- a bigger glow (DigService off Config/Weight.auraScale, stamped by
+		-- build/SignalAura). 1 for an unscaled well and for an old aura saved into the
+		-- place without the attribute. The rarity TINT is per-player (above); this is
+		-- shared, off the signal's default item.
+		scale = (instance :: any):GetAttribute("WellScale") or 1,
 	}
 end
 
@@ -331,8 +338,11 @@ local function stepAuras()
 			-- to the pickup radius (removed on request).
 			entry.core.Transparency = 0.05
 			entry.dome.Transparency = lerp(0.2, 0.1, t)
+			-- Freeze the rings on THIS well's dome edge, not the default one — a heavy
+			-- well's dome is wider (entry.scale, off Config/Weight.auraScale).
+			local frozen = Tuning.AURA_DOME * entry.scale
 			for _, ripple in entry.ripples do
-				ripple.Size = Vector3.new(ripple.Size.X, Tuning.AURA_DOME, Tuning.AURA_DOME)
+				ripple.Size = Vector3.new(ripple.Size.X, frozen, frozen)
 				ripple.Color = coreHue
 				ripple.Transparency = 0.3
 			end

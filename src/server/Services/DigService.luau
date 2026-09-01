@@ -94,6 +94,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Stages = require(Shared.Config.Stages)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
+local Weight = require(Shared.Config.Weight)
 local ItemModels = require(Shared.ItemModels)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
@@ -160,6 +161,12 @@ type Signal = {
 	modifier: string,
 	depth: number,
 	soil: number,
+	-- The DEFAULT item's physical weight (Config/Weight). Sizes the shared aura well
+	-- (reconcileAuras) -- shared because the well is one part; a lucky re-roll to a
+	-- heavier item is not reflected in the glow, the same tradeoff the shared aura
+	-- already makes for rarity. The PULL, by contrast, reads the per-player item's
+	-- weight (stepPlayer), so that part IS per-player-correct.
+	weight: number,
 	-- Per-player luck re-rolls, keyed by UserId. Filled lazily the first time the
 	-- signal enters that player's radar; goes away with the whole signal on removeSignal.
 	rolls: { [number]: PlayerRoll },
@@ -232,7 +239,11 @@ local function reconcileAuras()
 
 	for uid, signal in revealed do
 		if auras[uid] == nil then
-			local model = SignalAura.create(signal.position, Tuning.AURA_RING, Tuning.AURA_DOME, Tuning.AURA_PULSE_REACH)
+			-- Heavier buried thing, wider glow. Core + dome scale; the ripple REACH does
+			-- not -- it encodes Tuning.DIG_RADIUS (the pickup range), which weight never
+			-- moves. Off the signal's DEFAULT weight: the well is one shared part.
+			local s = Weight.auraScale(signal.weight)
+			local model = SignalAura.create(signal.position, Tuning.AURA_RING * s, Tuning.AURA_DOME * s, Tuning.AURA_PULSE_REACH)
 			model.Parent = folder
 			auras[uid] = model
 		end
@@ -356,6 +367,7 @@ local function spawnSignal(stageId: number)
 		modifier = rollModifier(),
 		depth = DEPTH_BASE + (order - 1) * DEPTH_PER_RARITY + math.random() * DEPTH_JITTER,
 		soil = stage.soilHardness,
+		weight = Items.get(itemId).weight,
 		rolls = {},
 	}
 
@@ -480,7 +492,9 @@ local function hintFor(rarity: string, modifier: string, itemId: string, clarity
 		return nil, nil, nil
 	end
 	if clarity >= 3 then
-		return rarity, modifier, Items.get(itemId).odds
+		-- shownOdds, not the raw `odds`: the number carries the item's weight penalty
+		-- (Config/Weight.rollBias), the same one that suppressed it in the roll.
+		return rarity, modifier, Items.shownOdds(Items.get(itemId))
 	end
 	return rarity, nil, nil
 end
@@ -612,6 +626,15 @@ local function createHaul(player: Player, itemId: string): Haul
 
 	model.Name = `Haul_{player.Name}`
 	model:SetAttribute("ItemId", itemId)
+
+	-- Lighter thing, smaller lump; heavier thing, bigger (Config/Weight). Scales the
+	-- authored model or the placeholder cube alike, about the pivot updateHaul then
+	-- drives -- so it has to happen before the first PivotTo.
+	local scale = Weight.sizeScale(item.weight)
+	if scale ~= 1 then
+		model:ScaleTo(scale)
+	end
+
 	model.Parent = Workspace
 
 	return {
@@ -679,6 +702,7 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 		rarity = rarity,
 		modifier = modifier,
 		baseValue = item.baseValue,
+		weight = item.weight,
 		carrying = #data.carry,
 	})
 
@@ -818,10 +842,14 @@ local function stepPlayer(player: Player, dt: number)
 		releaseLock(player)
 	end
 
-	-- "How much rope is on this item", in pull-seconds. Depth ONLY -- pullSpeed lives
-	-- entirely on the yank now (see Tuning's note: counting it in both places would make
-	-- the magnet track scale quadratically).
-	local required = PULL_SECONDS_PER_STUD * signal.depth
+	-- "How much rope is on this item", in pull-seconds. Depth, times the item's own
+	-- physical weight factor (Config/Weight.pullFactor) -- a buried safe is a slog, a
+	-- ring comes straight up. This ONLY lengthens the haul; clicks-to-hold is
+	-- weight-independent (drag vs draw vs pullSpeed), so the magnet track's mobile
+	-- promise is untouched. pullSpeed still lives entirely on the yank, not here (see
+	-- Tuning's note: counting it in both places would make the magnet scale
+	-- quadratically). Off the PER-PLAYER item, so a lucky re-roll pulls at its real weight.
+	local required = PULL_SECONDS_PER_STUD * signal.depth * Weight.pullFactor(Items.get(itemId).weight)
 	local progress = digProgress[player] or 0
 
 	-- Yanks banked since the last tick, taken whether or not they land, so a player

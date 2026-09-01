@@ -93,9 +93,15 @@ end
 --- is buried under — the spot the player has to stand on. `core` / `dome` are
 --- diameters; `reach` is how far the ripples travel (the client reads it off the
 --- part sizes, nothing is stored).
+---
+--- `core`/`dome` arrive pre-scaled by the buried item's weight (DigService, off
+--- Config/Weight.auraScale) — a heavier thing gets a wider well. The scale relative
+--- to the Tuning defaults is stamped on the model as `WellScale` so FieldController's
+--- in-range freeze can size the ripple ring to THIS well's dome, not the default one.
 function SignalAura.create(surface: Vector3, core: number, dome: number, reach: number): Model
 	local model = Instance.new("Model")
 	model.Name = "Aura"
+	model:SetAttribute("WellScale", dome / Tuning.AURA_DOME)
 
 	local flat = CFrame.Angles(0, 0, math.pi / 2) -- disc lying flat, short axis up
 
