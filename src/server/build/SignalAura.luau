@@ -16,14 +16,13 @@
 
 	WHAT IT MAY AND MAY NOT SAY
 	"Something is here." That is all. No rarity, no colour coding, no name. Every
-	player in the server sees every aura (Tuning, "the reveal"), so anything encoded
-	in one is public — and rarity is gated per-player by detectorClarity, which a
-	shared instance physically cannot express. So this part ships instrument cyan and
-	nothing else. FieldController then RE-TINTS its own client's copy to the rarity
-	that client's detector actually resolved (DetectorController.contactRarityAt, off
-	the per-player contacts payload) — a cheap detector never sees anything but the
-	cyan this file sets. The rarity read also rides the client's radar blips, the
-	same way and for the same reason.
+	player sees every aura (Tuning, "the reveal"), but each player's ROLL for the
+	signal under it is their own (DigService.rollFor) — signal X can be Rare for one
+	player and Common for the next — so a shared instance physically cannot carry it.
+	This part ships instrument cyan and nothing else. FieldController then RE-TINTS its
+	own client's copy to that client's own rarity (DetectorController.contactRarityAt,
+	off the per-player contacts payload). The rarity read also rides the client's radar
+	blips, the same way and for the same reason.
 
 	IT IS A LOW WELL, NOT A PILLAR (changed on request). Low and wide: a matte cyan
 	disc set into the ground, a shimmering ForceField dome over it, a low PointLight in

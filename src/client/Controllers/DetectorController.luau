@@ -14,13 +14,14 @@
 	world answers it directly.
 
 	THE SCOPE IS NOT REDUNDANT WITH THE AURAS, and the reason is worth keeping.
-	An aura is one shared part that every player in the server can see, so it cannot
-	say anything that is supposed to be private — and rarity is private, gated per
-	player by detectorClarity (PLAN §2 step 1). The aura says "something is here"; the
-	BLIP is where "and it is Legendary" gets to live, because the blip is drawn from a
-	payload only this client receives. Delete the scope and the entire clarity upgrade
-	track loses its display. It WAS deleted for one pass, for exactly that reason it
-	should not have been, and it is back.
+	An aura is one shared part that every player in the server can see, but each
+	player's ROLL for a signal is their own (DigService.rollFor) — signal X can be Rare
+	for you and Common for the next player — so what "it is" cannot live on the shared
+	part. The BLIP is where the per-player reading gets to live, because the blip is
+	drawn from a payload only this client receives. The rarity colour itself is no
+	longer clarity-gated; what the detector upgrade still buys is the "1 in N" odds and
+	the modifier on the ping (DigService.hintFor, >= 3). Delete the scope and that
+	readout loses its home. It WAS deleted for one pass and should not have been; back.
 
 	IT IS IN THE BOTTOM-RIGHT CORNER NOW, ALONE, NOT IN THE INSTRUMENT BAND. It used to
 	sit beside the dig button in the middle of the dock, which put a 180px dial in the
@@ -672,11 +673,11 @@ local function build(): ScreenGui
 	ui.haul = haul
 	ui.haulStroke = haulStroke
 
-	-- TITLE ROW. What the detector resolved about the thing you locked onto: the rarity
-	-- word once clarity clears the first gate, plus the "1 in N" odds once it clears the
-	-- modifier gate too (DigService.hintFor). Blank when the detector could not tell --
-	-- the "?" beside the bar is then the whole story, and you haul a blind lump. Tinted
-	-- to the rarity colour in step with the panel stroke.
+	-- TITLE ROW. What the detector reads about the thing you locked onto: the rarity
+	-- word (always, on any detector now), plus the "1 in N" odds once clarity clears
+	-- the modifier gate (DigService.hintFor, >= 3). Blank only in the rare frame before
+	-- the rarity has resolved -- the "?" beside the bar then carries it. Tinted to the
+	-- rarity colour in step with the panel stroke.
 	ui.haulTitle = UIKit.label(haul, {
 		name = "Title",
 		anchorPoint = Vector2.new(0.5, 0),
@@ -993,10 +994,10 @@ local function updateLockPrompt()
 
 	ui.promptHolder.Position = best.Position
 
-	-- The card carries no rarity text any more, but the accent still does: rarity colour
-	-- on the stroke and keycap when the detector resolved it, scope blue when it did not
-	-- -- the same per-player gate the radar blips and the haul title use. Cheap, and the
-	-- hint can change under the card, so set it every tick.
+	-- The card carries no rarity text any more, but the accent still does: the rarity
+	-- colour on the stroke and keycap (any detector reads it now), scope blue only in
+	-- the frame before it resolves. Cheap, and the hint can change under the card, so
+	-- set it every tick.
 	local accent = signalColor()
 	ui.prompt.ObjectText = if state.rarityHint then string.upper(state.rarityHint) else "Buried Signal"
 	ui.lockGui.action.TextColor3 = accent
@@ -1017,17 +1018,15 @@ local function renderState()
 	-- of, and it can never hide one that is still holding the player's feet.
 	ui.haul.Visible = state.locked
 	if state.locked then
-		-- The panel stroke carries the rarity the detector resolved, or scope blue
-		-- when it did not -- the same per-player gate the radar blips use, so a cheap
-		-- detector still buys you a blind haul. The "?" on the bar is that idea at
-		-- rest; this is it in colour.
+		-- The panel stroke carries the rarity colour (any detector now), scope blue
+		-- only in the brief frame before it resolves. The "?" on the bar is that
+		-- unresolved state at rest; this is it in colour.
 		local accent = signalColor()
 		ui.haulStroke.Color = accent
 
-		-- The title spells out what the stroke's colour only implies. Rarity word on
-		-- the first clarity gate (state.rarityHint), the "1 in N" odds on the modifier
-		-- gate (state.oddsHint) -- exactly what DigService.hintFor sent, so a cheap
-		-- detector still hauls a blind lump with the "?" standing in for the word.
+		-- The title spells out what the stroke's colour only implies. Rarity word
+		-- always (state.rarityHint), the "1 in N" odds only once clarity clears the
+		-- modifier gate (state.oddsHint) -- exactly what DigService.hintFor sent.
 		if state.rarityHint then
 			local reads = state.rarityHint
 			if state.oddsHint then
@@ -1213,12 +1212,12 @@ function Detector.radius(): number
 	return if state.inStage then state.radius else 0
 end
 
---- The rarity THIS client's detector resolved for the contact sitting under a given
---- world point, or nil when the detector could not tell (the detectorClarity gate,
---- DigService.hintFor) or there is no contact there. FieldController reads this to
---- tint each aura well per-player: the aura part is shared and cannot carry rarity
---- without handing it to every cheap detector in the server, so the read lives on
---- this client-only payload instead — the same place the radar blips get it.
+--- The rarity of THIS client's own roll for the contact under a given world point, or
+--- nil when there is no contact there. FieldController reads this to tint each aura
+--- well per-player: the aura part is shared but the roll is per-player (signal X can
+--- be Rare for one player, Common for the next), so the rarity cannot live on the
+--- part — it rides this client-only payload, the same place the radar blips get it.
+--- No longer clarity-gated: every detector colours its wells now (DigService.hintFor).
 ---
 --- Matched by position because the payload deliberately carries no signal id. The
 --- tolerance covers the drift between the server's snapshot of the player (which the

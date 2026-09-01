@@ -480,17 +480,22 @@ local function standingOnUnregistered(stageId: number, position: Vector3, stats:
 end
 
 
---- What the ping is allowed to reveal before you dig. PLAN §2 step 1: high-tier
---- detectors show rarity on the ping so you stop wasting time digging Scrap. Takes the
---- roll already resolved for this player (rollFor) -- rarity/modifier/itemId -- so the
---- ping matches what will actually come out of the ground.
---- The odds ride the SAME clarity gate as the modifier (>= 3): they pin down which
---- item this is more than the bare rarity does, so a cheap detector should not read
---- them off someone else's aura. `odds` is the collectible headline (Config/Items.luau).
+--- What the ping tells you about a signal before you dig. Takes the roll already
+--- resolved for this player (rollFor) -- rarity/modifier/itemId -- so the ping matches
+--- what will actually come out of the ground.
+---
+--- RARITY IS NO LONGER GATED (on request). Every detector reads the rarity of its own
+--- per-player roll -- it is what colours the aura well and the radar blip, in every
+--- stage, from the free Bent Coil up. This used to need detectorClarity >= 1, from a
+--- time when the roll was shared and a cheap detector reading rarity off a rich one's
+--- aura was a real leak. Post per-player roll (rollFor) the tint is applied
+--- client-side off each player's OWN contact, so there is nothing left to leak -- see
+--- contactPayload's note.
+---
+--- Clarity still gates the two readings that pin down WHICH item this is, both at
+--- >= 3: the modifier ("Irradiated") and the "1 in N" odds. That is the
+--- detector-upgrade payoff now.
 local function hintFor(rarity: string, modifier: string, itemId: string, clarity: number): (string?, string?, number?)
-	if clarity <= 0 then
-		return nil, nil, nil
-	end
 	if clarity >= 3 then
 		-- shownOdds, not the raw `odds`: the number carries the item's weight penalty
 		-- (Config/Weight.rollBias), the same one that suppressed it in the roll.
@@ -499,15 +504,17 @@ local function hintFor(rarity: string, modifier: string, itemId: string, clarity
 	return rarity, nil, nil
 end
 
---- Player-relative XZ offsets, plus whatever detectorClarity lets THIS player know
---- about each contact. Relative, not absolute: a radar only ever needs "where is it
---- from me", and world coordinates on the wire is exactly what the boundary rule in
---- the header is about.
+--- Player-relative XZ offsets, plus this player's reading of each contact. Relative,
+--- not absolute: a radar only ever needs "where is it from me", and world coordinates
+--- on the wire is exactly what the boundary rule in the header is about.
 ---
 --- Rarity rides here rather than on the aura on purpose. The aura is one shared
---- instance and both clarity AND the per-player roll are per-player, so a shared
---- instance physically cannot express it — put the colour on the aura and every Bent
---- Coil in the server reads Legendary off someone else's detector for free.
+--- instance but the per-player roll is, by definition, per-player — signal X can be
+--- Rare for one player and Common for the next — so a shared instance physically
+--- cannot carry it. It reaches each client here and is painted onto that client's own
+--- copy of the well (FieldController). Since the roll and the paint are both
+--- per-player, the rarity itself is no longer clarity-gated (hintFor) — a Bent Coil
+--- sees colour too now.
 ---
 --- This is also where a signal's per-player roll gets pinned: the first time it lands
 --- in someone's radar, rollFor caches their reading of it.
