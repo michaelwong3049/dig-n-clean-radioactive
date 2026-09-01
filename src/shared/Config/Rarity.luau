@@ -37,11 +37,19 @@ Rarity.ORDER = {
 	"Anomaly",
 }
 
+-- `color` is the one rarity signal shared across the whole game: the aura well tint
+-- and radar blip (DigService/FieldController), the index cards, the hotbar slots, the
+-- station list, the exhibit pedestals, the unearth banner. It has to read at a glance
+-- against the brown/green stage grounds AND as small HUD text.
+--   * Rare is a TRUE blue (3D7BF5), deliberately clear of the instrument cyan (2E9FD8)
+--     the neutral well and the range ring use — the two were near-identical before.
+--   * Common is a pale slate, not pure white, so white belongs to Anomaly alone.
+--   * Scrap stays a dull grey (it is junk) but lifted enough to hold on dark ground.
 Rarity.DEFS = {
-	Scrap = { order = 1, color = Color3.fromHex("9AA0A6"), hardness = 1, fuse = 300, displayYield = 6.0, minValue = 5, maxValue = 35 },
-	Common = { order = 2, color = Color3.fromHex("E8EAED"), hardness = 1, fuse = 300, displayYield = 6.0, minValue = 35, maxValue = 170 },
+	Scrap = { order = 1, color = Color3.fromHex("AAB2BC"), hardness = 1, fuse = 300, displayYield = 6.0, minValue = 5, maxValue = 35 },
+	Common = { order = 2, color = Color3.fromHex("CFDCEA"), hardness = 1, fuse = 300, displayYield = 6.0, minValue = 35, maxValue = 170 },
 	Uncommon = { order = 3, color = Color3.fromHex("5CD65C"), hardness = 2, fuse = 240, displayYield = 5.4, minValue = 170, maxValue = 800 },
-	Rare = { order = 4, color = Color3.fromHex("4C9BE8"), hardness = 3, fuse = 180, displayYield = 4.5, minValue = 800, maxValue = 4700 },
+	Rare = { order = 4, color = Color3.fromHex("3D7BF5"), hardness = 3, fuse = 180, displayYield = 4.5, minValue = 800, maxValue = 4700 },
 	Epic = { order = 5, color = Color3.fromHex("A855F7"), hardness = 4, fuse = 150, displayYield = 3.6, minValue = 4700, maxValue = 27000 },
 	Legendary = { order = 6, color = Color3.fromHex("F59E0B"), hardness = 5, fuse = 120, displayYield = 2.4, minValue = 27000, maxValue = 200000 },
 	Mythic = { order = 7, color = Color3.fromHex("EF4444"), hardness = 6, fuse = 90, displayYield = 1.5, minValue = 200000, maxValue = 1700000 },

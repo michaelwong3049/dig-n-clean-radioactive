@@ -44,20 +44,21 @@ local Field = {}
 -- pale cyan just reads as washed grey against the ground — this holds its colour
 -- flat-lit.
 --
--- It is also the well's NEUTRAL state: the colour a well shows when this client's
--- detector could not resolve its rarity (detectorClarity gate). A well only takes on
--- a rarity hue for players whose detector earned the read — see stepAuras below and
--- DetectorController.contactRarityAt. The old in-range green (a flat colour swap when
--- you stood on a well) is gone: an in-range well now keeps its rarity hue and spikes
--- in brightness instead (on request), so proximity and rarity stop fighting over the
--- same channel.
+-- It is also the well's NEUTRAL state: the colour a well shows when this client has
+-- no rarity for it — which now only happens for a frame while the position match to a
+-- contact settles, or for an aura someone else revealed that is past this player's
+-- depth gate. Rarity itself is no longer clarity-gated (DigService.hintFor, on
+-- request): every detector, in every stage, colours its wells. The old in-range green
+-- (a flat colour swap when you stood on a well) is gone too: an in-range well keeps
+-- its rarity hue and spikes in brightness instead, so proximity and rarity stop
+-- fighting over the same channel.
 local GLOW = Color3.fromHex("2E9FD8")
 
 -- "How loud is this well", 0..1, from the resolved rarity. Common sits at 0 and
--- Anomaly at 1, so a resolved-but-cheap signal reads as calm while a jackpot roars —
--- the whole point of the rarity read is telling you which wells are worth the walk.
--- A well whose rarity is UNKNOWN is not t = 0: it stays fully neutral (all three
--- ripples, GLOW) so it never looks feebler than the plain blue it replaced.
+-- Anomaly at 1, so a Common well reads as calm while a jackpot roars — the rarity
+-- colour tells you which wells are worth the walk. A well whose rarity has not
+-- resolved yet is not t = 0: it stays fully neutral (all three ripples, GLOW) so it
+-- never looks feebler than the plain blue it replaced.
 local function loudness(rarity: string): number
 	return math.clamp((Rarity.get(rarity).order - 2) / 6, 0, 1)
 end
@@ -292,10 +293,10 @@ local function stepAuras()
 			close = dx * dx + dz * dz <= Tuning.DIG_RADIUS * Tuning.DIG_RADIUS
 		end
 
-		-- What THIS client's detector resolved for the signal under this well, if
-		-- anything. nil the moment the detectorClarity gate is not cleared -- a cheap
-		-- detector standing in an Oracle's glow still sees a plain blue well. The read
-		-- comes off the per-player contacts payload, never off this shared part.
+		-- This client's rarity for the signal under this well -- its OWN per-player roll
+		-- (DigService.rollFor), off the per-player contacts payload, never off this
+		-- shared part. Every detector gets it now; nil only while the position match to
+		-- a contact is still settling, or for an aura past this player's depth gate.
 		local rarity = if DetectorController then DetectorController.contactRarityAt(entry.core.Position) else nil
 		if rarity ~= entry.rarity then
 			entry.rarity = rarity
