@@ -117,6 +117,12 @@ local state = {
 	hasSignal = false,
 	radius = 0,
 	contacts = {} :: { Contact },
+	-- The player's world position at the moment the last contacts payload landed.
+	-- Contact offsets are relative to it, so (origin + offset) is a contact's world
+	-- point -- which is how contactRarityAt matches one to an aura. Snapshotted with
+	-- the payload rather than read live so a walking player does not drag the match
+	-- off the well between ticks.
+	contactOrigin = nil :: Vector3?,
 	rarityHint = nil :: string?,
 	-- The nearest signal's authored "1 in N" find-rarity, only sent once the detector's
 	-- clarity clears the same gate that reveals the modifier. Display flavour, nil most
@@ -1197,6 +1203,36 @@ function Detector.radius(): number
 	return if state.inStage then state.radius else 0
 end
 
+--- The rarity THIS client's detector resolved for the contact sitting under a given
+--- world point, or nil when the detector could not tell (the detectorClarity gate,
+--- DigService.hintFor) or there is no contact there. FieldController reads this to
+--- tint each aura well per-player: the aura part is shared and cannot carry rarity
+--- without handing it to every cheap detector in the server, so the read lives on
+--- this client-only payload instead — the same place the radar blips get it.
+---
+--- Matched by position because the payload deliberately carries no signal id. The
+--- tolerance covers the drift between the server's snapshot of the player (which the
+--- offsets are measured from) and where the client has walked since; wells sit tens
+--- of studs apart, so it cannot bind the wrong one.
+local CONTACT_MATCH_TOLERANCE = 4 -- studs
+
+function Detector.contactRarityAt(worldPosition: Vector3): string?
+	local origin = state.contactOrigin
+	if origin == nil or not state.inStage then
+		return nil
+	end
+	for _, contact in state.contacts do
+		if contact.rarity ~= nil then
+			local dx = (origin.X + contact.dx) - worldPosition.X
+			local dz = (origin.Z + contact.dz) - worldPosition.Z
+			if dx * dx + dz * dz <= CONTACT_MATCH_TOLERANCE * CONTACT_MATCH_TOLERANCE then
+				return contact.rarity
+			end
+		end
+	end
+	return nil
+end
+
 function Detector.start()
 	local player = Players.LocalPlayer
 	local gui = build()
@@ -1210,6 +1246,12 @@ function Detector.start()
 		state.hasSignal = payload.hasSignal == true
 		state.radius = payload.radius or 0
 		state.contacts = payload.contacts or {}
+		-- Snapshot where the player is now, so FieldController can turn each contact
+		-- offset back into a world point and match it to an aura well (contactRarityAt).
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if root and root:IsA("BasePart") then
+			state.contactOrigin = root.Position
+		end
 		state.rarityHint = payload.rarityHint
 		state.oddsHint = payload.oddsHint
 		state.inRange = payload.inRange == true

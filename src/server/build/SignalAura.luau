@@ -18,8 +18,12 @@
 	"Something is here." That is all. No rarity, no colour coding, no name. Every
 	player in the server sees every aura (Tuning, "the reveal"), so anything encoded
 	in one is public — and rarity is gated per-player by detectorClarity, which a
-	shared instance physically cannot express. The rarity read lives on the client's
-	radar blips instead, where the gate still works.
+	shared instance physically cannot express. So this part ships instrument cyan and
+	nothing else. FieldController then RE-TINTS its own client's copy to the rarity
+	that client's detector actually resolved (DetectorController.contactRarityAt, off
+	the per-player contacts payload) — a cheap detector never sees anything but the
+	cyan this file sets. The rarity read also rides the client's radar blips, the
+	same way and for the same reason.
 
 	IT IS A LOW WELL, NOT A PILLAR (changed on request). Low and wide: a matte cyan
 	disc set into the ground, a shimmering ForceField dome over it, a low PointLight in
@@ -31,8 +35,8 @@
 	RARITY-COLOURED, this one hugs the ground and is instrument cyan, and the two
 	cannot be confused at any distance. Do not grow this one upward.
 
-	The client OWNS how it looks (the ripple, the breathe, the lock-on) but never
-	where it is or whether it exists — see FieldController's header.
+	The client OWNS how it looks (the ripple, the breathe, the lock-on, the rarity
+	tint) but never where it is or whether it exists — see FieldController's header.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
