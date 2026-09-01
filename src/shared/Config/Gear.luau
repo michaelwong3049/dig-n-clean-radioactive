@@ -159,17 +159,19 @@ Gear.Suit = {
 -- Every tier's walkSpeed +4 on request ("base speed is too slow"): 16->20 for the
 -- starting tier, same +4 straight up the ladder so the relative gaps between tiers
 -- (and their haulPenalty/stamina pairing) are untouched -- only the floor moved.
+-- Then +3 more, same deal: whole ladder shifts up together (20->23 at the floor),
+-- gaps and pairings still untouched.
 -- This used to be inert data: nothing set Humanoid.WalkSpeed from it at all outside
 -- the /speed debug command (see DebugService.luau). ExposureService's per-tick loop
 -- now applies StatResolver.effectiveWalkSpeed live, so this table finally means
 -- something in actual play, not just in Spec's math.
 Gear.Boots = {
-	{ name = "Taped Boots", price = 0, walkSpeed = 20, haulPenalty = 1.20, stamina = 4, canVault = false, canDash = false },
-	{ name = "Tread Boots", price = 2300, walkSpeed = 22, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false },
-	{ name = "Field Runners", price = 6500, walkSpeed = 24, haulPenalty = 0.80, stamina = 6, canVault = true, canDash = false },
-	{ name = "Servo Braces", price = 18000, walkSpeed = 26, haulPenalty = 0.55, stamina = 7, canVault = true, canDash = false },
-	{ name = "Powered Frame", price = 51000, walkSpeed = 28, haulPenalty = 0.30, stamina = 8, canVault = true, canDash = true },
-	{ name = "Strider Rig", price = 140000, walkSpeed = 30, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true },
+	{ name = "Taped Boots", price = 0, walkSpeed = 23, haulPenalty = 1.20, stamina = 4, canVault = false, canDash = false },
+	{ name = "Tread Boots", price = 2300, walkSpeed = 25, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false },
+	{ name = "Field Runners", price = 6500, walkSpeed = 27, haulPenalty = 0.80, stamina = 6, canVault = true, canDash = false },
+	{ name = "Servo Braces", price = 18000, walkSpeed = 29, haulPenalty = 0.55, stamina = 7, canVault = true, canDash = false },
+	{ name = "Powered Frame", price = 51000, walkSpeed = 31, haulPenalty = 0.30, stamina = 8, canVault = true, canDash = true },
+	{ name = "Strider Rig", price = 140000, walkSpeed = 33, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true },
 }
 
 -- The satchel does two jobs, and the second one matters more than PLAN §3.7 realised:
