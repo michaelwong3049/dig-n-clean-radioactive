@@ -295,26 +295,28 @@ COMMANDS["/cash"] = {
 }
 
 COMMANDS["/speed"] = {
-	-- ExposureService now applies StatResolver.effectiveWalkSpeed to every player's
-	-- Humanoid every tick (10Hz), so boots gear DOES apply live as of the base-speed
-	-- pass -- this command's own override now only lasts until that next tick, at
-	-- most ~0.1s, before getting silently overwritten back to whatever the player's
-	-- actual gear/carry state computes to. Use `/gear boots <tier>` instead to test a
-	-- specific tier's speed for real, sustained through normal play; this command is
-	-- now only useful for a one-tick sanity check of the Humanoid itself.
-	help = "/speed <value> — set WalkSpeed directly for one tick (overwritten by boots gear immediately after; use /gear boots <tier> to test for real)",
+	-- ExposureService's per-tick loop is the ONLY thing allowed to write WalkSpeed
+	-- (its own header says so). The previous version of this command poked the
+	-- Humanoid directly and the write was gone within ~0.1s, the moment that loop
+	-- recomputed speed from boots gear. It now hands a sustained override to that
+	-- loop, which applies it every tick until cleared. The override ignores the
+	-- boots tier and the haul penalty while set; `/speed off` returns you to normal
+	-- gear-derived speed. It does NOT override the dig/wash root -- you still stand
+	-- still while locked to a signal.
+	help = "/speed <value> — pin WalkSpeed there for the session (ignores boots + haul); /speed off to clear",
 	run = function(player, _sandbox, args)
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if humanoid == nil then
-			return "no character to move"
+		local raw = args[1]
+		if raw == nil or raw == "off" or raw == "clear" or raw == "reset" then
+			ExposureService.setSpeedOverride(player, nil)
+			return "speed override cleared — back to boots gear"
 		end
-		local value = tonumber(args[1])
+		local value = tonumber(raw)
 		if value == nil then
-			return "usage: /speed <value>"
+			return "usage: /speed <value>  |  /speed off"
 		end
-		humanoid.WalkSpeed = math.max(0, value)
-		return `WalkSpeed -> {humanoid.WalkSpeed}`
+		value = math.clamp(math.floor(value), 0, 500)
+		ExposureService.setSpeedOverride(player, value)
+		return `WalkSpeed pinned to {value} — /speed off to undo`
 	end,
 }
 

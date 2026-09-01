@@ -67,6 +67,13 @@ type State = {
 local states: { [Player]: State } = {}
 local bagContents: { [Instance]: { any } } = {}
 
+-- Debug console only (see DebugService's /speed). A sustained WalkSpeed override:
+-- nil follows the player's boots gear as normal, a number pins WalkSpeed to exactly
+-- that and ignores the haul penalty. Session-only and deliberately NOT persisted --
+-- unlike /cash and /gear, which are real game state, this is a testing convenience
+-- that should die with the session.
+local speedOverrides: { [Player]: number } = {}
+
 local stateRemote: any = nil
 local blackoutRemote: any = nil
 
@@ -355,7 +362,11 @@ local function stepPlayer(player: Player, dt: number)
 			humanoid.JumpPower = 0
 			humanoid.JumpHeight = 0
 		else
-			humanoid.WalkSpeed = StatResolver.effectiveWalkSpeed(stats, #data.carry, false)
+			-- The debug /speed override, when set, wins over gear here -- but NOT over
+			-- the root above: an override still leaves you planted while locked to a
+			-- signal or washing, same as any other speed.
+			local override = speedOverrides[player]
+			humanoid.WalkSpeed = override or StatResolver.effectiveWalkSpeed(stats, #data.carry, false)
 			humanoid.JumpPower = DEFAULT_JUMP_POWER
 			humanoid.JumpHeight = DEFAULT_JUMP_HEIGHT
 		end
@@ -482,6 +493,17 @@ function ExposureService.flush(player: Player)
 	state.survivableRatchet = nil
 end
 
+--- Debug console (/speed). A number pins the player's WalkSpeed there until cleared;
+--- nil clears it and hands movement back to their boots gear. The dig/wash root still
+--- wins over this -- an override does not let you walk while locked to a signal.
+function ExposureService.setSpeedOverride(player: Player, walkSpeed: number?)
+	speedOverrides[player] = walkSpeed
+end
+
+function ExposureService.speedOverrideOf(player: Player): number?
+	return speedOverrides[player]
+end
+
 function ExposureService.init()
 	stateRemote = Net.get("ExposureState")
 	blackoutRemote = Net.get("Blackout")
@@ -494,6 +516,7 @@ function ExposureService.start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		states[player] = nil
+		speedOverrides[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)
