@@ -163,6 +163,16 @@ Kit.C = {
 --- green. Worn matte on the Trim, NameSign and the cleansing-station lamp.
 Kit.PLOT_ACCENT = { "A65A6E", "4E8C99", "C6A24E", "5F7A99", "C07E4C", "8A6BA6" }
 
+-- ── Signage voice ─────────────────────────────────────────────────────────────
+-- Every sign in the world speaks in one font: FredokaOne, the chunky rounded face
+-- PLAN §14's toy-shop voice asks for, and the exhibition stand cards over displayed
+-- items (Services/ExhibitService, its own TAG_FONT) already use. Named here for the
+-- same reason the palette is -- re-voicing the world is one edit, not a find-and-
+-- replace across every builder. FredokaOne ships as a single weight, so a sign's
+-- own hierarchy (title vs subtitle) is carried by TextSize, not by swapping
+-- Bold/Medium/Black the way the old Gotham signs did.
+Kit.FONT = Enum.Font.FredokaOne
+
 -- ── Orientations ──────────────────────────────────────────────────────────────
 -- Degrees, XYZ euler. A Roblox Cylinder's axis is its X size, so "upright" means
 -- rotating X onto Y.
@@ -371,7 +381,7 @@ function Kit.billboard(part: BasePart, width: number, height: number, title: str
 	head.Name = "Title"
 	head.Size = UDim2.new(1, 0, 0, 30)
 	head.BackgroundTransparency = 1
-	head.Font = Enum.Font.GothamBold
+	head.Font = Kit.FONT
 	head.TextSize = 22
 	head.TextColor3 = Color3.fromHex(Kit.C.labelText)
 	head.TextStrokeTransparency = 0.4
@@ -383,7 +393,7 @@ function Kit.billboard(part: BasePart, width: number, height: number, title: str
 	sub.Position = UDim2.fromOffset(0, 28)
 	sub.Size = UDim2.new(1, 0, 0, 20)
 	sub.BackgroundTransparency = 1
-	sub.Font = Enum.Font.GothamMedium
+	sub.Font = Kit.FONT
 	sub.TextSize = 14
 	sub.TextColor3 = Color3.fromHex(subColor)
 	sub.TextStrokeTransparency = 0.5
@@ -415,7 +425,7 @@ function Kit.surfaceText(part: BasePart, face: Enum.NormalId, text: string, colo
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBlack
+	label.Font = Kit.FONT
 	label.TextScaled = true
 	label.TextColor3 = Color3.fromHex(color)
 	label.TextStrokeTransparency = 1

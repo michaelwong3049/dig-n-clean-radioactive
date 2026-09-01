@@ -160,7 +160,10 @@ end
 -- how many copies share the plot all move the number).
 
 local YIELD_TAG = "YieldTag"
-local TAG_FONT = Enum.Font.FredokaOne -- chunky and rounded, the toy-shop voice PLAN §14 asks for
+-- Chunky and rounded, the toy-shop voice PLAN §14 asks for. The world's fixed
+-- signage (Kit.FONT -- cleansing station, wash pad, shop marquees, nameplates) is
+-- kept on this same face on purpose; re-voicing means changing both.
+local TAG_FONT = Enum.Font.FredokaOne
 local RATE_COLOR = Color3.fromHex("F59E0B") -- the cash badge's amber (UIKit.C.amber)
 local PILL_COLOR = Color3.fromRGB(24, 20, 32)
 
