@@ -11,11 +11,13 @@
 	PHASE 2 UPDATE: that is no longer what this is. StageService and ExposureService
 	exist now and own the stage, the meter, the health and the blackout for real. This
 	file kept its promise and gave all of that up — nothing here simulates anything any
-	more. It READS the live services and renders them to the debug HUD, and it carries
-	the tuning console.
+	more.
 
-	That distinction matters: while this file owned a private exposure meter there were
-	two answers to "how irradiated am I", and only one of them could put you down.
+	HUD REMOVAL UPDATE: the Rad Debug on-screen HUD is gone, and the per-tick telemetry
+	that fed it went with it — a DebugState payload was rebuilt from the live services
+	every tick, and with no client listening that remote just filled its queue and
+	Roblox logged "invocation queue exhausted" ten times a second. What is left is the
+	tuning console: the /radhelp chat commands and the SetAttribute("DebugCmd", …) hook.
 ]]
 
 local Players = game:GetService("Players")
@@ -25,21 +27,16 @@ local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
-local Tuning = require(Shared.Config.Tuning)
 local Stages = require(Shared.Config.Stages)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Gear = require(Shared.Config.Gear)
 local Liquids = require(Shared.Config.Liquids)
 local Contamination = require(Shared.Contamination)
-local Radiation = require(Shared.Radiation)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
-local Ticker = require(Shared.Util.Ticker)
-local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
-local StageService = require(script.Parent.StageService)
 local ExposureService = require(script.Parent.ExposureService)
 local EconomyService = require(script.Parent.EconomyService)
 
@@ -52,77 +49,6 @@ local DebugService = {}
 type Sandbox = { ready: boolean }
 
 local sandboxes: { [Player]: Sandbox } = {}
-local stateRemote: any = nil
-
-local INFINITE = -1 -- wire sentinel; math.huge is awkward to read on the far side
-
-local function finite(n: number): number
-	return if n == math.huge or n ~= n then INFINITE else n
-end
-
--- ── The tick ───────────────────────────────────────────────────────────────
-
-local function step(player: Player, _dt: number)
-	local data = DataService.data(player)
-	if data == nil then
-		return
-	end
-
-	local stats = StatResolver.get(data)
-	local stageId = StageService.stageOf(player)
-	local ambient = StageService.ambientFor(player)
-	local carried = Decay.totalEmission(data.carry, stats.satchelFuseMult)
-	local reading = Radiation.resolve(ambient, carried, stats)
-
-	-- Read, never simulate. ExposureService owns these.
-	local exposure = ExposureService.exposureOf(player)
-	local health = ExposureService.healthOf(player)
-
-	local items = {}
-	for _, item in data.carry do
-		local conditionIndex, condition = Decay.conditionOf(item, stats.satchelFuseMult)
-		table.insert(items, {
-			uid = item.uid,
-			rarity = item.rarity,
-			modifier = item.modifier,
-			condition = condition.name,
-			conditionIndex = conditionIndex,
-			toNext = finite(Decay.secondsToNextCondition(item, stats.satchelFuseMult)),
-			emission = Decay.emissionOf(item, stats.satchelFuseMult),
-			valueRetained = condition.valueRetained,
-			frozen = item.frozen,
-		})
-	end
-
-	stateRemote:FireClient(player, {
-		stageId = stageId,
-		stageName = if stageId then Stages.get(stageId).name else "Base Camp",
-		ambient = ambient,
-		hotPocket = StageService.hotPocketFor(player),
-
-		exposure = exposure,
-		exposureFrac = Radiation.exposureFraction(exposure),
-		health = health,
-		maxHealth = Tuning.MAX_HEALTH,
-		downed = false,
-
-		net = reading.net,
-		carried = reading.carried,
-		excess = reading.excess,
-		healthBurn = reading.healthBurn,
-		failing = reading.failing,
-
-		greed = Radiation.greedFraction(reading, stats),
-		survivable = finite(Radiation.survivableSeconds(reading, exposure, health)),
-		threat = Radiation.dominantThreat(reading, exposure, health),
-
-		capacity = stats.capacity,
-		suitTolerance = stats.suitTolerance,
-		gear = data.gear,
-
-		items = items,
-	})
-end
 
 -- ── The tuning console ──────────────────────────────────────────────────────
 --
@@ -498,9 +424,8 @@ end
 
 -- ── Bootstrap ─────────────────────────────────────────────────────────────────
 
-function DebugService.init()
-	stateRemote = Net.get("DebugState")
-end
+-- No init(): there is no remote to wire any more. The console is all chat- and
+-- attribute-driven, and both are set up in start().
 
 function DebugService.start()
 	DataService.onLoaded(function(player, _data)
@@ -513,15 +438,6 @@ function DebugService.start()
 	end)
 
 	registerCommands()
-
-	Ticker.every(Tuning.TICK_RATE, function(dt)
-		for player in sandboxes do
-			local ok, err = pcall(step, player, dt)
-			if not ok then
-				warn(`[debug] tick failed for {player.Name}: {err}`)
-			end
-		end
-	end)
 
 	print("[debug] tuning console ready — type /radhelp in chat")
 end

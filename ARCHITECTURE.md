@@ -59,7 +59,7 @@ src/
       LiquidService           the wash pad: rolling liquids, charges, equip
       WashService             the hose bay: the E-to-wash session and its clock
       ToolService             puts the right model in the player's hands
-      DebugService            the tuning console + debug telemetry
+      DebugService            the tuning console (/radhelp)
 
   client/
     init.client.luau          bootstrap: mirrors the server's ORDER / init / start
@@ -70,7 +70,6 @@ src/
       WashController          the wash bay: camera, patch blobs, the hose stream
       HudController           rad meter, vignette, distortion, blackout curtain
       GeigerController        the click bed (reads HudController)
-      DebugHudController      every number at once. F3 toggles.
 ```
 
 ---

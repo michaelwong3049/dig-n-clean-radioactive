@@ -24,7 +24,6 @@ local ORDER = {
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState
 	"NameTagController", -- subdued overhead player names; replaces Roblox's bright default tag
 	"WarpController", -- the top-of-screen BASE / SHOPS bar; reads stageId off ExposureState
-	"DebugHudController",
 }
 
 local loaded: { [string]: any } = {}
