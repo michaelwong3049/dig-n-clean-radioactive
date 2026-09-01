@@ -453,14 +453,18 @@ end
 
 --- What the ping is allowed to reveal before you dig. PLAN §2 step 1: high-tier
 --- detectors show rarity on the ping so you stop wasting time digging Scrap.
-local function hintFor(signal: Signal, clarity: number): (string?, string?)
+--- The odds ride the SAME clarity gate as the modifier (>= 3): they pin down which
+--- item this is more than the bare rarity does, so a cheap detector should not read
+--- them off someone else's aura. Display-only either way -- Items.odds does not
+--- affect the roll (Config/Items.luau).
+local function hintFor(signal: Signal, clarity: number): (string?, string?, number?)
 	if clarity <= 0 then
-		return nil, nil
+		return nil, nil, nil
 	end
 	if clarity >= 3 then
-		return signal.rarity, signal.modifier
+		return signal.rarity, signal.modifier, Items.get(signal.itemId).odds
 	end
-	return signal.rarity, nil
+	return signal.rarity, nil, nil
 end
 
 --- Player-relative XZ offsets, plus whatever detectorClarity lets THIS player know
@@ -754,7 +758,7 @@ local function stepPlayer(player: Player, dt: number)
 	local signal = working.signal
 	local distance = working.distance
 	local strength = math.clamp(1 - (distance / stats.detectorRadius), 0, 1)
-	local rarityHint, modifierHint = hintFor(signal, stats.detectorClarity)
+	local rarityHint, modifierHint, oddsHint = hintFor(signal, stats.detectorClarity)
 
 	-- Reset progress if they wandered off this signal onto another one. While locked
 	-- this never fires, which is the point: the target cannot drift mid-haul.
@@ -885,6 +889,7 @@ local function stepPlayer(player: Player, dt: number)
 		newContacts = noteContacts(player, contacts),
 		rarityHint = rarityHint,
 		modifierHint = modifierHint,
+		oddsHint = oddsHint,
 		inRange = inRange,
 		blocked = blocked,
 		-- Recomputed rather than reusing `isLocked` from the top of the tick, because

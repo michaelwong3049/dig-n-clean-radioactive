@@ -49,7 +49,7 @@ local ui = {}
 -- SEPARATE row built per stage section it appears in — this has to be a list per
 -- item, not one row, or discovering it would only ever repaint whichever stage's
 -- row happened to be built last.
-type ItemRow = { nameLabel: TextLabel, flavorLabel: TextLabel }
+type ItemRow = { nameLabel: TextLabel, flavorLabel: TextLabel, oddsLabel: TextLabel }
 local itemRows: { [string]: { ItemRow } } = {}
 local stageCountLabels: { [number]: TextLabel } = {}
 
@@ -91,11 +91,27 @@ local function buildItemRow(parent: Instance, layoutOrder: number, item: any)
 	local nameLabel = UIKit.label(row, {
 		name = "Name",
 		position = UDim2.fromOffset(12, 0),
-		size = UDim2.new(1, -24, 0, 20),
+		size = UDim2.new(1, -140, 0, 20),
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.body,
 		color = UIKit.C.dim,
 		text = "???",
+		zIndex = 2,
+	})
+
+	-- The authored "1 in N", right-aligned on the name line. Blank until the item is
+	-- discovered, same reveal rule the name and flavor already follow -- the odds are
+	-- part of an item's identity, so you learn them by holding it.
+	local oddsLabel = UIKit.label(row, {
+		name = "Odds",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, -12, 0, 0),
+		size = UDim2.fromOffset(116, 20),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.caption,
+		color = UIKit.C.dim,
+		xAlign = Enum.TextXAlignment.Right,
+		text = "",
 		zIndex = 2,
 	})
 
@@ -115,7 +131,7 @@ local function buildItemRow(parent: Instance, layoutOrder: number, item: any)
 		rows = {}
 		itemRows[item.id] = rows
 	end
-	table.insert(rows, { nameLabel = nameLabel, flavorLabel = flavorLabel })
+	table.insert(rows, { nameLabel = nameLabel, flavorLabel = flavorLabel, oddsLabel = oddsLabel })
 end
 
 --- One stage section: a header (name + this stage's own discovered count) and its
@@ -333,6 +349,7 @@ local function renderItem(item: any)
 		row.nameLabel.Text = if found then item.name else "???"
 		row.nameLabel.TextColor3 = color
 		row.flavorLabel.Text = if found then item.flavor else ""
+		row.oddsLabel.Text = if found then Items.oddsText(item.odds) else ""
 	end
 end
 
