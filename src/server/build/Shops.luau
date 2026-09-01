@@ -105,7 +105,7 @@ local Hub = require(script.Parent.Hub)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 14
+local BUILDER_VERSION = 15
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
@@ -272,7 +272,7 @@ local function buildGearStoreBillboard(adornee: BasePart)
 	title.Name = "Title"
 	title.Size = UDim2.new(1, 0, 0, 54)
 	title.BackgroundTransparency = 1
-	title.Font = Enum.Font.GothamBlack
+	title.Font = Kit.FONT
 	title.Text = "Gear Store"
 	title.TextColor3 = Color3.fromHex(GEAR_STORE_STRIPE)
 	title.TextSize = 42
@@ -285,7 +285,7 @@ local function buildGearStoreBillboard(adornee: BasePart)
 	subtitle.Position = UDim2.fromOffset(0, 50)
 	subtitle.Size = UDim2.new(1, 0, 0, 34)
 	subtitle.BackgroundTransparency = 1
-	subtitle.Font = Enum.Font.GothamBold
+	subtitle.Font = Kit.FONT
 	subtitle.Text = "Buy Helpful Items!"
 	subtitle.TextColor3 = Color3.fromHex(C.labelText)
 	subtitle.TextSize = 25
