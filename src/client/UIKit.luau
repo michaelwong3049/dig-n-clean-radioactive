@@ -177,13 +177,17 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- thing rise out of the ground in front of your character, and a dead-center panel
 -- covers exactly that. It sits as LOW as it can instead — right above the hotbar — so
 -- the item stays in view above it; HAULPANEL_BOTTOM below is what places it.
--- 134, down from 168 when the "LOCKED ON — UNKNOWN MASS" title row was dropped (the
--- bar now tells that story with a "?" on its left and a magnet on its right instead).
--- Three rows left, laid out top-down at fixed offsets: the bar at y20, the PULL button
--- at y60, and the release hint hanging off the BOTTOM edge. Panel height is what sets
--- the gap between the button and the release (10px here) — shrink it further and they
--- re-collide.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 134)
+-- 150: 134 (itself down from 168) plus a 16px title row brought back to carry the
+-- rarity readout — the word once the detector's clarity resolves it, and the "1 in N"
+-- odds once it clears the modifier gate too. The old dropped title said "LOCKED ON —
+-- UNKNOWN MASS"; this one says what you actually committed to, or stays blank behind
+-- the bar's "?" when the detector could not tell. Laid out top-down at fixed offsets:
+-- the title at y10, the bar at y36, the PULL button at y76, and the release hint
+-- hanging off the BOTTOM edge. Panel height is what sets the gap between the button and
+-- the release (10px here) — shrink it further and they re-collide. Its top edge sits
+-- just clear of the status line (STATUS_BOTTOM); another few px of height and the two
+-- centred elements overlap.
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 150)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
