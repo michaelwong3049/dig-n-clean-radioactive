@@ -70,7 +70,6 @@ src/
       WashController          the wash bay: camera, patch blobs, the hose stream
       HudController           rad meter, vignette, distortion, blackout curtain
       GeigerController        the click bed (reads HudController)
-      DebugHudController      every number at once. F3 toggles.
 ```
 
 ---
