@@ -1,19 +1,14 @@
 --!strict
 --[[
-	ModelGallery.luau — temporary editor-only land for reviewing item art.
+	ModelGallery.luau — the permanent item-model yard inside the spawn base.
 
 	    require(game.ServerScriptService.Server.build.ModelGallery).rebuild()
 	    require(game.ServerScriptService.Server.build.ModelGallery).remove()
 
-	THIS IS NOT PART OF World.rebuild() AND NOTHING REQUIRES IT AT BOOT. It is a
-	workbench beside the live map, not shipped game geometry. Run rebuild after adding
-	an ItemModels factory and every catalogued item with a real model gets a labelled
-	stand automatically. Run remove before saving/publishing if the lot is not wanted
-	in the place file.
-
-	The default lot sits west of the plot ring and meets its apron through the empty
-	walkway between plots 1 and 6. Its footprint is derived from Hub.PLAZA and
-	Plots.PAD, so moving the base moves the preview lot instead of leaving it behind.
+	BaseCamp builds this automatically, so World.rebuild() always ships every
+	catalogued item with a real ItemModels factory on a labelled stand. The compact
+	yard sits in the plaza's southwest corner, clear of the shops, central aisle,
+	Stage 1 entrance, and the six player plots.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,28 +20,30 @@ local ItemModels = require(Shared.ItemModels)
 
 local Hub = require(script.Parent.Hub)
 local Kit = require(script.Parent.Kit)
-local Plots = require(script.Parent.Plots)
 
 local ModelGallery = {}
 
-local NAME = "ModelGallery_TEMP"
+local NAME = "ModelYard"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 2
+local BUILDER_VERSION = 3
 
-local LAND_SIZE = 66
-local LAND_THICKNESS = 4
-local BRIDGE_GAP = 8
-local BRIDGE_WIDTH = 12
-local GRID_COLUMNS = 8
+local LAND_WIDTH = 34
+local LAND_DEPTH = 28
+local LAND_THICKNESS = 0.12
+local YARD_MARGIN = 3
+local GRID_COLUMNS = 4
 local GRID_SPACING = 7
 local PEDESTAL_TOP = 2.5
 local MAX_MODEL_SIZE = 3.6
 
--- The west edge of the apron wrapped around the plaza. The lot stops BRIDGE_GAP
--- studs before it, and the small bridge crosses only that gap.
-local APRON_WEST = Hub.PLAZA.minX - Plots.PAD.depth
-local LOT_EAST = APRON_WEST - BRIDGE_GAP
-local DEFAULT_ORIGIN = CFrame.new(LOT_EAST - LAND_SIZE / 2, Hub.PLAZA.topY, (Hub.PLAZA.minZ + Hub.PLAZA.maxZ) / 2)
+-- Anchor the yard inside the southwest corner rather than to a bare world number.
+-- BASE_OFFSET lets a caller that relocates BaseCamp carry the yard with it.
+local DEFAULT_ORIGIN = CFrame.new(
+	Hub.PLAZA.minX + YARD_MARGIN + LAND_WIDTH / 2,
+	Hub.PLAZA.topY,
+	Hub.PLAZA.minZ + YARD_MARGIN + LAND_DEPTH / 2
+)
+local BASE_OFFSET = Hub.CAMP_ORIGIN:ToObjectSpace(DEFAULT_ORIGIN)
 
 local function catalogueModels(): { any }
 	local result = {}
@@ -60,25 +57,23 @@ end
 
 local function buildLand(gallery: Model, origin: CFrame)
 	Kit.build(gallery, origin, {
-		name = "PreviewLand",
-		pos = { 0, -LAND_THICKNESS / 2, 0 },
-		size = { LAND_SIZE, LAND_THICKNESS, LAND_SIZE },
+		name = "YardFloor",
+		pos = { 0, LAND_THICKNESS / 2, 0 },
+		size = { LAND_WIDTH, LAND_THICKNESS, LAND_DEPTH },
 		color = Kit.C.baseTileDark,
 		material = "Concrete",
 	})
 
-	-- Hazard-yellow trim makes the temporary footprint obvious in Studio and prevents
-	-- it from being mistaken for a seventh player plot. Matte, like the real world --
-	-- this lot is dev-only (never built by World.rebuild) but there is no reason for it
-	-- to be the one Neon thing left in the codebase.
+	-- Hazard-yellow trim distinguishes the public showcase from a player plot while
+	-- remaining low enough to step over from any side.
 	for _, edge in {
-		{ pos = { 0, 0.12, -LAND_SIZE / 2 + 0.5 }, size = { LAND_SIZE, 0.24, 1 } },
-		{ pos = { 0, 0.12, LAND_SIZE / 2 - 0.5 }, size = { LAND_SIZE, 0.24, 1 } },
-		{ pos = { -LAND_SIZE / 2 + 0.5, 0.12, 0 }, size = { 1, 0.24, LAND_SIZE } },
-		{ pos = { LAND_SIZE / 2 - 0.5, 0.12, 0 }, size = { 1, 0.24, LAND_SIZE } },
+		{ pos = { 0, 0.18, -LAND_DEPTH / 2 + 0.5 }, size = { LAND_WIDTH, 0.24, 1 } },
+		{ pos = { 0, 0.18, LAND_DEPTH / 2 - 0.5 }, size = { LAND_WIDTH, 0.24, 1 } },
+		{ pos = { -LAND_WIDTH / 2 + 0.5, 0.18, 0 }, size = { 1, 0.24, LAND_DEPTH } },
+		{ pos = { LAND_WIDTH / 2 - 0.5, 0.18, 0 }, size = { 1, 0.24, LAND_DEPTH } },
 	} do
 		Kit.build(gallery, origin, {
-			name = "TemporaryTrim",
+			name = "YardTrim",
 			pos = edge.pos,
 			size = edge.size,
 			color = Kit.C.hazard,
@@ -86,17 +81,6 @@ local function buildLand(gallery: Model, origin: CFrame)
 			canCollide = false,
 		})
 	end
-
-	-- The default origin puts the lot west of the apron, so +X points straight at
-	-- the gap between the western plots. Custom origins keep the same east-facing
-	-- bridge, making the builder predictable when the yard is moved by hand.
-	Kit.build(gallery, origin, {
-		name = "PreviewBridge",
-		pos = { LAND_SIZE / 2 + BRIDGE_GAP / 2, -0.5, 0 },
-		size = { BRIDGE_GAP, 1, BRIDGE_WIDTH },
-		color = Kit.C.baseTileLight,
-		material = "Metal",
-	})
 end
 
 local function placeOnPedestal(model: Model, target: CFrame)
@@ -156,7 +140,7 @@ end
 local function buildHeader(gallery: Model, origin: CFrame, count: number)
 	local sign = Kit.build(gallery, origin, {
 		name = "GallerySign",
-		pos = { 0, 4.5, LAND_SIZE / 2 - 1.5 },
+		pos = { 0, 4.5, LAND_DEPTH / 2 - 1.5 },
 		size = { 30, 5, 0.6 },
 		color = Kit.C.hazard,
 		material = "Metal",
@@ -170,7 +154,7 @@ local function createGallery(origin: CFrame): Model
 	local gallery = Instance.new("Model")
 	gallery.Name = NAME
 	Kit.stamp(gallery, BUILDER_SOURCE, BUILDER_VERSION)
-	gallery:SetAttribute("Temporary", true)
+	gallery:SetAttribute("SpawnBaseYard", true)
 
 	buildLand(gallery, origin)
 	local modelItems = catalogueModels()
@@ -180,6 +164,10 @@ local function createGallery(origin: CFrame): Model
 	buildHeader(gallery, origin, #modelItems)
 
 	return gallery
+end
+
+function ModelGallery.originForBase(baseOrigin: CFrame): CFrame
+	return baseOrigin * BASE_OFFSET
 end
 
 function ModelGallery.build(origin: CFrame?, parent: Instance?): Model
@@ -192,7 +180,7 @@ function ModelGallery.rebuild(origin: CFrame?, parent: Instance?): Model
 	local gallery = Kit.swap(NAME, function()
 		return createGallery(origin or DEFAULT_ORIGIN)
 	end, parent) :: Model
-	print(`[build] temporary model gallery rebuilt — {#catalogueModels()} item model(s)`)
+	print(`[build] model yard rebuilt — {#catalogueModels()} item model(s)`)
 	return gallery
 end
 
@@ -203,7 +191,7 @@ function ModelGallery.remove(parent: Instance?): boolean
 		return false
 	end
 	gallery:Destroy()
-	print("[build] temporary model gallery removed")
+	print("[build] model yard removed")
 	return true
 end
 
