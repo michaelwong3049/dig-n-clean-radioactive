@@ -55,14 +55,14 @@ local BUTTON_SIZE = Dock.INDEX_SIZE
 -- text wants a stable measure); the scroller takes whatever is left.
 local SCREEN_MARGIN = 40
 local PANEL_MAX = Vector2.new(880, 620)
--- MIN.X keeps the grid usable on small viewports (detail column + gap + a few 90px
+-- MIN.X keeps the grid usable on small viewports (detail column + gap + a few
 -- tiles + the panel's 48px padding); it only bites below a ~940px client.
 local PANEL_MIN = Vector2.new(470, 380)
 local HEADER_H = 72 -- title band; both columns start below it
-local DETAIL_WIDTH = 220
-local COLUMN_GAP = 20
-local TILE = 90
-local TILE_GAP = 8
+local DETAIL_WIDTH = 210
+local COLUMN_GAP = 16
+local TILE = 84
+local TILE_GAP = 6
 
 local discovered: { [string]: boolean } = {}
 local totalItems = #Items.DEFS
@@ -155,7 +155,7 @@ local function buildItemTile(parent: Instance, layoutOrder: number, item: any)
 		name = "ItemName",
 		anchorPoint = Vector2.new(0.5, 0.5),
 		position = UDim2.fromScale(0.5, 0.5),
-		size = UDim2.new(1, -12, 1, -12),
+		size = UDim2.new(1, -8, 1, -8),
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.caption,
 		color = UIKit.C.text,
@@ -527,7 +527,7 @@ local function build(): ScreenGui
 
 	local listLayout = Instance.new("UIListLayout")
 	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	listLayout.Padding = UDim.new(0, 18)
+	listLayout.Padding = UDim.new(0, 14)
 	listLayout.Parent = scroller
 
 	for i, stage in Stages.DEFS do
