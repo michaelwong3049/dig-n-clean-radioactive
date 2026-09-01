@@ -2,9 +2,10 @@
 --[[
 	Net.lua — every remote in the game, declared in one table.
 
-	ARCHITECTURE.md schedules this for Phase 1. It arrives early because the debug
-	HUD needs a channel, and the alternative — one ad-hoc RemoteEvent parented
-	wherever it was convenient — is exactly the mess this file exists to prevent.
+	ARCHITECTURE.md schedules this for Phase 1. It arrived early because the debug
+	HUD needed a channel (that HUD and its remote are both gone now), and the
+	alternative — one ad-hoc RemoteEvent parented wherever it was convenient — is
+	exactly the mess this file exists to prevent.
 
 	The server creates the instances; the client waits for them. Add a line to
 	REMOTES and both sides get it.
@@ -14,9 +15,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local REMOTES: { [string]: string } = {
-	-- Debug / tuning harness. Goes away when Phase 2 lands the real HUD.
-	DebugState = "RemoteEvent", -- server -> client, one payload per tick
-
 	-- Phase 1: the sweep/dig loop.
 	--
 	-- SweepState carries contacts INSIDE THE PLAYER'S OWN REVEAL RADIUS, as offsets

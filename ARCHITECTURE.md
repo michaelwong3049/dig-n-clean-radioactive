@@ -59,7 +59,7 @@ src/
       LiquidService           the wash pad: rolling liquids, charges, equip
       WashService             the hose bay: the E-to-wash session and its clock
       ToolService             puts the right model in the player's hands
-      DebugService            the tuning console + debug telemetry
+      DebugService            the tuning console (/radhelp)
 
   client/
     init.client.luau          bootstrap: mirrors the server's ORDER / init / start
