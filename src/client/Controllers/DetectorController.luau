@@ -1078,12 +1078,22 @@ end
 
 local bannerToken = 0
 
+--- "0.05 kg" / "12 kg" / "220 kg" — two sig figs under a kilo, whole numbers above.
+--- Small dup of IndexController.formatWeight (the 2nd caller); lift to UIKit on a 3rd.
+local function formatWeight(kg: number): string
+	if kg < 1 then
+		return string.format("%.2g kg", kg)
+	end
+	return string.format("%d kg", math.floor(kg + 0.5))
+end
+
 local function showUnearthed(found)
 	local def = Rarity.DEFS[found.rarity]
 	local colour = if def then def.color else COLOR.text
 
 	local modifier = if found.modifier == "None" then "" else found.modifier .. " "
-	ui.bannerRarity.Text = string.upper(modifier .. found.rarity)
+	local heft = if type(found.weight) == "number" then `  \u{00B7}  {formatWeight(found.weight)}` else ""
+	ui.bannerRarity.Text = string.upper(modifier .. found.rarity) .. heft
 	ui.bannerRarity.TextColor3 = colour
 	ui.bannerName.Text = found.name
 	ui.bannerFlavor.Text = found.flavor

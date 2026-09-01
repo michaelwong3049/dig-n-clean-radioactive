@@ -29,6 +29,7 @@ local Tuning = require(Config.Tuning)
 local Rarity = require(Config.Rarity)
 local Liquids = require(Config.Liquids)
 local Items = require(Config.Items)
+local Weight = require(Config.Weight)
 local ItemModels = require(script.Parent.Parent.ItemModels)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
@@ -88,6 +89,54 @@ function Spec.run(): boolean
 		-- `odds` DRIVES THE ROLL now (weight = 1/odds), so a zero or missing one is a
 		-- divide-by-zero in Items.effectiveWeight, not just a bad "1 in 0" on the HUD.
 		check(`item has a positive odds: {item.id}`, type(item.odds) == "number" and item.odds >= 1)
+		-- `weight` (kg) feeds five curves in Config/Weight; a nil or out-of-band value
+		-- degrades as silently as a bad model key. Weight.norm clamps, so out-of-band
+		-- would not throw -- it would just quietly saturate a curve.
+		check(
+			`item weight is in Weight.MIN..MAX: {item.id}`,
+			type(item.weight) == "number" and item.weight >= Weight.MIN and item.weight <= Weight.MAX
+		)
+	end
+
+	-- Config/Weight — the five curves and the one U-shaped bias. These pin the shape,
+	-- not the exact endpoints: "heavier is bigger / harder / worth more", and "weight
+	-- never makes an item COMMONER" (rollBias <= 1), and the middle of the range is
+	-- untouched (rollBias == 1) so a mid-weight catalogue is exactly as #61 tuned it.
+	do
+		local mono = true
+		local prev = { s = -1, a = -1, p = -1, v = -1 }
+		for i = 0, 40 do
+			local kg = Weight.MIN * (Weight.MAX / Weight.MIN) ^ (i / 40)
+			local s, a, p, v = Weight.sizeScale(kg), Weight.auraScale(kg), Weight.pullFactor(kg), Weight.valueMult(kg)
+			if s < prev.s - 1e-9 or a < prev.a - 1e-9 or p < prev.p - 1e-9 or v < prev.v - 1e-9 then
+				mono = false
+			end
+			prev = { s = s, a = a, p = p, v = v }
+			if Weight.rollBias(kg) > 1 + 1e-9 then
+				mono = false
+			end
+		end
+		check("§weight sizeScale/auraScale/pullFactor/valueMult all rise with mass; rollBias never exceeds 1", mono)
+
+		local mid = math.sqrt(Weight.MIN * Weight.MAX) -- geometric middle == norm 0.5
+		check("§weight the mid of the range is roll-unbiased (rollBias == 1)", math.abs(Weight.rollBias(mid) - 1) < 1e-6)
+		check("§weight the feather end is a touch rarer, not commoner", Weight.rollBias(Weight.MIN) < 1 and Weight.rollBias(Weight.MIN) >= 0.75)
+		check("§weight the heavy end is buried deep but still rolls", Weight.rollBias(Weight.MAX) < 0.5 and Weight.rollBias(Weight.MAX) > 0.15)
+		check("§weight heaviest item's valueMult stays sane (<= 2.0, like a modifier)", Weight.valueMult(Weight.MAX) <= 2.0)
+
+		-- Weight and rarity are orthogonal by design, but a genuinely HEAVY find should
+		-- also be scarce, or the physical slog and the payoff come apart. Pin the
+		-- heaviest catalogue item to Rare or better.
+		local heaviest = Items.DEFS[1]
+		for _, item in Items.DEFS do
+			if item.weight > heaviest.weight then
+				heaviest = item
+			end
+		end
+		check(
+			string.format("§weight the heaviest item (%s, %gkg) is Rare or better", heaviest.id, heaviest.weight),
+			Rarity.get(heaviest.rarity).order >= Rarity.get("Rare").order
+		)
 	end
 
 	-- PLAN §3.5 — the Dive is ~one dig, in every stage. Tested at the ENTRANCE
@@ -475,17 +524,23 @@ function Spec.run(): boolean
 		end
 		check("§Step2 every magnet tier asks for fewer clicks than the last", easing)
 
-		-- The pull must stay a BEAT, not a tap. The deepest item in the game against
-		-- the best magnet in the game is the fastest pull that can exist; if even that
-		-- is instant then the mash has stopped being a mechanic and the magnet track
-		-- has nothing left to sell.
-		local deepest = Tuning.DIG_DEPTH_BASE + (#Rarity.ORDER - 1) * Tuning.DIG_DEPTH_PER_RARITY
+		-- The pull must stay a BEAT, not a tap, AND never a chore. The worst case is the
+		-- deepest rarity carried by the HEAVIEST catalogue item (Config/Weight.pullFactor
+		-- multiplies `required` in DigService) against the best magnet. If even that is
+		-- instant the mash has stopped mattering; if it runs past ~15s the weight curve
+		-- has turned a haul into homework.
+		local heaviestKg = Items.DEFS[1].weight
+		for _, item in Items.DEFS do
+			heaviestKg = math.max(heaviestKg, item.weight)
+		end
+		local deepest = (Tuning.DIG_DEPTH_BASE + (#Rarity.ORDER - 1) * Tuning.DIG_DEPTH_PER_RARITY)
+			* Weight.pullFactor(heaviestKg)
 		local best = Gear.tier("Magnet", Gear.maxTier("Magnet"))
 		local netPerSecond = 4 * Tuning.PULL_YANK_PER_CLICK * best.pullSpeed - (Tuning.PULL_DRAG_RATE - best.draw)
 		local fastest = (Tuning.PULL_SECONDS_PER_STUD * deepest) / netPerSecond
 		check(
-			string.format("§Step2 the deepest item still takes %.1fs at 4 clicks/sec with the best magnet (want >= 2)", fastest),
-			fastest >= 2
+			string.format("§Step2 the heaviest deep item takes %.1fs at 4 clicks/sec with the best magnet (want 2-15)", fastest),
+			fastest >= 2 and fastest <= 15
 		)
 	end
 

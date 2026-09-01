@@ -26,6 +26,20 @@
 	FLOOR for those four stages is Common rather than Scrap. Nothing special is needed
 	to make that work now -- the roll picks from stocked items only.
 
+	EVERY ITEM HAS A `weight`, IN KILOGRAMS (feat/item-weight-system). It is INTRINSIC
+	and ORTHOGONAL to rarity — a Diamond Brooch is light and precious, a Steel Rod is
+	heavy and worthless. Config/Weight.luau turns it into five felt consequences: the
+	hauled model's size, the glow well's width, how long the mash takes, a value/$/sec
+	multiplier, and a dig-roll bias (`rollBias`, <= 1) that leaves the feather end a
+	touch rarer and buries the heavy end deep. The "1 in N" a sharp ping or the Index
+	prints is `Items.shownOdds` = `odds / rollBias`, so the display carries the weight
+	penalty too. AUTHORING RULE: keep `weight` inside Weight.MIN..Weight.MAX
+	(0.05..250), and roughly correlate the heavy end with rarity — a genuinely heavy
+	thing (a buried safe) should also be Rare or better, so the physical slog and the
+	scarcity land together. Rough scale: cap/ring/key/pebble ~0.05; watch/toy ~0.1;
+	tool/tin ~0.4-2; lantern/gauge/headphones ~2-9; clock movement / bullion ~12;
+	reactor rod ~45; mini nuke ~90; buried safe / deposit box / cylinder ~180-250.
+
 	TWO RULES, both from ARCHITECTURE.md, both cheap now and miserable to retrofit:
 
 	1. FLAVOR TEXT CARRIES A STORY. "Child's lunchbox, dented, still latched" hits
@@ -39,7 +53,9 @@
 
 	baseValue must sit inside its rarity's band in Rarity.DEFS. Stage 1 deliberately
 	carries a Legendary: PLAN §4 wants "it could happen right here" live from minute
-	one, because that chance is what keeps a new player sweeping.
+	one, because that chance is what keeps a new player sweeping. Config/Weight's
+	`valueMult` rides ON TOP of that authored number (like Rarity.MODIFIERS' valueMult
+	already does), so the band rule is about the AUTHORED baseValue only.
 
 	ECONOMY RESCALE (feat/economy-rescale-display-income): every baseValue below was
 	multiplied by 20/3 (~6.667x) and rounded to two significant figures, anchored so the
@@ -53,6 +69,7 @@
 ]]
 
 local Rarity = require(script.Parent.Rarity)
+local Weight = require(script.Parent.Weight)
 
 export type ItemDef = {
 	id: string,
@@ -61,15 +78,16 @@ export type ItemDef = {
 	rarity: string,
 	-- Authored "1 in N" find-rarity. It DRIVES THE ROLL now (it used to be display
 	-- only): an item's base weight in a stage is 1/odds, so a "1 in 100" item turns up
-	-- a tenth as often as a "1 in 10" one. Two knobs bend that base -- Config/Stages'
-	-- per-stage `rarityTilt`, and the digging player's detector luck at Rare and above
-	-- -- see "The dig roll" at the foot of this file. It is still the collectible
-	-- headline shown in the Index and on a sharp detector ping, hand-set per item so it
-	-- can be round and readable; the tilt means the number a player SEES is the
-	-- across-the-catalogue rarity, not the literal in-stage rate. One value covers
-	-- every stage an item is stocked in (the handful that span Stage 3<->4 share it on
-	-- purpose).
+	-- a tenth as often as a "1 in 10" one. THREE knobs bend that base -- Config/Stages'
+	-- per-stage `rarityTilt`, the digging player's detector luck at Rare and above, and
+	-- the item's own `weight` (Config/Weight.rollBias, <= 1) -- see "The dig roll" at
+	-- the foot of this file. It is still the collectible headline shown in the Index and
+	-- on a sharp detector ping, hand-set per item so it can be round and readable; the
+	-- number a player SEES is Items.shownOdds (odds inflated by the weight penalty), not
+	-- the literal in-stage rate. One value covers every stage an item is stocked in (the
+	-- handful that span Stage 3<->4 share it on purpose).
 	odds: number,
+	weight: number, -- kilograms; Config/Weight turns it into size/glow/pull/value/roll
 	stages: { number },
 	appeal: string, -- "Researcher" | "Collector" | "Gearhead"
 	sets: { string },
@@ -87,6 +105,7 @@ Items.DEFS = {
 		flavor = "Bent double. The logo is still readable if you squint.",
 		rarity = "Scrap",
 		odds = 5, -- 1 in N per dig in a stocking stage
+		weight = 0.05,
 		stages = { 1 },
 		appeal = "Collector",
 		sets = {},
@@ -99,6 +118,7 @@ Items.DEFS = {
 		flavor = "Snapped clean through. Something very large came this way.",
 		rarity = "Scrap",
 		odds = 6, -- 1 in N per dig in a stocking stage
+		weight = 7,
 		stages = { 1 },
 		appeal = "Gearhead",
 		sets = {},
@@ -111,6 +131,7 @@ Items.DEFS = {
 		flavor = "Sand that got so hot it melted into a smooth little marble.",
 		rarity = "Scrap",
 		odds = 8, -- 1 in N per dig in a stocking stage
+		weight = 0.05,
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
@@ -124,6 +145,7 @@ Items.DEFS = {
 		flavor = "Peaches. The label survived better than the peaches did.",
 		rarity = "Common",
 		odds = 9, -- 1 in N per dig in a stocking stage
+		weight = 0.4,
 		stages = { 1 },
 		appeal = "Collector",
 		sets = {},
@@ -136,6 +158,7 @@ Items.DEFS = {
 		flavor = "Still on its ring, with two smaller ones beside it.",
 		rarity = "Common",
 		odds = 12, -- 1 in N per dig in a stocking stage
+		weight = 0.06,
 		stages = { 1 },
 		appeal = "Collector",
 		sets = { "left_behind" },
@@ -148,6 +171,7 @@ Items.DEFS = {
 		flavor = "Stopped at 8:14. So did everyone else's.",
 		rarity = "Common",
 		odds = 15, -- 1 in N per dig in a stocking stage
+		weight = 0.1,
 		stages = { 1 },
 		appeal = "Collector",
 		sets = { "left_behind" },
@@ -160,6 +184,7 @@ Items.DEFS = {
 		flavor = "It glows in the dark. It always did, actually.",
 		rarity = "Common",
 		odds = 40, -- 1 in N per dig in a stocking stage
+		weight = 0.08,
 		stages = { 1 },
 		appeal = "Collector",
 		sets = {},
@@ -178,6 +203,7 @@ Items.DEFS = {
 		flavor = "A tiny toy soldier, paint chipped, forever standing guard.",
 		rarity = "Uncommon",
 		odds = 45, -- 1 in N per dig in a stocking stage
+		weight = 0.05,
 		stages = { 1 },
 		appeal = "Collector",
 		sets = { "childrens_toys" },
@@ -189,6 +215,7 @@ Items.DEFS = {
 		flavor = "Give the crank a few turns and it still lights up, just for a second.",
 		rarity = "Uncommon",
 		odds = 60, -- 1 in N per dig in a stocking stage
+		weight = 0.35,
 		stages = { 1 },
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
@@ -200,6 +227,7 @@ Items.DEFS = {
 		flavor = "A gold ring, still shining under all the dust.",
 		rarity = "Uncommon",
 		odds = 90, -- 1 in N per dig in a stocking stage
+		weight = 0.05,
 		stages = { 1 },
 		appeal = "Collector",
 		sets = { "left_behind" },
@@ -214,6 +242,7 @@ Items.DEFS = {
 		flavor = "Clicks faster the closer you get to something glowing.",
 		rarity = "Rare",
 		odds = 200, -- 1 in N per dig in a stocking stage
+		weight = 1.2,
 		stages = { 1 },
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
@@ -225,6 +254,7 @@ Items.DEFS = {
 		flavor = "Thirty-six photos, never developed. Who knows what's on them.",
 		rarity = "Rare",
 		odds = 260, -- 1 in N per dig in a stocking stage
+		weight = 0.06,
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
@@ -238,6 +268,7 @@ Items.DEFS = {
 		flavor = "Six glass vials. One of them glows all on its own.",
 		rarity = "Epic",
 		odds = 1200, -- 1 in N per dig in a stocking stage
+		weight = 3.5,
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
@@ -252,6 +283,7 @@ Items.DEFS = {
 		flavor = "A hand-drawn map, half burnt. Something's marked with three stars and no name.",
 		rarity = "Legendary",
 		odds = 2500, -- 1 in N per dig in a stocking stage
+		weight = 0.08,
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
@@ -268,6 +300,7 @@ Items.DEFS = {
 		flavor = "Someone chose this pattern once.",
 		rarity = "Scrap",
 		odds = 5, -- 1 in N per dig in a stocking stage
+		weight = 1.0,
 		stages = { 2 },
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
@@ -279,6 +312,7 @@ Items.DEFS = {
 		flavor = "Still swings, even with no door left to hold.",
 		rarity = "Scrap",
 		odds = 7, -- 1 in N per dig in a stocking stage
+		weight = 0.5,
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
@@ -290,6 +324,7 @@ Items.DEFS = {
 		flavor = "Wrapped in a napkin, waiting for a dinner that never happened.",
 		rarity = "Common",
 		odds = 10, -- 1 in N per dig in a stocking stage
+		weight = 0.8,
 		stages = { 2 },
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
@@ -301,6 +336,7 @@ Items.DEFS = {
 		flavor = "Left in the soil, handle up, like it would be picked up tomorrow.",
 		rarity = "Common",
 		odds = 13, -- 1 in N per dig in a stocking stage
+		weight = 0.4,
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
@@ -312,6 +348,7 @@ Items.DEFS = {
 		flavor = "The eyes still blink open and shut. A little spooky, a little funny.",
 		rarity = "Common",
 		odds = 25, -- 1 in N per dig in a stocking stage
+		weight = 0.3,
 		stages = { 2 },
 		appeal = "Collector",
 		sets = { "childrens_toys" },
@@ -323,6 +360,7 @@ Items.DEFS = {
 		flavor = "Eleven tiny charms — a bicycle, a cat, a little house.",
 		rarity = "Uncommon",
 		odds = 45, -- 1 in N per dig in a stocking stage
+		weight = 0.05,
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
@@ -334,6 +372,7 @@ Items.DEFS = {
 		flavor = "Every socket still in its slot. Whoever owned this was particular about it.",
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
+		weight = 2.5,
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
@@ -345,6 +384,7 @@ Items.DEFS = {
 		flavor = "Two tiny photos, one hinge. The catch still works.",
 		rarity = "Uncommon",
 		odds = 70, -- 1 in N per dig in a stocking stage
+		weight = 0.05,
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
@@ -356,6 +396,7 @@ Items.DEFS = {
 		flavor = "Three feet long and still bright orange. The rabbits are thrilled.",
 		rarity = "Uncommon",
 		odds = 120, -- 1 in N per dig in a stocking stage
+		weight = 4,
 		stages = { 2 },
 		appeal = "Researcher",
 		sets = {},
@@ -367,6 +408,7 @@ Items.DEFS = {
 		flavor = "Kept for good occasions — there was one more pearl, somewhere.",
 		rarity = "Rare",
 		odds = 240, -- 1 in N per dig in a stocking stage
+		weight = 0.08,
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
@@ -378,6 +420,7 @@ Items.DEFS = {
 		flavor = "Pulled from a car pointed away from town, tank full, doors open.",
 		rarity = "Rare",
 		odds = 200, -- 1 in N per dig in a stocking stage
+		weight = 1.5,
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
@@ -389,6 +432,7 @@ Items.DEFS = {
 		flavor = "Brass gears, hand-cut, unbothered. It would still run today.",
 		rarity = "Epic",
 		odds = 1500, -- 1 in N per dig in a stocking stage
+		weight = 12,
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
@@ -400,6 +444,7 @@ Items.DEFS = {
 		flavor = "Whatever was worth a bank vault is still inside, and it's yours now.",
 		rarity = "Legendary",
 		odds = 3000, -- 1 in N per dig in a stocking stage
+		weight = 180,
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
@@ -422,6 +467,7 @@ Items.DEFS = {
 		flavor = "A rusted horseshoe. There was a barn out here once.",
 		rarity = "Common",
 		odds = 8, -- 1 in N per dig in a stocking stage
+		weight = 0.6,
 		stages = { 3, 4 },
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
@@ -433,6 +479,7 @@ Items.DEFS = {
 		flavor = "Snapped clean off. The fence went with it.",
 		rarity = "Common",
 		odds = 10, -- 1 in N per dig in a stocking stage
+		weight = 0.8,
 		stages = { 3, 4 },
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
@@ -444,6 +491,7 @@ Items.DEFS = {
 		flavor = "Unopened. The label wore off long ago.",
 		rarity = "Common",
 		odds = 14, -- 1 in N per dig in a stocking stage
+		weight = 0.5,
 		stages = { 3, 4 },
 		appeal = "Collector",
 		sets = {},
@@ -455,6 +503,7 @@ Items.DEFS = {
 		flavor = "A little dented, but everything inside is still sealed.",
 		rarity = "Uncommon",
 		odds = 40, -- 1 in N per dig in a stocking stage
+		weight = 1.2,
 		stages = { 3, 4 },
 		appeal = "Researcher",
 		sets = {},
@@ -466,6 +515,7 @@ Items.DEFS = {
 		flavor = "Never got its chance to light up the sky.",
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
+		weight = 0.3,
 		stages = { 3 },
 		appeal = "Gearhead",
 		sets = {},
@@ -477,6 +527,7 @@ Items.DEFS = {
 		flavor = "Still points somewhere — just not always north anymore.",
 		rarity = "Uncommon",
 		odds = 60, -- 1 in N per dig in a stocking stage
+		weight = 0.15,
 		stages = { 3 },
 		appeal = "Researcher",
 		sets = {},
@@ -488,6 +539,7 @@ Items.DEFS = {
 		flavor = "No oil left, but it still swings a little in the wind.",
 		rarity = "Uncommon",
 		odds = 50, -- 1 in N per dig in a stocking stage
+		weight = 1.8,
 		stages = { 3, 4 },
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
@@ -499,6 +551,7 @@ Items.DEFS = {
 		flavor = "Gold doesn't care about any of this. That's why it's worth something.",
 		rarity = "Rare",
 		odds = 300, -- 1 in N per dig in a stocking stage
+		weight = 0.05,
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
@@ -510,6 +563,7 @@ Items.DEFS = {
 		flavor = "Changes color the longer it sits out here. It's been out here a while.",
 		rarity = "Rare",
 		odds = 220, -- 1 in N per dig in a stocking stage
+		weight = 0.05,
 		stages = { 3, 4 },
 		appeal = "Researcher",
 		sets = {},
@@ -521,6 +575,7 @@ Items.DEFS = {
 		flavor = "A glass jar, still packed with old coins. Somebody was saving up.",
 		rarity = "Rare",
 		odds = 280, -- 1 in N per dig in a stocking stage
+		weight = 3.5,
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
@@ -532,6 +587,7 @@ Items.DEFS = {
 		flavor = "Someone carried this out of a vault, into a field, and got no further.",
 		rarity = "Epic",
 		odds = 1600, -- 1 in N per dig in a stocking stage
+		weight = 12.4,
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
@@ -543,6 +599,7 @@ Items.DEFS = {
 		flavor = "A stone that catches light no one else out here can see.",
 		rarity = "Epic",
 		odds = 2200, -- 1 in N per dig in a stocking stage
+		weight = 0.05,
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
@@ -554,6 +611,7 @@ Items.DEFS = {
 		flavor = "Buried under the old farmhouse. Whatever's inside has been waiting a long time.",
 		rarity = "Legendary",
 		odds = 4000, -- 1 in N per dig in a stocking stage
+		weight = 220,
 		stages = { 3, 4 },
 		appeal = "Collector",
 		sets = {},
@@ -573,6 +631,7 @@ Items.DEFS = {
 		flavor = "A jar that glows a soft green, even in the dark.",
 		rarity = "Rare",
 		odds = 180, -- 1 in N per dig in a stocking stage
+		weight = 1.0,
 		stages = { 4 },
 		appeal = "Researcher",
 		sets = {},
@@ -584,6 +643,7 @@ Items.DEFS = {
 		flavor = "Covered in markings nobody recognizes. Hums faintly if you hold it.",
 		rarity = "Epic",
 		odds = 1400, -- 1 in N per dig in a stocking stage
+		weight = 0.2,
 		stages = { 4 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
@@ -595,6 +655,7 @@ Items.DEFS = {
 		flavor = "The rod that kept the reactor calm. It's the whole reason there's a Belt and not something worse.",
 		rarity = "Legendary",
 		odds = 5000, -- 1 in N per dig in a stocking stage
+		weight = 45,
 		stages = { 4 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
@@ -615,6 +676,7 @@ Items.DEFS = {
 		flavor = "Split down a seam. Whatever it carried isn't in it anymore.",
 		rarity = "Common",
 		odds = 7, -- 1 in N per dig in a stocking stage
+		weight = 4,
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
@@ -626,6 +688,7 @@ Items.DEFS = {
 		flavor = "Curved like it was cutting something, once.",
 		rarity = "Common",
 		odds = 9, -- 1 in N per dig in a stocking stage
+		weight = 1.5,
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = {},
@@ -637,6 +700,7 @@ Items.DEFS = {
 		flavor = "The symbol's still bright. Everything around it isn't.",
 		rarity = "Common",
 		odds = 12, -- 1 in N per dig in a stocking stage
+		weight = 2,
 		stages = { 5 },
 		appeal = "Collector",
 		sets = {},
@@ -648,6 +712,7 @@ Items.DEFS = {
 		flavor = "Needle buried past the red.",
 		rarity = "Uncommon",
 		odds = 40, -- 1 in N per dig in a stocking stage
+		weight = 0.8,
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
@@ -659,6 +724,7 @@ Items.DEFS = {
 		flavor = "Big and cushioned. Only one side still crackles with static.",
 		rarity = "Uncommon",
 		odds = 50, -- 1 in N per dig in a stocking stage
+		weight = 0.4,
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = { "reactor_control" },
@@ -670,6 +736,7 @@ Items.DEFS = {
 		flavor = "A big metal wheel that used to turn off the water. It won't budge now.",
 		rarity = "Uncommon",
 		odds = 65, -- 1 in N per dig in a stocking stage
+		weight = 9,
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
@@ -681,6 +748,7 @@ Items.DEFS = {
 		flavor = "The last page has one word on it, underlined twice.",
 		rarity = "Rare",
 		odds = 240, -- 1 in N per dig in a stocking stage
+		weight = 1.2,
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
@@ -692,6 +760,7 @@ Items.DEFS = {
 		flavor = "Locked in a lead case. Someone wanted this kept safe.",
 		rarity = "Rare",
 		odds = 300, -- 1 in N per dig in a stocking stage
+		weight = 3.5,
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = {},
@@ -703,6 +772,7 @@ Items.DEFS = {
 		flavor = "Built to survive anything. Lots of practice at it.",
 		rarity = "Epic",
 		odds = 1500, -- 1 in N per dig in a stocking stage
+		weight = 6,
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
@@ -714,6 +784,7 @@ Items.DEFS = {
 		flavor = "Empty now, but it used to hold something that glowed.",
 		rarity = "Epic",
 		odds = 1800, -- 1 in N per dig in a stocking stage
+		weight = 20,
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
@@ -725,6 +796,7 @@ Items.DEFS = {
 		flavor = "Warm through three layers of metal. Never once cooled down.",
 		rarity = "Legendary",
 		odds = 6000, -- 1 in N per dig in a stocking stage
+		weight = 30,
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
@@ -736,6 +808,7 @@ Items.DEFS = {
 		flavor = "Still glowing. Still humming. Exactly as dangerous as the day it was made.",
 		rarity = "Mythic",
 		odds = 50000, -- 1 in N per dig in a stocking stage
+		weight = 55,
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
@@ -756,6 +829,7 @@ Items.DEFS = {
 		flavor = "The sand didn't burn — it turned to glass, all at once.",
 		rarity = "Common",
 		odds = 8, -- 1 in N per dig in a stocking stage
+		weight = 0.3,
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
@@ -767,6 +841,7 @@ Items.DEFS = {
 		flavor = "Rated to hold back anything. Didn't.",
 		rarity = "Common",
 		odds = 11, -- 1 in N per dig in a stocking stage
+		weight = 6,
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
@@ -778,6 +853,7 @@ Items.DEFS = {
 		flavor = "Still wrapped. Nobody who needed it got the chance to open it.",
 		rarity = "Uncommon",
 		odds = 35, -- 1 in N per dig in a stocking stage
+		weight = 0.8,
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
@@ -789,6 +865,7 @@ Items.DEFS = {
 		flavor = "Spun the wrong way, hard.",
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
+		weight = 7,
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
@@ -800,6 +877,7 @@ Items.DEFS = {
 		flavor = "Went dark in under a second.",
 		rarity = "Rare",
 		odds = 220, -- 1 in N per dig in a stocking stage
+		weight = 0.05,
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
@@ -811,6 +889,7 @@ Items.DEFS = {
 		flavor = "Every tool welded to the canvas, and to each other.",
 		rarity = "Rare",
 		odds = 260, -- 1 in N per dig in a stocking stage
+		weight = 5,
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
@@ -822,6 +901,7 @@ Items.DEFS = {
 		flavor = "One square foot of ordinary dirt, sealed in glass, found at the center of everything.",
 		rarity = "Epic",
 		odds = 1400, -- 1 in N per dig in a stocking stage
+		weight = 14,
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
@@ -833,6 +913,7 @@ Items.DEFS = {
 		flavor = "Lights the crater up at night. Nobody's explained how, this far out.",
 		rarity = "Epic",
 		odds = 1700, -- 1 in N per dig in a stocking stage
+		weight = 8,
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
@@ -844,6 +925,7 @@ Items.DEFS = {
 		flavor = "Not from here. Not from anywhere else, as far as anyone can tell.",
 		rarity = "Epic",
 		odds = 2000, -- 1 in N per dig in a stocking stage
+		weight = 3,
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
@@ -855,6 +937,7 @@ Items.DEFS = {
 		flavor = "Worn by whoever mapped this place first. It's why there's a map at all.",
 		rarity = "Legendary",
 		odds = 7000, -- 1 in N per dig in a stocking stage
+		weight = 1.8,
 		stages = { 6 },
 		appeal = "Collector",
 		sets = { "crater_relics" },
@@ -866,6 +949,7 @@ Items.DEFS = {
 		flavor = "Bright yellow, comically oversized, and definitely not armed. Probably.",
 		rarity = "Legendary",
 		odds = 9000, -- 1 in N per dig in a stocking stage
+		weight = 90,
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
@@ -877,6 +961,7 @@ Items.DEFS = {
 		flavor = "A single watch hand, glowing faintly, pointing at nothing in particular.",
 		rarity = "Mythic",
 		odds = 60000, -- 1 in N per dig in a stocking stage
+		weight = 0.05,
 		stages = { 6 },
 		appeal = "Collector",
 		sets = { "crater_relics" },
@@ -888,6 +973,7 @@ Items.DEFS = {
 		flavor = "Heavier than it looks. Nobody's brave enough to open it.",
 		rarity = "Anomaly",
 		odds = 500000, -- 1 in N per dig in a stocking stage
+		weight = 240,
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = { "crater_relics" },
@@ -972,6 +1058,13 @@ function Items.oddsText(n: number): string
 	return "1 in " .. body
 end
 
+--- The "1 in N" a surface should PRINT for an item: its authored `odds` headline
+--- inflated by the weight penalty (Config/Weight.rollBias), so what a player reads
+--- moves with what the roll actually does. One place, so no surface open-codes it.
+function Items.shownOdds(item: ItemDef): number
+	return Weight.shownOdds(item.odds, item.weight)
+end
+
 -- ── The dig roll ────────────────────────────────────────────────────────────────
 --
 -- Replaces the old two-step roll (a rarity off Stages.loot, then a UNIFORM pick among
@@ -988,6 +1081,10 @@ end
 --     shape Config/Liquids' luckBias gives the wash pad. Below Rare it is exactly 1, so
 --     the early grind is luck-proof and a tier-1 detector (luck 1.0) rolls the raw
 --     tilted distribution.
+--
+--   weight (Config/Weight.rollBias, per item) multiplies the weight by a <= 1 factor:
+--     the feather end a touch rarer, the heavy end buried deep. Mid-weight items are
+--     untouched (factor exactly 1). Items.shownOdds carries the same factor to the HUD.
 --
 -- Shared, like Liquids.oddsAt / Radiation / Decay: the weight a HUD could DISPLAY and
 -- the weight DigService rolls come out of ONE function so they cannot disagree.
@@ -1007,10 +1104,14 @@ function Items.luckBias(rarity: string, luck: number): number
 	return math.min(luck ^ (order - Items.DIG_LUCK_MIN_ORDER + 1), Items.DIG_LUCK_BIAS_CAP)
 end
 
---- One item's roll weight in a stage: 1/odds, tilted by rarity, luck-boosted at the top.
+--- One item's roll weight in a stage: 1/odds, tilted by rarity, luck-boosted at the
+--- top, and biased down by its physical weight (Config/Weight.rollBias).
 function Items.effectiveWeight(item: ItemDef, tilt: number, luck: number): number
 	local order = Rarity.get(item.rarity).order
-	return (1 / item.odds) * tilt ^ (order - 1) * Items.luckBias(item.rarity, luck)
+	return (1 / item.odds)
+		* tilt ^ (order - 1)
+		* Items.luckBias(item.rarity, luck)
+		* Weight.rollBias(item.weight)
 end
 
 --- Normalised roll probability per stocked item in a stage, keyed by id. Sums to 1.

@@ -45,6 +45,15 @@ local totalItems = #Items.DEFS
 
 local ui = {}
 
+--- "0.05 kg", "0.4 kg", "12 kg", "220 kg" — two sig figs under a kilo, whole numbers
+--- above it, so the light end stays readable without a wall of decimals up top.
+local function formatWeight(kg: number): string
+	if kg < 1 then
+		return string.format("%.2g kg", kg)
+	end
+	return string.format("%d kg", math.floor(kg + 0.5))
+end
+
 -- An item can belong to more than one stage (several span {3, 4}), so it gets a
 -- SEPARATE row built per stage section it appears in — this has to be a list per
 -- item, not one row, or discovering it would only ever repaint whichever stage's
@@ -91,7 +100,7 @@ local function buildItemRow(parent: Instance, layoutOrder: number, item: any)
 	local nameLabel = UIKit.label(row, {
 		name = "Name",
 		position = UDim2.fromOffset(12, 0),
-		size = UDim2.new(1, -140, 0, 20),
+		size = UDim2.new(1, -190, 0, 20),
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.body,
 		color = UIKit.C.dim,
@@ -99,14 +108,16 @@ local function buildItemRow(parent: Instance, layoutOrder: number, item: any)
 		zIndex = 2,
 	})
 
-	-- The authored "1 in N", right-aligned on the name line. Blank until the item is
-	-- discovered, same reveal rule the name and flavor already follow -- the odds are
-	-- part of an item's identity, so you learn them by holding it.
+	-- The "1 in N" and the item's weight, right-aligned on the name line. Blank until
+	-- discovered, same reveal rule name and flavor follow -- the odds and the heft are
+	-- part of an item's identity, so you learn them by holding it. The odds shown is
+	-- Items.shownOdds (the authored headline inflated by the weight penalty), so it
+	-- lines up with how scarce the thing actually is.
 	local oddsLabel = UIKit.label(row, {
 		name = "Odds",
 		anchorPoint = Vector2.new(1, 0),
 		position = UDim2.new(1, -12, 0, 0),
-		size = UDim2.fromOffset(116, 20),
+		size = UDim2.fromOffset(166, 20),
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.caption,
 		color = UIKit.C.dim,
@@ -349,7 +360,9 @@ local function renderItem(item: any)
 		row.nameLabel.Text = if found then item.name else "???"
 		row.nameLabel.TextColor3 = color
 		row.flavorLabel.Text = if found then item.flavor else ""
-		row.oddsLabel.Text = if found then Items.oddsText(item.odds) else ""
+		row.oddsLabel.Text = if found
+			then string.format("%s   %s", Items.oddsText(Items.shownOdds(item)), formatWeight(item.weight))
+			else ""
 	end
 end
 

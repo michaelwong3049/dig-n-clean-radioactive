@@ -22,6 +22,7 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
+local Weight = require(Shared.Config.Weight)
 local Decay = require(Shared.Decay)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
@@ -68,7 +69,9 @@ function EconomyService.valueOf(item: any, stats: any): (number, boolean)
 	local clean = Contamination.isClean(item.patches or {})
 	local retained = Decay.valueRetained(item, stats.satchelFuseMult)
 
-	local value = def.baseValue * mod.valueMult * retained * stats.sellMultiplier
+	-- Heavier items are worth more (Config/Weight.valueMult). Rides ON TOP of the
+	-- authored baseValue exactly like mod.valueMult does — see Config/Items' header.
+	local value = def.baseValue * mod.valueMult * Weight.valueMult(def.weight) * retained * stats.sellMultiplier
 	if not clean then
 		value *= Tuning.DIRTY_SELL_MULTIPLIER
 	end

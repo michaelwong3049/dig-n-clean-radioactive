@@ -68,7 +68,7 @@ local ringFolder: Folder? = nil
 
 -- Tracked rather than re-queried: CollectionService:GetTagged allocates a fresh table
 -- on every call, and this runs every frame.
-type Tracked = { core: BasePart, dome: BasePart, ripples: { BasePart }, phase: number }
+type Tracked = { core: BasePart, dome: BasePart, ripples: { BasePart }, phase: number, scale: number }
 local tracked: { [Model]: Tracked } = {}
 
 -- Auras whose tag arrived before their children did. Usually empty — the server
@@ -213,6 +213,10 @@ local function track(instance: Instance)
 		-- aura. Pulsing a field of them in lockstep looks like a screen refresh
 		-- artefact rather than like several separate things breathing.
 		phase = (core.Position.X * 0.7 + core.Position.Z * 1.3) % (2 * math.pi),
+		-- How much wider this well is than a default one (heavier buried thing, bigger
+		-- glow — DigService off Config/Weight.auraScale). 1 for an unscaled well and for
+		-- an old aura saved into the place without the attribute.
+		scale = (instance :: any):GetAttribute("WellScale") or 1,
 	}
 end
 
@@ -253,8 +257,11 @@ local function stepAuras()
 			-- where their eyes already are.
 			entry.core.Transparency = 0.1
 			entry.dome.Transparency = 0.22
+			-- Freeze the rings on THIS well's dome edge, not the default one -- a heavy
+			-- well's dome is wider (entry.scale).
+			local frozen = Tuning.AURA_DOME * entry.scale
 			for _, ripple in entry.ripples do
-				ripple.Size = Vector3.new(ripple.Size.X, Tuning.AURA_DOME, Tuning.AURA_DOME)
+				ripple.Size = Vector3.new(ripple.Size.X, frozen, frozen)
 				ripple.Color = colour
 				ripple.Transparency = 0.35
 			end

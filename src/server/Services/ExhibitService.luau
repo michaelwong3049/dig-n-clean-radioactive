@@ -40,6 +40,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear) -- renderLuck: the plot's luck-button billboard
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
+local Weight = require(Shared.Config.Weight)
 local ItemModels = require(Shared.ItemModels)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
@@ -177,7 +178,15 @@ local function entryYieldPerSecond(entry: any, damping: number, stats: any): num
 	local def = Items.get(entry.itemId)
 	local rarity = Rarity.get(entry.rarity)
 	local mod = Rarity.MODIFIERS[entry.modifier] or Rarity.MODIFIERS.None
-	return def.baseValue * mod.valueMult * rarity.displayYield * damping * stats.yieldMultiplier / 60
+	-- Weight.valueMult layers in here exactly as it does in EconomyService.valueOf, so
+	-- a heavy piece pays more per second AND sells for more, off one factor.
+	return def.baseValue
+		* mod.valueMult
+		* Weight.valueMult(def.weight)
+		* rarity.displayYield
+		* damping
+		* stats.yieldMultiplier
+		/ 60
 end
 
 --- "$2.00/s", "$51.3/s", "$173/s", "$2.5K/s" -- same abbreviation ladder the cash
