@@ -395,6 +395,15 @@ local function equipItem(character: Model, item: any?): boolean
 end
 
 local function wanted(player: Player): string?
+	-- NOTHING IN THE TOOL HAND DURING A WASH. WashService welds a copy of the
+	-- station's fire hose into that same right hand for the duration, and the Cleaner
+	-- this would otherwise hand back is the thing the hose REPLACES -- left in, the
+	-- player holds a sponge and a nozzle in one fist, and WashController's aim rig has
+	-- two candidate models to point. Reads the same one-line fact the off hand below
+	-- already reads.
+	if WashService.isWashing(player) then
+		return nil
+	end
 	if DeconService.stationOf(player) == "decon" then
 		return "Cleaner"
 	end

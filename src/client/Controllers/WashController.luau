@@ -56,11 +56,25 @@
 	the tub is server-side (WashService) precisely so the part that IS worth seeing
 	from outside is seen. Written down so nobody re-derives it.
 
+	WHAT IS ACTUALLY IN THE PLAYER'S HAND IS A FIRE HOSE, and it is a real object that
+	the server put there: `WashHose`, a copy of the nozzle parked on the pump beside
+	the tub (build/Plots.buildHoseRig), welded into the right hand by WashService for
+	the length of the session, with the reel's own green Beam running back to the drum.
+	This file does not create it and does not own it — it only POINTS it. That split is
+	why the hose is visible to everyone on the base while the spray is not, and it is
+	why the ordinary Cleaner tool steps out of that hand for the duration
+	(ToolService.wanted) instead of being fought over.
+
+	`HeldTool` is still accepted as a fallback target below, for a place file saved
+	before the hose existed: aiming the old sponge is a worse picture than aiming a
+	nozzle, but it is a much better one than a session that quietly does nothing.
+
 	THE HOSE POINTS WHERE YOU AIM, and this is the second thing done entirely on the
-	client rather than by touching the character's skeleton. The equipped Cleaner tool
-	is already welded to the right hand by ToolService (a rigid, server-owned
-	WeldConstraint, "HoldWeld") -- fine for every OTHER tool, wrong for one you are
-	meant to point. Re-aiming the actual shoulder/elbow joints would mean reproducing
+	client rather than by touching the character's skeleton. The nozzle is welded to
+	the right hand by a rigid, server-owned WeldConstraint ("HoldWeld", the same name
+	and the same convention ToolService uses) -- fine for a thing you merely CARRY,
+	wrong for one you are meant to point. Re-aiming the actual shoulder/elbow joints
+	would mean reproducing
 	ToolService's own dual-rig handling (Motor6D characters vs AnimationConstraint
 	ones, see its header) purely for a cosmetic effect, and getting that wrong reads as
 	a broken arm, not a held hose -- a much worse failure than "the hose doesn't track
@@ -73,33 +87,47 @@
 	A player's own character is client-simulated by default, which is what makes a
 	disable done here actually stick locally instead of being fought by replication.
 
-	THE SPRAY IS PARTICLES NOW, NOT A Beam. The first version drew one thin, mostly
-	transparent line from nozzle to target — accurate, and nothing like water: real
-	spray has no edge, it is a cone of droplets that gets denser near the source and
-	scatters into a visible splash wherever it lands. A single Beam cannot be both of
-	those things at once, so it read as "a laser, dimmed" rather than "a hose."
+	THE SPRAY IS A CORE PLUS FOUR PARTICLE LAYERS, and the layering is the point.
 
-	TWO ParticleEmitters, both parented to the SAME two Attachments the old Beam used
-	(`SprayOrigin` at the nozzle, `SprayHit` at the target), so all the existing
-	per-frame position tracking carries over unchanged:
+	The very first version drew ONE thin, mostly transparent Beam from nozzle to
+	target. It read as "a laser, dimmed", and the diagnosis was right: real spray has
+	no edge, it is a cone of droplets that gets denser near the source and scatters
+	into a visible splash where it lands. So the Beam came out and particles went in.
+	That was better, and still not a hose — droplets alone have no CONTINUITY. A
+	pressurised jet is a solid rope of water with droplets torn off it, and a cloud of
+	unconnected specks reads as a mist sprayer.
 
-	    stream   a narrow, forward-firing cone from the nozzle. `Speed` is recomputed
-	             every frame from the live nozzle-to-target distance divided by the
-	             emitter's own `Lifetime`, so droplets emitted THIS frame still land
-	             roughly on target even as the player's aim moves.
+	Both diagnoses were true at once, which is why the answer is both things rather
+	than either. A tapering, semi-transparent Beam supplies the rope; the particles
+	supply everything a Beam cannot have — edge, scatter, impact, fall. The old
+	verdict still stands for a Beam used ALONE, and nothing here should go back to one.
+
+	    jet      a Beam from muzzle to impact, narrow at the nozzle and spreading
+	             toward the far end. Never opaque: it is the thing the droplets are
+	             torn off, not the whole spray.
+	    stream   a narrow, forward-firing droplet cone from the nozzle. `Speed` is
+	             recomputed every frame from the live nozzle-to-target distance divided
+	             by the emitter's own `Lifetime`, so droplets emitted THIS frame still
+	             land roughly on target even as the player's aim moves.
+	    mist     a slow, wide, nearly-invisible haze right at the muzzle — the
+	             atomised halo a high-pressure nozzle throws off around the jet. Cheap,
+	             and it is most of what sells "pressure" rather than "pouring."
 	    splash   a wide, near-omnidirectional burst at the impact point, facing back
 	             toward the nozzle. This is what the stream's own travel cannot sell —
-	             the moment of hitting something — and it is what makes the target end
-	             of the spray read as "landing" rather than "stopping."
+	             the moment of hitting something.
+	    drips    heavy, slow, long-lived droplets from the same impact point, falling
+	             under real gravity into the tub. The stream stops the instant the
+	             player releases; water does not, and this is the half-second of
+	             follow-through that makes the release feel like water shutting off.
 
-	Both are tinted toward WHITE, not the liquid's raw hue. Real water sprays read as
-	white/translucent even when what is in the tank has colour — aeration and light
-	scattering wash it out — and matching that is what makes this look like water
-	instead of a jet of paint. `Liquids.get(id).color` still shows up on the wash
-	pad's own sign and the corner badge, which is where "which liquid is this"
-	actually needs to be legible; the spray itself only needs a faint tint, blended in
-	at PARTICLE_TINT toward the true hue so a Molten Lava spray still reads warm and a
-	Nano-Foam one still reads cool, without either looking like solid dye.
+	ALL FIVE ARE TINTED TOWARD WHITE RATHER THAN SNAPPED TO THE LIQUID'S HUE, but the
+	jet and the stream lean much further into it than the rest. Real spray reads as
+	white and translucent even when what is in the tank has colour — aeration and light
+	scattering wash it out — and a jet of solid dye looks like paint. But this IS "the
+	washing liquid", the whole feature is choosing which liquid to load, and a Molten
+	Lava wash that looked identical to a Plain Water one would throw that away. So the
+	dense core carries the colour (SPRAY_TINT) and the aerated outer layers stay pale
+	(MIST_TINT), which is also what actually happens to water.
 
 	NO HAND-ROLLED WOBBLE ANY MORE. A real particle cone is already organic — each
 	droplet's own random spread and lifetime does what the old sine-wave endpoint hack
@@ -127,9 +155,13 @@ local PATCH_CRUSTED = Color3.fromHex("3A3128")
 
 local SPRAY_RANGE = 40
 
--- How far the spray's own colour leans toward the liquid's true hue, 0 = pure white,
--- 1 = the liquid's raw colour. See the header on why this stays low.
-local PARTICLE_TINT = 0.30
+-- How far the spray's colour leans toward the liquid's true hue: 0 = pure white,
+-- 1 = the liquid's raw colour. The dense core (the jet and the droplets inside it)
+-- carries most of it; the aerated haze, the splash and the drips stay nearly white,
+-- which is both what real water does and what keeps a coloured liquid from reading as
+-- poster paint. See the header.
+local SPRAY_TINT = 0.55
+local MIST_TINT = 0.18
 -- Every stream particle is given this Lifetime (seconds); Speed is derived from it
 -- each frame so newly-emitted droplets still roughly reach the current target.
 local STREAM_LIFETIME = NumberRange.new(0.22, 0.3)
@@ -138,7 +170,10 @@ local state: any = nil
 local blobs: { [number]: BasePart } = {}
 local folder: Instance? = nil
 local streamEmitter: ParticleEmitter? = nil
+local mistEmitter: ParticleEmitter? = nil
 local splashEmitter: ParticleEmitter? = nil
+local dripEmitter: ParticleEmitter? = nil
+local jetBeam: Beam? = nil
 local originAttach: Attachment? = nil
 local hitAttach: Attachment? = nil
 local spraying = false
@@ -224,24 +259,58 @@ local function makeStreamEmitter(parent: Instance): ParticleEmitter
 	-- ParticleEmitter texture is guaranteed to exist and to read as a soft round
 	-- droplet, which is exactly what a water spray needs.
 	made.EmissionDirection = Enum.NormalId.Front
-	made.Rate = 140
+	-- Dense. This is the body of the jet, and a hose that you can see daylight through
+	-- is a garden sprinkler. Cheap at this scale: they live a third of a second.
+	made.Rate = 320
 	made.Lifetime = STREAM_LIFETIME
 	-- Speed is overwritten every frame in onRender against the live target distance;
 	-- this is just a sane resting value before the first frame runs.
 	made.Speed = NumberRange.new(14, 18)
-	made.SpreadAngle = Vector2.new(4, 4)
+	-- Tight at the muzzle. The spreading happens because the droplets fan out over
+	-- their own lifetime, not because they leave in a cone -- which is what gives the
+	-- jet a hard, pressurised start and a soft, ragged end.
+	made.SpreadAngle = Vector2.new(3, 3)
 	made.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.14),
-		NumberSequenceKeypoint.new(0.6, 0.26),
-		NumberSequenceKeypoint.new(1, 0.16),
+		NumberSequenceKeypoint.new(0, 0.16),
+		NumberSequenceKeypoint.new(0.55, 0.34),
+		NumberSequenceKeypoint.new(1, 0.2),
 	})
 	made.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0.05),
-		NumberSequenceKeypoint.new(0.85, 0.15),
+		NumberSequenceKeypoint.new(0.85, 0.2),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	made.Acceleration = Vector3.new(0, -22, 0)
-	made.LightEmission = 0.15
+	made.LightEmission = 0.2
+	made.LightInfluence = 0
+	made.Enabled = false
+	made.Parent = parent
+	return made
+end
+
+--- The atomised haze around the muzzle. Wide, slow, and almost invisible on its own
+--- -- it is only ever read as the fuzz at the base of the jet, and turning its
+--- transparency down far enough to see it properly makes the nozzle look like it is
+--- venting steam.
+local function makeMistEmitter(parent: Instance): ParticleEmitter
+	local made = Instance.new("ParticleEmitter")
+	made.Name = "Mist"
+	made.EmissionDirection = Enum.NormalId.Front
+	made.Rate = 55
+	made.Lifetime = NumberRange.new(0.25, 0.5)
+	made.Speed = NumberRange.new(1.5, 4)
+	made.SpreadAngle = Vector2.new(32, 32)
+	made.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.18),
+		NumberSequenceKeypoint.new(1, 0.85),
+	})
+	made.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.82),
+		NumberSequenceKeypoint.new(0.4, 0.88),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	made.Acceleration = Vector3.new(0, -3, 0)
+	made.LightEmission = 0.3
 	made.LightInfluence = 0
 	made.Enabled = false
 	made.Parent = parent
@@ -256,12 +325,12 @@ local function makeSplashEmitter(parent: Instance): ParticleEmitter
 	made.Name = "Splash"
 	-- Same reasoning as the stream emitter above: engine default texture.
 	made.EmissionDirection = Enum.NormalId.Front
-	made.Rate = 70
+	made.Rate = 130
 	made.Lifetime = NumberRange.new(0.15, 0.32)
-	made.Speed = NumberRange.new(3, 8)
-	made.SpreadAngle = Vector2.new(65, 65)
+	made.Speed = NumberRange.new(4, 11)
+	made.SpreadAngle = Vector2.new(72, 72)
 	made.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.16),
+		NumberSequenceKeypoint.new(0, 0.2),
 		NumberSequenceKeypoint.new(1, 0.03),
 	})
 	made.Transparency = NumberSequence.new({
@@ -269,7 +338,66 @@ local function makeSplashEmitter(parent: Instance): ParticleEmitter
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	made.Acceleration = Vector3.new(0, -38, 0)
-	made.LightEmission = 0.15
+	made.LightEmission = 0.2
+	made.LightInfluence = 0
+	made.Enabled = false
+	made.Parent = parent
+	return made
+end
+
+--- Run-off. Fat, slow droplets that leave the impact point and FALL, over about a
+--- second, into the tub below. The one layer here that is not about the moment of
+--- impact: the stream stops dead when the player lets go of the button, and the drips
+--- carrying on for half a second afterwards are what stop that reading as a switch
+--- being flipped. `Rate` is low on purpose — a handful of visible drops, not a shower.
+local function makeDripEmitter(parent: Instance): ParticleEmitter
+	local made = Instance.new("ParticleEmitter")
+	made.Name = "Drips"
+	made.EmissionDirection = Enum.NormalId.Front
+	made.Rate = 26
+	made.Lifetime = NumberRange.new(0.6, 1.1)
+	made.Speed = NumberRange.new(0.5, 3)
+	made.SpreadAngle = Vector2.new(85, 85)
+	made.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.13),
+		NumberSequenceKeypoint.new(0.8, 0.1),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	made.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.15),
+		NumberSequenceKeypoint.new(0.7, 0.3),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	made.Acceleration = Vector3.new(0, -52, 0)
+	made.LightEmission = 0.1
+	made.LightInfluence = 0
+	made.Enabled = false
+	made.Parent = parent
+	return made
+end
+
+--- The rope of water the droplets are torn off. Narrow and denser at the muzzle,
+--- wider and fainter by the time it lands, and never opaque anywhere — see the
+--- header on why a Beam alone was wrong and why one underneath the particles is not.
+local function makeJetBeam(from: Attachment, to: Attachment, parent: Instance): Beam
+	local made = Instance.new("Beam")
+	made.Name = "Jet"
+	made.Attachment0 = from
+	made.Attachment1 = to
+	made.Width0 = 0.2
+	made.Width1 = 0.62
+	made.Segments = 12
+	made.FaceCamera = true
+	-- CurveSize is set every frame in onRender: the sag has to match how far the water
+	-- is actually travelling, or a jet fired at something two studs away droops like
+	-- one fired across the yard.
+	made.CurveSize0 = 0
+	made.CurveSize1 = 0
+	made.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.35),
+		NumberSequenceKeypoint.new(0.7, 0.55),
+		NumberSequenceKeypoint.new(1, 0.85),
+	})
 	made.LightInfluence = 0
 	made.Enabled = false
 	made.Parent = parent
@@ -289,9 +417,11 @@ local function ensureSpray()
 	originPart.Anchored = true
 	originPart.CanCollide = false
 	originPart.Parent = parent
-	originAttach = Instance.new("Attachment")
-	originAttach.Parent = originPart
-	streamEmitter = makeStreamEmitter(originAttach)
+	local origin = Instance.new("Attachment")
+	origin.Parent = originPart
+	originAttach = origin
+	streamEmitter = makeStreamEmitter(origin)
+	mistEmitter = makeMistEmitter(origin)
 
 	local hitPart = Instance.new("Part")
 	hitPart.Name = "SprayHit"
@@ -300,21 +430,39 @@ local function ensureSpray()
 	hitPart.Anchored = true
 	hitPart.CanCollide = false
 	hitPart.Parent = parent
-	hitAttach = Instance.new("Attachment")
-	hitAttach.Parent = hitPart
-	splashEmitter = makeSplashEmitter(hitAttach)
+	local hit = Instance.new("Attachment")
+	hit.Parent = hitPart
+	hitAttach = hit
+	splashEmitter = makeSplashEmitter(hit)
+	dripEmitter = makeDripEmitter(hit)
+
+	-- Parented to the ORIGIN part, so it dies with the same folder as everything else
+	-- in here; a Beam's own parent is irrelevant to where it draws.
+	jetBeam = makeJetBeam(origin, hit, originPart)
 end
 
---- Both emitters read as WATER, not as the liquid itself — see the header. Blended
---- toward the liquid's hue by PARTICLE_TINT rather than snapped to it outright.
+--- Everything reads as WATER, not as the liquid itself — see the header. Two tints,
+--- not one: the dense core (jet and stream) carries the liquid's hue at SPRAY_TINT so
+--- a Molten Lava wash looks different from a Plain Water one, and the aerated layers
+--- stay nearly white at MIST_TINT because that is what aeration does to colour.
 local function applySprayColor(hex: string)
-	local tinted = Color3.new(1, 1, 1):Lerp(Color3.fromHex(hex), PARTICLE_TINT)
-	local sequence = ColorSequence.new(tinted)
+	local liquid = Color3.fromHex(hex)
+	local core = ColorSequence.new(Color3.new(1, 1, 1):Lerp(liquid, SPRAY_TINT))
+	local pale = ColorSequence.new(Color3.new(1, 1, 1):Lerp(liquid, MIST_TINT))
 	if streamEmitter then
-		streamEmitter.Color = sequence
+		streamEmitter.Color = core
+	end
+	if jetBeam then
+		jetBeam.Color = core
+	end
+	if mistEmitter then
+		mistEmitter.Color = pale
 	end
 	if splashEmitter then
-		splashEmitter.Color = sequence
+		splashEmitter.Color = pale
+	end
+	if dripEmitter then
+		dripEmitter.Color = pale
 	end
 end
 
@@ -345,7 +493,8 @@ local function stop()
 		folder:Destroy()
 		folder = nil
 	end
-	streamEmitter, splashEmitter, originAttach, hitAttach = nil, nil, nil, nil
+	streamEmitter, mistEmitter, splashEmitter, dripEmitter = nil, nil, nil, nil
+	jetBeam, originAttach, hitAttach = nil, nil, nil
 
 	local camera = Workspace.CurrentCamera
 	if camera then
@@ -412,6 +561,23 @@ end
 
 -- ── The hose-aim rig ─────────────────────────────────────────────────
 
+--- The thing in the player's right hand to point. `WashHose` is the fire hose
+--- WashService welds there for the session (build/Plots.buildHoseRig); `HeldTool` is
+--- the fallback for a place file saved before the hose existed — see the header.
+--- Returns nil while the weld is still catching up, which is normal on the first
+--- frame or two and is why every caller re-asks rather than caching.
+local function heldHose(): Model?
+	local character = Players.LocalPlayer.Character
+	if character == nil then
+		return nil
+	end
+	local held = character:FindFirstChild("WashHose") or character:FindFirstChild("HeldTool")
+	if held == nil or not held:IsA("Model") or held.PrimaryPart == nil then
+		return nil
+	end
+	return held
+end
+
 --- Build the second, LOCAL joint from hand to tool -- see the header. Cheap to call
 --- every frame the rig is missing: it does nothing when the tool is not there yet
 --- (equip is still catching up) or already there (nothing to build twice).
@@ -423,8 +589,8 @@ local function startAimRig()
 	if character == nil then
 		return
 	end
-	local tool = character:FindFirstChild("HeldTool")
-	if tool == nil or not tool:IsA("Model") or tool.PrimaryPart == nil then
+	local tool = heldHose()
+	if tool == nil or tool.PrimaryPart == nil then
 		return
 	end
 	local hand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
@@ -466,11 +632,16 @@ local function updateAimRig(target: Vector3)
 	if aimMotor == nil or aimHand == nil or aimOffset == nil then
 		return
 	end
-	if aimHand.Parent == nil or aimMotor.Parent == nil or aimTool == nil or aimTool.Parent == nil then
-		-- The tool changed under us (a mid-wash Cleaner upgrade, most likely) and
-		-- took this rig's Parent with it. Clear our half; the next call to
-		-- startAimRig rebuilds against whatever is equipped now.
-		aimMotor, aimHand, aimTool, aimOffset, aimHoldWeld = nil, nil, nil, nil, nil
+	if aimHand.Parent == nil or aimMotor.Parent == nil or aimTool == nil or aimTool.Parent == nil or aimTool ~= heldHose() then
+		-- The tool changed under us and took this rig's Parent with it, or a better
+		-- candidate turned up in the hand. Both happen for real: the fire hose and the
+		-- Cleaner it displaces replicate independently at the start of a session, so
+		-- the first frame or two can rig the sponge before the hose arrives. Clear our
+		-- half; the next call to startAimRig rebuilds against whatever is there now.
+		-- Through stopAimRig rather than by clearing the fields, so a tool that is
+		-- still ALIVE (the displaced Cleaner) gets its own weld switched back on
+		-- instead of being left hanging off a hand it is no longer jointed to.
+		stopAimRig()
 		return
 	end
 
@@ -481,25 +652,25 @@ local function updateAimRig(target: Vector3)
 	aimMotor.C1 = aimCFrame:Inverse() * aimHand.CFrame
 end
 
---- The hose muzzle. The Cleaner models are hand-authored and gitignored
---- (ARCHITECTURE.md's "remaining gap"), so they have a PrimaryPart but almost
---- certainly no muzzle point. Prefer a `Nozzle` attachment if one is ever added in
---- Studio; fall back to the front face of the model's own primary part, then to the
---- hand. No code change needed the day the attachment appears.
+--- Where the water leaves. The fire hose carries a real `Muzzle` attachment on its
+--- primary part, sat out at the brass tip (build/Plots.buildHoseRig), so the stream
+--- starts at the end of the nozzle rather than somewhere inside the player's fist.
+---
+--- The two fallbacks below are for the `HeldTool` case: the Cleaner models are
+--- hand-authored and gitignored (ARCHITECTURE.md's "remaining gap") and have no
+--- muzzle point of their own, so the front face of their primary part is the best
+--- guess available, and the hand is the last resort.
 local function nozzleCFrame(): CFrame?
-	local character = Players.LocalPlayer.Character
-	if character == nil then
-		return nil
-	end
-	local tool = character:FindFirstChild("HeldTool")
-	if tool and tool:IsA("Model") and tool.PrimaryPart then
-		local nozzle = tool.PrimaryPart:FindFirstChild("Nozzle")
-		if nozzle and nozzle:IsA("Attachment") then
-			return nozzle.WorldCFrame
+	local tool = heldHose()
+	if tool and tool.PrimaryPart then
+		local muzzle = tool.PrimaryPart:FindFirstChild("Muzzle")
+		if muzzle and muzzle:IsA("Attachment") then
+			return muzzle.WorldCFrame
 		end
 		return tool.PrimaryPart.CFrame * CFrame.new(0, 0, -tool.PrimaryPart.Size.Z * 0.5)
 	end
-	local hand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+	local character = Players.LocalPlayer.Character
+	local hand = character and (character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm"))
 	if hand and hand:IsA("BasePart") then
 		return hand.CFrame
 	end
@@ -574,15 +745,19 @@ local function onRender()
 	end
 	updateAimRig(hitPoint)
 
-	if streamEmitter and splashEmitter and originAttach and hitAttach then
+	if streamEmitter and mistEmitter and splashEmitter and dripEmitter and jetBeam and originAttach and hitAttach then
 		local nozzle = nozzleCFrame()
 		local show = spraying and nozzle ~= nil
 		streamEmitter.Enabled = show
+		mistEmitter.Enabled = show
 		splashEmitter.Enabled = show
+		dripEmitter.Enabled = show
+		jetBeam.Enabled = show
 		if show and nozzle then
 			-- The stream fires along originAttach's own forward axis (EmissionDirection
 			-- = Front on the emitter, set once at creation), so pointing the ATTACHMENT
 			-- at the target is the whole job -- no per-particle direction math here.
+			-- The mist hangs off the same attachment and needs no aiming of its own.
 			originAttach.WorldCFrame = CFrame.lookAt(nozzle.Position, hitPoint)
 
 			-- Speed is distance/lifetime, recomputed every frame, so a droplet emitted
@@ -593,9 +768,17 @@ local function onRender()
 			local speed = math.clamp(distance / lifetime, 4, 60)
 			streamEmitter.Speed = NumberRange.new(speed * 0.9, speed * 1.1)
 
-			-- The splash faces back toward the nozzle, so its wide cone scatters
-			-- generally away from the surface it hit -- the same "bounced off the
-			-- barrel toward camera" read the reference splash has.
+			-- The core sags in proportion to how far it has to travel -- a fixed
+			-- CurveSize droops a two-stud jet into a puddle and leaves a ten-stud one
+			-- dead straight. Scaled off the same distance the droplets are timed
+			-- against, so the rope and the water torn off it curve together.
+			local sag = math.clamp(distance * 0.22, 0.2, 3)
+			jetBeam.CurveSize0 = sag
+			jetBeam.CurveSize1 = -sag
+
+			-- The splash and the drips both face back toward the nozzle, so their wide
+			-- cones scatter generally away from the surface they hit -- the same
+			-- "bounced off the barrel toward camera" read the reference splash has.
 			hitAttach.WorldCFrame = CFrame.lookAt(hitPoint, nozzle.Position)
 		end
 	end
