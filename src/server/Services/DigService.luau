@@ -81,7 +81,9 @@
 	                       it strain three feet down and cannot have it.
 
 	detector.luck is NOT a gate — it bends the per-player roll toward Rare+ (see the
-	note above and Config/Items). detector.clarity gates only what the PING tells you.
+	note above and Config/Items). detector.clarity used to gate what the PING tells you
+	(rarity, then modifier + odds); it now gates NOTHING — every detector reads the full
+	ping (hintFor). The stat is left in Config/Gear inert, pending a repurpose.
 ]]
 
 local Players = game:GetService("Players")
@@ -484,24 +486,18 @@ end
 --- resolved for this player (rollFor) -- rarity/modifier/itemId -- so the ping matches
 --- what will actually come out of the ground.
 ---
---- RARITY IS NO LONGER GATED (on request). Every detector reads the rarity of its own
---- per-player roll -- it is what colours the aura well and the radar blip, in every
---- stage, from the free Bent Coil up. This used to need detectorClarity >= 1, from a
---- time when the roll was shared and a cheap detector reading rarity off a rich one's
---- aura was a real leak. Post per-player roll (rollFor) the tint is applied
---- client-side off each player's OWN contact, so there is nothing left to leak -- see
---- contactPayload's note.
----
---- Clarity still gates the two readings that pin down WHICH item this is, both at
---- >= 3: the modifier ("Irradiated") and the "1 in N" odds. That is the
---- detector-upgrade payoff now.
-local function hintFor(rarity: string, modifier: string, itemId: string, clarity: number): (string?, string?, number?)
-	if clarity >= 3 then
-		-- shownOdds, not the raw `odds`: the number carries the item's weight penalty
-		-- (Config/Weight.rollBias), the same one that suppressed it in the roll.
-		return rarity, modifier, Items.shownOdds(Items.get(itemId))
-	end
-	return rarity, nil, nil
+--- NOTHING HERE IS GATED ANY MORE (on request). Every detector, from the free Bent
+--- Coil up, reads the full ping: rarity (which colours the well and the blip), the
+--- modifier, and the "1 in N" odds. This used to escalate with detectorClarity --
+--- rarity at >= 1, modifier + odds at >= 3 -- from a time when the roll was shared and
+--- a cheap detector reading it off a rich one's aura was a real leak. Post per-player
+--- roll (rollFor) every reading is derived from THIS player's own contact, so there is
+--- nothing left to gate. `detectorClarity` is now inert -- see its note in
+--- StatResolver and Config/Gear's `clarity` column.
+local function hintFor(rarity: string, modifier: string, itemId: string): (string, string, number)
+	-- shownOdds, not the raw `odds`: the number carries the item's weight penalty
+	-- (Config/Weight.rollBias), the same one that suppressed it in the roll.
+	return rarity, modifier, Items.shownOdds(Items.get(itemId))
 end
 
 --- Player-relative XZ offsets, plus this player's reading of each contact. Relative,
@@ -512,16 +508,14 @@ end
 --- instance but the per-player roll is, by definition, per-player — signal X can be
 --- Rare for one player and Common for the next — so a shared instance physically
 --- cannot carry it. It reaches each client here and is painted onto that client's own
---- copy of the well (FieldController). Since the roll and the paint are both
---- per-player, the rarity itself is no longer clarity-gated (hintFor) — a Bent Coil
---- sees colour too now.
+--- copy of the well (FieldController). No clarity gate any more (hintFor) — every
+--- detector reads its own contact in full.
 ---
 --- This is also where a signal's per-player roll gets pinned: the first time it lands
 --- in someone's radar, rollFor caches their reading of it.
 local function contactPayload(
 	contacts: { Contact },
 	position: Vector3,
-	clarity: number,
 	detectorLuck: number,
 	userId: number
 ): { any }
@@ -529,7 +523,7 @@ local function contactPayload(
 
 	for _, entry in contacts do
 		local itemId, rarity, modifier = rollFor(entry.signal, detectorLuck, userId)
-		local rarityHint = hintFor(rarity, modifier, itemId, clarity)
+		local rarityHint = hintFor(rarity, modifier, itemId)
 		table.insert(out, {
 			dx = entry.signal.position.X - position.X,
 			dz = entry.signal.position.Z - position.Z,
@@ -822,7 +816,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- This player's reading of the working signal, resolved once and threaded through
 	-- the ping, the haul model and the unearth below so all three agree.
 	local itemId, rarity, modifier = rollFor(signal, stats.detectorLuck, player.UserId)
-	local rarityHint, modifierHint, oddsHint = hintFor(rarity, modifier, itemId, stats.detectorClarity)
+	local rarityHint, modifierHint, oddsHint = hintFor(rarity, modifier, itemId)
 
 	-- Reset progress if they wandered off this signal onto another one. While locked
 	-- this never fires, which is the point: the target cannot drift mid-haul.
@@ -921,7 +915,7 @@ local function stepPlayer(player: Player, dt: number)
 			local followRarityHint: string? = nil
 			if following then
 				local fId, fRarity, fMod = rollFor(following.signal, stats.detectorLuck, player.UserId)
-				followRarityHint = hintFor(fRarity, fMod, fId, stats.detectorClarity)
+				followRarityHint = hintFor(fRarity, fMod, fId)
 			end
 			sweepRemote:FireClient(player, {
 				inStage = true,
@@ -930,7 +924,7 @@ local function stepPlayer(player: Player, dt: number)
 				hasSignal = following ~= nil,
 				strength = if following then math.clamp(1 - (following.distance / stats.detectorRadius), 0, 1) else 0,
 				rarityHint = followRarityHint,
-				contacts = contactPayload(surviving, position, stats.detectorClarity, stats.detectorLuck, player.UserId),
+				contacts = contactPayload(surviving, position, stats.detectorLuck, player.UserId),
 				newContacts = noteContacts(player, surviving),
 				digProgress = 0,
 				locked = false,
@@ -958,7 +952,7 @@ local function stepPlayer(player: Player, dt: number)
 		radius = stats.detectorRadius,
 		hasSignal = true,
 		strength = strength,
-		contacts = contactPayload(contacts, position, stats.detectorClarity, stats.detectorLuck, player.UserId),
+		contacts = contactPayload(contacts, position, stats.detectorLuck, player.UserId),
 		newContacts = noteContacts(player, contacts),
 		rarityHint = rarityHint,
 		modifierHint = modifierHint,
