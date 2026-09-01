@@ -122,8 +122,11 @@ Two rules worth stating separately because they are the ones that get eroded:
    **Auras are public on purpose.** Every player sees every aura, not just whoever
    revealed it. The cost — a cheap detector tailing an expensive one — is written down
    in `Config/Tuning` under "the reveal". Revealing is still not the same as taking:
-   `maxRarity` and `depth` gate the *pull* per-player, so a Bent Coil standing in an
-   Oracle's glow gets told it cannot lock on.
+   `detector.depth` gates the *pull* per-player (a signal buried deeper than your
+   detector reads is invisible), and what you actually haul up is a **per-player roll** —
+   the signal has a default identity, but a detector with any luck (`Config/Gear`)
+   re-rolls it toward Rare+ the first time it enters that player's radar and pins the
+   result under their UserId. Two players in one glow can be hauling different items.
 
 2. **The client never names what it wants to dig.** It sends "I am holding the button".
    The server decides which signal that means from where the player actually is.

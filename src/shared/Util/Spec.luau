@@ -85,8 +85,8 @@ function Spec.run(): boolean
 		if item.model then
 			check(`item model resolves: {item.id} -> {item.model}`, ItemModels.has(item.model))
 		end
-		-- `odds` is display-only, but a missing or zero one still surfaces on the HUD
-		-- as "1 in 0" — a nil field degrades exactly as silently as a bad model key.
+		-- `odds` DRIVES THE ROLL now (weight = 1/odds), so a zero or missing one is a
+		-- divide-by-zero in Items.effectiveWeight, not just a bad "1 in 0" on the HUD.
 		check(`item has a positive odds: {item.id}`, type(item.odds) == "number" and item.odds >= 1)
 	end
 
@@ -387,6 +387,18 @@ function Spec.run(): boolean
 	end
 	check("§2.1 every detector tier reveals further than the last", ascending)
 
+	-- `luck` replaced `maxRarity`. Tier 1 must be exactly 1.0 -- Config/Items.luckBias
+	-- treats <=1 as "no bias", so a Bent Coil rolls the raw per-stage distribution --
+	-- and every tier above must buy strictly more of it.
+	check("§2.1 the starting detector has luck 1.0 (no dig bias)", Gear.tier("Detector", 1).luck == 1.0)
+	local luckAsc = true
+	for tier = 2, Gear.maxTier("Detector") do
+		if Gear.tier("Detector", tier).luck <= Gear.tier("Detector", tier - 1).luck then
+			luckAsc = false
+		end
+	end
+	check("§2.1 every detector tier is luckier than the last", luckAsc)
+
 	-- Revealing is not the same as reaching. If the pull radius ever grows into the
 	-- reveal radius, the walk to the glow disappears and the loop is one button.
 	check(
@@ -412,8 +424,8 @@ function Spec.run(): boolean
 		-- not move; the 15% pass dropped it to 0.7225x and the length pass to 0.853x
 		-- again, so both came down by those factors. `slow` is now ~1.26 against the
 		-- 1.2 floor -- the length pass was the last free one; a fourth shrink needs N
-		-- to drop with it (and see §7 -- below ~69 the loot tables move too). What must
-		-- NEVER move: this stays a WALK not a stand-still (slow floor > 0), and the
+		-- to drop with it (and see §7 -- below ~69 the per-stage rarityTilt moves too).
+		-- What must NEVER move: this stays a WALK not a stand-still (slow floor > 0), and the
 		-- reveal curve stays FLAT end to end -- that ratio guard is area-independent
 		-- and is the real check against "fixing" the Detector track's payoff by
 		-- widening radius (see Config/Gear's header). Retarget via SIGNALS_PER_STAGE.
@@ -477,50 +489,85 @@ function Spec.run(): boolean
 		)
 	end
 
-	-- PLAN §7 — DENSITY AND THE LOOT TABLES ARE ONE DECISION, NOT TWO.
+	-- PLAN §7 — DENSITY AND RARITY ARE ONE DECISION, NOT TWO.
 	--
-	-- SIGNALS_PER_STAGE was doubled 45 -> 90 so the reveal has something to reveal, and
-	-- every weight at Rare and above was halved to cancel that multiplier exactly.
-	-- This is the check that catches someone doing only the first half: raise the
-	-- density on its own and the field quietly starts holding twice the jackpots,
-	-- which is invisible in play until the economy is already ruined.
+	-- The old per-rarity `loot` weight tables are gone: the dig roll walks a stage's
+	-- stocked items weighted by 1/odds (Config/Items), and one scalar per stage --
+	-- Stages.rarityTilt -- shapes the rarity curve on top. SIGNALS_PER_STAGE (75) times
+	-- the Rare+ share is the count of jackpots buried in the starter field, and that
+	-- product is the number this pins: raise the density on its own, or nudge the tilt,
+	-- and the field quietly starts holding more jackpots -- invisible in play until the
+	-- economy is already ruined. Band is ~1.9 at the solved Stage 1 tilt (see
+	-- Config/Stages' header); a fourth footprint shrink that drops N below ~69 needs the
+	-- tilt to move with it to hold this.
 	--
-	-- BAND FLOOR DROPPED 1.8 -> 1.7 WITH THE 240 -> 200 WIDTH PASS (that pass took
-	-- SIGNALS_PER_STAGE 90 -> 75 in step with the area, dropping this SNAPSHOT count
-	-- ~2.25 -> ~1.87). Neither footprint pass since moved it: both held N at 75, and
-	-- this count is `N * share` -- area does not enter it -- so it is still ~1.87. The
-	-- smaller field just buries those same ~1.87 jackpots in less dirt. This floor is
-	-- also why a fourth shrink cannot just drop N to hold the search feel: N < ~69
-	-- pushes this under 1.7 and the loot table has to be re-weighted to compensate.
-	--
-	-- This assertion is about the STARTER field: Stage 1's own single loot table is
-	-- what a new player rolls against. Stages 4, 5 and 6 have their own tables and
-	-- are deliberately far richer — the Crater is 18% Legendary on purpose — so
-	-- folding them in here would not tighten this check, it would destroy it.
-	local function shareAtOrAbove(loot: { [string]: number }, minOrder: number): number
-		local total, wanted = 0, 0
-		for name, weight in loot do
-			total += weight
+	-- STARTER FIELD ONLY. This is what a new player, tier-1 detector, rolls against.
+	-- Stages 4-6 are deliberately far richer (Config/Stages) -- folding them in would
+	-- destroy the check, not tighten it.
+	local function shareAtOrAbove(stageId: number, minOrder: number): number
+		local wanted = 0
+		for name, share in Items.rarityWeights(stageId, Stages.get(stageId).rarityTilt) do
 			if Rarity.get(name).order >= minOrder then
-				wanted += weight
+				wanted += share -- rarityWeights already sums to 1
 			end
 		end
-		return if total > 0 then wanted / total else 0
+		return wanted
 	end
 
-	local rarePlus = Tuning.SIGNALS_PER_STAGE * shareAtOrAbove(Stages.get(1).loot, 4) -- Rare and up
+	local rarePlus = Tuning.SIGNALS_PER_STAGE * shareAtOrAbove(1, 4) -- Rare and up
 	check(
-		string.format("§7 the field holds %.1f Rare-or-better signals (want 1.7-3.0, Stage 1's own table)", rarePlus),
+		string.format("§7 the starter field holds %.1f Rare-or-better signals at a tier-1 detector (want 1.7-3.0)", rarePlus),
 		rarePlus >= 1.7 and rarePlus <= 3.0
 	)
 
-	-- ...and the flip side: the extra signals have to be junk, or "more items" just
-	-- means "more of everything" with extra steps.
-	local plentiful = 1 - shareAtOrAbove(Stages.get(1).loot, 3) -- Scrap + Common
+	-- ...and the flip side: the rest have to be junk, or "more items" just means "more
+	-- of everything".
+	local plentiful = 1 - shareAtOrAbove(1, 3) -- Scrap + Common
 	check(
 		string.format("§2.1 stage 1 is mostly Scrap/Common: %.0f%% (want >= 70)", plentiful * 100),
 		plentiful >= 0.70
 	)
+
+	-- Every built, stocked stage must actually hand out an item -- rollItem returns nil
+	-- only for a stage Config/Items forgot entirely, which should spawn no signals and
+	-- warn, never crash. Rarer-only luck must also never invert the ladder: pushing
+	-- detector luck up can only raise a stage's Rare+ share, never drop it, and no
+	-- rarity may overtake a rarer one (the property Config/Liquids pins for the pad).
+	local topLuck = Gear.tier("Detector", Gear.maxTier("Detector")).luck
+	for _, id in Stages.builtIds() do
+		local tilt = Stages.get(id).rarityTilt
+		check(string.format("§7 stage %d rolls a stocked item", id), Items.rollItem(id, tilt, 1) ~= nil)
+
+		local base = Items.rarityWeights(id, tilt)
+		local lucky: { [string]: number } = {}
+		for itemId, p in Items.rollWeights(id, tilt, topLuck) do
+			local r = Items.get(itemId).rarity
+			lucky[r] = (lucky[r] or 0) + p
+		end
+
+		local baseRarePlus, luckyRarePlus = 0, 0
+		local noInversion = true
+		local prevBase, prevLucky = 0, 0
+		for _, name in Rarity.ORDER do
+			local b, l = base[name] or 0, lucky[name] or 0
+			if Rarity.get(name).order >= 4 then
+				baseRarePlus += b
+				luckyRarePlus += l
+			end
+			-- ratio to the previous rung must not fall as luck rises (only meaningful
+			-- where both rungs are actually stocked)
+			if b > 0 and l > 0 and prevBase > 0 and prevLucky > 0 then
+				if (l / prevLucky) < (b / prevBase) - 1e-9 then
+					noInversion = false
+				end
+			end
+			if b > 0 then
+				prevBase, prevLucky = b, l
+			end
+		end
+		check(string.format("§7 stage %d: detector luck only raises Rare+ share", id), luckyRarePlus >= baseRarePlus - 1e-9)
+		check(string.format("§7 stage %d: detector luck never inverts the rarity ladder", id), noInversion)
+	end
 
 	-- PLAN §3.5 — no stage is gated by anything except arithmetic
 	for _, stage in Stages.DEFS do

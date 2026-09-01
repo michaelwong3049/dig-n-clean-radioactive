@@ -92,10 +92,12 @@ require(game.ReplicatedStorage.Shared.Util.TuningReport).run()  -- the survivabi
 ```
 
 In game: **F3** toggles the debug HUD, and `/radhelp` lists the tuning console commands
-(`/stage`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/liquid`, `/odds`, `/pocket`).
+(`/stage`, `/dig`, `/gear`, `/flush`, `/dock`, `/clear`, `/liquid`, `/odds`, `/field`, `/pocket`).
 
 `/odds` prints the wash pad's roll table at your current luck, and `/liquid <id>` loads a
 canister without paying the pad — the two commands you want when tuning
-`Config/Liquids.luau`.
+`Config/Liquids.luau`. `/field <1-6>` prints the dig roll for that stage at your
+detector's luck — the analogue for tuning `Config/Items.luau` `odds` and
+`Config/Stages.luau` `rarityTilt`.
 
 Lint with [selene](https://kampfkarren.github.io/selene/) (`selene src`).

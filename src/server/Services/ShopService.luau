@@ -102,7 +102,7 @@ local function num(value: number): string
 	return s
 end
 
---- `maxRarity` is a field name; "max rarity" is a label. The catalog is read by a
+--- `pullSpeed` is a field name; "pull speed" is a label. The catalog is read by a
 --- player, not by whoever wrote Config/Gear.
 local function pretty(key: string): string
 	local spaced = string.gsub(key, "(%l)(%u)", "%1 %2")

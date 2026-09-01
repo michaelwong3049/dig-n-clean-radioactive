@@ -3,11 +3,18 @@
 	DigService.lua — the buried signal field, and the two verbs on top of it.
 
 	THE REVEAL — this is the mechanic. Read it before changing anything below.
-	A detector has a RADIUS. Every buried signal inside that radius which clears the
-	tier gates surfaces an AURA at its exact spot: a glow standing up out of the
-	ground. You walk to the glow and haul it out. There is no direction hint and no
+	A detector has a RADIUS. Every buried signal inside that radius shallow enough for
+	the detector's `depth` surfaces an AURA at its exact spot: a glow standing up out of
+	the ground. You walk to the glow and haul it out. There is no direction hint and no
 	hot/cold needle any more — the ground tells you where the thing is, and your
 	detector decides how much ground is talking.
+
+	WHAT YOU DIG UP IS A PER-PLAYER ROLL. A signal spawns with a default identity (one
+	weighted pick off Config/Items, no luck) that also sets how deep it is buried. The
+	first time a signal enters a given player's radar, if their detector has any luck
+	(tier 2+), it is re-rolled for them — same weighted table, Rare+ weights boosted by
+	Config/Items.luckBias — and cached on the signal under their UserId. So two players
+	in one glow can read different rarities; that is the detector, not a bug.
 
 	WHAT CROSSES THE BOUNDARY, AND WHY IT CHANGED (ARCHITECTURE.md, server/client).
 	This file used to send an angle and a strength and nothing else, because the whole
@@ -62,16 +69,19 @@
 	has to be re-imposed by hand, and it is, in the token bucket below. Read the note
 	there before touching any of it.
 
-	FOUR GATES, all from Gear.lua, all enforced here:
+	THREE GATES, all from Gear.lua, all enforced here:
 	  detector.radius    — how much ground reveals itself around you. This IS the
 	                       search game now, which is why Gear's curve is flat.
-	  detector.maxRarity — a Bent Coil physically cannot register a Rare. It does not
-	                       ping quietly; it does not ping at all. (PLAN §2 step 1)
-	  detector.depth     — deeper items are rarer, and a weak detector cannot see them.
+	  detector.depth     — deeper items are rarer (at baseline), and a weak detector
+	                       cannot see them. This is the only rarity-correlated gate
+	                       left now that maxRarity is gone.
 	  magnet.maxGrip     — you can find ground your magnet cannot rip anything out of.
 	                       This one is deliberately NOT an error message: an under-rated
 	                       magnet lifts the item partway and stalls, so the player watches
 	                       it strain three feet down and cannot have it.
+
+	detector.luck is NOT a gate — it bends the per-player roll toward Rare+ (see the
+	note above and Config/Items). detector.clarity gates only what the PING tells you.
 ]]
 
 local Players = game:GetService("Players")
@@ -127,6 +137,15 @@ local LOCK_MIN_INTERVAL = 0.25
 
 -- ── State ──────────────────────────────────────────────────────────────
 
+-- One player's reading of a signal: the item they will haul up and the modifier it
+-- carries. The signal's own itemId/rarity/modifier fields ARE a PlayerRoll in shape --
+-- they are the default, handed to any tier-1 detector without a re-roll.
+type PlayerRoll = {
+	itemId: string,
+	rarity: string,
+	modifier: string,
+}
+
 type Signal = {
 	uid: string,
 	stageId: number,
@@ -134,11 +153,16 @@ type Signal = {
 	-- scoped to the reveal: as an aura part in Workspace, and as an offset relative
 	-- to a player already standing inside its radius. Never as a world coordinate.
 	position: Vector3,
+	-- The default identity, rolled once at spawn with NO luck. `depth` is derived from
+	-- this rarity. A tier-1 detector (luck 1.0) gets exactly this.
 	itemId: string,
 	rarity: string,
 	modifier: string,
 	depth: number,
 	soil: number,
+	-- Per-player luck re-rolls, keyed by UserId. Filled lazily the first time the
+	-- signal enters that player's radar; goes away with the whole signal on removeSignal.
+	rolls: { [number]: PlayerRoll },
 }
 
 local signalsByStage: { [number]: { Signal } } = {}
@@ -226,29 +250,12 @@ local function reconcileAuras()
 end
 
 -- ── Rolling ───────────────────────────────────────────────────────────
-
---- Takes the loot TABLE directly rather than a stage id, so callers can hand it
---- whichever stage's table applies without this function knowing anything about
---- stages itself.
-local function rollRarity(loot: { [string]: number }): string
-	local total = 0
-	for _, weight in loot do
-		total += weight
-	end
-
-	local pick = math.random() * total
-	for _, name in Rarity.ORDER do -- deterministic order; pairs() order is not stable
-		local weight = loot[name]
-		if weight then
-			pick -= weight
-			if pick <= 0 then
-				return name
-			end
-		end
-	end
-
-	return "Scrap"
-end
+--
+-- The rarity roll and the item roll used to be two steps (a weight off Stages.loot,
+-- then a uniform pick within that rarity). They are one now: Items.rollItem walks the
+-- stage's whole pool weighted by 1/odds, tilted per stage, luck-boosted at the top --
+-- see Config/Items.luau's "The dig roll". This file only decides WHEN to roll and for
+-- WHOM.
 
 local function rollModifier(): string
 	local total = 0
@@ -267,33 +274,36 @@ local function rollModifier(): string
 	return "None"
 end
 
---- Stage 1 has no Mythic or Anomaly entries but its loot table can still roll them.
---- Step down until the catalogue actually has something, rather than erroring or
---- silently dropping the dig.
----
---- Returns nil when the stage has NOTHING at any rarity. That used to be an error(),
---- which was a live landmine: this runs inside the 10 Hz tick, so an unstocked stage
---- threw ten times a second and — before Ticker gained per-subscriber isolation —
---- took down every service booted after this one. An unstocked stage is a content
---- gap, not a crash; it should degrade to "no signals here" and say so once.
+--- A stage that stocks nothing is a content gap, not a crash. This used to be an
+--- error() inside the 10 Hz tick, which — before Ticker gained per-subscriber
+--- isolation — took down every service booted after this one. It should degrade to
+--- "no signals here" and say so once.
 local unstockedWarned: { [number]: boolean } = {}
 
-local function rollItemId(stageId: number, rarity: string): (string?, string?)
-	local order = Rarity.get(rarity).order
-
-	for step = order, 1, -1 do
-		local name = Rarity.ORDER[step]
-		local pool = Items.inStage(stageId, name)
-		if #pool > 0 then
-			return pool[math.random(1, #pool)].id, name
-		end
+--- What THIS player's detector reads out of a signal: the item they will haul and the
+--- modifier on it. A tier-1 detector (luck <= 1) always gets the signal's default,
+--- with no allocation and no cache entry. Anything above re-rolls once, the first time
+--- the signal enters their radar, and the result is pinned on the signal under their
+--- UserId so the ping, the haul and the unearth all agree.
+local function rollFor(signal: Signal, detectorLuck: number, userId: number): (string, string, string)
+	if detectorLuck <= 1 then
+		return signal.itemId, signal.rarity, signal.modifier
 	end
 
-	if not unstockedWarned[stageId] then
-		unstockedWarned[stageId] = true
-		warn(`[dig] stage {stageId} has no items at any rarity — Config/Items.luau does not stock it. No signals will spawn there.`)
+	local cached = signal.rolls[userId]
+	if cached then
+		return cached.itemId, cached.rarity, cached.modifier
 	end
-	return nil, nil
+
+	local tilt = Stages.get(signal.stageId).rarityTilt
+	local itemId = Items.rollItem(signal.stageId, tilt, detectorLuck) or signal.itemId
+	local roll: PlayerRoll = {
+		itemId = itemId,
+		rarity = Items.get(itemId).rarity,
+		modifier = rollModifier(),
+	}
+	signal.rolls[userId] = roll
+	return roll.itemId, roll.rarity, roll.modifier
 end
 
 -- ── The signal field ────────────────────────────────────────────────────
@@ -322,22 +332,31 @@ local function spawnSignal(stageId: number)
 
 	local position = randomPointOn(part)
 	local stage = Stages.get(stageId)
-	local rarity = rollRarity(stage.loot)
-	local itemId, actualRarity = rollItemId(stageId, rarity)
-	if itemId == nil or actualRarity == nil then
-		return -- stage isn't stocked; rollItemId has already said so, once
+
+	-- The default identity, rolled with NO luck. Everything downstream (burial depth
+	-- here, a tier-1 detector's reading in rollFor) hangs off this.
+	local itemId = Items.rollItem(stageId, stage.rarityTilt, 1)
+	if itemId == nil then
+		if not unstockedWarned[stageId] then
+			unstockedWarned[stageId] = true
+			warn(`[dig] stage {stageId} stocks no items — Config/Items.luau. No signals will spawn there.`)
+		end
+		return
 	end
-	local order = Rarity.get(actualRarity).order
+
+	local rarity = Items.get(itemId).rarity
+	local order = Rarity.get(rarity).order
 
 	local signal: Signal = {
 		uid = HttpService:GenerateGUID(false),
 		stageId = stageId,
 		position = position,
 		itemId = itemId,
-		rarity = actualRarity,
+		rarity = rarity,
 		modifier = rollModifier(),
 		depth = DEPTH_BASE + (order - 1) * DEPTH_PER_RARITY + math.random() * DEPTH_JITTER,
-		soil = Stages.get(stageId).soilHardness,
+		soil = stage.soilHardness,
+		rolls = {},
 	}
 
 	table.insert(signalsByStage[stageId], signal)
@@ -381,8 +400,9 @@ type Contact = { signal: Signal, distance: number }
 --- least likely to be what the player is walking towards.
 local MAX_CONTACTS = 12
 
---- Every signal this player's detector actually registers, nearest first. Both tier
---- gates are ABSOLUTE: an unregisterable signal is invisible, not faint.
+--- Every signal this player's detector actually registers, nearest first. The depth
+--- gate is ABSOLUTE: a signal buried past your detector is invisible, not faint. Rarity
+--- no longer gates the reveal at all -- it only bends the per-player roll (see rollFor).
 local function registeredFor(stageId: number, position: Vector3, stats: any): { Contact }
 	local found: { Contact } = {}
 
@@ -394,9 +414,6 @@ local function registeredFor(stageId: number, position: Vector3, stats: any): { 
 	local radius = stats.detectorRadius
 
 	for _, signal in list do
-		if Rarity.get(signal.rarity).order > stats.detectorMaxRarity then
-			continue
-		end
 		if signal.depth > stats.detectorDepth then
 			continue
 		end
@@ -420,8 +437,8 @@ local function registeredFor(stageId: number, position: Vector3, stats: any): { 
 end
 
 --- Is the player standing on a glow they personally cannot lock onto? Auras are
---- public but the gates are not, so without this state a Bent Coil standing in an
---- Oracle's reveal gets a pillar of light and a blank detector HUD — which looks
+--- public but the depth gate is not, so without this state a Bent Coil standing in a
+--- deep signal's reveal gets a pillar of light and a blank detector HUD — which looks
 --- like the game is broken rather than like the detector is too cheap.
 ---
 --- Only ever consulted when the player has no contact of their own in range, so the
@@ -442,7 +459,7 @@ local function standingOnUnregistered(stageId: number, position: Vector3, stats:
 			continue
 		end
 
-		if Rarity.get(signal.rarity).order > stats.detectorMaxRarity or signal.depth > stats.detectorDepth then
+		if signal.depth > stats.detectorDepth then
 			return true
 		end
 	end
@@ -452,19 +469,20 @@ end
 
 
 --- What the ping is allowed to reveal before you dig. PLAN §2 step 1: high-tier
---- detectors show rarity on the ping so you stop wasting time digging Scrap.
+--- detectors show rarity on the ping so you stop wasting time digging Scrap. Takes the
+--- roll already resolved for this player (rollFor) -- rarity/modifier/itemId -- so the
+--- ping matches what will actually come out of the ground.
 --- The odds ride the SAME clarity gate as the modifier (>= 3): they pin down which
 --- item this is more than the bare rarity does, so a cheap detector should not read
---- them off someone else's aura. Display-only either way -- Items.odds does not
---- affect the roll (Config/Items.luau).
-local function hintFor(signal: Signal, clarity: number): (string?, string?, number?)
+--- them off someone else's aura. `odds` is the collectible headline (Config/Items.luau).
+local function hintFor(rarity: string, modifier: string, itemId: string, clarity: number): (string?, string?, number?)
 	if clarity <= 0 then
 		return nil, nil, nil
 	end
 	if clarity >= 3 then
-		return signal.rarity, signal.modifier, Items.get(signal.itemId).odds
+		return rarity, modifier, Items.get(itemId).odds
 	end
-	return signal.rarity, nil, nil
+	return rarity, nil, nil
 end
 
 --- Player-relative XZ offsets, plus whatever detectorClarity lets THIS player know
@@ -473,18 +491,28 @@ end
 --- the header is about.
 ---
 --- Rarity rides here rather than on the aura on purpose. The aura is one shared
---- instance and clarity is a per-player gate, so a shared instance physically cannot
---- express it — put the colour on the aura and every Bent Coil in the server reads
---- Legendary off someone else's detector for free.
-local function contactPayload(contacts: { Contact }, position: Vector3, clarity: number): { any }
+--- instance and both clarity AND the per-player roll are per-player, so a shared
+--- instance physically cannot express it — put the colour on the aura and every Bent
+--- Coil in the server reads Legendary off someone else's detector for free.
+---
+--- This is also where a signal's per-player roll gets pinned: the first time it lands
+--- in someone's radar, rollFor caches their reading of it.
+local function contactPayload(
+	contacts: { Contact },
+	position: Vector3,
+	clarity: number,
+	detectorLuck: number,
+	userId: number
+): { any }
 	local out = {}
 
 	for _, entry in contacts do
-		local rarity = hintFor(entry.signal, clarity)
+		local itemId, rarity, modifier = rollFor(entry.signal, detectorLuck, userId)
+		local rarityHint = hintFor(rarity, modifier, itemId, clarity)
 		table.insert(out, {
 			dx = entry.signal.position.X - position.X,
 			dz = entry.signal.position.Z - position.Z,
-			rarity = rarity,
+			rarity = rarityHint,
 		})
 	end
 
@@ -564,8 +592,8 @@ local function releaseLock(player: Player)
 	lockedTo[player] = nil
 end
 
-local function createHaul(player: Player, signal: Signal): Haul
-	local item = Items.get(signal.itemId)
+local function createHaul(player: Player, itemId: string): Haul
+	local item = Items.get(itemId)
 	local model = ItemModels.create(item.model)
 	local placeholder: BasePart? = nil
 
@@ -583,26 +611,26 @@ local function createHaul(player: Player, signal: Signal): Haul
 	end
 
 	model.Name = `Haul_{player.Name}`
-	model:SetAttribute("ItemId", signal.itemId)
+	model:SetAttribute("ItemId", itemId)
 	model.Parent = Workspace
 
 	return {
-		itemId = signal.itemId,
+		itemId = itemId,
 		model = model,
 		placeholder = placeholder,
 	}
 end
 
-local function updateHaul(player: Player, signal: Signal, progress: number, rarityHint: string?)
+local function updateHaul(player: Player, signal: Signal, itemId: string, progress: number, rarityHint: string?)
 	if progress <= 0.01 then
 		clearHaul(player)
 		return
 	end
 
 	local haul = hauled[player]
-	if haul == nil or haul.model.Parent == nil or haul.itemId ~= signal.itemId then
+	if haul == nil or haul.model.Parent == nil or haul.itemId ~= itemId then
 		clearHaul(player)
-		haul = createHaul(player, signal)
+		haul = createHaul(player, itemId)
 		hauled[player] = haul
 	end
 
@@ -621,23 +649,25 @@ local function updateHaul(player: Player, signal: Signal, progress: number, rari
 	)
 end
 
-local function unearth(player: Player, data: any, signal: Signal)
+--- `itemId`/`rarity`/`modifier` are THIS player's resolved roll (rollFor), not the
+--- signal's default — a lucky detector hauls up its own reading.
+local function unearth(player: Player, data: any, signal: Signal, itemId: string, rarity: string, modifier: string)
 	clearHaul(player)
-	local item = Items.get(signal.itemId)
+	local item = Items.get(itemId)
 
 	table.insert(data.carry, {
 		uid = signal.uid,
-		itemId = signal.itemId,
-		rarity = signal.rarity,
-		modifier = signal.modifier,
+		itemId = itemId,
+		rarity = rarity,
+		modifier = modifier,
 		elapsed = 0, -- the decay clock starts HERE (PLAN §3.6). Phase 3 ticks it.
 		frozen = false,
 		-- Contamination is rolled the moment it leaves the ground, not at the station,
 		-- because that is when it picked the dirt up. Extends ARCHITECTURE's CarriedItem.
-		patches = Contamination.rollPatches(signal.rarity, signal.modifier),
+		patches = Contamination.rollPatches(rarity, modifier),
 	})
 
-	data.discovered[signal.itemId] = true
+	data.discovered[itemId] = true
 
 	removeSignal(signal.stageId, signal.uid)
 	spawnSignal(signal.stageId) -- keep the field populated
@@ -646,13 +676,13 @@ local function unearth(player: Player, data: any, signal: Signal)
 		itemId = item.id,
 		name = item.name,
 		flavor = item.flavor,
-		rarity = signal.rarity,
-		modifier = signal.modifier,
+		rarity = rarity,
+		modifier = modifier,
 		baseValue = item.baseValue,
 		carrying = #data.carry,
 	})
 
-	print(`[dig] {player.Name} unearthed {signal.modifier} {signal.rarity} — {item.name}`)
+	print(`[dig] {player.Name} unearthed {modifier} {rarity} — {item.name}`)
 end
 
 -- ── Tick ────────────────────────────────────────────────────────────
@@ -758,7 +788,10 @@ local function stepPlayer(player: Player, dt: number)
 	local signal = working.signal
 	local distance = working.distance
 	local strength = math.clamp(1 - (distance / stats.detectorRadius), 0, 1)
-	local rarityHint, modifierHint, oddsHint = hintFor(signal, stats.detectorClarity)
+	-- This player's reading of the working signal, resolved once and threaded through
+	-- the ping, the haul model and the unearth below so all three agree.
+	local itemId, rarity, modifier = rollFor(signal, stats.detectorLuck, player.UserId)
+	local rarityHint, modifierHint, oddsHint = hintFor(rarity, modifier, itemId, stats.detectorClarity)
 
 	-- Reset progress if they wandered off this signal onto another one. While locked
 	-- this never fires, which is the point: the target cannot drift mid-haul.
@@ -835,7 +868,7 @@ local function stepPlayer(player: Player, dt: number)
 			-- RELEASE 2: it is out of the ground. Nothing left to hold on to, and the
 			-- player gets their feet back the instant the banner fires.
 			releaseLock(player)
-			unearth(player, data, signal)
+			unearth(player, data, signal, itemId, rarity, modifier)
 
 			-- Everything ELSE in range is still in range; only the thing that came out
 			-- of the ground is gone. Sending an empty payload here and waiting for the
@@ -850,14 +883,19 @@ local function stepPlayer(player: Player, dt: number)
 			end
 
 			local following = surviving[1]
+			local followRarityHint: string? = nil
+			if following then
+				local fId, fRarity, fMod = rollFor(following.signal, stats.detectorLuck, player.UserId)
+				followRarityHint = hintFor(fRarity, fMod, fId, stats.detectorClarity)
+			end
 			sweepRemote:FireClient(player, {
 				inStage = true,
 				stageId = stageId,
 				radius = stats.detectorRadius,
 				hasSignal = following ~= nil,
 				strength = if following then math.clamp(1 - (following.distance / stats.detectorRadius), 0, 1) else 0,
-				rarityHint = if following then (hintFor(following.signal, stats.detectorClarity)) else nil,
-				contacts = contactPayload(surviving, position, stats.detectorClarity),
+				rarityHint = followRarityHint,
+				contacts = contactPayload(surviving, position, stats.detectorClarity, stats.detectorLuck, player.UserId),
 				newContacts = noteContacts(player, surviving),
 				digProgress = 0,
 				locked = false,
@@ -875,7 +913,7 @@ local function stepPlayer(player: Player, dt: number)
 	end
 
 	digProgress[player] = progress
-	updateHaul(player, signal, progress, rarityHint)
+	updateHaul(player, signal, itemId, progress, rarityHint)
 
 	-- OFFSETS INSIDE THE REVEAL RADIUS ONLY. No world coordinates, no uids, and
 	-- nothing the player is not already looking at a glow for.
@@ -885,7 +923,7 @@ local function stepPlayer(player: Player, dt: number)
 		radius = stats.detectorRadius,
 		hasSignal = true,
 		strength = strength,
-		contacts = contactPayload(contacts, position, stats.detectorClarity),
+		contacts = contactPayload(contacts, position, stats.detectorClarity, stats.detectorLuck, player.UserId),
 		newContacts = noteContacts(player, contacts),
 		rarityHint = rarityHint,
 		modifierHint = modifierHint,
@@ -1071,6 +1109,18 @@ function DigService.start()
 		overSignal[player] = nil
 		lastContacts[player] = nil
 		clearHaul(player)
+
+		-- Drop this player's cached per-signal rolls. Not strictly required (a signal
+		-- carries the entry only until it is pulled and respawned), but a stage that
+		-- churns slowly could otherwise keep a departed player's readings around for a
+		-- long time. Cheap: signals are ~75 per stage.
+		local userId = player.UserId
+		for _, list in signalsByStage do
+			for _, signal in list do
+				signal.rolls[userId] = nil
+			end
+		end
+
 		-- Their auras are not cleaned up here. They are rebuilt from the surviving
 		-- players on the next tick, and anything only this player could see falls out
 		-- of `revealed` on its own — one shared reconcile, one place to be wrong.

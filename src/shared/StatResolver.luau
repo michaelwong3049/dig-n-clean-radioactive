@@ -51,7 +51,7 @@ export type Stats = {
 	canDash: boolean,
 	-- loop
 	detectorRadius: number,
-	detectorMaxRarity: number,
+	detectorLuck: number, -- dig roll only; Config/Items.luckBias. NOT the wash pad's luck.
 	detectorDepth: number,
 	detectorClarity: number,
 	pullSpeed: number,
@@ -138,7 +138,7 @@ function StatResolver.get(profile: Profile): Stats
 		canDash = boots.canDash,
 
 		detectorRadius = detector.radius,
-		detectorMaxRarity = detector.maxRarity,
+		detectorLuck = detector.luck,
 		detectorDepth = detector.depth,
 		-- Bloodhound (PLAN §9.2)
 		detectorClarity = detector.clarity + (if perks.bloodhound then 1 else 0),
