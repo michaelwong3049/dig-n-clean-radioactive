@@ -65,9 +65,17 @@ export type GearTier = {
 
 local Gear = {}
 
--- PLAN §5 wording note: the design calls this a "sensitivity floor", but the behaviour
--- described (a Bent Coil physically cannot see a Reactor Core) is a CEILING on rarity.
--- Named for the behaviour, not the doc.
+-- `luck` REPLACED `maxRarity`. The old field was a hard CEILING -- a signal rarer than
+-- the tier's cap was invisible and un-pullable, even from inside its glow. It is gone:
+-- rarity is now probabilistic. `luck` feeds Config/Items.luckBias, which multiplies the
+-- weight of Rare-and-above items in the dig roll (capped, "rarer-only") -- so a better
+-- detector does not unlock the top of the catalogue, it tilts the odds toward it. Tier
+-- 1 is exactly 1.0 (no bias -- a Bent Coil rolls the raw per-stage distribution). This
+-- is DIG luck only; the wash pad's luck (the Luck button + gamepass, Gear.luckMultiplier)
+-- is a separate number and this does not touch it.
+--
+-- What still gates the deep/rare end for a weak detector: `depth` vs signal burial
+-- depth, the magnet's maxGrip vs stage soil hardness, and the radiation itself.
 --
 -- `radius` IS THE REVEAL RANGE, NOT A SENSING RANGE. Every registerable signal inside
 -- it surfaces an aura at its exact spot (DigService, "the reveal"). It used to mean
@@ -79,17 +87,17 @@ local Gear = {}
 -- What that costs, stated plainly so nobody re-derives it in six months: max-tier
 -- reveal AREA is 6.8x tier 1, where the old curve was 29x. The Detector track is
 -- therefore a much weaker purchase than its price ladder implies. If that ladder needs
--- to feel earned again, move the value into maxRarity/depth/clarity — they gate what
--- you can have at all, and they do not flatten. Do NOT fix it by widening `radius`.
+-- to feel earned again, move the value into luck/depth/clarity -- they do not flatten.
+-- Do NOT fix it by widening `radius`.
 Gear.Detector = {
-	{ name = "Bent Coil", price = 0, radius = 13, maxRarity = 3, depth = 6, clarity = 0 },
-	{ name = "Scavenger MkI", price = 800, radius = 16, maxRarity = 4, depth = 9, clarity = 0 },
-	{ name = "Surplus Geiger", price = 1900, radius = 19, maxRarity = 5, depth = 12, clarity = 1 },
-	{ name = "Pulse Array", price = 4700, radius = 22, maxRarity = 5, depth = 16, clarity = 1 },
-	{ name = "Isotope Scanner", price = 11000, radius = 25, maxRarity = 6, depth = 21, clarity = 2 },
-	{ name = "Resonance Mapper", price = 27000, radius = 28, maxRarity = 7, depth = 27, clarity = 2 },
-	{ name = "Deep Core Array", price = 64000, radius = 31, maxRarity = 8, depth = 34, clarity = 3 },
-	{ name = "The Oracle", price = 150000, radius = 34, maxRarity = 8, depth = 44, clarity = 3 },
+	{ name = "Bent Coil", price = 0, radius = 13, luck = 1.00, depth = 6, clarity = 0 },
+	{ name = "Scavenger MkI", price = 800, radius = 16, luck = 1.12, depth = 9, clarity = 0 },
+	{ name = "Surplus Geiger", price = 1900, radius = 19, luck = 1.25, depth = 12, clarity = 1 },
+	{ name = "Pulse Array", price = 4700, radius = 22, luck = 1.40, depth = 16, clarity = 1 },
+	{ name = "Isotope Scanner", price = 11000, radius = 25, luck = 1.60, depth = 21, clarity = 2 },
+	{ name = "Resonance Mapper", price = 27000, radius = 28, luck = 1.85, depth = 27, clarity = 2 },
+	{ name = "Deep Core Array", price = 64000, radius = 31, luck = 2.15, depth = 34, clarity = 3 },
+	{ name = "The Oracle", price = 150000, radius = 34, luck = 2.50, depth = 44, clarity = 3 },
 }
 
 -- The extraction track. You do not dig — you drop a magnet and haul the thing up

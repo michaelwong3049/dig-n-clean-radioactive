@@ -30,8 +30,8 @@
 -- it further to 657.33. The search is ~38% denser than the 1066.67 days. Both-axis
 -- was ruled out at 290x144 because there is no N that clears Spec's search-feel
 -- floor (needs N <= 66) and its jackpot-count floor (needs N >= 69) at once. If you
--- shrink again, dropping N is the lever -- and below ~69 the loot tables have to be
--- re-weighted too (Spec §7 pins the Rare+ count on N alone).
+-- shrink again, dropping N is the lever -- and below ~69 the per-stage `rarityTilt`
+-- has to move with it (Spec pins the Stage 1 Rare+ count, which is N * that share).
 --
 -- Define coverage:
 --
@@ -146,49 +146,26 @@
 --
 -- `stationDistance` is measured, not aspirational — see the note on it below.
 --
--- ── HOW THE LOOT WEIGHTS WERE RE-DERIVED, WHICH IS ALSO NOT ARBITRARY ────────
--- These are RELATIVE weights, normalised at roll time, so only their ratios matter.
+-- ── RARITY TILT — ONE NUMBER PER STAGE, NOT A PER-RARITY WEIGHT TABLE ────────
+-- This used to be `loot`: an eight-entry, hand-tuned weight table per stage. The dig
+-- roll no longer works that way. Every stocked item now competes directly on its
+-- authored `odds` (Config/Items.luau) with base weight 1/odds, and `rarityTilt` is the
+-- single knob that shapes the rarity curve of that competition per stage:
 --
--- Stages 1-3 were re-weighted when SIGNALS_PER_STAGE doubled to 90. The reason is one
--- line of arithmetic that is very easy to get wrong: doubling the number of buried
--- signals doubles the rate of every rarity in the table, Legendaries included. Left
--- alone, "more items" would silently have meant "twice as many Legendaries", which
--- is the one thing a rarity economy cannot afford.
+--     item weight  =  (1 / odds)  *  rarityTilt ^ (rarityOrder - 1)
 --
--- So the transformation was:
---   * every weight at Rare and above    -> halved, cancelling the density multiplier
---                                          exactly, so Rare+ arrives at the same
---                                          wall-clock rate it did at 45 signals
---   * Uncommon                          -> x0.7, a partial increase (about 1.4x)
---   * Scrap and Common                  -> absorb everything freed up, tilted toward
---                                          Common so what you dig up is mostly worth
---                                          picking up rather than mostly junk
+-- Scrap (order 1) is the anchor -- tilt^0 = 1, untouched -- and every rung above it is
+-- lifted by a further factor of `rarityTilt`. tilt = 1 is "pure odds" (Scrap-heavy); a
+-- bigger tilt is what makes a late stage read as "everything here is good".
 --
--- Net effect in stage 1: ~2x the pulls, ~2.9x the Commons, ~1.7x the Scrap, and Rare
--- or better unchanged. Shared/Util/Spec pins that last property — it asserts the
--- field holds ~4.9 Rare-or-better signals across the three stages, which is what it
--- held before the change.
+-- The values below were SOLVED for a target Rare-or-better share at a tier-1 detector
+-- (Config/Items.rarityWeights): 2.5 / 6 / 14 / 28 / 45 / 65% for stages 1-6. Detector
+-- luck multiplies Rare+ further per player on top of this (Config/Items.luckBias).
+-- Shared/Util/Spec pins Stage 1's Rare+ signal count (~1.9 of 75) and the no-inversion
+-- property. Retune here, then re-run Spec.
 --
--- STAGES 4-6 WERE DELIBERATELY NOT RE-WEIGHTED, AND THAT DEBT IS NOW LIVE. Their
--- identity is "everything here is good" (PLAN §4 — the Crater is 18% Legendary on
--- purpose), and halving their top end to hold a wall-clock rate would be a redesign of
--- the stages rather than a rebalance of this one. The old note said to decide it when
--- they are built and playable. They are built: Stage 4 is stocked and diggable TODAY at
--- double its intended rare rate. Stages 5 and 6 are not stocked yet, so their share of
--- the debt is still deferred. See TODO.md.
---
--- CAVEAT ON ALL OF THE ABOVE: DigService.rollItemId steps DOWN when Config/Items does
--- not stock the rolled rarity in that stage, so the delivered distribution is always
--- at least as common as this table says, never rarer. Stage 1 stocks no Mythic or
--- Anomaly, so its top two rows are aspirational.
---
--- STAGES 5 AND 6 ARE NOW STOCKED (Config/Items.luau), which means the debt this
--- header already warned about is live rather than deferred: their loot weights
--- above were never re-derived for the doubled SIGNALS_PER_STAGE the way 1-3 were,
--- and "decide when they're built and playable" was the whole plan for that
--- decision. They are. See TODO.md — re-weighting is a real pass against
--- Config/Gear's detector radii, not a quick edit, and is intentionally not part
--- of stocking the catalogue.
+-- This also closes the old "re-weight stages 4-6 for the doubled signal density" debt
+-- (TODO.md): there is no per-rarity weight left to drift with the signal count.
 
 export type StageDef = {
 	id: number,
@@ -200,7 +177,7 @@ export type StageDef = {
 	stationDistance: number,
 	fogColor: Color3,
 	fogEnd: number,
-	loot: { [string]: number }, -- rarity name -> weight (normalised at roll time)
+	rarityTilt: number, -- see the header: item weight = (1/odds) * rarityTilt^(rarityOrder-1)
 
 	-- Spatial. See the header.
 	center: { number }, -- { x, z } world space
@@ -301,7 +278,7 @@ Stages.DEFS = {
 		stationDistance = 190,
 		fogColor = Color3.fromHex("CFF3FF"),
 		fogEnd = 900,
-		loot = { Scrap = 48, Common = 41, Uncommon = 8.4, Rare = 2, Epic = 0.4, Legendary = 0.075, Mythic = 0.02, Anomaly = 0.001 },
+		rarityTilt = 1.32, -- ~2.5% Rare+ at a tier-1 detector (see the header)
 		-- West edge pinned at x = 100 (Hub.PLAZA.maxX); centre = 100 + 290/2.
 		center = { 245, 0 },
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint of all six stages —
@@ -352,7 +329,7 @@ Stages.DEFS = {
 		-- stopped being green. Dusty tan haze instead.
 		fogColor = Color3.fromHex("E8D9B0"),
 		fogEnd = 800,
-		loot = { Scrap = 43, Common = 39, Uncommon = 12.6, Rare = 3.5, Epic = 1, Legendary = 0.25, Mythic = 0.05, Anomaly = 0.002 },
+		rarityTilt = 1.72, -- ~6% Rare+ at a tier-1 detector
 		-- West edge = Stage 1's east edge (x = 390); centre = 390 + 290/2.
 		center = { 535, 0 },
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
@@ -388,12 +365,10 @@ Stages.DEFS = {
 		-- khaki haze for the gradient's endpoint.
 		fogColor = Color3.fromHex("D4B896"),
 		fogEnd = 700,
-		-- NO SCRAP TIER, ON REQUEST (Config/Items.luau's own header) -- Stage 3's old
-		-- Scrap weight (34) folded straight into Common (40 -> 74) rather than left
-		-- allocated to a rarity the catalogue no longer stocks here, which would
-		-- otherwise silently produce dead rolls (DigService.rollItemId's step-down
-		-- bottoms out at Scrap with nothing below it to fall back to).
-		loot = { Common = 74, Uncommon = 16.8, Rare = 6, Epic = 2.25, Legendary = 0.6, Mythic = 0.14, Anomaly = 0.005 },
+		-- NO SCRAP TIER, ON REQUEST (Config/Items.luau's own header) -- Stage 3 simply
+		-- stocks nothing at Scrap; the roll only ever picks from what is stocked, so
+		-- Common is the floor here with no dead rolls to fold away.
+		rarityTilt = 2.26, -- ~14% Rare+ at a tier-1 detector
 		-- West edge = Stage 2's east edge (x = 680); centre = 680 + 290/2.
 		center = { 825, 0 },
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
@@ -435,9 +410,8 @@ Stages.DEFS = {
 		stationDistance = 930,
 		fogColor = Color3.fromHex("6FE04A"),
 		fogEnd = 600,
-		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
-		-- fold, this stage's old Scrap weight (15) folded into Common (24 -> 39).
-		loot = { Common = 39, Uncommon = 28, Rare = 20, Epic = 9, Legendary = 3, Mythic = 0.8, Anomaly = 0.03 },
+		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment above.
+		rarityTilt = 3.18, -- ~28% Rare+ at a tier-1 detector (the Dive stage; loot is the reward)
 		-- West edge = Stage 3's east edge (x = 970); centre = 970 + 290/2.
 		center = { 1115, 0 },
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
@@ -470,9 +444,8 @@ Stages.DEFS = {
 		stationDistance = 1220, -- entrance x=1530 -> 1700 (uniform) -> 1460 (15%) -> 1260 (length); est., not re-walked
 		fogColor = Color3.fromHex("C8E85A"),
 		fogEnd = 500,
-		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
-		-- fold, this stage's old Scrap weight (7) folded into Common (15 -> 22).
-		loot = { Common = 22, Uncommon = 25, Rare = 26, Epic = 17, Legendary = 7, Mythic = 2.4, Anomaly = 0.1 },
+		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment above.
+		rarityTilt = 5.06, -- ~45% Rare+ at a tier-1 detector
 		-- West edge = Stage 4's east edge (x = 1260); centre = 1260 + 290/2.
 		center = { 1405, 0 },
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
@@ -516,9 +489,8 @@ Stages.DEFS = {
 		stationDistance = 1510,
 		fogColor = Color3.fromHex("FFD24A"),
 		fogEnd = 400,
-		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment on this above; same
-		-- fold, this stage's old Scrap weight (2) folded into Common (6 -> 8).
-		loot = { Common = 8, Uncommon = 15, Rare = 24, Epic = 26, Legendary = 18, Mythic = 8, Anomaly = 0.8 },
+		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment above.
+		rarityTilt = 5.40, -- ~65% Rare+ at a tier-1 detector -- the Crater is nearly all treasure
 		-- West edge = Stage 5's east edge (x = 1550); centre = 1550 + 290/2. The chain
 		-- ends at x = 1840 (was 2140 after the 15% pass, 2500 before it).
 		center = { 1695, 0 },

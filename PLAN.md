@@ -114,11 +114,14 @@ Detector tier determines:
 * **Reveal radius** — how much ground lights up around you. This is the whole search game
 now, and it is deliberately a shallow curve (13 studs to 34 across eight tiers). Widening
 it is the one lever that must **not** be used to make the top of the track feel better.
-* **Sensitivity floor** — the minimum rarity the detector can even register. A Bent Coil
-detector physically cannot see a Reactor Core; it just won't beep. This is the key gate,
-and under the reveal it does more work than it used to: auras are visible to everyone in
-the server, so this is what stops a cheap detector cashing in on an expensive one's finds.
-* **Depth range** — deeper items are rarer.
+* **Dig luck** — a per-tier multiplier that bends *your* dig roll toward Rare and above
+(capped, "rarer-only"), replacing the old hard rarity ceiling. A Bent Coil can now pull
+anything it physically reaches, it is just far less likely to; a maxed detector is not a
+key to the top of the catalogue, it is better odds at it. This is dig luck only — the
+wash pad's Luck (§6) is a separate number.
+* **Depth range** — deeper items are rarer, and this is the one gate still correlated
+with rarity: a weak detector cannot reveal the deep signals, and the deep signals are
+where the (baseline) rare stuff is buried.
 * **Signal clarity** — high-tier detectors show a rarity color before you pull, so you
 stop wasting time hauling Scrap out of the ground. It rides on the **radar blip**, not on
 the aura: the aura is one shared part that the whole server can see, so it cannot carry a
@@ -708,7 +711,9 @@ Rusty Horseshoe → Rabbit's Foot → Four-Leaf Clover → Wishbone Charm → Lu
 The only track that is not equipment — a charm on the workbench, and the names say so.
 It buys nothing you hold and nothing you wear; it bends the wash pad's roll (§2 step 4)
 and does nothing else at all. End to end it moves the jackpot from 1-in-814 to 1-in-40,
-and the chance of any gate-cracking (+2 potency) liquid from 1.8% to 15.9%.
+and the chance of any gate-cracking (+2 potency) liquid from 1.8% to 15.9%. (The
+detector's **dig luck** in §Step 1 is a deliberately separate number — it bends the dig
+roll, not the wash pad, and neither touches the other.)
 
 Priced on the standard ~2.4× curve rather than the Boots line's steeper 2.8×, and
 deliberately so: luck is self-limiting, because a good roll pays out in **charges** —
@@ -749,6 +754,14 @@ just personally experienced sells itself.
 |**Anomaly**|Prismatic|0.002%|7|1:15|$250k–2M|
 
 Odds shift heavily toward the top as stage number increases; by Stage 6, Scrap is under 5%.
+
+> **Implementation note.** The "Base odds" column above is the design intent, not the
+> live table. Each item carries an authored `odds` ("1 in N", `Config/Items.luau`) that
+> IS the roll weight (`1/odds`), and each stage carries one `rarityTilt` scalar
+> (`Config/Stages.luau`) that lifts the higher rarities — solved for a target Rare+
+> share per stage (2.5 / 6 / 14 / 28 / 45 / 65% at a tier-1 detector). Detector dig
+> luck (Step 1) multiplies Rare+ further, per player. There is no per-rarity `loot`
+> weight table any more.
 
 Three gates now sit on the same rarity number, which is why one column can drive the whole
 game: **hardness** decides whether you can clean it, **fuse** decides whether you can get it

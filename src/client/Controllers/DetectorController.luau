@@ -1076,9 +1076,9 @@ local function renderState()
 
 	if not state.hasSignal then
 		-- Standing in a glow that somebody else's detector put there. This is a real
-		-- state, not an error: auras are public, the tier gates are not.
+		-- state, not an error: auras are public, the depth gate is not.
 		if state.blocked == "unregistered" then
-			ui.status.Text = "that signal is past your detector \u{2014} you cannot pick it up"
+			ui.status.Text = "that signal is buried too deep for your detector"
 			ui.status.TextColor3 = COLOR.red
 			return
 		end

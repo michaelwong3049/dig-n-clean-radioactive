@@ -205,14 +205,15 @@ Tuning.PULL_YANK_BURST = 4 -- bucket capacity: an opening flurry, NOT a whole it
 
 -- ── The reveal (Gear.Detector.radius) ───────────────────────────────────
 --
--- A signal inside your detector's radius that clears the maxRarity and depth gates
--- surfaces an AURA at its exact spot. The aura is a real Workspace part built by the
--- server, so EVERY player sees it, not only the one whose detector found it. That is
--- a deliberate design call and it has a known cost — a low-tier player tailing a
--- high-tier one gets to walk to glows they could never have revealed. maxRarity and
--- depth still gate the PULL, so the deep and rare stuff stays locked to them; what
--- leaks is the shallow common end. Do not "fix" this by making auras per-player
--- without saying so, because the shared-sighting moment is the point.
+-- A signal inside your detector's radius that clears the depth gate surfaces an AURA
+-- at its exact spot. The aura is a real Workspace part built by the server, so EVERY
+-- player sees it, not only the one whose detector found it. That is a deliberate design
+-- call and it has a known cost — a low-tier player tailing a high-tier one gets to walk
+-- to glows they could never have revealed, and (now that maxRarity is gone) pull them.
+-- What still separates the tiers: depth gates the reveal, the magnet's maxGrip gates
+-- the pull, and detector luck bends each player's OWN roll toward Rare+ (Config/Items).
+-- Do not "fix" the shared aura by making auras per-player without saying so — the
+-- shared-sighting moment is the point.
 --
 -- Rarity is NOT on the aura. The aura says "something is here" to the whole server;
 -- the colour that says "and it is Legendary" lives on the client's radar blips, where

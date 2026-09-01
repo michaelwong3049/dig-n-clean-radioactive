@@ -14,18 +14,17 @@
 	a tragedy" — same six stages, same rarity ladder, with seven items modelled in 3D
 	(bottle_cap, steel_rod, tin_can, house_key, stopped_watch, rubber_duck, gold_ring).
 
-	A STAGE WITH NO ITEMS IS NOT A CRASH ANY MORE, BUT IT IS STILL BROKEN. DigService
-	rolls a rarity from the stage's loot table and then steps DOWN through the
-	catalogue looking for something to hand you. That step-down only goes downward —
-	so a stage stocked only at Rare and above silently fails every Scrap and Common
-	roll and fills its field at a fraction of the intended rate. Stock the LOW end of
-	every stage you add, not just the exciting end.
+	A STAGE WITH NO ITEMS IS NOT A CRASH ANY MORE, BUT IT IS STILL BROKEN. The dig roll
+	(see "The dig roll" at the foot of this file) only picks from what a stage actually
+	stocks -- there is no rarity step-down any more -- so an unstocked stage simply
+	spawns no signals and warns once. But a stage stocked only at the top still fills
+	slowly and reads wrong: stock the LOW end of every stage you add, weighted by
+	`odds`, and let Config/Stages' `rarityTilt` do the "this stage is rich" work.
 
-	STAGES 3-6 NO LONGER STOCK SCRAP, ON REQUEST. Their old Scrap-tier items folded
-	up into Common (and Stage 5/6 also promoted one former Common slot to Uncommon),
-	so the loot FLOOR for those four stages is now Common rather than Scrap. See
-	Config/Stages.luau's own loot-odds tables — their Scrap weight was folded into
-	Common to match, so a Scrap roll there doesn't produce a dead roll.
+	STAGES 3-6 NO LONGER STOCK SCRAP, ON REQUEST. Their old Scrap-tier items folded up
+	into Common (and Stage 5/6 also promoted one former Common slot to Uncommon), so the
+	FLOOR for those four stages is Common rather than Scrap. Nothing special is needed
+	to make that work now -- the roll picks from stocked items only.
 
 	TWO RULES, both from ARCHITECTURE.md, both cheap now and miserable to retrofit:
 
@@ -53,18 +52,23 @@
 	the rarity-coloured placeholder; entries with one resolve through Shared.ItemModels.
 ]]
 
+local Rarity = require(script.Parent.Rarity)
+
 export type ItemDef = {
 	id: string,
 	name: string,
 	flavor: string,
 	rarity: string,
-	-- Authored "1 in N" find-rarity, DISPLAY ONLY. It does not drive the roll --
-	-- DigService still rolls a rarity off Stages.loot and then picks uniformly from
-	-- the stage's pool at that rarity. This is the collectible headline number shown
-	-- in the Index and on a high-clarity detector ping, hand-set per item rather than
-	-- computed, so it can be round and readable and let a specific item feel special.
-	-- One number covers every stage an item is stocked in (the handful that span
-	-- Stage 3<->4 share it on purpose).
+	-- Authored "1 in N" find-rarity. It DRIVES THE ROLL now (it used to be display
+	-- only): an item's base weight in a stage is 1/odds, so a "1 in 100" item turns up
+	-- a tenth as often as a "1 in 10" one. Two knobs bend that base -- Config/Stages'
+	-- per-stage `rarityTilt`, and the digging player's detector luck at Rare and above
+	-- -- see "The dig roll" at the foot of this file. It is still the collectible
+	-- headline shown in the Index and on a sharp detector ping, hand-set per item so it
+	-- can be round and readable; the tilt means the number a player SEES is the
+	-- across-the-catalogue rarity, not the literal in-stage rate. One value covers
+	-- every stage an item is stocked in (the handful that span Stage 3<->4 share it on
+	-- purpose).
 	odds: number,
 	stages: { number },
 	appeal: string, -- "Researcher" | "Collector" | "Gearhead"
@@ -409,8 +413,8 @@ Items.DEFS = {
 	-- homestead: buried coins, gold, farm tools, everyday relics. NO SCRAP
 	-- TIER (see this file's header) — its old Scrap items folded into Common.
 	-- Several of these are also tagged for Stage 4: the Exclusion Belt is the
-	-- same stretch of country, further in, and a dive needs a stocked
-	-- catalogue at EVERY rarity or rollItemId's step-down finds nothing.
+	-- same stretch of country, further in, and a dive still wants a stocked low
+	-- end so the roll is not all Legendaries.
 
 	{
 		id = "rusty_horseshoe",
@@ -896,6 +900,12 @@ Items.DEFS = {
 local byId: { [string]: ItemDef } = {}
 local byStageRarity: { [number]: { [string]: { ItemDef } } } = {}
 
+-- The same items as byStageRarity, flattened per stage into ONE list in a STABLE order
+-- (Rarity.ORDER, then file order within a rarity). The dig roll walks this: a weighted
+-- pick that walks an unstable order is a weighted pick with unstable odds -- the same
+-- reason Liquids iterates an explicit ORDER list.
+local stageItems: { [number]: { ItemDef } } = {}
+
 for _, item in Items.DEFS do
 	assert(byId[item.id] == nil, `duplicate item id "{item.id}"`)
 	byId[item.id] = item
@@ -915,6 +925,16 @@ for _, item in Items.DEFS do
 	end
 end
 
+for stageId, buckets in byStageRarity do
+	local flat: { ItemDef } = {}
+	for _, rarityName in Rarity.ORDER do
+		for _, item in buckets[rarityName] or {} do
+			table.insert(flat, item)
+		end
+	end
+	stageItems[stageId] = flat
+end
+
 function Items.get(id: string): ItemDef
 	local item = byId[id]
 	assert(item, `unknown item id "{id}"`)
@@ -922,8 +942,8 @@ function Items.get(id: string): ItemDef
 end
 
 --- Every item of one rarity that can spawn in one stage. May be empty — Stage 1 has
---- no Mythic or Anomaly entries, and the loot table can still roll them, so callers
---- must handle the empty case rather than assuming a hit.
+--- no Mythic or Anomaly entries, so callers must handle the empty case rather than
+--- assuming a hit.
 function Items.inStage(stageId: number, rarity: string): { ItemDef }
 	local stage = byStageRarity[stageId]
 	if stage == nil then
@@ -938,7 +958,8 @@ end
 
 --- "1 in 100", "1 in 9000", "1 in 50k", "1 in 500k", "1 in 1.2M". Abbreviates at
 --- 10k so the big Legendary/Mythic/Anomaly numbers stay short on a HUD line while
---- the four-digit Rare/Epic ones read exactly. Display only -- pair it with `odds`.
+--- the four-digit Rare/Epic ones read exactly. The player-facing headline for `odds`;
+--- the real in-stage rate is tilted per stage (see "The dig roll" below).
 function Items.oddsText(n: number): string
 	local body: string
 	if n >= 1e6 then
@@ -949,6 +970,105 @@ function Items.oddsText(n: number): string
 		body = string.format("%d", n)
 	end
 	return "1 in " .. body
+end
+
+-- ── The dig roll ────────────────────────────────────────────────────────────────
+--
+-- Replaces the old two-step roll (a rarity off Stages.loot, then a UNIFORM pick among
+-- that stage's items of that rarity). Now every stocked item competes directly, with
+-- base weight 1/odds, and the whole per-rarity `loot` weight table collapses into ONE
+-- number per stage:
+--
+--   rarityTilt (Config/Stages) multiplies each item's weight by tilt^(rarityOrder-1).
+--     Scrap (order 1) is the anchor at tilt^0 = 1; every rung above it is lifted, and a
+--     bigger tilt is what makes a late stage read as "everything here is good".
+--
+--   detector luck (Config/Gear, per player) multiplies weights at Rare and above by
+--     luck raised to a per-rarity exponent, capped at DIG_LUCK_BIAS_CAP -- the same
+--     shape Config/Liquids' luckBias gives the wash pad. Below Rare it is exactly 1, so
+--     the early grind is luck-proof and a tier-1 detector (luck 1.0) rolls the raw
+--     tilted distribution.
+--
+-- Shared, like Liquids.oddsAt / Radiation / Decay: the weight a HUD could DISPLAY and
+-- the weight DigService rolls come out of ONE function so they cannot disagree.
+
+--- Luck is inert below this rarity order (Rare). "Rarer-only" -- see the header.
+Items.DIG_LUCK_MIN_ORDER = Rarity.get("Rare").order
+--- The most detector luck can ever multiply one item's roll weight.
+Items.DIG_LUCK_BIAS_CAP = 20
+
+--- The luck exponent for a rarity: luck^1 at Rare, luck^2 at Epic, ... clamped to
+--- DIG_LUCK_BIAS_CAP. Exactly 1 (untouched) for anything below DIG_LUCK_MIN_ORDER.
+function Items.luckBias(rarity: string, luck: number): number
+	local order = Rarity.get(rarity).order
+	if order < Items.DIG_LUCK_MIN_ORDER then
+		return 1
+	end
+	return math.min(luck ^ (order - Items.DIG_LUCK_MIN_ORDER + 1), Items.DIG_LUCK_BIAS_CAP)
+end
+
+--- One item's roll weight in a stage: 1/odds, tilted by rarity, luck-boosted at the top.
+function Items.effectiveWeight(item: ItemDef, tilt: number, luck: number): number
+	local order = Rarity.get(item.rarity).order
+	return (1 / item.odds) * tilt ^ (order - 1) * Items.luckBias(item.rarity, luck)
+end
+
+--- Normalised roll probability per stocked item in a stage, keyed by id. Sums to 1.
+--- Empty when the stage stocks nothing. The odds this could be shown next to and the
+--- odds Items.rollItem draws against come out of here together.
+function Items.rollWeights(stageId: number, tilt: number, luck: number): { [string]: number }
+	local pool = stageItems[stageId]
+	local out: { [string]: number } = {}
+	if pool == nil then
+		return out
+	end
+
+	local total = 0
+	for _, item in pool do
+		total += Items.effectiveWeight(item, tilt, luck)
+	end
+	if total <= 0 then
+		return out
+	end
+	for _, item in pool do
+		out[item.id] = Items.effectiveWeight(item, tilt, luck) / total
+	end
+	return out
+end
+
+--- Weighted pick of one item id from a stage's pool. Walks `stageItems` in its stable
+--- order so the roll is reproducible. Returns nil ONLY when the stage stocks nothing at
+--- all -- callers treat that as a content gap (no signals spawn), not a crash.
+function Items.rollItem(stageId: number, tilt: number, luck: number): string?
+	local pool = stageItems[stageId]
+	if pool == nil or #pool == 0 then
+		return nil
+	end
+
+	local total = 0
+	for _, item in pool do
+		total += Items.effectiveWeight(item, tilt, luck)
+	end
+
+	local pick = math.random() * total
+	for _, item in pool do
+		pick -= Items.effectiveWeight(item, tilt, luck)
+		if pick <= 0 then
+			return item.id
+		end
+	end
+	return pool[#pool].id
+end
+
+--- The stage's rarity distribution at baseline luck (1.0), keyed by rarity name, summing
+--- to 1. DigService picks a burial-depth band from this; Util/Spec pins its Rare+ share.
+function Items.rarityWeights(stageId: number, tilt: number): { [string]: number }
+	local out: { [string]: number } = {}
+	for id, p in Items.rollWeights(stageId, tilt, 1) do
+		local r = byId[id].rarity
+		out[r] = (out[r] or 0) + p
+	end
+	return out
 end
 
 return Items

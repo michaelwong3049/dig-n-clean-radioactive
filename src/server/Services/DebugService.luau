@@ -311,6 +311,51 @@ COMMANDS["/odds"] = {
 	end,
 }
 
+COMMANDS["/field"] = {
+	help = "/field <1-6> — the dig roll for that stage at your detector's luck",
+	run = function(player, _sandbox, args)
+		local stageId = tonumber(args[1])
+		if stageId == nil or Stages.DEFS[stageId] == nil then
+			return "usage: /field <1-6>"
+		end
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+
+		-- Reads Items.rollWeights, the SAME function DigService rolls against -- the dig
+		-- analogue of /odds. tilt from the stage, luck from the player's detector.
+		local stats = StatResolver.get(data)
+		local tilt = Stages.get(stageId).rarityTilt
+		local weights = Items.rollWeights(stageId, tilt, stats.detectorLuck)
+
+		local byRarity: { [string]: number } = {}
+		local ordered = {}
+		for id, chance in weights do
+			table.insert(ordered, { id = id, chance = chance })
+			local r = Items.get(id).rarity
+			byRarity[r] = (byRarity[r] or 0) + chance
+		end
+		table.sort(ordered, function(a, b)
+			return a.chance > b.chance
+		end)
+
+		local lines = {
+			string.format("stage %d — tilt %.2f, detector luck %.2fx", stageId, tilt, stats.detectorLuck),
+		}
+		for _, name in Rarity.ORDER do
+			if byRarity[name] then
+				table.insert(lines, string.format("  %-10s %6.2f%%", name, byRarity[name] * 100))
+			end
+		end
+		table.insert(lines, "  ---")
+		for _, e in ordered do
+			table.insert(lines, string.format("  %-26s %6.2f%%   1 in %d", e.id, e.chance * 100, math.floor(1 / e.chance + 0.5)))
+		end
+		return table.concat(lines, "\n")
+	end,
+}
+
 COMMANDS["/radhelp"] = {
 	help = "/radhelp — list these commands",
 	run = function(_player, _sandbox, _args)
