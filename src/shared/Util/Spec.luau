@@ -85,6 +85,9 @@ function Spec.run(): boolean
 		if item.model then
 			check(`item model resolves: {item.id} -> {item.model}`, ItemModels.has(item.model))
 		end
+		-- `odds` is display-only, but a missing or zero one still surfaces on the HUD
+		-- as "1 in 0" — a nil field degrades exactly as silently as a bad model key.
+		check(`item has a positive odds: {item.id}`, type(item.odds) == "number" and item.odds >= 1)
 	end
 
 	-- PLAN §3.5 — the Dive is ~one dig, in every stage. Tested at the ENTRANCE

@@ -56,6 +56,7 @@ local CollectionService = game:GetService("CollectionService")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
+local Items = require(Shared.Config.Items)
 local Tuning = require(Shared.Config.Tuning)
 local Net = require(Shared.Net)
 
@@ -117,6 +118,10 @@ local state = {
 	radius = 0,
 	contacts = {} :: { Contact },
 	rarityHint = nil :: string?,
+	-- The nearest signal's authored "1 in N" find-rarity, only sent once the detector's
+	-- clarity clears the same gate that reveals the modifier. Display flavour, nil most
+	-- of the time.
+	oddsHint = nil :: number?,
 	inRange = false,
 	blocked = nil :: string?,
 	digProgress = 0,
@@ -1042,7 +1047,13 @@ local function renderState()
 		return
 	end
 
-	local named = if state.rarityHint then ` \u{2014} nearest reads {string.lower(state.rarityHint)}` else ""
+	-- "legendary", or "legendary, 1 in 9000" once the detector is sharp enough to have
+	-- sent the odds alongside the rarity.
+	local reads = if state.rarityHint then string.lower(state.rarityHint) else nil
+	if reads and state.oddsHint then
+		reads = `{reads}, {Items.oddsText(state.oddsHint)}`
+	end
+	local named = if reads then ` \u{2014} nearest reads {reads}` else ""
 
 	if state.blocked == "weak" then
 		-- It still moves. It just will not come free — and the player can see that.
@@ -1164,6 +1175,7 @@ function Detector.start()
 		state.radius = payload.radius or 0
 		state.contacts = payload.contacts or {}
 		state.rarityHint = payload.rarityHint
+		state.oddsHint = payload.oddsHint
 		state.inRange = payload.inRange == true
 		state.blocked = payload.blocked
 		state.digProgress = payload.digProgress or 0
