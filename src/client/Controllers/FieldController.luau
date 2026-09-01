@@ -34,6 +34,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local Tuning = require(ReplicatedStorage.Shared.Config.Tuning)
+local Rarity = require(ReplicatedStorage.Shared.Config.Rarity)
 
 local Field = {}
 
@@ -42,8 +43,28 @@ local Field = {}
 -- the ring and the aura discs are matte SmoothPlastic since the de-neon pass, so a
 -- pale cyan just reads as washed grey against the ground — this holds its colour
 -- flat-lit.
+--
+-- It is also the well's NEUTRAL state: the colour a well shows when this client's
+-- detector could not resolve its rarity (detectorClarity gate). A well only takes on
+-- a rarity hue for players whose detector earned the read — see stepAuras below and
+-- DetectorController.contactRarityAt. The old in-range green (a flat colour swap when
+-- you stood on a well) is gone: an in-range well now keeps its rarity hue and spikes
+-- in brightness instead (on request), so proximity and rarity stop fighting over the
+-- same channel.
 local GLOW = Color3.fromHex("2E9FD8")
-local IN_RANGE = Color3.fromHex("6FB63A") -- close enough to get the magnet on it
+
+-- "How loud is this well", 0..1, from the resolved rarity. Common sits at 0 and
+-- Anomaly at 1, so a resolved-but-cheap signal reads as calm while a jackpot roars —
+-- the whole point of the rarity read is telling you which wells are worth the walk.
+-- A well whose rarity is UNKNOWN is not t = 0: it stays fully neutral (all three
+-- ripples, GLOW) so it never looks feebler than the plain blue it replaced.
+local function loudness(rarity: string): number
+	return math.clamp((Rarity.get(rarity).order - 2) / 6, 0, 1)
+end
+
+local function lerp(a: number, b: number, t: number): number
+	return a + (b - a) * t
+end
 
 local RING_FOLDER = "DetectorRange"
 local SEGMENTS = Tuning.RANGE_RING_SEGMENTS
@@ -68,7 +89,22 @@ local ringFolder: Folder? = nil
 
 -- Tracked rather than re-queried: CollectionService:GetTagged allocates a fresh table
 -- on every call, and this runs every frame.
-type Tracked = { core: BasePart, dome: BasePart, ripples: { BasePart }, phase: number, scale: number }
+--
+-- `light` / `motes` are the two children of Core that carry the "this is a light
+-- source" work (build/SignalAura); optional because they can lag the rest of the
+-- model across a bad connection. `rarity` is what this client last resolved for the
+-- well — cached so the ParticleEmitter's ColorSequence and Rate are only rewritten
+-- when it actually changes, not sixty times a second.
+type Tracked = {
+	core: BasePart,
+	dome: BasePart,
+	ripples: { BasePart },
+	light: PointLight?,
+	motes: ParticleEmitter?,
+	phase: number,
+	rarity: string?,
+	scale: number,
+}
 local tracked: { [Model]: Tracked } = {}
 
 -- Auras whose tag arrived before their children did. Usually empty — the server
@@ -209,17 +245,30 @@ local function track(instance: Instance)
 		core = core,
 		dome = dome,
 		ripples = ripples,
+		-- Not gated in the check above: these are cosmetic sweeteners, and a well that
+		-- surfaces for a frame without its light is far better than one that never
+		-- animates because its light lost the replication race.
+		light = core:FindFirstChildWhichIsA("PointLight"),
+		motes = core:FindFirstChildWhichIsA("ParticleEmitter"),
 		-- Derived from the position so it is stable across frames and DIFFERENT per
 		-- aura. Pulsing a field of them in lockstep looks like a screen refresh
 		-- artefact rather than like several separate things breathing.
 		phase = (core.Position.X * 0.7 + core.Position.Z * 1.3) % (2 * math.pi),
-		-- How much wider this well is than a default one (heavier buried thing, bigger
-		-- glow — DigService off Config/Weight.auraScale). 1 for an unscaled well and for
-		-- an old aura saved into the place without the attribute.
+		rarity = nil,
+		-- How much wider this well is than a default one — a heavier buried thing gets
+		-- a bigger glow (DigService off Config/Weight.auraScale, stamped by
+		-- build/SignalAura). 1 for an unscaled well and for an old aura saved into the
+		-- place without the attribute. The rarity TINT is per-player (above); this is
+		-- shared, off the signal's default item.
 		scale = (instance :: any):GetAttribute("WellScale") or 1,
 	}
 end
 
+--- Animate every tracked well for THIS frame and THIS client: the idle breathe, the
+--- outward ripples, the in-range freeze — and the rarity tint, which is per-player.
+--- The well part is shared server geometry, so the tint has to be applied here off
+--- DetectorController's per-player contacts read; a player whose detector cannot
+--- resolve a signal only ever sees the cyan build/SignalAura ships.
 local function stepAuras()
 	local player = Players.LocalPlayer
 	local character = player.Character
@@ -228,7 +277,6 @@ local function stepAuras()
 
 	local now = os.clock()
 	local breatheClock = now * 2 * math.pi * Tuning.AURA_PULSE_HZ
-	local rippleClock = now * Tuning.AURA_PULSE_HZ
 	local reach = Tuning.AURA_PULSE_REACH
 
 	for model, entry in tracked do
@@ -244,43 +292,86 @@ local function stepAuras()
 			close = dx * dx + dz * dz <= Tuning.DIG_RADIUS * Tuning.DIG_RADIUS
 		end
 
-		local colour = if close then IN_RANGE else GLOW
-		entry.core.Color = colour
-		entry.dome.Color = colour
+		-- What THIS client's detector resolved for the signal under this well, if
+		-- anything. nil the moment the detectorClarity gate is not cleared -- a cheap
+		-- detector standing in an Oracle's glow still sees a plain blue well. The read
+		-- comes off the per-player contacts payload, never off this shared part.
+		local rarity = if DetectorController then DetectorController.contactRarityAt(entry.core.Position) else nil
+		if rarity ~= entry.rarity then
+			entry.rarity = rarity
+			-- ColorSequence churns a fresh object; only rebuild it when the read
+			-- actually changed, not every frame.
+			if entry.motes then
+				entry.motes.Color = ColorSequence.new(if rarity then Rarity.get(rarity).color else GLOW)
+			end
+		end
+
+		local known = rarity ~= nil
+		local hue = if known then Rarity.get(rarity :: string).color else GLOW
+		local t = if known then loudness(rarity :: string) else 0
+
+		-- The well wears its rarity hue at every distance now. Being in range spikes its
+		-- INTENSITY (brightness, solidity, frozen rings) rather than swapping the colour
+		-- for green -- proximity and rarity were fighting over one channel before.
+		local coreHue = if close then hue:Lerp(Color3.new(1, 1, 1), 0.25) else hue
+		entry.core.Color = coreHue
+		entry.dome.Color = coreHue
+
+		-- The de-neon pass left this light as the only thing making the well read as a
+		-- light source rather than a painted coin, so it is where "louder" shows most:
+		-- a Legendary well throws four times the Common one's brightness and reaches
+		-- half again as far, so you can pick it out across the field.
+		if entry.light then
+			local brightness = if known then lerp(0.7, 2.4, t) else 0.55
+			entry.light.Brightness = if close then brightness * 1.6 else brightness
+			entry.light.Range = if known then lerp(10, 18, t) else 10
+		end
+		if entry.motes then
+			entry.motes.Rate = if known then lerp(4, 16, t) else 4
+		end
 
 		if close then
-			-- Standing on it is the moment the player has been walking towards. The
-			-- well turns green and locks -- core solid, dome firm, the rings frozen
-			-- together at the dome's own edge as one steady outline. It stays the
-			-- SAME SIZE as idle: it does NOT balloon out to the pickup radius
-			-- (removed on request). The HUD says the same in words; this says it
-			-- where their eyes already are.
-			entry.core.Transparency = 0.1
-			entry.dome.Transparency = 0.22
-			-- Freeze the rings on THIS well's dome edge, not the default one -- a heavy
-			-- well's dome is wider (entry.scale).
+			-- Standing on it is the moment the player has been walking towards. Core
+			-- solid, dome firm, the rings frozen together at the dome's own edge as one
+			-- steady outline -- the motion stopping is the "you are on it" tell now that
+			-- the colour no longer changes. Same SIZE as idle: it does NOT balloon out
+			-- to the pickup radius (removed on request).
+			entry.core.Transparency = 0.05
+			entry.dome.Transparency = lerp(0.2, 0.1, t)
+			-- Freeze the rings on THIS well's dome edge, not the default one — a heavy
+			-- well's dome is wider (entry.scale, off Config/Weight.auraScale).
 			local frozen = Tuning.AURA_DOME * entry.scale
 			for _, ripple in entry.ripples do
 				ripple.Size = Vector3.new(ripple.Size.X, frozen, frozen)
-				ripple.Color = colour
-				ripple.Transparency = 0.35
+				ripple.Color = coreHue
+				ripple.Transparency = 0.3
 			end
 		else
 			local breathe = 0.5 + 0.5 * math.sin(breatheClock + entry.phase)
 			entry.core.Transparency = 0.22 + breathe * 0.14
-			entry.dome.Transparency = 0.42 + breathe * 0.12
+			entry.dome.Transparency = lerp(0.42, 0.3, t) + breathe * 0.12
 
+			-- A known-cheap well runs one slow ripple; a known-jackpot runs all three
+			-- fast. An UNRESOLVED well keeps all three at base speed -- it must never
+			-- look feebler than the plain blue well it used to be.
 			local count = #entry.ripples
+			local visible = if known then math.clamp(1 + math.round(t * 2), 1, count) else count
+			local speed = if known then lerp(1.0, 1.9, t) else 1.0
+			local rippleProgress = now * Tuning.AURA_PULSE_HZ * speed
 			for i, ripple in entry.ripples do
+				if i > visible then
+					ripple.Transparency = 1
+					continue
+				end
 				-- Each ring runs its own outward sweep, offset so they chase each
 				-- other out of the well. p: 0 at the core, 1 fully expanded. It fades
 				-- IN off the core and OUT again as it reaches the rim (sin curve), so
 				-- what you see is a ring travelling, not a disc filling.
-				local p = (rippleClock + entry.phase / (2 * math.pi) + (i - 1) / count) % 1
+				local p = (rippleProgress + entry.phase / (2 * math.pi) + (i - 1) / visible) % 1
 				local d = 1.0 + (2 * reach - 1.0) * p
 				ripple.Size = Vector3.new(ripple.Size.X, d, d)
-				ripple.Color = GLOW
-				ripple.Transparency = 1 - math.sin(p * math.pi) * 0.5
+				ripple.Color = hue
+				ripple.Transparency = 1 - math.sin(p * math.pi) * (0.5 + 0.2 * t)
 			end
 		end
 	end
