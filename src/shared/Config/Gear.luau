@@ -87,8 +87,12 @@ local Gear = {}
 -- What that costs, stated plainly so nobody re-derives it in six months: max-tier
 -- reveal AREA is 6.8x tier 1, where the old curve was 29x. The Detector track is
 -- therefore a much weaker purchase than its price ladder implies. If that ladder needs
--- to feel earned again, move the value into luck/depth/clarity -- they do not flatten.
+-- to feel earned again, move the value into luck/depth -- they do not flatten.
 -- Do NOT fix it by widening `radius`.
+--
+-- `clarity` IS NOW INERT (on request): the ping shows rarity, modifier and the "1 in N"
+-- odds on every detector regardless (DigService.hintFor). The column is left here at
+-- its old values so a repurpose -- or a re-gate -- does not start from a blank field.
 Gear.Detector = {
 	{ name = "Bent Coil", price = 0, radius = 13, luck = 1.00, depth = 6, clarity = 0 },
 	{ name = "Scavenger MkI", price = 800, radius = 16, luck = 1.12, depth = 9, clarity = 0 },

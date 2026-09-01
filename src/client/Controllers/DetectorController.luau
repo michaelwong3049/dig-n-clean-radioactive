@@ -17,11 +17,11 @@
 	An aura is one shared part that every player in the server can see, but each
 	player's ROLL for a signal is their own (DigService.rollFor) — signal X can be Rare
 	for you and Common for the next player — so what "it is" cannot live on the shared
-	part. The BLIP is where the per-player reading gets to live, because the blip is
-	drawn from a payload only this client receives. The rarity colour itself is no
-	longer clarity-gated; what the detector upgrade still buys is the "1 in N" odds and
-	the modifier on the ping (DigService.hintFor, >= 3). Delete the scope and that
-	readout loses its home. It WAS deleted for one pass and should not have been; back.
+	part. The BLIP (and the haul panel) is where the per-player reading gets to live,
+	because both are drawn from a payload only this client receives: the rarity, and now
+	the "1 in N" odds too. None of it is clarity-gated any more (DigService.hintFor).
+	Delete the scope and that readout loses its home. It WAS deleted for one pass and
+	should not have been; back.
 
 	IT IS IN THE BOTTOM-RIGHT CORNER NOW, ALONE, NOT IN THE INSTRUMENT BAND. It used to
 	sit beside the dig button in the middle of the dock, which put a 180px dial in the
@@ -125,9 +125,9 @@ local state = {
 	-- off the well between ticks.
 	contactOrigin = nil :: Vector3?,
 	rarityHint = nil :: string?,
-	-- The nearest signal's authored "1 in N" find-rarity, only sent once the detector's
-	-- clarity clears the same gate that reveals the modifier. Display flavour, nil most
-	-- of the time.
+	-- The nearest signal's "1 in N" find-rarity (Items.shownOdds). Sent on every
+	-- detector now -- the old clarity gate on it is gone. Display flavour; nil only
+	-- when there is no signal in range.
 	oddsHint = nil :: number?,
 	inRange = false,
 	blocked = nil :: string?,
@@ -674,10 +674,10 @@ local function build(): ScreenGui
 	ui.haulStroke = haulStroke
 
 	-- TITLE ROW. What the detector reads about the thing you locked onto: the rarity
-	-- word (always, on any detector now), plus the "1 in N" odds once clarity clears
-	-- the modifier gate (DigService.hintFor, >= 3). Blank only in the rare frame before
-	-- the rarity has resolved -- the "?" beside the bar then carries it. Tinted to the
-	-- rarity colour in step with the panel stroke.
+	-- word and the "1 in N" odds, both on any detector now (DigService.hintFor is no
+	-- longer clarity-gated). Blank only in the rare frame before the rarity has
+	-- resolved -- the "?" beside the bar then carries it. Tinted to the rarity colour
+	-- in step with the panel stroke.
 	ui.haulTitle = UIKit.label(haul, {
 		name = "Title",
 		anchorPoint = Vector2.new(0.5, 0),
@@ -1024,9 +1024,9 @@ local function renderState()
 		local accent = signalColor()
 		ui.haulStroke.Color = accent
 
-		-- The title spells out what the stroke's colour only implies. Rarity word
-		-- always (state.rarityHint), the "1 in N" odds only once clarity clears the
-		-- modifier gate (state.oddsHint) -- exactly what DigService.hintFor sent.
+		-- The title spells out what the stroke's colour only implies: the rarity word
+		-- (state.rarityHint) and the "1 in N" odds (state.oddsHint), both on any
+		-- detector now -- exactly what DigService.hintFor sent.
 		if state.rarityHint then
 			local reads = state.rarityHint
 			if state.oddsHint then

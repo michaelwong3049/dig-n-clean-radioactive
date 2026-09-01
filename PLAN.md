@@ -122,11 +122,11 @@ wash pad's Luck (§6) is a separate number.
 * **Depth range** — deeper items are rarer, and this is the one gate still correlated
 with rarity: a weak detector cannot reveal the deep signals, and the deep signals are
 where the (baseline) rare stuff is buried.
-* **Signal clarity** — the rarity **colour** now shows on every detector, in every
-stage (aura well and radar blip), so you stop hauling Scrap out of the ground. What
-high-tier clarity still buys is the **"1 in N" odds and the modifier** on the ping
-(≥ 3). The colour rides the per-player payload, not the aura — the aura is one shared
-part and each player's roll for a signal is their own.
+* **Signal ping** — the whole ping now shows on every detector, in every stage: the
+rarity **colour** (aura well and radar blip), the rarity word, and the **"1 in N"
+odds** on the haul panel. The old escalating `clarity` gate is gone; the stat is inert
+in Config/Gear pending a repurpose. It all rides the per-player payload, not the aura
+— the aura is one shared part and each player's roll for a signal is their own.
 
 ### Step 2 — Pull
 
