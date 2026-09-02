@@ -5,9 +5,13 @@
 	one shows almost none of them, because PLAN §3.1 escalates by FEEL, not by readout:
 
 	  0-50%   nothing. Clean play, no UI shouting at you.
-	  50-80%  the screen greens at the edges, and the click bed comes up.
-	  80-99%  vision distorts, the world tilts, the meter stops being ignorable.
+	  50-80%  sight starts going green at its edges, and the click bed comes up.
+	  80-99%  vision distorts, the picture tears, the meter stops being ignorable.
 	  100%    blackout.
+
+	THE DAMAGE OVERLAY ITSELF LIVES IN RadFx. It used to be four gradient rectangles
+	right here, which is why it read as UI rather than as dying; that file explains
+	what replaced them and this one just hands it the escalation number.
 
 	ONE COLOUR RULE (PLAN §14): exposure is GREEN, suit failure is WHITE, and they never
 	share a shade. Green means "the meter is filling". White means "your suit is coming
@@ -27,6 +31,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local RadFx = require(script.Parent.Parent.RadFx)
 local Dock = UIKit.Dock
 
 local Hud = {}
@@ -46,12 +51,33 @@ local state = {
 	health = 100,
 	maxHealth = 100,
 	healthBurn = 0,
+	ambient = 0,
+	excess = 0,
 	survivable = -1, -- -1 mirrors DebugService's "never" convention
 	threat = "",
 }
 
 local ui = {}
 local shakeSeed = 0
+
+--- HOW FAR PAST YOUR SUIT'S RATING THIS AIR IS, 0..1. `failing` only ever answers
+--- yes or no, and yes covers both "a stride over the line" and "this stage would
+--- have killed three of you already" — one flag cannot tell a player which of those
+--- they walked into.
+---
+--- No new field on the wire: ExposureState already carries `ambient` and `excess`,
+--- and Radiation.resolve defines excess as ambient minus suit tolerance, so the
+--- tolerance is just their difference and the ratio falls out. Divided by three
+--- because three times your own tolerance is comfortably past any argument about
+--- whether you meant to be here — a Rubber Suit reaches it in the Exclusion Belt,
+--- which is exactly the walk this is meant to punish.
+local function overTier(): number
+	if state.excess <= 0 then
+		return 0
+	end
+	local tolerance = math.max(state.ambient - state.excess, 0.5)
+	return math.clamp(state.excess / tolerance / 3, 0, 1)
+end
 
 local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
@@ -74,30 +100,6 @@ end
 
 -- ── Build ───────────────────────────────────────────────────────────
 
---- Four gradient edges standing in for a vignette. No image asset needed, and it
---- tints per state, which a baked PNG could not.
-local function edge(parent: Instance, name: string, size: UDim2, position: UDim2, rotation: number): Frame
-	local frame = Instance.new("Frame")
-	frame.Name = name
-	frame.Size = size
-	frame.Position = position
-	frame.BackgroundColor3 = GREEN
-	frame.BackgroundTransparency = 1
-	frame.BorderSizePixel = 0
-	frame.ZIndex = 2
-	frame.Parent = parent
-
-	local gradient = Instance.new("UIGradient")
-	gradient.Rotation = rotation
-	gradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	gradient.Parent = frame
-
-	return frame
-end
-
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "RadHud"
@@ -106,13 +108,9 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 100
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Unchanged. Not part of the dock — this is a full-screen tint, not a panel.
-	ui.edges = {
-		edge(gui, "EdgeTop", UDim2.new(1, 0, 0, 190), UDim2.fromScale(0, 0), 270),
-		edge(gui, "EdgeBottom", UDim2.new(1, 0, 0, 190), UDim2.new(0, 0, 1, -190), 90),
-		edge(gui, "EdgeLeft", UDim2.new(0, 260, 1, 0), UDim2.fromScale(0, 0), 180),
-		edge(gui, "EdgeRight", UDim2.new(0, 260, 1, 0), UDim2.new(1, -260, 0, 0), 0),
-	}
+	-- The damage overlay. Not part of the dock — it is the whole screen, under every
+	-- panel (ZIndex 2) and under the blackout curtain, which has to cover it.
+	RadFx.build(gui)
 
 	-- The meter. Bottom-left screen edge, clear of the dig button/dial cluster — it
 	-- shares the dig button's baseline (Dock.INSTRUMENT_BOTTOM) so it still sits in
@@ -296,10 +294,8 @@ local function render(dt: number)
 		intensity = math.max(intensity, 0.65)
 	end
 
-	for _, frame in ui.edges do
-		frame.BackgroundColor3 = colour
-		frame.BackgroundTransparency = 1 - (intensity * 0.62)
-	end
+	local healthFrac = state.health / math.max(state.maxHealth, 1)
+	RadFx.update(dt, intensity, state.failing, healthFrac, overTier())
 
 	ui.fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
 	ui.fill.BackgroundColor3 = colour
@@ -316,7 +312,6 @@ local function render(dt: number)
 	-- HEALTH. Green is exposure's colour and exposure's alone (PLAN §14's one-colour
 	-- rule), so a hurting suit reads amber -> red the same way any other game's HP bar
 	-- would, and only turns white — the ONE white in the game — once failing is real.
-	local healthFrac = state.health / math.max(state.maxHealth, 1)
 	local healthColour = if state.failing then WHITE elseif healthFrac < 0.3 then UIKit.C.red else UIKit.C.amber
 	ui.healthFill.Size = UDim2.fromScale(math.clamp(healthFrac, 0, 1), 1)
 	ui.healthFill.BackgroundColor3 = healthColour
@@ -341,12 +336,16 @@ local function render(dt: number)
 	local character = Players.LocalPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
+		-- Over-tier always sets `failing` (Radiation.resolve: failing = excess > 0), so
+		-- the blind state is never waiting on the rad meter to catch up to it.
 		if frac >= Tuning.EXPOSURE_DANGER or state.failing then
 			shakeSeed += dt * 22
 			local amount = lerp(0, 0.55, math.clamp((frac - Tuning.EXPOSURE_DANGER) / (1 - Tuning.EXPOSURE_DANGER), 0, 1))
 			if state.failing then
 				amount = math.max(amount, 0.3)
 			end
+			-- Out of your depth the camera stops being nudged and starts being shoved.
+			amount = math.max(amount, overTier() * 1.1)
 			humanoid.CameraOffset = Vector3.new(
 				math.sin(shakeSeed * 1.7) * amount,
 				math.sin(shakeSeed * 2.3) * amount * 0.6,
@@ -414,6 +413,8 @@ function Hud.start()
 		state.maxHealth = payload.maxHealth or state.maxHealth
 		state.health = payload.health or state.health
 		state.healthBurn = payload.healthBurn or 0
+		state.ambient = payload.ambient or 0
+		state.excess = payload.excess or 0
 		state.survivable = if payload.survivable ~= nil then payload.survivable else -1
 		state.threat = payload.threat or ""
 	end)

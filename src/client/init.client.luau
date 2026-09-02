@@ -14,7 +14,7 @@ local ORDER = {
 	"FieldController", -- Phase 1: the range ring and the aura pulse; reads DetectorController
 	"StationController", -- Phase 1: base camp — scrub, sell, rack
 	"InventoryController", -- Phase 1: the hotbar and its detail card; reads CarryState + StationController
-	"HudController", -- Phase 2: rad meter, vignette, distortion, blackout
+	"HudController", -- Phase 2: rad meter, the RadFx damage overlay, distortion, blackout
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
 	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState
 	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
