@@ -25,10 +25,17 @@
 	IS NOT HERE note below).
 
 	THE LOOK — the supplied classic-Roblox Gear Store reference. Each tool stall
-	has studded wooden posts, a slatted rear wall, an open counter with a steel cap,
+	has studded posts, a slatted rear wall, an open counter with a steel cap,
 	a shallow hot-pink-and-white striped canopy and matching valance, a tiny rubber
 	duck on the roof, and the floating "Gear Store / Buy Helpful Items!" sign. The
 	Outfitter remains the larger peaked-roof building across the aisle.
+
+	THE LUMBER IS GREY, NOT BROWN. Posts, counters, the Outfitter's walls, roof
+	beams, rear slats and the crates stacked outside all paint from C.shopWood /
+	C.shopWoodLight — a cool neutral grey, so the built structure reads as painted
+	timber and the shop's own accent colour (trim cap, canopy, floor marker, the
+	identity prop) is the only warm thing on the stall. The worn Suit/Boots/Satchel
+	props keep their brown — they're leather goods on display, not part of the stall.
 
 	IDENTITY STILL COMES FROM THE PROP, NOT THE STALL SHAPE. Every stall is the
 	same shape, so the differentiator is still the same big, silhouette-clear
@@ -105,7 +112,7 @@ local Hub = require(script.Parent.Hub)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 15
+local BUILDER_VERSION = 16
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
@@ -230,7 +237,7 @@ local function buildStripedCanopy(parent: Instance, origin: CFrame): number
 			name = "CanopySupport",
 			pos = { 0, y, z },
 			size = { totalWidth, 0.4, 0.5 },
-			color = C.wood,
+			color = C.shopWood,
 			material = "Plastic",
 			studs = true,
 			canCollide = false,
@@ -249,7 +256,7 @@ local function buildSlatWall(parent: Instance, origin: CFrame)
 			name = `BackSlat{index}`,
 			pos = { 0, 0.8 + (index - 1) * 1.2, -10 },
 			size = { 14.8, 0.88, 0.55 },
-			color = C.woodLight,
+			color = C.shopWoodLight,
 			material = "Plastic",
 			studs = true,
 		})
@@ -451,18 +458,18 @@ local function buildIdentityProp(parent: Instance, origin: CFrame, track: string
 	end
 end
 
---- A wood shipping crate: a box with an X of cross-braces on the front face and one
+--- A shipping crate in grey storefront lumber: a box with an X of cross-braces on the front face and one
 --- small coloured item peeking over the rim — the "goods stacked outside the
 --- stall" clutter the reference photo has (crates, a barrel, a boombox) that the
 --- old single-prop stalls didn't.
 local function buildCrateProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "CrateBox", pos = { x, 1.1, z }, size = { 2.2, 2.2, 2.2 }, color = C.wood, material = "Plastic", canCollide = false })
+	build(parent, origin, { name = "CrateBox", pos = { x, 1.1, z }, size = { 2.2, 2.2, 2.2 }, color = C.shopWood, material = "Plastic", canCollide = false })
 	for _, angle in { 35, -35 } do
 		build(parent, origin, {
 			name = "CrateBrace",
 			pos = { x, 1.1, z },
 			size = { 0.25, 2.9, 0.25 },
-			color = C.woodLight,
+			color = C.shopWoodLight,
 			material = "Plastic",
 			rot = Kit.ang(0, 0, angle),
 			canCollide = false,
@@ -471,7 +478,7 @@ local function buildCrateProp(parent: Instance, origin: CFrame, x: number, z: nu
 	build(parent, origin, { name = "CrateGoods", pos = { x, 2.55, z }, size = { 0.9, 0.9, 0.9 }, color = color, material = "Plastic", shape = "Ball", canCollide = false })
 end
 
---- A small open chest: a wood base, a dark metal band, and a lid tilted back on
+--- A small open chest: a grey lumber base, a dark metal band, and a lid tilted back on
 --- a single X-axis rotation so it reads as propped open, plus a spec.color peek of
 --- "contents" — the reference photo's open trunk, and one more piece of "goods
 --- stacked outside the stall" clutter alongside the crate.
@@ -483,9 +490,9 @@ end
 --- pos.z = (z - d/2) - (t/2*sin(-70°) - d/2*cos(-70°)).
 local function buildOpenChestProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
 	local chestHeight = 1.0
-	build(parent, origin, { name = "ChestBase", pos = { x, chestHeight / 2, z }, size = { 1.6, chestHeight, 1.2 }, color = C.wood, material = "Plastic", canCollide = false })
+	build(parent, origin, { name = "ChestBase", pos = { x, chestHeight / 2, z }, size = { 1.6, chestHeight, 1.2 }, color = C.shopWood, material = "Plastic", canCollide = false })
 	build(parent, origin, { name = "ChestBand", pos = { x, chestHeight / 2, z }, size = { 1.7, 0.2, 1.3 }, color = C.hazardBlack, material = "Metal", canCollide = false })
-	build(parent, origin, { name = "ChestLid", pos = { x, 1.59, z - 0.465 }, size = { 1.5, 0.15, 1.1 }, color = C.woodLight, material = "Plastic", rot = Kit.ang(-70, 0, 0), canCollide = false })
+	build(parent, origin, { name = "ChestLid", pos = { x, 1.59, z - 0.465 }, size = { 1.5, 0.15, 1.1 }, color = C.shopWoodLight, material = "Plastic", rot = Kit.ang(-70, 0, 0), canCollide = false })
 	build(parent, origin, { name = "ChestGlow", pos = { x, 1.1, z - 0.15 }, size = { 0.7, 0.35, 0.5 }, color = color, material = "SmoothPlastic", shape = "Ball", canCollide = false })
 end
 
@@ -503,8 +510,9 @@ export type CounterSpec = {
 	studded: boolean?,
 }
 
---- The wood counter desk — the interactive part — with a coloured trim cap on
---- top. Returns the desk so the caller can billboard it. `material` defaults to
+--- The counter desk — the interactive part — in grey storefront lumber
+--- (C.shopWood) with a coloured trim cap on top in the shop's own accent.
+--- Returns the desk so the caller can billboard it. `material` defaults to
 --- "Wood" (the Outfitter's own look); the plaza stalls pass "Plastic" instead,
 --- since Roblox's stud-bump texture only renders on Plastic, and that studded
 --- look is the whole point of the reskin.
@@ -520,7 +528,7 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 		name = "Counter",
 		pos = { 0, 1.1, z },
 		size = { w, 2.2, d },
-		color = C.wood,
+		color = C.shopWood,
 		material = spec.material or "Wood",
 		studs = spec.studded,
 		attributes = attrs,
@@ -585,7 +593,7 @@ local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number,
 		name = "RoofRidge",
 		pos = { 0, ridgeY, centerZ },
 		size = { width, 1.1, 1.1 },
-		color = C.wood,
+		color = C.shopWood,
 		material = mat,
 		shape = "Cylinder",
 		rot = R.cylAlongX,
@@ -624,8 +632,9 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		canCollide = false,
 	})
 
-	-- Four chunky wood posts holding the roof up. Square-cut lumber, not round
-	-- logs — the reference photo's posts read as sawn beams, and Block needs no
+	-- Four chunky posts holding the roof up, in grey storefront lumber
+	-- (C.shopWood). Square-cut, not round logs — the reference photo's posts read
+	-- as sawn beams, and Block needs no
 	-- rot (unlike Cylinder, whose long axis is local X and needs R.cylUp to
 	-- stand it upright) since a Block's size is already literal {X,Y,Z}.
 	-- Plastic, not Wood: Roblox's stud-bump texture only renders on Plastic
@@ -648,7 +657,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 				name = "Post",
 				pos = { dx, postHeight / 2, dz },
 				size = { POST_SIZE, postHeight, POST_SIZE },
-				color = C.wood,
+				color = C.shopWood,
 				material = "Plastic",
 				shape = "Block",
 				studs = true,
@@ -723,9 +732,9 @@ local function buildOutfitter(parent: Instance)
 
 	-- Back wall and two side walls. Open at the front (+Z, facing the camp
 	-- gate) -- that's the doorway, not a fourth wall.
-	build(m, origin, { name = "BackWall", pos = { 0, wallHeight / 2, -halfDepth }, size = { width, wallHeight, 0.6 }, color = C.wood, material = "Wood" })
+	build(m, origin, { name = "BackWall", pos = { 0, wallHeight / 2, -halfDepth }, size = { width, wallHeight, 0.6 }, color = C.shopWood, material = "Wood" })
 	for _, dx in { -width / 2, width / 2 } do
-		build(m, origin, { name = "SideWall", pos = { dx, wallHeight / 2, 0 }, size = { 0.6, wallHeight, halfDepth * 2 }, color = C.wood, material = "Wood" })
+		build(m, origin, { name = "SideWall", pos = { dx, wallHeight / 2, 0 }, size = { 0.6, wallHeight, halfDepth * 2 }, color = C.shopWood, material = "Wood" })
 	end
 
 	local ridgeY = buildGableRoof(m, origin, 0, wallHeight, halfDepth, 4, width + 2, C.shopOutfitter)
