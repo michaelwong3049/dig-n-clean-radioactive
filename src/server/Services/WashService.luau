@@ -93,6 +93,9 @@ type Session = {
 	hose: Model?,
 	parked: Model?,
 	line: Beam?,
+	-- The line's CurveSize pair as it was PARKED, packed into a Vector2 (X = 0, Y = 1)
+	-- so it is one field rather than two. Restored on the way out.
+	parkedCurve: Vector2?,
 	spraying: boolean,
 	patchIndex: number?,
 	elapsed: number,
@@ -217,6 +220,14 @@ local function takeHose(player: Player, session: Session)
 	local line = if reel then reel:FindFirstChildOfClass("Beam") else nil
 	local hoseEnd = core:FindFirstChild("HoseEnd")
 	if line and hoseEnd and hoseEnd:IsA("Attachment") then
+		-- Remember the parked sag before swapping in the held one. A Beam's CurveSize
+		-- is an absolute stud distance rather than a fraction of the span, so the
+		-- eight-stud run to a player's hand and the three-stud run to the pump cap
+		-- need different numbers -- both of which build/Plots.buildHoseRig owns, one
+		-- as the property and one as an attribute beside it.
+		session.parkedCurve = Vector2.new(line.CurveSize0, line.CurveSize1)
+		line.CurveSize0 = (line:GetAttribute("HeldCurve0") :: number?) or line.CurveSize0
+		line.CurveSize1 = (line:GetAttribute("HeldCurve1") :: number?) or line.CurveSize1
 		line.Attachment1 = hoseEnd
 		session.line = line
 	end
@@ -241,12 +252,16 @@ local function stowHose(session: Session)
 		local hoseEnd = if core then core:FindFirstChild("HoseEnd") else nil
 		if line and line.Parent and hoseEnd and hoseEnd:IsA("Attachment") then
 			line.Attachment1 = hoseEnd
+			local curve = session.parkedCurve
+			if curve then
+				line.CurveSize0, line.CurveSize1 = curve.X, curve.Y
+			end
 		end
 	end
 	if session.hose then
 		session.hose:Destroy()
 	end
-	session.hose, session.parked, session.line = nil, nil, nil
+	session.hose, session.parked, session.line, session.parkedCurve = nil, nil, nil, nil
 end
 
 -- ── The session ────────────────────────────────────────────────────────
@@ -452,6 +467,7 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		hose = nil,
 		parked = nil,
 		line = nil,
+		parkedCurve = nil,
 		spraying = false,
 		patchIndex = nil,
 		elapsed = 0,

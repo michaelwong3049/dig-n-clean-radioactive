@@ -513,25 +513,43 @@ end
 local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	local pad = Plots.PAD
 
-	-- BEHIND THE PLAYER'S MARK AND OFF TO THE CAMERA'S SIDE. WashSpot is at
-	-- (0, cz - 6) and the wash camera sits out at x = -13, so a pump at negative x a
-	-- few studs further back sits in the near-left of that shot: the hose then runs
-	-- diagonally across open frame into the player's hands instead of being hidden
-	-- behind their own body, which is what a pump on the far side would have done.
-	-- Nowhere near the wash pad at (18, 18) or the display columns at x = +/-25.
-	local px, pz = -4.6, cz - 9.5
+	-- EIGHT STUDS BEHIND THE PLAYER'S MARK, AND JUST PAST IT IN DEPTH. WashSpot is at
+	-- (0, cz - 6) and the wash camera sits out at local x = -13 looking across, so the
+	-- shot's depth axis is x and its horizontal axis is z. That makes the placement
+	-- almost entirely a framing decision:
+	--
+	--   z    how far back along the hose's run, which is screen-LEFT of the player.
+	--        Eight studs, because three (the first attempt) plus a little slack is a
+	--        shower attachment, and the brief was a long green line trailing away.
+	--   x    depth. The first attempt put the pump at x = -5, on the CAMERA's side --
+	--        which dropped it to about 8 studs from the lens against the player's 13,
+	--        and at that depth "eight studs back" is far enough sideways to fall off
+	--        the edge of the frame entirely. Slightly POSITIVE keeps it at roughly the
+	--        player's own depth, where the same eight studs is a comfortable distance
+	--        into open frame, and puts the hose's run on the far side of the player
+	--        rather than between them and the camera.
+	--
+	-- +3.5 rather than 0 also keeps the pump off the straight walk-up line from the
+	-- front of the pad to the tub. Clear of everything else by a wide margin: the wash
+	-- pad is at (18, 18), the display columns at x = +/-25, the stand rows at
+	-- z = 15/5/-5/-15, and the plot spawn at z = -18.
+	local px, pz = 3.5, cz - 14
 
+	-- TALL AND NARROW, so the reel bolted to its side reads as a smaller wheel on a
+	-- bigger box. The first version was a squat 2.6-high crate with a 3.2-wide reel
+	-- across it, and the reel simply swallowed it: what rendered was one pale steel
+	-- disc lying on the tiles with a sliver of green behind, which reads as a barrel.
 	build(parent, origin, {
 		name = "HosePump",
-		pos = { px, pad.topY + 1.3, pz },
-		size = { 2.2, 2.6, 1.8 },
+		pos = { px, pad.topY + 1.6, pz },
+		size = { 2.4, 3.2, 2.0 },
 		color = C.steelDark,
 		material = "Metal",
 	})
-	build(parent, origin, { name = "PumpCap", pos = { px, pad.topY + 2.75, pz }, size = { 2.4, 0.3, 2.0 }, color = C.steel, material = "Metal" })
+	build(parent, origin, { name = "PumpCap", pos = { px, pad.topY + 3.35, pz }, size = { 2.6, 0.3, 2.2 }, color = C.steel, material = "Metal" })
 	build(parent, origin, {
 		name = "PumpGauge",
-		pos = { px, pad.topY + 2.0, pz - 0.95 },
+		pos = { px, pad.topY + 2.6, pz - 1.05 },
 		size = { 0.16, 0.8, 0.8 },
 		color = C.hazard,
 		material = "SmoothPlastic",
@@ -541,42 +559,50 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	})
 
 	-- THE DRUM IS THE ONLY THING THAT SAYS THE HOSE IS LONG. The Beam below draws
-	-- exactly one span — reel to nozzle, a few studs — and a hose that is only ever a
-	-- few studs long is a shower attachment. A visibly wound drum is where the rest of
-	-- it is, and it costs four parts.
+	-- exactly one span — reel to nozzle — and a hose that is only ever a few studs
+	-- long is a shower attachment. A visibly wound drum is where the rest of it is.
 	--
 	-- HUNG OFF THE PUMP'S -X FACE, WHICH IS THE ONE THE WASH CAMERA IS ON (WashCam
-	-- sits out at x = -13). A reel is only legible face-on: from the side it is a
-	-- green cylinder, and from the front it is two steel discs with wound hose showing
-	-- between them. Mounting it on top would also have put it straight through the
-	-- parked nozzle, which sits on the cap.
-	local rx = px - 1.25
-	local ry = pad.topY + 1.7
+	-- sits out at x = -13). A reel is only legible face-on: side-on it is just a green
+	-- cylinder. Mounting it on top would also have put it through the parked nozzle.
+	--
+	-- SMALL STEEL HUBS, NOT FLANGES, and this is the second thing that went wrong
+	-- here. A real reel's flanges are wider than the drum — but a Cylinder part cannot
+	-- be a ring, so a wide flange is a SOLID disc that occludes the entire drum from
+	-- exactly the one angle the reel is legible from. Two passes of shrinking the
+	-- margin (3.2 against 2.6, then 2.3 against 2.0) both produced the same picture:
+	-- a pale steel plate with a rim of green behind it. So the geometry gives up on
+	-- being correct and goes for being READABLE: the green drum is the widest thing,
+	-- with a small steel hub capping each end, which is what a spool of wound hose
+	-- actually looks like from the front.
+	local rx = px - 1.55
+	local ry = pad.topY + 1.9
 	local reel = build(parent, origin, {
 		name = "HoseReel",
 		pos = { rx, ry, pz },
-		size = { 0.9, 2.6, 2.6 },
+		size = { 1.0, 2.4, 2.4 },
 		color = C.hoseGreen,
 		material = "SmoothPlastic",
 		shape = "Cylinder",
 		canCollide = false,
 	})
-	-- A narrower dark band around the same axis: two tones on the drum read as coils
-	-- wound over each other, where one flat colour reads as a painted spool.
+	-- A narrower dark band on the same axis: face-on that is a dark green disc inside
+	-- a lighter green ring, which reads as coils wound over each other. One flat
+	-- colour reads as a painted spool.
 	build(parent, origin, {
 		name = "HoseCoil",
 		pos = { rx, ry, pz },
-		size = { 0.96, 2.0, 2.0 },
+		size = { 1.06, 1.7, 1.7 },
 		color = C.hoseGreenDark,
 		material = "SmoothPlastic",
 		shape = "Cylinder",
 		canCollide = false,
 	})
-	for _, side in { -0.55, 0.55 } do
+	for _, side in { -0.56, 0.56 } do
 		build(parent, origin, {
-			name = "ReelFlange",
+			name = "ReelHub",
 			pos = { rx + side, ry, pz },
-			size = { 0.16, 3.2, 3.2 },
+			size = { 0.14, 0.9, 0.9 },
 			color = C.steel,
 			material = "Metal",
 			shape = "Cylinder",
@@ -585,8 +611,8 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	end
 	build(parent, origin, {
 		name = "ReelAxle",
-		pos = { px - 0.5, ry, pz },
-		size = { 1.6, 0.34, 0.34 },
+		pos = { px - 0.9, ry, pz },
+		size = { 1.5, 0.3, 0.3 },
 		color = C.steelDark,
 		material = "Metal",
 		shape = "Cylinder",
@@ -604,7 +630,11 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	-- the plot's here: the drum is a Cylinder in its native, unrotated orientation.
 	local anchor = Instance.new("Attachment")
 	anchor.Name = "HoseAnchor"
-	anchor.CFrame = CFrame.lookAt(Vector3.new(0, -1.1, 1.0), Vector3.new(0, -3.0, 3.0))
+	-- Shallow: mostly toward the tub, only a little downward. The attachment sits at
+	-- y = 0.95 above the pad and the held CurveSize is 5, so anything steeper than
+	-- about 10 degrees throws the control point through the floor the pump is standing
+	-- on and the slack loop dips underground.
+	anchor.CFrame = CFrame.lookAt(Vector3.new(0, -0.95, 0.8), Vector3.new(0, -1.55, 4.8))
 	anchor.Parent = reel
 
 	-- ── The nozzle ────────────────────────────────────────────────────
@@ -615,10 +645,9 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	local hose = Instance.new("Model")
 	hose.Name = "Hose"
 
-	-- Resting on the pump cap (its top face is at pad.topY + 2.9), nudged forward so
-	-- the brass end overhangs the front edge rather than the tube burying itself in
-	-- the reel behind it.
-	local nx, ny, nz = px, pad.topY + 3.2, pz - 0.2
+	-- Resting on the pump cap (its top face is at pad.topY + 3.5), nudged forward so
+	-- the brass end overhangs the front edge rather than burying itself in the cap.
+	local nx, ny, nz = px, pad.topY + 3.78, pz - 0.2
 
 	-- THE PRIMARY PART IS AN INVISIBLE, UNROTATED BLOCK, and that is deliberate. The
 	-- visible tube is a Cylinder, whose native axis is X and which therefore has to be
@@ -637,11 +666,11 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	})
 
 	local shell = {
-		{ name = "NozzleBody", pos = { nx, ny, nz + 0.15 }, size = { 1.5, 0.55, 0.55 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Cylinder", rot = Kit.R.cylAlongZ },
-		{ name = "NozzleGrip", pos = { nx, ny - 0.48, nz + 0.5 }, size = { 0.34, 0.78, 0.44 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Block", rot = Kit.R.flat },
-		{ name = "NozzleCollar", pos = { nx, ny, nz + 0.95 }, size = { 0.36, 0.72, 0.72 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.cylAlongZ },
-		{ name = "NozzleTaper", pos = { nx, ny, nz - 0.85 }, size = { 0.85, 0.42, 0.42 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.cylAlongZ },
-		{ name = "NozzleTip", pos = { nx, ny, nz - 1.3 }, size = { 0.18, 0.54, 0.54 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.cylAlongZ },
+		{ name = "NozzleBody", pos = { nx, ny, nz + 0.15 }, size = { 1.7, 0.68, 0.68 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Cylinder", rot = Kit.R.cylAlongZ },
+		{ name = "NozzleGrip", pos = { nx, ny - 0.55, nz + 0.55 }, size = { 0.4, 0.9, 0.5 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Block", rot = Kit.R.flat },
+		{ name = "NozzleCollar", pos = { nx, ny, nz + 1.05 }, size = { 0.4, 0.86, 0.86 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.cylAlongZ },
+		{ name = "NozzleTaper", pos = { nx, ny, nz - 0.95 }, size = { 0.95, 0.52, 0.52 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.cylAlongZ },
+		{ name = "NozzleTip", pos = { nx, ny, nz - 1.45 }, size = { 0.2, 0.66, 0.66 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.cylAlongZ },
 	}
 	for _, spec in shell do
 		local part = build(hose, origin, {
@@ -670,12 +699,12 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 
 	local muzzle = Instance.new("Attachment")
 	muzzle.Name = "Muzzle"
-	muzzle.CFrame = CFrame.new(0, 0, -1.45)
+	muzzle.CFrame = CFrame.new(0, 0, -1.6)
 	muzzle.Parent = core
 
 	local hoseEnd = Instance.new("Attachment")
 	hoseEnd.Name = "HoseEnd"
-	hoseEnd.CFrame = CFrame.new(0, 0, 1.15)
+	hoseEnd.CFrame = CFrame.new(0, 0, 1.3)
 	hoseEnd.Parent = core
 
 	-- Darker at both ends than in the middle. It is not real cylinder shading — a Beam
@@ -687,15 +716,30 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	beam.Name = "HoseLine"
 	beam.Attachment0 = anchor
 	beam.Attachment1 = hoseEnd
-	beam.Width0 = 0.46
-	beam.Width1 = 0.38
+	-- Fat. A fire hose is a thick, heavy thing and a thin ribbon reads as cable; this
+	-- is roughly the diameter of the nozzle it feeds into, which is what stops the two
+	-- looking like different objects joined by a wire.
+	beam.Width0 = 0.62
+	beam.Width1 = 0.5
 	-- Slack, not tension. Positive out of the reel throws the loop the way HoseAnchor
 	-- is aimed (down and toward the tub); NEGATIVE into the nozzle throws the other
 	-- control point BACKWARD from HoseEnd, whose LookVector is the direction the
 	-- nozzle is pointing — so the line arrives from behind the player's hand rather
 	-- than curling around in front of it. That pair is the whole shape of the hose.
-	beam.CurveSize0 = 3
-	beam.CurveSize1 = -3.5
+	--
+	-- TWO SETS OF NUMBERS, BECAUSE THE TWO STATES ARE NOT THE SAME SHAPE. A Bezier's
+	-- control points are absolute distances, not fractions of the span, so one pair
+	-- cannot serve both: the held run is eight-plus studs and wants a long lazy sag,
+	-- while the parked run is barely three studs from the drum up to the cap, and the
+	-- held numbers on THAT threw the line out sideways into the tiles — the parked
+	-- hose looked broken. The properties carry the parked pair; WashService reads the
+	-- attributes when it hands the nozzle over and puts the parked pair back after.
+	-- Both live here, in the builder, next to the geometry they are measured against,
+	-- exactly like the HoldCFrame and ClosedPivot/OpenPivot attributes elsewhere.
+	beam.CurveSize0 = 1.4
+	beam.CurveSize1 = -1.4
+	beam:SetAttribute("HeldCurve0", 5)
+	beam:SetAttribute("HeldCurve1", -6)
 	beam.Segments = 24
 	beam.FaceCamera = true
 	beam.Color = ColorSequence.new({
