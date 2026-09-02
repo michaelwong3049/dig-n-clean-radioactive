@@ -69,7 +69,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 12
+local BUILDER_VERSION = 13
 
 local C = Kit.C
 local build = Kit.build
@@ -91,20 +91,29 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 --- rest of the courtyard, only a different palette, so it reads as a marked-out
 --- gathering floor rather than a raised platform (no step, footing is unchanged).
 ---
---- IT IS A NORTH-SOUTH SPINE, NOT A RECTANGLE IN THE PLAZA. Its WIDTH is a fraction of
---- the plaza east-west (frac 0.76, ~123 studs), centred on the plaza's own X midpoint,
---- leaving a wide green margin on the shop sides. Its LENGTH is not the plaza's -- it
---- runs past the plaza's own north and south edges out onto the apron and stops level
---- with the Camp -> Stage 1 hazard border (SPINE_HALF_Z, read from the same
---- `Stages.bounds` that border uses), so the grey strip and the yellow line end on the
---- same latitude. buildPlaza paints its plaza stretch; Plots.buildApron paints the rest
---- on the one shared grid, so the two halves read as a single strip.
+--- IT IS A ROUGHLY-SQUARE PAD, NOT A NARROW STRIP. Its WIDTH starts from a fraction of
+--- the plaza east-west (frac 0.76, ~125 studs) centred on the plaza's own X midpoint,
+--- and is then pushed a further PAD_WEST_EXTEND studs out on the WEST side only -- the
+--- side away from the radioactive field -- so the band reads as square-ish against its
+--- ~200-stud length instead of a long north-south corridor. The east edge stays put
+--- where it meets the field margin. Its LENGTH is not the plaza's -- it runs past the
+--- plaza's own north and south edges out onto the apron and stops level with the
+--- Camp -> Stage 1 hazard border (SPINE_HALF_Z, read from the same `Stages.bounds` that
+--- border uses), so the grey pad and the yellow line end on the same latitude.
+--- buildPlaza paints its plaza stretch; Plots.buildApron paints the rest on the one
+--- shared grid, so the two halves read as a single surface.
 ---
 --- The two greys are a dark charcoal, a good step below the plaza's own greens in value
 --- and colour both, so the spine reads as a distinct surface rather than a decoloured
 --- patch of the same board. They hold the same ~1.2x light/dark ratio the plaza pair
 --- has, so the checker pattern itself reads identically, just darker.
 local PAD_FRAC_X = 0.76
+--- Extra width added to the WEST edge of the band only (the side away from the
+--- radioactive field). The PAD_FRAC_X band alone is ~125 studs east-west but the spine
+--- runs ~200 north-south, so it read as a long corridor rather than the roughly-square
+--- gathering floor it's meant to be. Pushing only the west edge widens it toward square
+--- while leaving the east edge on the field-margin line it already sat on.
+local PAD_WEST_EXTEND = 36
 local PAD_DARK = "3D3F42"
 local PAD_LIGHT = "494B50"
 --- Half the spine's north-south length. Stage 1 (like every stage) is 200 studs deep
@@ -166,18 +175,19 @@ local SPINE_CORNER_CUT = 16
 Hub.PLAZA = { minX = -65, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = -1.5 }
 Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
 
---- Is (x, z) inside the grey central spine? See PAD_FRAC_X (width) and SPINE_HALF_Z
---- (length): a plain rectangle, `PAD_FRAC_X` of the plaza wide, centred on the plaza's
---- own X midpoint and on z = 0, ending at +/-SPINE_HALF_Z (level with the Camp -> Stage 1
---- hazard border). The four corners are eased separately, by `buildSpineCorners` laying
---- a green plate over each -- not here -- so this stays a clean rectangle test both
---- callers can agree on to the stud. Exported because Plots.buildApron carries the same
---- band on past the plaza's north and south edges.
+--- Is (x, z) inside the grey central pad? See PAD_FRAC_X / PAD_WEST_EXTEND (width) and
+--- SPINE_HALF_Z (length): a plain rectangle, `PAD_FRAC_X` of the plaza wide about the
+--- plaza's own X midpoint then extended `PAD_WEST_EXTEND` further west, on z = 0, ending
+--- at +/-SPINE_HALF_Z (level with the Camp -> Stage 1 hazard border). The four corners
+--- are eased separately, by `buildSpineCorners` laying a green plate over each -- not
+--- here -- so this stays a clean rectangle test both callers can agree on to the stud.
+--- Exported because Plots.buildApron carries the same band on past the plaza's north and
+--- south edges.
 function Hub.inPad(x: number, z: number): boolean
 	local p = Hub.PLAZA
 	local cx = (p.minX + p.maxX) / 2
 	local halfWidth = (p.maxX - p.minX) / 2 * PAD_FRAC_X
-	return math.abs(x - cx) < halfWidth and math.abs(z) < SPINE_HALF_Z
+	return x < cx + halfWidth and x > cx - halfWidth - PAD_WEST_EXTEND and math.abs(z) < SPINE_HALF_Z
 end
 
 -- ── The floor ─────────────────────────────────────────────────────────────────
@@ -432,9 +442,13 @@ local function buildSpineCorners(hub: Model)
 	local centreFromCorner = Vector3.new(leg / 2, 0, -leg / 2)
 
 	-- (sx, sz) picks the corner; yaw turns the right-angle to face the spine's interior.
+	-- The west edge (sx = -1) is PAD_WEST_EXTEND further out than the east — see Hub.inPad.
 	for _, k in { { sx = -1, sz = 1, yaw = 0 }, { sx = 1, sz = 1, yaw = 90 }, { sx = 1, sz = -1, yaw = 180 }, { sx = -1, sz = -1, yaw = 270 } } do
 		local turn = Kit.ang(0, k.yaw, 0)
-		local corner = Vector3.new(cx + k.sx * (halfWidth + OVERHANG), 0, k.sz * (SPINE_HALF_Z + OVERHANG))
+		local edgeX = if k.sx == 1
+			then cx + halfWidth + OVERHANG
+			else cx - halfWidth - PAD_WEST_EXTEND - OVERHANG
+		local corner = Vector3.new(edgeX, 0, k.sz * (SPINE_HALF_Z + OVERHANG))
 		local centre = corner + turn * centreFromCorner
 		build(hub, CFrame.new(0, 0, 0), {
 			name = "SpineCornerCut",
