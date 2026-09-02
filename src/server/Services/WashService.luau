@@ -76,9 +76,15 @@ local LEASH = 16
 --- How the nozzle sits in the hand. `-Y` is down the arm on both rigs, so rotating
 --- the nozzle's own forward axis (`-Z`, the axis CFrame.lookAt aims down) onto it is
 --- what puts the brass end pointing away from the body rather than into the player's
---- own elbow. Only the first frame and other people's screens ever see this pose --
---- WashController re-aims it at whatever the player is pointing at from then on.
-local HOSE_HOLD = CFrame.new(0, -0.7, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+--- own elbow.
+---
+--- THE OFFSET IS SMALL ON PURPOSE, and it matters more than a first-frame pose
+--- should. WashController pivots the nozzle about wherever this puts it, for the whole
+--- session -- so this is not just the starting look, it is the point the nozzle
+--- ORBITS. At -0.7 the nozzle hung most of a stud below the fist, which dropped the
+--- muzzle under the lip of the tub and put the water into the rim a stud out of the
+--- nozzle. Held at the hand, it swings around the grip like a real one.
+local HOSE_HOLD = CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), 0, 0)
 
 type Session = {
 	uid: string,

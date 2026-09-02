@@ -554,7 +554,8 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 		color = C.hazard,
 		material = "SmoothPlastic",
 		shape = "Cylinder",
-		rot = Kit.R.cylAlongZ,
+		-- yaw90, for the same reason the nozzle uses it -- see the note there.
+		rot = Kit.R.yaw90,
 		canCollide = false,
 	})
 
@@ -665,12 +666,21 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 		canCollide = false,
 	})
 
+	-- ROTATION: yaw90, NOT Kit.R.cylAlongZ, WHOSE NAME IS A LIE. A Part's Cylinder
+	-- shape runs along its own local X, and `cylAlongZ` is ang(90, 90, 0) -- which
+	-- composes (XYZ order) to send that X axis to +Y, i.e. it stands the cylinder UP.
+	-- The nozzle built with it hung vertically off the fist while the muzzle attachment
+	-- pointed correctly at the target, so the water came out sideways from a tube that
+	-- was not aimed at anything. `yaw90` is ang(0, 90, 0), which sends X to -Z, which
+	-- is genuinely front-to-back. Left the preset alone rather than corrected: it is
+	-- also used by build/Scenery's tipped barrels, and whatever those look like today
+	-- is not this feature's to change.
 	local shell = {
-		{ name = "NozzleBody", pos = { nx, ny, nz + 0.15 }, size = { 1.7, 0.68, 0.68 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Cylinder", rot = Kit.R.cylAlongZ },
+		{ name = "NozzleBody", pos = { nx, ny, nz + 0.15 }, size = { 1.7, 0.68, 0.68 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Cylinder", rot = Kit.R.yaw90 },
 		{ name = "NozzleGrip", pos = { nx, ny - 0.55, nz + 0.55 }, size = { 0.4, 0.9, 0.5 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Block", rot = Kit.R.flat },
-		{ name = "NozzleCollar", pos = { nx, ny, nz + 1.05 }, size = { 0.4, 0.86, 0.86 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.cylAlongZ },
-		{ name = "NozzleTaper", pos = { nx, ny, nz - 0.95 }, size = { 0.95, 0.52, 0.52 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.cylAlongZ },
-		{ name = "NozzleTip", pos = { nx, ny, nz - 1.45 }, size = { 0.2, 0.66, 0.66 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.cylAlongZ },
+		{ name = "NozzleCollar", pos = { nx, ny, nz + 1.05 }, size = { 0.4, 0.86, 0.86 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
+		{ name = "NozzleTaper", pos = { nx, ny, nz - 0.95 }, size = { 0.95, 0.52, 0.52 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
+		{ name = "NozzleTip", pos = { nx, ny, nz - 1.45 }, size = { 0.2, 0.66, 0.66 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
 	}
 	for _, spec in shell do
 		local part = build(hose, origin, {
@@ -824,9 +834,24 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- a tub, no character, and no hose. A fixed mark is what makes the shot reliable:
 	-- the camera knows where both subjects are because the geometry decided, not the
 	-- player's approach angle.
+
+	-- A RACK TO STAND THE ITEM ON, and it is not decoration. The stand used to sit at
+	-- pad.topY + 2.6, which is exactly the height of the tub rims built above -- so an
+	-- item on it was half sunk behind the near rim, and water arriving from the side
+	-- hit that rim about a stud out of the nozzle instead of reaching the item at all.
+	-- The plate lifts the whole thing clear and gives the float a reason.
+	build(m, origin, {
+		name = "WashRack",
+		pos = { 0, pad.topY + 2.7, cz },
+		size = { 2.6, 0.2, 2.6 },
+		color = C.steelDark,
+		material = "Metal",
+		canCollide = false,
+	})
+
 	local stand = build(m, origin, {
 		name = "WashStand",
-		pos = { 0, pad.topY + 2.6, cz },
+		pos = { 0, pad.topY + 3.5, cz },
 		size = { 1, 1, 1 },
 		color = C.steel,
 		material = "Metal",
@@ -850,7 +875,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	local cam = build(m, origin, {
 		name = "WashCam",
-		pos = { -13, pad.topY + 4.5, cz - 3 },
+		pos = { -13, pad.topY + 5, cz - 3 },
 		size = { 1, 1, 1 },
 		color = C.steel,
 		material = "Metal",
@@ -867,7 +892,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- because Kit.build's rot takes fixed angles and "point at that" stops being a
 	-- fixed angle once the plot's own yaw is applied. `origin` carries it to world
 	-- space like everything else in this function.
-	cam.CFrame = origin * CFrame.lookAt(Vector3.new(-13, pad.topY + 4.5, cz - 3), Vector3.new(0, pad.topY + 3.2, cz - 3))
+	cam.CFrame = origin * CFrame.lookAt(Vector3.new(-13, pad.topY + 5, cz - 3), Vector3.new(0, pad.topY + 3.6, cz - 3))
 
 	-- PRESS E TO WASH, AND PRESS IT AGAIN TO STOP. Always enabled, because a
 	-- ProximityPrompt is one shared instance and cannot be shown to one player and
