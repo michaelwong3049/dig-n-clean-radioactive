@@ -15,8 +15,10 @@
 	white BECAUSE it only ever appears while the suit is failing. Blood is the third
 	colour and it answers to HEALTH, never to rads — see the BLOOD constant.
 
-	EIGHT LAYERS, EACH ARRIVING AT ITS OWN THRESHOLD, so escalation is a sequence
-	rather than one slider being dragged:
+	NINE LAYERS, EACH ARRIVING AT ITS OWN THRESHOLD, so escalation is a sequence
+	rather than one slider being dragged. Eight of them answer to the rad meter, your
+	health, or your suit. The ninth answers to WHERE YOU ARE, and it is the loudest
+	thing in the file — see `over` on update():
 
 	  iris    elliptical rings closing in from beyond the frame. This is the vignette's
 	          replacement — round, and moving. Vision tunnelling, not a border.
@@ -33,13 +35,17 @@
 	          grow while you are actually losing health, which is what separates them
 	          from a decal.
 	  throb   a heartbeat over the whole picture, faster as the meter fills.
+	  veil    the blind layer, and the only one allowed to touch the middle of the
+	          screen. Lit by nothing except standing in air your suit is not rated for:
+	          the iris slams down to a keyhole, the tunnel goes dark, the blur goes to
+	          24, and the answer to "can I sneak one dig in down here" becomes no.
 
 	Plus a colour-correction and blur pass on Lighting. Those instances are created by
 	the CLIENT, so they are this player's sight going — not the world's weather. That
 	is the whole reason exposure can be a personal, per-player state and still be felt
 	across the entire screen.
 
-	COST: ~230 frames, built once, and the container is Visible = false below
+	COST: ~235 frames, built once, and the container is Visible = false below
 	EXPOSURE_WARN — which is most of the time anyone is actually playing. Nothing in
 	here allocates per frame.
 ]]
@@ -56,6 +62,9 @@ local WHITE = UIKit.C.burn
 -- meter green or they read as glowing lights rather than as dead tissue. Same hue,
 -- so the one-colour rule survives: it is still exposure's green, just necrotic.
 local ROT = GREEN:Lerp(Color3.new(0, 0, 0), 0.58)
+-- What blindness is made of. Not pure black: the tunnel keeps a breath of the field's
+-- green in it, so losing your sight still looks like the air did it to you.
+local VOID = GREEN:Lerp(Color3.new(0, 0, 0), 0.9)
 -- BLOOD IS THE ONE COLOUR IN HERE THAT IS NOT ON THE EXPOSURE LADDER, and it is
 -- deliberately not driven by exposure either: it rides on HEALTH. Green is the dose,
 -- white is the suit, red is you — three states that never say the same thing, which
@@ -78,7 +87,7 @@ local TEAR_COUNT = 3
 local ui = {}
 local rings, burns, grains, tears, cracks, impacts = {}, {}, {}, {}, {}, {}
 local splats, bleedRings = {}, {}
-local st = { t = 0, fail = 0, run = 0, live = false, built = false }
+local st = { t = 0, fail = 0, run = 0, over = 0, live = false, built = false }
 
 -- Every pixel measurement in this file is quoted against a 720-tall viewport and
 -- scaled at layout time. Damage that is a fixed number of pixels wide swallows a
@@ -538,8 +547,10 @@ local function layout()
 
 	for _, ring in rings do
 		-- Thick enough that consecutive rings overlap (no banding), thin enough that
-		-- the innermost one still stops well short of the middle.
-		ring.stroke.Thickness = 90 * px
+		-- the innermost one still stops well short of the middle. Blindness swells it
+		-- further at drive time — see update().
+		ring.thickness = 90 * px
+		ring.stroke.Thickness = ring.thickness
 	end
 
 	for _, ring in bleedRings do
@@ -586,6 +597,20 @@ function RadFx.build(parent: Instance)
 	buildBleedRings(root)
 	buildSplats(root)
 	buildGrain(root)
+	-- The veil, built BEFORE the cracks so the fractures stay readable on top of it.
+	-- This is the only layer allowed to darken the middle of the screen, and it is
+	-- capped well short of opaque: blinding a player is the point, blacking them out
+	-- is EXPOSURE_CAP's job and it has its own curtain to do it with.
+	local veil = Instance.new("Frame")
+	veil.Name = "Veil"
+	veil.Size = UDim2.fromScale(1, 1)
+	veil.BackgroundColor3 = VOID
+	veil.BackgroundTransparency = 1
+	veil.BorderSizePixel = 0
+	veil.ZIndex = 4
+	veil.Parent = root
+	ui.veil = veil
+
 	buildCracks(root)
 	layout()
 
@@ -633,9 +658,10 @@ local function sleep()
 end
 
 --- `intensity` is HudController's own 0..1 escalation ramp (0 below EXPOSURE_WARN),
---- `failing` is the suit-failure flag, and `healthFrac` is 0..1 of max HP. Nothing
---- else about exposure belongs here.
-function RadFx.update(dt: number, intensity: number, failing: boolean, healthFrac: number)
+--- `failing` is the suit-failure flag, `healthFrac` is 0..1 of max HP, and `over` is
+--- 0..1 of "how far past your suit's rating this air is" — 0 anywhere you are rated
+--- for, 1 in a stage that should never have let you in. Nothing else belongs here.
+function RadFx.update(dt: number, intensity: number, failing: boolean, healthFrac: number, over: number)
 	if not st.built then
 		return
 	end
@@ -647,12 +673,24 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	local step = if failing then dt / 2.0 else -dt / 0.6
 	st.fail = math.clamp(st.fail + step, 0, 1)
 
-	-- Blood starts at a scratch and is total at a quarter health, and a failing suit
-	-- forces it regardless: whatever your bar says, something has opened up.
-	local bleed = math.clamp((0.75 - healthFrac) / 0.5, 0, 1)
-	bleed = math.max(bleed, st.fail * 0.9)
+	-- Eased, not snapped, and it lifts faster than it lands: walking one step across
+	-- a stage boundary must not strobe the whole screen, but a player who turns and
+	-- runs has to be able to SEE that retreating is working, immediately.
+	local want = math.clamp(over, 0, 1)
+	if want > st.over then
+		st.over = math.min(want, st.over + dt / 1.1)
+	else
+		st.over = math.max(want, st.over - dt / 0.45)
+	end
 
-	if intensity < 0.002 and st.fail < 0.002 and bleed < 0.002 then
+	-- Blood starts at a scratch and is total at a quarter health.
+	local bleed = math.clamp((0.75 - healthFrac) / 0.5, 0, 1)
+	-- A failing suit opens you up whatever the health bar still says — but by HOW far
+	-- past your rating you are, not flat. A stride over the line is a nosebleed; three
+	-- times your tolerance is every splat this file owns, at full health, immediately.
+	bleed = math.max(bleed, st.fail * (0.3 + 0.65 * st.over))
+
+	if intensity < 0.002 and st.fail < 0.002 and bleed < 0.002 and st.over < 0.002 then
 		st.run = 0
 		sleep()
 		return
@@ -666,23 +704,42 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	end
 
 	local fail = st.fail
+	-- BLIND. Being somewhere your suit cannot hold is not a worse version of a high
+	-- meter, it is a different sentence: the air itself is past what you are rated
+	-- for, and the game says so by taking your sight rather than by adding another
+	-- number. Every layer below reads this, which is why one stage too deep does not
+	-- look like 99% rads — it looks like you cannot see.
+	local blind = st.over
 	local tint = GREEN:Lerp(WHITE, fail)
+	-- THE BLIND TUNNEL IS DARK, NOT WHITE. Over-tier forces `failing`, which takes
+	-- the iris white, and a white iris at blinding strength reads as fog on the lens
+	-- — a milky screen you assume is a bug. Sight closing down is dark. It also keeps
+	-- white doing its one job: the cracks are the only white thing left, and they now
+	-- have something to be white against.
+	local irisColour = tint:Lerp(VOID, blind * 0.88)
 	local rot = ROT:Lerp(WHITE, fail * 0.45)
 	-- One breath under everything, so the layers move together instead of each
 	-- animating on its own private clock.
 	local breath = 0.5 + 0.5 * math.sin(st.t * (1.1 + intensity * 1.6))
 
 	-- Iris ------------------------------------------------------------
-	local close = 1 - intensity * 0.14 - fail * 0.05 - breath * 0.012
+	local close = 1 - intensity * 0.14 - fail * 0.05 - blind * 0.46 - breath * 0.012
 	for _, ring in rings do
 		local span = ring.span * close
 		ring.frame.Size = UDim2.fromScale(span, span)
-		ring.stroke.Color = tint
+		ring.stroke.Color = irisColour
+		-- Twelve discrete rings at blinding opacity show their own edges as concentric
+		-- banding. Swelling each stroke makes neighbours overlap deeply enough that
+		-- the seams close, which is cheaper than owning more rings.
+		ring.stroke.Thickness = ring.thickness * (1 + blind * 1.4)
 		-- `reach` gates the inner rings: at half dose only the outer ones are lit, so
 		-- the clear middle of the screen shrinks as the meter fills.
 		local depth = math.clamp((intensity - ring.reach * 0.85) / 0.3, 0, 1)
 		local alpha = ring.weight * depth * (0.085 + 0.03 * breath) * (0.55 + 0.45 * intensity)
 		alpha = math.max(alpha, ring.weight * fail * 0.07)
+		-- Blindness lights the INNER rings too (the plain weight curve barely does),
+		-- so what closes in is a tunnel with a hard rim rather than a soft edge.
+		alpha = math.max(alpha, (0.35 + 0.65 * ring.weight) * blind * 0.3)
 		ring.stroke.Transparency = 1 - math.clamp(alpha, 0, 1)
 	end
 
@@ -715,7 +772,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	end
 
 	-- Grain -----------------------------------------------------------
-	local grainChance = math.clamp((intensity - 0.12) * 0.55 + fail * 0.4, 0, 1)
+	local grainChance = math.clamp((intensity - 0.12) * 0.55 + fail * 0.4 + blind * 0.9, 0, 1)
 	for _, grain in grains do
 		grain.life -= dt
 		if grain.life <= 0 then
@@ -737,11 +794,11 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	end
 
 	-- Tear ------------------------------------------------------------
-	local tearing = intensity > 0.45 or fail > 0.2
+	local tearing = intensity > 0.45 or fail > 0.2 or blind > 0.12
 	for _, tear in tears do
 		tear.life -= dt
 		if tear.life <= 0 then
-			if tearing and rng:NextNumber() < 0.035 + intensity * 0.06 then
+			if tearing and rng:NextNumber() < 0.035 + intensity * 0.06 + blind * 0.2 then
 				tear.span = 0.04 + rng:NextNumber() * 0.14
 				tear.life = tear.span
 				tear.frame.Position = UDim2.fromScale((rng:NextNumber() - 0.5) * 0.08, rng:NextNumber())
@@ -812,20 +869,25 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	end
 
 	-- Throb -----------------------------------------------------------
-	local rate = 1.0 + intensity * 1.9 + fail * 0.8
+	local rate = 1.0 + intensity * 1.9 + fail * 0.8 + blind * 1.6
 	local beat = (0.5 + 0.5 * math.sin(st.t * rate * math.pi * 2)) ^ 6
 	ui.throb.BackgroundColor3 = tint
-	ui.throb.BackgroundTransparency = 1 - beat * (0.035 * intensity + 0.06 * fail)
+	ui.throb.BackgroundTransparency = 1 - beat * (0.035 * intensity + 0.06 * fail + 0.07 * blind)
+
+	-- Veil ------------------------------------------------------------
+	ui.veil.BackgroundTransparency = 1 - blind * (0.66 + 0.06 * beat)
 
 	-- Lighting --------------------------------------------------------
 	-- Green sight failing, then bleaching WHITE as the suit goes — the same two-state
 	-- colour story the meter and the blackout curtain tell, told on the world instead.
 	local sick = Color3.new(1, 1, 1):Lerp(Color3.fromRGB(150, 235, 120), 0.2 * intensity)
 	ui.colour.TintColor = sick:Lerp(Color3.new(1, 1, 1), fail)
-	ui.colour.Saturation = -0.3 * intensity * (1 - fail) - 0.45 * fail
-	ui.colour.Contrast = 0.12 * intensity + 0.2 * fail
-	ui.colour.Brightness = -0.02 * intensity + 0.05 * fail + beat * 0.03 * fail - 0.05 * bleed
-	ui.blur.Size = 1.5 * intensity * intensity + 5 * fail + beat * 1.5 * intensity
+	ui.colour.Saturation = math.max(-1, -0.3 * intensity * (1 - fail) - 0.45 * fail - 0.5 * blind)
+	ui.colour.Contrast = 0.12 * intensity + 0.2 * fail - 0.25 * blind
+	ui.colour.Brightness = -0.02 * intensity + 0.05 * fail + beat * 0.03 * fail - 0.05 * bleed - 0.18 * blind
+	-- 24 studs of blur is not "hazy", it is "you cannot read the ground you are
+	-- standing on". That is the intended read: get out, by memory if you have to.
+	ui.blur.Size = 1.5 * intensity * intensity + 5 * fail + beat * 1.5 * intensity + 24 * blind
 end
 
 return RadFx

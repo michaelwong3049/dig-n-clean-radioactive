@@ -51,12 +51,33 @@ local state = {
 	health = 100,
 	maxHealth = 100,
 	healthBurn = 0,
+	ambient = 0,
+	excess = 0,
 	survivable = -1, -- -1 mirrors DebugService's "never" convention
 	threat = "",
 }
 
 local ui = {}
 local shakeSeed = 0
+
+--- HOW FAR PAST YOUR SUIT'S RATING THIS AIR IS, 0..1. `failing` only ever answers
+--- yes or no, and yes covers both "a stride over the line" and "this stage would
+--- have killed three of you already" — one flag cannot tell a player which of those
+--- they walked into.
+---
+--- No new field on the wire: ExposureState already carries `ambient` and `excess`,
+--- and Radiation.resolve defines excess as ambient minus suit tolerance, so the
+--- tolerance is just their difference and the ratio falls out. Divided by three
+--- because three times your own tolerance is comfortably past any argument about
+--- whether you meant to be here — a Rubber Suit reaches it in the Exclusion Belt,
+--- which is exactly the walk this is meant to punish.
+local function overTier(): number
+	if state.excess <= 0 then
+		return 0
+	end
+	local tolerance = math.max(state.ambient - state.excess, 0.5)
+	return math.clamp(state.excess / tolerance / 3, 0, 1)
+end
 
 local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
@@ -274,7 +295,7 @@ local function render(dt: number)
 	end
 
 	local healthFrac = state.health / math.max(state.maxHealth, 1)
-	RadFx.update(dt, intensity, state.failing, healthFrac)
+	RadFx.update(dt, intensity, state.failing, healthFrac, overTier())
 
 	ui.fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
 	ui.fill.BackgroundColor3 = colour
@@ -315,12 +336,16 @@ local function render(dt: number)
 	local character = Players.LocalPlayer.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
+		-- Over-tier always sets `failing` (Radiation.resolve: failing = excess > 0), so
+		-- the blind state is never waiting on the rad meter to catch up to it.
 		if frac >= Tuning.EXPOSURE_DANGER or state.failing then
 			shakeSeed += dt * 22
 			local amount = lerp(0, 0.55, math.clamp((frac - Tuning.EXPOSURE_DANGER) / (1 - Tuning.EXPOSURE_DANGER), 0, 1))
 			if state.failing then
 				amount = math.max(amount, 0.3)
 			end
+			-- Out of your depth the camera stops being nudged and starts being shoved.
+			amount = math.max(amount, overTier() * 1.1)
 			humanoid.CameraOffset = Vector3.new(
 				math.sin(shakeSeed * 1.7) * amount,
 				math.sin(shakeSeed * 2.3) * amount * 0.6,
@@ -388,6 +413,8 @@ function Hud.start()
 		state.maxHealth = payload.maxHealth or state.maxHealth
 		state.health = payload.health or state.health
 		state.healthBurn = payload.healthBurn or 0
+		state.ambient = payload.ambient or 0
+		state.excess = payload.excess or 0
 		state.survivable = if payload.survivable ~= nil then payload.survivable else -1
 		state.threat = payload.threat or ""
 	end)
