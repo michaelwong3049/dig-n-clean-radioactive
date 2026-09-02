@@ -95,6 +95,27 @@ Kit.C = {
 	-- in the same family as the client panel's own locker red (UIKit.C.red).
 	quarantineRed = "C4382E",
 
+	-- The wash bay's fire hose and its pump (Plots.buildCleansingStation).
+	--
+	-- BLUE-LEANING GREEN, AND THAT IS THE WHOLE DISCIPLINE. Saturated YELLOW-green is
+	-- spoken for in this world: it is the ooze, it is the fallout you are hosing OFF,
+	-- and it is the colour of the patches on the item a few feet from this hose in the
+	-- same shot. A hose in that hue would read as contaminated rather than as rubber.
+	--
+	-- The first version held them apart with saturation as well as hue -- a dark
+	-- desaturated forest green. That worked, and it was wrong for this world: every
+	-- other object on a base is a bright matte primary, and the one muted naturalistic
+	-- object in the frame read as a photograph pasted into a cartoon. Jade is the
+	-- answer. It is far brighter, but it sits around 155 degrees of hue against the
+	-- ooze's 95, so the separation that actually matters is untouched and there is
+	-- more of it than saturation alone was buying. Do not swing these toward `ooze`.
+	hoseGreen = "2FA36A",
+	hoseGreenDark = "1C6E47",
+	-- The nozzle's metal. Brass rather than the station's grey steel, so the one
+	-- thing in the player's hands is the one thing that is not the same colour as
+	-- the tub behind it.
+	hoseBrass = "C8A24A",
+
 	-- ── The checkerboard, in its two palettes ────────────────────────────────
 	-- One pattern, one grid, two colour schemes: the plaza and its apron in green,
 	-- the six player bases in navy and grey, a step above it. Walking onto a base

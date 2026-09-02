@@ -82,21 +82,63 @@ local GEAR_KEY = Gear.PROFILE_KEY
 -- `above` names the limb this joint hangs off at rest, needed to compose the weld back
 -- to the root: shoulders hang off UpperTorso (the whole spine), the Waist off
 -- LowerTorso (just the Root joint). Ordered so a limb's parent is locked before it.
+--
+-- `angle` names which entry in POSES supplies this joint's bend, and `side` flips the
+-- roll for the left arm. A joint with neither is held at its rest pose in every pose,
+-- which is what the spine and the wrists want.
 local UPPER_BODY_POSE = {
 	-- Spine. UpperTorso onto the root kills the waist sway and the vertical bounce; the
 	-- Head then rides the now-rigid UpperTorso at its rest pose.
-	{ limb = "UpperTorso", joint = "Waist", above = "LowerTorso", pitch = 0, roll = 0, toRoot = true, socket = "WaistBallSocket" },
-	{ limb = "Head", joint = "Neck", pitch = 0, roll = 0 },
+	{ limb = "UpperTorso", joint = "Waist", above = "LowerTorso", toRoot = true, socket = "WaistBallSocket" },
+	{ limb = "Head", joint = "Neck" },
 	-- Arms. Shoulders onto the root and posed forward onto the grip; elbows and wrists
 	-- then hang off the limb above them.
-	{ limb = "RightUpperArm", joint = "RightShoulder", above = "UpperTorso", pitch = 35, roll = -25, toRoot = true, socket = "RightShoulderBallSocket" },
-	{ limb = "RightLowerArm", joint = "RightElbow", pitch = 0, roll = 0 },
-	{ limb = "RightHand", joint = "RightWrist", pitch = 0, roll = 0 },
-	{ limb = "LeftUpperArm", joint = "LeftShoulder", above = "UpperTorso", pitch = 35, roll = 25, toRoot = true, socket = "LeftShoulderBallSocket" },
-	{ limb = "LeftLowerArm", joint = "LeftElbow", pitch = 0, roll = 0 },
-	{ limb = "LeftHand", joint = "LeftWrist", pitch = 0, roll = 0 },
+	{ limb = "RightUpperArm", joint = "RightShoulder", above = "UpperTorso", angle = "shoulder", side = -1, toRoot = true, socket = "RightShoulderBallSocket" },
+	{ limb = "RightLowerArm", joint = "RightElbow", angle = "elbow", side = -1 },
+	{ limb = "RightHand", joint = "RightWrist" },
+	{ limb = "LeftUpperArm", joint = "LeftShoulder", above = "UpperTorso", angle = "shoulder", side = 1, toRoot = true, socket = "LeftShoulderBallSocket" },
+	{ limb = "LeftLowerArm", joint = "LeftElbow", angle = "elbow", side = 1 },
+	{ limb = "LeftHand", joint = "LeftWrist" },
 }
 local LOCK_NAME = "CarryLock"
+
+--- TWO THINGS ARE CARRIED BRACED, AND THEY ARE NOT HELD THE SAME WAY. The machinery
+--- above was written for one (the detector) with its angles inlined; the fire hose
+--- needs the identical rig-handling and a different posture, so the posture came out
+--- into here rather than being copied into a second lockUpperBody.
+---
+--- `pitch` swings the limb forward, `roll` brings it in toward the body's midline.
+local POSES: { [string]: { shoulder: { pitch: number, roll: number }, elbow: { pitch: number, roll: number } } } = {
+	-- The detector: braced against the chest and swept from the hips. These are the
+	-- numbers this file carried before there was more than one pose.
+	detector = {
+		shoulder = { pitch = 35, roll = 25 },
+		elbow = { pitch = 0, roll = 0 },
+	},
+	-- The fire hose: arms up and further forward than the detector's, with a real bend
+	-- at the elbow. That bend is most of the difference. A hose is heavy and pushing
+	-- back at you, so it is held IN, close to the chest with the elbows folded -- arms
+	-- locked out straight reads as presenting something on a tray. The lower roll
+	-- brings both hands onto the one nozzle instead of onto a wide detector coil.
+	--
+	-- Measured off a live character rather than guessed. At the first numbers tried
+	-- (pitch 58, roll 14) the hands came out 2.2 studs apart -- too wide to both be on
+	-- one 1.7-stud nozzle -- and low enough that the muzzle sat BELOW the tub rim, so
+	-- the water hit the rim about a stud out of the nozzle. Pitch lifts the grip to
+	-- chest height and clear of the tub, roll brings the off hand in beside the other
+	-- one (1.3 studs apart, which a 1.7-stud nozzle spans), and the elbow is what
+	-- stops it reading as a sleepwalker: at -25 the arms were straight out, and the
+	-- lower shoulder that would have fixed that on its own (62) dropped the whole grip
+	-- back down toward the rim. High shoulder, folded elbow.
+	hose = {
+		shoulder = { pitch = 74, roll = 30 },
+		elbow = { pitch = -40, roll = 0 },
+	},
+}
+--- Which pose a character is currently locked into, or nil for none. An attribute
+--- rather than a table keyed by player because it belongs to the CHARACTER: a respawn
+--- takes the welds with it, and it has to take the record of them too.
+local POSE_ATTRIBUTE = "CarryPose"
 
 --- The two joined parts and their rest offsets, whichever rig this character uses.
 local function jointFrames(joint: Instance): (BasePart?, BasePart?, CFrame?, CFrame?)
@@ -165,7 +207,12 @@ local function unlockUpperBody(character: Model)
 	end
 end
 
-local function lockUpperBody(character: Model)
+local function lockUpperBody(character: Model, kind: string)
+	local angles = POSES[kind]
+	if angles == nil then
+		warn(`[tool] no pose named "{kind}" — leaving {character.Name} unposed`)
+		return
+	end
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local spine = torsoFromRoot(character)
 	local lower = character:FindFirstChild("LowerTorso")
@@ -177,6 +224,10 @@ local function lockUpperBody(character: Model)
 		if joint and limb:FindFirstChild(LOCK_NAME) == nil then
 			local part0, part1, c0, c1 = jointFrames(joint)
 			if part0 and part1 and c0 and c1 then
+				local bend = if spec.angle then angles[spec.angle] else nil
+				local pitch = if bend then bend.pitch else 0
+				local roll = if bend then bend.roll * (spec.side or 1) else 0
+
 				local weld = Instance.new("Weld")
 				weld.Name = LOCK_NAME
 				weld.Part1 = part1
@@ -189,10 +240,10 @@ local function lockUpperBody(character: Model)
 				if spec.toRoot and root then
 					local prefix = if spec.above == "LowerTorso" then lowerRest else spine
 					weld.Part0 = root
-					weld.C0 = prefix * c0 * CFrame.Angles(math.rad(spec.pitch), 0, math.rad(spec.roll))
+					weld.C0 = prefix * c0 * CFrame.Angles(math.rad(pitch), 0, math.rad(roll))
 				else
 					weld.Part0 = part0
-					weld.C0 = c0 * CFrame.Angles(math.rad(spec.pitch), 0, math.rad(spec.roll))
+					weld.C0 = c0 * CFrame.Angles(math.rad(pitch), 0, math.rad(roll))
 				end
 
 				weld.Parent = limb
@@ -217,6 +268,22 @@ local function lockUpperBody(character: Model)
 			end
 		end
 	end
+end
+
+--- The only entry point either lock function should be called through. Cheap when
+--- nothing changes, which is almost every tick, and it is what makes SWITCHING poses
+--- work at all: lockUpperBody bails on any limb that already carries a CarryLock, so
+--- going from the detector's posture straight to the hose's would otherwise keep the
+--- detector's. Unlock first, then lock, and only when the answer actually moved.
+local function setPose(character: Model, kind: string?)
+	if character:GetAttribute(POSE_ATTRIBUTE) == kind then
+		return
+	end
+	unlockUpperBody(character)
+	if kind then
+		lockUpperBody(character, kind)
+	end
+	character:SetAttribute(POSE_ATTRIBUTE, kind)
 end
 
 local function handOf(character: Model): BasePart?
@@ -276,11 +343,9 @@ local function equip(character: Model, track: string, tier: number)
 	unequip(character)
 
 	-- Only the detector braces against the body; everything else swings naturally.
-	if track == "Detector" then
-		lockUpperBody(character)
-	else
-		unlockUpperBody(character)
-	end
+	-- (The fire hose braces too, but it is not a tool out of the library -- see the
+	-- wash branch in stepPlayer.)
+	setPose(character, if track == "Detector" then "detector" else nil)
 
 	local clone = template:Clone()
 	clone.Name = HELD_NAME
@@ -395,6 +460,9 @@ local function equipItem(character: Model, item: any?): boolean
 end
 
 local function wanted(player: Player): string?
+	-- Washing is handled by its own branch in stepPlayer, which returns before this
+	-- answer is ever used -- it has a pose to set as well as a tool to clear, and
+	-- splitting those across two places is how one of them gets forgotten.
 	if DeconService.stationOf(player) == "decon" then
 		return "Cleaner"
 	end
@@ -436,6 +504,29 @@ local function stepPlayer(player: Player)
 	end
 	equipItem(character, heldItem)
 
+	-- ── Washing ───────────────────────────────────────────────────
+	-- The one case where something is in the player's hands that did NOT come out of
+	-- the tool library: WashService welds a copy of the station's fire hose there for
+	-- the length of a session. Two things follow, and both belong here rather than in
+	-- WashService -- this file owns the tool slot and it owns posing, and it already
+	-- reads isWashing for the off hand above.
+	--
+	--   * the Cleaner comes OUT of that hand (`wanted` returns nil while washing), or
+	--     the player is gripping a sponge and a nozzle in one fist.
+	--   * the upper body braces, the same way it does for the detector and for the same
+	--     reason. Without it the nozzle hangs off an arm that is still swinging through
+	--     its idle cycle, which is what "it looks awkward" was about -- nobody holds a
+	--     pressurised hose with their arms at their sides.
+	--
+	-- Returning here also keeps the tool-slot bookkeeping below from immediately
+	-- undoing the pose: its `target == nil` branch calls setPose(character, nil).
+	if WashService.isWashing(player) then
+		unequip(character)
+		setPose(character, "hose")
+		equipped[player] = nil
+		return
+	end
+
 	-- Tier comes from the profile, so buying an upgrade changes what is in your hands
 	-- the moment it lands — no reconnect, no re-equip step.
 	local tier = 1
@@ -453,7 +544,7 @@ local function stepPlayer(player: Player)
 
 	if target == nil then
 		unequip(character)
-		unlockUpperBody(character)
+		setPose(character, nil)
 		equipped[player] = nil
 	elseif equip(character, target, tier) then
 		equipped[player] = target

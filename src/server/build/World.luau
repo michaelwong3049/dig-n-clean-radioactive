@@ -350,6 +350,39 @@ function World.verify(): (boolean, { string })
 	end
 	check(luckButtons == Plots.COUNT, `expected {Plots.COUNT} luck buttons (one per base), found {luckButtons}`)
 
+	-- ...and one fire hose per base, parked on the pump beside that base's tub
+	-- (Plots.buildHoseRig). Counted for the same reason the buttons are: a missing
+	-- hose degrades QUIETLY — WashService just hands the player nothing and the wash
+	-- runs anyway, exactly as it did before the hose existed — so it would surface
+	-- weeks later as "the animation stopped working" instead of loudly here.
+	--
+	-- "WashHose" counts too. That is the copy WashService welds into a player's hand
+	-- for the duration of a session, with the station's own nozzle stashed out of the
+	-- tree meanwhile; without it, running verify() while somebody is mid-wash would
+	-- report a hose short and send the reader looking for a build bug.
+	local hoses = 0
+	for _, d in Workspace:GetDescendants() do
+		if d:IsA("Model") and (d.Name == "Hose" or d.Name == "WashHose") then
+			hoses += 1
+			local core = d.PrimaryPart
+			check(
+				core ~= nil,
+				`{d:GetFullName()} has no PrimaryPart — WashService welds that part to the player's hand and would have nothing to weld`
+			)
+			if core then
+				check(
+					core:FindFirstChild("Muzzle") ~= nil,
+					`{d:GetFullName()} has no Muzzle attachment — the spray would start inside the player's fist`
+				)
+				check(
+					core:FindFirstChild("HoseEnd") ~= nil,
+					`{d:GetFullName()} has no HoseEnd attachment — the green line would have nothing to run to`
+				)
+			end
+		end
+	end
+	check(hoses == Plots.COUNT, `expected {Plots.COUNT} wash hoses (one per base), found {hoses}`)
+
 	-- Every priced track must be buyable somewhere. TWO WAYS TO SELL ONE now, and the
 	-- check has to know both or moving a track between them looks like a clean
 	-- refactor and is actually a priced dead end:

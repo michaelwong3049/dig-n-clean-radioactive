@@ -120,6 +120,12 @@
 	    WashStand   IsWashStand = true — invisible; where the item sits during a wash.
 	    WashSpot    invisible; where the player is planted during a wash, facing the tub.
 	    WashCam     invisible; the side-on camera anchor WashController frames from.
+	    Hose        a Model beside the basin, PrimaryPart "Nozzle" — the fire hose
+	                (see buildHoseRig). The nozzle carries Muzzle / HoseEnd
+	                attachments and stays ANCHORED on the pump; WashService clones it
+	                into the player's hand for a session. The green line itself is a
+	                Beam ("HoseLine") on HoseReel, from HoseAnchor to whichever
+	                nozzle — parked or held — is currently the live one.
 	    Plate       StationKind = "roller", Radius = 6 — the wash pad (see
 	                buildWashPad below). One per base, three steps from the basin.
 	    Button      SellsTrack = "Luck" + a ProximityPrompt — the luck button
@@ -467,6 +473,309 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 	light(base, C.lampWarm, 6, 0.35)
 end
 
+--- The fire hose and the pump that feeds it (see buildCleansingStation, which calls
+--- this). A pump unit standing behind the player's wash mark, a reel of green hose
+--- coiled on it, and a brass-tipped nozzle that lives parked on the pump's cap until
+--- somebody picks it up.
+---
+--- IT IS A REAL OBJECT IN THE WORLD, NOT AN EFFECT DRAWN FOR THE DURATION OF A WASH,
+--- and that is the whole reason it is built here rather than spawned by WashService.
+--- Three things fall out of it that a per-session client effect cannot give:
+---
+---   * The station reads as a wash bay when nobody is using it. A tub with a hose
+---     coiled beside it explains itself; a bare tub does not.
+---   * A visitor standing on your plot sees you holding a fire hose, which is
+---     ToolService's "what you hold is public storytelling" rule applied to the one
+---     object in this feature that the player is actually holding.
+---   * Nothing has to define the hose's colours twice. Kit.C is here; a service is
+---     not (see ShopService's own note on why it hardcodes UPGRADE_TAG).
+---
+--- WashService borrows the nozzle for a session: it CLONES the parked one into the
+--- player's hand, stashes the original, and re-points the beam's far end at the copy
+--- so the line follows the hand. That is all it does; the geometry, the colours and
+--- the beam are this file's business.
+---
+--- A COPY RATHER THAN THE PARKED NOZZLE ITSELF, and the reason is a genuinely nasty
+--- failure rather than tidiness. The station's nozzle is Anchored, and an anchored
+--- part anchors its whole assembly — so the moment anything joints it to a character
+--- (WashController adds a local Motor6D to aim it), that character is bolted to the
+--- world until the joint goes away. Handing out an unanchored copy parented into the
+--- character makes it exactly the same kind of object as ToolService's HeldTool, with
+--- the same lifetime: it dies with the character, and nothing can strand a player.
+---
+--- THE HOSE ITSELF IS A Beam, NOT A CHAIN OF PARTS, and it costs nothing per frame
+--- because of it. A Beam spans two Attachments and re-renders itself whenever either
+--- one moves — one of them is bolted to the reel and the other rides the nozzle in
+--- the player's hand, so the hose follows the hand for free, on every client, with no
+--- script running anywhere. `CurveSize0/1` give it the slack a hose has when it is
+--- not under tension; a chain of parts would need a per-frame catenary solve to fake
+--- the same thing and would still be jointed.
+local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
+	local pad = Plots.PAD
+
+	-- EIGHT STUDS BEHIND THE PLAYER'S MARK, AND JUST PAST IT IN DEPTH. WashSpot is at
+	-- (0, cz - 6) and the wash camera sits out at local x = -13 looking across, so the
+	-- shot's depth axis is x and its horizontal axis is z. That makes the placement
+	-- almost entirely a framing decision:
+	--
+	--   z    how far back along the hose's run, which is screen-LEFT of the player.
+	--        Eight studs, because three (the first attempt) plus a little slack is a
+	--        shower attachment, and the brief was a long green line trailing away.
+	--   x    depth. The first attempt put the pump at x = -5, on the CAMERA's side --
+	--        which dropped it to about 8 studs from the lens against the player's 13,
+	--        and at that depth "eight studs back" is far enough sideways to fall off
+	--        the edge of the frame entirely. Slightly POSITIVE keeps it at roughly the
+	--        player's own depth, where the same eight studs is a comfortable distance
+	--        into open frame, and puts the hose's run on the far side of the player
+	--        rather than between them and the camera.
+	--
+	-- +3.5 rather than 0 also keeps the pump off the straight walk-up line from the
+	-- front of the pad to the tub. Clear of everything else by a wide margin: the wash
+	-- pad is at (18, 18), the display columns at x = +/-25, the stand rows at
+	-- z = 15/5/-5/-15, and the plot spawn at z = -18.
+	local px, pz = 3.5, cz - 14
+
+	-- TALL AND NARROW, so the reel bolted to its side reads as a smaller wheel on a
+	-- bigger box. The first version was a squat 2.6-high crate with a 3.2-wide reel
+	-- across it, and the reel simply swallowed it: what rendered was one pale steel
+	-- disc lying on the tiles with a sliver of green behind, which reads as a barrel.
+	build(parent, origin, {
+		name = "HosePump",
+		pos = { px, pad.topY + 1.6, pz },
+		size = { 2.4, 3.2, 2.0 },
+		color = C.steelDark,
+		material = "Metal",
+	})
+	build(parent, origin, { name = "PumpCap", pos = { px, pad.topY + 3.35, pz }, size = { 2.6, 0.3, 2.2 }, color = C.steel, material = "Metal" })
+	build(parent, origin, {
+		name = "PumpGauge",
+		pos = { px, pad.topY + 2.6, pz - 1.05 },
+		size = { 0.16, 0.8, 0.8 },
+		color = C.hazard,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		-- yaw90, for the same reason the nozzle uses it -- see the note there.
+		rot = Kit.R.yaw90,
+		canCollide = false,
+	})
+
+	-- THE DRUM IS THE ONLY THING THAT SAYS THE HOSE IS LONG. The Beam below draws
+	-- exactly one span — reel to nozzle — and a hose that is only ever a few studs
+	-- long is a shower attachment. A visibly wound drum is where the rest of it is.
+	--
+	-- HUNG OFF THE PUMP'S -X FACE, WHICH IS THE ONE THE WASH CAMERA IS ON (WashCam
+	-- sits out at x = -13). A reel is only legible face-on: side-on it is just a green
+	-- cylinder. Mounting it on top would also have put it through the parked nozzle.
+	--
+	-- SMALL STEEL HUBS, NOT FLANGES, and this is the second thing that went wrong
+	-- here. A real reel's flanges are wider than the drum — but a Cylinder part cannot
+	-- be a ring, so a wide flange is a SOLID disc that occludes the entire drum from
+	-- exactly the one angle the reel is legible from. Two passes of shrinking the
+	-- margin (3.2 against 2.6, then 2.3 against 2.0) both produced the same picture:
+	-- a pale steel plate with a rim of green behind it. So the geometry gives up on
+	-- being correct and goes for being READABLE: the green drum is the widest thing,
+	-- with a small steel hub capping each end, which is what a spool of wound hose
+	-- actually looks like from the front.
+	local rx = px - 1.55
+	local ry = pad.topY + 1.9
+	local reel = build(parent, origin, {
+		name = "HoseReel",
+		pos = { rx, ry, pz },
+		size = { 1.0, 2.4, 2.4 },
+		color = C.hoseGreen,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		canCollide = false,
+	})
+	-- A narrower dark band on the same axis: face-on that is a dark green disc inside
+	-- a lighter green ring, which reads as coils wound over each other. One flat
+	-- colour reads as a painted spool.
+	build(parent, origin, {
+		name = "HoseCoil",
+		pos = { rx, ry, pz },
+		size = { 1.06, 1.7, 1.7 },
+		color = C.hoseGreenDark,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		canCollide = false,
+	})
+	for _, side in { -0.56, 0.56 } do
+		build(parent, origin, {
+			name = "ReelHub",
+			pos = { rx + side, ry, pz },
+			size = { 0.14, 0.9, 0.9 },
+			color = C.steel,
+			material = "Metal",
+			shape = "Cylinder",
+			canCollide = false,
+		})
+	end
+	build(parent, origin, {
+		name = "ReelAxle",
+		pos = { px - 0.9, ry, pz },
+		size = { 1.5, 0.3, 0.3 },
+		color = C.steelDark,
+		material = "Metal",
+		shape = "Cylinder",
+		canCollide = false,
+	})
+
+	-- Where the hose leaves the drum: off the bottom of the rim, on the tub side.
+	--
+	-- ITS ROTATION IS LOAD-BEARING, not decoration. A Beam's curve control point is
+	-- `WorldPosition + WorldCFrame.LookVector * CurveSize`, so the attachment's FACING
+	-- decides which way the slack bulges. Left at the default it would look straight
+	-- back off the drum and throw the loop away from the tub, behind the pump. Aimed
+	-- down and forward, the line leaves the reel, dips toward the floor, and comes up
+	-- into the hand — which is where a hose lying slack actually goes. Local axes are
+	-- the plot's here: the drum is a Cylinder in its native, unrotated orientation.
+	local anchor = Instance.new("Attachment")
+	anchor.Name = "HoseAnchor"
+	-- Shallow: mostly toward the tub, only a little downward. The attachment sits at
+	-- y = 0.95 above the pad and the held CurveSize is 5, so anything steeper than
+	-- about 10 degrees throws the control point through the floor the pump is standing
+	-- on and the slack loop dips underground.
+	anchor.CFrame = CFrame.lookAt(Vector3.new(0, -0.95, 0.8), Vector3.new(0, -1.55, 4.8))
+	anchor.Parent = reel
+
+	-- ── The nozzle ────────────────────────────────────────────────────
+	-- Parked on the pump cap, lying along the plot's -Z (toward the front of the
+	-- base), which is also the axis WashController aims it down: CFrame.lookAt puts
+	-- its target on -Z, so "the nozzle's -Z is the business end" has to hold both
+	-- parked and held, or the spray comes out of the grip.
+	-- STUBBY AND FAT, on the cartoon pass. The first nozzle was a slim, finely stepped
+	-- thing that read as a technical drawing at arm's length and as nothing at all from
+	-- the wash camera thirteen studs away. A cartoon prop is a few big shapes: one
+	-- barrel, one flared muzzle, one brass ring, and a grip you can actually see a hand
+	-- close around. The BODY also went from the dark green to the bright one -- the
+	-- object in the player's hands should be the most saturated thing in the shot, not
+	-- the least.
+	local hose = Instance.new("Model")
+	hose.Name = "Hose"
+
+	-- Resting on the pump cap (its top face is at pad.topY + 3.5), nudged forward so
+	-- the brass end overhangs the front edge rather than burying itself in the cap.
+	local nx, ny, nz = px, pad.topY + 3.78, pz - 0.2
+
+	-- THE PRIMARY PART IS AN INVISIBLE, UNROTATED BLOCK, and that is deliberate. The
+	-- visible tube is a Cylinder, whose native axis is X and which therefore has to be
+	-- rotated to lie along Z — and once it is rotated, every attachment offset on it
+	-- would have to be written in a twisted local frame. An axis-aligned anchor block
+	-- keeps `Muzzle` at a plain (0, 0, -1.4) that anyone can read, and gives the
+	-- hand-weld and the aim Motor6D one unambiguous frame to work in.
+	local core = build(hose, origin, {
+		name = "Nozzle",
+		pos = { nx, ny, nz },
+		size = { 0.3, 0.3, 0.3 },
+		color = C.hoseGreenDark,
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+	})
+
+	-- ROTATION: yaw90, NOT Kit.R.cylAlongZ, WHOSE NAME IS A LIE. A Part's Cylinder
+	-- shape runs along its own local X, and `cylAlongZ` is ang(90, 90, 0) -- which
+	-- composes (XYZ order) to send that X axis to +Y, i.e. it stands the cylinder UP.
+	-- The nozzle built with it hung vertically off the fist while the muzzle attachment
+	-- pointed correctly at the target, so the water came out sideways from a tube that
+	-- was not aimed at anything. `yaw90` is ang(0, 90, 0), which sends X to -Z, which
+	-- is genuinely front-to-back. Left the preset alone rather than corrected: it is
+	-- also used by build/Scenery's tipped barrels, and whatever those look like today
+	-- is not this feature's to change.
+	local shell = {
+		{ name = "NozzleBody", pos = { nx, ny, nz + 0.15 }, size = { 1.6, 0.92, 0.92 }, color = C.hoseGreen, material = "SmoothPlastic", shape = "Cylinder", rot = Kit.R.yaw90 },
+		{ name = "NozzleGrip", pos = { nx, ny - 0.6, nz + 0.55 }, size = { 0.46, 1.0, 0.58 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Block", rot = Kit.R.flat },
+		{ name = "NozzleCollar", pos = { nx, ny, nz + 1.0 }, size = { 0.44, 1.06, 1.06 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
+		{ name = "NozzleTaper", pos = { nx, ny, nz - 0.9 }, size = { 0.9, 0.68, 0.68 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
+		{ name = "NozzleTip", pos = { nx, ny, nz - 1.42 }, size = { 0.26, 0.96, 0.96 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
+	}
+	for _, spec in shell do
+		local part = build(hose, origin, {
+			name = spec.name,
+			pos = spec.pos,
+			size = spec.size,
+			color = spec.color,
+			material = spec.material,
+			shape = spec.shape,
+			rot = spec.rot,
+			canCollide = false,
+		})
+		-- Welded to the core, never anchored themselves. Anchoring ONE part of a welded
+		-- assembly pins the whole assembly, so parking the nozzle is `core.Anchored =
+		-- true` and picking it up is `false` plus a weld to the hand — one property on
+		-- one part either way, with no risk of half the nozzle being left behind.
+		part.Anchored = false
+		part.Massless = true
+		local weld = Instance.new("WeldConstraint")
+		weld.Name = "ShellWeld"
+		weld.Part0 = core
+		weld.Part1 = part
+		weld.Parent = part
+	end
+	core.Massless = true
+
+	local muzzle = Instance.new("Attachment")
+	muzzle.Name = "Muzzle"
+	muzzle.CFrame = CFrame.new(0, 0, -1.6)
+	muzzle.Parent = core
+
+	local hoseEnd = Instance.new("Attachment")
+	hoseEnd.Name = "HoseEnd"
+	hoseEnd.CFrame = CFrame.new(0, 0, 1.3)
+	hoseEnd.Parent = core
+
+	-- Darker at both ends than in the middle. It is not real cylinder shading — a Beam
+	-- is a camera-facing ribbon and cannot have any — but a ribbon with a lighter band
+	-- down its centre reads as a round tube catching the sky, and a flat one reads as a
+	-- painted strip. Cheapest possible fix for the one weakness of drawing a hose this
+	-- way, and the only reason `hoseGreen` and `hoseGreenDark` are both in the palette.
+	local beam = Instance.new("Beam")
+	beam.Name = "HoseLine"
+	beam.Attachment0 = anchor
+	beam.Attachment1 = hoseEnd
+	-- Fat, and then fatter again on the cartoon pass. A fire hose is a thick, heavy
+	-- thing and a thin ribbon reads as cable; this is a shade over the diameter of the
+	-- nozzle it feeds into, which is what stops the two looking like different objects
+	-- joined by a wire.
+	beam.Width0 = 0.9
+	beam.Width1 = 0.75
+	-- Slack, not tension. Positive out of the reel throws the loop the way HoseAnchor
+	-- is aimed (down and toward the tub); NEGATIVE into the nozzle throws the other
+	-- control point BACKWARD from HoseEnd, whose LookVector is the direction the
+	-- nozzle is pointing — so the line arrives from behind the player's hand rather
+	-- than curling around in front of it. That pair is the whole shape of the hose.
+	--
+	-- TWO SETS OF NUMBERS, BECAUSE THE TWO STATES ARE NOT THE SAME SHAPE. A Bezier's
+	-- control points are absolute distances, not fractions of the span, so one pair
+	-- cannot serve both: the held run is eight-plus studs and wants a long lazy sag,
+	-- while the parked run is barely three studs from the drum up to the cap, and the
+	-- held numbers on THAT threw the line out sideways into the tiles — the parked
+	-- hose looked broken. The properties carry the parked pair; WashService reads the
+	-- attributes when it hands the nozzle over and puts the parked pair back after.
+	-- Both live here, in the builder, next to the geometry they are measured against,
+	-- exactly like the HoldCFrame and ClosedPivot/OpenPivot attributes elsewhere.
+	beam.CurveSize0 = 1.4
+	beam.CurveSize1 = -1.4
+	beam:SetAttribute("HeldCurve0", 5)
+	beam:SetAttribute("HeldCurve1", -6)
+	beam.Segments = 24
+	beam.FaceCamera = true
+	beam.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromHex(C.hoseGreenDark)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromHex(C.hoseGreen)),
+		ColorSequenceKeypoint.new(1, Color3.fromHex(C.hoseGreenDark)),
+	})
+	beam.Transparency = NumberSequence.new(0)
+	-- Lit like every other surface out here. The world went matte on purpose (Kit's
+	-- palette header) and a self-lit hose would be the one glowing object on a base
+	-- whose only glowing thing is meant to be the fallout.
+	beam.LightInfluence = 1
+	beam.Parent = reel
+
+	hose.PrimaryPart = core
+	hose.Parent = parent
+end
+
 --- The cleansing station — replaces the camp's old central Decon Station and
 --- Decon Shower with one combined stop on EVERY base, per the request. A single
 --- part carries BOTH `StationKind = "decon"` (freezes carried items' decay
@@ -533,9 +842,24 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- a tub, no character, and no hose. A fixed mark is what makes the shot reliable:
 	-- the camera knows where both subjects are because the geometry decided, not the
 	-- player's approach angle.
+
+	-- A RACK TO STAND THE ITEM ON, and it is not decoration. The stand used to sit at
+	-- pad.topY + 2.6, which is exactly the height of the tub rims built above -- so an
+	-- item on it was half sunk behind the near rim, and water arriving from the side
+	-- hit that rim about a stud out of the nozzle instead of reaching the item at all.
+	-- The plate lifts the whole thing clear and gives the float a reason.
+	build(m, origin, {
+		name = "WashRack",
+		pos = { 0, pad.topY + 2.7, cz },
+		size = { 2.6, 0.2, 2.6 },
+		color = C.steelDark,
+		material = "Metal",
+		canCollide = false,
+	})
+
 	local stand = build(m, origin, {
 		name = "WashStand",
-		pos = { 0, pad.topY + 2.6, cz },
+		pos = { 0, pad.topY + 3.5, cz },
 		size = { 1, 1, 1 },
 		color = C.steel,
 		material = "Metal",
@@ -559,7 +883,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	local cam = build(m, origin, {
 		name = "WashCam",
-		pos = { -13, pad.topY + 4.5, cz - 3 },
+		pos = { -13, pad.topY + 5, cz - 3 },
 		size = { 1, 1, 1 },
 		color = C.steel,
 		material = "Metal",
@@ -576,7 +900,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- because Kit.build's rot takes fixed angles and "point at that" stops being a
 	-- fixed angle once the plot's own yaw is applied. `origin` carries it to world
 	-- space like everything else in this function.
-	cam.CFrame = origin * CFrame.lookAt(Vector3.new(-13, pad.topY + 4.5, cz - 3), Vector3.new(0, pad.topY + 3.2, cz - 3))
+	cam.CFrame = origin * CFrame.lookAt(Vector3.new(-13, pad.topY + 5, cz - 3), Vector3.new(0, pad.topY + 3.6, cz - 3))
 
 	-- PRESS E TO WASH, AND PRESS IT AGAIN TO STOP. Always enabled, because a
 	-- ProximityPrompt is one shared instance and cannot be shown to one player and
@@ -635,6 +959,8 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 		canCollide = false,
 	})
 	light(lamp, accent, 12, 0.9)
+
+	buildHoseRig(m, origin, cz)
 
 	m.Parent = parent
 end

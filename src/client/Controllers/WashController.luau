@@ -56,56 +56,87 @@
 	the tub is server-side (WashService) precisely so the part that IS worth seeing
 	from outside is seen. Written down so nobody re-derives it.
 
-	THE HOSE POINTS WHERE YOU AIM, and this is the second thing done entirely on the
-	client rather than by touching the character's skeleton. The equipped Cleaner tool
-	is already welded to the right hand by ToolService (a rigid, server-owned
-	WeldConstraint, "HoldWeld") -- fine for every OTHER tool, wrong for one you are
-	meant to point. Re-aiming the actual shoulder/elbow joints would mean reproducing
-	ToolService's own dual-rig handling (Motor6D characters vs AnimationConstraint
-	ones, see its header) purely for a cosmetic effect, and getting that wrong reads as
-	a broken arm, not a held hose -- a much worse failure than "the hose doesn't track
-	perfectly." So the arm is left alone, swinging on its normal walk/idle animation
-	exactly as it always has, and only the TOOL gets a second, LOCAL joint: this file's
-	own Motor6D from the same hand to the tool's own PrimaryPart, added on top of
-	(never fighting) ToolService's weld -- the server's weld is merely disabled
-	(`Enabled = false`) for the session and restored after, so the moment this session
-	ends the tool snaps back to its ordinary carried pose with no cleanup surprises.
-	A player's own character is client-simulated by default, which is what makes a
-	disable done here actually stick locally instead of being fought by replication.
+	WHAT IS ACTUALLY IN THE PLAYER'S HAND IS A FIRE HOSE, and it is a real object that
+	the server put there: `WashHose`, a copy of the nozzle parked on the pump beside
+	the tub (build/Plots.buildHoseRig), welded into the right hand by WashService for
+	the length of the session, with the reel's own green Beam running back to the drum.
+	This file does not create it and does not own it — it only POINTS it. That split is
+	why the hose is visible to everyone on the base while the spray is not, and it is
+	why the ordinary Cleaner tool steps out of that hand for the duration
+	(see its stepPlayer) instead of being fought over.
 
-	THE SPRAY IS PARTICLES NOW, NOT A Beam. The first version drew one thin, mostly
-	transparent line from nozzle to target — accurate, and nothing like water: real
-	spray has no edge, it is a cone of droplets that gets denser near the source and
-	scatters into a visible splash wherever it lands. A single Beam cannot be both of
-	those things at once, so it read as "a laser, dimmed" rather than "a hose."
+	`HeldTool` is still accepted as a fallback target below, for a place file saved
+	before the hose existed: aiming the old sponge is a worse picture than aiming a
+	nozzle, but it is a much better one than a session that quietly does nothing.
 
-	TWO ParticleEmitters, both parented to the SAME two Attachments the old Beam used
-	(`SprayOrigin` at the nozzle, `SprayHit` at the target), so all the existing
-	per-frame position tracking carries over unchanged:
+	THE HOSE POINTS WHERE YOU AIM, and this is done entirely on the client rather
+	than by touching the character's skeleton. The nozzle is welded to the right hand
+	by a rigid, server-owned WeldConstraint ("HoldWeld", the same name and the same
+	convention ToolService uses) -- fine for a thing you merely CARRY, wrong for one
+	you are meant to point. So the tool gets a second, LOCAL joint: a Motor6D from
+	the same hand to the nozzle's own PrimaryPart, added on top of (never fighting)
+	the server's weld, which is merely disabled (`Enabled = false`) for the session
+	and restored after -- so the moment this session ends the nozzle snaps back to its
+	ordinary carried pose with no cleanup surprises. A player's own character is
+	client-simulated by default, which is what makes a disable done here stick
+	locally instead of being fought by replication.
 
-	    stream   a narrow, forward-firing cone from the nozzle. `Speed` is recomputed
-	             every frame from the live nozzle-to-target distance divided by the
-	             emitter's own `Lifetime`, so droplets emitted THIS frame still land
-	             roughly on target even as the player's aim moves.
-	    splash   a wide, near-omnidirectional burst at the impact point, facing back
-	             toward the nozzle. This is what the stream's own travel cannot sell —
-	             the moment of hitting something — and it is what makes the target end
-	             of the spray read as "landing" rather than "stopping."
+	THE ARMS ARE POSED, BUT NOT BY THIS FILE. Aiming only the nozzle used to leave it
+	hanging off an arm still swinging through its idle walk cycle -- the nozzle
+	pointed at the item while the hand it was welded to drifted around, which reads as
+	a prop stuck to a mannequin. Posing is server-side and ToolService already owns it
+	(it braces the whole upper body for the detector, on a rig-agnostic weld scheme
+	that handles both Motor6D and AnimationConstraint characters). It braces for the
+	hose too, from its own `isWashing` check, so both hands come up onto the nozzle
+	and the arm stops moving under it. That leaves this file rotating a nozzle held in
+	a hand that is genuinely still, which is the whole reason the aim reads now.
 
-	Both are tinted toward WHITE, not the liquid's raw hue. Real water sprays read as
-	white/translucent even when what is in the tank has colour — aeration and light
-	scattering wash it out — and matching that is what makes this look like water
-	instead of a jet of paint. `Liquids.get(id).color` still shows up on the wash
-	pad's own sign and the corner badge, which is where "which liquid is this"
-	actually needs to be legible; the spray itself only needs a faint tint, blended in
-	at PARTICLE_TINT toward the true hue so a Molten Lava spray still reads warm and a
-	Nano-Foam one still reads cool, without either looking like solid dye.
+	THE SPRAY IS A CHAIN OF BLOBS ON A BALLISTIC ARC, AND IT TOOK SIX TRIES. Each one
+	fixed something real about the last, so the whole ladder is worth keeping:
 
-	NO HAND-ROLLED WOBBLE ANY MORE. A real particle cone is already organic — each
-	droplet's own random spread and lifetime does what the old sine-wave endpoint hack
-	was trying to fake with one line. The GAMEPLAY aim (which patch is being worked)
-	is still computed from the stable mouse ray, upstream of any of this, and never
-	sees anything the particles do.
+	v1 drew ONE thin, mostly transparent Beam from nozzle to target. It read as "a
+	laser, dimmed", so the Beam came out and particles went in: real spray has no
+	edge, it is a cone of droplets that scatters into a splash where it lands.
+
+	v2 was those particles -- a stream cone, a muzzle haze, an impact splash and
+	run-off drips. Physically that is what a hose does. On screen it was a fog of
+	little dots that obscured the item being washed and never resolved into a
+	stream, and the report was exactly that: get rid of the dots, leave the stream.
+
+	v3 went back to Beams, two of them, on the theory that v1 failed for being ONE
+	flat nearly-transparent ribbon rather than for being a Beam. It did not work,
+	and the reason is a hard fact about the engine rather than a tuning miss: A BEAM
+	RENDERS ADDITIVELY. Its colour is ADDED to whatever is behind it, so a Beam can
+	only ever brighten the scene. Darkening the shell from 0.42 to 0.55 to 0.62
+	toward black changed nothing on screen, because there is no such thing as a dark
+	Beam -- and "darker, so it is easier to see" is what had been asked for.
+
+	v4 was the same shape drawn as PARTS, which do shade and occlude and therefore
+	can be dark. That fixed the colour and left two things reading as machinery: the
+	sag was a fixed fraction of the distance, so the arc never behaved like something
+	falling, and the far end SNAPPED to whichever contamination blob was nearest the
+	cursor, going where the game had decided you meant.
+
+	v5 made it a real flight -- fixed launch speed, gravity for the rest of the way,
+	stopping on the first surface it touches. That is still how it moves.
+
+	v6, below, is the cartoon pass, and it is two changes. The cylinders became
+	BALLS: a chain of overlapping spheres has no flat end caps to show at the joints,
+	needs no orientation solved per segment, and gives the soft round silhouette that
+	drawn water has. And the colour came back up -- see applySprayColor. What was
+	there before was a dark, naturalistic, slightly translucent stream in a world of
+	bright matte primaries, which is exactly the "looks weird" that prompted this: it
+	did not look bad, it looked like it belonged in a different game.
+
+	THE WOBBLE IS NOISE, NOT RANDOM, and an early version got this wrong in the
+	other direction. It jittered the stream's ENDPOINT on a sine wave to fake
+	liveliness, which read as a broken aim rather than as moving water. What is here
+	instead leaves the endpoint alone and displaces the path in between, sampled from
+	math.noise at (distance along the jet - time) so the same ripple travels outward
+	from the nozzle; a fresh math.random offset every frame would be static, not
+	flow. It fades to nothing at the muzzle, because water leaves a nozzle coherent
+	and breaks up as it goes, and wobble at the muzzle just reads as a loose grip.
+
 ]]
 
 local Players = game:GetService("Players")
@@ -125,22 +156,61 @@ local Wash = {}
 local PATCH_GREEN = Color3.fromHex("6BEE2E")
 local PATCH_CRUSTED = Color3.fromHex("3A3128")
 
-local SPRAY_RANGE = 40
+-- How far a patch may sit from where the water actually lands and still be the one
+-- being worked. Generous, because the player is aiming a falling arc at a half-stud
+-- ball -- see `patchAt`.
+local PATCH_REACH = 2.8
+-- How far the aim ray reaches into the world, and where the aim point goes when it
+-- reaches nothing at all (open sky past the edge of the base).
+local AIM_RANGE = 60
+local AIM_FALLBACK = 16
 
--- How far the spray's own colour leans toward the liquid's true hue, 0 = pure white,
--- 1 = the liquid's raw colour. See the header on why this stays low.
-local PARTICLE_TINT = 0.30
--- Every stream particle is given this Lifetime (seconds); Speed is derived from it
--- each frame so newly-emitted droplets still roughly reach the current target.
-local STREAM_LIFETIME = NumberRange.new(0.22, 0.3)
+-- The jet: a chain of overlapping BALLS laid along the water's real flight path.
+-- See the header for why it is parts rather than a Beam or a particle cone, and why
+-- they are balls rather than the cylinders they started as.
+local JET_SEGMENTS = 18
+-- Cartoon water is BRIGHT. This is barely a darkening at all -- just enough to keep
+-- the liquid's own pastel from washing into the pale steel of the tub behind it.
+local JET_DARKEN = 0.18
+-- Foam: how white the stream goes by the very tip, and where along its length it
+-- starts turning. A white leading edge is the single most cartoon thing about drawn
+-- water, and it doubles as the aeration cue that was there before.
+local JET_FOAM = 0.6
+local JET_FOAM_START = 0.6
+local JET_RADIUS_NEAR = 0.17
+local JET_RADIUS_FAR = 0.46
+-- How much each blob's radius breathes with the churn below. Cartoon streams are
+-- lumpy; a perfectly even tube is a pipe.
+local JET_LUMP = 0.24
+-- Opaque, on purpose. See-through water reads as glass or as a particle haze; a solid
+-- shape with a hard silhouette is what makes it read as drawn.
+local JET_TRANSPARENCY = 0
+-- Studs per second the water leaves the nozzle at. The flight time -- and so how far
+-- the arc sags -- falls out of this against the distance to the aim point, which is
+-- the whole reason the jet droops more the further you point it.
+local JET_SPEED = 26
+-- Studs per second squared. Roblox's own gravity is 196.2, which over a wash bay's
+-- couple of studs of flight is a vertical drop nobody would read as an arc; this is
+-- the value that makes the sag legible at this scale. Not physics, staging.
+local JET_GRAVITY = 46
+-- Turbulence. `JET_WOBBLE` is how far a mid-jet segment may wander off the ideal
+-- path, in studs, and `JET_CHURN` how fast that wander scrolls along the stream. Both
+-- fade to nothing at the nozzle -- water leaves a nozzle coherent and breaks up as it
+-- travels, and wobble at the muzzle just reads as a loose grip.
+local JET_WOBBLE = 0.16
+local JET_CHURN = 3.4
+-- The splash blob where the water lands: diameter, and how much of that it breathes.
+-- Kept just under the size of an item, so it reads as landing ON the thing rather
+-- than swallowing it -- at 1.7 the white blob was the biggest object in the shot.
+local SPLASH_SIZE = 1.25
+local SPLASH_PULSE = 0.3
 
 local state: any = nil
 local blobs: { [number]: BasePart } = {}
 local folder: Instance? = nil
-local streamEmitter: ParticleEmitter? = nil
-local splashEmitter: ParticleEmitter? = nil
-local originAttach: Attachment? = nil
-local hitAttach: Attachment? = nil
+local jetParts: { BasePart } = {}
+local splashPart: BasePart? = nil
+local jetShown = false
 local spraying = false
 local aimedIndex: number? = nil
 local renderBound = false
@@ -212,110 +282,224 @@ local function ensureFolder(): Instance
 	return folder :: Instance
 end
 
---- The forward jet, firing out of `originAttach`'s own orientation (its LookVector,
---- i.e. `EmissionDirection = Front`) — which onRender keeps pointed at the current
---- target, so the cone always fires the right way with no extra math here.
-local function makeStreamEmitter(parent: Instance): ParticleEmitter
-	local made = Instance.new("ParticleEmitter")
-	made.Name = "Stream"
-	-- Texture LEFT AT ENGINE DEFAULT, deliberately. rbxasset:// paths for the built-in
-	-- particle textures are not something this session could verify render correctly
-	-- (a wrong guess renders as the WRONG SHAPE, not as an error), and the default
-	-- ParticleEmitter texture is guaranteed to exist and to read as a soft round
-	-- droplet, which is exactly what a water spray needs.
-	made.EmissionDirection = Enum.NormalId.Front
-	made.Rate = 140
-	made.Lifetime = STREAM_LIFETIME
-	-- Speed is overwritten every frame in onRender against the live target distance;
-	-- this is just a sane resting value before the first frame runs.
-	made.Speed = NumberRange.new(14, 18)
-	made.SpreadAngle = Vector2.new(4, 4)
-	made.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.14),
-		NumberSequenceKeypoint.new(0.6, 0.26),
-		NumberSequenceKeypoint.new(1, 0.16),
-	})
-	made.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.05),
-		NumberSequenceKeypoint.new(0.85, 0.15),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	made.Acceleration = Vector3.new(0, -22, 0)
-	made.LightEmission = 0.15
-	made.LightInfluence = 0
-	made.Enabled = false
-	made.Parent = parent
-	return made
-end
-
---- The impact burst. Wide SpreadAngle so it scatters rather than continuing the
---- stream's own narrow cone — this is the part of the reference image the stream
---- alone cannot sell: the moment of actually hitting something.
-local function makeSplashEmitter(parent: Instance): ParticleEmitter
-	local made = Instance.new("ParticleEmitter")
-	made.Name = "Splash"
-	-- Same reasoning as the stream emitter above: engine default texture.
-	made.EmissionDirection = Enum.NormalId.Front
-	made.Rate = 70
-	made.Lifetime = NumberRange.new(0.15, 0.32)
-	made.Speed = NumberRange.new(3, 8)
-	made.SpreadAngle = Vector2.new(65, 65)
-	made.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.16),
-		NumberSequenceKeypoint.new(1, 0.03),
-	})
-	made.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.1),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	made.Acceleration = Vector3.new(0, -38, 0)
-	made.LightEmission = 0.15
-	made.LightInfluence = 0
-	made.Enabled = false
-	made.Parent = parent
-	return made
-end
-
+--- Build the segment chain and the splash disc once. They are plain anchored parts
+--- parked at the origin until the first frame of spraying moves them; nothing here
+--- needs to know where the nozzle is yet.
 local function ensureSpray()
-	if streamEmitter and streamEmitter.Parent and splashEmitter and splashEmitter.Parent then
+	if #jetParts == JET_SEGMENTS and jetParts[1].Parent ~= nil then
 		return
 	end
 	local parent = ensureFolder()
+	table.clear(jetParts)
+	for index = 1, JET_SEGMENTS do
+		local part = Instance.new("Part")
+		part.Name = `Jet{index}`
+		part.Shape = Enum.PartType.Ball
+		part.Material = Enum.Material.SmoothPlastic
+		part.Transparency = 1
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CastShadow = false
+		part.Parent = parent
+		jetParts[index] = part
+	end
 
-	local originPart = Instance.new("Part")
-	originPart.Name = "SprayOrigin"
-	originPart.Size = Vector3.new(0.1, 0.1, 0.1)
-	originPart.Transparency = 1
-	originPart.Anchored = true
-	originPart.CanCollide = false
-	originPart.Parent = parent
-	originAttach = Instance.new("Attachment")
-	originAttach.Parent = originPart
-	streamEmitter = makeStreamEmitter(originAttach)
+	local splash = Instance.new("Part")
+	splash.Name = "Splash"
+	splash.Shape = Enum.PartType.Ball
+	splash.Material = Enum.Material.SmoothPlastic
+	splash.Transparency = 1
+	splash.Anchored = true
+	splash.CanCollide = false
+	splash.CanQuery = false
+	splash.CastShadow = false
+	splash.Parent = parent
+	splashPart = splash
 
-	local hitPart = Instance.new("Part")
-	hitPart.Name = "SprayHit"
-	hitPart.Size = Vector3.new(0.1, 0.1, 0.1)
-	hitPart.Transparency = 1
-	hitPart.Anchored = true
-	hitPart.CanCollide = false
-	hitPart.Parent = parent
-	hitAttach = Instance.new("Attachment")
-	hitAttach.Parent = hitPart
-	splashEmitter = makeSplashEmitter(hitAttach)
+	jetShown = false
 end
 
---- Both emitters read as WATER, not as the liquid itself — see the header. Blended
---- toward the liquid's hue by PARTICLE_TINT rather than snapped to it outright.
+--- THE LIQUID'S OWN COLOUR, BARELY DARKENED, GOING WHITE AT THE TIP.
+---
+--- This has swung twice and the middle is where it belongs. It started tinted only
+--- faintly toward the liquid, on the reasoning that real spray aerates and reads
+--- white -- true, and against a pale steel tub the result was invisible. So it went
+--- hard the other way, most of the way to black, which was legible and looked like
+--- oil: a dark naturalistic stream in a world of bright matte primaries.
+---
+--- Cartoon water is BRIGHT and it FOAMS. So the body of the jet is the liquid at
+--- nearly full strength -- these are all saturated enough to hold their own against
+--- the tub without being dragged toward black -- and the last stretch turns white.
+--- A white leading edge is the single most recognisable thing about drawn water; it
+--- gives the stream a readable tip, it is the aeration cue the darkening was
+--- reaching for, and it is what carries the contrast now.
 local function applySprayColor(hex: string)
-	local tinted = Color3.new(1, 1, 1):Lerp(Color3.fromHex(hex), PARTICLE_TINT)
-	local sequence = ColorSequence.new(tinted)
-	if streamEmitter then
-		streamEmitter.Color = sequence
+	local body = Color3.fromHex(hex):Lerp(Color3.new(0, 0, 0), JET_DARKEN)
+	local white = Color3.new(1, 1, 1)
+	for index, part in jetParts do
+		local along = index / JET_SEGMENTS
+		local foam = math.clamp((along - JET_FOAM_START) / (1 - JET_FOAM_START), 0, 1)
+		part.Color = body:Lerp(white, JET_FOAM * foam)
 	end
-	if splashEmitter then
-		splashEmitter.Color = sequence
+	if splashPart then
+		-- The impact is all foam, always.
+		splashPart.Color = body:Lerp(white, 0.72)
 	end
+end
+
+--- WHERE THE WATER ACTUALLY GOES, and this is the part that stopped it looking like
+--- a machine. The stream used to be a fixed-shape curve drawn between the muzzle and
+--- whichever contamination blob was nearest the cursor -- so the far end SNAPPED from
+--- patch to patch as you moved the mouse, and the curve's sag was a constant fraction
+--- of the distance rather than anything to do with falling.
+---
+--- This is a real ballistic flight instead. The water leaves the nozzle at JET_SPEED
+--- along whatever direction is needed to reach the aim point in the time that speed
+--- allows, and then falls at JET_GRAVITY for the rest of the way:
+---
+---     to = from + v*T + 0.5*g*T^2        solved for v, with T = distance / SPEED
+---
+--- Two things fall out of that for free. A far shot has a longer flight time, so it
+--- sags visibly more than a near one -- which is exactly the cue that reads as "this
+--- is water and it is heavy". And the aim point is a plain raycast into the world, so
+--- the stream lands where the player is pointing and nowhere else; nothing snaps.
+---
+--- Gravity here is NOT Workspace.Gravity. At 196.2 over a wash bay's few studs the
+--- drop is a couple of inches -- correct, and invisible. This is staging, tuned until
+--- the arc reads.
+local function jetPath(from: Vector3, to: Vector3, now: number): { Vector3 }
+	local delta = to - from
+	local flight = math.max(delta.Magnitude / JET_SPEED, 0.05)
+	local gravity = Vector3.new(0, -JET_GRAVITY, 0)
+	local launch = (delta - gravity * 0.5 * flight * flight) / flight
+
+	-- Sideways axes to wobble in. Any pair perpendicular to the flight will do; these
+	-- are just the ones that stay stable as the player sweeps the nozzle around.
+	local forward = if delta.Magnitude > 0.01 then delta.Unit else Vector3.new(0, 0, -1)
+	local side = forward:Cross(Vector3.new(0, 1, 0))
+	side = if side.Magnitude > 0.01 then side.Unit else Vector3.new(1, 0, 0)
+	local up = side:Cross(forward).Unit
+
+	local path = table.create(JET_SEGMENTS + 1)
+	for index = 0, JET_SEGMENTS do
+		local fraction = index / JET_SEGMENTS
+		local t = flight * fraction
+		local point = from + launch * t + gravity * (0.5 * t * t)
+
+		-- TURBULENCE, SCROLLING ALONG THE STREAM. math.noise rather than math.random:
+		-- a fresh random offset every frame is static, not water. Sampling smooth noise
+		-- at (position along the jet - time) makes the same wave travel outward from the
+		-- nozzle, which is what moving water looks like. Scaled by `fraction` so the
+		-- muzzle end stays coherent and the break-up grows with distance.
+		local churn = fraction * JET_WOBBLE
+		point += side * (math.noise(fraction * 3.1 - now * JET_CHURN, 0.5) * churn)
+		point += up * (math.noise(0.5, fraction * 3.1 - now * JET_CHURN) * churn)
+
+		path[index + 1] = point
+	end
+	return path
+end
+
+--- Lay the chain along `path`, stopping at whatever the water hits first.
+---
+--- Segments are cut 40% LONGER than the gap they span, so consecutive cylinders
+--- overlap and bury each other's flat end caps. Without that the rope is visibly a
+--- string of sausages at every joint.
+---
+--- Returns the point the water actually reached -- the impact if it hit something,
+--- the end of the arc if it did not. That point, not the cursor, is what decides
+--- which patch is being worked (see `patchAt`): you are cleaning what the water is
+--- landing on, which is the only rule a player would ever guess.
+local function drawJet(from: Vector3, to: Vector3, filter: RaycastParams): Vector3
+	local now = os.clock()
+	local path = jetPath(from, to, now)
+	local landing = path[#path]
+	local stopped = false
+
+	-- BLOBS HAVE TO OVERLAP OR THE STREAM IS A STRING OF BEADS, and how far apart they
+	-- sit depends entirely on how far the player is spraying: the same eighteen blobs
+	-- cover two studs or twelve. So the radius has a floor derived from the spacing --
+	-- a blob is never allowed to be smaller than it takes to touch its neighbours --
+	-- and the tuned radii below are what it looks like once that floor is met.
+	local spacing = (to - from).Magnitude / JET_SEGMENTS
+	local floor = spacing * 0.62
+
+	for index, part in jetParts do
+		local a, b = path[index], path[index + 1]
+		local span = (b - a).Magnitude
+
+		if stopped or span < 0.01 then
+			-- Either the water already hit something, or the player is aiming at their
+			-- own muzzle and the path has collapsed to a point.
+			part.Transparency = 1
+		else
+			-- Segment by segment, so the stream stops ON the surface it hits rather than
+			-- passing through the tub and out the far side. One short ray per segment is
+			-- the same total length as one long ray down the arc, and a straight ray
+			-- cannot follow a curve.
+			local hit = Workspace:Raycast(a, b - a, filter)
+			if hit then
+				landing = hit.Position
+				stopped = true
+			end
+
+			local along = (index - 0.5) / JET_SEGMENTS
+			-- Lumpy, and lumpy IN TIME: the same scrolling noise that bends the path
+			-- also swells and pinches each blob as it passes, so the stream visibly
+			-- pulses instead of sitting there as a static tapered tube.
+			local lump = 1 + JET_LUMP * math.noise(along * 4.7 - now * JET_CHURN, 1.5)
+			local radius = math.max(JET_RADIUS_NEAR + (JET_RADIUS_FAR - JET_RADIUS_NEAR) * along, floor) * lump
+			local diameter = radius * 2
+
+			part.Size = Vector3.new(diameter, diameter, diameter)
+			-- At the segment's START, not its end, so the first blob sits at the muzzle
+			-- and the stream visibly leaves the nozzle rather than a gap out from it.
+			-- On an impact it moves to the contact point instead, which closes the gap
+			-- to the splash.
+			--
+			-- A ball needs no orientation, which is half the reason for the switch: the
+			-- cylinders this replaced had to be aimed down their own segment AND yawed
+			-- to get their axis onto it, and every joint still showed a flat end cap.
+			part.CFrame = CFrame.new(if hit then hit.Position else a)
+			part.Transparency = JET_TRANSPARENCY
+		end
+	end
+
+	-- The splash: one breathing blob at the point of impact, in the foam colour. Round
+	-- rather than the flat disc it was, for the same reason the stream is round now --
+	-- and it is doing real work either way. Without something at the end, the eye reads
+	-- the stream as STOPPING in mid-air rather than as landing on something.
+	local splash = splashPart
+	if splash then
+		if stopped then
+			local size = SPLASH_SIZE * (1 + SPLASH_PULSE * math.noise(now * 6, 0.5))
+			splash.Size = Vector3.new(size, size, size)
+			splash.CFrame = CFrame.new(landing)
+			splash.Transparency = 0.1
+		else
+			splash.Transparency = 1
+		end
+	end
+
+	jetShown = true
+	return landing
+end
+
+--- Cheap when already hidden, which is most frames of a session: the player aims far
+--- more than they spray, and a chain of writes to set a transparency that is already
+--- 1 is a chain of writes too many.
+local function hideJet()
+	if not jetShown then
+		return
+	end
+	for _, part in jetParts do
+		part.Transparency = 1
+	end
+	if splashPart then
+		splashPart.Transparency = 1
+	end
+	jetShown = false
 end
 
 --- Undo startAimRig, restoring the tool to ToolService's own carried pose. Safe to
@@ -345,7 +529,9 @@ local function stop()
 		folder:Destroy()
 		folder = nil
 	end
-	streamEmitter, splashEmitter, originAttach, hitAttach = nil, nil, nil, nil
+	table.clear(jetParts)
+	splashPart = nil
+	jetShown = false
 
 	local camera = Workspace.CurrentCamera
 	if camera then
@@ -412,6 +598,23 @@ end
 
 -- ── The hose-aim rig ─────────────────────────────────────────────────
 
+--- The thing in the player's right hand to point. `WashHose` is the fire hose
+--- WashService welds there for the session (build/Plots.buildHoseRig); `HeldTool` is
+--- the fallback for a place file saved before the hose existed — see the header.
+--- Returns nil while the weld is still catching up, which is normal on the first
+--- frame or two and is why every caller re-asks rather than caching.
+local function heldHose(): Model?
+	local character = Players.LocalPlayer.Character
+	if character == nil then
+		return nil
+	end
+	local held = character:FindFirstChild("WashHose") or character:FindFirstChild("HeldTool")
+	if held == nil or not held:IsA("Model") or held.PrimaryPart == nil then
+		return nil
+	end
+	return held
+end
+
 --- Build the second, LOCAL joint from hand to tool -- see the header. Cheap to call
 --- every frame the rig is missing: it does nothing when the tool is not there yet
 --- (equip is still catching up) or already there (nothing to build twice).
@@ -423,8 +626,8 @@ local function startAimRig()
 	if character == nil then
 		return
 	end
-	local tool = character:FindFirstChild("HeldTool")
-	if tool == nil or not tool:IsA("Model") or tool.PrimaryPart == nil then
+	local tool = heldHose()
+	if tool == nil or tool.PrimaryPart == nil then
 		return
 	end
 	local hand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
@@ -466,11 +669,16 @@ local function updateAimRig(target: Vector3)
 	if aimMotor == nil or aimHand == nil or aimOffset == nil then
 		return
 	end
-	if aimHand.Parent == nil or aimMotor.Parent == nil or aimTool == nil or aimTool.Parent == nil then
-		-- The tool changed under us (a mid-wash Cleaner upgrade, most likely) and
-		-- took this rig's Parent with it. Clear our half; the next call to
-		-- startAimRig rebuilds against whatever is equipped now.
-		aimMotor, aimHand, aimTool, aimOffset, aimHoldWeld = nil, nil, nil, nil, nil
+	if aimHand.Parent == nil or aimMotor.Parent == nil or aimTool == nil or aimTool.Parent == nil or aimTool ~= heldHose() then
+		-- The tool changed under us and took this rig's Parent with it, or a better
+		-- candidate turned up in the hand. Both happen for real: the fire hose and the
+		-- Cleaner it displaces replicate independently at the start of a session, so
+		-- the first frame or two can rig the sponge before the hose arrives. Clear our
+		-- half; the next call to startAimRig rebuilds against whatever is there now.
+		-- Through stopAimRig rather than by clearing the fields, so a tool that is
+		-- still ALIVE (the displaced Cleaner) gets its own weld switched back on
+		-- instead of being left hanging off a hand it is no longer jointed to.
+		stopAimRig()
 		return
 	end
 
@@ -481,45 +689,65 @@ local function updateAimRig(target: Vector3)
 	aimMotor.C1 = aimCFrame:Inverse() * aimHand.CFrame
 end
 
---- The hose muzzle. The Cleaner models are hand-authored and gitignored
---- (ARCHITECTURE.md's "remaining gap"), so they have a PrimaryPart but almost
---- certainly no muzzle point. Prefer a `Nozzle` attachment if one is ever added in
---- Studio; fall back to the front face of the model's own primary part, then to the
---- hand. No code change needed the day the attachment appears.
+--- Where the water leaves. The fire hose carries a real `Muzzle` attachment on its
+--- primary part, sat out at the brass tip (build/Plots.buildHoseRig), so the stream
+--- starts at the end of the nozzle rather than somewhere inside the player's fist.
+---
+--- The two fallbacks below are for the `HeldTool` case: the Cleaner models are
+--- hand-authored and gitignored (ARCHITECTURE.md's "remaining gap") and have no
+--- muzzle point of their own, so the front face of their primary part is the best
+--- guess available, and the hand is the last resort.
 local function nozzleCFrame(): CFrame?
-	local character = Players.LocalPlayer.Character
-	if character == nil then
-		return nil
-	end
-	local tool = character:FindFirstChild("HeldTool")
-	if tool and tool:IsA("Model") and tool.PrimaryPart then
-		local nozzle = tool.PrimaryPart:FindFirstChild("Nozzle")
-		if nozzle and nozzle:IsA("Attachment") then
-			return nozzle.WorldCFrame
+	local tool = heldHose()
+	if tool and tool.PrimaryPart then
+		local muzzle = tool.PrimaryPart:FindFirstChild("Muzzle")
+		if muzzle and muzzle:IsA("Attachment") then
+			return muzzle.WorldCFrame
 		end
 		return tool.PrimaryPart.CFrame * CFrame.new(0, 0, -tool.PrimaryPart.Size.Z * 0.5)
 	end
-	local hand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+	local character = Players.LocalPlayer.Character
+	local hand = character and (character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm"))
 	if hand and hand:IsA("BasePart") then
 		return hand.CFrame
 	end
 	return nil
 end
 
---- Which patch the player is pointing at: the reachable blob whose centre sits
---- closest to the aim ray. Nearest-to-ray rather than a raycast, because a 0.5-stud
---- ball at eight studs is a cruel thing to ask anyone to hit exactly.
-local function aimAt(ray: Ray): number?
+--- What the player is pointing AT, in the world -- a plain raycast from the cursor.
+---
+--- This used to return a patch index, and the aim point was then snapped to that
+--- patch's blob. That is what made the stream jump from blob to blob as the mouse
+--- moved: the water was not going where you pointed, it was going where the game had
+--- decided you meant. Aim is now just aim.
+---
+--- The blobs and the jet segments are all CanQuery = false, so this never hits the
+--- effects themselves -- it finds the ITEM under the blob, which is where the
+--- contamination is anyway. The character is filtered out because the ray starts
+--- behind the player's own shoulder.
+local function aimPointAt(ray: Ray, filter: RaycastParams): Vector3
+	local hit = Workspace:Raycast(ray.Origin, ray.Direction.Unit * AIM_RANGE, filter)
+	if hit then
+		return hit.Position
+	end
+	return ray.Origin + ray.Direction.Unit * AIM_FALLBACK
+end
+
+--- Which patch is being worked: the one nearest to where the water actually LANDS.
+---
+--- Not nearest to the cursor, and the difference is the whole point. The stream is a
+--- falling arc that stops at the first thing it touches, so the cursor and the impact
+--- are genuinely different places -- and "you are cleaning what you are hitting" is
+--- the only rule a player would ever guess from watching it. PATCH_REACH is generous
+--- because a half-stud ball at eight studs, hit with a ballistic arc, is a cruel thing
+--- to ask anyone to be exact about.
+local function patchAt(point: Vector3): number?
 	local best: number? = nil
-	local bestDistance = math.huge
+	local bestDistance = PATCH_REACH
 	for index, blob in blobs do
-		local toBlob = blob.Position - ray.Origin
-		local along = toBlob:Dot(ray.Direction.Unit)
-		if along > 0 and along < SPRAY_RANGE then
-			local perpendicular = (toBlob - ray.Direction.Unit * along).Magnitude
-			if perpendicular < bestDistance and perpendicular < 2.2 then
-				best, bestDistance = index, perpendicular
-			end
+		local distance = (blob.Position - point).Magnitude
+		if distance < bestDistance then
+			best, bestDistance = index, distance
 		end
 	end
 	return best
@@ -551,52 +779,39 @@ local function onRender()
 	-- the hose being subtly, maddeningly miscalibrated.
 	local mouse = UserInputService:GetMouseLocation()
 	local aimRay = camera:ScreenPointToRay(mouse.X, mouse.Y)
-	local target = aimAt(aimRay)
 
-	if target ~= aimedIndex then
-		aimedIndex = target
-		if inputRemote then
-			inputRemote:FireServer({ spraying = spraying, patchIndex = aimedIndex })
-		end
-	end
+	-- Rebuilt per frame rather than cached: the character is respawnable and the folder
+	-- is destroyed on every stop(), so a stale filter would either miss the character
+	-- or hold a reference to a freed instance.
+	local filter = RaycastParams.new()
+	filter.FilterType = Enum.RaycastFilterType.Exclude
+	filter.FilterDescendantsInstances = { Players.LocalPlayer.Character :: any, folder :: any }
 
-	-- The one true aim point, shared by the hose rig and the beam below, so the
-	-- nozzle is never visibly pointed anywhere other than where the stream lands.
-	local blob = if aimedIndex then blobs[aimedIndex] else nil
-	local hitPoint = if blob
-		then blob.Position
-		else aimRay.Origin + aimRay.Direction.Unit * 12
+	local aimPoint = aimPointAt(aimRay, filter)
 
 	-- Tracks the cursor continuously, spraying or not — a held hose reads as aimed
 	-- the moment you look somewhere, same as a real one, not only while it is live.
 	if aimMotor == nil then
 		startAimRig()
 	end
-	updateAimRig(hitPoint)
+	updateAimRig(aimPoint)
 
-	if streamEmitter and splashEmitter and originAttach and hitAttach then
-		local nozzle = nozzleCFrame()
-		local show = spraying and nozzle ~= nil
-		streamEmitter.Enabled = show
-		splashEmitter.Enabled = show
-		if show and nozzle then
-			-- The stream fires along originAttach's own forward axis (EmissionDirection
-			-- = Front on the emitter, set once at creation), so pointing the ATTACHMENT
-			-- at the target is the whole job -- no per-particle direction math here.
-			originAttach.WorldCFrame = CFrame.lookAt(nozzle.Position, hitPoint)
+	-- The jet reports back where it landed, which is not the aim point whenever the
+	-- falling arc clips something on the way. That impact, not the cursor, is what
+	-- picks the patch.
+	local nozzle = nozzleCFrame()
+	local landing = aimPoint
+	if spraying and nozzle then
+		landing = drawJet(nozzle.Position, aimPoint, filter)
+	else
+		hideJet()
+	end
 
-			-- Speed is distance/lifetime, recomputed every frame, so a droplet emitted
-			-- THIS frame still lands close to a target that may be moving (a tracked
-			-- patch) or may have just gotten farther or nearer as the player re-aims.
-			local distance = (hitPoint - nozzle.Position).Magnitude
-			local lifetime = (STREAM_LIFETIME.Min + STREAM_LIFETIME.Max) / 2
-			local speed = math.clamp(distance / lifetime, 4, 60)
-			streamEmitter.Speed = NumberRange.new(speed * 0.9, speed * 1.1)
-
-			-- The splash faces back toward the nozzle, so its wide cone scatters
-			-- generally away from the surface it hit -- the same "bounced off the
-			-- barrel toward camera" read the reference splash has.
-			hitAttach.WorldCFrame = CFrame.lookAt(hitPoint, nozzle.Position)
+	local target = patchAt(landing)
+	if target ~= aimedIndex then
+		aimedIndex = target
+		if inputRemote then
+			inputRemote:FireServer({ spraying = spraying, patchIndex = aimedIndex })
 		end
 	end
 end
