@@ -27,16 +27,19 @@
 	THE LOOK — the supplied classic-Roblox Gear Store reference, stripped to the
 	structure. Each tool stall has studded posts, a slatted rear wall, an open
 	counter with a steel cap, a shallow hot-pink-and-white striped canopy and
-	matching valance, and the floating "Gear Store / Buy Helpful Items!" sign. The
-	Outfitter remains the larger peaked-roof building across the aisle.
+	matching valance, and a floating two-line sign that NAMES WHAT THE STALL SELLS
+	(DETECTORS / MAGNETS / CLEANERS) in that shop's own accent colour, with the
+	tagline under it. The Outfitter remains the larger peaked-roof building across
+	the aisle, its three counters each billboarded the same way (SUITS / BOOTS /
+	SATCHELS).
 
 	THE DECORATION IS GONE, AND THAT WAS A DELIBERATE STRIP. Earlier passes stood a
 	blocky shopkeeper behind each counter, a big silhouette prop of the thing sold
 	(a detector, a horseshoe magnet, a bucket-and-brush, a hazmat suit…) beside it,
 	a crate and an open chest of clutter on the deck, and a rubber duck on the roof.
-	All removed. What identifies a stall now is its accent colour alone — the
-	counter trim cap and the floor-marker outline, both in the shop's own hue — plus
-	the client buy panel that names the track when you stand in the radius.
+	All removed. What identifies a stall now is the sign naming its wares plus its
+	accent colour — the sign text, the counter trim cap and the floor-marker
+	outline all in the shop's own hue.
 
 	THE LUMBER IS GREY, NOT BROWN. Posts, counters, the Outfitter's walls, roof
 	beams and rear slats all paint from C.shopWood / C.shopWoodLight — a cool
@@ -112,7 +115,7 @@ local Hub = require(script.Parent.Hub)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 17
+local BUILDER_VERSION = 18
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
@@ -122,9 +125,9 @@ local build, billboard = Kit.build, Kit.billboard
 --- centred on x=17.5 — the plaza midpoint, the grey central spine's centreline
 --- and the camp spawn datum, all the same coordinate — at a 42-stud pitch.
 local STALLS = {
-	{ track = "Detector", at = { -24.5, 22 }, color = C.shopDetector, tagline = "find it deeper" },
-	{ track = "Magnet", at = { 17.5, 22 }, color = C.shopMagnet, tagline = "pull it harder" },
-	{ track = "Cleaner", at = { 59.5, 22 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
+	{ track = "Detector", at = { -24.5, 22 }, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper" },
+	{ track = "Magnet", at = { 17.5, 22 }, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder" },
+	{ track = "Cleaner", at = { 59.5, 22 }, color = C.shopCleaner, label = "CLEANERS", tagline = "scrub it cleaner" },
 }
 
 --- The outfitter's three counters, on one bench facing the stalls across the
@@ -248,13 +251,17 @@ local function buildSlatWall(parent: Instance, origin: CFrame)
 	end
 end
 
---- Large floating title copied from the reference's hierarchy: awning-red store
---- name with a black outline, then a smaller white call-to-action below it.
-local function buildGearStoreBillboard(adornee: BasePart)
+--- The floating stall sign, in the reference's two-line hierarchy: the big line
+--- names WHAT THE STALL SELLS (DETECTORS / MAGNETS / CLEANERS) in that shop's own
+--- accent colour so the sign itself does the colour-navigation, and a smaller
+--- white line under it carries the tagline. `accent` is the shop's hex string.
+--- The big line is TextScaled so any label length fits its band without
+--- re-tuning TextSize.
+local function buildStoreBillboard(adornee: BasePart, label: string, tagline: string, accent: string)
 	local gui = Instance.new("BillboardGui")
-	gui.Name = "GearStoreSign"
+	gui.Name = "StoreSign"
 	gui.Adornee = adornee
-	gui.Size = UDim2.fromOffset(360, 90)
+	gui.Size = UDim2.fromOffset(400, 96)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 12.4, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = 40
@@ -262,23 +269,23 @@ local function buildGearStoreBillboard(adornee: BasePart)
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
-	title.Size = UDim2.new(1, 0, 0, 54)
+	title.Size = UDim2.new(1, 0, 0, 56)
 	title.BackgroundTransparency = 1
 	title.Font = Kit.FONT
-	title.Text = "Gear Store"
-	title.TextColor3 = Color3.fromHex(GEAR_STORE_STRIPE)
-	title.TextSize = 42
+	title.Text = label
+	title.TextScaled = true
+	title.TextColor3 = Color3.fromHex(accent)
 	title.TextStrokeColor3 = Color3.fromHex(C.hazardBlack)
 	title.TextStrokeTransparency = 0
 	title.Parent = gui
 
 	local subtitle = Instance.new("TextLabel")
 	subtitle.Name = "Subtitle"
-	subtitle.Position = UDim2.fromOffset(0, 50)
+	subtitle.Position = UDim2.fromOffset(0, 56)
 	subtitle.Size = UDim2.new(1, 0, 0, 34)
 	subtitle.BackgroundTransparency = 1
 	subtitle.Font = Kit.FONT
-	subtitle.Text = "Buy Helpful Items!"
+	subtitle.Text = tagline
 	subtitle.TextColor3 = Color3.fromHex(C.labelText)
 	subtitle.TextSize = 25
 	subtitle.TextStrokeColor3 = Color3.fromHex(C.hazardBlack)
@@ -397,10 +404,11 @@ end
 
 --- One classic-Roblox gear store, stripped to the structure: studded grey posts
 --- and rear slats, an open counter, a pink-and-white striped canopy, and the
---- floating two-line sign. The floor marker and the counter's trim cap, both in
---- the shop's accent colour, are the only per-shop colour-coding left now that the
---- shopkeeper and the identity prop are gone.
-local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, tagline: string })
+--- floating two-line sign naming the wares (spec.label) with the tagline under
+--- it. The sign text, the floor marker and the counter's trim cap — all in the
+--- shop's accent colour — are the per-shop identity now that the shopkeeper and
+--- the identity prop are gone.
+local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, label: string, tagline: string })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
@@ -472,14 +480,14 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		material = "Plastic",
 		studded = true,
 	})
-	buildGearStoreBillboard(counter)
+	buildStoreBillboard(counter, spec.label, spec.tagline, spec.color)
 
 	buildStripedCanopy(m, origin)
 
 	-- The floor marker: a glowing outline of the buy radius, in the shop's own
 	-- colour — never green, see the header. With the shopkeeper and the identity
-	-- prop stripped out, this and the counter trim cap are the whole of a stall's
-	-- per-shop identity.
+	-- prop stripped out, this, the counter trim cap and the sign text are the
+	-- whole of a stall's per-shop identity.
 	buildFloorMarker(m, origin, 0, 3.4, 10, 5, spec.color)
 
 	m.Parent = parent
