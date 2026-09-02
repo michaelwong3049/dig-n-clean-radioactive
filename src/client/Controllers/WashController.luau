@@ -91,7 +91,7 @@
 	and the arm stops moving under it. That leaves this file rotating a nozzle held in
 	a hand that is genuinely still, which is the whole reason the aim reads now.
 
-	THE SPRAY IS A ROPE OF PARTS ON A BALLISTIC ARC, AND IT TOOK FIVE TRIES. Each one
+	THE SPRAY IS A CHAIN OF BLOBS ON A BALLISTIC ARC, AND IT TOOK SIX TRIES. Each one
 	fixed something real about the last, so the whole ladder is worth keeping:
 
 	v1 drew ONE thin, mostly transparent Beam from nozzle to target. It read as "a
@@ -104,38 +104,29 @@
 	stream, and the report was exactly that: get rid of the dots, leave the stream.
 
 	v3 went back to Beams, two of them, on the theory that v1 failed for being ONE
-	flat nearly-transparent ribbon rather than for being a Beam -- a wide dark shell
-	with a pale core inside it to fake the shading a camera-facing ribbon cannot
-	have. It did not work, and the reason is a hard fact about the engine rather
-	than a tuning miss: A BEAM RENDERS ADDITIVELY. Its colour is ADDED to whatever
-	is behind it, so a Beam can only ever brighten the scene. Darkening the shell
-	from 0.42 to 0.55 to 0.62 toward black changed nothing on screen, because there
-	is no such thing as a dark Beam -- and "darker, so it is easier to see" is what
-	was asked for, over a bright base under a bright sky.
+	flat nearly-transparent ribbon rather than for being a Beam. It did not work,
+	and the reason is a hard fact about the engine rather than a tuning miss: A BEAM
+	RENDERS ADDITIVELY. Its colour is ADDED to whatever is behind it, so a Beam can
+	only ever brighten the scene. Darkening the shell from 0.42 to 0.55 to 0.62
+	toward black changed nothing on screen, because there is no such thing as a dark
+	Beam -- and "darker, so it is easier to see" is what had been asked for.
 
 	v4 was the same shape drawn as PARTS, which do shade and occlude and therefore
-	can be dark. That fixed the colour, and left two things still reading as
-	machinery. It was a fixed-proportion Bezier -- the sag was always the same
-	fraction of the distance, so the arc never behaved like something falling. And
-	the far end was SNAPPED to whichever contamination blob was nearest the cursor,
-	so the stream jumped from patch to patch as the mouse moved, going where the
-	game had decided you meant rather than where you were pointing.
+	can be dark. That fixed the colour and left two things reading as machinery: the
+	sag was a fixed fraction of the distance, so the arc never behaved like something
+	falling, and the far end SNAPPED to whichever contamination blob was nearest the
+	cursor, going where the game had decided you meant.
 
-	v5, below, is a real flight. The water leaves the nozzle at a fixed speed toward
-	the point the cursor's raycast found, falls under gravity for the whole way, and
-	stops on the first surface it touches. A long shot therefore sags more than a
-	short one because it is in the air longer, which is the cue that reads as weight.
-	Nothing snaps: aim is aim. And which patch is being cleaned is decided by where
-	the water LANDS, which is the only rule a player would guess from watching it.
+	v5 made it a real flight -- fixed launch speed, gravity for the rest of the way,
+	stopping on the first surface it touches. That is still how it moves.
 
-	COLOUR: THE LIQUID, PUSHED DOWN TOWARD BLACK. The old spray was tinted only
-	faintly toward the liquid because real spray aerates and reads white -- true,
-	and it produced something invisible against a pale steel tub. Every liquid in
-	the catalogue is a light pastel (Config/Liquids), so the raw hue was no rescue
-	either. Down is the only direction with contrast left in it. Each segment is
-	then lifted slightly back toward white the further out it is, because a jet
-	really does pick up air as it travels, and that gradient is what stops a solid
-	rope reading as a bent pipe.
+	v6, below, is the cartoon pass, and it is two changes. The cylinders became
+	BALLS: a chain of overlapping spheres has no flat end caps to show at the joints,
+	needs no orientation solved per segment, and gives the soft round silhouette that
+	drawn water has. And the colour came back up -- see applySprayColor. What was
+	there before was a dark, naturalistic, slightly translucent stream in a world of
+	bright matte primaries, which is exactly the "looks weird" that prompted this: it
+	did not look bad, it looked like it belonged in a different game.
 
 	THE WOBBLE IS NOISE, NOT RANDOM, and an early version got this wrong in the
 	other direction. It jittered the stream's ENDPOINT on a sine wave to fake
@@ -174,19 +165,26 @@ local PATCH_REACH = 2.8
 local AIM_RANGE = 60
 local AIM_FALLBACK = 16
 
--- The jet: a chain of overlapping cylinders laid along the water's real flight path.
--- See the header for why it is parts rather than a Beam or a particle cone.
-local JET_SEGMENTS = 16
--- How far the liquid's own colour is pushed toward black, and how far the far end is
--- then lifted back toward white for aeration. See applySprayColor.
-local JET_DARKEN = 0.45
-local JET_AERATION = 0.16
--- Segments are cut this much longer than the gap they span, so each buries the flat
--- end cap of the one before it. Below about 1.2 the rope reads as linked sausages.
-local JET_OVERLAP = 1.4
-local JET_WIDTH_NEAR = 0.3
-local JET_WIDTH_FAR = 0.85
-local JET_TRANSPARENCY = 0.1
+-- The jet: a chain of overlapping BALLS laid along the water's real flight path.
+-- See the header for why it is parts rather than a Beam or a particle cone, and why
+-- they are balls rather than the cylinders they started as.
+local JET_SEGMENTS = 18
+-- Cartoon water is BRIGHT. This is barely a darkening at all -- just enough to keep
+-- the liquid's own pastel from washing into the pale steel of the tub behind it.
+local JET_DARKEN = 0.18
+-- Foam: how white the stream goes by the very tip, and where along its length it
+-- starts turning. A white leading edge is the single most cartoon thing about drawn
+-- water, and it doubles as the aeration cue that was there before.
+local JET_FOAM = 0.6
+local JET_FOAM_START = 0.6
+local JET_RADIUS_NEAR = 0.17
+local JET_RADIUS_FAR = 0.46
+-- How much each blob's radius breathes with the churn below. Cartoon streams are
+-- lumpy; a perfectly even tube is a pipe.
+local JET_LUMP = 0.24
+-- Opaque, on purpose. See-through water reads as glass or as a particle haze; a solid
+-- shape with a hard silhouette is what makes it read as drawn.
+local JET_TRANSPARENCY = 0
 -- Studs per second the water leaves the nozzle at. The flight time -- and so how far
 -- the arc sags -- falls out of this against the distance to the aim point, which is
 -- the whole reason the jet droops more the further you point it.
@@ -201,9 +199,11 @@ local JET_GRAVITY = 46
 -- travels, and wobble at the muzzle just reads as a loose grip.
 local JET_WOBBLE = 0.16
 local JET_CHURN = 3.4
--- The splash disc where the water lands: diameter, and how much of that it breathes.
-local SPLASH_SIZE = 1.5
-local SPLASH_PULSE = 0.28
+-- The splash blob where the water lands: diameter, and how much of that it breathes.
+-- Kept just under the size of an item, so it reads as landing ON the thing rather
+-- than swallowing it -- at 1.7 the white blob was the biggest object in the shot.
+local SPLASH_SIZE = 1.25
+local SPLASH_PULSE = 0.3
 
 local state: any = nil
 local blobs: { [number]: BasePart } = {}
@@ -294,7 +294,7 @@ local function ensureSpray()
 	for index = 1, JET_SEGMENTS do
 		local part = Instance.new("Part")
 		part.Name = `Jet{index}`
-		part.Shape = Enum.PartType.Cylinder
+		part.Shape = Enum.PartType.Ball
 		part.Material = Enum.Material.SmoothPlastic
 		part.Transparency = 1
 		part.Anchored = true
@@ -307,7 +307,7 @@ local function ensureSpray()
 
 	local splash = Instance.new("Part")
 	splash.Name = "Splash"
-	splash.Shape = Enum.PartType.Cylinder
+	splash.Shape = Enum.PartType.Ball
 	splash.Material = Enum.Material.SmoothPlastic
 	splash.Transparency = 1
 	splash.Anchored = true
@@ -320,26 +320,31 @@ local function ensureSpray()
 	jetShown = false
 end
 
---- The liquid's own colour, pushed DOWN toward black.
+--- THE LIQUID'S OWN COLOUR, BARELY DARKENED, GOING WHITE AT THE TIP.
 ---
---- The old spray was tinted only faintly toward the liquid, on the reasoning that
---- real spray aerates and reads white. True, and the result over a bright base under
---- a bright sky was something you could not see at all. Every liquid in the catalogue
---- is a light pastel (Config/Liquids), so the raw hue was never going to rescue it
---- either -- these are all about as bright as the tub they are being sprayed into.
---- Down toward black is the only direction with contrast left in it.
+--- This has swung twice and the middle is where it belongs. It started tinted only
+--- faintly toward the liquid, on the reasoning that real spray aerates and reads
+--- white -- true, and against a pale steel tub the result was invisible. So it went
+--- hard the other way, most of the way to black, which was legible and looked like
+--- oil: a dark naturalistic stream in a world of bright matte primaries.
 ---
---- Each segment is then lifted slightly back toward white the further from the
---- nozzle it is: a jet picks up air as it travels, so the far end really is paler,
---- and the gradient is what stops a solid rope reading as a bent pipe. The splash
---- goes further still, because the water at an impact is all foam.
+--- Cartoon water is BRIGHT and it FOAMS. So the body of the jet is the liquid at
+--- nearly full strength -- these are all saturated enough to hold their own against
+--- the tub without being dragged toward black -- and the last stretch turns white.
+--- A white leading edge is the single most recognisable thing about drawn water; it
+--- gives the stream a readable tip, it is the aeration cue the darkening was
+--- reaching for, and it is what carries the contrast now.
 local function applySprayColor(hex: string)
-	local dark = Color3.fromHex(hex):Lerp(Color3.new(0, 0, 0), JET_DARKEN)
+	local body = Color3.fromHex(hex):Lerp(Color3.new(0, 0, 0), JET_DARKEN)
+	local white = Color3.new(1, 1, 1)
 	for index, part in jetParts do
-		part.Color = dark:Lerp(Color3.new(1, 1, 1), JET_AERATION * (index / JET_SEGMENTS))
+		local along = index / JET_SEGMENTS
+		local foam = math.clamp((along - JET_FOAM_START) / (1 - JET_FOAM_START), 0, 1)
+		part.Color = body:Lerp(white, JET_FOAM * foam)
 	end
 	if splashPart then
-		splashPart.Color = dark:Lerp(Color3.new(1, 1, 1), 0.45)
+		-- The impact is all foam, always.
+		splashPart.Color = body:Lerp(white, 0.72)
 	end
 end
 
@@ -412,13 +417,21 @@ local function drawJet(from: Vector3, to: Vector3, filter: RaycastParams): Vecto
 	local landing = path[#path]
 	local stopped = false
 
+	-- BLOBS HAVE TO OVERLAP OR THE STREAM IS A STRING OF BEADS, and how far apart they
+	-- sit depends entirely on how far the player is spraying: the same eighteen blobs
+	-- cover two studs or twelve. So the radius has a floor derived from the spacing --
+	-- a blob is never allowed to be smaller than it takes to touch its neighbours --
+	-- and the tuned radii below are what it looks like once that floor is met.
+	local spacing = (to - from).Magnitude / JET_SEGMENTS
+	local floor = spacing * 0.62
+
 	for index, part in jetParts do
 		local a, b = path[index], path[index + 1]
 		local span = (b - a).Magnitude
 
 		if stopped or span < 0.01 then
 			-- Either the water already hit something, or the player is aiming at their
-			-- own muzzle: CFrame.lookAt on a zero direction returns garbage.
+			-- own muzzle and the path has collapsed to a point.
 			part.Transparency = 1
 		else
 			-- Segment by segment, so the stream stops ON the surface it hits rather than
@@ -426,40 +439,44 @@ local function drawJet(from: Vector3, to: Vector3, filter: RaycastParams): Vecto
 			-- the same total length as one long ray down the arc, and a straight ray
 			-- cannot follow a curve.
 			local hit = Workspace:Raycast(a, b - a, filter)
-			local tip = if hit then hit.Position else b
-			local reach = (tip - a).Magnitude
 			if hit then
 				landing = hit.Position
 				stopped = true
 			end
 
-			if reach < 0.01 then
-				part.Transparency = 1
-			else
-				local width = JET_WIDTH_NEAR + (JET_WIDTH_FAR - JET_WIDTH_NEAR) * ((index - 0.5) / JET_SEGMENTS)
-				-- The overlap is only safe on segments that run the full span; a segment
-				-- cut short by an impact would otherwise poke out the back of the wall.
-				local length = if hit then reach else reach * JET_OVERLAP
-				part.Size = Vector3.new(length, width, width)
-				-- A Cylinder's own axis is X and lookAt aims down -Z, so the extra yaw is
-				-- what turns "pointing at the next point" into "lying along the segment".
-				part.CFrame = CFrame.lookAt(a + (tip - a) * 0.5, tip) * CFrame.Angles(0, math.rad(90), 0)
-				part.Transparency = JET_TRANSPARENCY
-			end
+			local along = (index - 0.5) / JET_SEGMENTS
+			-- Lumpy, and lumpy IN TIME: the same scrolling noise that bends the path
+			-- also swells and pinches each blob as it passes, so the stream visibly
+			-- pulses instead of sitting there as a static tapered tube.
+			local lump = 1 + JET_LUMP * math.noise(along * 4.7 - now * JET_CHURN, 1.5)
+			local radius = math.max(JET_RADIUS_NEAR + (JET_RADIUS_FAR - JET_RADIUS_NEAR) * along, floor) * lump
+			local diameter = radius * 2
+
+			part.Size = Vector3.new(diameter, diameter, diameter)
+			-- At the segment's START, not its end, so the first blob sits at the muzzle
+			-- and the stream visibly leaves the nozzle rather than a gap out from it.
+			-- On an impact it moves to the contact point instead, which closes the gap
+			-- to the splash.
+			--
+			-- A ball needs no orientation, which is half the reason for the switch: the
+			-- cylinders this replaced had to be aimed down their own segment AND yawed
+			-- to get their axis onto it, and every joint still showed a flat end cap.
+			part.CFrame = CFrame.new(if hit then hit.Position else a)
+			part.Transparency = JET_TRANSPARENCY
 		end
 	end
 
-	-- The splash. One breathing disc laid flat against whatever was hit, not a burst of
-	-- particles -- the particles were the thing that had to go. It matters more than it
-	-- sounds: without it the stream ends at a hard flat cylinder cap, and the eye reads
-	-- that as the water STOPPING in mid-air rather than as it landing on something.
+	-- The splash: one breathing blob at the point of impact, in the foam colour. Round
+	-- rather than the flat disc it was, for the same reason the stream is round now --
+	-- and it is doing real work either way. Without something at the end, the eye reads
+	-- the stream as STOPPING in mid-air rather than as landing on something.
 	local splash = splashPart
 	if splash then
 		if stopped then
 			local size = SPLASH_SIZE * (1 + SPLASH_PULSE * math.noise(now * 6, 0.5))
-			splash.Size = Vector3.new(0.08, size, size)
-			splash.CFrame = CFrame.lookAt(landing, landing + (from - landing).Unit) * CFrame.Angles(0, math.rad(90), 0)
-			splash.Transparency = 0.35
+			splash.Size = Vector3.new(size, size, size)
+			splash.CFrame = CFrame.new(landing)
+			splash.Transparency = 0.1
 		else
 			splash.Transparency = 1
 		end

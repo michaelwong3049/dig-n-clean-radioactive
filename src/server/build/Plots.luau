@@ -643,6 +643,13 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	-- base), which is also the axis WashController aims it down: CFrame.lookAt puts
 	-- its target on -Z, so "the nozzle's -Z is the business end" has to hold both
 	-- parked and held, or the spray comes out of the grip.
+	-- STUBBY AND FAT, on the cartoon pass. The first nozzle was a slim, finely stepped
+	-- thing that read as a technical drawing at arm's length and as nothing at all from
+	-- the wash camera thirteen studs away. A cartoon prop is a few big shapes: one
+	-- barrel, one flared muzzle, one brass ring, and a grip you can actually see a hand
+	-- close around. The BODY also went from the dark green to the bright one -- the
+	-- object in the player's hands should be the most saturated thing in the shot, not
+	-- the least.
 	local hose = Instance.new("Model")
 	hose.Name = "Hose"
 
@@ -676,11 +683,11 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	-- also used by build/Scenery's tipped barrels, and whatever those look like today
 	-- is not this feature's to change.
 	local shell = {
-		{ name = "NozzleBody", pos = { nx, ny, nz + 0.15 }, size = { 1.7, 0.68, 0.68 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Cylinder", rot = Kit.R.yaw90 },
-		{ name = "NozzleGrip", pos = { nx, ny - 0.55, nz + 0.55 }, size = { 0.4, 0.9, 0.5 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Block", rot = Kit.R.flat },
-		{ name = "NozzleCollar", pos = { nx, ny, nz + 1.05 }, size = { 0.4, 0.86, 0.86 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
-		{ name = "NozzleTaper", pos = { nx, ny, nz - 0.95 }, size = { 0.95, 0.52, 0.52 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
-		{ name = "NozzleTip", pos = { nx, ny, nz - 1.45 }, size = { 0.2, 0.66, 0.66 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
+		{ name = "NozzleBody", pos = { nx, ny, nz + 0.15 }, size = { 1.6, 0.92, 0.92 }, color = C.hoseGreen, material = "SmoothPlastic", shape = "Cylinder", rot = Kit.R.yaw90 },
+		{ name = "NozzleGrip", pos = { nx, ny - 0.6, nz + 0.55 }, size = { 0.46, 1.0, 0.58 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Block", rot = Kit.R.flat },
+		{ name = "NozzleCollar", pos = { nx, ny, nz + 1.0 }, size = { 0.44, 1.06, 1.06 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
+		{ name = "NozzleTaper", pos = { nx, ny, nz - 0.9 }, size = { 0.9, 0.68, 0.68 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
+		{ name = "NozzleTip", pos = { nx, ny, nz - 1.42 }, size = { 0.26, 0.96, 0.96 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
 	}
 	for _, spec in shell do
 		local part = build(hose, origin, {
@@ -726,11 +733,12 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	beam.Name = "HoseLine"
 	beam.Attachment0 = anchor
 	beam.Attachment1 = hoseEnd
-	-- Fat. A fire hose is a thick, heavy thing and a thin ribbon reads as cable; this
-	-- is roughly the diameter of the nozzle it feeds into, which is what stops the two
-	-- looking like different objects joined by a wire.
-	beam.Width0 = 0.62
-	beam.Width1 = 0.5
+	-- Fat, and then fatter again on the cartoon pass. A fire hose is a thick, heavy
+	-- thing and a thin ribbon reads as cable; this is a shade over the diameter of the
+	-- nozzle it feeds into, which is what stops the two looking like different objects
+	-- joined by a wire.
+	beam.Width0 = 0.9
+	beam.Width1 = 0.75
 	-- Slack, not tension. Positive out of the reel throws the loop the way HoseAnchor
 	-- is aimed (down and toward the tub); NEGATIVE into the nozzle throws the other
 	-- control point BACKWARD from HoseEnd, whose LookVector is the direction the
