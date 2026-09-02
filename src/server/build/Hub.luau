@@ -473,12 +473,11 @@ local function buildSpawns(hub: Model)
 	local spawns = Instance.new("Folder")
 	spawns.Name = "Spawns"
 
-	-- z moved 0 <- -14: that offset used to read as "just inside the gate," but
-	-- the gate is gone and -14 now lands inside the Outfitter's new footprint
-	-- (Shops.luau's OUTFITTER moved to z=-22, reaching to about z=-13). 0 sits in
-	-- the open aisle between the two shop rows (STALLS at z=22, OUTFITTER at
-	-- z=-22) — still an arbitrary point, just no longer one that lands inside a
-	-- building.
+	-- (17.5, 0) — the plaza midpoint. Shops.luau builds its three stalls as a
+	-- triangle centred on exactly this point (its PLAZA_MID) and turned to face
+	-- it, so a player waking up here stands in the open middle of the triangle
+	-- with all three counters facing them; the Outfitter is parked off at the
+	-- south edge. Nothing is built on this point.
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",

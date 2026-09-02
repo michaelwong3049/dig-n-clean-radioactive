@@ -24,17 +24,29 @@
 	do not physically have at all — since moved out to its own button (see the LUCK
 	IS NOT HERE note below).
 
-	THE LOOK — the supplied classic-Roblox Gear Store reference. Each tool stall
-	has studded wooden posts, a slatted rear wall, an open counter with a steel cap,
-	a shallow hot-pink-and-white striped canopy and matching valance, a tiny rubber
-	duck on the roof, and the floating "Gear Store / Buy Helpful Items!" sign. The
-	Outfitter remains the larger peaked-roof building across the aisle.
+	THE LOOK — the supplied classic-Roblox Gear Store reference, stripped to the
+	structure. Each tool stall has studded posts, a slatted rear wall, an open
+	counter with a steel cap, a shallow striped canopy and matching valance IN THE
+	STALL'S OWN COLOUR (coral / teal / purple against white, no longer the one
+	shared awning red), and a floating two-line sign that NAMES WHAT THE STALL
+	SELLS (DETECTORS / MAGNETS / CLEANERS) in that same accent, with the tagline
+	under it. The Outfitter remains the larger peaked-roof building across the
+	aisle, its three counters each billboarded the same way (SUITS / BOOTS /
+	SATCHELS).
 
-	IDENTITY STILL COMES FROM THE PROP, NOT THE STALL SHAPE. Every stall is the
-	same shape, so the differentiator is still the same big, silhouette-clear
-	prop of the actual thing sold (a detector, a horseshoe magnet, a
-	bucket-and-brush) standing beside the counter, paired with a crate of
-	clutter for a "goods stacked outside the stall" read.
+	THE DECORATION IS GONE, AND THAT WAS A DELIBERATE STRIP. Earlier passes stood a
+	blocky shopkeeper behind each counter, a big silhouette prop of the thing sold
+	(a detector, a horseshoe magnet, a bucket-and-brush, a hazmat suit…) beside it,
+	a crate and an open chest of clutter on the deck, and a rubber duck on the roof.
+	All removed. What identifies a stall now is the sign naming its wares plus its
+	accent colour — the sign text, the counter trim cap and the floor-marker
+	outline all in the shop's own hue.
+
+	THE LUMBER IS GREY, NOT BROWN. Posts, counters, the Outfitter's walls, roof
+	beams and rear slats all paint from C.shopWood / C.shopWoodLight — a cool
+	neutral grey, so the built structure reads as painted timber and the shop's own
+	accent colour (trim cap, canopy, floor marker) is the only warm thing on the
+	stall.
 
 	THE GLOW STAYS OUT OF GREEN. The floor outline marking the buy radius uses the
 	shop's own accent colour, never green, so "glowing green" still means exactly
@@ -52,45 +64,32 @@
 	else. Both Radius values are untouched by the reskin — this file only changed what
 	things look like, not how close you need to stand.
 
-	STALLS.at / OUTFITTER.at ARE NOT UNTOUCHED ANY MORE. Both were written when
-	Hub.PLAZA was symmetric about world X=0, so "centred at x=0" and "centred on the
-	plaza" were the same statement. They stopped being the same statement when the
-	plaza's compaction pass pinned its east edge to Stage 1 and pulled its west edge in
-	instead (see Hub.PLAZA's own comment) — the rectangle's midpoint moved to x=17.5,
-	so every X here carries that same +17.5 to stay centred on the plaza rather than on
-	a world coordinate the plaza no longer straddles.
+	THE THREE STALLS SIT IN A TRIANGLE FACING THE MIDDLE. `PLAZA_MID` (x=17.5, z=0)
+	is that middle — the plaza midpoint, Hub's grey central spine centreline, the
+	camp datum (Hub.CAMP_ORIGIN) and the blackout-respawn anchor, all the same
+	point. Each stall stands `STALL_RING_RADIUS` studs out from it at a 120-degree
+	spacing and is turned so its own front — the counter side, local +Z — points
+	back at PLAZA_MID (`facingOrigin` does the turn). A player standing on the
+	respawn anchor is inside the triangle with all three counters facing them; the
+	gap between the two western stalls is the way in, aimed at the pad ring the
+	players arrive from.
 
-	Z MOVED TOO, WHEN THE BASE RING BECAME A SEMICIRCLE. The two rows used to sit at
-	the edges of a plaza the pad ring surrounded on three sides (stalls z=45,
-	Outfitter z=-48); now that all six pads face one central shop cluster
-	(Plots.luau's RING_CENTER), the two rows pulled in tight around it instead:
-	stalls z=45 -> 22, Outfitter z=-48 -> -22, symmetric about z=0. That leaves a
-	clean 20-stud aisle between them (a stall deck's southmost point at z=7, the
-	Outfitter's northmost wall at z=-13) and puts the whole cluster's farthest
-	reach from centre at only ~60 studs — well short of the ring's 154-stud inner
-	pad edge, so every pad has a clear, unobstructed line of sight to the cluster
-	it's built to face. Each shop's own internal facing (stalls south, Outfitter
-	north) is untouched — only the row positions moved, not which way anything
-	points.
+	THE OUTFITTER IS PARKED AT THE SOUTH EDGE, FOR NOW. It used to sit across a
+	centre aisle from a straight row of stalls (row at z=22, Outfitter at z=-22).
+	The stalls became the triangle above and the Outfitter was pushed out to
+	z=-55 — near the plaza's south edge (minZ=-70), still facing north (+Z) at the
+	plaza centre, no re-aim needed. This is a holding position, not a designed one:
+	it is out of the way while the triangle is the thing being looked at.
 
-	X BRIEFLY MOVED TO RING_CENTER, THEN CAME BACK. For a while every X here
-	carried a further +14.5 on top of the +17.5 above, to sit centred under
-	Plots.RING_CENTER (x=32) rather than the plaza's own midpoint (x=17.5) — one
-	uniform offset from a world coordinate the plaza no longer straddled. That
-	correction is REVERTED. Hub's grey central spine is a north-south strip
-	centred on the plaza midpoint (x=17.5, which is also the camp spawn datum),
-	and the cluster has to sit square on the spine, not hang off its east edge
-	with a wide empty grey margin to the west. So the stalls are back to
-	`17.5 + {-42, 0, +42}` and the Outfitter to x=17.5 — centred on the plaza
-	exactly as para 1 already describes, with the RING_CENTER detour undone.
-	Every pad still looks essentially straight at the cluster: 14.5 studs of
-	offset from RING_CENTER is nothing at the ring's 180-stud radius. Plots.luau's
-	SHOP_CLUSTER_EAST_REACH (53) is deliberately LEFT ALONE — the pad ring is not
-	moving — so it is now a conservative bound on how far east the ring could sit,
-	not a tight measurement of the Cleaner stall's east edge (which pulled ~14.5
-	studs back west with the rest of the row). This file still reads nothing from
+	`facingOrigin` IS THE ONLY PLACEMENT PRIMITIVE. Both builders lay every part as
+	a local offset from the CFrame it returns, so that one CFrame carries a shop's
+	whole position AND facing. It reads Hub.PLAZA.topY for the ground plane (the
+	plaza is at Stages.SURFACE_Y, not Y=0). This file still reads nothing from
 	Plots.luau: Plots requires Hub, Hub requires only Kit, and Shops stays a pure
-	statement of positions rather than a new Shops<->Plots dependency.
+	statement of positions. Plots.luau's SHOP_CLUSTER_EAST_REACH is already marked
+	historical there and stays a conservative bound, not a live measurement of
+	anything here — this move only pulls the cluster further from Stage 1, never
+	toward it.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -98,33 +97,38 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
-local ItemModels = require(Shared.ItemModels)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 15
+local BUILDER_VERSION = 20
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
 
---- The three plaza stalls. `at` is world XZ; they face south (−Z), across the
---- shop cluster's own centre aisle at z=0 toward the Outfitter. The row is
---- centred on x=17.5 — the plaza midpoint, the grey central spine's centreline
---- and the camp spawn datum, all the same coordinate — at a 42-stud pitch.
+--- The middle everything else here faces: the plaza midpoint, Hub's central-spine
+--- centreline, the camp datum and the blackout-respawn anchor, all this one point.
+local PLAZA_MID = { x = 17.5, z = 0 }
+
+--- The three plaza stalls, one at each vertex of an equilateral triangle centred
+--- on PLAZA_MID at radius 20, each turned by `facingOrigin` so its counter side
+--- (local +Z) points back at PLAZA_MID. `at` is world XZ. Magnet takes the east
+--- vertex; Detector (NW) and Cleaner (SW) the two western ones, so the gap a
+--- player walks in through faces the pad ring they arrive from.
 local STALLS = {
-	{ track = "Detector", at = { -24.5, 22 }, color = C.shopDetector, tagline = "find it deeper" },
-	{ track = "Magnet", at = { 17.5, 22 }, color = C.shopMagnet, tagline = "pull it harder" },
-	{ track = "Cleaner", at = { 59.5, 22 }, color = C.shopCleaner, tagline = "scrub it cleaner" },
+	{ track = "Detector", at = { 7.5, 17.3 }, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper" },
+	{ track = "Magnet", at = { 37.5, 0 }, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder" },
+	{ track = "Cleaner", at = { 7.5, -17.3 }, color = C.shopCleaner, label = "CLEANERS", tagline = "scrub it cleaner" },
 }
 
---- The outfitter's three counters, on one bench facing the stalls across the
---- shop cluster's own centre aisle. Radius 6 at a 13-stud pitch, so no two
---- counters' circles overlap and standing at one is unambiguous.
+--- The outfitter's three counters on one bench. Radius 6 at a 13-stud pitch, so
+--- no two counters' circles overlap and standing at one is unambiguous. `at` is
+--- parked at the plaza's south edge for now (see the header) — still facing north
+--- (+Z) at PLAZA_MID, so `facingOrigin` leaves it square, only moved.
 local OUTFITTER = {
-	at = { 17.5, -22 },
+	at = { 17.5, -55 },
 	pitch = 13,
 	counters = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },
@@ -140,17 +144,17 @@ local OUTFITTER = {
 	},
 }
 
--- ── The shopkeeper ────────────────────────────────────────────────────────────
-
---- A little blocky vendor standing behind the counter — head, torso, two arms.
---- Friendlier than the Outfitter's hazmat mannequin prop: bare peach head, no
---- helmet, torso in the shop's own colour like a shirt.
-local function buildShopkeeper(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "KeeperTorso", pos = { x, 3.6, z }, size = { 2.0, 1.8, 1.0 }, color = color, material = "Plastic", canCollide = false })
-	build(parent, origin, { name = "KeeperHead", pos = { x, 5.1, z }, size = { 1.3, 1.3, 1.3 }, color = C.lampWarm, material = "Plastic", shape = "Ball", canCollide = false })
-	for _, dx in { -1.25, 1.25 } do
-		build(parent, origin, { name = "KeeperArm", pos = { x + dx, 3.6, z }, size = { 1.6, 0.5, 0.5 }, color = color, material = "Plastic", shape = "Cylinder", canCollide = false })
-	end
+--- A build origin on the plaza plane at world (x, z), turned so its local +Z —
+--- every shop's counter-facing front — points at (towardX, towardZ). Both
+--- builders lay every part as a local offset from what this returns, so this one
+--- CFrame is the whole of a shop's position AND its facing.
+local function facingOrigin(x: number, z: number, towardX: number, towardZ: number): CFrame
+	local topY = Hub.PLAZA.topY
+	-- CFrame.lookAt aims local -Z (its LookVector) at the target; the shop fronts
+	-- are +Z, so aim -Z at the target's mirror through (x, z) and +Z lands on the
+	-- target. Degenerate only if (x, z) == the target, which no caller passes.
+	local mirror = Vector3.new(2 * x - towardX, topY, 2 * z - towardZ)
+	return CFrame.lookAt(Vector3.new(x, topY, z), mirror)
 end
 
 -- ── The floor marker ─────────────────────────────────────────────────────────
@@ -180,16 +184,16 @@ end
 
 -- ── Reference gear-store details ─────────────────────────────────────────────
 
--- Classic market-awning red. WAS a hot magenta "FF00E5" — retoned with the de-neon
--- pass: that pink was the brightest thing in the plaza and read as neon even though
--- the stripe is matte studded Plastic. This sits in the world's warm-red family
--- (C.barrelRust / C.quarantineRed).
-local GEAR_STORE_STRIPE = "B4483D"
-
 --- The reference roof is one shallow rectangular awning, striped front-to-back,
 --- with a short matching valance at the front. Separate studded Plastic parts
 --- keep every stripe crisp and give it the chunky classic-Roblox texture.
-local function buildStripedCanopy(parent: Instance, origin: CFrame): number
+---
+--- `accent` is the stall's own hex — the canopy stripes and valance alternate it
+--- with white, so each stall's cloth is its own colour (coral / teal / purple)
+--- instead of the shared awning red every stall used to wear. It is the biggest
+--- painted surface on the stall, so this is now the loudest of the per-shop
+--- colour cues (with the trim cap, floor marker and sign text).
+local function buildStripedCanopy(parent: Instance, origin: CFrame, accent: string)
 	local stripeCount = 7
 	local stripeWidth = 2.5
 	local totalWidth = stripeCount * stripeWidth
@@ -201,7 +205,7 @@ local function buildStripedCanopy(parent: Instance, origin: CFrame): number
 	local frontY = centerY - math.sin(math.rad(tiltDegrees)) * (depth / 2)
 
 	for index = 1, stripeCount do
-		local color = if index % 2 == 1 then GEAR_STORE_STRIPE else C.labelText
+		local color = if index % 2 == 1 then accent else C.labelText
 		local x = -totalWidth / 2 + (index - 0.5) * stripeWidth
 		build(parent, origin, {
 			name = `CanopyStripe{index}`,
@@ -230,14 +234,12 @@ local function buildStripedCanopy(parent: Instance, origin: CFrame): number
 			name = "CanopySupport",
 			pos = { 0, y, z },
 			size = { totalWidth, 0.4, 0.5 },
-			color = C.wood,
+			color = C.shopWood,
 			material = "Plastic",
 			studs = true,
 			canCollide = false,
 		})
 	end
-
-	return centerY + 0.25
 end
 
 --- Seven separated boards form the open slatted back seen most clearly in the
@@ -249,20 +251,24 @@ local function buildSlatWall(parent: Instance, origin: CFrame)
 			name = `BackSlat{index}`,
 			pos = { 0, 0.8 + (index - 1) * 1.2, -10 },
 			size = { 14.8, 0.88, 0.55 },
-			color = C.woodLight,
+			color = C.shopWoodLight,
 			material = "Plastic",
 			studs = true,
 		})
 	end
 end
 
---- Large floating title copied from the reference's hierarchy: awning-red store
---- name with a black outline, then a smaller white call-to-action below it.
-local function buildGearStoreBillboard(adornee: BasePart)
+--- The floating stall sign, in the reference's two-line hierarchy: the big line
+--- names WHAT THE STALL SELLS (DETECTORS / MAGNETS / CLEANERS) in that shop's own
+--- accent colour so the sign itself does the colour-navigation, and a smaller
+--- white line under it carries the tagline. `accent` is the shop's hex string.
+--- The big line is TextScaled so any label length fits its band without
+--- re-tuning TextSize.
+local function buildStoreBillboard(adornee: BasePart, label: string, tagline: string, accent: string)
 	local gui = Instance.new("BillboardGui")
-	gui.Name = "GearStoreSign"
+	gui.Name = "StoreSign"
 	gui.Adornee = adornee
-	gui.Size = UDim2.fromOffset(360, 90)
+	gui.Size = UDim2.fromOffset(400, 96)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 12.4, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = 40
@@ -270,223 +276,28 @@ local function buildGearStoreBillboard(adornee: BasePart)
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
-	title.Size = UDim2.new(1, 0, 0, 54)
+	title.Size = UDim2.new(1, 0, 0, 56)
 	title.BackgroundTransparency = 1
 	title.Font = Kit.FONT
-	title.Text = "Gear Store"
-	title.TextColor3 = Color3.fromHex(GEAR_STORE_STRIPE)
-	title.TextSize = 42
+	title.Text = label
+	title.TextScaled = true
+	title.TextColor3 = Color3.fromHex(accent)
 	title.TextStrokeColor3 = Color3.fromHex(C.hazardBlack)
 	title.TextStrokeTransparency = 0
 	title.Parent = gui
 
 	local subtitle = Instance.new("TextLabel")
 	subtitle.Name = "Subtitle"
-	subtitle.Position = UDim2.fromOffset(0, 50)
+	subtitle.Position = UDim2.fromOffset(0, 56)
 	subtitle.Size = UDim2.new(1, 0, 0, 34)
 	subtitle.BackgroundTransparency = 1
 	subtitle.Font = Kit.FONT
-	subtitle.Text = "Buy Helpful Items!"
+	subtitle.Text = tagline
 	subtitle.TextColor3 = Color3.fromHex(C.labelText)
 	subtitle.TextSize = 25
 	subtitle.TextStrokeColor3 = Color3.fromHex(C.hazardBlack)
 	subtitle.TextStrokeTransparency = 0
 	subtitle.Parent = gui
-end
-
-local function buildRoofDuck(parent: Instance, origin: CFrame, roofY: number)
-	local duck = ItemModels.create("RubberDuck")
-	if duck == nil then
-		return
-	end
-	duck.Name = "RoofDuck"
-	duck:ScaleTo(0.55)
-	duck:PivotTo(origin * CFrame.new(0, roofY, -3.5) * CFrame.Angles(0, math.rad(15), 0))
-	duck.Parent = parent
-end
-
--- ── Shop-specific props ─────────────────────────────────────────────────────────
---
--- One big, silhouette-clear prop of the actual thing each shop sells, standing
--- beside the counter — the differentiator now that every booth is the same shape.
--- All canCollide=false — display pieces, not obstacles to path around.
-
---- A metal detector: flat coil on the ground, a shaft rising from it, a control
---- box and a crossbar grip near the top. The coil-and-shaft silhouette is the one
---- unmistakable "detector" shape, so it carries the whole prop.
-local function buildDetectorProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "DetectorCoil", pos = { x, 0.3, z }, size = { 0.4, 4.2, 4.2 }, color = C.steelDark, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-	build(parent, origin, { name = "DetectorCoilTrim", pos = { x, 0.55, z }, size = { 0.15, 3.4, 3.4 }, color = color, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-	build(parent, origin, { name = "DetectorShaft", pos = { x, 3.6, z }, size = { 6.5, 0.35, 0.35 }, color = C.steel, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-	build(parent, origin, { name = "DetectorBox", pos = { x, 5.6, z }, size = { 1.1, 1.3, 0.8 }, color = color, material = "Plastic", canCollide = false })
-	build(parent, origin, { name = "DetectorGrip", pos = { x, 6.9, z }, size = { 1.8, 0.3, 0.3 }, color = C.steel, material = "Plastic", canCollide = false })
-end
-
---- A horseshoe magnet: two vertical prongs, a connecting bar at the bottom, white
---- tip caps at the top. Classic red-body-white-tips colouring rather than the
---- shop's own colour — the shape only reads as "magnet" instantly if the colours
---- match the cliché everyone already knows.
-local function buildMagnetProp(parent: Instance, origin: CFrame, x: number, z: number)
-	for _, dx in { -0.9, 0.9 } do
-		build(parent, origin, { name = "MagnetProng", pos = { x + dx, 2.5, z }, size = { 5, 0.9, 0.9 }, color = C.barrelRust, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-		build(parent, origin, { name = "MagnetTip", pos = { x + dx, 5.1, z }, size = { 0.3, 1.0, 1.0 }, color = C.labelText, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-	end
-	-- Unrotated: a Cylinder's axis is local X by default, which is exactly the
-	-- direction that needs to span between the two prongs — no rot needed.
-	build(parent, origin, { name = "MagnetBase", pos = { x, 0.45, z }, size = { 2.7, 0.9, 0.9 }, color = C.barrelRust, material = "Plastic", shape = "Cylinder", canCollide = false })
-end
-
---- A bucket, suds and a scrub brush leaning against it.
-local function buildCleanerProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "Bucket", pos = { x, 1.1, z }, size = { 2.2, 2.6, 2.6 }, color = color, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-	build(parent, origin, { name = "BucketRim", pos = { x, 2.25, z }, size = { 0.2, 2.8, 2.8 }, color = C.labelText, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-
-	for _, offset in { { -0.5, 0 }, { 0.4, 0.3 }, { 0, -0.4 } } do
-		build(parent, origin, {
-			name = "Suds",
-			pos = { x + offset[1], 2.7, z + offset[2] },
-			size = { 0.7, 0.7, 0.7 },
-			color = C.labelText,
-			material = "Plastic",
-			shape = "Ball",
-			transparency = 0.15,
-			canCollide = false,
-		})
-	end
-
-	build(parent, origin, { name = "BrushHandle", pos = { x + 2.0, 2.0, z }, size = { 4.0, 0.3, 0.3 }, color = C.canvas, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-	build(parent, origin, { name = "BrushHead", pos = { x + 2.0, 4.2, z }, size = { 0.6, 1.6, 1.6 }, color = C.labelText, material = "Plastic", shape = "Cylinder", rot = R.cylUp, canCollide = false })
-end
-
---- A standing hazmat suit: torso, helmet with a visor, boots, arms.
-local function buildSuitProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "SuitTorso", pos = { x, 2.6, z }, size = { 2.2, 1.8, 1.2 }, color = color, material = "Plastic", canCollide = false })
-	build(parent, origin, { name = "SuitHelmet", pos = { x, 4.1, z }, size = { 1.6, 1.6, 1.6 }, color = C.labelText, material = "Plastic", shape = "Ball", canCollide = false })
-	build(parent, origin, { name = "SuitVisor", pos = { x, 4.1, z - 0.75 }, size = { 0.9, 0.7, 0.15 }, color = C.cyan, material = "Plastic", canCollide = false })
-	for _, dx in { -1.4, 1.4 } do
-		build(parent, origin, { name = "SuitArm", pos = { x + dx, 2.7, z }, size = { 1.5, 0.5, 0.5 }, color = color, material = "Plastic", canCollide = false })
-	end
-	for _, dx in { -0.5, 0.5 } do
-		build(parent, origin, { name = "SuitBoot", pos = { x + dx, 0.6, z }, size = { 0.7, 0.7, 1.0 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
-	end
-end
-
---- A pair of boots side by side: foot, ankle shaft, sole.
---- Colour note: this and the satchel below use C.wood (dark brown), not
---- C.canvas — canvas is close enough to the outfitter's own yellow that a
---- first pass all but disappeared against the bench and backboard. Dark
---- brown is also just what boots and satchels actually look like.
-local function buildBootsProp(parent: Instance, origin: CFrame, x: number, z: number)
-	for _, dx in { -1.1, 1.1 } do
-		build(parent, origin, { name = "BootFoot", pos = { x + dx, 0.55, z + 0.3 }, size = { 1.5, 0.7, 1.5 }, color = C.wood, material = "Plastic", canCollide = false })
-		build(parent, origin, { name = "BootSole", pos = { x + dx, 0.18, z + 0.3 }, size = { 1.6, 0.15, 1.6 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
-		build(parent, origin, { name = "BootShaft", pos = { x + dx, 1.5, z - 0.4 }, size = { 0.9, 1.4, 0.9 }, color = C.wood, material = "Plastic", canCollide = false })
-		build(parent, origin, { name = "BootLace", pos = { x + dx, 1.5, z - 0.85 }, size = { 0.3, 1.3, 0.15 }, color = C.shopOutfitter, material = "Plastic", canCollide = false })
-	end
-end
-
---- A satchel: a rounded bag body, a flap, a buckle, and a strap made from two
---- angled struts meeting above the bag rather than a true arc — Roblox parts
---- don't bend, and two straight struts read as a handle loop close enough at
---- this chunky, low-poly scale.
-local function buildSatchelProp(parent: Instance, origin: CFrame, x: number, z: number)
-	build(parent, origin, { name = "SatchelBody", pos = { x, 1.6, z }, size = { 1.8, 1.6, 1.1 }, color = C.wood, material = "Plastic", shape = "Ball", canCollide = false })
-	build(parent, origin, { name = "SatchelFlap", pos = { x, 2.0, z - 0.55 }, size = { 1.6, 0.9, 0.3 }, color = C.woodLight, material = "Plastic", canCollide = false })
-	build(parent, origin, { name = "SatchelBuckle", pos = { x, 1.9, z - 0.72 }, size = { 0.35, 0.35, 0.15 }, color = C.hazard, material = "Plastic", canCollide = false })
-	for _, side in { -1, 1 } do
-		build(parent, origin, {
-			name = "SatchelStrap",
-			pos = { x + side * 0.5, 2.7, z },
-			size = { 1.3, 0.22, 0.22 },
-			color = C.woodLight,
-			material = "Plastic",
-			rot = Kit.ang(0, 0, side * -35),
-			canCollide = false,
-		})
-	end
-end
-
---- A four-leaf clover on a stem. The Luck counter is the one shop selling something
---- with no physical form at all — you cannot draw "a 4.3x weight exponent" — so the
---- prop carries the entire identity here rather than merely reinforcing it, which is
---- why it is the largest and the only one that glows. Four ball leaves on a cross,
---- each rotated to sit on the diagonal, so it reads as a clover from any approach
---- angle instead of only from the front.
-local function buildLuckProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "CloverStem", pos = { x, 1.4, z }, size = { 0.28, 2.8, 0.28 }, color = C.grassDark, material = "Plastic", canCollide = false })
-	for _, corner in { { -1, -1 }, { -1, 1 }, { 1, -1 }, { 1, 1 } } do
-		build(parent, origin, {
-			name = "CloverLeaf",
-			pos = { x + corner[1] * 0.72, 3.5, z + corner[2] * 0.72 },
-			size = { 1.5, 0.5, 1.5 },
-			color = C.grass,
-			material = "Plastic",
-			shape = "Ball",
-			canCollide = false,
-		})
-	end
-	-- The bead at the centre, in the shop's own accent rather than in green: green
-	-- means the ooze everywhere else in this world (PLAN §14), so even matte it stays
-	-- the accent colour, not green.
-	build(parent, origin, { name = "CloverHeart", pos = { x, 3.7, z }, size = { 0.55, 0.55, 0.55 }, color = color, material = "SmoothPlastic", shape = "Ball", canCollide = false })
-end
-
---- Dispatches on track so buildStall/buildOutfitter can call one function without
---- caring which shop they're building.
-local function buildIdentityProp(parent: Instance, origin: CFrame, track: string, x: number, z: number, color: string)
-	if track == "Detector" then
-		buildDetectorProp(parent, origin, x, z, color)
-	elseif track == "Magnet" then
-		buildMagnetProp(parent, origin, x, z)
-	elseif track == "Cleaner" then
-		buildCleanerProp(parent, origin, x, z, color)
-	elseif track == "Suit" then
-		buildSuitProp(parent, origin, x, z, color)
-	elseif track == "Boots" then
-		buildBootsProp(parent, origin, x, z)
-	elseif track == "Satchel" then
-		buildSatchelProp(parent, origin, x, z)
-	elseif track == "Luck" then
-		buildLuckProp(parent, origin, x, z, color)
-	end
-end
-
---- A wood shipping crate: a box with an X of cross-braces on the front face and one
---- small coloured item peeking over the rim — the "goods stacked outside the
---- stall" clutter the reference photo has (crates, a barrel, a boombox) that the
---- old single-prop stalls didn't.
-local function buildCrateProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	build(parent, origin, { name = "CrateBox", pos = { x, 1.1, z }, size = { 2.2, 2.2, 2.2 }, color = C.wood, material = "Plastic", canCollide = false })
-	for _, angle in { 35, -35 } do
-		build(parent, origin, {
-			name = "CrateBrace",
-			pos = { x, 1.1, z },
-			size = { 0.25, 2.9, 0.25 },
-			color = C.woodLight,
-			material = "Plastic",
-			rot = Kit.ang(0, 0, angle),
-			canCollide = false,
-		})
-	end
-	build(parent, origin, { name = "CrateGoods", pos = { x, 2.55, z }, size = { 0.9, 0.9, 0.9 }, color = color, material = "Plastic", shape = "Ball", canCollide = false })
-end
-
---- A small open chest: a wood base, a dark metal band, and a lid tilted back on
---- a single X-axis rotation so it reads as propped open, plus a spec.color peek of
---- "contents" — the reference photo's open trunk, and one more piece of "goods
---- stacked outside the stall" clutter alongside the crate.
----
---- The lid's `pos` is solved rather than eyeballed: for `rot = Kit.ang(-70, 0, 0)`
---- and lid thickness/depth `t`/`d`, keeping the lid's local back-bottom edge
---- pinned to the chest's own back-top edge (so the lid reads as hinged there,
---- not floating) requires pos.y = chestTop - (-t/2*cos(-70°) - d/2*sin(-70°)) and
---- pos.z = (z - d/2) - (t/2*sin(-70°) - d/2*cos(-70°)).
-local function buildOpenChestProp(parent: Instance, origin: CFrame, x: number, z: number, color: string)
-	local chestHeight = 1.0
-	build(parent, origin, { name = "ChestBase", pos = { x, chestHeight / 2, z }, size = { 1.6, chestHeight, 1.2 }, color = C.wood, material = "Plastic", canCollide = false })
-	build(parent, origin, { name = "ChestBand", pos = { x, chestHeight / 2, z }, size = { 1.7, 0.2, 1.3 }, color = C.hazardBlack, material = "Metal", canCollide = false })
-	build(parent, origin, { name = "ChestLid", pos = { x, 1.59, z - 0.465 }, size = { 1.5, 0.15, 1.1 }, color = C.woodLight, material = "Plastic", rot = Kit.ang(-70, 0, 0), canCollide = false })
-	build(parent, origin, { name = "ChestGlow", pos = { x, 1.1, z - 0.15 }, size = { 0.7, 0.35, 0.5 }, color = color, material = "SmoothPlastic", shape = "Ball", canCollide = false })
 end
 
 -- ── The counter ───────────────────────────────────────────────────────────────
@@ -503,8 +314,9 @@ export type CounterSpec = {
 	studded: boolean?,
 }
 
---- The wood counter desk — the interactive part — with a coloured trim cap on
---- top. Returns the desk so the caller can billboard it. `material` defaults to
+--- The counter desk — the interactive part — in grey storefront lumber
+--- (C.shopWood) with a coloured trim cap on top in the shop's own accent.
+--- Returns the desk so the caller can billboard it. `material` defaults to
 --- "Wood" (the Outfitter's own look); the plaza stalls pass "Plastic" instead,
 --- since Roblox's stud-bump texture only renders on Plastic, and that studded
 --- look is the whole point of the reskin.
@@ -520,7 +332,7 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 		name = "Counter",
 		pos = { 0, 1.1, z },
 		size = { w, 2.2, d },
-		color = C.wood,
+		color = C.shopWood,
 		material = spec.material or "Wood",
 		studs = spec.studded,
 		attributes = attrs,
@@ -585,7 +397,7 @@ local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number,
 		name = "RoofRidge",
 		pos = { 0, ridgeY, centerZ },
 		size = { width, 1.1, 1.1 },
-		color = C.wood,
+		color = C.shopWood,
 		material = mat,
 		shape = "Cylinder",
 		rot = R.cylAlongX,
@@ -597,20 +409,20 @@ end
 
 -- ── The plaza stalls ────────────────────────────────────────────────────────────
 
---- One classic-Roblox gear store: studded wood posts and rear slats, an open
---- counter, a pink-and-white striped roof, a tiny display duck, and the reference
---- image's floating two-line sign. The shop-specific prop and floor marker retain
---- the gameplay colour-coding beneath the shared pink storefront.
-local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, tagline: string })
+--- One classic-Roblox gear store, stripped to the structure: studded grey posts
+--- and rear slats, an open counter, and a striped canopy + two-line sign both in
+--- the stall's own accent colour. The canopy, the sign text, the floor marker
+--- and the counter's trim cap — all `spec.color` — are the per-shop identity now
+--- that the shopkeeper and the identity prop are gone.
+local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, label: string, tagline: string })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
-	-- Y comes from Hub.PLAZA.topY, not a bare 0 -- the stall has to sit on whatever
-	-- plane the plaza itself is actually on, and that stopped being world Y=0 once
-	-- the plaza moved down to match Stages.SURFACE_Y (see Hub.luau's own comment on
-	-- Hub.PLAZA). Every part below is a LOCAL offset from this origin, so this one
-	-- line is the only thing that needed to change for the whole stall to move.
-	local origin = CFrame.new(spec.at[1], Hub.PLAZA.topY, spec.at[2])
+	-- Position AND facing in one CFrame: at the triangle vertex spec.at, turned so
+	-- the counter side (+Z) looks back at PLAZA_MID. Y comes from Hub.PLAZA.topY
+	-- (the plaza is at Stages.SURFACE_Y, not Y=0). Every part below is a LOCAL
+	-- offset from this, so this one line carries the whole stall's placement.
+	local origin = facingOrigin(spec.at[1], spec.at[2], PLAZA_MID.x, PLAZA_MID.z)
 
 	-- A thin blue-grey floor is visible through the open sides in the reference.
 	-- It is non-colliding and lifted just enough to avoid z-fighting with the plaza.
@@ -624,8 +436,9 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		canCollide = false,
 	})
 
-	-- Four chunky wood posts holding the roof up. Square-cut lumber, not round
-	-- logs — the reference photo's posts read as sawn beams, and Block needs no
+	-- Four chunky posts holding the roof up, in grey storefront lumber
+	-- (C.shopWood). Square-cut, not round logs — the reference photo's posts read
+	-- as sawn beams, and Block needs no
 	-- rot (unlike Cylinder, whose long axis is local X and needs R.cylUp to
 	-- stand it upright) since a Block's size is already literal {X,Y,Z}.
 	-- Plastic, not Wood: Roblox's stud-bump texture only renders on Plastic
@@ -648,7 +461,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 				name = "Post",
 				pos = { dx, postHeight / 2, dz },
 				size = { POST_SIZE, postHeight, POST_SIZE },
-				color = C.wood,
+				color = C.shopWood,
 				material = "Plastic",
 				shape = "Block",
 				studs = true,
@@ -672,25 +485,15 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		material = "Plastic",
 		studded = true,
 	})
-	buildGearStoreBillboard(counter)
+	buildStoreBillboard(counter, spec.label, spec.tagline, spec.color)
 
-	buildShopkeeper(m, origin, 0, -1.1, spec.color)
-
-	local roofTop = buildStripedCanopy(m, origin)
-	buildRoofDuck(m, origin, roofTop)
+	buildStripedCanopy(m, origin, spec.color)
 
 	-- The floor marker: a glowing outline of the buy radius, in the shop's own
-	-- colour — never green, see the header.
+	-- colour — never green, see the header. With the shopkeeper and the identity
+	-- prop stripped out, this, the counter trim cap and the sign text are the
+	-- whole of a stall's per-shop identity.
 	buildFloorMarker(m, origin, 0, 3.4, 10, 5, spec.color)
-
-	-- THE ACTUAL POINT OF THIS PASS: a big, shape-clear prop of the thing this shop
-	-- sells, standing beside the counter, plus a crate of clutter next to it.
-	-- x offsets nudged out by 0.5 on both sides from the original 7.5/8.2/-8 --
-	-- the post's outer edge moved from x=7.05 to x=7.5 when it went from
-	-- 1.1-wide to 2-wide, and these need to keep clearing it.
-	buildIdentityProp(m, origin, spec.track, 8.0, -5, spec.color)
-	buildCrateProp(m, origin, 8.7, -1, spec.color)
-	buildOpenChestProp(m, origin, -8.5, -2, spec.color)
 
 	m.Parent = parent
 	return m
@@ -701,17 +504,18 @@ end
 --- The outfitter: a proper building, not a bench under a trim strip. Three
 --- shops left Suit, Boots and Satchel priced but unbuyable, and hazard gear that
 --- actually reduces incoming damage earns more than a picnic table — four walls,
---- a peaked roof, and a real doorway facing the camp gate, with the three
---- counters inside. No room for three shopkeepers under one roof, so the
---- identity props keep doing the "which counter is which" job, exactly as they
---- already did before this pass.
+--- a peaked roof, and a real doorway (the open +Z front) with the three counters
+--- inside. Parked near the plaza's south edge for now, still facing the middle;
+--- each counter carries its own billboard naming the track (SUITS / BOOTS /
+--- SATCHELS).
 local function buildOutfitter(parent: Instance)
 	local m = Instance.new("Model")
 	m.Name = "Outfitter"
 
-	-- Same reasoning as buildStall's own origin: Y comes from Hub.PLAZA.topY, not a
-	-- bare 0, so the building sits on the plaza's actual current plane.
-	local origin = CFrame.new(OUTFITTER.at[1], Hub.PLAZA.topY, OUTFITTER.at[2])
+	-- Same primitive as the stalls: parked at OUTFITTER.at near the south edge,
+	-- still turned to face PLAZA_MID. It already faced +Z (north) at the centre, so
+	-- facingOrigin only translates it here — no visible re-aim.
+	local origin = facingOrigin(OUTFITTER.at[1], OUTFITTER.at[2], PLAZA_MID.x, PLAZA_MID.z)
 	local span = OUTFITTER.pitch * (#OUTFITTER.counters - 1)
 	local width = span + 20
 	local halfDepth = 8
@@ -723,9 +527,9 @@ local function buildOutfitter(parent: Instance)
 
 	-- Back wall and two side walls. Open at the front (+Z, facing the camp
 	-- gate) -- that's the doorway, not a fourth wall.
-	build(m, origin, { name = "BackWall", pos = { 0, wallHeight / 2, -halfDepth }, size = { width, wallHeight, 0.6 }, color = C.wood, material = "Wood" })
+	build(m, origin, { name = "BackWall", pos = { 0, wallHeight / 2, -halfDepth }, size = { width, wallHeight, 0.6 }, color = C.shopWood, material = "Wood" })
 	for _, dx in { -width / 2, width / 2 } do
-		build(m, origin, { name = "SideWall", pos = { dx, wallHeight / 2, 0 }, size = { 0.6, wallHeight, halfDepth * 2 }, color = C.wood, material = "Wood" })
+		build(m, origin, { name = "SideWall", pos = { dx, wallHeight / 2, 0 }, size = { 0.6, wallHeight, halfDepth * 2 }, color = C.shopWood, material = "Wood" })
 	end
 
 	local ridgeY = buildGableRoof(m, origin, 0, wallHeight, halfDepth, 4, width + 2, C.shopOutfitter)
@@ -762,12 +566,6 @@ local function buildOutfitter(parent: Instance)
 			radius = 6,
 		})
 		billboard(desk, 200, 4.4, counter.label, counter.tagline, C.shopOutfitter)
-
-		-- Same idea as the plaza stalls: the actual gear, not just the counter.
-		-- Offset to the SIDE, not straight in front — a first pass put it
-		-- directly behind the counter on the approach axis, where the counter's
-		-- own silhouette occluded almost the whole prop.
-		buildIdentityProp(m, counterOrigin, counter.track, 2.3, -halfDepth + 5.5, C.shopOutfitter)
 	end
 
 	m.Parent = parent
