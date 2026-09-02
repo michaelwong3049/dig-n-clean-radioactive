@@ -5,9 +5,13 @@
 	one shows almost none of them, because PLAN §3.1 escalates by FEEL, not by readout:
 
 	  0-50%   nothing. Clean play, no UI shouting at you.
-	  50-80%  the screen greens at the edges, and the click bed comes up.
-	  80-99%  vision distorts, the world tilts, the meter stops being ignorable.
+	  50-80%  sight starts going green at its edges, and the click bed comes up.
+	  80-99%  vision distorts, the picture tears, the meter stops being ignorable.
 	  100%    blackout.
+
+	THE DAMAGE OVERLAY ITSELF LIVES IN RadFx. It used to be four gradient rectangles
+	right here, which is why it read as UI rather than as dying; that file explains
+	what replaced them and this one just hands it the escalation number.
 
 	ONE COLOUR RULE (PLAN §14): exposure is GREEN, suit failure is WHITE, and they never
 	share a shade. Green means "the meter is filling". White means "your suit is coming
@@ -27,6 +31,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local RadFx = require(script.Parent.Parent.RadFx)
 local Dock = UIKit.Dock
 
 local Hud = {}
@@ -74,30 +79,6 @@ end
 
 -- ── Build ───────────────────────────────────────────────────────────
 
---- Four gradient edges standing in for a vignette. No image asset needed, and it
---- tints per state, which a baked PNG could not.
-local function edge(parent: Instance, name: string, size: UDim2, position: UDim2, rotation: number): Frame
-	local frame = Instance.new("Frame")
-	frame.Name = name
-	frame.Size = size
-	frame.Position = position
-	frame.BackgroundColor3 = GREEN
-	frame.BackgroundTransparency = 1
-	frame.BorderSizePixel = 0
-	frame.ZIndex = 2
-	frame.Parent = parent
-
-	local gradient = Instance.new("UIGradient")
-	gradient.Rotation = rotation
-	gradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	gradient.Parent = frame
-
-	return frame
-end
-
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "RadHud"
@@ -106,13 +87,9 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 100
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Unchanged. Not part of the dock — this is a full-screen tint, not a panel.
-	ui.edges = {
-		edge(gui, "EdgeTop", UDim2.new(1, 0, 0, 190), UDim2.fromScale(0, 0), 270),
-		edge(gui, "EdgeBottom", UDim2.new(1, 0, 0, 190), UDim2.new(0, 0, 1, -190), 90),
-		edge(gui, "EdgeLeft", UDim2.new(0, 260, 1, 0), UDim2.fromScale(0, 0), 180),
-		edge(gui, "EdgeRight", UDim2.new(0, 260, 1, 0), UDim2.new(1, -260, 0, 0), 0),
-	}
+	-- The damage overlay. Not part of the dock — it is the whole screen, under every
+	-- panel (ZIndex 2) and under the blackout curtain, which has to cover it.
+	RadFx.build(gui)
 
 	-- The meter. Bottom-left screen edge, clear of the dig button/dial cluster — it
 	-- shares the dig button's baseline (Dock.INSTRUMENT_BOTTOM) so it still sits in
@@ -296,10 +273,7 @@ local function render(dt: number)
 		intensity = math.max(intensity, 0.65)
 	end
 
-	for _, frame in ui.edges do
-		frame.BackgroundColor3 = colour
-		frame.BackgroundTransparency = 1 - (intensity * 0.62)
-	end
+	RadFx.update(dt, intensity, state.failing)
 
 	ui.fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
 	ui.fill.BackgroundColor3 = colour
