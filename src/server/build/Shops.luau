@@ -63,45 +63,32 @@
 	else. Both Radius values are untouched by the reskin — this file only changed what
 	things look like, not how close you need to stand.
 
-	STALLS.at / OUTFITTER.at ARE NOT UNTOUCHED ANY MORE. Both were written when
-	Hub.PLAZA was symmetric about world X=0, so "centred at x=0" and "centred on the
-	plaza" were the same statement. They stopped being the same statement when the
-	plaza's compaction pass pinned its east edge to Stage 1 and pulled its west edge in
-	instead (see Hub.PLAZA's own comment) — the rectangle's midpoint moved to x=17.5,
-	so every X here carries that same +17.5 to stay centred on the plaza rather than on
-	a world coordinate the plaza no longer straddles.
+	THE THREE STALLS SIT IN A TRIANGLE FACING THE MIDDLE. `PLAZA_MID` (x=17.5, z=0)
+	is that middle — the plaza midpoint, Hub's grey central spine centreline, the
+	camp datum (Hub.CAMP_ORIGIN) and the blackout-respawn anchor, all the same
+	point. Each stall stands `STALL_RING_RADIUS` studs out from it at a 120-degree
+	spacing and is turned so its own front — the counter side, local +Z — points
+	back at PLAZA_MID (`facingOrigin` does the turn). A player standing on the
+	respawn anchor is inside the triangle with all three counters facing them; the
+	gap between the two western stalls is the way in, aimed at the pad ring the
+	players arrive from.
 
-	Z MOVED TOO, WHEN THE BASE RING BECAME A SEMICIRCLE. The two rows used to sit at
-	the edges of a plaza the pad ring surrounded on three sides (stalls z=45,
-	Outfitter z=-48); now that all six pads face one central shop cluster
-	(Plots.luau's RING_CENTER), the two rows pulled in tight around it instead:
-	stalls z=45 -> 22, Outfitter z=-48 -> -22, symmetric about z=0. That leaves a
-	clean 20-stud aisle between them (a stall deck's southmost point at z=7, the
-	Outfitter's northmost wall at z=-13) and puts the whole cluster's farthest
-	reach from centre at only ~60 studs — well short of the ring's 154-stud inner
-	pad edge, so every pad has a clear, unobstructed line of sight to the cluster
-	it's built to face. Each shop's own internal facing (stalls south, Outfitter
-	north) is untouched — only the row positions moved, not which way anything
-	points.
+	THE OUTFITTER IS PARKED AT THE SOUTH EDGE, FOR NOW. It used to sit across a
+	centre aisle from a straight row of stalls (row at z=22, Outfitter at z=-22).
+	The stalls became the triangle above and the Outfitter was pushed out to
+	z=-55 — near the plaza's south edge (minZ=-70), still facing north (+Z) at the
+	plaza centre, no re-aim needed. This is a holding position, not a designed one:
+	it is out of the way while the triangle is the thing being looked at.
 
-	X BRIEFLY MOVED TO RING_CENTER, THEN CAME BACK. For a while every X here
-	carried a further +14.5 on top of the +17.5 above, to sit centred under
-	Plots.RING_CENTER (x=32) rather than the plaza's own midpoint (x=17.5) — one
-	uniform offset from a world coordinate the plaza no longer straddled. That
-	correction is REVERTED. Hub's grey central spine is a north-south strip
-	centred on the plaza midpoint (x=17.5, which is also the camp spawn datum),
-	and the cluster has to sit square on the spine, not hang off its east edge
-	with a wide empty grey margin to the west. So the stalls are back to
-	`17.5 + {-42, 0, +42}` and the Outfitter to x=17.5 — centred on the plaza
-	exactly as para 1 already describes, with the RING_CENTER detour undone.
-	Every pad still looks essentially straight at the cluster: 14.5 studs of
-	offset from RING_CENTER is nothing at the ring's 180-stud radius. Plots.luau's
-	SHOP_CLUSTER_EAST_REACH (53) is deliberately LEFT ALONE — the pad ring is not
-	moving — so it is now a conservative bound on how far east the ring could sit,
-	not a tight measurement of the Cleaner stall's east edge (which pulled ~14.5
-	studs back west with the rest of the row). This file still reads nothing from
+	`facingOrigin` IS THE ONLY PLACEMENT PRIMITIVE. Both builders lay every part as
+	a local offset from the CFrame it returns, so that one CFrame carries a shop's
+	whole position AND facing. It reads Hub.PLAZA.topY for the ground plane (the
+	plaza is at Stages.SURFACE_Y, not Y=0). This file still reads nothing from
 	Plots.luau: Plots requires Hub, Hub requires only Kit, and Shops stays a pure
-	statement of positions rather than a new Shops<->Plots dependency.
+	statement of positions. Plots.luau's SHOP_CLUSTER_EAST_REACH is already marked
+	historical there and stays a conservative bound, not a live measurement of
+	anything here — this move only pulls the cluster further from Stage 1, never
+	toward it.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -115,26 +102,32 @@ local Hub = require(script.Parent.Hub)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 18
+local BUILDER_VERSION = 19
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
 
---- The three plaza stalls. `at` is world XZ; they face south (−Z), across the
---- shop cluster's own centre aisle at z=0 toward the Outfitter. The row is
---- centred on x=17.5 — the plaza midpoint, the grey central spine's centreline
---- and the camp spawn datum, all the same coordinate — at a 42-stud pitch.
+--- The middle everything else here faces: the plaza midpoint, Hub's central-spine
+--- centreline, the camp datum and the blackout-respawn anchor, all this one point.
+local PLAZA_MID = { x = 17.5, z = 0 }
+
+--- The three plaza stalls, one at each vertex of an equilateral triangle centred
+--- on PLAZA_MID at radius 20, each turned by `facingOrigin` so its counter side
+--- (local +Z) points back at PLAZA_MID. `at` is world XZ. Magnet takes the east
+--- vertex; Detector (NW) and Cleaner (SW) the two western ones, so the gap a
+--- player walks in through faces the pad ring they arrive from.
 local STALLS = {
-	{ track = "Detector", at = { -24.5, 22 }, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper" },
-	{ track = "Magnet", at = { 17.5, 22 }, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder" },
-	{ track = "Cleaner", at = { 59.5, 22 }, color = C.shopCleaner, label = "CLEANERS", tagline = "scrub it cleaner" },
+	{ track = "Detector", at = { 7.5, 17.3 }, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper" },
+	{ track = "Magnet", at = { 37.5, 0 }, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder" },
+	{ track = "Cleaner", at = { 7.5, -17.3 }, color = C.shopCleaner, label = "CLEANERS", tagline = "scrub it cleaner" },
 }
 
---- The outfitter's three counters, on one bench facing the stalls across the
---- shop cluster's own centre aisle. Radius 6 at a 13-stud pitch, so no two
---- counters' circles overlap and standing at one is unambiguous.
+--- The outfitter's three counters on one bench. Radius 6 at a 13-stud pitch, so
+--- no two counters' circles overlap and standing at one is unambiguous. `at` is
+--- parked at the plaza's south edge for now (see the header) — still facing north
+--- (+Z) at PLAZA_MID, so `facingOrigin` leaves it square, only moved.
 local OUTFITTER = {
-	at = { 17.5, -22 },
+	at = { 17.5, -55 },
 	pitch = 13,
 	counters = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },
@@ -149,6 +142,19 @@ local OUTFITTER = {
 		-- after this move.
 	},
 }
+
+--- A build origin on the plaza plane at world (x, z), turned so its local +Z —
+--- every shop's counter-facing front — points at (towardX, towardZ). Both
+--- builders lay every part as a local offset from what this returns, so this one
+--- CFrame is the whole of a shop's position AND its facing.
+local function facingOrigin(x: number, z: number, towardX: number, towardZ: number): CFrame
+	local topY = Hub.PLAZA.topY
+	-- CFrame.lookAt aims local -Z (its LookVector) at the target; the shop fronts
+	-- are +Z, so aim -Z at the target's mirror through (x, z) and +Z lands on the
+	-- target. Degenerate only if (x, z) == the target, which no caller passes.
+	local mirror = Vector3.new(2 * x - towardX, topY, 2 * z - towardZ)
+	return CFrame.lookAt(Vector3.new(x, topY, z), mirror)
+end
 
 -- ── The floor marker ─────────────────────────────────────────────────────────
 
@@ -412,12 +418,11 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
-	-- Y comes from Hub.PLAZA.topY, not a bare 0 -- the stall has to sit on whatever
-	-- plane the plaza itself is actually on, and that stopped being world Y=0 once
-	-- the plaza moved down to match Stages.SURFACE_Y (see Hub.luau's own comment on
-	-- Hub.PLAZA). Every part below is a LOCAL offset from this origin, so this one
-	-- line is the only thing that needed to change for the whole stall to move.
-	local origin = CFrame.new(spec.at[1], Hub.PLAZA.topY, spec.at[2])
+	-- Position AND facing in one CFrame: at the triangle vertex spec.at, turned so
+	-- the counter side (+Z) looks back at PLAZA_MID. Y comes from Hub.PLAZA.topY
+	-- (the plaza is at Stages.SURFACE_Y, not Y=0). Every part below is a LOCAL
+	-- offset from this, so this one line carries the whole stall's placement.
+	local origin = facingOrigin(spec.at[1], spec.at[2], PLAZA_MID.x, PLAZA_MID.z)
 
 	-- A thin blue-grey floor is visible through the open sides in the reference.
 	-- It is non-colliding and lifted just enough to avoid z-fighting with the plaza.
@@ -499,17 +504,18 @@ end
 --- The outfitter: a proper building, not a bench under a trim strip. Three
 --- shops left Suit, Boots and Satchel priced but unbuyable, and hazard gear that
 --- actually reduces incoming damage earns more than a picnic table — four walls,
---- a peaked roof, and a real doorway facing the camp gate, with the three
---- counters inside. Each counter carries its own billboard naming the track
---- (SUITS / BOOTS / SATCHELS); the identity props that used to stand beside them
---- are gone.
+--- a peaked roof, and a real doorway (the open +Z front) with the three counters
+--- inside. Parked near the plaza's south edge for now, still facing the middle;
+--- each counter carries its own billboard naming the track (SUITS / BOOTS /
+--- SATCHELS).
 local function buildOutfitter(parent: Instance)
 	local m = Instance.new("Model")
 	m.Name = "Outfitter"
 
-	-- Same reasoning as buildStall's own origin: Y comes from Hub.PLAZA.topY, not a
-	-- bare 0, so the building sits on the plaza's actual current plane.
-	local origin = CFrame.new(OUTFITTER.at[1], Hub.PLAZA.topY, OUTFITTER.at[2])
+	-- Same primitive as the stalls: parked at OUTFITTER.at near the south edge,
+	-- still turned to face PLAZA_MID. It already faced +Z (north) at the centre, so
+	-- facingOrigin only translates it here — no visible re-aim.
+	local origin = facingOrigin(OUTFITTER.at[1], OUTFITTER.at[2], PLAZA_MID.x, PLAZA_MID.z)
 	local span = OUTFITTER.pitch * (#OUTFITTER.counters - 1)
 	local width = span + 20
 	local halfDepth = 8
