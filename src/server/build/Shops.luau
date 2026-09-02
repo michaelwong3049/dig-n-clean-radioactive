@@ -78,10 +78,11 @@
 	THE OUTFITTER TUCKS IN BEHIND THE DETECTOR AND CLEANER STALLS, ON THE WEST. It
 	used to sit across a centre aisle from a straight row of stalls (row at z=22,
 	Outfitter at z=-22), then went through a run of holding spots — z=-55, the
-	south edge, the south-east arc. Now it sits at (-20, 0) on the grey central
-	pad, due west of PLAZA_MID and directly BEHIND the two stalls on that side
+	south edge, the south-east arc. Now it sits at (-30, 0) on the grey central
+	pad, due west of PLAZA_MID and set well BEHIND the two stalls on that side
 	(Detector NW, Cleaner SW) — out on the ground the west pad widening opened up
-	(Hub.PAD_WEST_EXTEND), off the way in rather than straddling it. On the z=0
+	(Hub.PAD_WEST_EXTEND), off the way in rather than straddling it, ~27 studs
+	clear of the stalls' backs. On the z=0
 	centreline it faces due east, so `facingOrigin` leaves it square, no turn.
 
 	AND IT IS OPEN FRONT AND BACK — A WALK-THROUGH, NOT A DEAD END. Only the two
@@ -99,7 +100,7 @@
 	statement of positions. Plots.luau's SHOP_CLUSTER_EAST_REACH is already marked
 	historical there and stays a conservative bound, not a live measurement of
 	anything here — and this move is westward anyway (the Outfitter's east face
-	pulls BACK to ~x=-12), so it only ever relieves that bound, never strains it.
+	pulls BACK to ~x=-22), so it only ever relieves that bound, never strains it.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -135,11 +136,11 @@ local STALLS = {
 
 --- The outfitter's three counters on one bench. Radius 6 at a 13-stud pitch, so
 --- no two counters' circles overlap and standing at one is unambiguous. `at` is
---- on the central square at (-20, 0), due west of PLAZA_MID and tucked in behind
+--- on the central square at (-30, 0), due west of PLAZA_MID and set back behind
 --- the Detector and Cleaner stalls (see the header) — its +Z front faces due
 --- east at the centre, so `facingOrigin` leaves it square.
 local OUTFITTER = {
-	at = { -20, 0 },
+	at = { -30, 0 },
 	pitch = 13,
 	counters = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },
