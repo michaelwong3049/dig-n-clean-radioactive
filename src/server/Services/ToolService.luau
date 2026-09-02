@@ -427,16 +427,6 @@ local function equipItem(character: Model, item: any?): boolean
 	held.Name = HELD_ITEM_NAME
 	held:SetAttribute("Uid", item.uid)
 
-	-- Nothing in the hand may collide or weigh anything, or the character shoves
-	-- itself around holding a tin can.
-	for _, part in held:GetDescendants() do
-		if part:IsA("BasePart") then
-			part.CanCollide = false
-			part.Massless = true
-			part.Anchored = false
-		end
-	end
-
 	local primary = held.PrimaryPart or held:FindFirstChildWhichIsA("BasePart")
 	if primary == nil then
 		held:Destroy()
@@ -445,6 +435,33 @@ local function equipItem(character: Model, item: any?): boolean
 	held.PrimaryPart = primary
 
 	held.Parent = character
+
+	-- WELD THE MODEL INTO ONE BODY BEFORE IT GOES DYNAMIC. The ItemModels factories
+	-- (Shared/ItemModels) author every part Anchored and with NO joints between them --
+	-- they are built to be moved whole with PivotTo and never simulated, which is how
+	-- the haul and the pedestals use them. The hand is the one place that has to let go
+	-- of the anchor, and un-anchoring a jointless pile while welding only the primary to
+	-- the hand drops the other twenty parts on the floor -- "the item falls out of your
+	-- hand". Join them to the primary first, while they are still in authored positions.
+	for _, part in held:GetDescendants() do
+		if part:IsA("BasePart") and part ~= primary then
+			local join = Instance.new("WeldConstraint")
+			join.Name = "ItemWeld"
+			join.Part0 = primary
+			join.Part1 = part
+			join.Parent = primary
+		end
+	end
+
+	-- Now the whole assembly can go dynamic together. Nothing in the hand may collide or
+	-- weigh anything, or the character shoves itself around holding a tin can.
+	for _, part in held:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CanCollide = false
+			part.Massless = true
+			part.Anchored = false
+		end
+	end
 	-- `Hold` joins Display / Haul / Gallery as an ItemModels rotation context, so a
 	-- flat object like the bottle cap can be tilted toward the camera in the hand
 	-- without forcing that tilt on an upright one. Missing attribute = identity.
