@@ -9,13 +9,15 @@
 
 	WHICH TOOL, in priority order:
 	  at the decon station -> Cleaner   (you are here to scrub)
-	  standing on a signal -> Magnet    (found it — now get the magnet out)
+	  committed to a signal -> Magnet   (you have locked on — now pull it up)
 	  standing in a stage   -> Detector  (sweeping is the default verb)
 	  otherwise            -> nothing   (base camp, hands free)
 
-	The magnet keys off STANDING ON a signal, not off actively hauling. Hauling lasts
-	a couple of seconds, so keying it to that made the model flicker in and out faster
-	than anyone could register it.
+	The magnet keys off COMMITTING to a signal (DigService.isLocked), not off merely
+	standing over one. It used to swap on approach, but that took the detector out of
+	your hands the instant you walked onto any glow — including one you were only
+	sweeping past — so the sweep verb kept losing its tool mid-stride. Now the detector
+	stays out until you hold E to lock on, and the magnet appears for exactly the pull.
 
 	HOLD OFFSETS LIVE ON THE MODELS, not in here. Each tool carries a `HoldCFrame`
 	attribute, so the position and angle in the hand can be nudged in Studio's property
@@ -483,7 +485,7 @@ local function wanted(player: Player): string?
 	if DeconService.stationOf(player) == "decon" then
 		return "Cleaner"
 	end
-	if DigService.isOverSignal(player) then
+	if DigService.isLocked(player) then
 		return "Magnet"
 	end
 	if DigService.stageOf(player) ~= nil then
