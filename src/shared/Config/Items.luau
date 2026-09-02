@@ -2,7 +2,11 @@
 --[[
 	Items.lua — the catalogue. Data only, like everything else in Config/.
 
-	Stages 1-6, ~68 items, Scrap through Anomaly.
+	Stages 1-6, ~68 items, Common through Anomaly.
+
+	NO ITEM IS AT SCRAP ANY MORE, ON REQUEST. Every former Scrap item was folded
+	into Common (across all stages now, not just 3-6). The Scrap tier still exists in
+	Config/Rarity (order 1) as the rarityTilt anchor -- it is simply unstocked.
 
 	REWORKED FOR A LIGHTER, TREASURE-HUNT TONE, ON REQUEST. The catalogue used to
 	lean on real-world war and disaster imagery (dog tags, mortar rounds, cipher
@@ -98,12 +102,12 @@ export type ItemDef = {
 local Items = {}
 
 Items.DEFS = {
-	-- ── Scrap ── $5-35 ──────────────────────────────────────────────────────
+	-- ── Common (former Scrap tier, folded in on request) ────────────────────
 	{
 		id = "bottle_cap",
 		name = "Bottle Cap",
 		flavor = "Bent double. The logo is still readable if you squint.",
-		rarity = "Scrap",
+		rarity = "Common",
 		odds = 5, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
 		stages = { 1 },
@@ -116,7 +120,7 @@ Items.DEFS = {
 		id = "steel_rod",
 		name = "Steel Rod",
 		flavor = "Snapped clean through. Something very large came this way.",
-		rarity = "Scrap",
+		rarity = "Common",
 		odds = 6, -- 1 in N per dig in a stocking stage
 		weight = 7,
 		stages = { 1 },
@@ -129,7 +133,7 @@ Items.DEFS = {
 		id = "glass_pebble",
 		name = "Glass Pebble",
 		flavor = "Sand that got so hot it melted into a smooth little marble.",
-		rarity = "Scrap",
+		rarity = "Common",
 		odds = 8, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
 		stages = { 1 },
@@ -298,7 +302,7 @@ Items.DEFS = {
 		id = "cracked_tile",
 		name = "Cracked Tile",
 		flavor = "Someone chose this pattern once.",
-		rarity = "Scrap",
+		rarity = "Common",
 		odds = 5, -- 1 in N per dig in a stocking stage
 		weight = 1.0,
 		stages = { 2 },
@@ -310,7 +314,7 @@ Items.DEFS = {
 		id = "door_hinge",
 		name = "Door Hinge",
 		flavor = "Still swings, even with no door left to hold.",
-		rarity = "Scrap",
+		rarity = "Common",
 		odds = 7, -- 1 in N per dig in a stocking stage
 		weight = 0.5,
 		stages = { 2 },
