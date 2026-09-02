@@ -12,10 +12,11 @@
 	every layer re-tints per state. PLAN §14's ONE COLOUR RULE still holds and this
 	file is the strictest place in the client about it: exposure damage is GREEN, suit
 	failure is WHITE, and the two never blend into a third thing. The cracks layer is
-	white BECAUSE it only ever appears while the suit is failing.
+	white BECAUSE it only ever appears while the suit is failing. Blood is the third
+	colour and it answers to HEALTH, never to rads — see the BLOOD constant.
 
-	SIX LAYERS, EACH ARRIVING AT ITS OWN THRESHOLD, so escalation is a sequence rather
-	than one slider being dragged:
+	EIGHT LAYERS, EACH ARRIVING AT ITS OWN THRESHOLD, so escalation is a sequence
+	rather than one slider being dragged:
 
 	  iris    elliptical rings closing in from beyond the frame. This is the vignette's
 	          replacement — round, and moving. Vision tunnelling, not a border.
@@ -24,8 +25,13 @@
 	  grain   single sparks. Particles landing on the back of your eye — the picture
 	          half of the click bed GeigerController is already playing.
 	  tear    horizontal signal breakup past DANGER. The feed failing, not the eye.
-	  cracks  hairline fractures spidering in from the frame's edges, WHITE, and only
-	          while the suit is failing. This is the layer that means destroyed.
+	  cracks  fractures spidering in from the frame's edges, WHITE and dark-outlined so
+	          they read against a bright sky, and only while the suit is failing. This
+	          is the layer that means destroyed.
+	  bleed   a red rim at the very edge of the glass, driven by health.
+	  splats  blood hitting the inside of the visor and running down it. The drips only
+	          grow while you are actually losing health, which is what separates them
+	          from a decal.
 	  throb   a heartbeat over the whole picture, faster as the meter fills.
 
 	Plus a colour-correction and blur pass on Lighting. Those instances are created by
@@ -33,7 +39,7 @@
 	is the whole reason exposure can be a personal, per-player state and still be felt
 	across the entire screen.
 
-	COST: ~120 frames, built once, and the container is Visible = false below
+	COST: ~230 frames, built once, and the container is Visible = false below
 	EXPOSURE_WARN — which is most of the time anyone is actually playing. Nothing in
 	here allocates per frame.
 ]]
@@ -50,19 +56,29 @@ local WHITE = UIKit.C.burn
 -- meter green or they read as glowing lights rather than as dead tissue. Same hue,
 -- so the one-colour rule survives: it is still exposure's green, just necrotic.
 local ROT = GREEN:Lerp(Color3.new(0, 0, 0), 0.58)
+-- BLOOD IS THE ONE COLOUR IN HERE THAT IS NOT ON THE EXPOSURE LADDER, and it is
+-- deliberately not driven by exposure either: it rides on HEALTH. Green is the dose,
+-- white is the suit, red is you — three states that never say the same thing, which
+-- is why a third colour does not break PLAN §14's rule. Blood driven by RADS would
+-- break it, because then red would only be repeating what the green already said.
+local BLOOD = Color3.fromRGB(122, 10, 14)
+local BLOOD_DARK = Color3.fromRGB(58, 4, 6)
 
 -- Seeded, so the damage pattern is identical every session. A blotch layout that
 -- reshuffles on respawn reads as randomness; one that persists reads as YOUR helmet.
 local rng = Random.new(0x2A0D)
 
 local RING_COUNT = 12
+local BLEED_RING_COUNT = 5
+local SPLAT_COUNT = 11
 local BURN_COUNT = 14
 local GRAIN_COUNT = 30
 local TEAR_COUNT = 3
 
 local ui = {}
 local rings, burns, grains, tears, cracks, impacts = {}, {}, {}, {}, {}, {}
-local st = { t = 0, fail = 0, live = false, built = false }
+local splats, bleedRings = {}, {}
+local st = { t = 0, fail = 0, run = 0, live = false, built = false }
 
 -- Every pixel measurement in this file is quoted against a 720-tall viewport and
 -- scaled at layout time. Damage that is a fixed number of pixels wide swallows a
@@ -246,6 +262,170 @@ local function buildTear(parent: Instance)
 	end
 end
 
+--- The rim. Blood pooling against the very edge of the frame, tight enough that it
+--- never encroaches on the iris — this is on the glass, the green is in the air.
+local function buildBleedRings(parent: Instance)
+	for i = 1, BLEED_RING_COUNT do
+		local t = (i - 1) / (BLEED_RING_COUNT - 1)
+
+		local ring = Instance.new("Frame")
+		ring.Name = string.format("Bleed%d", i)
+		ring.AnchorPoint = Vector2.new(0.5, 0.5)
+		ring.Position = UDim2.fromScale(0.5, 0.5)
+		ring.Size = UDim2.fromScale(1.1 - t * 0.16, 1.1 - t * 0.16)
+		ring.BackgroundTransparency = 1
+		ring.BorderSizePixel = 0
+		ring.ZIndex = 3
+		ring.Parent = parent
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = ring
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = BLOOD
+		stroke.Transparency = 1
+		stroke.Parent = ring
+
+		bleedRings[i] = { stroke = stroke, weight = (1 - t) ^ 1.3 }
+	end
+end
+
+--- Splatter on the inside of the visor: a soft smear, a dark centre, and a drip that
+--- grows downward once the splat has landed. Splats are pinned to an EDGE rather than
+--- scattered, because blood in the middle of your view is a blood texture, and blood
+--- running down from the rim is your own.
+local function buildSplats(parent: Instance)
+	for i = 1, SPLAT_COUNT do
+		local edge = i % 4
+		local along = 0.08 + rng:NextNumber() * 0.84
+		local u, v
+		if edge == 0 then
+			u, v = along, 0.03 + rng:NextNumber() * 0.08
+		elseif edge == 1 then
+			u, v = along, 0.9 + rng:NextNumber() * 0.08
+		elseif edge == 2 then
+			u, v = 0.02 + rng:NextNumber() * 0.09, along
+		else
+			u, v = 0.9 + rng:NextNumber() * 0.08, along
+		end
+
+		local width = 80 + rng:NextNumber() * 120
+
+		local smear = Instance.new("Frame")
+		smear.Name = string.format("Splat%02d", i)
+		smear.AnchorPoint = Vector2.new(0.5, 0.5)
+		smear.Position = UDim2.fromScale(u, v)
+		-- Rotated, because eleven axis-aligned ovals is a pattern and blood is not.
+		smear.Rotation = rng:NextNumber() * 360
+		smear.BackgroundColor3 = BLOOD
+		smear.BackgroundTransparency = 1
+		smear.BorderSizePixel = 0
+		smear.Visible = false
+		smear.ZIndex = 3
+		smear.Parent = parent
+
+		local smearCorner = Instance.new("UICorner")
+		smearCorner.CornerRadius = UDim.new(0.5, 0)
+		smearCorner.Parent = smear
+
+		local smearGradient = Instance.new("UIGradient")
+		smearGradient.Rotation = rng:NextNumber() * 360
+		smearGradient.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.45, 0.1),
+			NumberSequenceKeypoint.new(1, 0.9),
+		})
+		smearGradient.Parent = smear
+
+		local clot = Instance.new("Frame")
+		clot.Name = "Clot"
+		clot.AnchorPoint = Vector2.new(0.5, 0.5)
+		clot.Position = UDim2.fromScale(0.5 + (rng:NextNumber() - 0.5) * 0.24, 0.5 + (rng:NextNumber() - 0.5) * 0.24)
+		clot.Size = UDim2.fromScale(0.5, 0.55)
+		clot.BackgroundColor3 = BLOOD_DARK
+		clot.BackgroundTransparency = 1
+		clot.BorderSizePixel = 0
+		clot.ZIndex = 3
+		clot.Parent = smear
+
+		local clotCorner = Instance.new("UICorner")
+		clotCorner.CornerRadius = UDim.new(0.5, 0)
+		clotCorner.Parent = clot
+
+		local clotGradient = Instance.new("UIGradient")
+		clotGradient.Rotation = rng:NextNumber() * 360
+		clotGradient.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.75),
+			NumberSequenceKeypoint.new(0.5, 0),
+			NumberSequenceKeypoint.new(1, 0.75),
+		})
+		clotGradient.Parent = clot
+
+		-- Spatter. THIS is the difference between blood and a red circle: a hit throws
+		-- droplets past its own edge, and three of them at unequal sizes break the
+		-- silhouette that a single ellipse can never escape.
+		local flecks = {}
+		for f = 1, 3 do
+			local fleck = Instance.new("Frame")
+			fleck.Name = string.format("Fleck%d", f)
+			fleck.AnchorPoint = Vector2.new(0.5, 0.5)
+			fleck.Position = UDim2.fromScale(0.5 + (rng:NextNumber() - 0.5) * 1.5, 0.5 + (rng:NextNumber() - 0.5) * 1.5)
+			fleck.Size = UDim2.fromScale(0.1 + rng:NextNumber() * 0.22, 0.1 + rng:NextNumber() * 0.2)
+			fleck.BackgroundColor3 = if f == 1 then BLOOD_DARK else BLOOD
+			fleck.BackgroundTransparency = 1
+			fleck.BorderSizePixel = 0
+			fleck.ZIndex = 3
+			fleck.Parent = smear
+
+			local fleckCorner = Instance.new("UICorner")
+			fleckCorner.CornerRadius = UDim.new(0.5, 0)
+			fleckCorner.Parent = fleck
+
+			flecks[f] = fleck
+		end
+
+		-- The drip hangs off the splat and only ever gets LONGER while you are still
+		-- bleeding. It is the one thing in this file that keeps moving after the state
+		-- stops changing, which is exactly why it reads as a wound and not a decal.
+		--
+		-- IT IS A SIBLING OF THE SPLAT, NOT A CHILD, and that is the whole trick: the
+		-- splat is randomly rotated so eleven of them do not line up, and a drip
+		-- parented to it inherits that rotation and runs sideways. Blood runs DOWN.
+		local drip = Instance.new("Frame")
+		drip.Name = string.format("Drip%02d", i)
+		drip.AnchorPoint = Vector2.new(0.5, 0)
+		drip.Position = UDim2.fromScale(u + (rng:NextNumber() - 0.5) * 0.03, v)
+		drip.Size = UDim2.fromOffset(0, 0)
+		drip.BackgroundColor3 = BLOOD_DARK
+		drip.BackgroundTransparency = 1
+		drip.BorderSizePixel = 0
+		drip.ZIndex = 3
+		drip.Visible = false
+		drip.Parent = parent
+
+		local dripCorner = Instance.new("UICorner")
+		dripCorner.CornerRadius = UDim.new(0.5, 0)
+		dripCorner.Parent = drip
+
+		splats[i] = {
+			smear = smear,
+			clot = clot,
+			drip = drip,
+			flecks = flecks,
+			w = width,
+			h = width * (0.38 + rng:NextNumber() * 0.32),
+			dripWidth = 4 + rng:NextNumber() * 6,
+			dripMax = 60 + rng:NextNumber() * 160,
+			run = 0,
+			-- Staggered like the burns: you do not get sprayed all at once, you get
+			-- hit, and then hit again.
+			at = (i - 1) / SPLAT_COUNT * 0.7,
+			phase = rng:NextNumber() * 6.28,
+		}
+	end
+end
+
 --- Cracks are walked in NORMALISED space (0..1 on both axes) and converted to pixels
 --- at layout time. That is why a window resize only stretches the fracture pattern
 --- instead of leaving it hanging in mid-screen, and it is also why the recipe is
@@ -261,6 +441,7 @@ local function buildCracks(parent: Instance)
 	local starts = {
 		Vector2.new(0.01, 0.16), Vector2.new(0.99, 0.22), Vector2.new(0.08, 0.97),
 		Vector2.new(0.92, 0.94), Vector2.new(0.38, 0.01), Vector2.new(0.99, 0.68),
+		Vector2.new(0.01, 0.74), Vector2.new(0.62, 0.99),
 	}
 
 	for index, start in starts do
@@ -316,11 +497,20 @@ local function buildCracks(parent: Instance)
 				seg.ZIndex = 5
 				seg.Parent = parent
 
+				-- A white hairline over a bright sky is nearly nothing; the same line
+				-- with a dark edge on it reads at any brightness. One stroke per
+				-- segment is cheaper than drawing every crack twice.
+				local outline = Instance.new("UIStroke")
+				outline.Color = Color3.fromRGB(9, 11, 8)
+				outline.Transparency = 1
+				outline.Parent = seg
+
 				table.insert(cracks, {
 					frame = seg,
+					outline = outline,
 					from = at,
 					to = to,
-					thickness = if thin then 1 else 2,
+					thickness = if thin then 2 else 3.5,
 					-- Segments nearer the origin surface first, so each crack GROWS
 					-- outward from its impact instead of blinking in whole.
 					at = order * 0.4 + (step / count) * 0.5,
@@ -350,6 +540,14 @@ local function layout()
 		-- Thick enough that consecutive rings overlap (no banding), thin enough that
 		-- the innermost one still stops well short of the middle.
 		ring.stroke.Thickness = 90 * px
+	end
+
+	for _, ring in bleedRings do
+		ring.stroke.Thickness = 55 * px
+	end
+
+	for _, crack in cracks do
+		crack.outline.Thickness = math.max(1, px)
 	end
 
 	for _, impact in impacts do
@@ -385,6 +583,8 @@ function RadFx.build(parent: Instance)
 	buildBurns(root)
 	buildIris(root)
 	buildTear(root)
+	buildBleedRings(root)
+	buildSplats(root)
 	buildGrain(root)
 	buildCracks(root)
 	layout()
@@ -432,9 +632,10 @@ local function sleep()
 	ui.blur.Enabled = false
 end
 
---- `intensity` is HudController's own 0..1 escalation ramp (0 below EXPOSURE_WARN)
---- and `failing` is the suit-failure flag. Nothing else about exposure belongs here.
-function RadFx.update(dt: number, intensity: number, failing: boolean)
+--- `intensity` is HudController's own 0..1 escalation ramp (0 below EXPOSURE_WARN),
+--- `failing` is the suit-failure flag, and `healthFrac` is 0..1 of max HP. Nothing
+--- else about exposure belongs here.
+function RadFx.update(dt: number, intensity: number, failing: boolean, healthFrac: number)
 	if not st.built then
 		return
 	end
@@ -446,7 +647,13 @@ function RadFx.update(dt: number, intensity: number, failing: boolean)
 	local step = if failing then dt / 2.0 else -dt / 0.6
 	st.fail = math.clamp(st.fail + step, 0, 1)
 
-	if intensity < 0.002 and st.fail < 0.002 then
+	-- Blood starts at a scratch and is total at a quarter health, and a failing suit
+	-- forces it regardless: whatever your bar says, something has opened up.
+	local bleed = math.clamp((0.75 - healthFrac) / 0.5, 0, 1)
+	bleed = math.max(bleed, st.fail * 0.9)
+
+	if intensity < 0.002 and st.fail < 0.002 and bleed < 0.002 then
+		st.run = 0
 		sleep()
 		return
 	end
@@ -559,13 +766,49 @@ function RadFx.update(dt: number, intensity: number, failing: boolean)
 			continue
 		end
 		crack.frame.Visible = true
-		crack.frame.BackgroundTransparency = 1 - shown * (0.75 + 0.25 * breath)
+		crack.frame.BackgroundTransparency = 1 - shown
+		crack.outline.Transparency = 1 - shown * (0.7 + 0.2 * breath)
 	end
 
 	for _, impact in impacts do
 		local shown = math.clamp((fail - impact.at) / 0.25, 0, 1)
 		impact.frame.Visible = shown > 0.001
-		impact.frame.BackgroundTransparency = 1 - shown * (0.2 + 0.1 * breath)
+		impact.frame.BackgroundTransparency = 1 - shown * (0.3 + 0.12 * breath)
+	end
+
+	-- Blood -----------------------------------------------------------
+	-- `run` is a bleeding clock: it advances only while blood is on the glass, so the
+	-- drips grow while you are hurt and freeze the moment you stop losing health.
+	st.run += dt * bleed
+	for _, ring in bleedRings do
+		ring.stroke.Transparency = 1 - math.clamp(ring.weight * bleed * 0.55, 0, 1)
+	end
+
+	for _, splat in splats do
+		local landed = math.clamp((bleed - splat.at) / 0.18, 0, 1)
+		if landed <= 0.001 then
+			splat.smear.Visible = false
+			splat.drip.Visible = false
+			continue
+		end
+		splat.smear.Visible = true
+		splat.drip.Visible = true
+
+		local wet = 0.85 + 0.15 * math.sin(st.t * 0.8 + splat.phase)
+		local grow = (0.7 + 0.3 * landed) * px
+		splat.smear.Size = UDim2.fromOffset(splat.w * grow, splat.h * grow)
+		splat.smear.BackgroundTransparency = 1 - landed * 0.5 * wet
+		splat.clot.BackgroundTransparency = 1 - landed * 0.85
+		for index, fleck in splat.flecks do
+			-- Droplets land a beat after the splat they came off.
+			fleck.BackgroundTransparency = 1 - math.clamp(landed * 1.4 - index * 0.25, 0, 1) * 0.8
+		end
+
+		-- Runs a third of the way down in ten seconds of solid bleeding, then keeps
+		-- creeping. Capped so a long fight does not curtain the screen in red.
+		local run = math.clamp(st.run * 0.09 - splat.at, 0, 1)
+		splat.drip.Size = UDim2.fromOffset(splat.dripWidth * px, splat.dripMax * run * px)
+		splat.drip.BackgroundTransparency = 1 - landed * 0.85
 	end
 
 	-- Throb -----------------------------------------------------------
@@ -581,7 +824,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean)
 	ui.colour.TintColor = sick:Lerp(Color3.new(1, 1, 1), fail)
 	ui.colour.Saturation = -0.3 * intensity * (1 - fail) - 0.45 * fail
 	ui.colour.Contrast = 0.12 * intensity + 0.2 * fail
-	ui.colour.Brightness = -0.02 * intensity + 0.05 * fail + beat * 0.03 * fail
+	ui.colour.Brightness = -0.02 * intensity + 0.05 * fail + beat * 0.03 * fail - 0.05 * bleed
 	ui.blur.Size = 1.5 * intensity * intensity + 5 * fail + beat * 1.5 * intensity
 end
 

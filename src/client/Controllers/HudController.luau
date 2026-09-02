@@ -273,7 +273,8 @@ local function render(dt: number)
 		intensity = math.max(intensity, 0.65)
 	end
 
-	RadFx.update(dt, intensity, state.failing)
+	local healthFrac = state.health / math.max(state.maxHealth, 1)
+	RadFx.update(dt, intensity, state.failing, healthFrac)
 
 	ui.fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
 	ui.fill.BackgroundColor3 = colour
@@ -290,7 +291,6 @@ local function render(dt: number)
 	-- HEALTH. Green is exposure's colour and exposure's alone (PLAN §14's one-colour
 	-- rule), so a hurting suit reads amber -> red the same way any other game's HP bar
 	-- would, and only turns white — the ONE white in the game — once failing is real.
-	local healthFrac = state.health / math.max(state.maxHealth, 1)
 	local healthColour = if state.failing then WHITE elseif healthFrac < 0.3 then UIKit.C.red else UIKit.C.amber
 	ui.healthFill.Size = UDim2.fromScale(math.clamp(healthFrac, 0, 1), 1)
 	ui.healthFill.BackgroundColor3 = healthColour
