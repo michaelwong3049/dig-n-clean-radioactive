@@ -30,8 +30,8 @@
 	STALL'S OWN COLOUR (coral / teal / purple against white, no longer the one
 	shared awning red), and a floating two-line sign that NAMES WHAT THE STALL
 	SELLS (DETECTORS / MAGNETS / CLEANERS) in that same accent, with the tagline
-	under it. The Outfitter remains the larger peaked-roof building — now standing
-	south of the triangle, on the way in from the pads, and open front and back as
+	under it. The Outfitter remains the larger peaked-roof building — now tucked in
+	behind the Detector and Cleaner stalls on the west, and open front and back as
 	a walk-through — its three counters each billboarded the same way (SUITS /
 	BOOTS / SATCHELS).
 
@@ -75,20 +75,21 @@
 	gap between the two western stalls is the way in, aimed at the pad ring the
 	players arrive from.
 
-	THE OUTFITTER STANDS SOUTH OF THE TRIANGLE, ON THE CENTRAL SQUARE. It used to
-	sit across a centre aisle from a straight row of stalls (row at z=22, Outfitter
-	at z=-22), then spent a while parked further out at z=-55 while the triangle was
-	the thing being looked at. Now it sits at z=-44 on the grey central pad, just
-	south of the three stalls and square across the way in from the pads — the
-	first storefront you pass walking up to the triangle. Its front (+Z) still
-	faces the plaza centre, so `facingOrigin` only translates it, no re-aim.
+	THE OUTFITTER TUCKS IN BEHIND THE DETECTOR AND CLEANER STALLS, ON THE WEST. It
+	used to sit across a centre aisle from a straight row of stalls (row at z=22,
+	Outfitter at z=-22), then went through a run of holding spots — z=-55, the
+	south edge, the south-east arc. Now it sits at (-20, 0) on the grey central
+	pad, due west of PLAZA_MID and directly BEHIND the two stalls on that side
+	(Detector NW, Cleaner SW) — out on the ground the west pad widening opened up
+	(Hub.PAD_WEST_EXTEND), off the way in rather than straddling it. On the z=0
+	centreline it faces due east, so `facingOrigin` leaves it square, no turn.
 
 	AND IT IS OPEN FRONT AND BACK — A WALK-THROUGH, NOT A DEAD END. Only the two
-	side walls are solid now; both gable ends (the +Z triangle-facing side and the
-	-Z side toward the pads) are open. The three counters sit clear of the ~9-stud
-	gaps between them, so a player walks straight through the building north-south
-	on the way in rather than having to go around it — the +Z end is the counter
-	approach, the -Z end is the way back out toward the pads.
+	side walls are solid now; both gable ends (the +Z centre-facing side and the -Z
+	outer side) are open. The three counters sit clear of the ~9-stud gaps between
+	them, so the building can be walked straight through rather than being a room
+	with a back wall — the +Z end is the counter approach from the plaza, the -Z
+	end opens onto the west apron behind.
 
 	`facingOrigin` IS THE ONLY PLACEMENT PRIMITIVE. Both builders lay every part as
 	a local offset from the CFrame it returns, so that one CFrame carries a shop's
@@ -97,8 +98,8 @@
 	Plots.luau: Plots requires Hub, Hub requires only Kit, and Shops stays a pure
 	statement of positions. Plots.luau's SHOP_CLUSTER_EAST_REACH is already marked
 	historical there and stays a conservative bound, not a live measurement of
-	anything here — the Outfitter's moves have all been north-south, its east reach
-	toward Stage 1 unchanged.
+	anything here — and this move is westward anyway (the Outfitter's east face
+	pulls BACK to ~x=-12), so it only ever relieves that bound, never strains it.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -134,10 +135,11 @@ local STALLS = {
 
 --- The outfitter's three counters on one bench. Radius 6 at a 13-stud pitch, so
 --- no two counters' circles overlap and standing at one is unambiguous. `at` is
---- on the central square at z=-44, just south of the stall triangle (see the
---- header) — its front still faces PLAZA_MID, so `facingOrigin` only translates it.
+--- on the central square at (-20, 0), due west of PLAZA_MID and tucked in behind
+--- the Detector and Cleaner stalls (see the header) — its +Z front faces due
+--- east at the centre, so `facingOrigin` leaves it square.
 local OUTFITTER = {
-	at = { 17.5, -44 },
+	at = { -20, 0 },
 	pitch = 13,
 	counters = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },
@@ -513,18 +515,19 @@ end
 --- The outfitter: a proper building, not a bench under a trim strip. Three
 --- shops left Suit, Boots and Satchel priced but unbuyable, and hazard gear that
 --- actually reduces incoming damage earns more than a picnic table — two side
---- walls, a peaked roof, and BOTH gable ends open so it reads as a walk-through:
---- in the -Z side from the pads, between the three counters, out the +Z side at
---- the triangle. Stands on the central square just south of the stall triangle,
---- front still facing the middle; each counter carries its own billboard naming
---- the track (SUITS / BOOTS / SATCHELS).
+--- walls, a peaked roof, and BOTH gable ends open so it reads as a walk-through
+--- rather than a room with a back wall. Tucked in behind the Detector and Cleaner
+--- stalls on the west of the square; the +Z front (sign, forecourt marker, and
+--- the counters just inside) faces due east at PLAZA_MID, the -Z end opens onto
+--- the west apron behind. Each counter carries its own billboard naming the track
+--- (SUITS / BOOTS / SATCHELS).
 local function buildOutfitter(parent: Instance)
 	local m = Instance.new("Model")
 	m.Name = "Outfitter"
 
-	-- Same primitive as the stalls: placed at OUTFITTER.at on the central square,
-	-- south of the triangle, still turned to face PLAZA_MID. Its front already
-	-- pointed +Z at the centre, so facingOrigin only translates it — no re-aim.
+	-- Same primitive as the stalls: placed at OUTFITTER.at behind the Detector and
+	-- Cleaner stalls, on the z=0 centreline so facingOrigin's aim at PLAZA_MID is
+	-- a straight due-east facing with no turn.
 	local origin = facingOrigin(OUTFITTER.at[1], OUTFITTER.at[2], PLAZA_MID.x, PLAZA_MID.z)
 	local span = OUTFITTER.pitch * (#OUTFITTER.counters - 1)
 	local width = span + 20
@@ -535,20 +538,19 @@ local function buildOutfitter(parent: Instance)
 	-- this floor's top face on the plaza's own plane and the two z-fought.
 	build(m, origin, { name = "Floor", pos = { 0, -0.1, 0 }, size = { width, 0.4, halfDepth * 2 }, color = C.plazaWarm, material = "Plastic" })
 
-	-- Two side walls only. BOTH gable ends are left open: the +Z end faces the
-	-- triangle and is the counter approach, the -Z end is the way in from the
-	-- pads. That open pair is what makes this a walk-through and not a room with
-	-- a back wall.
+	-- Two side walls only. BOTH gable ends are left open: the +Z end faces
+	-- PLAZA_MID (east) and is the counter approach, the -Z end opens onto the west
+	-- apron behind. That open pair is what makes this a walk-through and not a
+	-- room with a back wall.
 	for _, dx in { -width / 2, width / 2 } do
 		build(m, origin, { name = "SideWall", pos = { dx, wallHeight / 2, 0 }, size = { 0.6, wallHeight, halfDepth * 2 }, color = C.shopWood, material = "Wood" })
 	end
 
 	local ridgeY = buildGableRoof(m, origin, 0, wallHeight, halfDepth, 4, width + 2, C.shopOutfitter)
 
-	-- The sign, floating over the open -Z end — the side players walk up from the
-	-- pads, so the OUTFITTER name faces them on the approach. Front-face (-Z) here,
-	-- the mirror of the plaza stalls' Back-face convention, for the same reason:
-	-- put the text on the face whoever is walking toward the building can read.
+	-- The sign, floating over the open +Z end, facing PLAZA_MID -- the same
+	-- Back-face convention the plaza stalls use, for the same reason: whoever is
+	-- walking toward this building from the centre is standing on the +Z side.
 	-- Matte, in the shop's accent colour -- colour still does the navigation, it
 	-- just doesn't glow.
 	-- Fixed size, not derived from the building's width — a sign that spans the
@@ -557,13 +559,13 @@ local function buildOutfitter(parent: Instance)
 	-- though TextScaled itself never distorts a glyph. The board's own proportions
 	-- were the actual problem.
 	local signY = ridgeY + 2.2
-	build(m, origin, { name = "SignOutline", pos = { 0, signY, -halfDepth + 0.2 }, size = { 15, 3.0, 0.3 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
-	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, -halfDepth - 0.2 }, size = { 14.4, 2.6, 0.4 }, color = C.shopOutfitter, material = "SmoothPlastic", canCollide = false })
-	Kit.surfaceText(sign, Enum.NormalId.Front, "OUTFITTER", C.signText)
+	build(m, origin, { name = "SignOutline", pos = { 0, signY, halfDepth - 0.2 }, size = { 15, 3.0, 0.3 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
+	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, halfDepth + 0.2 }, size = { 14.4, 2.6, 0.4 }, color = C.shopOutfitter, material = "SmoothPlastic", canCollide = false })
+	Kit.surfaceText(sign, Enum.NormalId.Back, "OUTFITTER", C.signText)
 
-	-- The forecourt outline at the -Z end, the approach from the pads, where the
-	-- counters sit — the same end the sign marks.
-	buildFloorMarker(m, origin, 0, -halfDepth + 3, width - 6, 8, C.shopOutfitter)
+	-- The forecourt outline at the +Z end, the approach from the centre, with the
+	-- counters just inside it.
+	buildFloorMarker(m, origin, 0, halfDepth - 3, width - 6, 8, C.shopOutfitter)
 
 	for index, counter in OUTFITTER.counters do
 		local x = -span / 2 + (index - 1) * OUTFITTER.pitch
@@ -573,7 +575,7 @@ local function buildOutfitter(parent: Instance)
 			color = C.shopOutfitter,
 			width = 4,
 			depth = 2.4,
-			z = -halfDepth + 3.5,
+			z = halfDepth - 3.5,
 			stationKind = "shop",
 			stationId = counter.track,
 			-- Tighter than the plaza stalls: three counters share one building,
