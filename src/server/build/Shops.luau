@@ -26,11 +26,12 @@
 
 	THE LOOK — the supplied classic-Roblox Gear Store reference, stripped to the
 	structure. Each tool stall has studded posts, a slatted rear wall, an open
-	counter with a steel cap, a shallow hot-pink-and-white striped canopy and
-	matching valance, and a floating two-line sign that NAMES WHAT THE STALL SELLS
-	(DETECTORS / MAGNETS / CLEANERS) in that shop's own accent colour, with the
-	tagline under it. The Outfitter remains the larger peaked-roof building across
-	the aisle, its three counters each billboarded the same way (SUITS / BOOTS /
+	counter with a steel cap, a shallow striped canopy and matching valance IN THE
+	STALL'S OWN COLOUR (coral / teal / purple against white, no longer the one
+	shared awning red), and a floating two-line sign that NAMES WHAT THE STALL
+	SELLS (DETECTORS / MAGNETS / CLEANERS) in that same accent, with the tagline
+	under it. The Outfitter remains the larger peaked-roof building across the
+	aisle, its three counters each billboarded the same way (SUITS / BOOTS /
 	SATCHELS).
 
 	THE DECORATION IS GONE, AND THAT WAS A DELIBERATE STRIP. Earlier passes stood a
@@ -102,7 +103,7 @@ local Hub = require(script.Parent.Hub)
 
 local Shops = {}
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 19
+local BUILDER_VERSION = 20
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
@@ -183,16 +184,16 @@ end
 
 -- ── Reference gear-store details ─────────────────────────────────────────────
 
--- Classic market-awning red. WAS a hot magenta "FF00E5" — retoned with the de-neon
--- pass: that pink was the brightest thing in the plaza and read as neon even though
--- the stripe is matte studded Plastic. This sits in the world's warm-red family
--- (C.barrelRust / C.quarantineRed).
-local GEAR_STORE_STRIPE = "B4483D"
-
 --- The reference roof is one shallow rectangular awning, striped front-to-back,
 --- with a short matching valance at the front. Separate studded Plastic parts
 --- keep every stripe crisp and give it the chunky classic-Roblox texture.
-local function buildStripedCanopy(parent: Instance, origin: CFrame)
+---
+--- `accent` is the stall's own hex — the canopy stripes and valance alternate it
+--- with white, so each stall's cloth is its own colour (coral / teal / purple)
+--- instead of the shared awning red every stall used to wear. It is the biggest
+--- painted surface on the stall, so this is now the loudest of the per-shop
+--- colour cues (with the trim cap, floor marker and sign text).
+local function buildStripedCanopy(parent: Instance, origin: CFrame, accent: string)
 	local stripeCount = 7
 	local stripeWidth = 2.5
 	local totalWidth = stripeCount * stripeWidth
@@ -204,7 +205,7 @@ local function buildStripedCanopy(parent: Instance, origin: CFrame)
 	local frontY = centerY - math.sin(math.rad(tiltDegrees)) * (depth / 2)
 
 	for index = 1, stripeCount do
-		local color = if index % 2 == 1 then GEAR_STORE_STRIPE else C.labelText
+		local color = if index % 2 == 1 then accent else C.labelText
 		local x = -totalWidth / 2 + (index - 0.5) * stripeWidth
 		build(parent, origin, {
 			name = `CanopyStripe{index}`,
@@ -409,11 +410,10 @@ end
 -- ── The plaza stalls ────────────────────────────────────────────────────────────
 
 --- One classic-Roblox gear store, stripped to the structure: studded grey posts
---- and rear slats, an open counter, a pink-and-white striped canopy, and the
---- floating two-line sign naming the wares (spec.label) with the tagline under
---- it. The sign text, the floor marker and the counter's trim cap — all in the
---- shop's accent colour — are the per-shop identity now that the shopkeeper and
---- the identity prop are gone.
+--- and rear slats, an open counter, and a striped canopy + two-line sign both in
+--- the stall's own accent colour. The canopy, the sign text, the floor marker
+--- and the counter's trim cap — all `spec.color` — are the per-shop identity now
+--- that the shopkeeper and the identity prop are gone.
 local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, label: string, tagline: string })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
@@ -487,7 +487,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	})
 	buildStoreBillboard(counter, spec.label, spec.tagline, spec.color)
 
-	buildStripedCanopy(m, origin)
+	buildStripedCanopy(m, origin, spec.color)
 
 	-- The floor marker: a glowing outline of the buy radius, in the shop's own
 	-- colour — never green, see the header. With the shopkeeper and the identity
