@@ -140,7 +140,9 @@ function StatResolver.get(profile: Profile): Stats
 		detectorRadius = detector.radius,
 		detectorLuck = detector.luck,
 		detectorDepth = detector.depth,
-		-- Bloodhound (PLAN §9.2)
+		-- INERT since the ping ungate (DigService.hintFor): nothing reads detectorClarity
+		-- any more, so the Bloodhound perk (PLAN §9.2, +1 here) currently does nothing.
+		-- Kept resolved so a repurpose does not have to re-thread it.
 		detectorClarity = detector.clarity + (if perks.bloodhound then 1 else 0),
 		pullSpeed = magnet.pullSpeed,
 		draw = magnet.draw,

@@ -175,6 +175,17 @@ Kit.C = {
 	shopMagnet = "4E9AAE",
 	shopCleaner = "9560B0",
 	shopOutfitter = "D9A93F",
+
+	-- The storefront lumber — posts, counters, walls, roof beams, rear slats and
+	-- the crates stacked outside. Was the warm C.wood / C.woodLight brown; repainted
+	-- a cool neutral grey so the built structure reads as painted timber / weathered
+	-- board and the shop's own accent colour (trim cap, canopy, floor marker, prop)
+	-- is the only warm thing on the stall. `shopWood` is the dark structural tone,
+	-- `shopWoodLight` the lighter board tone, same light/dark relationship the brown
+	-- pair had. Deliberately not one of the base greys (steel is too blue, standGrey
+	-- too flat) — matte painted wood, not metal or poured stone.
+	shopWood = "6B6E73",
+	shopWoodLight = "9A9DA3",
 }
 
 --- Per-plot accent colours. Index by plot number. Six clearly-different hues so

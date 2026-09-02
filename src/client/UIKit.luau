@@ -178,10 +178,10 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- covers exactly that. It sits as LOW as it can instead — right above the hotbar — so
 -- the item stays in view above it; HAULPANEL_BOTTOM below is what places it.
 -- 150: 134 (itself down from 168) plus a 16px title row brought back to carry the
--- rarity readout — the word once the detector's clarity resolves it, and the "1 in N"
--- odds once it clears the modifier gate too. The old dropped title said "LOCKED ON —
--- UNKNOWN MASS"; this one says what you actually committed to, or stays blank behind
--- the bar's "?" when the detector could not tell. Laid out top-down at fixed offsets:
+-- rarity readout — the rarity word and the "1 in N" odds, both on any detector now
+-- (the clarity gate is gone). The old dropped title said "LOCKED ON — UNKNOWN MASS";
+-- this one says what you actually committed to, or stays blank behind the bar's "?"
+-- for the frame before it resolves. Laid out top-down at fixed offsets:
 -- the title at y10, the bar at y36, the PULL button at y76, and the release hint
 -- hanging off the BOTTOM edge. Panel height is what sets the gap between the button and
 -- the release (10px here) — shrink it further and they re-collide. Its top edge sits
