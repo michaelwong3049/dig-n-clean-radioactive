@@ -25,7 +25,8 @@
 	  burns   soft blotches that bloom at the edge of sight and creep inward, one at a
 	          time as the meter climbs. Tissue going, not a gradient ramping.
 	  grain   single sparks. Particles landing on the back of your eye — the picture
-	          half of the click bed GeigerController is already playing.
+	          half of the click bed GeigerController is already playing. Two banks: one
+	          on the meter, one the LIGHT grade owns outright (LIGHT_GRAIN_COUNT).
 	  tear    horizontal signal breakup past DANGER. The feed failing, not the eye.
 	  cracks  fractures spidering in from the frame's edges, WHITE and dark-outlined so
 	          they read against a bright sky, and only while the suit is failing. This
@@ -40,12 +41,31 @@
 	          the iris slams down to a keyhole, the tunnel goes dark, the blur goes to
 	          24, and the answer to "can I sneak one dig in down here" becomes no.
 
+	OVER-TIER COMES IN THREE GRADES, NOT ONE SLIDER. `over` used to drive every
+	over-tier layer linearly, which meant its two ends said the same sentence at two
+	volumes: a toe over the line was a faint darkening, and deep in the wrong stage
+	was total. Neither read as a distinct STATE. It is now split at LIGHT_SPAN into
+	two channels that do different jobs (see update()):
+
+	  LIGHT     `light`, peaking at ~1.7x your rating and fading back out as blind
+	            arrives. The picture BREAKS UP — a second bank of static all its own,
+	            the feed tearing, colour draining, the throb quickening — but the
+	            middle of the screen is never touched and the blur stays under three.
+	            You can still read the ground. This is a warning you can work through,
+	            and it is the grade a player meets by stepping one stage past their
+	            suit, which used to be a barely-visible darkening.
+	  REGULAR   the low half of `blind`. The tunnel starts closing and the blur
+	            becomes real. Working is possible; it is no longer comfortable.
+	  INTENSE   `blind` at full, ~3x your rating. Untouched to the digit — `light` is
+	            back at zero by then, so every layer reduces to exactly its old form:
+	            the veil, the keyhole, the 24 blur, the sentence.
+
 	Plus a colour-correction and blur pass on Lighting. Those instances are created by
 	the CLIENT, so they are this player's sight going — not the world's weather. That
 	is the whole reason exposure can be a personal, per-player state and still be felt
 	across the entire screen.
 
-	COST: ~235 frames, built once, and the container is Visible = false below
+	COST: ~269 frames, built once, and the container is Visible = false below
 	EXPOSURE_WARN — which is most of the time anyone is actually playing. Nothing in
 	here allocates per frame.
 ]]
@@ -77,11 +97,25 @@ local BLOOD_DARK = Color3.fromRGB(58, 4, 6)
 -- reshuffles on respawn reads as randomness; one that persists reads as YOUR helmet.
 local rng = Random.new(0x2A0D)
 
+-- WHERE THE LIGHT GRADE ENDS AND SIGHT STARTS GOING, on HudController's `over`
+-- ramp (0 = rated for this air, 1 = three times your tolerance). 0.22 is ~1.7x your
+-- rating, comfortably past the 1.1x-1.4x a player lands on by walking one stage too
+-- deep — so the entrance to a stage you are not rated for is entirely light, and
+-- pushing east into it is what starts closing the tunnel.
+local LIGHT_SPAN = 0.22
+
 local RING_COUNT = 12
 local BLEED_RING_COUNT = 5
 local SPLAT_COUNT = 11
 local BURN_COUNT = 14
 local GRAIN_COUNT = 30
+-- A SECOND BANK OF SPARKS THAT ONLY THE LIGHT GRADE LIGHTS. Turning grainChance up
+-- for `light` would have bought nothing: over-tier always sets `failing`, `failing`
+-- already puts that chance near 1, and a probability that is already 1 cannot make
+-- more static out of thirty frames. Volume is the only dial left, so the light grade
+-- gets its own thirty-four on top — enough that a screen one stage past your rating
+-- is visibly noisier than the same screen at a pegged meter, which is the whole read.
+local LIGHT_GRAIN_COUNT = 34
 local TEAR_COUNT = 3
 
 local ui = {}
@@ -224,7 +258,7 @@ end
 --- Sparks. Each one lives for a few frames at a random spot and dies. At full dose
 --- there are enough of them to read as a snowstorm on the inside of the visor.
 local function buildGrain(parent: Instance)
-	for i = 1, GRAIN_COUNT do
+	for i = 1, GRAIN_COUNT + LIGHT_GRAIN_COUNT do
 		local dot = Instance.new("Frame")
 		dot.Name = string.format("Grain%02d", i)
 		dot.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -240,7 +274,7 @@ local function buildGrain(parent: Instance)
 		corner.CornerRadius = UDim.new(0.5, 0)
 		corner.Parent = dot
 
-		grains[i] = { frame = dot, life = 0, span = 0.1 }
+		grains[i] = { frame = dot, life = 0, span = 0.1, lightOnly = i > GRAIN_COUNT }
 	end
 end
 
@@ -709,7 +743,18 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	-- for, and the game says so by taking your sight rather than by adding another
 	-- number. Every layer below reads this, which is why one stage too deep does not
 	-- look like 99% rads — it looks like you cannot see.
-	local blind = st.over
+	-- THE LIGHT GRADE IS A BROKEN PICTURE, NOT A DARK ONE. Splitting `over` here is
+	-- what makes over-tier a ladder instead of a dimmer: `light` owns everything that
+	-- degrades the SIGNAL (its own static, tearing, colour, throb) and peaks early, so
+	-- a player one stage past their rating gets a noisy screen immediately; `blind`
+	-- owns everything that takes SIGHT (the veil, the keyhole, the blur) and does not
+	-- start until the light grade has already said its piece. Remapped so over = 1
+	-- still lands on blind = 1.
+	local blind = math.clamp((st.over - LIGHT_SPAN) / (1 - LIGHT_SPAN), 0, 1)
+	-- LIGHT IS A BAND, NOT A FLOOR: it fades back out as `blind` takes over, so every
+	-- expression below reduces to exactly its old form at over = 1. The intense grade
+	-- is not "the old one plus a bit" — it is untouched, to the digit.
+	local light = math.clamp(st.over / LIGHT_SPAN, 0, 1) * (1 - blind)
 	local tint = GREEN:Lerp(WHITE, fail)
 	-- THE BLIND TUNNEL IS DARK, NOT WHITE. Over-tier forces `failing`, which takes
 	-- the iris white, and a white iris at blinding strength reads as fog on the lens
@@ -723,7 +768,9 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	local breath = 0.5 + 0.5 * math.sin(st.t * (1.1 + intensity * 1.6))
 
 	-- Iris ------------------------------------------------------------
-	local close = 1 - intensity * 0.14 - fail * 0.05 - blind * 0.46 - breath * 0.012
+	-- Light tightens the frame a little (0.05) where blind slams it shut (0.46) — a
+	-- hint that the edges are closing, not the keyhole.
+	local close = 1 - intensity * 0.14 - fail * 0.05 - light * 0.05 - blind * 0.46 - breath * 0.012
 	for _, ring in rings do
 		local span = ring.span * close
 		ring.frame.Size = UDim2.fromScale(span, span)
@@ -740,6 +787,9 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 		-- Blindness lights the INNER rings too (the plain weight curve barely does),
 		-- so what closes in is a tunnel with a hard rim rather than a soft edge.
 		alpha = math.max(alpha, (0.35 + 0.65 * ring.weight) * blind * 0.3)
+		-- The light grade lights the OUTER rings only (plain `weight`, no inner lift),
+		-- so the edge of the picture roughens while the middle stays clean.
+		alpha = math.max(alpha, ring.weight * light * 0.16)
 		ring.stroke.Transparency = 1 - math.clamp(alpha, 0, 1)
 	end
 
@@ -772,11 +822,19 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	end
 
 	-- Grain -----------------------------------------------------------
+	-- The meter's bank, untouched. It is worth knowing WHY the light grade could not
+	-- simply be another term in here: over-tier always sets `failing`, `failing` alone
+	-- already drives this near 1, and a probability that is already 1 cannot make more
+	-- static out of thirty frames. See LIGHT_GRAIN_COUNT.
 	local grainChance = math.clamp((intensity - 0.12) * 0.55 + fail * 0.4 + blind * 0.9, 0, 1)
+	-- STATIC IS WHAT THE LIGHT GRADE IS MADE OF, and this is where it comes from: a
+	-- bank that answers to `light` alone, so it is dark below over-tier and dark again
+	-- once the veil is doing the talking. Lit ONLY in the band the grade owns.
+	local lightChance = math.clamp(light * 0.85, 0, 1)
 	for _, grain in grains do
 		grain.life -= dt
 		if grain.life <= 0 then
-			if rng:NextNumber() < grainChance then
+			if rng:NextNumber() < (if grain.lightOnly then lightChance else grainChance) then
 				local heavy = rng:NextNumber() < 0.25
 				grain.span = 0.05 + rng:NextNumber() * 0.12
 				grain.life = grain.span
@@ -794,11 +852,11 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	end
 
 	-- Tear ------------------------------------------------------------
-	local tearing = intensity > 0.45 or fail > 0.2 or blind > 0.12
+	local tearing = intensity > 0.45 or fail > 0.2 or light > 0.04
 	for _, tear in tears do
 		tear.life -= dt
 		if tear.life <= 0 then
-			if tearing and rng:NextNumber() < 0.035 + intensity * 0.06 + blind * 0.2 then
+			if tearing and rng:NextNumber() < 0.035 + intensity * 0.06 + light * 0.14 + blind * 0.2 then
 				tear.span = 0.04 + rng:NextNumber() * 0.14
 				tear.life = tear.span
 				tear.frame.Position = UDim2.fromScale((rng:NextNumber() - 0.5) * 0.08, rng:NextNumber())
@@ -869,12 +927,16 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	end
 
 	-- Throb -----------------------------------------------------------
-	local rate = 1.0 + intensity * 1.9 + fail * 0.8 + blind * 1.6
+	local rate = 1.0 + intensity * 1.9 + fail * 0.8 + light * 0.7 + blind * 1.6
 	local beat = (0.5 + 0.5 * math.sin(st.t * rate * math.pi * 2)) ^ 6
 	ui.throb.BackgroundColor3 = tint
-	ui.throb.BackgroundTransparency = 1 - beat * (0.035 * intensity + 0.06 * fail + 0.07 * blind)
+	ui.throb.BackgroundTransparency = 1 - beat * (0.035 * intensity + 0.06 * fail + 0.03 * light + 0.07 * blind)
 
 	-- Veil ------------------------------------------------------------
+	-- `blind` ONLY, never `light`. This is the one layer allowed over the middle of
+	-- the screen, and letting the light grade touch it would collapse the ladder back
+	-- into a single dimmer — the whole point of the weakest grade is that it breaks
+	-- the picture up without taking any of it away.
 	ui.veil.BackgroundTransparency = 1 - blind * (0.66 + 0.06 * beat)
 
 	-- Lighting --------------------------------------------------------
@@ -882,12 +944,15 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	-- colour story the meter and the blackout curtain tell, told on the world instead.
 	local sick = Color3.new(1, 1, 1):Lerp(Color3.fromRGB(150, 235, 120), 0.2 * intensity)
 	ui.colour.TintColor = sick:Lerp(Color3.new(1, 1, 1), fail)
-	ui.colour.Saturation = math.max(-1, -0.3 * intensity * (1 - fail) - 0.45 * fail - 0.5 * blind)
-	ui.colour.Contrast = 0.12 * intensity + 0.2 * fail - 0.25 * blind
+	-- The light grade DRAINS and HARDENS the picture (colour out, contrast up) where
+	-- blind DARKENS it. Two different wrongnesses, so the grades are told apart at a
+	-- glance rather than only by amount.
+	ui.colour.Saturation = math.max(-1, -0.3 * intensity * (1 - fail) - 0.2 * light - 0.45 * fail - 0.5 * blind)
+	ui.colour.Contrast = 0.12 * intensity + 0.2 * fail + 0.1 * light - 0.25 * blind
 	ui.colour.Brightness = -0.02 * intensity + 0.05 * fail + beat * 0.03 * fail - 0.05 * bleed - 0.18 * blind
 	-- 24 studs of blur is not "hazy", it is "you cannot read the ground you are
 	-- standing on". That is the intended read: get out, by memory if you have to.
-	ui.blur.Size = 1.5 * intensity * intensity + 5 * fail + beat * 1.5 * intensity + 24 * blind
+	ui.blur.Size = 1.5 * intensity * intensity + 5 * fail + beat * 1.5 * intensity + 2.5 * light + 24 * blind
 end
 
 return RadFx
