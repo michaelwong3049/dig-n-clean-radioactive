@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 19
+local BUILDER_VERSION = 20
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -136,16 +136,20 @@ local DEAD_WOOD_DARK = "372A1D"
 local BUSH_GREEN = "63B83A"
 local BUSH_GREEN_DARK = "4C9029"
 
---- Bone, for Stage 2's remains (`boneShaft`, `skull`, `animalSkeleton`). Sun-bleached
---- ivory with a dirt-stained second tone, mixed per part the way DEAD_WOOD/_DARK is on
---- the trees so a rib cage's facets read against each other instead of flat-shading
---- into one white mass. Builder-local, same as the wood and bush greens: nothing
---- outside this file's Stage 2 pass needs them.
+--- Bone, for the Stage 2 and 3 remains (`boneShaft`, `skull`, `animalSkeleton`). A
+--- sun-bleached base with a dirt-stained second tone, mixed per part the way
+--- DEAD_WOOD/_DARK is on the trees so a rib cage's facets read against each other
+--- instead of flat-shading into one white mass. Builder-local, same as the wood and
+--- bush greens: nothing outside the bone fields needs them.
 ---
---- PALE, NOT WHITE, AND WARM. Stage 2's floor is dun tan (Stages def.color B8935F) and
---- pure white on a studded Plastic part in this world's flat lighting reads as painted
---- polystyrene; holding a little of the ground's own yellow keeps it reading as bone
---- lying in the dirt while still separating clearly from the board at a distance.
+--- ONE PALETTE FOR BOTH FIELDS, deliberately -- see the section header. Stage 3's
+--- floor (A67C4E) is a darker, browner khaki than Stage 2's dun tan (B8935F), so if
+--- anything the same bone separates from it harder, not less.
+---
+--- PALE, NOT WHITE, AND WARM. Pure white on a studded Plastic part in this world's
+--- flat lighting reads as painted polystyrene; holding a little of the ground's own
+--- yellow keeps it reading as bone lying in the dirt while still separating clearly
+--- from the board at a distance.
 ---
 --- THE WARMTH IS NOT DECORATIVE, AND IT HAS TO BE THIS MUCH OF IT. Everything not
 --- facing the sun here is lit by the sky and the ambient, and both are green-mint
@@ -370,8 +374,12 @@ end
 ---   Stage 2 -- big dead trees flanking the corridor (scatterEdgeTrees), then the
 ---            remains scattered over the whole field (scatterBones): `skeletons` whole
 ---            carcasses as landmarks, `bones` handfuls of loose bone underfoot and
----            `skulls` human skulls. Those three are Stage 2's own fields, unset (and
----            so skipped) on every other stage.
+---            `skulls` human skulls.
+---   Stage 3 -- the same three bone counts, denser, and nothing else at all: a PARTIAL
+---            pass, not this field's rework (its `kind = "sirens"` set piece is still
+---            on the shelf). See its own note in THEME.
+--- `skeletons`/`bones`/`skulls` belong to the two bone fields; unset, and so skipped,
+--- everywhere else.
 type StageTheme = {
 	props: number,
 	pools: number,
@@ -392,7 +400,17 @@ local THEME: { [number]: StageTheme } = {
 	-- the detail that lands hardest, and lose all of it the moment there are enough of
 	-- them to be scenery.
 	[2] = { props = 6, pools = 10, kind = "trees", scatter = true, skeletons = 2, bones = 16, skulls = 7 },
-	[3] = { props = 40, pools = 20, kind = "sirens" },
+	-- Stage 3 gets the SAME three bone passes, denser, and NOTHING ELSE -- its sirens
+	-- are still on the shelf (`props`/`kind` below are untouched and unused), so this
+	-- is a partial pass, not Stage 3's rework. That is most of why the two fields do
+	-- not read as one: Stage 2 is a tree line with remains under it, Stage 3 is bare
+	-- khaki ground with nothing standing on it at all but the remains -- which is
+	-- exactly the "nothing left standing" the note under Stage 5 already claims starts
+	-- here. The counts are the other half: half again the carcasses, half again the
+	-- loose bone, and nearly double the human skulls. THE SKULLS ARE THE ESCALATION
+	-- THAT LANDS. One field further in and the ratio of people to animals has moved --
+	-- more of them got this far, fewer of them walked back out.
+	[3] = { props = 40, pools = 20, kind = "sirens", scatter = true, skeletons = 3, bones = 24, skulls = 12 },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
@@ -705,12 +723,20 @@ local function bush(parent: Instance, origin: CFrame, x: number, z: number, rng:
 	end
 end
 
---- ── STAGE 2'S REMAINS ────────────────────────────────────────────────────────
+--- ── THE REMAINS ──────────────────────────────────────────────────────────────
 --- Stage 1 is life dying back (green scrub in the west, dead snags in the east);
---- Stage 2 is what the die-off left behind. The bones are the whole storytelling job
---- of that field -- a suburb the animals did not walk out of -- and they come at three
---- scales on request: loose bones scattered underfoot, whole articulated carcasses as
---- landmarks, and human skulls.
+--- Stages 2 and 3 are what the die-off left behind. The bones are the whole
+--- storytelling job of both fields -- a suburb the animals did not walk out of, then
+--- open ground where more of them and more of US did not either -- and they come at
+--- three scales on request: loose bones scattered underfoot, whole articulated
+--- carcasses as landmarks, and human skulls.
+---
+--- NOTHING HERE IS PER-STAGE. Every builder below takes its size and its pose from its
+--- caller, so the two fields differ only in how many of each they scatter, how far off
+--- the lane the carcasses may sit, and what else is standing in the field with them
+--- (Stage 2, a tree line; Stage 3, nothing). Keep it that way -- one weathered-bone
+--- palette and one set of proportions is what makes the two fields read as the same
+--- disaster rather than as two art passes.
 ---
 --- All of them obey this file's two standing rules for anything sitting over a dig
 --- plate: CanCollide=false (walk through it, never get wedged inside a rib cage) and
@@ -1258,10 +1284,10 @@ local function scatterEdgeTrees(folder: Instance, origin: CFrame, count: number,
 	end
 end
 
---- Stage 2 -- THE REMAINS, three passes over one field (see the "STAGE 2'S REMAINS"
+--- Stages 2 AND 3 -- THE REMAINS, three passes over one field (see the "THE REMAINS"
 --- section above for what each piece is and why it is built the way it is):
 ---   * `skeletons` whole carcasses, the landmarks. Held off the centre lane by
----     SKELETON_CENTRE_CLEARANCE and in off the tree line, so each sits in the open
+---     SKELETON_CENTRE_CLEARANCE and inside `carcassOuterZ`, so each sits in the open
 ---     ground beside the walk-through route -- seen broadside from the path, which is
 ---     the only angle a rib cage reads as a rib cage from.
 ---   * `clusters` handfuls of loose bone, on an even jittered grid over the WHOLE
@@ -1270,13 +1296,21 @@ end
 ---   * `skulls` human skulls, same grid treatment, each with its own yaw and a small
 ---     tilt so a scatter of them never lines up into a row of bollards.
 ---
---- Alternating sides for the carcasses is deliberate at these counts: two on the same
---- side of the lane reads as one pile, one either side reads as a field with remains
---- all over it.
+--- Alternating sides for the carcasses is deliberate at these counts: two or three on
+--- the same side of the lane reads as one pile, alternating reads as a field with
+--- remains all over it.
 ---
---- Deterministic off the stage rng and consumed AFTER scatterEdgeTrees, so the tree
---- line keeps the exact placement it already had -- same discipline as Stage 1's three
---- passes.
+--- `carcassOuterZ` IS PER FIELD BECAUSE THE FIELDS DIFFER, and it is the only
+--- placement number that does. Stage 2's carcasses have to stay inside its tree line
+--- (scatterEdgeTrees puts trunks from hz-4 to hz-30, and a 30-stud carcass laid
+--- through one would read as a bug); Stage 3 has nothing standing in it, so its band
+--- runs almost to the wall and its three spread over the full depth instead of
+--- crowding one mid-field strip. Everything else -- the grids, the clearance, the
+--- alternation -- is shared.
+---
+--- Deterministic off the stage rng. On Stage 2 it is consumed AFTER scatterEdgeTrees
+--- so the tree line keeps the exact placement it already had; on Stage 3 it is the
+--- only pass there is. Same discipline as Stage 1's three passes.
 ---
 --- ALL OF IT GOES IN ONE `Bones` FOLDER SO IT CAN BE MADE UNQUERYABLE IN ONE PASS.
 --- FieldController.groundY fires a ray straight down from the player to sit the
@@ -1292,6 +1326,7 @@ local function scatterBones(
 	rng: Random,
 	hx: number,
 	hz: number,
+	carcassOuterZ: number,
 	skeletons: number,
 	clusters: number,
 	skulls: number
@@ -1325,9 +1360,9 @@ local function scatterBones(
 	for i = 1, skeletons do
 		local side = if i % 2 == 1 then -1 else 1
 		local x = -hx + (i - 0.5) * (2 * hx / math.max(1, skeletons)) + rng:NextNumber(-14, 14)
-		-- Between the lane and the tree line: far enough out not to stand in the walk,
-		-- far enough in not to tangle with scatterEdgeTrees' trunks.
-		local z = side * rng:NextNumber(SKELETON_CENTRE_CLEARANCE, math.max(SKELETON_CENTRE_CLEARANCE + 1, hz - 30))
+		-- Out of the walk, inside whatever this field's outer bound is (see above).
+		local z = side
+			* rng:NextNumber(SKELETON_CENTRE_CLEARANCE, math.max(SKELETON_CENTRE_CLEARANCE + 1, carcassOuterZ))
 		animalSkeleton(bones, origin, math.clamp(x, -hx + 26, hx - 26), z, rng)
 	end
 
@@ -1572,7 +1607,13 @@ local function buildStageScenery(parent: Instance, id: number)
 			scatterDeadBushes(folder, origin, theme.deadProps or 0, rng, hx, hz)
 		elseif id == 2 then
 			scatterEdgeTrees(folder, origin, theme.props, rng, hx, hz)
-			scatterBones(folder, origin, rng, hx, hz, theme.skeletons or 0, theme.bones or 0, theme.skulls or 0)
+			-- hz - 30 = inside the tree line scatterEdgeTrees just laid down.
+			scatterBones(folder, origin, rng, hx, hz, hz - 30, theme.skeletons or 0, theme.bones or 0, theme.skulls or 0)
+		elseif id == 3 then
+			-- Bones and nothing else -- Stage 3's own set piece has not had its pass
+			-- yet (see THEME). Nothing is standing in this field, so the carcasses get
+			-- almost the full depth to spread over rather than Stage 2's mid strip.
+			scatterBones(folder, origin, rng, hx, hz, hz - 12, theme.skeletons or 0, theme.bones or 0, theme.skulls or 0)
 		end
 	end
 
