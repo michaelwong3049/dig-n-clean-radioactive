@@ -1112,7 +1112,12 @@ local function renderState()
 	end
 	local named = if reads then ` \u{2014} nearest reads {reads}` else ""
 
-	if state.blocked == "full" then
+	if state.locked then
+		-- The haul panel is already up and already carries the rarity/odds (see
+		-- ui.haulTitle above) -- repeating "you are standing on it" here would just be
+		-- the same line stacked underneath the panel it caused to open.
+		ui.status.Text = ""
+	elseif state.blocked == "full" then
 		ui.status.Text = "bag is full"
 		ui.status.TextColor3 = COLOR.red
 	elseif state.inRange then
