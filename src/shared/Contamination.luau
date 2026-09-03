@@ -5,8 +5,8 @@
 	Shared for the same reason as Radiation and Decay: the patches the player scrubs on
 	screen and the patches the server says are gone must come out of one function.
 
-	THE GATE: every patch has a hardness. Your cleaner has a potency. A patch harder
-	than your potency will NOT clear, ever, with that tool. So you can find something
+	THE GATE: every patch has a hardness. Your hose has a potency. A patch harder
+	than your potency will NOT clear, ever, with that hose. So you can find something
 	with a good detector and still be unable to sell it — two different upgrade tracks
 	gating two different halves of the same item.
 
@@ -55,7 +55,7 @@ function Contamination.isClean(patches: { number }): boolean
 	return #patches == 0
 end
 
---- The hardest patch this potency cannot touch, or nil if the tool can finish.
+--- The hardest patch this potency cannot touch, or nil if the hose can finish.
 --- This is what the Quarantine Locker labels itself with.
 function Contamination.blockedBy(patches: { number }, potency: number): number?
 	local worst: number? = nil

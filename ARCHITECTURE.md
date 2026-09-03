@@ -29,6 +29,7 @@ src/
       Items.luau              the item catalogue (+ id / stage-rarity indexes)
       ToolTiers.luau          per-tier look: scale, colours, material, glow
     ItemModels/               versioned item-art factories; nil keys use placeholders
+    ToolModels/               gear-tier art as code; Cleaner only so far (the 7 hoses)
       init.luau               model-key registry used by haul + exhibition rendering
       BottleCap.luau          clean 21-crimp crown cap
       DentedTinCan.luau       asymmetrically crushed ribbed food tin
@@ -198,17 +199,27 @@ Also required, and each corresponds to a real silent failure:
 | ″ | *PrimaryPart* | — | Must be set (the `Grip`). The model's pivot is the handle. |
 | a `Player` | `DebugCmd` | string | Scriptable entry point to the tuning console (`DebugService:308`). Set it and the line runs, then the attribute is cleared so the same line can repeat. Exists because Studio's command bar gets its own module cache and cannot reach the live service. |
 
-`<Track>` is one of `Detector`, `Magnet`, `Cleaner`, and `T<n>` indexes the matching
-list in `Config/Gear.luau`. The other four tracks (`Suit`, `Boots`, `Satchel`, `Luck`)
-are priced and buyable but have no held model — `Luck` deliberately never will, since
-it is a charm on a workbench rather than a tool.
+`<Track>` is one of `Detector`, `Magnet`, and `T<n>` indexes the matching list in
+`Config/Gear.luau`. The other four tracks (`Suit`, `Boots`, `Satchel`, `Luck`) are
+priced and buyable but have no held model — `Luck` deliberately never will, since it is
+a charm on a workbench rather than a tool.
+
+**`Cleaner` no longer comes from here.** Its seven hoses are built from primitives by
+`Shared/ToolModels/Hose`, in git, on the same footing as `Shared/ItemModels` — so that
+track needs no place-file art at all and its models can be edited by anyone with the
+repo. `ToolService` and `build/Shops` both ask `ToolModels.has(track)` first and fall
+back to the library lookup above for everything else. It is the first track moved
+across, and the intended way out of the gap below.
 
 > **Remaining gap:** the place file is gitignored, and three things still cannot be
 > reconstructed from the repository alone.
 >
-> 1. **The tool models** (`ReplicatedStorage.Assets.Tools`) are genuinely hand-authored
->    — unions, a `SpecialMesh`, an imported detector model — so they stay binary. They
->    are not Rojo-managed and never will be.
+> 1. **The Detector and Magnet models** (`ReplicatedStorage.Assets.Tools`) are genuinely
+>    hand-authored — unions, a `SpecialMesh`, an imported detector model — so they stay
+>    binary. They are not Rojo-managed. **The `Cleaner` track no longer belongs on this
+>    list**: `Shared/ToolModels/Hose` builds all seven of its hoses from primitives, so
+>    that third of the gap closed. Whether the other two follow is a question about how
+>    much a union buys over a well-composed pile of parts, not a question about tooling.
 > 2. **`MaxPlayers = 6`** is a Studio *Game Settings* value, not repo state. It has to
 >    be 6 for the six exhibition plots to be 1:1 with players.
 > 3. **Everything else is now code.** `build/World.rebuild()` regenerates the hub, the

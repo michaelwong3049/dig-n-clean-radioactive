@@ -193,23 +193,30 @@ one you upgrade). Cleaning is a **skill mini-interaction**, not a progress bar:
 > *how* a patch comes off, never *whether* it can.
 
 * The item is displayed with **contamination patches** — glowing hotspots on its surface.
-* Player scrubs with the equipped cleaning tool. Tool has a **potency** rating; each patch has
+* Player hoses the item down at the tub. The hose has a **potency** rating; each patch has
 a **hardness** rating derived from item rarity.
-* **If tool potency < patch hardness, the patch will not clear.** This is the second hard gate:
+* **If hose potency < patch hardness, the patch will not clear.** This is the second hard gate:
 you can *find* a rare item with a good detector but be unable to *sell* it without a
-good scrubber. Uncleanable items sit in your **Quarantine Locker** as a visible taunt —
-a strong pull toward the next cleaning upgrade.
+good hose. Uncleanable items sit in your **Quarantine Locker** as a visible taunt —
+a strong pull toward the next hose.
 * Cleaning grants **Decon XP** even on partial progress, so a failed attempt is not wasted.
 * **Reaching any decon station stops the decay clock for good** (§3.6). The item is locked
 at whatever stage it arrived in and is safe from then on. That permanence is the payoff
 for the run home, and it's why the run is worth making.
 
-**Cleaning tool line:** Wire Brush → Acid Sponge → Pressure Washer → Chem Bath →
-Ultrasonic Rig → Ion Shower → Plasma Scour.
+**Cleaning hose line:** Garden Hose → Patched Fire Hose → Pressure Lance → Chem Injector →
+Ultrasonic Jet → Ion Cannon → Plasma Lance.
+
+The line used to be seven different nouns (Wire Brush → Acid Sponge → Pressure Washer →
+Chem Bath → Ultrasonic Rig → Ion Shower → Plasma Scour), and the rename is not a theme
+pass. The wash bay welds a hose into your right hand for the length of a session and
+takes the cleaning tool back *out* of it — so whatever this track sold, every player
+cleaned with the same fire hose. It sells hoses now, and the tier you own is the nozzle
+you aim. **No price, potency or scrub rate moved.**
 
 #### The wash pad and the liquid roll
 
-The cleaning tool is only half of what comes out of the hose. The other half is the
+The hose is only half of what comes out of it. The other half is the
 **liquid**, and you do not buy it — you **roll** it.
 
 Every base has a lit **wash pad** three steps from its cleansing station. Stepping onto
@@ -238,8 +245,8 @@ Three rules hold the whole thing together, and each one is protecting something 
 design already committed to:
 
 * **The potency bonus is capped at +2, forever.** A liquid lends reach on top of your
-  cleaner; it never replaces it. A Wire Brush plus the best possible roll reaches
-  hardness 3 (Rare) and stops — Epic and up still need real tools, so the second gate
+  hose; it never replaces it. A Garden Hose plus the best possible roll reaches
+  hardness 3 (Rare) and stops — Epic and up still need a real hose, so the second gate
   above stays a gate and the Quarantine Locker keeps filling.
 * **Charges are the scarcity, not the odds.** One charge per patch cleared. Stardust
   clears four patches and a Legendary carries five, so even the jackpot does not finish
@@ -690,10 +697,10 @@ Resonance Mapper → Deep Core Array → **The Oracle**
 Bent Horseshoe → Salvage Magnet → Ferrite Coil → Electromagnet Rig → Servo Winch →
 **Superconductor Core**
 
-### Cleaning tool line
+### Cleaning hose line
 
-Wire Brush → Acid Sponge → Pressure Washer → Chem Bath → Ultrasonic Rig → Ion Shower →
-Plasma Scour
+Garden Hose → Patched Fire Hose → Pressure Lance → Chem Injector → Ultrasonic Jet →
+Ion Cannon → Plasma Lance
 
 ### Suit line
 

@@ -150,13 +150,14 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Liquids = require(Shared.Config.Liquids)
 local Gear = require(Shared.Config.Gear)
+local ToolModels = require(Shared.ToolModels)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 21
+local BUILDER_VERSION = 22
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -643,90 +644,33 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	anchor.Parent = reel
 
 	-- ── The nozzle ────────────────────────────────────────────────────
-	-- Parked on the pump cap, lying along the plot's -Z (toward the front of the
-	-- base), which is also the axis WashController aims it down: CFrame.lookAt puts
-	-- its target on -Z, so "the nozzle's -Z is the business end" has to hold both
-	-- parked and held, or the spray comes out of the grip.
-	-- STUBBY AND FAT, on the cartoon pass. The first nozzle was a slim, finely stepped
-	-- thing that read as a technical drawing at arm's length and as nothing at all from
-	-- the wash camera thirteen studs away. A cartoon prop is a few big shapes: one
-	-- barrel, one flared muzzle, one brass ring, and a grip you can actually see a hand
-	-- close around. The BODY also went from the dark green to the bright one -- the
-	-- object in the player's hands should be the most saturated thing in the shot, not
-	-- the least.
-	local hose = Instance.new("Model")
-	hose.Name = "Hose"
+	-- NOW BUILT BY Shared/ToolModels/Hose, NOT INLINE HERE. This block used to be ~85
+	-- lines of cylinders, and it was the only hose geometry in the game — which was
+	-- fine right up until the Cleaner track became seven hoses and the wash bay started
+	-- handing you YOUR one. Two copies of "what a nozzle is" is how the thing on the
+	-- pump and the thing in your hand end up different objects; the factory is the one
+	-- copy, and the reasoning that used to live here (why the primary part is an
+	-- invisible unrotated block, why the shell welds rather than anchors, why -Z is the
+	-- business end) moved there with it.
+	--
+	-- STATION_TIER, not tier 1 and not the player's: the pump's hose belongs to the
+	-- PLOT. Every size and offset is held byte-identical to what this file drew by
+	-- hand, so no existing base changes shape after a rebuild. Two things about it are
+	-- not identical, both deliberate: the two brass repair bands are new, and they are
+	-- what makes "Patched Fire Hose" read as patched; and the grip's dark green is now
+	-- DERIVED from the body rather than naming C.hoseGreenDark, because a ToolTiers row
+	-- carries two colours and this was the third. It lands within four points per
+	-- channel of the old literal — see ToolModels/Hose's SHADE.
+	--
+	-- Parked on the pump cap (its top face is at pad.topY + 3.5), nudged forward so the
+	-- brass end overhangs the front edge rather than burying itself in the cap, and
+	-- lying along the plot's -Z (toward the front of the base) — the axis
+	-- WashController aims it down.
+	local hose = ToolModels.Hose.create(ToolModels.Hose.STATION_TIER)
+	hose:PivotTo(origin * CFrame.new(px, pad.topY + 3.78, pz - 0.2))
 
-	-- Resting on the pump cap (its top face is at pad.topY + 3.5), nudged forward so
-	-- the brass end overhangs the front edge rather than burying itself in the cap.
-	local nx, ny, nz = px, pad.topY + 3.78, pz - 0.2
-
-	-- THE PRIMARY PART IS AN INVISIBLE, UNROTATED BLOCK, and that is deliberate. The
-	-- visible tube is a Cylinder, whose native axis is X and which therefore has to be
-	-- rotated to lie along Z — and once it is rotated, every attachment offset on it
-	-- would have to be written in a twisted local frame. An axis-aligned anchor block
-	-- keeps `Muzzle` at a plain (0, 0, -1.4) that anyone can read, and gives the
-	-- hand-weld and the aim Motor6D one unambiguous frame to work in.
-	local core = build(hose, origin, {
-		name = "Nozzle",
-		pos = { nx, ny, nz },
-		size = { 0.3, 0.3, 0.3 },
-		color = C.hoseGreenDark,
-		material = "SmoothPlastic",
-		transparency = 1,
-		canCollide = false,
-	})
-
-	-- ROTATION: yaw90, NOT Kit.R.cylAlongZ, WHOSE NAME IS A LIE. A Part's Cylinder
-	-- shape runs along its own local X, and `cylAlongZ` is ang(90, 90, 0) -- which
-	-- composes (XYZ order) to send that X axis to +Y, i.e. it stands the cylinder UP.
-	-- The nozzle built with it hung vertically off the fist while the muzzle attachment
-	-- pointed correctly at the target, so the water came out sideways from a tube that
-	-- was not aimed at anything. `yaw90` is ang(0, 90, 0), which sends X to -Z, which
-	-- is genuinely front-to-back. Left the preset alone rather than corrected: it is
-	-- also used by build/Scenery's tipped barrels, and whatever those look like today
-	-- is not this feature's to change.
-	local shell = {
-		{ name = "NozzleBody", pos = { nx, ny, nz + 0.15 }, size = { 1.6, 0.92, 0.92 }, color = C.hoseGreen, material = "SmoothPlastic", shape = "Cylinder", rot = Kit.R.yaw90 },
-		{ name = "NozzleGrip", pos = { nx, ny - 0.6, nz + 0.55 }, size = { 0.46, 1.0, 0.58 }, color = C.hoseGreenDark, material = "SmoothPlastic", shape = "Block", rot = Kit.R.flat },
-		{ name = "NozzleCollar", pos = { nx, ny, nz + 1.0 }, size = { 0.44, 1.06, 1.06 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
-		{ name = "NozzleTaper", pos = { nx, ny, nz - 0.9 }, size = { 0.9, 0.68, 0.68 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
-		{ name = "NozzleTip", pos = { nx, ny, nz - 1.42 }, size = { 0.26, 0.96, 0.96 }, color = C.hoseBrass, material = "Metal", shape = "Cylinder", rot = Kit.R.yaw90 },
-	}
-	for _, spec in shell do
-		local part = build(hose, origin, {
-			name = spec.name,
-			pos = spec.pos,
-			size = spec.size,
-			color = spec.color,
-			material = spec.material,
-			shape = spec.shape,
-			rot = spec.rot,
-			canCollide = false,
-		})
-		-- Welded to the core, never anchored themselves. Anchoring ONE part of a welded
-		-- assembly pins the whole assembly, so parking the nozzle is `core.Anchored =
-		-- true` and picking it up is `false` plus a weld to the hand — one property on
-		-- one part either way, with no risk of half the nozzle being left behind.
-		part.Anchored = false
-		part.Massless = true
-		local weld = Instance.new("WeldConstraint")
-		weld.Name = "ShellWeld"
-		weld.Part0 = core
-		weld.Part1 = part
-		weld.Parent = part
-	end
-	core.Massless = true
-
-	local muzzle = Instance.new("Attachment")
-	muzzle.Name = "Muzzle"
-	muzzle.CFrame = CFrame.new(0, 0, -1.6)
-	muzzle.Parent = core
-
-	local hoseEnd = Instance.new("Attachment")
-	hoseEnd.Name = "HoseEnd"
-	hoseEnd.CFrame = CFrame.new(0, 0, 1.3)
-	hoseEnd.Parent = core
+	local core = hose.PrimaryPart :: BasePart
+	local hoseEnd = core:FindFirstChild("HoseEnd") :: Attachment
 
 	-- Darker at both ends than in the middle. It is not real cylinder shading — a Beam
 	-- is a camera-facing ribbon and cannot have any — but a ribbon with a lighter band
@@ -776,7 +720,6 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	beam.LightInfluence = 1
 	beam.Parent = reel
 
-	hose.PrimaryPart = core
 	hose.Parent = parent
 end
 

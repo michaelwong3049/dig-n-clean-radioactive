@@ -141,14 +141,40 @@ Gear.Magnet = {
 	{ name = "Singularity Coil", price = 22000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6 }, -- 0.04, effectively hands-free
 }
 
+-- THE CLEANING TRACK IS SEVEN HOSES, AND IT USED TO BE SEVEN DIFFERENT NOUNS: Wire
+-- Brush, Acid Sponge, Pressure Washer, Chem Bath, Ultrasonic Rig, Ion Shower, Plasma
+-- Scour. The rename is not a theme pass. The wash bay welds a hose into your right
+-- hand for the length of a session (WashService.takeHose) and ToolService pulls the
+-- cleaner back OUT of it — you cannot hold a sponge and a nozzle in one fist — so the
+-- thing this track sold was never the thing anybody cleaned with. A player bought an
+-- Acid Sponge and then went and used a fire hose. Now the tier you own IS the nozzle
+-- in your hand, and the purchase is visible at the one station it is for.
+--
+-- NOT ONE NUMBER MOVED. `price`, `potency` and `scrubRate` are exactly what they were
+-- under the old names, and they have to stay that way: Config/Liquids' entire
+-- +2-potency-cap argument is written against "a Wire Brush is potency 1 and Anomaly
+-- hardness is 7", Util/Spec pins tier 1's potency plus the best possible liquid roll
+-- landing short of Epic, and the price ladder is on the same 20/3 economy rescale as
+-- every other track. This is a re-skin with teeth, not a rebalance.
+--
+-- potency  : the hard gate (PLAN §2 step 4). A patch harder than this never comes off
+--            with this hose, ever, and the Quarantine Locker is where those items sit
+--            as a labelled advertisement for the next rung. Liquids lend at most +2 on
+--            top (Config/Liquids.MAX_POTENCY_BONUS) and are deliberately not allowed
+--            to replace it.
+-- scrubRate: how fast a patch you CAN shift comes off. Always safe to move.
+--
+-- What each rung looks like is Shared/ToolModels/Hose — real geometry, in git, seven
+-- authored silhouettes rather than one base model recoloured. That file is also why
+-- ToolTiers.Cleaner's `scale` column is 1.00 all the way down.
 Gear.Cleaner = {
-	{ name = "Wire Brush", price = 0, potency = 1, scrubRate = 1.0 },
-	{ name = "Acid Sponge", price = 1000, potency = 2, scrubRate = 1.2 },
-	{ name = "Pressure Washer", price = 2400, potency = 3, scrubRate = 1.5 },
-	{ name = "Chem Bath", price = 5800, potency = 4, scrubRate = 1.9 },
-	{ name = "Ultrasonic Rig", price = 14000, potency = 5, scrubRate = 2.4 },
-	{ name = "Ion Shower", price = 33000, potency = 6, scrubRate = 3.0 },
-	{ name = "Plasma Scour", price = 80000, potency = 7, scrubRate = 3.8 },
+	{ name = "Garden Hose", price = 0, potency = 1, scrubRate = 1.0 },
+	{ name = "Patched Fire Hose", price = 1000, potency = 2, scrubRate = 1.2 },
+	{ name = "Pressure Lance", price = 2400, potency = 3, scrubRate = 1.5 },
+	{ name = "Chem Injector", price = 5800, potency = 4, scrubRate = 1.9 },
+	{ name = "Ultrasonic Jet", price = 14000, potency = 5, scrubRate = 2.4 },
+	{ name = "Ion Cannon", price = 33000, potency = 6, scrubRate = 3.0 },
+	{ name = "Plasma Lance", price = 80000, potency = 7, scrubRate = 3.8 },
 }
 
 -- reduction: fraction of AMBIENT rads/sec removed  (exposure track, green screen)

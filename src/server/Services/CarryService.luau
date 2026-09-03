@@ -54,10 +54,15 @@ local carryRemote: any = nil
 local holdRemote: any = nil
 local lastSignature: { [Player]: string } = {}
 
---- The cheapest cleaner that can shift a patch of this hardness. Lives here rather
---- than in DeconService because `describe` needs it to fill in "needs Chem Bath",
+--- The cheapest hose that can shift a patch of this hardness. Lives here rather
+--- than in DeconService because `describe` needs it to fill in "needs Chem Injector",
 --- and DeconService's scrub messages need the same string for the same reason.
-function CarryService.cleanerNameFor(potencyNeeded: number): string
+---
+--- Walks Gear.Cleaner in order, so it depends on `potency` ASCENDING down that table.
+--- It always has, and the shop's own price ladder would be nonsense otherwise, but the
+--- dependency is worth writing down: a table sorted any other way makes this return
+--- the wrong rung rather than fail, which is the kind of bug that ships.
+function CarryService.hoseNameFor(potencyNeeded: number): string
 	for _, tier in Gear.Cleaner do
 		if tier.potency >= potencyNeeded then
 			return tier.name
@@ -131,7 +136,7 @@ function CarryService.describe(item: any, stats: any): any
 		patches = table.clone(patches),
 		clean = clean,
 		blockedBy = blocked,
-		needs = if blocked then CarryService.cleanerNameFor(blocked) else nil,
+		needs = if blocked then CarryService.hoseNameFor(blocked) else nil,
 		unlockedByLiquid = unlockedByLiquid,
 		rescueLiquid = if rescue then rescue.name else nil,
 		value = value,

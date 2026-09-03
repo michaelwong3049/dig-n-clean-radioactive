@@ -517,6 +517,28 @@ We shipped the fallback. This section is the two-slice plan to ship the real thi
       `StationController` gained a `PANEL_KINDS` allowlist, because the decon branch is
       the render fallthrough and deleting the roller branch made the wash pad open a
       panel titled TRADER — caught in play, not in review.
+- [x] **Seven hoses instead of seven cleaners.** The Cleaner track sold a Wire Brush, an
+      Acid Sponge and a Chem Bath — while the wash bay welded a fire hose into your right
+      hand and `ToolService.wanted` pulled the purchased tool back *out* of it (you cannot
+      hold a sponge and a nozzle in one fist). So the thing the track sold was never the
+      thing anybody cleaned with, and a maxed player washed with the same green nozzle as
+      a brand-new one. The ladder is now Garden Hose → Patched Fire Hose → Pressure Lance
+      → Chem Injector → Ultrasonic Jet → Ion Cannon → Plasma Lance, `WashService.takeHose`
+      builds **your** tier into your hand, and the shop rack hangs all seven.
+      **No price, potency or scrub rate moved** — `Config/Liquids`' whole +2-cap argument
+      and `Util/Spec`'s "tier 1 plus the best roll stops short of Epic" are written
+      against that curve.
+      The models are `Shared/ToolModels/Hose`, built from primitives **in git**: seven
+      authored silhouettes, not one base model recoloured, which is also the first track
+      to escape `Assets/Tools` and the lost tier-model generator (see §9 and the note at
+      the foot of this file). `build/Plots.buildHoseRig` lost ~85 lines of inline nozzle
+      geometry to it and now parks a tier-2 hose on the pump; `ToolTiers.Cleaner` finally
+      has a runtime reader, and its `scale` column went flat at 1.00 because seven drawn
+      silhouettes do not need a second size knob on top.
+      Five new `Util/Spec` checks pin the parts that can silently drift: one look and one
+      model per rung, names agreeing between `Gear` and `ToolTiers`, price and potency
+      both ascending (`CarryService.hoseNameFor` walks that order and would otherwise
+      name the wrong hose *confidently*), and `STATION_TIER` landing on a real rung.
 - [ ] **The Quarantine Locker needs a world object.** Removing the decon panel (on
       request — walking up to the tub should show only the E prompt) took RACK and the
       locker rows with it. The locker still exists in the profile and `DeconService`
