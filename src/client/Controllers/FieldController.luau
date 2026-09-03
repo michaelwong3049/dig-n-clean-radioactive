@@ -38,27 +38,25 @@ local Rarity = require(ReplicatedStorage.Shared.Config.Rarity)
 
 local Field = {}
 
--- The instrument cyan, kept in step with build/SignalAura's GLOW (the ripple discs
--- this controller drives expand out of that core). A mid blue-cyan, not a pale one:
--- the ring and the aura discs are matte SmoothPlastic since the de-neon pass, so a
+-- The instrument cyan, kept in step with build/SignalAura's GLOW. A mid blue-cyan,
+-- not a pale one: the range ring is matte SmoothPlastic since the de-neon pass, so a
 -- pale cyan just reads as washed grey against the ground — this holds its colour
 -- flat-lit.
 --
--- It is also the well's NEUTRAL state: the colour a well shows when this client has
--- no rarity for it — which now only happens for a frame while the position match to a
--- contact settles, or for an aura someone else revealed that is past this player's
--- depth gate. Rarity itself is no longer clarity-gated (DigService.hintFor, on
--- request): every detector, in every stage, colours its wells. The old in-range green
--- (a flat colour swap when you stood on a well) is gone too: an in-range well keeps
--- its rarity hue and spikes in brightness instead, so proximity and rarity stop
--- fighting over the same channel.
+-- It is the RANGE RING's colour, and only that now. It used to double as the well's
+-- neutral state — what a well showed before this client had resolved a rarity for it
+-- — but a well with no rarity is now hidden outright (stepAuras) instead of shown in
+-- a stand-in colour, so nothing about the wells reads GLOW any more. Rarity itself is
+-- not clarity-gated (DigService.hintFor): every detector, in every stage, colours the
+-- wells it can register. The old in-range green (a flat colour swap when you stood on
+-- a well) is gone too: an in-range well keeps its rarity hue and spikes in brightness
+-- instead, so proximity and rarity stop fighting over the same channel.
 local GLOW = Color3.fromHex("2E9FD8")
 
 -- "How loud is this well", 0..1, from the resolved rarity. Common sits at 0 and
 -- Anomaly at 1, so a Common well reads as calm while a jackpot roars — the rarity
--- colour tells you which wells are worth the walk. A well whose rarity has not
--- resolved yet is not t = 0: it stays fully neutral (all three ripples, GLOW) so it
--- never looks feebler than the plain blue it replaced.
+-- colour tells you which wells are worth the walk. Only ever called with a rarity
+-- that resolved: a well without one is hidden before stepAuras gets this far.
 local function loudness(rarity: string): number
 	return math.clamp((Rarity.get(rarity).order - 2) / 6, 0, 1)
 end
@@ -93,9 +91,10 @@ local ringFolder: Folder? = nil
 --
 -- `light` / `motes` are the two children of Core that carry the "this is a light
 -- source" work (build/SignalAura); optional because they can lag the rest of the
--- model across a bad connection. `rarity` is what this client last resolved for the
--- well — cached so the ParticleEmitter's ColorSequence and Rate are only rewritten
--- when it actually changes, not sixty times a second.
+-- model across a bad connection. `rarity` is this client's resolved reading for the
+-- well: nil until the first position match to a contact lands, then sticky for the
+-- well's life (stepAuras) since the per-player roll never changes once pinned. It
+-- also gates the ParticleEmitter ColorSequence rebuild to when the reading changes.
 type Tracked = {
 	core: BasePart,
 	dome: BasePart,
@@ -268,8 +267,8 @@ end
 --- Animate every tracked well for THIS frame and THIS client: the idle breathe, the
 --- outward ripples, the in-range freeze — and the rarity tint, which is per-player.
 --- The well part is shared server geometry, so the tint has to be applied here off
---- DetectorController's per-player contacts read; a player whose detector cannot
---- resolve a signal only ever sees the cyan build/SignalAura ships.
+--- DetectorController's per-player contacts read; a well this client has no reading
+--- for is hidden outright until (if ever) a rarity lands.
 local function stepAuras()
 	local player = Players.LocalPlayer
 	local character = player.Character
@@ -295,21 +294,47 @@ local function stepAuras()
 
 		-- This client's rarity for the signal under this well -- its OWN per-player roll
 		-- (DigService.rollFor), off the per-player contacts payload, never off this
-		-- shared part. Every detector gets it now; nil only while the position match to
-		-- a contact is still settling, or for an aura past this player's depth gate.
-		local rarity = if DetectorController then DetectorController.contactRarityAt(entry.core.Position) else nil
-		if rarity ~= entry.rarity then
-			entry.rarity = rarity
+		-- shared part.
+		--
+		-- STICKY. A signal's per-player roll is pinned server-side the first time it
+		-- lands in this client's radar, so a well's rarity never changes over its life
+		-- -- which means a nil read is always "not matched yet" or "never will be",
+		-- never "it changed". So once we have a reading, keep it: a transient miss on
+		-- the position match (the player walked between ticks, a SweepState was dropped)
+		-- must not blink the well back out.
+		local read = if DetectorController then DetectorController.contactRarityAt(entry.core.Position) else nil
+		if read ~= nil and read ~= entry.rarity then
+			entry.rarity = read
 			-- ColorSequence churns a fresh object; only rebuild it when the read
 			-- actually changed, not every frame.
 			if entry.motes then
-				entry.motes.Color = ColorSequence.new(if rarity then Rarity.get(rarity).color else GLOW)
+				entry.motes.Color = ColorSequence.new(Rarity.get(read).color)
 			end
 		end
+		local rarity = entry.rarity
 
-		local known = rarity ~= nil
-		local hue = if known then Rarity.get(rarity :: string).color else GLOW
-		local t = if known then loudness(rarity :: string) else 0
+		-- No reading yet (the position match still settling) or ever (a signal someone
+		-- else revealed that sits past this player's depth gate): nothing to say about
+		-- the well, so draw nothing -- it stays dark until a rarity lands, rather than
+		-- blinking the old stand-in cyan first. The server still owns that the part
+		-- exists; this only ever drives how it looks.
+		if rarity == nil then
+			entry.core.Transparency = 1
+			entry.dome.Transparency = 1
+			for _, ripple in entry.ripples do
+				ripple.Transparency = 1
+			end
+			if entry.light then
+				entry.light.Brightness = 0
+			end
+			if entry.motes then
+				entry.motes.Rate = 0
+			end
+			continue
+		end
+
+		local hue = Rarity.get(rarity).color
+		local t = loudness(rarity)
 
 		-- The well wears its rarity hue at every distance now. Being in range spikes its
 		-- INTENSITY (brightness, solidity, frozen rings) rather than swapping the colour
@@ -323,12 +348,12 @@ local function stepAuras()
 		-- a Legendary well throws four times the Common one's brightness and reaches
 		-- half again as far, so you can pick it out across the field.
 		if entry.light then
-			local brightness = if known then lerp(0.7, 2.4, t) else 0.55
+			local brightness = lerp(0.7, 2.4, t)
 			entry.light.Brightness = if close then brightness * 1.6 else brightness
-			entry.light.Range = if known then lerp(10, 18, t) else 10
+			entry.light.Range = lerp(10, 18, t)
 		end
 		if entry.motes then
-			entry.motes.Rate = if known then lerp(4, 16, t) else 4
+			entry.motes.Rate = lerp(4, 16, t)
 		end
 
 		if close then
@@ -352,12 +377,10 @@ local function stepAuras()
 			entry.core.Transparency = 0.22 + breathe * 0.14
 			entry.dome.Transparency = lerp(0.42, 0.3, t) + breathe * 0.12
 
-			-- A known-cheap well runs one slow ripple; a known-jackpot runs all three
-			-- fast. An UNRESOLVED well keeps all three at base speed -- it must never
-			-- look feebler than the plain blue well it used to be.
+			-- A cheap well runs one slow ripple; a jackpot runs all three fast.
 			local count = #entry.ripples
-			local visible = if known then math.clamp(1 + math.round(t * 2), 1, count) else count
-			local speed = if known then lerp(1.0, 1.9, t) else 1.0
+			local visible = math.clamp(1 + math.round(t * 2), 1, count)
+			local speed = lerp(1.0, 1.9, t)
 			local rippleProgress = now * Tuning.AURA_PULSE_HZ * speed
 			for i, ripple in entry.ripples do
 				if i > visible then
