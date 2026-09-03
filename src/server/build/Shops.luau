@@ -192,7 +192,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 23
+local BUILDER_VERSION = 24
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
@@ -349,6 +349,15 @@ local STAND_WIDTH = 8 -- the desk itself, wide enough to stand at and no wider
 local STAND_EDGE = 2 -- clear lumber outboard of the stand, at the store's left end
 local STAND_RACK_GAP = 3 -- the break between stand and wing: this is the whole read
 local STAND_RADIUS = STAND_WIDTH / 2 + 6 -- the desk, plus the forecourt you stand in
+
+--- How close you have to be to the desk for its E to appear. DELIBERATELY INSIDE
+--- STAND_RADIUS (8 against 10), because the prompt and the panel are two halves of one
+--- interaction: pressing E only un-dismisses the panel, and the panel can only draw
+--- from an `offer` that exists while StationService says you are AT this shop. A reach
+--- LARGER than the radius would put an E in front of players standing outside the
+--- station, who would press it and get nothing. Two studs of margin is enough for the
+--- ~10Hz station tick to have caught up by the time the prompt is pressable.
+local STAND_PROMPT_REACH = 8
 
 --- How wide a stall has to be to hold its stand AND its whole ladder. DERIVED, not
 --- written down: Detector has 8 tiers and Magnet 6, and a fixed width would either
@@ -612,6 +621,8 @@ export type CounterSpec = {
 	stationKind: string?,
 	stationId: string?,
 	radius: number?,
+	promptText: string?,
+	promptReach: number?,
 	material: string?,
 	studded: boolean?,
 }
@@ -621,7 +632,16 @@ export type CounterSpec = {
 --- Returns the desk so the caller can billboard it. `name` defaults to "Counter"
 --- and exists because a plaza stall builds TWO of these on one shopfront (a Stand
 --- and a DisplayShelf) and two sibling parts both called "Counter" is a debugging
---- tax nobody needs in the explorer. `material` defaults to
+--- tax nobody needs in the explorer.
+---
+--- `promptText` OPTS THIS DESK INTO BEING THE THING YOU PRESS E ON, and a desk without
+--- it gets no prompt at all. The shop panel does not open on approach any more — see
+--- the "you press E" note in the header — so every desk a player is meant to open a
+--- panel at needs one. The one deliberate exception is a stall's DisplayShelf: it
+--- carries the station attributes (for the rack's owned-ticks) but must stay silent,
+--- because ProximityPromptService shows only the CLOSEST prompt bound to a key and a
+--- shelf-wide E would spend half the rack stealing the tier hooks' own prompts.
+--- `material` defaults to
 --- "Wood" (the Outfitter's own look); the plaza stalls pass "Plastic" instead,
 --- since Roblox's stud-bump texture only renders on Plastic, and that studded
 --- look is the whole point of the reskin.
@@ -645,6 +665,26 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 	})
 
 	build(parent, origin, { name = `{name}Trim`, pos = { 0, 2.25, z }, size = { w + 0.4, 0.3, d + 0.4 }, color = spec.color, material = "Plastic", studs = spec.studded, canCollide = false })
+
+	if spec.promptText then
+		local prompt = Instance.new("ProximityPrompt")
+		-- StationController matches on this name, and on nothing else: the rack's own
+		-- hooks are "Upgrade" prompts that buy a tier outright, and the two must never
+		-- be confused for each other by whatever is listening.
+		prompt.Name = "ViewShop"
+		prompt.ActionText = "Browse"
+		prompt.ObjectText = spec.promptText
+		-- NO HOLD. The rack's buy prompts hold for 0.4s because they spend money on
+		-- release; this one opens a window, and a window that makes you hold a key to
+		-- look through it is just a slower window.
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = spec.promptReach or STAND_PROMPT_REACH
+		-- The trim cap overhangs the desk by a couple of studs, which is enough to
+		-- occlude a prompt anchored in the desk's own centre from a player standing at
+		-- normal height in front of it.
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = desk
+	end
 
 	return desk
 end
@@ -1077,6 +1117,7 @@ local function buildStall(parent: Instance, spec: { track: string, bearing: numb
 		stationKind = "shop",
 		stationId = spec.track,
 		radius = STAND_RADIUS,
+		promptText = spec.label,
 		material = "Plastic",
 		studded = true,
 	})
@@ -1250,6 +1291,11 @@ local function buildOutfitter(parent: Instance)
 			-- Tighter than the plaza stalls: three counters share one building,
 			-- and standing at one of them has to be unambiguous.
 			radius = 6,
+			promptText = counter.label,
+			-- Scaled to that tighter radius the same way the stand's is to its own,
+			-- and for the same reason. It also has to stay under the 13-stud counter
+			-- pitch, or the E in front of you would belong to the desk next door.
+			promptReach = 5,
 		})
 		billboard(desk, 200, 4.4, counter.label, counter.tagline, C.shopOutfitter)
 	end

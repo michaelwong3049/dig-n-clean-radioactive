@@ -63,10 +63,12 @@
 	cards cannot show on their own is whether YOU own that tier — they are single
 	shared instances — so the owned-check is written locally, off the same `offer` this
 	panel is already receiving. See "The rack beside the stand" below for what it costs.
-	The panel is unchanged and still opens: the rack is the fast path, the cards here
-	are still the only place the stat blocks live.
+	The panel is still there and still holds the stat blocks, but it does not open on
+	approach any more: press E on the stand for it. The rack is the fast path, the
+	panel the one you ask for. See `dismissed`.
 
-	THE SHOP IS A STOREFRONT, NOT A PROMPT. It used to render exactly one thing —
+	THE SHOP PANEL IS A STOREFRONT, NOT A ONE-LINE OFFER. It used to render exactly
+	one thing —
 	"Bent Coil → Scavenger MkI", the deltas between them, and a BUY button — which
 	answered "what can I buy right now" and nothing else. A player could not see that
 	the Detector track runs eight tiers, what the top of it costs, or whether saving
@@ -93,6 +95,7 @@
 
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
@@ -174,10 +177,21 @@ local toastToken = 0
 -- station's radius. Walking away always closed the panel because that also zeroed
 -- `state.station`; a CLOSE button doesn't move you, so it needs its own flag rather
 -- than piggybacking on that field. `lastKey` is what clears it again: it fingerprints
--- "which station, which id" so the panel reopens the moment that changes -- leaving
--- and coming back, or walking straight from one station into another -- without
--- reopening on every one of the ~10Hz StationState ticks this same station keeps
--- sending while you stand still.
+-- "which station, which id" so the panel's open/closed state is decided ONCE the
+-- moment that changes -- leaving and coming back, or walking straight from one
+-- station into another -- without being re-decided on every one of the ~10Hz
+-- StationState ticks this same station keeps sending while you stand still.
+--
+-- A SHOP ARRIVES DISMISSED, AND THAT IS THE WHOLE "PRESS E TO VIEW" FEATURE. Every
+-- station kind used to un-dismiss on arrival, so walking within ten studs of a stall
+-- put a full-screen panel over you whether you had come to buy or were cutting
+-- across the plaza. Shops now start closed and open on the stand's own E prompt
+-- (build/Shops' "ViewShop"); trader and pedestal still open on approach, because
+-- neither has a prompt to open it with and neither is something you walk past.
+--
+-- This is the same call the wash pad and the decon station already went through, in
+-- the same direction and for the same reason -- see the header. The panel is a place
+-- you choose to go, not a thing that happens to you.
 local dismissed = false
 local lastKey: string? = nil
 
@@ -1059,6 +1073,25 @@ function Station.start()
 		render()
 	end)
 
+	-- THE STAND'S E. Fires locally for the local player, so there is no remote in this
+	-- path at all -- the panel was always drawn from a `StationState` the server is
+	-- already sending, and all this does is stop hiding it.
+	--
+	-- IT TOGGLES rather than only opening, so E is a way back out as well as in: the
+	-- prompt stays on screen while the panel is up (you have not moved), and reaching
+	-- for the X with the mouse to close something you opened with a keypress is a
+	-- worse exit than pressing the same key again.
+	--
+	-- MATCHED ON NAME, because this same event carries the rack's "Upgrade" prompts,
+	-- which spend money. Anything that is not the stand's own prompt is not ours.
+	ProximityPromptService.PromptTriggered:Connect(function(prompt, triggeredBy)
+		if triggeredBy ~= Players.LocalPlayer or prompt.Name ~= "ViewShop" then
+			return
+		end
+		dismissed = not dismissed
+		render()
+	end)
+
 	Net.get("StationState").OnClientEvent:Connect(function(payload)
 		-- Fingerprint "which station, which id" rather than comparing tables: this
 		-- fires at TICK_RATE (~10Hz) the whole time you stand still, and payload is a
@@ -1066,7 +1099,11 @@ function Station.start()
 		-- `dismissed` would clear itself on the very next tick after the click above.
 		local key = if payload.station then `{payload.station}:{tostring(payload.stationId)}` else nil
 		if key ~= lastKey then
-			dismissed = false
+			-- Arriving at a shop leaves it CLOSED until you press E on the stand;
+			-- every other kind still opens on approach. Note this reads
+			-- `payload.station`, not `state.station` -- `state` is not assigned until
+			-- two lines below, so the old value is still in it here.
+			dismissed = payload.station == "shop"
 			lastKey = key
 		end
 
