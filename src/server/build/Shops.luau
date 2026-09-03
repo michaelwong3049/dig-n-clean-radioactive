@@ -24,6 +24,31 @@
 	do not physically have at all — since moved out to its own button (see the LUCK
 	IS NOT HERE note below).
 
+	EVERY TIER OF A TRACK HANGS ON A RAIL OVER ITS COUNTER, AND YOU BUY THE ONE YOU
+	ARE STANDING AT. That is the change this file's last pass was for. A stall used to
+	be a counter with a station attribute on it: walk into the radius, a scrolling
+	panel of cards opens, pick a row. The ladder was only ever visible as a list. It
+	is now a physical object — eight detectors in a row over the Detector counter,
+	cheapest on the left, each hung from the rail by its own handle with its price on
+	a card above it and its own ProximityPrompt — so browsing is WALKING, and buying
+	is pressing E in front of the one you want. The models are the real ones:
+	Assets/Tools/<Track>/T<n>, exactly what ToolService clones into your hands.
+
+	THE PANEL DID NOT GO AWAY. The counter keeps its StationKind and the card panel
+	still opens when you stand at the stall — that is where the stat blocks live. The
+	rack is the fast path ("I know which one I want"), the panel the slow one ("which
+	one SHOULD I want"). Two doors on the same purchase; ShopService.buyTier is behind
+	both of them and validates identically either way.
+
+	A STALL IS AS WIDE AS ITS TRACK IS LONG. `stallWidth` derives it from
+	Gear.maxTier, so the Detector stall (8 tiers) is wider than the Magnet stall (6),
+	and adding a tier in Config/Gear widens that one shop with nothing else to edit.
+	Posts, slats, counter, canopy stripe count, floor marker and the station Radius
+	all key off that one number. What it cost: the ring the stalls stand on had to
+	grow from radius 20 to 32, and the Outfitter had to move from x=-30 to x=-44 to
+	stay clear of the two western stalls' backs. `assertNoShopOverlap` proves that
+	arrangement at every rebuild rather than trusting this paragraph.
+
 	THE LOOK — the supplied classic-Roblox Gear Store reference, stripped to the
 	structure. Each tool stall has studded posts, a slatted rear wall, an open
 	counter with a steel cap, a shallow striped canopy and matching valance IN THE
@@ -62,8 +87,21 @@
 	and lets one client panel be parameterised by track. It is deliberately the
 	capitalised Gear.TRACKS spelling, so no case conversion happens at the world
 	boundary — the single lowercase translation lives in Gear.profileKey and nowhere
-	else. Both Radius values are untouched by the reskin — this file only changed what
-	things look like, not how close you need to stand.
+	else. A stall's Radius is DERIVED now (half its width plus the forecourt) rather
+	than the flat 12 it was: the rack runs the counter's full width, so the far end of
+	a Detector rack is outside a 12-stud circle and a player standing there would have
+	had a prompt in front of them and no panel behind it. The Outfitter's counters
+	keep their tight 6.
+
+	    SellsTrack = "Detector"   -- this hook sells a rung of this track
+	    SellsTier  = 5            -- which rung, indexing Config/Gear directly
+
+	Those two are the rack's own contract, and they sit on the small steel MOUNT
+	block, never on a part of the display model — the model is a clone of a place
+	asset this file does not own and cannot promise the shape of, while the mount is
+	built here and exists even when the art does not. Kit.build tags anything with a
+	SellsTrack into Kit.UPGRADE_TAG, which is what ShopService scans to wire the
+	prompt and what World.verify() asserts is present.
 
 	THE THREE STALLS SIT IN A TRIANGLE FACING THE MIDDLE. `PLAZA_MID` (x=17.5, z=0)
 	is that middle — the plaza midpoint, Hub's grey central spine centreline, the
@@ -75,15 +113,25 @@
 	gap between the two western stalls is the way in, aimed at the pad ring the
 	players arrive from.
 
+	THAT RING IS 32 STUDS NOW, NOT 20, AND THE COURTYARD IS THE REASON — not a
+	collision. Nothing overlaps at radius 20; `assertNoShopOverlap` passes there.
+	But three stalls of 38 / 35 / 31 studs at that radius eat ~250 of the 360 degrees
+	around the middle, which leaves three 12-stud slots to walk through and a 33-stud
+	yard fenced shopfront-to-shopfront. At 32 the same three fronts take ~173 degrees,
+	the gaps open to ~62 each, and the middle is a 57-stud square you can cross.
+
 	THE OUTFITTER TUCKS IN BEHIND THE DETECTOR AND CLEANER STALLS, ON THE WEST. It
 	used to sit across a centre aisle from a straight row of stalls (row at z=22,
 	Outfitter at z=-22), then went through a run of holding spots — z=-55, the
-	south edge, the south-east arc. Now it sits at (-30, 0) on the grey central
-	pad, due west of PLAZA_MID and set well BEHIND the two stalls on that side
-	(Detector NW, Cleaner SW) — out on the ground the west pad widening opened up
-	(Hub.PAD_WEST_EXTEND), off the way in rather than straddling it, ~27 studs
-	clear of the stalls' backs. On the z=0
-	centreline it faces due east, so `facingOrigin` leaves it square, no turn.
+	south edge, the south-east arc, x=-30. Now it sits at (-44, 0) on the grey
+	central pad, due west of PLAZA_MID and set well BEHIND the two stalls on that
+	side (Detector NW, Cleaner SW) — out on the ground the west pad widening opened
+	up (Hub.PAD_WEST_EXTEND), off the way in rather than straddling it, ~16 studs
+	clear of the stalls' outer corners. It moved the last 14 studs west because the
+	stalls grew: this building's 46-stud span runs north-south (it faces east), so it
+	sits broadside to those two backs, and at x=-30 the widened Detector stall came
+	within 3.6 studs of it — clear, and not a gap anyone walks down. On the z=0 centreline it faces due east, so
+	`facingOrigin` leaves it square, no turn.
 
 	AND IT IS OPEN FRONT AND BACK — A WALK-THROUGH, NOT A DEAD END. Only the two
 	side walls are solid now; both gable ends (the +Z centre-facing side and the -Z
@@ -99,8 +147,15 @@
 	Plots.luau: Plots requires Hub, Hub requires only Kit, and Shops stays a pure
 	statement of positions. Plots.luau's SHOP_CLUSTER_EAST_REACH is already marked
 	historical there and stays a conservative bound, not a live measurement of
-	anything here — and this move is westward anyway (the Outfitter's east face
-	pulls BACK to ~x=-22), so it only ever relieves that bound, never strains it.
+	anything here.
+
+	THE EAST REACH IS WORTH RE-STATING SINCE THE RING GREW. The Magnet stall took the
+	east vertex out from x=37.5 to x=49.5, and its canopy's back edge now reaches
+	~x=61 — the eastmost thing this file builds. Stage 1's west edge is x=100 and the
+	plot ring's centre is x=32 at radius 180, so there is nothing within 39 studs of
+	it in that direction. SHOP_CLUSTER_EAST_REACH (53, measured from PLAZA.maxX)
+	remains what its own comment says it is: a frozen constant that keeps the pad ring
+	where it is, not a live measurement of this file.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -113,34 +168,178 @@ local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
 
 local Shops = {}
+
+--- The one model every storefront in the world lives under, exported rather than
+--- spelled out at each use because THREE places have to agree on it and one of them
+--- is in another file. `Kit.swap` finds the old build by this name, `createShops`
+--- stamps it, and World.verify() asserts no shop counter exists outside it — that
+--- last check is the reason this stopped being a bare string literal. A stall
+--- parented anywhere else survives every rebuild (swap only replaces what it can
+--- find by name) and still registers as a live station.
+Shops.MODEL_NAME = "Shops"
+
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 21
+local BUILDER_VERSION = 22
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
+
+--- Where the hanging tier models come from: the SAME templates ToolService clones
+--- into a player's hands (Assets/Tools/<Track>/T<n>), so the thing on the rail is
+--- literally the thing you are buying, not a stand-in sculpted to look like it.
+---
+--- Resolved with FindFirstChild rather than a dotted path because this folder lives
+--- in the PLACE, not in this repo (the tier-model generator is long gone — see
+--- Config/ToolTiers' header). A place missing it must still build a shop: every
+--- lookup below degrades to the painted fallback block instead of erroring the
+--- whole world rebuild over missing art.
+local TOOL_LIBRARY: Instance? = nil
+do
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	TOOL_LIBRARY = if assets then assets:FindFirstChild("Tools") else nil
+end
 
 --- The middle everything else here faces: the plaza midpoint, Hub's central-spine
 --- centreline, the camp datum and the blackout-respawn anchor, all this one point.
 local PLAZA_MID = { x = 17.5, z = 0 }
 
---- The three plaza stalls, one at each vertex of an equilateral triangle centred
---- on PLAZA_MID at radius 20, each turned by `facingOrigin` so its counter side
---- (local +Z) points back at PLAZA_MID. `at` is world XZ. Magnet takes the east
---- vertex; Detector (NW) and Cleaner (SW) the two western ones, so the gap a
---- player walks in through faces the pad ring they arrive from.
+--- How far each stall vertex sits from PLAZA_MID. WAS 20, and it had to grow with
+--- the stalls: a stall is now as wide as its track is long (see `stallWidth`), which
+--- took the three of them to 38 / 35 / 31 studs.
+---
+--- IT IS THE COURTYARD, NOT A COLLISION, THAT SETS THIS NUMBER. Nothing actually
+--- overlaps at radius 20 — `assertNoShopOverlap` passes there — but three fronts
+--- that wide eat ~250 of the 360 degrees around the middle, leaving three 12-stud
+--- slots and a 33-stud yard walled shopfront-to-shopfront. Passable, and a pit. At
+--- 32 the same three fronts take ~173 degrees, the gaps open to ~62 degrees each and
+--- the middle is a 57-stud square with three real ways into it.
+---
+--- The assert is still the thing that catches an actual overlap, and this is still
+--- the first number to move when it fires.
+local STALL_RING_RADIUS = 32
+
+--- The three plaza stalls, one at each vertex of an equilateral triangle centred on
+--- PLAZA_MID, each turned by `facingOrigin` so its counter side (local +Z) points
+--- back at PLAZA_MID. `bearing` is degrees CCW from due east, so `at` = PLAZA_MID +
+--- STALL_RING_RADIUS * (cos, sin) — the same three vertices the old hardcoded `at`
+--- pairs named (0 / 120 / -120 reproduce (1,0), (-0.5,+0.866), (-0.5,-0.866)), now
+--- derived so the ring radius is a single number to move. Magnet takes the east
+--- vertex; Detector (NW) and Cleaner (SW) the two western ones, so the gap a player
+--- walks in through faces the pad ring they arrive from.
 local STALLS = {
-	{ track = "Detector", at = { 7.5, 17.3 }, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper" },
-	{ track = "Magnet", at = { 37.5, 0 }, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder" },
-	{ track = "Cleaner", at = { 7.5, -17.3 }, color = C.shopCleaner, label = "CLEANERS", tagline = "scrub it cleaner" },
+	{ track = "Detector", bearing = 120, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper" },
+	{ track = "Magnet", bearing = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder" },
+	{ track = "Cleaner", bearing = -120, color = C.shopCleaner, label = "CLEANERS", tagline = "scrub it cleaner" },
 }
+
+-- ── The rack ─────────────────────────────────────────────────────────────────
+--
+-- EVERY TIER OF THE TRACK HANGS ON A RAIL OVER THE COUNTER, and you buy the one you
+-- are standing in front of. That is the whole feature: the shop panel used to be the
+-- only way to see what a track sold, so a player had to walk into a radius, read a
+-- scrolling list of cards and pick a row. Now the ladder is a physical object — eight
+-- detectors in a row, cheapest on the left, each with its own price over it and its
+-- own ProximityPrompt — and walking along the counter IS browsing it.
+--
+-- THE PANEL IS STILL THERE. This does not replace it; the counter keeps its
+-- StationKind and the card panel still opens (that is where the stat blocks live).
+-- The rack is the fast path for "I know which one I want", the panel the slow path
+-- for "which one SHOULD I want".
+--
+-- ONE PROMPT WINS AT A TIME, and that is Roblox's default, not something arranged
+-- here: ProximityPromptService's default Exclusivity is OnePerButton, so of the
+-- several hooks inside MOUNT_REACH only the closest shows its E. Walking left along
+-- the counter hands the prompt from tier to tier, which is exactly the "walk up on
+-- the one you want" read.
+--
+-- WHY THE HOOK CARRIES THE ATTRIBUTES AND NOT THE MODEL. `SellsTrack` + `SellsTier`
+-- go on a small solid mount block welded to the rail, never on a part of the display
+-- model. The model is a CLONE OF A PLACE ASSET this file does not own — its part
+-- names, its part count and its PrimaryPart can all change the next time someone
+-- edits the tool art — while the hook is built right here and is guaranteed to exist
+-- even when the art is missing entirely (the fallback path below still builds one).
+-- ShopService and World.verify() both scan for those attributes, so they have to sit
+-- on something this file can promise.
+local RACK_PITCH = 3.6 -- centre-to-centre between two hanging tiers
+local RACK_MARGIN = 5 -- clear counter either side of the end tiers
+local RACK_RAIL_Y = 5.4 -- the horizontal bar the tiers hang from
+local RACK_MODEL_SIZE = 2.9 -- longest axis of a hanging tier, after scaling
+local RACK_SLOT_WIDTH = RACK_PITCH - 0.6 -- across the rack: never touch the next tier
+local RACK_SLOT_DEPTH = 2.4 -- into the stall: never poke through the counter
+
+--- Which way the virtual holder faces. 180 is square-on to the customer — a
+--- character's LookVector is its own -Z and the stall's +Z is the plaza, so 180 turns
+--- the holder to face out. That reads BADLY: a tool held out points along its
+--- holder's forward axis, so square-on presents every tool nose-first, and
+--- RACK_SLOT_DEPTH then binds the scale for two of the three tracks. A tier-1 magnet
+--- came out a 1-stud-tall disc pointing at your face.
+---
+--- 225 is that turned a further 45 into a three-quarter view: the tool's long axis
+--- splits ~evenly between across-the-rack and into-the-stall, so its silhouette is
+--- legible AND neither the 3.0-stud slot nor the 2.4-stud depth binds hard. Pure
+--- profile (270) is the most legible silhouette of all, but it lays the full length
+--- across the rack where it has only RACK_PITCH to live in.
+---
+--- AND THE HOLDER IS TIPPED FORWARD, WHICH IS THE HALF THAT ACTUALLY FIXED THE
+--- MAGNETS. Yaw alone still leaves the tool pointing HORIZONTALLY out of its holder,
+--- and a horseshoe magnet is a flat thing: presented level it came out 2.19 across
+--- and 0.91 tall, a sliver on a rail. -55 degrees of pitch hangs it nose-down off the
+--- rail the way a tool hangs on a pegboard, which turns its length into HEIGHT.
+--- Measured across all three tracks at tier 1, this pair is the only one that gets
+--- every track standing 2.4-2.8 studs tall inside its slot:
+---
+---     yaw  pitch | Detector          Magnet            Cleaner      (across/up/deep)
+---     225      0 | 2.36/2.63/2.40    2.19/0.91/2.40    2.90/2.72/2.34
+---     225    -55 | 2.67/2.70/2.40    1.85/2.83/2.40    2.03/2.37/2.40   <- this one
+---     270    -55 | 2.90/2.87/1.36    1.57/2.90/2.06    2.13/2.10/2.40
+---     225    -75 | 2.68/2.61/2.40    1.70/2.90/1.92    1.59/1.70/2.40
+---     180    -70 | 1.10/2.31/2.40    2.03/2.90/0.89    2.53/1.83/2.40
+---
+--- Yaw is applied in the STALL's frame and pitch in the yawed one (origin * Ry * Rx),
+--- not Kit.ang's single XYZ euler — a pitch about the stall's own X before the yaw
+--- tips the row sideways instead of tipping each tool forward.
+local RACK_PRESENT_YAW = 225
+local RACK_PRESENT_PITCH = -55
+local RACK_COUNTER_Z = 0.6 -- the counter's own local z; the rail sits over it
+local MOUNT_REACH = 11 -- prompt activation distance, from in front of the counter
+
+--- How wide a stall has to be to hold its whole ladder. DERIVED, not written down:
+--- Detector has 8 tiers and Magnet 6, and a fixed width would either crush the
+--- Detector rack or leave the Magnet stall two thirds empty. Every other dimension
+--- of a stall (posts, slats, counter, canopy, floor marker) keys off this, so adding
+--- a tier to a track in Config/Gear widens its shop and nothing else has to move.
+local function rackSpan(track: string): number
+	return RACK_PITCH * (Gear.maxTier(track) - 1)
+end
+
+local function stallWidth(track: string): number
+	return rackSpan(track) + 2 * RACK_MARGIN + 3
+end
+
+--- A stall's vertex on the ring, world XZ.
+local function stallAt(spec: { bearing: number }): (number, number)
+	local th = math.rad(spec.bearing)
+	return PLAZA_MID.x + STALL_RING_RADIUS * math.cos(th), PLAZA_MID.z + STALL_RING_RADIUS * math.sin(th)
+end
 
 --- The outfitter's three counters on one bench. Radius 6 at a 13-stud pitch, so
 --- no two counters' circles overlap and standing at one is unambiguous. `at` is
---- on the central square at (-30, 0), due west of PLAZA_MID and set back behind
+--- on the central square at (-44, 0), due west of PLAZA_MID and set back behind
 --- the Detector and Cleaner stalls (see the header) — its +Z front faces due
 --- east at the centre, so `facingOrigin` leaves it square.
+---
+--- IT MOVED 14 STUDS FURTHER WEST (-30 -> -44) WHEN THE STALLS GREW. This building's
+--- width runs north-south (it faces east), so its 46-stud span sits broadside to the
+--- two western stalls' backs — and once those stalls widened to hold their racks,
+--- the Detector stall's outer corner came within ~2 studs of this wall on the
+--- Detector's own width axis: 3.6 studs, clear but not a gap anyone walks down, and
+--- the header's "~27 studs clear of the stalls' backs" would have been a lie. -44
+--- restores ~16 studs of real clearance (15.7 to the Detector stall, 17.5 to the
+--- Cleaner, both measured by `assertNoShopOverlap`'s own footprints). There is room for it: the grey
+--- central pad runs to the plaza's own west edge here (Hub.PAD_WEST_EXTEND), so the
+--- west face at x=-52 is still on the pad with ~13 studs of apron behind it.
 local OUTFITTER = {
-	at = { -30, 0 },
+	at = { -44, 0 },
 	pitch = 13,
 	counters = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },
@@ -205,10 +404,20 @@ end
 --- instead of the shared awning red every stall used to wear. It is the biggest
 --- painted surface on the stall, so this is now the loudest of the per-shop
 --- colour cues (with the trim cap, floor marker and sign text).
-local function buildStripedCanopy(parent: Instance, origin: CFrame, accent: string)
-	local stripeCount = 7
-	local stripeWidth = 2.5
-	local totalWidth = stripeCount * stripeWidth
+--- `width` IS THE STALL'S OWN WIDTH NOW, not a constant. The canopy used to be a
+--- fixed 7 stripes x 2.5 = 17.5 studs because every stall was the same size; a
+--- Detector stall is 38 wide and a Magnet stall 31, so the stripe COUNT is derived
+--- from the width instead. Forced odd, so the cloth starts and ends on the accent
+--- colour rather than on white — an even count reads as a printing error from the
+--- ground, and it is the same "the pattern has to close on itself" constraint the
+--- plaza's checkerboard tiles are tuned for.
+local function buildStripedCanopy(parent: Instance, origin: CFrame, accent: string, width: number)
+	local stripeCount = math.max(3, math.floor(width / 2.5))
+	if stripeCount % 2 == 0 then
+		stripeCount += 1
+	end
+	local stripeWidth = width / stripeCount
+	local totalWidth = width
 	local centerZ = -4
 	local centerY = 9.8
 	local depth = 14.5
@@ -256,13 +465,15 @@ end
 
 --- Seven separated boards form the open slatted back seen most clearly in the
 --- third reference image. The gaps keep the booth airy instead of turning it
---- into a solid shed.
-local function buildSlatWall(parent: Instance, origin: CFrame)
+--- into a solid shed. `width` is the stall's own width — the boards used to be a
+--- flat 14.8 because every stall was 15 wide, and a fixed board behind a 38-wide
+--- Detector stall leaves the rack's two end tiers hanging against open sky.
+local function buildSlatWall(parent: Instance, origin: CFrame, width: number)
 	for index = 1, 7 do
 		build(parent, origin, {
 			name = `BackSlat{index}`,
 			pos = { 0, 0.8 + (index - 1) * 1.2, -10 },
-			size = { 14.8, 0.88, 0.55 },
+			size = { width - 0.2, 0.88, 0.55 },
 			color = C.shopWoodLight,
 			material = "Plastic",
 			studs = true,
@@ -419,6 +630,274 @@ local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number,
 	return ridgeY
 end
 
+-- ── The hanging tier rack ───────────────────────────────────
+
+--- The template for one tier of `track`, or nil if this place has no art for it.
+--- Same lookup ToolService.equip does, deliberately: if the model it would put in
+--- your hands does not exist, the rack must not pretend it does.
+local function tierTemplate(track: string, tier: number): Model?
+	if TOOL_LIBRARY == nil then
+		return nil
+	end
+	local folder = TOOL_LIBRARY:FindFirstChild(track)
+	local model = if folder then folder:FindFirstChild(`T{tier}`) else nil
+	if model and model:IsA("Model") and model.PrimaryPart ~= nil then
+		return model
+	end
+	return nil
+end
+
+--- Hang one tier's real model under the rail, centred on `target`.
+---
+--- ORIENTED THE WAY IT IS CARRIED, via the model's own `HoldCFrame` — the attribute
+--- ToolService reads to place the thing in a player's hands. Feed it a virtual hand
+--- turned to face the customer and the tool lands at exactly the angle a shopkeeper
+--- holding it out over the counter would present it at. That matters because the
+--- three tracks do NOT share an authored axis: the detector's shaft runs along its
+--- local X, the magnet's along its local Z. Any single hand-picked rotation gets one
+--- of them right and lies the others flat — the first pass hung a tier-1 magnet
+--- 9.7 studs deep, straight back through the counter and out of the slat wall.
+--- HoldCFrame is the one piece of per-model orientation this project already
+--- maintains, so the rack reads it instead of inventing a second one.
+---
+--- SCALED FROM THE TIER'S OWN SCALE, NOT FROM 1. `Model:ScaleTo` is ABSOLUTE — it
+--- sets scale relative to the model as authored, discarding whatever the instance
+--- carries. These templates are all pre-scaled (Config/ToolTiers' `scale` column; a
+--- tier-1 magnet ships at 0.300), so `ScaleTo(f)` threw the tier's own size away and
+--- came out 35% oversized. It has to be `GetScale() * f`.
+---
+--- AND `f` IS MEASURED IN THE STALL'S FRAME, ON THREE LIMITS, NOT ONE. A single
+--- "longest edge = RACK_MODEL_SIZE" rule leaves the other two axes wherever the art
+--- put them, and the two that matter here are neighbours (a model wider than
+--- RACK_PITCH overlaps the tier next to it) and depth (one deeper than the counter
+--- pokes through it). So the oriented box is projected onto the STALL'S local axes —
+--- not the world's, the stall is rotated — and the scale is whichever of the three
+--- limits binds hardest.
+---
+--- THEN RE-CENTRED, which is what makes any of this safe. HoldCFrame places a
+--- model's PIVOT, and a pivot is wherever the Handle happens to sit — a detector's
+--- is 1.2 studs off its own box centre. Left alone, every tier would hang at a
+--- slightly different height and the row would sag and rise across the rack. So the
+--- last step measures the box and slides the model so the BOX centre lands on
+--- `target`, whatever the art's pivot is doing.
+local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, target: Vector3, track: string, tier: number): boolean
+	local template = tierTemplate(track, tier)
+	if template == nil then
+		return false
+	end
+
+	local clone = template:Clone()
+	clone.Name = `T{tier}`
+
+	-- Display furniture, not physics. An un-anchored clone of a tool built to be
+	-- welded into a hand falls through the plaza the instant the world unfreezes,
+	-- and a colliding one lets a player shove the whole rack off its rail.
+	for _, d in clone:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false
+			d.CanTouch = false
+			d.CanQuery = false
+		end
+	end
+
+	clone.Parent = parent
+
+	local hold = template:GetAttribute("HoldCFrame")
+	if typeof(hold) ~= "CFrame" then
+		hold = CFrame.new()
+	end
+	clone:PivotTo(hand * hold)
+
+	-- The model's box, RE-MEASURED ON THE STALL'S OWN AXES: its 8 corners taken into
+	-- the stall's local frame, then min/max per axis. The box GetBoundingBox returns
+	-- is aligned to the MODEL, which after a HoldCFrame turn is aligned to neither
+	-- the stall nor the world — so its raw X/Y/Z say nothing about how much room the
+	-- thing takes up ALONG THE RACK, which is the only extent that can collide with
+	-- a neighbour.
+	local function localExtents(): Vector3
+		local cf, size = clone:GetBoundingBox()
+		local half = size / 2
+		local lo = Vector3.new(math.huge, math.huge, math.huge)
+		local hi = -lo
+		for _, sx in { -1, 1 } do
+			for _, sy in { -1, 1 } do
+				for _, sz in { -1, 1 } do
+					local p = origin:PointToObjectSpace(cf * Vector3.new(sx * half.X, sy * half.Y, sz * half.Z))
+					lo, hi = lo:Min(p), hi:Max(p)
+				end
+			end
+		end
+		return hi - lo
+	end
+
+	local e = localExtents()
+	local longest = math.max(e.X, e.Y, e.Z)
+	if longest > 0 then
+		local f = math.min(RACK_MODEL_SIZE / longest, RACK_SLOT_WIDTH / e.X, RACK_SLOT_DEPTH / e.Z)
+		clone:ScaleTo(clone:GetScale() * f)
+	end
+
+	local centre = clone:GetBoundingBox().Position
+	clone:PivotTo(clone:GetPivot() + (target - centre))
+	return true
+end
+
+--- The price card over one hanging tier: its name, and what it costs.
+---
+--- NOT Kit.billboard, and the difference is width. Every other sign in the world
+--- stands alone, so Kit.billboard's 200-400px card can be as wide as its text wants.
+--- These sit RACK_PITCH studs apart in a row of up to eight, and at that spacing a
+--- 200px card overlaps its neighbours into an unreadable smear the moment you walk
+--- up to the counter. So: a narrow card, and the name is TextScaled rather than a
+--- fixed TextSize, because "Bent Coil" and "Resonance Mapper" have to fit the same
+--- band. MaxDistance is short for the same crowding reason — 21 price cards visible
+--- from the middle of the plaza is noise, not information.
+---
+--- NAMED "Sign" WITH "Title" / "Subtitle" CHILDREN, matching Kit.billboard exactly.
+--- The client rewrites the subtitle into the owned-check (StationController's rack
+--- pass) and finds it by those names; a card that spelled them differently would be
+--- invisible to it.
+local function buildPriceCard(mount: BasePart, name: string, price: number, accent: string)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "Sign"
+	gui.Size = UDim2.fromOffset(130, 46)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 1.5, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 28
+	-- Same reason Kit.billboard sets this: the stall signs sit near lamps and a sign
+	-- should not wash toward white along with whatever it is bolted to.
+	gui.LightInfluence = 0
+	gui.Parent = mount
+
+	local title = Instance.new("TextLabel")
+	title.Name = "Title"
+	title.Size = UDim2.new(1, 0, 0, 24)
+	title.BackgroundTransparency = 1
+	title.Font = Kit.FONT
+	title.Text = name
+	title.TextScaled = true
+	title.TextColor3 = Color3.fromHex(C.labelText)
+	title.TextStrokeTransparency = 0.4
+	title.Parent = gui
+
+	local sub = Instance.new("TextLabel")
+	sub.Name = "Subtitle"
+	sub.Position = UDim2.fromOffset(0, 24)
+	sub.Size = UDim2.new(1, 0, 0, 20)
+	sub.BackgroundTransparency = 1
+	sub.Font = Kit.FONT
+	sub.TextSize = 16
+	sub.Text = `${price}`
+	sub.TextColor3 = Color3.fromHex(accent)
+	sub.TextStrokeTransparency = 0.5
+
+	-- WHAT THIS LABEL SAYS WHEN NOBODY OWNS THE TIER, stamped onto the label itself.
+	-- The client overwrites this subtitle with the green owned-check for whoever is
+	-- standing here (StationController's rack pass) and has to be able to put the
+	-- price back afterwards. Stamping the as-built values here means it never has to
+	-- know the price OR the shop accent to do that -- the same RestText/RestColor
+	-- trick LiquidService uses to restore the wash pad sign after announcing a roll.
+	sub:SetAttribute("RestText", sub.Text)
+	sub:SetAttribute("RestColor", sub.TextColor3)
+	sub.Parent = gui
+end
+
+--- One hook on the rail: the mount block that carries the sale, the tier's model
+--- hanging under it (or a painted stand-in), and the price card over it.
+---
+--- THE MOUNT IS BUILT WHETHER OR NOT THE ART IS. A missing template costs the stall
+--- its silhouette, never its ability to sell — the fallback is a plain block in the
+--- shop's accent, and the prompt, the attributes and the billboard are identical
+--- either way. World.verify() asserts every priced track is buyable somewhere, and
+--- that assertion must not depend on which place file this ran in.
+local function buildRackHook(parent: Instance, origin: CFrame, spec: { track: string, color: string }, tier: number, x: number)
+	local def = Gear.tier(spec.track, tier)
+
+	local mount = build(parent, origin, {
+		name = `Mount{tier}`,
+		pos = { x, RACK_RAIL_Y - 0.5, RACK_COUNTER_Z },
+		size = { 1.1, 1.0, 1.1 },
+		color = C.steelDark,
+		material = "Metal",
+		canCollide = false,
+		-- Kit.build tags anything carrying SellsTrack with Kit.UPGRADE_TAG as it
+		-- creates it, which is what ShopService scans to wire the prompt and what
+		-- World.verify() asserts is present. Nothing to add here.
+		attributes = { SellsTrack = spec.track, SellsTier = tier },
+	})
+
+	-- THE VIRTUAL HAND: a holder standing BEHIND the counter, facing the customer.
+	-- A character's own frame has its LookVector on -Z, and the stall's +Z points at
+	-- the plaza, so "facing out" is the stall origin turned 180 degrees about Y. Feed
+	-- that to hangTierModel and every tool presents at its carried angle, seen from
+	-- the front. The translation in it does not matter — hangTierModel re-centres on
+	-- `target` afterwards — only the rotation does.
+	local hand = origin * Kit.ang(0, RACK_PRESENT_YAW, 0) * Kit.ang(RACK_PRESENT_PITCH, 0, 0)
+	local target = (origin * CFrame.new(x, RACK_RAIL_Y - 1.9, RACK_COUNTER_Z)).Position
+	local hung = hangTierModel(parent, origin, hand, target, spec.track, tier)
+
+	if not hung then
+		build(parent, origin, {
+			name = `T{tier}Stand`,
+			pos = { x, RACK_RAIL_Y - 2.4, RACK_COUNTER_Z },
+			size = { 1.2, 2.2, 1.2 },
+			color = spec.color,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+	end
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "Upgrade"
+	prompt.ActionText = `Buy ${def.price}`
+	prompt.ObjectText = def.name
+	prompt.HoldDuration = 0.4
+	prompt.MaxActivationDistance = MOUNT_REACH
+	-- The counter is a solid part between the player and the rail, so a line-of-sight
+	-- prompt would only ever fire from inside the stall.
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = mount
+
+	-- Name and price. A client turns this into the green owned-check when the player
+	-- is standing here and the server says they already have this tier — see
+	-- StationController's rack pass. Built with the price showing because that is
+	-- what it says to everyone who has not bought it, which is most people most of
+	-- the time.
+	buildPriceCard(mount, def.name, def.price, spec.color)
+end
+
+--- Every tier of the track, cheapest on the left, hanging over the counter.
+local function buildTierRack(parent: Instance, origin: CFrame, spec: { track: string, color: string })
+	local span = rackSpan(spec.track)
+	local count = Gear.maxTier(spec.track)
+
+	-- The rail the tiers hang from, and a post at each end carrying it down to the
+	-- counter top (2.25, the trim cap's own top face).
+	build(parent, origin, {
+		name = "RackRail",
+		pos = { 0, RACK_RAIL_Y, RACK_COUNTER_Z },
+		size = { span + 3, 0.5, 0.5 },
+		color = C.steel,
+		material = "Metal",
+		canCollide = false,
+	})
+	for _, side in { -1, 1 } do
+		build(parent, origin, {
+			name = "RackPost",
+			pos = { side * (span / 2 + 1.5), (RACK_RAIL_Y + 2.25) / 2, RACK_COUNTER_Z },
+			size = { 0.5, RACK_RAIL_Y - 2.25, 0.5 },
+			color = C.steel,
+			material = "Metal",
+			canCollide = false,
+		})
+	end
+
+	for tier = 1, count do
+		buildRackHook(parent, origin, spec, tier, -span / 2 + (tier - 1) * RACK_PITCH)
+	end
+end
+
 -- ── The plaza stalls ────────────────────────────────────────────────────────────
 
 --- One classic-Roblox gear store, stripped to the structure: studded grey posts
@@ -426,22 +905,29 @@ end
 --- the stall's own accent colour. The canopy, the sign text, the floor marker
 --- and the counter's trim cap — all `spec.color` — are the per-shop identity now
 --- that the shopkeeper and the identity prop are gone.
-local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, label: string, tagline: string })
+local function buildStall(parent: Instance, spec: { track: string, bearing: number, color: string, label: string, tagline: string })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
-	-- Position AND facing in one CFrame: at the triangle vertex spec.at, turned so
-	-- the counter side (+Z) looks back at PLAZA_MID. Y comes from Hub.PLAZA.topY
+	-- Position AND facing in one CFrame: at this stall's vertex on the ring, turned
+	-- so the counter side (+Z) looks back at PLAZA_MID. Y comes from Hub.PLAZA.topY
 	-- (the plaza is at Stages.SURFACE_Y, not Y=0). Every part below is a LOCAL
 	-- offset from this, so this one line carries the whole stall's placement.
-	local origin = facingOrigin(spec.at[1], spec.at[2], PLAZA_MID.x, PLAZA_MID.z)
+	local atX, atZ = stallAt(spec)
+	local origin = facingOrigin(atX, atZ, PLAZA_MID.x, PLAZA_MID.z)
+
+	-- EVERY DIMENSION BELOW KEYS OFF THIS, and it is a function of how many tiers the
+	-- track has (see `stallWidth`). A Detector stall is wider than a Magnet stall
+	-- because a Detector ladder is longer, and that is the honest thing for the
+	-- building to say.
+	local width = stallWidth(spec.track)
 
 	-- A thin blue-grey floor is visible through the open sides in the reference.
 	-- It is non-colliding and lifted just enough to avoid z-fighting with the plaza.
 	build(m, origin, {
 		name = "StallFloor",
 		pos = { 0, 0.05, -4 },
-		size = { 15, 0.1, 12 },
+		size = { width, 0.1, 12 },
 		color = C.steelDark,
 		material = "Plastic",
 		studs = true,
@@ -465,7 +951,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- post face was too narrow for the pattern to be legible even though the
 	-- material was already correct.
 	local POST_SIZE = 1.5
-	local POST_DX = 7.1
+	local POST_DX = width / 2 - POST_SIZE / 2
 	for _, dx in { -POST_DX, POST_DX } do
 		for _, dz in { -10, 2 } do
 			local postHeight = if dz < 0 then 10 else 9.2
@@ -480,35 +966,106 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 			})
 		end
 	end
-	buildSlatWall(m, origin)
+	buildSlatWall(m, origin, width)
 
 	-- THE COUNTER. This is the part the whole file exists to place correctly.
 	-- material = "Plastic" here (not buildCounter's own "Wood" default) so the
 	-- studded look stays consistent across the whole stall -- the Outfitter's
 	-- call to the same function passes no material and keeps its original Wood.
+	-- THE RADIUS GREW WITH THE STALL, and it had to. It was a flat 12 studs from the
+	-- counter's centre, which covered a 15-wide stall end to end. The rack now runs
+	-- the full width of the counter, so a player standing at the leftmost Detector
+	-- tier is ~19 studs from that centre — outside the old circle, with a prompt in
+	-- front of them and no panel behind it. Derived from the width so the two can
+	-- never drift apart again: half the width, plus the ~6 studs of forecourt the
+	-- floor marker covers.
 	local counter = buildCounter(m, origin, {
 		color = C.steel,
-		width = 14,
+		width = width - 1,
 		depth = 2.5,
-		z = 0.6,
+		z = RACK_COUNTER_Z,
 		stationKind = "shop",
 		stationId = spec.track,
-		radius = 12,
+		radius = width / 2 + 6,
 		material = "Plastic",
 		studded = true,
 	})
 	buildStoreBillboard(counter, spec.label, spec.tagline, spec.color)
 
-	buildStripedCanopy(m, origin, spec.color)
+	-- The ladder itself, hanging over that counter — see "The hanging tier rack".
+	buildTierRack(m, origin, spec)
 
-	-- The floor marker: a glowing outline of the buy radius, in the shop's own
-	-- colour — never green, see the header. With the shopkeeper and the identity
-	-- prop stripped out, this, the counter trim cap and the sign text are the
-	-- whole of a stall's per-shop identity.
-	buildFloorMarker(m, origin, 0, 3.4, 10, 5, spec.color)
+	buildStripedCanopy(m, origin, spec.color, width)
+
+	-- The floor marker: a glowing outline of where to stand, in the shop's own colour
+	-- — never green, see the header. It spans the rack now rather than a fixed 10
+	-- studs, because its job changed: it used to outline a buy radius you stepped
+	-- into, and it now marks the strip of ground you walk ALONG to browse the rack.
+	buildFloorMarker(m, origin, 0, 3.4, width - 4, 5, spec.color)
 
 	m.Parent = parent
 	return m
+end
+
+--- A shop's footprint on the plaza, as an oriented rectangle. `backZ`/`frontZ` are
+--- the extremes of everything the builder lays down, in the shop's own local z.
+local function shopFootprint(x: number, z: number, width: number, backZ: number, frontZ: number): Kit.OrientedRect
+	local dirX, dirZ = PLAZA_MID.x - x, PLAZA_MID.z - z
+	local len = math.sqrt(dirX * dirX + dirZ * dirZ)
+	dirX, dirZ = dirX / len, dirZ / len
+	local mid = (backZ + frontZ) / 2
+	return {
+		cx = x + dirX * mid,
+		cz = z + dirZ * mid,
+		halfWidth = width / 2,
+		halfDepth = (frontZ - backZ) / 2,
+		-- Kit's yaw convention maps local +Z to world (sin, cos) — see
+		-- orientedRectCorners — and a shop's local +Z is exactly `dir`.
+		yawDeg = math.deg(math.atan2(dirX, dirZ)),
+	}
+end
+
+--- No shop on the plaza may sit inside another one.
+---
+--- THIS IS HERE BECAUSE THE STALL WIDTHS ARE NOW DERIVED. While every stall was 15
+--- studs wide at a hand-picked position, "do they overlap" was answered once by
+--- looking at the numbers and stayed answered. It is not answered once any more:
+--- adding a tier to a track in Config/Gear widens that track's shop, and past some
+--- width the triangle closes on itself. STALL_RING_RADIUS and OUTFITTER.at are the
+--- two numbers that then have to move, and this is what says so — at the rebuild
+--- that broke it, naming the pair, rather than in a screenshot three weeks later.
+---
+--- Kit.orientedRectsOverlap, not an axis-aligned box: two of the three stalls sit at
+--- +/-120 degrees, where a bounding box overstates the footprint badly enough to
+--- report collisions that are not there.
+local function assertNoShopOverlap()
+	local rects: { { name: string, rect: Kit.OrientedRect } } = {}
+
+	for _, spec in STALLS do
+		local x, z = stallAt(spec)
+		-- -11.25 is the canopy's own back edge (centre -4, depth 14.5) and +5.9 the
+		-- floor marker's outer edge (centre 3.4, depth 5) — the two extremes of
+		-- everything buildStall lays down.
+		table.insert(rects, {
+			name = `{spec.track} stall`,
+			rect = shopFootprint(x, z, stallWidth(spec.track), -11.25, 5.9),
+		})
+	end
+
+	local outfitterWidth = OUTFITTER.pitch * (#OUTFITTER.counters - 1) + 20
+	table.insert(rects, {
+		name = "Outfitter",
+		rect = shopFootprint(OUTFITTER.at[1], OUTFITTER.at[2], outfitterWidth, -8, 8),
+	})
+
+	for i = 1, #rects do
+		for j = i + 1, #rects do
+			assert(
+				not Kit.orientedRectsOverlap(rects[i].rect, rects[j].rect),
+				`{rects[i].name} overlaps {rects[j].name} — widen STALL_RING_RADIUS ({STALL_RING_RADIUS}) or move OUTFITTER.at`
+			)
+		end
+	end
 end
 
 -- ── The outfitter ─────────────────────────────────────────────────────────────
@@ -592,8 +1149,12 @@ end
 
 local function createShops(): Model
 	local shops = Instance.new("Model")
-	shops.Name = "Shops"
+	shops.Name = Shops.MODEL_NAME
 	Kit.stamp(shops, BUILDER_SOURCE, BUILDER_VERSION)
+
+	-- Before a single part is laid: the widths are derived now, so the ring radius
+	-- that fits them is a claim this file has to prove every time, not once.
+	assertNoShopOverlap()
 
 	for _, spec in STALLS do
 		buildStall(shops, spec)
@@ -643,7 +1204,7 @@ function Shops.build(parent: Instance?): Model
 end
 
 function Shops.rebuild(parent: Instance?): Model
-	local shops = Kit.swap("Shops", createShops, parent) :: Model
+	local shops = Kit.swap(Shops.MODEL_NAME, createShops, parent) :: Model
 	print(`[build] Shops rebuilt — {#shops:GetChildren()} storefronts, {#STALLS} stalls + {#OUTFITTER.counters} outfitter counters`)
 	return shops
 end
