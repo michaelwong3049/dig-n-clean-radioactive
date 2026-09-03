@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 18
+local BUILDER_VERSION = 19
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -113,6 +113,13 @@ local GROUND_SKIM = 0.06
 -- bush never sprouts in the middle of the route.
 local BUSH_CENTRE_CLEARANCE = 28
 
+-- Stage 2 has the same open lane down z = 0 (scatterEdgeTrees keeps its trees out on
+-- the two long edges for it), so a carcass -- the one Stage 2 prop big enough to block
+-- a sightline -- is pushed at least this far off it. Smaller than the bush clearance
+-- on purpose: a rib cage standing just off the path is the point, and you should be
+-- walking past one, not hunting for it at the field's edge.
+local SKELETON_CENTRE_CLEARANCE = 20
+
 --- Dead wood, for `deadTree`. Darker and greyer than Kit.C.wood (5A4630, which is the
 --- warm living-wood brown the camp and the liveTree use) -- these are bark that has
 --- had the colour weathered out of it. Builder-local, same as WALL_BROWN_DARK/LIGHT:
@@ -128,6 +135,37 @@ local DEAD_WOOD_DARK = "372A1D"
 --- matte shrub in Stage 1's own green end reads as life, not hazard.
 local BUSH_GREEN = "63B83A"
 local BUSH_GREEN_DARK = "4C9029"
+
+--- Bone, for Stage 2's remains (`boneShaft`, `skull`, `animalSkeleton`). Sun-bleached
+--- ivory with a dirt-stained second tone, mixed per part the way DEAD_WOOD/_DARK is on
+--- the trees so a rib cage's facets read against each other instead of flat-shading
+--- into one white mass. Builder-local, same as the wood and bush greens: nothing
+--- outside this file's Stage 2 pass needs them.
+---
+--- PALE, NOT WHITE, AND WARM. Stage 2's floor is dun tan (Stages def.color B8935F) and
+--- pure white on a studded Plastic part in this world's flat lighting reads as painted
+--- polystyrene; holding a little of the ground's own yellow keeps it reading as bone
+--- lying in the dirt while still separating clearly from the board at a distance.
+---
+--- THE WARMTH IS NOT DECORATIVE, AND IT HAS TO BE THIS MUCH OF IT. Everything not
+--- facing the sun here is lit by the sky and the ambient, and both are green-mint
+--- (build/Daylight: Ambient 6E7A72, OutdoorAmbient 7E9488, ColorShift_Bottom BFE0C8,
+--- EnvironmentDiffuseScale 0.6). A pale neutral bone therefore renders visibly BLUE
+--- down every shaded face -- shot live at two values before this one: an off-white
+--- (DFD6BC) read as ice, and a mildly warmed ivory (E6D9B4) barely moved it, because
+--- the cast is coming from the light, not from the paint. It takes a genuinely warm
+--- base -- roughly one step short of the ground's own tan -- for the shaded side to
+--- come back to bone and the sunlit side to cream. Do not "clean these up" toward
+--- white; that is the change that puts the blue back.
+local BONE = "F2C98E"
+local BONE_DARK = "CEAB79"
+
+--- The hollows -- eye sockets, the nasal notch, the gap between the jaws. Near-black
+--- rather than black so it reads as shadow inside a skull rather than as a dot painted
+--- on the front of it. Flush with the face it sits in (a hair proud, to not z-fight),
+--- which is how every other cartoon detail in this world is done -- there is no
+--- boolean-subtract to carve a real socket with.
+local BONE_HOLLOW = "2B251D"
 
 --- The chain's north/south boundary walls. Doubled to 56 tall and dropped to a
 --- 4-stud tile (from 28/8) after a live look -- ~8,400 parts per side at this size
@@ -329,11 +367,31 @@ end
 ---   Stage 1 -- chunky green bushes across the alive west half (scatterBushes),
 ---            then `deadProps` knee-high dead snags across the dead-tan east half
 ---            (scatterDeadBushes).
----   Stage 2 -- big dead trees flanking the corridor (scatterEdgeTrees).
-type StageTheme = { props: number, pools: number, kind: string, scatter: boolean?, deadProps: number? }
+---   Stage 2 -- big dead trees flanking the corridor (scatterEdgeTrees), then the
+---            remains scattered over the whole field (scatterBones): `skeletons` whole
+---            carcasses as landmarks, `bones` handfuls of loose bone underfoot and
+---            `skulls` human skulls. Those three are Stage 2's own fields, unset (and
+---            so skipped) on every other stage.
+type StageTheme = {
+	props: number,
+	pools: number,
+	kind: string,
+	scatter: boolean?,
+	deadProps: number?,
+	skeletons: number?,
+	bones: number?,
+	skulls: number?,
+}
 local THEME: { [number]: StageTheme } = {
 	[1] = { props = 9, deadProps = 7, pools = 8, kind = "trees", scatter = true },
-	[2] = { props = 6, pools = 10, kind = "trees", scatter = true },
+	-- Stage 2's bone counts. Two carcasses is the whole point of the number: one either
+	-- side of the lane (scatterBones alternates), so the field always has one in view
+	-- and never a pile. The loose clusters are the dense one -- 16 of them at 3-6 bones
+	-- each is roughly a bone every 25 studs of walking, which reads as "this ground is
+	-- littered" without ever being what you are looking at. Skulls stay rare: they are
+	-- the detail that lands hardest, and lose all of it the moment there are enough of
+	-- them to be scenery.
+	[2] = { props = 6, pools = 10, kind = "trees", scatter = true, skeletons = 2, bones = 16, skulls = 7 },
 	[3] = { props = 40, pools = 20, kind = "sirens" },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
@@ -647,6 +705,364 @@ local function bush(parent: Instance, origin: CFrame, x: number, z: number, rng:
 	end
 end
 
+--- ── STAGE 2'S REMAINS ────────────────────────────────────────────────────────
+--- Stage 1 is life dying back (green scrub in the west, dead snags in the east);
+--- Stage 2 is what the die-off left behind. The bones are the whole storytelling job
+--- of that field -- a suburb the animals did not walk out of -- and they come at three
+--- scales on request: loose bones scattered underfoot, whole articulated carcasses as
+--- landmarks, and human skulls.
+---
+--- All of them obey this file's two standing rules for anything sitting over a dig
+--- plate: CanCollide=false (walk through it, never get wedged inside a rib cage) and
+--- open or low enough that a haul rising to the surface underneath is still visible --
+--- a rib cage is a hoop of thin bars with daylight through it, not a dome.
+
+--- One bone, grown along +Y from `cf`: a square-section shaft with a knuckle swelling
+--- at each end. THE KNUCKLES ARE THE WHOLE TRICK. A bare shaft reads as a stick --
+--- it is exactly what `deadTree` already builds -- and this generator has no capsule
+--- or sphere cap to round an end with, so the joint has to be modelled as its own
+--- slightly fatter box. Square section and studded, same as the trees and the bushes.
+local function boneShaft(parent: Instance, cf: CFrame, length: number, thick: number, rng: Random)
+	build(parent, cf, {
+		name = "Bone",
+		pos = { 0, length / 2, 0 },
+		size = { thick, length, thick },
+		color = if rng:NextNumber() < 0.25 then BONE_DARK else BONE,
+		material = "Plastic",
+		studs = true,
+		rot = Kit.ang(0, 0, rng:NextNumber(-4, 4)),
+		canCollide = false,
+	})
+
+	for _, at in { 0, length } do
+		build(parent, cf, {
+			name = "Knuckle",
+			pos = { 0, at, 0 },
+			size = { thick * 1.5, thick * 1.2, thick * 1.5 },
+			color = BONE,
+			material = "Plastic",
+			studs = true,
+			rot = Kit.ang(0, rng:NextNumber(-14, 14), 0),
+			canCollide = false,
+		})
+	end
+end
+
+--- A curving run of bone -- a rib, a horn, a neck, a tail -- as `segs` shafts each
+--- pitched a further `curve` degrees off the last and tapering as it goes. Returns the
+--- CFrame at the far tip so a caller can hang the next thing off the end of it.
+---
+--- Pitch is about the frame's local X, so a caller aims the whole bow by yawing `cf`
+--- BEFORE calling: the ribs below yaw nothing and bend out across Z, the horns yaw 90
+--- so the same bend runs across X instead.
+---
+--- NO KNUCKLES, unlike boneShaft: a rib is one continuous bow, and a swelling at every
+--- segment join reads as a caterpillar rather than as a curve.
+local function boneArc(
+	parent: Instance,
+	cf: CFrame,
+	name: string,
+	segs: number,
+	length: number,
+	thick: number,
+	curve: number,
+	rng: Random
+): CFrame
+	local at = cf
+	for _ = 1, segs do
+		build(parent, at, {
+			name = name,
+			pos = { 0, length / 2, 0 },
+			size = { thick, length, thick },
+			color = if rng:NextNumber() < 0.25 then BONE_DARK else BONE,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+		at = at * CFrame.new(0, length, 0) * Kit.ang(curve + rng:NextNumber(-2.5, 2.5), 0, 0)
+		length *= 0.93
+		thick *= 0.95
+	end
+	return at
+end
+
+--- A skull resting on the ground, facing its frame's local +Z. `s` scales the whole
+--- thing off a ~1.6-stud-wide human braincase -- s = 1 is a little larger than a
+--- character's own head, which is what a skull has to be to read as one at all from
+--- standing height.
+---
+--- `animal` swaps the short human jaw for a long muzzle, moves the eyes from the FRONT
+--- of the face to the SIDES of it, and adds a pair of upswept horns. That eye move is
+--- the whole difference between "a person died here" and "a beast died here" at a
+--- glance, and it is why both come out of one function: the two have to read as the
+--- same material and the same hand, only different animals.
+---
+--- Boxes only, studded, same as every other prop in this file. The sockets and the
+--- mouth line are flat near-black faces sitting a hair proud of the bone around them:
+--- there is no boolean subtract here to carve a real hollow with, and a dark face
+--- reads as one at every distance a player actually sees this from.
+local function skull(parent: Instance, base: CFrame, s: number, animal: boolean, rng: Random)
+	--- One box in skull-local units, `s` applied on the way out: x across the face,
+	--- y up from the ground it sits on, z toward the snout.
+	local function box(name: string, size: { number }, pos: { number }, color: string)
+		build(parent, base, {
+			name = name,
+			pos = { pos[1] * s, pos[2] * s, pos[3] * s },
+			size = { size[1] * s, size[2] * s, size[3] * s },
+			color = color,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
+
+	if animal then
+		-- Long-muzzled and horned: cattle, deliberately -- a short-muzzled skull at
+		-- this scale reads as somebody's dog, which is a different and much less
+		-- welcome thing to leave lying in a field.
+		box("Cranium", { 1.5, 1.2, 1.4 }, { 0, 1.1, -0.4 }, BONE)
+		box("Muzzle", { 0.95, 0.85, 1.9 }, { 0, 0.85, 1.15 }, BONE)
+		box("Jaw", { 0.85, 0.42, 1.8 }, { 0, 0.3, 1.05 }, BONE_DARK)
+		box("MouthGap", { 0.8, 0.14, 1.76 }, { 0, 0.53, 1.05 }, BONE_HOLLOW)
+		for _, side in { 1, -1 } do
+			box("EyeSocket", { 0.2, 0.44, 0.46 }, { side * 0.66, 1.18, -0.15 }, BONE_HOLLOW)
+			box("Nostril", { 0.18, 0.22, 0.16 }, { side * 0.22, 0.98, 2.04 }, BONE_HOLLOW)
+			-- Out from the top corner, then curving back toward upright: the arc opens
+			-- wide and RECOVERS (negative curve), which is what makes a horn a horn
+			-- rather than a drooping tusk.
+			--
+			-- LOW AND LONG, not tall. The first pass left at 54 degrees off vertical and
+			-- recovered 17 a segment, which lands almost upright by the tip -- read live
+			-- as a pair of ears, not horns. Leaving wider (62) and recovering less (14)
+			-- keeps the sweep mostly HORIZONTAL, so the silhouette is a longhorn's span
+			-- rather than a crown. Thin, too: a horn as thick as a leg bone reads as one.
+			boneArc(
+				parent,
+				base * CFrame.new(side * 0.55 * s, 1.5 * s, -0.45 * s) * Kit.ang(0, side * 90, 0) * Kit.ang(62, 0, 0),
+				"Horn",
+				3,
+				0.9 * s,
+				0.3 * s,
+				-14,
+				rng
+			)
+		end
+		return
+	end
+
+	-- Human. Four things carry the read, in this order of importance: the two sockets,
+	-- the TEETH, the nasal notch, and the taper from braincase down to jaw. The first
+	-- pass had no teeth and sat low enough in the ground that the mouth was under the
+	-- floor -- a cube with two dark squares in it, which reads as a ghost, not a skull.
+	-- Everything below the eyes is why it now reads as the second one.
+	--
+	-- The crown block is what keeps the braincase itself from reading as a plain cube:
+	-- one step in at the top is the cheapest dome this generator can build.
+	box("Cranium", { 1.5, 1.35, 1.55 }, { 0, 1.25, -0.05 }, BONE)
+	box("Crown", { 1.25, 0.36, 1.3 }, { 0, 2, -0.1 }, BONE)
+	-- A slim ledge, in bone rather than shadow: full-width and dark, the first pass's
+	-- brow read as a headband strapped across the forehead.
+	box("Brow", { 1.34, 0.15, 0.11 }, { 0, 1.6, 0.74 }, BONE)
+	box("Nose", { 0.24, 0.32, 0.2 }, { 0, 0.94, 0.635 }, BONE_HOLLOW)
+	for _, side in { 1, -1 } do
+		box("EyeSocket", { 0.42, 0.4, 0.2 }, { side * 0.34, 1.36, 0.635 }, BONE_HOLLOW)
+	end
+
+	-- The face below the eyes: a narrower block than the braincase (the taper is what
+	-- makes it a head rather than a box), a dark mouth band across it, and four teeth
+	-- straddling that band. Four is enough -- the eye reads "row of teeth" off any
+	-- interruption of a dark line, and one tooth per stud of face is a portcullis.
+	box("Maxilla", { 1.1, 0.55, 1.15 }, { 0, 0.44, 0.12 }, BONE)
+	box("MouthGap", { 0.96, 0.26, 0.96 }, { 0, 0.3, 0.16 }, BONE_HOLLOW)
+	for _, at in { -0.39, -0.13, 0.13, 0.39 } do
+		box("Tooth", { 0.13, 0.26, 0.12 }, { at, 0.3, 0.64 }, BONE)
+	end
+	box("Jaw", { 1, 0.3, 1 }, { 0, 0.12, 0.2 }, BONE_DARK)
+end
+
+--- A whole animal where it dropped: a backbone carrying a hooped rib cage, a neck
+--- arcing down to a skull resting on the ground, a flared pelvis, four splayed legs
+--- and a tail trailing off behind. STAGE 2'S LANDMARK PROP -- one of these is a thing
+--- you point at from across the field, which is what a stage whose only other prop is
+--- "another dead tree" was short of.
+---
+--- Laid out along the frame's local +X, nose end forward: thirteen vertebrae with the
+--- ribs on the middle six and the pelvis back near the tail. THE RIB BOWS ARE THE
+--- LOAD-BEARING DETAIL. Each is a `boneArc` that leaves the spine almost horizontal
+--- and keeps bending until it comes back down to the ground and starts to turn under,
+--- so the cage reads as a closed barrel in silhouette while staying a see-through cage
+--- of thin bars from every angle -- which is the rule this section's header sets for
+--- anything standing over a dig plate.
+---
+--- Everything is a ratio of `s` (the carcass scale) and `seg` (the vertebra pitch), so
+--- the roll at the top resizes the whole animal proportionally rather than producing a
+--- long thin one.
+local function animalSkeleton(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(0, 360), 0)
+	local s = rng:NextNumber(0.8, 1.05) -- whole-carcass scale
+	local seg = 1.7 * s -- vertebra pitch along the spine
+	local spineY = 4.0 * s -- the backbone's height off the ground
+	local VERTEBRAE = 13
+	local mid = (VERTEBRAE - 1) / 2
+
+	-- The backbone. Blocks spaced a clear gap apart (each box is well under `seg`
+	-- wide) so the chain reads as beads rather than as one bar, each with a dorsal fin
+	-- on top. The fins peak over the shoulders and fall away to nothing at both ends --
+	-- that tent, not the spine itself, is what gives the silhouette a withers.
+	for i = 0, VERTEBRAE - 1 do
+		local t = i / (VERTEBRAE - 1)
+		local vx = (i - mid) * seg
+		local fin = s * (0.35 + 0.9 * math.max(0, 1 - math.abs(t - 0.66) / 0.42))
+
+		build(parent, base, {
+			name = "Vertebra",
+			pos = { vx, spineY, 0 },
+			size = { seg * 0.62, 0.95 * s, 1.15 * s },
+			color = if rng:NextNumber() < 0.22 then BONE_DARK else BONE,
+			material = "Plastic",
+			studs = true,
+			rot = Kit.ang(0, rng:NextNumber(-5, 5), rng:NextNumber(-4, 4)),
+			canCollide = false,
+		})
+		build(parent, base, {
+			name = "SpineFin",
+			pos = { vx, spineY + 0.45 * s + fin / 2, 0 },
+			size = { seg * 0.32, fin, 0.5 * s },
+			color = BONE,
+			material = "Plastic",
+			studs = true,
+			rot = Kit.ang(rng:NextNumber(-6, 6), 0, rng:NextNumber(-7, 7)),
+			canCollide = false,
+		})
+	end
+
+	-- The cage. Six pairs, the middle pairs reaching furthest so the barrel tapers at
+	-- both ends instead of reading as a culvert. Each side takes the SAME bow mirrored
+	-- (`side` flips both the start pitch and the bend), which is the only way a pair
+	-- meets underneath rather than crossing.
+	for i = 4, 9 do
+		local vx = (i - mid) * seg
+		local t = (i - 4) / 5
+		local reach = 1.62 * s * (0.84 + 0.16 * math.sin(t * math.pi))
+		for _, side in { 1, -1 } do
+			boneArc(parent, base * CFrame.new(vx, spineY, 0) * Kit.ang(side * 72, 0, 0), "Rib", 6, reach, 0.34 * s, side * 30, rng)
+		end
+	end
+
+	-- The neck leaves the shoulders near level and keeps curving until it reaches the
+	-- ground: the head went down first and stayed there. The skull sits just past the
+	-- end of it, upright and facing forward -- a head lying ON the ground at the end of
+	-- a dropped neck is the pose that reads as "died here", where a head held up on a
+	-- straight neck reads as a museum mount.
+	local neckX = (mid + 0.4) * seg
+	boneArc(parent, base * CFrame.new(neckX, spineY, 0) * Kit.ang(0, 90, 0) * Kit.ang(72, 0, 0), "Neck", 6, 1.5 * s, 0.55 * s, 26, rng)
+	skull(
+		parent,
+		base * CFrame.new(neckX + 5.1 * s, -0.1 * s, 0) * Kit.ang(0, 90 + rng:NextNumber(-12, 12), 0) * Kit.ang(0, 0, rng:NextNumber(-8, 8)),
+		1.7 * s,
+		true,
+		rng
+	)
+
+	-- The hips: a flared plate either side, tipped down and out. Rotating about X tips
+	-- the plate's own depth, which is what turns a flat slab into a hip you can read
+	-- the angle of from the side.
+	local hipX = -(mid - 1.4) * seg
+	for _, side in { 1, -1 } do
+		build(parent, base, {
+			name = "Pelvis",
+			pos = { hipX, spineY - 0.75 * s, side * 1.35 * s },
+			size = { 2.4 * s, 0.5 * s, 1.9 * s },
+			color = BONE,
+			material = "Plastic",
+			studs = true,
+			rot = Kit.ang(side * 38, 0, 0),
+			canCollide = false,
+		})
+	end
+
+	--- One leg, splayed out from under the body and folded at the knee: a femur, a
+	--- shin and a hoof block. Aimed outward across Z by yawing the frame (0 or 180) and
+	--- then pitching PAST horizontal, so the leg runs out and DOWN rather than out and
+	--- up; the knee adds a second, sharper fold. Every angle is rolled per leg, so the
+	--- four never match -- a carcass with four identical legs reads as a toy.
+	local function leg(atX: number, side: number)
+		local hip = base
+			* CFrame.new(atX, 2.5 * s, side * 2.2 * s)
+			* Kit.ang(0, if side > 0 then 0 else 180, 0)
+			* Kit.ang(rng:NextNumber(96, 112), 0, 0)
+		boneShaft(parent, hip, 2.9 * s, 0.5 * s, rng)
+
+		local knee = hip * CFrame.new(0, 2.9 * s, 0) * Kit.ang(rng:NextNumber(22, 44), 0, 0) * Kit.ang(0, rng:NextNumber(-22, 22), 0)
+		boneShaft(parent, knee, 2.2 * s, 0.38 * s, rng)
+		build(parent, knee * CFrame.new(0, 2.2 * s, 0), {
+			name = "Hoof",
+			pos = { 0, 0.3 * s, 0 },
+			size = { 0.6 * s, 0.62 * s, 0.6 * s },
+			color = BONE_DARK,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
+
+	for _, side in { 1, -1 } do
+		leg((mid - 3.5) * seg, side) -- shoulder
+		leg(hipX, side) -- hip
+	end
+
+	-- The tail, shrinking fast as it trails off behind and settles onto the ground.
+	boneArc(
+		parent,
+		base * CFrame.new(-(mid + 0.3) * seg, spineY - 0.2 * s, 0) * Kit.ang(0, -90, 0) * Kit.ang(84, 0, 0),
+		"Tail",
+		7,
+		1.25 * s,
+		0.34 * s,
+		15,
+		rng
+	)
+end
+
+--- A handful of loose bones lying where they scattered -- long bones, a curved rib
+--- shard or two, the odd vertebra. This is the field's TEXTURE between the carcasses:
+--- the thing you notice underfoot on your way somewhere else, not the thing you walk
+--- over to look at.
+---
+--- EVERYTHING HERE LIES FLAT, and the frame is what does it: `Kit.ang(0, 0, -90)` after
+--- the yaw puts the growth axis along the ground and the bend axis VERTICAL, so a
+--- `boneArc` bows across the floor like a C rather than arcing up out of it. (Pitching
+--- 90 degrees instead is the obvious version of this that does not work: it lays the
+--- shaft down but leaves the bend running straight into the ground.)
+---
+--- A third of a stud up: clear of the checkerboard cap at GROUND_SKIM, under the
+--- border strip at SKIM, and low enough that a haul surfacing beneath one still shows.
+local function boneCluster(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+	for _ = 1, rng:NextInteger(3, 6) do
+		local px = x + rng:NextNumber(-3.5, 3.5)
+		local pz = z + rng:NextNumber(-3.5, 3.5)
+		local lie = origin * CFrame.new(px, 0.32, pz) * Kit.ang(0, rng:NextNumber(0, 360), 0) * Kit.ang(0, 0, -90)
+		local roll = rng:NextNumber()
+
+		if roll < 0.5 then
+			boneShaft(parent, lie, rng:NextNumber(2.4, 4.6), rng:NextNumber(0.42, 0.62), rng)
+		elseif roll < 0.82 then
+			boneArc(parent, lie, "RibShard", rng:NextInteger(3, 4), rng:NextNumber(1.1, 1.6), rng:NextNumber(0.3, 0.42), rng:NextNumber(14, 26), rng)
+		else
+			build(parent, origin, {
+				name = "Vertebra",
+				pos = { px, 0.42, pz },
+				size = { 0.95, 0.8, 1.05 },
+				color = if rng:NextNumber() < 0.3 then BONE_DARK else BONE,
+				material = "Plastic",
+				studs = true,
+				rot = Kit.ang(rng:NextNumber(-28, 28), rng:NextNumber(0, 360), rng:NextNumber(-28, 28)),
+				canCollide = false,
+			})
+		end
+	end
+end
+
 local function prop(
 	parent: Instance,
 	origin: CFrame,
@@ -840,6 +1256,104 @@ local function scatterEdgeTrees(folder: Instance, origin: CFrame, count: number,
 			deadTree(folder, origin, math.clamp(x, -hx, hx), z, rng)
 		end
 	end
+end
+
+--- Stage 2 -- THE REMAINS, three passes over one field (see the "STAGE 2'S REMAINS"
+--- section above for what each piece is and why it is built the way it is):
+---   * `skeletons` whole carcasses, the landmarks. Held off the centre lane by
+---     SKELETON_CENTRE_CLEARANCE and in off the tree line, so each sits in the open
+---     ground beside the walk-through route -- seen broadside from the path, which is
+---     the only angle a rib cage reads as a rib cage from.
+---   * `clusters` handfuls of loose bone, on an even jittered grid over the WHOLE
+---     field, lane included: these are ankle-height ground texture, and the walk in is
+---     exactly where they should be underfoot.
+---   * `skulls` human skulls, same grid treatment, each with its own yaw and a small
+---     tilt so a scatter of them never lines up into a row of bollards.
+---
+--- Alternating sides for the carcasses is deliberate at these counts: two on the same
+--- side of the lane reads as one pile, one either side reads as a field with remains
+--- all over it.
+---
+--- Deterministic off the stage rng and consumed AFTER scatterEdgeTrees, so the tree
+--- line keeps the exact placement it already had -- same discipline as Stage 1's three
+--- passes.
+---
+--- ALL OF IT GOES IN ONE `Bones` FOLDER SO IT CAN BE MADE UNQUERYABLE IN ONE PASS.
+--- FieldController.groundY fires a ray straight down from the player to sit the
+--- detector's range ring on the floor, and these are the first props in this file that
+--- a player routinely stands ON TOP OF -- a bone lying flat is a third of a stud of
+--- lip spread over the ground, where a tree trunk is something you walk around. Left
+--- queryable, the ring would step up whenever you crossed one. CanTouch goes with it:
+--- nothing here is ever meant to fire a touch event. Same reasoning and the same fix
+--- as scatterStage1Cracks, just applied to a folder rather than part by part.
+local function scatterBones(
+	folder: Instance,
+	origin: CFrame,
+	rng: Random,
+	hx: number,
+	hz: number,
+	skeletons: number,
+	clusters: number,
+	skulls: number
+)
+	local bones = Instance.new("Folder")
+	bones.Name = "Bones"
+
+	--- An even jittered grid over the whole field: `count` cells laid out to roughly
+	--- square proportions, each item nudged up to a third of a cell so the cover stays
+	--- even without reading as a lattice. Same idiom as scatterBushes/scatterDeadBushes.
+	local function grid(count: number, place: (number, number) -> ())
+		if count <= 0 then
+			return
+		end
+		local cols = math.max(1, math.round(math.sqrt(count * (hx / hz))))
+		local rows = math.ceil(count / cols)
+		local placed = 0
+		for row = 0, rows - 1 do
+			for col = 0, cols - 1 do
+				if placed >= count then
+					break
+				end
+				placed += 1
+				local x = -hx + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hx / cols)
+				local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
+				place(math.clamp(x, -hx, hx), math.clamp(z, -hz, hz))
+			end
+		end
+	end
+
+	for i = 1, skeletons do
+		local side = if i % 2 == 1 then -1 else 1
+		local x = -hx + (i - 0.5) * (2 * hx / math.max(1, skeletons)) + rng:NextNumber(-14, 14)
+		-- Between the lane and the tree line: far enough out not to stand in the walk,
+		-- far enough in not to tangle with scatterEdgeTrees' trunks.
+		local z = side * rng:NextNumber(SKELETON_CENTRE_CLEARANCE, math.max(SKELETON_CENTRE_CLEARANCE + 1, hz - 30))
+		animalSkeleton(bones, origin, math.clamp(x, -hx + 26, hx - 26), z, rng)
+	end
+
+	grid(clusters, function(x: number, z: number)
+		boneCluster(bones, origin, x, z, rng)
+	end)
+
+	-- Bedded a HAIR into the ground -- the same trick `bush` uses on its base block, but
+	-- a fraction of the depth. A skull is nearly all read below the eyeline (teeth,
+	-- notch, the taper to the jaw, see `skull`), so a sink deep enough to look settled
+	-- is a sink deep enough to bury everything that makes it a skull.
+	grid(skulls, function(x: number, z: number)
+		local base = origin
+			* CFrame.new(x, -0.05, z)
+			* Kit.ang(0, rng:NextNumber(0, 360), 0)
+			* Kit.ang(rng:NextNumber(-9, 9), 0, rng:NextNumber(-9, 9))
+		skull(bones, base, rng:NextNumber(1.05, 1.35), false, rng)
+	end)
+
+	for _, d in bones:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CanQuery = false
+			d.CanTouch = false
+		end
+	end
+	bones.Parent = folder
 end
 
 --- Stage 1 -- chunky green bushes across the ALIVE WEST HALF only. Stage 1's ground
@@ -1058,6 +1572,7 @@ local function buildStageScenery(parent: Instance, id: number)
 			scatterDeadBushes(folder, origin, theme.deadProps or 0, rng, hx, hz)
 		elseif id == 2 then
 			scatterEdgeTrees(folder, origin, theme.props, rng, hx, hz)
+			scatterBones(folder, origin, rng, hx, hz, theme.skeletons or 0, theme.bones or 0, theme.skulls or 0)
 		end
 	end
 
