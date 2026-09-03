@@ -50,8 +50,9 @@
 	  LIGHT     `light`, peaking at ~1.7x your rating and fading back out as blind
 	            arrives. The picture BREAKS UP — a second bank of static all its own,
 	            the feed tearing, colour draining, the throb quickening — but the
-	            middle of the screen is never touched and the blur stays under three.
-	            You can still read the ground. This is a warning you can work through,
+	            middle of the screen is never touched and this grade adds only 2.5 to
+	            the blur (measured 7.2 total in Stage 1 at 1.35x rating, against 29.9
+	            at the intense end). You can still read the ground. This is a warning you can work through,
 	            and it is the grade a player meets by stepping one stage past their
 	            suit, which used to be a barely-visible darkening.
 	  REGULAR   the low half of `blind`. The tunnel starts closing and the blur
