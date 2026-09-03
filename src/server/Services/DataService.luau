@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
+local Gear = require(Shared.Config.Gear)
 local Decay = require(Shared.Decay)
 
 local ProfileStore = require(script.Parent.Parent.lib.ProfileStore)
@@ -35,7 +36,34 @@ local TEMPLATE = {
 	xp = 0,
 	level = 1,
 
+	-- WHICH TIER OF EACH TRACK IS EQUIPPED — the one in your hands, the one
+	-- StatResolver reads. It is NOT "the best you have bought" any more; see
+	-- `gearOwned` below. Everything that consumes gear (StatResolver, ToolService's
+	-- re-equip poll) reads exactly this field and needed no change when ownership
+	-- split off it, which is the whole reason equipping writes here rather than
+	-- somewhere new. `luck` is not a track and has no tiers — it is a level that only
+	-- ever counts up, so it has no entry in `gearOwned`.
 	gear = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1, luck = 1 },
+
+	-- EVERY TIER YOU ACTUALLY BOUGHT, per track: `gearOwned.detector = {1, 4, 8}`,
+	-- ascending. Buying tier 8 straight from tier 1 used to make you "own" 2 through
+	-- 7 as a side effect, because ownership WAS the equipped number and the shop asked
+	-- `tier <= current`. It is a real set now, so the shop can only claim you own what
+	-- you paid for, and you can drop back to a tier you kept.
+	--
+	-- ARRAYS OF NUMBERS, NOT `{[4] = true}` SETS, and that is a storage constraint
+	-- rather than a taste: the note at the top of this table forbids gaps in numeric
+	-- arrays and mixed key types, and a sparse boolean set is exactly that. Tracks run
+	-- to at most 8 tiers, so a linear scan for membership costs nothing.
+	--
+	-- IT STARTS EMPTY AND IS FILLED PER TRACK ON FIRST LOAD, which is what migrates
+	-- old saves without a version bump or a marker field. Reconcile() gives an
+	-- existing save this empty table; `backfillGearOwned` then seeds any track whose
+	-- key is still nil from that track's equipped tier, so a legacy tier-6 detector
+	-- becomes {1,2,3,4,5,6} — exactly what the old model claimed the player owned, so
+	-- nobody loses anything they were told they had. A track that already has an array
+	-- is never touched, so a player who legitimately owns only {1, 8} keeps that.
+	gearOwned = {},
 
 	carry = {}, -- array of Decay.CarriedItem. The backpack.
 	locker = {}, -- Quarantine Locker (PLAN §10.2): found but not yet cleanable.
@@ -105,6 +133,39 @@ local function freezeCarry(data: any)
 	end
 end
 
+--- Seed `gearOwned` for any track that has never had it, from that track's equipped
+--- tier. This is the whole migration from "ownership is the equipped number" to
+--- "ownership is a set", and it is deliberately keyed on the per-track key being nil
+--- rather than on a version field or a `migrated` flag:
+---
+---   * an old save reaches here with `gearOwned = {}` (Reconcile filled it from the
+---     template) and an equipped tier of, say, 6 -> it is seeded {1,...,6}, which is
+---     precisely what the old `tier <= currentTier` rule told that player they owned.
+---     Nothing is taken away by the change.
+---   * a new save has every equipped tier at 1 -> seeded {1}, the free starting rung.
+---   * a save that has ALREADY been through this has a real array on every track, so
+---     the nil test fails and nothing is rewritten. That matters: a player who bought
+---     tier 8 straight off owns {1, 8}, and re-running a naive 1..equipped seed would
+---     silently hand them the six tiers this whole change exists to stop granting.
+---
+--- `luck` is skipped because it is not in Gear.TRACKS: it is a level, not a ladder.
+local function backfillGearOwned(data: any)
+	if data.gearOwned == nil then
+		data.gearOwned = {}
+	end
+	for _, track in Gear.TRACKS do
+		local key = Gear.profileKey(track)
+		if data.gearOwned[key] == nil then
+			local equipped = data.gear[key] or 1
+			local owned = {}
+			for tier = 1, math.max(1, equipped) do
+				table.insert(owned, tier)
+			end
+			data.gearOwned[key] = owned
+		end
+	end
+end
+
 local function thawCarry(data: any)
 	for _, item in data.carry do
 		item.frozen = false
@@ -128,6 +189,7 @@ local function onPlayerAdded(player: Player)
 
 	profile:AddUserId(player.UserId) -- GDPR association
 	profile:Reconcile() -- fill in keys added to TEMPLATE since this save was made
+	backfillGearOwned(profile.Data)
 
 	profile.OnSessionEnd:Connect(function()
 		profiles[player] = nil

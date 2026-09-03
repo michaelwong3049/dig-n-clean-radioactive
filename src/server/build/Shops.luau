@@ -192,7 +192,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 24
+local BUILDER_VERSION = 25
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
@@ -980,6 +980,13 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: { track: st
 	-- The counter is a solid part between the player and the rail, so a line-of-sight
 	-- prompt would only ever fire from inside the stall.
 	prompt.RequiresLineOfSight = false
+
+	-- WHAT THIS PROMPT SAYS WHEN THE TIER IS NOT YOURS, stamped on the prompt itself,
+	-- the same RestText trick the price card below uses and for the same reason. A
+	-- ProximityPrompt is ONE shared instance, so the client rewrites ActionText to
+	-- "Equip" locally on tiers the viewer already owns (StationController's rack pass)
+	-- and needs the as-built wording to put back afterwards without knowing the price.
+	prompt:SetAttribute("RestActionText", prompt.ActionText)
 	prompt.Parent = mount
 
 	-- Name and price. A client turns this into the green owned-check when the player

@@ -669,14 +669,17 @@ local function paintRow(row: TextButton, item, isSelected: boolean)
 	row:SetAttribute("Uid", item.uid)
 end
 
---- Three states, and two of them are a button you can press.
+--- Three states, and ALL THREE are now a button you can press.
 ---
---- Every tier past what you already own is buyable now — there is no locked-because-
---- you-skipped-a-rung state left to draw, so this is only ever current / owned /
---- buyable. OWNED still renders as dead chrome (bought, greyed, price gone) so it
---- reads as behind you rather than as a goal; buyable always shows its own price and
---- is always a live button, just split green/red by whether THIS tier's price fits
---- what you have right now.
+--- OWNED STOPPED BEING DEAD CHROME, because it stopped meaning "behind you". While
+--- ownership was a high-water mark, a greyed OWNED card was a rung you had walked
+--- past and could never want again, so there was nothing to press. Ownership is a set
+--- now: an owned card that is not the one in your hands is a tool you paid for and
+--- are not currently holding, and the only sensible thing to draw on it is EQUIP.
+---
+--- current  -> EQUIPPED, green wash, inert (pressing it would be a no-op)
+--- owned    -> EQUIP, live, neutral: yours, one press from being in your hands
+--- buyable  -> its own price, live, green/red on whether you can afford THIS tier
 local function paintShopCard(card: Frame, entry)
 	local nameLabel = card.CardName :: TextLabel
 	local stats = card.CardStats :: TextLabel
@@ -687,6 +690,7 @@ local function paintShopCard(card: Frame, entry)
 	nameLabel.Text = entry.name
 	stats.Text = table.concat(entry.stats, "\n")
 	card:SetAttribute("Buyable", entry.buyable == true)
+	card:SetAttribute("Equippable", entry.equippable == true)
 	card:SetAttribute("Tier", entry.tier)
 
 	if entry.current then
@@ -703,13 +707,18 @@ local function paintShopCard(card: Frame, entry)
 		buy.BackgroundTransparency = 0.78
 		buyStroke.Color = COLOR.green
 	elseif entry.owned then
-		nameLabel.TextColor3 = COLOR.dim
+		-- Yours, not in your hands. Drawn as a real affordance rather than the greyed
+		-- slab this used to be: full-strength name, a normal-weight stroke and a
+		-- pressable button. Deliberately NOT green — green is "this is the one you are
+		-- holding" everywhere on this panel, and two greens would make the card you
+		-- are using indistinguishable from the six you are not.
+		nameLabel.TextColor3 = COLOR.text
 		cardStroke.Color = COLOR.stroke
-		cardStroke.Thickness = UIKit.Stroke.thin
-		buy.Text = "OWNED"
-		buy.TextColor3 = COLOR.dim
+		cardStroke.Thickness = UIKit.Stroke.normal
+		buy.Text = "EQUIP"
+		buy.TextColor3 = COLOR.text
 		buy.BackgroundColor3 = COLOR.panel
-		buy.BackgroundTransparency = 0.6
+		buy.BackgroundTransparency = 0.35
 		buyStroke.Color = COLOR.stroke
 	elseif entry.buyable then
 		nameLabel.TextColor3 = COLOR.text
@@ -729,9 +738,10 @@ local function paintShopCard(card: Frame, entry)
 		buy.BackgroundTransparency = if entry.affordable then 0 else 0.8
 		buyStroke.Color = if entry.affordable then COLOR.green else COLOR.red
 	end
-	-- No trailing `else`: current, owned and buyable are exhaustive over every tier
-	-- (current ⊂ owned by tier number, buyable is everything else), so there is no
-	-- fourth case left to paint.
+	-- No trailing `else`: current, owned and buyable are exhaustive over every tier.
+	-- `current` is checked first and `owned` second, so the equipped tier takes the
+	-- EQUIPPED branch even though it is also owned, and `buyable` is by construction
+	-- `not owned` — every tier lands in exactly one of the three.
 end
 
 -- ── The rack beside the stand ────────────────────────────────────────────────
@@ -772,7 +782,15 @@ local RACK_TAG = "Upgrade"
 
 --- U+2713 first, the word after it. FredokaOne has no check glyph of its own, so
 --- this leans on Roblox's font fallback — and if that ever fails, what is left on the
---- card is "OWNED", which still says the thing. A bare check would leave a tofu box.
+--- card is the word, which still says the thing. A bare check would leave a tofu box.
+---
+--- TWO WORDS, NOT ONE, SINCE OWNERSHIP BECAME A SET. The rack used to paint one green
+--- tick on every tier at or below yours, which is exactly the complaint that started
+--- this: eight identical ticks after buying one detector, and no way to tell which
+--- tool you were actually holding. EQUIPPED is the one in your hands; OWNED is a tool
+--- you bought and are not using, and its hook's E switches to it rather than charging
+--- you for it again.
+local EQUIPPED_TEXT = "✓ EQUIPPED"
 local OWNED_TEXT = "✓ OWNED"
 
 --- Which (track, owned-through-tier) pair is currently painted onto the world.
@@ -781,16 +799,28 @@ local OWNED_TEXT = "✓ OWNED"
 --- tag index gets walked and 21 labels rewritten ten times a second to no effect.
 local rackKey: string? = nil
 
---- Paint the owned-check onto `track`'s rack, and restore every other hook in the
---- world to the price it was built showing. `tiers` nil restores all of them — that
---- is what leaving a shop does.
+--- Paint the per-player state onto `track`'s rack, and restore every other hook in
+--- the world to the price it was built showing. `tiers` nil restores all of them —
+--- that is what leaving a shop does.
 ---
---- RESTORE READS RestText / RestColor OFF THE LABEL, the same trick LiquidService
---- uses to put the wash pad's sign back after it announces a roll: the builder
---- stamps a label's as-built text and colour onto the label itself, so whatever
---- overwrites it never has to remember what was there. A hook with no SellsTier is
---- skipped entirely rather than restored — that is the Luck button, whose subtitle
---- is owned by ExhibitService and must not be touched from here.
+--- THREE STATES OUT HERE NOW, MATCHING THE PANEL'S THREE. The equipped tier gets the
+--- green EQUIPPED tick; a tier you own but are not holding gets a neutral OWNED tick
+--- and its prompt flips from "Buy $x" to "Equip"; everything else keeps the price it
+--- was built with. That prompt rewrite is the reason this function touches
+--- ProximityPrompts at all — a prompt is a single shared instance and the server
+--- cannot word it per player, exactly like the price cards.
+---
+--- WHAT THE PROMPT SAYS IS COSMETIC, AND THE SERVER DOES NOT TRUST IT. ShopService's
+--- own handler re-reads ownership from the profile and picks buy-or-equip there. If
+--- this paint is stale, the worst case is a prompt that says the wrong verb for one
+--- tick, never a wrong purchase.
+---
+--- RESTORE READS RestText / RestColor OFF THE LABEL (and RestActionText off the
+--- prompt), the same trick LiquidService uses to put the wash pad's sign back after
+--- it announces a roll: the builder stamps the as-built values onto the instance
+--- itself, so whatever overwrites it never has to remember what was there. A hook
+--- with no SellsTier is skipped entirely rather than restored — that is the Luck
+--- button, whose subtitle is owned by ExhibitService and must not be touched here.
 local function paintRack(track: string?, tiers: { any }?)
 	for _, part in CollectionService:GetTagged(RACK_TAG) do
 		local tier = part:GetAttribute("SellsTier")
@@ -805,35 +835,62 @@ local function paintRack(track: string?, tiers: { any }?)
 		end
 
 		local entry = if tiers ~= nil and part:GetAttribute("SellsTrack") == track then tiers[tier] else nil
+		local prompt = part:FindFirstChildOfClass("ProximityPrompt")
 
-		if entry ~= nil and entry.owned then
-			sub.Text = OWNED_TEXT
+		if entry ~= nil and entry.current then
+			sub.Text = EQUIPPED_TEXT
 			sub.TextColor3 = COLOR.green
+			if prompt then
+				-- Nothing to do to a tool you are already holding. The prompt stays
+				-- visible rather than being disabled, because a hook with no E at all
+				-- reads as broken next to seven that have one; pressing it is refused
+				-- server-side with "already in your hands".
+				prompt.ActionText = "Equipped"
+			end
+		elseif entry ~= nil and entry.owned then
+			sub.Text = OWNED_TEXT
+			sub.TextColor3 = COLOR.text
+			if prompt then
+				prompt.ActionText = "Equip"
+			end
 		else
 			sub.Text = (sub:GetAttribute("RestText") :: string?) or sub.Text
 			sub.TextColor3 = (sub:GetAttribute("RestColor") :: Color3?) or sub.TextColor3
+			if prompt then
+				prompt.ActionText = (prompt:GetAttribute("RestActionText") :: string?) or prompt.ActionText
+			end
 		end
 	end
 end
 
---- Repaint the rack only when the answer actually moved. The key is the track plus
---- the top tier the player owns, which is the only thing about an offer this rack
---- can draw — price and name are as-built, and affordability deliberately is not
---- shown out here (that is what the panel's cards are for).
+--- Repaint the rack only when the answer actually moved. Price and name are as-built
+--- and affordability deliberately is not shown out here (that is what the panel's
+--- cards are for), so the only things this rack can draw are which tiers are owned and
+--- which one is equipped — and the key is exactly those two.
+---
+--- THE KEY IS THE WHOLE OWNED SET NOW, NOT ITS MAXIMUM. It used to be the top owned
+--- tier, which was a complete description of an offer while ownership was a high-water
+--- mark. With a set, {1,4,8} and {1,8} share a maximum and are different racks, and
+--- equipping changes the paint without changing ownership at all. Both go in the
+--- fingerprint or the repaint gets skipped and the rack lies until you walk away.
 local function refreshRack()
 	local atShop = state.station == "shop"
 	local tiers = if atShop and state.offer then state.offer.tiers else nil
 
-	local owned = 0
+	local owned = {}
+	local equipped = 0
 	if tiers then
 		for _, entry in tiers do
-			if entry.owned and entry.tier > owned then
-				owned = entry.tier
+			if entry.owned then
+				table.insert(owned, entry.tier)
+			end
+			if entry.current then
+				equipped = entry.tier
 			end
 		end
 	end
 
-	local key = if tiers then `{tostring(state.stationId)}:{owned}` else nil
+	local key = if tiers then `{tostring(state.stationId)}:{equipped}:{table.concat(owned, ",")}` else nil
 	if key == rackKey then
 		return
 	end
@@ -1051,9 +1108,19 @@ function Station.start()
 	-- so a crafted tier number buys nothing a genuine click could not.
 	for _, card in ui.shopCards do
 		local buy = card.CardBuy :: TextButton
+		-- ONE BUTTON, TWO VERBS. Which one this card is showing is already decided in
+		-- paintShopCard and stamped on the card, so this reads the stamp rather than
+		-- re-deriving it from an offer that may have ticked since. The server decides
+		-- again regardless -- ShopService re-checks ownership on both paths -- so a
+		-- stale attribute here can only ever produce a refused action, never a wrong one.
 		buy.MouseButton1Click:Connect(function()
-			if card:GetAttribute("Buyable") and state.stationId then
+			if state.stationId == nil then
+				return
+			end
+			if card:GetAttribute("Buyable") then
 				actionRemote:FireServer({ action = "buy", track = state.stationId, tier = card:GetAttribute("Tier") })
+			elseif card:GetAttribute("Equippable") then
+				actionRemote:FireServer({ action = "equip", track = state.stationId, tier = card:GetAttribute("Tier") })
 			end
 		end)
 	end
