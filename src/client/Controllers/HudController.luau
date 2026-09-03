@@ -286,16 +286,22 @@ local function render(dt: number)
 	local colour = if state.failing then WHITE else GREEN
 
 	-- Nothing at all below the warn threshold. Silence is a UI state.
+	local over = overTier()
 	local intensity = 0
 	if frac >= Tuning.EXPOSURE_WARN then
 		intensity = (frac - Tuning.EXPOSURE_WARN) / (1 - Tuning.EXPOSURE_WARN)
 	end
+	-- A failing suit always shows something, but HOW MUCH is graded by how far past
+	-- your rating you are — a flat 0.65 floor here meant one step over the line lit
+	-- the overlay as hard as a nearly-full meter. Lands back on exactly 0.65 at three
+	-- times your tolerance. Same reasoning as RadFx's `failTarget`; the two have to
+	-- agree or the grade reappears through this floor.
 	if state.failing then
-		intensity = math.max(intensity, 0.65)
+		intensity = math.max(intensity, 0.2 + 0.45 * over)
 	end
 
 	local healthFrac = state.health / math.max(state.maxHealth, 1)
-	RadFx.update(dt, intensity, state.failing, healthFrac, overTier())
+	RadFx.update(dt, intensity, state.failing, healthFrac, over)
 
 	ui.fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
 	ui.fill.BackgroundColor3 = colour
@@ -341,11 +347,14 @@ local function render(dt: number)
 		if frac >= Tuning.EXPOSURE_DANGER or state.failing then
 			shakeSeed += dt * 22
 			local amount = lerp(0, 0.55, math.clamp((frac - Tuning.EXPOSURE_DANGER) / (1 - Tuning.EXPOSURE_DANGER), 0, 1))
+			-- Graded for the same reason as the intensity floor above: a flat 0.3 shove
+			-- the instant the flag flipped was a large part of what made crossing a
+			-- stage line feel like an explosion. Still 0.3 at three times your rating.
 			if state.failing then
-				amount = math.max(amount, 0.3)
+				amount = math.max(amount, 0.1 + 0.2 * over)
 			end
 			-- Out of your depth the camera stops being nudged and starts being shoved.
-			amount = math.max(amount, overTier() * 1.1)
+			amount = math.max(amount, over * 1.1)
 			humanoid.CameraOffset = Vector3.new(
 				math.sin(shakeSeed * 1.7) * amount,
 				math.sin(shakeSeed * 2.3) * amount * 0.6,

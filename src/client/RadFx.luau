@@ -45,14 +45,22 @@
 	over-tier layer linearly, which meant its two ends said the same sentence at two
 	volumes: a toe over the line was a faint darkening, and deep in the wrong stage
 	was total. Neither read as a distinct STATE. It is now split at LIGHT_SPAN into
-	two channels that do different jobs (see update()):
+	two channels that do different jobs (see update()).
+
+	THE FAILURE RAMP IS GRADED BY THE SAME NUMBER, and that matters more than the
+	split does. `failing` is a boolean, so ramping `st.fail` to a flat 1 on it used to
+	fire every crack, the 5-stud blur, the blood and the camera shove the moment you
+	stepped one foot past your rating — which is what "it jumps from nothing to
+	everything" actually was. See FAIL_FLOOR and `failTarget`. Grading the `over`
+	layers alone cannot fix it, because that whole block sits UNDER them.
 
 	  LIGHT     `light`, peaking at ~1.7x your rating and fading back out as blind
 	            arrives. The picture BREAKS UP — a second bank of static all its own,
 	            the feed tearing, colour draining, the throb quickening — but the
 	            middle of the screen is never touched and this grade adds only 2.5 to
-	            the blur (measured 7.2 total in Stage 1 at 1.35x rating, against 29.9
-	            at the intense end). You can still read the ground. This is a warning you can work through,
+	            the blur (measured live: 3.2 total in Stage 1 at 1.35x rating, against
+	            29.9 at the intense end — and 24 of 80 cracks lit, against all 80).
+	            You can still read the ground. This is a warning you can work through,
 	            and it is the grade a player meets by stepping one stage past their
 	            suit, which used to be a barely-visible darkening.
 	  REGULAR   the low half of `blind`. The tunnel starts closing and the blur
@@ -104,6 +112,12 @@ local rng = Random.new(0x2A0D)
 -- deep — so the entrance to a stage you are not rated for is entirely light, and
 -- pushing east into it is what starts closing the tunnel.
 local LIGHT_SPAN = 0.22
+-- HOW BROKEN THE SUIT READS AT THE INSTANT IT STARTS FAILING. `failing` is binary, so
+-- something has to stand in for "barely" — this is the bottom of the failure ramp,
+-- with `over` carrying it the rest of the way to 1. High enough that the glass agrees
+-- with the countdown when it says SUIT FAILING, low enough that a toe over the line
+-- is a few fractures rather than the whole visor.
+local FAIL_FLOOR = 0.25
 
 local RING_COUNT = 12
 local BLEED_RING_COUNT = 5
@@ -702,20 +716,40 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	end
 
 	st.t += dt
-	-- Failure ramps in over a couple of seconds and clears fast. Cracks that snap to
-	-- full the instant a flag flips look like a texture swap; cracks that spread look
-	-- like something breaking.
-	local step = if failing then dt / 2.0 else -dt / 0.6
-	st.fail = math.clamp(st.fail + step, 0, 1)
 
 	-- Eased, not snapped, and it lifts faster than it lands: walking one step across
 	-- a stage boundary must not strobe the whole screen, but a player who turns and
-	-- runs has to be able to SEE that retreating is working, immediately.
+	-- runs has to be able to SEE that retreating is working, immediately. Resolved
+	-- FIRST because the failure ramp below is now graded by it.
 	local want = math.clamp(over, 0, 1)
 	if want > st.over then
 		st.over = math.min(want, st.over + dt / 1.1)
 	else
 		st.over = math.max(want, st.over - dt / 0.45)
+	end
+
+	-- HOW BADLY THE SUIT IS FAILING, NOT MERELY WHETHER IT IS. This was the real
+	-- reason crossing a stage line went from nothing to everything, and no amount of
+	-- grading the `over` layers could fix it: `failing` is a BOOLEAN the instant
+	-- excess passes zero (Radiation.resolve: failing = excess > 0), and ramping to a
+	-- flat 1 on it detonated four heavy layers at once — every crack, the 5-stud
+	-- blur, the blood, and HudController's shake floor — for a player who had taken
+	-- one step too far. The grade was arriving at full volume underneath the ladder.
+	--
+	-- The target now rides `over`, which is safe because they answer to the same
+	-- condition: a toe past your rating cracks a corner of the visor, three times your
+	-- rating still destroys the whole thing (over = 1 gives target = 1, exactly as
+	-- before). FAIL_FLOOR keeps the state legible at the very bottom — the countdown
+	-- says SUIT FAILING, so the glass has to say it too.
+	--
+	-- Ramps in over a couple of seconds and clears fast. Cracks that snap to full the
+	-- instant a flag flips look like a texture swap; cracks that spread look like
+	-- something breaking.
+	local failTarget = if failing then FAIL_FLOOR + (1 - FAIL_FLOOR) * st.over else 0
+	if failTarget > st.fail then
+		st.fail = math.min(failTarget, st.fail + dt / 2.0)
+	else
+		st.fail = math.max(failTarget, st.fail - dt / 0.6)
 	end
 
 	-- Blood starts at a scratch and is total at a quarter health.
