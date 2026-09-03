@@ -146,11 +146,14 @@ what the player feels immediately: a better magnet means the same item takes hal
 you gained the instant you slow down. High tiers hold their ground and start pulling on
 their own, which turns frantic mashing into steady, comfortable clicking. **Draw is the
 comfort stat, and it's what people actually buy the top tiers for.**
-* **Lock strength** — the **hard gate**. Every item has a mass; every deep-stage item is
-half-fused into vitrified crust. Below the required lock strength the magnet snaps off the
-item entirely and you get a failed-lock buzz. A Bent Horseshoe will never move a Reactor
-Core no matter how fast you click. This is the gate that keeps deep stages honest — the
-detector says *there is something here*, the magnet decides *whether you get it*.
+* **Lock strength** — a **steep soft gradient**, not a hard gate. Every deep-stage item is
+half-fused into vitrified crust, and the further the crust outclasses your magnet the
+harder the whole pull scales down — yank *and* draw both. One stage over your tier is a
+brutal grind that a determined masher can still finish; two stages over, the item lurches
+up on your opening flurry and then sinks back no matter how you mash; three over, you
+simply cannot out-pull the ground. No message, no buzz — the mash itself tells you a Bent
+Horseshoe was never going to move a Reactor Core. This is the gate that keeps deep stages
+honest — the detector says *there is something here*, the magnet decides *whether you get it*.
 
 Pulling is where **exposure** first spikes: the moment the item surfaces, it starts emitting.
 The unearth moment is the game's little slot-machine pull — the item rips free with a magnetic

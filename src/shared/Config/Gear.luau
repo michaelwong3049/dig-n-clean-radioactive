@@ -119,9 +119,11 @@ Gear.Detector = {
 --            it is zero, so the ground takes back everything the instant you slow down;
 --            near the top it nearly cancels the drag, which turns frantic mashing into
 --            steady, unhurried clicking (PLAN §Step 2, "it sells you your hand back").
--- maxGrip  : the toughest ground it can rip something out of, vs Stages.soilHardness.
---            Under-rated magnets do not fail with a message — they lift the item a
---            little way and stall, in view, which sells the upgrade by itself.
+-- maxGrip  : the soil hardness (Stages.soilHardness) this magnet is RATED for. Past
+--            that it is not blocked and not messaged — the pull just scales down by
+--            Tuning.PULL_GRIP_FALLOFF per stage of deficit (yank and draw both), which
+--            is a brutal grind one stage over, a lurch-then-sink two over, and an
+--            unwinnable mash three over. Spec §Step2 pins that curve.
 --
 -- The trailing column is what falls out of pullSpeed and draw together: the clicks per
 -- second needed just to HOLD an item still. It is the number that decides whether a

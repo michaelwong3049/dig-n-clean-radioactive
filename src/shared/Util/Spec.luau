@@ -496,6 +496,15 @@ function Spec.run(): boolean
 		return (Tuning.PULL_DRAG_RATE - magnet.draw) / (Tuning.PULL_YANK_PER_CLICK * magnet.pullSpeed)
 	end
 
+	-- Same number, but with the soil OUTCLASSING the magnet by `deficit` stages:
+	-- DigService bends both magnet terms (yank + draw) by Tuning.PULL_GRIP_FALLOFF ^
+	-- deficit and leaves the drag alone, so clicks-to-hold climbs steeply.
+	local function holdAtDeficit(tier: number, deficit: number): number
+		local magnet = Gear.tier("Magnet", tier)
+		local e = Tuning.PULL_GRIP_FALLOFF ^ deficit
+		return (Tuning.PULL_DRAG_RATE - magnet.draw * e) / (Tuning.PULL_YANK_PER_CLICK * magnet.pullSpeed * e)
+	end
+
 	do
 		local starting = clicksToHold(1)
 		check(
@@ -541,6 +550,65 @@ function Spec.run(): boolean
 		check(
 			string.format("§Step2 the heaviest deep item takes %.1fs at 4 clicks/sec with the best magnet (want 2-15)", fastest),
 			fastest >= 2 and fastest <= 15
+		)
+	end
+
+	-- PLAN §Step 2 continued — maxGrip IS NOT A WALL ANY MORE, IT IS A STEEP GRIND.
+	--
+	-- Soil past a magnet's maxGrip used to clamp the haul at a quarter and paint
+	-- "MAGNET TOO WEAK". Now it scales the pull down by Tuning.PULL_GRIP_FALLOFF per
+	-- stage of deficit, with no clamp. These pin the shape the user asked for: one
+	-- stage over is a grind you can still win, two lurches then sinks, three is
+	-- unwinnable -- and a better magnet always rescues what the tier below cannot.
+	do
+		local cap = Tuning.PULL_YANK_SUSTAINED_CPS -- the click rate a strong human sustains
+		local start = Gear.tier("Magnet", 1)
+
+		-- Deficit 0 has to be the untouched pull, or every check above stops describing
+		-- the game: gripEff is exactly 1 when the magnet is rated for its soil.
+		check(
+			"§Step2 a magnet rated for its soil pulls exactly as before (no penalty at deficit 0)",
+			holdAtDeficit(1, 0) == clicksToHold(1)
+		)
+
+		-- Every stage the soil gains on the magnet costs strictly more mash.
+		check(
+			"§Step2 each stage over tier is strictly harder to hold than the last",
+			holdAtDeficit(1, 0) < holdAtDeficit(1, 1)
+				and holdAtDeficit(1, 1) < holdAtDeficit(1, 2)
+				and holdAtDeficit(1, 2) < holdAtDeficit(1, 3)
+		)
+
+		-- +1: past the starting magnet's own mash band (Spec pins that at <= 3.5 above),
+		-- but a strong masher still out-pulls the drag, so the item does come free.
+		local overByOne = holdAtDeficit(1, 1)
+		check(
+			string.format("§Step2 one stage over tier is a grind you can still win: %.2f clicks/sec (want 3.5-%.0f)", overByOne, cap),
+			overByOne > 3.5 and overByOne <= cap
+		)
+
+		-- +2: past what a human sustains. The opening token-bucket burst still lurches it
+		-- upward, then it sinks -- "almost impossible", deliberately not "impossible".
+		check(
+			string.format("§Step2 two stages over tier cannot be sustained: %.2f clicks/sec (want > %.0f)", holdAtDeficit(1, 2), cap),
+			holdAtDeficit(1, 2) > cap
+		)
+
+		-- +3: the wall enforces itself. Flat out at the sustained cap, the starting
+		-- magnet's net progress is still negative -- it can only sink.
+		local e3 = Tuning.PULL_GRIP_FALLOFF ^ 3
+		local netAtCap = cap * Tuning.PULL_YANK_PER_CLICK * start.pullSpeed * e3
+			- (Tuning.PULL_DRAG_RATE - start.draw * e3)
+		check(
+			string.format("§Step2 three stages over tier is unwinnable: %.3f net pull-sec/sec at the mash cap (want < 0)", netAtCap),
+			netAtCap < 0
+		)
+
+		-- The whole point of the redesign: one tier up the magnet track rescues an
+		-- over-tier soil the tier below cannot hold at all.
+		check(
+			"§Step2 a better magnet claws out an over-tier soil the tier below cannot",
+			holdAtDeficit(2, 2) < holdAtDeficit(1, 2)
 		)
 	end
 

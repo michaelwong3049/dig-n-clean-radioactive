@@ -75,10 +75,12 @@
 	  detector.depth     — deeper items are rarer (at baseline), and a weak detector
 	                       cannot see them. This is the only rarity-correlated gate
 	                       left now that maxRarity is gone.
-	  magnet.maxGrip     — you can find ground your magnet cannot rip anything out of.
-	                       This one is deliberately NOT an error message: an under-rated
-	                       magnet lifts the item partway and stalls, so the player watches
-	                       it strain three feet down and cannot have it.
+	  magnet.maxGrip     — how hard the ground can be before the magnet stops coping. It
+	                       is NOT a wall and NOT a message: soil past maxGrip scales the
+	                       whole pull down by Tuning.PULL_GRIP_FALLOFF per stage of
+	                       deficit (yank AND draw, drag untouched). One over tier is a
+	                       brutal grind, two over lurches then sinks, three over is
+	                       net-negative — the player feels the wall without being told.
 
 	detector.luck is NOT a gate — it bends the per-player roll toward Rare+ (see the
 	note above and Config/Items). detector.clarity used to gate what the PING tells you
@@ -120,7 +122,7 @@ local DIG_RADIUS = Tuning.DIG_RADIUS
 local DEPTH_BASE = Tuning.DIG_DEPTH_BASE
 local DEPTH_PER_RARITY = Tuning.DIG_DEPTH_PER_RARITY
 local DEPTH_JITTER = Tuning.DIG_DEPTH_JITTER
-local STRAIN_CEILING = 0.25 -- how far an under-rated magnet gets before it stalls
+local GRIP_FALLOFF = Tuning.PULL_GRIP_FALLOFF -- per-stage pull scaling when soil outclasses the magnet
 
 -- The mash. All five live in Config/Tuning -- Spec asserts on the click-rate curve
 -- they produce, and it cannot reach a local. SLIP_RATE went with the hold: the sink
@@ -826,15 +828,18 @@ local function stepPlayer(player: Player, dt: number)
 	end
 
 	local inRange = distance <= DIG_RADIUS
-	local strongEnough = signal.soil <= stats.maxGrip
 	local hasRoom = #data.carry < stats.capacity
 
-	local blocked: string? = nil
-	if not strongEnough then
-		blocked = "weak"
-	elseif not hasRoom then
-		blocked = "full"
-	end
+	-- How far the ground outclasses the magnet, in stages. Zero when the magnet is
+	-- rated for this soil or better. `gripEff` scales the magnet's whole side of the
+	-- haul (yank + draw) by GRIP_FALLOFF per stage of deficit -- a steep, unspoken
+	-- gradient, not a wall (see this file's header and Tuning.PULL_GRIP_FALLOFF).
+	local gripDeficit = math.max(0, signal.soil - stats.maxGrip)
+	local gripEff = GRIP_FALLOFF ^ gripDeficit
+
+	-- A full bag is the only thing that BLOCKS a haul now; an under-rated magnet just
+	-- grinds (or, far enough over tier, cannot win at all -- but it still gets to try).
+	local blocked: string? = if not hasRoom then "full" else nil
 
 	-- RELEASE 3: a full bag is the one thing that makes a lock pointless rather than
 	-- merely hard, and a rooted player staring at a panel they cannot finish is the
@@ -881,15 +886,17 @@ local function stepPlayer(player: Player, dt: number)
 	-- the net idle rate: strongly negative at tier 1, near zero at the top. That single
 	-- subtraction is the entire comfort curve the magnet track sells.
 	--
+	-- `gripEff` multiplies BOTH magnet terms (yank and draw) when the soil outclasses
+	-- the magnet, and nothing on the soil's side. There is no ceiling clamp: one stage
+	-- over tier is a grind you can still win, two lurches then sinks, three is
+	-- net-negative here no matter how fast the mash -- the wall enforces itself.
+	--
 	-- A full bag is the one hard stop — there is nowhere to put it. An under-rated
 	-- magnet still gets to try, and that trying is the whole teaching moment.
 	if canPull then
-		progress += (stats.draw - PULL_DRAG_RATE) * dt / required
-		progress += yanks * PULL_YANK_PER_CLICK * stats.pullSpeed / required
+		progress += (stats.draw * gripEff - PULL_DRAG_RATE) * dt / required
+		progress += yanks * PULL_YANK_PER_CLICK * stats.pullSpeed * gripEff / required
 		progress = math.max(progress, 0)
-		if not strongEnough then
-			progress = math.min(progress, STRAIN_CEILING)
-		end
 
 		if progress >= 1 then
 			digProgress[player] = 0
@@ -959,6 +966,9 @@ local function stepPlayer(player: Player, dt: number)
 		oddsHint = oddsHint,
 		inRange = inRange,
 		blocked = blocked,
+		-- Stages the soil is over the magnet (0 = rated). The client reads it only to
+		-- tint the haul bar warmer as the grind steepens -- it is never a blocker.
+		overGrip = gripDeficit,
 		-- Recomputed rather than reusing `isLocked` from the top of the tick, because
 		-- the releases above (bag full, signal gone, item surfaced) can all have fired
 		-- since. The payload has to describe the world AFTER this tick settled, or the

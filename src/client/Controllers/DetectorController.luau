@@ -131,6 +131,10 @@ local state = {
 	oddsHint = nil :: number?,
 	inRange = false,
 	blocked = nil :: string?,
+	-- Stages the soil outclasses the held magnet (0 = rated for it). Server-sent, read
+	-- only to tint the haul bar warmer as the over-tier grind steepens -- it never
+	-- blocks a haul and never becomes a status message.
+	overGrip = 0,
 	digProgress = 0,
 	-- Committed to a signal and rooted in place. The server is the authority on this;
 	-- the client never decides it is locked on its own, because being locked is what
@@ -1044,13 +1048,19 @@ local function renderState()
 		end
 		ui.haulTitle.TextColor3 = accent
 		ui.haulQuestion.Visible = not state.rarityHint
-		-- An under-rated magnet still locks on and still visibly strains -- it just
-		-- stalls at STRAIN_CEILING. Saying so here is the whole teaching moment, and
-		-- the panel is now where the player is looking when it happens.
-		local weak = state.blocked == "weak"
-		ui.haulFill.BackgroundColor3 = if weak then COLOR.red else COLOR.green
-		ui.haulButton.Text = if weak then "MAGNET TOO WEAK" else "PULL"
-		ui.haulButton.TextColor3 = if weak then COLOR.red else COLOR.green
+		-- An under-rated magnet still locks on, still pulls, and is never told it is too
+		-- weak -- the grind says it. All the panel does is warm the bar as the soil
+		-- outclasses the magnet: green when rated, amber one stage over, red by three.
+		local strain = math.clamp(state.overGrip, 0, 3)
+		local fill
+		if strain <= 1 then
+			fill = COLOR.green:Lerp(COLOR.amber, strain)
+		else
+			fill = COLOR.amber:Lerp(COLOR.red, (strain - 1) / 2)
+		end
+		ui.haulFill.BackgroundColor3 = fill
+		ui.haulButton.Text = "PULL"
+		ui.haulButton.TextColor3 = if strain > 0 then fill else COLOR.green
 	end
 
 	if not state.inStage then
@@ -1102,11 +1112,7 @@ local function renderState()
 	end
 	local named = if reads then ` \u{2014} nearest reads {reads}` else ""
 
-	if state.blocked == "weak" then
-		-- It still moves. It just will not come free — and the player can see that.
-		ui.status.Text = "it shifts, then stops \u{2014} magnet is too weak"
-		ui.status.TextColor3 = COLOR.red
-	elseif state.blocked == "full" then
+	if state.blocked == "full" then
 		ui.status.Text = "bag is full"
 		ui.status.TextColor3 = COLOR.red
 	elseif state.inRange then
@@ -1271,6 +1277,7 @@ function Detector.start()
 		state.oddsHint = payload.oddsHint
 		state.inRange = payload.inRange == true
 		state.blocked = payload.blocked
+		state.overGrip = payload.overGrip or 0
 		state.digProgress = payload.digProgress or 0
 		state.locked = payload.locked == true
 		-- payload.carrying / payload.capacity are deliberately ignored: the hotbar
