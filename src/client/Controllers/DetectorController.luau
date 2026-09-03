@@ -436,13 +436,19 @@ local function buildLockPromptGui(adornee: BasePart)
 		hit = hit,
 		-- (instance, property, value-when-shown) -- revealLockGui tweens each of these
 		-- to its shown value on the way in and to 1 on the way out.
+		--
+		-- THE CARD IS GLASS ON PURPOSE. The fills sit near-transparent so the world
+		-- (and the item breaking the surface) stays visible straight through it; what
+		-- carries the card is the OUTLINE and the TEXT, not the panel. So the two
+		-- strokes and both text labels still land at 0 while every BackgroundTransparency
+		-- rests high -- drop the outline and the whole thing dissolves.
 		fades = {
-			{ pin, "BackgroundTransparency", 0.06 },
-			{ panel, "BackgroundTransparency", 0.06 },
+			{ pin, "BackgroundTransparency", 0.6 },
+			{ panel, "BackgroundTransparency", 0.62 },
 			{ stroke, "Transparency", 0.08 },
-			{ keycap, "BackgroundTransparency", 0 },
+			{ keycap, "BackgroundTransparency", 0.5 },
 			{ keycapStroke, "Transparency", 0 },
-			{ keycapFill, "BackgroundTransparency", 0.12 },
+			{ keycapFill, "BackgroundTransparency", 0.3 },
 			{ keyLabel, "TextTransparency", 0 },
 			{ action, "TextTransparency", 0 },
 		},

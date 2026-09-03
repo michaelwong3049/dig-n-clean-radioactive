@@ -32,14 +32,14 @@
 
 	NO WALLS AND NO TRADER HERE EITHER, as of this pass. The camp used to be a
 	walled enclosure sitting inside the open plaza, boxing the trader off from the
-	shops around it; both the walls and the trader are gone now, so the camp is
-	just a floor pad and the join spawn — the plaza reads as one open shop area
-	instead of a plaza with a smaller walled camp inside it. THIS MEANS THERE IS
+	shops around it; both the walls and the trader are gone now, so the plaza reads
+	as one open shop area instead of a plaza with a smaller walled camp inside it.
+	The item-model yard in the southwest corner is now the only permanent structure
+	owned by this module. THIS MEANS THERE IS
 	CURRENTLY NO `StationKind = "trader"` ANYWHERE IN THE WORLD — `EconomyService.sell`
 	and the "sell" verb in `DeconService`'s action router are still there and still
 	work, but nothing in the world can trigger them until a trader (or some other
-	sell point) is placed again somewhere. Flagged, not silently dropped — see
-	TODO.md.
+	sell point) is placed again somewhere. Flagged, not silently dropped — see TODO.md.
 
 	NO ENTRANCE GATE EITHER. The two posts, their lamps, and the "BASE CAMP" sign
 	spanning between them read as an archway framing the approach, which wasn't
@@ -51,10 +51,11 @@
 local Workspace = game:GetService("Workspace")
 
 local Kit = require(script.Parent.Kit)
+local ModelGallery = require(script.Parent.ModelGallery)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 7
+local BUILDER_VERSION = 8
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -64,9 +65,8 @@ local DEFAULT_ORIGIN = CFrame.new(0, 0.9, 136)
 
 -- ── Primitives ────────────────────────────────────────────────────────────────
 -- `build`/`C` used to be aliased here from Kit, for the floor pad and the spawn.
--- Both are gone now (see buildShell) and nothing left in this file builds a part
--- directly, so there is nothing left to alias — Kit itself is still required
--- above for Kit.stamp and Kit.swap, which the rebuild plumbing below still uses.
+-- Both are gone now (see buildShell); ModelGallery owns the yard's primitives, while
+-- Kit remains responsible for this model's stamp and atomic rebuild plumbing.
 
 export type Spec = Kit.Spec
 
@@ -103,11 +103,10 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- delaying character creation until after data loads, a bigger change than
 	-- was asked for.
 	--
-	-- This leaves buildShell() building nothing at all, and that is fine, not a
-	-- bug to clean up: BaseCamp.luau stays because it is still where a trader (or
-	-- some other sell point, see the header's TODO note) belongs when one gets
-	-- built again — an empty placeholder generator beats deleting the file and
-	-- re-inventing the camp's origin/rebuild plumbing from scratch later.
+	-- The public model yard now gives BaseCamp a permanent authored structure again.
+	-- It stays out of the central aisle and automatically includes every catalog item
+	-- backed by ItemModels whenever this camp is rebuilt.
+	ModelGallery.build(ModelGallery.originForBase(origin), camp)
 end
 
 -- ── Entry points ──────────────────────────────────────────────────────────────

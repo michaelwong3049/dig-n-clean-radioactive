@@ -14,6 +14,7 @@ local GoldRing = require(script.GoldRing)
 local HouseKey = require(script.HouseKey)
 local RubberDuck = require(script.RubberDuck)
 local SteelRod = require(script.SteelRod)
+local WindUpFlashlight = require(script.WindUpFlashlight)
 local Wristwatch = require(script.Wristwatch)
 
 local ItemModels = {}
@@ -25,6 +26,7 @@ local factories: { [string]: () -> Model } = {
 	HouseKey = HouseKey.create,
 	RubberDuck = RubberDuck.create,
 	SteelRod = SteelRod.create,
+	WindUpFlashlight = WindUpFlashlight.create,
 	Wristwatch = Wristwatch.create,
 }
 

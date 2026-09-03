@@ -972,23 +972,27 @@ end
 
 -- ── Bootstrap ──────────────────────────────────────────────────────────
 
---- Is this player currently hauling something up? Read by ToolService to decide
---- whether the magnet or the detector belongs in their hands.
+--- Is this player currently hauling something up? Mirrors isLocked — `pulling` is
+--- set to the lock state every tick — and kept as its own name for callers that
+--- mean "hauling" rather than "rooted".
 function DigService.isPulling(player: Player): boolean
 	return pulling[player] == true
 end
 
 --- Has this player committed to a signal? Read by ExposureService, which owns
 --- Humanoid.WalkSpeed and holds it at zero while this is true — the lock ROOTS you,
---- and this is how the one system allowed to write WalkSpeed finds that out.
+--- and this is how the one system allowed to write WalkSpeed finds that out. Also
+--- read by ToolService: the magnet is in your hands for exactly as long as this is
+--- true, so it appears when you lock on and goes away when the pull ends.
 function DigService.isLocked(player: Player): boolean
 	return lockedTo[player] ~= nil
 end
 
---- Standing close enough to haul, whether or not they have started. ToolService
---- swaps to the magnet on THIS rather than on isPulling: a pull lasts a couple of
---- seconds, so keying the model to it made the magnet flicker in and out too fast
---- to register. Swapping on approach reads as "found it, now get the magnet out".
+--- Standing close enough to haul, whether or not they have committed. Nothing keys
+--- the held tool off this any more — ToolService swaps to the magnet on isLocked so
+--- the detector stays in your hands while you sweep across a glow you have not
+--- locked onto. Left as a thin accessor for any future caller that wants proximity
+--- without commitment.
 function DigService.isOverSignal(player: Player): boolean
 	return overSignal[player] == true
 end

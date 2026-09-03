@@ -224,6 +224,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
 		baseValue = 400,
+		model = "WindUpFlashlight",
 	},
 	{
 		id = "gold_ring",
