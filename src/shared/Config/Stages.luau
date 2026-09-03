@@ -248,7 +248,7 @@ Stages.DEFS = {
 		-- notes). See Stages.radsAt for how the two combine.
 		--
 		-- STAGE 1'S OWN GAP, closed in the second harshening pass: entrance (0.5) is
-		-- BELOW the starting Cloth Wrap suit's tolerance (1.0) by design -- Stage 1's
+		-- BELOW the starting Cloth Wrap suit's tolerance (1.5, was 1.0) by design -- Stage 1's
 		-- rated suit tier IS the starting tier, so a no-gear player must be able to
 		-- farm the entrance forever (Spec's own farmable check requires it, though
 		-- as of the third pass "forever" at the entrance is actually a ~9min cap --
@@ -256,10 +256,10 @@ Stages.DEFS = {
 		-- change and does not touch this deepRads value at all).
 		--
 		-- deepRads RAISED AGAIN in the third pass, for a target that turns out to be
-		-- about THIS stage's OWN far end, not the separate, far-away Stage 3: by
-		-- depthFrac 0.652 (about two-thirds of the way across this stage) a player is
-		-- under 30s from death, and by depthFrac 1.0 (this stage's true deepest point,
-		-- its east edge) that is down to ~17s -- while staying just under Stage 2's
+		-- about THIS stage's OWN far end, not the separate, far-away Stage 3. With Cloth
+		-- Wrap's tolerance now 1.5 (was 1.0), burn onset for an unsuited player sits at
+		-- ~depthFrac 0.68 (about two-thirds across), and by depthFrac 1.0 (this stage's
+		-- true deepest point, its east edge) survival is ~28s -- while staying just under Stage 2's
 		-- baseRads (2.0), a thin but real 1.5% ordering margin. Going any higher
 		-- breaks "Stage 1 is the safest stage" outright (Stage 2's own entrance would no
 		-- longer be the harsher of the two) -- see Spec.luau's own depthFrac check
