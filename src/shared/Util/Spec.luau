@@ -31,6 +31,8 @@ local Liquids = require(Config.Liquids)
 local Items = require(Config.Items)
 local Weight = require(Config.Weight)
 local ItemModels = require(script.Parent.Parent.ItemModels)
+local ToolModels = require(script.Parent.Parent.ToolModels)
+local ToolTiers = require(Config.ToolTiers)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
 local StatResolver = require(script.Parent.Parent.StatResolver)
@@ -282,7 +284,7 @@ function Spec.run(): boolean
 	check("§5.1 but never immobilises you", StatResolver.effectiveWalkSpeed(stats, 999, false) >= 6)
 
 	-- The liquid folds into effectivePotency and NOWHERE ELSE. `cleanPotency` is the
-	-- permanent capability the Locker and the Cleaner shop both read; the day someone
+	-- permanent capability the Locker and the hose shop both read; the day someone
 	-- "simplifies" this by adding the bonus into cleanPotency directly, the Locker
 	-- starts promising items it cannot keep once the canister empties.
 	check("§2.4 no liquid loaded means the two potencies agree", stats.effectivePotency == stats.cleanPotency)
@@ -307,7 +309,7 @@ function Spec.run(): boolean
 	--
 	-- THE ONE THAT MATTERS MOST IS THE POTENCY CAP. Liquids lend potency on top of
 	-- the Cleaner track, and the Cleaner track is PLAN §2 step 4's second hard gate —
-	-- the thing that makes the Quarantine Locker fill and the Cleaner shop sell.
+	-- the thing that makes the Quarantine Locker fill and the hose shop sell.
 	-- Nudging one liquid's `potency` to 5 because a playtester found the wall
 	-- annoying would silently delete that gate, and it would not fail anywhere else.
 	local worstBonus = 0
@@ -319,11 +321,61 @@ function Spec.run(): boolean
 		worstBonus <= Liquids.MAX_POTENCY_BONUS
 	)
 
-	-- The starting brush plus the best possible roll must still hit a wall inside the
-	-- catalogue, or the Cleaner track is decorative for a lucky player.
-	local startingReach = Gear.tier("Cleaner", 1).potency + Liquids.MAX_POTENCY_BONUS
+	-- ── The hose ladder (Config/Gear.Cleaner, Config/ToolTiers, ToolModels/Hose) ──
+	--
+	-- THREE TABLES DESCRIBE ONE LADDER and nothing but these checks stops them
+	-- diverging. Gear.Cleaner is the rungs (price, potency, scrubRate), ToolTiers is
+	-- their palette, ToolModels/Hose is their geometry. Every one of the three clamps
+	-- an out-of-range tier rather than erroring — which is right for a live server and
+	-- exactly why a mismatch is invisible in play: add an eighth rung to Gear and the
+	-- shop sells it, takes the money, and hands you the seventh hose forever.
+	local cleanerRungs = Gear.maxTier("Cleaner")
 	check(
-		string.format("§2.4 Wire Brush + the best liquid reaches hardness %d, short of Epic (%d)", startingReach, Rarity.get("Epic").hardness),
+		string.format("the hose ladder has one look per rung (%d rungs, %d looks)", cleanerRungs, ToolTiers.count("Cleaner")),
+		ToolTiers.count("Cleaner") == cleanerRungs
+	)
+	check(
+		string.format("the hose ladder has one model per rung (%d rungs, %d forms)", cleanerRungs, ToolModels.Hose.count()),
+		ToolModels.Hose.count() == cleanerRungs
+	)
+
+	-- ToolTiers' own header says "names mirror Gear.lua exactly; if they ever disagree,
+	-- Gear.lua wins". That was a comment for six years and a rule for none of them.
+	for tier = 1, cleanerRungs do
+		local rung, look = Gear.tier("Cleaner", tier), ToolTiers.get("Cleaner", tier)
+		check(`hose {tier} agrees on its name: "{rung.name}" / "{look.name}"`, rung.name == look.name)
+	end
+
+	-- CarryService.hoseNameFor WALKS THIS TABLE IN ORDER and returns the first rung
+	-- that reaches a hardness, so ascending potency is not a nicety — a table sorted
+	-- any other way makes "needs the Chem Injector" name the wrong hose, and it names
+	-- it confidently. Ascending price is the same promise made to the shop rack.
+	for tier = 2, cleanerRungs do
+		local prev, this = Gear.tier("Cleaner", tier - 1), Gear.tier("Cleaner", tier)
+		check(`hose {tier} costs more than {tier - 1}`, this.price > prev.price)
+		check(`hose {tier} reaches further than {tier - 1}`, this.potency > prev.potency)
+	end
+
+	-- THE HOSE THE WASH BAY WELDS INTO YOUR HAND IS THE ONE IT PARKED ON THE PUMP'S
+	-- LADDER. build/Plots builds the station prop at STATION_TIER and WashService
+	-- builds the held one at the player's, from the same factory — so a STATION_TIER
+	-- off the end of the ladder would silently clamp and the prop would stop matching
+	-- any purchasable rung.
+	check(
+		`the station's parked hose is a real rung (tier {ToolModels.Hose.STATION_TIER})`,
+		ToolModels.Hose.STATION_TIER >= 1 and ToolModels.Hose.STATION_TIER <= cleanerRungs
+	)
+
+	-- The starting hose plus the best possible roll must still hit a wall inside the
+	-- catalogue, or the Cleaner track is decorative for a lucky player. Named off the
+	-- table rather than hardcoded to "Garden Hose": the ladder has been renamed once
+	-- already (it was Wire Brush -> Plasma Scour before the seven hoses), and a check
+	-- whose MESSAGE goes stale while its assertion still passes is a check nobody
+	-- trusts the second time they read it.
+	local startingHose = Gear.tier("Cleaner", 1)
+	local startingReach = startingHose.potency + Liquids.MAX_POTENCY_BONUS
+	check(
+		string.format("§2.4 %s + the best liquid reaches hardness %d, short of Epic (%d)", startingHose.name, startingReach, Rarity.get("Epic").hardness),
 		startingReach < Rarity.get("Epic").hardness
 	)
 

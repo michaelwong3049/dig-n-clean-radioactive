@@ -8,7 +8,7 @@
 	storytelling in the game. A client-only cosmetic would be invisible to everyone else.
 
 	WHICH TOOL, in priority order:
-	  at the decon station -> Cleaner   (you are here to scrub)
+	  at the decon station -> Cleaner   (your hose; you are here to clean)
 	  committed to a signal -> Magnet   (you have locked on — now pull it up)
 	  standing in a stage   -> Detector  (sweeping is the default verb)
 	  otherwise            -> nothing   (base camp, hands free)
@@ -34,6 +34,7 @@ local Gear = require(Shared.Config.Gear)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local ItemModels = require(Shared.ItemModels)
+local ToolModels = require(Shared.ToolModels)
 local Ticker = require(Shared.Util.Ticker)
 
 local DataService = require(script.Parent.DataService)
@@ -330,15 +331,41 @@ local function unequip(character: Model)
 	end
 end
 
-local function equip(character: Model, track: string, tier: number)
+--- CODE-AUTHORED TRACKS COME FIRST, and the Cleaner track is the only one so far:
+--- Shared/ToolModels owns its seven hoses (see that module's header for why it left
+--- the place file), so a stale `Assets/Tools/Cleaner` folder of the old brushes and
+--- sponges must not win the lookup. Every other track still resolves out of the place.
+---
+--- `built` is the throwaway flag: a library template is cloned and must survive, a
+--- factory model was made for this call and the clone below is a second copy of it.
+--- Rather than special-case the clone, the extra one is destroyed at the end — one
+--- allocation per re-equip, on a path that only runs when the tool or tier changes.
+local function templateFor(track: string, tier: number): (Model?, boolean)
+	if ToolModels.has(track) then
+		return ToolModels.create(track, tier), true
+	end
 	local folder = LIBRARY:FindFirstChild(track)
-	local template = if folder then folder:FindFirstChild(`T{tier}`) else nil
-	if template == nil or not template:IsA("Model") or template.PrimaryPart == nil then
+	local model = if folder then folder:FindFirstChild(`T{tier}`) else nil
+	if model and model:IsA("Model") and model.PrimaryPart ~= nil then
+		return model, false
+	end
+	return nil, false
+end
+
+local function equip(character: Model, track: string, tier: number)
+	local template, built = templateFor(track, tier)
+	if template == nil or template.PrimaryPart == nil then
+		if template and built then
+			template:Destroy()
+		end
 		return false
 	end
 
 	local anchor = attachPointOf(character, template)
 	if anchor == nil then
+		if built then
+			template:Destroy()
+		end
 		return false
 	end
 
@@ -369,6 +396,10 @@ local function equip(character: Model, track: string, tier: number)
 	weld.Part0 = anchor
 	weld.Part1 = clone.PrimaryPart
 	weld.Parent = clone.PrimaryPart
+
+	if built then
+		template:Destroy()
+	end
 
 	return true
 end

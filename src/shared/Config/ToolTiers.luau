@@ -36,6 +36,12 @@ export type TierLook = {
 local ToolTiers = {}
 
 -- Which model in Assets/Tools each track is built from.
+--
+-- CLEANER IS NO LONGER ONE OF THEM, and the entry is kept only so a place that still
+-- has the old folder does not read as a missing key. That track's seven tiers are
+-- built from primitives by Shared/ToolModels/Hose, in git, with a real silhouette per
+-- rung instead of one model recoloured — which is also the way out of this file being
+-- a recipe with no cook. Detector and Magnet still come out of the place.
 ToolTiers.BASE = {
 	Detector = "Detector",
 	Magnet = "Magnet",
@@ -70,17 +76,38 @@ ToolTiers.Magnet = {
 	{ name = "Singularity Coil", scale = 2.80, body = Color3.fromHex("7A3FD4"), accent = Color3.fromHex("EDEDED"), material = Enum.Material.Metal, glow = Color3.fromHex("D6A6FF") },
 } :: { TierLook }
 
--- NOTE: this line changes OBJECT, not just finish — a Chem Bath is not a brush with
--- a different paint job. Recolouring gets the tiers readable now; bespoke silhouettes
--- for the back half of this track are the most worthwhile art job left.
+-- THE ONLY TRACK WHOSE ROWS ARE ACTUALLY READ AT RUNTIME. The note above this table
+-- used to say the line "changes OBJECT, not just finish — a Chem Bath is not a brush
+-- with a different paint job", and that bespoke silhouettes were the most worthwhile
+-- art job left. They got built: Shared/ToolModels/Hose authors seven hoses from
+-- primitives and asks this table for their colours. So `body`, `accent`, `glow` and
+-- `material` below are live values, not a recipe waiting for a cook.
+--
+-- `scale` IS 1.00 ALL THE WAY DOWN, AND THAT IS NOT AN OVERSIGHT. The column exists
+-- because Detector and Magnet are ONE base model reused eight and six times, so a
+-- multiplier is the only size knob they have. Seven authored silhouettes carry their
+-- own size — the Plasma Lance is long because it is drawn long, not because it is a
+-- Garden Hose blown up 50%. Keeping a second size knob on top is how a tier ends up
+-- 8% off its own drawing for no reason anyone can find later. Change a hose's size in
+-- ToolModels/Hose's FORMS table, not here.
+--
+-- "TIER 1 IS NEVER REPAINTED" (see this file's header) DOES NOT BIND HERE EITHER. That
+-- rule protects a hand-authored base model that was chosen because it looked right;
+-- tier 1 of this track is drawn to spec like the other six, so it gets a palette like
+-- the other six. Dull rubber and grey plastic: it is the free rung and it should read
+-- as the free rung.
+--
+-- Tier 2 is the one palette that is pinned rather than chosen — build/Plots parks a
+-- tier-2 hose on every plot's pump, and hoseGreen/hoseBrass are the colours that prop
+-- has always been, matched to Kit.C's own hose entries.
 ToolTiers.Cleaner = {
-	{ name = "Wire Brush", scale = 1.00, body = Color3.fromHex("E8823C"), accent = Color3.fromHex("EFE6D2"), material = Enum.Material.SmoothPlastic },
-	{ name = "Acid Sponge", scale = 1.08, body = Color3.fromHex("6FA83C"), accent = Color3.fromHex("DCEBC0"), material = Enum.Material.Foil },
-	{ name = "Pressure Washer", scale = 1.16, body = Color3.fromHex("3F7FBF"), accent = Color3.fromHex("C9D6E0"), material = Enum.Material.Metal },
-	{ name = "Chem Bath", scale = 1.24, body = Color3.fromHex("7A4FA8"), accent = Color3.fromHex("D8C6F0"), material = Enum.Material.Metal },
-	{ name = "Ultrasonic Rig", scale = 1.32, body = Color3.fromHex("2E9BA8"), accent = Color3.fromHex("BFF2F7"), material = Enum.Material.Metal, glow = Color3.fromHex("7FE8F2") },
-	{ name = "Ion Shower", scale = 1.40, body = Color3.fromHex("EDEDED"), accent = Color3.fromHex("6FC8FF"), material = Enum.Material.Metal, glow = Color3.fromHex("9FDCFF") },
-	{ name = "Plasma Scour", scale = 1.50, body = Color3.fromHex("D43FA0"), accent = Color3.fromHex("FFE0F4"), material = Enum.Material.Metal, glow = Color3.fromHex("FF9FE0") },
+	{ name = "Garden Hose", scale = 1.00, body = Color3.fromHex("3E7D52"), accent = Color3.fromHex("B9C2C6"), material = Enum.Material.SmoothPlastic },
+	{ name = "Patched Fire Hose", scale = 1.00, body = Color3.fromHex("2FA36A"), accent = Color3.fromHex("C8A24A"), material = Enum.Material.SmoothPlastic },
+	{ name = "Pressure Lance", scale = 1.00, body = Color3.fromHex("3F7FBF"), accent = Color3.fromHex("C9D6E0"), material = Enum.Material.Metal },
+	{ name = "Chem Injector", scale = 1.00, body = Color3.fromHex("7A4FA8"), accent = Color3.fromHex("D8C6F0"), material = Enum.Material.Metal },
+	{ name = "Ultrasonic Jet", scale = 1.00, body = Color3.fromHex("2E9BA8"), accent = Color3.fromHex("BFF2F7"), material = Enum.Material.Metal, glow = Color3.fromHex("7FE8F2") },
+	{ name = "Ion Cannon", scale = 1.00, body = Color3.fromHex("EDEDED"), accent = Color3.fromHex("6FC8FF"), material = Enum.Material.Metal, glow = Color3.fromHex("9FDCFF") },
+	{ name = "Plasma Lance", scale = 1.00, body = Color3.fromHex("D43FA0"), accent = Color3.fromHex("FFE0F4"), material = Enum.Material.Metal, glow = Color3.fromHex("FF9FE0") },
 } :: { TierLook }
 
 function ToolTiers.get(track: string, tier: number): TierLook

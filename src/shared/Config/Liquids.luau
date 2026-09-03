@@ -4,7 +4,7 @@
 
 	THE THIRD GATE THAT ISN'T A GATE. Config/Rarity's `hardness` column and
 	Config/Gear's Cleaner `potency` column are the second gate (PLAN §2 step 4): a
-	patch harder than your cleaner never comes off, ever, and the Quarantine Locker
+	patch harder than your hose never comes off, ever, and the Quarantine Locker
 	is where those items sit as a labelled advertisement for the next tier. That
 	gate is the whole reason the Cleaner track sells, so a rolled liquid is NOT
 	allowed to replace it.
@@ -13,17 +13,25 @@
 
 	  rateMult   — how FAST you scrub. Every liquid moves this. Always safe.
 	  xpMult     — what a cleared patch PAYS. Every liquid moves this. Always safe.
-	  potency    — a BONUS on top of your cleaner, capped at +2 and only on the top
+	  potency    — a BONUS on top of your hose, capped at +2 and only on the top
 	               six of the table. This is the one that touches the gate, and the
 	               cap is the entire reason it is allowed to.
 
-	WHY +2 IS THE CAP, and why Util/Spec asserts it. A Wire Brush is potency 1 and
+	WHY +2 IS THE CAP, and why Util/Spec asserts it. A Garden Hose is potency 1 and
 	Anomaly hardness is 7. If a rolled liquid could reach +6, a lucky first-hour
-	player would clean the top of the catalogue with the starting tool and the
-	Cleaner track would have nothing left to sell. At +2, the starting brush reaches
-	hardness 3 (Rare) and stops — Epic and up still need real tools, the Locker still
+	player would clean the top of the catalogue with the starting tier and the
+	Cleaner track would have nothing left to sell. At +2, the Garden Hose reaches
+	hardness 3 (Rare) and stops — Epic and up still need a real hose, the Locker still
 	fills, and what the jackpot buys you is ONE tier of reach for a handful of
 	patches. That is a treat, not a bypass.
+
+	THE LIQUID AND THE HOSE ARE TWO DIFFERENT PURCHASES AND THE UI MUST KEEP SAYING SO.
+	They were easy to tell apart when the Cleaner track sold brushes and sponges; now
+	that it sells hoses, "your hose" and "what is in your hose" are one word apart. So
+	nothing here calls a liquid "the hose": the liquid is always named (Glacier Melt),
+	and the permanent capability is always the rung name (Pressure Lance). See
+	WashService's two-clause too-tough message for the same rule applied to a string
+	a player actually reads.
 
 	PLAIN WATER IS THE FLOOR AND IT NEVER RUNS OUT. Every other liquid arrives with
 	`charges` (one per patch cleared) and reverts to Water at zero. Water is
@@ -86,7 +94,7 @@ export type LiquidDef = {
 	flavor: string,
 	weight: number, -- base roll weight at luck 1.0. 0 = never rolled.
 	luckBias: number, -- the exponent luck is raised to for THIS entry. 0 = luck-proof.
-	potency: number, -- BONUS on top of Cleaner potency. Capped at 2, see the header.
+	potency: number, -- BONUS on top of the hose's potency. Capped at 2, see the header.
 	rateMult: number, -- multiplies scrubRate
 	xpMult: number, -- multiplies XP per cleared patch
 	charges: number, -- patches this liquid can clear per roll. Ignored for water.
@@ -286,7 +294,8 @@ end
 
 --- The cheapest liquid that would add this much potency, for "Molten Lava cracks
 --- this" style labels. nil when no liquid reaches that far — which is the honest
---- answer whenever the shortfall is more than MAX_POTENCY_BONUS.
+--- answer whenever the shortfall is more than MAX_POTENCY_BONUS, and the point at
+--- which the only remaining answer is a better hose (CarryService.hoseNameFor).
 function Liquids.cheapestWithPotency(bonus: number): LiquidDef?
 	if bonus <= 0 then
 		return nil

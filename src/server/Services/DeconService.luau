@@ -102,7 +102,7 @@ local function rack(_player: Player, data: any, uid: string): (boolean, string)
 	-- of is worse than no label. The Locker names the permanent fix.
 	local blocked = Contamination.blockedBy(item.patches or {}, StatResolver.get(data).cleanPotency)
 	if blocked then
-		return true, `{def.name} racked \u{2014} waiting on {CarryService.cleanerNameFor(blocked)}`
+		return true, `{def.name} racked \u{2014} waiting on {CarryService.hoseNameFor(blocked)}`
 	end
 	return true, `{def.name} racked`
 end
@@ -166,7 +166,7 @@ local function stepPlayer(player: Player, _dt: number)
 		liquidName = Liquids.get(stats.liquidId).name,
 		liquidColor = Liquids.get(stats.liquidId).color,
 		liquidCharges = data.liquids[stats.liquidId] or 0,
-		cleanerName = Gear.tier("Cleaner", data.gear.cleaner or 1).name,
+		hoseName = Gear.tier("Cleaner", data.gear.cleaner or 1).name,
 		capacity = stats.capacity,
 		items = carried,
 		locker = locker,
@@ -175,8 +175,8 @@ end
 
 -- ── Bootstrap ──────────────────────────────────────────────────────────
 
---- "decon", "trader" or nil. Read by ToolService to put the brush in your hands
---- when you are somewhere it makes sense to be scrubbing.
+--- "decon", "trader" or nil. Read by ToolService to put your hose in your hands
+--- when you are somewhere it makes sense to be cleaning.
 function DeconService.stationOf(player: Player): string?
 	return StationService.kindOf(player)
 end

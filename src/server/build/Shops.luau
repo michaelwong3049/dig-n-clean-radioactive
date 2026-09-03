@@ -5,7 +5,7 @@
 	    require(game.ServerScriptService.Server.build.Shops).rebuild()
 
 	THREE STALLS ON THE PLAZA, one per tool you hold: the detector that finds it, the
-	magnet that pulls it, and the cleaner that scrubs it. Each is a different colour
+	magnet that pulls it, and the hose that washes it. Each is a different colour
 	and keeps that colour forever. A young player learns "the coral one is the
 	detector shop" once and then navigates by colour rather than by reading signs,
 	which is the cheapest legibility win available anywhere in this map.
@@ -54,7 +54,7 @@
 	counter with a steel cap, a shallow striped canopy and matching valance IN THE
 	STALL'S OWN COLOUR (coral / teal / purple against white, no longer the one
 	shared awning red), and a floating two-line sign that NAMES WHAT THE STALL
-	SELLS (DETECTORS / MAGNETS / CLEANERS) in that same accent, with the tagline
+	SELLS (DETECTORS / MAGNETS / HOSES) in that same accent, with the tagline
 	under it. The Outfitter remains the larger peaked-roof building — now tucked in
 	behind the Detector and Cleaner stalls on the west, and open front and back as
 	a walk-through — its three counters each billboarded the same way (SUITS /
@@ -163,6 +163,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
+local ToolModels = require(Shared.ToolModels)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
@@ -229,7 +230,7 @@ local STALL_RING_RADIUS = 32
 local STALLS = {
 	{ track = "Detector", bearing = 120, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper" },
 	{ track = "Magnet", bearing = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder" },
-	{ track = "Cleaner", bearing = -120, color = C.shopCleaner, label = "CLEANERS", tagline = "scrub it cleaner" },
+	{ track = "Cleaner", bearing = -120, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean" },
 }
 
 -- ── The rack ─────────────────────────────────────────────────────────────────
@@ -482,7 +483,7 @@ local function buildSlatWall(parent: Instance, origin: CFrame, width: number)
 end
 
 --- The floating stall sign, in the reference's two-line hierarchy: the big line
---- names WHAT THE STALL SELLS (DETECTORS / MAGNETS / CLEANERS) in that shop's own
+--- names WHAT THE STALL SELLS (DETECTORS / MAGNETS / HOSES) in that shop's own
 --- accent colour so the sign itself does the colour-navigation, and a smaller
 --- white line under it carries the tagline. `accent` is the shop's hex string.
 --- The big line is TextScaled so any label length fits its band without
@@ -635,7 +636,22 @@ end
 --- The template for one tier of `track`, or nil if this place has no art for it.
 --- Same lookup ToolService.equip does, deliberately: if the model it would put in
 --- your hands does not exist, the rack must not pretend it does.
+---
+--- CODE-AUTHORED TRACKS ARE ASKED FIRST, and for that one reason: it is what the
+--- player will actually be handed. Shared/ToolModels owns the Cleaner track's seven
+--- hoses now (see its header for why that track left the place file), so a stale
+--- `Assets/Tools/Cleaner` folder full of the old brushes and sponges must NOT win here
+--- — a rack advertising a Wire Brush that the wash bay then hands you as a Garden Hose
+--- is the exact "the thing on the rail is not the thing you get" failure this rack was
+--- built to avoid.
+---
+--- The caller clones what comes back, so handing it a freshly built model rather than
+--- a library instance costs one throwaway Model per tier per rebuild and keeps the two
+--- paths identical from here down.
 local function tierTemplate(track: string, tier: number): Model?
+	if ToolModels.has(track) then
+		return ToolModels.create(track, tier)
+	end
 	if TOOL_LIBRARY == nil then
 		return nil
 	end
@@ -708,6 +724,15 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, tar
 		hold = CFrame.new()
 	end
 	clone:PivotTo(hand * hold)
+
+	-- A code-authored template is built for this call and has no parent; a library one
+	-- lives in Assets/Tools and must survive. Parentage is the honest test for which is
+	-- which, and this is the last line that reads `template`, so the throwaway can go
+	-- rather than waiting on a collection pass. Eight tiers times three stalls times
+	-- every rebuild is not free.
+	if template.Parent == nil then
+		template:Destroy()
+	end
 
 	-- The model's box, RE-MEASURED ON THE STALL'S OWN AXES: its 8 corners taken into
 	-- the stall's local frame, then min/max per axis. The box GetBoundingBox returns
