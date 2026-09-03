@@ -57,12 +57,12 @@
 	rather than being hidden under the panel.
 
 	AND THE SHOP IS ALSO A RACK IN THE WORLD NOW, WHICH THIS FILE PAINTS BUT DOES NOT
-	OWN. Every tier of the three tool tracks hangs over its counter with a price card
-	above it and its own E prompt (build/Shops), so a player who knows which detector
-	they want buys it without ever opening this panel. The one thing those cards
-	cannot show on their own is whether YOU own that tier — they are single shared
-	instances — so the owned-check is written locally, off the same `offer` this panel
-	is already receiving. See "The rack over the counter" below for what that costs.
+	OWN. Every tier of the three tool tracks hangs on the wing beside its stand with a
+	price card above it and its own E prompt (build/Shops), so a player who knows which
+	detector they want buys it without ever opening this panel. The one thing those
+	cards cannot show on their own is whether YOU own that tier — they are single
+	shared instances — so the owned-check is written locally, off the same `offer` this
+	panel is already receiving. See "The rack beside the stand" below for what it costs.
 	The panel is unchanged and still opens: the rack is the fast path, the cards here
 	are still the only place the stat blocks live.
 
@@ -720,10 +720,10 @@ local function paintShopCard(card: Frame, entry)
 	-- fourth case left to paint.
 end
 
--- ── The rack over the counter ────────────────────────────────────────────────
+-- ── The rack beside the stand ────────────────────────────────────────────────
 --
 -- THE OWNED-CHECK IS THE ONE PER-PLAYER THING ON A SHARED OBJECT. Every tier of the
--- three tool tracks hangs on a rail over its shop counter with its price on a card
+-- three tool tracks hangs on a rail beside its shop's stand with its price on a card
 -- above it (build/Shops' rack). That card is world geometry — one instance, seen by
 -- everybody — so the server cannot write "you own this" onto it for one player. The
 -- client can, locally, and nothing it writes replicates anywhere.
@@ -741,6 +741,13 @@ end
 -- the cards' own MaxDistance is 28 studs, so they are barely legible from further
 -- out anyway — but it is a trade, and the fix if it ever stops being one is to
 -- replicate the gear tiers rather than to start guessing here.
+--
+-- AND IT IS WHY A STALL EMITS TWO STATION CIRCLES. When the rack moved off the
+-- counter onto its own wing, a single tight circle on the stand would have blanked
+-- every tick of this the moment a player walked over to the tools — the exact moment
+-- the ticks are worth drawing. build/Shops answers that on its side, by putting the
+-- same StationKind/StationId on the wing's shelf as well; nothing here had to change,
+-- but this paragraph is why that duplication is load-bearing and not tidy-up bait.
 
 --- Matches Kit.UPGRADE_TAG and ShopService's own copy. Hardcoded a third time for
 --- the reason ShopService's copy gives: build/Kit lives in ServerScriptService and

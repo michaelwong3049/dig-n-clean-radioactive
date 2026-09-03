@@ -27,7 +27,7 @@
 	next one"; see `CatalogEntry` below.
 
 	THERE ARE TWO DOORS ONTO buyTier NOW, AND ONLY ONE OF THEM IS THE PANEL.
-	Every tier of the three tool tracks also hangs on a rail over its shop counter
+	Every tier of the three tool tracks also hangs on a rail beside its shop's stand
 	with its own ProximityPrompt (build/Shops' rack), so a player who knows which
 	detector they want walks up to that detector and presses E — no panel, no card,
 	no row to find. `wireUpgrade` below is that path. It lands on exactly the same
