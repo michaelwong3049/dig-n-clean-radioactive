@@ -173,6 +173,23 @@ Tuning.PULL_DRAG_RATE = 0.75
 -- What one yank is worth, in pull-seconds, before pullSpeed scales it.
 Tuning.PULL_YANK_PER_CLICK = 0.30
 
+-- ── Over-tier grip (Gear.Magnet.maxGrip vs Stages.soilHardness) ─────────
+--
+-- maxGrip USED TO BE A HARD WALL: soil > maxGrip clamped the haul at a quarter and
+-- painted "MAGNET TOO WEAK". It is now a STEEP SOFT GRADIENT. The magnet's whole side
+-- of the tug-of-war -- the yank impulse AND the passive draw -- is multiplied by
+--   gripEff = PULL_GRIP_FALLOFF ^ deficit        deficit = max(0, soilHardness - maxGrip)
+-- while PULL_DRAG_RATE (the soil's pull) is untouched. So the clicks-per-second just
+-- to HOLD an item becomes
+--   (PULL_DRAG_RATE - draw*gripEff) / (PULL_YANK_PER_CLICK * pullSpeed * gripEff)
+-- which blows up fast: at 0.5, one stage over tier roughly doubles the mash a weak
+-- magnet needs (a real grind, still winnable at ~8/sec), two stages over puts it past
+-- what a human sustains (the item lurches on the opening burst, then sinks), three
+-- over is net-negative even at the rate cap -- an unspoken wall, no message. A
+-- slightly better magnet claws out a deficit the tier below cannot. There is NO
+-- ceiling clamp any more. Spec §Step2 pins the +1 / +2 / +3 behaviour off this number.
+Tuning.PULL_GRIP_FALLOFF = 0.5
+
 -- ── Yank rate limiting (anti-exploit) ───────────────────────────────────
 --
 -- READ THIS BEFORE RAISING ANY OF THEM. The hold-to-pull version of this feature was
