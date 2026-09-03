@@ -22,6 +22,7 @@
 	                                           stage you are standing in
 	  * a stage overlapping the plaza        -> base camp irradiates you
 	  * a station part without its tag      -> that one shop just does not work
+	  * a shop counter outside Workspace.Shops -> a ghost shop no rebuild can clear
 	  * no respawn anchor                   -> blackout drops you at (0, 8, 0)
 
 	None of those throw. All of them ruin the game. So they are checked here, and
@@ -333,6 +334,55 @@ function World.verify(): (boolean, { string })
 	-- mechanisms. This is left as a floor so that "the shops model failed to build at
 	-- all" still trips something loud and specific.
 	check((census.shop or 0) > 0, `no shop counters in the world at all, found {census.shop or 0}`)
+
+	-- EVERY SHOP COUNTER LIVES UNDER Workspace.Shops, AND NOTHING ELSE IS ALLOWED TO
+	-- BE ONE. This is not tidiness — it is the only check that can see a GHOST SHOP,
+	-- and one sat in this place for weeks before anyone noticed.
+	--
+	-- Three duplicate stalls (`Workspace.DetectorShop`, `MagnetShop`, `CleanerShop`)
+	-- were parented straight to Workspace by some earlier hand-run of a builder,
+	-- outside the Shops model. Nothing could clear them: Kit.swap only ever destroys
+	-- what it finds by name under the target parent, so a stall parented anywhere else
+	-- survives every rebuild forever. And nothing DETECTED them either — the checks
+	-- around this one all ask "is every priced track buyable somewhere", which a ghost
+	-- satisfies rather than violates, so a full rebuild+verify passed with them
+	-- present. They were live: each carried StationKind/Radius and the Station tag, so
+	-- StationService served them and a player standing between the old ring and the
+	-- new one could open a shop panel for a stall that was not in front of them.
+	--
+	-- Two failure shapes, so two checks:
+	--
+	--   a counter OUTSIDE the model .. the ghosts above.
+	--   a SECOND model named "Shops" .. subtler and worse. Roblox permits duplicate
+	--                                   sibling names and FindFirstChild returns only
+	--                                   the first, so Kit.swap would rebuild one of
+	--                                   them forever and never touch the other.
+	--
+	-- build/Shops is the only thing in the codebase that emits StationKind = "shop"
+	-- (the three stalls and the Outfitter's three counters), which is what makes
+	-- "outside the model" unambiguously wrong rather than merely unusual.
+	local shopRoots = {}
+	for _, child in Workspace:GetChildren() do
+		if child.Name == Shops.MODEL_NAME then
+			table.insert(shopRoots, child)
+		end
+	end
+	check(
+		#shopRoots == 1,
+		`expected exactly one Workspace.{Shops.MODEL_NAME}, found {#shopRoots} — Kit.swap rebuilds the FIRST match only, so every other one is stranded and unreachable by any builder`
+	)
+
+	local shopRoot = shopRoots[1]
+	if shopRoot then
+		for _, d in Workspace:GetDescendants() do
+			if d:IsA("BasePart") and d:GetAttribute("StationKind") == "shop" and not d:IsDescendantOf(shopRoot) then
+				check(
+					false,
+					`{d:GetFullName()} is a shop counter outside Workspace.{Shops.MODEL_NAME} — no builder can clear it and StationService will serve it as a real shop. Delete it.`
+				)
+			end
+		end
+	end
 	-- No plot-board census any more: exhibit income auto-deposits, so Plots.luau
 	-- builds no ClaimBoard and nothing emits StationKind = "plot".
 	-- One wash pad per base, beside that base's cleansing station (Plots.buildWashPad).

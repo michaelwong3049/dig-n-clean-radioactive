@@ -168,6 +168,16 @@ local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
 
 local Shops = {}
+
+--- The one model every storefront in the world lives under, exported rather than
+--- spelled out at each use because THREE places have to agree on it and one of them
+--- is in another file. `Kit.swap` finds the old build by this name, `createShops`
+--- stamps it, and World.verify() asserts no shop counter exists outside it — that
+--- last check is the reason this stopped being a bare string literal. A stall
+--- parented anywhere else survives every rebuild (swap only replaces what it can
+--- find by name) and still registers as a live station.
+Shops.MODEL_NAME = "Shops"
+
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
 local BUILDER_VERSION = 22
 
@@ -1139,7 +1149,7 @@ end
 
 local function createShops(): Model
 	local shops = Instance.new("Model")
-	shops.Name = "Shops"
+	shops.Name = Shops.MODEL_NAME
 	Kit.stamp(shops, BUILDER_SOURCE, BUILDER_VERSION)
 
 	-- Before a single part is laid: the widths are derived now, so the ring radius
@@ -1194,7 +1204,7 @@ function Shops.build(parent: Instance?): Model
 end
 
 function Shops.rebuild(parent: Instance?): Model
-	local shops = Kit.swap("Shops", createShops, parent) :: Model
+	local shops = Kit.swap(Shops.MODEL_NAME, createShops, parent) :: Model
 	print(`[build] Shops rebuilt — {#shops:GetChildren()} storefronts, {#STALLS} stalls + {#OUTFITTER.counters} outfitter counters`)
 	return shops
 end
