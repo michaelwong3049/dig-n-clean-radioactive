@@ -1104,30 +1104,16 @@ local function renderState()
 		return
 	end
 
-	-- "legendary", or "legendary, 1 in 9000" once the detector is sharp enough to have
-	-- sent the odds alongside the rarity.
-	local reads = if state.rarityHint then string.lower(state.rarityHint) else nil
-	if reads and state.oddsHint then
-		reads = `{reads}, {Items.oddsText(state.oddsHint)}`
-	end
-	local named = if reads then ` \u{2014} nearest reads {reads}` else ""
-
-	if state.locked then
-		-- The haul panel is already up and already carries the rarity/odds (see
-		-- ui.haulTitle above) -- repeating "you are standing on it" here would just be
-		-- the same line stacked underneath the panel it caused to open.
-		ui.status.Text = ""
-	elseif state.blocked == "full" then
+	if state.blocked == "full" then
 		ui.status.Text = "bag is full"
 		ui.status.TextColor3 = COLOR.red
-	elseif state.inRange then
-		ui.status.Text = `you are standing on it{named}`
-		ui.status.TextColor3 = COLOR.green
 	else
-		-- Signal(s) revealed but out of reach. The glow on the ground is the cue, and
-		-- it is now the ONLY cue -- the dock's GET CLOSER button is gone with the rest
-		-- of the dig widget. That is the intended reading of PLAN's reveal: the ground
-		-- tells you where the thing is, not a caption at the bottom of the screen.
+		-- Nothing else left for the bottom line to say: out of reach, the glow on the
+		-- ground is the only cue (the dock's GET CLOSER button is gone with the rest of
+		-- the dig widget); in reach but not locked, updateLockPrompt already has the
+		-- floating PICK UP card up over the glow with the rarity/odds; locked, the haul
+		-- panel's own title carries them. "you are standing on it" used to repeat
+		-- whichever of those was already on screen.
 		ui.status.Text = ""
 	end
 end
