@@ -22,7 +22,7 @@
 	story:
 
 	                     Z1      Z2      Z3      Z4      Z5      Z6
-	  Cloth Wrap        9:00    17s      5s       2s  instant  instant
+	  Cloth Wrap        9:00   ~28s      5s       2s  instant  instant   (Z2 was 17s before tolerance 1.0 -> 1.5)
 	  Rubber Suit        inf     inf     12s      3s  instant  instant
 	  Lead-Lined         inf     inf     inf     12s  instant  instant
 	  Reinforced Hazmat  inf     inf     inf     inf     12s  instant
@@ -30,8 +30,8 @@
 	  Containment Rig    inf     inf     inf   10:00    3:45    1:30
 
 	STAGE 1's CLOTH WRAP CELL IS NOT "inf" ANY MORE, AND IT DID NOT MOVE VIA BURN.
-	Stage 1's ambient (0.5) is still below Cloth Wrap's tolerance (1.0) -- it never
-	enters the burn/white-screen track at all, by design (Stage 1's rated suit tier IS
+	Stage 1's ENTRANCE ambient (0.5) is still below Cloth Wrap's tolerance (1.5) -- the
+	entrance never enters the burn/white-screen track at all, by design (Stage 1's rated suit tier IS
 	the starting tier, and Spec still requires SOME stage to be a true no-pressure
 	tutorial space). The 9:00 instead comes entirely from lowering Cloth Wrap's own
 	`reduction` (0.9000 -> 0.6296), which only touches the EXPOSURE/green-screen track
@@ -156,8 +156,16 @@ Gear.Cleaner = {
 -- Cloth Wrap's reduction dropped 0.9000 -> 0.6296 in the third harshening pass, SOLELY
 -- to hit an explicit Stage 1 target (unsuited survival capped at 9 minutes, was ~33
 -- minutes) without touching Stage 1's ambient rate itself -- see this file's header.
+--
+-- Cloth Wrap's tolerance raised 1.0 -> 1.5 on request ("radiation damage kicks in too
+-- early for unsuited players"). Stage 1's ambient climbs 0.5 -> 1.97 across its depth,
+-- so burn onset moves from ~34% depth to ~68% depth. Deliberately capped at 1.5, not
+-- higher: Spec still requires an unsuited player to die within 30s at Stage 1's own
+-- deepest point (radsAt 1.97), and 1.5 lands that at ~28s -- 1.6 would break it. The
+-- informational Z2-Z6 cells below shift with this (Z2 entrance 17s -> ~28s) but no
+-- Spec check pins those.
 Gear.Suit = {
-	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.0, capacity = 4 },
+	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4 },
 	{ name = "Rubber Suit", price = 3000, reduction = 0.9750, tolerance = 4.4, capacity = 6 },
 	{ name = "Lead-Lined", price = 7200, reduction = 0.9920, tolerance = 13.4, capacity = 8 },
 	{ name = "Reinforced Hazmat", price = 17000, reduction = 0.9970, tolerance = 38.4, capacity = 11 },
