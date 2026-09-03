@@ -500,10 +500,12 @@ We shipped the fallback. This section is the two-slice plan to ship the real thi
       never inverting a pair.
 - [x] **The hose minigame** — the piece PLAN §2 actually asks for. `WashService` owns the
       session (the client reports aim and intent, never progress — the same boundary the
-      scrub timer had); `WashController` takes the camera to a third-person framing on
-      the `WashCam` anchor, the item is rendered **server-side** on the `WashStand` so
-      bystanders see it, and one glowing blob per patch is scattered over it. Hold LMB to
-      spray in the loaded liquid's colour. Patches above effective potency render crusted
+      scrub timer had); `WashController` takes the camera **first person, to the
+      character's own head**, aimed at the item; the item is rendered **server-side** on
+      the `WashStand` so bystanders see it, and one glowing blob per patch is scattered
+      over it. Mouse-look moves the view (clamped, cursor locked to a centre reticle) and
+      LMB sprays in the loaded liquid's colour. Entering and leaving the bay both run a
+      left-to-right wipe with the camera cut hidden under it. Patches above effective potency render crusted
       and visibly refuse the stream — the Quarantine Locker taught in 3D rather than in a
       red button label. Entry is `press E while holding the item`, so `heldUid` became
       real profile state (CarryService) and ToolService welds it into the off hand.

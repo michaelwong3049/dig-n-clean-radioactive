@@ -119,7 +119,11 @@
 	                Carries a "Wash" ProximityPrompt; WashService wires it at boot.
 	    WashStand   IsWashStand = true — invisible; where the item sits during a wash.
 	    WashSpot    invisible; where the player is planted during a wash, facing the tub.
-	    WashCam     invisible; the side-on camera anchor WashController frames from.
+	                WashService steps them a little forward of it — the wash is shot
+	                from the player's own head, and first person wants to be AT the tub.
+	    WashCam     invisible; a side-on camera anchor. The wash used to be framed from
+	                here; it is now first person (WashController), and this survives as
+	                the fallback for the frame where the character's head is missing.
 	    Hose        a Model beside the basin, PrimaryPart "Nozzle" — the fire hose
 	                (see buildHoseRig). The nozzle carries Muzzle / HoseEnd
 	                attachments and stays ANCHORED on the pump; WashService clones it
@@ -833,8 +837,12 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- gives for the tool models' HoldCFrame attribute.
 	--
 	--   WashStand  where the item sits
-	--   WashSpot   where the PLAYER stands, facing the tub
-	--   WashCam    a SIDE-ON camera that frames both of them
+	--   WashSpot   where the PLAYER stands, facing the tub. The shot is taken from
+	--              their own head, so this anchor decides the framing now: it is the
+	--              tripod, not just a mark to keep them out of the way.
+	--   WashCam    a SIDE-ON camera. It framed the wash in the first version and is
+	--              kept as WashController's fallback for the one frame where the
+	--              character's head has gone (a respawn landing mid-session).
 	--
 	-- WHY THE PLAYER GETS PINNED TO A SPOT. The first version let you trigger the
 	-- prompt from anywhere inside 11 studs and then framed the shot from in front of
@@ -891,10 +899,16 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 		canCollide = false,
 	})
 	-- SIDE-ON, off to the left, aimed at the midpoint between the player's mark and
-	-- the item. That is the shot the design asked for: you see your own character
-	-- holding the hose in profile and the object across from them, with the stream
-	-- crossing the frame between the two. A camera in front of the tub cannot show
-	-- that, because the player is behind it.
+	-- the item: your own character holding the hose in profile with the object across
+	-- from them and the stream crossing the frame between the two.
+	--
+	-- THIS IS NO LONGER THE SHOT. It composed well and it was answering the wrong
+	-- question -- the thing being asked of the player is AIM, and nobody aims while
+	-- watching themselves from thirteen studs away -- so the wash is now first person
+	-- from the character's own head (WashController). The anchor stays because that
+	-- controller still reads it for the one frame where the head is gone and a respawn
+	-- has not been reported yet, and because it is the cheapest way back if the
+	-- first-person shot is ever reverted.
 	--
 	-- Composed here with CFrame.lookAt rather than given to Kit.build as a `rot`,
 	-- because Kit.build's rot takes fixed angles and "point at that" stops being a
