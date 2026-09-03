@@ -24,12 +24,13 @@
 	do not physically have at all — since moved out to its own button (see the LUCK
 	IS NOT HERE note below).
 
-	EVERY TIER OF A TRACK HANGS ON A RAIL BESIDE THE STAND, AND YOU BUY THE ONE YOU
+	EVERY TIER OF A TRACK HANGS ON A RAIL BESIDE THE STAND, AND YOU INSPECT THE ONE YOU
 	ARE STANDING AT. The ladder used to be visible only as a list: walk into a radius,
 	a scrolling panel of cards opens, pick a row. It is a physical object now — eight
 	detectors in a row, cheapest first, each hung from the rail by its own handle with
-	its price on a card above it and its own ProximityPrompt — so browsing is WALKING,
-	and buying is pressing E in front of the one you want. The models are the real
+	its price on a card above it and its own ProximityPrompt — so browsing is WALKING.
+	Pressing E opens that detector's stat card, and its button is the only purchase
+	step. The models are the real
 	ones: Assets/Tools/<Track>/T<n>, exactly what ToolService clones into your hands.
 
 	A STOREFRONT IS A STAND PLUS A WING, AND THAT SPLIT IS THIS PASS. The rack first
@@ -42,11 +43,10 @@
 	you learn by walking into an invisible circle. See "The stand, and the wing beside
 	it" for the constants and for why BOTH halves carry the station attributes.
 
-	THE PANEL DID NOT GO AWAY. The stand keeps its StationKind and the card panel
-	still opens — that is where the stat blocks live. The rack is the fast path ("I
-	know which one I want"), the panel the slow one ("which one SHOULD I want"). Two
-	doors on the same purchase; ShopService.buyTier is behind both of them and
-	validates identically either way.
+	THE PANEL DID NOT GO AWAY. The stand keeps its StationKind and the full card panel
+	still opens. The rack is the focused path (one selected card), while the stand is
+	the comparison path (the whole ladder). Both purchase buttons land on the same
+	server-validated ShopService.buyTier path.
 
 	A STALL IS AS WIDE AS ITS TRACK IS LONG. `stallWidth` derives it from
 	Gear.maxTier, so the Detector stall (8 tiers) is wider than the Magnet stall (6),
@@ -249,17 +249,16 @@ local STALLS = {
 -- ── The rack ─────────────────────────────────────────────────────────────────
 --
 -- EVERY TIER OF THE TRACK HANGS ON A RAIL OVER THE WING'S SHELF, beside the stand,
--- and you buy the one you are standing in front of. That is the whole feature: the
+-- and you inspect the one you are standing in front of. That is the whole feature: the
 -- shop panel used to be the only way to see what a track sold, so a player had to
 -- walk into a radius, read a scrolling list of cards and pick a row. Now the ladder
 -- is a physical object — eight detectors in a row, cheapest nearest the stand, each
 -- with its own price over it and its own ProximityPrompt — and walking the wing IS
--- browsing it.
+-- browsing it. E opens one focused card; the button below its stats buys or equips.
 --
 -- THE PANEL IS STILL THERE. This does not replace it; the stand keeps its
--- StationKind and the card panel still opens (that is where the stat blocks live).
--- The rack is the fast path for "I know which one I want", the panel the slow path
--- for "which one SHOULD I want".
+-- StationKind and the full card panel still opens. The rack is the focused path for
+-- "tell me about this one", while the stand is the comparison path for the full track.
 --
 -- ONE PROMPT WINS AT A TIME, and that is Roblox's default, not something arranged
 -- here: ProximityPromptService's default Exclusivity is OnePerButton, so of the
@@ -331,8 +330,7 @@ local MOUNT_REACH = 11 -- prompt activation distance, from in front of the displ
 --
 -- SO "WHERE IS THE MENU" HAS A PHYSICAL ANSWER NOW. Walk to the stand for the card
 -- panel and its stat blocks; walk down the wing to look at the actual tools and press
--- E on one. Two doors on the same purchase, as before, but you can now see which
--- door is which from across the plaza instead of learning it by walking into a radius.
+-- E on one for its focused stat card. The actual purchase always needs the button.
 --
 -- BOTH HALVES CARRY THE STATION ATTRIBUTES, AND THAT IS NOT BELT-AND-BRACES. The
 -- client's owned-check — the green tick that replaces a price on a tier you already
@@ -669,15 +667,12 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 
 	if spec.promptText then
 		local prompt = Instance.new("ProximityPrompt")
-		-- StationController matches on this name, and on nothing else: the rack's own
-		-- hooks are "Upgrade" prompts that buy a tier outright, and the two must never
-		-- be confused for each other by whatever is listening.
+		-- StationController matches this name for the full storefront; rack hooks use
+		-- "Upgrade" to open a single focused card.
 		prompt.Name = "ViewShop"
 		prompt.ActionText = "Browse"
 		prompt.ObjectText = spec.promptText
-		-- NO HOLD. The rack's buy prompts hold for 0.4s because they spend money on
-		-- release; this one opens a window, and a window that makes you hold a key to
-		-- look through it is just a slower window.
+		-- NO HOLD. Both shop prompt types only open a window now.
 		prompt.HoldDuration = 0
 		prompt.MaxActivationDistance = spec.promptReach or STAND_PROMPT_REACH
 		-- The trim cap overhangs the desk by a couple of studs, which is enough to
@@ -998,19 +993,16 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: { track: st
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Upgrade"
-	prompt.ActionText = `Buy ${def.price}`
+	prompt.ActionText = "View details"
 	prompt.ObjectText = def.name
-	prompt.HoldDuration = 0.4
+	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = MOUNT_REACH
 	-- The counter is a solid part between the player and the rail, so a line-of-sight
 	-- prompt would only ever fire from inside the stall.
 	prompt.RequiresLineOfSight = false
 
-	-- WHAT THIS PROMPT SAYS WHEN THE TIER IS NOT YOURS, stamped on the prompt itself,
-	-- the same RestText trick the price card below uses and for the same reason. A
-	-- ProximityPrompt is ONE shared instance, so the client rewrites ActionText to
-	-- "Equip" locally on tiers the viewer already owns (StationController's rack pass)
-	-- and needs the as-built wording to put back afterwards without knowing the price.
+	-- Stamped for the rack painter's restore path. The prompt always opens details;
+	-- ownership only changes the button inside the focused card.
 	prompt:SetAttribute("RestActionText", prompt.ActionText)
 	prompt.Parent = mount
 
