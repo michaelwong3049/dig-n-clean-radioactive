@@ -1,5 +1,5 @@
 --[[
-	WashController.lua — the wash bay, rendered. Camera, blobs, and the stream.
+	WashController.lua — the wash bay, rendered. First person, down the hose.
 
 	THE SERVER OWNS EVERYTHING THAT COUNTS. This file reports aim and intent — "I am
 	spraying, at patch 3" — and draws whatever WashState comes back. It never decides
@@ -12,9 +12,10 @@
 	genuinely dangerous. A player stuck in a Scriptable camera has no way out short of
 	rejoining. Sessions end six ways: finishing, pressing E at the tub again, pressing
 	Q, walking out of the leash, the item leaving the bag, and a respawn. All of them
-	arrive here as the same thing — a nil WashState — and `stop()` is idempotent, so it
-	does not matter how many times or in what order they land. CharacterAdded also
-	calls it blind, because a respawn mid-wash is the one case where no remote fires.
+	arrive here as the same thing — a nil WashState — and `teardown()` is idempotent,
+	so it does not matter how many times or in what order they land. CharacterAdded
+	also calls it blind, because a respawn mid-wash is the one case where no remote
+	fires.
 
 	THE FIRST VERSION HAD NO EXIT AT ALL, and it shipped that way. Walking out of the
 	leash was the only end condition, and the server pins WalkSpeed to 0 for the
@@ -26,18 +27,73 @@
 	pass. The first attempt reused the SAME ProximityPrompt that starts the session as
 	the "press E again" exit — discoverable, since it is the same button that got you
 	in, but wrong: Roblox's default prompt widget can also be fired by a MOUSE CLICK on
-	its own icon, and this session is spent clicking, to spray, often toward wherever
-	that icon renders once the camera cuts to the side-on shot. Aiming the hose was
-	accidentally re-triggering "leave." WashService now disables that prompt for the
-	whole session, and E/Q here are the only way out — keyboard, not mouse, so nothing
-	about where you are aiming can end the session by accident.
+	its own icon, and this session is spent clicking, to spray. WashService now
+	disables that prompt for the whole session, and E/Q here are the only way out —
+	keyboard, not mouse, so nothing about where you are aiming can end the session by
+	accident.
 
-	THE SHOT IS SIDE-ON, framed from a WashCam anchor off to the left of a WashSpot the
-	player is planted on (build/Plots). The first version framed from in FRONT of the
-	tub, which put the camera roughly where the player was standing: you saw a tub
-	filling the screen, no character, and no hose. You are meant to see yourself in
-	profile holding the hose with the item across from you and the stream crossing
-	between the two.
+	── THE SHOT ──────────────────────────────────────────────────────────
+
+	THE SHOT IS FIRST PERSON, FROM THE PLAYER'S OWN HEAD, and that is the second
+	answer to this question. The first was a fixed SIDE-ON shot framed from a WashCam
+	anchor out to the left of the tub: you watched your own character in profile
+	holding the hose, with the item across from them and the stream crossing between
+	the two. It composed well and it was the wrong picture, because the thing being
+	asked of the player is AIM — and aim is not something you do while watching
+	yourself from thirteen studs away. You aim down the hose.
+
+	So the camera now sits at the character's Head, the base direction is a straight
+	line from there to the item on the stand, and the mouse moves the VIEW rather than
+	a cursor. The nozzle rises into the bottom of the frame out of the player's own
+	braced hands (posed server-side, see below), the decon station fills the space
+	around it, and the reticle marks where the water is going to land.
+
+	THE LOOK IS CLAMPED, and the clamp is the whole reason the body does not have to
+	turn with it. Yaw and pitch are offsets from "pointing at the item", held inside
+	±32° and ±26° — enough to look over the whole station, nowhere near enough to end
+	up staring at the sky with a hose you can no longer see. The alternative was to
+	rotate the character's root to follow the view so the nozzle stays glued to the
+	middle of the frame like an FPS weapon; that means writing CFrame to a
+	physics-simulated character every frame, for a problem the clamp already solves.
+	Inside that cone the hands never leave the bottom of the shot.
+
+	WashCam IS STILL BUILT AND IS STILL READ, as the fallback for exactly one frame
+	that genuinely happens: the head is gone (a respawn is landing) and the session has
+	not been told yet. A camera frozen wherever it was last is worse than an
+	unflattering angle, so that frame gets the old side-on shot.
+
+	THE CUT IS HIDDEN BEHIND A WIPE, both ways. A panel sweeps in from the left, and at
+	the instant it covers the screen — and only then — the camera changes. It keeps
+	going and slides off the right edge to reveal the new shot. Leaving the bay runs
+	the identical sweep with the identical hand-off in the middle, so the trip back to
+	the ordinary over-the-shoulder camera is never seen either. Two halves of one
+	motion: the first accelerates, the second decelerates, which is what makes it read
+	as a single push rather than as two slides.
+
+	THE WIPE IS DECORATION AND THE CUT IT HIDES IS NOT, which is the rule the whole
+	transition is built around. `leave()` fires the real teardown from the middle of
+	the sweep AND schedules it again unconditionally a beat later, because a player
+	left in a Scriptable camera with WalkSpeed pinned at zero has no way out short of
+	rejoining. Deferring a restore into an animation callback is exactly how someone
+	ends up stranded; `teardown` being idempotent makes calling it twice the cheapest
+	possible insurance.
+
+	THE HEAD HAS TO GO, AND IT HAS TO GO AGAIN EVERY FRAME. Roblox's own
+	TransparencyController (PlayerModule) runs at RenderPriority.Camera — one step
+	ahead of this file — and unconditionally writes LocalTransparencyModifier on every
+	character part it has cached. A single write at session start is stamped back to
+	zero on the very next frame, and the player spends the wash looking at the inside
+	of their own skull. Re-asserting it from `onRender`, which is bound at Camera + 1,
+	is what makes it stick. Only the head and its accessories: the ARMS stay, because
+	they are holding the nozzle and they are most of what makes this read as first
+	person at all.
+
+	Camera.Focus is set for the same reason and is not decoration either. That same
+	controller measures the gap between CFrame and Focus to decide how see-through to
+	make the local character, and a Focus left sitting on top of the camera dissolves
+	the arms and the hose along with the head.
+
+	── THE FURNITURE ─────────────────────────────────────────────────────
 
 	PATCH BLOBS ARE PLACED DETERMINISTICALLY, from the patch's index through a
 	golden-angle spiral. They have to be: WashState arrives at 10 Hz, and blobs placed
@@ -88,8 +144,8 @@
 	(it braces the whole upper body for the detector, on a rig-agnostic weld scheme
 	that handles both Motor6D and AnimationConstraint characters). It braces for the
 	hose too, from its own `isWashing` check, so both hands come up onto the nozzle
-	and the arm stops moving under it. That leaves this file rotating a nozzle held in
-	a hand that is genuinely still, which is the whole reason the aim reads now.
+	and the arm stops moving under it. That is what puts the grip at chest height and
+	the nozzle in the bottom of a first-person frame instead of down by a hip.
 
 	THE SPRAY IS A CHAIN OF BLOBS ON A BALLISTIC ARC, AND IT TOOK SIX TRIES. Each one
 	fixed something real about the last, so the whole ladder is worth keeping:
@@ -148,6 +204,8 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 
+local UIKit = require(script.Parent.Parent.UIKit)
+
 local Wash = {}
 
 -- Kit.C.oozeBright. Duplicated rather than required because build/ lives in
@@ -155,6 +213,10 @@ local Wash = {}
 -- exists as a shared constant. If the ooze is ever retuned, this follows it.
 local PATCH_GREEN = Color3.fromHex("6BEE2E")
 local PATCH_CRUSTED = Color3.fromHex("3A3128")
+
+-- Plain Water, and the only place this file needs a liquid colour of its own: the
+-- wipe can start a frame before a payload has been read.
+local DEFAULT_LIQUID = "6FD5E8"
 
 -- How far a patch may sit from where the water actually lands and still be the one
 -- being worked. Generous, because the player is aiming a falling arc at a half-stud
@@ -164,6 +226,57 @@ local PATCH_REACH = 2.8
 -- reaches nothing at all (open sky past the edge of the base).
 local AIM_RANGE = 60
 local AIM_FALLBACK = 16
+
+-- ── The first-person shot ───────────────────────────────────────────
+-- Studs the camera sits forward of the head's own centre, along the view. The head is
+-- hidden anyway, so this is not about escaping it -- it is about not being able to see
+-- the inside of your own shoulders when you pitch all the way down.
+local EYE_FORWARD = 0.4
+-- Narrower than the default 70. A wash is close work and the item is a stud and a
+-- half across; this is a gentle lean-in that makes the patches bigger targets without
+-- cropping the station out of the frame around them.
+local WASH_FOV = 60
+-- How far off "pointing at the item" the player may look, in each axis. See the
+-- header for why this is a clamp rather than a body that turns.
+local YAW_LIMIT = math.rad(32)
+local PITCH_LIMIT = math.rad(26)
+-- Radians per pixel of mouse travel, and radians per second at full thumbstick.
+local MOUSE_SENS = 0.0032
+local PAD_SENS = math.rad(115)
+local PAD_DEADZONE = 0.16
+-- Where Camera.Focus is parked, in studs ahead. Never allowed to collapse onto the
+-- camera -- see the header on TransparencyController.
+local FOCUS_AHEAD = 8
+-- WHERE THE NOZZLE HANGS, in the neutral view's own axes: +X right, +Y up, -Z
+-- forward. See startAimRig for why the hose is placed in the picture rather than
+-- simply left wherever the carried pose put it.
+--
+-- MEASURED, NOT GUESSED. Against the live shot the carried pose landed the muzzle at
+-- 10% right / 43% down of the half-frame, covering 34% of the screen's height -- on
+-- top of an item that only covers 29%, dead centre. This puts it at 32% right / 66%
+-- down at 32% of the height: a viewmodel in the lower-right corner, no bigger than
+-- the thing it is being pointed at. The trade-off is a straight line -- pushing it
+-- further out shrinks it but drags it back toward the middle, because everything
+-- converges on the centre with distance -- and this is the knee of it. It also keeps
+-- the nozzle within a stud of the hand it is welded to, so the offset still reads as
+-- a grip rather than as a prop floating in front of the player.
+local VIEW_HOLD = Vector3.new(1.5, -1.8, -1.6)
+
+-- ── The wipe ────────────────────────────────────────────────────────
+-- Two halves of one sweep: in to full cover, then out past the right edge. The cut
+-- happens on the boundary between them.
+local WIPE_IN = 0.22
+local WIPE_OUT = 0.26
+-- The bright bar on each edge of the panel, in pixels. It is what makes a moving
+-- rectangle read as a film wipe rather than as a window shade.
+local WIPE_EDGE = 8
+
+-- ── The reticle ─────────────────────────────────────────────────────
+local RETICLE_BOX = 56 -- px, the box the whole thing is centred in
+local RETICLE_RING = 22 -- px, the ring's diameter
+local RETICLE_GAP_IDLE = 21 -- px from centre to each tick, pointed at nothing
+local RETICLE_GAP_LOCKED = 15 -- ...and with a patch under it: the ticks close in
+local RETICLE_EASE = 16 -- how fast the gap chases its goal, per second
 
 -- The jet: a chain of overlapping BALLS laid along the water's real flight path.
 -- See the header for why it is parts rather than a Beam or a particle cone, and why
@@ -214,6 +327,18 @@ local jetShown = false
 local spraying = false
 local aimedIndex: number? = nil
 local renderBound = false
+
+-- The first-person view, as a thing that is either on or off. `viewActive` is what
+-- makes enterView/exitView idempotent, and it is also how `leave()` tells "wipe out of
+-- a live session" apart from "tidy up a session that never got a camera".
+local viewActive = false
+local leaving = false
+local savedFov = 70
+local lookYaw = 0
+local lookPitch = 0
+local padLook = Vector2.zero
+-- The head and anything hanging off it, cached because it is re-asserted every frame.
+local hiddenParts: { BasePart } = {}
 
 -- The hose-aim rig (see the header). All five reset together, in stopAimRig, and are
 -- (re)built lazily from onRender rather than once at session start -- self-healing if
@@ -408,7 +533,7 @@ end
 --- string of sausages at every joint.
 ---
 --- Returns the point the water actually reached -- the impact if it hit something,
---- the end of the arc if it did not. That point, not the cursor, is what decides
+--- the end of the arc if it did not. That point, not the reticle, is what decides
 --- which patch is being worked (see `patchAt`): you are cleaning what the water is
 --- landing on, which is the only rule a player would ever guess.
 local function drawJet(from: Vector3, to: Vector3, filter: RaycastParams): Vector3
@@ -516,31 +641,244 @@ local function stopAimRig()
 	aimMotor, aimHand, aimTool, aimOffset, aimHoldWeld = nil, nil, nil, nil, nil
 end
 
---- Idempotent on purpose — see the header. Every exit path calls this, sometimes
---- more than once, sometimes when no session was ever running.
-local function stop()
-	state = nil
-	spraying = false
-	aimedIndex = nil
+-- ── The screen: the wipe panel and the reticle ──────────────────────
 
-	clearBlobs()
-	stopAimRig()
-	if folder then
-		folder:Destroy()
-		folder = nil
+local wipeGui: ScreenGui? = nil
+local wipePanel: Frame? = nil
+local reticle: Frame? = nil
+local reticleRing: UIStroke? = nil
+local reticleTicks: { { frame: Frame, dir: Vector2 } } = {}
+local reticleGap = RETICLE_GAP_IDLE
+
+local wipeConn: RBXScriptConnection? = nil
+local wipeClock = 0
+local wipeCovered = false
+local wipeAtCover: (() -> ())? = nil
+local wipeTint = DEFAULT_LIQUID
+
+--- One ScreenGui for both, built once and never destroyed. The wipe outlives the
+--- session it ends -- the reveal half plays AFTER teardown has run -- so tying its
+--- lifetime to the session is how you get a black panel left across the screen.
+---
+--- IgnoreGuiInset, and it matters for the reticle specifically. The topbar pushes an
+--- inset-respecting GUI down by ~36px, and this crosshair is claiming to mark the
+--- exact spot the camera's own look ray leaves from: 36 pixels of disagreement between
+--- where the water lands and where the sight says it will is the same subtle,
+--- maddening miscalibration that ScreenPointToRay was fixed for on the old cursor aim.
+local function ensureGui(): boolean
+	if wipeGui and wipeGui.Parent then
+		return true
 	end
-	table.clear(jetParts)
-	splashPart = nil
-	jetShown = false
+	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	if playerGui == nil then
+		return false
+	end
 
-	local camera = Workspace.CurrentCamera
-	if camera then
-		camera.CameraType = Enum.CameraType.Custom
-		local character = Players.LocalPlayer.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			camera.CameraSubject = humanoid
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "WashBay"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	-- Above everything, including HudController's blackout curtain (100). A transition
+	-- that something else can draw on top of is not covering the cut it exists to hide.
+	gui.DisplayOrder = 200
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Enabled = true
+	gui.Parent = playerGui
+	wipeGui = gui
+
+	-- ── The reticle ──
+	local sight = Instance.new("Frame")
+	sight.Name = "Reticle"
+	sight.Size = UDim2.fromOffset(RETICLE_BOX, RETICLE_BOX)
+	sight.Position = UDim2.fromScale(0.5, 0.5)
+	sight.AnchorPoint = Vector2.new(0.5, 0.5)
+	sight.BackgroundTransparency = 1
+	sight.Visible = false
+	sight.ZIndex = 1
+	sight.Parent = gui
+	reticle = sight
+
+	-- A ring rather than a dot. A dot at this size disappears against a green blob,
+	-- which is the one thing it has to stay readable on top of.
+	local ring = Instance.new("Frame")
+	ring.Name = "Ring"
+	ring.Size = UDim2.fromOffset(RETICLE_RING, RETICLE_RING)
+	ring.Position = UDim2.fromScale(0.5, 0.5)
+	ring.AnchorPoint = Vector2.new(0.5, 0.5)
+	ring.BackgroundTransparency = 1
+	ring.ZIndex = 1
+	ring.Parent = sight
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = ring
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 2
+	stroke.Color = UIKit.C.text
+	stroke.Transparency = 0.35
+	stroke.Parent = ring
+	reticleRing = stroke
+
+	table.clear(reticleTicks)
+	for _, dir in { Vector2.new(0, -1), Vector2.new(0, 1), Vector2.new(-1, 0), Vector2.new(1, 0) } do
+		local tick = Instance.new("Frame")
+		tick.Name = "Tick"
+		tick.Size = if dir.X == 0 then UDim2.fromOffset(2, 7) else UDim2.fromOffset(7, 2)
+		tick.AnchorPoint = Vector2.new(0.5, 0.5)
+		tick.BackgroundColor3 = UIKit.C.text
+		tick.BackgroundTransparency = 0.2
+		tick.BorderSizePixel = 0
+		tick.ZIndex = 1
+		tick.Parent = sight
+		table.insert(reticleTicks, { frame = tick, dir = dir })
+	end
+
+	-- ── The wipe panel ──
+	-- Parked off the RIGHT edge, which is where every completed sweep leaves it.
+	local panel = Instance.new("Frame")
+	panel.Name = "Wipe"
+	panel.Size = UDim2.fromScale(1, 1)
+	panel.Position = UDim2.fromScale(1, 0)
+	panel.BackgroundColor3 = UIKit.C.panel
+	panel.BorderSizePixel = 0
+	panel.ZIndex = 10
+	panel.Parent = gui
+	wipePanel = panel
+
+	-- BOTH edges, because both of them lead at some point in the sweep: the right edge
+	-- is the one crossing the screen on the way in, and the left edge is the one
+	-- uncovering it on the way out.
+	for _, edge in { { name = "EdgeLeft", x = 0 }, { name = "EdgeRight", x = 1 } } do
+		local bar = Instance.new("Frame")
+		bar.Name = edge.name
+		bar.Size = UDim2.new(0, WIPE_EDGE, 1, 0)
+		bar.Position = UDim2.fromScale(edge.x, 0)
+		bar.AnchorPoint = Vector2.new(edge.x, 0)
+		bar.BorderSizePixel = 0
+		bar.ZIndex = 11
+		bar.Parent = panel
+	end
+
+	return true
+end
+
+--- The bright edges wear the loaded liquid, so the transition is already telling you
+--- what is in the hose before the shot it reveals does.
+local function applyWipeTint(hex: string)
+	local panel = wipePanel
+	if panel == nil then
+		return
+	end
+	local color = Color3.fromHex(hex)
+	for _, bar in panel:GetChildren() do
+		if bar:IsA("Frame") then
+			bar.BackgroundColor3 = color
 		end
+	end
+end
+
+--- Stop the sweep dead and put the panel back off-screen. Only ever called when the
+--- animation itself has finished or has to be abandoned -- NOT from teardown, which
+--- runs in the MIDDLE of a sweep and must leave the reveal half to play out.
+local function wipePark()
+	if wipeConn then
+		wipeConn:Disconnect()
+		wipeConn = nil
+	end
+	wipeAtCover = nil
+	if wipePanel then
+		wipePanel.Position = UDim2.fromScale(1, 0)
+	end
+end
+
+--- Sweep left to right, calling `atCover` exactly once at the instant the screen is
+--- fully covered.
+---
+--- RenderStepped and a clock rather than two chained Tweens, for one reason: the
+--- hand-off in the middle is a CAMERA CUT, and chaining it off a tween's Completed
+--- signal makes the most important line in the transition depend on an event that
+--- fires on another thread. One connection, one closure, one place the cut can
+--- happen. `wipeRun` also replaces any sweep already running, so entering and leaving
+--- in quick succession restarts the wipe instead of stacking two of them.
+---
+--- The two halves ease in opposite directions (t² then 1-(1-t)²) so the panel
+--- accelerates across the cut and decelerates off the far edge. Ease the same way
+--- twice and it visibly stops dead in the middle, which draws attention to the exact
+--- frame the wipe exists to hide.
+local function wipeRun(atCover: () -> ())
+	if not ensureGui() then
+		-- No PlayerGui to draw on. The transition is decoration; the cut it hides is
+		-- not, so fire it immediately rather than losing a session to a missing GUI.
+		atCover()
+		return
+	end
+	local panel = wipePanel :: Frame
+
+	applyWipeTint(wipeTint)
+	if wipeConn then
+		wipeConn:Disconnect()
+	end
+	wipeClock = 0
+	wipeCovered = false
+	wipeAtCover = atCover
+	panel.Position = UDim2.fromScale(-1, 0)
+
+	wipeConn = RunService.RenderStepped:Connect(function(dt)
+		wipeClock += dt
+		if wipeClock < WIPE_IN then
+			local t = wipeClock / WIPE_IN
+			panel.Position = UDim2.fromScale(-1 + t * t, 0)
+			return
+		end
+
+		if not wipeCovered then
+			wipeCovered = true
+			-- Cleared BEFORE the call, not after: `atCover` is teardown on the way out,
+			-- and teardown is entitled to look at (and clear) this same field.
+			local fire = wipeAtCover
+			wipeAtCover = nil
+			if fire then
+				fire()
+			end
+		end
+
+		local t = math.min((wipeClock - WIPE_IN) / WIPE_OUT, 1)
+		if t >= 1 then
+			wipePark()
+			return
+		end
+		panel.Position = UDim2.fromScale(1 - (1 - t) * (1 - t), 0)
+	end)
+end
+
+--- The ring and its four ticks. `locked` is "there is a patch under the sight", which
+--- is the single thing a player needs to know before they pull the trigger, and it is
+--- said in the same green the patch itself is wearing.
+local function paintReticle(dt: number, locked: boolean)
+	local sight = reticle
+	if sight == nil or not sight.Visible then
+		return
+	end
+
+	local goal = if locked then RETICLE_GAP_LOCKED else RETICLE_GAP_IDLE
+	if spraying then
+		goal -= 2
+	end
+	-- Chased rather than snapped. The lock flickers on and off as the arc wanders over
+	-- the edge of a blob, and a reticle that pops between two sizes on every one of
+	-- those reads as broken rather than as responsive.
+	reticleGap += (goal - reticleGap) * math.min(dt * RETICLE_EASE, 1)
+
+	local color = if locked then PATCH_GREEN else UIKit.C.text
+	if reticleRing then
+		reticleRing.Color = color
+		reticleRing.Transparency = if locked then 0.05 else 0.35
+	end
+	for _, tick in reticleTicks do
+		tick.frame.BackgroundColor3 = color
+		tick.frame.BackgroundTransparency = if locked then 0 else 0.2
+		tick.frame.Position = UDim2.new(0.5, tick.dir.X * reticleGap, 0.5, tick.dir.Y * reticleGap)
 	end
 end
 
@@ -618,7 +956,11 @@ end
 --- Build the second, LOCAL joint from hand to tool -- see the header. Cheap to call
 --- every frame the rig is missing: it does nothing when the tool is not there yet
 --- (equip is still catching up) or already there (nothing to build twice).
-local function startAimRig()
+---
+--- `neutral` is the camera at this session's base framing -- the shot with the
+--- player's own look offsets taken back out -- and it is what decides where in the
+--- picture the nozzle hangs. See the note on aimOffset below.
+local function startAimRig(neutral: CFrame?)
 	if aimMotor then
 		return
 	end
@@ -644,11 +986,28 @@ local function startAimRig()
 		aimHoldWeld.Enabled = false
 	end
 
-	-- The tool's CURRENT carried position, relative to the hand, at the moment
-	-- aiming starts. Kept fixed for the rest of the session so the tool orbits that
-	-- one point in the player's grip rather than drifting -- only its ROTATION
-	-- changes as the aim moves, matching how a person actually holds a hose.
-	aimOffset = hand.CFrame:PointToObjectSpace(tool.PrimaryPart.Position)
+	-- THE POINT THE NOZZLE ORBITS, captured once and kept for the session so the tool
+	-- swings around one fixed spot in the grip rather than drifting.
+	--
+	-- IT IS A COMPOSITION DECISION NOW, NOT THE CARRIED POSE. In third person this was
+	-- simply where the tool already was (`tool.PrimaryPart.Position` in hand space) and
+	-- that was the right answer, because the shot contained the whole character and the
+	-- nozzle had to stay in their hands to make sense. First person contains neither
+	-- hand: measured off the live shot, the braced hose pose puts both of them 44
+	-- degrees below the view axis, and the frame's bottom edge is 30. So what the
+	-- carried pose actually bought was a nozzle swinging up out of nowhere across the
+	-- MIDDLE of the picture -- at 2.9 studs it covered more screen height than the item
+	-- being washed did at 4.5, which is a viewmodel occluding the only thing the player
+	-- is trying to look at.
+	--
+	-- VIEW_HOLD places it where a held thing belongs instead: low and to the right,
+	-- barrel angling up-left toward whatever the reticle is on. It is written in the
+	-- NEUTRAL view's axes because that is the frame it was judged in, and converted to
+	-- HAND space right here, once -- so from this line on the nozzle is rigidly bolted
+	-- to the hand exactly as before and cannot come adrift from the character at any
+	-- look angle. It is a different offset, not a looser joint.
+	local held = if neutral then neutral * VIEW_HOLD else tool.PrimaryPart.Position
+	aimOffset = hand.CFrame:PointToObjectSpace(held)
 	aimHand = hand
 	aimTool = tool
 
@@ -714,33 +1073,38 @@ local function nozzleCFrame(): CFrame?
 	return nil
 end
 
---- What the player is pointing AT, in the world -- a plain raycast from the cursor.
+--- What the player is pointing AT, in the world -- a plain raycast down the middle of
+--- the view.
 ---
---- This used to return a patch index, and the aim point was then snapped to that
---- patch's blob. That is what made the stream jump from blob to blob as the mouse
---- moved: the water was not going where you pointed, it was going where the game had
---- decided you meant. Aim is now just aim.
+--- This used to be cast from the mouse cursor through a fixed side-on camera, and
+--- before that it returned a patch INDEX and snapped the aim to that patch's blob --
+--- which is what made the stream jump from blob to blob as the mouse moved: the water
+--- was not going where you pointed, it was going where the game had decided you meant.
+--- Aim is now just aim, and in first person "just aim" is the camera's own look ray:
+--- a symmetric projection puts the centre of the viewport exactly down LookVector, so
+--- the reticle drawn at the middle of the screen and this ray are the same line by
+--- construction rather than by a conversion that could drift out of step.
 ---
 --- The blobs and the jet segments are all CanQuery = false, so this never hits the
 --- effects themselves -- it finds the ITEM under the blob, which is where the
 --- contamination is anyway. The character is filtered out because the ray starts
---- behind the player's own shoulder.
-local function aimPointAt(ray: Ray, filter: RaycastParams): Vector3
-	local hit = Workspace:Raycast(ray.Origin, ray.Direction.Unit * AIM_RANGE, filter)
+--- inside the player's own head.
+local function aimPointAt(from: CFrame, filter: RaycastParams): Vector3
+	local hit = Workspace:Raycast(from.Position, from.LookVector * AIM_RANGE, filter)
 	if hit then
 		return hit.Position
 	end
-	return ray.Origin + ray.Direction.Unit * AIM_FALLBACK
+	return from.Position + from.LookVector * AIM_FALLBACK
 end
 
 --- Which patch is being worked: the one nearest to where the water actually LANDS.
 ---
---- Not nearest to the cursor, and the difference is the whole point. The stream is a
---- falling arc that stops at the first thing it touches, so the cursor and the impact
---- are genuinely different places -- and "you are cleaning what you are hitting" is
---- the only rule a player would ever guess from watching it. PATCH_REACH is generous
---- because a half-stud ball at eight studs, hit with a ballistic arc, is a cruel thing
---- to ask anyone to be exact about.
+--- Not nearest to the reticle, and the difference is the whole point. The stream is a
+--- falling arc that leaves a nozzle held below the eye and stops at the first thing it
+--- touches, so the sight and the impact are genuinely different places -- and "you are
+--- cleaning what you are hitting" is the only rule a player would ever guess from
+--- watching it. PATCH_REACH is generous because a half-stud ball at five studs, hit
+--- with a ballistic arc, is a cruel thing to ask anyone to be exact about.
 local function patchAt(point: Vector3): number?
 	local best: number? = nil
 	local bestDistance = PATCH_REACH
@@ -753,7 +1117,98 @@ local function patchAt(point: Vector3): number?
 	return best
 end
 
-local function onRender()
+-- ── The first-person view ────────────────────────────────────────────
+
+--- The head, and anything hanging off it. Cached because `applyHidden` runs every
+--- frame (see the header) and walking every accessory's descendants sixty times a
+--- second to write five properties is pure waste.
+local function cacheHidden()
+	table.clear(hiddenParts)
+	local character = Players.LocalPlayer.Character
+	if character == nil then
+		return
+	end
+	local head = character:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then
+		table.insert(hiddenParts, head)
+	end
+	for _, thing in character:GetChildren() do
+		if thing:IsA("Accessory") then
+			for _, part in thing:GetDescendants() do
+				if part:IsA("BasePart") then
+					table.insert(hiddenParts, part)
+				end
+			end
+		end
+	end
+end
+
+--- Re-assert the head's transparency. See the header: Roblox's own
+--- TransparencyController writes this property from RenderPriority.Camera, one step
+--- ahead of `onRender`, so this is not a one-time thing you can do at session start.
+--- The cache is rebuilt whenever it has gone stale, which is what covers an accessory
+--- that loads a beat after the character does.
+local function applyHidden(value: number)
+	if #hiddenParts == 0 or hiddenParts[1].Parent == nil then
+		cacheHidden()
+	end
+	for _, part in hiddenParts do
+		if part.Parent ~= nil then
+			part.LocalTransparencyModifier = value
+		end
+	end
+end
+
+local function clampLook()
+	lookYaw = math.clamp(lookYaw, -YAW_LIMIT, YAW_LIMIT)
+	lookPitch = math.clamp(lookPitch, -PITCH_LIMIT, PITCH_LIMIT)
+end
+
+--- Where the camera sits and which way it is facing, and alongside it the NEUTRAL
+--- version of the same shot -- the framing with the player's own look offsets taken
+--- back out. The neutral frame is the one the hose's resting place is measured in
+--- (startAimRig), which is why it comes back from here rather than being recomputed.
+---
+--- The base direction is a straight line from the player's own head to the item on
+--- the stand, so a session that has just started is already looking at the thing it
+--- is about to be spent looking at, with no settling and no swing. `lookYaw` and
+--- `lookPitch` are the player's own offsets from that.
+---
+--- fromEulerAnglesYXZ, and the order is not incidental: yaw is applied first and
+--- pitch second, about the already-yawed X axis, which is the composition that keeps
+--- the horizon level. CFrame.Angles' native XYZ order tips it the moment both are
+--- non-zero, and a head that rolls as you look diagonally is the kind of wrongness
+--- players feel without being able to name.
+local function eyeCFrame(): (CFrame?, CFrame?)
+	local character = Players.LocalPlayer.Character
+	local head = character and character:FindFirstChild("Head")
+	if head == nil or not head:IsA("BasePart") then
+		return nil, nil
+	end
+
+	local pivot = itemPivot()
+	local toward = if pivot then (pivot.Position - head.Position) else head.CFrame.LookVector
+	if toward.Magnitude < 0.05 then
+		toward = head.CFrame.LookVector
+	end
+	toward = toward.Unit
+
+	local baseYaw = math.atan2(-toward.X, -toward.Z)
+	local basePitch = math.asin(math.clamp(toward.Y, -1, 1))
+
+	local rotation = CFrame.fromEulerAnglesYXZ(basePitch + lookPitch, baseYaw + lookYaw, 0)
+	local eye = CFrame.new(head.Position + rotation.LookVector * EYE_FORWARD) * rotation
+
+	-- Same eye POSITION, base rotation. Sharing the position matters: the neutral
+	-- frame is only ever used to place an object in the picture, and one anchored a
+	-- few inches from where the picture is actually taken would place it wrong.
+	local neutralRotation = CFrame.fromEulerAnglesYXZ(basePitch, baseYaw, 0)
+	local neutral = CFrame.new(eye.Position) * neutralRotation
+
+	return eye, neutral
+end
+
+local function onRender(dt: number)
 	if state == nil then
 		return
 	end
@@ -763,41 +1218,65 @@ local function onRender()
 		return
 	end
 
-	-- The camera anchor is a part in the station, so framing is tuned in Studio
-	-- against live geometry rather than by editing numbers here.
-	local stand = state.stand
-	local anchor = if stand and stand.Parent then stand.Parent:FindFirstChild("WashCam") else nil
-	if anchor and anchor:IsA("BasePart") then
-		camera.CFrame = anchor.CFrame
+	-- THE POINTER LOCK IS RE-ASSERTED EVERY FRAME, for the same reason the head's
+	-- transparency is. Roblox's PlayerModule calls UpdateMouseBehavior from its own
+	-- camera step at RenderPriority.Camera -- one ahead of this one -- so a single
+	-- write at session start is stamped back to Default on the very next frame and the
+	-- cursor comes loose. Guarded on the read so it is not a property write per frame
+	-- in the ordinary case where it already holds.
+	if UserInputService.MouseBehavior ~= Enum.MouseBehavior.LockCenter then
+		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 	end
+
+	-- GAMEPAD LOOK IS INTEGRATED HERE rather than where the input arrives, because a
+	-- thumbstick reports a POSITION that stays put for as long as it is held: turning
+	-- that into a turn needs a clock, and this is the one place with a dt. The mouse
+	-- reports a delta and is applied where it lands.
+	if padLook.Magnitude > PAD_DEADZONE then
+		lookYaw -= padLook.X * PAD_SENS * dt
+		lookPitch += padLook.Y * PAD_SENS * dt
+		clampLook()
+	end
+
+	local eye, neutral = eyeCFrame()
+	if eye == nil then
+		-- The head is gone: a respawn is landing and the session is about to end, but
+		-- it has not been told yet. Fall back to the station's own side-on anchor --
+		-- an unflattering angle for a frame beats a camera frozen wherever it was.
+		local stand = state.stand
+		local anchor = if stand and stand.Parent then stand.Parent:FindFirstChild("WashCam") else nil
+		if anchor and anchor:IsA("BasePart") then
+			camera.CFrame = anchor.CFrame
+		end
+		return
+	end
+
+	camera.CFrame = eye
+	-- Kept well out in front, never on top of the lens. See the header: this is what
+	-- stops TransparencyController dissolving the arms and the hose.
+	camera.Focus = CFrame.new(eye.Position + eye.LookVector * FOCUS_AHEAD)
+	applyHidden(1)
 
 	paintBlobs()
 
-	-- ScreenPointToRay, NOT ViewportPointToRay. GetMouseLocation() returns a point
-	-- that INCLUDES the topbar inset, and ViewportPointToRay expects one that does
-	-- not — pairing those two puts the aim ray ~36px above the cursor, which reads as
-	-- the hose being subtly, maddeningly miscalibrated.
-	local mouse = UserInputService:GetMouseLocation()
-	local aimRay = camera:ScreenPointToRay(mouse.X, mouse.Y)
-
 	-- Rebuilt per frame rather than cached: the character is respawnable and the folder
-	-- is destroyed on every stop(), so a stale filter would either miss the character
-	-- or hold a reference to a freed instance.
+	-- is destroyed on every teardown(), so a stale filter would either miss the
+	-- character or hold a reference to a freed instance.
 	local filter = RaycastParams.new()
 	filter.FilterType = Enum.RaycastFilterType.Exclude
 	filter.FilterDescendantsInstances = { Players.LocalPlayer.Character :: any, folder :: any }
 
-	local aimPoint = aimPointAt(aimRay, filter)
+	local aimPoint = aimPointAt(eye, filter)
 
-	-- Tracks the cursor continuously, spraying or not — a held hose reads as aimed
-	-- the moment you look somewhere, same as a real one, not only while it is live.
+	-- Tracks the view continuously, spraying or not — a held hose reads as aimed the
+	-- moment you look somewhere, same as a real one, not only while it is live.
 	if aimMotor == nil then
-		startAimRig()
+		startAimRig(neutral)
 	end
 	updateAimRig(aimPoint)
 
 	-- The jet reports back where it landed, which is not the aim point whenever the
-	-- falling arc clips something on the way. That impact, not the cursor, is what
+	-- falling arc clips something on the way. That impact, not the reticle, is what
 	-- picks the patch.
 	local nozzle = nozzleCFrame()
 	local landing = aimPoint
@@ -808,6 +1287,8 @@ local function onRender()
 	end
 
 	local target = patchAt(landing)
+	paintReticle(dt, target ~= nil)
+
 	if target ~= aimedIndex then
 		aimedIndex = target
 		if inputRemote then
@@ -818,13 +1299,34 @@ end
 
 -- ── Lifecycle ───────────────────────────────────────────────────────
 
-local function beginSession()
-	local camera = Workspace.CurrentCamera
-	if camera then
-		camera.CameraType = Enum.CameraType.Scriptable
+--- Take the camera. Called from the MIDDLE of the entry wipe, with the screen covered,
+--- which is the only reason a cut this violent is invisible.
+local function enterView()
+	-- `state == nil` is the entry-then-immediate-exit race: the player pressed Q inside
+	-- the 0.22s the panel takes to arrive, so the session this was queued for is
+	-- already gone. Taking the camera now would strand them in it.
+	if viewActive or state == nil then
+		return
 	end
-	ensureSpray()
-	applySprayColor(state.liquidColor or "6FD5E8")
+	local camera = Workspace.CurrentCamera
+	if camera == nil then
+		return
+	end
+	viewActive = true
+
+	savedFov = camera.FieldOfView
+	camera.CameraType = Enum.CameraType.Scriptable
+	camera.FieldOfView = WASH_FOV
+
+	lookYaw, lookPitch = 0, 0
+	padLook = Vector2.zero
+	reticleGap = RETICLE_GAP_IDLE
+
+	UserInputService.MouseIconEnabled = false
+	cacheHidden()
+	if reticle then
+		reticle.Visible = true
+	end
 
 	if not renderBound then
 		RunService:BindToRenderStep("WashBay", Enum.RenderPriority.Camera.Value + 1, onRender)
@@ -832,27 +1334,140 @@ local function beginSession()
 	end
 end
 
+--- The exact inverse, and every field it touches is restored whether or not this
+--- file was the one that changed it. Idempotent: `viewActive` is the gate, and it is
+--- the first thing cleared.
+local function exitView()
+	if not viewActive then
+		return
+	end
+	viewActive = false
+
+	if renderBound then
+		RunService:UnbindFromRenderStep("WashBay")
+		renderBound = false
+	end
+
+	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+	UserInputService.MouseIconEnabled = true
+	applyHidden(0)
+	table.clear(hiddenParts)
+	if reticle then
+		reticle.Visible = false
+	end
+
+	local camera = Workspace.CurrentCamera
+	if camera then
+		camera.CameraType = Enum.CameraType.Custom
+		camera.FieldOfView = savedFov
+		local character = Players.LocalPlayer.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			camera.CameraSubject = humanoid
+		end
+	end
+end
+
+--- Idempotent on purpose — see the header. Every exit path calls this, sometimes
+--- more than once, sometimes when no session was ever running.
+---
+--- It does NOT call wipePark. On the way out this runs from inside a sweep that still
+--- has its reveal half to play, and killing the animation from here is how the panel
+--- ends up parked across a screen nobody can clear.
+local function teardown()
+	-- Any cut still queued behind a sweep belongs to a session that no longer exists.
+	wipeAtCover = nil
+
+	exitView()
+	state = nil
+	spraying = false
+	aimedIndex = nil
+	leaving = false
+	lookYaw, lookPitch = 0, 0
+	padLook = Vector2.zero
+
+	clearBlobs()
+	stopAimRig()
+	if folder then
+		folder:Destroy()
+		folder = nil
+	end
+	table.clear(jetParts)
+	splashPart = nil
+	jetShown = false
+end
+
+local function beginSession()
+	leaving = false
+	ensureSpray()
+	applySprayColor(wipeTint)
+	wipeRun(enterView)
+end
+
+--- The way out, and it wipes on the way: `teardown` is fired from the middle of the
+--- sweep, with the screen covered, so the cut back to the ordinary over-the-shoulder
+--- camera is never seen.
+---
+--- THE SECOND CALL IS NOT PARANOIA. A player left in a Scriptable camera with their
+--- WalkSpeed pinned at zero has no way out short of rejoining (see the header), and
+--- deferring that restore into an animation callback is exactly the kind of thing
+--- that strands one if the sweep is interrupted. `teardown` is idempotent, so simply
+--- calling it again a beat later is the cheapest insurance there is.
+local function leave()
+	if not viewActive then
+		-- Nothing has been taken yet (or it has already been given back). No cut to
+		-- hide, so no wipe -- and if an entry sweep is still in the air, clearing its
+		-- pending `enterView` inside teardown is what stops it firing into a session
+		-- that has already ended.
+		teardown()
+		return
+	end
+	if leaving then
+		return
+	end
+	leaving = true
+	wipeRun(teardown)
+	task.delay(WIPE_IN + 0.4, teardown)
+end
+
 function Wash.start()
 	inputRemote = Net.get("WashInput")
 
 	Net.get("WashState").OnClientEvent:Connect(function(payload)
 		if payload == nil then
-			if renderBound then
-				RunService:UnbindFromRenderStep("WashBay")
-				renderBound = false
-			end
-			stop()
+			leave()
 			return
 		end
 
 		local fresh = state == nil
 		state = payload
+		-- The loaded liquid can change mid-wash: run a canister dry and you drop back
+		-- to Plain Water, and both the spray and the wipe's edges have to say so.
+		wipeTint = payload.liquidColor or DEFAULT_LIQUID
 		if fresh then
 			beginSession()
 		else
-			-- The loaded liquid can change mid-wash: run a canister dry and you drop
-			-- back to Plain Water, and the spray has to say so.
-			applySprayColor(payload.liquidColor or "6FD5E8")
+			applySprayColor(wipeTint)
+		end
+	end)
+
+	-- MOUSE LOOK. Delta, not Position: with the pointer locked to the middle of the
+	-- screen there is no meaningful position, and Delta is the raw movement that lock
+	-- exists to expose. Not gated on `gameProcessedEvent` — a locked, hidden cursor
+	-- cannot be over a GUI for one to have swallowed it.
+	UserInputService.InputChanged:Connect(function(input)
+		if not viewActive then
+			return
+		end
+		if input.UserInputType == Enum.UserInputType.MouseMovement then
+			-- Both negated: dragging the mouse right turns the view right, which is a
+			-- DECREASE in yaw (a positive rotation about +Y turns left), and dragging it
+			-- down looks down.
+			lookYaw -= input.Delta.X * MOUSE_SENS
+			lookPitch -= input.Delta.Y * MOUSE_SENS
+			clampLook()
+		elseif input.KeyCode == Enum.KeyCode.Thumbstick2 then
+			padLook = Vector2.new(input.Position.X, input.Position.Y)
 		end
 	end)
 
@@ -871,16 +1486,18 @@ function Wash.start()
 		-- The prompt that started this session is disabled server-side for its whole
 		-- duration (WashService.begin) precisely because Roblox's default prompt
 		-- widget can ALSO be fired by a mouse click on its own icon -- and this session
-		-- is spent clicking, to spray, often toward wherever that icon would have
-		-- rendered once the camera cut to the side-on shot. E is kept as the
-		-- discoverable exit (same key that got you in); Q is the one that works even
-		-- if a player never associates E with "leave" once they are staring at a hose.
+		-- is spent clicking, to spray. E is kept as the discoverable exit (same key
+		-- that got you in); Q is the one that works even if a player never associates
+		-- E with "leave" once they are staring down a hose.
 		if input.KeyCode == Enum.KeyCode.E or input.KeyCode == Enum.KeyCode.Q or input.KeyCode == Enum.KeyCode.ButtonB then
 			inputRemote:FireServer({ stop = true })
 			return
 		end
 
-		if processed then
+		-- Spraying waits for the camera. During the entry wipe the screen is covered and
+		-- there is nothing to aim at yet, so a click there would spend the player's
+		-- charge on whichever patch the server picked by default, unseen.
+		if processed or not viewActive then
 			return
 		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
@@ -896,17 +1513,19 @@ function Wash.start()
 				inputRemote:FireServer({ spraying = false, patchIndex = aimedIndex })
 			end
 		end
+		if input.KeyCode == Enum.KeyCode.Thumbstick2 then
+			padLook = Vector2.zero
+		end
 	end)
 
 	-- A respawn mid-wash fires no remote at all: the server's leash check sees a
 	-- character with no root and ends the session silently. This is the only thing
 	-- standing between that and a player left in a Scriptable camera.
+	--
+	-- Straight to teardown, not through leave(): the character this shot was framed on
+	-- no longer exists, so there is no picture left worth wiping away from.
 	Players.LocalPlayer.CharacterAdded:Connect(function()
-		if renderBound then
-			RunService:UnbindFromRenderStep("WashBay")
-			renderBound = false
-		end
-		stop()
+		teardown()
 	end)
 end
 

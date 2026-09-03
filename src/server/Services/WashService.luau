@@ -73,6 +73,12 @@ local XP_PER_HARDNESS = 5
 --- respawning teammate should not eject you mid-wash.
 local LEASH = 16
 
+--- How far forward of WashSpot the player is actually planted, in studs. See the note
+--- at the call site for why this is arithmetic here rather than a moved anchor in
+--- build/Plots. The tub's near rim sits a shade under four studs in front of the mark,
+--- so this stops well clear of standing inside the geometry.
+local APPROACH = 1.2
+
 --- How the nozzle sits in the hand. `-Y` is down the arm on both rigs, so rotating
 --- the nozzle's own forward axis (`-Z`, the axis CFrame.lookAt aims down) onto it is
 --- what puts the brass end pointing away from the body rather than into the player's
@@ -494,20 +500,30 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 	-- be triggered by a MOUSE CLICK on its on-screen icon, not only the keyboard key --
 	-- and the player is about to spend the whole session clicking to spray, often
 	-- toward wherever this same prompt happens to render once the camera cuts to the
-	-- side-on wash shot. Left enabled, aiming the hose doubles as an accidental "press
+	-- first-person wash shot. Left enabled, aiming the hose doubles as an accidental "press
 	-- E again" that ends the session out from under you. WashController's own E/Q
 	-- keyboard listener is the real, deliberate exit now; re-enabled in finish().
 	if session.prompt then
 		session.prompt.Enabled = false
 	end
 
-	-- PLANT THEM ON THE MARK. The camera is a fixed side-on shot composed against
-	-- WashSpot and WashStand (build/Plots), so the framing is only right if the player
-	-- is actually standing where the geometry says. Approaching from an angle and
-	-- being framed from the front is what produced "a weird view where nothing
-	-- happens": the character was behind the camera and the item filled the screen.
+	-- PLANT THEM ON THE MARK, FACING THE TUB. The shot is first person from the
+	-- player's own head, aimed down the line from there to the item on the stand
+	-- (WashController), so it is only the right picture if the player is actually
+	-- standing where the geometry says and looking the way it says. Approaching from
+	-- an angle and being left there is what produced "a weird view where nothing
+	-- happens" back when the camera was a fixed side-on shot.
+	--
+	-- STEPPED FORWARD OFF THE MARK, and the offset is here rather than in the WashSpot
+	-- geometry on purpose. WashSpot was placed six studs back to compose a side-on
+	-- shot that had to fit BOTH the player and the item in one frame; standing in
+	-- first person you want to be AT the tub, close enough that a half-stud patch is a
+	-- target rather than a speck. Moving the anchor itself would only take effect on
+	-- places that have been through a World.rebuild(), and a change that silently does
+	-- nothing until someone runs a command is worse than a line of arithmetic. -Z is
+	-- forward in WashSpot's own frame, which is already aimed at the stand.
 	if spot and spot:IsA("BasePart") and root and root:IsA("BasePart") then
-		root.CFrame = spot.CFrame
+		root.CFrame = spot.CFrame * CFrame.new(0, 0, -APPROACH)
 	end
 
 	push(player, session, data)
