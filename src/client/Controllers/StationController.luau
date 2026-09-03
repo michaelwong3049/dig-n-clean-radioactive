@@ -56,6 +56,16 @@
 	DisplayOrder (40) is below DetectorHud's (60), so the button wins that overlap
 	rather than being hidden under the panel.
 
+	AND THE SHOP IS ALSO A RACK IN THE WORLD NOW, WHICH THIS FILE PAINTS BUT DOES NOT
+	OWN. Every tier of the three tool tracks hangs over its counter with a price card
+	above it and its own E prompt (build/Shops), so a player who knows which detector
+	they want buys it without ever opening this panel. The one thing those cards
+	cannot show on their own is whether YOU own that tier — they are single shared
+	instances — so the owned-check is written locally, off the same `offer` this panel
+	is already receiving. See "The rack over the counter" below for what that costs.
+	The panel is unchanged and still opens: the rack is the fast path, the cards here
+	are still the only place the stat blocks live.
+
 	THE SHOP IS A STOREFRONT, NOT A PROMPT. It used to render exactly one thing —
 	"Bent Coil → Scavenger MkI", the deltas between them, and a BUY button — which
 	answered "what can I buy right now" and nothing else. A player could not see that
@@ -82,6 +92,7 @@
 ]]
 
 local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
@@ -709,6 +720,106 @@ local function paintShopCard(card: Frame, entry)
 	-- fourth case left to paint.
 end
 
+-- ── The rack over the counter ────────────────────────────────────────────────
+--
+-- THE OWNED-CHECK IS THE ONE PER-PLAYER THING ON A SHARED OBJECT. Every tier of the
+-- three tool tracks hangs on a rail over its shop counter with its price on a card
+-- above it (build/Shops' rack). That card is world geometry — one instance, seen by
+-- everybody — so the server cannot write "you own this" onto it for one player. The
+-- client can, locally, and nothing it writes replicates anywhere.
+--
+-- IT DRAWS OFF THE OFFER THIS PANEL IS ALREADY RECEIVING, and that is the whole
+-- reason this lives here rather than in a controller of its own. `state.offer.tiers`
+-- already carries an owned/current/buyable/affordable flag per tier, computed by
+-- ShopService from the profile, and it already arrives on every StationState tick
+-- while you are standing at the shop. So the checks cost no new remote, no new
+-- replicated state and no client-side guess about what the player owns.
+--
+-- WHAT THAT COSTS, STATED PLAINLY: the checks only render while you are inside the
+-- stall's station radius, because that is the only time the offer exists. Walk away
+-- and the rack goes back to showing prices. That is the right trade at this size —
+-- the cards' own MaxDistance is 28 studs, so they are barely legible from further
+-- out anyway — but it is a trade, and the fix if it ever stops being one is to
+-- replicate the gear tiers rather than to start guessing here.
+
+--- Matches Kit.UPGRADE_TAG and ShopService's own copy. Hardcoded a third time for
+--- the reason ShopService's copy gives: build/Kit lives in ServerScriptService and
+--- cannot be required from a client script. The server's two are checked against
+--- each other by World.verify(); this one announces a mismatch by the rack simply
+--- never lighting up.
+local RACK_TAG = "Upgrade"
+
+--- U+2713 first, the word after it. FredokaOne has no check glyph of its own, so
+--- this leans on Roblox's font fallback — and if that ever fails, what is left on the
+--- card is "OWNED", which still says the thing. A bare check would leave a tofu box.
+local OWNED_TEXT = "✓ OWNED"
+
+--- Which (track, owned-through-tier) pair is currently painted onto the world.
+--- StationState fires at ~10Hz for as long as you stand at a counter and almost
+--- every one of those ticks says exactly what the last one did; without this the
+--- tag index gets walked and 21 labels rewritten ten times a second to no effect.
+local rackKey: string? = nil
+
+--- Paint the owned-check onto `track`'s rack, and restore every other hook in the
+--- world to the price it was built showing. `tiers` nil restores all of them — that
+--- is what leaving a shop does.
+---
+--- RESTORE READS RestText / RestColor OFF THE LABEL, the same trick LiquidService
+--- uses to put the wash pad's sign back after it announces a roll: the builder
+--- stamps a label's as-built text and colour onto the label itself, so whatever
+--- overwrites it never has to remember what was there. A hook with no SellsTier is
+--- skipped entirely rather than restored — that is the Luck button, whose subtitle
+--- is owned by ExhibitService and must not be touched from here.
+local function paintRack(track: string?, tiers: { any }?)
+	for _, part in CollectionService:GetTagged(RACK_TAG) do
+		local tier = part:GetAttribute("SellsTier")
+		if type(tier) ~= "number" then
+			continue
+		end
+
+		local sign = part:FindFirstChild("Sign")
+		local sub = if sign then sign:FindFirstChild("Subtitle") else nil
+		if sub == nil or not sub:IsA("TextLabel") then
+			continue
+		end
+
+		local entry = if tiers ~= nil and part:GetAttribute("SellsTrack") == track then tiers[tier] else nil
+
+		if entry ~= nil and entry.owned then
+			sub.Text = OWNED_TEXT
+			sub.TextColor3 = COLOR.green
+		else
+			sub.Text = (sub:GetAttribute("RestText") :: string?) or sub.Text
+			sub.TextColor3 = (sub:GetAttribute("RestColor") :: Color3?) or sub.TextColor3
+		end
+	end
+end
+
+--- Repaint the rack only when the answer actually moved. The key is the track plus
+--- the top tier the player owns, which is the only thing about an offer this rack
+--- can draw — price and name are as-built, and affordability deliberately is not
+--- shown out here (that is what the panel's cards are for).
+local function refreshRack()
+	local atShop = state.station == "shop"
+	local tiers = if atShop and state.offer then state.offer.tiers else nil
+
+	local owned = 0
+	if tiers then
+		for _, entry in tiers do
+			if entry.owned and entry.tier > owned then
+				owned = entry.tier
+			end
+		end
+	end
+
+	local key = if tiers then `{tostring(state.stationId)}:{owned}` else nil
+	if key == rackKey then
+		return
+	end
+	rackKey = key
+	paintRack(state.stationId, tiers)
+end
+
 local function render()
 	if state.station == nil or dismissed or not PANEL_KINDS[state.station] then
 		ui.panel.Visible = false
@@ -955,6 +1066,16 @@ function Station.start()
 		state = payload
 		state.items = payload.items or {}
 		state.locker = payload.locker or {}
+
+		-- BEFORE render, AND NOT INSIDE IT. The rack is in the world, not in the
+		-- panel: dismissing the panel with the X must not wipe the checks off the
+		-- counter you are still standing at. render() bails early on `dismissed`,
+		-- so anything the world needs has to happen out here.
+		local rackOk, rackErr = pcall(refreshRack)
+		if not rackOk then
+			warn(`[station] rack repaint failed: {rackErr}`)
+		end
+
 		local ok, err = pcall(render)
 		if not ok then
 			warn(`[station] render failed: {err}`)

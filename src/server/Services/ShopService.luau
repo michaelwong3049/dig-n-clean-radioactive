@@ -26,6 +26,16 @@
 	cards with the right one enabled. `buyable` now means "not owned", not "the very
 	next one"; see `CatalogEntry` below.
 
+	THERE ARE TWO DOORS ONTO buyTier NOW, AND ONLY ONE OF THEM IS THE PANEL.
+	Every tier of the three tool tracks also hangs on a rail over its shop counter
+	with its own ProximityPrompt (build/Shops' rack), so a player who knows which
+	detector they want walks up to that detector and presses E — no panel, no card,
+	no row to find. `wireUpgrade` below is that path. It lands on exactly the same
+	`buyTier` the panel's Buy button does, with the same validation, so nothing about
+	what a purchase COSTS or whether it is legal depends on which door it came
+	through. The panel is still there and still opens; see build/Shops' header for
+	why both are worth keeping.
+
 	THE CLIENT IS NEVER TRUSTED ABOUT WHERE IT IS STANDING, OR WHAT THINGS COST.
 	The buy request carries a track name and a tier number, and neither is trusted on
 	its own. The server independently asks StationService which shop this player is
@@ -288,11 +298,26 @@ local UPGRADE_TAG = "Upgrade"
 
 --- Wire one world object that sells a track by proximity instead of by panel.
 ---
---- The prompt is created by the BUILDER (build/Plots.buildLuckButton) and saved with
---- the place; this connects behaviour to it at boot. Splitting it that way is the
---- same split every station already uses — geometry and attributes are build-time,
---- behaviour is runtime — and it is what lets the button be rebuilt without touching
---- a service.
+--- The prompt is created by the BUILDER (build/Plots.buildLuckButton for Luck, or
+--- build/Shops' rack hooks for a tiered track) and saved with the place; this
+--- connects behaviour to it at boot. Splitting it that way is the same split every
+--- station already uses — geometry and attributes are build-time, behaviour is
+--- runtime — and it is what lets a shop be rebuilt without touching a service.
+---
+--- TWO SHAPES OF SELLER COME THROUGH HERE, told apart by `SellsTier`:
+---
+---   SellsTrack only ............. Luck's button. No ladder to index, so it takes
+---                                 buyLuck's own path — Config/Gear's header above
+---                                 `luckMultiplier` says why Luck has no tiers.
+---   SellsTrack + SellsTier ...... one hook on a shop rack: THIS rung of that track.
+---                                 Straight to buyTier, the same call the panel's
+---                                 Buy button lands on.
+---
+--- NEITHER PATH CHECKS PROXIMITY, and that is not an omission — see buyTier's own
+--- header. ProximityPrompt.Triggered fires on the SERVER and Roblox enforces
+--- MaxActivationDistance before it ever fires, so the player's position is a
+--- precondition the engine established rather than a claim to re-derive. The panel's
+--- `buy()` has to do that work because a client sent it a request; a prompt does not.
 local function wireUpgrade(part: Instance)
 	if not part:IsA("BasePart") then
 		return
@@ -307,24 +332,37 @@ local function wireUpgrade(part: Instance)
 		return
 	end
 
+	-- Read ONCE, at wiring time, not inside the handler. A rack hook's tier is
+	-- geometry — it is which hook this is — and re-reading it per trigger would make
+	-- the price a player pays depend on an attribute that anything could have moved
+	-- since. buyTier re-validates it against the track's length regardless.
+	local tier = part:GetAttribute("SellsTier")
+	local sellsTier = if type(tier) == "number" then tier else nil
+
+	if sellsTier == nil and track ~= "Luck" then
+		warn(`[shop] {part:GetFullName()} sells "{track}" with no SellsTier — only Luck may omit it`)
+		return
+	end
+
 	prompt.Triggered:Connect(function(player: Player)
-		-- LUCK IS THE ONLY THING SellsTrack NAMES TODAY, and unlike every tiered
-		-- track it has no ladder to sell a rung of — ShopService.buyLuck's header
-		-- explains why it needed its own purchase path instead of buyTier. If a
-		-- second non-panel track ever needs this wiring, branch on `track` here.
 		local ok: boolean, message: string
-		if track == "Luck" then
-			ok, message = ShopService.buyLuck(player)
+		if sellsTier ~= nil then
+			ok, message = ShopService.buyTier(player, track, sellsTier)
 		else
-			ok, message = false, `no such track "{track}"`
+			ok, message = ShopService.buyLuck(player)
 		end
 		resultRemote:FireClient(player, message)
 		if ok then
 			print(`[shop] {player.Name}: {message}`)
-			-- The button's own billboard names the buyer's multiplier, not a shop
-			-- panel that isn't there — see ExhibitService.refreshLuck's header for why
-			-- that lives in ExhibitService rather than here.
-			ExhibitService.refreshLuck(player)
+			if sellsTier == nil then
+				-- The luck button's own billboard names the buyer's multiplier, not a
+				-- shop panel that isn't there — see ExhibitService.refreshLuck's header
+				-- for why that lives in ExhibitService rather than here. A rack hook has
+				-- nothing to refresh: its card is world geometry showing a fixed price,
+				-- and the per-player owned-check over it is drawn client-side off the
+				-- offer the panel is already receiving (StationController's rack pass).
+				ExhibitService.refreshLuck(player)
+			end
 		end
 	end)
 end

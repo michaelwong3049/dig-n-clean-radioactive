@@ -394,6 +394,15 @@ function World.verify(): (boolean, { string })
 	--                          moment it stopped having a priced ladder to check
 	--                          against here — its button is still verified above,
 	--                          by count and by tag, just not by this loop)
+	--
+	-- THE SECOND KIND IS NO LONGER JUST LUCK. Every tier of the three tool tracks
+	-- hangs on a rack over its shop counter with its own prompt (build/Shops), so
+	-- there are ~21 SellsTrack parts in the world now where there used to be six
+	-- luck buttons. They carry a `SellsTier` naming which rung they sell, and that
+	-- is checked below: a hook whose tier is missing or out of range would wire
+	-- itself to ShopService and then sell the wrong thing, or nothing, at a price
+	-- the player never agreed to. Luck is the one exception and stays exempt — it
+	-- has no ladder to index (Config/Gear's `luckMultiplier` header says why).
 	local sells: { [string]: boolean } = {}
 	for _, d in Workspace:GetDescendants() do
 		if d:IsA("BasePart") then
@@ -412,6 +421,18 @@ function World.verify(): (boolean, { string })
 					CollectionService:HasTag(d, Kit.UPGRADE_TAG),
 					`{d:GetFullName()} has SellsTrack but no "{Kit.UPGRADE_TAG}" tag — ShopService scans by tag and will never wire it`
 				)
+
+				-- Gear.tier CLAMPS an out-of-range index rather than erroring, so a
+				-- hook stamped with tier 9 of an 8-tier track would quietly sell tier
+				-- 8 forever at a price nobody could see was wrong. Caught here, at
+				-- the rebuild that stamped it.
+				local tier = d:GetAttribute("SellsTier")
+				if direct ~= "Luck" then
+					check(
+						type(tier) == "number" and tier == math.floor(tier) and tier >= 1 and tier <= Gear.maxTier(direct),
+						`{d:GetFullName()} sells "{direct}" tier {tostring(tier)}, which is not a tier of that track (1..{Gear.maxTier(direct)})`
+					)
+				end
 			end
 		end
 	end
