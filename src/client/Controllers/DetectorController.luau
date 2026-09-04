@@ -115,16 +115,25 @@ local YANK_KICK_SCALE = 0.05 -- how far the button swells at the peak of a kick
 -- climbs towards it, the magnet doing the pulling sits under the bar's foot, and the
 -- way out sits under the magnet. The rarity/odds readout is beside the bar rather
 -- than above it, so naming what you hooked costs no height at all.
-local HAULTRACK_WIDTH = 54
-local MAGNET_HEIGHT = 26 -- buildMagnetIcon's own height; it parks below the track
+local HAULTRACK_WIDTH = 72
+
+-- The magnet glyph parks below the track. buildMagnetIcon draws into a fixed 30x26 box
+-- of hand-placed rectangles, so it is enlarged with a UIScale rather than by retuning
+-- five sets of coordinates -- MAGNET_HEIGHT is therefore the height the stack has to
+-- RESERVE (the scaled one), not the height the glyph is drawn at.
+local MAGNET_DRAWN = 26
+local MAGNET_SCALE = 1.5
+local MAGNET_HEIGHT = MAGNET_DRAWN * MAGNET_SCALE
 
 -- THE BAR'S COLUMN IS AS WIDE AS THE WIDEST THING STACKED IN IT, which is the release
 -- hint at the bottom rather than the bar itself — everything in the stack is centred
 -- on the same axis, so the bar, the magnet and both bits of text line up down the
--- middle of it. The readout column takes whatever is left.
-local HAULBAR_COL = 100
+-- middle of it. The readout column takes whatever is left, and it needs enough of it
+-- for "LEGENDARY" at hero/title weight -- the longest rarity in Rarity.ORDER, and the
+-- one thing here that would clip rather than merely look cramped.
+local HAULBAR_COL = 120
 local HAULBAR_MID = HAULBAR_COL / 2
-local HAULCOL_GAP = 12 -- bar column -> readout column
+local HAULCOL_GAP = 14 -- bar column -> readout column
 local HAULCOL_X = HAULBAR_COL + HAULCOL_GAP
 local HAULCOL_WIDTH = Dock.HAULPANEL_SIZE.X.Offset - HAULCOL_X
 
@@ -132,11 +141,11 @@ local HAULCOL_WIDTH = Dock.HAULPANEL_SIZE.X.Offset - HAULCOL_X
 -- rather than inlined because HAULTRACK_HEIGHT is derived from all of them at once: a
 -- change to any row moves the bar's length rather than silently pushing the release
 -- hint off the bottom.
-local HAULBUTTON_HEIGHT = 32
-local HAULBUTTON_GAP = 8 -- PULL -> the top of the bar
-local MAGNET_GAP = 6 -- the bar's foot -> the magnet
-local RELEASE_HEIGHT = 16
-local RELEASE_GAP = 4 -- magnet -> the release hint
+local HAULBUTTON_HEIGHT = 46
+local HAULBUTTON_GAP = 10 -- PULL -> the top of the bar
+local MAGNET_GAP = 8 -- the bar's foot -> the magnet
+local RELEASE_HEIGHT = 20
+local RELEASE_GAP = 6 -- magnet -> the release hint
 
 local HAULTRACK_TOP = HAULBUTTON_HEIGHT + HAULBUTTON_GAP
 local HAULTRACK_HEIGHT = Dock.HAULPANEL_SIZE.Y.Offset
@@ -502,15 +511,22 @@ end
 --- A tiny horseshoe-magnet glyph, opening upward: a red "U" with two pale pole tips
 --- — the same red-body / white-tips cliché build/Shops.luau's buildMagnetProp leans
 --- on so the shape reads as "magnet" at a glance. Drawn from frames, no image asset,
---- like every other piece of HUD here. Returns the 30xMAGNET_HEIGHT container for the
---- caller to place -- the height is that constant rather than a literal because the
---- haul panel reserves a row for this glyph under its bar, and the two have to agree.
+--- like every other piece of HUD here. Returns the 30xMAGNET_DRAWN container for the
+--- caller to place, wearing a UIScale of MAGNET_SCALE -- the pieces below are placed by
+--- hand at fixed offsets, so a scale factor is how this grows without five sets of
+--- coordinates having to be re-tuned in step. The caller reserves MAGNET_HEIGHT (the
+--- SCALED height) for it; the UIScale pivots on the AnchorPoint, so a (0.5, 0) caller
+--- gets growth straight down from where it placed the top.
 local function buildMagnetIcon(parent: Instance): Frame
 	local icon = Instance.new("Frame")
 	icon.Name = "MagnetIcon"
-	icon.Size = UDim2.fromOffset(30, MAGNET_HEIGHT)
+	icon.Size = UDim2.fromOffset(30, MAGNET_DRAWN)
 	icon.BackgroundTransparency = 1
 	icon.Parent = parent
+
+	local scale = Instance.new("UIScale")
+	scale.Scale = MAGNET_SCALE
+	scale.Parent = icon
 
 	local function piece(name: string, x: number, y: number, w: number, h: number, color: Color3, radius: number?)
 		local f = Instance.new("Frame")
@@ -739,15 +755,22 @@ local function build(): ScreenGui
 		anchorPoint = Vector2.new(0.5, 0.5),
 		position = UDim2.fromOffset(HAULBAR_MID, HAULBUTTON_HEIGHT / 2),
 		size = UDim2.fromOffset(HAULBAR_COL, HAULBUTTON_HEIGHT),
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.header,
+		font = UIKit.Font.hero,
+		textSize = UIKit.TextSize.title,
 		color = COLOR.green,
 		fillColor = COLOR.panel,
-		fillTransparency = 0.2,
+		-- NEARLY OPAQUE, where every other fill in the kit is a translucent 0.15-0.2.
+		-- Green text on a fill that lets the ground through is green on green the
+		-- moment a player is standing on grass, which is most of the time -- at 0.2
+		-- this was the least readable thing in the widget despite being the largest.
+		-- It needs a plate of its own now that there is no panel supplying one.
+		fillTransparency = 0.05,
 		strokeColor = COLOR.stroke,
+		strokeThickness = UIKit.Stroke.normal,
 		cornerRadius = UIKit.Radius.button,
 		text = "PULL",
 	})
+	haulButton.TextStrokeTransparency = 0.35
 	ui.haulButton = haulButton
 	ui.haulButtonStroke = haulButtonStroke
 
@@ -779,12 +802,14 @@ local function build(): ScreenGui
 	-- IT IS ALSO WHERE THE RARITY ACCENT LIVES NOW. That used to be the panel's stroke,
 	-- and the panel is gone; this is the only outline left, and tinting the vessel you
 	-- are filling is a better home for the colour than the slab around it ever was.
-	-- NORMAL, NOT THIN. Thin(2) was enough when this outline only had to separate the
-	-- empty column from a dark panel behind it; against open ground, and now that it is
-	-- also the only thing carrying the rarity colour, it read as no outline at all.
+	-- THICK. This outline is doing three jobs at once -- it separates the empty column
+	-- from whatever terrain is behind it, it is the only frame the widget has left, and
+	-- it is where the rarity colour lives -- so it is the one line on screen that most
+	-- deserves the weight. It has climbed thin(2) -> normal(3) -> thick(4) as each of
+	-- those jobs landed on it.
 	local trackStroke = Instance.new("UIStroke")
 	trackStroke.Color = COLOR.stroke
-	trackStroke.Thickness = UIKit.Stroke.normal
+	trackStroke.Thickness = UIKit.Stroke.thick
 	trackStroke.Parent = track
 	ui.haulStroke = trackStroke
 
@@ -831,7 +856,7 @@ local function build(): ScreenGui
 			HAULTRACK_TOP + HAULTRACK_HEIGHT + MAGNET_GAP + MAGNET_HEIGHT + RELEASE_GAP
 		),
 		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption,
+		textSize = UIKit.TextSize.body,
 		color = COLOR.dim,
 		fillColor = COLOR.panel,
 		fillTransparency = 1,
@@ -854,10 +879,10 @@ local function build(): ScreenGui
 	-- the panel gone this text can end up over sunlit sludge.
 	ui.haulTitle = UIKit.label(haul, {
 		name = "Title",
-		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP - 2),
-		size = UDim2.fromOffset(HAULCOL_WIDTH, 24),
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.header,
+		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP - 4),
+		size = UDim2.fromOffset(HAULCOL_WIDTH, 30),
+		font = UIKit.Font.hero,
+		textSize = UIKit.TextSize.title,
 		color = COLOR.scope,
 		strokeTransparency = 0.15,
 	})
@@ -869,10 +894,10 @@ local function build(): ScreenGui
 	-- keeps the hierarchy without giving up the readout.
 	ui.haulOdds = UIKit.label(haul, {
 		name = "Odds",
-		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP + 22),
-		size = UDim2.fromOffset(HAULCOL_WIDTH, 18),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.body,
+		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP + 28),
+		size = UDim2.fromOffset(HAULCOL_WIDTH, 22),
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.header,
 		color = COLOR.dim,
 		strokeTransparency = 0.15,
 	})
@@ -883,10 +908,10 @@ local function build(): ScreenGui
 	-- "LEGENDARY" next to a "?" reads as a bug.
 	ui.haulQuestion = UIKit.label(haul, {
 		name = "HaulQuestion",
-		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP - 2),
-		size = UDim2.fromOffset(HAULCOL_WIDTH, 24),
+		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP - 4),
+		size = UDim2.fromOffset(HAULCOL_WIDTH, 30),
 		font = UIKit.Font.hero,
-		textSize = 24,
+		textSize = 30,
 		color = COLOR.dim,
 		strokeTransparency = 0.15,
 		text = "?",
@@ -1169,6 +1194,11 @@ local function renderState()
 		ui.haulFill.BackgroundColor3 = fill
 		ui.haulButton.Text = "PULL"
 		ui.haulButton.TextColor3 = if strain > 0 then fill else COLOR.green
+		-- The button's outline takes the strain colour with its text. This is the one
+		-- field on ui that was captured and never read; lighting it up costs nothing
+		-- and makes the control the player is hammering the loudest thing in the
+		-- widget, which out in the corner it now lives in it needs to be.
+		ui.haulButtonStroke.Color = if strain > 0 then fill else COLOR.green
 	end
 
 	if not state.inStage then

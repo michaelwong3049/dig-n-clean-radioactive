@@ -189,19 +189,25 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- THE BAR INSIDE IT IS VERTICAL, which is what sets the height. A horizontal strip
 -- said "progress"; a column says what the haul actually IS — the thing is under you
 -- and it has to come all the way UP — and the fill climbing towards a top edge is a
--- target you can see, where a strip's right-hand end never read as one. 210 is the
--- shortest stack that still leaves that column real travel (118px) under the PULL
--- button and over the magnet and the release hint; the rarity/odds readout sits BESIDE
--- the bar precisely so naming what you hooked costs no height. DetectorController's
--- HAULBAR_* / HAULTRACK_* derive the whole interior from this one number — nothing in
--- there re-hardcodes 240 or 210.
+-- target you can see, where a strip's right-hand end never read as one. The column
+-- gets 161px of travel here, under the PULL button and over the magnet and the
+-- release hint; the rarity/odds readout sits BESIDE the bar precisely so naming what
+-- you hooked costs no height. DetectorController's HAULBAR_* / HAULTRACK_* derive the
+-- whole interior from this one number — nothing in there re-hardcodes 320 or 290.
+--
+-- 320x290, UP FROM 240x210, on request: bigger and louder. Stripping the panel took
+-- the widget's weight off with its bulk, and out in the corner where it lives now the
+-- result read as a small quiet thing rather than as the control you are hammering.
+-- The bar is the part that grew most (54x118 -> 72x161) because the bar is what the
+-- player is actually watching. Still well under the old slab's footprint, and drawing
+-- none of it.
 --
 -- ITS BOX OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM), which the old 150 cleared
 -- by 4px. That is safe rather than lucky, and doubly so now that the box draws nothing:
 -- DigService releases the lock the instant the bag fills (its RELEASE 3), and the only
 -- other line the status can carry is the buried-too-deep one, which needs
 -- `not hasSignal` — so the two are never on screen in the same frame.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(240, 210)
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(320, 290)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
@@ -289,12 +295,18 @@ Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 -- edge lands exactly one INSTRUMENT_GAP left of the scope, so the two share the
 -- HAULPANEL_BOTTOM / SCOPE_BOTTOM baseline and can never overlap each other.
 --
--- Its LEFT edge then clears screen centre by ~500px at 1920, ~240 at 1410 and ~50 at
--- 1024 — comfortably past a character that is only ~70px wide on screen. Below about
--- 900px of width the band between the meter and the scope is narrower than the widget
--- itself and it reaches back over centre; nothing collides (it still clears the meter
--- at 800), it just runs out of room to dodge, which is the honest floor of a fixed-size
--- widget on a viewport that small.
+-- Its LEFT edge then clears screen centre by ~420px at 1920, ~160 at 1410 and ~95 at
+-- 1280 — comfortably past a character that is only ~70px wide on screen.
+--
+-- THE COST OF THE 320px WIDTH IS PAID ON SMALL VIEWPORTS, and it is worth stating
+-- plainly rather than discovering. The free band between the meter column and the
+-- scope is (width - 304 - 204) px; below ~1050 that is narrower than the widget, so it
+-- reaches back over centre (-32px at 1024) and below ~830 it starts tucking behind the
+-- meter as well (~48px at 800). Nothing breaks — the meter is DisplayOrder 100 against
+-- DetectorHud's 60 and stays readable on top — but the widget stops dodging the item
+-- it is hauling. That is the honest floor for a fixed-size widget on a viewport that
+-- small; the fix if it ever matters is a narrower widget under some width, not a
+-- different anchor.
 Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SCOPE_DIAL + Dock.INSTRUMENT_GAP
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
