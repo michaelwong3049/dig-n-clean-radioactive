@@ -8,10 +8,17 @@
 	storytelling in the game. A client-only cosmetic would be invisible to everyone else.
 
 	WHICH TOOL, in priority order:
-	  at the decon station -> Cleaner   (your hose; you are here to clean)
 	  committed to a signal -> Magnet   (you have locked on — now pull it up)
 	  standing in a stage   -> Detector  (sweeping is the default verb)
 	  otherwise            -> nothing   (base camp, hands free)
+
+	THE DECON STATION USED TO BE THE FIRST RUNG OF THAT LIST and it handed you your
+	Cleaner. It does not any more, because the Cleaner track stopped being something a
+	player holds: it is the monitor bolted to the mast beside your tub
+	(build/Plots.buildHoseRig), bought at the plaza and swapped in place by
+	Plots.setHoseTier. There is nothing left for this file to put in that hand, so the
+	hand stays empty at the bay — which is also what the wash branch in `stepPlayer`
+	has been enforcing from the other direction the whole time.
 
 	The magnet keys off COMMITTING to a signal (DigService.isLocked), not off merely
 	standing over one. It used to swap on approach, but that took the detector out of
@@ -39,7 +46,6 @@ local Ticker = require(Shared.Util.Ticker)
 
 local DataService = require(script.Parent.DataService)
 local DigService = require(script.Parent.DigService)
-local DeconService = require(script.Parent.DeconService)
 local WashService = require(script.Parent.WashService)
 
 local ToolService = {}
@@ -331,10 +337,16 @@ local function unequip(character: Model)
 	end
 end
 
---- CODE-AUTHORED TRACKS COME FIRST, and the Cleaner track is the only one so far:
---- Shared/ToolModels owns its seven hoses (see that module's header for why it left
---- the place file), so a stale `Assets/Tools/Cleaner` folder of the old brushes and
---- sponges must not win the lookup. Every other track still resolves out of the place.
+--- CODE-AUTHORED TRACKS COME FIRST. Shared/ToolModels is the intended home for tool
+--- art (see its header for why the hoses left the place file) and a stale
+--- `Assets/Tools/<Track>` folder must never win the lookup against it.
+---
+--- NO TRACK TAKES THAT BRANCH TODAY. The Cleaner track was the only one that did, and
+--- it stopped being equipped at all when the hose became a machine on a mast — the two
+--- tracks left with held models, Detector and Magnet, are both still hand-authored in
+--- the place. The branch stays because it is the door the next one walks through, and
+--- because deleting it would quietly make a code-authored track lose to a leftover
+--- folder the day someone adds one.
 ---
 --- `built` is the throwaway flag: a library template is cloned and must survive, a
 --- factory model was made for this call and the clone below is a second copy of it.
@@ -513,9 +525,11 @@ local function wanted(player: Player): string?
 	-- Washing is handled by its own branch in stepPlayer, which returns before this
 	-- answer is ever used -- it has a pose to set as well as a tool to clear, and
 	-- splitting those across two places is how one of them gets forgotten.
-	if DeconService.stationOf(player) == "decon" then
-		return "Cleaner"
-	end
+	--
+	-- NOTHING FOR THE DECON STATION. Standing at a cleansing station used to return
+	-- "Cleaner" and put the tier's hose in your hand; the track is a machine on a mast
+	-- now (see the header) and there is nothing to hand over. Two tracks have held
+	-- models left, and this list is both of them.
 	if DigService.isLocked(player) then
 		return "Magnet"
 	end
@@ -537,9 +551,9 @@ local function stepPlayer(player: Player)
 
 	-- ── The off hand ──────────────────────────────────────────────
 	-- Resolved BEFORE the early-out below, because the tool slot and the item slot
-	-- change for completely unrelated reasons: standing still at a base with the
-	-- Cleaner already in hand is exactly when a player cycles through their bag, and
-	-- an early return on the tool would freeze the item in their hand.
+	-- change for completely unrelated reasons: standing still at a base with nothing
+	-- in hand is exactly when a player cycles through their bag, and an early return
+	-- on the tool would freeze the item in their hand.
 	--
 	-- Suppressed while a wash is running: the item is sitting on the tub then, not in
 	-- your hand, and WashService owns rendering it there.
@@ -555,18 +569,19 @@ local function stepPlayer(player: Player)
 	equipItem(character, heldItem)
 
 	-- ── Washing ───────────────────────────────────────────────────
-	-- The one case where something is in the player's hands that did NOT come out of
-	-- the tool library: WashService welds a copy of the station's fire hose there for
-	-- the length of a session. Two things follow, and both belong here rather than in
-	-- WashService -- this file owns the tool slot and it owns posing, and it already
-	-- reads isWashing for the off hand above.
+	-- HANDS EMPTY, ARMS UP. The wash bay used to weld a copy of the station's hose into
+	-- the right hand for the session, so this branch existed to make room for it; the
+	-- nozzle is bolted to its mast now and nothing is handed over at all. Two things
+	-- still belong here rather than in WashService, because this file owns the tool
+	-- slot and it owns posing, and it already reads isWashing for the off hand above:
 	--
-	--   * the Cleaner comes OUT of that hand (`wanted` returns nil while washing), or
-	--     the player is gripping a sponge and a nozzle in one fist.
-	--   * the upper body braces, the same way it does for the detector and for the same
-	--     reason. Without it the nozzle hangs off an arm that is still swinging through
-	--     its idle cycle, which is what "it looks awkward" was about -- nobody holds a
-	--     pressurised hose with their arms at their sides.
+	--   * the slot is cleared. `wanted` returns nil at a station anyway now, but a
+	--     player can walk into a wash straight off a stage with a detector still up.
+	--   * the upper body braces, the same way it does for the detector. The pose is
+	--     WHY it still reads as operating something: both hands come up onto the
+	--     controls and the arms stop swinging through their idle cycle. Left out, a
+	--     player at the mark stands slack while a machine two studs away sprays on its
+	--     own, which is the same "it looks awkward" the brace was added for.
 	--
 	-- Returning here also keeps the tool-slot bookkeeping below from immediately
 	-- undoing the pose: its `target == nil` branch calls setPose(character, nil).

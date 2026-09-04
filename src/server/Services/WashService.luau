@@ -32,16 +32,27 @@
 	back in your bag, your walk speed comes back, and the model on the tub gets
 	destroyed. A client-owned session leaves all three dangling on a disconnect.
 
-	THE HOSE IS AN OBJECT, NOT AN EFFECT. It is built with the station
-	(build/Plots.buildHoseRig): a pump, a reel of green hose, and a brass-tipped
-	nozzle parked on the cap. Starting a wash hands the player a CLONE of that nozzle,
-	welded into their right hand exactly the way ToolService welds a tool, stashes the
-	parked original, and re-points the reel's Beam at the copy — so the green line
-	runs from the drum to whatever the player is holding, on every client, with no
-	per-frame code anywhere. Ending a wash puts all three back.
+	THE HOSE IS A MACHINE, AND THIS SERVICE NO LONGER TOUCHES IT. It is built with the
+	station (build/Plots.buildHoseRig): a pump, a reel of green hose, and a monitor
+	bolted to a mast at the near corner of the tub, at whatever Cleaner rung the plot's
+	owner has bought. Starting a wash used to hand the player a CLONE of that nozzle,
+	welded into their right hand, with the parked original stashed and the reel's Beam
+	swung onto the copy — three moving pieces to put back on every exit path, and a
+	whole upgrade track that lived in a fist. All of it is gone. The session simply
+	NAMES the station's own nozzle in its state payload; WashController points it,
+	locally, and puts it back on its `ParkedPivot` when the session ends.
 
-	The ordinary Cleaner tool steps aside for the duration (ToolService.wanted), or the
-	player would be holding a sponge and a fire hose in the same hand.
+	WHAT THAT DELETED, so nobody re-adds it looking for a bug: takeHose/stowHose, the
+	session's `hose`/`parked`/`line`/`parkedCurve` fields, the HoldCFrame read, and the
+	beam's two CurveSize states. The player's hands are empty at the tub now, and
+	ToolService's decon branch is empty with them.
+
+	YOUR STATS ARE YOURS, THE MACHINE IN FRONT OF YOU IS THE PLOT'S. `power` and
+	`volume` come out of the washing player's own profile (StatResolver), exactly as
+	every other track does — so washing at a neighbour's bay does not lend you their
+	rung, and it does not lend them yours. On your own plot, which is where your
+	RespawnLocation puts you and where all six bays therefore get used, the machine on
+	the mast and the numbers in the clock are the same purchase.
 ]]
 
 local Players = game:GetService("Players")
@@ -54,7 +65,6 @@ local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Liquids = require(Shared.Config.Liquids)
 local ItemModels = require(Shared.ItemModels)
-local ToolModels = require(Shared.ToolModels)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
@@ -80,30 +90,6 @@ local LEASH = 16
 --- so this stops well clear of standing inside the geometry.
 local APPROACH = 1.2
 
---- How the nozzle sits in the hand. `-Y` is down the arm on both rigs, so rotating
---- the nozzle's own forward axis (`-Z`, the axis CFrame.lookAt aims down) onto it is
---- what puts the brass end pointing away from the body rather than into the player's
---- own elbow.
----
---- THE OFFSET IS SMALL ON PURPOSE, and it matters more than a first-frame pose
---- should. WashController pivots the nozzle about wherever this puts it, for the whole
---- session -- so this is not just the starting look, it is the point the nozzle
---- ORBITS. At -0.7 the nozzle hung most of a stud below the fist, which dropped the
---- muzzle under the lip of the tub and put the water into the rim a stud out of the
---- nozzle. Held at the hand, it swings around the grip like a real one.
----
---- READ FROM THE MODEL NOW, not written here. Every hose carries a `HoldCFrame`
---- attribute -- the same convention ToolService follows for the detector and the
---- magnet, and the same attribute build/Shops reads to hang a tier on the rack. Three
---- surfaces needing one offset is exactly when a constant in one of them starts
---- drifting from the other two. Falls back to the value the attribute is set FROM
---- rather than to identity: a nozzle at identity sits inside the fist aimed at the
---- player's own elbow, which is worse than any wrong-but-plausible offset.
-local function holdOffset(hose: Model): CFrame
-	local value = hose:GetAttribute("HoldCFrame")
-	return if typeof(value) == "CFrame" then value else ToolModels.Hose.HOLD
-end
-
 type Session = {
 	uid: string,
 	stand: BasePart,
@@ -111,15 +97,13 @@ type Session = {
 	prompt: ProximityPrompt?,
 	returnTo: CFrame?,
 	model: Instance?,
-	-- The hose, in three pieces: the copy in the player's hand, the station's own
-	-- nozzle parked out of the tree for the duration, and the reel's Beam whose far
-	-- end swings between the two. All three move together; see takeHose/stowHose.
+	-- The station's own monitor, resolved once at begin() and passed to the client in
+	-- every state push. NOT owned here and never modified here: this service does not
+	-- move it, park it, weld it or destroy it — the field exists so the client is told
+	-- which nozzle is live rather than re-deriving it from the stand's parent, and so
+	-- a station rebuilt mid-session (World.rebuild from the command bar) leaves a
+	-- reference this service can see has gone stale.
 	hose: Model?,
-	parked: Model?,
-	line: Beam?,
-	-- The line's CurveSize pair as it was PARKED, packed into a Vector2 (X = 0, Y = 1)
-	-- so it is one field rather than two. Restored on the way out.
-	parkedCurve: Vector2?,
 	spraying: boolean,
 	patchIndex: number?,
 	elapsed: number,
@@ -183,124 +167,24 @@ local function placeOnStand(stand: BasePart, item: any): Instance?
 	return model
 end
 
--- ── Picking up the hose ────────────────────────────────────────────────
+-- ── The machine's nozzle ───────────────────────────────────────────────
 
---- Put the player's OWN hose in their right hand and run the reel's line to it.
+--- The monitor on this station's mast, or nil if this place was built before the mast
+--- existed (build/Plots.buildHoseRig). Resolved once per session and handed to the
+--- client, which is the only thing that touches it: the nozzle is anchored world
+--- geometry, and a client rewriting an anchored part's CFrame moves it for that
+--- viewer alone. That is exactly the fidelity the spray already has (WashController's
+--- jet is client-local too), and it is why aiming needs no remote traffic at all.
 ---
---- IT USED TO BE A COPY OF THE STATION'S NOZZLE, identical for everyone, and that was
---- the hole this whole feature exists to close. The Cleaner track sold seven cleaning
---- tools and ToolService pulls every one of them OUT of this hand for the duration
---- (you cannot hold a sponge and a nozzle in one fist), so a player who had just spent
---- $80,000 washed with exactly the same green fire hose as a player who had spent
---- nothing. The tier is built fresh from Shared/ToolModels/Hose instead, so what you
---- bought is what you aim.
----
---- THE STATION'S NOZZLE STILL GETS PARKED, and that is not bookkeeping for its own
---- sake: it is how "picking up the hose" reads. Leaving it on the pump while a second
---- one appears in your hand is two hoses, and the plot only has one reel.
----
---- NOTHING HERE IS FATAL ANY MORE. A place file saved before build/Plots.buildHoseRig
---- landed has no nozzle on the pump and no reel to swing — it now still hands you a
---- hose, just without the green line running back to the drum. The only hard
---- requirement left is a right hand to weld it to.
-local function takeHose(player: Player, session: Session, tier: number)
-	local character = player.Character
-	-- R15 first, then R6 — the same fallback ToolService's handOf uses.
-	local hand = character and (character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm"))
-	if hand == nil or not hand:IsA("BasePart") then
-		return
+--- NIL IS NOT FATAL. A place file without a rig still washes — you just get no nozzle
+--- swinging and the jet leaves from the fallback origin the controller picks — which
+--- is the same graceful degrade the held version had for the same reason.
+local function stationHose(station: Instance?): Model?
+	local found = if station then station:FindFirstChild("Hose") else nil
+	if found and found:IsA("Model") and found.PrimaryPart ~= nil then
+		return found
 	end
-
-	-- Narrowed to `Model?` in one expression rather than checked and reassigned: the
-	-- station's nozzle is optional now, and `session.parked` is typed `Model?`, so an
-	-- `Instance?` that has merely been nil-ed out on the failing branch does not fit it.
-	local station = session.station
-	local onPump = if station then station:FindFirstChild("Hose") else nil
-	local parked: Model? = if onPump and onPump:IsA("Model") and onPump.PrimaryPart ~= nil then onPump else nil
-
-	local clone = ToolModels.Hose.create(tier)
-	clone.Name = "WashHose"
-	-- The factory always sets PrimaryPart, but every line after this welds to it or
-	-- hangs an attachment off it, so the type system is made to say so out loud.
-	local core = clone.PrimaryPart
-	if core == nil then
-		clone:Destroy()
-		return
-	end
-	-- UNANCHORED, MASSLESS, NON-COLLIDING, and all three matter. Anchored would bolt
-	-- the character to the world through the aim joint WashController adds (see
-	-- build/Plots.buildHoseRig's own note); mass would let the player shove themselves
-	-- around holding a nozzle; collision would wedge them in the tub.
-	for _, part in clone:GetDescendants() do
-		if part:IsA("BasePart") then
-			part.Anchored = false
-			part.CanCollide = false
-			part.Massless = true
-		end
-	end
-	clone.Parent = character
-	clone:PivotTo(hand.CFrame * holdOffset(clone))
-
-	local weld = Instance.new("WeldConstraint")
-	-- Named HoldWeld to match ToolService's, because WashController's aim rig looks
-	-- for exactly that name to disable while it points the nozzle, and re-enables it
-	-- on the way out. One name, one convention, one code path on the client.
-	weld.Name = "HoldWeld"
-	weld.Part0 = hand
-	weld.Part1 = core
-	weld.Parent = core
-
-	-- Swing the reel's line onto the copy, THEN take the original out of the tree.
-	-- In that order: a Beam whose Attachment1 has just been unparented draws nothing,
-	-- and a hose that blinks out for a frame on every wash is a bug people report.
-	local reel = if station then station:FindFirstChild("HoseReel") else nil
-	local line = if reel then reel:FindFirstChildOfClass("Beam") else nil
-	local hoseEnd = core:FindFirstChild("HoseEnd")
-	if line and hoseEnd and hoseEnd:IsA("Attachment") then
-		-- Remember the parked sag before swapping in the held one. A Beam's CurveSize
-		-- is an absolute stud distance rather than a fraction of the span, so the
-		-- eight-stud run to a player's hand and the three-stud run to the pump cap
-		-- need different numbers -- both of which build/Plots.buildHoseRig owns, one
-		-- as the property and one as an attribute beside it.
-		session.parkedCurve = Vector2.new(line.CurveSize0, line.CurveSize1)
-		line.CurveSize0 = (line:GetAttribute("HeldCurve0") :: number?) or line.CurveSize0
-		line.CurveSize1 = (line:GetAttribute("HeldCurve1") :: number?) or line.CurveSize1
-		line.Attachment1 = hoseEnd
-		session.line = line
-	end
-
-	-- STASHED, NOT DESTROYED. `Parent = nil` keeps the instance alive for as long as
-	-- this session holds the reference, which is what lets stowHose put the station
-	-- back exactly as it was instead of rebuilding a nozzle from scratch.
-	if parked then
-		parked.Parent = nil
-		session.parked = parked
-	end
-	session.hose = clone
-end
-
---- The exact inverse, and it has to be safe to call after anything at all has been
---- destroyed underneath it: a respawn takes the clone, a World.rebuild() takes the
---- station, and both arrive here as the same "put it back" call.
-local function stowHose(session: Session)
-	local parked = session.parked
-	if parked then
-		parked.Parent = session.station
-		local line = session.line
-		local core = parked.PrimaryPart
-		local hoseEnd = if core then core:FindFirstChild("HoseEnd") else nil
-		if line and line.Parent and hoseEnd and hoseEnd:IsA("Attachment") then
-			line.Attachment1 = hoseEnd
-			local curve = session.parkedCurve
-			if curve then
-				line.CurveSize0, line.CurveSize1 = curve.X, curve.Y
-			end
-		end
-	end
-	if session.hose then
-		session.hose:Destroy()
-	end
-	session.hose, session.parked, session.line, session.parkedCurve = nil, nil, nil, nil
+	return nil
 end
 
 -- ── The session ────────────────────────────────────────────────────────
@@ -379,6 +263,19 @@ local function push(player: Player, session: Session?, data: any)
 		liquidColor = liquid.color,
 		potency = stats.effectivePotency,
 		stand = session.stand,
+		-- WHICH NOZZLE IS LIVE, and re-read every push rather than sent once at the
+		-- start: a World.rebuild() from the command bar or a Cleaner purchase landing
+		-- mid-session (Plots.setHoseTier) destroys the model this session opened with
+		-- and parents a new one, and a client holding the old reference would spend
+		-- the rest of the wash swivelling a freed instance.
+		hose = if session.hose and session.hose.Parent then session.hose else stationHose(session.station),
+		-- THE MACHINE'S `volume`, FOR THE PICTURE. It is already in the clock —
+		-- `aim` divides by it through Contamination.secondsFor — and this is the same
+		-- number sent so the stream can be drawn as thick as the rung is expensive.
+		-- Sent raw, without the liquid's rateMult folded in: what the player bought is
+		-- the machine, and a stream that fattened when a canister was loaded would be
+		-- advertising the wrong purchase.
+		volume = stats.scrubRate,
 	})
 end
 
@@ -392,7 +289,6 @@ function finish(player: Player, reason: string?)
 	if session.model then
 		session.model:Destroy()
 	end
-	stowHose(session)
 
 	-- RE-ENABLE THE PROMPT LAST, not first -- it was disabled the moment this session
 	-- began (see begin()), specifically so it could never be clicked or pressed again
@@ -482,13 +378,13 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		return false, "this station is broken"
 	end
 
-	-- ONE WASH PER STATION, and it stopped being merely tidy the day the hose became a
-	-- real object: there is one stand to put an item on and one reel whose Beam can only
-	-- run to one nozzle, so a second player starting here would stack their item inside
-	-- the first player's and steal the green line out of their hands. (The NOZZLE is no
-	-- longer the scarce half — every player is handed their own tier's, built fresh —
-	-- but the stand and the reel still are.) The prompt disable below only stops the
-	-- OCCUPANT re-triggering it; this is what stops a visitor.
+	-- ONE WASH PER STATION. There is one stand to put an item on and one monitor to
+	-- point, so a second player starting here would stack their item inside the first
+	-- player's and fight them for the aim. The monitor is scarce again, incidentally:
+	-- when every player was handed their own copy in their own hand only the stand was,
+	-- and now that the nozzle is a fixture it is back to being a thing two people
+	-- cannot both use. The prompt disable below only stops the OCCUPANT re-triggering
+	-- it; this is what stops a visitor.
 	for other, active in sessions do
 		if other ~= player and active ~= nil and active.stand == stand then
 			return false, `{other.DisplayName} is using this station`
@@ -505,16 +401,13 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		uid = item.uid,
 		stand = stand,
 		-- Held rather than re-derived from `stand.Parent` on the way out: a
-		-- World.rebuild() mid-session orphans the stand, and stowHose still needs
-		-- somewhere to put the nozzle back.
+		-- World.rebuild() mid-session orphans the stand, and `push` still has to be
+		-- able to find the station's replacement nozzle to tell the client about.
 		station = stand.Parent,
 		prompt = if prompt and prompt:IsA("ProximityPrompt") then prompt else nil,
 		returnTo = if root and root:IsA("BasePart") then root.CFrame else nil,
 		model = nil,
 		hose = nil,
-		parked = nil,
-		line = nil,
-		parkedCurve = nil,
 		spraying = false,
 		patchIndex = nil,
 		elapsed = 0,
@@ -526,10 +419,8 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 	end
 
 	session.model = placeOnStand(stand, item)
+	session.hose = stationHose(session.station)
 	sessions[player] = session
-	-- After sessions[player], so ToolService's next pass already sees isWashing() and
-	-- pulls the Cleaner out of the same hand rather than racing the hose into it.
-	takeHose(player, session, data.gear.cleaner or 1)
 
 	-- DISABLE THE PROMPT FOR THE DURATION. Roblox's default ProximityPrompt widget can
 	-- be triggered by a MOUSE CLICK on its on-screen icon, not only the keyboard key --
@@ -688,10 +579,11 @@ function WashService.start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		-- STRAIGHT THROUGH finish(), rather than the hand-rolled teardown that used to
-		-- live here. That version destroyed the MODEL on the tub, which was the whole of
-		-- the leftover state at the time — the hose is a second thing that has to be put
-		-- back, and it would otherwise be left stashed out of the tree, leaving the
-		-- station with no nozzle for whoever arrived next. One teardown, one place.
+		-- live here. Back when the nozzle was handed over, that hand-rolled version
+		-- destroyed the model on the tub and left the station's own hose stashed out of
+		-- the tree — no nozzle at all for whoever arrived next. The nozzle never moves
+		-- now, so there is less to get wrong, but the rule that produced the bug stands:
+		-- one teardown, one place.
 		--
 		-- No toast: they are gone. Passing no reason is what suppresses it, and the
 		-- state remote firing at a player who has left is a no-op.

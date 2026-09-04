@@ -112,40 +112,33 @@
 	the tub is server-side (WashService) precisely so the part that IS worth seeing
 	from outside is seen. Written down so nobody re-derives it.
 
-	WHAT IS ACTUALLY IN THE PLAYER'S HAND IS A FIRE HOSE, and it is a real object that
-	the server put there: `WashHose`, a copy of the nozzle parked on the pump beside
-	the tub (build/Plots.buildHoseRig), welded into the right hand by WashService for
-	the length of the session, with the reel's own green Beam running back to the drum.
-	This file does not create it and does not own it — it only POINTS it. That split is
-	why the hose is visible to everyone on the base while the spray is not, and it is
-	why the ordinary Cleaner tool steps out of that hand for the duration
-	(see its stepPlayer) instead of being fought over.
+	NOTHING IS IN THE PLAYER'S HAND. The hose is a MACHINE bolted to a mast at the
+	corner of the tub (build/Plots.buildHoseRig) at whatever Cleaner rung its owner has
+	bought, and the player operates it from the mark. It used to be a copy of that
+	nozzle welded into the right hand for the session, with a second local Motor6D
+	stacked on the server's weld to point it and the server's weld disabled underneath
+	-- a rig whose every part existed to make a fixture behave like a held thing.
 
-	`HeldTool` is still accepted as a fallback target below, for a place file saved
-	before the hose existed: aiming the old sponge is a worse picture than aiming a
-	nozzle, but it is a much better one than a session that quietly does nothing.
+	SO THE AIM IS A CFrame WRITE ON AN ANCHORED PART, WHICH IS ALL IT EVER NEEDED TO
+	BE. The nozzle is world geometry the server built and then never touches again, so
+	a client rewriting its pivot moves it for that viewer alone -- no joint, no weld to
+	disable, no character to accidentally bolt to the world (an anchored part anchors
+	its whole assembly, which is exactly why the old rig could not simply point the
+	parked nozzle and had to be handed a copy). Every session captures the model's
+	`ParkedPivot` and puts it back on the way out.
 
-	THE HOSE POINTS WHERE YOU AIM, and this is done entirely on the client rather
-	than by touching the character's skeleton. The nozzle is welded to the right hand
-	by a rigid, server-owned WeldConstraint ("HoldWeld", the same name and the same
-	convention ToolService uses) -- fine for a thing you merely CARRY, wrong for one
-	you are meant to point. So the tool gets a second, LOCAL joint: a Motor6D from
-	the same hand to the nozzle's own PrimaryPart, added on top of (never fighting)
-	the server's weld, which is merely disabled (`Enabled = false`) for the session
-	and restored after -- so the moment this session ends the nozzle snaps back to its
-	ordinary carried pose with no cleanup surprises. A player's own character is
-	client-simulated by default, which is what makes a disable done here stick
-	locally instead of being fought by replication.
+	THAT MAKES THE AIM PER-VIEWER, and it is the same trade the spray already makes.
+	A bystander sees the monitor sitting on its mast, not swinging; they see the item
+	on the tub (server-side, WashService) and the machine's rung (server-side, world
+	geometry), which are the two things worth seeing from outside. What they do not see
+	is one player's aim, which is worth no traffic at all.
 
-	THE ARMS ARE POSED, BUT NOT BY THIS FILE. Aiming only the nozzle used to leave it
-	hanging off an arm still swinging through its idle walk cycle -- the nozzle
-	pointed at the item while the hand it was welded to drifted around, which reads as
-	a prop stuck to a mannequin. Posing is server-side and ToolService already owns it
-	(it braces the whole upper body for the detector, on a rig-agnostic weld scheme
-	that handles both Motor6D and AnimationConstraint characters). It braces for the
-	hose too, from its own `isWashing` check, so both hands come up onto the nozzle
-	and the arm stops moving under it. That is what puts the grip at chest height and
-	the nozzle in the bottom of a first-person frame instead of down by a hip.
+	THE ARMS ARE POSED, BUT NOT BY THIS FILE, and they still are even with the hands
+	empty. Posing is server-side and ToolService owns it (it braces the whole upper
+	body for the detector, on a rig-agnostic weld scheme that handles both Motor6D and
+	AnimationConstraint characters); it braces for the wash from its own `isWashing`
+	check. Without it a player at the mark stands slack with their arms swinging
+	through an idle cycle while a machine beside them sprays on its own.
 
 	THE SPRAY IS A CHAIN OF BLOBS ON A BALLISTIC ARC, AND IT TOOK SIX TRIES. Each one
 	fixed something real about the last, so the whole ladder is worth keeping:
@@ -247,20 +240,35 @@ local PAD_DEADZONE = 0.16
 -- Where Camera.Focus is parked, in studs ahead. Never allowed to collapse onto the
 -- camera -- see the header on TransparencyController.
 local FOCUS_AHEAD = 8
--- WHERE THE NOZZLE HANGS, in the neutral view's own axes: +X right, +Y up, -Z
--- forward. See startAimRig for why the hose is placed in the picture rather than
--- simply left wherever the carried pose put it.
+-- ── The monitor on its mast ─────────────────────────────────────────
+-- How far the barrel may swing off its parked aim before it stops following. A ball
+-- joint is not a turret: past this the machine would be pointing back at its own
+-- plumbing. Generous rather than tight, because the CAMERA is already clamped to a
+-- +/-32 degree cone around the item (YAW_LIMIT) and the aim ray lives inside that --
+-- these are the safety rail for a ray that escapes down a long sightline, not the
+-- thing a player is meant to feel.
+local NOZZLE_YAW_LIMIT = math.rad(80)
+local NOZZLE_PITCH_LIMIT = math.rad(60)
+-- How fast the barrel chases the aim, per second, as an exponential catch-up. Not
+-- instant, and the lag is the point: a monitor is a heavy thing on a ball joint, and
+-- a nozzle that snapped to the reticle would read as a cursor with a model on it. At
+-- 14 it is within a couple of degrees inside a fifth of a second, so it never lags
+-- the water anywhere a player would notice -- it only rounds off a whip.
+local NOZZLE_EASE = 14
+-- WHAT `volume` BUYS ON SCREEN. Config/Gear's Cleaner rungs run 1.0 to 3.8, and the
+-- stream's girth is the square root of that, halved back toward 1 and capped: tier 1
+-- is 1.00x, the middle of the ladder 1.19x, the Plasma Lance 1.48x.
 --
--- MEASURED, NOT GUESSED. Against the live shot the carried pose landed the muzzle at
--- 10% right / 43% down of the half-frame, covering 34% of the screen's height -- on
--- top of an item that only covers 29%, dead centre. This puts it at 32% right / 66%
--- down at 32% of the height: a viewmodel in the lower-right corner, no bigger than
--- the thing it is being pointed at. The trade-off is a straight line -- pushing it
--- further out shrinks it but drags it back toward the middle, because everything
--- converges on the centre with distance -- and this is the knee of it. It also keeps
--- the nozzle within a stud of the hand it is welded to, so the offset still reads as
--- a grip rather than as a prop floating in front of the player.
-local VIEW_HOLD = Vector3.new(1.5, -1.8, -1.6)
+-- BOTH SOFTENINGS WERE PAID FOR IN A PLAYTEST. Linear (3.8x) is obviously absurd. The
+-- raw root (1.95x) looked reasonable as a number and was photographed swallowing the
+-- frame: the far end of the stream is a 1.8-stud rope landing on a 1.4-stud item, from
+-- a nozzle two studs off the lens. Halving the root is what leaves every rung visibly
+-- fatter than the one below while the top one is still a stream rather than a wall.
+--
+-- GIRTH ONLY. JET_SPEED and JET_GRAVITY are untouched, so the arc a player learns to
+-- lead with is the same arc at every rung -- a bought upgrade should not quietly
+-- re-teach the aim.
+local JET_GIRTH_MAX = 1.5
 
 -- ── The wipe ────────────────────────────────────────────────────────
 -- Two halves of one sweep: in to full cover, then out past the right edge. The cut
@@ -340,15 +348,13 @@ local padLook = Vector2.zero
 -- The head and anything hanging off it, cached because it is re-asserted every frame.
 local hiddenParts: { BasePart } = {}
 
--- The hose-aim rig (see the header). All five reset together, in stopAimRig, and are
--- (re)built lazily from onRender rather than once at session start -- self-healing if
--- the equipped tool changes mid-wash (a mid-session Cleaner upgrade swaps the model,
--- which destroys the old HoldWeld and this rig right along with it as its children).
-local aimMotor: Motor6D? = nil
-local aimHand: BasePart? = nil
-local aimTool: Model? = nil
-local aimOffset: Vector3? = nil
-local aimHoldWeld: WeldConstraint? = nil
+-- The machine's nozzle, and the pose to put it back on. Resolved lazily from
+-- onRender rather than once at session start, and re-resolved whenever the model
+-- IDENTITY changes -- a Cleaner purchase landing mid-wash destroys the monitor on the
+-- mast and parents a new rung in its place (Plots.setHoseTier), and a stale reference
+-- would spend the rest of the session swivelling a freed instance.
+local nozzleModel: Model? = nil
+local nozzleParked: CFrame? = nil
 
 local inputRemote: any = nil
 
@@ -550,6 +556,12 @@ local function drawJet(from: Vector3, to: Vector3, filter: RaycastParams): Vecto
 	local spacing = (to - from).Magnitude / JET_SEGMENTS
 	local floor = spacing * 0.62
 
+	-- HOW MUCH WATER THIS MACHINE THROWS (Config/Gear's `volume`, sent by
+	-- WashService.push). Scales the tuned radii and NOTHING ELSE -- not the spacing
+	-- FLOOR above, which exists to stop the chain reading as beads at long range and
+	-- has nothing to do with the rung, and not the splash, see below.
+	local girth = math.clamp(1 + (math.sqrt(if state and state.volume then state.volume else 1) - 1) * 0.5, 1, JET_GIRTH_MAX)
+
 	for index, part in jetParts do
 		local a, b = path[index], path[index + 1]
 		local span = (b - a).Magnitude
@@ -574,7 +586,7 @@ local function drawJet(from: Vector3, to: Vector3, filter: RaycastParams): Vecto
 			-- also swells and pinches each blob as it passes, so the stream visibly
 			-- pulses instead of sitting there as a static tapered tube.
 			local lump = 1 + JET_LUMP * math.noise(along * 4.7 - now * JET_CHURN, 1.5)
-			local radius = math.max(JET_RADIUS_NEAR + (JET_RADIUS_FAR - JET_RADIUS_NEAR) * along, floor) * lump
+			local radius = math.max((JET_RADIUS_NEAR + (JET_RADIUS_FAR - JET_RADIUS_NEAR) * along) * girth, floor) * lump
 			local diameter = radius * 2
 
 			part.Size = Vector3.new(diameter, diameter, diameter)
@@ -598,6 +610,13 @@ local function drawJet(from: Vector3, to: Vector3, filter: RaycastParams): Vecto
 	local splash = splashPart
 	if splash then
 		if stopped then
+			-- NOT SCALED BY GIRTH, and that is deliberate rather than an omission. The
+			-- splash's size is a FRAMING constraint, not a statement about the rung: it
+			-- sits at the aim point, dead centre of the view, on top of the one object
+			-- the player is trying to look at, and SPLASH_SIZE is already tuned to the
+			-- edge of that (see its own note -- at 1.7 it was the biggest thing in the
+			-- shot). A Plasma Lance's 1.48x on top of it swallows the item whole. The
+			-- stream's girth carries the volume story; the impact just marks the spot.
 			local size = SPLASH_SIZE * (1 + SPLASH_PULSE * math.noise(now * 6, 0.5))
 			splash.Size = Vector3.new(size, size, size)
 			splash.CFrame = CFrame.new(landing)
@@ -627,18 +646,22 @@ local function hideJet()
 	jetShown = false
 end
 
---- Undo startAimRig, restoring the tool to ToolService's own carried pose. Safe to
---- call when the rig was never built (every field is already nil) and safe to call
---- when the tool it was built on is already gone (Destroy() on a freed Instance is a
---- no-op, never an error).
-local function stopAimRig()
-	if aimMotor then
-		aimMotor:Destroy()
+--- Swing the monitor back to where the world put it. Safe to call when no session
+--- ever aimed anything (both fields are already nil) and safe to call when the model
+--- has been destroyed underneath us (a purchase mid-wash, a World.rebuild) -- a freed
+--- Model's Parent is nil, which is the check, and PivotTo on one would throw.
+---
+--- CALLED ON EVERY EXIT PATH, because the alternative is a machine left permanently
+--- staring at wherever the last player happened to be looking. It is a local-only
+--- write, so a missed restore is not a world bug -- it is one viewer's plot quietly
+--- looking wrong until they rejoin, which is worse, because nobody else can see it to
+--- report it.
+local function restoreNozzle()
+	local model, parked = nozzleModel, nozzleParked
+	if model and model.Parent and parked then
+		model:PivotTo(parked)
 	end
-	if aimHoldWeld then
-		aimHoldWeld.Enabled = true
-	end
-	aimMotor, aimHand, aimTool, aimOffset, aimHoldWeld = nil, nil, nil, nil, nil
+	nozzleModel, nozzleParked = nil, nil
 end
 
 -- ── The screen: the wipe panel and the reticle ──────────────────────
@@ -934,141 +957,122 @@ local function paintBlobs()
 	end
 end
 
--- ── The hose-aim rig ─────────────────────────────────────────────────
+-- ── Aiming the machine ───────────────────────────────────────────────
 
---- The thing in the player's right hand to point. `WashHose` is the fire hose
---- WashService welds there for the session (build/Plots.buildHoseRig); `HeldTool` is
---- the fallback for a place file saved before the hose existed — see the header.
---- Returns nil while the weld is still catching up, which is normal on the first
---- frame or two and is why every caller re-asks rather than caching.
-local function heldHose(): Model?
-	local character = Players.LocalPlayer.Character
-	if character == nil then
+--- The monitor this session is pointing. WashService names it in the state payload
+--- (re-read every push, so a rung bought mid-wash arrives here as a different model);
+--- the fallback re-derives it from the stand's own parent for the one frame before the
+--- first payload lands, and for a payload from a server older than the field.
+---
+--- Returns nil on a place file with no hose rig at all, which is a real degrade rather
+--- than an error: the session still runs, the jet just leaves from the fallback origin
+--- nozzleCFrame picks.
+local function sessionNozzle(): Model?
+	local named = state and state.hose
+	if named and named:IsA("Model") and named.Parent and named.PrimaryPart then
+		return named
+	end
+	local stand = state and state.stand
+	local station = if stand and stand.Parent then stand.Parent else nil
+	local found = if station then station:FindFirstChild("Hose") else nil
+	if found and found:IsA("Model") and found.PrimaryPart then
+		return found
+	end
+	return nil
+end
+
+--- Latch onto whatever nozzle is live, remembering the pose to put it back on. Cheap
+--- to call every frame: it does nothing once the model it is holding is still the
+--- current one.
+---
+--- `ParkedPivot` IS READ FROM THE MODEL, NOT MEASURED. The attribute is stamped on by
+--- build/Plots and re-stamped by Plots.setHoseTier, and the server never moves the
+--- nozzle after that -- so it is the one value that stays true no matter how long this
+--- client has been swinging the thing around. Measuring `GetPivot()` instead would
+--- capture whatever angle the barrel happened to be at, and after one re-latch (a
+--- mid-session upgrade, a rebuild) the machine would park somewhere it was never
+--- built to point. The measured value survives only as the fallback for a place file
+--- built before the attribute existed, where the nozzle has not been touched yet and
+--- so its current pose IS its parked one.
+local function latchNozzle(): Model?
+	local hose = sessionNozzle()
+	if hose == nil then
+		nozzleModel, nozzleParked = nil, nil
 		return nil
 	end
-	local held = character:FindFirstChild("WashHose") or character:FindFirstChild("HeldTool")
-	if held == nil or not held:IsA("Model") or held.PrimaryPart == nil then
-		return nil
+	if hose == nozzleModel then
+		return hose
 	end
-	return held
+	-- A different model than the one we were holding: put the old one back first, if
+	-- it is somehow still alive, then take the new one at whatever it says its rest is.
+	restoreNozzle()
+	local stamped = hose:GetAttribute("ParkedPivot")
+	nozzleModel = hose
+	nozzleParked = if typeof(stamped) == "CFrame" then stamped else hose:GetPivot()
+	return hose
 end
 
---- Build the second, LOCAL joint from hand to tool -- see the header. Cheap to call
---- every frame the rig is missing: it does nothing when the tool is not there yet
---- (equip is still catching up) or already there (nothing to build twice).
+--- Point the barrel at `target`, clamped to the ball joint's cone and eased toward it.
 ---
---- `neutral` is the camera at this session's base framing -- the shot with the
---- player's own look offsets taken back out -- and it is what decides where in the
---- picture the nozzle hangs. See the note on aimOffset below.
-local function startAimRig(neutral: CFrame?)
-	if aimMotor then
-		return
-	end
-	local character = Players.LocalPlayer.Character
-	if character == nil then
-		return
-	end
-	local tool = heldHose()
-	if tool == nil or tool.PrimaryPart == nil then
-		return
-	end
-	local hand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
-	if hand == nil or not hand:IsA("BasePart") then
+--- THE CLAMP IS DONE IN THE PARKED FRAME, not in world space, because the mast is
+--- rotated with the plot and every plot sits at a different yaw around the ring. Yaw
+--- and pitch are pulled out of the aim direction expressed in the nozzle's own resting
+--- axes (-Z forward, the same convention the model is authored in and the same one
+--- CFrame.lookAt writes), clamped there, and rebuilt -- so "80 degrees off its rest"
+--- means the same thing on all six bases without anyone doing trigonometry per plot.
+local function aimNozzle(target: Vector3, dt: number)
+	local hose = latchNozzle()
+	local parked = nozzleParked
+	if hose == nil or parked == nil then
 		return
 	end
 
-	-- Disable, never destroy, ToolService's own weld. Destroying it would delete the
-	-- server's record of how to carry this tool the moment the wash ends; disabling
-	-- is what makes `stopAimRig` a clean, total restore.
-	local existing = tool.PrimaryPart:FindFirstChild("HoldWeld")
-	if existing and existing:IsA("WeldConstraint") then
-		aimHoldWeld = existing
-		aimHoldWeld.Enabled = false
+	local origin = parked.Position
+	local offset = target - origin
+	if offset.Magnitude < 0.05 then
+		return
 	end
 
-	-- THE POINT THE NOZZLE ORBITS, captured once and kept for the session so the tool
-	-- swings around one fixed spot in the grip rather than drifting.
-	--
-	-- IT IS A COMPOSITION DECISION NOW, NOT THE CARRIED POSE. In third person this was
-	-- simply where the tool already was (`tool.PrimaryPart.Position` in hand space) and
-	-- that was the right answer, because the shot contained the whole character and the
-	-- nozzle had to stay in their hands to make sense. First person contains neither
-	-- hand: measured off the live shot, the braced hose pose puts both of them 44
-	-- degrees below the view axis, and the frame's bottom edge is 30. So what the
-	-- carried pose actually bought was a nozzle swinging up out of nowhere across the
-	-- MIDDLE of the picture -- at 2.9 studs it covered more screen height than the item
-	-- being washed did at 4.5, which is a viewmodel occluding the only thing the player
-	-- is trying to look at.
-	--
-	-- VIEW_HOLD places it where a held thing belongs instead: low and to the right,
-	-- barrel angling up-left toward whatever the reticle is on. It is written in the
-	-- NEUTRAL view's axes because that is the frame it was judged in, and converted to
-	-- HAND space right here, once -- so from this line on the nozzle is rigidly bolted
-	-- to the hand exactly as before and cannot come adrift from the character at any
-	-- look angle. It is a different offset, not a looser joint.
-	local held = if neutral then neutral * VIEW_HOLD else tool.PrimaryPart.Position
-	aimOffset = hand.CFrame:PointToObjectSpace(held)
-	aimHand = hand
-	aimTool = tool
+	local rel = parked:VectorToObjectSpace(offset.Unit)
+	-- -Z is forward, so a target dead ahead is (0, 0, -1) and both angles come out 0.
+	local yaw = math.clamp(math.atan2(rel.X, -rel.Z), -NOZZLE_YAW_LIMIT, NOZZLE_YAW_LIMIT)
+	local pitch = math.clamp(math.asin(math.clamp(rel.Y, -1, 1)), -NOZZLE_PITCH_LIMIT, NOZZLE_PITCH_LIMIT)
+	local flat = math.cos(pitch)
+	local aimed = parked:VectorToWorldSpace(Vector3.new(math.sin(yaw) * flat, math.sin(pitch), -math.cos(yaw) * flat))
 
-	local motor = Instance.new("Motor6D")
-	motor.Name = "WashAim"
-	motor.Part0 = hand
-	motor.Part1 = tool.PrimaryPart
-	motor.Parent = tool.PrimaryPart
-	aimMotor = motor
+	-- Frame-rate independent catch-up: 1 - e^(-k*dt) is the same fraction of the gap
+	-- closed per SECOND at any refresh rate, where a plain alpha would swing twice as
+	-- fast at 120fps as at 60.
+	local goal = CFrame.lookAt(origin, origin + aimed)
+	hose:PivotTo(hose:GetPivot():Lerp(goal, 1 - math.exp(-NOZZLE_EASE * dt)))
 end
 
---- Point the tool at `target`. Motor6D enforces `Part1.CFrame = Part0.CFrame * C0 *
---- C1:Inverse()`; with C0 left at the default identity, solving for the C1 that
---- makes Part1.CFrame equal the CFrame we actually want reduces to
---- `C1 = desired:Inverse() * Part0.CFrame`. Recomputed every frame because Part0 (the
---- hand) is still animating normally underneath this the whole time.
-local function updateAimRig(target: Vector3)
-	if aimMotor == nil or aimHand == nil or aimOffset == nil then
-		return
-	end
-	if aimHand.Parent == nil or aimMotor.Parent == nil or aimTool == nil or aimTool.Parent == nil or aimTool ~= heldHose() then
-		-- The tool changed under us and took this rig's Parent with it, or a better
-		-- candidate turned up in the hand. Both happen for real: the fire hose and the
-		-- Cleaner it displaces replicate independently at the start of a session, so
-		-- the first frame or two can rig the sponge before the hose arrives. Clear our
-		-- half; the next call to startAimRig rebuilds against whatever is there now.
-		-- Through stopAimRig rather than by clearing the fields, so a tool that is
-		-- still ALIVE (the displaced Cleaner) gets its own weld switched back on
-		-- instead of being left hanging off a hand it is no longer jointed to.
-		stopAimRig()
-		return
-	end
-
-	local origin = aimHand.CFrame:PointToWorldSpace(aimOffset)
-	local aimCFrame = if (target - origin).Magnitude > 0.05
-		then CFrame.lookAt(origin, target)
-		else CFrame.new(origin) * aimHand.CFrame.Rotation
-	aimMotor.C1 = aimCFrame:Inverse() * aimHand.CFrame
-end
-
---- Where the water leaves. The fire hose carries a real `Muzzle` attachment on its
---- primary part, sat out at the brass tip (build/Plots.buildHoseRig), so the stream
---- starts at the end of the nozzle rather than somewhere inside the player's fist.
+--- Where the water leaves. Every hose carries a real `Muzzle` attachment on its
+--- primary part, out at the brass tip (Shared/ToolModels/Hose makes it a contract that
+--- World.verify enforces), so the stream starts at the end of the barrel rather than
+--- somewhere inside the machine -- and because the barrel is what this file has been
+--- swivelling, the muzzle is already pointing wherever the player is.
 ---
---- The two fallbacks below are for the `HeldTool` case: the Cleaner models are
---- hand-authored and gitignored (ARCHITECTURE.md's "remaining gap") and have no
---- muzzle point of their own, so the front face of their primary part is the best
---- guess available, and the hand is the last resort.
+--- THE FALLBACK IS OFF THE PLAYER'S OWN SHOULDER, and it is for a place with no hose
+--- rig at all. Water out of nowhere is a bad picture; a session where holding the button
+--- does visibly nothing is a worse one, and the clock on the server runs either way. The
+--- offset is down and to the right of the eye rather than the head's bare CFrame,
+--- because the camera sits AT the head during a wash: a jet starting exactly on the lens
+--- is a jet nobody can see.
 local function nozzleCFrame(): CFrame?
-	local tool = heldHose()
-	if tool and tool.PrimaryPart then
-		local muzzle = tool.PrimaryPart:FindFirstChild("Muzzle")
+	local hose = sessionNozzle()
+	local core = if hose then hose.PrimaryPart else nil
+	if core then
+		local muzzle = core:FindFirstChild("Muzzle")
 		if muzzle and muzzle:IsA("Attachment") then
 			return muzzle.WorldCFrame
 		end
-		return tool.PrimaryPart.CFrame * CFrame.new(0, 0, -tool.PrimaryPart.Size.Z * 0.5)
+		return core.CFrame * CFrame.new(0, 0, -core.Size.Z * 0.5)
 	end
 	local character = Players.LocalPlayer.Character
-	local hand = character and (character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm"))
-	if hand and hand:IsA("BasePart") then
-		return hand.CFrame
+	local head = character and character:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then
+		return head.CFrame * CFrame.new(0.8, -0.9, -0.6)
 	end
 	return nil
 end
@@ -1164,10 +1168,13 @@ local function clampLook()
 	lookPitch = math.clamp(lookPitch, -PITCH_LIMIT, PITCH_LIMIT)
 end
 
---- Where the camera sits and which way it is facing, and alongside it the NEUTRAL
---- version of the same shot -- the framing with the player's own look offsets taken
---- back out. The neutral frame is the one the hose's resting place is measured in
---- (startAimRig), which is why it comes back from here rather than being recomputed.
+--- Where the camera sits and which way it is facing.
+---
+--- IT USED TO RETURN A SECOND FRAME, the NEUTRAL one -- the same shot with the
+--- player's own look offsets taken back out -- because the held nozzle was placed in
+--- the PICTURE rather than in the world, and the picture is what its offset was
+--- measured in. A machine bolted to a mast stands where the mast stands, so there is
+--- nothing left to compose against and the second return went with the rig.
 ---
 --- The base direction is a straight line from the player's own head to the item on
 --- the stand, so a session that has just started is already looking at the thing it
@@ -1179,11 +1186,11 @@ end
 --- the horizon level. CFrame.Angles' native XYZ order tips it the moment both are
 --- non-zero, and a head that rolls as you look diagonally is the kind of wrongness
 --- players feel without being able to name.
-local function eyeCFrame(): (CFrame?, CFrame?)
+local function eyeCFrame(): CFrame?
 	local character = Players.LocalPlayer.Character
 	local head = character and character:FindFirstChild("Head")
 	if head == nil or not head:IsA("BasePart") then
-		return nil, nil
+		return nil
 	end
 
 	local pivot = itemPivot()
@@ -1197,15 +1204,7 @@ local function eyeCFrame(): (CFrame?, CFrame?)
 	local basePitch = math.asin(math.clamp(toward.Y, -1, 1))
 
 	local rotation = CFrame.fromEulerAnglesYXZ(basePitch + lookPitch, baseYaw + lookYaw, 0)
-	local eye = CFrame.new(head.Position + rotation.LookVector * EYE_FORWARD) * rotation
-
-	-- Same eye POSITION, base rotation. Sharing the position matters: the neutral
-	-- frame is only ever used to place an object in the picture, and one anchored a
-	-- few inches from where the picture is actually taken would place it wrong.
-	local neutralRotation = CFrame.fromEulerAnglesYXZ(basePitch, baseYaw, 0)
-	local neutral = CFrame.new(eye.Position) * neutralRotation
-
-	return eye, neutral
+	return CFrame.new(head.Position + rotation.LookVector * EYE_FORWARD) * rotation
 end
 
 local function onRender(dt: number)
@@ -1238,7 +1237,7 @@ local function onRender(dt: number)
 		clampLook()
 	end
 
-	local eye, neutral = eyeCFrame()
+	local eye = eyeCFrame()
 	if eye == nil then
 		-- The head is gone: a respawn is landing and the session is about to end, but
 		-- it has not been told yet. Fall back to the station's own side-on anchor --
@@ -1268,12 +1267,11 @@ local function onRender(dt: number)
 
 	local aimPoint = aimPointAt(eye, filter)
 
-	-- Tracks the view continuously, spraying or not — a held hose reads as aimed the
-	-- moment you look somewhere, same as a real one, not only while it is live.
-	if aimMotor == nil then
-		startAimRig(neutral)
-	end
-	updateAimRig(aimPoint)
+	-- Tracks the view continuously, spraying or not — a machine you are standing at the
+	-- controls of reads as aimed the moment you look somewhere, not only while it is
+	-- live. It is also the only feedback that says the thing is listening to you before
+	-- you pull the trigger.
+	aimNozzle(aimPoint, dt)
 
 	-- The jet reports back where it landed, which is not the aim point whenever the
 	-- falling arc clips something on the way. That impact, not the reticle, is what
@@ -1387,7 +1385,7 @@ local function teardown()
 	padLook = Vector2.zero
 
 	clearBlobs()
-	stopAimRig()
+	restoreNozzle()
 	if folder then
 		folder:Destroy()
 		folder = nil

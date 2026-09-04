@@ -124,12 +124,16 @@
 	    WashCam     invisible; a side-on camera anchor. The wash used to be framed from
 	                here; it is now first person (WashController), and this survives as
 	                the fallback for the frame where the character's head is missing.
-	    Hose        a Model beside the basin, PrimaryPart "Nozzle" — the fire hose
-	                (see buildHoseRig). The nozzle carries Muzzle / HoseEnd
-	                attachments and stays ANCHORED on the pump; WashService clones it
-	                into the player's hand for a session. The green line itself is a
-	                Beam ("HoseLine") on HoseReel, from HoseAnchor to whichever
-	                nozzle — parked or held — is currently the live one.
+	    Hose        a Model on the mast beside the basin, PrimaryPart "Nozzle" — the
+	                machine's own monitor (see buildHoseRig), at whatever Cleaner rung
+	                this plot's owner has bought. Carries Muzzle / HoseEnd attachments
+	                and a `ParkedPivot` CFrame, and stays ANCHORED: nothing ever puts
+	                it in a player's hand, and WashController swings it LOCALLY for the
+	                duration of a wash, then puts it back on ParkedPivot. Swapped rung
+	                for rung by Plots.setHoseTier. The green line itself is a Beam
+	                ("HoseLine") on HoseReel, from HoseAnchor to that nozzle's HoseEnd.
+	    HoseMast    the post it is bolted to, with HoseMastFoot under it and HoseYoke —
+	                the ball joint — at the top. Decor: nothing reads them.
 	    Plate       StationKind = "roller", Radius = 6 — the wash pad (see
 	                buildWashPad below). One per base, three steps from the basin.
 	    Button      SellsTrack = "Luck" + a ProximityPrompt — the luck button
@@ -478,10 +482,10 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 	light(base, C.lampWarm, 6, 0.35)
 end
 
---- The fire hose and the pump that feeds it (see buildCleansingStation, which calls
---- this). A pump unit standing behind the player's wash mark, a reel of green hose
---- coiled on it, and a brass-tipped nozzle that lives parked on the pump's cap until
---- somebody picks it up.
+--- The wash machine: the pump, the drum, the line, and the monitor on its mast (see
+--- buildCleansingStation, which calls this). A pump unit standing behind the player's
+--- wash mark, a reel of green hose coiled on its face, and a brass-tipped nozzle bolted
+--- to a ball joint at the near corner of the tub.
 ---
 --- IT IS A REAL OBJECT IN THE WORLD, NOT AN EFFECT DRAWN FOR THE DURATION OF A WASH,
 --- and that is the whole reason it is built here rather than spawned by WashService.
@@ -489,32 +493,29 @@ end
 ---
 ---   * The station reads as a wash bay when nobody is using it. A tub with a hose
 ---     coiled beside it explains itself; a bare tub does not.
----   * A visitor standing on your plot sees you holding a fire hose, which is
----     ToolService's "what you hold is public storytelling" rule applied to the one
----     object in this feature that the player is actually holding.
+---   * THE CLEANER TRACK IS VISIBLE FROM ACROSS THE PLOT. The monitor on the mast is
+---     the rung its owner bought (Plots.setHoseTier), so the upgrade is a thing anyone
+---     walking onto the base can see — which is ToolService's "what you hold is public
+---     storytelling" rule, kept intact after the thing stopped being held.
 ---   * Nothing has to define the hose's colours twice. Kit.C is here; a service is
 ---     not (see ShopService's own note on why it hardcodes UPGRADE_TAG).
 ---
---- WashService borrows the nozzle for a session: it CLONES the parked one into the
---- player's hand, stashes the original, and re-points the beam's far end at the copy
---- so the line follows the hand. That is all it does; the geometry, the colours and
---- the beam are this file's business.
----
---- A COPY RATHER THAN THE PARKED NOZZLE ITSELF, and the reason is a genuinely nasty
---- failure rather than tidiness. The station's nozzle is Anchored, and an anchored
---- part anchors its whole assembly — so the moment anything joints it to a character
---- (WashController adds a local Motor6D to aim it), that character is bolted to the
---- world until the joint goes away. Handing out an unanchored copy parented into the
---- character makes it exactly the same kind of object as ToolService's HeldTool, with
---- the same lifetime: it dies with the character, and nothing can strand a player.
+--- NOBODY PICKS IT UP. WashService used to clone the parked nozzle into the player's
+--- right hand for the length of a session, stash the original, and swing the beam's
+--- far end onto the copy. All of that is gone: the nozzle stays bolted to its mast and
+--- WashController merely POINTS it, locally, for whoever is at the mark. The old
+--- arrangement needed a copy rather than the parked nozzle itself, because an anchored
+--- part anchors its whole assembly and jointing one to a character bolts that character
+--- to the world — a hazard that simply stops existing once nothing is jointed to
+--- anybody. What is left is one anchored model whose CFrame a client rewrites per
+--- frame, which replicates to nobody and can strand no one.
 ---
 --- THE HOSE ITSELF IS A Beam, NOT A CHAIN OF PARTS, and it costs nothing per frame
 --- because of it. A Beam spans two Attachments and re-renders itself whenever either
---- one moves — one of them is bolted to the reel and the other rides the nozzle in
---- the player's hand, so the hose follows the hand for free, on every client, with no
---- script running anywhere. `CurveSize0/1` give it the slack a hose has when it is
---- not under tension; a chain of parts would need a per-frame catenary solve to fake
---- the same thing and would still be jointed.
+--- one moves — one is bolted to the reel, the other rides the nozzle as it swivels, so
+--- the line follows the aim for free with no script running anywhere. `CurveSize0/1`
+--- give it the slack a hose has when it is not under tension; a chain of parts would
+--- need a per-frame catenary solve to fake the same thing and would still be jointed.
 local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	local pad = Plots.PAD
 
@@ -643,31 +644,113 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	anchor.CFrame = CFrame.lookAt(Vector3.new(0, -0.95, 0.8), Vector3.new(0, -1.55, 4.8))
 	anchor.Parent = reel
 
-	-- ── The nozzle ────────────────────────────────────────────────────
-	-- NOW BUILT BY Shared/ToolModels/Hose, NOT INLINE HERE. This block used to be ~85
-	-- lines of cylinders, and it was the only hose geometry in the game — which was
-	-- fine right up until the Cleaner track became seven hoses and the wash bay started
-	-- handing you YOUR one. Two copies of "what a nozzle is" is how the thing on the
-	-- pump and the thing in your hand end up different objects; the factory is the one
-	-- copy, and the reasoning that used to live here (why the primary part is an
-	-- invisible unrotated block, why the shell welds rather than anchors, why -Z is the
-	-- business end) moved there with it.
+	-- ── The mast, and the monitor bolted to it ────────────────
+	-- THE NOZZLE IS NOT SOMETHING YOU PICK UP ANY MORE, and undoing that is the whole
+	-- point of this rebuild. It used to sit parked on the pump cap as a prop, and
+	-- WashService cloned it into the player's right hand for the length of a session --
+	-- so the Cleaner track, all seven rungs of it, was a thing you carried. A hose is
+	-- plumbing: a pump, a drum, a line, and a monitor bolted down at the end of it. Now
+	-- it stands on its own mast at the tub's near corner and the player aims it from
+	-- the mark, hands empty.
 	--
-	-- STATION_TIER, not tier 1 and not the player's: the pump's hose belongs to the
-	-- PLOT. Every size and offset is held byte-identical to what this file drew by
-	-- hand, so no existing base changes shape after a rebuild. Two things about it are
-	-- not identical, both deliberate: the two brass repair bands are new, and they are
-	-- what makes "Patched Fire Hose" read as patched; and the grip's dark green is now
-	-- DERIVED from the body rather than naming C.hoseGreenDark, because a ToolTiers row
-	-- carries two colours and this was the third. It lands within four points per
-	-- channel of the old literal — see ToolModels/Hose's SHADE.
+	-- WHERE THE MAST GOES, AND WHY THERE IS ONLY ONE PLACE FOR IT. Three constraints
+	-- fence it in, and they leave exactly one corner:
+	--   * OUT OF THE BATH. The side rims are at x = +/-3.3 and 0.5 thick (outer face
+	--     3.55), the near rim at cz - 2.35. A mast inside that stands in the water.
+	--   * OFF THE WALK-UP. The player comes down x = 0 from the front of the pad to
+	--     WashSpot at cz - 6. A mast on that line is a thing to walk into.
+	--   * FOUR-ISH STUDS FROM THE ITEM. The stream is a real ballistic flight
+	--     (WashController.jetPath) and the sag over that flight is what makes it read as
+	--     water rather than as a beam. The hand used to hold the nozzle about 4.5 studs
+	--     off the item; this lands at 4.9, so the arc that was tuned is the arc that
+	--     still gets drawn.
+	-- The near-LEFT corner it is. Left because the pump is already there (+x is the
+	-- player's left at the mark, which faces +Z): a drum on one side of the bay feeding
+	-- a monitor on the other would run eleven studs of hose across the walk-up at ankle
+	-- height. This way the line runs straight down the side of the pad, past nothing.
 	--
-	-- Parked on the pump cap (its top face is at pad.topY + 3.5), nudged forward so the
-	-- brass end overhangs the front edge rather than burying itself in the cap, and
-	-- lying along the plot's -Z (toward the front of the base) — the axis
-	-- WashController aims it down.
+	-- IT SITS OFF THE EDGE OF THE NEUTRAL WASH FRAME, and that is a choice rather than
+	-- an oversight. Measured from the planted head, the mast is 64 degrees to the left
+	-- of the item; WashController clamps the look to +/-32 degrees of yaw and the frame
+	-- is about 45 degrees wide either side of that, so at rest the machine is just past
+	-- the left edge and one glance left brings the whole thing into view. The STREAM is
+	-- never off-frame regardless -- it is drawn from the muzzle to the reticle, so it
+	-- enters from the left and converges on whatever you are pointing at. Pulling the
+	-- mast itself inside the cone would mean either standing it in the tub or
+	-- shortening the flight until the arc flattens, and what sells the purchase is
+	-- walking up to the bay in third person and finding a different machine on the
+	-- mast, which no camera clamp touches.
+	local mx, mz = 3.9, cz - 2.9
+
+	-- BELOW THE ITEM, NOT ABOVE IT, AND THIS IS THE ARC. The item sits at topY + 3.5;
+	-- at topY + 4.2 the muzzle looked down on it and the water merely drooped the last
+	-- three studs, which at this range is a straight line with a kink in it. From below,
+	-- the ballistic solve (WashController.jetPath) has to throw the stream UP to reach
+	-- the patch and gravity brings it back down onto it -- a real lob, legible over a
+	-- flight this short, which is the whole reason the jet is a solved trajectory rather
+	-- than a drawn curve. Still clear of the tub: the rims top out at topY + 2.6.
+	local mountY = pad.topY + 3.2
+
+	build(parent, origin, {
+		name = "HoseMastFoot",
+		pos = { mx, pad.topY + 0.15, mz },
+		size = { 1.3, 0.3, 1.3 },
+		color = C.steelDark,
+		material = "Metal",
+	})
+	-- Bottom on the foot, top at the mount, so the length and the centre are both
+	-- derived from mountY rather than being two numbers that have to be kept agreeing.
+	local mastLen = mountY - (pad.topY + 0.3)
+	build(parent, origin, {
+		name = "HoseMast",
+		pos = { mx, pad.topY + 0.3 + mastLen * 0.5, mz },
+		size = { mastLen, 0.34, 0.34 },
+		color = C.steel,
+		material = "Metal",
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		canCollide = false,
+	})
+	-- A BALL, NOT A FORK, and it is the one shape that stays honest. The nozzle swings
+	-- through a wide cone while the player tracks a patch (WashController aims it every
+	-- frame), and a two-pronged yoke is only ever correct about one axis of that -- it
+	-- would read as a broken hinge the moment the barrel swung out of its plane. A ball
+	-- joint is right at every angle, and it is what a real deck monitor sits in.
+	build(parent, origin, {
+		name = "HoseYoke",
+		pos = { mx, mountY, mz },
+		size = { 0.8, 0.8, 0.8 },
+		color = C.steelDark,
+		material = "Metal",
+		shape = "Ball",
+		canCollide = false,
+	})
+
+	-- BUILT BY Shared/ToolModels/Hose, NOT INLINE HERE. This used to be ~85 lines of
+	-- cylinders and it was the only hose geometry in the game -- fine right up until the
+	-- Cleaner track became seven of them. The factory is the one copy, and the reasoning
+	-- that used to live here (why the primary part is an invisible unrotated block, why
+	-- the shell welds rather than anchors, why -Z is the business end) moved there.
+	--
+	-- STATION_TIER IS THE UNCLAIMED PLOT'S HOSE, NOT EVERYONE'S. This is what a base
+	-- nobody owns yet wears. The moment a player is assigned the plot,
+	-- ExhibitService.refreshHose swaps it for the rung they actually own, and swaps it
+	-- again on every Cleaner purchase. It stays a real, purchasable rung (Util/Spec pins
+	-- that) so an empty base never advertises a machine that is not for sale.
+	--
+	-- PARKED AIMED AT THE ITEM. `CFrame.lookAt` puts its target down -Z and -Z is the
+	-- business end, so this one line is both the resting pose and the pose the swivel
+	-- returns to. It is stamped onto the model as `ParkedPivot` because two other places
+	-- need it and neither can re-derive it: Plots.setHoseTier re-places a freshly built
+	-- rung on it, and WashController restores it after a session spent swinging the
+	-- nozzle around locally.
+	local mount = origin * CFrame.new(mx, mountY, mz)
+	local aimAt = origin * CFrame.new(0, pad.topY + 3.5, cz)
+	local parked = CFrame.lookAt(mount.Position, aimAt.Position)
+
 	local hose = ToolModels.Hose.create(ToolModels.Hose.STATION_TIER)
-	hose:PivotTo(origin * CFrame.new(px, pad.topY + 3.78, pz - 0.2))
+	hose:PivotTo(parked)
+	hose:SetAttribute("ParkedPivot", parked)
 
 	local core = hose.PrimaryPart :: BasePart
 	local hoseEnd = core:FindFirstChild("HoseEnd") :: Attachment
@@ -687,25 +770,22 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	-- joined by a wire.
 	beam.Width0 = 0.9
 	beam.Width1 = 0.75
-	-- Slack, not tension. Positive out of the reel throws the loop the way HoseAnchor
-	-- is aimed (down and toward the tub); NEGATIVE into the nozzle throws the other
-	-- control point BACKWARD from HoseEnd, whose LookVector is the direction the
-	-- nozzle is pointing — so the line arrives from behind the player's hand rather
-	-- than curling around in front of it. That pair is the whole shape of the hose.
+	-- Slack, not tension. Positive out of the reel throws the loop the way HoseAnchor is
+	-- aimed (down and toward the tub); NEGATIVE into the nozzle throws the other control
+	-- point BACKWARD from HoseEnd, whose LookVector is the direction the nozzle is
+	-- pointing — so the line arrives from behind the monitor rather than curling around
+	-- in front of it. That pair is the whole shape of the hose.
 	--
-	-- TWO SETS OF NUMBERS, BECAUSE THE TWO STATES ARE NOT THE SAME SHAPE. A Bezier's
-	-- control points are absolute distances, not fractions of the span, so one pair
-	-- cannot serve both: the held run is eight-plus studs and wants a long lazy sag,
-	-- while the parked run is barely three studs from the drum up to the cap, and the
-	-- held numbers on THAT threw the line out sideways into the tiles — the parked
-	-- hose looked broken. The properties carry the parked pair; WashService reads the
-	-- attributes when it hands the nozzle over and puts the parked pair back after.
-	-- Both live here, in the builder, next to the geometry they are measured against,
-	-- exactly like the HoldCFrame and ClosedPivot/OpenPivot attributes elsewhere.
-	beam.CurveSize0 = 1.4
-	beam.CurveSize1 = -1.4
-	beam:SetAttribute("HeldCurve0", 5)
-	beam:SetAttribute("HeldCurve1", -6)
+	-- ONE PAIR OF NUMBERS AGAIN. There used to be two, plus `HeldCurve0/1` attributes
+	-- for WashService to swap in: a Bezier's control points are absolute stud distances
+	-- rather than fractions of the span, so the three-stud parked run up to the pump cap
+	-- and the eight-stud run out to a player's hand could not share one sag. There is no
+	-- second state now — the nozzle never leaves the mast — so the run is always this
+	-- eleven-stud one down the side of the pad, and it gets the long lazy sag that run
+	-- wants. The attributes are gone rather than left unread: a knob nothing turns is a
+	-- knob someone eventually turns expecting something to happen.
+	beam.CurveSize0 = 4.5
+	beam.CurveSize1 = -3.5
 	beam.Segments = 24
 	beam.FaceCamera = true
 	beam.Color = ColorSequence.new({
@@ -721,6 +801,72 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	beam.Parent = reel
 
 	hose.Parent = parent
+end
+
+--- Swap the monitor on one cleansing station's mast to `tier`, in place. Returns the
+--- hose now on it, or nil if this station has no rig to swap (a place file saved
+--- before the mast existed — degrade quietly, exactly as the wash bay does).
+---
+--- A NIL TIER MEANS "UNCLAIMED": it puts back the same STATION_TIER a freshly built
+--- plot wears, which is what ExhibitService hands it when a player leaves and the base
+--- goes back to belonging to nobody. Spelled as a default rather than as a separate
+--- `clearHose()`, because the two would be the same six lines and the second one is
+--- the one that rots.
+---
+--- THIS IS WHERE THE PURCHASE LANDS. The Cleaner track is bought at the plaza's HOSES
+--- stall like every other track, and this is what makes that purchase a thing you can
+--- see: ExhibitService.refreshHose calls it on plot assignment and again on every buy,
+--- so walking home from the stall means finding a different machine on your own mast.
+---
+--- REBUILT RATHER THAN RECOLOURED. The seven rungs are seven authored silhouettes
+--- (Shared/ToolModels/Hose), not one model in seven paints, so there is nothing to
+--- tint — and the factory is the same one build/Shops hangs on the rack and the same
+--- one this file parks at build time. One geometry, three surfaces, no drift.
+---
+--- ORDER MATTERS AT EXACTLY ONE POINT: the new hose is parented and the reel's Beam is
+--- swung onto it BEFORE the old one is destroyed. A Beam whose Attachment1 has just
+--- been freed draws nothing, and a hose line that blinks out on every purchase is a
+--- bug someone reports.
+function Plots.setHoseTier(station: Instance?, tier: number?): Model?
+	if station == nil then
+		return nil
+	end
+
+	local existing = station:FindFirstChild("Hose")
+	local parked = if existing then existing:GetAttribute("ParkedPivot") else nil
+	if typeof(parked) ~= "CFrame" and existing and existing:IsA("Model") and existing.PrimaryPart ~= nil then
+		-- A rig built before ParkedPivot was stamped on. Where it stands right now IS
+		-- where it parks, so read it off rather than refusing the swap.
+		parked = existing:GetPivot()
+	end
+	if typeof(parked) ~= "CFrame" then
+		return nil
+	end
+
+	-- Clamped the way the factory clamps, so the comparison below is against the rung
+	-- that would actually be built rather than against the caller's raw number.
+	local wanted = math.clamp(math.floor(tier or ToolModels.Hose.STATION_TIER), 1, ToolModels.Hose.count())
+	if existing and existing:GetAttribute("Tier") == wanted then
+		return existing :: Model
+	end
+
+	local hose = ToolModels.Hose.create(wanted)
+	hose:PivotTo(parked)
+	hose:SetAttribute("ParkedPivot", parked)
+	hose.Parent = station
+
+	local reel = station:FindFirstChild("HoseReel")
+	local line = if reel then reel:FindFirstChildOfClass("Beam") else nil
+	local core = hose.PrimaryPart
+	local hoseEnd = if core then core:FindFirstChild("HoseEnd") else nil
+	if line and hoseEnd and hoseEnd:IsA("Attachment") then
+		line.Attachment1 = hoseEnd
+	end
+
+	if existing then
+		existing:Destroy()
+	end
+	return hose
 end
 
 --- The cleansing station — replaces the camp's old central Decon Station and

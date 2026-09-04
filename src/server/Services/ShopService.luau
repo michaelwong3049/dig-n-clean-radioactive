@@ -355,6 +355,17 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 	-- in one press rather than being a trap you cannot undo.
 	data.gear[key] = tier
 
+	-- THE PURCHASE HAS TO LAND SOMEWHERE THE PLAYER CAN SEE. Five of the six tracks
+	-- land on the player: a detector or a magnet appears in their hands the next time
+	-- ToolService looks at them, and a suit, boots or satchel is felt rather than seen.
+	-- The Cleaner track lands on their BASE — it is the monitor bolted to the mast at
+	-- their own cleansing station (build/Plots.buildHoseRig) — so it needs a poke, the
+	-- same way a Luck purchase needs one to repaint its button. Which plot, and what a
+	-- plot looks like, is ExhibitService's business and not this file's.
+	if track == "Cleaner" then
+		ExhibitService.refreshHose(player)
+	end
+
 	return true, `bought {def.name} for ${def.price}`
 end
 
@@ -390,9 +401,18 @@ function ShopService.equipTier(player: Player, track: string, tier: number?): (b
 		return false, "already in your hands"
 	end
 
-	-- ToolService polls this field and swaps the held model on a mismatch, so this one
-	-- write is the entire equip. Nothing to notify, nothing to re-render server-side.
+	-- ToolService polls this field and swaps the held model on a mismatch, so for the
+	-- five tracks you HOLD this one write is the entire equip.
 	data.gear[key] = tier
+
+	-- THE SIXTH TRACK IS NOT HELD, so nothing polls it into existence. The Cleaner rung
+	-- is the machine bolted to the mast at your own wash bay, and the only thing that
+	-- moves it is this poke (see buyTier's note). Without it, equipping a lower rung you
+	-- already own would leave the bay SHOWING one hose while CLEANING at another --
+	-- silent, and exactly the sort of thing that only turns up as "the shop is lying".
+	if track == "Cleaner" then
+		ExhibitService.refreshHose(player)
+	end
 
 	return true, `equipped {Gear.tier(track, tier).name}`
 end

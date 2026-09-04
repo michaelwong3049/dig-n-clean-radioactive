@@ -58,13 +58,13 @@ local lastSignature: { [Player]: string } = {}
 --- than in DeconService because `describe` needs it to fill in "needs Chem Injector",
 --- and DeconService's scrub messages need the same string for the same reason.
 ---
---- Walks Gear.Cleaner in order, so it depends on `potency` ASCENDING down that table.
+--- Walks Gear.Cleaner in order, so it depends on `power` ASCENDING down that table.
 --- It always has, and the shop's own price ladder would be nonsense otherwise, but the
 --- dependency is worth writing down: a table sorted any other way makes this return
 --- the wrong rung rather than fail, which is the kind of bug that ships.
 function CarryService.hoseNameFor(potencyNeeded: number): string
 	for _, tier in Gear.Cleaner do
-		if tier.potency >= potencyNeeded then
+		if tier.power >= potencyNeeded then
 			return tier.name
 		end
 	end

@@ -276,7 +276,7 @@ function Spec.run(): boolean
 		multipliers = { sell = 2 },
 	}
 	local stats = StatResolver.get(profile)
-	check("§9.2 Steady Hands adds exactly +1 potency", stats.cleanPotency == Gear.tier("Cleaner", 4).potency + 1)
+	check("§9.2 Steady Hands adds exactly +1 potency", stats.cleanPotency == Gear.tier("Cleaner", 4).power + 1)
 	check("§9.2 level 20 = 20% resist", math.abs(stats.levelResist - 0.20) < 1e-9)
 	check("§9.2 level 20 = +4 carry capacity", stats.capacity == Gear.tier("Suit", 3).capacity + 4)
 	check("§9.2 Sure Footing halves the haul penalty", math.abs(stats.haulPenalty - Gear.tier("Boots", 2).haulPenalty * 0.5) < 1e-9)
@@ -324,7 +324,7 @@ function Spec.run(): boolean
 	-- ── The hose ladder (Config/Gear.Cleaner, Config/ToolTiers, ToolModels/Hose) ──
 	--
 	-- THREE TABLES DESCRIBE ONE LADDER and nothing but these checks stops them
-	-- diverging. Gear.Cleaner is the rungs (price, potency, scrubRate), ToolTiers is
+	-- diverging. Gear.Cleaner is the rungs (price, power, volume), ToolTiers is
 	-- their palette, ToolModels/Hose is their geometry. Every one of the three clamps
 	-- an out-of-range tier rather than erroring — which is right for a live server and
 	-- exactly why a mismatch is invisible in play: add an eighth rung to Gear and the
@@ -347,20 +347,27 @@ function Spec.run(): boolean
 	end
 
 	-- CarryService.hoseNameFor WALKS THIS TABLE IN ORDER and returns the first rung
-	-- that reaches a hardness, so ascending potency is not a nicety — a table sorted
+	-- that reaches a hardness, so ascending `power` is not a nicety — a table sorted
 	-- any other way makes "needs the Chem Injector" name the wrong hose, and it names
 	-- it confidently. Ascending price is the same promise made to the shop rack.
+	--
+	-- ASCENDING VOLUME IS THE NEWER HALF, and it is checked for a reason that only
+	-- exists now that the hose is a machine you look at: WashController scales the
+	-- stream's girth off `volume` (WashService.push sends it), so a rung whose volume
+	-- went DOWN would visibly dribble harder than the rung below it while costing more.
+	-- Volume gates nothing, which is exactly why nothing else would catch it.
 	for tier = 2, cleanerRungs do
 		local prev, this = Gear.tier("Cleaner", tier - 1), Gear.tier("Cleaner", tier)
 		check(`hose {tier} costs more than {tier - 1}`, this.price > prev.price)
-		check(`hose {tier} reaches further than {tier - 1}`, this.potency > prev.potency)
+		check(`hose {tier} reaches further than {tier - 1}`, this.power > prev.power)
+		check(`hose {tier} throws more water than {tier - 1}`, this.volume > prev.volume)
 	end
 
-	-- THE HOSE THE WASH BAY WELDS INTO YOUR HAND IS THE ONE IT PARKED ON THE PUMP'S
-	-- LADDER. build/Plots builds the station prop at STATION_TIER and WashService
-	-- builds the held one at the player's, from the same factory — so a STATION_TIER
-	-- off the end of the ladder would silently clamp and the prop would stop matching
-	-- any purchasable rung.
+	-- THE HOSE ON THE MAST IS THE ONE THE LADDER SELLS. build/Plots parks the station's
+	-- monitor at STATION_TIER for a plot nobody owns yet, and ExhibitService swaps it to
+	-- the owner's rung from the same factory — so a STATION_TIER off the end of the
+	-- ladder would silently clamp and an unclaimed plot would show a hose that is not
+	-- for sale anywhere.
 	check(
 		`the station's parked hose is a real rung (tier {ToolModels.Hose.STATION_TIER})`,
 		ToolModels.Hose.STATION_TIER >= 1 and ToolModels.Hose.STATION_TIER <= cleanerRungs
@@ -373,7 +380,7 @@ function Spec.run(): boolean
 	-- whose MESSAGE goes stale while its assertion still passes is a check nobody
 	-- trusts the second time they read it.
 	local startingHose = Gear.tier("Cleaner", 1)
-	local startingReach = startingHose.potency + Liquids.MAX_POTENCY_BONUS
+	local startingReach = startingHose.power + Liquids.MAX_POTENCY_BONUS
 	check(
 		string.format("§2.4 %s + the best liquid reaches hardness %d, short of Epic (%d)", startingHose.name, startingReach, Rarity.get("Epic").hardness),
 		startingReach < Rarity.get("Epic").hardness

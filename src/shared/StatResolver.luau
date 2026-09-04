@@ -119,7 +119,7 @@ function StatResolver.get(profile: Profile): Stats
 	-- surfaced separately. Two numbers, because two questions get asked of them:
 	-- "what can I clean at all" (the Locker's question, and the Cleaner shop's) and
 	-- "what can I clean right now" (the wash bay's).
-	local cleanPotency = cleaner.potency + (if perks.steadyHands then 1 else 0)
+	local cleanPotency = cleaner.power + (if perks.steadyHands then 1 else 0)
 
 	local capacity = suit.capacity + math.floor(profile.level / Tuning.CAPACITY_EVERY_N_LEVELS)
 
@@ -148,7 +148,14 @@ function StatResolver.get(profile: Profile): Stats
 		draw = magnet.draw,
 		maxGrip = magnet.maxGrip,
 		cleanPotency = cleanPotency,
-		scrubRate = cleaner.scrubRate,
+		-- THE MACHINE'S `volume`, UNDER THE MATH'S OWN NAME. Config/Gear renamed this
+		-- column when the Cleaner track became the mast beside your tub rather than a
+		-- sponge in your fist -- "how much water it throws" is what the player buys --
+		-- but the thing it divides is still Contamination.secondsFor's scrub rate, and
+		-- the liquid's `rateMult` multiplies it on the way in. One number, two honest
+		-- names: `volume` where it is sold, `scrubRate` where it is spent. The wash bay
+		-- reads it back off here to size the stream (WashService.push -> `volume`).
+		scrubRate = cleaner.volume,
 		satchelFuseMult = satchel.fuseMult * mult(profile, "fuse"),
 
 		liquidId = liquidId,
