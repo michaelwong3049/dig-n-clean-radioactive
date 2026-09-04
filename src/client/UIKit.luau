@@ -172,22 +172,42 @@ Dock.SCOPE_DIAL = 180 -- was DetectorController.DIAL_SIZE 150
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
 
--- THE HAUL PANEL. Up only while a player is locked onto a signal and mashing it out.
--- It is deliberately NOT centered on the screen: the payoff of a haul is watching the
--- thing rise out of the ground in front of your character, and a dead-center panel
--- covers exactly that. It sits as LOW as it can instead — right above the hotbar — so
--- the item stays in view above it; HAULPANEL_BOTTOM below is what places it.
--- 150: 134 (itself down from 168) plus a 16px title row brought back to carry the
--- rarity readout — the rarity word and the "1 in N" odds, both on any detector now
--- (the clarity gate is gone). The old dropped title said "LOCKED ON — UNKNOWN MASS";
--- this one says what you actually committed to, or stays blank behind the bar's "?"
--- for the frame before it resolves. Laid out top-down at fixed offsets:
--- the title at y10, the bar at y36, the PULL button at y76, and the release hint
--- hanging off the BOTTOM edge. Panel height is what sets the gap between the button and
--- the release (10px here) — shrink it further and they re-collide. Its top edge sits
--- just clear of the status line (STATUS_BOTTOM); another few px of height and the two
--- centred elements overlap.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 150)
+-- THE HAUL WIDGET. Up only while a player is locked onto a signal and mashing it out.
+-- It is deliberately OUT OF THE MIDDLE OF THE SCREEN, in both axes, and for one
+-- reason: the payoff of a haul is watching the thing rise out of the ground in front
+-- of your character. That happens at screen centre, so anything drawn there is drawn
+-- over the only part of the haul the player actually came for. It sits as LOW as it
+-- can (HAULPANEL_BOTTOM) and as far to the RIGHT as it can (HAULPANEL_RIGHT).
+--
+-- NAMED "PANEL" AND IT IS NOT ONE ANY MORE. There is no fill and no stroke behind the
+-- contents: this is the bounding box of a floating stack, not a slab. The 420x230 slab
+-- it used to draw was the bulk of what the haul cost the screen — the content inside
+-- it was never the problem — and 240x210 with nothing drawn behind it is roughly a
+-- quarter of the pixels the old one covered. The name stays because HAULPANEL_BOTTOM,
+-- ui.haul and every caller already read it and a rename buys nothing.
+--
+-- THE BAR INSIDE IT IS VERTICAL, which is what sets the height. A horizontal strip
+-- said "progress"; a column says what the haul actually IS — the thing is under you
+-- and it has to come all the way UP — and the fill climbing towards a top edge is a
+-- target you can see, where a strip's right-hand end never read as one. The column
+-- gets 161px of travel here, under the PULL button and over the magnet and the
+-- release hint; the rarity/odds readout sits BESIDE the bar precisely so naming what
+-- you hooked costs no height. DetectorController's HAULBAR_* / HAULTRACK_* derive the
+-- whole interior from this one number — nothing in there re-hardcodes 320 or 290.
+--
+-- 320x290, UP FROM 240x210, on request: bigger and louder. Stripping the panel took
+-- the widget's weight off with its bulk, and out in the corner where it lives now the
+-- result read as a small quiet thing rather than as the control you are hammering.
+-- The bar is the part that grew most (54x118 -> 72x161) because the bar is what the
+-- player is actually watching. Still well under the old slab's footprint, and drawing
+-- none of it.
+--
+-- ITS BOX OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM), which the old 150 cleared
+-- by 4px. That is safe rather than lucky, and doubly so now that the box draws nothing:
+-- DigService releases the lock the instant the bag fills (its RELEASE 3), and the only
+-- other line the status can carry is the buried-too-deep one, which needs
+-- `not hasSignal` — so the two are never on screen in the same frame.
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(320, 290)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
@@ -252,17 +272,42 @@ Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 
 -- RIGHT ABOVE THE HOTBAR, on request. Its bottom edge sits one GAP above the bag-count
 -- line (which is itself one GAP above the hotbar), so the whole hotbar cluster stays
--- visible underneath and the panel drops as low as it possibly can without covering it.
+-- visible underneath and the widget drops as low as it possibly can without covering
+-- it.
 --
 -- This is a deliberate reversal of the old "clear the entire dock" placement
--- (RESERVE + GAP). The panel now overlays the instrument band's vertical space — but
--- that band is the meter / cash / index column, which is LEFT-anchored, while this
--- panel is centred: on a 16:9 viewport the two never touch. On a very narrow one the
--- panel's left edge tucks behind the meter, which has the higher DisplayOrder (100 vs
--- DetectorHud's 60) and stays readable on top. Anchored off the hotbar rather than a
+-- (RESERVE + GAP). The widget now overlays the instrument band's vertical space — but
+-- that band is the meter / cash / index column, which is LEFT-anchored, and
+-- HAULPANEL_RIGHT below puts this hard right. Anchored off the hotbar rather than a
 -- screen fraction for the same reason everything else here is: a fraction that looked
 -- right at 1080p collided with the dock on shorter viewports.
 Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
+
+-- AND AS FAR RIGHT AS IT GOES WITHOUT TOUCHING THE SCOPE, which is what gets it off
+-- the surfacing item. It used to be centred, which put a 240px-wide stack straight over
+-- the character and the thing climbing out of the soil in front of them.
+--
+-- RIGHT RATHER THAN LEFT because the two bottom corners are not the same size: the
+-- scope is SCOPE_DIAL (180) wide against the meter column's METER_SIZE.X (280), so
+-- going right leaves 100px more room to get clear of centre. Expressed as the scope's
+-- own footprint plus a gap rather than a tuned offset, which is what makes it hold at
+-- every viewport width instead of at the one it was eyeballed on: the widget's right
+-- edge lands exactly one INSTRUMENT_GAP left of the scope, so the two share the
+-- HAULPANEL_BOTTOM / SCOPE_BOTTOM baseline and can never overlap each other.
+--
+-- Its LEFT edge then clears screen centre by ~420px at 1920, ~160 at 1410 and ~95 at
+-- 1280 — comfortably past a character that is only ~70px wide on screen.
+--
+-- THE COST OF THE 320px WIDTH IS PAID ON SMALL VIEWPORTS, and it is worth stating
+-- plainly rather than discovering. The free band between the meter column and the
+-- scope is (width - 304 - 204) px; below ~1050 that is narrower than the widget, so it
+-- reaches back over centre (-32px at 1024) and below ~830 it starts tucking behind the
+-- meter as well (~48px at 800). Nothing breaks — the meter is DisplayOrder 100 against
+-- DetectorHud's 60 and stays readable on top — but the widget stops dodging the item
+-- it is hauling. That is the honest floor for a fixed-size widget on a viewport that
+-- small; the fix if it ever matters is a narrower widget under some width, not a
+-- different anchor.
+Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SCOPE_DIAL + Dock.INSTRUMENT_GAP
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace
