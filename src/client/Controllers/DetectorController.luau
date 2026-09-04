@@ -115,14 +115,14 @@ local YANK_KICK_SCALE = 0.05 -- how far the button swells at the peak of a kick
 -- climbs towards it, the magnet doing the pulling sits under the bar's foot, and the
 -- way out sits under the magnet. The rarity/odds readout is beside the bar rather
 -- than above it, so naming what you hooked costs no height at all.
-local HAULTRACK_WIDTH = 72
+local HAULTRACK_WIDTH = 88
 
 -- The magnet glyph parks below the track. buildMagnetIcon draws into a fixed 30x26 box
 -- of hand-placed rectangles, so it is enlarged with a UIScale rather than by retuning
 -- five sets of coordinates -- MAGNET_HEIGHT is therefore the height the stack has to
 -- RESERVE (the scaled one), not the height the glyph is drawn at.
 local MAGNET_DRAWN = 26
-local MAGNET_SCALE = 1.5
+local MAGNET_SCALE = 2
 local MAGNET_HEIGHT = MAGNET_DRAWN * MAGNET_SCALE
 
 -- THE BAR'S COLUMN IS AS WIDE AS THE WIDEST THING STACKED IN IT, which is the release
@@ -131,7 +131,7 @@ local MAGNET_HEIGHT = MAGNET_DRAWN * MAGNET_SCALE
 -- middle of it. The readout column takes whatever is left, and it needs enough of it
 -- for "LEGENDARY" at hero/title weight -- the longest rarity in Rarity.ORDER, and the
 -- one thing here that would clip rather than merely look cramped.
-local HAULBAR_COL = 120
+local HAULBAR_COL = 144
 local HAULBAR_MID = HAULBAR_COL / 2
 local HAULCOL_GAP = 14 -- bar column -> readout column
 local HAULCOL_X = HAULBAR_COL + HAULCOL_GAP
@@ -141,22 +141,10 @@ local HAULCOL_WIDTH = Dock.HAULPANEL_SIZE.X.Offset - HAULCOL_X
 -- rather than inlined because HAULTRACK_HEIGHT is derived from all of them at once: a
 -- change to any row moves the bar's length rather than silently pushing the release
 -- hint off the bottom.
-local HAULBUTTON_HEIGHT = 46
+local HAULBUTTON_HEIGHT = 54
 local HAULBUTTON_GAP = 10 -- PULL -> the top of the bar
-
--- PULL'S OWN TEXT SIZE, and the one place here that does not use UIKit.TextSize. The
--- kit's scale tops out at title(26) below the hero(40) reserved for headlines, and at
--- 26 the word measured 61px inside a 120x46 plate -- a short label swimming in a big
--- button, which is what made it look wrong rather than merely small. 30 fills it
--- (68x30) without crowding the corners.
---
--- A LITERAL RATHER THAN A NEW SCALE ENTRY on purpose: UIKit's font header says the
--- sizes are underset for Gotham and asks for a retune "after looking at it in Studio"
--- -- but a retune moves every surface in the game, and this is one button. When that
--- retune happens this constant is a candidate to fold back in.
-local HAULBUTTON_TEXT = 30
 local MAGNET_GAP = 8 -- the bar's foot -> the magnet
-local RELEASE_HEIGHT = 20
+local RELEASE_HEIGHT = 24
 local RELEASE_GAP = 6 -- magnet -> the release hint
 
 local HAULTRACK_TOP = HAULBUTTON_HEIGHT + HAULBUTTON_GAP
@@ -166,6 +154,40 @@ local HAULTRACK_HEIGHT = Dock.HAULPANEL_SIZE.Y.Offset
 	- MAGNET_HEIGHT
 	- RELEASE_GAP
 	- RELEASE_HEIGHT
+
+-- THE WIDGET'S THREE OWN TEXT SIZES, and the only places here that do not use
+-- UIKit.TextSize. The kit's scale tops out at title(26) below the hero(40) reserved
+-- for headlines, and all three of these sit between those two rungs: the widget grew
+-- past the scale, it did not ignore it.
+--
+-- PULL fills a 144x54 plate at 34 the way it filled the old 120x46 one at 30 -- at
+-- title(26) it measured 61px inside that older plate, a short label swimming in a big
+-- button, which is what made it look wrong rather than merely small.
+--
+-- The readout's two lines take the other two. HAULTITLE_TEXT is shared by the rarity
+-- word and the "?" that stands in for it -- those two occupy ONE rectangle (see
+-- build), and they were 26 and 30 respectively for no reason at all, so a signal
+-- resolving used to twitch the type size. "LEGENDARY", the longest word in
+-- Rarity.ORDER, measures ~190px at 32 against the 222px column it lands in, which is
+-- what caps this rather than taste. HAULODDS_TEXT keeps the footnote a clear step
+-- under it -- that split is the whole hierarchy of the readout.
+--
+-- LITERALS RATHER THAN NEW SCALE ENTRIES on purpose: UIKit's font header says the
+-- sizes are underset for Gotham and asks for a retune "after looking at it in Studio"
+-- -- but a retune moves every surface in the game, and this is one widget. When that
+-- retune happens these three are candidates to fold back in.
+local HAULBUTTON_TEXT = 34
+local HAULTITLE_TEXT = 32
+local HAULODDS_TEXT = 22
+
+-- THE READOUT COLUMN'S TWO ROWS, hung off the top of the track -- the mark the fill
+-- is climbing towards, and the only thing in the widget worth lining the readout up
+-- with. The rarity word's box starts a few px above that mark so the cap-heights
+-- agree rather than the box edges, and the odds row stacks directly under it: one
+-- addition, so growing either row can never leave a gap or an overlap between them.
+local HAULREADOUT_TOP = HAULTRACK_TOP - 6
+local HAULTITLE_ROW = 38
+local HAULODDS_ROW = 26
 
 -- How fast the fill chases the server's value (1/seconds). The bar is smoothed rather
 -- than snapped because drag is continuous and 10 Hz updates make a steady sink look
@@ -878,7 +900,12 @@ local function build(): ScreenGui
 			HAULTRACK_TOP + HAULTRACK_HEIGHT + MAGNET_GAP + MAGNET_HEIGHT + RELEASE_GAP
 		),
 		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.body,
+		-- header(19), not body(15). Quiet is a matter of weight, fill and outline --
+		-- all three of which this still gives up -- not of being too small to read.
+		-- At body it was the only line in the widget that did not grow with the rest,
+		-- and the way out of a state that roots your character is the last thing that
+		-- should be hard to find.
+		textSize = UIKit.TextSize.header,
 		color = COLOR.dim,
 		fillColor = COLOR.panel,
 		fillTransparency = 1,
@@ -906,25 +933,25 @@ local function build(): ScreenGui
 	-- readout is just loud rather than legible. Same size, one weight down.
 	ui.haulTitle = UIKit.label(haul, {
 		name = "Title",
-		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP - 4),
-		size = UDim2.fromOffset(HAULCOL_WIDTH, 30),
+		position = UDim2.fromOffset(HAULCOL_X, HAULREADOUT_TOP),
+		size = UDim2.fromOffset(HAULCOL_WIDTH, HAULTITLE_ROW),
 		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.title,
+		textSize = HAULTITLE_TEXT,
 		color = COLOR.scope,
 		strokeTransparency = 0.3,
 	})
 
-	-- THE FOOTNOTE, AND ALLOWED TO LOOK LIKE ONE. It carries size -- header(19), up from
-	-- the caption(13) that was illegible over sunlit ground with no panel behind it --
-	-- but not weight: this is body, where the rarity above it is title. That split is
-	-- the whole hierarchy of the readout, and it stopped existing for a commit when
-	-- both lines were bold at once.
+	-- THE FOOTNOTE, AND ALLOWED TO LOOK LIKE ONE. It carries size -- 22 now, up through
+	-- header(19) from the caption(13) that was illegible over sunlit ground with no
+	-- panel behind it -- but not weight: this is body, where the rarity above it is
+	-- title. That split is the whole hierarchy of the readout, and it stopped existing
+	-- for a commit when both lines were bold at once.
 	ui.haulOdds = UIKit.label(haul, {
 		name = "Odds",
-		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP + 28),
-		size = UDim2.fromOffset(HAULCOL_WIDTH, 22),
+		position = UDim2.fromOffset(HAULCOL_X, HAULREADOUT_TOP + HAULTITLE_ROW),
+		size = UDim2.fromOffset(HAULCOL_WIDTH, HAULODDS_ROW),
 		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.header,
+		textSize = HAULODDS_TEXT,
 		color = COLOR.dim,
 		strokeTransparency = 0.3,
 	})
@@ -935,10 +962,10 @@ local function build(): ScreenGui
 	-- "LEGENDARY" next to a "?" reads as a bug.
 	ui.haulQuestion = UIKit.label(haul, {
 		name = "HaulQuestion",
-		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP - 4),
-		size = UDim2.fromOffset(HAULCOL_WIDTH, 30),
+		position = UDim2.fromOffset(HAULCOL_X, HAULREADOUT_TOP),
+		size = UDim2.fromOffset(HAULCOL_WIDTH, HAULTITLE_ROW),
 		font = UIKit.Font.title,
-		textSize = 30,
+		textSize = HAULTITLE_TEXT,
 		color = COLOR.dim,
 		strokeTransparency = 0.3,
 		text = "?",
