@@ -24,6 +24,7 @@
 
 local Config = script.Parent.Parent.Config
 local Stages = require(Config.Stages)
+local SkyConfig = require(Config.Sky)
 local Gear = require(Config.Gear)
 local Tuning = require(Config.Tuning)
 local Rarity = require(Config.Rarity)
@@ -210,6 +211,79 @@ function Spec.run(): boolean
 		check(
 			string.format("§new stage %d entrance beats stage %d's deepest point", id, id - 1),
 			Stages.radsAt(id, 0) > Stages.radsAt(id - 1, 1)
+		)
+	end
+
+	-- Config/Sky — the per-stage sky. Art direction, not simulation, so what is
+	-- pinned here is the SHAPE of the arc rather than any hex value: the sky only
+	-- ever gets thicker, hazier, cloudier and dimmer as you go east, and base camp
+	-- is the clearest place in the game. Fourteen hand-authored numbers across seven
+	-- rows is exactly the sort of table where one typo silently makes Stage 5 the
+	-- pleasant one, and nothing in play would ever tell you.
+	do
+		local looks = { SkyConfig.BASE }
+		local everyStageSkinned = true
+		for _, id in Stages.builtIds() do
+			if SkyConfig.LOOKS[id] == nil then
+				everyStageSkinned = false
+			end
+			table.insert(looks, SkyConfig.get(id))
+		end
+		check("§sky every built stage has its own look (none silently falling back to camp)", everyStageSkinned)
+
+		local worsens, brightens, sealed = true, true, false
+		for i = 2, #looks do
+			local prev, cur = looks[i - 1], looks[i]
+			if
+				cur.atmoDensity < prev.atmoDensity
+				or cur.atmoHaze < prev.atmoHaze
+				or cur.atmoGlare < prev.atmoGlare
+				or cur.cloudCover < prev.cloudCover
+				or cur.cloudDensity < prev.cloudDensity
+				or cur.sunRays < prev.sunRays
+				or cur.sunSize < prev.sunSize
+				or cur.clockTime < prev.clockTime
+			then
+				worsens = false
+			end
+			if cur.brightness > prev.brightness then
+				brightens = false
+			end
+		end
+		for _, look in looks do
+			-- Config/Sky's measured ceilings. Haze is the one that matters and the
+			-- one somebody will be tempted to raise, because it is also the knob
+			-- that makes the sky take its colour at all: at 4.8 the Crater flattened
+			-- into a single amber field with no walls, no ground and no cloud deck.
+			-- Density past ~0.6 does the same to distance. And a fully sealed deck
+			-- turns the Crater heist into a dark room (PLAN §16).
+			if look.cloudCover >= 1 or look.atmoDensity > 0.6 or look.atmoHaze > 3.4 then
+				sealed = true
+			end
+		end
+		-- The other lesson from the same afternoon: a cloud deck the same brightness
+		-- as the air behind it does not render as a deck, it disappears. Only
+		-- enforced once the haze is high enough that the sky has actually TAKEN
+		-- atmoColor (~2); below that the sky is still procedural blue and camp's
+		-- white clouds are correct precisely because they are brighter than it.
+		local function luma(c: Color3): number
+			return 0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B
+		end
+		local deckReads = true
+		for _, look in looks do
+			if look.atmoHaze >= 2 and luma(look.cloudColor) >= luma(look.atmoColor) then
+				deckReads = false
+			end
+		end
+		check("§sky every coloured sky has a cloud deck darker than it (or it vanishes)", deckReads)
+
+		check("§sky air thickens and the sun sinks monotonically with depth", worsens)
+		check("§sky the light only ever gets dimmer going east", brightens)
+		check("§sky no stage seals the sky over or fogs out the horizon", not sealed)
+		check(
+			"§sky base camp is the clearest, brightest place in the game",
+			SkyConfig.BASE.atmoDensity < SkyConfig.get(1).atmoDensity
+				and SkyConfig.BASE.brightness > SkyConfig.get(6).brightness
 		)
 	end
 
