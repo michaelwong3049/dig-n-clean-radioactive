@@ -186,16 +186,17 @@ The item goes to your **Decon Station** (a portable rig at the stage entrance, o
 one you upgrade). Cleaning is a **skill mini-interaction**, not a progress bar:
 
 > **Build status: built.** Not the §16 fallback — the real thing. You hold the item, walk
-> to the tub at your base, and press **E**: you are planted on a mark, the camera cuts to a
-> **side-on** shot of you and the item, and you hose it down with whatever liquid the wash
-> pad rolled you until the contamination is gone. Press **E** again (or **Q**) to leave. Patches your potency cannot reach render crusted and
-> visibly refuse the stream. None of the numbers moved when this landed — it changed
-> *how* a patch comes off, never *whether* it can.
+> to the tub at your base, and press **E**: you are planted on a mark, the camera cuts to
+> **first person**, and you work the machine's nozzle over the item with whatever liquid
+> the wash pad rolled you until the contamination is gone. Press **E** again (or **Q**) to
+> leave. Patches your power cannot reach render crusted and visibly refuse the stream.
+> None of the numbers moved when this landed — it changed *how* a patch comes off, never
+> *whether* it can.
 
 * The item is displayed with **contamination patches** — glowing hotspots on its surface.
-* Player hoses the item down at the tub. The hose has a **potency** rating; each patch has
+* Player hoses the item down at the tub. The hose has a **power** rating; each patch has
 a **hardness** rating derived from item rarity.
-* **If hose potency < patch hardness, the patch will not clear.** This is the second hard gate:
+* **If hose power < patch hardness, the patch will not clear.** This is the second hard gate:
 you can *find* a rare item with a good detector but be unable to *sell* it without a
 good hose. Uncleanable items sit in your **Quarantine Locker** as a visible taunt —
 a strong pull toward the next hose.
@@ -208,11 +209,28 @@ for the run home, and it's why the run is worth making.
 Ultrasonic Jet → Ion Cannon → Plasma Lance.
 
 The line used to be seven different nouns (Wire Brush → Acid Sponge → Pressure Washer →
-Chem Bath → Ultrasonic Rig → Ion Shower → Plasma Scour), and the rename is not a theme
-pass. The wash bay welds a hose into your right hand for the length of a session and
-takes the cleaning tool back *out* of it — so whatever this track sold, every player
-cleaned with the same fire hose. It sells hoses now, and the tier you own is the nozzle
-you aim. **No price, potency or scrub rate moved.**
+Chem Bath → Ultrasonic Rig → Ion Shower → Plasma Scour), and it used to be something you
+*held*. Neither is true now, and both corrections are the same correction.
+
+First the nouns: the wash bay welded a hose into your right hand for the length of a
+session and took the cleaning tool back *out* of it — so whatever this track sold, every
+player cleaned with the same fire hose. Making all seven rungs hoses fixed the mismatch.
+
+Then the hand itself. A hose is plumbing — a pump, a reel, a line, and a nozzle bolted
+down at the end of it — not a sponge you carry into the ash and back. So the track is now
+**the machine at your own cleansing station**: a monitor on a mast at the corner of the
+tub, which you aim from the mark with your hands empty. You still buy it at the plaza's
+HOSES stall; walking home to find a different machine on your mast is the purchase
+landing. Nothing is ever put in the player's hands at a wash bay.
+
+Its two stats say what the machine does rather than what a sponge did:
+
+* **power** — the hard gate above. A patch harder than this never comes off, ever.
+* **volume** — how much water it throws. It divides the scrub clock, so a patch you *can*
+shift comes off faster, and it is what the stream visibly looks like: a Garden Hose
+dribbles, a Plasma Lance is a fire stream half again as thick.
+
+**No price and neither stat value moved across either rename.**
 
 #### The wash pad and the liquid roll
 

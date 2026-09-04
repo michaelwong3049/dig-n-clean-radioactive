@@ -245,6 +245,17 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 
 	data.gear[key] = tier
 
+	-- THE PURCHASE HAS TO LAND SOMEWHERE THE PLAYER CAN SEE. Five of the six tracks
+	-- land on the player: a detector or a magnet appears in their hands the next time
+	-- ToolService looks at them, and a suit, boots or satchel is felt rather than seen.
+	-- The Cleaner track lands on their BASE — it is the monitor bolted to the mast at
+	-- their own cleansing station (build/Plots.buildHoseRig) — so it needs a poke, the
+	-- same way a Luck purchase needs one to repaint its button. Which plot, and what a
+	-- plot looks like, is ExhibitService's business and not this file's.
+	if track == "Cleaner" then
+		ExhibitService.refreshHose(player)
+	end
+
 	return true, `bought {def.name} for ${def.price}`
 end
 

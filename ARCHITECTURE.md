@@ -29,7 +29,8 @@ src/
       Items.luau              the item catalogue (+ id / stage-rarity indexes)
       ToolTiers.luau          per-tier look: scale, colours, material, glow
     ItemModels/               versioned item-art factories; nil keys use placeholders
-    ToolModels/               gear-tier art as code; Cleaner only so far (the 7 hoses)
+    ToolModels/               gear-tier art as code; Cleaner only so far (the 7 hoses,
+                              which are wash-bay fixtures, not held tools)
       init.luau               model-key registry used by haul + exhibition rendering
       BottleCap.luau          clean 21-crimp crown cap
       DentedTinCan.luau       asymmetrically crushed ribbed food tin
@@ -59,6 +60,7 @@ src/
       DeconService            docking, scrubbing and racking at every base; sell() exists, no world trader triggers it currently
       LiquidService           the wash pad: rolling liquids, charges, equip
       WashService             the hose bay: the E-to-wash session and its clock
+                              (the nozzle is world geometry; this never moves it)
       ToolService             puts the right model in the player's hands
       DebugService            the tuning console (/radhelp)
 
@@ -68,7 +70,8 @@ src/
       DetectorController      sweep dial, ping audio, hold-to-pull
       StationController       the station panel (trader, decon, shop, pedestal)
       LiquidController        the loaded-liquid badge
-      WashController          the wash bay: camera, patch blobs, the hose stream
+      WashController          the wash bay: camera, patch blobs, the stream, and the
+                              local swivel of the station's own nozzle
       HudController           rad meter, vignette, distortion, blackout curtain
       GeigerController        the click bed (reads HudController)
 ```
@@ -191,6 +194,8 @@ Also required, and each corresponds to a real silent failure:
 | any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"pedestal"` \| `"roller"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; pedestal is one display slot; **roller is the wash pad — arriving inside its radius IS the roll**, and it charges cash, so its radius must never overlap a `decon` one (`World.verify()` asserts this). Only the first four open a panel: `StationController`'s `PANEL_KINDS` is an allowlist, because the decon branch is the fallthrough and an unrecognised kind would otherwise open a panel titled TRADER. |
 | ″ | `SellsTrack` | string | This part sells one `Gear.TRACKS` entry through a **ProximityPrompt**, with no panel and no station kind. `ShopService` scans by the `Upgrade` tag (added by `Kit.build` alongside the attribute) and wires the prompt to `ShopService.buyNext`. Currently just `"Luck"`, on the wooden sign at every base. A prompt's `Triggered` fires on the server with `MaxActivationDistance` already enforced by the engine, which is why this can skip the position re-derivation `ShopService.buy` has to do. |
 | ″ | `IsWashStand` | boolean | The invisible part inside a cleansing station where the item sits during a wash. Two sibling anchors go with it: `WashSpot` (where the player is planted, facing the tub — `WashService` steps them `APPROACH` studs forward of it) and `WashCam` (a **side-on** camera aimed at the midpoint of the two). The wash is shot **first person from the character's own head**, aimed down the line from there to `WashStand`, so `WashSpot` is the tripod; `WashCam` framed the original third-person version and survives as `WashController`'s fallback for the frame where the head has gone. They are anchors rather than numbers in `WashController` for the same reason `HoldCFrame` is an attribute: framing is judged by looking at it. |
+| a `Hose` Model in a cleansing station | `ParkedPivot` | CFrame | Where the station's nozzle rests, aimed at the `WashStand`. `WashController` rewrites the model's pivot every frame of a wash to point it — **locally**, since it is anchored server-built geometry the server never touches again, so the swivel costs no traffic and is per-viewer like the spray — and restores this pose on every exit path. `World.verify()` fails a hose without it: aiming still works (the controller falls back to wherever it finds the thing standing) but nothing puts it back, so a busy base slowly ends up with a machine staring at the sky. |
+| ″ | `Tier` | number | Which `Gear.Cleaner` rung is on the mast. Set by the `ToolModels.Hose` factory; read by `Plots.setHoseTier` to no-op a swap that would rebuild the same rung. |
 | ″ | `StationId` | string | Discriminator within a kind. For `"shop"` it is the **exact `Gear.TRACKS` spelling** (`"Detector"`, `"Suit"`, …). For `"pedestal"` it is `"<plot>:<slot>"`. |
 | ″ | `Radius` | number | Station radius in studs. Optional, default 12. |
 | ″ | *CollectionService tag* `Station` | — | Index only — `StationService` scans tagged parts instead of walking Workspace. `Kit.build` adds it whenever it sets `StationKind`, and `World.verify()` asserts attribute and tag agree in **both** directions. The attribute stays the source of truth. |
@@ -204,12 +209,20 @@ Also required, and each corresponds to a real silent failure:
 priced and buyable but have no held model — `Luck` deliberately never will, since it is
 a charm on a workbench rather than a tool.
 
-**`Cleaner` no longer comes from here.** Its seven hoses are built from primitives by
+**`Cleaner` is not a held model at all.** Its seven hoses are built from primitives by
 `Shared/ToolModels/Hose`, in git, on the same footing as `Shared/ItemModels` — so that
-track needs no place-file art at all and its models can be edited by anyone with the
-repo. `ToolService` and `build/Shops` both ask `ToolModels.has(track)` first and fall
-back to the library lookup above for everything else. It is the first track moved
-across, and the intended way out of the gap below.
+track needs no place-file art and its models can be edited by anyone with the repo. It is
+the first track moved across, and the intended way out of the gap below.
+
+It is also the only track that is a **fixture rather than a tool**. The rung you own is
+the monitor bolted to the mast at your own cleansing station (`build/Plots.buildHoseRig`),
+swapped in place by `Plots.setHoseTier` whenever `ExhibitService.refreshHose` fires — on
+plot assignment, on a purchase (`ShopService.buyTier`), on `/gear cleaner <n>`, and back to
+`ToolModels.Hose.STATION_TIER` when the plot is released. `ToolService` therefore has no
+`Cleaner` branch: standing at a cleansing station puts nothing in your hands, and the wash
+is aimed by pointing the machine (`WashController`), not by carrying it. `build/Shops`
+still asks `ToolModels.has(track)` first so the plaza rack hangs the real geometry; the
+`templateFor` path in `ToolService` keeps the same check for whichever track moves next.
 
 > **Remaining gap:** the place file is gitignored, and three things still cannot be
 > reconstructed from the repository alone.

@@ -50,6 +50,14 @@ local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local StationService = require(script.Parent.StationService)
 
+-- THE ONE build/ REQUIRE IN THIS FILE, and it is the same shape as DigService's
+-- require of build/SignalAura: a service that has to change world geometry asks the
+-- module that built that geometry to change it, rather than learning the geometry's
+-- shape for itself. `PLOT_COUNT` below is deliberately NOT taken from here — a
+-- constant is worth copying to avoid a dependency; a builder is not worth
+-- reimplementing to avoid one.
+local Plots = require(script.Parent.Parent.build.Plots)
+
 local ExhibitService = {}
 
 local PLOT_COUNT = 6 -- matches build/Plots.Plots.COUNT; not required so Services never depend on build/
@@ -109,6 +117,31 @@ local function renderLuck(index: number, data: any?)
 	if subtitle then
 		(subtitle :: TextLabel).Text = string.format("+0.1x for $%d", Gear.luckPrice(level))
 	end
+end
+
+--- Put the Cleaner rung this profile owns on the plot's wash machine, or the
+--- unclaimed-plot default when `data` is nil.
+---
+--- THIS IS THE WHOLE POINT OF THE CLEANER TRACK BEING A MACHINE. You buy a hose at the
+--- plaza's HOSES stall like every other track, and this is what makes that purchase
+--- something you can walk up to and look at: the monitor on your own mast is the rung
+--- you paid for, and it changes the moment the money leaves (ShopService calls
+--- refreshHose) rather than at the next rebuild.
+---
+--- SAME SHAPE AS renderLuck, and for the same reason it lives here rather than in
+--- ShopService: this file owns what a plot LOOKS like for its owner, and the buy path
+--- should not have to know that a plot has a cleansing station in it, let alone that
+--- the station has a mast.
+local function renderHose(index: number, data: any?)
+	local plot = plotModel(index)
+	if plot == nil then
+		return
+	end
+	-- Recursive: the station is a Model inside the plot, and its own name is the only
+	-- thing this file knows about it. Everything past that name — where the mast is,
+	-- which Beam runs to which attachment — is build/Plots' business.
+	local station = plot:FindFirstChild("CleansingStation", true)
+	Plots.setHoseTier(station, if data then data.gear.cleaner else nil)
 end
 
 --- Repaint one stand with real item art when it exists, or the old rarity-coloured
@@ -418,6 +451,7 @@ local function renderAll(index: number, data: any)
 		renderStand(index, entry.slot, entry.itemId, entry.rarity)
 	end
 	renderLocker(index, data)
+	renderHose(index, data)
 	refreshYieldTags(index, data)
 end
 
@@ -474,6 +508,19 @@ function ExhibitService.refreshLuck(player: Player)
 		return
 	end
 	renderLuck(index, DataService.data(player))
+end
+
+--- Swap this player's own wash machine to the Cleaner rung they now own. Called by
+--- ShopService the moment a purchase on that track lands, for exactly the reason
+--- refreshLuck exists: the world state a purchase changes belongs to the service that
+--- owns plot rendering, not to the one that took the money. No-op if they have no plot
+--- this session (all six taken — see assign()'s trailing warn).
+function ExhibitService.refreshHose(player: Player)
+	local index = plotOf[player]
+	if index == nil then
+		return
+	end
+	renderHose(index, DataService.data(player))
 end
 
 --- This player's assigned plot's spawn pad, or nil if they never got a plot this
@@ -553,6 +600,7 @@ local function release(player: Player)
 		end
 		renderName(index, nil)
 		renderLuck(index, nil)
+		renderHose(index, nil)
 		for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
 			renderStand(index, slot, nil, nil)
 		end

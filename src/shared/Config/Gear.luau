@@ -141,40 +141,54 @@ Gear.Magnet = {
 	{ name = "Singularity Coil", price = 22000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6 }, -- 0.04, effectively hands-free
 }
 
--- THE CLEANING TRACK IS SEVEN HOSES, AND IT USED TO BE SEVEN DIFFERENT NOUNS: Wire
--- Brush, Acid Sponge, Pressure Washer, Chem Bath, Ultrasonic Rig, Ion Shower, Plasma
--- Scour. The rename is not a theme pass. The wash bay welds a hose into your right
--- hand for the length of a session (WashService.takeHose) and ToolService pulls the
--- cleaner back OUT of it — you cannot hold a sponge and a nozzle in one fist — so the
--- thing this track sold was never the thing anybody cleaned with. A player bought an
--- Acid Sponge and then went and used a fire hose. Now the tier you own IS the nozzle
--- in your hand, and the purchase is visible at the one station it is for.
+-- THE CLEANING TRACK IS A MACHINE ON YOUR BASE, NOT A THING IN YOUR HAND, and that
+-- is the second correction this track has had. First it was seven different nouns
+-- (Wire Brush, Acid Sponge, Pressure Washer, Chem Bath, Ultrasonic Rig, Ion Shower,
+-- Plasma Scour) while the wash bay welded a fire hose into your fist, so the thing
+-- you bought was never the thing you cleaned with. That got fixed by making all
+-- seven rungs hoses. This is the other half of the same mistake: a hose is plumbing.
+-- It runs from a pump, through a reel, to a nozzle bolted to a mast beside the tub —
+-- it is not a sponge you carry into the ash and back. So the tier you own is the
+-- MONITOR MOUNTED AT YOUR OWN CLEANSING STATION (build/Plots.buildHoseRig), it swaps
+-- the moment you buy a rung (ExhibitService.refreshHose), and nothing is ever put in
+-- the player's hands: they stand at the mark and aim the machine.
 --
--- NOT ONE NUMBER MOVED. `price`, `potency` and `scrubRate` are exactly what they were
--- under the old names, and they have to stay that way: Config/Liquids' entire
--- +2-potency-cap argument is written against "a Wire Brush is potency 1 and Anomaly
--- hardness is 7", Util/Spec pins tier 1's potency plus the best possible liquid roll
--- landing short of Epic, and the price ladder is on the same 20/3 economy rescale as
--- every other track. This is a re-skin with teeth, not a rebalance.
+-- YOU STILL BUY IT AT THE PLAZA'S HOSES STALL. The machine is where the purchase
+-- LANDS, not where it is made — walking home to find a Chem Injector on your mast is
+-- the point, and a shop that sells nothing you can see is the failure this whole
+-- change is about, not one it introduces.
 --
--- potency  : the hard gate (PLAN §2 step 4). A patch harder than this never comes off
---            with this hose, ever, and the Quarantine Locker is where those items sit
---            as a labelled advertisement for the next rung. Liquids lend at most +2 on
---            top (Config/Liquids.MAX_POTENCY_BONUS) and are deliberately not allowed
---            to replace it.
--- scrubRate: how fast a patch you CAN shift comes off. Always safe to move.
+-- NOT ONE NUMBER MOVED, TWICE OVER. `price` and both stat columns are exactly what
+-- they were as the seven nouns and as the seven held hoses; only the column NAMES
+-- changed, and they changed to say what the machine does rather than what a sponge
+-- did. Config/Liquids' entire +2-cap argument is written against "a Garden Hose is
+-- a 1 and Anomaly hardness is 7", and Util/Spec pins tier 1 plus the best possible
+-- liquid roll landing short of Epic. This is a re-fit, not a rebalance.
+--
+-- power : HOW HARD IT CLEANS — the hard gate (PLAN §2 step 4). A patch harder than
+--         this never comes off with this machine, ever, and the Quarantine Locker is
+--         where those items sit as a labelled advertisement for the next rung. Liquids
+--         lend at most +2 on top (Config/Liquids.MAX_POTENCY_BONUS) and are
+--         deliberately not allowed to replace it. Resolved into `cleanPotency` by
+--         StatResolver, which is still the name the cleaning MATH uses — the gate is
+--         one number whether it comes from the machine or from what is in the tank.
+-- volume: HOW MUCH WATER IT THROWS. Twice a stat: it is the divisor on
+--         Contamination.secondsFor, so a patch you CAN shift comes off faster, and it
+--         is what the stream visibly looks like at the bay (WashController scales the
+--         jet's girth and its splash by it). A Garden Hose dribbles; a Plasma Lance
+--         is a firehose you can hear. Always safe to move — nothing gates on it.
 --
 -- What each rung looks like is Shared/ToolModels/Hose — real geometry, in git, seven
 -- authored silhouettes rather than one base model recoloured. That file is also why
 -- ToolTiers.Cleaner's `scale` column is 1.00 all the way down.
 Gear.Cleaner = {
-	{ name = "Garden Hose", price = 0, potency = 1, scrubRate = 1.0 },
-	{ name = "Patched Fire Hose", price = 1000, potency = 2, scrubRate = 1.2 },
-	{ name = "Pressure Lance", price = 2400, potency = 3, scrubRate = 1.5 },
-	{ name = "Chem Injector", price = 5800, potency = 4, scrubRate = 1.9 },
-	{ name = "Ultrasonic Jet", price = 14000, potency = 5, scrubRate = 2.4 },
-	{ name = "Ion Cannon", price = 33000, potency = 6, scrubRate = 3.0 },
-	{ name = "Plasma Lance", price = 80000, potency = 7, scrubRate = 3.8 },
+	{ name = "Garden Hose", price = 0, power = 1, volume = 1.0 },
+	{ name = "Patched Fire Hose", price = 1000, power = 2, volume = 1.2 },
+	{ name = "Pressure Lance", price = 2400, power = 3, volume = 1.5 },
+	{ name = "Chem Injector", price = 5800, power = 4, volume = 1.9 },
+	{ name = "Ultrasonic Jet", price = 14000, power = 5, volume = 2.4 },
+	{ name = "Ion Cannon", price = 33000, power = 6, volume = 3.0 },
+	{ name = "Plasma Lance", price = 80000, power = 7, volume = 3.8 },
 }
 
 -- reduction: fraction of AMBIENT rads/sec removed  (exposure track, green screen)

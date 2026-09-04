@@ -39,6 +39,7 @@ local StatResolver = require(Shared.StatResolver)
 local DataService = require(script.Parent.DataService)
 local ExposureService = require(script.Parent.ExposureService)
 local EconomyService = require(script.Parent.EconomyService)
+local ExhibitService = require(script.Parent.ExhibitService)
 
 local Workspace = game:GetService("Workspace")
 
@@ -196,6 +197,14 @@ COMMANDS["/gear"] = {
 			return `usage: {GEAR_USAGE}`
 		end
 		data.gear[track] = math.max(1, math.floor(tier))
+		-- WRITING THE PROFILE IS NOT THE WHOLE PURCHASE for the cleaner track: the rung
+		-- you own is also the machine bolted to your own wash bay, and ShopService pokes
+		-- ExhibitService to swap it when a real purchase lands. A debug command that set
+		-- the number and left a Garden Hose standing on the mast would be a testing tool
+		-- that lies about the thing it exists to test.
+		if track == "cleaner" then
+			ExhibitService.refreshHose(player)
+		end
 		return `{track} -> tier {data.gear[track]}`
 	end,
 }

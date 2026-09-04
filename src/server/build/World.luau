@@ -400,29 +400,41 @@ function World.verify(): (boolean, { string })
 	end
 	check(luckButtons == Plots.COUNT, `expected {Plots.COUNT} luck buttons (one per base), found {luckButtons}`)
 
-	-- ...and one fire hose per base, parked on the pump beside that base's tub
+	-- ...and one hose per base, on the mast beside that base's tub
 	-- (Plots.buildHoseRig). Counted for the same reason the buttons are: a missing
-	-- hose degrades QUIETLY — WashService just hands the player nothing and the wash
-	-- runs anyway, exactly as it did before the hose existed — so it would surface
-	-- weeks later as "the animation stopped working" instead of loudly here.
+	-- hose degrades QUIETLY — the wash still runs, it just has no nozzle to swivel and
+	-- no muzzle to leave from — so it would surface weeks later as "the animation
+	-- stopped working" instead of loudly here.
 	--
-	-- "WashHose" counts too. That is the copy WashService welds into a player's hand
-	-- for the duration of a session, with the station's own nozzle stashed out of the
-	-- tree meanwhile; without it, running verify() while somebody is mid-wash would
-	-- report a hose short and send the reader looking for a build bug.
+	-- ONE NAME NOW. "WashHose" used to be counted alongside "Hose": it was the copy
+	-- WashService welded into a player's hand for a session, with the station's own
+	-- nozzle stashed out of the tree meanwhile, so a verify() run mid-wash would
+	-- otherwise report a hose short. Nothing is handed out any more — the monitor stays
+	-- bolted to its mast — so there is exactly one hose per base at every instant, and
+	-- a "WashHose" turning up in Workspace today is a leftover from a place saved
+	-- mid-session under the old scheme rather than something to tolerate.
+	--
+	-- THE PARKED POSE IS CHECKED WITH THEM. WashController swings the nozzle locally
+	-- and puts it back on `ParkedPivot`; a hose without that attribute still aims (the
+	-- controller falls back to wherever it finds it standing) but never quite returns,
+	-- so the machine on a busy base slowly ends up staring at the sky.
 	local hoses = 0
 	for _, d in Workspace:GetDescendants() do
-		if d:IsA("Model") and (d.Name == "Hose" or d.Name == "WashHose") then
+		if d:IsA("Model") and d.Name == "Hose" then
 			hoses += 1
 			local core = d.PrimaryPart
 			check(
 				core ~= nil,
-				`{d:GetFullName()} has no PrimaryPart — WashService welds that part to the player's hand and would have nothing to weld`
+				`{d:GetFullName()} has no PrimaryPart — the nozzle would have no pivot to swivel about`
+			)
+			check(
+				typeof(d:GetAttribute("ParkedPivot")) == "CFrame",
+				`{d:GetFullName()} has no ParkedPivot attribute — nothing would put it back after a wash`
 			)
 			if core then
 				check(
 					core:FindFirstChild("Muzzle") ~= nil,
-					`{d:GetFullName()} has no Muzzle attachment — the spray would start inside the player's fist`
+					`{d:GetFullName()} has no Muzzle attachment — the spray would start inside the machine`
 				)
 				check(
 					core:FindFirstChild("HoseEnd") ~= nil,
