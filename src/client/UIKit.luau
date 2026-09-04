@@ -190,24 +190,27 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- said "progress"; a column says what the haul actually IS — the thing is under you
 -- and it has to come all the way UP — and the fill climbing towards a top edge is a
 -- target you can see, where a strip's right-hand end never read as one. The column
--- gets 161px of travel here, under the PULL button and over the magnet and the
+-- gets 216px of travel here, under the PULL button and over the magnet and the
 -- release hint; the rarity/odds readout sits BESIDE the bar precisely so naming what
 -- you hooked costs no height. DetectorController's HAULBAR_* / HAULTRACK_* derive the
--- whole interior from this one number — nothing in there re-hardcodes 320 or 290.
+-- whole interior from this one number — nothing in there re-hardcodes 380 or 370.
 --
--- 320x290, UP FROM 240x210, on request: bigger and louder. Stripping the panel took
--- the widget's weight off with its bulk, and out in the corner where it lives now the
--- result read as a small quiet thing rather than as the control you are hammering.
--- The bar is the part that grew most (54x118 -> 72x161) because the bar is what the
--- player is actually watching. Still well under the old slab's footprint, and drawing
--- none of it.
+-- 380x370, UP FROM 320x290 (and 240x210 before that), on request: bigger again.
+-- Stripping the panel took the widget's weight off with its bulk, and out in the
+-- corner where it lives the result kept reading as a small quiet thing rather than as
+-- the control you are hammering. The bar is the part that grew most, both times
+-- (54x118 -> 72x161 -> 88x216), because the bar is what the player is actually
+-- watching — the extra 80px of height is spent almost entirely on its travel. Still
+-- narrower than the old 420x230 slab, and drawing none of it.
 --
--- ITS BOX OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM), which the old 150 cleared
--- by 4px. That is safe rather than lucky, and doubly so now that the box draws nothing:
--- DigService releases the lock the instant the bag fills (its RELEASE 3), and the only
--- other line the status can carry is the buried-too-deep one, which needs
--- `not hasSignal` — so the two are never on screen in the same frame.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(320, 290)
+-- ITS BOX COVERS THE STATUS LINE'S BAND (STATUS_BOTTOM) OUTRIGHT now that it is both
+-- taller and lifted; it used to only clip the band's last few px. Still safe rather
+-- than lucky, and doubly so because the box draws nothing: DigService releases the
+-- lock the instant the bag fills (its RELEASE 3), and the only other line the status
+-- can carry is the buried-too-deep one, which needs `not hasSignal` — so the two
+-- are never on screen in the same frame. The status line is centred and 640 wide, so
+-- even if that stopped holding, the collision would only be this widget's left ~30px.
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(380, 370)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
@@ -281,7 +284,16 @@ Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 -- HAULPANEL_RIGHT below puts this hard right. Anchored off the hotbar rather than a
 -- screen fraction for the same reason everything else here is: a fraction that looked
 -- right at 1080p collided with the dock on shorter viewports.
-Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
+--
+-- HAULPANEL_LIFT THEN RAISES IT OFF THAT BASELINE, on request. Flush on the bag-count
+-- line put the widget's whole mass down in the corner with the dock, where it read as
+-- one more instrument in the tray rather than as the thing you are currently doing.
+-- Still an offset from the hotbar cluster rather than a fresh number, so a change to
+-- any band below it carries the widget with it. 70 is one dock GAP short of clearing
+-- the instrument band entirely: the widget's foot stays inside the band it is already
+-- allowed to overlay, so this buys height without opening a new collision.
+Dock.HAULPANEL_LIFT = 70
+Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP + Dock.HAULPANEL_LIFT
 
 -- AND AS FAR RIGHT AS IT GOES WITHOUT TOUCHING THE SCOPE, which is what gets it off
 -- the surfacing item. It used to be centred, which put a 240px-wide stack straight over
@@ -295,19 +307,27 @@ Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 -- edge lands exactly one INSTRUMENT_GAP left of the scope, so the two share the
 -- HAULPANEL_BOTTOM / SCOPE_BOTTOM baseline and can never overlap each other.
 --
--- Its LEFT edge then clears screen centre by ~420px at 1920, ~160 at 1410 and ~95 at
--- 1280 — comfortably past a character that is only ~70px wide on screen.
+-- HAULPANEL_INSET THEN PULLS IT BACK IN OFF THAT EDGE, on request: hard right plus
+-- hard low parked it in the corner of the screen. This is deliberately a SMALL step,
+-- because the reason the widget is off-centre at all has not changed and every px of
+-- inset is a px closer to the item climbing out of the soil. It leaves the widget's
+-- right edge four INSTRUMENT_GAPs clear of the scope instead of one.
 --
--- THE COST OF THE 320px WIDTH IS PAID ON SMALL VIEWPORTS, and it is worth stating
--- plainly rather than discovering. The free band between the meter column and the
--- scope is (width - 304 - 204) px; below ~1050 that is narrower than the widget, so it
--- reaches back over centre (-32px at 1024) and below ~830 it starts tucking behind the
--- meter as well (~48px at 800). Nothing breaks — the meter is DisplayOrder 100 against
--- DetectorHud's 60 and stays readable on top — but the widget stops dodging the item
--- it is hauling. That is the honest floor for a fixed-size widget on a viewport that
--- small; the fix if it ever matters is a narrower widget under some width, not a
--- different anchor.
-Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SCOPE_DIAL + Dock.INSTRUMENT_GAP
+-- Its LEFT edge then clears screen centre by ~296px at 1920 and ~36 at 1400, and
+-- reaches back over centre below that — against a character only ~70px wide on
+-- screen, so ~1400 is where the dodge stops being comfortable (it was ~1050 when the
+-- widget was 320 wide and hard right).
+--
+-- THE COST OF THE 380px WIDTH AND THE INSET IS PAID ON SMALL VIEWPORTS, and it is
+-- worth stating plainly rather than discovering. The free band between the meter
+-- column and the widget's right edge is (width - 304 - 284) px; below ~970 that is
+-- narrower than the widget, so it starts tucking behind the meter as well (~92px at
+-- 800). Nothing breaks — the meter is DisplayOrder 100 against DetectorHud's 60 and
+-- stays readable on top — but the widget stops dodging the item it is hauling. That
+-- is the honest floor for a fixed-size widget on a viewport that small; the fix if it
+-- ever matters is a narrower widget under some width, not a different anchor.
+Dock.HAULPANEL_INSET = 60
+Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SCOPE_DIAL + Dock.INSTRUMENT_GAP + Dock.HAULPANEL_INSET
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace
