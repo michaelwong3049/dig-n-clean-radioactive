@@ -123,6 +123,7 @@ local DEPTH_BASE = Tuning.DIG_DEPTH_BASE
 local DEPTH_PER_RARITY = Tuning.DIG_DEPTH_PER_RARITY
 local DEPTH_JITTER = Tuning.DIG_DEPTH_JITTER
 local GRIP_FALLOFF = Tuning.PULL_GRIP_FALLOFF -- per-stage pull scaling when soil outclasses the magnet
+local HOME_COMMON_EASE = Tuning.PULL_HOME_COMMON_EASE -- Common pulls shorter on soil the magnet is rated for
 
 -- The mash. All five live in Config/Tuning -- Spec asserts on the click-rate curve
 -- they produce, and it cannot reach a local. SLIP_RATE went with the hold: the sink
@@ -856,6 +857,17 @@ local function stepPlayer(player: Player, dt: number)
 	-- Tuning's note: counting it in both places would make the magnet scale
 	-- quadratically). Off the PER-PLAYER item, so a lucky re-roll pulls at its real weight.
 	local required = PULL_SECONDS_PER_STUD * signal.depth * Weight.pullFactor(Items.get(itemId).weight)
+
+	-- HOME-TURF EASE. Common junk in a stage this magnet is rated for comes up ~35%
+	-- faster (Config/Tuning.PULL_HOME_COMMON_EASE). gripDeficit > 0 means the soil
+	-- already outclasses the magnet and GRIP_FALLOFF is grinding the haul down by
+	-- design -- the ease is not allowed to soften that, so it is rated-soil-only.
+	-- Common-only, and off THIS player's roll (`rarity`, from rollFor above): a lucky
+	-- re-roll up to Rare hauls at Rare length.
+	if rarity == "Common" and gripDeficit == 0 then
+		required *= HOME_COMMON_EASE
+	end
+
 	local progress = digProgress[player] or 0
 
 	-- Yanks banked since the last tick, taken whether or not they land, so a player

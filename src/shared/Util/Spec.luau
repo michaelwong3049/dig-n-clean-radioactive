@@ -603,6 +603,17 @@ function Spec.run(): boolean
 			string.format("§Step2 the heaviest deep item takes %.1fs at 4 clicks/sec with the best magnet (want 2-15)", fastest),
 			fastest >= 2 and fastest <= 15
 		)
+
+		-- The home-turf Common ease (Config/Tuning.PULL_HOME_COMMON_EASE) shortens
+		-- `required` for Common items pulled on soil the magnet is rated for. Its two
+		-- conditions -- Common-only, gripDeficit == 0 -- are code properties in
+		-- DigService (Config sees neither the roll nor the soil), so what this pins is
+		-- the one thing Config owns: the size of the cut. A real break, but not so deep
+		-- the floor of the catalogue stops being a mash.
+		check(
+			string.format("§Step2 the home-turf Common ease is a real cut, not a giveaway: %.2fx (want 0.55-0.8)", Tuning.PULL_HOME_COMMON_EASE),
+			Tuning.PULL_HOME_COMMON_EASE >= 0.55 and Tuning.PULL_HOME_COMMON_EASE < 0.8
+		)
 	end
 
 	-- PLAN §Step 2 continued — maxGrip IS NOT A WALL ANY MORE, IT IS A STEEP GRIND.
