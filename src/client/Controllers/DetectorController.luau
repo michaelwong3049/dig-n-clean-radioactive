@@ -762,7 +762,9 @@ local function build(): ScreenGui
 	-- button and not a key hint because a phone has no E key -- without a tappable
 	-- control here the entire second beat would be keyboard-only. It keeps its own fill
 	-- and stroke now that there is no panel behind it to sit on.
-	local haulButton, haulButtonStroke = UIKit.button(haul, {
+	-- The second return is the button's UIStroke. Deliberately dropped: see the strain
+	-- note in renderState for why this outline stays neutral.
+	local haulButton = UIKit.button(haul, {
 		name = "HaulButton",
 		anchorPoint = Vector2.new(0.5, 0.5),
 		position = UDim2.fromOffset(HAULBAR_MID, HAULBUTTON_HEIGHT / 2),
@@ -792,7 +794,6 @@ local function build(): ScreenGui
 	-- they sit on open terrain; this one has a near-opaque plate right behind it, and
 	-- an outline on top of that only fattens the glyphs into each other.
 	ui.haulButton = haulButton
-	ui.haulButtonStroke = haulButtonStroke
 
 	-- THE BAR. The fill is bottom-anchored and grows UPWARD, so winning is getting it
 	-- to the top edge -- the same direction the item is actually travelling through the
@@ -822,14 +823,15 @@ local function build(): ScreenGui
 	-- IT IS ALSO WHERE THE RARITY ACCENT LIVES NOW. That used to be the panel's stroke,
 	-- and the panel is gone; this is the only outline left, and tinting the vessel you
 	-- are filling is a better home for the colour than the slab around it ever was.
-	-- THICK. This outline is doing three jobs at once -- it separates the empty column
+	-- NORMAL. This outline is doing three jobs at once -- it separates the empty column
 	-- from whatever terrain is behind it, it is the only frame the widget has left, and
-	-- it is where the rarity colour lives -- so it is the one line on screen that most
-	-- deserves the weight. It has climbed thin(2) -> normal(3) -> thick(4) as each of
-	-- those jobs landed on it.
+	-- it is where the rarity colour lives -- and it went thin(2) -> normal(3) -> thick(4)
+	-- as each of those landed on it. thick(4) was one step too far: at 4px round a 72px
+	-- column the frame started competing with the fill inside it, which is the thing the
+	-- outline exists to show. normal(3) does all three jobs and stays a frame.
 	local trackStroke = Instance.new("UIStroke")
 	trackStroke.Color = COLOR.stroke
-	trackStroke.Thickness = UIKit.Stroke.thick
+	trackStroke.Thickness = UIKit.Stroke.normal
 	trackStroke.Parent = track
 	ui.haulStroke = trackStroke
 
@@ -897,29 +899,34 @@ local function build(): ScreenGui
 	-- with the track's stroke), the odds sit under it, quiet. Both land on any detector
 	-- (DigService.hintFor is no longer clarity-gated). Both take a text stroke -- with
 	-- the panel gone this text can end up over sunlit sludge.
+	-- BOLD, NOT BLACK, and for the same two reasons PULL came off `hero`: the kit
+	-- reserves that weight for "short, one-off, celebratory strings", and a rarity word
+	-- shows on every single haul. Black also stopped reading as emphasis once three
+	-- things beside each other were all wearing it -- when everything shouts, the
+	-- readout is just loud rather than legible. Same size, one weight down.
 	ui.haulTitle = UIKit.label(haul, {
 		name = "Title",
 		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP - 4),
 		size = UDim2.fromOffset(HAULCOL_WIDTH, 30),
-		font = UIKit.Font.hero,
+		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.title,
 		color = COLOR.scope,
-		strokeTransparency = 0.15,
+		strokeTransparency = 0.3,
 	})
 
-	-- body(15), not caption(13), and a near-opaque text stroke. Quiet is the intent --
-	-- the rarity word is the headline and this is its footnote -- but caption grey with
-	-- a soft stroke, over sunlit ground and with no panel behind it, was not quiet, it
-	-- was illegible. Held one step below the rarity in size and colour instead, which
-	-- keeps the hierarchy without giving up the readout.
+	-- THE FOOTNOTE, AND ALLOWED TO LOOK LIKE ONE. It carries size -- header(19), up from
+	-- the caption(13) that was illegible over sunlit ground with no panel behind it --
+	-- but not weight: this is body, where the rarity above it is title. That split is
+	-- the whole hierarchy of the readout, and it stopped existing for a commit when
+	-- both lines were bold at once.
 	ui.haulOdds = UIKit.label(haul, {
 		name = "Odds",
 		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP + 28),
 		size = UDim2.fromOffset(HAULCOL_WIDTH, 22),
-		font = UIKit.Font.title,
+		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.header,
 		color = COLOR.dim,
-		strokeTransparency = 0.15,
+		strokeTransparency = 0.3,
 	})
 
 	-- A question mark, IN THE RARITY WORD'S OWN SLOT. You committed to a lump in the
@@ -930,10 +937,10 @@ local function build(): ScreenGui
 		name = "HaulQuestion",
 		position = UDim2.fromOffset(HAULCOL_X, HAULTRACK_TOP - 4),
 		size = UDim2.fromOffset(HAULCOL_WIDTH, 30),
-		font = UIKit.Font.hero,
+		font = UIKit.Font.title,
 		textSize = 30,
 		color = COLOR.dim,
-		strokeTransparency = 0.15,
+		strokeTransparency = 0.3,
 		text = "?",
 	})
 
@@ -1214,11 +1221,12 @@ local function renderState()
 		ui.haulFill.BackgroundColor3 = fill
 		ui.haulButton.Text = "PULL"
 		ui.haulButton.TextColor3 = if strain > 0 then fill else COLOR.green
-		-- The button's outline takes the strain colour with its text. This is the one
-		-- field on ui that was captured and never read; lighting it up costs nothing
-		-- and makes the control the player is hammering the loudest thing in the
-		-- widget, which out in the corner it now lives in it needs to be.
-		ui.haulButtonStroke.Color = if strain > 0 then fill else COLOR.green
+		-- THE STRAIN GETS TWO PLACES, NOT THREE. It briefly also tinted the button's
+		-- UIStroke, which meant a coloured outline round the bar AND a coloured outline
+		-- round the button, eight inches apart and saying different things -- the first
+		-- is rarity, the second is grip. Two ringed colours that far apart read as one
+		-- decorative scheme rather than as two signals, so the button's outline stays
+		-- neutral and the strain lives in the fill and the label.
 	end
 
 	if not state.inStage then
