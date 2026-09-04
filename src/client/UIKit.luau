@@ -172,28 +172,35 @@ Dock.SCOPE_DIAL = 180 -- was DetectorController.DIAL_SIZE 150
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
 
--- THE HAUL PANEL. Up only while a player is locked onto a signal and mashing it out.
+-- THE HAUL WIDGET. Up only while a player is locked onto a signal and mashing it out.
 -- It is deliberately NOT centered on the screen: the payoff of a haul is watching the
--- thing rise out of the ground in front of your character, and a dead-center panel
+-- thing rise out of the ground in front of your character, and a dead-center widget
 -- covers exactly that. It sits as LOW as it can instead — right above the hotbar — so
 -- the item stays in view above it; HAULPANEL_BOTTOM below is what places it.
--- THE BAR INSIDE IT IS VERTICAL, which is what set this height. A horizontal strip
+--
+-- NAMED "PANEL" AND IT IS NOT ONE ANY MORE. There is no fill and no stroke behind the
+-- contents: this is the bounding box of a floating stack, not a slab. The 420x230 slab
+-- it used to draw was the bulk of what the haul cost the screen — the content inside
+-- it was never the problem — and 240x210 with nothing drawn behind it is roughly a
+-- quarter of the pixels the old one covered. The name stays because HAULPANEL_BOTTOM,
+-- ui.haul and every caller already read it and a rename buys nothing.
+--
+-- THE BAR INSIDE IT IS VERTICAL, which is what sets the height. A horizontal strip
 -- said "progress"; a column says what the haul actually IS — the thing is under you
 -- and it has to come all the way UP — and the fill climbing towards a top edge is a
--- target you can see, where a strip's right-hand end never read as one. 230 is the
--- shortest panel that gives that column enough travel (146px) to be worth watching,
--- with the magnet glyph tucked under its foot and the rarity/odds readout, the mash
--- button and the release hint stacked in the column to its right. DetectorController's
--- HAULPAD / HAULTRACK_* derive the whole interior from this one number — nothing in
--- there re-hardcodes 420 or 230.
+-- target you can see, where a strip's right-hand end never read as one. 210 is the
+-- shortest stack that still leaves that column real travel (118px) under the PULL
+-- button and over the magnet and the release hint; the rarity/odds readout sits BESIDE
+-- the bar precisely so naming what you hooked costs no height. DetectorController's
+-- HAULBAR_* / HAULTRACK_* derive the whole interior from this one number — nothing in
+-- there re-hardcodes 240 or 210.
 --
--- IT NOW OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM), which the old 150 cleared by
--- 4px. That is safe rather than lucky: DigService releases the lock the instant the bag
--- fills (its RELEASE 3), and the only other line the status can carry is the
--- buried-too-deep one, which needs `not hasSignal` — so the two are never on screen in
--- the same frame. If a status message is ever added that CAN speak mid-haul, this is
--- the constant that has to give.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 230)
+-- ITS BOX OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM), which the old 150 cleared
+-- by 4px. That is safe rather than lucky, and doubly so now that the box draws nothing:
+-- DigService releases the lock the instant the bag fills (its RELEASE 3), and the only
+-- other line the status can carry is the buried-too-deep one, which needs
+-- `not hasSignal` — so the two are never on screen in the same frame.
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(240, 210)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
