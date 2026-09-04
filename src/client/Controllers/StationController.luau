@@ -96,6 +96,7 @@
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
@@ -194,6 +195,56 @@ local toastToken = 0
 -- you choose to go, not a thing that happens to you.
 local dismissed = false
 local lastKey: string? = nil
+
+--- The name build/Shops gives the stand's own prompt. Hardcoded here for the same
+--- reason RACK_TAG below is: this is a client script and build/Kit lives in
+--- ServerScriptService, so it cannot be required.
+local BROWSE_PROMPT = "ViewShop"
+
+--- Does THIS shop actually have a browse prompt standing in the world?
+---
+--- THIS FUNCTION EXISTS BECAUSE CODE AND WORLD SHIP THROUGH DIFFERENT DOORS, and
+--- getting that wrong took the whole shop off the map once. Scripts reach a place
+--- through Rojo/publish the moment they are merged; the geometry in Workspace.Shops
+--- only changes when somebody runs build/Shops.rebuild() in Edit and SAVES the place.
+--- So the two can be any distance apart, and for a while they were: a world still
+--- built to the version before the stand existed, running the client that had already
+--- learned to wait for the stand's E.
+---
+--- The result was not a cosmetic mismatch. `dismissed` started true for every shop and
+--- nothing in that world could ever set it false, so no shop panel could open at all —
+--- and the Outfitter's three counters have never had rack prompts, which made Suit,
+--- Boots and Satchel unbuyable outright. The Suit gates every stage in the game.
+---
+--- So the press-E behaviour is now CONDITIONAL ON THE THING THAT IMPLEMENTS IT being
+--- present. A shop with a browse prompt opens on E; a shop without one falls back to
+--- opening on approach, exactly as it did before any of this. A stale world is then
+--- merely old, never broken, and the same is true in reverse for anyone who rebuilds
+--- their world ahead of pulling the code.
+---
+--- Checked per station rather than "does this world have any prompts anywhere", so a
+--- half-rebuilt world degrades per shop instead of all-or-nothing. It runs only when
+--- the station fingerprint CHANGES, not on the ~10Hz tick.
+local function shopHasBrowsePrompt(stationId: any): boolean
+	if type(stationId) ~= "string" then
+		return false
+	end
+	local shops = Workspace:FindFirstChild("Shops")
+	if shops == nil then
+		return false
+	end
+	for _, d in shops:GetDescendants() do
+		if
+			d:IsA("BasePart")
+			and d:GetAttribute("StationKind") == "shop"
+			and d:GetAttribute("StationId") == stationId
+			and d:FindFirstChild(BROWSE_PROMPT) ~= nil
+		then
+			return true
+		end
+	end
+	return false
+end
 
 local function rarityColor(name: string): Color3
 	local def = Rarity.DEFS[name]
@@ -837,6 +888,16 @@ local function paintRack(track: string?, tiers: { any }?)
 		local entry = if tiers ~= nil and part:GetAttribute("SellsTrack") == track then tiers[tier] else nil
 		local prompt = part:FindFirstChildOfClass("ProximityPrompt")
 
+		-- Stamp the as-built wording if the BUILDER did not. A world built before the
+		-- rack learned about equipping has prompts with no RestActionText, and without
+		-- this the first repaint would overwrite "Buy $4700" with "Equip" and have
+		-- nothing to put back — the price would be gone from that hook until the next
+		-- world rebuild. Doing it here, before any overwrite, makes the restore path
+		-- correct in a stale world as well as a fresh one.
+		if prompt and prompt:GetAttribute("RestActionText") == nil then
+			prompt:SetAttribute("RestActionText", prompt.ActionText)
+		end
+
 		if entry ~= nil and entry.current then
 			sub.Text = EQUIPPED_TEXT
 			sub.TextColor3 = COLOR.green
@@ -1166,11 +1227,16 @@ function Station.start()
 		-- `dismissed` would clear itself on the very next tick after the click above.
 		local key = if payload.station then `{payload.station}:{tostring(payload.stationId)}` else nil
 		if key ~= lastKey then
-			-- Arriving at a shop leaves it CLOSED until you press E on the stand;
-			-- every other kind still opens on approach. Note this reads
-			-- `payload.station`, not `state.station` -- `state` is not assigned until
-			-- two lines below, so the old value is still in it here.
-			dismissed = payload.station == "shop"
+			-- Arriving at a shop leaves it CLOSED until you press E on the stand --
+			-- but ONLY if that stand actually exists in this world to be pressed. A
+			-- world older than this script has no browse prompt, and starting
+			-- dismissed there means the panel can never open at all; see
+			-- shopHasBrowsePrompt for what that cost. Every other station kind still
+			-- opens on approach.
+			--
+			-- Reads `payload.station`, not `state.station` -- `state` is not assigned
+			-- until two lines below, so the old value is still in it here.
+			dismissed = payload.station == "shop" and shopHasBrowsePrompt(payload.stationId)
 			lastKey = key
 		end
 
