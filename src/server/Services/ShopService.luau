@@ -21,13 +21,34 @@
 	Bent Coil straight to The Oracle costs The Oracle's price and nothing else — there
 	is no toll for the rungs you walked past.
 
+	AND YOU OWN WHAT YOU BOUGHT, NOTHING ELSE. Skipping used to grant the rungs it
+	skipped as a side effect rather than as a decision: ownership WAS the equipped
+	tier, and the shop asked `tier <= currentTier`, so paying for The Oracle reported
+	six detectors the player never bought as owned. The profile carries a real set now
+	(`gearOwned`, DataService's TEMPLATE), and the two facts that used to be one number
+	are two:
+
+	    data.gear[track]       what is IN YOUR HANDS. StatResolver reads it,
+	                           ToolService polls it. Unchanged by all of this.
+	    data.gearOwned[track]  the tiers you actually paid for, ascending.
+
+	So a skipped rung stays on the shelf at its own price forever, and `buyTier`
+	refuses only what you already own rather than everything at or below you.
+
+	WHICH MAKES EQUIPPING A REAL VERB — `equipTier`, and the only other thing in the
+	codebase that writes `gear[track]`. Owning a set you cannot choose from would be a
+	trap: buying a lighter detector on purpose would take your good one away with no
+	way back. An owned tier's panel card is an EQUIP button and its rack hook's E
+	switches to it instead of charging you again, so dropping down a rung and climbing
+	back is one press each way.
+
 	`offerFor` returns a `tiers` catalog — every tier of the track, worst first, each
-	tagged owned/current/buyable/affordable — so the panel can draw all of them as
-	cards with the right one enabled. `buyable` now means "not owned", not "the very
-	next one"; see `CatalogEntry` below.
+	tagged owned/current/buyable/equippable/affordable — so the panel can draw all of
+	them with the right verb on each. `buyable` means "not owned", `equippable` means
+	"owned but not in your hands"; see `CatalogEntry` below.
 
 	THERE ARE TWO DOORS ONTO buyTier NOW, AND ONLY ONE OF THEM IS THE PANEL.
-	Every tier of the three tool tracks also hangs on a rail over its shop counter
+	Every tier of the three tool tracks also hangs on a rail beside its shop's stand
 	with its own ProximityPrompt (build/Shops' rack), so a player who knows which
 	detector they want walks up to that detector and presses E — no panel, no card,
 	no row to find. `wireUpgrade` below is that path. It lands on exactly the same
@@ -65,24 +86,31 @@ local resultRemote: any = nil
 
 --- One rung of the ladder, as the shop panel draws it.
 ---
---- `buyable` IS `not owned` now — every tier past what you already have, all at
---- once, each gated only by its OWN price. There is no "buy them in order" rule left
---- to encode; the panel shows every locked tier as a live purchase button rather
---- than a preview of what comes next.
+--- `buyable` IS `not owned` — every tier you have not bought, all at once, each
+--- gated only by its OWN price. There is no "buy them in order" rule to encode; the
+--- panel shows every unowned tier as a live purchase button rather than a preview of
+--- what comes next.
+---
+--- OWNERSHIP IS A SET AND `current` IS A SEPARATE QUESTION. `owned` used to mean
+--- `tier <= currentTier`, so buying The Oracle from Bent Coil reported six detectors
+--- you never bought as owned. It reads the profile's real `gearOwned` list now, and
+--- what you are HOLDING is `gear[track]`, which is a tier you own and choose. The two
+--- were one number and are two now, which is what makes `equippable` possible at all.
 export type CatalogEntry = {
 	tier: number,
 	name: string,
 	price: number,
 	stats: { string },
-	owned: boolean, -- tier <= currentTier
-	current: boolean, -- tier == currentTier: what is in your hands now
-	buyable: boolean, -- tier > currentTier: not owned, purchasable on its own
+	owned: boolean, -- in gearOwned: you bought it (or started with it)
+	current: boolean, -- gear[track]: what is in your hands right now
+	buyable: boolean, -- not owned, purchasable on its own at its own price
+	equippable: boolean, -- owned but not current: yours, and you can switch to it
 	affordable: boolean, -- buyable AND you have the cash for THIS tier's price
 }
 
 export type Offer = {
 	track: string,
-	maxed: boolean, -- currentTier is already the top of the ladder
+	maxed: boolean, -- you own every tier of this track; nothing left to buy
 	tiers: { CatalogEntry },
 }
 
@@ -138,6 +166,61 @@ local function statLines(def: any): { string }
 	return lines
 end
 
+-- ── Ownership ─────────────────────────────────────────────────────────
+--
+-- WHAT YOU OWN AND WHAT YOU HOLD ARE TWO DIFFERENT FACTS NOW. They used to be one
+-- number: `gear.detector = 6` meant both "your detector is a Resonance Mapper" and
+-- "you own tiers 1 through 6". That second reading is what made buying the top of a
+-- track hand you every rung under it, which is a claim the player never paid for.
+--
+--   data.gear[key]       the EQUIPPED tier. StatResolver reads it, ToolService polls
+--                        it and re-equips on a mismatch. Unchanged, deliberately.
+--   data.gearOwned[key]  an ascending array of the tiers you actually bought.
+--
+-- The array (rather than a `{[6] = true}` set) is forced by DataService's TEMPLATE
+-- note: no gaps in numeric arrays, no mixed key types. A track is at most 8 rungs, so
+-- every operation here is a linear scan and none of it is worth indexing.
+--
+-- DataService.backfillGearOwned guarantees the per-track array exists from the moment
+-- a profile loads, so these never have to create one. They tolerate a missing array
+-- anyway — a nil here would otherwise turn "your save is oddly shaped" into "you own
+-- nothing", which would offer to re-sell a player their own gear.
+
+local function ownedTiers(data: any, track: string): { number }
+	local key = Gear.profileKey(track)
+	local list = if data.gearOwned then data.gearOwned[key] else nil
+	return if type(list) == "table" then list else {}
+end
+
+local function ownsTier(data: any, track: string, tier: number): boolean
+	for _, owned in ownedTiers(data, track) do
+		if owned == tier then
+			return true
+		end
+	end
+	return false
+end
+
+--- Record a tier as bought. Ascending and duplicate-free, because the array is what
+--- gets written to the DataStore and a shop that inserted twice would grow it without
+--- bound over a long-lived save.
+local function grantTier(data: any, track: string, tier: number)
+	if ownsTier(data, track, tier) then
+		return
+	end
+	local key = Gear.profileKey(track)
+	if data.gearOwned == nil then
+		data.gearOwned = {}
+	end
+	local list = data.gearOwned[key]
+	if type(list) ~= "table" then
+		list = {}
+		data.gearOwned[key] = list
+	end
+	table.insert(list, tier)
+	table.sort(list)
+end
+
 --- Every tier of `track`, worst first, tagged with where the player sits on it.
 ---
 --- Worst-first needs no sorting: Config/Gear already lists each track in ascending
@@ -145,20 +228,27 @@ end
 --- ever reordered there, this comes out reordered too — which is correct, since the
 --- tier NUMBER is the thing the profile stores.
 local function catalogFor(data: any, track: string): { CatalogEntry }
-	local currentTier = data.gear[Gear.profileKey(track)] or 1
+	local equipped = data.gear[Gear.profileKey(track)] or 1
 	local entries = {}
 
 	for tier = 1, Gear.maxTier(track) do
 		local def = Gear.tier(track, tier)
-		local buyable = tier > currentTier
+		local owned = ownsTier(data, track, tier)
+		local current = tier == equipped
+		local buyable = not owned
 		table.insert(entries, {
 			tier = tier,
 			name = def.name,
 			price = def.price,
 			stats = statLines(def),
-			owned = tier <= currentTier,
-			current = tier == currentTier,
+			owned = owned,
+			current = current,
 			buyable = buyable,
+			-- Owned but not in your hands: the one state the old model could not
+			-- represent, and the reason this catalog carries five flags rather than
+			-- four. The panel draws it as a live EQUIP button where it used to draw
+			-- dead greyed chrome.
+			equippable = owned and not current,
 			affordable = buyable and data.cash >= def.price,
 		})
 	end
@@ -172,13 +262,24 @@ function ShopService.offerFor(data: any, track: string): Offer?
 		return nil
 	end
 
-	local key = Gear.profileKey(track)
-	local currentTier = data.gear[key] or 1
+	local tiers = catalogFor(data, track)
+
+	-- MAXED IS "NOTHING LEFT TO BUY", not "you are standing on the top rung". Those
+	-- were the same sentence while ownership was a high-water mark; with a set, a
+	-- player holding The Oracle can still have six unbought rungs behind them, and
+	-- telling them the shop is finished with them would be a lie.
+	local maxed = true
+	for _, entry in tiers do
+		if entry.buyable then
+			maxed = false
+			break
+		end
+	end
 
 	return {
 		track = track,
-		maxed = currentTier >= Gear.maxTier(track),
-		tiers = catalogFor(data, track),
+		maxed = maxed,
+		tiers = tiers,
 	}
 end
 
@@ -227,10 +328,13 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 		return false, "no such tier"
 	end
 
+	-- OWNERSHIP, NOT ALTITUDE. This was `tier <= currentTier`, which refused any rung
+	-- at or below the one you were holding — and that test is exactly what made buying
+	-- the top of a track swallow everything under it. A tier you skipped past is still
+	-- for sale, and the only thing that can stop the sale is having bought it before.
 	local key = Gear.profileKey(track)
-	local currentTier = data.gear[key] or 1
-	if tier <= currentTier then
-		return false, "you already have that"
+	if ownsTier(data, track, tier) then
+		return false, "you already own that one"
 	end
 
 	local def = Gear.tier(track, tier)
@@ -243,9 +347,54 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 		return false, reason
 	end
 
+	grantTier(data, track, tier)
+
+	-- BUYING EQUIPS, EVEN DOWNWARD. You went to a shop and paid for a specific tool,
+	-- so putting it in your hands is the least surprising thing that can happen — and
+	-- with the equip path below, a deliberate buy of a lower rung is switchable back
+	-- in one press rather than being a trap you cannot undo.
 	data.gear[key] = tier
 
 	return true, `bought {def.name} for ${def.price}`
+end
+
+--- Hold a tier you already own. The other half of the set model: `buyTier` decides
+--- what is YOURS, this decides what is IN YOUR HANDS, and nothing else writes
+--- `gear[track]` except the debug console.
+---
+--- It costs nothing and takes nothing, so the only thing to validate is that the tier
+--- is real and that the player actually owns it — the ownership check is the whole
+--- security boundary here, since a client that could equip anything could equip The
+--- Oracle for free. Same no-proximity split as `buyTier`: see its header.
+function ShopService.equipTier(player: Player, track: string, tier: number?): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+
+	if not isTrack(track) then
+		return false, "no such shop"
+	end
+
+	local maxTier = Gear.maxTier(track)
+	if type(tier) ~= "number" or tier ~= math.floor(tier) or tier < 1 or tier > maxTier then
+		return false, "no such tier"
+	end
+
+	if not ownsTier(data, track, tier) then
+		return false, "you don't own that one"
+	end
+
+	local key = Gear.profileKey(track)
+	if data.gear[key] == tier then
+		return false, "already in your hands"
+	end
+
+	-- ToolService polls this field and swaps the held model on a mismatch, so this one
+	-- write is the entire equip. Nothing to notify, nothing to re-render server-side.
+	data.gear[key] = tier
+
+	return true, `equipped {Gear.tier(track, tier).name}`
 end
 
 --- The luck button's own purchase path — not a tier lookup, because Luck no longer
@@ -286,6 +435,24 @@ function ShopService.buy(player: Player, track: string, tier: number?): (boolean
 	end
 
 	return ShopService.buyTier(player, track, tier)
+end
+
+--- `equipTier` with the same standing-there check `buy` does, for the same reason:
+--- the request names a shop and the server re-derives where the player actually is.
+--- Switching gear is free, so this is not guarding a wallet — it is keeping the shop
+--- a PLACE. Being able to re-equip from anywhere on the map would quietly turn the
+--- panel into a loadout menu you never have to walk to.
+function ShopService.equip(player: Player, track: string, tier: number?): (boolean, string)
+	if not isTrack(track) then
+		return false, "no such shop"
+	end
+	local kind = StationService.kindOf(player)
+	local id = StationService.idOf(player)
+	if kind ~= "shop" or id ~= track then
+		return false, "you aren't at that shop"
+	end
+
+	return ShopService.equipTier(player, track, tier)
 end
 
 -- ── Upgrade signs ─────────────────────────────────────────────────────
@@ -347,7 +514,19 @@ local function wireUpgrade(part: Instance)
 	prompt.Triggered:Connect(function(player: Player)
 		local ok: boolean, message: string
 		if sellsTier ~= nil then
-			ok, message = ShopService.buyTier(player, track, sellsTier)
+			-- ONE HOOK, TWO VERBS, DECIDED HERE RATHER THAN BY THE CLIENT. Pressing E
+			-- on a tool you already own equips it; on one you don't, it buys it. The
+			-- prompt is a single shared instance and cannot say different things to
+			-- two players, so the client repaints its ActionText locally off the same
+			-- offer that paints the price cards (StationController's rack pass) — but
+			-- what the press DOES is decided from the profile, right here, and never
+			-- from what that player's screen happened to say.
+			local data = DataService.data(player)
+			if data ~= nil and ownsTier(data, track, sellsTier) then
+				ok, message = ShopService.equipTier(player, track, sellsTier)
+			else
+				ok, message = ShopService.buyTier(player, track, sellsTier)
+			end
 		else
 			ok, message = ShopService.buyLuck(player)
 		end

@@ -236,6 +236,15 @@ function DeconService.start()
 			if ok then
 				print(`[shop] {player.Name}: {message}`)
 			end
+		elseif request.action == "equip" then
+			-- Costs nothing, so there is no wallet to guard -- ShopService.equip still
+			-- re-derives the station itself, because the thing being protected is that
+			-- a shop is somewhere you walk to. Ownership is checked there too.
+			local ok, message = ShopService.equip(player, tostring(request.track), tonumber(request.tier))
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[shop] {player.Name}: {message}`)
+			end
 		elseif request.action == "display" then
 			local ok, message = ExhibitService.display(player, tostring(request.uid))
 			resultRemote:FireClient(player, message)
