@@ -716,8 +716,13 @@ local function build(): ScreenGui
 	local haul = Instance.new("Frame")
 	haul.Name = "HaulPanel"
 	haul.Size = Dock.HAULPANEL_SIZE
-	haul.Position = UDim2.new(0.5, 0, 1, -Dock.HAULPANEL_BOTTOM)
-	haul.AnchorPoint = Vector2.new(0.5, 1)
+	-- BOTTOM-RIGHT, not bottom-centre: centred put this straight over the item climbing
+	-- out of the soil, which is the one thing a haul is for looking at. Anchor (1,1) so
+	-- the position places its bottom-RIGHT corner, which is what makes HAULPANEL_RIGHT
+	-- read as an inset from the screen edge -- see that constant for why right and not
+	-- left, and for what happens on a viewport too narrow to dodge centre at all.
+	haul.Position = UDim2.new(1, -Dock.HAULPANEL_RIGHT, 1, -Dock.HAULPANEL_BOTTOM)
+	haul.AnchorPoint = Vector2.new(1, 1)
 	haul.BackgroundTransparency = 1
 	haul.BorderSizePixel = 0
 	haul.Visible = false

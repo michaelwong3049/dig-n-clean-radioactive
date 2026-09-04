@@ -173,10 +173,11 @@ Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
 
 -- THE HAUL WIDGET. Up only while a player is locked onto a signal and mashing it out.
--- It is deliberately NOT centered on the screen: the payoff of a haul is watching the
--- thing rise out of the ground in front of your character, and a dead-center widget
--- covers exactly that. It sits as LOW as it can instead — right above the hotbar — so
--- the item stays in view above it; HAULPANEL_BOTTOM below is what places it.
+-- It is deliberately OUT OF THE MIDDLE OF THE SCREEN, in both axes, and for one
+-- reason: the payoff of a haul is watching the thing rise out of the ground in front
+-- of your character. That happens at screen centre, so anything drawn there is drawn
+-- over the only part of the haul the player actually came for. It sits as LOW as it
+-- can (HAULPANEL_BOTTOM) and as far to the RIGHT as it can (HAULPANEL_RIGHT).
 --
 -- NAMED "PANEL" AND IT IS NOT ONE ANY MORE. There is no fill and no stroke behind the
 -- contents: this is the bounding box of a floating stack, not a slab. The 420x230 slab
@@ -265,17 +266,36 @@ Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 
 -- RIGHT ABOVE THE HOTBAR, on request. Its bottom edge sits one GAP above the bag-count
 -- line (which is itself one GAP above the hotbar), so the whole hotbar cluster stays
--- visible underneath and the panel drops as low as it possibly can without covering it.
+-- visible underneath and the widget drops as low as it possibly can without covering
+-- it.
 --
 -- This is a deliberate reversal of the old "clear the entire dock" placement
--- (RESERVE + GAP). The panel now overlays the instrument band's vertical space — but
--- that band is the meter / cash / index column, which is LEFT-anchored, while this
--- panel is centred: on a 16:9 viewport the two never touch. On a very narrow one the
--- panel's left edge tucks behind the meter, which has the higher DisplayOrder (100 vs
--- DetectorHud's 60) and stays readable on top. Anchored off the hotbar rather than a
+-- (RESERVE + GAP). The widget now overlays the instrument band's vertical space — but
+-- that band is the meter / cash / index column, which is LEFT-anchored, and
+-- HAULPANEL_RIGHT below puts this hard right. Anchored off the hotbar rather than a
 -- screen fraction for the same reason everything else here is: a fraction that looked
 -- right at 1080p collided with the dock on shorter viewports.
 Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
+
+-- AND AS FAR RIGHT AS IT GOES WITHOUT TOUCHING THE SCOPE, which is what gets it off
+-- the surfacing item. It used to be centred, which put a 240px-wide stack straight over
+-- the character and the thing climbing out of the soil in front of them.
+--
+-- RIGHT RATHER THAN LEFT because the two bottom corners are not the same size: the
+-- scope is SCOPE_DIAL (180) wide against the meter column's METER_SIZE.X (280), so
+-- going right leaves 100px more room to get clear of centre. Expressed as the scope's
+-- own footprint plus a gap rather than a tuned offset, which is what makes it hold at
+-- every viewport width instead of at the one it was eyeballed on: the widget's right
+-- edge lands exactly one INSTRUMENT_GAP left of the scope, so the two share the
+-- HAULPANEL_BOTTOM / SCOPE_BOTTOM baseline and can never overlap each other.
+--
+-- Its LEFT edge then clears screen centre by ~500px at 1920, ~240 at 1410 and ~50 at
+-- 1024 — comfortably past a character that is only ~70px wide on screen. Below about
+-- 900px of width the band between the meter and the scope is narrower than the widget
+-- itself and it reaches back over centre; nothing collides (it still clears the meter
+-- at 800), it just runs out of room to dodge, which is the honest floor of a fixed-size
+-- widget on a viewport that small.
+Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SCOPE_DIAL + Dock.INSTRUMENT_GAP
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace
