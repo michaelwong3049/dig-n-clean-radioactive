@@ -143,6 +143,18 @@ local HAULCOL_WIDTH = Dock.HAULPANEL_SIZE.X.Offset - HAULCOL_X
 -- hint off the bottom.
 local HAULBUTTON_HEIGHT = 46
 local HAULBUTTON_GAP = 10 -- PULL -> the top of the bar
+
+-- PULL'S OWN TEXT SIZE, and the one place here that does not use UIKit.TextSize. The
+-- kit's scale tops out at title(26) below the hero(40) reserved for headlines, and at
+-- 26 the word measured 61px inside a 120x46 plate -- a short label swimming in a big
+-- button, which is what made it look wrong rather than merely small. 30 fills it
+-- (68x30) without crowding the corners.
+--
+-- A LITERAL RATHER THAN A NEW SCALE ENTRY on purpose: UIKit's font header says the
+-- sizes are underset for Gotham and asks for a retune "after looking at it in Studio"
+-- -- but a retune moves every surface in the game, and this is one button. When that
+-- retune happens this constant is a candidate to fold back in.
+local HAULBUTTON_TEXT = 30
 local MAGNET_GAP = 8 -- the bar's foot -> the magnet
 local RELEASE_HEIGHT = 20
 local RELEASE_GAP = 6 -- magnet -> the release hint
@@ -755,8 +767,14 @@ local function build(): ScreenGui
 		anchorPoint = Vector2.new(0.5, 0.5),
 		position = UDim2.fromOffset(HAULBAR_MID, HAULBUTTON_HEIGHT / 2),
 		size = UDim2.fromOffset(HAULBAR_COL, HAULBUTTON_HEIGHT),
-		font = UIKit.Font.hero,
-		textSize = UIKit.TextSize.title,
+		-- BOLD, NOT BLACK. UIKit.Font's header reserves `hero` for "short, one-off,
+		-- celebratory strings" and puts primary buttons on `title` -- and PULL is the
+		-- single most repeated control in the game, hammered dozens of times per haul,
+		-- which is the exact opposite of one-off. GothamBlack also gains almost nothing
+		-- here: it measures 2px wider than Bold at this size, so all it bought was a
+		-- broken rule and slightly mushier counters at speed.
+		font = UIKit.Font.title,
+		textSize = HAULBUTTON_TEXT,
 		color = COLOR.green,
 		fillColor = COLOR.panel,
 		-- NEARLY OPAQUE, where every other fill in the kit is a translucent 0.15-0.2.
@@ -770,7 +788,9 @@ local function build(): ScreenGui
 		cornerRadius = UIKit.Radius.button,
 		text = "PULL",
 	})
-	haulButton.TextStrokeTransparency = 0.35
+	-- NO TEXT STROKE, unlike every other line in this widget. Those need one because
+	-- they sit on open terrain; this one has a near-opaque plate right behind it, and
+	-- an outline on top of that only fattens the glyphs into each other.
 	ui.haulButton = haulButton
 	ui.haulButtonStroke = haulButtonStroke
 
