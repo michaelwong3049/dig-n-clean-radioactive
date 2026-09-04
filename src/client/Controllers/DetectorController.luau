@@ -99,12 +99,38 @@ local LOCKGUI_HIDE_TWEEN = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.Easin
 local YANK_KICK_SECONDS = 0.12
 local YANK_KICK_SCALE = 0.05 -- how far the button swells at the peak of a kick
 
+-- ── The haul panel's interior ───────────────────────────────────────────────────
+-- ALL DERIVED FROM Dock.HAULPANEL_SIZE, never re-hardcoded against it. The panel is
+-- two columns: a VERTICAL bar hard left, and everything else in the column to its
+-- right sharing one right edge — the rarity/odds readout at the top (level with the
+-- top of the bar, because the top of the bar is the thing you are pulling towards),
+-- the mash button under it, the release hint on the bottom edge.
+--
+-- The bar went vertical because a haul is vertical: the item is under you and it has
+-- to come all the way up, and a column whose fill climbs towards a top edge shows you
+-- that in a way a strip filling rightwards never did. The magnet glyph sits under its
+-- FOOT now rather than beside it — it is the thing doing the pulling, so it belongs at
+-- the bottom of what it is pulling along.
+local HAULPAD = 24 -- panel edge -> content, all four sides
+local HAULTRACK_WIDTH = 54
+local HAULTRACK_GAP = 22 -- bar -> the right-hand column
+local MAGNET_HEIGHT = 26 -- buildMagnetIcon's own height; it parks below the track
+
+-- The right-hand column, and the bar's travel. HAULTRACK_HEIGHT is what is left of the
+-- panel once the padding and the magnet's own row are taken out, so the bar always
+-- reaches as far as the panel allows and a change to HAULPANEL_SIZE moves everything
+-- together.
+local HAULCOL_X = HAULPAD + HAULTRACK_WIDTH + HAULTRACK_GAP
+local HAULCOL_WIDTH = Dock.HAULPANEL_SIZE.X.Offset - HAULCOL_X - HAULPAD
+local HAULTRACK_HEIGHT = Dock.HAULPANEL_SIZE.Y.Offset - HAULPAD * 2 - MAGNET_HEIGHT - 10
+
 -- The mash button's resting size. Named because TWO places need it and they have to
 -- agree: the build below, and the kick in renderFrame that scales it every frame. A
 -- literal in both is the same "hand-tuned against somewhere else" trap UIKit's header
--- exists to stop, just inside one file.
-local HAULBUTTON_INSET = 48 -- px trimmed off the panel width, each side combined
-local HAULBUTTON_HEIGHT = 34
+-- exists to stop, just inside one file. It is column-width and much taller than the
+-- old 34 — the panel got tall enough to afford it, and this is the one control a
+-- player hammers, so on touch every extra pixel of it is a real one.
+local HAULBUTTON_HEIGHT = 56
 
 -- How fast the fill chases the server's value (1/seconds). The bar is smoothed rather
 -- than snapped because drag is continuous and 10 Hz updates make a steady sink look
@@ -462,12 +488,13 @@ end
 --- A tiny horseshoe-magnet glyph, opening upward: a red "U" with two pale pole tips
 --- — the same red-body / white-tips cliché build/Shops.luau's buildMagnetProp leans
 --- on so the shape reads as "magnet" at a glance. Drawn from frames, no image asset,
---- like every other piece of HUD here. Returns the 30x26 container for the caller to
---- place.
+--- like every other piece of HUD here. Returns the 30xMAGNET_HEIGHT container for the
+--- caller to place -- the height is that constant rather than a literal because the
+--- haul panel reserves a row for this glyph under its bar, and the two have to agree.
 local function buildMagnetIcon(parent: Instance): Frame
 	local icon = Instance.new("Frame")
 	icon.Name = "MagnetIcon"
-	icon.Size = UDim2.fromOffset(30, 26)
+	icon.Size = UDim2.fromOffset(30, MAGNET_HEIGHT)
 	icon.BackgroundTransparency = 1
 	icon.Parent = parent
 
@@ -683,33 +710,16 @@ local function build(): ScreenGui
 	ui.haul = haul
 	ui.haulStroke = haulStroke
 
-	-- TITLE ROW. What the detector reads about the thing you locked onto: the rarity
-	-- word and the "1 in N" odds, both on any detector now (DigService.hintFor is no
-	-- longer clarity-gated). Blank only in the rare frame before the rarity has
-	-- resolved -- the "?" beside the bar then carries it. Tinted to the rarity colour
-	-- in step with the panel stroke.
-	ui.haulTitle = UIKit.label(haul, {
-		name = "Title",
-		anchorPoint = Vector2.new(0.5, 0),
-		position = UDim2.new(0.5, 0, 0, 10),
-		size = UDim2.new(1, -32, 0, 20),
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.header,
-		color = COLOR.scope,
-		xAlign = Enum.TextXAlignment.Center,
-		strokeTransparency = 1,
-	})
-
-	-- The haul bar, flanked by a "?" (you don't necessarily know what you committed
-	-- to) on the left and a magnet (the thing pulling it) on the right. The "?" stands
-	-- in for the title above whenever the detector came back blank; the panel's stroke
-	-- tints to the rarity when it did resolve it. The bar is bigger than the dock's own
-	-- fill and is what the player watches while mashing.
+	-- THE BAR, VERTICAL, HARD LEFT. The fill is bottom-anchored and grows UPWARD, so
+	-- winning is getting it to the top edge -- the same direction the item is actually
+	-- travelling through the soil. That is the whole point of the rotation: a strip
+	-- filling rightwards was a progress bar attached to a haul, this is a picture of
+	-- the haul. It is what the player stares at while mashing, so it gets the tallest
+	-- run the panel can give it (HAULTRACK_HEIGHT).
 	local track = Instance.new("Frame")
 	track.Name = "Track"
-	track.AnchorPoint = Vector2.new(0.5, 0)
-	track.Position = UDim2.new(0.5, 0, 0, 36)
-	track.Size = UDim2.new(1, -112, 0, 28)
+	track.Position = UDim2.fromOffset(HAULPAD, HAULPAD)
+	track.Size = UDim2.fromOffset(HAULTRACK_WIDTH, HAULTRACK_HEIGHT)
 	track.BackgroundColor3 = COLOR.empty
 	track.BorderSizePixel = 0
 	track.Parent = haul
@@ -718,9 +728,26 @@ local function build(): ScreenGui
 	trackCorner.CornerRadius = UIKit.Radius.button
 	trackCorner.Parent = track
 
+	-- THE EMPTY COLUMN HAS TO BE VISIBLE, which the horizontal bar never needed. On a
+	-- strip the eye reads the fill's leading edge and infers the rest; on a column the
+	-- fill is at the BOTTOM and the whole point is the distance still above it, so
+	-- COLOR.empty on its own (a near-black two shades off the panel) left the target
+	-- invisible -- you could see how far you had come and not how far was left. This
+	-- outlines the vessel, so the top edge reads as the line you are pulling towards.
+	local trackStroke = Instance.new("UIStroke")
+	trackStroke.Color = COLOR.stroke
+	trackStroke.Thickness = UIKit.Stroke.thin
+	trackStroke.Parent = track
+
+	-- ANCHORED TO THE TRACK'S FLOOR (anchor 0,1 pinned at scale-y 1), which is what
+	-- makes the height renderFrame writes read as a column rising rather than a lid
+	-- dropping. Get this wrong and the bar drains from the top while the item climbs --
+	-- the two would say opposite things about the same haul.
 	local haulFill = Instance.new("Frame")
 	haulFill.Name = "Fill"
-	haulFill.Size = UDim2.fromScale(0, 1)
+	haulFill.AnchorPoint = Vector2.new(0, 1)
+	haulFill.Position = UDim2.fromScale(0, 1)
+	haulFill.Size = UDim2.fromScale(1, 0)
 	haulFill.BackgroundColor3 = COLOR.green
 	haulFill.BorderSizePixel = 0
 	haulFill.Parent = track
@@ -730,36 +757,72 @@ local function build(): ScreenGui
 	haulFillCorner.CornerRadius = UIKit.Radius.button
 	haulFillCorner.Parent = haulFill
 
-	-- LEFT OF THE BAR: a question mark. You committed to a lump in the dirt; whether
-	-- you get to know its rarity is the detector's job, not this panel's. Hidden the
-	-- moment the title row above resolves a rarity -- the two say the same thing, and
+	-- UNDER THE BAR'S FOOT: the magnet doing the pulling. It used to sit to the right
+	-- of a horizontal bar, where it was an ornament in the margin; below a column it is
+	-- in the position it is actually working from, and everything above it is what it
+	-- has left to drag up.
+	local magnet = buildMagnetIcon(haul)
+	magnet.AnchorPoint = Vector2.new(0.5, 0)
+	magnet.Position = UDim2.fromOffset(HAULPAD + HAULTRACK_WIDTH / 2, HAULPAD + HAULTRACK_HEIGHT + 10)
+
+	-- TOP-RIGHT OF THE BAR: what the detector reads about the thing you locked onto.
+	-- Level with the TOP of the track on purpose -- the top edge is the mark you are
+	-- pulling towards, so the readout labels the finish line rather than floating over
+	-- the middle of the panel. Two lines now instead of the old single
+	-- "RARITY · 1 in N" row, which a right-hand column this narrow could not
+	-- hold: the rarity word is the headline and carries the accent tint (in step with
+	-- the panel stroke), the odds sit under it, quiet. Both land on any detector
+	-- (DigService.hintFor is no longer clarity-gated).
+	ui.haulTitle = UIKit.label(haul, {
+		name = "Title",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.fromOffset(HAULCOL_X + HAULCOL_WIDTH, HAULPAD - 2),
+		size = UDim2.fromOffset(HAULCOL_WIDTH, 30),
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.title,
+		color = COLOR.scope,
+		xAlign = Enum.TextXAlignment.Right,
+		strokeTransparency = 1,
+	})
+
+	ui.haulOdds = UIKit.label(haul, {
+		name = "Odds",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.fromOffset(HAULCOL_X + HAULCOL_WIDTH, HAULPAD + 30),
+		size = UDim2.fromOffset(HAULCOL_WIDTH, 20),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.body,
+		color = COLOR.dim,
+		xAlign = Enum.TextXAlignment.Right,
+		strokeTransparency = 1,
+	})
+
+	-- A question mark, IN THE RARITY WORD'S OWN SLOT. You committed to a lump in the
+	-- dirt; whether you get to know what it is is the detector's job, not this panel's.
+	-- Hidden the moment the rarity resolves -- the two share one rectangle, and
 	-- "LEGENDARY" next to a "?" reads as a bug.
 	ui.haulQuestion = UIKit.label(haul, {
 		name = "HaulQuestion",
-		anchorPoint = Vector2.new(0.5, 0.5),
-		position = UDim2.fromOffset(32, 50),
-		size = UDim2.fromOffset(30, 34),
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.fromOffset(HAULCOL_X + HAULCOL_WIDTH, HAULPAD - 2),
+		size = UDim2.fromOffset(HAULCOL_WIDTH, 30),
 		font = UIKit.Font.hero,
-		textSize = 30,
+		textSize = 28,
 		color = COLOR.dim,
-		xAlign = Enum.TextXAlignment.Center,
+		xAlign = Enum.TextXAlignment.Right,
 		text = "?",
 	})
 
-	-- RIGHT OF THE BAR: the magnet doing the pulling.
-	local magnet = buildMagnetIcon(haul)
-	magnet.AnchorPoint = Vector2.new(0.5, 0.5)
-	magnet.Position = UDim2.new(1, -32, 0, 50)
-
 	-- The mash prompt doubles as the touch target: a phone has no E key, so without a
-	-- tappable control here the entire second beat would be keyboard-only.
+	-- tappable control here the entire second beat would be keyboard-only. Centred in
+	-- the right column, between the readout above it and the release hint below.
 	local haulButton, haulButtonStroke = UIKit.button(haul, {
 		name = "HaulButton",
-		anchorPoint = Vector2.new(0.5, 0),
-		position = UDim2.new(0.5, 0, 0, 76),
-		size = UDim2.new(1, -HAULBUTTON_INSET, 0, HAULBUTTON_HEIGHT),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.fromOffset(HAULCOL_X + HAULCOL_WIDTH / 2, HAULPAD + 96),
+		size = UDim2.fromOffset(HAULCOL_WIDTH, HAULBUTTON_HEIGHT),
 		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.header,
+		textSize = UIKit.TextSize.title,
 		color = COLOR.green,
 		fillColor = COLOR.panel,
 		fillTransparency = 0.2,
@@ -773,11 +836,13 @@ local function build(): ScreenGui
 	-- RELEASE HAS TO BE VISIBLE. Locking roots the character, so a player who cannot
 	-- find the way out is stuck standing in a field. It is a real button rather than
 	-- only a key hint for the same reason the mash prompt is: on touch there is no Q.
+	-- Bottom of the right column, which puts its baseline level with the magnet glyph
+	-- across the panel.
 	local releaseButton = UIKit.button(haul, {
 		name = "ReleaseButton",
-		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 1, -10),
-		size = UDim2.new(1, -48, 0, 20),
+		anchorPoint = Vector2.new(1, 1),
+		position = UDim2.new(0, HAULCOL_X + HAULCOL_WIDTH, 1, -HAULPAD),
+		size = UDim2.fromOffset(HAULCOL_WIDTH, 20),
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.caption,
 		color = COLOR.dim,
@@ -872,7 +937,9 @@ local function renderFrame(dt: number)
 	-- and oscillates the moment dt gets large, which on a bar the player is staring at
 	-- while mashing is very visible.
 	shownProgress += (state.digProgress - shownProgress) * (1 - math.exp(-FILL_LERP_RATE * dt))
-	ui.haulFill.Size = UDim2.fromScale(math.clamp(shownProgress, 0, 1), 1)
+	-- HEIGHT, not width -- the bar is a column and the fill is pinned to its floor
+	-- (see build), so progress is how far up the track the item has climbed.
+	ui.haulFill.Size = UDim2.fromScale(1, math.clamp(shownProgress, 0, 1))
 
 	-- The kick: one ease-out swell per yank, driven off the local timestamp so it
 	-- starts on the same frame the key went down. It moved from the dock button (now
@@ -882,7 +949,7 @@ local function renderFrame(dt: number)
 	local sinceYank = os.clock() - lastYankAt
 	local kick = if sinceYank < YANK_KICK_SECONDS then (1 - sinceYank / YANK_KICK_SECONDS) ^ 2 else 0
 	ui.haulButton.Size =
-		UDim2.new(1, -HAULBUTTON_INSET, 0, math.floor(HAULBUTTON_HEIGHT * (1 + kick * YANK_KICK_SCALE)))
+		UDim2.fromOffset(HAULCOL_WIDTH, math.floor(HAULBUTTON_HEIGHT * (1 + kick * YANK_KICK_SCALE)))
 
 	-- The pick-up card's idle life: a slow hover, and a stroke that breathes on the
 	-- aura's OWN pulse period so the card, the ground ring and the scope arm all beat
@@ -1034,17 +1101,21 @@ local function renderState()
 		local accent = signalColor()
 		ui.haulStroke.Color = accent
 
-		-- The title spells out what the stroke's colour only implies: the rarity word
+		-- The readout spells out what the stroke's colour only implies: the rarity word
 		-- (state.rarityHint) and the "1 in N" odds (state.oddsHint), both on any
-		-- detector now -- exactly what DigService.hintFor sent.
+		-- detector now -- exactly what DigService.hintFor sent. Two labels stacked at
+		-- the top-right of the bar rather than one joined line, so a long rarity and a
+		-- six-figure odds never have to share a row narrower than the panel.
+		--
+		-- THE ODDS FOLLOW THE RARITY, not their own hint. They are the odds OF the
+		-- rarity above them; printing "1 in 50k" under a blank headline would be a
+		-- number with nothing to attach to, so the "?" branch clears both.
 		if state.rarityHint then
-			local reads = state.rarityHint
-			if state.oddsHint then
-				reads ..= `  \u{00B7}  {Items.oddsText(state.oddsHint)}`
-			end
-			ui.haulTitle.Text = string.upper(reads)
+			ui.haulTitle.Text = string.upper(state.rarityHint)
+			ui.haulOdds.Text = if state.oddsHint then Items.oddsText(state.oddsHint) else ""
 		else
 			ui.haulTitle.Text = ""
+			ui.haulOdds.Text = ""
 		end
 		ui.haulTitle.TextColor3 = accent
 		ui.haulQuestion.Visible = not state.rarityHint

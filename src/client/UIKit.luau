@@ -177,17 +177,23 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- thing rise out of the ground in front of your character, and a dead-center panel
 -- covers exactly that. It sits as LOW as it can instead — right above the hotbar — so
 -- the item stays in view above it; HAULPANEL_BOTTOM below is what places it.
--- 150: 134 (itself down from 168) plus a 16px title row brought back to carry the
--- rarity readout — the rarity word and the "1 in N" odds, both on any detector now
--- (the clarity gate is gone). The old dropped title said "LOCKED ON — UNKNOWN MASS";
--- this one says what you actually committed to, or stays blank behind the bar's "?"
--- for the frame before it resolves. Laid out top-down at fixed offsets:
--- the title at y10, the bar at y36, the PULL button at y76, and the release hint
--- hanging off the BOTTOM edge. Panel height is what sets the gap between the button and
--- the release (10px here) — shrink it further and they re-collide. Its top edge sits
--- just clear of the status line (STATUS_BOTTOM); another few px of height and the two
--- centred elements overlap.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 150)
+-- THE BAR INSIDE IT IS VERTICAL, which is what set this height. A horizontal strip
+-- said "progress"; a column says what the haul actually IS — the thing is under you
+-- and it has to come all the way UP — and the fill climbing towards a top edge is a
+-- target you can see, where a strip's right-hand end never read as one. 230 is the
+-- shortest panel that gives that column enough travel (146px) to be worth watching,
+-- with the magnet glyph tucked under its foot and the rarity/odds readout, the mash
+-- button and the release hint stacked in the column to its right. DetectorController's
+-- HAULPAD / HAULTRACK_* derive the whole interior from this one number — nothing in
+-- there re-hardcodes 420 or 230.
+--
+-- IT NOW OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM), which the old 150 cleared by
+-- 4px. That is safe rather than lucky: DigService releases the lock the instant the bag
+-- fills (its RELEASE 3), and the only other line the status can carry is the
+-- buried-too-deep one, which needs `not hasSignal` — so the two are never on screen in
+-- the same frame. If a status message is ever added that CAN speak mid-haul, this is
+-- the constant that has to give.
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(420, 230)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
