@@ -100,6 +100,7 @@ local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Weight = require(Shared.Config.Weight)
 local ItemModels = require(Shared.ItemModels)
+local ItemGrime = require(Shared.ItemGrime)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
@@ -578,7 +579,6 @@ end
 type Haul = {
 	itemId: string,
 	model: Model,
-	placeholder: BasePart?,
 }
 
 local hauled: { [Player]: Haul } = {}
@@ -610,14 +610,19 @@ local function releaseLock(player: Player)
 	lockedTo[player] = nil
 end
 
-local function createHaul(player: Player, itemId: string): Haul
+--- `rarityHint` is the detector's READING, not the truth, and it is taken here rather
+--- than on every update because it cannot change while one lump is being pulled: a
+--- different itemId rebuilds the haul from scratch (updateHaul), and rollFor caches
+--- this player's reading of this signal. Painting once at build time is also what lets
+--- ItemGrime stash the right colour -- a tick-by-tick repaint would keep overwriting
+--- the film and stash the tint as though it were the authored art.
+local function createHaul(player: Player, itemId: string, rarityHint: string?): Haul
 	local item = Items.get(itemId)
 	local model = ItemModels.create(item.model)
-	local placeholder: BasePart? = nil
 
 	if model == nil then
 		model = Instance.new("Model")
-		placeholder = Instance.new("Part")
+		local placeholder = Instance.new("Part")
 		placeholder.Name = "Placeholder"
 		placeholder.Size = Vector3.new(1.4, 1.4, 1.4)
 		placeholder.Material = Enum.Material.Metal
@@ -625,6 +630,11 @@ local function createHaul(player: Player, itemId: string): Haul
 		placeholder.CanCollide = false
 		placeholder.CanQuery = false
 		placeholder.CanTouch = false
+		-- Only wear a rarity colour if the detector was good enough to reveal it. A Bent
+		-- Coil user hauls up an anonymous lump and finds out when it breaks the surface.
+		-- Authored models keep their real materials; only not-yet-modelled placeholders
+		-- need this colour channel.
+		placeholder.Color = if rarityHint then Rarity.get(rarityHint).color else Color3.fromHex("6E6A62")
 		placeholder.Parent = model
 	end
 
@@ -639,12 +649,19 @@ local function createHaul(player: Player, itemId: string): Haul
 		model:ScaleTo(scale)
 	end
 
+	-- IT COMES OUT OF THE GROUND FILTHY, ALWAYS, and at a flat 1 rather than at the
+	-- level this particular roll will actually carry. Contamination is not rolled until
+	-- unearth() and grading the film by it here would leak the one modifier that needs
+	-- no cleaning at all -- a Prewar Sealed pull would surface visibly clean, telling
+	-- the player what they had before the detector's clarity gate (hintFor) says they
+	-- are allowed to know. A sealed item simply wipes off the moment it is in your hand.
+	ItemGrime.apply(model, 1)
+
 	model.Parent = Workspace
 
 	return {
 		itemId = itemId,
 		model = model,
-		placeholder = placeholder,
 	}
 end
 
@@ -657,16 +674,8 @@ local function updateHaul(player: Player, signal: Signal, itemId: string, progre
 	local haul = hauled[player]
 	if haul == nil or haul.model.Parent == nil or haul.itemId ~= itemId then
 		clearHaul(player)
-		haul = createHaul(player, itemId)
+		haul = createHaul(player, itemId, rarityHint)
 		hauled[player] = haul
-	end
-
-	-- Only wear a rarity colour if the detector was good enough to reveal it. A Bent
-	-- Coil user hauls up an anonymous lump and finds out when it breaks the surface.
-	-- Authored models keep their real materials; only not-yet-modelled placeholders
-	-- need this colour channel.
-	if haul.placeholder then
-		haul.placeholder.Color = if rarityHint then Rarity.get(rarityHint).color else Color3.fromHex("6E6A62")
 	end
 
 	haul.model:PivotTo(

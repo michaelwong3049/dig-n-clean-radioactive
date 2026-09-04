@@ -41,6 +41,8 @@ local Gear = require(Shared.Config.Gear)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local ItemModels = require(Shared.ItemModels)
+local ItemGrime = require(Shared.ItemGrime)
+local Contamination = require(Shared.Contamination)
 local ToolModels = require(Shared.ToolModels)
 local Ticker = require(Shared.Util.Ticker)
 
@@ -426,7 +428,18 @@ local function equipItem(character: Model, item: any?): boolean
 	local currentUid = if current then current:GetAttribute("Uid") else nil
 	local wantedUid = if item then item.uid else nil
 
+	-- HOW DIRTY IT LOOKS IS NOT PART OF THE UID GUARD, because it is the one property
+	-- of a held item that changes while the uid does not. Same object, fewer patches:
+	-- repaint it, do not rebuild it. (In practice the wash suppresses the off hand
+	-- entirely -- see stepPlayer -- so this is mostly insurance against a future
+	-- cleaner that works with the item still in your hand. It costs one attribute read
+	-- on the ticks where nothing has changed.)
+	local wantedGrime = if item then Contamination.grimeLevel(item.patches or {}, item.rarity, item.modifier) else 0
+
 	if currentUid == wantedUid then
+		if current and math.abs(ItemGrime.levelOf(current) - wantedGrime) > 0.01 then
+			ItemGrime.apply(current, wantedGrime)
+		end
 		return true
 	end
 	if current then
@@ -517,6 +530,12 @@ local function equipItem(character: Model, item: any?): boolean
 	weld.Part0 = hand
 	weld.Part1 = primary
 	weld.Parent = primary
+
+	-- LAST, so the film goes over the finished object: the placeholder above sets its
+	-- own rarity colour, and ItemGrime stashes whatever it finds as the authored art.
+	-- A clean item gets nothing at all -- apply(0) is a no-op teardown -- which is what
+	-- makes walking away from the tub with the real thing in your hand the payoff.
+	ItemGrime.apply(held, wantedGrime)
 
 	return true
 end

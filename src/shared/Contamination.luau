@@ -25,14 +25,18 @@ local function patchCount(order: number): number
 	return 2 + math.floor(order / 2)
 end
 
---- Roll the contamination for a freshly unearthed item.
-function Contamination.rollPatches(rarityName: string, modifier: string): { number }
+--- HOW MANY patches a fresh roll puts on this item. Deterministic -- only the
+--- HARDNESSES are rolled -- which is the whole reason this is worth pulling out of
+--- rollPatches: it lets anything downstream ask "how dirty was this to begin with"
+--- without a second number being stored on every carried item and migrated into every
+--- existing save. Zero means the pair never needed cleaning at all.
+function Contamination.initialCount(rarityName: string, modifier: string): number
 	local def = Rarity.get(rarityName)
 	local mod = Rarity.MODIFIERS[modifier] or Rarity.MODIFIERS.None
 
 	-- Prewar Sealed is still in its packaging: it sells as-is (PLAN §7).
 	if not mod.needsCleaning then
-		return {}
+		return 0
 	end
 
 	local count = patchCount(def.order)
@@ -41,14 +45,42 @@ function Contamination.rollPatches(rarityName: string, modifier: string): { numb
 	elseif modifier == "Pristine" then
 		count -= 1 -- no rust, cleans faster
 	end
-	count = math.max(1, count)
+	return math.max(1, count)
+end
+
+--- Roll the contamination for a freshly unearthed item.
+function Contamination.rollPatches(rarityName: string, modifier: string): { number }
+	local count = Contamination.initialCount(rarityName, modifier)
+	if count == 0 then
+		return {}
+	end
 
 	-- One patch always sits at the item's full hardness. That is the gate.
+	local def = Rarity.get(rarityName)
 	local patches = { def.hardness }
 	for _ = 2, count do
 		table.insert(patches, math.random(1, def.hardness))
 	end
 	return patches
+end
+
+--- How dirty the thing still is, 0 (clean) to 1 (exactly as it came out of the
+--- ground). Shared/ItemGrime paints with this, and it is the only reason the fraction
+--- is expressed here rather than in the renderer: a display grade computed from the
+--- same function that rolled the patches cannot drift away from them.
+function Contamination.grimeLevel(patches: { number }, rarityName: string, modifier: string): number
+	local remaining = #patches
+	if remaining == 0 then
+		return 0
+	end
+
+	-- An item carrying patches its own rarity/modifier would no longer produce (a save
+	-- from before a retune) is simply "dirty" rather than a divide by zero.
+	local initial = Contamination.initialCount(rarityName, modifier)
+	if initial <= 0 then
+		return 1
+	end
+	return math.clamp(remaining / initial, 0, 1)
 end
 
 function Contamination.isClean(patches: { number }): boolean

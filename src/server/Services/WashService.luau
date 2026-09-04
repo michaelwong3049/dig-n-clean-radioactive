@@ -65,6 +65,7 @@ local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Liquids = require(Shared.Config.Liquids)
 local ItemModels = require(Shared.ItemModels)
+local ItemGrime = require(Shared.ItemGrime)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
@@ -131,6 +132,11 @@ end
 
 -- ── Rendering the item on the tub ──────────────────────────────────────
 
+--- How much green is still on it, 0 (clean) to 1 (straight out of the ground).
+local function grimeOf(item: any): number
+	return Contamination.grimeLevel(item.patches or {}, item.rarity, item.modifier)
+end
+
 --- SERVER-SIDE, so everyone on the base sees the thing being washed. The spray VFX
 --- is client-local (see WashController) because it is per-viewer motion, but the
 --- OBJECT is the storytelling — a stranger walking onto your plot should see a Gold
@@ -152,6 +158,7 @@ local function placeOnStand(stand: BasePart, item: any): Instance?
 		block.CanCollide = false
 		block.CFrame = stand.CFrame
 		block.Parent = stand
+		ItemGrime.apply(block, grimeOf(item))
 		return block
 	end
 
@@ -164,6 +171,11 @@ local function placeOnStand(stand: BasePart, item: any): Instance?
 	end
 	model.Parent = stand
 	model:PivotTo(stand.CFrame * ItemModels.rotation(model, "Wash"))
+	-- THE STATE OF THE ITEM, ON THE ITEM. It arrives wearing however much of its
+	-- contamination is left, so a wash resumed after hitting a wall is visibly less
+	-- green than a fresh pull. The blobs WashController paints are the individual
+	-- targets; this is the whole object, and stepPlayer lightens it as they come off.
+	ItemGrime.apply(model, grimeOf(item))
 	return model
 end
 
@@ -510,6 +522,15 @@ local function stepPlayer(player: Player, dt: number)
 				-- liquid's rate and cleared against its potency — a free extra patch at
 				-- Stardust speed, every time a canister runs dry.
 				stats = StatResolver.get(data)
+
+				-- A SHADE OF GREEN COMES OFF WITH THE PATCH. This is the payoff the
+				-- film exists for: the real object arrives live, one blast at a time,
+				-- instead of being swapped in at the end. The last patch lands this on
+				-- zero, which tears the film down completely -- and finish() hands the
+				-- item back for ToolService to put in your hand looking like itself.
+				if session.model then
+					ItemGrime.apply(session.model, grimeOf(item))
+				end
 			end
 
 			if #item.patches == 0 then
