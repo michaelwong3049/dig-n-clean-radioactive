@@ -190,6 +190,28 @@ Tuning.PULL_YANK_PER_CLICK = 0.30
 -- ceiling clamp any more. Spec §Step2 pins the +1 / +2 / +3 behaviour off this number.
 Tuning.PULL_GRIP_FALLOFF = 0.5
 
+-- ── Home-turf Common ease (DigService: `required`) ─────────────────────
+--
+-- The junk you pull most is Common, and in your own rated stage you pull a LOT of
+-- it. At the starting magnet that mash runs ~7-11s a piece (a light cap ~7s, the
+-- heavier "1 in 9" tin ~11s) -- too long for the thing that fills most of the bag.
+-- This shortens `required` (the pull's rope length) for Common items by ~35%.
+--
+-- TWO CONDITIONS, BOTH CHECKED IN DigService, both deliberate:
+--   * COMMON ONLY. Uncommon and up keep their full mash -- this is for the floor of
+--     the catalogue, not a general pull buff. Keyed on the PER-PLAYER rolled rarity,
+--     so a lucky detector's re-roll up to Rare pulls at Rare length.
+--   * RATED SOIL ONLY (gripDeficit == 0). The moment the soil outclasses the magnet,
+--     PULL_GRIP_FALLOFF is already grinding the haul down on purpose; an ease clawing
+--     any of that back would blunt the exact gradient that pass exists to create. So
+--     the two are mutually exclusive by construction -- this multiplier does not
+--     apply over tier, at all.
+--
+-- `required` is the ONLY thing this touches, so clicks-to-hold (the mobile promise,
+-- Spec §Step2) and the reveal/depth gate are untouched: an eased Common lands faster
+-- once you are winning the mash, it is not easier to hold. Spec §Step2 pins the band.
+Tuning.PULL_HOME_COMMON_EASE = 0.65 -- Common pulls ~35% faster in a stage the magnet is rated for
+
 -- ── Yank rate limiting (anti-exploit) ───────────────────────────────────
 --
 -- READ THIS BEFORE RAISING ANY OF THEM. The hold-to-pull version of this feature was
