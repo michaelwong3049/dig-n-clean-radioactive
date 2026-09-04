@@ -24,30 +24,41 @@
 	do not physically have at all — since moved out to its own button (see the LUCK
 	IS NOT HERE note below).
 
-	EVERY TIER OF A TRACK HANGS ON A RAIL OVER ITS COUNTER, AND YOU BUY THE ONE YOU
-	ARE STANDING AT. That is the change this file's last pass was for. A stall used to
-	be a counter with a station attribute on it: walk into the radius, a scrolling
-	panel of cards opens, pick a row. The ladder was only ever visible as a list. It
-	is now a physical object — eight detectors in a row over the Detector counter,
-	cheapest on the left, each hung from the rail by its own handle with its price on
-	a card above it and its own ProximityPrompt — so browsing is WALKING, and buying
-	is pressing E in front of the one you want. The models are the real ones:
-	Assets/Tools/<Track>/T<n>, exactly what ToolService clones into your hands.
+	EVERY TIER OF A TRACK HANGS ON A RAIL BESIDE THE STAND, AND YOU BUY THE ONE YOU
+	ARE STANDING AT. The ladder used to be visible only as a list: walk into a radius,
+	a scrolling panel of cards opens, pick a row. It is a physical object now — eight
+	detectors in a row, cheapest first, each hung from the rail by its own handle with
+	its price on a card above it and its own ProximityPrompt — so browsing is WALKING,
+	and buying is pressing E in front of the one you want. The models are the real
+	ones: Assets/Tools/<Track>/T<n>, exactly what ToolService clones into your hands.
 
-	THE PANEL DID NOT GO AWAY. The counter keeps its StationKind and the card panel
-	still opens when you stand at the stall — that is where the stat blocks live. The
-	rack is the fast path ("I know which one I want"), the panel the slow one ("which
-	one SHOULD I want"). Two doors on the same purchase; ShopService.buyTier is behind
-	both of them and validates identically either way.
+	A STOREFRONT IS A STAND PLUS A WING, AND THAT SPLIT IS THIS PASS. The rack first
+	shipped hanging over the counter, which forced the counter to be as long as the
+	ladder — a 37-stud desk with one interaction anywhere on it, reading as one
+	undifferentiated bench. It is two things now, on one shopfront line: a short STAND
+	at the left end (the desk, its sign, its outline on the ground) and, past a gap you
+	can see daylight through, the WING — a shelf with the whole ladder over it. So
+	"where is the menu" has an answer you can see from across the plaza, instead of one
+	you learn by walking into an invisible circle. See "The stand, and the wing beside
+	it" for the constants and for why BOTH halves carry the station attributes.
+
+	THE PANEL DID NOT GO AWAY. The stand keeps its StationKind and the card panel
+	still opens — that is where the stat blocks live. The rack is the fast path ("I
+	know which one I want"), the panel the slow one ("which one SHOULD I want"). Two
+	doors on the same purchase; ShopService.buyTier is behind both of them and
+	validates identically either way.
 
 	A STALL IS AS WIDE AS ITS TRACK IS LONG. `stallWidth` derives it from
 	Gear.maxTier, so the Detector stall (8 tiers) is wider than the Magnet stall (6),
 	and adding a tier in Config/Gear widens that one shop with nothing else to edit.
-	Posts, slats, counter, canopy stripe count, floor marker and the station Radius
-	all key off that one number. What it cost: the ring the stalls stand on had to
-	grow from radius 20 to 32, and the Outfitter had to move from x=-30 to x=-44 to
-	stay clear of the two western stalls' backs. `assertNoShopOverlap` proves that
-	arrangement at every rebuild rather than trusting this paragraph.
+	Posts, slats, shelf, canopy stripe count and both floor markers all key off that
+	one number. What it cost: the ring the stalls stand on had to grow from radius 20
+	to 32, and the Outfitter had to move from x=-30 to x=-44 to stay clear of the two
+	western stalls' backs. Splitting the stand off the rack cost another six studs of
+	width on top of that (44.2 / 40.6 / 37.0 now) and moved nothing else — the fronts
+	still clear each other by ~21 studs and the Outfitter by ~13.
+	`assertNoShopOverlap` proves that arrangement at every rebuild rather than
+	trusting this paragraph.
 
 	THE LOOK — the supplied classic-Roblox Gear Store reference, stripped to the
 	structure. Each tool stall has studded posts, a slatted rear wall, an open
@@ -87,11 +98,13 @@
 	and lets one client panel be parameterised by track. It is deliberately the
 	capitalised Gear.TRACKS spelling, so no case conversion happens at the world
 	boundary — the single lowercase translation lives in Gear.profileKey and nowhere
-	else. A stall's Radius is DERIVED now (half its width plus the forecourt) rather
-	than the flat 12 it was: the rack runs the counter's full width, so the far end of
-	a Detector rack is outside a 12-stud circle and a player standing there would have
-	had a prompt in front of them and no panel behind it. The Outfitter's counters
-	keep their tight 6.
+	else. A plaza stall emits that trio TWICE — once on the stand at STAND_RADIUS and
+	once on the wing's shelf at a radius derived from the ladder's own length — because
+	the client's owned-ticks need the offer live at both ends of the storefront and a
+	single circle covering both would reach back into the courtyard. Same kind, same
+	StationId, and `StationService.at` takes the nearest, so there is exactly one
+	answer to "which shop am I at" anywhere on the front. The Outfitter's counters keep
+	their tight 6 and stay one part each.
 
 	    SellsTrack = "Detector"   -- this hook sells a rung of this track
 	    SellsTier  = 5            -- which rung, indexing Config/Gear directly
@@ -180,7 +193,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 22
+local BUILDER_VERSION = 25
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
@@ -235,14 +248,15 @@ local STALLS = {
 
 -- ── The rack ─────────────────────────────────────────────────────────────────
 --
--- EVERY TIER OF THE TRACK HANGS ON A RAIL OVER THE COUNTER, and you buy the one you
--- are standing in front of. That is the whole feature: the shop panel used to be the
--- only way to see what a track sold, so a player had to walk into a radius, read a
--- scrolling list of cards and pick a row. Now the ladder is a physical object — eight
--- detectors in a row, cheapest on the left, each with its own price over it and its
--- own ProximityPrompt — and walking along the counter IS browsing it.
+-- EVERY TIER OF THE TRACK HANGS ON A RAIL OVER THE WING'S SHELF, beside the stand,
+-- and you buy the one you are standing in front of. That is the whole feature: the
+-- shop panel used to be the only way to see what a track sold, so a player had to
+-- walk into a radius, read a scrolling list of cards and pick a row. Now the ladder
+-- is a physical object — eight detectors in a row, cheapest nearest the stand, each
+-- with its own price over it and its own ProximityPrompt — and walking the wing IS
+-- browsing it.
 --
--- THE PANEL IS STILL THERE. This does not replace it; the counter keeps its
+-- THE PANEL IS STILL THERE. This does not replace it; the stand keeps its
 -- StationKind and the card panel still opens (that is where the stat blocks live).
 -- The rack is the fast path for "I know which one I want", the panel the slow path
 -- for "which one SHOULD I want".
@@ -262,11 +276,11 @@ local STALLS = {
 -- ShopService and World.verify() both scan for those attributes, so they have to sit
 -- on something this file can promise.
 local RACK_PITCH = 3.6 -- centre-to-centre between two hanging tiers
-local RACK_MARGIN = 5 -- clear counter either side of the end tiers
+local RACK_END_MARGIN = 3 -- clear shelf past the dearest tier, at the wing's outer end
 local RACK_RAIL_Y = 5.4 -- the horizontal bar the tiers hang from
 local RACK_MODEL_SIZE = 2.9 -- longest axis of a hanging tier, after scaling
 local RACK_SLOT_WIDTH = RACK_PITCH - 0.6 -- across the rack: never touch the next tier
-local RACK_SLOT_DEPTH = 2.4 -- into the stall: never poke through the counter
+local RACK_SLOT_DEPTH = 2.4 -- into the stall: never poke through the shelf
 
 --- Which way the virtual holder faces. 180 is square-on to the customer — a
 --- character's LookVector is its own -Z and the stall's +Z is the plaza, so 180 turns
@@ -301,20 +315,93 @@ local RACK_SLOT_DEPTH = 2.4 -- into the stall: never poke through the counter
 --- tips the row sideways instead of tipping each tool forward.
 local RACK_PRESENT_YAW = 225
 local RACK_PRESENT_PITCH = -55
-local RACK_COUNTER_Z = 0.6 -- the counter's own local z; the rail sits over it
-local MOUNT_REACH = 11 -- prompt activation distance, from in front of the counter
+local SHOPFRONT_Z = 0.6 -- the shopfront line: stand, display shelf and rail all sit on it
+local MOUNT_REACH = 11 -- prompt activation distance, from in front of the display shelf
 
---- How wide a stall has to be to hold its whole ladder. DERIVED, not written down:
---- Detector has 8 tiers and Magnet 6, and a fixed width would either crush the
---- Detector rack or leave the Magnet stall two thirds empty. Every other dimension
---- of a stall (posts, slats, counter, canopy, floor marker) keys off this, so adding
---- a tier to a track in Config/Gear widens its shop and nothing else has to move.
+-- ── The stand, and the wing beside it ───────────────────────────────────
+--
+-- THE STAND IS WHERE YOU TALK TO THE SHOP; THE WING IS WHERE THE STOCK LIVES. The
+-- rack used to hang over the counter, which meant the counter had to be as long as
+-- the ladder — a 38-stud desk with one interaction on it, and the whole storefront
+-- reading as one undifferentiated bench. It is two things now, split along the same
+-- shopfront line: a short STAND at the left end of the store (the desk with the
+-- station attributes, the sign over it and the outline on the ground in front of it)
+-- and, past a gap you can see daylight through, the WING — a lower run of shelf with
+-- the whole ladder hanging over it, cheapest nearest the stand.
+--
+-- SO "WHERE IS THE MENU" HAS A PHYSICAL ANSWER NOW. Walk to the stand for the card
+-- panel and its stat blocks; walk down the wing to look at the actual tools and press
+-- E on one. Two doors on the same purchase, as before, but you can now see which
+-- door is which from across the plaza instead of learning it by walking into a radius.
+--
+-- BOTH HALVES CARRY THE STATION ATTRIBUTES, AND THAT IS NOT BELT-AND-BRACES. The
+-- client's owned-check — the green tick that replaces a price on a tier you already
+-- have — is painted from `state.offer`, which only exists while StationService says
+-- you are AT this shop (StationController's rack pass says so in as many words). One
+-- tight circle on the stand would blank every tick the moment you walked over to look
+-- at the tools, which is the exact moment they are worth showing. One circle big
+-- enough to cover both would have to be ~44 studs from a stand sitting at the end of
+-- the store, and that reaches back past PLAZA_MID — a shop panel opening on the
+-- respawn anchor in the middle of the courtyard. Two modest circles, one per half,
+-- cover the storefront and nothing else; `StationService.at` returns the NEAREST
+-- containing station, and both of these answer with the same kind and the same
+-- StationId, so which one wins is a question with one answer.
+local STAND_WIDTH = 8 -- the desk itself, wide enough to stand at and no wider
+local STAND_EDGE = 2 -- clear lumber outboard of the stand, at the store's left end
+local STAND_RACK_GAP = 3 -- the break between stand and wing: this is the whole read
+local STAND_RADIUS = STAND_WIDTH / 2 + 6 -- the desk, plus the forecourt you stand in
+
+--- How close you have to be to the desk for its E to appear. DELIBERATELY INSIDE
+--- STAND_RADIUS (8 against 10), because the prompt and the panel are two halves of one
+--- interaction: pressing E only un-dismisses the panel, and the panel can only draw
+--- from an `offer` that exists while StationService says you are AT this shop. A reach
+--- LARGER than the radius would put an E in front of players standing outside the
+--- station, who would press it and get nothing. Two studs of margin is enough for the
+--- ~10Hz station tick to have caught up by the time the prompt is pressable.
+local STAND_PROMPT_REACH = 8
+
+--- How wide a stall has to be to hold its stand AND its whole ladder. DERIVED, not
+--- written down: Detector has 8 tiers and Magnet 6, and a fixed width would either
+--- crush the Detector rack or leave the Magnet stall two thirds empty. Every other
+--- dimension of a stall (posts, slats, shelf, canopy, floor markers) keys off this,
+--- so adding a tier to a track in Config/Gear widens its shop and nothing else has
+--- to move.
+---
+--- IT GREW BY SIX STUDS WHEN THE RACK CAME OFF THE COUNTER. It used to be
+--- `rackSpan + 13` — the ladder plus five studs of clear counter either side. The
+--- stand now occupies the whole left margin in its own right, so the sum is spelled
+--- out left to right instead: edge, stand, gap, half a slot, the ladder, half a slot,
+--- end margin. `assertNoShopOverlap` re-proves the triangle at every rebuild, and it
+--- passes at the current STALL_RING_RADIUS with ~21 studs to spare between fronts and
+--- ~13 to the Outfitter, so nothing had to move to make room for this.
 local function rackSpan(track: string): number
 	return RACK_PITCH * (Gear.maxTier(track) - 1)
 end
 
 local function stallWidth(track: string): number
-	return rackSpan(track) + 2 * RACK_MARGIN + 3
+	return STAND_EDGE + STAND_WIDTH + STAND_RACK_GAP + RACK_SLOT_WIDTH + rackSpan(track) + RACK_END_MARGIN
+end
+
+--- The stand's centre, in the stall's own local x: hard against the LEFT end of the
+--- store. Left as the customer sees it — a stall's +Z faces PLAZA_MID, so somebody
+--- walking up to it has their right hand on the stall's +X, and the ladder that runs
+--- cheapest-first from here therefore climbs away to their right.
+local function standX(track: string): number
+	return -stallWidth(track) / 2 + STAND_EDGE + STAND_WIDTH / 2
+end
+
+--- The wing's centre: past the stand, past the gap, then half a ladder. Falls at a
+--- constant local x=5 for every track as the numbers currently stand (the stall grows
+--- symmetrically about it), which is a coincidence of the arithmetic and not
+--- something to hardcode — move any one constant above and it stops being true.
+local function rackX(track: string): number
+	return standX(track) + STAND_WIDTH / 2 + STAND_RACK_GAP + RACK_SLOT_WIDTH / 2 + rackSpan(track) / 2
+end
+
+--- The shelf under the wing: the ladder, plus the half-slot each end tier needs, plus
+--- a stud of lip. The rack's own end posts (span/2 + 1.5) stand just inside it.
+local function rackShelfWidth(track: string): number
+	return rackSpan(track) + RACK_SLOT_WIDTH + 1
 end
 
 --- A stall's vertex on the ring, world XZ.
@@ -527,6 +614,7 @@ end
 -- ── The counter ───────────────────────────────────────────────────────────────
 
 export type CounterSpec = {
+	name: string?,
 	color: string,
 	width: number,
 	depth: number,
@@ -534,13 +622,27 @@ export type CounterSpec = {
 	stationKind: string?,
 	stationId: string?,
 	radius: number?,
+	promptText: string?,
+	promptReach: number?,
 	material: string?,
 	studded: boolean?,
 }
 
 --- The counter desk — the interactive part — in grey storefront lumber
 --- (C.shopWood) with a coloured trim cap on top in the shop's own accent.
---- Returns the desk so the caller can billboard it. `material` defaults to
+--- Returns the desk so the caller can billboard it. `name` defaults to "Counter"
+--- and exists because a plaza stall builds TWO of these on one shopfront (a Stand
+--- and a DisplayShelf) and two sibling parts both called "Counter" is a debugging
+--- tax nobody needs in the explorer.
+---
+--- `promptText` OPTS THIS DESK INTO BEING THE THING YOU PRESS E ON, and a desk without
+--- it gets no prompt at all. The shop panel does not open on approach any more — see
+--- the "you press E" note in the header — so every desk a player is meant to open a
+--- panel at needs one. The one deliberate exception is a stall's DisplayShelf: it
+--- carries the station attributes (for the rack's owned-ticks) but must stay silent,
+--- because ProximityPromptService shows only the CLOSEST prompt bound to a key and a
+--- shelf-wide E would spend half the rack stealing the tier hooks' own prompts.
+--- `material` defaults to
 --- "Wood" (the Outfitter's own look); the plaza stalls pass "Plastic" instead,
 --- since Roblox's stud-bump texture only renders on Plastic, and that studded
 --- look is the whole point of the reskin.
@@ -552,8 +654,9 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 		attrs = { StationKind = spec.stationKind, StationId = spec.stationId, Radius = spec.radius }
 	end
 
+	local name = spec.name or "Counter"
 	local desk = build(parent, origin, {
-		name = "Counter",
+		name = name,
 		pos = { 0, 1.1, z },
 		size = { w, 2.2, d },
 		color = C.shopWood,
@@ -562,7 +665,27 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 		attributes = attrs,
 	})
 
-	build(parent, origin, { name = "CounterTrim", pos = { 0, 2.25, z }, size = { w + 0.4, 0.3, d + 0.4 }, color = spec.color, material = "Plastic", studs = spec.studded, canCollide = false })
+	build(parent, origin, { name = `{name}Trim`, pos = { 0, 2.25, z }, size = { w + 0.4, 0.3, d + 0.4 }, color = spec.color, material = "Plastic", studs = spec.studded, canCollide = false })
+
+	if spec.promptText then
+		local prompt = Instance.new("ProximityPrompt")
+		-- StationController matches on this name, and on nothing else: the rack's own
+		-- hooks are "Upgrade" prompts that buy a tier outright, and the two must never
+		-- be confused for each other by whatever is listening.
+		prompt.Name = "ViewShop"
+		prompt.ActionText = "Browse"
+		prompt.ObjectText = spec.promptText
+		-- NO HOLD. The rack's buy prompts hold for 0.4s because they spend money on
+		-- release; this one opens a window, and a window that makes you hold a key to
+		-- look through it is just a slower window.
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = spec.promptReach or STAND_PROMPT_REACH
+		-- The trim cap overhangs the desk by a couple of studs, which is enough to
+		-- occlude a prompt anchored in the desk's own centre from a player standing at
+		-- normal height in front of it.
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = desk
+	end
 
 	return desk
 end
@@ -841,7 +964,7 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: { track: st
 
 	local mount = build(parent, origin, {
 		name = `Mount{tier}`,
-		pos = { x, RACK_RAIL_Y - 0.5, RACK_COUNTER_Z },
+		pos = { x, RACK_RAIL_Y - 0.5, SHOPFRONT_Z },
 		size = { 1.1, 1.0, 1.1 },
 		color = C.steelDark,
 		material = "Metal",
@@ -859,13 +982,13 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: { track: st
 	-- the front. The translation in it does not matter — hangTierModel re-centres on
 	-- `target` afterwards — only the rotation does.
 	local hand = origin * Kit.ang(0, RACK_PRESENT_YAW, 0) * Kit.ang(RACK_PRESENT_PITCH, 0, 0)
-	local target = (origin * CFrame.new(x, RACK_RAIL_Y - 1.9, RACK_COUNTER_Z)).Position
+	local target = (origin * CFrame.new(x, RACK_RAIL_Y - 1.9, SHOPFRONT_Z)).Position
 	local hung = hangTierModel(parent, origin, hand, target, spec.track, tier)
 
 	if not hung then
 		build(parent, origin, {
 			name = `T{tier}Stand`,
-			pos = { x, RACK_RAIL_Y - 2.4, RACK_COUNTER_Z },
+			pos = { x, RACK_RAIL_Y - 2.4, SHOPFRONT_Z },
 			size = { 1.2, 2.2, 1.2 },
 			color = spec.color,
 			material = "SmoothPlastic",
@@ -882,6 +1005,13 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: { track: st
 	-- The counter is a solid part between the player and the rail, so a line-of-sight
 	-- prompt would only ever fire from inside the stall.
 	prompt.RequiresLineOfSight = false
+
+	-- WHAT THIS PROMPT SAYS WHEN THE TIER IS NOT YOURS, stamped on the prompt itself,
+	-- the same RestText trick the price card below uses and for the same reason. A
+	-- ProximityPrompt is ONE shared instance, so the client rewrites ActionText to
+	-- "Equip" locally on tiers the viewer already owns (StationController's rack pass)
+	-- and needs the as-built wording to put back afterwards without knowing the price.
+	prompt:SetAttribute("RestActionText", prompt.ActionText)
 	prompt.Parent = mount
 
 	-- Name and price. A client turns this into the green owned-check when the player
@@ -892,7 +1022,12 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: { track: st
 	buildPriceCard(mount, def.name, def.price, spec.color)
 end
 
---- Every tier of the track, cheapest on the left, hanging over the counter.
+--- Every tier of the track, cheapest on the left, hanging over the wing's shelf.
+---
+--- `origin` IS THE WING'S OWN CENTRE, not the stall's — the caller passes
+--- `stallOrigin * CFrame.new(rackX(track), 0, 0)` the same way buildOutfitter shifts
+--- a counterOrigin, so everything below stays written as a symmetric offset from zero
+--- and this function never has to know where in the store it was hung.
 local function buildTierRack(parent: Instance, origin: CFrame, spec: { track: string, color: string })
 	local span = rackSpan(spec.track)
 	local count = Gear.maxTier(spec.track)
@@ -901,7 +1036,7 @@ local function buildTierRack(parent: Instance, origin: CFrame, spec: { track: st
 	-- counter top (2.25, the trim cap's own top face).
 	build(parent, origin, {
 		name = "RackRail",
-		pos = { 0, RACK_RAIL_Y, RACK_COUNTER_Z },
+		pos = { 0, RACK_RAIL_Y, SHOPFRONT_Z },
 		size = { span + 3, 0.5, 0.5 },
 		color = C.steel,
 		material = "Metal",
@@ -910,7 +1045,7 @@ local function buildTierRack(parent: Instance, origin: CFrame, spec: { track: st
 	for _, side in { -1, 1 } do
 		build(parent, origin, {
 			name = "RackPost",
-			pos = { side * (span / 2 + 1.5), (RACK_RAIL_Y + 2.25) / 2, RACK_COUNTER_Z },
+			pos = { side * (span / 2 + 1.5), (RACK_RAIL_Y + 2.25) / 2, SHOPFRONT_Z },
 			size = { 0.5, RACK_RAIL_Y - 2.25, 0.5 },
 			color = C.steel,
 			material = "Metal",
@@ -993,40 +1128,64 @@ local function buildStall(parent: Instance, spec: { track: string, bearing: numb
 	end
 	buildSlatWall(m, origin, width)
 
-	-- THE COUNTER. This is the part the whole file exists to place correctly.
+	-- The two halves of the shopfront, on one line, with STAND_RACK_GAP of open air
+	-- between them — see "The stand, and the wing beside it".
+	local sx, rx = standX(spec.track), rackX(spec.track)
+
+	-- THE STAND. This is the part the whole file exists to place correctly: the desk
+	-- you walk up to for the card panel, the thing the sign hangs over, and the shop's
+	-- own StationId. Eight studs wide and parked at the left end of the store instead
+	-- of the 37-stud bench that used to run the whole front, because the ladder no
+	-- longer sits on top of it.
 	-- material = "Plastic" here (not buildCounter's own "Wood" default) so the
 	-- studded look stays consistent across the whole stall -- the Outfitter's
 	-- call to the same function passes no material and keeps its original Wood.
-	-- THE RADIUS GREW WITH THE STALL, and it had to. It was a flat 12 studs from the
-	-- counter's centre, which covered a 15-wide stall end to end. The rack now runs
-	-- the full width of the counter, so a player standing at the leftmost Detector
-	-- tier is ~19 studs from that centre — outside the old circle, with a prompt in
-	-- front of them and no panel behind it. Derived from the width so the two can
-	-- never drift apart again: half the width, plus the ~6 studs of forecourt the
-	-- floor marker covers.
-	local counter = buildCounter(m, origin, {
+	local stand = buildCounter(m, origin * CFrame.new(sx, 0, 0), {
+		name = "Stand",
 		color = C.steel,
-		width = width - 1,
+		width = STAND_WIDTH,
 		depth = 2.5,
-		z = RACK_COUNTER_Z,
+		z = SHOPFRONT_Z,
 		stationKind = "shop",
 		stationId = spec.track,
-		radius = width / 2 + 6,
+		radius = STAND_RADIUS,
+		promptText = spec.label,
 		material = "Plastic",
 		studded = true,
 	})
-	buildStoreBillboard(counter, spec.label, spec.tagline, spec.color)
+	buildStoreBillboard(stand, spec.label, spec.tagline, spec.color)
 
-	-- The ladder itself, hanging over that counter — see "The hanging tier rack".
-	buildTierRack(m, origin, spec)
+	-- THE WING'S SHELF, carrying the same StationId at its own radius. Not a spare
+	-- copy of the stand: the offer that draws the rack's owned-ticks only exists while
+	-- StationService has you at this shop, so without a circle out here every tick
+	-- blanks the instant you walk over to look at the tools. Two modest circles beat
+	-- one 44-stud one that would reach back into the courtyard — the header block on
+	-- the stand has the full argument and the numbers.
+	buildCounter(m, origin * CFrame.new(rx, 0, 0), {
+		name = "DisplayShelf",
+		color = C.steel,
+		width = rackShelfWidth(spec.track),
+		depth = 2.5,
+		z = SHOPFRONT_Z,
+		stationKind = "shop",
+		stationId = spec.track,
+		radius = rackShelfWidth(spec.track) / 2 + 6,
+		material = "Plastic",
+		studded = true,
+	})
+
+	-- The ladder itself, hanging over that shelf — see "The hanging tier rack".
+	buildTierRack(m, origin * CFrame.new(rx, 0, 0), spec)
 
 	buildStripedCanopy(m, origin, spec.color, width)
 
-	-- The floor marker: a glowing outline of where to stand, in the shop's own colour
-	-- — never green, see the header. It spans the rack now rather than a fixed 10
-	-- studs, because its job changed: it used to outline a buy radius you stepped
-	-- into, and it now marks the strip of ground you walk ALONG to browse the rack.
-	buildFloorMarker(m, origin, 0, 3.4, width - 4, 5, spec.color)
+	-- TWO FLOOR MARKERS, ONE PER HALF, because there are two different things to do
+	-- here now and the ground should say which is which. The box in front of the stand
+	-- outlines where you stand for the panel; the long strip in front of the wing marks
+	-- the ground you walk ALONG to browse the tools. A stud of gap between them, in the
+	-- shop's own colour — never green, see the header.
+	buildFloorMarker(m, origin, sx, 3.4, STAND_WIDTH + 3, 5, spec.color)
+	buildFloorMarker(m, origin, rx, 3.4, rackShelfWidth(spec.track), 5, spec.color)
 
 	m.Parent = parent
 	return m
@@ -1164,6 +1323,11 @@ local function buildOutfitter(parent: Instance)
 			-- Tighter than the plaza stalls: three counters share one building,
 			-- and standing at one of them has to be unambiguous.
 			radius = 6,
+			promptText = counter.label,
+			-- Scaled to that tighter radius the same way the stand's is to its own,
+			-- and for the same reason. It also has to stay under the 13-stud counter
+			-- pitch, or the E in front of you would belong to the desk next door.
+			promptReach = 5,
 		})
 		billboard(desk, 200, 4.4, counter.label, counter.tagline, C.shopOutfitter)
 	end

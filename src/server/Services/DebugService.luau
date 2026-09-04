@@ -196,15 +196,32 @@ COMMANDS["/gear"] = {
 		if track == nil or data.gear[track] == nil or tier == nil then
 			return `usage: {GEAR_USAGE}`
 		end
-		data.gear[track] = math.max(1, math.floor(tier))
+		local want = math.max(1, math.floor(tier))
+		data.gear[track] = want
+
+		-- GRANT THE LADDER UP TO IT, not just the rung. This command exists to put a
+		-- tester where a real player would be after playing to that point, and a real
+		-- player owns what they bought on the way -- equipping a tier the profile does
+		-- not list as owned would leave the shop offering to sell you the thing in
+		-- your own hands. `luck` has no ladder and no owned set, so it is skipped.
+		if data.gearOwned and data.gearOwned[track] then
+			local owned = {}
+			for t = 1, want do
+				table.insert(owned, t)
+			end
+			data.gearOwned[track] = owned
+		end
+
 		-- WRITING THE PROFILE IS NOT THE WHOLE PURCHASE for the cleaner track: the rung
 		-- you own is also the machine bolted to your own wash bay, and ShopService pokes
 		-- ExhibitService to swap it when a real purchase lands. A debug command that set
 		-- the number and left a Garden Hose standing on the mast would be a testing tool
-		-- that lies about the thing it exists to test.
+		-- that lies about the thing it exists to test. Last, so it renders the profile
+		-- as it finally stands rather than as it stood mid-write.
 		if track == "cleaner" then
 			ExhibitService.refreshHose(player)
 		end
+
 		return `{track} -> tier {data.gear[track]}`
 	end,
 }

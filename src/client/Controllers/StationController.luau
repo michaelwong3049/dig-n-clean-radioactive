@@ -57,16 +57,18 @@
 	rather than being hidden under the panel.
 
 	AND THE SHOP IS ALSO A RACK IN THE WORLD NOW, WHICH THIS FILE PAINTS BUT DOES NOT
-	OWN. Every tier of the three tool tracks hangs over its counter with a price card
-	above it and its own E prompt (build/Shops), so a player who knows which detector
-	they want buys it without ever opening this panel. The one thing those cards
-	cannot show on their own is whether YOU own that tier — they are single shared
-	instances — so the owned-check is written locally, off the same `offer` this panel
-	is already receiving. See "The rack over the counter" below for what that costs.
-	The panel is unchanged and still opens: the rack is the fast path, the cards here
-	are still the only place the stat blocks live.
+	OWN. Every tier of the three tool tracks hangs on the wing beside its stand with a
+	price card above it and its own E prompt (build/Shops), so a player who knows which
+	detector they want buys it without ever opening this panel. The one thing those
+	cards cannot show on their own is whether YOU own that tier — they are single
+	shared instances — so the owned-check is written locally, off the same `offer` this
+	panel is already receiving. See "The rack beside the stand" below for what it costs.
+	The panel is still there and still holds the stat blocks, but it does not open on
+	approach any more: press E on the stand for it. The rack is the fast path, the
+	panel the one you ask for. See `dismissed`.
 
-	THE SHOP IS A STOREFRONT, NOT A PROMPT. It used to render exactly one thing —
+	THE SHOP PANEL IS A STOREFRONT, NOT A ONE-LINE OFFER. It used to render exactly
+	one thing —
 	"Bent Coil → Scavenger MkI", the deltas between them, and a BUY button — which
 	answered "what can I buy right now" and nothing else. A player could not see that
 	the Detector track runs eight tiers, what the top of it costs, or whether saving
@@ -93,6 +95,8 @@
 
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
@@ -174,12 +178,73 @@ local toastToken = 0
 -- station's radius. Walking away always closed the panel because that also zeroed
 -- `state.station`; a CLOSE button doesn't move you, so it needs its own flag rather
 -- than piggybacking on that field. `lastKey` is what clears it again: it fingerprints
--- "which station, which id" so the panel reopens the moment that changes -- leaving
--- and coming back, or walking straight from one station into another -- without
--- reopening on every one of the ~10Hz StationState ticks this same station keeps
--- sending while you stand still.
+-- "which station, which id" so the panel's open/closed state is decided ONCE the
+-- moment that changes -- leaving and coming back, or walking straight from one
+-- station into another -- without being re-decided on every one of the ~10Hz
+-- StationState ticks this same station keeps sending while you stand still.
+--
+-- A SHOP ARRIVES DISMISSED, AND THAT IS THE WHOLE "PRESS E TO VIEW" FEATURE. Every
+-- station kind used to un-dismiss on arrival, so walking within ten studs of a stall
+-- put a full-screen panel over you whether you had come to buy or were cutting
+-- across the plaza. Shops now start closed and open on the stand's own E prompt
+-- (build/Shops' "ViewShop"); trader and pedestal still open on approach, because
+-- neither has a prompt to open it with and neither is something you walk past.
+--
+-- This is the same call the wash pad and the decon station already went through, in
+-- the same direction and for the same reason -- see the header. The panel is a place
+-- you choose to go, not a thing that happens to you.
 local dismissed = false
 local lastKey: string? = nil
+
+--- The name build/Shops gives the stand's own prompt. Hardcoded here for the same
+--- reason RACK_TAG below is: this is a client script and build/Kit lives in
+--- ServerScriptService, so it cannot be required.
+local BROWSE_PROMPT = "ViewShop"
+
+--- Does THIS shop actually have a browse prompt standing in the world?
+---
+--- THIS FUNCTION EXISTS BECAUSE CODE AND WORLD SHIP THROUGH DIFFERENT DOORS, and
+--- getting that wrong took the whole shop off the map once. Scripts reach a place
+--- through Rojo/publish the moment they are merged; the geometry in Workspace.Shops
+--- only changes when somebody runs build/Shops.rebuild() in Edit and SAVES the place.
+--- So the two can be any distance apart, and for a while they were: a world still
+--- built to the version before the stand existed, running the client that had already
+--- learned to wait for the stand's E.
+---
+--- The result was not a cosmetic mismatch. `dismissed` started true for every shop and
+--- nothing in that world could ever set it false, so no shop panel could open at all —
+--- and the Outfitter's three counters have never had rack prompts, which made Suit,
+--- Boots and Satchel unbuyable outright. The Suit gates every stage in the game.
+---
+--- So the press-E behaviour is now CONDITIONAL ON THE THING THAT IMPLEMENTS IT being
+--- present. A shop with a browse prompt opens on E; a shop without one falls back to
+--- opening on approach, exactly as it did before any of this. A stale world is then
+--- merely old, never broken, and the same is true in reverse for anyone who rebuilds
+--- their world ahead of pulling the code.
+---
+--- Checked per station rather than "does this world have any prompts anywhere", so a
+--- half-rebuilt world degrades per shop instead of all-or-nothing. It runs only when
+--- the station fingerprint CHANGES, not on the ~10Hz tick.
+local function shopHasBrowsePrompt(stationId: any): boolean
+	if type(stationId) ~= "string" then
+		return false
+	end
+	local shops = Workspace:FindFirstChild("Shops")
+	if shops == nil then
+		return false
+	end
+	for _, d in shops:GetDescendants() do
+		if
+			d:IsA("BasePart")
+			and d:GetAttribute("StationKind") == "shop"
+			and d:GetAttribute("StationId") == stationId
+			and d:FindFirstChild(BROWSE_PROMPT) ~= nil
+		then
+			return true
+		end
+	end
+	return false
+end
 
 local function rarityColor(name: string): Color3
 	local def = Rarity.DEFS[name]
@@ -655,14 +720,17 @@ local function paintRow(row: TextButton, item, isSelected: boolean)
 	row:SetAttribute("Uid", item.uid)
 end
 
---- Three states, and two of them are a button you can press.
+--- Three states, and ALL THREE are now a button you can press.
 ---
---- Every tier past what you already own is buyable now — there is no locked-because-
---- you-skipped-a-rung state left to draw, so this is only ever current / owned /
---- buyable. OWNED still renders as dead chrome (bought, greyed, price gone) so it
---- reads as behind you rather than as a goal; buyable always shows its own price and
---- is always a live button, just split green/red by whether THIS tier's price fits
---- what you have right now.
+--- OWNED STOPPED BEING DEAD CHROME, because it stopped meaning "behind you". While
+--- ownership was a high-water mark, a greyed OWNED card was a rung you had walked
+--- past and could never want again, so there was nothing to press. Ownership is a set
+--- now: an owned card that is not the one in your hands is a tool you paid for and
+--- are not currently holding, and the only sensible thing to draw on it is EQUIP.
+---
+--- current  -> EQUIPPED, green wash, inert (pressing it would be a no-op)
+--- owned    -> EQUIP, live, neutral: yours, one press from being in your hands
+--- buyable  -> its own price, live, green/red on whether you can afford THIS tier
 local function paintShopCard(card: Frame, entry)
 	local nameLabel = card.CardName :: TextLabel
 	local stats = card.CardStats :: TextLabel
@@ -673,6 +741,7 @@ local function paintShopCard(card: Frame, entry)
 	nameLabel.Text = entry.name
 	stats.Text = table.concat(entry.stats, "\n")
 	card:SetAttribute("Buyable", entry.buyable == true)
+	card:SetAttribute("Equippable", entry.equippable == true)
 	card:SetAttribute("Tier", entry.tier)
 
 	if entry.current then
@@ -689,13 +758,18 @@ local function paintShopCard(card: Frame, entry)
 		buy.BackgroundTransparency = 0.78
 		buyStroke.Color = COLOR.green
 	elseif entry.owned then
-		nameLabel.TextColor3 = COLOR.dim
+		-- Yours, not in your hands. Drawn as a real affordance rather than the greyed
+		-- slab this used to be: full-strength name, a normal-weight stroke and a
+		-- pressable button. Deliberately NOT green — green is "this is the one you are
+		-- holding" everywhere on this panel, and two greens would make the card you
+		-- are using indistinguishable from the six you are not.
+		nameLabel.TextColor3 = COLOR.text
 		cardStroke.Color = COLOR.stroke
-		cardStroke.Thickness = UIKit.Stroke.thin
-		buy.Text = "OWNED"
-		buy.TextColor3 = COLOR.dim
+		cardStroke.Thickness = UIKit.Stroke.normal
+		buy.Text = "EQUIP"
+		buy.TextColor3 = COLOR.text
 		buy.BackgroundColor3 = COLOR.panel
-		buy.BackgroundTransparency = 0.6
+		buy.BackgroundTransparency = 0.35
 		buyStroke.Color = COLOR.stroke
 	elseif entry.buyable then
 		nameLabel.TextColor3 = COLOR.text
@@ -715,15 +789,16 @@ local function paintShopCard(card: Frame, entry)
 		buy.BackgroundTransparency = if entry.affordable then 0 else 0.8
 		buyStroke.Color = if entry.affordable then COLOR.green else COLOR.red
 	end
-	-- No trailing `else`: current, owned and buyable are exhaustive over every tier
-	-- (current ⊂ owned by tier number, buyable is everything else), so there is no
-	-- fourth case left to paint.
+	-- No trailing `else`: current, owned and buyable are exhaustive over every tier.
+	-- `current` is checked first and `owned` second, so the equipped tier takes the
+	-- EQUIPPED branch even though it is also owned, and `buyable` is by construction
+	-- `not owned` — every tier lands in exactly one of the three.
 end
 
--- ── The rack over the counter ────────────────────────────────────────────────
+-- ── The rack beside the stand ────────────────────────────────────────────────
 --
 -- THE OWNED-CHECK IS THE ONE PER-PLAYER THING ON A SHARED OBJECT. Every tier of the
--- three tool tracks hangs on a rail over its shop counter with its price on a card
+-- three tool tracks hangs on a rail beside its shop's stand with its price on a card
 -- above it (build/Shops' rack). That card is world geometry — one instance, seen by
 -- everybody — so the server cannot write "you own this" onto it for one player. The
 -- client can, locally, and nothing it writes replicates anywhere.
@@ -741,6 +816,13 @@ end
 -- the cards' own MaxDistance is 28 studs, so they are barely legible from further
 -- out anyway — but it is a trade, and the fix if it ever stops being one is to
 -- replicate the gear tiers rather than to start guessing here.
+--
+-- AND IT IS WHY A STALL EMITS TWO STATION CIRCLES. When the rack moved off the
+-- counter onto its own wing, a single tight circle on the stand would have blanked
+-- every tick of this the moment a player walked over to the tools — the exact moment
+-- the ticks are worth drawing. build/Shops answers that on its side, by putting the
+-- same StationKind/StationId on the wing's shelf as well; nothing here had to change,
+-- but this paragraph is why that duplication is load-bearing and not tidy-up bait.
 
 --- Matches Kit.UPGRADE_TAG and ShopService's own copy. Hardcoded a third time for
 --- the reason ShopService's copy gives: build/Kit lives in ServerScriptService and
@@ -751,7 +833,15 @@ local RACK_TAG = "Upgrade"
 
 --- U+2713 first, the word after it. FredokaOne has no check glyph of its own, so
 --- this leans on Roblox's font fallback — and if that ever fails, what is left on the
---- card is "OWNED", which still says the thing. A bare check would leave a tofu box.
+--- card is the word, which still says the thing. A bare check would leave a tofu box.
+---
+--- TWO WORDS, NOT ONE, SINCE OWNERSHIP BECAME A SET. The rack used to paint one green
+--- tick on every tier at or below yours, which is exactly the complaint that started
+--- this: eight identical ticks after buying one detector, and no way to tell which
+--- tool you were actually holding. EQUIPPED is the one in your hands; OWNED is a tool
+--- you bought and are not using, and its hook's E switches to it rather than charging
+--- you for it again.
+local EQUIPPED_TEXT = "✓ EQUIPPED"
 local OWNED_TEXT = "✓ OWNED"
 
 --- Which (track, owned-through-tier) pair is currently painted onto the world.
@@ -760,16 +850,28 @@ local OWNED_TEXT = "✓ OWNED"
 --- tag index gets walked and 21 labels rewritten ten times a second to no effect.
 local rackKey: string? = nil
 
---- Paint the owned-check onto `track`'s rack, and restore every other hook in the
---- world to the price it was built showing. `tiers` nil restores all of them — that
---- is what leaving a shop does.
+--- Paint the per-player state onto `track`'s rack, and restore every other hook in
+--- the world to the price it was built showing. `tiers` nil restores all of them —
+--- that is what leaving a shop does.
 ---
---- RESTORE READS RestText / RestColor OFF THE LABEL, the same trick LiquidService
---- uses to put the wash pad's sign back after it announces a roll: the builder
---- stamps a label's as-built text and colour onto the label itself, so whatever
---- overwrites it never has to remember what was there. A hook with no SellsTier is
---- skipped entirely rather than restored — that is the Luck button, whose subtitle
---- is owned by ExhibitService and must not be touched from here.
+--- THREE STATES OUT HERE NOW, MATCHING THE PANEL'S THREE. The equipped tier gets the
+--- green EQUIPPED tick; a tier you own but are not holding gets a neutral OWNED tick
+--- and its prompt flips from "Buy $x" to "Equip"; everything else keeps the price it
+--- was built with. That prompt rewrite is the reason this function touches
+--- ProximityPrompts at all — a prompt is a single shared instance and the server
+--- cannot word it per player, exactly like the price cards.
+---
+--- WHAT THE PROMPT SAYS IS COSMETIC, AND THE SERVER DOES NOT TRUST IT. ShopService's
+--- own handler re-reads ownership from the profile and picks buy-or-equip there. If
+--- this paint is stale, the worst case is a prompt that says the wrong verb for one
+--- tick, never a wrong purchase.
+---
+--- RESTORE READS RestText / RestColor OFF THE LABEL (and RestActionText off the
+--- prompt), the same trick LiquidService uses to put the wash pad's sign back after
+--- it announces a roll: the builder stamps the as-built values onto the instance
+--- itself, so whatever overwrites it never has to remember what was there. A hook
+--- with no SellsTier is skipped entirely rather than restored — that is the Luck
+--- button, whose subtitle is owned by ExhibitService and must not be touched here.
 local function paintRack(track: string?, tiers: { any }?)
 	for _, part in CollectionService:GetTagged(RACK_TAG) do
 		local tier = part:GetAttribute("SellsTier")
@@ -784,35 +886,72 @@ local function paintRack(track: string?, tiers: { any }?)
 		end
 
 		local entry = if tiers ~= nil and part:GetAttribute("SellsTrack") == track then tiers[tier] else nil
+		local prompt = part:FindFirstChildOfClass("ProximityPrompt")
 
-		if entry ~= nil and entry.owned then
-			sub.Text = OWNED_TEXT
+		-- Stamp the as-built wording if the BUILDER did not. A world built before the
+		-- rack learned about equipping has prompts with no RestActionText, and without
+		-- this the first repaint would overwrite "Buy $4700" with "Equip" and have
+		-- nothing to put back — the price would be gone from that hook until the next
+		-- world rebuild. Doing it here, before any overwrite, makes the restore path
+		-- correct in a stale world as well as a fresh one.
+		if prompt and prompt:GetAttribute("RestActionText") == nil then
+			prompt:SetAttribute("RestActionText", prompt.ActionText)
+		end
+
+		if entry ~= nil and entry.current then
+			sub.Text = EQUIPPED_TEXT
 			sub.TextColor3 = COLOR.green
+			if prompt then
+				-- Nothing to do to a tool you are already holding. The prompt stays
+				-- visible rather than being disabled, because a hook with no E at all
+				-- reads as broken next to seven that have one; pressing it is refused
+				-- server-side with "already in your hands".
+				prompt.ActionText = "Equipped"
+			end
+		elseif entry ~= nil and entry.owned then
+			sub.Text = OWNED_TEXT
+			sub.TextColor3 = COLOR.text
+			if prompt then
+				prompt.ActionText = "Equip"
+			end
 		else
 			sub.Text = (sub:GetAttribute("RestText") :: string?) or sub.Text
 			sub.TextColor3 = (sub:GetAttribute("RestColor") :: Color3?) or sub.TextColor3
+			if prompt then
+				prompt.ActionText = (prompt:GetAttribute("RestActionText") :: string?) or prompt.ActionText
+			end
 		end
 	end
 end
 
---- Repaint the rack only when the answer actually moved. The key is the track plus
---- the top tier the player owns, which is the only thing about an offer this rack
---- can draw — price and name are as-built, and affordability deliberately is not
---- shown out here (that is what the panel's cards are for).
+--- Repaint the rack only when the answer actually moved. Price and name are as-built
+--- and affordability deliberately is not shown out here (that is what the panel's
+--- cards are for), so the only things this rack can draw are which tiers are owned and
+--- which one is equipped — and the key is exactly those two.
+---
+--- THE KEY IS THE WHOLE OWNED SET NOW, NOT ITS MAXIMUM. It used to be the top owned
+--- tier, which was a complete description of an offer while ownership was a high-water
+--- mark. With a set, {1,4,8} and {1,8} share a maximum and are different racks, and
+--- equipping changes the paint without changing ownership at all. Both go in the
+--- fingerprint or the repaint gets skipped and the rack lies until you walk away.
 local function refreshRack()
 	local atShop = state.station == "shop"
 	local tiers = if atShop and state.offer then state.offer.tiers else nil
 
-	local owned = 0
+	local owned = {}
+	local equipped = 0
 	if tiers then
 		for _, entry in tiers do
-			if entry.owned and entry.tier > owned then
-				owned = entry.tier
+			if entry.owned then
+				table.insert(owned, entry.tier)
+			end
+			if entry.current then
+				equipped = entry.tier
 			end
 		end
 	end
 
-	local key = if tiers then `{tostring(state.stationId)}:{owned}` else nil
+	local key = if tiers then `{tostring(state.stationId)}:{equipped}:{table.concat(owned, ",")}` else nil
 	if key == rackKey then
 		return
 	end
@@ -1030,9 +1169,19 @@ function Station.start()
 	-- so a crafted tier number buys nothing a genuine click could not.
 	for _, card in ui.shopCards do
 		local buy = card.CardBuy :: TextButton
+		-- ONE BUTTON, TWO VERBS. Which one this card is showing is already decided in
+		-- paintShopCard and stamped on the card, so this reads the stamp rather than
+		-- re-deriving it from an offer that may have ticked since. The server decides
+		-- again regardless -- ShopService re-checks ownership on both paths -- so a
+		-- stale attribute here can only ever produce a refused action, never a wrong one.
 		buy.MouseButton1Click:Connect(function()
-			if card:GetAttribute("Buyable") and state.stationId then
+			if state.stationId == nil then
+				return
+			end
+			if card:GetAttribute("Buyable") then
 				actionRemote:FireServer({ action = "buy", track = state.stationId, tier = card:GetAttribute("Tier") })
+			elseif card:GetAttribute("Equippable") then
+				actionRemote:FireServer({ action = "equip", track = state.stationId, tier = card:GetAttribute("Tier") })
 			end
 		end)
 	end
@@ -1052,6 +1201,25 @@ function Station.start()
 		render()
 	end)
 
+	-- THE STAND'S E. Fires locally for the local player, so there is no remote in this
+	-- path at all -- the panel was always drawn from a `StationState` the server is
+	-- already sending, and all this does is stop hiding it.
+	--
+	-- IT TOGGLES rather than only opening, so E is a way back out as well as in: the
+	-- prompt stays on screen while the panel is up (you have not moved), and reaching
+	-- for the X with the mouse to close something you opened with a keypress is a
+	-- worse exit than pressing the same key again.
+	--
+	-- MATCHED ON NAME, because this same event carries the rack's "Upgrade" prompts,
+	-- which spend money. Anything that is not the stand's own prompt is not ours.
+	ProximityPromptService.PromptTriggered:Connect(function(prompt, triggeredBy)
+		if triggeredBy ~= Players.LocalPlayer or prompt.Name ~= "ViewShop" then
+			return
+		end
+		dismissed = not dismissed
+		render()
+	end)
+
 	Net.get("StationState").OnClientEvent:Connect(function(payload)
 		-- Fingerprint "which station, which id" rather than comparing tables: this
 		-- fires at TICK_RATE (~10Hz) the whole time you stand still, and payload is a
@@ -1059,7 +1227,16 @@ function Station.start()
 		-- `dismissed` would clear itself on the very next tick after the click above.
 		local key = if payload.station then `{payload.station}:{tostring(payload.stationId)}` else nil
 		if key ~= lastKey then
-			dismissed = false
+			-- Arriving at a shop leaves it CLOSED until you press E on the stand --
+			-- but ONLY if that stand actually exists in this world to be pressed. A
+			-- world older than this script has no browse prompt, and starting
+			-- dismissed there means the panel can never open at all; see
+			-- shopHasBrowsePrompt for what that cost. Every other station kind still
+			-- opens on approach.
+			--
+			-- Reads `payload.station`, not `state.station` -- `state` is not assigned
+			-- until two lines below, so the old value is still in it here.
+			dismissed = payload.station == "shop" and shopHasBrowsePrompt(payload.stationId)
 			lastKey = key
 		end
 
