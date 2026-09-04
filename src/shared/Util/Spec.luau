@@ -35,6 +35,8 @@ local ToolModels = require(script.Parent.Parent.ToolModels)
 local ToolTiers = require(Config.ToolTiers)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
+local Contamination = require(script.Parent.Parent.Contamination)
+local ItemGrime = require(script.Parent.Parent.ItemGrime)
 local StatResolver = require(script.Parent.Parent.StatResolver)
 
 local Spec = {}
@@ -765,6 +767,93 @@ function Spec.run(): boolean
 	-- PLAN §3.5 — no stage is gated by anything except arithmetic
 	for _, stage in Stages.DEFS do
 		check(string.format("§3.5 stage %d has no unlock field", stage.id), (stage :: any).locked == nil and (stage :: any).requiresGamepass == nil)
+	end
+
+	-- Contamination's VISUAL grade. `initialCount` is what makes "how dirty is it
+	-- still" answerable without storing a second number on every carried item, so it
+	-- has to keep agreeing with the roll it was extracted from. If those two ever
+	-- drift, every half-scrubbed item is painted at the wrong strength for good.
+	do
+		local agrees, graded = true, true
+		for _, rarity in Rarity.ORDER do
+			for modifier in Rarity.MODIFIERS do
+				local rolled = Contamination.rollPatches(rarity, modifier)
+				if #rolled ~= Contamination.initialCount(rarity, modifier) then
+					agrees = false
+				end
+				-- Full patches = full film, none = no film at all, and anything between
+				-- must sit strictly between, or scrubbing stops reading as progress.
+				if Contamination.grimeLevel({}, rarity, modifier) ~= 0 then
+					graded = false
+				end
+				if #rolled > 0 and Contamination.grimeLevel(rolled, rarity, modifier) ~= 1 then
+					graded = false
+				end
+				if #rolled > 1 then
+					local half = table.clone(rolled)
+					table.remove(half)
+					local partial = Contamination.grimeLevel(half, rarity, modifier)
+					if not (partial > 0 and partial < 1) then
+						graded = false
+					end
+				end
+			end
+		end
+		check("§2 initialCount agrees with the roll it was pulled out of", agrees)
+		check("§2 grime level runs 1 to 0 as patches come off", graded)
+	end
+
+	-- THE FILM COMES OFF EXACTLY. Cleaning has to hand back the authored art, not an
+	-- approximation of it, and apply() has to be safe to call on every tick of a wash --
+	-- so a repaint at a FALLING level must walk back toward the original rather than
+	-- compounding green onto green. Run against a real catalogue model, because that is
+	-- the thing with twenty-odd separately-coloured parts in it.
+	do
+		local sample = ItemModels.create("BottleCap")
+		if sample then
+			local parts, before = {}, {}
+			for _, part in sample:GetDescendants() do
+				if part:IsA("BasePart") then
+					table.insert(parts, part)
+					before[part] = part.Color
+				end
+			end
+
+			ItemGrime.apply(sample, 1)
+			local tinted = 0
+			for _, part in parts do
+				if part.Color ~= before[part] then
+					tinted += 1
+				end
+			end
+
+			ItemGrime.apply(sample, 0.5)
+			local once = {}
+			for _, part in parts do
+				once[part] = part.Color
+			end
+			ItemGrime.apply(sample, 0.5)
+			local stable = true
+			for _, part in parts do
+				if part.Color ~= once[part] then
+					stable = false
+				end
+			end
+
+			ItemGrime.clear(sample)
+			local restored = true
+			for _, part in parts do
+				if part.Color ~= before[part] then
+					restored = false
+				end
+			end
+
+			check("§2 contamination tints every part of the model", #parts > 0 and tinted == #parts)
+			check("§2 repainting at one level does not compound", stable)
+			check("§2 cleaning restores the authored colours exactly", restored)
+			check("§2 a cleaned model keeps no grime glow", sample:FindFirstChild("GrimeGlow", true) == nil)
+			sample:Destroy()
+		end
 	end
 
 	table.insert(lines, string.format("\n%d passed, %d failed", passed, failed))
