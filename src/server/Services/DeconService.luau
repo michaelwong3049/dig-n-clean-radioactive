@@ -142,36 +142,13 @@ local function stepPlayer(player: Player, _dt: number)
 
 	local offer = if kind == "shop" and stationId then ShopService.offerFor(data, stationId) else nil
 
-	-- The stand a hold-E would actually place on right now — facing-based, so it
-	-- can legitimately differ from plain nearest-wins when a player is standing
-	-- between two stands but looking at one of them.
-	local facedPedestalId = StationService.facedStation(player, "pedestal", Tuning.EXHIBIT_PLACE_FACING_ANGLE)
-
-	-- The pedestal panel reuses this same tick+payload rather than a fourth
-	-- remote — see the trader/decon/shop precedent this file already sets. (Plots
-	-- have no panel of their own any more: exhibit income auto-deposits, so a
-	-- claim board with nothing to collect was removed.)
-	--
-	-- Prefers the FACED stand over plain nearest-wins so the panel always describes
-	-- whatever a hold-E would actually target; falls back to nearest-wins only when
-	-- nothing currently qualifies as faced (e.g. mid-turn), so the panel doesn't
-	-- blank out the instant you're not lined up perfectly.
-	local standView = nil
-	if kind == "pedestal" then
-		local standId = facedPedestalId or stationId
-		if standId then
-			local plotIndex, slotStr = string.match(standId, "^(%d+):(%d+)$")
-			if plotIndex and slotStr then
-				standView = ExhibitService.standViewFor(player, tonumber(plotIndex) :: number, tonumber(slotStr) :: number, data)
-			end
-		end
-	end
-
+	-- Pedestals have no panel of their own any more: placing and retrieving are
+	-- both a "Place"/"Take" ProximityPrompt on the stand itself (ExhibitService),
+	-- not something this tick+payload needs to describe.
 	stateRemote:FireClient(player, {
 		station = kind,
 		stationId = stationId,
 		offer = offer,
-		standView = standView,
 		cash = data.cash,
 		xp = data.xp,
 		potency = stats.cleanPotency,
@@ -257,12 +234,6 @@ function DeconService.start()
 			resultRemote:FireClient(player, message)
 			if ok then
 				print(`[shop] {player.Name}: {message}`)
-			end
-		elseif request.action == "undisplay" then
-			local ok, message = ExhibitService.undisplay(player)
-			resultRemote:FireClient(player, message)
-			if ok then
-				print(`[exhibit] {player.Name}: {message}`)
 			end
 		elseif request.action == "rack" then
 			if kind ~= "decon" then

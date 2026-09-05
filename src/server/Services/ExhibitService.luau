@@ -147,33 +147,34 @@ local function renderHose(index: number, data: any?)
 	Plots.setHoseTier(station, if data then data.gear.cleaner else nil)
 end
 
---- The world half of "hold the item, hold E on the stand you're facing": a plain
---- default-styled ProximityPrompt (small white ActionText, same as the wash tub's
---- own "Wash" prompt — see WashService/build/Plots' `buildCleansingStation`), built
---- once per stand and reused after that, same lazy-build-then-toggle shape
---- `setStandTag` already uses below for the yield tag.
+--- The world half of "hold the item, hold E on the stand": a plain default-styled
+--- ProximityPrompt (small white ActionText, same as the wash tub's own "Wash"
+--- prompt — see WashService/build/Plots' `buildCleansingStation`), built once per
+--- stand and reused after that, same lazy-build-then-toggle shape `setStandTag`
+--- already uses below for the yield tag. There is no panel any more for either
+--- verb — placing and taking an item back are both a prompt on the stand itself.
 ---
---- WHICH STAND IS ACTUALLY TARGETED IS NEVER THIS PROMPT'S IDENTITY. `Triggered`
---- only means "this player pressed E near a stand right now" — `ExhibitService.
---- display` re-derives the faced stand itself (StationService.facedStation), so it
---- is never wrong even if two stands' prompts are close enough to both be in range.
-local function ensurePlacePrompt(stand: BasePart): ProximityPrompt
-	local existing = stand:FindFirstChild("Place")
+--- WHICH STAND IS ACTUALLY TARGETED IS NEVER A PROMPT'S IDENTITY. `Triggered` only
+--- means "this player pressed E near a stand right now" — `action` (`display` or
+--- `undisplay`) re-derives the real stand itself, so a prompt is never wrong even
+--- if two stands' prompts are close enough to both be in range.
+local function ensurePrompt(stand: BasePart, name: string, actionText: string, action: (Player) -> (boolean, string)): ProximityPrompt
+	local existing = stand:FindFirstChild(name)
 	if existing and existing:IsA("ProximityPrompt") then
 		return existing
 	end
 
 	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "Place"
-	prompt.ActionText = "Place"
+	prompt.Name = name
+	prompt.ActionText = actionText
 	prompt.ObjectText = ""
-	prompt.HoldDuration = Tuning.EXHIBIT_PLACE_HOLD_SECONDS
+	prompt.HoldDuration = Tuning.EXHIBIT_STAND_HOLD_SECONDS
 	prompt.MaxActivationDistance = (stand:GetAttribute("Radius") :: number?) or 7
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = stand
 
 	prompt.Triggered:Connect(function(player: Player)
-		local ok, message = ExhibitService.display(player)
+		local ok, message = action(player)
 		if resultRemote then
 			resultRemote:FireClient(player, message)
 		end
@@ -193,14 +194,15 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 		return
 	end
 
-	-- Only enabled while the stand is actually free -- occupied is the one fact
-	-- about a stand that is the same for every viewer, unlike ownership (which the
-	-- prompt does not attempt to gate: a non-owner who presses it gets refused by
-	-- `display` itself, same as pressing Wash on someone else's tub costs nothing
-	-- to attempt and fails cleanly).
+	-- Exactly one of the two is ever enabled -- occupied is the one fact about a
+	-- stand that is the same for every viewer, unlike ownership (which neither
+	-- prompt attempts to gate: a non-owner who presses one gets refused by
+	-- `display`/`undisplay` itself, same as pressing Wash on someone else's tub
+	-- costs nothing to attempt and fails cleanly).
 	local stand = plot:FindFirstChild(`Stand{slot}`, true) :: BasePart?
 	if stand then
-		ensurePlacePrompt(stand).Enabled = itemId == nil
+		ensurePrompt(stand, "Place", "Place", ExhibitService.display).Enabled = itemId == nil
+		ensurePrompt(stand, "Take", "Take", ExhibitService.undisplay).Enabled = itemId ~= nil
 	end
 
 	local display = plot:FindFirstChild(`Display{slot}`, true) :: BasePart?
@@ -751,43 +753,6 @@ local function tickPlayer(player: Player, dt: number, flush: boolean)
 end
 
 -- ── Actions ───────────────────────────────────────────────────────────────────
-
---- Everything StationController needs to draw the pedestal (stand) panel.
-export type StandView = {
-	plotIndex: number,
-	slot: number,
-	isOwner: boolean,
-	occupied: boolean,
-	itemName: string?,
-	rarity: string?,
-	uncrateSecondsLeft: number?,
-}
-
-function ExhibitService.standViewFor(player: Player, plotIndex: number, slot: number, data: any): StandView
-	local entry = nil
-	for _, e in data.exhibit.pedestals do
-		if e.slot == slot then
-			entry = e
-			break
-		end
-	end
-
-	local secondsLeft = nil
-	if entry then
-		local elapsed = os.time() - entry.placedAt
-		secondsLeft = math.max(0, Tuning.EXHIBIT_UNCRATE_SECONDS - elapsed)
-	end
-
-	return {
-		plotIndex = plotIndex,
-		slot = slot,
-		isOwner = plotOf[player] == plotIndex,
-		occupied = entry ~= nil,
-		itemName = if entry then Items.get(entry.itemId).name else nil,
-		rarity = if entry then entry.rarity else nil,
-		uncrateSecondsLeft = secondsLeft,
-	}
-end
 
 --- Move the currently HELD item from the backpack onto the stand the player is
 --- FACING. Both are derived server-side (facing exactly like ShopService derives
