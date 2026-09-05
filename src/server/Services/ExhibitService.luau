@@ -155,10 +155,17 @@ end
 --- verb — placing and taking an item back are both a prompt on the stand itself.
 ---
 --- WHICH STAND IS ACTUALLY TARGETED IS NEVER A PROMPT'S IDENTITY. `Triggered` only
---- means "this player pressed E near a stand right now" — `action` (`display` or
---- `undisplay`) re-derives the real stand itself, so a prompt is never wrong even
---- if two stands' prompts are close enough to both be in range.
-local function ensurePrompt(stand: BasePart, name: string, actionText: string, action: (Player) -> (boolean, string)): ProximityPrompt
+--- means "this player pressed a key near a stand right now" — `action` (`display`
+--- or `undisplay`) re-derives the real stand itself, so a prompt is never wrong
+--- even if two stands' prompts are close enough to both be in range.
+---
+--- PLACE AND TAKE CAN BOTH BE ENABLED AT ONCE (a swap: something is already on
+--- the stand and you are holding something else), which is exactly the case a
+--- shared keyboard key cannot resolve — two enabled ProximityPrompts on the same
+--- part with the same KeyboardKeyCode silently pick ONE of them and the other
+--- keypress goes nowhere, confirmed live (pressing E fired only the wrong one of
+--- the pair; giving Take its own key fixed it instantly). Hence `keyCode`.
+local function ensurePrompt(stand: BasePart, name: string, actionText: string, keyCode: Enum.KeyCode, action: (Player) -> (boolean, string)): ProximityPrompt
 	local existing = stand:FindFirstChild(name)
 	if existing and existing:IsA("ProximityPrompt") then
 		return existing
@@ -168,6 +175,7 @@ local function ensurePrompt(stand: BasePart, name: string, actionText: string, a
 	prompt.Name = name
 	prompt.ActionText = actionText
 	prompt.ObjectText = ""
+	prompt.KeyboardKeyCode = keyCode
 	prompt.HoldDuration = Tuning.EXHIBIT_STAND_HOLD_SECONDS
 	prompt.MaxActivationDistance = (stand:GetAttribute("Radius") :: number?) or 7
 	prompt.RequiresLineOfSight = false
@@ -194,15 +202,20 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 		return
 	end
 
-	-- Exactly one of the two is ever enabled -- occupied is the one fact about a
-	-- stand that is the same for every viewer, unlike ownership (which neither
-	-- prompt attempts to gate: a non-owner who presses one gets refused by
+	-- PLACE STAYS ENABLED EVEN WHEN OCCUPIED, ON PURPOSE — that is what makes a
+	-- swap reachable at all (hold something, press E on an occupied stand, `display`
+	-- pulls the old item into your bag and puts the held one up in its place). If
+	-- you press it with nothing held, `display` refuses with "hold something
+	-- first" exactly like it always has; there is no swap-specific gate to add.
+	--
+	-- TAKE only makes sense at all once something is here, unlike ownership (which
+	-- neither prompt attempts to gate: a non-owner who presses one gets refused by
 	-- `display`/`undisplay` itself, same as pressing Wash on someone else's tub
 	-- costs nothing to attempt and fails cleanly).
 	local stand = plot:FindFirstChild(`Stand{slot}`, true) :: BasePart?
 	if stand then
-		ensurePrompt(stand, "Place", "Place", ExhibitService.display).Enabled = itemId == nil
-		ensurePrompt(stand, "Take", "Take", ExhibitService.undisplay).Enabled = itemId ~= nil
+		ensurePrompt(stand, "Place", "Place", Enum.KeyCode.E, ExhibitService.display).Enabled = true
+		ensurePrompt(stand, "Take", "Take", Enum.KeyCode.F, ExhibitService.undisplay).Enabled = itemId ~= nil
 	end
 
 	local display = plot:FindFirstChild(`Display{slot}`, true) :: BasePart?
@@ -757,6 +770,12 @@ end
 --- Move the currently HELD item from the backpack onto the stand the player is
 --- FACING. Both are derived server-side (facing exactly like ShopService derives
 --- the track from where the player is standing) — never taken from the request.
+---
+--- IF SOMETHING IS ALREADY THERE, THIS SWAPS THEM: the occupant comes off into the
+--- bag (exactly like `undisplay`, crating delay respected and all) and the held
+--- item goes up in its place, in one step. There is no separate "swap" entry point
+--- — pressing Place on an occupied stand while holding something IS the swap; the
+--- "Place" ProximityPrompt stays enabled even when occupied for exactly this.
 function ExhibitService.display(player: Player): (boolean, string)
 	local data = DataService.data(player)
 	if data == nil then
@@ -780,11 +799,6 @@ function ExhibitService.display(player: Player): (boolean, string)
 	if slot < 1 or slot > data.exhibit.slots then
 		return false, "that stand doesn't exist"
 	end
-	for _, entry in data.exhibit.pedestals do
-		if entry.slot == slot then
-			return false, "something's already here"
-		end
-	end
 
 	if data.heldUid == "" then
 		return false, "hold something first \u{2014} pick it from your bag"
@@ -800,7 +814,43 @@ function ExhibitService.display(player: Player): (boolean, string)
 		return false, "slag can't be displayed"
 	end
 
+	-- Everything above is "is the thing in your HAND allowed up there at all" —
+	-- unconditional. Everything below is "what, if anything, is already up there",
+	-- which only changes what comes off, never whether the new item can go on.
+	local occupiedIndex = nil
+	for i, entry in data.exhibit.pedestals do
+		if entry.slot == slot then
+			occupiedIndex = i
+			break
+		end
+	end
+
+	local displaced: any = nil
+	if occupiedIndex then
+		local entry = data.exhibit.pedestals[occupiedIndex]
+		local elapsed = os.time() - entry.placedAt
+		if elapsed < Tuning.EXHIBIT_UNCRATE_SECONDS then
+			return false, `still crating \u{2014} {Tuning.EXHIBIT_UNCRATE_SECONDS - elapsed}s left`
+		end
+		table.remove(data.exhibit.pedestals, occupiedIndex)
+		displaced = entry
+	end
+
 	table.remove(data.carry, index)
+	if displaced then
+		-- Same shape `undisplay` gives a retrieved item: frozen, no patches, clock
+		-- reset. It was already docked; coming off must not restart the decay clock.
+		table.insert(data.carry, {
+			uid = displaced.uid,
+			itemId = displaced.itemId,
+			rarity = displaced.rarity,
+			modifier = displaced.modifier,
+			elapsed = 0,
+			frozen = true,
+			patches = {},
+		})
+	end
+
 	table.insert(data.exhibit.pedestals, {
 		slot = slot,
 		uid = item.uid,
@@ -812,6 +862,10 @@ function ExhibitService.display(player: Player): (boolean, string)
 
 	renderStand(plot, slot, item.itemId, item.rarity)
 	refreshYieldTags(plot, data)
+
+	if displaced then
+		return true, `swapped in {Items.get(item.itemId).name} \u{2014} {Items.get(displaced.itemId).name} back in your bag`
+	end
 	return true, `{Items.get(item.itemId).name} is on display`
 end
 
