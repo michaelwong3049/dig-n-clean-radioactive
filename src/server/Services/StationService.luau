@@ -106,6 +106,56 @@ function StationService.at(position: Vector3): (string?, string?, BasePart?)
 	return bestKind, bestId, bestPart
 end
 
+--- Among stations of `kind` within their own radius of the player, the one most
+--- nearly in front of them — or nil if none qualify within `maxAngleDeg` of their
+--- look direction. Unlike `at`, which is pure nearest-wins, this exists for the
+--- pedestal hold-to-place interaction: pedestal slots sit 10 studs apart against a
+--- 7-stud radius each (Plots.ROW_PITCH), so their ranges overlap and nearest-wins
+--- alone can pick the stand behind you. `at`/`kindOf`/`idOf` are untouched — shops
+--- and the trader still want plain nearest-wins.
+function StationService.facedStation(player: Player, kind: string, maxAngleDeg: number): string?
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root == nil or not root:IsA("BasePart") then
+		return nil
+	end
+
+	local position = root.Position
+	local look = root.CFrame.LookVector
+	look = (Vector3.new(look.X, 0, look.Z))
+	if look.Magnitude < 1e-4 then
+		return nil
+	end
+	look = look.Unit
+
+	local maxCos = math.cos(math.rad(maxAngleDeg))
+	local bestId: string? = nil
+	local bestCos = -math.huge
+
+	for _, entry in cache do
+		if entry.kind ~= kind then
+			continue
+		end
+		local delta = entry.position - position
+		local squared = delta.X * delta.X + delta.Y * delta.Y + delta.Z * delta.Z
+		if squared > entry.radius * entry.radius then
+			continue
+		end
+
+		local flat = Vector3.new(delta.X, 0, delta.Z)
+		if flat.Magnitude < 1e-4 then
+			continue
+		end
+		local cos = look:Dot(flat.Unit)
+		if cos >= maxCos and cos > bestCos then
+			bestCos = cos
+			bestId = entry.id
+		end
+	end
+
+	return bestId
+end
+
 function StationService.kindOf(player: Player): string?
 	local entry = current[player]
 	return if entry then entry.kind else nil

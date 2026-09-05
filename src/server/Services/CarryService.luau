@@ -251,7 +251,10 @@ local function stepPlayer(player: Player)
 		table.insert(described, CarryService.describe(item, stats))
 	end
 
-	local signature = signatureOf(described, stats.capacity)
+	-- heldUid is in the signature (not just the described list) so the hold-to-place
+	-- prompt on a pedestal updates the moment you pick something up or let it go,
+	-- even though holding/releasing changes nothing else about the bag's contents.
+	local signature = signatureOf(described, stats.capacity) .. "|" .. data.heldUid
 	if lastSignature[player] == signature then
 		return
 	end
@@ -263,6 +266,7 @@ local function stepPlayer(player: Player)
 		-- already owns, so it leaks nothing.
 		fuseMult = stats.satchelFuseMult,
 		items = described,
+		heldUid = data.heldUid,
 	})
 end
 

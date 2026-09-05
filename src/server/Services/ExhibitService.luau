@@ -737,19 +737,18 @@ function ExhibitService.standViewFor(player: Player, plotIndex: number, slot: nu
 	}
 end
 
---- Move an item from the backpack onto a specific stand. The stand (plot + slot)
---- is derived from where the player is STANDING, exactly like ShopService derives
---- the track — never taken from the request.
-function ExhibitService.display(player: Player, uid: string): (boolean, string)
+--- Move the currently HELD item from the backpack onto the stand the player is
+--- FACING. Both are derived server-side (facing exactly like ShopService derives
+--- the track from where the player is standing) — never taken from the request.
+function ExhibitService.display(player: Player): (boolean, string)
 	local data = DataService.data(player)
 	if data == nil then
 		return false, "your save hasn't loaded"
 	end
 
-	local kind = StationService.kindOf(player)
-	local stationId = StationService.idOf(player)
-	if kind ~= "pedestal" or stationId == nil then
-		return false, "you need to be at one of your stands"
+	local stationId = StationService.facedStation(player, "pedestal", Tuning.EXHIBIT_PLACE_FACING_ANGLE)
+	if stationId == nil then
+		return false, "you need to be facing one of your stands"
 	end
 
 	local plotIndex, slotStr = string.match(stationId, "^(%d+):(%d+)$")
@@ -770,7 +769,10 @@ function ExhibitService.display(player: Player, uid: string): (boolean, string)
 		end
 	end
 
-	local item, list, index = EconomyService.find(data, uid)
+	if data.heldUid == "" then
+		return false, "hold something first \u{2014} pick it from your bag"
+	end
+	local item, list, index = EconomyService.find(data, data.heldUid)
 	if item == nil or list ~= data.carry or index == nil then
 		return false, "you aren't carrying that"
 	end
