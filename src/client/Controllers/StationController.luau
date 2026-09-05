@@ -1,19 +1,16 @@
 --[[
 	StationController.lua — the base camp panel.
 
-	Appears at the trader, the shops, and the display stands. Select a row, then act
-	on it. The one verb left on the list itself is SELL — scrubbing and racking both
-	left this file, see below.
+	Appears at the trader and the shops. Select a row, then act on it. The one verb
+	left on the list itself is SELL — scrubbing and racking both left this file, see
+	below.
 
-	TWO MODES NOW, AND THE SHRINKING IS THE POINT. shop and pedestal each replace the
-	list with their own body; trader is the list itself. Both arrive on the SAME
-	StationState tick (DeconService fills `offer` / `standView` depending on where you
-	stand), which is why adding a station kind has never needed a new remote and
-	should not start needing one. The plot claim board was a third mode until exhibit
+	ONE MODE NOW, AND THE SHRINKING IS THE POINT. shop replaces the list with its own
+	body; trader is the list itself. The plot claim board was a mode until exhibit
 	income went auto-deposit — with nothing left to COLLECT, the board and its panel
 	both went.
 
-	TWO MODES WERE DELETED, ON REQUEST, AND BOTH DELETIONS FIXED SOMETHING.
+	THREE MODES WERE DELETED, ON REQUEST, AND ALL THREE DELETIONS FIXED SOMETHING.
 
 	The wash pad used to open a panel listing all ten liquids and their live odds.
 	Stepping on a big lit button in the world and having a menu appear over the screen
@@ -30,6 +27,12 @@
 	button and the Quarantine Locker rows. The locker still exists in the profile and
 	DeconService still implements `rack`, but nothing in the world triggers it any
 	more. PLAN §10.2 wants a physical locker anyway; see TODO §5b.
+
+	The pedestal panel used to open on approach with an item-picker list and a
+	DISPLAY button, then (briefly) a hold-progress bar for a hold-E-to-place redesign.
+	Both are gone: placing and taking an item back off a stand are now a "Place"/
+	"Take" ProximityPrompt on the stand itself (ExhibitService), the same plain
+	default-styled prompt the wash tub already used — no panel involved at all.
 
 	PANEL_KINDS IS AN ALLOWLIST, NOT A FALLTHROUGH, and that is not stylistic. The
 	trader branch is last and unguarded, so any station kind this file does not know
@@ -123,16 +126,16 @@ local ROWS = 9
 -- pad is deliberately the first one: it is a button in the world, and the whole point
 -- of this pass was that pressing it shows no UI at all.
 --
--- DECON IS NOT IN HERE ANY MORE, ON REQUEST. Walking up to the cleansing station used
--- to open a panel over the screen; now the only thing there is the E prompt on the
--- tub, which is the whole interaction. It also fixed a bug nobody had diagnosed yet:
--- that panel sat under the crosshair, so the click that was supposed to start the
--- hose arrived with `gameProcessedEvent` true and the spray never began. "Nothing
--- happens" was the panel eating the input.
+-- DECON AND PEDESTAL ARE NOT IN HERE ANY MORE, ON REQUEST. Walking up to the
+-- cleansing station or a display stand used to open a panel over the screen; now
+-- the only thing there is a prompt in the world (the tub's "Wash", a stand's
+-- "Place"/"Take"), which is the whole interaction. Decon's removal also fixed a
+-- bug nobody had diagnosed yet: that panel sat under the crosshair, so the click
+-- that was supposed to start the hose arrived with `gameProcessedEvent` true and
+-- the spray never began. "Nothing happens" was the panel eating the input.
 local PANEL_KINDS: { [string]: boolean } = {
 	trader = true,
 	shop = true,
-	pedestal = true,
 }
 
 -- ── Shop card grid ──────────────────────────────────────────────────
@@ -187,8 +190,8 @@ local toastToken = 0
 -- station kind used to un-dismiss on arrival, so walking within ten studs of a stall
 -- put a full-screen panel over you whether you had come to buy or were cutting
 -- across the plaza. Shops now start closed and open on the stand's own E prompt
--- (build/Shops' "ViewShop"); trader and pedestal still open on approach, because
--- neither has a prompt to open it with and neither is something you walk past.
+-- (build/Shops' "ViewShop"); trader still opens on approach, because it has no
+-- prompt to open it with and is not something you walk past.
 --
 -- This is the same call the wash pad and the decon station already went through, in
 -- the same direction and for the same reason -- see the header. The panel is a place
@@ -554,57 +557,9 @@ local function build(): ScreenGui
 
 	-- Plots have no panel any more: exhibit income auto-deposits into the owner's
 	-- wallet (server-side ExhibitService), so the claim board — whose only verb was
-	-- COLLECT — was removed along with the "plot" station kind.
-
-	-- ── Pedestal mode (stand) ────────────────────────────────────────────
-	-- Empty+unlocked reuses the SAME carry rows the decon/trader panel already
-	-- draws — "an item picker" is just those rows with a different verb attached,
-	-- exactly like Shop mode reused the panel instead of inventing new list UI.
-	local pedestal = Instance.new("Frame")
-	pedestal.Name = "Pedestal"
-	pedestal.LayoutOrder = 27
-	pedestal.Size = UDim2.fromScale(1, 0)
-	pedestal.AutomaticSize = Enum.AutomaticSize.Y
-	pedestal.BackgroundTransparency = 1
-	pedestal.Visible = false
-	pedestal.Parent = panel
-	ui.pedestal = pedestal
-
-	local pedestalLayout = Instance.new("UIListLayout")
-	pedestalLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	pedestalLayout.Padding = UDim.new(0, 8)
-	pedestalLayout.Parent = pedestal
-
-	ui.standInfo = UIKit.label(pedestal, {
-		name = "StandInfo",
-		size = UDim2.new(1, 0, 0, 26),
-		font = UIKit.Font.body,
-		textSize = 16,
-		color = COLOR.text,
-	})
-	ui.standInfo.LayoutOrder = 1
-
-	ui.displayButton = UIKit.button(pedestal, {
-		name = "Display",
-		size = UDim2.new(1, 0, 0, 48),
-		font = UIKit.Font.body,
-		textSize = 19,
-		color = COLOR.green,
-		fillTransparency = 0.25,
-		text = "DISPLAY",
-	})
-	ui.displayButton.LayoutOrder = 2
-
-	ui.undisplayButton = UIKit.button(pedestal, {
-		name = "Undisplay",
-		size = UDim2.new(1, 0, 0, 48),
-		font = UIKit.Font.body,
-		textSize = 19,
-		color = COLOR.amber,
-		fillTransparency = 0.25,
-		text = "UNDISPLAY",
-	})
-	ui.undisplayButton.LayoutOrder = 3
+	-- COLLECT — was removed along with the "plot" station kind. Pedestals never got
+	-- one back either: placing and taking an item off a stand are both a
+	-- ProximityPrompt on the stand itself (ExhibitService), not a panel.
 
 	-- PANEL_PAD, not a literal 16: SHOP_PANEL_WIDTH is derived from this, so a typed
 	-- number here would silently stop four cards fitting the moment it was retuned.
@@ -650,9 +605,8 @@ local function build(): ScreenGui
 	actions.Parent = panel
 	-- Hiding the three buttons individually is not enough: UIListLayout skips
 	-- INVISIBLE children, so an empty-but-visible container still charges the panel
-	-- its full 48px plus a gap. Shop and pedestal modes both hide every button in
-	-- here, and the shop is the tallest mode in the panel, so that dead band is the
-	-- cheapest 54px available.
+	-- its full 48px plus a gap. Shop mode hides every button in here, and it is the
+	-- tallest mode in the panel, so that dead band is the cheapest 54px available.
 	ui.actions = actions
 
 	local actionLayout = Instance.new("UIListLayout")
@@ -972,13 +926,11 @@ local function render()
 	-- Shop mode replaces the item list entirely: you are not carrying anything
 	-- relevant to this transaction, so showing your backpack is noise.
 	local atShop = state.station == "shop"
-	local atPedestal = state.station == "pedestal"
 	ui.shop.Visible = atShop
-	ui.pedestal.Visible = atPedestal
 	-- Shop mode carries its own wallet line under the card row, so the header's
 	-- subtitle would just print the same number twice.
 	ui.subtitle.Visible = not atShop
-	ui.actions.Visible = not (atShop or atPedestal)
+	ui.actions.Visible = not atShop
 	-- Storefronts centre their sign; a station panel that is really a list keeps its
 	-- title on the same left margin as the rows underneath it.
 	ui.title.TextXAlignment = if atShop then Enum.TextXAlignment.Center else Enum.TextXAlignment.Left
@@ -1010,66 +962,6 @@ local function render()
 
 		for _, row in ui.rows do
 			row.Visible = false
-		end
-		ui.sellButton.Visible = false
-		return
-	end
-
-	if atPedestal then
-		local view = state.standView
-		ui.title.Text = if view then `STAND {view.slot}` else "STAND"
-		ui.title.TextColor3 = COLOR.blue
-		ui.panelStroke.Color = COLOR.blue
-		ui.subtitle.Text = if view and view.isOwner then "your plot" else "not your plot"
-
-		-- A picker only makes sense on your own, empty stand -- every other case is
-		-- a status message with at most one verb.
-		local showPicker = view ~= nil and view.isOwner and not view.occupied
-
-		if view == nil or not view.isOwner then
-			ui.standInfo.Text = "not your plot"
-			ui.standInfo.TextColor3 = COLOR.dim
-			ui.displayButton.Visible = false
-			ui.undisplayButton.Visible = false
-		elseif view.occupied then
-			local left = view.uncrateSecondsLeft or 0
-			if left > 0 then
-				ui.standInfo.Text = string.format("%s \u{2014} crating, %ds left", view.itemName or "item", left)
-				ui.standInfo.TextColor3 = COLOR.amber
-				ui.undisplayButton.Visible = false
-			else
-				ui.standInfo.Text = string.format("%s (%s)", view.itemName or "item", view.rarity or "")
-				ui.standInfo.TextColor3 = rarityColor(view.rarity or "")
-				ui.undisplayButton.Visible = true
-			end
-			ui.displayButton.Visible = false
-		else
-			ui.standInfo.Text = "empty \u{2014} pick an item below"
-			ui.standInfo.TextColor3 = COLOR.dim
-			ui.displayButton.Visible = true
-			ui.undisplayButton.Visible = false
-		end
-
-		-- Keep the selection valid against carry, same rule the decon/trader
-		-- path uses below -- this panel picks from the SAME list.
-		local stillThere = false
-		for _, item in state.items do
-			if item.uid == selected then
-				stillThere = true
-				break
-			end
-		end
-		if not stillThere then
-			selected = if #state.items > 0 then state.items[1].uid else nil
-		end
-
-		for index, row in ui.rows do
-			local item = state.items[index]
-			if item and showPicker then
-				paintRow(row, item, item.uid == selected)
-			else
-				row.Visible = false
-			end
 		end
 		ui.sellButton.Visible = false
 		return
@@ -1185,16 +1077,6 @@ function Station.start()
 			end
 		end)
 	end
-
-	ui.displayButton.MouseButton1Click:Connect(function()
-		if selected then
-			actionRemote:FireServer({ action = "display", uid = selected })
-		end
-	end)
-
-	ui.undisplayButton.MouseButton1Click:Connect(function()
-		actionRemote:FireServer({ action = "undisplay" })
-	end)
 
 	ui.closeButton.MouseButton1Click:Connect(function()
 		dismissed = true
