@@ -100,8 +100,12 @@ function Contamination.blockedBy(patches: { number }, potency: number): number?
 end
 
 --- Remove one patch this tool can actually clear, easiest first, and return its
---- hardness. nil means nothing left within reach — either done, or walled.
-function Contamination.clearOne(patches: { number }, potency: number): number?
+--- hardness and the array index it was removed from. Both nil means nothing left
+--- within reach — either done, or walled. The index is handed back so a caller
+--- tracking a parallel array (WashService's per-session zone ids, keeping a ball or
+--- a real part in sync with a patch that has no identity of its own) can remove at
+--- the same spot and stay in lockstep with the shift `table.remove` causes.
+function Contamination.clearOne(patches: { number }, potency: number): (number?, number?)
 	local bestIndex: number? = nil
 	local bestHardness: number? = nil
 
@@ -112,10 +116,10 @@ function Contamination.clearOne(patches: { number }, potency: number): number?
 	end
 
 	if bestIndex == nil then
-		return nil
+		return nil, nil
 	end
 	table.remove(patches, bestIndex)
-	return bestHardness
+	return bestHardness, bestIndex
 end
 
 --- Seconds of scrubbing one patch costs. Harder patches take longer even when

@@ -99,6 +99,42 @@ local function glowAnchor(root: Instance): BasePart?
 	return root:FindFirstChildWhichIsA("BasePart", true)
 end
 
+--- The stash-then-lerp core, scoped to an explicit list of parts rather than a
+--- root's descendants. What `apply` paints the whole model with; what a wash-stand
+--- zone paints just its own slice of real parts with, so one patch clearing can turn
+--- one area clean without touching the rest of the object.
+local function tintParts(parts: { BasePart }, level: number)
+	local amount = math.clamp(level, 0, 1)
+	if amount <= EPSILON then
+		for _, part in parts do
+			local stashed = part:GetAttribute(STASH_ATTR)
+			if typeof(stashed) == "Color3" then
+				part.Color = stashed
+				part:SetAttribute(STASH_ATTR, nil)
+			end
+		end
+		return
+	end
+
+	local tint = TINT_FLOOR + (TINT_MAX - TINT_FLOOR) * amount
+	for _, part in parts do
+		part.Color = cleanColor(part):Lerp(GRIME, tint)
+	end
+end
+
+--- Paint an explicit list of real parts `level` dirty. Used by WashService for a
+--- single zone on the stand — the rest of the item is untouched, which is what makes
+--- clearing one patch read as cleaning one AREA rather than fading the whole thing.
+function ItemGrime.applyParts(parts: { BasePart }, level: number)
+	tintParts(parts, level)
+end
+
+--- Put an explicit list of parts back to their stashed colour. The zone-scoped twin
+--- of `clear`.
+function ItemGrime.clearParts(parts: { BasePart })
+	tintParts(parts, 0)
+end
+
 --- Paint `root` as `level` dirty, 0 (clean) to 1 (straight out of the ground).
 --- Idempotent and safe to call every tick: it re-derives from the stashed colour, so
 --- a falling level walks the item back toward its own art.
@@ -109,10 +145,11 @@ function ItemGrime.apply(root: Instance, level: number)
 		return
 	end
 
-	local tint = TINT_FLOOR + (TINT_MAX - TINT_FLOOR) * amount
+	local parts: { BasePart } = {}
 	eachPart(root, function(part)
-		part.Color = cleanColor(part):Lerp(GRIME, tint)
+		table.insert(parts, part)
 	end)
+	tintParts(parts, amount)
 
 	local anchor = glowAnchor(root)
 	if anchor then

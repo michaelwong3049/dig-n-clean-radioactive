@@ -95,10 +95,15 @@
 
 	── THE FURNITURE ─────────────────────────────────────────────────────
 
-	PATCH BLOBS ARE PLACED DETERMINISTICALLY, from the patch's index through a
-	golden-angle spiral. They have to be: WashState arrives at 10 Hz, and blobs placed
-	with math.random would swarm over the item like flies. Same index in, same point
-	on the item out, every tick.
+	PATCH BLOBS SIT WHERE THE SERVER SAYS THE REAL PATCH IS. WashService bucket the
+	item's own real parts (or a stand-in cluster of blocks for the rarity-coloured
+	fallback) into one zone per patch and sends each patch's `anchor` — the zone's own
+	position — over WashState. This file only draws a ball there; it used to place
+	blobs itself with a golden-angle spiral scaled to the item's bounding box, which
+	looked decorative rather than attached and reshuffled position whenever a patch
+	other than the last cleared (the array compacting). Keying blobs by the patch's
+	`zone` id rather than its array index is what makes a surviving patch's ball hold
+	still when a different one clears.
 
 	GREEN, AND YES, DELIBERATELY. A contamination patch is the SAME SUBSTANCE as the
 	ooze — PLAN §2 step 4 calls them "glowing hotspots" and they are literally the
@@ -333,7 +338,7 @@ local jetParts: { BasePart } = {}
 local splashPart: BasePart? = nil
 local jetShown = false
 local spraying = false
-local aimedIndex: number? = nil
+local aimedZone: number? = nil
 local renderBound = false
 
 -- The first-person view, as a thing that is either on or off. `viewActive` is what
@@ -380,19 +385,6 @@ local function itemPivot(): (CFrame?, Vector3?)
 	return stand.CFrame, Vector3.new(1.4, 1.4, 1.4)
 end
 
---- A stable point on the item's surface for patch `index`. Golden-angle spiral over
---- a sphere, scaled to the item's own bounding box, so patches spread evenly and
---- land in the same place every tick regardless of how many are left.
-local function patchPoint(index: number, pivot: CFrame, size: Vector3): Vector3
-	local golden = 2.39996323
-	local t = (index - 0.5) / 8 -- 8, not #patches: removing one must not move the rest
-	local y = 1 - 2 * math.min(t, 1)
-	local radius = math.sqrt(math.max(0, 1 - y * y))
-	local theta = golden * index
-	local dir = Vector3.new(math.cos(theta) * radius, y, math.sin(theta) * radius)
-	local extent = (size * 0.5) + Vector3.new(0.12, 0.12, 0.12)
-	return (pivot * CFrame.new(dir * extent)).Position
-end
 
 -- ── Build / tear down ───────────────────────────────────────────────
 
@@ -911,26 +903,22 @@ local function paintBlobs()
 	if state == nil then
 		return
 	end
-	local pivot, size = itemPivot()
-	if pivot == nil or size == nil then
-		return
-	end
 
 	local live: { [number]: boolean } = {}
 	for _, patch in state.patches do
-		live[patch.index] = true
+		live[patch.zone] = true
 
-		local blob = blobs[patch.index]
+		local blob = blobs[patch.zone]
 		if blob == nil or blob.Parent == nil then
 			blob = Instance.new("Part")
-			blob.Name = `Patch{patch.index}`
+			blob.Name = `Patch{patch.zone}`
 			blob.Shape = Enum.PartType.Ball
 			blob.Anchored = true
 			blob.CanCollide = false
 			blob.CanQuery = false
 			blob.Material = Enum.Material.SmoothPlastic
 			blob.Parent = ensureFolder()
-			blobs[patch.index] = blob
+			blobs[patch.zone] = blob
 		end
 
 		-- Harder patches are bigger, so "which one is the wall" is legible before you
@@ -938,21 +926,26 @@ local function paintBlobs()
 		-- does nothing to it, which is the Quarantine Locker taught in 3D.
 		local base = 0.30 + patch.hardness * 0.07
 		local scale = base
-		if patch.index == state.targetIndex and (state.progress or 0) > 0 then
+		if patch.zone == state.targetZone and (state.progress or 0) > 0 then
 			scale = base * (1 - 0.65 * state.progress)
 		end
 
 		blob.Size = Vector3.new(scale, scale, scale) * 2
-		blob.Position = patchPoint(patch.index, pivot, size)
+		-- WHERE THE SERVER SAYS THE REAL SPOT IS. WashService builds this patch's zone
+		-- from the item's own real geometry (or a stand-in cluster of blocks for the
+		-- rarity-coloured fallback) and hands back its position -- no bounding-box
+		-- guesswork here any more, and no reshuffle when an earlier patch clears out
+		-- from under this one: `zone` is a stable id, not an array index.
+		blob.Position = patch.anchor
 		blob.Color = if patch.blocked then PATCH_CRUSTED else PATCH_GREEN
 		blob.Material = if patch.blocked then Enum.Material.Slate else Enum.Material.SmoothPlastic
 		blob.Transparency = if patch.blocked then 0.1 else 0.15
 	end
 
-	for index, blob in blobs do
-		if not live[index] then
+	for zone, blob in blobs do
+		if not live[zone] then
 			blob:Destroy()
-			blobs[index] = nil
+			blobs[zone] = nil
 		end
 	end
 end
@@ -1287,10 +1280,10 @@ local function onRender(dt: number)
 	local target = patchAt(landing)
 	paintReticle(dt, target ~= nil)
 
-	if target ~= aimedIndex then
-		aimedIndex = target
+	if target ~= aimedZone then
+		aimedZone = target
 		if inputRemote then
-			inputRemote:FireServer({ spraying = spraying, patchIndex = aimedIndex })
+			inputRemote:FireServer({ spraying = spraying, zone = aimedZone })
 		end
 	end
 end
@@ -1379,7 +1372,7 @@ local function teardown()
 	exitView()
 	state = nil
 	spraying = false
-	aimedIndex = nil
+	aimedZone = nil
 	leaving = false
 	lookYaw, lookPitch = 0, 0
 	padLook = Vector2.zero
@@ -1500,7 +1493,7 @@ function Wash.start()
 		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
 			spraying = true
-			inputRemote:FireServer({ spraying = true, patchIndex = aimedIndex })
+			inputRemote:FireServer({ spraying = true, zone = aimedZone })
 		end
 	end)
 
@@ -1508,7 +1501,7 @@ function Wash.start()
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
 			spraying = false
 			if state ~= nil then
-				inputRemote:FireServer({ spraying = false, patchIndex = aimedIndex })
+				inputRemote:FireServer({ spraying = false, zone = aimedZone })
 			end
 		end
 		if input.KeyCode == Enum.KeyCode.Thumbstick2 then
