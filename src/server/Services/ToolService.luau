@@ -9,8 +9,16 @@
 
 	WHICH TOOL, in priority order:
 	  committed to a signal -> Magnet   (you have locked on — now pull it up)
+	  holding a dug item    -> nothing  (both hands are busy carrying the find)
 	  standing in a stage   -> Detector  (sweeping is the default verb)
 	  otherwise            -> nothing   (base camp, hands free)
+
+	A DETECTOR BRACED ACROSS THE CHEST AND AN ITEM CRADLED IN BOTH HANDS ARE THE SAME
+	POSTURE (see UPPER_BODY_POSE) applied to two different things at once — which is
+	why they used to render TOGETHER and look wrong: the coil floating in front of an
+	item that is supposedly held with both hands. `wanted` now blanks the tool the
+	moment something is riding in the off hand, so the sweep only resumes once the bag
+	slot empties back out (data.heldUid == "").
 
 	THE DECON STATION USED TO BE THE FIRST RUNG OF THAT LIST and it handed you your
 	Cleaner. It does not any more, because the Cleaner track stopped being something a
@@ -578,7 +586,7 @@ local function equipItem(character: Model, item: any?): boolean
 	return true
 end
 
-local function wanted(player: Player): string?
+local function wanted(player: Player, data: any): string?
 	-- Washing is handled by its own branch in stepPlayer, which returns before this
 	-- answer is ever used -- it has a pose to set as well as a tool to clear, and
 	-- splitting those across two places is how one of them gets forgotten.
@@ -590,6 +598,13 @@ local function wanted(player: Player): string?
 	if DigService.isLocked(player) then
 		return "Magnet"
 	end
+	-- BOTH HANDS ARE ON THE FIND. Checked ahead of the detector, not after it: a
+	-- player can walk back into a stage still carrying what they just dug up, and the
+	-- detector must stay off their chest until that item is racked or sold, not just
+	-- while it is first picked up.
+	if data and data.heldUid ~= "" then
+		return nil
+	end
 	if DigService.stageOf(player) ~= nil then
 		return "Detector"
 	end
@@ -598,9 +613,9 @@ end
 
 --- The single source of truth for which upper-body pose (if any) a character should
 --- be locked into this tick, weighing the tool in the right hand against whatever is
---- riding in the left. Detector wins ties: bracing it against the chest already holds
---- the whole upper body still, so an item picked up alongside it just goes along for
---- the ride at the detector's angles rather than fighting it for the same joints.
+--- riding in the left. The two no longer compete: `wanted` blanks the detector the
+--- moment an item is held (see its comment), so `target` is never "Detector" at the
+--- same time `hasItem` is true and this can pick one pose per tick without a tie.
 local function poseFor(target: string?, hasItem: boolean): string?
 	if target == "Detector" then
 		return "detector"
@@ -618,8 +633,8 @@ local function stepPlayer(player: Player)
 		return
 	end
 
-	local target = wanted(player)
 	local data = DataService.data(player)
+	local target = wanted(player, data)
 
 	-- ── The off hand ──────────────────────────────────────────────
 	-- Resolved BEFORE the early-out below, because the tool slot and the item slot
