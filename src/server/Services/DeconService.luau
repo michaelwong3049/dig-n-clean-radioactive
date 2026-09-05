@@ -172,7 +172,6 @@ local function stepPlayer(player: Player, _dt: number)
 		stationId = stationId,
 		offer = offer,
 		standView = standView,
-		facedPedestalId = facedPedestalId,
 		cash = data.cash,
 		xp = data.xp,
 		potency = stats.cleanPotency,
@@ -258,12 +257,6 @@ function DeconService.start()
 			resultRemote:FireClient(player, message)
 			if ok then
 				print(`[shop] {player.Name}: {message}`)
-			end
-		elseif request.action == "display" then
-			local ok, message = ExhibitService.display(player)
-			resultRemote:FireClient(player, message)
-			if ok then
-				print(`[exhibit] {player.Name}: {message}`)
 			end
 		elseif request.action == "undisplay" then
 			local ok, message = ExhibitService.undisplay(player)

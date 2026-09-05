@@ -36,6 +36,7 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
+local Net = require(Shared.Net)
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear) -- renderLuck: the plot's luck-button billboard
 local Rarity = require(Shared.Config.Rarity)
@@ -67,6 +68,8 @@ local LOCKER_ITEM_SIZE = 1.2 -- longest axis a racked item model is scaled to; t
 -- Who is sitting on which physical plot this session. Never persisted — see header.
 local plotOf: { [Player]: number } = {}
 local plotOwner: { [number]: Player? } = {}
+
+local resultRemote: any = nil
 
 -- ── Rendering ─────────────────────────────────────────────────────────────────
 -- The only place this file touches Workspace directly. Kept small and separate so
@@ -144,6 +147,44 @@ local function renderHose(index: number, data: any?)
 	Plots.setHoseTier(station, if data then data.gear.cleaner else nil)
 end
 
+--- The world half of "hold the item, hold E on the stand you're facing": a plain
+--- default-styled ProximityPrompt (small white ActionText, same as the wash tub's
+--- own "Wash" prompt — see WashService/build/Plots' `buildCleansingStation`), built
+--- once per stand and reused after that, same lazy-build-then-toggle shape
+--- `setStandTag` already uses below for the yield tag.
+---
+--- WHICH STAND IS ACTUALLY TARGETED IS NEVER THIS PROMPT'S IDENTITY. `Triggered`
+--- only means "this player pressed E near a stand right now" — `ExhibitService.
+--- display` re-derives the faced stand itself (StationService.facedStation), so it
+--- is never wrong even if two stands' prompts are close enough to both be in range.
+local function ensurePlacePrompt(stand: BasePart): ProximityPrompt
+	local existing = stand:FindFirstChild("Place")
+	if existing and existing:IsA("ProximityPrompt") then
+		return existing
+	end
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "Place"
+	prompt.ActionText = "Place"
+	prompt.ObjectText = ""
+	prompt.HoldDuration = Tuning.EXHIBIT_PLACE_HOLD_SECONDS
+	prompt.MaxActivationDistance = (stand:GetAttribute("Radius") :: number?) or 7
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = stand
+
+	prompt.Triggered:Connect(function(player: Player)
+		local ok, message = ExhibitService.display(player)
+		if resultRemote then
+			resultRemote:FireClient(player, message)
+		end
+		if ok then
+			print(`[exhibit] {player.Name}: {message}`)
+		end
+	end)
+
+	return prompt
+end
+
 --- Repaint one stand with real item art when it exists, or the old rarity-coloured
 --- block while that catalogue entry is still waiting for a model.
 local function renderStand(index: number, slot: number, itemId: string?, rarity: string?)
@@ -151,6 +192,17 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 	if plot == nil then
 		return
 	end
+
+	-- Only enabled while the stand is actually free -- occupied is the one fact
+	-- about a stand that is the same for every viewer, unlike ownership (which the
+	-- prompt does not attempt to gate: a non-owner who presses it gets refused by
+	-- `display` itself, same as pressing Wash on someone else's tub costs nothing
+	-- to attempt and fails cleanly).
+	local stand = plot:FindFirstChild(`Stand{slot}`, true) :: BasePart?
+	if stand then
+		ensurePlacePrompt(stand).Enabled = itemId == nil
+	end
+
 	local display = plot:FindFirstChild(`Display{slot}`, true) :: BasePart?
 	if display == nil then
 		return
@@ -857,7 +909,9 @@ end
 
 -- ── Bootstrap ─────────────────────────────────────────────────────────────────
 
-function ExhibitService.init() end
+function ExhibitService.init()
+	resultRemote = Net.get("StationResult")
+end
 
 function ExhibitService.start()
 	DataService.onLoaded(function(player, data)

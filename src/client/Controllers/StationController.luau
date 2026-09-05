@@ -98,12 +98,9 @@ local CollectionService = game:GetService("CollectionService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
-local Tuning = require(Shared.Config.Tuning)
 local Net = require(Shared.Net)
 
 -- No `Dock` alias any more: this panel is centred on the screen rather than on the
@@ -176,14 +173,6 @@ local state = { station = nil, items = {}, locker = {} }
 local selected: string? = nil
 local actionRemote: any = nil
 local toastToken = 0
-
--- Hold-to-place on a pedestal (see the header's "Pedestal mode" note below). Kept
--- independent of `state`/`selected` because it is driven off-tick, every frame, and
--- has nothing to do with which row the trader panel has selected.
-local heldUid: string = ""
-local eKeyDown = false
-local holdProgress = 0 -- seconds
-local holdFired = false -- refuse to refire until E is released, once a hold lands
 
 -- Player-closed, independent of whether the server still has you standing in the
 -- station's radius. Walking away always closed the panel because that also zeroed
@@ -595,32 +584,9 @@ local function build(): ScreenGui
 	})
 	ui.standInfo.LayoutOrder = 1
 
-	-- Replaces the old item-picker rows + DISPLAY button: placing is now "hold the
-	-- item, hold E facing this stand", so the panel's only job here is to show that
-	-- hold filling up. Track + fill rather than a button, since there is nothing to
-	-- click any more.
-	local holdTrack = UIKit.panel(pedestal, {
-		name = "HoldTrack",
-		size = UDim2.new(1, 0, 0, 10),
-		color = COLOR.panel,
-		transparency = 0.3,
-		strokeThickness = 0,
-		cornerRadius = UIKit.Radius.pill,
-	})
-	holdTrack.LayoutOrder = 2
-	ui.holdTrack = holdTrack
-
-	local holdFill = Instance.new("Frame")
-	holdFill.Name = "Fill"
-	holdFill.BackgroundColor3 = COLOR.blue
-	holdFill.BorderSizePixel = 0
-	holdFill.Size = UDim2.fromScale(0, 1)
-	holdFill.Parent = holdTrack
-	local holdFillCorner = Instance.new("UICorner")
-	holdFillCorner.CornerRadius = UIKit.Radius.pill
-	holdFillCorner.Parent = holdFill
-	ui.holdFill = holdFill
-
+	-- Replaces the old item-picker rows + DISPLAY button: placing is now a "Place"
+	-- ProximityPrompt on the stand itself (ExhibitService), so this panel only
+	-- needs to say what state the stand is in.
 	ui.undisplayButton = UIKit.button(pedestal, {
 		name = "Undisplay",
 		size = UDim2.new(1, 0, 0, 48),
@@ -1048,10 +1014,9 @@ local function render()
 		ui.panelStroke.Color = COLOR.blue
 		ui.subtitle.Text = if view and view.isOwner then "your plot" else "not your plot"
 
-		-- Hold-to-place only makes sense on your own, empty stand -- every other
-		-- case is a status message with nothing to fill.
-		local canPlaceHere = view ~= nil and view.isOwner and not view.occupied
-
+		-- Placing itself is a world prompt now (a "Place" ProximityPrompt on the
+		-- stand, ExhibitService) -- this panel is status-only, same as it already
+		-- was for the occupied/crating cases.
 		if view == nil or not view.isOwner then
 			ui.standInfo.Text = "not your plot"
 			ui.standInfo.TextColor3 = COLOR.dim
@@ -1067,20 +1032,10 @@ local function render()
 				ui.standInfo.TextColor3 = rarityColor(view.rarity or "")
 				ui.undisplayButton.Visible = true
 			end
-		elseif heldUid == "" then
-			ui.standInfo.Text = "empty \u{2014} hold an item, then hold E facing this stand"
-			ui.standInfo.TextColor3 = COLOR.dim
-			ui.undisplayButton.Visible = false
 		else
-			ui.standInfo.Text = "empty \u{2014} hold E to place what you're carrying"
+			ui.standInfo.Text = "empty \u{2014} hold an item and press E on the stand"
 			ui.standInfo.TextColor3 = COLOR.dim
 			ui.undisplayButton.Visible = false
-		end
-
-		ui.holdTrack.Visible = canPlaceHere
-		if not canPlaceHere then
-			holdProgress = 0
-			ui.holdFill.Size = UDim2.fromScale(0, 1)
 		end
 
 		for _, row in ui.rows do
@@ -1227,71 +1182,6 @@ function Station.start()
 		end
 		dismissed = not dismissed
 		render()
-	end)
-
-	-- HOLD E ON A PEDESTAL. No ProximityPrompt here — which stand qualifies depends
-	-- on facing, not on standing at one fixed part (StationService.facedStation), and
-	-- a native prompt is anchored to a single part and can't do that. This works
-	-- whether or not the status panel above is open (closing it with the X doesn't
-	-- stop you interacting with the stand you're standing at), and the server is
-	-- still the only one that can actually place anything — ExhibitService.display
-	-- re-derives both the faced stand and the held item itself, so this loop only
-	-- ever decides WHEN to ask, never what happens.
-	Net.get("CarryState").OnClientEvent:Connect(function(payload)
-		heldUid = payload.heldUid or ""
-	end)
-
-	UserInputService.InputBegan:Connect(function(input, processed)
-		if processed or input.KeyCode ~= Enum.KeyCode.E then
-			return
-		end
-		eKeyDown = true
-	end)
-
-	UserInputService.InputEnded:Connect(function(input)
-		if input.KeyCode ~= Enum.KeyCode.E then
-			return
-		end
-		eKeyDown = false
-		holdProgress = 0
-		holdFired = false
-		if ui.holdFill then
-			ui.holdFill.Size = UDim2.fromScale(0, 1)
-		end
-	end)
-
-	RunService.Heartbeat:Connect(function(dt)
-		local view = state.standView
-		local eligible = state.station == "pedestal"
-			and state.facedPedestalId ~= nil
-			and view ~= nil
-			and view.isOwner
-			and not view.occupied
-			and heldUid ~= ""
-
-		if not eligible or not eKeyDown then
-			holdProgress = 0
-			holdFired = false
-			if ui.holdFill then
-				ui.holdFill.Size = UDim2.fromScale(0, 1)
-			end
-			return
-		end
-
-		if holdFired then
-			return
-		end
-
-		holdProgress += dt
-		local fraction = math.clamp(holdProgress / Tuning.EXHIBIT_PLACE_HOLD_SECONDS, 0, 1)
-		if ui.holdFill then
-			ui.holdFill.Size = UDim2.fromScale(fraction, 1)
-		end
-
-		if fraction >= 1 then
-			holdFired = true
-			actionRemote:FireServer({ action = "display" })
-		end
 	end)
 
 	Net.get("StationState").OnClientEvent:Connect(function(payload)
