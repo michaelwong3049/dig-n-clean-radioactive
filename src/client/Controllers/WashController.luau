@@ -331,6 +331,15 @@ local JET_CHURN = 3.4
 local SPLASH_SIZE = 1.25
 local SPLASH_PULSE = 0.3
 
+-- ── The turntable ───────────────────────────────────────────────────
+-- The item spins in place on the stand for the whole session, so a patch on the far
+-- side is not simply unreachable from a fixed first-person view -- it comes around.
+-- Radians per second around a WORLD-vertical axis through the item's own placement
+-- point, deliberately not the item's own up axis: several items sit tilted for the
+-- camera ("Wash" rotation, ItemModels), and spinning around a tilted axis wobbles
+-- like a dropped coin instead of turning like it is on a turntable.
+local ROTATE_RATE = math.rad(32)
+
 local state: any = nil
 local blobs: { [number]: BasePart } = {}
 local folder: Instance? = nil
@@ -360,6 +369,14 @@ local hiddenParts: { BasePart } = {}
 -- would spend the rest of the session swivelling a freed instance.
 local nozzleModel: Model? = nil
 local nozzleParked: CFrame? = nil
+
+-- The turntable's own state. `rotateItem` is re-latched whenever the "WashItem" under
+-- the stand changes identity -- a fresh session always gets a brand new instance
+-- (WashService.placeOnStand), so this is also what resets the spin to a clean start
+-- rather than continuing wherever a previous item left off.
+local rotateItem: Instance? = nil
+local rotateBase: CFrame = CFrame.identity
+local rotateAngle = 0
 
 local inputRemote: any = nil
 
@@ -395,6 +412,42 @@ local function itemPivot(): (CFrame?, Vector3?)
 	return stand.CFrame, Vector3.new(1.4, 1.4, 1.4)
 end
 
+--- Turn the item on the stand, and report how far it has turned so a patch's ball can
+--- be rotated the same amount (see `spinPoint`). A no-op, cheaply, once no item is on
+--- the stand -- the very first tick or two of a session, and every tick after it ends.
+local function spinTurntable(dt: number)
+	local stand = state and state.stand
+	local item = if stand and stand:IsA("BasePart") then stand:FindFirstChild("WashItem") else nil
+	if item == nil or not item:IsA("Model") then
+		rotateItem = nil
+		return
+	end
+
+	-- A FRESH instance every session (WashService.placeOnStand always builds a new
+	-- one), which is what makes "different item" and "start the spin over" the same
+	-- check: latching on identity rather than on `state.uid` also catches the rebuild
+	-- a `finish()` -> `begin()` back-to-back produces on the very same item.
+	if item ~= rotateItem then
+		rotateItem = item
+		rotateBase = item:GetPivot()
+		rotateAngle = 0
+	end
+
+	rotateAngle = (rotateAngle + ROTATE_RATE * dt) % (2 * math.pi)
+	local pivotPos = rotateBase.Position
+	local spin = CFrame.new(pivotPos) * CFrame.Angles(0, rotateAngle, 0) * CFrame.new(-pivotPos)
+	item:PivotTo(spin * rotateBase)
+end
+
+--- Carry a patch's own anchor (fixed in the world at the pose the item was PLACED at)
+--- around the same turntable spin the item itself just got. Every ball would
+--- otherwise stay put while the object span out from under it -- the anchor WashState
+--- sends is the item's pose at `placeOnStand`, and this is the only thing that keeps
+--- it agreeing with where the real geometry has since turned to.
+local function spinPoint(point: Vector3): Vector3
+	local pivotPos = rotateBase.Position
+	return pivotPos + CFrame.Angles(0, rotateAngle, 0):VectorToWorldSpace(point - pivotPos)
+end
 
 -- ── Build / tear down ───────────────────────────────────────────────
 
@@ -970,12 +1023,15 @@ local function paintBlobs()
 		end
 
 		blob.Size = Vector3.new(scale, scale, scale) * 2
-		-- WHERE THE SERVER SAYS THE REAL SPOT IS. WashService builds this patch's zone
-		-- from the item's own real geometry (or a stand-in cluster of blocks for the
-		-- rarity-coloured fallback) and hands back its position -- no bounding-box
-		-- guesswork here any more, and no reshuffle when an earlier patch clears out
-		-- from under this one: `zone` is a stable id, not an array index.
-		blob.Position = patch.anchor
+		-- WHERE THE SERVER SAYS THE REAL SPOT IS, CARRIED AROUND THE TURNTABLE.
+		-- WashService builds this patch's zone from the item's own real geometry (or a
+		-- stand-in cluster of blocks for the rarity-coloured fallback) and hands back
+		-- its position at the pose the item was PLACED at -- no bounding-box guesswork
+		-- here any more, and no reshuffle when an earlier patch clears out from under
+		-- this one: `zone` is a stable id, not an array index. `spinPoint` is what
+		-- keeps it agreeing with the real geometry once `spinTurntable` starts turning
+		-- the item away from that placement pose.
+		blob.Position = spinPoint(patch.anchor)
 		blob.Color = if patch.blocked then PATCH_CRUSTED else PATCH_GREEN
 		blob.Material = if patch.blocked then Enum.Material.Slate else Enum.Material.SmoothPlastic
 		blob.Transparency = if patch.blocked then 0.1 else 0.15
@@ -1269,6 +1325,10 @@ local function onRender(dt: number)
 		clampLook()
 	end
 
+	-- BEFORE the camera and the blobs, so both read the item's post-turn pose this
+	-- frame rather than last frame's.
+	spinTurntable(dt)
+
 	local eye = eyeCFrame()
 	if eye == nil then
 		-- The head is gone: a respawn is landing and the session is about to end, but
@@ -1427,6 +1487,12 @@ local function teardown()
 	table.clear(jetParts)
 	splashPart = nil
 	jetShown = false
+
+	-- Not strictly load-bearing -- `spinTurntable` re-latches on identity the moment a
+	-- new WashItem appears regardless -- but holding a reference to a freed instance
+	-- between sessions is the kind of thing that looks like a bug later.
+	rotateItem = nil
+	rotateAngle = 0
 end
 
 local function beginSession()
