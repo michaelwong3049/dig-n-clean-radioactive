@@ -363,6 +363,16 @@ local nozzleParked: CFrame? = nil
 
 local inputRemote: any = nil
 
+-- Every other ScreenGui under PlayerGui, put away for the session and given back
+-- exactly as found. The shot is first person and full-bleed on purpose (see the
+-- header) -- a health bar and a cash badge sitting over a hose-aim view is exactly
+-- the "still looks like the overworld" seam the camera cut is meant to erase. Keyed
+-- by the instance rather than a name list so a HUD panel added later is covered for
+-- free, and so a GUI that happened to be `.Enabled = false` already (nothing here
+-- currently starts that way, but nothing guarantees one never will) comes back off
+-- rather than being turned on by this file.
+local hudGuis: { [ScreenGui]: boolean } = {}
+
 -- ── Geometry helpers ────────────────────────────────────────────────
 
 local function itemPivot(): (CFrame?, Vector3?)
@@ -897,6 +907,35 @@ local function paintReticle(dt: number, locked: boolean)
 	end
 end
 
+--- Put away every OTHER ScreenGui under PlayerGui -- `wipeGui` (this file's own
+--- reticle/wipe layer) is the one thing that must stay on, since it is what the
+--- session is about to look through.
+local function hideHud()
+	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	if playerGui == nil then
+		return
+	end
+	for _, gui in playerGui:GetChildren() do
+		if gui:IsA("ScreenGui") and gui ~= wipeGui and hudGuis[gui] == nil then
+			hudGuis[gui] = gui.Enabled
+			gui.Enabled = false
+		end
+	end
+end
+
+--- The exact inverse. Restores whatever `Enabled` actually was rather than stamping
+--- `true` on everything, so a GUI that was legitimately hidden going in (nothing
+--- does this today, but nothing rules it out) does not pop on because a wash session
+--- happened to run.
+local function restoreHud()
+	for gui, enabled in hudGuis do
+		if gui.Parent then
+			gui.Enabled = enabled
+		end
+	end
+	table.clear(hudGuis)
+end
+
 -- ── Render ──────────────────────────────────────────────────────────
 
 local function paintBlobs()
@@ -1315,6 +1354,7 @@ local function enterView()
 
 	UserInputService.MouseIconEnabled = false
 	cacheHidden()
+	hideHud()
 	if reticle then
 		reticle.Visible = true
 	end
@@ -1343,6 +1383,7 @@ local function exitView()
 	UserInputService.MouseIconEnabled = true
 	applyHidden(0)
 	table.clear(hiddenParts)
+	restoreHud()
 	if reticle then
 		reticle.Visible = false
 	end
