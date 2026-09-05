@@ -333,11 +333,8 @@ Tuning.EXHIBIT_MAX_SLOTS = 8
 -- Legendary is clamped ~18x at level 1, un-clamping as you level).
 Tuning.EXHIBIT_HOURLY_CAP_PER_LEVEL = 500000
 
--- Hold-E on a stand's own "Place"/"Take" ProximityPrompt: how long E has to be
--- held, and (for placing specifically) how wide the facing cone is (degrees off
--- the player's look direction) before a nearby stand counts as "faced" at all.
+-- How long E has to be held on a stand's own ProximityPrompt (place/take/swap).
 Tuning.EXHIBIT_STAND_HOLD_SECONDS = 0.6
-Tuning.EXHIBIT_PLACE_FACING_ANGLE = 50
 
 -- ── Progression (PLAN §9.2) ───────────────────────────────────────────────────
 Tuning.LEVEL_CAP = 100
