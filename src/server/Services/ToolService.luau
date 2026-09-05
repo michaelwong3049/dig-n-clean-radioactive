@@ -145,6 +145,28 @@ local POSES: { [string]: { shoulder: { pitch: number, roll: number }, elbow: { p
 		shoulder = { pitch = 74, roll = 30 },
 		elbow = { pitch = -40, roll = 0 },
 	},
+	-- Carrying a dug item back on foot. Nothing braces this against a fixed rig part
+	-- the way the detector and hose do -- it is welded to LeftHand (see equipItem) --
+	-- so the ONLY thing stopping it from swinging through the walk cycle is this same
+	-- upper-body lock. Both arms raise up and fold in, hands meeting at chest height,
+	-- which reads as holding the find up in front of you with two hands rather than
+	-- one arm carrying it down at the side.
+	--
+	-- Checked on a live character (screen_capture) with a block welded to LeftHand
+	-- with zero offset, because the offset that used to place the item in a relaxed,
+	-- hanging hand (equipItem's old `CFrame.new(0, -0.6, 0)`) turned out to send it
+	-- straight into the character's thigh once the hand itself moved: a shallower
+	-- shoulder pitch (70) with a deep elbow fold (-50) swings the hand back DOWN past
+	-- horizontal on its way to the chest and lands it at hip height despite the raised
+	-- shoulder -- crossed forearms read as high in a screenshot, but the hand at the
+	-- end of them was not. Pushing the shoulder pitch further (95) and easing off the
+	-- elbow (-25) is what actually stops the fold from cancelling the raise back out;
+	-- with those the hand sits level with the chest and equipItem needs no offset at
+	-- all any more, so it was removed there rather than re-tuned.
+	carry = {
+		shoulder = { pitch = 95, roll = 20 },
+		elbow = { pitch = -25, roll = 0 },
+	},
 }
 --- Which pose a character is currently locked into, or nil for none. An attribute
 --- rather than a table keyed by player because it belongs to the CHARACTER: a respawn
@@ -385,10 +407,8 @@ local function equip(character: Model, track: string, tier: number)
 
 	unequip(character)
 
-	-- Only the detector braces against the body; everything else swings naturally.
-	-- (The fire hose braces too, but it is not a tool out of the library -- see the
-	-- wash branch in stepPlayer.)
-	setPose(character, if track == "Detector" then "detector" else nil)
+	-- Posing is decided once, centrally, in stepPlayer -- it has to weigh this tool
+	-- against the off-hand item too, so it does not belong split across both.
 
 	local clone = template:Clone()
 	clone.Name = HELD_NAME
@@ -520,10 +540,28 @@ local function equipItem(character: Model, item: any?): boolean
 			part.Anchored = false
 		end
 	end
+	-- POSITION comes from the hand -- the "carry" pose (see POSES) was tuned so
+	-- LeftHand itself sits at chest height with both arms folded in around it, so the
+	-- hand's own location is already "held up in front of you with two hands."
+	--
+	-- ROTATION DOES NOT COME FROM THE HAND, though, and that split is load-bearing.
+	-- LeftHand's ORIENTATION under the carry/detector locks is whatever the shoulder
+	-- and elbow angles in POSES happen to compose to, which is nowhere near a hand's
+	-- natural resting orientation -- it is bent through most of a right angle to get
+	-- the hand up there at all. An item pivoted onto that full CFrame inherits the
+	-- bend too, and anything longer than a stub (checked live with the Steel Rod, 3.25
+	-- studs) swings its far end out to the side or up past the head chasing whatever
+	-- axis that rotation happened to point along, instead of lying across the two
+	-- hands. Root's rotation has none of that -- it only yaws with which way the
+	-- player is facing -- so an item held level in front of the chest STAYS level in
+	-- front of the chest no matter how the elbow got it there.
+	--
 	-- `Hold` joins Display / Haul / Gallery as an ItemModels rotation context, so a
-	-- flat object like the bottle cap can be tilted toward the camera in the hand
-	-- without forcing that tilt on an upright one. Missing attribute = identity.
-	held:PivotTo(hand.CFrame * CFrame.new(0, -0.6, 0) * ItemModels.rotation(held, "Hold"))
+	-- flat object like the bottle cap can still be tilted toward the camera in the
+	-- hand without forcing that tilt on an upright one. Missing attribute = identity.
+	local root = character:FindFirstChild("HumanoidRootPart")
+	local holdRotation = if root and root:IsA("BasePart") then root.CFrame.Rotation else hand.CFrame.Rotation
+	held:PivotTo(CFrame.new(hand.Position) * holdRotation * ItemModels.rotation(held, "Hold"))
 
 	local weld = Instance.new("WeldConstraint")
 	weld.Name = "HoldWeld"
@@ -554,6 +592,21 @@ local function wanted(player: Player): string?
 	end
 	if DigService.stageOf(player) ~= nil then
 		return "Detector"
+	end
+	return nil
+end
+
+--- The single source of truth for which upper-body pose (if any) a character should
+--- be locked into this tick, weighing the tool in the right hand against whatever is
+--- riding in the left. Detector wins ties: bracing it against the chest already holds
+--- the whole upper body still, so an item picked up alongside it just goes along for
+--- the ride at the detector's angles rather than fighting it for the same joints.
+local function poseFor(target: string?, hasItem: boolean): string?
+	if target == "Detector" then
+		return "detector"
+	end
+	if hasItem then
+		return "carry"
 	end
 	return nil
 end
@@ -602,14 +655,20 @@ local function stepPlayer(player: Player)
 	--     player at the mark stands slack while a machine two studs away sprays on its
 	--     own, which is the same "it looks awkward" the brace was added for.
 	--
-	-- Returning here also keeps the tool-slot bookkeeping below from immediately
-	-- undoing the pose: its `target == nil` branch calls setPose(character, nil).
+	-- Returning here also keeps the tool-slot bookkeeping below from running at all --
+	-- it would otherwise see `wanted` already answering nil for a station and clear a
+	-- tool slot that unequip() just cleared anyway.
 	if WashService.isWashing(player) then
 		unequip(character)
 		setPose(character, "hose")
 		equipped[player] = nil
 		return
 	end
+
+	-- Decided every tick, unlike the tool slot below: an item can start or stop being
+	-- held without the tool track changing at all, and setPose() is cheap to call
+	-- redundantly (it bails the moment the pose attribute already matches).
+	setPose(character, poseFor(target, heldItem ~= nil))
 
 	-- Tier comes from the profile, so buying an upgrade changes what is in your hands
 	-- the moment it lands — no reconnect, no re-equip step.
@@ -628,7 +687,6 @@ local function stepPlayer(player: Player)
 
 	if target == nil then
 		unequip(character)
-		setPose(character, nil)
 		equipped[player] = nil
 	elseif equip(character, target, tier) then
 		equipped[player] = target
