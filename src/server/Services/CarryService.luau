@@ -47,6 +47,7 @@ local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local DigService = require(script.Parent.DigService)
 
 local CarryService = {}
 
@@ -164,6 +165,16 @@ function CarryService.hold(player: Player, uid: string?): boolean
 		return true
 	end
 
+	-- BOTH HANDS ARE ON THE MAGNET DURING A PULL. Committing to a signal (see
+	-- DigService.isLocked) roots the player and puts the magnet in their hands the
+	-- same way ToolService's `wanted` does for the detector — reaching into the bag
+	-- for something else at the same time is the exact "two things in your hands at
+	-- once" look this file exists to prevent, so the request is refused outright
+	-- rather than accepted and then fought over which model wins the off hand.
+	if DigService.isLocked(player) then
+		return false
+	end
+
 	-- Only out of the BAG. The Quarantine Locker is a shelf, not a pocket: racking is
 	-- how you put something down, and being able to pull a racked item back into your
 	-- hands would quietly undo that.
@@ -221,6 +232,15 @@ local function stepPlayer(player: Player)
 	-- and one stale weld left in the player's hand; checking it here, where the bag is
 	-- already being walked every tick, cannot be forgotten.
 	if data.heldUid ~= "" and EconomyService.find(data, data.heldUid) == nil then
+		data.heldUid = ""
+	end
+
+	-- Same self-healing, for the case `hold()`'s guard cannot reach: a player already
+	-- carrying an item who then locks onto a NEW signal — locking on does not itself
+	-- go through `hold()`, so nothing upstream stops the item riding along into the
+	-- pull. Released, not dropped: it stays in the bag, just out of the player's
+	-- hands until the pull ends.
+	if data.heldUid ~= "" and DigService.isLocked(player) then
 		data.heldUid = ""
 	end
 
