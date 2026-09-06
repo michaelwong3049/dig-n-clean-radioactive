@@ -426,8 +426,8 @@ end
 --- item sits and where ExhibitService pivots a displayed model to. `Display{slot}`
 --- rides 1 stud above it, keeping the same item-to-surface gap the old column had
 --- (its top was pad.topY + 4, the item pivoted 0.28 above that).
-local RISER_BASE = { w = 4.8, h = 0.9 }
-local RISER_TOP = { w = 3.9, h = 0.7 }
+local RISER_BASE = { w = 7.4, h = 0.9 }
+local RISER_TOP = { w = 6.3, h = 0.7 }
 local RISER_RIM = { h = 0.22, thickness = 0.5 } -- the raised frame around the recessed panel
 local RISER_SURFACE = RISER_BASE.h + RISER_TOP.h
 
@@ -1523,6 +1523,8 @@ local function buildPlot(parent: Instance, index: number)
 
 	-- Where this plot's owner respawns. Disabled until somebody owns it, so nobody
 	-- ever lands on a stranger's stage. ExhibitService flips this on assignment.
+	-- Fully invisible: there is no physical checkpoint pad any more, just the spawn
+	-- point itself at the same spot the pad used to mark.
 	local spawn = build(m, origin, {
 		name = "PlotSpawn",
 		class = "SpawnLocation",
@@ -1530,7 +1532,7 @@ local function buildPlot(parent: Instance, index: number)
 		size = { 6, 1, 6 },
 		color = accent,
 		material = "SmoothPlastic",
-		transparency = 0.4,
+		transparency = 1,
 		canCollide = false,
 		attributes = { PlotIndex = index },
 	}) :: SpawnLocation
