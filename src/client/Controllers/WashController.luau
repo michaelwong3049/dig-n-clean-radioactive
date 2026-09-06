@@ -95,7 +95,7 @@
 
 	── THE FURNITURE ─────────────────────────────────────────────────────
 
-	PATCH BLOBS SIT WHERE THE SERVER SAYS THE REAL PATCH IS. WashService bucket the
+	PATCH BLOBS SIT WHERE THE SERVER SAYS THE REAL PATCH IS. WashService buckets the
 	item's own real parts (or a stand-in cluster of blocks for the rarity-coloured
 	fallback) into one zone per patch and sends each patch's `anchor` — the zone's own
 	position — over WashState. This file only draws a ball there; it used to place
@@ -104,6 +104,21 @@
 	other than the last cleared (the array compacting). Keying blobs by the patch's
 	`zone` id rather than its array index is what makes a surviving patch's ball hold
 	still when a different one clears.
+
+	AND THE BALL IS A LABEL ON A REAL PLACE, NOT THE TARGET ITSELF. `patchAt` used to
+	pick the blob nearest the impact within a generous radius, which was the only thing
+	it could do while WashService bucketed zones round-robin: every zone's centroid was
+	the middle of the model, every ball sat in the same spot, and any ray that grazed
+	the item was in range of all of them. Zones are spatial clusters now, and the server
+	stamps a `WashZone` attribute on every part of the item that belongs to one — so the
+	question "which patch is the water on" is answered by reading the part the impact
+	ray already returned. Aim is a real thing you can miss.
+
+	SO THE SIZE OF EACH BALL IS THAT AREA'S OWN SOAK. The server banks the seconds per
+	zone (`patch.soak`) rather than running one clock against one locked patch, so a
+	corner you half-did and left is visibly half-done when you come back round to it,
+	and the shrinking ball is the only readout of it there is — this is a bay with no
+	panel and no bar in it by design.
 
 	GREEN, AND YES, DELIBERATELY. A contamination patch is the SAME SUBSTANCE as the
 	ooze — PLAN §2 step 4 calls them "glowing hotspots" and they are literally the
@@ -256,10 +271,13 @@ local PATCH_CRUSTED = Color3.fromHex("3A3128")
 -- wipe can start a frame before a payload has been read.
 local DEFAULT_LIQUID = "6FD5E8"
 
--- How far a patch may sit from where the water actually lands and still be the one
--- being worked. Generous, because the player is aiming a falling arc at a half-stud
--- ball -- see `patchAt`.
-local PATCH_REACH = 2.8
+-- How far a patch may sit from where the water lands and still be the one being
+-- worked, in the FALLBACK case only -- the primary answer is the `WashZone` attribute
+-- on the part the impact ray hit. It was 2.8 when proximity was the whole mechanism,
+-- which on a 1.4-stud item meant every zone was always in range of every impact; this
+-- is the width of a gap between two of an item's own parts, and nothing more. See
+-- `patchAt`.
+local PATCH_REACH = 0.9
 -- How far the aim ray reaches into the world, and where the aim point goes when it
 -- reaches nothing at all (open sky past the edge of the base).
 local AIM_RANGE = 60
@@ -534,6 +552,10 @@ local nozzleParked: CFrame? = nil
 local rotateItem: Instance? = nil
 local rotateBase: CFrame = CFrame.identity
 local rotateAngle = 0
+
+-- The stand we made see-through to rays, and what it was before. See `openTheStand`.
+local standOpened: BasePart? = nil
+local standWasQueryable = true
 
 local inputRemote: any = nil
 
@@ -892,50 +914,63 @@ local function dropAlong(index: number, now: number): number
 	return DROP_START + (1 - DROP_START) * ((index * 0.6180339887 + now * DROP_FLOW) % 1)
 end
 
---- Draw the whole spray along the flight path, stopping at whatever the water hits.
+--- Walk a flight path until the water hits something, and say where and on what.
+--- CLIPS THE PATH at the contact point, so every layer `drawJet` lays along it after
+--- this ends on the surface without any of them having to know why.
 ---
---- Returns the point the water actually reached -- the impact if it hit something,
---- the end of the arc if it did not. That point, not the reticle, is what decides
---- which patch is being worked (see `patchAt`): you are cleaning what the water is
---- landing on, which is the only rule a player would ever guess.
-local function drawJet(from: Vector3, to: Vector3, filter: RaycastParams): Vector3
-	local now = os.clock()
-	local path, side, up = jetPath(from, to, now)
-	local landing = path[#path]
-	-- Hitting nothing means there is no surface to build a splash on, and the splash is
-	-- hidden in that case anyway; facing back down the jet is a harmless default that
-	-- saves the orientation maths below from having to care.
-	local normal = from - landing
-	normal = if normal.Magnitude > 1e-3 then normal.Unit else Vector3.yAxis
-
-	-- How many segments survive. Every layer reads it, so the sheath and the braid and
-	-- the droplets all end in the same place.
-	local reach = JET_SEGMENTS
-	local stopped = false
-
-	-- Segment by segment, so the stream stops ON the surface it hits rather than
-	-- passing through the tub and out the far side. One short ray per segment is the
-	-- same total length as one long ray down the arc, and a straight ray cannot follow
-	-- a curve. The segment that hit is then CLIPPED to the contact point, which is what
-	-- lets every layer end at the surface without any of them knowing why.
+--- One short ray per segment rather than one long ray down the arc: the total length
+--- is the same, and a straight ray cannot follow a curve. Twelve of them is cheap
+--- enough to run on a frame where nothing is being drawn at all, which is the whole
+--- reason this is its own function -- see `onRender`. A reticle that reports the SIGHT
+--- while the trigger is up and the WATER once it is down is a reticle that lies to you
+--- for exactly as long as it takes to line a shot up: the arc sags the better part of
+--- a stud over a wash bay, so "green ring, then the stream lands under the patch" was
+--- a reproducible way to waste a canister.
+--- Returns, in order: where the water stopped, the part it stopped on, THAT SURFACE'S
+--- OWN NORMAL, how many segments of the path survive, and whether it hit anything at
+--- all. The normal is passed out rather than re-derived from the flight direction --
+--- see the note on the impact dome for why the surface's normal and the reverse of the
+--- water's approach are not interchangeable.
+local function traceJet(path: { Vector3 }, filter: RaycastParams): (Vector3, BasePart?, Vector3?, number, boolean)
 	for index = 1, JET_SEGMENTS do
 		local a, b = path[index], path[index + 1]
 		local step = b - a
 		if step.Magnitude < 1e-3 then
 			-- The player is aiming at their own muzzle and the path has collapsed.
-			reach = index - 1
-			break
+			return a, nil, nil, index - 1, false
 		end
 		local hit = Workspace:Raycast(a, step, filter)
 		if hit then
-			landing = hit.Position
-			normal = hit.Normal
 			path[index + 1] = hit.Position
-			reach = index
-			stopped = true
-			break
+			return hit.Position, hit.Instance, hit.Normal, index, true
 		end
 	end
+	return path[#path], nil, nil, JET_SEGMENTS, false
+end
+
+--- Draw the whole spray along the flight path, stopping at whatever the water hits.
+---
+--- Returns the point the water actually reached -- the impact if it hit something,
+--- the end of the arc if it did not -- and the part it landed on, nil if it landed on
+--- nothing. Those two, not the reticle, are what decide which patch is being worked
+--- (see `patchAt`): you are cleaning what the water is landing on, which is the only
+--- rule a player would ever guess from watching it.
+local function drawJet(from: Vector3, to: Vector3, filter: RaycastParams): (Vector3, BasePart?)
+	local now = os.clock()
+	local path, side, up = jetPath(from, to, now)
+	-- WHAT THE WATER IS STANDING ON, and how many segments of it survive to get there.
+	-- Every layer below reads `reach`, so the sheath and the braid and the droplets all
+	-- end in the same place. `struck` is handed back to the caller: `patchAt` reads that
+	-- part's own `WashZone` attribute (WashService stamps one on every piece of the item
+	-- belonging to a patch), which is how "you are cleaning what you are hitting" became
+	-- literally true instead of nearest-ball-within-three-studs.
+	local landing, struck, surfaceNormal, reach, stopped = traceJet(path, filter)
+
+	-- Hitting nothing means there is no surface to build a splash on, and the splash is
+	-- hidden in that case anyway; facing back down the jet is a harmless default that
+	-- saves the orientation maths below from having to care.
+	local normal = if surfaceNormal then surfaceNormal else from - landing
+	normal = if normal.Magnitude > 1e-3 then normal.Unit else Vector3.yAxis
 
 	-- HOW MUCH WATER THIS MACHINE THROWS (Config/Gear's `volume`, sent by
 	-- WashService.push). Scales the stream and the break-up and NOTHING ELSE -- see
@@ -1102,7 +1137,7 @@ local function drawJet(from: Vector3, to: Vector3, filter: RaycastParams): Vecto
 	end
 
 	jetShown = true
-	return landing
+	return landing, struck
 end
 
 --- Cheap when already hidden, which is most frames of a session: the player aims far
@@ -1439,11 +1474,16 @@ local function paintBlobs()
 		-- Harder patches are bigger, so "which one is the wall" is legible before you
 		-- ever aim at it. A blocked patch is crusted and matte — the stream visibly
 		-- does nothing to it, which is the Quarantine Locker taught in 3D.
+		--
+		-- EVERY BLOB SHRINKS ON ITS OWN SOAK, not just the one under the stream. It used
+		-- to read `state.progress`, of which there was one, belonging to whichever patch
+		-- the server had locked — so a session's other five balls sat at full size no
+		-- matter how much water had gone into them, and the only way to find out how far
+		-- along a corner was, was to go back and finish it. WashService banks the seconds
+		-- per zone now (`patch.soak`) and sends all of them, and this is what that buys:
+		-- look around the object and the half-done areas are visibly half done.
 		local base = 0.30 + patch.hardness * 0.07
-		local scale = base
-		if patch.zone == state.targetZone and (state.progress or 0) > 0 then
-			scale = base * (1 - 0.65 * state.progress)
-		end
+		local scale = base * (1 - 0.65 * (patch.soak or 0))
 
 		blob.Size = Vector3.new(scale, scale, scale) * 2
 		-- WHERE THE SERVER SAYS THE REAL SPOT IS, CARRIED AROUND THE TURNTABLE.
@@ -1465,6 +1505,50 @@ local function paintBlobs()
 			blob:Destroy()
 			blobs[zone] = nil
 		end
+	end
+end
+
+--- LET THE RAYS THROUGH THE PEDESTAL, for the length of the session.
+---
+--- WashStand is a one-stud marker part with Transparency 1 and CanQuery TRUE, and the
+--- item is pivoted to its CENTRE — so the invisible box does not sit under the item,
+--- it ENCLOSES it. Every aim ray and every drop of water stopped dead on a box nobody
+--- can see, half a stud before reaching the thing being washed.
+---
+--- THAT IS WHY AIM NEVER MATTERED. The old `patchAt` took the nearest blob within 2.8
+--- studs of wherever the water stopped, so stopping on the invisible box counted as
+--- hitting whatever was inside it, and the feature appeared to work while being
+--- physically nonsense: point anywhere near the pedestal, hold the button, watch the
+--- item clean itself. Reading the zone off the part the ray actually hit only means
+--- something if the ray can get to the item at all.
+---
+--- CLIENT-LOCAL AND RESTORED, rather than fixed where the marker is built. CanQuery on
+--- an invisible marker is arguably wrong in build/Plots too, but that is world geometry
+--- outside the place file's git history: changing it there does nothing until someone
+--- runs a World.rebuild() by hand (see ARCHITECTURE.md). This is the same per-viewer
+--- trade the spray and the nozzle aim already make, and it costs one property write.
+local function openTheStand(stand: BasePart?)
+	if standOpened ~= nil and standOpened ~= stand then
+		if standOpened.Parent ~= nil then
+			standOpened.CanQuery = standWasQueryable
+		end
+		standOpened = nil
+	end
+	if stand == nil or standOpened == stand then
+		return
+	end
+	standWasQueryable = stand.CanQuery
+	stand.CanQuery = false
+	standOpened = stand
+end
+
+--- Give it back. Idempotent, and safe on a stand that has been destroyed underneath us
+--- by a World.rebuild mid-session — a freed part's Parent is nil, which is the check.
+local function closeTheStand()
+	local stand = standOpened
+	standOpened = nil
+	if stand ~= nil and stand.Parent ~= nil then
+		stand.CanQuery = standWasQueryable
 	end
 end
 
@@ -1604,23 +1688,42 @@ end
 --- effects themselves -- it finds the ITEM under the blob, which is where the
 --- contamination is anyway. The character is filtered out because the ray starts
 --- inside the player's own head.
-local function aimPointAt(from: CFrame, filter: RaycastParams): Vector3
+local function aimPointAt(from: CFrame, filter: RaycastParams): (Vector3, BasePart?)
 	local hit = Workspace:Raycast(from.Position, from.LookVector * AIM_RANGE, filter)
 	if hit then
-		return hit.Position
+		return hit.Position, hit.Instance
 	end
-	return from.Position + from.LookVector * AIM_FALLBACK
+	return from.Position + from.LookVector * AIM_FALLBACK, nil
 end
 
---- Which patch is being worked: the one nearest to where the water actually LANDS.
+--- Which patch is being worked: THE ONE THE WATER PHYSICALLY LANDED ON.
 ---
---- Not nearest to the reticle, and the difference is the whole point. The stream is a
---- falling arc that leaves a nozzle held below the eye and stops at the first thing it
---- touches, so the sight and the impact are genuinely different places -- and "you are
---- cleaning what you are hitting" is the only rule a player would ever guess from
---- watching it. PATCH_REACH is generous because a half-stud ball at five studs, hit
---- with a ballistic arc, is a cruel thing to ask anyone to be exact about.
-local function patchAt(point: Vector3): number?
+--- Not the one nearest the reticle, and not the one nearest the impact either. The
+--- stream is a falling arc that leaves a nozzle held below the eye and stops at the
+--- first thing it touches, so the sight and the impact are genuinely different places
+--- -- and "you are cleaning what you are hitting" is the only rule a player would ever
+--- guess from watching it.
+---
+--- `hit` IS THE ANSWER WHENEVER IT HAS ONE. WashService stamps a `WashZone` attribute
+--- on every real part of the item that belongs to a patch, so the part the impact ray
+--- already returned names its own dirty area exactly. Blobs are keyed by zone id and
+--- only exist for patches still standing, so `blobs[zone]` is also the "is that area
+--- still dirty" check, for free.
+---
+--- THE PROXIMITY FALLBACK IS NOW A ROUNDING, NOT THE MECHANISM. It used to be the
+--- whole of it, at 2.8 studs against a 1.4-stud item -- which, with every zone's ball
+--- stacked near the model's centre back when zones were round-robin slices, meant
+--- anything in the postcode of the tub counted as a hit on all of them. It survives at
+--- a third of that reach for one honest case: water landing in a gap between an item's
+--- parts, or on a piece of glass that carries no zone because grime never touched it.
+local function patchAt(point: Vector3, hit: BasePart?): number?
+	if hit then
+		local zone = hit:GetAttribute("WashZone")
+		if type(zone) == "number" and blobs[zone] then
+			return zone
+		end
+	end
+
 	local best: number? = nil
 	local bestDistance = PATCH_REACH
 	for index, blob in blobs do
@@ -1630,6 +1733,18 @@ local function patchAt(point: Vector3): number?
 		end
 	end
 	return best
+end
+
+--- Is that zone's patch one this liquid cannot shift? Read off the payload the server
+--- already sends rather than asked over the wire per frame -- `blocked` is a property
+--- of the patch and the player's own potency, and neither changes between pushes.
+local function blockedZone(zone: number): boolean
+	for _, patch in (state and state.patches) or {} do
+		if patch.zone == zone then
+			return patch.blocked == true
+		end
+	end
+	return false
 end
 
 -- ── The first-person view ────────────────────────────────────────────
@@ -1752,12 +1867,17 @@ local function onRender(dt: number)
 	-- frame rather than last frame's.
 	spinTurntable(dt)
 
+	-- Re-asserted per frame rather than once at session start, for the same reason the
+	-- nozzle is re-resolved per frame: a World.rebuild() from the command bar destroys
+	-- this stand and parents a new one, and the new one arrives queryable.
+	local stand = state.stand
+	openTheStand(if stand and stand:IsA("BasePart") then stand else nil)
+
 	local eye = eyeCFrame()
 	if eye == nil then
 		-- The head is gone: a respawn is landing and the session is about to end, but
 		-- it has not been told yet. Fall back to the station's own side-on anchor --
 		-- an unflattering angle for a frame beats a camera frozen wherever it was.
-		local stand = state.stand
 		local anchor = if stand and stand.Parent then stand.Parent:FindFirstChild("WashCam") else nil
 		if anchor and anchor:IsA("BasePart") then
 			camera.CFrame = anchor.CFrame
@@ -1780,7 +1900,7 @@ local function onRender(dt: number)
 	filter.FilterType = Enum.RaycastFilterType.Exclude
 	filter.FilterDescendantsInstances = { Players.LocalPlayer.Character :: any, folder :: any }
 
-	local aimPoint = aimPointAt(eye, filter)
+	local aimPoint, aimPart = aimPointAt(eye, filter)
 
 	-- Tracks the view continuously, spraying or not — a machine you are standing at the
 	-- controls of reads as aimed the moment you look somewhere, not only while it is
@@ -1792,15 +1912,41 @@ local function onRender(dt: number)
 	-- falling arc clips something on the way. That impact, not the reticle, is what
 	-- picks the patch.
 	local nozzle = nozzleCFrame()
-	local landing = aimPoint
-	if spraying and nozzle then
-		landing = drawJet(nozzle.Position, aimPoint, filter)
+	local landing, landingPart = aimPoint, aimPart
+	if nozzle then
+		if spraying then
+			landing, landingPart = drawJet(nozzle.Position, aimPoint, filter)
+		else
+			hideJet()
+			-- WHERE THE WATER WOULD GO IF YOU PULLED THE TRIGGER NOW. The same ballistic
+			-- path, walked with the same rays, drawn by nobody -- twelve short casts on a
+			-- frame that is otherwise doing very little.
+			--
+			-- IT IS USUALLY THE SIGHT LINE AND SOMETIMES IT IS NOT, and the sometimes is
+			-- why this is here. `jetPath` solves the launch so the arc ARRIVES at the aim
+			-- point, so the sag lives in the belly of the flight and the water lands where
+			-- you pointed -- unless that belly clips something first, which across a tub
+			-- with a raised rim and an item up on a stand is most of the shots taken from
+			-- the far side of the object. Reading the sight while dry would then close the
+			-- ring on a patch the stream is about to hand to the rim instead: a reticle
+			-- that lies for exactly as long as it takes to line a shot up. Both states
+			-- answer the same question now -- where does the water end up.
+			local path = jetPath(nozzle.Position, aimPoint, os.clock())
+			landing, landingPart = traceJet(path, filter)
+		end
 	else
 		hideJet()
 	end
 
-	local target = patchAt(landing)
-	paintReticle(dt, target ~= nil)
+	local target = patchAt(landing, landingPart)
+
+	-- A CRUSTED PATCH IS NOT A LOCK. The reticle closing means "water here shifts
+	-- grime", and on a patch this liquid cannot touch it does not: the server banks
+	-- nothing for it (WashService.workedIndex gates on effectivePotency), so a ring that
+	-- closed on one would be promising a clean the tick is refusing to sell. The blob
+	-- itself already says so in slate grey, and the stream visibly running off it is the
+	-- rest of the answer.
+	paintReticle(dt, target ~= nil and not blockedZone(target))
 
 	if target ~= aimedZone then
 		aimedZone = target
@@ -1903,6 +2049,7 @@ local function teardown()
 
 	clearBlobs()
 	restoreNozzle()
+	closeTheStand()
 	if folder then
 		folder:Destroy()
 		folder = nil

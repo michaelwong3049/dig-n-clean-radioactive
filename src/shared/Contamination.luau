@@ -99,27 +99,41 @@ function Contamination.blockedBy(patches: { number }, potency: number): number?
 	return worst
 end
 
---- Remove one patch this tool can actually clear, easiest first, and return its
---- hardness and the array index it was removed from. Both nil means nothing left
---- within reach — either done, or walled. The index is handed back so a caller
---- tracking a parallel array (WashService's per-session zone ids, keeping a ball or
---- a real part in sync with a patch that has no identity of its own) can remove at
---- the same spot and stay in lockstep with the shift `table.remove` causes.
-function Contamination.clearOne(patches: { number }, potency: number): (number?, number?)
-	local bestIndex: number? = nil
-	local bestHardness: number? = nil
-
-	for index, hardness in patches do
-		if hardness <= potency and (bestHardness == nil or hardness < bestHardness) then
-			bestIndex, bestHardness = index, hardness
-		end
-	end
-
-	if bestIndex == nil then
+--- Remove ONE NAMED PATCH, if this tool can actually shift it. Returns its hardness
+--- and the array index it came out of; nil means the index named nothing, or named
+--- something out of reach.
+---
+--- IT USED TO BE `clearOne`, WHICH PICKED THE EASIEST PATCH ITSELF, and that choice
+--- was invisible for as long as the caller was a hold-to-clean bar with no notion of
+--- WHERE on the item it was working. The wash bay has one: you point a hose at a
+--- specific dirty area. Letting this function pick meant finishing a timer on the
+--- crusted patch you had deliberately worked for eight seconds and watching a
+--- different, easier patch on the far side of the object pop instead. The caller
+--- knows which patch the water is on, so the caller names it.
+---
+--- The index is handed back so a caller tracking a parallel array (WashService's
+--- per-session zone ids, keeping a real part in sync with a patch that has no
+--- identity of its own) can remove at the same spot and stay in lockstep with the
+--- shift `table.remove` causes.
+function Contamination.clearAt(patches: { number }, index: number, potency: number): (number?, number?)
+	local hardness = patches[index]
+	if hardness == nil or hardness > potency then
 		return nil, nil
 	end
-	table.remove(patches, bestIndex)
-	return bestHardness, bestIndex
+	table.remove(patches, index)
+	return hardness, index
+end
+
+--- Is there anything left here this potency can shift? The wall check, split out from
+--- the old `clearOne` returning nil: "nothing reachable" is now a question asked on
+--- its own rather than a side effect of trying to clear something.
+function Contamination.anyReachable(patches: { number }, potency: number): boolean
+	for _, hardness in patches do
+		if hardness <= potency then
+			return true
+		end
+	end
+	return false
 end
 
 --- Seconds of scrubbing one patch costs. Harder patches take longer even when
