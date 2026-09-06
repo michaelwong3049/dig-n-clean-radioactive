@@ -423,6 +423,7 @@ type StageTheme = {
 	bones: number?,
 	skulls: number?,
 	barrels: number?,
+	signs: number?,
 }
 local THEME: { [number]: StageTheme } = {
 	[1] = { props = 9, deadProps = 7, pools = 8, kind = "trees", scatter = true },
@@ -451,7 +452,12 @@ local THEME: { [number]: StageTheme } = {
 	-- navigate by, which is worth more than cover: enough of them to steer by, never
 	-- so many that the ground stops reading as empty.
 	[3] = { props = 40, pools = 20, kind = "sirens", scatter = true, skeletons = 3, bones = 24, skulls = 12, barrels = 14 },
-	[4] = { props = 18, pools = 26, kind = "barriers" },
+	-- The rest of THIS pass (`props`/`pools`/`kind = "barriers"`) is still on the
+	-- shelf -- `scatter` only turns on the sign rank below. FIVE signs, spread over
+	-- the entrance's 142-stud width (2 * hz, hz = 170/2 - 14): one roughly every 28
+	-- studs, enough that one is always in view crossing in from Stage 3 without the
+	-- rank reading as a fence.
+	[4] = { props = 18, pools = 26, kind = "barriers", scatter = true, signs = 5 },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
 	-- reads as dark ground rather than as hot ground. Prop counts do not climb with
@@ -1935,6 +1941,120 @@ local function scatterBarrels(folder: Instance, origin: CFrame, count: number, r
 	barrels.Parent = folder
 end
 
+--- ── Stage 4's caution placard ────────────────────────────────────────────────
+--- A post with a black-bordered yellow face, on request: Stage 4 is the field
+--- named for a border ("The Exclusion Belt") but has nothing standing in it that
+--- says so yet -- see the file's own THEME/prop() notes above for why the field is
+--- still bare.
+---
+--- DECALLED ONTO THE WEST FACE ONLY, same proud-layer technique DRUM_PAINT already
+--- uses on the barrels (a thin block floated a hair off the surface it sits on,
+--- rather than a texture). West is the ENTRANCE edge (Stages.luau: baseRads is the
+--- rate "at this stage's ENTRANCE (west) edge"), so a sign built this way reads on
+--- the way IN, coming off Stage 3, and is a blank steel-backed border from behind --
+--- correct for a dive with ~35 seconds in it (PLAN §3.5): whatever a sign has to say
+--- has to land on arrival, not get noticed mid-run looking backward.
+---
+--- A BOLD EXCLAMATION MARK, NOT THE DRUMS' TREFOIL. `radBarrel` already owns the
+--- trefoil for "this is radioactive"; this sign is "this is guarded", a different
+--- claim, and reusing the same symbol for both would blur them. A bar and a dot are
+--- the two simplest shapes this block/cylinder/wedge/ball kit can put on a placard
+--- and still read as unmistakably a warning at a glance.
+local SIGN_POST_H_MIN, SIGN_POST_H_MAX = 5.4, 6.6
+local SIGN_W, SIGN_H = 3.0, 2.2
+local SIGN_BORDER_MARGIN = 0.3 -- how much narrower/shorter the face is than the border, in Y/Z
+local SIGN_BORDER_T = 0.3 -- SignBorder's own depth (X size) -- same number, unrelated axis
+local SIGN_FACE_T = 0.06 -- SignFace's own depth
+local SIGN_MARK_T = 0.05 -- SignMarkBar/SignMarkDot's own depth
+-- Same "proud of the surface it sits on" clearance DRUM_PAINT uses. UNLIKE
+-- DRUM_PAINT, this is a flat stack of blocks, not a radial paint-onto-a-cylinder --
+-- so it has to be measured from each layer's own WEST FACE, not its centre, or a
+-- thicker layer sitting under a thinner one can poke out past it. That is exactly
+-- what shipped first: SignBorder is 0.3 studs deep, so a face centred a mere 0.05
+-- west of the border's own CENTRE (0.15 of that already inside the border's own
+-- half-thickness) left the border's own west face 0.10 studs further west than the
+-- face's — the black border stood proud of the yellow face, not the other way round,
+-- and the whole sign read as a blank black rectangle from the entrance side (caught
+-- live in Studio, not on paper). Computed below from each layer's own half-thickness
+-- instead, so the west face of every layer is unambiguously SIGN_PAINT in front of
+-- the one behind it, however thick either one is.
+local SIGN_PAINT = 0.05
+local SIGN_BORDER_WEST_FACE = -SIGN_BORDER_T / 2
+local SIGN_FACE_X = SIGN_BORDER_WEST_FACE - SIGN_PAINT + SIGN_FACE_T / 2
+local SIGN_FACE_WEST_FACE = SIGN_FACE_X - SIGN_FACE_T / 2
+local SIGN_MARK_X = SIGN_FACE_WEST_FACE - SIGN_PAINT + SIGN_MARK_T / 2
+
+local function warningSign(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+	local postH = rng:NextNumber(SIGN_POST_H_MIN, SIGN_POST_H_MAX)
+	-- A few degrees of yaw jitter so a straight rank does not read as ruler-drawn --
+	-- not the full 0-360 deadTree/bush get, because this one has to keep its face
+	-- pointed roughly west for the "reads on the way in" claim to hold.
+	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(-8, 8), 0)
+
+	build(parent, base, {
+		name = "SignPost",
+		pos = { 0, postH / 2, 0 },
+		size = { 0.5, postH, 0.5 },
+		color = C.steelDark,
+		material = "Metal",
+		shape = "Cylinder",
+		rot = R.cylUp,
+		canCollide = false,
+	})
+
+	local faceY = postH - SIGN_H / 2 - 0.2
+	build(parent, base, {
+		name = "SignBorder",
+		pos = { 0, faceY, 0 },
+		size = { SIGN_BORDER_T, SIGN_H, SIGN_W },
+		color = C.hazardBlack,
+		material = "Metal",
+		canCollide = false,
+	})
+	-- The face sits proud of the border on the -X (west) side only -- the whole
+	-- reason this reads from one direction and not the other. SIGN_FACE_X (and
+	-- SIGN_MARK_X below) are measured from each layer's own west face, not a flat
+	-- offset from the border's centre -- see the comment above these constants for
+	-- why that distinction is the whole fix.
+	build(parent, base, {
+		name = "SignFace",
+		pos = { SIGN_FACE_X, faceY, 0 },
+		size = { SIGN_FACE_T, SIGN_H - SIGN_BORDER_MARGIN, SIGN_W - SIGN_BORDER_MARGIN },
+		color = C.barrelYellow,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	build(parent, base, {
+		name = "SignMarkBar",
+		pos = { SIGN_MARK_X, faceY + 0.35, 0 },
+		size = { SIGN_MARK_T, 0.85, 0.32 },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	build(parent, base, {
+		name = "SignMarkDot",
+		pos = { SIGN_MARK_X, faceY - 0.5, 0 },
+		size = { SIGN_MARK_T, 0.3, 0.32 },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+end
+
+--- Stage 4 -- a rank of caution placards along the entrance edge, all facing west
+--- (see warningSign). Evenly spread across z with the usual per-cell jitter --
+--- same jittered-grid technique scatterEdgeTrees uses along a long side, just run
+--- along the SHORT edge here since these guard the entrance, not a side.
+local function scatterWarningSigns(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+	for i = 0, count - 1 do
+		local cell = 2 * hz / count
+		local z = -hz + (i + 0.5 + rng:NextNumber(-0.35, 0.35)) * cell
+		local x = -hx + rng:NextNumber(5, 11)
+		warningSign(folder, origin, x, z, rng)
+	end
+end
+
 local function buildStageScenery(parent: Instance, id: number)
 	local theme = THEME[id]
 	if theme == nil then
@@ -1990,6 +2110,10 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- AFTER the bones, always: both passes run off the one stage rng, so putting
 			-- the drums first would move every bone in the field.
 			scatterBarrels(folder, origin, theme.barrels or 0, rng, hx, hz)
+		elseif id == 4 then
+			-- The rest of Stage 4's rework (`barriers`/`props`/`pools`) is still on the
+			-- shelf -- this is only the sign rank, not that pass.
+			scatterWarningSigns(folder, origin, theme.signs or 0, rng, hx, hz)
 		end
 	end
 
