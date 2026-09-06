@@ -2115,24 +2115,34 @@ end
 --- pools, some mid ones, and small spills. A field of identical blobs is wallpaper;
 --- a field with one big thing in it has somewhere to walk TO.
 ---
---- WHAT A SPILL ACTUALLY LOOKS LIKE, which is the whole brief. Liquid poured on flat
---- ground does not hold a circle -- it runs where the ground lets it, pools deeper in
---- the middle, gets eaten into where the ground rises, and throws droplets clear on
---- the way down. So a puddle here is, in draw order:
+--- ALL OF THE CHARACTER IS IN THE OUTLINE. THE INSIDE IS ONE FLAT GREEN. On request,
+--- and it is the rule this whole builder is organised around now -- a puddle here is:
 ---   * an OVAL body (aspect up to ~1.75, on its own yaw) rather than a disc, so no two
 ---     puddles share an outline and none of them reads as a circle;
 ---   * three to five smaller ovals overlapping it round its rim, each rolled either
 ---     side of tangent so the outline bulges out in some places and barely moves in
 ---     others;
 ---   * a DEEP-colour rim of even width following that whole outline, one layer lower;
----   * a brighter CORE, off-centre -- the middle of a puddle is deeper than its edge;
 ---   * one or two NOTCHES: rim-colour ovals straddling the outline, which is how a
 ---     CONCAVE dent gets cut without a boolean. See the note on them below -- this is
 ---     the shape the reference image is built on and the one thing a union of discs
----     can never produce on its own;
----   * bubbles on the surface, and droplets thrown clear.
---- The lake gets ISLANDS on top of all that: floor-coloured ovals with their own rim,
---- so the one big pool has something inside it to look at.
+---     can never produce on its own. They are EDGE geometry, not interior detail: a
+---     notch is centred on the outline and bites in from it;
+---   * droplets thrown clear, in the same one green as the body.
+--- Every liquid part is `ooze.bright` exactly. No blend, no second shade, no gradient.
+---
+--- WHAT USED TO BE HERE: interior detail. Each pool carried a brighter off-centre CORE
+--- ("the middle is deeper than the edge"), surface FROTH bubbles, a per-lobe MOTTLE
+--- that blended each lobe a little way toward `deep`, and the lake carried ISLANDS --
+--- floor-coloured ovals with their own wet rim. All of it removed on request: the
+--- inside of a pool is one bright green that glows, full stop.
+---
+--- REMOVED AS A LOOK, NOT AS A BUG -- each of those had been tuned against live shots
+--- and was working by the time it went (the core had come down from a fried-egg 0.34
+--- toward white to a soft 0.1; the islands had moved off a white blend, which read as
+--- grey stones, onto lighterFloor()). Do not reintroduce any of them as a "fix" for
+--- the pools looking flat. Flat is the brief. If interior variation is ever wanted
+--- again, those numbers are in git history on this file, already tuned.
 ---
 --- NO Z-FIGHTING BY CONSTRUCTION. Overlapping discs at one Y are exactly coplanar and
 --- flicker; every part of a puddle is lifted POOL_LOBE_LIFT above the last in draw
@@ -2171,22 +2181,17 @@ local POOL_LOBE_LIFT = 0.0025
 --- the note above THEME), so the light budget is untouched.
 local POOL_MATERIAL = "Neon"
 
---- The liquid's own shading, as blends off the stage's ooze triple:
----   `MOTTLE`  how far a lobe may drift from `bright` toward `deep` -- the spill lying
----             deeper in some places than others. Held well short of `deep`: that
----             shade belongs to the rim, and a lobe that dark reads as a hole.
----   `CORE`    how far the deep middle lifts toward white. TINY, and it has to be:
----             the first pass ran this to 0.34 and, unshaded under Neon, the core
----             rendered as a pale yellow-white blob -- every puddle read as a fried
----             egg, or as a spotlight shining on it, rather than as liquid that is
----             deeper in the middle. Interior shading on a self-lit surface needs a
----             fraction of the contrast it would need on a matte one.
----   `FROTH`   how far the surface bubbles lift toward white. Allowed to be several
----             times `CORE` because a bubble is small: it reads as a highlight at a
----             size where the core would read as a hole in the colour.
-local POOL_MOTTLE = 0.3
-local POOL_CORE_PALE = 0.1
-local POOL_FROTH_PALE = 0.26
+--- WHAT USED TO BE HERE: POOL_MOTTLE / POOL_CORE_PALE / POOL_FROTH_PALE, the three
+--- blend strengths that shaded a pool's interior. There is no interior shading any
+--- more -- see the section header. The liquid is `ooze.bright`, `deep` is the rim, and
+--- `glow` (the triple's third slot) goes unused in this field.
+---
+--- One thing worth keeping out of that removal, because it will come up again the next
+--- time anything in this world is asked to glow: INTERIOR SHADING ON AN UNSHADED
+--- SURFACE NEEDS A FRACTION OF THE CONTRAST A MATTE ONE WOULD. Neon renders at full
+--- value with no lighting on it, so blends that look subtle in a palette read as hard
+--- edges on the part -- 0.34 toward white made every puddle a fried egg, and 0.1 was
+--- as far as it could go before the core started to separate from the body.
 
 --- How far the dark rim stands out past the liquid, all the way round. PROPORTIONAL
 --- with a floor, not one flat number: a 3-stud spill and a 60-stud lake cannot share a
@@ -2240,8 +2245,7 @@ local function oozeDisc(
 end
 
 --- One puddle, `radius` studs from centre to outline at its widest, centred on the
---- stage-local point (x, z). `floor` is the stage's own ground colour (for the lake's
---- islands) and `islands` is how many of them to put in it -- 0 for an ordinary pool.
+--- stage-local point (x, z).
 local function oozePool(
 	parent: Instance,
 	origin: CFrame,
@@ -2249,9 +2253,7 @@ local function oozePool(
 	z: number,
 	radius: number,
 	rng: Random,
-	ooze: { bright: string, deep: string, glow: string },
-	floor: string,
-	islands: number
+	ooze: { bright: string, deep: string, glow: string }
 )
 	local rimW = math.clamp(radius * 0.22, POOL_RIM_MIN, POOL_RIM_MAX)
 	local yaw = rng:NextNumber(0, 360)
@@ -2312,34 +2314,14 @@ local function oozePool(
 		oozeDisc(parent, origin, "OozeRim", x + lobe.ox, nextY(POOL_RIM_TOP), z + lobe.oz, lobe.a + 2 * rimW, lobe.b + 2 * rimW, lobe.yaw, ooze.deep, "SmoothPlastic")
 	end
 
-	for index, lobe in lobes do
-		-- The body is always the bright shade so the puddle has one; the lobes mottle
-		-- off it. A CONTINUOUS BLEND, not a coin flip between the triple's `bright` and
-		-- `glow`: those two are only about a fifth apart in value and the flip built as
-		-- one flat sheet of green live.
-		local shade = if index == 1 then ooze.bright else Kit.blendHex(ooze.bright, ooze.deep, rng:NextNumber(0, POOL_MOTTLE))
-		oozeDisc(parent, origin, "OozePool", x + lobe.ox, nextY(POOL_TOP), z + lobe.oz, lobe.a, lobe.b, lobe.yaw, shade, POOL_MATERIAL)
+	-- ONE GREEN, NOT A SHADE PER LOBE. The body and every lobe are the same
+	-- `ooze.bright`, so the union reads as one pool of one liquid rather than as the
+	-- overlapping discs it is actually built from -- which is the whole point of the
+	-- lobes: they are there to shape the OUTLINE, and any colour difference between
+	-- them draws each disc's boundary back on top of the shape they were hiding.
+	for _, lobe in lobes do
+		oozeDisc(parent, origin, "OozePool", x + lobe.ox, nextY(POOL_TOP), z + lobe.oz, lobe.a, lobe.b, lobe.yaw, ooze.bright, POOL_MATERIAL)
 	end
-
-	-- The deep middle, pulled off centre because a concentric one reads as a target.
-	local coreBearing = rng:NextNumber(0, 360)
-	local coreReach = radius * rng:NextNumber(0, 0.22)
-	oozeDisc(
-		parent,
-		origin,
-		"OozeCore",
-		x + math.cos(math.rad(coreBearing)) * coreReach,
-		nextY(POOL_TOP),
-		z + math.sin(math.rad(coreBearing)) * coreReach,
-		-- Big and soft rather than small and hot. A core that covers most of the body
-		-- reads as the whole puddle being deeper in the middle; a small one reads as
-		-- something floating on it.
-		bodyA * rng:NextNumber(0.48, 0.72),
-		bodyB * rng:NextNumber(0.48, 0.72),
-		rng:NextNumber(0, 360),
-		Kit.blendHex(ooze.bright, "FFFFFF", rng:NextNumber(0.05, POOL_CORE_PALE)),
-		POOL_MATERIAL
-	)
 
 	-- THE CONCAVE DENT, AND WHY IT IS DRAWN RATHER THAN CUT. A union of overlapping
 	-- discs is convex almost everywhere -- it can bulge, but it can never bite inward,
@@ -2358,51 +2340,17 @@ local function oozePool(
 	-- reading as a bite out of the pool and started reading as a second, dark pool
 	-- parked against it. A dent is shallow by definition: keep it to about a third of
 	-- the radius, centred within a hair of the outline -- and biased INSIDE it rather
-	-- than outside, because at reach 1.14 a notch could clear the liquid entirely and
-	-- sit on bare ground as a dark blob of its own, which is the same failure one size
-	-- down. What lands outside is then small enough to merge with the rim already there.
+	-- than outside. Reach came down twice for that: at 1.14 a notch could clear the
+	-- liquid entirely and sit on bare ground as a dark blob of its own, and even at
+	-- 1.04 the lake's notch read from above as a dark BUMP stuck on the outside of the
+	-- pool rather than a bite taken out of it. Under 1.0 the centre is always inside
+	-- the liquid, so the dent cuts inward and what spills past the outline is small
+	-- enough to merge with the rim already there.
 	for _ = 1, rng:NextInteger(1, 2) do
 		local bearing = rng:NextNumber(0, 360)
-		local reach = bodyEdge(bearing) * rng:NextNumber(0.86, 1.04)
+		local reach = bodyEdge(bearing) * rng:NextNumber(0.78, 0.98)
 		local na = radius * rng:NextNumber(0.18, 0.34)
 		oozeDisc(parent, origin, "OozeNotch", x + math.cos(math.rad(bearing)) * reach, nextY(POOL_TOP), z + math.sin(math.rad(bearing)) * reach, na, na / rng:NextNumber(1.0, 1.5), rng:NextNumber(0, 360), ooze.deep, "SmoothPlastic")
-	end
-
-	-- Ground standing up out of the lake. Ordinary pools get none: a puddle you could
-	-- step over does not have an island in it.
-	for _ = 1, islands do
-		local bearing = rng:NextNumber(0, 360)
-		local reach = bodyEdge(bearing) * rng:NextNumber(0.15, 0.55)
-		local ia = radius * rng:NextNumber(0.22, 0.42)
-		local ib = ia / rng:NextNumber(1.0, 1.7)
-		local iyaw = rng:NextNumber(0, 360)
-		local ix = x + math.cos(math.rad(bearing)) * reach
-		local iz = z + math.sin(math.rad(bearing)) * reach
-		-- Its own wet rim first, same as the pool's -- an island is another edge where
-		-- liquid meets ground, and without one it reads as a sticker on the water.
-		oozeDisc(parent, origin, "OozeIslandRim", ix, nextY(POOL_TOP), iz, ia + 2 * POOL_RIM_MIN, ib + 2 * POOL_RIM_MIN, iyaw, ooze.deep, "SmoothPlastic")
-		-- LIGHTENED OFF THE FLOOR COLOUR, NOT THE FLOOR COLOUR ITSELF. Stage 4's ground
-		-- is a near-black brown (3F2D1D) and the liquid around it is unshaded Neon, so
-		-- an island painted the true floor colour rendered as a flat black dot -- it
-		-- read as a HOLE punched in the puddle, which is the opposite of a bank of mud
-		-- standing out of it.
-		--
-		-- `lighterFloor`, NOT a blend toward white, and the difference is visible: a
-		-- straight white blend at the strength this needs (0.34) washed the brown out
-		-- to a neutral grey and the islands read as stones dropped in the pool. That
-		-- helper lifts value and eases saturation instead, which is the same "the floor
-		-- gone pale" move the boundary walls already use -- so an island reads as this
-		-- stage's own mud, drying, rather than as a different material.
-		oozeDisc(parent, origin, "OozeIsland", ix, nextY(POOL_TOP), iz, ia, ib, iyaw, lighterFloor(floor):ToHex(), "Slate")
-	end
-
-	-- Surface froth. Scaled off the puddle so the lake gets big lazy bubbles and a
-	-- small spill gets specks, rather than one absolute size that suits neither.
-	for _ = 1, rng:NextInteger(2, 5) do
-		local bearing = rng:NextNumber(0, 360)
-		local reach = bodyEdge(bearing) * rng:NextNumber(0, 0.72)
-		local ba = radius * rng:NextNumber(0.06, 0.17)
-		oozeDisc(parent, origin, "OozeBubble", x + math.cos(math.rad(bearing)) * reach, nextY(POOL_TOP), z + math.sin(math.rad(bearing)) * reach, ba, ba / rng:NextNumber(1.0, 1.4), rng:NextNumber(0, 360), Kit.blendHex(ooze.bright, "FFFFFF", rng:NextNumber(0.12, POOL_FROTH_PALE)), POOL_MATERIAL)
 	end
 
 	-- Thrown clear of the blob, each on its own bearing. No rim on a droplet: at two
@@ -2411,7 +2359,7 @@ local function oozePool(
 		local bearing = rng:NextNumber(0, 360)
 		local reach = bodyEdge(bearing) * rng:NextNumber(1.08, 1.7)
 		local da = math.clamp(radius * rng:NextNumber(0.05, 0.16), 0.6, 3.4)
-		oozeDisc(parent, origin, "OozeDrop", x + math.cos(math.rad(bearing)) * reach, nextY(POOL_TOP), z + math.sin(math.rad(bearing)) * reach, da, da / rng:NextNumber(1.0, 1.5), rng:NextNumber(0, 360), Kit.blendHex(ooze.bright, ooze.deep, rng:NextNumber(0, 0.18)), POOL_MATERIAL)
+		oozeDisc(parent, origin, "OozeDrop", x + math.cos(math.rad(bearing)) * reach, nextY(POOL_TOP), z + math.sin(math.rad(bearing)) * reach, da, da / rng:NextNumber(1.0, 1.5), rng:NextNumber(0, 360), ooze.bright, POOL_MATERIAL)
 	end
 end
 
@@ -2424,7 +2372,9 @@ end
 --- enough to be a landmark, and a landmark that can land anywhere is not one -- so it
 --- goes down first, in the middle of the walk rather than tucked against the entrance
 --- where the sign rank already is, and the grid pools are pushed OUT of it afterwards
---- (a pool inside the lake is not a second pool, it is more lake).
+--- (a pool inside the lake is not a second pool, it is more lake). It is a landmark on
+--- SIZE alone now -- it used to carry islands the other pools did not, and those went
+--- with the rest of the interior detail.
 ---
 --- NO CENTRE LANE HERE, unlike the bushes, carcasses and drum dumps -- those three all
 --- keep a clear corridor down z = 0 because each is a thing you would have to walk
@@ -2441,14 +2391,13 @@ local function scatterOozePools(
 	rng: Random,
 	hx: number,
 	hz: number,
-	ooze: { bright: string, deep: string, glow: string },
-	floor: string
+	ooze: { bright: string, deep: string, glow: string }
 )
-	-- The lake: one per field, and the only puddle with islands in it.
+	-- The lake: one per field.
 	local lakeR = rng:NextNumber(26, 33)
 	local lakeX = rng:NextNumber(-hx * 0.3, hx * 0.45)
 	local lakeZ = rng:NextNumber(-hz + lakeR, hz - lakeR)
-	oozePool(folder, origin, lakeX, lakeZ, lakeR, rng, ooze, floor, rng:NextInteger(2, 3))
+	oozePool(folder, origin, lakeX, lakeZ, lakeR, rng, ooze)
 
 	-- The rest, as a size ladder: broad pools, mid ones, then spills. Dealt from a
 	-- shuffled bag so the sizes are spread over the field instead of the big ones all
@@ -2514,7 +2463,7 @@ local function scatterOozePools(
 				px, pz = lakeX + ux * need, lakeZ + uz * need
 			end
 
-			oozePool(folder, origin, math.clamp(px, -hx, hx), math.clamp(pz, -hz, hz), r, rng, ooze, floor, 0)
+			oozePool(folder, origin, math.clamp(px, -hx, hx), math.clamp(pz, -hz, hz), r, rng, ooze)
 		end
 	end
 end
@@ -2582,7 +2531,7 @@ local function buildStageScenery(parent: Instance, id: number)
 			scatterWarningSigns(folder, origin, theme.signs or 0, rng, hx, hz)
 			-- AFTER the signs, always: both passes run off the one stage rng, so putting
 			-- the puddles first would move every sign in the entrance rank.
-			scatterOozePools(folder, origin, theme.pools, rng, hx, hz, def.ooze, def.color)
+			scatterOozePools(folder, origin, theme.pools, rng, hx, hz, def.ooze)
 		end
 	end
 
