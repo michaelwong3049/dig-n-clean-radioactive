@@ -2116,14 +2116,25 @@ end
 --- pools, some mid ones, and small spills. A field of identical blobs is wallpaper;
 --- a field with one big thing in it has somewhere to walk TO.
 ---
---- ONE FLAT GREEN, NO DARK BORDER, NO INTERIOR DETAIL. On request, twice over --
---- first the inside was flattened to one shade, then the dark rim that outlined every
---- pool came off too. A puddle here is now just its OWN outline, laid down as:
----   * an OVAL body (aspect up to ~1.75, on its own yaw) rather than a disc, so no two
----     puddles share an outline and none of them reads as a circle;
----   * three to five smaller ovals overlapping it round its rim, each rolled either
----     side of tangent so the outline bulges out in some places and barely moves in
----     others;
+--- ONE FLAT GREEN, NO DARK BORDER, NO INTERIOR DETAIL, VISIBLY OVAL, MORE CURVE THAN
+--- BUMPS. On request, several times over -- flatten the inside to one shade, remove
+--- the dark rim, elongate the body so it never reads as a circle, and shrink/swallow
+--- the lobes so the outline reads as one sweeping curve rather than a cluster of
+--- similar-sized bumps. A puddle here is now just its OWN outline, laid down as:
+---   * an OVAL body, aspect 1.6-2.6 off its own yaw -- the floor is well clear of a
+---     disc on purpose, so every puddle in the field is visibly elongated, not just
+---     the ones that happened to roll long;
+---   * two to four smaller ovals overlapping it near its two ENDS (the body's own
+---     long axis, within +-20 degrees of each pole -- a lobe on the SIDE, or even
+---     55 degrees off a pole on a body this elongated, bulges the waist back out
+---     toward the minor axis's own width and cancels the ellipse's length back
+---     toward a circle; both found live, on two separate shots), most
+---     of them rolled SHORT of tangent so they swell one stretch of the outline into
+---     a gentle sweep rather than poking out as a separate rounded lump, plus one
+---     (arbitrarily, the last placed) allowed a wider size and reach so roughly one
+---     puddle feature reads as a real protruding foot -- see the reference this shape
+---     is built on, which has exactly one such foot off an otherwise smooth outline,
+---     not a symmetric ring of equal bumps;
 ---   * droplets thrown clear, in the same one green as the body;
 ---   * one PointLight per pool, in `ooze.glow`, so the field looks lit rather than
 ---     merely coloured -- see the note at the light itself, below the lobe loop.
@@ -2203,13 +2214,28 @@ local POOL_MATERIAL = "Neon"
 
 --- One flat oval lying on the ground. Every part of a puddle is one of these.
 ---
---- A Cylinder's axis is its X size, so the size triple is {thickness, diameter,
---- diameter} -- writing it {dia, thickness, dia} makes a thin ellipse standing on edge
---- instead of a puddle, which is what the first pass of the old pool loop did and why
---- the fields looked like bare lawn. The two cross-section sizes do NOT have to match:
---- an unequal pair is what makes these ovals rather than discs, and the yaw is applied
---- OUTSIDE R.cylUp so it turns the oval in the ground plane rather than rolling the
---- cylinder about its own axis (which a round cross-section would not have shown).
+--- NOT A Cylinder, ON PAIN OF SILENTLY GETTING A CIRCLE BACK. This is the second time
+--- this exact bug has cost a shape pass: `Enum.PartType.Cylinder`'s cross-section
+--- (its Size.Y/Size.Z face) is CIRCULAR NO MATTER WHAT YOU PUT IN THOSE TWO FIELDS --
+--- confirmed live by raycasting a test Cylinder sized {0.5, 80, 35} from twelve
+--- bearings and getting exactly 17.5 studs (= Size.Z / 2) back every single time,
+--- Size.Y's 80 completely ignored. `Enum.PartType.Ball` was tried next and is NO
+--- BETTER (same raycast technique, same result: a constant radius off the smallest
+--- axis) -- neither of Roblox's two round primitive Shapes takes an unequal
+--- cross-section, however unequal the Size you give one. Every "oval" pool built by
+--- either of those two Shapes, across every earlier pass of this file, was a plain
+--- circle wearing an oval-shaped comment.
+---
+--- SpecialMesh (MeshType.Sphere, independent non-uniform Scale) is what actually
+--- renders as an ellipsoid -- confirmed the same way, by screenshot: a flattened
+--- sphere mesh scaled {80, 4, 35} rendered as a visibly elongated oval, not a circle.
+--- So a puddle disc here is a near-invisible 1x1x1 Part (Transparency 0, but its own
+--- Size never reads as anything -- the child mesh fully replaces what gets drawn)
+--- carrying that mesh, scaled to {a, POOL_THICK, b} directly -- no R.cylUp reorienting
+--- dance needed either, since a sphere has no axis to stand upright in the first
+--- place: local X and Z already sit in the ground plane, `yaw` just turns them there.
+--- Color/Material still live on the PART (the mesh has neither of its own), exactly
+--- as before.
 local function oozeDisc(
 	parent: Instance,
 	origin: CFrame,
@@ -2223,18 +2249,25 @@ local function oozeDisc(
 	color: string,
 	material: string
 )
-	local part = build(parent, origin, {
-		name = name,
-		pos = { x, y - POOL_THICK / 2, z },
-		size = { POOL_THICK, a, b },
-		color = color,
-		material = material,
-		shape = "Cylinder",
-		rot = Kit.ang(0, yaw, 0) * R.cylUp,
-		canCollide = false,
-	})
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Anchored = true
+	part.CanCollide = false
 	part.CanQuery = false
 	part.CanTouch = false
+	part.Size = Vector3.new(1, 1, 1) -- irrelevant once the mesh below is parented; kept
+	-- small so this part's own (invisible, never-rendered) box can't be mistaken for
+	-- real geometry by anything that walks Workspace looking at BasePart.Size directly.
+	part.Color = Color3.fromHex(color)
+	part.Material = Enum.Material[material]
+	part.CFrame = origin * CFrame.new(x, y - POOL_THICK / 2, z) * Kit.ang(0, yaw, 0)
+
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Scale = Vector3.new(a, POOL_THICK, b)
+	mesh.Parent = part
+
+	part.Parent = parent
 	return part
 end
 
@@ -2255,11 +2288,18 @@ local function oozePool(
 	hz: number
 )
 	local yaw = rng:NextNumber(0, 360)
-	-- The body oval. `aspect` is how much longer it is than it is wide; 1 is a disc and
-	-- the top of the range is about as far as a puddle can stretch before it reads as a
-	-- painted stripe rather than as standing liquid.
+	-- The body oval. `aspect` is how much longer it is than it is wide. RAISED OFF THE
+	-- FLOOR TWICE, on request ("turn the circles to more oval shapes") -- 1.0 used to
+	-- be a legal roll and a puddle that landed near it read as a plain circle with a
+	-- few bumps on it. The first raise (1.35-2.1) was not enough on its own: shot live
+	-- from directly overhead, a lobe sized close to the body's own width and sitting
+	-- AT the tip rounded that tip off into its own little circle, so the whole puddle
+	-- still read as "circle plus a bump" rather than as one long oval -- see the note
+	-- on lobe SIZE below, which is the other half of this fix. The ceiling is still
+	-- about as far as a puddle can stretch before it reads as a painted stripe rather
+	-- than as standing liquid.
 	local bodyA = radius * 2
-	local bodyB = bodyA / rng:NextNumber(1.0, 1.75)
+	local bodyB = bodyA / rng:NextNumber(1.6, 2.6)
 
 	--- How far the body's own outline is from its centre along a compass bearing --
 	--- the polar radius of an ellipse, so the lobes below can be placed against the
@@ -2272,29 +2312,77 @@ local function oozePool(
 	end
 
 	-- The outline, solved before anything is built: the body plus its ring of lobes.
+	--
+	-- SMALLER LOBES, SWALLOWED DEEPER, ON REQUEST ("give the pools more curve"). The
+	-- first pass's lobes were up to 1.15x the body's own size at up to 1.3x reach --
+	-- close enough to the body's own scale that a puddle read as a cluster of
+	-- similar-sized circles (a flower, or a bunch of grapes) rather than as one shape
+	-- with a curved edge. Lobes are now well under the body's scale and mostly land
+	-- SHORT of tangent, so most of them only swell one stretch of the outline into a
+	-- gentle sweep instead of poking out as a separate rounded lump.
+	--
+	-- ONE LOBE PER PUDDLE IS ALLOWED TO BREAK THAT RULE -- the reference this shape is
+	-- built on has exactly one small foot-like protrusion off an otherwise smooth
+	-- outline, not a symmetric ring of equal bumps. `i == count` (the last lobe placed,
+	-- itself an arbitrary pick off the evenly-spaced ring) gets a wider size and reach
+	-- range so roughly one puddle feature reads as a real protruding foot while the
+	-- rest of the outline stays a single sweeping curve.
 	local lobes: { { ox: number, oz: number, a: number, b: number, yaw: number } } =
 		{ { ox = 0, oz = 0, a = bodyA, b = bodyB, yaw = yaw } }
-	local count = rng:NextInteger(3, 5)
-	local base = rng:NextNumber(0, 360)
+	local count = rng:NextInteger(2, 4)
 	for i = 1, count do
-		-- A BEARING AND A DISTANCE, the same way scatterBarrels places a load, so the
-		-- lobes spread round the body instead of clumping the way two independent
-		-- jitters would. Evenly spaced with enough wobble that no two puddles in the
-		-- field share a silhouette.
-		local bearing = base + (i - 1) * (360 / count) + rng:NextNumber(-34, 34)
-		local la = radius * rng:NextNumber(0.62, 1.15)
-		local lb = la / rng:NextNumber(1.0, 1.6)
+		-- BEARING NEAR ONE OF THE BODY'S TWO POLES (yaw or yaw + 180), NOT ANYWHERE
+		-- ROUND THE RING -- found live, and this is the fix for it, not a taste call.
+		-- The body is already an elongated ellipse, but a lobe dropped at a bearing
+		-- near +-90 off that axis bulges the WAIST outward, and widening the middle is
+		-- exactly what cancels an oval's own length back toward a circle -- shot live,
+		-- a pool measuring 1.8:1 on its own body still read as round because its
+		-- lobes had landed on the sides.
+		--
+		-- +-55 WAS STILL TOO WIDE -- the first attempt at this same fix, caught on a
+		-- SECOND live shot. An ellipse's own polar radius does not fall off linearly
+		-- with angle: at 2.2:1 aspect, the edge distance 55 degrees off the pole is
+		-- already most of the way down to the MINOR axis's own value (measured:
+		-- 16.5 studs at 55 degrees vs 31.7 at the pole itself, on a body whose short
+		-- axis is only 14.1) -- so a "+-55 off the pole" lobe was still landing
+		-- somewhere close to the waist in practice, not the tip, and the fix did not
+		-- fix it. +-20 is what actually keeps a lobe's centre near the pole's own
+		-- radius (28.1 of 31.7 at 20 degrees off) rather than sliding toward the side.
+		-- Alternating ends (i odd -> the yaw end, i even -> the opposite end) still
+		-- allows a lobe to land off-centre for asymmetry -- this is not "only ever
+		-- exactly at the tip" -- it just can no longer drift far enough to fight the
+		-- ellipse it is sitting on.
+		local pole = if i % 2 == 1 then yaw else yaw + 180
+		local bearing = pole + rng:NextNumber(-20, 20)
+		local isFoot = i == count
+		-- SMALL, ON PURPOSE -- the other half of the "still reads round" fix above. A
+		-- lobe anywhere near the body's own minor-axis width (bodyB, ~17-25% of
+		-- `radius` at these aspects) caps the tapered tip with a rounder, wider hump
+		-- instead of extending it, which is what rounded the whole puddle off live.
+		-- Regular lobes are now well under that width; only the one foot lobe is
+		-- allowed up near it, and even it stays short of the body's own scale.
+		local la = radius * rng:NextNumber(if isFoot then 0.28 else 0.14, if isFoot then 0.5 else 0.26)
+		-- ALIGNED WITH THE BEARING, NOT FREE -- a lobe elongated ALONG the axis it
+		-- sits on extends the body's own taper; one elongated across it (the old fully
+		-- random yaw) is a wide cap on the tip, the exact failure this whole pass is
+		-- fixing. The +-20 jitter is enough to keep every lobe from looking like a
+		-- ruler-straight extension of the body without ever pointing far enough off
+		-- axis to read as a cross-bar.
+		local lb = la / rng:NextNumber(1.2, 2.2)
+		local lyaw = bearing + rng:NextNumber(-20, 20)
 		-- (edge - la / 2) is exactly tangent inside the body. Rolling either side of
 		-- that is what makes the outline irregular: under it the lobe is swallowed and
-		-- only softens the rim, over it the lobe bulges out past it. The ceiling is
-		-- well short of (edge + la / 2), so a lobe can never detach from the body.
-		local reach = (bodyEdge(bearing) - la / 2) * rng:NextNumber(0.55, 1.3)
+		-- only softens the curve, over it the lobe bulges out past it. The ceiling is
+		-- well short of (edge + la / 2), so a lobe can never detach from the body. Most
+		-- lobes stay under 1.0 (swallowed, a soft sweep); the one foot lobe is allowed
+		-- past it for a real protrusion.
+		local reach = (bodyEdge(bearing) - la / 2) * rng:NextNumber(0.45, if isFoot then 1.2 else 0.95)
 		table.insert(lobes, {
 			ox = math.cos(math.rad(bearing)) * reach,
 			oz = math.sin(math.rad(bearing)) * reach,
 			a = la,
 			b = lb,
-			yaw = rng:NextNumber(0, 360),
+			yaw = lyaw,
 		})
 	end
 
