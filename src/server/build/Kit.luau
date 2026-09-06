@@ -53,9 +53,12 @@ Kit.UPGRADE_TAG = "Upgrade"
 --
 -- ONE NAMED EXCEPTION, ON REQUEST: Stage 4's ooze puddles are Material.Neon
 -- (build/Scenery, POOL_MATERIAL) so the green reads as lit from inside rather than
--- painted onto the mud. That is the only Neon in the game, it is one substance in one
--- stage, and it still emits no LIGHT — read the note at POOL_MATERIAL before
--- extending it anywhere else. No shop accent, prop or sign goes back to Neon.
+-- painted onto the mud, AND each pool carries a real PointLight (radius-scaled,
+-- shadowless, in `ooze.glow`) so it actually lights the ground it sits on. That is
+-- the only Neon and the only standing light source anywhere in the game outside of
+-- a signal aura's locator glow — one substance in one stage — read the note at
+-- POOL_MATERIAL and at the light itself in `oozePool` before extending either
+-- anywhere else. No shop accent, prop or sign goes back to Neon or grows a light.
 Kit.C = {
 	-- Base camp (original values — do not repaint without rebuilding the camp)
 	floor = "C9C4B8",
@@ -380,11 +383,19 @@ function Kit.blendHex(a: string, b: string, t: number): string
 	return Color3.fromHex(a):Lerp(Color3.fromHex(b), t):ToHex()
 end
 
-function Kit.light(part: BasePart, color: string, range: number, brightness: number)
+function Kit.light(part: BasePart, color: string, range: number, brightness: number, shadows: boolean?)
 	local l = Instance.new("PointLight")
 	l.Color = Color3.fromHex(color)
 	l.Range = range
 	l.Brightness = brightness
+	-- Defaults to Roblox's own default (true) so this stays a no-op for any existing
+	-- call; pass false for a locator/accent light that does not need to cast real
+	-- shadows (SignalAura's core light does this by hand for the same reason -- a
+	-- glow marking a spot does not need geometry-accurate shadowing, and shadow
+	-- casting is the expensive part of a PointLight).
+	if shadows ~= nil then
+		l.Shadows = shadows
+	end
 	l.Parent = part
 end
 

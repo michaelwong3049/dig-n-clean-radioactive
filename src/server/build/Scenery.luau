@@ -367,18 +367,19 @@ end
 --- individual props being placed, not one surface split into many, so it was never
 --- the source of this bug and did not need to change.
 
---- NO POOL/PROP LIGHTS ANY MORE. The pools and spills used to be Neon and every few
---- of them threw a PointLight to spill that glow onto the ground around it; the whole
---- world is matte now (see Kit.C's header), so the light-budget machinery that used to
---- live here is gone. The drums (`radBarrel`) are built matte under that rule, and
---- if the dormant `prop()` set pieces are ever revived they render flat too.
+--- NO PROP LIGHTS ANY MORE, AND STAGE 4's POOLS ARE A NAMED EXCEPTION. Props and the
+--- pools both used to be Neon with a PointLight every few of them, spilling that glow
+--- onto the ground; the whole world went matte and unlit (see Kit.C's header). The
+--- drums (`radBarrel`) and every dormant `prop()` kind are still matte under that rule
+--- -- this paragraph's "no prop lights" half still holds everywhere but one place.
 ---
---- THE LIGHTS DID NOT COME BACK WITH THE POOLS. Stage 4's ooze is Neon again, on
---- request (see POOL_MATERIAL), but Neon is not a light source -- it renders unshaded,
---- it does not spill onto anything. So the budget this paragraph describes is still
---- zero and the machinery is still gone. If the ooze is ever asked to light the ground
---- around it, that is a PointLight per pool and this paragraph is the thing to read
---- first.
+--- THE POOL LIGHTS CAME BACK, ON REQUEST, AFTER THIS PARAGRAPH SAID THEY WOULD BE THE
+--- THING TO READ FIRST IF THEY EVER DID. Stage 4's ooze went Neon for the surface look
+--- first (POOL_MATERIAL), which was explicitly NOT a light source on its own -- then
+--- a real PointLight per pool followed, one per `oozePool` call, radius-scaled and
+--- shadowless (see the light itself, in `oozePool`). It is still true nowhere else in
+--- this file emits light: this is one field's puddles, not a rule change for props,
+--- the drums, or any other stage.
 
 --- Per-stage character. `props` is roughly how many set pieces to scatter; the pool
 --- count scales with area so a big stage does not look empty.
@@ -2123,11 +2124,13 @@ end
 ---   * three to five smaller ovals overlapping it round its rim, each rolled either
 ---     side of tangent so the outline bulges out in some places and barely moves in
 ---     others;
----   * droplets thrown clear, in the same one green as the body.
---- Every part of a puddle -- the body, every lobe, every droplet -- is `ooze.bright`
---- exactly. No blend, no second shade, no gradient, nothing dark touching any of it.
---- `ooze.deep` and `ooze.glow`, the other two slots of the stage's own triple, go
---- unused in this field now.
+---   * droplets thrown clear, in the same one green as the body;
+---   * one PointLight per pool, in `ooze.glow`, so the field looks lit rather than
+---     merely coloured -- see the note at the light itself, below the lobe loop.
+--- Every SOLID part of a puddle -- the body, every lobe, every droplet -- is
+--- `ooze.bright` exactly. No blend, no second shade, no gradient, nothing dark
+--- touching any of it. `ooze.deep`, the stage triple's third slot, goes unused now --
+--- it used to be the rim, and there is nothing dark left anywhere in this field.
 ---
 --- WHAT USED TO BE HERE, in the order it came off:
 ---   1. Interior detail -- a brighter off-centre CORE ("the middle is deeper than the
@@ -2179,16 +2182,17 @@ local POOL_LOBE_LIFT = 0.0025
 --- no prop, no sign goes back to emitting. This is a deliberate, named exception for
 --- one substance in one stage: the ask was for the green to have "a bright effect",
 --- and matte green on brown mud cannot do it. Neon renders unshaded at full value, so
---- the liquid reads as lit from inside while the matte rim around it stays a painted
---- shadow -- that CONTRAST is what makes it glow rather than just being bright.
---- Nothing here emits real light (there are no PointLights in this file any more, see
---- the note above THEME), so the light budget is untouched.
+--- the liquid reads as lit from inside rather than painted on -- that is the surface
+--- doing the work, separate from the PointLight below actually casting light onto the
+--- ground around it. Together they are "glowing"; either alone is only "bright" or
+--- only "lit from one side".
 local POOL_MATERIAL = "Neon"
 
 --- WHAT USED TO BE HERE: POOL_MOTTLE / POOL_CORE_PALE / POOL_FROTH_PALE, the three
 --- blend strengths that shaded a pool's interior. There is no interior shading any
---- more -- see the section header. The liquid is `ooze.bright`, `deep` is the rim, and
---- `glow` (the triple's third slot) goes unused in this field.
+--- more -- see the section header. The liquid is `ooze.bright`; `glow` now lights the
+--- pool from a PointLight instead of shading it, and `deep` -- the old rim's colour --
+--- goes unused, full stop.
 ---
 --- One thing worth keeping out of that removal, because it will come up again the next
 --- time anything in this world is asked to glow: INTERIOR SHADING ON AN UNSHADED
@@ -2307,8 +2311,37 @@ local function oozePool(
 	-- overlapping discs it is actually built from -- which is the whole point of the
 	-- lobes: they are there to shape the OUTLINE, and any colour difference between
 	-- them draws each disc's boundary back on top of the shape they were hiding.
-	for _, lobe in lobes do
-		oozeDisc(parent, origin, "OozePool", x + lobe.ox, nextY(POOL_TOP), z + lobe.oz, lobe.a, lobe.b, lobe.yaw, ooze.bright, POOL_MATERIAL)
+	local bodyPart: BasePart? = nil
+	for index, lobe in lobes do
+		local part = oozeDisc(parent, origin, "OozePool", x + lobe.ox, nextY(POOL_TOP), z + lobe.oz, lobe.a, lobe.b, lobe.yaw, ooze.bright, POOL_MATERIAL)
+		if index == 1 then
+			bodyPart = part
+		end
+	end
+
+	-- THE GLOW, ON REQUEST -- Neon alone reads as "bright", not as "lighting the
+	-- ground around it". One PointLight per pool, on the body part only (never a
+	-- lobe or a droplet -- a light on every one of those would be a light for every
+	-- few studs across the whole field, and the ground under a small spill does not
+	-- need its own halo). `ooze.glow`, the triple's third slot, finally has a caller
+	-- again -- it sat unused from the moment the rim (which used to occupy `deep`)
+	-- and the interior detail came off. `deep` itself stays unused; there is nothing
+	-- dark left anywhere in this field for it to paint.
+	--
+	-- SCALED OFF RADIUS, NOT ONE FLAT NUMBER, same reasoning as the rim width used to
+	-- be before it was removed: a 3-stud spill and a 30-stud lake cannot share a
+	-- light without one of them looking wrong -- a flat light bright enough to read
+	-- on the lake floods a small spill into a blown-out white disc, and one dim
+	-- enough to suit a spill barely tints the lake at all. Both ends are still
+	-- clamped, not left to the formula: too dim reads as no light at all, and too
+	-- bright starts washing out the checkerboard floor past the pool's own edge.
+	--
+	-- SHADOWS OFF, same call SignalAura's own locator light already made and for the
+	-- same reason -- this is marking a glowing surface, not casting geometry-accurate
+	-- shadows off scattered props, and shadow casting is the expensive part of a
+	-- PointLight. With 12 of these alight in the field at once, that is not optional.
+	if bodyPart then
+		Kit.light(bodyPart, ooze.glow, math.clamp(radius * 1.3, 10, 46), math.clamp(radius * 0.07, 0.7, 2.4), false)
 	end
 
 	-- Thrown clear of the blob, each on its own bearing -- droplets, not a second pool.
