@@ -1955,8 +1955,78 @@ local SIGN_LEG_W, SIGN_LEG_H = 1, 2 -- "the leg of the stick 2x1 long" -- 1x1 cr
 local SIGN_W, SIGN_H = 4, 3 -- "the actual sign 4x3 rectangle" -- wider than tall
 local SIGN_BROWN = C.wood
 
+--- THE CAUTION BADGE, ON REQUEST -- reference was a yellow radiation-warning sign:
+--- a black "CAUTION" band across the top, a black trefoil on yellow below it.
+--- Nailed onto the board's west (entrance) face as its own proud plate rather than
+--- painted straight onto the wood, the same "placard bolted to a post" read the
+--- reference image itself has. SmoothPlastic, not studded -- the wood board is the
+--- carpentry, the badge is a printed metal sign fixed to it, and that material
+--- contrast is what sells "something was bolted on here" rather than carved in.
+local SIGN_BADGE_W, SIGN_BADGE_H = 3.5, 2.6 -- leaves an even wood margin inside the 4x3 board
+local SIGN_BAND_H = 0.7 -- the black CAUTION strip, flush with the badge's own top edge
+
+--- Every proud layer in this sign is measured off the WEST FACE of the layer
+--- behind it, never off that layer's centre -- see the git history on this file
+--- (the first hazard-placard version) for exactly what goes wrong otherwise: a
+--- thicker layer's own half-thickness can reach further west than a thinner one
+--- centred only `paint` in front of it, so the thicker layer ends up hiding the
+--- thinner one instead of backing it. Returns the new layer's own centre X and its
+--- west face X, so the next layer out can chain off the second value.
+local function proudOf(prevWestFaceX: number, paint: number, thickness: number): (number, number)
+	local centerX = prevWestFaceX - paint + thickness / 2
+	return centerX, centerX - thickness / 2
+end
+
+local BADGE_PAINT = 0.05
+local BOARD_WEST_FACE = -SIGN_THICK / 2
+local BADGE_X, BADGE_WEST_FACE = proudOf(BOARD_WEST_FACE, BADGE_PAINT, 0.06)
+local BAND_X = (proudOf(BADGE_WEST_FACE, BADGE_PAINT, 0.05))
+local MARK_X = (proudOf(BADGE_WEST_FACE, BADGE_PAINT, 0.05))
+
+--- The radiation trefoil, flat against the badge -- the same three-bladed rosette
+--- radBarrel paints on the drums (see that function's own header for the real
+--- symbol's proportions this follows), just laid straight in the sign's Y-Z plane
+--- instead of wrapped around a cylinder: there is no curvature to unwrap on a flat
+--- badge, so this is the simpler of the two versions.
+---
+--- EACH ARM'S ORIGIN CARRIES ITS OWN ROTATION, RATHER THAN A SEPARATELY COMPUTED
+--- POSITION ROLLED BY HAND -- `build`'s pos/rot split can't express "rotate about
+--- the hub, then push outward," so position and facing would otherwise have to
+--- agree on Roblox's own rotation handedness by hand (get the sign wrong and a
+--- blade points off at the mirror of where it sits). Composing the arm's CFrame
+--- once and pushing straight out along ITS OWN rotated Y axis makes the two agree
+--- by construction instead of by luck.
+local function flatTrefoil(parent: Instance, hubOrigin: CFrame, scale: number, color: string)
+	build(parent, hubOrigin, {
+		name = "TrefoilHub",
+		pos = { 0, 0, 0 },
+		size = { 0.05, 0.5 * scale, 0.5 * scale },
+		color = color,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		canCollide = false,
+	})
+	for i = 0, 2 do
+		local armOrigin = hubOrigin * Kit.ang(i * 120, 0, 0)
+		for _, blade in { { 0.55, 0.55 }, { 0.95, 0.95 } } do
+			local reach, width = blade[1] * scale, blade[2] * scale
+			build(parent, armOrigin * CFrame.new(0, reach, 0), {
+				name = "TrefoilBlade",
+				pos = { 0, 0, 0 },
+				size = { 0.05, width, width * 0.42 },
+				color = color,
+				material = "SmoothPlastic",
+				canCollide = false,
+			})
+		end
+	end
+end
+
 local function warningSign(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
-	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(0, 360), 0)
+	-- A few degrees of yaw jitter, not the full 0-360 deadTree/bush get: the badge is
+	-- one-sided (west face only), so a full random spin would leave some signs in the
+	-- rank showing their blank back to a player walking in from Stage 3.
+	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(-8, 8), 0)
 
 	build(parent, base, {
 		name = "SignLeg",
@@ -1967,15 +2037,41 @@ local function warningSign(parent: Instance, origin: CFrame, x: number, z: numbe
 		studs = true,
 		canCollide = false,
 	})
+	local boardY = SIGN_LEG_H + SIGN_H / 2
 	build(parent, base, {
 		name = "SignBoard",
-		pos = { 0, SIGN_LEG_H + SIGN_H / 2, 0 },
+		pos = { 0, boardY, 0 },
 		size = { SIGN_THICK, SIGN_H, SIGN_W },
 		color = SIGN_BROWN,
 		material = "Plastic",
 		studs = true,
 		canCollide = false,
 	})
+
+	build(parent, base, {
+		name = "SignBadge",
+		pos = { BADGE_X, boardY, 0 },
+		size = { 0.06, SIGN_BADGE_H, SIGN_BADGE_W },
+		color = C.barrelYellow,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+
+	-- Flush with the badge's own top edge, full badge width -- the reference has no
+	-- yellow margin around the band, only below it.
+	local band = build(parent, base, {
+		name = "SignBand",
+		pos = { BAND_X, boardY + SIGN_BADGE_H / 2 - SIGN_BAND_H / 2, 0 },
+		size = { 0.05, SIGN_BAND_H, SIGN_BADGE_W },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	Kit.surfaceText(band, Enum.NormalId.Left, "CAUTION", C.labelText)
+
+	-- Centred in whatever yellow is left below the band.
+	local trefoilY = boardY - SIGN_BAND_H / 2
+	flatTrefoil(parent, base * CFrame.new(MARK_X, trefoilY, 0), 0.75, C.hazardBlack)
 end
 
 --- Stage 4 -- a rank of signs along the entrance edge. Evenly spread across z with
