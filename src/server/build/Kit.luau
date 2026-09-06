@@ -145,6 +145,13 @@ Kit.C = {
 	-- place in the world that is not some shade of green.
 	baseTileDark = "212639",
 	baseTileLight = "545A66",
+
+	-- The player bases' pad floor, on request: ONE flat studded grey instead of the
+	-- navy/grey `baseTileDark`/`baseTileLight` checker. A mid neutral grey, a touch
+	-- cool so it still sits with the steel and the navy trim. `baseTileDark`/`Light`
+	-- stay above for the pad's exposed slab side and anything else that still wants
+	-- the old pair.
+	baseFloor = "6C727C",
 	grass = "8FD86A",
 	grassDark = "6FB84E",
 	road = "E8DCC0",

@@ -401,7 +401,7 @@ function World.verify(): (boolean, { string })
 		`expected {Plots.COUNT} wash pads (one per base), found {census.roller or 0}`
 	)
 
-	-- ...and one luck button per base, on the back wall of the pad it bends the odds for.
+	-- ...and one luck button per base, staked beside the wash pad it bends the odds for.
 	local luckButtons = 0
 	for _, d in Workspace:GetDescendants() do
 		if d:IsA("BasePart") and d:GetAttribute("SellsTrack") == "Luck" then

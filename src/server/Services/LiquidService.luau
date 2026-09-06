@@ -31,8 +31,9 @@
 	every player on that base sees rather than only whoever stepped on it.
 
 	The odds are still readable, just not mid-roll: the pad's shelf shows the top five
-	prizes as physical canisters (build/Plots.buildWashPad), the wooden Luck sign next
-	to it lists the whole ladder, and `/odds` prints the live table. All three read
+	prizes as physical canisters (build/Plots.buildWashPad), and `/odds` prints the
+	live table (the Luck button staked beside the pad shows the multiplier, not the
+	odds). Both the canisters and `/odds` read
 	`Liquids.oddsAt`, the same function `roll()` below samples against — the same
 	deterministic-order weighted walk `DigService.rollRarity` uses, for the same reason
 	(`pairs()` order is not stable, and a weighted roll over an unstable order has
