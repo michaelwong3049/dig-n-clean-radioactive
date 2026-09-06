@@ -2115,52 +2115,56 @@ end
 --- pools, some mid ones, and small spills. A field of identical blobs is wallpaper;
 --- a field with one big thing in it has somewhere to walk TO.
 ---
---- ALL OF THE CHARACTER IS IN THE OUTLINE. THE INSIDE IS ONE FLAT GREEN. On request,
---- and it is the rule this whole builder is organised around now -- a puddle here is:
+--- ONE FLAT GREEN, NO DARK BORDER, NO INTERIOR DETAIL. On request, twice over --
+--- first the inside was flattened to one shade, then the dark rim that outlined every
+--- pool came off too. A puddle here is now just its OWN outline, laid down as:
 ---   * an OVAL body (aspect up to ~1.75, on its own yaw) rather than a disc, so no two
 ---     puddles share an outline and none of them reads as a circle;
 ---   * three to five smaller ovals overlapping it round its rim, each rolled either
 ---     side of tangent so the outline bulges out in some places and barely moves in
 ---     others;
----   * a DEEP-colour rim of even width following that whole outline, one layer lower;
----   * one or two NOTCHES: rim-colour ovals straddling the outline, which is how a
----     CONCAVE dent gets cut without a boolean. See the note on them below -- this is
----     the shape the reference image is built on and the one thing a union of discs
----     can never produce on its own. They are EDGE geometry, not interior detail: a
----     notch is centred on the outline and bites in from it;
 ---   * droplets thrown clear, in the same one green as the body.
---- Every liquid part is `ooze.bright` exactly. No blend, no second shade, no gradient.
+--- Every part of a puddle -- the body, every lobe, every droplet -- is `ooze.bright`
+--- exactly. No blend, no second shade, no gradient, nothing dark touching any of it.
+--- `ooze.deep` and `ooze.glow`, the other two slots of the stage's own triple, go
+--- unused in this field now.
 ---
---- WHAT USED TO BE HERE: interior detail. Each pool carried a brighter off-centre CORE
---- ("the middle is deeper than the edge"), surface FROTH bubbles, a per-lobe MOTTLE
---- that blended each lobe a little way toward `deep`, and the lake carried ISLANDS --
---- floor-coloured ovals with their own wet rim. All of it removed on request: the
---- inside of a pool is one bright green that glows, full stop.
----
---- REMOVED AS A LOOK, NOT AS A BUG -- each of those had been tuned against live shots
---- and was working by the time it went (the core had come down from a fried-egg 0.34
---- toward white to a soft 0.1; the islands had moved off a white blend, which read as
---- grey stones, onto lighterFloor()). Do not reintroduce any of them as a "fix" for
---- the pools looking flat. Flat is the brief. If interior variation is ever wanted
---- again, those numbers are in git history on this file, already tuned.
+--- WHAT USED TO BE HERE, in the order it came off:
+---   1. Interior detail -- a brighter off-centre CORE ("the middle is deeper than the
+---      edge"), surface FROTH bubbles, a per-lobe MOTTLE blending each lobe a little
+---      way toward `deep`, and the lake's mud ISLANDS. Flattened to one green first.
+---   2. The RIM -- a `deep`-colour ring of even width following the whole outline, one
+---      layer under the liquid, meant to read as the edge where liquid soaks into
+---      ground. Removed next, as "that dark green outline".
+---   3. The NOTCH that made the outline concave -- a `deep`-coloured oval straddling
+---      the rim, there so a bite out of the pool would merge into the rim already
+---      sitting on that edge rather than reading as a separate dark shape. It could
+---      not survive step 2: shot live with the rim gone, a notch with nothing left to
+---      blend into was a small dark blob stuck to a puddle's edge, not a dent. Removed
+---      in the same pass as the rim, for that reason -- it was never wanted for its
+---      own sake, only as camouflage for something that is no longer there. The
+---      outline is purely convex now, which is the one trade this removal made: no
+---      concave bite is possible without either a rim to hide the seam in or a real
+---      boolean subtract, and this file has neither.
+--- Every one of these had been tuned against live shots and was working by the time it
+--- went. Do not reintroduce any of them as a "fix" for the pools looking flat or plain
+--- -- flat and plain (and now unbordered) is the brief. The tuned numbers are in git
+--- history on this file if interior detail or a rim is ever wanted back.
 ---
 --- NO Z-FIGHTING BY CONSTRUCTION. Overlapping discs at one Y are exactly coplanar and
 --- flicker; every part of a puddle is lifted POOL_LOBE_LIFT above the last in draw
 --- order, so the stack rises a few hundredths of a stud over a whole puddle -- under
 --- the border strip at SKIM even for the lake, invisible as a step, and there is never
---- a tie for the renderer to break. The lift IS the draw order: notches occlude liquid
---- and bubbles occlude notches because they are built later, not because of any
---- sorting.
+--- a tie for the renderer to break.
 ---
 --- STILL PURELY VISUAL. This file's header rule holds -- the ground is the hazard and
 --- a pool is not a second one. Nothing here is queryable, collidable or touchable, and
 --- StageService.hotPocketFor stays the stub it is.
 
---- Top of the rim ring, and top of the liquid sitting in it. Both clear the
---- checkerboard cap at GROUND_SKIM (0.06) and stay under the border strip at SKIM
---- (0.26) -- the same thin band every other ground layer in this file lives in, so a
---- haul surfacing under a puddle still comes up through it.
-local POOL_RIM_TOP = 0.10
+--- Top of the liquid. Clears the checkerboard cap at GROUND_SKIM (0.06) and stays
+--- under the border strip at SKIM (0.26) -- the same thin band every other ground
+--- layer in this file lives in, so a haul surfacing under a puddle still comes up
+--- through it.
 local POOL_TOP = 0.15
 local POOL_THICK = 0.12
 
@@ -2192,20 +2196,6 @@ local POOL_MATERIAL = "Neon"
 --- value with no lighting on it, so blends that look subtle in a palette read as hard
 --- edges on the part -- 0.34 toward white made every puddle a fried egg, and 0.1 was
 --- as far as it could go before the core started to separate from the body.
-
---- How far the dark rim stands out past the liquid, all the way round. PROPORTIONAL
---- with a floor, not one flat number: a 3-stud spill and a 60-stud lake cannot share a
---- border width without one of them looking wrong.
----
---- THE FLOOR IS THE PART THAT MATTERS AND IT WAS MEASURED, NOT CHOSEN. A player's eye
---- is about 5 studs up in a field 290 long, so every puddle past the one at their feet
---- is seen almost edge-on and a flat ring foreshortens to nearly nothing: at 1.3 the
---- wet edge was invisible from standing height in a live shot and only measurable from
---- directly overhead, which is not a camera this game has. The edge is the whole reason
---- a puddle reads as liquid rather than as green paint, so it has to survive the angle
---- it is actually seen at. Do not drop this floor without re-shooting from eye height.
-local POOL_RIM_MIN = 1.6
-local POOL_RIM_MAX = 3.4
 
 --- One flat oval lying on the ground. Every part of a puddle is one of these.
 ---
@@ -2245,7 +2235,10 @@ local function oozeDisc(
 end
 
 --- One puddle, `radius` studs from centre to outline at its widest, centred on the
---- stage-local point (x, z).
+--- stage-local point (x, z). `hx`/`hz` are the field's own half-extents, so a droplet
+--- thrown off a puddle near the boundary can be held inside the field -- see the note
+--- at the droplet loop below, this was found overhanging the edge by up to 3.3 studs
+--- on a live check.
 local function oozePool(
 	parent: Instance,
 	origin: CFrame,
@@ -2253,9 +2246,10 @@ local function oozePool(
 	z: number,
 	radius: number,
 	rng: Random,
-	ooze: { bright: string, deep: string, glow: string }
+	ooze: { bright: string, deep: string, glow: string },
+	hx: number,
+	hz: number
 )
-	local rimW = math.clamp(radius * 0.22, POOL_RIM_MIN, POOL_RIM_MAX)
 	local yaw = rng:NextNumber(0, 360)
 	-- The body oval. `aspect` is how much longer it is than it is wide; 1 is a disc and
 	-- the top of the range is about as far as a puddle can stretch before it reads as a
@@ -2308,12 +2302,6 @@ local function oozePool(
 		return baseY + lift
 	end
 
-	-- Rims first, as a whole layer: every rim sits under every lobe, so one lobe is
-	-- never half-buried by the rim of the lobe beside it.
-	for _, lobe in lobes do
-		oozeDisc(parent, origin, "OozeRim", x + lobe.ox, nextY(POOL_RIM_TOP), z + lobe.oz, lobe.a + 2 * rimW, lobe.b + 2 * rimW, lobe.yaw, ooze.deep, "SmoothPlastic")
-	end
-
 	-- ONE GREEN, NOT A SHADE PER LOBE. The body and every lobe are the same
 	-- `ooze.bright`, so the union reads as one pool of one liquid rather than as the
 	-- overlapping discs it is actually built from -- which is the whole point of the
@@ -2323,43 +2311,22 @@ local function oozePool(
 		oozeDisc(parent, origin, "OozePool", x + lobe.ox, nextY(POOL_TOP), z + lobe.oz, lobe.a, lobe.b, lobe.yaw, ooze.bright, POOL_MATERIAL)
 	end
 
-	-- THE CONCAVE DENT, AND WHY IT IS DRAWN RATHER THAN CUT. A union of overlapping
-	-- discs is convex almost everywhere -- it can bulge, but it can never bite inward,
-	-- which is the single feature the reference shape is built around. There is no
-	-- boolean subtract available here (nothing else in this file carves anything; every
-	-- detail in this world is a flat coloured layer laid on top), so the bite is drawn
-	-- ON: a RIM-COLOURED oval straddling the outline. Inside the outline it covers
-	-- liquid and reads as the rim pushing in; outside it merges with the rim that is
-	-- already there, so it never reads as a separate object sitting beside the pool.
-	-- Placed at the outline, not inside it -- a notch fully inside the liquid is a hole
-	-- in the middle of a puddle, which is a different and wrong thing.
+	-- Thrown clear of the blob, each on its own bearing -- droplets, not a second pool.
 	--
-	-- AND IT HAS TO BE SMALL, which the first pass got wrong: at up to 0.9 of the
-	-- pool's radius, a notch on the lake was 30 studs across and most of it lay OUTSIDE
-	-- the outline, where there is only a few studs of real rim to hide in. It stopped
-	-- reading as a bite out of the pool and started reading as a second, dark pool
-	-- parked against it. A dent is shallow by definition: keep it to about a third of
-	-- the radius, centred within a hair of the outline -- and biased INSIDE it rather
-	-- than outside. Reach came down twice for that: at 1.14 a notch could clear the
-	-- liquid entirely and sit on bare ground as a dark blob of its own, and even at
-	-- 1.04 the lake's notch read from above as a dark BUMP stuck on the outside of the
-	-- pool rather than a bite taken out of it. Under 1.0 the centre is always inside
-	-- the liquid, so the dent cuts inward and what spills past the outline is small
-	-- enough to merge with the rim already there.
-	for _ = 1, rng:NextInteger(1, 2) do
-		local bearing = rng:NextNumber(0, 360)
-		local reach = bodyEdge(bearing) * rng:NextNumber(0.78, 0.98)
-		local na = radius * rng:NextNumber(0.18, 0.34)
-		oozeDisc(parent, origin, "OozeNotch", x + math.cos(math.rad(bearing)) * reach, nextY(POOL_TOP), z + math.sin(math.rad(bearing)) * reach, na, na / rng:NextNumber(1.0, 1.5), rng:NextNumber(0, 360), ooze.deep, "SmoothPlastic")
-	end
-
-	-- Thrown clear of the blob, each on its own bearing. No rim on a droplet: at two
-	-- studs across, a 1.6-stud border either side would be more rim than drop.
+	-- HELD INSIDE THE FIELD, ON A LIVE CHECK. A puddle's own centre is clamped to the
+	-- field by its caller (scatterOozePools), but a droplet is placed relative to THAT
+	-- centre at up to 1.7x the body's edge reach with no clamp of its own -- a puddle
+	-- sitting near the north or south boundary can throw one past it. Measured live:
+	-- two drops off puddles near z = +-85 stuck out by 3.3 and 1.25 studs. Clamped to
+	-- the field's own half-extents rather than shrinking the reach range, so the
+	-- puddles that are NOT near an edge keep throwing drops exactly as before.
 	for _ = 1, rng:NextInteger(3, 6) do
 		local bearing = rng:NextNumber(0, 360)
 		local reach = bodyEdge(bearing) * rng:NextNumber(1.08, 1.7)
 		local da = math.clamp(radius * rng:NextNumber(0.05, 0.16), 0.6, 3.4)
-		oozeDisc(parent, origin, "OozeDrop", x + math.cos(math.rad(bearing)) * reach, nextY(POOL_TOP), z + math.sin(math.rad(bearing)) * reach, da, da / rng:NextNumber(1.0, 1.5), rng:NextNumber(0, 360), ooze.bright, POOL_MATERIAL)
+		local dx = math.clamp(x + math.cos(math.rad(bearing)) * reach, -hx, hx)
+		local dz = math.clamp(z + math.sin(math.rad(bearing)) * reach, -hz, hz)
+		oozeDisc(parent, origin, "OozeDrop", dx, nextY(POOL_TOP), dz, da, da / rng:NextNumber(1.0, 1.5), rng:NextNumber(0, 360), ooze.bright, POOL_MATERIAL)
 	end
 end
 
@@ -2397,7 +2364,7 @@ local function scatterOozePools(
 	local lakeR = rng:NextNumber(26, 33)
 	local lakeX = rng:NextNumber(-hx * 0.3, hx * 0.45)
 	local lakeZ = rng:NextNumber(-hz + lakeR, hz - lakeR)
-	oozePool(folder, origin, lakeX, lakeZ, lakeR, rng, ooze)
+	oozePool(folder, origin, lakeX, lakeZ, lakeR, rng, ooze, hx, hz)
 
 	-- The rest, as a size ladder: broad pools, mid ones, then spills. Dealt from a
 	-- shuffled bag so the sizes are spread over the field instead of the big ones all
@@ -2463,7 +2430,7 @@ local function scatterOozePools(
 				px, pz = lakeX + ux * need, lakeZ + uz * need
 			end
 
-			oozePool(folder, origin, math.clamp(px, -hx, hx), math.clamp(pz, -hz, hz), r, rng, ooze)
+			oozePool(folder, origin, math.clamp(px, -hx, hx), math.clamp(pz, -hz, hz), r, rng, ooze, hx, hz)
 		end
 	end
 end
