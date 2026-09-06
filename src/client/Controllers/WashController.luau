@@ -145,8 +145,8 @@
 	check. Without it a player at the mark stands slack with their arms swinging
 	through an idle cycle while a machine beside them sprays on its own.
 
-	THE SPRAY IS A CHAIN OF BLOBS ON A BALLISTIC ARC, AND IT TOOK SIX TRIES. Each one
-	fixed something real about the last, so the whole ladder is worth keeping:
+	THE SPRAY IS A BRAIDED STREAM ON A BALLISTIC ARC, AND IT TOOK SEVEN TRIES. Each
+	one fixed something real about the last, so the whole ladder is worth keeping:
 
 	v1 drew ONE thin, mostly transparent Beam from nozzle to target. It read as "a
 	laser, dimmed", so the Beam came out and particles went in: real spray has no
@@ -172,15 +172,54 @@
 	cursor, going where the game had decided you meant.
 
 	v5 made it a real flight -- fixed launch speed, gravity for the rest of the way,
-	stopping on the first surface it touches. That is still how it moves.
+	stopping on the first surface it touches. That is still how it moves, and every
+	version since has left it alone.
 
-	v6, below, is the cartoon pass, and it is two changes. The cylinders became
-	BALLS: a chain of overlapping spheres has no flat end caps to show at the joints,
-	needs no orientation solved per segment, and gives the soft round silhouette that
-	drawn water has. And the colour came back up -- see applySprayColor. What was
-	there before was a dark, naturalistic, slightly translucent stream in a world of
-	bright matte primaries, which is exactly the "looks weird" that prompted this: it
-	did not look bad, it looked like it belonged in a different game.
+	v6 was the cartoon pass: eighteen OPAQUE overlapping balls, bright, with a white
+	foam tip. It was legible and it was cheap and it was, photographed, a string of
+	cyan gumballs. A chain of spheres has a scalloped silhouette wherever consecutive
+	radii differ, and at two studs from the lens -- which is where the muzzle sits in
+	first person -- that scalloping is the ONLY thing the eye reads. "Blocky" was the
+	word, and it was the right one.
+
+	v7, below, is the realism pass, and it is four changes. Note what it gives up:
+	v6's own note argued a bright opaque stream belonged in a world of matte
+	primaries, and that argument was not wrong -- this trades it for water that reads
+	as water, because that is what was asked for. The liquid's colour still drives
+	the tint, so Plain Water and Solvent are still told apart at a glance.
+
+	  * THE STREAM IS A TUBE, NOT A BEAD CHAIN. Cylinders laid end to end with a ball
+	    at each joint -- a capsule chain -- have a continuous silhouette by
+	    construction, and the joint balls fill the wedge that opens on the outside of
+	    every bend. This is also why the old "a blob may never be smaller than the
+	    gap to its neighbour" floor is gone: a capsule spans its own gap. The
+	    cylinders v4 abandoned failed for showing flat end caps at the joints, which
+	    is exactly what the joint balls fix.
+
+	  * IT IS TRANSLUCENT, AND IT IS BRAIDED. One tube of one flat colour is a pipe
+	    no matter how well it is shaded, so the jet is a wide, barely-there SHEATH
+	    with three thin STRANDS wound through it. The braid turns with time, so the
+	    strands appear to spiral outward from the nozzle -- which is what reads as
+	    speed, and it does the job v6's per-blob size lump was reaching for without
+	    a lump anywhere. The strands also fray outward as they travel: together at
+	    the muzzle, spread apart at the tip, because that is what a jet does.
+
+	  * IT AERATES. Colour runs from the liquid's own at the muzzle to nearly white
+	    at the tip, and transparency runs the same way, so the far end thins out into
+	    spray instead of stopping. v6 had the colour half of this and none of the
+	    other half, which is why its tip read as a painted white cap.
+
+	  * IT SHEDS AND IT SPLASHES ON THE SURFACE. Droplets thrown clear of the cone
+	    are drawn as SLIVERS along their own flight, not as dots -- a round dot is a
+	    ball bearing, an elongated one is a thing moving fast, and v2's fog was dots.
+	    They also TRAVEL, down the jet and outward from the impact, fading in and out
+	    at the ends of each trip: a droplet pinned at a fixed point is a stud welded
+	    to the stream, and six of them pinned around the impact is a spoked wheel.
+	    The impact itself is built on the surface NORMAL the raycast already returns
+	    -- a dome sunk into the surface so only its cap shows, a wider, fainter one
+	    sunk further for the water spreading around it, that crown, and a thin mist.
+	    The mist is the one thing here v2 also had, kept small and kept at the impact
+	    only: it was the cone-length version of it that buried the item.
 
 	THE WOBBLE IS NOISE, NOT RANDOM, and an early version got this wrong in the
 	other direction. It jittered the stream's ENDPOINT on a sine wave to fake
@@ -190,6 +229,7 @@
 	from the nozzle; a fresh math.random offset every frame would be static, not
 	flow. It fades to nothing at the muzzle, because water leaves a nozzle coherent
 	and breaks up as it goes, and wobble at the muzzle just reads as a loose grip.
+	It is smaller than it was, because the braid now carries most of the motion.
 
 ]]
 
@@ -291,45 +331,151 @@ local RETICLE_GAP_IDLE = 21 -- px from centre to each tick, pointed at nothing
 local RETICLE_GAP_LOCKED = 15 -- ...and with a patch under it: the ticks close in
 local RETICLE_EASE = 16 -- how fast the gap chases its goal, per second
 
--- The jet: a chain of overlapping BALLS laid along the water's real flight path.
--- See the header for why it is parts rather than a Beam or a particle cone, and why
--- they are balls rather than the cylinders they started as.
-local JET_SEGMENTS = 18
--- Cartoon water is BRIGHT. This is barely a darkening at all -- just enough to keep
--- the liquid's own pastel from washing into the pale steel of the tub behind it.
-local JET_DARKEN = 0.18
--- Foam: how white the stream goes by the very tip, and where along its length it
--- starts turning. A white leading edge is the single most cartoon thing about drawn
--- water, and it doubles as the aeration cue that was there before.
-local JET_FOAM = 0.6
-local JET_FOAM_START = 0.6
-local JET_RADIUS_NEAR = 0.17
-local JET_RADIUS_FAR = 0.46
--- How much each blob's radius breathes with the churn below. Cartoon streams are
--- lumpy; a perfectly even tube is a pipe.
-local JET_LUMP = 0.24
--- Opaque, on purpose. See-through water reads as glass or as a particle haze; a solid
--- shape with a hard silhouette is what makes it read as drawn.
-local JET_TRANSPARENCY = 0
--- Studs per second the water leaves the nozzle at. The flight time -- and so how far
--- the arc sags -- falls out of this against the distance to the aim point, which is
--- the whole reason the jet droops more the further you point it.
+-- The jet: a translucent SHEATH with three STRANDS braided through it, laid along the
+-- water's real flight path, fraying into flung droplets as it goes. See the header for
+-- why it is parts rather than a Beam or a particle cone, and for the six shapes this
+-- one replaced.
+local JET_SEGMENTS = 12
+
+-- A Cylinder's native axis is its own local X, and this is the rotation that sends
+-- that X onto -Z -- which is where CFrame.lookAt points. Same constant, same reason,
+-- as Shared/ToolModels/Hose's; see its note for why Kit.R.cylAlongZ is not it.
+local ALONG_Z = CFrame.Angles(0, math.rad(90), 0)
+-- How much longer than its own gap each tube is cut. Consecutive tubes then overlap
+-- rather than butting, which hides the seam the joint balls do not cover.
+local TUBE_OVERLAP = 0.015
+
+-- THE FLIGHT. Studs per second the water leaves the nozzle at: the flight time -- and
+-- so how far the arc sags -- falls out of this against the distance to the aim point,
+-- which is the whole reason the jet droops more the further you point it.
 local JET_SPEED = 26
 -- Studs per second squared. Roblox's own gravity is 196.2, which over a wash bay's
 -- couple of studs of flight is a vertical drop nobody would read as an arc; this is
 -- the value that makes the sag legible at this scale. Not physics, staging.
 local JET_GRAVITY = 46
--- Turbulence. `JET_WOBBLE` is how far a mid-jet segment may wander off the ideal
--- path, in studs, and `JET_CHURN` how fast that wander scrolls along the stream. Both
--- fade to nothing at the nozzle -- water leaves a nozzle coherent and breaks up as it
--- travels, and wobble at the muzzle just reads as a loose grip.
-local JET_WOBBLE = 0.16
+-- Turbulence. `JET_WOBBLE` is how far a mid-jet segment may wander off the ideal path,
+-- in studs, and `JET_CHURN` how fast that wander scrolls along the stream. Both fade to
+-- nothing at the nozzle -- water leaves a nozzle coherent and breaks up as it travels,
+-- and wobble at the muzzle just reads as a loose grip. The wobble is smaller than it
+-- was: the braid below now carries most of the liveliness this used to have to fake.
+local JET_WOBBLE = 0.10
 local JET_CHURN = 3.4
--- The splash blob where the water lands: diameter, and how much of that it breathes.
--- Kept just under the size of an item, so it reads as landing ON the thing rather
--- than swallowing it -- at 1.7 the white blob was the biggest object in the shot.
-local SPLASH_SIZE = 1.25
-local SPLASH_PULSE = 0.3
+
+-- THE SHEATH: the soft outer volume of the spray, wide and barely there. It is what
+-- gives the jet a body without giving it an edge, and the edge is the whole difference
+-- between water and a pipe.
+local SHEATH_RADIUS_NEAR = 0.075
+local SHEATH_RADIUS_FAR = 0.34
+-- The exponent between them: coherent out of the muzzle, then opening. Linear made a
+-- cone, and a cone with a hard mouth is a megaphone.
+local SHEATH_FLARE = 1.5
+local SHEATH_ALPHA_NEAR = 0.68
+local SHEATH_ALPHA_FAR = 0.94
+
+-- THE STRANDS: three ropes of water wound around the flight path, together at the
+-- muzzle and frayed apart by the tip. The braid ROTATES with time, which is what makes
+-- the stream read as moving rather than as a static tapered tube.
+local STRAND_COUNT = 3
+local STRAND_RADIUS = 0.052
+local STRAND_TAPER = 0.30 -- how much thinner a strand is by the far end
+local STRAND_TWIST = 5.6 -- radians of winding across the whole flight
+local STRAND_SWIRL = 3.0 -- radians per second the whole braid turns
+local STRAND_FRAY = 0.185 -- how far off the spine a strand sits at the tip, in studs
+local STRAND_FRAY_POWER = 1.8 -- ...and how late in the flight it happens
+local STRAND_ALPHA_NEAR = 0.08
+local STRAND_ALPHA_FAR = 0.70
+local STRAND_ALPHA_POWER = 1.6
+
+-- AERATION. How much white is mixed into the liquid's own colour at the muzzle and at
+-- the tip: water driven through air turns white, and a jet that holds one flat colour
+-- end to end is a painted rod. The sheath sits a little BEHIND the strands on this
+-- curve so the braid stays the brighter thing inside it.
+local WATER_WHITE_NEAR = 0.30
+local WATER_WHITE_FAR = 0.88
+local SHEATH_WHITE_BIAS = -0.10
+-- Water is the only thing in this game with a specular highlight, and it is what stops
+-- SmoothPlastic from reading as plastic.
+local WATER_REFLECT = 0.2
+
+-- THE SHED DROPLETS: drawn as SLIVERS along their own flight rather than as dots. A
+-- round dot at this size is a ball bearing; an elongated one is a thing moving fast,
+-- and "a fog of little dots" is the exact report that killed the particle version.
+local DROP_COUNT = 8
+-- Nothing sheds while the jet is still coherent. From there they TRAVEL, at
+-- `DROP_FLOW` trips down the jet a second, and the ring they hang off turns as well --
+-- droplets pinned to fixed points on the stream read as studs welded to it, however
+-- lively the stream itself is.
+local DROP_START = 0.30
+local DROP_FLOW = 0.55
+local DROP_SPIN = 2.0
+local DROP_SPREAD = 0.42 -- how far off the spine a droplet is by the tip, in studs
+local DROP_FRAY_POWER = 1.8
+local DROP_SPLAY = 0.55 -- how far a droplet's own heading tips outward from the flow
+local DROP_LEN_NEAR = 0.20
+local DROP_LEN_FAR = 0.56
+local DROP_RADIUS = 0.028
+-- Faintest at both ends of the trip and solid in the middle, which is what lets a
+-- droplet appear and disappear without popping: it tears off the stream, and it
+-- atomises away again before it reaches the end.
+local DROP_ALPHA_PEAK = 0.18
+local DROP_FADE_POWER = 1.5
+
+-- THE IMPACT, built on the surface normal the raycast already hands back. The dome is
+-- a plain sphere pushed INTO the surface so that only its cap shows, which is what
+-- makes it sit ON the geometry instead of floating in front of it.
+--
+-- BOTH SINKS ARE A FRACTION OF THE SPHERE'S RADIUS, not of its size, and the difference
+-- is the whole thing: at 1.0 the sphere is exactly buried and nothing shows at all, so
+-- anything written here as if it were a fraction of the diameter silently draws no
+-- splash. What shows is a cap (1 - sink) of the radius tall.
+--
+-- SIZE HERE IS A FRAMING CONSTRAINT, NOT A STATEMENT ABOUT THE RUNG -- which is why
+-- none of it scales with `girth`. It lands dead centre of the view on top of the one
+-- object the player is trying to look at, and this is already at the edge of that: an
+-- earlier 1.7 was photographed as the biggest thing in the shot.
+local SPLASH_SIZE = 0.62
+local SPLASH_SINK = 0.42
+local SPLASH_PULSE = 0.22
+local SPLASH_ALPHA = 0.32
+-- The wet spread around the dome: a second, wider sphere sunk far enough that only a
+-- shallow cap of it shows. A FLAT DISC was the obvious way to draw this and it was
+-- wrong twice -- a hard-edged circle reads as a decal stuck on the item, and on
+-- anything but a flat face half of it disappears inside the geometry.
+local SPLASH_HALO = 1.8
+local SPLASH_HALO_SINK = 0.62
+local SPLASH_HALO_ALPHA = 0.88
+
+-- THE CROWN: droplets thrown back off the surface, mostly along it and a little out
+-- along the normal. Each one FLIES -- out from CROWN_INNER to CROWN_INNER + CROWN_REACH
+-- over `CROWN_RATE` trips a second, fading in and out again at the two ends -- and they
+-- are staggered so no two are at the same point in that trip.
+--
+-- WHICH IS THE FIX FOR THE THING THIS FIRST LOOKED LIKE. Six droplets pinned at fixed
+-- radii around a point, however well shaded, is a spoked wheel, and with the flat film
+-- disc that used to sit behind them it was a comic-book impact starburst. Motion and a
+-- jittered ring are what turn the same six parts into a splash.
+local CROWN_COUNT = 9
+local CROWN_RATE = 2.2
+local CROWN_JITTER = 0.9 -- radians a droplet may sit off its even share of the ring
+local CROWN_RISE = 0.45 -- how much of each droplet's heading is along the normal
+local CROWN_INNER = 0.18 -- where the ring starts, in studs from the impact
+local CROWN_REACH = 0.45 -- ...and how far out it has got by the end of the trip
+local CROWN_LEN = 0.18
+local CROWN_RADIUS = 0.022
+-- Faint even at its best. These sit dead centre of the view on top of the item, and an
+-- opaque white sliver there is a chalk mark on the thing the player is inspecting.
+local CROWN_ALPHA_PEAK = 0.30
+local CROWN_FADE_POWER = 1.4
+
+-- THE MIST. The one thing here the particle version also had, and the reason it is
+-- safe now is that it is ONLY at the impact: it was the cone-length version that
+-- buried the item being washed. Kept small, kept faint, and kept short-lived.
+local MIST_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
+local MIST_RATE = 26
+local MIST_LIFE = NumberRange.new(0.22, 0.44)
+local MIST_SPEED = NumberRange.new(1.5, 3.5)
+local MIST_SPREAD = 38
+local MIST_RISE = 6 -- studs/s^2 upward, so the haze lifts off the item rather than clinging
 
 -- ── The turntable ───────────────────────────────────────────────────
 -- The item spins in place on the stand for the whole session, so a patch on the far
@@ -343,8 +489,19 @@ local ROTATE_RATE = math.rad(32)
 local state: any = nil
 local blobs: { [number]: BasePart } = {}
 local folder: Instance? = nil
-local jetParts: { BasePart } = {}
+-- The spray, preallocated once by `ensureSpray` and only moved from then on.
+-- `sprayParts` is every one of them flat, and exists so the hide and teardown paths do
+-- not have to know the layout.
+local sheathParts: { BasePart } = {}
+local strandTubes: { BasePart } = {}
+local strandJoints: { BasePart } = {}
+local dropTubes: { BasePart } = {}
+local dropHeads: { BasePart } = {}
+local crownParts: { BasePart } = {}
+local sprayParts: { BasePart } = {}
 local splashPart: BasePart? = nil
+local haloPart: BasePart? = nil
+local mistEmitter: ParticleEmitter? = nil
 local jetShown = false
 local spraying = false
 local aimedZone: number? = nil
@@ -468,69 +625,182 @@ local function ensureFolder(): Instance
 	return folder :: Instance
 end
 
---- Build the segment chain and the splash disc once. They are plain anchored parts
---- parked at the origin until the first frame of spraying moves them; nothing here
---- needs to know where the nozzle is yet.
+--- One piece of water. Every part of the spray is the same recipe -- an unlit, faintly
+--- specular, anchored, query-proof primitive -- so the only things the drawing code
+--- ever has to write are position, size and transparency.
+---
+--- CanQuery IS LOAD-BEARING, not hygiene: `aimPointAt` and the per-segment stop rays
+--- both cast through this folder, and a jet that raycast against its own first blob
+--- would land the water half a stud out of the muzzle every frame.
+local function waterPart(name: string, shape: Enum.PartType, parent: Instance): BasePart
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Shape = shape
+	part.Material = Enum.Material.SmoothPlastic
+	part.Reflectance = WATER_REFLECT
+	part.Transparency = 1
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Parent = parent
+	table.insert(sprayParts, part)
+	return part
+end
+
+--- Build every part the spray is made of, once. They are parked at the origin until the
+--- first frame of spraying moves them; nothing here needs to know where the nozzle is.
+---
+--- PREALLOCATED, AND THERE ARE A HUNDRED-ODD OF THEM against the old nineteen. What
+--- costs anything in a wash session is the per-frame property writes, which is three
+--- per part; Instance.new inside a render step is the thing that would actually show up
+--- as a hitch, and this is the function that keeps it out of there.
 local function ensureSpray()
-	if #jetParts == JET_SEGMENTS and jetParts[1].Parent ~= nil then
+	if #sheathParts == JET_SEGMENTS and sheathParts[1].Parent ~= nil then
 		return
 	end
 	local parent = ensureFolder()
-	table.clear(jetParts)
+	table.clear(sprayParts)
+	table.clear(sheathParts)
+	table.clear(strandTubes)
+	table.clear(strandJoints)
+	table.clear(dropTubes)
+	table.clear(dropHeads)
+	table.clear(crownParts)
+
 	for index = 1, JET_SEGMENTS do
-		local part = Instance.new("Part")
-		part.Name = `Jet{index}`
-		part.Shape = Enum.PartType.Ball
-		part.Material = Enum.Material.SmoothPlastic
-		part.Transparency = 1
-		part.Anchored = true
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CastShadow = false
-		part.Parent = parent
-		jetParts[index] = part
+		sheathParts[index] = waterPart(`Sheath{index}`, Enum.PartType.Cylinder, parent)
+	end
+	-- Flat, STRAND_COUNT blocks of JET_SEGMENTS each: strand `s` owns
+	-- `s * JET_SEGMENTS + i`. A joint ball sits at the START of every tube, including
+	-- the first, where three of them converging is what rounds the muzzle off.
+	for index = 1, JET_SEGMENTS * STRAND_COUNT do
+		strandTubes[index] = waterPart(`Strand{index}`, Enum.PartType.Cylinder, parent)
+		strandJoints[index] = waterPart(`StrandJoint{index}`, Enum.PartType.Ball, parent)
+	end
+	for index = 1, DROP_COUNT do
+		dropTubes[index] = waterPart(`Drop{index}`, Enum.PartType.Cylinder, parent)
+		dropHeads[index] = waterPart(`DropHead{index}`, Enum.PartType.Ball, parent)
+	end
+	for index = 1, CROWN_COUNT do
+		crownParts[index] = waterPart(`Crown{index}`, Enum.PartType.Cylinder, parent)
 	end
 
-	local splash = Instance.new("Part")
-	splash.Name = "Splash"
-	splash.Shape = Enum.PartType.Ball
-	splash.Material = Enum.Material.SmoothPlastic
-	splash.Transparency = 1
-	splash.Anchored = true
-	splash.CanCollide = false
-	splash.CanQuery = false
-	splash.CastShadow = false
-	splash.Parent = parent
-	splashPart = splash
+	splashPart = waterPart("Splash", Enum.PartType.Ball, parent)
+	local halo = waterPart("SplashHalo", Enum.PartType.Ball, parent)
+	-- The one piece of water here with no highlight. A specular on something this faint
+	-- and this wide is a soap bubble sitting on the item.
+	halo.Reflectance = 0
+	haloPart = halo
+
+	local mist = Instance.new("ParticleEmitter")
+	mist.Name = "Mist"
+	mist.Texture = MIST_TEXTURE
+	mist.Enabled = false
+	mist.Rate = MIST_RATE
+	mist.Lifetime = MIST_LIFE
+	mist.Speed = MIST_SPEED
+	mist.SpreadAngle = Vector2.new(MIST_SPREAD, MIST_SPREAD)
+	mist.Rotation = NumberRange.new(0, 360)
+	mist.RotSpeed = NumberRange.new(-40, 40)
+	mist.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.12),
+		NumberSequenceKeypoint.new(1, 0.55),
+	})
+	-- Never denser than 0.72, anywhere in its life. This is a hint of haze over the
+	-- impact, and the moment it is thick enough to READ as smoke it is hiding the item.
+	mist.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.86),
+		NumberSequenceKeypoint.new(0.3, 0.72),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	mist.LightEmission = 0.25
+	-- The splash dome carries the emitter and is oriented to the surface normal, whose
+	-- LookVector is the part's own -Z -- which is the face `Front` names. So the haze
+	-- leaves the surface it landed on rather than the world's up.
+	mist.EmissionDirection = Enum.NormalId.Front
+	mist.Acceleration = Vector3.new(0, MIST_RISE, 0)
+	mist.Parent = splashPart
+	mistEmitter = mist
 
 	jetShown = false
 end
 
---- THE LIQUID'S OWN COLOUR, BARELY DARKENED, GOING WHITE AT THE TIP.
+--- Drop every reference to parts the teardown has already destroyed. Separate from
+--- `hideJet` because that one WRITES to them, and writing to a freed instance throws.
+local function forgetSpray()
+	table.clear(sprayParts)
+	table.clear(sheathParts)
+	table.clear(strandTubes)
+	table.clear(strandJoints)
+	table.clear(dropTubes)
+	table.clear(dropHeads)
+	table.clear(crownParts)
+	splashPart = nil
+	haloPart = nil
+	mistEmitter = nil
+	jetShown = false
+end
+
+--- How much white is mixed into the liquid at `along`. Water driven through air turns
+--- white, and this is the whole reason the far end reads as spray rather than as the
+--- same rod it started as.
+local function aeration(along: number): number
+	return WATER_WHITE_NEAR + (WATER_WHITE_FAR - WATER_WHITE_NEAR) * along
+end
+
+--- THE LIQUID'S OWN COLOUR AT THE MUZZLE, AERATING TO NEARLY WHITE AT THE TIP.
 ---
---- This has swung twice and the middle is where it belongs. It started tinted only
---- faintly toward the liquid, on the reasoning that real spray aerates and reads
---- white -- true, and against a pale steel tub the result was invisible. So it went
---- hard the other way, most of the way to black, which was legible and looked like
---- oil: a dark naturalistic stream in a world of bright matte primaries.
+--- This has swung three times and this is where it belongs. It started tinted only
+--- faintly toward the liquid -- true to life, and against a pale steel tub, invisible.
+--- So it went hard the other way, most of the way to black, which was legible and
+--- looked like oil. Then it went bright and OPAQUE, which was legible and looked like a
+--- rope. What none of them had was a gradient with any physics in it: water is the
+--- liquid's colour while it is still a solid stream and white once it has broken into
+--- air, and running the colour AND the transparency down that same axis is what makes
+--- the far end dissolve instead of end.
 ---
---- Cartoon water is BRIGHT and it FOAMS. So the body of the jet is the liquid at
---- nearly full strength -- these are all saturated enough to hold their own against
---- the tub without being dragged toward black -- and the last stretch turns white.
---- A white leading edge is the single most recognisable thing about drawn water; it
---- gives the stream a readable tip, it is the aeration cue the darkening was
---- reaching for, and it is what carries the contrast now.
+--- Set once per session rather than per frame, because every one of these is a pure
+--- function of a part's fixed place along the jet -- only position, size and
+--- transparency actually move.
 local function applySprayColor(hex: string)
-	local body = Color3.fromHex(hex):Lerp(Color3.new(0, 0, 0), JET_DARKEN)
+	local liquid = Color3.fromHex(hex)
 	local white = Color3.new(1, 1, 1)
-	for index, part in jetParts do
-		local along = index / JET_SEGMENTS
-		local foam = math.clamp((along - JET_FOAM_START) / (1 - JET_FOAM_START), 0, 1)
-		part.Color = body:Lerp(white, JET_FOAM * foam)
+
+	for index, part in sheathParts do
+		local along = (index - 0.5) / JET_SEGMENTS
+		part.Color = liquid:Lerp(white, math.clamp(aeration(along) + SHEATH_WHITE_BIAS, 0, 1))
+	end
+
+	for index, tube in strandTubes do
+		local along = (((index - 1) % JET_SEGMENTS) + 0.5) / JET_SEGMENTS
+		local colour = liquid:Lerp(white, aeration(along))
+		tube.Color = colour
+		strandJoints[index].Color = colour
+	end
+
+	-- A shed droplet is water that has ALREADY broken up, so it is mostly white wherever
+	-- along the jet it left from -- it just keeps a little of the liquid, so a Solvent
+	-- wash is not spitting plain foam.
+	local spray = white:Lerp(liquid, 0.25)
+	for index, tube in dropTubes do
+		tube.Color = spray
+		dropHeads[index].Color = spray
+	end
+
+	-- The impact is all foam, always.
+	for _, part in crownParts do
+		part.Color = white
 	end
 	if splashPart then
-		-- The impact is all foam, always.
-		splashPart.Color = body:Lerp(white, 0.72)
+		splashPart.Color = white:Lerp(liquid, 0.22)
+	end
+	if haloPart then
+		haloPart.Color = white:Lerp(liquid, 0.35)
+	end
+	if mistEmitter then
+		mistEmitter.Color = ColorSequence.new(white:Lerp(liquid, 0.18))
 	end
 end
 
@@ -554,7 +824,11 @@ end
 --- Gravity here is NOT Workspace.Gravity. At 196.2 over a wash bay's few studs the
 --- drop is a couple of inches -- correct, and invisible. This is staging, tuned until
 --- the arc reads.
-local function jetPath(from: Vector3, to: Vector3, now: number): { Vector3 }
+---
+--- THE TWO SIDEWAYS AXES COME BACK OUT WITH THE PATH, because everything wound around
+--- it -- the braid, the shed droplets -- needs the same frame the wobble used, and
+--- re-deriving it in each of them is how they end up disagreeing by a cross product.
+local function jetPath(from: Vector3, to: Vector3, now: number): ({ Vector3 }, Vector3, Vector3)
 	local delta = to - from
 	local flight = math.max(delta.Magnitude / JET_SPEED, 0.05)
 	local gravity = Vector3.new(0, -JET_GRAVITY, 0)
@@ -584,14 +858,41 @@ local function jetPath(from: Vector3, to: Vector3, now: number): { Vector3 }
 
 		path[index + 1] = point
 	end
-	return path
+	return path, side, up
 end
 
---- Lay the chain along `path`, stopping at whatever the water hits first.
+--- Lay one tube between two points. Returns false, having hidden it, for a segment
+--- short enough that CFrame.lookAt would be looking at its own origin.
+local function layTube(part: BasePart, a: Vector3, b: Vector3, radius: number): boolean
+	local length = (b - a).Magnitude
+	if length < 1e-3 then
+		part.Transparency = 1
+		return false
+	end
+	local diameter = radius * 2
+	part.Size = Vector3.new(length + TUBE_OVERLAP, diameter, diameter)
+	part.CFrame = CFrame.lookAt((a + b) * 0.5, b) * ALONG_Z
+	return true
+end
+
+local function layBall(part: BasePart, at: Vector3, radius: number)
+	local diameter = radius * 2
+	part.Size = Vector3.new(diameter, diameter, diameter)
+	part.CFrame = CFrame.new(at)
+end
+
+--- Where along the jet droplet `index` is right now. It travels: the whole set slides
+--- down the stream together and wraps at the end, which is what makes the break-up read
+--- as water leaving the nozzle rather than as a fixed pattern hanging off it.
 ---
---- Segments are cut 40% LONGER than the gap they span, so consecutive cylinders
---- overlap and bury each other's flat end caps. Without that the rope is visibly a
---- string of sausages at every joint.
+--- The golden ratio staggers them, rather than an even split or a random draw: even
+--- puts them in a marching comb, and random re-rolls every frame and makes them
+--- flicker. This spreads them without any two ever sitting on top of each other.
+local function dropAlong(index: number, now: number): number
+	return DROP_START + (1 - DROP_START) * ((index * 0.6180339887 + now * DROP_FLOW) % 1)
+end
+
+--- Draw the whole spray along the flight path, stopping at whatever the water hits.
 ---
 --- Returns the point the water actually reached -- the impact if it hit something,
 --- the end of the arc if it did not. That point, not the reticle, is what decides
@@ -599,86 +900,205 @@ end
 --- landing on, which is the only rule a player would ever guess.
 local function drawJet(from: Vector3, to: Vector3, filter: RaycastParams): Vector3
 	local now = os.clock()
-	local path = jetPath(from, to, now)
+	local path, side, up = jetPath(from, to, now)
 	local landing = path[#path]
+	-- Hitting nothing means there is no surface to build a splash on, and the splash is
+	-- hidden in that case anyway; facing back down the jet is a harmless default that
+	-- saves the orientation maths below from having to care.
+	local normal = from - landing
+	normal = if normal.Magnitude > 1e-3 then normal.Unit else Vector3.yAxis
+
+	-- How many segments survive. Every layer reads it, so the sheath and the braid and
+	-- the droplets all end in the same place.
+	local reach = JET_SEGMENTS
 	local stopped = false
 
-	-- BLOBS HAVE TO OVERLAP OR THE STREAM IS A STRING OF BEADS, and how far apart they
-	-- sit depends entirely on how far the player is spraying: the same eighteen blobs
-	-- cover two studs or twelve. So the radius has a floor derived from the spacing --
-	-- a blob is never allowed to be smaller than it takes to touch its neighbours --
-	-- and the tuned radii below are what it looks like once that floor is met.
-	local spacing = (to - from).Magnitude / JET_SEGMENTS
-	local floor = spacing * 0.62
-
-	-- HOW MUCH WATER THIS MACHINE THROWS (Config/Gear's `volume`, sent by
-	-- WashService.push). Scales the tuned radii and NOTHING ELSE -- not the spacing
-	-- FLOOR above, which exists to stop the chain reading as beads at long range and
-	-- has nothing to do with the rung, and not the splash, see below.
-	local girth = math.clamp(1 + (math.sqrt(if state and state.volume then state.volume else 1) - 1) * 0.5, 1, JET_GIRTH_MAX)
-
-	for index, part in jetParts do
+	-- Segment by segment, so the stream stops ON the surface it hits rather than
+	-- passing through the tub and out the far side. One short ray per segment is the
+	-- same total length as one long ray down the arc, and a straight ray cannot follow
+	-- a curve. The segment that hit is then CLIPPED to the contact point, which is what
+	-- lets every layer end at the surface without any of them knowing why.
+	for index = 1, JET_SEGMENTS do
 		local a, b = path[index], path[index + 1]
-		local span = (b - a).Magnitude
-
-		if stopped or span < 0.01 then
-			-- Either the water already hit something, or the player is aiming at their
-			-- own muzzle and the path has collapsed to a point.
-			part.Transparency = 1
-		else
-			-- Segment by segment, so the stream stops ON the surface it hits rather than
-			-- passing through the tub and out the far side. One short ray per segment is
-			-- the same total length as one long ray down the arc, and a straight ray
-			-- cannot follow a curve.
-			local hit = Workspace:Raycast(a, b - a, filter)
-			if hit then
-				landing = hit.Position
-				stopped = true
-			end
-
-			local along = (index - 0.5) / JET_SEGMENTS
-			-- Lumpy, and lumpy IN TIME: the same scrolling noise that bends the path
-			-- also swells and pinches each blob as it passes, so the stream visibly
-			-- pulses instead of sitting there as a static tapered tube.
-			local lump = 1 + JET_LUMP * math.noise(along * 4.7 - now * JET_CHURN, 1.5)
-			local radius = math.max((JET_RADIUS_NEAR + (JET_RADIUS_FAR - JET_RADIUS_NEAR) * along) * girth, floor) * lump
-			local diameter = radius * 2
-
-			part.Size = Vector3.new(diameter, diameter, diameter)
-			-- At the segment's START, not its end, so the first blob sits at the muzzle
-			-- and the stream visibly leaves the nozzle rather than a gap out from it.
-			-- On an impact it moves to the contact point instead, which closes the gap
-			-- to the splash.
-			--
-			-- A ball needs no orientation, which is half the reason for the switch: the
-			-- cylinders this replaced had to be aimed down their own segment AND yawed
-			-- to get their axis onto it, and every joint still showed a flat end cap.
-			part.CFrame = CFrame.new(if hit then hit.Position else a)
-			part.Transparency = JET_TRANSPARENCY
+		local step = b - a
+		if step.Magnitude < 1e-3 then
+			-- The player is aiming at their own muzzle and the path has collapsed.
+			reach = index - 1
+			break
+		end
+		local hit = Workspace:Raycast(a, step, filter)
+		if hit then
+			landing = hit.Position
+			normal = hit.Normal
+			path[index + 1] = hit.Position
+			reach = index
+			stopped = true
+			break
 		end
 	end
 
-	-- The splash: one breathing blob at the point of impact, in the foam colour. Round
-	-- rather than the flat disc it was, for the same reason the stream is round now --
-	-- and it is doing real work either way. Without something at the end, the eye reads
-	-- the stream as STOPPING in mid-air rather than as landing on something.
-	local splash = splashPart
+	-- HOW MUCH WATER THIS MACHINE THROWS (Config/Gear's `volume`, sent by
+	-- WashService.push). Scales the stream and the break-up and NOTHING ELSE -- see
+	-- SPLASH_SIZE for why the impact is deliberately left out of it.
+	local girth = math.clamp(1 + (math.sqrt(if state and state.volume then state.volume else 1) - 1) * 0.5, 1, JET_GIRTH_MAX)
+	local endAlong = reach / JET_SEGMENTS
+
+	-- THE SHEATH: the soft body of the spray, drawn first because everything else sits
+	-- inside it.
+	for index, part in sheathParts do
+		if index > reach then
+			part.Transparency = 1
+		else
+			local along = (index - 0.5) / JET_SEGMENTS
+			local radius = (SHEATH_RADIUS_NEAR + (SHEATH_RADIUS_FAR - SHEATH_RADIUS_NEAR) * along ^ SHEATH_FLARE) * girth
+			if layTube(part, path[index], path[index + 1], radius) then
+				part.Transparency = SHEATH_ALPHA_NEAR + (SHEATH_ALPHA_FAR - SHEATH_ALPHA_NEAR) * along
+			end
+		end
+	end
+
+	-- THE BRAID, turned a little further every frame so the strands appear to spiral
+	-- outward from the muzzle. It is the trick a barber's pole plays, and at two studs
+	-- from the lens it is the strongest "this is moving fast" cue on screen.
+	local swirl = now * STRAND_SWIRL
+	for strand = 0, STRAND_COUNT - 1 do
+		local phase = swirl + (strand / STRAND_COUNT) * math.pi * 2
+		local base = strand * JET_SEGMENTS
+		-- Point `k` of this strand, k running 1..JET_SEGMENTS+1 over the same samples
+		-- the spine used, wound onto a helix that opens out as it travels.
+		local function woundAt(k: number): Vector3
+			local fraction = (k - 1) / JET_SEGMENTS
+			local angle = phase + fraction * STRAND_TWIST
+			local fray = STRAND_FRAY * girth * fraction ^ STRAND_FRAY_POWER
+			return path[k] + (side * math.cos(angle) + up * math.sin(angle)) * fray
+		end
+
+		for index = 1, JET_SEGMENTS do
+			local tube, joint = strandTubes[base + index], strandJoints[base + index]
+			if index > reach then
+				tube.Transparency = 1
+				joint.Transparency = 1
+			else
+				local a, b = woundAt(index), woundAt(index + 1)
+				local along = (index - 0.5) / JET_SEGMENTS
+				local radius = STRAND_RADIUS * (1 - STRAND_TAPER * along) * girth
+				local alpha = STRAND_ALPHA_NEAR + (STRAND_ALPHA_FAR - STRAND_ALPHA_NEAR) * along ^ STRAND_ALPHA_POWER
+				if layTube(tube, a, b, radius) then
+					tube.Transparency = alpha
+				end
+				-- Fills the wedge that opens on the outside of the bend. The braid turns
+				-- hard enough per segment that without these a strand is visibly a row of
+				-- separate dashes.
+				layBall(joint, a, radius)
+				joint.Transparency = alpha
+			end
+		end
+	end
+
+	-- THE SHED DROPLETS, each a sliver along its own heading. The ring they sit on turns
+	-- with time, so the break-up churns instead of hanging there as a fixed spray of
+	-- studs welded to the stream.
+	for index = 1, DROP_COUNT do
+		local tube, head = dropTubes[index], dropHeads[index]
+		local along = dropAlong(index, now)
+		if along >= endAlong then
+			tube.Transparency = 1
+			head.Transparency = 1
+		else
+			-- Which spine sample this droplet left from, and where between it and the
+			-- next one.
+			local scaled = along * JET_SEGMENTS
+			local lower = math.clamp(math.floor(scaled) + 1, 1, reach)
+			local point = path[lower]:Lerp(path[lower + 1], math.clamp(scaled - (lower - 1), 0, 1))
+
+			local angle = index * 2.399 + now * DROP_SPIN
+			local out = side * math.cos(angle) + up * math.sin(angle)
+			local jitter = 0.5 + math.abs(math.noise(index * 1.7, 3.3))
+			point += out * (DROP_SPREAD * girth * along ^ DROP_FRAY_POWER * jitter)
+
+			local tangent = path[lower + 1] - path[lower]
+			tangent = if tangent.Magnitude > 1e-3 then tangent.Unit else Vector3.new(0, 0, -1)
+			-- Thrown a little wide of the flow it came from, which is what opens the cone
+			-- out instead of running the droplets parallel to the stream forever.
+			local flow = (tangent + out * (DROP_SPLAY * along)).Unit
+			local half = flow * ((DROP_LEN_NEAR + (DROP_LEN_FAR - DROP_LEN_NEAR) * along) * 0.5)
+			local radius = DROP_RADIUS * girth
+			-- Faint at both ends of its trip, solid in the middle. A droplet that simply
+			-- wrapped round to the start at full opacity would pop, once per lap, in the
+			-- one place the eye is already watching.
+			local trip = (along - DROP_START) / (1 - DROP_START)
+			local alpha = DROP_ALPHA_PEAK + (1 - DROP_ALPHA_PEAK) * math.abs(2 * trip - 1) ^ DROP_FADE_POWER
+
+			if layTube(tube, point - half, point + half, radius) then
+				tube.Transparency = alpha
+			end
+			-- A leading head, so the sliver reads as a droplet with a tail rather than as
+			-- a stick of water cut off at both ends.
+			layBall(head, point + half, radius)
+			head.Transparency = alpha
+		end
+	end
+
+	-- THE IMPACT, built on the surface's own normal. Without something at the end the
+	-- eye reads the stream as STOPPING in mid-air rather than as landing on something,
+	-- and without the normal it reads as a ball parked in front of the item.
+	local surface = CFrame.lookAt(landing, landing + normal)
+	local splash, halo, mist = splashPart, haloPart, mistEmitter
+	-- Both spheres breathe on the SAME noise, so the spread and the dome inside it move
+	-- together: a static cap on a moving one is a ring drawn around a splash.
+	local pulse = 1 + SPLASH_PULSE * math.noise(now * 6, 0.5)
 	if splash then
 		if stopped then
-			-- NOT SCALED BY GIRTH, and that is deliberate rather than an omission. The
-			-- splash's size is a FRAMING constraint, not a statement about the rung: it
-			-- sits at the aim point, dead centre of the view, on top of the one object
-			-- the player is trying to look at, and SPLASH_SIZE is already tuned to the
-			-- edge of that (see its own note -- at 1.7 it was the biggest thing in the
-			-- shot). A Plasma Lance's 1.48x on top of it swallows the item whole. The
-			-- stream's girth carries the volume story; the impact just marks the spot.
-			local size = SPLASH_SIZE * (1 + SPLASH_PULSE * math.noise(now * 6, 0.5))
+			local size = SPLASH_SIZE * pulse
 			splash.Size = Vector3.new(size, size, size)
-			splash.CFrame = CFrame.new(landing)
-			splash.Transparency = 0.1
+			-- Pushed INTO the surface so only the cap of the sphere shows. `+Z` is into
+			-- it: a lookAt's LookVector is its own -Z, and here that is the way back out
+			-- along the normal.
+			splash.CFrame = surface * CFrame.new(0, 0, size * 0.5 * SPLASH_SINK)
+			splash.Transparency = SPLASH_ALPHA
 		else
 			splash.Transparency = 1
 		end
+	end
+	if halo then
+		if stopped then
+			local width = SPLASH_SIZE * SPLASH_HALO * pulse
+			halo.Size = Vector3.new(width, width, width)
+			-- Sunk deeper than the dome, so what shows is a wide shallow cap of it: the
+			-- water spreading out from where the jet is standing on the item.
+			halo.CFrame = surface * CFrame.new(0, 0, width * 0.5 * SPLASH_HALO_SINK)
+			halo.Transparency = SPLASH_HALO_ALPHA
+		else
+			halo.Transparency = 1
+		end
+	end
+	for index, part in crownParts do
+		if not stopped then
+			part.Transparency = 1
+		else
+			-- Its even share of the ring, knocked off it by a fixed amount. Evenly spaced
+			-- is the spoked wheel; jittered is a splash.
+			local angle = (index / CROWN_COUNT) * math.pi * 2 + math.noise(index * 4.1, 0.7) * CROWN_JITTER
+			-- Mostly ALONG the surface, only a little off it: water hitting a wall runs
+			-- outward from the point it hit, and a crown fired straight back at the
+			-- camera is a comic-book starburst rather than a splash.
+			local out = surface.RightVector * math.cos(angle) + surface.UpVector * math.sin(angle)
+			local heading = (out + normal * CROWN_RISE).Unit
+			-- Where this one is in its own flight out. Staggered by the golden ratio so
+			-- the ring never fires as a ring.
+			local trip = (now * CROWN_RATE + index * 0.6180339887) % 1
+			local point = landing + heading * (CROWN_INNER + CROWN_REACH * trip)
+			-- Fixed per droplet, so no two are the same length. Nine identical slivers
+			-- is the spoked wheel again, just a moving one.
+			local heft = 0.6 + 0.8 * math.abs(math.noise(index * 2.7, 5.1))
+			local half = heading * (CROWN_LEN * heft * 0.5)
+			if layTube(part, point - half, point + half, CROWN_RADIUS * heft) then
+				part.Transparency = CROWN_ALPHA_PEAK + (1 - CROWN_ALPHA_PEAK) * math.abs(2 * trip - 1) ^ CROWN_FADE_POWER
+			end
+		end
+	end
+	if mist then
+		mist.Enabled = stopped
 	end
 
 	jetShown = true
@@ -688,15 +1108,18 @@ end
 --- Cheap when already hidden, which is most frames of a session: the player aims far
 --- more than they spray, and a chain of writes to set a transparency that is already
 --- 1 is a chain of writes too many.
+---
+--- The mist is switched OFF rather than cleared, so the last puff finishes fading where
+--- it was instead of blinking out the instant the trigger comes up.
 local function hideJet()
 	if not jetShown then
 		return
 	end
-	for _, part in jetParts do
+	for _, part in sprayParts do
 		part.Transparency = 1
 	end
-	if splashPart then
-		splashPart.Transparency = 1
+	if mistEmitter then
+		mistEmitter.Enabled = false
 	end
 	jetShown = false
 end
@@ -1484,9 +1907,7 @@ local function teardown()
 		folder:Destroy()
 		folder = nil
 	end
-	table.clear(jetParts)
-	splashPart = nil
-	jetShown = false
+	forgetSpray()
 
 	-- Not strictly load-bearing -- `spinTurntable` re-latches on identity the moment a
 	-- new WashItem appears regardless -- but holding a reference to a freed instance
