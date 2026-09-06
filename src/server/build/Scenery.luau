@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 20
+local BUILDER_VERSION = 21
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -119,6 +119,37 @@ local BUSH_CENTRE_CLEARANCE = 28
 -- on purpose: a rib cage standing just off the path is the point, and you should be
 -- walking past one, not hunting for it at the field's edge.
 local SKELETON_CENTRE_CLEARANCE = 20
+
+-- Stage 3 keeps the same open lane down z = 0 the first two fields do, so a dump of
+-- drums is pushed at least this far off it (scatterBarrels). Smaller again than the
+-- carcass clearance: a drum is chest-high where a rib cage is a wall, and a dump you
+-- walk past close enough to read the trefoil on is worth more than one at the edge
+-- of the field.
+local BARREL_CENTRE_CLEARANCE = 16
+
+--- How far the second and third drums of a load stand off the first. THE FLOOR IS A
+--- HARD CONSTRAINT, not a look: a drum is 2.84 studs across over its chimes and a
+--- fallen one is 4.0 long, so two drums closer than about 4 studs are one drum
+--- growing out of another. Measured live at the first pass, which jittered x and z
+--- independently and put two of them 2.02 studs apart.
+local BARREL_CROWD_MIN = 4.2
+local BARREL_CROWD_MAX = 6.0
+
+--- How far a dump SITE has to sit off the walk lane. Not the same number as the
+--- clearance above, which is owed by each drum: a load reaches BARREL_CROWD_MAX out
+--- from its site before the pose-aware slide in scatterBarrels pushes it further, and
+--- a fallen drum then puts half its own length past that again. This is that sum with
+--- room over it, and the built field is measured against BARREL_CENTRE_CLEARANCE
+--- rather than this, because the slide has no closed-form bound worth deriving.
+local BARREL_LANE_KEEPOUT = BARREL_CENTRE_CLEARANCE + BARREL_CROWD_MAX + 4
+
+--- The mix of poses in a dump, as a share of the drums in it: a quarter of them over
+--- on their side, one in ten propped at an angle, the rest standing. A yard of drums
+--- all plumb reads as a warehouse, and a field of them all down reads as a wreck --
+--- this is a place things were dumped and left. These are shares, not odds; see the
+--- bag in scatterBarrels for why that distinction is the whole point.
+local BARREL_FALLEN = 0.25
+local BARREL_LEANING = 0.10
 
 --- Dead wood, for `deadTree`. Darker and greyer than Kit.C.wood (5A4630, which is the
 --- warm living-wood brown the camp and the liveTree use) -- these are bark that has
@@ -339,8 +370,8 @@ end
 --- NO POOL/PROP LIGHTS ANY MORE. The pools and spills used to be Neon and every few
 --- of them threw a PointLight to spill that glow onto the ground around it; the whole
 --- world is matte now (see Kit.C's header), so the light-budget machinery that used to
---- live here is gone. If the dormant `barrel()` / `prop()` set pieces are ever
---- revived they render flat, like everything else.
+--- live here is gone. The drums (`radBarrel`) are built matte under that rule, and
+--- if the dormant `prop()` set pieces are ever revived they render flat too.
 
 --- Per-stage character. `props` is roughly how many set pieces to scatter; the pool
 --- count scales with area so a big stage does not look empty.
@@ -375,11 +406,13 @@ end
 ---            remains scattered over the whole field (scatterBones): `skeletons` whole
 ---            carcasses as landmarks, `bones` handfuls of loose bone underfoot and
 ---            `skulls` human skulls.
----   Stage 3 -- the same three bone counts, denser, and nothing else at all: a PARTIAL
----            pass, not this field's rework (its `kind = "sirens"` set piece is still
----            on the shelf). See its own note in THEME.
---- `skeletons`/`bones`/`skulls` belong to the two bone fields; unset, and so skipped,
---- everywhere else.
+---   Stage 3 -- the same three bone counts, denser (scatterBones), and then
+---            `barrels` radioactive drums dumped over the field in loads of one to
+---            three (scatterBarrels). Its `kind = "sirens"` set piece is still on
+---            the shelf and `props` with it -- the drums are what this field got
+---            instead, and they are the only thing standing in it.
+--- `skeletons`/`bones`/`skulls` belong to the two bone fields and `barrels` to Stage 3;
+--- unset, and so skipped, everywhere else.
 type StageTheme = {
 	props: number,
 	pools: number,
@@ -389,6 +422,7 @@ type StageTheme = {
 	skeletons: number?,
 	bones: number?,
 	skulls: number?,
+	barrels: number?,
 }
 local THEME: { [number]: StageTheme } = {
 	[1] = { props = 9, deadProps = 7, pools = 8, kind = "trees", scatter = true },
@@ -410,7 +444,13 @@ local THEME: { [number]: StageTheme } = {
 	-- loose bone, and nearly double the human skulls. THE SKULLS ARE THE ESCALATION
 	-- THAT LANDS. One field further in and the ratio of people to animals has moved --
 	-- more of them got this far, fewer of them walked back out.
-	[3] = { props = 40, pools = 20, kind = "sirens", scatter = true, skeletons = 3, bones = 24, skulls = 12 },
+	-- FOURTEEN DRUMS, and the count is low because they are the field's LANDMARKS --
+	-- scatterBarrels groups them into loads of one to three, so fourteen is six or
+	-- seven dumps over 262 x 142 studs of ground and you cross most of the field
+	-- between them. This is the one prop out here tall enough and saturated enough to
+	-- navigate by, which is worth more than cover: enough of them to steer by, never
+	-- so many that the ground stops reading as empty.
+	[3] = { props = 40, pools = 20, kind = "sirens", scatter = true, skeletons = 3, bones = 24, skulls = 12, barrels = 14 },
 	[4] = { props = 18, pools = 26, kind = "barriers" },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
@@ -420,51 +460,202 @@ local THEME: { [number]: StageTheme } = {
 	[6] = { props = 26, pools = 78, kind = "shards" },
 }
 
---- A leaking barrel: the story prop. Tipped or standing, always dripping.
+--- ── The radioactive drum ─────────────────────────────────────────────────────
+--- The 55-gallon steel drum: hazard yellow, a chime hoop at each end, two rolling
+--- ribs round the belly, a black-and-yellow hazard band under each chime, and the
+--- trefoil painted on the side. Stage 3's set piece (`scatterBarrels`).
 ---
---- DORMANT — `buildStageScenery` does not call this (see its "STILL ON THE SHELF"
---- note). Kept as the reference implementation; git history has the rest.
+--- WHAT USED TO BE HERE: `barrel()`, a DORMANT two-part stand-in — one plain cylinder
+--- plus a translucent spill disc — kept as the reference implementation while the
+--- fields waited for their rework. Stage 3's pass is that rework, and the stand-in is
+--- not what it wanted: the old drum carried no markings at all, so nothing about it
+--- said radioactive, which is the entire reason one is standing in a fallout field.
+--- Git history has it if the spill is ever wanted back.
 ---
---- The DRUM is yellow or rust in every field — it is the same drum wherever it was
---- dumped. The SPILL is the stage's own colour. IF THIS IS EVER RE-ENABLED it must be
---- matte, not Neon: the world has no glowing surfaces any more (see Kit.C's header).
-local function barrel(
-	parent: Instance,
-	origin: CFrame,
-	x: number,
-	z: number,
-	rng: Random,
-	ooze: { bright: string, deep: string, glow: string },
-	_lit: boolean
-)
-	local tipped = rng:NextNumber() < 0.35
-	local color = if rng:NextNumber() < 0.5 then C.barrelYellow else C.barrelRust
+--- EVERY PIECE IS BUILT IN THE DRUM'S OWN FRAME, standing on local y = 0 with its axis
+--- up local Y. `base` carries the pose — upright, leaning, on its side — so one set of
+--- geometry covers all three and no angle in here has to know which it got.
+--- `scatterBarrels` is what tips them.
+---
+--- THE HAZARD BAND IS A BLACK RING WITH THE DRUM'S OWN YELLOW LAID BACK OVER IT in
+--- diagonal slats, not black slats on a yellow drum, and that is the whole trick to a
+--- clean band: a diagonal stripe necessarily overhangs the top and bottom of the band
+--- it sits in, and yellow overhanging onto a yellow drum is invisible where black
+--- would fringe. DRUM_SLATS is a hard constraint, not a taste call — a tilted stripe
+--- reaches further round the drum than its own width (0.59 studs of envelope at
+--- DRUM_STRIPE_TILT against a 0.67-stud gap between slats), so twelve slats clear each
+--- other and fourteen would cross.
+---
+--- THE TREFOIL IS WRAPPED ONTO THE SHELL PIECE BY PIECE rather than laid out on one
+--- flat plate tangent at its centre. The symbol is nearly a stud across on a 2.5-stud
+--- drum, and a single plate that wide floats its far corners a tenth of a stud off the
+--- curve, which reads as a sticker peeling off. `decal` gives every block its own
+--- tangent point instead: measured on the built drums, a blade's far corner lifts
+--- 0.014 studs further off the curve than the middle of that same blade does.
+local DRUM_H = 4.0
+local DRUM_R = 1.25
+--- How far proud of the shell the rolled ends stand, and the two belly ribs. The chime
+--- is a named constant rather than a number inside the builder because a FALLEN drum
+--- rests on its chimes, not on its shell — `scatterBarrels` needs the same figure to
+--- set one down on the ground correctly.
+local DRUM_CHIME = 0.17
+local DRUM_RIB = 0.09
+local DRUM_BAND_H = 0.62
+local DRUM_SLATS = 12
+local DRUM_STRIPE_TILT = 30 -- degrees off the drum's axis
+--- Painted markings float this far off the shell — enough never to z-fight the curve
+--- under them, small enough to read as paint rather than as a plate bolted on.
+local DRUM_PAINT = 0.04
 
-	build(parent, origin, {
-		name = "Barrel",
-		pos = { x, if tipped then 1.1 else 2.1, z },
-		size = { 4.2, 2.4, 2.4 },
-		color = color,
+local function radBarrel(parent: Instance, base: CFrame, rng: Random)
+	local drum = Instance.new("Model")
+	drum.Name = "Barrel"
+
+	-- Roughly a quarter of them have been lying out here long enough to lose their
+	-- paint. Blended toward the rust rather than given a second hex of their own, so a
+	-- weathered drum stays recognisably the SAME drum — the markings still read, they
+	-- are just sitting on a dirtier yellow.
+	local body = if rng:NextNumber() < 0.26 then Kit.blendHex(C.barrelYellow, C.barrelRust, 0.4) else C.barrelYellow
+	local trim = Kit.blendHex(body, "FFFFFF", 0.13)
+
+	--- One flat piece lying on the shell, placed in the drum's UNROLLED surface: `deg`
+	--- is where round the drum, `du` a further distance along the circumference from
+	--- there, `dv` a distance up the axis, and `roll` a spin about the outward normal.
+	--- The frame handed to `build` has +X across the surface, +Y up it and +Z out of
+	--- it, so `size` reads as {width, height, thickness} for every caller — including a
+	--- `disc`, which is re-ordered here rather than at the call site (a Roblox
+	--- cylinder's axis being its X size is a fact about the engine, and has no business
+	--- leaking into the code that says what the trefoil looks like).
+	local function decal(
+		name: string,
+		deg: number,
+		y: number,
+		du: number,
+		dv: number,
+		roll: number,
+		size: { number },
+		color: string,
+		disc: boolean?
+	)
+		local at = deg + math.deg(du / DRUM_R)
+		local th = math.rad(at)
+		local on = base
+			* CFrame.new((DRUM_R + DRUM_PAINT) * math.sin(th), y + dv, (DRUM_R + DRUM_PAINT) * math.cos(th))
+			* Kit.ang(0, at, 0)
+			* Kit.ang(0, 0, roll)
+
+		build(drum, on * (if disc then Kit.ang(0, 90, 0) else R.flat), {
+			name = name,
+			pos = { 0, 0, 0 },
+			size = if disc then { size[3], size[1], size[2] } else size,
+			color = color,
+			material = "Metal",
+			shape = if disc then "Cylinder" else "Block",
+			canCollide = false,
+		})
+	end
+
+	build(drum, base, {
+		name = "Shell",
+		pos = { 0, DRUM_H / 2, 0 },
+		size = { DRUM_H, DRUM_R * 2, DRUM_R * 2 },
+		color = body,
 		material = "Metal",
 		shape = "Cylinder",
-		rot = if tipped then R.cylAlongZ else R.cylUpFlipped,
-	})
-
-	-- The spill coming out of it. This is the bit that sells "oozing".
-	local spillW = rng:NextNumber(8, 14)
-	build(parent, origin, {
-		name = "Spill",
-		pos = { x + rng:NextNumber(-3, 3), SKIM, z + rng:NextNumber(-3, 3) },
-		size = { 0.44, spillW, spillW },
-		color = ooze.bright,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
 		rot = R.cylUp,
-		transparency = 0.04,
 		canCollide = false,
 	})
-end
 
+	-- The four raised rings: a chime at each end, two rolling ribs round the belly.
+	-- They are what keeps a drum from reading as a plain tube at the distance its
+	-- markings have already stopped resolving at.
+	for _, ring in { { 0.18, DRUM_CHIME }, { DRUM_H - 0.18, DRUM_CHIME }, { DRUM_H * 0.32, DRUM_RIB }, { DRUM_H * 0.68, DRUM_RIB } } do
+		build(drum, base, {
+			name = "Rib",
+			pos = { 0, ring[1], 0 },
+			size = { 0.34, (DRUM_R + ring[2]) * 2, (DRUM_R + ring[2]) * 2 },
+			color = trim,
+			material = "Metal",
+			shape = "Cylinder",
+			rot = R.cylUp,
+			canCollide = false,
+		})
+	end
+
+	-- The lid, sitting down inside the top chime the way a rolled seam does, and the
+	-- bung cap off to one side of it — the one piece of bare metal on the whole drum,
+	-- and the detail that says "this opens" rather than "this is a cylinder".
+	build(drum, base, {
+		name = "Lid",
+		pos = { 0, DRUM_H - 0.02, 0 },
+		size = { 0.10, DRUM_R * 2 - 0.12, DRUM_R * 2 - 0.12 },
+		color = trim,
+		material = "Metal",
+		shape = "Cylinder",
+		rot = R.cylUp,
+		canCollide = false,
+	})
+	build(drum, base, {
+		name = "Bung",
+		pos = { DRUM_R * 0.46, DRUM_H + 0.08, DRUM_R * 0.24 },
+		size = { 0.14, 0.40, 0.40 },
+		color = C.steelDark,
+		material = "Metal",
+		shape = "Cylinder",
+		rot = R.cylUp,
+		canCollide = false,
+	})
+
+	-- The two hazard bands. Both clear every ring above and below them: the lower one
+	-- sits between the bottom chime and the lower rib, the upper one between the upper
+	-- rib and the top chime, which is the only place on a four-ringed drum a 0.62-stud
+	-- band fits without a rib cutting through it.
+	for _, y in { 0.70, DRUM_H - 0.74 } do
+		build(drum, base, {
+			name = "HazardBand",
+			pos = { 0, y, 0 },
+			size = { DRUM_BAND_H, (DRUM_R + 0.01) * 2, (DRUM_R + 0.01) * 2 },
+			color = C.hazardBlack,
+			material = "Metal",
+			shape = "Cylinder",
+			rot = R.cylUp,
+			canCollide = false,
+		})
+		-- A stripe is exactly as long as it takes to cross the band at the tilt, so its
+		-- ends land on the band's own edges and the black ring is what defines them.
+		local slat = DRUM_BAND_H / math.cos(math.rad(DRUM_STRIPE_TILT))
+		for i = 0, DRUM_SLATS - 1 do
+			decal("HazardStripe", i * (360 / DRUM_SLATS), y, 0, 0, DRUM_STRIPE_TILT, { 0.27, slat, 0.05 }, body)
+		end
+	end
+
+	-- The trefoil, on the belly between the two rolling ribs: a centre disc and three
+	-- blades 120 degrees apart, each blade a narrow inner block and a wider outer one.
+	-- A stepped taper is as close to a 60-degree pie sector as a world built out of
+	-- blocks gets, and at the range the symbol actually reads from, the step is not
+	-- what you see — the three-bladed rosette is. The proportions are the real
+	-- symbol's: blades running from one and a half to five times the hub's radius.
+	local face = rng:NextNumber(0, 360)
+	local waist = DRUM_H / 2
+	decal("TrefoilHub", face, waist, 0, 0, 0, { 0.20, 0.20, 0.05 }, C.hazardBlack, true)
+	for i = 0, 2 do
+		local phi = math.rad(i * 120)
+		for _, blade in { { 0.220, 0.22 }, { 0.385, 0.38 } } do
+			decal(
+				"TrefoilBlade",
+				face,
+				waist,
+				blade[1] * math.sin(phi),
+				blade[1] * math.cos(phi),
+				-i * 120,
+				{ blade[2], 0.17, 0.05 },
+				C.hazardBlack
+			)
+		end
+	end
+
+	drum.Parent = parent
+end
 --- Stage-specific silhouette, so the four fields do not read as one field.
 --- `ooze` is the STAGE's Neon triple (Config/Stages StageDef.ooze), not a global. Only
 --- the two pink kinds read it today — the older kinds are lit in their own prop
@@ -1563,6 +1754,187 @@ local function scatterDeadBushes(folder: Instance, origin: CFrame, count: number
 	end
 end
 
+--- Stage 3 — radioactive drums, dumped across the field in ones and twos.
+---
+--- DUMPED, NOT PLACED. The grid picks DUMP SITES, not drums: the count is split into
+--- loads of one to three FIRST and the grid is then sized to however many loads that
+--- came to, so every cell gets a load and no drum is left over at the end. A load of
+--- three standing within a few studs of each other reads as something tipped off the
+--- back of a truck; `count` drums spread evenly over the same field reads as a car
+--- park. It is also what makes them landmarks rather than texture, which is the job
+--- this field needed doing — Stage 3's own note in THEME calls it bare khaki ground
+--- with nothing standing on it at all, and a drum is the first thing that does.
+---
+--- A quarter of them have gone over (BARREL_FALLEN) and a fallen drum rests on its
+--- CHIMES, not on its shell (DRUM_CHIME) -- and it is placed by its MIDDLE, which the
+--- pose has to walk back for, since `radBarrel` builds every drum standing on the base
+--- it is handed.
+---
+--- NOTHING LEAKS, AND THAT IS DELIBERATE. The obvious next thing here is an ooze
+--- puddle under the fallen ones, and this field does not have one: Stage 3's pass is
+--- bare ground with the remains on it and no pools anywhere (see THEME), so a spill is
+--- that decision reversed rather than a detail added. `barrel()`'s old spill disc is in
+--- git history for whenever it is actually wanted.
+---
+--- Out of the centre lane like the carcasses (BARREL_CENTRE_CLEARANCE), and
+--- deterministic off the stage rng, consumed AFTER scatterBones so every bone in the
+--- field stays exactly where it already was.
+local function scatterBarrels(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+	if count <= 0 then
+		return
+	end
+
+	local loads = {}
+	local left = count
+	while left > 0 do
+		local take = math.min(left, rng:NextInteger(1, 3))
+		table.insert(loads, take)
+		left -= take
+	end
+
+	-- POSES COME OUT OF A SHUFFLED BAG, NOT OFF A DIE PER DRUM, and that is worth the
+	-- extra dozen lines. A field is fourteen drums, and fourteen rolls against a
+	-- probability is a small enough sample to miss badly: at a one-in-five chance of
+	-- going over, this field's stream rolled SEVEN of its fourteen under 0.145 and put
+	-- half the drums on the ground. The stage seed is FIXED (buildStageScenery's
+	-- `Random.new(1000 + id)`), so that is not bad luck that averages out over a
+	-- session — it is what the field looks like, every time, for everyone. A bag
+	-- holding the right number of each pose gives the mix that was actually asked for
+	-- at any count, and the shuffle is what keeps it from arriving in blocks.
+	local bag = table.create(count, "upright")
+	local fallen = math.round(count * BARREL_FALLEN)
+	for i = 1, fallen do
+		bag[i] = "fallen"
+	end
+	for i = fallen + 1, math.min(count, fallen + math.round(count * BARREL_LEANING)) do
+		bag[i] = "leaning"
+	end
+	for i = count, 2, -1 do
+		local j = rng:NextInteger(1, i)
+		bag[i], bag[j] = bag[j], bag[i]
+	end
+	local drawn = 0
+
+	local barrels = Instance.new("Folder")
+	barrels.Name = "Barrels"
+
+	-- The same jittered grid the bones use, over the dump sites rather than the drums.
+	local cols = math.max(1, math.round(math.sqrt(#loads * (hx / hz))))
+	local rows = math.ceil(#loads / cols)
+	local site = 0
+	for row = 0, rows - 1 do
+		for col = 0, cols - 1 do
+			site += 1
+			if site > #loads then
+				break
+			end
+
+			local cx = math.clamp(-hx + (col + 0.5 + rng:NextNumber(-0.32, 0.32)) * (2 * hx / cols), -hx, hx)
+			local cz = -hz + (row + 0.5 + rng:NextNumber(-0.32, 0.32)) * (2 * hz / rows)
+			-- Pushed off the walk, never onto it: a site that landed inside the lane goes
+			-- out to the edge of it on the side it was already on. The clearance is owed
+			-- by the DRUM, not by the site, so the site has to clear the lane by the
+			-- whole reach of a load as well -- one parked exactly on the clearance line
+			-- puts its second and third drums straight back inside it (measured at 14
+			-- studs, not 16). BARREL_LANE_KEEPOUT is checked live rather than proved:
+			-- the slide below can push a crowding drum out past BARREL_CROWD_MAX.
+			if math.abs(cz) < BARREL_LANE_KEEPOUT then
+				cz = (if cz < 0 then -1 else 1) * BARREL_LANE_KEEPOUT
+			end
+			cz = math.clamp(cz, -hz, hz)
+
+			-- Which way the load fell off the truck. Rolled per site so a field of them
+			-- does not settle into the same triangle over and over.
+			local spread = rng:NextNumber(0, 360)
+			-- The drums already standing at this site: where they are relative to it, and
+			-- how much ground each of them claims.
+			local here = {}
+
+			for n = 1, loads[site] do
+				-- The first drum of a load lands on the site; the rest stand off it on a
+				-- rough triangle. A BEARING AND A DISTANCE, never two independent jitters:
+				-- the distance is the axis with a floor under it, and jittering x and z
+				-- separately has no way to hold one. Bearings a third of a turn apart
+				-- with less than half that in wobble keep the crowding drums off EACH
+				-- OTHER as well as off the first one.
+				local bearing = math.rad(spread + (n - 1) * 120 + rng:NextNumber(-28, 28))
+				local ux, uz = math.sin(bearing), math.cos(bearing)
+				local reach = if n == 1 then 0 else rng:NextNumber(BARREL_CROWD_MIN, BARREL_CROWD_MAX)
+				-- Which way the drum points, how far round its own axis it is turned,
+				-- and how far off plumb. All three are rolled for every drum whichever
+				-- pose it drew, so the rng runs the same number of times per drum and
+				-- retuning the mix above cannot reshuffle the whole field.
+				local aim = Kit.ang(0, rng:NextNumber(0, 360), 0)
+				local spin = Kit.ang(0, rng:NextNumber(0, 360), 0)
+				drawn += 1
+				local pose = bag[drawn]
+				local lean = if pose == "leaning" then rng:NextNumber(9, 16) else rng:NextNumber(-2.5, 2.5)
+
+				-- How much ground this drum claims. A FALLEN one is four studs long and
+				-- may be aimed any way, so it claims half its length on top of its chime
+				-- radius — which is why one distance floor cannot serve both poses: nose
+				-- to nose, two fallen drums need nearly seven studs between centres where
+				-- two standing ones need under three. A flat 4.2 left two of them
+				-- intersecting on the first build.
+				local foot = (DRUM_R + DRUM_CHIME) + (if pose == "fallen" then DRUM_H / 2 else 0)
+				-- Slide out along the bearing to the first point clear of every drum
+				-- already here. Solved rather than stepped: the points on the ray at
+				-- exactly `need` from a placed drum are the roots of a quadratic, and the
+				-- larger one is where the ray leaves that drum's ground for good.
+				for _, placed in here do
+					local need = foot + placed.foot
+					local along = ux * placed.x + uz * placed.z
+					local disc = along * along - (placed.x * placed.x + placed.z * placed.z) + need * need
+					if disc > 0 then
+						reach = math.max(reach, along + math.sqrt(disc))
+					end
+				end
+				local jx, jz = reach * ux, reach * uz
+				table.insert(here, { x = jx, z = jz, foot = foot })
+
+				if pose == "fallen" then
+					-- On its side: `aim` is the direction it lies in, the 90 tips it
+					-- over, and `spin` then turns it about its own axis so the trefoil
+					-- is not always pointing at the sky.
+					--
+					-- THE LAST STEP IS NOT OPTIONAL. `radBarrel` builds a drum standing on
+					-- the base it is handed, so the base is the drum's BOTTOM -- which,
+					-- once the drum is on its side, is one end of it, two studs from the
+					-- middle. Without walking that back along the drum's own axis a fallen
+					-- drum lands two studs from where it was placed, which quietly voids
+					-- every distance this function just worked out (measured live: two
+					-- drums 3.5 studs apart out of a 4.2 floor).
+					radBarrel(
+						barrels,
+						origin
+							* CFrame.new(cx + jx, GROUND_SKIM + DRUM_R + DRUM_CHIME - 0.03, cz + jz)
+							* aim
+							* Kit.ang(0, 0, 90)
+							* spin
+							* CFrame.new(0, -DRUM_H / 2, 0),
+						rng
+					)
+				else
+					-- Standing: plumb to within a couple of degrees, or propped over at
+					-- a real angle if it drew "leaning". Either way the tilt is about the
+					-- base, so the drum has to be lifted by exactly what that tilt would
+					-- otherwise sink the low edge of the bottom chime into the ground.
+					local sink = (DRUM_R + DRUM_CHIME) * math.abs(math.sin(math.rad(lean)))
+					radBarrel(barrels, origin * CFrame.new(cx + jx, GROUND_SKIM - 0.03 + sink, cz + jz) * aim * Kit.ang(0, 0, lean), rng)
+				end
+			end
+		end
+	end
+
+	for _, d in barrels:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CanQuery = false
+			d.CanTouch = false
+		end
+	end
+	barrels.Parent = folder
+end
+
 local function buildStageScenery(parent: Instance, id: number)
 	local theme = THEME[id]
 	if theme == nil then
@@ -1594,12 +1966,13 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- scatter* functions): Stage 2's dead trees flank the corridor, Stage 1's bushes
 	-- fill its living west half.
 	--
-	-- STILL ON THE SHELF: ooze pools (`theme.pools`), barrels (`barrel()`), and every
-	-- `prop()` set-piece kind for the fields that have not had their pass yet. `THEME`,
-	-- `prop()` and `barrel()` are still defined above -- the full previous
-	-- implementation, with its per-stage tuning rationale, is in git history on this
-	-- file rather than dead code here. The de-neon pass swapped their materials to
-	-- matte and dropped their PointLights; revived, they render flat like everything.
+	-- STILL ON THE SHELF: ooze pools (`theme.pools`) and every `prop()` set-piece kind
+	-- for the fields that have not had their pass yet. `THEME` and `prop()` are still
+	-- defined above -- the full previous implementation, with its per-stage tuning
+	-- rationale, is in git history on this file rather than dead code here. The
+	-- de-neon pass swapped their materials to matte and dropped their PointLights;
+	-- revived, they render flat like everything else. (The barrels came OFF the shelf
+	-- with Stage 3's drums -- `radBarrel`, which replaced the dormant `barrel()`.)
 	if theme.scatter then
 		if id == 1 then
 			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
@@ -1610,10 +1983,13 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- hz - 30 = inside the tree line scatterEdgeTrees just laid down.
 			scatterBones(folder, origin, rng, hx, hz, hz - 30, theme.skeletons or 0, theme.bones or 0, theme.skulls or 0)
 		elseif id == 3 then
-			-- Bones and nothing else -- Stage 3's own set piece has not had its pass
-			-- yet (see THEME). Nothing is standing in this field, so the carcasses get
-			-- almost the full depth to spread over rather than Stage 2's mid strip.
+			-- Nothing GREW in this field, so the carcasses get almost the full depth to
+			-- spread over rather than Stage 2's mid strip -- there is no tree line here
+			-- to keep them inside of.
 			scatterBones(folder, origin, rng, hx, hz, hz - 12, theme.skeletons or 0, theme.bones or 0, theme.skulls or 0)
+			-- AFTER the bones, always: both passes run off the one stage rng, so putting
+			-- the drums first would move every bone in the field.
+			scatterBarrels(folder, origin, theme.barrels or 0, rng, hx, hz)
 		end
 	end
 
