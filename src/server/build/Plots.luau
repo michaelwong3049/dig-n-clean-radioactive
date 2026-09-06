@@ -671,15 +671,22 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	--
 	-- IT SITS OFF THE EDGE OF THE NEUTRAL WASH FRAME, and that is a choice rather than
 	-- an oversight. Measured from the planted head, the mast is 64 degrees to the left
-	-- of the item; WashController clamps the look to +/-32 degrees of yaw and the frame
-	-- is about 45 degrees wide either side of that, so at rest the machine is just past
-	-- the left edge and one glance left brings the whole thing into view. The STREAM is
-	-- never off-frame regardless -- it is drawn from the muzzle to the reticle, so it
-	-- enters from the left and converges on whatever you are pointing at. Pulling the
-	-- mast itself inside the cone would mean either standing it in the tub or
-	-- shortening the flight until the arc flattens, and what sells the purchase is
-	-- walking up to the bay in third person and finding a different machine on the
-	-- mast, which no camera clamp touches.
+	-- of the item -- past WashController's own +/-32 degree look clamp, so it is never
+	-- in frame at rest and only a deliberate glance left brings it into view. That is
+	-- fine: the mast's whole remaining job is to be found there, by anyone walking up
+	-- in third person or glancing over, wearing the rung its owner actually bought.
+	--
+	-- THE STREAM USED TO ENTER FROM THIS CORNER TOO, and that stopped being true.
+	-- The first version of the aim rework left the water travelling literally from
+	-- the mast's own position to the reticle, on the reasoning that the arc converges
+	-- on the aim point regardless of where it starts -- which is correct as maths and
+	-- was wrong as a picture: a muzzle 64 degrees off to the side reads as "shooting
+	-- from the left", reported as exactly that. WashController now re-homes the SAME
+	-- model to a point near the washing player's own camera for the length of their
+	-- session (see its header and `aimNozzle`) and puts it back here the moment they
+	-- stop -- so what sells the purchase is still walking up in third person and
+	-- finding a different machine parked on this mast, and what makes the hose usable
+	-- is that nobody has to fight a 64-degree throw to land a shot.
 	local mx, mz = 3.9, cz - 2.9
 
 	-- BELOW THE ITEM, NOT ABOVE IT, AND THIS IS THE ARC. The item sits at topY + 3.5;
