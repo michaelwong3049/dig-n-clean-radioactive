@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 21
+local BUILDER_VERSION = 23
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -367,11 +367,19 @@ end
 --- individual props being placed, not one surface split into many, so it was never
 --- the source of this bug and did not need to change.
 
---- NO POOL/PROP LIGHTS ANY MORE. The pools and spills used to be Neon and every few
---- of them threw a PointLight to spill that glow onto the ground around it; the whole
---- world is matte now (see Kit.C's header), so the light-budget machinery that used to
---- live here is gone. The drums (`radBarrel`) are built matte under that rule, and
---- if the dormant `prop()` set pieces are ever revived they render flat too.
+--- NO PROP LIGHTS ANY MORE, AND STAGE 4's POOLS ARE A NAMED EXCEPTION. Props and the
+--- pools both used to be Neon with a PointLight every few of them, spilling that glow
+--- onto the ground; the whole world went matte and unlit (see Kit.C's header). The
+--- drums (`radBarrel`) and every dormant `prop()` kind are still matte under that rule
+--- -- this paragraph's "no prop lights" half still holds everywhere but one place.
+---
+--- THE POOL LIGHTS CAME BACK, ON REQUEST, AFTER THIS PARAGRAPH SAID THEY WOULD BE THE
+--- THING TO READ FIRST IF THEY EVER DID. Stage 4's ooze went Neon for the surface look
+--- first (POOL_MATERIAL), which was explicitly NOT a light source on its own -- then
+--- a real PointLight per pool followed, one per `oozePool` call, radius-scaled and
+--- shadowless (see the light itself, in `oozePool`). It is still true nowhere else in
+--- this file emits light: this is one field's puddles, not a rule change for props,
+--- the drums, or any other stage.
 
 --- Per-stage character. `props` is roughly how many set pieces to scatter; the pool
 --- count scales with area so a big stage does not look empty.
@@ -423,6 +431,7 @@ type StageTheme = {
 	bones: number?,
 	skulls: number?,
 	barrels: number?,
+	signs: number?,
 }
 local THEME: { [number]: StageTheme } = {
 	[1] = { props = 9, deadProps = 7, pools = 8, kind = "trees", scatter = true },
@@ -451,7 +460,19 @@ local THEME: { [number]: StageTheme } = {
 	-- navigate by, which is worth more than cover: enough of them to steer by, never
 	-- so many that the ground stops reading as empty.
 	[3] = { props = 40, pools = 20, kind = "sirens", scatter = true, skeletons = 3, bones = 24, skulls = 12, barrels = 14 },
-	[4] = { props = 18, pools = 26, kind = "barriers" },
+	-- The rest of THIS pass (`props`/`pools`/`kind = "barriers"`) is still on the
+	-- shelf -- `scatter` only turns on the sign rank below. FIVE signs, spread over
+	-- the entrance's 142-stud width (2 * hz, hz = 170/2 - 14): one roughly every 28
+	-- studs, enough that one is always in view crossing in from Stage 3 without the
+	-- rank reading as a fence.
+	-- 26 -> 12 POOLS ON REPORT ("way too many"), and the count is only half of that
+	-- fix: the 26 were all rolled out of one 9-24 stud range, so the field read as
+	-- spotty -- many puddles, all the same size, all the same roughly-round shape.
+	-- The 12 are dealt off a size ladder in scatterOozePools (one mini lake, a few
+	-- broad, some mid, the rest spills), so this number is now "how many pools" and
+	-- NOT "how much ooze" -- the lake alone covers more ground than a third of the
+	-- old 26 did. Retune the ladder there, not just this number.
+	[4] = { props = 18, pools = 12, kind = "barriers", scatter = true, signs = 5 },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
 	-- reads as dark ground rather than as hot ground. Prop counts do not climb with
@@ -1935,6 +1956,756 @@ local function scatterBarrels(folder: Instance, origin: CFrame, count: number, r
 	barrels.Parent = folder
 end
 
+--- ── Stage 4's caution sign ───────────────────────────────────────────────────
+--- REPLACED THE BLACK-BORDERED HAZARD PLACARD, ON REQUEST -- it read as "horrible"
+--- live. Much simpler now: a studded brown leg and a studded brown board, one
+--- colour, one material, no separate face/border/mark layers and no proud-decal
+--- offset math to get wrong (the first version's whole bug was exactly that math).
+--- `studs = true` also brings the sign in line with every OTHER prop in this file --
+--- deadTree, deadBush and bush are all studded Plastic already; the old sign's
+--- Metal/SmoothPlastic faces were the one thing in the field that was not, which is
+--- most of why it read as an odd sore thumb next to everything around it.
+local SIGN_THICK = 1 -- shared depth (X, the axis a player walks through) -- "1 stud thick"
+local SIGN_LEG_W, SIGN_LEG_H = 1, 2 -- "the leg of the stick 2x1 long" -- 1x1 cross-section, 2 tall
+local SIGN_W, SIGN_H = 4, 3 -- "the actual sign 4x3 rectangle" -- wider than tall
+local SIGN_BROWN = C.wood
+
+--- THE CAUTION BADGE, ON REQUEST -- reference was a yellow radiation-warning sign:
+--- a black "CAUTION" band across the top, a black trefoil on yellow below it.
+--- Nailed onto the board's west (entrance) face as its own proud plate rather than
+--- painted straight onto the wood, the same "placard bolted to a post" read the
+--- reference image itself has. SmoothPlastic, not studded -- the wood board is the
+--- carpentry, the badge is a printed metal sign fixed to it, and that material
+--- contrast is what sells "something was bolted on here" rather than carved in.
+local SIGN_BADGE_W, SIGN_BADGE_H = 3.5, 2.6 -- leaves an even wood margin inside the 4x3 board
+local SIGN_BAND_H = 0.7 -- the black CAUTION strip, flush with the badge's own top edge
+
+--- Every proud layer in this sign is measured off the WEST FACE of the layer
+--- behind it, never off that layer's centre -- see the git history on this file
+--- (the first hazard-placard version) for exactly what goes wrong otherwise: a
+--- thicker layer's own half-thickness can reach further west than a thinner one
+--- centred only `paint` in front of it, so the thicker layer ends up hiding the
+--- thinner one instead of backing it. Returns the new layer's own centre X and its
+--- west face X, so the next layer out can chain off the second value.
+local function proudOf(prevWestFaceX: number, paint: number, thickness: number): (number, number)
+	local centerX = prevWestFaceX - paint + thickness / 2
+	return centerX, centerX - thickness / 2
+end
+
+local BADGE_PAINT = 0.05
+local BOARD_WEST_FACE = -SIGN_THICK / 2
+local BADGE_X, BADGE_WEST_FACE = proudOf(BOARD_WEST_FACE, BADGE_PAINT, 0.06)
+local BAND_X = (proudOf(BADGE_WEST_FACE, BADGE_PAINT, 0.05))
+local MARK_X = (proudOf(BADGE_WEST_FACE, BADGE_PAINT, 0.05))
+
+--- The radiation trefoil, flat against the badge -- the same three-bladed rosette
+--- radBarrel paints on the drums (see that function's own header for the real
+--- symbol's proportions this follows), just laid straight in the sign's Y-Z plane
+--- instead of wrapped around a cylinder: there is no curvature to unwrap on a flat
+--- badge, so this is the simpler of the two versions.
+---
+--- EACH ARM'S ORIGIN CARRIES ITS OWN ROTATION, RATHER THAN A SEPARATELY COMPUTED
+--- POSITION ROLLED BY HAND -- `build`'s pos/rot split can't express "rotate about
+--- the hub, then push outward," so position and facing would otherwise have to
+--- agree on Roblox's own rotation handedness by hand (get the sign wrong and a
+--- blade points off at the mirror of where it sits). Composing the arm's CFrame
+--- once and pushing straight out along ITS OWN rotated Y axis makes the two agree
+--- by construction instead of by luck.
+local function flatTrefoil(parent: Instance, hubOrigin: CFrame, scale: number, color: string)
+	build(parent, hubOrigin, {
+		name = "TrefoilHub",
+		pos = { 0, 0, 0 },
+		size = { 0.05, 0.5 * scale, 0.5 * scale },
+		color = color,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		canCollide = false,
+	})
+	for i = 0, 2 do
+		local armOrigin = hubOrigin * Kit.ang(i * 120, 0, 0)
+		for _, blade in { { 0.55, 0.55 }, { 0.95, 0.95 } } do
+			local reach, width = blade[1] * scale, blade[2] * scale
+			build(parent, armOrigin * CFrame.new(0, reach, 0), {
+				name = "TrefoilBlade",
+				pos = { 0, 0, 0 },
+				size = { 0.05, width, width * 0.42 },
+				color = color,
+				material = "SmoothPlastic",
+				canCollide = false,
+			})
+		end
+	end
+end
+
+local function warningSign(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+	-- A few degrees of yaw jitter, not the full 0-360 deadTree/bush get: the badge is
+	-- one-sided (west face only), so a full random spin would leave some signs in the
+	-- rank showing their blank back to a player walking in from Stage 3.
+	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(-8, 8), 0)
+
+	build(parent, base, {
+		name = "SignLeg",
+		pos = { 0, SIGN_LEG_H / 2, 0 },
+		size = { SIGN_THICK, SIGN_LEG_H, SIGN_LEG_W },
+		color = SIGN_BROWN,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+	local boardY = SIGN_LEG_H + SIGN_H / 2
+	build(parent, base, {
+		name = "SignBoard",
+		pos = { 0, boardY, 0 },
+		size = { SIGN_THICK, SIGN_H, SIGN_W },
+		color = SIGN_BROWN,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+
+	build(parent, base, {
+		name = "SignBadge",
+		pos = { BADGE_X, boardY, 0 },
+		size = { 0.06, SIGN_BADGE_H, SIGN_BADGE_W },
+		color = C.barrelYellow,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+
+	-- Flush with the badge's own top edge, full badge width -- the reference has no
+	-- yellow margin around the band, only below it.
+	local band = build(parent, base, {
+		name = "SignBand",
+		pos = { BAND_X, boardY + SIGN_BADGE_H / 2 - SIGN_BAND_H / 2, 0 },
+		size = { 0.05, SIGN_BAND_H, SIGN_BADGE_W },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	Kit.surfaceText(band, Enum.NormalId.Left, "CAUTION", C.labelText)
+
+	-- Centred in whatever yellow is left below the band.
+	local trefoilY = boardY - SIGN_BAND_H / 2
+	flatTrefoil(parent, base * CFrame.new(MARK_X, trefoilY, 0), 0.75, C.hazardBlack)
+end
+
+--- Stage 4 -- a rank of signs along the entrance edge. Evenly spread across z with
+--- the usual per-cell jitter -- same jittered-grid technique scatterEdgeTrees uses
+--- along a long side, just run along the SHORT edge here since these guard the
+--- entrance, not a side.
+local function scatterWarningSigns(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+	for i = 0, count - 1 do
+		local cell = 2 * hz / count
+		local z = -hz + (i + 0.5 + rng:NextNumber(-0.35, 0.35)) * cell
+		local x = -hx + rng:NextNumber(5, 11)
+		warningSign(folder, origin, x, z, rng)
+	end
+end
+
+--- ── Stage 4's ooze puddles ───────────────────────────────────────────────────
+--- THE FIRST POOLS TO COME OFF THE SHELF since the strip-for-rework pass (`1b6ff88`)
+--- took the old whole-field loop out. That loop's pool was ONE Neon cylinder plus one
+--- bigger cylinder under it for a rim -- a perfect circle, and its own comment already
+--- admitted the failure mode ("a decal painted on the floor"). This is a rebuild, not
+--- a revival: nothing here is a single disc.
+---
+--- FEW AND DIFFERENT, NOT MANY AND ALIKE. The first pass built 26 puddles all rolled
+--- out of one 9-24 stud range and read as spotty -- too many, and every one the same
+--- size and the same roughly-round shape. There are 12 now, dealt off a SIZE LADDER
+--- (scatterOozePools): one mini lake that is a landmark you walk around, a few broad
+--- pools, some mid ones, and small spills. A field of identical blobs is wallpaper;
+--- a field with one big thing in it has somewhere to walk TO.
+---
+--- ONE FLAT GREEN, NO DARK BORDER, NO INTERIOR DETAIL, VISIBLY OVAL, MORE CURVE THAN
+--- BUMPS. On request, several times over -- flatten the inside to one shade, remove
+--- the dark rim, elongate the body so it never reads as a circle, and shrink/swallow
+--- the lobes so the outline reads as one sweeping curve rather than a cluster of
+--- similar-sized bumps. A puddle here is now just its OWN outline, laid down as:
+---   * an OVAL body, aspect 1.6-2.6 off its own yaw -- the floor is well clear of a
+---     disc on purpose, so every puddle in the field is visibly elongated, not just
+---     the ones that happened to roll long;
+---   * two to four smaller ovals overlapping it near its two ENDS (the body's own
+---     long axis, within +-20 degrees of each pole -- a lobe on the SIDE, or even
+---     55 degrees off a pole on a body this elongated, bulges the waist back out
+---     toward the minor axis's own width and cancels the ellipse's length back
+---     toward a circle; both found live, on two separate shots), most
+---     of them rolled SHORT of tangent so they swell one stretch of the outline into
+---     a gentle sweep rather than poking out as a separate rounded lump, plus one
+---     (arbitrarily, the last placed) allowed a wider size and reach so roughly one
+---     puddle feature reads as a real protruding foot -- see the reference this shape
+---     is built on, which has exactly one such foot off an otherwise smooth outline,
+---     not a symmetric ring of equal bumps;
+---   * droplets thrown clear, in the same one green as the body;
+---   * one PointLight per pool, in `ooze.glow`, so the field looks lit rather than
+---     merely coloured -- see the note at the light itself, below the lobe loop.
+--- Every SOLID part of a puddle -- the body, every lobe, every droplet -- is
+--- `ooze.bright` exactly. No blend, no second shade, no gradient, nothing dark
+--- touching any of it. `ooze.deep`, the stage triple's third slot, goes unused now --
+--- it used to be the rim, and there is nothing dark left anywhere in this field.
+---
+--- WHAT USED TO BE HERE, in the order it came off:
+---   1. Interior detail -- a brighter off-centre CORE ("the middle is deeper than the
+---      edge"), surface FROTH bubbles, a per-lobe MOTTLE blending each lobe a little
+---      way toward `deep`, and the lake's mud ISLANDS. Flattened to one green first.
+---   2. The RIM -- a `deep`-colour ring of even width following the whole outline, one
+---      layer under the liquid, meant to read as the edge where liquid soaks into
+---      ground. Removed next, as "that dark green outline".
+---   3. The NOTCH that made the outline concave -- a `deep`-coloured oval straddling
+---      the rim, there so a bite out of the pool would merge into the rim already
+---      sitting on that edge rather than reading as a separate dark shape. It could
+---      not survive step 2: shot live with the rim gone, a notch with nothing left to
+---      blend into was a small dark blob stuck to a puddle's edge, not a dent. Removed
+---      in the same pass as the rim, for that reason -- it was never wanted for its
+---      own sake, only as camouflage for something that is no longer there. The
+---      outline is purely convex now, which is the one trade this removal made: no
+---      concave bite is possible without either a rim to hide the seam in or a real
+---      boolean subtract, and this file has neither.
+--- Every one of these had been tuned against live shots and was working by the time it
+--- went. Do not reintroduce any of them as a "fix" for the pools looking flat or plain
+--- -- flat and plain (and now unbordered) is the brief. The tuned numbers are in git
+--- history on this file if interior detail or a rim is ever wanted back.
+---
+--- NO Z-FIGHTING BY CONSTRUCTION. Overlapping discs at one Y are exactly coplanar and
+--- flicker; every part of a puddle is lifted POOL_LOBE_LIFT above the last in draw
+--- order, so the stack rises a few hundredths of a stud over a whole puddle -- under
+--- the border strip at SKIM even for the lake, invisible as a step, and there is never
+--- a tie for the renderer to break.
+---
+--- STILL PURELY VISUAL. This file's header rule holds -- the ground is the hazard and
+--- a pool is not a second one. Nothing here is queryable, collidable or touchable, and
+--- StageService.hotPocketFor stays the stub it is.
+
+--- Top of the liquid. Clears the checkerboard cap at GROUND_SKIM (0.06) and stays
+--- under the border strip at SKIM (0.26) -- the same thin band every other ground
+--- layer in this file lives in, so a haul surfacing under a puddle still comes up
+--- through it.
+local POOL_TOP = 0.15
+local POOL_THICK = 0.12
+
+--- Per-part Y step within one puddle. See the section header -- this both breaks
+--- coplanar ties and IS the layering. 0.0025 rather than a rounder number because the
+--- lake is the constraint: it is the one puddle big enough to carry ~30 parts, and
+--- 30 * 0.0025 on top of POOL_TOP still lands under SKIM.
+local POOL_LOBE_LIFT = 0.0025
+
+--- THE OOZE IS THE ONE THING IN THIS WORLD THAT IS STILL NEON, ON REQUEST. Kit.C's
+--- header sets the de-neon rule for everything else and it stands -- no shop accent,
+--- no prop, no sign goes back to emitting. This is a deliberate, named exception for
+--- one substance in one stage: the ask was for the green to have "a bright effect",
+--- and matte green on brown mud cannot do it. Neon renders unshaded at full value, so
+--- the liquid reads as lit from inside rather than painted on -- that is the surface
+--- doing the work, separate from the PointLight below actually casting light onto the
+--- ground around it. Together they are "glowing"; either alone is only "bright" or
+--- only "lit from one side".
+local POOL_MATERIAL = "Neon"
+
+--- WHAT USED TO BE HERE: POOL_MOTTLE / POOL_CORE_PALE / POOL_FROTH_PALE, the three
+--- blend strengths that shaded a pool's interior. There is no interior shading any
+--- more -- see the section header. The liquid is `ooze.bright`; `glow` now lights the
+--- pool from a PointLight instead of shading it, and `deep` -- the old rim's colour --
+--- goes unused, full stop.
+---
+--- One thing worth keeping out of that removal, because it will come up again the next
+--- time anything in this world is asked to glow: INTERIOR SHADING ON AN UNSHADED
+--- SURFACE NEEDS A FRACTION OF THE CONTRAST A MATTE ONE WOULD. Neon renders at full
+--- value with no lighting on it, so blends that look subtle in a palette read as hard
+--- edges on the part -- 0.34 toward white made every puddle a fried egg, and 0.1 was
+--- as far as it could go before the core started to separate from the body.
+
+--- One flat oval lying on the ground. Every part of a puddle is one of these.
+---
+--- NOT A Cylinder, ON PAIN OF SILENTLY GETTING A CIRCLE BACK. This is the second time
+--- this exact bug has cost a shape pass: `Enum.PartType.Cylinder`'s cross-section
+--- (its Size.Y/Size.Z face) is CIRCULAR NO MATTER WHAT YOU PUT IN THOSE TWO FIELDS --
+--- confirmed live by raycasting a test Cylinder sized {0.5, 80, 35} from twelve
+--- bearings and getting exactly 17.5 studs (= Size.Z / 2) back every single time,
+--- Size.Y's 80 completely ignored. `Enum.PartType.Ball` was tried next and is NO
+--- BETTER (same raycast technique, same result: a constant radius off the smallest
+--- axis) -- neither of Roblox's two round primitive Shapes takes an unequal
+--- cross-section, however unequal the Size you give one. Every "oval" pool built by
+--- either of those two Shapes, across every earlier pass of this file, was a plain
+--- circle wearing an oval-shaped comment.
+---
+--- SpecialMesh (MeshType.Sphere, independent non-uniform Scale) is what actually
+--- renders as an ellipsoid -- confirmed the same way, by screenshot: a flattened
+--- sphere mesh scaled {80, 4, 35} rendered as a visibly elongated oval, not a circle.
+--- So a puddle disc here is a near-invisible 1x1x1 Part (Transparency 0, but its own
+--- Size never reads as anything -- the child mesh fully replaces what gets drawn)
+--- carrying that mesh, scaled to {a, POOL_THICK, b} directly -- no R.cylUp reorienting
+--- dance needed either, since a sphere has no axis to stand upright in the first
+--- place: local X and Z already sit in the ground plane, `yaw` just turns them there.
+--- Color/Material still live on the PART (the mesh has neither of its own), exactly
+--- as before.
+local function oozeDisc(
+	parent: Instance,
+	origin: CFrame,
+	name: string,
+	x: number,
+	y: number,
+	z: number,
+	a: number,
+	b: number,
+	yaw: number,
+	color: string,
+	material: string
+)
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Size = Vector3.new(1, 1, 1) -- irrelevant once the mesh below is parented; kept
+	-- small so this part's own (invisible, never-rendered) box can't be mistaken for
+	-- real geometry by anything that walks Workspace looking at BasePart.Size directly.
+	part.Color = Color3.fromHex(color)
+	part.Material = Enum.Material[material]
+	part.CFrame = origin * CFrame.new(x, y - POOL_THICK / 2, z) * Kit.ang(0, yaw, 0)
+
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Scale = Vector3.new(a, POOL_THICK, b)
+	mesh.Parent = part
+
+	part.Parent = parent
+	return part
+end
+
+--- One puddle, `radius` studs from centre to outline at its widest, centred on the
+--- stage-local point (x, z). `hx`/`hz` are the field's own half-extents, so a droplet
+--- thrown off a puddle near the boundary can be held inside the field -- see the note
+--- at the droplet loop below, this was found overhanging the edge by up to 3.3 studs
+--- on a live check.
+local function oozePool(
+	parent: Instance,
+	origin: CFrame,
+	x: number,
+	z: number,
+	radius: number,
+	rng: Random,
+	ooze: { bright: string, deep: string, glow: string },
+	hx: number,
+	hz: number
+)
+	local yaw = rng:NextNumber(0, 360)
+	-- The body oval. `aspect` is how much longer it is than it is wide. RAISED OFF THE
+	-- FLOOR TWICE, on request ("turn the circles to more oval shapes") -- 1.0 used to
+	-- be a legal roll and a puddle that landed near it read as a plain circle with a
+	-- few bumps on it. The first raise (1.35-2.1) was not enough on its own: shot live
+	-- from directly overhead, a lobe sized close to the body's own width and sitting
+	-- AT the tip rounded that tip off into its own little circle, so the whole puddle
+	-- still read as "circle plus a bump" rather than as one long oval -- see the note
+	-- on lobe SIZE below, which is the other half of this fix. The ceiling is still
+	-- about as far as a puddle can stretch before it reads as a painted stripe rather
+	-- than as standing liquid.
+	local bodyA = radius * 2
+	local bodyB = bodyA / rng:NextNumber(1.6, 2.6)
+
+	--- How far the body's own outline is from its centre along a compass bearing --
+	--- the polar radius of an ellipse, so the lobes below can be placed against the
+	--- real outline instead of against the circle it is NOT.
+	local function bodyEdge(bearingDeg: number): number
+		local t = math.rad(bearingDeg - yaw)
+		local ea, eb = bodyA / 2, bodyB / 2
+		local ct, st = math.cos(t), math.sin(t)
+		return (ea * eb) / math.sqrt((eb * ct) ^ 2 + (ea * st) ^ 2)
+	end
+
+	-- The outline, solved before anything is built: the body plus its ring of lobes.
+	--
+	-- SMALLER LOBES, SWALLOWED DEEPER, ON REQUEST ("give the pools more curve"). The
+	-- first pass's lobes were up to 1.15x the body's own size at up to 1.3x reach --
+	-- close enough to the body's own scale that a puddle read as a cluster of
+	-- similar-sized circles (a flower, or a bunch of grapes) rather than as one shape
+	-- with a curved edge. Lobes are now well under the body's scale and mostly land
+	-- SHORT of tangent, so most of them only swell one stretch of the outline into a
+	-- gentle sweep instead of poking out as a separate rounded lump.
+	--
+	-- ONE LOBE PER PUDDLE IS ALLOWED TO BREAK THAT RULE -- the reference this shape is
+	-- built on has exactly one small foot-like protrusion off an otherwise smooth
+	-- outline, not a symmetric ring of equal bumps. `i == count` (the last lobe placed,
+	-- itself an arbitrary pick off the evenly-spaced ring) gets a wider size and reach
+	-- range so roughly one puddle feature reads as a real protruding foot while the
+	-- rest of the outline stays a single sweeping curve.
+	local lobes: { { ox: number, oz: number, a: number, b: number, yaw: number } } =
+		{ { ox = 0, oz = 0, a = bodyA, b = bodyB, yaw = yaw } }
+	local count = rng:NextInteger(2, 4)
+	for i = 1, count do
+		-- BEARING NEAR ONE OF THE BODY'S TWO POLES (yaw or yaw + 180), NOT ANYWHERE
+		-- ROUND THE RING -- found live, and this is the fix for it, not a taste call.
+		-- The body is already an elongated ellipse, but a lobe dropped at a bearing
+		-- near +-90 off that axis bulges the WAIST outward, and widening the middle is
+		-- exactly what cancels an oval's own length back toward a circle -- shot live,
+		-- a pool measuring 1.8:1 on its own body still read as round because its
+		-- lobes had landed on the sides.
+		--
+		-- +-55 WAS STILL TOO WIDE -- the first attempt at this same fix, caught on a
+		-- SECOND live shot. An ellipse's own polar radius does not fall off linearly
+		-- with angle: at 2.2:1 aspect, the edge distance 55 degrees off the pole is
+		-- already most of the way down to the MINOR axis's own value (measured:
+		-- 16.5 studs at 55 degrees vs 31.7 at the pole itself, on a body whose short
+		-- axis is only 14.1) -- so a "+-55 off the pole" lobe was still landing
+		-- somewhere close to the waist in practice, not the tip, and the fix did not
+		-- fix it. +-20 is what actually keeps a lobe's centre near the pole's own
+		-- radius (28.1 of 31.7 at 20 degrees off) rather than sliding toward the side.
+		-- Alternating ends (i odd -> the yaw end, i even -> the opposite end) still
+		-- allows a lobe to land off-centre for asymmetry -- this is not "only ever
+		-- exactly at the tip" -- it just can no longer drift far enough to fight the
+		-- ellipse it is sitting on.
+		local pole = if i % 2 == 1 then yaw else yaw + 180
+		local bearing = pole + rng:NextNumber(-20, 20)
+		local isFoot = i == count
+		-- SMALL, ON PURPOSE -- the other half of the "still reads round" fix above. A
+		-- lobe anywhere near the body's own minor-axis width (bodyB, ~17-25% of
+		-- `radius` at these aspects) caps the tapered tip with a rounder, wider hump
+		-- instead of extending it, which is what rounded the whole puddle off live.
+		-- Regular lobes are now well under that width; only the one foot lobe is
+		-- allowed up near it, and even it stays short of the body's own scale.
+		local la = radius * rng:NextNumber(if isFoot then 0.28 else 0.14, if isFoot then 0.5 else 0.26)
+		-- ALIGNED WITH THE BEARING, NOT FREE -- a lobe elongated ALONG the axis it
+		-- sits on extends the body's own taper; one elongated across it (the old fully
+		-- random yaw) is a wide cap on the tip, the exact failure this whole pass is
+		-- fixing. The +-20 jitter is enough to keep every lobe from looking like a
+		-- ruler-straight extension of the body without ever pointing far enough off
+		-- axis to read as a cross-bar.
+		local lb = la / rng:NextNumber(1.2, 2.2)
+		local lyaw = bearing + rng:NextNumber(-20, 20)
+		-- (edge - la / 2) is exactly tangent inside the body. Rolling either side of
+		-- that is what makes the outline irregular: under it the lobe is swallowed and
+		-- only softens the curve, over it the lobe bulges out past it. The ceiling is
+		-- well short of (edge + la / 2), so a lobe can never detach from the body. Most
+		-- lobes stay under 1.0 (swallowed, a soft sweep); the one foot lobe is allowed
+		-- past it for a real protrusion.
+		local reach = (bodyEdge(bearing) - la / 2) * rng:NextNumber(0.45, if isFoot then 1.2 else 0.95)
+		table.insert(lobes, {
+			ox = math.cos(math.rad(bearing)) * reach,
+			oz = math.sin(math.rad(bearing)) * reach,
+			a = la,
+			b = lb,
+			yaw = lyaw,
+		})
+	end
+
+	-- Every part of this puddle steps up by one lift in draw order. See the section
+	-- header: this is the layering, not just a z-fight guard.
+	local lift = 0
+	local function nextY(baseY: number): number
+		lift += POOL_LOBE_LIFT
+		return baseY + lift
+	end
+
+	-- ONE GREEN, NOT A SHADE PER LOBE. The body and every lobe are the same
+	-- `ooze.bright`, so the union reads as one pool of one liquid rather than as the
+	-- overlapping discs it is actually built from -- which is the whole point of the
+	-- lobes: they are there to shape the OUTLINE, and any colour difference between
+	-- them draws each disc's boundary back on top of the shape they were hiding.
+	local bodyPart: BasePart? = nil
+	for index, lobe in lobes do
+		local part = oozeDisc(parent, origin, "OozePool", x + lobe.ox, nextY(POOL_TOP), z + lobe.oz, lobe.a, lobe.b, lobe.yaw, ooze.bright, POOL_MATERIAL)
+		if index == 1 then
+			bodyPart = part
+		end
+	end
+
+	-- THE GLOW, ON REQUEST -- Neon alone reads as "bright", not as "lighting the
+	-- ground around it". One PointLight per pool, on the body part only (never a
+	-- lobe or a droplet -- a light on every one of those would be a light for every
+	-- few studs across the whole field, and the ground under a small spill does not
+	-- need its own halo). `ooze.glow`, the triple's third slot, finally has a caller
+	-- again -- it sat unused from the moment the rim (which used to occupy `deep`)
+	-- and the interior detail came off. `deep` itself stays unused; there is nothing
+	-- dark left anywhere in this field for it to paint.
+	--
+	-- SCALED OFF RADIUS, NOT ONE FLAT NUMBER, same reasoning as the rim width used to
+	-- be before it was removed: a 3-stud spill and a 30-stud lake cannot share a
+	-- light without one of them looking wrong -- a flat light bright enough to read
+	-- on the lake floods a small spill into a blown-out white disc, and one dim
+	-- enough to suit a spill barely tints the lake at all. Both ends are still
+	-- clamped, not left to the formula: too dim reads as no light at all, and too
+	-- bright starts washing out the checkerboard floor past the pool's own edge.
+	--
+	-- SHADOWS OFF, same call SignalAura's own locator light already made and for the
+	-- same reason -- this is marking a glowing surface, not casting geometry-accurate
+	-- shadows off scattered props, and shadow casting is the expensive part of a
+	-- PointLight. With 12 of these alight in the field at once, that is not optional.
+	if bodyPart then
+		Kit.light(bodyPart, ooze.glow, math.clamp(radius * 1.3, 10, 46), math.clamp(radius * 0.07, 0.7, 2.4), false)
+	end
+
+	-- Thrown clear of the blob, each on its own bearing -- droplets, not a second pool.
+	--
+	-- HELD INSIDE THE FIELD, ON A LIVE CHECK. A puddle's own centre is clamped to the
+	-- field by its caller (scatterOozePools), but a droplet is placed relative to THAT
+	-- centre at up to 1.7x the body's edge reach with no clamp of its own -- a puddle
+	-- sitting near the north or south boundary can throw one past it. Measured live:
+	-- two drops off puddles near z = +-85 stuck out by 3.3 and 1.25 studs. Clamped to
+	-- the field's own half-extents rather than shrinking the reach range, so the
+	-- puddles that are NOT near an edge keep throwing drops exactly as before.
+	for _ = 1, rng:NextInteger(3, 6) do
+		local bearing = rng:NextNumber(0, 360)
+		local reach = bodyEdge(bearing) * rng:NextNumber(1.08, 1.7)
+		local da = math.clamp(radius * rng:NextNumber(0.05, 0.16), 0.6, 3.4)
+		local dx = math.clamp(x + math.cos(math.rad(bearing)) * reach, -hx, hx)
+		local dz = math.clamp(z + math.sin(math.rad(bearing)) * reach, -hz, hz)
+		oozeDisc(parent, origin, "OozeDrop", dx, nextY(POOL_TOP), dz, da, da / rng:NextNumber(1.0, 1.5), rng:NextNumber(0, 360), ooze.bright, POOL_MATERIAL)
+	end
+end
+
+--- Stage 4 -- `count` ooze puddles over the whole field, dealt off a size ladder so no
+--- two are the same scale, on the same jittered grid scatterBushes uses. The cell
+--- aspect comes off the field's own, so a 290 x 170 stage gets wider-than-tall cells
+--- rather than a square grid stretched over it.
+---
+--- THE MINI LAKE IS PLACED BY HAND, NOT DEALT. It is the one thing in this field big
+--- enough to be a landmark, and a landmark that can land anywhere is not one -- so it
+--- goes down first, in the middle of the walk rather than tucked against the entrance
+--- where the sign rank already is, and the grid pools are pushed OUT of it afterwards
+--- (a pool inside the lake is not a second pool, it is more lake). It is a landmark on
+--- SIZE alone now -- it used to carry islands the other pools did not, and those went
+--- with the rest of the interior detail.
+---
+--- NO CENTRE LANE HERE, unlike the bushes, carcasses and drum dumps -- those three all
+--- keep a clear corridor down z = 0 because each is a thing you would have to walk
+--- AROUND. A puddle is a flat layer you walk straight over (nothing here collides), so
+--- holding it off the route would only make the route the one clean stripe in a
+--- contaminated field, which is the opposite of the read.
+---
+--- RUNS AFTER scatterWarningSigns, always: both passes draw on the one stage rng, so
+--- putting the puddles first would move every sign in the entrance rank.
+local function scatterOozePools(
+	folder: Instance,
+	origin: CFrame,
+	count: number,
+	rng: Random,
+	hx: number,
+	hz: number,
+	ooze: { bright: string, deep: string, glow: string }
+)
+	-- The lake: one per field.
+	local lakeR = rng:NextNumber(26, 33)
+	local lakeX = rng:NextNumber(-hx * 0.3, hx * 0.45)
+	local lakeZ = rng:NextNumber(-hz + lakeR, hz - lakeR)
+	oozePool(folder, origin, lakeX, lakeZ, lakeR, rng, ooze, hx, hz)
+
+	-- The rest, as a size ladder: broad pools, mid ones, then spills. Dealt from a
+	-- shuffled bag so the sizes are spread over the field instead of the big ones all
+	-- landing in the first rows the loop happens to reach.
+	local rest = count - 1
+	local broad = math.max(1, math.round(rest * 0.3))
+	local mid = math.max(1, math.round(rest * 0.36))
+	local sizes: { number } = {}
+	for i = 1, rest do
+		if i <= broad then
+			table.insert(sizes, rng:NextNumber(11, 17))
+		elseif i <= broad + mid then
+			table.insert(sizes, rng:NextNumber(6, 10))
+		else
+			table.insert(sizes, rng:NextNumber(2.6, 5))
+		end
+	end
+	for i = #sizes, 2, -1 do
+		local swap = rng:NextInteger(1, i)
+		sizes[i], sizes[swap] = sizes[swap], sizes[i]
+	end
+
+	local cols = math.ceil(math.sqrt(rest * (hx / hz)))
+	local rows = math.ceil(rest / cols)
+
+	-- COLUMN COUNTS ARE ASSIGNED, NOT ROLLED -- found live, on report ("space them out
+	-- more evenly"). The previous build shuffled one flat bag over all `cols * rows`
+	-- cells and took the first `rest` -- and for THIS stage's fixed seed, that shuffle
+	-- happened to land most of its cells in two or three neighbouring x-bins, leaving
+	-- most of the field's own length (the walk axis, the dimension that actually
+	-- matters for "spread out") close to bald. A shuffle averages out even over the
+	-- long run, but this field is not drawn over and over -- it is ONE fixed seed,
+	-- rebuilt identically every time, so an unlucky roll here is not a one-in-many
+	-- fluke that washes out, it is the permanent shape of the field.
+	--
+	-- BOTH AXES BALANCED TOGETHER, NOT ONE AT A TIME -- found live. Column totals
+	-- alone (guaranteeing every x-bin its fair share) fixed the bald half of the
+	-- field's own length, but then every pool still landed within one narrow strip
+	-- across the field's WIDTH, because nothing constrained which rows those column
+	-- shares fell on -- fixing one axis on its own just moved the same clustering bug
+	-- onto the other one. `colCount`/`rowRemaining` fix each axis's OWN totals the
+	-- same way (floor share guaranteed, the small remainder dealt to a shuffled
+	-- subset); the greedy assignment below is what makes both hold AT ONCE, by always
+	-- handing a column's pools to whichever rows still want the most.
+	--
+	-- THIRD REPORT ("a lot in the middle... should be scattered more"): the balance
+	-- above was doing its job, but the lake's own displacement was undoing it -- see
+	-- the note at the block just below, which takes the lake's cells out of the deal
+	-- BEFORE the balance runs rather than shoving pools off the lake afterwards.
+	local function evenShare(total: number, bins: number): { number }
+		local baseShare = math.floor(total / bins)
+		local leftover = total - baseShare * bins
+		local share = table.create(bins, baseShare)
+		if leftover > 0 then
+			local order = table.create(bins)
+			for i = 1, bins do
+				order[i] = i
+			end
+			for i = bins, 2, -1 do
+				local swap = rng:NextInteger(1, i)
+				order[i], order[swap] = order[swap], order[i]
+			end
+			for i = 1, leftover do
+				share[order[i]] += 1
+			end
+		end
+		return share
+	end
+
+	-- THE LAKE'S CELLS ARE TAKEN OUT OF THE DEAL, NOT PATCHED AFTER IT -- found live
+	-- ("a lot in the middle... should be scattered more"). The lake sits near the
+	-- field's centre, and the old code let the grid deal pools into the cells it
+	-- covers and THEN shoved each of those pools radially out to just past the
+	-- lake's rim -- which swept a whole handful of them onto one tight ring hugging
+	-- the lake, reading as a single clump in the middle of an otherwise sparse
+	-- field. Marking the covered cells unavailable BEFORE the deal spreads the same
+	-- eleven pools over the cells that are actually open, out toward the edges.
+	local cellW, cellH = 2 * hx / cols, 2 * hz / rows
+	local function cellCenter(col: number, row: number): (number, number)
+		return -hx + (col - 0.5) * cellW, -hz + (row - 0.5) * cellH
+	end
+	local blocked: { [number]: { [number]: boolean } } = {}
+	local blockRadiusSq = (lakeR + math.max(cellW, cellH) * 0.5) ^ 2
+	local freeCells = cols * rows
+	for col = 1, cols do
+		blocked[col] = {}
+		for row = 1, rows do
+			local ccx, ccz = cellCenter(col, row)
+			if (ccx - lakeX) ^ 2 + (ccz - lakeZ) ^ 2 < blockRadiusSq then
+				blocked[col][row] = true
+				freeCells -= 1
+			end
+		end
+	end
+	-- If the lake ate so many cells that the rest no longer fit, hand back the
+	-- blocked ones whose centres are farthest from it first -- a pool there still
+	-- clears the lake by the widest margin available.
+	if freeCells < rest then
+		local reclaim: { { col: number, row: number, d: number } } = {}
+		for col = 1, cols do
+			for row = 1, rows do
+				if blocked[col][row] then
+					local ccx, ccz = cellCenter(col, row)
+					table.insert(reclaim, { col = col, row = row, d = (ccx - lakeX) ^ 2 + (ccz - lakeZ) ^ 2 })
+				end
+			end
+		end
+		table.sort(reclaim, function(a, b)
+			return a.d > b.d
+		end)
+		for i = 1, math.min(#reclaim, rest - freeCells) do
+			blocked[reclaim[i].col][reclaim[i].row] = nil
+		end
+	end
+
+	local colFree: { { number } } = {}
+	for col = 1, cols do
+		colFree[col] = {}
+		for row = 1, rows do
+			if not blocked[col][row] then
+				table.insert(colFree[col], row)
+			end
+		end
+	end
+
+	-- Even column totals, each CAPPED at that column's open-cell count; whatever
+	-- doesn't fit is dealt on to the columns that still have room (shuffled, so it
+	-- is not always the low-index ones that absorb it).
+	local colCount = table.create(cols, 0)
+	local remainder = rest
+	for col = 1, cols do
+		local give = math.min(math.floor(rest / cols), #colFree[col])
+		colCount[col] = give
+		remainder -= give
+	end
+	local spare = table.create(cols)
+	for c = 1, cols do
+		spare[c] = c
+	end
+	for c = cols, 2, -1 do
+		local swap = rng:NextInteger(1, c)
+		spare[c], spare[swap] = spare[swap], spare[c]
+	end
+	while remainder > 0 do
+		local moved = false
+		for _, col in spare do
+			if remainder > 0 and colCount[col] < #colFree[col] then
+				colCount[col] += 1
+				remainder -= 1
+				moved = true
+			end
+		end
+		if not moved then
+			break
+		end
+	end
+
+	local rowRemaining = evenShare(rest, rows)
+
+	local colOrder = table.create(cols)
+	for c = 1, cols do
+		colOrder[c] = c
+	end
+	for c = cols, 2, -1 do
+		local swap = rng:NextInteger(1, c)
+		colOrder[c], colOrder[swap] = colOrder[swap], colOrder[c]
+	end
+
+	local cellFilled: { [number]: { [number]: boolean } } = {}
+	for _, col in colOrder do
+		cellFilled[col] = {}
+		-- Rank this column's OPEN row-slots by how much each row still wants
+		-- (descending), shuffled first so ties -- and there are usually several,
+		-- most rows sit at the same remaining count most of the time -- do not
+		-- always resolve toward the same row.
+		local ranked = table.clone(colFree[col])
+		for r = #ranked, 2, -1 do
+			local swap = rng:NextInteger(1, r)
+			ranked[r], ranked[swap] = ranked[swap], ranked[r]
+		end
+		table.sort(ranked, function(a, b)
+			return rowRemaining[a] > rowRemaining[b]
+		end)
+		for i = 1, math.min(colCount[col], #ranked) do
+			local row = ranked[i]
+			cellFilled[col][row] = true
+			rowRemaining[row] -= 1
+		end
+	end
+
+	local dealt = 0
+	for col = 1, cols do
+		for row = 1, rows do
+			if not cellFilled[col][row] then
+				continue
+			end
+			dealt += 1
+			local r = sizes[dealt]
+			local px = -hx + (col - 0.5 + rng:NextNumber(-0.34, 0.34)) * cellW
+			local pz = -hz + (row - 0.5 + rng:NextNumber(-0.34, 0.34)) * cellH
+
+			-- BACKSTOP ONLY -- the lake's cells are already out of the deal, so this
+			-- almost never fires; it just catches a pool whose cell-jitter nudged it
+			-- into the rim. Slide it straight back out along the bearing from the
+			-- lake's centre (no +6 spacing buffer this time -- a hair's clearance is
+			-- all a jitter-sized overlap needs).
+			local dx, dz = px - lakeX, pz - lakeZ
+			local dist = math.sqrt(dx * dx + dz * dz)
+			local need = lakeR + r
+			if dist < need then
+				local ux = if dist > 0.01 then dx / dist else 1
+				local uz = if dist > 0.01 then dz / dist else 0
+				px, pz = lakeX + ux * need, lakeZ + uz * need
+			end
+
+			oozePool(folder, origin, math.clamp(px, -hx, hx), math.clamp(pz, -hz, hz), r, rng, ooze, hx, hz)
+		end
+	end
+end
+
 local function buildStageScenery(parent: Instance, id: number)
 	local theme = THEME[id]
 	if theme == nil then
@@ -1966,13 +2737,15 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- scatter* functions): Stage 2's dead trees flank the corridor, Stage 1's bushes
 	-- fill its living west half.
 	--
-	-- STILL ON THE SHELF: ooze pools (`theme.pools`) and every `prop()` set-piece kind
-	-- for the fields that have not had their pass yet. `THEME` and `prop()` are still
-	-- defined above -- the full previous implementation, with its per-stage tuning
-	-- rationale, is in git history on this file rather than dead code here. The
-	-- de-neon pass swapped their materials to matte and dropped their PointLights;
-	-- revived, they render flat like everything else. (The barrels came OFF the shelf
-	-- with Stage 3's drums -- `radBarrel`, which replaced the dormant `barrel()`.)
+	-- STILL ON THE SHELF: every `prop()` set-piece kind for the fields that have not
+	-- had their pass yet. `THEME` and `prop()` are still defined above -- the full
+	-- previous implementation, with its per-stage tuning rationale, is in git history
+	-- on this file rather than dead code here. The de-neon pass swapped their materials
+	-- to matte and dropped their PointLights; revived, they render flat like everything
+	-- else. (The barrels came OFF the shelf with Stage 3's drums -- `radBarrel`, which
+	-- replaced the dormant `barrel()`. The POOLS came off it with Stage 4's puddles --
+	-- `oozePool`, a rebuild rather than a revival; the fields still waiting on their own
+	-- pass read `theme.pools` for nothing until they call scatterOozePools too.)
 	if theme.scatter then
 		if id == 1 then
 			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
@@ -1990,6 +2763,13 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- AFTER the bones, always: both passes run off the one stage rng, so putting
 			-- the drums first would move every bone in the field.
 			scatterBarrels(folder, origin, theme.barrels or 0, rng, hx, hz)
+		elseif id == 4 then
+			-- The `barriers` set piece (`theme.props`) is still on the shelf; the signs
+			-- and the puddles are what this field has had its pass on so far.
+			scatterWarningSigns(folder, origin, theme.signs or 0, rng, hx, hz)
+			-- AFTER the signs, always: both passes run off the one stage rng, so putting
+			-- the puddles first would move every sign in the entrance rank.
+			scatterOozePools(folder, origin, theme.pools, rng, hx, hz, def.ooze)
 		end
 	end
 

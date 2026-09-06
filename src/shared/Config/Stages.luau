@@ -132,7 +132,8 @@
 --
 -- COLOUR NOTE: the plate is the SLUDGE and it is deliberately deep and muted. The
 -- brighter colour belongs to the pools and spills in build/Scenery — each stage's
--- own, from its `ooze` field, since the field stopped being green at Stage 4. Making
+-- own, from its `ooze` field, since the field stopped being green at Stage 5 (Stage 4
+-- kept the hazard green in its ooze slot; see its own note below). Making
 -- the plate pale too was the first attempt and it read as a golf course from ground
 -- level: with no tonal gap between ground and pool, nothing looked toxic. Contrast is
 -- what sells "radioactive" — and now that neither one glows, the ground/pool contrast
@@ -426,7 +427,24 @@ Stages.DEFS = {
 		-- colour the ground reads as.
 		color = "3F2D1D",
 		material = "Slate",
-		ooze = { bright = "FF2FA8", deep = "6B0A47", glow = "FF2FA8" },
+		-- GREEN, NOT THE PINK THIS SLOT USED TO HOLD (was FF2FA8/6B0A47) -- on request,
+		-- for the ooze puddles build/Scenery scatters across this field. The pink was a
+		-- leftover from when Stage 4's PLATE was a deep plum: the triple was picked to sit
+		-- on that plate, and when the floor went dead muddy brown ("WHERE THE GREEN STOPS"
+		-- above) the ooze slot was never re-picked with it. Hot pink spilled on brown mud
+		-- reads as paint, not as contamination.
+		--
+		-- THE FIELD ALREADY READS GREEN -- `fogColor` here is 6FE04A and always has been,
+		-- so the air in this stage was green while the only thing named "ooze" in it was
+		-- pink. This is the shared hazard green from build/Kit's own palette
+		-- (C.ooze/oozeBright/oozeDeep), which is what Stages 1-3's triples are drawn from
+		-- too, so the puddles here are the same substance as the earlier fields' -- the
+		-- FLOOR is what makes this stage a different place, and it is untouched.
+		--
+		-- "THE COLOUR TURNS AT STAGE 4" in the header still holds: that rule is about
+		-- `color`, the ground you walk on, which is still the dead muddy brown. Stage 5's
+		-- pink and Stage 6's violet oozes are untouched.
+		ooze = { bright = "6BEE2E", deep = "2A6B10", glow = "4FD11A" },
 		built = true,
 	},
 	{
