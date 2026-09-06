@@ -45,24 +45,20 @@
 	plaza to be sized by what actually stands on it. The plots did not get
 	smaller through any of these reshuffles; the car park between them did.
 
-	A BASE WEARS THE PLAZA'S BOARD IN ONE FLAT NEAR-BLACK. The pad is not a slab of
-	concrete any more: it is the same studded board the courtyard is paved in, on the
-	same grid, one step up — but a single flat near-black (`Kit.C.baseFloor`) rather
-	than the courtyard's green checker, the two-tone navy/grey pass having been
-	dropped here on request. That still makes the six bases the only thing in the
-	world that is not some shade of green, and still makes walking onto one a change
-	of colour rather than a change of surface.
+	A BASE IS ONE SMOOTH NEAR-BLACK PLATE. The pad is not a slab of concrete, and no
+	longer the plaza's studded board either: it is a single flat plate in
+	`Kit.C.baseFloor`, no studs, one step up from the apron — dropped from the tiled
+	board (navy/grey checker, then flat grey, then flat near-black, now a plain
+	plate) on request. That still makes the six bases the only thing in the world
+	that is not some shade of green, and still makes walking onto one a change of
+	colour rather than a change of surface.
 
-	A PAD'S OWN TILES ARE BUILT IN ITS YAWED LOCAL SPACE, NOT WORLD SPACE — the
-	opposite of how this used to work, and the semicircle is exactly why: a pad's
-	footprint was axis-aligned in world space at every facing the old rectangular
-	ring used (only multiples of 90), so tiling that world-space bounding box was
-	exact. None of the six facings on the semicircular ring are multiples of 90 any
-	more, so the old approach would tile a diamond of excess area outside the
-	pad's real, rotated footprint. See `buildPlot` and `Hub.TileOpts.origin`. The
-	one cost: a pad's board can no longer phase-lock with the apron's grid across
-	their shared edge (only possible at 90-degree multiples) — moot now the pad's
-	board is one flat grey, but the tile grid is still an incidental phase.
+	THE PLATE STILL RIDES ON A STRUCTURAL SLAB (`Hub.groundSlab`) recessed by Hub's
+	tile-cap thickness, with a 0.4-thick smooth plate filling that gap so footing is
+	still `pad.topY` — see `buildPlot`. The slab is built through the pad's yawed
+	local `origin` like everything else in this file (the semicircular ring's facings
+	are no longer multiples of 90, so a pad's true footprint is a rotated rectangle);
+	`Hub.TileOpts.origin` carries that.
 
 	THE DEPENDENCY FLIPPED, AGAIN, AND THIS TIME IT IS DERIVED RATHER THAN COMMENTED.
 	This file used to require `Hub`, then stopped, and `Hub.luau` carried a comment
@@ -1484,12 +1480,12 @@ local function buildPlot(parent: Instance, index: number)
 	local accent = Kit.PLOT_ACCENT[((index - 1) % #Kit.PLOT_ACCENT) + 1]
 	local pad = Plots.PAD
 
-	-- THE STAGE, WEARING THE SAME STUDDED BOARD AS THE PLAZA. One step up
-	-- from the apron — a plot should feel like somewhere you walk onto, not part of
-	-- the pavement — and ONE FLAT NEAR-BLACK (C.baseFloor) against the courtyard's
-	-- green, so the six bases are the one thing in the world that is not some shade of
-	-- it. The two-tone navy/grey checker was dropped here on request; the board's
-	-- studs still catch the light, it just no longer alternates or carries a hue.
+	-- THE STAGE. One step up from the apron — a plot should feel like somewhere you
+	-- walk onto, not part of the pavement — and ONE SMOOTH NEAR-BLACK PLATE against
+	-- the courtyard's green, so the six bases are the one thing in the world that is
+	-- not some shade of it. It USED to wear the plaza's studded board (first in
+	-- navy/grey, then one flat grey, then near-black); dropped to a plain smooth
+	-- plate with no studs, on request — a flat panel, not a tiled floor.
 	--
 	-- BUILT IN THIS MODEL'S YAWED LOCAL SPACE, THROUGH `origin`, LIKE EVERYTHING ELSE
 	-- IN THIS FUNCTION — the opposite of how this used to work (see this file's own
@@ -1500,14 +1496,21 @@ local function buildPlot(parent: Instance, index: number)
 	local tint: Hub.TileOpts = { topY = pad.topY, dark = C.baseFloor, light = C.baseFloor, origin = origin }
 
 	-- The slab underneath carries PlotIndex, because that is the world contract this
-	-- file's header publishes and a folder of 350 tiles cannot carry it.
+	-- file's header publishes.
 	local slab = Hub.groundSlab(m, rect, "Pad", pad.thickness, tint)
 	slab:SetAttribute("PlotIndex", index)
 
-	local tiles = Instance.new("Folder")
-	tiles.Name = "PadTiles"
-	Hub.tileRect(tiles, rect, tint)
-	tiles.Parent = m
+	-- The visible floor: ONE smooth near-black plate, no studs. Fills exactly the gap
+	-- Hub's studded tile cap used to (topY - 0.4 up to topY, matching Hub's own CAP),
+	-- so footing is still pad.topY and nothing built at `pad.topY + n` moves. The
+	-- structural slab above is recessed under this by the same 0.4.
+	build(m, origin, {
+		name = "PadFloor",
+		pos = { (rect.minX + rect.maxX) / 2, pad.topY - 0.2, (rect.minZ + rect.maxZ) / 2 },
+		size = { rect.maxX - rect.minX, 0.4, rect.maxZ - rect.minZ },
+		color = C.baseFloor,
+		material = "SmoothPlastic",
+	})
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
 	-- the colour alone carries the "whose plot" cue now, no glow.

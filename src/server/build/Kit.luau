@@ -146,12 +146,12 @@ Kit.C = {
 	baseTileDark = "212639",
 	baseTileLight = "545A66",
 
-	-- The player bases' pad floor, on request: ONE flat colour instead of the
-	-- navy/grey `baseTileDark`/`baseTileLight` checker, and near-black — the studs
-	-- still catch the light and read the board, it just no longer alternates or
-	-- carries a hue. A hair off pure black and a touch cool so it sits with the
-	-- steel and the navy trim rather than crushing to a void. `baseTileDark`/`Light`
-	-- stay above for anything that still wants the old pair.
+	-- The player bases' pad floor, on request: ONE smooth near-black plate (no studs,
+	-- no tiles) instead of the navy/grey `baseTileDark`/`baseTileLight` studded
+	-- checker — a flat panel one step up from the apron. A hair off pure black and a
+	-- touch cool so it sits with the steel and the navy trim rather than crushing to
+	-- a void. `baseTileDark`/`Light` stay above for anything that still wants the old
+	-- pair.
 	baseFloor = "15161A",
 	grass = "8FD86A",
 	grassDark = "6FB84E",
