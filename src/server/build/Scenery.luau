@@ -2511,32 +2511,92 @@ local function scatterOozePools(
 	local cols = math.ceil(math.sqrt(rest * (hx / hz)))
 	local rows = math.ceil(rest / cols)
 
-	-- THE SPARE CELLS ARE SPREAD, NOT LEFT ON THE END. `cols * rows` rounds UP past
-	-- `rest`, and the obvious loop -- stop once `rest` are placed -- dumps every spare
-	-- cell in one corner of the field, which built as a visible bald patch at the east
-	-- end on the first pass. A bag of one flag per CELL, shuffled, puts the empties
-	-- wherever they fall. Same bag technique scatterBarrels uses for its pose mix, and
-	-- the same reason: a share of the whole, dealt out, not a per-cell coin flip that
-	-- can miss the share.
-	local bag = table.create(cols * rows)
-	for cell = 1, cols * rows do
-		bag[cell] = cell <= rest
+	-- COLUMN COUNTS ARE ASSIGNED, NOT ROLLED -- found live, on report ("space them out
+	-- more evenly"). The previous build shuffled one flat bag over all `cols * rows`
+	-- cells and took the first `rest` -- and for THIS stage's fixed seed, that shuffle
+	-- happened to land most of its cells in two or three neighbouring x-bins, leaving
+	-- most of the field's own length (the walk axis, the dimension that actually
+	-- matters for "spread out") close to bald. A shuffle averages out even over the
+	-- long run, but this field is not drawn over and over -- it is ONE fixed seed,
+	-- rebuilt identically every time, so an unlucky roll here is not a one-in-many
+	-- fluke that washes out, it is the permanent shape of the field.
+	--
+	-- BOTH AXES BALANCED TOGETHER, NOT ONE AT A TIME -- found live. Column totals
+	-- alone (guaranteeing every x-bin its fair share) fixed the bald half of the
+	-- field's own length, but then every pool still landed within one narrow strip
+	-- across the field's WIDTH, because nothing constrained which rows those column
+	-- shares fell on -- fixing one axis on its own just moved the same clustering bug
+	-- onto the other one. `colCount`/`rowTarget` fix each axis's OWN totals the same
+	-- way (floor share guaranteed, the small remainder dealt to a shuffled subset);
+	-- the greedy assignment below is what makes both hold AT ONCE, by always handing
+	-- a column's pools to whichever rows still want the most.
+	local function evenShare(total: number, bins: number): { number }
+		local baseShare = math.floor(total / bins)
+		local leftover = total - baseShare * bins
+		local share = table.create(bins, baseShare)
+		if leftover > 0 then
+			local order = table.create(bins)
+			for i = 1, bins do
+				order[i] = i
+			end
+			for i = bins, 2, -1 do
+				local swap = rng:NextInteger(1, i)
+				order[i], order[swap] = order[swap], order[i]
+			end
+			for i = 1, leftover do
+				share[order[i]] += 1
+			end
+		end
+		return share
 	end
-	for cell = #bag, 2, -1 do
-		local swap = rng:NextInteger(1, cell)
-		bag[cell], bag[swap] = bag[swap], bag[cell]
+
+	local colCount = evenShare(rest, cols)
+	local rowRemaining = evenShare(rest, rows)
+
+	local colOrder = table.create(cols)
+	for c = 1, cols do
+		colOrder[c] = c
+	end
+	for c = cols, 2, -1 do
+		local swap = rng:NextInteger(1, c)
+		colOrder[c], colOrder[swap] = colOrder[swap], colOrder[c]
+	end
+
+	local cellFilled: { [number]: { [number]: boolean } } = {}
+	for _, col in colOrder do
+		cellFilled[col] = {}
+		-- Rank this column's row-slots by how much each row still wants (descending),
+		-- shuffled first so ties -- and there are usually several, most rows sit at
+		-- the same remaining count most of the time -- do not always resolve toward
+		-- the same row.
+		local ranked = table.create(rows)
+		for r = 1, rows do
+			ranked[r] = r
+		end
+		for r = rows, 2, -1 do
+			local swap = rng:NextInteger(1, r)
+			ranked[r], ranked[swap] = ranked[swap], ranked[r]
+		end
+		table.sort(ranked, function(a, b)
+			return rowRemaining[a] > rowRemaining[b]
+		end)
+		for i = 1, math.min(colCount[col], rows) do
+			local row = ranked[i]
+			cellFilled[col][row] = true
+			rowRemaining[row] -= 1
+		end
 	end
 
 	local dealt = 0
-	for row = 0, rows - 1 do
-		for col = 0, cols - 1 do
-			if not bag[row * cols + col + 1] then
+	for col = 1, cols do
+		for row = 1, rows do
+			if not cellFilled[col][row] then
 				continue
 			end
 			dealt += 1
 			local r = sizes[dealt]
-			local px = -hx + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hx / cols)
-			local pz = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
+			local px = -hx + (col - 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hx / cols)
+			local pz = -hz + (row - 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
 
 			-- Slide clear of the lake along the bearing from its centre -- the same
 			-- "solve for the point where the ray leaves the claimed ground" move
