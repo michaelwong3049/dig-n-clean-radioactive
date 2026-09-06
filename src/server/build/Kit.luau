@@ -148,10 +148,12 @@ Kit.C = {
 	-- pressure is gone with the emission, but green-dominant still reads as "sick"
 	-- better than a yellow-green does, so keep red well under green here.
 	--
-	-- THESE THREE ARE STAGES 1-3's SHARE OF THE HAZARD GREEN. From Stage 4 the fields
-	-- turn plum, hot pink and violet, and each stage carries its own bright/deep/glow
-	-- triple in Config/Stages (`StageDef.ooze`) — that's where to retune a field, not
-	-- here. (The `glow` slot of each triple is now just the pool colour; nothing
+	-- THESE THREE ARE STAGES 1-4's SHARE OF THE HAZARD GREEN. Stages 5 and 6 turn hot
+	-- pink and violet, and each stage carries its own bright/deep/glow triple in
+	-- Config/Stages (`StageDef.ooze`) — that's where to retune a field, not here.
+	-- (Stage 4 was on the pink side of that line until its ooze slot was repainted
+	-- green on request; its FLOOR is still the dead muddy brown, so the green now
+	-- arrives there as puddles on brown rather than as the colour of the field.) (The `glow` slot of each triple is now just the pool colour; nothing
 	-- emits.) These stay because the greens are what three of the six stages are
 	-- painted in.
 	--

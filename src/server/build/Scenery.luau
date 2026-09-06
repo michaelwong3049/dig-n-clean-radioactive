@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 21
+local BUILDER_VERSION = 22
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -2087,6 +2087,220 @@ local function scatterWarningSigns(folder: Instance, origin: CFrame, count: numb
 	end
 end
 
+--- ── Stage 4's ooze puddles ───────────────────────────────────────────────────
+--- THE FIRST POOLS TO COME OFF THE SHELF since the strip-for-rework pass (`1b6ff88`)
+--- took the old whole-field loop out. That loop's pool was ONE Neon cylinder plus one
+--- bigger cylinder under it for a rim -- a perfect circle, and its own comment already
+--- admitted the failure mode ("a decal painted on the floor"). This is a rebuild, not
+--- a revival: nothing here is a single disc and nothing is Neon.
+---
+--- WHAT A SPILL ACTUALLY LOOKS LIKE, which is the whole brief. Liquid poured on flat
+--- ground does not hold a circle -- it runs where the ground lets it and stops in an
+--- irregular blob with a wet edge, and it throws separated droplets clear of itself on
+--- the way down. So a puddle here is:
+---   * a main disc with four to six smaller LOBES overlapping it round its rim, each
+---     poking a little past the main outline (or not) -- an amoeba, not a circle;
+---   * a DEEP-colour rim of even width following that same lobe outline, one layer
+---     lower, so the edge reads as liquid meeting ground rather than as a colour
+---     change painted on it;
+---   * a handful of DROPLETS thrown clear, which is what sells "this was spilled"
+---     over "this was placed".
+--- The lobes are mixed between the stage's `bright` and `glow` shades so the surface
+--- is mottled -- one flat green over 20-odd studs reads as a sheet of plastic.
+---
+--- NO Z-FIGHTING BY CONSTRUCTION. Overlapping discs at one Y are exactly coplanar and
+--- flicker; every lobe is lifted POOL_LOBE_LIFT above the last, so the stack rises a
+--- few hundredths of a stud over a whole puddle -- invisible as a step, and there is
+--- never a tie for the renderer to break.
+---
+--- STILL PURELY VISUAL. This file's header rule holds -- the ground is the hazard and
+--- a pool is not a second one. Nothing here is queryable, collidable or touchable, and
+--- StageService.hotPocketFor stays the stub it is.
+
+--- Top of the rim ring, and top of the liquid sitting in it. Both clear the
+--- checkerboard cap at GROUND_SKIM (0.06) and stay under the border strip at SKIM
+--- (0.26) -- the same thin band every other ground layer in this file lives in, so a
+--- haul surfacing under a puddle still comes up through it.
+local POOL_RIM_TOP = 0.10
+local POOL_TOP = 0.15
+local POOL_THICK = 0.12
+
+--- Per-lobe Y step. See the section header -- this exists only to break coplanar ties.
+local POOL_LOBE_LIFT = 0.004
+
+--- How far the dark rim stands out past the liquid, all the way round. ADDITIVE, not
+--- a scale factor: a rim is a constant width where the liquid has soaked into the
+--- ground at its edge, and a multiplier would give the big lobes a fat border and the
+--- small ones a hairline.
+---
+--- 1.3 -> 2.4 AFTER A LIVE LOOK, and the reason is the viewing angle, not the taste.
+--- A player's eye is about 5 studs up in a field 290 long, so every puddle past the
+--- one at their feet is seen almost edge-on and a flat ring foreshortens to nearly
+--- nothing: at 1.3 the wet edge was invisible from standing height in the shot and
+--- only measurable from directly overhead, which is not a camera this game has. The
+--- edge is the whole reason a puddle reads as liquid rather than as green paint, so
+--- it has to survive the angle it is actually seen at.
+local POOL_RIM_W = 2.4
+
+--- One puddle: an irregular blob `d` studs across at its widest, centred on the
+--- stage-local point (x, z), in this stage's own ooze triple.
+local function oozePool(
+	parent: Instance,
+	origin: CFrame,
+	x: number,
+	z: number,
+	d: number,
+	rng: Random,
+	ooze: { bright: string, deep: string, glow: string }
+)
+	-- The outline, solved before anything is built: the main disc plus its ring of
+	-- lobes, as {offset x, offset z, diameter}.
+	local lobes: { { ox: number, oz: number, dia: number } } = { { ox = 0, oz = 0, dia = d } }
+	local count = rng:NextInteger(4, 6)
+	local base = rng:NextNumber(0, 360)
+	for i = 1, count do
+		-- A BEARING AND A DISTANCE, the same way scatterBarrels places a load, so the
+		-- lobes spread round the disc instead of clumping the way two independent
+		-- jitters would. Evenly spaced with enough wobble that no two puddles in the
+		-- field share a silhouette.
+		local bearing = math.rad(base + (i - 1) * (360 / count) + rng:NextNumber(-32, 32))
+		local dia = d * rng:NextNumber(0.4, 0.7)
+		-- (d - dia) / 2 is exactly tangent inside the main disc. Rolling either side of
+		-- that is what makes the outline irregular: under it the lobe is swallowed and
+		-- only softens the rim, over it the lobe bulges out past it. The ceiling is well
+		-- short of (d + dia) / 2, so a lobe can never detach from the body.
+		local reach = (d - dia) * 0.5 * rng:NextNumber(0.55, 1.34)
+		table.insert(lobes, { ox = math.cos(bearing) * reach, oz = math.sin(bearing) * reach, dia = dia })
+	end
+
+	-- Rims first, as a whole layer: every rim sits under every lobe, so one lobe is
+	-- never half-buried by the rim of the lobe beside it.
+	local lift = 0
+	for _, lobe in lobes do
+		lift += POOL_LOBE_LIFT
+		local rim = build(parent, origin, {
+			name = "OozeRim",
+			pos = { x + lobe.ox, POOL_RIM_TOP + lift - POOL_THICK / 2, z + lobe.oz },
+			-- A Cylinder's axis is its X size, so this is {thickness, diameter,
+			-- diameter}. Writing it {dia, thickness, dia} makes a thin ellipse standing
+			-- on edge instead of a puddle -- which is what the first pass of the old
+			-- pool loop did, and why the fields looked like bare lawn.
+			size = { POOL_THICK, lobe.dia + 2 * POOL_RIM_W, lobe.dia + 2 * POOL_RIM_W },
+			color = ooze.deep,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = R.cylUp,
+			canCollide = false,
+		})
+		rim.CanQuery = false
+		rim.CanTouch = false
+	end
+
+	lift = 0
+	for index, lobe in lobes do
+		lift += POOL_LOBE_LIFT
+		local pool = build(parent, origin, {
+			name = "OozePool",
+			pos = { x + lobe.ox, POOL_TOP + lift - POOL_THICK / 2, z + lobe.oz },
+			size = { POOL_THICK, lobe.dia, lobe.dia },
+			-- The main disc is always the bright shade so the puddle has a body; the
+			-- lobes mottle off it, reading as the spill lying deeper in some places
+			-- than others. A CONTINUOUS BLEND, not a coin flip between the triple's
+			-- `bright` and `glow`: those two are only about a fifth apart in value and
+			-- the flip built as one flat sheet of green live. Held well short of `deep`
+			-- (that shade belongs to the rim, and a lobe that dark reads as a hole in
+			-- the puddle rather than as part of it).
+			color = if index == 1
+				then ooze.bright
+				else Kit.blendHex(ooze.bright, ooze.deep, rng:NextNumber(0, 0.3)),
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = R.cylUp,
+			canCollide = false,
+		})
+		pool.CanQuery = false
+		pool.CanTouch = false
+	end
+
+	-- Thrown clear of the blob, each on its own bearing. No rim on a droplet: at two
+	-- studs across, a 1.3-stud border either side would be more rim than drop.
+	for _ = 1, rng:NextInteger(3, 6) do
+		lift += POOL_LOBE_LIFT
+		local bearing = math.rad(rng:NextNumber(0, 360))
+		local reach = d * 0.5 * rng:NextNumber(1.06, 1.6)
+		local dia = rng:NextNumber(0.7, 2.4)
+		local drop = build(parent, origin, {
+			name = "OozeDrop",
+			pos = { x + math.cos(bearing) * reach, POOL_TOP + lift - POOL_THICK / 2, z + math.sin(bearing) * reach },
+			size = { POOL_THICK, dia, dia },
+			-- A thrown droplet is a thin smear of what came out of the puddle, so it
+			-- sits at the shallow end of the same blend the lobes use.
+			color = Kit.blendHex(ooze.bright, ooze.deep, rng:NextNumber(0, 0.18)),
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = R.cylUp,
+			canCollide = false,
+		})
+		drop.CanQuery = false
+		drop.CanTouch = false
+	end
+end
+
+--- Stage 4 -- `count` ooze puddles over the whole field, on the same jittered grid
+--- scatterBushes uses, with the cell aspect taken off the field's own so a 290 x 170
+--- stage gets wider-than-tall cells rather than a square grid stretched over it.
+---
+--- NO CENTRE LANE HERE, unlike the bushes, carcasses and drum dumps -- those three all
+--- keep a clear corridor down z = 0 because each is a thing you would have to walk
+--- AROUND. A puddle is a flat layer you walk straight over (nothing here collides), so
+--- holding it off the route would only make the route the one clean stripe in a
+--- contaminated field, which is the opposite of the read.
+---
+--- RUNS AFTER scatterWarningSigns, always: both passes draw on the one stage rng, so
+--- putting the puddles first would move every sign in the entrance rank.
+local function scatterOozePools(
+	folder: Instance,
+	origin: CFrame,
+	count: number,
+	rng: Random,
+	hx: number,
+	hz: number,
+	ooze: { bright: string, deep: string, glow: string }
+)
+	local cols = math.ceil(math.sqrt(count * (hx / hz)))
+	local rows = math.ceil(count / cols)
+
+	-- THE SPARE CELLS ARE SPREAD, NOT LEFT ON THE END. `cols * rows` rounds UP past
+	-- `count` (26 pools want a 7 x 4 grid, which is 28 cells), and the obvious loop --
+	-- stop once `count` are placed -- dumps every spare cell in one corner of the
+	-- field, which built as a visible bald patch at the east end on the first pass.
+	-- A bag of one flag per CELL, shuffled, puts the empties wherever they fall. Same
+	-- bag technique scatterBarrels uses for its pose mix, and the same reason: a share
+	-- of the whole, dealt out, not a per-cell coin flip that can miss the share.
+	local bag = table.create(cols * rows)
+	for cell = 1, cols * rows do
+		bag[cell] = cell <= count
+	end
+	for cell = #bag, 2, -1 do
+		local swap = rng:NextInteger(1, cell)
+		bag[cell], bag[swap] = bag[swap], bag[cell]
+	end
+
+	for row = 0, rows - 1 do
+		for col = 0, cols - 1 do
+			if not bag[row * cols + col + 1] then
+				continue
+			end
+			local x = -hx + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hx / cols)
+			local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
+			-- Scattered spills, not a swamp: at this size range 26 puddles cover roughly
+			-- a tenth of the field, so a puddle is something you notice rather than the
+			-- ground you are standing on. The Crater is where the ooze is meant to win.
+			oozePool(folder, origin, math.clamp(x, -hx, hx), math.clamp(z, -hz, hz), rng:NextNumber(9, 24), rng, ooze)
+		end
+	end
+end
+
 local function buildStageScenery(parent: Instance, id: number)
 	local theme = THEME[id]
 	if theme == nil then
@@ -2118,13 +2332,15 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- scatter* functions): Stage 2's dead trees flank the corridor, Stage 1's bushes
 	-- fill its living west half.
 	--
-	-- STILL ON THE SHELF: ooze pools (`theme.pools`) and every `prop()` set-piece kind
-	-- for the fields that have not had their pass yet. `THEME` and `prop()` are still
-	-- defined above -- the full previous implementation, with its per-stage tuning
-	-- rationale, is in git history on this file rather than dead code here. The
-	-- de-neon pass swapped their materials to matte and dropped their PointLights;
-	-- revived, they render flat like everything else. (The barrels came OFF the shelf
-	-- with Stage 3's drums -- `radBarrel`, which replaced the dormant `barrel()`.)
+	-- STILL ON THE SHELF: every `prop()` set-piece kind for the fields that have not
+	-- had their pass yet. `THEME` and `prop()` are still defined above -- the full
+	-- previous implementation, with its per-stage tuning rationale, is in git history
+	-- on this file rather than dead code here. The de-neon pass swapped their materials
+	-- to matte and dropped their PointLights; revived, they render flat like everything
+	-- else. (The barrels came OFF the shelf with Stage 3's drums -- `radBarrel`, which
+	-- replaced the dormant `barrel()`. The POOLS came off it with Stage 4's puddles --
+	-- `oozePool`, a rebuild rather than a revival; the fields still waiting on their own
+	-- pass read `theme.pools` for nothing until they call scatterOozePools too.)
 	if theme.scatter then
 		if id == 1 then
 			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
@@ -2143,9 +2359,12 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- the drums first would move every bone in the field.
 			scatterBarrels(folder, origin, theme.barrels or 0, rng, hx, hz)
 		elseif id == 4 then
-			-- The rest of Stage 4's rework (`barriers`/`props`/`pools`) is still on the
-			-- shelf -- this is only the sign rank, not that pass.
+			-- The `barriers` set piece (`theme.props`) is still on the shelf; the signs
+			-- and the puddles are what this field has had its pass on so far.
 			scatterWarningSigns(folder, origin, theme.signs or 0, rng, hx, hz)
+			-- AFTER the signs, always: both passes run off the one stage rng, so putting
+			-- the puddles first would move every sign in the entrance rank.
+			scatterOozePools(folder, origin, theme.pools, rng, hx, hz, def.ooze)
 		end
 	end
 
