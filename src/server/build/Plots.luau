@@ -45,13 +45,13 @@
 	plaza to be sized by what actually stands on it. The plots did not get
 	smaller through any of these reshuffles; the car park between them did.
 
-	A BASE WEARS THE PLAZA'S BOARD IN ONE FLAT GREY. The pad is not a slab of
+	A BASE WEARS THE PLAZA'S BOARD IN ONE FLAT NEAR-BLACK. The pad is not a slab of
 	concrete any more: it is the same studded board the courtyard is paved in, on the
-	same grid, one step up — but a single flat grey (`Kit.C.baseFloor`) rather than
-	the courtyard's green checker, the two-tone navy/grey pass having been dropped
-	here on request. That still makes the six bases the only thing in the world that
-	is not some shade of green, and still makes walking onto one a change of colour
-	rather than a change of surface.
+	same grid, one step up — but a single flat near-black (`Kit.C.baseFloor`) rather
+	than the courtyard's green checker, the two-tone navy/grey pass having been
+	dropped here on request. That still makes the six bases the only thing in the
+	world that is not some shade of green, and still makes walking onto one a change
+	of colour rather than a change of surface.
 
 	A PAD'S OWN TILES ARE BUILT IN ITS YAWED LOCAL SPACE, NOT WORLD SPACE — the
 	opposite of how this used to work, and the semicircle is exactly why: a pad's
@@ -1486,10 +1486,10 @@ local function buildPlot(parent: Instance, index: number)
 
 	-- THE STAGE, WEARING THE SAME STUDDED BOARD AS THE PLAZA. One step up
 	-- from the apron — a plot should feel like somewhere you walk onto, not part of
-	-- the pavement — and ONE FLAT GREY (C.baseFloor) against the courtyard's green, so
-	-- the six bases are the one thing in the world that is not some shade of it. The
-	-- two-tone navy/grey checker was dropped here on request; the board's studs still
-	-- catch the light, it just no longer alternates.
+	-- the pavement — and ONE FLAT NEAR-BLACK (C.baseFloor) against the courtyard's
+	-- green, so the six bases are the one thing in the world that is not some shade of
+	-- it. The two-tone navy/grey checker was dropped here on request; the board's
+	-- studs still catch the light, it just no longer alternates or carries a hue.
 	--
 	-- BUILT IN THIS MODEL'S YAWED LOCAL SPACE, THROUGH `origin`, LIKE EVERYTHING ELSE
 	-- IN THIS FUNCTION — the opposite of how this used to work (see this file's own
