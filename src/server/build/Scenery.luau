@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 22
+local BUILDER_VERSION = 23
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -2526,10 +2526,15 @@ local function scatterOozePools(
 	-- field's own length, but then every pool still landed within one narrow strip
 	-- across the field's WIDTH, because nothing constrained which rows those column
 	-- shares fell on -- fixing one axis on its own just moved the same clustering bug
-	-- onto the other one. `colCount`/`rowTarget` fix each axis's OWN totals the same
-	-- way (floor share guaranteed, the small remainder dealt to a shuffled subset);
-	-- the greedy assignment below is what makes both hold AT ONCE, by always handing
-	-- a column's pools to whichever rows still want the most.
+	-- onto the other one. `colCount`/`rowRemaining` fix each axis's OWN totals the
+	-- same way (floor share guaranteed, the small remainder dealt to a shuffled
+	-- subset); the greedy assignment below is what makes both hold AT ONCE, by always
+	-- handing a column's pools to whichever rows still want the most.
+	--
+	-- THIRD REPORT ("a lot in the middle... should be scattered more"): the balance
+	-- above was doing its job, but the lake's own displacement was undoing it -- see
+	-- the note at the block just below, which takes the lake's cells out of the deal
+	-- BEFORE the balance runs rather than shoving pools off the lake afterwards.
 	local function evenShare(total: number, bins: number): { number }
 		local baseShare = math.floor(total / bins)
 		local leftover = total - baseShare * bins
@@ -2550,7 +2555,94 @@ local function scatterOozePools(
 		return share
 	end
 
-	local colCount = evenShare(rest, cols)
+	-- THE LAKE'S CELLS ARE TAKEN OUT OF THE DEAL, NOT PATCHED AFTER IT -- found live
+	-- ("a lot in the middle... should be scattered more"). The lake sits near the
+	-- field's centre, and the old code let the grid deal pools into the cells it
+	-- covers and THEN shoved each of those pools radially out to just past the
+	-- lake's rim -- which swept a whole handful of them onto one tight ring hugging
+	-- the lake, reading as a single clump in the middle of an otherwise sparse
+	-- field. Marking the covered cells unavailable BEFORE the deal spreads the same
+	-- eleven pools over the cells that are actually open, out toward the edges.
+	local cellW, cellH = 2 * hx / cols, 2 * hz / rows
+	local function cellCenter(col: number, row: number): (number, number)
+		return -hx + (col - 0.5) * cellW, -hz + (row - 0.5) * cellH
+	end
+	local blocked: { [number]: { [number]: boolean } } = {}
+	local blockRadiusSq = (lakeR + math.max(cellW, cellH) * 0.5) ^ 2
+	local freeCells = cols * rows
+	for col = 1, cols do
+		blocked[col] = {}
+		for row = 1, rows do
+			local ccx, ccz = cellCenter(col, row)
+			if (ccx - lakeX) ^ 2 + (ccz - lakeZ) ^ 2 < blockRadiusSq then
+				blocked[col][row] = true
+				freeCells -= 1
+			end
+		end
+	end
+	-- If the lake ate so many cells that the rest no longer fit, hand back the
+	-- blocked ones whose centres are farthest from it first -- a pool there still
+	-- clears the lake by the widest margin available.
+	if freeCells < rest then
+		local reclaim: { { col: number, row: number, d: number } } = {}
+		for col = 1, cols do
+			for row = 1, rows do
+				if blocked[col][row] then
+					local ccx, ccz = cellCenter(col, row)
+					table.insert(reclaim, { col = col, row = row, d = (ccx - lakeX) ^ 2 + (ccz - lakeZ) ^ 2 })
+				end
+			end
+		end
+		table.sort(reclaim, function(a, b)
+			return a.d > b.d
+		end)
+		for i = 1, math.min(#reclaim, rest - freeCells) do
+			blocked[reclaim[i].col][reclaim[i].row] = nil
+		end
+	end
+
+	local colFree: { { number } } = {}
+	for col = 1, cols do
+		colFree[col] = {}
+		for row = 1, rows do
+			if not blocked[col][row] then
+				table.insert(colFree[col], row)
+			end
+		end
+	end
+
+	-- Even column totals, each CAPPED at that column's open-cell count; whatever
+	-- doesn't fit is dealt on to the columns that still have room (shuffled, so it
+	-- is not always the low-index ones that absorb it).
+	local colCount = table.create(cols, 0)
+	local remainder = rest
+	for col = 1, cols do
+		local give = math.min(math.floor(rest / cols), #colFree[col])
+		colCount[col] = give
+		remainder -= give
+	end
+	local spare = table.create(cols)
+	for c = 1, cols do
+		spare[c] = c
+	end
+	for c = cols, 2, -1 do
+		local swap = rng:NextInteger(1, c)
+		spare[c], spare[swap] = spare[swap], spare[c]
+	end
+	while remainder > 0 do
+		local moved = false
+		for _, col in spare do
+			if remainder > 0 and colCount[col] < #colFree[col] then
+				colCount[col] += 1
+				remainder -= 1
+				moved = true
+			end
+		end
+		if not moved then
+			break
+		end
+	end
+
 	local rowRemaining = evenShare(rest, rows)
 
 	local colOrder = table.create(cols)
@@ -2565,22 +2657,19 @@ local function scatterOozePools(
 	local cellFilled: { [number]: { [number]: boolean } } = {}
 	for _, col in colOrder do
 		cellFilled[col] = {}
-		-- Rank this column's row-slots by how much each row still wants (descending),
-		-- shuffled first so ties -- and there are usually several, most rows sit at
-		-- the same remaining count most of the time -- do not always resolve toward
-		-- the same row.
-		local ranked = table.create(rows)
-		for r = 1, rows do
-			ranked[r] = r
-		end
-		for r = rows, 2, -1 do
+		-- Rank this column's OPEN row-slots by how much each row still wants
+		-- (descending), shuffled first so ties -- and there are usually several,
+		-- most rows sit at the same remaining count most of the time -- do not
+		-- always resolve toward the same row.
+		local ranked = table.clone(colFree[col])
+		for r = #ranked, 2, -1 do
 			local swap = rng:NextInteger(1, r)
 			ranked[r], ranked[swap] = ranked[swap], ranked[r]
 		end
 		table.sort(ranked, function(a, b)
 			return rowRemaining[a] > rowRemaining[b]
 		end)
-		for i = 1, math.min(colCount[col], rows) do
+		for i = 1, math.min(colCount[col], #ranked) do
 			local row = ranked[i]
 			cellFilled[col][row] = true
 			rowRemaining[row] -= 1
@@ -2595,16 +2684,17 @@ local function scatterOozePools(
 			end
 			dealt += 1
 			local r = sizes[dealt]
-			local px = -hx + (col - 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hx / cols)
-			local pz = -hz + (row - 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
+			local px = -hx + (col - 0.5 + rng:NextNumber(-0.34, 0.34)) * cellW
+			local pz = -hz + (row - 0.5 + rng:NextNumber(-0.34, 0.34)) * cellH
 
-			-- Slide clear of the lake along the bearing from its centre -- the same
-			-- "solve for the point where the ray leaves the claimed ground" move
-			-- scatterBarrels makes, minus the quadratic, because there is only one
-			-- circle to clear here rather than a growing pile of them.
+			-- BACKSTOP ONLY -- the lake's cells are already out of the deal, so this
+			-- almost never fires; it just catches a pool whose cell-jitter nudged it
+			-- into the rim. Slide it straight back out along the bearing from the
+			-- lake's centre (no +6 spacing buffer this time -- a hair's clearance is
+			-- all a jitter-sized overlap needs).
 			local dx, dz = px - lakeX, pz - lakeZ
 			local dist = math.sqrt(dx * dx + dz * dz)
-			local need = lakeR + r + 6
+			local need = lakeR + r
 			if dist < need then
 				local ux = if dist > 0.01 then dx / dist else 1
 				local uz = if dist > 0.01 then dz / dist else 0
