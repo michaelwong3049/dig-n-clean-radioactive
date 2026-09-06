@@ -153,6 +153,23 @@
 	geometry), which are the two things worth seeing from outside. What they do not see
 	is one player's aim, which is worth no traffic at all.
 
+	IT USED TO ALSO ORBIT THE MAST'S OWN POSITION, and that was a real bug, not a
+	trade. `aimNozzle` swung the barrel on a ball joint fixed at wherever
+	build/Plots.buildHoseRig actually bolted the mast -- the tub's near corner, chosen
+	to stay clear of the bath and the walk-up (see that file's own note). Measured from
+	the player's head, that corner sits 60-70 degrees off the line to the item. The
+	swing itself was fine at any angle; the WATER was not, because the jet has to
+	physically travel from wherever the muzzle is to wherever the reticle points, and a
+	muzzle 65 degrees off to the side means every shot visibly entered from off to one
+	side of the screen and swept across to the crosshair -- reported, accurately, as
+	"not shooting from the middle." Per-viewer aim is what makes the fix free: `mount`
+	is now a point near the CAMERA (`HELD_OFFSET`, rebuilt from `eye` every frame), the
+	same real model is pivoted there instead of at the mast, and the muzzle ends up
+	close enough to the crosshair that the water reads as coming from where you are
+	standing. The mast itself never moves -- a bystander, or the same player before and
+	after their own session, still finds the machine parked exactly where the world
+	built it.
+
 	THE ARMS ARE POSED, BUT NOT BY THIS FILE, and they still are even with the hands
 	empty. Posing is server-side and ToolService owns it (it braces the whole upper
 	body for the detector, on a rig-agnostic weld scheme that handles both Motor6D and
@@ -303,20 +320,20 @@ local PAD_DEADZONE = 0.16
 -- Where Camera.Focus is parked, in studs ahead. Never allowed to collapse onto the
 -- camera -- see the header on TransparencyController.
 local FOCUS_AHEAD = 8
--- ── The monitor on its mast ─────────────────────────────────────────
--- How far the barrel may swing off its parked aim before it stops following. A ball
--- joint is not a turret: past this the machine would be pointing back at its own
--- plumbing. Generous rather than tight, because the CAMERA is already clamped to a
--- +/-32 degree cone around the item (YAW_LIMIT) and the aim ray lives inside that --
--- these are the safety rail for a ray that escapes down a long sightline, not the
--- thing a player is meant to feel.
-local NOZZLE_YAW_LIMIT = math.rad(80)
-local NOZZLE_PITCH_LIMIT = math.rad(60)
+-- ── Holding the machine, per viewer ──────────────────────────────────
+-- WHERE THE NOZZLE APPEARS TO A WASHING PLAYER, relative to their own eye: down and
+-- to the side and out in front, the way a held tool sits at the bottom of a first-
+-- person frame. NOT the mast's real position -- see the header and the note at
+-- `aimNozzle` for why the two had to come apart. ~2 studs off the lens, which is the
+-- distance JET_GIRTH_MAX's softening was tuned against (see its own note below), so
+-- reusing that number here is what keeps the stream's width looking right rather than
+-- introducing a second, disagreeing assumption about how far away the muzzle sits.
+local HELD_OFFSET = CFrame.new(0.6, -0.85, -1.7)
 -- How fast the barrel chases the aim, per second, as an exponential catch-up. Not
--- instant, and the lag is the point: a monitor is a heavy thing on a ball joint, and
--- a nozzle that snapped to the reticle would read as a cursor with a model on it. At
--- 14 it is within a couple of degrees inside a fifth of a second, so it never lags
--- the water anywhere a player would notice -- it only rounds off a whip.
+-- instant, and the lag is the point: a nozzle that snapped to the reticle would read
+-- as a cursor with a model on it rather than a thing with some weight to swing. At 14
+-- it is within a couple of degrees inside a fifth of a second, so it never lags the
+-- water anywhere a player would notice -- it only rounds off a whip.
 local NOZZLE_EASE = 14
 -- WHAT `volume` BUYS ON SCREEN. Config/Gear's Cleaner rungs run 1.0 to 3.8, and the
 -- stream's girth is the square root of that, halved back toward 1 and capped: tier 1
@@ -1607,54 +1624,57 @@ local function latchNozzle(): Model?
 	return hose
 end
 
---- Point the barrel at `target`, clamped to the ball joint's cone and eased toward it.
+--- Point the barrel at `target` from `mount`, eased toward it.
 ---
---- THE CLAMP IS DONE IN THE PARKED FRAME, not in world space, because the mast is
---- rotated with the plot and every plot sits at a different yaw around the ring. Yaw
---- and pitch are pulled out of the aim direction expressed in the nozzle's own resting
---- axes (-Z forward, the same convention the model is authored in and the same one
---- CFrame.lookAt writes), clamped there, and rebuilt -- so "80 degrees off its rest"
---- means the same thing on all six bases without anyone doing trigonometry per plot.
-local function aimNozzle(target: Vector3, dt: number)
+--- `mount` USED TO BE THE MAST'S OWN FIXED WORLD POSITION -- `nozzleParked.Position`,
+--- read once at session start and never moved -- with the swing clamped to a ball-
+--- joint cone around it. That was the bug the whole rework exists to fix: the mast
+--- sits at the tub's near corner (build/Plots.buildHoseRig), which measures out to
+--- 60-70 degrees off the player's own line to the item. A ball joint out there can
+--- point wherever it likes; the WATER still has to travel that whole angle to reach
+--- the reticle, which is what "shooting from the left" actually was -- not a bug in
+--- the aim maths (the arc genuinely converges on the aim point every time), but the
+--- water visibly entering from a machine bolted 65 degrees off to the side of where
+--- the player is looking, every single shot.
+---
+--- `mount` IS NOW A POINT NEAR THE CAMERA instead (`onRender` builds it fresh every
+--- frame from `eye * HELD_OFFSET`), so this just points the model at the target from
+--- there -- no clamp, because a point that already rides the camera never needs one:
+--- the old cone existed to keep a FIXED-origin ball joint from winding up staring at
+--- its own plumbing, and an origin that moves with the view has nothing to wind up
+--- against. The real mast stays exactly where it was for anyone not washing -- see
+--- the header and `restoreNozzle` -- this only ever moves the copy the washing
+--- player's own client is looking at.
+local function aimNozzle(mount: CFrame, target: Vector3, dt: number)
 	local hose = latchNozzle()
-	local parked = nozzleParked
-	if hose == nil or parked == nil then
+	if hose == nil then
 		return
 	end
 
-	local origin = parked.Position
-	local offset = target - origin
+	local offset = target - mount.Position
 	if offset.Magnitude < 0.05 then
 		return
 	end
 
-	local rel = parked:VectorToObjectSpace(offset.Unit)
-	-- -Z is forward, so a target dead ahead is (0, 0, -1) and both angles come out 0.
-	local yaw = math.clamp(math.atan2(rel.X, -rel.Z), -NOZZLE_YAW_LIMIT, NOZZLE_YAW_LIMIT)
-	local pitch = math.clamp(math.asin(math.clamp(rel.Y, -1, 1)), -NOZZLE_PITCH_LIMIT, NOZZLE_PITCH_LIMIT)
-	local flat = math.cos(pitch)
-	local aimed = parked:VectorToWorldSpace(Vector3.new(math.sin(yaw) * flat, math.sin(pitch), -math.cos(yaw) * flat))
-
 	-- Frame-rate independent catch-up: 1 - e^(-k*dt) is the same fraction of the gap
 	-- closed per SECOND at any refresh rate, where a plain alpha would swing twice as
 	-- fast at 120fps as at 60.
-	local goal = CFrame.lookAt(origin, origin + aimed)
+	local goal = CFrame.lookAt(mount.Position, target)
 	hose:PivotTo(hose:GetPivot():Lerp(goal, 1 - math.exp(-NOZZLE_EASE * dt)))
 end
 
 --- Where the water leaves. Every hose carries a real `Muzzle` attachment on its
 --- primary part, out at the brass tip (Shared/ToolModels/Hose makes it a contract that
 --- World.verify enforces), so the stream starts at the end of the barrel rather than
---- somewhere inside the machine -- and because the barrel is what this file has been
---- swivelling, the muzzle is already pointing wherever the player is.
+--- somewhere inside the machine -- and because `aimNozzle` already pivoted the model
+--- to `mount` and pointed it at the target THIS SAME FRAME, the muzzle is already
+--- sitting near the camera and pointing wherever the player is, not out at the mast.
 ---
---- THE FALLBACK IS OFF THE PLAYER'S OWN SHOULDER, and it is for a place with no hose
---- rig at all. Water out of nowhere is a bad picture; a session where holding the button
---- does visibly nothing is a worse one, and the clock on the server runs either way. The
---- offset is down and to the right of the eye rather than the head's bare CFrame,
---- because the camera sits AT the head during a wash: a jet starting exactly on the lens
---- is a jet nobody can see.
-local function nozzleCFrame(): CFrame?
+--- THE FALLBACK IS `mount` ITSELF, for a place with no hose rig at all -- the same
+--- point the model would have been pivoted to, had there been a model. Water out of
+--- nowhere is a bad picture; a session where holding the button does visibly nothing
+--- is a worse one, and the clock on the server runs either way.
+local function nozzleCFrame(mount: CFrame): CFrame?
 	local hose = sessionNozzle()
 	local core = if hose then hose.PrimaryPart else nil
 	if core then
@@ -1664,12 +1684,7 @@ local function nozzleCFrame(): CFrame?
 		end
 		return core.CFrame * CFrame.new(0, 0, -core.Size.Z * 0.5)
 	end
-	local character = Players.LocalPlayer.Character
-	local head = character and character:FindFirstChild("Head")
-	if head and head:IsA("BasePart") then
-		return head.CFrame * CFrame.new(0.8, -0.9, -0.6)
-	end
-	return nil
+	return mount
 end
 
 --- What the player is pointing AT, in the world -- a plain raycast down the middle of
@@ -1902,16 +1917,23 @@ local function onRender(dt: number)
 
 	local aimPoint, aimPart = aimPointAt(eye, filter)
 
+	-- WHERE THE NOZZLE RIDES FOR THIS VIEWER, recomputed every frame from the eye
+	-- rather than cached: it has to track pitch and yaw the same instant the camera
+	-- does, or the model visibly lags the view it is supposed to be bolted under. See
+	-- HELD_OFFSET and the note on `aimNozzle` for why this replaced the mast's own
+	-- fixed position as the thing the barrel swings from.
+	local mount = eye * HELD_OFFSET
+
 	-- Tracks the view continuously, spraying or not — a machine you are standing at the
 	-- controls of reads as aimed the moment you look somewhere, not only while it is
 	-- live. It is also the only feedback that says the thing is listening to you before
 	-- you pull the trigger.
-	aimNozzle(aimPoint, dt)
+	aimNozzle(mount, aimPoint, dt)
 
 	-- The jet reports back where it landed, which is not the aim point whenever the
 	-- falling arc clips something on the way. That impact, not the reticle, is what
 	-- picks the patch.
-	local nozzle = nozzleCFrame()
+	local nozzle = nozzleCFrame(mount)
 	local landing, landingPart = aimPoint, aimPart
 	if nozzle then
 		if spraying then
