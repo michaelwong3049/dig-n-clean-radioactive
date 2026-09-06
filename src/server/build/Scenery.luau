@@ -1952,7 +1952,7 @@ end
 --- most of why it read as an odd sore thumb next to everything around it.
 local SIGN_THICK = 1 -- shared depth (X, the axis a player walks through) -- "1 stud thick"
 local SIGN_LEG_W, SIGN_LEG_H = 1, 2 -- "the leg of the stick 2x1 long" -- 1x1 cross-section, 2 tall
-local SIGN_W, SIGN_H = 3, 4 -- "the actual sign 3x4 rectangle"
+local SIGN_W, SIGN_H = 4, 3 -- "the actual sign 4x3 rectangle" -- wider than tall
 local SIGN_BROWN = C.wood
 
 local function warningSign(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
