@@ -162,7 +162,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 26
+local BUILDER_VERSION = 27
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -912,6 +912,21 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- facing the back wall, because Roblox's look direction uses -Z.
 	local cx, cz = 18, -32
 
+	-- TURNED A QUARTER-TURN SO THE WHOLE RIG BACKS ONTO THE +X SIDE BORDER instead of
+	-- standing across the service strip. The tub, gantry, and pump now line the pad's
+	-- own right edge and the player docks from the central aisle (-X of the bay)
+	-- rather than from the front. Applied to `origin` about the bay's own centre so
+	-- every part below stays written in the bay's local space and buildHoseRig,
+	-- WashSpot, and WashCam all turn with it as one assembly. The leading +X shift
+	-- (plot-local, applied before the pivot) then slides the turned rig outward until
+	-- its gantry/pump back sits just inside the +X accent trim (x = 32.5) rather than
+	-- floating a third of the strip away from it.
+	origin = origin
+		* CFrame.new(8, 0, 0)
+		* CFrame.new(cx, 0, cz)
+		* CFrame.Angles(0, math.rad(90), 0)
+		* CFrame.new(-cx, 0, -cz)
+
 	-- THE DOCK + THE FLUSH, one part. StationKind="decon" is what DeconService
 	-- matches on; Shower=true is what ExposureService scans for.
 	local basin = build(m, origin, {
@@ -1116,6 +1131,22 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 	local pad = Plots.PAD
 	-- Negative local X is the player's RIGHT when approaching from the entrance.
 	local cx, cz = -22, -31
+
+	-- TURNED A QUARTER-TURN THE OTHER WAY so the odds shelf BACKS ONTO THE -X SIDE
+	-- BORDER: the plate faces the central aisle and the canister shelf lines the pad's
+	-- own left edge instead of standing in the strip. Applied to `origin` about the
+	-- pad's centre so every part below stays in local space; the plate and its Radius
+	-- sit on the pivot. The turn alone drops the 10-wide canister shelf's outer edge
+	-- onto x ~= -32.6, right on the -X accent trim; the small +X nudge (plot-local,
+	-- before the pivot) pulls it a stud clear of the trim's own footprint. The roll
+	-- costs cash off StationService's entry edge, so the centre-to-centre gap to the
+	-- basin that World.verify() enforces has to survive this: the plate lands near
+	-- x = -21 against the basin's new x ~= 26 -- ~47 studs, well past the 15 reach.
+	origin = origin
+		* CFrame.new(1, 0, 0)
+		* CFrame.new(cx, 0, cz)
+		* CFrame.Angles(0, math.rad(-90), 0)
+		* CFrame.new(-cx, 0, -cz)
 
 	-- The plate. Cylinder on its end (Kit.R.cylUp), so `size` reads
 	-- {thickness, diameter, diameter} -- see the ShowerHead above for the same idiom.
