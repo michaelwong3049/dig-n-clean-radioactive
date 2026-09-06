@@ -1115,7 +1115,7 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 		rot = Kit.R.cylUp,
 		attributes = { StationKind = "roller", Radius = 6 },
 	})
-	billboard(plate, 250, 4.8, "WASH PAD", "step on it, roll a liquid", accent)
+	billboard(plate, 250, 4.8, "WASH PAD", `first roll free, then ${Tuning.LIQUID_ROLL_COST}`, accent)
 
 	-- The inner disc is coloured water, but it is deliberately matte. The pad is a
 	-- physical interaction surface; making its whole centre Neon made it compete
