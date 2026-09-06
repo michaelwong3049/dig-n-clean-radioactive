@@ -45,12 +45,17 @@ Kit.UPGRADE_TAG = "Upgrade"
 --
 -- The first block is the base camp's original palette, unchanged — the camp still
 -- looks exactly as it did. The second is the bright outdoor world (PLAN §14, as
--- rewritten): bright and colourful, and EVERYTHING IS MATTE. There is no
--- Material.Neon anywhere in the game and no bloom (see build/Daylight) — the danger
--- cue the world used to carry with emission ("only the ooze glows") is carried by
--- colour and shape now. The ooze is still green, the hazard tape still yellow; they
--- just don't light up. Keep it that way: no new Neon, and keep decorative colours
--- muted enough that they read as paint, not as light.
+-- rewritten): bright and colourful, and EVERYTHING IS MATTE. There is no bloom
+-- (see build/Daylight) — the danger cue the world used to carry with emission ("only
+-- the ooze glows") is carried by colour and shape now. The hazard tape does not light
+-- up. Keep it that way, and keep decorative colours muted enough that they read as
+-- paint, not as light.
+--
+-- ONE NAMED EXCEPTION, ON REQUEST: Stage 4's ooze puddles are Material.Neon
+-- (build/Scenery, POOL_MATERIAL) so the green reads as lit from inside rather than
+-- painted onto the mud. That is the only Neon in the game, it is one substance in one
+-- stage, and it still emits no LIGHT — read the note at POOL_MATERIAL before
+-- extending it anywhere else. No shop accent, prop or sign goes back to Neon.
 Kit.C = {
 	-- Base camp (original values — do not repaint without rebuilding the camp)
 	floor = "C9C4B8",
