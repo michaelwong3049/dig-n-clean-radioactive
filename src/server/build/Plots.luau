@@ -74,27 +74,28 @@
 	gameplay risk. The internal arrangement itself (stands + cleansing station)
 	changed since; see "THE BASE LAYOUT" below.
 
-	THE BASE LAYOUT — cleansing station at the top, stands flanking left and
-	right, per the requested sketch:
+	THE BASE LAYOUT — stands keep their original two flanking columns while a
+	17-stud entrance-side extension carries the active washing equipment:
 
 	    ┌─────────────────────────────────────┐
-	    │      [locker]   CLEANSING            │
+	    │      [locker]                         │
 	    │  [stand]                   [stand]   │
 	    │  [stand]                   [stand]   │
-	    │  [stand]         .                   │
+	    │  [stand]         spawn               │
 	    │  [stand]                   [stand]   │
-	    │                                       │
+	    ├──────── original front edge ─────────┤
+	    │  WASHER + HOSE           WASH PAD    │
 	    └─────────────────────────────────────┘
 
-	The Quarantine Locker (PLAN §10.2) sits against the back wall left of the
-	cleansing station — the physical rack of items you hauled home but can't clean
+	The Quarantine Locker (PLAN §10.2) stays against the back wall on the left side
+	of the base — the physical rack of items you hauled home but can't clean
 	yet. Built here, filled by ExhibitService.renderLocker; see buildQuarantineLocker.
 
-	Eight stands, four per side, in two flanking columns — `slotOffset` pairs
-	them off row by row (slot 1 = left row 1, slot 2 = right row 1, slot 3 = left
-	row 2, ...) rather than filling a centred grid, and the cleansing station
-	moved from the pad's back-third to right up near the back wall so it reads
-	as the "top" of the base the sketch asks for.
+	Eight stands, four per side, remain at their established coordinates —
+	`slotOffset` still pairs them off row by row (slot 1 = left row 1, slot 2 =
+	right row 1, slot 3 = left row 2, ...). The cleansing station and its hose rig
+	now occupy the left side of the extension, with the wash pad on the right and
+	a deliberate safe gap between their station radii.
 
 	SLOTS: 8 BUILT, ALL FREE.
 	Tuning.EXHIBIT_MAX_SLOTS is 8 and VISIBLE_SLOTS is the 8 the sketch shows —
@@ -161,7 +162,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 22
+local BUILDER_VERSION = 26
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -177,7 +178,20 @@ Plots.LOCKER_SLOTS = 3
 -- step down), expressed relative to Hub.PLAZA.topY rather than as a bare literal so
 -- it keeps meaning "+1.5 above the plaza" if that ever moves again, instead of
 -- silently becoming a different absolute step.
-Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3 }
+-- The original pad ran from local Z -26 to +26. Only the entrance edge moved:
+-- extending minZ to -43 adds a 17-stud service strip without moving the stands,
+-- locker, back wall, or luck button. Keeping explicit bounds avoids pretending an
+-- asymmetric pad is centred on the plot origin.
+local PAD_MIN_Z = -43
+local PAD_MAX_Z = 26
+Plots.PAD = {
+	width = 66,
+	depth = PAD_MAX_Z - PAD_MIN_Z,
+	minZ = PAD_MIN_Z,
+	maxZ = PAD_MAX_Z,
+	topY = Hub.PLAZA.topY + 1.5,
+	thickness = 3,
+}
 
 --- THE RING. Six pads on the exterior of a circle pulled toward Stage 1, each
 --- rotated to face the centre.
@@ -230,7 +244,9 @@ Plots.PAD = { width = 66, depth = 52, topY = Hub.PLAZA.topY + 1.5, thickness = 3
 --- open mouth here is symmetric: it's the gap on BOTH sides of the 6-to-1 seam,
 --- between the last pad short of due-north and the first pad short of due-south.
 local PLAZA = Hub.PLAZA
-local HALF_W, HALF_D = Plots.PAD.width / 2, Plots.PAD.depth / 2
+local HALF_W = Plots.PAD.width / 2
+local HALF_D = Plots.PAD.depth / 2
+local PAD_CENTER_Z = (Plots.PAD.minZ + Plots.PAD.maxZ) / 2
 local MID_Z = (PLAZA.minZ + PLAZA.maxZ) / 2
 
 local SHOP_CLUSTER_EAST_REACH = 53
@@ -252,8 +268,9 @@ Plots.RING_CENTER = { x = PLAZA.maxX - SHOP_CLUSTER_EAST_REACH - FIELD_CLEARANCE
 Plots.RING_RADIUS = 180
 
 --- The walkway's outer disc radius — has to clear the farthest PAD CORNER from
---- RING_CENTER, not just the farthest pad centre: `sqrt((RING_RADIUS+HALF_D)^2 +
---- HALF_W^2)` = ~208.6 studs.
+--- RING_CENTER, not just the farthest pad centre. The entrance extension grows
+--- inward toward the ring centre, so the farthest outward corner is still the old
+--- back edge at local Z +26: `sqrt((RING_RADIUS+26)^2 + HALF_W^2)` = ~208.6 studs.
 ---
 --- 235, TRIMMED BACK DOWN FROM 290, ON REQUEST — 290's ~80-stud buffer past
 --- every pad's farthest corner read as a wide belt of empty tiled ground
@@ -301,7 +318,14 @@ end
 --- `Kit.orientedRectsOverlap` (used by this file's apron and by
 --- World.verify()'s pad checks) both take this same shape.
 local function padRect(c: { x: number, z: number, facing: number }): Kit.OrientedRect
-	return { cx = c.x, cz = c.z, halfWidth = HALF_W, halfDepth = HALF_D, yawDeg = c.facing }
+	local yaw = math.rad(c.facing)
+	return {
+		cx = c.x + PAD_CENTER_Z * math.sin(yaw),
+		cz = c.z + PAD_CENTER_Z * math.cos(yaw),
+		halfWidth = HALF_W,
+		halfDepth = HALF_D,
+		yawDeg = c.facing,
+	}
 end
 
 --- THE APRON — the disc of ground between the shop cluster and the pads, minus
@@ -516,30 +540,14 @@ end
 --- the line follows the aim for free with no script running anywhere. `CurveSize0/1`
 --- give it the slack a hose has when it is not under tension; a chain of parts would
 --- need a per-frame catenary solve to fake the same thing and would still be jointed.
-local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
+local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: number)
 	local pad = Plots.PAD
 
-	-- EIGHT STUDS BEHIND THE PLAYER'S MARK, AND JUST PAST IT IN DEPTH. WashSpot is at
-	-- (0, cz - 6) and the wash camera sits out at local x = -13 looking across, so the
-	-- shot's depth axis is x and its horizontal axis is z. That makes the placement
-	-- almost entirely a framing decision:
-	--
-	--   z    how far back along the hose's run, which is screen-LEFT of the player.
-	--        Eight studs, because three (the first attempt) plus a little slack is a
-	--        shower attachment, and the brief was a long green line trailing away.
-	--   x    depth. The first attempt put the pump at x = -5, on the CAMERA's side --
-	--        which dropped it to about 8 studs from the lens against the player's 13,
-	--        and at that depth "eight studs back" is far enough sideways to fall off
-	--        the edge of the frame entirely. Slightly POSITIVE keeps it at roughly the
-	--        player's own depth, where the same eight studs is a comfortable distance
-	--        into open frame, and puts the hose's run on the far side of the player
-	--        rather than between them and the camera.
-	--
-	-- +3.5 rather than 0 also keeps the pump off the straight walk-up line from the
-	-- front of the pad to the tub. Clear of everything else by a wide margin: the wash
-	-- pad is at (18, 18), the display columns at x = +/-25, the stand rows at
-	-- z = 15/5/-5/-15, and the plot spawn at z = -18.
-	local px, pz = 3.5, cz - 14
+	-- Tucked behind the player's mark while staying inside the trimmed front edge.
+	-- The whole rig follows `cx`, so moving the cleansing bay left moves its pump,
+	-- reel, mast, and hose as one readable machine instead of leaving pieces behind.
+	-- +3.5 keeps the pump off the straight walk-up line from the front of the pad.
+	local px, pz = cx + 3.5, cz - 9
 
 	-- TALL AND NARROW, so the reel bolted to its side reads as a smaller wheel on a
 	-- bigger box. The first version was a squat 2.6-high crate with a 3.2-wide reel
@@ -687,7 +695,7 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	-- stop -- so what sells the purchase is still walking up in third person and
 	-- finding a different machine parked on this mast, and what makes the hose usable
 	-- is that nobody has to fight a 64-degree throw to land a shot.
-	local mx, mz = 3.9, cz - 2.9
+	local mx, mz = cx + 3.9, cz - 2.9
 
 	-- BELOW THE ITEM, NOT ABOVE IT, AND THIS IS THE ARC. The item sits at topY + 3.5;
 	-- at topY + 4.2 the muzzle looked down on it and the water merely drooped the last
@@ -752,7 +760,7 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	-- rung on it, and WashController restores it after a session spent swinging the
 	-- nozzle around locally.
 	local mount = origin * CFrame.new(mx, mountY, mz)
-	local aimAt = origin * CFrame.new(0, pad.topY + 3.5, cz)
+	local aimAt = origin * CFrame.new(cx, pad.topY + 3.5, cz)
 	local parked = CFrame.lookAt(mount.Position, aimAt.Position)
 
 	local hose = ToolModels.Hose.create(ToolModels.Hose.STATION_TIER)
@@ -788,11 +796,11 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cz: number)
 	-- rather than fractions of the span, so the three-stud parked run up to the pump cap
 	-- and the eight-stud run out to a player's hand could not share one sag. There is no
 	-- second state now — the nozzle never leaves the mast — so the run is always this
-	-- eleven-stud one down the side of the pad, and it gets the long lazy sag that run
+	-- compact six-stud one down the side of the pad, and it gets the lazy sag that run
 	-- wants. The attributes are gone rather than left unread: a knob nothing turns is a
 	-- knob someone eventually turns expecting something to happen.
-	beam.CurveSize0 = 4.5
-	beam.CurveSize1 = -3.5
+	beam.CurveSize0 = 3
+	beam.CurveSize1 = -2.2
 	beam.Segments = 24
 	beam.FaceCamera = true
 	beam.Color = ColorSequence.new({
@@ -889,26 +897,26 @@ end
 --- `Radius`, which is fine: it's the same "how close do I need to be" question
 --- either way.
 ---
---- Walk home from the field, dock here, rack the clean item on a pedestal three
---- steps away — no trip back to base camp required, and every player's loop is
---- entirely local to their own plot.
+--- Walk home from the field, dock here, then rack the clean item on a pedestal —
+--- no trip back to base camp required, and every player's loop remains local.
 ---
---- AT THE TOP, per the sketch: pushed up near the back wall (local z = 25)
---- rather than the pad's middle third, so it's the first thing that reads when
---- you look at the base from the front. Clear of both stand columns (COL_X, at
---- x = ±25) by construction — the station is centred on x = 0 and never
---- overlaps them regardless of how close their rows get to the back wall.
+--- The whole bay now sits on the left side of the entrance extension. Its tub is
+--- forward of the unchanged final stand row, while its pump reaches almost to the
+--- new front edge. That keeps the original display floor intact and makes the two
+--- active stations read together as one service strip.
 local function buildCleansingStation(parent: Instance, origin: CFrame, accent: string)
 	local m = Instance.new("Model")
 	m.Name = "CleansingStation"
 	local pad = Plots.PAD
-	local cz = 20
+	-- Positive local X is the player's LEFT when approaching from local -Z and
+	-- facing the back wall, because Roblox's look direction uses -Z.
+	local cx, cz = 18, -32
 
 	-- THE DOCK + THE FLUSH, one part. StationKind="decon" is what DeconService
 	-- matches on; Shower=true is what ExposureService scans for.
 	local basin = build(m, origin, {
 		name = "Basin",
-		pos = { 0, pad.topY + 0.9, cz },
+		pos = { cx, pad.topY + 0.9, cz },
 		size = { 7, 1.8, 5 },
 		color = C.steel,
 		material = "Metal",
@@ -921,11 +929,11 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- footprint into a bath — and now that pressing E here starts a hosing animation
 	-- with the object sitting in it, "is this a container" stopped being cosmetic.
 	for _, side in { -1, 1 } do
-		build(m, origin, { name = "TubRim", pos = { side * 3.3, pad.topY + 2.1, cz }, size = { 0.5, 1.0, 5.2 }, color = C.steel, material = "Metal" })
-		build(m, origin, { name = "TubRim", pos = { 0, pad.topY + 2.1, cz + side * 2.35 }, size = { 7.0, 1.0, 0.5 }, color = C.steel, material = "Metal" })
+		build(m, origin, { name = "TubRim", pos = { cx + side * 3.3, pad.topY + 2.1, cz }, size = { 0.5, 1.0, 5.2 }, color = C.steel, material = "Metal" })
+		build(m, origin, { name = "TubRim", pos = { cx, pad.topY + 2.1, cz + side * 2.35 }, size = { 7.0, 1.0, 0.5 }, color = C.steel, material = "Metal" })
 	end
 
-	build(m, origin, { name = "Water", pos = { 0, pad.topY + 1.85, cz }, size = { 6.2, 0.25, 4.2 }, color = C.cyan, material = "Glass", transparency = 0.35 })
+	build(m, origin, { name = "Water", pos = { cx, pad.topY + 1.85, cz }, size = { 6.2, 0.25, 4.2 }, color = C.cyan, material = "Glass", transparency = 0.35 })
 
 	-- THREE ANCHORS, AND THE SHOT IS COMPOSED OUT OF THEM RATHER THAN OUT OF NUMBERS
 	-- IN THE CONTROLLER. Framing is a thing you judge by looking at it, so it has to
@@ -954,7 +962,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- The plate lifts the whole thing clear and gives the float a reason.
 	build(m, origin, {
 		name = "WashRack",
-		pos = { 0, pad.topY + 2.7, cz },
+		pos = { cx, pad.topY + 2.7, cz },
 		size = { 2.6, 0.2, 2.6 },
 		color = C.steelDark,
 		material = "Metal",
@@ -963,7 +971,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	local stand = build(m, origin, {
 		name = "WashStand",
-		pos = { 0, pad.topY + 3.5, cz },
+		pos = { cx, pad.topY + 3.5, cz },
 		size = { 1, 1, 1 },
 		color = C.steel,
 		material = "Metal",
@@ -974,7 +982,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	local spot = build(m, origin, {
 		name = "WashSpot",
-		pos = { 0, pad.topY + 3, cz - 6 },
+		pos = { cx, pad.topY + 3, cz - 6 },
 		size = { 1, 1, 1 },
 		color = C.steel,
 		material = "Metal",
@@ -983,11 +991,12 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	})
 	-- Faces the stand, so WashService can drop the character straight onto this CFrame
 	-- and have them looking at what they are about to hose.
-	spot.CFrame = origin * CFrame.lookAt(Vector3.new(0, pad.topY + 3, cz - 6), Vector3.new(0, pad.topY + 3, cz))
+	spot.CFrame = origin
+		* CFrame.lookAt(Vector3.new(cx, pad.topY + 3, cz - 6), Vector3.new(cx, pad.topY + 3, cz))
 
 	local cam = build(m, origin, {
 		name = "WashCam",
-		pos = { -13, pad.topY + 5, cz - 3 },
+		pos = { cx - 13, pad.topY + 5, cz - 3 },
 		size = { 1, 1, 1 },
 		color = C.steel,
 		material = "Metal",
@@ -1010,7 +1019,11 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- because Kit.build's rot takes fixed angles and "point at that" stops being a
 	-- fixed angle once the plot's own yaw is applied. `origin` carries it to world
 	-- space like everything else in this function.
-	cam.CFrame = origin * CFrame.lookAt(Vector3.new(-13, pad.topY + 5, cz - 3), Vector3.new(0, pad.topY + 3.6, cz - 3))
+	cam.CFrame = origin
+		* CFrame.lookAt(
+			Vector3.new(cx - 13, pad.topY + 5, cz - 3),
+			Vector3.new(cx, pad.topY + 3.6, cz - 3)
+		)
 
 	-- PRESS E TO WASH, AND PRESS IT AGAIN TO STOP. Always enabled, because a
 	-- ProximityPrompt is one shared instance and cannot be shown to one player and
@@ -1031,13 +1044,13 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	prompt.Parent = basin
 
 	for _, x in { -3.2, 3.2 } do
-		build(m, origin, { name = "Post", pos = { x, pad.topY + 3.5, cz + 1.5 }, size = { 0.4, 4, 0.4 }, color = C.steelDark, material = "Metal" })
+		build(m, origin, { name = "Post", pos = { cx + x, pad.topY + 3.5, cz + 1.5 }, size = { 0.4, 4, 0.4 }, color = C.steelDark, material = "Metal" })
 	end
-	build(m, origin, { name = "GantryBeam", pos = { 0, pad.topY + 5.4, cz + 1.5 }, size = { 7.2, 0.4, 0.4 }, color = C.steelDark, material = "Metal" })
-	build(m, origin, { name = "NozzleArm", pos = { 0, pad.topY + 5.4, cz + 0.7 }, size = { 0.35, 0.35, 1.6 }, color = C.steelDark, material = "Metal" })
+	build(m, origin, { name = "GantryBeam", pos = { cx, pad.topY + 5.4, cz + 1.5 }, size = { 7.2, 0.4, 0.4 }, color = C.steelDark, material = "Metal" })
+	build(m, origin, { name = "NozzleArm", pos = { cx, pad.topY + 5.4, cz + 0.7 }, size = { 0.35, 0.35, 1.6 }, color = C.steelDark, material = "Metal" })
 	build(m, origin, {
 		name = "ShowerHead",
-		pos = { 0, pad.topY + 5.1, cz },
+		pos = { cx, pad.topY + 5.1, cz },
 		size = { 0.5, 1.6, 1.6 },
 		color = C.steel,
 		material = "Metal",
@@ -1047,7 +1060,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	})
 	build(m, origin, {
 		name = "Jet",
-		pos = { 0, pad.topY + 3.3, cz },
+		pos = { cx, pad.topY + 3.3, cz },
 		size = { 0.16, 2.8, 0.16 },
 		color = C.cyan,
 		material = "Glass",
@@ -1061,7 +1074,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- it warms the station without washing the grey plinths in front of it.
 	local lamp = build(m, origin, {
 		name = "Lamp",
-		pos = { 0, pad.topY + 5.9, cz + 1.5 },
+		pos = { cx, pad.topY + 5.9, cz + 1.5 },
 		size = { 0.5, 0.5, 0.5 },
 		color = accent,
 		material = "SmoothPlastic",
@@ -1070,7 +1083,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	})
 	light(lamp, accent, 12, 0.9)
 
-	buildHoseRig(m, origin, cz)
+	buildHoseRig(m, origin, cx, cz)
 
 	m.Parent = parent
 end
@@ -1089,10 +1102,10 @@ end
 --- overlapping roller radius gets charged for a roll they never asked for. Nearest
 --- station wins, which resolves an overlap for *rendering* but not for that edge.
 ---
---- So: basin at local (0, 20) with radius 9, pad at (18, 18) with radius 6. Centres
---- 18.1 studs apart against a 15-stud combined reach, leaving a ~3-stud dead band
---- between them that a player has to cross deliberately. Keep that gap if either
---- number moves.
+--- So: basin at local (18, -32) with radius 9, pad at (-22, -31) with radius 6.
+--- Centres are ~40 studs apart against a 15-stud combined reach, leaving a broad
+--- central aisle and making an accidental paid roll impossible. Keep that gap if
+--- either number moves.
 ---
 --- THE SHELF BEHIND IT IS THE ODDS TABLE, RENDERED. Five canisters in the colours of
 --- the top five liquids, biggest prize at the far end. It teaches "there are better
@@ -1101,7 +1114,8 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 	local m = Instance.new("Model")
 	m.Name = "WashPad"
 	local pad = Plots.PAD
-	local cx, cz = 18, 18
+	-- Negative local X is the player's RIGHT when approaching from the entrance.
+	local cx, cz = -22, -31
 
 	-- The plate. Cylinder on its end (Kit.R.cylUp), so `size` reads
 	-- {thickness, diameter, diameter} -- see the ShowerHead above for the same idiom.
@@ -1297,8 +1311,8 @@ end
 --- ShopService.buyLuck's header for why that lets this skip StationService entirely.
 ---
 --- GREEN, DELIBERATELY REUSING C.grass RATHER THAN THE PLOT'S OWN ACCENT COLOUR.
---- It sits two steps from a wash pad, so it wears the same "safe" green the plaza and
---- base camp already do, not one of the hazard greens the stages use. Matte, like
+--- It wears the same "safe" green the plaza and base camp already do, not one of the
+--- hazard greens the stages use. Matte, like
 --- every surface in the world now (see Kit.C's header) — a button reads as "press me"
 --- from its shape and its billboard, it never needed to glow.
 ---
@@ -1310,7 +1324,7 @@ local function buildLuckButton(parent: Instance, origin: CFrame)
 	local m = Instance.new("Model")
 	m.Name = "LuckButton"
 	local pad = Plots.PAD
-	local wallZ = pad.depth / 2 - 0.5 -- BackWall's own face, see buildPlot
+	local wallZ = pad.maxZ - 0.5 -- BackWall's own face, see buildPlot
 	local panelY = pad.topY + 4.6
 
 	-- A small backing plate on the back wall, below the name -- the same wall the
@@ -1366,7 +1380,7 @@ end
 --- wear, so the base reads as built out of the same blocks as everything around it.
 --- ONE flat colour (the brighter of the old plaza pair, `C.plazaWarm`), on request —
 --- the two-tone checker read as busy behind the nameplate. Front face at local z =
---- `pad.depth / 2 - 0.5` (unchanged), so the NameSign and the luck-button panel still
+--- `pad.maxZ - 0.5` (unchanged at local z = 25.5), so the NameSign and the luck-button panel still
 --- bolt straight to it; taller than the old 10-stud slab, on request.
 local BACKWALL_TILE = 3.3 -- ~20 columns across the 66-wide pad, ~5 rows up the 16 tall
 local BACKWALL_HEIGHT = 16
@@ -1376,7 +1390,7 @@ local function buildBackWall(parent: Instance, origin: CFrame)
 	folder.Name = "BackWall"
 
 	local wallW, wallThick = pad.width, 1
-	local frontZ = pad.depth / 2 - 0.5
+	local frontZ = pad.maxZ - 0.5
 	local cols = math.ceil(wallW / BACKWALL_TILE)
 	local rows = math.ceil(BACKWALL_HEIGHT / BACKWALL_TILE)
 
@@ -1430,8 +1444,8 @@ local function buildPlot(parent: Instance, index: number)
 	-- IN THIS FUNCTION — the opposite of how this used to work (see this file's own
 	-- header on why: a pad's footprint stopped being axis-aligned in world space the
 	-- moment the ring stopped using only 90-degree facings). `rect` is a LOCAL
-	-- rectangle centred on the pad's own origin, not a world-space one.
-	local rect: Hub.Rect = { minX = -HALF_W, maxX = HALF_W, minZ = -HALF_D, maxZ = HALF_D }
+	-- rectangle with an asymmetric entrance extension, not a world-space one.
+	local rect: Hub.Rect = { minX = -HALF_W, maxX = HALF_W, minZ = pad.minZ, maxZ = pad.maxZ }
 	local tint: Hub.TileOpts = { topY = pad.topY, dark = C.baseTileDark, light = C.baseTileLight, origin = origin }
 
 	-- The slab underneath carries PlotIndex, because that is the world contract this
@@ -1449,7 +1463,7 @@ local function buildPlot(parent: Instance, index: number)
 	for _, side in { -1, 1 } do
 		build(m, origin, {
 			name = "Trim",
-			pos = { side * (pad.width / 2 - 0.5), pad.topY + 0.1, 0 },
+			pos = { side * (pad.width / 2 - 0.5), pad.topY + 0.1, PAD_CENTER_Z },
 			size = { 1, 0.5, pad.depth },
 			color = accent,
 			material = "SmoothPlastic",
@@ -1464,7 +1478,7 @@ local function buildPlot(parent: Instance, index: number)
 	buildBackWall(m, origin)
 	local sign = build(m, origin, {
 		name = "NameSign",
-		pos = { 0, pad.topY + 8, pad.depth / 2 - 1.4 },
+		pos = { 0, pad.topY + 8, pad.maxZ - 1.4 },
 		size = { 34, 4, 0.4 },
 		color = accent,
 		material = "SmoothPlastic",
@@ -1481,7 +1495,7 @@ local function buildPlot(parent: Instance, index: number)
 	local spawn = build(m, origin, {
 		name = "PlotSpawn",
 		class = "SpawnLocation",
-		pos = { 0, pad.topY + 0.5, -pad.depth / 2 + 8 },
+		pos = { 0, pad.topY + 0.5, -24 },
 		size = { 6, 1, 6 },
 		color = accent,
 		material = "SmoothPlastic",
