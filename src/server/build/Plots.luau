@@ -45,22 +45,21 @@
 	plaza to be sized by what actually stands on it. The plots did not get
 	smaller through any of these reshuffles; the car park between them did.
 
-	A BASE WEARS THE PLAZA'S BOARD IN ITS OWN COLOURS. The pad is not a slab of
-	concrete any more: it is the same studded checkerboard the courtyard is paved in,
-	on the same grid, in navy and grey instead of green, one step up. That makes the
-	six bases the only thing in the world that is not some shade of green, and it
-	makes walking onto one a change of colour rather than a change of surface.
+	A BASE IS ONE MATTE NEAR-BLACK PLATE. The pad is not a slab of concrete, and no
+	longer the plaza's studded board either: it is a single flat matte plate in
+	`Kit.C.baseFloor` (Material.Plastic, faces smoothed — SmoothPlastic glinted in
+	the sun), no studs, one step up from the apron — dropped from the tiled board
+	(navy/grey checker, then flat grey, then flat near-black, now a plain matte
+	plate) on request. That still makes the six bases the only thing in the world
+	that is not some shade of green, and still makes walking onto one a change of
+	colour rather than a change of surface.
 
-	A PAD'S OWN TILES ARE BUILT IN ITS YAWED LOCAL SPACE, NOT WORLD SPACE — the
-	opposite of how this used to work, and the semicircle is exactly why: a pad's
-	footprint was axis-aligned in world space at every facing the old rectangular
-	ring used (only multiples of 90), so tiling that world-space bounding box was
-	exact. None of the six facings on the semicircular ring are multiples of 90 any
-	more, so the old approach would tile a diamond of excess area outside the
-	pad's real, rotated footprint. See `buildPlot` and `Hub.TileOpts.origin`. The
-	one cost: a pad's board can no longer phase-lock with the apron's grid across
-	their shared edge (only possible at 90-degree multiples) — still an exact 3x3
-	checkerboard, just an incidental phase instead of a matched one.
+	THE PLATE STILL RIDES ON A STRUCTURAL SLAB (`Hub.groundSlab`) recessed by Hub's
+	tile-cap thickness, with a 0.4-thick smooth plate filling that gap so footing is
+	still `pad.topY` — see `buildPlot`. The slab is built through the pad's yawed
+	local `origin` like everything else in this file (the semicircular ring's facings
+	are no longer multiples of 90, so a pad's true footprint is a rotated rectangle);
+	`Hub.TileOpts.origin` carries that.
 
 	THE DEPENDENCY FLIPPED, AGAIN, AND THIS TIME IT IS DERIVED RATHER THAN COMMENTED.
 	This file used to require `Hub`, then stopped, and `Hub.luau` carried a comment
@@ -180,7 +179,8 @@ Plots.LOCKER_SLOTS = 3
 -- silently becoming a different absolute step.
 -- The original pad ran from local Z -26 to +26. Only the entrance edge moved:
 -- extending minZ to -43 adds a 17-stud service strip without moving the stands,
--- locker, back wall, or luck button. Keeping explicit bounds avoids pretending an
+-- locker, or back wall (the luck button since moved out onto that strip, beside the
+-- wash pad). Keeping explicit bounds avoids pretending an
 -- asymmetric pad is centred on the plot origin.
 local PAD_MIN_Z = -43
 local PAD_MAX_Z = 26
@@ -1321,20 +1321,22 @@ local function buildQuarantineLocker(parent: Instance, origin: CFrame, accent: s
 	m.Parent = parent
 end
 
---- The luck button — mounted on the plot's own back wall, below the name, where you
---- press E to buy the next +0.1x.
+--- The luck button — a free-standing stake beside the wash pad, where you press E to
+--- buy the next +0.1x.
 ---
 --- LUCK IS THE ONE TRACK YOU DO NOT WEAR, so it was the one track that did not belong
 --- on a shop counter. It used to be a fourth desk at the Outfitter, visually identical
 --- to Suits and Boots and Satchels, selling something with no physical form at all —
 --- then a free-standing sign staked next to the pad, painting a whole seven-tier
---- ladder on a board. Luck itself changed shape too (Config/Gear.luau's header): there
---- is no ladder left to paint, only a flat +0.1x at a price that climbs every time, so
---- the button just says the two numbers that are true right now.
+--- ladder on a board; then a button on the plot's back wall under the name. Luck
+--- itself changed shape too (Config/Gear.luau's header): there is no ladder left to
+--- paint, only a flat +0.1x at a price that climbs every time, so the button just
+--- says the two numbers that are true right now.
 ---
---- ON THE BACK WALL, UNDER THE NAME, because both are "what is true about this base
---- right now" and belong on the same console — unlike the pad and the tub, which sit
---- out on the floor because they are things you walk up and DO.
+--- BACK BESIDE THE WASH PAD, on request. Luck weights the wash roll, so the control
+--- belongs where you do the rolling — a short stake on the aisle side of the pad
+--- plate, out on the floor like the pad and the tub because it is a thing you walk up
+--- to and DO, not a line on the back-wall console.
 ---
 --- NO PANEL, NO STATION KIND, NO REMOTE. A ProximityPrompt's Triggered fires on the
 --- server and Roblox enforces MaxActivationDistance itself, so proximity is a
@@ -1355,17 +1357,30 @@ local function buildLuckButton(parent: Instance, origin: CFrame)
 	local m = Instance.new("Model")
 	m.Name = "LuckButton"
 	local pad = Plots.PAD
-	local wallZ = pad.maxZ - 0.5 -- BackWall's own face, see buildPlot
-	local panelY = pad.topY + 4.6
+	-- Beside the wash pad plate. buildWashPad seats that plate at plot-local
+	-- (-21, _, -31) (its own cx/cz of -22/-31, nudged +1 X, then spun about itself);
+	-- the plate is 9 across, so a stake at x = -13 stands ~2.5 studs off its aisle
+	-- edge, on the +X (plot-centre) side a player walks in from. Same service strip,
+	-- clear of the canister shelf backed onto the -X border at x ~= -27.
+	local bx, bz = -13, -31
+	local buttonY = pad.topY + 3
 
-	-- A small backing plate on the back wall, below the name -- the same wall the
-	-- NameSign is bolted to, so the two read as one console.
+	-- The stake: a short steel post the button sits on, so it reads as planted
+	-- furniture out on the floor rather than a control that needs a wall.
 	build(m, origin, {
-		name = "Panel",
-		pos = { 0, panelY, wallZ - 0.55 },
-		size = { 3.6, 3.2, 0.3 },
+		name = "Post",
+		pos = { bx, pad.topY + 1.3, bz },
+		size = { 0.5, 2.6, 0.5 },
 		color = C.steelDark,
 		material = "Metal",
+	})
+	build(m, origin, {
+		name = "Base",
+		pos = { bx, pad.topY + 0.15, bz },
+		size = { 1.8, 0.3, 1.8 },
+		color = C.steelDark,
+		material = "Metal",
+		canCollide = false,
 	})
 
 	-- The button — a Ball rather than an oriented Cylinder, because a sphere reads as
@@ -1373,7 +1388,7 @@ local function buildLuckButton(parent: Instance, origin: CFrame)
 	-- face the right way.
 	local button = build(m, origin, {
 		name = "Button",
-		pos = { 0, panelY, wallZ - 0.15 },
+		pos = { bx, buttonY, bz },
 		size = { 1.4, 1.4, 1.4 },
 		color = C.grass,
 		material = "SmoothPlastic",
@@ -1411,8 +1426,8 @@ end
 --- wear, so the base reads as built out of the same blocks as everything around it.
 --- ONE flat colour (the brighter of the old plaza pair, `C.plazaWarm`), on request —
 --- the two-tone checker read as busy behind the nameplate. Front face at local z =
---- `pad.maxZ - 0.5` (unchanged at local z = 25.5), so the NameSign and the luck-button panel still
---- bolt straight to it; taller than the old 10-stud slab, on request.
+--- `pad.maxZ - 0.5` (unchanged at local z = 25.5), so the NameSign still bolts
+--- straight to it; taller than the old 10-stud slab, on request.
 local BACKWALL_TILE = 3.3 -- ~20 columns across the 66-wide pad, ~5 rows up the 16 tall
 local BACKWALL_HEIGHT = 16
 local function buildBackWall(parent: Instance, origin: CFrame)
@@ -1466,10 +1481,12 @@ local function buildPlot(parent: Instance, index: number)
 	local accent = Kit.PLOT_ACCENT[((index - 1) % #Kit.PLOT_ACCENT) + 1]
 	local pad = Plots.PAD
 
-	-- THE STAGE, WEARING THE SAME BOARD AS THE PLAZA IN ITS OWN COLOURS. One step up
-	-- from the apron — a plot should feel like somewhere you walk onto, not part of
-	-- the pavement — and navy-and-grey against the courtyard's green, so the six bases
-	-- are the one thing in the world that is not some shade of it.
+	-- THE STAGE. One step up from the apron — a plot should feel like somewhere you
+	-- walk onto, not part of the pavement — and ONE SMOOTH NEAR-BLACK PLATE against
+	-- the courtyard's green, so the six bases are the one thing in the world that is
+	-- not some shade of it. It USED to wear the plaza's studded board (first in
+	-- navy/grey, then one flat grey, then near-black); dropped to a plain smooth
+	-- plate with no studs, on request — a flat panel, not a tiled floor.
 	--
 	-- BUILT IN THIS MODEL'S YAWED LOCAL SPACE, THROUGH `origin`, LIKE EVERYTHING ELSE
 	-- IN THIS FUNCTION — the opposite of how this used to work (see this file's own
@@ -1477,17 +1494,32 @@ local function buildPlot(parent: Instance, index: number)
 	-- moment the ring stopped using only 90-degree facings). `rect` is a LOCAL
 	-- rectangle with an asymmetric entrance extension, not a world-space one.
 	local rect: Hub.Rect = { minX = -HALF_W, maxX = HALF_W, minZ = pad.minZ, maxZ = pad.maxZ }
-	local tint: Hub.TileOpts = { topY = pad.topY, dark = C.baseTileDark, light = C.baseTileLight, origin = origin }
+	local tint: Hub.TileOpts = { topY = pad.topY, dark = C.baseFloor, light = C.baseFloor, origin = origin }
 
 	-- The slab underneath carries PlotIndex, because that is the world contract this
-	-- file's header publishes and a folder of 350 tiles cannot carry it.
+	-- file's header publishes.
 	local slab = Hub.groundSlab(m, rect, "Pad", pad.thickness, tint)
 	slab:SetAttribute("PlotIndex", index)
 
-	local tiles = Instance.new("Folder")
-	tiles.Name = "PadTiles"
-	Hub.tileRect(tiles, rect, tint)
-	tiles.Parent = m
+	-- The visible floor: ONE matte near-black plate, no studs. Fills exactly the gap
+	-- Hub's studded tile cap used to (topY - 0.4 up to topY, matching Hub's own CAP),
+	-- so footing is still pad.topY and nothing built at `pad.topY + n` moves. The
+	-- structural slab above is recessed under this by the same 0.4.
+	--
+	-- Material.Plastic + every face smoothed, NOT SmoothPlastic: SmoothPlastic threw a
+	-- hard sun glint across the whole sheet (the reason this world went matte in the
+	-- first place — see Kit.C's header). A fresh Part's TopSurface is Studs, so the
+	-- smoothing pass is what keeps a no-stud Plastic part actually flat.
+	local padFloor = build(m, origin, {
+		name = "PadFloor",
+		pos = { (rect.minX + rect.maxX) / 2, pad.topY - 0.2, (rect.minZ + rect.maxZ) / 2 },
+		size = { rect.maxX - rect.minX, 0.4, rect.maxZ - rect.minZ },
+		color = C.baseFloor,
+		material = "Plastic",
+	})
+	for _, face in { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" } do
+		(padFloor :: any)[face] = Enum.SurfaceType.Smooth
+	end
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
 	-- the colour alone carries the "whose plot" cue now, no glow.
