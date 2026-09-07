@@ -411,9 +411,11 @@ end
 --- Slots 1-8 are the two flanking columns, paired off row by row — odd slots go
 --- left, even slots go right, each pair sharing a Z. ROW_TOP_Z is the FIRST row,
 --- closest to the back wall; rows count DOWN from there toward the entrance.
---- ROW_PITCH is 15 (was 10): the +18 back extension (PAD_MAX_Z) gave the interior
---- the depth to spread the four rows out, and ROW_TOP_Z moved back to 33 to sit
---- the run against the wall's new position rather than leave 18 empty studs
+--- ROW_PITCH is 12.5 (was 10): the +18 back extension (PAD_MAX_Z) gave the
+--- interior the depth to spread the four rows out, and 12.5 makes the row-to-row
+--- gap match the back row's own stand-to-stand gap (5 stands across x -25..25),
+--- so the whole grid reads at one even spacing. ROW_TOP_Z moved back to 33 to
+--- sit the run against the wall's new position rather than leave empty studs
 --- behind it.
 ---
 --- Slots 9-11 fill the gap along ROW_TOP_Z BETWEEN the two top stands (slots 1 and
@@ -424,7 +426,7 @@ end
 --- 1-8 (and any saved item in them) exactly where they were.
 local COL_X = 25
 local ROW_TOP_Z = 33
-local ROW_PITCH = 15
+local ROW_PITCH = 12.5
 local BACK_ROW_INFILL_X = { -12.5, 0, 12.5 } -- slots 9-11, along ROW_TOP_Z
 
 local function slotOffset(slot: number): (number, number)
@@ -931,8 +933,8 @@ end
 --- no trip back to base camp required, and every player's loop remains local.
 ---
 --- The whole bay now sits on the left side of the entrance extension. Its tub is
---- forward of the final stand row (z = -12 once ROW_PITCH widened), well clear of
---- it, while its pump reaches almost to the front edge. That keeps the display
+--- forward of the final stand row (z = -4.5 once ROW_PITCH widened), well clear
+--- of it, while its pump reaches almost to the front edge. That keeps the display
 --- floor and the entrance strip reading together as one service strip.
 local function buildCleansingStation(parent: Instance, origin: CFrame, accent: string)
 	local m = Instance.new("Model")
@@ -1268,7 +1270,7 @@ end
 --- fill it at. Now it sits in the +X corner just behind the cleansing bay (plot
 --- x ~= 30, z ~= -24), still opening toward the plot entrance (-Z), tucked
 --- between the gantry (its posts reach plot x ~= 27.5, z ~= -29) and the right
---- stand column's last row (z = -12 after ROW_PITCH widened) with clear studs to
+--- stand column's last row (z = -4.5 after ROW_PITCH widened) with clear studs to
 --- each. `ExhibitService` finds every part of it by name, so the move needs
 --- nothing on its side.
 ---
