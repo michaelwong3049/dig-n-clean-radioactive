@@ -45,10 +45,11 @@
 	plaza to be sized by what actually stands on it. The plots did not get
 	smaller through any of these reshuffles; the car park between them did.
 
-	A BASE IS ONE SMOOTH NEAR-BLACK PLATE. The pad is not a slab of concrete, and no
-	longer the plaza's studded board either: it is a single flat plate in
-	`Kit.C.baseFloor`, no studs, one step up from the apron — dropped from the tiled
-	board (navy/grey checker, then flat grey, then flat near-black, now a plain
+	A BASE IS ONE MATTE NEAR-BLACK PLATE. The pad is not a slab of concrete, and no
+	longer the plaza's studded board either: it is a single flat matte plate in
+	`Kit.C.baseFloor` (Material.Plastic, faces smoothed — SmoothPlastic glinted in
+	the sun), no studs, one step up from the apron — dropped from the tiled board
+	(navy/grey checker, then flat grey, then flat near-black, now a plain matte
 	plate) on request. That still makes the six bases the only thing in the world
 	that is not some shade of green, and still makes walking onto one a change of
 	colour rather than a change of surface.
@@ -1500,17 +1501,25 @@ local function buildPlot(parent: Instance, index: number)
 	local slab = Hub.groundSlab(m, rect, "Pad", pad.thickness, tint)
 	slab:SetAttribute("PlotIndex", index)
 
-	-- The visible floor: ONE smooth near-black plate, no studs. Fills exactly the gap
+	-- The visible floor: ONE matte near-black plate, no studs. Fills exactly the gap
 	-- Hub's studded tile cap used to (topY - 0.4 up to topY, matching Hub's own CAP),
 	-- so footing is still pad.topY and nothing built at `pad.topY + n` moves. The
 	-- structural slab above is recessed under this by the same 0.4.
-	build(m, origin, {
+	--
+	-- Material.Plastic + every face smoothed, NOT SmoothPlastic: SmoothPlastic threw a
+	-- hard sun glint across the whole sheet (the reason this world went matte in the
+	-- first place — see Kit.C's header). A fresh Part's TopSurface is Studs, so the
+	-- smoothing pass is what keeps a no-stud Plastic part actually flat.
+	local padFloor = build(m, origin, {
 		name = "PadFloor",
 		pos = { (rect.minX + rect.maxX) / 2, pad.topY - 0.2, (rect.minZ + rect.maxZ) / 2 },
 		size = { rect.maxX - rect.minX, 0.4, rect.maxZ - rect.minZ },
 		color = C.baseFloor,
-		material = "SmoothPlastic",
+		material = "Plastic",
 	})
+	for _, face in { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" } do
+		(padFloor :: any)[face] = Enum.SurfaceType.Smooth
+	end
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
 	-- the colour alone carries the "whose plot" cue now, no glow.

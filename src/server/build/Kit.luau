@@ -146,13 +146,15 @@ Kit.C = {
 	baseTileDark = "212639",
 	baseTileLight = "545A66",
 
-	-- The player bases' pad floor, on request: ONE smooth near-black plate (no studs,
+	-- The player bases' pad floor, on request: ONE matte near-black plate (no studs,
 	-- no tiles) instead of the navy/grey `baseTileDark`/`baseTileLight` studded
-	-- checker — a flat panel one step up from the apron. A hair off pure black and a
-	-- touch cool so it sits with the steel and the navy trim rather than crushing to
-	-- a void. `baseTileDark`/`Light` stay above for anything that still wants the old
-	-- pair.
-	baseFloor = "15161A",
+	-- checker — a flat panel one step up from the apron. MATTE, not SmoothPlastic:
+	-- SmoothPlastic caught a hard sun glint across the whole slab, so buildPlot lays
+	-- this as Material.Plastic with every face smoothed. A very dark cool charcoal —
+	-- lifted off near-pure-black on request so the sheet reads rather than crushing
+	-- to a void. `baseTileDark`/`Light` stay above for anything that still wants the
+	-- old pair.
+	baseFloor = "282A33",
 	grass = "8FD86A",
 	grassDark = "6FB84E",
 	road = "E8DCC0",
