@@ -161,6 +161,13 @@ Kit.C = {
 	-- The side railing down a plot's long edges (Plots.buildSideRailings). A plain
 	-- mid neutral grey — a fence, not a feature; reads as painted metal guard rail.
 	railGrey = "8B8E92",
+	-- What every accent piece on a plot (the side Trim, the nameplate frame, the
+	-- cleansing-station lamp, the two station-sign subtitles) is painted UNTIL an
+	-- owner picks a colour for it in the Settings GUI. An unclaimed plot, and a
+	-- claimed one whose owner has never chosen, both wear this. A shade off railGrey
+	-- so the Trim still reads as its own element against the railings beside it —
+	-- ExhibitService.renderAccent / Plots.setPlotAccent swap in the owner's hex.
+	plotNeutral = "7F8388",
 	grass = "8FD86A",
 	grassDark = "6FB84E",
 	road = "E8DCC0",
@@ -213,16 +220,6 @@ Kit.C = {
 	shopWood = "6B6E73",
 	shopWoodLight = "9A9DA3",
 }
-
---- Per-plot accent colours. Index by plot number. Six clearly-different hues so
---- "whose plot is this" reads from across the plaza. Pulled back up in brightness on
---- request (the de-neon pass had taken them to A65A6E / 4E8C99 / C6A24E / 5F7A99 /
---- C07E4C / 8A6BA6, which read as dull painted trim from a distance) — these sit
---- roughly halfway back toward the original near-fluorescent set, saturated and
---- light enough to pop against the dark base floor without going back to full neon.
---- None of them is the ooze green. Worn matte on the Trim, NameSign and the
---- cleansing-station lamp.
-Kit.PLOT_ACCENT = { "D76388", "4DAEC9", "E5B744", "82A5C8", "E0A05C", "B48CD2" }
 
 -- ── Signage voice ─────────────────────────────────────────────────────────────
 -- Every sign in the world speaks in one font: FredokaOne, the chunky rounded face
@@ -468,6 +465,12 @@ function Kit.billboard(part: BasePart, width: number, height: number, title: str
 	sub.TextStrokeTransparency = 0.5
 	sub.Text = subtitle
 	sub.Parent = gui
+
+	-- Returned so a caller can reach the labels without a positional lookup — the
+	-- plot builders tag this Subtitle `Accent` when they pass their plot colour as
+	-- `subColor`, so Plots.setPlotAccent can repaint it. Additive: nothing used the
+	-- return before.
+	return gui
 end
 
 --- Painted text on a face — the BASE CAMP sign, stage border warnings, plot names.

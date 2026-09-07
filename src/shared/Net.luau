@@ -105,6 +105,15 @@ local REMOTES: { [string]: string } = {
 	-- per-session and never changes once made, so there is nothing to persist and
 	-- no reason to re-fire -- same "once on load" shape as CashState / IndexState.
 	PlotState = "RemoteEvent", -- server -> client, plot index, once on assignment
+
+	-- The player's chosen base accent colour (Settings GUI -> client SettingsController).
+	-- Server -> client once on load with the saved value, so the picker opens showing
+	-- it -- same "once on load" shape as PlotState above. Client -> server to change it:
+	-- the payload is a bare "RRGGBB" hex string, or "" to reset the base back to the
+	-- neutral grey an unclaimed plot wears. The colour lives on the profile
+	-- (data.plotColor), not on a plot -- it follows the player onto whatever plot they
+	-- are assigned. ExhibitService validates the hex (format only) and repaints.
+	PlotColor = "RemoteEvent",
 }
 
 local Net = {}

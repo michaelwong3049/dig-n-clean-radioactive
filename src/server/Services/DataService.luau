@@ -101,6 +101,13 @@ local TEMPLATE = {
 	cleanTokens = 0,
 	rebirths = 0,
 
+	-- The player's chosen base accent colour, "RRGGBB" hex (no leading "#"). "" means
+	-- they have never picked one, which renders the same neutral grey as an unclaimed
+	-- plot until they choose in the Settings GUI. NOT per-plot: plots are assigned per
+	-- session (see ExhibitService's header), so this follows the player onto whichever
+	-- physical plot they land on. Set via Net.PlotColor -> ExhibitService.setPlotColor.
+	plotColor = "",
+
 	railStations = {}, -- stageId -> parts found (PLAN §5.3)
 
 	stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0, rolls = 0 },

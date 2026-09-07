@@ -177,6 +177,18 @@ local BUILDER_VERSION = 28
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
+--- A Kit.billboard whose subtitle is painted in the plot's accent colour. Tags that
+--- Subtitle label `Accent` so Plots.setPlotAccent finds and repaints it alongside the
+--- Trim and the nameplate frame. Same args as `billboard`; drop-in for the two plot
+--- signs (cleansing station, wash pad) that pass `accent` as their subtitle colour.
+local function accentBillboard(part: BasePart, width: number, height: number, title: string, subtitle: string, accent: string)
+	local gui = billboard(part, width, height, title, subtitle, accent)
+	local sub = gui and gui:FindFirstChild("Subtitle")
+	if sub then
+		sub:SetAttribute("Accent", true)
+	end
+end
+
 Plots.COUNT = 6
 Plots.VISIBLE_SLOTS = 11
 -- Interior bays in the Quarantine Locker cabinet (buildQuarantineLocker). Kept in
@@ -936,6 +948,43 @@ function Plots.setHoseTier(station: Instance?, tier: number?): Model?
 	return hose
 end
 
+--- Repaint every accent piece on one plot to `color` — the two side `Trim` strips,
+--- the four `SignFrame` bars round the nameplate, the cleansing-station `Lamp` (and
+--- its `PointLight`), and the `CLEANSING STATION` / `WASH PAD` sign subtitles.
+---
+--- A NIL COLOUR MEANS "UNCLAIMED": it puts back `C.plotNeutral`, the grey a freshly
+--- built plot wears — what ExhibitService hands it when a player leaves. Spelled as a
+--- default rather than a separate `clearAccent()`, same reasoning as setHoseTier above.
+---
+--- TAG-DRIVEN, NOT NAME-DRIVEN. buildPlot stamps `Accent` on the parts and
+--- accentBillboard stamps it on the subtitle labels, so this is the same
+--- "geometry is build-time, skin is runtime" split setHoseTier uses: a service that
+--- needs to recolour plot geometry asks this module rather than learning part names.
+--- The lamp's `PointLight` has no attribute of its own — it is matched by its parent
+--- carrying `Accent`.
+function Plots.setPlotAccent(plot: Instance?, color: Color3?)
+	if plot == nil then
+		return
+	end
+	local paint = color or Color3.fromHex(C.plotNeutral)
+	for _, d in plot:GetDescendants() do
+		if d:IsA("BasePart") then
+			if d:GetAttribute("Accent") then
+				d.Color = paint
+			end
+		elseif d:IsA("PointLight") then
+			local host = d.Parent
+			if host and host:IsA("BasePart") and host:GetAttribute("Accent") then
+				d.Color = paint
+			end
+		elseif d:IsA("TextLabel") then
+			if d:GetAttribute("Accent") then
+				d.TextColor3 = paint
+			end
+		end
+	end
+end
+
 --- The cleansing station — replaces the camp's old central Decon Station and
 --- Decon Shower with one combined stop on EVERY base, per the request. A single
 --- part carries BOTH `StationKind = "decon"` (freezes carried items' decay
@@ -989,7 +1038,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 		material = "Metal",
 		attributes = { StationKind = "decon", Shower = true, Radius = 9 },
 	})
-	billboard(basin, 240, 4.6, "CLEANSING STATION", "clean it, flush it, rack it", accent)
+	accentBillboard(basin, 240, 4.6, "CLEANSING STATION", "clean it, flush it, rack it", accent)
 
 	-- TUB WALLS. The basin used to be a bare slab with a blue plate on top, which read
 	-- as a table, not as something you wash a thing IN. Four low rims turn the same
@@ -1138,7 +1187,9 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- Lamp in the plot's own accent colour, so the station reads as part of
 	-- THIS base rather than a generic fixture repeated six times. Matte now, with a
 	-- soft accent-tinted light -- the one coloured light left on a plot, kept low so
-	-- it warms the station without washing the grey plinths in front of it.
+	-- it warms the station without washing the grey plinths in front of it. `Accent`
+	-- tags the ball; Plots.setPlotAccent repaints both it and its PointLight child
+	-- (matched by "parent carries Accent"). Grey until the owner picks a hue.
 	local lamp = build(m, origin, {
 		name = "Lamp",
 		pos = { cx, pad.topY + 5.9, cz + 1.5 },
@@ -1147,6 +1198,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 		material = "SmoothPlastic",
 		shape = "Ball",
 		canCollide = false,
+		attributes = { Accent = true },
 	})
 	light(lamp, accent, 12, 0.9)
 
@@ -1212,7 +1264,7 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 		rot = Kit.R.cylUp,
 		attributes = { StationKind = "roller", Radius = 6 },
 	})
-	billboard(plate, 250, 4.8, "WASH PAD", `first roll free, then ${Tuning.LIQUID_ROLL_COST}`, accent)
+	accentBillboard(plate, 250, 4.8, "WASH PAD", `first roll free, then ${Tuning.LIQUID_ROLL_COST}`, accent)
 
 	-- The inner disc is coloured water, but it is deliberately matte. The pad is a
 	-- physical interaction surface; making its whole centre Neon made it compete
@@ -1598,7 +1650,13 @@ local function buildPlot(parent: Instance, index: number)
 	-- individually would leave the spawn and the stands facing
 	-- whichever way each was authored.
 	local origin = CFrame.new(center.x, 0, center.z) * CFrame.Angles(0, math.rad(center.facing), 0)
-	local accent = Kit.PLOT_ACCENT[((index - 1) % #Kit.PLOT_ACCENT) + 1]
+	-- Every accent piece (Trim, SignFrame, the cleansing-station Lamp, the two station
+	-- sign subtitles) is built in this ONE neutral grey and carries an `Accent`
+	-- attribute. A plot is colourless until an owner picks a hue in the Settings GUI:
+	-- ExhibitService.renderAccent -> Plots.setPlotAccent walks those tagged pieces and
+	-- repaints them from `data.plotColor` on claim, and back to grey on release. Plots
+	-- used to pick a fixed hue by index here (Kit.PLOT_ACCENT, now gone).
+	local accent = C.plotNeutral
 	local pad = Plots.PAD
 
 	-- THE STAGE, WEARING THE PLAZA'S STUDDED BOARD IN ONE FLAT COLOUR. One step up
@@ -1634,7 +1692,8 @@ local function buildPlot(parent: Instance, index: number)
 	tiles.Parent = m
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
-	-- the colour alone carries the "whose plot" cue now, no glow.
+	-- the colour alone carries the "whose plot" cue now, no glow. `Accent` tags it for
+	-- Plots.setPlotAccent; grey until the owner picks a hue.
 	for _, side in { -1, 1 } do
 		build(m, origin, {
 			name = "Trim",
@@ -1643,6 +1702,7 @@ local function buildPlot(parent: Instance, index: number)
 			color = accent,
 			material = "SmoothPlastic",
 			canCollide = false,
+			attributes = { Accent = true },
 		})
 	end
 
@@ -1679,6 +1739,7 @@ local function buildPlot(parent: Instance, index: number)
 			color = accent,
 			material = "SmoothPlastic",
 			canCollide = false,
+			attributes = { Accent = true },
 		})
 	end
 	-- Standoff arms back to the wall, in the wall's own colour so they read as the
