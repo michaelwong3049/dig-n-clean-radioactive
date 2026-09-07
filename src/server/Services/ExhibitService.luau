@@ -82,7 +82,9 @@ local function plotModel(index: number): Model?
 	return row:FindFirstChild(`Plot{index}`) :: Model?
 end
 
---- Repaint one plot's name sign. Empty name clears it back to "UNCLAIMED".
+--- Repaint one plot's name sign with the owner's display name AS THEY CAPITALISED
+--- it (no `string.upper` — a name like "MattM" stays "MattM"). Empty name clears it
+--- back to the literal "UNCLAIMED".
 local function renderName(index: number, displayName: string?)
 	local plot = plotModel(index)
 	if plot == nil then
@@ -92,7 +94,7 @@ local function renderName(index: number, displayName: string?)
 	local gui = sign and sign:FindFirstChildWhichIsA("SurfaceGui")
 	local label = gui and gui:FindFirstChildWhichIsA("TextLabel")
 	if label then
-		(label :: TextLabel).Text = if displayName and displayName ~= "" then string.upper(displayName) else "UNCLAIMED"
+		(label :: TextLabel).Text = if displayName and displayName ~= "" then displayName else "UNCLAIMED"
 	end
 end
 
