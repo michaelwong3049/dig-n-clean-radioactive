@@ -36,6 +36,7 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
+local Net = require(Shared.Net) -- assign(): tell the owning client its plot index for the "YOUR BASE" beacon
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear) -- renderLuck: the plot's luck-button billboard
 local Rarity = require(Shared.Config.Rarity)
@@ -572,6 +573,13 @@ local function assign(player: Player)
 			if data then
 				renderAll(index, data)
 			end
+
+			-- Tell the owning client which plot is theirs, so BaseMarkerController can
+			-- float the "YOUR BASE" beacon over it. Fired unconditionally (the beacon
+			-- needs only the index, not `data`); assign() runs from DataService.onLoaded,
+			-- well after the client's controllers have connected — the same "once on
+			-- load" timing CashState and IndexState already rely on.
+			Net.get("PlotState"):FireClient(player, index)
 			return
 		end
 	end
