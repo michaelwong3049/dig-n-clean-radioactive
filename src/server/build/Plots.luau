@@ -75,13 +75,18 @@
 	changed since; see "THE BASE LAYOUT" below.
 
 	THE BASE LAYOUT — two flanking columns of stands with the back row filled in
-	across, while a 17-stud entrance-side extension carries the active washing
-	equipment:
+	across (one stand short in the middle, on request, so the centre reads open),
+	while a 17-stud entrance-side extension carries the active washing equipment
+	and an 18-stud back extension gives the columns room to spread:
 
 	    ┌─────────────────────────────────────┐
-	    │  [stand][stand][stand][stand][stand][stand]  │
+	    │  [stand] [stand] [stand] [stand] [stand] │
 	    │  [stand]                   [stand]   │
+	    │                                     │
+	    │  [stand]                   [stand]   │
+	    │                                     │
 	    │  [stand]         spawn      [stand]  │
+	    │                                     │
 	    │  [stand]                   [stand]   │
 	    ├──────── original front edge ─────────┤
 	    │  WASHER + HOSE  [locker]  WASH PAD   │
@@ -93,22 +98,24 @@
 	you fill it at. Built here, filled by ExhibitService.renderLocker; see
 	buildQuarantineLocker.
 
-	12 stands: the two flanking columns of 4 (slots 1-8, `slotOffset` pairs them off
-	row by row — slot 1 = left row 1, slot 2 = right row 1, ...) plus a 4-stand
-	infill (slots 9-12) along the back row, between the two top stands, so that row
-	reads as one continuous run of 6. The cleansing station and its hose rig occupy
-	the +X side of the extension, the wash pad the -X side, with a deliberate safe
-	gap between their station radii.
+	11 stands: the two flanking columns of 4 (slots 1-8, `slotOffset` pairs them off
+	row by row — slot 1 = left row 1, slot 2 = right row 1, ...) plus a 3-stand
+	infill (slots 9-11) along the back row, between the two top stands, so that row
+	reads as one 5-wide run centred on x = 0 (it was a 4-stand infill / 6-wide row
+	until the middle stand was pulled, on request, to open the centre). The
+	cleansing station and its hose rig occupy the +X side of the entrance
+	extension, the wash pad the -X side, with a deliberate safe gap between their
+	station radii.
 
-	SLOTS: 12 BUILT, ALL FREE.
-	Tuning.EXHIBIT_MAX_SLOTS is 12 and VISIBLE_SLOTS is the 12 the sketch shows —
+	SLOTS: 11 BUILT, ALL FREE.
+	Tuning.EXHIBIT_MAX_SLOTS is 11 and VISIBLE_SLOTS is the 11 the sketch shows —
 	they're the same number. Every stand is usable from the moment a plot is
 	claimed; there is no slot to buy or unlock.
 
-	slotOffset only makes sense for these 12 (slots 1-8 flanking, 9-12 the back-row
-	infill). Slots past 12 fall through to the flanking-column formula and would
-	stack a 7th row off the front of the pad — raising VISIBLE_SLOTS past 12 needs a
-	real rule for where the extra pedestals go.
+	slotOffset only makes sense for these 11 (slots 1-8 flanking, 9-11 the back-row
+	infill). Slots past 11 fall through to the flanking-column formula and would
+	stack a 5th row deeper toward the entrance — raising VISIBLE_SLOTS past 11 needs
+	a real rule for where the extra pedestals go.
 
 	THE WORLD CONTRACT:
 	    Pad         PlotIndex = n
@@ -171,7 +178,7 @@ local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
 Plots.COUNT = 6
-Plots.VISIBLE_SLOTS = 12
+Plots.VISIBLE_SLOTS = 11
 -- Interior bays in the Quarantine Locker cabinet (buildQuarantineLocker). Kept in
 -- step with the cleansing-station panel's own LOCKER_ROWS; ExhibitService.renderLocker
 -- reads the same number. A locker with more than this many racked items just doesn't
@@ -181,13 +188,16 @@ Plots.LOCKER_SLOTS = 3
 -- step down), expressed relative to Hub.PLAZA.topY rather than as a bare literal so
 -- it keeps meaning "+1.5 above the plaza" if that ever moves again, instead of
 -- silently becoming a different absolute step.
--- The original pad ran from local Z -26 to +26. Only the entrance edge moved:
--- extending minZ to -43 adds a 17-stud service strip without moving the stands,
--- locker, or back wall (the luck button since moved out onto that strip, beside the
--- wash pad). Keeping explicit bounds avoids pretending an
+-- The original pad ran from local Z -26 to +26. Both edges have since moved,
+-- independently: minZ went to -43 for a 17-stud entrance-side service strip (the
+-- washing equipment and the luck button), and maxZ went from +26 to +44 on
+-- request — an 18-stud extension straight out the back, behind the old wall, so
+-- the two flanking stand columns can be spread over a deeper interior (ROW_PITCH
+-- below). The back wall, nameplate and accent trim all read maxZ, so they follow
+-- the edge out on their own. Keeping explicit bounds avoids pretending an
 -- asymmetric pad is centred on the plot origin.
 local PAD_MIN_Z = -43
-local PAD_MAX_Z = 26
+local PAD_MAX_Z = 44
 Plots.PAD = {
 	width = 66,
 	depth = PAD_MAX_Z - PAD_MIN_Z,
@@ -273,18 +283,19 @@ Plots.RING_RADIUS = 180
 
 --- The walkway's outer disc radius — has to clear the farthest PAD CORNER from
 --- RING_CENTER, not just the farthest pad centre. The entrance extension grows
---- inward toward the ring centre, so the farthest outward corner is still the old
---- back edge at local Z +26: `sqrt((RING_RADIUS+26)^2 + HALF_W^2)` = ~208.6 studs.
+--- inward toward the ring centre, so the farthest outward corner is the back
+--- edge at local Z +44 (the +18 back extension, PAD_MAX_Z above):
+--- `sqrt((RING_RADIUS+44)^2 + HALF_W^2)` = ~226.4 studs, up from ~208.6 when the
+--- back edge was at +26.
 ---
---- 235, TRIMMED BACK DOWN FROM 290, ON REQUEST — 290's ~80-stud buffer past
---- every pad's farthest corner read as a wide belt of empty tiled ground
---- ringing the whole camp (most visible on the west cap, farthest from the
---- plaza, where nothing but the walkway itself ever stood). 235 keeps a real
---- ~26-stud margin past the 208.6 reach — still comfortably more than the
---- previous 215's ~6-stud margin, just nowhere near 290's — without any other
---- change: `apronSkip`, the backing bands and World.verify()'s landmass
+--- 245, NUDGED OUT FROM 235 TO KEEP THE MARGIN — 235 (itself trimmed from 290 on
+--- request, whose ~80-stud buffer read as a wide belt of empty tiled ground
+--- ringing the camp) left only ~8.6 studs past the deeper pads' corners, close
+--- enough that the perimeter wall kissed the plot backs. 245 restores a real
+--- ~18-stud margin past the 226.4 reach without any other change: `apronSkip`,
+--- the backing bands, the Scenery perimeter wall and World.verify()'s landmass
 --- square all already read this constant rather than a hardcoded reach.
-Plots.RING_OUTER = 235
+Plots.RING_OUTER = 245
 
 --- 34-degree spacing (was 30, widened on request for more breathing room
 --- between pads at the same radius), sector MIDPOINTS (see this section's own
@@ -394,21 +405,27 @@ local function apronSkip(x: number, z: number): boolean
 	return false
 end
 
---- STAND LAYOUT — two flanking columns of 4, plus a 4-stand infill that turns the
---- back row into one continuous 6-wide row along the back wall.
+--- STAND LAYOUT — two flanking columns of 4, plus a 3-stand infill that turns the
+--- back row into one continuous 5-wide run along the back wall. 11 stands total.
 ---
 --- Slots 1-8 are the two flanking columns, paired off row by row — odd slots go
 --- left, even slots go right, each pair sharing a Z. ROW_TOP_Z is the FIRST row,
 --- closest to the back wall; rows count DOWN from there toward the entrance.
+--- ROW_PITCH is 15 (was 10): the +18 back extension (PAD_MAX_Z) gave the interior
+--- the depth to spread the four rows out, and ROW_TOP_Z moved back to 33 to sit
+--- the run against the wall's new position rather than leave 18 empty studs
+--- behind it.
 ---
---- Slots 9-12 fill the gap along ROW_TOP_Z BETWEEN the two top stands (slots 1 and
---- 2 at ±COL_X), on request — four pedestals at x = ∓15, ∓5 so the back row reads
---- as -25 -15 -5 5 15 25, one unbroken run. They are the last four slots so the
---- flanking columns (and any saved item in slots 1-8) keep their exact positions.
+--- Slots 9-11 fill the gap along ROW_TOP_Z BETWEEN the two top stands (slots 1 and
+--- 2 at ±COL_X) — three pedestals at x = ∓12.5, 0 so the back row reads as
+--- -25 -12.5 0 12.5 25, one unbroken 5-wide run centred on x = 0. This was a
+--- 4-stand infill (a 6-wide back row) until the middle stand was pulled on
+--- request to open the centre up; dropping the highest infill slot keeps slots
+--- 1-8 (and any saved item in them) exactly where they were.
 local COL_X = 25
-local ROW_TOP_Z = 15
-local ROW_PITCH = 10
-local BACK_ROW_INFILL_X = { -15, -5, 5, 15 } -- slots 9-12, along ROW_TOP_Z
+local ROW_TOP_Z = 33
+local ROW_PITCH = 15
+local BACK_ROW_INFILL_X = { -12.5, 0, 12.5 } -- slots 9-11, along ROW_TOP_Z
 
 local function slotOffset(slot: number): (number, number)
 	if BACK_ROW_INFILL_X[slot - 8] ~= nil then
@@ -914,9 +931,9 @@ end
 --- no trip back to base camp required, and every player's loop remains local.
 ---
 --- The whole bay now sits on the left side of the entrance extension. Its tub is
---- forward of the unchanged final stand row, while its pump reaches almost to the
---- new front edge. That keeps the original display floor intact and makes the two
---- active stations read together as one service strip.
+--- forward of the final stand row (z = -12 once ROW_PITCH widened), well clear of
+--- it, while its pump reaches almost to the front edge. That keeps the display
+--- floor and the entrance strip reading together as one service strip.
 local function buildCleansingStation(parent: Instance, origin: CFrame, accent: string)
 	local m = Instance.new("Model")
 	m.Name = "CleansingStation"
@@ -1251,8 +1268,9 @@ end
 --- fill it at. Now it sits in the +X corner just behind the cleansing bay (plot
 --- x ~= 30, z ~= -24), still opening toward the plot entrance (-Z), tucked
 --- between the gantry (its posts reach plot x ~= 27.5, z ~= -29) and the right
---- stand column's last row (z = -15) with a few studs clear of each. `Exhibit
---- Service` finds every part of it by name, so the move needs nothing on its side.
+--- stand column's last row (z = -12 after ROW_PITCH widened) with clear studs to
+--- each. `ExhibitService` finds every part of it by name, so the move needs
+--- nothing on its side.
 ---
 --- THE DOOR IS ITS OWN MODEL, built CLOSED in a frame anchored at the hinge (the
 --- -X edge of the opening), so a yaw about that frame's own vertical axis swings
@@ -1451,8 +1469,9 @@ end
 --- wear, so the base reads as built out of the same blocks as everything around it.
 --- ONE flat colour (the brighter of the old plaza pair, `C.plazaWarm`), on request —
 --- the two-tone checker read as busy behind the nameplate. Front face at local z =
---- `pad.maxZ - 0.5` (unchanged at local z = 25.5), so the NameSign still bolts
---- straight to it; taller than the old 10-stud slab, on request.
+--- `pad.maxZ - 0.5` (local z = 43.5 since the +18 back extension moved maxZ out
+--- from 26 to 44), so the wall and the NameSign bolted to it follow the edge on
+--- their own; taller than the old 10-stud slab, on request.
 local BACKWALL_TILE = 3.3 -- ~20 columns across the 66-wide pad, ~5 rows up the 16 tall
 local BACKWALL_HEIGHT = 16
 local function buildBackWall(parent: Instance, origin: CFrame)
