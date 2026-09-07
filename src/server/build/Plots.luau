@@ -384,10 +384,30 @@ end
 --- same-height tile is invisible, unlike the seam it replaces.
 local PLAZA_SKIP_MARGIN = 3
 
+--- HOW FAR PAST THE RING THE GROUND IS ACTUALLY LAID. RING_OUTER is the apron's
+--- true edge -- every margin / pad-corner-reach figure above is measured to it and
+--- stays that way -- but the Scenery perimeter wall (`Scenery.buildBaseWalls`)
+--- sits just OUTSIDE that edge: its arc is centred on RING_OUTER + WALL_THICKNESS/2
+--- and the wall is WALL_THICKNESS (8) deep, so its INNER face lands right on
+--- r = RING_OUTER and its outer face ~8 studs past. The tiled cap and its backing
+--- bands both used to stop dead at RING_OUTER, which left a thin scalloped strip of
+--- open void between the cap's staircase edge (a 3-stud tile grid clipped to a
+--- circle wobbles +/- a tile) and that wall face -- it reads as bright slivers
+--- along the curve at the shallow angle a standing player sees it from.
+---
+--- Laying the ground a full wall-depth past the ring runs it continuously UNDER the
+--- wall instead, so there is no bearing where the floor gives out before the wall
+--- does. The extra rim is hidden beneath a 56-stud wall from every camera inside
+--- the camp, so overshooting is free; undershooting is the bug. +10 is the 8 the
+--- wall needs plus a 2-stud cushion -- Plots cannot require Scenery to read
+--- WALL_THICKNESS directly (that is the cycle the apron comment below and
+--- Scenery's own header both describe), so the cushion covers the coupling.
+local APRON_CAP_RADIUS = Plots.RING_OUTER + 10
+
 local function apronSkip(x: number, z: number): boolean
 	local dx, dz = x - Plots.RING_CENTER.x, z - Plots.RING_CENTER.z
-	if dx * dx + dz * dz > Plots.RING_OUTER * Plots.RING_OUTER then
-		return true -- outside the disc
+	if dx * dx + dz * dz > APRON_CAP_RADIUS * APRON_CAP_RADIUS then
+		return true -- outside the disc (laid past RING_OUTER to tuck under the perimeter wall)
 	end
 	if
 		x > PLAZA.minX + PLAZA_SKIP_MARGIN
@@ -1628,8 +1648,11 @@ end
 --- require back the other way would be a cycle. Hub owns the PATTERN and exports it;
 --- this file owns the SHAPE and asks for it to be tiled.
 ---
---- THE VISIBLE CAP is one `Hub.tileRect` call over a square bounding RING_OUTER,
---- clipped at `maxX = PLAZA.maxX` (Stage 1's own west edge, touching not
+--- THE VISIBLE CAP is one `Hub.tileRect` call over a square bounding
+--- APRON_CAP_RADIUS (RING_OUTER plus a wall-depth, so the tiles run UNDER the
+--- Scenery perimeter wall rather than stopping at its inner face — see that
+--- constant's own comment above `apronSkip`), clipped at `maxX = PLAZA.maxX`
+--- (Stage 1's own west edge, touching not
 --- crossing it — the same shared-edge convention the plaza's own east side
 --- already uses) and punched by `apronSkip` (plaza + every pad's own oriented
 --- footprint) — see that function's own comment above.
@@ -1656,30 +1679,35 @@ end
 ---
 --- THE STRUCTURAL BACKING underneath is N horizontal bands rather than one big
 --- rectangle, each inscribed so its own farthest corner lands exactly on the
---- RING_OUTER circle — a single bounding rectangle would round the disc's curve
---- out to a square and leave the tiled cap's corners floating over open air.
---- Purely cosmetic backing (World.verify() never inspects apron shape): if it
---- ever needs to look tidier from underneath, BANDS is the one knob to turn.
+--- APRON_CAP_RADIUS circle — a single bounding rectangle would round the disc's
+--- curve out to a square and leave the tiled cap's corners floating over open air.
+--- (Same radius as the cap, so the backing also reaches under the perimeter wall
+--- and nothing shows through the cap's edge tiles from a low angle at the wall
+--- base.) Purely cosmetic backing (World.verify() never inspects apron shape): if
+--- it ever needs to look tidier from underneath, BANDS is the one knob to turn.
 local function buildApron(row: Model)
 	local apron = Instance.new("Folder")
 	apron.Name = "Apron"
 
+	-- APRON_CAP_RADIUS, not RING_OUTER: the cap and its backing bands both run a
+	-- wall-depth past the ring so they pass under the Scenery perimeter wall instead
+	-- of stopping at its inner face — see that constant's own comment above.
 	local discBounds: Hub.Rect = {
-		minX = Plots.RING_CENTER.x - Plots.RING_OUTER,
+		minX = Plots.RING_CENTER.x - APRON_CAP_RADIUS,
 		maxX = PLAZA.maxX,
-		minZ = Plots.RING_CENTER.z - Plots.RING_OUTER,
-		maxZ = Plots.RING_CENTER.z + Plots.RING_OUTER,
+		minZ = Plots.RING_CENTER.z - APRON_CAP_RADIUS,
+		maxZ = Plots.RING_CENTER.z + APRON_CAP_RADIUS,
 	}
 	Hub.tileRect(apron, discBounds, { skip = apronSkip, pad = true })
 
 	local BANDS = 12
-	local bandHeight = (2 * Plots.RING_OUTER) / BANDS
+	local bandHeight = (2 * APRON_CAP_RADIUS) / BANDS
 	for i = 0, BANDS - 1 do
-		local zLo = Plots.RING_CENTER.z - Plots.RING_OUTER + i * bandHeight
+		local zLo = Plots.RING_CENTER.z - APRON_CAP_RADIUS + i * bandHeight
 		local zHi = zLo + bandHeight
 		local reach = math.max(math.abs(zLo - Plots.RING_CENTER.z), math.abs(zHi - Plots.RING_CENTER.z))
-		if reach < Plots.RING_OUTER then
-			local safeHalfX = math.sqrt(Plots.RING_OUTER ^ 2 - reach ^ 2)
+		if reach < APRON_CAP_RADIUS then
+			local safeHalfX = math.sqrt(APRON_CAP_RADIUS ^ 2 - reach ^ 2)
 			Hub.groundSlab(apron, {
 				minX = Plots.RING_CENTER.x - safeHalfX,
 				maxX = PLAZA.maxX,
