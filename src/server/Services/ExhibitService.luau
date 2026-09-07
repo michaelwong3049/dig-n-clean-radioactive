@@ -666,10 +666,11 @@ function ExhibitService.setPlotColor(player: Player, hex: string?): (boolean, st
 	end
 
 	-- Blunt a client spamming the remote — a cosmetic write never needs to run more
-	-- than a few times a second, and each one walks the plot's descendants.
+	-- than several times a second, and each one walks the plot's descendants. Short
+	-- enough that two deliberate drag-releases in a row both land.
 	local now = os.clock()
 	local previous = lastColorSet[player]
-	if previous ~= nil and now - previous < 0.25 then
+	if previous ~= nil and now - previous < 0.12 then
 		return false, "slow down"
 	end
 	lastColorSet[player] = now
