@@ -154,6 +154,13 @@ Kit.C = {
 	-- to studs at this tone. `baseTileDark`/`Light` stay above for anything that
 	-- still wants the old pair.
 	baseFloor = "282A33",
+	-- The plot's back wall. WAS `plazaWarm` (a light cream) — dropped to a dark warm
+	-- taupe on request so the wall recedes behind the nameplate and the accent trim
+	-- instead of glowing pale over the whole base.
+	baseWall = "473F37",
+	-- The side railing down a plot's long edges (Plots.buildSideRailings). A plain
+	-- mid neutral grey — a fence, not a feature; reads as painted metal guard rail.
+	railGrey = "8B8E92",
 	grass = "8FD86A",
 	grassDark = "6FB84E",
 	road = "E8DCC0",
@@ -208,11 +215,14 @@ Kit.C = {
 }
 
 --- Per-plot accent colours. Index by plot number. Six clearly-different hues so
---- "whose plot is this" reads from across the plaza — retoned muted with the de-neon
---- pass (they were near-fluorescent: FF6B9D / 4CC9F0 / FFC93C / 7CE05A / FF9F45 /
---- B15CFF). Now they read as painted trim, not as lights. None of them is the ooze
---- green. Worn matte on the Trim, NameSign and the cleansing-station lamp.
-Kit.PLOT_ACCENT = { "A65A6E", "4E8C99", "C6A24E", "5F7A99", "C07E4C", "8A6BA6" }
+--- "whose plot is this" reads from across the plaza. Pulled back up in brightness on
+--- request (the de-neon pass had taken them to A65A6E / 4E8C99 / C6A24E / 5F7A99 /
+--- C07E4C / 8A6BA6, which read as dull painted trim from a distance) — these sit
+--- roughly halfway back toward the original near-fluorescent set, saturated and
+--- light enough to pop against the dark base floor without going back to full neon.
+--- None of them is the ooze green. Worn matte on the Trim, NameSign and the
+--- cleansing-station lamp.
+Kit.PLOT_ACCENT = { "D76388", "4DAEC9", "E5B744", "82A5C8", "E0A05C", "B48CD2" }
 
 -- ── Signage voice ─────────────────────────────────────────────────────────────
 -- Every sign in the world speaks in one font: FredokaOne, the chunky rounded face
