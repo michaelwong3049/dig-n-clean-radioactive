@@ -69,6 +69,11 @@ local plotOf: { [Player]: number } = {}
 local plotOwner: { [number]: Player? } = {}
 
 local resultRemote: any = nil
+local colorRemote: any = nil
+
+-- Last os.clock() each player set their base colour, so a client cannot spam the
+-- PlotColor remote into a repaint loop. Cleared on release.
+local lastColorSet: { [Player]: number } = {}
 
 -- ── Rendering ─────────────────────────────────────────────────────────────────
 -- The only place this file touches Workspace directly. Kept small and separate so
@@ -96,6 +101,29 @@ local function renderName(index: number, displayName: string?)
 	if label then
 		(label :: TextLabel).Text = if displayName and displayName ~= "" then displayName else "UNCLAIMED"
 	end
+end
+
+--- Repaint one plot's accent pieces — the side Trim, the nameplate frame, the
+--- cleansing-station lamp, the two station-sign subtitles — from the owner's chosen
+--- colour (`data.plotColor`, an "RRGGBB" hex). `data == nil`, an empty string, or a
+--- malformed hex all fall through to nil, and Plots.setPlotAccent then paints the
+--- neutral grey a freshly built (unclaimed) plot wears. `Color3.fromHex` throws on
+--- bad input, hence the pcall — the format is checked on the way in (setPlotColor)
+--- but a save could still carry something odd.
+local function renderAccent(index: number, data: any?)
+	local plot = plotModel(index)
+	if plot == nil then
+		return
+	end
+	local color: Color3? = nil
+	local hex = data and data.plotColor
+	if type(hex) == "string" and hex ~= "" then
+		local ok, parsed = pcall(Color3.fromHex, hex)
+		if ok then
+			color = parsed
+		end
+	end
+	Plots.setPlotAccent(plot, color)
 end
 
 --- Repaint one plot's luck button to the given profile's current multiplier and the
@@ -511,6 +539,7 @@ end
 local function renderAll(index: number, data: any)
 	local owner = plotOwner[index]
 	renderName(index, if owner then owner.DisplayName else nil)
+	renderAccent(index, data)
 	renderLuck(index, data)
 	for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
 		renderStand(index, slot, nil, nil)
@@ -620,6 +649,56 @@ function ExhibitService.refreshLocker(player: Player)
 	end
 end
 
+--- Set this player's chosen base accent colour and repaint their plot. `hex` is a
+--- bare "RRGGBB" (a leading "#" is tolerated) or "" to go back to the neutral grey.
+--- The Settings GUI's picker is a full RGB wheel by design, so this validates FORMAT
+--- ONLY — there is no palette to check against and no saturation/brightness floor.
+--- The colour lives on the profile and renderAccent re-applies it on the next
+--- assignment, so it follows the player onto whatever plot they land on.
+---
+--- Same "a purchase/choice changes world state ExhibitService owns" shape as
+--- refreshLuck / refreshHose: the client's remote handler (start) calls this, the
+--- validation and the repaint both live here.
+function ExhibitService.setPlotColor(player: Player, hex: string?): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+
+	-- Blunt a client spamming the remote — a cosmetic write never needs to run more
+	-- than several times a second, and each one walks the plot's descendants. Short
+	-- enough that two deliberate drag-releases in a row both land.
+	local now = os.clock()
+	local previous = lastColorSet[player]
+	if previous ~= nil and now - previous < 0.12 then
+		return false, "slow down"
+	end
+	lastColorSet[player] = now
+
+	local clean: string
+	if hex == nil or hex == "" then
+		clean = ""
+	else
+		local matched = if type(hex) == "string" then string.match(hex, "^#?(%x%x%x%x%x%x)$") else nil
+		if matched == nil then
+			return false, "that isn't a colour"
+		end
+		clean = string.lower(matched)
+	end
+
+	data.plotColor = clean
+
+	local index = plotOf[player]
+	if index ~= nil then
+		renderAccent(index, data)
+		-- BaseMarkerController reads Trim.Color when it builds the "YOUR BASE" beacon;
+		-- PlotState is the signal that (re)builds it, so re-fire it so the ring follows.
+		Net.get("PlotState"):FireClient(player, index)
+	end
+
+	return true, if clean == "" then "base colour reset" else "base colour updated"
+end
+
 local function assign(player: Player)
 	for index = 1, PLOT_COUNT do
 		if plotOwner[index] == nil then
@@ -666,6 +745,7 @@ local function release(player: Player)
 	end
 	plotOf[player] = nil
 	plotOwner[index] = nil
+	lastColorSet[player] = nil
 
 	local plot = plotModel(index)
 	if plot then
@@ -674,6 +754,7 @@ local function release(player: Player)
 			spawn.Enabled = false
 		end
 		renderName(index, nil)
+		renderAccent(index, nil)
 		renderLuck(index, nil)
 		renderHose(index, nil)
 		for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
@@ -898,9 +979,22 @@ end
 
 function ExhibitService.init()
 	resultRemote = Net.get("StationResult")
+	colorRemote = Net.get("PlotColor")
 end
 
 function ExhibitService.start()
+	-- The Settings GUI's base-colour picker. The client sends a bare hex string ("" to
+	-- reset); setPlotColor validates the format, persists it and repaints. We echo the
+	-- SERVER-CONFIRMED value straight back so the picker snaps to what actually stuck
+	-- (a rejected or debounced change leaves data.plotColor unchanged, so the echo
+	-- reverts the client). No StationResult toast — the picker is not a station, and
+	-- that toast is invisible away from one (memory: station-result-toast-needs-panel).
+	colorRemote.OnServerEvent:Connect(function(player: Player, hex)
+		ExhibitService.setPlotColor(player, if type(hex) == "string" then hex else "")
+		local data = DataService.data(player)
+		colorRemote:FireClient(player, if data then data.plotColor else "")
+	end)
+
 	DataService.onLoaded(function(player, data)
 		-- Saves made before every stand was free stored a lower slot count (the old
 		-- EXHIBIT_STARTING_SLOTS was 3, upgraded with cash). Bring anyone below the
@@ -911,6 +1005,10 @@ function ExhibitService.start()
 		bankOffline(data)
 		deposit(player, data)
 		assign(player)
+
+		-- Open the Settings picker on the player's saved base colour ("" = never
+		-- picked). Same "once on load" timing as the PlotState fire inside assign().
+		colorRemote:FireClient(player, data.plotColor)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
