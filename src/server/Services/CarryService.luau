@@ -112,7 +112,7 @@ function CarryService.describe(item: any, stats: any): any
 	-- undamped, since ExhibitService's duplicate-copy damping depends on what
 	-- else is already on your own plot, which this function has no visibility
 	-- into (it describes a bag item, not a placement). nil whenever
-	-- ExhibitService.display would actually refuse it (dirty, or Slagged), so
+	-- ExhibitService.interact would actually refuse it (dirty, or Slagged), so
 	-- this is never a number the game won't actually pay out.
 	local perSecond: number? = nil
 	if clean and item.modifier ~= "Slagged" then
