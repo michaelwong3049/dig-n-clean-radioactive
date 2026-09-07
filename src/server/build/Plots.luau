@@ -1493,8 +1493,8 @@ end
 --- on request so the wall sits back behind the nameplate instead of glowing pale.
 --- Front face at local z =
 --- `pad.maxZ - 0.5` (local z = 43.5 since the +18 back extension moved maxZ out
---- from 26 to 44), so the wall and the NameSign bolted to it follow the edge on
---- their own; taller than the old 10-stud slab, on request.
+--- from 26 to 44), so the wall and the NameSign standing proud of it on standoff
+--- arms follow the edge on their own; taller than the old 10-stud slab, on request.
 local BACKWALL_TILE = 3.3 -- ~20 columns across the 66-wide pad, ~5 rows up the 16 tall
 local BACKWALL_HEIGHT = 16
 local function buildBackWall(parent: Instance, origin: CFrame)
@@ -1646,20 +1646,56 @@ local function buildPlot(parent: Instance, index: number)
 		})
 	end
 
-	-- Back wall (studded checkerboard, see buildBackWall) and the nameplate the owner's
-	-- display name goes on. The sign is matte in the plot's accent colour — the Trim
-	-- and the sign carry "whose plot is this" on hue alone; no accent light any more,
-	-- which used to bounce the plot's colour onto the grey plinths in front of it.
+	-- Back wall (studded checkerboard, see buildBackWall) and the nameplate that
+	-- carries the owner's display name. Dark neutral placard (`C.signText`) with light
+	-- text in a thin accent frame — the frame lifts it clear of the equally-dark wall
+	-- and carries the plot's hue the same way the side `Trim` does. Floated ~2 studs
+	-- proud of the wall on two standoff arms (a wider gap threw a big soft shadow on
+	-- the wall) and raised to `pad.topY + 11.5` so it clears the back row of stands.
 	buildBackWall(m, origin)
 	buildSideRailings(m, origin)
+	local SIGN_Y = pad.topY + 11.5
+	local SIGN_W, SIGN_H = 34, 4
+	local SIGN_Z = pad.maxZ - 2.7 -- the wall's own front face is at pad.maxZ - 0.5
 	local sign = build(m, origin, {
 		name = "NameSign",
-		pos = { 0, pad.topY + 8, pad.maxZ - 1.4 },
-		size = { 34, 4, 0.4 },
-		color = accent,
+		pos = { 0, SIGN_Y, SIGN_Z },
+		size = { SIGN_W, SIGN_H, 0.4 },
+		color = C.signText,
 		material = "SmoothPlastic",
 	})
-	Kit.surfaceText(sign, Enum.NormalId.Front, "UNCLAIMED", C.signText)
+	-- Thin accent frame, flush with the sign's front face — four bars, corners lapped.
+	local FRAME = 0.6
+	for _, bar in {
+		{ w = SIGN_W + FRAME * 2, h = FRAME, x = 0, y = (SIGN_H + FRAME) / 2 },
+		{ w = SIGN_W + FRAME * 2, h = FRAME, x = 0, y = -(SIGN_H + FRAME) / 2 },
+		{ w = FRAME, h = SIGN_H, x = (SIGN_W + FRAME) / 2, y = 0 },
+		{ w = FRAME, h = SIGN_H, x = -(SIGN_W + FRAME) / 2, y = 0 },
+	} do
+		build(m, origin, {
+			name = "SignFrame",
+			pos = { bar.x, SIGN_Y + bar.y, SIGN_Z - 0.2 },
+			size = { bar.w, bar.h, 0.6 },
+			color = accent,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+	end
+	-- Standoff arms back to the wall, in the wall's own colour so they read as the
+	-- mounting rather than as part of the sign — the floated panel needs something
+	-- visibly holding it.
+	local armBackZ = pad.maxZ - 0.5
+	local armFrontZ = SIGN_Z + 0.2
+	for _, sx in { -14, 14 } do
+		build(m, origin, {
+			name = "SignArm",
+			pos = { sx, SIGN_Y, (armFrontZ + armBackZ) / 2 },
+			size = { 0.5, 0.5, armBackZ - armFrontZ },
+			color = C.baseWall,
+			material = "Metal",
+		})
+	end
+	Kit.surfaceText(sign, Enum.NormalId.Front, "UNCLAIMED", C.labelText)
 
 	-- No claim board any more: exhibit income is auto-deposited into the owner's
 	-- wallet (ExhibitService.deposit), so there is nothing here to walk up to and
