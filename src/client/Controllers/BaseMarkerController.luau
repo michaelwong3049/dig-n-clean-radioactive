@@ -13,6 +13,11 @@
 	PlotState, fired once from ExhibitService.assign). Whose plot is whose for
 	everyone else is already carried by the Trim colour and the back-wall sign.
 
+	HIDDEN INSIDE A STAGE. It is a safe-zone wayfinding aid, not a HUD element — once
+	you step into a field there is nothing to navigate to and the sky-high AlwaysOnTop
+	marker would just hang in view over the hazard. Toggled off `ExposureState.stageId`
+	(nil = safe zone), the exact signal WarpController uses to hide its BASE/SHOPS bar.
+
 	A WORLD-SPACE BillboardGui PARENTED TO THE PAD, not a ScreenGui — same choice
 	NameTagController makes for the overhead name. It rides the plot slab, so a
 	respawn never touches it and a Studio `Plots` rebuild takes it away cleanly with
@@ -37,11 +42,22 @@ local FACE_FILL = Color3.fromHex("11150F") -- shows for the beat before the thum
 local ACCENT_FALLBACK = Color3.fromHex("B7C0B8") -- if the plot has no Trim to read a colour off
 
 local marker: BillboardGui? = nil
+-- Set from ExposureState every tick. The beacon shows only in the safe zone.
+local inStage = false
 
 local function clear()
 	if marker then
 		marker:Destroy()
 		marker = nil
+	end
+end
+
+--- Beacon is visible only outside a stage. Re-applied both on every ExposureState
+--- tick and right after a (re)build, so a beacon that gets rebuilt while you are in
+--- a field comes back already hidden.
+local function applyVisibility()
+	if marker then
+		marker.Enabled = not inStage
 	end
 end
 
@@ -108,6 +124,7 @@ local function build(pad: BasePart, accent: Color3)
 
 	gui.Parent = pad
 	marker = gui
+	applyVisibility()
 end
 
 --- `index` nil means "no plot this session" (all six taken); otherwise it is the
@@ -131,6 +148,13 @@ end
 
 function BaseMarker.start()
 	Net.get("PlotState").OnClientEvent:Connect(onPlot)
+
+	-- ExposureState ticks ~10Hz; stageId is nil in the safe zone and the field id
+	-- once you cross in. Same read WarpController does to slide its bar away.
+	Net.get("ExposureState").OnClientEvent:Connect(function(state)
+		inStage = state.stageId ~= nil
+		applyVisibility()
+	end)
 end
 
 return BaseMarker
