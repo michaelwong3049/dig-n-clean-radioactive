@@ -877,6 +877,33 @@ function Spec.run(): boolean
 		check("§2 grime level runs 1 to 0 as patches come off", graded)
 	end
 
+	-- YOU CLEAN THE PATCH YOU AIMED AT. The wash bay times one bank per dirty area and
+	-- names the index when that bank fills (WashService's tick), which only means
+	-- anything if `clearAt` removes THAT patch. Its predecessor `clearOne` picked the
+	-- easiest itself -- invisible while there was one shared clock, and a live bug the
+	-- moment there are six: eight seconds of work on a crusted corner would pop an easy
+	-- patch on the far side of the object instead. The potency gate lives in here too,
+	-- because the index arrives from the client and a client naming a patch it cannot
+	-- reach is the one thing on that path worth calling an exploit.
+	do
+		local patches = { 1, 4, 2 }
+		local hardness, index = Contamination.clearAt(patches, 2, 5)
+		check("§2 clearAt removes the patch it was told to", hardness == 4 and index == 2 and #patches == 2 and patches[2] == 2)
+
+		local walled = Contamination.clearAt(patches, 1, 0)
+		check("§2 clearAt refuses a patch past this potency", walled == nil and #patches == 2)
+
+		local missing = Contamination.clearAt(patches, 9, 99)
+		check("§2 clearAt refuses an index that names nothing", missing == nil and #patches == 2)
+
+		-- The wall, asked on its own now that no clear attempt reports it as a side
+		-- effect. It has to stay a question about the PATCHES: a player aiming at empty
+		-- air is an ordinary thing to be doing for a second and must never end the session.
+		check("§2 anyReachable sees a patch inside this potency", Contamination.anyReachable({ 3, 6 }, 3))
+		check("§2 anyReachable is the wall when every patch is past it", not Contamination.anyReachable({ 4, 6 }, 3))
+		check("§2 anyReachable on a clean item is false", not Contamination.anyReachable({}, 99))
+	end
+
 	-- THE FILM COMES OFF EXACTLY. Cleaning has to hand back the authored art, not an
 	-- approximation of it, and apply() has to be safe to call on every tick of a wash --
 	-- so a repaint at a FALLING level must walk back toward the original rather than

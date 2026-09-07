@@ -249,9 +249,19 @@ function World.verify(): (boolean, { string })
 	-- six facings on the semicircular ring are multiples of 90 any more, so
 	-- this needs the pad's real, rotated footprint -- Kit.orientedRectsOverlap,
 	-- the same separating-axis test Plots.luau's own apron uses to punch pads
-	-- out of the walkway.
+	-- out of the walkway. The pad is no longer centred on the plot origin: its
+	-- entrance edge extends 17 studs inward, so translate the rectangle's centre
+	-- by its local-Z midpoint before rotating it into world space.
 	local function padRect(centre: { x: number, z: number, facing: number }): Kit.OrientedRect
-		return { cx = centre.x, cz = centre.z, halfWidth = Plots.PAD.width / 2, halfDepth = Plots.PAD.depth / 2, yawDeg = centre.facing }
+		local localCenterZ = (Plots.PAD.minZ + Plots.PAD.maxZ) / 2
+		local yaw = math.rad(centre.facing)
+		return {
+			cx = centre.x + localCenterZ * math.sin(yaw),
+			cz = centre.z + localCenterZ * math.cos(yaw),
+			halfWidth = Plots.PAD.width / 2,
+			halfDepth = Plots.PAD.depth / 2,
+			yawDeg = centre.facing,
+		}
 	end
 
 	-- An axis-aligned rectangle expressed the same way, so the plaza and a stage
@@ -391,7 +401,7 @@ function World.verify(): (boolean, { string })
 		`expected {Plots.COUNT} wash pads (one per base), found {census.roller or 0}`
 	)
 
-	-- ...and one luck button per base, on the back wall of the pad it bends the odds for.
+	-- ...and one luck button per base, staked beside the wash pad it bends the odds for.
 	local luckButtons = 0
 	for _, d in Workspace:GetDescendants() do
 		if d:IsA("BasePart") and d:GetAttribute("SellsTrack") == "Luck" then

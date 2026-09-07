@@ -45,12 +45,20 @@ Kit.UPGRADE_TAG = "Upgrade"
 --
 -- The first block is the base camp's original palette, unchanged — the camp still
 -- looks exactly as it did. The second is the bright outdoor world (PLAN §14, as
--- rewritten): bright and colourful, and EVERYTHING IS MATTE. There is no
--- Material.Neon anywhere in the game and no bloom (see build/Daylight) — the danger
--- cue the world used to carry with emission ("only the ooze glows") is carried by
--- colour and shape now. The ooze is still green, the hazard tape still yellow; they
--- just don't light up. Keep it that way: no new Neon, and keep decorative colours
--- muted enough that they read as paint, not as light.
+-- rewritten): bright and colourful, and EVERYTHING IS MATTE. There is no bloom
+-- (see build/Daylight) — the danger cue the world used to carry with emission ("only
+-- the ooze glows") is carried by colour and shape now. The hazard tape does not light
+-- up. Keep it that way, and keep decorative colours muted enough that they read as
+-- paint, not as light.
+--
+-- ONE NAMED EXCEPTION, ON REQUEST: Stage 4's ooze puddles are Material.Neon
+-- (build/Scenery, POOL_MATERIAL) so the green reads as lit from inside rather than
+-- painted onto the mud, AND each pool carries a real PointLight (radius-scaled,
+-- shadowless, in `ooze.glow`) so it actually lights the ground it sits on. That is
+-- the only Neon and the only standing light source anywhere in the game outside of
+-- a signal aura's locator glow — one substance in one stage — read the note at
+-- POOL_MATERIAL and at the light itself in `oozePool` before extending either
+-- anywhere else. No shop accent, prop or sign goes back to Neon or grows a light.
 Kit.C = {
 	-- Base camp (original values — do not repaint without rebuilding the camp)
 	floor = "C9C4B8",
@@ -137,6 +145,22 @@ Kit.C = {
 	-- place in the world that is not some shade of green.
 	baseTileDark = "212639",
 	baseTileLight = "545A66",
+
+	-- The player bases' pad floor: ONE flat tone on the plaza's studded tile board
+	-- (buildPlot passes it as both `dark` and `light` to Hub.tileRect), instead of
+	-- the navy/grey `baseTileDark`/`baseTileLight` checker. A dark cool charcoal —
+	-- lifted off near-pure-black on request so the studs read. Has been grey, then
+	-- near-black, then briefly a smooth no-stud plate (glinted in the sun), now back
+	-- to studs at this tone. `baseTileDark`/`Light` stay above for anything that
+	-- still wants the old pair.
+	baseFloor = "282A33",
+	-- The plot's back wall. WAS `plazaWarm` (a light cream) — dropped to a dark warm
+	-- taupe on request so the wall recedes behind the nameplate and the accent trim
+	-- instead of glowing pale over the whole base.
+	baseWall = "473F37",
+	-- The side railing down a plot's long edges (Plots.buildSideRailings). A plain
+	-- mid neutral grey — a fence, not a feature; reads as painted metal guard rail.
+	railGrey = "8B8E92",
 	grass = "8FD86A",
 	grassDark = "6FB84E",
 	road = "E8DCC0",
@@ -148,10 +172,12 @@ Kit.C = {
 	-- pressure is gone with the emission, but green-dominant still reads as "sick"
 	-- better than a yellow-green does, so keep red well under green here.
 	--
-	-- THESE THREE ARE STAGES 1-3's SHARE OF THE HAZARD GREEN. From Stage 4 the fields
-	-- turn plum, hot pink and violet, and each stage carries its own bright/deep/glow
-	-- triple in Config/Stages (`StageDef.ooze`) — that's where to retune a field, not
-	-- here. (The `glow` slot of each triple is now just the pool colour; nothing
+	-- THESE THREE ARE STAGES 1-4's SHARE OF THE HAZARD GREEN. Stages 5 and 6 turn hot
+	-- pink and violet, and each stage carries its own bright/deep/glow triple in
+	-- Config/Stages (`StageDef.ooze`) — that's where to retune a field, not here.
+	-- (Stage 4 was on the pink side of that line until its ooze slot was repainted
+	-- green on request; its FLOOR is still the dead muddy brown, so the green now
+	-- arrives there as puddles on brown rather than as the colour of the field.) (The `glow` slot of each triple is now just the pool colour; nothing
 	-- emits.) These stay because the greens are what three of the six stages are
 	-- painted in.
 	--
@@ -189,11 +215,14 @@ Kit.C = {
 }
 
 --- Per-plot accent colours. Index by plot number. Six clearly-different hues so
---- "whose plot is this" reads from across the plaza — retoned muted with the de-neon
---- pass (they were near-fluorescent: FF6B9D / 4CC9F0 / FFC93C / 7CE05A / FF9F45 /
---- B15CFF). Now they read as painted trim, not as lights. None of them is the ooze
---- green. Worn matte on the Trim, NameSign and the cleansing-station lamp.
-Kit.PLOT_ACCENT = { "A65A6E", "4E8C99", "C6A24E", "5F7A99", "C07E4C", "8A6BA6" }
+--- "whose plot is this" reads from across the plaza. Pulled back up in brightness on
+--- request (the de-neon pass had taken them to A65A6E / 4E8C99 / C6A24E / 5F7A99 /
+--- C07E4C / 8A6BA6, which read as dull painted trim from a distance) — these sit
+--- roughly halfway back toward the original near-fluorescent set, saturated and
+--- light enough to pop against the dark base floor without going back to full neon.
+--- None of them is the ooze green. Worn matte on the Trim, NameSign and the
+--- cleansing-station lamp.
+Kit.PLOT_ACCENT = { "D76388", "4DAEC9", "E5B744", "82A5C8", "E0A05C", "B48CD2" }
 
 -- ── Signage voice ─────────────────────────────────────────────────────────────
 -- Every sign in the world speaks in one font: FredokaOne, the chunky rounded face
@@ -373,11 +402,19 @@ function Kit.blendHex(a: string, b: string, t: number): string
 	return Color3.fromHex(a):Lerp(Color3.fromHex(b), t):ToHex()
 end
 
-function Kit.light(part: BasePart, color: string, range: number, brightness: number)
+function Kit.light(part: BasePart, color: string, range: number, brightness: number, shadows: boolean?)
 	local l = Instance.new("PointLight")
 	l.Color = Color3.fromHex(color)
 	l.Range = range
 	l.Brightness = brightness
+	-- Defaults to Roblox's own default (true) so this stays a no-op for any existing
+	-- call; pass false for a locator/accent light that does not need to cast real
+	-- shadows (SignalAura's core light does this by hand for the same reason -- a
+	-- glow marking a spot does not need geometry-accurate shadowing, and shadow
+	-- casting is the expensive part of a PointLight).
+	if shadows ~= nil then
+		l.Shadows = shadows
+	end
 	l.Parent = part
 end
 

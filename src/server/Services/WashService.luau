@@ -8,18 +8,37 @@
 	lived with it for a while: you held a button on a panel and an item you could not
 	see got cleaner. This is the version that was actually asked for.
 
-	THE MATHS DID NOT CHANGE. Not one number. `Contamination.secondsFor`,
-	`Contamination.clearOne`, the effective-potency gate and one charge per cleared
-	patch are lifted from DeconService's old scrub tick untouched. What changed is who
-	drives the clock and what the player is looking at while it runs. That is
-	deliberate: a feel change that also moves the balance is two changes wearing one
-	commit, and there would be no way to tell which one broke the economy.
+	THE MATHS DID NOT CHANGE. Not one number. `Contamination.secondsFor`, the
+	effective-potency gate and one charge per cleared patch are lifted from
+	DeconService's old scrub tick untouched. What changed is who drives the clock and
+	what the player is looking at while it runs. That is deliberate: a feel change that
+	also moves the balance is two changes wearing one commit, and there would be no way
+	to tell which one broke the economy.
+
+	AIM IS THE GAME, AND FOR A WHILE IT WAS NOT. The first version of this file shipped
+	with a clock that ran on a held trigger: `aim` picked the easiest reachable patch
+	whenever the client named none, the tick added dt on `spraying` alone, and the lock
+	only moved when a patch popped. Point the hose at the sky, hold the button, and the
+	item cleaned itself — the stream was decoration over a progress bar with extra
+	steps. Three things fix it and they only work together:
+
+	  · WHAT THE WATER IS ON is resolved every tick (`workedIndex`), and there is no
+	    fallback. Nothing under the stream means no second is banked anywhere.
+	  · THE BANK IS PER ZONE (`session.soaked`), so the clock follows the reticle
+	    instead of holding one target hostage until it finishes. Sweeping is allowed;
+	    the seconds still have to go in somewhere.
+	  · THE PATCHES ARE PLACES (`zonesFromModel`). They used to be round-robin slices
+	    of the part list, so every zone's centroid was the middle of the model and there
+	    was no "that corner" to point at. They are spatial clusters now.
 
 	THE BOUNDARY IS THE SAME ONE THE SCRUB TIMER HAD. The client reports AIM and
-	INTENT — "I am spraying, at patch 3" — and never progress. The server owns the
-	clock, the patch list, the charges and the XP. A client that lies about aim picks a
-	different patch to work on, which it could already do by clicking a different row;
-	a client that could report progress would clean an Anomaly instantly.
+	INTENT — "I am spraying, and the water is landing on zone 3" — and never progress.
+	The server owns the clock, the patch list, the charges and the XP. A client that
+	lies about aim picks a different patch to work on, which it could already do by
+	clicking a different row in the panel this replaced; a client that could report
+	progress would clean an Anomaly instantly. The zone id the client sends is read off
+	a `WashZone` attribute this service stamped on the real geometry, and it is still
+	re-checked against the potency gate here before a single tick counts.
 
 	PRECONDITION: YOU MUST BE HOLDING IT. `data.heldUid` (CarryService) has to name a
 	carried item with contamination on it, or the prompt refuses with a toast. That is
@@ -107,18 +126,25 @@ type Session = {
 	hose: Model?,
 	spraying: boolean,
 	-- The client's raw, live requested target -- a ZONE id (stable across a patch
-	-- clearing elsewhere and the array compacting), never an array index. Echoed
-	-- straight back in `push` as `targetZone`; `aim` is what turns it into whichever
-	-- array index is currently reachable.
+	-- clearing elsewhere and the array compacting), never an array index. This is WHERE
+	-- THE WATER IS LANDING, reported by WashController from the jet's own impact
+	-- raycast, and nil whenever the stream is not on a dirty area at all. Echoed
+	-- straight back in `push` as `targetZone`; `workedIndex` is what turns it into the
+	-- array index the clock is allowed to run against.
 	aimZone: number?,
-	elapsed: number,
-	target: number,
-	hardness: number,
-	-- Which zone `elapsed`/`target` are actually counting against, set once by `aim`
-	-- when it locks a target and left alone until the next lock -- unlike `aimZone`,
-	-- this does not follow the player's reticle, which is what lets `push` fade the
-	-- zone actually being timed instead of whatever the player is currently glancing
-	-- at.
+	-- SECONDS OF WATER EACH ZONE HAS TAKEN, banked by zone id so it survives both the
+	-- player looking away and every other patch clearing out from under the array.
+	-- There is no single `elapsed`/`target` pair any more: the old one belonged to a
+	-- lock that only moved when a patch popped, which is exactly why aim did not
+	-- matter. A zone's entry is cleared when its patch comes off.
+	soaked: { [number]: number },
+	-- Last grime level actually written to each zone's parts, so `push` can skip the
+	-- per-part property writes on the zones that have not moved this tick -- which,
+	-- once every zone is faded independently, is nearly all of them.
+	painted: { [number]: number },
+	-- The zone the water is on RIGHT NOW and which therefore took this tick's dt: the
+	-- resolved, potency-checked form of `aimZone`, recomputed every tick. Nil when the
+	-- player is spraying at nothing, at a blocked patch, or not spraying at all.
 	lockedZone: number?,
 	-- One real-geometry patch, one zone: WashService.placeOnStand builds these fresh
 	-- every session from the item's own model (or a stand-in cluster of blocks for
@@ -158,27 +184,137 @@ local function isPaintable(part: BasePart): boolean
 	return part.Material ~= Enum.Material.Glass
 end
 
---- Bucket a sculpted model's real paintable parts round-robin into `count` zones —
---- one per patch. Round-robin rather than a contiguous slice on purpose: GoldRing's
---- forty band segments are one long ring of near-identical pieces, and a contiguous
---- chunk of them clearing would read as a bite taken out of the band. Scattering the
---- same zone across the whole part list instead makes every clear read as the WHOLE
---- item getting a little cleaner, same as the aggregate fade used to, just now with
---- real geography under it.
+--- `count` seed points spread through a bounding box, on the golden-angle spiral —
+--- the same construction `zoneAnchor` falls back to, kept identical so a zone with no
+--- geometry at all still lands somewhere sensible relative to the ones that have some.
+local function spiralSeeds(pivot: CFrame, size: Vector3, count: number): { Vector3 }
+	local golden = 2.39996323
+	local seeds = {}
+	for index = 1, count do
+		local t = (index - 0.5) / math.max(count, 1)
+		local y = 1 - 2 * math.min(t, 1)
+		local radius = math.sqrt(math.max(0, 1 - y * y))
+		local theta = golden * index
+		local dir = Vector3.new(math.cos(theta) * radius, y, math.sin(theta) * radius)
+		-- 0.6 rather than 0.5: pulled in off the surface so the seeds sit inside the
+		-- object's own material rather than out on the shell, which is where the parts
+		-- they have to claim actually are.
+		seeds[index] = (pivot * CFrame.new(dir * size * 0.6)).Position
+	end
+	return seeds
+end
+
+--- Bucket a sculpted model's real paintable parts into `count` zones BY WHERE THEY ARE
+--- — one per patch, each a contiguous region of the actual object.
+---
+--- IT USED TO BE ROUND-ROBIN, and that was a defensible call for as long as a patch
+--- was a number on a panel: scattering each zone across the whole part list made every
+--- clear read as the WHOLE item getting a little cleaner, which is what the old
+--- aggregate fade looked like and so was the change nobody had to relearn. GoldRing's
+--- forty near-identical band segments were the case it was chosen for — a contiguous
+--- chunk of those clearing reads as a bite taken out of the band.
+---
+--- IT IS ALSO WHY AIMING NEVER MATTERED. Round-robin makes every zone's centroid the
+--- same point — the middle of the model — so the balls all stacked in one place, any
+--- ray that touched the item was within reach of all of them, and "point at the dirty
+--- bit" had no dirty bit to point at. A bite out of the band is the price of the hose
+--- being a hose. You are meant to be able to see which corner you have not done yet.
+---
+--- LLOYD, TWICE. Nearest-seed alone against a fixed spiral leaves lopsided zones on a
+--- model whose parts are not evenly spread (a ring is a hoop of geometry around a lot
+--- of nothing); two relaxation passes move each seed onto its own claim's centroid and
+--- re-deal, which is enough to even them out without turning this into a real solver.
+--- `rescueEmpty` then guarantees the postcondition the rest of the file assumes: every
+--- zone owns at least one part, so every patch has somewhere to be sprayed.
 local function zonesFromModel(model: Model, count: number): { [number]: { BasePart } }
 	local zones: { [number]: { BasePart } } = {}
 	for zone = 1, count do
 		zones[zone] = {}
 	end
 
-	local i = 0
+	local parts: { BasePart } = {}
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") and isPaintable(part) then
-			i += 1
-			local zone = ((i - 1) % count) + 1
-			table.insert(zones[zone], part)
+			table.insert(parts, part)
 		end
 	end
+	if #parts == 0 then
+		return zones
+	end
+
+	local pivot, size = model:GetBoundingBox()
+	local seeds = spiralSeeds(pivot, size, count)
+
+	local owner: { number } = table.create(#parts, 1)
+	for pass = 1, 3 do
+		for i, part in parts do
+			local best, bestDistance = 1, math.huge
+			for zone = 1, count do
+				local distance = (seeds[zone] - part.Position).Magnitude
+				if distance < bestDistance then
+					best, bestDistance = zone, distance
+				end
+			end
+			owner[i] = best
+		end
+
+		if pass == 3 then
+			break
+		end
+
+		-- Re-seed onto each claim's own centre of mass. A zone nobody picked keeps the
+		-- seed it had, so it is still in the running next pass rather than collapsing
+		-- onto whatever the last one was.
+		local sums = table.create(count, Vector3.zero)
+		local counts = table.create(count, 0)
+		for i, part in parts do
+			local zone = owner[i]
+			sums[zone] += part.Position
+			counts[zone] += 1
+		end
+		for zone = 1, count do
+			if counts[zone] > 0 then
+				seeds[zone] = sums[zone] / counts[zone]
+			end
+		end
+	end
+
+	for i, part in parts do
+		table.insert(zones[owner[i]], part)
+	end
+
+	-- EVERY ZONE OWNS SOMETHING, or a patch exists with no geometry to spray. Each
+	-- empty zone takes the part FURTHEST from its own zone's seed out of the biggest
+	-- zone: the piece that fits worst where it is, which is also the piece whose
+	-- leaving disturbs the shape of the donor least. Bounded by `count` and only
+	-- reachable on models with fewer paintable parts than patches, which is the case
+	-- the fallback in `zoneAnchor` was written for.
+	for zone = 1, count do
+		if #zones[zone] == 0 then
+			local donor, donorCount = nil, 1
+			for other = 1, count do
+				if #zones[other] > donorCount then
+					donor, donorCount = other, #zones[other]
+				end
+			end
+			if donor == nil then
+				break
+			end
+			local worst, worstDistance = 1, -1
+			for index, part in zones[donor] do
+				local distance = (seeds[donor] - part.Position).Magnitude
+				if distance > worstDistance then
+					worst, worstDistance = index, distance
+				end
+			end
+			local taken = table.remove(zones[donor], worst)
+			if taken then
+				table.insert(zones[zone], taken)
+				seeds[zone] = taken.Position
+			end
+		end
+	end
+
 	return zones
 end
 
@@ -284,6 +420,16 @@ local function placeOnStand(stand: BasePart, item: any): (Model, { [number]: { B
 		zones[zone] = rawZones[zone] or {}
 		anchors[zone] = zoneAnchor(zones[zone], pivot, size, zone, count)
 		ItemGrime.applyParts(zones[zone], 1)
+		-- WHICH DIRTY AREA THIS PIECE OF THE OBJECT BELONGS TO, written onto the real
+		-- geometry so the client can answer "what did the water just hit" by reading the
+		-- part its own impact ray returned, instead of guessing from proximity to a ball.
+		-- An attribute rather than a remote because it is per-part, static for the life of
+		-- the session, and replicates for free; and it is authoritative only as a LABEL --
+		-- the client reports the zone it read, and `workedIndex` still checks that zone
+		-- against the potency gate before a single tick counts.
+		for _, part in zones[zone] do
+			part:SetAttribute("WashZone", zone)
+		end
 	end
 
 	return model, zones, anchors
@@ -311,44 +457,41 @@ end
 
 -- ── The session ────────────────────────────────────────────────────────
 
---- Aim the clock at one patch. Returns false when nothing is reachable, which is the
---- wall: the item is not ruined, it is waiting on a better cleaner or a better roll.
-local function aim(session: Session, item: any, stats: any): boolean
-	local patches = item.patches or {}
+--- How long one patch takes under this player's current machine and canister. Pulled
+--- out because `stepPlayer` needs it for the zone taking water and `push` needs it for
+--- every other zone's banked fraction, and the two disagreeing by so much as a
+--- rounding is a fade that stops at 0.98 of clean.
+local function soakTarget(hardness: number, stats: any): number
+	return Contamination.secondsFor(hardness, stats.scrubRate * stats.liquidRate)
+end
 
-	-- The client names WHICH patch, by zone id, and this is the whole trust boundary:
-	-- a zone that resolves to a reachable patch is honoured, anything else falls back
-	-- to the easiest reachable one. A client picking its own order is not an exploit
-	-- -- it could already do that by clicking a different row in the old panel -- but
-	-- a client naming a patch its potency cannot touch would be, so
-	-- `<= effectivePotency` is checked here and not taken on trust.
-	local chosen: number? = nil
-	local wantedIndex = if session.aimZone then table.find(session.zoneIds, session.aimZone) else nil
-	if wantedIndex and patches[wantedIndex] and patches[wantedIndex] <= stats.effectivePotency then
-		chosen = wantedIndex
-	else
-		local easiest = math.huge
-		for index, hardness in patches do
-			if hardness <= stats.effectivePotency and hardness < easiest then
-				chosen, easiest = index, hardness
-			end
-		end
+--- Which patch the water is ACTUALLY ON, as an index into `item.patches`, or nil.
+---
+--- THE OLD `aim` FELL BACK TO THE EASIEST REACHABLE PATCH when the client named
+--- nothing, and that one clause is the whole reason an item cleaned itself while you
+--- sprayed at the sky: no aim meant "pick something for them", and the tick then
+--- charged the clock for it regardless. There is no fallback now. Nothing under the
+--- stream is a real and meaningful answer — you are watering the tub — and the caller
+--- banks nothing for it.
+---
+--- THE TRUST BOUNDARY IS UNCHANGED, and is why this lives on the server. The client
+--- names WHICH zone, which it could always do; it may not name a patch its potency
+--- cannot shift, so `<= effectivePotency` is checked here rather than taken on faith.
+--- A blocked patch under the stream is the crusted one visibly repelling the water,
+--- and it banks nothing either.
+local function workedIndex(session: Session, item: any, stats: any): number?
+	if session.aimZone == nil then
+		return nil
 	end
-
-	if chosen == nil then
-		return false
+	local index = table.find(session.zoneIds, session.aimZone)
+	if index == nil then
+		return nil
 	end
-
-	local hardness = patches[chosen]
-	session.hardness = hardness
-	session.elapsed = 0
-	session.target = Contamination.secondsFor(hardness, stats.scrubRate * stats.liquidRate)
-	-- WHAT IS ACTUALLY BEING TIMED, as a zone id rather than an index that a later
-	-- clear could shift out from under it. Left alone until the next lock (the next
-	-- call to this function), regardless of where `aimZone` wanders in the meantime —
-	-- see the field's own note on why `push` fades this one and not the live aim.
-	session.lockedZone = session.zoneIds[chosen]
-	return true
+	local hardness = (item.patches or {})[index]
+	if hardness == nil or hardness > stats.effectivePotency then
+		return nil
+	end
+	return index
 end
 
 local function push(player: Player, session: Session?, data: any)
@@ -367,30 +510,37 @@ local function push(player: Player, session: Session?, data: any)
 	local liquid = Liquids.get(stats.liquidId)
 
 	-- Patch hardnesses go out as-is, tagged with the stable zone WashService built for
-	-- them and the world point that zone's ball belongs at. They are the player's own
-	-- item and the whole point of the bay is to SHOW them: a crusted blob that
-	-- visibly repels the stream is the Quarantine Locker taught in three dimensions
-	-- instead of in a red label.
+	-- them, the world point that zone's ball belongs at, and HOW WET IT ALREADY IS.
+	-- They are the player's own item and the whole point of the bay is to SHOW them: a
+	-- crusted blob that visibly repels the stream is the Quarantine Locker taught in
+	-- three dimensions instead of in a red label.
+	--
+	-- `soak` IS PER PATCH NOW, AND IT IS THE FEATURE. One shared `progress` belonged to
+	-- a single lock that only moved when a patch popped; with the clock following the
+	-- water, every area carries its own bank, and sending all of them is what lets the
+	-- player look around the object and see which corners they have half-done and which
+	-- they have not touched.
 	local patches = {}
 	for index, hardness in item.patches or {} do
 		local zoneId = session.zoneIds[index]
+		local target = soakTarget(hardness, stats)
+		local soak = if target > 0 then math.clamp((session.soaked[zoneId] or 0) / target, 0, 1) else 0
 		table.insert(patches, {
 			zone = zoneId,
 			hardness = hardness,
 			blocked = hardness > stats.effectivePotency,
 			anchor = session.zoneAnchor[zoneId],
+			soak = soak,
 		})
-	end
 
-	local progress = if session.target > 0 then math.clamp(session.elapsed / session.target, 0, 1) else 0
-
-	-- THE ZONE ACTUALLY BEING TIMED FADES WITH IT, so the payoff of a completed patch
-	-- is a wipe building toward zero rather than a hard cut from full green to clean.
-	-- `lockedZone`, not the player's live aim: see the field's own note.
-	if session.lockedZone then
-		local zone = session.zones[session.lockedZone]
-		if zone then
-			ItemGrime.applyParts(zone, 1 - progress)
+		-- EVERY ZONE FADES ON ITS OWN BANK, not just the one under the stream. Guarded on
+		-- a real change because this is now a loop over every patch on every tick, and
+		-- ItemGrime.applyParts writes two properties per part: at ten hertz across a
+		-- forty-segment ring that is a lot of writes to set values that already hold.
+		local level = 1 - soak
+		if math.abs((session.painted[zoneId] or -1) - level) > 0.01 then
+			session.painted[zoneId] = level
+			ItemGrime.applyParts(session.zones[zoneId] or {}, level)
 		end
 	end
 
@@ -399,11 +549,12 @@ local function push(player: Player, session: Session?, data: any)
 		name = def.name,
 		rarity = item.rarity,
 		patches = patches,
-		-- The player's own live aim, echoed straight back — not necessarily what is
-		-- actually being timed (`lockedZone`), just what the reticle is currently
-		-- reporting, which is what decides the reticle/blob "locked" look.
-		targetZone = session.aimZone,
-		progress = progress,
+		-- NEITHER `targetZone` NOR A WORKED-ZONE ECHO IS SENT ANY MORE. Both were the
+		-- client's own aim coming back to it a tick late, and the client had it exactly
+		-- right sixty times a second: `patchAt` resolves the zone from the impact ray, and
+		-- `blocked` on each patch below is everything else needed to decide whether that
+		-- zone is one the water can actually shift. A ten-hertz echo driving a reticle
+		-- that renders at sixty is a reticle that lags the crosshair it is drawn on.
 		liquidId = stats.liquidId,
 		liquidName = liquid.name,
 		liquidColor = liquid.color,
@@ -556,29 +707,25 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		hose = nil,
 		spraying = false,
 		aimZone = nil,
-		elapsed = 0,
-		target = 0,
-		hardness = 0,
+		soaked = {},
+		painted = {},
 		lockedZone = nil,
 		zones = {},
 		zoneAnchor = {},
 		zoneIds = {},
 	}
 
-	-- BUILT BEFORE THE FIRST `aim`, not after: `aim` locks its target by translating
-	-- into a zone id (`session.zoneIds[chosen]`), which only means anything once the
-	-- zones themselves exist. `reachable` was already confirmed above, so this is not
-	-- spent on a session that is about to refuse anyway.
+	-- `reachable` was already confirmed above, so this is not spent building geometry
+	-- for a session that is about to refuse anyway.
+	--
+	-- THERE IS NO OPENING `aim` ANY MORE, and its refusal ("nothing you can shift
+	-- here") went with it. That call was the belt to `reachable`'s braces — the same
+	-- potency question asked twice, once through a function whose real job was to start
+	-- a clock. Nothing is timed until the player points the hose at something, so there
+	-- is nothing left to prime here.
 	session.model, session.zones, session.zoneAnchor = placeOnStand(stand, item)
 	for i = 1, #patches do
 		session.zoneIds[i] = i
-	end
-
-	if not aim(session, item, stats) then
-		if session.model then
-			session.model:Destroy()
-		end
-		return false, "nothing you can shift here"
 	end
 
 	session.hose = stationHose(session.station)
@@ -654,45 +801,85 @@ local function stepPlayer(player: Player, dt: number)
 
 	local stats = StatResolver.get(data)
 
+	-- WHAT THE WATER IS ON, RESOLVED FRESH EVERY TICK. This is the change the whole
+	-- rework turns on. It used to be a lock set once and left alone until a patch
+	-- popped, with a fallback that picked a patch for you when you were aiming at
+	-- nothing — so the clock ran on a held trigger alone, an item cleaned itself while
+	-- you sprayed at the tub, and moving the reticle mid-patch did nothing at all.
+	-- Now: no water on a dirty area, no time spent.
+	session.lockedZone = nil
 	if session.spraying then
-		session.elapsed += dt
-		if session.elapsed >= session.target then
-			local cleared, removedIndex = Contamination.clearOne(item.patches, stats.effectivePotency)
-			if cleared then
-				-- Partial progress pays. PLAN §2: a failed clean is never wasted.
-				data.xp += math.floor(cleared * XP_PER_HARDNESS * stats.liquidXp + 0.5)
-				-- ONE CHARGE PER PATCH, and this is the only site that spends one.
-				-- Charged for the patch that came OFF rather than for starting, which
-				-- is the only version that survives someone disconnecting halfway
-				-- through a Legendary.
-				LiquidService.spendCharge(data)
-				-- RE-RESOLVE. The line above can have just emptied the canister and
-				-- dropped the player to Plain Water; `stats` was captured at the top of
-				-- this tick, so the next patch would otherwise be timed at the spent
-				-- liquid's rate and cleared against its potency — a free extra patch at
-				-- Stardust speed, every time a canister runs dry.
-				stats = StatResolver.get(data)
+		local index = workedIndex(session, item, stats)
+		if index then
+			local zoneId = session.zoneIds[index]
+			local hardness = item.patches[index]
+			session.lockedZone = zoneId
 
-				-- THE GREEN COMES OFF WHERE IT WAS SPRAYED. `removedIndex` is where
-				-- `item.patches` just shrank; `zoneIds` shrinks at the exact same index
-				-- in the exact same call, so this is still the zone that patch owned no
-				-- matter how many earlier clears have already shifted the array. This is
-				-- the payoff the whole feature exists for: a real area of the real
-				-- object turns clean, live, one blast at a time.
-				local zoneId = if removedIndex then table.remove(session.zoneIds, removedIndex) else nil
-				if zoneId and session.zones[zoneId] then
-					ItemGrime.clearParts(session.zones[zoneId])
+			-- BANKED, NOT RESET. Sweeping the stream across the object is how anyone
+			-- actually washes something, and a bank that emptied the moment you looked
+			-- away would make the only viable technique "stare at one spot and never
+			-- move". You still have to put the seconds into every area — the total work is
+			-- identical — you just get to put them in in whatever order you like.
+			local soaked = (session.soaked[zoneId] or 0) + dt
+			session.soaked[zoneId] = soaked
+
+			if soaked >= soakTarget(hardness, stats) then
+				-- THE PATCH THAT COMES OFF IS THE ONE THE WATER WAS ON, named by index.
+				-- `clearOne` used to pick the easiest patch itself, which was invisible
+				-- while there was one shared clock and plainly wrong once there are six
+				-- independent ones: you would finish eight seconds of work on a crusted
+				-- corner and watch an easy patch on the far side pop instead.
+				local cleared, removedIndex = Contamination.clearAt(item.patches, index, stats.effectivePotency)
+				if cleared and removedIndex then
+					-- Partial progress pays. PLAN §2: a failed clean is never wasted.
+					data.xp += math.floor(cleared * XP_PER_HARDNESS * stats.liquidXp + 0.5)
+					-- ONE CHARGE PER PATCH, and this is the only site that spends one.
+					-- Charged for the patch that came OFF rather than for starting, which
+					-- is the only version that survives someone disconnecting halfway
+					-- through a Legendary.
+					LiquidService.spendCharge(data)
+					-- RE-RESOLVE. The line above can have just emptied the canister and
+					-- dropped the player to Plain Water; `stats` was captured at the top of
+					-- this tick, so the next patch would otherwise be timed at the spent
+					-- liquid's rate and cleared against its potency — a free extra patch at
+					-- Stardust speed, every time a canister runs dry.
+					stats = StatResolver.get(data)
+
+					-- THE GREEN COMES OFF WHERE IT WAS SPRAYED. `removedIndex` is where
+					-- `item.patches` just shrank; `zoneIds` shrinks at the exact same index
+					-- in the exact same call, so this is still the zone that patch owned no
+					-- matter how many earlier clears have already shifted the array. This is
+					-- the payoff the whole feature exists for: the real area of the real
+					-- object you were pointing at turns clean, live, under the stream.
+					table.remove(session.zoneIds, removedIndex)
+					if session.zones[zoneId] then
+						ItemGrime.clearParts(session.zones[zoneId])
+					end
+					-- The bank and the paint cache go with the patch. Nothing re-uses a zone
+					-- id within a session, but a stale entry would keep `push` skipping the
+					-- writes for a zone that no longer exists, which is the kind of thing that
+					-- only bites once someone adds re-contamination.
+					session.soaked[zoneId] = nil
+					session.painted[zoneId] = nil
+					session.lockedZone = nil
+					-- The stream is now standing on bare metal. The client's next report is
+					-- what re-aims it, and until then nothing accrues anywhere.
+					session.aimZone = nil
 				end
-			end
 
-			if #item.patches == 0 then
-				data.stats.itemsCleaned += 1
-				finish(player, `{Items.get(item.itemId).name} is clean`)
-				return
-			end
-			if not aim(session, item, stats) then
-				finish(player, "that's as far as this liquid goes")
-				return
+				if #item.patches == 0 then
+					data.stats.itemsCleaned += 1
+					finish(player, `{Items.get(item.itemId).name} is clean`)
+					return
+				end
+				-- THE WALL, asked as its own question now rather than inferred from `aim`
+				-- failing to find a target. It has to stay decoupled from where the player
+				-- happens to be pointing: aiming at nothing is an ordinary thing to be doing
+				-- for a second, and it must not read as "this liquid is finished".
+				if not Contamination.anyReachable(item.patches, stats.effectivePotency) then
+					finish(player, "that's as far as this liquid goes")
+					return
+				end
 			end
 		end
 	end

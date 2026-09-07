@@ -31,8 +31,9 @@
 	every player on that base sees rather than only whoever stepped on it.
 
 	The odds are still readable, just not mid-roll: the pad's shelf shows the top five
-	prizes as physical canisters (build/Plots.buildWashPad), the wooden Luck sign next
-	to it lists the whole ladder, and `/odds` prints the live table. All three read
+	prizes as physical canisters (build/Plots.buildWashPad), and `/odds` prints the
+	live table (the Luck button staked beside the pad shows the multiplier, not the
+	odds). Both the canisters and `/odds` read
 	`Liquids.oddsAt`, the same function `roll()` below samples against — the same
 	deterministic-order weighted walk `DigService.rollRarity` uses, for the same reason
 	(`pairs()` order is not stable, and a weighted roll over an unstable order has
@@ -65,7 +66,6 @@ local StationService = require(script.Parent.StationService)
 local LiquidService = {}
 
 local stateRemote: any = nil
-local resultRemote: any = nil
 
 --- Last roll time per player, for the debounce. Wall clock rather than a tick
 --- counter: this is a "how long since a human did a thing" question, and nothing
@@ -114,19 +114,31 @@ local function roll(luck: number): string
 end
 
 --- Pay for and perform one roll. Returns the liquid id, or nil plus a reason.
+---
+--- THE FIRST ROLL OF A PROFILE'S LIFE IS FREE, and `data.stats.rolls` is the whole
+--- mechanism: it is 0 on a fresh profile and `pull` increments it below, so a broke
+--- new player still gets to see the pad do its thing once. After that the fee is the
+--- limiter the header describes. Refusal strings are kept SHORT because they are shown
+--- on the pad's own sign now (see `flashSign` / the roller branch in `start`), not in
+--- a screen toast -- the toast lived inside the station panel, which the wash pad
+--- deliberately never opens, so a refused roll used to produce no feedback at all.
 local function pull(player: Player, data: any): (string?, string?)
 	local now = os.clock()
 	local previous = lastRoll[player]
 	if previous and now - previous < Tuning.LIQUID_ROLL_COOLDOWN then
-		return nil, "the pad is still resetting"
+		return nil, "still resetting\u{2026}"
 	end
 
-	if data.cash < Tuning.LIQUID_ROLL_COST then
-		return nil, `the pad takes ${Tuning.LIQUID_ROLL_COST} \u{2014} you're still on Plain Water`
+	local free = (data.stats.rolls or 0) == 0
+
+	if not free and data.cash < Tuning.LIQUID_ROLL_COST then
+		return nil, `roll costs ${Tuning.LIQUID_ROLL_COST}`
 	end
 
-	data.cash -= Tuning.LIQUID_ROLL_COST
-	EconomyService.pushCash(player)
+	if not free then
+		data.cash -= Tuning.LIQUID_ROLL_COST
+		EconomyService.pushCash(player)
+	end
 	lastRoll[player] = now
 
 	local stats = StatResolver.get(data)
@@ -178,39 +190,49 @@ local function flashColor(rawHex: string, rest: Color3): Color3
 	return rest:Lerp(raw, FLASH_MIX)
 end
 
---- Show the roll ON THE PAD, in the world, rather than on anybody's screen.
+--- The colour a REFUSED roll flashes -- amber, because "you can't afford this yet" is
+--- information, not an error. Blended toward the disc's rest shade by `flashColor` the
+--- same way a liquid hue is, so it reads as the same kind of event as a real roll.
+local REFUSAL_HEX = "F2B134"
+
+--- Flash the pad's sign and disc, then ease them back after ANNOUNCE_SECONDS. The
+--- mechanism behind both a real roll (`announce`) and a refused one (the roller branch
+--- in `start`) -- the pad is a physical button, and a physical button answers on
+--- itself, not on a screen. `title == nil` keeps the pad's own resting headline
+--- ("WASH PAD") but tints it `hex`, which is what a refusal wants: the line under it
+--- turns amber and says why nothing happened, and the sign always eases back to rest
+--- afterwards no matter what state it was flashed from.
 ---
---- This is the whole shape of the feature. A pad is a physical button; a physical
---- button that opens a menu is a menu wearing a button's clothes. So the plate
---- flashes the liquid's own colour and its existing billboard names what came out,
---- and the panel that used to do this is gone (see StationController's header).
+--- SERVER-SIDE ON PURPOSE, the same argument ToolService's header makes for held
+--- models: everyone standing on that base sees it, not just whoever stepped on the
+--- plate. A client-local flash would be invisible to the person you are showing your
+--- base to, which is most of the point of rolling something rare.
 ---
---- SERVER-SIDE ON PURPOSE, and it is the same argument ToolService's header makes
---- for held models: everyone standing on that base sees the roll, not just whoever
---- stepped on the plate. A client-local flash would be invisible to the person you
---- are showing your base to, which is most of the point of rolling something rare.
-local function announce(pad: BasePart?, def: Liquids.LiquidDef, held: number)
+--- THE SIGN REMEMBERS ITS OWN RESTING STATE, captured once on the first flash and
+--- read back on every reset. The alternative was a copy of the builder's title,
+--- subtitle and label colour living here -- constants duplicated out of
+--- build/Plots.buildWashPad, which is precisely the drift this codebase keeps writing
+--- headers about. Restore-what-was-there needs no constants, and it stays correct the
+--- day somebody retitles the pad.
+local function flashSign(pad: BasePart?, title: string?, subtitle: string, hex: string)
 	if pad == nil then
 		return
 	end
 
 	local glow = pad.Parent and pad.Parent:FindFirstChild("Glow")
 	local sign = pad:FindFirstChild("Sign")
-	local title = if sign then sign:FindFirstChild("Title") else nil
-	local subtitle = if sign then sign:FindFirstChild("Subtitle") else nil
+	local titleLabel = if sign then sign:FindFirstChild("Title") else nil
+	local subtitleLabel = if sign then sign:FindFirstChild("Subtitle") else nil
 
-	-- THE SIGN REMEMBERS ITS OWN RESTING STATE, captured once on the first roll and
-	-- read back on every reset. The alternative was a copy of the builder's title,
-	-- subtitle and label colour living here -- four constants duplicated out of
-	-- build/Plots.buildWashPad, which is precisely the drift this codebase keeps
-	-- writing headers about. Restore-what-was-there needs no constants at all, and it
-	-- stays correct the day somebody retitles the pad.
-	if title and title:IsA("TextLabel") and title:GetAttribute("RestText") == nil then
-		title:SetAttribute("RestText", title.Text)
-		title:SetAttribute("RestColor", title.TextColor3)
+	-- Rest state is captured on the FIRST flash of any kind, title included even when
+	-- this flash is a refusal that does not rename the sign -- so the reset below can
+	-- always put the headline back regardless of which flash type ran last.
+	if titleLabel and titleLabel:IsA("TextLabel") and titleLabel:GetAttribute("RestText") == nil then
+		titleLabel:SetAttribute("RestText", titleLabel.Text)
+		titleLabel:SetAttribute("RestColor", titleLabel.TextColor3)
 	end
-	if subtitle and subtitle:IsA("TextLabel") and subtitle:GetAttribute("RestText") == nil then
-		subtitle:SetAttribute("RestText", subtitle.Text)
+	if subtitleLabel and subtitleLabel:IsA("TextLabel") and subtitleLabel:GetAttribute("RestText") == nil then
+		subtitleLabel:SetAttribute("RestText", subtitleLabel.Text)
 	end
 	if glow and glow:IsA("BasePart") and glow:GetAttribute("RestColor") == nil then
 		glow:SetAttribute("RestColor", glow.Color)
@@ -223,19 +245,25 @@ local function announce(pad: BasePart?, def: Liquids.LiquidDef, held: number)
 	-- directions reads as a slow fade with no event in it; a payout wants the hard cut.
 	if glow and glow:IsA("BasePart") then
 		local rest = glow:GetAttribute("RestColor")
-		glow.Color = flashColor(def.color, if typeof(rest) == "Color3" then rest else glow.Color)
+		glow.Color = flashColor(hex, if typeof(rest) == "Color3" then rest else glow.Color)
 	end
-	if title and title:IsA("TextLabel") then
-		title.Text = string.upper(def.name)
-		title.TextColor3 = Color3.fromHex(def.color)
+	if titleLabel and titleLabel:IsA("TextLabel") then
+		-- A refusal (title == nil) keeps the resting headline but wears the flash tint;
+		-- a real roll renames it to the liquid.
+		if title ~= nil then
+			titleLabel.Text = string.upper(title)
+		elseif titleLabel:GetAttribute("RestText") ~= nil then
+			titleLabel.Text = tostring(titleLabel:GetAttribute("RestText"))
+		end
+		titleLabel.TextColor3 = Color3.fromHex(hex)
 	end
-	if subtitle and subtitle:IsA("TextLabel") then
-		subtitle.Text = if def.charges > 0 then `{held} washes in the shed` else "always free"
+	if subtitleLabel and subtitleLabel:IsA("TextLabel") then
+		subtitleLabel.Text = subtitle
 	end
 
 	task.delay(ANNOUNCE_SECONDS, function()
 		if announceToken[pad] ~= token then
-			return -- a newer roll owns the sign now
+			return -- a newer flash owns the sign now
 		end
 		if glow and glow:IsA("BasePart") and glow.Parent then
 			local rest = glow:GetAttribute("RestColor")
@@ -243,17 +271,29 @@ local function announce(pad: BasePart?, def: Liquids.LiquidDef, held: number)
 				TweenService:Create(glow, TweenInfo.new(0.8), { Color = rest }):Play()
 			end
 		end
-		if title and title:IsA("TextLabel") and title.Parent then
-			title.Text = tostring(title:GetAttribute("RestText"))
-			local rest = title:GetAttribute("RestColor")
+		if titleLabel and titleLabel:IsA("TextLabel") and titleLabel.Parent and titleLabel:GetAttribute("RestText") ~= nil then
+			titleLabel.Text = tostring(titleLabel:GetAttribute("RestText"))
+			local rest = titleLabel:GetAttribute("RestColor")
 			if typeof(rest) == "Color3" then
-				title.TextColor3 = rest
+				titleLabel.TextColor3 = rest
 			end
 		end
-		if subtitle and subtitle:IsA("TextLabel") and subtitle.Parent then
-			subtitle.Text = tostring(subtitle:GetAttribute("RestText"))
+		if subtitleLabel and subtitleLabel:IsA("TextLabel") and subtitleLabel.Parent then
+			subtitleLabel.Text = tostring(subtitleLabel:GetAttribute("RestText"))
 		end
 	end)
+end
+
+--- Show the roll ON THE PAD, in the world, rather than on anybody's screen: the plate
+--- flashes the liquid's own colour and its billboard names what came out. The panel
+--- that used to do this is gone (see StationController's header).
+local function announce(pad: BasePart?, def: Liquids.LiquidDef, held: number)
+	flashSign(
+		pad,
+		def.name,
+		if def.charges > 0 then `{held} washes in the shed` else "always free",
+		def.color
+	)
 end
 
 -- ── Reading ───────────────────────────────────────────────────────────
@@ -382,7 +422,6 @@ end
 
 function LiquidService.init()
 	stateRemote = Net.get("LiquidState")
-	resultRemote = Net.get("StationResult")
 end
 
 function LiquidService.start()
@@ -397,21 +436,28 @@ function LiquidService.start()
 		end
 
 		local id, refusal = pull(player, data)
-		if id == nil then
-			resultRemote:FireClient(player, refusal)
-			return
-		end
 
-		-- The pad itself is the only surface that reports this. Found by asking
-		-- StationService where the player is standing rather than being handed down
-		-- through onChanged, because onChanged's signature is shared by every station
-		-- kind and widening it for one caller would be the wrong trade.
+		-- The pad itself is the only surface that reports this, WIN OR LOSE. Found by
+		-- asking StationService where the player is standing rather than being handed
+		-- down through onChanged, because onChanged's signature is shared by every
+		-- station kind and widening it for one caller would be the wrong trade.
+		--
+		-- A refusal used to fire a StationResult toast, which rendered into a label
+		-- inside the station panel -- and the wash pad is precisely the station that
+		-- never opens a panel (StationController's PANEL_KINDS), so the message went
+		-- nowhere and a broke player saw a dead button. The refusal flashes the sign
+		-- amber instead, the same event shape as a real roll.
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local pad: BasePart? = nil
 		if root and root:IsA("BasePart") then
 			local _, _, part = StationService.at(root.Position)
 			pad = part
+		end
+
+		if id == nil then
+			flashSign(pad, nil, tostring(refusal), REFUSAL_HEX)
+			return
 		end
 
 		local def = Liquids.get(id)
