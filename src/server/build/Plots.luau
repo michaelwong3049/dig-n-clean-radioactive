@@ -74,38 +74,41 @@
 	gameplay risk. The internal arrangement itself (stands + cleansing station)
 	changed since; see "THE BASE LAYOUT" below.
 
-	THE BASE LAYOUT — stands keep their original two flanking columns while a
-	17-stud entrance-side extension carries the active washing equipment:
+	THE BASE LAYOUT — two flanking columns of stands with the back row filled in
+	across, while a 17-stud entrance-side extension carries the active washing
+	equipment:
 
 	    ┌─────────────────────────────────────┐
-	    │      [locker]                         │
+	    │  [stand][stand][stand][stand][stand][stand]  │
 	    │  [stand]                   [stand]   │
-	    │  [stand]                   [stand]   │
-	    │  [stand]         spawn               │
+	    │  [stand]         spawn      [stand]  │
 	    │  [stand]                   [stand]   │
 	    ├──────── original front edge ─────────┤
-	    │  WASHER + HOSE           WASH PAD    │
+	    │  WASHER + HOSE  [locker]  WASH PAD   │
 	    └─────────────────────────────────────┘
 
-	The Quarantine Locker (PLAN §10.2) stays against the back wall on the left side
-	of the base — the physical rack of items you hauled home but can't clean
-	yet. Built here, filled by ExhibitService.renderLocker; see buildQuarantineLocker.
+	The Quarantine Locker (PLAN §10.2) — the physical rack of items you hauled home
+	but can't clean yet — now sits in the +X corner right beside the cleansing
+	station, moved off the far back-left wall on request so it is next to the tub
+	you fill it at. Built here, filled by ExhibitService.renderLocker; see
+	buildQuarantineLocker.
 
-	Eight stands, four per side, remain at their established coordinates —
-	`slotOffset` still pairs them off row by row (slot 1 = left row 1, slot 2 =
-	right row 1, slot 3 = left row 2, ...). The cleansing station and its hose rig
-	now occupy the left side of the extension, with the wash pad on the right and
-	a deliberate safe gap between their station radii.
+	12 stands: the two flanking columns of 4 (slots 1-8, `slotOffset` pairs them off
+	row by row — slot 1 = left row 1, slot 2 = right row 1, ...) plus a 4-stand
+	infill (slots 9-12) along the back row, between the two top stands, so that row
+	reads as one continuous run of 6. The cleansing station and its hose rig occupy
+	the +X side of the extension, the wash pad the -X side, with a deliberate safe
+	gap between their station radii.
 
-	SLOTS: 8 BUILT, ALL FREE.
-	Tuning.EXHIBIT_MAX_SLOTS is 8 and VISIBLE_SLOTS is the 8 the sketch shows —
-	they're the same number now. Every stand is usable from the moment a plot is
+	SLOTS: 12 BUILT, ALL FREE.
+	Tuning.EXHIBIT_MAX_SLOTS is 12 and VISIBLE_SLOTS is the 12 the sketch shows —
+	they're the same number. Every stand is usable from the moment a plot is
 	claimed; there is no slot to buy or unlock.
 
-	slotOffset is defined for slots past 8 too (rows 5+ extend the same two columns
-	further out), so raising both VISIBLE_SLOTS and EXHIBIT_MAX_SLOTS is all it
-	takes to show more — it just won't match the sketch's exact 8-stand picture
-	once you do.
+	slotOffset only makes sense for these 12 (slots 1-8 flanking, 9-12 the back-row
+	infill). Slots past 12 fall through to the flanking-column formula and would
+	stack a 7th row off the front of the pad — raising VISIBLE_SLOTS past 12 needs a
+	real rule for where the extra pedestals go.
 
 	THE WORLD CONTRACT:
 	    Pad         PlotIndex = n
@@ -162,13 +165,13 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 27
+local BUILDER_VERSION = 28
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
 Plots.COUNT = 6
-Plots.VISIBLE_SLOTS = 8
+Plots.VISIBLE_SLOTS = 12
 -- Interior bays in the Quarantine Locker cabinet (buildQuarantineLocker). Kept in
 -- step with the cleansing-station panel's own LOCKER_ROWS; ExhibitService.renderLocker
 -- reads the same number. A locker with more than this many racked items just doesn't
@@ -391,17 +394,26 @@ local function apronSkip(x: number, z: number): boolean
 	return false
 end
 
---- Two flanking columns, paired off row by row — odd slots go left, even slots
---- go right, and each pair shares a Z so the sketch's row-by-row symmetry holds.
---- ROW_TOP_Z is the FIRST row, closest to the cleansing station at the back;
---- rows count DOWN from there toward the entrance. The maths works for any slot
---- number, not just the 8 that are built — so raising VISIBLE_SLOTS (and
---- EXHIBIT_MAX_SLOTS with it) just adds more rows further toward the front.
+--- STAND LAYOUT — two flanking columns of 4, plus a 4-stand infill that turns the
+--- back row into one continuous 6-wide row along the back wall.
+---
+--- Slots 1-8 are the two flanking columns, paired off row by row — odd slots go
+--- left, even slots go right, each pair sharing a Z. ROW_TOP_Z is the FIRST row,
+--- closest to the back wall; rows count DOWN from there toward the entrance.
+---
+--- Slots 9-12 fill the gap along ROW_TOP_Z BETWEEN the two top stands (slots 1 and
+--- 2 at ±COL_X), on request — four pedestals at x = ∓15, ∓5 so the back row reads
+--- as -25 -15 -5 5 15 25, one unbroken run. They are the last four slots so the
+--- flanking columns (and any saved item in slots 1-8) keep their exact positions.
 local COL_X = 25
 local ROW_TOP_Z = 15
 local ROW_PITCH = 10
+local BACK_ROW_INFILL_X = { -15, -5, 5, 15 } -- slots 9-12, along ROW_TOP_Z
 
 local function slotOffset(slot: number): (number, number)
+	if BACK_ROW_INFILL_X[slot - 8] ~= nil then
+		return BACK_ROW_INFILL_X[slot - 8], ROW_TOP_Z
+	end
 	local row = math.floor((slot - 1) / 2)
 	local isLeft = slot % 2 == 1
 	local x = if isLeft then -COL_X else COL_X
@@ -1234,10 +1246,13 @@ end
 ---
 --- NO STATION ATTRIBUTES. Racking still happens at the cleansing station
 --- (DeconService gates it on `StationKind == "decon"`); this cabinet is a display,
---- not a stop. Placed against the back wall LEFT of the cleansing station, opening
---- toward the plot entrance (-Z), clear of the gantry posts (x = ±3.2) and the
---- left stand column (x = -25) by ~8 studs each — World.verify() re-checks nothing
---- overlaps on every rebuild.
+--- not a stop. MOVED next to the cleansing station on request — it used to stand
+--- against the back wall on the far LEFT of the base, a long walk from the tub you
+--- fill it at. Now it sits in the +X corner just behind the cleansing bay (plot
+--- x ~= 30, z ~= -24), still opening toward the plot entrance (-Z), tucked
+--- between the gantry (its posts reach plot x ~= 27.5, z ~= -29) and the right
+--- stand column's last row (z = -15) with a few studs clear of each. `Exhibit
+--- Service` finds every part of it by name, so the move needs nothing on its side.
 ---
 --- THE DOOR IS ITS OWN MODEL, built CLOSED in a frame anchored at the hinge (the
 --- -X edge of the opening), so a yaw about that frame's own vertical axis swings
@@ -1248,7 +1263,7 @@ local function buildQuarantineLocker(parent: Instance, origin: CFrame, accent: s
 	m.Name = "QuarantineLocker"
 	local pad = Plots.PAD
 
-	local lx, lz = -13, 22.5
+	local lx, lz = 30, -24
 	local baseY = pad.topY + 0.4 -- top of the plinth; the cabinet's own floor sits here
 	local midY = baseY + 2.7 -- centre of the 5.4-tall body
 
