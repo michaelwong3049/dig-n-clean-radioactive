@@ -45,21 +45,22 @@
 	plaza to be sized by what actually stands on it. The plots did not get
 	smaller through any of these reshuffles; the car park between them did.
 
-	A BASE IS ONE MATTE NEAR-BLACK PLATE. The pad is not a slab of concrete, and no
-	longer the plaza's studded board either: it is a single flat matte plate in
-	`Kit.C.baseFloor` (Material.Plastic, faces smoothed — SmoothPlastic glinted in
-	the sun), no studs, one step up from the apron — dropped from the tiled board
-	(navy/grey checker, then flat grey, then flat near-black, now a plain matte
-	plate) on request. That still makes the six bases the only thing in the world
-	that is not some shade of green, and still makes walking onto one a change of
-	colour rather than a change of surface.
+	A BASE WEARS THE PLAZA'S STUDDED BOARD IN ONE FLAT COLOUR. The pad is not a slab
+	of concrete: it is the same studded tile board the courtyard is paved in, on the
+	same grid, one step up from the apron — but a single flat near-black charcoal
+	(`Kit.C.baseFloor`), not the courtyard's green checker. The board has been every
+	shape by now (navy/grey checker → flat grey → flat near-black → a smooth no-stud
+	plate that glinted in the sun); back to the studded board, one flat tone, on
+	request. That still makes the six bases the only thing in the world that is not
+	some shade of green, and still makes walking onto one a change of colour rather
+	than a change of surface.
 
-	THE PLATE STILL RIDES ON A STRUCTURAL SLAB (`Hub.groundSlab`) recessed by Hub's
-	tile-cap thickness, with a 0.4-thick smooth plate filling that gap so footing is
-	still `pad.topY` — see `buildPlot`. The slab is built through the pad's yawed
-	local `origin` like everything else in this file (the semicircular ring's facings
-	are no longer multiples of 90, so a pad's true footprint is a rotated rectangle);
-	`Hub.TileOpts.origin` carries that.
+	A PAD'S OWN TILES ARE BUILT IN ITS YAWED LOCAL SPACE, NOT WORLD SPACE — the
+	semicircular ring's facings are no longer multiples of 90, so a pad's true
+	footprint is a rotated rectangle, not the axis-aligned one this grid math would
+	otherwise assume; `Hub.TileOpts.origin` carries that. The tile cap tops out at
+	`pad.topY` and is what a player stands on; the structural `Hub.groundSlab`
+	(which carries `PlotIndex`) is recessed one cap-thickness below it.
 
 	THE DEPENDENCY FLIPPED, AGAIN, AND THIS TIME IT IS DERIVED RATHER THAN COMMENTED.
 	This file used to require `Hub`, then stopped, and `Hub.luau` carried a comment
@@ -1481,12 +1482,14 @@ local function buildPlot(parent: Instance, index: number)
 	local accent = Kit.PLOT_ACCENT[((index - 1) % #Kit.PLOT_ACCENT) + 1]
 	local pad = Plots.PAD
 
-	-- THE STAGE. One step up from the apron — a plot should feel like somewhere you
-	-- walk onto, not part of the pavement — and ONE SMOOTH NEAR-BLACK PLATE against
-	-- the courtyard's green, so the six bases are the one thing in the world that is
-	-- not some shade of it. It USED to wear the plaza's studded board (first in
-	-- navy/grey, then one flat grey, then near-black); dropped to a plain smooth
-	-- plate with no studs, on request — a flat panel, not a tiled floor.
+	-- THE STAGE, WEARING THE PLAZA'S STUDDED BOARD IN ONE FLAT COLOUR. One step up
+	-- from the apron — a plot should feel like somewhere you walk onto, not part of
+	-- the pavement — and one flat near-black charcoal (`C.baseFloor`) against the
+	-- courtyard's green, so the six bases are the one thing in the world that is not
+	-- some shade of it. The board has been every shape by now (navy/grey checker →
+	-- flat grey → flat near-black → a smooth no-stud plate); back to the studded
+	-- board on request, one flat tone, so the studs catch the light like every other
+	-- floor in the world without the pad alternating or turning to a mirror.
 	--
 	-- BUILT IN THIS MODEL'S YAWED LOCAL SPACE, THROUGH `origin`, LIKE EVERYTHING ELSE
 	-- IN THIS FUNCTION — the opposite of how this used to work (see this file's own
@@ -1497,29 +1500,19 @@ local function buildPlot(parent: Instance, index: number)
 	local tint: Hub.TileOpts = { topY = pad.topY, dark = C.baseFloor, light = C.baseFloor, origin = origin }
 
 	-- The slab underneath carries PlotIndex, because that is the world contract this
-	-- file's header publishes.
+	-- file's header publishes and a folder of tiles cannot carry it.
 	local slab = Hub.groundSlab(m, rect, "Pad", pad.thickness, tint)
 	slab:SetAttribute("PlotIndex", index)
 
-	-- The visible floor: ONE matte near-black plate, no studs. Fills exactly the gap
-	-- Hub's studded tile cap used to (topY - 0.4 up to topY, matching Hub's own CAP),
-	-- so footing is still pad.topY and nothing built at `pad.topY + n` moves. The
-	-- structural slab above is recessed under this by the same 0.4.
-	--
-	-- Material.Plastic + every face smoothed, NOT SmoothPlastic: SmoothPlastic threw a
-	-- hard sun glint across the whole sheet (the reason this world went matte in the
-	-- first place — see Kit.C's header). A fresh Part's TopSurface is Studs, so the
-	-- smoothing pass is what keeps a no-stud Plastic part actually flat.
-	local padFloor = build(m, origin, {
-		name = "PadFloor",
-		pos = { (rect.minX + rect.maxX) / 2, pad.topY - 0.2, (rect.minZ + rect.maxZ) / 2 },
-		size = { rect.maxX - rect.minX, 0.4, rect.maxZ - rect.minZ },
-		color = C.baseFloor,
-		material = "Plastic",
-	})
-	for _, face in { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" } do
-		(padFloor :: any)[face] = Enum.SurfaceType.Smooth
-	end
+	-- The visible floor: the plaza's studded tile board (Hub.tileRect) on the plaza's
+	-- own grid, `dark == light == C.baseFloor` so it reads as one flat studded tone
+	-- rather than the plaza's green checker. Solid and queryable, same as the plaza's
+	-- own tiles — the tile cap tops out at pad.topY and IS what a player stands on
+	-- (the structural slab is recessed CAP below it).
+	local tiles = Instance.new("Folder")
+	tiles.Name = "PadTiles"
+	Hub.tileRect(tiles, rect, tint)
+	tiles.Parent = m
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
 	-- the colour alone carries the "whose plot" cue now, no glow.

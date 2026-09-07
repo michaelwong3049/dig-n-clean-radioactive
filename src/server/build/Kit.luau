@@ -146,14 +146,13 @@ Kit.C = {
 	baseTileDark = "212639",
 	baseTileLight = "545A66",
 
-	-- The player bases' pad floor, on request: ONE matte near-black plate (no studs,
-	-- no tiles) instead of the navy/grey `baseTileDark`/`baseTileLight` studded
-	-- checker — a flat panel one step up from the apron. MATTE, not SmoothPlastic:
-	-- SmoothPlastic caught a hard sun glint across the whole slab, so buildPlot lays
-	-- this as Material.Plastic with every face smoothed. A very dark cool charcoal —
-	-- lifted off near-pure-black on request so the sheet reads rather than crushing
-	-- to a void. `baseTileDark`/`Light` stay above for anything that still wants the
-	-- old pair.
+	-- The player bases' pad floor: ONE flat tone on the plaza's studded tile board
+	-- (buildPlot passes it as both `dark` and `light` to Hub.tileRect), instead of
+	-- the navy/grey `baseTileDark`/`baseTileLight` checker. A dark cool charcoal —
+	-- lifted off near-pure-black on request so the studs read. Has been grey, then
+	-- near-black, then briefly a smooth no-stud plate (glinted in the sun), now back
+	-- to studs at this tone. `baseTileDark`/`Light` stay above for anything that
+	-- still wants the old pair.
 	baseFloor = "282A33",
 	grass = "8FD86A",
 	grassDark = "6FB84E",
