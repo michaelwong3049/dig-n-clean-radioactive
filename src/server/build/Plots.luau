@@ -1647,23 +1647,40 @@ local function buildPlot(parent: Instance, index: number)
 	end
 
 	-- Back wall (studded checkerboard, see buildBackWall) and the nameplate that
-	-- carries the owner's display name. The sign is a dark neutral panel now (was the
-	-- plot's bright accent) with light text — the accent `Trim` down the long edges
-	-- is what carries "whose plot is this" on hue; the nameplate only has to read
-	-- cleanly. It stands proud of the wall on two short standoff arms and sits higher
-	-- up the wall than before, so it clears the back row of exhibit stands and reads
-	-- as a mounted sign rather than paint on the wall.
+	-- carries the owner's display name. Dark neutral placard (`C.signText`) with light
+	-- text in a thin accent frame — the frame lifts it clear of the equally-dark wall
+	-- and carries the plot's hue the same way the side `Trim` does. Floated ~2 studs
+	-- proud of the wall on two standoff arms (a wider gap threw a big soft shadow on
+	-- the wall) and raised to `pad.topY + 11.5` so it clears the back row of stands.
 	buildBackWall(m, origin)
 	buildSideRailings(m, origin)
 	local SIGN_Y = pad.topY + 11.5
-	local SIGN_Z = pad.maxZ - 4 -- ~3.5 studs proud of the wall's front face (maxZ - 0.5)
+	local SIGN_W, SIGN_H = 34, 4
+	local SIGN_Z = pad.maxZ - 2.7 -- the wall's own front face is at pad.maxZ - 0.5
 	local sign = build(m, origin, {
 		name = "NameSign",
 		pos = { 0, SIGN_Y, SIGN_Z },
-		size = { 34, 4, 0.4 },
+		size = { SIGN_W, SIGN_H, 0.4 },
 		color = C.signText,
 		material = "SmoothPlastic",
 	})
+	-- Thin accent frame, flush with the sign's front face — four bars, corners lapped.
+	local FRAME = 0.6
+	for _, bar in {
+		{ w = SIGN_W + FRAME * 2, h = FRAME, x = 0, y = (SIGN_H + FRAME) / 2 },
+		{ w = SIGN_W + FRAME * 2, h = FRAME, x = 0, y = -(SIGN_H + FRAME) / 2 },
+		{ w = FRAME, h = SIGN_H, x = (SIGN_W + FRAME) / 2, y = 0 },
+		{ w = FRAME, h = SIGN_H, x = -(SIGN_W + FRAME) / 2, y = 0 },
+	} do
+		build(m, origin, {
+			name = "SignFrame",
+			pos = { bar.x, SIGN_Y + bar.y, SIGN_Z - 0.2 },
+			size = { bar.w, bar.h, 0.6 },
+			color = accent,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+	end
 	-- Standoff arms back to the wall, in the wall's own colour so they read as the
 	-- mounting rather than as part of the sign — the floated panel needs something
 	-- visibly holding it.
