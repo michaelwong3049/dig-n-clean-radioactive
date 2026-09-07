@@ -42,14 +42,14 @@ local Settings = {}
 -- formatCash. Keep in step if the server value changes.
 local NEUTRAL = Color3.fromHex("7F8388")
 
-local PANEL_SIZE = Vector2.new(430, 468)
-local SV_SIZE = Vector2.new(232, 176)
+local PANEL_SIZE = Vector2.new(430, 428)
+local SV_SIZE = Vector2.new(232, 158)
 local HUE_W = 26
 local GAP = 14
 
 -- The picker's live HSV, plus whether the COMMITTED base colour is a real hue or the
--- neutral (never-picked / reset) state. `dragging` makes the preview show the hue
--- under the handles even before it is committed.
+-- neutral (never-picked / reset) state. `dragging` (any track) makes the preview show
+-- the hue under the handles even before it is committed.
 local state = {
 	h = 0,
 	s = 0.72,
@@ -83,9 +83,9 @@ end
 local function applyPreview()
 	local picked = currentColor()
 
-	ui.hueHandle.Position = UDim2.new(0.5, 0, state.h, 0)
+	ui.hueHandle.Position = UDim2.fromScale(0.5, state.h)
 	ui.svArea.BackgroundColor3 = Color3.fromHSV(state.h, 1, 1)
-	ui.svHandle.Position = UDim2.new(state.s, 0, 1 - state.v, 0)
+	ui.svHandle.Position = UDim2.fromScale(state.s, 1 - state.v)
 
 	local live = state.committed or state.dragging
 	ui.swatch.BackgroundColor3 = if live then picked else NEUTRAL
@@ -106,13 +106,13 @@ end
 local function onServerColor(hex: any)
 	if type(hex) ~= "string" or hex == "" then
 		state.committed = false
-		setStatus("not set")
+		setStatus("")
 	else
 		local ok, parsed = pcall(Color3.fromHex, hex)
 		if ok then
 			state.h, state.s, state.v = parsed:ToHSV()
 			state.committed = true
-			setStatus("saved")
+			setStatus("saved \u{2713}")
 		end
 	end
 	applyPreview()
@@ -125,7 +125,14 @@ end
 --- catcher's own rect. `onMove` fires every frame of the drag; `onRelease` once at the
 --- end. The catcher is topmost and transparent so the gradient layers and the handle
 --- underneath it stay purely visual.
+---
+--- `dragging` is LOCAL to each call — the SV square and the hue strip must not both
+--- react to one drag (they did while this flag was shared, and every drag moved both
+--- handles). `state.dragging` is still set so applyPreview shows the live colour, but
+--- the move/release gating is per-track.
 local function makeDraggable(catcher: GuiObject, onMove: (number, number) -> (), onRelease: () -> ())
+	local dragging = false
+
 	local function fractionFrom(inputPos: Vector3): (number, number)
 		local rel = Vector2.new(inputPos.X, inputPos.Y) - catcher.AbsolutePosition
 		local fx = math.clamp(rel.X / math.max(catcher.AbsoluteSize.X, 1), 0, 1)
@@ -137,12 +144,13 @@ local function makeDraggable(catcher: GuiObject, onMove: (number, number) -> (),
 		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
 			return
 		end
+		dragging = true
 		state.dragging = true
 		onMove(fractionFrom(input.Position))
 	end)
 
 	UserInputService.InputChanged:Connect(function(input)
-		if not state.dragging then
+		if not dragging then
 			return
 		end
 		if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
@@ -152,12 +160,13 @@ local function makeDraggable(catcher: GuiObject, onMove: (number, number) -> (),
 	end)
 
 	UserInputService.InputEnded:Connect(function(input)
-		if not state.dragging then
+		if not dragging then
 			return
 		end
 		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
 			return
 		end
+		dragging = false
 		state.dragging = false
 		onRelease()
 	end)
