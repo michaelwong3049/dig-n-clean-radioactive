@@ -97,6 +97,14 @@ local REMOTES: { [string]: string } = {
 	-- stage (StageService.stageOf ~= nil) so it can never be an escape hatch out of a
 	-- lethal field; the bar hides itself there too, so that path is edge-only.
 	Warp = "RemoteEvent", -- client -> server, { dest = "base" | "shops" }
+
+	-- Which physical plot this player was assigned this session, so the client can
+	-- mark it (client BaseMarkerController's "YOUR BASE" avatar beacon). Server ->
+	-- client, fired once from ExhibitService.assign after the profile loads; the
+	-- payload is the bare integer index, never a position. Plot assignment is
+	-- per-session and never changes once made, so there is nothing to persist and
+	-- no reason to re-fire -- same "once on load" shape as CashState / IndexState.
+	PlotState = "RemoteEvent", -- server -> client, plot index, once on assignment
 }
 
 local Net = {}
