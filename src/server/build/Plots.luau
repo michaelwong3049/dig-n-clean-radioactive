@@ -1489,8 +1489,9 @@ end
 --- The plot's back wall. WAS a flat Concrete slab in warm peach; now a studded wall,
 --- the same stud treatment the boundary walls and every floor in the world already
 --- wear, so the base reads as built out of the same blocks as everything around it.
---- ONE flat colour (the brighter of the old plaza pair, `C.plazaWarm`), on request —
---- the two-tone checker read as busy behind the nameplate. Front face at local z =
+--- ONE flat colour — was the pale `C.plazaWarm`, dropped to the dark warm `C.baseWall`
+--- on request so the wall sits back behind the nameplate instead of glowing pale.
+--- Front face at local z =
 --- `pad.maxZ - 0.5` (local z = 43.5 since the +18 back extension moved maxZ out
 --- from 26 to 44), so the wall and the NameSign bolted to it follow the edge on
 --- their own; taller than the old 10-stud slab, on request.
@@ -1524,9 +1525,62 @@ local function buildBackWall(parent: Instance, origin: CFrame)
 				name = "WallTile",
 				pos = { (x0 + x1) / 2, pad.topY + (y0 + y1) / 2, frontZ },
 				size = { w, h, wallThick },
-				color = C.plazaWarm,
+				color = C.baseWall,
 				material = "Plastic",
 				studs = true,
+			})
+		end
+	end
+
+	folder.Parent = parent
+end
+
+--- A plain grey guard rail down the LEFT and RIGHT long edges of the base, on
+--- request — posts and two horizontal rails bolted just inside the accent `Trim`.
+--- Its whole job is to read as an enclosure: the base already has a wall across the
+--- back and an open service strip across the front, and the two long sides were the
+--- one place the pad just fell away to the apron. The entrance (local -Z) and the
+--- back-wall edge (local +Z) are deliberately left open — you still walk on from the
+--- front and respawn onto the pad.
+---
+--- Posts collide (a real barrier at intervals); the rails themselves do not, so
+--- nothing catches a jumping player at head height. Runs the full pad depth in the
+--- pad's own yawed local space through `origin`, like everything else in buildPlot.
+local RAIL_H = 3.4
+local RAIL_POST_SPACING = 8
+local function buildSideRailings(parent: Instance, origin: CFrame)
+	local pad = Plots.PAD
+	local folder = Instance.new("Folder")
+	folder.Name = "SideRailings"
+
+	local railX = pad.width / 2 - 0.7 -- just inside the Trim at width/2 - 0.5
+	local z0, z1 = pad.minZ + 0.5, pad.maxZ - 0.5
+	local span = z1 - z0
+	local midZ = (z0 + z1) / 2
+	local postCount = math.max(2, math.floor(span / RAIL_POST_SPACING) + 1)
+
+	for _, side in { -1, 1 } do
+		local x = side * railX
+
+		for _, rail in { { y = RAIL_H, t = 0.4 }, { y = RAIL_H * 0.55, t = 0.3 } } do
+			build(folder, origin, {
+				name = "Rail",
+				pos = { x, pad.topY + rail.y, midZ },
+				size = { rail.t, rail.t, span },
+				color = C.railGrey,
+				material = "Metal",
+				canCollide = false,
+			})
+		end
+
+		for i = 0, postCount - 1 do
+			local z = z0 + span * (i / (postCount - 1))
+			build(folder, origin, {
+				name = "RailPost",
+				pos = { x, pad.topY + RAIL_H / 2, z },
+				size = { 0.5, RAIL_H, 0.5 },
+				color = C.railGrey,
+				material = "Metal",
 			})
 		end
 	end
@@ -1597,6 +1651,7 @@ local function buildPlot(parent: Instance, index: number)
 	-- and the sign carry "whose plot is this" on hue alone; no accent light any more,
 	-- which used to bounce the plot's colour onto the grey plinths in front of it.
 	buildBackWall(m, origin)
+	buildSideRailings(m, origin)
 	local sign = build(m, origin, {
 		name = "NameSign",
 		pos = { 0, pad.topY + 8, pad.maxZ - 1.4 },
