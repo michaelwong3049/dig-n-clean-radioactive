@@ -25,7 +25,7 @@ local ModelGallery = {}
 
 local NAME = "ModelYard"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 4
+local BUILDER_VERSION = 5
 
 local LAND_WIDTH = 46
 local LAND_DEPTH = 36

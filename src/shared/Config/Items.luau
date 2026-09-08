@@ -303,6 +303,7 @@ Items.DEFS = {
 	{
 		id = "cracked_tile",
 		name = "Old Penny",
+		model = "OldPenny",
 		flavor = "Someone chose this pattern once.",
 		rarity = "Common",
 		odds = 5, -- 1 in N per dig in a stocking stage
@@ -327,6 +328,7 @@ Items.DEFS = {
 	{
 		id = "cutlery_set",
 		name = "Silver Fork",
+		model = "SilverFork",
 		flavor = "Wrapped in a napkin, waiting for a dinner that never happened.",
 		rarity = "Common",
 		odds = 10, -- 1 in N per dig in a stocking stage
