@@ -30,6 +30,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
@@ -40,6 +41,7 @@ local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Dock = UIKit.Dock
+local Artwork = require(script.Parent.Parent.HudArtwork)
 
 local Index = {}
 
@@ -48,6 +50,9 @@ local Index = {}
 -- constant is the exact coupling UIKit.Dock exists to prevent. Same migration
 -- CashController's own header describes for CASH_SIZE.
 local BUTTON_SIZE = Dock.INDEX_SIZE
+local BUTTON_ACCENT = Color3.fromRGB(181, 143, 255)
+local BUTTON_EDGE = Color3.fromRGB(82, 64, 116)
+local BUTTON_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- ── Panel geometry ──────────────────────────────────────────────────
 -- Responsive like StationController's panel rather than a fixed box: width is
@@ -440,20 +445,92 @@ local function build(): ScreenGui
 	-- Dock.INDEX_BOTTOM, never a typed offset. It is derived from Dock.CASH_BOTTOM
 	-- and Dock.CASH_SIZE, so this file still does not need to know either the cash
 	-- badge's or the meter's height — resize either one and the button follows.
+	UIKit.panel(gui, {
+		name = "IndexShadow",
+		size = BUTTON_SIZE,
+		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM + 4),
+		anchorPoint = Vector2.new(0, 1),
+		color = Color3.fromRGB(3, 7, 12),
+		transparency = 0.2,
+		cornerRadius = UDim.new(0, 9),
+		strokeThickness = 0,
+		zIndex = 3,
+	})
 	local button, buttonStroke = UIKit.button(gui, {
 		name = "IndexButton",
-		size = UDim2.fromOffset(BUTTON_SIZE, BUTTON_SIZE),
+		size = BUTTON_SIZE,
 		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM),
 		anchorPoint = Vector2.new(0, 1),
-		text = "INDEX",
+		text = "",
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.body,
 		color = UIKit.C.text,
-		fillColor = UIKit.C.panel,
-		fillTransparency = 0.1,
-		cornerRadius = UIKit.Radius.card,
+		fillColor = Color3.fromRGB(200, 210, 225),
+		fillTransparency = 0,
+		strokeColor = BUTTON_EDGE,
+		strokeThickness = 2,
+		cornerRadius = UDim.new(0, 9),
 		zIndex = 4,
 	})
+	buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new(Color3.fromRGB(47, 37, 66), Color3.fromRGB(17, 12, 28))
+	gradient.Rotation = 90
+	gradient.Parent = button
+	UIKit.panel(button, {
+		name = "Accent",
+		size = UDim2.new(1, -30, 0, 2),
+		position = UDim2.new(0, 15, 1, -8),
+		color = BUTTON_ACCENT,
+		transparency = 0.15,
+		strokeThickness = 0,
+		cornerRadius = UDim.new(0, 1),
+		zIndex = 5,
+	})
+	local icon = Instance.new("Frame")
+	icon.Name = "BookArtwork"
+	icon.Size = UDim2.fromOffset(70, 70)
+	icon.BackgroundTransparency = 1
+	icon.ZIndex = 6
+	icon.Parent = button
+	local iconScale = Instance.new("UIScale")
+	iconScale.Scale = 0.72
+	iconScale.Parent = icon
+	Artwork.book(icon)
+	local title = UIKit.label(button, {
+		name = "Caption",
+		size = UDim2.new(1, -65, 1, -12),
+		position = UDim2.fromOffset(54, 2),
+		text = "INDEX",
+		font = Enum.Font.GothamBlack,
+		textSize = 23,
+		color = Color3.fromRGB(232, 242, 255),
+		strokeTransparency = 1,
+		zIndex = 7,
+	})
+	local function setHighlighted(active: boolean)
+		TweenService:Create(button, BUTTON_HOVER, {
+			BackgroundColor3 = if active then Color3.new(1, 1, 1) else Color3.fromRGB(200, 210, 225),
+		}):Play()
+		TweenService:Create(buttonStroke, BUTTON_HOVER, {
+			Color = if active then BUTTON_ACCENT else BUTTON_EDGE,
+		}):Play()
+		TweenService:Create(title, BUTTON_HOVER, {
+			TextColor3 = if active then Color3.new(1, 1, 1) else Color3.fromRGB(232, 242, 255),
+		}):Play()
+	end
+	button.MouseEnter:Connect(function()
+		setHighlighted(true)
+	end)
+	button.MouseLeave:Connect(function()
+		setHighlighted(false)
+	end)
+	button.SelectionGained:Connect(function()
+		setHighlighted(true)
+	end)
+	button.SelectionLost:Connect(function()
+		setHighlighted(false)
+	end)
 	ui.button = button
 	ui.buttonStroke = buttonStroke
 
