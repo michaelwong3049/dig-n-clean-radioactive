@@ -31,7 +31,7 @@
 	to make that work now -- the roll picks from stocked items only.
 
 	EVERY ITEM HAS A `weight`, IN KILOGRAMS (feat/item-weight-system). It is INTRINSIC
-	and ORTHOGONAL to rarity — a Diamond Brooch is light and precious, a Steel Rod is
+	and ORTHOGONAL to rarity — a Diamond Chain is light and precious, a Steel Rod is
 	heavy and worthless. Config/Weight.luau turns it into five felt consequences: the
 	hauled model's size, the glow well's width, how long the mash takes, a value/$/sec
 	multiplier, and a dig-roll bias (`rollBias`, <= 1) that leaves the feather end a
@@ -252,6 +252,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
 		baseValue = 2300,
+		model = "RadiationScanner",
 	},
 	{
 		id = "film_canister",
@@ -301,7 +302,8 @@ Items.DEFS = {
 
 	{
 		id = "cracked_tile",
-		name = "Cracked Tile",
+		name = "Old Penny",
+		model = "OldPenny",
 		flavor = "Someone chose this pattern once.",
 		rarity = "Common",
 		odds = 5, -- 1 in N per dig in a stocking stage
@@ -325,7 +327,8 @@ Items.DEFS = {
 	},
 	{
 		id = "cutlery_set",
-		name = "Cutlery Set",
+		name = "Silver Fork",
+		model = "SilverFork",
 		flavor = "Wrapped in a napkin, waiting for a dinner that never happened.",
 		rarity = "Common",
 		odds = 10, -- 1 in N per dig in a stocking stage
@@ -373,7 +376,7 @@ Items.DEFS = {
 	},
 	{
 		id = "socket_set",
-		name = "Socket Wrench Set",
+		name = "Gaming Console",
 		flavor = "Every socket still in its slot. Whoever owned this was particular about it.",
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
@@ -421,7 +424,8 @@ Items.DEFS = {
 	},
 	{
 		id = "ignition_coil",
-		name = "Ignition Coil",
+		name = "Iron Bar",
+		model = "IronBar",
 		flavor = "Pulled from a car pointed away from town, tank full, doors open.",
 		rarity = "Rare",
 		odds = 200, -- 1 in N per dig in a stocking stage
@@ -480,7 +484,7 @@ Items.DEFS = {
 	},
 	{
 		id = "gate_latch",
-		name = "Bent Gate Latch",
+		name = "Basketball",
 		flavor = "Snapped clean off. The fence went with it.",
 		rarity = "Common",
 		odds = 10, -- 1 in N per dig in a stocking stage
@@ -516,7 +520,7 @@ Items.DEFS = {
 	},
 	{
 		id = "unlit_signal_flare",
-		name = "Unlit Signal Flare",
+		name = "Scooter",
 		flavor = "Never got its chance to light up the sky.",
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
@@ -588,7 +592,7 @@ Items.DEFS = {
 	},
 	{
 		id = "bullion_bar",
-		name = "Gold Bullion Bar",
+		name = "Gold Bar",
 		flavor = "Someone carried this out of a vault, into a field, and got no further.",
 		rarity = "Epic",
 		odds = 1600, -- 1 in N per dig in a stocking stage
@@ -597,10 +601,11 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 16000,
+		model = "GoldBar",
 	},
 	{
 		id = "diamond_brooch",
-		name = "Diamond Brooch",
+		name = "Diamond Chain",
 		flavor = "A stone that catches light no one else out here can see.",
 		rarity = "Epic",
 		odds = 2200, -- 1 in N per dig in a stocking stage
@@ -612,7 +617,7 @@ Items.DEFS = {
 	},
 	{
 		id = "rusted_farm_safe",
-		name = "Rusted Farm Safe",
+		name = "Treasure Chest",
 		flavor = "Buried under the old farmhouse. Whatever's inside has been waiting a long time.",
 		rarity = "Legendary",
 		odds = 4000, -- 1 in N per dig in a stocking stage
@@ -632,7 +637,7 @@ Items.DEFS = {
 
 	{
 		id = "glowing_sample_jar",
-		name = "Glowing Sample Jar",
+		name = "Designer Shoes",
 		flavor = "A jar that glows a soft green, even in the dark.",
 		rarity = "Rare",
 		odds = 180, -- 1 in N per dig in a stocking stage
@@ -749,7 +754,7 @@ Items.DEFS = {
 	},
 	{
 		id = "reactor_logbook",
-		name = "Reactor Logbook",
+		name = "Toilet",
 		flavor = "The last page has one word on it, underlined twice.",
 		rarity = "Rare",
 		odds = 240, -- 1 in N per dig in a stocking stage
@@ -773,7 +778,7 @@ Items.DEFS = {
 	},
 	{
 		id = "blackbox_recorder",
-		name = "Black-Box Recorder",
+		name = "Uranium Ore",
 		flavor = "Built to survive anything. Lots of practice at it.",
 		rarity = "Epic",
 		odds = 1500, -- 1 in N per dig in a stocking stage
@@ -809,7 +814,7 @@ Items.DEFS = {
 	},
 	{
 		id = "live_fuel_rod",
-		name = "Live Fuel Rod",
+		name = "Atomic Bomb",
 		flavor = "Still glowing. Still humming. Exactly as dangerous as the day it was made.",
 		rarity = "Mythic",
 		odds = 50000, -- 1 in N per dig in a stocking stage
