@@ -7,7 +7,7 @@
 
 	An item's `weight` is in KILOGRAMS and authored per entry in Config/Items. It is
 	INTRINSIC — a Bottle Cap is always ~0.05 kg, a buried safe always ~220 — not a
-	per-dig roll. Rarity and weight are ORTHOGONAL: a Diamond Brooch is light and
+	per-dig roll. Rarity and weight are ORTHOGONAL: a Diamond Chain is light and
 	precious, a Steel Rod is heavy and worthless. Five things read the mass:
 
 	  sizeScale   the hauled / displayed model is :ScaleTo'd by this

@@ -25,14 +25,14 @@ local ModelGallery = {}
 
 local NAME = "ModelYard"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 3
+local BUILDER_VERSION = 4
 
-local LAND_WIDTH = 34
-local LAND_DEPTH = 28
+local LAND_WIDTH = 46
+local LAND_DEPTH = 36
 local LAND_THICKNESS = 0.12
 local YARD_MARGIN = 3
-local GRID_COLUMNS = 4
-local GRID_SPACING = 7
+local GRID_COLUMNS = 5
+local GRID_SPACING = 8
 local PEDESTAL_TOP = 2.5
 local MAX_MODEL_SIZE = 3.6
 
@@ -177,9 +177,31 @@ function ModelGallery.build(origin: CFrame?, parent: Instance?): Model
 end
 
 function ModelGallery.rebuild(origin: CFrame?, parent: Instance?): Model
+	-- The permanent yard belongs to BaseCamp. Older command-bar usage built a second
+	-- copy directly under Workspace, which put two of every model in the same place.
+	local target = parent or Workspace:FindFirstChild("BaseCamp") or Workspace
+	local targetOrigin = origin
+	local existing = target:FindFirstChild(NAME)
+	if targetOrigin == nil and existing then
+		local floor = existing:FindFirstChild("YardFloor")
+		if floor and floor:IsA("BasePart") then
+			-- Preserve the southwest corner when changing the yard dimensions.
+			targetOrigin = floor.CFrame
+				* CFrame.new((LAND_WIDTH - floor.Size.X) / 2, -floor.Size.Y / 2, (LAND_DEPTH - floor.Size.Z) / 2)
+		end
+	end
+
 	local gallery = Kit.swap(NAME, function()
-		return createGallery(origin or DEFAULT_ORIGIN)
-	end, parent) :: Model
+		return createGallery(targetOrigin or DEFAULT_ORIGIN)
+	end, target) :: Model
+
+	if target ~= Workspace then
+		local duplicate = Workspace:FindFirstChild(NAME)
+		if duplicate then
+			duplicate:Destroy()
+		end
+	end
+
 	print(`[build] model yard rebuilt — {#catalogueModels()} item model(s)`)
 	return gallery
 end
