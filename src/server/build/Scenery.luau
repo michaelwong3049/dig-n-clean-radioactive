@@ -222,6 +222,11 @@ local BONE_HOLLOW = "2B251D"
 local WALL_HEIGHT = 56
 local WALL_THICKNESS = 8
 local WALL_TILE = 4
+-- A thin studded sheet laid flat over each wall's crown -- "the stage floor, stacked
+-- on top of the wall", ON REQUEST. Painted in the stage's own FLOOR two-tone (not the
+-- paler wallPair), so the crown reads as ground carried up and over the barrier. See
+-- buildWallCap. Bites 0.1 stud down into the wall top so there is no z-fighting seam.
+local WALL_CAP_THICKNESS = 0.75
 -- The camp / Stage 1 pair. A warm terracotta brown; the two sit ~8% apart per
 -- channel on purpose -- close enough that the checker reads as one brown material
 -- with a faint grid, not a two-tone pattern (the original rust pair, B5573A/9C4A2F,
@@ -314,6 +319,16 @@ local function wallPair(id: number): (string, string)
 	local mid = if pin then Color3.fromHex(pin) else lighterFloor(Stages.get(id).color)
 
 	local darkC, lightC = twoToneOf(mid)
+	return darkC:ToHex(), lightC:ToHex()
+end
+
+--- The (dark, light) hex pair for one stage's FLOOR checker -- twoTone(def.color), the
+--- same pair buildStageCheckerboard paints the ground with. `buildWallCap` uses this
+--- (rather than wallPair) so a wall's crown matches the floor it is "stacking", not
+--- the paler wall face under it. Stage 1's floor gradient is not reproduced up here --
+--- an 8-stud strip 55 studs up takes the stage's flat east-edge twoTone.
+local function floorPair(id: number): (string, string)
+	local darkC, lightC = twoTone(Stages.get(id).color)
 	return darkC:ToHex(), lightC:ToHex()
 end
 
@@ -2987,6 +3002,53 @@ local function buildWall(parent: Instance, name: string, minX: number, maxX: num
 	end
 end
 
+--- A thin studded sheet laid FLAT over a wall's crown -- the stage floor, stacked on
+--- top of the wall (requested against a live look: the walls read as raw slabs with a
+--- bare top edge). Runs along X at a fixed Z, `WALL_THICKNESS` deep, the full length
+--- of the chain, on the same `WALL_TILE` grid as the wall face below it so the checker
+--- stays in register looking up the wall.
+---
+--- `pairAt(x)` is the FLOOR two-tone for the stage behind the column (floorPair via
+--- buildBoundaryWalls' resolver), so the crown matches the ground rather than the
+--- paler wall. Decorative: `CanCollide`/`CanQuery` false -- nothing stands 55 studs up,
+--- and DigService / the range-ring raycast must never see it.
+local function buildWallCap(parent: Instance, name: string, minX: number, maxX: number, atZ: number, pairAt: (number) -> (string, string))
+	local capY = Stages.SURFACE_Y + WALL_HEIGHT + WALL_CAP_THICKNESS / 2 - 0.1
+	local cols = math.ceil((maxX - minX) / WALL_TILE)
+	local depthCells = math.ceil(WALL_THICKNESS / WALL_TILE)
+
+	for ix = 0, cols - 1 do
+		local x0 = minX + ix * WALL_TILE
+		local x1 = math.min(x0 + WALL_TILE, maxX)
+		local w = x1 - x0
+		if w <= 1e-3 then
+			continue
+		end
+
+		local darkHex, lightHex = pairAt((x0 + x1) / 2)
+
+		for iz = 0, depthCells - 1 do
+			local z0 = -WALL_THICKNESS / 2 + iz * WALL_TILE
+			local z1 = math.min(z0 + WALL_TILE, WALL_THICKNESS / 2)
+			local d = z1 - z0
+			if d <= 1e-3 then
+				continue
+			end
+
+			local tile = build(parent, CFrame.new(0, 0, 0), {
+				name = name,
+				pos = { (x0 + x1) / 2, capY, atZ + (z0 + z1) / 2 },
+				size = { w, WALL_CAP_THICKNESS, d },
+				color = if (ix + iz) % 2 == 0 then darkHex else lightHex,
+				material = "Plastic",
+				studs = true,
+				canCollide = false,
+			})
+			tile.CanQuery = false
+		end
+	end
+end
+
 --- The chain's north and south edges. ONE WALL PER SIDE, NOT SIX -- every stage
 --- shares the same Z footprint since the uniform-depth pass, so this is one long
 --- straight boundary the full length of the chain rather than a per-stage piece.
@@ -3010,18 +3072,26 @@ local function buildBoundaryWalls(parent: Instance)
 	table.sort(ids, function(a, b)
 		return Stages.get(a).center[1] < Stages.get(b).center[1]
 	end)
-	local function pairAt(x: number): (string, string)
-		for _, id in ids do
-			local _, _, bx = Stages.bounds(id)
-			if x < bx then
-				return wallPair(id)
+	-- The same west-to-east "which stage is behind this column" lookup, wrapped so the
+	-- wall face (wallPair) and its crown cap (floorPair) can share one resolver.
+	local function pairAtWith(fn: (number) -> (string, string)): (number) -> (string, string)
+		return function(x: number): (string, string)
+			for _, id in ids do
+				local _, _, bx = Stages.bounds(id)
+				if x < bx then
+					return fn(id)
+				end
 			end
+			return fn(ids[#ids])
 		end
-		return wallPair(ids[#ids])
 	end
 
-	buildWall(folder, "NorthWall", minX, maxX, minZ - WALL_THICKNESS / 2, "BackSurface", pairAt)
-	buildWall(folder, "SouthWall", minX, maxX, maxZ + WALL_THICKNESS / 2, "FrontSurface", pairAt)
+	buildWall(folder, "NorthWall", minX, maxX, minZ - WALL_THICKNESS / 2, "BackSurface", pairAtWith(wallPair))
+	buildWall(folder, "SouthWall", minX, maxX, maxZ + WALL_THICKNESS / 2, "FrontSurface", pairAtWith(wallPair))
+
+	local capPairAt = pairAtWith(floorPair)
+	buildWallCap(folder, "NorthWallCap", minX, maxX, minZ - WALL_THICKNESS / 2, capPairAt)
+	buildWallCap(folder, "SouthWallCap", minX, maxX, maxZ + WALL_THICKNESS / 2, capPairAt)
 
 	folder.Parent = parent
 end
