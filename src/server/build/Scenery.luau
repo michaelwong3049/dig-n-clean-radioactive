@@ -226,9 +226,9 @@ local WALL_TILE = 4
 -- of the wall", ON REQUEST. Painted in the stage's own FLOOR two-tone (not the paler
 -- wallPair), so the crown reads as ground carried up and over the barrier -- EXCEPT
 -- Stage 1, which takes the camp apron green like the base-camp arc (see capStagePair).
--- A FULL STUD high, on request. Bites 0.1 stud down into the wall top so there is no
--- z-fighting seam.
-local WALL_CAP_THICKNESS = 1
+-- TWO STUDS high, on request (0.75 -> 1 -> 2). Bites 0.1 stud down into the wall top
+-- so there is no z-fighting seam.
+local WALL_CAP_THICKNESS = 2
 -- The camp / Stage 1 pair. A warm terracotta brown; the two sit ~8% apart per
 -- channel on purpose -- close enough that the checker reads as one brown material
 -- with a faint grid, not a two-tone pattern (the original rust pair, B5573A/9C4A2F,
