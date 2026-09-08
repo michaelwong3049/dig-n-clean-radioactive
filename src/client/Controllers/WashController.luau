@@ -295,10 +295,22 @@ local DEFAULT_LIQUID = "6FD5E8"
 -- is the width of a gap between two of an item's own parts, and nothing more. See
 -- `patchAt`.
 local PATCH_REACH = 0.9
--- How far the aim ray reaches into the world, and where the aim point goes when it
--- reaches nothing at all (open sky past the edge of the base).
+-- THE AIM POINT IS PINNED TO THE TUB, and this is the fix for water crossing the
+-- base. The reach used to be a flat 60 studs: a shot that missed the item -- through
+-- the gap beside it, over it, out past the rim within the look clamp -- carried on
+-- until it hit whatever plot wall or boundary was downrange, and the ballistic jet
+-- was drawn all the way there. Reported, accurately, as "shooting across the map".
+--
+-- The reach is now "as far as the item on the stand, plus AIM_REACH_PAST", so every
+-- drop lands in or right beside the tub. Point at nothing in that cone and the water
+-- falls short in mid-air a few studs out -- which banks nothing on the server
+-- (`workedIndex` needs a real `WashZone` hit) and is exactly what aiming at nothing
+-- should do. AIM_RANGE stays as the ceiling for the degenerate frame where the item
+-- cannot be located at all (its pose has not replicated yet); AIM_RANGE_MIN is the
+-- floor so that frame still casts a usable ray.
+local AIM_REACH_PAST = 3
+local AIM_RANGE_MIN = 6
 local AIM_RANGE = 60
-local AIM_FALLBACK = 16
 
 -- ── The first-person shot ───────────────────────────────────────────
 -- Studs the camera sits forward of the head's own centre, along the view. The head is
@@ -1704,11 +1716,21 @@ end
 --- contamination is anyway. The character is filtered out because the ray starts
 --- inside the player's own head.
 local function aimPointAt(from: CFrame, filter: RaycastParams): (Vector3, BasePart?)
-	local hit = Workspace:Raycast(from.Position, from.LookVector * AIM_RANGE, filter)
+	-- Reach only as far as the item on the stand, plus a little -- never the whole
+	-- 60 studs. See AIM_REACH_PAST for why: past that the water was flying across the
+	-- base. `ahead` is the item's distance projected onto the view, so looking a touch
+	-- off the item still clamps to roughly the item's own range rather than the sky.
+	local pivot = itemPivot()
+	local reach = AIM_RANGE
+	if pivot then
+		local ahead = (pivot.Position - from.Position):Dot(from.LookVector)
+		reach = math.clamp(ahead + AIM_REACH_PAST, AIM_RANGE_MIN, AIM_RANGE)
+	end
+	local hit = Workspace:Raycast(from.Position, from.LookVector * reach, filter)
 	if hit then
 		return hit.Position, hit.Instance
 	end
-	return from.Position + from.LookVector * AIM_FALLBACK, nil
+	return from.Position + from.LookVector * reach, nil
 end
 
 --- Which patch is being worked: THE ONE THE WATER PHYSICALLY LANDED ON.
