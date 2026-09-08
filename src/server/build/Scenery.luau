@@ -332,6 +332,16 @@ local function floorPair(id: number): (string, string)
 	return darkC:ToHex(), lightC:ToHex()
 end
 
+--- The camp apron's own ground two-tone -- the tinted plaza board colours, the same
+--- pair Hub paints the apron with (and buildStageCheckerboard's Stage-1 west endpoint
+--- reuses just above). buildBaseWalls' crown caps take this so the camp wall tops read
+--- as the apron carried up and over, exactly as the stage caps do for their floors.
+local function campCapPair(): (string, string)
+	local bright = Stages.get(1).ooze.bright
+	return Kit.blendHex(C.plazaTileDark, bright, Stages.GROUND_OOZE_TINT),
+		Kit.blendHex(C.plazaTileLight, bright, Stages.GROUND_OOZE_TINT)
+end
+
 --- WHAT USED TO BE HERE: `buildStageBlend`, `oozeInset`, `STAGE_BLEND(S)`. The
 --- boundaries between Stages 1-4 (the "dead-sand family") each had a 90-stud,
 --- 14-step blend — a ground-colour band UNDER an ooze-colour band, both stepping
@@ -3138,6 +3148,45 @@ local function buildShoulderWall(parent: Instance, name: string, atX: number, mi
 	end
 end
 
+--- `buildWallCap` with the axes swapped -- a thin studded crown sheet running along Z
+--- at a fixed X, for the two shoulder pieces, exactly as `buildShoulderWall` is
+--- `buildWall` swapped. Flat (dark, light) rather than a per-column resolver: a
+--- shoulder is a few studs of one stage's edge, not a colour transition.
+local function buildShoulderCap(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, dark: string, light: string)
+	local capY = Stages.SURFACE_Y + WALL_HEIGHT + WALL_CAP_THICKNESS / 2 - 0.1
+	local cols = math.ceil((maxZ - minZ) / WALL_TILE)
+	local depthCells = math.ceil(WALL_THICKNESS / WALL_TILE)
+
+	for iz = 0, cols - 1 do
+		local z0 = minZ + iz * WALL_TILE
+		local z1 = math.min(z0 + WALL_TILE, maxZ)
+		local d = z1 - z0
+		if d <= 1e-3 then
+			continue
+		end
+
+		for ix = 0, depthCells - 1 do
+			local x0 = -WALL_THICKNESS / 2 + ix * WALL_TILE
+			local x1 = math.min(x0 + WALL_TILE, WALL_THICKNESS / 2)
+			local w = x1 - x0
+			if w <= 1e-3 then
+				continue
+			end
+
+			local tile = build(parent, CFrame.new(0, 0, 0), {
+				name = name,
+				pos = { atX + (x0 + x1) / 2, capY, (z0 + z1) / 2 },
+				size = { w, WALL_CAP_THICKNESS, d },
+				color = if (iz + ix) % 2 == 0 then dark else light,
+				material = "Plastic",
+				studs = true,
+				canCollide = false,
+			})
+			tile.CanQuery = false
+		end
+	end
+end
+
 --- The base camp's own perimeter -- see this file's header for WHY (there was no
 --- wall here at all, and there is a real, raycast-confirmed void-fall gap in the
 --- shoulders flanking the corridor's own wall). THREE PIECES, each closing one
@@ -3206,6 +3255,11 @@ local function buildBaseWalls(parent: Instance)
 	local rows = math.ceil(WALL_HEIGHT / WALL_TILE)
 	local baseY = Stages.SURFACE_Y
 
+	-- Crown cap: the apron colour carried up and over, same as the stage walls now get
+	-- (buildWallCap). capY / the ±0.1 bite and the two-radial-cell checker match it.
+	local capY = baseY + WALL_HEIGHT + WALL_CAP_THICKNESS / 2 - 0.1
+	local capDark, capLight = campCapPair()
+
 	for ix = 0, cols - 1 do
 		local a0 = startBearing + ix * (totalDeg / cols)
 		local a1 = startBearing + (ix + 1) * (totalDeg / cols)
@@ -3244,6 +3298,23 @@ local function buildBaseWalls(parent: Instance)
 			});
 			(tile :: any).FrontSurface = Enum.SurfaceType.Studs
 		end
+
+		-- Two radial cells of thin studded sheet over this column, checkered on
+		-- (ix + cell) like buildWallCap. Each cell keeps this column's chord width and
+		-- yaw; only the radius shifts, so the strip follows the curve with the wall.
+		for cell = 0, 1 do
+			local rCell = rMid + (if cell == 0 then -WALL_TILE / 2 else WALL_TILE / 2)
+			local cap = build(folder, CFrame.new(cx + rCell * math.sin(aMid), 0, cz + rCell * math.cos(aMid)) * CFrame.Angles(0, aMid, 0), {
+				name = "ArcWallCap",
+				pos = { 0, capY, 0 },
+				size = { chord, WALL_CAP_THICKNESS, WALL_TILE },
+				color = if (ix + cell) % 2 == 0 then capDark else capLight,
+				material = "Plastic",
+				studs = true,
+				canCollide = false,
+			})
+			cap.CanQuery = false
+		end
 	end
 
 	-- THE TWO SHOULDERS. -halfSpanZ/+halfSpanZ are the arc's own clip-line
@@ -3255,6 +3326,8 @@ local function buildBaseWalls(parent: Instance)
 	local OVERLAP = 1
 	buildShoulderWall(folder, "ShoulderWallNeg", clipX, -halfSpanZ, corridorMinZ + OVERLAP, "LeftSurface")
 	buildShoulderWall(folder, "ShoulderWallPos", clipX, corridorMaxZ - OVERLAP, halfSpanZ, "LeftSurface")
+	buildShoulderCap(folder, "ShoulderWallNegCap", clipX, -halfSpanZ, corridorMinZ + OVERLAP, capDark, capLight)
+	buildShoulderCap(folder, "ShoulderWallPosCap", clipX, corridorMaxZ - OVERLAP, halfSpanZ, capDark, capLight)
 
 	folder.Parent = parent
 end
