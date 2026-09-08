@@ -1174,15 +1174,125 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 		rot = Kit.R.cylUpFlipped,
 		canCollide = false,
 	})
-	build(m, origin, {
+	-- THE STREAM OUT OF THE SHOWER HEAD. It used to be one 0.16-stud cyan glass stick
+	-- from the head to the tub -- a laser dimmed, exactly the shape WashController's own
+	-- header spent seven passes getting away from, still standing here as furniture.
+	--
+	-- THE GEOMETRY IS TIGHT and it shapes the whole effect: the head's underside sits
+	-- ~0.3 studs above the wash stand (the head is meant to rinse the item ON the
+	-- stand). So there is no tall column to fall -- what a real rinse here looks like is
+	-- a wide curtain off the head, most of it clearing the pedestal into the tub, and a
+	-- splash where it lands.
+	--
+	-- ALL PARTICLES, NO GEOMETRY. The first cut kept a thin cylinder for the "coherent"
+	-- part and four more down the pedestal faces -- and four translucent panes around a
+	-- box is a display case, which is worse than the stick it replaced. Geometry cannot
+	-- be this without reading as solid. Particles animate themselves, so a static prop
+	-- reads as running with no per-frame script anywhere near it:
+	--
+	--   * FALL: a wide dense curtain of droplets from the head, SQUASHED along their
+	--     fall so they read as streaks not beads, speeding up under extra gravity,
+	--     thinning and fading before they reach the water.
+	--   * SPLASH: a low ring of spray off the water surface where the curtain lands.
+	--
+	-- MATTE, like everything else out here (Kit's palette header): LightEmission stays a
+	-- fraction, no PointLight. The fallout is the only thing on a plot that glows. Name
+	-- kept as `Jet` on the host so nothing that ever looked the old part up is surprised.
+	local jetWhite = "E9F4FF"
+
+	-- ONE short faint stub of coherent water at the head -- head underside to the
+	-- pedestal top, ~0.8 studs. Just enough to anchor the source: particles spawning
+	-- from nothing read as spawning from nothing. One is fine; it was FOUR of these
+	-- round a box that read as a display case.
+	local stub = build(m, origin, {
 		name = "Jet",
-		pos = { cx, pad.topY + 3.3, cz },
-		size = { 0.16, 2.8, 0.16 },
-		color = C.cyan,
-		material = "Glass",
-		transparency = 0.5,
+		pos = { cx, pad.topY + 4.45, cz },
+		size = { 0.8, 0.13, 0.13 },
+		color = jetWhite,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		transparency = 0.78,
 		canCollide = false,
 	})
+	stub.Reflectance = 0.06
+	stub.CastShadow = false
+
+	local spout = build(m, origin, {
+		name = "JetSpout",
+		pos = { cx, pad.topY + 4.15, cz },
+		size = { 1.7, 0.16, 1.7 },
+		color = jetWhite,
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+	})
+	local fall = Instance.new("ParticleEmitter")
+	fall.Name = "Fall"
+	fall.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	fall.Color = ColorSequence.new(Color3.fromHex(jetWhite))
+	-- Low, not zero: a self-lit stream is the one glowing thing on a matte base. Just
+	-- enough that it does not go grey in the tub's own shadow.
+	fall.LightEmission = 0.04
+	fall.LightInfluence = 1
+	-- Camera-facing (the default), NOT VelocityPerpendicular: perpendicular turns each
+	-- quad edge-on to its own fall, so a dozen of them at slightly different angles read
+	-- as a scribble of crossed blades rather than as rain. `Squash` still stretches them
+	-- along the fall for the streak.
+	fall.EmissionDirection = Enum.NormalId.Bottom
+	fall.Rate = 200
+	fall.Lifetime = NumberRange.new(0.5, 0.72)
+	fall.Speed = NumberRange.new(5.5, 7.5)
+	fall.SpreadAngle = Vector2.new(9, 9)
+	fall.Acceleration = Vector3.new(0, -44, 0)
+	fall.Rotation = NumberRange.new(0, 0)
+	fall.RotSpeed = NumberRange.new(0, 0)
+	-- Stretched along the fall: a round droplet is a bead, an elongated one is water
+	-- moving.
+	fall.Squash = NumberSequence.new(2.2)
+	fall.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.15),
+		NumberSequenceKeypoint.new(1, 0.09),
+	})
+	fall.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.4),
+		NumberSequenceKeypoint.new(0.8, 0.62),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	fall.Parent = spout
+
+	local splashHost = build(m, origin, {
+		name = "JetSplash",
+		pos = { cx, pad.topY + 2.02, cz },
+		size = { 3.4, 0.1, 2.8 },
+		color = jetWhite,
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+	})
+	local splash = Instance.new("ParticleEmitter")
+	splash.Name = "Splash"
+	splash.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	splash.Color = ColorSequence.new(Color3.fromHex("F4FAFF"))
+	splash.LightEmission = 0.04
+	splash.LightInfluence = 1
+	splash.EmissionDirection = Enum.NormalId.Top
+	splash.Rate = 55
+	splash.Lifetime = NumberRange.new(0.22, 0.44)
+	splash.Speed = NumberRange.new(4, 8)
+	splash.SpreadAngle = Vector2.new(72, 72)
+	splash.Acceleration = Vector3.new(0, -19, 0)
+	splash.Squash = NumberSequence.new(1.3)
+	splash.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.09),
+		NumberSequenceKeypoint.new(0.35, 0.2),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	splash.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.5),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	splash.Parent = splashHost
 
 	-- Lamp in the plot's own accent colour, so the station reads as part of
 	-- THIS base rather than a generic fixture repeated six times. Matte now, with a
