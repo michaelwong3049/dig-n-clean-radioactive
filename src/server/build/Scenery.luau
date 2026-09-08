@@ -222,11 +222,13 @@ local BONE_HOLLOW = "2B251D"
 local WALL_HEIGHT = 56
 local WALL_THICKNESS = 8
 local WALL_TILE = 4
--- A thin studded sheet laid flat over each wall's crown -- "the stage floor, stacked
--- on top of the wall", ON REQUEST. Painted in the stage's own FLOOR two-tone (not the
--- paler wallPair), so the crown reads as ground carried up and over the barrier. See
--- buildWallCap. Bites 0.1 stud down into the wall top so there is no z-fighting seam.
-local WALL_CAP_THICKNESS = 0.75
+-- A studded sheet laid flat over each wall's crown -- "the stage floor, stacked on top
+-- of the wall", ON REQUEST. Painted in the stage's own FLOOR two-tone (not the paler
+-- wallPair), so the crown reads as ground carried up and over the barrier -- EXCEPT
+-- Stage 1, which takes the camp apron green like the base-camp arc (see capStagePair).
+-- A FULL STUD high, on request. Bites 0.1 stud down into the wall top so there is no
+-- z-fighting seam.
+local WALL_CAP_THICKNESS = 1
 -- The camp / Stage 1 pair. A warm terracotta brown; the two sit ~8% apart per
 -- channel on purpose -- close enough that the checker reads as one brown material
 -- with a faint grid, not a two-tone pattern (the original rust pair, B5573A/9C4A2F,
@@ -323,10 +325,10 @@ local function wallPair(id: number): (string, string)
 end
 
 --- The (dark, light) hex pair for one stage's FLOOR checker -- twoTone(def.color), the
---- same pair buildStageCheckerboard paints the ground with. `buildWallCap` uses this
---- (rather than wallPair) so a wall's crown matches the floor it is "stacking", not
---- the paler wall face under it. Stage 1's floor gradient is not reproduced up here --
---- an 8-stud strip 55 studs up takes the stage's flat east-edge twoTone.
+--- same pair buildStageCheckerboard paints the ground with. The crown caps use this
+--- (via capStagePair, rather than wallPair) so a wall's crown matches the floor it is
+--- "stacking", not the paler wall face under it. Stage 1's floor gradient is not
+--- reproduced up here -- and Stage 1's cap is the camp green anyway (capStagePair).
 local function floorPair(id: number): (string, string)
 	local darkC, lightC = twoTone(Stages.get(id).color)
 	return darkC:ToHex(), lightC:ToHex()
@@ -340,6 +342,18 @@ local function campCapPair(): (string, string)
 	local bright = Stages.get(1).ooze.bright
 	return Kit.blendHex(C.plazaTileDark, bright, Stages.GROUND_OOZE_TINT),
 		Kit.blendHex(C.plazaTileLight, bright, Stages.GROUND_OOZE_TINT)
+end
+
+--- The (dark, light) crown-cap pair for the stage behind a boundary-wall column.
+--- Stage 1 takes the camp apron green (campCapPair), the same as the base-camp arc --
+--- ON REQUEST, so the walk out of camp reads as one continuous green rim rather than
+--- flipping to sand at the x = Hub.PLAZA.maxX seam. Every other stage takes its own
+--- floor two-tone, exactly as buildStageCheckerboard paints the ground.
+local function capStagePair(id: number): (string, string)
+	if id == 1 then
+		return campCapPair()
+	end
+	return floorPair(id)
 end
 
 --- WHAT USED TO BE HERE: `buildStageBlend`, `oozeInset`, `STAGE_BLEND(S)`. The
@@ -3099,7 +3113,7 @@ local function buildBoundaryWalls(parent: Instance)
 	buildWall(folder, "NorthWall", minX, maxX, minZ - WALL_THICKNESS / 2, "BackSurface", pairAtWith(wallPair))
 	buildWall(folder, "SouthWall", minX, maxX, maxZ + WALL_THICKNESS / 2, "FrontSurface", pairAtWith(wallPair))
 
-	local capPairAt = pairAtWith(floorPair)
+	local capPairAt = pairAtWith(capStagePair)
 	buildWallCap(folder, "NorthWallCap", minX, maxX, minZ - WALL_THICKNESS / 2, capPairAt)
 	buildWallCap(folder, "SouthWallCap", minX, maxX, maxZ + WALL_THICKNESS / 2, capPairAt)
 
