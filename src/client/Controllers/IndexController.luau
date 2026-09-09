@@ -45,11 +45,15 @@ local Artwork = require(script.Parent.Parent.HudArtwork)
 
 local Index = {}
 
--- Dock.INDEX_SIZE, not a local number: this button's height feeds the bottom-left
--- column geometry in UIKit.Dock, and a second file deriving its offset from this
--- file's private constant is the exact coupling UIKit.Dock exists to prevent. Same
--- migration CashController's own header describes for CASH_SIZE.
-local BUTTON_SIZE = Dock.INDEX_SIZE
+-- The button's own size and screen-bottom inset. These were Dock.INDEX_SIZE /
+-- Dock.INDEX_BOTTOM while the button sat in the bottom-left column and its height fed
+-- that column's packing. It stands alone on the right edge now — nothing stacks on
+-- it — so it owns both outright. BUTTON_BOTTOM is still derived from the cash row
+-- (Dock.CASH_BOTTOM) so it tracks that stack if the meter or badge is resized, then
+-- dropped BUTTON_LOWER px below it, on request.
+local BUTTON_SIZE = UDim2.fromOffset(140, 44)
+local BUTTON_LOWER = 72
+local BUTTON_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.GAP - BUTTON_LOWER
 local BUTTON_ACCENT = Color3.fromRGB(181, 143, 255)
 local BUTTON_EDGE = Color3.fromRGB(82, 64, 116)
 local BUTTON_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -439,17 +443,18 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 90
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- The button. BOTTOM-LEFT, stacked directly above the cash badge, which sits
-	-- directly above the meter, on the meter's own left margin.
+	-- The button. BOTTOM-RIGHT, on the same screen-edge margin as the rest of the dock
+	-- but hard to the right rather than the left, and dropped a little below the cash
+	-- row's height, both on request. BUTTON_BOTTOM (see its header) still tracks the
+	-- cash/meter column, so resizing either one still moves the button.
 	--
-	-- Dock.INDEX_BOTTOM, never a typed offset. It is derived from Dock.CASH_BOTTOM
-	-- and Dock.CASH_SIZE, so this file still does not need to know either the cash
-	-- badge's or the meter's height — resize either one and the button follows.
+	-- HEADS UP: this shares the right corner with the haul widget (Dock.HAULPANEL_*),
+	-- which is up only mid-dig. That overlap window was accepted when this moved here.
 	UIKit.panel(gui, {
 		name = "IndexShadow",
 		size = BUTTON_SIZE,
-		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM + 4),
-		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -BUTTON_BOTTOM + 4),
+		anchorPoint = Vector2.new(1, 1),
 		color = Color3.fromRGB(3, 7, 12),
 		transparency = 0.2,
 		cornerRadius = UDim.new(0, 9),
@@ -459,8 +464,8 @@ local function build(): ScreenGui
 	local button, buttonStroke = UIKit.button(gui, {
 		name = "IndexButton",
 		size = BUTTON_SIZE,
-		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM),
-		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -BUTTON_BOTTOM),
+		anchorPoint = Vector2.new(1, 1),
 		text = "",
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.body,
@@ -479,8 +484,8 @@ local function build(): ScreenGui
 	gradient.Parent = button
 	UIKit.panel(button, {
 		name = "Accent",
-		size = UDim2.new(1, -30, 0, 2),
-		position = UDim2.new(0, 15, 1, -8),
+		size = UDim2.new(1, -24, 0, 2),
+		position = UDim2.new(0, 12, 1, -6),
 		color = BUTTON_ACCENT,
 		transparency = 0.15,
 		strokeThickness = 0,
@@ -490,20 +495,24 @@ local function build(): ScreenGui
 	local icon = Instance.new("Frame")
 	icon.Name = "BookArtwork"
 	icon.Size = UDim2.fromOffset(70, 70)
+	-- Anchor on the left-middle so the UIScale below shrinks the artwork around its own
+	-- vertical centre and it stays centred in the shorter button.
+	icon.AnchorPoint = Vector2.new(0, 0.5)
+	icon.Position = UDim2.fromScale(0, 0.5)
 	icon.BackgroundTransparency = 1
 	icon.ZIndex = 6
 	icon.Parent = button
 	local iconScale = Instance.new("UIScale")
-	iconScale.Scale = 0.72
+	iconScale.Scale = 0.58
 	iconScale.Parent = icon
 	Artwork.book(icon)
 	local title = UIKit.label(button, {
 		name = "Caption",
-		size = UDim2.new(1, -65, 1, -12),
-		position = UDim2.fromOffset(54, 2),
+		size = UDim2.new(1, -52, 1, -10),
+		position = UDim2.fromOffset(44, 2),
 		text = "INDEX",
 		font = Enum.Font.GothamBlack,
-		textSize = 23,
+		textSize = 19,
 		color = Color3.fromRGB(232, 242, 255),
 		strokeTransparency = 1,
 		zIndex = 7,

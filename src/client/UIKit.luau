@@ -132,9 +132,10 @@ UIKit.Stroke = {
 -- `SCOPE_DIAL` nor `DIAL_LEFT_OFFSET` is positioned relative to the row any more
 -- because neither exists.
 --
--- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN. It now stacks
--- directly above CashController's badge, on the meter's own left margin, rather than
--- floating alone in the opposite corner — see Dock.INDEX_BOTTOM below.
+-- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN, THEN TO THE RIGHT
+-- EDGE. It briefly stacked above CashController's badge on the left; it now sits on
+-- the bottom-right, standalone, still measuring its baseline up from the cash row
+-- (Dock.CASH_BOTTOM). Its own size/inset live in IndexController.
 --
 -- ONE WIDE BAND, NOT STACKED ROWS. What lives in the band sits side by side inside one
 -- INSTRUMENT_HEIGHT-tall row rather than stacking vertically, which would cost roughly
@@ -231,22 +232,19 @@ Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 
 -- The bottom-LEFT column, bottom-up: meter on the instrument baseline, cash badge
--- above it, index button above that. Each one's bottom is the previous one's top plus
--- a gap, so the column stays packed however any single element is resized. (The
--- loaded-liquid badge used to top this stack; it is a BillboardGui on the wash pad
--- now — LiquidController — so the column ends at the index button.)
+-- above it. Each one's bottom is the previous one's top plus a gap, so the column
+-- stays packed however either element is resized. (The loaded-liquid badge used to
+-- top this stack — it is a BillboardGui on the wash pad now, LiquidController — and
+-- the index button that briefly replaced it as the top element has since moved to
+-- the RIGHT screen edge, IndexController. The left column ends at the cash badge.)
 --
 -- CASH_SIZE/CASH_BOTTOM WERE PRIVATE LOCALS IN CashController until the index button
--- moved into this column. They had to come here the moment a second file needed to
--- stack on top of them — IndexController working out its own offset from the cash
--- badge's height would be precisely the "-178 hand-tuned against another file" bug
--- this table exists to prevent. Same width as the meter, so all three share edges.
+-- stacked on top of them here. Nothing stacks on them today, but IndexController
+-- still measures its own baseline up from this row, so they stay in the table rather
+-- than bounce back to CashController for the next thing that needs them. Same width
+-- as the meter, so both share edges.
 Dock.CASH_SIZE = UDim2.fromOffset(216, 52)
 Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
-Dock.INDEX_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.GAP
-
--- Compact navigation button, top of the bottom-left column.
-Dock.INDEX_SIZE = UDim2.fromOffset(176, 54)
 
 -- The dock's total reserved height with no card open. IndexController still biases
 -- its own anchor upward by half of this so it lands in the space the dock does not
