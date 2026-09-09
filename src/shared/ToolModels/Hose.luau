@@ -291,6 +291,16 @@ function Hose.count(): number
 	return #FORMS
 end
 
+--- The colours build/Plots' hose rig paints its reel drum, wound-coil band and the Beam
+--- that spans to the nozzle. The rig is one prop built at STATION_TIER and never rebuilt,
+--- so when a purchase swaps the nozzle silhouette (Plots.setHoseTier) this is what lets
+--- the hose "still on the reel" follow it instead of staying garden-hose green behind a
+--- violet lance. `coil` is the same darker-than-the-body relationship the grip uses.
+function Hose.rigLook(tier: number): { body: Color3, coil: Color3 }
+	local look = ToolTiers.get(Hose.TRACK, math.clamp(math.floor(tier), 1, #FORMS))
+	return { body = look.body, coil = shaded(look.body) }
+end
+
 --- One nozzle, authored at the origin with its business end down -Z.
 ---
 --- Clamped rather than asserted: a profile carrying a tier past the end of the ladder

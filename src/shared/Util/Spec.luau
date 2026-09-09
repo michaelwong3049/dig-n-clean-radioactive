@@ -420,6 +420,13 @@ function Spec.run(): boolean
 	for tier = 1, cleanerRungs do
 		local rung, look = Gear.tier("Cleaner", tier), ToolTiers.get("Cleaner", tier)
 		check(`hose {tier} agrees on its name: "{rung.name}" / "{look.name}"`, rung.name == look.name)
+
+		-- build/Plots.paintHoseRig repaints the reel drum, its coil band and the Beam to
+		-- this so the hose "still on the reel" follows the nozzle a purchase swaps in.
+		-- The drum is the body colour and the coil is strictly darker, same as the grip.
+		local rig = ToolModels.Hose.rigLook(tier)
+		check(`hose {tier} rig drum matches the tier body`, rig.body == look.body)
+		check(`hose {tier} rig coil is darker than the drum`, rig.coil ~= rig.body and rig.coil.R <= rig.body.R and rig.coil.G <= rig.body.G and rig.coil.B <= rig.body.B)
 	end
 
 	-- CarryService.hoseNameFor WALKS THIS TABLE IN ORDER and returns the first rung
