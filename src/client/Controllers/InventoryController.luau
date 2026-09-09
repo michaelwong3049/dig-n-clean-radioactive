@@ -2,7 +2,7 @@
 	InventoryController.lua — the hotbar. What you are carrying, along the bottom.
 
 	WHAT THE SLOTS SAY, AND WHAT THEY DELIBERATELY DO NOT.
-	A slot shows the ITEM: its name, in its rarity colour. That is all. The obvious
+	A slot shows the ITEM: a clear name with a rarity-coloured border. The obvious
 	temptation is to hang the whole decay apparatus off every slot — a draining fuse
 	bar, a condition tint, the value — and it is the wrong call. Twenty slots each
 	running their own countdown is twenty things moving in the corner of your eye while
@@ -50,10 +50,13 @@ local COLOR = UIKit.C
 
 -- Slots shrink as capacity grows so a maxed satchel still fits one row. Below the
 -- floor the name is unreadable anyway, so the row is allowed to run wider instead.
-local SLOT_MAX = Dock.SLOT_MAX
-local SLOT_MIN = Dock.SLOT_MIN
-local SLOT_GAP = Dock.SLOT_GAP
-local SLOT_HEIGHT = Dock.HOTBAR_HEIGHT
+local SLOT_MAX = 64
+local SLOT_MIN = 48
+local SLOT_GAP = 6
+local BORDER_PADDING = 3
+local SLOT_FILL = Color3.fromHex("090C10")
+local SLOT_SELECTED = Color3.fromHex("18221C")
+local SLOT_BORDER = Color3.fromHex("505B66")
 
 -- Number keys only reach so far. Slots past this are visible and perfectly usable,
 -- they just have no key — which is the normal hotbar bargain.
@@ -103,46 +106,55 @@ local function makeSlot(parent: Instance, index: number)
 	local slot = Instance.new("TextButton")
 	slot.Name = `Slot{index}`
 	slot.AutoButtonColor = false
-	slot.BackgroundColor3 = COLOR.panel
-	slot.BackgroundTransparency = 0.25
+	slot.BackgroundColor3 = SLOT_FILL
+	slot.BackgroundTransparency = 0.05
+	slot.BorderSizePixel = 0
 	slot.Text = ""
 	slot.LayoutOrder = index
-	slot.Size = UDim2.fromOffset(SLOT_MAX, SLOT_HEIGHT)
+	slot.Size = UDim2.fromOffset(SLOT_MAX, SLOT_MAX)
 	slot.Parent = parent
 
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UIKit.Radius.slot
+	corner.CornerRadius = UDim.new(0, 7)
 	corner.Parent = slot
 
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = COLOR.stroke
-	stroke.Thickness = UIKit.Stroke.thin
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Color = SLOT_BORDER
+	stroke.Thickness = 1.5
 	stroke.Parent = slot
 
-	-- The slot's number, top-left, dim. Present on every slot including the ones past
-	-- the bindable range so the row does not look ragged.
+	-- A bright, compact key hint; renderSlots hides it past the bindable range.
 	local key = UIKit.label(slot, {
 		name = "Key",
 		position = UDim2.fromOffset(7, 4),
 		size = UDim2.fromOffset(18, 16),
-		font = UIKit.Font.body,
-		textSize = 13,
-		color = COLOR.dim,
+		font = UIKit.Font.title,
+		textSize = 12,
+		color = Color3.fromHex("BBC5D0"),
+		strokeTransparency = 1,
 		text = tostring(index),
 	})
 
 	local name = UIKit.label(slot, {
 		name = "ItemName",
 		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 1, -8),
-		size = UDim2.new(1, -10, 0, 46),
-		font = UIKit.Font.body,
-		textSize = 14,
+		position = UDim2.new(0.5, 0, 1, -5),
+		size = UDim2.new(1, -10, 1, -25),
+		font = UIKit.Font.title,
+		textSize = 13,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Center,
-		yAlign = Enum.TextYAlignment.Bottom,
+		yAlign = Enum.TextYAlignment.Center,
 		wrapped = true,
+		strokeTransparency = 1,
 	})
+	name.TextScaled = true
+	name.TextTruncate = Enum.TextTruncate.AtEnd
+	local textConstraint = Instance.new("UITextSizeConstraint")
+	textConstraint.MinTextSize = 10
+	textConstraint.MaxTextSize = 13
+	textConstraint.Parent = name
 
 	slot.MouseButton1Click:Connect(function()
 		Inventory.select(index)
@@ -160,17 +172,6 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 60
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	ui.header = UIKit.label(gui, {
-		name = "BagCount",
-		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 1, -Dock.BAGCOUNT_BOTTOM),
-		size = UDim2.fromOffset(280, Dock.BAGCOUNT_HEIGHT),
-		font = UIKit.Font.body,
-		textSize = 14,
-		color = COLOR.dim,
-		xAlign = Enum.TextXAlignment.Center,
-	})
-
 	-- Scale-based, not a fixed offset — a fixed 1080px row was fine bottom-centred
 	-- alone, but the dock now packs the meter/button/dial band above it on the same
 	-- centre line, and a narrower viewport needs the hotbar to shrink with it rather
@@ -180,7 +181,7 @@ local function build(): ScreenGui
 	row.Name = "Hotbar"
 	row.AnchorPoint = Vector2.new(0.5, 1)
 	row.Position = UDim2.new(0.5, 0, 1, -Dock.HOTBAR_BOTTOM)
-	row.Size = UDim2.new(1, -2 * Dock.ROW_SIDE_MARGIN, 0, SLOT_HEIGHT)
+	row.Size = UDim2.new(1, -2 * Dock.ROW_SIDE_MARGIN, 0, SLOT_MAX + 2 * BORDER_PADDING)
 	row.BackgroundTransparency = 1
 	-- Safety net, not a fix: slotWidth()'s shrink-to-fit clamp can already run wider
 	-- than its target at max capacity (SLOT_MIN floors before the row runs out of
@@ -190,6 +191,13 @@ local function build(): ScreenGui
 	row.ClipsDescendants = true
 	row.Parent = gui
 	ui.row = row
+	-- Keep the outer strokes inside the row's clipping bounds.
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, BORDER_PADDING)
+	padding.PaddingBottom = UDim.new(0, BORDER_PADDING)
+	padding.PaddingLeft = UDim.new(0, BORDER_PADDING)
+	padding.PaddingRight = UDim.new(0, BORDER_PADDING)
+	padding.Parent = row
 
 	local rowConstraint = Instance.new("UISizeConstraint")
 	rowConstraint.MaxSize = Vector2.new(Dock.ROW_MAX_WIDTH, math.huge)
@@ -236,7 +244,7 @@ local function slotWidth(): number
 	if available <= 0 then
 		return SLOT_MAX
 	end
-	local fit = (available - SLOT_GAP * (state.capacity - 1)) / state.capacity
+	local fit = (available - 2 * BORDER_PADDING - SLOT_GAP * (state.capacity - 1)) / state.capacity
 	return math.clamp(math.floor(fit), SLOT_MIN, SLOT_MAX)
 end
 
@@ -260,7 +268,7 @@ local function renderSlots()
 		end
 
 		slot.button.Visible = true
-		slot.button.Size = UDim2.fromOffset(width, SLOT_HEIGHT)
+		slot.button.Size = UDim2.fromOffset(width, width)
 		slot.key.Text = if index <= BINDABLE then tostring(index) else ""
 
 		local item = state.items[index]
@@ -268,25 +276,21 @@ local function renderSlots()
 
 		if item == nil then
 			slot.name.Text = ""
-			slot.button.BackgroundColor3 = COLOR.empty
-			slot.button.BackgroundTransparency = 0.55
-			slot.stroke.Color = COLOR.stroke
-			slot.stroke.Thickness = UIKit.Stroke.thin
+			slot.button.BackgroundColor3 = SLOT_FILL
+			slot.button.BackgroundTransparency = 0.05
+			slot.stroke.Color = SLOT_BORDER
+			slot.stroke.Thickness = 1.5
 			continue
 		end
 
 		local colour = rarityColor(item.rarity)
 		slot.name.Text = item.name
-		slot.name.TextColor3 = colour
-		slot.button.BackgroundColor3 = COLOR.panel
-		slot.button.BackgroundTransparency = 0.25
+		slot.name.TextColor3 = COLOR.text
+		slot.button.BackgroundColor3 = if item.uid == selected then SLOT_SELECTED else SLOT_FILL
+		slot.button.BackgroundTransparency = 0.05
 		slot.stroke.Color = colour
-		slot.stroke.Thickness = if item.uid == selected then UIKit.Stroke.selected else UIKit.Stroke.thin
+		slot.stroke.Thickness = if item.uid == selected then 3 else 1.5
 	end
-
-	local count = #state.items
-	ui.header.Text = `BAG  {count}/{state.capacity}`
-	ui.header.TextColor3 = if count >= state.capacity and state.capacity > 0 then COLOR.red else COLOR.dim
 end
 -- ── Selection ───────────────────────────────────────────────────────
 
@@ -300,6 +304,9 @@ end
 --- checks for, not the absence of one.
 function Inventory.select(index: number)
 	local item = state.items[index]
+	-- selene: allow(if_same_then_else)
+	-- The empty-slot and same-key-again cases both clear the selection, but they are
+	-- distinct player intents and read better kept apart than merged behind an `or`.
 	if item == nil then
 		selected = nil
 	elseif selected == item.uid then
