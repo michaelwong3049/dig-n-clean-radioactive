@@ -172,7 +172,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 29
+local BUILDER_VERSION = 30
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1275,53 +1275,107 @@ end
 --- central aisle and making an accidental paid roll impossible. Keep that gap if
 --- either number moves.
 ---
---- THE SHELF BEHIND IT IS THE ODDS TABLE, RENDERED. Five canisters in the colours of
---- the top five liquids, biggest prize at the far end. It teaches "there are better
---- ones than what you just got" without a tooltip, and it costs five parts.
+--- THE PLINTH DOWN ITS -X EDGE IS THE ODDS TABLE, RENDERED. Five glass jars filled
+--- with the top five liquids, biggest prize at the far end. It teaches "there are
+--- better ones than what you just got" without a tooltip, and it costs a handful of
+--- parts.
+---
+--- REDETAILED TO MATCH THE CLEANSING STATION (on request, the branch after that
+--- rebuild). The pad was a bare metal disc, a wood bench and five loose canisters --
+--- the thin-steel-and-timber look the bay across the aisle had just moved away from.
+--- It is the same studded-block kit now: `BODY` the base-course grey, `FACE` the
+--- lighter cap grey (the display-plinth / cleansing-station pair), `LINER` the dark
+--- recess, `FIT` the plate's own metal. NOTHING THE SERVICES READ MOVED: the plate
+--- keeps its exact plot centre and Radius (so the ~47-stud gap to the basin that
+--- World.verify() enforces is untouched), `Glow` is still a BasePart sibling of the
+--- plate that LiquidService flashes, and the `Sign` billboard is still on the plate.
 local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 	local m = Instance.new("Model")
 	m.Name = "WashPad"
 	local pad = Plots.PAD
+	local T = pad.topY
 	-- Negative local X is the player's RIGHT when approaching from the entrance.
 	local cx, cz = -22, -31
 
-	-- TURNED A QUARTER-TURN THE OTHER WAY so the odds shelf BACKS ONTO THE -X SIDE
-	-- BORDER: the plate faces the central aisle and the canister shelf lines the pad's
+	-- TURNED A QUARTER-TURN THE OTHER WAY so the odds plinth BACKS ONTO THE -X SIDE
+	-- BORDER: the plate faces the central aisle and the canister plinth lines the pad's
 	-- own left edge instead of standing in the strip. Applied to `origin` about the
 	-- pad's centre so every part below stays in local space; the plate and its Radius
-	-- sit on the pivot. The turn alone drops the 10-wide canister shelf's outer edge
-	-- onto x ~= -32.6, right on the -X accent trim; the small +X nudge (plot-local,
-	-- before the pivot) pulls it a stud clear of the trim's own footprint. The roll
-	-- costs cash off StationService's entry edge, so the centre-to-centre gap to the
-	-- basin that World.verify() enforces has to survive this: the plate lands near
-	-- x = -21 against the basin's new x ~= 26 -- ~47 studs, well past the 15 reach.
+	-- sit on the pivot. The turn puts the deck's -X kerb a stud inside the accent trim
+	-- (x ~= -31 against the trim at -32) and the small +X nudge (plot-local, before the
+	-- pivot) keeps the plinth clear of it. The roll costs cash off StationService's
+	-- entry edge, so the centre-to-centre gap to the basin that World.verify() enforces
+	-- has to survive this: the plate lands near x = -21 against the basin's x ~= 26 --
+	-- ~47 studs, well past the 15 reach.
 	origin = origin
 		* CFrame.new(1, 0, 0)
 		* CFrame.new(cx, 0, cz)
 		* CFrame.Angles(0, math.rad(-90), 0)
 		* CFrame.new(-cx, 0, -cz)
 
-	-- The plate. Cylinder on its end (Kit.R.cylUp), so `size` reads
-	-- {thickness, diameter, diameter} -- see the ShowerHead above for the same idiom.
+	-- Authoring runs in the pad's own pre-pivot frame: +x here ends up +Z on the plot
+	-- (toward the interior), +z ends up -X (toward the side border). The plate sits on
+	-- the pivot at (cx, cz); everything else is an offset from it.
+	local BODY, FACE, LINER, FIT = C.standGreyDark, C.standGrey, C.drain, C.steelDark
+
+	-- ── The deck ──────────────────────────────────────────────
+	-- One studded plate the pad stands on, kerbed round the edge, top a hair proud of
+	-- the floor (T + 0.15) -- the same threshold-not-a-step the cleansing station deck
+	-- across the aisle uses, so the two read as one installation. It runs from a stud
+	-- inside the -X trim to flush with the plate's aisle edge; the luck button still
+	-- stands a couple of studs off that edge on the bare floor, as it did before.
+	build(m, origin, { name = "Deck", pos = { cx + 0.5, T - 0.35, cz + 2.5 }, size = { 13, 1.0, 15 }, color = BODY, material = "Plastic", studs = true })
+	for _, e in {
+		{ x = cx + 0.5, z = cz - 5, sx = 13.6, sz = 0.6 },
+		{ x = cx + 0.5, z = cz + 10, sx = 13.6, sz = 0.6 },
+		{ x = cx + 7, z = cz + 2.5, sx = 0.6, sz = 15.6 },
+		{ x = cx - 6, z = cz + 2.5, sx = 0.6, sz = 15.6 },
+	} do
+		build(m, origin, { name = "DeckKerb", pos = { e.x, T + 0.25, e.z }, size = { e.sx, 0.35, e.sz }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+	end
+
+	-- ── The well: the step-plate, recessed ────────────────────
+	-- The disc drops into a shallow dark tray and a studded kerb rises round it on the
+	-- far three sides -- front, back and the -X border side -- open toward the aisle so
+	-- you walk straight in over a flush threshold. A proud FACE lip caps the kerb, and
+	-- you look over it and DOWN at the lit disc: the tub liner across the aisle, at pad
+	-- scale. All of it CanCollide off -- framing, not a barrier, like the tub rim.
+	local WELL_H = 1.5
+	build(m, origin, { name = "WellLiner", pos = { cx, T + 0.15, cz }, size = { 9.6, 0.9, 9.6 }, color = LINER, material = "SmoothPlastic", canCollide = false })
+	for _, bar in {
+		{ x = cx, z = cz + 5.4, sx = 12, sz = 1.2 }, -- -X border side
+		{ x = cx - 5.4, z = cz + 1.5, sx = 1.2, sz = 10.2 }, -- front (toward the apron)
+		{ x = cx + 5.4, z = cz + 1.5, sx = 1.2, sz = 10.2 }, -- back (toward the interior)
+	} do
+		build(m, origin, { name = "WellKerb", pos = { bar.x, T + 0.55, bar.z }, size = { bar.sx, WELL_H, bar.sz }, color = BODY, material = "Plastic", studs = true, canCollide = false })
+		build(m, origin, { name = "WellLip", pos = { bar.x, T + 1.45, bar.z }, size = { bar.sx + 0.4, 0.3, bar.sz + 0.4 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+	end
+
+	-- ── The plate and its lit disc ────────────────────────────
+	-- The plate keeps its exact plot position and Radius (see the pivot note above);
+	-- only its height changed, up onto the tray floor. Still a bare metal disc -- the
+	-- one thing here that is not a studded block -- so it still reads as a surface you
+	-- step onto, now cupped in the well. Cylinder on its end (Kit.R.cylUp), so `size`
+	-- reads {thickness, diameter, diameter}.
 	local plate = build(m, origin, {
 		name = "Plate",
-		pos = { cx, pad.topY + 0.25, cz },
-		size = { 0.5, 9, 9 },
-		color = C.steelDark,
+		pos = { cx, T + 0.7, cz },
+		size = { 0.3, 9, 9 },
+		color = FIT,
 		material = "Metal",
 		shape = "Cylinder",
 		rot = Kit.R.cylUp,
 		attributes = { StationKind = "roller", Radius = 6 },
 	})
-	accentBillboard(plate, 250, 4.8, "WASH PAD", `first roll free, then ${Tuning.LIQUID_ROLL_COST}`, accent)
+	accentBillboard(plate, 250, 5.0, "WASH PAD", `first roll free, then ${Tuning.LIQUID_ROLL_COST}`, accent)
 
-	-- The inner disc is coloured water, but it is deliberately matte. The pad is a
-	-- physical interaction surface; making its whole centre Neon made it compete
-	-- with the radioactive field and made the canisters read as light sources.
+	-- The inner disc is coloured water and deliberately matte -- LiquidService flashes
+	-- its Color on a roll and eases it back, and a Neon centre made it compete with
+	-- the field and lit the canisters. Sits just above the plate, down in the well.
 	local disc = build(m, origin, {
 		name = "Glow",
-		pos = { cx, pad.topY + 0.55, cz },
-		size = { 0.2, 7.4, 7.4 },
+		pos = { cx, T + 0.9, cz },
+		size = { 0.22, 7.8, 7.8 },
 		color = Liquids.get(Liquids.WATER).color,
 		material = "SmoothPlastic",
 		shape = "Cylinder",
@@ -1331,21 +1385,65 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 	})
 	light(disc, Liquids.get(Liquids.WATER).color, 10, 0.35)
 
-	-- The shelf: a low bench behind the plate carrying one canister per prize.
-	build(m, origin, {
-		name = "Shelf",
-		pos = { cx, pad.topY + 1.4, cz + 5.6 },
-		size = { 10, 0.4, 1.6 },
-		color = C.wood,
-		material = "Wood",
-	})
-	for _, post in { -4.6, 4.6 } do
-		build(m, origin, { name = "ShelfLeg", pos = { cx + post, pad.topY + 0.7, cz + 5.6 }, size = { 0.4, 1.4, 1.4 }, color = C.steelDark, material = "Metal" })
+	-- ── The odds shelf: a studded plinth down the -X edge ─────
+	-- The same two-course studded riser as a display stand, run long against the
+	-- border, with the prize jars seated in a shallow dark channel in the top course
+	-- and a low FACE back-board behind them. Still "there are better ones than this"
+	-- told in five filled jars and no tooltip -- just built like the base now.
+	local shelfZ = cz + 7.4
+	build(m, origin, { name = "PadShelf", pos = { cx, T + 0.6, shelfZ }, size = { 12, 0.9, 2.4 }, color = BODY, material = "Plastic", studs = true })
+	build(m, origin, { name = "PadShelfTop", pos = { cx, T + 1.35, shelfZ }, size = { 11, 0.6, 2.0 }, color = FACE, material = "Plastic", studs = true })
+	build(m, origin, { name = "PadShelfChannel", pos = { cx, T + 1.5, shelfZ }, size = { 9.6, 0.35, 1.1 }, color = LINER, material = "SmoothPlastic", canCollide = false })
+	build(m, origin, { name = "PadShelfBoard", pos = { cx, T + 2.55, cz + 8.45 }, size = { 12, 2.2, 0.3 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+
+	-- One prize = one specimen jar: a near-clear glass body with the liquid itself
+	-- sitting inside it and a dark metal lid, rather than a solid slug in the liquid's
+	-- colour. The glass is a neutral off-white and mostly transparent -- NOT C.glass,
+	-- whose blue tint shifted the colour you actually came to read -- so the fill reads
+	-- true; the fill is near-opaque and fills most of the jar so it still carries from
+	-- across the pad. Base sits in the channel (T + 1.55).
+	local jarGlass = "F1F1F2"
+	local function jar(x: number, id: string)
+		local def = Liquids.get(id)
+		local baseY = T + 1.55
+		build(m, origin, {
+			name = "JarFill",
+			pos = { x, baseY + 0.55, shelfZ },
+			size = { 1.0, 1.05, 1.05 },
+			color = def.color,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+			transparency = 0.05,
+			canCollide = false,
+		})
+		local body = build(m, origin, {
+			name = "Jar",
+			pos = { x, baseY + 0.8, shelfZ },
+			size = { 1.5, 1.35, 1.35 },
+			color = jarGlass,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+			transparency = 0.58,
+			canCollide = false,
+		})
+		body.Reflectance = 0.06
+		build(m, origin, {
+			name = "JarLid",
+			pos = { x, baseY + 1.55, shelfZ },
+			size = { 0.35, 1.45, 1.45 },
+			color = FIT,
+			material = "Metal",
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+			canCollide = false,
+		})
 	end
 
-	-- WALKED BACKWARDS FROM THE TOP OF Liquids.ORDER, so the shelf re-sorts itself
-	-- the moment the catalogue does. Hard-coding five ids here is how the shelf ends
-	-- up advertising a liquid that was renamed two commits ago.
+	-- WALKED BACKWARDS FROM THE TOP OF Liquids.ORDER, so the plinth re-sorts itself
+	-- the moment the catalogue does. Hard-coding five ids here is how it ends up
+	-- advertising a liquid that was renamed two commits ago.
 	local shown = {}
 	for index = #Liquids.ORDER, 1, -1 do
 		local id = Liquids.ORDER[index]
@@ -1356,21 +1454,8 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 			break
 		end
 	end
-
 	for index, id in shown do
-		local def = Liquids.get(id)
-		local x = cx - 4 + (index - 1) * 2
-		build(m, origin, {
-			name = `Canister{index}`,
-			pos = { x, pad.topY + 2.4, cz + 5.6 },
-			size = { 1.6, 1.6, 1.6 },
-			color = def.color,
-			material = "SmoothPlastic",
-			shape = "Cylinder",
-			rot = Kit.R.cylUp,
-			transparency = 0.05,
-			canCollide = false,
-		})
+		jar(cx - 4 + (index - 1) * 2, id)
 	end
 
 	m.Parent = parent
