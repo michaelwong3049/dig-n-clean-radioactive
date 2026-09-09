@@ -187,14 +187,12 @@ local function build(): ScreenGui
 		return caption, value, fill
 	end
 
-	-- Row 1: HEALTH — the taller, primary bar. Suit-failure countdown lives in the
-	-- quiet row right underneath it, reserved but invisible until there's something
-	-- to say (PLAN §3.1: escalate by feel, not by readout the player has to hunt for).
+	-- Keep HEALTH and RADS together; the conditional countdown sits below both.
 	ui.healthCaption, ui.healthValue, ui.healthFill = instrumentRow("Health", 8, "HEALTH", 16)
 
 	ui.countdown = UIKit.label(panel, {
 		name = "Countdown",
-		position = UDim2.fromOffset(16, 50),
+		position = UDim2.fromOffset(16, 98),
 		size = UDim2.new(1, -32, 0, 16),
 		font = UIKit.Font.body,
 		textSize = 14,
@@ -207,11 +205,11 @@ local function build(): ScreenGui
 
 	-- Row 2: RADS — the exposure meter, unchanged in spirit, just given the same
 	-- caption+value shape as HEALTH above.
-	ui.caption, ui.percentValue, ui.fill = instrumentRow("Rads", 72, "RADS", 14)
+	ui.caption, ui.percentValue, ui.fill = instrumentRow("Rads", 46, "RADS", 14)
 
 	ui.readout = UIKit.label(panel, {
 		name = "Readout",
-		position = UDim2.fromOffset(16, 112),
+		position = UDim2.fromOffset(16, 80),
 		size = UDim2.new(1, -32, 0, 16),
 		font = UIKit.Font.body,
 		textSize = 15,
@@ -222,12 +220,12 @@ local function build(): ScreenGui
 
 	ui.stageLabel = UIKit.label(panel, {
 		name = "StageLabel",
-		position = UDim2.fromOffset(16, 112),
-		size = UDim2.new(1, -32, 0, 16),
-		font = UIKit.Font.body,
-		textSize = 13,
-		color = DIM,
-		xAlign = Enum.TextXAlignment.Right,
+		position = UDim2.fromOffset(16, 116),
+		size = UDim2.new(1, -32, 0, 24),
+		font = UIKit.Font.title,
+		textSize = 18,
+		color = UIKit.C.text,
+		xAlign = Enum.TextXAlignment.Center,
 		text = "",
 		zIndex = 4,
 	})
