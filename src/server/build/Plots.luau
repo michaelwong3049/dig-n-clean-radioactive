@@ -570,6 +570,36 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 	light(base, C.lampWarm, 6, 0.35)
 end
 
+--- Repaint the reel drum, its wound-coil band and the Beam that runs to the nozzle so
+--- the hose "still on the reel" matches whichever Cleaner rung is on the mast. The rig
+--- is built once at STATION_TIER and never rebuilt; without this, buying a new hose swaps
+--- the nozzle silhouette (Plots.setHoseTier) but leaves a garden-hose-green drum and a
+--- green line arriving at, say, a violet Plasma Lance.
+local function paintHoseRig(station: Instance, tier: number)
+	local reel = station:FindFirstChild("HoseReel")
+	if not (reel and reel:IsA("BasePart")) then
+		return
+	end
+	local look = ToolModels.Hose.rigLook(tier)
+	;(reel :: BasePart).Color = look.body
+
+	local coil = station:FindFirstChild("HoseCoil")
+	if coil and coil:IsA("BasePart") then
+		coil.Color = look.coil
+	end
+
+	local line = reel:FindFirstChildOfClass("Beam")
+	if line then
+		-- Darker at both ends than the middle, exactly as buildHoseRig set it -- the band
+		-- reads as a round tube catching the sky, and a Beam cannot shade itself.
+		line.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, look.coil),
+			ColorSequenceKeypoint.new(0.5, look.body),
+			ColorSequenceKeypoint.new(1, look.coil),
+		})
+	end
+end
+
 --- The wash machine: the pump, the drum, the line, and the monitor on its mast (see
 --- buildCleansingStation, which calls this). A pump unit standing behind the player's
 --- wash mark, a reel of green hose coiled on its face, and a brass-tipped nozzle bolted
@@ -863,6 +893,10 @@ function Plots.setHoseTier(station: Instance?, tier: number?): Model?
 	if line and hoseEnd and hoseEnd:IsA("Attachment") then
 		line.Attachment1 = hoseEnd
 	end
+
+	-- The reel, the coil wound on it and the Beam are one prop that was built green at
+	-- STATION_TIER -- follow the nozzle so the whole hose reads as the rung you bought.
+	paintHoseRig(station, wanted)
 
 	if existing then
 		existing:Destroy()
