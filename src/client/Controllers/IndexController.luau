@@ -439,8 +439,13 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 90
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- The button. BOTTOM-LEFT, stacked directly above the cash badge, which sits
-	-- directly above the meter, on the meter's own left margin.
+	-- The button. BOTTOM-RIGHT, on the same screen-edge margin as the rest of the dock
+	-- but hard to the right rather than the left, on request. Its height is still the
+	-- left column's (Dock.INDEX_BOTTOM), so it lines up across the screen with where the
+	-- cash badge's top sits.
+	--
+	-- HEADS UP: this shares the right corner with the haul widget (Dock.HAULPANEL_*),
+	-- which is up only mid-dig. That overlap window was accepted when this moved here.
 	--
 	-- Dock.INDEX_BOTTOM, never a typed offset. It is derived from Dock.CASH_BOTTOM
 	-- and Dock.CASH_SIZE, so this file still does not need to know either the cash
@@ -448,8 +453,8 @@ local function build(): ScreenGui
 	UIKit.panel(gui, {
 		name = "IndexShadow",
 		size = BUTTON_SIZE,
-		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM + 4),
-		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM + 4),
+		anchorPoint = Vector2.new(1, 1),
 		color = Color3.fromRGB(3, 7, 12),
 		transparency = 0.2,
 		cornerRadius = UDim.new(0, 9),
@@ -459,8 +464,8 @@ local function build(): ScreenGui
 	local button, buttonStroke = UIKit.button(gui, {
 		name = "IndexButton",
 		size = BUTTON_SIZE,
-		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM),
-		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -Dock.INDEX_BOTTOM),
+		anchorPoint = Vector2.new(1, 1),
 		text = "",
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.body,
