@@ -140,6 +140,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 33,
+		model = "GlassPebble",
 	},
 
 	-- ── Common ── $35-170 ─────────────────────────────────────────────────
