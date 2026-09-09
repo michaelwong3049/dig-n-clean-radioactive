@@ -344,13 +344,18 @@ end
 --- tests need the real oriented rectangle. `Kit.pointInOrientedRect` and
 --- `Kit.orientedRectsOverlap` (used by this file's apron and by
 --- World.verify()'s pad checks) both take this same shape.
-local function padRect(c: { x: number, z: number, facing: number }): Kit.OrientedRect
+---
+--- `inset` (default 0) shrinks the rectangle by that many studs on every side.
+--- `apronSkip` passes a full tile here so a cap tile straddling the pad edge is
+--- KEPT rather than dropped — see PAD_SKIP_INSET.
+local function padRect(c: { x: number, z: number, facing: number }, inset: number?): Kit.OrientedRect
 	local yaw = math.rad(c.facing)
+	local d = inset or 0
 	return {
 		cx = c.x + PAD_CENTER_Z * math.sin(yaw),
 		cz = c.z + PAD_CENTER_Z * math.cos(yaw),
-		halfWidth = HALF_W,
-		halfDepth = HALF_D,
+		halfWidth = HALF_W - d,
+		halfDepth = HALF_D - d,
 		yawDeg = c.facing,
 	}
 end
@@ -396,6 +401,21 @@ end
 --- same-height tile is invisible, unlike the seam it replaces.
 local PLAZA_SKIP_MARGIN = 3
 
+--- Same idea as PLAZA_SKIP_MARGIN, one edge in: how far inside a PAD's own footprint
+--- a cap tile's centre has to land before this pass drops it. NOT zero. `Hub.tileRect`
+--- calls `skip` with each tile's centre and a tile is 3 studs; a pad's footprint is
+--- rotated ~5 degrees off the apron's axis-aligned grid, so tiles along a pad edge
+--- cross it diagonally. At zero inset a tile whose centre lands just inside the pad
+--- is dropped here even though a corner of it pokes back out over open apron — and
+--- the pad's own tile grid (a separate, pad-clipped grid) does not reach that far,
+--- so the recessed structural slab shows through as a ragged line of dark square
+--- dents just outside each base. `Hub.tileRect`'s own header already promises the
+--- opposite ("a tile straddling a pad edge is KEPT, and ends up buried inside the
+--- pad"); one full tile of inset makes `apronSkip` honour that — a straddling tile
+--- is kept, its outward corner is flush apron, and its inward bulk is swallowed by
+--- the pad slab sitting 1.5 studs higher over the same ground.
+local PAD_SKIP_INSET = 3
+
 --- HOW FAR PAST THE RING THE GROUND IS ACTUALLY LAID. RING_OUTER is the apron's
 --- true edge -- every margin / pad-corner-reach figure above is measured to it and
 --- stays that way -- but the Scenery perimeter wall (`Scenery.buildBaseWalls`)
@@ -430,7 +450,7 @@ local function apronSkip(x: number, z: number): boolean
 		return true -- safely inside the plaza's own floor, well past its edge tiles
 	end
 	for _, c in Plots.CENTERS do
-		if Kit.pointInOrientedRect(x, z, padRect(c)) then
+		if Kit.pointInOrientedRect(x, z, padRect(c, PAD_SKIP_INSET)) then
 			return true
 		end
 	end
