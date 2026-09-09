@@ -172,7 +172,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 28
+local BUILDER_VERSION = 29
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -606,83 +606,80 @@ end
 --- need a per-frame catenary solve to fake the same thing and would still be jointed.
 local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: number)
 	local pad = Plots.PAD
+	local T = pad.topY
 
-	-- Tucked behind the player's mark while staying inside the trimmed front edge.
-	-- The whole rig follows `cx`, so moving the cleansing bay left moves its pump,
-	-- reel, mast, and hose as one readable machine instead of leaving pieces behind.
-	-- +3.5 keeps the pump off the straight walk-up line from the front of the pad.
-	local px, pz = cx + 3.5, cz - 9
+	-- Studded plastic to match the enlarged bay (buildCleansingStation). `BODY` is the
+	-- base-course grey, `FACE` the lighter cap grey -- the same pair the display
+	-- plinths and the tub wear -- and `FIT` the smooth metal of the pipes and bolts.
+	local BODY, FACE, FIT = C.standGreyDark, C.standGrey, C.steelDark
 
-	-- TALL AND NARROW, so the reel bolted to its side reads as a smaller wheel on a
-	-- bigger box. The first version was a squat 2.6-high crate with a 3.2-wide reel
-	-- across it, and the reel simply swallowed it: what rendered was one pale steel
-	-- disc lying on the tiles with a sliver of green behind, which reads as a barrel.
+	-- Tucked into the front-left corner of the deck, well clear of the straight walk-up
+	-- to WashSpot and out of the tub's own sightline from the aisle. The whole rig
+	-- follows (px, pz) so the bay moves as one.
+	local px, pz = cx + 7, cz - 9
+
+	-- A skid under the housing, so the pump reads as a unit set down and bolted rather
+	-- than a crate left on the tiles.
+	build(parent, origin, { name = "PumpSkid", pos = { px, T + 0.35, pz }, size = { 3.2, 0.7, 2.8 }, color = BODY, material = "Plastic", studs = true })
+
+	-- Studded like the tub, a touch bigger than the old squat crate but kept below the
+	-- rim of the tub so it does not compete with it.
 	build(parent, origin, {
 		name = "HosePump",
-		pos = { px, pad.topY + 1.6, pz },
-		size = { 2.4, 3.2, 2.0 },
-		color = C.steelDark,
-		material = "Metal",
+		pos = { px, T + 1.9, pz },
+		size = { 2.6, 3.0, 2.2 },
+		color = BODY,
+		material = "Plastic",
+		studs = true,
 	})
-	build(parent, origin, { name = "PumpCap", pos = { px, pad.topY + 3.35, pz }, size = { 2.6, 0.3, 2.2 }, color = C.steel, material = "Metal" })
+	build(parent, origin, { name = "PumpCap", pos = { px, T + 3.55, pz }, size = { 3.0, 0.35, 2.6 }, color = FACE, material = "Plastic", studs = true })
 	build(parent, origin, {
 		name = "PumpGauge",
-		pos = { px, pad.topY + 2.6, pz - 1.05 },
-		size = { 0.16, 0.8, 0.8 },
-		color = C.hazard,
+		pos = { px + 1.55, T + 2.3, pz },
+		size = { 0.2, 0.9, 0.9 },
+		color = C.glass,
 		material = "SmoothPlastic",
 		shape = "Cylinder",
-		-- yaw90, for the same reason the nozzle uses it -- see the note there.
-		rot = Kit.R.yaw90,
+		-- Axis along authored X (plot -Z) so the dial faces the player walking up.
+		rot = Kit.R.cylAlongX,
 		canCollide = false,
 	})
 
-	-- THE DRUM IS THE ONLY THING THAT SAYS THE HOSE IS LONG. The Beam below draws
-	-- exactly one span — reel to nozzle — and a hose that is only ever a few studs
-	-- long is a shower attachment. A visibly wound drum is where the rest of it is.
+	-- THE DRUM IS THE ONLY THING THAT SAYS THE HOSE IS LONG. The Beam below draws exactly
+	-- one span -- reel to nozzle -- and a hose that is only ever a few studs long is a
+	-- shower attachment; a visibly wound drum is where the rest of it lives.
 	--
-	-- HUNG OFF THE PUMP'S -X FACE, WHICH IS THE ONE THE WASH CAMERA IS ON (WashCam
-	-- sits out at x = -13). A reel is only legible face-on: side-on it is just a green
-	-- cylinder. Mounting it on top would also have put it through the parked nozzle.
-	--
-	-- SMALL STEEL HUBS, NOT FLANGES, and this is the second thing that went wrong
-	-- here. A real reel's flanges are wider than the drum — but a Cylinder part cannot
-	-- be a ring, so a wide flange is a SOLID disc that occludes the entire drum from
-	-- exactly the one angle the reel is legible from. Two passes of shrinking the
-	-- margin (3.2 against 2.6, then 2.3 against 2.0) both produced the same picture:
-	-- a pale steel plate with a rim of green behind it. So the geometry gives up on
-	-- being correct and goes for being READABLE: the green drum is the widest thing,
-	-- with a small steel hub capping each end, which is what a spool of wound hose
-	-- actually looks like from the front.
-	local rx = px - 1.55
-	local ry = pad.topY + 1.9
+	-- WIDEST PART FIRST, NOT FLANGES. A real reel's flanges are wider than the drum, but
+	-- a Cylinder part cannot be a ring, so a wide flange is a SOLID disc that occludes
+	-- the whole drum from the one angle the reel is legible from. So: the green drum is
+	-- the widest thing, a darker band over it reads as wound coils, and a small steel
+	-- hub caps each end -- what a spool of hose actually looks like face-on.
+	local rx = px - 1.7
+	local ry = T + 1.9
 	local reel = build(parent, origin, {
 		name = "HoseReel",
 		pos = { rx, ry, pz },
-		size = { 1.0, 2.4, 2.4 },
+		size = { 1.0, 2.1, 2.1 },
 		color = C.hoseGreen,
 		material = "SmoothPlastic",
 		shape = "Cylinder",
 		canCollide = false,
 	})
-	-- A narrower dark band on the same axis: face-on that is a dark green disc inside
-	-- a lighter green ring, which reads as coils wound over each other. One flat
-	-- colour reads as a painted spool.
 	build(parent, origin, {
 		name = "HoseCoil",
 		pos = { rx, ry, pz },
-		size = { 1.06, 1.7, 1.7 },
+		size = { 1.06, 1.6, 1.6 },
 		color = C.hoseGreenDark,
 		material = "SmoothPlastic",
 		shape = "Cylinder",
 		canCollide = false,
 	})
-	for _, side in { -0.56, 0.56 } do
+	for _, side in { -0.55, 0.55 } do
 		build(parent, origin, {
 			name = "ReelHub",
 			pos = { rx + side, ry, pz },
-			size = { 0.14, 0.9, 0.9 },
-			color = C.steel,
+			size = { 0.16, 0.8, 0.8 },
+			color = FIT,
 			material = "Metal",
 			shape = "Cylinder",
 			canCollide = false,
@@ -692,139 +689,85 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 		name = "ReelAxle",
 		pos = { px - 0.9, ry, pz },
 		size = { 1.5, 0.3, 0.3 },
-		color = C.steelDark,
+		color = FIT,
 		material = "Metal",
 		shape = "Cylinder",
 		canCollide = false,
 	})
 
-	-- Where the hose leaves the drum: off the bottom of the rim, on the tub side.
-	--
-	-- ITS ROTATION IS LOAD-BEARING, not decoration. A Beam's curve control point is
-	-- `WorldPosition + WorldCFrame.LookVector * CurveSize`, so the attachment's FACING
-	-- decides which way the slack bulges. Left at the default it would look straight
-	-- back off the drum and throw the loop away from the tub, behind the pump. Aimed
-	-- down and forward, the line leaves the reel, dips toward the floor, and comes up
-	-- into the hand — which is where a hose lying slack actually goes. Local axes are
-	-- the plot's here: the drum is a Cylinder in its native, unrotated orientation.
+	-- Where the hose leaves the drum. Its FACING is load-bearing: a Beam's curve
+	-- control point runs along the attachment's LookVector, so this aims down-and-
+	-- toward-the-tub to throw the slack loop that way, not back behind the pump.
 	local anchor = Instance.new("Attachment")
 	anchor.Name = "HoseAnchor"
-	-- Shallow: mostly toward the tub, only a little downward. The attachment sits at
-	-- y = 0.95 above the pad and the held CurveSize is 5, so anything steeper than
-	-- about 10 degrees throws the control point through the floor the pump is standing
-	-- on and the slack loop dips underground.
-	anchor.CFrame = CFrame.lookAt(Vector3.new(0, -0.95, 0.8), Vector3.new(0, -1.55, 4.8))
+	anchor.CFrame = CFrame.lookAt(Vector3.new(0, -1.1, 0.9), Vector3.new(0, -1.75, 4.9))
 	anchor.Parent = reel
 
-	-- ── The mast, and the monitor bolted to it ────────────────
-	-- THE NOZZLE IS NOT SOMETHING YOU PICK UP ANY MORE, and undoing that is the whole
-	-- point of this rebuild. It used to sit parked on the pump cap as a prop, and
-	-- WashService cloned it into the player's right hand for the length of a session --
-	-- so the Cleaner track, all seven rungs of it, was a thing you carried. A hose is
-	-- plumbing: a pump, a drum, a line, and a monitor bolted down at the end of it. Now
-	-- it stands on its own mast at the tub's near corner and the player aims it from
-	-- the mark, hands empty.
-	--
-	-- WHERE THE MAST GOES, AND WHY THERE IS ONLY ONE PLACE FOR IT. Three constraints
-	-- fence it in, and they leave exactly one corner:
-	--   * OUT OF THE BATH. The side rims are at x = +/-3.3 and 0.5 thick (outer face
-	--     3.55), the near rim at cz - 2.35. A mast inside that stands in the water.
-	--   * OFF THE WALK-UP. The player comes down x = 0 from the front of the pad to
-	--     WashSpot at cz - 6. A mast on that line is a thing to walk into.
-	--   * FOUR-ISH STUDS FROM THE ITEM. The stream is a real ballistic flight
-	--     (WashController.jetPath) and the sag over that flight is what makes it read as
-	--     water rather than as a beam. The hand used to hold the nozzle about 4.5 studs
-	--     off the item; this lands at 4.9, so the arc that was tuned is the arc that
-	--     still gets drawn.
-	-- The near-LEFT corner it is. Left because the pump is already there (+x is the
-	-- player's left at the mark, which faces +Z): a drum on one side of the bay feeding
-	-- a monitor on the other would run eleven studs of hose across the walk-up at ankle
-	-- height. This way the line runs straight down the side of the pad, past nothing.
-	--
-	-- IT SITS OFF THE EDGE OF THE NEUTRAL WASH FRAME, and that is a choice rather than
-	-- an oversight. Measured from the planted head, the mast is 64 degrees to the left
-	-- of the item -- past WashController's own +/-32 degree look clamp, so it is never
-	-- in frame at rest and only a deliberate glance left brings it into view. That is
-	-- fine: the mast's whole remaining job is to be found there, by anyone walking up
-	-- in third person or glancing over, wearing the rung its owner actually bought.
-	--
-	-- THE STREAM USED TO ENTER FROM THIS CORNER TOO, and that stopped being true.
-	-- The first version of the aim rework left the water travelling literally from
-	-- the mast's own position to the reticle, on the reasoning that the arc converges
-	-- on the aim point regardless of where it starts -- which is correct as maths and
-	-- was wrong as a picture: a muzzle 64 degrees off to the side reads as "shooting
-	-- from the left", reported as exactly that. WashController now re-homes the SAME
-	-- model to a point near the washing player's own camera for the length of their
-	-- session (see its header and `aimNozzle`) and puts it back here the moment they
-	-- stop -- so what sells the purchase is still walking up in third person and
-	-- finding a different machine parked on this mast, and what makes the hose usable
-	-- is that nobody has to fight a 64-degree throw to land a shot.
-	local mx, mz = cx + 3.9, cz - 2.9
+	-- A square-section conduit from the skid into the tub base, so the pump reads as
+	-- plumbed in. A thin box is a clean pipe at this scale with none of a rotated
+	-- cylinder's axis ambiguity.
+	build(parent, origin, { name = "Conduit", pos = { px, T + 0.7, (pz + cz) * 0.5 - 1.5 }, size = { 0.5, 0.5, math.abs(cz - pz) - 3 }, color = FIT, material = "Metal", canCollide = false })
+	build(parent, origin, { name = "ConduitElbow", pos = { px, T + 0.7, cz - 3 }, size = { 0.7, 0.7, 0.7 }, color = FIT, material = "Metal", canCollide = false })
+	build(parent, origin, { name = "Conduit", pos = { (px + cx) * 0.5, T + 0.7, cz - 3 }, size = { math.abs(px - cx) + 0.5, 0.5, 0.5 }, color = FIT, material = "Metal", canCollide = false })
 
-	-- BELOW THE ITEM, NOT ABOVE IT, AND THIS IS THE ARC. The item sits at topY + 3.5;
-	-- at topY + 4.2 the muzzle looked down on it and the water merely drooped the last
-	-- three studs, which at this range is a straight line with a kink in it. From below,
-	-- the ballistic solve (WashController.jetPath) has to throw the stream UP to reach
-	-- the patch and gravity brings it back down onto it -- a real lob, legible over a
-	-- flight this short, which is the whole reason the jet is a solved trajectory rather
-	-- than a drawn curve. Still clear of the tub: the rims top out at topY + 2.6.
-	local mountY = pad.topY + 3.2
+	-- ── The mast, and the monitor bolted to it ────────────────
+	-- The nozzle is not something you pick up: it stands on its own mast and the player
+	-- aims it from the mark, hands empty. Three constraints fence the mast into the
+	-- tub's near-left corner -- OUT OF THE BATH (a mast inside the rims stands in the
+	-- water), OFF THE WALK-UP (the player comes straight down the aisle to WashSpot),
+	-- and LEFT of the tub because the pump is already there, so the hose runs down one
+	-- side of the deck past nothing rather than across the walk-up at ankle height.
+	--
+	-- The arc it was tuned for (WashController.jetPath) does NOT depend on this mast any
+	-- more: WashController re-homes a per-viewer copy of the model to a point near the
+	-- washing player's own camera for the session and parks this one back on
+	-- `ParkedPivot` on exit. So the mast's whole job now is the at-rest look -- a
+	-- bystander, or the same player before/after their wash, finding the machine parked
+	-- here wearing whichever Cleaner rung its owner bought.
+	local mx, mz = cx + 5, cz - 6
+	local mountY = T + 5.0
 
 	build(parent, origin, {
 		name = "HoseMastFoot",
-		pos = { mx, pad.topY + 0.15, mz },
-		size = { 1.3, 0.3, 1.3 },
-		color = C.steelDark,
-		material = "Metal",
+		pos = { mx, T + 0.5, mz },
+		size = { 1.3, 0.7, 1.3 },
+		color = BODY,
+		material = "Plastic",
+		studs = true,
 	})
-	-- Bottom on the foot, top at the mount, so the length and the centre are both
-	-- derived from mountY rather than being two numbers that have to be kept agreeing.
-	local mastLen = mountY - (pad.topY + 0.3)
+	-- Bottom on the foot, top at the mount, so length and centre both derive from
+	-- mountY rather than being two numbers kept in sync by hand.
+	local mastLen = mountY - (T + 0.8)
 	build(parent, origin, {
 		name = "HoseMast",
-		pos = { mx, pad.topY + 0.3 + mastLen * 0.5, mz },
-		size = { mastLen, 0.34, 0.34 },
-		color = C.steel,
+		pos = { mx, T + 0.8 + mastLen * 0.5, mz },
+		size = { mastLen, 0.4, 0.4 },
+		color = FIT,
 		material = "Metal",
 		shape = "Cylinder",
 		rot = Kit.R.cylUp,
 		canCollide = false,
 	})
-	-- A BALL, NOT A FORK, and it is the one shape that stays honest. The nozzle swings
-	-- through a wide cone while the player tracks a patch (WashController aims it every
-	-- frame), and a two-pronged yoke is only ever correct about one axis of that -- it
-	-- would read as a broken hinge the moment the barrel swung out of its plane. A ball
-	-- joint is right at every angle, and it is what a real deck monitor sits in.
+	-- A ball joint is honest at every angle the nozzle swings through; a forked yoke is
+	-- only right about one axis of that swing.
 	build(parent, origin, {
 		name = "HoseYoke",
 		pos = { mx, mountY, mz },
-		size = { 0.8, 0.8, 0.8 },
-		color = C.steelDark,
+		size = { 0.85, 0.85, 0.85 },
+		color = FIT,
 		material = "Metal",
 		shape = "Ball",
 		canCollide = false,
 	})
 
-	-- BUILT BY Shared/ToolModels/Hose, NOT INLINE HERE. This used to be ~85 lines of
-	-- cylinders and it was the only hose geometry in the game -- fine right up until the
-	-- Cleaner track became seven of them. The factory is the one copy, and the reasoning
-	-- that used to live here (why the primary part is an invisible unrotated block, why
-	-- the shell welds rather than anchors, why -Z is the business end) moved there.
-	--
-	-- STATION_TIER IS THE UNCLAIMED PLOT'S HOSE, NOT EVERYONE'S. This is what a base
-	-- nobody owns yet wears. The moment a player is assigned the plot,
-	-- ExhibitService.refreshHose swaps it for the rung they actually own, and swaps it
-	-- again on every Cleaner purchase. It stays a real, purchasable rung (Util/Spec pins
-	-- that) so an empty base never advertises a machine that is not for sale.
-	--
-	-- PARKED AIMED AT THE ITEM. `CFrame.lookAt` puts its target down -Z and -Z is the
-	-- business end, so this one line is both the resting pose and the pose the swivel
-	-- returns to. It is stamped onto the model as `ParkedPivot` because two other places
-	-- need it and neither can re-derive it: Plots.setHoseTier re-places a freshly built
-	-- rung on it, and WashController restores it after a session spent swinging the
-	-- nozzle around locally.
+	-- BUILT BY Shared/ToolModels/Hose. STATION_TIER is the unclaimed plot's hose;
+	-- ExhibitService.refreshHose swaps it for the rung the owner actually bought.
+	-- Parked aimed at WashStand -- `CFrame.lookAt` puts the target down -Z and -Z is
+	-- the business end, so this one line is both the rest pose and what the local
+	-- swivel returns to. Stamped as `ParkedPivot` because Plots.setHoseTier and
+	-- WashController both need it and neither can re-derive it.
 	local mount = origin * CFrame.new(mx, mountY, mz)
-	local aimAt = origin * CFrame.new(cx, pad.topY + 3.5, cz)
+	local aimAt = origin * CFrame.new(cx, T + 3.5, cz)
 	local parked = CFrame.lookAt(mount.Position, aimAt.Position)
 
 	local hose = ToolModels.Hose.create(ToolModels.Hose.STATION_TIER)
@@ -834,38 +777,20 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	local core = hose.PrimaryPart :: BasePart
 	local hoseEnd = core:FindFirstChild("HoseEnd") :: Attachment
 
-	-- Darker at both ends than in the middle. It is not real cylinder shading — a Beam
-	-- is a camera-facing ribbon and cannot have any — but a ribbon with a lighter band
-	-- down its centre reads as a round tube catching the sky, and a flat one reads as a
-	-- painted strip. Cheapest possible fix for the one weakness of drawing a hose this
-	-- way, and the only reason `hoseGreen` and `hoseGreenDark` are both in the palette.
+	-- Darker at both ends than the middle: a Beam is a camera-facing ribbon and cannot
+	-- shade itself, but a lighter centre band reads as a round tube catching the sky.
 	local beam = Instance.new("Beam")
 	beam.Name = "HoseLine"
 	beam.Attachment0 = anchor
 	beam.Attachment1 = hoseEnd
-	-- Fat, and then fatter again on the cartoon pass. A fire hose is a thick, heavy
-	-- thing and a thin ribbon reads as cable; this is a shade over the diameter of the
-	-- nozzle it feeds into, which is what stops the two looking like different objects
-	-- joined by a wire.
-	beam.Width0 = 0.9
-	beam.Width1 = 0.75
-	-- Slack, not tension. Positive out of the reel throws the loop the way HoseAnchor is
-	-- aimed (down and toward the tub); NEGATIVE into the nozzle throws the other control
-	-- point BACKWARD from HoseEnd, whose LookVector is the direction the nozzle is
-	-- pointing — so the line arrives from behind the monitor rather than curling around
-	-- in front of it. That pair is the whole shape of the hose.
-	--
-	-- ONE PAIR OF NUMBERS AGAIN. There used to be two, plus `HeldCurve0/1` attributes
-	-- for WashService to swap in: a Bezier's control points are absolute stud distances
-	-- rather than fractions of the span, so the three-stud parked run up to the pump cap
-	-- and the eight-stud run out to a player's hand could not share one sag. There is no
-	-- second state now — the nozzle never leaves the mast — so the run is always this
-	-- compact six-stud one down the side of the pad, and it gets the lazy sag that run
-	-- wants. The attributes are gone rather than left unread: a knob nothing turns is a
-	-- knob someone eventually turns expecting something to happen.
-	beam.CurveSize0 = 3
-	beam.CurveSize1 = -2.2
-	beam.Segments = 24
+	beam.Width0 = 0.7
+	beam.Width1 = 0.55
+	-- Slack, not tension: positive out of the reel throws the loop the way HoseAnchor
+	-- is aimed; negative into the nozzle throws the far control point BACKWARD from
+	-- HoseEnd, so the line arrives from behind the monitor, not curling round its front.
+	beam.CurveSize0 = 1.6
+	beam.CurveSize1 = -1.0
+	beam.Segments = 20
 	beam.FaceCamera = true
 	beam.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, Color3.fromHex(C.hoseGreenDark)),
@@ -873,9 +798,6 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 		ColorSequenceKeypoint.new(1, Color3.fromHex(C.hoseGreenDark)),
 	})
 	beam.Transparency = NumberSequence.new(0)
-	-- Lit like every other surface out here. The world went matte on purpose (Kit's
-	-- palette header) and a self-lit hose would be the one glowing object on a base
-	-- whose only glowing thing is meant to be the fallout.
 	beam.LightInfluence = 1
 	beam.Parent = reel
 
@@ -1009,85 +931,111 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	local m = Instance.new("Model")
 	m.Name = "CleansingStation"
 	local pad = Plots.PAD
+	local T = pad.topY
 	-- Positive local X is the player's LEFT when approaching from local -Z and
 	-- facing the back wall, because Roblox's look direction uses -Z.
 	local cx, cz = 18, -32
 
-	-- TURNED A QUARTER-TURN SO THE WHOLE RIG BACKS ONTO THE +X SIDE BORDER instead of
-	-- standing across the service strip. The tub, gantry, and pump now line the pad's
-	-- own right edge and the player docks from the central aisle (-X of the bay)
-	-- rather than from the front. Applied to `origin` about the bay's own centre so
-	-- every part below stays written in the bay's local space and buildHoseRig,
-	-- WashSpot, and WashCam all turn with it as one assembly. The leading +X shift
-	-- (plot-local, applied before the pivot) then slides the turned rig outward until
-	-- its gantry/pump back sits just inside the +X accent trim (x = 32.5) rather than
-	-- floating a third of the strip away from it.
+	-- TURNED A QUARTER-TURN so the whole rig backs onto the +X side border rather than
+	-- standing across the service strip. Applied to `origin` about the bay's own centre
+	-- so every part below stays written in the bay's local space and buildHoseRig,
+	-- WashSpot and WashCam all turn with it as one assembly. The leading +X shift
+	-- (plot-local, before the pivot) slides it outward to sit inside the +X accent trim.
 	origin = origin
 		* CFrame.new(8, 0, 0)
 		* CFrame.new(cx, 0, cz)
 		* CFrame.Angles(0, math.rad(90), 0)
 		* CFrame.new(-cx, 0, -cz)
 
-	-- THE DOCK + THE FLUSH, one part. StationKind="decon" is what DeconService
-	-- matches on; Shower=true is what ExposureService scans for.
-	local basin = build(m, origin, {
-		name = "Basin",
-		pos = { cx, pad.topY + 0.9, cz },
-		size = { 7, 1.8, 5 },
-		color = C.steel,
-		material = "Metal",
-		attributes = { StationKind = "decon", Shower = true, Radius = 9 },
-	})
-	accentBillboard(basin, 240, 4.6, "CLEANSING STATION", "clean it, flush it, rack it", accent)
+	-- REBUILT BIGGER AND IN STUD MATERIAL, on request. The bay used to be thin steel
+	-- rims and a bare slab that read as a table; it is a heavy decontamination bay now,
+	-- built out of the same studded blocks as the display plinths and the back wall so
+	-- it belongs to the base. `BODY` is the base-course grey, `FACE` the lighter cap
+	-- grey (the display-plinth pair), `LINER` the dark recess inside the tub, `FIT` the
+	-- smooth metal of the pipework and the head. Hose stays jade, water stays cyan.
+	--
+	-- THE WASH MINIGAME GEOMETRY DID NOT MOVE. WashStand (the item point), WashSpot
+	-- (where WashService plants the player) and WashCam (WashController's fallback) keep
+	-- the exact offsets the previous bay had, and the tub grew around them, not through
+	-- them -- so nothing about the first-person shot, the aim, or the placement changed.
+	local BODY, FACE, LINER, FIT = C.standGreyDark, C.standGrey, C.drain, C.steelDark
 
-	-- TUB WALLS. The basin used to be a bare slab with a blue plate on top, which read
-	-- as a table, not as something you wash a thing IN. Four low rims turn the same
-	-- footprint into a bath — and now that pressing E here starts a hosing animation
-	-- with the object sitting in it, "is this a container" stopped being cosmetic.
-	for _, side in { -1, 1 } do
-		build(m, origin, { name = "TubRim", pos = { cx + side * 3.3, pad.topY + 2.1, cz }, size = { 0.5, 1.0, 5.2 }, color = C.steel, material = "Metal" })
-		build(m, origin, { name = "TubRim", pos = { cx, pad.topY + 2.1, cz + side * 2.35 }, size = { 7.0, 1.0, 0.5 }, color = C.steel, material = "Metal" })
+	-- ── The deck ──────────────────────────────────────────────
+	-- One studded plate the whole installation stands on, kerbed round the edge, so the
+	-- bay is a unit set into the strip and not parts scattered on the tiles. Top a
+	-- hair proud of the floor -- a threshold, not a step: WashService plants the player
+	-- just off its front edge, so nothing here changes the height they stand at.
+	build(m, origin, { name = "Deck", pos = { 21, T - 0.35, -32 }, size = { 12.5, 1.0, 10 }, color = BODY, material = "Plastic", studs = true })
+	for _, e in {
+		{ x = 21, z = -37, sx = 13.1, sz = 0.6 },
+		{ x = 21, z = -27, sx = 13.1, sz = 0.6 },
+		{ x = 27.25, z = -32, sx = 0.6, sz = 10.6 },
+		{ x = 14.75, z = -32, sx = 0.6, sz = 10.6 },
+	} do
+		build(m, origin, { name = "DeckKerb", pos = { e.x, T + 0.25, e.z }, size = { e.sx, 0.35, e.sz }, color = FACE, material = "Plastic", studs = true, canCollide = false })
 	end
 
-	build(m, origin, { name = "Water", pos = { cx, pad.topY + 1.85, cz }, size = { 6.2, 0.25, 4.2 }, color = C.cyan, material = "Glass", transparency = 0.35 })
+	-- ── The tub ───────────────────────────────────────────────
+	-- THE DOCK + THE FLUSH, one part: StationKind="decon" is what DeconService matches
+	-- on, Shower=true what ExposureService scans for, and the "Wash" prompt hangs off
+	-- it. It is the solid lower body of the trough now -- a heavy studded block, not the
+	-- old thin steel slab -- with its centre kept exactly where it was so the item
+	-- point and the prompt do not move.
+	local basin = build(m, origin, {
+		name = "Basin",
+		pos = { cx, T + 0.55, cz },
+		size = { 7.4, 3.0, 7 },
+		color = BODY,
+		material = "Plastic",
+		studs = true,
+		attributes = { StationKind = "decon", Shower = true, Radius = 9 },
+	})
 
-	-- THREE ANCHORS, AND THE SHOT IS COMPOSED OUT OF THEM RATHER THAN OUT OF NUMBERS
-	-- IN THE CONTROLLER. Framing is a thing you judge by looking at it, so it has to
-	-- be nudgeable in Studio against live geometry — the same reasoning ARCHITECTURE.md
-	-- gives for the tool models' HoldCFrame attribute.
-	--
-	--   WashStand  where the item sits
-	--   WashSpot   where the PLAYER stands, facing the tub. The shot is taken from
-	--              their own head, so this anchor decides the framing now: it is the
-	--              tripod, not just a mark to keep them out of the way.
-	--   WashCam    a SIDE-ON camera. It framed the wash in the first version and is
-	--              kept as WashController's fallback for the one frame where the
-	--              character's head has gone (a respawn landing mid-session).
-	--
-	-- WHY THE PLAYER GETS PINNED TO A SPOT. The first version let you trigger the
-	-- prompt from anywhere inside 11 studs and then framed the shot from in front of
-	-- the tub — which put the camera roughly where the player was standing, so you saw
-	-- a tub, no character, and no hose. A fixed mark is what makes the shot reliable:
-	-- the camera knows where both subjects are because the geometry decided, not the
-	-- player's approach angle.
+	-- A dark liner sunk WELL below the body's top, so looking in you see a real recess
+	-- -- a grey lip, a step down, then the dark well and the water at the bottom -- not
+	-- a flat plate. This is what turns the block into a basin you wash a thing IN.
+	build(m, origin, { name = "TubLiner", pos = { cx, T + 0.15, cz }, size = { 5.9, 2.9, 5.4 }, color = LINER, material = "SmoothPlastic" })
 
-	-- A RACK TO STAND THE ITEM ON, and it is not decoration. The stand used to sit at
-	-- pad.topY + 2.6, which is exactly the height of the tub rims built above -- so an
-	-- item on it was half sunk behind the near rim, and water arriving from the side
-	-- hit that rim about a stud out of the nozzle instead of reaching the item at all.
-	-- The plate lifts the whole thing clear and gives the float a reason.
+	-- A wide flat rim lip capping the body -- four studded bars, tops at T+2.3, a shade
+	-- under the old rims' T+2.6 so the stream still clears them from the player's side
+	-- and the item still sits proud of them.
+	for _, side in { -1, 1 } do
+		build(m, origin, { name = "TubRim", pos = { cx, T + 2.05, cz + side * 3.7 }, size = { 7.9, 0.5, 0.95 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+		build(m, origin, { name = "TubRim", pos = { cx + side * 3.9, T + 2.05, cz }, size = { 0.95, 0.5, 7.4 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+	end
+
+	-- The water: a translucent body low in the well, with a fainter sheen plane on top
+	-- -- one flat glass slab reads as a lid, two layers reads as depth.
+	build(m, origin, { name = "Water", pos = { cx, T + 1.1, cz }, size = { 5.4, 0.5, 4.9 }, color = C.cyan, material = "Glass", transparency = 0.3 })
+	local sheen = build(m, origin, { name = "WaterSheen", pos = { cx, T + 1.38, cz }, size = { 5.2, 0.06, 4.7 }, color = C.glass, material = "SmoothPlastic", transparency = 0.55, canCollide = false })
+	sheen.Reflectance = 0.05
+
+	-- A grated drain in the floor of the basin, just visible under the water, so the
+	-- trough has an outfall and is not a sealed tank.
+	build(m, origin, { name = "Drain", pos = { cx, T + 0.7, cz }, size = { 0.3, 1.3, 1.3 }, color = LINER, material = "Metal", shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
+	for _, r in { Kit.R.cylAlongX, Kit.R.cylAlongZ } do
+		build(m, origin, { name = "DrainBar", pos = { cx, T + 0.85, cz }, size = { 1.3, 0.12, 0.12 }, color = FIT, material = "Metal", shape = "Cylinder", rot = r, canCollide = false })
+	end
+
+	-- ── The item rack and the three shot anchors ──────────────
+	-- WashRack lifts the item clear of the rim so water from the side reaches it. The
+	-- three anchors are UNCHANGED from the previous bay -- WashService pivots the item
+	-- to WashStand's centre, plants the player a step forward of WashSpot, and
+	-- WashController falls back to WashCam for the frame a respawn leaves the head
+	-- missing. Framing is judged by looking, so these stay anchors, not numbers.
 	build(m, origin, {
 		name = "WashRack",
-		pos = { cx, pad.topY + 2.7, cz },
-		size = { 2.6, 0.2, 2.6 },
-		color = C.steelDark,
-		material = "Metal",
+		pos = { cx, T + 2.7, cz },
+		size = { 2.8, 0.25, 2.8 },
+		color = FACE,
+		material = "Plastic",
+		studs = true,
 		canCollide = false,
 	})
 
 	local stand = build(m, origin, {
 		name = "WashStand",
-		pos = { cx, pad.topY + 3.5, cz },
+		pos = { cx, T + 3.5, cz },
 		size = { 1, 1, 1 },
 		color = C.steel,
 		material = "Metal",
@@ -1098,7 +1046,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	local spot = build(m, origin, {
 		name = "WashSpot",
-		pos = { cx, pad.topY + 3, cz - 6 },
+		pos = { cx, T + 3, cz - 6 },
 		size = { 1, 1, 1 },
 		color = C.steel,
 		material = "Metal",
@@ -1108,48 +1056,31 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- Faces the stand, so WashService can drop the character straight onto this CFrame
 	-- and have them looking at what they are about to hose.
 	spot.CFrame = origin
-		* CFrame.lookAt(Vector3.new(cx, pad.topY + 3, cz - 6), Vector3.new(cx, pad.topY + 3, cz))
+		* CFrame.lookAt(Vector3.new(cx, T + 3, cz - 6), Vector3.new(cx, T + 3, cz))
 
 	local cam = build(m, origin, {
 		name = "WashCam",
-		pos = { cx - 13, pad.topY + 5, cz - 3 },
+		pos = { cx - 13, T + 5, cz - 3 },
 		size = { 1, 1, 1 },
 		color = C.steel,
 		material = "Metal",
 		transparency = 1,
 		canCollide = false,
 	})
-	-- SIDE-ON, off to the left, aimed at the midpoint between the player's mark and
-	-- the item: your own character holding the hose in profile with the object across
-	-- from them and the stream crossing the frame between the two.
-	--
-	-- THIS IS NO LONGER THE SHOT. It composed well and it was answering the wrong
-	-- question -- the thing being asked of the player is AIM, and nobody aims while
-	-- watching themselves from thirteen studs away -- so the wash is now first person
-	-- from the character's own head (WashController). The anchor stays because that
-	-- controller still reads it for the one frame where the head is gone and a respawn
-	-- has not been reported yet, and because it is the cheapest way back if the
-	-- first-person shot is ever reverted.
-	--
-	-- Composed here with CFrame.lookAt rather than given to Kit.build as a `rot`,
-	-- because Kit.build's rot takes fixed angles and "point at that" stops being a
-	-- fixed angle once the plot's own yaw is applied. `origin` carries it to world
-	-- space like everything else in this function.
+	-- Side-on fallback only: the wash is first person from the character's own head
+	-- (WashController), and this is read for the one frame a mid-session respawn leaves
+	-- the head missing. Composed with CFrame.lookAt rather than a fixed `rot` because
+	-- "point at that" stops being a fixed angle once the plot's own yaw is applied.
 	cam.CFrame = origin
 		* CFrame.lookAt(
-			Vector3.new(cx - 13, pad.topY + 5, cz - 3),
-			Vector3.new(cx, pad.topY + 3.6, cz - 3)
+			Vector3.new(cx - 13, T + 5, cz - 3),
+			Vector3.new(cx, T + 3.6, cz - 3)
 		)
 
-	-- PRESS E TO WASH, AND PRESS IT AGAIN TO STOP. Always enabled, because a
-	-- ProximityPrompt is one shared instance and cannot be shown to one player and
-	-- hidden from another — so the "are you actually holding something dirty" test is
-	-- the SERVER's, on trigger, and it answers with a toast. That is also what makes
-	-- "nothing happens if you hold nothing" honest rather than a silent no-op.
-	--
-	-- The re-press is not a nicety. The player is pinned in place during a wash, so
-	-- walking out of the leash — the only other way to end a session — is exactly the
-	-- thing they cannot do. Without this, entering the bay was a one-way door.
+	-- PRESS E TO WASH, AND PRESS IT AGAIN TO STOP. Always enabled -- a ProximityPrompt
+	-- is one shared instance -- so "are you holding something dirty" is the server's
+	-- test on trigger, answered with a toast. The re-press matters: the player is
+	-- pinned during a wash, so walking out is exactly what they cannot do.
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Wash"
 	prompt.ActionText = "Wash"
@@ -1159,55 +1090,67 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = basin
 
-	for _, x in { -3.2, 3.2 } do
-		build(m, origin, { name = "Post", pos = { cx + x, pad.topY + 3.5, cz + 1.5 }, size = { 0.4, 4, 0.4 }, color = C.steelDark, material = "Metal" })
+	-- ── The gantry + back wall, one structure ─────────────────
+	-- Two heavy studded posts on the +X (back) side, a panelled wall filling the gap
+	-- between them so the bay backs onto something solid, a boxed header across the top,
+	-- and an arm reaching forward over the tub to carry the shower head. The FRONT of
+	-- the tub is left open -- nothing between the player and the basin -- so the frame
+	-- looms behind and over the wash rather than caging it.
+	local GANTRY_TOP = T + 6.2
+	local POST_Z = -28.2 -- authored; plot x ~= 29.8, just behind the tub's far rim
+	for _, ax in { 14, 22 } do
+		build(m, origin, { name = "GantryFoot", pos = { ax, T + 0.35, POST_Z }, size = { 1.4, 0.5, 1.4 }, color = FACE, material = "Plastic", studs = true })
+		build(m, origin, {
+			name = "GantryPost",
+			pos = { ax, (T + 0.15 + GANTRY_TOP) * 0.5, POST_Z },
+			size = { 1.1, GANTRY_TOP - (T + 0.15), 1.1 },
+			color = BODY,
+			material = "Plastic",
+			studs = true,
+		})
 	end
-	build(m, origin, { name = "GantryBeam", pos = { cx, pad.topY + 5.4, cz + 1.5 }, size = { 7.2, 0.4, 0.4 }, color = C.steelDark, material = "Metal" })
-	build(m, origin, { name = "NozzleArm", pos = { cx, pad.topY + 5.4, cz + 0.7 }, size = { 0.35, 0.35, 1.6 }, color = C.steelDark, material = "Metal" })
+	-- The wall between the posts: a base course and a lighter upper course.
+	build(m, origin, { name = "SplashWall", pos = { 18, T + 1.6, POST_Z }, size = { 7.6, 3.0, 0.7 }, color = BODY, material = "Plastic", studs = true })
+	build(m, origin, { name = "SplashWall", pos = { 18, T + 4.4, POST_Z }, size = { 7.6, 2.4, 0.5 }, color = FACE, material = "Plastic", studs = true })
+	-- Header across the post tops, an arm forward over the tub centre, and a gusset
+	-- cube at each post/arm junction so the reach reads as braced, not cantilevered.
+	build(m, origin, { name = "GantryBeam", pos = { 18, GANTRY_TOP, POST_Z }, size = { 9.0, 1.0, 1.2 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+	build(m, origin, { name = "GantryArm", pos = { cx, GANTRY_TOP, (POST_Z + cz) * 0.5 - 0.5 }, size = { 1.2, 1.0, math.abs(cz - POST_Z) + 2 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+	for _, ax in { 14, 22 } do
+		build(m, origin, { name = "GantryGusset", pos = { ax, GANTRY_TOP - 0.9, POST_Z - 1.1 }, size = { 1.0, 1.0, 1.6 }, color = BODY, material = "Plastic", studs = true, canCollide = false })
+	end
+
+	-- ── The shower head and its stream ────────────────────────
+	-- The head hangs on a drop pipe from the gantry arm, its underside ~1 stud above the
+	-- item -- close, because it is meant to rinse the thing ON the rack, so there is no
+	-- tall column to fall, only a wide curtain off the head into the tub.
+	--
+	-- ALL PARTICLES, NO GEOMETRY. Geometry this shape reads as solid (a thin cylinder is
+	-- a stick, panes around the item are a display case). Particles animate themselves,
+	-- so a static prop reads as running with no per-frame script: a FALL curtain squashed
+	-- along its drop so it streaks rather than beads, and a SPLASH ring where it lands.
+	-- Matte like everything out here (Kit's palette header) -- LightEmission stays a
+	-- fraction, no PointLight; the fallout is the only thing on a plot that glows.
+	build(m, origin, { name = "ShowerDrop", pos = { cx, T + 5.5, cz }, size = { 1.5, 0.45, 0.45 }, color = FIT, material = "Metal", shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
 	build(m, origin, {
 		name = "ShowerHead",
-		pos = { cx, pad.topY + 5.1, cz },
-		size = { 0.5, 1.6, 1.6 },
+		pos = { cx, T + 4.9, cz },
+		size = { 0.7, 2.3, 2.3 },
 		color = C.steel,
 		material = "Metal",
 		shape = "Cylinder",
 		rot = Kit.R.cylUpFlipped,
 		canCollide = false,
 	})
-	-- THE STREAM OUT OF THE SHOWER HEAD. It used to be one 0.16-stud cyan glass stick
-	-- from the head to the tub -- a laser dimmed, exactly the shape WashController's own
-	-- header spent seven passes getting away from, still standing here as furniture.
-	--
-	-- THE GEOMETRY IS TIGHT and it shapes the whole effect: the head's underside sits
-	-- ~0.3 studs above the wash stand (the head is meant to rinse the item ON the
-	-- stand). So there is no tall column to fall -- what a real rinse here looks like is
-	-- a wide curtain off the head, most of it clearing the pedestal into the tub, and a
-	-- splash where it lands.
-	--
-	-- ALL PARTICLES, NO GEOMETRY. The first cut kept a thin cylinder for the "coherent"
-	-- part and four more down the pedestal faces -- and four translucent panes around a
-	-- box is a display case, which is worse than the stick it replaced. Geometry cannot
-	-- be this without reading as solid. Particles animate themselves, so a static prop
-	-- reads as running with no per-frame script anywhere near it:
-	--
-	--   * FALL: a wide dense curtain of droplets from the head, SQUASHED along their
-	--     fall so they read as streaks not beads, speeding up under extra gravity,
-	--     thinning and fading before they reach the water.
-	--   * SPLASH: a low ring of spray off the water surface where the curtain lands.
-	--
-	-- MATTE, like everything else out here (Kit's palette header): LightEmission stays a
-	-- fraction, no PointLight. The fallout is the only thing on a plot that glows. Name
-	-- kept as `Jet` on the host so nothing that ever looked the old part up is surprised.
+
 	local jetWhite = "E9F4FF"
 
-	-- ONE short faint stub of coherent water at the head -- head underside to the
-	-- pedestal top, ~0.8 studs. Just enough to anchor the source: particles spawning
-	-- from nothing read as spawning from nothing. One is fine; it was FOUR of these
-	-- round a box that read as a display case.
+	-- A short faint stub of coherent water at the head -- just enough to anchor the
+	-- source, since particles spawning from nothing read as spawning from nothing.
 	local stub = build(m, origin, {
 		name = "Jet",
-		pos = { cx, pad.topY + 4.45, cz },
-		size = { 0.8, 0.13, 0.13 },
+		pos = { cx, T + 4.0, cz },
+		size = { 1.1, 0.13, 0.13 },
 		color = jetWhite,
 		material = "SmoothPlastic",
 		shape = "Cylinder",
@@ -1220,8 +1163,8 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	local spout = build(m, origin, {
 		name = "JetSpout",
-		pos = { cx, pad.topY + 4.15, cz },
-		size = { 1.7, 0.16, 1.7 },
+		pos = { cx, T + 4.2, cz },
+		size = { 2.0, 0.16, 2.0 },
 		color = jetWhite,
 		material = "SmoothPlastic",
 		transparency = 1,
@@ -1231,24 +1174,19 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	fall.Name = "Fall"
 	fall.Texture = "rbxasset://textures/particles/smoke_main.dds"
 	fall.Color = ColorSequence.new(Color3.fromHex(jetWhite))
-	-- Low, not zero: a self-lit stream is the one glowing thing on a matte base. Just
-	-- enough that it does not go grey in the tub's own shadow.
 	fall.LightEmission = 0.04
 	fall.LightInfluence = 1
-	-- Camera-facing (the default), NOT VelocityPerpendicular: perpendicular turns each
-	-- quad edge-on to its own fall, so a dozen of them at slightly different angles read
-	-- as a scribble of crossed blades rather than as rain. `Squash` still stretches them
-	-- along the fall for the streak.
+	-- Left camera-facing (the default), NOT VelocityPerpendicular: perpendicular turns
+	-- each quad edge-on to its own fall, so a dozen at slightly different angles read as
+	-- a scribble of crossed blades rather than rain. `Squash` streaks them along the fall.
 	fall.EmissionDirection = Enum.NormalId.Bottom
-	fall.Rate = 200
-	fall.Lifetime = NumberRange.new(0.5, 0.72)
+	fall.Rate = 210
+	fall.Lifetime = NumberRange.new(0.5, 0.74)
 	fall.Speed = NumberRange.new(5.5, 7.5)
 	fall.SpreadAngle = Vector2.new(9, 9)
 	fall.Acceleration = Vector3.new(0, -44, 0)
 	fall.Rotation = NumberRange.new(0, 0)
 	fall.RotSpeed = NumberRange.new(0, 0)
-	-- Stretched along the fall: a round droplet is a bead, an elongated one is water
-	-- moving.
 	fall.Squash = NumberSequence.new(2.2)
 	fall.Size = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0.15),
@@ -1263,8 +1201,8 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	local splashHost = build(m, origin, {
 		name = "JetSplash",
-		pos = { cx, pad.topY + 2.02, cz },
-		size = { 3.4, 0.1, 2.8 },
+		pos = { cx, T + 1.45, cz },
+		size = { 3.8, 0.1, 3.2 },
 		color = jetWhite,
 		material = "SmoothPlastic",
 		transparency = 1,
@@ -1294,23 +1232,24 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	})
 	splash.Parent = splashHost
 
-	-- Lamp in the plot's own accent colour, so the station reads as part of
-	-- THIS base rather than a generic fixture repeated six times. Matte now, with a
-	-- soft accent-tinted light -- the one coloured light left on a plot, kept low so
-	-- it warms the station without washing the grey plinths in front of it. `Accent`
-	-- tags the ball; Plots.setPlotAccent repaints both it and its PointLight child
-	-- (matched by "parent carries Accent"). Grey until the owner picks a hue.
+	-- The station sign rides the gantry header (the back wall itself is built up in the
+	-- gantry section above). The accent lamp is a ball on the header end with a soft
+	-- PointLight -- the one coloured light on the plot, kept low; `Accent` tags the ball
+	-- and Plots.setPlotAccent repaints it and the light from `data.plotColor`.
+	local signHost = build(m, origin, { name = "SignHost", pos = { 18, GANTRY_TOP + 0.7, POST_Z }, size = { 9.0, 0.4, 1.0 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+	accentBillboard(signHost, 240, 2.6, "CLEANSING STATION", "clean it, flush it, rack it", accent)
+
 	local lamp = build(m, origin, {
 		name = "Lamp",
-		pos = { cx, pad.topY + 5.9, cz + 1.5 },
-		size = { 0.5, 0.5, 0.5 },
+		pos = { cx + 4.4, GANTRY_TOP, POST_Z },
+		size = { 0.7, 0.7, 0.7 },
 		color = accent,
 		material = "SmoothPlastic",
 		shape = "Ball",
 		canCollide = false,
 		attributes = { Accent = true },
 	})
-	light(lamp, accent, 12, 0.9)
+	light(lamp, accent, 14, 0.9)
 
 	buildHoseRig(m, origin, cx, cz)
 
