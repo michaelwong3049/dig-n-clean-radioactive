@@ -498,7 +498,7 @@ local function build(): ScreenGui
 	-- Anchor on the left-middle so the UIScale below shrinks the artwork around its own
 	-- vertical centre and it stays centred in the shorter button.
 	icon.AnchorPoint = Vector2.new(0, 0.5)
-	icon.Position = UDim2.new(0, 0, 0.5, 0)
+	icon.Position = UDim2.fromScale(0, 0.5)
 	icon.BackgroundTransparency = 1
 	icon.ZIndex = 6
 	icon.Parent = button
