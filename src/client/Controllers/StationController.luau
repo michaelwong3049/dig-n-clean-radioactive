@@ -43,20 +43,20 @@
 	THE PANEL SITS AT LITERAL SCREEN-CENTRE, AND IT DID NOT USED TO.
 	It was anchored at `UDim2.new(0.5, 0, 0.5, -Dock.RESERVE / 2)` — centred in the
 	space left ABOVE the dock rather than on the screen — because the dock's status
-	line, dig button, radar scope and hotbar never hide, even away from a station.
-	That bias is 173px of lift, and with the shop's cards it read as a panel stuck to
-	the top of the screen rather than a panel in the middle of it.
+	line and hotbar never hide, even away from a station. That bias is 173px of lift,
+	and with the shop's cards it read as a panel stuck to the top of the screen rather
+	than a panel in the middle of it.
 
-	Two things make plain `fromScale(0.5, 0.5)` safe now. The radar scope moved out of
-	the instrument band into its own bottom-right corner (see DetectorController), so
-	the band lost 36px and RESERVE fell with it; and the status line is blank whenever
-	you are out of a stage, which is exactly when a station panel is open (every
-	station is in the zero-rad plaza). What is left below the centred panel is the dig
-	button and the hotbar, both far enough down to clear it.
+	Two things make plain `fromScale(0.5, 0.5)` safe now. The instrument band shed its
+	tallest widgets (the dig button, then the radar scope — see DetectorController), so
+	the band is just the meter and RESERVE fell with it; and the status line is blank
+	whenever you are out of a stage, which is exactly when a station panel is open
+	(every station is in the zero-rad plaza). What is left below the centred panel is
+	the hotbar, far enough down to clear it.
 
 	This is the one thing here that is resolution-DEPENDENT rather than derived: a
-	tall panel on a short viewport can still reach the dig button. StationHud's
-	DisplayOrder (40) is below DetectorHud's (60), so the button wins that overlap
+	tall panel on a short viewport can still reach the hotbar. StationHud's
+	DisplayOrder (40) is below DetectorHud's (60), so the hotbar wins that overlap
 	rather than being hidden under the panel.
 
 	AND THE SHOP IS ALSO A RACK IN THE WORLD NOW, WHICH THIS FILE PAINTS BUT DOES NOT

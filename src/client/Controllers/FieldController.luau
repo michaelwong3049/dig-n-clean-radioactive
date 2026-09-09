@@ -213,8 +213,8 @@ local function stepRings()
 
 	layRing(steady, centre, radius, 0.72, GLOW)
 
-	-- Shares os.clock with the sweep arm on the HUD scope, so the arm crossing the top
-	-- of the dial and the ring leaving your feet are the same event.
+	-- Off os.clock and Tuning.RANGE_RING_PERIOD so every pulse in the game beats
+	-- together — the pick-up card's stroke shimmer rides the same period.
 	local phase = (os.clock() % Tuning.RANGE_RING_PERIOD) / Tuning.RANGE_RING_PERIOD
 	layRing(pulse, centre, radius * phase, 0.15 + phase * 0.8, GLOW)
 end
