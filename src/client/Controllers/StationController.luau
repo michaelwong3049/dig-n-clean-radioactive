@@ -61,14 +61,14 @@
 
 	AND THE SHOP IS ALSO A RACK IN THE WORLD NOW, WHICH THIS FILE PAINTS BUT DOES NOT
 	OWN. Every tier of the three tool tracks hangs on the wing beside its stand with a
-	price card above it and its own E prompt (build/Shops), so a player who knows which
-	detector they want buys it without ever opening this panel. The one thing those
-	cards cannot show on their own is whether YOU own that tier — they are single
+	price card above it and its own E prompt (build/Shops). Pressing that prompt opens
+	a FOCUSED version of this same panel — one card, that tier's stats, a Purchase/Equip
+	button — before any money moves (`rackTrack` / `rackTier`). The one thing the world
+	price cards cannot show on their own is whether YOU own that tier — they are single
 	shared instances — so the owned-check is written locally, off the same `offer` this
 	panel is already receiving. See "The rack beside the stand" below for what it costs.
-	The panel is still there and still holds the stat blocks, but it does not open on
-	approach any more: press E on the stand for it. The rack is the fast path, the
-	panel the one you ask for. See `dismissed`.
+	The full comparison panel still opens from the stand's own E; neither opens on
+	approach. See `dismissed`.
 
 	THE SHOP PANEL IS A STOREFRONT, NOT A ONE-LINE OFFER. It used to render exactly
 	one thing —
@@ -153,6 +153,14 @@ local CARD_WIDTH = 270
 local CARD_HEIGHT = 420
 local CARD_GAP = 16
 
+-- THE FOCUSED CARD — one tier, opened by pressing E on its hanging model (build/Shops'
+-- rack "Upgrade" prompt) instead of the whole storefront. The model is already in
+-- front of you in the world, so this card drops the storefront's big artwork well and
+-- comes out materially smaller without shrinking the stats or the action button. Its
+-- height is name (52) + stats (80) + button (50) + two 10px gaps + 32 of card padding.
+local FOCUSED_CARD_WIDTH = 240
+local FOCUSED_CARD_HEIGHT = 234
+
 -- The panel widens for shop mode only, and the width is DERIVED from the card size
 -- rather than typed: four whole cards, their three gaps, the panel's own padding, and
 -- a deliberate 30px sliver of the fifth. The sliver is the scroll affordance — four
@@ -174,6 +182,13 @@ local SCREEN_MARGIN = 24
 local ui = {}
 local state = { station = nil, items = {}, locker = {} }
 local selected: string? = nil
+-- A rack "Upgrade" prompt opens ONE focused shop card rather than buying immediately.
+-- Both the track and the tier are kept: the prompt can win a frame or two before the
+-- matching StationState tick lands, and `render` needs to know which card to isolate
+-- once that shop state does arrive. Cleared on Close, on leaving, and when the stand's
+-- own "ViewShop" asks for the whole storefront instead.
+local rackTrack: string? = nil
+local rackTier: number? = nil
 local actionRemote: any = nil
 local toastToken = 0
 
@@ -793,8 +808,7 @@ local RACK_TAG = "Upgrade"
 --- tick on every tier at or below yours, which is exactly the complaint that started
 --- this: eight identical ticks after buying one detector, and no way to tell which
 --- tool you were actually holding. EQUIPPED is the one in your hands; OWNED is a tool
---- you bought and are not using, and its hook's E switches to it rather than charging
---- you for it again.
+--- you bought and are not using; its focused card offers EQUIP instead of PURCHASE.
 local EQUIPPED_TEXT = "✓ EQUIPPED"
 local OWNED_TEXT = "✓ OWNED"
 
@@ -808,17 +822,16 @@ local rackKey: string? = nil
 --- the world to the price it was built showing. `tiers` nil restores all of them —
 --- that is what leaving a shop does.
 ---
---- THREE STATES OUT HERE NOW, MATCHING THE PANEL'S THREE. The equipped tier gets the
---- green EQUIPPED tick; a tier you own but are not holding gets a neutral OWNED tick
---- and its prompt flips from "Buy $x" to "Equip"; everything else keeps the price it
---- was built with. That prompt rewrite is the reason this function touches
---- ProximityPrompts at all — a prompt is a single shared instance and the server
---- cannot word it per player, exactly like the price cards.
+--- THREE STATES ON THE PRICE CARD, MATCHING THE PANEL'S THREE. The equipped tier gets
+--- the green EQUIPPED tick; a tier you own but are not holding gets a neutral OWNED
+--- tick; everything else keeps the price it was built with.
 ---
---- WHAT THE PROMPT SAYS IS COSMETIC, AND THE SERVER DOES NOT TRUST IT. ShopService's
---- own handler re-reads ownership from the profile and picks buy-or-equip there. If
---- this paint is stale, the worst case is a prompt that says the wrong verb for one
---- tick, never a wrong purchase.
+--- THE PROMPT VERB DOES NOT MOVE ANY MORE. Every rack prompt now only opens that
+--- tier's focused card ("View details"), and the Purchase/Equip choice lives on the
+--- card's button — decided from `state.offer`, server-checked again on the click — so
+--- there is nothing per-player left for this function to write onto the shared prompt.
+--- It still RESTORES the prompt's ActionText from RestActionText, in case some earlier
+--- build of this script left a stale "Equip" / "Buy $x" on a hook.
 ---
 --- RESTORE READS RestText / RestColor OFF THE LABEL (and RestActionText off the
 --- prompt), the same trick LiquidService uses to put the wash pad's sign back after
@@ -842,12 +855,8 @@ local function paintRack(track: string?, tiers: { any }?)
 		local entry = if tiers ~= nil and part:GetAttribute("SellsTrack") == track then tiers[tier] else nil
 		local prompt = part:FindFirstChildOfClass("ProximityPrompt")
 
-		-- Stamp the as-built wording if the BUILDER did not. A world built before the
-		-- rack learned about equipping has prompts with no RestActionText, and without
-		-- this the first repaint would overwrite "Buy $4700" with "Equip" and have
-		-- nothing to put back — the price would be gone from that hook until the next
-		-- world rebuild. Doing it here, before any overwrite, makes the restore path
-		-- correct in a stale world as well as a fresh one.
+		-- Stamp the as-built wording if the BUILDER did not, so the restore just below
+		-- has something to put back in a world older than this script.
 		if prompt and prompt:GetAttribute("RestActionText") == nil then
 			prompt:SetAttribute("RestActionText", prompt.ActionText)
 		end
@@ -855,25 +864,18 @@ local function paintRack(track: string?, tiers: { any }?)
 		if entry ~= nil and entry.current then
 			sub.Text = EQUIPPED_TEXT
 			sub.TextColor3 = COLOR.green
-			if prompt then
-				-- Nothing to do to a tool you are already holding. The prompt stays
-				-- visible rather than being disabled, because a hook with no E at all
-				-- reads as broken next to seven that have one; pressing it is refused
-				-- server-side with "already in your hands".
-				prompt.ActionText = "Equipped"
-			end
 		elseif entry ~= nil and entry.owned then
 			sub.Text = OWNED_TEXT
 			sub.TextColor3 = COLOR.text
-			if prompt then
-				prompt.ActionText = "Equip"
-			end
 		else
 			sub.Text = (sub:GetAttribute("RestText") :: string?) or sub.Text
 			sub.TextColor3 = (sub:GetAttribute("RestColor") :: Color3?) or sub.TextColor3
-			if prompt then
-				prompt.ActionText = (prompt:GetAttribute("RestActionText") :: string?) or prompt.ActionText
-			end
+		end
+
+		-- The prompt is an inspection action in every state now. Ownership changes the
+		-- focused card's button, never what pressing E on the display does.
+		if prompt then
+			prompt.ActionText = (prompt:GetAttribute("RestActionText") :: string?) or prompt.ActionText
 		end
 	end
 end
@@ -914,7 +916,17 @@ local function refreshRack()
 end
 
 local function render()
-	if state.station == nil or dismissed or not PANEL_KINDS[state.station] then
+	-- A rack prompt can fire a frame or two before the StationState tick that names
+	-- its shop lands. `rackTier` is set but `state` is still the previous station:
+	-- hold the panel hidden rather than flashing the wrong thing, and let the tick
+	-- open it (see the StationState handler's `opensRack`).
+	local waitingForRackShop = rackTier ~= nil and state.station == "shop" and rackTrack ~= state.stationId
+	if
+		state.station == nil
+		or dismissed
+		or not PANEL_KINDS[state.station]
+		or waitingForRackShop
+	then
 		ui.panel.Visible = false
 		ui.closeButton.Visible = false
 		return
@@ -926,6 +938,9 @@ local function render()
 	-- Shop mode replaces the item list entirely: you are not carrying anything
 	-- relevant to this transaction, so showing your backpack is noise.
 	local atShop = state.station == "shop"
+	-- One tier isolated because you pressed E on its hanging model, versus the whole
+	-- storefront from the stand. Only honoured once `state` actually is that shop.
+	local focusedTier = if atShop and rackTrack == state.stationId then rackTier else nil
 	ui.shop.Visible = atShop
 	-- Shop mode carries its own wallet line under the card row, so the header's
 	-- subtitle would just print the same number twice.
@@ -934,21 +949,54 @@ local function render()
 	-- Storefronts centre their sign; a station panel that is really a list keeps its
 	-- title on the same left margin as the rows underneath it.
 	ui.title.TextXAlignment = if atShop then Enum.TextXAlignment.Center else Enum.TextXAlignment.Left
-	ui.panelSize.MaxSize = Vector2.new(if atShop then SHOP_PANEL_WIDTH else PANEL_WIDTH, math.huge)
+	-- MinSize is normally one full card wide; a focused card is narrower than that, so
+	-- it has to come down too or the constraint contradicts itself (Min > Max).
+	ui.panelSize.MinSize = Vector2.new(
+		if focusedTier ~= nil then FOCUSED_CARD_WIDTH + 2 * PANEL_PAD else CARD_WIDTH + 2 * PANEL_PAD,
+		0
+	)
+	ui.panelSize.MaxSize = Vector2.new(
+		if focusedTier ~= nil
+			then FOCUSED_CARD_WIDTH + 2 * PANEL_PAD
+			elseif atShop then SHOP_PANEL_WIDTH
+			else PANEL_WIDTH,
+		math.huge
+	)
 	if atShop then
 		local offer = state.offer
 		local tiers = if offer then offer.tiers else nil
 
-		ui.title.Text = `{string.upper(state.stationId or "SHOP")} SHOP`
+		ui.title.Text = if focusedTier ~= nil
+			then `{string.upper(state.stationId or "ITEM")} DETAILS`
+			else `{string.upper(state.stationId or "SHOP")} SHOP`
 		ui.title.TextColor3 = COLOR.amber
 		ui.panelStroke.Color = COLOR.amber
 
-		local count = if tiers then #tiers else 0
+		local hasFocused = focusedTier ~= nil and tiers ~= nil and tiers[focusedTier] ~= nil
+		local count = if focusedTier ~= nil
+			then (if hasFocused then 1 else 0)
+			else (if tiers then #tiers else 0)
 		ui.shopScroll.Visible = count > 0
 		ui.shopEmpty.Visible = count == 0
+		ui.shopEmpty.Text = if focusedTier ~= nil then "loading details…" else "nothing for sale here"
+
+		-- A one-card view needs no scroll furniture. The full storefront keeps its
+		-- taller frame and its scrollbar; the focused card sizes to itself and starts
+		-- pinned to the left in case the storefront was scrolled before E was pressed.
+		ui.shopScroll.Size = UDim2.new(1, 0, 0, if focusedTier ~= nil then FOCUSED_CARD_HEIGHT else CARD_HEIGHT + 18)
+		ui.shopScroll.ScrollBarThickness = if focusedTier ~= nil then 0 else 6
+		if focusedTier ~= nil then
+			ui.shopScroll.CanvasPosition = Vector2.zero
+		end
 
 		for index, card in ui.shopCards do
-			local entry = if tiers then tiers[index] else nil
+			local entry = if tiers and (focusedTier == nil or index == focusedTier) then tiers[index] else nil
+			card.Size = UDim2.fromOffset(
+				if focusedTier ~= nil then FOCUSED_CARD_WIDTH else CARD_WIDTH,
+				if focusedTier ~= nil then FOCUSED_CARD_HEIGHT else CARD_HEIGHT
+			)
+			local cardArt = card.CardArt :: ImageLabel
+			cardArt.Visible = focusedTier == nil
 			card.Visible = entry ~= nil
 			if entry then
 				paintShopCard(card, entry)
@@ -1080,26 +1128,53 @@ function Station.start()
 
 	ui.closeButton.MouseButton1Click:Connect(function()
 		dismissed = true
+		rackTrack = nil
+		rackTier = nil
 		render()
 	end)
 
-	-- THE STAND'S E. Fires locally for the local player, so there is no remote in this
-	-- path at all -- the panel was always drawn from a `StationState` the server is
-	-- already sending, and all this does is stop hiding it.
+	-- SHOP PROMPTS ONLY OPEN UI. Both fire locally for the local player, so there is no
+	-- remote in this path — the panel is drawn from the `StationState` the server is
+	-- already sending, and the prompts just decide what it shows:
+	--
+	--   "ViewShop"  the stand's E — the whole storefront, every tier side by side.
+	--   "Upgrade"   a hanging rack model's E — that ONE tier's focused card, with its
+	--               full stats and a Purchase/Equip button. Nothing here spends money;
+	--               the card's button returns through StationAction like the stand's.
 	--
 	-- IT TOGGLES rather than only opening, so E is a way back out as well as in: the
 	-- prompt stays on screen while the panel is up (you have not moved), and reaching
 	-- for the X with the mouse to close something you opened with a keypress is a
 	-- worse exit than pressing the same key again.
-	--
-	-- MATCHED ON NAME, because this same event carries the rack's "Upgrade" prompts,
-	-- which spend money. Anything that is not the stand's own prompt is not ours.
 	ProximityPromptService.PromptTriggered:Connect(function(prompt, triggeredBy)
-		if triggeredBy ~= Players.LocalPlayer or prompt.Name ~= "ViewShop" then
+		if triggeredBy ~= Players.LocalPlayer then
 			return
 		end
-		dismissed = not dismissed
-		render()
+
+		if prompt.Name == "ViewShop" then
+			-- Moving from a focused rack card back to the stand means "show me the whole
+			-- shop", not "close the card and make me press E again".
+			local wasFocused = rackTier ~= nil
+			rackTrack = nil
+			rackTier = nil
+			dismissed = if wasFocused then false else not dismissed
+			render()
+		elseif prompt.Name == "Upgrade" then
+			-- SellsTrack/SellsTier live on the mount block the prompt hangs off. A
+			-- number tier is a tool rack; a nil one is the Luck button, which the
+			-- server buys on its own Triggered and this handler must leave alone.
+			local mount = prompt.Parent
+			local track = if mount then mount:GetAttribute("SellsTrack") else nil
+			local tier = if mount then mount:GetAttribute("SellsTier") else nil
+			if type(track) ~= "string" or type(tier) ~= "number" then
+				return
+			end
+
+			rackTrack = track
+			rackTier = tier
+			dismissed = false
+			render()
+		end
 	end)
 
 	Net.get("StationState").OnClientEvent:Connect(function(payload)
@@ -1109,16 +1184,23 @@ function Station.start()
 		-- `dismissed` would clear itself on the very next tick after the click above.
 		local key = if payload.station then `{payload.station}:{tostring(payload.stationId)}` else nil
 		if key ~= lastKey then
-			-- Arriving at a shop leaves it CLOSED until you press E on the stand --
-			-- but ONLY if that stand actually exists in this world to be pressed. A
-			-- world older than this script has no browse prompt, and starting
-			-- dismissed there means the panel can never open at all; see
-			-- shopHasBrowsePrompt for what that cost. Every other station kind still
+			-- A rack "Upgrade" prompt can win a frame or two before this tick catches
+			-- up. If it named THIS shop, keep the focused card it asked for open;
+			-- otherwise the focus is stale, so drop it. When there is no pending focus,
+			-- a shop still arrives CLOSED until the stand's E — but only if that stand
+			-- exists in this world (see shopHasBrowsePrompt); every other station kind
 			-- opens on approach.
 			--
 			-- Reads `payload.station`, not `state.station` -- `state` is not assigned
 			-- until two lines below, so the old value is still in it here.
-			dismissed = payload.station == "shop" and shopHasBrowsePrompt(payload.stationId)
+			local opensRack = payload.station == "shop" and rackTrack == payload.stationId and rackTier ~= nil
+			if not opensRack then
+				rackTrack = nil
+				rackTier = nil
+			end
+			dismissed = payload.station == "shop"
+				and shopHasBrowsePrompt(payload.stationId)
+				and not opensRack
 			lastKey = key
 		end
 
