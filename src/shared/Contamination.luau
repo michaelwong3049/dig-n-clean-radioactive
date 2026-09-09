@@ -64,24 +64,12 @@ function Contamination.rollPatches(rarityName: string, modifier: string): { numb
 	return patches
 end
 
---- How dirty the thing still is, 0 (clean) to 1 (exactly as it came out of the
---- ground). Shared/ItemGrime paints with this, and it is the only reason the fraction
---- is expressed here rather than in the renderer: a display grade computed from the
---- same function that rolled the patches cannot drift away from them.
-function Contamination.grimeLevel(patches: { number }, rarityName: string, modifier: string): number
-	local remaining = #patches
-	if remaining == 0 then
-		return 0
-	end
-
-	-- An item carrying patches its own rarity/modifier would no longer produce (a save
-	-- from before a retune) is simply "dirty" rather than a divide by zero.
-	local initial = Contamination.initialCount(rarityName, modifier)
-	if initial <= 0 then
-		return 1
-	end
-	return math.clamp(remaining / initial, 0, 1)
-end
+-- `grimeLevel` LIVED HERE AND IS GONE. It graded an item's dirt as one fraction --
+-- patches left over patches rolled -- for Shared/ItemGrime to tint the whole model
+-- with. Contamination is a crust of real chunks now (Shared/ItemCrust), one per patch,
+-- and a chunk is either on the item or off it: there is no aggregate for anything to
+-- render, and `#patches` is the only count a caller needs. `initialCount` stays,
+-- because rollPatches is what it was really for.
 
 function Contamination.isClean(patches: { number }): boolean
 	return #patches == 0

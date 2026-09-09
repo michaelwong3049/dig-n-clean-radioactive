@@ -100,7 +100,7 @@ local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Weight = require(Shared.Config.Weight)
 local ItemModels = require(Shared.ItemModels)
-local ItemGrime = require(Shared.ItemGrime)
+local ItemCrust = require(Shared.ItemCrust)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
@@ -110,6 +110,7 @@ local SignalAura = require(script.Parent.Parent.build.SignalAura)
 
 local DataService = require(script.Parent.DataService)
 local StageService = require(script.Parent.StageService)
+local IdentifyService = require(script.Parent.IdentifyService)
 
 local DigService = {}
 
@@ -610,52 +611,46 @@ local function releaseLock(player: Player)
 	lockedTo[player] = nil
 end
 
+--- WHAT BREAKS THE SURFACE IS A ROCK. It used to be the item's own authored model with
+--- a green film over it, which meant the reveal happened here, in the soil, several
+--- minutes before the player was supposed to earn it: you watched a Gold Ring rise out
+--- of the ground and the wash bay was left with nothing to tell you. A lump of
+--- fallout-baked slag (Shared/ItemCrust) hides the one thing that gives an item away,
+--- which is its SHAPE, and hands the reveal to the hose where it belongs.
+---
 --- `rarityHint` is the detector's READING, not the truth, and it is taken here rather
 --- than on every update because it cannot change while one lump is being pulled: a
 --- different itemId rebuilds the haul from scratch (updateHaul), and rollFor caches
---- this player's reading of this signal. Painting once at build time is also what lets
---- ItemGrime stash the right colour -- a tick-by-tick repaint would keep overwriting
---- the film and stash the tint as though it were the authored art.
-local function createHaul(player: Player, itemId: string, rarityHint: string?): Haul
+--- this player's reading of this signal. It is also the ONLY thing about the find the
+--- rock is allowed to say -- ItemCrust tints the slag and its light with the rarity
+--- colour, because the ping already told the player this much and a lump that hid it
+--- would be contradicting the rest of the HUD.
+---
+--- ALWAYS FULLY CRUSTED, never graded by the roll. Contamination is not rolled until
+--- unearth(), and sizing the crust by it here would leak the one modifier that needs no
+--- cleaning at all -- a Prewar Sealed pull would surface visibly bare, telling the
+--- player what they had before anything has earned it.
+local function createHaul(player: Player, signal: Signal, itemId: string, rarityHint: string?): Haul
 	local item = Items.get(itemId)
-	local model = ItemModels.create(item.model)
-
-	if model == nil then
-		model = Instance.new("Model")
-		local placeholder = Instance.new("Part")
-		placeholder.Name = "Placeholder"
-		placeholder.Size = Vector3.new(1.4, 1.4, 1.4)
-		placeholder.Material = Enum.Material.Metal
-		placeholder.Anchored = true
-		placeholder.CanCollide = false
-		placeholder.CanQuery = false
-		placeholder.CanTouch = false
-		-- Only wear a rarity colour if the detector was good enough to reveal it. A Bent
-		-- Coil user hauls up an anonymous lump and finds out when it breaks the surface.
-		-- Authored models keep their real materials; only not-yet-modelled placeholders
-		-- need this colour channel.
-		placeholder.Color = if rarityHint then Rarity.get(rarityHint).color else Color3.fromHex("6E6A62")
-		placeholder.Parent = model
-	end
+	-- SEEDED ON THE SIGNAL, NOT THE ITEM, and the difference is a tell worth closing:
+	-- seeded on the itemId every Gold Ring in the game would come up wearing the same
+	-- arrangement of rock, and a player who dug two of them would have learned the
+	-- silhouette of the answer. Per signal, no two lumps in a stage look alike.
+	local model = ItemCrust.lump(rarityHint, signal.uid)
 
 	model.Name = `Haul_{player.Name}`
-	model:SetAttribute("ItemId", itemId)
 
-	-- Lighter thing, smaller lump; heavier thing, bigger (Config/Weight). Scales the
-	-- authored model or the placeholder cube alike, about the pivot updateHaul then
-	-- drives -- so it has to happen before the first PivotTo.
+	-- NO ItemId ATTRIBUTE ANY MORE. Attributes replicate, so stamping the answer on the
+	-- object in front of the player put the whole mystery one Explorer window away.
+
+	-- Lighter thing, smaller lump; heavier thing, bigger (Config/Weight). Weight is a
+	-- property of the item inside, and it is fair for the rock to carry it: you can feel
+	-- the heft of what you are hauling long before you know what it is. Scaled about the
+	-- pivot updateHaul then drives, so it has to happen before the first PivotTo.
 	local scale = Weight.sizeScale(item.weight)
 	if scale ~= 1 then
 		model:ScaleTo(scale)
 	end
-
-	-- IT COMES OUT OF THE GROUND FILTHY, ALWAYS, and at a flat 1 rather than at the
-	-- level this particular roll will actually carry. Contamination is not rolled until
-	-- unearth() and grading the film by it here would leak the one modifier that needs
-	-- no cleaning at all -- a Prewar Sealed pull would surface visibly clean, telling
-	-- the player what they had before the detector's clarity gate (hintFor) says they
-	-- are allowed to know. A sealed item simply wipes off the moment it is in your hand.
-	ItemGrime.apply(model, 1)
 
 	model.Parent = Workspace
 
@@ -674,7 +669,7 @@ local function updateHaul(player: Player, signal: Signal, itemId: string, progre
 	local haul = hauled[player]
 	if haul == nil or haul.model.Parent == nil or haul.itemId ~= itemId then
 		clearHaul(player)
-		haul = createHaul(player, itemId, rarityHint)
+		haul = createHaul(player, signal, itemId, rarityHint)
 		hauled[player] = haul
 	end
 
@@ -687,11 +682,21 @@ end
 
 --- `itemId`/`rarity`/`modifier` are THIS player's resolved roll (rollFor), not the
 --- signal's default — a lucky detector hauls up its own reading.
+---
+--- YOU DO NOT FIND OUT WHAT IT IS HERE. The banner this fires names a rarity, a
+--- modifier and a weight — the detector's own reading, which the player already had
+--- before they committed to the pull — and stops there. The identity stays on the
+--- server until the crust comes off (Services/IdentifyService), so neither the payload
+--- nor the index gives the answer away, and the wash bay is the only place to get it.
+---
+--- THE ONE EXCEPTION IS AN ITEM THAT NEEDS NO CLEANING. Prewar Sealed comes up in its
+--- packaging with zero patches (Contamination.initialCount), so there is no crust to
+--- take off and nothing to withhold: it identifies on the spot and the banner names it.
 local function unearth(player: Player, data: any, signal: Signal, itemId: string, rarity: string, modifier: string)
 	clearHaul(player)
 	local item = Items.get(itemId)
 
-	table.insert(data.carry, {
+	local carried = {
 		uid = signal.uid,
 		itemId = itemId,
 		rarity = rarity,
@@ -701,25 +706,29 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 		-- Contamination is rolled the moment it leaves the ground, not at the station,
 		-- because that is when it picked the dirt up. Extends ARCHITECTURE's CarriedItem.
 		patches = Contamination.rollPatches(rarity, modifier),
-	})
+	}
+	table.insert(data.carry, carried)
 
-	data.discovered[itemId] = true
+	local sealed = #carried.patches == 0
+	if sealed then
+		IdentifyService.identify(player, carried)
+	end
 
 	removeSignal(signal.stageId, signal.uid)
 	spawnSignal(signal.stageId) -- keep the field populated
 
 	unearthedRemote:FireClient(player, {
-		itemId = item.id,
-		name = item.name,
-		flavor = item.flavor,
+		identified = sealed,
+		itemId = if sealed then item.id else nil,
+		name = if sealed then item.name else nil,
+		flavor = if sealed then item.flavor else nil,
 		rarity = rarity,
 		modifier = modifier,
-		baseValue = item.baseValue,
 		weight = item.weight,
 		carrying = #data.carry,
 	})
 
-	print(`[dig] {player.Name} unearthed {modifier} {rarity} — {item.name}`)
+	print(`[dig] {player.Name} unearthed {modifier} {rarity} — {if sealed then item.name else "unidentified"}`)
 end
 
 -- ── Tick ────────────────────────────────────────────────────────────

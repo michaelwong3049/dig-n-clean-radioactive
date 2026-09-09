@@ -33,7 +33,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
-local Items = require(Shared.Config.Items)
 local Gear = require(Shared.Config.Gear)
 local Decay = require(Shared.Decay)
 local Liquids = require(Shared.Config.Liquids)
@@ -96,15 +95,20 @@ local function rack(_player: Player, data: any, uid: string): (boolean, string)
 	table.insert(data.locker, item)
 	Decay.freeze(item)
 
-	local def = Items.get(item.itemId)
+	-- "???" FOR ANYTHING STILL IN ITS CRUST (CarryService.nameOf). Racking is what you
+	-- do with a find your cleaner cannot open, so this toast is the one most likely to
+	-- be talking about something the player has not been told the name of -- and telling
+	-- them on the way to the shelf would be the shelf answering the question the hose is
+	-- supposed to.
+	local label = CarryService.nameOf(item)
 	-- cleanPotency, NOT effectivePotency: the locker's label is a shopping list, and
 	-- a shopping list written against a liquid you are three patches from running out
 	-- of is worse than no label. The Locker names the permanent fix.
 	local blocked = Contamination.blockedBy(item.patches or {}, StatResolver.get(data).cleanPotency)
 	if blocked then
-		return true, `{def.name} racked \u{2014} waiting on {CarryService.hoseNameFor(blocked)}`
+		return true, `{label} racked \u{2014} waiting on {CarryService.hoseNameFor(blocked)}`
 	end
-	return true, `{def.name} racked`
+	return true, `{label} racked`
 end
 
 -- ── Tick ────────────────────────────────────────────────────────────

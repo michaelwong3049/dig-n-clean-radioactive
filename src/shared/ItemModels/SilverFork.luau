@@ -1,6 +1,6 @@
 --!strict
 -- A pressed silver dinner fork, upright in XY with four open tines toward +Y.
--- Primitive geometry keeps the asset portable and compatible with ItemGrime.
+-- Primitive geometry keeps the asset portable and cheap to encase (Shared/ItemCrust).
 local SilverFork = {}
 
 local SILVER = Color3.fromHex("C5CBCD")

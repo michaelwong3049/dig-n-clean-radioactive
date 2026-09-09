@@ -16,15 +16,21 @@
 	Everything the detail column shows is authored config (Items / Rarity / Stages),
 	so there is still no second remote — just the one snapshot below.
 
-	THE DATA WAS ALREADY HALF-BUILT. DigService.unearth() has set
-	`data.discovered[itemId] = true` since before this controller existed — the
-	profile schema comment even says "Drives the museum (PLAN §10.10)" — it just had
-	no reader. This file is that reader, plus a button and a panel.
+	THE DATA WAS ALREADY HALF-BUILT. `data.discovered[itemId] = true` has been written
+	since before this controller existed — the profile schema comment even says "Drives
+	the museum (PLAN §10.10)" — it just had no reader. This file is that reader, plus a
+	button and a panel.
+
+	IT IS WRITTEN WHEN YOU LEARN WHAT SOMETHING IS, NOT WHEN YOU DIG IT UP, and that
+	distinction is the whole reason this comment is longer than it was. An item comes
+	out of the ground encased in slag and is "???" everywhere until it is cleaned
+	(Services/IdentifyService); a catalogue that lit its tile at the moment of the dig
+	would be answering the question the wash bay is there to ask.
 
 	ONE SNAPSHOT, THEN FREE UPDATES. IndexState fires exactly once, on load, with
 	the player's current discovered set (DigService.start()). Every discovery AFTER
-	that arrives for free: this controller also listens to Unearthed, which already
-	carries the itemId of everything newly dug up, and just adds it to the local set
+	that arrives for free: this controller also listens to ItemIdentified, which
+	carries the itemId of everything newly revealed, and just adds it to the local set
 	— no second remote, no polling.
 ]]
 
@@ -775,19 +781,31 @@ function Index.start()
 		renderAll()
 	end)
 
-	-- The free top-up: every Unearthed fire already carries the itemId of whatever
-	-- was just dug up, discovered or not before this moment.
-	Net.get("Unearthed").OnClientEvent:Connect(function(info)
-		if info and info.itemId and not discovered[info.itemId] then
-			discovered[info.itemId] = true
-			local item = Items.get(info.itemId)
-			renderItem(item)
-			for _, stageId in item.stages do
-				renderStageCount(stageId)
-			end
-			renderTotal()
+	-- The free top-up, off the REVEAL rather than off the dig. What comes out of the
+	-- ground is a lump of slag with no name on it (Shared/ItemCrust), and this listener
+	-- used to sit on Unearthed -- so the catalogue tile for a Gold Ring lit up the
+	-- moment one broke the surface, minutes before the player was told they had one.
+	-- ItemIdentified fires when the crust actually comes off at the wash bay, or when a
+	-- trader names a find bought blind; it is the only client-side event that carries an
+	-- itemId at all now, and an already-known id is the ordinary case rather than the
+	-- exception.
+	local function found(info)
+		if info == nil or info.itemId == nil or discovered[info.itemId] then
+			return
 		end
-	end)
+		discovered[info.itemId] = true
+		local item = Items.get(info.itemId)
+		renderItem(item)
+		for _, stageId in item.stages do
+			renderStageCount(stageId)
+		end
+		renderTotal()
+	end
+
+	Net.get("ItemIdentified").OnClientEvent:Connect(found)
+	-- Prewar Sealed needs no cleaning, so it is identified where it is dug and the
+	-- discovery rides on the dig payload. Every other pull leaves this nil.
+	Net.get("Unearthed").OnClientEvent:Connect(found)
 
 	renderAll()
 end
