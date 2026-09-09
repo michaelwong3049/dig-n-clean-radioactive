@@ -51,6 +51,11 @@ local DigService = require(script.Parent.DigService)
 
 local CarryService = {}
 
+--- What every surface calls an item it has not been told the name of yet. One string,
+--- one place: the hotbar, the trader's list and the station panel all render whatever
+--- `describe` hands them, so this is the only spelling of it in the game.
+local UNKNOWN_NAME = "???"
+
 local carryRemote: any = nil
 local holdRemote: any = nil
 local lastSignature: { [Player]: string } = {}
@@ -70,6 +75,20 @@ function CarryService.hoseNameFor(potencyNeeded: number): string
 		end
 	end
 	return "something stronger"
+end
+
+--- What to CALL this item in a line of prose — a toast, a station message, a log. The
+--- same rule `describe` follows for the hotbar, exported because half the messages in
+--- the game are written outside this file and every one of them that names a crusted
+--- item gives away the thing the wash bay exists to reveal.
+function CarryService.nameOf(item: any): string
+	if item == nil then
+		return UNKNOWN_NAME
+	end
+	if not Contamination.isClean(item.patches or {}) then
+		return UNKNOWN_NAME
+	end
+	return Items.get(item.itemId).name
 end
 
 --- Everything any surface is allowed to know about one carried item.
@@ -128,10 +147,20 @@ function CarryService.describe(item: any, stats: any): any
 			/ 60
 	end
 
+	-- "???" UNTIL THE CRUST IS OFF. Being clean and being identified are the same fact
+	-- now (Services/IdentifyService): what you dug up is a lump of slag, and the item
+	-- inside it has no name on any surface until the hose has taken the last patch away.
+	-- Rarity is exempt and always has been -- the detector read it before you pulled,
+	-- and the slot border has shown it ever since.
+	--
+	-- THE VALUE STAYS ON, dirty and all. It is the blind-sale price
+	-- (Tuning.DIRTY_SELL_MULTIPLIER, 20%), and a gamble you cannot see the stake of is
+	-- not a gamble -- "$41 now, or clean it and find out" is the decision.
 	return {
 		uid = item.uid,
-		name = def.name,
-		flavor = def.flavor,
+		identified = clean,
+		name = if clean then def.name else UNKNOWN_NAME,
+		flavor = if clean then def.flavor else nil,
 		rarity = item.rarity,
 		modifier = item.modifier,
 		patches = table.clone(patches),
@@ -209,6 +238,11 @@ end
 ---   perSecond  — depends on stats.yieldMultiplier, which the Index completion bonus
 ---                (DigService.grantStageCompletionBonus) can change mid-session with
 ---                nothing else about the item itself moving
+---
+--- `identified` and `name` need no entry of their own, and that is worth saying out
+--- loud rather than leaving as a coincidence: an item is identified exactly when it is
+--- clean, and `clean` is already here. A future reason to know an item's name while it
+--- is still dirty would need a line adding.
 local function signatureOf(described: { any }, capacity: number): string
 	local parts = { tostring(capacity) }
 	for _, item in described do

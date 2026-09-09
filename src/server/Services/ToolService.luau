@@ -49,8 +49,7 @@ local Gear = require(Shared.Config.Gear)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local ItemModels = require(Shared.ItemModels)
-local ItemGrime = require(Shared.ItemGrime)
-local Contamination = require(Shared.Contamination)
+local ItemCrust = require(Shared.ItemCrust)
 local ToolModels = require(Shared.ToolModels)
 local Ticker = require(Shared.Util.Ticker)
 
@@ -456,21 +455,21 @@ local function equipItem(character: Model, item: any?): boolean
 	local currentUid = if current then current:GetAttribute("Uid") else nil
 	local wantedUid = if item then item.uid else nil
 
-	-- HOW DIRTY IT LOOKS IS NOT PART OF THE UID GUARD, because it is the one property
-	-- of a held item that changes while the uid does not. Same object, fewer patches:
-	-- repaint it, do not rebuild it. (In practice the wash suppresses the off hand
-	-- entirely -- see stepPlayer -- so this is mostly insurance against a future
-	-- cleaner that works with the item still in your hand. It costs one attribute read
-	-- on the ticks where nothing has changed.)
-	local wantedGrime = if item then Contamination.grimeLevel(item.patches or {}, item.rarity, item.modifier) else 0
+	-- HOW MUCH CRUST IS LEFT IS PART OF THE GUARD, because it is the one thing about a
+	-- held item that changes while the uid does not: you walk away from the tub with
+	-- three of six patches gone and the lump in your hand has to have three chunks off
+	-- it. Counted rather than compared as a level, since the crust is built one chunk
+	-- per REMAINING patch and the count IS the shape.
+	local wantedChunks = if item then #(item.patches or {}) else 0
 
 	if currentUid == wantedUid then
-		if current and math.abs(ItemGrime.levelOf(current) - wantedGrime) > 0.01 then
-			ItemGrime.apply(current, wantedGrime)
+		if current == nil or current:GetAttribute("Crust") == wantedChunks then
+			return true
 		end
-		return true
-	end
-	if current then
+		-- Same object, different amount of rock on it. Rebuild: chunks are geometry, and
+		-- there is nothing to repaint the way the old green film could be.
+		current:Destroy()
+	elseif current then
 		current:Destroy()
 	end
 	if item == nil then
@@ -489,10 +488,11 @@ local function equipItem(character: Model, item: any?): boolean
 
 	if model == nil then
 		-- THE SAME RARITY-COLOURED BLOCK the registry documents for unmodelled keys,
-		-- and the same one DigService's haul and ExhibitService's pedestals fall back
-		-- to. Only five of the catalogue's items have real art; a nil here has to be a
-		-- visible object, not an empty hand, or "you are holding something" stops
-		-- being true for most of the game.
+		-- and the same one ExhibitService's pedestals fall back to. Only a handful of
+		-- the catalogue's items have real art; a nil here has to be a visible object,
+		-- not an empty hand, or "you are holding something" stops being true for most
+		-- of the game. (The haul no longer shares it -- what comes out of the ground is
+		-- a crust either way, see DigService.createHaul.)
 		local block = Instance.new("Part")
 		block.Name = "Placeholder"
 		block.Size = Vector3.new(0.9, 0.9, 0.9)
@@ -519,6 +519,20 @@ local function equipItem(character: Model, item: any?): boolean
 		return false
 	end
 	held.PrimaryPart = primary
+
+	-- ONE CHUNK OF SLAG PER PATCH STILL ON IT, wrapped round the real model before
+	-- anything else touches it — the crust has to exist before the weld loop below, or
+	-- the rock stays anchored in mid-air while the item walks off inside your hand.
+	--
+	-- WHY THE ITEM IS UNDER THERE AT ALL rather than a solid lump like the haul's: this
+	-- is where a half-finished wash shows. Six chunks hides it completely; two chunks is
+	-- an object mostly out of its shell that you can nearly, not quite, name; none at
+	-- all is the thing itself, which is the walk back from the tub the whole loop is
+	-- pointed at.
+	held:SetAttribute("Crust", wantedChunks)
+	if wantedChunks > 0 then
+		ItemCrust.encase(held, wantedChunks, item.rarity, item.uid)
+	end
 
 	held.Parent = character
 
@@ -576,12 +590,6 @@ local function equipItem(character: Model, item: any?): boolean
 	weld.Part0 = hand
 	weld.Part1 = primary
 	weld.Parent = primary
-
-	-- LAST, so the film goes over the finished object: the placeholder above sets its
-	-- own rarity colour, and ItemGrime stashes whatever it finds as the authored art.
-	-- A clean item gets nothing at all -- apply(0) is a no-op teardown -- which is what
-	-- makes walking away from the tub with the real thing in your hand the payoff.
-	ItemGrime.apply(held, wantedGrime)
 
 	return true
 end

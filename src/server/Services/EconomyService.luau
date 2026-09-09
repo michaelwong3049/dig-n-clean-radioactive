@@ -29,6 +29,7 @@ local StatResolver = require(Shared.StatResolver)
 local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
+local IdentifyService = require(script.Parent.IdentifyService)
 
 local EconomyService = {}
 
@@ -101,6 +102,15 @@ function EconomyService.sell(player: Player, uid: string): (boolean, string)
 	table.remove(list, index)
 	data.cash += value
 	EconomyService.pushCash(player)
+
+	-- SELLING A "???" IS HOW YOU FIND OUT WHAT IT WAS. An item still in its crust has no
+	-- name on any surface (Services/IdentifyService) -- but the trader has to say what he
+	-- just bought, and the moment he does the player knows, so the index has to know too.
+	-- That is the whole shape of the gamble: 20% and an answer, or the hose and the full
+	-- price. Idempotent for a clean item, which was identified at the tub already.
+	if not clean then
+		IdentifyService.reveal(player, item)
+	end
 
 	local note = if clean then "" else ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
 	return true, `sold {def.name} for ${value}{note}`

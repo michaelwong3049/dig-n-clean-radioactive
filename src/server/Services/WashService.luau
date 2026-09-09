@@ -27,9 +27,18 @@
 	  · THE BANK IS PER ZONE (`session.soaked`), so the clock follows the reticle
 	    instead of holding one target hostage until it finishes. Sweeping is allowed;
 	    the seconds still have to go in somewhere.
-	  · THE PATCHES ARE PLACES (`zonesFromModel`). They used to be round-robin slices
-	    of the part list, so every zone's centroid was the middle of the model and there
-	    was no "that corner" to point at. They are spatial clusters now.
+	  · THE PATCHES ARE PLACES, and now they are OBJECTS: one chunk of irradiated slag
+	    per patch, wrapped around the item (`placeOnStand`, Shared/ItemCrust). They were
+	    round-robin slices of the part list once, then spatial clusters of the item's own
+	    geometry; they are real rock over the top of it now.
+
+	AND TAKING IT OFF IS THE REVEAL. What goes in the tub is a "???" — an item comes out
+	of the ground encased and nothing in the game will name it until the crust is gone
+	(Services/IdentifyService). Every chunk that breaks off uncovers part of what is
+	underneath, the last one uncovers the rest, and the bay stands there for a beat with
+	the thing finally being itself before handing it back. That is why this file is now
+	where the index gets written and where the banner gets fired: the wash is not a
+	chore between the dig and the sale any more, it is the payoff of the dig.
 
 	THE BOUNDARY IS THE SAME ONE THE SCRUB TIMER HAD. The client reports AIM and
 	INTENT — "I am spraying, and the water is landing on zone 3" — and never progress.
@@ -84,7 +93,7 @@ local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Liquids = require(Shared.Config.Liquids)
 local ItemModels = require(Shared.ItemModels)
-local ItemGrime = require(Shared.ItemGrime)
+local ItemCrust = require(Shared.ItemCrust)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
@@ -92,6 +101,7 @@ local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
 local CarryService = require(script.Parent.CarryService)
+local IdentifyService = require(script.Parent.IdentifyService)
 local EconomyService = require(script.Parent.EconomyService)
 local LiquidService = require(script.Parent.LiquidService)
 
@@ -138,14 +148,20 @@ type Session = {
 	-- lock that only moved when a patch popped, which is exactly why aim did not
 	-- matter. A zone's entry is cleared when its patch comes off.
 	soaked: { [number]: number },
-	-- Last grime level actually written to each zone's parts, so `push` can skip the
+	-- Last erosion level actually written to each zone's chunk, so `push` can skip the
 	-- per-part property writes on the zones that have not moved this tick -- which,
-	-- once every zone is faded independently, is nearly all of them.
+	-- once every zone erodes independently, is nearly all of them. `walled` is the same
+	-- guard for the other thing a chunk renders: whether this liquid can shift it.
 	painted: { [number]: number },
+	walled: { [number]: boolean },
 	-- The zone the water is on RIGHT NOW and which therefore took this tick's dt: the
 	-- resolved, potency-checked form of `aimZone`, recomputed every tick. Nil when the
 	-- player is spraying at nothing, at a blocked patch, or not spraying at all.
 	lockedZone: number?,
+	-- The last patch is off and the item is standing revealed on the stand. The tick
+	-- does nothing at all while this is set: the session is over in every way except
+	-- that the player is still looking at it.
+	revealing: boolean,
 	-- One real-geometry patch, one zone: WashService.placeOnStand builds these fresh
 	-- every session from the item's own model (or a stand-in cluster of blocks for
 	-- the rarity-coloured fallback), one per patch. `zoneIds[i]` names which zone the
@@ -177,262 +193,75 @@ end
 
 -- ── Rendering the item on the tub ──────────────────────────────────────
 
---- Gems and glass are not grime -- the ring's diamond stays a diamond no matter how
---- dirty the band around it gets, same "the object still has to be readable" rule
---- ItemGrime paints the rest of the model by.
-local function isPaintable(part: BasePart): boolean
-	return part.Material ~= Enum.Material.Glass
-end
-
---- `count` seed points spread through a bounding box, on the golden-angle spiral —
---- the same construction `zoneAnchor` falls back to, kept identical so a zone with no
---- geometry at all still lands somewhere sensible relative to the ones that have some.
-local function spiralSeeds(pivot: CFrame, size: Vector3, count: number): { Vector3 }
-	local golden = 2.39996323
-	local seeds = {}
-	for index = 1, count do
-		local t = (index - 0.5) / math.max(count, 1)
-		local y = 1 - 2 * math.min(t, 1)
-		local radius = math.sqrt(math.max(0, 1 - y * y))
-		local theta = golden * index
-		local dir = Vector3.new(math.cos(theta) * radius, y, math.sin(theta) * radius)
-		-- 0.6 rather than 0.5: pulled in off the surface so the seeds sit inside the
-		-- object's own material rather than out on the shell, which is where the parts
-		-- they have to claim actually are.
-		seeds[index] = (pivot * CFrame.new(dir * size * 0.6)).Position
-	end
-	return seeds
-end
-
---- Bucket a sculpted model's real paintable parts into `count` zones BY WHERE THEY ARE
---- — one per patch, each a contiguous region of the actual object.
+--- WHAT SITS ON THE TUB IS THE ITEM, WRAPPED IN ROCK. Server-side, so everyone on the
+--- base sees it: the spray VFX is client-local (see WashController) because it is
+--- per-viewer motion, but the OBJECT is the storytelling — a stranger walking onto your
+--- plot should see something being washed, not an empty bath and someone miming.
 ---
---- IT USED TO BE ROUND-ROBIN, and that was a defensible call for as long as a patch
---- was a number on a panel: scattering each zone across the whole part list made every
---- clear read as the WHOLE item getting a little cleaner, which is what the old
---- aggregate fade looked like and so was the change nobody had to relearn. GoldRing's
---- forty near-identical band segments were the case it was chosen for — a contiguous
---- chunk of those clearing reads as a bite taken out of the band.
+--- ONE CHUNK OF CRUST PER PATCH (Shared/ItemCrust). Those chunks ARE the zones: the
+--- thing you point the hose at is a lump of slag on a real side of a real object, it
+--- erodes while the water is on it, and when its patch finally pops it comes off and
+--- the item shows through the gap. Six patches is six chunks and six stages of reveal.
 ---
---- IT IS ALSO WHY AIMING NEVER MATTERED. Round-robin makes every zone's centroid the
---- same point — the middle of the model — so the balls all stacked in one place, any
---- ray that touched the item was within reach of all of them, and "point at the dirty
---- bit" had no dirty bit to point at. A bite out of the band is the price of the hose
---- being a hose. You are meant to be able to see which corner you have not done yet.
+--- THIS REPLACED A SPATIAL CLUSTERING OF THE ITEM'S OWN PARTS, and the reason is worth
+--- keeping. Zones used to be k-means buckets of the model's real geometry, tinted green
+--- and faded back to the authored colour as they soaked — which was a genuinely better
+--- picture than the round-robin slices before it, and still could not do the one thing
+--- now being asked of it: hide what the item IS. Colour cannot, because shape is
+--- identity. Real geometry over the top can, and it brings its own aiming targets with
+--- it, so the clustering, the Lloyd relaxation, the empty-zone rescue and the
+--- stand-in block cluster for unmodelled items all went with it.
 ---
---- LLOYD, TWICE. Nearest-seed alone against a fixed spiral leaves lopsided zones on a
---- model whose parts are not evenly spread (a ring is a hoop of geometry around a lot
---- of nothing); two relaxation passes move each seed onto its own claim's centroid and
---- re-deal, which is enough to even them out without turning this into a real solver.
---- `rescueEmpty` then guarantees the postcondition the rest of the file assumes: every
---- zone owns at least one part, so every patch has somewhere to be sprayed.
-local function zonesFromModel(model: Model, count: number): { [number]: { BasePart } }
-	local zones: { [number]: { BasePart } } = {}
-	for zone = 1, count do
-		zones[zone] = {}
-	end
-
-	local parts: { BasePart } = {}
-	for _, part in model:GetDescendants() do
-		if part:IsA("BasePart") and isPaintable(part) then
-			table.insert(parts, part)
-		end
-	end
-	if #parts == 0 then
-		return zones
-	end
-
-	local pivot, size = model:GetBoundingBox()
-	local seeds = spiralSeeds(pivot, size, count)
-
-	local owner: { number } = table.create(#parts, 1)
-	for pass = 1, 3 do
-		for i, part in parts do
-			local best, bestDistance = 1, math.huge
-			for zone = 1, count do
-				local distance = (seeds[zone] - part.Position).Magnitude
-				if distance < bestDistance then
-					best, bestDistance = zone, distance
-				end
-			end
-			owner[i] = best
-		end
-
-		if pass == 3 then
-			break
-		end
-
-		-- Re-seed onto each claim's own centre of mass. A zone nobody picked keeps the
-		-- seed it had, so it is still in the running next pass rather than collapsing
-		-- onto whatever the last one was.
-		local sums = table.create(count, Vector3.zero)
-		local counts = table.create(count, 0)
-		for i, part in parts do
-			local zone = owner[i]
-			sums[zone] += part.Position
-			counts[zone] += 1
-		end
-		for zone = 1, count do
-			if counts[zone] > 0 then
-				seeds[zone] = sums[zone] / counts[zone]
-			end
-		end
-	end
-
-	for i, part in parts do
-		table.insert(zones[owner[i]], part)
-	end
-
-	-- EVERY ZONE OWNS SOMETHING, or a patch exists with no geometry to spray. Each
-	-- empty zone takes the part FURTHEST from its own zone's seed out of the biggest
-	-- zone: the piece that fits worst where it is, which is also the piece whose
-	-- leaving disturbs the shape of the donor least. Bounded by `count` and only
-	-- reachable on models with fewer paintable parts than patches, which is the case
-	-- the fallback in `zoneAnchor` was written for.
-	for zone = 1, count do
-		if #zones[zone] == 0 then
-			local donor, donorCount = nil, 1
-			for other = 1, count do
-				if #zones[other] > donorCount then
-					donor, donorCount = other, #zones[other]
-				end
-			end
-			if donor == nil then
-				break
-			end
-			local worst, worstDistance = 1, -1
-			for index, part in zones[donor] do
-				local distance = (seeds[donor] - part.Position).Magnitude
-				if distance > worstDistance then
-					worst, worstDistance = index, distance
-				end
-			end
-			local taken = table.remove(zones[donor], worst)
-			if taken then
-				table.insert(zones[zone], taken)
-				seeds[zone] = taken.Position
-			end
-		end
-	end
-
-	return zones
-end
-
---- Items with no sculpted model (most of the catalogue — see ItemModels) wash as a
---- small cluster of blocks instead of one solid one, ONLY here on the stand: the
---- single rarity-coloured block DigService's haul and ToolService's off hand show is
---- untouched, so splitting this one costs nothing outside the wash bay. It exists so
---- a Steel Rod gets the same real per-patch areas to clean that a Gold Ring does,
---- instead of one block fading as a whole.
-local function buildBlockCluster(stand: BasePart, item: any, count: number): (Model, { [number]: { BasePart } })
-	local model = Instance.new("Model")
-	model.Name = "WashItem"
-
-	local columns = math.ceil(math.sqrt(count))
-	local rows = math.ceil(count / columns)
-	local cellSize = 1.4 / math.max(columns, rows)
-	local cubeSize = cellSize * 0.82
-
-	local zones: { [number]: { BasePart } } = {}
-	for index = 1, count do
-		local column = (index - 1) % columns
-		local row = math.floor((index - 1) / columns)
-		local x = (column - (columns - 1) / 2) * cellSize
-		local y = (row - (rows - 1) / 2) * cellSize
-
-		local cube = Instance.new("Part")
-		cube.Name = `Zone{index}`
-		cube.Size = Vector3.new(cubeSize, cubeSize, cubeSize)
-		cube.Color = Rarity.get(item.rarity).color
-		cube.Material = Enum.Material.SmoothPlastic
-		cube.Anchored = true
-		cube.CanCollide = false
-		cube.CFrame = stand.CFrame * CFrame.new(x, y, 0)
-		cube.Parent = model
-		zones[index] = { cube }
-	end
-
-	model:PivotTo(stand.CFrame)
-	model.Parent = stand
-	return model, zones
-end
-
---- A world point for a zone's ball: the average position of the real parts it owns,
---- or — for a zone a sculpted model didn't have enough paintable parts to fill —
---- a point on the model's own bounding sphere, the same golden-angle spiral the
---- decorative blobs used to use everywhere, kept only as this one fallback so a zone
---- with nothing physical in it still has somewhere to put its ball.
-local function zoneAnchor(zone: { BasePart }, pivot: CFrame, size: Vector3, index: number, count: number): Vector3
-	if #zone > 0 then
-		local sum = Vector3.zero
-		for _, part in zone do
-			sum += part.Position
-		end
-		return sum / #zone
-	end
-
-	local golden = 2.39996323
-	local t = (index - 0.5) / math.max(count, 1)
-	local y = 1 - 2 * math.min(t, 1)
-	local radius = math.sqrt(math.max(0, 1 - y * y))
-	local theta = golden * index
-	local dir = Vector3.new(math.cos(theta) * radius, y, math.sin(theta) * radius)
-	local extent = (size * 0.5) + Vector3.new(0.12, 0.12, 0.12)
-	return (pivot * CFrame.new(dir * extent)).Position
-end
-
---- SERVER-SIDE, so everyone on the base sees the thing being washed. The spray VFX
---- is client-local (see WashController) because it is per-viewer motion, but the
---- OBJECT is the storytelling — a stranger walking onto your plot should see a Gold
---- Ring sitting in your tub, not an empty bath and someone miming.
----
---- Returns the display model plus one zone per patch, each wearing a full coat of
---- grime — every zone here corresponds to a patch that has not been cleared yet, so
---- "fully dirty" is true by construction and there is no fractional level to compute
---- any more. `stepPlayer` clears a zone's own parts the instant its patch pops.
+--- Returns the display model, one zone per patch, and each zone's world anchor.
 local function placeOnStand(stand: BasePart, item: any): (Model, { [number]: { BasePart } }, { [number]: Vector3 })
 	local count = math.max(#(item.patches or {}), 1)
 	local def = Items.get(item.itemId)
-	local sculpted = ItemModels.create(def.model)
+	local model = ItemModels.create(def.model)
 
-	local model: Model
-	local rawZones: { [number]: { BasePart } }
-	if sculpted then
-		sculpted.Name = "WashItem"
-		for _, part in sculpted:GetDescendants() do
-			if part:IsA("BasePart") then
-				part.Anchored = true
-				part.CanCollide = false
-			end
-		end
-		sculpted.Parent = stand
-		sculpted:PivotTo(stand.CFrame * ItemModels.rotation(sculpted, "Wash"))
-		model = sculpted
-		rawZones = zonesFromModel(sculpted, count)
-	else
-		model, rawZones = buildBlockCluster(stand, item, count)
+	if model == nil then
+		-- The same rarity-coloured block ToolService's off hand and ExhibitService's
+		-- pedestals fall back to for an item with no authored art. It is under the crust
+		-- like anything else, so the reveal still lands — it just reveals a cube.
+		model = Instance.new("Model")
+		local block = Instance.new("Part")
+		block.Name = "Placeholder"
+		block.Size = Vector3.new(1.1, 1.1, 1.1)
+		block.Color = Rarity.get(item.rarity).color
+		block.Material = Enum.Material.SmoothPlastic
+		block.Parent = model
+		model.PrimaryPart = block
 	end
 
-	local pivot, size = model:GetBoundingBox()
-	local zones: { [number]: { BasePart } } = {}
-	local anchors: { [number]: Vector3 } = {}
+	local built = model :: Model
+	built.Name = "WashItem"
+	for _, part in built:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Anchored = true
+			part.CanCollide = false
+		end
+	end
+	built.Parent = stand
+	built:PivotTo(stand.CFrame * ItemModels.rotation(built, "Wash"))
+
+	-- ENCASED AFTER THE PIVOT, not before: the crust is built around the model's
+	-- bounding box in world space, and wrapping it first would leave the rock behind
+	-- when the item moved onto the stand.
+	local zones, anchors = ItemCrust.encase(built, count, item.rarity, item.uid)
+
 	for zone = 1, count do
-		zones[zone] = rawZones[zone] or {}
-		anchors[zone] = zoneAnchor(zones[zone], pivot, size, zone, count)
-		ItemGrime.applyParts(zones[zone], 1)
-		-- WHICH DIRTY AREA THIS PIECE OF THE OBJECT BELONGS TO, written onto the real
-		-- geometry so the client can answer "what did the water just hit" by reading the
-		-- part its own impact ray returned, instead of guessing from proximity to a ball.
-		-- An attribute rather than a remote because it is per-part, static for the life of
+		-- WHICH DIRTY AREA THIS PIECE OF SLAG BELONGS TO, written onto the real geometry
+		-- so the client can answer "what did the water just hit" by reading the part its
+		-- own impact ray returned, instead of guessing from proximity to a ball. An
+		-- attribute rather than a remote because it is per-part, static for the life of
 		-- the session, and replicates for free; and it is authoritative only as a LABEL --
 		-- the client reports the zone it read, and `workedIndex` still checks that zone
 		-- against the potency gate before a single tick counts.
-		for _, part in zones[zone] do
+		for _, part in zones[zone] or {} do
 			part:SetAttribute("WashZone", zone)
 		end
 	end
 
-	return model, zones, anchors
+	return built, zones, anchors
 end
 
 -- ── The machine's nozzle ───────────────────────────────────────────────
@@ -506,7 +335,6 @@ local function push(player: Player, session: Session?, data: any)
 	end
 
 	local stats = StatResolver.get(data)
-	local def = Items.get(item.itemId)
 	local liquid = Liquids.get(stats.liquidId)
 
 	-- Patch hardnesses go out as-is, tagged with the stable zone WashService built for
@@ -525,28 +353,38 @@ local function push(player: Player, session: Session?, data: any)
 		local zoneId = session.zoneIds[index]
 		local target = soakTarget(hardness, stats)
 		local soak = if target > 0 then math.clamp((session.soaked[zoneId] or 0) / target, 0, 1) else 0
+		local blocked = hardness > stats.effectivePotency
 		table.insert(patches, {
 			zone = zoneId,
 			hardness = hardness,
-			blocked = hardness > stats.effectivePotency,
+			blocked = blocked,
 			anchor = session.zoneAnchor[zoneId],
 			soak = soak,
 		})
 
-		-- EVERY ZONE FADES ON ITS OWN BANK, not just the one under the stream. Guarded on
-		-- a real change because this is now a loop over every patch on every tick, and
-		-- ItemGrime.applyParts writes two properties per part: at ten hertz across a
-		-- forty-segment ring that is a lot of writes to set values that already hold.
+		-- EVERY CHUNK ERODES ON ITS OWN BANK, not just the one under the stream. Guarded
+		-- on a real change because this is a loop over every patch on every tick and
+		-- ItemCrust.erode writes four properties per part: at ten hertz across three
+		-- pieces a chunk that is a lot of writes to set values that already hold.
+		--
+		-- BLOCKED IS IN THE GUARD ALONGSIDE THE LEVEL, because it moves on its own: a
+		-- canister running dry mid-session (LiquidService.spendCharge, below) drops the
+		-- player's potency and turns chunks they were shifting into chunks they are not,
+		-- with nothing about their soak having changed.
 		local level = 1 - soak
-		if math.abs((session.painted[zoneId] or -1) - level) > 0.01 then
+		if math.abs((session.painted[zoneId] or -1) - level) > 0.01 or session.walled[zoneId] ~= blocked then
 			session.painted[zoneId] = level
-			ItemGrime.applyParts(session.zones[zoneId] or {}, level)
+			session.walled[zoneId] = blocked
+			ItemCrust.erode(session.zones[zoneId] or {}, level, blocked)
 		end
 	end
 
 	stateRemote:FireClient(player, {
 		uid = session.uid,
-		name = def.name,
+		-- NO NAME. It used to ride along here for a label the bay never grew, and under
+		-- the crust it would be the answer to the session's own question sitting in the
+		-- client's memory for the whole wash. The reveal is a remote of its own
+		-- (Net.ItemIdentified), fired once, after the last chunk comes off.
 		rarity = item.rarity,
 		patches = patches,
 		-- NEITHER `targetZone` NOR A WORKED-ZONE ECHO IS SENT ANY MORE. Both were the
@@ -607,6 +445,51 @@ function finish(player: Player, reason: string?)
 	if reason then
 		resultRemote:FireClient(player, reason)
 	end
+end
+
+--- How long the item stands there, clean and finally itself, before the session hands
+--- the screen back. Long enough to read what came out of the rock and short enough that
+--- it is a beat rather than a wait.
+local REVEAL_HOLD = 1.3
+
+--- THE LAST CHUNK IS OFF, SO THE MYSTERY IS OVER. This is the moment the whole feature
+--- is built around: what went into the tub was a "???" in the bag and a lump of slag on
+--- the stand, and what comes out has a name.
+---
+--- THE ORDER HERE IS THE POINT.
+---   1. the index is written IMMEDIATELY (IdentifyService.identify). A player who
+---      disconnects during the beat below must not come back holding a clean item their
+---      catalogue has never heard of.
+---   2. one last push with an empty patch list, so the client drops its reticle lock and
+---      the player spends the beat looking at the object rather than at a target.
+---   3. the light goes out. Nothing is hiding any more, so the fallout glow the crust
+---      carried has nothing left to be coming off of.
+---   4. THEN the beat, and only after it the banner -- WashController hides every
+---      LayerCollector for the first-person view, so a reveal announced before `finish`
+---      is a reveal announced onto a hidden screen.
+local function revealAndFinish(player: Player, session: Session, data: any, item: any)
+	session.revealing = true
+	session.spraying = false
+	session.lockedZone = nil
+	session.aimZone = nil
+
+	local first = IdentifyService.identify(player, item)
+	push(player, session, data)
+	if session.model then
+		ItemCrust.clear(session.model)
+	end
+
+	local def = Items.get(item.itemId)
+	task.delay(REVEAL_HOLD, function()
+		-- The session this beat belongs to, not merely "a session": a player who left and
+		-- came back inside 1.3 seconds would otherwise have someone else's reveal end
+		-- their new wash.
+		if sessions[player] ~= session then
+			return
+		end
+		finish(player, `{def.name} is clean`)
+		IdentifyService.announce(player, item, first)
+	end)
 end
 
 --- Start a wash, or say why not. Every refusal names something the player can act on.
@@ -709,7 +592,9 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		aimZone = nil,
 		soaked = {},
 		painted = {},
+		walled = {},
 		lockedZone = nil,
+		revealing = false,
 		zones = {},
 		zoneAnchor = {},
 		zoneIds = {},
@@ -763,7 +648,9 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 
 	push(player, session, data)
 
-	return true, `washing {def.name} with {Liquids.get(stats.liquidId).name}`
+	-- NAMES THE LIQUID, NOT THE ITEM. Whatever is under the crust is exactly what this
+	-- session exists to find out, and the toast that opens it must not answer it.
+	return true, `washing with {Liquids.get(stats.liquidId).name}`
 end
 
 -- ── Tick ───────────────────────────────────────────────────────────────
@@ -771,6 +658,14 @@ end
 local function stepPlayer(player: Player, dt: number)
 	local session = sessions[player]
 	if session == nil then
+		return
+	end
+
+	-- The reveal beat owns the last second and a half of a session (revealAndFinish):
+	-- the item is clean, the crust is gone and the only thing left to happen is the
+	-- player looking at it. Nothing here has anything to add, and the leash check below
+	-- would happily end the session out from under the beat.
+	if session.revealing then
 		return
 	end
 
@@ -845,15 +740,17 @@ local function stepPlayer(player: Player, dt: number)
 					-- Stardust speed, every time a canister runs dry.
 					stats = StatResolver.get(data)
 
-					-- THE GREEN COMES OFF WHERE IT WAS SPRAYED. `removedIndex` is where
-					-- `item.patches` just shrank; `zoneIds` shrinks at the exact same index
-					-- in the exact same call, so this is still the zone that patch owned no
-					-- matter how many earlier clears have already shifted the array. This is
-					-- the payoff the whole feature exists for: the real area of the real
-					-- object you were pointing at turns clean, live, under the stream.
+					-- THE CRUST COMES OFF WHERE IT WAS SPRAYED, and a piece of the item
+					-- underneath is uncovered with it. `removedIndex` is where `item.patches`
+					-- just shrank; `zoneIds` shrinks at the exact same index in the exact same
+					-- call, so this is still the zone that patch owned no matter how many
+					-- earlier clears have already shifted the array. This is the payoff the
+					-- whole feature exists for: the chunk of slag you were pointing at breaks
+					-- off, live, under the stream, and the thing inside starts to be a thing.
 					table.remove(session.zoneIds, removedIndex)
 					if session.zones[zoneId] then
-						ItemGrime.clearParts(session.zones[zoneId])
+						ItemCrust.strip(session.zones[zoneId])
+						session.zones[zoneId] = nil
 					end
 					-- The bank and the paint cache go with the patch. Nothing re-uses a zone
 					-- id within a session, but a stale entry would keep `push` skipping the
@@ -861,6 +758,7 @@ local function stepPlayer(player: Player, dt: number)
 					-- only bites once someone adds re-contamination.
 					session.soaked[zoneId] = nil
 					session.painted[zoneId] = nil
+					session.walled[zoneId] = nil
 					session.lockedZone = nil
 					-- The stream is now standing on bare metal. The client's next report is
 					-- what re-aims it, and until then nothing accrues anywhere.
@@ -869,7 +767,7 @@ local function stepPlayer(player: Player, dt: number)
 
 				if #item.patches == 0 then
 					data.stats.itemsCleaned += 1
-					finish(player, `{Items.get(item.itemId).name} is clean`)
+					revealAndFinish(player, session, data, item)
 					return
 				end
 				-- THE WALL, asked as its own question now rather than inferred from `aim`

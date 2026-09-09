@@ -95,36 +95,29 @@
 
 	── THE FURNITURE ─────────────────────────────────────────────────────
 
-	PATCH BLOBS SIT WHERE THE SERVER SAYS THE REAL PATCH IS. WashService buckets the
-	item's own real parts (or a stand-in cluster of blocks for the rarity-coloured
-	fallback) into one zone per patch and sends each patch's `anchor` — the zone's own
-	position — over WashState. This file only draws a ball there; it used to place
-	blobs itself with a golden-angle spiral scaled to the item's bounding box, which
-	looked decorative rather than attached and reshuffled position whenever a patch
-	other than the last cleared (the array compacting). Keying blobs by the patch's
-	`zone` id rather than its array index is what makes a surviving patch's ball hold
-	still when a different one clears.
+	THERE IS NO PATCH FURNITURE IN THIS FILE ANY MORE, AND THAT IS THE BIG ONE.
+	It used to draw a green marble over each dirty area — sized by the patch's hardness,
+	shrinking on its own soak, keyed by zone id so a surviving patch's ball held still
+	when a different one cleared. Every bit of that was a LABEL pointing at an area of an
+	object that had nothing visibly wrong with it, because contamination was a green tint
+	on the item's own parts and a tint cannot be pointed at.
 
-	AND THE BALL IS A LABEL ON A REAL PLACE, NOT THE TARGET ITSELF. `patchAt` used to
-	pick the blob nearest the impact within a generous radius, which was the only thing
-	it could do while WashService bucketed zones round-robin: every zone's centroid was
-	the middle of the model, every ball sat in the same spot, and any ray that grazed
-	the item was in range of all of them. Zones are spatial clusters now, and the server
-	stamps a `WashZone` attribute on every part of the item that belongs to one — so the
-	question "which patch is the water on" is answered by reading the part the impact
-	ray already returned. Aim is a real thing you can miss.
+	The dirt is real geometry now: WashService wraps the item in one chunk of irradiated
+	slag per patch (Shared/ItemCrust), and those chunks are the zones. The thing you aim
+	at is the thing that is dirty, it erodes under the water on its own bank, and when
+	its patch pops it comes off the item and takes part of the mystery with it — because
+	what is under there is also what the item IS. A marble drawn on top of that would be
+	a label on something that no longer needs one.
 
-	SO THE SIZE OF EACH BALL IS THAT AREA'S OWN SOAK. The server banks the seconds per
-	zone (`patch.soak`) rather than running one clock against one locked patch, so a
-	corner you half-did and left is visibly half-done when you come back round to it,
-	and the shrinking ball is the only readout of it there is — this is a bay with no
-	panel and no bar in it by design.
+	SO THE ZONE ATTRIBUTE IS THE WHOLE MECHANISM. The server stamps `WashZone` on every
+	chunk, and "which patch is the water on" is answered by reading the part the impact
+	ray already returned (`patchAt`). Aim is a real thing you can miss. `anchor` still
+	rides along on every patch for one job: the sub-stud proximity rounding when water
+	lands in the gap between two chunks.
 
-	GREEN, AND YES, DELIBERATELY. A contamination patch is the SAME SUBSTANCE as the
-	ooze — PLAN §2 step 4 calls them "glowing hotspots" and they are literally the
-	fallout you are hosing off — so it wears the ooze's own green (Kit.C.oozeBright),
-	matte like every surface in the world since the de-neon pass. Painting it any other
-	colour would break the "this is the fallout" read.
+	GREEN SURVIVES IN ONE PLACE, the reticle's lock colour (PATCH_GREEN). A contamination
+	patch is the SAME SUBSTANCE as the ooze — PLAN §2 step 4 calls them "glowing
+	hotspots" — so "the water would count here" is said in the fallout's own colour.
 
 	THE SPRAY IS CLIENT-LOCAL, which is against ToolService's "what you hold is public
 	storytelling" rule. Defensible only because every cleansing station sits on its
@@ -325,8 +318,13 @@ local Wash = {}
 -- Kit.C.oozeBright. Duplicated rather than required because build/ lives in
 -- ServerScriptService and a client cannot reach it — the same reason Tuning.AURA_TAG
 -- exists as a shared constant. If the ooze is ever retuned, this follows it.
+--
+-- IT IS THE RETICLE'S LOCK COLOUR AND NOTHING ELSE NOW. It used to paint the marker
+-- balls this file drew over each dirty area; the dirty areas are real chunks of slag
+-- on the item itself (WashService.placeOnStand, Shared/ItemCrust), so there is nothing
+-- left to paint — but "the water would count here" still needs a colour, and the
+-- fallout's own green is the one the player has been taught to read as contamination.
 local PATCH_GREEN = Color3.fromHex("6BEE2E")
-local PATCH_CRUSTED = Color3.fromHex("3A3128")
 
 -- Plain Water, and the only place this file needs a liquid colour of its own: the
 -- wipe can start a frame before a payload has been read.
@@ -334,9 +332,9 @@ local DEFAULT_LIQUID = "6FD5E8"
 
 -- How far a patch may sit from where the water lands and still be the one being
 -- worked, in the FALLBACK case only -- the primary answer is the `WashZone` attribute
--- on the part the impact ray hit. It was 2.8 when proximity was the whole mechanism,
--- which on a 1.4-stud item meant every zone was always in range of every impact; this
--- is the width of a gap between two of an item's own parts, and nothing more. See
+-- on the chunk of crust the impact ray hit. It was 2.8 when proximity was the whole
+-- mechanism, which on a 1.4-stud item meant every zone was always in range of every
+-- impact; this is the width of a gap between two chunks, and nothing more. See
 -- `patchAt`.
 local PATCH_REACH = 0.9
 -- THE AIM POINT IS PINNED TO THE TUB, and this is the fix for water crossing the
@@ -659,7 +657,6 @@ local MIST_DRAG = 2
 local ROTATE_RATE = math.rad(32)
 
 local state: any = nil
-local blobs: { [number]: BasePart } = {}
 local folder: Instance? = nil
 -- The spray, preallocated once by `ensureSpray` and only moved from then on.
 -- `sprayParts` is every one of them flat, and exists so the hide and teardown paths do
@@ -787,13 +784,6 @@ local function spinPoint(point: Vector3): Vector3
 end
 
 -- ── Build / tear down ───────────────────────────────────────────────
-
-local function clearBlobs()
-	for _, blob in blobs do
-		blob:Destroy()
-	end
-	table.clear(blobs)
-end
 
 local function ensureFolder(): Instance
 	if folder == nil or folder.Parent == nil then
@@ -1768,65 +1758,6 @@ end
 
 -- ── Render ──────────────────────────────────────────────────────────
 
-local function paintBlobs()
-	if state == nil then
-		return
-	end
-
-	local live: { [number]: boolean } = {}
-	for _, patch in state.patches do
-		live[patch.zone] = true
-
-		local blob = blobs[patch.zone]
-		if blob == nil or blob.Parent == nil then
-			blob = Instance.new("Part")
-			blob.Name = `Patch{patch.zone}`
-			blob.Shape = Enum.PartType.Ball
-			blob.Anchored = true
-			blob.CanCollide = false
-			blob.CanQuery = false
-			blob.Material = Enum.Material.SmoothPlastic
-			blob.Parent = ensureFolder()
-			blobs[patch.zone] = blob
-		end
-
-		-- Harder patches are bigger, so "which one is the wall" is legible before you
-		-- ever aim at it. A blocked patch is crusted and matte — the stream visibly
-		-- does nothing to it, which is the Quarantine Locker taught in 3D.
-		--
-		-- EVERY BLOB SHRINKS ON ITS OWN SOAK, not just the one under the stream. It used
-		-- to read `state.progress`, of which there was one, belonging to whichever patch
-		-- the server had locked — so a session's other five balls sat at full size no
-		-- matter how much water had gone into them, and the only way to find out how far
-		-- along a corner was, was to go back and finish it. WashService banks the seconds
-		-- per zone now (`patch.soak`) and sends all of them, and this is what that buys:
-		-- look around the object and the half-done areas are visibly half done.
-		local base = 0.30 + patch.hardness * 0.07
-		local scale = base * (1 - 0.65 * (patch.soak or 0))
-
-		blob.Size = Vector3.new(scale, scale, scale) * 2
-		-- WHERE THE SERVER SAYS THE REAL SPOT IS, CARRIED AROUND THE TURNTABLE.
-		-- WashService builds this patch's zone from the item's own real geometry (or a
-		-- stand-in cluster of blocks for the rarity-coloured fallback) and hands back
-		-- its position at the pose the item was PLACED at -- no bounding-box guesswork
-		-- here any more, and no reshuffle when an earlier patch clears out from under
-		-- this one: `zone` is a stable id, not an array index. `spinPoint` is what
-		-- keeps it agreeing with the real geometry once `spinTurntable` starts turning
-		-- the item away from that placement pose.
-		blob.Position = spinPoint(patch.anchor)
-		blob.Color = if patch.blocked then PATCH_CRUSTED else PATCH_GREEN
-		blob.Material = if patch.blocked then Enum.Material.Slate else Enum.Material.SmoothPlastic
-		blob.Transparency = if patch.blocked then 0.1 else 0.15
-	end
-
-	for zone, blob in blobs do
-		if not live[zone] then
-			blob:Destroy()
-			blobs[zone] = nil
-		end
-	end
-end
-
 --- LET THE RAYS THROUGH THE PEDESTAL, for the length of the session.
 ---
 --- WashStand is a one-stud marker part with Transparency 1 and CanQuery TRUE, and the
@@ -2001,7 +1932,7 @@ end
 --- the reticle drawn at the middle of the screen and this ray are the same line by
 --- construction rather than by a conversion that could drift out of step.
 ---
---- The blobs and the jet segments are all CanQuery = false, so this never hits the
+--- The jet segments are all CanQuery = false, so this never hits the
 --- effects themselves -- it finds the ITEM under the blob, which is where the
 --- contamination is anyway. The character is filtered out because the ray starts
 --- inside the player's own head.
@@ -2023,6 +1954,18 @@ local function aimPointAt(from: CFrame, filter: RaycastParams): (Vector3, BasePa
 	return from.Position + from.LookVector * reach, nil
 end
 
+--- Is that zone still a patch at all? The server's own list is the authority on what is
+--- standing; it used to be answered by "does a marker ball exist for this zone", which
+--- was the same question asked of furniture this file no longer owns.
+local function livePatch(zone: number): boolean
+	for _, patch in (state and state.patches) or {} do
+		if patch.zone == zone then
+			return true
+		end
+	end
+	return false
+end
+
 --- Which patch is being worked: THE ONE THE WATER PHYSICALLY LANDED ON.
 ---
 --- Not the one nearest the reticle, and not the one nearest the impact either. The
@@ -2032,31 +1975,37 @@ end
 --- guess from watching it.
 ---
 --- `hit` IS THE ANSWER WHENEVER IT HAS ONE. WashService stamps a `WashZone` attribute
---- on every real part of the item that belongs to a patch, so the part the impact ray
---- already returned names its own dirty area exactly. Blobs are keyed by zone id and
---- only exist for patches still standing, so `blobs[zone]` is also the "is that area
---- still dirty" check, for free.
+--- on every chunk of crust the item is wearing, so the part the impact ray already
+--- returned names its own dirty area exactly. A chunk is DESTROYED the moment its patch
+--- clears, so a hit on a live chunk is proof the area is still dirty — but the payload
+--- is checked anyway, because a ray can return a part one tick after the server took it
+--- away and a stale zone is a tick of water banked against a patch that no longer
+--- exists.
 ---
 --- THE PROXIMITY FALLBACK IS NOW A ROUNDING, NOT THE MECHANISM. It used to be the
 --- whole of it, at 2.8 studs against a 1.4-stud item -- which, with every zone's ball
 --- stacked near the model's centre back when zones were round-robin slices, meant
 --- anything in the postcode of the tub counted as a hit on all of them. It survives at
---- a third of that reach for one honest case: water landing in a gap between an item's
---- parts, or on a piece of glass that carries no zone because grime never touched it.
+--- a third of that reach for one honest case: water landing in the gap between two
+--- chunks of crust, close enough to either that "you missed entirely" would be a lie.
+--- It measures from the anchor WashService sent, carried round the turntable — the
+--- chunk itself has been shrinking as it soaks, and its centre has not moved.
 local function patchAt(point: Vector3, hit: BasePart?): number?
 	if hit then
 		local zone = hit:GetAttribute("WashZone")
-		if type(zone) == "number" and blobs[zone] then
+		if type(zone) == "number" and livePatch(zone) then
 			return zone
 		end
 	end
 
 	local best: number? = nil
 	local bestDistance = PATCH_REACH
-	for index, blob in blobs do
-		local distance = (blob.Position - point).Magnitude
-		if distance < bestDistance then
-			best, bestDistance = index, distance
+	for _, patch in (state and state.patches) or {} do
+		if patch.anchor then
+			local distance = (spinPoint(patch.anchor) - point).Magnitude
+			if distance < bestDistance then
+				best, bestDistance = patch.zone, distance
+			end
 		end
 	end
 	return best
@@ -2190,7 +2139,7 @@ local function onRender(dt: number)
 		clampLook()
 	end
 
-	-- BEFORE the camera and the blobs, so both read the item's post-turn pose this
+	-- BEFORE the camera reads it, so the shot frames the item's post-turn pose this
 	-- frame rather than last frame's.
 	spinTurntable(dt)
 
@@ -2218,7 +2167,6 @@ local function onRender(dt: number)
 	camera.Focus = CFrame.new(eye.Position + eye.LookVector * FOCUS_AHEAD)
 	applyHidden(1)
 
-	paintBlobs()
 
 	-- Rebuilt per frame rather than cached: the character is respawnable and the folder
 	-- is destroyed on every teardown(), so a stale filter would either miss the
@@ -2389,7 +2337,6 @@ local function teardown()
 	lookYaw, lookPitch = 0, 0
 	padLook = Vector2.zero
 
-	clearBlobs()
 	restoreNozzle()
 	closeTheStand()
 	if folder then

@@ -41,6 +41,13 @@ local REMOTES: { [string]: string } = {
 	-- load-bearing in a way most remotes are not; every path that can strand a rooted
 	-- player is enumerated in Services/DigService.
 	DigLock = "RemoteEvent", -- client -> server, true = lock on, false = release
+	--
+	-- Unearthed is the DIG moment and it no longer names anything. What breaks the
+	-- surface is a lump of slag: the payload carries the rarity, the modifier and the
+	-- weight -- everything the detector legitimately read -- and NOT the itemId, name or
+	-- flavour, which would be the client holding the answer to a question the wash bay
+	-- is supposed to ask. `identified` is true only for a pull that needed no cleaning
+	-- at all (Prewar Sealed), and only then does an identity ride along.
 	Unearthed = "RemoteEvent", -- server -> client, the slot-machine moment
 
 	-- The backpack, as the player sees it. Fires only when the bag actually CHANGES
@@ -81,9 +88,18 @@ local REMOTES: { [string]: string } = {
 	Blackout = "RemoteEvent", -- server -> client, you went down and what it cost
 
 	-- The index GUI. One snapshot of data.discovered on load; the client tops it up
-	-- itself from Unearthed's itemId as new discoveries happen, so this never needs
-	-- to fire a second time.
+	-- itself from ItemIdentified's itemId as new discoveries happen, so this never
+	-- needs to fire a second time. It used to top up from Unearthed, which lit the
+	-- catalogue tile for something the player had not been told they were carrying.
 	IndexState = "RemoteEvent", -- server -> client, once per load
+
+	-- WHAT THE LUMP TURNED OUT TO BE. An item comes out of the ground encased in slag
+	-- (Shared/ItemCrust) and is "???" everywhere until the crust is off, so Unearthed
+	-- can no longer carry an identity -- this is the remote that does, fired the moment
+	-- the last patch pops at the wash bay (or the trader names it on a blind sale). It
+	-- is also what unlocks the index tile, which is why the itemId rides on THIS rather
+	-- than on the dig.
+	ItemIdentified = "RemoteEvent", -- server -> client, the reveal
 
 	-- The persistent cash badge. Fires only when data.cash actually changes (sell,
 	-- spend, award, or a debug /cash) plus once on load -- not per tick, since cash

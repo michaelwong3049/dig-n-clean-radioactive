@@ -1082,16 +1082,28 @@ local function formatWeight(kg: number): string
 	return string.format("%d kg", math.floor(kg + 0.5))
 end
 
-local function showUnearthed(found)
+--- What the banner says over a find nobody has identified yet. It is not a placeholder
+--- for a name the client is withholding -- the client genuinely does not have one, and
+--- will not until the crust comes off (Services/IdentifyService).
+local UNKNOWN_NAME = "???"
+local UNKNOWN_FLAVOR = "caked in irradiated slag \u{2014} wash it to find out what it is"
+
+--- ONE BANNER, TWO MOMENTS. The dig fires it with a rarity and no name; the wash bay
+--- fires it again, on the same item, with the name it turned out to have. Sharing the
+--- renderer is what keeps them feeling like two halves of one event rather than two
+--- unrelated pieces of UI, and `found.name` being nil is the only thing that separates
+--- them here.
+local function showFind(found, header: string?)
 	local def = Rarity.DEFS[found.rarity]
 	local colour = if def then def.color else COLOR.text
 
-	local modifier = if found.modifier == "None" then "" else found.modifier .. " "
+	local modifier = if found.modifier == "None" or found.modifier == nil then "" else found.modifier .. " "
 	local heft = if type(found.weight) == "number" then `  \u{00B7}  {formatWeight(found.weight)}` else ""
-	ui.bannerRarity.Text = string.upper(modifier .. found.rarity) .. heft
+	local prefix = if header then header .. `  \u{00B7}  ` else ""
+	ui.bannerRarity.Text = prefix .. string.upper(modifier .. found.rarity) .. heft
 	ui.bannerRarity.TextColor3 = colour
-	ui.bannerName.Text = found.name
-	ui.bannerFlavor.Text = found.flavor
+	ui.bannerName.Text = found.name or UNKNOWN_NAME
+	ui.bannerFlavor.Text = found.flavor or UNKNOWN_FLAVOR
 	ui.bannerStroke.Color = colour
 	ui.banner.Visible = true
 
@@ -1231,7 +1243,14 @@ function Detector.start()
 	end)
 
 	Net.get("Unearthed").OnClientEvent:Connect(function(found)
-		showUnearthed(found)
+		showFind(found)
+	end)
+
+	-- THE OTHER HALF OF THE SAME BANNER. Fired from the wash bay once the last chunk of
+	-- crust is off (or from the trader, when a find is sold blind and named on its way
+	-- out) -- the "so THAT'S what it was" beat the dig no longer gets to have.
+	Net.get("ItemIdentified").OnClientEvent:Connect(function(found)
+		showFind(found, if found.firstFind then "NEW FIND" else "IDENTIFIED")
 	end)
 
 	-- InputBegan only, and no InputEnded partner. Roblox does not auto-repeat a held

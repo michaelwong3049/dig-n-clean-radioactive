@@ -37,7 +37,7 @@ local ToolTiers = require(Config.ToolTiers)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
 local Contamination = require(script.Parent.Parent.Contamination)
-local ItemGrime = require(script.Parent.Parent.ItemGrime)
+local ItemCrust = require(script.Parent.Parent.ItemCrust)
 local StatResolver = require(script.Parent.Parent.StatResolver)
 
 local Spec = {}
@@ -850,38 +850,25 @@ function Spec.run(): boolean
 		check(string.format("§3.5 stage %d has no unlock field", stage.id), (stage :: any).locked == nil and (stage :: any).requiresGamepass == nil)
 	end
 
-	-- Contamination's VISUAL grade. `initialCount` is what makes "how dirty is it
-	-- still" answerable without storing a second number on every carried item, so it
-	-- has to keep agreeing with the roll it was extracted from. If those two ever
-	-- drift, every half-scrubbed item is painted at the wrong strength for good.
+	-- `initialCount` is what makes "how dirty was this to begin with" answerable without
+	-- storing a second number on every carried item, so it has to keep agreeing with the
+	-- roll it was extracted from.
+	--
+	-- IT IS ALSO THE CRUST'S CHUNK COUNT, which is why this check matters more than it
+	-- used to: one chunk of slag per patch is what hides the item, and a roll that came
+	-- back with fewer patches than the count says would leave a find you could read the
+	-- shape of straight out of the ground.
 	do
-		local agrees, graded = true, true
+		local agrees = true
 		for _, rarity in Rarity.ORDER do
 			for modifier in Rarity.MODIFIERS do
 				local rolled = Contamination.rollPatches(rarity, modifier)
 				if #rolled ~= Contamination.initialCount(rarity, modifier) then
 					agrees = false
 				end
-				-- Full patches = full film, none = no film at all, and anything between
-				-- must sit strictly between, or scrubbing stops reading as progress.
-				if Contamination.grimeLevel({}, rarity, modifier) ~= 0 then
-					graded = false
-				end
-				if #rolled > 0 and Contamination.grimeLevel(rolled, rarity, modifier) ~= 1 then
-					graded = false
-				end
-				if #rolled > 1 then
-					local half = table.clone(rolled)
-					table.remove(half)
-					local partial = Contamination.grimeLevel(half, rarity, modifier)
-					if not (partial > 0 and partial < 1) then
-						graded = false
-					end
-				end
 			end
 		end
 		check("§2 initialCount agrees with the roll it was pulled out of", agrees)
-		check("§2 grime level runs 1 to 0 as patches come off", graded)
 	end
 
 	-- YOU CLEAN THE PATCH YOU AIMED AT. The wash bay times one bank per dirty area and
@@ -911,55 +898,71 @@ function Spec.run(): boolean
 		check("§2 anyReachable on a clean item is false", not Contamination.anyReachable({}, 99))
 	end
 
-	-- THE FILM COMES OFF EXACTLY. Cleaning has to hand back the authored art, not an
-	-- approximation of it, and apply() has to be safe to call on every tick of a wash --
-	-- so a repaint at a FALLING level must walk back toward the original rather than
-	-- compounding green onto green. Run against a real catalogue model, because that is
-	-- the thing with twenty-odd separately-coloured parts in it.
+	-- THE CRUST HAS TO ACTUALLY HIDE IT. This is the whole feature in one check: an item
+	-- comes out of the ground encased in one chunk of slag per patch, is "???" on every
+	-- surface until those chunks are off, and the reveal is the wash bay taking them off.
+	-- If the shell does not enclose the item, the reveal has already happened in the soil
+	-- and there is nothing left for the hose to be for.
+	--
+	-- Run against a real catalogue model rather than a cube, because a Bottle Cap is the
+	-- awkward case the sizing rules exist for: millimetres thick, so its own bounding box
+	-- is nearly flat and MIN_BODY is what stops the crust being a sheet of paper.
 	do
 		local sample = ItemModels.create("BottleCap")
 		if sample then
-			local parts, before = {}, {}
-			for _, part in sample:GetDescendants() do
-				if part:IsA("BasePart") then
-					table.insert(parts, part)
-					before[part] = part.Color
+			local _, bare = sample:GetBoundingBox()
+
+			local zones, anchors = ItemCrust.encase(sample, 4, "Rare", "spec-uid")
+			local chunked = true
+			for zone = 1, 4 do
+				if zones[zone] == nil or #zones[zone] == 0 or anchors[zone] == nil then
+					chunked = false
 				end
 			end
 
-			ItemGrime.apply(sample, 1)
-			local tinted = 0
-			for _, part in parts do
-				if part.Color ~= before[part] then
-					tinted += 1
-				end
-			end
+			local _, encased = sample:GetBoundingBox()
+			local swallowed = encased.X > bare.X and encased.Y > bare.Y and encased.Z > bare.Z
 
-			ItemGrime.apply(sample, 0.5)
+			-- Eroding is a per-tick call at ten hertz, so it has to be idempotent the same
+			-- way the film it replaced was: the SECOND call at one level must land on the
+			-- same size as the first, or a chunk shrinks away under a stream that is not
+			-- moving.
+			ItemCrust.erode(zones[1], 0.5, false)
 			local once = {}
-			for _, part in parts do
-				once[part] = part.Color
+			for _, part in zones[1] do
+				once[part] = part.Size
 			end
-			ItemGrime.apply(sample, 0.5)
+			ItemCrust.erode(zones[1], 0.5, false)
 			local stable = true
-			for _, part in parts do
-				if part.Color ~= once[part] then
+			for _, part in zones[1] do
+				if part.Size ~= once[part] then
 					stable = false
 				end
 			end
 
-			ItemGrime.clear(sample)
-			local restored = true
-			for _, part in parts do
-				if part.Color ~= before[part] then
-					restored = false
+			-- ...and a chunk this liquid cannot shift does not move at all, however long
+			-- the water sits on it. The potency wall, shown rather than written down.
+			ItemCrust.erode(zones[2], 0, true)
+			local unmoved = true
+			for _, part in zones[2] do
+				if part.Size ~= (part:GetAttribute("CrustSize") :: Vector3) then
+					unmoved = false
 				end
 			end
 
-			check("§2 contamination tints every part of the model", #parts > 0 and tinted == #parts)
-			check("§2 repainting at one level does not compound", stable)
-			check("§2 cleaning restores the authored colours exactly", restored)
-			check("§2 a cleaned model keeps no grime glow", sample:FindFirstChild("GrimeGlow", true) == nil)
+			ItemCrust.strip(zones[3])
+			local stripped = true
+			for _, part in zones[3] do
+				if part.Parent ~= nil then
+					stripped = false
+				end
+			end
+
+			check("§2 the crust builds one chunk per patch", chunked)
+			check("§2 the crust encloses the item it is hiding", swallowed)
+			check("§2 eroding at one level does not compound", stable)
+			check("§2 a chunk past this potency does not erode at all", unmoved)
+			check("§2 a cleared patch takes its chunk off the item", stripped)
 			sample:Destroy()
 		end
 	end
