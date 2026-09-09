@@ -1,48 +1,28 @@
 --[[
-	DetectorController.lua — the sweep, rendered.
+	DetectorController.lua — the lock-on prompt, the haul panel, and the unearth banner.
 
 	WHAT THIS DRAWS NOW, AND WHAT IT USED TO DRAW.
-	It used to be a NEEDLE. The server sent one angle and one strength and the whole
-	screen was derived from those two numbers, because the field was a secret and a
-	direction was the most the client was allowed to know.
+	It used to be a NEEDLE, then a RADAR SCOPE — a corner dial with a ring for the
+	detector radius and a blip per registered contact, drawn from a payload only this
+	client receives (each player's ROLL for a signal is their own — DigService.rollFor —
+	so signal X can be Rare for you and Common for the next player). Both are gone. The
+	needle's "which direction" question is answered directly by the world now: every
+	registerable signal stands up out of the ground as an aura, with FieldController's
+	range ring around the player. The scope's per-player readout (rarity + "1 in N"
+	odds, none of it clarity-gated any more — DigService.hintFor) moved onto the two
+	places it is actually useful: the floating PICK UP card over the glow, and the haul
+	panel's own title while you are pulling. The scope was removed on request as
+	unnecessary once both of those carried the reading.
 
-	The detector no longer works that way. Its radius REVEALS: every registerable
-	signal inside it stands up out of the ground as an aura, and the server sends this
-	client the ones it personally registers, as offsets from the player. So the dial
-	is a RADAR SCOPE — you at the centre, your radius as the ring, a blip per contact.
-	The direction problem the needle existed to solve does not exist any more; the
-	world answers it directly.
-
-	THE SCOPE IS NOT REDUNDANT WITH THE AURAS, and the reason is worth keeping.
-	An aura is one shared part that every player in the server can see, but each
-	player's ROLL for a signal is their own (DigService.rollFor) — signal X can be Rare
-	for you and Common for the next player — so what "it is" cannot live on the shared
-	part. The BLIP (and the haul panel) is where the per-player reading gets to live,
-	because both are drawn from a payload only this client receives: the rarity, and now
-	the "1 in N" odds too. None of it is clarity-gated any more (DigService.hintFor).
-	Delete the scope and that readout loses its home. It WAS deleted for one pass and
-	should not have been; back.
-
-	IT IS IN THE BOTTOM-RIGHT CORNER NOW, ALONE, NOT IN THE INSTRUMENT BAND. It used to
-	sit beside the dig button in the middle of the dock, which put a 180px dial in the
-	busiest part of the screen and made INSTRUMENT_HEIGHT (and so RESERVE, and so
-	every centred panel's headroom) 36px taller than the meter needed. Corner-anchored
-	it costs the layout nothing: it shares only the INSTRUMENT_BOTTOM baseline with the
-	meter diagonally opposite it — see Dock.SCOPE_BOTTOM. The index button briefly
-	stacked above it here too, but has since moved to the opposite corner, above the
-	cash badge; nothing shares this corner with the scope any more.
+	The detector's per-player payload is still tracked below — state.radius,
+	state.contacts and state.contactOrigin — because FieldController reads it for the
+	ground ring and the per-player aura-well tint (Detector.radius / contactRarityAt).
+	It just isn't drawn on the HUD.
 
 	NO SOUND. The detector used to carry hot/cold by audio — a rate-and-pitch ping
 	keyed to the nearest contact, plus a chirp on each new reveal (PLAN §10.7's
 	"sweep with your eyes half shut"). Both were removed on request. The feedback is
-	entirely visual now: the scope dial and its blips on screen, and out in the world
-	the aura wells and the range ring (FieldController).
-
-	SCOPE_RADIUS stays local because nothing outside this file reads it, but it is
-	DERIVED from Dock.SCOPE_DIAL rather than a second hardcode, because it drives the
-	ring sizes, the sweep arm's length AND the blip polar-placement maths all at once
-	— change the dial without updating this and blips cluster inside a ring that no
-	longer matches what is drawn.
+	entirely in the world now: the aura wells and the range ring (FieldController).
 ]]
 
 local Players = game:GetService("Players")
@@ -70,10 +50,6 @@ local Detector = {}
 -- so every COLOR.xxx read throughout render/state logic below keeps working
 -- unchanged — this is an alias, not a copy, on purpose.
 local COLOR = UIKit.C
-
-local DIAL_SIZE = Dock.SCOPE_DIAL
-local SCOPE_RADIUS = Dock.SCOPE_DIAL / 2 - 15 -- px from the centre of the dial to the radius ring
-local MAX_BLIPS = 12 -- matches DigService.MAX_CONTACTS; more would never arrive
 
 -- The button's per-click kick. This is the ONLY instant feedback the mash has, and it
 -- earns its place: SweepState arrives at 10 Hz, so the progress bar can be up to 100ms
@@ -204,7 +180,6 @@ local state = {
 }
 
 local ui = {}
-local blips: { Frame } = {}
 -- What the fill is currently DRAWING, chasing state.digProgress. Separate from the
 -- server's value so smoothing never feeds back into what we think progress is.
 local shownProgress = 0
@@ -224,105 +199,6 @@ local lockHoldTween: Tween? = nil
 local lastYankAt = -math.huge
 
 -- ── Build ───────────────────────────────────────────────────────────
-
-local function buildScope(parent: GuiObject)
-	-- The radius ring. This is the stat you are buying, drawn at its actual size
-	-- relative to the blips inside it, so a detector upgrade is legible on the HUD
-	-- and not just in the shop.
-	local edge = Instance.new("Frame")
-	edge.Name = "RadiusRing"
-	edge.AnchorPoint = Vector2.new(0.5, 0.5)
-	edge.Position = UDim2.fromScale(0.5, 0.5)
-	edge.Size = UDim2.fromOffset(SCOPE_RADIUS * 2, SCOPE_RADIUS * 2)
-	edge.BackgroundTransparency = 1
-	edge.Parent = parent
-
-	local edgeCorner = Instance.new("UICorner")
-	edgeCorner.CornerRadius = UDim.new(1, 0)
-	edgeCorner.Parent = edge
-
-	local edgeStroke = Instance.new("UIStroke")
-	edgeStroke.Color = COLOR.scope
-	edgeStroke.Transparency = 0.55
-	edgeStroke.Thickness = 1
-	edgeStroke.Parent = edge
-	ui.edgeStroke = edgeStroke
-
-	-- Half-radius ring, purely so distance on the scope is readable rather than just
-	-- ordinal. Without it every blip is "somewhere in the circle".
-	local inner = Instance.new("Frame")
-	inner.Name = "HalfRing"
-	inner.AnchorPoint = Vector2.new(0.5, 0.5)
-	inner.Position = UDim2.fromScale(0.5, 0.5)
-	inner.Size = UDim2.fromOffset(SCOPE_RADIUS, SCOPE_RADIUS)
-	inner.BackgroundTransparency = 1
-	inner.Parent = parent
-
-	local innerCorner = Instance.new("UICorner")
-	innerCorner.CornerRadius = UDim.new(1, 0)
-	innerCorner.Parent = inner
-
-	local innerStroke = Instance.new("UIStroke")
-	innerStroke.Color = COLOR.scope
-	innerStroke.Transparency = 0.82
-	innerStroke.Thickness = 1
-	innerStroke.Parent = inner
-
-	-- The sweep arm. One revolution per RANGE_RING_PERIOD, off the same clock as the
-	-- range ring the detector throws on the ground, so the HUD and the world are
-	-- visibly the same pulse rather than two unrelated animations.
-	local arm = Instance.new("Frame")
-	arm.Name = "SweepArm"
-	arm.AnchorPoint = Vector2.new(0.5, 1)
-	arm.Position = UDim2.fromScale(0.5, 0.5)
-	arm.Size = UDim2.fromOffset(2, SCOPE_RADIUS)
-	arm.BackgroundColor3 = COLOR.scope
-	arm.BackgroundTransparency = 0.6
-	arm.BorderSizePixel = 0
-	arm.Parent = parent
-	ui.arm = arm
-
-	-- You. A fixed dot so the blips read as "relative to me" instantly.
-	local origin = Instance.new("Frame")
-	origin.Name = "Origin"
-	origin.AnchorPoint = Vector2.new(0.5, 0.5)
-	origin.Position = UDim2.fromScale(0.5, 0.5)
-	origin.Size = UDim2.fromOffset(4, 4)
-	origin.BackgroundColor3 = COLOR.text
-	origin.BackgroundTransparency = 0.35
-	origin.BorderSizePixel = 0
-	origin.Parent = parent
-
-	local originCorner = Instance.new("UICorner")
-	originCorner.CornerRadius = UDim.new(1, 0)
-	originCorner.Parent = origin
-
-	-- Pooled. Contacts churn every tick as the player walks, and building and
-	-- destroying twelve frames ten times a second to show the same twelve dots is
-	-- pure garbage collection for no visible gain.
-	for index = 1, MAX_BLIPS do
-		local blip = Instance.new("Frame")
-		blip.Name = `Blip{index}`
-		blip.AnchorPoint = Vector2.new(0.5, 0.5)
-		blip.Size = UDim2.fromOffset(8, 8)
-		blip.BackgroundColor3 = COLOR.scope
-		blip.BorderSizePixel = 0
-		blip.Visible = false
-		blip.ZIndex = 2
-		blip.Parent = parent
-
-		local blipCorner = Instance.new("UICorner")
-		blipCorner.CornerRadius = UDim.new(1, 0)
-		blipCorner.Parent = blip
-
-		local blipStroke = Instance.new("UIStroke")
-		blipStroke.Color = COLOR.panel
-		blipStroke.Thickness = 1
-		blipStroke.Parent = blip
-
-		blips[index] = blip
-	end
-end
 
 --- The pick-up prompt's whole face. The ProximityPrompt is Style = Custom, which means
 --- Roblox renders NOTHING for it -- this billboard is the entire visual, wired to the
@@ -575,38 +451,16 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 60
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Radar scope: bottom-right corner, on the same INSTRUMENT_BOTTOM baseline as the
-	-- rad meter diagonally opposite it, with the index button stacked above. It used
-	-- to live inside the instrument band beside the dig button; out here it is clear
-	-- of the screen's centre and no longer inflates the band's height for everything
-	-- else. AnchorPoint(1,1) so the position places its bottom-RIGHT corner, which is
-	-- what makes ROW_SIDE_MARGIN read as a margin from the screen edge.
-	local dial, ring = UIKit.panel(gui, {
-		name = "Scope",
-		size = UDim2.fromOffset(DIAL_SIZE, DIAL_SIZE),
-		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -Dock.SCOPE_BOTTOM),
-		anchorPoint = Vector2.new(1, 1),
-		color = COLOR.panel,
-		transparency = 0.25,
-		cornerRadius = UIKit.Radius.pill,
-		strokeColor = COLOR.stroke,
-	})
-	dial.ClipsDescendants = true
-	ui.ring = ring
-
-	buildScope(dial)
-
-	ui.centre = UIKit.label(dial, {
-		name = "Centre",
-		anchorPoint = Vector2.new(0.5, 0.5),
-		position = UDim2.new(0.5, 0, 0.5, 53),
-		size = UDim2.fromOffset(170, 22),
-		font = UIKit.Font.body,
-		textSize = 15,
-		color = COLOR.dim,
-		xAlign = Enum.TextXAlignment.Center,
-		zIndex = 3,
-	})
+	-- NO RADAR SCOPE ANY MORE. A sweep dial sat in the bottom-right corner with a blip
+	-- per registered contact, a radius ring and a rotating arm. It was removed on
+	-- request as unnecessary: the per-player readout it used to justify itself with
+	-- (rarity + "1 in N" odds) now lives on the floating pick-up card and the haul
+	-- panel's own title, the world already answers "which direction" with the aura
+	-- wells and FieldController's ground ring, and the "N stud sweep" radius readout
+	-- was never load-bearing. The detector's per-player payload (state.radius /
+	-- state.contacts / state.contactOrigin) is still tracked below — FieldController
+	-- reads it for the ground ring and the per-player well tint — it just isn't drawn
+	-- on the HUD.
 
 	-- Status line: dead centre, above the instrument band.
 	ui.status = UIKit.label(gui, {
@@ -959,67 +813,7 @@ local function signalColor(): Color3
 	return COLOR.scope
 end
 
---- Contacts arrive as WORLD-space offsets from the player. The scope is drawn in
---- camera space so "up" is wherever the player is looking — a radar that stays
---- locked to world north forces the player to do the rotation in their head, every
---- frame, forever.
----
---- The sign convention here is the needle's, kept deliberately: an angle measured
---- from the camera's look direction maps straight onto clockwise-from-up, which is
---- what both the old Rotation property and this offset use.
-local function renderBlips()
-	local camera = Workspace.CurrentCamera
-	if camera == nil then
-		return
-	end
-
-	local look = camera.CFrame.LookVector
-	local cameraYaw = math.atan2(look.Z, look.X)
-	local radius = if state.radius > 0 then state.radius else 1
-
-	for index = 1, MAX_BLIPS do
-		local blip = blips[index]
-		local contact = state.contacts[index]
-
-		if contact == nil then
-			blip.Visible = false
-			continue
-		end
-
-		local distance = math.sqrt(contact.dx * contact.dx + contact.dz * contact.dz)
-		local relative = math.atan2(contact.dz, contact.dx) - cameraYaw
-		-- Clamped, not hidden: a contact fractionally outside the ring because the
-		-- player moved between ticks should sit ON the ring, not blink out.
-		local reach = math.min(distance / radius, 1) * SCOPE_RADIUS
-
-		blip.Position = UDim2.new(0.5, math.sin(relative) * reach, 0.5, -math.cos(relative) * reach)
-
-		local def = if contact.rarity then Rarity.DEFS[contact.rarity] else nil
-		blip.BackgroundColor3 = if def then def.color else COLOR.scope
-
-		-- The nearest contact is the one every other part of the HUD is talking
-		-- about, so it is drawn bigger. Without this the scope reads as a cloud and
-		-- the status line appears to be describing an arbitrary member of it.
-		local lead = index == 1
-		blip.Size = UDim2.fromOffset(if lead then 11 else 7, if lead then 11 else 7)
-		blip.Visible = true
-	end
-end
-
 local function renderFrame(dt: number)
-	local colour = signalColor()
-
-	renderBlips()
-
-	-- One revolution per pulse period, sharing os.clock with FieldController's ground
-	-- ring so the two land together without either one owning the other's timing.
-	local phase = (os.clock() % Tuning.RANGE_RING_PERIOD) / Tuning.RANGE_RING_PERIOD
-	ui.arm.Rotation = phase * 360
-	ui.arm.BackgroundTransparency = if state.inStage then 0.6 else 0.9
-
-	ui.ring.Color = if state.hasSignal then colour else COLOR.stroke
-	ui.edgeStroke.Color = if state.hasSignal then colour else COLOR.scope
-
 	-- Chase rather than snap. Exponential so it converges at the same visual rate
 	-- whatever the framerate -- the naive `+= (target - shown) * rate * dt` overshoots
 	-- and oscillates the moment dt gets large, which on a bar the player is staring at
@@ -1040,7 +834,7 @@ local function renderFrame(dt: number)
 		UDim2.fromOffset(HAULBAR_COL, math.floor(HAULBUTTON_HEIGHT * (1 + kick * YANK_KICK_SCALE)))
 
 	-- The pick-up card's idle life: a slow hover, and a stroke that breathes on the
-	-- aura's OWN pulse period so the card, the ground ring and the scope arm all beat
+	-- aura's OWN pulse period so the card and FieldController's ground ring beat
 	-- together. Only once the show tween has settled -- before that revealLockGui owns
 	-- both the offset and the stroke.
 	if lockGuiShown and lockGuiSettled then
@@ -1242,18 +1036,9 @@ local function renderState()
 		-- server has no signal to give), and E still works, so nothing is unreachable
 		-- — it reappears the moment you step onto sludge, which is also the moment it
 		-- starts meaning something.
-		--
-		-- The SCOPE stays, unlike the button. It is the detector itself rather than a
-		-- verb attached to it, it now lives out in the corner where it is not in the
-		-- way of anything, and a dial that vanished every time you walked into the
-		-- plaza would read as broken hardware rather than as a quiet one.
 		ui.status.Text = ""
-		ui.centre.Text = ""
 		return
 	end
-
-	ui.centre.Text = `{math.floor(state.radius + 0.5)} stud sweep`
-	ui.centre.TextColor3 = COLOR.dim
 
 	if not state.hasSignal then
 		-- Standing in a glow that somebody else's detector put there. This is a real
@@ -1264,8 +1049,8 @@ local function renderState()
 			return
 		end
 
-		-- Detector on, nothing revealed in range. The old "sweeping… nothing in
-		-- range" status line was removed on request -- the empty scope says it.
+		-- Detector on, nothing revealed in range. The aura wells on the ground and
+		-- FieldController's range ring are the only cue now; no status line for it.
 		ui.status.Text = ""
 		return
 	end
@@ -1385,7 +1170,7 @@ end
 --- nil when there is no contact there. FieldController reads this to tint each aura
 --- well per-player: the aura part is shared but the roll is per-player (signal X can
 --- be Rare for one player, Common for the next), so the rarity cannot live on the
---- part — it rides this client-only payload, the same place the radar blips get it.
+--- part — it rides this client-only SweepState payload (state.contacts).
 --- No longer clarity-gated: every detector colours its wells now (DigService.hintFor).
 ---
 --- Matched by position because the payload deliberately carries no signal id. The
@@ -1554,9 +1339,10 @@ function Detector.start()
 
 	-- Heartbeat, NOT RenderStepped. This used to matter because the ping audio ran
 	-- here and could not be allowed to stall with the render loop; the ping is gone
-	-- now, but the scope's sweep arm and blips are still driven off os.clock (not
-	-- dt), so Heartbeat vs RenderStepped only changes how often they refresh, never
-	-- what they show. Left on Heartbeat — moving it buys nothing.
+	-- now, but the haul bar's smoothing and the pick-up card's idle bob are still
+	-- driven off os.clock (not dt), so Heartbeat vs RenderStepped only changes how
+	-- often they refresh, never what they show. Left on Heartbeat — moving it buys
+	-- nothing.
 	RunService.Heartbeat:Connect(function(dt)
 		renderFrame(dt)
 	end)

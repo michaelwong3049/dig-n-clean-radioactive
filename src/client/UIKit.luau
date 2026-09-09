@@ -104,14 +104,15 @@ UIKit.Stroke = {
 -- ── The dock ─────────────────────────────────────────────────────────────────────
 -- The instrument band — just the METER now — with the status line above it, bag count
 -- below it, hotbar at the screen edge, a bottom-LEFT column stacking [INDEX] over
--- [CASH] over the meter, the radar scope alone in the bottom-right corner, and the
--- detail card floating above all of it when a slot is selected:
+-- [CASH] over the meter, and the detail card floating above all of it when a slot is
+-- selected. The bottom-RIGHT corner is empty at rest — only the haul panel occupies
+-- it, and only while a signal is being pulled:
 --
 --     ┌───────────────────────────────────────┐  <- Detail card (only if selected)
 --     │[INDEX]        Status line               │
 --     │[CASH ]                                  │
---     │[METER]                         ( SCOPE )│  <- band 144px; scope is NOT in it
---     │              Bag count                  │
+--     │[METER]                          (HAUL)  │  <- band 144px; haul panel is NOT in
+--     │              Bag count                  │     it, and only up while hauling
 --     │   [1][2][3][4][5][6][7][8][9]...        │  <- hotbar, screen edge
 --     └───────────────────────────────────────┘
 --
@@ -123,17 +124,13 @@ UIKit.Stroke = {
 -- dig widget at all. Nothing moved when it went: INSTRUMENT_HEIGHT was a max() that
 -- the meter already won.
 --
--- THE SCOPE IS IN THE CORNER, NOT IN THE BAND, AND THAT IS THE WHOLE POINT OF THIS
--- LAYOUT. It used to sit inside the instrument band, where being the tallest thing in
--- the row (180 vs the meter's 144) pushed INSTRUMENT_HEIGHT
--- and therefore RESERVE up for everything else. It is now anchored to the bottom-right
--- corner on its own, sharing only the INSTRUMENT_BOTTOM baseline with the meter
--- opposite it, so `SCOPE_DIAL` is deliberately ABSENT from INSTRUMENT_HEIGHT below.
--- Put it back in that max() and the centred station panel loses 36px of headroom for
--- a widget that is no longer in the row.
---
--- `DIAL_LEFT_OFFSET` is gone for the same reason: the scope is corner-anchored now, so
--- it is not positioned relative to anything else in the row.
+-- THE RADAR SCOPE IS GONE. It used to sit inside the instrument band, then alone in
+-- the bottom-right corner — a dial with a ring for the detector radius and a blip per
+-- registered contact. It was removed on request as unnecessary: the world (aura wells
+-- + FieldController's range ring) answers "where", and its per-player rarity/odds
+-- readout moved onto the floating pick-up card and the haul panel's title. Neither
+-- `SCOPE_DIAL` nor `DIAL_LEFT_OFFSET` is positioned relative to the row any more
+-- because neither exists.
 --
 -- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN. It now stacks
 -- directly above CashController's badge, on the meter's own left margin, rather than
@@ -167,7 +164,6 @@ Dock.ROW_MAX_WIDTH = 1400 -- absolute cap so an ultrawide monitor does not stret
 Dock.BAGCOUNT_HEIGHT = 18
 
 Dock.METER_SIZE = UDim2.fromOffset(280, 144) -- was 240x46, then 280x60 before HEALTH joined RADS in one panel
-Dock.SCOPE_DIAL = 180 -- was DetectorController.DIAL_SIZE 150
 
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
@@ -234,9 +230,6 @@ Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 -- button — reconsider this the moment that stops being true.
 Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 
--- The bottom-RIGHT corner: just the scope, on the meter's baseline.
-Dock.SCOPE_BOTTOM = Dock.INSTRUMENT_BOTTOM
-
 -- The bottom-LEFT column, bottom-up: meter on the instrument baseline, cash badge
 -- above it, index button above that. Each one's bottom is the previous one's top plus
 -- a gap, so the column stays packed however any single element is resized. (The
@@ -274,31 +267,27 @@ Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 -- right at 1080p collided with the dock on shorter viewports.
 Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 
--- AND AS FAR RIGHT AS IT GOES WITHOUT TOUCHING THE SCOPE, which is what gets it off
--- the surfacing item. It used to be centred, which put a 240px-wide stack straight over
--- the character and the thing climbing out of the soil in front of them.
+-- AND HARD INTO THE BOTTOM-RIGHT CORNER, which is what gets it off the surfacing item.
+-- It used to be centred, which put a 320px-wide stack straight over the character and
+-- the thing climbing out of the soil in front of them.
 --
--- RIGHT RATHER THAN LEFT because the two bottom corners are not the same size: the
--- scope is SCOPE_DIAL (180) wide against the meter column's METER_SIZE.X (280), so
--- going right leaves 100px more room to get clear of centre. Expressed as the scope's
--- own footprint plus a gap rather than a tuned offset, which is what makes it hold at
--- every viewport width instead of at the one it was eyeballed on: the widget's right
--- edge lands exactly one INSTRUMENT_GAP left of the scope, so the two share the
--- HAULPANEL_BOTTOM / SCOPE_BOTTOM baseline and can never overlap each other.
+-- RIGHT RATHER THAN LEFT because the meter / cash / index column owns the left corner;
+-- the right one is empty now that the radar scope is gone, so the widget takes it
+-- outright — same ROW_SIDE_MARGIN inset from the screen edge as everything else here.
+-- It used to stop one INSTRUMENT_GAP short of the scope's footprint; with no scope to
+-- clear it sits ~200px further right, flush to the margin.
 --
--- Its LEFT edge then clears screen centre by ~420px at 1920, ~160 at 1410 and ~95 at
+-- Its LEFT edge then clears screen centre by ~600px at 1920, ~340 at 1410 and ~275 at
 -- 1280 — comfortably past a character that is only ~70px wide on screen.
 --
 -- THE COST OF THE 320px WIDTH IS PAID ON SMALL VIEWPORTS, and it is worth stating
 -- plainly rather than discovering. The free band between the meter column and the
--- scope is (width - 304 - 204) px; below ~1050 that is narrower than the widget, so it
--- reaches back over centre (-32px at 1024) and below ~830 it starts tucking behind the
--- meter as well (~48px at 800). Nothing breaks — the meter is DisplayOrder 100 against
--- DetectorHud's 60 and stays readable on top — but the widget stops dodging the item
--- it is hauling. That is the honest floor for a fixed-size widget on a viewport that
--- small; the fix if it ever matters is a narrower widget under some width, not a
--- different anchor.
-Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SCOPE_DIAL + Dock.INSTRUMENT_GAP
+-- screen edge is (width - 304 - 2*ROW_SIDE_MARGIN) px; below ~670 that is narrower
+-- than the widget, so it starts tucking behind the meter (the meter is DisplayOrder
+-- 100 against DetectorHud's 60 and stays readable on top). That is the honest floor
+-- for a fixed-size widget on a viewport that small; the fix if it ever matters is a
+-- narrower widget under some width, not a different anchor.
+Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace
