@@ -238,9 +238,10 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 Dock.SCOPE_BOTTOM = Dock.INSTRUMENT_BOTTOM
 
 -- The bottom-LEFT column, bottom-up: meter on the instrument baseline, cash badge
--- above it, index button above that, the loaded-liquid badge above that. Each one's
--- bottom is the previous one's top plus a gap, so the column stays packed however any
--- single element is resized.
+-- above it, index button above that. Each one's bottom is the previous one's top plus
+-- a gap, so the column stays packed however any single element is resized. (The
+-- loaded-liquid badge used to top this stack; it is a BillboardGui on the wash pad
+-- now — LiquidController — so the column ends at the index button.)
 --
 -- CASH_SIZE/CASH_BOTTOM WERE PRIVATE LOCALS IN CashController until the index button
 -- moved into this column. They had to come here the moment a second file needed to
@@ -251,10 +252,8 @@ Dock.CASH_SIZE = UDim2.fromOffset(216, 52)
 Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
 Dock.INDEX_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.GAP
 
--- Compact navigation button; derive the next badge offset from its height.
+-- Compact navigation button, top of the bottom-left column.
 Dock.INDEX_SIZE = UDim2.fromOffset(176, 54)
-Dock.LIQUID_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 48)
-Dock.LIQUID_BOTTOM = Dock.INDEX_BOTTOM + Dock.INDEX_SIZE.Y.Offset + Dock.GAP
 
 -- The dock's total reserved height with no card open. IndexController still biases
 -- its own anchor upward by half of this so it lands in the space the dock does not

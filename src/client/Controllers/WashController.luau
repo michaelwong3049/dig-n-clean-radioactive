@@ -725,7 +725,7 @@ local inputRemote: any = nil
 -- free, and so a GUI that happened to be `.Enabled = false` already (nothing here
 -- currently starts that way, but nothing guarantees one never will) comes back off
 -- rather than being turned on by this file.
-local hudGuis: { [ScreenGui]: boolean } = {}
+local hudGuis: { [LayerCollector]: boolean } = {}
 
 -- ── Geometry helpers ────────────────────────────────────────────────
 
@@ -1564,6 +1564,27 @@ local function ensureGui(): boolean
 		table.insert(reticleTicks, { frame = tick, dir = dir })
 	end
 
+	-- ── The loaded-fluid label ──
+	-- Bottom-right, name only, tinted the liquid's own colour. The wash pad's own
+	-- billboard readout (LiquidController) is hidden with the rest of the HUD for the
+	-- session, so this is the only "what am I spraying" cue inside the shot. Kept to a
+	-- word in the corner: the aim, not the inventory, is what this view is about.
+	local fluid = Instance.new("TextLabel")
+	fluid.Name = "Fluid"
+	fluid.AnchorPoint = Vector2.new(1, 1)
+	fluid.Position = UDim2.new(1, -22, 1, -22)
+	fluid.Size = UDim2.fromOffset(240, 24)
+	fluid.BackgroundTransparency = 1
+	fluid.Font = UIKit.Font.title
+	fluid.TextSize = UIKit.TextSize.header
+	fluid.TextXAlignment = Enum.TextXAlignment.Right
+	fluid.TextColor3 = UIKit.C.text
+	fluid.TextStrokeTransparency = 0
+	fluid.Text = ""
+	fluid.Visible = false
+	fluid.ZIndex = 1
+	fluid.Parent = gui
+
 	-- ── The wipe panel ──
 	-- Parked off the RIGHT edge, which is where every completed sweep leaves it.
 	local panel = Instance.new("Frame")
@@ -1712,16 +1733,20 @@ local function paintReticle(dt: number, locked: boolean)
 	end
 end
 
---- Put away every OTHER ScreenGui under PlayerGui -- `wipeGui` (this file's own
+--- Put away every OTHER GUI layer under PlayerGui -- `wipeGui` (this file's own
 --- reticle/wipe layer) is the one thing that must stay on, since it is what the
 --- session is about to look through.
+---
+--- LayerCollector, not ScreenGui: LiquidController's loaded-fluid readout is a
+--- BillboardGui adorned to the wash pad, and it hangs in the world where the shot can
+--- see it. This view draws its own bottom-right fluid label instead.
 local function hideHud()
 	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
 	if playerGui == nil then
 		return
 	end
 	for _, gui in playerGui:GetChildren() do
-		if gui:IsA("ScreenGui") and gui ~= wipeGui and hudGuis[gui] == nil then
+		if gui:IsA("LayerCollector") and gui ~= wipeGui and hudGuis[gui] == nil then
 			hudGuis[gui] = gui.Enabled
 			gui.Enabled = false
 		end
@@ -2296,6 +2321,10 @@ local function enterView()
 	if reticle then
 		reticle.Visible = true
 	end
+	local fluid = wipeGui and wipeGui:FindFirstChild("Fluid")
+	if fluid then
+		fluid.Visible = true
+	end
 
 	if not renderBound then
 		RunService:BindToRenderStep("WashBay", Enum.RenderPriority.Camera.Value + 1, onRender)
@@ -2324,6 +2353,10 @@ local function exitView()
 	restoreHud()
 	if reticle then
 		reticle.Visible = false
+	end
+	local fluid = wipeGui and wipeGui:FindFirstChild("Fluid")
+	if fluid then
+		fluid.Visible = false
 	end
 
 	local camera = Workspace.CurrentCamera
@@ -2423,6 +2456,15 @@ function Wash.start()
 			beginSession()
 		else
 			applySprayColor(wipeTint)
+		end
+
+		-- The loaded liquid can change mid-wash (a canister runs dry and drops you back
+		-- to Plain Water), so this is set on every payload, not just the first. beginSession
+		-- has already run ensureGui by here on a fresh session.
+		local fluid = wipeGui and wipeGui:FindFirstChild("Fluid")
+		if fluid and fluid:IsA("TextLabel") then
+			fluid.Text = payload.liquidName or "Plain Water"
+			fluid.TextColor3 = Color3.fromHex(payload.liquidColor or DEFAULT_LIQUID)
 		end
 	end)
 

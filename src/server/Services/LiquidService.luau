@@ -327,8 +327,8 @@ function LiquidService.spendCharge(data: any): ()
 end
 
 --- The whole shelf: what you hold of each liquid, what is loaded, and the live odds
---- at this player's current luck. Read by LiquidController's badge (which uses only
---- `equipped` and that entry's `held`) and by the `/odds` debug command, which is
+--- at this player's current luck. Read by LiquidController's wash-pad readout (which
+--- uses only `equipped` and that entry's `held`) and by the `/odds` debug command, which is
 --- where the full table lives now that the panel is gone.
 function LiquidService.viewFor(data: any): any
 	local stats = StatResolver.get(data)

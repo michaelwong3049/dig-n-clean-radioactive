@@ -45,10 +45,10 @@ local Artwork = require(script.Parent.Parent.HudArtwork)
 
 local Index = {}
 
--- Dock.INDEX_SIZE, not a local number: LiquidController stacks its badge directly on
--- top of this button, and a second file deriving its offset from this file's private
--- constant is the exact coupling UIKit.Dock exists to prevent. Same migration
--- CashController's own header describes for CASH_SIZE.
+-- Dock.INDEX_SIZE, not a local number: this button's height feeds the bottom-left
+-- column geometry in UIKit.Dock, and a second file deriving its offset from this
+-- file's private constant is the exact coupling UIKit.Dock exists to prevent. Same
+-- migration CashController's own header describes for CASH_SIZE.
 local BUTTON_SIZE = Dock.INDEX_SIZE
 local BUTTON_ACCENT = Color3.fromRGB(181, 143, 255)
 local BUTTON_EDGE = Color3.fromRGB(82, 64, 116)
