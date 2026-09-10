@@ -27,20 +27,23 @@
 	EVERY TIER OF A TRACK HANGS ON A RAIL BESIDE THE STAND, AND YOU BUY THE ONE YOU
 	ARE STANDING AT. The ladder used to be visible only as a list: walk into a radius,
 	a scrolling panel of cards opens, pick a row. It is a physical object now — eight
-	detectors in a row, cheapest first, each hung from the rail by its own handle with
-	its price on a card above it and its own ProximityPrompt — so browsing is WALKING,
-	and buying is pressing E in front of the one you want. The models are the real
-	ones: Assets/Tools/<Track>/T<n>, exactly what ToolService clones into your hands.
+	detectors in a row, cheapest first, each hung from the rail and standing on the
+	deck, its price on a card above it and its own ProximityPrompt — so browsing is
+	WALKING, and buying is pressing E in front of the one you want. The models are the
+	real ones: Assets/Tools/<Track>/T<n>, exactly what ToolService clones into your hands.
 
-	A STOREFRONT IS A STAND PLUS A WING, AND THAT SPLIT IS THIS PASS. The rack first
-	shipped hanging over the counter, which forced the counter to be as long as the
-	ladder — a 37-stud desk with one interaction anywhere on it, reading as one
-	undifferentiated bench. It is two things now, on one shopfront line: a short STAND
-	at the left end (the desk, its sign, its outline on the ground) and, past a gap you
-	can see daylight through, the WING — a shelf with the whole ladder over it. So
-	"where is the menu" has an answer you can see from across the plaza, instead of one
-	you learn by walking into an invisible circle. See "The stand, and the wing beside
-	it" for the constants and for why BOTH halves carry the station attributes.
+	THE GEAR HANGS FLOOR-TO-RAIL, AND THAT STRIP IS THIS PASS. The rack first shipped
+	hanging over a waist-high shelf, so every tier came out ~2 studs tall floating
+	above the desk — a tier-1 magnet was a half-stud sliver. The shelf is gone. A tier
+	now gets the whole rail-to-floor drop: scaled up to fill it and stood on the deck,
+	so the shop finally shows the thing it is selling at a size you can read from
+	across the plaza. See RACK_DROP_* and `hangTierModel`.
+
+	A STOREFRONT IS A STAND PLUS A WING. A short STAND at the left end (the desk, its
+	sign, its outline on the ground) and, past a gap you can see daylight through, the
+	WING — the open tier rack. So "where is the menu" has an answer you can see from
+	across the plaza. See "The stand, and the wing beside it" for the constants and for
+	why BOTH halves carry the station attributes.
 
 	THE PANEL DID NOT GO AWAY. The stand keeps its StationKind and the card panel
 	still opens — that is where the stat blocks live. The rack is the fast path ("I
@@ -99,12 +102,12 @@
 	capitalised Gear.TRACKS spelling, so no case conversion happens at the world
 	boundary — the single lowercase translation lives in Gear.profileKey and nowhere
 	else. A plaza stall emits that trio TWICE — once on the stand at STAND_RADIUS and
-	once on the wing's shelf at a radius derived from the ladder's own length — because
-	the client's owned-ticks need the offer live at both ends of the storefront and a
-	single circle covering both would reach back into the courtyard. Same kind, same
-	StationId, and `StationService.at` takes the nearest, so there is exactly one
-	answer to "which shop am I at" anywhere on the front. The Outfitter's counters keep
-	their tight 6 and stay one part each.
+	once on an invisible RackZone anchor at the wing, at a radius derived from the
+	rack's own width — because the client's owned-ticks need the offer live at both
+	ends of the storefront and a single circle covering both would reach back into the
+	courtyard. Same kind, same StationId, and `StationService.at` takes the nearest, so
+	there is exactly one answer to "which shop am I at" anywhere on the front. The
+	Outfitter's counters keep their tight 6 and stay one part each.
 
 	    SellsTrack = "Detector"   -- this hook sells a rung of this track
 	    SellsTier  = 5            -- which rung, indexing Config/Gear directly
@@ -193,7 +196,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 25
+local BUILDER_VERSION = 26
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
@@ -240,10 +243,14 @@ local STALL_RING_RADIUS = 32
 --- derived so the ring radius is a single number to move. Magnet takes the east
 --- vertex; Detector (NW) and Cleaner (SW) the two western ones, so the gap a player
 --- walks in through faces the pad ring they arrive from.
+--- `present` is the per-track hang angle for the rail models — see RACK_DROP_* and
+--- `hangTierModel`. Tuned against front-on screenshots so each track stands from the
+--- deck to (near) the rail without clipping its neighbour: the detector tips hard
+--- nose-down to drop its coil to the floor, the hose barely tips at all.
 local STALLS = {
-	{ track = "Detector", bearing = 120, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper" },
-	{ track = "Magnet", bearing = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder" },
-	{ track = "Cleaner", bearing = -120, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean" },
+	{ track = "Detector", bearing = 120, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper", present = { yaw = 205, pitch = -80 } },
+	{ track = "Magnet", bearing = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
+	{ track = "Cleaner", bearing = -120, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean", present = { yaw = 196, pitch = -12 } },
 }
 
 -- ── The rack ─────────────────────────────────────────────────────────────────
@@ -278,61 +285,64 @@ local STALLS = {
 local RACK_PITCH = 3.6 -- centre-to-centre between two hanging tiers
 local RACK_END_MARGIN = 3 -- clear shelf past the dearest tier, at the wing's outer end
 local RACK_RAIL_Y = 5.4 -- the horizontal bar the tiers hang from
-local RACK_MODEL_SIZE = 2.9 -- longest axis of a hanging tier, after scaling
 local RACK_SLOT_WIDTH = RACK_PITCH - 0.6 -- across the rack: never touch the next tier
-local RACK_SLOT_DEPTH = 2.4 -- into the stall: never poke through the shelf
+local RACK_SLOT_DEPTH = 3.6 -- into the stall: keep the tier's nose clear of the browse aisle
 
---- Which way the virtual holder faces. 180 is square-on to the customer — a
---- character's LookVector is its own -Z and the stall's +Z is the plaza, so 180 turns
---- the holder to face out. That reads BADLY: a tool held out points along its
---- holder's forward axis, so square-on presents every tool nose-first, and
---- RACK_SLOT_DEPTH then binds the scale for two of the three tracks. A tier-1 magnet
---- came out a 1-stud-tall disc pointing at your face.
+--- THE HANGING TIER STANDS ON THE STALL FLOOR NOW, not on a counter. The rack used
+--- to hang over a waist-high display shelf and every tier came out ~2 studs tall,
+--- floating just above the desk — a tier-1 magnet was a 0.5-stud sliver. That shelf
+--- is gone (see "The stand, and the wing beside it"), so a tier gets the whole
+--- rail-to-floor drop: `hangTierModel` scales it to fill that height, then slides it
+--- straight down until its BASE rests on the deck. The read is a rack of real metal
+--- detectors in a hardware store, coil on the ground, control box up by the rail.
 ---
---- 225 is that turned a further 45 into a three-quarter view: the tool's long axis
---- splits ~evenly between across-the-rack and into-the-stall, so its silhouette is
---- legible AND neither the 3.0-stud slot nor the 2.4-stud depth binds hard. Pure
---- profile (270) is the most legible silhouette of all, but it lays the full length
---- across the rack where it has only RACK_PITCH to live in.
----
---- AND THE HOLDER IS TIPPED FORWARD, WHICH IS THE HALF THAT ACTUALLY FIXED THE
---- MAGNETS. Yaw alone still leaves the tool pointing HORIZONTALLY out of its holder,
---- and a horseshoe magnet is a flat thing: presented level it came out 2.19 across
---- and 0.91 tall, a sliver on a rail. -55 degrees of pitch hangs it nose-down off the
---- rail the way a tool hangs on a pegboard, which turns its length into HEIGHT.
---- Measured across all three tracks at tier 1, this pair is the only one that gets
---- every track standing 2.4-2.8 studs tall inside its slot:
----
----     yaw  pitch | Detector          Magnet            Cleaner      (across/up/deep)
----     225      0 | 2.36/2.63/2.40    2.19/0.91/2.40    2.90/2.72/2.34
----     225    -55 | 2.67/2.70/2.40    1.85/2.83/2.40    2.03/2.37/2.40   <- this one
----     270    -55 | 2.90/2.87/1.36    1.57/2.90/2.06    2.13/2.10/2.40
----     225    -75 | 2.68/2.61/2.40    1.70/2.90/1.92    1.59/1.70/2.40
----     180    -70 | 1.10/2.31/2.40    2.03/2.90/0.89    2.53/1.83/2.40
+--- A tier that fills the drop meets the rail; a compact one (the hose models are
+--- short and blocky) hangs shorter with a slim `Hanger` strap bridging the gap up to
+--- the rail, so it still reads as hung rather than floating.
+local RACK_DROP_BASE = 0.1 -- local Y a tier's base rests at — the stall deck's top face
+local RACK_DROP_TOP = RACK_RAIL_Y - 1.0 -- highest a tier's top may reach — the mount block's underside
+
+--- Ceiling on how far a tier is blown up past the size ToolService hands you. The
+--- tool models are authored small (a tier-1 magnet ships at 0.30 scale — it is a
+--- thing you hold), and filling the whole drop from that would take a 2.7x blow-up
+--- that turns the art chunky. Capped, a cheap tier hangs SHORTER than the drop with a
+--- `Hanger` strap up to the mount — which also draws the eye up the rack as the price
+--- climbs, cheapest and smallest nearest the stand.
+local RACK_MAX_UPSCALE = 1.85
+
+--- Child models to drop from a tier's DISPLAY clone (never the tool you are handed).
+--- The magnet art carries a second, tiny "realistically sized" magnet next to the
+--- hero one as an in-hand gag; blown up on the rack it just reads as a part dropped
+--- on the deck. Matched by name and skipped silently if the art no longer has it —
+--- this file does not own the model's shape (see the mount note above).
+local RACK_HIDE_ON_DISPLAY = { "Realistically Sized Magnet" }
+
+--- Which way the virtual holder faces, and it is PER TRACK now (STALLS' `present`).
+--- One shared pair cannot stand all three tracks up floor-to-rail: a detector's shaft
+--- has to tip ~80 degrees nose-down to drop its coil to the deck, a horseshoe magnet
+--- wants ~68, while the hose model is authored ALREADY upright (its HoldCFrame stands
+--- it on end) and only wants a few degrees or it topples into the aisle. Yaw swings
+--- the tool a little off dead-flat into a three-quarter view so its silhouette reads;
+--- pitch tips its top toward the customer.
 ---
 --- Yaw is applied in the STALL's frame and pitch in the yawed one (origin * Ry * Rx),
 --- not Kit.ang's single XYZ euler — a pitch about the stall's own X before the yaw
 --- tips the row sideways instead of tipping each tool forward.
-local RACK_PRESENT_YAW = 225
-local RACK_PRESENT_PITCH = -55
-local SHOPFRONT_Z = 0.6 -- the shopfront line: stand, display shelf and rail all sit on it
-local MOUNT_REACH = 11 -- prompt activation distance, from in front of the display shelf
+local SHOPFRONT_Z = 0.6 -- the shopfront line: stand, rack rail and hanging gear all sit on it
+local MOUNT_REACH = 11 -- prompt activation distance, from in front of the rack
 
 -- ── The stand, and the wing beside it ───────────────────────────────────
 --
--- THE STAND IS WHERE YOU TALK TO THE SHOP; THE WING IS WHERE THE STOCK LIVES. The
--- rack used to hang over the counter, which meant the counter had to be as long as
--- the ladder — a 38-stud desk with one interaction on it, and the whole storefront
--- reading as one undifferentiated bench. It is two things now, split along the same
--- shopfront line: a short STAND at the left end of the store (the desk with the
--- station attributes, the sign over it and the outline on the ground in front of it)
--- and, past a gap you can see daylight through, the WING — a lower run of shelf with
--- the whole ladder hanging over it, cheapest nearest the stand.
+-- THE STAND IS WHERE YOU TALK TO THE SHOP; THE WING IS WHERE THE STOCK LIVES. A
+-- short STAND at the left end of the store (the desk with the station attributes, the
+-- sign over it and the outline on the ground in front of it) and, past a gap you can
+-- see daylight through, the WING — the open tier rack, its gear standing on the deck
+-- from cheapest nearest the stand.
 --
--- SO "WHERE IS THE MENU" HAS A PHYSICAL ANSWER NOW. Walk to the stand for the card
--- panel and its stat blocks; walk down the wing to look at the actual tools and press
--- E on one. Two doors on the same purchase, as before, but you can now see which
--- door is which from across the plaza instead of learning it by walking into a radius.
+-- SO "WHERE IS THE MENU" HAS A PHYSICAL ANSWER. Walk to the stand for the card panel
+-- and its stat blocks; walk down the wing to look at the actual tools and press E on
+-- one. Two doors on the same purchase, and you can see which door is which from across
+-- the plaza instead of learning it by walking into a radius.
 --
 -- BOTH HALVES CARRY THE STATION ATTRIBUTES, AND THAT IS NOT BELT-AND-BRACES. The
 -- client's owned-check — the green tick that replaces a price on a tier you already
@@ -342,10 +352,11 @@ local MOUNT_REACH = 11 -- prompt activation distance, from in front of the displ
 -- at the tools, which is the exact moment they are worth showing. One circle big
 -- enough to cover both would have to be ~44 studs from a stand sitting at the end of
 -- the store, and that reaches back past PLAZA_MID — a shop panel opening on the
--- respawn anchor in the middle of the courtyard. Two modest circles, one per half,
--- cover the storefront and nothing else; `StationService.at` returns the NEAREST
--- containing station, and both of these answer with the same kind and the same
--- StationId, so which one wins is a question with one answer.
+-- respawn anchor in the middle of the courtyard. Two modest circles — the stand's
+-- desk and the wing's invisible RackZone anchor — cover the storefront and nothing
+-- else; `StationService.at` returns the NEAREST containing station, and both of these
+-- answer with the same kind and the same StationId, so which one wins is a question
+-- with one answer.
 local STAND_WIDTH = 8 -- the desk itself, wide enough to stand at and no wider
 local STAND_EDGE = 2 -- clear lumber outboard of the stand, at the store's left end
 local STAND_RACK_GAP = 3 -- the break between stand and wing: this is the whole read
@@ -363,7 +374,7 @@ local STAND_PROMPT_REACH = 8
 --- How wide a stall has to be to hold its stand AND its whole ladder. DERIVED, not
 --- written down: Detector has 8 tiers and Magnet 6, and a fixed width would either
 --- crush the Detector rack or leave the Magnet stall two thirds empty. Every other
---- dimension of a stall (posts, slats, shelf, canopy, floor markers) keys off this,
+--- dimension of a stall (posts, slats, rack, canopy, floor markers) keys off this,
 --- so adding a tier to a track in Config/Gear widens its shop and nothing else has
 --- to move.
 ---
@@ -398,9 +409,10 @@ local function rackX(track: string): number
 	return standX(track) + STAND_WIDTH / 2 + STAND_RACK_GAP + RACK_SLOT_WIDTH / 2 + rackSpan(track) / 2
 end
 
---- The shelf under the wing: the ladder, plus the half-slot each end tier needs, plus
---- a stud of lip. The rack's own end posts (span/2 + 1.5) stand just inside it.
-local function rackShelfWidth(track: string): number
+--- How wide the rack sits: the ladder, plus the half-slot each end tier needs, plus
+--- a stud of margin. Drives the wing's station-circle radius and its floor marker.
+--- The rack's own end posts (span/2 + 1.5) stand just inside it.
+local function rackFootprintWidth(track: string): number
 	return rackSpan(track) + RACK_SLOT_WIDTH + 1
 end
 
@@ -631,21 +643,15 @@ export type CounterSpec = {
 --- The counter desk — the interactive part — in grey storefront lumber
 --- (C.shopWood) with a coloured trim cap on top in the shop's own accent.
 --- Returns the desk so the caller can billboard it. `name` defaults to "Counter"
---- and exists because a plaza stall builds TWO of these on one shopfront (a Stand
---- and a DisplayShelf) and two sibling parts both called "Counter" is a debugging
---- tax nobody needs in the explorer.
+--- and is passed explicitly by the plaza stalls' one Stand so it does not collide in
+--- the explorer with the Outfitter's three "Counter" desks.
 ---
 --- `promptText` OPTS THIS DESK INTO BEING THE THING YOU PRESS E ON, and a desk without
 --- it gets no prompt at all. The shop panel does not open on approach any more — see
 --- the "you press E" note in the header — so every desk a player is meant to open a
---- panel at needs one. The one deliberate exception is a stall's DisplayShelf: it
---- carries the station attributes (for the rack's owned-ticks) but must stay silent,
---- because ProximityPromptService shows only the CLOSEST prompt bound to a key and a
---- shelf-wide E would spend half the rack stealing the tier hooks' own prompts.
---- `material` defaults to
---- "Wood" (the Outfitter's own look); the plaza stalls pass "Plastic" instead,
---- since Roblox's stud-bump texture only renders on Plastic, and that studded
---- look is the whole point of the reskin.
+--- panel at needs one. `material` defaults to "Wood" (the Outfitter's own look); the
+--- plaza stalls pass "Plastic" instead, since Roblox's stud-bump texture only renders
+--- on Plastic, and that studded look is the whole point of the reskin.
 local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec): BasePart
 	local w, d, z = spec.width, spec.depth, spec.z
 
@@ -786,18 +792,20 @@ local function tierTemplate(track: string, tier: number): Model?
 	return nil
 end
 
---- Hang one tier's real model under the rail, centred on `target`.
+--- Hang one tier's real model under the rail, standing on the stall deck at local `x`.
+--- Returns the tier top's local Y (so the caller can bridge a `Hanger` strap up to
+--- the rail), or nil when this place has no art for the tier.
 ---
 --- ORIENTED THE WAY IT IS CARRIED, via the model's own `HoldCFrame` — the attribute
 --- ToolService reads to place the thing in a player's hands. Feed it a virtual hand
 --- turned to face the customer and the tool lands at exactly the angle a shopkeeper
---- holding it out over the counter would present it at. That matters because the
---- three tracks do NOT share an authored axis: the detector's shaft runs along its
---- local X, the magnet's along its local Z. Any single hand-picked rotation gets one
---- of them right and lies the others flat — the first pass hung a tier-1 magnet
---- 9.7 studs deep, straight back through the counter and out of the slat wall.
---- HoldCFrame is the one piece of per-model orientation this project already
---- maintains, so the rack reads it instead of inventing a second one.
+--- holding it out would present it at. That matters because the three tracks do NOT
+--- share an authored axis: the detector's shaft runs along its local X, the magnet's
+--- along its local Z. Any single hand-picked rotation gets one of them right and lies
+--- the others flat — the first pass hung a tier-1 magnet 9.7 studs deep, straight
+--- back through the counter and out of the slat wall. HoldCFrame is the one piece of
+--- per-model orientation this project already maintains, so the rack reads it instead
+--- of inventing a second one — plus the per-track `present` tip (STALLS' `present`).
 ---
 --- SCALED FROM THE TIER'S OWN SCALE, NOT FROM 1. `Model:ScaleTo` is ABSOLUTE — it
 --- sets scale relative to the model as authored, discarding whatever the instance
@@ -805,28 +813,37 @@ end
 --- tier-1 magnet ships at 0.300), so `ScaleTo(f)` threw the tier's own size away and
 --- came out 35% oversized. It has to be `GetScale() * f`.
 ---
---- AND `f` IS MEASURED IN THE STALL'S FRAME, ON THREE LIMITS, NOT ONE. A single
---- "longest edge = RACK_MODEL_SIZE" rule leaves the other two axes wherever the art
---- put them, and the two that matter here are neighbours (a model wider than
---- RACK_PITCH overlaps the tier next to it) and depth (one deeper than the counter
---- pokes through it). So the oriented box is projected onto the STALL'S local axes —
---- not the world's, the stall is rotated — and the scale is whichever of the three
---- limits binds hardest.
+--- AND `f` IS THE TIGHTEST OF FOUR LIMITS, measured in the STALL'S frame. Height is
+--- the whole rail-to-floor drop (RACK_DROP_TOP - RACK_DROP_BASE) — that is the point
+--- of the pass. Width keeps a tier off its neighbour (RACK_SLOT_WIDTH); depth keeps
+--- its nose out of the browse aisle (RACK_SLOT_DEPTH). RACK_MAX_UPSCALE caps the
+--- blow-up past the authored size so a small-authored model (a tier-1 magnet) does
+--- not go chunky filling the drop — it hangs shorter instead, on a strap. Box
+--- corners are projected onto the STALL'S local axes (not the world's — the stall is
+--- rotated), so a long tool fills the drop and a stubby one stays shorter.
 ---
---- THEN RE-CENTRED, which is what makes any of this safe. HoldCFrame places a
---- model's PIVOT, and a pivot is wherever the Handle happens to sit — a detector's
---- is 1.2 studs off its own box centre. Left alone, every tier would hang at a
---- slightly different height and the row would sag and rise across the rack. So the
---- last step measures the box and slides the model so the BOX centre lands on
---- `target`, whatever the art's pivot is doing.
-local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, target: Vector3, track: string, tier: number): boolean
+--- THEN STOOD ON THE DECK. HoldCFrame places a model's PIVOT, wherever the Handle
+--- happens to sit — a detector's is 1.2 studs off its own box centre. Left alone,
+--- every tier would hang at a different height. So the last step re-measures the
+--- scaled box and slides the model straight down until its BASE is on RACK_DROP_BASE,
+--- and across so its centre sits on `x` and on the shopfront line, whatever the art's
+--- pivot is doing.
+local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: number, track: string, tier: number): number?
 	local template = tierTemplate(track, tier)
 	if template == nil then
-		return false
+		return nil
 	end
 
 	local clone = template:Clone()
 	clone.Name = `T{tier}`
+
+	-- Gag parts that only make sense in the hand — see RACK_HIDE_ON_DISPLAY.
+	for _, name in RACK_HIDE_ON_DISPLAY do
+		local extra = clone:FindFirstChild(name)
+		if extra then
+			extra:Destroy()
+		end
+	end
 
 	-- Display furniture, not physics. An un-anchored clone of a tool built to be
 	-- welded into a hand falls through the plaza the instant the world unfreezes,
@@ -857,38 +874,50 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, tar
 		template:Destroy()
 	end
 
-	-- The model's box, RE-MEASURED ON THE STALL'S OWN AXES: its 8 corners taken into
-	-- the stall's local frame, then min/max per axis. The box GetBoundingBox returns
-	-- is aligned to the MODEL, which after a HoldCFrame turn is aligned to neither
-	-- the stall nor the world — so its raw X/Y/Z say nothing about how much room the
-	-- thing takes up ALONG THE RACK, which is the only extent that can collide with
-	-- a neighbour.
-	local function localExtents(): Vector3
-		local cf, size = clone:GetBoundingBox()
-		local half = size / 2
+	-- The model's box IN THE STALL'S OWN FRAME: every BasePart's 8 corners taken into
+	-- the stall's local axes, then min/max. Per-part rather than off `GetBoundingBox`
+	-- because that returns a box aligned to the MODEL — after a HoldCFrame turn it is
+	-- aligned to neither the stall nor the world, so its corners overstate the real
+	-- extent, and this pass has to land the base ON the deck, not roughly near it.
+	local function localBox(): (Vector3, Vector3)
 		local lo = Vector3.new(math.huge, math.huge, math.huge)
 		local hi = -lo
-		for _, sx in { -1, 1 } do
-			for _, sy in { -1, 1 } do
-				for _, sz in { -1, 1 } do
-					local p = origin:PointToObjectSpace(cf * Vector3.new(sx * half.X, sy * half.Y, sz * half.Z))
-					lo, hi = lo:Min(p), hi:Max(p)
+		for _, d in clone:GetDescendants() do
+			if d:IsA("BasePart") then
+				local half = d.Size / 2
+				for _, sx in { -1, 1 } do
+					for _, sy in { -1, 1 } do
+						for _, sz in { -1, 1 } do
+							local p = origin:PointToObjectSpace(d.CFrame * Vector3.new(sx * half.X, sy * half.Y, sz * half.Z))
+							lo, hi = lo:Min(p), hi:Max(p)
+						end
+					end
 				end
 			end
 		end
-		return hi - lo
+		return lo, hi
 	end
 
-	local e = localExtents()
-	local longest = math.max(e.X, e.Y, e.Z)
-	if longest > 0 then
-		local f = math.min(RACK_MODEL_SIZE / longest, RACK_SLOT_WIDTH / e.X, RACK_SLOT_DEPTH / e.Z)
+	local lo, hi = localBox()
+	local e = hi - lo
+	if math.min(e.X, e.Y, e.Z) > 0 then
+		local f = math.min(
+			(RACK_DROP_TOP - RACK_DROP_BASE) / e.Y,
+			RACK_SLOT_WIDTH / e.X,
+			RACK_SLOT_DEPTH / e.Z,
+			RACK_MAX_UPSCALE
+		)
 		clone:ScaleTo(clone:GetScale() * f)
 	end
 
-	local centre = clone:GetBoundingBox().Position
-	clone:PivotTo(clone:GetPivot() + (target - centre))
-	return true
+	-- Re-measure the scaled box and translate (keeping the orientation) so its base
+	-- sits on the deck and it is centred across the rack and on the shopfront line.
+	lo, hi = localBox()
+	local haveCentre = (lo + hi) / 2
+	local wantCentre = Vector3.new(x, RACK_DROP_BASE + (hi.Y - lo.Y) / 2, SHOPFRONT_Z)
+	clone:PivotTo(clone:GetPivot() + origin:VectorToWorldSpace(wantCentre - haveCentre))
+
+	return RACK_DROP_BASE + (hi.Y - lo.Y)
 end
 
 --- The price card over one hanging tier: its name, and what it costs.
@@ -951,15 +980,21 @@ local function buildPriceCard(mount: BasePart, name: string, price: number, acce
 	sub.Parent = gui
 end
 
+--- What the rack builders need off a STALLS entry: the track, its accent, and the
+--- per-track hang angle. The full STALLS row carries more (bearing, label, …); this
+--- is the slice `buildTierRack` and `buildRackHook` actually read.
+type RackSpec = { track: string, color: string, present: { yaw: number, pitch: number } }
+
 --- One hook on the rail: the mount block that carries the sale, the tier's model
---- hanging under it (or a painted stand-in), and the price card over it.
+--- standing under it (or a painted stand-in), a slim strap hanging it off the rail,
+--- and the price card over it.
 ---
 --- THE MOUNT IS BUILT WHETHER OR NOT THE ART IS. A missing template costs the stall
 --- its silhouette, never its ability to sell — the fallback is a plain block in the
 --- shop's accent, and the prompt, the attributes and the billboard are identical
 --- either way. World.verify() asserts every priced track is buyable somewhere, and
 --- that assertion must not depend on which place file this ran in.
-local function buildRackHook(parent: Instance, origin: CFrame, spec: { track: string, color: string }, tier: number, x: number)
+local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, tier: number, x: number)
 	local def = Gear.tier(spec.track, tier)
 
 	local mount = build(parent, origin, {
@@ -975,23 +1010,37 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: { track: st
 		attributes = { SellsTrack = spec.track, SellsTier = tier },
 	})
 
-	-- THE VIRTUAL HAND: a holder standing BEHIND the counter, facing the customer.
-	-- A character's own frame has its LookVector on -Z, and the stall's +Z points at
-	-- the plaza, so "facing out" is the stall origin turned 180 degrees about Y. Feed
-	-- that to hangTierModel and every tool presents at its carried angle, seen from
-	-- the front. The translation in it does not matter — hangTierModel re-centres on
-	-- `target` afterwards — only the rotation does.
-	local hand = origin * Kit.ang(0, RACK_PRESENT_YAW, 0) * Kit.ang(RACK_PRESENT_PITCH, 0, 0)
-	local target = (origin * CFrame.new(x, RACK_RAIL_Y - 1.9, SHOPFRONT_Z)).Position
-	local hung = hangTierModel(parent, origin, hand, target, spec.track, tier)
+	-- THE VIRTUAL HAND: a holder facing the customer, at this track's `present` tip
+	-- (STALLS' `present` and the RACK_DROP_* header). Only the rotation matters —
+	-- hangTierModel stands the model on the deck afterwards. Yaw about the stall's Y,
+	-- then pitch about the yawed X, so the whole row tips forward together.
+	local hand = origin * Kit.ang(0, spec.present.yaw, 0) * Kit.ang(spec.present.pitch, 0, 0)
+	local topY = hangTierModel(parent, origin, hand, x, spec.track, tier)
 
-	if not hung then
+	if topY == nil then
+		local blockH = RACK_DROP_TOP - RACK_DROP_BASE
 		build(parent, origin, {
 			name = `T{tier}Stand`,
-			pos = { x, RACK_RAIL_Y - 2.4, SHOPFRONT_Z },
-			size = { 1.2, 2.2, 1.2 },
+			pos = { x, RACK_DROP_BASE + blockH / 2, SHOPFRONT_Z },
+			size = { 1.4, blockH, 1.4 },
 			color = spec.color,
 			material = "SmoothPlastic",
+			canCollide = false,
+		})
+		topY = RACK_DROP_TOP
+	end
+
+	-- The strap that hangs a shorter tier off the mount so it reads as hung, not
+	-- floating. Sizes itself to the gap: nothing for a detector that already reaches
+	-- the mount, a visible drop for a stubby hose.
+	local gap = RACK_DROP_TOP - topY
+	if gap > 0.4 then
+		build(parent, origin, {
+			name = `Hanger{tier}`,
+			pos = { x, topY + gap / 2, SHOPFRONT_Z },
+			size = { 0.16, gap, 0.16 },
+			color = C.steelDark,
+			material = "Metal",
 			canCollide = false,
 		})
 	end
@@ -1002,8 +1051,9 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: { track: st
 	prompt.ObjectText = def.name
 	prompt.HoldDuration = 0.4
 	prompt.MaxActivationDistance = MOUNT_REACH
-	-- The counter is a solid part between the player and the rail, so a line-of-sight
-	-- prompt would only ever fire from inside the stall.
+	-- The hanging gear is non-colliding and set CanQuery = false, but the mount sits
+	-- high and a customer's sightline to it grazes the rail, so keep the prompt
+	-- firing without line of sight.
 	prompt.RequiresLineOfSight = false
 
 	-- WHAT THIS PROMPT SAYS WHEN THE TIER IS NOT YOURS, stamped on the prompt itself,
@@ -1022,18 +1072,18 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: { track: st
 	buildPriceCard(mount, def.name, def.price, spec.color)
 end
 
---- Every tier of the track, cheapest on the left, hanging over the wing's shelf.
+--- Every tier of the track, cheapest on the left, standing on the deck below the rail.
 ---
 --- `origin` IS THE WING'S OWN CENTRE, not the stall's — the caller passes
 --- `stallOrigin * CFrame.new(rackX(track), 0, 0)` the same way buildOutfitter shifts
 --- a counterOrigin, so everything below stays written as a symmetric offset from zero
 --- and this function never has to know where in the store it was hung.
-local function buildTierRack(parent: Instance, origin: CFrame, spec: { track: string, color: string })
+local function buildTierRack(parent: Instance, origin: CFrame, spec: RackSpec)
 	local span = rackSpan(spec.track)
 	local count = Gear.maxTier(spec.track)
 
-	-- The rail the tiers hang from, and a post at each end carrying it down to the
-	-- counter top (2.25, the trim cap's own top face).
+	-- The rail the tiers hang from, and a full-height post at each end carrying it
+	-- down to the deck — the counter that used to hold the rail up is gone.
 	build(parent, origin, {
 		name = "RackRail",
 		pos = { 0, RACK_RAIL_Y, SHOPFRONT_Z },
@@ -1045,8 +1095,8 @@ local function buildTierRack(parent: Instance, origin: CFrame, spec: { track: st
 	for _, side in { -1, 1 } do
 		build(parent, origin, {
 			name = "RackPost",
-			pos = { side * (span / 2 + 1.5), (RACK_RAIL_Y + 2.25) / 2, SHOPFRONT_Z },
-			size = { 0.5, RACK_RAIL_Y - 2.25, 0.5 },
+			pos = { side * (span / 2 + 1.5), (RACK_RAIL_Y + RACK_DROP_BASE) / 2, SHOPFRONT_Z },
+			size = { 0.5, RACK_RAIL_Y - RACK_DROP_BASE, 0.5 },
 			color = C.steel,
 			material = "Metal",
 			canCollide = false,
@@ -1065,7 +1115,7 @@ end
 --- the stall's own accent colour. The canopy, the sign text, the floor marker
 --- and the counter's trim cap — all `spec.color` — are the per-shop identity now
 --- that the shopkeeper and the identity prop are gone.
-local function buildStall(parent: Instance, spec: { track: string, bearing: number, color: string, label: string, tagline: string })
+local function buildStall(parent: Instance, spec: { track: string, bearing: number, color: string, label: string, tagline: string, present: { yaw: number, pitch: number } })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
@@ -1155,26 +1205,32 @@ local function buildStall(parent: Instance, spec: { track: string, bearing: numb
 	})
 	buildStoreBillboard(stand, spec.label, spec.tagline, spec.color)
 
-	-- THE WING'S SHELF, carrying the same StationId at its own radius. Not a spare
-	-- copy of the stand: the offer that draws the rack's owned-ticks only exists while
+	-- THE WING'S STATION CIRCLE, carrying the same StationId at its own radius, on an
+	-- invisible anchor now that the shelf under the rack is gone. Not a spare copy of
+	-- the stand: the offer that draws the rack's owned-ticks only exists while
 	-- StationService has you at this shop, so without a circle out here every tick
 	-- blanks the instant you walk over to look at the tools. Two modest circles beat
 	-- one 44-stud one that would reach back into the courtyard — the header block on
-	-- the stand has the full argument and the numbers.
-	buildCounter(m, origin * CFrame.new(rx, 0, 0), {
-		name = "DisplayShelf",
+	-- the stand has the full argument and the numbers. CanQuery off so a transparent
+	-- box does not sit in front of the camera or a stray ray (the WashStand lesson).
+	local rackZone = build(m, origin * CFrame.new(rx, 0, 0), {
+		name = "RackZone",
+		pos = { 0, 3, SHOPFRONT_Z },
+		size = { 1, 1, 1 },
 		color = C.steel,
-		width = rackShelfWidth(spec.track),
-		depth = 2.5,
-		z = SHOPFRONT_Z,
-		stationKind = "shop",
-		stationId = spec.track,
-		radius = rackShelfWidth(spec.track) / 2 + 6,
-		material = "Plastic",
-		studded = true,
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+		attributes = {
+			StationKind = "shop",
+			StationId = spec.track,
+			Radius = rackFootprintWidth(spec.track) / 2 + 6,
+		},
 	})
+	rackZone.CanQuery = false
+	rackZone.CanTouch = false
 
-	-- The ladder itself, hanging over that shelf — see "The hanging tier rack".
+	-- The tier rack itself, standing on the deck — see "The hanging tier rack".
 	buildTierRack(m, origin * CFrame.new(rx, 0, 0), spec)
 
 	buildStripedCanopy(m, origin, spec.color, width)
@@ -1185,7 +1241,7 @@ local function buildStall(parent: Instance, spec: { track: string, bearing: numb
 	-- the ground you walk ALONG to browse the tools. A stud of gap between them, in the
 	-- shop's own colour — never green, see the header.
 	buildFloorMarker(m, origin, sx, 3.4, STAND_WIDTH + 3, 5, spec.color)
-	buildFloorMarker(m, origin, rx, 3.4, rackShelfWidth(spec.track), 5, spec.color)
+	buildFloorMarker(m, origin, rx, 3.4, rackFootprintWidth(spec.track), 5, spec.color)
 
 	m.Parent = parent
 	return m
