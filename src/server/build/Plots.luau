@@ -234,7 +234,7 @@ Plots.PAD = {
 --- eastmost stall (the "Cleaner" counter, once at `RING_CENTER.x + 42`) plus its
 --- ~11-stud half-width, and `FIELD_CLEARANCE` the margin kept past that. THAT
 --- COUPLING IS NOW HISTORICAL: the shop row was re-centred on the plaza midpoint
---- (Hub's grey central spine) rather than on RING_CENTER, so the Cleaner stall
+--- (Hub.CAMP_ORIGIN) rather than on RING_CENTER, so the Cleaner stall
 --- pulled ~14.5 studs back west and no longer reaches anywhere near Stage 1.
 --- `SHOP_CLUSTER_EAST_REACH` is deliberately left at 53 so RING_CENTER stays put
 --- — it is now the established ring position, a conservative bound rather than a
@@ -1805,12 +1805,13 @@ local function buildPlot(parent: Instance, index: number)
 
 	-- THE STAGE, WEARING THE PLAZA'S STUDDED BOARD IN ONE FLAT COLOUR. One step up
 	-- from the apron — a plot should feel like somewhere you walk onto, not part of
-	-- the pavement — and one flat near-black charcoal (`C.baseFloor`) against the
-	-- courtyard's green, so the six bases are the one thing in the world that is not
-	-- some shade of it. The board has been every shape by now (navy/grey checker →
-	-- flat grey → flat near-black → a smooth no-stud plate); back to the studded
-	-- board on request, one flat tone, so the studs catch the light like every other
-	-- floor in the world without the pad alternating or turning to a mirror.
+	-- the pavement — and one flat near-black charcoal (`C.baseFloor`): a shade below
+	-- the base floor's own dark checker and flat where that alternates, so the six
+	-- bases still read as their own thing against it. The board has been every shape
+	-- by now (navy/grey checker → flat grey → flat near-black → a smooth no-stud
+	-- plate); back to the studded board on request, one flat tone, so the studs catch
+	-- the light like every other floor in the world without the pad alternating or
+	-- turning to a mirror.
 	--
 	-- BUILT IN THIS MODEL'S YAWED LOCAL SPACE, THROUGH `origin`, LIKE EVERYTHING ELSE
 	-- IN THIS FUNCTION — the opposite of how this used to work (see this file's own
@@ -1953,13 +1954,12 @@ end
 --- already uses) and punched by `apronSkip` (plaza + every pad's own oriented
 --- footprint) — see that function's own comment above.
 ---
---- `pad = true` on that call is the other half of Hub's grey central spine: the
---- plaza paints the band down its own stretch, this carries it a little further north
---- and south onto the apron — same grid, same `Hub.inPad` test (which caps the length
---- at the Camp -> Stage 1 hazard border, well short of the bases) — so the strip runs
---- unbroken across the plaza/apron seam and stops clean. Where it does reach, the band
---- flows around any plot footprint exactly like the green does, since `apronSkip`
---- punches those out before the colour is ever chosen.
+--- `darkFloor = true` on that call is the other half of Hub's dark base floor: buildPlaza
+--- paints the plaza slab, this paints the rest of the disc — same grid, same
+--- `Hub.inDarkFloor` test — so the base reads as one dark surface. The only green it
+--- leaves is the Camp -> Stage 1 border strip, and `inDarkFloor` produces that here too
+--- wherever the disc runs up against the `maxX = PLAZA.maxX` clip. The dark flows around
+--- every plot footprint since `apronSkip` punches those out before the colour is chosen.
 ---
 --- CLIPPED AT THE FIELD, NOT AT RING_CENTER, ON REQUEST. The disc used to stop
 --- dead at `RING_CENTER.x`, which is west of the plaza's own east edge — the
@@ -1994,7 +1994,7 @@ local function buildApron(row: Model)
 		minZ = Plots.RING_CENTER.z - APRON_CAP_RADIUS,
 		maxZ = Plots.RING_CENTER.z + APRON_CAP_RADIUS,
 	}
-	Hub.tileRect(apron, discBounds, { skip = apronSkip, pad = true })
+	Hub.tileRect(apron, discBounds, { skip = apronSkip, darkFloor = true })
 
 	local BANDS = 12
 	local bandHeight = (2 * APRON_CAP_RADIUS) / BANDS
