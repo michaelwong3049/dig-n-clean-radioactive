@@ -133,9 +133,10 @@ UIKit.Stroke = {
 -- because neither exists.
 --
 -- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN, THEN TO THE RIGHT
--- EDGE. It briefly stacked above CashController's badge on the left; it now sits on
--- the bottom-right, standalone, still measuring its baseline up from the cash row
--- (Dock.CASH_BOTTOM). Its own size/inset live in IndexController.
+-- EDGE. It briefly stacked above CashController's badge on the left; it now sits
+-- standalone on the MIDDLE-RIGHT, centred on the vertical and level with the
+-- cash/meter column, which itself moved to the middle-left (Dock.CASH_MID_Y /
+-- Dock.METER_MID_Y). Its own size/inset live in IndexController.
 --
 -- ONE WIDE BAND, NOT STACKED ROWS. What lives in the band sits side by side inside one
 -- INSTRUMENT_HEIGHT-tall row rather than stacking vertically, which would cost roughly
@@ -231,25 +232,35 @@ Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 -- button — reconsider this the moment that stops being true.
 Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 
--- The bottom-LEFT column, bottom-up: meter on the instrument baseline, cash badge
--- above it. Each one's bottom is the previous one's top plus a gap, so the column
--- stays packed however either element is resized. (The loaded-liquid badge used to
--- top this stack — it is a BillboardGui on the wash pad now, LiquidController — and
--- the index button that briefly replaced it as the top element has since moved to
--- the RIGHT screen edge, IndexController. The left column ends at the cash badge.)
+-- The LEFT column: cash badge on top, meter one GAP below it, the pair centred on the
+-- vertical (Dock.CASH_MID_Y / Dock.METER_MID_Y — defined just below CASH_BOTTOM). It
+-- was bottom-anchored in the corner until "middle left" was requested. (The
+-- loaded-liquid badge used to top this stack — it is a BillboardGui on the wash pad
+-- now, LiquidController — and the index button that briefly replaced it as the top
+-- element has since moved to the RIGHT screen edge, IndexController. The left column
+-- ends at the cash badge.)
 --
--- CASH_SIZE/CASH_BOTTOM WERE PRIVATE LOCALS IN CashController until the index button
--- stacked on top of them here. Nothing stacks on them today, but IndexController
--- still measures its own baseline up from this row, so they stay in the table rather
--- than bounce back to CashController for the next thing that needs them. Same width
--- as the meter, so both share edges.
+-- CASH_SIZE WAS A PRIVATE LOCAL IN CashController until the index button stacked on
+-- top of it here. Same width as the meter, so both share edges. CASH_BOTTOM is the
+-- old bottom-corner baseline — kept as the reference point the SIDE_* offsets below
+-- are documented against, and in case the column ever moves back.
 Dock.CASH_SIZE = UDim2.fromOffset(216, 52)
 Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
 
--- The dock's total reserved height with no card open. IndexController still biases
--- its own anchor upward by half of this so it lands in the space the dock does not
--- cover; StationController deliberately does NOT any more (see its header — its
--- panel is centered on the screen itself now, and clears the dock on its own).
+-- MIDDLE-LEFT / MIDDLE-RIGHT PLACEMENT. On request the cash+meter column and the
+-- INDEX button left the bottom corners for the vertical centre of their screen edge.
+-- The column stays one rigid stack — cash badge on top, meter one GAP below it —
+-- placed by each panel's OWN centre (anchorPoint y = 0.5) at a fixed offset from
+-- screen middle, so it packs the same way however either element is resized. These
+-- are offsets from 0.5-scale, negative = above centre.
+Dock.SIDE_STACK_HEIGHT = Dock.CASH_SIZE.Y.Offset + Dock.GAP + Dock.METER_SIZE.Y.Offset
+Dock.CASH_MID_Y = Dock.CASH_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
+Dock.METER_MID_Y = Dock.SIDE_STACK_HEIGHT / 2 - Dock.METER_SIZE.Y.Offset / 2
+
+-- The dock's total reserved height with no card open. Nothing anchors against it today
+-- — StationController and IndexController both centre their panels on the screen itself
+-- now (see their headers) and the left column moved to the middle-left — but it stays
+-- as the honest measure of how much bottom-edge space the dock claims.
 Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 
 -- RIGHT ABOVE THE HOTBAR, on request. Its bottom edge sits one GAP above the bag-count

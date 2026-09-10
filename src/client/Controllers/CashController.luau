@@ -1,5 +1,5 @@
 --[[
-	CashController.lua — the persistent cash badge. Bottom-left, stacked directly
+	CashController.lua — the persistent cash badge. Middle-left, stacked directly
 	above the health/rads meter, always on screen.
 
 	THERE WAS NO PERSISTENT CASH READOUT BEFORE THIS. data.cash only ever reached the
@@ -11,16 +11,16 @@
 
 	POSITION IS A FORMULA OVER Dock, NOT A FRESH NUMBER (UIKit.luau's own rule) --
 	same left margin as the meter, same width, sitting directly above it with one
-	Dock.GAP between them, so the two read as one stacked instrument cluster in the
-	corner rather than two unrelated floating panels.
+	Dock.GAP between them (Dock.CASH_MID_Y / Dock.METER_MID_Y place the pair around the
+	vertical centre), so the two read as one stacked instrument cluster on the edge
+	rather than two unrelated floating panels.
 
-	SIZE AND BOTTOM ARE Dock.CASH_SIZE / Dock.CASH_BOTTOM NOW, NOT LOCALS HERE. They
-	moved into the shared table the moment IndexController needed to stack the INDEX
-	button on top of this badge — a second file computing its offset from this file's
-	private numbers would be exactly the cross-file magic-number coupling Dock exists
-	to prevent. This file still OWNS the values in the sense that nothing else builds
-	the badge, but the numbers themselves now live in Dock so a resize here is not a
-	silent breakage there.
+	SIZE IS Dock.CASH_SIZE, NOT A LOCAL HERE. It moved into the shared table the moment
+	IndexController needed to measure against this badge — a second file computing its
+	offset from this file's private numbers would be exactly the cross-file
+	magic-number coupling Dock exists to prevent. This file still OWNS the value in the
+	sense that nothing else builds the badge, but the number itself now lives in Dock
+	so a resize here is not a silent breakage there.
 
 	A compact charcoal balance card matches the darker navigation HUD.
 ]]
@@ -36,9 +36,9 @@ local Dock = UIKit.Dock
 
 local Cash = {}
 
--- Dock.CASH_SIZE / Dock.CASH_BOTTOM, not local numbers — see the header.
+-- Dock.CASH_SIZE, not a local number — see the header. The badge now rides the
+-- vertical centre of the left edge (Dock.CASH_MID_Y), stacked directly above the meter.
 local BADGE_SIZE = Dock.CASH_SIZE
-local BADGE_BOTTOM = Dock.CASH_BOTTOM
 
 local ui = {}
 
@@ -68,8 +68,8 @@ local function build(): ScreenGui
 	UIKit.panel(gui, {
 		name = "CashShadow",
 		size = BADGE_SIZE,
-		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -BADGE_BOTTOM + 4),
-		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.CASH_MID_Y + 4),
+		anchorPoint = Vector2.new(0, 0.5),
 		color = Color3.fromRGB(3, 7, 12),
 		transparency = 0.2,
 		cornerRadius = UDim.new(0, 9),
@@ -79,8 +79,8 @@ local function build(): ScreenGui
 	local badge = UIKit.panel(gui, {
 		name = "CashBadge",
 		size = BADGE_SIZE,
-		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -BADGE_BOTTOM),
-		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.CASH_MID_Y),
+		anchorPoint = Vector2.new(0, 0.5),
 		color = Color3.new(1, 1, 1),
 		transparency = 0,
 		cornerRadius = UDim.new(0, 9),

@@ -51,15 +51,12 @@ local Artwork = require(script.Parent.Parent.HudArtwork)
 
 local Index = {}
 
--- The button's own size and screen-bottom inset. These were Dock.INDEX_SIZE /
--- Dock.INDEX_BOTTOM while the button sat in the bottom-left column and its height fed
--- that column's packing. It stands alone on the right edge now — nothing stacks on
--- it — so it owns both outright. BUTTON_BOTTOM is still derived from the cash row
--- (Dock.CASH_BOTTOM) so it tracks that stack if the meter or badge is resized, then
--- dropped BUTTON_LOWER px below it, on request.
+-- The button's own size. It stands alone on the right edge — nothing stacks on it —
+-- and rides the vertical centre of that edge now (was bottom-right), level with the
+-- cash/meter column on the left. It gets its OWN ScreenGui (IgnoreGuiInset = true) so
+-- it centres against the true screen exactly as CashController does; the detail panel
+-- keeps the inset-aware gui it needs (see build()).
 local BUTTON_SIZE = UDim2.fromOffset(140, 44)
-local BUTTON_LOWER = 72
-local BUTTON_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.GAP - BUTTON_LOWER
 local BUTTON_ACCENT = Color3.fromRGB(181, 143, 255)
 local BUTTON_EDGE = Color3.fromRGB(82, 64, 116)
 local BUTTON_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -437,41 +434,46 @@ local function buildDetailColumn(panel: Instance)
 	}
 end
 
-local function build(): ScreenGui
+local function build(): (ScreenGui, ScreenGui)
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "IndexHud"
 	gui.ResetOnSpawn = false
-	-- FALSE, like StationController and for its reason: the panel is the only thing in
-	-- here anchored to the screen CENTRE, and IgnoreGuiInset = true shifts a centred
-	-- child up by half the topbar inset (it clipped ~18px off the panel's top on a
-	-- short viewport). The INDEX button is bottom-anchored, so the inset doesn't move it.
+	-- FALSE, like StationController and for its reason: the detail panel is anchored to
+	-- the screen CENTRE, and IgnoreGuiInset = true shifts a centred child up by half the
+	-- topbar inset (it clipped ~18px off the panel's top on a short viewport). The INDEX
+	-- button lives in its own gui (buttonGui below) precisely so it does NOT have to
+	-- share this trade-off.
 	gui.IgnoreGuiInset = false
 	gui.DisplayOrder = 90
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- The button. BOTTOM-RIGHT, on the same screen-edge margin as the rest of the dock
-	-- but hard to the right rather than the left, and dropped a little below the cash
-	-- row's height, both on request. BUTTON_BOTTOM (see its header) still tracks the
-	-- cash/meter column, so resizing either one still moves the button.
-	--
-	-- HEADS UP: this shares the right corner with the haul widget (Dock.HAULPANEL_*),
-	-- which is up only mid-dig. That overlap window was accepted when this moved here.
-	UIKit.panel(gui, {
+	-- The button. MIDDLE-RIGHT — same screen-edge margin as the rest of the dock but
+	-- hard to the right and centred on the vertical, level with the cash/meter column
+	-- on the left, on request. Its own gui so a 0.5-scale anchor centres against the
+	-- true screen (IgnoreGuiInset = true) exactly as CashController's column does.
+	local buttonGui = Instance.new("ScreenGui")
+	buttonGui.Name = "IndexButton"
+	buttonGui.ResetOnSpawn = false
+	buttonGui.IgnoreGuiInset = true
+	buttonGui.DisplayOrder = 90
+	buttonGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+	UIKit.panel(buttonGui, {
 		name = "IndexShadow",
 		size = BUTTON_SIZE,
-		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -BUTTON_BOTTOM + 4),
-		anchorPoint = Vector2.new(1, 1),
+		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, 4),
+		anchorPoint = Vector2.new(1, 0.5),
 		color = Color3.fromRGB(3, 7, 12),
 		transparency = 0.2,
 		cornerRadius = UDim.new(0, 9),
 		strokeThickness = 0,
 		zIndex = 3,
 	})
-	local button, buttonStroke = UIKit.button(gui, {
+	local button, buttonStroke = UIKit.button(buttonGui, {
 		name = "IndexButton",
 		size = BUTTON_SIZE,
-		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -BUTTON_BOTTOM),
-		anchorPoint = Vector2.new(1, 1),
+		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, 0),
+		anchorPoint = Vector2.new(1, 0.5),
 		text = "",
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.body,
@@ -643,7 +645,7 @@ local function build(): ScreenGui
 	button.MouseButton1Click:Connect(toggle)
 	close.MouseButton1Click:Connect(toggle)
 
-	return gui
+	return gui, buttonGui
 end
 
 -- ── Render ──────────────────────────────────────────────────────────
@@ -773,8 +775,10 @@ end
 
 function Index.start()
 	local player = Players.LocalPlayer
-	local gui = build()
-	gui.Parent = player:WaitForChild("PlayerGui")
+	local gui, buttonGui = build()
+	local playerGui = player:WaitForChild("PlayerGui")
+	gui.Parent = playerGui
+	buttonGui.Parent = playerGui
 
 	Net.get("IndexState").OnClientEvent:Connect(function(payload)
 		discovered = payload or {}
