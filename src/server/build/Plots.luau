@@ -172,7 +172,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 30
+local BUILDER_VERSION = 31
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1006,7 +1006,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- built out of the same studded blocks as the display plinths and the back wall so
 	-- it belongs to the base. `BODY` is the base-course grey, `FACE` the lighter cap
 	-- grey (the display-plinth pair), `LINER` the dark recess inside the tub, `FIT` the
-	-- smooth metal of the pipework and the head. Hose stays jade, water stays cyan.
+	-- smooth metal of the pipework. Hose stays jade, water stays cyan.
 	--
 	-- THE WASH MINIGAME GEOMETRY DID NOT MOVE. WashStand (the item point), WashSpot
 	-- (where WashService plants the player) and WashCam (WashController's fallback) keep
@@ -1146,10 +1146,19 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	-- ── The gantry + back wall, one structure ─────────────────
 	-- Two heavy studded posts on the +X (back) side, a panelled wall filling the gap
-	-- between them so the bay backs onto something solid, a boxed header across the top,
-	-- and an arm reaching forward over the tub to carry the shower head. The FRONT of
-	-- the tub is left open -- nothing between the player and the basin -- so the frame
-	-- looms behind and over the wash rather than caging it.
+	-- between them so the bay backs onto something solid, and a boxed header across the
+	-- top. The FRONT of the tub is left open -- nothing between the player and the basin
+	-- -- so the frame looms behind the wash rather than caging it.
+	--
+	-- NOTHING REACHES OVER THE TUB ANY MORE. There used to be an arm cantilevered
+	-- forward off this header to the tub centre, braced with a gusset at each post, and
+	-- its only job was carrying the shower head. The head is gone (see the tub's water
+	-- below) and the arm went with it -- not merely because it was orphaned, but because
+	-- it had the head's own defect: its underside sits 2.2 studs over WashStand and the
+	-- crust on seven of the fourteen authored items reaches higher than that, the
+	-- tallest of them standing 1.2 studs proud of the beam's TOP. Everything overhead is
+	-- now behind the tub's back rim, where the widest crust measured still clears it by
+	-- most of a stud.
 	local GANTRY_TOP = T + 6.2
 	local POST_Z = -28.2 -- authored; plot x ~= 29.8, just behind the tub's far rim
 	for _, ax in { 14, 22 } do
@@ -1166,125 +1175,72 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- The wall between the posts: a base course and a lighter upper course.
 	build(m, origin, { name = "SplashWall", pos = { 18, T + 1.6, POST_Z }, size = { 7.6, 3.0, 0.7 }, color = BODY, material = "Plastic", studs = true })
 	build(m, origin, { name = "SplashWall", pos = { 18, T + 4.4, POST_Z }, size = { 7.6, 2.4, 0.5 }, color = FACE, material = "Plastic", studs = true })
-	-- Header across the post tops, an arm forward over the tub centre, and a gusset
-	-- cube at each post/arm junction so the reach reads as braced, not cantilevered.
+	-- A boxed header across the post tops, capping the wall and carrying the sign.
 	build(m, origin, { name = "GantryBeam", pos = { 18, GANTRY_TOP, POST_Z }, size = { 9.0, 1.0, 1.2 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
-	build(m, origin, { name = "GantryArm", pos = { cx, GANTRY_TOP, (POST_Z + cz) * 0.5 - 0.5 }, size = { 1.2, 1.0, math.abs(cz - POST_Z) + 2 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
-	for _, ax in { 14, 22 } do
-		build(m, origin, { name = "GantryGusset", pos = { ax, GANTRY_TOP - 0.9, POST_Z - 1.1 }, size = { 1.0, 1.0, 1.6 }, color = BODY, material = "Plastic", studs = true, canCollide = false })
-	end
 
-	-- ── The shower head and its stream ────────────────────────
-	-- The head hangs on a drop pipe from the gantry arm, its underside ~1 stud above the
-	-- item -- close, because it is meant to rinse the thing ON the rack, so there is no
-	-- tall column to fall, only a wide curtain off the head into the tub.
+	-- ── The tub's own water ───────────────────────────────────
+	-- THERE IS NO SHOWER HEAD ANY MORE, and that is a measurement rather than a taste.
+	-- A dug item arrives encased in slag (Shared/ItemCrust) and the crust is SIZED OFF
+	-- THE ITEM, so what sits on the rack is a lump two to five studs across: measured
+	-- over every authored item, it reaches up to 4.4 studs above WashStand and 2.5
+	-- studs back from it. The head hung on a drop pipe with its underside 1.05 studs
+	-- over the stand, and ten of the fourteen items pushed straight through it.
 	--
-	-- ALL PARTICLES, NO GEOMETRY. Geometry this shape reads as solid (a thin cylinder is
-	-- a stick, panes around the item are a display case). Particles animate themselves,
-	-- so a static prop reads as running with no per-frame script: a FALL curtain squashed
-	-- along its drop so it streaks rather than beads, and a SPLASH ring where it lands.
-	-- Matte like everything out here (Kit's palette header) -- LightEmission stays a
-	-- fraction, no PointLight; the fallout is the only thing on a plot that glows.
-	build(m, origin, { name = "ShowerDrop", pos = { cx, T + 5.5, cz }, size = { 1.5, 0.45, 0.45 }, color = FIT, material = "Metal", shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
-	build(m, origin, {
-		name = "ShowerHead",
-		pos = { cx, T + 4.9, cz },
-		size = { 0.7, 2.3, 2.3 },
-		color = C.steel,
-		material = "Metal",
-		shape = "Cylinder",
-		rot = Kit.R.cylUpFlipped,
-		canCollide = false,
-	})
-
-	local jetWhite = "E9F4FF"
-
-	-- A short faint stub of coherent water at the head -- just enough to anchor the
-	-- source, since particles spawning from nothing read as spawning from nothing.
-	local stub = build(m, origin, {
-		name = "Jet",
-		pos = { cx, T + 4.0, cz },
-		size = { 1.1, 0.13, 0.13 },
-		color = jetWhite,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = Kit.R.cylUp,
-		transparency = 0.78,
-		canCollide = false,
-	})
-	stub.Reflectance = 0.06
-	stub.CastShadow = false
-
-	local spout = build(m, origin, {
-		name = "JetSpout",
-		pos = { cx, T + 4.2, cz },
-		size = { 2.0, 0.16, 2.0 },
-		color = jetWhite,
-		material = "SmoothPlastic",
-		transparency = 1,
-		canCollide = false,
-	})
-	local fall = Instance.new("ParticleEmitter")
-	fall.Name = "Fall"
-	fall.Texture = "rbxasset://textures/particles/smoke_main.dds"
-	fall.Color = ColorSequence.new(Color3.fromHex(jetWhite))
-	fall.LightEmission = 0.04
-	fall.LightInfluence = 1
-	-- Left camera-facing (the default), NOT VelocityPerpendicular: perpendicular turns
-	-- each quad edge-on to its own fall, so a dozen at slightly different angles read as
-	-- a scribble of crossed blades rather than rain. `Squash` streaks them along the fall.
-	fall.EmissionDirection = Enum.NormalId.Bottom
-	fall.Rate = 210
-	fall.Lifetime = NumberRange.new(0.5, 0.74)
-	fall.Speed = NumberRange.new(5.5, 7.5)
-	fall.SpreadAngle = Vector2.new(9, 9)
-	fall.Acceleration = Vector3.new(0, -44, 0)
-	fall.Rotation = NumberRange.new(0, 0)
-	fall.RotSpeed = NumberRange.new(0, 0)
-	fall.Squash = NumberSequence.new(2.2)
-	fall.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.15),
-		NumberSequenceKeypoint.new(1, 0.09),
-	})
-	fall.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.4),
-		NumberSequenceKeypoint.new(0.8, 0.62),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	fall.Parent = spout
-
-	local splashHost = build(m, origin, {
-		name = "JetSplash",
+	-- RAISING IT DOES NOT FIX IT, which is why this is a deletion and not a nudge. The
+	-- gantry arm's own underside is 2.7 studs over the stand, so no height under the arm
+	-- clears the tall items; the crust very nearly fills the basin, so no position over
+	-- it clears the wide ones. Anything solid hung above the rack is something the next
+	-- item will wear.
+	--
+	-- THE OVERHEAD WATER WENT WITH IT, on the minigame's terms rather than the prop's. A
+	-- curtain falling down the middle of the shot is the one thing this wash cannot
+	-- afford: the player is aiming a hose at crust a couple of studs across, and a
+	-- second stream between the lens and the target competes with their own for the only
+	-- thing they are being asked to read. The rinse is theirs alone now.
+	--
+	-- WHAT IS LEFT IS THE WATER ALREADY IN THE TUB -- a slow churn turning over the
+	-- drain, which says the bay is live without putting anything between the player and
+	-- the thing they came here to clean. Particles, not geometry, for the reason the
+	-- stream always was: a particle animates itself, so a static prop reads as running
+	-- with no per-frame script anywhere. Matte like everything out here (Kit's palette
+	-- header) -- LightEmission stays a fraction, no PointLight; the fallout is the only
+	-- thing on a plot that glows.
+	local churnHost = build(m, origin, {
+		name = "TubChurn",
 		pos = { cx, T + 1.45, cz },
 		size = { 3.8, 0.1, 3.2 },
-		color = jetWhite,
+		color = "E9F4FF",
 		material = "SmoothPlastic",
 		transparency = 1,
 		canCollide = false,
 	})
-	local splash = Instance.new("ParticleEmitter")
-	splash.Name = "Splash"
-	splash.Texture = "rbxasset://textures/particles/smoke_main.dds"
-	splash.Color = ColorSequence.new(Color3.fromHex("F4FAFF"))
-	splash.LightEmission = 0.04
-	splash.LightInfluence = 1
-	splash.EmissionDirection = Enum.NormalId.Top
-	splash.Rate = 55
-	splash.Lifetime = NumberRange.new(0.22, 0.44)
-	splash.Speed = NumberRange.new(4, 8)
-	splash.SpreadAngle = Vector2.new(72, 72)
-	splash.Acceleration = Vector3.new(0, -19, 0)
-	splash.Squash = NumberSequence.new(1.3)
-	splash.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.09),
-		NumberSequenceKeypoint.new(0.35, 0.2),
+	local churn = Instance.new("ParticleEmitter")
+	churn.Name = "Churn"
+	churn.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	churn.Color = ColorSequence.new(Color3.fromHex("F4FAFF"))
+	churn.LightEmission = 0.04
+	churn.LightInfluence = 1
+	churn.EmissionDirection = Enum.NormalId.Top
+	-- A SIMMER, NOT A SPLASH. The old numbers were an impact ring under a falling
+	-- column: fast, wide, and thrown clear of the rim. With nothing landing on it the
+	-- surface is only turning over, so rate, speed and spread all come down and the
+	-- drops stay inside the tub instead of arcing out over the deck.
+	churn.Rate = 26
+	churn.Lifetime = NumberRange.new(0.4, 0.75)
+	churn.Speed = NumberRange.new(1.2, 2.6)
+	churn.SpreadAngle = Vector2.new(34, 34)
+	churn.Acceleration = Vector3.new(0, -12, 0)
+	churn.Squash = NumberSequence.new(1.1)
+	churn.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.07),
+		NumberSequenceKeypoint.new(0.4, 0.16),
 		NumberSequenceKeypoint.new(1, 0),
 	})
-	splash.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.5),
+	churn.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.62),
 		NumberSequenceKeypoint.new(1, 1),
 	})
-	splash.Parent = splashHost
+	churn.Parent = churnHost
 
 	-- The station sign rides the gantry header (the back wall itself is built up in the
 	-- gantry section above). The accent lamp is a ball on the header end with a soft

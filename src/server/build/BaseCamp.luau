@@ -30,16 +30,12 @@
 	rack the item, not on a round trip back here. See Plots.luau's
 	`buildCleansingStation` for the replacement and the reasoning.
 
-	NO WALLS AND NO TRADER HERE EITHER, as of this pass. The camp used to be a
-	walled enclosure sitting inside the open plaza, boxing the trader off from the
-	shops around it; both the walls and the trader are gone now, so the plaza reads
-	as one open shop area instead of a plaza with a smaller walled camp inside it.
-	The item-model yard in the southwest corner is now the only permanent structure
-	owned by this module. THIS MEANS THERE IS
-	CURRENTLY NO `StationKind = "trader"` ANYWHERE IN THE WORLD — `EconomyService.sell`
-	and the "sell" verb in `DeconService`'s action router are still there and still
-	work, but nothing in the world can trigger them until a trader (or some other
-	sell point) is placed again somewhere. Flagged, not silently dropped — see TODO.md.
+	THE TRADER IS BACK, but not the old walled camp version. It is a compact open
+	kiosk just south of the plaza midpoint: close enough to be the natural return
+	stop after a run, but offset far enough that a player spawning at the exact
+	middle does not immediately open the sell panel. The kiosk is intentionally low
+	and open on every side, so it restores the sell loop without reintroducing a
+	second enclosure inside the plaza.
 
 	NO ENTRANCE GATE EITHER. The two posts, their lamps, and the "BASE CAMP" sign
 	spanning between them read as an archway framing the approach, which wasn't
@@ -55,7 +51,7 @@ local ModelGallery = require(script.Parent.ModelGallery)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 8
+local BUILDER_VERSION = 9
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -69,6 +65,9 @@ local DEFAULT_ORIGIN = CFrame.new(0, 0.9, 136)
 -- Kit remains responsible for this model's stamp and atomic rebuild plumbing.
 
 export type Spec = Kit.Spec
+
+local C = Kit.C
+local build, billboard = Kit.build, Kit.billboard
 
 -- ── The camp ──────────────────────────────────────────────────────────────────
 
@@ -107,6 +106,98 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- It stays out of the central aisle and automatically includes every catalog item
 	-- backed by ItemModels whenever this camp is rebuilt.
 	ModelGallery.build(ModelGallery.originForBase(origin), camp)
+
+	-- A small open trader kiosk, deliberately placed in the inner plaza rather than
+	-- behind a wall or at a player's private plot. The counter is 10 studs south of
+	-- the respawn anchor and has an 8-stud station radius: arriving players can see
+	-- it immediately but do not have a sale window forced open on spawn.
+	local trader = Instance.new("Model")
+	trader.Name = "Trader"
+
+	local kiosk = origin * CFrame.new(0, 0, -12)
+	build(trader, kiosk, {
+		name = "Deck",
+		pos = { 0, -0.35, 0 },
+		size = { 13, 0.7, 7 },
+		color = C.shopWoodLight,
+		material = "WoodPlanks",
+	})
+
+	-- Four slim posts and a shallow striped roof make it read as a shop from the
+	-- plaza without adding a solid wall to the central walking route.
+	for _, x in { -5.4, 5.4 } do
+		for _, z in { -2.5, 2.5 } do
+			build(trader, kiosk, {
+				name = "Post",
+				pos = { x, 2.4, z },
+				size = { 0.55, 5.5, 0.55 },
+				color = C.shopWood,
+				material = "Wood",
+				studs = true,
+			})
+		end
+	end
+	build(trader, kiosk, {
+		name = "Canopy",
+		pos = { 0, 5.25, 0 },
+		size = { 12.6, 0.45, 6.4 },
+		color = C.canvasPale,
+		material = "Fabric",
+	})
+	for _, x in { -4.2, 0, 4.2 } do
+		build(trader, kiosk, {
+			name = "CanopyStripe",
+			pos = { x, 5.5, 0 },
+			size = { 1.05, 0.08, 6.45 },
+			color = C.gold,
+			material = "Fabric",
+		})
+	end
+
+	local counter = build(trader, kiosk, {
+		name = "TraderCounter",
+		pos = { 0, 1.05, 2.0 },
+		size = { 10.8, 2.2, 1.25 },
+		color = C.shopWood,
+		material = "Wood",
+		attributes = { StationKind = "trader", Radius = 8 },
+	})
+	build(trader, kiosk, {
+		name = "CounterTop",
+		pos = { 0, 2.23, 2.0 },
+		size = { 11.2, 0.22, 1.6 },
+		color = C.gold,
+		material = "Metal",
+	})
+	billboard(counter, 210, 4.3, "TRADER", "turn finds into cash", C.gold)
+
+	-- A scale and two open crates give the counter a clear purpose without a vendor
+	-- NPC that would need animation and ownership code.
+	build(trader, kiosk, {
+		name = "ScaleBase",
+		pos = { 0, 2.46, 1.6 },
+		size = { 2.2, 0.18, 1.1 },
+		color = C.steelDark,
+		material = "Metal",
+	})
+	build(trader, kiosk, {
+		name = "ScalePlate",
+		pos = { 0, 2.68, 1.6 },
+		size = { 1.45, 0.14, 0.8 },
+		color = C.steel,
+		material = "Metal",
+	})
+	for _, x in { -3.8, 3.8 } do
+		build(trader, kiosk, {
+			name = "TradeCrate",
+			pos = { x, 0.65, -1.25 },
+			size = { 2.1, 1.65, 1.8 },
+			color = C.woodLight,
+			material = "WoodPlanks",
+		})
+	end
+
+	trader.Parent = camp
 end
 
 -- ── Entry points ──────────────────────────────────────────────────────────────

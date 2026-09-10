@@ -53,6 +53,7 @@ local state = {
 	maxHealth = 100,
 	healthBurn = 0,
 	ambient = 0,
+	depth = 0, -- metres below base camp's edge; 0 in camp
 	excess = 0,
 	survivable = -1, -- -1 mirrors DebugService's "never" convention
 	threat = "",
@@ -229,6 +230,22 @@ local function build(): ScreenGui
 		zIndex = 4,
 	})
 
+	-- DEPTH — metres past base camp's edge, its own centred row directly under the
+	-- stage name (in the 26px the panel grew by, Dock.METER_SIZE 144 -> 170). Blank
+	-- in camp (depth 0): the stage label already reads "Base Camp" there, and a
+	-- "0 m" would just be noise.
+	ui.depth = UIKit.label(panel, {
+		name = "Depth",
+		position = UDim2.fromOffset(16, 142),
+		size = UDim2.new(1, -32, 0, 20),
+		font = UIKit.Font.title,
+		textSize = 15,
+		color = DIM,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "",
+		zIndex = 4,
+	})
+
 	-- Blackout curtain. Full-screen background, unchanged; the text on it is bigger
 	-- and centred exactly as before — it already lived at true screen-centre.
 	ui.curtain = Instance.new("Frame")
@@ -310,6 +327,7 @@ local function render(dt: number)
 	ui.percentValue.Text = string.format("%d%%", math.floor(frac * 100 + 0.5))
 	ui.percentValue.TextColor3 = if frac >= Tuning.EXPOSURE_DANGER then colour else DIM
 	ui.readout.Text = string.format("%+.2f r/s", state.net)
+	ui.depth.Text = if state.depth > 0 then string.format("\u{25BC} %d m", math.floor(state.depth + 0.5)) else ""
 	ui.stageLabel.Text = state.stageName
 
 	-- HEALTH. Green is exposure's colour and exposure's alone (PLAN §14's one-colour
@@ -420,6 +438,7 @@ function Hud.start()
 		state.health = payload.health or state.health
 		state.healthBurn = payload.healthBurn or 0
 		state.ambient = payload.ambient or 0
+		state.depth = payload.depth or 0
 		state.excess = payload.excess or 0
 		state.survivable = if payload.survivable ~= nil then payload.survivable else -1
 		state.threat = payload.threat or ""

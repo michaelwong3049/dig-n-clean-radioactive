@@ -359,10 +359,23 @@ local AIM_RANGE = 60
 -- hidden anyway, so this is not about escaping it -- it is about not being able to see
 -- the inside of your own shoulders when you pitch all the way down.
 local EYE_FORWARD = 0.4
--- Narrower than the default 70. A wash is close work and the item is a stud and a
--- half across; this is a gentle lean-in that makes the patches bigger targets without
--- cropping the station out of the frame around them.
-local WASH_FOV = 60
+-- WIDER THAN THE DEFAULT 70, and it used to be narrower. 60 was a deliberate lean-in
+-- chosen when the thing on the stand was the ITEM -- "a stud and a half across", per the
+-- note this replaces -- and it made the patches bigger targets for free.
+--
+-- WHAT SITS THERE NOW IS THE ITEM WRAPPED IN ROCK (Shared/ItemCrust), and the crust is
+-- sized off the item rather than off the stand: measured across every authored item it
+-- runs two to five studs across and reaches over four studs above the stand. At 60,
+-- from six studs away, the bigger ones filled the frame -- so the shot that was framing
+-- an object was cropping a boulder, and the station it is standing in went with it.
+--
+-- 72 IS A DOLLY BACK THE CAMERA CANNOT DO. Backing the eye off is not available: it sits
+-- at the character's own head and the head is the one part hidden for the session, so a
+-- camera pulled behind it looks at a decapitated torso. Widening the angle buys the same
+-- retreat -- everything at the stand comes back about a fifth -- without moving the eye
+-- off the face it is supposed to be behind. See HELD_OFFSET for the one thing that had
+-- to move with it.
+local WASH_FOV = 72
 -- How far off "pointing at the item" the player may look, in each axis. See the
 -- header for why this is a clamp rather than a body that turns.
 local YAW_LIMIT = math.rad(32)
@@ -382,7 +395,18 @@ local FOCUS_AHEAD = 8
 -- distance JET_GIRTH_MAX's softening was tuned against (see its own note below), so
 -- reusing that number here is what keeps the stream's width looking right rather than
 -- introducing a second, disagreeing assumption about how far away the muzzle sits.
-local HELD_OFFSET = CFrame.new(0.6, -0.85, -1.7)
+--
+-- X AND Y MOVED WITH WASH_FOV, and they had to. A held offset is a position in the
+-- WORLD, but where it lands on screen is that position divided by the frame the lens
+-- cuts -- so widening the angle drags a fixed offset toward the middle of the picture.
+-- Left alone at 60's numbers, the FOV change would have walked the nozzle up off the
+-- bottom edge and in front of the item. Scaled by tan(36)/tan(30), it holds exactly the
+-- screen position it had and only gets smaller, which is the whole point of the change.
+--
+-- Z DID NOT MOVE, and must not: the 1.7 is shared with JET_GIRTH_MAX, whose softening
+-- was tuned against a muzzle roughly two studs off the lens (see its note). Pushing the
+-- nozzle further out to shrink it would quietly re-tune the stream's width as well.
+local HELD_OFFSET = CFrame.new(0.76, -1.07, -1.7)
 -- How fast the barrel chases the aim, per second, as an exponential catch-up. Not
 -- instant, and the lag is the point: a nozzle that snapped to the reticle would read
 -- as a cursor with a model on it rather than a thing with some weight to swing. At 14
