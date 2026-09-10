@@ -425,7 +425,9 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 40
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	local panel, panelStroke = UIKit.panel(gui, {
+	local canvas = UIKit.canvas(gui)
+
+	local panel, panelStroke = UIKit.panel(canvas, {
 		name = "Panel",
 		size = UDim2.new(1, -2 * SCREEN_MARGIN, 0, 0),
 		position = UDim2.fromScale(0.5, 0.5),
@@ -439,14 +441,14 @@ local function build(): ScreenGui
 	ui.panel = panel
 	ui.panelStroke = panelStroke
 
-	-- Parented to `gui`, a SIBLING of the panel, not a child of it. Every direct
+	-- Parented to the canvas, a SIBLING of the panel, not a child of it. Every direct
 	-- child of `panel` is claimed by the UIListLayout added near the bottom of this
 	-- function -- a close button dropped in there would become another row in the
 	-- stack, not a badge floating over a corner. Living outside that layout means
 	-- tracking the panel's own corner by hand instead of getting it for free, hence
 	-- repositionClose() below, re-run whenever the panel moves or resizes (it does
 	-- both: automaticSizeY, and MaxSize swaps between shop/list widths per mode).
-	local closeButton = UIKit.button(gui, {
+	local closeButton = UIKit.button(canvas, {
 		name = "Close",
 		size = UDim2.fromOffset(32, 32),
 		anchorPoint = Vector2.new(1, 0),
@@ -463,10 +465,12 @@ local function build(): ScreenGui
 	ui.closeButton = closeButton
 
 	local function repositionClose()
-		closeButton.Position = UDim2.fromOffset(
-			panel.AbsolutePosition.X + panel.AbsoluteSize.X - 14,
-			panel.AbsolutePosition.Y + 14
-		)
+		-- AbsolutePosition / AbsoluteSize are SCREEN pixels and the button's Offset is a
+		-- design pixel on the same UIKit canvas, so measure from the canvas's own corner
+		-- and divide by its scale — or the badge drifts off the corner as the HUD scales.
+		local s = UIKit.canvasScale(canvas)
+		local corner = (panel.AbsolutePosition - canvas.AbsolutePosition) / s
+		closeButton.Position = UDim2.fromOffset(corner.X + panel.AbsoluteSize.X / s - 14, corner.Y + 14)
 	end
 	panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(repositionClose)
 	panel:GetPropertyChangedSignal("AbsolutePosition"):Connect(repositionClose)

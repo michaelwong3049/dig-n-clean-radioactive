@@ -34,10 +34,12 @@ local HIDDEN = UDim2.new(0.5, 0, 0, -100) -- fully off the top edge
 local SLIDE = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local CLICK_DEBOUNCE = 0.4
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local BACKGROUND = Color3.fromRGB(18, 20, 24)
-local HOVER_BACKGROUND = Color3.fromRGB(29, 32, 38)
-local EDGE = Color3.fromRGB(49, 53, 61)
-local HOVER_EDGE = Color3.fromRGB(88, 94, 105)
+-- Shared with IndexController's Index tile (UIKit.C.nav*), so the two read as one
+-- family of buttons.
+local BACKGROUND = UIKit.C.navFill
+local HOVER_BACKGROUND = UIKit.C.navFillHover
+local EDGE = UIKit.C.navEdge
+local HOVER_EDGE = UIKit.C.navEdgeHover
 
 local BUTTONS = {
 	{ dest = "base", text = "BASE" },
@@ -66,7 +68,8 @@ local function build(): ScreenGui
 	local width = #BUTTONS * BTN_W + (#BUTTONS - 1) * GAP
 	local height = BTN_H
 
-	local panel = UIKit.panel(gui, {
+	local canvas = UIKit.canvas(gui)
+	local panel = UIKit.panel(canvas, {
 		name = "Panel",
 		size = UDim2.fromOffset(width, height),
 		position = HIDDEN,
@@ -82,7 +85,7 @@ local function build(): ScreenGui
 			name = spec.text .. "Shadow",
 			size = UDim2.fromOffset(BTN_W, BTN_H),
 			position = UDim2.fromOffset((index - 1) * (BTN_W + GAP), 4),
-			color = Color3.fromRGB(3, 7, 12),
+			color = UIKit.C.navShadow,
 			transparency = 0.2,
 			cornerRadius = UDim.new(0, 9),
 			strokeThickness = 0,
@@ -114,7 +117,7 @@ local function build(): ScreenGui
 			TweenService:Create(stroke, HOVER, { Color = if active then HOVER_EDGE else EDGE }):Play()
 			for _, piece in iconPieces do
 				TweenService:Create(piece, HOVER, {
-					BackgroundColor3 = if active then Color3.new(1, 1, 1) else Color3.fromRGB(232, 242, 255),
+					BackgroundColor3 = if active then Color3.new(1, 1, 1) else UIKit.C.navIcon,
 				}):Play()
 			end
 		end

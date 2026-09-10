@@ -5,8 +5,8 @@
 	THIS IS THE GUI HALF OF PLAN §10.10, NOT THE WHOLE THING. The full "Museum /
 	Collection Wall" — a physical base-camp gallery, stage-completion luck bonuses —
 	is explicitly a long-term / post-MVP feature there. This is scoped to exactly
-	what was asked for: a small button, bottom-left, that opens a browsable panel.
-	No new world geometry, no completion bonus.
+	what was asked for: an Index tile on the right edge that opens a browsable
+	panel. No new world geometry, no completion bonus.
 
 	THE LAYOUT IS A CARD GRID NOW, NOT A TEXT LIST. Each stage is a section of square
 	tiles — a dim "?" until you have held the item, its name in its rarity colour once
@@ -51,15 +51,26 @@ local Artwork = require(script.Parent.Parent.HudArtwork)
 
 local Index = {}
 
--- The button's own size. It stands alone on the right edge — nothing stacks on it —
--- and rides the vertical centre of that edge now (was bottom-right), level with the
--- cash/meter column on the left. It gets its OWN ScreenGui (IgnoreGuiInset = true) so
--- it centres against the true screen exactly as CashController does; the detail panel
--- keeps the inset-aware gui it needs (see build()).
-local BUTTON_SIZE = UDim2.fromOffset(140, 44)
-local BUTTON_ACCENT = Color3.fromRGB(181, 143, 255)
-local BUTTON_EDGE = Color3.fromRGB(82, 64, 116)
-local BUTTON_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+-- THE INDEX TILE. A square dark card with a big white book on it and its name
+-- under that in outlined type — the side-button shape the reference asked for, in
+-- place of the wide purple INDEX pill. Same palette as WarpController's BASE / SHOPS
+-- cards (UIKit.C.nav*), so the HUD's buttons read as one family.
+--
+-- It stands alone on the right edge — nothing stacks on it — its TOP level with the top
+-- of the cash/meter column on the left (Dock.SIDE_TOP_Y; see there for why the top and
+-- not the centre), or on the vertical centre on a screen too short for that line
+-- (Dock.SIDE_TOP_MIN_HEIGHT). It gets its OWN ScreenGui (IgnoreGuiInset = true) so
+-- those offsets measure against the true screen exactly as the left column's do; the
+-- detail panel keeps the inset-aware gui it needs (see build()).
+--
+-- "Index" at 18 measures 47px in GothamBlack. 18 is the reference's letter height for
+-- an 80px tile — the reference's own word ran the full width only because it was a
+-- long one ("Collection"). A much longer word wants a wider tile or a smaller size,
+-- not TextScaled.
+local TILE_SIZE = 80
+local TILE_CAPTION = "Index"
+local TILE_CAPTION_SIZE = 18
+local TILE_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- ── Panel geometry ──────────────────────────────────────────────────
 -- Responsive like StationController's panel rather than a fixed box: width is
@@ -447,94 +458,108 @@ local function build(): (ScreenGui, ScreenGui)
 	gui.DisplayOrder = 90
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- The button. MIDDLE-RIGHT — same screen-edge margin as the rest of the dock but
-	-- hard to the right and centred on the vertical, level with the cash/meter column
-	-- on the left, on request. Its own gui so a 0.5-scale anchor centres against the
-	-- true screen (IgnoreGuiInset = true) exactly as CashController's column does.
+	-- The tile. MIDDLE-RIGHT — the dock's own screen-edge margin, hung from the left
+	-- column's top line (Dock.SIDE_TOP_Y), or centred on a short screen; see place()
+	-- and the constants above. Its own gui so that 0.5-scale anchor measures against
+	-- the true screen (IgnoreGuiInset = true) exactly as CashController's column does.
 	local buttonGui = Instance.new("ScreenGui")
 	buttonGui.Name = "IndexButton"
 	buttonGui.ResetOnSpawn = false
 	buttonGui.IgnoreGuiInset = true
-	buttonGui.DisplayOrder = 90
+	-- UNDER DetectorHud (60), where the old pill sat over everything at 90. The haul
+	-- widget shares this edge, and on a short screen — where the tile falls back to the
+	-- vertical centre (Dock.SIDE_TOP_MIN_HEIGHT) — its rarity word can still reach the
+	-- tile, as it could the pill; this way the word runs over the tile, not under it.
+	-- That widget is only up mid-haul, when it is the thing being read. Still over
+	-- StationHud (40), as the pill was.
+	buttonGui.DisplayOrder = 55
 	buttonGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	local buttonCanvas = UIKit.canvas(buttonGui)
 
-	UIKit.panel(buttonGui, {
+	-- Both are placed by place() below, once the canvas knows how tall it is.
+	local tileSize = UDim2.fromOffset(TILE_SIZE, TILE_SIZE)
+	local shadow = UIKit.panel(buttonCanvas, {
 		name = "IndexShadow",
-		size = BUTTON_SIZE,
-		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, 4),
-		anchorPoint = Vector2.new(1, 0.5),
-		color = Color3.fromRGB(3, 7, 12),
+		size = tileSize,
+		color = UIKit.C.navShadow,
 		transparency = 0.2,
 		cornerRadius = UDim.new(0, 9),
 		strokeThickness = 0,
 		zIndex = 3,
 	})
-	local button, buttonStroke = UIKit.button(buttonGui, {
+	local button, buttonStroke = UIKit.button(buttonCanvas, {
 		name = "IndexButton",
-		size = BUTTON_SIZE,
-		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, 0),
-		anchorPoint = Vector2.new(1, 0.5),
+		size = tileSize,
 		text = "",
-		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.body,
-		color = UIKit.C.text,
-		fillColor = Color3.fromRGB(200, 210, 225),
+		fillColor = UIKit.C.navFill,
 		fillTransparency = 0,
-		strokeColor = BUTTON_EDGE,
+		strokeColor = UIKit.C.navEdge,
 		strokeThickness = 2,
 		cornerRadius = UDim.new(0, 9),
 		zIndex = 4,
 	})
 	buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new(Color3.fromRGB(47, 37, 66), Color3.fromRGB(17, 12, 28))
-	gradient.Rotation = 90
-	gradient.Parent = button
-	UIKit.panel(button, {
-		name = "Accent",
-		size = UDim2.new(1, -24, 0, 2),
-		position = UDim2.new(0, 12, 1, -6),
-		color = BUTTON_ACCENT,
-		transparency = 0.15,
-		strokeThickness = 0,
-		cornerRadius = UDim.new(0, 1),
-		zIndex = 5,
-	})
-	local icon = Instance.new("Frame")
-	icon.Name = "BookArtwork"
-	icon.Size = UDim2.fromOffset(70, 70)
-	-- Anchor on the left-middle so the UIScale below shrinks the artwork around its own
-	-- vertical centre and it stays centred in the shorter button.
-	icon.AnchorPoint = Vector2.new(0, 0.5)
-	icon.Position = UDim2.fromScale(0, 0.5)
-	icon.BackgroundTransparency = 1
-	icon.ZIndex = 6
-	icon.Parent = button
-	local iconScale = Instance.new("UIScale")
-	iconScale.Scale = 0.58
-	iconScale.Parent = icon
-	Artwork.book(icon)
-	local title = UIKit.label(button, {
+
+	-- Hung from the left column's top line on a tall enough design screen, on the
+	-- vertical centre below that — see Dock.SIDE_TOP_MIN_HEIGHT for why the switch.
+	-- Re-run on every canvas resize: the design height is what decides, and it moves
+	-- with both the window and the HUD scale.
+	local function place()
+		local height = buttonCanvas.AbsoluteSize.Y / UIKit.canvasScale(buttonCanvas)
+		local hang = height >= Dock.SIDE_TOP_MIN_HEIGHT
+		local y = if hang then Dock.SIDE_TOP_Y else 0
+		local anchor = Vector2.new(1, if hang then 0 else 0.5)
+		button.AnchorPoint = anchor
+		button.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y)
+		shadow.AnchorPoint = anchor
+		shadow.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y + 4)
+	end
+	buttonCanvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+	place()
+
+	-- The book fills the top of the tile, centred; the bottom band is the name's.
+	local book = Artwork.book(button, UIKit.C.navIcon, UIKit.C.navFill)
+	book.icon.AnchorPoint = Vector2.new(0.5, 0)
+	book.icon.Position = UDim2.new(0.5, 0, 0, 7)
+
+	-- The name, in the reference's outlined type: white GothamBlack under a heavy black
+	-- UIStroke. Not TextStrokeTransparency — that is a 1px hairline at any size, and it
+	-- reads as blur rather than as an outline.
+	local caption = UIKit.label(button, {
 		name = "Caption",
-		size = UDim2.new(1, -52, 1, -10),
-		position = UDim2.fromOffset(44, 2),
-		text = "INDEX",
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -5),
+		size = UDim2.new(1, 0, 0, 18),
+		text = TILE_CAPTION,
 		font = Enum.Font.GothamBlack,
-		textSize = 19,
-		color = Color3.fromRGB(232, 242, 255),
+		textSize = TILE_CAPTION_SIZE,
+		color = Color3.new(1, 1, 1),
+		xAlign = Enum.TextXAlignment.Center,
 		strokeTransparency = 1,
-		zIndex = 7,
+		zIndex = 8,
 	})
+	local captionStroke = Instance.new("UIStroke")
+	captionStroke.Color = Color3.new(0, 0, 0)
+	captionStroke.Thickness = 2
+	captionStroke.LineJoinMode = Enum.LineJoinMode.Round
+	captionStroke.Parent = caption
+
 	local function setHighlighted(active: boolean)
-		TweenService:Create(button, BUTTON_HOVER, {
-			BackgroundColor3 = if active then Color3.new(1, 1, 1) else Color3.fromRGB(200, 210, 225),
+		local fill = if active then UIKit.C.navFillHover else UIKit.C.navFill
+		TweenService:Create(button, TILE_HOVER, { BackgroundColor3 = fill }):Play()
+		TweenService:Create(buttonStroke, TILE_HOVER, {
+			Color = if active then UIKit.C.navEdgeHover else UIKit.C.navEdge,
 		}):Play()
-		TweenService:Create(buttonStroke, BUTTON_HOVER, {
-			Color = if active then BUTTON_ACCENT else BUTTON_EDGE,
-		}):Play()
-		TweenService:Create(title, BUTTON_HOVER, {
-			TextColor3 = if active then Color3.new(1, 1, 1) else Color3.fromRGB(232, 242, 255),
-		}):Play()
+		-- The cover's cut and its title plate are painted in the tile's own fill, so they
+		-- move with it — left behind, the cut turns into a drawn outline on hover.
+		TweenService:Create(book.cut, TILE_HOVER, { Color = fill }):Play()
+		TweenService:Create(book.plate, TILE_HOVER, { BackgroundColor3 = fill }):Play()
+		for _, face in book.paper do
+			TweenService:Create(face, TILE_HOVER, {
+				BackgroundColor3 = if active then Color3.new(1, 1, 1) else UIKit.C.navIcon,
+			}):Play()
+		end
 	end
 	button.MouseEnter:Connect(function()
 		setHighlighted(true)
@@ -557,7 +582,8 @@ local function build(): (ScreenGui, ScreenGui)
 	-- a short viewport — it did, by 173px on a 480px play window. The dock's own
 	-- column is LEFT-anchored and this panel is centred, so on any real viewport they
 	-- don't overlap; on a tiny one the panel wins on DisplayOrder anyway.
-	local panel = UIKit.panel(gui, {
+	local canvas = UIKit.canvas(gui)
+	local panel = UIKit.panel(canvas, {
 		name = "Panel",
 		size = UDim2.new(1, -2 * SCREEN_MARGIN, 1, -2 * SCREEN_MARGIN),
 		position = UDim2.fromScale(0.5, 0.5),

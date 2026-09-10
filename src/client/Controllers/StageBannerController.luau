@@ -69,7 +69,9 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 95 -- under HudController's blackout curtain (100), over the rest
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	local panel, stroke = UIKit.panel(gui, {
+	local canvas = UIKit.canvas(gui)
+
+	local panel, stroke = UIKit.panel(canvas, {
 		name = "Panel",
 		size = UDim2.fromOffset(460, 64),
 		position = HIDDEN,

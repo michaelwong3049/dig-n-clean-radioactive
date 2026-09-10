@@ -31,6 +31,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 
+local UIKit = require(script.Parent.Parent.UIKit)
+
 local BaseMarker = {}
 
 local MARKER_NAME = "BaseMarker"
@@ -77,7 +79,6 @@ local function build(pad: BasePart, accent: Color3)
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = MARKER_NAME
-	gui.Size = UDim2.fromOffset(128, 156)
 	-- Well above the 16-stud back wall, so it floats free of the plot's own geometry
 	-- and reads as a beacon rather than a sign bolted to something.
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 38, 0)
@@ -87,6 +88,8 @@ local function build(pad: BasePart, accent: Color3)
 	-- default washes a muted marker back toward white the moment you walk up to it.
 	-- The same bug Kit.surfaceText and NameTagController already document.
 	gui.LightInfluence = 0
+	-- 128x156 design pixels, scaled with the rest of the HUD (UIKit.billboardCanvas).
+	local canvas = UIKit.billboardCanvas(gui, Vector2.new(128, 156))
 
 	local face = Instance.new("ImageLabel")
 	face.Name = "Face"
@@ -96,7 +99,7 @@ local function build(pad: BasePart, accent: Color3)
 	face.BackgroundColor3 = FACE_FILL
 	face.BackgroundTransparency = 0
 	face.Image = `rbxthumb://type=AvatarHeadShot&id={player.UserId}&w=150&h=150`
-	face.Parent = gui
+	face.Parent = canvas
 
 	local round = Instance.new("UICorner")
 	round.CornerRadius = UDim.new(0.5, 0)
@@ -120,7 +123,7 @@ local function build(pad: BasePart, accent: Color3)
 	caption.TextStrokeColor3 = STROKE_COLOR
 	caption.TextStrokeTransparency = 0.5
 	caption.Text = "YOUR BASE"
-	caption.Parent = gui
+	caption.Parent = canvas
 
 	gui.Parent = pad
 	marker = gui

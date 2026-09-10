@@ -18,7 +18,7 @@ local ORDER = {
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
 	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState
 	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
-	"IndexController", -- the item index GUI; bottom-right button, reads IndexState + Unearthed
+	"IndexController", -- the item index GUI; Index tile on the right edge, reads IndexState + Unearthed
 	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"LiquidController", -- the loaded-liquid readout on the wash pad; reads LiquidState + PlotState
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState

@@ -65,7 +65,9 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 80
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	UIKit.panel(gui, {
+	local canvas = UIKit.canvas(gui)
+
+	UIKit.panel(canvas, {
 		name = "CashShadow",
 		size = BADGE_SIZE,
 		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.CASH_MID_Y + 4),
@@ -76,7 +78,7 @@ local function build(): ScreenGui
 		strokeThickness = 0,
 		zIndex = 2,
 	})
-	local badge = UIKit.panel(gui, {
+	local badge = UIKit.panel(canvas, {
 		name = "CashBadge",
 		size = BADGE_SIZE,
 		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.CASH_MID_Y),

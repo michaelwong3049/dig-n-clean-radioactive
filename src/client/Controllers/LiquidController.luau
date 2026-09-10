@@ -71,7 +71,6 @@ local function build(): BillboardGui?
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "LiquidReadout"
 	gui.Adornee = plate
-	gui.Size = UDim2.fromOffset(190, 44)
 	-- Low, near the lit disc — well under the pad's own Sign, which LiquidService
 	-- flashes ~5 studs up with the result of a roll.
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 2.4, 0)
@@ -82,8 +81,10 @@ local function build(): BillboardGui?
 	gui.MaxDistance = 70
 	gui.ResetOnSpawn = false
 	gui.Parent = playerGui
+	-- 190x44 design pixels, scaled with the rest of the HUD (UIKit.billboardCanvas).
+	local canvas = UIKit.billboardCanvas(gui, Vector2.new(190, 44))
 
-	local panel, stroke = UIKit.panel(gui, {
+	local panel, stroke = UIKit.panel(canvas, {
 		name = "Card",
 		size = UDim2.fromScale(1, 1),
 		position = UDim2.fromScale(0, 0),

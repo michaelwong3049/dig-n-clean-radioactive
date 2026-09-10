@@ -413,7 +413,9 @@ local function build(): ScreenGui
 
 	-- The button: a small gear, top-RIGHT corner — clear of the top-centre warp bar
 	-- (WarpController) and the full bottom-left dock column.
-	local button = UIKit.button(gui, {
+	local canvas = UIKit.canvas(gui)
+
+	local button = UIKit.button(canvas, {
 		name = "SettingsButton",
 		size = UDim2.fromOffset(44, 44),
 		position = UDim2.new(1, -12, 0, 12),
@@ -428,7 +430,7 @@ local function build(): ScreenGui
 		zIndex = 4,
 	})
 
-	local panel = UIKit.panel(gui, {
+	local panel = UIKit.panel(canvas, {
 		name = "Panel",
 		size = UDim2.fromOffset(PANEL_SIZE.X, PANEL_SIZE.Y),
 		position = UDim2.fromScale(0.5, 0.5),

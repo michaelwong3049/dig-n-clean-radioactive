@@ -219,8 +219,9 @@ local function buildLockPromptGui(adornee: BasePart)
 	root.Adornee = adornee
 	-- Offset (pixels), not scale (studs), so the card holds a constant on-screen size
 	-- for the whole 5-stud window it is up rather than ballooning as you close in. The
-	-- extra 12px of height is bottom margin the pin pokes into.
-	root.Size = UDim2.fromOffset(190, 76)
+	-- extra 12px of height is bottom margin the pin pokes into. The 190x76 is in DESIGN
+	-- pixels: UIKit.billboardCanvas, below, scales it with the rest of the HUD so the card
+	-- does not shrink beside it on a big screen.
 	root.StudsOffsetWorldSpace = Vector3.new(0, LOCKGUI_RISE, 0)
 	root.AlwaysOnTop = true -- the signal is buried; the cue has to punch through the soil
 	-- NO MaxDistance cap. It is measured CAMERA-to-adornee, not character-to-adornee, and
@@ -231,6 +232,7 @@ local function buildLockPromptGui(adornee: BasePart)
 	root.LightInfluence = 0
 	root.Enabled = false
 	root.Parent = adornee
+	local canvas = UIKit.billboardCanvas(root, Vector2.new(190, 76))
 
 	-- Everything visible lives under `card` so one UIScale bounces the lot; `hit` sits
 	-- outside it so the tap target never moves or scales with the animation.
@@ -238,7 +240,7 @@ local function buildLockPromptGui(adornee: BasePart)
 	card.Name = "Card"
 	card.Size = UDim2.fromScale(1, 1)
 	card.BackgroundTransparency = 1
-	card.Parent = root
+	card.Parent = canvas
 
 	local scale = Instance.new("UIScale")
 	scale.Scale = 0.7
@@ -360,7 +362,7 @@ local function buildLockPromptGui(adornee: BasePart)
 	hit.Text = ""
 	hit.AutoButtonColor = false
 	hit.ZIndex = 5
-	hit.Parent = root
+	hit.Parent = canvas
 
 	return {
 		root = root,
@@ -462,8 +464,12 @@ local function build(): ScreenGui
 	-- reads it for the ground ring and the per-player well tint — it just isn't drawn
 	-- on the HUD.
 
+	-- Everything on screen goes on the scaled canvas (UIKit.canvas). The pick-up card is
+	-- a BillboardGui and scales itself — see buildLockPromptGui.
+	local canvas = UIKit.canvas(gui)
+
 	-- Status line: dead centre, above the instrument band.
-	ui.status = UIKit.label(gui, {
+	ui.status = UIKit.label(canvas, {
 		name = "Status",
 		anchorPoint = Vector2.new(0.5, 1),
 		position = UDim2.new(0.5, 0, 1, -Dock.STATUS_BOTTOM),
@@ -531,7 +537,7 @@ local function build(): ScreenGui
 
 	-- Unearth banner: true centre, upper-third of the screen. Already lived there
 	-- before this pass; only the size and type grew.
-	local banner, bannerStroke = UIKit.panel(gui, {
+	local banner, bannerStroke = UIKit.panel(canvas, {
 		name = "Banner",
 		size = UDim2.fromOffset(640, 160),
 		position = UDim2.fromScale(0.5, 0.32),
@@ -608,7 +614,7 @@ local function build(): ScreenGui
 	haul.BackgroundTransparency = 1
 	haul.BorderSizePixel = 0
 	haul.Visible = false
-	haul.Parent = gui
+	haul.Parent = canvas
 	ui.haul = haul
 
 	-- PULL SITS ON TOP OF THE BAR, which is the whole reading order of the widget: the
