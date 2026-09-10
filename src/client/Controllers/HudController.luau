@@ -18,8 +18,9 @@
 	apart" — a different category of dying, not a worse degree of the same one. White is
 	used exactly once in this entire game, which is why it will read instantly forever.
 
-	THE METER NOW LIVES IN THE DOCK, not alone in the corner. See UIKit.Dock for the
-	whole bottom-center layout — this file only needs to know its own offset within it.
+	THE METER RIDES THE MIDDLE-LEFT EDGE, directly under the cash badge. See UIKit.Dock
+	(CASH_MID_Y / METER_MID_Y) for the column's layout — this file only needs to know
+	its own offset within it.
 ]]
 
 local Players = game:GetService("Players")
@@ -112,19 +113,17 @@ local function build(): ScreenGui
 	-- panel (ZIndex 2) and under the blackout curtain, which has to cover it.
 	RadFx.build(gui)
 
-	-- The meter. Bottom-left screen edge, clear of the dig button/dial cluster — it
-	-- shares the dig button's baseline (Dock.INSTRUMENT_BOTTOM) so it still sits in
-	-- the same reserved instrument row and never encroaches on the status line above
-	-- or the bag count/hotbar below, just anchored to the left edge instead of the
-	-- button's side. HEALTH and RADS stack as two instrument rows in one panel rather
-	-- than two panels, so the dock's shared layout math (Dock.INSTRUMENT_HEIGHT and
-	-- everything derived from it) never has to know a second panel exists — see
-	-- UIKit.Dock.METER_SIZE's comment for why growing this panel taller is safe.
+	-- The meter. MIDDLE-LEFT screen edge, riding the vertical centre (Dock.METER_MID_Y)
+	-- directly under the cash badge so the two read as one stacked column — see
+	-- UIKit.Dock's LEFT-column comment. HEALTH and RADS stack as two instrument rows in
+	-- one panel rather than two panels, so the dock's shared layout math never has to
+	-- know a second panel exists — see UIKit.Dock.METER_SIZE's comment for why growing
+	-- this panel taller is safe.
 	local panel, meterStroke = UIKit.panel(gui, {
 		name = "Meter",
 		size = Dock.METER_SIZE,
-		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -Dock.INSTRUMENT_BOTTOM),
-		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.METER_MID_Y),
+		anchorPoint = Vector2.new(0, 0.5),
 		color = UIKit.C.panel,
 		transparency = 0.25,
 		cornerRadius = UIKit.Radius.card,
