@@ -327,11 +327,10 @@ function World.verify(): (boolean, { string })
 		end
 	end
 
-	-- No trader in the world by design as of this pass — BaseCamp.luau dropped it
-	-- along with the camp's walls, and nothing has replaced it yet. Not asserting
-	-- a count here at all: EconomyService.sell still exists and still works, it
-	-- just currently has nothing in the world that can trigger it. If a trader
-	-- (or any other sell point) comes back, give this an == check again.
+	-- The sell loop needs one shared, visible destination. A missing trader leaves
+	-- EconomyService working but makes every carried item effectively unsellable;
+	-- a second one makes the intended central rendezvous point ambiguous.
+	check((census.trader or 0) == 1, `expected 1 trader station, found {census.trader or 0}`)
 	-- One cleansing station per base now, not one shared station at camp.
 	check(
 		(census.decon or 0) == Plots.COUNT,
