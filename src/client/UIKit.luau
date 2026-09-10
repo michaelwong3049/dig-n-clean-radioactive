@@ -25,7 +25,13 @@
 	lives one level up, deliberately outside script.Controllers, so init.client.luau's
 	orphan-module warning ("exists but is not in ORDER") never fires on it. It is not a
 	controller: it has no init(), no start(), nothing to boot.
+
+	EVERY SIZE IN HERE IS A DESIGN PIXEL, NOT A SCREEN PIXEL — see "Scale" below. Each
+	HUD builds onto a UIKit.canvas(), which lays these numbers out for a 1280x720 screen
+	and blows the result up to fill whatever screen it is actually on.
 ]]
+
+local Workspace = game:GetService("Workspace")
 
 local UIKit = {}
 
@@ -49,6 +55,16 @@ UIKit.C = {
 	-- shared table named "white" invites some future caller to grab it for an
 	-- unrelated highlight and quietly break the rule the original comment protected.
 	burn = Color3.fromHex("FFFFFF"),
+	-- The dark navigation cards: WarpController's BASE / SHOPS and IndexController's
+	-- Collection tile. Neutral near-black on purpose, so the white logo each one
+	-- carries is the only thing on it with any colour. `navIcon` is that logo at rest;
+	-- it goes to pure white on hover.
+	navFill = Color3.fromRGB(18, 20, 24),
+	navFillHover = Color3.fromRGB(29, 32, 38),
+	navEdge = Color3.fromRGB(49, 53, 61),
+	navEdgeHover = Color3.fromRGB(88, 94, 105),
+	navIcon = Color3.fromRGB(232, 242, 255),
+	navShadow = Color3.fromRGB(3, 7, 12),
 }
 
 -- ── Type scale ───────────────────────────────────────────────────────────────────
@@ -101,6 +117,152 @@ UIKit.Stroke = {
 	selected = 5, -- selected hotbar slot
 }
 
+-- ── Scale ────────────────────────────────────────────────────────────────────────
+-- THE HUD WAS DRAWN IN FIXED PIXELS, WHICH IS WHY IT LOOKED SMALL. A 64px hotbar slot
+-- is a ninth of a 720p screen's height and a seventeenth of a 1440p one: the same
+-- number read as a chunky button on a laptop and as a postage stamp on a desktop.
+-- "Make all the GUI bigger" is really "stop shrinking it as the screen grows".
+--
+-- So every number in this file, and every Offset in every controller, is a DESIGN
+-- pixel now — the unit of a 1280x720 screen (DESIGN_SCREEN) — and each HUD builds onto
+-- a canvas (UIKit.canvas below) that lays its children out in those units and then
+-- draws them UIKit.scale() times bigger. 1080p gets 1.5x, 1440p 2x; it is the SAME
+-- layout on all of them, just larger, so no Dock formula had to change.
+--
+-- NEVER BELOW 1, AND THAT FLOOR IS DOING REAL WORK. Screens smaller than the design
+-- screen (a docked Studio viewport, a phone) keep exactly the sizes they had rather
+-- than shrinking to fit: shrinking would be a change nobody asked for, on the screens
+-- where the HUD already felt big. min() over both axes so a tall-but-narrow window is
+-- never scaled past what its width can hold.
+--
+-- WHAT A CANVAS COSTS ITS CALLER: anything that reads AbsoluteSize / AbsolutePosition
+-- (screen pixels) and writes the answer back into an Offset (design pixels) has to
+-- divide by UIKit.canvasScale() in between. Two places do — InventoryController's slot
+-- fit and StationController's close button — and both say so. RadFx stays OFF the
+-- canvas on purpose: it already sizes itself from the camera viewport.
+UIKit.DESIGN_SCREEN = Vector2.new(1280, 720)
+
+-- Every live canvas, plus — for a billboard's canvas — the gui and design size to
+-- resize along with it. A STRONG table, pruned by ancestry (see track()). The first
+-- draft was weak-keyed and silently lost canvases: Roblox is free to collect an
+-- Instance's Lua handle whenever no script holds one, even while the Instance itself is
+-- on screen, and a weak key goes with it. Any canvas that only ever lived in a local
+-- dropped out of the table and stopped following the screen — frozen at the scale it
+-- was built at, so it never grew when the real viewport arrived after load.
+type Fit = { billboard: BillboardGui?, size: Vector2? }
+local fitted: { [Frame]: Fit } = {}
+local watching = false
+local viewportConn: RBXScriptConnection? = nil
+
+--- Screen pixels per design pixel on the current viewport. See the section header.
+function UIKit.scale(): number
+	local camera = Workspace.CurrentCamera
+	local viewport = if camera then camera.ViewportSize else Vector2.zero
+	-- Studio reports a zero viewport for a frame or two on load (RadFx.viewport hit the
+	-- same thing); treat that as "no room yet" rather than dividing by it.
+	if viewport.X < 1 or viewport.Y < 1 then
+		return 1
+	end
+	return math.max(1, math.min(viewport.X / UIKit.DESIGN_SCREEN.X, viewport.Y / UIKit.DESIGN_SCREEN.Y))
+end
+
+local function fit(canvas: Frame, spec: Fit, s: number)
+	local scaler = canvas:FindFirstChildOfClass("UIScale")
+	if scaler then
+		scaler.Scale = s
+	end
+	canvas.Size = UDim2.fromScale(1 / s, 1 / s)
+	if spec.billboard and spec.size then
+		spec.billboard.Size = UDim2.fromOffset(spec.size.X * s, spec.size.Y * s)
+	end
+end
+
+local function refresh()
+	local s = UIKit.scale()
+	for canvas, spec in fitted do
+		fit(canvas, spec, s)
+	end
+end
+
+--- One listener for every canvas, re-bound if the camera itself is swapped out.
+local function watchViewport()
+	if watching then
+		return
+	end
+	watching = true
+	local function bind()
+		if viewportConn then
+			viewportConn:Disconnect()
+		end
+		local camera = Workspace.CurrentCamera
+		viewportConn = if camera then camera:GetPropertyChangedSignal("ViewportSize"):Connect(refresh) else nil
+		refresh()
+	end
+	Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(bind)
+	bind()
+end
+
+--- Keep `canvas` in `fitted` for exactly as long as it is in the game. Out of it (a
+--- name tag's character despawned, a readout rebuilt) it leaves; back in, it rejoins
+--- and catches up on any resize it missed while it was gone. Registered from birth,
+--- because every caller builds onto its gui first and parents the gui after.
+local function track(canvas: Frame, spec: Fit)
+	fitted[canvas] = spec
+	canvas.AncestryChanged:Connect(function()
+		if canvas:IsDescendantOf(game) then
+			fitted[canvas] = spec
+			fit(canvas, spec, UIKit.scale())
+		else
+			fitted[canvas] = nil
+		end
+	end)
+	watchViewport()
+end
+
+local function newCanvas(parent: Instance, zIndex: number?, spec: Fit): Frame
+	local canvas = Instance.new("Frame")
+	canvas.Name = "Canvas"
+	canvas.BackgroundTransparency = 1
+	canvas.BorderSizePixel = 0
+	canvas.ZIndex = zIndex or 1
+
+	local scaler = Instance.new("UIScale")
+	scaler.Parent = canvas
+
+	fit(canvas, spec, UIKit.scale())
+	canvas.Parent = parent
+	track(canvas, spec)
+	return canvas
+end
+
+--- A transparent frame that covers `parent` exactly on screen but is laid out in
+--- design pixels: sized 1/scale of its parent and blown back up by a UIScale of
+--- `scale`, so a child's Offsets and TextSizes grow while its Scale positions (0.5 =
+--- centre, 1 = far edge) still land where they always did. Build a HUD onto this
+--- instead of straight onto its ScreenGui. It passes input through: an inactive Frame
+--- never sinks a click, so the world behind it stays clickable.
+---
+--- `zIndex` only matters when the canvas has siblings that are NOT on it — HudController
+--- keeps RadFx's damage overlay beside it, and the canvas has to draw above that.
+function UIKit.canvas(parent: Instance, zIndex: number?): Frame
+	return newCanvas(parent, zIndex, {})
+end
+
+--- The scale `canvas` is drawing at right now — what to divide a screen-pixel reading
+--- (AbsoluteSize / AbsolutePosition of anything on it) by to get design pixels back.
+function UIKit.canvasScale(canvas: Frame): number
+	local scaler = canvas:FindFirstChildOfClass("UIScale")
+	return if scaler then scaler.Scale else 1
+end
+
+--- The same for a world-space BillboardGui whose Size is in pixels. A pixel-sized
+--- billboard holds a constant on-screen size, so it has exactly the HUD's problem and
+--- gets exactly the HUD's fix: `size` is its design-pixel footprint, the gui is sized
+--- to that times the scale, and its contents go on the returned canvas.
+function UIKit.billboardCanvas(gui: BillboardGui, size: Vector2): Frame
+	return newCanvas(gui, nil, { billboard = gui, size = size })
+end
+
 -- ── The dock ─────────────────────────────────────────────────────────────────────
 -- The instrument band — just the METER now — with the status line above it, bag count
 -- below it, hotbar at the screen edge, a bottom-LEFT column stacking [INDEX] over
@@ -134,9 +296,10 @@ UIKit.Stroke = {
 --
 -- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN, THEN TO THE RIGHT
 -- EDGE. It briefly stacked above CashController's badge on the left; it now sits
--- standalone on the MIDDLE-RIGHT, centred on the vertical and level with the
--- cash/meter column, which itself moved to the middle-left (Dock.CASH_MID_Y /
--- Dock.METER_MID_Y). Its own size/inset live in IndexController.
+-- standalone on the MIDDLE-RIGHT as the square Collection tile, its top edge level
+-- with the top of the cash/meter column (Dock.SIDE_TOP_Y; centred instead on a short
+-- screen, Dock.SIDE_TOP_MIN_HEIGHT), which itself moved to the middle-left
+-- (Dock.CASH_MID_Y / Dock.METER_MID_Y). Its own size lives in IndexController.
 --
 -- ONE WIDE BAND, NOT STACKED ROWS. What lives in the band sits side by side inside one
 -- INSTRUMENT_HEIGHT-tall row rather than stacking vertically, which would cost roughly
@@ -256,6 +419,24 @@ Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
 Dock.SIDE_STACK_HEIGHT = Dock.CASH_SIZE.Y.Offset + Dock.GAP + Dock.METER_SIZE.Y.Offset
 Dock.CASH_MID_Y = Dock.CASH_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
 Dock.METER_MID_Y = Dock.SIDE_STACK_HEIGHT / 2 - Dock.METER_SIZE.Y.Offset / 2
+-- The column's TOP edge, as the same kind of offset from screen middle. IndexController
+-- hangs the Collection tile from it on the right edge, so both sides start on one line.
+--
+-- TOP-ALIGNED RATHER THAN CENTRED, AND THE HAUL WIDGET IS WHY. It shares the right edge,
+-- and its rarity readout sits 370px above the screen's foot (HAULPANEL_BOTTOM +
+-- HAULPANEL_SIZE, less the 52px down to the title), running ~56px down from there. On a
+-- 720-tall design screen — which every 16:9 screen lays out at now that the HUD scales —
+-- an 80px tile centred on the middle spans 320-400 and "LEGENDARY" lands on 350-406,
+-- under the tile. Hung from here it spans 244-324, and clears the readout on any
+-- design height over ~670.
+Dock.SIDE_TOP_Y = -Dock.SIDE_STACK_HEIGHT / 2
+-- ...and the shortest design screen that line is used on. Below it the hang stops
+-- working in both directions: the readout climbs into it as the screen shortens, and
+-- under ~460 the tile rises into the Settings gear in the corner above. So a shorter
+-- screen gets the tile back on the vertical centre, where the old pill sat and where
+-- both leave it room. Every screen the HUD scales up on is DESIGN_SCREEN.Y (720) tall
+-- or more in design pixels, so this only bites on an unscaled small window or a phone.
+Dock.SIDE_TOP_MIN_HEIGHT = 700
 
 -- The dock's total reserved height with no card open. Nothing anchors against it today
 -- — StationController and IndexController both centre their panels on the screen itself

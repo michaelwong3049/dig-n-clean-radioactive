@@ -10,7 +10,7 @@ function Artwork.outline(parent: Instance, thickness: number): UIStroke
 	return stroke
 end
 
-local function shape(parent: Instance, name: string, x: number, y: number, w: number, h: number, color: Color3, z: number): Frame
+local function shape(parent: Instance, name: string, x: number, y: number, w: number, h: number, color: Color3, z: number, radius: number?): Frame
 	local frame = Instance.new("Frame")
 	frame.Name = name
 	frame.Position = UDim2.fromOffset(x, y)
@@ -20,7 +20,7 @@ local function shape(parent: Instance, name: string, x: number, y: number, w: nu
 	frame.ZIndex = z
 	frame.Parent = parent
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 3)
+	corner.CornerRadius = UDim.new(0, radius or 3)
 	corner.Parent = frame
 	return frame
 end
@@ -50,16 +50,29 @@ function Artwork.cash(parent: Instance)
 	shape(band, "Highlight", 2, 2, 4, 43, Color3.fromRGB(255, 237, 95), 9)
 end
 
-function Artwork.book(parent: Instance)
-	local icon = shape(parent, "BookIcon", 20, 15, 40, 44, Color3.new(), 6)
+-- The Collection book's box, in design pixels. IndexController centres it in the top
+-- of its tile.
+Artwork.BOOK_SIZE = Vector2.new(42, 48)
+
+export type Book = { icon: Frame, paper: { Frame }, cut: UIStroke, plate: Frame }
+
+--- The Collection book: a flat, upright cover with a dark title plate on it, and the
+--- page block standing proud of it to the right and below. Drawn into a BOOK_SIZE box
+--- at the icon's own origin; the caller positions `icon`.
+---
+--- `paper` is the white of both faces. `gap` is the colour of the cover's outline —
+--- the cut that separates it from the pages — and of the title plate: pass the
+--- button's own fill so the cut reads as a gap rather than a drawn line, then tween
+--- `cut` / `plate` with that fill (and `paper` with the icon colour) on hover.
+function Artwork.book(parent: Instance, paper: Color3, gap: Color3): Book
+	local icon = shape(parent, "BookIcon", 0, 0, Artwork.BOOK_SIZE.X, Artwork.BOOK_SIZE.Y, Color3.new(), 5)
 	icon.BackgroundTransparency = 1
-	icon.Rotation = 12
-	local pages = shape(icon, "Pages", 0, 5, 37, 39, Color3.fromRGB(215, 224, 224), 6)
-	Artwork.outline(pages, 2.5)
-	local cover = shape(icon, "Cover", 0, 0, 37, 36, Color3.new(1, 1, 1), 7)
-	Artwork.outline(cover, 3)
-	shape(cover, "TitleLine", 9, 9, 21, 3, INK, 8)
-	shape(cover, "SubtitleLine", 9, 16, 21, 3, INK, 8)
+	local pages = shape(icon, "Pages", 11, 5, 31, 43, paper, 6, 5)
+	local cover = shape(icon, "Cover", 0, 0, 31, 43, paper, 7, 5)
+	local cut = Artwork.outline(cover, 3)
+	cut.Color = gap
+	local plate = shape(cover, "TitlePlate", 7, 9, 17, 10, gap, 8, 2)
+	return { icon = icon, paper = { pages, cover }, cut = cut, plate = plate }
 end
 
 function Artwork.studs(parent: GuiObject)

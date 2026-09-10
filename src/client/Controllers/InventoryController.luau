@@ -177,6 +177,9 @@ local function build(): ScreenGui
 	-- centre line, and a narrower viewport needs the hotbar to shrink with it rather
 	-- than run off the edges. UISizeConstraint caps it so an ultrawide monitor does
 	-- not stretch it absurdly wide either.
+	local canvas = UIKit.canvas(gui)
+	ui.canvas = canvas
+
 	local row = Instance.new("Frame")
 	row.Name = "Hotbar"
 	row.AnchorPoint = Vector2.new(0.5, 1)
@@ -189,7 +192,7 @@ local function build(): ScreenGui
 	-- live target on small viewports widens that gap; this keeps it from spilling
 	-- into whatever sits either side of the hotbar instead of fixing the clamp math.
 	row.ClipsDescendants = true
-	row.Parent = gui
+	row.Parent = canvas
 	ui.row = row
 	-- Keep the outer strokes inside the row's clipping bounds.
 	local padding = Instance.new("UIPadding")
@@ -240,7 +243,10 @@ local function slotWidth(): number
 	if state.capacity <= 0 then
 		return SLOT_MAX
 	end
-	local available = ui.row.AbsoluteSize.X
+	-- Screen pixels in, design pixels out: the row is on a UIKit canvas, so AbsoluteSize
+	-- already carries the HUD scale, while the slot sizes this feeds are Offsets on that
+	-- same canvas. Skip the divide and a scaled-up screen fits too few slots per row.
+	local available = ui.row.AbsoluteSize.X / UIKit.canvasScale(ui.canvas)
 	if available <= 0 then
 		return SLOT_MAX
 	end

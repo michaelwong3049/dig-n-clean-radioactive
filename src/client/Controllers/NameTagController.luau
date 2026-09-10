@@ -10,6 +10,8 @@
 
 local Players = game:GetService("Players")
 
+local UIKit = require(script.Parent.Parent.UIKit)
+
 local NameTags = {}
 
 local TAG_NAME = "QuietNameTag"
@@ -38,7 +40,6 @@ local function addTag(player: Player, character: Model)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = TAG_NAME
 	gui.Adornee = head
-	gui.Size = UDim2.fromOffset(180, 26)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 2.9, 0)
 	gui.MaxDistance = 55
 	gui.AlwaysOnTop = false
@@ -51,6 +52,9 @@ local function addTag(player: Player, character: Model)
 	-- tag read as constant, muted text regardless of what is lit nearby.
 	gui.LightInfluence = 0
 	gui.Parent = character
+	-- 180x26 design pixels, scaled with the rest of the HUD (UIKit.billboardCanvas) so a
+	-- name keeps its size relative to everything else on a big screen.
+	local canvas = UIKit.billboardCanvas(gui, Vector2.new(180, 26))
 
 	local label = Instance.new("TextLabel")
 	label.Name = "PlayerName"
@@ -62,7 +66,7 @@ local function addTag(player: Player, character: Model)
 	label.TextStrokeColor3 = STROKE_COLOR
 	label.TextStrokeTransparency = 0.72
 	label.Text = player.DisplayName
-	label.Parent = gui
+	label.Parent = canvas
 end
 
 local function watch(player: Player)

@@ -1529,6 +1529,9 @@ local function ensureGui(): boolean
 	gui.Enabled = true
 	gui.Parent = playerGui
 	wipeGui = gui
+	-- The scaled canvas (UIKit.canvas). Everything below is centred or edge-anchored by
+	-- Scale, so the reticle still sits dead on the look ray at any HUD scale.
+	local canvas = UIKit.canvas(gui)
 
 	-- ── The reticle ──
 	local sight = Instance.new("Frame")
@@ -1539,7 +1542,7 @@ local function ensureGui(): boolean
 	sight.BackgroundTransparency = 1
 	sight.Visible = false
 	sight.ZIndex = 1
-	sight.Parent = gui
+	sight.Parent = canvas
 	reticle = sight
 
 	-- A ring rather than a dot. A dot at this size disappears against a green blob,
@@ -1597,7 +1600,7 @@ local function ensureGui(): boolean
 	fluid.Text = ""
 	fluid.Visible = false
 	fluid.ZIndex = 1
-	fluid.Parent = gui
+	fluid.Parent = canvas
 
 	-- ── The wipe panel ──
 	-- Parked off the RIGHT edge, which is where every completed sweep leaves it.
@@ -1608,7 +1611,7 @@ local function ensureGui(): boolean
 	panel.BackgroundColor3 = UIKit.C.panel
 	panel.BorderSizePixel = 0
 	panel.ZIndex = 10
-	panel.Parent = gui
+	panel.Parent = canvas
 	wipePanel = panel
 
 	-- BOTH edges, because both of them lead at some point in the sweep: the right edge

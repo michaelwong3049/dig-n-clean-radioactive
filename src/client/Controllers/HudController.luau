@@ -114,13 +114,19 @@ local function build(): ScreenGui
 	-- panel (ZIndex 2) and under the blackout curtain, which has to cover it.
 	RadFx.build(gui)
 
+	-- Everything else goes on the scaled canvas (UIKit.canvas). RadFx stays beside it,
+	-- straight on the gui: it already sizes every crack and ring off the camera's own
+	-- viewport, and scaling it a second time would push it past the screen edges. ZIndex
+	-- 3 so the canvas — meter and curtain alike — still draws over the overlay's 2.
+	local canvas = UIKit.canvas(gui, 3)
+
 	-- The meter. MIDDLE-LEFT screen edge, riding the vertical centre (Dock.METER_MID_Y)
 	-- directly under the cash badge so the two read as one stacked column — see
 	-- UIKit.Dock's LEFT-column comment. HEALTH and RADS stack as two instrument rows in
 	-- one panel rather than two panels, so the dock's shared layout math never has to
 	-- know a second panel exists — see UIKit.Dock.METER_SIZE's comment for why growing
 	-- this panel taller is safe.
-	local panel, meterStroke = UIKit.panel(gui, {
+	local panel, meterStroke = UIKit.panel(canvas, {
 		name = "Meter",
 		size = Dock.METER_SIZE,
 		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.METER_MID_Y),
@@ -256,7 +262,7 @@ local function build(): ScreenGui
 	ui.curtain.BorderSizePixel = 0
 	ui.curtain.ZIndex = 20
 	ui.curtain.Visible = false
-	ui.curtain.Parent = gui
+	ui.curtain.Parent = canvas
 
 	-- SPLIT FROM ONE LABEL INTO TWO. LuckiestGuy is a heavy display face — it reads
 	-- as a punch of a headline and badly as a full sentence, and the drop-items line
