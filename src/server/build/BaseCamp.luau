@@ -30,12 +30,20 @@
 	rack the item, not on a round trip back here. See Plots.luau's
 	`buildCleansingStation` for the replacement and the reasoning.
 
-	THE TRADER IS BACK, but not the old walled camp version. It is a compact open
-	kiosk just south of the plaza midpoint: close enough to be the natural return
+	THE TRADER IS BACK, but not the old walled camp version. It is an open market
+	stall just south of the plaza midpoint: close enough to be the natural return
 	stop after a run, but offset far enough that a player spawning at the exact
-	middle does not immediately open the sell panel. The kiosk is intentionally low
-	and open on every side, so it restores the sell loop without reintroducing a
-	second enclosure inside the plaza.
+	middle does not immediately open the sell panel. It is open on every side, so it
+	restores the sell loop without reintroducing a second enclosure inside the plaza.
+
+	THE STALL READS AS A BUILT FRAME, not four poles under a sheet: four slim posts
+	in the pale storefront grey, deep-brown rail beams wrapping the frame in two
+	rings (ground and counter height), a low grey counter across the front, and a
+	striped gold-and-white awning that leans forward from tall back posts to short
+	front ones, is cantilevered past the frame at both ends, and drops a short
+	striped valance off its front edge — the same read as the plaza stalls
+	(build/Shops' buildStripedCanopy), scaled up for one kiosk. The frame is studded
+	plastic throughout (no wood texture); the awning is flat-coloured SmoothPlastic.
 
 	NO ENTRANCE GATE EITHER. The two posts, their lamps, and the "BASE CAMP" sign
 	spanning between them read as an archway framing the approach, which wasn't
@@ -51,7 +59,7 @@ local ModelGallery = require(script.Parent.ModelGallery)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 9
+local BUILDER_VERSION = 10
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -68,6 +76,48 @@ export type Spec = Kit.Spec
 
 local C = Kit.C
 local build, billboard = Kit.build, Kit.billboard
+
+-- ── The trader awning ─────────────────────────────────────────────────────────
+
+--- A striped market awning centred on `origin` at height `y`: flat-coloured stripes
+--- running front-to-back alternating gold and off-white, forced to an odd count so
+--- the cloth opens and closes on gold, pitched `tilt` degrees down toward the
+--- customer (+Z), with a short valance of the same stripes hanging straight down off
+--- the front edge — the same read as the plaza stalls' canopies (build/Shops'
+--- buildStripedCanopy), scaled for one open kiosk. SmoothPlastic, pure colour, no
+--- texture.
+local function buildTraderAwning(parent: Instance, origin: CFrame, y: number, centerZ: number, tilt: number, width: number, depth: number)
+	local stripeCount = math.floor(width / 1.9)
+	if stripeCount % 2 == 0 then
+		stripeCount += 1
+	end
+	local stripeWidth = width / stripeCount
+	local sinT = math.sin(math.rad(tilt))
+	local frontZ = centerZ + depth / 2
+	local frontY = y - sinT * (depth / 2)
+
+	for i = 1, stripeCount do
+		local color = if i % 2 == 1 then C.gold else C.canvasPale
+		local x = -width / 2 + (i - 0.5) * stripeWidth
+		build(parent, origin, {
+			name = `AwningStripe{i}`,
+			pos = { x, y, centerZ },
+			size = { stripeWidth + 0.05, 0.5, depth },
+			color = color,
+			material = "SmoothPlastic",
+			rot = Kit.ang(tilt, 0, 0),
+			canCollide = false,
+		})
+		build(parent, origin, {
+			name = `AwningValance{i}`,
+			pos = { x, frontY - 0.9, frontZ },
+			size = { stripeWidth + 0.05, 1.7, 0.4 },
+			color = color,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+	end
+end
 
 -- ── The camp ──────────────────────────────────────────────────────────────────
 
@@ -114,88 +164,97 @@ local function buildShell(camp: Model, origin: CFrame)
 	local trader = Instance.new("Model")
 	trader.Name = "Trader"
 
+	-- The plaza surface sits 0.9 below the camp datum here; every part builds up
+	-- from this one local-Y so nothing floats over the tiles.
+	local G = -0.9
 	local kiosk = origin * CFrame.new(0, 0, -12)
+
+	-- A low grey studded deck, just proud of the plaza tiles — the stall is studded
+	-- throughout, like the plaza shops.
 	build(trader, kiosk, {
 		name = "Deck",
-		pos = { 0, -0.35, 0 },
-		size = { 13, 0.7, 7 },
-		color = C.shopWoodLight,
-		material = "WoodPlanks",
+		pos = { 0, G + 0.2, 0 },
+		size = { 17, 0.8, 13 },
+		color = C.standGrey,
+		material = "Plastic",
+		studs = true,
 	})
 
-	-- Four slim posts and a shallow striped roof make it read as a shop from the
-	-- plaza without adding a solid wall to the central walking route.
-	for _, x in { -5.4, 5.4 } do
-		for _, z in { -2.5, 2.5 } do
+	-- Four slim studded posts in the pale storefront grey — the stall's frame, not
+	-- four poles under a sheet. The back pair stands taller than the front pair so
+	-- the awning leans forward on a real slope (a lean-to stall), which also keeps
+	-- every post tucked under the cloth instead of poking through it.
+	local POST = 0.95
+	local POST_DX, POST_DZ = 6.8, 4.9
+	local FRONT_H, BACK_H = 10.6, 11.8
+	local SPAN_X = POST_DX * 2 - POST
+	local SPAN_Z = POST_DZ * 2 - POST
+	local BEAM = 0.55
+	for _, x in { -POST_DX, POST_DX } do
+		for _, z in { -POST_DZ, POST_DZ } do
+			local h = if z > 0 then FRONT_H else BACK_H
 			build(trader, kiosk, {
 				name = "Post",
-				pos = { x, 2.4, z },
-				size = { 0.55, 5.5, 0.55 },
-				color = C.shopWood,
-				material = "Wood",
+				pos = { x, G + h / 2, z },
+				size = { POST, h, POST },
+				color = C.shopWoodLight,
+				material = "Plastic",
 				studs = true,
 			})
 		end
 	end
-	build(trader, kiosk, {
-		name = "Canopy",
-		pos = { 0, 5.25, 0 },
-		size = { 12.6, 0.45, 6.4 },
-		color = C.canvasPale,
-		material = "Fabric",
-	})
-	for _, x in { -4.2, 0, 4.2 } do
+
+	-- Rail beams wrapping the frame — the market-stall read: a ground-height
+	-- stretcher ring and a second at counter height, on the back and the two sides.
+	-- The front is left open (that side is the counter). Deep-brown and studded, not
+	-- a wood texture — the whole stall is studded plastic.
+	local function railBeam(px: number, py: number, pz: number, sx: number, sz: number)
 		build(trader, kiosk, {
-			name = "CanopyStripe",
-			pos = { x, 5.5, 0 },
-			size = { 1.05, 0.08, 6.45 },
-			color = C.gold,
-			material = "Fabric",
+			name = "RailBeam",
+			pos = { px, py, pz },
+			size = { sx, BEAM, sz },
+			color = C.wood,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
 		})
 	end
+	for _, ringY in { G + 1.0, G + 5.4 } do
+		for _, x in { -POST_DX, POST_DX } do
+			railBeam(x, ringY, 0, BEAM, SPAN_Z)
+		end
+		railBeam(0, ringY, -POST_DZ, SPAN_X, BEAM)
+	end
 
+	-- The counter across the front — a low studded stall wall in storefront grey
+	-- with a steel cap, carrying the sell station. It stands on the deck (top face
+	-- G + 0.6) so it reads as furniture on the stall rather than a slab through it.
+	local DECK_TOP = G + 0.6
+	local COUNTER_H = 2.1
 	local counter = build(trader, kiosk, {
 		name = "TraderCounter",
-		pos = { 0, 1.05, 2.0 },
-		size = { 10.8, 2.2, 1.25 },
+		pos = { 0, DECK_TOP + COUNTER_H / 2, POST_DZ - 0.3 },
+		size = { SPAN_X, COUNTER_H, 2.0 },
 		color = C.shopWood,
-		material = "Wood",
+		material = "Plastic",
+		studs = true,
 		attributes = { StationKind = "trader", Radius = 8 },
 	})
 	build(trader, kiosk, {
 		name = "CounterTop",
-		pos = { 0, 2.23, 2.0 },
-		size = { 11.2, 0.22, 1.6 },
-		color = C.gold,
+		pos = { 0, DECK_TOP + COUNTER_H + 0.16, POST_DZ - 0.3 },
+		size = { SPAN_X + 0.9, 0.32, 2.7 },
+		color = C.steel,
 		material = "Metal",
+		canCollide = false,
 	})
 	billboard(counter, 210, 4.3, "TRADER", "turn finds into cash", C.gold)
 
-	-- A scale and two open crates give the counter a clear purpose without a vendor
-	-- NPC that would need animation and ownership code.
-	build(trader, kiosk, {
-		name = "ScaleBase",
-		pos = { 0, 2.46, 1.6 },
-		size = { 2.2, 0.18, 1.1 },
-		color = C.steelDark,
-		material = "Metal",
-	})
-	build(trader, kiosk, {
-		name = "ScalePlate",
-		pos = { 0, 2.68, 1.6 },
-		size = { 1.45, 0.14, 0.8 },
-		color = C.steel,
-		material = "Metal",
-	})
-	for _, x in { -3.8, 3.8 } do
-		build(trader, kiosk, {
-			name = "TradeCrate",
-			pos = { x, 0.65, -1.25 },
-			size = { 2.1, 1.65, 1.8 },
-			color = C.woodLight,
-			material = "WoodPlanks",
-		})
-	end
+	-- The striped awning: a gently forward-sloping roof with a modest, roughly even
+	-- oversail front and back. The `y`/`centerZ`/tilt trio is tuned so the slab
+	-- underside meets every post top flush (none poke through). A striped valance
+	-- drops off the front edge.
+	buildTraderAwning(trader, kiosk, G + 11.45, 0, 7, 14.6, 12.0)
 
 	trader.Parent = camp
 end
