@@ -383,17 +383,11 @@ the place file has no git history to recover from.
       own plot. `World.verify()`'s decon census updated from "exactly 1" to
       "== `Plots.COUNT`"; verified 6 decon stations /
       6 showers in the world, 0 at camp, 0 verify failures.
-- [x] **Camp walls and the Trader removed.** The camp used to be a walled box
-      (5 wall parts) sitting inside the open plaza with the trader stall boxed off
-      inside it; both are gone now, so the plaza reads as one open shop area —
-      floor, gate posts/lamps and the sign are all that's left of `BaseCamp.luau`
-      (12 descendants, down from 52). **This means there is currently no sell
-      point anywhere in the world** — `EconomyService.sell` and the `"sell"` verb
-      in `DeconService`'s action router still work, nothing in the world can
-      trigger them until a trader (or some other cash-out point) is placed again.
-      Flagged loudly in `BaseCamp.luau`'s header, not silently dropped.
-      `World.verify()` no longer asserts a trader count. Verified: `World.verify()`
-      passes with 0 failures against the emptied camp.
+- [x] **Camp walls removed; Trader restored.** The old walled camp is gone, but
+	  an open **Trader kiosk** now sits just south of the plaza midpoint. Its one
+	  `StationKind="trader"` counter restores the shared cash-out point without
+	  putting a panel-radius on the respawn anchor. `World.verify()` requires
+	  exactly one trader station.
 - [x] **Camp entrance gate removed too.** The two gate posts, their lamps, and the
       "BASE CAMP" sign spanning between them read as an archway framing the
       approach — same complaint as the shops' arch canopy, different structure.
@@ -401,11 +395,9 @@ the place file has no git history to recover from.
       the floor and the join `SpawnLocation`, identified by what's standing on it
       (the shops, the plots) rather than a sign over the door. `BUILDER_VERSION`
       bumped to 5. Verified: `World.verify()` passes with 0 failures.
-- [ ] **No sell point exists.** Decide where cash-out lives now — back at camp as a
-      single shared trader again, one per base like the cleansing station, folded
-      into the cleansing station itself, or deferred entirely in favour of the
-      Exhibition income loop once that's built. Blocks any real economy testing
-      until decided.
+- [x] **Shared sell point.** Cash-out lives at the central Trader kiosk. The player
+	  can sell from one visible shared counter while the private cleansing stations
+	  remain focused on decontamination.
 - [ ] Verify the six per-base Decon stations end-to-end in Play (blocked — see §9)
 - [x] Exhibition **income accrual**: `ExhibitService.luau` — plot assignment (per-session,
       never persisted, matching `Plots.luau`'s own contract), yield loop (duplicate damping,
@@ -686,8 +678,9 @@ callouts, and a missing `/pocket` command in the console list).
       that debits on failure is worse than no shop.
 - [ ] Live blackout test: `/stage 4`, wait for blackout, assert the player lands at the
       `RespawnAnchor` and `stageOf == nil`.
-- [ ] Decon end-to-end regression after the `StationService` migration. No trader
-      to regression-test any more — it's been removed from the world (see §3).
+- [ ] Decon/trader end-to-end regression after the `StationService` migration. Sell
+      one carried item at the central Trader kiosk and confirm cash, inventory, and
+      dirty-sale messaging all update together.
 - [ ] Live Exhibition test: display an item at your own stand (real carry list, real
       station derived from standing at a real pedestal), confirm it renders on the
       physical stand and blocks undisplay for 60s, and that the cash badge ticks up on
