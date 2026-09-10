@@ -11,6 +11,7 @@
 local BottleCap = require(script.BottleCap)
 local DentedTinCan = require(script.DentedTinCan)
 local GoldRing = require(script.GoldRing)
+local GlassPebble = require(script.GlassPebble)
 local GoldBar = require(script.GoldBar)
 local IronBar = require(script.IronBar)
 local HouseKey = require(script.HouseKey)
@@ -28,6 +29,7 @@ local factories: { [string]: () -> Model } = {
 	BottleCap = BottleCap.create,
 	DentedTinCan = DentedTinCan.create,
 	GoldRing = GoldRing.create,
+	GlassPebble = GlassPebble.create,
 	GoldBar = GoldBar.create,
 	IronBar = IronBar.create,
 	HouseKey = HouseKey.create,
