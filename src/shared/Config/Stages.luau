@@ -544,6 +544,24 @@ function Stages.builtIds(): { number }
 	return ids
 end
 
+--- Studs-per-metre for the HUD's "how deep below base camp" readout. The world has
+--- no real scale, so this is a chosen one: 3 studs = 1 m, which puts the whole
+--- six-stage chain (100 -> 1840 on X) at ~580 m and one stage's footprint at ~97 m.
+--- Display only -- nothing gameplay reads it.
+Stages.STUDS_PER_METRE = 3
+
+--- How far past base camp's edge a given world X is, in METRES (see STUDS_PER_METRE).
+--- 0 anywhere in camp or behind it; climbs as the player walks east through the
+--- stages. This is the number the rad-meter HUD shows under the stage name.
+---
+--- "Base camp's edge" is Stage 1's west edge (x = 100, Hub.PLAZA.maxX) -- read off
+--- `bounds()` rather than hardcoded so a footprint change can't leave the two
+--- disagreeing. The header pins Stage 1's west edge as the one edge that never moves.
+function Stages.depthBelowCamp(worldX: number): number
+	local campEdgeX = Stages.bounds(1)
+	return math.max(0, worldX - campEdgeX) / Stages.STUDS_PER_METRE
+end
+
 --- Ambient rads/sec for a given DEPTH into a stage, 0 (the entrance, west edge --
 --- where you arrive from camp or the previous stage) to 1 (the deepest point, east
 --- edge -- where the next stage begins). Linear between `baseRads` and `deepRads`.

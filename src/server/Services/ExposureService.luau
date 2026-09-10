@@ -327,6 +327,9 @@ local function stepPlayer(player: Player, dt: number)
 	local stats = StatResolver.get(data)
 	local stageId = StageService.stageOf(player)
 	local ambient = StageService.ambientFor(player)
+	-- Metres east of base camp's edge, for the HUD's depth readout. Purely a
+	-- function of X position -- 0 in camp, climbing as the player walks the chain.
+	local depth = Stages.depthBelowCamp(root.Position.X)
 
 	-- BOOTS GEAR APPLIED LIVE, HERE, FOR THE SAME REASON THE DECAY CLOCK IS: this loop
 	-- already resolves `stats` (which carries `walkSpeed`/`haulPenalty` off the
@@ -449,6 +452,7 @@ local function stepPlayer(player: Player, dt: number)
 		stageId = stageId,
 		stageName = if stageId then Stages.get(stageId).name else "Base Camp",
 		ambient = ambient,
+		depth = depth,
 		inShower = showering,
 
 		exposure = state.exposure,
