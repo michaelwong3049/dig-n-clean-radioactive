@@ -1146,10 +1146,19 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	-- ── The gantry + back wall, one structure ─────────────────
 	-- Two heavy studded posts on the +X (back) side, a panelled wall filling the gap
-	-- between them so the bay backs onto something solid, a boxed header across the top,
-	-- and an arm reaching forward over the tub, braced off both posts. The FRONT of
-	-- the tub is left open -- nothing between the player and the basin -- so the frame
-	-- looms behind and over the wash rather than caging it.
+	-- between them so the bay backs onto something solid, and a boxed header across the
+	-- top. The FRONT of the tub is left open -- nothing between the player and the basin
+	-- -- so the frame looms behind the wash rather than caging it.
+	--
+	-- NOTHING REACHES OVER THE TUB ANY MORE. There used to be an arm cantilevered
+	-- forward off this header to the tub centre, braced with a gusset at each post, and
+	-- its only job was carrying the shower head. The head is gone (see the tub's water
+	-- below) and the arm went with it -- not merely because it was orphaned, but because
+	-- it had the head's own defect: its underside sits 2.2 studs over WashStand and the
+	-- crust on seven of the fourteen authored items reaches higher than that, the
+	-- tallest of them standing 1.2 studs proud of the beam's TOP. Everything overhead is
+	-- now behind the tub's back rim, where the widest crust measured still clears it by
+	-- most of a stud.
 	local GANTRY_TOP = T + 6.2
 	local POST_Z = -28.2 -- authored; plot x ~= 29.8, just behind the tub's far rim
 	for _, ax in { 14, 22 } do
@@ -1166,13 +1175,8 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- The wall between the posts: a base course and a lighter upper course.
 	build(m, origin, { name = "SplashWall", pos = { 18, T + 1.6, POST_Z }, size = { 7.6, 3.0, 0.7 }, color = BODY, material = "Plastic", studs = true })
 	build(m, origin, { name = "SplashWall", pos = { 18, T + 4.4, POST_Z }, size = { 7.6, 2.4, 0.5 }, color = FACE, material = "Plastic", studs = true })
-	-- Header across the post tops, an arm forward over the tub centre, and a gusset
-	-- cube at each post/arm junction so the reach reads as braced, not cantilevered.
+	-- A boxed header across the post tops, capping the wall and carrying the sign.
 	build(m, origin, { name = "GantryBeam", pos = { 18, GANTRY_TOP, POST_Z }, size = { 9.0, 1.0, 1.2 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
-	build(m, origin, { name = "GantryArm", pos = { cx, GANTRY_TOP, (POST_Z + cz) * 0.5 - 0.5 }, size = { 1.2, 1.0, math.abs(cz - POST_Z) + 2 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
-	for _, ax in { 14, 22 } do
-		build(m, origin, { name = "GantryGusset", pos = { ax, GANTRY_TOP - 0.9, POST_Z - 1.1 }, size = { 1.0, 1.0, 1.6 }, color = BODY, material = "Plastic", studs = true, canCollide = false })
-	end
 
 	-- ── The tub's own water ───────────────────────────────────
 	-- THERE IS NO SHOWER HEAD ANY MORE, and that is a measurement rather than a taste.
