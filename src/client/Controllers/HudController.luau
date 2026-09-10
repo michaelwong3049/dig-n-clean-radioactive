@@ -218,21 +218,6 @@ local function build(): ScreenGui
 		zIndex = 4,
 	})
 
-	-- DEPTH — metres past base camp's edge, right-aligned on the r/s readout's own
-	-- row so it costs the panel no extra height. Blank in camp (depth 0): the stage
-	-- label below already reads "Base Camp" there, and a "0 m" would just be noise.
-	ui.depth = UIKit.label(panel, {
-		name = "Depth",
-		position = UDim2.fromOffset(16, 80),
-		size = UDim2.new(1, -32, 0, 16),
-		font = UIKit.Font.body,
-		textSize = 15,
-		color = DIM,
-		xAlign = Enum.TextXAlignment.Right,
-		text = "",
-		zIndex = 4,
-	})
-
 	ui.stageLabel = UIKit.label(panel, {
 		name = "StageLabel",
 		position = UDim2.fromOffset(16, 116),
@@ -240,6 +225,22 @@ local function build(): ScreenGui
 		font = UIKit.Font.title,
 		textSize = 18,
 		color = UIKit.C.text,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "",
+		zIndex = 4,
+	})
+
+	-- DEPTH — metres past base camp's edge, its own centred row directly under the
+	-- stage name (in the 26px the panel grew by, Dock.METER_SIZE 144 -> 170). Blank
+	-- in camp (depth 0): the stage label already reads "Base Camp" there, and a
+	-- "0 m" would just be noise.
+	ui.depth = UIKit.label(panel, {
+		name = "Depth",
+		position = UDim2.fromOffset(16, 142),
+		size = UDim2.new(1, -32, 0, 20),
+		font = UIKit.Font.title,
+		textSize = 15,
+		color = DIM,
 		xAlign = Enum.TextXAlignment.Center,
 		text = "",
 		zIndex = 4,
