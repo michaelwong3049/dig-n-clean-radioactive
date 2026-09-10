@@ -14,8 +14,7 @@
 	wire. Pure presentation: the click sends a destination NAME, WarpService decides
 	the CFrame.
 
-	NOT GREEN. The buttons use cyan and amber accents; green in the HUD means
-	exposure and nothing else (PLAN §14, and every other HUD header).
+	Neutral dark cards keep the destination logos clear.
 ]]
 
 local Players = game:GetService("Players")
@@ -26,6 +25,7 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local WarpIcons = require(script.Parent.Parent.WarpIcons)
 
 local WarpController = {}
 
@@ -34,10 +34,14 @@ local HIDDEN = UDim2.new(0.5, 0, 0, -100) -- fully off the top edge
 local SLIDE = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local CLICK_DEBOUNCE = 0.4
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local BACKGROUND = Color3.fromRGB(18, 20, 24)
+local HOVER_BACKGROUND = Color3.fromRGB(29, 32, 38)
+local EDGE = Color3.fromRGB(49, 53, 61)
+local HOVER_EDGE = Color3.fromRGB(88, 94, 105)
 
 local BUTTONS = {
-	{ dest = "base", text = "BASE", accent = Color3.fromRGB(72, 214, 245), edge = Color3.fromRGB(52, 83, 105), top = Color3.fromRGB(35, 48, 65), bottom = Color3.fromRGB(10, 16, 27) },
-	{ dest = "shops", text = "SHOPS", accent = Color3.fromRGB(255, 185, 78), edge = Color3.fromRGB(111, 79, 43), top = Color3.fromRGB(64, 44, 30), bottom = Color3.fromRGB(26, 17, 12) },
+	{ dest = "base", text = "BASE" },
+	{ dest = "shops", text = "SHOPS" },
 }
 
 local ui: {
@@ -57,8 +61,8 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 90 -- under StageBanner (95) so the banner wins the brief stage-exit overlap
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Dark metal cards with an illuminated edge and a compact destination label.
-	local BTN_W, BTN_H, GAP = 108, 48, 10
+	-- Dark cards with a centered destination logo.
+	local BTN_W, BTN_H, GAP = 120, 56, 10
 	local width = #BUTTONS * BTN_W + (#BUTTONS - 1) * GAP
 	local height = BTN_H
 
@@ -91,9 +95,9 @@ local function build(): ScreenGui
 			font = Enum.Font.GothamBlack,
 			textSize = 29,
 			color = Color3.new(1, 1, 1),
-			fillColor = Color3.fromRGB(200, 210, 225),
+			fillColor = BACKGROUND,
 			fillTransparency = 0,
-			strokeColor = spec.edge,
+			strokeColor = EDGE,
 			cornerRadius = UDim.new(0, 9),
 			strokeThickness = 2,
 			text = "",
@@ -101,41 +105,18 @@ local function build(): ScreenGui
 		})
 		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-		local gradient = Instance.new("UIGradient")
-		gradient.Color = ColorSequence.new(spec.top, spec.bottom)
-		gradient.Rotation = 90
-		gradient.Parent = button
-		UIKit.panel(button, {
-			name = "Accent",
-			size = UDim2.new(1, -30, 0, 2),
-			position = UDim2.fromOffset(15, BTN_H - 8),
-			color = spec.accent,
-			transparency = 0.15,
-			strokeThickness = 0,
-			cornerRadius = UDim.new(0, 1),
-			zIndex = 5,
-		})
-		local caption = UIKit.label(button, {
-			name = "Caption",
-			size = UDim2.new(1, -10, 1, -12),
-			position = UDim2.fromOffset(5, 2),
-			text = spec.text,
-			font = Enum.Font.GothamBlack,
-			textSize = 21,
-			color = Color3.fromRGB(232, 242, 255),
-			xAlign = Enum.TextXAlignment.Center,
-			strokeTransparency = 1,
-			zIndex = 7,
-		})
+		local iconPieces = WarpIcons.build(button, spec.dest)
 
 		local function setHighlighted(active: boolean)
 			TweenService:Create(button, HOVER, {
-				BackgroundColor3 = if active then Color3.new(1, 1, 1) else Color3.fromRGB(200, 210, 225),
+				BackgroundColor3 = if active then HOVER_BACKGROUND else BACKGROUND,
 			}):Play()
-			TweenService:Create(stroke, HOVER, { Color = if active then spec.accent else spec.edge }):Play()
-			TweenService:Create(caption, HOVER, {
-				TextColor3 = if active then Color3.new(1, 1, 1) else Color3.fromRGB(232, 242, 255),
-			}):Play()
+			TweenService:Create(stroke, HOVER, { Color = if active then HOVER_EDGE else EDGE }):Play()
+			for _, piece in iconPieces do
+				TweenService:Create(piece, HOVER, {
+					BackgroundColor3 = if active then Color3.new(1, 1, 1) else Color3.fromRGB(232, 242, 255),
+				}):Play()
+			end
 		end
 		button.MouseEnter:Connect(function()
 			setHighlighted(true)
