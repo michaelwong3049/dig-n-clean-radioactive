@@ -34,7 +34,7 @@ local HIDDEN = UDim2.new(0.5, 0, 0, -100) -- fully off the top edge
 local SLIDE = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local CLICK_DEBOUNCE = 0.4
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
--- Shared with IndexController's Collection tile (UIKit.C.nav*), so the two read as one
+-- Shared with IndexController's Index tile (UIKit.C.nav*), so the two read as one
 -- family of buttons.
 local BACKGROUND = UIKit.C.navFill
 local HOVER_BACKGROUND = UIKit.C.navFillHover

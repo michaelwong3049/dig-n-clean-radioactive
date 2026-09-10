@@ -56,7 +56,7 @@ UIKit.C = {
 	-- unrelated highlight and quietly break the rule the original comment protected.
 	burn = Color3.fromHex("FFFFFF"),
 	-- The dark navigation cards: WarpController's BASE / SHOPS and IndexController's
-	-- Collection tile. Neutral near-black on purpose, so the white logo each one
+	-- Index tile. Neutral near-black on purpose, so the white logo each one
 	-- carries is the only thing on it with any colour. `navIcon` is that logo at rest;
 	-- it goes to pure white on hover.
 	navFill = Color3.fromRGB(18, 20, 24),
@@ -296,7 +296,7 @@ end
 --
 -- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN, THEN TO THE RIGHT
 -- EDGE. It briefly stacked above CashController's badge on the left; it now sits
--- standalone on the MIDDLE-RIGHT as the square Collection tile, its top edge level
+-- standalone on the MIDDLE-RIGHT as the square Index tile, its top edge level
 -- with the top of the cash/meter column (Dock.SIDE_TOP_Y; centred instead on a short
 -- screen, Dock.SIDE_TOP_MIN_HEIGHT), which itself moved to the middle-left
 -- (Dock.CASH_MID_Y / Dock.METER_MID_Y). Its own size lives in IndexController.
@@ -420,7 +420,7 @@ Dock.SIDE_STACK_HEIGHT = Dock.CASH_SIZE.Y.Offset + Dock.GAP + Dock.METER_SIZE.Y.
 Dock.CASH_MID_Y = Dock.CASH_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
 Dock.METER_MID_Y = Dock.SIDE_STACK_HEIGHT / 2 - Dock.METER_SIZE.Y.Offset / 2
 -- The column's TOP edge, as the same kind of offset from screen middle. IndexController
--- hangs the Collection tile from it on the right edge, so both sides start on one line.
+-- hangs the Index tile from it on the right edge, so both sides start on one line.
 --
 -- TOP-ALIGNED RATHER THAN CENTRED, AND THE HAUL WIDGET IS WHY. It shares the right edge,
 -- and its rarity readout sits 370px above the screen's foot (HAULPANEL_BOTTOM +

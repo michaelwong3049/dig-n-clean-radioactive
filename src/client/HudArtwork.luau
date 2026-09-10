@@ -50,13 +50,13 @@ function Artwork.cash(parent: Instance)
 	shape(band, "Highlight", 2, 2, 4, 43, Color3.fromRGB(255, 237, 95), 9)
 end
 
--- The Collection book's box, in design pixels. IndexController centres it in the top
+-- The index book's box, in design pixels. IndexController centres it in the top
 -- of its tile.
 Artwork.BOOK_SIZE = Vector2.new(42, 48)
 
 export type Book = { icon: Frame, paper: { Frame }, cut: UIStroke, plate: Frame }
 
---- The Collection book: a flat, upright cover with a dark title plate on it, and the
+--- The index book: a flat, upright cover with a dark title plate on it, and the
 --- page block standing proud of it to the right and below. Drawn into a BOOK_SIZE box
 --- at the icon's own origin; the caller positions `icon`.
 ---

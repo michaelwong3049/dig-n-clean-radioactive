@@ -5,7 +5,7 @@
 	THIS IS THE GUI HALF OF PLAN §10.10, NOT THE WHOLE THING. The full "Museum /
 	Collection Wall" — a physical base-camp gallery, stage-completion luck bonuses —
 	is explicitly a long-term / post-MVP feature there. This is scoped to exactly
-	what was asked for: a Collection tile on the right edge that opens a browsable
+	what was asked for: an Index tile on the right edge that opens a browsable
 	panel. No new world geometry, no completion bonus.
 
 	THE LAYOUT IS A CARD GRID NOW, NOT A TEXT LIST. Each stage is a section of square
@@ -51,7 +51,7 @@ local Artwork = require(script.Parent.Parent.HudArtwork)
 
 local Index = {}
 
--- THE COLLECTION TILE. A square dark card with a big white book on it and its name
+-- THE INDEX TILE. A square dark card with a big white book on it and its name
 -- under that in outlined type — the side-button shape the reference asked for, in
 -- place of the wide purple INDEX pill. Same palette as WarpController's BASE / SHOPS
 -- cards (UIKit.C.nav*), so the HUD's buttons read as one family.
@@ -63,11 +63,13 @@ local Index = {}
 -- those offsets measure against the true screen exactly as the left column's do; the
 -- detail panel keeps the inset-aware gui it needs (see build()).
 --
--- "Collection" at 15 measures 72px in GothamBlack — the reference's ~90% of the tile's
--- width. A longer word wants a wider tile or a smaller size, not TextScaled.
+-- "Index" at 18 measures 47px in GothamBlack. 18 is the reference's letter height for
+-- an 80px tile — the reference's own word ran the full width only because it was a
+-- long one ("Collection"). A much longer word wants a wider tile or a smaller size,
+-- not TextScaled.
 local TILE_SIZE = 80
-local TILE_CAPTION = "Collection"
-local TILE_CAPTION_SIZE = 15
+local TILE_CAPTION = "Index"
+local TILE_CAPTION_SIZE = 18
 local TILE_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- ── Panel geometry ──────────────────────────────────────────────────
@@ -614,7 +616,7 @@ local function build(): (ScreenGui, ScreenGui)
 		font = UIKit.Font.hero,
 		textSize = UIKit.TextSize.hero,
 		color = UIKit.C.text,
-		text = "COLLECTION",
+		text = "THE INDEX",
 		zIndex = 11,
 	})
 
