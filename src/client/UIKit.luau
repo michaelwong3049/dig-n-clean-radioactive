@@ -165,7 +165,7 @@ Dock.ROW_MAX_WIDTH = 1400 -- absolute cap so an ultrawide monitor does not stret
 
 Dock.BAGCOUNT_HEIGHT = 18
 
-Dock.METER_SIZE = UDim2.fromOffset(280, 144) -- was 240x46, then 280x60 before HEALTH joined RADS in one panel
+Dock.METER_SIZE = UDim2.fromOffset(280, 170) -- was 240x46, then 280x60 (HEALTH joined RADS), then 144 before the DEPTH row below the stage name
 
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
