@@ -1530,8 +1530,11 @@ end
 --- bug, not a cluster.
 local function scatterFieldTrees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
 	local BAND_WEIGHTS = { 2, 1, 2 } -- north edge, middle, south edge
-	local MIN_GAP = 22 -- studs between trunks -- clears canopies on these big trees
-	local MAX_ATTEMPTS_PER_TREE = 30
+	local MIN_GAP = 32 -- studs between trunks -- a same-band gap this size reads fine,
+	-- but it's also what a cross-band pair needs: two adjacent cells' jitter can still
+	-- land a north-band and a middle-band tree ~25 studs apart, close enough to read as
+	-- one clump straddling the boundary. 32 forces both cases apart.
+	local MAX_ATTEMPTS_PER_TREE = 50
 
 	local bandCount, remainder = {}, {}
 	local totalWeight = BAND_WEIGHTS[1] + BAND_WEIGHTS[2] + BAND_WEIGHTS[3]
