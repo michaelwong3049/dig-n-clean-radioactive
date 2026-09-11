@@ -113,11 +113,13 @@ local GROUND_SKIM = 0.06
 -- bush never sprouts in the middle of the route.
 local BUSH_CENTRE_CLEARANCE = 28
 
--- Stage 2 has the same open lane down z = 0 (scatterEdgeTrees keeps its trees out on
--- the two long edges for it), so a carcass -- the one Stage 2 prop big enough to block
--- a sightline -- is pushed at least this far off it. Smaller than the bush clearance
--- on purpose: a rib cage standing just off the path is the point, and you should be
--- walking past one, not hunting for it at the field's edge.
+-- Stage 2 keeps the same clear lane down z = 0 for its carcasses -- the one Stage 2
+-- prop big enough to block a sightline -- pushed at least this far off it. Smaller
+-- than the bush clearance on purpose: a rib cage standing just off the path is the
+-- point, and you should be walking past one, not hunting for it at the field's edge.
+-- (The dead trees themselves are no longer kept off this lane -- scatterFieldTrees
+-- covers the whole field now -- but a carcass laid across the walk-through route
+-- still reads as a mistake, so its own clearance stays.)
 local SKELETON_CENTRE_CLEARANCE = 20
 
 -- Stage 3 keeps the same open lane down z = 0 the first two fields do, so a dump of
@@ -449,7 +451,7 @@ end
 ---   Stage 1 -- chunky green bushes across the alive west half (scatterBushes),
 ---            then `deadProps` knee-high dead snags across the dead-tan east half
 ---            (scatterDeadBushes).
----   Stage 2 -- big dead trees flanking the corridor (scatterEdgeTrees), then the
+---   Stage 2 -- big dead trees across the whole field (scatterFieldTrees), then the
 ---            remains scattered over the whole field (scatterBones): `skeletons` whole
 ---            carcasses as landmarks, `bones` handfuls of loose bone underfoot and
 ---            `skulls` human skulls.
@@ -1514,25 +1516,35 @@ end
 ---   * are deterministic off the stage rng (a rebuild reproduces the field),
 ---   * leave barrels, ooze pools and every un-reworked `prop()` kind on the shelf.
 
---- Stage 2 -- big dead trees along the two LONG sides, so the travel corridor down the
---- middle stays clear. Count splits as evenly as it can between the north and south
---- edges; within a side the trees sit in even cells across the width, each jittered up
---- to half a cell and pushed a random amount IN off the wall, so the line reads as
---- scattered but stays evenly spread rather than clumping up in some spots and leaving
---- gaps in others.
-local function scatterEdgeTrees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
-	local perSide = math.ceil(count / 2)
-	local placed = 0
+--- Stage 2 -- big dead trees spread across the WHOLE field, not just the two long
+--- edges: a roughly-square grid of cells covers the full width and depth, one tree
+--- per cell jittered up to half a cell in both axes, so the stand reads as scattered
+--- but stays evenly spread rather than clumping up in some spots and leaving gaps in
+--- others. Cells are handed out in a shuffled order rather than row by row, so when
+--- `count` doesn't fill the grid exactly the leftover cells are spread across the
+--- field instead of always being the tail of the last row.
+local function scatterFieldTrees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+	local cols = math.max(1, math.ceil(math.sqrt(count)))
+	local rows = math.max(1, math.ceil(count / cols))
+	local cellW = 2 * hx / cols
+	local cellH = 2 * hz / rows
 
-	for _, side in { -1, 1 } do -- -1 = north edge (z < 0), +1 = south edge (z > 0)
-		local n = math.min(perSide, count - placed)
-		for i = 0, n - 1 do
-			placed += 1
-			local cell = 2 * hx / n
-			local x = -hx + (i + 0.5 + rng:NextNumber(-0.5, 0.5)) * cell
-			local z = side * (hz - rng:NextNumber(4, 30))
-			deadTree(folder, origin, math.clamp(x, -hx, hx), z, rng)
+	local cells = {}
+	for r = 0, rows - 1 do
+		for c = 0, cols - 1 do
+			table.insert(cells, { c, r })
 		end
+	end
+	for i = #cells, 2, -1 do
+		local j = rng:NextInteger(1, i)
+		cells[i], cells[j] = cells[j], cells[i]
+	end
+
+	for i = 1, math.min(count, #cells) do
+		local c, r = cells[i][1], cells[i][2]
+		local x = -hx + (c + 0.5 + rng:NextNumber(-0.5, 0.5)) * cellW
+		local z = -hz + (r + 0.5 + rng:NextNumber(-0.5, 0.5)) * cellH
+		deadTree(folder, origin, math.clamp(x, -hx, hx), math.clamp(z, -hz, hz), rng)
 	end
 end
 
@@ -1553,16 +1565,15 @@ end
 --- remains all over it.
 ---
 --- `carcassOuterZ` IS PER FIELD BECAUSE THE FIELDS DIFFER, and it is the only
---- placement number that does. Stage 2's carcasses have to stay inside its tree line
---- (scatterEdgeTrees puts trunks from hz-4 to hz-30, and a 30-stud carcass laid
---- through one would read as a bug); Stage 3 has nothing standing in it, so its band
---- runs almost to the wall and its three spread over the full depth instead of
---- crowding one mid-field strip. Everything else -- the grids, the clearance, the
---- alternation -- is shared.
+--- placement number that does. Stage 2's carcasses stay off the outer wall band (a
+--- 30-stud carcass laid across the corridor would read as a bug); Stage 3 has nothing
+--- standing in it, so its band runs almost to the wall and its three spread over the
+--- full depth instead of crowding one mid-field strip. Everything else -- the grids,
+--- the clearance, the alternation -- is shared.
 ---
---- Deterministic off the stage rng. On Stage 2 it is consumed AFTER scatterEdgeTrees
---- so the tree line keeps the exact placement it already had; on Stage 3 it is the
---- only pass there is. Same discipline as Stage 1's three passes.
+--- Deterministic off the stage rng. On Stage 2 it is consumed AFTER scatterFieldTrees
+--- so the trees keep the exact placement they already had; on Stage 3 it is the only
+--- pass there is. Same discipline as Stage 1's three passes.
 ---
 --- ALL OF IT GOES IN ONE `Bones` FOLDER SO IT CAN BE MADE UNQUERYABLE IN ONE PASS.
 --- FieldController.groundY fires a ray straight down from the player to sit the
@@ -2130,9 +2141,9 @@ local function warningSign(parent: Instance, origin: CFrame, x: number, z: numbe
 end
 
 --- Stage 4 -- a rank of signs along the entrance edge. Evenly spread across z with
---- the usual per-cell jitter -- same jittered-grid technique scatterEdgeTrees uses
---- along a long side, just run along the SHORT edge here since these guard the
---- entrance, not a side.
+--- the usual per-cell jitter -- the same one-axis jittered-grid technique Stage 2's
+--- trees used to use along a long side, just run along the SHORT edge here since
+--- these guard the entrance, not a side.
 local function scatterWarningSigns(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
 	for i = 0, count - 1 do
 		local cell = 2 * hz / count
@@ -2792,8 +2803,8 @@ local function buildStageScenery(parent: Instance, id: number)
 			scatterStage1Cracks(folder, origin, def.size[1] / 2, def.size[2] / 2, rng)
 			scatterDeadBushes(folder, origin, theme.deadProps or 0, rng, hx, hz)
 		elseif id == 2 then
-			scatterEdgeTrees(folder, origin, theme.props, rng, hx, hz)
-			-- hz - 30 = inside the tree line scatterEdgeTrees just laid down.
+			scatterFieldTrees(folder, origin, theme.props, rng, hx, hz)
+			-- hz - 30 keeps a carcass off the outer wall band, same margin as before.
 			scatterBones(folder, origin, rng, hx, hz, hz - 30, theme.skeletons or 0, theme.bones or 0, theme.skulls or 0)
 		elseif id == 3 then
 			-- Nothing GREW in this field, so the carcasses get almost the full depth to
