@@ -476,7 +476,7 @@ type StageTheme = {
 	signs: number?,
 }
 local THEME: { [number]: StageTheme } = {
-	[1] = { props = 9, deadProps = 7, pools = 8, kind = "trees", scatter = true },
+	[1] = { props = 9, deadProps = 14, pools = 8, kind = "trees", scatter = true },
 	-- Stage 2's bone counts. Two carcasses is the whole point of the number: one either
 	-- side of the lane (scatterBones alternates), so the field always has one in view
 	-- and never a pile. The loose clusters are the dense one -- 16 of them at 3-6 bones
