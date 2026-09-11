@@ -1516,35 +1516,55 @@ end
 ---   * are deterministic off the stage rng (a rebuild reproduces the field),
 ---   * leave barrels, ooze pools and every un-reworked `prop()` kind on the shelf.
 
---- Stage 2 -- big dead trees spread across the WHOLE field, not just the two long
---- edges: a roughly-square grid of cells covers the full width and depth, one tree
---- per cell jittered up to half a cell in both axes, so the stand reads as scattered
---- but stays evenly spread rather than clumping up in some spots and leaving gaps in
---- others. Cells are handed out in a shuffled order rather than row by row, so when
---- `count` doesn't fill the grid exactly the leftover cells are spread across the
---- field instead of always being the tail of the last row.
+--- Stage 2 -- big dead trees over the WHOLE field, biased toward the two long edges
+--- rather than spread flat: the depth splits into three equal-width bands (north edge,
+--- middle, south edge) and BAND_WEIGHTS hands the edge bands more of the count than
+--- the middle gets, so it still reads as a tree LINE with a few strays further in,
+--- not a lawn. Whichever band comes up short on the rounding is picked by shuffled
+--- tie-break, not always the same one, so a rebuild doesn't always favour north.
+--- Within a band, trees sit in even cells across the width, each jittered up to half
+--- a cell in both axes, so a band never clumps or grids.
 local function scatterFieldTrees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
-	local cols = math.max(1, math.ceil(math.sqrt(count)))
-	local rows = math.max(1, math.ceil(count / cols))
-	local cellW = 2 * hx / cols
-	local cellH = 2 * hz / rows
+	local BAND_WEIGHTS = { 2, 1, 2 } -- north edge, middle, south edge
 
-	local cells = {}
-	for r = 0, rows - 1 do
-		for c = 0, cols - 1 do
-			table.insert(cells, { c, r })
-		end
+	local bandCount, remainder = {}, {}
+	local totalWeight = BAND_WEIGHTS[1] + BAND_WEIGHTS[2] + BAND_WEIGHTS[3]
+	local assigned = 0
+	for i, w in BAND_WEIGHTS do
+		local raw = count * w / totalWeight
+		bandCount[i] = math.floor(raw)
+		remainder[i] = raw - bandCount[i]
+		assigned += bandCount[i]
 	end
-	for i = #cells, 2, -1 do
+
+	local tieOrder = { 1, 2, 3 }
+	for i = 3, 2, -1 do
 		local j = rng:NextInteger(1, i)
-		cells[i], cells[j] = cells[j], cells[i]
+		tieOrder[i], tieOrder[j] = tieOrder[j], tieOrder[i]
+	end
+	for _ = 1, count - assigned do
+		local bestI, bestFrac = tieOrder[1], -1
+		for _, i in tieOrder do
+			if remainder[i] > bestFrac then
+				bestI, bestFrac = i, remainder[i]
+			end
+		end
+		bandCount[bestI] += 1
+		remainder[bestI] = -1
 	end
 
-	for i = 1, math.min(count, #cells) do
-		local c, r = cells[i][1], cells[i][2]
-		local x = -hx + (c + 0.5 + rng:NextNumber(-0.5, 0.5)) * cellW
-		local z = -hz + (r + 0.5 + rng:NextNumber(-0.5, 0.5)) * cellH
-		deadTree(folder, origin, math.clamp(x, -hx, hx), math.clamp(z, -hz, hz), rng)
+	local bandH = 2 * hz / 3
+	for band = 1, 3 do
+		local n = bandCount[band]
+		if n > 0 then
+			local zLo = -hz + (band - 1) * bandH
+			local cell = 2 * hx / n
+			for i = 0, n - 1 do
+				local x = -hx + (i + 0.5 + rng:NextNumber(-0.5, 0.5)) * cell
+				local z = zLo + (0.5 + rng:NextNumber(-0.5, 0.5)) * bandH
+				deadTree(folder, origin, math.clamp(x, -hx, hx), math.clamp(z, -hz, hz), rng)
+			end
+		end
 	end
 end
 
