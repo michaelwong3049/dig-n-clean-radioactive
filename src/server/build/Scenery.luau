@@ -481,7 +481,7 @@ local THEME: { [number]: StageTheme } = {
 	-- littered" without ever being what you are looking at. Skulls stay rare: they are
 	-- the detail that lands hardest, and lose all of it the moment there are enough of
 	-- them to be scenery.
-	[2] = { props = 6, pools = 10, kind = "trees", scatter = true, skeletons = 2, bones = 16, skulls = 7 },
+	[2] = { props = 9, pools = 10, kind = "trees", scatter = true, skeletons = 2, bones = 16, skulls = 7 },
 	-- Stage 3 gets the SAME three bone passes, denser, and NOTHING ELSE -- its sirens
 	-- are still on the shelf (`props`/`kind` below are untouched and unused), so this
 	-- is a partial pass, not Stage 3's rework. That is most of why the two fields do
@@ -1518,7 +1518,8 @@ end
 --- middle stays clear. Count splits as evenly as it can between the north and south
 --- edges; within a side the trees sit in even cells across the width, each jittered up
 --- to half a cell and pushed a random amount IN off the wall, so the line reads as
---- scattered, never a fence.
+--- scattered but stays evenly spread rather than clumping up in some spots and leaving
+--- gaps in others.
 local function scatterEdgeTrees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
 	local perSide = math.ceil(count / 2)
 	local placed = 0
