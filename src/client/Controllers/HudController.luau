@@ -41,6 +41,14 @@ local GREEN = UIKit.C.green
 local WHITE = UIKit.C.burn
 local DIM = UIKit.C.dim
 
+-- This meter keeps the old chunky faces UIKit.Font moved everyone else off of
+-- (formal Gotham, for the shop/nav/index redesign). The health/rads readout is the
+-- one thing on screen every second of play, not a card the player reads once and
+-- moves on from, so it stays FredokaOne/LuckiestGuy — the same pair the world's own
+-- signage (Kit.FONT) never left.
+local METER_BODY_FONT = Enum.Font.FredokaOne
+local METER_TITLE_FONT = Enum.Font.LuckiestGuy
+
 local state = {
 	exposureFrac = 0,
 	net = 0,
@@ -146,7 +154,7 @@ local function build(): ScreenGui
 			name = prefix .. "Caption",
 			position = UDim2.fromOffset(16, y),
 			size = UDim2.new(1, -32, 0, 18),
-			font = UIKit.Font.body,
+			font = METER_BODY_FONT,
 			textSize = 16,
 			color = DIM,
 			text = captionText,
@@ -157,7 +165,7 @@ local function build(): ScreenGui
 			name = prefix .. "Value",
 			position = UDim2.fromOffset(16, y),
 			size = UDim2.new(1, -32, 0, 18),
-			font = UIKit.Font.body,
+			font = METER_BODY_FONT,
 			textSize = 16,
 			color = DIM,
 			xAlign = Enum.TextXAlignment.Right,
@@ -200,7 +208,7 @@ local function build(): ScreenGui
 		name = "Countdown",
 		position = UDim2.fromOffset(16, 98),
 		size = UDim2.new(1, -32, 0, 16),
-		font = UIKit.Font.body,
+		font = METER_BODY_FONT,
 		textSize = 14,
 		color = UIKit.C.burn,
 		xAlign = Enum.TextXAlignment.Center,
@@ -217,7 +225,7 @@ local function build(): ScreenGui
 		name = "Readout",
 		position = UDim2.fromOffset(16, 80),
 		size = UDim2.new(1, -32, 0, 16),
-		font = UIKit.Font.body,
+		font = METER_BODY_FONT,
 		textSize = 15,
 		color = DIM,
 		text = "",
@@ -228,7 +236,7 @@ local function build(): ScreenGui
 		name = "StageLabel",
 		position = UDim2.fromOffset(16, 116),
 		size = UDim2.new(1, -32, 0, 24),
-		font = UIKit.Font.title,
+		font = METER_TITLE_FONT,
 		textSize = 18,
 		color = UIKit.C.text,
 		xAlign = Enum.TextXAlignment.Center,
@@ -244,7 +252,7 @@ local function build(): ScreenGui
 		name = "Depth",
 		position = UDim2.fromOffset(16, 142),
 		size = UDim2.new(1, -32, 0, 20),
-		font = UIKit.Font.title,
+		font = METER_TITLE_FONT,
 		textSize = 15,
 		color = DIM,
 		xAlign = Enum.TextXAlignment.Center,
