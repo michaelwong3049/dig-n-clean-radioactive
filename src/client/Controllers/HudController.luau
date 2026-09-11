@@ -146,6 +146,7 @@ local function build(): ScreenGui
 		color = UIKit.C.panel,
 		transparency = 0.05,
 		cornerRadius = UDim.new(0, 4),
+		strokeColor = Color3.new(0, 0, 0),
 		strokeThickness = UIKit.Stroke.thick,
 		zIndex = 4,
 	})
@@ -338,7 +339,6 @@ local function render(dt: number)
 
 	ui.fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
 	ui.fill.BackgroundColor3 = colour
-	ui.meterStroke.Color = colour
 
 	local label = if state.inShower then "RADS  \u{2014}  FLUSHING" else "RADS"
 	ui.caption.Text = label
