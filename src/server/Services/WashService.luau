@@ -171,6 +171,11 @@ type Session = {
 	zones: { [number]: { BasePart } },
 	zoneAnchor: { [number]: Vector3 },
 	zoneIds: { number },
+	-- HOW MANY PATCHES THIS ITEM STARTED WITH, captured once in begin() before anything
+	-- clears. `item.patches` shrinks as the wash progresses, so this is the only place
+	-- the original count survives -- and it is what `push` normalizes the overall
+	-- clean-percent readout against.
+	initialPatchCount: number,
 }
 
 local sessions: { [Player]: Session? } = {}
@@ -349,10 +354,16 @@ local function push(player: Player, session: Session?, data: any)
 	-- player look around the object and see which corners they have half-done and which
 	-- they have not touched.
 	local patches = {}
+	-- SUMMED ALONGSIDE THE PER-PATCH SOAK BELOW, so the overall clean-percent readout
+	-- moves every tick the water is on something rather than jumping only when a patch
+	-- fully pops -- the same "clock follows the water" feel `soaked` already gives one
+	-- patch, extended to the whole item.
+	local soakedSum = 0
 	for index, hardness in item.patches or {} do
 		local zoneId = session.zoneIds[index]
 		local target = soakTarget(hardness, stats)
 		local soak = if target > 0 then math.clamp((session.soaked[zoneId] or 0) / target, 0, 1) else 0
+		soakedSum += soak
 		local blocked = hardness > stats.effectivePotency
 		table.insert(patches, {
 			zone = zoneId,
@@ -379,6 +390,16 @@ local function push(player: Player, session: Session?, data: any)
 		end
 	end
 
+	-- CLEARED PATCHES COUNT AS FULLY SOAKED (they no longer appear in the loop above,
+	-- so `soakedSum` alone would under-count), plus whatever fraction is banked on what
+	-- is left. Guarded on zero for the one item that reaches the tub with no patches at
+	-- all (should not happen -- begin() refuses an already-clean item -- but a session
+	-- dividing by zero is worse than one reporting a fully-clean bar).
+	local clearedCount = session.initialPatchCount - #(item.patches or {})
+	local percentClean = if session.initialPatchCount > 0
+		then math.clamp((clearedCount + soakedSum) / session.initialPatchCount, 0, 1)
+		else 1
+
 	stateRemote:FireClient(player, {
 		uid = session.uid,
 		-- NO NAME. It used to ride along here for a label the bay never grew, and under
@@ -387,6 +408,10 @@ local function push(player: Player, session: Session?, data: any)
 		-- (Net.ItemIdentified), fired once, after the last chunk comes off.
 		rarity = item.rarity,
 		patches = patches,
+		-- THE BOTTOM BAR'S NUMBER, computed here rather than re-derived client-side from
+		-- `patches` so the client does not need to know the item's original patch count
+		-- (never sent) to normalize against -- same trust boundary as `soak` above.
+		percentClean = percentClean,
 		-- NEITHER `targetZone` NOR A WORKED-ZONE ECHO IS SENT ANY MORE. Both were the
 		-- client's own aim coming back to it a tick late, and the client had it exactly
 		-- right sixty times a second: `patchAt` resolves the zone from the impact ray, and
@@ -598,6 +623,7 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		zones = {},
 		zoneAnchor = {},
 		zoneIds = {},
+		initialPatchCount = #patches,
 	}
 
 	-- `reachable` was already confirmed above, so this is not spent building geometry

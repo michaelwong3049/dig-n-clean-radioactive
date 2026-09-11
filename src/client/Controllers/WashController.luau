@@ -1602,6 +1602,57 @@ local function ensureGui(): boolean
 	fluid.ZIndex = 1
 	fluid.Parent = canvas
 
+	-- ── The clean-percent bar ──
+	-- Bottom-centre: how much of the ITEM is clean, not any one patch. WashService
+	-- sums every patch's own soak fraction (cleared patches count as fully soaked) and
+	-- normalizes against how many it started with, so this climbs every second the
+	-- water is on something instead of jumping only when a patch pops.
+	local cleanBar = Instance.new("Frame")
+	cleanBar.Name = "CleanBar"
+	cleanBar.AnchorPoint = Vector2.new(0.5, 1)
+	cleanBar.Position = UDim2.new(0.5, 0, 1, -22)
+	cleanBar.Size = UDim2.fromOffset(420, 22)
+	cleanBar.BackgroundColor3 = UIKit.C.empty
+	cleanBar.BorderSizePixel = 0
+	cleanBar.Visible = false
+	cleanBar.ZIndex = 1
+	cleanBar.Parent = canvas
+
+	local cleanCorner = Instance.new("UICorner")
+	cleanCorner.CornerRadius = UIKit.Radius.button
+	cleanCorner.Parent = cleanBar
+
+	local cleanStroke = Instance.new("UIStroke")
+	cleanStroke.Color = UIKit.C.stroke
+	cleanStroke.Thickness = UIKit.Stroke.thin
+	cleanStroke.Parent = cleanBar
+
+	local cleanFill = Instance.new("Frame")
+	cleanFill.Name = "Fill"
+	cleanFill.AnchorPoint = Vector2.new(0, 0)
+	cleanFill.Position = UDim2.fromScale(0, 0)
+	cleanFill.Size = UDim2.fromScale(0, 1)
+	cleanFill.BackgroundColor3 = PATCH_GREEN
+	cleanFill.BorderSizePixel = 0
+	cleanFill.ZIndex = 1
+	cleanFill.Parent = cleanBar
+
+	local cleanFillCorner = Instance.new("UICorner")
+	cleanFillCorner.CornerRadius = UIKit.Radius.button
+	cleanFillCorner.Parent = cleanFill
+
+	local cleanPercent = Instance.new("TextLabel")
+	cleanPercent.Name = "Percent"
+	cleanPercent.Size = UDim2.fromScale(1, 1)
+	cleanPercent.BackgroundTransparency = 1
+	cleanPercent.Font = UIKit.Font.title
+	cleanPercent.TextSize = UIKit.TextSize.caption
+	cleanPercent.TextColor3 = UIKit.C.text
+	cleanPercent.TextStrokeTransparency = 0
+	cleanPercent.Text = "0% clean"
+	cleanPercent.ZIndex = 2
+	cleanPercent.Parent = cleanBar
+
 	-- ── The wipe panel ──
 	-- Parked off the RIGHT edge, which is where every completed sweep leaves it.
 	local panel = Instance.new("Frame")
@@ -2296,9 +2347,18 @@ local function enterView()
 	if reticle then
 		reticle.Visible = true
 	end
-	local fluid = wipeGui and wipeGui:FindFirstChild("Fluid")
+	-- RECURSIVE, NOT A DIRECT CHILD LOOKUP: `Fluid` (and `CleanBar` below) live on the
+	-- canvas Frame under this ScreenGui, not on the ScreenGui itself, ever since the
+	-- HUD-scale pass parented every widget onto UIKit.canvas(). A plain FindFirstChild
+	-- against wipeGui silently returned nil here for a while — the label existed and
+	-- was simply never told to show or update. Caught while wiring the clean-bar below.
+	local fluid = wipeGui and wipeGui:FindFirstChild("Fluid", true)
 	if fluid then
 		fluid.Visible = true
+	end
+	local cleanBar = wipeGui and wipeGui:FindFirstChild("CleanBar", true)
+	if cleanBar then
+		cleanBar.Visible = true
 	end
 
 	if not renderBound then
@@ -2329,9 +2389,13 @@ local function exitView()
 	if reticle then
 		reticle.Visible = false
 	end
-	local fluid = wipeGui and wipeGui:FindFirstChild("Fluid")
+	local fluid = wipeGui and wipeGui:FindFirstChild("Fluid", true)
 	if fluid then
 		fluid.Visible = false
+	end
+	local cleanBar = wipeGui and wipeGui:FindFirstChild("CleanBar", true)
+	if cleanBar then
+		cleanBar.Visible = false
 	end
 
 	local camera = Workspace.CurrentCamera
@@ -2435,10 +2499,26 @@ function Wash.start()
 		-- The loaded liquid can change mid-wash (a canister runs dry and drops you back
 		-- to Plain Water), so this is set on every payload, not just the first. beginSession
 		-- has already run ensureGui by here on a fresh session.
-		local fluid = wipeGui and wipeGui:FindFirstChild("Fluid")
+		local fluid = wipeGui and wipeGui:FindFirstChild("Fluid", true)
 		if fluid and fluid:IsA("TextLabel") then
 			fluid.Text = payload.liquidName or "Plain Water"
 			fluid.TextColor3 = Color3.fromHex(payload.liquidColor or DEFAULT_LIQUID)
+		end
+
+		-- SERVER-COMPUTED, LIKE `soak` ON EACH PATCH ABOVE: the client draws the number,
+		-- it does not derive it. `percentClean` is already 0-1 and monotonic (WashService
+		-- only ever adds banked seconds), so there is nothing to clamp or smooth here.
+		local cleanBar = wipeGui and wipeGui:FindFirstChild("CleanBar", true)
+		if cleanBar then
+			local pct = payload.percentClean or 0
+			local fill = cleanBar:FindFirstChild("Fill")
+			if fill then
+				fill.Size = UDim2.fromScale(pct, 1)
+			end
+			local percent = cleanBar:FindFirstChild("Percent")
+			if percent and percent:IsA("TextLabel") then
+				percent.Text = `{math.floor(pct * 100 + 0.5)}% clean`
+			end
 		end
 	end)
 
