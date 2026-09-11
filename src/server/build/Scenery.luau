@@ -476,7 +476,7 @@ type StageTheme = {
 	signs: number?,
 }
 local THEME: { [number]: StageTheme } = {
-	[1] = { props = 9, deadProps = 7, pools = 8, kind = "trees", scatter = true },
+	[1] = { props = 9, deadProps = 14, pools = 8, kind = "trees", scatter = true },
 	-- Stage 2's bone counts. Two carcasses is the whole point of the number: one either
 	-- side of the lane (scatterBones alternates), so the field always has one in view
 	-- and never a pile. The loose clusters are the dense one -- 16 of them at 3-6 bones
@@ -1840,10 +1840,18 @@ end
 
 --- Stage 1 -- `count` knee-high dead snags across the EASTERN half, the dead-tan side
 --- where the green scrub (scatterBushes, west half) has died back and the ground is
---- starting to crack. Same even grid + third-of-a-cell jitter as scatterBushes, and the
---- same BUSH_CENTRE_CLEARANCE lane down z = 0. Sparser than the green side by count
---- alone -- nothing thrives here. The band stops a few studs short of the Stage 1/2
---- seam so a snag never straddles the border line.
+--- starting to crack. Same BUSH_CENTRE_CLEARANCE lane down z = 0. Sparser than the
+--- green side by count alone -- nothing thrives here. The band stops a few studs
+--- short of the Stage 1/2 seam so a snag never straddles the border line.
+---
+--- Unlike scatterBushes' strict row-major fill, the grid CELLS are shuffled before
+--- `count` of them are taken: a fixed count against a fixed cols*rows grid almost
+--- never divides evenly, and filling row-major always leaves the leftover cells in
+--- the same corner (the last row's tail) every rebuild -- a hole, not a thin patch.
+--- Shuffling means whatever's left unfilled lands somewhere different across the
+--- band instead. Jitter is also widened to 0.44 of a cell (up from the grid norm's
+--- 0.34) -- a snag this sparse is a handful of points viewed from directly
+--- overhead, and the tighter jitter read as neat columns rather than a scatter.
 ---
 --- Deterministic off the stage rng, and consumed AFTER scatterStage1Cracks in
 --- buildStageScenery so neither pass shifts the other's placement.
@@ -1853,22 +1861,27 @@ local function scatterDeadBushes(folder: Instance, origin: CFrame, count: number
 	local cols = math.max(1, math.ceil(math.sqrt(count * (bandDepth / (2 * hz)))))
 	local rows = math.ceil(count / cols)
 
-	local placed = 0
+	local cells = table.create(rows * cols)
 	for row = 0, rows - 1 do
 		for col = 0, cols - 1 do
-			if placed >= count then
-				break
-			end
-			placed += 1
-			local x = bandStart + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (bandDepth / cols)
-			local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
-			local clampedX = math.clamp(x, bandStart, bandStart + bandDepth)
-			local clampedZ = math.clamp(z, -hz, hz)
-			if math.abs(clampedZ) < BUSH_CENTRE_CLEARANCE then
-				clampedZ = (if clampedZ < 0 then -1 else 1) * BUSH_CENTRE_CLEARANCE
-			end
-			deadBush(folder, origin, clampedX, clampedZ, rng)
+			table.insert(cells, { row = row, col = col })
 		end
+	end
+	for i = #cells, 2, -1 do
+		local j = rng:NextInteger(1, i)
+		cells[i], cells[j] = cells[j], cells[i]
+	end
+
+	for i = 1, math.min(count, #cells) do
+		local cell = cells[i]
+		local x = bandStart + (cell.col + 0.5 + rng:NextNumber(-0.44, 0.44)) * (bandDepth / cols)
+		local z = -hz + (cell.row + 0.5 + rng:NextNumber(-0.44, 0.44)) * (2 * hz / rows)
+		local clampedX = math.clamp(x, bandStart, bandStart + bandDepth)
+		local clampedZ = math.clamp(z, -hz, hz)
+		if math.abs(clampedZ) < BUSH_CENTRE_CLEARANCE then
+			clampedZ = (if clampedZ < 0 then -1 else 1) * BUSH_CENTRE_CLEARANCE
+		end
+		deadBush(folder, origin, clampedX, clampedZ, rng)
 	end
 end
 
