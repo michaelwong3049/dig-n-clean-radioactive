@@ -120,14 +120,13 @@
 	prompt and what World.verify() asserts is present.
 
 	THE THREE STALLS SIT IN A TRIANGLE FACING THE MIDDLE. `PLAZA_MID` (x=17.5, z=0)
-	is that middle — the plaza midpoint, Hub's grey central spine centreline, the
-	camp datum (Hub.CAMP_ORIGIN) and the blackout-respawn anchor, all the same
-	point. Each stall stands `STALL_RING_RADIUS` studs out from it at a 120-degree
-	spacing and is turned so its own front — the counter side, local +Z — points
-	back at PLAZA_MID (`facingOrigin` does the turn). A player standing on the
-	respawn anchor is inside the triangle with all three counters facing them; the
-	gap between the two western stalls is the way in, aimed at the pad ring the
-	players arrive from.
+	is that middle — the plaza midpoint, the camp datum (Hub.CAMP_ORIGIN) and the
+	blackout-respawn anchor, all the same point. Each stall stands `STALL_RING_RADIUS`
+	studs out from it at a 120-degree spacing and is turned so its own front — the
+	counter side, local +Z — points back at PLAZA_MID (`facingOrigin` does the turn).
+	A player standing on the respawn anchor is inside the triangle with all three
+	counters facing them; the gap between the two western stalls is the way in, aimed
+	at the pad ring the players arrive from.
 
 	THAT RING IS 32 STUDS NOW, NOT 20, AND THE COURTYARD IS THE REASON — not a
 	collision. Nothing overlaps at radius 20; `assertNoShopOverlap` passes there.
@@ -139,12 +138,12 @@
 	THE OUTFITTER TUCKS IN BEHIND THE DETECTOR AND CLEANER STALLS, ON THE WEST. It
 	used to sit across a centre aisle from a straight row of stalls (row at z=22,
 	Outfitter at z=-22), then went through a run of holding spots — z=-55, the
-	south edge, the south-east arc, x=-30. Now it sits at (-44, 0) on the grey
-	central pad, due west of PLAZA_MID and set well BEHIND the two stalls on that
-	side (Detector NW, Cleaner SW) — out on the ground the west pad widening opened
-	up (Hub.PAD_WEST_EXTEND), off the way in rather than straddling it, ~16 studs
-	clear of the stalls' outer corners. It moved the last 14 studs west because the
-	stalls grew: this building's 46-stud span runs north-south (it faces east), so it
+	south edge, the south-east arc, x=-30. Now it sits at (-44, 0) on the base floor's
+	dark checker, due west of PLAZA_MID and set well BEHIND the two stalls on that side
+	(Detector NW, Cleaner SW) — out on the open ground west of the stalls, off the way
+	in rather than straddling it, ~16 studs clear of the stalls' outer corners. It
+	moved the last 14 studs west because the stalls grew: this building's 46-stud span
+	runs north-south (it faces east), so it
 	sits broadside to those two backs, and at x=-30 the widened Detector stall came
 	within 3.6 studs of it — clear, and not a gap anyone walks down. On the z=0 centreline it faces due east, so
 	`facingOrigin` leaves it square, no turn.
@@ -435,9 +434,9 @@ end
 --- Detector's own width axis: 3.6 studs, clear but not a gap anyone walks down, and
 --- the header's "~27 studs clear of the stalls' backs" would have been a lie. -44
 --- restores ~16 studs of real clearance (15.7 to the Detector stall, 17.5 to the
---- Cleaner, both measured by `assertNoShopOverlap`'s own footprints). There is room for it: the grey
---- central pad runs to the plaza's own west edge here (Hub.PAD_WEST_EXTEND), so the
---- west face at x=-52 is still on the pad with ~13 studs of apron behind it.
+--- Cleaner, both measured by `assertNoShopOverlap`'s own footprints). There is room for
+--- it: the base floor's dark checker covers the whole plaza now, so the west face at
+--- x=-52 is still on the plaza slab with ~13 studs of it behind them.
 local OUTFITTER = {
 	at = { -44, 0 },
 	pitch = 13,
