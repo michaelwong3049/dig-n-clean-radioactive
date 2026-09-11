@@ -113,11 +113,13 @@ local GROUND_SKIM = 0.06
 -- bush never sprouts in the middle of the route.
 local BUSH_CENTRE_CLEARANCE = 28
 
--- Stage 2 has the same open lane down z = 0 (scatterEdgeTrees keeps its trees out on
--- the two long edges for it), so a carcass -- the one Stage 2 prop big enough to block
--- a sightline -- is pushed at least this far off it. Smaller than the bush clearance
--- on purpose: a rib cage standing just off the path is the point, and you should be
--- walking past one, not hunting for it at the field's edge.
+-- Stage 2 keeps the same clear lane down z = 0 for its carcasses -- the one Stage 2
+-- prop big enough to block a sightline -- pushed at least this far off it. Smaller
+-- than the bush clearance on purpose: a rib cage standing just off the path is the
+-- point, and you should be walking past one, not hunting for it at the field's edge.
+-- (The dead trees themselves are no longer kept off this lane -- scatterFieldTrees
+-- covers the whole field now -- but a carcass laid across the walk-through route
+-- still reads as a mistake, so its own clearance stays.)
 local SKELETON_CENTRE_CLEARANCE = 20
 
 -- Stage 3 keeps the same open lane down z = 0 the first two fields do, so a dump of
@@ -151,13 +153,14 @@ local BARREL_LANE_KEEPOUT = BARREL_CENTRE_CLEARANCE + BARREL_CROWD_MAX + 4
 local BARREL_FALLEN = 0.25
 local BARREL_LEANING = 0.10
 
---- Dead wood, for `deadTree`. Darker and greyer than Kit.C.wood (5A4630, which is the
---- warm living-wood brown the camp and the liveTree use) -- these are bark that has
---- had the colour weathered out of it. Builder-local, same as WALL_BROWN_DARK/LIGHT:
---- nothing outside this file's trees needs them. Roughly one segment in four takes the
---- darker tone so the flat facets read against each other (the trick foliageBlob uses).
-local DEAD_WOOD = "4A3A29"
-local DEAD_WOOD_DARK = "372A1D"
+--- Dead wood, for `deadTree`. Lighter than Kit.C.wood (5A4630, the warm living-wood
+--- brown the camp and the liveTree use) but still greyer/less saturated -- bark that
+--- has had the colour weathered out of it, just not as far weathered as the original
+--- near-charcoal tone. Builder-local, same as WALL_BROWN_DARK/LIGHT: nothing outside
+--- this file's trees needs them. Roughly one segment in four takes the darker tone so
+--- the flat facets read against each other (the trick foliageBlob uses).
+local DEAD_WOOD = "6E5A42"
+local DEAD_WOOD_DARK = "504230"
 
 --- Living leaf green, for `bush` in Stage 1's alive west half. Brighter and more
 --- saturated than the old muted "brush"/"liveTree" scrub greens -- these are meant to
@@ -449,7 +452,7 @@ end
 ---   Stage 1 -- chunky green bushes across the alive west half (scatterBushes),
 ---            then `deadProps` knee-high dead snags across the dead-tan east half
 ---            (scatterDeadBushes).
----   Stage 2 -- big dead trees flanking the corridor (scatterEdgeTrees), then the
+---   Stage 2 -- big dead trees across the whole field (scatterFieldTrees), then the
 ---            remains scattered over the whole field (scatterBones): `skeletons` whole
 ---            carcasses as landmarks, `bones` handfuls of loose bone underfoot and
 ---            `skulls` human skulls.
@@ -481,7 +484,7 @@ local THEME: { [number]: StageTheme } = {
 	-- littered" without ever being what you are looking at. Skulls stay rare: they are
 	-- the detail that lands hardest, and lose all of it the moment there are enough of
 	-- them to be scenery.
-	[2] = { props = 6, pools = 10, kind = "trees", scatter = true, skeletons = 2, bones = 16, skulls = 7 },
+	[2] = { props = 9, pools = 10, kind = "trees", scatter = true, skeletons = 2, bones = 16, skulls = 7 },
 	-- Stage 3 gets the SAME three bone passes, denser, and NOTHING ELSE -- its sirens
 	-- are still on the shelf (`props`/`kind` below are untouched and unused), so this
 	-- is a partial pass, not Stage 3's rework. That is most of why the two fields do
@@ -1514,23 +1517,79 @@ end
 ---   * are deterministic off the stage rng (a rebuild reproduces the field),
 ---   * leave barrels, ooze pools and every un-reworked `prop()` kind on the shelf.
 
---- Stage 2 -- big dead trees along the two LONG sides, so the travel corridor down the
---- middle stays clear. Count splits as evenly as it can between the north and south
---- edges; within a side the trees sit in even cells across the width, each jittered up
---- to half a cell and pushed a random amount IN off the wall, so the line reads as
---- scattered, never a fence.
-local function scatterEdgeTrees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
-	local perSide = math.ceil(count / 2)
-	local placed = 0
+--- Stage 2 -- big dead trees over the WHOLE field, biased toward the two long edges
+--- rather than spread flat: the depth splits into three equal-width bands (north edge,
+--- middle, south edge) and BAND_WEIGHTS hands the edge bands more of the count than
+--- the middle gets, so it still reads as a tree LINE with a few strays further in,
+--- not a lawn. Whichever band comes up short on the rounding is picked by shuffled
+--- tie-break, not always the same one, so a rebuild doesn't always favour north.
+--- Within a band, trees sit in even cells across the width, each jittered up to half
+--- a cell in both axes, so a band never clumps or grids. Every candidate point is also
+--- checked against MIN_GAP from every tree already placed, in any band -- the per-cell
+--- jitter alone can still land two trees close enough that their canopies overlap
+--- (especially across a band boundary), and the trees are big enough that reads as a
+--- bug, not a cluster.
+local function scatterFieldTrees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+	local BAND_WEIGHTS = { 2, 1, 2 } -- north edge, middle, south edge
+	local MIN_GAP = 32 -- studs between trunks -- a same-band gap this size reads fine,
+	-- but it's also what a cross-band pair needs: two adjacent cells' jitter can still
+	-- land a north-band and a middle-band tree ~25 studs apart, close enough to read as
+	-- one clump straddling the boundary. 32 forces both cases apart.
+	local MAX_ATTEMPTS_PER_TREE = 50
 
-	for _, side in { -1, 1 } do -- -1 = north edge (z < 0), +1 = south edge (z > 0)
-		local n = math.min(perSide, count - placed)
-		for i = 0, n - 1 do
-			placed += 1
+	local bandCount, remainder = {}, {}
+	local totalWeight = BAND_WEIGHTS[1] + BAND_WEIGHTS[2] + BAND_WEIGHTS[3]
+	local assigned = 0
+	for i, w in BAND_WEIGHTS do
+		local raw = count * w / totalWeight
+		bandCount[i] = math.floor(raw)
+		remainder[i] = raw - bandCount[i]
+		assigned += bandCount[i]
+	end
+
+	local tieOrder = { 1, 2, 3 }
+	for i = 3, 2, -1 do
+		local j = rng:NextInteger(1, i)
+		tieOrder[i], tieOrder[j] = tieOrder[j], tieOrder[i]
+	end
+	for _ = 1, count - assigned do
+		local bestI, bestFrac = tieOrder[1], -1
+		for _, i in tieOrder do
+			if remainder[i] > bestFrac then
+				bestI, bestFrac = i, remainder[i]
+			end
+		end
+		bandCount[bestI] += 1
+		remainder[bestI] = -1
+	end
+
+	local bandH = 2 * hz / 3
+	local placed = {}
+	local function tooClose(x: number, z: number): boolean
+		for _, p in placed do
+			if (x - p[1]) ^ 2 + (z - p[2]) ^ 2 < MIN_GAP ^ 2 then
+				return true
+			end
+		end
+		return false
+	end
+
+	for band = 1, 3 do
+		local n = bandCount[band]
+		if n > 0 then
+			local zLo = -hz + (band - 1) * bandH
 			local cell = 2 * hx / n
-			local x = -hx + (i + 0.5 + rng:NextNumber(-0.5, 0.5)) * cell
-			local z = side * (hz - rng:NextNumber(4, 30))
-			deadTree(folder, origin, math.clamp(x, -hx, hx), z, rng)
+			for i = 0, n - 1 do
+				local x, z
+				local attempts = 0
+				repeat
+					x = math.clamp(-hx + (i + 0.5 + rng:NextNumber(-0.5, 0.5)) * cell, -hx, hx)
+					z = math.clamp(zLo + (0.5 + rng:NextNumber(-0.5, 0.5)) * bandH, -hz, hz)
+					attempts += 1
+				until not tooClose(x, z) or attempts >= MAX_ATTEMPTS_PER_TREE
+				table.insert(placed, { x, z })
+				deadTree(folder, origin, x, z, rng)
+			end
 		end
 	end
 end
@@ -1552,16 +1611,15 @@ end
 --- remains all over it.
 ---
 --- `carcassOuterZ` IS PER FIELD BECAUSE THE FIELDS DIFFER, and it is the only
---- placement number that does. Stage 2's carcasses have to stay inside its tree line
---- (scatterEdgeTrees puts trunks from hz-4 to hz-30, and a 30-stud carcass laid
---- through one would read as a bug); Stage 3 has nothing standing in it, so its band
---- runs almost to the wall and its three spread over the full depth instead of
---- crowding one mid-field strip. Everything else -- the grids, the clearance, the
---- alternation -- is shared.
+--- placement number that does. Stage 2's carcasses stay off the outer wall band (a
+--- 30-stud carcass laid across the corridor would read as a bug); Stage 3 has nothing
+--- standing in it, so its band runs almost to the wall and its three spread over the
+--- full depth instead of crowding one mid-field strip. Everything else -- the grids,
+--- the clearance, the alternation -- is shared.
 ---
---- Deterministic off the stage rng. On Stage 2 it is consumed AFTER scatterEdgeTrees
---- so the tree line keeps the exact placement it already had; on Stage 3 it is the
---- only pass there is. Same discipline as Stage 1's three passes.
+--- Deterministic off the stage rng. On Stage 2 it is consumed AFTER scatterFieldTrees
+--- so the trees keep the exact placement they already had; on Stage 3 it is the only
+--- pass there is. Same discipline as Stage 1's three passes.
 ---
 --- ALL OF IT GOES IN ONE `Bones` FOLDER SO IT CAN BE MADE UNQUERYABLE IN ONE PASS.
 --- FieldController.groundY fires a ray straight down from the player to sit the
@@ -2129,9 +2187,9 @@ local function warningSign(parent: Instance, origin: CFrame, x: number, z: numbe
 end
 
 --- Stage 4 -- a rank of signs along the entrance edge. Evenly spread across z with
---- the usual per-cell jitter -- same jittered-grid technique scatterEdgeTrees uses
---- along a long side, just run along the SHORT edge here since these guard the
---- entrance, not a side.
+--- the usual per-cell jitter -- the same one-axis jittered-grid technique Stage 2's
+--- trees used to use along a long side, just run along the SHORT edge here since
+--- these guard the entrance, not a side.
 local function scatterWarningSigns(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
 	for i = 0, count - 1 do
 		local cell = 2 * hz / count
@@ -2791,8 +2849,8 @@ local function buildStageScenery(parent: Instance, id: number)
 			scatterStage1Cracks(folder, origin, def.size[1] / 2, def.size[2] / 2, rng)
 			scatterDeadBushes(folder, origin, theme.deadProps or 0, rng, hx, hz)
 		elseif id == 2 then
-			scatterEdgeTrees(folder, origin, theme.props, rng, hx, hz)
-			-- hz - 30 = inside the tree line scatterEdgeTrees just laid down.
+			scatterFieldTrees(folder, origin, theme.props, rng, hx, hz)
+			-- hz - 30 keeps a carcass off the outer wall band, same margin as before.
 			scatterBones(folder, origin, rng, hx, hz, hz - 30, theme.skeletons or 0, theme.bones or 0, theme.skulls or 0)
 		elseif id == 3 then
 			-- Nothing GREW in this field, so the carcasses get almost the full depth to
