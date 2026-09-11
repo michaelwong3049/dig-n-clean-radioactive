@@ -108,10 +108,12 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 --- Camp -> Stage 1 border strip -- see `Hub.inDarkFloor`.
 ---
 --- The two greys are a dark charcoal, a good step below the plaza's old greens in value
---- and colour both. They hold the same ~1.2x light/dark ratio the green plaza pair had,
---- so the checker pattern itself reads identically, just darker.
+--- and colour both. They sit only ~5% apart per channel, on request -- far tighter than
+--- the ~1.2x the green plaza pair had -- so the checker reads as the faintest texture on
+--- a near-flat dark floor rather than an alternating pattern, just enough for the studs
+--- to catch the light tile to tile.
 local FLOOR_DARK = "3D3F42"
-local FLOOR_LIGHT = "494B50"
+local FLOOR_LIGHT = "404246"
 
 --- Half the Z extent of the green border strip. Stage 1 (like every stage) is centred
 --- on z = 0, so its own edge -- where Scenery.buildStageBorderLines draws the
