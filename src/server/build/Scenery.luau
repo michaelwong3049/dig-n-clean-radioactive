@@ -1523,9 +1523,15 @@ end
 --- not a lawn. Whichever band comes up short on the rounding is picked by shuffled
 --- tie-break, not always the same one, so a rebuild doesn't always favour north.
 --- Within a band, trees sit in even cells across the width, each jittered up to half
---- a cell in both axes, so a band never clumps or grids.
+--- a cell in both axes, so a band never clumps or grids. Every candidate point is also
+--- checked against MIN_GAP from every tree already placed, in any band -- the per-cell
+--- jitter alone can still land two trees close enough that their canopies overlap
+--- (especially across a band boundary), and the trees are big enough that reads as a
+--- bug, not a cluster.
 local function scatterFieldTrees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
 	local BAND_WEIGHTS = { 2, 1, 2 } -- north edge, middle, south edge
+	local MIN_GAP = 22 -- studs between trunks -- clears canopies on these big trees
+	local MAX_ATTEMPTS_PER_TREE = 30
 
 	local bandCount, remainder = {}, {}
 	local totalWeight = BAND_WEIGHTS[1] + BAND_WEIGHTS[2] + BAND_WEIGHTS[3]
@@ -1554,15 +1560,31 @@ local function scatterFieldTrees(folder: Instance, origin: CFrame, count: number
 	end
 
 	local bandH = 2 * hz / 3
+	local placed = {}
+	local function tooClose(x: number, z: number): boolean
+		for _, p in placed do
+			if (x - p[1]) ^ 2 + (z - p[2]) ^ 2 < MIN_GAP ^ 2 then
+				return true
+			end
+		end
+		return false
+	end
+
 	for band = 1, 3 do
 		local n = bandCount[band]
 		if n > 0 then
 			local zLo = -hz + (band - 1) * bandH
 			local cell = 2 * hx / n
 			for i = 0, n - 1 do
-				local x = -hx + (i + 0.5 + rng:NextNumber(-0.5, 0.5)) * cell
-				local z = zLo + (0.5 + rng:NextNumber(-0.5, 0.5)) * bandH
-				deadTree(folder, origin, math.clamp(x, -hx, hx), math.clamp(z, -hz, hz), rng)
+				local x, z
+				local attempts = 0
+				repeat
+					x = math.clamp(-hx + (i + 0.5 + rng:NextNumber(-0.5, 0.5)) * cell, -hx, hx)
+					z = math.clamp(zLo + (0.5 + rng:NextNumber(-0.5, 0.5)) * bandH, -hz, hz)
+					attempts += 1
+				until not tooClose(x, z) or attempts >= MAX_ATTEMPTS_PER_TREE
+				table.insert(placed, { x, z })
+				deadTree(folder, origin, x, z, rng)
 			end
 		end
 	end
