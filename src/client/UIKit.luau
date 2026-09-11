@@ -45,7 +45,7 @@ UIKit.C = {
 	dim = Color3.fromHex("7C8874"),
 	empty = Color3.fromHex("1E241A"),
 	selected = Color3.fromHex("3E5A2E"),
-	green = Color3.fromHex("8FE04A"),
+	green = Color3.fromHex("22C55E"),
 	amber = Color3.fromHex("F59E0B"),
 	red = Color3.fromHex("EF4444"),
 	blue = Color3.fromHex("6FA8C7"),
@@ -328,7 +328,7 @@ Dock.ROW_MAX_WIDTH = 1400 -- absolute cap so an ultrawide monitor does not stret
 
 Dock.BAGCOUNT_HEIGHT = 18
 
-Dock.METER_SIZE = UDim2.fromOffset(280, 170) -- was 240x46, then 280x60 (HEALTH joined RADS), then 144 before the DEPTH row below the stage name
+Dock.METER_SIZE = UDim2.fromOffset(280, 184) -- was 240x46, then 280x60 (HEALTH joined RADS), then 144 before the DEPTH row, then 170 before HEALTH/RADS got breathing room between them
 
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
