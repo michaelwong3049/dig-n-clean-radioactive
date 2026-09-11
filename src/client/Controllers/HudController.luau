@@ -41,6 +41,14 @@ local GREEN = UIKit.C.green
 local WHITE = UIKit.C.burn
 local DIM = UIKit.C.dim
 
+-- HEALTH and RADS stay one panel (see the build() comment below) but no longer one
+-- unbroken block: RADS_GAP is the extra breathing room inserted between the HEALTH
+-- bar and the RADS row, on top of everything the two already shared. Every offset
+-- from the RADS caption down is RADS_GAP later than it used to be, and
+-- Dock.METER_SIZE grew by the same amount so the panel still ends where the depth
+-- row needs it to.
+local RADS_GAP = 14
+
 local state = {
 	exposureFrac = 0,
 	net = 0,
@@ -126,14 +134,19 @@ local function build(): ScreenGui
 	-- one panel rather than two panels, so the dock's shared layout math never has to
 	-- know a second panel exists — see UIKit.Dock.METER_SIZE's comment for why growing
 	-- this panel taller is safe.
+	-- Darker and squarer than the standard UIKit panel — low transparency so the world
+	-- behind it stops showing through, and a near-zero corner radius (UIKit.Radius.card
+	-- is the rounded default every other card uses) for a sharper, more instrument-panel
+	-- edge instead of the soft pill shape.
 	local panel, meterStroke = UIKit.panel(canvas, {
 		name = "Meter",
 		size = Dock.METER_SIZE,
 		position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.METER_MID_Y),
 		anchorPoint = Vector2.new(0, 0.5),
 		color = UIKit.C.panel,
-		transparency = 0.25,
-		cornerRadius = UIKit.Radius.card,
+		transparency = 0.05,
+		cornerRadius = UDim.new(0, 4),
+		strokeColor = Color3.new(0, 0, 0),
 		strokeThickness = UIKit.Stroke.thick,
 		zIndex = 4,
 	})
@@ -175,7 +188,7 @@ local function build(): ScreenGui
 		track.Parent = panel
 
 		local trackCorner = Instance.new("UICorner")
-		trackCorner.CornerRadius = UDim.new(0, barHeight / 2)
+		trackCorner.CornerRadius = UDim.new(0, 3)
 		trackCorner.Parent = track
 
 		local fill = Instance.new("Frame")
@@ -187,7 +200,7 @@ local function build(): ScreenGui
 		fill.Parent = track
 
 		local fillCorner = Instance.new("UICorner")
-		fillCorner.CornerRadius = UDim.new(0, barHeight / 2)
+		fillCorner.CornerRadius = UDim.new(0, 3)
 		fillCorner.Parent = fill
 
 		return caption, value, fill
@@ -198,7 +211,7 @@ local function build(): ScreenGui
 
 	ui.countdown = UIKit.label(panel, {
 		name = "Countdown",
-		position = UDim2.fromOffset(16, 98),
+		position = UDim2.fromOffset(16, 98 + RADS_GAP),
 		size = UDim2.new(1, -32, 0, 16),
 		font = UIKit.Font.body,
 		textSize = 14,
@@ -210,12 +223,13 @@ local function build(): ScreenGui
 	})
 
 	-- Row 2: RADS — the exposure meter, unchanged in spirit, just given the same
-	-- caption+value shape as HEALTH above.
-	ui.caption, ui.percentValue, ui.fill = instrumentRow("Rads", 46, "RADS", 14)
+	-- caption+value shape as HEALTH above, and pushed down RADS_GAP past where the
+	-- HEALTH bar ends so the two read as two instruments, not one tall one.
+	ui.caption, ui.percentValue, ui.fill = instrumentRow("Rads", 46 + RADS_GAP, "RADS", 14)
 
 	ui.readout = UIKit.label(panel, {
 		name = "Readout",
-		position = UDim2.fromOffset(16, 80),
+		position = UDim2.fromOffset(16, 80 + RADS_GAP),
 		size = UDim2.new(1, -32, 0, 16),
 		font = UIKit.Font.body,
 		textSize = 15,
@@ -226,7 +240,7 @@ local function build(): ScreenGui
 
 	ui.stageLabel = UIKit.label(panel, {
 		name = "StageLabel",
-		position = UDim2.fromOffset(16, 116),
+		position = UDim2.fromOffset(16, 116 + RADS_GAP),
 		size = UDim2.new(1, -32, 0, 24),
 		font = UIKit.Font.title,
 		textSize = 18,
@@ -237,12 +251,12 @@ local function build(): ScreenGui
 	})
 
 	-- DEPTH — metres past base camp's edge, its own centred row directly under the
-	-- stage name (in the 26px the panel grew by, Dock.METER_SIZE 144 -> 170). Blank
-	-- in camp (depth 0): the stage label already reads "Base Camp" there, and a
-	-- "0 m" would just be noise.
+	-- stage name (in the 26px the panel grew by, Dock.METER_SIZE 144 -> 170, then
+	-- RADS_GAP more for the gap between HEALTH and RADS). Blank in camp (depth 0):
+	-- the stage label already reads "Base Camp" there, and a "0 m" would just be noise.
 	ui.depth = UIKit.label(panel, {
 		name = "Depth",
-		position = UDim2.fromOffset(16, 142),
+		position = UDim2.fromOffset(16, 142 + RADS_GAP),
 		size = UDim2.new(1, -32, 0, 20),
 		font = UIKit.Font.title,
 		textSize = 15,
@@ -325,7 +339,6 @@ local function render(dt: number)
 
 	ui.fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
 	ui.fill.BackgroundColor3 = colour
-	ui.meterStroke.Color = colour
 
 	local label = if state.inShower then "RADS  \u{2014}  FLUSHING" else "RADS"
 	ui.caption.Text = label
