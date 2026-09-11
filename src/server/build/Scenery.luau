@@ -153,13 +153,14 @@ local BARREL_LANE_KEEPOUT = BARREL_CENTRE_CLEARANCE + BARREL_CROWD_MAX + 4
 local BARREL_FALLEN = 0.25
 local BARREL_LEANING = 0.10
 
---- Dead wood, for `deadTree`. Darker and greyer than Kit.C.wood (5A4630, which is the
---- warm living-wood brown the camp and the liveTree use) -- these are bark that has
---- had the colour weathered out of it. Builder-local, same as WALL_BROWN_DARK/LIGHT:
---- nothing outside this file's trees needs them. Roughly one segment in four takes the
---- darker tone so the flat facets read against each other (the trick foliageBlob uses).
-local DEAD_WOOD = "4A3A29"
-local DEAD_WOOD_DARK = "372A1D"
+--- Dead wood, for `deadTree`. Lighter than Kit.C.wood (5A4630, the warm living-wood
+--- brown the camp and the liveTree use) but still greyer/less saturated -- bark that
+--- has had the colour weathered out of it, just not as far weathered as the original
+--- near-charcoal tone. Builder-local, same as WALL_BROWN_DARK/LIGHT: nothing outside
+--- this file's trees needs them. Roughly one segment in four takes the darker tone so
+--- the flat facets read against each other (the trick foliageBlob uses).
+local DEAD_WOOD = "6E5A42"
+local DEAD_WOOD_DARK = "504230"
 
 --- Living leaf green, for `bush` in Stage 1's alive west half. Brighter and more
 --- saturated than the old muted "brush"/"liveTree" scrub greens -- these are meant to
