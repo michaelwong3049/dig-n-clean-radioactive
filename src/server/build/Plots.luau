@@ -15,22 +15,22 @@
 	setting, not repo state — Rojo does not capture it — so it is written down in
 	ARCHITECTURE.md as one of the things a fresh clone cannot reconstruct.
 
-	TWO PADS ON EACH OF THREE WALLS, THE SHOP CLUSTER IN THE MIDDLE — the
-	requested layout:
+	THREE PADS ON THE FAR WALL, TWO AND ONE ON THE SIDES, THE SHOP CLUSTER IN
+	THE MIDDLE — the requested layout:
 
 	    ┌───────────────────────────────────┐
-	    │  [PLOT]           [PLOT]          │   north wall
+	    │  [PLOT]           [PLOT]          │   north wall (2)
 	    │                                    │
 	    │[PLOT]     SHOPS + STANDS           │
-	    │          (Hub.PLAZA)               ├──▶ [RADIOACTIVE AREA]
+	    │[PLOT]    (Hub.PLAZA)               ├──▶ [RADIOACTIVE AREA]
 	    │[PLOT]                              │
 	    │                                    │
-	    │  [PLOT]           [PLOT]          │   south wall
+	    │         [PLOT]                    │   south wall (1)
 	    └───────────────────────────────────┘
-	     west wall (farthest from the stages)
+	     west wall (3, farthest from the stages)
 
-	Two pads along the west wall (the one farthest from Stage 1), two along
-	the north wall, two along the south wall — every one of them rotated to
+	Three pads along the west wall (the one farthest from Stage 1), two along
+	the north wall, one along the south wall — every one of them rotated to
 	face back toward the shop cluster in the middle, the same "every pad
 	looks at the centre" idea the old semicircular ring had. The plaza
 	(`Hub.PLAZA`, untouched by this file) is still what actually touches
@@ -38,17 +38,22 @@
 	that same edge on their own east side and reach west from there, so the
 	plaza's open east face is the only way out to the field, same as always.
 	Every pad also sits PLOT_WALL_GAP studs clear of the perimeter wall
-	behind it, on request, rather than flush against it. See
+	behind it, rather than flush against it. See
 	PLOT_ROW_PITCH/PLOT_ROW_MARGIN/PLOT_WALL_GAP/rowCenters/columnCenters
 	below for the actual layout.
 
-	IT WAS FOUR PADS ON ONE ROW AND TWO ON THE OPPOSITE ROW BEFORE THIS,
+	IT WAS TWO PADS ON EACH OF THE THREE WALLS BEFORE THIS — the west wall
+	grew to 3 on request, and since Plots.COUNT is pinned to MaxPlayers (one
+	plot per player, see this file's own header), a pad had to come off
+	somewhere else to keep the total at 6. Came off the south wall.
+
+	IT WAS FOUR PADS ON ONE ROW AND TWO ON THE OPPOSITE ROW BEFORE THAT,
 	both flush against the perimeter wall with no gap behind them — the
 	first cut at "a rectangle instead of a semicircle" before feedback
-	settled on two per wall across three walls instead, with real clearance
+	settled on three walls instead of two facing rows, with real clearance
 	behind every pad.
 
-	IT WAS A SEMICIRCLE BEFORE EITHER RECTANGLE — six pads on the exterior of
+	IT WAS A SEMICIRCLE BEFORE ANY OF THESE RECTANGLES — six pads on the exterior of
 	one circle, evenly spaced across its western 180 degrees, each rotated to
 	face the shop cluster at the centre, the eastern half left open for the
 	plaza to connect straight through to Stage 1. `Kit.orientedRect*` (added
@@ -199,7 +204,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 33
+local BUILDER_VERSION = 34
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -246,11 +251,18 @@ Plots.PAD = {
 	thickness = 3,
 }
 
---- TWO PADS ON EACH OF THREE WALLS. Two along the west wall (the one
---- farthest from Stage 1), two along the north wall, two along the south
---- wall — every pad rotated to face back toward the shop cluster in the
---- middle, the same "every pad looks at the centre" idea the old
---- semicircular ring had.
+--- THREE PADS ON THE FAR WALL, TWO AND ONE ON THE SIDES. Three along the
+--- west wall (the one farthest from Stage 1), two along the north wall, one
+--- along the south wall — every pad rotated to face back toward the shop
+--- cluster in the middle, the same "every pad looks at the centre" idea the
+--- old semicircular ring had. Asymmetric on request: the west wall grew from
+--- 2 to 3 pads, and Plots.COUNT is pinned to MaxPlayers (6, see this file's
+--- own header) — one plot per player, no "sorry, full" case — so a pad had
+--- to come off one of the other two walls to keep the total at 6. Came off
+--- the south wall specifically because that was the choice offered and taken
+--- when this shape was confirmed; north and south are otherwise
+--- interchangeable here (NORTH_COUNT/SOUTH_COUNT are just numbers below, not
+--- fixed to their own wall by anything structural).
 ---
 --- DERIVED FROM Hub.PLAZA, NOT HAND-SYNCED TO IT — same property the ring
 --- before this had: the plaza is the source, this reads it, and moving the
@@ -289,8 +301,8 @@ local PLOT_ROW_PITCH = 82 -- pad width (66) + a 16-stud gap, matching the old ri
 local PLOT_ROW_MARGIN = 24 -- plaza edge to a wall's own near/entrance edge; clears the old ring's tightest pad-to-plaza gap (~21.6 studs) with room to spare
 local PLOT_WALL_GAP = 15 -- a pad's own back edge to the perimeter wall behind it -- real walking space, not flush
 local NORTH_COUNT = 2
-local SOUTH_COUNT = 2
-local WEST_COUNT = 2
+local SOUTH_COUNT = 1
+local WEST_COUNT = 3
 assert(NORTH_COUNT + SOUTH_COUNT + WEST_COUNT == Plots.COUNT, "wall counts must add up to Plots.COUNT")
 
 local PLAZA = Hub.PLAZA
@@ -328,9 +340,9 @@ local function rowCenters(count: number, z: number, facing: number): { { x: numb
 end
 
 --- The west wall's mirror of `rowCenters`: `count` pads evenly along Z at a
---- fixed X, centred on Z = 0 (the plaza's own Z midpoint) so the pair reads
---- symmetric about the plaza rather than leaning toward one of the other
---- two walls.
+--- fixed X, centred on Z = 0 (the plaza's own Z midpoint) so the group reads
+--- symmetric about the plaza's own centreline rather than leaning toward the
+--- north or south wall.
 local function columnCenters(count: number, x: number, facing: number): { { x: number, z: number, facing: number } }
 	local list = {}
 	local span = (count - 1) * PLOT_ROW_PITCH
