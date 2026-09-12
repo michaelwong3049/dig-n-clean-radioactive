@@ -11,17 +11,14 @@
 	true by construction and costs nothing to enforce. For a young audience that is
 	the single most legible rule in the game, and it is free.
 
-	THE PLOTS FLANK IT ON THREE WALLS. Four pads along the west wall
-	(farthest from the stages), one along the north wall, one along the
-	south wall. Each WALL's own span anchors off the plaza (north/south
-	flush against the plaza's east edge, west flush against its west edge,
-	neither centred on the plaza's own midpoint — see Plots.luau's own
-	comment on WALL_MID_X/WEST_X for why), but a wall's PADS centre on that
-	wall's own span rather than sitting flush against either end of it. All
-	three rotated to face back toward the shop cluster at the centre. The
-	east side is open — the plaza connects straight through to Stage 1
-	there, same as always. See Plots.luau for the actual layout math
-	(PLOT_ROW_PITCH/PLOT_ROW_MARGIN/PLOT_WALL_GAP/Plots.CENTERS).
+	THE PLOTS RING IT AS A SEMICIRCLE. Six pads on the exterior of a circle pulled
+	toward Stage 1 (not centred on the plaza's own midpoint any more — see
+	Plots.luau's own comment on RING_CENTER for why), each rotated to face the
+	shop cluster at the centre. The eastern half is open — the plaza connects
+	straight through to Stage 1 there, same as always — so the ring only occupies
+	the western 180 degrees; you still walk out of the courtyard directly into
+	the sludge. See Plots.luau for the actual circle math
+	(Plots.RING_CENTER/RING_RADIUS/RING_ANGLES).
 
 	NO CONNECTOR ROADS. The plaza used to be a fixed 160x160 square with paved strips
 	running out to a plot spine and to the field. Per the requested layout (plots —
