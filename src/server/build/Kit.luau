@@ -231,6 +231,20 @@ Kit.C = {
 -- Bold/Medium/Black the way the old Gotham signs did.
 Kit.FONT = Enum.Font.FredokaOne
 
+--- The same heavy-outline treatment `client/UIKit.luau` puts on HUD text, for the
+--- world side: a UIStroke on the glyphs themselves, not TextStrokeTransparency
+--- (a soft ~1px hairline that reads as blur, not an outline). Reuses `hazardBlack`
+--- rather than a new colour — that hex is already this file's "crisp cartoon
+--- black" for outline trim elsewhere, so sign text and sign trim now share one
+--- black instead of two similar-but-different ones.
+function Kit.textOutline(label: TextLabel, thickness: number)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromHex(Kit.C.hazardBlack)
+	stroke.Thickness = thickness
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = label
+end
+
 -- ── Orientations ──────────────────────────────────────────────────────────────
 -- Degrees, XYZ euler. A Roblox Cylinder's axis is its X size, so "upright" means
 -- rotating X onto Y.
@@ -450,9 +464,10 @@ function Kit.billboard(part: BasePart, width: number, height: number, title: str
 	head.Font = Kit.FONT
 	head.TextSize = 22
 	head.TextColor3 = Color3.fromHex(Kit.C.labelText)
-	head.TextStrokeTransparency = 0.4
+	head.TextStrokeTransparency = 1
 	head.Text = title
 	head.Parent = gui
+	Kit.textOutline(head, 2.5)
 
 	local sub = Instance.new("TextLabel")
 	sub.Name = "Subtitle"
@@ -462,9 +477,10 @@ function Kit.billboard(part: BasePart, width: number, height: number, title: str
 	sub.Font = Kit.FONT
 	sub.TextSize = 14
 	sub.TextColor3 = Color3.fromHex(subColor)
-	sub.TextStrokeTransparency = 0.5
+	sub.TextStrokeTransparency = 1
 	sub.Text = subtitle
 	sub.Parent = gui
+	Kit.textOutline(sub, 1.5)
 
 	-- Returned so a caller can reach the labels without a positional lookup — the
 	-- plot builders tag this Subtitle `Accent` when they pass their plot colour as
@@ -503,6 +519,10 @@ function Kit.surfaceText(part: BasePart, face: Enum.NormalId, text: string, colo
 	label.TextStrokeTransparency = 1
 	label.Text = text
 	label.Parent = gui
+	-- Fixed thickness against TextScaled text is approximate by nature (a sign at
+	-- 3 studs wide and one at 30 both get the same 2px stroke) — good enough as a
+	-- starting point, tune per-caller if a particular sign reads wrong.
+	Kit.textOutline(label, 2)
 	return label
 end
 
