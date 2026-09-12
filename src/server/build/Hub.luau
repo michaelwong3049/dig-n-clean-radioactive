@@ -11,13 +11,15 @@
 	true by construction and costs nothing to enforce. For a young audience that is
 	the single most legible rule in the game, and it is free.
 
-	THE PLOTS FLANK IT AS TWO ROWS. Four pads along the north edge, two along
-	the south edge, both rows anchored flush against the plaza's own east edge
-	(not centred on the plaza's own midpoint — see Plots.luau's own comment on
-	ROW_EAST_X for why) and rotated to face back toward the shop cluster at
-	the centre. The east side is open — the plaza connects straight through to
-	Stage 1 there, same as always. See Plots.luau for the actual row math
-	(PLOT_ROW_PITCH/PLOT_ROW_MARGIN/Plots.CENTERS).
+	THE PLOTS FLANK IT ON THREE WALLS. Two pads along the west wall (farthest
+	from the stages), two along the north wall, two along the south wall —
+	the north/south walls anchored flush against the plaza's own east edge,
+	the west wall flush against its west edge (not centred on the plaza's own
+	midpoint either way — see Plots.luau's own comment on ROW_EAST_X/WEST_X
+	for why), all three rotated to face back toward the shop cluster at the
+	centre. The east side is open — the plaza connects straight through to
+	Stage 1 there, same as always. See Plots.luau for the actual layout math
+	(PLOT_ROW_PITCH/PLOT_ROW_MARGIN/PLOT_WALL_GAP/Plots.CENTERS).
 
 	NO CONNECTOR ROADS. The plaza used to be a fixed 160x160 square with paved strips
 	running out to a plot spine and to the field. Per the requested layout (plots —

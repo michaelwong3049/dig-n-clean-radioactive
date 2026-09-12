@@ -15,32 +15,47 @@
 	setting, not repo state — Rojo does not capture it — so it is written down in
 	ARCHITECTURE.md as one of the things a fresh clone cannot reconstruct.
 
-	FOUR-AND-TWO ROWS FLANKING THE SHOP CLUSTER — the requested layout:
+	TWO PADS ON EACH OF THREE WALLS, THE SHOP CLUSTER IN THE MIDDLE — the
+	requested layout:
 
-	    [PLOT][PLOT][PLOT][PLOT]
-	                                .-------------.
-	           SHOPS + STANDS       |  (Hub.PLAZA)  | === [RADIOACTIVE AREA]
-	              [PLOT]  [PLOT]    '-------------'
+	    ┌───────────────────────────────────┐
+	    │  [PLOT]           [PLOT]          │   north wall
+	    │                                    │
+	    │[PLOT]     SHOPS + STANDS           │
+	    │          (Hub.PLAZA)               ├──▶ [RADIOACTIVE AREA]
+	    │[PLOT]                              │
+	    │                                    │
+	    │  [PLOT]           [PLOT]          │   south wall
+	    └───────────────────────────────────┘
+	     west wall (farthest from the stages)
 
-	Four pads in a straight row along the north edge, two along the south edge,
-	every one of them rotated to face back toward the shop cluster in the
-	middle — the same "every pad looks at the centre" idea the old semicircular
-	ring had, just on two straight edges instead of an arc. The plaza
+	Two pads along the west wall (the one farthest from Stage 1), two along
+	the north wall, two along the south wall — every one of them rotated to
+	face back toward the shop cluster in the middle, the same "every pad
+	looks at the centre" idea the old semicircular ring had. The plaza
 	(`Hub.PLAZA`, untouched by this file) is still what actually touches
-	Stage 1's own west edge; both rows sit flush against that same edge on
-	their own east side and reach west from there, so the plaza's open east
-	face is the only way out to the field, same as always. See
-	PLOT_ROW_PITCH/PLOT_ROW_MARGIN/rowCenters below for the actual layout.
+	Stage 1's own west edge; the north and south walls sit flush against
+	that same edge on their own east side and reach west from there, so the
+	plaza's open east face is the only way out to the field, same as always.
+	Every pad also sits PLOT_WALL_GAP studs clear of the perimeter wall
+	behind it, on request, rather than flush against it. See
+	PLOT_ROW_PITCH/PLOT_ROW_MARGIN/PLOT_WALL_GAP/rowCenters/columnCenters
+	below for the actual layout.
 
-	IT WAS A SEMICIRCLE BEFORE THIS — six pads on the exterior of one circle,
-	evenly spaced across its western 180 degrees, each rotated to face the
-	shop cluster at the centre, the eastern half left open for the plaza to
-	connect straight through to Stage 1. Replaced on request for a rectangular
-	base plate instead of a round one. `Kit.orientedRect*` (added for the
-	semicircle, since none of its six facings were multiples of 90) is kept
-	rather than rolled back — the two facings this layout actually uses (0 and
-	180) are just a special case it already handles for free, and the
-	generality costs nothing now that it exists.
+	IT WAS FOUR PADS ON ONE ROW AND TWO ON THE OPPOSITE ROW BEFORE THIS,
+	both flush against the perimeter wall with no gap behind them — the
+	first cut at "a rectangle instead of a semicircle" before feedback
+	settled on two per wall across three walls instead, with real clearance
+	behind every pad.
+
+	IT WAS A SEMICIRCLE BEFORE EITHER RECTANGLE — six pads on the exterior of
+	one circle, evenly spaced across its western 180 degrees, each rotated to
+	face the shop cluster at the centre, the eastern half left open for the
+	plaza to connect straight through to Stage 1. `Kit.orientedRect*` (added
+	for the semicircle, since none of its six facings were multiples of 90)
+	is kept rather than rolled back — every facing this layout actually uses
+	now (0, 180, -90) is a multiple of 90, but the generality costs nothing
+	and needs no special-casing back out.
 
 	IT WAS A RECTANGULAR RING BEFORE THE SEMICIRCLE — two pads on each of the plaza's north,
 	south and west edges, butted flush against it. That shape hard-assumed every
@@ -184,7 +199,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 32
+local BUILDER_VERSION = 33
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -231,58 +246,73 @@ Plots.PAD = {
 	thickness = 3,
 }
 
---- THE TWO ROWS. Four pads along the north edge of the base plate, two along
---- the south edge, both rows rotated to face back toward the shop cluster in
---- the middle — the same "every pad looks at the centre" idea the old
---- semicircular ring had, just on two straight edges instead of an arc.
+--- TWO PADS ON EACH OF THREE WALLS. Two along the west wall (the one
+--- farthest from Stage 1), two along the north wall, two along the south
+--- wall — every pad rotated to face back toward the shop cluster in the
+--- middle, the same "every pad looks at the centre" idea the old
+--- semicircular ring had.
 ---
 --- DERIVED FROM Hub.PLAZA, NOT HAND-SYNCED TO IT — same property the ring
 --- before this had: the plaza is the source, this reads it, and moving the
---- plaza moves the rows with it. Hub requires only Kit, so requiring it here
---- is not circular.
+--- plaza moves every wall's pads with it. Hub requires only Kit, so
+--- requiring it here is not circular.
 ---
---- FLUSH AGAINST Hub.PLAZA.maxX, NOT CENTRED ON THE PLAZA'S OWN MIDPOINT
---- (Hub.CAMP_ORIGIN, x = 17.5). A 4-pad row centred there would overshoot
---- east of x = 100 — Stage 1's own west edge, with no ground on the far side
---- for a pad to stand on. Anchoring every pad's own east edge flush against
---- Hub.PLAZA.maxX instead — the same shared-edge convention the plaza's own
---- east side already uses against Stage 1 — keeps the whole footprint
---- (plaza plus both rows) one plain rectangle. The south row's 2 pads end up
---- landing exactly under the north row's middle 2, since both rows share the
---- same east anchor and pitch — an unplanned but welcome clean grid.
+--- THE NORTH/SOUTH WALLS ARE FLUSH AGAINST Hub.PLAZA.maxX, NOT CENTRED ON
+--- THE PLAZA'S OWN MIDPOINT (Hub.CAMP_ORIGIN, x = 17.5) — anchoring flush
+--- against Hub.PLAZA.maxX, the same shared-edge convention the plaza's own
+--- east side already uses against Stage 1, keeps the plaza's own east edge
+--- untouched. THE WEST WALL is anchored the mirror way, flush against
+--- Hub.PLAZA.minX instead — it is the wall farthest from the stages, so
+--- there is no shared-edge concern on that side to keep clear of.
 ---
 --- `facing` is a yaw in degrees, same convention the ring used: a pad is
 --- built with its back wall at local +Z and its spawn at local -Z, so
---- `facing = 0` opens the entrance toward world -Z and `facing = 180` opens
---- it toward world +Z (see buildPlot's `origin`). The north row sits at high
---- Z wanting its entrance to open back south toward the plaza, so it takes
---- `facing = 0`; the south row mirrors that at `facing = 180`. Only two
---- facings are used now, but `padRect`/`Kit.orientedRectsOverlap` below
---- don't need to know that — they already handle an arbitrary yaw, kept
+--- `facing = 0` opens the entrance toward world -Z, `facing = 180` toward
+--- world +Z, and `facing = -90` toward world +X (see buildPlot's `origin`,
+--- and the old ring's own comment on why -90 is "faces east"). The north
+--- wall sits at high Z wanting its entrance to open back south toward the
+--- plaza, so it takes `facing = 0`; the south wall mirrors that at
+--- `facing = 180`; the west wall sits at low X wanting its entrance to open
+--- back east toward the plaza, so it takes `facing = -90`. `padRect`/
+--- `Kit.orientedRectsOverlap` below don't need to know there are three
+--- facings instead of two now — they already handle an arbitrary yaw, kept
 --- from the semicircle rather than rolled back, since the generality costs
 --- nothing now that it exists.
+---
+--- EVERY PAD SITS PLOT_WALL_GAP STUDS CLEAR OF THE PERIMETER WALL BEHIND
+--- IT, ON REQUEST — the first cut at this layout ran every pad flush
+--- against the wall (Plots.OUTER was exactly the pad footprint, no
+--- cushion), which read as too tight. Plots.OUTER now adds PLOT_WALL_GAP
+--- beyond every pad's own back edge on all three closed sides (not the
+--- open east side, which has no wall to clear).
 local PLOT_ROW_PITCH = 82 -- pad width (66) + a 16-stud gap, matching the old ring's own ~17-stud pad-to-pad clearance at its tightest
-local PLOT_ROW_MARGIN = 24 -- plaza edge to a row's own near/entrance edge; clears the old ring's tightest pad-to-plaza gap (~21.6 studs) with room to spare
-local NORTH_ROW_COUNT = 4
-local SOUTH_ROW_COUNT = 2
-assert(NORTH_ROW_COUNT + SOUTH_ROW_COUNT == Plots.COUNT, "row counts must add up to Plots.COUNT")
+local PLOT_ROW_MARGIN = 24 -- plaza edge to a wall's own near/entrance edge; clears the old ring's tightest pad-to-plaza gap (~21.6 studs) with room to spare
+local PLOT_WALL_GAP = 15 -- a pad's own back edge to the perimeter wall behind it -- real walking space, not flush
+local NORTH_COUNT = 2
+local SOUTH_COUNT = 2
+local WEST_COUNT = 2
+assert(NORTH_COUNT + SOUTH_COUNT + WEST_COUNT == Plots.COUNT, "wall counts must add up to Plots.COUNT")
 
 local PLAZA = Hub.PLAZA
 local HALF_W = Plots.PAD.width / 2
 local HALF_D = Plots.PAD.depth / 2
 local PAD_CENTER_Z = (Plots.PAD.minZ + Plots.PAD.maxZ) / 2
 
--- Every pad's own east edge lands here — the shared anchor both rows are
--- built from, flush with the plaza's own east edge.
+-- Every north/south pad's own east edge lands here — the shared anchor both
+-- of those walls are built from, flush with the plaza's own east edge.
 local ROW_EAST_X = PLAZA.maxX - HALF_W
 
--- A row's own centre Z: PLOT_ROW_MARGIN studs beyond the plaza's near edge,
--- reached from the pad's own entrance-side extent (PAD_MIN_Z, already
--- negative) rather than the pad's local origin, so it's the pad's true
--- entrance edge that lands on the margin line, not some arbitrary interior
--- point. Mirrored south.
-local NORTH_ROW_Z = PLAZA.maxZ + PLOT_ROW_MARGIN - PAD_MIN_Z
-local SOUTH_ROW_Z = PLAZA.minZ - PLOT_ROW_MARGIN + PAD_MIN_Z
+-- A north/south wall's own centre Z: PLOT_ROW_MARGIN studs beyond the
+-- plaza's near edge, reached from the pad's own entrance-side extent
+-- (PAD_MIN_Z, already negative) rather than the pad's local origin, so it's
+-- the pad's true entrance edge that lands on the margin line, not some
+-- arbitrary interior point. Mirrored south.
+local NORTH_Z = PLAZA.maxZ + PLOT_ROW_MARGIN - PAD_MIN_Z
+local SOUTH_Z = PLAZA.minZ - PLOT_ROW_MARGIN + PAD_MIN_Z
+
+-- The west wall's own centre X: the same PLOT_ROW_MARGIN idea, mirrored onto
+-- the plaza's own west edge instead of its east one.
+local WEST_X = PLAZA.minX - PLOT_ROW_MARGIN + PAD_MIN_Z
 
 --- Lay `count` pads evenly along X at a fixed Z, every one's east edge
 --- stepping PLOT_ROW_PITCH west of the last, the rightmost flush against
@@ -297,37 +327,53 @@ local function rowCenters(count: number, z: number, facing: number): { { x: numb
 	return list
 end
 
+--- The west wall's mirror of `rowCenters`: `count` pads evenly along Z at a
+--- fixed X, centred on Z = 0 (the plaza's own Z midpoint) so the pair reads
+--- symmetric about the plaza rather than leaning toward one of the other
+--- two walls.
+local function columnCenters(count: number, x: number, facing: number): { { x: number, z: number, facing: number } }
+	local list = {}
+	local span = (count - 1) * PLOT_ROW_PITCH
+	for i = 1, count do
+		list[i] = { x = x, z = span / 2 - (i - 1) * PLOT_ROW_PITCH, facing = facing }
+	end
+	return list
+end
+
 Plots.CENTERS = {}
-for _, c in rowCenters(NORTH_ROW_COUNT, NORTH_ROW_Z, 0) do
+for _, c in rowCenters(NORTH_COUNT, NORTH_Z, 0) do
 	table.insert(Plots.CENTERS, c)
 end
-for _, c in rowCenters(SOUTH_ROW_COUNT, SOUTH_ROW_Z, 180) do
+for _, c in rowCenters(SOUTH_COUNT, SOUTH_Z, 180) do
+	table.insert(Plots.CENTERS, c)
+end
+for _, c in columnCenters(WEST_COUNT, WEST_X, -90) do
 	table.insert(Plots.CENTERS, c)
 end
 
---- The full pad-footprint bounding rectangle — every row's own back-wall
---- edge and the westmost pad's outer edge. Derived from the same row
---- constants above rather than hand-typed, so it cannot drift from what's
---- actually built. NORTH_ROW_Z/SOUTH_ROW_Z already place each row's entrance
---- edge on the margin line; the BACK edge is PAD_MAX_Z further out from a
---- row's own centre (north: +PAD_MAX_Z, facing 0 doesn't flip; south:
---- -PAD_MAX_Z, facing 180 does). The west edge comes from whichever row
---- reaches furthest west — whichever has more pads at this shared
---- pitch/anchor, computed generically here rather than assumed to always be
---- the north row.
-local ROW_WEST_X = ROW_EAST_X - (math.max(NORTH_ROW_COUNT, SOUTH_ROW_COUNT) - 1) * PLOT_ROW_PITCH
+--- The full pad-footprint-plus-clearance bounding rectangle — every wall's
+--- own back edge, pushed out by PLOT_WALL_GAP for real walking space behind
+--- every pad. Derived from the same wall constants above rather than
+--- hand-typed, so it cannot drift from what's actually built. NORTH_Z/
+--- SOUTH_Z/WEST_X already place each wall's entrance edge on the margin
+--- line; the BACK edge is PAD_MAX_Z further out from a wall's own centre
+--- (north: +PAD_MAX_Z in Z, facing 0 doesn't flip; south: -PAD_MAX_Z,
+--- facing 180 does; west: -PAD_MAX_Z in X, facing -90 subtracts the same
+--- way south's does). maxX stays exactly the plaza's own edge — the open
+--- east side has no wall to clear, so no gap is added there.
 Plots.OUTER = {
-	minX = ROW_WEST_X - HALF_W,
+	minX = WEST_X - PAD_MAX_Z - PLOT_WALL_GAP,
 	maxX = PLAZA.maxX,
-	minZ = SOUTH_ROW_Z - PAD_MAX_Z,
-	maxZ = NORTH_ROW_Z + PAD_MAX_Z,
+	minZ = SOUTH_Z - PAD_MAX_Z - PLOT_WALL_GAP,
+	maxZ = NORTH_Z + PAD_MAX_Z + PLOT_WALL_GAP,
 }
 
 --- A pad's true, ROTATED footprint — an `Kit.OrientedRect`, not an axis-aligned
---- bounding box. Only right angles occurred in the old rectangular ring, which is
---- what let that ring get away with a "swap width/depth" axis-aligned shortcut;
---- none of the six facings here are multiples of 90, so overlap/containment
---- tests need the real oriented rectangle. `Kit.pointInOrientedRect` and
+--- bounding box. Three distinct facings (0, 180, -90) sit across three walls
+--- now, so a single "swap width/depth" axis-aligned shortcut can no longer
+--- cover every pad the way the old single-row layout could; the real oriented
+--- rectangle handles all three the same way it handled the old semicircle's
+--- arbitrary bearings. `Kit.pointInOrientedRect` and
 --- `Kit.orientedRectsOverlap` (used by this file's apron and by
 --- World.verify()'s pad checks) both take this same shape.
 ---
@@ -390,9 +436,9 @@ local PLAZA_SKIP_MARGIN = 3
 --- Same idea as PLAZA_SKIP_MARGIN, one edge in: how far inside a PAD's own footprint
 --- a cap tile's centre has to land before this pass drops it. NOT zero. `Hub.tileRect`
 --- calls `skip` with each tile's centre and a tile is 3 studs; a pad's footprint
---- generally does not land on the apron's own 3-stud tile grid (its east edge is
---- pinned to ROW_EAST_X, not to a tile boundary), so tiles along a pad edge can
---- still cross it. At zero inset a tile whose centre lands just inside the pad
+--- generally does not land on the apron's own 3-stud tile grid (a pad is pinned to
+--- ROW_EAST_X/NORTH_Z/SOUTH_Z/WEST_X, none of which are tile boundaries), so
+--- tiles along a pad edge can still cross it. At zero inset a tile whose centre lands just inside the pad
 --- is dropped here even though a corner of it pokes back out over open apron — and
 --- the pad's own tile grid (a separate, pad-clipped grid) does not reach that far,
 --- so the recessed structural slab shows through as a ragged line of dark square
