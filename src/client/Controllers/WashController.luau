@@ -1586,21 +1586,18 @@ local function ensureGui(): boolean
 	-- billboard readout (LiquidController) is hidden with the rest of the HUD for the
 	-- session, so this is the only "what am I spraying" cue inside the shot. Kept to a
 	-- word in the corner: the aim, not the inventory, is what this view is about.
-	local fluid = Instance.new("TextLabel")
-	fluid.Name = "Fluid"
-	fluid.AnchorPoint = Vector2.new(1, 1)
-	fluid.Position = UDim2.new(1, -22, 1, -22)
-	fluid.Size = UDim2.fromOffset(240, 24)
-	fluid.BackgroundTransparency = 1
-	fluid.Font = UIKit.Font.title
-	fluid.TextSize = UIKit.TextSize.header
-	fluid.TextXAlignment = Enum.TextXAlignment.Right
-	fluid.TextColor3 = UIKit.C.text
-	fluid.TextStrokeTransparency = 0
-	fluid.Text = ""
-	fluid.Visible = false
-	fluid.ZIndex = 1
-	fluid.Parent = canvas
+	UIKit.label(canvas, {
+		name = "Fluid",
+		anchorPoint = Vector2.new(1, 1),
+		position = UDim2.new(1, -22, 1, -22),
+		size = UDim2.fromOffset(240, 24),
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.header,
+		xAlign = Enum.TextXAlignment.Right,
+		color = UIKit.C.text,
+		visible = false,
+		zIndex = 1,
+	})
 
 	-- ── The clean-percent bar ──
 	-- Bottom-centre: how much of the ITEM is clean, not any one patch. WashService
@@ -1641,17 +1638,16 @@ local function ensureGui(): boolean
 	cleanFillCorner.CornerRadius = UIKit.Radius.button
 	cleanFillCorner.Parent = cleanFill
 
-	local cleanPercent = Instance.new("TextLabel")
-	cleanPercent.Name = "Percent"
-	cleanPercent.Size = UDim2.fromScale(1, 1)
-	cleanPercent.BackgroundTransparency = 1
-	cleanPercent.Font = UIKit.Font.title
-	cleanPercent.TextSize = UIKit.TextSize.caption
-	cleanPercent.TextColor3 = UIKit.C.text
-	cleanPercent.TextStrokeTransparency = 0
-	cleanPercent.Text = "0% clean"
-	cleanPercent.ZIndex = 2
-	cleanPercent.Parent = cleanBar
+	UIKit.label(cleanBar, {
+		name = "Percent",
+		size = UDim2.fromScale(1, 1),
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.caption,
+		color = UIKit.C.text,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "0% clean",
+		zIndex = 2,
+	})
 
 	-- ── The wipe panel ──
 	-- Parked off the RIGHT edge, which is where every completed sweep leaves it.
