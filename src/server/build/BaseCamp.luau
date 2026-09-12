@@ -31,10 +31,14 @@
 	`buildCleansingStation` for the replacement and the reasoning.
 
 	THE TRADER IS BACK, but not the old walled camp version. It is an open market
-	stall just south of the plaza midpoint: close enough to be the natural return
-	stop after a run, but offset far enough that a player spawning at the exact
-	middle does not immediately open the sell panel. It is open on every side, so it
-	restores the sell loop without reintroducing a second enclosure inside the plaza.
+	stall now standing IN THE PLAZA STALLS' OWN SOUTH ROW, between MagnetShop and
+	CleanerShop (build/Shops), rather than tucked just south of the respawn anchor
+	— a player selling a haul is already walking the shop row to spend it, so the
+	sell counter reads as the fourth stop on that row instead of a separate detour
+	back toward spawn. It is open on every side, so it restores the sell loop
+	without reintroducing a second enclosure inside the plaza. `build/Shops.luau`'s
+	STALLS west column moved from x=-30 to x=-42 specifically to open this gap —
+	see that file's header for the clearance numbers.
 
 	THE STALL READS AS A BUILT FRAME, not four poles under a sheet: four slim posts
 	in the pale storefront grey, deep-brown rail beams wrapping the frame in two
@@ -59,7 +63,7 @@ local ModelGallery = require(script.Parent.ModelGallery)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 10
+local BUILDER_VERSION = 11
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -158,16 +162,23 @@ local function buildShell(camp: Model, origin: CFrame)
 	ModelGallery.build(ModelGallery.originForBase(origin), camp)
 
 	-- A small open trader kiosk, deliberately placed in the inner plaza rather than
-	-- behind a wall or at a player's private plot. The counter is 10 studs south of
-	-- the respawn anchor and has an 8-stud station radius: arriving players can see
-	-- it immediately but do not have a sale window forced open on spawn.
+	-- behind a wall or at a player's private plot. The counter has an 8-stud
+	-- station radius.
 	local trader = Instance.new("Model")
 	trader.Name = "Trader"
 
 	-- The plaza surface sits 0.9 below the camp datum here; every part builds up
 	-- from this one local-Y so nothing floats over the tiles.
 	local G = -0.9
-	local kiosk = origin * CFrame.new(0, 0, -12)
+
+	-- WORLD (-13, -22), IN THE GAP BETWEEN MAGNETSHOP AND CLEANERSHOP, not the
+	-- old 12-stud-south-of-spawn spot. `origin` here is Hub.CAMP_ORIGIN, (17.5,
+	-- -0.6, 0) with no rotation, so a local offset maps straight onto world XZ:
+	-- (-30.5, 0, -22) local lands on world (-13, ~, -22). The kiosk keeps its
+	-- original unrotated facing (local +Z = world +Z, i.e. north) unchanged,
+	-- which already matches Magnet's and Cleaner's own `faceYaw = 0` — the row
+	-- reads as one line of storefronts, not three different facings.
+	local kiosk = origin * CFrame.new(-30.5, 0, -22)
 
 	-- A low grey studded deck, just proud of the plaza tiles — the stall is studded
 	-- throughout, like the plaza shops.

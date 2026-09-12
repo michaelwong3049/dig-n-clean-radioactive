@@ -123,14 +123,16 @@
 	shop's front direction is decided and `assertNoShopOverlap` for what still
 	stops two of them landing on top of each other.
 
-	LAID OUT AS A 2x2 GRID NOW, NOT A TRIANGLE. West column at x=-30 (Outfitter,
+	LAID OUT AS A 2x2 GRID NOW, NOT A TRIANGLE. West column at x=-42 (Outfitter,
 	Magnet), east column at x=17.5 — PLAZA_MID's own x — (Detector, Cleaner). North
 	row at z=30 (Detector, Outfitter) facing south, south row at z=-22 (Magnet,
 	Cleaner) facing north. The east column needs no `faceYaw` override: aiming at
 	PLAZA_MID from due north or south of it is already a clean south/north facing.
-	The west column does, since PLAZA_MID does not sit due south of (-30, 30) or
-	due north of (-30, -22) — without the override each would instead angle in
-	toward the plaza centre, out of line with its row-mate.
+	The west column does, since PLAZA_MID does not sit due south of (-42, 30) or
+	due north of (-42, -22) — without the override each would instead angle in
+	toward the plaza centre, out of line with its row-mate. The columns sit -42
+	and 17.5 apart (not the original -30) so the south row has room for the
+	Trader (BaseCamp.luau) to sit between Magnet and Cleaner.
 
 	THE OUTFITTER IS A PLAZA STALL NOW TOO, not a separate walled building — see
 	`buildOutfitter`'s own header for why that changed. It gets the exact same
@@ -169,7 +171,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 28
+local BUILDER_VERSION = 29
 
 local C = Kit.C
 local build = Kit.build
@@ -204,19 +206,25 @@ local PLAZA_MID = { x = 17.5, z = 0 }
 --- of `createShops`) resolves the same override before checking, so a moved or
 --- re-aimed stall still gets caught if it collides with a neighbour.
 ---
---- A 2x2 GRID NOW, NOT A TRIANGLE. West column at x=-30 (Outfitter, Magnet), east
---- column at x=17.5 — PLAZA_MID's own x, so Detector and Cleaner need no `faceYaw`
---- override at all; aiming at PLAZA_MID from due north or south of it is already a
---- clean 180/0. North row at z=30 (Detector, Outfitter), south row at z=-22
---- (Magnet, Cleaner) — both rows explicitly yawed 180/0 respectively so the two
---- shops sharing a row also share a facing, not just a z.
+--- A 2x2 GRID, WEST COLUMN AT x=-42 (Outfitter, Magnet), east column at x=17.5 —
+--- PLAZA_MID's own x, so Detector and Cleaner need no `faceYaw` override at all;
+--- aiming at PLAZA_MID from due north or south of it is already a clean 180/0.
+--- North row at z=30 (Detector, Outfitter), south row at z=-22 (Magnet, Cleaner)
+--- — both rows explicitly yawed 180/0 respectively so the two shops sharing a
+--- row also share a facing, not just a z.
+---
+--- THE WEST COLUMN MOVED FROM -30 TO -42 TO MAKE ROOM FOR THE TRADER. It was a
+--- clean 8.64-stud gap between Magnet's east edge and Cleaner's west edge at
+--- -30 — not enough for the Trader kiosk's 14.6-stud awning span. -42 opens
+--- that to ~20.6 studs, enough for the kiosk plus a few studs of clearance each
+--- side. See BaseCamp.luau's Trader for the other half of this move.
 --- `present` is the per-track hang angle for the rail models — see RACK_DROP_* and
 --- `hangTierModel`. Tuned against front-on screenshots so each track stands from the
 --- deck to (near) the rail without clipping its neighbour: the detector tips hard
 --- nose-down to drop its coil to the floor, the hose barely tips at all.
 local STALLS = {
 	{ track = "Detector", at = { 17.5, 30 }, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper", present = { yaw = 205, pitch = -80 } },
-	{ track = "Magnet", at = { -30, -22 }, faceYaw = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
+	{ track = "Magnet", at = { -42, -22 }, faceYaw = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
 	{ track = "Cleaner", at = { 17.5, -22 }, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean", present = { yaw = 196, pitch = -12 } },
 }
 
@@ -391,14 +399,14 @@ end
 --- The outfitter's three counters on one bench. Radius 6 at a 13-stud pitch, so
 --- no two counters' circles overlap and standing at one is unambiguous.
 ---
---- `at` IS THE WEST COLUMN OF THE 2x2 GRID NOW (see STALLS), sharing x=-30 with
+--- `at` IS THE WEST COLUMN OF THE 2x2 GRID NOW (see STALLS), sharing x=-42 with
 --- MagnetShop below it, at the grid's north row (z=30, alongside DetectorShop).
 --- `faceYaw = 180` is an explicit override, same reason MagnetShop needs one:
---- PLAZA_MID does not sit due east of (-30, 30), so the default "aim at PLAZA_MID"
+--- PLAZA_MID does not sit due east of (-42, 30), so the default "aim at PLAZA_MID"
 --- would turn this stall's front to face south-east instead of square south at
 --- its row-mate DetectorShop, which is what actually reads as "lined up".
 local OUTFITTER = {
-	at = { -30, 30 },
+	at = { -42, 30 },
 	faceYaw = 180,
 	pitch = 13,
 	counters = {
