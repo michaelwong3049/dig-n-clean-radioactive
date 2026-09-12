@@ -55,13 +55,9 @@
 	Gear.maxTier, so the Detector stall (8 tiers) is wider than the Magnet stall (6),
 	and adding a tier in Config/Gear widens that one shop with nothing else to edit.
 	Posts, slats, shelf, canopy stripe count and both floor markers all key off that
-	one number. What it cost: the ring the stalls stand on had to grow from radius 20
-	to 32, and the Outfitter had to move from x=-30 to x=-44 to stay clear of the two
-	western stalls' backs. Splitting the stand off the rack cost another six studs of
-	width on top of that (44.2 / 40.6 / 37.0 now) and moved nothing else — the fronts
-	still clear each other by ~21 studs and the Outfitter by ~13.
-	`assertNoShopOverlap` proves that arrangement at every rebuild rather than
-	trusting this paragraph.
+	one number, which is why moving a stall's `at` (see below) or widening a track
+	can turn a comfortable gap into an overlap. `assertNoShopOverlap` proves the
+	current arrangement at every rebuild rather than any paragraph here trying to.
 
 	THE LOOK — the supplied classic-Roblox Gear Store reference, stripped to the
 	structure. Each tool stall has studded posts, a slatted rear wall, an open
@@ -123,40 +119,25 @@
 	`OUTFITTER.at` below — there used to be a shared `bearing` + `STALL_RING_RADIUS`
 	that forced all three onto one ring around `PLAZA_MID` (x=17.5, z=0, itself the
 	plaza midpoint, the camp datum (Hub.CAMP_ORIGIN) and the blackout-respawn anchor,
-	all the same point). That constraint is gone: any stall can sit anywhere on the
-	plaza now. What every stall still shares is the TURN, not the position —
-	`facingOrigin` always points a stall's front (the counter side, local +Z) back at
-	PLAZA_MID, so wherever one lands it still faces the middle.
+	all the same point). That constraint is gone: any stall (and the Outfitter) can
+	sit anywhere on the plaza now, at any facing — see `facingDirFor` for how a
+	shop's front direction is decided and `assertNoShopOverlap` for what still
+	stops two of them landing on top of each other.
 
-	THE CURRENT `at` VALUES ARE STILL THE OLD TRIANGLE, 32 STUDS OUT AT 120-DEGREE
-	SPACING, because that is where they were before this became freeform and nothing
-	forced them to move. That radius was tuned up from 20 for the courtyard, not a
-	collision: three stalls of 38 / 35 / 31 studs at 20 ate ~250 of the 360 degrees
-	around the middle (three 12-stud gaps, a 33-stud yard fenced shopfront-to-
-	shopfront); at 32 the same three fronts take ~173 degrees, the gaps open to ~62
-	each, and the middle is a 57-stud square you can cross. Moving an `at` by hand
-	does not get that geometry back for free — `assertNoShopOverlap` (run at the end
-	of `createShops`) is what still catches a stall dropped somewhere that collides.
+	LAID OUT AS A 2x2 GRID NOW, NOT A TRIANGLE. West column at x=-30 (Outfitter,
+	Magnet), east column at x=17.5 — PLAZA_MID's own x — (Detector, Cleaner). North
+	row at z=30 (Detector, Outfitter) facing south, south row at z=-22 (Magnet,
+	Cleaner) facing north. The east column needs no `faceYaw` override: aiming at
+	PLAZA_MID from due north or south of it is already a clean south/north facing.
+	The west column does, since PLAZA_MID does not sit due south of (-30, 30) or
+	due north of (-30, -22) — without the override each would instead angle in
+	toward the plaza centre, out of line with its row-mate.
 
-	THE OUTFITTER TUCKS IN BEHIND THE DETECTOR AND CLEANER STALLS, ON THE WEST. It
-	used to sit across a centre aisle from a straight row of stalls (row at z=22,
-	Outfitter at z=-22), then went through a run of holding spots — z=-55, the
-	south edge, the south-east arc, x=-30. Now it sits at (-44, 0) on the base floor's
-	dark checker, due west of PLAZA_MID and set well BEHIND the two stalls on that side
-	(Detector NW, Cleaner SW) — out on the open ground west of the stalls, off the way
-	in rather than straddling it, ~16 studs clear of the stalls' outer corners. It
-	moved the last 14 studs west because the stalls grew: this building's 46-stud span
-	runs north-south (it faces east), so it
-	sits broadside to those two backs, and at x=-30 the widened Detector stall came
-	within 3.6 studs of it — clear, and not a gap anyone walks down. On the z=0 centreline it faces due east, so
-	`facingOrigin` leaves it square, no turn.
-
-	AND IT IS OPEN FRONT AND BACK — A WALK-THROUGH, NOT A DEAD END. Only the two
-	side walls are solid now; both gable ends (the +Z centre-facing side and the -Z
-	outer side) are open. The three counters sit clear of the ~9-stud gaps between
-	them, so the building can be walked straight through rather than being a room
-	with a back wall — the +Z end is the counter approach from the plaza, the -Z
-	end opens onto the west apron behind.
+	AND IT IS OPEN FRONT AND BACK — A WALK-THROUGH, NOT A DEAD END, for the
+	Outfitter specifically. Only its two side walls are solid; both gable ends (the
+	+Z front and the -Z back) are open. The three counters sit clear of the ~9-stud
+	gaps between them, so the building can be walked straight through rather than
+	being a room with a back wall.
 
 	`facingOrigin` IS THE ONLY PLACEMENT PRIMITIVE. Both builders lay every part as
 	a local offset from the CFrame it returns, so that one CFrame carries a shop's
@@ -166,14 +147,6 @@
 	statement of positions. Plots.luau's SHOP_CLUSTER_EAST_REACH is already marked
 	historical there and stays a conservative bound, not a live measurement of
 	anything here.
-
-	THE EAST REACH IS WORTH RE-STATING SINCE THE RING GREW. The Magnet stall took the
-	east vertex out from x=37.5 to x=49.5, and its canopy's back edge now reaches
-	~x=61 — the eastmost thing this file builds. Stage 1's west edge is x=100 and the
-	plot ring's centre is x=32 at radius 180, so there is nothing within 39 studs of
-	it in that direction. SHOP_CLUSTER_EAST_REACH (53, measured from PLAZA.maxX)
-	remains what its own comment says it is: a frozen constant that keeps the pad ring
-	where it is, not a live measurement of this file.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -223,24 +196,30 @@ end
 local PLAZA_MID = { x = 17.5, z = 0 }
 
 --- Each plaza stall's world (x, z), same shape as `OUTFITTER.at` — freely
---- placeable, no shared ring or bearing forcing them together. `facingOrigin`
---- still turns every stall to face PLAZA_MID regardless of where `at` puts it, so
---- moving one only ever changes its position, never which way it looks.
+--- placeable, no shared ring or bearing forcing them together. By default
+--- `facingOrigin` turns a stall to face PLAZA_MID from wherever `at` puts it; an
+--- entry can override that with an explicit `faceYaw` (world degrees, 0 = local +Z
+--- along world +Z, matching `Kit.ang`'s Y-euler) when it needs to face somewhere
+--- PLAZA_MID does not point from that spot — see the layout below, where the west
+--- column only reads as "in line with" the east column because both share a yaw
+--- instead of each independently aiming at the middle. `assertNoShopOverlap` (end
+--- of `createShops`) resolves the same override before checking, so a moved or
+--- re-aimed stall still gets caught if it collides with a neighbour.
 ---
---- THE VALUES BELOW ARE THE TRIANGLE THIS REPLACED: 32 studs out from PLAZA_MID at
---- 120-degree spacing (Magnet due east, Detector NW, Cleaner SW — the gap between
---- the two western stalls faced the pad ring players arrive from). 32 was tuned up
---- from 20 for the courtyard, not a collision — see the header. Move any of these
---- and `assertNoShopOverlap` (end of `createShops`) still catches a landing spot
---- that collides with another stall or the Outfitter.
+--- A 2x2 GRID NOW, NOT A TRIANGLE. West column at x=-30 (Outfitter, Magnet), east
+--- column at x=17.5 — PLAZA_MID's own x, so Detector and Cleaner need no `faceYaw`
+--- override at all; aiming at PLAZA_MID from due north or south of it is already a
+--- clean 180/0. North row at z=30 (Detector, Outfitter), south row at z=-22
+--- (Magnet, Cleaner) — both rows explicitly yawed 180/0 respectively so the two
+--- shops sharing a row also share a facing, not just a z.
 --- `present` is the per-track hang angle for the rail models — see RACK_DROP_* and
 --- `hangTierModel`. Tuned against front-on screenshots so each track stands from the
 --- deck to (near) the rail without clipping its neighbour: the detector tips hard
 --- nose-down to drop its coil to the floor, the hose barely tips at all.
 local STALLS = {
-	{ track = "Detector", at = { 1.5, 27.71 }, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper", present = { yaw = 205, pitch = -80 } },
-	{ track = "Magnet", at = { 49.5, 0 }, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
-	{ track = "Cleaner", at = { 1.5, -27.71 }, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean", present = { yaw = 196, pitch = -12 } },
+	{ track = "Detector", at = { 17.5, 30 }, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper", present = { yaw = 205, pitch = -80 } },
+	{ track = "Magnet", at = { -30, -22 }, faceYaw = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
+	{ track = "Cleaner", at = { 17.5, -22 }, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean", present = { yaw = 196, pitch = -12 } },
 }
 
 -- ── The rack ─────────────────────────────────────────────────────────────────
@@ -412,23 +391,17 @@ local function stallAt(spec: { at: { number } }): (number, number)
 end
 
 --- The outfitter's three counters on one bench. Radius 6 at a 13-stud pitch, so
---- no two counters' circles overlap and standing at one is unambiguous. `at` is
---- on the central square at (-44, 0), due west of PLAZA_MID and set back behind
---- the Detector and Cleaner stalls (see the header) — its +Z front faces due
---- east at the centre, so `facingOrigin` leaves it square.
+--- no two counters' circles overlap and standing at one is unambiguous.
 ---
---- IT MOVED 14 STUDS FURTHER WEST (-30 -> -44) WHEN THE STALLS GREW. This building's
---- width runs north-south (it faces east), so its 46-stud span sits broadside to the
---- two western stalls' backs — and once those stalls widened to hold their racks,
---- the Detector stall's outer corner came within ~2 studs of this wall on the
---- Detector's own width axis: 3.6 studs, clear but not a gap anyone walks down, and
---- the header's "~27 studs clear of the stalls' backs" would have been a lie. -44
---- restores ~16 studs of real clearance (15.7 to the Detector stall, 17.5 to the
---- Cleaner, both measured by `assertNoShopOverlap`'s own footprints). There is room for
---- it: the base floor's dark checker covers the whole plaza now, so the west face at
---- x=-52 is still on the plaza slab with ~13 studs of it behind them.
+--- `at` IS THE WEST COLUMN OF THE 2x2 GRID NOW (see STALLS), sharing x=-30 with
+--- MagnetShop below it, at the grid's north row (z=30, alongside DetectorShop).
+--- `faceYaw = 180` is an explicit override, same reason MagnetShop needs one:
+--- PLAZA_MID does not sit due east of (-30, 30), so the default "aim at PLAZA_MID"
+--- would turn this building's front to face south-east instead of square south at
+--- its row-mate DetectorShop, which is what actually reads as "lined up".
 local OUTFITTER = {
-	at = { -44, 0 },
+	at = { -30, 30 },
+	faceYaw = 180,
 	pitch = 13,
 	counters = {
 		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },
@@ -444,17 +417,37 @@ local OUTFITTER = {
 	},
 }
 
+--- The direction a shop's front (local +Z) points in world XZ, as a unit vector.
+--- `faceYaw`, when given, is taken literally (0 = world +Z, matching Kit.ang's Y
+--- convention) so two shops at different positions can still share an exact
+--- facing. Omitted, it falls back to "aim at PLAZA_MID from (x, z)" — the original
+--- default every shop had before facing became overridable.
+---
+--- THE ONE PLACE THIS DIRECTION IS COMPUTED, so a shop's built geometry
+--- (`facingOrigin`) and its overlap footprint (`shopFootprint`) can never
+--- disagree about which way it faces — they used to each independently assume
+--- "toward PLAZA_MID", which only stayed correct because nothing could face
+--- anywhere else yet.
+local function facingDirFor(x: number, z: number, faceYaw: number?): (number, number)
+	if faceYaw then
+		local r = math.rad(faceYaw)
+		return math.sin(r), math.cos(r)
+	end
+	local dirX, dirZ = PLAZA_MID.x - x, PLAZA_MID.z - z
+	local len = math.sqrt(dirX * dirX + dirZ * dirZ)
+	return dirX / len, dirZ / len
+end
+
 --- A build origin on the plaza plane at world (x, z), turned so its local +Z —
---- every shop's counter-facing front — points at (towardX, towardZ). Both
---- builders lay every part as a local offset from what this returns, so this one
---- CFrame is the whole of a shop's position AND its facing.
-local function facingOrigin(x: number, z: number, towardX: number, towardZ: number): CFrame
+--- every shop's counter-facing front — points along `facingDirFor(x, z, faceYaw)`.
+--- Both builders lay every part as a local offset from what this returns, so this
+--- one CFrame is the whole of a shop's position AND its facing.
+local function facingOrigin(x: number, z: number, faceYaw: number?): CFrame
 	local topY = Hub.PLAZA.topY
+	local dirX, dirZ = facingDirFor(x, z, faceYaw)
 	-- CFrame.lookAt aims local -Z (its LookVector) at the target; the shop fronts
-	-- are +Z, so aim -Z at the target's mirror through (x, z) and +Z lands on the
-	-- target. Degenerate only if (x, z) == the target, which no caller passes.
-	local mirror = Vector3.new(2 * x - towardX, topY, 2 * z - towardZ)
-	return CFrame.lookAt(Vector3.new(x, topY, z), mirror)
+	-- are +Z, so aim -Z the opposite way down `dir` and +Z lands facing along it.
+	return CFrame.lookAt(Vector3.new(x, topY, z), Vector3.new(x - dirX, topY, z - dirZ))
 end
 
 -- ── The floor marker ─────────────────────────────────────────────────────────
@@ -1106,16 +1099,17 @@ end
 --- the stall's own accent colour. The canopy, the sign text, the floor marker
 --- and the counter's trim cap — all `spec.color` — are the per-shop identity now
 --- that the shopkeeper and the identity prop are gone.
-local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, label: string, tagline: string, present: { yaw: number, pitch: number } })
+local function buildStall(parent: Instance, spec: { track: string, at: { number }, faceYaw: number?, color: string, label: string, tagline: string, present: { yaw: number, pitch: number } })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
-	-- Position AND facing in one CFrame: at this stall's vertex on the ring, turned
-	-- so the counter side (+Z) looks back at PLAZA_MID. Y comes from Hub.PLAZA.topY
-	-- (the plaza is at Stages.SURFACE_Y, not Y=0). Every part below is a LOCAL
-	-- offset from this, so this one line carries the whole stall's placement.
+	-- Position AND facing in one CFrame: at this stall's `at`, turned to face
+	-- `spec.faceYaw` or (by default) back at PLAZA_MID — see `facingDirFor`. Y
+	-- comes from Hub.PLAZA.topY (the plaza is at Stages.SURFACE_Y, not Y=0). Every
+	-- part below is a LOCAL offset from this, so this one line carries the whole
+	-- stall's placement.
 	local atX, atZ = stallAt(spec)
-	local origin = facingOrigin(atX, atZ, PLAZA_MID.x, PLAZA_MID.z)
+	local origin = facingOrigin(atX, atZ, spec.faceYaw)
 
 	-- EVERY DIMENSION BELOW KEYS OFF THIS, and it is a function of how many tiers the
 	-- track has (see `stallWidth`). A Detector stall is wider than a Magnet stall
@@ -1240,10 +1234,8 @@ end
 
 --- A shop's footprint on the plaza, as an oriented rectangle. `backZ`/`frontZ` are
 --- the extremes of everything the builder lays down, in the shop's own local z.
-local function shopFootprint(x: number, z: number, width: number, backZ: number, frontZ: number): Kit.OrientedRect
-	local dirX, dirZ = PLAZA_MID.x - x, PLAZA_MID.z - z
-	local len = math.sqrt(dirX * dirX + dirZ * dirZ)
-	dirX, dirZ = dirX / len, dirZ / len
+local function shopFootprint(x: number, z: number, width: number, backZ: number, frontZ: number, faceYaw: number?): Kit.OrientedRect
+	local dirX, dirZ = facingDirFor(x, z, faceYaw)
 	local mid = (backZ + frontZ) / 2
 	return {
 		cx = x + dirX * mid,
@@ -1280,14 +1272,14 @@ local function assertNoShopOverlap()
 		-- everything buildStall lays down.
 		table.insert(rects, {
 			name = `{spec.track} stall`,
-			rect = shopFootprint(x, z, stallWidth(spec.track), -11.25, 5.9),
+			rect = shopFootprint(x, z, stallWidth(spec.track), -11.25, 5.9, spec.faceYaw),
 		})
 	end
 
 	local outfitterWidth = OUTFITTER.pitch * (#OUTFITTER.counters - 1) + 20
 	table.insert(rects, {
 		name = "Outfitter",
-		rect = shopFootprint(OUTFITTER.at[1], OUTFITTER.at[2], outfitterWidth, -8, 8),
+		rect = shopFootprint(OUTFITTER.at[1], OUTFITTER.at[2], outfitterWidth, -8, 8, OUTFITTER.faceYaw),
 	})
 
 	for i = 1, #rects do
@@ -1306,19 +1298,16 @@ end
 --- shops left Suit, Boots and Satchel priced but unbuyable, and hazard gear that
 --- actually reduces incoming damage earns more than a picnic table — two side
 --- walls, a peaked roof, and BOTH gable ends open so it reads as a walk-through
---- rather than a room with a back wall. Tucked in behind the Detector and Cleaner
---- stalls on the west of the square; the +Z front (sign, forecourt marker, and
---- the counters just inside) faces due east at PLAZA_MID, the -Z end opens onto
---- the west apron behind. Each counter carries its own billboard naming the track
---- (SUITS / BOOTS / SATCHELS).
+--- rather than a room with a back wall. Sits at the grid's west column (see
+--- OUTFITTER.at); the +Z front (sign, forecourt marker, and the counters just
+--- inside) faces `faceYaw` (south, matching its row-mate DetectorShop), the -Z
+--- end opens onto whatever is behind it. Each counter carries its own billboard
+--- naming the track (SUITS / BOOTS / SATCHELS).
 local function buildOutfitter(parent: Instance)
 	local m = Instance.new("Model")
 	m.Name = "Outfitter"
 
-	-- Same primitive as the stalls: placed at OUTFITTER.at behind the Detector and
-	-- Cleaner stalls, on the z=0 centreline so facingOrigin's aim at PLAZA_MID is
-	-- a straight due-east facing with no turn.
-	local origin = facingOrigin(OUTFITTER.at[1], OUTFITTER.at[2], PLAZA_MID.x, PLAZA_MID.z)
+	local origin = facingOrigin(OUTFITTER.at[1], OUTFITTER.at[2], OUTFITTER.faceYaw)
 	local span = OUTFITTER.pitch * (#OUTFITTER.counters - 1)
 	local width = span + 20
 	local halfDepth = 8
@@ -1328,19 +1317,18 @@ local function buildOutfitter(parent: Instance)
 	-- this floor's top face on the plaza's own plane and the two z-fought.
 	build(m, origin, { name = "Floor", pos = { 0, -0.1, 0 }, size = { width, 0.4, halfDepth * 2 }, color = C.plazaWarm, material = "Plastic" })
 
-	-- Two side walls only. BOTH gable ends are left open: the +Z end faces
-	-- PLAZA_MID (east) and is the counter approach, the -Z end opens onto the west
-	-- apron behind. That open pair is what makes this a walk-through and not a
-	-- room with a back wall.
+	-- Two side walls only. BOTH gable ends are left open: the +Z end is the
+	-- counter approach, the -Z end opens onto the apron behind. That open pair is
+	-- what makes this a walk-through and not a room with a back wall.
 	for _, dx in { -width / 2, width / 2 } do
 		build(m, origin, { name = "SideWall", pos = { dx, wallHeight / 2, 0 }, size = { 0.6, wallHeight, halfDepth * 2 }, color = C.shopWood, material = "Wood" })
 	end
 
 	local ridgeY = buildGableRoof(m, origin, 0, wallHeight, halfDepth, 4, width + 2, C.shopOutfitter)
 
-	-- The sign, floating over the open +Z end, facing PLAZA_MID -- the same
-	-- Back-face convention the plaza stalls use, for the same reason: whoever is
-	-- walking toward this building from the centre is standing on the +Z side.
+	-- The sign, floating over the open +Z end -- the same back-face convention
+	-- the plaza stalls use, for the same reason: whoever is walking toward this
+	-- building along its front is standing on the +Z side.
 	-- Matte, in the shop's accent colour -- colour still does the navigation, it
 	-- just doesn't glow.
 	-- Fixed size, not derived from the building's width — a sign that spans the
@@ -1389,8 +1377,9 @@ local function createShops(): Model
 	shops.Name = Shops.MODEL_NAME
 	Kit.stamp(shops, BUILDER_SOURCE, BUILDER_VERSION)
 
-	-- Before a single part is laid: the widths are derived now, so the ring radius
-	-- that fits them is a claim this file has to prove every time, not once.
+	-- Before a single part is laid: the widths are derived and the `at` positions
+	-- are freeform now, so "nothing overlaps" is a claim this file has to prove
+	-- every time, not once.
 	assertNoShopOverlap()
 
 	for _, spec in STALLS do
