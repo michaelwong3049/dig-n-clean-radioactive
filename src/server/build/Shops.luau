@@ -119,21 +119,24 @@
 	SellsTrack into Kit.UPGRADE_TAG, which is what ShopService scans to wire the
 	prompt and what World.verify() asserts is present.
 
-	THE THREE STALLS SIT IN A TRIANGLE FACING THE MIDDLE. `PLAZA_MID` (x=17.5, z=0)
-	is that middle — the plaza midpoint, the camp datum (Hub.CAMP_ORIGIN) and the
-	blackout-respawn anchor, all the same point. Each stall stands `STALL_RING_RADIUS`
-	studs out from it at a 120-degree spacing and is turned so its own front — the
-	counter side, local +Z — points back at PLAZA_MID (`facingOrigin` does the turn).
-	A player standing on the respawn anchor is inside the triangle with all three
-	counters facing them; the gap between the two western stalls is the way in, aimed
-	at the pad ring the players arrive from.
+	EACH STALL HAS ITS OWN EXPLICIT `at = {x, z}` IN `STALLS`, same shape as
+	`OUTFITTER.at` below — there used to be a shared `bearing` + `STALL_RING_RADIUS`
+	that forced all three onto one ring around `PLAZA_MID` (x=17.5, z=0, itself the
+	plaza midpoint, the camp datum (Hub.CAMP_ORIGIN) and the blackout-respawn anchor,
+	all the same point). That constraint is gone: any stall can sit anywhere on the
+	plaza now. What every stall still shares is the TURN, not the position —
+	`facingOrigin` always points a stall's front (the counter side, local +Z) back at
+	PLAZA_MID, so wherever one lands it still faces the middle.
 
-	THAT RING IS 32 STUDS NOW, NOT 20, AND THE COURTYARD IS THE REASON — not a
-	collision. Nothing overlaps at radius 20; `assertNoShopOverlap` passes there.
-	But three stalls of 38 / 35 / 31 studs at that radius eat ~250 of the 360 degrees
-	around the middle, which leaves three 12-stud slots to walk through and a 33-stud
-	yard fenced shopfront-to-shopfront. At 32 the same three fronts take ~173 degrees,
-	the gaps open to ~62 each, and the middle is a 57-stud square you can cross.
+	THE CURRENT `at` VALUES ARE STILL THE OLD TRIANGLE, 32 STUDS OUT AT 120-DEGREE
+	SPACING, because that is where they were before this became freeform and nothing
+	forced them to move. That radius was tuned up from 20 for the courtyard, not a
+	collision: three stalls of 38 / 35 / 31 studs at 20 ate ~250 of the 360 degrees
+	around the middle (three 12-stud gaps, a 33-stud yard fenced shopfront-to-
+	shopfront); at 32 the same three fronts take ~173 degrees, the gaps open to ~62
+	each, and the middle is a 57-stud square you can cross. Moving an `at` by hand
+	does not get that geometry back for free — `assertNoShopOverlap` (run at the end
+	of `createShops`) is what still catches a stall dropped somewhere that collides.
 
 	THE OUTFITTER TUCKS IN BEHIND THE DETECTOR AND CLEANER STALLS, ON THE WEST. It
 	used to sit across a centre aisle from a straight row of stalls (row at z=22,
@@ -195,7 +198,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 26
+local BUILDER_VERSION = 27
 
 local C, R = Kit.C, Kit.R
 local build, billboard = Kit.build, Kit.billboard
@@ -219,37 +222,25 @@ end
 --- centreline, the camp datum and the blackout-respawn anchor, all this one point.
 local PLAZA_MID = { x = 17.5, z = 0 }
 
---- How far each stall vertex sits from PLAZA_MID. WAS 20, and it had to grow with
---- the stalls: a stall is now as wide as its track is long (see `stallWidth`), which
---- took the three of them to 38 / 35 / 31 studs.
+--- Each plaza stall's world (x, z), same shape as `OUTFITTER.at` — freely
+--- placeable, no shared ring or bearing forcing them together. `facingOrigin`
+--- still turns every stall to face PLAZA_MID regardless of where `at` puts it, so
+--- moving one only ever changes its position, never which way it looks.
 ---
---- IT IS THE COURTYARD, NOT A COLLISION, THAT SETS THIS NUMBER. Nothing actually
---- overlaps at radius 20 — `assertNoShopOverlap` passes there — but three fronts
---- that wide eat ~250 of the 360 degrees around the middle, leaving three 12-stud
---- slots and a 33-stud yard walled shopfront-to-shopfront. Passable, and a pit. At
---- 32 the same three fronts take ~173 degrees, the gaps open to ~62 degrees each and
---- the middle is a 57-stud square with three real ways into it.
----
---- The assert is still the thing that catches an actual overlap, and this is still
---- the first number to move when it fires.
-local STALL_RING_RADIUS = 32
-
---- The three plaza stalls, one at each vertex of an equilateral triangle centred on
---- PLAZA_MID, each turned by `facingOrigin` so its counter side (local +Z) points
---- back at PLAZA_MID. `bearing` is degrees CCW from due east, so `at` = PLAZA_MID +
---- STALL_RING_RADIUS * (cos, sin) — the same three vertices the old hardcoded `at`
---- pairs named (0 / 120 / -120 reproduce (1,0), (-0.5,+0.866), (-0.5,-0.866)), now
---- derived so the ring radius is a single number to move. Magnet takes the east
---- vertex; Detector (NW) and Cleaner (SW) the two western ones, so the gap a player
---- walks in through faces the pad ring they arrive from.
+--- THE VALUES BELOW ARE THE TRIANGLE THIS REPLACED: 32 studs out from PLAZA_MID at
+--- 120-degree spacing (Magnet due east, Detector NW, Cleaner SW — the gap between
+--- the two western stalls faced the pad ring players arrive from). 32 was tuned up
+--- from 20 for the courtyard, not a collision — see the header. Move any of these
+--- and `assertNoShopOverlap` (end of `createShops`) still catches a landing spot
+--- that collides with another stall or the Outfitter.
 --- `present` is the per-track hang angle for the rail models — see RACK_DROP_* and
 --- `hangTierModel`. Tuned against front-on screenshots so each track stands from the
 --- deck to (near) the rail without clipping its neighbour: the detector tips hard
 --- nose-down to drop its coil to the floor, the hose barely tips at all.
 local STALLS = {
-	{ track = "Detector", bearing = 120, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper", present = { yaw = 205, pitch = -80 } },
-	{ track = "Magnet", bearing = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
-	{ track = "Cleaner", bearing = -120, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean", present = { yaw = 196, pitch = -12 } },
+	{ track = "Detector", at = { 1.5, 27.71 }, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper", present = { yaw = 205, pitch = -80 } },
+	{ track = "Magnet", at = { 49.5, 0 }, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
+	{ track = "Cleaner", at = { 1.5, -27.71 }, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean", present = { yaw = 196, pitch = -12 } },
 }
 
 -- ── The rack ─────────────────────────────────────────────────────────────────
@@ -381,9 +372,9 @@ local STAND_PROMPT_REACH = 8
 --- `rackSpan + 13` — the ladder plus five studs of clear counter either side. The
 --- stand now occupies the whole left margin in its own right, so the sum is spelled
 --- out left to right instead: edge, stand, gap, half a slot, the ladder, half a slot,
---- end margin. `assertNoShopOverlap` re-proves the triangle at every rebuild, and it
---- passes at the current STALL_RING_RADIUS with ~21 studs to spare between fronts and
---- ~13 to the Outfitter, so nothing had to move to make room for this.
+--- end margin. `assertNoShopOverlap` re-proves the layout at every rebuild, and at
+--- the stalls' current `at` values it passes with ~21 studs to spare between fronts
+--- and ~13 to the Outfitter, so nothing had to move to make room for this.
 local function rackSpan(track: string): number
 	return RACK_PITCH * (Gear.maxTier(track) - 1)
 end
@@ -415,10 +406,9 @@ local function rackFootprintWidth(track: string): number
 	return rackSpan(track) + RACK_SLOT_WIDTH + 1
 end
 
---- A stall's vertex on the ring, world XZ.
-local function stallAt(spec: { bearing: number }): (number, number)
-	local th = math.rad(spec.bearing)
-	return PLAZA_MID.x + STALL_RING_RADIUS * math.cos(th), PLAZA_MID.z + STALL_RING_RADIUS * math.sin(th)
+--- A stall's placed position, world XZ — just its `at`, same as OUTFITTER.at.
+local function stallAt(spec: { at: { number } }): (number, number)
+	return spec.at[1], spec.at[2]
 end
 
 --- The outfitter's three counters on one bench. Radius 6 at a 13-stud pitch, so
@@ -982,7 +972,7 @@ local function buildPriceCard(mount: BasePart, name: string, price: number, acce
 end
 
 --- What the rack builders need off a STALLS entry: the track, its accent, and the
---- per-track hang angle. The full STALLS row carries more (bearing, label, …); this
+--- per-track hang angle. The full STALLS row carries more (at, label, …); this
 --- is the slice `buildTierRack` and `buildRackHook` actually read.
 type RackSpec = { track: string, color: string, present: { yaw: number, pitch: number } }
 
@@ -1116,7 +1106,7 @@ end
 --- the stall's own accent colour. The canopy, the sign text, the floor marker
 --- and the counter's trim cap — all `spec.color` — are the per-shop identity now
 --- that the shopkeeper and the identity prop are gone.
-local function buildStall(parent: Instance, spec: { track: string, bearing: number, color: string, label: string, tagline: string, present: { yaw: number, pitch: number } })
+local function buildStall(parent: Instance, spec: { track: string, at: { number }, color: string, label: string, tagline: string, present: { yaw: number, pitch: number } })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
@@ -1268,13 +1258,14 @@ end
 
 --- No shop on the plaza may sit inside another one.
 ---
---- THIS IS HERE BECAUSE THE STALL WIDTHS ARE NOW DERIVED. While every stall was 15
---- studs wide at a hand-picked position, "do they overlap" was answered once by
---- looking at the numbers and stayed answered. It is not answered once any more:
---- adding a tier to a track in Config/Gear widens that track's shop, and past some
---- width the triangle closes on itself. STALL_RING_RADIUS and OUTFITTER.at are the
---- two numbers that then have to move, and this is what says so — at the rebuild
---- that broke it, naming the pair, rather than in a screenshot three weeks later.
+--- THIS IS HERE BECAUSE THE STALL WIDTHS ARE NOW DERIVED, AND `at` IS NOW FREE. While
+--- every stall was 15 studs wide at a hand-picked position, "do they overlap" was
+--- answered once by looking at the numbers and stayed answered. It is not answered
+--- once any more: adding a tier to a track in Config/Gear widens that track's shop,
+--- and moving a stall's `at` (by hand, or via the ring values it started at) can walk
+--- it into a neighbour. A stall's `at` or OUTFITTER.at are what then have to move,
+--- and this is what says so — at the rebuild that broke it, rather than in a
+--- screenshot three weeks later.
 ---
 --- Kit.orientedRectsOverlap, not an axis-aligned box: two of the three stalls sit at
 --- +/-120 degrees, where a bounding box overstates the footprint badly enough to
@@ -1303,7 +1294,7 @@ local function assertNoShopOverlap()
 		for j = i + 1, #rects do
 			assert(
 				not Kit.orientedRectsOverlap(rects[i].rect, rects[j].rect),
-				`{rects[i].name} overlaps {rects[j].name} — widen STALL_RING_RADIUS ({STALL_RING_RADIUS}) or move OUTFITTER.at`
+				`{rects[i].name} overlaps {rects[j].name} — move one stall's \`at\` in STALLS or OUTFITTER.at`
 			)
 		end
 	end
