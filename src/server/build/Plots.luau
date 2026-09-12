@@ -205,7 +205,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 37
+local BUILDER_VERSION = 38
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -289,9 +289,11 @@ Plots.PAD = {
 --- WALL_MID_X IS CLAMPED CLEAR OF THE WEST WALL'S OWN PADS, not just the
 --- plain wall-span midpoint — see SIDE_CLEAR_MIN_X's own comment above.
 --- Centring on the full span alone put the north/south pads within ~10.5
---- studs of the west wall's nearest pad, on request too close; the clamp
---- pushes them only as far east as PAD_GAP actually requires; it is a no-op
---- once the west wall shrinks enough (or the plaza grows) that plain
+--- studs of the west wall's nearest pad; a first fix matched the ordinary
+--- 16-stud pad-to-pad gap and still read as too close, so the corner keeps
+--- its own bigger PLOT_CORNER_GAP (40) instead. The clamp pushes them only
+--- as far east as that actually requires; it is a no-op once the west wall
+--- shrinks enough (or the plaza grows) that plain
 --- centring already clears it.
 ---
 --- `facing` is a yaw in degrees, same convention the ring used: a pad is
@@ -349,19 +351,22 @@ local WEST_WALL_X = WEST_X - PAD_MAX_Z - PLOT_WALL_GAP
 local WALL_CENTER_X = (WEST_WALL_X + PLAZA.maxX) / 2
 
 -- Centring alone put a north/south pad within ~10.5 studs of the west wall's
--- own nearest pad -- tighter than every other pad-to-pad gap in this file,
--- and close enough to read as crowding it, on request. PAD_GAP is that same
--- gap (PLOT_ROW_PITCH's own pad-width-plus-16 baked in, read back out so
--- there is only one "comfortable gap" number in this file, not two).
--- WEST_ENTRANCE_X is the near edge every west-wall pad shares (same formula
--- as a north-row pad's own entrance edge, just on the X axis since the west
--- wall's pads are rotated 90 degrees off it). SIDE_CLEAR_MIN_X is the
--- closest a north/south pad's own CENTRE may sit and still keep PAD_GAP
--- clear of that edge; WALL_MID_X centres on the wall's full span same as
--- before, but never closer to the west wall's pads than that.
-local PAD_GAP = PLOT_ROW_PITCH - Plots.PAD.width
+-- own nearest pad, and even the ordinary PLOT_ROW_PITCH pad-to-pad gap (16)
+-- still read as crowding it once tried -- two PERPENDICULAR pad clusters
+-- facing each other at a corner need more breathing room than two pads
+-- end-to-end in the same row, on request. PLOT_CORNER_GAP is that bigger,
+-- dedicated clearance -- deliberately its own number rather than reusing
+-- PLOT_ROW_PITCH's, since tightening a corner gap should not silently
+-- tighten every in-row pad gap too. WEST_ENTRANCE_X is the near edge every
+-- west-wall pad shares (same formula as a north-row pad's own entrance edge,
+-- just on the X axis since the west wall's pads are rotated 90 degrees off
+-- it). SIDE_CLEAR_MIN_X is the closest a north/south pad's own CENTRE may
+-- sit and still keep PLOT_CORNER_GAP clear of that edge; WALL_MID_X centres
+-- on the wall's full span same as before, but never closer to the west
+-- wall's pads than that.
+local PLOT_CORNER_GAP = 40
 local WEST_ENTRANCE_X = WEST_X - PAD_MIN_Z
-local SIDE_CLEAR_MIN_X = WEST_ENTRANCE_X + PAD_GAP + HALF_W
+local SIDE_CLEAR_MIN_X = WEST_ENTRANCE_X + PLOT_CORNER_GAP + HALF_W
 local WALL_MID_X = math.max(WALL_CENTER_X, SIDE_CLEAR_MIN_X)
 
 --- Lay `count` pads evenly along X at a fixed Z, CENTRED on `centerX` —
