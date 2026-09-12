@@ -188,28 +188,22 @@ function World.verify(): (boolean, { string })
 			return xOverlap and zOverlap
 		end
 
-		-- The camp landmass: the plaza, plus one bounding square over the
-		-- semicircular pad ring (Plots.RING_CENTER/RING_OUTER). (`p` above is
-		-- scoped to the per-stage loop; this block runs after it.)
+		-- The camp landmass: the plaza, plus the pad rows' own bounding rect
+		-- (Plots.OUTER). (`p` above is scoped to the per-stage loop; this
+		-- block runs after it.)
 		--
-		-- ONE SQUARE, NOT A TRACED CURVE. Every stage in this codebase chains
-		-- reachability off the plaza rectangle alone -- Stages.DEFS is one
+		-- ONE EXACT RECT, NOW, NOT AN APPROXIMATION. Every stage in this codebase
+		-- chains reachability off the plaza rectangle alone -- Stages.DEFS is one
 		-- straight chain starting at Stage 1, whose west edge is exactly
-		-- Hub.PLAZA.maxX -- so the ring's own landmass has never actually been
+		-- Hub.PLAZA.maxX -- so the rows' own landmass has never actually been
 		-- load-bearing for a stage's reachability, only for keeping this
-		-- description honest. A single generous square still does that job:
-		-- this check only ever produces a boolean "touches", never a rendered
-		-- shape, so over-covering the ring's true circular footprint is
-		-- harmless.
+		-- description honest. Plots.OUTER is itself an exact rectangle (the old
+		-- semicircular ring needed a bounding square as an approximation of its
+		-- round footprint; a rectangular footprint needs no approximating).
 		local p = Hub.PLAZA
 		local reached: { { number } } = {
 			{ p.minX, p.minZ, p.maxX, p.maxZ },
-			{
-				Plots.RING_CENTER.x - Plots.RING_OUTER,
-				Plots.RING_CENTER.z - Plots.RING_OUTER,
-				Plots.RING_CENTER.x,
-				Plots.RING_CENTER.z + Plots.RING_OUTER,
-			},
+			{ Plots.OUTER.minX, Plots.OUTER.minZ, Plots.OUTER.maxX, Plots.OUTER.maxZ },
 		}
 
 		local pending: { number } = table.clone(built)
@@ -238,20 +232,21 @@ function World.verify(): (boolean, { string })
 		end
 	end
 
-	-- ── Plot pads: on the ring, not in it ────────────────────────────────
-	-- Six pads on the semicircular ring can absolutely land on the plaza, on a
+	-- ── Plot pads: on the rows, not in them ───────────────────────────────
+	-- Six pads across the two rows can absolutely land on the plaza, on a
 	-- stage, or on each other, and every one of those is invisible until someone
 	-- walks into a wall.
 	--
-	-- ORIENTED, NOT AXIS-ALIGNED. The old rectangular ring only ever used
-	-- facings that were multiples of 90, so an axis-aligned bounding box (this
-	-- function used to just swap width/depth at +/-90) was exact. None of the
-	-- six facings on the semicircular ring are multiples of 90 any more, so
-	-- this needs the pad's real, rotated footprint -- Kit.orientedRectsOverlap,
-	-- the same separating-axis test Plots.luau's own apron uses to punch pads
-	-- out of the walkway. The pad is no longer centred on the plot origin: its
-	-- entrance edge extends 17 studs inward, so translate the rectangle's centre
-	-- by its local-Z midpoint before rotating it into world space.
+	-- ORIENTED, NOT AXIS-ALIGNED, EVEN THOUGH TODAY'S FACINGS HAPPEN TO BE
+	-- AXIS-ALIGNED. This function uses the pad's real, rotated footprint --
+	-- Kit.orientedRectsOverlap, the same separating-axis test Plots.luau's own
+	-- apron uses to punch pads out of the walkway -- rather than a hardcoded
+	-- axis-aligned box, kept generic from when the semicircular ring's six
+	-- facings were arbitrary bearings. It degrades to the exact axis-aligned
+	-- case for free at today's facings (0/180), so there is nothing to gain by
+	-- special-casing it back. The pad is no longer centred on the plot origin:
+	-- its entrance edge extends 17 studs inward, so translate the rectangle's
+	-- centre by its local-Z midpoint before rotating it into world space.
 	local function padRect(centre: { x: number, z: number, facing: number }): Kit.OrientedRect
 		local localCenterZ = (Plots.PAD.minZ + Plots.PAD.maxZ) / 2
 		local yaw = math.rad(centre.facing)
