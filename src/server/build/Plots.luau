@@ -15,17 +15,17 @@
 	setting, not repo state — Rojo does not capture it — so it is written down in
 	ARCHITECTURE.md as one of the things a fresh clone cannot reconstruct.
 
-	FOUR PADS ON THE FAR WALL, ONE ON EACH SIDE, THE SHOP CLUSTER IN THE
-	MIDDLE — the requested layout:
+	FOUR PADS ON THE FAR WALL, ONE ON EACH SIDE, EVERY WALL'S PADS CENTRED
+	ON ITS OWN SPAN, THE SHOP CLUSTER IN THE MIDDLE — the requested layout:
 
 	    ┌───────────────────────────────────┐
-	    │  [PLOT]                            │   north wall (1)
+	    │           [PLOT]                   │   north wall (1, centred)
 	    │                                    │
 	    │[PLOT]     SHOPS + STANDS           │
 	    │[PLOT]    (Hub.PLAZA)               ├──▶ [RADIOACTIVE AREA]
 	    │[PLOT]                              │
 	    │[PLOT]                              │
-	    │         [PLOT]                    │   south wall (1)
+	    │           [PLOT]                   │   south wall (1, centred)
 	    └───────────────────────────────────┘
 	     west wall (4, farthest from the stages)
 
@@ -34,24 +34,25 @@
 	face back toward the shop cluster in the middle, the same "every pad
 	looks at the centre" idea the old semicircular ring had. The plaza
 	(`Hub.PLAZA`, untouched by this file) is still what actually touches
-	Stage 1's own west edge; the north and south walls sit flush against
-	that same edge on their own east side and reach west from there, so the
-	plaza's open east face is the only way out to the field, same as always.
+	Stage 1's own west edge; the north and south WALLS still anchor flush
+	against that edge on their own east end (so the plaza's open east face
+	stays the only way out to the field), but the PADS on them sit centred
+	on the wall's own span, not pushed flush against either end of it.
 	Every pad also sits PLOT_WALL_GAP studs clear of the perimeter wall
-	behind it, rather than flush against it. See
-	PLOT_ROW_PITCH/PLOT_ROW_MARGIN/PLOT_WALL_GAP/rowCenters/columnCenters
-	below for the actual layout.
+	behind it. See PLOT_ROW_PITCH/PLOT_ROW_MARGIN/PLOT_WALL_GAP/WALL_MID_X/
+	rowCenters/columnCenters below for the actual layout.
 
-	THE PER-WALL SPLIT MOVED THREE TIMES ON THE WAY HERE, THE WALLS
-	THEMSELVES NEVER DID: 2 rows of 4-and-2 (flush against the perimeter
-	wall, no gap behind them) -> 2-and-2-and-2 across three walls, with
-	PLOT_WALL_GAP added -> 3-and-2-and-1 -> this, 4-and-1-and-1. Every step
-	kept the same three walls, the same PLOT_ROW_PITCH/PLOT_ROW_MARGIN/
-	PLOT_WALL_GAP, and Plots.COUNT pinned at 6 (MaxPlayers, one plot per
-	player, no "sorry, full" case) — only NORTH_COUNT/SOUTH_COUNT/WEST_COUNT
-	below ever changed. `rowCenters`/`columnCenters` take a count as a plain
-	parameter for exactly this reason: the split was never expected to be
-	the last word.
+	FIVE ROUNDS OF FEEDBACK SHAPED THIS, THE THREE WALLS THEMSELVES NEVER
+	MOVED: 2 rows of 4-and-2 (flush against the perimeter wall, no gap
+	behind them) -> 2-and-2-and-2 across three walls, PLOT_WALL_GAP added ->
+	3-and-2-and-1 -> 4-and-1-and-1 -> this, same 4-and-1-and-1 split but
+	every wall's pads re-centred on its own span instead of sitting flush
+	against one end. Every step kept the same three walls and the same
+	PLOT_ROW_PITCH/PLOT_ROW_MARGIN/PLOT_WALL_GAP, and Plots.COUNT pinned at
+	6 (MaxPlayers, one plot per player, no "sorry, full" case). `rowCenters`/
+	`columnCenters` take both a count AND a centre point as plain parameters
+	for exactly this reason: neither the split nor the anchoring was ever
+	expected to be the last word.
 
 	IT WAS A SEMICIRCLE BEFORE ANY OF THESE RECTANGLES — six pads on the exterior of
 	one circle, evenly spaced across its western 180 degrees, each rotated to
@@ -204,7 +205,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 35
+local BUILDER_VERSION = 36
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -268,13 +269,22 @@ Plots.PAD = {
 --- plaza moves every wall's pads with it. Hub requires only Kit, so
 --- requiring it here is not circular.
 ---
---- THE NORTH/SOUTH WALLS ARE FLUSH AGAINST Hub.PLAZA.maxX, NOT CENTRED ON
---- THE PLAZA'S OWN MIDPOINT (Hub.CAMP_ORIGIN, x = 17.5) — anchoring flush
---- against Hub.PLAZA.maxX, the same shared-edge convention the plaza's own
---- east side already uses against Stage 1, keeps the plaza's own east edge
---- untouched. THE WEST WALL is anchored the mirror way, flush against
---- Hub.PLAZA.minX instead — it is the wall farthest from the stages, so
---- there is no shared-edge concern on that side to keep clear of.
+--- EVERY WALL'S OWN SPAN IS ANCHORED OFF Hub.PLAZA, NOT CENTRED ON THE
+--- PLAZA'S OWN MIDPOINT (Hub.CAMP_ORIGIN, x = 17.5). The north/south walls'
+--- east end sits flush against Hub.PLAZA.maxX — the same shared-edge
+--- convention the plaza's own east side already uses against Stage 1, so
+--- that edge stays untouched — and their west end sits flush against the
+--- west wall's own back edge (WEST_WALL_X). THE WEST WALL is anchored the
+--- mirror way, flush against Hub.PLAZA.minX; it is the wall farthest from
+--- the stages, so there is no shared-edge concern on that side to keep
+--- clear of.
+---
+--- A WALL'S PADS ARE CENTRED ON ITS OWN SPAN (WALL_MID_X for north/south,
+--- Z = 0 for west), NOT FLUSH AGAINST EITHER END, on request — a single pad
+--- sitting flush east read as pushed into the plaza's own corner rather than
+--- centred on the wall it was supposed to be sitting on. `rowCenters`/
+--- `columnCenters` both centre a `count`-pad group the same way, so this
+--- reads correctly whether a wall holds one pad or several.
 ---
 --- `facing` is a yaw in degrees, same convention the ring used: a pad is
 --- built with its back wall at local +Z and its spawn at local -Z, so
@@ -309,10 +319,6 @@ local HALF_W = Plots.PAD.width / 2
 local HALF_D = Plots.PAD.depth / 2
 local PAD_CENTER_Z = (Plots.PAD.minZ + Plots.PAD.maxZ) / 2
 
--- Every north/south pad's own east edge lands here — the shared anchor both
--- of those walls are built from, flush with the plaza's own east edge.
-local ROW_EAST_X = PLAZA.maxX - HALF_W
-
 -- A north/south wall's own centre Z: PLOT_ROW_MARGIN studs beyond the
 -- plaza's near edge, reached from the pad's own entrance-side extent
 -- (PAD_MIN_Z, already negative) rather than the pad's local origin, so it's
@@ -325,15 +331,25 @@ local SOUTH_Z = PLAZA.minZ - PLOT_ROW_MARGIN + PAD_MIN_Z
 -- the plaza's own west edge instead of its east one.
 local WEST_X = PLAZA.minX - PLOT_ROW_MARGIN + PAD_MIN_Z
 
---- Lay `count` pads evenly along X at a fixed Z, every one's east edge
---- stepping PLOT_ROW_PITCH west of the last, the rightmost flush against
---- ROW_EAST_X. Returns `{x, z, facing}` entries — the same shape the old
---- bearing loop produced, so every downstream reader (`padRect`, `buildPlot`,
---- `World.verify()`) is untouched by what actually populates it.
-local function rowCenters(count: number, z: number, facing: number): { { x: number, z: number, facing: number } }
+-- The west wall's own back edge in X (same value Plots.OUTER.minX below
+-- reuses, computed here first so it isn't duplicated) and the north/south
+-- walls' shared midpoint X, so rowCenters can centre a wall's pads between
+-- that back edge and the plaza's own east edge. On request: pads used to sit
+-- flush against the plaza's own east edge instead, which read as pushed into
+-- the corner once a wall's group shrank to a single pad.
+local WEST_WALL_X = WEST_X - PAD_MAX_Z - PLOT_WALL_GAP
+local WALL_MID_X = (WEST_WALL_X + PLAZA.maxX) / 2
+
+--- Lay `count` pads evenly along X at a fixed Z, CENTRED on `centerX` —
+--- mirrors `columnCenters` below exactly (swap which axis varies). Returns
+--- `{x, z, facing}` entries — the same shape the old bearing loop produced,
+--- so every downstream reader (`padRect`, `buildPlot`, `World.verify()`) is
+--- untouched by what actually populates it.
+local function rowCenters(count: number, z: number, facing: number, centerX: number): { { x: number, z: number, facing: number } }
 	local list = {}
+	local span = (count - 1) * PLOT_ROW_PITCH
 	for i = 1, count do
-		list[i] = { x = ROW_EAST_X - (i - 1) * PLOT_ROW_PITCH, z = z, facing = facing }
+		list[i] = { x = centerX + span / 2 - (i - 1) * PLOT_ROW_PITCH, z = z, facing = facing }
 	end
 	return list
 end
@@ -352,10 +368,10 @@ local function columnCenters(count: number, x: number, facing: number): { { x: n
 end
 
 Plots.CENTERS = {}
-for _, c in rowCenters(NORTH_COUNT, NORTH_Z, 0) do
+for _, c in rowCenters(NORTH_COUNT, NORTH_Z, 0, WALL_MID_X) do
 	table.insert(Plots.CENTERS, c)
 end
-for _, c in rowCenters(SOUTH_COUNT, SOUTH_Z, 180) do
+for _, c in rowCenters(SOUTH_COUNT, SOUTH_Z, 180, WALL_MID_X) do
 	table.insert(Plots.CENTERS, c)
 end
 for _, c in columnCenters(WEST_COUNT, WEST_X, -90) do
@@ -373,7 +389,7 @@ end
 --- way south's does). maxX stays exactly the plaza's own edge — the open
 --- east side has no wall to clear, so no gap is added there.
 Plots.OUTER = {
-	minX = WEST_X - PAD_MAX_Z - PLOT_WALL_GAP,
+	minX = WEST_WALL_X,
 	maxX = PLAZA.maxX,
 	minZ = SOUTH_Z - PAD_MAX_Z - PLOT_WALL_GAP,
 	maxZ = NORTH_Z + PAD_MAX_Z + PLOT_WALL_GAP,
@@ -448,7 +464,7 @@ local PLAZA_SKIP_MARGIN = 3
 --- a cap tile's centre has to land before this pass drops it. NOT zero. `Hub.tileRect`
 --- calls `skip` with each tile's centre and a tile is 3 studs; a pad's footprint
 --- generally does not land on the apron's own 3-stud tile grid (a pad is pinned to
---- ROW_EAST_X/NORTH_Z/SOUTH_Z/WEST_X, none of which are tile boundaries), so
+--- WALL_MID_X/NORTH_Z/SOUTH_Z/WEST_X, none of which are tile boundaries), so
 --- tiles along a pad edge can still cross it. At zero inset a tile whose centre lands just inside the pad
 --- is dropped here even though a corner of it pokes back out over open apron — and
 --- the pad's own tile grid (a separate, pad-clipped grid) does not reach that far,

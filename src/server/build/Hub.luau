@@ -13,14 +13,15 @@
 
 	THE PLOTS FLANK IT ON THREE WALLS. Four pads along the west wall
 	(farthest from the stages), one along the north wall, one along the
-	south wall — the north/south walls anchored flush against the plaza's
-	own east edge, the west wall flush against its west edge (not centred on
-	the plaza's own midpoint either way — see Plots.luau's own comment on
-	ROW_EAST_X/WEST_X for why), all three rotated to face back toward the
-	shop cluster at the centre. The east side is open — the plaza connects
-	straight through to Stage 1 there, same as always. See Plots.luau for
-	the actual layout math (PLOT_ROW_PITCH/PLOT_ROW_MARGIN/PLOT_WALL_GAP/
-	Plots.CENTERS).
+	south wall. Each WALL's own span anchors off the plaza (north/south
+	flush against the plaza's east edge, west flush against its west edge,
+	neither centred on the plaza's own midpoint — see Plots.luau's own
+	comment on WALL_MID_X/WEST_X for why), but a wall's PADS centre on that
+	wall's own span rather than sitting flush against either end of it. All
+	three rotated to face back toward the shop cluster at the centre. The
+	east side is open — the plaza connects straight through to Stage 1
+	there, same as always. See Plots.luau for the actual layout math
+	(PLOT_ROW_PITCH/PLOT_ROW_MARGIN/PLOT_WALL_GAP/Plots.CENTERS).
 
 	NO CONNECTOR ROADS. The plaza used to be a fixed 160x160 square with paved strips
 	running out to a plot spine and to the field. Per the requested layout (plots —
