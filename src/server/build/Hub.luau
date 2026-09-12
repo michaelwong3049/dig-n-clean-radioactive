@@ -11,8 +11,8 @@
 	true by construction and costs nothing to enforce. For a young audience that is
 	the single most legible rule in the game, and it is free.
 
-	THE PLOTS FLANK IT ON THREE WALLS. Three pads along the west wall
-	(farthest from the stages), two along the north wall, one along the
+	THE PLOTS FLANK IT ON THREE WALLS. Four pads along the west wall
+	(farthest from the stages), one along the north wall, one along the
 	south wall — the north/south walls anchored flush against the plaza's
 	own east edge, the west wall flush against its west edge (not centred on
 	the plaza's own midpoint either way — see Plots.luau's own comment on
