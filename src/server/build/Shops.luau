@@ -604,9 +604,9 @@ local function buildStoreBillboard(adornee: BasePart, label: string, tagline: st
 	title.Text = label
 	title.TextScaled = true
 	title.TextColor3 = Color3.fromHex(accent)
-	title.TextStrokeColor3 = Color3.fromHex(C.hazardBlack)
-	title.TextStrokeTransparency = 0
+	title.TextStrokeTransparency = 1
 	title.Parent = gui
+	Kit.textOutline(title, 3)
 
 	local subtitle = Instance.new("TextLabel")
 	subtitle.Name = "Subtitle"
@@ -617,9 +617,9 @@ local function buildStoreBillboard(adornee: BasePart, label: string, tagline: st
 	subtitle.Text = tagline
 	subtitle.TextColor3 = Color3.fromHex(C.labelText)
 	subtitle.TextSize = 25
-	subtitle.TextStrokeColor3 = Color3.fromHex(C.hazardBlack)
-	subtitle.TextStrokeTransparency = 0
+	subtitle.TextStrokeTransparency = 1
 	subtitle.Parent = gui
+	Kit.textOutline(subtitle, 2)
 end
 
 -- ── The counter ───────────────────────────────────────────────────────────────
@@ -954,8 +954,9 @@ local function buildPriceCard(mount: BasePart, name: string, price: number, acce
 	title.Text = name
 	title.TextScaled = true
 	title.TextColor3 = Color3.fromHex(C.labelText)
-	title.TextStrokeTransparency = 0.4
+	title.TextStrokeTransparency = 1
 	title.Parent = gui
+	Kit.textOutline(title, 2)
 
 	local sub = Instance.new("TextLabel")
 	sub.Name = "Subtitle"
@@ -966,7 +967,8 @@ local function buildPriceCard(mount: BasePart, name: string, price: number, acce
 	sub.TextSize = 16
 	sub.Text = `${price}`
 	sub.TextColor3 = Color3.fromHex(accent)
-	sub.TextStrokeTransparency = 0.5
+	sub.TextStrokeTransparency = 1
+	Kit.textOutline(sub, 1.5)
 
 	-- WHAT THIS LABEL SAYS WHEN NOBODY OWNS THE TIER, stamped onto the label itself.
 	-- The client overwrites this subtitle with the green owned-check for whoever is
