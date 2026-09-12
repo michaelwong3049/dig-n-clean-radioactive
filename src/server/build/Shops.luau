@@ -10,7 +10,7 @@
 	detector shop" once and then navigates by colour rather than by reading signs,
 	which is the cheapest legibility win available anywhere in this map.
 
-	PLUS AN OUTFITTER, a real building, and this one is not decoration.
+	PLUS AN OUTFITTER, a fourth stall, and this one is not decoration.
 	Gear.TRACKS has seven entries. Three stalls covers Detector, Magnet and Cleaner and
 	leaves Suit, Boots and Satchel priced but unbuyable — and the SUIT is the gate
 	on every stage in the game. Without a way to buy one, Stage 2 stops being "you can go
@@ -65,10 +65,9 @@
 	STALL'S OWN COLOUR (coral / teal / purple against white, no longer the one
 	shared awning red), and a floating two-line sign that NAMES WHAT THE STALL
 	SELLS (DETECTORS / MAGNETS / HOSES) in that same accent, with the tagline
-	under it. The Outfitter remains the larger peaked-roof building — now tucked in
-	behind the Detector and Cleaner stalls on the west, and open front and back as
-	a walk-through — its three counters each billboarded the same way (SUITS /
-	BOOTS / SATCHELS).
+	under it. The Outfitter gets the identical shell at its own width, its three
+	counters each signed the same stall-style way (SUITS / BOOTS / SATCHELS) —
+	see `buildOutfitter`'s own header for why it used to be a separate building.
 
 	THE DECORATION IS GONE, AND THAT WAS A DELIBERATE STRIP. Earlier passes stood a
 	blocky shopkeeper behind each counter, a big silhouette prop of the thing sold
@@ -133,11 +132,10 @@
 	due north of (-30, -22) — without the override each would instead angle in
 	toward the plaza centre, out of line with its row-mate.
 
-	AND IT IS OPEN FRONT AND BACK — A WALK-THROUGH, NOT A DEAD END, for the
-	Outfitter specifically. Only its two side walls are solid; both gable ends (the
-	+Z front and the -Z back) are open. The three counters sit clear of the ~9-stud
-	gaps between them, so the building can be walked straight through rather than
-	being a room with a back wall.
+	THE OUTFITTER IS A PLAZA STALL NOW TOO, not a separate walled building — see
+	`buildOutfitter`'s own header for why that changed. It gets the exact same
+	shell (`buildStorefrontPosts`, `buildSlatWall`, `buildStripedCanopy`) at its
+	own width, with three counters standing in for the one stand.
 
 	`facingOrigin` IS THE ONLY PLACEMENT PRIMITIVE. Both builders lay every part as
 	a local offset from the CFrame it returns, so that one CFrame carries a shop's
@@ -171,10 +169,10 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 27
+local BUILDER_VERSION = 28
 
-local C, R = Kit.C, Kit.R
-local build, billboard = Kit.build, Kit.billboard
+local C = Kit.C
+local build = Kit.build
 
 --- Where the hanging tier models come from: the SAME templates ToolService clones
 --- into a player's hands (Assets/Tools/<Track>/T<n>), so the thing on the rail is
@@ -397,7 +395,7 @@ end
 --- MagnetShop below it, at the grid's north row (z=30, alongside DetectorShop).
 --- `faceYaw = 180` is an explicit override, same reason MagnetShop needs one:
 --- PLAZA_MID does not sit due east of (-30, 30), so the default "aim at PLAZA_MID"
---- would turn this building's front to face south-east instead of square south at
+--- would turn this stall's front to face south-east instead of square south at
 --- its row-mate DetectorShop, which is what actually reads as "lined up".
 local OUTFITTER = {
 	at = { -30, 30 },
@@ -476,6 +474,35 @@ local function buildFloorMarker(parent: Instance, origin: CFrame, x: number, z: 
 end
 
 -- ── Reference gear-store details ─────────────────────────────────────────────
+
+--- Four chunky posts holding a canopy up, in grey storefront lumber (C.shopWood).
+--- Square-cut, not round logs — the reference photo's posts read as sawn beams,
+--- and Block needs no rot (unlike Cylinder, whose long axis is local X and needs
+--- R.cylUp to stand it upright) since a Block's size is already literal {X,Y,Z}.
+--- Plastic, not Wood: Roblox's stud-bump texture only renders on Plastic, and
+--- that studded look is what makes this read as the chunky reference stall
+--- instead of a plain wood kiosk.
+---
+--- Shared by the plaza stalls and the Outfitter — the same four-post frame at
+--- whatever `width` the caller's canopy spans.
+local function buildStorefrontPosts(parent: Instance, origin: CFrame, width: number)
+	local POST_SIZE = 1.5
+	local postDX = width / 2 - POST_SIZE / 2
+	for _, dx in { -postDX, postDX } do
+		for _, dz in { -10, 2 } do
+			local postHeight = if dz < 0 then 10 else 9.2
+			build(parent, origin, {
+				name = "Post",
+				pos = { dx, postHeight / 2, dz },
+				size = { POST_SIZE, postHeight, POST_SIZE },
+				color = C.shopWood,
+				material = "Plastic",
+				shape = "Block",
+				studs = true,
+			})
+		end
+	end
+end
 
 --- The reference roof is one shallow rectangular awning, striped front-to-back,
 --- with a short matching valance at the front. Separate studded Plastic parts
@@ -631,9 +658,10 @@ export type CounterSpec = {
 --- `promptText` OPTS THIS DESK INTO BEING THE THING YOU PRESS E ON, and a desk without
 --- it gets no prompt at all. The shop panel does not open on approach any more — see
 --- the "you press E" note in the header — so every desk a player is meant to open a
---- panel at needs one. `material` defaults to "Wood" (the Outfitter's own look); the
---- plaza stalls pass "Plastic" instead, since Roblox's stud-bump texture only renders
---- on Plastic, and that studded look is the whole point of the reskin.
+--- panel at needs one. `material` defaults to "Wood"; every caller in this file now
+--- passes "Plastic" (with `studded`) instead, since Roblox's stud-bump texture only
+--- renders on Plastic, and that studded look is the whole point of the reskin — the
+--- default stays plain Wood for whatever calls this without opting in.
 local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec): BasePart
 	local w, d, z = spec.width, spec.depth, spec.z
 
@@ -676,70 +704,6 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 	end
 
 	return desk
-end
-
--- ── The gable roof ───────────────────────────────────────────────────────────
-
---- A simple peaked roof: two flat panels sloping up from the wall tops to a ridge
---- along the building's centreline, plus a capping ridge beam. `halfDepth` is the
---- distance from centre to each wall, `rise` how far the ridge climbs above the
---- wall tops. Positions are derived from the two literal points each panel spans
---- (wall-top eave, centre-line ridge) rather than reasoned out in the abstract --
---- this project has gotten CFrame rotation signs backwards from pure reasoning
---- more than once this session, and deriving from known points is the version
---- that's checkable by eye against the numbers.
----
---- Returns the ridge Y so the caller can float a sign above it. Shared by the
---- plaza stalls (a small roof on posts) and the Outfitter (a much bigger one
---- over real walls) -- the same shape at two different scales. `material`
---- defaults to "Wood" (the Outfitter's own look, unchanged); the plaza stalls
---- pass "Plastic" so the roof shows Roblox's stud-bump texture, matching the
---- reference market stall's studded-block look.
----
---- CLEARANCE, NOT JUST THE CENTRELINE. The eave/ridge points above describe
---- where the panel's own zero-thickness centreline sits -- but a real board has
---- thickness on both sides of that line, so the panel's PHYSICAL underside sits
---- `(thickness/2)*cos(tilt)` below it. Left uncorrected, a flat-topped post
---- built to exactly `wallHeight` pokes up into that underside by that same
---- amount -- invisible on the original round, shallow-pitched posts, and very
---- visible once the posts went square and the roof steeper. `clearance` raises
---- the whole roof (both panels AND the ridge beam, so they stay flush with each
---- other) by that offset, so it's the underside that touches the wall top.
-local function buildGableRoof(parent: Instance, origin: CFrame, centerZ: number, wallHeight: number, halfDepth: number, rise: number, width: number, color: string, material: string?): number
-	local thickness = 0.6
-	local slopeLen = math.sqrt(halfDepth ^ 2 + rise ^ 2)
-	local tiltDeg = math.deg(math.atan2(rise, halfDepth))
-	local clearance = (thickness / 2) * math.cos(math.rad(tiltDeg))
-	local ridgeY = wallHeight + rise + clearance
-	local mat = material or "Wood"
-
-	for _, side in { -1, 1 } do
-		-- Eave point: (side*halfDepth, wallHeight). Ridge point: (0, wallHeight + rise).
-		-- The panel's own centre sits halfway between them, then the whole
-		-- panel is lifted by `clearance` (see above).
-		build(parent, origin, {
-			name = "RoofPanel",
-			pos = { 0, wallHeight + rise / 2 + clearance, centerZ + side * halfDepth / 2 },
-			size = { width, thickness, slopeLen },
-			color = color,
-			material = mat,
-			rot = Kit.ang(side * tiltDeg, 0, 0),
-			canCollide = false,
-		})
-	end
-
-	build(parent, origin, {
-		name = "RoofRidge",
-		pos = { 0, ridgeY, centerZ },
-		size = { width, 1.1, 1.1 },
-		color = C.shopWood,
-		material = mat,
-		shape = "Cylinder",
-		rot = R.cylAlongX,
-		canCollide = false,
-	})
-
-	return ridgeY
 end
 
 -- ── The hanging tier rack ───────────────────────────────────
@@ -1129,38 +1093,9 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		canCollide = false,
 	})
 
-	-- Four chunky posts holding the roof up, in grey storefront lumber
-	-- (C.shopWood). Square-cut, not round logs — the reference photo's posts read
-	-- as sawn beams, and Block needs no
-	-- rot (unlike Cylinder, whose long axis is local X and needs R.cylUp to
-	-- stand it upright) since a Block's size is already literal {X,Y,Z}.
-	-- Plastic, not Wood: Roblox's stud-bump texture only renders on Plastic
-	-- (the same reason the plaza's own checkerboard tiles are Plastic), and
-	-- that studded look is what makes this read as the chunky reference stall
-	-- instead of a plain wood kiosk. Taller than the original kiosk, too — the
-	-- reference stall reads as a proper standing structure, not a picnic table.
-	--
-	-- 2x2, not 1.1x1.1: the stud pattern needs a couple of repeats across a
-	-- face to actually read as studded rather than a flat colour -- the same
-	-- reason the checkerboard tiles were tuned to exactly 3x3 studs. A 1.1-wide
-	-- post face was too narrow for the pattern to be legible even though the
-	-- material was already correct.
-	local POST_SIZE = 1.5
-	local POST_DX = width / 2 - POST_SIZE / 2
-	for _, dx in { -POST_DX, POST_DX } do
-		for _, dz in { -10, 2 } do
-			local postHeight = if dz < 0 then 10 else 9.2
-			build(m, origin, {
-				name = "Post",
-				pos = { dx, postHeight / 2, dz },
-				size = { POST_SIZE, postHeight, POST_SIZE },
-				color = C.shopWood,
-				material = "Plastic",
-				shape = "Block",
-				studs = true,
-			})
-		end
-	end
+	-- Taller than the original kiosk, too — the reference stall reads as a proper
+	-- standing structure, not a picnic table. See `buildStorefrontPosts`.
+	buildStorefrontPosts(m, origin, width)
 	buildSlatWall(m, origin, width)
 
 	-- The two halves of the shopfront, on one line, with STAND_RACK_GAP of open air
@@ -1294,15 +1229,23 @@ end
 
 -- ── The outfitter ─────────────────────────────────────────────────────────────
 
---- The outfitter: a proper building, not a bench under a trim strip. Three
---- shops left Suit, Boots and Satchel priced but unbuyable, and hazard gear that
---- actually reduces incoming damage earns more than a picnic table — two side
---- walls, a peaked roof, and BOTH gable ends open so it reads as a walk-through
---- rather than a room with a back wall. Sits at the grid's west column (see
---- OUTFITTER.at); the +Z front (sign, forecourt marker, and the counters just
---- inside) faces `faceYaw` (south, matching its row-mate DetectorShop), the -Z
---- end opens onto whatever is behind it. Each counter carries its own billboard
---- naming the track (SUITS / BOOTS / SATCHELS).
+--- The outfitter: the SAME shell the plaza stalls build — StallFloor, studded
+--- posts, an open slatted back, a striped canopy in the shop's own accent — just
+--- three counters wide instead of one stand. Suit, Boots and Satchel would
+--- otherwise be priced but unbuyable, and hazard gear that actually reduces
+--- incoming damage earns more than a picnic table. Sits at the grid's west
+--- column (see OUTFITTER.at); `faceYaw` points its front south, matching its
+--- row-mate DetectorShop. Each counter carries its own stall-style sign naming
+--- the track (SUITS / BOOTS / SATCHELS) — there is no separate building-level
+--- sign, the same as a plaza stall has no sign beyond its one stand's.
+---
+--- USED TO BE A REAL WALLED BUILDING WITH A GABLE ROOF, because three counters
+--- side by side read as too wide for one stall-sized canopy at the time. Once
+--- the stalls themselves grew to 31-44 studs wide (see `stallWidth`) that
+--- stopped being true — the Outfitter's ~46-stud span is no wider than a big
+--- stall already is — so the bespoke building came out in favour of matching
+--- the stalls exactly, and `buildGableRoof` (walls + roof, unique to that old
+--- shape) went with it.
 local function buildOutfitter(parent: Instance)
 	local m = Instance.new("Model")
 	m.Name = "Outfitter"
@@ -1310,40 +1253,24 @@ local function buildOutfitter(parent: Instance)
 	local origin = facingOrigin(OUTFITTER.at[1], OUTFITTER.at[2], OUTFITTER.faceYaw)
 	local span = OUTFITTER.pitch * (#OUTFITTER.counters - 1)
 	local width = span + 20
-	local halfDepth = 8
-	local wallHeight = 7
 
-	-- Same 0.1 lift as the stall decks, for the same reason: 0.4 thick at y = -0.2 put
-	-- this floor's top face on the plaza's own plane and the two z-fought.
-	build(m, origin, { name = "Floor", pos = { 0, -0.1, 0 }, size = { width, 0.4, halfDepth * 2 }, color = C.plazaWarm, material = "Plastic" })
+	-- The plaza stalls' own shell, at this building's width — see buildStall.
+	build(m, origin, {
+		name = "StallFloor",
+		pos = { 0, 0.05, -4 },
+		size = { width, 0.1, 12 },
+		color = C.steelDark,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+	buildStorefrontPosts(m, origin, width)
+	buildSlatWall(m, origin, width)
+	buildStripedCanopy(m, origin, C.shopOutfitter, width)
 
-	-- Two side walls only. BOTH gable ends are left open: the +Z end is the
-	-- counter approach, the -Z end opens onto the apron behind. That open pair is
-	-- what makes this a walk-through and not a room with a back wall.
-	for _, dx in { -width / 2, width / 2 } do
-		build(m, origin, { name = "SideWall", pos = { dx, wallHeight / 2, 0 }, size = { 0.6, wallHeight, halfDepth * 2 }, color = C.shopWood, material = "Wood" })
-	end
-
-	local ridgeY = buildGableRoof(m, origin, 0, wallHeight, halfDepth, 4, width + 2, C.shopOutfitter)
-
-	-- The sign, floating over the open +Z end -- the same back-face convention
-	-- the plaza stalls use, for the same reason: whoever is walking toward this
-	-- building along its front is standing on the +Z side.
-	-- Matte, in the shop's accent colour -- colour still does the navigation, it
-	-- just doesn't glow.
-	-- Fixed size, not derived from the building's width — a sign that spans the
-	-- whole 46-wide storefront came out as a comically long, thin plank with
-	-- "OUTFITTER" lost in the middle of it, which read as stretched-out text even
-	-- though TextScaled itself never distorts a glyph. The board's own proportions
-	-- were the actual problem.
-	local signY = ridgeY + 2.2
-	build(m, origin, { name = "SignOutline", pos = { 0, signY, halfDepth - 0.2 }, size = { 15, 3.0, 0.3 }, color = C.hazardBlack, material = "Plastic", canCollide = false })
-	local sign = build(m, origin, { name = "Sign", pos = { 0, signY, halfDepth + 0.2 }, size = { 14.4, 2.6, 0.4 }, color = C.shopOutfitter, material = "SmoothPlastic", canCollide = false })
-	Kit.surfaceText(sign, Enum.NormalId.Back, "OUTFITTER", C.signText)
-
-	-- The forecourt outline at the +Z end, the approach from the centre, with the
-	-- counters just inside it.
-	buildFloorMarker(m, origin, 0, halfDepth - 3, width - 6, 8, C.shopOutfitter)
+	-- One floor marker for the whole counter row — there is no second, rack-side
+	-- marker the way a plaza stall has, because there is no rack here.
+	buildFloorMarker(m, origin, 0, 3.4, width - 6, 5, C.shopOutfitter)
 
 	for index, counter in OUTFITTER.counters do
 		local x = -span / 2 + (index - 1) * OUTFITTER.pitch
@@ -1353,7 +1280,7 @@ local function buildOutfitter(parent: Instance)
 			color = C.shopOutfitter,
 			width = 4,
 			depth = 2.4,
-			z = halfDepth - 3.5,
+			z = SHOPFRONT_Z,
 			stationKind = "shop",
 			stationId = counter.track,
 			-- Tighter than the plaza stalls: three counters share one building,
@@ -1364,8 +1291,12 @@ local function buildOutfitter(parent: Instance)
 			-- and for the same reason. It also has to stay under the 13-stud counter
 			-- pitch, or the E in front of you would belong to the desk next door.
 			promptReach = 5,
+			-- Plastic + studded, matching the plaza stands now instead of the
+			-- Outfitter's old plain-Wood look — see buildCounter's own doc.
+			material = "Plastic",
+			studded = true,
 		})
-		billboard(desk, 200, 4.4, counter.label, counter.tagline, C.shopOutfitter)
+		buildStoreBillboard(desk, counter.label, counter.tagline, C.shopOutfitter)
 	end
 
 	m.Parent = parent
