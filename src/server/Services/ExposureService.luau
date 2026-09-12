@@ -219,9 +219,15 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 	label.Font = Enum.Font.GothamBold
 	label.TextSize = 16
 	label.TextColor3 = Color3.fromHex("D6FFB0")
-	label.TextStrokeTransparency = 0.35
+	label.TextStrokeTransparency = 1
 	label.Text = `{player.Name}'s bag\n{#dropped} item(s)`
 	label.Parent = billboard
+
+	local labelStroke = Instance.new("UIStroke")
+	labelStroke.Color = Color3.fromHex("1A1A1A") -- Kit.C.hazardBlack's value — same cartoon black as every other sign
+	labelStroke.Thickness = 2
+	labelStroke.LineJoinMode = Enum.LineJoinMode.Round
+	labelStroke.Parent = label
 
 	-- Anyone can take it. That is the point (§3.1): a free social system that costs
 	-- almost nothing to build.

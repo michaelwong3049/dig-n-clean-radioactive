@@ -43,8 +43,10 @@ function Artwork.cash(parent: Instance)
 	dollar.Text = "$"
 	dollar.TextSize = 24
 	dollar.TextColor3 = Color3.fromRGB(24, 83, 8)
+	dollar.TextStrokeTransparency = 1
 	dollar.ZIndex = 7
 	dollar.Parent = icon
+	Artwork.outline(dollar, 2) -- every other shape in this icon already has one
 	local band = shape(icon, "GoldBand", 36, -2, 15, 48, Color3.fromRGB(255, 199, 37), 8)
 	Artwork.outline(band, 2)
 	shape(band, "Highlight", 2, 2, 4, 43, Color3.fromRGB(255, 237, 95), 9)

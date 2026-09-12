@@ -296,6 +296,19 @@ local YIELD_TAG = "YieldTag"
 local TAG_FONT = Enum.Font.FredokaOne
 local RATE_COLOR = Color3.fromHex("F59E0B") -- the cash badge's amber (UIKit.C.amber)
 local PILL_COLOR = Color3.fromRGB(24, 20, 32)
+-- Same cartoon black as every other sign in the game (Kit.C.hazardBlack's value) --
+-- copied rather than required, matching this file's one-build/-require policy above.
+local TAG_OUTLINE = Color3.fromHex("1A1A1A")
+
+--- The heavy-outline treatment client/UIKit.luau and build/Kit.luau both give text,
+--- inlined here rather than requiring either -- see the one-build/-require note above.
+local function outlineTag(label: TextLabel, thickness: number)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = TAG_OUTLINE
+	stroke.Thickness = thickness
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = label
+end
 
 --- One displayed item's contribution to the plot's per-second yield. `damping` comes
 --- from the caller because it depends on how many EARLIER pedestals share the item id
@@ -359,9 +372,9 @@ local function buildTag(display: BasePart): BillboardGui
 	rarity.BackgroundTransparency = 1
 	rarity.Font = TAG_FONT
 	rarity.TextSize = 16
-	rarity.TextStrokeColor3 = Color3.new(0, 0, 0)
-	rarity.TextStrokeTransparency = 0
+	rarity.TextStrokeTransparency = 1
 	rarity.Parent = gui
+	outlineTag(rarity, 2)
 
 	local name = Instance.new("TextLabel")
 	name.Name = "ItemName"
@@ -371,9 +384,9 @@ local function buildTag(display: BasePart): BillboardGui
 	name.Font = TAG_FONT
 	name.TextSize = 23
 	name.TextWrapped = true
-	name.TextStrokeColor3 = Color3.new(0, 0, 0)
-	name.TextStrokeTransparency = 0
+	name.TextStrokeTransparency = 1
 	name.Parent = gui
+	outlineTag(name, 2.5)
 
 	local pill = Instance.new("Frame")
 	pill.Name = "RatePill"
@@ -394,7 +407,9 @@ local function buildTag(display: BasePart): BillboardGui
 	rate.Font = TAG_FONT
 	rate.TextSize = 17
 	rate.TextColor3 = RATE_COLOR
+	rate.TextStrokeTransparency = 1
 	rate.Parent = pill
+	outlineTag(rate, 1.5)
 
 	gui.Parent = display
 	return gui

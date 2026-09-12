@@ -36,10 +36,10 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local BaseMarker = {}
 
 local MARKER_NAME = "BaseMarker"
--- Muted grey + dark stroke, the same quiet treatment NameTagController gives the
--- overhead name — the beacon should read as a calm marker, not a HUD alert.
+-- Muted grey, the same quiet treatment NameTagController gives the overhead name —
+-- the beacon should read as a calm marker, not a HUD alert. Still gets the game-wide
+-- outline (UIKit.label's default) — that's about crisp edges, not loudness.
 local TEXT_COLOR = Color3.fromHex("B7C0B8")
-local STROKE_COLOR = Color3.fromHex("172018")
 local FACE_FILL = Color3.fromHex("11150F") -- shows for the beat before the thumbnail loads
 local ACCENT_FALLBACK = Color3.fromHex("B7C0B8") -- if the plot has no Trim to read a colour off
 
@@ -111,19 +111,17 @@ local function build(pad: BasePart, accent: Color3)
 	ring.Transparency = 0.1
 	ring.Parent = face
 
-	local caption = Instance.new("TextLabel")
-	caption.Name = "Caption"
-	caption.AnchorPoint = Vector2.new(0.5, 0)
-	caption.Position = UDim2.new(0.5, 0, 0, 88)
-	caption.Size = UDim2.new(1, 0, 0, 24)
-	caption.BackgroundTransparency = 1
-	caption.Font = Enum.Font.GothamMedium
-	caption.TextSize = 15
-	caption.TextColor3 = TEXT_COLOR
-	caption.TextStrokeColor3 = STROKE_COLOR
-	caption.TextStrokeTransparency = 0.5
-	caption.Text = "YOUR BASE"
-	caption.Parent = canvas
+	UIKit.label(canvas, {
+		name = "Caption",
+		anchorPoint = Vector2.new(0.5, 0),
+		position = UDim2.new(0.5, 0, 0, 88),
+		size = UDim2.new(1, 0, 0, 24),
+		font = Enum.Font.GothamMedium,
+		textSize = 15,
+		color = TEXT_COLOR,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "YOUR BASE",
+	})
 
 	gui.Parent = pad
 	marker = gui

@@ -16,7 +16,6 @@ local NameTags = {}
 
 local TAG_NAME = "QuietNameTag"
 local TAG_COLOR = Color3.fromHex("B7C0B8")
-local STROKE_COLOR = Color3.fromHex("172018")
 
 local function removeTag(character: Model)
 	local existing = character:FindFirstChild(TAG_NAME, true)
@@ -56,17 +55,15 @@ local function addTag(player: Player, character: Model)
 	-- name keeps its size relative to everything else on a big screen.
 	local canvas = UIKit.billboardCanvas(gui, Vector2.new(180, 26))
 
-	local label = Instance.new("TextLabel")
-	label.Name = "PlayerName"
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamMedium
-	label.TextSize = 14
-	label.TextColor3 = TAG_COLOR
-	label.TextStrokeColor3 = STROKE_COLOR
-	label.TextStrokeTransparency = 0.72
-	label.Text = player.DisplayName
-	label.Parent = canvas
+	UIKit.label(canvas, {
+		name = "PlayerName",
+		size = UDim2.fromScale(1, 1),
+		font = Enum.Font.GothamMedium,
+		textSize = 14,
+		color = TAG_COLOR,
+		xAlign = Enum.TextXAlignment.Center,
+		text = player.DisplayName,
+	})
 end
 
 local function watch(player: Player)
