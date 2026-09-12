@@ -523,10 +523,10 @@ local function build(): (ScreenGui, ScreenGui)
 	book.icon.AnchorPoint = Vector2.new(0.5, 0)
 	book.icon.Position = UDim2.new(0.5, 0, 0, 7)
 
-	-- The name, in the reference's outlined type: white GothamBlack under a heavy black
-	-- UIStroke. Not TextStrokeTransparency — that is a 1px hairline at any size, and it
-	-- reads as blur rather than as an outline.
-	local caption = UIKit.label(button, {
+	-- The name, in the reference's outlined type: white GothamBlack under a heavy
+	-- black UIStroke. This was the one-off that UIKit.label's outline+shadow default
+	-- was generalized from — it gets both automatically now (font == Font.hero).
+	UIKit.label(button, {
 		name = "Caption",
 		anchorPoint = Vector2.new(0.5, 1),
 		position = UDim2.new(0.5, 0, 1, -5),
@@ -536,14 +536,8 @@ local function build(): (ScreenGui, ScreenGui)
 		textSize = TILE_CAPTION_SIZE,
 		color = Color3.new(1, 1, 1),
 		xAlign = Enum.TextXAlignment.Center,
-		strokeTransparency = 1,
 		zIndex = 8,
 	})
-	local captionStroke = Instance.new("UIStroke")
-	captionStroke.Color = Color3.new(0, 0, 0)
-	captionStroke.Thickness = 2
-	captionStroke.LineJoinMode = Enum.LineJoinMode.Round
-	captionStroke.Parent = caption
 
 	local function setHighlighted(active: boolean)
 		local fill = if active then UIKit.C.navFillHover else UIKit.C.navFill

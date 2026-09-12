@@ -649,6 +649,7 @@ local function build(): ScreenGui
 		strokeThickness = UIKit.Stroke.normal,
 		cornerRadius = UIKit.Radius.button,
 		text = "PULL",
+		shadow = false, -- same reason as the neutral stroke above: a plate already sits behind it
 	})
 	-- NO TEXT STROKE, unlike every other line in this widget. Those need one because
 	-- they sit on open terrain; this one has a near-opaque plate right behind it, and
@@ -772,6 +773,7 @@ local function build(): ScreenGui
 		textSize = UIKit.TextSize.title,
 		color = COLOR.scope,
 		strokeTransparency = 0.3,
+		outline = false, -- deliberate soft glow, not the new hard outline
 	})
 
 	-- THE FOOTNOTE, AND ALLOWED TO LOOK LIKE ONE. It carries size -- header(19), up from
@@ -787,6 +789,7 @@ local function build(): ScreenGui
 		textSize = UIKit.TextSize.header,
 		color = COLOR.dim,
 		strokeTransparency = 0.3,
+		outline = false, -- deliberate soft glow, not the new hard outline
 	})
 
 	-- A question mark, IN THE RARITY WORD'S OWN SLOT. You committed to a lump in the
@@ -801,6 +804,7 @@ local function build(): ScreenGui
 		textSize = 30,
 		color = COLOR.dim,
 		strokeTransparency = 0.3,
+		outline = false, -- deliberate soft glow, not the new hard outline
 		text = "?",
 	})
 

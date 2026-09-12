@@ -118,6 +118,7 @@ local function build(): BillboardGui?
 		textSize = UIKit.TextSize.body,
 		color = UIKit.C.text,
 		strokeTransparency = 0,
+		outline = false, -- deliberate soft glow, not the new hard outline
 		text = "Plain Water",
 	})
 
@@ -130,6 +131,7 @@ local function build(): BillboardGui?
 		color = UIKit.C.dim,
 		xAlign = Enum.TextXAlignment.Right,
 		strokeTransparency = 0,
+		outline = false, -- deliberate soft glow, not the new hard outline
 		text = "\u{221E}",
 	})
 
