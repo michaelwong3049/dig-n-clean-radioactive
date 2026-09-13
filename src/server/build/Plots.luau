@@ -172,15 +172,16 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 35
+local BUILDER_VERSION = 36
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 
 --- A Kit.billboard whose subtitle is painted in the plot's accent colour. Tags that
 --- Subtitle label `Accent` so Plots.setPlotAccent finds and repaints it alongside the
---- Trim and the nameplate frame. Same args as `billboard`; drop-in for the two plot
---- signs (cleansing station, wash pad) that pass `accent` as their subtitle colour.
+--- Trim and the avatar plate's Ring. Same args as `billboard`; drop-in for the two
+--- plot signs (cleansing station, wash pad) that pass `accent` as their subtitle
+--- colour.
 local function accentBillboard(part: BasePart, width: number, height: number, title: string, subtitle: string, accent: string)
 	local gui = billboard(part, width, height, title, subtitle, accent)
 	local sub = gui and gui:FindFirstChild("Subtitle")
@@ -928,19 +929,19 @@ function Plots.setHoseTier(station: Instance?, tier: number?): Model?
 end
 
 --- Repaint every accent piece on one plot to `color` — the two side `Trim` strips,
---- the four `SignFrame` bars round the nameplate, the cleansing-station `Lamp` (and
---- its `PointLight`), and the `CLEANSING STATION` / `WASH PAD` sign subtitles.
+--- the cleansing-station `Lamp` (and its `PointLight`), the `CLEANSING STATION` /
+--- `WASH PAD` sign subtitles, and the avatar plate's `Ring` (buildNamePlate).
 ---
 --- A NIL COLOUR MEANS "UNCLAIMED": it puts back `C.plotNeutral`, the grey a freshly
 --- built plot wears — what ExhibitService hands it when a player leaves. Spelled as a
 --- default rather than a separate `clearAccent()`, same reasoning as setHoseTier above.
 ---
 --- TAG-DRIVEN, NOT NAME-DRIVEN. buildPlot stamps `Accent` on the parts and
---- accentBillboard stamps it on the subtitle labels, so this is the same
---- "geometry is build-time, skin is runtime" split setHoseTier uses: a service that
---- needs to recolour plot geometry asks this module rather than learning part names.
---- The lamp's `PointLight` has no attribute of its own — it is matched by its parent
---- carrying `Accent`.
+--- accentBillboard/buildNamePlate stamp it on their labels and stroke, so this is the
+--- same "geometry is build-time, skin is runtime" split setHoseTier uses: a service
+--- that needs to recolour plot geometry asks this module rather than learning part
+--- names. The lamp's `PointLight` has no attribute of its own — it is matched by its
+--- parent carrying `Accent`.
 function Plots.setPlotAccent(plot: Instance?, color: Color3?)
 	if plot == nil then
 		return
@@ -960,6 +961,8 @@ function Plots.setPlotAccent(plot: Instance?, color: Color3?)
 			if d:GetAttribute("Accent") then
 				d.TextColor3 = paint
 			end
+		elseif d:IsA("UIStroke") and d:GetAttribute("Accent") then
+			d.Color = paint
 		end
 	end
 end
@@ -1689,11 +1692,11 @@ end
 --- the same stud treatment the boundary walls and every floor in the world already
 --- wear, so the base reads as built out of the same blocks as everything around it.
 --- ONE flat colour — was the pale `C.plazaWarm`, dropped to the dark warm `C.baseWall`
---- on request so the wall sits back behind the nameplate instead of glowing pale.
+--- on request so the wall sits back behind the avatar plate instead of glowing pale.
 --- Front face at local z =
 --- `pad.maxZ - 0.5` (local z = 43.5 since the +18 back extension moved maxZ out
---- from 26 to 44), so the wall and the NameSign standing proud of it on standoff
---- arms follow the edge on their own; taller than the old 10-stud slab, on request.
+--- from 26 to 44), so the wall and the back fence standing proud of it follow the
+--- edge on their own; taller than the old 10-stud slab, on request.
 local BACKWALL_TILE = 3.3 -- ~20 columns across the 66-wide pad, ~5 rows up the 16 tall
 local BACKWALL_HEIGHT = 16
 local function buildBackWall(parent: Instance, origin: CFrame)
@@ -1738,9 +1741,11 @@ end
 --- request — posts and two horizontal rails bolted just inside the accent `Trim`.
 --- Its whole job is to read as an enclosure: the base already has a wall across the
 --- back and an open service strip across the front, and the two long sides were the
---- one place the pad just fell away to the apron. The entrance (local -Z) and the
---- back-wall edge (local +Z) are deliberately left open — you still walk on from the
---- front and respawn onto the pad.
+--- one place the pad just fell away to the apron. The entrance (local -Z) is
+--- deliberately left open — you still walk on from the front and respawn onto the
+--- pad. The back-wall edge (local +Z) used to be left open too, for the NameSign's
+--- standoff arms; buildBackFence now closes it with matching rail/post fencing since
+--- nothing physical mounts there any more (see buildNamePlate).
 ---
 --- Posts collide (a real barrier at intervals); the rails themselves do not, so
 --- nothing catches a jumping player at head height. Runs the full pad depth in the
@@ -1798,6 +1803,126 @@ local function buildSideRailings(parent: Instance, origin: CFrame)
 	folder.Parent = parent
 end
 
+--- Closes the back-wall edge with the same rail/post fence buildSideRailings runs
+--- down the long edges, standing where the old NameSign's standoff arms used to —
+--- on request, in place of a nameplate mounted there. `railZ`/end-post X match
+--- buildSideRailings' own `railX`/`z1` exactly, so the back fence's corner posts
+--- land flush with the side fence's rather than leaving a gap or doubling up.
+local function buildBackFence(parent: Instance, origin: CFrame)
+	local pad = Plots.PAD
+	local folder = Instance.new("Folder")
+	folder.Name = "BackFence"
+
+	local railX = pad.width / 2 - RAIL_POST_W / 2
+	local railZ = pad.maxZ - 0.5 - RAIL_POST_W / 2
+	local span = railX * 2
+	local postCount = math.max(2, math.floor(span / RAIL_POST_SPACING) + 1)
+	local postH = RAIL_H + RAIL_BAR_T / 2 + 0.4
+
+	for _, railY in { RAIL_H, RAIL_H * 0.5 } do
+		build(folder, origin, {
+			name = "Rail",
+			pos = { 0, pad.topY + railY, railZ },
+			size = { span + RAIL_POST_W, RAIL_BAR_T, RAIL_BAR_T },
+			color = C.railGrey,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
+
+	for i = 0, postCount - 1 do
+		local x = -railX + span * (i / (postCount - 1))
+		build(folder, origin, {
+			name = "RailPost",
+			pos = { x, pad.topY + postH / 2, railZ },
+			size = { RAIL_POST_W, postH, RAIL_POST_W },
+			color = C.railPost,
+			material = "Plastic",
+			studs = true,
+		})
+	end
+
+	folder.Parent = parent
+end
+
+-- The avatar-plate marker: a circular headshot over a caption, the exact "who is
+-- this" language BaseMarkerController's client-only "YOUR BASE" beacon already
+-- uses for the owner's own view. This is the SAME visual built server-side instead,
+-- so every player in the plaza reads it, not just the owner — replacing the old
+-- flat NameSign placard as the one thing that marks whose plot this is.
+local NAMEPLATE_FACE_FILL = Color3.fromHex("11150F") -- shows for the beat before the thumbnail loads
+local function buildNamePlate(parent: Instance, origin: CFrame, accent: string)
+	local pad = Plots.PAD
+
+	-- Same Y/Z the old NameSign floated at: proud of the wall's front face
+	-- (pad.maxZ - 0.5) and raised to clear the back row of stands. An invisible,
+	-- uncollidable anchor — nothing to mount a physical sign to any more, this is
+	-- purely something to hang the BillboardGui from.
+	local anchor = build(parent, origin, {
+		name = "NamePlate",
+		pos = { 0, pad.topY + 11.5, pad.maxZ - 2.7 },
+		size = { 1, 1, 1 },
+		color = C.baseWall,
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+	})
+
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "Plate"
+	gui.Size = UDim2.fromOffset(128, 156)
+	gui.AlwaysOnTop = true
+	-- Plaza-wide, the same reach BaseMarkerController gives its own beacon — this is
+	-- the one thing that has to read from clear across the ring.
+	gui.MaxDistance = 300
+	-- Every plot sits next to a PointLight or two; LightInfluence defaults to 1 and
+	-- washes the plate back toward white up close, the same bug Kit.surfaceText and
+	-- BaseMarkerController both already document and fix.
+	gui.LightInfluence = 0
+	gui.Parent = anchor
+
+	local face = Instance.new("ImageLabel")
+	face.Name = "Face"
+	face.AnchorPoint = Vector2.new(0.5, 0)
+	face.Position = UDim2.fromScale(0.5, 0)
+	face.Size = UDim2.fromOffset(80, 80)
+	face.BackgroundColor3 = NAMEPLATE_FACE_FILL
+	face.BackgroundTransparency = 0
+	face.Image = ""
+	face.Parent = gui
+
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(0.5, 0)
+	round.Parent = face
+
+	-- Tagged `Accent` so Plots.setPlotAccent's UIStroke pass keeps the ring matching
+	-- the plot's Trim colour, exactly like it already does for the old SignFrame bars.
+	local ring = Instance.new("UIStroke")
+	ring.Name = "Ring"
+	ring.Thickness = 2.5
+	ring.Color = Color3.fromHex(accent)
+	ring.Transparency = 0.1
+	ring.Parent = face
+	ring:SetAttribute("Accent", true)
+
+	local caption = Instance.new("TextLabel")
+	caption.Name = "Caption"
+	caption.AnchorPoint = Vector2.new(0.5, 0)
+	caption.Position = UDim2.new(0.5, 0, 0, 88)
+	caption.Size = UDim2.new(1, 0, 0, 24)
+	caption.BackgroundTransparency = 1
+	caption.Font = Kit.FONT
+	caption.TextSize = 18
+	caption.TextColor3 = Color3.fromHex(C.labelText)
+	caption.TextStrokeTransparency = 1
+	caption.Text = "UNCLAIMED"
+	caption.Parent = gui
+	Kit.textOutline(caption, 2)
+
+	return gui
+end
+
 local function buildPlot(parent: Instance, index: number)
 	local m = Instance.new("Model")
 	m.Name = `Plot{index}`
@@ -1808,9 +1933,10 @@ local function buildPlot(parent: Instance, index: number)
 	-- individually would leave the spawn and the stands facing
 	-- whichever way each was authored.
 	local origin = CFrame.new(center.x, 0, center.z) * CFrame.Angles(0, math.rad(center.facing), 0)
-	-- Every accent piece (Trim, SignFrame, the cleansing-station Lamp, the two station
-	-- sign subtitles) is built in this ONE neutral grey and carries an `Accent`
-	-- attribute. A plot is colourless until an owner picks a hue in the Settings GUI:
+	-- Every accent piece (Trim, the avatar plate's Ring, the cleansing-station Lamp,
+	-- the two station sign subtitles) is built in this ONE neutral grey and carries
+	-- an `Accent` attribute. A plot is colourless until an owner picks a hue in the
+	-- Settings GUI:
 	-- ExhibitService.renderAccent -> Plots.setPlotAccent walks those tagged pieces and
 	-- repaints them from `data.plotColor` on claim, and back to grey on release. Plots
 	-- used to pick a fixed hue by index here (Kit.PLOT_ACCENT, now gone).
@@ -1865,62 +1991,22 @@ local function buildPlot(parent: Instance, index: number)
 		})
 	end
 
-	-- Back wall (studded checkerboard, see buildBackWall) and the nameplate that
-	-- carries the owner's display name. Dark neutral placard (`C.signText`) with light
-	-- text in a thin accent frame — the frame lifts it clear of the equally-dark wall
-	-- and carries the plot's hue the same way the side `Trim` does. Floated ~2 studs
-	-- proud of the wall on two standoff arms (a wider gap threw a big soft shadow on
-	-- the wall) and raised to `pad.topY + 11.5` so it clears the back row of stands.
+	-- Back wall (studded checkerboard, see buildBackWall), closed off by a fence
+	-- across the back edge instead of a nameplate mounted there (buildBackFence, the
+	-- same rail/post language buildSideRailings already runs down the long edges),
+	-- and a floating avatar+name plate over it (buildNamePlate) that reads like
+	-- BaseMarkerController's own "YOUR BASE" beacon — a circular headshot with the
+	-- owner's name below it — except built server-side so it's visible to every
+	-- player in the plaza, not just the owner.
 	buildBackWall(m, origin)
 	buildSideRailings(m, origin)
-	local SIGN_Y = pad.topY + 11.5
-	local SIGN_W, SIGN_H = 34, 4
-	local SIGN_Z = pad.maxZ - 2.7 -- the wall's own front face is at pad.maxZ - 0.5
-	local sign = build(m, origin, {
-		name = "NameSign",
-		pos = { 0, SIGN_Y, SIGN_Z },
-		size = { SIGN_W, SIGN_H, 0.4 },
-		color = C.signText,
-		material = "SmoothPlastic",
-	})
-	-- Thin accent frame, flush with the sign's front face — four bars, corners lapped.
-	local FRAME = 0.6
-	for _, bar in {
-		{ w = SIGN_W + FRAME * 2, h = FRAME, x = 0, y = (SIGN_H + FRAME) / 2 },
-		{ w = SIGN_W + FRAME * 2, h = FRAME, x = 0, y = -(SIGN_H + FRAME) / 2 },
-		{ w = FRAME, h = SIGN_H, x = (SIGN_W + FRAME) / 2, y = 0 },
-		{ w = FRAME, h = SIGN_H, x = -(SIGN_W + FRAME) / 2, y = 0 },
-	} do
-		build(m, origin, {
-			name = "SignFrame",
-			pos = { bar.x, SIGN_Y + bar.y, SIGN_Z - 0.2 },
-			size = { bar.w, bar.h, 0.6 },
-			color = accent,
-			material = "SmoothPlastic",
-			canCollide = false,
-			attributes = { Accent = true },
-		})
-	end
-	-- Standoff arms back to the wall, in the wall's own colour so they read as the
-	-- mounting rather than as part of the sign — the floated panel needs something
-	-- visibly holding it.
-	local armBackZ = pad.maxZ - 0.5
-	local armFrontZ = SIGN_Z + 0.2
-	for _, sx in { -14, 14 } do
-		build(m, origin, {
-			name = "SignArm",
-			pos = { sx, SIGN_Y, (armFrontZ + armBackZ) / 2 },
-			size = { 0.5, 0.5, armBackZ - armFrontZ },
-			color = C.baseWall,
-			material = "Metal",
-		})
-	end
-	Kit.surfaceText(sign, Enum.NormalId.Front, "UNCLAIMED", C.labelText)
+	buildBackFence(m, origin)
+	buildNamePlate(m, origin, accent)
 
 	-- No claim board any more: exhibit income is auto-deposited into the owner's
 	-- wallet (ExhibitService.deposit), so there is nothing here to walk up to and
-	-- collect. The nameplate on the back wall is the only thing that marks whose
-	-- plot this is.
+	-- collect. The avatar plate over the back fence is the only thing that marks
+	-- whose plot this is.
 
 	-- Where this plot's owner respawns. Disabled until somebody owns it, so nobody
 	-- ever lands on a stranger's stage. ExhibitService flips this on assignment.

@@ -87,19 +87,24 @@ local function plotModel(index: number): Model?
 	return row:FindFirstChild(`Plot{index}`) :: Model?
 end
 
---- Repaint one plot's name sign with the owner's display name AS THEY CAPITALISED
---- it (no `string.upper` — a name like "MattM" stays "MattM"). Empty name clears it
---- back to the literal "UNCLAIMED".
-local function renderName(index: number, displayName: string?)
+--- Repaint one plot's avatar plate (build/Plots.buildNamePlate) with the owner's
+--- headshot and display name AS THEY CAPITALISED it (no `string.upper` — a name
+--- like "MattM" stays "MattM"). `owner == nil` clears it back to a blank face and
+--- the literal "UNCLAIMED", the same placeholder a freshly built plot wears.
+local function renderName(index: number, owner: Player?)
 	local plot = plotModel(index)
 	if plot == nil then
 		return
 	end
-	local sign = plot:FindFirstChild("NameSign", true)
-	local gui = sign and sign:FindFirstChildWhichIsA("SurfaceGui")
-	local label = gui and gui:FindFirstChildWhichIsA("TextLabel")
-	if label then
-		(label :: TextLabel).Text = if displayName and displayName ~= "" then displayName else "UNCLAIMED"
+	local plate = plot:FindFirstChild("NamePlate", true)
+	local gui = plate and plate:FindFirstChildWhichIsA("BillboardGui")
+	local face = gui and gui:FindFirstChild("Face")
+	local caption = gui and gui:FindFirstChild("Caption")
+	if face and face:IsA("ImageLabel") then
+		face.Image = if owner then `rbxthumb://type=AvatarHeadShot&id={owner.UserId}&w=150&h=150` else ""
+	end
+	if caption and caption:IsA("TextLabel") then
+		caption.Text = if owner and owner.DisplayName ~= "" then owner.DisplayName else "UNCLAIMED"
 	end
 end
 
@@ -553,7 +558,7 @@ end
 --- returning player's collection shows up on whichever physical plot they land on.
 local function renderAll(index: number, data: any)
 	local owner = plotOwner[index]
-	renderName(index, if owner then owner.DisplayName else nil)
+	renderName(index, owner)
 	renderAccent(index, data)
 	renderLuck(index, data)
 	for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
