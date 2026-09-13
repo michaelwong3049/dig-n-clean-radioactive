@@ -6,9 +6,11 @@
 	    require(game.ServerScriptService.Server.build.ModelGallery).remove()
 
 	BaseCamp builds this automatically, so World.rebuild() always ships every
-	catalogued item with a real ItemModels factory on a labelled stand. The compact
-	yard sits in the plaza's southwest corner, clear of the shops, central aisle,
-	Stage 1 entrance, and the six player plots.
+	catalogued item with a real ItemModels factory on a labelled stand. The yard
+	is a self-contained floating platform (it builds its own floor + trim) parked
+	just outside the base's circular perimeter wall, due west of Plots.RING_CENTER
+	-- off to the side of the playable map rather than competing for space with the
+	shops, central aisle, Stage 1 entrance, or the six player plots.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,29 +22,35 @@ local ItemModels = require(Shared.ItemModels)
 
 local Hub = require(script.Parent.Hub)
 local Kit = require(script.Parent.Kit)
+local Plots = require(script.Parent.Plots)
 
 local ModelGallery = {}
 
 local NAME = "ModelYard"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 5
+local BUILDER_VERSION = 6
 
 local LAND_WIDTH = 46
 local LAND_DEPTH = 36
 local LAND_THICKNESS = 0.12
-local YARD_MARGIN = 3
 local GRID_COLUMNS = 5
 local GRID_SPACING = 8
 local PEDESTAL_TOP = 2.5
 local MAX_MODEL_SIZE = 3.6
 
--- Anchor the yard inside the southwest corner rather than to a bare world number.
+-- WALL_CLEARANCE mirrors Scenery.luau's private WALL_THICKNESS (8): the base's
+-- curved perimeter wall sits at radius Plots.RING_OUTER + WALL_THICKNESS/2, so this
+-- reproduces that same offset rather than importing an unexported local. YARD_GAP is
+-- extra breathing room past the wall face so the platform's own trim clears it.
+local WALL_CLEARANCE = 8
+local YARD_GAP = 20
+
+-- Anchor the yard due west of the ring's own centre, just outside the perimeter
+-- wall, rather than inside the plaza footprint. It is a self-contained floating
+-- platform (buildLand gives it its own floor), so nothing needs to exist under it.
 -- BASE_OFFSET lets a caller that relocates BaseCamp carry the yard with it.
-local DEFAULT_ORIGIN = CFrame.new(
-	Hub.PLAZA.minX + YARD_MARGIN + LAND_WIDTH / 2,
-	Hub.PLAZA.topY,
-	Hub.PLAZA.minZ + YARD_MARGIN + LAND_DEPTH / 2
-)
+local YARD_RADIUS = Plots.RING_OUTER + WALL_CLEARANCE / 2 + YARD_GAP + LAND_WIDTH / 2
+local DEFAULT_ORIGIN = CFrame.new(Plots.RING_CENTER.x - YARD_RADIUS, Hub.PLAZA.topY, Plots.RING_CENTER.z)
 local BASE_OFFSET = Hub.CAMP_ORIGIN:ToObjectSpace(DEFAULT_ORIGIN)
 
 local function catalogueModels(): { any }
@@ -185,7 +193,7 @@ function ModelGallery.rebuild(origin: CFrame?, parent: Instance?): Model
 	if targetOrigin == nil and existing then
 		local floor = existing:FindFirstChild("YardFloor")
 		if floor and floor:IsA("BasePart") then
-			-- Preserve the southwest corner when changing the yard dimensions.
+			-- Preserve the platform's near corner when changing the yard dimensions.
 			targetOrigin = floor.CFrame
 				* CFrame.new((LAND_WIDTH - floor.Size.X) / 2, -floor.Size.Y / 2, (LAND_DEPTH - floor.Size.Z) / 2)
 		end
