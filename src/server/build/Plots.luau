@@ -172,7 +172,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 36
+local BUILDER_VERSION = 37
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -206,7 +206,7 @@ Plots.LOCKER_SLOTS = 3
 -- washing equipment and the luck button), and maxZ went from +26 to +44 on
 -- request — an 18-stud extension straight out the back, behind the old wall, so
 -- the stand grid can be spread over a deeper interior (GRID_ROWS below). The
--- back wall, nameplate and accent trim all read maxZ, so they follow
+-- back fence, avatar plate and accent trim all read maxZ, so they follow
 -- the edge out on their own. Keeping explicit bounds avoids pretending an
 -- asymmetric pad is centred on the plot origin.
 local PAD_MIN_Z = -43
@@ -242,7 +242,7 @@ Plots.PAD = {
 --- live measurement of anything in Shops.luau. (The pads have far more room to
 --- spare here — see World.verify()'s own overlap checks, which are the real
 --- authority on safety, not this comment.)
---- `facing` is a yaw in degrees. A pad is built with its back wall at +Z and its
+--- `facing` is a yaw in degrees. A pad is built with its back fence at +Z and its
 --- spawn at -Z, so 0 faces south, 180 faces north, -90 faces east — and
 --- because every pad's position below is constructed as
 --- `RING_CENTER + RING_RADIUS * (sin(bearing), cos(bearing))`, its `facing`
@@ -1009,7 +1009,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	-- REBUILT BIGGER AND IN STUD MATERIAL, on request. The bay used to be thin steel
 	-- rims and a bare slab that read as a table; it is a heavy decontamination bay now,
-	-- built out of the same studded blocks as the display plinths and the back wall so
+	-- built out of the same studded blocks as the display plinths and the fence so
 	-- it belongs to the base. `BODY` is the base-course grey, `FACE` the lighter cap
 	-- grey (the display-plinth pair), `LINER` the dark recess inside the tub, `FIT` the
 	-- smooth metal of the pipework. Hose stays jade, water stays cyan.
@@ -1688,55 +1688,6 @@ local function buildLuckButton(parent: Instance, origin: CFrame)
 	m.Parent = parent
 end
 
---- The plot's back wall. WAS a flat Concrete slab in warm peach; now a studded wall,
---- the same stud treatment the boundary walls and every floor in the world already
---- wear, so the base reads as built out of the same blocks as everything around it.
---- ONE flat colour — was the pale `C.plazaWarm`, dropped to the dark warm `C.baseWall`
---- on request so the wall sits back behind the avatar plate instead of glowing pale.
---- Front face at local z =
---- `pad.maxZ - 0.5` (local z = 43.5 since the +18 back extension moved maxZ out
---- from 26 to 44), so the wall and the back fence standing proud of it follow the
---- edge on their own; taller than the old 10-stud slab, on request.
-local BACKWALL_TILE = 3.3 -- ~20 columns across the 66-wide pad, ~5 rows up the 16 tall
-local BACKWALL_HEIGHT = 16
-local function buildBackWall(parent: Instance, origin: CFrame)
-	local pad = Plots.PAD
-	local folder = Instance.new("Folder")
-	folder.Name = "BackWall"
-
-	local wallW, wallThick = pad.width, 1
-	local frontZ = pad.maxZ - 0.5
-	local cols = math.ceil(wallW / BACKWALL_TILE)
-	local rows = math.ceil(BACKWALL_HEIGHT / BACKWALL_TILE)
-
-	for ix = 0, cols - 1 do
-		local x0 = -wallW / 2 + ix * BACKWALL_TILE
-		local x1 = math.min(x0 + BACKWALL_TILE, wallW / 2)
-		local w = x1 - x0
-		if w <= 1e-3 then
-			continue
-		end
-		for iy = 0, rows - 1 do
-			local y0 = iy * BACKWALL_TILE
-			local y1 = math.min(y0 + BACKWALL_TILE, BACKWALL_HEIGHT)
-			local h = y1 - y0
-			if h <= 1e-3 then
-				continue
-			end
-			build(folder, origin, {
-				name = "WallTile",
-				pos = { (x0 + x1) / 2, pad.topY + (y0 + y1) / 2, frontZ },
-				size = { w, h, wallThick },
-				color = C.baseWall,
-				material = "Plastic",
-				studs = true,
-			})
-		end
-	end
-
-	folder.Parent = parent
-end
-
 --- A plain grey guard rail down the LEFT and RIGHT long edges of the base, on
 --- request — posts and two horizontal rails bolted just inside the accent `Trim`.
 --- Its whole job is to read as an enclosure: the base already has a wall across the
@@ -1991,14 +1942,12 @@ local function buildPlot(parent: Instance, index: number)
 		})
 	end
 
-	-- Back wall (studded checkerboard, see buildBackWall), closed off by a fence
-	-- across the back edge instead of a nameplate mounted there (buildBackFence, the
-	-- same rail/post language buildSideRailings already runs down the long edges),
-	-- and a floating avatar+name plate over it (buildNamePlate) that reads like
-	-- BaseMarkerController's own "YOUR BASE" beacon — a circular headshot with the
-	-- owner's name below it — except built server-side so it's visible to every
-	-- player in the plaza, not just the owner.
-	buildBackWall(m, origin)
+	-- No solid back wall any more, on request — just the fence (buildBackFence, the
+	-- same rail/post language buildSideRailings already runs down the long edges,
+	-- closing the back edge instead of a wall) and a floating avatar+name plate over
+	-- it (buildNamePlate) that reads like BaseMarkerController's own "YOUR BASE"
+	-- beacon — a circular headshot with the owner's name below it — except built
+	-- server-side so it's visible to every player in the plaza, not just the owner.
 	buildSideRailings(m, origin)
 	buildBackFence(m, origin)
 	buildNamePlate(m, origin, accent)
