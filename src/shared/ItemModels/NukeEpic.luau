@@ -1,0 +1,21 @@
+--!strict
+-- Active-looking: teal plastic shell, a chrome collar, and a glowing purple seam.
+local NukeBase = require(script.Parent.NukeBase)
+local NukeEpic = {}
+
+function NukeEpic.create(): Model
+	return NukeBase.create({
+		key = "NukeEpic",
+		displayName = "Nuke",
+		bodyColor = Color3.fromHex("2FB8A6"),
+		noseColor = Color3.fromHex("21867A"),
+		finColor = Color3.fromHex("9B5DE5"),
+		finCount = 4,
+		stripeColor = Color3.fromHex("9B5DE5"),
+		chrome = true,
+		glowColor = Color3.fromHex("9B5DE5"),
+		gallerySize = 3.2,
+	})
+end
+
+return NukeEpic
