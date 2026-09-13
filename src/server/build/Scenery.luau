@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 23
+local BUILDER_VERSION = 24
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -206,10 +206,12 @@ local BONE_DARK = "CEAB79"
 local BONE_HOLLOW = "2B251D"
 
 --- The chain's north/south boundary walls. Doubled to 56 tall and dropped to a
---- 4-stud tile (from 28/8) after a live look -- ~8,400 parts per side at this size
+--- 4-stud tile (from 28/8) after a live look -- ~8,400 parts per side at that size
 --- (2,390/4 x 56/4), noticeably more than the first pass's ~1,050 but still well
 --- inside what this file's own plaza-adjacent builders already tolerate (the plaza
---- itself is 4,096 tiles alone).
+--- itself is 4,096 tiles alone). LOWERED TO 48 ON REQUEST -- every wall this
+--- constant reaches (the two boundary corridors and the base-camp ring arc) drops
+--- 8 studs, ~7,200 parts per side now (2,390/4 x 48/4).
 ---
 --- WALL_THICKNESS 4 -> 8, ON REQUEST -- every wall in this file reads twice as
 --- solid. The corridor walls' part count is unchanged (their tiles are counted off
@@ -222,7 +224,7 @@ local BONE_HOLLOW = "2B251D"
 --- two shoulder pieces themselves straddle x = clipX, which is shoulder void-fill
 --- either side, not walkable ground -- so doubling the depth never eats into a
 --- walking surface (verified live: north-wall inner face still exactly on z = minZ).
-local WALL_HEIGHT = 56
+local WALL_HEIGHT = 48
 local WALL_THICKNESS = 8
 local WALL_TILE = 4
 -- A studded sheet laid flat over each wall's crown -- "the stage floor, stacked on top
