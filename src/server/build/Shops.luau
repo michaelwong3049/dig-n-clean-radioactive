@@ -123,18 +123,18 @@
 	shop's front direction is decided and `assertNoShopOverlap` for what still
 	stops two of them landing on top of each other.
 
-	TWO ROWS NOW, NOT A GRID WITH SHARED COLUMNS. North row at z=30: Detector at
-	x=17.5 (PLAZA_MID's own x) with Outfitter parked right next to it at x=-32, the
-	two read as one pair rather than opposite ends of a wide row. South row at
-	z=-22: Cleaner at x=17.5, Magnet at x=-42, with the Trader kiosk (BaseCamp.luau)
-	sitting in the gap between them. Every stall in a row shares that row's facing
-	(south for the north row, north for the south row) even though `at` no longer
-	lines any of them up in x column-for-column.
-	Detector and Cleaner need no `faceYaw` override, sitting due north/south of
-	PLAZA_MID at its own x — aiming at PLAZA_MID from there is already a clean
-	south/north facing. Outfitter and Magnet do, since PLAZA_MID is not due south
-	or north of x=-32 or x=-42 — without the override each would instead angle in
-	toward the plaza centre, out of line with its row-mate.
+	TWO ROWS NOW, NOT A GRID WITH SHARED COLUMNS, AND HAND-PLACED RATHER THAN
+	DERIVED. North row near z=30: Detector at x=11.87 with Outfitter parked right
+	next to it at x=-37.03, the two reading as one pair. South row: Cleaner at
+	(17.5, -37.10), Magnet at (-42, -34.43) — close to level with Cleaner but not
+	exactly, since these are drag-and-captured positions, not a formula — with the
+	Trader kiosk (BaseCamp.luau) sitting in the gap between them. `at` was captured
+	directly off the Studio Explorer selection each was dragged to (see the note
+	on selecting a nested model by name, not by clicking the plaza in the
+	viewport), then hand-transcribed here so a rebuild reproduces it exactly.
+	Detector, Outfitter and Magnet all need an explicit `faceYaw` override now
+	(none of their `at`s sit due north/south of PLAZA_MID any more); Cleaner still
+	doesn't, since 17.5 is still PLAZA_MID's own x.
 
 	THE OUTFITTER IS A PLAZA STALL NOW TOO, not a separate walled building — see
 	`buildOutfitter`'s own header for why that changed. It gets the exact same
@@ -173,7 +173,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 30
+local BUILDER_VERSION = 31
 
 local C = Kit.C
 local build = Kit.build
@@ -208,19 +208,24 @@ local PLAZA_MID = { x = 17.5, z = 0 }
 --- of `createShops`) resolves the same override before checking, so a moved or
 --- re-aimed stall still gets caught if it collides with a neighbour.
 ---
---- TWO ROWS OF SHOPS, EACH A PAIR PARKED NEXT TO EACH OTHER — see the header for
---- the two rows' `at` values and why Detector/Cleaner (sitting due north/south of
---- PLAZA_MID's own x=17.5) need no `faceYaw` override while Outfitter and Magnet
---- do. Magnet's -42 is also what leaves room for the Trader kiosk (BaseCamp.luau)
---- to sit in the south row's gap, between it and Cleaner.
+--- TWO ROWS OF SHOPS, EACH A PAIR PARKED NEXT TO EACH OTHER — hand-placed in
+--- Studio (drag the model, not its parts — see the header's note on Explorer
+--- selection) and captured from there rather than derived. The two rows are
+--- close to level but not exact (Magnet and Cleaner sit a couple of studs apart
+--- in z), because this is where they were actually dropped, not a formula.
+--- Detector no longer sits at PLAZA_MID's own x=17.5, so it now needs the same
+--- explicit `faceYaw` override Outfitter and Magnet already carry; Cleaner still
+--- does not, since 17.5 is still its x. `assertNoShopOverlap` (end of
+--- `createShops`) is what actually proves none of this collides — not this
+--- comment, and not the numbers looking reasonable.
 --- `present` is the per-track hang angle for the rail models — see RACK_DROP_* and
 --- `hangTierModel`. Tuned against front-on screenshots so each track stands from the
 --- deck to (near) the rail without clipping its neighbour: the detector tips hard
 --- nose-down to drop its coil to the floor, the hose barely tips at all.
 local STALLS = {
-	{ track = "Detector", at = { 17.5, 30 }, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper", present = { yaw = 205, pitch = -80 } },
-	{ track = "Magnet", at = { -42, -22 }, faceYaw = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
-	{ track = "Cleaner", at = { 17.5, -22 }, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean", present = { yaw = 196, pitch = -12 } },
+	{ track = "Detector", at = { 11.87, 30 }, faceYaw = 180, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper", present = { yaw = 205, pitch = -80 } },
+	{ track = "Magnet", at = { -42, -34.43 }, faceYaw = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
+	{ track = "Cleaner", at = { 17.5, -37.10 }, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean", present = { yaw = 196, pitch = -12 } },
 }
 
 -- ── The rack ─────────────────────────────────────────────────────────────────
@@ -394,15 +399,15 @@ end
 --- The outfitter's three counters on one bench. Radius 6 at a 13-stud pitch, so
 --- no two counters' circles overlap and standing at one is unambiguous.
 ---
---- `at` PUTS THIS RIGHT NEXT TO DETECTORSHOP, in the north row (z=30). x=-32
---- clears DetectorShop's own west edge (at x=17.5) by ~4.3 studs — see STALLS'
---- header for the row layout. `faceYaw = 180` is an explicit override, same
---- reason MagnetShop needs one: PLAZA_MID does not sit due east of (-32, 30), so
---- the default "aim at PLAZA_MID" would turn this stall's front to face
---- south-east instead of square south at its row-mate DetectorShop, which is
---- what actually reads as "next to it" rather than merely nearby.
+--- `at` PUTS THIS RIGHT NEXT TO DETECTORSHOP, in the north row (z=30) —
+--- hand-placed alongside it, same as STALLS now (see that table's header).
+--- `faceYaw = 180` is an explicit override, same reason DetectorShop and
+--- MagnetShop need one: PLAZA_MID does not sit due east of this spot, so the
+--- default "aim at PLAZA_MID" would turn this stall's front to face south-east
+--- instead of square south at its row-mate, which is what actually reads as
+--- "next to it" rather than merely nearby.
 local OUTFITTER = {
-	at = { -32, 30 },
+	at = { -37.03, 30 },
 	faceYaw = 180,
 	pitch = 13,
 	counters = {

@@ -63,7 +63,7 @@ local ModelGallery = require(script.Parent.ModelGallery)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 11
+local BUILDER_VERSION = 12
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -171,14 +171,17 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- from this one local-Y so nothing floats over the tiles.
 	local G = -0.9
 
-	-- WORLD (-13, -22), IN THE GAP BETWEEN MAGNETSHOP AND CLEANERSHOP, not the
+	-- WORLD (-13, -38.5), IN THE GAP BETWEEN MAGNETSHOP AND CLEANERSHOP, not the
 	-- old 12-stud-south-of-spawn spot. `origin` here is Hub.CAMP_ORIGIN, (17.5,
 	-- -0.6, 0) with no rotation, so a local offset maps straight onto world XZ:
-	-- (-30.5, 0, -22) local lands on world (-13, ~, -22). The kiosk keeps its
-	-- original unrotated facing (local +Z = world +Z, i.e. north) unchanged,
-	-- which already matches Magnet's and Cleaner's own `faceYaw = 0` — the row
-	-- reads as one line of storefronts, not three different facings.
-	local kiosk = origin * CFrame.new(-30.5, 0, -22)
+	-- (-30.5, 0, -38.5) local lands on world (-13, ~, -38.5). Z tracks Magnet and
+	-- Cleaner's own `at` (build/Shops.luau's STALLS) whenever they move — the
+	-- three were dragged together in Studio, so this file's Z has to move with
+	-- theirs by hand each time; there is no live link between the two files. The
+	-- kiosk keeps its original unrotated facing (local +Z = world +Z, i.e. north)
+	-- unchanged, which already matches Magnet's and Cleaner's own `faceYaw = 0` —
+	-- the row reads as one line of storefronts, not three different facings.
+	local kiosk = origin * CFrame.new(-30.5, 0, -38.5)
 
 	-- A low grey studded deck, just proud of the plaza tiles — the stall is studded
 	-- throughout, like the plaza shops.
