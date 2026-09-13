@@ -8,15 +8,18 @@
 	into Common (across all stages now, not just 3-6). The Scrap tier still exists in
 	Config/Rarity (order 1) as the rarityTilt anchor -- it is simply unstocked.
 
-	REWORKED FOR A LIGHTER, TREASURE-HUNT TONE, ON REQUEST. The catalogue used to
-	lean on real-world war and disaster imagery (dog tags, mortar rounds, cipher
-	cases, an evacuation ledger counting the dead) — evocative, but too dark and
-	too specific for the audience this game is actually for. The radioactive
-	wasteland setting stays; what changed is what you find in it. Gold, jewelry,
-	old toys, and a few things that are frankly a little silly (a rubber duck,
-	a mutant carrot, a mini nuke) read as "dig for treasure" instead of "excavate
-	a tragedy" — same six stages, same rarity ladder, with seven items modelled in 3D
-	(bottle_cap, steel_rod, tin_can, house_key, stopped_watch, rubber_duck, gold_ring).
+	EVERY ITEM IS A NUKE NOW, ON REQUEST (feat/nuke-arsenal-retheme). One archetype,
+	reskinned by rarity: Shared.ItemModels resolves `model` through exactly 7 factories
+	(NukeCommon .. NukeAnomaly, see ItemModels/NukeBase.luau), so a Common find is a
+	small dead dud and an Anomaly find is a glowing gold showpiece with a spiked crown,
+	the SAME base shape carrying every tier in between. `name`/`flavor` follow the same
+	idea -- short "[Adjective] Nuke" pairs, not invented lore per item, with only a
+	couple of top-tier finds ("Atomic Bomb", "The Big One") earning a standout unique
+	name. `id`, `rarity`, `odds`, `weight`, and `baseValue` were left untouched by the
+	retheme: those numbers are what the dig roll, hardness gates, and economy actually
+	run on, and `id` in particular is what player saves reference (DataService's
+	`carry`/`locker`/`exhibit.pedestals`/`discovered`), so renaming it would break
+	Items.get() for any saved profile still holding the old id.
 
 	A STAGE WITH NO ITEMS IS NOT A CRASH ANY MORE, BUT IT IS STILL BROKEN. The dig roll
 	(see "The dig roll" at the foot of this file) only picks from what a stage actually
@@ -31,45 +34,29 @@
 	to make that work now -- the roll picks from stocked items only.
 
 	EVERY ITEM HAS A `weight`, IN KILOGRAMS (feat/item-weight-system). It is INTRINSIC
-	and ORTHOGONAL to rarity — a Diamond Chain is light and precious, a Steel Rod is
-	heavy and worthless. Config/Weight.luau turns it into five felt consequences: the
+	and ORTHOGONAL to rarity. Config/Weight.luau turns it into five felt consequences: the
 	hauled model's size, the glow well's width, how long the mash takes, a value/$/sec
 	multiplier, and a dig-roll bias (`rollBias`, <= 1) that leaves the feather end a
 	touch rarer and buries the heavy end deep. The "1 in N" a sharp ping or the Index
 	prints is `Items.shownOdds` = `odds / rollBias`, so the display carries the weight
 	penalty too. AUTHORING RULE: keep `weight` inside Weight.MIN..Weight.MAX
-	(0.05..250), and roughly correlate the heavy end with rarity — a genuinely heavy
+	(0.05..250), and roughly correlate the heavy end with rarity -- a genuinely heavy
 	thing (a buried safe) should also be Rare or better, so the physical slog and the
-	scarcity land together. Rough scale: cap/ring/key/pebble ~0.05; watch/toy ~0.1;
-	tool/tin ~0.4-2; lantern/gauge/headphones ~2-9; clock movement / bullion ~12;
-	reactor rod ~45; mini nuke ~90; buried safe / deposit box / cylinder ~180-250.
-
-	TWO RULES, both from ARCHITECTURE.md, both cheap now and miserable to retrofit:
-
-	1. FLAVOR TEXT CARRIES A STORY. "Child's lunchbox, dented, still latched" hits
-	   far harder than "Rare Metal Object #7", costs the same to store, and doubles as
-	   the game's best marketing surface once exhibits are public (PLAN §8.6).
-
-	2. EVERY ITEM HAS AN `appeal`. Researcher / Collector / Gearhead — the visitor
-	   type that comes to see it (PLAN §8.3). Tag it as you write the item. That one
-	   field is what turns a loot table into a museum, and adding it across a finished
-	   catalogue later is exactly the job nobody does.
+	scarcity land together.
 
 	baseValue must sit inside its rarity's band in Rarity.DEFS. Stage 1 deliberately
-	carries a Legendary: PLAN §4 wants "it could happen right here" live from minute
-	one, because that chance is what keeps a new player sweeping. Config/Weight's
+	carries a Legendary: that chance is what keeps a new player sweeping. Config/Weight's
 	`valueMult` rides ON TOP of that authored number (like Rarity.MODIFIERS' valueMult
 	already does), so the band rule is about the AUTHORED baseValue only.
 
 	ECONOMY RESCALE (feat/economy-rescale-display-income): every baseValue below was
 	multiplied by 20/3 (~6.667x) and rounded to two significant figures, anchored so the
-	Bottle Cap sells for $20. The rarity bands in Rarity.DEFS moved by the same factor, so
-	every entry still sits inside its band. See Config/Rarity.luau's header for the whole
-	picture -- the short version is that shop prices moved by the same 20/3, so the
-	sell->buy loop is unchanged, and only Rarity.displayYield moved differently (x300).
+	Dud Nuke (Common, Stage 1) sells for $20. The rarity bands in Rarity.DEFS moved by
+	the same factor, so every entry still sits inside its band. See Config/Rarity.luau's
+	header for the whole picture.
 
-	`model` is optional while the catalogue art is produced. Entries without one keep
-	the rarity-coloured placeholder; entries with one resolve through Shared.ItemModels.
+	`appeal` (Researcher/Collector/Gearhead) and `sets` are untouched by the retheme --
+	they were already inert, display-only/unconsumed fields and stayed that way.
 ]]
 
 local Rarity = require(script.Parent.Rarity)
@@ -105,8 +92,8 @@ Items.DEFS = {
 	-- ── Common (former Scrap tier, folded in on request) ────────────────────
 	{
 		id = "bottle_cap",
-		name = "Bottle Cap",
-		flavor = "Bent double. The logo is still readable if you squint.",
+		name = "Dud Nuke",
+		flavor = "Tiny, dented, and never going off.",
 		rarity = "Common",
 		odds = 5, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
@@ -114,12 +101,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 20,
-		model = "BottleCap",
+		model = "NukeCommon",
 	},
 	{
 		id = "steel_rod",
-		name = "Steel Rod",
-		flavor = "Snapped clean through. Something very large came this way.",
+		name = "Rusty Nuke",
+		flavor = "Rusted solid. The fins fell off years ago.",
 		rarity = "Common",
 		odds = 6, -- 1 in N per dig in a stocking stage
 		weight = 7,
@@ -127,12 +114,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 27,
-		model = "SteelRod",
+		model = "NukeCommon",
 	},
 	{
 		id = "glass_pebble",
-		name = "Glass Pebble",
-		flavor = "Sand that got so hot it melted into a smooth little marble.",
+		name = "Pebble Nuke",
+		flavor = "Melted down to the size of a marble.",
 		rarity = "Common",
 		odds = 8, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
@@ -140,14 +127,14 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 33,
-		model = "GlassPebble",
+		model = "NukeCommon",
 	},
 
 	-- ── Common ── $35-170 ─────────────────────────────────────────────────
 	{
 		id = "tin_can",
-		name = "Dented Tin Can",
-		flavor = "Peaches. The label survived better than the peaches did.",
+		name = "Dented Nuke",
+		flavor = "Dented like it rolled down a hill.",
 		rarity = "Common",
 		odds = 9, -- 1 in N per dig in a stocking stage
 		weight = 0.4,
@@ -155,12 +142,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 80,
-		model = "DentedTinCan",
+		model = "NukeCommon",
 	},
 	{
 		id = "house_key",
-		name = "House Key",
-		flavor = "Still on its ring, with two smaller ones beside it.",
+		name = "Keychain Nuke",
+		flavor = "Small enough to carry on a keyring.",
 		rarity = "Common",
 		odds = 12, -- 1 in N per dig in a stocking stage
 		weight = 0.06,
@@ -168,12 +155,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 120,
-		model = "HouseKey",
+		model = "NukeCommon",
 	},
 	{
 		id = "stopped_watch",
-		name = "Stopped Wristwatch",
-		flavor = "Stopped at 8:14. So did everyone else's.",
+		name = "Stopped Nuke",
+		flavor = "The countdown clock froze at 8:14.",
 		rarity = "Common",
 		odds = 15, -- 1 in N per dig in a stocking stage
 		weight = 0.1,
@@ -181,12 +168,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 150,
-		model = "Wristwatch",
+		model = "NukeCommon",
 	},
 	{
 		id = "radioactive_rubber_duck",
-		name = "Radioactive Rubber Duck",
-		flavor = "It glows in the dark. It always did, actually.",
+		name = "Rubber Nuke",
+		flavor = "Squeaks. Glows a little. Definitely not real.",
 		rarity = "Common",
 		odds = 40, -- 1 in N per dig in a stocking stage
 		weight = 0.08,
@@ -194,7 +181,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 93,
-		model = "RubberDuck",
+		model = "NukeCommon",
 	},
 
 	-- ── Uncommon ── $170-800 ─────────────────────────────────────────────
@@ -204,8 +191,8 @@ Items.DEFS = {
 	-- clean and sell a rigged Uncommon 90 seconds in. Flagged, not silently patched.
 	{
 		id = "tin_soldier",
-		name = "Tin Soldier",
-		flavor = "A tiny toy soldier, paint chipped, forever standing guard.",
+		name = "Soldier Nuke",
+		flavor = "Stands at attention. Paint chipped, never armed.",
 		rarity = "Uncommon",
 		odds = 45, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
@@ -213,11 +200,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "childrens_toys" },
 		baseValue = 300,
+		model = "NukeUncommon",
 	},
 	{
 		id = "wind_up_flashlight",
-		name = "Wind-Up Flashlight",
-		flavor = "Give the crank a few turns and it still lights up, just for a second.",
+		name = "Wind-Up Nuke",
+		flavor = "Give it a crank and the lights blink on.",
 		rarity = "Uncommon",
 		odds = 60, -- 1 in N per dig in a stocking stage
 		weight = 0.35,
@@ -225,12 +213,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
 		baseValue = 400,
-		model = "WindUpFlashlight",
+		model = "NukeUncommon",
 	},
 	{
 		id = "gold_ring",
-		name = "Gold Ring",
-		flavor = "A gold ring, still shining under all the dust.",
+		name = "Golden Nuke",
+		flavor = "Gold-plated. Somebody really wanted this one to shine.",
 		rarity = "Uncommon",
 		odds = 90, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
@@ -238,14 +226,14 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 570,
-		model = "GoldRing",
+		model = "NukeUncommon",
 	},
 
 	-- ── Rare ── $800-4.7k ───────────────────────────────────────────────
 	{
 		id = "radiation_scanner",
-		name = "Radiation Scanner",
-		flavor = "Clicks faster the closer you get to something glowing.",
+		name = "Clicking Nuke",
+		flavor = "Clicks faster the closer you carry it.",
 		rarity = "Rare",
 		odds = 200, -- 1 in N per dig in a stocking stage
 		weight = 1.2,
@@ -253,12 +241,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
 		baseValue = 2300,
-		model = "RadiationScanner",
+		model = "NukeRare",
 	},
 	{
 		id = "film_canister",
-		name = "Sealed Film Canister",
-		flavor = "Thirty-six photos, never developed. Who knows what's on them.",
+		name = "Canister Nuke",
+		flavor = "Thirty-six photos in here. Nobody's developed them.",
 		rarity = "Rare",
 		odds = 260, -- 1 in N per dig in a stocking stage
 		weight = 0.06,
@@ -266,13 +254,14 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 3200,
+		model = "NukeRare",
 	},
 
 	-- ── Epic ── $4.7k-27k ─────────────────────────────────────────────────
 	{
 		id = "sample_case",
-		name = "Sample Case",
-		flavor = "Six glass vials. One of them glows all on its own.",
+		name = "Vial Nuke",
+		flavor = "Six glass vials strapped on. One glows on its own.",
 		rarity = "Epic",
 		odds = 1200, -- 1 in N per dig in a stocking stage
 		weight = 3.5,
@@ -280,14 +269,15 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 13000,
+		model = "NukeEpic",
 	},
 
 	-- ── Legendary ── $27k-200k ────────────────────────────────────────────
 	-- 0.15% in Stage 1. Almost nobody will see this. That is the point.
 	{
 		id = "treasure_map",
-		name = "Old Treasure Map",
-		flavor = "A hand-drawn map, half burnt. Something's marked with three stars and no name.",
+		name = "Blueprint Nuke",
+		flavor = "Half-burnt plans marked with three stars and no name.",
 		rarity = "Legendary",
 		odds = 2500, -- 1 in N per dig in a stocking stage
 		weight = 0.08,
@@ -295,17 +285,15 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 63000,
+		model = "NukeLegendary",
 	},
 
 	-- ══ STAGE 2 — THE SUBURBS ═══════════════════════════════════════════════
-	-- Collapsed houses and half-buried cars (PLAN §4). The theme is a life
-	-- interrupted mid-sentence, so the flavor leans domestic rather than martial.
 
 	{
 		id = "cracked_tile",
-		name = "Old Penny",
-		model = "OldPenny",
-		flavor = "Someone chose this pattern once.",
+		name = "Cracked Nuke",
+		flavor = "Split clean down the middle. Harmless now.",
 		rarity = "Common",
 		odds = 5, -- 1 in N per dig in a stocking stage
 		weight = 1.0,
@@ -313,11 +301,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
 		baseValue = 20,
+		model = "NukeCommon",
 	},
 	{
 		id = "door_hinge",
-		name = "Door Hinge",
-		flavor = "Still swings, even with no door left to hold.",
+		name = "Squeaky Nuke",
+		flavor = "The casing still swings open with a creak.",
 		rarity = "Common",
 		odds = 7, -- 1 in N per dig in a stocking stage
 		weight = 0.5,
@@ -325,12 +314,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 27,
+		model = "NukeCommon",
 	},
 	{
 		id = "cutlery_set",
-		name = "Silver Fork",
-		model = "SilverFork",
-		flavor = "Wrapped in a napkin, waiting for a dinner that never happened.",
+		name = "Tarnished Nuke",
+		flavor = "Dull metal, dinner-table sized.",
 		rarity = "Common",
 		odds = 10, -- 1 in N per dig in a stocking stage
 		weight = 0.8,
@@ -338,11 +327,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
 		baseValue = 93,
+		model = "NukeCommon",
 	},
 	{
 		id = "garden_trowel",
-		name = "Garden Trowel",
-		flavor = "Left in the soil, handle up, like it would be picked up tomorrow.",
+		name = "Half-Dug Nuke",
+		flavor = "Someone started digging this up and gave up.",
 		rarity = "Common",
 		odds = 13, -- 1 in N per dig in a stocking stage
 		weight = 0.4,
@@ -350,11 +340,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 130,
+		model = "NukeCommon",
 	},
 	{
 		id = "doll_head",
-		name = "Porcelain Doll Head",
-		flavor = "The eyes still blink open and shut. A little spooky, a little funny.",
+		name = "Toy Nuke",
+		flavor = "A kid's replica, paint chipped, still cute.",
 		rarity = "Common",
 		odds = 25, -- 1 in N per dig in a stocking stage
 		weight = 0.3,
@@ -362,11 +353,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "childrens_toys" },
 		baseValue = 150,
+		model = "NukeCommon",
 	},
 	{
 		id = "charm_bracelet",
-		name = "Charm Bracelet",
-		flavor = "Eleven tiny charms — a bicycle, a cat, a little house.",
+		name = "Charm Nuke",
+		flavor = "Eleven tiny charms dangling off a live-looking casing.",
 		rarity = "Uncommon",
 		odds = 45, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
@@ -374,11 +366,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 370,
+		model = "NukeUncommon",
 	},
 	{
 		id = "socket_set",
-		name = "Gaming Console",
-		flavor = "Every socket still in its slot. Whoever owned this was particular about it.",
+		name = "Toolbox Nuke",
+		flavor = "Every socket still in its slot, oddly tidy.",
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
 		weight = 2.5,
@@ -386,11 +379,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 480,
+		model = "NukeUncommon",
 	},
 	{
 		id = "photo_locket",
-		name = "Photo Locket",
-		flavor = "Two tiny photos, one hinge. The catch still works.",
+		name = "Locket Nuke",
+		flavor = "Opens up to two tiny photographs.",
 		rarity = "Uncommon",
 		odds = 70, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
@@ -398,11 +392,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 650,
+		model = "NukeUncommon",
 	},
 	{
 		id = "mutant_carrot",
-		name = "Mutant Carrot",
-		flavor = "Three feet long and still bright orange. The rabbits are thrilled.",
+		name = "Mutant Nuke",
+		flavor = "Grew a weird orange bulge. The rabbits love it.",
 		rarity = "Uncommon",
 		odds = 120, -- 1 in N per dig in a stocking stage
 		weight = 4,
@@ -410,11 +405,12 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 330,
+		model = "NukeUncommon",
 	},
 	{
 		id = "pearl_necklace",
-		name = "Pearl Necklace",
-		flavor = "Kept for good occasions — there was one more pearl, somewhere.",
+		name = "Pearl Nuke",
+		flavor = "Strung with pearls, saved for good occasions.",
 		rarity = "Rare",
 		odds = 240, -- 1 in N per dig in a stocking stage
 		weight = 0.08,
@@ -422,11 +418,11 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 2100,
+		model = "NukeRare",
 	},
 	{
 		id = "ignition_coil",
-		name = "Iron Bar",
-		model = "IronBar",
+		name = "Ignition Nuke",
 		flavor = "Pulled from a car pointed away from town, tank full, doors open.",
 		rarity = "Rare",
 		odds = 200, -- 1 in N per dig in a stocking stage
@@ -435,11 +431,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 3000,
+		model = "NukeRare",
 	},
 	{
 		id = "clock_movement",
-		name = "Grandfather Clock Movement",
-		flavor = "Brass gears, hand-cut, unbothered. It would still run today.",
+		name = "Clockwork Nuke",
+		flavor = "Brass gears ticking away inside, unbothered.",
 		rarity = "Epic",
 		odds = 1500, -- 1 in N per dig in a stocking stage
 		weight = 12,
@@ -447,11 +444,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 11000,
+		model = "NukeEpic",
 	},
 	{
 		id = "deposit_box",
-		name = "Safe Deposit Box",
-		flavor = "Whatever was worth a bank vault is still inside, and it's yours now.",
+		name = "Vault Nuke",
+		flavor = "Whatever was worth a bank vault is still attached.",
 		rarity = "Legendary",
 		odds = 3000, -- 1 in N per dig in a stocking stage
 		weight = 180,
@@ -459,22 +457,19 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 55000,
+		model = "NukeLegendary",
 	},
 
 	-- ══ STAGE 3 — FALLOUT FIELDS ════════════════════════════════════════════
-	-- Old farmland scorched by the fallout, not a battlefield — reworked on
-	-- request to drop the military angle (dog tags, ordnance, cipher cases)
-	-- in favor of what you'd actually expect buried under an abandoned
-	-- homestead: buried coins, gold, farm tools, everyday relics. NO SCRAP
-	-- TIER (see this file's header) — its old Scrap items folded into Common.
-	-- Several of these are also tagged for Stage 4: the Exclusion Belt is the
-	-- same stretch of country, further in, and a dive still wants a stocked low
+	-- NO SCRAP TIER (see this file's header) -- its old Scrap items folded into
+	-- Common. Several of these are also tagged for Stage 4: the Exclusion Belt is
+	-- the same stretch of country, further in, and a dive still wants a stocked low
 	-- end so the roll is not all Legendaries.
 
 	{
 		id = "rusty_horseshoe",
-		name = "Rusty Horseshoe",
-		flavor = "A rusted horseshoe. There was a barn out here once.",
+		name = "Lucky Nuke",
+		flavor = "Shaped like luck. Never actually worked.",
 		rarity = "Common",
 		odds = 8, -- 1 in N per dig in a stocking stage
 		weight = 0.6,
@@ -482,11 +477,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
 		baseValue = 53,
+		model = "NukeCommon",
 	},
 	{
 		id = "gate_latch",
-		name = "Basketball",
-		flavor = "Snapped clean off. The fence went with it.",
+		name = "Junkyard Nuke",
+		flavor = "Snapped clean off whatever it used to arm.",
 		rarity = "Common",
 		odds = 10, -- 1 in N per dig in a stocking stage
 		weight = 0.8,
@@ -494,11 +490,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
 		baseValue = 73,
+		model = "NukeCommon",
 	},
 	{
 		id = "old_food_tin",
-		name = "Old Food Tin",
-		flavor = "Unopened. The label wore off long ago.",
+		name = "Canned Nuke",
+		flavor = "Sealed up tight like it's still fresh.",
 		rarity = "Common",
 		odds = 14, -- 1 in N per dig in a stocking stage
 		weight = 0.5,
@@ -506,11 +503,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 110,
+		model = "NukeCommon",
 	},
 	{
 		id = "first_aid_tin",
-		name = "First-Aid Tin",
-		flavor = "A little dented, but everything inside is still sealed.",
+		name = "Sealed Nuke",
+		flavor = "A little dented, but still sealed tight.",
 		rarity = "Uncommon",
 		odds = 40, -- 1 in N per dig in a stocking stage
 		weight = 1.2,
@@ -518,10 +516,11 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 300,
+		model = "NukeUncommon",
 	},
 	{
 		id = "unlit_signal_flare",
-		name = "Scooter",
+		name = "Flare Nuke",
 		flavor = "Never got its chance to light up the sky.",
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
@@ -530,11 +529,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 500,
+		model = "NukeUncommon",
 	},
 	{
 		id = "old_compass",
-		name = "Old Compass",
-		flavor = "Still points somewhere — just not always north anymore.",
+		name = "Guided Nuke",
+		flavor = "Still points somewhere. Just not always north.",
 		rarity = "Uncommon",
 		odds = 60, -- 1 in N per dig in a stocking stage
 		weight = 0.15,
@@ -542,11 +542,12 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 430,
+		model = "NukeUncommon",
 	},
 	{
 		id = "broken_lantern",
-		name = "Broken Lantern",
-		flavor = "No oil left, but it still swings a little in the wind.",
+		name = "Glowless Nuke",
+		flavor = "Used to glow. Ran out of whatever that was.",
 		rarity = "Uncommon",
 		odds = 50, -- 1 in N per dig in a stocking stage
 		weight = 1.8,
@@ -554,11 +555,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
 		baseValue = 630,
+		model = "NukeUncommon",
 	},
 	{
 		id = "gold_signet",
-		name = "Gold Signet Ring",
-		flavor = "Gold doesn't care about any of this. That's why it's worth something.",
+		name = "Signet Nuke",
+		flavor = "Gold doesn't care what it's welded to.",
 		rarity = "Rare",
 		odds = 300, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
@@ -566,11 +568,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 2500,
+		model = "NukeRare",
 	},
 	{
 		id = "radiation_badge",
-		name = "Radiation Badge",
-		flavor = "Changes color the longer it sits out here. It's been out here a while.",
+		name = "Badge Nuke",
+		flavor = "Changes color the longer it sits out here.",
 		rarity = "Rare",
 		odds = 220, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
@@ -578,11 +581,12 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 4300,
+		model = "NukeRare",
 	},
 	{
 		id = "buried_coin_jar",
-		name = "Buried Coin Jar",
-		flavor = "A glass jar, still packed with old coins. Somebody was saving up.",
+		name = "Jarred Nuke",
+		flavor = "Packed in a glass jar like loose change.",
 		rarity = "Rare",
 		odds = 280, -- 1 in N per dig in a stocking stage
 		weight = 3.5,
@@ -590,11 +594,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 3700,
+		model = "NukeRare",
 	},
 	{
 		id = "bullion_bar",
-		name = "Gold Bar",
-		flavor = "Someone carried this out of a vault, into a field, and got no further.",
+		name = "Bullion Nuke",
+		flavor = "Cast in gold. Somebody got greedy.",
 		rarity = "Epic",
 		odds = 1600, -- 1 in N per dig in a stocking stage
 		weight = 12.4,
@@ -602,12 +607,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 16000,
-		model = "GoldBar",
+		model = "NukeEpic",
 	},
 	{
 		id = "diamond_brooch",
-		name = "Diamond Chain",
-		flavor = "A stone that catches light no one else out here can see.",
+		name = "Diamond Nuke",
+		flavor = "Catches light nobody else out here can see.",
 		rarity = "Epic",
 		odds = 2200, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
@@ -615,11 +620,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 19000,
+		model = "NukeEpic",
 	},
 	{
 		id = "rusted_farm_safe",
-		name = "Treasure Chest",
-		flavor = "Buried under the old farmhouse. Whatever's inside has been waiting a long time.",
+		name = "Chest Nuke",
+		flavor = "Buried under the old farmhouse. Somebody hid this well.",
 		rarity = "Legendary",
 		odds = 4000, -- 1 in N per dig in a stocking stage
 		weight = 220,
@@ -627,19 +633,18 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 60000,
+		model = "NukeLegendary",
 	},
 
 	-- ══ STAGE 4 — THE EXCLUSION BELT ════════════════════════════════════════
-	-- Prewar tech and lab samples (PLAN §4). Deliberately thin and top-heavy:
-	-- PLAN §15 wants Stage 4 to have a loot table and a rad rate and nothing else,
-	-- because its job is to answer "will players dive?", not to be farmed. The
-	-- Stage-3 items tagged { 3, 4 } above carry its lower rarities; no Scrap tier
-	-- here either, same as Stage 3.
+	-- Deliberately thin and top-heavy: its job is to answer "will players dive?",
+	-- not to be farmed. The Stage-3 items tagged { 3, 4 } above carry its lower
+	-- rarities; no Scrap tier here either, same as Stage 3.
 
 	{
 		id = "glowing_sample_jar",
-		name = "Designer Shoes",
-		flavor = "A jar that glows a soft green, even in the dark.",
+		name = "Glowing Nuke",
+		flavor = "Glows a soft green, even in the dark.",
 		rarity = "Rare",
 		odds = 180, -- 1 in N per dig in a stocking stage
 		weight = 1.0,
@@ -647,11 +652,12 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 4400,
+		model = "NukeRare",
 	},
 	{
 		id = "strange_metal_chip",
-		name = "Strange Metal Chip",
-		flavor = "Covered in markings nobody recognizes. Hums faintly if you hold it.",
+		name = "Humming Nuke",
+		flavor = "Covered in markings nobody recognizes. Hums if you hold it.",
 		rarity = "Epic",
 		odds = 1400, -- 1 in N per dig in a stocking stage
 		weight = 0.2,
@@ -659,11 +665,12 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 23000,
+		model = "NukeEpic",
 	},
 	{
 		id = "reactor_rod",
-		name = "The Reactor Rod",
-		flavor = "The rod that kept the reactor calm. It's the whole reason there's a Belt and not something worse.",
+		name = "Reactor Nuke",
+		flavor = "The whole reason there's a Belt and not something worse.",
 		rarity = "Legendary",
 		odds = 5000, -- 1 in N per dig in a stocking stage
 		weight = 45,
@@ -671,20 +678,19 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 120000,
+		model = "NukeLegendary",
 	},
 
 	-- ══ STAGE 5 — REACTOR GROUNDS ═══════════════════════════════════════════
-	-- Cooling towers and heat shimmer (PLAN §4). Fuel rods, control tech, black-box
-	-- data. `reactor_control` extends across the Stage 4 boundary on purpose — Stage 5
-	-- sits right next to the Belt in the chain and both are reactor-adjacent tech,
-	-- so the set reads as one storyline rather than two unrelated tags. NO SCRAP
-	-- TIER (see this file's header) — its old Scrap items folded into Common, and
-	-- the old pressure_gauge Common slot promoted to Uncommon.
+	-- `reactor_control` extends across the Stage 4 boundary on purpose -- Stage 5
+	-- sits right next to the Belt in the chain, so the set reads as one storyline.
+	-- NO SCRAP TIER (see this file's header) -- its old Scrap items folded into
+	-- Common, and the old pressure_gauge Common slot promoted to Uncommon.
 
 	{
 		id = "old_pipe_scrap",
-		name = "Old Pipe Scrap",
-		flavor = "Split down a seam. Whatever it carried isn't in it anymore.",
+		name = "Pipe Nuke",
+		flavor = "A crude little thing, cobbled together in a hurry.",
 		rarity = "Common",
 		odds = 7, -- 1 in N per dig in a stocking stage
 		weight = 4,
@@ -692,11 +698,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 60,
+		model = "NukeCommon",
 	},
 	{
 		id = "shiny_metal_blade",
-		name = "Shiny Metal Blade",
-		flavor = "Curved like it was cutting something, once.",
+		name = "Shiny Nuke",
+		flavor = "Polished casing, curved like it was cutting something once.",
 		rarity = "Common",
 		odds = 9, -- 1 in N per dig in a stocking stage
 		weight = 1.5,
@@ -704,11 +711,12 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 67,
+		model = "NukeCommon",
 	},
 	{
 		id = "rad_warning_placard",
-		name = "Radiation Warning Placard",
-		flavor = "The symbol's still bright. Everything around it isn't.",
+		name = "Warning Nuke",
+		flavor = "The label's brighter than the actual danger.",
 		rarity = "Common",
 		odds = 12, -- 1 in N per dig in a stocking stage
 		weight = 2,
@@ -716,11 +724,12 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 100,
+		model = "NukeCommon",
 	},
 	{
 		id = "pressure_gauge",
-		name = "Pressure Gauge",
-		flavor = "Needle buried past the red.",
+		name = "Pressurized Nuke",
+		flavor = "Needle buried past the red for years.",
 		rarity = "Uncommon",
 		odds = 40, -- 1 in N per dig in a stocking stage
 		weight = 0.8,
@@ -728,11 +737,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 400,
+		model = "NukeUncommon",
 	},
 	{
 		id = "old_headphones",
-		name = "Old Headphones",
-		flavor = "Big and cushioned. Only one side still crackles with static.",
+		name = "Static Nuke",
+		flavor = "One side still crackles if you listen close.",
 		rarity = "Uncommon",
 		odds = 50, -- 1 in N per dig in a stocking stage
 		weight = 0.4,
@@ -740,11 +750,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "reactor_control" },
 		baseValue = 430,
+		model = "NukeUncommon",
 	},
 	{
 		id = "cooling_valve_wheel",
-		name = "Cooling Valve Wheel",
-		flavor = "A big metal wheel that used to turn off the water. It won't budge now.",
+		name = "Valve Nuke",
+		flavor = "A big wheel that won't turn any more.",
 		rarity = "Uncommon",
 		odds = 65, -- 1 in N per dig in a stocking stage
 		weight = 9,
@@ -752,11 +763,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 600,
+		model = "NukeUncommon",
 	},
 	{
 		id = "reactor_logbook",
-		name = "Toilet",
-		flavor = "The last page has one word on it, underlined twice.",
+		name = "Marked Nuke",
+		flavor = "One word on the casing, underlined twice.",
 		rarity = "Rare",
 		odds = 240, -- 1 in N per dig in a stocking stage
 		weight = 1.2,
@@ -764,10 +776,11 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 2800,
+		model = "NukeRare",
 	},
 	{
 		id = "sealed_data_drive",
-		name = "Sealed Data Drive",
+		name = "Encrypted Nuke",
 		flavor = "Locked in a lead case. Someone wanted this kept safe.",
 		rarity = "Rare",
 		odds = 300, -- 1 in N per dig in a stocking stage
@@ -776,10 +789,11 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 3900,
+		model = "NukeRare",
 	},
 	{
 		id = "blackbox_recorder",
-		name = "Uranium Ore",
+		name = "Black-Box Nuke",
 		flavor = "Built to survive anything. Lots of practice at it.",
 		rarity = "Epic",
 		odds = 1500, -- 1 in N per dig in a stocking stage
@@ -788,10 +802,11 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 17000,
+		model = "NukeEpic",
 	},
 	{
 		id = "sealed_fuel_casing",
-		name = "Sealed Fuel Rod Casing",
+		name = "Fuel Nuke",
 		flavor = "Empty now, but it used to hold something that glowed.",
 		rarity = "Epic",
 		odds = 1800, -- 1 in N per dig in a stocking stage
@@ -800,11 +815,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 21000,
+		model = "NukeEpic",
 	},
 	{
 		id = "reactor_core_sample",
-		name = "Reactor Core Sample",
-		flavor = "Warm through three layers of metal. Never once cooled down.",
+		name = "Core Nuke",
+		flavor = "Warm through three layers of metal. Never once cooled.",
 		rarity = "Legendary",
 		odds = 6000, -- 1 in N per dig in a stocking stage
 		weight = 30,
@@ -812,6 +828,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 100000,
+		model = "NukeLegendary",
 	},
 	{
 		id = "live_fuel_rod",
@@ -824,20 +841,18 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 600000,
+		model = "NukeMythic",
 	},
 
 	-- ══ STAGE 6 — THE CRATER ════════════════════════════════════════════════
-	-- Glassed floor, sky-glow, no ambient sound (PLAN §4). Anomalies, one-of-a-kind
-	-- relics — plus a couple of fun, deliberately-not-realistic finds (on request,
-	-- the game doesn't have to play it straight everywhere). `crater_relics` ties
-	-- the three showpiece items into one thread, the way `left_behind` does for
-	-- Stage 1. NO SCRAP TIER (see this file's header) — its old Scrap item folded
-	-- into Common.
+	-- `crater_relics` ties three showpiece items into one thread, the way
+	-- `left_behind` does for Stage 1. NO SCRAP TIER (see this file's header) --
+	-- its old Scrap item folded into Common.
 
 	{
 		id = "glassy_ground_chip",
-		name = "Glassy Ground Chip",
-		flavor = "The sand didn't burn — it turned to glass, all at once.",
+		name = "Glassy Nuke",
+		flavor = "Fused into glass by something bigger nearby.",
 		rarity = "Common",
 		odds = 8, -- 1 in N per dig in a stocking stage
 		weight = 0.3,
@@ -845,10 +860,11 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 47,
+		model = "NukeCommon",
 	},
 	{
 		id = "scorched_metal_plate",
-		name = "Scorched Metal Plate",
+		name = "Scorched Nuke",
 		flavor = "Rated to hold back anything. Didn't.",
 		rarity = "Common",
 		odds = 11, -- 1 in N per dig in a stocking stage
@@ -857,11 +873,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 120,
+		model = "NukeCommon",
 	},
 	{
 		id = "sealed_air_filter",
-		name = "Sealed Air Filter",
-		flavor = "Still wrapped. Nobody who needed it got the chance to open it.",
+		name = "Filtered Nuke",
+		flavor = "Still wrapped, still sealed, still waiting.",
 		rarity = "Uncommon",
 		odds = 35, -- 1 in N per dig in a stocking stage
 		weight = 0.8,
@@ -869,10 +886,11 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 470,
+		model = "NukeUncommon",
 	},
 	{
 		id = "bent_door_wheel",
-		name = "Bent Door Wheel",
+		name = "Bent Nuke",
 		flavor = "Spun the wrong way, hard.",
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
@@ -881,10 +899,11 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 700,
+		model = "NukeUncommon",
 	},
 	{
 		id = "cracked_glow_badge",
-		name = "Cracked Glow Badge",
+		name = "Fading Nuke",
 		flavor = "Went dark in under a second.",
 		rarity = "Rare",
 		odds = 220, -- 1 in N per dig in a stocking stage
@@ -893,11 +912,12 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 3100,
+		model = "NukeRare",
 	},
 	{
 		id = "fused_tool_roll",
-		name = "Fused Tool Roll",
-		flavor = "Every tool welded to the canvas, and to each other.",
+		name = "Welded Nuke",
+		flavor = "Every tool on it fused solid.",
 		rarity = "Rare",
 		odds = 260, -- 1 in N per dig in a stocking stage
 		weight = 5,
@@ -905,11 +925,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 4300,
+		model = "NukeRare",
 	},
 	{
 		id = "untouched_ground_sample",
-		name = "Untouched Ground Sample",
-		flavor = "One square foot of ordinary dirt, sealed in glass, found at the center of everything.",
+		name = "Pristine Nuke",
+		flavor = "Not a scratch on it. Nobody knows how.",
 		rarity = "Epic",
 		odds = 1400, -- 1 in N per dig in a stocking stage
 		weight = 14,
@@ -917,11 +938,12 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 22000,
+		model = "NukeEpic",
 	},
 	{
 		id = "skyglow_core_fragment",
-		name = "Sky-Glow Core Fragment",
-		flavor = "Lights the crater up at night. Nobody's explained how, this far out.",
+		name = "Sky-Glow Nuke",
+		flavor = "Lights up the crater at night, all by itself.",
 		rarity = "Epic",
 		odds = 1700, -- 1 in N per dig in a stocking stage
 		weight = 8,
@@ -929,11 +951,12 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 26000,
+		model = "NukeEpic",
 	},
 	{
 		id = "ufo_fragment",
-		name = "UFO Fragment",
-		flavor = "Not from here. Not from anywhere else, as far as anyone can tell.",
+		name = "Alien Nuke",
+		flavor = "Not from here. Not from anywhere else, either.",
 		rarity = "Epic",
 		odds = 2000, -- 1 in N per dig in a stocking stage
 		weight = 3,
@@ -941,11 +964,12 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 24000,
+		model = "NukeEpic",
 	},
 	{
 		id = "explorers_helmet",
-		name = "Explorer's Helmet",
-		flavor = "Worn by whoever mapped this place first. It's why there's a map at all.",
+		name = "Charted Nuke",
+		flavor = "Carried by whoever mapped this place first.",
 		rarity = "Legendary",
 		odds = 7000, -- 1 in N per dig in a stocking stage
 		weight = 1.8,
@@ -953,6 +977,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "crater_relics" },
 		baseValue = 140000,
+		model = "NukeLegendary",
 	},
 	{
 		id = "mini_nuke",
@@ -965,11 +990,12 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 160000,
+		model = "NukeLegendary",
 	},
 	{
 		id = "stopped_second_hand",
-		name = "The Second Hand",
-		flavor = "A single watch hand, glowing faintly, pointing at nothing in particular.",
+		name = "Cosmic Nuke",
+		flavor = "A single glowing hand, pointing at nothing in particular.",
 		rarity = "Mythic",
 		odds = 60000, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
@@ -977,10 +1003,11 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "crater_relics" },
 		baseValue = 930000,
+		model = "NukeMythic",
 	},
 	{
 		id = "unlabeled_cylinder",
-		name = "Unlabeled Containment Cylinder",
+		name = "The Big One",
 		flavor = "Heavier than it looks. Nobody's brave enough to open it.",
 		rarity = "Anomaly",
 		odds = 500000, -- 1 in N per dig in a stocking stage
@@ -989,6 +1016,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "crater_relics" },
 		baseValue = 6000000,
+		model = "NukeAnomaly",
 	},
 } :: { ItemDef }
 

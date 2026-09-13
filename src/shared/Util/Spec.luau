@@ -904,11 +904,23 @@ function Spec.run(): boolean
 	-- If the shell does not enclose the item, the reveal has already happened in the soil
 	-- and there is nothing left for the hose to be for.
 	--
-	-- Run against a real catalogue model rather than a cube, because a Bottle Cap is the
+	-- Built as a thin disc rather than a cube, because a flat coin-shaped item is the
 	-- awkward case the sizing rules exist for: millimetres thick, so its own bounding box
-	-- is nearly flat and MIN_BODY is what stops the crust being a sheet of paper.
+	-- is nearly flat and MIN_BODY is what stops the crust being a sheet of paper. This
+	-- used to run against the real "Bottle Cap" catalogue model; feat/nuke-arsenal-retheme
+	-- retired that model key, so the thin edge case is built directly instead of hoping a
+	-- future catalogue keeps a suitably thin entry around.
 	do
-		local sample = ItemModels.create("BottleCap")
+		local sample: Model? = (function()
+			local model = Instance.new("Model")
+			local disc = Instance.new("Part")
+			disc.Size = Vector3.new(1.4, 0.25, 1.4)
+			disc.Anchored = true
+			disc.CanCollide = false
+			disc.Parent = model
+			model.PrimaryPart = disc
+			return model
+		end)()
 		if sample then
 			local _, bare = sample:GetBoundingBox()
 

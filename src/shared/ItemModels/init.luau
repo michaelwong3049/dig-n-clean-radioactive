@@ -6,40 +6,31 @@
 	gameplay services never need a growing chain of item-specific requires. Missing
 	keys return nil and deliberately fall back to the old rarity-coloured block while
 	the rest of the catalogue is modelled.
+
+	feat/nuke-arsenal-retheme: every item is now a nuke, reskinned by rarity, so the
+	whole catalogue resolves through exactly 7 factories (one per rarity tier) instead
+	of a bespoke sculpt per item. The old real-world-object factories (BottleCap,
+	GoldBar, etc.) are retired -- nothing in Config/Items references them any more.
 ]]
 
-local BottleCap = require(script.BottleCap)
-local DentedTinCan = require(script.DentedTinCan)
-local GoldRing = require(script.GoldRing)
-local GlassPebble = require(script.GlassPebble)
-local GoldBar = require(script.GoldBar)
-local IronBar = require(script.IronBar)
-local HouseKey = require(script.HouseKey)
-local OldPenny = require(script.OldPenny)
-local RadiationScanner = require(script.RadiationScanner)
-local RubberDuck = require(script.RubberDuck)
-local SilverFork = require(script.SilverFork)
-local SteelRod = require(script.SteelRod)
-local WindUpFlashlight = require(script.WindUpFlashlight)
-local Wristwatch = require(script.Wristwatch)
+local NukeCommon = require(script.NukeCommon)
+local NukeUncommon = require(script.NukeUncommon)
+local NukeRare = require(script.NukeRare)
+local NukeEpic = require(script.NukeEpic)
+local NukeLegendary = require(script.NukeLegendary)
+local NukeMythic = require(script.NukeMythic)
+local NukeAnomaly = require(script.NukeAnomaly)
 
 local ItemModels = {}
 
 local factories: { [string]: () -> Model } = {
-	BottleCap = BottleCap.create,
-	DentedTinCan = DentedTinCan.create,
-	GoldRing = GoldRing.create,
-	GlassPebble = GlassPebble.create,
-	GoldBar = GoldBar.create,
-	IronBar = IronBar.create,
-	HouseKey = HouseKey.create,
-	OldPenny = OldPenny.create,
-	RadiationScanner = RadiationScanner.create,
-	RubberDuck = RubberDuck.create,
-	SilverFork = SilverFork.create,
-	SteelRod = SteelRod.create,
-	WindUpFlashlight = WindUpFlashlight.create,
-	Wristwatch = Wristwatch.create,
+	NukeCommon = NukeCommon.create,
+	NukeUncommon = NukeUncommon.create,
+	NukeRare = NukeRare.create,
+	NukeEpic = NukeEpic.create,
+	NukeLegendary = NukeLegendary.create,
+	NukeMythic = NukeMythic.create,
+	NukeAnomaly = NukeAnomaly.create,
 }
 
 function ItemModels.has(modelKey: string): boolean
