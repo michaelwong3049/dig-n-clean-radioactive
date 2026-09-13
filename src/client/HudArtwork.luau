@@ -77,6 +77,42 @@ function Artwork.book(parent: Instance, paper: Color3, gap: Color3): Book
 	return { icon = icon, paper = { pages, cover }, cut = cut, plate = plate }
 end
 
+-- The shop cart's box, in design pixels. ShopController centres it in the top of
+-- its tile, same slot the index book fills on its own tile.
+Artwork.CART_SIZE = Vector2.new(44, 40)
+
+export type Cart = { icon: Frame, body: { Frame }, accent: { Frame } }
+
+--- The shop cart: a basket with a flared rim and a diagonal push handle, standing
+--- on two wheels. Drawn into a CART_SIZE box at the icon's own origin; the caller
+--- positions `icon`.
+---
+--- `paper` is the basket/handle colour (the book icon's name for the same role,
+--- kept so both icons take their two colours the same way). `gap` is the colour of
+--- the wire-basket slats and the wheels — pass the button's own fill so they read as
+--- a cut into the basket rather than a drawn line, then tween `body` with the icon
+--- colour and `accent` with that fill on hover, same as Book's `paper` / `cut`+`plate`.
+function Artwork.cart(parent: Instance, paper: Color3, gap: Color3): Cart
+	local icon = shape(parent, "CartIcon", 0, 0, Artwork.CART_SIZE.X, Artwork.CART_SIZE.Y, Color3.new(), 5)
+	icon.BackgroundTransparency = 1
+
+	local handle = shape(icon, "Handle", 1, 0, 4, 15, paper, 6, 2)
+	handle.AnchorPoint = Vector2.new(0.5, 0)
+	handle.Rotation = -35
+	local rim = shape(icon, "Rim", 6, 9, 34, 5, paper, 6, 2)
+	local basket = shape(icon, "Basket", 9, 13, 26, 17, paper, 6, 3)
+	local wheelL = shape(icon, "WheelL", 13, 34, 8, 8, gap, 7, 4)
+	local wheelR = shape(icon, "WheelR", 27, 34, 8, 8, gap, 7, 4)
+	local slatA = shape(basket, "SlatA", 8, 3, 3, 11, gap, 8, 1)
+	local slatB = shape(basket, "SlatB", 16, 3, 3, 11, gap, 8, 1)
+
+	return {
+		icon = icon,
+		body = { handle, rim, basket },
+		accent = { wheelL, wheelR, slatA, slatB },
+	}
+end
+
 function Artwork.studs(parent: GuiObject)
 	local texture = shape(parent, "StudTexture", 5, 5, 1, 1, Color3.new(), 5)
 	texture.Size = UDim2.new(1, -10, 1, -10)

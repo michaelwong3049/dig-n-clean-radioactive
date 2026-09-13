@@ -19,6 +19,7 @@ local ORDER = {
 	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState
 	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
 	"IndexController", -- the item index GUI; Index tile on the right edge, reads IndexState + Unearthed
+	"ShopController", -- the Shop tile, stacked below the Index tile; no content yet
 	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"LiquidController", -- the loaded-liquid readout on the wash pad; reads LiquidState + PlotState
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState
