@@ -172,7 +172,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 39
+local BUILDER_VERSION = 40
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1832,12 +1832,11 @@ local function buildNamePlate(parent: Instance, origin: CFrame, accent: string)
 	-- plaza-wide "YOUR BASE" (600). At 600 every plot's plate was readable from
 	-- clear across the ring and even from inside a stage. `MaxDistance` is
 	-- CAMERA-to-adornee (not player-to-adornee — see the BillboardGui note in
-	-- Studio verification history), and the plate sits 38 studs up, so 70 is the
-	-- floor that still reaches a camera anywhere on this OWN pad (the far entrance
-	-- corner is ~45 studs from the anchor before the camera's own trailing
-	-- distance) while staying far short of a neighbouring plot (~100+ studs
-	-- apart) or a stage.
-	gui.MaxDistance = 70
+	-- Studio verification history), and the plate sits 38 studs up. 100 (up
+	-- slightly from 70, on request) gives more slack for the camera's own
+	-- trailing distance without reaching a neighbouring plot (~100+ studs apart
+	-- centre to centre) or a stage.
+	gui.MaxDistance = 100
 	-- Every plot sits next to a PointLight or two; LightInfluence defaults to 1 and
 	-- washes the plate back toward white up close, the same bug Kit.surfaceText and
 	-- BaseMarkerController both already document and fix.
