@@ -28,15 +28,39 @@ local ModelGallery = {}
 
 local NAME = "ModelYard"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 6
+local BUILDER_VERSION = 7
 
-local LAND_WIDTH = 46
-local LAND_DEPTH = 36
-local LAND_THICKNESS = 0.12
-local GRID_COLUMNS = 5
+local GRID_COLUMNS = 8
 local GRID_SPACING = 8
 local PEDESTAL_TOP = 2.5
 local MAX_MODEL_SIZE = 3.6
+
+-- EDGE_MARGIN keeps the outer rows/columns of stands clear of the trim; HEADER_CLEARANCE
+-- is extra depth behind the last row so it doesn't crowd the GallerySign.
+local EDGE_MARGIN = 6
+local HEADER_CLEARANCE = 6
+
+local function catalogueModels(): { any }
+	local result = {}
+	for _, item in Items.DEFS do
+		if item.model and ItemModels.has(item.model) then
+			table.insert(result, item)
+		end
+	end
+	return result
+end
+
+-- feat/nuke-arsenal-retheme collapsed the catalogue onto 7 shared model factories, but
+-- every item still gets its own labelled stand -- the yard's footprint scales off the
+-- CATALOGUE size (Items.DEFS), not the model count, so it grows automatically as items
+-- are added instead of needing another manual bump. Computed once at require time since
+-- the catalogue is static for the life of the server.
+local MODEL_COUNT = #catalogueModels()
+local GRID_ROWS = math.max(1, math.ceil(MODEL_COUNT / GRID_COLUMNS))
+
+local LAND_WIDTH = math.max(46, GRID_COLUMNS * GRID_SPACING + EDGE_MARGIN * 2)
+local LAND_DEPTH = math.max(36, GRID_ROWS * GRID_SPACING + EDGE_MARGIN * 2 + HEADER_CLEARANCE)
+local LAND_THICKNESS = 0.12
 
 -- WALL_CLEARANCE mirrors Scenery.luau's private WALL_THICKNESS (8): the base's
 -- curved perimeter wall sits at radius Plots.RING_OUTER + WALL_THICKNESS/2, so this
@@ -52,16 +76,6 @@ local YARD_GAP = 20
 local YARD_RADIUS = Plots.RING_OUTER + WALL_CLEARANCE / 2 + YARD_GAP + LAND_WIDTH / 2
 local DEFAULT_ORIGIN = CFrame.new(Plots.RING_CENTER.x - YARD_RADIUS, Hub.PLAZA.topY, Plots.RING_CENTER.z)
 local BASE_OFFSET = Hub.CAMP_ORIGIN:ToObjectSpace(DEFAULT_ORIGIN)
-
-local function catalogueModels(): { any }
-	local result = {}
-	for _, item in Items.DEFS do
-		if item.model and ItemModels.has(item.model) then
-			table.insert(result, item)
-		end
-	end
-	return result
-end
 
 local function buildLand(gallery: Model, origin: CFrame)
 	Kit.build(gallery, origin, {
