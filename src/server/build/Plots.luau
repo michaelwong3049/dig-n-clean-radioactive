@@ -172,7 +172,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 38
+local BUILDER_VERSION = 39
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1827,9 +1827,17 @@ local function buildNamePlate(parent: Instance, origin: CFrame, accent: string)
 	gui.Name = "Plate"
 	gui.Size = UDim2.fromOffset(128, 156)
 	gui.AlwaysOnTop = true
-	-- Plaza-wide, the same reach BaseMarkerController gives its own beacon — this is
-	-- the one thing that has to read from clear across the ring.
-	gui.MaxDistance = 600
+	-- SHORT on purpose, on request — this identifies one specific base to someone
+	-- standing near it, not a wayfinding beacon like BaseMarkerController's own
+	-- plaza-wide "YOUR BASE" (600). At 600 every plot's plate was readable from
+	-- clear across the ring and even from inside a stage. `MaxDistance` is
+	-- CAMERA-to-adornee (not player-to-adornee — see the BillboardGui note in
+	-- Studio verification history), and the plate sits 38 studs up, so 70 is the
+	-- floor that still reaches a camera anywhere on this OWN pad (the far entrance
+	-- corner is ~45 studs from the anchor before the camera's own trailing
+	-- distance) while staying far short of a neighbouring plot (~100+ studs
+	-- apart) or a stage.
+	gui.MaxDistance = 70
 	-- Every plot sits next to a PointLight or two; LightInfluence defaults to 1 and
 	-- washes the plate back toward white up close, the same bug Kit.surfaceText and
 	-- BaseMarkerController both already document and fix.
