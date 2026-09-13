@@ -28,7 +28,7 @@ local ModelGallery = {}
 
 local NAME = "ModelYard"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 7
+local BUILDER_VERSION = 8
 
 local GRID_COLUMNS = 8
 local GRID_SPACING = 8
@@ -148,7 +148,10 @@ local function buildStand(gallery: Model, origin: CFrame, item: any, index: numb
 		},
 	})
 
-	Kit.billboard(pedestal, 180, 3.7, string.upper(item.name), `{item.id} / {item.model}`, Kit.C.hazard, 80)
+	-- 3.7 sat BELOW the tallest models (Legendary/Anomaly items can reach ~4.6 studs
+	-- above the pedestal at MAX_MODEL_SIZE), so the name plate hung right in front of
+	-- the item it was labelling. 6 clears the tallest catalogued item with margin.
+	Kit.billboard(pedestal, 150, 6, string.upper(item.name), `{item.id} / {item.model}`, Kit.C.hazard, 80)
 
 	local itemModel = ItemModels.create(item.model)
 	if itemModel then
