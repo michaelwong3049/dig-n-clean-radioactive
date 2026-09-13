@@ -83,7 +83,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 15
+local BUILDER_VERSION = 16
 
 local C = Kit.C
 local build = Kit.build
@@ -119,16 +119,18 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 local FLOOR_DARK = "3D3F42"
 local FLOOR_LIGHT = "404246"
 
---- The shop-zone floor's pair — an actual black/grey checkerboard, not the
---- near-flat charcoal the rest of the base wears. Reuses two colours already in
---- the palette (`Kit.C.hazardBlack`, this file's usual crisp black; `Kit.C.standGrey`,
---- the stand/counter grey) rather than inventing new hex on request, since the
---- ask was contrast, not a new hue: this pair sits ~6x further apart per channel
---- than FLOOR_DARK/FLOOR_LIGHT, so the shop cluster's own patch of floor reads as
---- a marked-out zone from across the plaza instead of blending into the rest of
---- the base.
+--- The shop-zone floor's pair — a black/grey checkerboard, not the near-flat
+--- charcoal the rest of the base wears, but a dark one: `SHOP_FLOOR_LIGHT` was
+--- `Kit.C.standGrey` (A0A0A0, a bright stand-and-counter grey) on the first pass,
+--- then pulled down to a near-black dark grey on request, so the pattern reads
+--- from the studs catching light tile to tile rather than from a bright square
+--- standing out against a dark board. `SHOP_FLOOR_DARK` stays `Kit.C.hazardBlack`,
+--- this file's usual crisp black. Still noticeably more contrast than the base's
+--- own FLOOR_DARK/FLOOR_LIGHT pair (which sit ~5% apart per channel) — this pair
+--- sits ~50% apart — so the shop cluster still reads as its own marked-out zone,
+--- just a dark one rather than a bright one.
 local SHOP_FLOOR_DARK = C.hazardBlack
-local SHOP_FLOOR_LIGHT = C.standGrey
+local SHOP_FLOOR_LIGHT = "333333"
 
 --- Half the Z extent of the green border strip. Stage 1 (like every stage) is centred
 --- on z = 0, so its own edge -- where Scenery.buildStageBorderLines draws the
