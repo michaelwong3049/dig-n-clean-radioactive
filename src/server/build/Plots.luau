@@ -74,19 +74,20 @@
 	gameplay risk. The internal arrangement itself (stands + cleansing station)
 	changed since; see "THE BASE LAYOUT" below.
 
-	THE BASE LAYOUT — a plain 4-column x 3-row grid of stands (on request,
+	THE BASE LAYOUT — a plain 3-column x 4-row grid of stands (on request,
 	replacing the old two-flanking-columns-plus-infill scheme so the middle no
 	longer reads as a deliberate gap), while a 17-stud entrance-side extension
 	carries the active washing equipment and an 18-stud back extension gives the
 	grid room to spread:
 
 	    ┌─────────────────────────────────────┐
-	    │ [stand] [stand] [stand] [stand]      │
+	    │      [stand]  [stand]  [stand]       │
 	    │                                      │
-	    │ [stand] [stand] [stand] [stand]      │
+	    │      [stand]  [stand]  [stand]       │
 	    │                                      │
-	    │ [stand] [stand] [stand] [stand]      │
+	    │      [stand]  [stand]  [stand]       │
 	    │                                      │
+	    │      [stand]  [stand]  [stand]       │
 	    │               spawn                  │
 	    ├──────── original front edge ─────────┤
 	    │  WASHER + HOSE  [locker]  WASH PAD   │
@@ -98,9 +99,9 @@
 	you fill it at. Built here, filled by ExhibitService.renderLocker; see
 	buildQuarantineLocker.
 
-	12 stands: 4 columns (`GRID_COLS`, evenly spaced across x) by 3 rows
+	12 stands: 3 columns (`GRID_COLS`, evenly spaced across x) by 4 rows
 	(`GRID_ROWS`, evenly spaced from the back wall forward), numbered left to
-	right then back row to front row — slot 1 is back-left, slot 4 is back-right,
+	right then back row to front row — slot 1 is back-left, slot 3 is back-right,
 	slot 12 is front-right (`slotOffset`). Also slightly bigger than the old
 	plinths (RISER_BASE/RISER_TOP/RISER_RIM all up ~20%), on request. The
 	cleansing station and its hose rig occupy the +X side of the entrance
@@ -112,7 +113,7 @@
 	shows — they're the same number. Every stand is usable from the moment a
 	plot is claimed; there is no slot to buy or unlock.
 
-	slotOffset only makes sense for exactly these 12 (4 columns x 3 rows) —
+	slotOffset only makes sense for exactly these 12 (3 columns x 4 rows) —
 	raising VISIBLE_SLOTS past 12 needs a real rule for where the extra
 	pedestals go.
 
@@ -462,26 +463,27 @@ local function apronSkip(x: number, z: number): boolean
 	return false
 end
 
---- STAND LAYOUT — a plain 4-column x 3-row grid, 12 stands total, replacing the
+--- STAND LAYOUT — a plain 3-column x 4-row grid, 12 stands total, replacing the
 --- old two-flanking-columns-plus-infill scheme (on request: a uniform grid reads
 --- better than a deliberate gap down the middle).
 ---
---- GRID_COLS are 4 evenly spaced x's (pitch 16, symmetric about x = 0): the
---- outer pair at ±24 leaves the same rough clearance to the side Trim the old
---- flanking columns had at ±25, and the inner pair at ±8 leaves a full pitch of
---- open floor between them (16 studs) for the bigger stand footprint below.
+--- GRID_COLS are 3 evenly spaced x's (pitch 20, symmetric about x = 0): ±20
+--- leaves a wide margin to the side Trim (well past the old flanking columns'
+--- ±25), and the open floor either side of the centre column (20 studs) clears
+--- the bigger stand footprint below with room to spare.
 ---
---- GRID_ROWS are 3 evenly spaced z's (pitch 15), ROW_TOP first — closest to the
---- back wall — counting DOWN from there toward the entrance. Pitch 15 (up from
---- the old 12.5) gives the ~20%-bigger stands (RISER_BASE below) the same
---- relative breathing room the old grid had, and still leaves the front row
---- (z = 3) well clear of PlotSpawn (z = -24).
+--- GRID_ROWS are 4 evenly spaced z's (pitch 13), ROW_TOP first — closest to the
+--- back wall — counting DOWN from there toward the entrance, the same 4-deep
+--- count the old flanking columns used. Pitch 13 (down slightly from the old
+--- 12.5, to hold the front row back from PlotSpawn now that RISER_BASE below is
+--- ~20% bigger) still clears the stand footprint row to row, and leaves the
+--- front row (z = -6) clear of PlotSpawn (z = -24).
 ---
 --- slotOffset numbers left to right, back row to front row: slot 1 is
---- (GRID_COLS[1], GRID_ROWS[1]) i.e. back-left, slot 4 is back-right, slot 12 is
+--- (GRID_COLS[1], GRID_ROWS[1]) i.e. back-left, slot 3 is back-right, slot 12 is
 --- front-right.
-local GRID_COLS = { -24, -8, 8, 24 }
-local GRID_ROWS = { 33, 18, 3 }
+local GRID_COLS = { -20, 0, 20 }
+local GRID_ROWS = { 33, 20, 7, -6 }
 
 local function slotOffset(slot: number): (number, number)
 	local col = (slot - 1) % #GRID_COLS
@@ -979,7 +981,7 @@ end
 --- no trip back to base camp required, and every player's loop remains local.
 ---
 --- The whole bay now sits on the left side of the entrance extension. Its tub is
---- forward of the final stand row (z = 3, the grid's front row), well clear of
+--- forward of the final stand row (z = -6, the grid's front row), well clear of
 --- it, while its pump reaches almost to the front edge. That keeps the display
 --- floor and the entrance strip reading together as one service strip.
 local function buildCleansingStation(parent: Instance, origin: CFrame, accent: string)
@@ -1487,7 +1489,7 @@ end
 --- fill it at. Now it sits in the +X corner just behind the cleansing bay (plot
 --- x ~= 30, z ~= -24), still opening toward the plot entrance (-Z), tucked
 --- between the gantry (its posts reach plot x ~= 27.5, z ~= -29) and the grid's
---- front row (z = 3) with clear studs to each. `ExhibitService` finds every
+--- front row (z = -6) with clear studs to each. `ExhibitService` finds every
 --- part of it by name, so the move needs
 --- nothing on its side.
 ---
