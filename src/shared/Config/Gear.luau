@@ -297,7 +297,7 @@ Gear.SPRINT_MULTIPLIER = 1.35
 -- and no per-track shop counter or SellsTrack-generic sell path to require one — see
 -- ShopService.buyLuck and the header above Gear.luckMultiplier for the replacement.
 --
--- NEITHER IS A PEDESTAL PRICE. All 8 exhibit stands are free from the start
+-- NEITHER IS A PEDESTAL PRICE. All exhibit stands are free from the start
 -- (Tuning.EXHIBIT_MAX_SLOTS); the cash-bought slot track and its `pedestalPrice`
 -- curve were cut with it.
 Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Boots", "Satchel" }
