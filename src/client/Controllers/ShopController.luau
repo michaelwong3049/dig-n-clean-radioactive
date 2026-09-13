@@ -12,6 +12,7 @@ local TweenService = game:GetService("TweenService")
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Dock = UIKit.Dock
+local Artwork = require(script.Parent.Parent.HudArtwork)
 
 local Shop = {}
 
@@ -75,11 +76,17 @@ local function build(): ScreenGui
 	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 	place()
 
+	-- The cart fills the top of the tile, centred; the bottom band is the name's —
+	-- same split as the Index tile's book.
+	local cart = Artwork.cart(button, UIKit.C.navIcon, UIKit.C.navFill)
+	cart.icon.AnchorPoint = Vector2.new(0.5, 0)
+	cart.icon.Position = UDim2.new(0.5, 0, 0, 8)
+
 	UIKit.label(button, {
 		name = "Caption",
-		anchorPoint = Vector2.new(0.5, 0.5),
-		position = UDim2.fromScale(0.5, 0.5),
-		size = UDim2.new(1, -8, 0, 24),
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -5),
+		size = UDim2.new(1, 0, 0, 18),
 		text = TILE_CAPTION,
 		font = Enum.Font.GothamBlack,
 		textSize = TILE_CAPTION_SIZE,
@@ -94,6 +101,17 @@ local function build(): ScreenGui
 		TweenService:Create(buttonStroke, TILE_HOVER, {
 			Color = if active then UIKit.C.navEdgeHover else UIKit.C.navEdge,
 		}):Play()
+		-- The basket/handle/rim brighten to white on hover, same as the book's pages;
+		-- the wheels/slats are painted in the tile's own fill so they move with it —
+		-- left behind, they'd turn into drawn lines on hover.
+		for _, part in cart.body do
+			TweenService:Create(part, TILE_HOVER, {
+				BackgroundColor3 = if active then Color3.new(1, 1, 1) else UIKit.C.navIcon,
+			}):Play()
+		end
+		for _, part in cart.accent do
+			TweenService:Create(part, TILE_HOVER, { BackgroundColor3 = fill }):Play()
+		end
 	end
 	button.MouseEnter:Connect(function()
 		setHighlighted(true)
