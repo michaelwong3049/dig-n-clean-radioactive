@@ -36,10 +36,11 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local BaseMarker = {}
 
 local MARKER_NAME = "BaseMarker"
--- Muted grey, the same quiet treatment NameTagController gives the overhead name —
--- the beacon should read as a calm marker, not a HUD alert. Still gets the game-wide
--- outline (UIKit.label's default) — that's about crisp edges, not loudness.
-local TEXT_COLOR = Color3.fromHex("B7C0B8")
+-- Bumped up from the original muted grey (B7C0B8) on request — the beacon needs to
+-- actually stand out while you're looking for your own base, not just read as a
+-- calm marker. Still gets the game-wide outline (UIKit.label's default) for crisp
+-- edges on top of the brighter fill.
+local TEXT_COLOR = Color3.fromHex("EAF0E4")
 local FACE_FILL = Color3.fromHex("11150F") -- shows for the beat before the thumbnail loads
 local ACCENT_FALLBACK = Color3.fromHex("B7C0B8") -- if the plot has no Trim to read a colour off
 
@@ -88,14 +89,16 @@ local function build(pad: BasePart, accent: Color3)
 	-- default washes a muted marker back toward white the moment you walk up to it.
 	-- The same bug Kit.surfaceText and NameTagController already document.
 	gui.LightInfluence = 0
-	-- 128x156 design pixels, scaled with the rest of the HUD (UIKit.billboardCanvas).
-	local canvas = UIKit.billboardCanvas(gui, Vector2.new(128, 156))
+	-- 144x172 design pixels (up from 128x156, to fit the bigger face+caption below
+	-- without clipping), scaled with the rest of the HUD (UIKit.billboardCanvas).
+	local canvas = UIKit.billboardCanvas(gui, Vector2.new(144, 172))
 
 	local face = Instance.new("ImageLabel")
 	face.Name = "Face"
 	face.AnchorPoint = Vector2.new(0.5, 0)
 	face.Position = UDim2.fromScale(0.5, 0)
-	face.Size = UDim2.fromOffset(80, 80)
+	-- Up from 80x80 on request, so the beacon carries more weight from a distance.
+	face.Size = UDim2.fromOffset(92, 92)
 	face.BackgroundColor3 = FACE_FILL
 	face.BackgroundTransparency = 0
 	face.Image = `rbxthumb://type=AvatarHeadShot&id={player.UserId}&w=150&h=150`
@@ -106,7 +109,7 @@ local function build(pad: BasePart, accent: Color3)
 	round.Parent = face
 
 	local ring = Instance.new("UIStroke")
-	ring.Thickness = 2.5
+	ring.Thickness = 3.2 -- up from 2.5, to match the bigger face
 	ring.Color = accent
 	ring.Transparency = 0.1
 	ring.Parent = face
@@ -114,10 +117,10 @@ local function build(pad: BasePart, accent: Color3)
 	UIKit.label(canvas, {
 		name = "Caption",
 		anchorPoint = Vector2.new(0.5, 0),
-		position = UDim2.new(0.5, 0, 0, 88),
-		size = UDim2.new(1, 0, 0, 24),
+		position = UDim2.new(0.5, 0, 0, 100), -- clears the taller 92px face
+		size = UDim2.new(1, 0, 0, 26),
 		font = Enum.Font.GothamMedium,
-		textSize = 15,
+		textSize = 17, -- up from 15
 		color = TEXT_COLOR,
 		xAlign = Enum.TextXAlignment.Center,
 		text = "YOUR BASE",
