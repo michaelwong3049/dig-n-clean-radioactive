@@ -46,6 +46,10 @@
 	`Hub.inDarkFloor` / GREEN_STRIP_DEPTH); the bases wear it in navy and grey a step
 	above — one pattern, one grid, staying in register across the apron's own edges
 	because the grid belongs to the plaza rather than to whoever is asking for tiles.
+	THE SHOP CLUSTER GETS ITS OWN PATCH OF THAT SAME BOARD, in an actual black/grey
+	pair rather than the near-flat charcoal, on request — see `Hub.inShopFloor` /
+	SHOP_ZONE. Carved out of the plaza's own tileRect call, same mechanism as the
+	green strip, so it is one tile per square rather than a second board laid on top.
 
 	IT USED TO BE GREEN WITH A GREY SPINE DOWN THE MIDDLE. The grey band started as a
 	small inlaid pad (`eaffbc7`), was widened to a rectangle (`39df0b0`), run north/
@@ -79,7 +83,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 14
+local BUILDER_VERSION = 16
 
 local C = Kit.C
 local build = Kit.build
@@ -114,6 +118,19 @@ local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, St
 --- to catch the light tile to tile.
 local FLOOR_DARK = "3D3F42"
 local FLOOR_LIGHT = "404246"
+
+--- The shop-zone floor's pair — a black/grey checkerboard, not the near-flat
+--- charcoal the rest of the base wears, but a dark one: `SHOP_FLOOR_LIGHT` was
+--- `Kit.C.standGrey` (A0A0A0, a bright stand-and-counter grey) on the first pass,
+--- then pulled down to a near-black dark grey on request, so the pattern reads
+--- from the studs catching light tile to tile rather than from a bright square
+--- standing out against a dark board. `SHOP_FLOOR_DARK` stays `Kit.C.hazardBlack`,
+--- this file's usual crisp black. Still noticeably more contrast than the base's
+--- own FLOOR_DARK/FLOOR_LIGHT pair (which sit ~5% apart per channel) — this pair
+--- sits ~50% apart — so the shop cluster still reads as its own marked-out zone,
+--- just a dark one rather than a bright one.
+local SHOP_FLOOR_DARK = C.hazardBlack
+local SHOP_FLOOR_LIGHT = "333333"
 
 --- Half the Z extent of the green border strip. Stage 1 (like every stage) is centred
 --- on z = 0, so its own edge -- where Scenery.buildStageBorderLines draws the
@@ -188,6 +205,25 @@ function Hub.inDarkFloor(x: number, z: number): boolean
 	return not inGreenStrip
 end
 
+--- A rectangle over the plaza covering the shop cluster — the three tool stalls,
+--- the Outfitter and the Trader kiosk (build/Shops.luau, build/BaseCamp.luau) —
+--- with a few studs of margin on every side. Hand-measured off their current
+--- positions (Shops.luau's `at` values are themselves hand-placed now, not
+--- derived — see that file's header) rather than computed live: there is no
+--- single formula covering four freely-placed stalls plus a kiosk in a
+--- different file, so this rectangle has to move by hand whenever the shop
+--- cluster does, the same way BaseCamp.luau's Trader offset already does.
+local SHOP_ZONE = { minX = -65, maxX = 45, minZ = -55, maxZ = 47 }
+
+--- Should the tile at (x, z) be painted the shop-zone's black/grey pair instead
+--- of the base's own near-flat charcoal? A plain rectangle test, same shape as
+--- `Hub.inDarkFloor` above. Only `buildPlaza` checks this — the shop cluster
+--- sits on the plaza itself, never on the apron ring, so Plots.buildApron has
+--- no reason to.
+function Hub.inShopFloor(x: number, z: number): boolean
+	return x >= SHOP_ZONE.minX and x <= SHOP_ZONE.maxX and z >= SHOP_ZONE.minZ and z <= SHOP_ZONE.maxZ
+end
+
 -- ── The floor ─────────────────────────────────────────────────────────────────
 -- THE PLAZA IS A CHECKERBOARD OF STUDDED TILES, not one flat slab. A single colour
 -- reads as a void with things parked on it: nothing tells you how big the courtyard
@@ -250,6 +286,11 @@ export type TileOpts = {
 	-- which never sets this) is untouched. The plaza and the apron both set this so the
 	-- base reads as one dark surface and the green strip is unbroken across their seam.
 	darkFloor: boolean?,
+	-- Paint the shop-zone's black/grey pair (see `Hub.inShopFloor` / SHOP_FLOOR_DARK /
+	-- SHOP_FLOOR_LIGHT) over the shop cluster. Applied AFTER `darkFloor`, so within
+	-- `Hub.inShopFloor` this wins over the base's own charcoal pair. Only `buildPlaza`
+	-- sets this — see `Hub.inShopFloor`'s own comment for why the apron never does.
+	shopFloor: boolean?,
 	origin: CFrame?, -- default identity -- see this type's own comment above
 }
 
@@ -331,6 +372,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	local skip = o.skip
 	local colorAt = o.colorAt
 	local darkFloorOverlay = o.darkFloor
+	local shopFloorOverlay = o.shopFloor
 
 	local origin = o.origin or CFrame.new(0, 0, 0)
 	local size = (p.maxX - p.minX) / Hub.TILES
@@ -364,6 +406,9 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 			end
 			if darkFloorOverlay and Hub.inDarkFloor(cx, cz) then
 				tileDark, tileLight = FLOOR_DARK, FLOOR_LIGHT
+			end
+			if shopFloorOverlay and Hub.inShopFloor(cx, cz) then
+				tileDark, tileLight = SHOP_FLOOR_DARK, SHOP_FLOOR_LIGHT
 			end
 
 			build(parent, origin, {
@@ -399,9 +444,11 @@ local function buildPlaza(hub: Model)
 	-- Camp -> Stage 1 border strip, which `darkFloor = true` carves on the same grid (not
 	-- a second tileRect laid on top) so there is one tile per square, no z-fight, and the
 	-- checker parity carries straight through the strip edge. Plots.buildApron makes the
-	-- identical call over the apron disc, so the base is one dark surface and the strip
-	-- runs unbroken across the plaza/apron seam.
-	Hub.tileRect(tiles, p, { darkFloor = true })
+	-- identical call over the apron disc (minus `shopFloor`, which only applies here — see
+	-- `Hub.inShopFloor`), so the base is one dark surface and the strip runs unbroken
+	-- across the plaza/apron seam. `shopFloor = true` carves the shop cluster's own
+	-- black/grey zone out of that same dark pair, on the same one-tile-per-square pass.
+	Hub.tileRect(tiles, p, { darkFloor = true, shopFloor = true })
 	tiles.Parent = hub
 
 	-- NO RIM ON ANY SIDE ANY MORE. Three cream strips used to run along the north,
