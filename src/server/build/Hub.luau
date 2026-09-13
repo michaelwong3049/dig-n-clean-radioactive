@@ -39,7 +39,7 @@
 	Hub.PLAZA below) once 200x200 turned out to still be carrying 40+ studs of dead
 	space beyond the westmost stall's own footprint — walking distance for nothing.
 
-	THE FLOOR IS A CHECKERBOARD, and it is not only this floor. `Hub.TILES` below is
+	THE FLOOR IS A CHECKERBOARD, and it is not only this floor. `Hub.TILE_SIZE` below is
 	the grid; `tileRect` and `groundSlab` are exported so the plot ring and the six
 	player bases can lay the same board. The plaza and its apron wear it in a dark
 	charcoal pair EXCEPT a strip of green kept along the Camp -> Stage 1 border (see
@@ -65,7 +65,7 @@
 	rectangle defined in ITS OWN local frame instead of always in world space —
 	added because a pad's facing is no longer a multiple of 90 degrees, so its
 	footprint is no longer axis-aligned in world space the way the grid math here
-	assumes. A pad's tiles stay an exact 3x3 checkerboard, they just no longer
+	assumes. A pad's tiles stay an exact 4x4 checkerboard, they just no longer
 	phase-lock with the apron's grid across the shared edge the way a 90-degree pad
 	could. See Plots.buildPlot.
 ]]
@@ -83,7 +83,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 16
+local BUILDER_VERSION = 17
 
 local C = Kit.C
 local build = Kit.build
@@ -140,8 +140,8 @@ local SHOP_FLOOR_LIGHT = "333333"
 local GREEN_STRIP_HALF_Z = select(4, Stages.bounds(1))
 
 --- How far WEST of Stage 1's edge (x = PLAZA.maxX = 100) the green strip reaches, on
---- request. Quantises to the 3-stud tile grid: `inDarkFloor` tests each tile's centre,
---- so the green/dark boundary lands on the nearest tile edge (x = 76 for 23), a ~24-stud
+--- request. Quantises to the 4-stud tile grid: `inDarkFloor` tests each tile's centre,
+--- so the green/dark boundary lands on the nearest tile edge (x = 75 for 23), a ~25-stud
 --- band in practice.
 local GREEN_STRIP_DEPTH = 23
 
@@ -231,16 +231,17 @@ end
 -- classic Roblox studs are the cheapest way to get a surface that catches the light
 -- instead of sitting there as a matte rectangle.
 --
--- TILES IS A COUNT PER AXIS, NOT A STUD SIZE, and it is the one number to turn when
--- the pattern reads wrong. The plaza is 165 studs wide (PLAZA.maxX - PLAZA.minX,
--- post "compact the plaza" pass — was 200 when this file's numbers were first
--- picked), so 55 gives an exact 165/55 = 3-stud tile with no rounding, 55^2 = 3025
--- of them.
+-- TILE_SIZE IS A STUD SIZE, NOT A COUNT PER AXIS, and it is the one number to turn
+-- when the pattern reads wrong. 4 was chosen (up from 3) on request, kept as a
+-- direct size rather than a divisor-of-the-plaza count: the plaza is 165 studs wide
+-- (PLAZA.maxX - PLAZA.minX), and 165 isn't a multiple of 4, so the west edge column
+-- is a partial-width tile clipped to the plaza's real edge — the same clipping
+-- `tileRect` already does at any rectangle boundary that doesn't land on a tile
+-- line (see PLAZA_SKIP_MARGIN / PAD_SKIP_INSET in Plots.luau, which scale with
+-- this constant for the same reason).
 --
 -- Studs are laid out on a one-per-stud pitch centred on each face, so a tile whose
--- side is a whole number of studs is the one that comes out exactly like the classic
--- brick — which is why 55 was chosen over an arbitrary nearby count: it lands on
--- exactly 3, not a rounding that happens to look close to 3.
+-- side is a whole number of studs comes out exactly like the classic brick.
 --
 -- THE TILES ARE A CAP LAYER OVER A STRUCTURAL SLAB, rather than thousands of
 -- full-thickness blocks. Two reasons: the plaza's exposed side stays one clean dark
@@ -254,7 +255,7 @@ end
 -- everywhere. The plaza paints its own slab (buildPlaza); the apron paints the rest of
 -- the disc (Plots.buildApron) on the one shared grid. The lone green patch is the
 -- Camp -> Stage 1 border strip, which `Hub.inDarkFloor` carves out of both.
-Hub.TILES = 55
+Hub.TILE_SIZE = 4
 local CAP = 0.4
 
 export type Rect = { minX: number, maxX: number, minZ: number, maxZ: number }
@@ -375,7 +376,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	local shopFloorOverlay = o.shopFloor
 
 	local origin = o.origin or CFrame.new(0, 0, 0)
-	local size = (p.maxX - p.minX) / Hub.TILES
+	local size = Hub.TILE_SIZE
 
 	local built = 0
 	local ix0 = math.floor((rect.minX - p.minX) / size)
@@ -433,7 +434,7 @@ local function buildPlaza(hub: Model)
 
 	Hub.groundSlab(hub, p, "Plaza", p.thickness)
 
-	-- Foldered because thousands of siblings (Hub.TILES^2) makes the Hub model
+	-- Foldered because thousands of siblings (one per tile) makes the Hub model
 	-- unopenable in the explorer, and every one of them is the same decorative cap.
 	-- The handful of parts that actually matter stay visible next to the folder
 	-- instead of buried in it.

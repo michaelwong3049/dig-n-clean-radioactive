@@ -172,7 +172,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 33
+local BUILDER_VERSION = 34
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -387,9 +387,9 @@ end
 --- clips every tile to the rect it's given).
 --- How far inside the plaza's own literal edge a tile's CENTRE has to land
 --- before this treats it as safely covered by the plaza's own floor and skips
---- it here. NOT zero, and here is why: Hub.PLAZA is 140 studs in Z (70*2) and
---- the tile grid is 3 studs (Hub.TILES) — 140 isn't a multiple of 3, so the
---- plaza's own northmost/southmost tile ROW is a partial-height tile clipped
+--- it here. NOT zero, and here is why: Hub.PLAZA is 165 studs in X (maxX - minX)
+--- and the tile grid is 4 studs (Hub.TILE_SIZE) — 165 isn't a multiple of 4, so the
+--- plaza's own westmost tile COLUMN is a partial-width tile clipped
 --- to the plaza's real edge (exactly what Hub.tileRect's own header says edge
 --- tiles do, correctly, on its own). This apron's tiling is a SEPARATE,
 --- independently-clipped grid over a different, bigger rect, so its own tile
@@ -405,11 +405,11 @@ end
 --- built here too, even though its centre reads as "inside" — redundant with
 --- the plaza's own edge tile there, but a doubled, coincident, same-colour,
 --- same-height tile is invisible, unlike the seam it replaces.
-local PLAZA_SKIP_MARGIN = 3
+local PLAZA_SKIP_MARGIN = 4
 
 --- Same idea as PLAZA_SKIP_MARGIN, one edge in: how far inside a PAD's own footprint
 --- a cap tile's centre has to land before this pass drops it. NOT zero. `Hub.tileRect`
---- calls `skip` with each tile's centre and a tile is 3 studs; a pad's footprint is
+--- calls `skip` with each tile's centre and a tile is 4 studs; a pad's footprint is
 --- rotated ~5 degrees off the apron's axis-aligned grid, so tiles along a pad edge
 --- cross it diagonally. At zero inset a tile whose centre lands just inside the pad
 --- is dropped here even though a corner of it pokes back out over open apron — and
@@ -420,7 +420,7 @@ local PLAZA_SKIP_MARGIN = 3
 --- pad"); one full tile of inset makes `apronSkip` honour that — a straddling tile
 --- is kept, its outward corner is flush apron, and its inward bulk is swallowed by
 --- the pad slab sitting 1.5 studs higher over the same ground.
-local PAD_SKIP_INSET = 3
+local PAD_SKIP_INSET = 4
 
 --- HOW FAR PAST THE RING THE GROUND IS ACTUALLY LAID. RING_OUTER is the apron's
 --- true edge -- every margin / pad-corner-reach figure above is measured to it and
@@ -429,7 +429,7 @@ local PAD_SKIP_INSET = 3
 --- and the wall is WALL_THICKNESS (8) deep, so its INNER face lands right on
 --- r = RING_OUTER and its outer face ~8 studs past. The tiled cap and its backing
 --- bands both used to stop dead at RING_OUTER, which left a thin scalloped strip of
---- open void between the cap's staircase edge (a 3-stud tile grid clipped to a
+--- open void between the cap's staircase edge (a 4-stud tile grid clipped to a
 --- circle wobbles +/- a tile) and that wall face -- it reads as bright slivers
 --- along the curve at the shallow angle a standing player sees it from.
 ---
