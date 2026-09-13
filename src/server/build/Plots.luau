@@ -172,7 +172,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 31
+local BUILDER_VERSION = 32
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -279,35 +279,41 @@ local SHOP_CLUSTER_EAST_REACH = 53
 local FIELD_CLEARANCE = 15
 Plots.RING_CENTER = { x = PLAZA.maxX - SHOP_CLUSTER_EAST_REACH - FIELD_CLEARANCE, z = MID_Z }
 
---- Pad-CENTRE orbit radius. 180 gave a uniform ~16-stud gap between every one of
---- the 6 pads' oriented rectangles at the original 30-degree spacing (checked
---- with real oriented-rectangle distance, not a small-angle approximation) —
---- matching the old rectangular ring's own 16-stud SPREAD gap between paired
---- pads. Widening the spacing to 34 degrees (see RING_ANGLES below) only grows
---- that gap further at this same radius, so 180 was left untouched rather than
---- re-derived — the number that mattered (minimum gap, at whatever the current
---- spacing is) is checked live by World.verify() every rebuild, not pinned to a
---- comment that would need re-deriving each time either constant moves.
---- Comfortably more spread out than the old ring's west-side reach (~134.5
---- studs from centre): this radius alone is already 180, before a pad's own
---- half-depth is added on top.
-Plots.RING_RADIUS = 180
+--- Pad-CENTRE orbit radius. WAS 180 (gave a uniform ~16-stud gap between every
+--- one of the 6 pads' oriented rectangles at the original 30-degree spacing,
+--- widened further once spacing grew to 34 degrees — see RING_ANGLES below).
+--- SHRUNK TO 165 ON REQUEST, to pull the whole ring — and the walk from it to
+--- the shop cluster — noticeably closer in.
+---
+--- 165 IS A CHECKED FLOOR, NOT A ROUND NUMBER PICKED THEN VERIFIED ONCE. 150 was
+--- tried first (2 plots overlapping each other, 4 overlapping the plaza — see
+--- World.verify()'s plot-overlap asserts), then 158 (the plot-plot overlaps
+--- cleared, but 2 plots still sat in the plaza — RING_CENTER is close enough to
+--- the plaza that plaza clearance, not pad spacing, is what actually bounds
+--- this number at this radius). 165 is the first of those probes that came back
+--- with zero failures, so it's what shipped rather than splitting the
+--- difference toward 158 for a few more studs at real risk of the next rebuild
+--- (a plaza resize, a pad depth change) tipping it back into failure.
+--- `assertNoShopOverlap`'s sibling here — World.verify()'s plot-overlap check —
+--- is the actual authority on whether any of this holds, every rebuild, not
+--- this comment.
+Plots.RING_RADIUS = 165
 
 --- The walkway's outer disc radius — has to clear the farthest PAD CORNER from
 --- RING_CENTER, not just the farthest pad centre. The entrance extension grows
 --- inward toward the ring centre, so the farthest outward corner is the back
 --- edge at local Z +44 (the +18 back extension, PAD_MAX_Z above):
---- `sqrt((RING_RADIUS+44)^2 + HALF_W^2)` = ~226.4 studs, up from ~208.6 when the
---- back edge was at +26.
+--- `sqrt((RING_RADIUS+44)^2 + HALF_W^2)`.
 ---
---- 245, NUDGED OUT FROM 235 TO KEEP THE MARGIN — 235 (itself trimmed from 290 on
---- request, whose ~80-stud buffer read as a wide belt of empty tiled ground
---- ringing the camp) left only ~8.6 studs past the deeper pads' corners, close
---- enough that the perimeter wall kissed the plot backs. 245 restores a real
---- ~18-stud margin past the 226.4 reach without any other change: `apronSkip`,
---- the backing bands, the Scenery perimeter wall and World.verify()'s landmass
---- square all already read this constant rather than a hardcoded reach.
-Plots.RING_OUTER = 245
+--- RE-DERIVED FOR RING_RADIUS=165: sqrt(209^2 + 33^2) = ~211.6 studs, down from
+--- ~226.4 at the old radius 180. 230 keeps the same real ~18-stud margin past
+--- that reach 245 kept past 226.4 — this constant has to move by hand whenever
+--- RING_RADIUS does, there is no live formula wiring the two together at
+--- runtime. `apronSkip`, the backing bands, the Scenery perimeter wall and
+--- World.verify()'s landmass square all already read this constant rather than
+--- a hardcoded reach, so shrinking it here pulls the outer wall in with the
+--- ring rather than leaving a wide empty belt around a now-smaller ring.
+Plots.RING_OUTER = 230
 
 --- 34-degree spacing (was 30, widened on request for more breathing room
 --- between pads at the same radius), sector MIDPOINTS (see this section's own
