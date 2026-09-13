@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 24
+local BUILDER_VERSION = 25
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -2888,7 +2888,7 @@ local function buildStageScenery(parent: Instance, id: number)
 	folder.Parent = parent
 end
 
---- Every stage's ground: a studded two-tone checkerboard cap, the same 3-stud board
+--- Every stage's ground: a studded two-tone checkerboard cap, the same 4-stud board
 --- as the plaza and the base pads (`Hub.tileRect`, one shared grid so the tiles stay
 --- in register across every edge), painted in each stage's own colour.
 ---
