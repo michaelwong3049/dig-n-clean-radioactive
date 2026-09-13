@@ -172,7 +172,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 37
+local BUILDER_VERSION = 38
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -206,9 +206,10 @@ Plots.LOCKER_SLOTS = 3
 -- washing equipment and the luck button), and maxZ went from +26 to +44 on
 -- request — an 18-stud extension straight out the back, behind the old wall, so
 -- the stand grid can be spread over a deeper interior (GRID_ROWS below). The
--- back fence, avatar plate and accent trim all read maxZ, so they follow
--- the edge out on their own. Keeping explicit bounds avoids pretending an
--- asymmetric pad is centred on the plot origin.
+-- back fence and accent trim both read maxZ, so they follow the edge out on
+-- their own; the avatar plate floats over PAD_CENTER_Z instead, high above the
+-- whole pad rather than tucked against either edge. Keeping explicit bounds
+-- avoids pretending an asymmetric pad is centred on the plot origin.
 local PAD_MIN_Z = -43
 local PAD_MAX_Z = 44
 Plots.PAD = {
@@ -1806,13 +1807,15 @@ local NAMEPLATE_FACE_FILL = Color3.fromHex("11150F") -- shows for the beat befor
 local function buildNamePlate(parent: Instance, origin: CFrame, accent: string)
 	local pad = Plots.PAD
 
-	-- Same Y/Z the old NameSign floated at: proud of the wall's front face
-	-- (pad.maxZ - 0.5) and raised to clear the back row of stands. An invisible,
+	-- High over the CENTRE of the pad, not tucked against the back edge — the same
+	-- "floats over the whole base" placement BaseMarkerController's own beacon uses
+	-- (Vector3.new(0, 38, 0) off the Pad), so this one reads the same way from
+	-- anywhere in the plaza instead of only from in front of the plot. An invisible,
 	-- uncollidable anchor — nothing to mount a physical sign to any more, this is
 	-- purely something to hang the BillboardGui from.
 	local anchor = build(parent, origin, {
 		name = "NamePlate",
-		pos = { 0, pad.topY + 11.5, pad.maxZ - 2.7 },
+		pos = { 0, pad.topY + 38, PAD_CENTER_Z },
 		size = { 1, 1, 1 },
 		color = C.baseWall,
 		material = "SmoothPlastic",
@@ -1826,7 +1829,7 @@ local function buildNamePlate(parent: Instance, origin: CFrame, accent: string)
 	gui.AlwaysOnTop = true
 	-- Plaza-wide, the same reach BaseMarkerController gives its own beacon — this is
 	-- the one thing that has to read from clear across the ring.
-	gui.MaxDistance = 300
+	gui.MaxDistance = 600
 	-- Every plot sits next to a PointLight or two; LightInfluence defaults to 1 and
 	-- washes the plate back toward white up close, the same bug Kit.surfaceText and
 	-- BaseMarkerController both already document and fix.
@@ -1944,17 +1947,18 @@ local function buildPlot(parent: Instance, index: number)
 
 	-- No solid back wall any more, on request — just the fence (buildBackFence, the
 	-- same rail/post language buildSideRailings already runs down the long edges,
-	-- closing the back edge instead of a wall) and a floating avatar+name plate over
-	-- it (buildNamePlate) that reads like BaseMarkerController's own "YOUR BASE"
-	-- beacon — a circular headshot with the owner's name below it — except built
-	-- server-side so it's visible to every player in the plaza, not just the owner.
+	-- closing the back edge instead of a wall) and a floating avatar+name plate high
+	-- over the pad's centre (buildNamePlate) that reads like BaseMarkerController's
+	-- own "YOUR BASE" beacon — a circular headshot with the owner's name below it —
+	-- except built server-side so it's visible to every player in the plaza, not
+	-- just the owner.
 	buildSideRailings(m, origin)
 	buildBackFence(m, origin)
 	buildNamePlate(m, origin, accent)
 
 	-- No claim board any more: exhibit income is auto-deposited into the owner's
 	-- wallet (ExhibitService.deposit), so there is nothing here to walk up to and
-	-- collect. The avatar plate over the back fence is the only thing that marks
+	-- collect. The avatar plate floating over the pad is the only thing that marks
 	-- whose plot this is.
 
 	-- Where this plot's owner respawns. Disabled until somebody owns it, so nobody
