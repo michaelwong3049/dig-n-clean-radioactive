@@ -183,11 +183,13 @@ UIKit.Stroke = {
 -- draws them UIKit.scale() times bigger. 1080p gets 1.5x, 1440p 2x; it is the SAME
 -- layout on all of them, just larger, so no Dock formula had to change.
 --
--- NEVER BELOW 1, AND THAT FLOOR IS DOING REAL WORK. Screens smaller than the design
--- screen (a docked Studio viewport, a phone) keep exactly the sizes they had rather
--- than shrinking to fit: shrinking would be a change nobody asked for, on the screens
--- where the HUD already felt big. min() over both axes so a tall-but-narrow window is
--- never scaled past what its width can hold.
+-- THE VIEWPORT RATIO NEVER DROPS BELOW 1, AND THAT FLOOR IS DOING REAL WORK. Screens
+-- smaller than the design screen (a docked Studio viewport, a phone) keep exactly the
+-- sizes they had rather than shrinking to fit as the viewport shrinks: that kind of
+-- shrink would be a change nobody asked for. min() over both axes so a tall-but-narrow
+-- window is never scaled past what its width can hold. GLOBAL_SCALE below is a
+-- separate, deliberate multiplier on top of this — it DOES apply below the floor,
+-- because "make the GUI smaller" is supposed to affect every screen size uniformly.
 --
 -- WHAT A CANVAS COSTS ITS CALLER: anything that reads AbsoluteSize / AbsolutePosition
 -- (screen pixels) and writes the answer back into an Offset (design pixels) has to
@@ -195,6 +197,13 @@ UIKit.Stroke = {
 -- fit and StationController's close button — and both say so. RadFx stays OFF the
 -- canvas on purpose: it already sizes itself from the camera viewport.
 UIKit.DESIGN_SCREEN = Vector2.new(1280, 720)
+
+-- A flat multiplier on top of the viewport-derived scale above, so every canvas
+-- can be shrunk (or grown) uniformly without retuning a single Offset anywhere.
+-- Applied AFTER the max(1, ...) floor, so it also takes effect on screens at or
+-- below DESIGN_SCREEN (a docked Studio viewport, a phone) — those would otherwise
+-- never shrink at all.
+UIKit.GLOBAL_SCALE = 0.8
 
 -- Every live canvas, plus — for a billboard's canvas — the gui and design size to
 -- resize along with it. A STRONG table, pruned by ancestry (see track()). The first
@@ -215,9 +224,9 @@ function UIKit.scale(): number
 	-- Studio reports a zero viewport for a frame or two on load (RadFx.viewport hit the
 	-- same thing); treat that as "no room yet" rather than dividing by it.
 	if viewport.X < 1 or viewport.Y < 1 then
-		return 1
+		return UIKit.GLOBAL_SCALE
 	end
-	return math.max(1, math.min(viewport.X / UIKit.DESIGN_SCREEN.X, viewport.Y / UIKit.DESIGN_SCREEN.Y))
+	return UIKit.GLOBAL_SCALE * math.max(1, math.min(viewport.X / UIKit.DESIGN_SCREEN.X, viewport.Y / UIKit.DESIGN_SCREEN.Y))
 end
 
 local function fit(canvas: Frame, spec: Fit, s: number)
