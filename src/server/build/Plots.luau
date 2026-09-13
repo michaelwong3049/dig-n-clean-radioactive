@@ -172,7 +172,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 32
+local BUILDER_VERSION = 33
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1748,29 +1748,39 @@ end
 --- Posts collide (a real barrier at intervals); the rails themselves do not, so
 --- nothing catches a jumping player at head height. Runs the full pad depth in the
 --- pad's own yawed local space through `origin`, like everything else in buildPlot.
+---
+--- Built chunky and studded on request (was thin 0.5/0.4 metal): square brick posts
+--- in a darker grey, with two thick studded rails running through them, so the
+--- fence reads as the same toy-brick plastic as the rest of the base.
 local RAIL_H = 3.4
 local RAIL_POST_SPACING = 8
+local RAIL_POST_W = 1.2
+local RAIL_BAR_T = 0.8
 local function buildSideRailings(parent: Instance, origin: CFrame)
 	local pad = Plots.PAD
 	local folder = Instance.new("Folder")
 	folder.Name = "SideRailings"
 
-	local railX = pad.width / 2 - 0.7 -- just inside the Trim at width/2 - 0.5
-	local z0, z1 = pad.minZ + 0.5, pad.maxZ - 0.5
+	-- Stands on the Trim (width/2 - 1 .. width/2), outer face flush with the pad edge,
+	-- so the thicker posts still clear the wash pad / cleansing station deck edges.
+	local railX = pad.width / 2 - RAIL_POST_W / 2
+	local z0, z1 = pad.minZ + 0.5 + RAIL_POST_W / 2, pad.maxZ - 0.5 - RAIL_POST_W / 2
 	local span = z1 - z0
 	local midZ = (z0 + z1) / 2
 	local postCount = math.max(2, math.floor(span / RAIL_POST_SPACING) + 1)
+	local postH = RAIL_H + RAIL_BAR_T / 2 + 0.4 -- stands proud of the top rail
 
 	for _, side in { -1, 1 } do
 		local x = side * railX
 
-		for _, rail in { { y = RAIL_H, t = 0.4 }, { y = RAIL_H * 0.55, t = 0.3 } } do
+		for _, railY in { RAIL_H, RAIL_H * 0.5 } do
 			build(folder, origin, {
 				name = "Rail",
-				pos = { x, pad.topY + rail.y, midZ },
-				size = { rail.t, rail.t, span },
+				pos = { x, pad.topY + railY, midZ },
+				size = { RAIL_BAR_T, RAIL_BAR_T, span + RAIL_POST_W },
 				color = C.railGrey,
-				material = "Metal",
+				material = "Plastic",
+				studs = true,
 				canCollide = false,
 			})
 		end
@@ -1779,10 +1789,11 @@ local function buildSideRailings(parent: Instance, origin: CFrame)
 			local z = z0 + span * (i / (postCount - 1))
 			build(folder, origin, {
 				name = "RailPost",
-				pos = { x, pad.topY + RAIL_H / 2, z },
-				size = { 0.5, RAIL_H, 0.5 },
-				color = C.railGrey,
-				material = "Metal",
+				pos = { x, pad.topY + postH / 2, z },
+				size = { RAIL_POST_W, postH, RAIL_POST_W },
+				color = C.railPost,
+				material = "Plastic",
+				studs = true,
 			})
 		end
 	end

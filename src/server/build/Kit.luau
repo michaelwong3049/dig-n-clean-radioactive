@@ -159,8 +159,10 @@ Kit.C = {
 	-- instead of glowing pale over the whole base.
 	baseWall = "473F37",
 	-- The side railing down a plot's long edges (Plots.buildSideRailings). A plain
-	-- mid neutral grey — a fence, not a feature; reads as painted metal guard rail.
+	-- mid neutral grey — a fence, not a feature. Studded plastic now: railGrey is the
+	-- rails, railPost the darker square posts they run through.
 	railGrey = "8B8E92",
+	railPost = "63666B",
 	-- What every accent piece on a plot (the side Trim, the nameplate frame, the
 	-- cleansing-station lamp, the two station-sign subtitles) is painted UNTIL an
 	-- owner picks a colour for it in the Settings GUI. An unclaimed plot, and a
