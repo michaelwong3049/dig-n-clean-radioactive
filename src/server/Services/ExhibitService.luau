@@ -265,7 +265,7 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 	local model: Model? = nil
 	if itemId then
 		local item = Items.get(itemId)
-		model = ItemModels.create(item.model)
+		model = ItemModels.create(item.model, itemId)
 	end
 
 	if model then
@@ -529,7 +529,7 @@ local function renderLocker(index: number, data: any)
 			if entry == nil then
 				anchor.Transparency = 1
 			else
-				local model = ItemModels.create(Items.get(entry.itemId).model)
+				local model = ItemModels.create(Items.get(entry.itemId).model, entry.itemId)
 				if model then
 					anchor.Transparency = 1
 					model.Name = "ItemModel"

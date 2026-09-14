@@ -493,7 +493,7 @@ local function equipItem(character: Model, item: any?): boolean
 	end
 
 	local def = Items.get(item.itemId)
-	local model = ItemModels.create(def.model)
+	local model = ItemModels.create(def.model, item.itemId)
 
 	if model == nil then
 		-- THE SAME RARITY-COLOURED BLOCK the registry documents for unmodelled keys,

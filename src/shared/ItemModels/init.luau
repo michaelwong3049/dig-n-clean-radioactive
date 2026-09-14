@@ -11,6 +11,12 @@
 	whole catalogue resolves through exactly 7 factories (one per rarity tier) instead
 	of a bespoke sculpt per item. The old real-world-object factories (BottleCap,
 	GoldBar, etc.) are retired -- nothing in Config/Items references them any more.
+
+	feat/nuke-item-signatures: `create` takes an optional itemId (Items.DEFS' `id`,
+	NOT the model key) so a tier factory can bolt on that one item's distinguishing
+	prop from NukeSignatures.luau on top of the shared archetype. Every call site
+	should pass it when it has one -- an item with no entry there is just the plain
+	tier archetype, the same graceful degrade as an unmodelled item entirely.
 ]]
 
 local NukeCommon = require(script.NukeCommon)
@@ -20,10 +26,12 @@ local NukeEpic = require(script.NukeEpic)
 local NukeLegendary = require(script.NukeLegendary)
 local NukeMythic = require(script.NukeMythic)
 local NukeAnomaly = require(script.NukeAnomaly)
+local NukeBase = require(script.NukeBase)
+local NukeSignatures = require(script.NukeSignatures)
 
 local ItemModels = {}
 
-local factories: { [string]: () -> Model } = {
+local factories: { [string]: (signature: NukeBase.SignatureFn?) -> Model } = {
 	NukeCommon = NukeCommon.create,
 	NukeUncommon = NukeUncommon.create,
 	NukeRare = NukeRare.create,
@@ -37,7 +45,7 @@ function ItemModels.has(modelKey: string): boolean
 	return factories[modelKey] ~= nil
 end
 
-function ItemModels.create(modelKey: string?): Model?
+function ItemModels.create(modelKey: string?, itemId: string?): Model?
 	if modelKey == nil then
 		return nil
 	end
@@ -48,7 +56,8 @@ function ItemModels.create(modelKey: string?): Model?
 		return nil
 	end
 
-	return factory()
+	local signature = if itemId then NukeSignatures[itemId] else nil
+	return factory(signature)
 end
 
 --- Item factories author placement rotations as attributes so a flat object such

@@ -3,7 +3,7 @@
 local NukeBase = require(script.Parent.NukeBase)
 local NukeMythic = {}
 
-function NukeMythic.create(): Model
+function NukeMythic.create(signature: NukeBase.SignatureFn?): Model
 	return NukeBase.create({
 		key = "NukeMythic",
 		displayName = "Nuke",
@@ -23,6 +23,7 @@ function NukeMythic.create(): Model
 		},
 		sizeScale = 2.00,
 		gallerySize = 3.8,
+		signature = signature,
 	})
 end
 

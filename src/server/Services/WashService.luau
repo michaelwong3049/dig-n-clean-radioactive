@@ -231,7 +231,7 @@ end
 local function placeOnStand(stand: BasePart, item: any): (Model, { [number]: { BasePart } }, { [number]: Vector3 })
 	local count = math.max(#(item.patches or {}), 1)
 	local def = Items.get(item.itemId)
-	local model = ItemModels.create(def.model)
+	local model = ItemModels.create(def.model, item.itemId)
 
 	if model == nil then
 		-- The same rarity-coloured block ToolService's off hand and ExhibitService's

@@ -153,7 +153,7 @@ local function buildStand(gallery: Model, origin: CFrame, item: any, index: numb
 	-- the item it was labelling. 6 clears the tallest catalogued item with margin.
 	Kit.billboard(pedestal, 150, 6, string.upper(item.name), `{item.id} / {item.model}`, Kit.C.hazard, 80)
 
-	local itemModel = ItemModels.create(item.model)
+	local itemModel = ItemModels.create(item.model, item.id)
 	if itemModel then
 		itemModel.Name = `Item_{item.id}`
 		itemModel:SetAttribute("ItemId", item.id)
