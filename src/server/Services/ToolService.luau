@@ -63,6 +63,15 @@ local LIBRARY = ReplicatedStorage.Assets.Tools
 local HELD_NAME = "HeldTool"
 local HELD_ITEM_NAME = "HeldItem"
 
+--- Longest axis a held item model is scaled to -- same normalise-to-a-target-
+--- dimension trick as ExhibitService's LOCKER_ITEM_SIZE and WashService's
+--- WASH_DISPLAY_SIZE, sized up a bit since this one is held close to the camera
+--- rather than tucked in a cabinet. Needed now that rarity carries a real size
+--- ramp (NukeBase.sizeScale, feat/nuke-model-rework): the biggest tier authors
+--- nearly 10 studs tall, which reads as an impressive trophy standing on its own
+--- fins at a pedestal but would dwarf and clip through the character in-hand.
+local HELD_ITEM_SIZE = 2.2
+
 local equipped: { [Player]: string? } = {}
 
 -- Track name in Assets/Tools -> the key it upgrades under in profile.gear.
@@ -519,6 +528,16 @@ local function equipItem(character: Model, item: any?): boolean
 		return false
 	end
 	held.PrimaryPart = primary
+
+	-- NORMALISED TO HELD_ITEM_SIZE before the crust goes on, same ordering
+	-- WashService uses -- the crust should wrap the size the player actually sees.
+	do
+		local _, extents = held:GetBoundingBox()
+		local longest = math.max(extents.X, extents.Y, extents.Z)
+		if longest > 0 then
+			held:ScaleTo(HELD_ITEM_SIZE / longest)
+		end
+	end
 
 	-- ONE CHUNK OF SLAG PER PATCH STILL ON IT, wrapped round the real model before
 	-- anything else touches it — the crust has to exist before the weld loop below, or

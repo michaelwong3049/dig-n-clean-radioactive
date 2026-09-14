@@ -120,6 +120,16 @@ local LEASH = 16
 --- so this stops well clear of standing inside the geometry.
 local APPROACH = 1.2
 
+--- The wash stand is a fixed aiming surface, not a trophy case, so every item gets
+--- the same footprint there regardless of its authored size -- the same normalise-
+--- to-a-target-dimension trick ExhibitService's locker and ModelGallery use for
+--- arbitrary item art. Measured live in Plot1: WashRack's top sits at Y 2.83 and
+--- GantryBeam's underside at Y 5.70, a 2.87-stud gap that does not fit every tier
+--- now that rarity carries a real size ramp (NukeBase's sizeScale, feat/nuke-model-
+--- rework) -- Anomaly alone is 2.5x Uncommon elsewhere. 1.6 studs leaves headroom
+--- for the crust chunks ItemCrust wraps around the model on top of this.
+local WASH_DISPLAY_SIZE = 1.6
+
 type Session = {
 	uid: string,
 	stand: BasePart,
@@ -247,6 +257,25 @@ local function placeOnStand(stand: BasePart, item: any): (Model, { [number]: { B
 	end
 	built.Parent = stand
 	built:PivotTo(stand.CFrame * ItemModels.rotation(built, "Wash"))
+
+	-- NORMALISED TO WASH_DISPLAY_SIZE before seating -- see the constant's comment.
+	local _, rawExtent = built:GetBoundingBox()
+	local longest = math.max(rawExtent.X, rawExtent.Y, rawExtent.Z)
+	if longest > 0 then
+		built:ScaleTo(WASH_DISPLAY_SIZE / longest)
+	end
+
+	-- SEATED ON THE RACK'S TOP, NOT CENTRED ON THE STAND. WashStand is a single
+	-- point (the historical anchor every other bay measurement is taken from, see
+	-- build/Plots), not a shelf -- pivoting an item's centre straight to it let one
+	-- end hang through WashRack while the other grazed GantryBeam (crust-fills-the-
+	-- wash-bay). Seat the model's real bounding-box bottom on the rack's top
+	-- surface instead, the same bounding-box seating ExhibitService's pedestal path
+	-- uses. Falls back to the stand's own point if a place file predates WashRack.
+	local rack = stand.Parent and stand.Parent:FindFirstChild("WashRack")
+	local floorY = if rack and rack:IsA("BasePart") then rack.Position.Y + rack.Size.Y / 2 else stand.Position.Y
+	local bounds, extent = built:GetBoundingBox()
+	built:PivotTo(built:GetPivot() + Vector3.new(0, floorY - (bounds.Position.Y - extent.Y / 2) + 0.05, 0))
 
 	-- ENCASED AFTER THE PIVOT, not before: the crust is built around the model's
 	-- bounding box in world space, and wrapping it first would leave the rock behind
