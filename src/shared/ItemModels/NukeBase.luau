@@ -9,11 +9,17 @@
 	rainbow bands, sparkle studs, star studs, a spiked "crown" tip -- so the whole
 	ladder from a dead Common dud up to a glowing cartoonish Anomaly comes out of ONE
 	builder instead of a bespoke sculpt per item. Bounding-box-checked in Studio at
-	roughly 4-5.6 studs long, 1.7-2.8 studs across -- Config/Weight's `sizeScale` and
+	roughly 4-5.6 studs tall, 1.7-2.8 studs across -- Config/Weight's `sizeScale` and
 	`auraScale` do the actual per-item resizing on top of this base proportion.
 
-	Authored lying on its side with the nose at +X and the tail (fins) at -X, resting
-	on the origin. Callers own placement and move the complete Model with PivotTo.
+	Stands upright with the nose at +Y (top) and the tail (fins) at -Y (bottom, the
+	seat it rests on). Callers own placement and move the complete Model with PivotTo.
+
+	Every part below is authored on paper lying on its side -- nose at +X, tail at
+	-X -- because that is the natural way to reason about a body's length, a ring's
+	wrap, and fins spaced around a tube axis. UPRIGHT then rotates each one 90°
+	about Z (+X -> +Y) as it's placed, standing the whole rigid assembly on its fins
+	without changing a single Size or offset number below.
 ]]
 
 local NukeBase = {}
@@ -24,6 +30,8 @@ local NOSE_LENGTH = 1.1
 local FIN_LENGTH = 1.0
 local FIN_SPAN = 0.95
 local FIN_THICK = 0.12
+
+local UPRIGHT = CFrame.Angles(0, 0, math.rad(90))
 
 export type NukeDetail = {
 	key: string,
@@ -54,7 +62,7 @@ local function part(
 	local p = Instance.new("Part")
 	p.Name = name
 	p.Size = size
-	p.CFrame = cframe
+	p.CFrame = UPRIGHT * cframe
 	p.Color = color
 	p.Material = material
 	if shape then
@@ -116,11 +124,16 @@ function NukeBase.create(detail: NukeDetail): Model
 
 	part(model, "Body", Vector3.new(BODY_LENGTH, BODY_DIAMETER, BODY_DIAMETER), CFrame.new(0, 0, 0), detail.bodyColor, bodyMaterial, Enum.PartType.Ball)
 
+	-- Sunk 0.4 stud back from the body's own tip (not perched just beyond it): two
+	-- Ball parts only blend into one silhouette where they actually overlap, and
+	-- both ellipsoids taper toward zero radius at their poles, so anything short of
+	-- a real bite out of the body's tapered tip renders as two spheres with a gap
+	-- between them, live-checked in Studio.
 	part(
 		model,
 		"Nose",
 		Vector3.new(NOSE_LENGTH, BODY_DIAMETER * 0.72, BODY_DIAMETER * 0.72),
-		CFrame.new(BODY_LENGTH / 2 + NOSE_LENGTH * 0.28, 0, 0),
+		CFrame.new(BODY_LENGTH / 2 - 0.4, 0, 0),
 		detail.noseColor,
 		bodyMaterial,
 		Enum.PartType.Ball
