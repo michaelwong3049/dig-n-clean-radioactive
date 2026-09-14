@@ -21,6 +21,7 @@ function NukeMythic.create(): Model
 			Color3.fromHex("3B82F6"),
 			Color3.fromHex("A855F7"),
 		},
+		sizeScale = 2.00,
 		gallerySize = 3.8,
 	})
 end

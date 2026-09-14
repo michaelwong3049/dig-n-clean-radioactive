@@ -11,6 +11,7 @@ function NukeUncommon.create(): Model
 		noseColor = Color3.fromHex("48542F"),
 		finColor = Color3.fromHex("3F4A2B"),
 		finCount = 3,
+		sizeScale = 1.00,
 		gallerySize = 2.8,
 	})
 end

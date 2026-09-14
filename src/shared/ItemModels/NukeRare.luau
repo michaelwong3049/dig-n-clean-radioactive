@@ -12,6 +12,7 @@ function NukeRare.create(): Model
 		finColor = Color3.fromHex("D6432B"),
 		finCount = 3,
 		stripeColor = Color3.fromHex("2B2B2B"),
+		sizeScale = 1.15,
 		gallerySize = 3.0,
 	})
 end

@@ -11,6 +11,7 @@ function NukeCommon.create(): Model
 		noseColor = Color3.fromHex("6B6E71"),
 		finColor = Color3.fromHex("6B6E71"),
 		finCount = 0,
+		sizeScale = 0.85,
 		gallerySize = 2.6,
 	})
 end

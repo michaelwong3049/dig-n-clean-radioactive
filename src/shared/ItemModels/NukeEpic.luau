@@ -14,6 +14,7 @@ function NukeEpic.create(): Model
 		stripeColor = Color3.fromHex("9B5DE5"),
 		chrome = true,
 		glowColor = Color3.fromHex("9B5DE5"),
+		sizeScale = 1.35,
 		gallerySize = 3.2,
 	})
 end

@@ -15,6 +15,7 @@ function NukeAnomaly.create(): Model
 		glowColor = Color3.fromHex("FFFFFF"),
 		sparkleColor = Color3.fromHex("FFFFFF"),
 		crownColor = Color3.fromHex("FFFFFF"),
+		sizeScale = 2.50,
 		gallerySize = 4.2,
 	})
 end

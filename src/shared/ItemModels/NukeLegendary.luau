@@ -15,6 +15,7 @@ function NukeLegendary.create(): Model
 		chrome = true,
 		glowColor = Color3.fromHex("FFD23F"),
 		starColor = Color3.fromHex("FFD23F"),
+		sizeScale = 1.65,
 		gallerySize = 3.6,
 	})
 end
