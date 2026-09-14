@@ -163,4 +163,75 @@ NukeSignatures.unlabeled_cylinder = function(ctx)
 	end
 end
 
+-- "Whatever was worth a bank vault is still attached." -- a vault door embedded
+-- flush in the casing: a wide disc facing straight out, a dial hub proud of it,
+-- and a handle bar across the hub's face. A Cylinder's own rotation axis is
+-- always its local X (see NukeBase's header), so the trailing `Angles(0,0,90°)`
+-- -- the exact trick the base archetype's own crown spikes use to point radially
+-- instead of along the tube -- turns "long along the tube" into "flat face
+-- pointing straight outward", which is what a door needs and a spike doesn't.
+NukeSignatures.deposit_box = function(ctx)
+	local doorColor = Color3.fromHex("C9CDD3")
+	local hubColor = Color3.fromHex("8A8F98")
+	local hatchX = ctx.barrelHalf * 0.15 -- clear of the stripe ring and both stars
+	local diskDiameter = ctx.diameter * 0.62
+	local thickness = 0.16 * ctx.scale
+	local surface = ctx.diameter / 2 - thickness * 0.3 -- mostly proud, a little embedded
+
+	local doorCFrame = CFrame.new(hatchX, 0, 0) * CFrame.new(0, surface, 0) * CFrame.Angles(0, 0, math.rad(90))
+	ctx.part(
+		"SigVaultDoor",
+		Vector3.new(thickness, diskDiameter, diskDiameter),
+		doorCFrame,
+		doorColor,
+		Enum.Material.DiamondPlate,
+		Enum.PartType.Cylinder
+	)
+
+	local hubCFrame = CFrame.new(hatchX, 0, 0) * CFrame.new(0, surface + thickness * 0.7, 0) * CFrame.Angles(0, 0, math.rad(90))
+	ctx.part(
+		"SigVaultHub",
+		Vector3.new(thickness * 0.8, diskDiameter * 0.22, diskDiameter * 0.22),
+		hubCFrame,
+		hubColor,
+		Enum.Material.Metal,
+		Enum.PartType.Cylinder
+	)
+	ctx.part("SigVaultHandle", Vector3.new(diskDiameter * 0.05, diskDiameter * 0.05, diskDiameter * 0.55), hubCFrame, hubColor, Enum.Material.Metal)
+end
+
+-- "Buried under the old farmhouse. Somebody hid this well." -- rustic rather
+-- than industrial, deliberately the opposite read from the Vault Nuke above
+-- despite sharing a tier: a plain hasp and padlock (three straight bars
+-- standing in for a shackle, not a wheel) plus a couple of corroded patches.
+NukeSignatures.rusted_farm_safe = function(ctx)
+	local lockColor = Color3.fromHex("2E2A26")
+	local shackleColor = Color3.fromHex("6B6B6E")
+	local rust = Color3.fromHex("8B4A2B")
+	local lockX = -ctx.barrelHalf * 0.55 -- opposite end of the barrel from the Vault's mount
+	local surface = ctx.diameter / 2 - 0.05 * ctx.scale
+
+	ctx.part("SigLockBody", Vector3.new(0.5, 0.4, 0.24) * ctx.scale, CFrame.new(lockX, surface, 0), lockColor, Enum.Material.Metal)
+
+	local shackleY = surface + 0.22 * ctx.scale
+	ctx.part("SigShackleL", Vector3.new(0.08, 0.24, 0.08) * ctx.scale, CFrame.new(lockX - 0.16 * ctx.scale, shackleY, 0), shackleColor, Enum.Material.Metal)
+	ctx.part("SigShackleR", Vector3.new(0.08, 0.24, 0.08) * ctx.scale, CFrame.new(lockX + 0.16 * ctx.scale, shackleY, 0), shackleColor, Enum.Material.Metal)
+	ctx.part("SigShackleTop", Vector3.new(0.4, 0.08, 0.08) * ctx.scale, CFrame.new(lockX, shackleY + 0.14 * ctx.scale, 0), shackleColor, Enum.Material.Metal)
+
+	ctx.part(
+		"SigRustPatch1",
+		Vector3.new(0.5, 0.02, 0.4) * ctx.scale,
+		CFrame.new(ctx.barrelHalf * 0.5, ctx.diameter / 2 - 0.01 * ctx.scale, ctx.diameter * 0.1),
+		rust,
+		Enum.Material.CorrodedMetal
+	)
+	ctx.part(
+		"SigRustPatch2",
+		Vector3.new(0.3, 0.02, 0.3) * ctx.scale,
+		CFrame.new(ctx.barrelHalf * 0.75, -ctx.diameter * 0.1, ctx.diameter / 2 - 0.01 * ctx.scale),
+		rust,
+		Enum.Material.CorrodedMetal
+	)
+end
+
 return NukeSignatures
