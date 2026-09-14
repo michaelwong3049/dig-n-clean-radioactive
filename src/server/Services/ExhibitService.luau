@@ -273,11 +273,15 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 		model.Name = "ItemModel"
 		model:SetAttribute("ItemId", itemId)
 		model.Parent = display
-		model:PivotTo(
-			display.CFrame
-				* CFrame.new(0, -0.72, 0)
-				* ItemModels.rotation(model, "Display")
-		)
+
+		-- -0.72 used to be a hand-tuned constant that happened to seat the old
+		-- horizontal nuke's belly on the plinth; it has no relation to an upright
+		-- model's height, so this now seats whatever bounding box actually comes
+		-- back, the same way renderLocker already does below.
+		model:PivotTo(display.CFrame * ItemModels.rotation(model, "Display"))
+		local bounds, extent = model:GetBoundingBox()
+		local floorY = display.Position.Y - display.Size.Y / 2
+		model:PivotTo(model:GetPivot() + Vector3.new(0, floorY - (bounds.Position.Y - extent.Y / 2) + 0.03, 0))
 	elseif rarity then
 		display.Color = Rarity.get(rarity).color
 		display.Transparency = 0
