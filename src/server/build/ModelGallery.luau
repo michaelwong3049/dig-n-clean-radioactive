@@ -28,7 +28,7 @@ local ModelGallery = {}
 
 local NAME = "ModelYard"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 9
+local BUILDER_VERSION = 8
 
 local GRID_COLUMNS = 8
 local GRID_SPACING = 8
@@ -87,13 +87,12 @@ local function buildLand(gallery: Model, origin: CFrame)
 	})
 
 	-- Hazard-yellow trim distinguishes the public showcase from a player plot while
-	-- remaining low enough to step over from any side. Chunky cartoon edges:
-	-- thickened 0.24 -> 0.4 -- still a curb, not a wall, well under stepping height.
+	-- remaining low enough to step over from any side.
 	for _, edge in {
-		{ pos = { 0, 0.22, -LAND_DEPTH / 2 + 0.5 }, size = { LAND_WIDTH, 0.4, 1 } },
-		{ pos = { 0, 0.22, LAND_DEPTH / 2 - 0.5 }, size = { LAND_WIDTH, 0.4, 1 } },
-		{ pos = { -LAND_WIDTH / 2 + 0.5, 0.22, 0 }, size = { 1, 0.4, LAND_DEPTH } },
-		{ pos = { LAND_WIDTH / 2 - 0.5, 0.22, 0 }, size = { 1, 0.4, LAND_DEPTH } },
+		{ pos = { 0, 0.18, -LAND_DEPTH / 2 + 0.5 }, size = { LAND_WIDTH, 0.24, 1 } },
+		{ pos = { 0, 0.18, LAND_DEPTH / 2 - 0.5 }, size = { LAND_WIDTH, 0.24, 1 } },
+		{ pos = { -LAND_WIDTH / 2 + 0.5, 0.18, 0 }, size = { 1, 0.24, LAND_DEPTH } },
+		{ pos = { LAND_WIDTH / 2 - 0.5, 0.18, 0 }, size = { 1, 0.24, LAND_DEPTH } },
 	} do
 		Kit.build(gallery, origin, {
 			name = "YardTrim",

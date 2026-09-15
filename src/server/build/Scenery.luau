@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 27
+local BUILDER_VERSION = 26
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -370,16 +370,6 @@ local function grassDrip(col: number, salt: number): number
 	return if r < 0.82 then 0 elseif r < 0.96 then 1 else 2
 end
 
--- CHUNKY CARTOON EDGES: every wall in the game is already tiled and coloured per row
--- (buildWall/buildShoulderWall/buildCampWallLayer all resolve through cliffPair or
--- wallPair below), so "a darker band under each coloured slab" is free here -- row 0,
--- which always sits right on Stages.SURFACE_Y, blends its own pair toward black before
--- the checker split. No new geometry, just one darker row where the wall meets the
--- ground, the same shading cue a heavy ink line would carry in 2D.
-local FOOT_BAND_DARKEN = 0.3
-local WALL_BROWN_DARK_FOOT = Kit.blendHex(WALL_BROWN_DARK, "000000", FOOT_BAND_DARKEN)
-local WALL_BROWN_LIGHT_FOOT = Kit.blendHex(WALL_BROWN_LIGHT, "000000", FOOT_BAND_DARKEN)
-
 --- The (dark, light) pair for one tile of the camp / Stage 1 cliff at wall column `col`
 --- and row `row` (0 = the foot) of a wall `rows` tiles tall, plus whether that tile is
 --- grass (which stands proud -- see overhangOf). The caller picks dark or light by
@@ -388,9 +378,6 @@ local function cliffPair(col: number, row: number, rows: number, salt: number): 
 	if row >= rows - GRASS_LIP_ROWS - grassDrip(col, salt) then
 		local dark, light = campCapPair()
 		return dark, light, true
-	end
-	if row == 0 then
-		return WALL_BROWN_DARK_FOOT, WALL_BROWN_LIGHT_FOOT, false
 	end
 	return WALL_BROWN_DARK, WALL_BROWN_LIGHT, false
 end
@@ -457,9 +444,8 @@ end
 --- world column-centre `x` and row `row`, plus whether it is grass (see cliffPair).
 --- Stage 1 and anything not a stage (id 1 is the fallback) wear the camp cliff; a
 --- pinned stage uses its hand-picked colour; every other stage is a lighterFloor() tint
---- of its own floor. Every path now darkens at row 0 -- the foot-band cue cliffPair
---- carries as WALL_BROWN_*_FOOT, applied here as a plain blend since a derived `mid`
---- has no pre-baked dark hex of its own to swap in.
+--- of its own floor. Only the cliff varies by row -- the other two paths end in the same
+--- close two-tone split every checkerboard in this file uses.
 local function wallPair(id: number, x: number, row: number): (string, string, boolean)
 	if id == 1 then
 		return cliffPair(math.floor(x / WALL_TILE), row, WALL_ROWS, CORRIDOR_SALT)
@@ -467,9 +453,6 @@ local function wallPair(id: number, x: number, row: number): (string, string, bo
 
 	local pin = WALL_STAGE_PIN[id]
 	local mid = if pin then Color3.fromHex(pin) else lighterFloor(Stages.get(id).color)
-	if row == 0 then
-		mid = mid:Lerp(Color3.new(0, 0, 0), FOOT_BAND_DARKEN)
-	end
 
 	local darkC, lightC = twoToneOf(mid)
 	return darkC:ToHex(), lightC:ToHex(), false
