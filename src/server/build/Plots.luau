@@ -171,7 +171,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 43
+local BUILDER_VERSION = 44
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -276,7 +276,7 @@ local HALF_D = Plots.PAD.depth / 2
 local PAD_CENTER_Z = (Plots.PAD.minZ + Plots.PAD.maxZ) / 2
 
 --- The value lives in Hub.luau now (same formula, same point): the plaza floor paints a
---- circle concentric with this ring, and Hub cannot require this file to read it here.
+--- octagon centred on this ring, and Hub cannot require this file to read it here.
 --- Everything above is still the reasoning behind the number.
 Plots.RING_CENTER = Hub.RING_CENTER
 
@@ -2018,7 +2018,7 @@ end
 --- `ground = true` on that call is the other half of Hub's base floor: buildPlaza
 --- paints the plaza slab, this paints the rest of the disc — same grid, same
 --- `Hub.groundPairAt` resolver — so the disc comes out grass (the Stage-1-matched green)
---- flowing around every plot footprint, picks up the round plaza's rim where it spills
+--- flowing around every plot footprint, picks up the plaza octagon's rim where it spills
 --- past the plaza rectangle (the gate paths up to each pad are Hub's own raised strips,
 --- laid over it), and every tile it doubles over the plaza's own
 --- edge (PLAZA_SKIP_MARGIN) takes the plaza's colour instead of z-fighting a different
