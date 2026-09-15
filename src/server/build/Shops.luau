@@ -173,7 +173,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 32
+local BUILDER_VERSION = 31
 
 local C = Kit.C
 local build = Kit.build
@@ -588,20 +588,14 @@ end
 --- Detector stall leaves the rack's two end tiers hanging against open sky.
 local function buildSlatWall(parent: Instance, origin: CFrame, width: number)
 	for index = 1, 7 do
-		local spec = {
+		build(parent, origin, {
 			name = `BackSlat{index}`,
 			pos = { 0, 0.8 + (index - 1) * 1.2, -10 },
 			size = { width - 0.2, 0.88, 0.55 },
 			color = C.shopWoodLight,
 			material = "Plastic",
 			studs = true,
-		}
-		build(parent, origin, spec)
-		if index == 1 then
-			-- Chunky cartoon edges: a darker foot band where the lowest slat meets
-			-- the ground, the same "ink line" cue the boundary walls' row-0 band uses.
-			Kit.footBand(parent, origin, spec)
-		end
+		})
 	end
 end
 
@@ -696,10 +690,7 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 		attributes = attrs,
 	})
 
-	-- Chunky cartoon edges: thickened from 0.3 to 0.5, keeping the same 0.1-stud
-	-- embed into the desk top (2.2) so the cap still reads as capping it, not
-	-- floating above it.
-	build(parent, origin, { name = `{name}Trim`, pos = { 0, 2.35, z }, size = { w + 0.4, 0.5, d + 0.4 }, color = spec.color, material = "Plastic", studs = spec.studded, canCollide = false })
+	build(parent, origin, { name = `{name}Trim`, pos = { 0, 2.25, z }, size = { w + 0.4, 0.3, d + 0.4 }, color = spec.color, material = "Plastic", studs = spec.studded, canCollide = false })
 
 	if spec.promptText then
 		local prompt = Instance.new("ProximityPrompt")
