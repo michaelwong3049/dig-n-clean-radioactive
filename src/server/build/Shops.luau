@@ -133,7 +133,7 @@
 	on selecting a nested model by name, not by clicking the plaza in the
 	viewport), then hand-transcribed here so a rebuild reproduces it exactly.
 	The whole cluster was then shifted 20 east as one block (every `at`, the
-	Trader kiosk and Hub's SHOP_ZONE together) to centre it in the round plaza.
+	Trader kiosk and Hub's SHOP_ZONE together) to centre it in the plaza octagon.
 	Every stall carries an explicit `faceYaw` now: none of their `at`s sits due
 	north/south of PLAZA_MID any more, so the default "aim at PLAZA_MID" would
 	turn them diagonal.

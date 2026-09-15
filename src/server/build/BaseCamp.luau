@@ -176,7 +176,7 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- -0.6, 0) with no rotation, so a local offset maps straight onto world XZ:
 	-- (-10.5, 0, -38.5) local lands on world (7, ~, -38.5). It moved 20 east with
 	-- the whole shop cluster (was -30.5 / world -13) to centre the cluster in the
-	-- round plaza -- see Hub.luau's SHOP_ZONE. X and Z both track Magnet and
+	-- plaza octagon -- see Hub.luau's SHOP_ZONE. X and Z both track Magnet and
 	-- Cleaner's own `at` (build/Shops.luau's STALLS) whenever they move — the
 	-- three were dragged together in Studio, so this file's offset has to move with
 	-- theirs by hand each time; there is no live link between the two files. The
