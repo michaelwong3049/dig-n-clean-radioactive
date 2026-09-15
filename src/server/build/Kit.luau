@@ -415,6 +415,55 @@ function Kit.blendHex(a: string, b: string, t: number): string
 	return Color3.fromHex(a):Lerp(Color3.fromHex(b), t):ToHex()
 end
 
+-- ── Chunky cartoon edges ─────────────────────────────────────────────────────
+-- Roblox has no cheap outline shader. These two helpers fake the "inked toon"
+-- look two other ways instead: a rounded cap standing proud of a post's flat-cut
+-- top, and a darker strip laid against a slab's own foot. BOTH ARE PURELY
+-- ADDITIVE -- a new sibling part alongside the one already passed in, never a
+-- resize/reposition of it -- so a post or slab already wired to a
+-- CollectionService tag, a StationKind, or a billboard offset keyed to its exact
+-- geometry can never drift or lose that wiring because a cap or band got added.
+
+--- A rounded cap on a post's top. `postSpec` is the SAME Spec already handed to
+--- Kit.build for the post itself -- this reads the post's own width/top position
+--- back off it rather than taking new numbers, so a cap can never end up
+--- floating off-post or buried in it. Assumes a square cross-section
+--- (size[1] == size[3]), true of every post in this codebase today.
+function Kit.postCap(parent: Instance, origin: CFrame, postSpec: Spec, diameterMul: number?, capColor: string?): BasePart
+	local d = postSpec.size[1] * (diameterMul or 1.3)
+	local topY = postSpec.pos[2] + postSpec.size[2] / 2
+	return Kit.build(parent, origin, {
+		name = postSpec.name .. "Cap",
+		pos = { postSpec.pos[1], topY + d * 0.32, postSpec.pos[3] },
+		size = { d, d, d },
+		color = capColor or postSpec.color,
+		material = postSpec.material,
+		shape = "Ball",
+		canCollide = false,
+	})
+end
+
+--- A darker decorative strip laid flush against the FOOT of an already-built
+--- slab -- "a darker band under each coloured slab" from the flat colour up
+--- meeting the ground, the same shading cue a heavy ink line would carry in 2D.
+--- `slabSpec` is the SAME Spec already handed to Kit.build for the slab; this
+--- reads its footprint/bottom edge back off it. For DECORATIVE slabs only --
+--- anything carrying a StationKind, ProximityPrompt anchor, or billboard keyed
+--- to its own geometry should not gain a sibling part sitting in front of it.
+function Kit.footBand(parent: Instance, origin: CFrame, slabSpec: Spec, bandFraction: number?, darkenAmount: number?): BasePart
+	local bandH = math.clamp(slabSpec.size[2] * (bandFraction or 0.16), 0.15, 1.6)
+	local bottomY = slabSpec.pos[2] - slabSpec.size[2] / 2
+	return Kit.build(parent, origin, {
+		name = slabSpec.name .. "Band",
+		pos = { slabSpec.pos[1], bottomY + bandH / 2, slabSpec.pos[3] },
+		size = { slabSpec.size[1], bandH, slabSpec.size[3] },
+		color = Kit.blendHex(slabSpec.color, "000000", darkenAmount or 0.35),
+		material = slabSpec.material,
+		rot = slabSpec.rot,
+		canCollide = false,
+	})
+end
+
 function Kit.light(part: BasePart, color: string, range: number, brightness: number, shadows: boolean?)
 	local l = Instance.new("PointLight")
 	l.Color = Color3.fromHex(color)
