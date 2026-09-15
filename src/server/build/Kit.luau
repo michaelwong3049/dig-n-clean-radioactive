@@ -148,12 +148,12 @@ Kit.C = {
 
 	-- The player bases' pad floor: ONE flat tone on the plaza's studded tile board
 	-- (buildPlot passes it as both `dark` and `light` to Hub.tileRect), instead of
-	-- the navy/grey `baseTileDark`/`baseTileLight` checker. A dark cool charcoal —
-	-- lifted off near-pure-black on request so the studs read. Has been grey, then
-	-- near-black, then briefly a smooth no-stud plate (glinted in the sun), now back
-	-- to studs at this tone. `baseTileDark`/`Light` stay above for anything that
-	-- still wants the old pair.
-	baseFloor = "282A33",
+	-- the navy/grey `baseTileDark`/`baseTileLight` checker. A warm wooden-deck brown,
+	-- on request (the cartoon base pass): the pads sit on grass now, and the old dark
+	-- charcoal (282A33) read as car parks laid on a lawn. Has been grey, near-black, a
+	-- smooth no-stud plate (glinted in the sun), then charcoal studs.
+	-- `baseTileDark`/`Light` stay above for anything that still wants the old pair.
+	baseFloor = "9C6B43",
 	-- The plot's back wall. WAS `plazaWarm` (a light cream) — dropped to a dark warm
 	-- taupe on request so the wall recedes behind the nameplate and the accent trim
 	-- instead of glowing pale over the whole base.

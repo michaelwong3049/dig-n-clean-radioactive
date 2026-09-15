@@ -47,13 +47,12 @@
 
 	A BASE WEARS THE PLAZA'S STUDDED BOARD IN ONE FLAT COLOUR. The pad is not a slab
 	of concrete: it is the same studded tile board the courtyard is paved in, on the
-	same grid, one step up from the apron — but a single flat near-black charcoal
-	(`Kit.C.baseFloor`), not the courtyard's green checker. The board has been every
+	same grid, one step up from the apron — but a single flat wooden-deck brown
+	(`Kit.C.baseFloor`), not the grass checker around it. The board has been every
 	shape by now (navy/grey checker → flat grey → flat near-black → a smooth no-stud
-	plate that glinted in the sun); back to the studded board, one flat tone, on
-	request. That still makes the six bases the only thing in the world that is not
-	some shade of green, and still makes walking onto one a change of colour rather
-	than a change of surface.
+	plate that glinted in the sun → charcoal studs); one flat tone, on request. That
+	makes the six bases read as decks set into the lawn, and walking onto one a change
+	of colour rather than a change of surface.
 
 	A PAD'S OWN TILES ARE BUILT IN ITS YAWED LOCAL SPACE, NOT WORLD SPACE — the
 	semicircular ring's facings are no longer multiples of 90, so a pad's true
@@ -172,7 +171,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 40
+local BUILDER_VERSION = 41
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1906,13 +1905,12 @@ local function buildPlot(parent: Instance, index: number)
 
 	-- THE STAGE, WEARING THE PLAZA'S STUDDED BOARD IN ONE FLAT COLOUR. One step up
 	-- from the apron — a plot should feel like somewhere you walk onto, not part of
-	-- the pavement — and one flat near-black charcoal (`C.baseFloor`): a shade below
-	-- the base floor's own dark checker and flat where that alternates, so the six
-	-- bases still read as their own thing against it. The board has been every shape
-	-- by now (navy/grey checker → flat grey → flat near-black → a smooth no-stud
-	-- plate); back to the studded board on request, one flat tone, so the studs catch
-	-- the light like every other floor in the world without the pad alternating or
-	-- turning to a mirror.
+	-- the lawn — and one flat wooden-deck brown (`C.baseFloor`), flat where the grass
+	-- around it alternates, so the six bases read as decks set into the apron. The
+	-- board has been every shape by now (navy/grey checker → flat grey → flat
+	-- near-black → a smooth no-stud plate → charcoal studs); one flat studded tone so
+	-- the studs catch the light like every other floor in the world without the pad
+	-- alternating or turning to a mirror.
 	--
 	-- BUILT IN THIS MODEL'S YAWED LOCAL SPACE, THROUGH `origin`, LIKE EVERYTHING ELSE
 	-- IN THIS FUNCTION — the opposite of how this used to work (see this file's own
@@ -2014,12 +2012,12 @@ end
 --- already uses) and punched by `apronSkip` (plaza + every pad's own oriented
 --- footprint) — see that function's own comment above.
 ---
---- `darkFloor = true` on that call is the other half of Hub's dark base floor: buildPlaza
+--- `ground = true` on that call is the other half of Hub's base floor: buildPlaza
 --- paints the plaza slab, this paints the rest of the disc — same grid, same
---- `Hub.inDarkFloor` test — so the base reads as one dark surface. The only green it
---- leaves is the Camp -> Stage 1 border strip, and `inDarkFloor` produces that here too
---- wherever the disc runs up against the `maxX = PLAZA.maxX` clip. The dark flows around
---- every plot footprint since `apronSkip` punches those out before the colour is chosen.
+--- `Hub.groundPairAt` resolver — so the disc comes out grass (the Stage-1-matched green)
+--- flowing around every plot footprint, and every tile it doubles over the plaza's own
+--- edge (PLAZA_SKIP_MARGIN) takes the plaza's colour instead of z-fighting a different
+--- one over it. See `Hub.groundPairAt` on why that must stay one shared resolver.
 ---
 --- CLIPPED AT THE FIELD, NOT AT RING_CENTER, ON REQUEST. The disc used to stop
 --- dead at `RING_CENTER.x`, which is west of the plaza's own east edge — the
@@ -2054,7 +2052,7 @@ local function buildApron(row: Model)
 		minZ = Plots.RING_CENTER.z - APRON_CAP_RADIUS,
 		maxZ = Plots.RING_CENTER.z + APRON_CAP_RADIUS,
 	}
-	Hub.tileRect(apron, discBounds, { skip = apronSkip, darkFloor = true })
+	Hub.tileRect(apron, discBounds, { skip = apronSkip, ground = true })
 
 	local BANDS = 12
 	local bandHeight = (2 * APRON_CAP_RADIUS) / BANDS

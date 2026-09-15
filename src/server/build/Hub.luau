@@ -41,24 +41,22 @@
 
 	THE FLOOR IS A CHECKERBOARD, and it is not only this floor. `Hub.TILE_SIZE` below is
 	the grid; `tileRect` and `groundSlab` are exported so the plot ring and the six
-	player bases can lay the same board. The plaza and its apron wear it in a dark
-	charcoal pair EXCEPT a strip of green kept along the Camp -> Stage 1 border (see
-	`Hub.inDarkFloor` / GREEN_STRIP_DEPTH); the bases wear it in navy and grey a step
-	above — one pattern, one grid, staying in register across the apron's own edges
-	because the grid belongs to the plaza rather than to whoever is asking for tiles.
-	THE SHOP CLUSTER GETS ITS OWN PATCH OF THAT SAME BOARD, in an actual black/grey
-	pair rather than the near-flat charcoal, on request — see `Hub.inShopFloor` /
-	SHOP_ZONE. Carved out of the plaza's own tileRect call, same mechanism as the
-	green strip, so it is one tile per square rather than a second board laid on top.
+	player bases can lay the same board. The plaza and its apron wear it in three zones
+	resolved by one function, `Hub.groundPairAt`: grass on the apron and along the
+	Camp -> Stage 1 border (GREEN_STRIP_DEPTH), a cream path over the rest of the
+	plaza, and a pale stone patch under the shop cluster (SHOP_ZONE); the bases wear it
+	as a flat wooden deck a step above — one pattern, one grid, staying in register
+	across the apron's own edges because the grid belongs to the plaza rather than to
+	whoever is asking for tiles. All zones come out of the one tileRect pass, so it is
+	one tile per square rather than boards laid on top of each other.
 
-	IT USED TO BE GREEN WITH A GREY SPINE DOWN THE MIDDLE. The grey band started as a
-	small inlaid pad (`eaffbc7`), was widened to a rectangle (`39df0b0`), run north/
-	south onto the apron as a "spine" (`819ff28`), then pushed west toward square
-	(`f27e670`) — and finally, on request, flooded across the whole base: plaza slab
-	AND the entire apron disc, around and behind all six plots. All that survives of
-	the green is the border strip, there so the walk out of camp still crosses green
-	and so Stage 1's own green west edge (Scenery.buildStageCheckerboard) meets green
-	rather than snapping to grey at the x = 100 seam.
+	IT HAS BEEN GREEN, GREY-SPINED, AND ALL CHARCOAL. A grey band started as a small
+	inlaid pad (`eaffbc7`), was widened (`39df0b0`), run north/south onto the apron as
+	a "spine" (`819ff28`), pushed west (`f27e670`), then flooded across the whole base
+	as a near-flat charcoal (PR #143) that read as a car park from any height. The
+	cartoon pass put the grass back around the plots and paved only the plaza, in
+	light colours. The grass is Stage 1's own tinted green, so Stage 1's west edge
+	(Scenery.buildStageCheckerboard) meets it with no seam at the x = 100 line.
 
 	A PAD'S OWN BOARD IS THE ONE EXCEPTION, AND ONLY SINCE THE SEMICIRCLE. Both
 	builders below take an optional `opts.origin` CFrame so a caller can tile a
@@ -83,7 +81,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 17
+local BUILDER_VERSION = 18
 
 local C = Kit.C
 local build = Kit.build
@@ -101,36 +99,26 @@ local build = Kit.build
 local PLAZA_DARK = Kit.blendHex(C.plazaTileDark, Stages.get(1).ooze.bright, Stages.GROUND_OOZE_TINT)
 local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, Stages.GROUND_OOZE_TINT)
 
---- The base floor's dark pair. The same studded board on the same grid at the same
---- height as the rest of the courtyard, only a different palette, so it reads as a
---- marked-out gathering floor rather than a raised platform (no step, footing is
---- unchanged).
+--- The base floor, in three zones on the one shared grid -- see `Hub.groundPairAt`.
 ---
---- IT IS THE WHOLE BASE NOW, NOT A CENTRAL PAD. buildPlaza paints the plaza slab with
---- this pair and Plots.buildApron paints the entire apron disc with it, both on the one
---- shared grid, so the base reads as a single dark surface. The only green left is the
---- Camp -> Stage 1 border strip -- see `Hub.inDarkFloor`.
+--- CARTOON PASS, ON REQUEST. The whole base used to be a near-flat dark charcoal
+--- (3D3F42/404246, ~5% apart) with a black/grey patch under the shops, and from any
+--- height it read as a car park. It is now:
 ---
---- The two greys are a dark charcoal, a good step below the plaza's old greens in value
---- and colour both. They sit only ~5% apart per channel, on request -- far tighter than
---- the ~1.2x the green plaza pair had -- so the checker reads as the faintest texture on
---- a near-flat dark floor rather than an alternating pattern, just enough for the studs
---- to catch the light tile to tile.
-local FLOOR_DARK = "3D3F42"
-local FLOOR_LIGHT = "404246"
-
---- The shop-zone floor's pair — a black/grey checkerboard, not the near-flat
---- charcoal the rest of the base wears, but a dark one: `SHOP_FLOOR_LIGHT` was
---- `Kit.C.standGrey` (A0A0A0, a bright stand-and-counter grey) on the first pass,
---- then pulled down to a near-black dark grey on request, so the pattern reads
---- from the studs catching light tile to tile rather than from a bright square
---- standing out against a dark board. `SHOP_FLOOR_DARK` stays `Kit.C.hazardBlack`,
---- this file's usual crisp black. Still noticeably more contrast than the base's
---- own FLOOR_DARK/FLOOR_LIGHT pair (which sit ~5% apart per channel) — this pair
---- sits ~50% apart — so the shop cluster still reads as its own marked-out zone,
---- just a dark one rather than a bright one.
-local SHOP_FLOOR_DARK = C.hazardBlack
-local SHOP_FLOOR_LIGHT = "333333"
+---   GRASS -- the apron around and between the plots, and the Camp -> Stage 1 border
+---            strip. This IS PLAZA_DARK/PLAZA_LIGHT (the Stage-1-tinted green), so the
+---            ground meets Stage 1's own west edge with no seam at all.
+---   PATH  -- the rest of the plaza: a warm cream, ~6% apart so the checker reads.
+---   SHOP  -- the shop cluster (SHOP_ZONE): a pale cool stone, so the striped awnings
+---            carry the colour instead of fighting a coloured floor under them (a
+---            terracotta patch was tried live first and swallowed the orange awning).
+---
+--- Same studded board, same grid, same height everywhere -- only the palette changes
+--- zone to zone, so footing is unchanged.
+local PATH_DARK = "DCCBA3"
+local PATH_LIGHT = "EADCBA"
+local SHOP_FLOOR_DARK = "AEB6BD"
+local SHOP_FLOOR_LIGHT = "BFC6CC"
 
 --- Half the Z extent of the green border strip. Stage 1 (like every stage) is centred
 --- on z = 0, so its own edge -- where Scenery.buildStageBorderLines draws the
@@ -140,7 +128,7 @@ local SHOP_FLOOR_LIGHT = "333333"
 local GREEN_STRIP_HALF_Z = select(4, Stages.bounds(1))
 
 --- How far WEST of Stage 1's edge (x = PLAZA.maxX = 100) the green strip reaches, on
---- request. Quantises to the 4-stud tile grid: `inDarkFloor` tests each tile's centre,
+--- request. Quantises to the 4-stud tile grid: `inGreenStrip` tests each tile's centre,
 --- so the green/dark boundary lands on the nearest tile edge (x = 75 for 23), a ~25-stud
 --- band in practice.
 local GREEN_STRIP_DEPTH = 23
@@ -189,20 +177,17 @@ local GREEN_STRIP_DEPTH = 23
 Hub.PLAZA = { minX = -65, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = -1.5 }
 Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
 
---- Should the tile at (x, z) be painted the dark base-floor pair rather than the green?
---- True across the WHOLE base -- every plaza and apron tile -- except a strip of green
---- kept along the Camp -> Stage 1 border: GREEN_STRIP_DEPTH studs west from Stage 1's
---- edge (x = PLAZA.maxX) and +/-GREEN_STRIP_HALF_Z either side of z = 0 (the field's own
---- half-width, so the green band lines up with the yellow hazard line
---- Scenery.buildStageBorderLines draws on that seam, and with Stage 1's own green west
---- edge in Scenery.buildStageCheckerboard -- green meets green, not a grey snap).
+--- Is the tile at (x, z) in the green Camp -> Stage 1 border strip? GREEN_STRIP_DEPTH
+--- studs west from Stage 1's edge (x = PLAZA.maxX) and +/-GREEN_STRIP_HALF_Z either side
+--- of z = 0 (the field's own half-width, so the green band lines up with the yellow
+--- hazard line Scenery.buildStageBorderLines draws on that seam). Inside the plaza it
+--- keeps the cream path back from the field, so the walk out of camp still crosses
+--- grass before the line; outside the plaza everything is grass anyway.
 ---
 --- A plain rectangle test: the strip's edges follow the tile grid straight (tileRect
---- clips edge tiles), no corner easing. Exported because Plots.buildApron runs the same
---- test over the apron disc so the green band is unbroken across the plaza/apron seam.
-function Hub.inDarkFloor(x: number, z: number): boolean
-	local inGreenStrip = x >= Hub.PLAZA.maxX - GREEN_STRIP_DEPTH and math.abs(z) <= GREEN_STRIP_HALF_Z
-	return not inGreenStrip
+--- clips edge tiles), no corner easing.
+local function inGreenStrip(x: number, z: number): boolean
+	return x >= Hub.PLAZA.maxX - GREEN_STRIP_DEPTH and math.abs(z) <= GREEN_STRIP_HALF_Z
 end
 
 --- A rectangle over the plaza covering the shop cluster — the three tool stalls,
@@ -215,13 +200,34 @@ end
 --- cluster does, the same way BaseCamp.luau's Trader offset already does.
 local SHOP_ZONE = { minX = -65, maxX = 45, minZ = -55, maxZ = 47 }
 
---- Should the tile at (x, z) be painted the shop-zone's black/grey pair instead
---- of the base's own near-flat charcoal? A plain rectangle test, same shape as
---- `Hub.inDarkFloor` above. Only `buildPlaza` checks this — the shop cluster
---- sits on the plaza itself, never on the apron ring, so Plots.buildApron has
---- no reason to.
+--- Is the tile at (x, z) under the shop cluster, and so painted the shop stone pair
+--- rather than the cream path? A plain rectangle test, same shape as `inGreenStrip`
+--- above. `Hub.groundPairAt` checks it first, for plaza and apron tiles alike.
 function Hub.inShopFloor(x: number, z: number): boolean
 	return x >= SHOP_ZONE.minX and x <= SHOP_ZONE.maxX and z >= SHOP_ZONE.minZ and z <= SHOP_ZONE.maxZ
+end
+
+--- The (dark, light) pair for the base-floor tile centred at (x, z): stone under the
+--- shops, cream on the rest of the plaza, grass everywhere else (the apron and the
+--- Camp -> Stage 1 strip). See PATH_DARK's comment for the palette.
+---
+--- ONE RESOLVER FOR EVERY BASE-FLOOR TILE, WHICHEVER BUILDER LAYS IT, AND THAT IS
+--- LOAD-BEARING. The apron deliberately lays a ring of tiles coincident with the
+--- plaza's own edge tiles (Plots' PLAZA_SKIP_MARGIN -- it closes a one-stud seam),
+--- same grid, same height. While both floors were one charcoal that doubling was
+--- invisible; with grass on one and cream on the other it z-fought into a stair-step
+--- along every plaza edge (seen live: 183 doubled tiles). Resolving by position means
+--- a doubled tile always takes the plaza's own colour, so it is invisible again.
+function Hub.groundPairAt(x: number, z: number): (string, string)
+	if Hub.inShopFloor(x, z) then
+		return SHOP_FLOOR_DARK, SHOP_FLOOR_LIGHT
+	end
+	local p = Hub.PLAZA
+	local inPlaza = x >= p.minX and x <= p.maxX and z >= p.minZ and z <= p.maxZ
+	if inPlaza and not inGreenStrip(x, z) then
+		return PATH_DARK, PATH_LIGHT
+	end
+	return PLAZA_DARK, PLAZA_LIGHT
 end
 
 -- ── The floor ─────────────────────────────────────────────────────────────────
@@ -249,12 +255,11 @@ end
 -- actually stands on. The slab's top is recessed by exactly CAP, so the walking
 -- surface is still PLAZA.topY and nothing standing on the plaza has to move.
 --
--- THE WHOLE BASE FLOOR IS THE DARK PAIR -- see FLOOR_DARK / FLOOR_LIGHT, Hub.inDarkFloor
--- and the `darkFloor` flag on TileOpts. It is not separate geometry, just those same cap
--- tiles painted the charcoal pair instead of green; footing and height are the plaza's
--- everywhere. The plaza paints its own slab (buildPlaza); the apron paints the rest of
--- the disc (Plots.buildApron) on the one shared grid. The lone green patch is the
--- Camp -> Stage 1 border strip, which `Hub.inDarkFloor` carves out of both.
+-- THE BASE FLOOR'S ZONES ARE PAINT, NOT GEOMETRY -- see PATH_DARK, Hub.groundPairAt and
+-- the `ground` flag on TileOpts. Grass, cream path and shop stone are the same cap tiles
+-- in different pairs; footing and height are the plaza's everywhere. The plaza paints
+-- its own slab (buildPlaza); the apron paints the rest of the disc (Plots.buildApron) on
+-- the one shared grid, through the one shared resolver.
 Hub.TILE_SIZE = 4
 local CAP = 0.4
 
@@ -281,17 +286,12 @@ export type TileOpts = {
 	-- optional and additive so every existing caller (the plaza itself, Plots'
 	-- pads/apron) is untouched -- none of them pass this.
 	colorAt: ((x: number, z: number) -> (string, string))?,
-	-- Paint the dark base-floor pair (see `Hub.inDarkFloor` / FLOOR_DARK / FLOOR_LIGHT)
-	-- instead of the green: any tile whose centre is NOT in the Camp -> Stage 1 green
-	-- strip comes out charcoal. Applied AFTER `colorAt`, so a gradient board (Stage 1's,
-	-- which never sets this) is untouched. The plaza and the apron both set this so the
-	-- base reads as one dark surface and the green strip is unbroken across their seam.
-	darkFloor: boolean?,
-	-- Paint the shop-zone's black/grey pair (see `Hub.inShopFloor` / SHOP_FLOOR_DARK /
-	-- SHOP_FLOOR_LIGHT) over the shop cluster. Applied AFTER `darkFloor`, so within
-	-- `Hub.inShopFloor` this wins over the base's own charcoal pair. Only `buildPlaza`
-	-- sets this — see `Hub.inShopFloor`'s own comment for why the apron never does.
-	shopFloor: boolean?,
+	-- Paint the base floor's zones (grass / cream path / stone under the shops) from each
+	-- tile's own centre via `Hub.groundPairAt`. Applied AFTER `colorAt`, so a gradient
+	-- board (Stage 1's, which never sets this) is untouched. The plaza and the apron both
+	-- set this, and they must keep sharing the one resolver -- see `groundPairAt` on the
+	-- doubled edge tiles.
+	ground: boolean?,
 	origin: CFrame?, -- default identity -- see this type's own comment above
 }
 
@@ -372,8 +372,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	local light = o.light or PLAZA_LIGHT
 	local skip = o.skip
 	local colorAt = o.colorAt
-	local darkFloorOverlay = o.darkFloor
-	local shopFloorOverlay = o.shopFloor
+	local groundOverlay = o.ground
 
 	local origin = o.origin or CFrame.new(0, 0, 0)
 	local size = Hub.TILE_SIZE
@@ -405,11 +404,8 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 			if colorAt then
 				tileDark, tileLight = colorAt(cx, cz)
 			end
-			if darkFloorOverlay and Hub.inDarkFloor(cx, cz) then
-				tileDark, tileLight = FLOOR_DARK, FLOOR_LIGHT
-			end
-			if shopFloorOverlay and Hub.inShopFloor(cx, cz) then
-				tileDark, tileLight = SHOP_FLOOR_DARK, SHOP_FLOOR_LIGHT
+			if groundOverlay then
+				tileDark, tileLight = Hub.groundPairAt(cx, cz)
 			end
 
 			build(parent, origin, {
@@ -441,15 +437,13 @@ local function buildPlaza(hub: Model)
 	local tiles = Instance.new("Folder")
 	tiles.Name = "Tiles"
 
-	-- The board is one call: the whole plaza in the dark floor pair, EXCEPT the green
-	-- Camp -> Stage 1 border strip, which `darkFloor = true` carves on the same grid (not
-	-- a second tileRect laid on top) so there is one tile per square, no z-fight, and the
-	-- checker parity carries straight through the strip edge. Plots.buildApron makes the
-	-- identical call over the apron disc (minus `shopFloor`, which only applies here — see
-	-- `Hub.inShopFloor`), so the base is one dark surface and the strip runs unbroken
-	-- across the plaza/apron seam. `shopFloor = true` carves the shop cluster's own
-	-- black/grey zone out of that same dark pair, on the same one-tile-per-square pass.
-	Hub.tileRect(tiles, p, { darkFloor = true, shopFloor = true })
+	-- The board is one call: `ground = true` paints every tile from `Hub.groundPairAt`
+	-- by its own centre -- stone under the shops, cream on the rest, grass in the
+	-- Camp -> Stage 1 strip -- on the same grid in one pass (not tileRects laid on top of
+	-- each other), so there is one tile per square and the checker parity carries
+	-- straight through every zone edge. Plots.buildApron makes the identical call over
+	-- the apron disc, so the grass runs unbroken across the plaza/apron seam.
+	Hub.tileRect(tiles, p, { ground = true })
 	tiles.Parent = hub
 
 	-- NO RIM ON ANY SIDE ANY MORE. Three cream strips used to run along the north,
