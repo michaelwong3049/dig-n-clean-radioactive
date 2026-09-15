@@ -44,7 +44,8 @@
 	player bases can lay the same board. The plaza and its apron wear it in zones
 	resolved by one function, `Hub.groundPairAt`: grass on the apron and along the
 	Camp -> Stage 1 border (GREEN_STRIP_DEPTH), a ROUND cream plaza centred on the plot
-	ring (PLAZA_RADIUS) with a short cream path out to each pad, and warm tan pavers
+	ring (PLAZA_RADIUS) with a straight raised cream path out to each pad
+	(buildGatePaths, its own strip rather than paint), and warm tan pavers
 	edged with a darker kerb under the shop cluster (SHOP_ZONE); the bases wear it
 	as a flat wooden deck a step above — one pattern, one grid, staying in register
 	across the apron's own edges because the grid belongs to the plaza rather than to
@@ -84,7 +85,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 20
+local BUILDER_VERSION = 21
 
 local C = Kit.C
 local build = Kit.build
@@ -204,28 +205,38 @@ Hub.PLOT_BEARINGS = { 185, 219, 253, 287, 321, 355 }
 
 --- THE PLAZA IS PAINTED ROUND, centred on RING_CENTER so the pads curve around it at an
 --- even distance. The paved rectangle it replaced sat in the ring like a rug in a round
---- room: near-touching the west pads, a lawn away from the rest. 112 holds the whole shop
---- cluster (its farthest corner, the Magnet stall's back, is ~104 out) and leaves a
---- ~10-stud lawn ring before the pads' inner corners (~122).
+--- room: near-touching the west pads, a lawn away from the rest.
+---
+--- 98 IS THE SMALLEST THAT STILL HOLDS THE SHOP SQUARE WITH A TILE OF CREAM ALL ROUND
+--- (SHOP_ZONE's farthest corner, the south-west one, is ~95 out). It was 112 and shrank
+--- on request so the gate paths get a real stretch of lawn to cross: ~24 studs to the
+--- pads' inner corners (~122) instead of ~10. Any smaller and the kerb meets the lawn at
+--- the square's corners.
 ---
 --- PAINT ONLY. Hub.PLAZA stays the rectangle for the slab, World.verify()'s stage-overlap
 --- check and everything else that reads it; the circle only decides which tiles are
 --- cream. It reaches past that rectangle north and south onto apron tiles, which is fine:
 --- the apron paints through the same resolver.
-local PLAZA_RADIUS = 112
+local PLAZA_RADIUS = 98
 
---- A short cream path from the plaza's edge across the lawn ring to the front of each
---- pad, so every base has a visible way in: GATE_HALF_WIDTH either side of the pad's own
---- bearing, out to GATE_REACH from RING_CENTER. GATE_REACH overshoots the pads' inner
---- edge (~122) on purpose -- the pad slab covers the overshoot and `apronSkip` drops the
---- tiles under it. Move it with Plots.RING_RADIUS.
+--- THE GATE PATHS: one straight cream strip from the plaza out to the front of each pad,
+--- along the pad's own bearing (see buildGatePaths). NOT painted by groundPairAt any more:
+--- a strip on a diagonal bearing, painted tile by tile on the axis-aligned grid, came out
+--- as a pixelated staircase. Each is laid as its own tiles in the path's frame instead --
+--- the way a rotated pad lays its deck (tileRect's `origin`) -- so both edges are straight.
+---
+--- GATE_START sits inside the plaza's rim so the strip's end covers the rim's staircase
+--- where it crosses; GATE_REACH runs under the pad (front edge ~122), whose slab hides the
+--- overshoot -- move it with Plots.RING_RADIUS. Both, and the strip's +/-GATE_HALF_WIDTH,
+--- land on tile lines of the plaza grid in the path's own frame (see buildGatePaths), so
+--- every tile is whole.
+local GATE_START = 94
+local GATE_REACH = 134
 local GATE_HALF_WIDTH = 8
-local GATE_REACH = 135
-local GATE_DIRS: { { x: number, z: number } } = {}
-for i, bearing in Hub.PLOT_BEARINGS do
-	local rad = math.rad(bearing)
-	GATE_DIRS[i] = { x = math.sin(rad), z = math.cos(rad) } -- Plots.CENTERS' own convention
-end
+
+--- Proud of the ground so the strip never z-fights the tiles under it: the pads' trick
+--- (they sit 1.5 up), at a height you walk onto without noticing.
+local GATE_LIFT = 0.1
 
 --- Is the tile at (x, z) in the green Camp -> Stage 1 border strip? GREEN_STRIP_DEPTH
 --- studs west from Stage 1's edge (x = PLAZA.maxX), at any z. It keeps the round plaza
@@ -273,22 +284,11 @@ local function inShopKerb(x: number, z: number): boolean
 	)
 end
 
---- Does the tile at offset (dx, dz) from RING_CENTER lie on a gate path? Only asked
---- outside the plaza circle; `along > 0` keeps each path one-sided, so none runs east.
-local function onGatePath(dx: number, dz: number): boolean
-	for _, u in GATE_DIRS do
-		local along = dx * u.x + dz * u.z
-		if along > 0 and along <= GATE_REACH and math.abs(dx * u.z - dz * u.x) <= GATE_HALF_WIDTH then
-			return true
-		end
-	end
-	return false
-end
-
 --- The (dark, light) pair for the base-floor tile centred at (x, z): grass in the
 --- Camp -> Stage 1 strip; inside the round plaza, kerb-edged pavers under the shops and
---- cream everywhere else; cream on the gate paths; grass everywhere else. See
---- PATH_DARK's comment for the palette.
+--- cream everywhere else; grass everywhere else. The gate paths are not in here -- they
+--- are their own raised strips laid over this floor (buildGatePaths). See PATH_DARK's
+--- comment for the palette.
 ---
 --- ONE RESOLVER FOR EVERY BASE-FLOOR TILE, WHICHEVER BUILDER LAYS IT, AND THAT IS
 --- LOAD-BEARING. The apron deliberately lays a ring of tiles coincident with the
@@ -318,9 +318,6 @@ function Hub.groundPairAt(x: number, z: number): (string, string)
 			return KERB_DARK, KERB_LIGHT
 		end
 		return PAVER_DARK, PAVER_LIGHT
-	end
-	if onGatePath(dx, dz) then
-		return PATH_DARK, PATH_LIGHT
 	end
 	return PLAZA_DARK, PLAZA_LIGHT
 end
@@ -593,12 +590,44 @@ local function buildSpawns(hub: Model)
 	spawns.Parent = hub
 end
 
+--- The straight gate paths -- see GATE_START. Each is tiled in its own frame: the origin
+--- sits on RING_CENTER turned to the pad's bearing (local +Z points out along it, the
+--- Plots.CENTERS convention), so the strip is an axis-aligned rectangle locally and
+--- tileRect lays it exactly the way it lays a rotated pad's deck.
+---
+--- THE +1 SHIFT. tileRect keeps its grid lines at the plaza's phase in local space too
+--- (x = PLAZA.minX + 4k: ..., -9, -5, -1, 3, 7, ...), so a strip centred on the bearing
+--- (-8..8) would come out with a 3-stud and a 1-stud sliver down its edges. Laying it at
+--- -9..7 gives four whole tiles, and nudging the origin +1 along local x puts that back
+--- on the bearing. GATE_START and GATE_REACH already sit on z lines (PLAZA.minZ + 4k).
+local function buildGatePaths(hub: Model)
+	local paths = Instance.new("Folder")
+	paths.Name = "GatePaths"
+	local c = Hub.RING_CENTER
+	for _, bearing in Hub.PLOT_BEARINGS do
+		local origin = CFrame.new(c.x, 0, c.z) * CFrame.Angles(0, math.rad(bearing), 0) * CFrame.new(1, 0, 0)
+		Hub.tileRect(paths, {
+			minX = -GATE_HALF_WIDTH - 1,
+			maxX = GATE_HALF_WIDTH - 1,
+			minZ = GATE_START,
+			maxZ = GATE_REACH,
+		}, {
+			origin = origin,
+			topY = Hub.PLAZA.topY + GATE_LIFT,
+			dark = PATH_DARK,
+			light = PATH_LIGHT,
+		})
+	end
+	paths.Parent = hub
+end
+
 local function createHub(): Model
 	local hub = Instance.new("Model")
 	hub.Name = "Hub"
 	Kit.stamp(hub, BUILDER_SOURCE, BUILDER_VERSION)
 
 	buildPlaza(hub)
+	buildGatePaths(hub)
 	buildSpawns(hub)
 
 	return hub
