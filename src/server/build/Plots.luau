@@ -171,7 +171,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 41
+local BUILDER_VERSION = 42
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1740,14 +1740,19 @@ local function buildSideRailings(parent: Instance, origin: CFrame)
 
 		for i = 0, postCount - 1 do
 			local z = z0 + span * (i / (postCount - 1))
-			build(folder, origin, {
+			local postSpec = {
 				name = "RailPost",
 				pos = { x, pad.topY + postH / 2, z },
 				size = { RAIL_POST_W, postH, RAIL_POST_W },
 				color = C.railPost,
 				material = "Plastic",
 				studs = true,
-			})
+			}
+			build(folder, origin, postSpec)
+			-- Chunky cartoon edges: a rounded cap in the rails' own lighter tone, on
+			-- the SAME two-tone pairing the rails already wear against the posts.
+			-- Nothing overhead here (unlike a canopy/awning post), so this is clear.
+			Kit.postCap(folder, origin, postSpec, nil, C.railGrey)
 		end
 	end
 
@@ -1784,14 +1789,16 @@ local function buildBackFence(parent: Instance, origin: CFrame)
 
 	for i = 0, postCount - 1 do
 		local x = -railX + span * (i / (postCount - 1))
-		build(folder, origin, {
+		local postSpec = {
 			name = "RailPost",
 			pos = { x, pad.topY + postH / 2, railZ },
 			size = { RAIL_POST_W, postH, RAIL_POST_W },
 			color = C.railPost,
 			material = "Plastic",
 			studs = true,
-		})
+		}
+		build(folder, origin, postSpec)
+		Kit.postCap(folder, origin, postSpec, nil, C.railGrey)
 	end
 
 	folder.Parent = parent
@@ -1860,7 +1867,8 @@ local function buildNamePlate(parent: Instance, origin: CFrame, accent: string)
 	-- the plot's Trim colour, exactly like it already does for the old SignFrame bars.
 	local ring = Instance.new("UIStroke")
 	ring.Name = "Ring"
-	ring.Thickness = 2.5
+	-- Chunky cartoon edges: thickened 2.5 -> 4.
+	ring.Thickness = 4
 	ring.Color = Color3.fromHex(accent)
 	ring.Transparency = 0.1
 	ring.Parent = face
@@ -1938,11 +1946,14 @@ local function buildPlot(parent: Instance, index: number)
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
 	-- the colour alone carries the "whose plot" cue now, no glow. `Accent` tags it for
 	-- Plots.setPlotAccent; grey until the owner picks a hue.
+	-- Chunky cartoon edges: thickened 0.5 -> 0.85 (stands taller/more visible above
+	-- the floor); still just an Accent-tagged part, so Plots.setPlotAccent's
+	-- attribute-driven recolour is untouched by the size change.
 	for _, side in { -1, 1 } do
 		build(m, origin, {
 			name = "Trim",
-			pos = { side * (pad.width / 2 - 0.5), pad.topY + 0.1, PAD_CENTER_Z },
-			size = { 1, 0.5, pad.depth },
+			pos = { side * (pad.width / 2 - 0.5), pad.topY + 0.18, PAD_CENTER_Z },
+			size = { 1, 0.85, pad.depth },
 			color = accent,
 			material = "SmoothPlastic",
 			canCollide = false,
