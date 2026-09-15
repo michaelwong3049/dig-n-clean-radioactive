@@ -177,7 +177,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 34
+local BUILDER_VERSION = 35
 
 local C = Kit.C
 local build = Kit.build
@@ -608,16 +608,17 @@ end
 --- The floating stall sign: one small line naming WHAT THE STALL IS ("Detector
 --- Shop" / "Magnet Shop" / "Hose Shop") in that shop's own accent colour, so
 --- the sign itself does the colour-navigation. `accent` is the shop's hex
---- string. TextScaled so any label length fits its (small, fixed) band without
---- re-tuning TextSize by hand.
+--- string. TextScaled so any label length fits its (fixed) band without
+--- re-tuning TextSize by hand. Hung LOW (just under the canopy, not floating
+--- above it) and readable from well back across the plaza, not just up close.
 local function buildStoreBillboard(adornee: BasePart, label: string, accent: string)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "StoreSign"
 	gui.Adornee = adornee
-	gui.Size = UDim2.fromOffset(200, 36)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, 12.4, 0)
+	gui.Size = UDim2.fromOffset(340, 62)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 6.5, 0)
 	gui.AlwaysOnTop = true
-	gui.MaxDistance = 40
+	gui.MaxDistance = 110
 	gui.Parent = adornee
 
 	local title = Instance.new("TextLabel")
@@ -630,7 +631,7 @@ local function buildStoreBillboard(adornee: BasePart, label: string, accent: str
 	title.TextColor3 = Color3.fromHex(accent)
 	title.TextStrokeTransparency = 1
 	title.Parent = gui
-	Kit.textOutline(title, 2)
+	Kit.textOutline(title, 3)
 end
 
 -- ── The counter ───────────────────────────────────────────────────────────────
