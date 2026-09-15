@@ -44,9 +44,8 @@
 	player bases can lay the same board. The plaza and its apron wear it in zones
 	resolved by one function, `Hub.groundPairAt`: grass on the apron and along the
 	Camp -> Stage 1 border (GREEN_STRIP_DEPTH), an OCTAGONAL cream plaza centred on the
-	plot ring (PLAZA_OCT_*, its diagonals laid true by split tiles) with a straight raised
-	cream path out to each pad
-	(buildGatePaths, its own strip rather than paint), and warm tan pavers
+	plot ring (PLAZA_OCT_*, its diagonals laid true by split tiles) with a cream path out
+	to each pad as part of the same floor (GATE_RECTS / GATE_DIAGONALS), and warm tan pavers
 	edged with a darker kerb under the shop cluster (SHOP_ZONE); the bases wear it
 	as a flat wooden deck a step above — one pattern, one grid, staying in register
 	across the apron's own edges because the grid belongs to the plaza rather than to
@@ -87,7 +86,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 23
+local BUILDER_VERSION = 24
 
 local C = Kit.C
 local build = Kit.build
@@ -234,40 +233,46 @@ local PLAZA_OCT_Z = 0
 local PLAZA_OCT_HALF = 98
 local PLAZA_OCT_DIAG = 140
 
---- THE PLAZA STANDS PROUD OF THE LAWN, on request -- the user liked the gate paths'
---- raised look and asked for the middle floor to match it. Every tile inside the octagon
---- (cream, pavers, kerb, and the plaza half of a split cell) is laid this much above
---- PLAZA.topY; the grass stays on it. So does everything built ON the plaza: Shops'
+--- THE PLAZA FLOOR STANDS PROUD OF THE LAWN, on request -- the user liked the old raised
+--- gate strips' look and asked for the middle floor to match it. Every floor tile (cream,
+--- pavers, kerb, the gate paths, and the floor half of a split cell) is laid this much
+--- above PLAZA.topY; the grass stays on it. So does everything built ON the plaza: Shops'
 --- `facingOrigin` and BaseCamp's Trader read this constant, and the respawn anchor adds
 --- it, so nothing sinks into the raised floor.
----
---- 0.15, NOT GATE_LIFT's 0.1. Each path starts a few studs inside the octagon, and two
---- tile tops at one height z-fight where they overlap; 0.05 higher lets the plaza's
---- straight edge lap cleanly over the path's inner end, which also hides the faint line
---- that end used to draw across the cream. A 0.05 step is not something you see.
 Hub.PLAZA_LIFT = 0.15
 
---- THE GATE PATHS: one straight cream strip from the plaza out to the front of each pad,
---- along the pad's own bearing (see buildGatePaths). NOT painted by groundPairAt any more:
---- a strip on a diagonal bearing, painted tile by tile on the axis-aligned grid, came out
---- as a pixelated staircase. Each is laid as its own tiles in the path's frame instead --
---- the way a rotated pad lays its deck (tileRect's `origin`) -- so both edges are straight.
+--- THE GATE PATHS ARE PART OF THIS FLOOR, on request. They were separate strips laid
+--- along each pad's own bearing, a hair below the plaza so the two would not z-fight where
+--- a strip started inside the octagon -- and that step showed. Now each path runs square
+--- off the octagon side that faces its pad, straight out to the pad's front and on under
+--- it, so it meets the plaza with no seam: same tiles, same checker, same height. Running
+--- square is what keeps every edge on the grid -- the north, south and west paths' edges
+--- sit on tile lines, the two diagonal paths' on 45-degree lines through tile corners,
+--- laid true by the same split cells as the octagon's own diagonals (floorCover).
 ---
---- GATE_START sits inside the plaza's edge on every bearing (the octagon's side is 98-103
---- out along them), so each strip starts on cream; GATE_REACH runs under the pad (front
---- edge ~122), whose slab hides the
---- overshoot -- move it with Plots.RING_RADIUS. Both, and the strip's +/-GATE_HALF_WIDTH,
---- land on tile lines of the plaza grid in the path's own frame (see buildGatePaths), so
---- every tile is whole.
-local GATE_START = 94
-local GATE_REACH = 134
-local GATE_HALF_WIDTH = 8
+--- Each is centred on its pad's front (RING_CENTER + 122 along the pad's bearing),
+--- snapped to that grid -- within ~2 studs -- and runs on under the pad, whose slab hides
+--- the end, far enough to meet the pad's front across its whole width. 16 wide (the
+--- diagonal pair ~17, the nearest width their corner lines allow). Hand-placed, like
+--- SHOP_ZONE: move them by hand with Plots.RING_RADIUS / PLOT_BEARINGS.
+local GATE_RECTS = {
+	{ minX = 15, maxX = 31, minZ = -130, maxZ = -98 }, -- Plot1 (bearing 185): due south off the south side
+	{ minX = 15, maxX = 31, minZ = 98, maxZ = 130 }, -- Plot6 (355): due north off the north side
+	{ minX = -97, maxX = -65, minZ = -42, maxZ = -26 }, -- Plot3 (253): due west off the west side
+	{ minX = -97, maxX = -65, minZ = 26, maxZ = 42 }, -- Plot4 (287): due west
+}
 
---- Proud of the lawn so the strip never z-fights the tiles under it: the pads' trick
---- (they sit 1.5 up), at a height you walk onto without noticing. The plaza itself stands
---- a touch higher (Hub.PLAZA_LIFT, 0.15), so where a strip starts inside the octagon the
---- plaza's edge laps over it rather than the two fighting.
-local GATE_LIFT = 0.1
+--- The two diagonal paths, in 45-degree coordinates: `across` = x + zSign * z runs across
+--- the path, `along` = x - zSign * z runs along it (more negative is further out).
+---
+--- THE ACROSS EDGES ARE 1 MOD 8, not merely 1 mod 4 like every corner line. With the
+--- along lines at 5 mod 8 (the octagon's diagonal at -107, the end at -155), that puts
+--- every place a side meets an end exactly on a tile corner. Meeting at a cell centre
+--- instead would leave a cell three quarters floor, which two triangles cannot lay.
+local GATE_DIAGONALS = {
+	{ zSign = -1, across = { 41, 65 }, along = { -155, -107 } }, -- Plot2 (219): south-west, off the SW diagonal
+	{ zSign = 1, across = { 41, 65 }, along = { -155, -107 } }, -- Plot5 (321): north-west, off the NW diagonal
+}
 
 --- Is the tile at (x, z) in the green Camp -> Stage 1 border strip? GREEN_STRIP_DEPTH
 --- studs west from Stage 1's edge (x = PLAZA.maxX), at any z. It keeps the plaza octagon
@@ -322,20 +327,63 @@ local function cellCentre(x: number, z: number): (number, number)
 	return p.minX + (math.floor((x - p.minX) / t) + 0.5) * t, p.minZ + (math.floor((z - p.minZ) / t) + 0.5) * t
 end
 
---- Is the cell centred at (cx, cz) wholly inside the plaza octagon? A cell ON a diagonal
---- (|dx| + |dz| == PLAZA_OCT_DIAG exactly -- cell centres are whole numbers, so the test
---- is exact) is not: it is cut in half, see groundSplitAt.
-local function inPlazaOctagon(cx: number, cz: number): boolean
-	local ax, az = math.abs(cx - PLAZA_OCT_X), math.abs(cz - PLAZA_OCT_Z)
-	return ax < PLAZA_OCT_HALF and az < PLAZA_OCT_HALF and ax + az < PLAZA_OCT_DIAG
+--- Is the point (x, z) on the plaza floor -- the octagon, or one of its gate paths? A pure
+--- shape test with no grid in it; floorCover turns it into whole and split cells.
+local function insideFloor(x: number, z: number): boolean
+	local ax, az = math.abs(x - PLAZA_OCT_X), math.abs(z - PLAZA_OCT_Z)
+	if ax <= PLAZA_OCT_HALF and az <= PLAZA_OCT_HALF and ax + az <= PLAZA_OCT_DIAG then
+		return true
+	end
+	for _, r in GATE_RECTS do
+		if x >= r.minX and x <= r.maxX and z >= r.minZ and z <= r.maxZ then
+			return true
+		end
+	end
+	for _, d in GATE_DIAGONALS do
+		local across, along = x + d.zSign * z, x - d.zSign * z
+		if across >= d.across[1] and across <= d.across[2] and along >= d.along[1] and along <= d.along[2] then
+			return true
+		end
+	end
+	return false
+end
+
+--- How the plaza floor covers the cell centred at (cx, cz): "full", "none", or "split"
+--- plus the corner (sx, sz) its LAWN half holds (the floor half holds the opposite one).
+---
+--- Every floor edge is a tile line or a 45-degree line through tile corners, so a cell is
+--- only ever whole or cut corner to corner -- and the four triangles its two diagonals
+--- make say which. One sample sits at each triangle's centroid, a third of a tile off the
+--- centre, where no edge can pass; two neighbouring triangles on the floor mean that half
+--- is floor.
+local function floorCover(cx: number, cz: number): (string, number, number)
+	local q = Hub.TILE_SIZE / 3
+	local up, right = insideFloor(cx, cz + q), insideFloor(cx + q, cz)
+	local down, left = insideFloor(cx, cz - q), insideFloor(cx - q, cz)
+	if up and right and down and left then
+		return "full", 0, 0
+	elseif not (up or right or down or left) then
+		return "none", 0, 0
+	elseif up and right and not (down or left) then
+		return "split", -1, -1 -- the floor holds the (+x, +z) corner, so the lawn (-x, -z)
+	elseif down and left and not (up or right) then
+		return "split", 1, 1
+	elseif up and left and not (down or right) then
+		return "split", 1, -1
+	elseif down and right and not (up or left) then
+		return "split", -1, 1
+	end
+	-- Three quarters floor, or cut both ways: two triangles cannot lay it, and the shapes
+	-- above are placed so no such cell occurs (see GATE_DIAGONALS). Round to the majority.
+	local n = (if up then 1 else 0) + (if right then 1 else 0) + (if down then 1 else 0) + (if left then 1 else 0)
+	return if n > 2 then "full" else "none", 0, 0
 end
 
 --- The (dark, light) pair for the base-floor tile centred at (x, z): grass in the
---- Camp -> Stage 1 strip; inside the plaza octagon, kerb-edged pavers under the shops and
---- cream everywhere else; grass everywhere else, including the cells the octagon's
---- diagonals cut in half -- a builder asks groundSplitAt about those first. The gate
---- paths are not in here either: they are their own raised strips laid over this floor
---- (buildGatePaths). See PATH_DARK's comment for the palette.
+--- Camp -> Stage 1 strip; on the plaza floor (the octagon and its gate paths --
+--- insideFloor), kerb-edged pavers under the shops and cream everywhere else; grass
+--- everywhere else, including the cells a floor edge cuts in half -- a builder asks
+--- groundSplitAt about those first. See PATH_DARK's comment for the palette.
 ---
 --- ONE RESOLVER FOR EVERY BASE-FLOOR TILE, WHICHEVER BUILDER LAYS IT, AND THAT IS
 --- LOAD-BEARING. The apron deliberately lays a ring of tiles coincident with the
@@ -354,50 +402,46 @@ end
 --- tile (cream, pavers, kerb), 0 for the lawn. tileRect lays the tile's top there.
 function Hub.groundPairAt(x: number, z: number): (string, string, number)
 	local cx, cz = cellCentre(x, z)
-	if inGreenStrip(cx) then
+	if inGreenStrip(cx) or floorCover(cx, cz) ~= "full" then
 		return PLAZA_DARK, PLAZA_LIGHT, 0
 	end
-	if inPlazaOctagon(cx, cz) then
-		if not Hub.inShopFloor(cx, cz) then
-			return PATH_DARK, PATH_LIGHT, Hub.PLAZA_LIFT
-		elseif inShopKerb(cx, cz) then
-			return KERB_DARK, KERB_LIGHT, Hub.PLAZA_LIFT
-		end
-		return PAVER_DARK, PAVER_LIGHT, Hub.PLAZA_LIFT
+	if not Hub.inShopFloor(cx, cz) then
+		return PATH_DARK, PATH_LIGHT, Hub.PLAZA_LIFT
+	elseif inShopKerb(cx, cz) then
+		return KERB_DARK, KERB_LIGHT, Hub.PLAZA_LIFT
 	end
-	return PLAZA_DARK, PLAZA_LIGHT, 0
+	return PAVER_DARK, PAVER_LIGHT, Hub.PLAZA_LIFT
 end
 
 export type GroundSplit = {
-	inner: { string }, -- (dark, light) of the half holding the corner nearest the octagon's centre
-	outer: { string }, -- (dark, light) of the half holding the far corner
-	innerLift: number, -- the plaza half stands Hub.PLAZA_LIFT proud; the lawn half does not
-	sx: number, -- the cell's offset from the centre, as signs: the far corner is (sx, sz)
+	inner: { string }, -- (dark, light) of the floor half
+	outer: { string }, -- (dark, light) of the lawn half
+	innerLift: number, -- the floor half stands Hub.PLAZA_LIFT proud; the lawn half does not
+	sx: number, -- the corner the lawn half holds, as signs (the floor half holds the opposite)
 	sz: number,
 }
 
---- For a cell one of the plaza octagon's diagonals cuts in half, corner to corner: the
---- two halves' pairs and which way the cut faces (see GroundSplit). nil for every whole
---- cell. Resolved from the same snapped cell centre as groundPairAt, so the plaza and the
---- apron -- which both lay the cells along the plaza rectangle's edge -- split a doubled
---- cell identically. The shop square sits strictly inside the octagon, so a plaza half is
---- always cream and a lawn half always grass.
+--- For a cell a 45-degree floor edge -- an octagon diagonal, or a diagonal gate path's
+--- side -- cuts in half, corner to corner: the two halves' pairs and which way the cut
+--- faces (see GroundSplit). nil for every whole cell. Resolved from the same snapped cell
+--- centre as groundPairAt, so the plaza and the apron -- which both lay the cells along
+--- the plaza rectangle's edge -- split a doubled cell identically. The shop square sits
+--- well inside the octagon, so a floor half is always cream and a lawn half always grass.
 function Hub.groundSplitAt(x: number, z: number): GroundSplit?
 	local cx, cz = cellCentre(x, z)
 	if inGreenStrip(cx) then
 		return nil
 	end
-	local dx, dz = cx - PLAZA_OCT_X, cz - PLAZA_OCT_Z
-	local ax, az = math.abs(dx), math.abs(dz)
-	if ax >= PLAZA_OCT_HALF or az >= PLAZA_OCT_HALF or ax + az ~= PLAZA_OCT_DIAG then
+	local cover, sx, sz = floorCover(cx, cz)
+	if cover ~= "split" then
 		return nil
 	end
 	return {
 		inner = { PATH_DARK, PATH_LIGHT },
 		outer = { PLAZA_DARK, PLAZA_LIGHT },
 		innerLift = Hub.PLAZA_LIFT,
-		sx = if dx > 0 then 1 else -1,
-		sz = if dz > 0 then 1 else -1,
+		sx = sx,
+		sz = sz,
 	}
 end
 
@@ -495,7 +539,8 @@ function Hub.groundSlab(parent: Instance, rect: Rect, name: string, thickness: n
 end
 
 --- A split cell (Hub.groundSplitAt) is laid as two flat triangles instead of one square
---- tile: the plaza half and the lawn half, meeting exactly on the octagon's diagonal.
+--- tile: the floor half and the lawn half, meeting exactly on a 45-degree floor edge (an
+--- octagon diagonal or a diagonal gate path's side).
 --- Each is a WedgePart on its side -- rolled 90 degrees about local Z so its triangular
 --- face (local +X) is the top, CAP thick like every other cap tile. Unturned, that
 --- triangle holds the cell's (+x, +z) corner; SPLIT_YAW turns it onto whichever corner
@@ -619,7 +664,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 				tileDark, tileLight = colorAt(cx, cz)
 			end
 			if groundOverlay then
-				-- A whole cell on one of the plaza octagon's diagonals goes down as two
+				-- A whole cell a 45-degree floor edge cuts in half goes down as two
 				-- triangles (buildSplitTile). A clipped one could not be halved on the
 				-- diagonal, so it keeps groundPairAt's lawn colour -- none exist at the
 				-- current numbers, since every diagonal cell is a whole one.
@@ -724,44 +769,12 @@ local function buildSpawns(hub: Model)
 	spawns.Parent = hub
 end
 
---- The straight gate paths -- see GATE_START. Each is tiled in its own frame: the origin
---- sits on RING_CENTER turned to the pad's bearing (local +Z points out along it, the
---- Plots.CENTERS convention), so the strip is an axis-aligned rectangle locally and
---- tileRect lays it exactly the way it lays a rotated pad's deck.
----
---- THE +1 SHIFT. tileRect keeps its grid lines at the plaza's phase in local space too
---- (x = PLAZA.minX + 4k: ..., -9, -5, -1, 3, 7, ...), so a strip centred on the bearing
---- (-8..8) would come out with a 3-stud and a 1-stud sliver down its edges. Laying it at
---- -9..7 gives four whole tiles, and nudging the origin +1 along local x puts that back
---- on the bearing. GATE_START and GATE_REACH already sit on z lines (PLAZA.minZ + 4k).
-local function buildGatePaths(hub: Model)
-	local paths = Instance.new("Folder")
-	paths.Name = "GatePaths"
-	local c = Hub.RING_CENTER
-	for _, bearing in Hub.PLOT_BEARINGS do
-		local origin = CFrame.new(c.x, 0, c.z) * CFrame.Angles(0, math.rad(bearing), 0) * CFrame.new(1, 0, 0)
-		Hub.tileRect(paths, {
-			minX = -GATE_HALF_WIDTH - 1,
-			maxX = GATE_HALF_WIDTH - 1,
-			minZ = GATE_START,
-			maxZ = GATE_REACH,
-		}, {
-			origin = origin,
-			topY = Hub.PLAZA.topY + GATE_LIFT,
-			dark = PATH_DARK,
-			light = PATH_LIGHT,
-		})
-	end
-	paths.Parent = hub
-end
-
 local function createHub(): Model
 	local hub = Instance.new("Model")
 	hub.Name = "Hub"
 	Kit.stamp(hub, BUILDER_SOURCE, BUILDER_VERSION)
 
 	buildPlaza(hub)
-	buildGatePaths(hub)
 	buildSpawns(hub)
 
 	return hub
