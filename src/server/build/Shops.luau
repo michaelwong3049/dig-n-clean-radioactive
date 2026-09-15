@@ -177,7 +177,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 33
+local BUILDER_VERSION = 34
 
 local C = Kit.C
 local build = Kit.build
