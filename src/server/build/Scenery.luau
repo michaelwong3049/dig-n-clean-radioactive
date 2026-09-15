@@ -359,13 +359,14 @@ local function hash01(n: number, salt: number): number
 	return v - math.floor(v)
 end
 
---- How many extra rows the grass lip hangs down in this column: 0 (40%), 1 (40%) or 2
---- (20%), rolled independently per column. It used to be a sine (`sin(col*0.9+0.4) >
---- 0.55`), which drew the same two-wide drip every seven columns -- too even, it read as
---- a pattern rather than turf.
+--- How many extra whole-tile rows the grass lip hangs down in this column: 0 (70%),
+--- 1 (22%) or 2 (8%), rolled independently per column. Kept sparse on request ("put
+--- less overhangs") -- most of the edge's raggedness comes from thinDrips' narrow slivers
+--- instead of whole 4-stud cubes. It started as a sine (`sin(col*0.9+0.4) > 0.55`),
+--- which drew the same two-wide drip every seven columns and read as a pattern.
 local function grassDrip(col: number, salt: number): number
 	local r = hash01(col, salt)
-	return if r < 0.4 then 0 elseif r < 0.8 then 1 else 2
+	return if r < 0.7 then 0 elseif r < 0.92 then 1 else 2
 end
 
 --- The (dark, light) pair for one tile of the camp / Stage 1 cliff at wall column `col`
@@ -392,6 +393,50 @@ local function overhangOf(grassy: boolean, faceSign: number): (number, number)
 		return WALL_THICKNESS, 0
 	end
 	return WALL_THICKNESS + GRASS_OVERHANG, faceSign * GRASS_OVERHANG / 2
+end
+
+--- The world Y of the underside of a column's grass: the lip row plus that column's
+--- whole-tile drips (grassDrip), counted up from the wall's foot.
+local function grassBottomY(col: number, rows: number, salt: number): number
+	return Stages.SURFACE_Y + (rows - GRASS_LIP_ROWS - grassDrip(col, salt)) * WALL_TILE
+end
+
+--- THIN DRIPS, on request ("some thinner rectangles instead of all cubes"): a few narrow
+--- grass slivers hanging off the underside of a column's grass, off the 4-stud grid, so
+--- the turf edge is not all whole cubes. `cf` is the column's own frame -- local X along
+--- the wall, local Z the thickness axis with the visible face on the `faceSign` side --
+--- and `colWidth` the column's width along local X. Each sliver stands out exactly as far
+--- as the grass above it (GRASS_OVERHANG) and bites 0.1 into the wall so there is no gap.
+--- `seed` makes the roll per column and stable across rebuilds. Decorative: no collision,
+--- no queries.
+local THIN_DRIP = { chance = 0.4, second = 0.25, minW = 0.8, maxW = 2.2, minH = 1.2, maxH = 5 }
+local function thinDrips(parent: Instance, cf: CFrame, colWidth: number, faceSign: number, topY: number, seed: number)
+	if colWidth < THIN_DRIP.minW then
+		return
+	end
+	local rng = Random.new(seed)
+	if rng:NextNumber() >= THIN_DRIP.chance then
+		return
+	end
+	local count = if rng:NextNumber() < THIN_DRIP.second then 2 else 1
+	local dark, light = campCapPair()
+	local depth = GRASS_OVERHANG + 0.1
+	local zc = faceSign * (WALL_THICKNESS / 2 + (GRASS_OVERHANG - 0.1) / 2)
+	for _ = 1, count do
+		local w = rng:NextNumber(THIN_DRIP.minW, math.min(THIN_DRIP.maxW, colWidth))
+		local h = rng:NextNumber(THIN_DRIP.minH, THIN_DRIP.maxH)
+		local x = rng:NextNumber(-colWidth / 2 + w / 2, colWidth / 2 - w / 2)
+		local drip = build(parent, cf, {
+			name = "GrassDrip",
+			pos = { x, topY - h / 2, zc },
+			size = { w, h, depth },
+			color = if rng:NextNumber() < 0.5 then dark else light,
+			material = "Plastic",
+			canCollide = false,
+		});
+		(drip :: any)[if faceSign > 0 then "BackSurface" else "FrontSurface"] = Enum.SurfaceType.Studs
+		drip.CanQuery = false
+	end
 end
 
 --- The (dark, light) hex pair for one tile of a stage's stretch of boundary wall, at
@@ -3310,6 +3355,16 @@ local function buildBoundaryWalls(parent: Instance)
 	end
 	crownBushes(folder, "CrownBushes", spots, CORRIDOR_SALT, crownTopY(WALL_HEIGHT))
 
+	-- Thin grass drips under Stage 1's lip on both walls, rolled apart so the two do not
+	-- mirror each other (their whole-tile drips share CORRIDOR_SALT via wallPair).
+	for x0 = s1MinX, s1MaxX - WALL_TILE, WALL_TILE do
+		local xc = x0 + WALL_TILE / 2
+		local col = math.floor(xc / WALL_TILE)
+		local topY = grassBottomY(col, WALL_ROWS, CORRIDOR_SALT)
+		thinDrips(folder, CFrame.new(xc, 0, northZ), WALL_TILE, FACE_SIGN.BackSurface, topY, CORRIDOR_SALT * 100003 + col)
+		thinDrips(folder, CFrame.new(xc, 0, southZ), WALL_TILE, FACE_SIGN.FrontSurface, topY, (CORRIDOR_SALT + 1) * 100003 + col)
+	end
+
 	folder.Parent = parent
 end
 
@@ -3356,6 +3411,12 @@ local function buildShoulderWall(parent: Instance, name: string, atX: number, mi
 			});
 			(tile :: any)[faceProperty] = Enum.SurfaceType.Studs
 		end
+
+		-- The column's own frame for thinDrips: yawed 90 degrees so local Z is this wall's
+		-- X (thickness) axis and local X runs along it.
+		local col = math.floor((z0 + z1) / 2 / WALL_TILE)
+		local colFrame = CFrame.new(atX, 0, (z0 + z1) / 2) * CFrame.Angles(0, math.rad(90), 0)
+		thinDrips(parent, colFrame, d, FACE_SIGN[faceProperty], grassBottomY(col, rows, salt), salt * 100003 + col)
 	end
 end
 
@@ -3533,6 +3594,8 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 			});
 			(tile :: any).FrontSurface = Enum.SurfaceType.Studs
 		end
+
+		thinDrips(folder, origin, chord, FACE_SIGN.FrontSurface, grassBottomY(ix, rows, layer.seed), layer.seed * 100003 + ix)
 
 		-- Two radial cells of thin studded sheet over this column, checkered on
 		-- (ix + cell) like buildWallCap. Each cell keeps this column's chord width and
