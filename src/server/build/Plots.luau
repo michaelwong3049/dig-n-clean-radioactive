@@ -171,7 +171,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 41
+local BUILDER_VERSION = 42
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -231,7 +231,7 @@ Plots.PAD = {
 --- RING_CENTER USED TO BE THE PLAZA'S OWN MIDPOINT (MID_X, MID_Z) — moved
 --- toward Stage 1 on request, to shorten the walk from the shop cluster to the
 --- field. How far it could move WAS bounded by the shop cluster's OWN footprint,
---- not by the pads: `SHOP_CLUSTER_EAST_REACH = 53` below was Shops.luau's
+--- not by the pads: `SHOP_CLUSTER_EAST_REACH = 53` (Hub.luau) was Shops.luau's
 --- eastmost stall (the "Cleaner" counter, once at `RING_CENTER.x + 42`) plus its
 --- ~11-stud half-width, and `FIELD_CLEARANCE` the margin kept past that. THAT
 --- COUPLING IS NOW HISTORICAL: the shop row was re-centred on the plaza midpoint
@@ -274,11 +274,11 @@ local PLAZA = Hub.PLAZA
 local HALF_W = Plots.PAD.width / 2
 local HALF_D = Plots.PAD.depth / 2
 local PAD_CENTER_Z = (Plots.PAD.minZ + Plots.PAD.maxZ) / 2
-local MID_Z = (PLAZA.minZ + PLAZA.maxZ) / 2
 
-local SHOP_CLUSTER_EAST_REACH = 53
-local FIELD_CLEARANCE = 15
-Plots.RING_CENTER = { x = PLAZA.maxX - SHOP_CLUSTER_EAST_REACH - FIELD_CLEARANCE, z = MID_Z }
+--- The value lives in Hub.luau now (same formula, same point): the plaza floor paints a
+--- circle concentric with this ring, and Hub cannot require this file to read it here.
+--- Everything above is still the reasoning behind the number.
+Plots.RING_CENTER = Hub.RING_CENTER
 
 --- Pad-CENTRE orbit radius. WAS 180 (gave a uniform ~16-stud gap between every
 --- one of the 6 pads' oriented rectangles at the original 30-degree spacing,
@@ -332,7 +332,10 @@ Plots.RING_OUTER = 230
 --- of the centre-point one, confirmed by World.verify()'s actual oriented-rect
 --- overlap math rather than trusted on this angle alone. Order matches the
 --- numbering diagram above.
-local RING_ANGLES = { 185, 219, 253, 287, 321, 355 }
+---
+--- The value lives in Hub.luau (`Hub.PLOT_BEARINGS`) for the same reason RING_CENTER
+--- does: the plaza floor draws a gate path out along each of these bearings.
+local RING_ANGLES = Hub.PLOT_BEARINGS
 
 Plots.CENTERS = {}
 for i, bearing in RING_ANGLES do
@@ -2015,7 +2018,9 @@ end
 --- `ground = true` on that call is the other half of Hub's base floor: buildPlaza
 --- paints the plaza slab, this paints the rest of the disc — same grid, same
 --- `Hub.groundPairAt` resolver — so the disc comes out grass (the Stage-1-matched green)
---- flowing around every plot footprint, and every tile it doubles over the plaza's own
+--- flowing around every plot footprint, picks up the round plaza's rim where it spills
+--- past the plaza rectangle and the cream gate path up to each pad, and every tile it
+--- doubles over the plaza's own
 --- edge (PLAZA_SKIP_MARGIN) takes the plaza's colour instead of z-fighting a different
 --- one over it. See `Hub.groundPairAt` on why that must stay one shared resolver.
 ---

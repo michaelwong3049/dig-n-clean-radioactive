@@ -41,10 +41,11 @@
 
 	THE FLOOR IS A CHECKERBOARD, and it is not only this floor. `Hub.TILE_SIZE` below is
 	the grid; `tileRect` and `groundSlab` are exported so the plot ring and the six
-	player bases can lay the same board. The plaza and its apron wear it in three zones
+	player bases can lay the same board. The plaza and its apron wear it in zones
 	resolved by one function, `Hub.groundPairAt`: grass on the apron and along the
-	Camp -> Stage 1 border (GREEN_STRIP_DEPTH), a cream path over the rest of the
-	plaza, and a pale stone patch under the shop cluster (SHOP_ZONE); the bases wear it
+	Camp -> Stage 1 border (GREEN_STRIP_DEPTH), a ROUND cream plaza centred on the plot
+	ring (PLAZA_RADIUS) with a short cream path out to each pad, and warm tan pavers
+	edged with a darker kerb under the shop cluster (SHOP_ZONE); the bases wear it
 	as a flat wooden deck a step above — one pattern, one grid, staying in register
 	across the apron's own edges because the grid belongs to the plaza rather than to
 	whoever is asking for tiles. All zones come out of the one tileRect pass, so it is
@@ -55,7 +56,9 @@
 	a "spine" (`819ff28`), pushed west (`f27e670`), then flooded across the whole base
 	as a near-flat charcoal (PR #143) that read as a car park from any height. The
 	cartoon pass put the grass back around the plots and paved only the plaza, in
-	light colours. The grass is Stage 1's own tinted green, so Stage 1's west edge
+	light colours (PR #166); the paving was then painted round, concentric with the
+	plots, with a gate path out to each pad and warm pavers under the shops. The
+	grass is Stage 1's own tinted green, so Stage 1's west edge
 	(Scenery.buildStageCheckerboard) meets it with no seam at the x = 100 line.
 
 	A PAD'S OWN BOARD IS THE ONE EXCEPTION, AND ONLY SINCE THE SEMICIRCLE. Both
@@ -81,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 18
+local BUILDER_VERSION = 19
 
 local C = Kit.C
 local build = Kit.build
@@ -99,38 +102,45 @@ local build = Kit.build
 local PLAZA_DARK = Kit.blendHex(C.plazaTileDark, Stages.get(1).ooze.bright, Stages.GROUND_OOZE_TINT)
 local PLAZA_LIGHT = Kit.blendHex(C.plazaTileLight, Stages.get(1).ooze.bright, Stages.GROUND_OOZE_TINT)
 
---- The base floor, in three zones on the one shared grid -- see `Hub.groundPairAt`.
+--- The base floor, in zones on the one shared grid -- see `Hub.groundPairAt`.
 ---
 --- CARTOON PASS, ON REQUEST. The whole base used to be a near-flat dark charcoal
 --- (3D3F42/404246, ~5% apart) with a black/grey patch under the shops, and from any
 --- height it read as a car park. It is now:
 ---
----   GRASS -- the apron around and between the plots, and the Camp -> Stage 1 border
----            strip. This IS PLAZA_DARK/PLAZA_LIGHT (the Stage-1-tinted green), so the
----            ground meets Stage 1's own west edge with no seam at all.
----   PATH  -- the rest of the plaza: a warm cream, ~6% apart so the checker reads.
----   SHOP  -- the shop cluster (SHOP_ZONE): a pale cool stone, so the striped awnings
----            carry the colour instead of fighting a coloured floor under them (a
----            terracotta patch was tried live first and swallowed the orange awning).
+---   GRASS  -- the apron around and between the plots, the lawn outside the round plaza,
+---             and the Camp -> Stage 1 border strip. This IS PLAZA_DARK/PLAZA_LIGHT (the
+---             Stage-1-tinted green), so the ground meets Stage 1's own west edge with no
+---             seam at all.
+---   PATH   -- the round plaza (PLAZA_RADIUS) and the gate paths out to each pad: a warm
+---             cream, ~6% apart so the checker reads.
+---   PAVERS -- the shop cluster (SHOP_ZONE): warm tan pavers, edged by a one-tile darker
+---             KERB so the square reads as paved rather than painted. Pale cool stone
+---             (AEB6BD/BFC6CC) came first and read near-white from ground level: glare,
+---             and the stalls' grey lumber (Kit.C.shopWood) melted into it. The fix is
+---             hue, not just value -- cool grey stalls on a warm floor. A darker slate
+---             was previewed alongside and still washed out; a terracotta patch before
+---             that swallowed the orange awning.
 ---
 --- Same studded board, same grid, same height everywhere -- only the palette changes
 --- zone to zone, so footing is unchanged.
 local PATH_DARK = "DCCBA3"
 local PATH_LIGHT = "EADCBA"
-local SHOP_FLOOR_DARK = "AEB6BD"
-local SHOP_FLOOR_LIGHT = "BFC6CC"
-
---- Half the Z extent of the green border strip. Stage 1 (like every stage) is centred
---- on z = 0, so its own edge -- where Scenery.buildStageBorderLines draws the
---- Camp -> Stage 1 hazard line -- sits at z = +/-85 (`select(4, ...)` is that maxZ).
---- Reading it off `Stages.bounds` keeps the green band the exact width of that yellow
---- line however the chain is resized.
-local GREEN_STRIP_HALF_Z = select(4, Stages.bounds(1))
+local PAVER_DARK = "C9A37A"
+local PAVER_LIGHT = "D4B088"
+local KERB_DARK = "9C7A52"
+local KERB_LIGHT = "A6835B"
 
 --- How far WEST of Stage 1's edge (x = PLAZA.maxX = 100) the green strip reaches, on
---- request. Quantises to the 4-stud tile grid: `inGreenStrip` tests each tile's centre,
---- so the green/dark boundary lands on the nearest tile edge (x = 75 for 23), a ~25-stud
+--- request. Quantises to the 4-stud tile grid: `inGreenStrip` tests each tile's snapped
+--- centre, so the green/cream boundary lands on a tile edge (x = 75 for 23), a ~25-stud
 --- band in practice.
+---
+--- FULL HEIGHT, NOT +/-85 ANY MORE. The strip used to stop at Stage 1's own half-width
+--- (the length of the Camp -> Stage 1 hazard line), which only ever mattered inside the
+--- plaza's +/-70 rectangle. The round plaza reaches z = +/-100 along this line, so a
+--- z-limited strip would let a cream notch poke out past the line's ends, beside the
+--- corridor walls.
 local GREEN_STRIP_DEPTH = 23
 
 -- ── Layout ────────────────────────────────────────────────────────────────────
@@ -177,17 +187,54 @@ local GREEN_STRIP_DEPTH = 23
 Hub.PLAZA = { minX = -65, maxX = 100, minZ = -70, maxZ = 70, thickness = 8, topY = -1.5 }
 Hub.CAMP_ORIGIN = CFrame.new(17.5, -0.6, 0) -- the camp's datum; its spawn lands on Y = 0
 
---- Is the tile at (x, z) in the green Camp -> Stage 1 border strip? GREEN_STRIP_DEPTH
---- studs west from Stage 1's edge (x = PLAZA.maxX) and +/-GREEN_STRIP_HALF_Z either side
---- of z = 0 (the field's own half-width, so the green band lines up with the yellow
---- hazard line Scenery.buildStageBorderLines draws on that seam). Inside the plaza it
---- keeps the cream path back from the field, so the walk out of camp still crosses
---- grass before the line; outside the plaza everything is grass anyway.
+--- THE PLOT RING'S CENTRE AND BEARINGS ARE DEFINED HERE, not in Plots.luau, because the
+--- floor below draws on both (the round plaza and its gate paths) and Hub cannot require
+--- Plots -- Plots requires Hub. Plots re-exports them unchanged (`Plots.RING_CENTER`, its
+--- local RING_ANGLES) and keeps the notes on why they are these numbers.
 ---
---- A plain rectangle test: the strip's edges follow the tile grid straight (tileRect
---- clips edge tiles), no corner easing.
-local function inGreenStrip(x: number, z: number): boolean
-	return x >= Hub.PLAZA.maxX - GREEN_STRIP_DEPTH and math.abs(z) <= GREEN_STRIP_HALF_Z
+--- SHOP_CLUSTER_EAST_REACH / FIELD_CLEARANCE are historical: they placed the centre off an
+--- old eastmost stall and are left as they were so the ring stays put -- see Plots.luau.
+local SHOP_CLUSTER_EAST_REACH = 53
+local FIELD_CLEARANCE = 15
+Hub.RING_CENTER = {
+	x = Hub.PLAZA.maxX - SHOP_CLUSTER_EAST_REACH - FIELD_CLEARANCE,
+	z = (Hub.PLAZA.minZ + Hub.PLAZA.maxZ) / 2,
+}
+Hub.PLOT_BEARINGS = { 185, 219, 253, 287, 321, 355 }
+
+--- THE PLAZA IS PAINTED ROUND, centred on RING_CENTER so the pads curve around it at an
+--- even distance. The paved rectangle it replaced sat in the ring like a rug in a round
+--- room: near-touching the west pads, a lawn away from the rest. 112 holds the whole shop
+--- cluster (its farthest corner, the Magnet stall's back, is ~104 out) and leaves a
+--- ~10-stud lawn ring before the pads' inner corners (~122).
+---
+--- PAINT ONLY. Hub.PLAZA stays the rectangle for the slab, World.verify()'s stage-overlap
+--- check and everything else that reads it; the circle only decides which tiles are
+--- cream. It reaches past that rectangle north and south onto apron tiles, which is fine:
+--- the apron paints through the same resolver.
+local PLAZA_RADIUS = 112
+
+--- A short cream path from the plaza's edge across the lawn ring to the front of each
+--- pad, so every base has a visible way in: GATE_HALF_WIDTH either side of the pad's own
+--- bearing, out to GATE_REACH from RING_CENTER. GATE_REACH overshoots the pads' inner
+--- edge (~122) on purpose -- the pad slab covers the overshoot and `apronSkip` drops the
+--- tiles under it. Move it with Plots.RING_RADIUS.
+local GATE_HALF_WIDTH = 8
+local GATE_REACH = 135
+local GATE_DIRS: { { x: number, z: number } } = {}
+for i, bearing in Hub.PLOT_BEARINGS do
+	local rad = math.rad(bearing)
+	GATE_DIRS[i] = { x = math.sin(rad), z = math.cos(rad) } -- Plots.CENTERS' own convention
+end
+
+--- Is the tile at (x, z) in the green Camp -> Stage 1 border strip? GREEN_STRIP_DEPTH
+--- studs west from Stage 1's edge (x = PLAZA.maxX), at any z. It keeps the round plaza
+--- back from the field, so the walk out of camp still crosses grass before the yellow
+--- hazard line Scenery.buildStageBorderLines draws on that seam.
+---
+--- A plain half-plane test: the strip's edge follows the tile grid straight, no easing.
+local function inGreenStrip(x: number): boolean
+	return x >= Hub.PLAZA.maxX - GREEN_STRIP_DEPTH
 end
 
 --- A rectangle over the plaza covering the shop cluster — the three tool stalls,
@@ -200,16 +247,42 @@ end
 --- cluster does, the same way BaseCamp.luau's Trader offset already does.
 local SHOP_ZONE = { minX = -65, maxX = 45, minZ = -55, maxZ = 47 }
 
---- Is the tile at (x, z) under the shop cluster, and so painted the shop stone pair
---- rather than the cream path? A plain rectangle test, same shape as `inGreenStrip`
---- above. `Hub.groundPairAt` checks it first, for plaza and apron tiles alike.
+--- Is the tile at (x, z) under the shop cluster, and so painted pavers rather than the
+--- cream path? A plain rectangle test. `Hub.groundPairAt` asks it inside the round
+--- plaza, for plaza and apron tiles alike.
 function Hub.inShopFloor(x: number, z: number): boolean
 	return x >= SHOP_ZONE.minX and x <= SHOP_ZONE.maxX and z >= SHOP_ZONE.minZ and z <= SHOP_ZONE.maxZ
 end
 
---- The (dark, light) pair for the base-floor tile centred at (x, z): stone under the
---- shops, cream on the rest of the plaza, grass everywhere else (the apron and the
---- Camp -> Stage 1 strip). See PATH_DARK's comment for the palette.
+--- Is the shop-floor tile at (x, z) on the square's outermost ring of tiles, and so
+--- painted the kerb pair rather than the pavers? True when one tile's step in any
+--- direction leaves SHOP_ZONE.
+local function inShopKerb(x: number, z: number): boolean
+	local t = Hub.TILE_SIZE
+	return not (
+		Hub.inShopFloor(x - t, z)
+		and Hub.inShopFloor(x + t, z)
+		and Hub.inShopFloor(x, z - t)
+		and Hub.inShopFloor(x, z + t)
+	)
+end
+
+--- Does the tile at offset (dx, dz) from RING_CENTER lie on a gate path? Only asked
+--- outside the plaza circle; `along > 0` keeps each path one-sided, so none runs east.
+local function onGatePath(dx: number, dz: number): boolean
+	for _, u in GATE_DIRS do
+		local along = dx * u.x + dz * u.z
+		if along > 0 and along <= GATE_REACH and math.abs(dx * u.z - dz * u.x) <= GATE_HALF_WIDTH then
+			return true
+		end
+	end
+	return false
+end
+
+--- The (dark, light) pair for the base-floor tile centred at (x, z): grass in the
+--- Camp -> Stage 1 strip; inside the round plaza, kerb-edged pavers under the shops and
+--- cream everywhere else; cream on the gate paths; grass everywhere else. See
+--- PATH_DARK's comment for the palette.
 ---
 --- ONE RESOLVER FOR EVERY BASE-FLOOR TILE, WHICHEVER BUILDER LAYS IT, AND THAT IS
 --- LOAD-BEARING. The apron deliberately lays a ring of tiles coincident with the
@@ -218,13 +291,29 @@ end
 --- invisible; with grass on one and cream on the other it z-fought into a stair-step
 --- along every plaza edge (seen live: 183 doubled tiles). Resolving by position means
 --- a doubled tile always takes the plaza's own colour, so it is invisible again.
+---
+--- IT SNAPS TO THE GRID CELL FIRST, for the same reason. `tileRect` passes each tile's
+--- own centre, and an edge tile clipped to its rectangle has an off-grid one; two
+--- builders clipping differently could then resolve one cell two ways at a zone edge.
+--- Every test below reads the cell's centre instead, so a cell has exactly one colour.
 function Hub.groundPairAt(x: number, z: number): (string, string)
-	if Hub.inShopFloor(x, z) then
-		return SHOP_FLOOR_DARK, SHOP_FLOOR_LIGHT
+	local p, t = Hub.PLAZA, Hub.TILE_SIZE
+	local cx = p.minX + (math.floor((x - p.minX) / t) + 0.5) * t
+	local cz = p.minZ + (math.floor((z - p.minZ) / t) + 0.5) * t
+
+	if inGreenStrip(cx) then
+		return PLAZA_DARK, PLAZA_LIGHT
 	end
-	local p = Hub.PLAZA
-	local inPlaza = x >= p.minX and x <= p.maxX and z >= p.minZ and z <= p.maxZ
-	if inPlaza and not inGreenStrip(x, z) then
+	local dx, dz = cx - Hub.RING_CENTER.x, cz - Hub.RING_CENTER.z
+	if dx * dx + dz * dz <= PLAZA_RADIUS * PLAZA_RADIUS then
+		if not Hub.inShopFloor(cx, cz) then
+			return PATH_DARK, PATH_LIGHT
+		elseif inShopKerb(cx, cz) then
+			return KERB_DARK, KERB_LIGHT
+		end
+		return PAVER_DARK, PAVER_LIGHT
+	end
+	if onGatePath(dx, dz) then
 		return PATH_DARK, PATH_LIGHT
 	end
 	return PLAZA_DARK, PLAZA_LIGHT

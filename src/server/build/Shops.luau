@@ -146,9 +146,9 @@
 	whole position AND facing. It reads Hub.PLAZA.topY for the ground plane (the
 	plaza is at Stages.SURFACE_Y, not Y=0). This file still reads nothing from
 	Plots.luau: Plots requires Hub, Hub requires only Kit, and Shops stays a pure
-	statement of positions. Plots.luau's SHOP_CLUSTER_EAST_REACH is already marked
-	historical there and stays a conservative bound, not a live measurement of
-	anything here.
+	statement of positions. SHOP_CLUSTER_EAST_REACH (Hub.luau now; it places the plot
+	ring's centre) is already marked historical in Plots.luau and stays a
+	conservative bound, not a live measurement of anything here.
 ]]
 
 local Workspace = game:GetService("Workspace")
