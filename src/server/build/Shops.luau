@@ -124,17 +124,19 @@
 	stops two of them landing on top of each other.
 
 	TWO ROWS NOW, NOT A GRID WITH SHARED COLUMNS, AND HAND-PLACED RATHER THAN
-	DERIVED. North row near z=30: Detector at x=11.87 with Outfitter parked right
-	next to it at x=-37.03, the two reading as one pair. South row: Cleaner at
-	(17.5, -37.10), Magnet at (-42, -34.43) — close to level with Cleaner but not
+	DERIVED. North row near z=30: Detector at x=31.87 with Outfitter parked right
+	next to it at x=-17.03, the two reading as one pair. South row: Cleaner at
+	(37.5, -37.10), Magnet at (-22, -34.43) — close to level with Cleaner but not
 	exactly, since these are drag-and-captured positions, not a formula — with the
 	Trader kiosk (BaseCamp.luau) sitting in the gap between them. `at` was captured
 	directly off the Studio Explorer selection each was dragged to (see the note
 	on selecting a nested model by name, not by clicking the plaza in the
 	viewport), then hand-transcribed here so a rebuild reproduces it exactly.
-	Detector, Outfitter and Magnet all need an explicit `faceYaw` override now
-	(none of their `at`s sit due north/south of PLAZA_MID any more); Cleaner still
-	doesn't, since 17.5 is still PLAZA_MID's own x.
+	The whole cluster was then shifted 20 east as one block (every `at`, the
+	Trader kiosk and Hub's SHOP_ZONE together) to centre it in the round plaza.
+	Every stall carries an explicit `faceYaw` now: none of their `at`s sits due
+	north/south of PLAZA_MID any more, so the default "aim at PLAZA_MID" would
+	turn them diagonal.
 
 	THE OUTFITTER IS A PLAZA STALL NOW TOO, not a separate walled building — see
 	`buildOutfitter`'s own header for why that changed. It gets the exact same
@@ -173,7 +175,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 31
+local BUILDER_VERSION = 32
 
 local C = Kit.C
 local build = Kit.build
@@ -213,9 +215,9 @@ local PLAZA_MID = { x = 17.5, z = 0 }
 --- selection) and captured from there rather than derived. The two rows are
 --- close to level but not exact (Magnet and Cleaner sit a couple of studs apart
 --- in z), because this is where they were actually dropped, not a formula.
---- Detector no longer sits at PLAZA_MID's own x=17.5, so it now needs the same
---- explicit `faceYaw` override Outfitter and Magnet already carry; Cleaner still
---- does not, since 17.5 is still its x. `assertNoShopOverlap` (end of
+--- The whole cluster moved 20 east as one block (see the header), so no stall sits
+--- at PLAZA_MID's own x=17.5 any more and every one carries an explicit `faceYaw`;
+--- Cleaner's 0 is exactly the facing its old default aim produced. `assertNoShopOverlap` (end of
 --- `createShops`) is what actually proves none of this collides — not this
 --- comment, and not the numbers looking reasonable.
 --- `present` is the per-track hang angle for the rail models — see RACK_DROP_* and
@@ -223,9 +225,9 @@ local PLAZA_MID = { x = 17.5, z = 0 }
 --- deck to (near) the rail without clipping its neighbour: the detector tips hard
 --- nose-down to drop its coil to the floor, the hose barely tips at all.
 local STALLS = {
-	{ track = "Detector", at = { 11.87, 30 }, faceYaw = 180, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper", present = { yaw = 205, pitch = -80 } },
-	{ track = "Magnet", at = { -42, -34.43 }, faceYaw = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
-	{ track = "Cleaner", at = { 17.5, -37.10 }, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean", present = { yaw = 196, pitch = -12 } },
+	{ track = "Detector", at = { 31.87, 30 }, faceYaw = 180, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper", present = { yaw = 205, pitch = -80 } },
+	{ track = "Magnet", at = { -22, -34.43 }, faceYaw = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
+	{ track = "Cleaner", at = { 37.5, -37.10 }, faceYaw = 0, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean", present = { yaw = 196, pitch = -12 } },
 }
 
 -- ── The rack ─────────────────────────────────────────────────────────────────
@@ -407,7 +409,7 @@ end
 --- instead of square south at its row-mate, which is what actually reads as
 --- "next to it" rather than merely nearby.
 local OUTFITTER = {
-	at = { -37.03, 30 },
+	at = { -17.03, 30 },
 	faceYaw = 180,
 	pitch = 13,
 	counters = {

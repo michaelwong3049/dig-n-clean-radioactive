@@ -84,7 +84,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 19
+local BUILDER_VERSION = 20
 
 local C = Kit.C
 local build = Kit.build
@@ -245,7 +245,13 @@ end
 --- single formula covering four freely-placed stalls plus a kiosk in a
 --- different file, so this rectangle has to move by hand whenever the shop
 --- cluster does, the same way BaseCamp.luau's Trader offset already does.
-local SHOP_ZONE = { minX = -65, maxX = 45, minZ = -55, maxZ = 47 }
+---
+--- Moved 20 east (exactly 5 tiles, so the kerb lands on the same grid phase) with the
+--- whole cluster, to centre it in the round plaza's visible cream: the circle's own
+--- centre (RING_CENTER.x = 32) is out of reach, since centring there would run the
+--- cluster's east end onto the green strip at x = 75. maxX 65 leaves two cream tiles
+--- before that strip.
+local SHOP_ZONE = { minX = -45, maxX = 65, minZ = -55, maxZ = 47 }
 
 --- Is the tile at (x, z) under the shop cluster, and so painted pavers rather than the
 --- cream path? A plain rectangle test. `Hub.groundPairAt` asks it inside the round
@@ -569,11 +575,10 @@ local function buildSpawns(hub: Model)
 	local spawns = Instance.new("Folder")
 	spawns.Name = "Spawns"
 
-	-- (17.5, 0) — the plaza midpoint. Shops.luau builds its three stalls as a
-	-- triangle centred on exactly this point (its PLAZA_MID) and turned to face
-	-- it, so a player waking up here stands in the open middle of the triangle
-	-- with all three counters facing them; the Outfitter is parked off at the
-	-- south edge. Nothing is built on this point.
+	-- (17.5, 0) — the plaza midpoint (Shops.luau's PLAZA_MID). The shop cluster's
+	-- two rows (Shops.luau's STALLS + OUTFITTER, plus BaseCamp's Trader) run
+	-- east-west either side of it, so a player waking up here stands in the open
+	-- aisle between the storefronts. Nothing is built on this point.
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",
