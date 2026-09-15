@@ -359,14 +359,15 @@ local function hash01(n: number, salt: number): number
 	return v - math.floor(v)
 end
 
---- How many extra whole-tile rows the grass lip hangs down in this column: 0 (70%),
---- 1 (22%) or 2 (8%), rolled independently per column. Kept sparse on request ("put
---- less overhangs") -- most of the edge's raggedness comes from thinDrips' narrow slivers
---- instead of whole 4-stud cubes. It started as a sine (`sin(col*0.9+0.4) > 0.55`),
---- which drew the same two-wide drip every seven columns and read as a pattern.
+--- How many extra whole-tile rows the grass lip hangs down in this column: 0 (82%),
+--- 1 (14%) or 2 (4%), rolled independently per column. Kept sparse on request (twice:
+--- "put less overhangs", then "remove some more overhang") -- most of the edge's
+--- raggedness comes from thinDrips' narrow slivers instead of whole 4-stud cubes. It
+--- started as a sine (`sin(col*0.9+0.4) > 0.55`), which drew the same two-wide drip every
+--- seven columns and read as a pattern.
 local function grassDrip(col: number, salt: number): number
 	local r = hash01(col, salt)
-	return if r < 0.7 then 0 elseif r < 0.92 then 1 else 2
+	return if r < 0.82 then 0 elseif r < 0.96 then 1 else 2
 end
 
 --- The (dark, light) pair for one tile of the camp / Stage 1 cliff at wall column `col`
@@ -409,7 +410,7 @@ end
 --- as the grass above it (GRASS_OVERHANG) and bites 0.1 into the wall so there is no gap.
 --- `seed` makes the roll per column and stable across rebuilds. Decorative: no collision,
 --- no queries.
-local THIN_DRIP = { chance = 0.4, second = 0.25, minW = 0.8, maxW = 2.2, minH = 1.2, maxH = 5 }
+local THIN_DRIP = { chance = 0.25, second = 0.15, minW = 0.8, maxW = 2.2, minH = 1.2, maxH = 5 }
 local function thinDrips(parent: Instance, cf: CFrame, colWidth: number, faceSign: number, topY: number, seed: number)
 	if colWidth < THIN_DRIP.minW then
 		return
@@ -3274,7 +3275,7 @@ end
 --- intercept the detector's range-ring raycast or a dig probe. `topY` is the crown cap's
 --- top face for the wall's own height -- see crownTopY.
 local CROWN_BUSH_EVERY = 5 -- wall columns (WALL_TILE studs each) between bush spots
-local CROWN_BUSH_CHANCE = 0.7 -- the rest of the spots are left bare
+local CROWN_BUSH_CHANCE = 0.4 -- the rest of the spots are left bare (was 0.7; thinned on request)
 local function crownTopY(height: number): number
 	return Stages.SURFACE_Y + height + WALL_CAP_THICKNESS - 0.1
 end
