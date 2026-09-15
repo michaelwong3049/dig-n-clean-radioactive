@@ -59,11 +59,12 @@
 local Workspace = game:GetService("Workspace")
 
 local Kit = require(script.Parent.Kit)
+local Hub = require(script.Parent.Hub)
 local ModelGallery = require(script.Parent.ModelGallery)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 13
+local BUILDER_VERSION = 14
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -167,9 +168,11 @@ local function buildShell(camp: Model, origin: CFrame)
 	local trader = Instance.new("Model")
 	trader.Name = "Trader"
 
-	-- The plaza surface sits 0.9 below the camp datum here; every part builds up
-	-- from this one local-Y so nothing floats over the tiles.
-	local G = -0.9
+	-- The plaza surface sits 0.9 below the camp datum here, plus the raised plaza
+	-- floor's lift (Hub.PLAZA_LIFT -- the kiosk stands on the shop square, which is part
+	-- of it); every part builds up from this one local-Y so nothing floats over the
+	-- tiles or sinks into them.
+	local G = -0.9 + Hub.PLAZA_LIFT
 
 	-- WORLD (7, -38.5), IN THE GAP BETWEEN MAGNETSHOP AND CLEANERSHOP, not the
 	-- old 12-stud-south-of-spawn spot. `origin` here is Hub.CAMP_ORIGIN, (17.5,

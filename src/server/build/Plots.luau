@@ -171,7 +171,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 44
+local BUILDER_VERSION = 45
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
