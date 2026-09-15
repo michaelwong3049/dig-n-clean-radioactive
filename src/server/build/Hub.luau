@@ -87,7 +87,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 22
+local BUILDER_VERSION = 23
 
 local C = Kit.C
 local build = Kit.build
@@ -234,6 +234,19 @@ local PLAZA_OCT_Z = 0
 local PLAZA_OCT_HALF = 98
 local PLAZA_OCT_DIAG = 140
 
+--- THE PLAZA STANDS PROUD OF THE LAWN, on request -- the user liked the gate paths'
+--- raised look and asked for the middle floor to match it. Every tile inside the octagon
+--- (cream, pavers, kerb, and the plaza half of a split cell) is laid this much above
+--- PLAZA.topY; the grass stays on it. So does everything built ON the plaza: Shops'
+--- `facingOrigin` and BaseCamp's Trader read this constant, and the respawn anchor adds
+--- it, so nothing sinks into the raised floor.
+---
+--- 0.15, NOT GATE_LIFT's 0.1. Each path starts a few studs inside the octagon, and two
+--- tile tops at one height z-fight where they overlap; 0.05 higher lets the plaza's
+--- straight edge lap cleanly over the path's inner end, which also hides the faint line
+--- that end used to draw across the cream. A 0.05 step is not something you see.
+Hub.PLAZA_LIFT = 0.15
+
 --- THE GATE PATHS: one straight cream strip from the plaza out to the front of each pad,
 --- along the pad's own bearing (see buildGatePaths). NOT painted by groundPairAt any more:
 --- a strip on a diagonal bearing, painted tile by tile on the axis-aligned grid, came out
@@ -250,8 +263,10 @@ local GATE_START = 94
 local GATE_REACH = 134
 local GATE_HALF_WIDTH = 8
 
---- Proud of the ground so the strip never z-fights the tiles under it: the pads' trick
---- (they sit 1.5 up), at a height you walk onto without noticing.
+--- Proud of the lawn so the strip never z-fights the tiles under it: the pads' trick
+--- (they sit 1.5 up), at a height you walk onto without noticing. The plaza itself stands
+--- a touch higher (Hub.PLAZA_LIFT, 0.15), so where a strip starts inside the octagon the
+--- plaza's edge laps over it rather than the two fighting.
 local GATE_LIFT = 0.1
 
 --- Is the tile at (x, z) in the green Camp -> Stage 1 border strip? GREEN_STRIP_DEPTH
@@ -334,25 +349,29 @@ end
 --- own centre, and an edge tile clipped to its rectangle has an off-grid one; two
 --- builders clipping differently could then resolve one cell two ways at a zone edge.
 --- Every test below reads the cell's centre instead, so a cell has exactly one colour.
-function Hub.groundPairAt(x: number, z: number): (string, string)
+---
+--- THE THIRD RETURN IS THE TILE'S LIFT above PLAZA.topY: Hub.PLAZA_LIFT for every plaza
+--- tile (cream, pavers, kerb), 0 for the lawn. tileRect lays the tile's top there.
+function Hub.groundPairAt(x: number, z: number): (string, string, number)
 	local cx, cz = cellCentre(x, z)
 	if inGreenStrip(cx) then
-		return PLAZA_DARK, PLAZA_LIGHT
+		return PLAZA_DARK, PLAZA_LIGHT, 0
 	end
 	if inPlazaOctagon(cx, cz) then
 		if not Hub.inShopFloor(cx, cz) then
-			return PATH_DARK, PATH_LIGHT
+			return PATH_DARK, PATH_LIGHT, Hub.PLAZA_LIFT
 		elseif inShopKerb(cx, cz) then
-			return KERB_DARK, KERB_LIGHT
+			return KERB_DARK, KERB_LIGHT, Hub.PLAZA_LIFT
 		end
-		return PAVER_DARK, PAVER_LIGHT
+		return PAVER_DARK, PAVER_LIGHT, Hub.PLAZA_LIFT
 	end
-	return PLAZA_DARK, PLAZA_LIGHT
+	return PLAZA_DARK, PLAZA_LIGHT, 0
 end
 
 export type GroundSplit = {
 	inner: { string }, -- (dark, light) of the half holding the corner nearest the octagon's centre
 	outer: { string }, -- (dark, light) of the half holding the far corner
+	innerLift: number, -- the plaza half stands Hub.PLAZA_LIFT proud; the lawn half does not
 	sx: number, -- the cell's offset from the centre, as signs: the far corner is (sx, sz)
 	sz: number,
 }
@@ -376,6 +395,7 @@ function Hub.groundSplitAt(x: number, z: number): GroundSplit?
 	return {
 		inner = { PATH_DARK, PATH_LIGHT },
 		outer = { PLAZA_DARK, PLAZA_LIGHT },
+		innerLift = Hub.PLAZA_LIFT,
 		sx = if dx > 0 then 1 else -1,
 		sz = if dz > 0 then 1 else -1,
 	}
@@ -404,7 +424,8 @@ end
 -- full-thickness blocks. Two reasons: the plaza's exposed side stays one clean dark
 -- face instead of a many-toothed checkered stripe, and the slab is what everything
 -- actually stands on. The slab's top is recessed by exactly CAP, so the walking
--- surface is still PLAZA.topY and nothing standing on the plaza has to move.
+-- surface is still PLAZA.topY on the lawn. The plaza octagon's tiles stand
+-- Hub.PLAZA_LIFT above it (see that constant), and everything on the plaza stands on that.
 --
 -- THE BASE FLOOR'S ZONES ARE PAINT, NOT GEOMETRY -- see PATH_DARK, Hub.groundPairAt and
 -- the `ground` flag on TileOpts. Grass, cream path and shop stone are the same cap tiles
@@ -478,7 +499,11 @@ end
 --- Each is a WedgePart on its side -- rolled 90 degrees about local Z so its triangular
 --- face (local +X) is the top, CAP thick like every other cap tile. Unturned, that
 --- triangle holds the cell's (+x, +z) corner; SPLIT_YAW turns it onto whichever corner
---- a half needs. `studs` because a fresh WedgePart has none; only its top face shows.
+--- a half needs. The plaza half stands `innerLift` proud, like every plaza tile.
+---
+--- STUDS ON THE TOP FACE ONLY, set after the build rather than via Kit's `studs` (which
+--- studs every face). The raised plaza half's cut face is a visible sliver along the
+--- diagonal, and studs on a sliver that thin read as a dotted line.
 local SPLIT_ROLL = CFrame.Angles(0, 0, math.pi / 2)
 local SPLIT_YAW = {
 	["1,1"] = 0,
@@ -486,23 +511,27 @@ local SPLIT_YAW = {
 	["-1,-1"] = math.pi,
 	["-1,1"] = -math.pi / 2,
 }
+local SPLIT_SMOOTH_FACES = { "TopSurface", "BottomSurface", "LeftSurface", "FrontSurface", "BackSurface" }
 
 local function buildSplitTile(parent: Instance, origin: CFrame, cx: number, topY: number, cz: number, split: GroundSplit, isDark: boolean)
 	local pick = if isDark then 1 else 2
 	for _, half in {
-		{ sx = -split.sx, sz = -split.sz, pair = split.inner },
-		{ sx = split.sx, sz = split.sz, pair = split.outer },
+		{ sx = -split.sx, sz = -split.sz, pair = split.inner, lift = split.innerLift },
+		{ sx = split.sx, sz = split.sz, pair = split.outer, lift = 0 },
 	} do
-		build(parent, origin, {
+		local part = build(parent, origin, {
 			name = "Tile",
 			class = "WedgePart",
-			pos = { cx, topY - CAP / 2, cz },
+			pos = { cx, topY + half.lift - CAP / 2, cz },
 			size = { CAP, Hub.TILE_SIZE, Hub.TILE_SIZE },
 			rot = CFrame.Angles(0, SPLIT_YAW[`{half.sx},{half.sz}`], 0) * SPLIT_ROLL,
 			color = half.pair[pick],
 			material = "Plastic",
-			studs = true,
 		})
+		for _, face in SPLIT_SMOOTH_FACES do
+			(part :: any)[face] = Enum.SurfaceType.Smooth
+		end
+		part.RightSurface = Enum.SurfaceType.Studs -- local +X, rolled up to be the top
 	end
 end
 
@@ -585,6 +614,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 			end
 
 			local tileDark, tileLight = dark, light
+			local tileTop = topY
 			if colorAt then
 				tileDark, tileLight = colorAt(cx, cz)
 			end
@@ -599,12 +629,14 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 					built += 2
 					continue
 				end
-				tileDark, tileLight = Hub.groundPairAt(cx, cz)
+				local lift
+				tileDark, tileLight, lift = Hub.groundPairAt(cx, cz)
+				tileTop = topY + lift
 			end
 
 			build(parent, origin, {
 				name = "Tile",
-				pos = { cx, topY - CAP / 2, cz },
+				pos = { cx, tileTop - CAP / 2, cz },
 				size = { x1 - x0, CAP, z1 - z0 },
 				-- Parity off the GLOBAL index, never the loop counter: ix already
 				-- counts from the plaza's corner, so a rectangle out at the plot ring
@@ -681,7 +713,7 @@ local function buildSpawns(hub: Model)
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",
-		pos = { grate.X, Hub.PLAZA.topY + 0.5, grate.Z },
+		pos = { grate.X, Hub.PLAZA.topY + Hub.PLAZA_LIFT + 0.5, grate.Z }, -- on the raised plaza floor
 		size = { 4, 1, 4 },
 		color = C.cyan,
 		material = "SmoothPlastic",

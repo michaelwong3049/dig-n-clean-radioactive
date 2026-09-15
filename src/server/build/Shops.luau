@@ -145,8 +145,9 @@
 
 	`facingOrigin` IS THE ONLY PLACEMENT PRIMITIVE. Both builders lay every part as
 	a local offset from the CFrame it returns, so that one CFrame carries a shop's
-	whole position AND facing. It reads Hub.PLAZA.topY for the ground plane (the
-	plaza is at Stages.SURFACE_Y, not Y=0). This file still reads nothing from
+	whole position AND facing. It reads Hub.PLAZA.topY + Hub.PLAZA_LIFT for the ground
+	plane (the raised plaza floor; PLAZA.topY is at Stages.SURFACE_Y, not Y=0). This
+	file still reads nothing from
 	Plots.luau: Plots requires Hub, Hub requires only Kit, and Shops stays a pure
 	statement of positions. SHOP_CLUSTER_EAST_REACH (Hub.luau now; it places the plot
 	ring's centre) is already marked historical in Plots.luau and stays a
@@ -175,7 +176,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 32
+local BUILDER_VERSION = 33
 
 local C = Kit.C
 local build = Kit.build
@@ -452,7 +453,9 @@ end
 --- Both builders lay every part as a local offset from what this returns, so this
 --- one CFrame is the whole of a shop's position AND its facing.
 local function facingOrigin(x: number, z: number, faceYaw: number?): CFrame
-	local topY = Hub.PLAZA.topY
+	-- The shop square is part of the raised plaza floor (Hub.PLAZA_LIFT), so every stall
+	-- stands on that, not on the lawn's PLAZA.topY.
+	local topY = Hub.PLAZA.topY + Hub.PLAZA_LIFT
 	local dirX, dirZ = facingDirFor(x, z, faceYaw)
 	-- CFrame.lookAt aims local -Z (its LookVector) at the target; the shop fronts
 	-- are +Z, so aim -Z the opposite way down `dir` and +Z lands facing along it.
@@ -1080,7 +1083,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 
 	-- Position AND facing in one CFrame: at this stall's `at`, turned to face
 	-- `spec.faceYaw` or (by default) back at PLAZA_MID — see `facingDirFor`. Y
-	-- comes from Hub.PLAZA.topY (the plaza is at Stages.SURFACE_Y, not Y=0). Every
+	-- comes from Hub.PLAZA.topY + Hub.PLAZA_LIFT (the raised plaza floor). Every
 	-- part below is a LOCAL offset from this, so this one line carries the whole
 	-- stall's placement.
 	local atX, atZ = stallAt(spec)
