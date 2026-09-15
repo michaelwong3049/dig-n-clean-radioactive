@@ -171,7 +171,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 42
+local BUILDER_VERSION = 43
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -2019,8 +2019,8 @@ end
 --- paints the plaza slab, this paints the rest of the disc — same grid, same
 --- `Hub.groundPairAt` resolver — so the disc comes out grass (the Stage-1-matched green)
 --- flowing around every plot footprint, picks up the round plaza's rim where it spills
---- past the plaza rectangle and the cream gate path up to each pad, and every tile it
---- doubles over the plaza's own
+--- past the plaza rectangle (the gate paths up to each pad are Hub's own raised strips,
+--- laid over it), and every tile it doubles over the plaza's own
 --- edge (PLAZA_SKIP_MARGIN) takes the plaza's colour instead of z-fighting a different
 --- one over it. See `Hub.groundPairAt` on why that must stay one shared resolver.
 ---
