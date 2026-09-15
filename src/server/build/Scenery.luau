@@ -239,12 +239,19 @@ local WALL_ROWS = math.ceil(WALL_HEIGHT / WALL_TILE)
 -- two sit ~8% apart per channel, close enough that the checker reads as one brown
 -- material with a faint grid (the original rust pair, B5573A/9C4A2F, read as too bold
 -- up close). The top GRASS_LIP_ROWS rows are the camp grass pulled down over the rim
--- (campCapPair, same as the crown), plus one more row on the columns `grassDrip` picks,
--- so the lip reads as turf hanging over the edge. See cliffPair. (A four-band strata
--- version was tried and walked back on request: "keep the wall one combo of brown".)
+-- (campCapPair, same as the crown), plus zero to two more rows per column where
+-- `grassDrip` rolls them, so the lip hangs over the edge in uneven turf drips. Every
+-- grass tile stands GRASS_OVERHANG proud of the face (and the crown's face-side cell
+-- reaches out to meet it), so the turf reads as lying OVER the dirt rather than painted
+-- on it. See cliffPair / overhangOf. (A four-band strata version was tried and walked
+-- back on request: "keep the wall one combo of brown".)
 local WALL_BROWN_DARK = "8D4B2B"
 local WALL_BROWN_LIGHT = "9B5331"
 local GRASS_LIP_ROWS = 1
+local GRASS_OVERHANG = 0.5
+-- Salts the Stage 1 corridor's grass drips and seeds its crown bushes; each camp-wall
+-- layer carries its own (CampWallLayer.seed), so no two walls drip in step.
+local CORRIDOR_SALT = 101
 
 -- THE CAMP WALL IS TWO LAYERS, on request ("one more bigger wall surrounding the current
 -- wall"): the original ring, and a taller OUTER ring standing flush behind it, so from
@@ -344,39 +351,65 @@ local function campCapPair(): (string, string)
 		Kit.blendHex(C.plazaTileLight, bright, Stages.GROUND_OOZE_TINT)
 end
 
---- Does the grass lip hang one row further down in this column? About 30% of columns,
---- in runs of one to three, so the turf edge scallops instead of ruling a straight line.
-local function grassDrip(col: number): boolean
-	return math.sin(col * 0.9 + 0.4) > 0.55
+--- A cheap deterministic 0..1 hash of an integer column index and a per-wall salt: the
+--- same column always rolls the same, so rebuilds never reshuffle, but neighbours are
+--- uncorrelated.
+local function hash01(n: number, salt: number): number
+	local v = math.sin(n * 12.9898 + salt * 78.233) * 43758.5453
+	return v - math.floor(v)
+end
+
+--- How many extra rows the grass lip hangs down in this column: 0 (40%), 1 (40%) or 2
+--- (20%), rolled independently per column. It used to be a sine (`sin(col*0.9+0.4) >
+--- 0.55`), which drew the same two-wide drip every seven columns -- too even, it read as
+--- a pattern rather than turf.
+local function grassDrip(col: number, salt: number): number
+	local r = hash01(col, salt)
+	return if r < 0.4 then 0 elseif r < 0.8 then 1 else 2
 end
 
 --- The (dark, light) pair for one tile of the camp / Stage 1 cliff at wall column `col`
---- and row `row` (0 = the foot) of a wall `rows` tiles tall: the grass lip at the top,
---- the brown pair everywhere else. The caller picks dark or light by checker parity.
-local function cliffPair(col: number, row: number, rows: number): (string, string)
-	local lip = rows - GRASS_LIP_ROWS
-	if row >= lip or (row == lip - 1 and grassDrip(col)) then
-		return campCapPair()
+--- and row `row` (0 = the foot) of a wall `rows` tiles tall, plus whether that tile is
+--- grass (which stands proud -- see overhangOf). The caller picks dark or light by
+--- checker parity.
+local function cliffPair(col: number, row: number, rows: number, salt: number): (string, string, boolean)
+	if row >= rows - GRASS_LIP_ROWS - grassDrip(col, salt) then
+		local dark, light = campCapPair()
+		return dark, light, true
 	end
-	return WALL_BROWN_DARK, WALL_BROWN_LIGHT
+	return WALL_BROWN_DARK, WALL_BROWN_LIGHT, false
+end
+
+--- Which way a wall's visible face points along its thickness axis, keyed by the surface
+--- property its builder studs: +1 for the +axis face, -1 for the -axis one.
+local FACE_SIGN: { [string]: number } = { FrontSurface = -1, BackSurface = 1, LeftSurface = -1, RightSurface = 1 }
+
+--- A wall tile's thickness and how far to shift its centre along that axis: a grass tile
+--- is GRASS_OVERHANG thicker, all of it on the visible side (`faceSign`), so it stands
+--- proud of the brown below it; anything else is the plain WALL_THICKNESS, centred.
+local function overhangOf(grassy: boolean, faceSign: number): (number, number)
+	if not grassy then
+		return WALL_THICKNESS, 0
+	end
+	return WALL_THICKNESS + GRASS_OVERHANG, faceSign * GRASS_OVERHANG / 2
 end
 
 --- The (dark, light) hex pair for one tile of a stage's stretch of boundary wall, at
---- world column-centre `x` and row `row`. Stage 1 and anything not a stage (id 1 is
---- the fallback) wear the camp cliff (cliffPair); a pinned stage uses its hand-picked
---- colour; every other stage is a lighterFloor() tint of its own floor. Only the cliff
---- varies by row -- the other two paths end in the same close two-tone split every
---- checkerboard in this file uses.
-local function wallPair(id: number, x: number, row: number): (string, string)
+--- world column-centre `x` and row `row`, plus whether it is grass (see cliffPair).
+--- Stage 1 and anything not a stage (id 1 is the fallback) wear the camp cliff; a
+--- pinned stage uses its hand-picked colour; every other stage is a lighterFloor() tint
+--- of its own floor. Only the cliff varies by row -- the other two paths end in the same
+--- close two-tone split every checkerboard in this file uses.
+local function wallPair(id: number, x: number, row: number): (string, string, boolean)
 	if id == 1 then
-		return cliffPair(math.floor(x / WALL_TILE), row, WALL_ROWS)
+		return cliffPair(math.floor(x / WALL_TILE), row, WALL_ROWS, CORRIDOR_SALT)
 	end
 
 	local pin = WALL_STAGE_PIN[id]
 	local mid = if pin then Color3.fromHex(pin) else lighterFloor(Stages.get(id).color)
 
 	local darkC, lightC = twoToneOf(mid)
-	return darkC:ToHex(), lightC:ToHex()
+	return darkC:ToHex(), lightC:ToHex(), false
 end
 
 --- The (dark, light) crown-cap pair for the stage behind a boundary-wall column.
@@ -3095,7 +3128,7 @@ end
 --- per-stage colour along the wall (and the camp cliff's strata up it). Columns are 4
 --- studs and every stage seam lands on a multiple of that, so no column straddles two
 --- stages.
-local function buildWall(parent: Instance, name: string, minX: number, maxX: number, atZ: number, faceProperty: string, pairAt: (number, number) -> (string, string))
+local function buildWall(parent: Instance, name: string, minX: number, maxX: number, atZ: number, faceProperty: string, pairAt: (number, number) -> (string, string, boolean))
 	local baseY = Stages.SURFACE_Y
 	local cols = math.ceil((maxX - minX) / WALL_TILE)
 	local rows = WALL_ROWS
@@ -3116,12 +3149,13 @@ local function buildWall(parent: Instance, name: string, minX: number, maxX: num
 				continue
 			end
 
-			local darkHex, lightHex = pairAt((x0 + x1) / 2, iy)
+			local darkHex, lightHex, grassy = pairAt((x0 + x1) / 2, iy)
+			local thick, zOff = overhangOf(grassy, FACE_SIGN[faceProperty])
 
 			local tile = build(parent, CFrame.new(0, 0, 0), {
 				name = name,
-				pos = { (x0 + x1) / 2, (y0 + y1) / 2, atZ },
-				size = { w, h, WALL_THICKNESS },
+				pos = { (x0 + x1) / 2, (y0 + y1) / 2, atZ + zOff },
+				size = { w, h, thick },
 				color = if (ix + iy) % 2 == 0 then darkHex else lightHex,
 				material = "Plastic", -- studs only render on Plastic, per Hub.tileRect's note
 				canCollide = true, -- see the header: the one deliberate exception in this file
@@ -3141,7 +3175,7 @@ end
 --- buildBoundaryWalls' resolver), so the crown matches the ground rather than the
 --- paler wall. Decorative: `CanCollide`/`CanQuery` false -- nothing stands 55 studs up,
 --- and DigService / the range-ring raycast must never see it.
-local function buildWallCap(parent: Instance, name: string, minX: number, maxX: number, atZ: number, pairAt: (number) -> (string, string))
+local function buildWallCap(parent: Instance, name: string, minX: number, maxX: number, atZ: number, pairAt: (number) -> (string, string, boolean), faceSign: number)
 	local capY = Stages.SURFACE_Y + WALL_HEIGHT + WALL_CAP_THICKNESS / 2 - 0.1
 	local cols = math.ceil((maxX - minX) / WALL_TILE)
 	local depthCells = math.ceil(WALL_THICKNESS / WALL_TILE)
@@ -3154,11 +3188,20 @@ local function buildWallCap(parent: Instance, name: string, minX: number, maxX: 
 			continue
 		end
 
-		local darkHex, lightHex = pairAt((x0 + x1) / 2)
+		local darkHex, lightHex, grassy = pairAt((x0 + x1) / 2)
 
 		for iz = 0, depthCells - 1 do
 			local z0 = -WALL_THICKNESS / 2 + iz * WALL_TILE
 			local z1 = math.min(z0 + WALL_TILE, WALL_THICKNESS / 2)
+			-- A grass crown's field-side cell reaches GRASS_OVERHANG past the face, out
+			-- over the turf lip standing proud below it.
+			if grassy and iz == (if faceSign > 0 then depthCells - 1 else 0) then
+				if faceSign > 0 then
+					z1 += GRASS_OVERHANG
+				else
+					z0 -= GRASS_OVERHANG
+				end
+			end
 			local d = z1 - z0
 			if d <= 1e-3 then
 				continue
@@ -3240,18 +3283,21 @@ local function buildBoundaryWalls(parent: Instance)
 		end
 		return ids[#ids]
 	end
-	local function facePairAt(x: number, row: number): (string, string)
+	local function facePairAt(x: number, row: number): (string, string, boolean)
 		return wallPair(stageAt(x), x, row)
 	end
-	local function capPairAt(x: number): (string, string)
-		return capStagePair(stageAt(x))
+	-- Only Stage 1's crown is grass, so only it reaches out over the turf lip.
+	local function capPairAt(x: number): (string, string, boolean)
+		local id = stageAt(x)
+		local dark, light = capStagePair(id)
+		return dark, light, id == 1
 	end
 
 	local northZ, southZ = minZ - WALL_THICKNESS / 2, maxZ + WALL_THICKNESS / 2
 	buildWall(folder, "NorthWall", minX, maxX, northZ, "BackSurface", facePairAt)
 	buildWall(folder, "SouthWall", minX, maxX, southZ, "FrontSurface", facePairAt)
-	buildWallCap(folder, "NorthWallCap", minX, maxX, northZ, capPairAt)
-	buildWallCap(folder, "SouthWallCap", minX, maxX, southZ, capPairAt)
+	buildWallCap(folder, "NorthWallCap", minX, maxX, northZ, capPairAt, FACE_SIGN.BackSurface)
+	buildWallCap(folder, "SouthWallCap", minX, maxX, southZ, capPairAt, FACE_SIGN.FrontSurface)
 
 	-- Stage 1's stretch wears the camp cliff and the camp-green crown, so it carries the
 	-- camp arc's crown bushes on along it (buildBaseWalls). Every other stage's crown is
@@ -3262,7 +3308,7 @@ local function buildBoundaryWalls(parent: Instance)
 		table.insert(spots, Vector2.new(x, northZ))
 		table.insert(spots, Vector2.new(x, southZ))
 	end
-	crownBushes(folder, "CrownBushes", spots, 101, crownTopY(WALL_HEIGHT))
+	crownBushes(folder, "CrownBushes", spots, CORRIDOR_SALT, crownTopY(WALL_HEIGHT))
 
 	folder.Parent = parent
 end
@@ -3275,7 +3321,7 @@ end
 --- segments are unrotated and expose the field on their +-Z face (hence
 --- Front/BackSurface); these are unrotated too but expose it on their +-X face
 --- instead, so they take Left/RightSurface.
-local function buildShoulderWall(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, faceProperty: string, height: number)
+local function buildShoulderWall(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, faceProperty: string, height: number, salt: number)
 	local baseY = Stages.SURFACE_Y
 	local cols = math.ceil((maxZ - minZ) / WALL_TILE)
 	local rows = math.ceil(height / WALL_TILE)
@@ -3298,11 +3344,12 @@ local function buildShoulderWall(parent: Instance, name: string, atX: number, mi
 
 			-- Column index off world Z, so the grass drips run on continuously along
 			-- the shoulder rather than restarting at its own local zero.
-			local darkHex, lightHex = cliffPair(math.floor((z0 + z1) / 2 / WALL_TILE), iy, rows)
+			local darkHex, lightHex, grassy = cliffPair(math.floor((z0 + z1) / 2 / WALL_TILE), iy, rows, salt)
+			local thick, xOff = overhangOf(grassy, FACE_SIGN[faceProperty])
 			local tile = build(parent, CFrame.new(0, 0, 0), {
 				name = name,
-				pos = { atX, (y0 + y1) / 2, (z0 + z1) / 2 },
-				size = { WALL_THICKNESS, h, d },
+				pos = { atX + xOff, (y0 + y1) / 2, (z0 + z1) / 2 },
+				size = { thick, h, d },
 				color = if (iz + iy) % 2 == 0 then darkHex else lightHex,
 				material = "Plastic", -- studs only render on Plastic, per Hub.tileRect's note
 				canCollide = true,
@@ -3316,7 +3363,7 @@ end
 --- at a fixed X, for the two shoulder pieces, exactly as `buildShoulderWall` is
 --- `buildWall` swapped. Flat (dark, light) rather than a per-column resolver: a
 --- shoulder is a few studs of one stage's edge, not a colour transition.
-local function buildShoulderCap(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, dark: string, light: string, height: number)
+local function buildShoulderCap(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, dark: string, light: string, height: number, faceSign: number)
 	local capY = Stages.SURFACE_Y + height + WALL_CAP_THICKNESS / 2 - 0.1
 	local cols = math.ceil((maxZ - minZ) / WALL_TILE)
 	local depthCells = math.ceil(WALL_THICKNESS / WALL_TILE)
@@ -3332,6 +3379,14 @@ local function buildShoulderCap(parent: Instance, name: string, atX: number, min
 		for ix = 0, depthCells - 1 do
 			local x0 = -WALL_THICKNESS / 2 + ix * WALL_TILE
 			local x1 = math.min(x0 + WALL_TILE, WALL_THICKNESS / 2)
+			-- The face-side cell reaches out over the turf lip (the whole crown is grass).
+			if ix == (if faceSign > 0 then depthCells - 1 else 0) then
+				if faceSign > 0 then
+					x1 += GRASS_OVERHANG
+				else
+					x0 -= GRASS_OVERHANG
+				end
+			end
 			local w = x1 - x0
 			if w <= 1e-3 then
 				continue
@@ -3389,7 +3444,7 @@ type CampWallLayer = {
 	clipX: number, -- the shoulders' centreline X, where the arc stops
 	height: number,
 	corridorPad: number, -- how far past the corridor wall's centreline the shoulders run
-	bushSeed: number,
+	seed: number,
 }
 
 local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
@@ -3466,11 +3521,12 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 				continue
 			end
 
-			local darkHex, lightHex = cliffPair(ix, iy, rows)
+			local darkHex, lightHex, grassy = cliffPair(ix, iy, rows, layer.seed)
+			local thick, zOff = overhangOf(grassy, FACE_SIGN.FrontSurface)
 			local tile = build(folder, origin, {
 				name = "ArcWall",
-				pos = { 0, (y0 + y1) / 2, 0 },
-				size = { chord, h, WALL_THICKNESS },
+				pos = { 0, (y0 + y1) / 2, zOff },
+				size = { chord, h, thick },
 				color = if (ix + iy) % 2 == 0 then darkHex else lightHex,
 				material = "Plastic",
 				canCollide = true,
@@ -3483,10 +3539,12 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 		-- yaw; only the radius shifts, so the strip follows the curve with the wall.
 		for cell = 0, 1 do
 			local rCell = rMid + (if cell == 0 then -WALL_TILE / 2 else WALL_TILE / 2)
+			-- The inner (face-side) cell reaches out over the turf lip; local -Z is inward.
+			local reach = if cell == 0 then GRASS_OVERHANG else 0
 			local cap = build(folder, CFrame.new(cx + rCell * math.sin(aMid), 0, cz + rCell * math.cos(aMid)) * CFrame.Angles(0, aMid, 0), {
 				name = "ArcWallCap",
-				pos = { 0, capY, 0 },
-				size = { chord, WALL_CAP_THICKNESS, WALL_TILE },
+				pos = { 0, capY, -reach / 2 },
+				size = { chord, WALL_CAP_THICKNESS, WALL_TILE + reach },
 				color = if (ix + cell) % 2 == 0 then capDark else capLight,
 				material = "Plastic",
 				studs = true,
@@ -3503,15 +3561,15 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 	-- why an exact-touching seam between two independently-computed edges is the
 	-- one that grows a gap first the next time either number moves.
 	local OVERLAP = 1
-	buildShoulderWall(folder, "ShoulderWallNeg", clipX, -halfSpanZ, corridorMinZ + OVERLAP, "LeftSurface", height)
-	buildShoulderWall(folder, "ShoulderWallPos", clipX, corridorMaxZ - OVERLAP, halfSpanZ, "LeftSurface", height)
-	buildShoulderCap(folder, "ShoulderWallNegCap", clipX, -halfSpanZ, corridorMinZ + OVERLAP, capDark, capLight, height)
-	buildShoulderCap(folder, "ShoulderWallPosCap", clipX, corridorMaxZ - OVERLAP, halfSpanZ, capDark, capLight, height)
+	buildShoulderWall(folder, "ShoulderWallNeg", clipX, -halfSpanZ, corridorMinZ + OVERLAP, "LeftSurface", height, layer.seed)
+	buildShoulderWall(folder, "ShoulderWallPos", clipX, corridorMaxZ - OVERLAP, halfSpanZ, "LeftSurface", height, layer.seed)
+	buildShoulderCap(folder, "ShoulderWallNegCap", clipX, -halfSpanZ, corridorMinZ + OVERLAP, capDark, capLight, height, FACE_SIGN.LeftSurface)
+	buildShoulderCap(folder, "ShoulderWallPosCap", clipX, corridorMaxZ - OVERLAP, halfSpanZ, capDark, capLight, height, FACE_SIGN.LeftSurface)
 
 	-- Turf on the cliff top: a bush every few columns round the arc (the inner layer's
 	-- carried on along Stage 1's stretch by buildBoundaryWalls). Seeded, so rebuilds do
 	-- not reshuffle.
-	crownBushes(folder, "CrownBushes", arcSpots, layer.bushSeed, crownTopY(height))
+	crownBushes(folder, "CrownBushes", arcSpots, layer.seed, crownTopY(height))
 end
 
 --- Both camp-wall layers. The inner one is the original ring: its inner face on the
@@ -3531,7 +3589,7 @@ local function buildBaseWalls(parent: Instance)
 			clipX = Hub.PLAZA.maxX,
 			height = WALL_HEIGHT,
 			corridorPad = 0,
-			bushSeed = 7,
+			seed = 7,
 		},
 		{
 			name = "OuterBaseWalls",
@@ -3539,7 +3597,7 @@ local function buildBaseWalls(parent: Instance)
 			clipX = Hub.PLAZA.maxX + WALL_THICKNESS,
 			height = OUTER_WALL_HEIGHT,
 			corridorPad = WALL_THICKNESS / 2,
-			bushSeed = 13,
+			seed = 13,
 		},
 	}
 	for _, layer in layers do
