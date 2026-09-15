@@ -63,11 +63,12 @@
 	structure. Each tool stall has studded posts, a slatted rear wall, an open
 	counter with a steel cap, a shallow striped canopy and matching valance IN THE
 	STALL'S OWN COLOUR (coral / teal / purple against white, no longer the one
-	shared awning red), and a floating two-line sign that NAMES WHAT THE STALL
-	SELLS (DETECTORS / MAGNETS / HOSES) in that same accent, with the tagline
-	under it. The Outfitter gets the identical shell at its own width, its three
-	counters each signed the same stall-style way (SUITS / BOOTS / SATCHELS) —
-	see `buildOutfitter`'s own header for why it used to be a separate building.
+	shared awning red), and a small one-line sign centred over the whole stall
+	that NAMES WHAT THE STALL SELLS ("Detector Shop" / "Magnet Shop" / "Hose
+	Shop") in that same accent. The Outfitter gets the identical shell at its own
+	width, its three counters each signed the same stall-style way ("Suit Shop" /
+	"Boots Shop" / "Satchel Shop") — see `buildOutfitter`'s own header for why it
+	used to be a separate building.
 
 	THE DECORATION IS GONE, AND THAT WAS A DELIBERATE STRIP. Earlier passes stood a
 	blocky shopkeeper behind each counter, a big silhouette prop of the thing sold
@@ -226,9 +227,9 @@ local PLAZA_MID = { x = 17.5, z = 0 }
 --- deck to (near) the rail without clipping its neighbour: the detector tips hard
 --- nose-down to drop its coil to the floor, the hose barely tips at all.
 local STALLS = {
-	{ track = "Detector", at = { 31.87, 30 }, faceYaw = 180, color = C.shopDetector, label = "DETECTORS", tagline = "find it deeper", present = { yaw = 205, pitch = -80 } },
-	{ track = "Magnet", at = { -22, -34.43 }, faceYaw = 0, color = C.shopMagnet, label = "MAGNETS", tagline = "pull it harder", present = { yaw = 202, pitch = -56 } },
-	{ track = "Cleaner", at = { 37.5, -37.10 }, faceYaw = 0, color = C.shopCleaner, label = "HOSES", tagline = "blast it clean", present = { yaw = 196, pitch = -12 } },
+	{ track = "Detector", at = { 31.87, 30 }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop", present = { yaw = 205, pitch = -80 } },
+	{ track = "Magnet", at = { -22, -34.43 }, faceYaw = 0, color = C.shopMagnet, label = "Magnet Shop", present = { yaw = 202, pitch = -56 } },
+	{ track = "Cleaner", at = { 37.5, -37.10 }, faceYaw = 0, color = C.shopCleaner, label = "Hose Shop", present = { yaw = 196, pitch = -12 } },
 }
 
 -- ── The rack ─────────────────────────────────────────────────────────────────
@@ -414,9 +415,9 @@ local OUTFITTER = {
 	faceYaw = 180,
 	pitch = 13,
 	counters = {
-		{ track = "Suit", label = "SUITS", tagline = "survive it longer" },
-		{ track = "Boots", label = "BOOTS", tagline = "get home faster" },
-		{ track = "Satchel", label = "SATCHELS", tagline = "buy the clock time" },
+		{ track = "Suit", label = "Suit Shop" },
+		{ track = "Boots", label = "Boots Shop" },
+		{ track = "Satchel", label = "Satchel Shop" },
 		-- LUCK IS NOT HERE, and it briefly was. It is the one track you neither hold
 		-- nor wear, and a fourth desk here sold it as though it were a satchel. It
 		-- moved to a glowing button staked next to the wash pad it actually affects
@@ -604,17 +605,16 @@ local function buildSlatWall(parent: Instance, origin: CFrame, width: number)
 	end
 end
 
---- The floating stall sign, in the reference's two-line hierarchy: the big line
---- names WHAT THE STALL SELLS (DETECTORS / MAGNETS / HOSES) in that shop's own
---- accent colour so the sign itself does the colour-navigation, and a smaller
---- white line under it carries the tagline. `accent` is the shop's hex string.
---- The big line is TextScaled so any label length fits its band without
---- re-tuning TextSize.
-local function buildStoreBillboard(adornee: BasePart, label: string, tagline: string, accent: string)
+--- The floating stall sign: one small line naming WHAT THE STALL IS ("Detector
+--- Shop" / "Magnet Shop" / "Hose Shop") in that shop's own accent colour, so
+--- the sign itself does the colour-navigation. `accent` is the shop's hex
+--- string. TextScaled so any label length fits its (small, fixed) band without
+--- re-tuning TextSize by hand.
+local function buildStoreBillboard(adornee: BasePart, label: string, accent: string)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "StoreSign"
 	gui.Adornee = adornee
-	gui.Size = UDim2.fromOffset(400, 96)
+	gui.Size = UDim2.fromOffset(200, 36)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 12.4, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = 40
@@ -622,7 +622,7 @@ local function buildStoreBillboard(adornee: BasePart, label: string, tagline: st
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
-	title.Size = UDim2.new(1, 0, 0, 56)
+	title.Size = UDim2.fromScale(1, 1)
 	title.BackgroundTransparency = 1
 	title.Font = Kit.FONT
 	title.Text = label
@@ -630,20 +630,7 @@ local function buildStoreBillboard(adornee: BasePart, label: string, tagline: st
 	title.TextColor3 = Color3.fromHex(accent)
 	title.TextStrokeTransparency = 1
 	title.Parent = gui
-	Kit.textOutline(title, 3)
-
-	local subtitle = Instance.new("TextLabel")
-	subtitle.Name = "Subtitle"
-	subtitle.Position = UDim2.fromOffset(0, 56)
-	subtitle.Size = UDim2.new(1, 0, 0, 34)
-	subtitle.BackgroundTransparency = 1
-	subtitle.Font = Kit.FONT
-	subtitle.Text = tagline
-	subtitle.TextColor3 = Color3.fromHex(C.labelText)
-	subtitle.TextSize = 25
-	subtitle.TextStrokeTransparency = 1
-	subtitle.Parent = gui
-	Kit.textOutline(subtitle, 2)
+	Kit.textOutline(title, 2)
 end
 
 -- ── The counter ───────────────────────────────────────────────────────────────
@@ -1073,11 +1060,11 @@ end
 -- ── The plaza stalls ────────────────────────────────────────────────────────────
 
 --- One classic-Roblox gear store, stripped to the structure: studded grey posts
---- and rear slats, an open counter, and a striped canopy + two-line sign both in
+--- and rear slats, an open counter, and a striped canopy + sign both in
 --- the stall's own accent colour. The canopy, the sign text, the floor marker
 --- and the counter's trim cap — all `spec.color` — are the per-shop identity now
 --- that the shopkeeper and the identity prop are gone.
-local function buildStall(parent: Instance, spec: { track: string, at: { number }, faceYaw: number?, color: string, label: string, tagline: string, present: { yaw: number, pitch: number } })
+local function buildStall(parent: Instance, spec: { track: string, at: { number }, faceYaw: number?, color: string, label: string, present: { yaw: number, pitch: number } })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
@@ -1117,14 +1104,13 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	local sx, rx = standX(spec.track), rackX(spec.track)
 
 	-- THE STAND. This is the part the whole file exists to place correctly: the desk
-	-- you walk up to for the card panel, the thing the sign hangs over, and the shop's
-	-- own StationId. Eight studs wide and parked at the left end of the store instead
-	-- of the 37-stud bench that used to run the whole front, because the ladder no
-	-- longer sits on top of it.
+	-- you walk up to for the card panel, and the shop's own StationId. Eight studs
+	-- wide and parked at the left end of the store instead of the 37-stud bench that
+	-- used to run the whole front, because the ladder no longer sits on top of it.
 	-- material = "Plastic" here (not buildCounter's own "Wood" default) so the
 	-- studded look stays consistent across the whole stall -- the Outfitter's
 	-- call to the same function passes no material and keeps its original Wood.
-	local stand = buildCounter(m, origin * CFrame.new(sx, 0, 0), {
+	buildCounter(m, origin * CFrame.new(sx, 0, 0), {
 		name = "Stand",
 		color = C.steel,
 		width = STAND_WIDTH,
@@ -1137,7 +1123,23 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		material = "Plastic",
 		studded = true,
 	})
-	buildStoreBillboard(stand, spec.label, spec.tagline, spec.color)
+
+	-- THE SIGN ANCHOR sits at local x=0 — dead centre of the WHOLE stall — rather
+	-- than on the stand, which is parked off to one side (see `standX`). Hanging
+	-- the sign off the stand read as off-centre against the shop as a whole; an
+	-- invisible, non-colliding anchor lets the sign float over the stall's own
+	-- midpoint regardless of where the stand or rack sit within it.
+	local signAnchor = build(m, origin, {
+		name = "SignAnchor",
+		pos = { 0, 1.1, SHOPFRONT_Z },
+		size = { 1, 1, 1 },
+		color = C.steel,
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+	})
+	signAnchor.CanQuery = false
+	buildStoreBillboard(signAnchor, spec.label, spec.color)
 
 	-- THE WING'S STATION CIRCLE, carrying the same StationId at its own radius, on an
 	-- invisible anchor now that the shelf under the rack is gone. Not a spare copy of
@@ -1310,7 +1312,7 @@ local function buildOutfitter(parent: Instance)
 			material = "Plastic",
 			studded = true,
 		})
-		buildStoreBillboard(desk, counter.label, counter.tagline, C.shopOutfitter)
+		buildStoreBillboard(desk, counter.label, C.shopOutfitter)
 	end
 
 	m.Parent = parent
