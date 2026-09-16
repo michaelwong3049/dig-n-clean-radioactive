@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 28
+local BUILDER_VERSION = 29
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -3338,12 +3338,16 @@ local function crownBushes(parent: Instance, name: string, spots: { Vector2 }, s
 	folder.Parent = parent
 end
 
---- Ground cover scattered across the WHOLE open base plate -- the apron disc the camp's
---- pads and walkways sit on -- not just hugging the perimeter wall, on request ("apply
---- them randomly around the main base plate, not just the edge"). Dark bushes (BASE_
---- FOLIAGE_GREEN/_DARK, deliberately darker than both BUSH_GREEN and the apron floor's
---- own C.grass, on request) as the rare accent, small grass tufts far more often -- one
---- roll per candidate spot so the two never double up.
+--- Ground cover scattered across the OUTER BAND of the open base plate -- the apron
+--- disc the camp's pads sit on -- not hugging just the perimeter wall (on request,
+--- "apply them randomly around the main base plate, not just the edge") but also never
+--- reaching the middle (on request, "do NOT make them touch the middle base plate with
+--- shops/paths"): BASE_FOLIAGE_MIN_RADIUS cuts out an inner disc around Plots.RING_CENTER
+--- big enough to clear the plaza and the walk-in lane every pad's own entrance opens
+--- onto, so growth only appears from roughly each pad's own radius outward to the wall.
+--- Dark bushes (BASE_FOLIAGE_GREEN/_DARK, deliberately darker than both BUSH_GREEN and
+--- the apron floor's own C.grass, on request) as the rare accent, small grass tufts far
+--- more often -- one roll per candidate spot so the two never double up.
 ---
 --- SAME JITTERED-GRID IDIOM EVERY OTHER SCATTER IN THIS FILE USES (see the file header):
 --- pure random clumps and leaves bald patches, a jittered grid reads as scattered while
@@ -3355,12 +3359,13 @@ end
 --- footprint, PAD clearance grown outward) rather than re-deriving that shape a second
 --- time and risking the two edges drifting apart the way this file's own header warns
 --- about elsewhere (buildBaseWalls' three-piece junction comment).
-local BASE_FOLIAGE_CELL = 18 -- stud pitch of the jitter grid -- see scatterBushes for the same idiom at a different scale
+local BASE_FOLIAGE_CELL = 24 -- stud pitch of the jitter grid -- see scatterBushes for the same idiom at a different scale. Widened (was 18) on request, "too much"
 local BASE_FOLIAGE_JITTER = 0.4 -- fraction of a cell a point may drift off its centre
 local BASE_FOLIAGE_EDGE_MARGIN = 6 -- keep clear of the perimeter wall's own inner face
+local BASE_FOLIAGE_MIN_RADIUS = Plots.RING_RADIUS - 40 -- keep clear of the plaza/paths in the middle -- see comment above
 local BASE_FOLIAGE_PAD_CLEARANCE = 6 -- extra clearance past each pad's real footprint
-local BASE_FOLIAGE_BUSH_CHANCE = 0.14
-local BASE_FOLIAGE_GRASS_CHANCE = 0.46 -- rolled after a spot misses the bush chance
+local BASE_FOLIAGE_BUSH_CHANCE = 0.08 -- was 0.14, thinned on request, "too much"
+local BASE_FOLIAGE_GRASS_CHANCE = 0.3 -- was 0.46, rolled after a spot misses the bush chance
 local function buildBaseFoliage(parent: Instance, seed: number)
 	local folder = Instance.new("Folder")
 	folder.Name = "BaseFoliage"
@@ -3385,7 +3390,8 @@ local function buildBaseFoliage(parent: Instance, seed: number)
 			local z = minZ + (iz + 0.5 + rng:NextNumber(-BASE_FOLIAGE_JITTER, BASE_FOLIAGE_JITTER)) * BASE_FOLIAGE_CELL
 
 			local dx, dz = x - cx, z - cz
-			if dx * dx + dz * dz > maxRadius * maxRadius then
+			local dist2 = dx * dx + dz * dz
+			if dist2 > maxRadius * maxRadius or dist2 < BASE_FOLIAGE_MIN_RADIUS * BASE_FOLIAGE_MIN_RADIUS then
 				continue
 			end
 			if x > Hub.PLAZA.minX and x < Hub.PLAZA.maxX and z > Hub.PLAZA.minZ and z < Hub.PLAZA.maxZ then
