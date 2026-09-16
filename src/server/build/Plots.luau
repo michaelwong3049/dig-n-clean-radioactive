@@ -1726,6 +1726,10 @@ local RAIL_H = 3.4
 local RAIL_POST_SPACING = 8
 local RAIL_POST_W = 1.2
 local RAIL_BAR_T = 0.8
+-- The Trim strip (built in buildPlot) sits at pad.topY + 0.1, height 0.5, so its top
+-- face is pad.topY + 0.35 — posts must stand on that face rather than pad.topY itself,
+-- or the Trim pokes up through the bottom third of every post along the trimmed edges.
+local RAIL_BASE_Y = 0.35
 local function buildSideRailings(parent: Instance, origin: CFrame)
 	local pad = Plots.PAD
 	local folder = Instance.new("Folder")
@@ -1759,7 +1763,7 @@ local function buildSideRailings(parent: Instance, origin: CFrame)
 			local z = z0 + span * (i / (postCount - 1))
 			build(folder, origin, {
 				name = "RailPost",
-				pos = { x, pad.topY + postH / 2, z },
+				pos = { x, pad.topY + RAIL_BASE_Y + postH / 2, z },
 				size = { RAIL_POST_W, postH, RAIL_POST_W },
 				color = C.railPost,
 				material = "Plastic",
@@ -1774,8 +1778,10 @@ end
 --- Closes the back-wall edge with the same rail/post fence buildSideRailings runs
 --- down the long edges, standing where the old NameSign's standoff arms used to —
 --- on request, in place of a nameplate mounted there. `railZ`/end-post X match
---- buildSideRailings' own `railX`/`z1` exactly, so the back fence's corner posts
---- land flush with the side fence's rather than leaving a gap or doubling up.
+--- buildSideRailings' own `railX`/`z1` exactly, so the back fence's rail lands flush
+--- with the side fence's corner post; the post loop itself skips both ends (i = 0 and
+--- i = postCount - 1) since those coordinates are that same corner post — building it
+--- again there duplicated the geometry exactly and z-fought.
 local function buildBackFence(parent: Instance, origin: CFrame)
 	local pad = Plots.PAD
 	local folder = Instance.new("Folder")
@@ -1799,11 +1805,15 @@ local function buildBackFence(parent: Instance, origin: CFrame)
 		})
 	end
 
-	for i = 0, postCount - 1 do
+	-- i = 0 and i = postCount - 1 land at x = +-railX, z = railZ — exactly the same
+	-- spot as buildSideRailings' own corner post (its last post, at z1 == railZ).
+	-- Skip both ends here so the corner post is built once, not doubled into a
+	-- z-fighting duplicate.
+	for i = 1, postCount - 2 do
 		local x = -railX + span * (i / (postCount - 1))
 		build(folder, origin, {
 			name = "RailPost",
-			pos = { x, pad.topY + postH / 2, railZ },
+			pos = { x, pad.topY + RAIL_BASE_Y + postH / 2, railZ },
 			size = { RAIL_POST_W, postH, RAIL_POST_W },
 			color = C.railPost,
 			material = "Plastic",
