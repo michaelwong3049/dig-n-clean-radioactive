@@ -177,7 +177,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 36
+local BUILDER_VERSION = 37
 
 local C = Kit.C
 local build = Kit.build
@@ -609,9 +609,10 @@ end
 --- Shop" / "Magnet Shop" / "Hose Shop") in that shop's own accent colour, so
 --- the sign itself does the colour-navigation. `accent` is the shop's hex
 --- string. TextScaled so any label length fits its (fixed) band without
---- re-tuning TextSize by hand. Hung LOW (just under the canopy, not floating
---- above it) and only meant to be read up close, like the rest of a stall's own
---- signage.
+--- re-tuning TextSize by hand. Hung ABOVE the canopy (the highest point of
+--- `buildStripedCanopy`'s roof panel is ~10.5 studs up at the stall's own
+--- origin, so 12.6 clears it) rather than tucked underneath it, so the sign
+--- reads over the whole structure instead of hiding behind its own roofline.
 ---
 --- GothamBold, NOT `Kit.FONT` (FredokaOne) — every other sign in the world
 --- deliberately shares the one chunky toy-shop face (see Kit.luau's "Signage
@@ -624,9 +625,9 @@ local function buildStoreBillboard(adornee: BasePart, label: string, accent: str
 	gui.Name = "StoreSign"
 	gui.Adornee = adornee
 	gui.Size = UDim2.fromOffset(180, 32)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, 6.5, 0)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 11.5, 0)
 	gui.AlwaysOnTop = true
-	gui.MaxDistance = 45
+	gui.MaxDistance = 60
 	gui.Parent = adornee
 
 	local title = Instance.new("TextLabel")
