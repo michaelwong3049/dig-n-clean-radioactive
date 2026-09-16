@@ -177,7 +177,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 35
+local BUILDER_VERSION = 36
 
 local C = Kit.C
 local build = Kit.build
@@ -610,28 +610,36 @@ end
 --- the sign itself does the colour-navigation. `accent` is the shop's hex
 --- string. TextScaled so any label length fits its (fixed) band without
 --- re-tuning TextSize by hand. Hung LOW (just under the canopy, not floating
---- above it) and readable from well back across the plaza, not just up close.
+--- above it) and only meant to be read up close, like the rest of a stall's own
+--- signage.
+---
+--- GothamBold, NOT `Kit.FONT` (FredokaOne) — every other sign in the world
+--- deliberately shares the one chunky toy-shop face (see Kit.luau's "Signage
+--- voice" header), but that face reads as bubbly/oversized on a short
+--- structural caption like this one, which fights the shops' own clean
+--- grey-lumber, no-decoration look. A deliberate one-off exception, not a
+--- start of re-voicing the rest of the signage.
 local function buildStoreBillboard(adornee: BasePart, label: string, accent: string)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "StoreSign"
 	gui.Adornee = adornee
-	gui.Size = UDim2.fromOffset(340, 62)
+	gui.Size = UDim2.fromOffset(180, 32)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 6.5, 0)
 	gui.AlwaysOnTop = true
-	gui.MaxDistance = 110
+	gui.MaxDistance = 45
 	gui.Parent = adornee
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
 	title.Size = UDim2.fromScale(1, 1)
 	title.BackgroundTransparency = 1
-	title.Font = Kit.FONT
+	title.Font = Enum.Font.GothamBold
 	title.Text = label
 	title.TextScaled = true
 	title.TextColor3 = Color3.fromHex(accent)
 	title.TextStrokeTransparency = 1
 	title.Parent = gui
-	Kit.textOutline(title, 3)
+	Kit.textOutline(title, 2)
 end
 
 -- ── The counter ───────────────────────────────────────────────────────────────
