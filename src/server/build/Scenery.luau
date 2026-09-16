@@ -113,6 +113,23 @@ local GROUND_SKIM = 0.06
 -- bush never sprouts in the middle of the route.
 local BUSH_CENTRE_CLEARANCE = 28
 
+--- Clamps a candidate z to the field's own bounds, then keeps it off the centre lane --
+--- REFLECTING anything still within BUSH_CENTRE_CLEARANCE of z = 0 across the clearance
+--- boundary rather than pinning it to the boundary. Pinning collapses every candidate
+--- this close to the lane onto the exact same z, which is what was stacking bushes,
+--- grass tufts and rocks into one dense line right at the lane's edge while leaving the
+--- rest of the band bare ("too many decorations in one spot and none in another," on
+--- request). Reflecting keeps each candidate's own row/jitter offset instead of
+--- throwing it away, so they fan back out along whichever side they started on.
+local function clearCentreLane(z: number, hz: number): number
+	local clamped = math.clamp(z, -hz, hz)
+	if math.abs(clamped) < BUSH_CENTRE_CLEARANCE then
+		local sign = if clamped < 0 then -1 else 1
+		clamped = sign * math.min(hz, 2 * BUSH_CENTRE_CLEARANCE - math.abs(clamped))
+	end
+	return clamped
+end
+
 -- Stage 2 keeps the same clear lane down z = 0 for its carcasses -- the one Stage 2
 -- prop big enough to block a sightline -- pushed at least this far off it. Smaller
 -- than the bush clearance on purpose: a rib cage standing just off the path is the
@@ -1902,8 +1919,9 @@ end
 --- fades green (west, where you walk in from camp) to dead tan (east); the scrub
 --- belongs on the living side. Bushes fill a grid over the western half of the field,
 --- each nudged only a third of a cell so the scatter stays even, and any that land
---- within BUSH_CENTRE_CLEARANCE of z = 0 are pushed out to it so the walk-through
---- lane down the middle of the field stays open.
+--- within BUSH_CENTRE_CLEARANCE of z = 0 are reflected out past it (`clearCentreLane`)
+--- so the walk-through lane down the middle of the field stays open without piling
+--- every close candidate onto the same line at its edge.
 ---
 --- All candidate bushes are built before the farthest ones are discarded. `bush`
 --- consumes the same deterministic RNG used by placement, so skipping a build in the
@@ -1928,10 +1946,7 @@ local function scatterBushes(folder: Instance, origin: CFrame, count: number, re
 			local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
 			local candidate = Instance.new("Folder")
 			local clampedX = math.clamp(x, westEdge, westEdge + bandDepth)
-			local clampedZ = math.clamp(z, -hz, hz)
-			if math.abs(clampedZ) < BUSH_CENTRE_CLEARANCE then
-				clampedZ = (if clampedZ < 0 then -1 else 1) * BUSH_CENTRE_CLEARANCE
-			end
+			local clampedZ = clearCentreLane(z, hz)
 			bush(candidate, origin, clampedX, clampedZ, rng)
 			table.insert(candidates, { folder = candidate, x = clampedX })
 		end
@@ -2108,10 +2123,7 @@ local function scatterStage1GroundDetail(folder: Instance, origin: CFrame, hx: n
 			local x = westEdge + (col + 0.5 + rng:NextNumber(-0.4, 0.4)) * (bandDepth / cols)
 			local z = -hz + (row + 0.5 + rng:NextNumber(-0.4, 0.4)) * (2 * hz / rows)
 			local clampedX = math.clamp(x, westEdge, westEdge + bandDepth)
-			local clampedZ = math.clamp(z, -hz, hz)
-			if math.abs(clampedZ) < BUSH_CENTRE_CLEARANCE then
-				clampedZ = (if clampedZ < 0 then -1 else 1) * BUSH_CENTRE_CLEARANCE
-			end
+			local clampedZ = clearCentreLane(z, hz)
 
 			local roll = rng:NextNumber()
 			if roll < STAGE1_GROUND_DETAIL_ROCK_CHANCE then
