@@ -98,8 +98,8 @@ local function build(): ScreenGui
 
 	local icon = UIKit.panel(badge, {
 		name = "CurrencyIcon",
-		size = UDim2.fromOffset(30, 30),
-		position = UDim2.fromOffset(11, 11),
+		size = UDim2.fromOffset(38, 38),
+		position = UDim2.fromOffset(13, 13),
 		color = Color3.fromRGB(43, 40, 32),
 		transparency = 0,
 		cornerRadius = UDim.new(0, 8),
@@ -112,7 +112,7 @@ local function build(): ScreenGui
 		size = UDim2.fromScale(1, 1),
 		text = "$",
 		font = Enum.Font.GothamBold,
-		textSize = 19,
+		textSize = 24,
 		color = Color3.fromRGB(219, 192, 130),
 		xAlign = Enum.TextXAlignment.Center,
 		strokeTransparency = 1,
@@ -120,33 +120,42 @@ local function build(): ScreenGui
 	})
 	UIKit.label(badge, {
 		name = "Caption",
-		size = UDim2.new(1, -63, 0, 12),
-		position = UDim2.fromOffset(51, 7),
+		size = UDim2.new(1, -72, 0, 13),
+		position = UDim2.fromOffset(60, 9),
 		text = "BALANCE",
 		font = Enum.Font.GothamMedium,
-		textSize = 10,
+		textSize = 11,
 		color = Color3.fromRGB(151, 163, 180),
 		strokeTransparency = 1,
 		zIndex = 4,
 	})
 
+	-- `shadow = false`: this label flips TextScaled + a UITextSizeConstraint on
+	-- right below (to shrink long balances so they never overflow the badge), and
+	-- UIKit.label's default drop-shadow for a GothamBold ("title" tier) label is a
+	-- SEPARATE sibling TextLabel built before that scaling is applied — it never
+	-- gets TextScaled or the constraint, so it kept rendering at the fixed 30px
+	-- size while the real label shrank to fit, which showed as two overlapping
+	-- numbers at two different sizes (misread as "two fonts"). No shadow needed on
+	-- a small stacked readout anyway; the heavy outline (still on) already carries it.
 	ui.value = UIKit.label(badge, {
 		name = "Value",
-		size = UDim2.new(1, -63, 0, 25),
-		position = UDim2.fromOffset(51, 19),
+		size = UDim2.new(1, -72, 0, 34),
+		position = UDim2.fromOffset(60, 24),
 		font = Enum.Font.GothamBold,
-		textSize = 23,
+		textSize = 30,
 		color = Color3.fromRGB(237, 242, 250),
 		xAlign = Enum.TextXAlignment.Left,
 		strokeTransparency = 1,
+		shadow = false,
 		text = "$0",
 		zIndex = 4,
 	})
 
 	ui.value.TextScaled = true
 	local textLimit = Instance.new("UITextSizeConstraint")
-	textLimit.MinTextSize = 16
-	textLimit.MaxTextSize = 23
+	textLimit.MinTextSize = 20
+	textLimit.MaxTextSize = 30
 	textLimit.Parent = ui.value
 
 	return gui

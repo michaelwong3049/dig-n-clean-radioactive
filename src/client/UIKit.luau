@@ -467,10 +467,13 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 -- ends at the cash badge.)
 --
 -- CASH_SIZE WAS A PRIVATE LOCAL IN CashController until the index button stacked on
--- top of it here. Same width as the meter, so both share edges. CASH_BOTTOM is the
--- old bottom-corner baseline — kept as the reference point the SIDE_* offsets below
--- are documented against, and in case the column ever moves back.
-Dock.CASH_SIZE = UDim2.fromOffset(216, 52)
+-- top of it here. WIDTH IS A READ OF METER_SIZE, NOT A SEPARATE NUMBER — it used to be
+-- a hand-picked 216 while the comment here claimed "same width as the meter", which
+-- was false (the meter is 280); deriving it outright is the only way that claim stays
+-- true. Height grew 52 -> 64 alongside CashController's bigger balance text. CASH_BOTTOM
+-- is the old bottom-corner baseline — kept as the reference point the SIDE_* offsets
+-- below are documented against, and in case the column ever moves back.
+Dock.CASH_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 64)
 Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
 
 -- MIDDLE-LEFT / MIDDLE-RIGHT PLACEMENT. On request the cash+meter column and the
