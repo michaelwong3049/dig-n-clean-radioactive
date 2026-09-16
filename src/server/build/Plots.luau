@@ -171,7 +171,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 46
+local BUILDER_VERSION = 47
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -368,6 +368,20 @@ local function padRect(c: { x: number, z: number, facing: number }, inset: numbe
 		halfDepth = HALF_D - d,
 		yawDeg = c.facing,
 	}
+end
+
+--- Every pad's own true footprint, exported for callers outside this file that need to
+--- avoid a pad the same way `apronSkip` does (Scenery's base-plate foliage scatter, e.g.)
+--- -- wraps the same private `padRect` this file's own skip test uses rather than a
+--- second, independently-derived shape, so the two can never drift apart. `inset` is the
+--- same "shrink every side by this many studs" convention `padRect` already takes;
+--- pass a NEGATIVE value to grow the footprint outward instead (extra clearance).
+function Plots.padRects(inset: number?): { Kit.OrientedRect }
+	local rects = {}
+	for i, c in Plots.CENTERS do
+		rects[i] = padRect(c, inset)
+	end
+	return rects
 end
 
 --- THE APRON — the disc of ground between the shop cluster and the pads, minus
