@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 30
+local BUILDER_VERSION = 31
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
