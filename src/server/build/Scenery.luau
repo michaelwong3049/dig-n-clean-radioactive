@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 26
+local BUILDER_VERSION = 29
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -169,6 +169,14 @@ local DEAD_WOOD_DARK = "504230"
 --- matte shrub in Stage 1's own green end reads as life, not hazard.
 local BUSH_GREEN = "63B83A"
 local BUSH_GREEN_DARK = "4C9029"
+
+--- Deliberately darker/less saturated than BUSH_GREEN/_DARK above AND than the apron
+--- floor's own C.grass/C.grassDark -- on request ("make them darker"), for the base
+--- plate's own bush-and-grass scatter (`buildBaseFoliage`) specifically. A second, darker
+--- pair rather than darkening BUSH_GREEN itself so Stage 1's scrub and the wall's own
+--- crown bushes (already shipped, already fine) do not shift underneath this.
+local BASE_FOLIAGE_GREEN = "3E7A28"
+local BASE_FOLIAGE_GREEN_DARK = "2C5A1C"
 
 --- Bone, for the Stage 2 and 3 remains (`boneShaft`, `skull`, `animalSkeleton`). A
 --- sun-bleached base with a dirt-stained second tone, mixed per part the way
@@ -1057,7 +1065,13 @@ end
 --- offset only a little and can ride up on top of it. Each block picks its own green
 --- from the two-tone so the facets read against each other and the bush pops off the
 --- grass. CanCollide=false and low enough to see over, like the old "brush" kind.
-local function bush(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+---
+--- `palette`, if given, replaces the default BUSH_GREEN/BUSH_GREEN_DARK two-tone --
+--- for a caller that needs a different shade (the base plate's own darker scatter)
+--- without darkening every OTHER bush this same function builds (Stage 1's scrub,
+--- the wall's own crown bushes) out from under them.
+local function bush(parent: Instance, origin: CFrame, x: number, z: number, rng: Random, palette: { string }?)
+	local light, dark = (palette and palette[1]) or BUSH_GREEN, (palette and palette[2]) or BUSH_GREEN_DARK
 	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(0, 360), 0)
 	local n = rng:NextInteger(3, 4)
 	local s = rng:NextNumber(4.2, 5.3) -- the base block's size; the whole bush scales off it
@@ -1079,10 +1093,38 @@ local function bush(parent: Instance, origin: CFrame, x: number, z: number, rng:
 			name = "Bush",
 			pos = { ox, h / 2 - 0.4 + oy, oz },
 			size = { w, h, d },
-			color = if rng:NextNumber() < 0.55 then BUSH_GREEN else BUSH_GREEN_DARK,
+			color = if rng:NextNumber() < 0.55 then light else dark,
 			material = "Plastic",
 			studs = true,
 			rot = Kit.ang(rng:NextNumber(-12, 12), rng:NextNumber(0, 90), rng:NextNumber(-12, 12)),
+			canCollide = false,
+		})
+	end
+end
+
+--- A small clump of grass for `buildBaseFoliage`: three to five thin blades fanned out
+--- around a point and leaning outward, tinted BASE_FOLIAGE_GREEN/_DARK -- darker than the
+--- apron's own C.grass/C.grassDark on request, so a tuft reads as a deliberate accent
+--- rather than the same colour as the ground it stands on. Same "narrow sliver, not a
+--- solid cube" idiom `thinDrips` already uses for the wall's own turf lip -- unstudded,
+--- since a part this small shows the stud seam as noise rather than texture.
+--- CanCollide=false like every other prop in this file.
+local GRASS_BLADE_MIN_H, GRASS_BLADE_MAX_H = 1.3, 2.4
+local function grassTuft(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
+	local n = rng:NextInteger(3, 5)
+	local yaw0 = rng:NextNumber(0, 360)
+	for i = 1, n do
+		local h = rng:NextNumber(GRASS_BLADE_MIN_H, GRASS_BLADE_MAX_H)
+		local w = rng:NextNumber(0.35, 0.55)
+		local yaw = yaw0 + (i - 1) * (360 / n) + rng:NextNumber(-18, 18)
+		local lean = rng:NextNumber(10, 24)
+		local blade = origin * CFrame.new(x, 0, z) * Kit.ang(0, yaw, 0) * Kit.ang(lean, 0, 0)
+		build(parent, blade, {
+			name = "GrassBlade",
+			pos = { 0, h / 2, 0 },
+			size = { w, h, w },
+			color = if rng:NextNumber() < 0.5 then BASE_FOLIAGE_GREEN else BASE_FOLIAGE_GREEN_DARK,
+			material = "Plastic",
 			canCollide = false,
 		})
 	end
@@ -3296,6 +3338,93 @@ local function crownBushes(parent: Instance, name: string, spots: { Vector2 }, s
 	folder.Parent = parent
 end
 
+--- Ground cover scattered across the OUTER BAND of the open base plate -- the apron
+--- disc the camp's pads sit on -- not hugging just the perimeter wall (on request,
+--- "apply them randomly around the main base plate, not just the edge") but also never
+--- reaching the middle (on request, "do NOT make them touch the middle base plate with
+--- shops/paths"): BASE_FOLIAGE_MIN_RADIUS cuts out an inner disc around Plots.RING_CENTER
+--- big enough to clear the plaza and the walk-in lane every pad's own entrance opens
+--- onto, so growth only appears from roughly each pad's own radius outward to the wall.
+--- Dark bushes (BASE_FOLIAGE_GREEN/_DARK, deliberately darker than both BUSH_GREEN and
+--- the apron floor's own C.grass, on request) as the rare accent, small grass tufts far
+--- more often -- one roll per candidate spot so the two never double up.
+---
+--- SAME JITTERED-GRID IDIOM EVERY OTHER SCATTER IN THIS FILE USES (see the file header):
+--- pure random clumps and leaves bald patches, a jittered grid reads as scattered while
+--- still covering the ground evenly, and staying seeded keeps a rebuild from reshuffling
+--- it.
+---
+--- SKIPS EXACTLY WHAT THE APRON'S OWN FLOOR SKIPS -- outside the ring, inside the plaza,
+--- inside a pad's footprint -- reusing Plots' own `Plots.padRects` (a pad's real, rotated
+--- footprint, PAD clearance grown outward) rather than re-deriving that shape a second
+--- time and risking the two edges drifting apart the way this file's own header warns
+--- about elsewhere (buildBaseWalls' three-piece junction comment).
+local BASE_FOLIAGE_CELL = 24 -- stud pitch of the jitter grid -- see scatterBushes for the same idiom at a different scale. Widened (was 18) on request, "too much"
+local BASE_FOLIAGE_JITTER = 0.4 -- fraction of a cell a point may drift off its centre
+local BASE_FOLIAGE_EDGE_MARGIN = 6 -- keep clear of the perimeter wall's own inner face
+local BASE_FOLIAGE_MIN_RADIUS = Plots.RING_RADIUS - 40 -- keep clear of the plaza/paths in the middle -- see comment above
+local BASE_FOLIAGE_PAD_CLEARANCE = 6 -- extra clearance past each pad's real footprint
+local BASE_FOLIAGE_BUSH_CHANCE = 0.08 -- was 0.14, thinned on request, "too much"
+local BASE_FOLIAGE_GRASS_CHANCE = 0.3 -- was 0.46, rolled after a spot misses the bush chance
+local function buildBaseFoliage(parent: Instance, seed: number)
+	local folder = Instance.new("Folder")
+	folder.Name = "BaseFoliage"
+
+	local cx, cz = Plots.RING_CENTER.x, Plots.RING_CENTER.z
+	local maxRadius = Plots.RING_OUTER - BASE_FOLIAGE_EDGE_MARGIN
+	-- Negative inset GROWS the pad rect outward -- see Plots.padRects' own comment.
+	local padRects = Plots.padRects(-BASE_FOLIAGE_PAD_CLEARANCE)
+	local rng = Random.new(seed)
+
+	-- Same clip the wall arc and the apron floor itself already use: nothing is built
+	-- east of the plaza mouth, so the grid's own bounding box stops there too.
+	local minX, maxX = cx - maxRadius, math.min(cx + maxRadius, Hub.PLAZA.maxX)
+	local minZ, maxZ = cz - maxRadius, cz + maxRadius
+	local cols = math.max(0, math.floor((maxX - minX) / BASE_FOLIAGE_CELL))
+	local rows = math.max(0, math.floor((maxZ - minZ) / BASE_FOLIAGE_CELL))
+	local groundOrigin = CFrame.new(0, Stages.SURFACE_Y, 0)
+
+	for ix = 0, cols - 1 do
+		for iz = 0, rows - 1 do
+			local x = minX + (ix + 0.5 + rng:NextNumber(-BASE_FOLIAGE_JITTER, BASE_FOLIAGE_JITTER)) * BASE_FOLIAGE_CELL
+			local z = minZ + (iz + 0.5 + rng:NextNumber(-BASE_FOLIAGE_JITTER, BASE_FOLIAGE_JITTER)) * BASE_FOLIAGE_CELL
+
+			local dx, dz = x - cx, z - cz
+			local dist2 = dx * dx + dz * dz
+			if dist2 > maxRadius * maxRadius or dist2 < BASE_FOLIAGE_MIN_RADIUS * BASE_FOLIAGE_MIN_RADIUS then
+				continue
+			end
+			if x > Hub.PLAZA.minX and x < Hub.PLAZA.maxX and z > Hub.PLAZA.minZ and z < Hub.PLAZA.maxZ then
+				continue
+			end
+			local onPad = false
+			for _, rect in padRects do
+				if Kit.pointInOrientedRect(x, z, rect) then
+					onPad = true
+					break
+				end
+			end
+			if onPad then
+				continue
+			end
+
+			local roll = rng:NextNumber()
+			if roll < BASE_FOLIAGE_BUSH_CHANCE then
+				bush(folder, groundOrigin, x, z, rng, { BASE_FOLIAGE_GREEN, BASE_FOLIAGE_GREEN_DARK })
+			elseif roll < BASE_FOLIAGE_BUSH_CHANCE + BASE_FOLIAGE_GRASS_CHANCE then
+				grassTuft(folder, groundOrigin, x, z, rng)
+			end
+		end
+	end
+
+	for _, part in folder:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CanQuery = false
+		end
+	end
+	folder.Parent = parent
+end
+
 --- The chain's north and south edges. ONE WALL PER SIDE, NOT SIX -- every stage
 --- shares the same Z footprint since the uniform-depth pass, so this is one long
 --- straight boundary the full length of the chain rather than a per-stage piece.
@@ -3696,6 +3825,7 @@ local function createScenery(): Model
 	buildStageBorderLines(scenery)
 	buildBoundaryWalls(scenery)
 	buildBaseWalls(scenery)
+	buildBaseFoliage(scenery, 4703)
 
 	-- Nothing in here may claim to be a stage. This is the invariant the whole
 	-- module/folder split exists to protect, so it is asserted, not trusted.
