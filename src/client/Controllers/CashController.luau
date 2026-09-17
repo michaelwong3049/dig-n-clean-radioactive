@@ -309,7 +309,8 @@ local function build(): ScreenGui
 		zIndex = 10,
 	})
 
-	-- Centred in the stretch of card right of the coin. `shadow = false`: UIKit.label's
+	-- Left-aligned just past the coin, vertically centred on the card (the user asked for
+	-- the number to sit by the coin, not float mid-card). `shadow = false`: UIKit.label's
 	-- drop-shadow is a separate sibling label that would not follow setValueText's
 	-- shrink-to-fit, and the heavy outline already carries it.
 	ui.value = UIKit.label(badge, {
@@ -319,7 +320,7 @@ local function build(): ScreenGui
 		font = STYLE.valueFont,
 		textSize = L.valueTextSize,
 		color = WHITE,
-		xAlign = Enum.TextXAlignment.Center,
+		xAlign = Enum.TextXAlignment.Left,
 		shadow = false,
 		text = "$0",
 		zIndex = 11,
