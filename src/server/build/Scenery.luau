@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 31
+local BUILDER_VERSION = 32
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -113,21 +113,22 @@ local GROUND_SKIM = 0.06
 -- bush never sprouts in the middle of the route.
 local BUSH_CENTRE_CLEARANCE = 28
 
---- Clamps a candidate z to the field's own bounds, then keeps it off the centre lane --
---- REFLECTING anything still within BUSH_CENTRE_CLEARANCE of z = 0 across the clearance
---- boundary rather than pinning it to the boundary. Pinning collapses every candidate
---- this close to the lane onto the exact same z, which is what was stacking bushes,
---- grass tufts and rocks into one dense line right at the lane's edge while leaving the
---- rest of the band bare ("too many decorations in one spot and none in another," on
---- request). Reflecting keeps each candidate's own row/jitter offset instead of
---- throwing it away, so they fan back out along whichever side they started on.
-local function clearCentreLane(z: number, hz: number): number
-	local clamped = math.clamp(z, -hz, hz)
-	if math.abs(clamped) < BUSH_CENTRE_CLEARANCE then
-		local sign = if clamped < 0 then -1 else 1
-		clamped = sign * math.min(hz, 2 * BUSH_CENTRE_CLEARANCE - math.abs(clamped))
-	end
-	return clamped
+--- Maps a virtual z sampled from the CONTINUOUS gap-free range
+--- [-(hz - BUSH_CENTRE_CLEARANCE), hz - BUSH_CENTRE_CLEARANCE] out into one of the two
+--- real bands either side of the centre lane, splicing the excluded
+--- BUSH_CENTRE_CLEARANCE gap back in at v = 0.
+---
+--- FIRST ATTEMPT (kept here so the next person does not re-try it): clamp a z sampled
+--- from the FULL [-hz, hz] range, then push/reflect anything still inside the lane back
+--- out past it. That still let several rows converge on the same strip just past the
+--- boundary -- reflecting a whole row's worth of candidates crushes them into a narrow
+--- band right where the naturally-placed next row already lives, so the pile-up just
+--- moved a few studs, it did not go away. Building the grid over the REDUCED, already
+--- gap-free range up front and only splitting it into +/- here removes the collision
+--- entirely: every row gets its own slice of real ground and nothing is ever thrown
+--- away, pinned, or doubled up with a neighbour.
+local function laneSplitZ(v: number): number
+	return if v >= 0 then v + BUSH_CENTRE_CLEARANCE else v - BUSH_CENTRE_CLEARANCE
 end
 
 -- Stage 2 keeps the same clear lane down z = 0 for its carcasses -- the one Stage 2
@@ -1918,10 +1919,11 @@ end
 --- Stage 1 -- chunky green bushes across the ALIVE WEST HALF only. Stage 1's ground
 --- fades green (west, where you walk in from camp) to dead tan (east); the scrub
 --- belongs on the living side. Bushes fill a grid over the western half of the field,
---- each nudged only a third of a cell so the scatter stays even, and any that land
---- within BUSH_CENTRE_CLEARANCE of z = 0 are reflected out past it (`clearCentreLane`)
---- so the walk-through lane down the middle of the field stays open without piling
---- every close candidate onto the same line at its edge.
+--- each nudged only a third of a cell so the scatter stays even. The grid's own Z
+--- range is built already excluding BUSH_CENTRE_CLEARANCE either side of z = 0
+--- (`halfSpan`/`laneSplitZ`) rather than spanning the full depth and pushing anything
+--- too central out of the way afterward, so the walk-through lane down the middle of
+--- the field stays open without ever bunching rows together at its edge.
 ---
 --- All candidate bushes are built before the farthest ones are discarded. `bush`
 --- consumes the same deterministic RNG used by placement, so skipping a build in the
@@ -1931,7 +1933,8 @@ end
 local function scatterBushes(folder: Instance, origin: CFrame, count: number, removeFarthest: number, rng: Random, hx: number, hz: number)
 	local westEdge = -hx
 	local bandDepth = 2 * hx * 0.5 -- the western half of the field
-	local cols = math.ceil(math.sqrt(count * (bandDepth / (2 * hz))))
+	local halfSpan = hz - BUSH_CENTRE_CLEARANCE -- usable half-depth on EACH side of the lane
+	local cols = math.ceil(math.sqrt(count * (bandDepth / (2 * halfSpan))))
 	local rows = math.ceil(count / cols)
 	local candidates: { { folder: Folder, x: number } } = {}
 
@@ -1943,11 +1946,10 @@ local function scatterBushes(folder: Instance, origin: CFrame, count: number, re
 			end
 			placed += 1
 			local x = westEdge + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (bandDepth / cols)
-			local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
+			local v = -halfSpan + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * halfSpan / rows)
 			local candidate = Instance.new("Folder")
 			local clampedX = math.clamp(x, westEdge, westEdge + bandDepth)
-			local clampedZ = clearCentreLane(z, hz)
-			bush(candidate, origin, clampedX, clampedZ, rng)
+			bush(candidate, origin, clampedX, laneSplitZ(v), rng)
 			table.insert(candidates, { folder = candidate, x = clampedX })
 		end
 	end
@@ -2103,27 +2105,31 @@ end
 --- detail `buildBaseFoliage` puts around the base plate, reused here (on request, "add
 --- some of the grass we added before... in the first half of stage 1") so the scrub
 --- field and the base read as the same kind of living ground. Same west-half band and
---- BUSH_CENTRE_CLEARANCE centre lane `scatterBushes` uses.
+--- BUSH_CENTRE_CLEARANCE centre lane `scatterBushes` uses, and the same `halfSpan`/
+--- `laneSplitZ` trick of gridding the lane back out of the Z range up front instead of
+--- shoving anything too central out of the way afterward -- see `scatterBushes`' own
+--- comment for why (on request, "too many decorations in one spot and none in another").
 ---
 --- Runs on its OWN Random seed rather than the shared stage `rng` -- consuming extra
 --- numbers from that shared sequence would reshuffle every bush/crack/dead-snag placed
 --- after it in buildStageScenery, and none of those need to move for this to ship.
-local STAGE1_GROUND_DETAIL_CELL = 22
+local STAGE1_GROUND_DETAIL_CELL = 18
 local STAGE1_GROUND_DETAIL_ROCK_CHANCE = 0.16
 local STAGE1_GROUND_DETAIL_GRASS_CHANCE = 0.28
 local function scatterStage1GroundDetail(folder: Instance, origin: CFrame, hx: number, hz: number, seed: number)
 	local rng = Random.new(seed)
 	local westEdge = -hx
 	local bandDepth = hx -- the western half of the field, same band scatterBushes fills
+	local halfSpan = hz - BUSH_CENTRE_CLEARANCE -- usable half-depth on EACH side of the lane
 	local cols = math.max(1, math.floor(bandDepth / STAGE1_GROUND_DETAIL_CELL))
-	local rows = math.max(1, math.floor((2 * hz) / STAGE1_GROUND_DETAIL_CELL))
+	local rows = math.max(1, math.floor((2 * halfSpan) / STAGE1_GROUND_DETAIL_CELL))
 
 	for col = 0, cols - 1 do
 		for row = 0, rows - 1 do
 			local x = westEdge + (col + 0.5 + rng:NextNumber(-0.4, 0.4)) * (bandDepth / cols)
-			local z = -hz + (row + 0.5 + rng:NextNumber(-0.4, 0.4)) * (2 * hz / rows)
+			local v = -halfSpan + (row + 0.5 + rng:NextNumber(-0.4, 0.4)) * (2 * halfSpan / rows)
 			local clampedX = math.clamp(x, westEdge, westEdge + bandDepth)
-			local clampedZ = clearCentreLane(z, hz)
+			local clampedZ = laneSplitZ(v)
 
 			local roll = rng:NextNumber()
 			if roll < STAGE1_GROUND_DETAIL_ROCK_CHANCE then
