@@ -391,7 +391,12 @@ Dock.ROW_MAX_WIDTH = 1400 -- absolute cap so an ultrawide monitor does not stret
 
 Dock.BAGCOUNT_HEIGHT = 18
 
-Dock.METER_SIZE = UDim2.fromOffset(280, 184) -- was 240x46, then 280x60 (HEALTH joined RADS), then 144 before the DEPTH row, then 170 before HEALTH/RADS got breathing room between them
+-- was 240x46, then 280x60 (HEALTH joined RADS), then 144 before the DEPTH row, then 170
+-- before HEALTH/RADS got breathing room between them, then 184. Now 142: the cartoon
+-- panel (header strip + health + rads = 104) at its TALLEST, with the countdown strip
+-- showing. It is anchored by its top edge (METER_TOP_Y) and only grows downward when the
+-- countdown appears, so this is the room the left column reserves for it.
+Dock.METER_SIZE = UDim2.fromOffset(280, 142)
 
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
@@ -441,7 +446,13 @@ Dock.HAULPANEL_SIZE = UDim2.fromOffset(320, 290)
 -- 144 anyway, so RESERVE and everything positioned off it are UNCHANGED by that
 -- removal -- worth stating, because a shifting RESERVE would have moved the hotbar,
 -- the station panel and the haul panel all at once.
-Dock.INSTRUMENT_HEIGHT = Dock.METER_SIZE.Y.Offset
+--
+-- PINNED AT 184, NO LONGER A READ OF METER_SIZE. The meter left this bottom band for
+-- the middle-left column long ago, so it was only still coupled by this line — and when
+-- the cartoon panel shrank METER_SIZE to 142, reading it would have dropped the
+-- detector status line (STATUS_BOTTOM) and every card above it by 42px for no reason.
+-- 184 is the height they were all laid out against.
+Dock.INSTRUMENT_HEIGHT = 184
 
 Dock.HOTBAR_BOTTOM = Dock.MARGIN_BOTTOM
 Dock.BAGCOUNT_BOTTOM = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP
@@ -499,6 +510,10 @@ Dock.METER_MID_Y = Dock.SIDE_STACK_HEIGHT / 2 - Dock.METER_SIZE.Y.Offset / 2
 -- under the tile. Hung from here it spans 244-324, and clears the readout on any
 -- design height over ~670.
 Dock.SIDE_TOP_Y = -Dock.SIDE_STACK_HEIGHT / 2
+-- The meter's TOP edge, one GAP under the cash badge. HudController anchors the panel
+-- here rather than on METER_MID_Y because its height changes (the countdown strip), and
+-- it must grow away from the cash badge, not into it.
+Dock.METER_TOP_Y = Dock.SIDE_TOP_Y + Dock.CASH_SIZE.Y.Offset + Dock.GAP
 -- ...and the shortest design screen that line is used on. Below it the hang stops
 -- working in both directions: the readout climbs into it as the screen shortens, and
 -- under ~460 the tile rises into the Settings gear in the corner above. So a shorter
