@@ -263,10 +263,10 @@ local WALL_HEIGHT = 48
 local WALL_THICKNESS = 8
 local WALL_TILE = 4
 -- A studded sheet laid flat over each wall's crown -- "the stage floor, stacked on top
--- of the wall", ON REQUEST. EVERY stage's crown is grass now (wallGrassPair), same as
--- the base-camp arc and Stage 1 have always been -- see grassCappedPair / capPairAt.
--- TWO STUDS high, on request (0.75 -> 1 -> 2). Bites 0.1 stud down into the wall top
--- so there is no z-fighting seam.
+-- of the wall", ON REQUEST. EVERY stage's crown carves out a lip now (wallCapPair),
+-- same shape as the base-camp arc and Stage 1 have always had -- see grassCappedPair /
+-- capPairAt. TWO STUDS high, on request (0.75 -> 1 -> 2). Bites 0.1 stud down into the
+-- wall top so there is no z-fighting seam.
 local WALL_CAP_THICKNESS = 2
 local WALL_ROWS = math.ceil(WALL_HEIGHT / WALL_TILE)
 -- The camp / Stage 1 wall: ONE terracotta two-tone, the pair it has always worn -- the
@@ -282,9 +282,11 @@ local WALL_ROWS = math.ceil(WALL_HEIGHT / WALL_TILE)
 --
 -- EVERY STAGE'S WALL NOW CARVES OUT THE SAME LIP, ON REQUEST -- GRASS_LIP_ROWS,
 -- grassDrip and GRASS_OVERHANG are chain-wide geometry constants, not just a camp/
--- Stage 1 thing; see grassCappedPair (the generalised cliffPair) and wallGrassPair
--- (each stage's own tinted grass colour, near campCapPair below). Only the COLOUR
--- underneath the lip still varies per stage -- see WALL_STAGE_PIN / lighterFloor.
+-- Stage 1 thing; see grassCappedPair (the generalised cliffPair) and wallCapPair
+-- (each stage's own top colour, near campCapPair below -- Stage 1 stays camp green,
+-- every other stage is ITS OWN floor colour, not a green tint). The colour
+-- UNDERNEATH the lip still varies per stage the same way it always has -- see
+-- WALL_STAGE_PIN / lighterFloor.
 local WALL_BROWN_DARK = "8D4B2B"
 local WALL_BROWN_LIGHT = "9B5331"
 local GRASS_LIP_ROWS = 1
@@ -375,32 +377,34 @@ end
 --- pair Hub paints the apron with (and buildStageCheckerboard's Stage-1 west endpoint
 --- reuses just above). buildBaseWalls' crown caps take this so the camp wall tops read
 --- as the apron carried up and over, exactly as the stage caps do for their floors.
---- Stage 1's own wall lip is this exact pair too -- see wallGrassPair below.
+--- Stage 1's own wall lip is this exact pair too -- see wallCapPair below.
 local function campCapPair(): (string, string)
 	local bright = Stages.get(1).ooze.bright
 	return Kit.blendHex(C.plazaTileDark, bright, Stages.GROUND_OOZE_TINT),
 		Kit.blendHex(C.plazaTileLight, bright, Stages.GROUND_OOZE_TINT)
 end
 
---- Every stage's own grass-lip colour, ON REQUEST ("make every stage wall how it is
---- in stage 1... overhang grass"): Stage 1 keeps its exact shipped campCapPair (the
---- camp apron green), unchanged. Every other stage blends a hint of ITS OWN hazard
---- colour (ooze.bright, the same field campCapPair reads for Stage 1) into that same
---- plaza green -- the same Kit.blendHex mechanism campCapPair already uses, just at a
---- much lighter ratio: Stages.GROUND_OOZE_TINT (0.55) is tuned for baking ooze into
---- the GROUND plate, and reused at that strength here would turn Stage 5/6's hot
---- pink/violet ooze into pink/violet "grass". WALL_GRASS_TINT is a separate, dedicated
---- constant for this reason -- hand-verified against all six stages' ooze.bright at
---- 0.16, including Stage 5 (FF3D9A) and Stage 6 (A855FF): both land as a muted warm/
---- cool olive-green, not pink or purple turf.
-local WALL_GRASS_TINT = 0.16
-local function wallGrassPair(id: number): (string, string)
+--- The (dark, light) hex pair for one stage's FLOOR checker -- twoTone(def.color), the
+--- same pair buildStageCheckerboard paints the ground with.
+local function floorPair(id: number): (string, string)
+	local darkC, lightC = twoTone(Stages.get(id).color)
+	return darkC:ToHex(), lightC:ToHex()
+end
+
+--- Every stage's own wall-top colour -- what the lip/crown carved out in
+--- grassCappedPair is coloured with. ON REQUEST, this is NOT a green grass tint:
+--- Stage 1 keeps its exact shipped campCapPair (the camp apron green, unchanged --
+--- it was always green). Every OTHER stage instead reuses `floorPair`, exactly the
+--- colour its wall crown already wore before this file gave every stage a lip
+--- (buildWallCap's `pairAt`, pre-generalisation) -- "the colour the top of the stage
+--- previously was", not a new tint. A per-stage green-tinted version (blending
+--- ooze.bright into the plaza green at a light ratio) was tried and rejected: it
+--- still read as green, which was the whole thing being asked not to do.
+local function wallCapPair(id: number): (string, string)
 	if id == 1 then
 		return campCapPair()
 	end
-	local bright = Stages.get(id).ooze.bright
-	return Kit.blendHex(C.plazaTileDark, bright, WALL_GRASS_TINT),
-		Kit.blendHex(C.plazaTileLight, bright, WALL_GRASS_TINT)
+	return floorPair(id)
 end
 
 --- A cheap deterministic 0..1 hash of an integer column index and a per-wall salt: the
@@ -425,21 +429,21 @@ end
 --- The (dark, light) pair for one tile of ANY wall at column `col` and row `row` (0 =
 --- the foot) of a wall `rows` tiles tall, plus whether that tile is grass (which
 --- stands proud -- see overhangOf): the top GRASS_LIP_ROWS rows (plus grassDrip's 0-2
---- bonus rows) carve out into `id`'s own tinted grass (wallGrassPair), everything
+--- bonus rows) carve out into `id`'s own wall-top colour (wallCapPair), everything
 --- below stays the wall's own `bodyDark`/`bodyLight` two-tone. The caller picks dark
---- or light by checker parity either way. `id` only selects the grass tint -- the
+--- or light by checker parity either way. `id` only selects the top colour -- the
 --- body colour is resolved by the caller and handed in already, so the camp/Stage 1
 --- cliff and every other stage's pinned/derived wall colour share this one path.
 local function grassCappedPair(id: number, bodyDark: string, bodyLight: string, col: number, row: number, rows: number, salt: number): (string, string, boolean)
 	if row >= rows - GRASS_LIP_ROWS - grassDrip(col, salt) then
-		local dark, light = wallGrassPair(id)
+		local dark, light = wallCapPair(id)
 		return dark, light, true
 	end
 	return bodyDark, bodyLight, false
 end
 
 --- The camp / Stage 1 cliff specifically -- grassCappedPair with the brown cliff body
---- and id 1 (Stage 1's own grass tint, which is just campCapPair -- see wallGrassPair).
+--- and id 1 (Stage 1's own top colour, which is just campCapPair -- see wallCapPair).
 --- Kept as its own name because buildShoulderWall/buildBaseWalls (the camp arc and its
 --- two shoulder pieces -- never any other stage) call it directly, without ever going
 --- through the per-stage colour resolution wallPair does for the stage chain itself.
@@ -474,7 +478,7 @@ end
 --- and `colWidth` the column's width along local X. Each sliver stands out exactly as far
 --- as the grass above it (GRASS_OVERHANG) and bites 0.1 into the wall so there is no gap.
 --- `seed` makes the roll per column and stable across rebuilds. `id` picks the stage
---- whose tinted grass (wallGrassPair) the sliver is coloured with -- every call site
+--- whose wall-top colour (wallCapPair) the sliver is coloured with -- every call site
 --- outside the stage chain itself (camp arc, shoulders) just passes 1. Decorative: no
 --- collision, no queries.
 local THIN_DRIP = { chance = 0.25, second = 0.15, minW = 0.8, maxW = 2.2, minH = 1.2, maxH = 5 }
@@ -487,7 +491,7 @@ local function thinDrips(parent: Instance, cf: CFrame, colWidth: number, faceSig
 		return
 	end
 	local count = if rng:NextNumber() < THIN_DRIP.second then 2 else 1
-	local dark, light = wallGrassPair(id)
+	local dark, light = wallCapPair(id)
 	local depth = GRASS_OVERHANG + 0.1
 	local zc = faceSign * (WALL_THICKNESS / 2 + (GRASS_OVERHANG - 0.1) / 2)
 	for _ = 1, count do
@@ -512,9 +516,11 @@ end
 --- anything not a stage (id 1 is the fallback) wear the camp cliff; a pinned stage
 --- uses its hand-picked colour; every other stage is a lighterFloor() tint of its own
 --- floor. EVERY id now varies by row, ON REQUEST ("make every stage wall how it is in
---- stage 1... overhang grass"): grassCappedPair carves the same top-row grass lip out
---- of every stage's body colour that Stage 1's cliff always had, just tinted per stage
---- (wallGrassPair) rather than always camp green.
+--- stage 1... overhang grass"): grassCappedPair carves the same top-row lip out of
+--- every stage's body colour that Stage 1's cliff always had, coloured per stage via
+--- wallCapPair -- Stage 1 camp green, every other stage its OWN floor colour (not a
+--- green tint -- "don't make it green, make it the colour the top of the stage
+--- previously was").
 local function wallPair(id: number, x: number, row: number): (string, string, boolean)
 	local bodyDark, bodyLight
 	if id == 1 then
@@ -3386,7 +3392,7 @@ end
 --- of the chain, on the same `WALL_TILE` grid as the wall face below it so the checker
 --- stays in register looking up the wall.
 ---
---- `pairAt(x)` is that stage's tinted grass (wallGrassPair via buildBoundaryWalls'
+--- `pairAt(x)` is that stage's own top colour (wallCapPair via buildBoundaryWalls'
 --- resolver, `grassy` always true), so every stage's crown reaches GRASS_OVERHANG out
 --- over its own wall's lip, the same as Stage 1's always has. Decorative:
 --- `CanCollide`/`CanQuery` false -- nothing stands 55 studs up, and DigService / the
@@ -3593,10 +3599,10 @@ local function buildBoundaryWalls(parent: Instance)
 	local function facePairAt(x: number, row: number): (string, string, boolean)
 		return wallPair(stageAt(x), x, row)
 	end
-	-- Every stage's crown is grass now (wallGrassPair), so every column reaches out
-	-- over its own wall's turf lip, not just Stage 1's stretch.
+	-- Every stage's crown carves out a lip now (wallCapPair), so every column reaches
+	-- out over its own wall's turf lip, not just Stage 1's stretch.
 	local function capPairAt(x: number): (string, string, boolean)
-		local dark, light = wallGrassPair(stageAt(x))
+		local dark, light = wallCapPair(stageAt(x))
 		return dark, light, true
 	end
 
@@ -3619,8 +3625,8 @@ local function buildBoundaryWalls(parent: Instance)
 	crownBushes(folder, "CrownBushes", spots, CORRIDOR_SALT, crownTopY(WALL_HEIGHT))
 
 	-- Thin grass drips under EVERY stage's lip on both walls, ON REQUEST -- widened
-	-- from Stage 1's own stretch to the full chain, each column tinted with its own
-	-- stage's grass (wallGrassPair via `id`). Rolled apart so the two walls do not
+	-- from Stage 1's own stretch to the full chain, each column coloured with its own
+	-- stage's top colour (wallCapPair via `id`). Rolled apart so the two walls do not
 	-- mirror each other (their whole-tile drips share CORRIDOR_SALT via wallPair).
 	for x0 = minX, maxX - WALL_TILE, WALL_TILE do
 		local xc = x0 + WALL_TILE / 2
