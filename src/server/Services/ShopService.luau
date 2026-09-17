@@ -100,7 +100,8 @@ export type CatalogEntry = {
 	tier: number,
 	name: string,
 	price: number,
-	stats: { string },
+	blurb: string, -- one line of plain copy; Config/Gear carries it per tier
+	stats: { StatCell },
 	owned: boolean, -- in gearOwned: you bought it (or started with it)
 	current: boolean, -- gear[track]: what is in your hands right now
 	buyable: boolean, -- not owned, purchasable on its own at its own price
@@ -140,30 +141,134 @@ local function num(value: number): string
 	return s
 end
 
---- `pullSpeed` is a field name; "pull speed" is a label. The catalog is read by a
---- player, not by whoever wrote Config/Gear.
-local function pretty(key: string): string
-	local spaced = string.gsub(key, "(%l)(%u)", "%1 %2")
-	return string.lower(spaced)
+--- One column's value turned into a number where HIGHER IS ALWAYS BETTER, so the bar
+--- maths below never has to know which direction a stat improves in.
+---
+--- THREE COLUMNS IN THE GAME NEED THIS, and every one of them draws a misleading bar
+--- without it:
+---
+---   lowerIsBetter  Boots' haulPenalty. 0.10 beats 1.20; negating is the whole fix.
+---   complement     Suit's reduction. The number is a fraction of dose BLOCKED, so it
+---                  lives at 0.63..0.9988 and a bar drawn on it straight reads "the
+---                  Rubber Suit is 98% as good as the best suit in the game". What
+---                  actually varies is what GETS THROUGH (1 - reduction), and that
+---                  runs 0.37 down to 0.0012 — a 300x spread.
+---   scale = "log"  Suit's reduction again. Even on leakage, tier 1 is so much worse
+---                  than everything else that a linear bar pins tiers 2-6 to the top
+---                  of the track. Leakage is a multiplicative quantity (halving it
+---                  doubles your time in a stage), so the ladder is only legible on a
+---                  log axis — which is also how Config/Gear's own fitted table reads
+---                  it ("one tier under is ~12s in every stage").
+local function goodness(field: any, value: number): number
+	local v = value
+	if field.complement then
+		-- What gets through rather than what is stopped. Clamped off zero so a
+		-- hypothetical perfect suit cannot log(0).
+		v = math.max(1 - v, 1e-6)
+	end
+	if field.scale == "log" then
+		v = math.log(v)
+	end
+	if field.lowerIsBetter or field.complement then
+		v = -v
+	end
+	return v
 end
+
+--- The worst and best this track's ladder ever reaches for `key`, in goodness space —
+--- the two ends of every stat bar on a card.
+---
+--- THE BAR RUNS MIN-TO-MAX, NOT ZERO-TO-MAX, and that is the difference between a bar
+--- that shows where a rung sits on its ladder and one that shows an arbitrary ratio.
+--- Half the columns in the game have a floor that is not zero: `luck` and `fuseMult`
+--- start at 1.00 (no bonus at all), `walkSpeed` at 26, `volume` at 1.0. Measured
+--- against zero, a Bent Coil's luck bar was 40% full for a detector that does nothing,
+--- and a Taped Boot's speed bar was 72% full. Measured against the ladder, the bottom
+--- rung is empty and the top is full, which is the only reading a shop ladder wants.
+---
+--- COMPUTED, NOT TYPED, and over the WHOLE track rather than off its end rungs: Suit's
+--- `reduction` peaks at the Sealed Exo-Suit and then deliberately dips for the
+--- Containment Rig, so neither end of that ladder is its extreme. Walking it costs at
+--- most 8 table reads and cannot go stale when a column is retuned.
+local function statRange(track: string, key: string, field: any): (number, number)
+	local worst: number? = nil
+	local best: number? = nil
+	for tier = 1, Gear.maxTier(track) do
+		local value = (Gear.tier(track, tier) :: any)[key]
+		if type(value) == "number" then
+			local g = goodness(field, value)
+			worst = if worst == nil then g else math.min(worst, g)
+			best = if best == nil then g else math.max(best, g)
+		end
+	end
+	return worst or 0, best or 0
+end
+
+--- One row of a card's stat block.
+---
+--- `fraction` is what the BAR draws, already normalised to 0..1 against the best value
+--- on this track (see statBest) and already flipped for lower-is-better columns, so the
+--- client never has to know which direction a stat improves in. `value` is the number
+--- as printed. A `kind == "flag"` cell has no bar: it is a boolean capability (Boots'
+--- vault and dash) and draws as a chip that is either lit or not.
+export type StatCell = {
+	key: string,
+	label: string,
+	value: string,
+	fraction: number,
+	kind: string, -- "number" | "flag"
+	on: boolean, -- flags only: is this capability present on this tier
+}
 
 --- Everything this tier IS, rather than what it adds. Absolute stats on every card
 --- so the ladder can be read across — deltas describe one step and are useless for
 --- comparing rung 2 against rung 7 at a glance.
-local function statLines(def: any): { string }
-	local lines = {}
-	for key, value in def do
-		if key == "name" or key == "price" then
+---
+--- THE COLUMN LIST IS Config/Gear's, NOT THIS FILE'S. This used to walk the tier table
+--- and `table.sort` the results, which sold `clarity` (inert) and led every detector
+--- card with it because "c" sorts before "r". `Gear.STAT_META[track].order` is now the
+--- exact list in the exact order — see its header for why that lives next to the data.
+local function statsFor(track: string, def: any): { StatCell }
+	local meta = Gear.STAT_META[track]
+	if meta == nil then
+		return {}
+	end
+
+	local cells = {}
+	for _, key in meta.order do
+		local field = meta[key]
+		local value = def[key]
+		if field == nil or value == nil then
 			continue
 		end
-		if type(value) == "number" then
-			table.insert(lines, `{pretty(key)} {num(value)}`)
-		elseif type(value) == "boolean" and value then
-			table.insert(lines, pretty(key))
+
+		if field.kind == "flag" then
+			table.insert(cells, {
+				key = key,
+				label = field.label,
+				value = if value then "YES" else "NO",
+				fraction = if value then 1 else 0,
+				kind = "flag",
+				on = value == true,
+			})
+		elseif type(value) == "number" then
+			local worst, best = statRange(track, key, field)
+			-- A flat column (every rung identical) has no ladder to place a rung on, so
+			-- it draws full rather than dividing by a zero span.
+			local span = best - worst
+			local fraction = if span > 0 then (goodness(field, value) - worst) / span else 1
+			table.insert(cells, {
+				key = key,
+				label = field.label,
+				value = num(value),
+				fraction = math.clamp(fraction, 0, 1),
+				kind = "number",
+				on = true,
+			})
 		end
 	end
-	table.sort(lines)
-	return lines
+
+	return cells
 end
 
 -- ── Ownership ─────────────────────────────────────────────────────────
@@ -240,7 +345,8 @@ local function catalogFor(data: any, track: string): { CatalogEntry }
 			tier = tier,
 			name = def.name,
 			price = def.price,
-			stats = statLines(def),
+			blurb = def.blurb or "",
+			stats = statsFor(track, def),
 			owned = owned,
 			current = current,
 			buyable = buyable,

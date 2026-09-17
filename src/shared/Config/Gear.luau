@@ -94,14 +94,14 @@ local Gear = {}
 -- odds on every detector regardless (DigService.hintFor). The column is left here at
 -- its old values so a repurpose -- or a re-gate -- does not start from a blank field.
 Gear.Detector = {
-	{ name = "Bent Coil", price = 0, radius = 13, luck = 1.00, depth = 6, clarity = 0 },
-	{ name = "Scavenger MkI", price = 800, radius = 16, luck = 1.12, depth = 9, clarity = 0 },
-	{ name = "Surplus Geiger", price = 1900, radius = 19, luck = 1.25, depth = 12, clarity = 1 },
-	{ name = "Pulse Array", price = 4700, radius = 22, luck = 1.40, depth = 16, clarity = 1 },
-	{ name = "Isotope Scanner", price = 11000, radius = 25, luck = 1.60, depth = 21, clarity = 2 },
-	{ name = "Resonance Mapper", price = 27000, radius = 28, luck = 1.85, depth = 27, clarity = 2 },
-	{ name = "Deep Core Array", price = 64000, radius = 31, luck = 2.15, depth = 34, clarity = 3 },
-	{ name = "The Oracle", price = 150000, radius = 34, luck = 2.50, depth = 44, clarity = 3 },
+	{ name = "Bent Coil", price = 0, radius = 13, luck = 1.00, depth = 6, clarity = 0, blurb = "A coat hanger with ambition." },
+	{ name = "Scavenger MkI", price = 800, radius = 16, luck = 1.12, depth = 9, clarity = 0, blurb = "Wider sweep. Still deaf to anything deep." },
+	{ name = "Surplus Geiger", price = 1900, radius = 19, luck = 1.25, depth = 12, clarity = 1, blurb = "Army surplus, and it still clicks true." },
+	{ name = "Pulse Array", price = 4700, radius = 22, luck = 1.40, depth = 16, clarity = 1, blurb = "Pulses instead of sweeps. Reaches past rubble." },
+	{ name = "Isotope Scanner", price = 11000, radius = 25, luck = 1.60, depth = 21, clarity = 2, blurb = "Sorts isotopes from scrap before you dig." },
+	{ name = "Resonance Mapper", price = 27000, radius = 28, luck = 1.85, depth = 27, clarity = 2, blurb = "Maps a whole plot in one slow pass." },
+	{ name = "Deep Core Array", price = 64000, radius = 31, luck = 2.15, depth = 34, clarity = 3, blurb = "Hears the core. Ignores everything above it." },
+	{ name = "The Oracle", price = 150000, radius = 34, luck = 2.50, depth = 44, clarity = 3, blurb = "Sees the bottom of the map and is bored by it." },
 }
 
 -- The extraction track. You do not dig — you drop a magnet and haul the thing up
@@ -133,12 +133,12 @@ Gear.Detector = {
 -- Winch Coil the answer is about one click every two seconds, which is comfortable on
 -- a phone. Spec pins that tier specifically. If you retune draw, re-run it.
 Gear.Magnet = {
-	{ name = "Horseshoe Magnet", price = 0, pullSpeed = 1.0, draw = 0.00, maxGrip = 1 }, -- 2.50 clicks/sec to hold
-	{ name = "Salvage Magnet", price = 670, pullSpeed = 1.3, draw = 0.12, maxGrip = 2 }, -- 1.62
-	{ name = "Electromagnet", price = 1600, pullSpeed = 1.7, draw = 0.25, maxGrip = 3 }, -- 0.98
-	{ name = "Winch Coil", price = 3900, pullSpeed = 2.2, draw = 0.40, maxGrip = 4 }, -- 0.53  <- the mobile target
-	{ name = "Rail Coil", price = 9300, pullSpeed = 2.9, draw = 0.55, maxGrip = 5 }, -- 0.23
-	{ name = "Singularity Coil", price = 22000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6 }, -- 0.04, effectively hands-free
+	{ name = "Horseshoe Magnet", price = 0, pullSpeed = 1.0, draw = 0.00, maxGrip = 1, blurb = "A fridge magnet on a rope. Pull like you mean it." }, -- 2.50 clicks/sec to hold
+	{ name = "Salvage Magnet", price = 670, pullSpeed = 1.3, draw = 0.12, maxGrip = 2, blurb = "Holds its grip between yanks. Barely." }, -- 1.62
+	{ name = "Electromagnet", price = 1600, pullSpeed = 1.7, draw = 0.25, maxGrip = 3, blurb = "Wired to a car battery. Lifts while you rest." }, -- 0.98
+	{ name = "Winch Coil", price = 3900, pullSpeed = 2.2, draw = 0.40, maxGrip = 4, blurb = "One click every two seconds is enough." }, -- 0.53  <- the mobile target
+	{ name = "Rail Coil", price = 9300, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing." }, -- 0.23
+	{ name = "Singularity Coil", price = 22000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest." }, -- 0.04, effectively hands-free
 }
 
 -- THE CLEANING TRACK IS A MACHINE ON YOUR BASE, NOT A THING IN YOUR HAND, and that
@@ -182,13 +182,13 @@ Gear.Magnet = {
 -- authored silhouettes rather than one base model recoloured. That file is also why
 -- ToolTiers.Cleaner's `scale` column is 1.00 all the way down.
 Gear.Cleaner = {
-	{ name = "Garden Hose", price = 0, power = 1, volume = 1.0 },
-	{ name = "Patched Fire Hose", price = 1000, power = 2, volume = 1.2 },
-	{ name = "Pressure Lance", price = 2400, power = 3, volume = 1.5 },
-	{ name = "Chem Injector", price = 5800, power = 4, volume = 1.9 },
-	{ name = "Ultrasonic Jet", price = 14000, power = 5, volume = 2.4 },
-	{ name = "Ion Cannon", price = 33000, power = 6, volume = 3.0 },
-	{ name = "Plasma Lance", price = 80000, power = 7, volume = 3.8 },
+	{ name = "Garden Hose", price = 0, power = 1, volume = 1.0, blurb = "A dribble and a prayer." },
+	{ name = "Patched Fire Hose", price = 1000, power = 2, volume = 1.2, blurb = "Leaks at every wrap, and still outguns the hose." },
+	{ name = "Pressure Lance", price = 2400, power = 3, volume = 1.5, blurb = "Narrow jet. Strips crust, not your patience." },
+	{ name = "Chem Injector", price = 5800, power = 4, volume = 1.9, blurb = "Doses the stream. Eats what water cannot." },
+	{ name = "Ultrasonic Jet", price = 14000, power = 5, volume = 2.4, blurb = "Shakes the grime loose before it is wet." },
+	{ name = "Ion Cannon", price = 33000, power = 6, volume = 3.0, blurb = "Charges the water. The dirt lets go first." },
+	{ name = "Plasma Lance", price = 80000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you." },
 }
 
 -- reduction: fraction of AMBIENT rads/sec removed  (exposure track, green screen)
@@ -207,12 +207,12 @@ Gear.Cleaner = {
 -- informational Z2-Z6 cells below shift with this (Z2 entrance 17s -> ~28s) but no
 -- Spec check pins those.
 Gear.Suit = {
-	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4 },
-	{ name = "Rubber Suit", price = 3000, reduction = 0.9750, tolerance = 4.4, capacity = 6 },
-	{ name = "Lead-Lined", price = 7200, reduction = 0.9920, tolerance = 13.4, capacity = 8 },
-	{ name = "Reinforced Hazmat", price = 17000, reduction = 0.9970, tolerance = 38.4, capacity = 11 },
-	{ name = "Sealed Exo-Suit", price = 42000, reduction = 0.9988, tolerance = 98.4, capacity = 15 },
-	{ name = "Containment Rig", price = 100000, reduction = 0.9889, tolerance = 105.0, capacity = 20 },
+	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, blurb = "Rags and tape. Counts as clothing, not shielding." },
+	{ name = "Rubber Suit", price = 3000, reduction = 0.9750, tolerance = 4.4, capacity = 6, blurb = "Sweats more than it shields. Shields a little." },
+	{ name = "Lead-Lined", price = 7200, reduction = 0.9920, tolerance = 13.4, capacity = 8, blurb = "Heavy enough to feel safe. Nearly is." },
+	{ name = "Reinforced Hazmat", price = 17000, reduction = 0.9970, tolerance = 38.4, capacity = 11, blurb = "Sealed seams. The first suit that trusts you." },
+	{ name = "Sealed Exo-Suit", price = 42000, reduction = 0.9988, tolerance = 98.4, capacity = 15, blurb = "Own air supply. Walks into the red and back." },
+	{ name = "Containment Rig", price = 100000, reduction = 0.9889, tolerance = 105.0, capacity = 20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
 }
 
 -- PLAN §5.2: boots are the most economically dangerous track in the game.
@@ -229,12 +229,12 @@ Gear.Suit = {
 -- now applies StatResolver.effectiveWalkSpeed live, so this table finally means
 -- something in actual play, not just in Spec's math.
 Gear.Boots = {
-	{ name = "Taped Boots", price = 0, walkSpeed = 26, haulPenalty = 1.20, stamina = 4, canVault = false, canDash = false },
-	{ name = "Tread Boots", price = 2300, walkSpeed = 28, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false },
-	{ name = "Field Runners", price = 6500, walkSpeed = 30, haulPenalty = 0.80, stamina = 6, canVault = true, canDash = false },
-	{ name = "Servo Braces", price = 18000, walkSpeed = 32, haulPenalty = 0.55, stamina = 7, canVault = true, canDash = false },
-	{ name = "Powered Frame", price = 51000, walkSpeed = 34, haulPenalty = 0.30, stamina = 8, canVault = true, canDash = true },
-	{ name = "Strider Rig", price = 140000, walkSpeed = 36, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true },
+	{ name = "Taped Boots", price = 0, walkSpeed = 26, haulPenalty = 1.20, stamina = 4, canVault = false, canDash = false, blurb = "Taped at the toe. They hold, mostly." },
+	{ name = "Tread Boots", price = 2300, walkSpeed = 28, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false, blurb = "Real tread. A full load stops dragging you." },
+	{ name = "Field Runners", price = 6500, walkSpeed = 30, haulPenalty = 0.80, stamina = 6, canVault = true, canDash = false, blurb = "Light enough to vault a fence." },
+	{ name = "Servo Braces", price = 18000, walkSpeed = 32, haulPenalty = 0.55, stamina = 7, canVault = true, canDash = false, blurb = "Braced knees. Carry more, feel less of it." },
+	{ name = "Powered Frame", price = 51000, walkSpeed = 34, haulPenalty = 0.30, stamina = 8, canVault = true, canDash = true, blurb = "Powered stride, and a dash when you need it." },
+	{ name = "Strider Rig", price = 140000, walkSpeed = 36, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true, blurb = "Full load, full speed. The haul stops mattering." },
 }
 
 -- The satchel does two jobs, and the second one matters more than PLAN §3.7 realised:
@@ -247,11 +247,11 @@ Gear.Boots = {
 -- PLAN §3.7: this line SLOWS the clock, it never stops it. Keep fuseMult finite, and
 -- keep shielding under 1.0 forever — a bag that fully shields is a bag with no greed.
 Gear.Satchel = {
-	{ name = "Canvas Bag", price = 0, fuseMult = 1.00, shielding = 0.00 },
-	{ name = "Lined Pack", price = 4000, fuseMult = 1.25, shielding = 0.25 },
-	{ name = "Lead Satchel", price = 9600, fuseMult = 1.61, shielding = 0.45 },
-	{ name = "Shielded Case", price = 23000, fuseMult = 2.17, shielding = 0.62 },
-	{ name = "Containment Pack", price = 55000, fuseMult = 3.12, shielding = 0.78 },
+	{ name = "Canvas Bag", price = 0, fuseMult = 1.00, shielding = 0.00, blurb = "Canvas. Stops nothing, holds everything." },
+	{ name = "Lined Pack", price = 4000, fuseMult = 1.25, shielding = 0.25, blurb = "Lined seams slow the clock a fifth." },
+	{ name = "Lead Satchel", price = 9600, fuseMult = 1.61, shielding = 0.45, blurb = "Lead sheet at your back. Your finds stop cooking you." },
+	{ name = "Shielded Case", price = 23000, fuseMult = 2.17, shielding = 0.62, blurb = "Hard case, sealed lid. Buys real time." },
+	{ name = "Containment Pack", price = 55000, fuseMult = 3.12, shielding = 0.78, blurb = "Three times the fuse, and nearly silent to wear." },
 }
 
 -- THE SEVENTH TRACK, AND THE ONLY ONE THAT BUYS NOTHING YOU HOLD, AND THE ONLY ONE
@@ -324,6 +324,107 @@ function Gear.profileKey(track: string): string
 	assert(key, `unknown gear track "{track}"`)
 	return key
 end
+
+--- WHICH STAT COLUMNS THE SHOP IS ALLOWED TO SELL, AND WHAT TO CALL THEM.
+---
+--- ShopService used to build a card's stat block by walking the tier table itself and
+--- `table.sort`ing the results, which meant three things nobody chose:
+---
+---   * EVERY numeric column was advertised, including `clarity` — which is INERT (see
+---     its note above Gear.Detector: DigService shows rarity and odds on every
+---     detector regardless). The shop was charging for a stat that does nothing.
+---   * The order was ALPHABETICAL, so "clarity" led every detector card and the stat
+---     a player actually buys the track for (radius) came third.
+---   * The label was the field name, so a suit sold "reduction 0.997" — a number whose
+---     units only make sense if you have read Shared/Radiation.
+---
+--- `order` fixes all three: it is the exact list, in the exact sequence, that the shop
+--- draws for that track. A column left out of it is not sold. `clarity` is left in the
+--- Detector tiers (its own note asks for that, so a repurpose does not start blank)
+--- but is absent here, which is the whole mechanism for retiring it from the storefront
+--- without deleting the data.
+---
+--- Per-field entries:
+---   label          what the card prints. Short, uppercase — these sit in a 62px gutter.
+---   kind           "number" (default, draws a bar) or "flag" (a boolean; draws a chip).
+---   lowerIsBetter  the bar fills as the number FALLS. Only Boots' haulPenalty, which
+---                  is the one column in the game where 0.10 beats 1.20.
+---   complement     the bar measures `1 - value`, not the value. Only Suit's
+---                  `reduction`, which is the fraction of dose BLOCKED: it sits at
+---                  0.63..0.9988 and what actually varies between rungs is the sliver
+---                  that gets THROUGH (0.37 down to 0.0012, a 300x spread). Drawn
+---                  straight, the bar says a Rubber Suit is 98% as good as the best
+---                  suit in the game, which would sell four upgrades as rounding error.
+---   scale = "log"  place the rung on a logarithmic ladder. Also only `reduction`:
+---                  leakage is multiplicative (halving it doubles your time in a
+---                  stage) and on a linear axis tier 1 is so bad that every other rung
+---                  pins to the top.
+---
+--- The bar's ENDS are not here on purpose: ShopService derives them from that track's
+--- own tiers, so retuning a column cannot leave a stale ceiling behind. They are the
+--- ladder's min and max rather than zero and max, which matters for every column whose
+--- floor is not zero — `luck` and `fuseMult` start at 1.00 (no bonus at all), and a
+--- bar drawn from zero showed the do-nothing starting detector as 40% full.
+---
+--- Util/Spec asserts this table covers every column of every tier, so a new stat
+--- cannot silently fail to appear in the shop the way `clarity` silently appeared in it.
+export type StatMeta = {
+	label: string,
+	kind: string?,
+	lowerIsBetter: boolean?,
+	complement: boolean?,
+	scale: string?,
+}
+
+Gear.STAT_META = {
+	Detector = {
+		order = { "radius", "depth", "luck" },
+		hidden = { clarity = true },
+		radius = { label = "RADIUS" },
+		depth = { label = "DEPTH" },
+		luck = { label = "LUCK" },
+	},
+	Magnet = {
+		order = { "pullSpeed", "draw", "maxGrip" },
+		hidden = {},
+		pullSpeed = { label = "PULL" },
+		draw = { label = "DRAW" },
+		maxGrip = { label = "GRIP" },
+	},
+	Cleaner = {
+		order = { "power", "volume" },
+		hidden = {},
+		power = { label = "POWER" },
+		volume = { label = "VOLUME" },
+	},
+	Suit = {
+		order = { "reduction", "tolerance", "capacity" },
+		hidden = {},
+		reduction = { label = "SHIELD", complement = true, scale = "log" },
+		tolerance = { label = "TOLERANCE" },
+		capacity = { label = "CARRY" },
+	},
+	Boots = {
+		order = { "walkSpeed", "haulPenalty", "stamina", "canVault", "canDash" },
+		hidden = {},
+		walkSpeed = { label = "SPEED" },
+		haulPenalty = { label = "HAUL", lowerIsBetter = true },
+		stamina = { label = "STAMINA" },
+		canVault = { label = "VAULT", kind = "flag" },
+		canDash = { label = "DASH", kind = "flag" },
+	},
+	Satchel = {
+		order = { "fuseMult", "shielding" },
+		hidden = {},
+		fuseMult = { label = "FUSE" },
+		shielding = { label = "SHIELDING" },
+	},
+}
+
+--- Every column of `track` that is neither sold nor deliberately retired is a bug, and
+--- Spec calls this to say so. `name`, `price` and `blurb` are the card's chrome rather
+--- than stats, so they are never expected in `order`.
+Gear.STAT_CHROME = { name = true, price = true, blurb = true }
 
 function Gear.tier(track: string, index: number): GearTier
 	local list = (Gear :: any)[track]

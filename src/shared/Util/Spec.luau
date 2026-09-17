@@ -469,6 +469,60 @@ function Spec.run(): boolean
 		startingReach < Rarity.get("Epic").hardness
 	)
 
+	-- ── The storefront ──────────────────────────────────────────────────
+	--
+	-- WHAT THE SHOP SELLS IS A LIST IN Config/Gear, AND THIS IS WHAT KEEPS IT HONEST.
+	-- The panel used to build a card's stat block by walking the tier table itself, so
+	-- every column was advertised whether or not it did anything — which is how
+	-- `clarity` came to be sold on every detector for months after DigService stopped
+	-- reading it. `Gear.STAT_META[track].order` is the list now, and a column that is
+	-- in neither `order` nor `hidden` is a stat that silently vanished from the
+	-- storefront (or a dead one that silently appeared in it). Both are failures; this
+	-- is the only thing that would ever notice.
+	for _, track in Gear.TRACKS do
+		local meta = Gear.STAT_META[track]
+		check(`{track} has a shop stat list`, meta ~= nil and meta.order ~= nil)
+		if meta == nil or meta.order == nil then
+			continue
+		end
+
+		for _, key in meta.order do
+			check(`{track}'s "{key}" column has a shop label`, meta[key] ~= nil and meta[key].label ~= nil)
+		end
+
+		for tier = 1, Gear.maxTier(track) do
+			local def = Gear.tier(track, tier)
+
+			-- ONE LINE OF COPY PER RUNG, and it is not optional: the card is laid out
+			-- around it, so a missing blurb is a hole in the middle of the card rather
+			-- than a graceful absence.
+			check(
+				`{track} {tier} ({def.name}) has a blurb`,
+				type(def.blurb) == "string" and #def.blurb > 0
+			)
+
+			for key, value in def :: any do
+				if Gear.STAT_CHROME[key] then
+					continue
+				end
+				if type(value) ~= "number" and type(value) ~= "boolean" then
+					continue
+				end
+				local sold = false
+				for _, ordered in meta.order do
+					if ordered == key then
+						sold = true
+						break
+					end
+				end
+				check(
+					`{track}'s "{key}" is either sold or deliberately hidden`,
+					sold or (meta.hidden ~= nil and meta.hidden[key] == true)
+				)
+			end
+		end
+	end
+
 	-- PLAIN WATER IS THE FLOOR, AND IT IS THE ANTI-SOFTLOCK. A player with no cash
 	-- and no canisters must still be able to clean something, or "I cannot progress
 	-- and cannot fix it" becomes reachable — the one state this design has no answer
