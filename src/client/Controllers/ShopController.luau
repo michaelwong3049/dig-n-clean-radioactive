@@ -22,6 +22,12 @@ local Shop = {}
 local TILE_SIZE = 80
 local TILE_CAPTION = "Shop"
 local TILE_CAPTION_SIZE = 18
+-- The cart picture's square box and its top inset. Bigger than the Index tile's book
+-- (46) because this picture has more empty margin inside its square; at 54 the two
+-- icons read as the same size, and the wheels still end around y=51, clear of the
+-- caption band at 57.
+local TILE_ICON_SIZE = 54
+local TILE_ICON_TOP = 3
 local TILE_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local function build(): ScreenGui
@@ -78,9 +84,9 @@ local function build(): ScreenGui
 
 	-- The cart fills the top of the tile, centred; the bottom band is the name's —
 	-- same split as the Index tile's book.
-	local cart = Artwork.cart(button, UIKit.C.navIcon, UIKit.C.navFill)
-	cart.icon.AnchorPoint = Vector2.new(0.5, 0)
-	cart.icon.Position = UDim2.new(0.5, 0, 0, 8)
+	local cart = Artwork.picture(button, "CartIcon", Artwork.IMAGE.cart, TILE_ICON_SIZE, UIKit.C.navIcon)
+	cart.AnchorPoint = Vector2.new(0.5, 0)
+	cart.Position = UDim2.new(0.5, 0, 0, TILE_ICON_TOP)
 
 	UIKit.label(button, {
 		name = "Caption",
@@ -101,17 +107,10 @@ local function build(): ScreenGui
 		TweenService:Create(buttonStroke, TILE_HOVER, {
 			Color = if active then UIKit.C.navEdgeHover else UIKit.C.navEdge,
 		}):Play()
-		-- The basket/handle/rim brighten to white on hover, same as the book's pages;
-		-- the wheels/slats are painted in the tile's own fill so they move with it —
-		-- left behind, they'd turn into drawn lines on hover.
-		for _, part in cart.body do
-			TweenService:Create(part, TILE_HOVER, {
-				BackgroundColor3 = if active then Color3.new(1, 1, 1) else UIKit.C.navIcon,
-			}):Play()
-		end
-		for _, part in cart.accent do
-			TweenService:Create(part, TILE_HOVER, { BackgroundColor3 = fill }):Play()
-		end
+		-- The cart brightens to white, same as the Index tile's book.
+		TweenService:Create(cart, TILE_HOVER, {
+			ImageColor3 = if active then Color3.new(1, 1, 1) else UIKit.C.navIcon,
+		}):Play()
 	end
 	button.MouseEnter:Connect(function()
 		setHighlighted(true)

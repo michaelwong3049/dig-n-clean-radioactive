@@ -1,4 +1,5 @@
--- Small HUD illustrations built from GUI shapes, so no uploaded assets are needed.
+-- Small HUD illustrations. Most are built from GUI shapes; the Index and Shop tile
+-- icons are real pictures (see Artwork.IMAGE).
 local Artwork = {}
 local INK = Color3.fromRGB(8, 14, 5)
 
@@ -52,65 +53,36 @@ function Artwork.cash(parent: Instance)
 	shape(band, "Highlight", 2, 2, 4, 43, Color3.fromRGB(255, 237, 95), 9)
 end
 
--- The index book's box, in design pixels. IndexController centres it in the top
--- of its tile.
-Artwork.BOOK_SIZE = Vector2.new(42, 48)
+-- THE TILE PICTURES. Free white silhouettes from the Creator Store, not GUI shapes.
+-- White on purpose: ImageColor3 multiplies, so the caller tints the picture to the
+-- icon colour and tweens it to white on hover, the same change the shape-built icons
+-- made. The see-through cuts in a picture (the book's title plate and page edge) show
+-- the tile's own fill, so they follow the hover fill with no tween of their own.
+--
+-- These are IMAGE ids, which is what an ImageLabel needs, NOT the store listing's
+-- decal id (the number in its URL). To swap a picture, load the listing's decal on
+-- the server (`InsertService:LoadAsset(decalId)`) and copy its Decal.Texture here.
+Artwork.IMAGE = {
+	-- "Book Icon" by AtomicSlumber, store decal 6867518950.
+	book = "rbxassetid://6867518941",
+	-- "Shopping Cart Icon" by EgizianoEG, store decal 11385395257.
+	cart = "rbxassetid://11385395241",
+}
 
-export type Book = { icon: Frame, paper: { Frame }, cut: UIStroke, plate: Frame }
-
---- The index book: a flat, upright cover with a dark title plate on it, and the
---- page block standing proud of it to the right and below. Drawn into a BOOK_SIZE box
---- at the icon's own origin; the caller positions `icon`.
----
---- `paper` is the white of both faces. `gap` is the colour of the cover's outline —
---- the cut that separates it from the pages — and of the title plate: pass the
---- button's own fill so the cut reads as a gap rather than a drawn line, then tween
---- `cut` / `plate` with that fill (and `paper` with the icon colour) on hover.
-function Artwork.book(parent: Instance, paper: Color3, gap: Color3): Book
-	local icon = shape(parent, "BookIcon", 0, 0, Artwork.BOOK_SIZE.X, Artwork.BOOK_SIZE.Y, Color3.new(), 5)
+--- A picture icon: a square, transparent ImageLabel `size` design px on a side, with
+--- `image` fitted inside and tinted `color`. The caller positions it.
+function Artwork.picture(parent: Instance, name: string, image: string, size: number, color: Color3): ImageLabel
+	local icon = Instance.new("ImageLabel")
+	icon.Name = name
+	icon.Size = UDim2.fromOffset(size, size)
 	icon.BackgroundTransparency = 1
-	local pages = shape(icon, "Pages", 11, 5, 31, 43, paper, 6, 5)
-	local cover = shape(icon, "Cover", 0, 0, 31, 43, paper, 7, 5)
-	local cut = Artwork.outline(cover, 3)
-	cut.Color = gap
-	local plate = shape(cover, "TitlePlate", 7, 9, 17, 10, gap, 8, 2)
-	return { icon = icon, paper = { pages, cover }, cut = cut, plate = plate }
-end
-
--- The shop cart's box, in design pixels. ShopController centres it in the top of
--- its tile, same slot the index book fills on its own tile.
-Artwork.CART_SIZE = Vector2.new(44, 40)
-
-export type Cart = { icon: Frame, body: { Frame }, accent: { Frame } }
-
---- The shop cart: a basket with a flared rim and a diagonal push handle, standing
---- on two wheels. Drawn into a CART_SIZE box at the icon's own origin; the caller
---- positions `icon`.
----
---- `paper` is the basket/handle colour (the book icon's name for the same role,
---- kept so both icons take their two colours the same way). `gap` is the colour of
---- the wire-basket slats and the wheels — pass the button's own fill so they read as
---- a cut into the basket rather than a drawn line, then tween `body` with the icon
---- colour and `accent` with that fill on hover, same as Book's `paper` / `cut`+`plate`.
-function Artwork.cart(parent: Instance, paper: Color3, gap: Color3): Cart
-	local icon = shape(parent, "CartIcon", 0, 0, Artwork.CART_SIZE.X, Artwork.CART_SIZE.Y, Color3.new(), 5)
-	icon.BackgroundTransparency = 1
-
-	local handle = shape(icon, "Handle", 1, 0, 4, 15, paper, 6, 2)
-	handle.AnchorPoint = Vector2.new(0.5, 0)
-	handle.Rotation = -35
-	local rim = shape(icon, "Rim", 6, 9, 34, 5, paper, 6, 2)
-	local basket = shape(icon, "Basket", 9, 13, 26, 17, paper, 6, 3)
-	local wheelL = shape(icon, "WheelL", 13, 34, 8, 8, gap, 7, 4)
-	local wheelR = shape(icon, "WheelR", 27, 34, 8, 8, gap, 7, 4)
-	local slatA = shape(basket, "SlatA", 8, 3, 3, 11, gap, 8, 1)
-	local slatB = shape(basket, "SlatB", 16, 3, 3, 11, gap, 8, 1)
-
-	return {
-		icon = icon,
-		body = { handle, rim, basket },
-		accent = { wheelL, wheelR, slatA, slatB },
-	}
+	icon.BorderSizePixel = 0
+	icon.Image = image
+	icon.ImageColor3 = color
+	icon.ScaleType = Enum.ScaleType.Fit
+	icon.ZIndex = 6
+	icon.Parent = parent
+	return icon
 end
 
 function Artwork.studs(parent: GuiObject)

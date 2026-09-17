@@ -70,6 +70,10 @@ local Index = {}
 local TILE_SIZE = 80
 local TILE_CAPTION = "Index"
 local TILE_CAPTION_SIZE = 18
+-- The book picture's square box and its top inset. It fills that box edge to edge, so
+-- 46 ends at y=53, clear of the caption band that starts at 57.
+local TILE_ICON_SIZE = 46
+local TILE_ICON_TOP = 7
 local TILE_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- ── Panel geometry ──────────────────────────────────────────────────
@@ -519,9 +523,9 @@ local function build(): (ScreenGui, ScreenGui)
 	place()
 
 	-- The book fills the top of the tile, centred; the bottom band is the name's.
-	local book = Artwork.book(button, UIKit.C.navIcon, UIKit.C.navFill)
-	book.icon.AnchorPoint = Vector2.new(0.5, 0)
-	book.icon.Position = UDim2.new(0.5, 0, 0, 7)
+	local book = Artwork.picture(button, "BookIcon", Artwork.IMAGE.book, TILE_ICON_SIZE, UIKit.C.navIcon)
+	book.AnchorPoint = Vector2.new(0.5, 0)
+	book.Position = UDim2.new(0.5, 0, 0, TILE_ICON_TOP)
 
 	-- The name, in the reference's outlined type: white GothamBlack under a heavy
 	-- black UIStroke. This was the one-off that UIKit.label's outline+shadow default
@@ -545,15 +549,11 @@ local function build(): (ScreenGui, ScreenGui)
 		TweenService:Create(buttonStroke, TILE_HOVER, {
 			Color = if active then UIKit.C.navEdgeHover else UIKit.C.navEdge,
 		}):Play()
-		-- The cover's cut and its title plate are painted in the tile's own fill, so they
-		-- move with it — left behind, the cut turns into a drawn outline on hover.
-		TweenService:Create(book.cut, TILE_HOVER, { Color = fill }):Play()
-		TweenService:Create(book.plate, TILE_HOVER, { BackgroundColor3 = fill }):Play()
-		for _, face in book.paper do
-			TweenService:Create(face, TILE_HOVER, {
-				BackgroundColor3 = if active then Color3.new(1, 1, 1) else UIKit.C.navIcon,
-			}):Play()
-		end
+		-- The book brightens to white. Its cut-outs are see-through, so they already
+		-- show the fill tweening underneath.
+		TweenService:Create(book, TILE_HOVER, {
+			ImageColor3 = if active then Color3.new(1, 1, 1) else UIKit.C.navIcon,
+		}):Play()
 	end
 	button.MouseEnter:Connect(function()
 		setHighlighted(true)
