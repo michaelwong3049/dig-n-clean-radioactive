@@ -95,7 +95,8 @@ local LAYOUT = {
 	shadowDrop = 5,
 	outline = 4,
 	valueLeft = 86,
-	valueTextSize = 46,
+	valueTextSize = 30,
+	valueMinTextSize = 18, -- floor for setValueText's shrink-to-fit
 	valueStroke = 3.5,
 	-- LuckiestGuy draws high inside its line box, so a vertically "centred" label
 	-- reads as riding the top edge. Measured in Studio against the card and the coin.
@@ -211,6 +212,25 @@ local function textWidth(text: string, size: number, font: Enum.Font): number
 	return TextService:GetTextSize(text, size, font, Vector2.new(2000, 200)).X
 end
 
+--- Set the balance, stepping its TextSize down only when a long number would overflow.
+---
+--- NOT TextScaled + UITextSizeConstraint, which is what this used to be: both measure in
+--- REAL screen pixels and ignore the canvas's UIScale, so the balance was capped at a
+--- fixed pixel height while the card around it scaled with the screen -- it filled the
+--- card on a small window and shrank inside it on a big monitor. A plain TextSize is in
+--- design px like everything else on the canvas, and GetTextSize measures in design px
+--- too, so the fit check stays screen-independent.
+local function setValueText(text: string)
+	local L = LAYOUT
+	local room = ui.value.Size.X.Offset - 8
+	local size = L.valueTextSize
+	while size > L.valueMinTextSize and textWidth(text, size, STYLE.valueFont) > room do
+		size -= 1
+	end
+	ui.value.TextSize = size
+	ui.value.Text = text
+end
+
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "CashHud"
@@ -289,12 +309,9 @@ local function build(): ScreenGui
 		zIndex = 10,
 	})
 
-	-- `shadow = false`: this label flips TextScaled + a UITextSizeConstraint on
-	-- right below (to shrink long balances so they never overflow the badge), and
-	-- UIKit.label's default drop-shadow is a SEPARATE sibling TextLabel built before
-	-- that scaling is applied — it never gets TextScaled or the constraint, so it kept
-	-- rendering at the fixed size while the real label shrank to fit, which showed as
-	-- two overlapping numbers at two different sizes (misread as "two fonts").
+	-- Centred in the stretch of card right of the coin. `shadow = false`: UIKit.label's
+	-- drop-shadow is a separate sibling label that would not follow setValueText's
+	-- shrink-to-fit, and the heavy outline already carries it.
 	ui.value = UIKit.label(badge, {
 		name = "Value",
 		position = UDim2.fromOffset(L.valueLeft, L.cardTop + L.valueDrop),
@@ -302,25 +319,19 @@ local function build(): ScreenGui
 		font = STYLE.valueFont,
 		textSize = L.valueTextSize,
 		color = WHITE,
-		xAlign = Enum.TextXAlignment.Left,
+		xAlign = Enum.TextXAlignment.Center,
 		shadow = false,
 		text = "$0",
 		zIndex = 11,
 	})
 	setStroke(ui.value, L.valueStroke)
 
-	ui.value.TextScaled = true
-	local textLimit = Instance.new("UITextSizeConstraint")
-	textLimit.MinTextSize = 22
-	textLimit.MaxTextSize = L.valueTextSize
-	textLimit.Parent = ui.value
-
 	-- The number the label is currently SHOWING, which lags `balance` while it counts.
 	-- A NumberValue so TweenService can drive it, and a new tween on it simply takes
 	-- over from one still running.
 	ui.shown = Instance.new("NumberValue")
 	ui.shown.Changed:Connect(function(value: number)
-		ui.value.Text = formatCash(math.floor(value + 0.5))
+		setValueText(formatCash(math.floor(value + 0.5)))
 	end)
 
 	return gui
@@ -465,7 +476,7 @@ local function setBalance(amount: number, source: string?)
 	-- The load snapshot: take the number as it is, no count and no popup.
 	if previous == nil then
 		ui.shown.Value = amount
-		ui.value.Text = formatCash(amount)
+		setValueText(formatCash(amount))
 		return
 	end
 
