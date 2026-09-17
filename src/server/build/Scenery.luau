@@ -95,7 +95,7 @@ local Plots = require(script.Parent.Plots)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 29
+local BUILDER_VERSION = 32
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -112,6 +112,24 @@ local GROUND_SKIM = 0.06
 -- into the field -- scatterBushes pushes foliage at least this far off it so a
 -- bush never sprouts in the middle of the route.
 local BUSH_CENTRE_CLEARANCE = 28
+
+--- Maps a virtual z sampled from the CONTINUOUS gap-free range
+--- [-(hz - BUSH_CENTRE_CLEARANCE), hz - BUSH_CENTRE_CLEARANCE] out into one of the two
+--- real bands either side of the centre lane, splicing the excluded
+--- BUSH_CENTRE_CLEARANCE gap back in at v = 0.
+---
+--- FIRST ATTEMPT (kept here so the next person does not re-try it): clamp a z sampled
+--- from the FULL [-hz, hz] range, then push/reflect anything still inside the lane back
+--- out past it. That still let several rows converge on the same strip just past the
+--- boundary -- reflecting a whole row's worth of candidates crushes them into a narrow
+--- band right where the naturally-placed next row already lives, so the pile-up just
+--- moved a few studs, it did not go away. Building the grid over the REDUCED, already
+--- gap-free range up front and only splitting it into +/- here removes the collision
+--- entirely: every row gets its own slice of real ground and nothing is ever thrown
+--- away, pinned, or doubled up with a neighbour.
+local function laneSplitZ(v: number): number
+	return if v >= 0 then v + BUSH_CENTRE_CLEARANCE else v - BUSH_CENTRE_CLEARANCE
+end
 
 -- Stage 2 keeps the same clear lane down z = 0 for its carcasses -- the one Stage 2
 -- prop big enough to block a sightline -- pushed at least this far off it. Smaller
@@ -177,6 +195,15 @@ local BUSH_GREEN_DARK = "4C9029"
 --- crown bushes (already shipped, already fine) do not shift underneath this.
 local BASE_FOLIAGE_GREEN = "3E7A28"
 local BASE_FOLIAGE_GREEN_DARK = "2C5A1C"
+
+--- Warm neutral grey, for the little rock clusters scattered around the base plate
+--- (`buildBaseFoliage`) and across Stage 1's alive west half (`scatterStage1GroundDetail`).
+--- A separate pair rather than reusing C.standGrey/railGrey/steelDark -- those already
+--- carry their own meaning elsewhere (the wash stand's deliberate "one grey structure,"
+--- the fence, cool-toned steel) and a natural boulder reads better warmer and less blue
+--- than any of them.
+local ROCK_GREY = "9C958A"
+local ROCK_GREY_DARK = "6B655B"
 
 --- Bone, for the Stage 2 and 3 remains (`boneShaft`, `skull`, `animalSkeleton`). A
 --- sun-bleached base with a dirt-stained second tone, mixed per part the way
@@ -1130,6 +1157,42 @@ local function grassTuft(parent: Instance, origin: CFrame, x: number, z: number,
 	end
 end
 
+--- A little cluster of two or three low, angular rocks -- the same "few overlapping
+--- studded blocks, each picking its own shade off a two-tone" idiom `bush` uses, just
+--- squat and grey rather than tall and green. Each block gets its own independent tilt
+--- on every axis rather than `bush`'s shared yaw, since a rockpile has no "upright" the
+--- way a bush growing out of the ground does. CanCollide=false like every other ground
+--- prop in this file.
+---
+--- `palette`, if given, replaces the default ROCK_GREY/ROCK_GREY_DARK two-tone, the same
+--- escape hatch `bush` exposes for a caller that wants a different shade.
+local ROCK_MIN_SIZE, ROCK_MAX_SIZE = 1.5, 2.6
+local function rock(parent: Instance, origin: CFrame, x: number, z: number, rng: Random, palette: { string }?)
+	local light, dark = (palette and palette[1]) or ROCK_GREY, (palette and palette[2]) or ROCK_GREY_DARK
+	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(0, 360), 0)
+	local n = rng:NextInteger(2, 3)
+	local s = rng:NextNumber(ROCK_MIN_SIZE, ROCK_MAX_SIZE) -- the base block's size; the whole cluster scales off it
+
+	for i = 1, n do
+		local k = 1 - (i - 1) * 0.2
+		local w = s * k * rng:NextNumber(0.8, 1.15)
+		local h = s * k * rng:NextNumber(0.55, 0.8)
+		local d = s * k * rng:NextNumber(0.8, 1.15)
+		local ox = if i == 1 then 0 else rng:NextNumber(-0.9, 0.9)
+		local oz = if i == 1 then 0 else rng:NextNumber(-0.9, 0.9)
+		build(parent, base, {
+			name = "Rock",
+			pos = { ox, h / 2 - 0.2, oz },
+			size = { w, h, d },
+			color = if rng:NextNumber() < 0.6 then light else dark,
+			material = "Plastic",
+			studs = true,
+			rot = Kit.ang(rng:NextNumber(-18, 18), rng:NextNumber(0, 90), rng:NextNumber(-18, 18)),
+			canCollide = false,
+		})
+	end
+end
+
 --- ── THE REMAINS ──────────────────────────────────────────────────────────────
 --- Stage 1 is life dying back (green scrub in the west, dead snags in the east);
 --- Stages 2 and 3 are what the die-off left behind. The bones are the whole
@@ -1856,9 +1919,11 @@ end
 --- Stage 1 -- chunky green bushes across the ALIVE WEST HALF only. Stage 1's ground
 --- fades green (west, where you walk in from camp) to dead tan (east); the scrub
 --- belongs on the living side. Bushes fill a grid over the western half of the field,
---- each nudged only a third of a cell so the scatter stays even, and any that land
---- within BUSH_CENTRE_CLEARANCE of z = 0 are pushed out to it so the walk-through
---- lane down the middle of the field stays open.
+--- each nudged only a third of a cell so the scatter stays even. The grid's own Z
+--- range is built already excluding BUSH_CENTRE_CLEARANCE either side of z = 0
+--- (`halfSpan`/`laneSplitZ`) rather than spanning the full depth and pushing anything
+--- too central out of the way afterward, so the walk-through lane down the middle of
+--- the field stays open without ever bunching rows together at its edge.
 ---
 --- All candidate bushes are built before the farthest ones are discarded. `bush`
 --- consumes the same deterministic RNG used by placement, so skipping a build in the
@@ -1868,7 +1933,8 @@ end
 local function scatterBushes(folder: Instance, origin: CFrame, count: number, removeFarthest: number, rng: Random, hx: number, hz: number)
 	local westEdge = -hx
 	local bandDepth = 2 * hx * 0.5 -- the western half of the field
-	local cols = math.ceil(math.sqrt(count * (bandDepth / (2 * hz))))
+	local halfSpan = hz - BUSH_CENTRE_CLEARANCE -- usable half-depth on EACH side of the lane
+	local cols = math.ceil(math.sqrt(count * (bandDepth / (2 * halfSpan))))
 	local rows = math.ceil(count / cols)
 	local candidates: { { folder: Folder, x: number } } = {}
 
@@ -1880,14 +1946,10 @@ local function scatterBushes(folder: Instance, origin: CFrame, count: number, re
 			end
 			placed += 1
 			local x = westEdge + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (bandDepth / cols)
-			local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
+			local v = -halfSpan + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * halfSpan / rows)
 			local candidate = Instance.new("Folder")
 			local clampedX = math.clamp(x, westEdge, westEdge + bandDepth)
-			local clampedZ = math.clamp(z, -hz, hz)
-			if math.abs(clampedZ) < BUSH_CENTRE_CLEARANCE then
-				clampedZ = (if clampedZ < 0 then -1 else 1) * BUSH_CENTRE_CLEARANCE
-			end
-			bush(candidate, origin, clampedX, clampedZ, rng)
+			bush(candidate, origin, clampedX, laneSplitZ(v), rng)
 			table.insert(candidates, { folder = candidate, x = clampedX })
 		end
 	end
@@ -2035,6 +2097,47 @@ local function scatterDeadBushes(folder: Instance, origin: CFrame, count: number
 			clampedZ = (if clampedZ < 0 then -1 else 1) * BUSH_CENTRE_CLEARANCE
 		end
 		deadBush(folder, origin, clampedX, clampedZ, rng)
+	end
+end
+
+--- Stage 1 -- a light scatter of grass tufts and little rock clusters across the ALIVE
+--- WEST HALF, alongside `scatterBushes`' own bushes: the same `grassTuft`/`rock` ground
+--- detail `buildBaseFoliage` puts around the base plate, reused here (on request, "add
+--- some of the grass we added before... in the first half of stage 1") so the scrub
+--- field and the base read as the same kind of living ground. Same west-half band and
+--- BUSH_CENTRE_CLEARANCE centre lane `scatterBushes` uses, and the same `halfSpan`/
+--- `laneSplitZ` trick of gridding the lane back out of the Z range up front instead of
+--- shoving anything too central out of the way afterward -- see `scatterBushes`' own
+--- comment for why (on request, "too many decorations in one spot and none in another").
+---
+--- Runs on its OWN Random seed rather than the shared stage `rng` -- consuming extra
+--- numbers from that shared sequence would reshuffle every bush/crack/dead-snag placed
+--- after it in buildStageScenery, and none of those need to move for this to ship.
+local STAGE1_GROUND_DETAIL_CELL = 18
+local STAGE1_GROUND_DETAIL_ROCK_CHANCE = 0.16
+local STAGE1_GROUND_DETAIL_GRASS_CHANCE = 0.28
+local function scatterStage1GroundDetail(folder: Instance, origin: CFrame, hx: number, hz: number, seed: number)
+	local rng = Random.new(seed)
+	local westEdge = -hx
+	local bandDepth = hx -- the western half of the field, same band scatterBushes fills
+	local halfSpan = hz - BUSH_CENTRE_CLEARANCE -- usable half-depth on EACH side of the lane
+	local cols = math.max(1, math.floor(bandDepth / STAGE1_GROUND_DETAIL_CELL))
+	local rows = math.max(1, math.floor((2 * halfSpan) / STAGE1_GROUND_DETAIL_CELL))
+
+	for col = 0, cols - 1 do
+		for row = 0, rows - 1 do
+			local x = westEdge + (col + 0.5 + rng:NextNumber(-0.4, 0.4)) * (bandDepth / cols)
+			local v = -halfSpan + (row + 0.5 + rng:NextNumber(-0.4, 0.4)) * (2 * halfSpan / rows)
+			local clampedX = math.clamp(x, westEdge, westEdge + bandDepth)
+			local clampedZ = laneSplitZ(v)
+
+			local roll = rng:NextNumber()
+			if roll < STAGE1_GROUND_DETAIL_ROCK_CHANCE then
+				rock(folder, origin, clampedX, clampedZ, rng)
+			elseif roll < STAGE1_GROUND_DETAIL_ROCK_CHANCE + STAGE1_GROUND_DETAIL_GRASS_CHANCE then
+				grassTuft(folder, origin, clampedX, clampedZ, rng)
+			end
+		end
 	end
 end
 
@@ -3014,6 +3117,7 @@ local function buildStageScenery(parent: Instance, id: number)
 			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
 			scatterStage1Cracks(folder, origin, def.size[1] / 2, def.size[2] / 2, rng)
 			scatterDeadBushes(folder, origin, theme.deadProps or 0, rng, hx, hz)
+			scatterStage1GroundDetail(folder, origin, hx, hz, 9214)
 		elseif id == 2 then
 			scatterFieldTrees(folder, origin, theme.props, rng, hx, hz)
 			-- hz - 30 keeps a carcass off the outer wall band, same margin as before.
@@ -3347,7 +3451,8 @@ end
 --- onto, so growth only appears from roughly each pad's own radius outward to the wall.
 --- Dark bushes (BASE_FOLIAGE_GREEN/_DARK, deliberately darker than both BUSH_GREEN and
 --- the apron floor's own C.grass, on request) as the rare accent, small grass tufts far
---- more often -- one roll per candidate spot so the two never double up.
+--- more often, and little ROCK_GREY rock clusters as a third, similarly rare accent --
+--- one roll per candidate spot so the three never double up.
 ---
 --- SAME JITTERED-GRID IDIOM EVERY OTHER SCATTER IN THIS FILE USES (see the file header):
 --- pure random clumps and leaves bald patches, a jittered grid reads as scattered while
@@ -3366,6 +3471,7 @@ local BASE_FOLIAGE_MIN_RADIUS = Plots.RING_RADIUS - 40 -- keep clear of the plaz
 local BASE_FOLIAGE_PAD_CLEARANCE = 6 -- extra clearance past each pad's real footprint
 local BASE_FOLIAGE_BUSH_CHANCE = 0.08 -- was 0.14, thinned on request, "too much"
 local BASE_FOLIAGE_GRASS_CHANCE = 0.3 -- was 0.46, rolled after a spot misses the bush chance
+local BASE_FOLIAGE_ROCK_CHANCE = 0.1 -- rolled after a spot misses both bush and grass
 local function buildBaseFoliage(parent: Instance, seed: number)
 	local folder = Instance.new("Folder")
 	folder.Name = "BaseFoliage"
@@ -3413,6 +3519,8 @@ local function buildBaseFoliage(parent: Instance, seed: number)
 				bush(folder, groundOrigin, x, z, rng, { BASE_FOLIAGE_GREEN, BASE_FOLIAGE_GREEN_DARK })
 			elseif roll < BASE_FOLIAGE_BUSH_CHANCE + BASE_FOLIAGE_GRASS_CHANCE then
 				grassTuft(folder, groundOrigin, x, z, rng)
+			elseif roll < BASE_FOLIAGE_BUSH_CHANCE + BASE_FOLIAGE_GRASS_CHANCE + BASE_FOLIAGE_ROCK_CHANCE then
+				rock(folder, groundOrigin, x, z, rng)
 			end
 		end
 	end
