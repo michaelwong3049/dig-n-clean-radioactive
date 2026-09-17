@@ -103,8 +103,15 @@ local REMOTES: { [string]: string } = {
 
 	-- The persistent cash badge. Fires only when data.cash actually changes (sell,
 	-- spend, award, or a debug /cash) plus once on load -- not per tick, since cash
-	-- moves far less often than exposure does.
+	-- moves far less often than exposure does. Payload is (cash, source?): `source` is
+	-- "exhibit" for the passive stand payouts ExhibitService deposits every few
+	-- seconds, so the badge can give those a quieter popup than a sale; nil otherwise.
 	CashState = "RemoteEvent", -- server -> client, on change
+	--
+	-- The combined $/s every nuke on the player's stands is paying right now, hourly cap
+	-- applied -- the number the badge prints under the balance. Fired only when that
+	-- rate changes (a stand placed or cleared, a yield or level change), never per tick.
+	IncomeState = "RemoteEvent", -- server -> client, exhibit $/s, on change
 
 	-- The top-of-screen "getting around" bar (client WarpController). The client
 	-- sends only a destination NAME -- { dest = "base" | "shops" } -- never a

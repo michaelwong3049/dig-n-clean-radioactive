@@ -70,6 +70,7 @@ local plotOwner: { [number]: Player? } = {}
 
 local resultRemote: any = nil
 local colorRemote: any = nil
+local incomeRemote: any = nil
 
 -- Last os.clock() each player set their base colour, so a client cannot spam the
 -- PlotColor remote into a repaint loop. Cleared on release.
@@ -858,18 +859,38 @@ local function deposit(player: Player, data: any)
 	local whole = math.floor(data.exhibit.bankedCash)
 	if whole >= 1 then
 		data.exhibit.bankedCash -= whole
-		EconomyService.award(player, whole)
+		EconomyService.award(player, whole, "exhibit")
 	end
+end
+
+--- The last rate IncomeState told each client, so the badge's "+$/s" line is sent on
+--- change only. Checked from the tick rather than hooked into interact/level/stats,
+--- because every one of those feeds cappedRatePerSecond and the tick already calls it:
+--- one comparison catches all of them, including ones added later.
+local lastIncome: { [Player]: number } = {}
+
+local function pushIncome(player: Player, rate: number)
+	local last = lastIncome[player]
+	if last ~= nil and math.abs(last - rate) < 1e-6 then
+		return
+	end
+	lastIncome[player] = rate
+	incomeRemote:FireClient(player, rate)
 end
 
 local function tickPlayer(player: Player, dt: number, flush: boolean)
 	local data = DataService.data(player)
-	if data == nil or #data.exhibit.pedestals == 0 then
+	if data == nil then
+		return
+	end
+	if #data.exhibit.pedestals == 0 then
+		pushIncome(player, 0)
 		return
 	end
 
 	local stats = StatResolver.get(data)
 	local rate = cappedRatePerSecond(data, stats)
+	pushIncome(player, rate)
 	data.exhibit.bankedCash += rate * dt
 	data.exhibit.bankedAt = os.time()
 
@@ -1004,6 +1025,7 @@ end
 function ExhibitService.init()
 	resultRemote = Net.get("StationResult")
 	colorRemote = Net.get("PlotColor")
+	incomeRemote = Net.get("IncomeState")
 end
 
 function ExhibitService.start()
@@ -1037,6 +1059,7 @@ function ExhibitService.start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		release(player)
+		lastIncome[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)

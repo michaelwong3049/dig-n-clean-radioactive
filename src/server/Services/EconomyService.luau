@@ -39,12 +39,15 @@ local cashRemote: any = nil
 --- rule for MUTATING data.cash -- this is that rule's other half, for anyone who
 --- needs to tell the client it changed. DebugService's /cash calls this too, since
 --- it pokes data.cash directly the same way /gear pokes data.gear.
-function EconomyService.pushCash(player: Player)
+---
+--- `source` rides along so the badge can tell a sale from background income -- only
+--- "exhibit" (ExhibitService's passive deposits) means anything to it today.
+function EconomyService.pushCash(player: Player, source: string?)
 	local data = DataService.data(player)
 	if data == nil then
 		return
 	end
-	cashRemote:FireClient(player, data.cash)
+	cashRemote:FireClient(player, data.cash, source)
 end
 
 --- Find an item in either the backpack or the Quarantine Locker. Returns the item,
@@ -145,13 +148,13 @@ function EconomyService.spend(player: Player, amount: number): (boolean, string)
 end
 
 --- The counterpart, so refunds and payouts do not open-code the field either.
-function EconomyService.award(player: Player, amount: number): boolean
+function EconomyService.award(player: Player, amount: number, source: string?): boolean
 	local data = DataService.data(player)
 	if data == nil then
 		return false
 	end
 	data.cash += math.max(0, math.floor(amount + 0.5))
-	EconomyService.pushCash(player)
+	EconomyService.pushCash(player, source)
 	return true
 end
 

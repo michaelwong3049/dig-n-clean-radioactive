@@ -470,10 +470,13 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 -- top of it here. WIDTH IS A READ OF METER_SIZE, NOT A SEPARATE NUMBER — it used to be
 -- a hand-picked 216 while the comment here claimed "same width as the meter", which
 -- was false (the meter is 280); deriving it outright is the only way that claim stays
--- true. Height grew 52 -> 64 alongside CashController's bigger balance text. CASH_BOTTOM
--- is the old bottom-corner baseline — kept as the reference point the SIDE_* offsets
--- below are documented against, and in case the column ever moves back.
-Dock.CASH_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 64)
+-- true. Height grew 52 -> 64 alongside CashController's bigger balance text, then
+-- 64 -> 86 for the cartoon gold-coin badge: the card itself is still 64 tall, but the
+-- "+$/s" income pill hangs off its bottom edge and the column has to reserve that
+-- overhang or the pill lands on the meter. CASH_BOTTOM is the old bottom-corner
+-- baseline — kept as the reference point the SIDE_* offsets below are documented
+-- against, and in case the column ever moves back.
+Dock.CASH_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 86)
 Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
 
 -- MIDDLE-LEFT / MIDDLE-RIGHT PLACEMENT. On request the cash+meter column and the
