@@ -3,7 +3,7 @@
 local NukeBase = require(script.Parent.NukeBase)
 local NukeAnomaly = {}
 
-function NukeAnomaly.create(signature: NukeBase.SignatureFn?): Model
+function NukeAnomaly.create(): Model
 	return NukeBase.create({
 		key = "NukeAnomaly",
 		displayName = "Nuke",
@@ -17,7 +17,6 @@ function NukeAnomaly.create(signature: NukeBase.SignatureFn?): Model
 		crownColor = Color3.fromHex("FFFFFF"),
 		sizeScale = 2.50,
 		gallerySize = 4.2,
-		signature = signature,
 	})
 end
 

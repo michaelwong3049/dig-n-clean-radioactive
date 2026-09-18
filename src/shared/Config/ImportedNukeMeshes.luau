@@ -1,17 +1,18 @@
 --!strict
 --[[
-	ImportedNukeMeshes.luau -- static geometry captured from the 16 hand-imported
-	reference meshes (Studio 3D import, 2026-09-17). Each entry is one fully
-	assembled nuke: a flat list of MeshParts with the exact size + position offset
-	they were built at, all relative to the assembly's own bounding-box centre.
+	ImportedNukeMeshes.luau -- static geometry for the 16 hand-imported reference
+	nuke meshes (Studio 3D import, 2026-09-17), each mapped to the specific
+	catalogue item (Shared.Config.Items) its part names match -- a locket+chain
+	assembly is , a pocket-watch face is , and so on.
+	ItemModels.create wires these in ahead of the procedural rarity capsule for
+	those 16 items; ImportedNukeYard.luau builds the same data into a showcase.
 
+	Each entry is a flat list of MeshParts with the exact size + position offset
+	they were built at, all relative to the assembly's own bounding-box centre.
 	Every source part came in axis-aligned (identity rotation), so only positions
 	are stored -- no rotation matrix needed. Every part also shared one flat grey
 	(the unpainted import colour), so that's a single constant below rather than
 	per-part data.
-
-	Pure data, no build logic -- src/server/build/ImportedNukeYard.luau reconstructs
-	each assembly from this at rebuild time.
 ]]
 
 local ImportedNukeMeshes = {}
@@ -24,7 +25,7 @@ export type PartDef = {
 }
 
 export type ModelDef = {
-	id: string,
+	itemId: string,
 	label: string,
 	parts: { PartDef },
 }
@@ -34,8 +35,8 @@ ImportedNukeMeshes.PART_COLOR = Color3.new(0.6392, 0.6353, 0.6471)
 
 ImportedNukeMeshes.MODELS = {
 	{
-		id = "importedNuke01",
-		label = "Imported Nuke 01",
+		itemId = "steel_rod",
+		label = "Rusty Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://92684778358189", size = Vector3.new(1.1966, 1.704, 1.1966), offset = Vector3.new(0.0, 0.384, 0.0) },
 			{ name = "TailTaper", meshId = "rbxassetid://118205228864560", size = Vector3.new(0.7964, 0.6, 0.7991), offset = Vector3.new(0.0, -0.616, 0.0) },
@@ -60,8 +61,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke02",
-		label = "Imported Nuke 02",
+		itemId = "clock_movement",
+		label = "Clockwork Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://88630932374297", size = Vector3.new(0.88, 1.0912, 0.88), offset = Vector3.new(0.0273, 0.0975, 0.0) },
 			{ name = "TailTaper", meshId = "rbxassetid://104151233583081", size = Vector3.new(0.5569, 0.4, 0.5569), offset = Vector3.new(0.0273, -0.5025, 0.0) },
@@ -79,8 +80,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke03",
-		label = "Imported Nuke 03",
+		itemId = "photo_locket",
+		label = "Locket Nuke",
 		parts = {
 			{ name = "LocketHalf1", meshId = "rbxassetid://120026919840996", size = Vector3.new(0.6068, 0.884, 0.4193), offset = Vector3.new(-0.0441, -0.025, -0.0656) },
 			{ name = "LocketHalf2", meshId = "rbxassetid://76330917801998", size = Vector3.new(0.6068, 0.884, 0.4193), offset = Vector3.new(0.0038, -0.025, 0.0656) },
@@ -98,8 +99,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke04",
-		label = "Imported Nuke 04",
+		itemId = "socket_set",
+		label = "Toolbox Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://78721906432347", size = Vector3.new(0.8771, 0.92, 0.8793), offset = Vector3.new(0.0, -0.107, 0.0) },
 			{ name = "NoseDome", meshId = "rbxassetid://109611076964179", size = Vector3.new(0.8793, 0.374, 0.8771), offset = Vector3.new(0.0, 0.48, 0.0) },
@@ -117,8 +118,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke05",
-		label = "Imported Nuke 05",
+		itemId = "unlit_signal_flare",
+		label = "Flare Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://118770499818514", size = Vector3.new(0.8752, 0.88, 0.88), offset = Vector3.new(0.0, -0.075, 0.0) },
 			{ name = "SwirlBandA", meshId = "rbxassetid://101600542926637", size = Vector3.new(0.9733, 0.0856, 0.9735), offset = Vector3.new(0.0, -0.075, 0.0) },
@@ -131,8 +132,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke06",
-		label = "Imported Nuke 06",
+		itemId = "bottle_cap",
+		label = "Dud Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://119064368918966", size = Vector3.new(0.8373, 0.9, 0.8393), offset = Vector3.new(0.0, -0.053, 0.0) },
 			{ name = "NoseDome", meshId = "rbxassetid://104949679163787", size = Vector3.new(0.8393, 0.336, 0.8373), offset = Vector3.new(0.0, 0.455, 0.0) },
@@ -146,8 +147,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke07",
-		label = "Imported Nuke 07",
+		itemId = "garden_trowel",
+		label = "Half-Dug Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://133565289160352", size = Vector3.new(0.9193, 1.1408, 0.917), offset = Vector3.new(0.0, 0.0398, 0.0) },
 			{ name = "SoilSkirt", meshId = "rbxassetid://119551322529675", size = Vector3.new(1.48, 0.22, 1.48), offset = Vector3.new(0.0, -0.5002, 0.0) },
@@ -160,8 +161,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke08",
-		label = "Imported Nuke 08",
+		itemId = "charm_bracelet",
+		label = "Charm Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://133322942410009", size = Vector3.new(0.4795, 0.6528, 0.4778), offset = Vector3.new(-0.0185, 0.0235, -0.0093) },
 			{ name = "TailTaper", meshId = "rbxassetid://88874090795645", size = Vector3.new(0.2776, 0.2, 0.2776), offset = Vector3.new(-0.0185, -0.3565, -0.0093) },
@@ -184,8 +185,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke09",
-		label = "Imported Nuke 09",
+		itemId = "tin_can",
+		label = "Dented Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://127170662411877", size = Vector3.new(0.6792, 0.884, 0.6769), offset = Vector3.new(0.0, 0.124, 0.0) },
 			{ name = "TailTaper", meshId = "rbxassetid://110786296076477", size = Vector3.new(0.44, 0.36, 0.4333), offset = Vector3.new(0.0, -0.376, 0.0) },
@@ -199,8 +200,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke10",
-		label = "Imported Nuke 10",
+		itemId = "ignition_coil",
+		label = "Ignition Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://128656729931009", size = Vector3.new(0.72, 0.86, 0.72), offset = Vector3.new(0.0001, -0.155, 0.0) },
 			{ name = "CoilDome", meshId = "rbxassetid://80695001759161", size = Vector3.new(0.72, 0.252, 0.72), offset = Vector3.new(0.0001, 0.371, 0.0) },
@@ -226,8 +227,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke11",
-		label = "Imported Nuke 11",
+		itemId = "radioactive_rubber_duck",
+		label = "Rubber Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://100005509752957", size = Vector3.new(0.9928, 0.8464, 0.9904), offset = Vector3.new(0.0, -0.0985, 0.0) },
 			{ name = "SoftNose", meshId = "rbxassetid://124978156309686", size = Vector3.new(0.3939, 0.34, 0.4), offset = Vector3.new(0.0, 0.3215, 0.0) },
@@ -240,8 +241,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke12",
-		label = "Imported Nuke 12",
+		itemId = "cutlery_set",
+		label = "Tarnished Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://99012568317583", size = Vector3.new(0.9174, 1.2328, 0.9174), offset = Vector3.new(0.0, 0.115, 0.0) },
 			{ name = "TailTaper", meshId = "rbxassetid://109676810789885", size = Vector3.new(0.5967, 0.44, 0.5967), offset = Vector3.new(0.0, -0.565, 0.0) },
@@ -259,8 +260,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke13",
-		label = "Imported Nuke 13",
+		itemId = "door_hinge",
+		label = "Squeaky Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://119342121040167", size = Vector3.new(0.8793, 1.144, 0.8771), offset = Vector3.new(0.003, 0.1134, 0.0) },
 			{ name = "TailTaper", meshId = "rbxassetid://76758769209007", size = Vector3.new(0.5569, 0.42, 0.5569), offset = Vector3.new(0.003, -0.5066, 0.0) },
@@ -279,8 +280,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke14",
-		label = "Imported Nuke 14",
+		itemId = "stopped_watch",
+		label = "Stopped Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://101730718430706", size = Vector3.new(0.8793, 1.144, 0.8771), offset = Vector3.new(0.0, 0.1224, 0.0165) },
 			{ name = "TailTaper", meshId = "rbxassetid://103217808792919", size = Vector3.new(0.5569, 0.42, 0.5569), offset = Vector3.new(0.0, -0.5176, 0.0165) },
@@ -298,8 +299,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke15",
-		label = "Imported Nuke 15",
+		itemId = "cracked_tile",
+		label = "Cracked Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://73331971626133", size = Vector3.new(0.9945, 1.36, 1.0), offset = Vector3.new(0.0, 0.145, 0.0) },
 			{ name = "TailTaper", meshId = "rbxassetid://134916995291556", size = Vector3.new(0.6371, 0.46, 0.6393), offset = Vector3.new(0.0, -0.595, 0.0) },
@@ -315,8 +316,8 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 	{
-		id = "importedNuke16",
-		label = "Imported Nuke 16",
+		itemId = "radiation_scanner",
+		label = "Clicking Nuke",
 		parts = {
 			{ name = "Shell", meshId = "rbxassetid://106948522168136", size = Vector3.new(0.9992, 1.26, 0.9968), offset = Vector3.new(0.0, -0.0875, 0.0) },
 			{ name = "TailTaper", meshId = "rbxassetid://73495849216034", size = Vector3.new(0.6365, 0.44, 0.6365), offset = Vector3.new(0.0, -0.7675, 0.0) },
@@ -354,5 +355,47 @@ ImportedNukeMeshes.MODELS = {
 		},
 	},
 }
+
+-- Built once at require time: itemId -> its ModelDef, for ItemModels.create.
+local byItemId: { [string]: ImportedNukeMeshes.ModelDef } = {}
+for _, def in ImportedNukeMeshes.MODELS do
+	byItemId[def.itemId] = def
+end
+ImportedNukeMeshes.byItemId = byItemId
+
+--- Reconstruct one assembly as a fresh, unparented Model: one anchored,
+--- non-colliding, massless MeshPart per captured part, positioned at its
+--- stored offset from the model's own origin. Every gameplay call site
+--- (wash rack, held item, exhibit locker, the model yard) already normalises
+--- whatever Model it gets to its own target size via GetExtentsSize/ScaleTo,
+--- so this hands back the assembly at its raw captured scale and lets the
+--- caller do that -- the same contract ItemModels.create's tier factories honour.
+function ImportedNukeMeshes.build(def: ImportedNukeMeshes.ModelDef): Model
+	local model = Instance.new("Model")
+	model.Name = def.itemId
+	model:SetAttribute("ImportedNukeId", def.itemId)
+
+	local primary: MeshPart? = nil
+	for _, partDef in def.parts do
+		local mesh = Instance.new("MeshPart")
+		mesh.Name = partDef.name
+		mesh.MeshId = partDef.meshId
+		mesh.Size = partDef.size
+		mesh.Color = ImportedNukeMeshes.PART_COLOR
+		mesh.Material = Enum.Material.SmoothPlastic
+		mesh.Anchored = true
+		mesh.CanCollide = false
+		mesh.Massless = true
+		mesh.CFrame = CFrame.new(partDef.offset)
+		mesh.Parent = model
+
+		if primary == nil or partDef.name == "Shell" then
+			primary = mesh
+		end
+	end
+	model.PrimaryPart = primary
+
+	return model
+end
 
 return ImportedNukeMeshes

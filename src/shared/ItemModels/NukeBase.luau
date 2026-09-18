@@ -48,16 +48,11 @@
 	-- the same orthogonal-but-stacking relationship weight and rarity already have
 	everywhere else (color, value, odds).
 
-	feat/nuke-item-signatures: 68 items sharing 7 silhouettes read as repetitive, but
-	68 fully bespoke sculpts was already tried in concept and rejected as too complex
-	(see nuke-arsenal-retheme). The compromise: `NukeDetail.signature`, an optional
-	callback invoked once at the end of `create()` with a `SignatureContext` -- the
-	finished model plus the already-`sizeScale`-scaled measurements and the same
-	`part`/`ring` builders used above, so per-item code can bolt on ONE distinguishing
-	prop (and, if the name calls for it, recolour the named parts it already knows
-	about -- "Barrel", "Nose", "Fin1".., etc.) without touching the shared silhouette,
-	the tier palette, or any other item. `ItemModels/NukeSignatures.luau` is the
-	per-item registry; this file only defines the mechanism.
+	feat/nuke-item-signatures briefly gave 7 flavourful items a bolted-on procedural
+	prop via an optional `NukeDetail.signature` callback (`ItemModels/NukeSignatures.luau`).
+	Retired for feat/imported-nuke-showcase-yard: distinguishing items is now the
+	imported reference meshes' job (`Shared.Config.ImportedNukeMeshes`, wired through
+	`ItemModels.create`), not a procedural per-item prop on this shared archetype.
 ]]
 
 local NukeBase = {}
@@ -77,26 +72,6 @@ local FIN_FLARE = math.rad(14)
 
 local UPRIGHT = CFrame.Angles(0, 0, math.rad(90))
 
---- What a per-item `signature` callback gets to work with: the finished model (so
---- it can recolour or reach `FindFirstChild` on any named part above), the two
---- builders every standard detail above is made of, and the already-`sizeScale`-
---- scaled measurements so an added prop sits proportionally correct at any tier
---- size without redoing the scale math.
-export type SignatureContext = {
-	model: Model,
-	part: (name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material, shape: Enum.PartType?) -> Part,
-	ring: (name: string, x: number, width: number, diameter: number, color: Color3, neon: boolean) -> (),
-	scale: number,
-	diameter: number, -- barrel diameter
-	barrelHalf: number,
-	noseRadius: number,
-	neckDiameterA: number,
-	neckDiameterB: number,
-	tailX: number, -- outer tip of the neck, where fins mount
-}
-
-export type SignatureFn = (ctx: SignatureContext) -> ()
-
 export type NukeDetail = {
 	key: string,
 	displayName: string,
@@ -113,7 +88,6 @@ export type NukeDetail = {
 	starColor: Color3?,
 	crownColor: Color3?,
 	gallerySize: number?,
-	signature: SignatureFn?, -- one item's distinguishing prop; see header and NukeSignatures.luau
 }
 
 local function part(
@@ -297,25 +271,6 @@ function NukeBase.create(detail: NukeDetail): Model
 			local spike = part(model, `Spike{index}`, Vector3.new(0.35, 0.1, 0.1) * s, cframe, detail.crownColor, Enum.Material.Neon)
 			spike.CastShadow = false
 		end
-	end
-
-	if detail.signature then
-		detail.signature({
-			model = model,
-			part = function(name, size, cframe, color, material, shape)
-				return part(model, name, size, cframe, color, material, shape)
-			end,
-			ring = function(name, x, width, diameter, color, neon)
-				ring(model, name, x, width, diameter, color, neon)
-			end,
-			scale = s,
-			diameter = bodyDiameter,
-			barrelHalf = barrelHalf,
-			noseRadius = noseRadius,
-			neckDiameterA = neckDiameterA,
-			neckDiameterB = neckDiameterB,
-			tailX = tailX,
-		})
 	end
 
 	return model

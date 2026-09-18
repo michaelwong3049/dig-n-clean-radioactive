@@ -9,11 +9,12 @@
 	    require(game.ServerScriptService.Server.build.ImportedNukeYard).rebuild()
 	    require(game.ServerScriptService.Server.build.ImportedNukeYard).remove()
 
-	NOT wired to Shared.Config.Items / ItemModels: these 16 imports aren't
-	catalogued items, just a display of the new import batch. Each MeshPart is
-	rebuilt straight from ImportedNukeMeshes' captured geometry (meshId + size +
-	offset), assembled under one Model, then scaled up onto a pedestal the same
-	way ModelGallery/ExhibitService normalise arbitrary item art to a target size.
+	Each of the 16 is also a real catalogue item's model now (Shared.ItemModels
+	wires the same ImportedNukeMeshes.build() into ItemModels.create() ahead of
+	the procedural rarity capsule) — this yard is just a showcase of them, built
+	from the same shared data + builder rather than a separate copy of either.
+	Scaled up onto a pedestal the same way ExhibitService's locker normalises
+	arbitrary item art to a target size.
 
 	No floor slab of its own — unlike the old outside-the-wall yard, this one
 	stands directly on the plaza tiles that are already there, so it only adds a
@@ -38,7 +39,7 @@ local BUILDER_VERSION = 1
 local GRID_COLUMNS = 4
 local GRID_SPACING = 10
 local PEDESTAL_TOP = 2.5
-local MODEL_SIZE = 8 -- longest edge once scaled and standing on its pedestal
+local MODEL_SIZE = 6.5 -- longest edge once scaled and standing on its pedestal
 
 local EDGE_MARGIN = 4
 local HEADER_CLEARANCE = 5
@@ -76,34 +77,6 @@ local function buildTrim(gallery: Model, origin: CFrame)
 	end
 end
 
-local function buildAssembly(def: ImportedNukeMeshes.ModelDef): Model
-	local model = Instance.new("Model")
-	model.Name = `Item_{def.id}`
-	model:SetAttribute("ImportedNukeId", def.id)
-
-	local primary: MeshPart? = nil
-	for _, partDef in def.parts do
-		local mesh = Instance.new("MeshPart")
-		mesh.Name = partDef.name
-		mesh.MeshId = partDef.meshId
-		mesh.Size = partDef.size
-		mesh.Color = ImportedNukeMeshes.PART_COLOR
-		mesh.Material = Enum.Material.SmoothPlastic
-		mesh.Anchored = true
-		mesh.CanCollide = false
-		mesh.Massless = true
-		mesh.CFrame = CFrame.new(partDef.offset)
-		mesh.Parent = model
-
-		if primary == nil or partDef.name == "Shell" then
-			primary = mesh
-		end
-	end
-	model.PrimaryPart = primary
-
-	return model
-end
-
 --- Normalise an arbitrary imported assembly onto a fixed footprint and rest it
 --- on the pedestal at `target` — the same normalise-to-a-target-dimension trick
 --- ExhibitService's locker uses for arbitrary item art.
@@ -136,17 +109,17 @@ local function buildStand(gallery: Model, origin: CFrame, def: ImportedNukeMeshe
 	end
 
 	local pedestal = Kit.build(gallery, origin, {
-		name = `Stand_{def.id}`,
+		name = `Stand_{def.itemId}`,
 		pos = { x, GROUND_Y + PEDESTAL_TOP / 2, z },
 		size = { 4.5, PEDESTAL_TOP, 4.5 },
 		color = Kit.C.plazaWarm,
 		material = "Marble",
-		attributes = { ImportedNukeId = def.id },
+		attributes = { ImportedNukeId = def.itemId },
 	})
 
-	Kit.billboard(pedestal, 150, 5, string.upper(def.label), def.id, Kit.C.hazard, 60)
+	Kit.billboard(pedestal, 150, 5, string.upper(def.label), def.itemId, Kit.C.hazard, 60)
 
-	local assembly = buildAssembly(def)
+	local assembly = ImportedNukeMeshes.build(def)
 	assembly.Parent = gallery
 	placeOnPedestal(assembly, origin * CFrame.new(x, GROUND_Y, z))
 end
