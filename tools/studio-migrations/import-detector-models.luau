@@ -37,34 +37,66 @@
 	     progression instead of inventing a new one.
 	  5. Rigidly welds every part to one reference part ("upper_shaft") --
 	     the import has zero internal Weld/Motor6D, it's a loose bag of parts.
-	  6. Adds an invisible 0.14-stud "Grip" anchor part (mirrors the OLD
+	  6. Sets CanCollide/CanQuery/CanTouch = false on EVERY part (see NOT
+	     PHYSICAL below) -- the raw import defaults these true.
+	  7. Adds an invisible 0.14-stud "Grip" anchor part (mirrors the OLD
 	     model's contract exactly: Transparency 1, CanCollide/CanQuery false,
 	     Massless, BrickColor "Medium stone grey") and sets it PrimaryPart --
 	     this is what ToolService welds to the character and positions via
 	     the model's HoldCFrame/HoldPart attributes.
-	  7. Verifies the clone's final part count (parts + Grip) against the
+	  8. Verifies the clone's final part count (parts + Grip) against the
 	     source's actual part count before touching anything live.
-	  8. Only after that verification: moves the old T<n> aside into
+	  9. Only after that verification: moves the old T<n> aside into
 	     Detector._Legacy (kept, not deleted) and places the new model at
 	     Detector.T<n>.
 
-	HOLD POSE: uses a FIXED, RETUNED HoldCFrame (position only, identity
-	rotation), not the old model's carried-over value. The first pass of this
-	migration carried the OLD model's HoldCFrame across as a starting point,
-	on the theory that it would need minor retuning -- instead it produced a
-	detector held almost horizontal against the chest, because that rotation
-	was tuned for the OLD base mesh's own arbitrary import orientation and
-	does not apply to this one at all. Playtesting found the NEW import's
-	local geometry already hangs the coil straight down from the grip (the
-	FBX import's own authored pose), so an IDENTITY rotation -- no rotation
-	at all beyond the character's own facing -- is what makes the coil hang
-	down near the ground the way ToolTiers.Detector's header describes. This
-	held true across the full tier range (T1/T4/T8 spot-checked visually,
-	all 8 checked numerically: every tier's lowest point lands within ~0.35
-	studs of the character's feet). If a future re-import changes the
-	modeled rest pose, re-derive this by comparing a part's position in
-	Grip-local space (`grip.CFrame:PointToObjectSpace(farPart.Position)`)
-	before assuming the old rotation, or any rotation, is needed at all.
+	NOT PHYSICAL. The raw import's MeshParts default to CanCollide = true.
+	Because the model is RIGIDLY WELDED to the character (see step 5/7), a
+	large enough colliding part embedded in the terrain doesn't just look
+	wrong -- physics resolves the overlap by shoving the WHOLE WELDED
+	ASSEMBLY, character included, upward. This is what "the Oracle makes the
+	player float" was: its big search-coil clips into the ground, and with
+	CanCollide left true that pushed the player's HumanoidRootPart up with
+	it. Confirmed by reading root.Position.Y before/after: it moved off its
+	resting height (1.5) exactly as much as the coil's ground penetration,
+	and pinning CanCollide/CanQuery/CanTouch false on every part made it
+	flat at 1.5 regardless of tier. A held/display prop should never carry
+	real collision -- set this once here rather than trusting every future
+	import to come in already flagged correctly.
+
+	HOLD POSE: a FIXED, RETUNED HoldCFrame per tier -- position only,
+	identity rotation, NOT the old model's carried-over rotation, and NOT
+	one shared Y offset either. Two rounds of playtesting, both against a
+	live Play session:
+
+	Round 1 found the OLD model's HoldCFrame ROTATION doesn't transfer at
+	all -- it was tuned for the OLD base mesh's own arbitrary import
+	orientation and, applied to this geometry, held the detector almost
+	horizontal against the chest. The NEW import's local geometry already
+	hangs the coil straight down from the grip (how it was authored), so an
+	identity rotation is correct -- confirmed by comparing a farthest-part
+	position in Grip-local space (`grip.CFrame:PointToObjectSpace(
+	farPart.Position)`) before assuming any rotation is needed.
+
+	Round 1 ALSO used one shared HoldCFrame.Y for all 8 tiers, which looked
+	fine on T1-T5 but was invisibly wrong for T6-T8: those measurements were
+	taken while the CanCollide bug above was still active, and the
+	collision push was propping the character's feet up by almost exactly
+	the amount the coil clipped into the ground, so the on-screen "clearance"
+	read as small when the true (physics-honest) clearance was large and
+	negative. Lesson: RETUNE POSITION ONLY AFTER FIXING COLLISION, and treat
+	any pose measurement taken with collidable held-geometry as suspect --
+	compare `root.Position.Y` against its known resting value (here, 1.5) to
+	catch this before trusting a "looks close enough" clearance number.
+	Round 2, with collision off, gave every tier a clean, independent
+	Y offset landing its lowest point ~0.05 studs above the floor:
+
+	  T1 -0.70   T2 -0.60   T3 -0.46   T4 -0.31
+	  T5 -0.27   T6 -0.06   T7 -0.03   T8 +0.39
+
+	If a future re-import changes any tier's proportions, re-tune that
+	tier's Y alone (X/Z and the identity rotation are shape-independent)
+	with collision already disabled, not before.
 
 	The original AuxScene imports in Workspace are left alone by this script.
 	Delete them from Workspace once the new tiers have been playtested.
@@ -72,15 +104,18 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+-- holdY: per-tier HoldCFrame.Y, retuned live (round 2, collision already
+-- disabled -- see NOT PHYSICAL / HOLD POSE above). X/Z and the identity
+-- rotation are shared across all 8; only the vertical offset is per-tier.
 local TIERS = {
-	{ n = 1, ident = "Bent_Coil", name = "Bent Coil" },
-	{ n = 2, ident = "Scavenger_MkI", name = "Scavenger MkI" },
-	{ n = 3, ident = "Surplus_Geiger", name = "Surplus Geiger" },
-	{ n = 4, ident = "Pulse_Array", name = "Pulse Array" },
-	{ n = 5, ident = "Isotope_Scanner", name = "Isotope Scanner" },
-	{ n = 6, ident = "Resonance_Mapper", name = "Resonance Mapper" },
-	{ n = 7, ident = "Deep_Core_Array", name = "Deep Core Array" },
-	{ n = 8, ident = "The_Oracle", name = "The Oracle" },
+	{ n = 1, ident = "Bent_Coil", name = "Bent Coil", holdY = -0.70 },
+	{ n = 2, ident = "Scavenger_MkI", name = "Scavenger MkI", holdY = -0.60 },
+	{ n = 3, ident = "Surplus_Geiger", name = "Surplus Geiger", holdY = -0.46 },
+	{ n = 4, ident = "Pulse_Array", name = "Pulse Array", holdY = -0.31 },
+	{ n = 5, ident = "Isotope_Scanner", name = "Isotope Scanner", holdY = -0.27 },
+	{ n = 6, ident = "Resonance_Mapper", name = "Resonance Mapper", holdY = -0.06 },
+	{ n = 7, ident = "Deep_Core_Array", name = "Deep Core Array", holdY = -0.03 },
+	{ n = 8, ident = "The_Oracle", name = "The Oracle", holdY = 0.39 },
 }
 
 local detectorFolder = ReplicatedStorage.Assets.Tools.Detector
@@ -99,10 +134,11 @@ if not reviewRoot then
 	reviewRoot.Parent = workspace
 end
 
--- Retuned live in a Play session (see this file's header) -- identity
--- rotation, not the old model's. Position only: keeps Grip close to the
--- character's hands, same as the old model's offset was aiming for.
-local HOLD_CFRAME = CFrame.new(0.02, -0.4, -1.1)
+-- Shared X/Z, identity rotation -- retuned live (see this file's header).
+-- Y is per-tier, from TIERS[n].holdY.
+local function holdCFrame(holdY: number): CFrame
+	return CFrame.new(0.02, holdY, -1.1)
+end
 
 --- Every imported tier model sits directly under an AuxScene wrapper. Picks
 --- the largest match by descendant count so a duplicate/corrected re-import
@@ -169,6 +205,21 @@ local function weldAll(model, rootName)
 	return root
 end
 
+--- The raw import defaults every MeshPart to collidable. Rigidly welded to
+--- the character, a colliding part embedded in the terrain shoves the WHOLE
+--- assembly (character included) upward instead of just clipping visually
+--- -- see NOT PHYSICAL in this file's header. A held/display prop must never
+--- carry real collision.
+local function stripPhysicality(model)
+	for _, part in ipairs(model:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+		end
+	end
+end
+
 local function makeGrip(model, root)
 	local gripMesh = model:FindFirstChild("grip")
 	local anchorCFrame = gripMesh and gripMesh.CFrame or root.CFrame
@@ -222,6 +273,7 @@ for _, tier in ipairs(TIERS) do
 
 		local root = weldAll(work, "upper_shaft")
 		local grip = makeGrip(work, root)
+		stripPhysicality(work)
 
 		-- Verify nothing is missing before this clone becomes the real thing.
 		local finalParts = 0
@@ -235,7 +287,7 @@ for _, tier in ipairs(TIERS) do
 		work.Name = "T" .. tier.n
 		work:SetAttribute("TierName", tier.name)
 		work:SetAttribute("HoldPart", oldHoldPart)
-		work:SetAttribute("HoldCFrame", HOLD_CFRAME)
+		work:SetAttribute("HoldCFrame", holdCFrame(tier.holdY))
 		work.PrimaryPart = grip
 
 		-- Only now touch anything live: move the old model aside (kept, not
