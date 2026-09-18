@@ -48,10 +48,23 @@
 	     Detector._Legacy (kept, not deleted) and places the new model at
 	     Detector.T<n>.
 
-	NOT done here, and needed as a follow-up: the OLD model's HoldCFrame is
-	carried over as a STARTING POINT only. The new geometry's proportions
-	differ substantially from the old base mesh (thinner, longer telescoping
-	shaft), so the hand-carry pose will need retuning by eye in Play mode.
+	HOLD POSE: uses a FIXED, RETUNED HoldCFrame (position only, identity
+	rotation), not the old model's carried-over value. The first pass of this
+	migration carried the OLD model's HoldCFrame across as a starting point,
+	on the theory that it would need minor retuning -- instead it produced a
+	detector held almost horizontal against the chest, because that rotation
+	was tuned for the OLD base mesh's own arbitrary import orientation and
+	does not apply to this one at all. Playtesting found the NEW import's
+	local geometry already hangs the coil straight down from the grip (the
+	FBX import's own authored pose), so an IDENTITY rotation -- no rotation
+	at all beyond the character's own facing -- is what makes the coil hang
+	down near the ground the way ToolTiers.Detector's header describes. This
+	held true across the full tier range (T1/T4/T8 spot-checked visually,
+	all 8 checked numerically: every tier's lowest point lands within ~0.35
+	studs of the character's feet). If a future re-import changes the
+	modeled rest pose, re-derive this by comparing a part's position in
+	Grip-local space (`grip.CFrame:PointToObjectSpace(farPart.Position)`)
+	before assuming the old rotation, or any rotation, is needed at all.
 
 	The original AuxScene imports in Workspace are left alone by this script.
 	Delete them from Workspace once the new tiers have been playtested.
@@ -85,6 +98,11 @@ if not reviewRoot then
 	reviewRoot.Name = "_DetectorReview"
 	reviewRoot.Parent = workspace
 end
+
+-- Retuned live in a Play session (see this file's header) -- identity
+-- rotation, not the old model's. Position only: keeps Grip close to the
+-- character's hands, same as the old model's offset was aiming for.
+local HOLD_CFRAME = CFrame.new(0.02, -0.4, -1.1)
 
 --- Every imported tier model sits directly under an AuxScene wrapper. Picks
 --- the largest match by descendant count so a duplicate/corrected re-import
@@ -189,7 +207,6 @@ for _, tier in ipairs(TIERS) do
 		assert(oldModel, `old T{tier.n} missing`)
 		local _, oldSize = oldModel:GetBoundingBox()
 		local oldHeight = oldSize.Y
-		local oldHoldCFrame = oldModel:GetAttribute("HoldCFrame")
 		local oldHoldPart = oldModel:GetAttribute("HoldPart")
 
 		-- Work on a CLONE. The original import in Workspace is never touched.
@@ -218,7 +235,7 @@ for _, tier in ipairs(TIERS) do
 		work.Name = "T" .. tier.n
 		work:SetAttribute("TierName", tier.name)
 		work:SetAttribute("HoldPart", oldHoldPart)
-		work:SetAttribute("HoldCFrame", oldHoldCFrame)
+		work:SetAttribute("HoldCFrame", HOLD_CFRAME)
 		work.PrimaryPart = grip
 
 		-- Only now touch anything live: move the old model aside (kept, not
