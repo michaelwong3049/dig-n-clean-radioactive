@@ -149,18 +149,87 @@ local PANEL_KINDS: { [string]: boolean } = {
 -- that rebuilds its children on every StationState tick would churn 8 frames' worth
 -- of instances ten times a second.
 local CARD_SLOTS = 8
-local CARD_WIDTH = 270
-local CARD_HEIGHT = 420
-local CARD_GAP = 16
+local CARD_COLS = 4
+local CARD_ROWS = 2
+local CARD_WIDTH = 258
+local CARD_HEIGHT = 243
+local CARD_GAP = 14
 
--- The panel widens for shop mode only, and the width is DERIVED from the card size
--- rather than typed: four whole cards, their three gaps, the panel's own padding, and
--- a deliberate 30px sliver of the fifth. The sliver is the scroll affordance — four
--- cards ending flush at the edge reads as "that is the whole stock", and nobody
--- scrolls a row they believe they can already see all of.
+-- THE SLIVER IS GONE, AND SO IS THE SCROLLING IT ADVERTISED. The row used to be a
+-- horizontal scroller sized to show four cards plus 30px of a fifth, because eight
+-- 270-wide cards could not fit a screen. They fit now: the cards are 258 wide in a
+-- 4x2 grid, so the longest track in the game (Detector, 8 tiers) is entirely on screen
+-- with nothing behind an edge. What made the room was dropping the six-track rail the
+-- mockup carried — the panel shows only the stall you walked up to, so every pixel of
+-- it belongs to that one track's ladder.
+--
+-- CARD_SLOTS is still a ceiling over all six tracks and still the number of cards
+-- built once and reused; CARD_COLS x CARD_ROWS is what fits without scrolling. A track
+-- longer than that would scroll VERTICALLY rather than not fitting, which is the one
+-- failure mode worth leaving a door open for.
 local PANEL_PAD = 16
 local PANEL_WIDTH = 620
-local SHOP_PANEL_WIDTH = 4 * CARD_WIDTH + 3 * CARD_GAP + 2 * PANEL_PAD + CARD_GAP + 30
+-- Four whole cards, their three gaps, the panel's own padding, and 8px of gutter so a
+-- scrollbar (narrow viewports only) never sits on top of the fourth column.
+local SHOP_PANEL_WIDTH = CARD_COLS * CARD_WIDTH + (CARD_COLS - 1) * CARD_GAP + 2 * PANEL_PAD + 8
+local SHOP_GRID_HEIGHT = CARD_ROWS * CARD_HEIGHT + (CARD_ROWS - 1) * CARD_GAP
+
+-- ── The field-kit skin ───────────────────────────────────────────────
+-- The shop panel is the one screen in the game wearing this, and it is deliberately
+-- NOT the cartoon voice the cash badge and the rad meter share: a storefront full of
+-- salvage equipment reads better as issued kit than as merchandise, which is the call
+-- made when this was picked out of a round of mockups. Kept file-local rather than
+-- pushed into UIKit.C for the same reason CashController keeps its own STYLE table —
+-- nothing else should reach for these, and a shared palette invites exactly that.
+--
+-- THE FONTS DIVERGE FROM UIKit.Font ON PURPOSE. UIKit's rule is one family (Gotham) in
+-- three weights, and it is the right rule for the HUD. This panel is a spec sheet:
+-- Oswald is condensed enough to fit a stat label in a 62px gutter without abbreviating
+-- it to noise, and RobotoMono keeps eight prices in a grid on the same digit width so
+-- the column scans as a ladder. Both are stock Enum.Font values — no FontFace, no
+-- asset ids. If this look ever spreads past the shop, move these into UIKit rather
+-- than copying them.
+local FIELD = {
+	panel = Color3.fromHex("1B1F23"),
+	card = Color3.fromHex("22272C"),
+	well = Color3.fromHex("1A1E22"),
+	edge = Color3.fromHex("343B42"),
+	rule = Color3.fromHex("30373D"),
+	amber = Color3.fromHex("F2A93B"),
+	text = Color3.fromHex("E8E6E1"),
+	dim = Color3.fromHex("9AA0A6"),
+	faint = Color3.fromHex("7E868D"),
+	muted = Color3.fromHex("8B9198"),
+	ownedFill = Color3.fromHex("2A3036"),
+	dearFill = Color3.fromHex("20262B"),
+	dearEdge = Color3.fromHex("2C3339"),
+	label = Enum.Font.Oswald,
+	mono = Enum.Font.RobotoMono,
+}
+
+--- The stall's own accent, the same three hexes build/Shops paints each stall's
+--- awning, trim cap and floor marker with (Kit.C.shopDetector / shopMagnet /
+--- shopCleaner). A player navigates the plaza by those colours, so the panel that
+--- opens there wears the same one — it is the only per-stall colour on the screen.
+--- Tracks with no stall of their own (the bench trio) fall back to amber.
+local STALL_ACCENT: { [string]: Color3 } = {
+	Detector = Color3.fromHex("E0714E"),
+	Magnet = Color3.fromHex("4E9AAE"),
+	Cleaner = Color3.fromHex("9560B0"),
+}
+
+--- The two-letter code stamped on every card ("DT-05"). Spelled out rather than taken
+--- as the first two letters, because Suit and Satchel both start "SA"/"SU" closely
+--- enough to collide once you are reading them at 13px out of the corner of your eye.
+--- Pure flavour, but it gives a grid of eight cards a fixed left edge to scan down.
+local CODE_PREFIX: { [string]: string } = {
+	Detector = "DT",
+	Magnet = "MG",
+	Cleaner = "HS",
+	Suit = "ST",
+	Boots = "BT",
+	Satchel = "SC",
+}
 
 -- THE WIDTHS ABOVE ARE A CEILING, NOT A SIZE, and that distinction is load-bearing.
 -- The panel is laid out as "the viewport minus a margin, but never wider than the
@@ -316,12 +385,84 @@ local function makeRow(parent: Instance, order: number): TextButton
 	return row
 end
 
---- One shop card: name, art well, stat block, purchase button.
+--- The most stat rows any one track shows (Boots: speed, haul, stamina, vault, dash).
+--- Rows are built once at this count and hidden, the same reuse the cards themselves
+--- use — a stat block that rebuilt its children on every StationState tick would churn
+--- forty frames' worth of instances ten times a second.
+local STAT_ROWS = 5
+local STAT_ROW_HEIGHT = 17
+local STAT_LABEL_WIDTH = 62
+local STAT_VALUE_WIDTH = 34
+local BAR_FLOOR = 0.06
+
+--- One row of a card's stat block: label, bar, value. A flag cell (Boots' vault and
+--- dash) reuses the same row and simply fills its bar to 0 or 1 — same geometry, so
+--- five numeric rows and three-plus-two mixed rows put the button on the same
+--- baseline.
+local function makeStatRow(parent: Instance, order: number): Frame
+	local row = Instance.new("Frame")
+	row.Name = `Stat{order}`
+	row.LayoutOrder = order
+	row.Size = UDim2.new(1, 0, 0, STAT_ROW_HEIGHT)
+	row.BackgroundTransparency = 1
+	row.Visible = false
+	row.Parent = parent
+
+	UIKit.label(row, {
+		name = "StatLabel",
+		size = UDim2.fromOffset(STAT_LABEL_WIDTH, STAT_ROW_HEIGHT),
+		font = FIELD.label,
+		textSize = 13,
+		color = FIELD.dim,
+		xAlign = Enum.TextXAlignment.Left,
+		outline = false,
+		shadow = false,
+	})
+
+	-- The track, and the fill inside it. Two plain Frames rather than a UIKit helper:
+	-- a 4px bar wants no corner, no stroke and no text, which is all a helper would add.
+	local track = Instance.new("Frame")
+	track.Name = "StatTrack"
+	track.AnchorPoint = Vector2.new(0, 0.5)
+	track.Position = UDim2.new(0, STAT_LABEL_WIDTH + 8, 0.5, 0)
+	track.Size = UDim2.new(1, -(STAT_LABEL_WIDTH + STAT_VALUE_WIDTH + 22), 0, 4)
+	track.BackgroundColor3 = FIELD.rule
+	track.BorderSizePixel = 0
+	track.Parent = row
+
+	local fill = Instance.new("Frame")
+	fill.Name = "StatFill"
+	fill.Size = UDim2.fromScale(0, 1)
+	fill.BackgroundColor3 = FIELD.amber
+	fill.BorderSizePixel = 0
+	fill.Parent = track
+
+	UIKit.label(row, {
+		name = "StatValue",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.fromScale(1, 0),
+		size = UDim2.fromOffset(STAT_VALUE_WIDTH, STAT_ROW_HEIGHT),
+		font = FIELD.mono,
+		textSize = 13,
+		color = FIELD.text,
+		xAlign = Enum.TextXAlignment.Right,
+		outline = false,
+		shadow = false,
+	})
+
+	return row
+end
+
+--- One shop card: unit code and status, art beside the name and its one line of copy,
+--- the stat block, and the price button.
 ---
 --- THE ART WELL IS DELIBERATELY EMPTY. `CardArt` is a real ImageLabel with no Image
 --- set, sized and positioned as the finished thing will be, so dropping in artwork
 --- later is one assignment per tier and not a re-layout. It is not a placeholder
---- rectangle to be replaced — it is the frame the art goes in.
+--- rectangle to be replaced — it is the frame the art goes in. It moved beside the
+--- name rather than above it when the card became a spec sheet: a 78x46 plate reads as
+--- an inventory thumbnail, which is what a tool in a catalogue wants to be, and the
+--- height it gave up is what the stat bars and the blurb now stand in.
 ---
 --- Children are reached by `card.CardXxx` at paint time, so none of them may be
 --- named `Name`: every Instance already has a `.Name` property and Roblox never
@@ -332,76 +473,136 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	local card = UIKit.panel(parent, {
 		name = `Card{order}`,
 		size = UDim2.fromOffset(CARD_WIDTH, CARD_HEIGHT),
-		color = COLOR.empty,
-		transparency = 0.15,
-		cornerRadius = UIKit.Radius.card,
+		color = FIELD.card,
+		transparency = 0,
+		strokeColor = FIELD.edge,
+		strokeThickness = 1,
+		cornerRadius = UDim.new(0, 6),
 		visible = false,
 	})
 	card.LayoutOrder = order
 
-	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 16)
-	pad.PaddingBottom = UDim.new(0, 16)
-	pad.PaddingLeft = UDim.new(0, 16)
-	pad.PaddingRight = UDim.new(0, 16)
-	pad.Parent = card
+	-- ── The code strip ───────────────────────────────────────────────
+	-- A rule across the top carrying the unit's catalogue code on the left and its
+	-- status word on the right. The code is pure flavour and it earns its place: it
+	-- gives the eye a fixed left edge to run down a grid of eight cards by, which the
+	-- names (2 to 16 characters, centred before this) never did.
+	local strip = Instance.new("Frame")
+	strip.Name = "CardStrip"
+	strip.Size = UDim2.new(1, 0, 0, 33)
+	strip.BackgroundTransparency = 1
+	strip.Parent = card
 
-	local layout = Instance.new("UIListLayout")
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 10)
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.Parent = card
+	local stripRule = Instance.new("Frame")
+	stripRule.Name = "StripRule"
+	stripRule.AnchorPoint = Vector2.new(0, 1)
+	stripRule.Position = UDim2.fromScale(0, 1)
+	stripRule.Size = UDim2.new(1, 0, 0, 1)
+	stripRule.BackgroundColor3 = FIELD.rule
+	stripRule.BorderSizePixel = 0
+	stripRule.Parent = strip
 
-	-- 52 + 172 + 80 + 50 plus three 10px gaps = 384, inside the 388 the padding
-	-- leaves. Fixed heights rather than AutomaticSize: every card in the row has to
-	-- put its button on the same baseline, and a 2-line name on one card must not
-	-- push that card's button below its neighbours'.
-	local nameLabel = UIKit.label(card, {
-		name = "CardName",
-		size = UDim2.new(1, 0, 0, 52),
-		font = UIKit.Font.title,
-		textSize = 21,
-		xAlign = Enum.TextXAlignment.Center,
-		wrapped = true,
+	UIKit.label(strip, {
+		name = "CardCode",
+		position = UDim2.fromOffset(14, 0),
+		size = UDim2.new(0, 70, 1, -1),
+		font = FIELD.mono,
+		textSize = 13,
+		color = FIELD.faint,
+		xAlign = Enum.TextXAlignment.Left,
+		outline = false,
+		shadow = false,
 	})
-	nameLabel.LayoutOrder = 1
 
+	UIKit.label(strip, {
+		name = "CardFlag",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, -14, 0, 0),
+		size = UDim2.new(1, -90, 1, -1),
+		font = FIELD.label,
+		textSize = 14,
+		color = FIELD.dim,
+		xAlign = Enum.TextXAlignment.Right,
+		outline = false,
+		shadow = false,
+	})
+
+	-- ── Art, name, blurb ─────────────────────────────────────────────
 	local art = Instance.new("ImageLabel")
 	art.Name = "CardArt"
-	art.LayoutOrder = 2
-	art.Size = UDim2.new(1, 0, 0, 172)
-	art.BackgroundColor3 = COLOR.panel
-	art.BackgroundTransparency = 0.35
+	art.Position = UDim2.fromOffset(14, 45)
+	art.Size = UDim2.fromOffset(78, 46)
+	art.BackgroundColor3 = FIELD.well
+	art.BackgroundTransparency = 0
 	art.BorderSizePixel = 0
 	art.Image = ""
 	art.ScaleType = Enum.ScaleType.Fit
 	art.Parent = card
 
-	local artCorner = Instance.new("UICorner")
-	artCorner.CornerRadius = UDim.new(0, 12)
-	artCorner.Parent = art
+	local artEdge = Instance.new("UIStroke")
+	artEdge.Color = FIELD.rule
+	artEdge.Thickness = 1
+	artEdge.Parent = art
 
-	local stats = UIKit.label(card, {
-		name = "CardStats",
-		size = UDim2.new(1, 0, 0, 80),
+	-- Fixed heights, not AutomaticSize: every card in the grid has to put its button on
+	-- the same baseline, and a 2-line name on one card must not push that card's button
+	-- below its neighbours'.
+	UIKit.label(card, {
+		name = "CardName",
+		position = UDim2.fromOffset(102, 43),
+		size = UDim2.new(1, -116, 0, 25),
+		font = FIELD.label,
+		textSize = 23,
+		color = FIELD.text,
+		xAlign = Enum.TextXAlignment.Left,
+		outline = false,
+		shadow = false,
+	})
+
+	UIKit.label(card, {
+		name = "CardBlurb",
+		position = UDim2.fromOffset(102, 68),
+		size = UDim2.new(1, -116, 0, 30),
 		font = UIKit.Font.body,
-		textSize = 16,
-		color = COLOR.dim,
-		xAlign = Enum.TextXAlignment.Center,
+		textSize = 12,
+		color = FIELD.muted,
+		xAlign = Enum.TextXAlignment.Left,
 		yAlign = Enum.TextYAlignment.Top,
 		wrapped = true,
+		outline = false,
+		shadow = false,
 	})
-	stats.LayoutOrder = 3
+
+	-- ── Stat block ───────────────────────────────────────────────────
+	local stats = Instance.new("Frame")
+	stats.Name = "CardStats"
+	stats.Position = UDim2.fromOffset(14, 106)
+	stats.Size = UDim2.new(1, -28, 0, STAT_ROWS * STAT_ROW_HEIGHT + (STAT_ROWS - 1) * 6)
+	stats.BackgroundTransparency = 1
+	stats.Parent = card
+
+	local statLayout = Instance.new("UIListLayout")
+	statLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	statLayout.Padding = UDim.new(0, 6)
+	statLayout.Parent = stats
+
+	for index = 1, STAT_ROWS do
+		makeStatRow(stats, index)
+	end
 
 	local buy = UIKit.button(card, {
 		name = "CardBuy",
-		size = UDim2.new(1, 0, 0, 50),
-		font = UIKit.Font.title,
-		textSize = 18,
-		cornerRadius = UDim.new(0, 12),
-		strokeThickness = UIKit.Stroke.thin,
+		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.new(0, 14, 1, -13),
+		size = UDim2.new(1, -28, 0, 44),
+		font = FIELD.mono,
+		textSize = 16,
+		cornerRadius = UDim.new(0, 4),
+		strokeThickness = 1,
+		outline = false,
+		shadow = false,
 	})
-	buy.LayoutOrder = 4
+	buy.LayoutOrder = 9
 
 	return card
 end
@@ -505,29 +706,128 @@ local function build(): ScreenGui
 	shopLayout.Padding = UDim.new(0, 10)
 	shopLayout.Parent = shop
 
-	-- The storefront row. AutomaticCanvasSize.X + a horizontal UIListLayout means the
-	-- canvas is whatever the visible cards add up to, so a 5-tier track scrolls less
-	-- far than an 8-tier one without anyone computing a canvas width.
+	-- ── The shop's own header ────────────────────────────────────────
+	-- SHOP MODE DOES NOT USE `ui.title` / `ui.subtitle`. Those two are the trader's,
+	-- centred-then-left-aligned per mode, and this header is a different object: an
+	-- accent bar in the stall's own colour, the track name, a stock line, and the
+	-- wallet on the right. Building it inside `ui.shop` rather than reshaping the
+	-- shared pair means the trader keeps exactly the header it has today and render()
+	-- simply hides one or the other — no mode-specific repainting of a widget two
+	-- modes share.
+	--
+	-- THE WALLET LIVES HERE NOW. It used to sit under the card row, which was right
+	-- while the mockup had a left rail to anchor the panel's chrome; with the rail
+	-- gone the header is the only chrome there is, and the number the whole grid of
+	-- prices is compared against belongs in it.
+	local header = Instance.new("Frame")
+	header.Name = "ShopHeader"
+	header.LayoutOrder = 0
+	header.Size = UDim2.new(1, 0, 0, 56)
+	header.BackgroundTransparency = 1
+	header.Parent = shop
+	ui.shopHeader = header
+
+	local headerRule = Instance.new("Frame")
+	headerRule.Name = "HeaderRule"
+	headerRule.AnchorPoint = Vector2.new(0, 1)
+	headerRule.Position = UDim2.fromScale(0, 1)
+	headerRule.Size = UDim2.new(1, 0, 0, 1)
+	headerRule.BackgroundColor3 = FIELD.rule
+	headerRule.BorderSizePixel = 0
+	headerRule.Parent = header
+
+	-- The stall's accent, and the only per-stall colour on the panel. render() repaints
+	-- it from STALL_ACCENT.
+	local accentBar = Instance.new("Frame")
+	accentBar.Name = "AccentBar"
+	accentBar.AnchorPoint = Vector2.new(0, 0.5)
+	accentBar.Position = UDim2.new(0, 0, 0.5, -2)
+	accentBar.Size = UDim2.fromOffset(4, 38)
+	accentBar.BackgroundColor3 = FIELD.amber
+	accentBar.BorderSizePixel = 0
+	accentBar.Parent = header
+	ui.shopAccent = accentBar
+
+	-- Oswald at 30 and no letter-spacing: Roblox TextLabels have no tracking property,
+	-- and the usual workaround (spacing the glyphs out by hand, "D E T E C T O R S")
+	-- breaks the moment a track name wraps. The condensed face carries it alone.
+	ui.shopTitle = UIKit.label(header, {
+		name = "ShopTitle",
+		position = UDim2.fromOffset(16, 2),
+		size = UDim2.new(1, -230, 0, 30),
+		font = FIELD.label,
+		textSize = 30,
+		color = FIELD.text,
+		xAlign = Enum.TextXAlignment.Left,
+		outline = false,
+		shadow = false,
+	})
+
+	ui.shopStock = UIKit.label(header, {
+		name = "ShopStock",
+		position = UDim2.fromOffset(16, 31),
+		size = UDim2.new(1, -230, 0, 18),
+		font = UIKit.Font.body,
+		textSize = 13,
+		color = FIELD.dim,
+		xAlign = Enum.TextXAlignment.Left,
+		outline = false,
+		shadow = false,
+	})
+
+	UIKit.label(header, {
+		name = "WalletLabel",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, 0, 0, 3),
+		size = UDim2.fromOffset(200, 14),
+		font = FIELD.label,
+		textSize = 12,
+		color = FIELD.faint,
+		text = "ON HAND",
+		xAlign = Enum.TextXAlignment.Right,
+		outline = false,
+		shadow = false,
+	})
+
+	ui.shopCash = UIKit.label(header, {
+		name = "Cash",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, 0, 0, 18),
+		size = UDim2.fromOffset(200, 30),
+		font = FIELD.mono,
+		textSize = 26,
+		color = FIELD.amber,
+		xAlign = Enum.TextXAlignment.Right,
+		outline = false,
+		shadow = false,
+	})
+
+	-- The storefront grid. AutomaticCanvasSize.Y + a UIGridLayout means the canvas is
+	-- whatever the visible cards add up to, so a 5-tier track reserves one row less
+	-- than an 8-tier one without anyone computing a canvas height — and on a viewport
+	-- wide enough for four columns (the ceiling the panel is sized to) nothing scrolls
+	-- at all. The direction flipped from X with the sliver: see CARD_COLS above.
 	local scroll = Instance.new("ScrollingFrame")
 	scroll.Name = "Cards"
 	scroll.LayoutOrder = 1
-	scroll.Size = UDim2.new(1, 0, 0, CARD_HEIGHT + 18)
+	scroll.Size = UDim2.new(1, 0, 0, SHOP_GRID_HEIGHT)
 	scroll.BackgroundTransparency = 1
 	scroll.BorderSizePixel = 0
-	scroll.ScrollingDirection = Enum.ScrollingDirection.X
-	scroll.AutomaticCanvasSize = Enum.AutomaticSize.X
+	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 	scroll.ScrollBarThickness = 6
-	scroll.ScrollBarImageColor3 = COLOR.dim
+	scroll.ScrollBarImageColor3 = FIELD.edge
 	scroll.ScrollBarImageTransparency = 0.3
 	scroll.Parent = shop
 	ui.shopScroll = scroll
 
-	local cardLayout = Instance.new("UIListLayout")
-	cardLayout.FillDirection = Enum.FillDirection.Horizontal
+	local cardLayout = Instance.new("UIGridLayout")
 	cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	cardLayout.Padding = UDim.new(0, CARD_GAP)
-	cardLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+	cardLayout.CellSize = UDim2.fromOffset(CARD_WIDTH, CARD_HEIGHT)
+	cardLayout.CellPadding = UDim2.fromOffset(CARD_GAP, CARD_GAP)
+	cardLayout.FillDirectionMaxCells = CARD_COLS
+	cardLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	cardLayout.Parent = scroll
 
 	ui.shopCards = {}
@@ -535,29 +835,20 @@ local function build(): ScreenGui
 		table.insert(ui.shopCards, makeShopCard(scroll, index))
 	end
 
-	-- Shown instead of the row when a shop has no track behind it at all.
+	-- Shown instead of the grid when a shop has no track behind it at all.
 	ui.shopEmpty = UIKit.label(shop, {
 		name = "Empty",
 		size = UDim2.new(1, 0, 0, 28),
 		font = UIKit.Font.body,
 		textSize = 16,
-		color = COLOR.dim,
+		color = FIELD.dim,
 		xAlign = Enum.TextXAlignment.Center,
 		text = "nothing for sale here",
 		visible = false,
+		outline = false,
+		shadow = false,
 	})
 	ui.shopEmpty.LayoutOrder = 2
-
-	-- The wallet lives under the row, the way the reference storefront has it —
-	-- last thing you read before you decide, rather than a number in the header.
-	ui.shopCash = UIKit.label(shop, {
-		name = "Cash",
-		size = UDim2.new(1, 0, 0, 36),
-		font = UIKit.Font.title,
-		textSize = 25,
-		color = COLOR.green,
-	})
-	ui.shopCash.LayoutOrder = 3
 
 	-- Plots have no panel any more: exhibit income auto-deposits into the owner's
 	-- wallet (server-side ExhibitService), so the claim board — whose only verb was
@@ -689,68 +980,146 @@ end
 --- current  -> EQUIPPED, green wash, inert (pressing it would be a no-op)
 --- owned    -> EQUIP, live, neutral: yours, one press from being in your hands
 --- buyable  -> its own price, live, green/red on whether you can afford THIS tier
-local function paintShopCard(card: Frame, entry)
+--- `$150000` is a number; `$150,000` is a price. Eight of them stacked in a grid are
+--- read against each other, and unseparated digits at that length are read wrong.
+local function money(amount: number): string
+	local text = tostring(math.floor(amount))
+	local grouped = text
+	while true do
+		local next, count = string.gsub(grouped, "^(%-?%d+)(%d%d%d)", "%1,%2")
+		grouped = next
+		if count == 0 then
+			break
+		end
+	end
+	return `${grouped}`
+end
+
+--- Paint one card's stat block. Rows are reused, so every row past the track's own
+--- column count is hidden rather than destroyed — see STAT_ROWS.
+---
+--- A FLAG CELL KEEPS THE BAR'S GEOMETRY AND THROWS AWAY ITS MEANING. Boots' vault and
+--- dash are capabilities, not amounts, so the row prints YES/NO and fills its track
+--- whole or not at all. Sharing the row shape is what keeps the button on the same
+--- baseline whether a track has two numeric stats or three numeric plus two flags.
+local function paintStats(card: Frame, entry, accent: Color3)
+	local stats = card.CardStats :: Frame
+	for index = 1, STAT_ROWS do
+		local row = stats:FindFirstChild(`Stat{index}`) :: Frame?
+		if row == nil then
+			continue
+		end
+		local cell = entry.stats[index]
+		row.Visible = cell ~= nil
+		if cell == nil then
+			continue
+		end
+
+		local label = row.StatLabel :: TextLabel
+		local value = row.StatValue :: TextLabel
+		local track = row.StatTrack :: Frame
+		local fill = track.StatFill :: Frame
+
+		label.Text = cell.label
+		value.Text = cell.value
+		-- THE BOTTOM RUNG KEEPS A SLIVER. ShopService measures a bar from the worst
+		-- value on the ladder, so tier 1 is honestly 0.0 on every column — and an
+		-- entirely empty track reads as "no data" rather than "lowest". A floor here
+		-- rather than in the payload keeps the number the server sends honest and puts
+		-- the fudge where it belongs, in the drawing.
+		local shown = math.clamp(cell.fraction, 0, 1)
+		if cell.kind ~= "flag" then
+			shown = math.max(shown, BAR_FLOOR)
+		end
+		fill.Size = UDim2.fromScale(shown, 1)
+		fill.BackgroundColor3 = accent
+		-- An unlit flag is the one cell that should read as absent rather than as low:
+		-- dimming the value keeps "NO" from being mistaken for a small amount.
+		value.TextColor3 = if cell.kind == "flag" and not cell.on then FIELD.muted else FIELD.text
+	end
+end
+
+--- Four states, and all four are drawn on the same card rather than on four layouts.
+---
+--- ISSUED    the one in your hands. Amber edge, amber art, a ghost button that says so.
+--- OWNED     bought and not held. The button is a live EQUIP — see ShopService's note
+---           on why ownership being a set is what makes that a real verb.
+--- (buyable) no flag at all. The price button already says it is for sale, and a word
+---           saying the same thing on every unbought card was noise — this is where
+---           "AVAILABLE" used to be.
+--- NEED $x   buyable, unaffordable. The flag carries the SHORTFALL against your wallet
+---           rather than the price, because the price is already on the button and the
+---           gap is the thing you do not know.
+local function paintShopCard(card: Frame, entry, accent: Color3, cash: number, prefix: string)
 	local nameLabel = card.CardName :: TextLabel
-	local stats = card.CardStats :: TextLabel
+	local blurb = card.CardBlurb :: TextLabel
+	local code = card.CardStrip.CardCode :: TextLabel
+	local flag = card.CardStrip.CardFlag :: TextLabel
+	local art = card.CardArt :: ImageLabel
 	local buy = card.CardBuy :: TextButton
 	local cardStroke = card:FindFirstChildOfClass("UIStroke") :: UIStroke
 	local buyStroke = buy:FindFirstChildOfClass("UIStroke") :: UIStroke
 
 	nameLabel.Text = entry.name
-	stats.Text = table.concat(entry.stats, "\n")
+	blurb.Text = entry.blurb or ""
+	code.Text = string.format("%s-%02d", prefix, entry.tier)
 	card:SetAttribute("Buyable", entry.buyable == true)
 	card:SetAttribute("Equippable", entry.equippable == true)
 	card:SetAttribute("Tier", entry.tier)
 
+	local affordable = entry.affordable == true
+	local dear = entry.buyable == true and not affordable
+
+	-- The bar colour is the card's whole mood: amber for the one you hold, the stall's
+	-- accent for anything live, grey for a rung you cannot pay for yet.
+	local barColour = if entry.current then FIELD.amber elseif dear then FIELD.muted else accent
+	paintStats(card, entry, barColour)
+
+	art.ImageColor3 = barColour
+	nameLabel.TextColor3 = FIELD.text
+
 	if entry.current then
-		nameLabel.TextColor3 = COLOR.green
-		cardStroke.Color = COLOR.green
-		cardStroke.Thickness = UIKit.Stroke.normal
-		buy.Text = "EQUIPPED"
-		-- Light text on a green WASH, not green text on black. Saturated green at
-		-- 14px bold over near-black smears into an illegible bar at play-window
-		-- scale — the green still reads as "this one is yours" through the fill and
-		-- the card's stroke, where it has area to be seen in.
-		buy.TextColor3 = COLOR.text
-		buy.BackgroundColor3 = COLOR.green
-		buy.BackgroundTransparency = 0.78
-		buyStroke.Color = COLOR.green
+		cardStroke.Color = FIELD.amber
+		flag.Text = "ISSUED"
+		flag.TextColor3 = FIELD.amber
+		buy.Text = "IN HAND"
+		buy.TextColor3 = FIELD.amber
+		buy.BackgroundTransparency = 1
+		buyStroke.Color = FIELD.amber
 	elseif entry.owned then
-		-- Yours, not in your hands. Drawn as a real affordance rather than the greyed
-		-- slab this used to be: full-strength name, a normal-weight stroke and a
-		-- pressable button. Deliberately NOT green — green is "this is the one you are
-		-- holding" everywhere on this panel, and two greens would make the card you
-		-- are using indistinguishable from the six you are not.
-		nameLabel.TextColor3 = COLOR.text
-		cardStroke.Color = COLOR.stroke
-		cardStroke.Thickness = UIKit.Stroke.normal
+		cardStroke.Color = FIELD.edge
+		flag.Text = "OWNED"
+		flag.TextColor3 = FIELD.dim
 		buy.Text = "EQUIP"
-		buy.TextColor3 = COLOR.text
-		buy.BackgroundColor3 = COLOR.panel
-		buy.BackgroundTransparency = 0.35
-		buyStroke.Color = COLOR.stroke
-	elseif entry.buyable then
-		nameLabel.TextColor3 = COLOR.text
-		cardStroke.Color = if entry.affordable then COLOR.green else COLOR.red
-		cardStroke.Thickness = UIKit.Stroke.normal
-		buy.Text = `Purchase  ${entry.price}`
-		-- Affordable is the ONE solid fill anywhere on this panel. Everything else
-		-- is outlined or washed, so the single thing worth clicking is the single
-		-- thing that looks clickable.
-		--
-		-- Can't-afford gets the same light-text-on-a-wash treatment as EQUIPPED, for
-		-- the same reason: saturated red at 14px bold over near-black smears into an
-		-- unreadable bar. The colour lives in the fill and the card stroke, where it
-		-- has the area to carry it.
-		buy.TextColor3 = if entry.affordable then COLOR.panel else COLOR.text
-		buy.BackgroundColor3 = if entry.affordable then COLOR.green else COLOR.red
-		buy.BackgroundTransparency = if entry.affordable then 0 else 0.8
-		buyStroke.Color = if entry.affordable then COLOR.green else COLOR.red
+		buy.TextColor3 = FIELD.text
+		buy.BackgroundColor3 = FIELD.ownedFill
+		buy.BackgroundTransparency = 0
+		buyStroke.Color = FIELD.edge
+	elseif dear then
+		cardStroke.Color = FIELD.edge
+		flag.Text = `NEED {money(entry.price - cash)}`
+		flag.TextColor3 = FIELD.muted
+		buy.Text = money(entry.price)
+		buy.TextColor3 = FIELD.muted
+		buy.BackgroundColor3 = FIELD.dearFill
+		buy.BackgroundTransparency = 0
+		buyStroke.Color = FIELD.dearEdge
+	else
+		cardStroke.Color = FIELD.edge
+		flag.Text = ""
+		-- Affordable is the ONE solid fill anywhere on this panel. Everything else is
+		-- outlined, ghosted or muted, so the things worth clicking are the only things
+		-- that look clickable.
+		buy.Text = money(entry.price)
+		buy.TextColor3 = FIELD.panel
+		buy.BackgroundColor3 = FIELD.amber
+		buy.BackgroundTransparency = 0
+		buyStroke.Color = FIELD.amber
 	end
-	-- No trailing `else`: current, owned and buyable are exhaustive over every tier.
-	-- `current` is checked first and `owned` second, so the equipped tier takes the
-	-- EQUIPPED branch even though it is also owned, and `buyable` is by construction
-	-- `not owned` — every tier lands in exactly one of the three.
+	-- current, owned and buyable are exhaustive over every tier: `current` is checked
+	-- first and `owned` second, so the equipped tier takes the ISSUED branch even
+	-- though it is also owned, and `buyable` is by construction `not owned` — the
+	-- trailing two branches split that last case on affordability alone.
 end
 
 -- ── The rack beside the stand ────────────────────────────────────────────────
@@ -931,38 +1300,63 @@ local function render()
 	-- relevant to this transaction, so showing your backpack is noise.
 	local atShop = state.station == "shop"
 	ui.shop.Visible = atShop
-	-- Shop mode carries its own wallet line under the card row, so the header's
-	-- subtitle would just print the same number twice.
+	-- SHOP MODE HIDES THE SHARED HEADER ENTIRELY. `ui.title`/`ui.subtitle` are the
+	-- trader's; the shop builds its own (ui.shopHeader) with the accent bar, the stock
+	-- line and the wallet. Hiding rather than repainting is what keeps the trader's
+	-- header exactly as it was — see the shop header's own note.
+	ui.title.Visible = not atShop
 	ui.subtitle.Visible = not atShop
 	ui.actions.Visible = not atShop
-	-- Storefronts centre their sign; a station panel that is really a list keeps its
-	-- title on the same left margin as the rows underneath it.
-	ui.title.TextXAlignment = if atShop then Enum.TextXAlignment.Center else Enum.TextXAlignment.Left
 	ui.panelSize.MaxSize = Vector2.new(if atShop then SHOP_PANEL_WIDTH else PANEL_WIDTH, math.huge)
+
+	-- THE PANEL FRAME IS SHARED, SO ITS SKIN IS PER MODE. The shop wears the field-kit
+	-- slate; the trader keeps the near-black it always had. Both are set on every
+	-- render rather than once at build, because a player can walk from one straight
+	-- into the other without the panel ever being rebuilt.
+	ui.panel.BackgroundColor3 = if atShop then FIELD.panel else COLOR.panel
+	ui.panel.BackgroundTransparency = if atShop then 0.02 else 0.08
+
 	if atShop then
 		local offer = state.offer
 		local tiers = if offer then offer.tiers else nil
+		local track = state.stationId or "Shop"
+		local accent = STALL_ACCENT[track] or FIELD.amber
+		local cash = state.cash or 0
 
-		ui.title.Text = `{string.upper(state.stationId or "SHOP")} SHOP`
-		ui.title.TextColor3 = COLOR.amber
-		ui.panelStroke.Color = COLOR.amber
+		ui.panelStroke.Color = FIELD.edge
+		ui.shopAccent.BackgroundColor3 = accent
+		ui.shopTitle.Text = string.upper(track)
 
 		local count = if tiers then #tiers else 0
+		local owned = 0
+		if tiers then
+			for _, entry in tiers do
+				if entry.owned then
+					owned += 1
+				end
+			end
+		end
+		ui.shopStock.Text = if offer and offer.maxed
+			then `{count} units on the rail \u{00B7} you own every one`
+			else `{count} units on the rail \u{00B7} you own {owned} \u{00B7} buy any of them, in any order`
+
 		ui.shopScroll.Visible = count > 0
 		ui.shopEmpty.Visible = count == 0
+
+		-- Two letters off the track name: Detector -> DT, Magnet -> MG, Cleaner -> CL.
+		-- Consonant-first rather than the first two letters, so Satchel and Suit do not
+		-- both come out "SU".
+		local prefix = CODE_PREFIX[track] or string.upper(string.sub(track, 1, 2))
 
 		for index, card in ui.shopCards do
 			local entry = if tiers then tiers[index] else nil
 			card.Visible = entry ~= nil
 			if entry then
-				paintShopCard(card, entry)
+				paintShopCard(card, entry, accent, cash, prefix)
 			end
 		end
 
-		-- Reads as the wallet, not as a stat line: this is the number the whole
-		-- row of prices is being compared against.
-		ui.shopCash.Text = string.format("You have  $%d", state.cash or 0)
-		ui.shopCash.TextColor3 = if offer and offer.maxed then COLOR.green else COLOR.text
+		ui.shopCash.Text = money(cash)
 
 		for _, row in ui.rows do
 			row.Visible = false
