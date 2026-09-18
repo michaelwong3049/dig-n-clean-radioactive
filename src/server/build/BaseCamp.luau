@@ -60,7 +60,7 @@ local Workspace = game:GetService("Workspace")
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
-local ImportedNukeYard = require(script.Parent.ImportedNukeYard)
+local ModelGallery = require(script.Parent.ModelGallery)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
@@ -74,8 +74,8 @@ local DEFAULT_ORIGIN = CFrame.new(0, 0.9, 136)
 
 -- ── Primitives ────────────────────────────────────────────────────────────────
 -- `build`/`C` used to be aliased here from Kit, for the floor pad and the spawn.
--- Both are gone now (see buildShell); ImportedNukeYard owns the yard's primitives,
--- while Kit remains responsible for this model's stamp and atomic rebuild plumbing.
+-- Both are gone now (see buildShell); ModelGallery owns the yard's primitives, while
+-- Kit remains responsible for this model's stamp and atomic rebuild plumbing.
 
 export type Spec = Kit.Spec
 
@@ -158,12 +158,9 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- was asked for.
 	--
 	-- The public model yard now gives BaseCamp a permanent authored structure again.
-	-- It used to be a catalogue-driven display parked outside the perimeter wall
-	-- (68 stands, one per ItemModels-backed catalogue item); it is now a showcase
-	-- of the 16 hand-imported reference nukes, planted right here at the camp's
-	-- own datum instead — the plaza's own centre has ~35 studs of clearance to the
-	-- nearest shop or the trader, comfortably more than this yard's footprint.
-	ImportedNukeYard.build(origin, camp)
+	-- It stays out of the central aisle and automatically includes every catalog item
+	-- backed by ItemModels whenever this camp is rebuilt.
+	ModelGallery.build(ModelGallery.originForBase(origin), camp)
 
 	-- A small open trader kiosk, deliberately placed in the inner plaza rather than
 	-- behind a wall or at a player's private plot. The counter has an 8-stud

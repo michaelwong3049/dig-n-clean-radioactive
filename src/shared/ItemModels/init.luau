@@ -12,24 +12,12 @@
 	of a bespoke sculpt per item. The old real-world-object factories (BottleCap,
 	GoldBar, etc.) are retired -- nothing in Config/Items references them any more.
 
-	feat/imported-nuke-showcase-yard: retired the procedural per-item signature
-	system (NukeSignatures.luau, 7/68 items) in favour of real hand-imported
-	meshes for 16 items (Shared.Config.ImportedNukeMeshes). `create` still takes
-	an optional itemId (Items.DEFS' `id`, NOT the model key) -- it now checks
-	ImportedNukeMeshes.byItemId FIRST and, on a hit, clones that mesh assembly
-	instead of the tier factory entirely.
-
-	THE CLONE CAN COME BACK NIL even when there IS an entry: ImportedNukeMeshes
-	only has templates to clone from after installTemplates() has run (a
-	command-bar World.rebuild(), since it writes MeshPart.MeshId, which needs a
-	capability no gameplay Script has -- see that module's header). Falling
-	through to the plain tier archetype in that case, rather than returning nil
-	outright, is what keeps a fresh merge (rebuild not yet run) equipping the
-	rarity capsule instead of the empty-hand Placeholder block ToolService
-	reserves for a truly unmodelled item.
+	feat/nuke-item-signatures: `create` takes an optional itemId (Items.DEFS' `id`,
+	NOT the model key) so a tier factory can bolt on that one item's distinguishing
+	prop from NukeSignatures.luau on top of the shared archetype. Every call site
+	should pass it when it has one -- an item with no entry there is just the plain
+	tier archetype, the same graceful degrade as an unmodelled item entirely.
 ]]
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local NukeCommon = require(script.NukeCommon)
 local NukeUncommon = require(script.NukeUncommon)
@@ -38,11 +26,12 @@ local NukeEpic = require(script.NukeEpic)
 local NukeLegendary = require(script.NukeLegendary)
 local NukeMythic = require(script.NukeMythic)
 local NukeAnomaly = require(script.NukeAnomaly)
-local ImportedNukeMeshes = require(ReplicatedStorage.Shared.Config.ImportedNukeMeshes)
+local NukeBase = require(script.NukeBase)
+local NukeSignatures = require(script.NukeSignatures)
 
 local ItemModels = {}
 
-local factories: { [string]: () -> Model } = {
+local factories: { [string]: (signature: NukeBase.SignatureFn?) -> Model } = {
 	NukeCommon = NukeCommon.create,
 	NukeUncommon = NukeUncommon.create,
 	NukeRare = NukeRare.create,
@@ -57,14 +46,6 @@ function ItemModels.has(modelKey: string): boolean
 end
 
 function ItemModels.create(modelKey: string?, itemId: string?): Model?
-	local imported = if itemId then ImportedNukeMeshes.byItemId[itemId] else nil
-	if imported then
-		local model = ImportedNukeMeshes.build(imported)
-		if model then
-			return model
-		end
-	end
-
 	if modelKey == nil then
 		return nil
 	end
@@ -75,7 +56,8 @@ function ItemModels.create(modelKey: string?, itemId: string?): Model?
 		return nil
 	end
 
-	return factory()
+	local signature = if itemId then NukeSignatures[itemId] else nil
+	return factory(signature)
 end
 
 --- Item factories author placement rotations as attributes so a flat object such

@@ -3,7 +3,7 @@
 local NukeBase = require(script.Parent.NukeBase)
 local NukeRare = {}
 
-function NukeRare.create(): Model
+function NukeRare.create(signature: NukeBase.SignatureFn?): Model
 	return NukeBase.create({
 		key = "NukeRare",
 		displayName = "Nuke",
@@ -14,6 +14,7 @@ function NukeRare.create(): Model
 		stripeColor = Color3.fromHex("2B2B2B"),
 		sizeScale = 1.15,
 		gallerySize = 3.0,
+		signature = signature,
 	})
 end
 

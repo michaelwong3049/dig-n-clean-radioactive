@@ -3,7 +3,7 @@
 local NukeBase = require(script.Parent.NukeBase)
 local NukeLegendary = {}
 
-function NukeLegendary.create(): Model
+function NukeLegendary.create(signature: NukeBase.SignatureFn?): Model
 	return NukeBase.create({
 		key = "NukeLegendary",
 		displayName = "Nuke",
@@ -17,6 +17,7 @@ function NukeLegendary.create(): Model
 		starColor = Color3.fromHex("FFD23F"),
 		sizeScale = 1.65,
 		gallerySize = 3.6,
+		signature = signature,
 	})
 end
 

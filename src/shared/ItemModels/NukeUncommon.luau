@@ -3,7 +3,7 @@
 local NukeBase = require(script.Parent.NukeBase)
 local NukeUncommon = {}
 
-function NukeUncommon.create(): Model
+function NukeUncommon.create(signature: NukeBase.SignatureFn?): Model
 	return NukeBase.create({
 		key = "NukeUncommon",
 		displayName = "Nuke",
@@ -13,6 +13,7 @@ function NukeUncommon.create(): Model
 		finCount = 3,
 		sizeScale = 1.00,
 		gallerySize = 2.8,
+		signature = signature,
 	})
 end
 
