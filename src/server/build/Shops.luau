@@ -224,10 +224,20 @@ local PLAZA_MID = { x = 17.5, z = 0 }
 --- comment, and not the numbers looking reasonable.
 --- `present` is the per-track hang angle for the rail models — see RACK_DROP_* and
 --- `hangTierModel`. Tuned against front-on screenshots so each track stands from the
---- deck to (near) the rail without clipping its neighbour: the detector tips hard
---- nose-down to drop its coil to the floor, the hose barely tips at all.
+--- deck to (near) the rail without clipping its neighbour: the hose barely tips at all.
+---
+--- DETECTOR'S `pitch = 0` IS NOT "UNTUNED", IT IS THE TUNED VALUE for the imported
+--- per-tier models (tools/studio-migrations/import-detector-models.luau). `hand * hold`
+--- is what actually orients a hung tier (`hold` = that tier's `HoldCFrame` attribute,
+--- read below in `hangTierModel`), and the OLD detector art's `HoldCFrame` carried a
+--- real rotation that a `pitch = -80` here was tuned to compose with. The new art's
+--- `HoldCFrame` is an identity rotation (position-only — it already hangs its coil
+--- straight down on its own, see that script's header), so any nonzero pitch here now
+--- rotates it AWAY from vertical with nothing correcting it — `-80` hung every tier on
+--- its side under the rail. Magnet and Cleaner are untouched by that migration and
+--- still need a real `pitch` to compose with their own art's `HoldCFrame`.
 local STALLS = {
-	{ track = "Detector", at = { 31.87, 30 }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop", present = { yaw = 205, pitch = -80 } },
+	{ track = "Detector", at = { 31.87, 30 }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop", present = { yaw = 205, pitch = 0 } },
 	{ track = "Magnet", at = { -22, -34.43 }, faceYaw = 0, color = C.shopMagnet, label = "Magnet Shop", present = { yaw = 202, pitch = -56 } },
 	{ track = "Cleaner", at = { 37.5, -37.10 }, faceYaw = 0, color = C.shopCleaner, label = "Hose Shop", present = { yaw = 196, pitch = -12 } },
 }

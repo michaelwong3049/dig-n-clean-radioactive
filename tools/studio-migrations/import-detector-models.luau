@@ -115,6 +115,26 @@
 	tier's `holdY` alone (X/Z and the identity rotation are shape-
 	independent) with collision already disabled, not before.
 
+	THE ORACLE IS AN EXPLICIT EXCEPTION to SIZE: feedback singled it out as
+	too big at `SIZE_BUMP`, so tier 8 alone keeps `sizeBump = 1.0` (no bump)
+	and its own pre-bump `holdY` (0.39, the Round 2 value) rather than the
+	shared Round 3 numbers. If a tier's `sizeBump` is ever overridden again,
+	its `holdY` must be retuned alongside it, same as SIZE describes.
+
+	SHOP RACK ORIENTATION, fixed in the SAME session, in `build/Shops.luau`
+	rather than here: the rack (`hangTierModel`) reuses this SAME HoldCFrame
+	attribute to orient the model on the rail (`hand * hold`, where `hold`
+	is `HoldCFrame` and `hand` comes from that track's `STALLS.present.yaw/
+	pitch`). The OLD model's `HoldCFrame` carried a real rotation that
+	`present.pitch = -80` was tuned to compose with; now that `HoldCFrame`'s
+	rotation is identity (see HOLD POSE), that same `-80` pitch had nothing
+	left to compose against and hung every detector on its side under the
+	rail instead of coil-down. Fixed by setting Detector's `present.pitch`
+	to `0` in `STALLS` -- confirmed visually, all 8 tiers now hang straight
+	down like the held pose does. Magnet/Cleaner were NOT touched (still
+	place-file/code-authored art with their own working rotation) and must
+	keep their own `present` values.
+
 	The original AuxScene imports in Workspace are left alone by this script.
 	Delete them from Workspace once the new tiers have been playtested.
 ]]
@@ -125,13 +145,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- of the old-height match -- see SIZE above. Applied to the TEMPLATE, not
 -- the shop rack (buildRackHook/hangTierModel rescales to its own fixed
 -- rail-to-floor height regardless, so this only affects the HELD model).
+-- Per-tier `sizeBump` overrides this -- see THE ORACLE IS AN EXPLICIT
+-- EXCEPTION above.
 local SIZE_BUMP = 1.25
 
--- holdY: per-tier HoldCFrame.Y, retuned live at the CURRENT SIZE_BUMP
--- (round 3, collision already disabled -- see NOT PHYSICAL / HOLD POSE /
+-- holdY: per-tier HoldCFrame.Y, retuned live at each tier's OWN sizeBump
+-- (Round 3 for the bumped tiers, Round 2 for the Oracle exception --
+-- collision already disabled either way, see NOT PHYSICAL / HOLD POSE /
 -- SIZE above). X/Z and the identity rotation are shared across all 8; only
--- the vertical offset is per-tier. Retune every value here together if
--- SIZE_BUMP ever changes -- they do not scale linearly by a shared delta.
+-- the vertical offset is per-tier. Retune every affected value here
+-- together if SIZE_BUMP (or a tier's sizeBump override) ever changes --
+-- they do not scale linearly by a shared delta.
 local TIERS = {
 	{ n = 1, ident = "Bent_Coil", name = "Bent Coil", holdY = -0.138 },
 	{ n = 2, ident = "Scavenger_MkI", name = "Scavenger MkI", holdY = -0.015 },
@@ -140,7 +164,7 @@ local TIERS = {
 	{ n = 5, ident = "Isotope_Scanner", name = "Isotope Scanner", holdY = 0.403 },
 	{ n = 6, ident = "Resonance_Mapper", name = "Resonance Mapper", holdY = 0.658 },
 	{ n = 7, ident = "Deep_Core_Array", name = "Deep Core Array", holdY = 0.698 },
-	{ n = 8, ident = "The_Oracle", name = "The Oracle", holdY = 1.225 },
+	{ n = 8, ident = "The_Oracle", name = "The Oracle", holdY = 0.39, sizeBump = 1.0 },
 }
 
 local detectorFolder = ReplicatedStorage.Assets.Tools.Detector
@@ -293,7 +317,7 @@ for _, tier in ipairs(TIERS) do
 		assert(rescued == expectedParts, `flatten rescued {rescued} parts, expected {expectedParts}`)
 
 		local _, curSize = work:GetBoundingBox()
-		local factor = (oldHeight / curSize.Y) * SIZE_BUMP
+		local factor = (oldHeight / curSize.Y) * (tier.sizeBump or SIZE_BUMP)
 		work:ScaleTo(factor)
 
 		local root = weldAll(work, "upper_shaft")
