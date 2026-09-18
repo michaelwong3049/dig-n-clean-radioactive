@@ -10,11 +10,20 @@
 	    require(game.ServerScriptService.Server.build.ImportedNukeYard).remove()
 
 	Each of the 16 is also a real catalogue item's model now (Shared.ItemModels
-	wires the same ImportedNukeMeshes.build() into ItemModels.create() ahead of
-	the procedural rarity capsule) — this yard is just a showcase of them, built
-	from the same shared data + builder rather than a separate copy of either.
-	Scaled up onto a pedestal the same way ExhibitService's locker normalises
-	arbitrary item art to a target size.
+	wires ImportedNukeMeshes.build() into ItemModels.create() ahead of the
+	procedural rarity capsule) — this yard is just a showcase of them, built
+	from the same shared data rather than a separate copy of either. Scaled up
+	onto a pedestal the same way ExhibitService's locker normalises arbitrary
+	item art to a target size.
+
+	THIS IS ALSO WHERE THE TEMPLATES GET (RE)BUILT. MeshPart.MeshId can only be
+	written from an elevated (Studio/plugin/command-bar) thread — every rebuild
+	here calls ImportedNukeMeshes.installTemplates() first, which is the ONE
+	place that actually happens, before the plain gameplay-safe Clone() path
+	(ItemModels.create, WashService, ToolService, ExhibitService) has anything
+	to clone. Skipping a command-bar World.rebuild() after this file changes
+	means those 16 items fall back to the plain rarity capsule at runtime —
+	not broken, just not showing the real mesh yet.
 
 	No floor slab of its own — unlike the old outside-the-wall yard, this one
 	stands directly on the plaza tiles that are already there, so it only adds a
@@ -119,7 +128,9 @@ local function buildStand(gallery: Model, origin: CFrame, def: ImportedNukeMeshe
 
 	Kit.billboard(pedestal, 150, 5, string.upper(def.label), def.itemId, Kit.C.hazard, 60)
 
-	local assembly = ImportedNukeMeshes.build(def)
+	-- installTemplates just ran (createGallery), so this always has something
+	-- to clone -- the assert catches a future caller that forgets that order.
+	local assembly = assert(ImportedNukeMeshes.build(def), `no template installed for {def.itemId}`)
 	assembly.Parent = gallery
 	placeOnPedestal(assembly, origin * CFrame.new(x, GROUND_Y, z))
 end
@@ -138,6 +149,11 @@ local function buildHeader(gallery: Model, origin: CFrame, count: number)
 end
 
 local function createGallery(origin: CFrame): Model
+	-- Elevated-context write: rebuilds the 16 template Models this whole
+	-- catalogue integration clones from (see the header). Must happen before
+	-- buildStand below, which relies on a template already existing to clone.
+	ImportedNukeMeshes.installTemplates(ReplicatedStorage.Shared.ItemModels)
+
 	local gallery = Instance.new("Model")
 	gallery.Name = NAME
 	Kit.stamp(gallery, BUILDER_SOURCE, BUILDER_VERSION)

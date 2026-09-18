@@ -3,9 +3,8 @@
 	ImportedNukeMeshes.luau -- static geometry for the 16 hand-imported reference
 	nuke meshes (Studio 3D import, 2026-09-17), each mapped to the specific
 	catalogue item (Shared.Config.Items) its part names match -- a locket+chain
-	assembly is , a pocket-watch face is , and so on.
-	ItemModels.create wires these in ahead of the procedural rarity capsule for
-	those 16 items; ImportedNukeYard.luau builds the same data into a showcase.
+	assembly is "photo_locket", a pocket-watch face is "stopped_watch", and so on
+	(see each entry's itemId below for the full mapping).
 
 	Each entry is a flat list of MeshParts with the exact size + position offset
 	they were built at, all relative to the assembly's own bounding-box centre.
@@ -13,6 +12,17 @@
 	are stored -- no rotation matrix needed. Every part also shared one flat grey
 	(the unpainted import colour), so that's a single constant below rather than
 	per-part data.
+
+	TWO BUILD PATHS, because MeshPart.MeshId is write-restricted to an elevated
+	(Studio/plugin/command-bar) thread -- an ordinary gameplay Script cannot set
+	it. `buildRaw` does that write and must only run from build-time code
+	(`installTemplates`, called from ImportedNukeYard.luau's rebuild, which
+	World.rebuild() runs); `build` is the gameplay-safe path everything else
+	(ItemModels.create, WashService, ToolService, ExhibitService) uses --
+	it just Clones the template `installTemplates` already parked under
+	Shared.ItemModels, which needs no elevated capability. Skipping the
+	command-bar rebuild after a merge means `build` finds no template yet and
+	returns nil, the same graceful degrade as any other unmodelled item.
 ]]
 
 local ImportedNukeMeshes = {}
@@ -363,14 +373,23 @@ for _, def in ImportedNukeMeshes.MODELS do
 end
 ImportedNukeMeshes.byItemId = byItemId
 
---- Reconstruct one assembly as a fresh, unparented Model: one anchored,
---- non-colliding, massless MeshPart per captured part, positioned at its
---- stored offset from the model's own origin. Every gameplay call site
---- (wash rack, held item, exhibit locker, the model yard) already normalises
---- whatever Model it gets to its own target size via GetExtentsSize/ScaleTo,
---- so this hands back the assembly at its raw captured scale and lets the
---- caller do that -- the same contract ItemModels.create's tier factories honour.
-function ImportedNukeMeshes.build(def: ImportedNukeMeshes.ModelDef): Model
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TEMPLATES_NAME = "ImportedNukeTemplates"
+
+--- Reconstruct one assembly from scratch: one anchored, non-colliding, massless
+--- MeshPart per captured part, positioned at its stored offset from the model's
+--- own origin.
+---
+--- ELEVATED-CONTEXT ONLY. Assigning `MeshPart.MeshId` is write-restricted
+--- (`Capabilities` needs one only a Studio/plugin-level thread has) -- an
+--- ordinary gameplay Script gets "The current thread cannot write 'MeshId'
+--- (lacking capability NotAccessible)" every time. Confirmed live: this is
+--- exactly what broke the wash reveal and held item once ItemModels.create
+--- started calling the old single build() (this function, unguarded) from
+--- WashService/ToolService/ExhibitService at runtime. Only call this from a
+--- build-time / command-bar context -- installTemplates below is the only
+--- caller -- never from gameplay code.
+function ImportedNukeMeshes.buildRaw(def: ImportedNukeMeshes.ModelDef): Model
 	local model = Instance.new("Model")
 	model.Name = def.itemId
 	model:SetAttribute("ImportedNukeId", def.itemId)
@@ -396,6 +415,40 @@ function ImportedNukeMeshes.build(def: ImportedNukeMeshes.ModelDef): Model
 	model.PrimaryPart = primary
 
 	return model
+end
+
+--- Builds all 16 templates fresh (via buildRaw, so MUST run from a build-time /
+--- command-bar context -- see World.rebuild()) and parks them under `parent`,
+--- one Model per itemId, replacing whatever was there before. This is the ONE
+--- place MeshId ever gets written; everything else clones from here.
+function ImportedNukeMeshes.installTemplates(parent: Instance): Folder
+	local existing = parent:FindFirstChild(TEMPLATES_NAME)
+	if existing then
+		existing:Destroy()
+	end
+
+	local folder = Instance.new("Folder")
+	folder.Name = TEMPLATES_NAME
+	for _, def in ImportedNukeMeshes.MODELS do
+		local template = ImportedNukeMeshes.buildRaw(def)
+		template.Parent = folder
+	end
+	folder.Parent = parent
+
+	return folder
+end
+
+--- The gameplay-safe path: clone the pre-installed template for `def`. Returns
+--- nil (not an error) if installTemplates hasn't been run yet in this place --
+--- the same graceful "no model for this key yet" degrade ItemModels.create
+--- already documents, so a fresh merge before the next command-bar rebuild
+--- just falls back to the plain rarity capsule instead of breaking equip.
+function ImportedNukeMeshes.build(def: ImportedNukeMeshes.ModelDef): Model?
+	local folder = ReplicatedStorage:FindFirstChild("Shared")
+	folder = folder and folder:FindFirstChild("ItemModels")
+	folder = folder and folder:FindFirstChild(TEMPLATES_NAME)
+	local template = folder and folder:FindFirstChild(def.itemId)
+	return if template then template:Clone() else nil
 end
 
 return ImportedNukeMeshes
