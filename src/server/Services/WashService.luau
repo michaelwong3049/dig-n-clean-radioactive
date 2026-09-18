@@ -122,7 +122,7 @@ local APPROACH = 1.2
 
 --- The wash stand is a fixed aiming surface, not a trophy case, so every item gets
 --- the same footprint there regardless of its authored size -- the same normalise-
---- to-a-target-dimension trick ExhibitService's locker and ModelGallery use for
+--- to-a-target-dimension trick ExhibitService's locker and the model yard use for
 --- arbitrary item art. Measured live in Plot1: WashRack's top sits at Y 2.83 and
 --- GantryBeam's underside at Y 5.70, a 2.87-stud gap that does not fit every tier
 --- now that rarity carries a real size ramp (NukeBase's sizeScale, feat/nuke-model-
