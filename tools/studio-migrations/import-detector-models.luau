@@ -135,6 +135,34 @@
 	place-file/code-authored art with their own working rotation) and must
 	keep their own `present` values.
 
+	DEEP CORE ARRAY (tier 7) HAD A GEOMETRY BUG THE OTHER 7 TIERS DON'T:
+	its `focuser` part sat 0.63 studs BELOW `core_ring` (the flat disc that
+	reads as "the coil" -- every other tier's actual lowest part IS its
+	visual coil/ring, so tuning `holdY` against "the model's lowest point"
+	kept that ring on the floor for free). For tier 7, the lowest point was
+	`focuser`, a small accent nowhere near as wide as the ring -- so `holdY`
+	correctly put FOCUSER on the floor while `core_ring` floated ~0.6 studs
+	above it, looking like the disc was hovering on an invisible spike. This
+	is INVISIBLE IN THE HELD VIEW'S OWN CLEARANCE NUMBER (it only checks the
+	lowest point, which was "correct") -- it only shows up if you specifically
+	check the VISUALLY DOMINANT part's clearance, not just the model's. Worse,
+	it does NOT respond to retuning `holdY` on the SHOP RACK at all: unlike
+	the held pose, `hangTierModel` repositions a hung tier from its OWN
+	bounding-box math (`localBox`/`wantCentre`), which reads the model's
+	lowest point directly and ignores `HoldCFrame`'s translation entirely --
+	only `HoldCFrame`'s ROTATION carries over to the rack. Fixed at the
+	GEOMETRY level instead (`FIXUPS` below, applied once per tier after
+	flatten/scale/weld, before Grip/physicality/verification): shifts
+	`focuser` up so its bottom matches `core_ring`'s bottom, making the ring
+	(tied with `lit_core`, off by under 0.1 stud) the model's own lowest
+	point -- so BOTH the held pose's `holdY` tuning AND the rack's bbox-based
+	rest-on-deck logic now agree on where "the floor" is. If a similar
+	"the true lowest point isn't the visual coil" symptom shows up on
+	another tier (small clearance looks right, but the ring visibly floats
+	above the ground on the RACK specifically), suspect a stray accent part
+	below the disc and fix it the same way -- retuning `holdY` alone cannot
+	fix a rack-visible float, only a geometry-level move can.
+
 	The original AuxScene imports in Workspace are left alone by this script.
 	Delete them from Workspace once the new tiers have been playtested.
 ]]
@@ -163,8 +191,22 @@ local TIERS = {
 	{ n = 4, ident = "Pulse_Array", name = "Pulse Array", holdY = 0.353 },
 	{ n = 5, ident = "Isotope_Scanner", name = "Isotope Scanner", holdY = 0.403 },
 	{ n = 6, ident = "Resonance_Mapper", name = "Resonance Mapper", holdY = 0.658 },
-	{ n = 7, ident = "Deep_Core_Array", name = "Deep Core Array", holdY = 0.698 },
+	{ n = 7, ident = "Deep_Core_Array", name = "Deep Core Array", holdY = 0.451 },
 	{ n = 8, ident = "The_Oracle", name = "The Oracle", holdY = 0.39, sizeBump = 1.0 },
+}
+
+-- Per-tier geometry corrections, applied once to the flattened/scaled clone
+-- BEFORE welding -- see DEEP CORE ARRAY above. Keyed by tier number; a tier
+-- with no bug needs no entry.
+local FIXUPS: { [number]: (model: Model) -> () } = {
+	[7] = function(model)
+		local focuser = model:FindFirstChild("focuser") :: BasePart
+		local coreRing = model:FindFirstChild("core_ring") :: BasePart
+		assert(focuser and coreRing, "Deep Core Array fixup: expected parts missing")
+		local coreBottom = coreRing.Position.Y - coreRing.Size.Y / 2
+		local focuserBottom = focuser.Position.Y - focuser.Size.Y / 2
+		focuser.CFrame = focuser.CFrame + Vector3.new(0, coreBottom - focuserBottom, 0)
+	end,
 }
 
 local detectorFolder = ReplicatedStorage.Assets.Tools.Detector
@@ -319,6 +361,11 @@ for _, tier in ipairs(TIERS) do
 		local _, curSize = work:GetBoundingBox()
 		local factor = (oldHeight / curSize.Y) * (tier.sizeBump or SIZE_BUMP)
 		work:ScaleTo(factor)
+
+		local fixup = FIXUPS[tier.n]
+		if fixup then
+			fixup(work)
+		end
 
 		local root = weldAll(work, "upper_shaft")
 		local grip = makeGrip(work, root)
