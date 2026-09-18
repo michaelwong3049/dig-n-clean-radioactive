@@ -32,9 +32,10 @@
 	     along with the wrapper. This is exactly the bug the first pass of
 	     this migration hit.
 	  4. Rescales it (Model:ScaleTo) so its height matches the OLD T<n>'s
-	     height -- the raw import came in ~2-3x undersized (an FBX unit
-	     mismatch), so this restores the game's existing per-tier size
-	     progression instead of inventing a new one.
+	     height, TIMES `SIZE_BUMP` -- the raw import came in ~2-3x undersized
+	     (an FBX unit mismatch), so matching the old height restores the
+	     game's existing per-tier size progression, and the bump on top is a
+	     deliberate "held models read too small" adjustment (see SIZE below).
 	  5. Rigidly welds every part to one reference part ("upper_shaft") --
 	     the import has zero internal Weld/Motor6D, it's a loose bag of parts.
 	  6. Sets CanCollide/CanQuery/CanTouch = false on EVERY part (see NOT
@@ -89,14 +90,30 @@
 	compare `root.Position.Y` against its known resting value (here, 1.5) to
 	catch this before trusting a "looks close enough" clearance number.
 	Round 2, with collision off, gave every tier a clean, independent
-	Y offset landing its lowest point ~0.05 studs above the floor:
+	Y offset landing its lowest point ~0.05 studs above the floor. Those
+	values are what `holdY` below held until SIZE (next) changed the
+	geometry again, requiring a Round 3.
 
-	  T1 -0.70   T2 -0.60   T3 -0.46   T4 -0.31
-	  T5 -0.27   T6 -0.06   T7 -0.03   T8 +0.39
+	SIZE. The user reported the held models read too small ("slightly
+	bigger"), so every tier's template also gets scaled by `SIZE_BUMP`
+	(1.25, on top of the old-height match) via `Model:ScaleTo` -- this
+	scales relative to the model's WorldPivot, which is `Grip.CFrame` since
+	Grip is PrimaryPart, so Grip itself stays fixed and every OTHER part's
+	distance from Grip grows by the bump factor. That growth applies to the
+	grip-to-coil reach too, so Round 2's `holdY` no longer lands on the
+	floor once SIZE_BUMP changes -- ROUND 3 RE-DERIVED EACH TIER'S `holdY`
+	FROM THE SAME CLEAN (collision-off) METHOD, not by guessing a uniform
+	shift, because the growth in world-space clearance is proportional to
+	each tier's OWN pre-bump reach (`-2.95 - holdY_round2`), which differs
+	per tier -- a flat delta undercorrects small tiers and overcorrects big
+	ones. Whenever `SIZE_BUMP` changes again, retune `holdY` again the same
+	way (Play session, collision already off, adjust each tier's Y until its
+	lowest part sits ~0.05 studs above `root.Position.Y - 3`, confirming
+	`root.Position.Y` itself stays flat at its resting value throughout).
 
 	If a future re-import changes any tier's proportions, re-tune that
-	tier's Y alone (X/Z and the identity rotation are shape-independent)
-	with collision already disabled, not before.
+	tier's `holdY` alone (X/Z and the identity rotation are shape-
+	independent) with collision already disabled, not before.
 
 	The original AuxScene imports in Workspace are left alone by this script.
 	Delete them from Workspace once the new tiers have been playtested.
@@ -104,18 +121,26 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- holdY: per-tier HoldCFrame.Y, retuned live (round 2, collision already
--- disabled -- see NOT PHYSICAL / HOLD POSE above). X/Z and the identity
--- rotation are shared across all 8; only the vertical offset is per-tier.
+-- How much bigger than the old model's height every tier is scaled, on top
+-- of the old-height match -- see SIZE above. Applied to the TEMPLATE, not
+-- the shop rack (buildRackHook/hangTierModel rescales to its own fixed
+-- rail-to-floor height regardless, so this only affects the HELD model).
+local SIZE_BUMP = 1.25
+
+-- holdY: per-tier HoldCFrame.Y, retuned live at the CURRENT SIZE_BUMP
+-- (round 3, collision already disabled -- see NOT PHYSICAL / HOLD POSE /
+-- SIZE above). X/Z and the identity rotation are shared across all 8; only
+-- the vertical offset is per-tier. Retune every value here together if
+-- SIZE_BUMP ever changes -- they do not scale linearly by a shared delta.
 local TIERS = {
-	{ n = 1, ident = "Bent_Coil", name = "Bent Coil", holdY = -0.70 },
-	{ n = 2, ident = "Scavenger_MkI", name = "Scavenger MkI", holdY = -0.60 },
-	{ n = 3, ident = "Surplus_Geiger", name = "Surplus Geiger", holdY = -0.46 },
-	{ n = 4, ident = "Pulse_Array", name = "Pulse Array", holdY = -0.31 },
-	{ n = 5, ident = "Isotope_Scanner", name = "Isotope Scanner", holdY = -0.27 },
-	{ n = 6, ident = "Resonance_Mapper", name = "Resonance Mapper", holdY = -0.06 },
-	{ n = 7, ident = "Deep_Core_Array", name = "Deep Core Array", holdY = -0.03 },
-	{ n = 8, ident = "The_Oracle", name = "The Oracle", holdY = 0.39 },
+	{ n = 1, ident = "Bent_Coil", name = "Bent Coil", holdY = -0.138 },
+	{ n = 2, ident = "Scavenger_MkI", name = "Scavenger MkI", holdY = -0.015 },
+	{ n = 3, ident = "Surplus_Geiger", name = "Surplus Geiger", holdY = 0.167 },
+	{ n = 4, ident = "Pulse_Array", name = "Pulse Array", holdY = 0.353 },
+	{ n = 5, ident = "Isotope_Scanner", name = "Isotope Scanner", holdY = 0.403 },
+	{ n = 6, ident = "Resonance_Mapper", name = "Resonance Mapper", holdY = 0.658 },
+	{ n = 7, ident = "Deep_Core_Array", name = "Deep Core Array", holdY = 0.698 },
+	{ n = 8, ident = "The_Oracle", name = "The Oracle", holdY = 1.225 },
 }
 
 local detectorFolder = ReplicatedStorage.Assets.Tools.Detector
@@ -268,7 +293,7 @@ for _, tier in ipairs(TIERS) do
 		assert(rescued == expectedParts, `flatten rescued {rescued} parts, expected {expectedParts}`)
 
 		local _, curSize = work:GetBoundingBox()
-		local factor = oldHeight / curSize.Y
+		local factor = (oldHeight / curSize.Y) * SIZE_BUMP
 		work:ScaleTo(factor)
 
 		local root = weldAll(work, "upper_shaft")
