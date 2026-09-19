@@ -51,6 +51,7 @@ local Rarity = require(Shared.Config.Rarity)
 local ItemModels = require(Shared.ItemModels)
 local ItemCrust = require(Shared.ItemCrust)
 local ToolModels = require(Shared.ToolModels)
+local ToolFX = require(Shared.ToolFX)
 local Ticker = require(Shared.Util.Ticker)
 
 local DataService = require(script.Parent.DataService)
@@ -446,6 +447,8 @@ local function equip(character: Model, track: string, tier: number)
 	weld.Part0 = anchor
 	weld.Part1 = clone.PrimaryPart
 	weld.Parent = clone.PrimaryPart
+
+	ToolFX.apply(clone, track, tier)
 
 	if built then
 		template:Destroy()
