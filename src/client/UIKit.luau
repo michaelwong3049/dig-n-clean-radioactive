@@ -416,11 +416,11 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- ui.haul and every caller already read it and a rename buys nothing.
 --
 -- THE SOIL SHAFT INSIDE IT SETS BOTH NUMBERS. The haul is drawn as a cut-away of the
--- ground (HaulShaft) with the nuke hauled up it at its true depth, so the widget is as
--- tall as the shaft needs to make a 4.5 m ruler readable, plus REEL IN under it; the
--- readout (rarity, odds, metres to the surface) sits beside it, right-aligned against
--- the shaft, so naming what you hooked costs no height. DetectorController's SHAFT_* /
--- READOUT_* derive the whole interior from this one size.
+-- ground (HaulShaft) with the nuke hauled up it from the floor, so the widget is as
+-- tall as the shaft needs to make the climb and its depth ruler readable, plus REEL IN
+-- under it; the readout (rarity, odds, metres to the surface) sits beside it,
+-- right-aligned against the shaft, so naming what you hooked costs no height.
+-- DetectorController's SHAFT_* / READOUT_* derive the whole interior from this one size.
 --
 -- 386x442, UP FROM 320x290, and the taller box is the price of the shaft. It is still
 -- a floating stack with nothing drawn behind it, and it still keeps out of the middle:

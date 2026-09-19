@@ -87,11 +87,12 @@ local SHAFT_IDLE_SECONDS = 0.2
 --
 -- TWO COLUMNS. On the right, the soil shaft (HaulShaft): a cut-away of the ground with
 -- the nuke hauled up it on the magnet's cable -- the nuke's height IS the progress, so
--- there is no bar. REEL IN sits under the shaft's foot. On the left, the readout,
+-- there is no bar. Every haul starts on the shaft's floor; the ruler beside it is
+-- scaled to that nuke's own burial depth. REEL IN sits under the shaft's foot. On the left, the readout,
 -- right-aligned against the shaft: what you hooked (rarity + odds), then the metres
 -- still to come up, then the way out level with REEL IN, as far from it as the row
 -- allows because hitting the wrong one ends the haul.
-local SHAFT_WIDTH = 166
+local SHAFT_WIDTH = HaulShaft.WIDTH
 local SHAFT_STROKE = UIKit.Stroke.normal -- HaulShaft's frame, drawn outside its box
 local HAULBUTTON_HEIGHT = 46
 local HAULBUTTON_GAP = 7 -- the shaft frame's foot -> REEL IN
@@ -546,9 +547,9 @@ local function build(): ScreenGui
 	ui.haul = haul
 
 	-- THE SOIL SHAFT: the picture of the haul. The nuke climbs it on the magnet's cable
-	-- at its true depth (HaulShaft's header), so how high it is IS the progress.
-	-- renderState paints it in the stage's soil and the signal's colour; renderFrame
-	-- moves the nuke every frame.
+	-- from the floor to the grass, so how high it is IS the progress (HaulShaft's
+	-- header). renderState paints it in the stage's soil and the signal's colour and
+	-- scales its ruler to the nuke's depth; renderFrame moves the nuke every frame.
 	ui.shaft = HaulShaft.build(haul, UDim2.fromOffset(SHAFT_X, SHAFT_STROKE), SHAFT_HEIGHT)
 
 	-- REEL IN, UNDER THE SHAFT'S FOOT. A real button and not a key hint because a phone
@@ -758,13 +759,12 @@ local function renderFrame(dt: number)
 	ui.haulKick.Scale = 1 - kick * YANK_KICK_SCALE
 
 	if state.locked then
-		-- THE NUKE IS THE BAR. Its nose sits at the metres still to come up, on the
-		-- shaft's true-depth ruler: depth (studs, from the server) times what is left,
-		-- in metres. Without a depth it falls back to climbing the whole shaft.
+		-- THE NUKE IS THE BAR. Every haul starts it on the shaft's floor and it climbs
+		-- the full height on progress alone; the depth only sets the ruler's scale
+		-- (renderState) and the metres still to come up, printed beside it.
 		local climbed = math.clamp(shownProgress, 0, 1)
 		local toGo = if state.depth then state.depth * (1 - climbed) / Stages.STUDS_PER_METRE else nil
 		HaulShaft.step(ui.shaft, {
-			toGo = toGo,
 			progress = climbed,
 			strain = state.overGrip,
 			kick = kick,
@@ -921,14 +921,16 @@ local function renderState()
 		-- THE SIGNAL'S COLOUR, in two places that move together: the band and glow on
 		-- the nuke in the shaft, and REEL IN's outline. Scope blue only in the brief
 		-- frame before the rarity resolves -- the "?" beside the shaft is that state at
-		-- rest; this is it in colour. The soil is the stage's own (HaulShaft.paint is a
-		-- no-op once it is painted in this stage).
+		-- rest; this is it in colour. The soil is the stage's own, and the ruler down the
+		-- shaft is scaled to this nuke's burial depth (both no-ops once set, so safe on
+		-- every tick).
 		local accent = signalColor()
 		ui.haulButtonStroke.Color = accent
 		HaulShaft.setAccent(ui.shaft, accent)
 		if state.stageId then
 			HaulShaft.paint(ui.shaft, state.stageId)
 		end
+		HaulShaft.setDepth(ui.shaft, if state.depth then state.depth / Stages.STUDS_PER_METRE else nil)
 
 		-- The readout spells out what the colour only implies: the rarity word
 		-- (state.rarityHint) and the "1 in N" odds (state.oddsHint), both on any

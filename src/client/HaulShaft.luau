@@ -9,11 +9,12 @@
 	There is no fill anywhere -- the distance between the nuke's nose and the grass IS
 	the reading.
 
-	TRUE DEPTH, NOT A FITTED BAR. The ruler runs from the surface to the deepest burial
-	any signal can have (RULER_METRES, derived from Tuning's DIG_DEPTH_* and the rarity
-	count), and the nuke is drawn at its real depth on it. So a Common starts a hand's
-	width under the grass and an Anomaly starts near the floor: how far down the nuke
-	begins says how deep it was buried, before a single yank.
+	EVERY HAUL STARTS ON THE FLOOR; THE RULER STRETCHES TO FIT. The nuke always begins at
+	the bottom of the shaft and climbs the whole height, whatever it is. What changes is
+	the ruler down the side: setDepth() rescales it to this nuke's own burial depth, so
+	a Common's shaft reads 0 to 1 m and a Legendary's 0 to 3.2 m, with the full depth
+	printed at the floor. Deeper finds are told apart by the numbers, not by starting
+	higher or lower -- every haul gets the full climb.
 
 	THE STAGE'S OWN SOIL. paint() recolours the cut-away from Config/Stages: the bands are
 	the stage's floor colour darkening with depth, the sky strip is its fog, the grass is
@@ -33,27 +34,19 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Shared = ReplicatedStorage.Shared
-local Rarity = require(Shared.Config.Rarity)
-local Stages = require(Shared.Config.Stages)
-local Tuning = require(Shared.Config.Tuning)
+local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local UIKit = require(script.Parent.UIKit)
 
 local HaulShaft = {}
 
--- The deepest any signal can be buried: the top rarity at full jitter (DigService's
--- depth roll). The ruler reaches it, rounded up to a half metre so it ends on a tick.
-local MAX_DEPTH_STUDS = Tuning.DIG_DEPTH_BASE
-	+ (#Rarity.ORDER - 1) * Tuning.DIG_DEPTH_PER_RARITY
-	+ Tuning.DIG_DEPTH_JITTER
-HaulShaft.RULER_METRES = math.ceil(MAX_DEPTH_STUDS / Stages.STUDS_PER_METRE * 2) / 2
-
 -- ── Geometry, in design pixels ──────────────────────────────────────────────────
 -- Everything vertical is derived from the height build() is given; the width is the
 -- shaft's own and fixed, because the art across it (channel, magnet, ruler) is.
-local SKY_HEIGHT = 46 -- the surface line: the nuke's nose sits here at 0 m
-local FLOOR_MARGIN = 72 -- the nose at full ruler depth still leaves the whole nuke in view
+local SKY_HEIGHT = 46 -- the surface line: the nuke's nose sits here once it is up
+local FLOOR_MARGIN = 72 -- the nose's start line still leaves the whole nuke in view
+local SHAFT_WIDTH = 166
+HaulShaft.WIDTH = SHAFT_WIDTH -- the panel lays itself out around this
 local BANDS = 5
 local AXIS_X = 83 -- centre of the shaft channel, and of everything hung down it
 local CHANNEL_WIDTH = 42
@@ -61,7 +54,12 @@ local NUKE_SIZE = Vector2.new(40, 62)
 local MAGNET_TOP = 6
 local CABLE_TOP = 22 -- tucked under the magnet's bend, so the cable reads as tied on
 local TRAIL_PITCH = 9 -- one dot of the "where it has been" trail every this many px
-local RULER_MAJOR, RULER_MINOR = 18, 9 -- tick lengths, whole and half metres
+local RULER_MAJOR, RULER_MINOR = 18, 9 -- tick lengths: labelled, and in between
+-- A ruler shorter than this ticks every quarter metre rather than every half, so a
+-- shallow Common's shaft is not just two lines.
+local RULER_FINE_BELOW = 1.5
+-- A whole-metre label this close to the floor's own depth label is dropped, not stacked.
+local RULER_LABEL_GAP = 24
 
 -- ── Colour ──────────────────────────────────────────────────────────────────────
 local DARK = Color3.fromHex("120C08") -- what the soil darkens toward as it deepens
@@ -92,6 +90,8 @@ export type Shaft = {
 	pebbles: { { frame: Frame, light: boolean } },
 	seam: { Frame },
 	lip: { Frame },
+	ruler: Frame,
+	depth: number?,
 	trail: Frame,
 	cable: Frame,
 	nuke: Frame,
@@ -103,10 +103,7 @@ export type Shaft = {
 }
 
 export type Input = {
-	-- Metres still to come up. nil when the server has not sent a depth, and the nuke
-	-- falls back to climbing the full shaft on `progress` alone.
-	toGo: number?,
-	progress: number,
+	progress: number, -- 0 on the floor, 1 at the surface
 	strain: number, -- stages the soil outclasses the magnet (0 = rated)
 	kick: number, -- 0..1, the per-yank jolt
 	idle: boolean, -- no yank in the last moment: the soil is winning, judder harder
@@ -223,7 +220,7 @@ end
 --- Build the cut-away into `parent` at `position`, `width` fixed by the art and
 --- `height` whatever the panel has. Uncoloured until paint() and setAccent().
 function HaulShaft.build(parent: Instance, position: UDim2, height: number): Shaft
-	local width = 166
+	local width = SHAFT_WIDTH
 	local floorY = height - FLOOR_MARGIN
 	local root = Instance.new("Frame")
 	root.Name = "SoilShaft"
@@ -295,33 +292,14 @@ function HaulShaft.build(parent: Instance, position: UDim2, height: number): Sha
 		table.insert(lip, tuft)
 	end
 
-	-- The ruler down the right edge: a tick every half metre, labelled every whole one.
-	-- Metre m is where the nuke's NOSE sits with m metres still to come up.
-	for i = 0, HaulShaft.RULER_METRES * 2 do
-		local m = i / 2
-		local y = SKY_HEIGHT + (m / HaulShaft.RULER_METRES) * (floorY - SKY_HEIGHT)
-		local major = i % 2 == 0
-		local len = if major then RULER_MAJOR else RULER_MINOR
-		local tick = box(root, "Tick", width - len, y - 1, len, 2, WHITE, 12)
-		tick.BackgroundTransparency = if major then 0.2 else 0.45
-		if major then
-			local label = Instance.new("TextLabel")
-			label.Name = "TickLabel"
-			label.AnchorPoint = Vector2.new(1, 0.5)
-			label.Position = UDim2.fromOffset(width - len - 3, y)
-			label.Size = UDim2.fromOffset(40, 14)
-			label.BackgroundTransparency = 1
-			label.Font = UIKit.Font.title
-			label.TextSize = 11
-			label.TextColor3 = WHITE
-			label.TextTransparency = 0.15
-			label.TextStrokeTransparency = 0.35
-			label.TextXAlignment = Enum.TextXAlignment.Right
-			label.Text = `{m} m`
-			label.ZIndex = 12
-			label.Parent = root
-		end
-	end
+	-- The ruler down the right edge. Empty until setDepth(): its scale is the nuke's own
+	-- depth, so it is rebuilt per haul.
+	local ruler = Instance.new("Frame")
+	ruler.Name = "Ruler"
+	ruler.Size = UDim2.fromScale(1, 1)
+	ruler.BackgroundTransparency = 1
+	ruler.ZIndex = 12
+	ruler.Parent = root
 
 	-- The trail: a column of dots pinned to the shaft's floor, clipped to the stretch
 	-- below the nuke, so it shortens as the nuke climbs instead of the dots crawling.
@@ -355,6 +333,8 @@ function HaulShaft.build(parent: Instance, position: UDim2, height: number): Sha
 		pebbles = pebbles,
 		seam = seam,
 		lip = lip,
+		ruler = ruler,
+		depth = nil,
 		trail = trail,
 		cable = cable,
 		nuke = nuke,
@@ -411,6 +391,63 @@ function HaulShaft.paint(shaft: Shaft, stageId: number)
 	end
 end
 
+local function rulerLabel(parent: Instance, x: number, y: number, text: string, bright: boolean)
+	local label = Instance.new("TextLabel")
+	label.Name = "TickLabel"
+	label.AnchorPoint = Vector2.new(1, 0.5)
+	label.Position = UDim2.fromOffset(x, y)
+	label.Size = UDim2.fromOffset(48, 14)
+	label.BackgroundTransparency = 1
+	label.Font = UIKit.Font.title
+	label.TextSize = if bright then 13 else 11
+	label.TextColor3 = WHITE
+	label.TextTransparency = if bright then 0 else 0.15
+	label.TextStrokeTransparency = if bright then 0.1 else 0.35
+	label.TextXAlignment = Enum.TextXAlignment.Right
+	label.Text = text
+	label.ZIndex = 12
+	label.Parent = parent
+end
+
+--- Rescale the ruler to the nuke's burial depth in metres: the surface at the top,
+--- `metres` at the floor where every haul starts. A tick every half metre (quarter,
+--- on a shallow one), whole metres labelled, and the full depth labelled at the floor.
+--- nil (no depth from the server) leaves the ruler blank. A no-op for the depth it
+--- already shows, so it is safe to call on every state update.
+function HaulShaft.setDepth(shaft: Shaft, metres: number?)
+	if metres ~= nil and shaft.depth ~= nil and math.abs(metres - shaft.depth) < 0.005 then
+		return
+	end
+	if metres == nil and shaft.depth == nil then
+		return
+	end
+	shaft.depth = metres
+	local ruler = shaft.ruler
+	ruler:ClearAllChildren()
+	if metres == nil or metres <= 0 then
+		return
+	end
+
+	local width = SHAFT_WIDTH
+	local span = shaft.floorY - SKY_HEIGHT
+	local step = if metres < RULER_FINE_BELOW then 0.25 else 0.5
+	local m = 0
+	while m < metres - 1e-6 do
+		local y = SKY_HEIGHT + (m / metres) * span
+		local whole = math.abs(m - math.round(m)) < 1e-6
+		local len = if whole then RULER_MAJOR else RULER_MINOR
+		local tick = box(ruler, "Tick", width - len, y - 1, len, 2, WHITE, 12)
+		tick.BackgroundTransparency = if whole then 0.2 else 0.45
+		if whole and shaft.floorY - y >= RULER_LABEL_GAP then
+			rulerLabel(ruler, width - len - 3, y, `{math.round(m)} m`, false)
+		end
+		m += step
+	end
+	-- The floor: where this nuke started, and the one number the ruler exists to give.
+	box(ruler, "Tick", width - RULER_MAJOR, shaft.floorY - 1, RULER_MAJOR, 2, WHITE, 12)
+	rulerLabel(ruler, width - RULER_MAJOR - 3, shaft.floorY, string.format("%.1f m", metres), true)
+end
+
 --- The signal's colour on the nuke's band and glow. Cheap to call every tick.
 function HaulShaft.setAccent(shaft: Shaft, color: Color3)
 	if shaft.accent == color then
@@ -424,12 +461,7 @@ end
 
 --- Move the nuke to where the haul is, every frame.
 function HaulShaft.step(shaft: Shaft, input: Input)
-	local nose
-	if input.toGo then
-		nose = SKY_HEIGHT + math.clamp(input.toGo / HaulShaft.RULER_METRES, 0, 1) * (shaft.floorY - SKY_HEIGHT)
-	else
-		nose = shaft.floorY + (SKY_HEIGHT - shaft.floorY) * math.clamp(input.progress, 0, 1)
-	end
+	local nose = shaft.floorY + (SKY_HEIGHT - shaft.floorY) * math.clamp(input.progress, 0, 1)
 
 	-- The judder: the soil fighting an outclassed magnet (harder while it is winning),
 	-- plus a small jolt on each yank so the click lands on the nuke too.
