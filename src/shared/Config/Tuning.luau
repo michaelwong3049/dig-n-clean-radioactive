@@ -284,15 +284,21 @@ Tuning.AURA_CRACK_WIDTH = 0.45 -- a crack's width at its root, studs; it tapers 
 -- RAYS STAY SHORT. The spot hugs the ground so it can never be mistaken for PLAN 10.9's
 -- tall, steady "Legendary pulled" beacon; these are thin, last under a second, and top
 -- out around 4.5 studs (a bit more while you stand on the spot). Keep them that way.
+--
+-- COMMONS STILL PULSE PROPERLY (on request). A ray lives ~0.9s, so `rays` x 0.9 is
+-- about how many are up at once: ~2.5 on a Common, ~6 on an Anomaly. The ladder is kept
+-- flat on purpose -- the first cut ran 0.6 -> 3.4, which left a Common spot with a
+-- lone ray every couple of seconds and read as dead next to anything rarer. Rarity is
+-- already loud in the crack count and colour; the rays only have to lean with it.
 Tuning.AURA_CRACKS = {
-	Scrap = { count = 3, forks = false, rays = 0.5, rayHeight = 2.0 },
-	Common = { count = 3, forks = false, rays = 0.6, rayHeight = 2.2 },
-	Uncommon = { count = 4, forks = false, rays = 0.9, rayHeight = 2.6 },
-	Rare = { count = 5, forks = false, rays = 1.2, rayHeight = 3.0 },
-	Epic = { count = 6, forks = true, rays = 1.6, rayHeight = 3.4 },
-	Legendary = { count = 8, forks = true, rays = 2.1, rayHeight = 3.8 },
-	Mythic = { count = 10, forks = true, rays = 2.7, rayHeight = 4.2 },
-	Anomaly = { count = 12, forks = true, rays = 3.4, rayHeight = 4.6 },
+	Scrap = { count = 3, forks = false, rays = 2.6, rayHeight = 2.6 },
+	Common = { count = 3, forks = false, rays = 2.8, rayHeight = 2.8 },
+	Uncommon = { count = 4, forks = false, rays = 3.3, rayHeight = 3.0 },
+	Rare = { count = 5, forks = false, rays = 3.8, rayHeight = 3.3 },
+	Epic = { count = 6, forks = true, rays = 4.4, rayHeight = 3.6 },
+	Legendary = { count = 8, forks = true, rays = 5.1, rayHeight = 3.9 },
+	Mythic = { count = 10, forks = true, rays = 5.9, rayHeight = 4.2 },
+	Anomaly = { count = 12, forks = true, rays = 6.8, rayHeight = 4.6 },
 } :: { [string]: { count: number, forks: boolean, rays: number, rayHeight: number } }
 
 -- The range ring the detector draws on the ground around YOU. Client-side, so unlike

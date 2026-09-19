@@ -98,7 +98,7 @@ local RAY_RISE = 0.16 -- seconds to shoot up to full height (eased, so it pops)
 local RAY_FADE_FROM = 0.45 -- share of its life after which a ray starts thinning out
 local RAY_WIDTH = 0.45 -- studs across at the base; the top is 30% of that
 local RAY_BASE_Y = 0.25 -- rays start just above the glow strips
-local CLOSE_RAY_RATE = 2.5 -- standing on the spot: rays pop this much more often...
+local CLOSE_RAY_RATE = 1.8 -- standing on the spot: rays pop this much more often...
 local CLOSE_RAY_HEIGHT = 1.25 -- ...and this much taller
 -- Solid at the foot, gone at the tip. Kept solid most of the way up: the stage floors
 -- are bright, and a ray that starts see-through just vanishes into them.
