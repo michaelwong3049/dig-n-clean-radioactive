@@ -532,19 +532,28 @@ local function build(): ScreenGui
 	local haul = Instance.new("Frame")
 	haul.Name = "HaulPanel"
 	haul.Size = Dock.HAULPANEL_SIZE
-	-- LOW AND RIGHT, not bottom-centre: centred put this straight over the item climbing
-	-- out of the soil, which is the one thing a haul is for looking at. Anchor (1,1) so
-	-- the position places its bottom-RIGHT corner, which is what makes HAULPANEL_RIGHT
-	-- read as an inset from the screen edge -- see that constant for why it stops short
-	-- of the Index/Shop tiles, and for what happens on a viewport too narrow to dodge
-	-- centre at all.
-	haul.Position = UDim2.new(1, -Dock.HAULPANEL_RIGHT, 1, -Dock.HAULPANEL_BOTTOM)
-	haul.AnchorPoint = Vector2.new(1, 1)
+	haul.AnchorPoint = Vector2.new(0, 1)
 	haul.BackgroundTransparency = 1
 	haul.BorderSizePixel = 0
 	haul.Visible = false
 	haul.Parent = canvas
 	ui.haul = haul
+
+	-- LOW AND JUST RIGHT OF CENTRE. Not centred -- that put it straight over the item
+	-- climbing out of the soil, the one thing a haul is for looking at -- and not in the
+	-- far corner either, which put the reading a long way from where the player is
+	-- looking. Its left edge sits Dock.HAULPANEL_CENTRE_GAP right of screen centre; on a
+	-- screen too narrow for that it slides left only as far as it must to stop short of
+	-- the Index/Shop tiles (Dock.HAULPANEL_RIGHT). Re-placed on every canvas resize,
+	-- because the design width moves with both the window and the HUD scale.
+	local function placeHaul()
+		local width = canvas.AbsoluteSize.X / UIKit.canvasScale(canvas)
+		local nearCentre = width / 2 + Dock.HAULPANEL_CENTRE_GAP
+		local clearOfTiles = width - Dock.HAULPANEL_RIGHT - Dock.HAULPANEL_SIZE.X.Offset
+		haul.Position = UDim2.new(0, math.min(nearCentre, clearOfTiles), 1, -Dock.HAULPANEL_BOTTOM)
+	end
+	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(placeHaul)
+	placeHaul()
 
 	-- THE SOIL SHAFT: the picture of the haul. The nuke climbs it on the magnet's cable
 	-- from the floor to the grass, so how high it is IS the progress (HaulShaft's

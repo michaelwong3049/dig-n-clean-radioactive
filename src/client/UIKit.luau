@@ -406,7 +406,8 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- reason: the payoff of a haul is watching the thing rise out of the ground in front
 -- of your character. That happens at screen centre, so anything drawn there is drawn
 -- over the only part of the haul the player actually came for. It sits as LOW as it
--- can (HAULPANEL_BOTTOM) and as far to the RIGHT as it can (HAULPANEL_RIGHT).
+-- can (HAULPANEL_BOTTOM) and just right of centre (HAULPANEL_CENTRE_GAP), stopping
+-- short of the Index/Shop tiles on a narrow screen (HAULPANEL_RIGHT).
 --
 -- NAMED "PANEL" AND IT IS NOT ONE ANY MORE. There is no fill and no stroke behind the
 -- contents: this is the bounding box of a floating stack, not a slab. The 420x230 slab
@@ -423,8 +424,8 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- DetectorController's SHAFT_* / READOUT_* derive the whole interior from this one size.
 --
 -- 386x442, UP FROM 320x290, and the taller box is the price of the shaft. It is still
--- a floating stack with nothing drawn behind it, and it still keeps out of the middle:
--- see HAULPANEL_RIGHT for where it had to move to fit beside the Index/Shop tiles.
+-- a floating stack with nothing drawn behind it, and it still keeps off the middle:
+-- see HAULPANEL_CENTRE_GAP for where it sits and HAULPANEL_RIGHT for the tiles.
 --
 -- ITS BOX OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM). That is safe rather than
 -- lucky: DigService releases the lock the instant the bag fills (its RELEASE 3), and
@@ -530,33 +531,31 @@ Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 --
 -- This is a deliberate reversal of the old "clear the entire dock" placement
 -- (RESERVE + GAP). The widget now overlays the instrument band's vertical space — but
--- that band is the meter / cash / index column, which is LEFT-anchored, and
--- HAULPANEL_RIGHT below puts this hard right. Anchored off the hotbar rather than a
+-- that band is the meter / cash column, which is LEFT-anchored, and this sits right
+-- of centre (HAULPANEL_CENTRE_GAP below). Anchored off the hotbar rather than a
 -- screen fraction for the same reason everything else here is: a fraction that looked
 -- right at 1080p collided with the dock on shorter viewports.
 Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 
--- AND OFF TO THE RIGHT, which is what gets it off the surfacing item. It used to be
--- centred, which put the whole stack straight over the character and the thing
--- climbing out of the soil in front of them.
+-- AND JUST RIGHT OF CENTRE, on request. Its LEFT edge sits this far right of screen
+-- centre (DetectorController.placeHaul). Centred, the stack sat straight over the
+-- character and the thing climbing out of the soil in front of them; hard in the right
+-- corner, the reading was a long way from where the player is looking. This keeps it
+-- beside the action: the readout is right-aligned, so the visible text starts another
+-- ~50-90px further out, past a character that is only ~70px wide on screen.
+Dock.HAULPANEL_CENTRE_GAP = 100
+
+-- ...UNLESS THAT WOULD RUN IT UNDER THE INDEX/SHOP TILES. The shaft is 442 tall, which
+-- reaches up past the tiles hung on the right edge (Dock.SIDE_TOP_Y down), so on a
+-- screen too narrow to fit the panel between centre + CENTRE_GAP and the tile column,
+-- it slides left only as far as it must to stop one GAP short of that column. This is
+-- that clearance, as an inset from the right screen edge.
 --
--- RIGHT RATHER THAN LEFT because the meter / cash column owns the left side. NOT HARD
--- INTO THE CORNER any more: the soil shaft is 442 tall, which reaches up past the Index
--- and Shop tiles hung on the right edge (Dock.SIDE_TOP_Y down), so the widget stops one
--- GAP short of that tile column instead of running under it. The tiles stay usable and
--- visible mid-haul; the widget sits one tile further in.
---
--- Its LEFT edge then clears screen centre by ~140 design px on a 1280-wide canvas, and
--- by ~300 on the 1600 that GLOBAL_SCALE's 0.8 actually lays a 16:9 screen out at --
--- past a character that is only ~70px wide on screen. The readout text is
--- right-aligned, so on most rarities the first ~40px of that box are empty anyway.
---
--- THE COST OF THE WIDTH IS PAID ON NARROW VIEWPORTS, and it is worth stating plainly
--- rather than discovering: on a design width much under ~1100 (a 4:3 window, a phone
--- held upright) the box reaches centre and starts to overlap the surfacing item, and
--- further in it tucks behind the meter (DisplayOrder 100 against DetectorHud's 60).
--- The fix if it ever matters is a narrower widget under some width, not a different
--- anchor.
+-- THE COST IS PAID ON NARROW VIEWPORTS: once it has to slide, it slides toward centre,
+-- and on a design width much under ~1100 (a 4:3 window, a phone held upright) it starts
+-- to overlap the surfacing item; further in it tucks behind the meter (DisplayOrder 100
+-- against DetectorHud's 60). The fix if it ever matters is a narrower widget under some
+-- width, not a different anchor.
 Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SIDE_TILE_SIZE + Dock.GAP
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
