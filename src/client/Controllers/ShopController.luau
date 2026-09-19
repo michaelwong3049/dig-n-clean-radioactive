@@ -16,10 +16,11 @@ local Artwork = require(script.Parent.Parent.HudArtwork)
 
 local Shop = {}
 
--- Same numbers as IndexController's tile (TILE_SIZE / TILE_CAPTION_SIZE) — kept as
--- its own small copy rather than exported from there, same as this codebase's other
--- one-off dup helpers (see IndexController.formatValue).
-local TILE_SIZE = 80
+-- Same tile as IndexController's: the size is Dock's (the haul widget measures its
+-- clearance against it too); the caption size is a small copy rather than exported
+-- from there, same as this codebase's other one-off dup helpers (see
+-- IndexController.formatValue).
+local TILE_SIZE = Dock.SIDE_TILE_SIZE
 local TILE_CAPTION = "Shop"
 local TILE_CAPTION_SIZE = 18
 -- The cart picture's square box and its top inset. Bigger than the Index tile's book

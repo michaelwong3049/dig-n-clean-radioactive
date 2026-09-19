@@ -1005,6 +1005,11 @@ local function stepPlayer(player: Player, dt: number)
 		-- client draws a haul panel for a lock the server already dropped.
 		locked = lockedTo[player] ~= nil,
 		digProgress = digProgress[player] or 0,
+		-- How deep the locked signal is buried, in studs, while a haul is on. The haul
+		-- panel's soil shaft draws the nuke at depth * (1 - progress) and counts the
+		-- metres left out loud. Only while locked: the resting ground gives nothing away
+		-- the aura does not.
+		depth = if lockedTo[player] ~= nil then signal.depth else nil,
 		carrying = #data.carry,
 		capacity = stats.capacity,
 	})

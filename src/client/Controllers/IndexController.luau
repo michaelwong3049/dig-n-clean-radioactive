@@ -67,7 +67,7 @@ local Index = {}
 -- an 80px tile — the reference's own word ran the full width only because it was a
 -- long one ("Collection"). A much longer word wants a wider tile or a smaller size,
 -- not TextScaled.
-local TILE_SIZE = 80
+local TILE_SIZE = Dock.SIDE_TILE_SIZE
 local TILE_CAPTION = "Index"
 local TILE_CAPTION_SIZE = 18
 -- The book picture's square box and its top inset. It fills that box edge to edge, so
@@ -471,11 +471,10 @@ local function build(): (ScreenGui, ScreenGui)
 	buttonGui.ResetOnSpawn = false
 	buttonGui.IgnoreGuiInset = true
 	-- UNDER DetectorHud (60), where the old pill sat over everything at 90. The haul
-	-- widget shares this edge, and on a short screen — where the tile falls back to the
-	-- vertical centre (Dock.SIDE_TOP_MIN_HEIGHT) — its rarity word can still reach the
-	-- tile, as it could the pill; this way the word runs over the tile, not under it.
-	-- That widget is only up mid-haul, when it is the thing being read. Still over
-	-- StationHud (40), as the pill was.
+	-- widget no longer shares this edge (it stops short of the tile column, see
+	-- Dock.HAULPANEL_RIGHT), but if a narrow screen ever pushes the two together the
+	-- widget, which is only up mid-haul when it is the thing being read, still draws
+	-- over the tile rather than under it. Still over StationHud (40), as the pill was.
 	buttonGui.DisplayOrder = 55
 	buttonGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local buttonCanvas = UIKit.canvas(buttonGui)
