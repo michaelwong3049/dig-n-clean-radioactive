@@ -263,15 +263,31 @@ Tuning.PULL_YANK_BURST = 4 -- bucket capacity: an opening flurry, NOT a whole it
 -- hardcoded copies of a tag string is how one of them quietly becomes "SignalAuras".
 Tuning.AURA_TAG = "SignalAura"
 Tuning.AURA_FOLDER = "SignalAuras"
--- The aura is a PULSING WELL OF LIGHT now, not a pillar (on request). Low and wide:
--- a bright disc set into the ground with a soft dome over it, and ripple rings the
--- client sends expanding outward from it. The old tall thin pillar was too close to
--- PLAN 10.9's server-wide "Legendary pulled" beacon; a ground-hugging well cannot be
--- mistaken for it at any distance.
-Tuning.AURA_RING = 2.4 -- the well's bright core disc, diameter in studs -- the spot to stand on
-Tuning.AURA_DOME = 3.2 -- the soft light dome over the well, diameter -- a touch wider than the core
-Tuning.AURA_PULSE_REACH = 5.0 -- how far the ripple rings travel out (== DIG_RADIUS, so the widest ripple shows the pickup range)
-Tuning.AURA_PULSE_HZ = 0.8 -- client-side ripple rate, cosmetic only (was the pillar's breathe rate)
+-- The aura is a STARBURST OF GLOWING CRACKS now (on request; it was a pulsing well
+-- with a dome and ripple rings, and before that a pillar). Flat on the ground: a hot
+-- spot where the cracks meet, dark jagged cracks running out from it, and light
+-- pulsing out along them to the tips. It hugs the ground on purpose -- the tall thin
+-- pillar was too close to PLAN 10.9's server-wide "Legendary pulled" beacon.
+--
+-- All three sizes are at WellScale 1 and multiply by Config/Weight.auraScale
+-- (0.75..2.40): a heavy find's cracks run ~5 studs, about DIG_RADIUS.
+Tuning.AURA_CORE = 0.7 -- the hot spot where the cracks meet, diameter in studs -- the spot to stand on
+Tuning.AURA_CRACK_LENGTH = 2.2 -- how far a crack runs out from the centre, studs (each one varies 0.7..1.2x)
+Tuning.AURA_CRACK_WIDTH = 0.4 -- a crack's width at its root, studs; it tapers to ~30% at the tip
+
+-- "More lines of light for rarer finds." How many cracks split out of the spot, and
+-- whether they fork, by the reading's rarity. Per-PLAYER, like the tint: the aura is
+-- shared but the roll under it is not, so client/SpotCracks builds these locally.
+Tuning.AURA_CRACKS = {
+	Scrap = { count = 3, forks = false },
+	Common = { count = 3, forks = false },
+	Uncommon = { count = 4, forks = false },
+	Rare = { count = 5, forks = false },
+	Epic = { count = 6, forks = true },
+	Legendary = { count = 8, forks = true },
+	Mythic = { count = 10, forks = true },
+	Anomaly = { count = 12, forks = true },
+} :: { [string]: { count: number, forks: boolean } }
 
 -- The range ring the detector draws on the ground around YOU. Client-side, so unlike
 -- the auras it is yours alone — it answers "what am I actually sweeping right now",

@@ -168,7 +168,7 @@ type Signal = {
 	modifier: string,
 	depth: number,
 	soil: number,
-	-- The DEFAULT item's physical weight (Config/Weight). Sizes the shared aura well
+	-- The DEFAULT item's physical weight (Config/Weight). Sizes the shared aura
 	-- (reconcileAuras) -- shared because the well is one part; a lucky re-roll to a
 	-- heavier item is not reflected in the glow, the same tradeoff the shared aura
 	-- already makes for rarity. The PULL, by contrast, reads the per-player item's
@@ -246,11 +246,11 @@ local function reconcileAuras()
 
 	for uid, signal in revealed do
 		if auras[uid] == nil then
-			-- Heavier buried thing, wider glow. Core + dome scale; the ripple REACH does
-			-- not -- it encodes Tuning.DIG_RADIUS (the pickup range), which weight never
-			-- moves. Off the signal's DEFAULT weight: the well is one shared part.
-			local s = Weight.auraScale(signal.weight)
-			local model = SignalAura.create(signal.position, Tuning.AURA_RING * s, Tuning.AURA_DOME * s, Tuning.AURA_PULSE_REACH)
+			-- Heavier buried thing, bigger glow: the hot spot here, and the length and
+			-- width of the cracks the client lays around it (client/SpotCracks, off the
+			-- stamped WellScale). Off the signal's DEFAULT weight: the aura is one
+			-- shared part.
+			local model = SignalAura.create(signal.position, Weight.auraScale(signal.weight))
 			model.Parent = folder
 			auras[uid] = model
 		end

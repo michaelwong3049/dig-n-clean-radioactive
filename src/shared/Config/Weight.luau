@@ -11,7 +11,7 @@
 	precious, a Steel Rod is heavy and worthless. Five things read the mass:
 
 	  sizeScale   the hauled / displayed model is :ScaleTo'd by this
-	  auraScale   the buried signal's glow well (core + dome) is this much wider
+	  auraScale   the buried signal's glowing cracks run this much longer and wider
 	  pullFactor  the mash takes this much longer (depth * this), never a hard gate
 	  valueMult   sale value and $/sec are multiplied by this, layered like a modifier
 	  rollBias    the dig-roll weight is multiplied by this (<= 1): a U-shape that
@@ -72,8 +72,9 @@ function Weight.sizeScale(kg: number): number
 	return lerp(0.55, 3.00, Weight.norm(kg))
 end
 
---- How much wider the buried signal's glow well reads (core disc + dome). NOT the
---- pickup radius — that stays Tuning.DIG_RADIUS. Purely "big thing, big glow".
+--- How much bigger the buried signal's aura reads (the hot spot, and the cracks'
+--- length and width). NOT the pickup radius — that stays Tuning.DIG_RADIUS. Purely
+--- "big thing, big glow".
 function Weight.auraScale(kg: number): number
 	return lerp(0.75, 2.40, Weight.norm(kg))
 end
