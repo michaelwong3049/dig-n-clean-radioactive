@@ -118,8 +118,8 @@ Items.DEFS = {
 	},
 	{
 		id = "glass_pebble",
-		name = "Pebble Nuke",
-		flavor = "Melted down to the size of a marble.",
+		name = "Marble Nuke",
+		flavor = "Melted down and rolled smooth.",
 		rarity = "Common",
 		odds = 8, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
@@ -191,7 +191,7 @@ Items.DEFS = {
 	-- clean and sell a rigged Uncommon 90 seconds in. Flagged, not silently patched.
 	{
 		id = "tin_soldier",
-		name = "Soldier Nuke",
+		name = "Tin Nuke",
 		flavor = "Stands at attention. Paint chipped, never armed.",
 		rarity = "Uncommon",
 		odds = 45, -- 1 in N per dig in a stocking stage
@@ -245,7 +245,7 @@ Items.DEFS = {
 	},
 	{
 		id = "film_canister",
-		name = "Canister Nuke",
+		name = "Exposed Nuke",
 		flavor = "Thirty-six photos in here. Nobody's developed them.",
 		rarity = "Rare",
 		odds = 260, -- 1 in N per dig in a stocking stage
@@ -260,7 +260,7 @@ Items.DEFS = {
 	-- ── Epic ── $4.7k-27k ─────────────────────────────────────────────────
 	{
 		id = "sample_case",
-		name = "Vial Nuke",
+		name = "Strapped Nuke",
 		flavor = "Six glass vials strapped on. One glows on its own.",
 		rarity = "Epic",
 		odds = 1200, -- 1 in N per dig in a stocking stage
@@ -305,7 +305,7 @@ Items.DEFS = {
 	},
 	{
 		id = "door_hinge",
-		name = "Squeaky Nuke",
+		name = "Creaky Nuke",
 		flavor = "The casing still swings open with a creak.",
 		rarity = "Common",
 		odds = 7, -- 1 in N per dig in a stocking stage
@@ -331,7 +331,7 @@ Items.DEFS = {
 	},
 	{
 		id = "garden_trowel",
-		name = "Half-Dug Nuke",
+		name = "Abandoned Nuke",
 		flavor = "Someone started digging this up and gave up.",
 		rarity = "Common",
 		odds = 13, -- 1 in N per dig in a stocking stage
@@ -357,7 +357,7 @@ Items.DEFS = {
 	},
 	{
 		id = "charm_bracelet",
-		name = "Charm Nuke",
+		name = "Trinket Nuke",
 		flavor = "Eleven tiny charms dangling off a live-looking casing.",
 		rarity = "Uncommon",
 		odds = 45, -- 1 in N per dig in a stocking stage
@@ -370,7 +370,7 @@ Items.DEFS = {
 	},
 	{
 		id = "socket_set",
-		name = "Toolbox Nuke",
+		name = "Socketed Nuke",
 		flavor = "Every socket still in its slot, oddly tidy.",
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
@@ -383,7 +383,7 @@ Items.DEFS = {
 	},
 	{
 		id = "photo_locket",
-		name = "Locket Nuke",
+		name = "Keepsake Nuke",
 		flavor = "Opens up to two tiny photographs.",
 		rarity = "Uncommon",
 		odds = 70, -- 1 in N per dig in a stocking stage
@@ -481,8 +481,8 @@ Items.DEFS = {
 	},
 	{
 		id = "gate_latch",
-		name = "Junkyard Nuke",
-		flavor = "Snapped clean off whatever it used to arm.",
+		name = "Snapped Nuke",
+		flavor = "Torn clean off whatever it used to arm.",
 		rarity = "Common",
 		odds = 10, -- 1 in N per dig in a stocking stage
 		weight = 0.8,
@@ -507,7 +507,7 @@ Items.DEFS = {
 	},
 	{
 		id = "first_aid_tin",
-		name = "Sealed Nuke",
+		name = "Airtight Nuke",
 		flavor = "A little dented, but still sealed tight.",
 		rarity = "Uncommon",
 		odds = 40, -- 1 in N per dig in a stocking stage
@@ -559,7 +559,7 @@ Items.DEFS = {
 	},
 	{
 		id = "gold_signet",
-		name = "Signet Nuke",
+		name = "Gilded Nuke",
 		flavor = "Gold doesn't care what it's welded to.",
 		rarity = "Rare",
 		odds = 300, -- 1 in N per dig in a stocking stage
@@ -572,7 +572,7 @@ Items.DEFS = {
 	},
 	{
 		id = "radiation_badge",
-		name = "Badge Nuke",
+		name = "Telltale Nuke",
 		flavor = "Changes color the longer it sits out here.",
 		rarity = "Rare",
 		odds = 220, -- 1 in N per dig in a stocking stage
@@ -585,7 +585,7 @@ Items.DEFS = {
 	},
 	{
 		id = "buried_coin_jar",
-		name = "Jarred Nuke",
+		name = "Bottled Nuke",
 		flavor = "Packed in a glass jar like loose change.",
 		rarity = "Rare",
 		odds = 280, -- 1 in N per dig in a stocking stage
@@ -624,8 +624,8 @@ Items.DEFS = {
 	},
 	{
 		id = "rusted_farm_safe",
-		name = "Chest Nuke",
-		flavor = "Buried under the old farmhouse. Somebody hid this well.",
+		name = "Buried Nuke",
+		flavor = "Under the old farmhouse. Somebody hid this well.",
 		rarity = "Legendary",
 		odds = 4000, -- 1 in N per dig in a stocking stage
 		weight = 220,
@@ -702,8 +702,8 @@ Items.DEFS = {
 	},
 	{
 		id = "shiny_metal_blade",
-		name = "Shiny Nuke",
-		flavor = "Polished casing, curved like it was cutting something once.",
+		name = "Polished Nuke",
+		flavor = "Mirror-bright, curved like it was cutting something once.",
 		rarity = "Common",
 		odds = 9, -- 1 in N per dig in a stocking stage
 		weight = 1.5,
@@ -715,8 +715,8 @@ Items.DEFS = {
 	},
 	{
 		id = "rad_warning_placard",
-		name = "Warning Nuke",
-		flavor = "The label's brighter than the actual danger.",
+		name = "Labelled Nuke",
+		flavor = "The markings are brighter than the actual danger.",
 		rarity = "Common",
 		odds = 12, -- 1 in N per dig in a stocking stage
 		weight = 2,
@@ -754,7 +754,7 @@ Items.DEFS = {
 	},
 	{
 		id = "cooling_valve_wheel",
-		name = "Valve Nuke",
+		name = "Seized Nuke",
 		flavor = "A big wheel that won't turn any more.",
 		rarity = "Uncommon",
 		odds = 65, -- 1 in N per dig in a stocking stage
@@ -806,7 +806,7 @@ Items.DEFS = {
 	},
 	{
 		id = "sealed_fuel_casing",
-		name = "Fuel Nuke",
+		name = "Drained Nuke",
 		flavor = "Empty now, but it used to hold something that glowed.",
 		rarity = "Epic",
 		odds = 1800, -- 1 in N per dig in a stocking stage
@@ -877,7 +877,7 @@ Items.DEFS = {
 	},
 	{
 		id = "sealed_air_filter",
-		name = "Filtered Nuke",
+		name = "Unopened Nuke",
 		flavor = "Still wrapped, still sealed, still waiting.",
 		rarity = "Uncommon",
 		odds = 35, -- 1 in N per dig in a stocking stage
@@ -890,7 +890,7 @@ Items.DEFS = {
 	},
 	{
 		id = "bent_door_wheel",
-		name = "Bent Nuke",
+		name = "Warped Nuke",
 		flavor = "Spun the wrong way, hard.",
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
@@ -968,7 +968,7 @@ Items.DEFS = {
 	},
 	{
 		id = "explorers_helmet",
-		name = "Charted Nuke",
+		name = "Pioneer Nuke",
 		flavor = "Carried by whoever mapped this place first.",
 		rarity = "Legendary",
 		odds = 7000, -- 1 in N per dig in a stocking stage
