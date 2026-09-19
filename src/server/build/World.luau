@@ -45,6 +45,7 @@ local StageFields = require(script.Parent.StageFields)
 local Shops = require(script.Parent.Shops)
 local Plots = require(script.Parent.Plots)
 local Scenery = require(script.Parent.Scenery)
+local GearTierShowcase = require(script.Parent.GearTierShowcase)
 local Daylight = require(script.Parent.Daylight)
 
 local World = {}
@@ -65,6 +66,7 @@ function World.rebuild()
 	Shops.rebuild()
 	Plots.rebuild()
 	Scenery.rebuild()
+	GearTierShowcase.rebuild()
 	Daylight.apply()
 
 	local elapsed = (os.clock() - started) * 1000
