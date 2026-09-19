@@ -32,8 +32,9 @@
 	is the shared anchor: the hot spot where the cracks meet (Core), the
 	low PointLight in it, and the motes rising out of it. Still low and flat, still
 	nothing like PLAN §10.9's tall rarity-coloured "somebody pulled a Legendary" beacon.
-	The client's rays are the one thing that rises, and they are thin, gone in under a
-	second, and capped at a few studs (Tuning.AURA_CRACKS). Do not grow this one upward.
+	The one thing that rises is the client's fan of blinking rays (~6-9 studs, on
+	request; see Tuning.AURA_CRACKS for why that is allowed and how the beacon must stay
+	different). Do not grow anything ELSE on the spot upward.
 
 	The client OWNS how it looks (the cracks, their pulse, the rarity tint) but never
 	where it is or whether it exists — see FieldController's header.
@@ -57,8 +58,8 @@ SignalAura.FOLDER = Tuning.AURA_FOLDER
 
 -- Instrument cyan, deliberately NOT the green of the sludge and the pools. An aura is
 -- the detector talking to you, not the ground being dangerous, and the two readings
--- have to stay separable at a glance. The client hides the core until it has a rarity
--- and then re-tints it, so in practice this only shows for a frame, if at all.
+-- have to stay separable at a glance. In practice nobody sees it: the aura ships DARK
+-- (below) and the client re-tints the core to its own rarity as it fades it in.
 local GLOW = Color3.fromHex("2E9FD8")
 
 -- The hot spot sits a hair proud of the surface and higher than anything
@@ -97,10 +98,15 @@ function SignalAura.create(surface: Vector3, scale: number): Model
 	core.Locked = true
 	core.Material = Enum.Material.SmoothPlastic
 	core.Color = GLOW
+	-- SHIPS DARK: core hidden, light off, no motes. FieldController fades all three in
+	-- once this client has a rarity for the spot. Shipped lit, the raw cyan core showed
+	-- for the frame between the aura replicating and the client first hiding it -- a
+	-- one-frame pop, exactly the kind of snap the reveal is built to avoid.
+	core.Transparency = 1
 	core.Parent = model
 
 	-- A slow curl of motes rising out of the core, so an idle spot still has life.
-	-- Low rate on purpose: FieldController raises it with rarity.
+	-- FieldController sets the rate by rarity.
 	local motes = Instance.new("ParticleEmitter")
 	motes.Color = ColorSequence.new(GLOW)
 	motes.LightEmission = 1
@@ -113,7 +119,7 @@ function SignalAura.create(surface: Vector3, scale: number): Model
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	motes.Lifetime = NumberRange.new(0.9, 1.6)
-	motes.Rate = 4
+	motes.Rate = 0 -- ships dark; see the core
 	motes.Speed = NumberRange.new(1, 2.2)
 	motes.SpreadAngle = Vector2.new(14, 14)
 	-- The core is a cylinder stood flat, so its LOCAL +X is world up. Emit along it
@@ -124,12 +130,12 @@ function SignalAura.create(surface: Vector3, scale: number): Model
 	-- Nothing in the world is Neon since the de-neon pass, so this is what makes the
 	-- spot read as light rather than as paint on the ground. Kept (a locator light is
 	-- not a "glowing surface"), but low — it marks the spot without lighting up the
-	-- field around it. If spots ever get hard to find at camera distance, this
-	-- brightness is the knob; do NOT make the cracks Neon.
+	-- field around it. Its brightness is FieldController's (by rarity); if spots ever
+	-- get hard to find at camera distance, that is the knob. Do NOT make the cracks Neon.
 	local light = Instance.new("PointLight")
 	light.Color = GLOW
 	light.Range = 10
-	light.Brightness = 0.55
+	light.Brightness = 0 -- ships dark; see the core
 	light.Shadows = false
 	light.Parent = core
 

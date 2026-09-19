@@ -276,29 +276,31 @@ Tuning.AURA_CRACK_LENGTH = 3.1 -- a crack's length ALONG its jagged path, studs 
 Tuning.AURA_CRACK_WIDTH = 0.45 -- a crack's width at its root, studs; it tapers to ~15% at the tip
 
 -- "More lines of light for rarer finds." By the reading's rarity: how many cracks split
--- out of the spot and whether they fork, and how often (`rays`, pops per second) and
--- how high (`rayHeight`, studs) the rarity-coloured rays pop up out of them.
--- Per-PLAYER, like the tint: the aura is shared but the roll under it is not, so
--- client/SpotCracks builds all of this locally.
+-- out of the spot and whether they fork, and how many rarity-coloured rays stand up out
+-- of it (`rays`) and how tall (`rayHeight`, studs). Per-PLAYER, like the tint: the aura
+-- is shared but the roll under it is not, so client/SpotCracks builds all of this
+-- locally.
 --
--- RAYS STAY SHORT. The spot hugs the ground so it can never be mistaken for PLAN 10.9's
--- tall, steady "Legendary pulled" beacon; these are thin, last under a second, and top
--- out around 4.5 studs (a bit more while you stand on the spot). Keep them that way.
+-- THE RAYS ARE A FIXED FAN THAT BLINKS (on request, after a version where they popped
+-- up at random read as noise): always out, narrow at the ground and wide at the top,
+-- each ray fading in and out on its own beat. Commons get a real fan too -- the ladder
+-- is kept flat on purpose (5 rays -> 10); rarity is already loud in the crack count
+-- and the colour, the rays only have to lean with it.
 --
--- COMMONS STILL PULSE PROPERLY (on request). A ray lives ~0.9s, so `rays` x 0.9 is
--- about how many are up at once: ~2.5 on a Common, ~6 on an Anomaly. The ladder is kept
--- flat on purpose -- the first cut ran 0.6 -> 3.4, which left a Common spot with a
--- lone ray every couple of seconds and read as dead next to anything rarer. Rarity is
--- already loud in the crack count and colour; the rays only have to lean with it.
+-- They stand ~6-9 studs, which does break the old "the spot hugs the ground" rule --
+-- on request. That rule existed so a spot could never be mistaken for PLAN 10.9's
+-- server-wide "Legendary pulled" beacon, which is not built yet. When it is, keep it a
+-- single steady pillar, well taller than this, so a blinking fan and a beacon stay two
+-- different things at a glance.
 Tuning.AURA_CRACKS = {
-	Scrap = { count = 3, forks = false, rays = 2.6, rayHeight = 2.6 },
-	Common = { count = 3, forks = false, rays = 2.8, rayHeight = 2.8 },
-	Uncommon = { count = 4, forks = false, rays = 3.3, rayHeight = 3.0 },
-	Rare = { count = 5, forks = false, rays = 3.8, rayHeight = 3.3 },
-	Epic = { count = 6, forks = true, rays = 4.4, rayHeight = 3.6 },
-	Legendary = { count = 8, forks = true, rays = 5.1, rayHeight = 3.9 },
-	Mythic = { count = 10, forks = true, rays = 5.9, rayHeight = 4.2 },
-	Anomaly = { count = 12, forks = true, rays = 6.8, rayHeight = 4.6 },
+	Scrap = { count = 3, forks = false, rays = 5, rayHeight = 6.0 },
+	Common = { count = 3, forks = false, rays = 5, rayHeight = 6.0 },
+	Uncommon = { count = 4, forks = false, rays = 6, rayHeight = 6.5 },
+	Rare = { count = 5, forks = false, rays = 6, rayHeight = 7.0 },
+	Epic = { count = 6, forks = true, rays = 7, rayHeight = 7.5 },
+	Legendary = { count = 8, forks = true, rays = 8, rayHeight = 8.0 },
+	Mythic = { count = 10, forks = true, rays = 9, rayHeight = 8.5 },
+	Anomaly = { count = 12, forks = true, rays = 10, rayHeight = 9.0 },
 } :: { [string]: { count: number, forks: boolean, rays: number, rayHeight: number } }
 
 -- The range ring the detector draws on the ground around YOU. Client-side, so unlike

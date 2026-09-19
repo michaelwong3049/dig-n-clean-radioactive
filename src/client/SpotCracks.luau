@@ -16,9 +16,9 @@
 	Everything is matte (the de-neon rule, build/SignalAura) — each crack is a dark
 	gash with a thinner rarity-coloured strip down the middle, and the "light" is that
 	strip's colour swinging from dim to bright as a pulse runs out to the tips. On top
-	of that, short rarity-coloured rays (Beams, the one non-matte thing here, like the
-	motes) keep popping up out of the lit cracks. The aura's own PointLight and motes
-	do the rest.
+	of that, a fixed fan of rarity-coloured rays (Beams, the one non-matte thing here,
+	like the motes) stands up out of the centre, each ray blinking on its own beat. The
+	aura's own PointLight and motes do the rest.
 
 	This module only builds parts and recolours them. FieldController decides when a
 	burst exists (a rarity has landed for the aura), when it goes (the aura does), and
@@ -41,15 +41,22 @@ type Segment = {
 	level: number,
 }
 
--- One pooled ray. `born` is the os.clock() it popped, nil while it sits idle (and its
--- beam disabled) waiting to be reused.
+-- One ray of the fan. Once grown it stays put for the burst's life; only how lit it is
+-- changes.
 type Ray = {
 	beam: Beam,
-	base: Attachment,
-	top: Attachment,
-	born: number?,
-	height: number,
-	width: number,
+	-- Its tip, and where the tip ends up relative to the shared foot: the ray grows up
+	-- out of the ground by sliding the tip out along `reach` when the spot appears.
+	tip: Attachment,
+	reach: Vector3,
+	-- Seconds after the spot appears before this ray starts growing, so the fan comes
+	-- up one ray after another rather than all in the same frame.
+	delay: number,
+	grown: boolean,
+	-- Its own offset into the breathe, so the fan shimmers instead of pulsing as one.
+	phase: number,
+	-- The last lit level written (see RAY_LEVELS), to skip no-op property writes.
+	level: number,
 }
 
 export type Burst = {
@@ -58,13 +65,12 @@ export type Burst = {
 	dim: Color3,
 	bright: Color3,
 	rays: { Ray },
-	-- Anchor-local points on the lit strips a ray can pop up from.
-	sources: { Vector3 },
-	rayRate: number,
-	rayHeight: number,
-	-- Fractional pops owed, so a rate below the frame rate still comes out even.
-	owed: number,
+	-- os.clock() of the first frame this burst was stepped: the reveal counts from it.
+	born: number?,
 	last: number?,
+	-- 0..1, eased toward 1 while the player stands on the spot and back to 0 after, so
+	-- stepping on and off blends into the flare instead of switching to it.
+	onIt: number,
 }
 
 local GASH = Color3.fromHex("241A10")
@@ -89,24 +95,41 @@ local HAIRLINE_CHANCE = 0.8 -- per crack, any rarity: a short thin unlit split o
 local GLOW_SHARE = 0.45 -- glow strip width as a share of the gash's
 local LEVELS = 24 -- brightness quantisation; see Segment.level
 
--- The rays: thin rarity-coloured beams that pop up out of the lit cracks, stand for a
--- beat and thin away (rate and height per rarity: Tuning.AURA_CRACKS). Beams, not
--- parts: a Beam faces the camera and fades along its length, which is what makes a
--- ray read as light rather than as a stick standing in the dirt.
-local RAY_LIFE = 0.9 -- seconds from pop to gone
-local RAY_RISE = 0.16 -- seconds to shoot up to full height (eased, so it pops)
-local RAY_FADE_FROM = 0.45 -- share of its life after which a ray starts thinning out
-local RAY_WIDTH = 0.45 -- studs across at the base; the top is 30% of that
-local RAY_BASE_Y = 0.25 -- rays start just above the glow strips
-local CLOSE_RAY_RATE = 1.8 -- standing on the spot: rays pop this much more often...
-local CLOSE_RAY_HEIGHT = 1.25 -- ...and this much taller
--- Solid at the foot, gone at the tip. Kept solid most of the way up: the stage floors
--- are bright, and a ray that starts see-through just vanishes into them.
-local RAY_TRANSPARENCY = NumberSequence.new({
-	NumberSequenceKeypoint.new(0, 0),
-	NumberSequenceKeypoint.new(0.6, 0.2),
-	NumberSequenceKeypoint.new(1, 1),
-})
+-- The rays: a fixed fan of rarity-coloured beams standing up out of the centre of the
+-- spot (how many and how tall per rarity: Tuning.AURA_CRACKS), always out, each
+-- blinking on its own beat. Narrow at the ground, wide and faded at the top, like light
+-- spilling up out of the hole. Beams, not parts: a Beam faces the camera and fades
+-- along its length, which is what makes a ray read as light rather than as a stick.
+local RAY_TILT_MIN = math.rad(4) -- how far off vertical a ray leans, least...
+local RAY_TILT_MAX = math.rad(20) -- ...and most, so the set fans out
+local RAY_FOOT = 0.3 -- studs across where a ray leaves the ground
+local RAY_SPREAD = 1.5 -- studs across at the top (each ray varies 0.7..1.3x)
+local RAY_BASE_Y = 0.25 -- rays leave from just above the hot spot
+local RAY_DIM = 0.35 -- how lit a ray still is at the bottom of its breathe (0 = gone)
+local RAY_LEVELS = 32 -- lit quantisation: one cached NumberSequence per level. 12 read as visible steps
+local RAY_GROW = 0.9 -- seconds for one ray to grow up out of the ground
+local RAY_STAGGER = 0.6 -- the last ray starts growing up to this long after the first
+
+-- NOTHING SNAPS (on request: the first fan popped in at full strength and blinked
+-- up hard, which read as sudden and awkward). A spot's cracks, core and light fade in
+-- over REVEAL; its rays grow up one after another, fading in as they rise; each ray
+-- then breathes on a slow plain sine, not a sharpened flash; and standing on or off the
+-- spot eases into and out of the flare over ~1/ON_IT_EASE seconds.
+local REVEAL = 0.6 -- seconds for the cracks' glow (and FieldController's core + light) to fade in
+local ON_IT_EASE = 5 -- rate the standing-on-it flare eases in and out (1/s)
+
+-- The lit level is a Transparency change, and a NumberSequence is an allocation, so
+-- every level is built once here and a ray only swaps between them. Lit 1: solid at the
+-- foot, gone at the tip. Lit 0: gone everywhere.
+local RAY_SEQUENCES: { NumberSequence } = {}
+for level = 0, RAY_LEVELS do
+	local lit = level / RAY_LEVELS
+	RAY_SEQUENCES[level + 1] = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1 - lit),
+		NumberSequenceKeypoint.new(0.5, 1 - lit * 0.6),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+end
 
 -- Heights above the surface. Everything has to clear Stage 1's opaque ground skim
 -- (0.06, build/Scenery GROUND_SKIM) and OozePool's rim (0.14) or the cracks vanish on
@@ -233,11 +256,9 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 		dim = hue:Lerp(GASH, 0.55),
 		bright = hue:Lerp(Color3.new(1, 1, 1), 0.3),
 		rays = {},
-		sources = {},
-		rayRate = row.rays,
-		rayHeight = row.rayHeight,
-		owed = 0,
+		born = nil,
 		last = nil,
+		onIt = 0,
 	}
 
 	for _, path in paths do
@@ -263,108 +284,130 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 					reach = ((p0 + p1) / 2).Magnitude,
 					level = -1,
 				})
-				table.insert(burst.sources, Vector3.new((p0.X + p1.X) / 2 * scale, 0, (p0.Y + p1.Y) / 2 * scale))
 			end
 		end
 	end
 
-	-- The rays hang off one invisible anchor at the surface point, so a source offset
-	-- IS an attachment position. Pooled: enough beams for the busiest this rarity gets
-	-- (standing on it), reused as they fade, never created mid-frame.
+	-- The fan hangs off one invisible anchor at the surface point, every ray sharing
+	-- one foot attachment. Seeded like the cracks (its own stream off the same seed),
+	-- so it keeps its shape across a rebuild too.
 	local anchor = flatPart("RayAnchor", GASH)
 	anchor.Transparency = 1
 	anchor.Size = Vector3.one * 0.2
 	anchor.CFrame = CFrame.new(surface)
 	anchor.Parent = model
 
-	-- Mostly the rarity hue, only a touch of white at the foot: the rays ARE the colour
-	-- reading, and full additive glow on a bright floor washes a hue out to white.
-	local rayColor = ColorSequence.new(hue:Lerp(Color3.new(1, 1, 1), 0.15), hue)
-	local pool = math.ceil(row.rays * CLOSE_RAY_RATE * RAY_LIFE) + 1
-	for _ = 1, pool do
-		local base = Instance.new("Attachment")
-		base.Parent = anchor
-		local top = Instance.new("Attachment")
-		top.Parent = anchor
+	local foot = Instance.new("Attachment")
+	foot.Position = Vector3.new(0, RAY_BASE_Y, 0)
+	foot.Parent = anchor
+
+	local rng = Random.new(seedFor(surface) + 1)
+	-- The rarity hue at the foot, paling toward the tip.
+	local rayColor = ColorSequence.new(hue, hue:Lerp(Color3.new(1, 1, 1), 0.55))
+	local spin = rng:NextNumber() * 2 * math.pi
+	for i = 1, row.rays do
+		local around = spin + (i - 1) / row.rays * 2 * math.pi + (rng:NextNumber() - 0.5) * 0.6
+		local tilt = RAY_TILT_MIN + rng:NextNumber() * (RAY_TILT_MAX - RAY_TILT_MIN)
+		local height = row.rayHeight * (0.8 + rng:NextNumber() * 0.4)
+		local lean = Vector3.new(math.sin(tilt) * math.cos(around), math.cos(tilt), math.sin(tilt) * math.sin(around))
+
+		-- Starts collapsed onto the foot; stepRays grows it out to `lean * height`.
+		local tip = Instance.new("Attachment")
+		tip.Position = foot.Position
+		tip.Parent = anchor
 
 		local beam = Instance.new("Beam")
-		beam.Attachment0 = base
-		beam.Attachment1 = top
+		beam.Attachment0 = foot
+		beam.Attachment1 = tip
 		beam.FaceCamera = true
 		beam.Segments = 1
+		beam.Width0 = RAY_FOOT
+		beam.Width1 = RAY_SPREAD * (0.7 + rng:NextNumber() * 0.6)
 		beam.Color = rayColor
-		beam.Transparency = RAY_TRANSPARENCY
+		beam.Transparency = RAY_SEQUENCES[1]
 		beam.LightEmission = 0.6
 		beam.LightInfluence = 0
 		beam.Brightness = 3
-		beam.Enabled = false
 		beam.Parent = anchor
 
-		table.insert(burst.rays, { beam = beam, base = base, top = top, born = nil, height = 0, width = 0 })
+		table.insert(burst.rays, {
+			beam = beam,
+			tip = tip,
+			reach = lean * height,
+			delay = rng:NextNumber() * RAY_STAGGER,
+			grown = false,
+			phase = rng:NextNumber() * 2 * math.pi,
+			level = -1,
+		})
 	end
 
 	model.Parent = folder
 	return burst
 end
 
---- Pop new rays as they come due and move the live ones through their life: shoot up,
---- hold, thin away. Standing on the spot pops them faster and taller.
-local function stepRays(burst: Burst, now: number, close: boolean)
-	local dt = if burst.last then math.min(now - burst.last, 0.1) else 0
-	burst.last = now
+local function smooth(x: number): number
+	x = math.clamp(x, 0, 1)
+	return x * x * (3 - 2 * x)
+end
 
-	burst.owed += burst.rayRate * (if close then CLOSE_RAY_RATE else 1) * dt
-	while burst.owed >= 1 do
-		burst.owed -= 1
-		-- A pop with no idle beam to take it is dropped, not queued: the pool is sized
-		-- for the busiest case, so this only trims a burst of bad frame timing.
-		for _, ray in burst.rays do
-			if ray.born == nil and #burst.sources > 0 then
-				local at = burst.sources[math.random(1, #burst.sources)]
-				ray.base.Position = at + Vector3.new(0, RAY_BASE_Y, 0)
-				ray.top.Position = ray.base.Position
-				ray.height = burst.rayHeight * (if close then CLOSE_RAY_HEIGHT else 1) * (0.7 + math.random() * 0.5)
-				ray.width = RAY_WIDTH * (0.75 + math.random() * 0.5)
-				ray.born = now
-				ray.beam.Enabled = true
-				break
-			end
-		end
-	end
-
+--- Grow and breathe the fan. Each ray slides up out of the ground on its own delay
+--- (eased in and out, fading in as it rises), then breathes on a slow sine -- rarer
+--- spots a little quicker. Standing on the spot blends the whole fan up toward full and
+--- a soft shimmer.
+local function stepRays(burst: Burst, now: number, age: number, loud: number)
+	local speed = 1.6 + 0.8 * loud
 	for _, ray in burst.rays do
-		local born = ray.born
-		if born == nil then
-			continue
+		local grow = math.clamp((age - ray.delay) / RAY_GROW, 0, 1)
+		if not ray.grown then
+			-- Eased in AND out: an ease-out alone still leaves the ground at full speed,
+			-- which is exactly the jolt this is here to remove.
+			ray.tip.Position = Vector3.new(0, RAY_BASE_Y, 0) + ray.reach * math.max(smooth(grow), 0.01)
+			ray.grown = grow >= 1
 		end
-		local age = now - born
-		if age >= RAY_LIFE then
-			ray.born = nil
-			ray.beam.Enabled = false
-			continue
+
+		local breathe = RAY_DIM + (1 - RAY_DIM) * (0.5 + 0.5 * math.sin(now * speed + ray.phase))
+		local flare = 0.9 + 0.1 * math.sin(now * 8 + ray.phase)
+		local lit = (breathe + (flare - breathe) * burst.onIt) * smooth(grow)
+
+		local level = math.floor(lit * RAY_LEVELS + 0.5)
+		if level ~= ray.level then
+			ray.level = level
+			ray.beam.Transparency = RAY_SEQUENCES[level + 1]
 		end
-		local rise = 1 - (1 - math.min(1, age / RAY_RISE)) ^ 3
-		local life = age / RAY_LIFE
-		local thin = if life > RAY_FADE_FROM then 1 - (life - RAY_FADE_FROM) / (1 - RAY_FADE_FROM) else 1
-		ray.top.Position = ray.base.Position + Vector3.new(0, ray.height * rise, 0)
-		ray.beam.Width0 = ray.width * thin
-		ray.beam.Width1 = ray.width * 0.3 * thin
 	end
+end
+
+--- How far through its fade-in a burst is, 0..1. FieldController fades the shared core
+--- and light by this so they come up with the cracks instead of snapping on.
+function SpotCracks.shown(burst: Burst, now: number): number
+	local born = burst.born
+	return if born then smooth((now - born) / REVEAL) else 0
 end
 
 --- Recolour one burst for this frame. `loud` is the rarity's 0..1 loudness
 --- (FieldController), `phase` the aura's own offset so a field of spots does not
 --- pulse in lockstep, and `close` whether the player is standing on it: then every
---- crack burns near-full with a fast flicker instead of pulsing, and the rays pop
---- faster and taller — the "you are on it" tell.
+--- crack burns near-full with a soft flicker instead of pulsing, and the whole fan of
+--- rays lights up with it — the "you are on it" tell. Both blend in and out rather than
+--- switching (burst.onIt).
 function SpotCracks.step(burst: Burst, now: number, loud: number, phase: number, close: boolean)
+	local born = burst.born
+	if born == nil then
+		born = now
+		burst.born = now
+	end
+	local dt = if burst.last then math.min(now - burst.last, 0.1) else 0
+	burst.last = now
+	burst.onIt += ((if close then 1 else 0) - burst.onIt) * math.min(1, dt * ON_IT_EASE)
+
+	local age = now - born
+	local shown = SpotCracks.shown(burst, now)
 	local speed = 3 + 2 * loud
-	local flicker = 0.85 + 0.15 * math.sin(now * 12 + phase)
+	local flicker = 0.85 + 0.15 * math.sin(now * 8 + phase)
 
 	for _, segment in burst.segments do
-		local brightness = if close
-			then flicker
-			else 0.35 + 0.65 * math.max(0, math.sin(now * speed + phase - segment.reach * 2.2))
+		local pulse = 0.35 + 0.65 * math.max(0, math.sin(now * speed + phase - segment.reach * 2.2))
+		local brightness = (pulse + (flicker - pulse) * burst.onIt) * shown
 		local level = math.floor(brightness * LEVELS + 0.5)
 		if level ~= segment.level then
 			segment.level = level
@@ -372,7 +415,7 @@ function SpotCracks.step(burst: Burst, now: number, loud: number, phase: number,
 		end
 	end
 
-	stepRays(burst, now, close)
+	stepRays(burst, now, age, loud)
 end
 
 return SpotCracks

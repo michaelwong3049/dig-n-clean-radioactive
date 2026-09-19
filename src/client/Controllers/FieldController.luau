@@ -352,10 +352,23 @@ local function stepAuras()
 		local hue = Rarity.get(rarity).color
 		local t = loudness(rarity)
 
+		-- Standing on it is the moment the player has been walking towards: every crack
+		-- burns near-full and the fan of rays lights up (SpotCracks.step). Stepped FIRST
+		-- so the fade-in (`shown`) and the eased standing-on-it blend (`onIt`) it keeps
+		-- are this frame's, and the core and light below ride the same curves instead of
+		-- snapping on while the cracks fade in.
+		local shown, onIt = 1, if close then 1 else 0
+		local burst = entry.burst
+		if burst then
+			SpotCracks.step(burst, now, t, entry.phase, close)
+			shown, onIt = SpotCracks.shown(burst, now), burst.onIt
+		end
+
 		-- The hot spot where the cracks meet: the rarity hue lifted toward white so it
 		-- reads as the brightest point, and fully white-hot when you are standing on it.
-		entry.core.Color = hue:Lerp(Color3.new(1, 1, 1), if close then 0.7 else 0.45)
-		entry.core.Transparency = if close then 0 else 0.1 + 0.1 * (0.5 + 0.5 * math.sin(now * 3 + entry.phase))
+		entry.core.Color = hue:Lerp(Color3.new(1, 1, 1), lerp(0.45, 0.7, onIt))
+		local idle = 0.1 + 0.1 * (0.5 + 0.5 * math.sin(now * 3 + entry.phase))
+		entry.core.Transparency = 1 - (1 - lerp(idle, 0, onIt)) * shown
 
 		-- Nothing is Neon, so this light is what makes the spot read as a light source
 		-- rather than paint, and it is where "louder" shows most: a Legendary spot
@@ -363,17 +376,11 @@ local function stepAuras()
 		-- so you can pick it out across the field.
 		if entry.light then
 			local brightness = lerp(0.7, 2.4, t)
-			entry.light.Brightness = if close then brightness * 1.6 else brightness
+			entry.light.Brightness = brightness * lerp(1, 1.6, onIt) * shown
 			entry.light.Range = lerp(10, 18, t)
 		end
 		if entry.motes then
-			entry.motes.Rate = lerp(5, 19, t) + (if close then 12 else 0)
-		end
-
-		-- Standing on it is the moment the player has been walking towards: every crack
-		-- burns near-full and flickers instead of pulsing (SpotCracks.step).
-		if entry.burst then
-			SpotCracks.step(entry.burst, now, t, entry.phase, close)
+			entry.motes.Rate = (lerp(5, 19, t) + 12 * onIt) * shown
 		end
 	end
 end
