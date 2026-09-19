@@ -415,28 +415,22 @@ Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before 
 -- quarter of the pixels the old one covered. The name stays because HAULPANEL_BOTTOM,
 -- ui.haul and every caller already read it and a rename buys nothing.
 --
--- THE BAR INSIDE IT IS VERTICAL, which is what sets the height. A horizontal strip
--- said "progress"; a column says what the haul actually IS — the thing is under you
--- and it has to come all the way UP — and the fill climbing towards a top edge is a
--- target you can see, where a strip's right-hand end never read as one. The column
--- gets 161px of travel here, under the PULL button and over the magnet and the
--- release hint; the rarity/odds readout sits BESIDE the bar precisely so naming what
--- you hooked costs no height. DetectorController's HAULBAR_* / HAULTRACK_* derive the
--- whole interior from this one number — nothing in there re-hardcodes 320 or 290.
+-- THE SOIL SHAFT INSIDE IT SETS BOTH NUMBERS. The haul is drawn as a cut-away of the
+-- ground (HaulShaft) with the nuke hauled up it at its true depth, so the widget is as
+-- tall as the shaft needs to make a 4.5 m ruler readable, plus REEL IN under it; the
+-- readout (rarity, odds, metres to the surface) sits beside it, right-aligned against
+-- the shaft, so naming what you hooked costs no height. DetectorController's SHAFT_* /
+-- READOUT_* derive the whole interior from this one size.
 --
--- 320x290, UP FROM 240x210, on request: bigger and louder. Stripping the panel took
--- the widget's weight off with its bulk, and out in the corner where it lives now the
--- result read as a small quiet thing rather than as the control you are hammering.
--- The bar is the part that grew most (54x118 -> 72x161) because the bar is what the
--- player is actually watching. Still well under the old slab's footprint, and drawing
--- none of it.
+-- 386x442, UP FROM 320x290, and the taller box is the price of the shaft. It is still
+-- a floating stack with nothing drawn behind it, and it still keeps out of the middle:
+-- see HAULPANEL_RIGHT for where it had to move to fit beside the Index/Shop tiles.
 --
--- ITS BOX OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM), which the old 150 cleared
--- by 4px. That is safe rather than lucky, and doubly so now that the box draws nothing:
--- DigService releases the lock the instant the bag fills (its RELEASE 3), and the only
--- other line the status can carry is the buried-too-deep one, which needs
--- `not hasSignal` — so the two are never on screen in the same frame.
-Dock.HAULPANEL_SIZE = UDim2.fromOffset(320, 290)
+-- ITS BOX OVERLAPS THE STATUS LINE'S BAND (STATUS_BOTTOM). That is safe rather than
+-- lucky: DigService releases the lock the instant the bag fills (its RELEASE 3), and
+-- the only other line the status can carry is the buried-too-deep one, which needs
+-- `not hasSignal` -- so the two are never on screen in the same frame.
+Dock.HAULPANEL_SIZE = UDim2.fromOffset(386, 442)
 
 -- Derived. Every "-178 hand-tuned against another file" number becomes a read of one
 -- of these instead.
@@ -502,13 +496,10 @@ Dock.METER_MID_Y = Dock.SIDE_STACK_HEIGHT / 2 - Dock.METER_SIZE.Y.Offset / 2
 -- The column's TOP edge, as the same kind of offset from screen middle. IndexController
 -- hangs the Index tile from it on the right edge, so both sides start on one line.
 --
--- TOP-ALIGNED RATHER THAN CENTRED, AND THE HAUL WIDGET IS WHY. It shares the right edge,
--- and its rarity readout sits 370px above the screen's foot (HAULPANEL_BOTTOM +
--- HAULPANEL_SIZE, less the 52px down to the title), running ~56px down from there. On a
--- 720-tall design screen — which every 16:9 screen lays out at now that the HUD scales —
--- an 80px tile centred on the middle spans 320-400 and "LEGENDARY" lands on 350-406,
--- under the tile. Hung from here it spans 244-324, and clears the readout on any
--- design height over ~670.
+-- TOP-ALIGNED RATHER THAN CENTRED. This was first done so the Index tile would clear
+-- the haul widget's rarity readout, back when the two shared the right edge; the haul
+-- widget now stops short of the tile column entirely (HAULPANEL_RIGHT), but the tiles
+-- stay hung from this line so both sides of the screen start level.
 Dock.SIDE_TOP_Y = -Dock.SIDE_STACK_HEIGHT / 2
 -- The meter's TOP edge, one GAP under the cash badge. HudController anchors the panel
 -- here rather than on METER_MID_Y because its height changes (the countdown strip), and
@@ -521,6 +512,10 @@ Dock.METER_TOP_Y = Dock.SIDE_TOP_Y + Dock.CASH_SIZE.Y.Offset + Dock.GAP
 -- both leave it room. Every screen the HUD scales up on is DESIGN_SCREEN.Y (720) tall
 -- or more in design pixels, so this only bites on an unscaled small window or a phone.
 Dock.SIDE_TOP_MIN_HEIGHT = 700
+
+-- The Index and Shop tiles on the right edge (IndexController / ShopController): one
+-- square size for both, and what the haul widget measures its clearance against.
+Dock.SIDE_TILE_SIZE = 80
 
 -- The dock's total reserved height with no card open. Nothing anchors against it today
 -- — StationController and IndexController both centre their panels on the screen itself
@@ -541,27 +536,28 @@ Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 -- right at 1080p collided with the dock on shorter viewports.
 Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
 
--- AND HARD INTO THE BOTTOM-RIGHT CORNER, which is what gets it off the surfacing item.
--- It used to be centred, which put a 320px-wide stack straight over the character and
--- the thing climbing out of the soil in front of them.
+-- AND OFF TO THE RIGHT, which is what gets it off the surfacing item. It used to be
+-- centred, which put the whole stack straight over the character and the thing
+-- climbing out of the soil in front of them.
 --
--- RIGHT RATHER THAN LEFT because the meter / cash / index column owns the left corner;
--- the right one is empty now that the radar scope is gone, so the widget takes it
--- outright — same ROW_SIDE_MARGIN inset from the screen edge as everything else here.
--- It used to stop one INSTRUMENT_GAP short of the scope's footprint; with no scope to
--- clear it sits ~200px further right, flush to the margin.
+-- RIGHT RATHER THAN LEFT because the meter / cash column owns the left side. NOT HARD
+-- INTO THE CORNER any more: the soil shaft is 442 tall, which reaches up past the Index
+-- and Shop tiles hung on the right edge (Dock.SIDE_TOP_Y down), so the widget stops one
+-- GAP short of that tile column instead of running under it. The tiles stay usable and
+-- visible mid-haul; the widget sits one tile further in.
 --
--- Its LEFT edge then clears screen centre by ~600px at 1920, ~340 at 1410 and ~275 at
--- 1280 — comfortably past a character that is only ~70px wide on screen.
+-- Its LEFT edge then clears screen centre by ~140 design px on a 1280-wide canvas, and
+-- by ~300 on the 1600 that GLOBAL_SCALE's 0.8 actually lays a 16:9 screen out at --
+-- past a character that is only ~70px wide on screen. The readout text is
+-- right-aligned, so on most rarities the first ~40px of that box are empty anyway.
 --
--- THE COST OF THE 320px WIDTH IS PAID ON SMALL VIEWPORTS, and it is worth stating
--- plainly rather than discovering. The free band between the meter column and the
--- screen edge is (width - 304 - 2*ROW_SIDE_MARGIN) px; below ~670 that is narrower
--- than the widget, so it starts tucking behind the meter (the meter is DisplayOrder
--- 100 against DetectorHud's 60 and stays readable on top). That is the honest floor
--- for a fixed-size widget on a viewport that small; the fix if it ever matters is a
--- narrower widget under some width, not a different anchor.
-Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN
+-- THE COST OF THE WIDTH IS PAID ON NARROW VIEWPORTS, and it is worth stating plainly
+-- rather than discovering: on a design width much under ~1100 (a 4:3 window, a phone
+-- held upright) the box reaches centre and starts to overlap the surfacing item, and
+-- further in it tucks behind the meter (DisplayOrder 100 against DetectorHud's 60).
+-- The fix if it ever matters is a narrower widget under some width, not a different
+-- anchor.
+Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SIDE_TILE_SIZE + Dock.GAP
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace
