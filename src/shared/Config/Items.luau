@@ -35,7 +35,7 @@
 
 	EVERY ITEM HAS A `weight`, IN KILOGRAMS (feat/item-weight-system). It is INTRINSIC
 	and ORTHOGONAL to rarity. Config/Weight.luau turns it into five felt consequences: the
-	hauled model's size, the glow well's width, how long the mash takes, a value/$/sec
+	hauled model's size, the aura's crack reach, how long the mash takes, a value/$/sec
 	multiplier, and a dig-roll bias (`rollBias`, <= 1) that leaves the feather end a
 	touch rarer and buries the heavy end deep. The "1 in N" a sharp ping or the Index
 	prints is `Items.shownOdds` = `odds / rollBias`, so the display carries the weight

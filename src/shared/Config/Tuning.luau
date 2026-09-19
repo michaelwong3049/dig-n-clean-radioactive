@@ -263,15 +263,45 @@ Tuning.PULL_YANK_BURST = 4 -- bucket capacity: an opening flurry, NOT a whole it
 -- hardcoded copies of a tag string is how one of them quietly becomes "SignalAuras".
 Tuning.AURA_TAG = "SignalAura"
 Tuning.AURA_FOLDER = "SignalAuras"
--- The aura is a PULSING WELL OF LIGHT now, not a pillar (on request). Low and wide:
--- a bright disc set into the ground with a soft dome over it, and ripple rings the
--- client sends expanding outward from it. The old tall thin pillar was too close to
--- PLAN 10.9's server-wide "Legendary pulled" beacon; a ground-hugging well cannot be
--- mistaken for it at any distance.
-Tuning.AURA_RING = 2.4 -- the well's bright core disc, diameter in studs -- the spot to stand on
-Tuning.AURA_DOME = 3.2 -- the soft light dome over the well, diameter -- a touch wider than the core
-Tuning.AURA_PULSE_REACH = 5.0 -- how far the ripple rings travel out (== DIG_RADIUS, so the widest ripple shows the pickup range)
-Tuning.AURA_PULSE_HZ = 0.8 -- client-side ripple rate, cosmetic only (was the pillar's breathe rate)
+-- The aura is a STARBURST OF GLOWING CRACKS now (on request; it was a pulsing well
+-- with a dome and ripple rings, and before that a pillar). Flat on the ground: a hot
+-- spot where the cracks meet, dark jagged cracks running out from it, and light
+-- pulsing out along them to the tips. It hugs the ground on purpose -- the tall thin
+-- pillar was too close to PLAN 10.9's server-wide "Legendary pulled" beacon.
+--
+-- All three sizes are at WellScale 1 and multiply by Config/Weight.auraScale
+-- (0.75..2.40): a heavy find's cracks reach ~6 studs out, a touch past DIG_RADIUS.
+Tuning.AURA_CORE = 0.8 -- the hot spot where the cracks meet, diameter in studs -- the spot to stand on
+Tuning.AURA_CRACK_LENGTH = 3.1 -- a crack's length ALONG its jagged path, studs (each varies 0.75..1.25x); the kinks mean it reaches ~80% of that out from the centre
+Tuning.AURA_CRACK_WIDTH = 0.45 -- a crack's width at its root, studs; it tapers to ~15% at the tip
+
+-- "More lines of light for rarer finds." By the reading's rarity: how many cracks split
+-- out of the spot and whether they fork, and how many rarity-coloured rays stand up out
+-- of it (`rays`) and how tall (`rayHeight`, studs). Per-PLAYER, like the tint: the aura
+-- is shared but the roll under it is not, so client/SpotCracks builds all of this
+-- locally.
+--
+-- THE RAYS ARE A FIXED FAN THAT BLINKS (on request, after a version where they popped
+-- up at random read as noise): always out, narrow at the ground and wide at the top,
+-- each ray fading in and out on its own beat. Commons get a real fan too -- the ladder
+-- is kept flat on purpose (5 rays -> 10); rarity is already loud in the crack count
+-- and the colour, the rays only have to lean with it.
+--
+-- They stand ~6-9 studs, which does break the old "the spot hugs the ground" rule --
+-- on request. That rule existed so a spot could never be mistaken for PLAN 10.9's
+-- server-wide "Legendary pulled" beacon, which is not built yet. When it is, keep it a
+-- single steady pillar, well taller than this, so a blinking fan and a beacon stay two
+-- different things at a glance.
+Tuning.AURA_CRACKS = {
+	Scrap = { count = 3, forks = false, rays = 5, rayHeight = 6.0 },
+	Common = { count = 3, forks = false, rays = 5, rayHeight = 6.0 },
+	Uncommon = { count = 4, forks = false, rays = 6, rayHeight = 6.5 },
+	Rare = { count = 5, forks = false, rays = 6, rayHeight = 7.0 },
+	Epic = { count = 6, forks = true, rays = 7, rayHeight = 7.5 },
+	Legendary = { count = 8, forks = true, rays = 8, rayHeight = 8.0 },
+	Mythic = { count = 10, forks = true, rays = 9, rayHeight = 8.5 },
+	Anomaly = { count = 12, forks = true, rays = 10, rayHeight = 9.0 },
+} :: { [string]: { count: number, forks: boolean, rays: number, rayHeight: number } }
 
 -- The range ring the detector draws on the ground around YOU. Client-side, so unlike
 -- the auras it is yours alone — it answers "what am I actually sweeping right now",
