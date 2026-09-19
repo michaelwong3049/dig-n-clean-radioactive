@@ -28,8 +28,8 @@
 	built here. The cracks carry rarity — more of them, forking, pulsing faster, the
 	rarer the find (Tuning.AURA_CRACKS) — and rarity is per-player, so the cracks are
 	per-player too: client/SpotCracks builds them locally, seeded off this aura's
-	position so every player's cracks run the same way and only the COUNT differs. What
-	is left here is the shared anchor: the hot spot where the cracks meet (Core), the
+	position so players with the same reading see identical cracks. What is left here
+	is the shared anchor: the hot spot where the cracks meet (Core), the
 	low PointLight in it, and the motes rising out of it. Still low and flat, still
 	nothing like PLAN §10.9's tall rarity-coloured "somebody pulled a Legendary" beacon.
 	Do not grow this one upward.

@@ -270,10 +270,10 @@ Tuning.AURA_FOLDER = "SignalAuras"
 -- pillar was too close to PLAN 10.9's server-wide "Legendary pulled" beacon.
 --
 -- All three sizes are at WellScale 1 and multiply by Config/Weight.auraScale
--- (0.75..2.40): a heavy find's cracks run ~5 studs, about DIG_RADIUS.
-Tuning.AURA_CORE = 0.7 -- the hot spot where the cracks meet, diameter in studs -- the spot to stand on
-Tuning.AURA_CRACK_LENGTH = 2.2 -- how far a crack runs out from the centre, studs (each one varies 0.7..1.2x)
-Tuning.AURA_CRACK_WIDTH = 0.4 -- a crack's width at its root, studs; it tapers to ~30% at the tip
+-- (0.75..2.40): a heavy find's cracks reach ~6 studs out, a touch past DIG_RADIUS.
+Tuning.AURA_CORE = 0.8 -- the hot spot where the cracks meet, diameter in studs -- the spot to stand on
+Tuning.AURA_CRACK_LENGTH = 3.1 -- a crack's length ALONG its jagged path, studs (each varies 0.75..1.25x); the kinks mean it reaches ~80% of that out from the centre
+Tuning.AURA_CRACK_WIDTH = 0.45 -- a crack's width at its root, studs; it tapers to ~15% at the tip
 
 -- "More lines of light for rarer finds." How many cracks split out of the spot, and
 -- whether they fork, by the reading's rarity. Per-PLAYER, like the tint: the aura is
