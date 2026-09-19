@@ -32,7 +32,8 @@
 	is the shared anchor: the hot spot where the cracks meet (Core), the
 	low PointLight in it, and the motes rising out of it. Still low and flat, still
 	nothing like PLAN §10.9's tall rarity-coloured "somebody pulled a Legendary" beacon.
-	Do not grow this one upward.
+	The client's rays are the one thing that rises, and they are thin, gone in under a
+	second, and capped at a few studs (Tuning.AURA_CRACKS). Do not grow this one upward.
 
 	The client OWNS how it looks (the cracks, their pulse, the rarity tint) but never
 	where it is or whether it exists — see FieldController's header.

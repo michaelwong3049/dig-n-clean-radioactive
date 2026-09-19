@@ -275,19 +275,25 @@ Tuning.AURA_CORE = 0.8 -- the hot spot where the cracks meet, diameter in studs 
 Tuning.AURA_CRACK_LENGTH = 3.1 -- a crack's length ALONG its jagged path, studs (each varies 0.75..1.25x); the kinks mean it reaches ~80% of that out from the centre
 Tuning.AURA_CRACK_WIDTH = 0.45 -- a crack's width at its root, studs; it tapers to ~15% at the tip
 
--- "More lines of light for rarer finds." How many cracks split out of the spot, and
--- whether they fork, by the reading's rarity. Per-PLAYER, like the tint: the aura is
--- shared but the roll under it is not, so client/SpotCracks builds these locally.
+-- "More lines of light for rarer finds." By the reading's rarity: how many cracks split
+-- out of the spot and whether they fork, and how often (`rays`, pops per second) and
+-- how high (`rayHeight`, studs) the rarity-coloured rays pop up out of them.
+-- Per-PLAYER, like the tint: the aura is shared but the roll under it is not, so
+-- client/SpotCracks builds all of this locally.
+--
+-- RAYS STAY SHORT. The spot hugs the ground so it can never be mistaken for PLAN 10.9's
+-- tall, steady "Legendary pulled" beacon; these are thin, last under a second, and top
+-- out around 4.5 studs (a bit more while you stand on the spot). Keep them that way.
 Tuning.AURA_CRACKS = {
-	Scrap = { count = 3, forks = false },
-	Common = { count = 3, forks = false },
-	Uncommon = { count = 4, forks = false },
-	Rare = { count = 5, forks = false },
-	Epic = { count = 6, forks = true },
-	Legendary = { count = 8, forks = true },
-	Mythic = { count = 10, forks = true },
-	Anomaly = { count = 12, forks = true },
-} :: { [string]: { count: number, forks: boolean } }
+	Scrap = { count = 3, forks = false, rays = 0.5, rayHeight = 2.0 },
+	Common = { count = 3, forks = false, rays = 0.6, rayHeight = 2.2 },
+	Uncommon = { count = 4, forks = false, rays = 0.9, rayHeight = 2.6 },
+	Rare = { count = 5, forks = false, rays = 1.2, rayHeight = 3.0 },
+	Epic = { count = 6, forks = true, rays = 1.6, rayHeight = 3.4 },
+	Legendary = { count = 8, forks = true, rays = 2.1, rayHeight = 3.8 },
+	Mythic = { count = 10, forks = true, rays = 2.7, rayHeight = 4.2 },
+	Anomaly = { count = 12, forks = true, rays = 3.4, rayHeight = 4.6 },
+} :: { [string]: { count: number, forks: boolean, rays: number, rayHeight: number } }
 
 -- The range ring the detector draws on the ground around YOU. Client-side, so unlike
 -- the auras it is yours alone — it answers "what am I actually sweeping right now",
