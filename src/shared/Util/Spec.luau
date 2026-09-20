@@ -686,6 +686,22 @@ function Spec.run(): boolean
 		Tuning.DIG_RADIUS * 2 < Gear.tier("Detector", 1).radius
 	)
 
+	-- A spot surfaces at the edge of your detector radius and you can stand on it at
+	-- DIG_RADIUS, so the gap between the two is all the time client/SpotCracks has to
+	-- fade the thing in before the player is on top of it — and it is the STARTING
+	-- detector against the FASTEST boots that sets the floor, since a wider radius only
+	-- ever buys more walk. It came to 0.22s, and the reveal was 0.6: the pick-up card
+	-- landed on ground that was still bare. Widening DIG_RADIUS or narrowing the first
+	-- detector shrinks this again, silently, from two files away.
+	do
+		local reach = Gear.tier("Detector", 1).radius - Tuning.DIG_RADIUS
+		local fastest = Gear.tier("Boots", Gear.maxTier("Boots")).walkSpeed
+		check(
+			string.format("§2.1 a spot has time to fade in before you reach it (%.2fs of walk)", reach / fastest),
+			reach / fastest >= 0.2
+		)
+	end
+
 	-- An aura nobody is revealing lingers so the clients can fade it out instead of it
 	-- vanishing between two frames (Tuning.AURA_LINGER). Two things have to hold, and
 	-- both are easy to break from the other end of the codebase:

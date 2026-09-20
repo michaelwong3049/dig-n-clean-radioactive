@@ -122,8 +122,12 @@ local RAY_SPREAD = 1.5 -- studs across at the top (each ray varies 0.7..1.3x)
 local RAY_BASE_Y = 0.25 -- rays leave from just above the hot spot
 local RAY_DIM = 0.35 -- how lit a ray still is at the bottom of its breathe (0 = gone)
 local RAY_LEVELS = 32 -- lit quantisation: one cached NumberSequence per level. 12 read as visible steps
-local RAY_GROW = 0.9 -- seconds for one ray to grow up out of the ground
-local RAY_STAGGER = 0.6 -- the last ray starts growing up to this long after the first
+-- Trimmed with REVEAL (0.9 / 0.6) so the fan keeps its proportion to the cracks under
+-- it: the whole spot now settles in ~1.15s rather than 1.5s. The fan is allowed to be
+-- still rising when the player arrives -- a ray on its way up is motion, not absence,
+-- and it is the CRACKS being missing that made the pick-up card look stranded.
+local RAY_GROW = 0.7 -- seconds for one ray to grow up out of the ground
+local RAY_STAGGER = 0.45 -- the last ray starts growing up to this long after the first
 
 -- NOTHING SNAPS (on request: the first fan popped in at full strength and blinked
 -- up hard, which read as sudden and awkward). A spot's cracks, core and light fade in
@@ -143,7 +147,25 @@ local RAY_STAGGER = 0.6 -- the last ray starts growing up to this long after the
 --
 -- Walking back in un-flags the aura and the same burst eases back up — faster than it
 -- went out, because that one is answering an action the player just took.
-local REVEAL = 0.6 -- seconds for the cracks' glow (and FieldController's core + light) to fade in
+-- REVEAL IS MEASURED AGAINST THE WALK, NOT PICKED (it was 0.6 and had never been
+-- checked against one). A spot surfaces at the edge of your detector radius and you can
+-- stand on it at Tuning.DIG_RADIUS, so the fade-in has to finish inside the time it
+-- takes to cover the difference:
+--
+--   starting kit (Bent Coil r=13, Taped Boots 26 studs/s):  (13 - 5) / 26 = 0.31s
+--   fastest arrival anywhere (r=13, Strider Rig 36):        (13 - 5) / 36 = 0.22s
+--
+-- The STARTING detector is the tight one — a wider radius only ever buys more walk —
+-- and 0.6 lost that race twice over, so a new player walked onto a spot that was still
+-- coming up and got a PICK UP card over near-nothing (DetectorController's
+-- PROMPT_MIN_SHOWN, which is the other half of this fix). 0.4 puts the cracks at ~87%
+-- by the time the starting kit arrives and ~58% at the fastest arrival in the game.
+--
+-- DO NOT close the rest of that gap by shortening this further. Under ~0.3 the reveal
+-- stops reading as ground splitting open and starts reading as a part being switched
+-- on, which is the snap the whole module is built to avoid. The card waiting a beat is
+-- the cheaper half.
+local REVEAL = 0.4 -- seconds for the cracks' glow (and FieldController's core + light) to fade in
 local FADE_OUT = 0.6 -- seconds for a retired spot to fade away to nothing
 local FADE_BACK = 0.3 -- seconds for a retired spot to come back if it is reached again
 local ON_IT_EASE = 5 -- rate the standing-on-it flare eases in and out (1/s)

@@ -597,6 +597,27 @@ local function stepAuras()
 	end
 end
 
+--- How far up the spot over `core` is on THIS client, 0..1 — 0 for an aura with no
+--- cracks built (no rarity resolved yet, or its children have not replicated).
+---
+--- DetectorController asks before it offers the PICK UP card. In the starting kit a
+--- player crosses from the edge of the reveal radius to standing on the spot in about a
+--- third of a second (the arithmetic is on SpotCracks' REVEAL), which is quicker than
+--- the spot comes up — so the card used to land on bare ground and wait for its own
+--- glow to arrive. This is the only thing the HUD asks the world-space half, and it is
+--- deliberately one number: "is there something under the card yet".
+function Field.spotShown(core: BasePart): number
+	local model = core.Parent
+	if model == nil then
+		return 0
+	end
+	local entry = tracked[model :: Model]
+	local burst = entry and entry.burst
+	-- Last frame's value, not this one's: stepAuras drives the fade on RenderStepped and
+	-- the prompt asks at 10 Hz, so the worst this is out of date by is a frame.
+	return if burst then SpotCracks.shown(burst, os.clock()) else 0
+end
+
 -- ── Lifecycle ───────────────────────────────────────────────────────
 
 function Field.start()

@@ -11,7 +11,7 @@ local CONTROLLERS = script.Controllers
 
 local ORDER = {
 	"DetectorController", -- Phase 1: hold-to-pull lock prompt, haul panel, unearth banner
-	"FieldController", -- Phase 1: the range ring and the aura pulse; reads DetectorController
+	"FieldController", -- Phase 1: the range ring and the aura pulse; reads DetectorController, and it reads back
 	"StationController", -- Phase 1: base camp — scrub, sell, rack
 	"InventoryController", -- Phase 1: the hotbar and its detail card; reads CarryState + StationController
 	"HudController", -- Phase 2: rad meter, the RadFx damage overlay, distortion, blackout
