@@ -74,10 +74,24 @@ local LOCKGUI_RISE = 2.4 -- studs above the signal the card hovers at rest
 local LOCKGUI_SHOW_TWEEN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local LOCKGUI_HIDE_TWEEN = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 
--- THE CARD WAITS FOR THE SPOT (on request: it landed on bare ground and sat there for
--- about half a second while the glow came up underneath it). The card pins itself to a
--- spot with a downward arrow, so it says "this, here" — and it cannot say that about
--- ground with nothing on it yet.
+-- The keycap, which since the panel went away (buildLockPromptGui) IS the prompt: a
+-- little larger than the 46px it was when it sat inset on a card, because it now has
+-- to hold the whole thing on its own. The verb hangs under it.
+--
+-- KEY_TEXT_SIZE is the glyph size for a SINGLE character -- "E" or the gamepad's "X".
+-- Touch has no key to show and gets the word HOLD instead, which needs its own much
+-- smaller size to fit the same cap; both are swapped in on PromptShown (start()).
+local KEYCAP_SIZE = 58
+local KEYCAP_RADIUS = UDim.new(0, 17)
+local KEY_TEXT_SIZE = 26
+local KEY_TEXT_SIZE_TOUCH = 15
+-- Tracked by hand -- Roblox has no letter-spacing. See the label in buildLockPromptGui.
+local ACTION_TEXT = "P I C K  U P"
+
+-- THE PROMPT WAITS FOR THE SPOT (on request: it landed on bare ground and sat there for
+-- about half a second while the glow came up underneath it). It hangs directly over one
+-- spot and nothing else, so its position alone says "this, here" — and it cannot say
+-- that about ground with nothing on it yet.
 --
 -- It is not a fixed delay. It asks FieldController how far up the spot actually is and
 -- goes the moment there is something to point at, which in practice is the same frame
@@ -209,8 +223,21 @@ local FieldController = nil
 --- Roblox renders NOTHING for it -- this billboard is the entire visual, wired to the
 --- prompt through ProximityPromptService's Shown/Hidden/Hold events in start().
 ---
+--- THERE IS NO PANEL ANY MORE. This used to be a 190x76 card: a glass panel with a
+--- rounded rectangle, a 45deg pin planting it on the spot, a keycap inset on the left
+--- and "PICK UP" set beside it. It was replaced on request with something simpler and
+--- cleaner -- the KEY ITSELF, with the verb under it, and nothing else. What went:
+---   * the panel, its gradient and its stroke. The panel was already near-transparent
+---     glass so the item breaking the surface showed through it; deleting it outright
+---     is the same intent taken to its end, and the breathing stroke that carried the
+---     card's pulse simply moved onto the keycap's own outline (renderFrame).
+---   * the pin. It said "this, here" with a downward arrow, which a prompt that hovers
+---     directly over the spot and nothing else already says by position alone.
+--- The result is roughly a third of the footprint over a signal you are stood on, and
+--- the world is no longer read through a sheet of tinted glass.
+---
 --- Custom style also drops the built-in mobile button and the gamepad glyph, so two
---- things here stand in for them: the whole card is a TextButton that drives
+--- things here stand in for them: the whole billboard is a TextButton that drives
 --- prompt:InputHoldBegin/End (without it the pick-up beat would be keyboard-and-gamepad
 --- only -- the exact stranding the vanished dock button used to cause), and the keycap
 --- text is swapped per input type on PromptShown.
@@ -222,11 +249,13 @@ local function buildLockPromptGui(adornee: BasePart)
 	local root = Instance.new("BillboardGui")
 	root.Name = "PickupPrompt"
 	root.Adornee = adornee
-	-- Offset (pixels), not scale (studs), so the card holds a constant on-screen size
+	-- Offset (pixels), not scale (studs), so the prompt holds a constant on-screen size
 	-- for the whole 5-stud window it is up rather than ballooning as you close in. The
-	-- extra 12px of height is bottom margin the pin pokes into. The 190x76 is in DESIGN
-	-- pixels: UIKit.billboardCanvas, below, scales it with the rest of the HUD so the card
-	-- does not shrink beside it on a big screen.
+	-- 150x88 is in DESIGN pixels: UIKit.billboardCanvas, below, scales it with the rest
+	-- of the HUD so it does not shrink beside the HUD on a big screen. Taller and much
+	-- narrower than the old 190x76 card, because the layout turned from a row (keycap
+	-- beside text) into a column (keycap over text) -- and the height is exactly the
+	-- column: KEYCAP_SIZE, an 8px gap, and the 22px the verb's line box takes.
 	root.StudsOffsetWorldSpace = Vector3.new(0, LOCKGUI_RISE, 0)
 	root.AlwaysOnTop = true -- the signal is buried; the cue has to punch through the soil
 	-- NO MaxDistance cap. It is measured CAMERA-to-adornee, not character-to-adornee, and
@@ -237,7 +266,7 @@ local function buildLockPromptGui(adornee: BasePart)
 	root.LightInfluence = 0
 	root.Enabled = false
 	root.Parent = adornee
-	local canvas = UIKit.billboardCanvas(root, Vector2.new(190, 76))
+	local canvas = UIKit.billboardCanvas(root, Vector2.new(150, KEYCAP_SIZE + 8 + 22))
 
 	-- Everything visible lives under `card` so one UIScale bounces the lot; `hit` sits
 	-- outside it so the tap target never moves or scales with the animation.
@@ -251,80 +280,44 @@ local function buildLockPromptGui(adornee: BasePart)
 	scale.Scale = 0.7
 	scale.Parent = card
 
-	-- Pin: a square turned 45deg, sat behind the panel on its bottom edge so only the
-	-- lower tip shows -- a downward arrow that plants the card on the spot.
-	local pin = Instance.new("Frame")
-	pin.Name = "Pin"
-	pin.AnchorPoint = Vector2.new(0.5, 0.5)
-	pin.Position = UDim2.new(0.5, 0, 1, -12)
-	pin.Size = UDim2.fromOffset(16, 16)
-	pin.Rotation = 45
-	pin.BackgroundColor3 = COLOR.panel
-	pin.BackgroundTransparency = 1
-	pin.BorderSizePixel = 0
-	pin.ZIndex = 1
-	pin.Parent = card
-
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 0)
-	panel.Position = UDim2.fromScale(0.5, 0)
-	panel.Size = UDim2.new(1, 0, 1, -12)
-	panel.BackgroundColor3 = COLOR.panel
-	panel.BackgroundTransparency = 1
-	panel.BorderSizePixel = 0
-	panel.ZIndex = 2
-	panel.Parent = card
-
-	local panelCorner = Instance.new("UICorner")
-	panelCorner.CornerRadius = UIKit.Radius.button
-	panelCorner.Parent = panel
-
-	local panelGrad = Instance.new("UIGradient")
-	panelGrad.Rotation = 90
-	panelGrad.Color = ColorSequence.new(Color3.fromHex("161C13"), COLOR.panel)
-	panelGrad.Parent = panel
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Name = "Accent"
-	stroke.Color = COLOR.scope
-	stroke.Thickness = 2
-	stroke.Transparency = 1
-	stroke.Parent = panel
-
-	-- Keycap. Fills bottom-up with the signal colour across the hold -- the fill IS the
-	-- hold timer, the same reading the haul panel's bar gives the mash.
+	-- Keycap. The whole prompt now, and the hold timer with it: it fills bottom-up in
+	-- the signal's colour across the hold, the same reading the haul panel's bar gives
+	-- the mash. Centred on the billboard's top, with the verb hung underneath.
 	local keycap = Instance.new("Frame")
 	keycap.Name = "Keycap"
-	keycap.AnchorPoint = Vector2.new(0, 0.5)
-	keycap.Position = UDim2.new(0, 12, 0.5, 0)
-	keycap.Size = UDim2.fromOffset(46, 46)
-	keycap.BackgroundColor3 = COLOR.empty
+	keycap.AnchorPoint = Vector2.new(0.5, 0)
+	keycap.Position = UDim2.fromScale(0.5, 0)
+	keycap.Size = UDim2.fromOffset(KEYCAP_SIZE, KEYCAP_SIZE)
+	keycap.BackgroundColor3 = COLOR.panel
 	keycap.BackgroundTransparency = 1
 	keycap.BorderSizePixel = 0
 	keycap.ClipsDescendants = true
-	keycap.ZIndex = 3
-	keycap.Parent = panel
+	keycap.ZIndex = 2
+	keycap.Parent = card
 
 	local keycapCorner = Instance.new("UICorner")
-	keycapCorner.CornerRadius = UIKit.Radius.slot
+	keycapCorner.CornerRadius = KEYCAP_RADIUS
 	keycapCorner.Parent = keycap
 
-	local keycapStroke = Instance.new("UIStroke")
-	keycapStroke.Color = COLOR.scope
-	keycapStroke.Transparency = 1
-	keycapStroke.Thickness = 2
-	keycapStroke.Parent = keycap
+	-- THE ONLY STROKE LEFT, and it inherited the panel stroke's job: renderFrame
+	-- breathes it on the aura's own pulse period once the show tween has settled, so
+	-- the key and FieldController's ground ring beat together.
+	local stroke = Instance.new("UIStroke")
+	stroke.Name = "Accent"
+	stroke.Color = COLOR.scope
+	stroke.Thickness = 2.5
+	stroke.Transparency = 1
+	stroke.Parent = keycap
 
 	local keycapFill = Instance.new("Frame")
 	keycapFill.Name = "Fill"
 	keycapFill.AnchorPoint = Vector2.new(0.5, 1)
 	keycapFill.Position = UDim2.fromScale(0.5, 1)
-	keycapFill.Size = UDim2.new(1, 0, 0, 0)
+	keycapFill.Size = UDim2.fromScale(1, 0)
 	keycapFill.BackgroundColor3 = COLOR.scope
 	keycapFill.BackgroundTransparency = 1
 	keycapFill.BorderSizePixel = 0
-	keycapFill.ZIndex = 3
+	keycapFill.ZIndex = 2
 	keycapFill.Parent = keycap
 
 	local keyLabel = Instance.new("TextLabel")
@@ -333,33 +326,62 @@ local function buildLockPromptGui(adornee: BasePart)
 	keyLabel.BackgroundTransparency = 1
 	keyLabel.Font = UIKit.Font.title
 	keyLabel.Text = "E"
-	keyLabel.TextSize = 22
+	keyLabel.TextSize = KEY_TEXT_SIZE
 	keyLabel.TextColor3 = COLOR.text
 	keyLabel.TextTransparency = 1
 	keyLabel.TextStrokeTransparency = 1
-	keyLabel.ZIndex = 4
+	keyLabel.ZIndex = 3
 	keyLabel.Parent = keycap
 
-	-- One line, centred beside the keycap. There used to be a smaller label above this
-	-- carrying the rarity ("LEGENDARY") or "BURIED SIGNAL"; dropped on request. The
-	-- rarity still shows, quietly, as the accent colour on the stroke and the keycap.
-	local action = UIKit.label(panel, {
+	-- The glyph gets UIKit's black outline by hand (it is not a UIKit.label -- it has
+	-- to be a plain child of the clipping keycap). NOT decoration: the fill climbing
+	-- behind it is the signal's colour, and at full hold a white E sat on Legendary
+	-- amber or an Anomaly's white was the one moment the key stopped reading. The
+	-- outline makes the glyph independent of whatever colour arrives under it.
+	--
+	-- Thickness is re-derived whenever the glyph is swapped (setKeyGlyph), because the
+	-- two sizes are far enough apart that one thickness cannot serve both: heavy enough
+	-- for a 26px "E" turns a 15px "HOLD" into a black blob.
+	local keyStroke = Instance.new("UIStroke")
+	keyStroke.Color = COLOR.outline
+	keyStroke.Thickness = UIKit.strokeThicknessFor(KEY_TEXT_SIZE)
+	keyStroke.LineJoinMode = Enum.LineJoinMode.Round
+	keyStroke.Transparency = 1
+	keyStroke.Parent = keyLabel
+
+	-- The verb, centred under the key. It carries the signal's colour (see
+	-- updateLockPrompt) and UIKit's heavy black outline, which is the whole reason it
+	-- holds against bright ground now there is no panel behind it.
+	--
+	-- TRACKED CAPS BY HAND. Roblox TextLabels have no letter-spacing property, and at
+	-- this size bold caps set solid read as one block rather than as a word -- the
+	-- spaces ARE the tracking. Two spaces between the words so the word gap still beats
+	-- the letter gap.
+	local action = UIKit.label(card, {
 		name = "Action",
-		anchorPoint = Vector2.new(0, 0.5),
-		position = UDim2.new(0, 68, 0.5, 0),
-		size = UDim2.new(1, -80, 0, 28),
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.fromScale(0.5, 1),
+		size = UDim2.new(1, 0, 0, 22),
 		font = UIKit.Font.title,
-		textSize = 21,
+		textSize = 16,
 		color = COLOR.scope,
-		xAlign = Enum.TextXAlignment.Left,
-		strokeTransparency = 1,
+		xAlign = Enum.TextXAlignment.Center,
 		zIndex = 3,
 	})
-	action.Text = "PICK UP"
+	action.Text = ACTION_TEXT
 	action.TextTransparency = 1
 
-	-- The card is the touch (and mouse) target; see the header. Transparent, full-bleed,
-	-- on top, and OUTSIDE `card` so the bounce never shifts it.
+	-- UIKit.label hangs a black outline stroke on the label and, for a `title` font, a
+	-- drop-shadow TWIN beside it. Neither fades with TextTransparency, so both have to
+	-- be fetched and driven explicitly -- without this the prompt hides and leaves a
+	-- black ghost of the word hanging over the spot.
+	local actionStroke = action:FindFirstChildOfClass("UIStroke")
+	local actionShadow = card:FindFirstChild(action.Name .. "Shadow")
+
+	-- The billboard is the touch (and mouse) target; see the header. Transparent,
+	-- full-bleed, on top, and OUTSIDE `card` so the bounce never shifts it. It stays the
+	-- size of the whole billboard even though the visible prompt no longer fills it --
+	-- a lone keycap is a small target on a phone, and the slack around it is deliberate.
 	local hit = Instance.new("TextButton")
 	hit.Name = "Hit"
 	hit.Size = UDim2.fromScale(1, 1)
@@ -369,37 +391,41 @@ local function buildLockPromptGui(adornee: BasePart)
 	hit.ZIndex = 5
 	hit.Parent = canvas
 
+	-- (instance, property, value-when-shown) -- revealLockGui tweens each of these to
+	-- its shown value on the way in and to 1 on the way out.
+	--
+	-- WHAT CARRIES THE PROMPT IS THE OUTLINE AND THE TEXT, not a fill. That was true of
+	-- the old glass card and it is more true now there is no panel at all: the keycap's
+	-- own background still rests part-transparent so the ground shows through it, and if
+	-- the stroke and the text layers ever stopped landing at 0 the whole thing would
+	-- dissolve into the soil.
+	local fades = {
+		{ keycap, "BackgroundTransparency", 0.34 },
+		{ stroke, "Transparency", 0.05 },
+		{ keycapFill, "BackgroundTransparency", 0.2 },
+		{ keyLabel, "TextTransparency", 0 },
+		{ keyStroke, "Transparency", 0 },
+		{ action, "TextTransparency", 0 },
+	}
+	if actionStroke then
+		table.insert(fades, { actionStroke, "Transparency", 0 })
+	end
+	if actionShadow and actionShadow:IsA("TextLabel") then
+		table.insert(fades, { actionShadow, "TextTransparency", UIKit.TextShadow.transparency })
+	end
+
 	return {
 		root = root,
 		card = card,
 		scale = scale,
-		pin = pin,
-		panel = panel,
-		stroke = stroke,
 		keycap = keycap,
-		keycapStroke = keycapStroke,
+		stroke = stroke,
 		keycapFill = keycapFill,
 		keyLabel = keyLabel,
+		keyStroke = keyStroke,
 		action = action,
 		hit = hit,
-		-- (instance, property, value-when-shown) -- revealLockGui tweens each of these
-		-- to its shown value on the way in and to 1 on the way out.
-		--
-		-- THE CARD IS GLASS ON PURPOSE. The fills sit near-transparent so the world
-		-- (and the item breaking the surface) stays visible straight through it; what
-		-- carries the card is the OUTLINE and the TEXT, not the panel. So the two
-		-- strokes and both text labels still land at 0 while every BackgroundTransparency
-		-- rests high -- drop the outline and the whole thing dissolves.
-		fades = {
-			{ pin, "BackgroundTransparency", 0.6 },
-			{ panel, "BackgroundTransparency", 0.62 },
-			{ stroke, "Transparency", 0.08 },
-			{ keycap, "BackgroundTransparency", 0.5 },
-			{ keycapStroke, "Transparency", 0 },
-			{ keycapFill, "BackgroundTransparency", 0.3 },
-			{ keyLabel, "TextTransparency", 0 },
-			{ action, "TextTransparency", 0 },
-		},
+		fades = fades,
 	}
 end
 
@@ -813,10 +839,12 @@ local function renderFrame(dt: number)
 		ui.haulMetres.Text = if toGo then string.format(METRES_FORMAT, toGo) else ""
 	end
 
-	-- The pick-up card's idle life: a slow hover, and a stroke that breathes on the
-	-- aura's OWN pulse period so the card and FieldController's ground ring beat
-	-- together. Only once the show tween has settled -- before that revealLockGui owns
-	-- both the offset and the stroke.
+	-- The pick-up prompt's idle life: a slow hover, and the keycap outline breathing on
+	-- the aura's OWN pulse period so the key and FieldController's ground ring beat
+	-- together. That breath used to live on the panel stroke; with the panel gone
+	-- (buildLockPromptGui) the keycap's outline is the only stroke left and inherited
+	-- it. Only once the show tween has settled -- before that revealLockGui owns both
+	-- the offset and the stroke.
 	if lockGuiShown and lockGuiSettled then
 		local t = os.clock()
 		local g = ui.lockGui
@@ -868,6 +896,18 @@ local function revealLockGui(shown: boolean)
 			g.root.Enabled = false
 		end
 	end)
+end
+
+--- What the keycap says, and how big. Custom prompt style drops Roblox's own gamepad
+--- glyph and touch button, so the cap has to name this player's input itself. The
+--- outline thickness is re-derived here rather than fixed at build time because touch's
+--- "HOLD" is a whole word at 15px while "E"/"X" are single glyphs at 26 — one thickness
+--- cannot flatter both (see the stroke in buildLockPromptGui).
+local function setKeyGlyph(text: string, textSize: number)
+	local g = ui.lockGui
+	g.keyLabel.Text = text
+	g.keyLabel.TextSize = textSize
+	g.keyStroke.Thickness = UIKit.strokeThicknessFor(textSize)
 end
 
 --- Keycap fill = the hold clock. Runs to full over exactly HoldDuration so it tops out
@@ -947,15 +987,14 @@ local function updateLockPrompt()
 
 	ui.promptHolder.Position = best.Position
 
-	-- The card carries no rarity text any more, but the accent still does: the rarity
-	-- colour on the stroke and keycap (any detector reads it now), scope blue only in
-	-- the frame before it resolves. Cheap, and the hint can change under the card, so
-	-- set it every tick.
+	-- The prompt carries no rarity text any more, but the accent still does: the rarity
+	-- colour on the keycap's outline, its hold fill and the verb (any detector reads it
+	-- now), scope blue only in the frame before it resolves. Cheap, and the hint can
+	-- change under the prompt, so set it every tick.
 	local accent = signalColor()
 	ui.prompt.ObjectText = if state.rarityHint then string.upper(state.rarityHint) else "Buried Signal"
 	ui.lockGui.action.TextColor3 = accent
 	ui.lockGui.stroke.Color = accent
-	ui.lockGui.keycapStroke.Color = accent
 	ui.lockGui.keycapFill.BackgroundColor3 = accent
 
 	ui.prompt.Enabled = true
@@ -1270,14 +1309,11 @@ function Detector.start()
 		-- Custom style also drops the gamepad glyph and the touch button, so the keycap
 		-- says what THIS player presses. Default GamepadKeyCode for a prompt is ButtonX.
 		if inputType == Enum.ProximityPromptInputType.Touch then
-			ui.lockGui.keyLabel.Text = "HOLD"
-			ui.lockGui.keyLabel.TextSize = 13
+			setKeyGlyph("HOLD", KEY_TEXT_SIZE_TOUCH)
 		elseif inputType == Enum.ProximityPromptInputType.Gamepad then
-			ui.lockGui.keyLabel.Text = "X"
-			ui.lockGui.keyLabel.TextSize = 22
+			setKeyGlyph("X", KEY_TEXT_SIZE)
 		else
-			ui.lockGui.keyLabel.Text = "E"
-			ui.lockGui.keyLabel.TextSize = 22
+			setKeyGlyph("E", KEY_TEXT_SIZE)
 		end
 		revealLockGui(true)
 	end)
