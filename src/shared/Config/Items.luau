@@ -318,7 +318,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
 		baseValue = 20,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "door_hinge",
@@ -331,7 +331,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 27,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "cutlery_set",
@@ -344,7 +344,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
 		baseValue = 93,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "garden_trowel",
@@ -370,7 +370,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "childrens_toys" },
 		baseValue = 150,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "charm_bracelet",
@@ -383,7 +383,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 370,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "socket_set",
@@ -396,7 +396,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 480,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "photo_locket",
@@ -409,7 +409,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 650,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "mutant_carrot",
@@ -448,7 +448,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 3000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "clock_movement",
@@ -461,7 +461,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 11000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "deposit_box",
@@ -474,7 +474,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 55000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 
 	-- ══ STAGE 3 — FALLOUT FIELDS ════════════════════════════════════════════
@@ -498,7 +498,7 @@ Items.DEFS = {
 	},
 	{
 		id = "gate_latch",
-		name = "Snapped Nuke",
+		name = "Split Nuke",
 		flavor = "Torn clean off whatever it used to arm.",
 		rarity = "Common",
 		odds = 10, -- 1 in N per dig in a stocking stage
@@ -507,7 +507,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
 		baseValue = 73,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "old_food_tin",
@@ -637,7 +637,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 19000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "rusted_farm_safe",
@@ -650,7 +650,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 60000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 
 	-- ══ STAGE 4 — THE EXCLUSION BELT ════════════════════════════════════════
@@ -754,7 +754,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 400,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "old_headphones",
@@ -968,7 +968,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 26000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "ufo_fragment",
@@ -1033,7 +1033,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "crater_relics" },
 		baseValue = 6000000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 } :: { ItemDef }
 
