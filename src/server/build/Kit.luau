@@ -443,10 +443,31 @@ end
 --- (LiquidService) -- and an unnamed TextLabel is only reachable by index, which is
 --- exactly the kind of positional lookup that breaks the day someone adds a third
 --- label. Purely additive: nothing looked these up before.
-function Kit.billboard(part: BasePart, width: number, height: number, title: string, subtitle: string, subColor: string, maxDistance: number?)
+function Kit.billboard(
+	part: BasePart,
+	width: number,
+	height: number,
+	title: string,
+	subtitle: string,
+	subColor: string,
+	maxDistance: number?,
+	titleSize: number?,
+	subtitleSize: number?
+)
+	-- titleSize/subtitleSize default to the original fixed 22/14 -- every existing
+	-- caller (the cleansing station/wash pad/luck signs via Plots.luau) omits them
+	-- and gets pixel-identical output to before. Layout derives from whichever size
+	-- is in play so a smaller-text caller (the model yard's per-stand tag, which
+	-- otherwise read as oversized and sat low enough to overlap tall items) gets a
+	-- proportionally smaller box instead of tiny text floating in the old one.
+	local titlePx = titleSize or 22
+	local subPx = subtitleSize or 14
+	local headHeight = titlePx + 8
+	local subHeight = subPx + 6
+
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Sign"
-	gui.Size = UDim2.fromOffset(width, 52)
+	gui.Size = UDim2.fromOffset(width, headHeight + subHeight + 2)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, height, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = maxDistance or 40
@@ -461,10 +482,10 @@ function Kit.billboard(part: BasePart, width: number, height: number, title: str
 
 	local head = Instance.new("TextLabel")
 	head.Name = "Title"
-	head.Size = UDim2.new(1, 0, 0, 30)
+	head.Size = UDim2.new(1, 0, 0, headHeight)
 	head.BackgroundTransparency = 1
 	head.Font = Kit.FONT
-	head.TextSize = 22
+	head.TextSize = titlePx
 	head.TextColor3 = Color3.fromHex(Kit.C.labelText)
 	head.TextStrokeTransparency = 1
 	head.Text = title
@@ -473,11 +494,11 @@ function Kit.billboard(part: BasePart, width: number, height: number, title: str
 
 	local sub = Instance.new("TextLabel")
 	sub.Name = "Subtitle"
-	sub.Position = UDim2.fromOffset(0, 28)
-	sub.Size = UDim2.new(1, 0, 0, 20)
+	sub.Position = UDim2.fromOffset(0, headHeight - 2)
+	sub.Size = UDim2.new(1, 0, 0, subHeight)
 	sub.BackgroundTransparency = 1
 	sub.Font = Kit.FONT
-	sub.TextSize = 14
+	sub.TextSize = subPx
 	sub.TextColor3 = Color3.fromHex(subColor)
 	sub.TextStrokeTransparency = 1
 	sub.Text = subtitle

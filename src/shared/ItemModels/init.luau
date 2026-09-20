@@ -2,47 +2,58 @@
 --[[
 	ItemModels — the catalogue's versioned visual-asset registry.
 
-	Config.Items stores only a small string key. This module owns the factories, so
-	gameplay services never need a growing chain of item-specific requires. Missing
-	keys return nil and deliberately fall back to the old rarity-coloured block while
-	the rest of the catalogue is modelled.
+	Config.Items stores only a small string key. This module owns the model
+	resolution, so gameplay services never need a growing chain of item-specific
+	requires. Missing keys return nil and deliberately fall back to the rarity-
+	coloured placeholder block (see WashService/ToolService/ExhibitService's own
+	`model == nil` branches) while the rest of the catalogue is modelled.
 
-	feat/nuke-arsenal-retheme: every item is now a nuke, reskinned by rarity, so the
-	whole catalogue resolves through exactly 7 factories (one per rarity tier) instead
-	of a bespoke sculpt per item. The old real-world-object factories (BottleCap,
-	GoldBar, etc.) are retired -- nothing in Config/Items references them any more.
+	feat/imported-nuke-gameplay RETIRES THE PROCEDURAL CAPSULE SYSTEM. It used to
+	be that every item resolved through one of 7 rarity-tier factories
+	(NukeCommon..NukeAnomaly, NukeBase.luau), optionally bolting on a per-item
+	`signature` prop from NukeSignatures.luau (7/68 items ever got one). Both are
+	gone now, on request: an item either has real hand-imported mesh art or it
+	has no model at all and falls back to the placeholder cube everywhere --
+	there is no procedural middle tier any more. `modelKey` is now just a flag
+	(only "ImportedNuke" is meaningful); which mesh to build is resolved by
+	`itemId`.
 
-	feat/nuke-item-signatures: `create` takes an optional itemId (Items.DEFS' `id`,
-	NOT the model key) so a tier factory can bolt on that one item's distinguishing
-	prop from NukeSignatures.luau on top of the shared archetype. Every call site
-	should pass it when it has one -- an item with no entry there is just the plain
-	tier archetype, the same graceful degrade as an unmodelled item entirely.
+	IMPORTED MESH TEMPLATES LIVE IN ReplicatedStorage.Assets.ImportedNukeTemplates,
+	NOT Shared -- same convention Assets.Tools.Detector already uses, and for
+	the same reason (see Shared/ToolModels/init.luau's header): that geometry
+	is built once, elevated-only (tools/studio-migrations/import-nuke-models.luau,
+	run from Studio's Command Bar, since MeshPart.MeshId cannot be written by an
+	ordinary Instance.new in this place), and Assets is NOT Rojo-managed the way
+	Shared is, so a runtime-installed folder there survives every sync instead
+	of being deleted as an "unknown instance." `create` just Clones whatever
+	template is already parked there; a place that predates the migration (or
+	whose migration hasn't been re-run since a fresh Studio session) has no
+	template yet, and this returns nil -- the same graceful degrade as any
+	other unmodelled item.
 ]]
 
-local NukeCommon = require(script.NukeCommon)
-local NukeUncommon = require(script.NukeUncommon)
-local NukeRare = require(script.NukeRare)
-local NukeEpic = require(script.NukeEpic)
-local NukeLegendary = require(script.NukeLegendary)
-local NukeMythic = require(script.NukeMythic)
-local NukeAnomaly = require(script.NukeAnomaly)
-local NukeBase = require(script.NukeBase)
-local NukeSignatures = require(script.NukeSignatures)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local IMPORTED_NUKE_KEY = "ImportedNuke"
+local TEMPLATE_PATH = { "Assets", "ImportedNukeTemplates" }
 
 local ItemModels = {}
 
-local factories: { [string]: (signature: NukeBase.SignatureFn?) -> Model } = {
-	NukeCommon = NukeCommon.create,
-	NukeUncommon = NukeUncommon.create,
-	NukeRare = NukeRare.create,
-	NukeEpic = NukeEpic.create,
-	NukeLegendary = NukeLegendary.create,
-	NukeMythic = NukeMythic.create,
-	NukeAnomaly = NukeAnomaly.create,
-}
-
 function ItemModels.has(modelKey: string): boolean
-	return factories[modelKey] ~= nil
+	return modelKey == IMPORTED_NUKE_KEY
+end
+
+local function importedNukeTemplate(itemId: string): Model?
+	local folder: Instance = ReplicatedStorage
+	for _, name in TEMPLATE_PATH do
+		local next_ = folder:FindFirstChild(name)
+		if next_ == nil then
+			return nil
+		end
+		folder = next_
+	end
+	local template = folder:FindFirstChild(itemId)
+	return if template and template:IsA("Model") then template else nil
 end
 
 function ItemModels.create(modelKey: string?, itemId: string?): Model?
@@ -50,14 +61,13 @@ function ItemModels.create(modelKey: string?, itemId: string?): Model?
 		return nil
 	end
 
-	local factory = factories[modelKey]
-	if factory == nil then
-		warn(`[items] unknown model key "{modelKey}"`)
-		return nil
+	if modelKey == IMPORTED_NUKE_KEY then
+		local template = if itemId then importedNukeTemplate(itemId) else nil
+		return if template then template:Clone() else nil
 	end
 
-	local signature = if itemId then NukeSignatures[itemId] else nil
-	return factory(signature)
+	warn(`[items] unknown model key "{modelKey}"`)
+	return nil
 end
 
 --- Item factories author placement rotations as attributes so a flat object such
