@@ -306,8 +306,27 @@ Tuning.AURA_CRACKS = {
 -- The range ring the detector draws on the ground around YOU. Client-side, so unlike
 -- the auras it is yours alone — it answers "what am I actually sweeping right now",
 -- which stopped being obvious the moment the needle went away.
-Tuning.RANGE_RING_PERIOD = 1.0 -- seconds between expanding pulses
+--
+-- IT IS A SONAR SWEEP NOW (on request). It used to be two dashed circles: a faint one
+-- sitting on the radius and a second that expanded out to it once a second. The circle
+-- said how far, but it said it the way a decal would — nothing about it read as an
+-- instrument doing work. So an arm turns around you dragging a fading wedge behind it,
+-- and each dash of the rim lights as the arm goes past and cools off behind it.
+--
+-- THE EXPANDING PULSE IS GONE ON PURPOSE. Two things growing out of the player at once
+-- read as noise, and a rim that lights in sequence already says "this is live" without
+-- a second ring crossing the ground every second.
+Tuning.RANGE_RING_PERIOD = 1.0 -- seconds; the HUD pick-up card's stroke shimmer still beats on this
 Tuning.RANGE_RING_SEGMENTS = 48 -- thin parts per ring; asset-free, so no texture to load
+
+-- One revolution takes SIX beats of RANGE_RING_PERIOD, deliberately: a radar that goes
+-- round once a second reads as a spinner, and the sweep has to feel like it is looking
+-- rather than hurrying. Slower than about 8s and it stops registering as motion at all.
+Tuning.RANGE_SWEEP_PERIOD = 6.0 -- seconds for one full turn of the arm
+Tuning.RANGE_SWEEP_SPAN = 1.25 -- radians of wedge trailing the arm (~72°)
+Tuning.RANGE_SWEEP_SLICES = 12 -- wedge slices; the fade steps once per slice, so this is its smoothness
+Tuning.RANGE_SWEEP_ALPHA = 0.26 -- opacity of the slice right behind the arm; the rest fall off as its square
+Tuning.RANGE_SWEEP_COMET = 0.9 -- radians of rim left glowing behind the arm
 
 -- ── The wash pad (Config/Liquids) ───────────────────────────────────────
 --

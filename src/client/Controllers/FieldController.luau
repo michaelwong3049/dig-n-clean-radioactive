@@ -15,14 +15,21 @@
 	The old detector answered "which way" continuously, so its range never had to be
 	legible — you just followed the arrow until it got loud. A reveal detector answers
 	nothing at all outside its radius, which makes that radius the single most
-	important number a player owns and, without this, an invisible one. So the ring is
-	drawn twice: a faint steady outline sitting exactly on the radius, and a pulse
-	that runs out to it once a second so the boundary reads while you are moving.
+	important number a player owns and, without this, an invisible one.
 
-	It is built from segments rather than a textured decal on purpose. A ring texture
-	is an asset id that can rot, needs a decent resolution to survive being scaled to
-	a 34-stud circle, and gets washed out by the stage fog; forty-eight thin neon parts
-	cost less than that and look the same at every radius.
+	IT IS A SONAR SWEEP: an arm turns around you once every six seconds dragging a
+	wedge of lit ground behind it, and the rim is a dashed hairline whose dashes light
+	as the arm passes and cool off behind it. The radius is still the whole point — it
+	is where the wedge stops and where the dashes sit — but the sweep is what makes the
+	thing read as an instrument taking a reading rather than a circle painted on the
+	floor. It replaced a second dashed ring that expanded out to the radius once a
+	second (Config/Tuning, RANGE_SWEEP_*, has why that went).
+
+	It is built from parts rather than a textured decal on purpose. A ring texture is
+	an asset id that can rot, needs a decent resolution to survive being scaled to a
+	34-stud circle, and gets washed out by the stage fog; a few dozen thin matte parts
+	cost less than that and look the same at every radius. The wedge is the same bet
+	twice over — a fan of flat triangles rather than an image of a radar sweep.
 
 	CLIENT-SIDE, so it is yours alone. Contrast the auras, which are deliberately
 	public — see Config/Tuning, "the reveal".
@@ -67,6 +74,13 @@ local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
 end
 
+-- How the rim reads between sweeps and under the arm. The dim end is a hairline on
+-- purpose now that the wedge carries the "this is live" job: a rim at the old 0.72
+-- fought the wedge for the same attention, and the point of the comet is that the
+-- boundary is brightest exactly where the sweep is looking.
+local RIM_DIM = 0.84
+local RIM_HOT = 0.18
+
 local RING_FOLDER = "DetectorRange"
 -- Client-only, like the ring: every burst of cracks this client has built. Kept out
 -- of the server's aura folder so nothing the server owns ever has client children.
@@ -83,12 +97,39 @@ local SEGMENT_GAP = 0.72 -- fraction of the arc a segment fills; the rest reads 
 -- OozePool's OozeRim (SKIM - 0.12 = 0.14) by a real margin either side.
 local RING_HEIGHT = 0.1
 
+-- Everything the sweep lays down sits at that same RING_HEIGHT, so the three
+-- thicknesses below are what keep them off each other. The rim crosses the wedge's
+-- outer edge and the arm's tip on every single frame, and two parts whose faces land
+-- on the same plane z-fight — not sometimes, always. All three are centred on
+-- RING_HEIGHT and no two share a face: rim 0.06..0.14, arm 0.07..0.13, wedge
+-- 0.075..0.125. Change one and check it against the other two, and against the 0.06
+-- floor in the comment above.
+--
+-- 0.05 IS THE FLOOR, NOT A CHOICE. Roblox clamps every part axis to 0.05 studs, so
+-- the wedge asked for 0.04 and measured 0.05 on a raycast — which quietly moved its
+-- faces off where these numbers said they were. Anything thinner than this is the
+-- same number with a misleading comment on it.
+local RIM_THICK = 0.08
+local ARM_THICK = 0.06
+local WEDGE_THICK = 0.05
+
 local DetectorController = nil
 
 type Ring = { parts: { BasePart } }
 
+--- The turning half: one Model holding the wedge triangles and the arm, built once
+--- per radius and then rigidly re-pivoted every frame. `shown` is each part's baked
+--- transparency (the fade is a property of WHERE a part sits in the wedge, not of
+--- time), kept so hiding and showing does not have to recompute the ladder.
+type Sweep = {
+	model: Model,
+	radius: number,
+	parts: { { part: BasePart, shown: number } },
+	hidden: boolean,
+}
+
 local steady: Ring? = nil
-local pulse: Ring? = nil
+local sweep: Sweep? = nil
 local ringFolder: Folder? = nil
 local crackFolder: Folder? = nil
 
@@ -120,46 +161,180 @@ local tracked: { [Model]: Tracked } = {}
 -- lost its race would otherwise sit in the field permanently un-animated.
 local pending: { [Model]: boolean } = {}
 
--- ── The range ring ──────────────────────────────────────────────────
+-- ── The rim ─────────────────────────────────────────────────────────
+
+--- Every flat cosmetic part this file makes is the same part with a different size,
+--- so they are all born here: anchored, un-queryable, matte, and in the instrument
+--- cyan. CanQuery false is the second lock on a door groundY already bolts by
+--- excluding this folder by name — the field is full of parts a player stands on and
+--- other systems cast rays across, and a cosmetic that can stop a ray is a bug
+--- waiting for whichever one forgets to filter it.
+local function makePart(class: string, name: string, parent: Instance?): BasePart
+	local part = Instance.new(class) :: BasePart
+	part.Name = name
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Locked = true
+	part.Material = Enum.Material.SmoothPlastic
+	part.Color = GLOW
+	part.Parent = parent
+	return part
+end
 
 local function makeRing(name: string): Ring
 	local parts: { BasePart } = {}
 
 	for index = 1, SEGMENTS do
-		local part = Instance.new("Part")
-		part.Name = `{name}{index}`
-		part.Anchored = true
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-		part.CastShadow = false
-		part.Locked = true
-		part.Material = Enum.Material.SmoothPlastic
-		part.Color = GLOW
-		part.Size = Vector3.new(1, 0.08, 0.22)
-		part.Parent = ringFolder
+		local part = makePart("Part", `{name}{index}`, ringFolder)
+		part.Size = Vector3.new(1, RIM_THICK, 0.22)
 		parts[index] = part
 	end
 
 	return { parts = parts }
 end
 
---- Lay a ring of segments flat on the ground, centred on `centre`.
+--- Lay the rim flat on the ground, centred on `centre`, and run the comet round it:
+--- a dash is brightest as the arm crosses it and cools over the next
+--- RANGE_SWEEP_COMET radians. That decay is what makes the rim read as the sweep's
+--- echo rather than as a circle that happens to share its colour.
 ---
 --- The rotation is the fiddly half. A part's long axis is its local X, and the
 --- tangent at angle t is (-sin t, 0, cos t); the yaw that maps one onto the other is
 --- -(t + pi/2). Getting it wrong yields segments pointing at the player like spokes,
 --- which looks like a deliberate and much worse design rather than a bug.
-local function layRing(ring: Ring, centre: Vector3, radius: number, transparency: number, colour: Color3)
+local function layRing(ring: Ring, centre: Vector3, radius: number, lead: number)
 	local arc = 2 * math.pi * radius / SEGMENTS
+	local comet = Tuning.RANGE_SWEEP_COMET
 
 	for index, part in ring.parts do
 		local t = (index - 1) / SEGMENTS * 2 * math.pi
-		part.Size = Vector3.new(math.max(arc * SEGMENT_GAP, 0.05), 0.08, 0.22)
+		part.Size = Vector3.new(math.max(arc * SEGMENT_GAP, 0.05), RIM_THICK, 0.22)
 		part.CFrame = CFrame.new(centre + Vector3.new(math.cos(t) * radius, 0, math.sin(t) * radius))
 			* CFrame.Angles(0, -(t + math.pi / 2), 0)
-		part.Transparency = transparency
-		part.Color = colour
+
+		-- How far the arm has travelled since it was over this dash. The modulo is
+		-- what makes the dash behind the arm read as 0.05 rad old rather than 6.23.
+		local behind = (lead - t) % (2 * math.pi)
+		local heat = if behind < comet then (1 - behind / comet) ^ 2 else 0
+		part.Transparency = lerp(RIM_DIM, RIM_HOT, heat)
+	end
+end
+
+-- ── The sweep ───────────────────────────────────────────────────────
+
+--- Lay one flat triangle a-b-c with a pair of WedgeParts.
+---
+--- A WedgePart is the only primitive Roblox has with a triangular silhouette, and it
+--- takes two of them to make an arbitrary triangle: the altitude from the longest
+--- side splits it into two right triangles, which is exactly the shape a wedge is.
+--- The swaps at the top put the longest side on b-c so that altitude actually falls
+--- inside the triangle; without them an obtuse slice comes out inside-out. This is
+--- the long-standing community routine for the job, kept in its usual form (with a
+--- real thickness rather than the usual zero) so it stays recognisable.
+---
+--- `right` comes out vertical for a triangle lying flat, which is why the wedges'
+--- thickness is their X and the triangle itself lives in their Y-Z plane.
+local function layTriangle(w1: BasePart, w2: BasePart, a: Vector3, b: Vector3, c: Vector3)
+	local ab, ac, bc = b - a, c - a, c - b
+	local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
+
+	if abd > acd and abd > bcd then
+		c, a = a, c
+	elseif acd > bcd and acd > abd then
+		a, b = b, a
+	end
+
+	ab, ac, bc = b - a, c - a, c - b
+
+	local right = ac:Cross(ab).Unit
+	local up = bc:Cross(right).Unit
+	local back = bc.Unit
+	local height = math.abs(ab:Dot(up))
+
+	w1.Size = Vector3.new(WEDGE_THICK, height, math.abs(ab:Dot(back)))
+	w1.CFrame = CFrame.fromMatrix((a + b) / 2, right, up, back)
+	w2.Size = Vector3.new(WEDGE_THICK, height, math.abs(ac:Dot(back)))
+	w2.CFrame = CFrame.fromMatrix((a + c) / 2, -right, up, -back)
+end
+
+--- Build the turning half at this radius, in LOCAL space: the arm points down +X and
+--- the wedge trails behind it into negative angles, so the whole model is placed and
+--- aimed with one pivot per frame (stepRings) and nothing in here is recomputed while
+--- the player walks. Rebuilt only when the radius changes, which means on a tier
+--- change and at nothing else.
+---
+--- The wedge is a fan of triangles rather than a stack of rectangles because
+--- rectangles cannot do it: a slice is a shape that WIDENS with radius, so
+--- constant-width parts either leave gaps at the rim or pile up near the player, and
+--- piled-up translucent parts do not stay at their own transparency — they composite
+--- into a bright blob under your feet.
+local function buildSweep(radius: number): Sweep
+	local model = Instance.new("Model")
+	model.Name = "Sweep"
+
+	-- The pivot. A Model with no PrimaryPart pivots about its bounding-box centre,
+	-- which for a fan is somewhere out in the wedge, so the sweep would orbit the
+	-- player instead of turning under them.
+	local hub = makePart("Part", "Hub", model)
+	hub.Size = Vector3.new(0.05, 0.05, 0.05)
+	hub.Transparency = 1
+	hub.CFrame = CFrame.new()
+	model.PrimaryPart = hub
+
+	local parts: { { part: BasePart, shown: number } } = {}
+	local slices = Tuning.RANGE_SWEEP_SLICES
+	local span = Tuning.RANGE_SWEEP_SPAN
+
+	for index = 1, slices do
+		-- Slice 1 is the one against the arm and the brightest; the falloff is the
+		-- square of the distance behind it, so the wedge has a hot leading edge and a
+		-- long thin tail rather than a uniform smear.
+		local outer = -span * (index - 1) / slices
+		local inner = -span * index / slices
+		local shown = 1 - Tuning.RANGE_SWEEP_ALPHA * (1 - (index - 1) / slices) ^ 2
+
+		local w1 = makePart("WedgePart", `Slice{index}a`, model)
+		local w2 = makePart("WedgePart", `Slice{index}b`, model)
+		layTriangle(
+			w1,
+			w2,
+			Vector3.zero,
+			Vector3.new(math.cos(inner) * radius, 0, math.sin(inner) * radius),
+			Vector3.new(math.cos(outer) * radius, 0, math.sin(outer) * radius)
+		)
+		w1.Transparency = shown
+		w2.Transparency = shown
+		table.insert(parts, { part = w1, shown = shown })
+		table.insert(parts, { part = w2, shown = shown })
+	end
+
+	-- The arm, in four pieces so it can brighten along its length. One part with a
+	-- flat transparency reads as a spoke; the gradient is what makes it look like the
+	-- reading is being taken out at the edge.
+	local ARM = 4
+	for index = 1, ARM do
+		local shown = 1 - lerp(0.08, 0.85, (index - 0.5) / ARM)
+		local part = makePart("Part", `Arm{index}`, model)
+		part.Size = Vector3.new(radius / ARM, ARM_THICK, 0.26)
+		part.CFrame = CFrame.new((index - 0.5) / ARM * radius, 0, 0)
+		part.Transparency = shown
+		table.insert(parts, { part = part, shown = shown })
+	end
+
+	model.Parent = ringFolder
+	return { model = model, radius = radius, parts = parts, hidden = false }
+end
+
+local function showSweep(entry: Sweep, hidden: boolean)
+	if entry.hidden == hidden then
+		return
+	end
+	entry.hidden = hidden
+	for _, item in entry.parts do
+		item.part.Transparency = if hidden then 1 else item.shown
 	end
 end
 
@@ -204,7 +379,7 @@ local function groundY(root: BasePart): number
 end
 
 local function stepRings()
-	if steady == nil or pulse == nil then
+	if steady == nil then
 		return
 	end
 
@@ -215,18 +390,34 @@ local function stepRings()
 
 	if root == nil or not root:IsA("BasePart") or radius <= 0 then
 		hideRing(steady)
-		hideRing(pulse)
+		if sweep then
+			showSweep(sweep, true)
+		end
 		return
 	end
 
 	local centre = Vector3.new(root.Position.X, groundY(root), root.Position.Z)
 
-	layRing(steady, centre, radius, 0.72, GLOW)
+	-- Where the arm is pointing this frame, as a bearing in the same convention the
+	-- rim uses: local +X at 0, turning toward +Z. Off os.clock rather than a
+	-- delta-time accumulator so two players standing together sweep in step, and so
+	-- the arm does not lurch after a frame the client spent loading.
+	local lead = (os.clock() % Tuning.RANGE_SWEEP_PERIOD) / Tuning.RANGE_SWEEP_PERIOD * 2 * math.pi
 
-	-- Off os.clock and Tuning.RANGE_RING_PERIOD so every pulse in the game beats
-	-- together — the pick-up card's stroke shimmer rides the same period.
-	local phase = (os.clock() % Tuning.RANGE_RING_PERIOD) / Tuning.RANGE_RING_PERIOD
-	layRing(pulse, centre, radius * phase, 0.15 + phase * 0.8, GLOW)
+	layRing(steady, centre, radius, lead)
+
+	-- A tier change is the only thing that moves the radius, so this rebuild costs
+	-- nothing on a normal frame. Everything else about the sweep is a single pivot:
+	-- the fan is rigid, and its fade is baked into the parts.
+	if sweep == nil or math.abs(sweep.radius - radius) > 0.01 then
+		if sweep then
+			sweep.model:Destroy()
+		end
+		sweep = buildSweep(radius)
+	end
+	local turning = sweep :: Sweep
+	showSweep(turning, false)
+	turning.model:PivotTo(CFrame.new(centre) * CFrame.Angles(0, -lead, 0))
 end
 
 -- ── The auras ───────────────────────────────────────────────────────
@@ -396,12 +587,12 @@ function Field.start()
 	folder.Parent = Workspace
 	ringFolder = folder
 
-	local steadyRing = makeRing("Steady")
-	local pulseRing = makeRing("Pulse")
+	-- Only the rim is built up front. The sweep needs a radius to have a shape at all,
+	-- and there is no radius until the first payload lands, so stepRings builds it on
+	-- the frame the detector turns on.
+	local steadyRing = makeRing("Rim")
 	hideRing(steadyRing)
-	hideRing(pulseRing)
 	steady = steadyRing
-	pulse = pulseRing
 
 	local cracks = Instance.new("Folder")
 	cracks.Name = CRACK_FOLDER
