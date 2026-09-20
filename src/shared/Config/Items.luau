@@ -62,6 +62,15 @@
 
 	`appeal` (Researcher/Collector/Gearhead) and `sets` are untouched by the retheme --
 	they were already inert, display-only/unconsumed fields and stayed that way.
+
+	RETIRED ITEMS KEEP THEIR DEFS ENTRY, WITH `stages = {}`. An id is forever, once
+	shipped -- see the `id` note above on why renaming breaks old saves; deleting the
+	whole entry is the same problem, since `Items.get()` asserts on an unknown id and
+	a saved profile's carry/locker/exhibit/discovered can still name it. `stages = {}`
+	unstocks it everywhere (it never joins byStageRarity/stageItems, so the dig roll
+	can't produce it again) while leaving `byId` able to resolve it. IndexController's
+	`totalItems` only counts items with at least one stage, so a retired item doesn't
+	sit in the denominator as permanently unreachable.
 ]]
 
 local Rarity = require(script.Parent.Rarity)
@@ -176,13 +185,16 @@ Items.DEFS = {
 		model = nil,
 	},
 	{
+		-- RETIRED, ON REQUEST (see "RETIRED ITEMS" note up top) -- dropped from the
+		-- dig roll and the Index total, but the entry itself stays so old saves
+		-- holding this id don't crash Items.get().
 		id = "radioactive_rubber_duck",
 		name = "Rubber Nuke",
 		flavor = "Squeaks. Glows a little. Definitely not real.",
 		rarity = "Common",
 		odds = 40, -- 1 in N per dig in a stocking stage
 		weight = 0.08,
-		stages = { 1 },
+		stages = {},
 		appeal = "Collector",
 		sets = {},
 		baseValue = 93,

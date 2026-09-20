@@ -93,7 +93,10 @@ local TILE = 84
 local TILE_GAP = 6
 
 local discovered: { [string]: boolean } = {}
-local totalItems = #Items.DEFS
+-- Not #Items.DEFS: a retired item (`stages = {}`, see Config/Items.luau's header)
+-- stays in the catalogue so old saves can still resolve it, but can never be dug
+-- again, so it would sit in this count as permanently unreachable.
+local totalItems = 0
 local selectedId: string? = nil
 
 local ui = {}
@@ -114,6 +117,9 @@ for _, stage in Stages.DEFS do
 	itemsByStage[stage.id] = {}
 end
 for _, item in Items.DEFS do
+	if #item.stages > 0 then
+		totalItems += 1
+	end
 	for _, stageId in item.stages do
 		if itemsByStage[stageId] then
 			table.insert(itemsByStage[stageId], item)
