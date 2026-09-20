@@ -272,6 +272,26 @@ COMMANDS["/speed"] = {
 	end,
 }
 
+COMMANDS["/fly"] = {
+	-- Client-side only (FlyController.luau reacts to the attribute) -- there is no
+	-- server movement validation to bypass here because reaching this command at
+	-- all already required mayUseConsole to pass, same gate every other command
+	-- in this file sits behind.
+	help = "/fly [off] — toggle free-fly (WASD + Space/Ctrl, hold Shift to boost); /fly off to land",
+	run = function(player, _sandbox, args)
+		local raw = args[1]
+		if raw == "off" or raw == "clear" or raw == "reset" then
+			player:SetAttribute("FlyMode", false)
+			return "fly off — back to normal movement"
+		end
+		local enabled = not player:GetAttribute("FlyMode")
+		player:SetAttribute("FlyMode", enabled)
+		return if enabled
+			then "fly on — WASD to move, Space/Ctrl for up/down, Shift to boost, /fly off to land"
+			else "fly off — back to normal movement"
+	end,
+}
+
 COMMANDS["/pocket"] = {
 	help = "/pocket — hot pockets belong to StageService and arrive in Phase 4",
 	run = function(_player, _sandbox, _args)
