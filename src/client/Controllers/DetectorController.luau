@@ -74,6 +74,27 @@ local LOCKGUI_RISE = 2.4 -- studs above the signal the card hovers at rest
 local LOCKGUI_SHOW_TWEEN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local LOCKGUI_HIDE_TWEEN = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 
+-- THE CARD WAITS FOR THE SPOT (on request: it landed on bare ground and sat there for
+-- about half a second while the glow came up underneath it). The card pins itself to a
+-- spot with a downward arrow, so it says "this, here" — and it cannot say that about
+-- ground with nothing on it yet.
+--
+-- It is not a fixed delay. It asks FieldController how far up the spot actually is and
+-- goes the moment there is something to point at, which in practice is the same frame
+-- you arrive: the reveal (client/SpotCracks, REVEAL) was cut to finish inside the walk
+-- from the edge of the detector radius, so a spot is ~87% up by the time the starting
+-- kit can stand on it. The wait only shows up in the cases where the spot genuinely IS
+-- new under your feet — a signal that respawned where you are standing, a stage you
+-- just walked into.
+--
+-- AND IT CAN ONLY EVER DELAY THE CARD, NEVER WITHHOLD IT. PROMPT_WAIT_CAP is the hard
+-- stop: this is a cosmetic system gating a gameplay affordance, and if the cracks never
+-- arrive at all (FieldController never tracked the aura, the rarity never resolved) the
+-- player still gets their prompt a beat later. A pick-up you cannot trigger is a far
+-- worse bug than a card over a dim spot.
+local PROMPT_MIN_SHOWN = 0.6 -- how far up the spot has to be before the card is offered
+local PROMPT_WAIT_CAP = 1.0 -- seconds the card will wait on a spot before showing regardless
+
 local YANK_KICK_SECONDS = 0.12
 local YANK_KICK_SCALE = 0.05 -- how far REEL IN presses in at the peak of a kick
 -- No yank for this long and the soil is winning: the shaft's strain judder gets harder.
@@ -172,6 +193,15 @@ local lockHoldTween: Tween? = nil
 -- nothing else -- "are they hauling" is answered by state.locked now, which comes from
 -- the server, rather than by guessing from how recently a key was pressed.
 local lastYankAt = -math.huge
+
+-- The spot the pick-up card is currently waiting on, and when that wait started (see
+-- PROMPT_MIN_SHOWN). Cleared by nothing: a new nearest core replaces both.
+local promptWaitCore: BasePart? = nil
+local promptWaitSince = 0
+
+-- Sibling controller, required lazily in start() for the same reason it requires us
+-- that way -- the two point at each other and load order must not decide which wins.
+local FieldController = nil
 
 -- ── Build ───────────────────────────────────────────────────────────
 
@@ -901,6 +931,20 @@ local function updateLockPrompt()
 		return
 	end
 
+	-- Is there a spot under the card yet? See PROMPT_MIN_SHOWN. Timed from the first
+	-- tick THIS core was the nearest one, so walking from one spot straight onto another
+	-- restarts the wait rather than inheriting the last one's.
+	if best ~= promptWaitCore then
+		promptWaitCore, promptWaitSince = best, os.clock()
+	end
+	-- Defaults to "fully up" if the sibling is somehow not loaded, so a missing
+	-- FieldController can never be the reason a player cannot pick something up.
+	local spot = if FieldController then FieldController.spotShown(best) else 1
+	if spot < PROMPT_MIN_SHOWN and os.clock() - promptWaitSince < PROMPT_WAIT_CAP then
+		ui.prompt.Enabled = false
+		return
+	end
+
 	ui.promptHolder.Position = best.Position
 
 	-- The card carries no rarity text any more, but the accent still does: the rarity
@@ -1151,6 +1195,8 @@ function Detector.contactRarityAt(worldPosition: Vector3): string?
 end
 
 function Detector.start()
+	FieldController = require(script.Parent.FieldController)
+
 	local player = Players.LocalPlayer
 	local gui = build()
 	gui.Parent = player:WaitForChild("PlayerGui")

@@ -20,9 +20,10 @@
 	like the motes) stands up out of the centre, each ray blinking on its own beat. The
 	aura's own PointLight and motes do the rest.
 
-	This module only builds parts and recolours them. FieldController decides when a
-	burst exists (a rarity has landed for the aura), when it goes (the aura does), and
-	whether the player is standing on it.
+	This module only builds parts, recolours them and fades them. FieldController decides
+	when a burst exists (a rarity has landed for the aura), when it starts going out (the
+	server flags the aura as unrevealed — SpotCracks.retire), and whether the player is
+	standing on it.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -41,8 +42,8 @@ type Segment = {
 	level: number,
 }
 
--- One ray of the fan. Once grown it stays put for the burst's life; only how lit it is
--- changes.
+-- One ray of the fan. Once grown it stays put and only how lit it is changes -- until
+-- the spot is retired, when it slides back down the way it came up.
 type Ray = {
 	beam: Beam,
 	-- Its tip, and where the tip ends up relative to the shared foot: the ray grows up
@@ -52,7 +53,10 @@ type Ray = {
 	-- Seconds after the spot appears before this ray starts growing, so the fan comes
 	-- up one ray after another rather than all in the same frame.
 	delay: number,
-	grown: boolean,
+	-- How far out of the ground the tip currently stands, 0..1 of `reach`, as last
+	-- written. A ray at rest recomputes to exactly 1 every frame, so comparing against
+	-- this skips the Attachment write on all but the frames it is actually moving.
+	extend: number,
 	-- Its own offset into the breathe, so the fan shimmers instead of pulsing as one.
 	phase: number,
 	-- The last lit level written (see RAY_LEVELS), to skip no-op property writes.
@@ -65,9 +69,20 @@ export type Burst = {
 	dim: Color3,
 	bright: Color3,
 	rays: { Ray },
+	-- Every crack part, gash and glow strip alike, for the one thing they all do
+	-- together: fade. Held flat rather than walked off the Model each frame so the
+	-- opacity pass never allocates.
+	crust: { BasePart },
+	-- The last quantised opacity written across `crust`, like Segment.level.
+	opacity: number,
 	-- os.clock() of the first frame this burst was stepped: the reveal counts from it.
 	born: number?,
 	last: number?,
+	-- 1 while the spot is live, eased to 0 once it is retired (the server says nobody
+	-- is revealing it any more — Tuning.AURA_LINGER). Linear, smoothed where it is
+	-- used, so reversing it mid-fade is just moving it back the other way.
+	life: number,
+	dying: boolean,
 	-- 0..1, eased toward 1 while the player stands on the spot and back to 0 after, so
 	-- stepping on and off blends into the flare instead of switching to it.
 	onIt: number,
@@ -107,16 +122,57 @@ local RAY_SPREAD = 1.5 -- studs across at the top (each ray varies 0.7..1.3x)
 local RAY_BASE_Y = 0.25 -- rays leave from just above the hot spot
 local RAY_DIM = 0.35 -- how lit a ray still is at the bottom of its breathe (0 = gone)
 local RAY_LEVELS = 32 -- lit quantisation: one cached NumberSequence per level. 12 read as visible steps
-local RAY_GROW = 0.9 -- seconds for one ray to grow up out of the ground
-local RAY_STAGGER = 0.6 -- the last ray starts growing up to this long after the first
+-- Trimmed with REVEAL (0.9 / 0.6) so the fan keeps its proportion to the cracks under
+-- it: the whole spot now settles in ~1.15s rather than 1.5s. The fan is allowed to be
+-- still rising when the player arrives -- a ray on its way up is motion, not absence,
+-- and it is the CRACKS being missing that made the pick-up card look stranded.
+local RAY_GROW = 0.7 -- seconds for one ray to grow up out of the ground
+local RAY_STAGGER = 0.45 -- the last ray starts growing up to this long after the first
 
 -- NOTHING SNAPS (on request: the first fan popped in at full strength and blinked
 -- up hard, which read as sudden and awkward). A spot's cracks, core and light fade in
 -- over REVEAL; its rays grow up one after another, fading in as they rise; each ray
 -- then breathes on a slow plain sine, not a sharpened flash; and standing on or off the
 -- spot eases into and out of the flare over ~1/ON_IT_EASE seconds.
-local REVEAL = 0.6 -- seconds for the cracks' glow (and FieldController's core + light) to fade in
+-- AND NOTHING VANISHES EITHER (on request: walking out of range blinked the whole
+-- starburst out between two frames, which was the most sudden thing left in the field).
+-- The server now keeps an aura nobody is revealing alive for Tuning.AURA_LINGER seconds
+-- with a flag on it (FieldController reads it and calls SpotCracks.retire), and that
+-- window is what these two spend: the cracks fade to nothing instead of being deleted,
+-- and the rays sink back down the way they came up rather than switching off.
+--
+-- FADE_OUT MUST STAY UNDER Tuning.AURA_LINGER (1.0). The part is destroyed at the end
+-- of the linger whatever this module has managed by then, so the slack between the two
+-- is the budget for the flag to replicate. Widen the linger before widening this.
+--
+-- Walking back in un-flags the aura and the same burst eases back up — faster than it
+-- went out, because that one is answering an action the player just took.
+-- REVEAL IS MEASURED AGAINST THE WALK, NOT PICKED (it was 0.6 and had never been
+-- checked against one). A spot surfaces at the edge of your detector radius and you can
+-- stand on it at Tuning.DIG_RADIUS, so the fade-in has to finish inside the time it
+-- takes to cover the difference:
+--
+--   starting kit (Bent Coil r=13, Taped Boots 26 studs/s):  (13 - 5) / 26 = 0.31s
+--   fastest arrival anywhere (r=13, Strider Rig 36):        (13 - 5) / 36 = 0.22s
+--
+-- The STARTING detector is the tight one — a wider radius only ever buys more walk —
+-- and 0.6 lost that race twice over, so a new player walked onto a spot that was still
+-- coming up and got a PICK UP card over near-nothing (DetectorController's
+-- PROMPT_MIN_SHOWN, which is the other half of this fix). 0.4 puts the cracks at ~87%
+-- by the time the starting kit arrives and ~58% at the fastest arrival in the game.
+--
+-- DO NOT close the rest of that gap by shortening this further. Under ~0.3 the reveal
+-- stops reading as ground splitting open and starts reading as a part being switched
+-- on, which is the snap the whole module is built to avoid. The card waiting a beat is
+-- the cheaper half.
+local REVEAL = 0.4 -- seconds for the cracks' glow (and FieldController's core + light) to fade in
+local FADE_OUT = 0.6 -- seconds for a retired spot to fade away to nothing
+local FADE_BACK = 0.3 -- seconds for a retired spot to come back if it is reached again
 local ON_IT_EASE = 5 -- rate the standing-on-it flare eases in and out (1/s)
+-- Opacity quantisation for the crack parts. Lower than the glow's LEVELS because this
+-- writes ~80 parts in one go where a level change there writes one: 16 steps over a
+-- 0.6s fade is a step every couple of frames, which no eye picks out of a fade.
+local OPACITY_LEVELS = 16
 
 -- The lit level is a Transparency change, and a NumberSequence is an allocation, so
 -- every level is built once here and a ray only swaps between them. Lit 1: solid at the
@@ -155,6 +211,10 @@ local function flatPart(name: string, color: Color3): Part
 	part.Locked = true
 	part.Material = Enum.Material.SmoothPlastic
 	part.Color = color
+	-- Born invisible, like the aura's own core (build/SignalAura): the first step fades
+	-- it in, and a part that shipped opaque would show for the frame between being
+	-- parented and that step.
+	part.Transparency = 1
 	return part
 end
 
@@ -256,8 +316,12 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 		dim = hue:Lerp(GASH, 0.55),
 		bright = hue:Lerp(Color3.new(1, 1, 1), 0.3),
 		rays = {},
+		crust = {},
+		opacity = -1,
 		born = nil,
 		last = nil,
+		life = 1,
+		dying = false,
 		onIt = 0,
 	}
 
@@ -272,12 +336,14 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 			local gy = surface.Y + GASH_Y
 			lay(gash, a + Vector3.yAxis * gy, b + Vector3.yAxis * gy, width, GASH_THICKNESS, width)
 			gash.Parent = model
+			table.insert(burst.crust, gash)
 
 			if k <= path.lit then
 				local ly = surface.Y + GLOW_Y + path.lift + (k % 2) * GLOW_STEP
 				local glow = flatPart("Glow", burst.dim)
 				lay(glow, a + Vector3.yAxis * ly, b + Vector3.yAxis * ly, width * GLOW_SHARE, GLOW_THICKNESS, width * GLOW_SHARE)
 				glow.Parent = model
+				table.insert(burst.crust, glow)
 
 				table.insert(burst.segments, {
 					glow = glow,
@@ -335,7 +401,7 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 			tip = tip,
 			reach = lean * height,
 			delay = rng:NextNumber() * RAY_STAGGER,
-			grown = false,
+			extend = 0,
 			phase = rng:NextNumber() * 2 * math.pi,
 			level = -1,
 		})
@@ -354,20 +420,25 @@ end
 --- (eased in and out, fading in as it rises), then breathes on a slow sine -- rarer
 --- spots a little quicker. Standing on the spot blends the whole fan up toward full and
 --- a soft shimmer.
-local function stepRays(burst: Burst, now: number, age: number, loud: number)
+---
+--- `alive` is the burst's eased life (see FADE_OUT): the rays ride it the same way they
+--- ride their own growth, so a retired spot's fan sinks back into the ground and dims
+--- out along the way instead of being switched off where it stands.
+local function stepRays(burst: Burst, now: number, age: number, loud: number, alive: number)
 	local speed = 1.6 + 0.8 * loud
 	for _, ray in burst.rays do
 		local grow = math.clamp((age - ray.delay) / RAY_GROW, 0, 1)
-		if not ray.grown then
-			-- Eased in AND out: an ease-out alone still leaves the ground at full speed,
-			-- which is exactly the jolt this is here to remove.
-			ray.tip.Position = Vector3.new(0, RAY_BASE_Y, 0) + ray.reach * math.max(smooth(grow), 0.01)
-			ray.grown = grow >= 1
+		-- Eased in AND out: an ease-out alone still leaves the ground at full speed,
+		-- which is exactly the jolt this is here to remove.
+		local extend = smooth(grow) * alive
+		if extend ~= ray.extend then
+			ray.extend = extend
+			ray.tip.Position = Vector3.new(0, RAY_BASE_Y, 0) + ray.reach * math.max(extend, 0.01)
 		end
 
 		local breathe = RAY_DIM + (1 - RAY_DIM) * (0.5 + 0.5 * math.sin(now * speed + ray.phase))
 		local flare = 0.9 + 0.1 * math.sin(now * 8 + ray.phase)
-		local lit = (breathe + (flare - breathe) * burst.onIt) * smooth(grow)
+		local lit = (breathe + (flare - breathe) * burst.onIt) * extend
 
 		local level = math.floor(lit * RAY_LEVELS + 0.5)
 		if level ~= ray.level then
@@ -377,11 +448,24 @@ local function stepRays(burst: Burst, now: number, age: number, loud: number)
 	end
 end
 
---- How far through its fade-in a burst is, 0..1. FieldController fades the shared core
---- and light by this so they come up with the cracks instead of snapping on.
+--- How present a burst is right now, 0..1: its fade-in on the way up, its eased life on
+--- the way back down. FieldController drives the shared core, light and motes off this
+--- so all three come up with the cracks and go out with them instead of snapping either
+--- way. Only meaningful after the frame's SpotCracks.step.
 function SpotCracks.shown(burst: Burst, now: number): number
 	local born = burst.born
-	return if born then smooth((now - born) / REVEAL) else 0
+	return if born then smooth((now - born) / REVEAL) * smooth(burst.life) else 0
+end
+
+--- "Nobody is revealing this spot any more" (`dying` true), or "somebody reached it
+--- again" (false). Only ever a flag: the fade itself runs in step, so calling this every
+--- frame with the same answer costs nothing and reversing it mid-fade picks up from
+--- wherever the fade got to. FieldController reads it off the aura's
+--- Tuning.AURA_FADE_ATTR — the CLIENT NEVER DECIDES THIS. A client that retired a spot
+--- on its own reading would hide auras other players had every right to see (see that
+--- file's header).
+function SpotCracks.retire(burst: Burst, dying: boolean)
+	burst.dying = dying
 end
 
 --- Recolour one burst for this frame. `loud` is the rarity's 0..1 loudness
@@ -400,8 +484,31 @@ function SpotCracks.step(burst: Burst, now: number, loud: number, phase: number,
 	burst.last = now
 	burst.onIt += ((if close then 1 else 0) - burst.onIt) * math.min(1, dt * ON_IT_EASE)
 
+	-- Life runs at a constant rate rather than easing exponentially toward its target:
+	-- a fade that has to be FINISHED before the part is destroyed (FADE_OUT) cannot be
+	-- one that only ever approaches zero.
+	if burst.dying then
+		burst.life = math.max(burst.life - dt / FADE_OUT, 0)
+	else
+		burst.life = math.min(burst.life + dt / FADE_BACK, 1)
+	end
+	local alive = smooth(burst.life)
+
 	local age = now - born
 	local shown = SpotCracks.shown(burst, now)
+
+	-- Every crack part carries the same opacity: the gashes have to go with the glow
+	-- strips, or a fading spot leaves its dark cracks painted on the ground at full
+	-- strength and then deletes them, which is the pop this was built to remove.
+	local opacity = math.floor(shown * OPACITY_LEVELS + 0.5)
+	if opacity ~= burst.opacity then
+		burst.opacity = opacity
+		local transparency = 1 - opacity / OPACITY_LEVELS
+		for _, part in burst.crust do
+			part.Transparency = transparency
+		end
+	end
+
 	local speed = 3 + 2 * loud
 	local flicker = 0.85 + 0.15 * math.sin(now * 8 + phase)
 
@@ -415,7 +522,7 @@ function SpotCracks.step(burst: Burst, now: number, loud: number, phase: number,
 		end
 	end
 
-	stepRays(burst, now, age, loud)
+	stepRays(burst, now, age, loud, alive)
 end
 
 return SpotCracks

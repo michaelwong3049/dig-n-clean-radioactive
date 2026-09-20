@@ -80,6 +80,10 @@ function SignalAura.create(surface: Vector3, scale: number): Model
 	model.Name = "Aura"
 	model:SetAttribute("WellScale", scale)
 	model:SetAttribute("Surface", surface)
+	-- "Nobody's detector reaches this any more; it is on its way out." Stamped false at
+	-- birth rather than left nil so the flag exists on the model from the first frame
+	-- the client sees it — see Tuning.AURA_LINGER for what the client does with it.
+	model:SetAttribute(Tuning.AURA_FADE_ATTR, false)
 
 	-- The hot spot: a small flat disc where the cracks meet — the bullseye, the spot to
 	-- stand on. A cylinder whose length (its local X) is tiny, stood so that short axis

@@ -9,7 +9,10 @@
 	server can see, and this controller may only ever change how they LOOK. Never
 	where they are, never whether they exist. If it ever decides that, the reveal has
 	moved to the client and the field is a free ESP. (The cracks are client parts, but
-	they only ever dress an aura the server already put there, and go when it goes.)
+	they only ever dress an aura the server already put there, and go when it goes.
+	"When it goes" is a window rather than an instant now — the server flags an aura
+	nobody is revealing and holds the part for Tuning.AURA_LINGER so every client can
+	fade the spot out — but it is still the server's call, not ours.)
 
 	THE RANGE RING EXISTS BECAUSE THE NEEDLE DIED.
 	The old detector answered "which way" continuously, so its range never had to be
@@ -524,6 +527,24 @@ local function stepAuras()
 		end
 		local rarity = entry.rarity
 
+		-- IS ANYONE STILL REVEALING THIS? The server's answer, never ours. It flags an
+		-- aura nobody's detector reaches instead of deleting it on the spot, and holds
+		-- the part for Tuning.AURA_LINGER so the spot can go OUT rather than vanish
+		-- between two frames — walking away used to blink the cracks, the light and the
+		-- whole fan of rays out at once, which is the one thing every other fade in
+		-- here exists to avoid. Coming back inside the radius clears the flag and the
+		-- same burst eases back up; nothing is rebuilt.
+		--
+		-- It is read off the model and not from this client's own contacts on purpose:
+		-- auras are public (Tuning, "the reveal"), so a spot somebody ELSE is standing
+		-- in has to keep burning for us long after it has left our radius.
+		if entry.burst then
+			-- Pushed every frame rather than on the edge: retire only sets a flag, and
+			-- a burst built on THIS frame (above) needs the current answer too — an
+			-- aura can stream in already flagged.
+			SpotCracks.retire(entry.burst, (model :: any):GetAttribute(Tuning.AURA_FADE_ATTR) == true)
+		end
+
 		-- No reading yet (the position match still settling) or ever (a signal someone
 		-- else revealed that sits past this player's depth gate): nothing to say about
 		-- the aura, so draw nothing -- no cracks are built, and the shared core stays
@@ -574,6 +595,27 @@ local function stepAuras()
 			entry.motes.Rate = (lerp(5, 19, t) + 12 * onIt) * shown
 		end
 	end
+end
+
+--- How far up the spot over `core` is on THIS client, 0..1 — 0 for an aura with no
+--- cracks built (no rarity resolved yet, or its children have not replicated).
+---
+--- DetectorController asks before it offers the PICK UP card. In the starting kit a
+--- player crosses from the edge of the reveal radius to standing on the spot in about a
+--- third of a second (the arithmetic is on SpotCracks' REVEAL), which is quicker than
+--- the spot comes up — so the card used to land on bare ground and wait for its own
+--- glow to arrive. This is the only thing the HUD asks the world-space half, and it is
+--- deliberately one number: "is there something under the card yet".
+function Field.spotShown(core: BasePart): number
+	local model = core.Parent
+	if model == nil then
+		return 0
+	end
+	local entry = tracked[model :: Model]
+	local burst = entry and entry.burst
+	-- Last frame's value, not this one's: stepAuras drives the fade on RenderStepped and
+	-- the prompt asks at 10 Hz, so the worst this is out of date by is a frame.
+	return if burst then SpotCracks.shown(burst, os.clock()) else 0
 end
 
 -- ── Lifecycle ───────────────────────────────────────────────────────
