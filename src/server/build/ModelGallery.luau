@@ -31,7 +31,11 @@ local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
 local BUILDER_VERSION = 8
 
 local GRID_COLUMNS = 8
-local GRID_SPACING = 8
+-- Wide enough that a model at the full GallerySize (9.18 studs, whichever axis
+-- lands horizontal on the pedestal) keeps a real gap from its neighbour.
+-- LAND_WIDTH/LAND_DEPTH/YARD_RADIUS below all derive from this, so the yard's
+-- footprint and placement grow to match automatically if this ever changes.
+local GRID_SPACING = 16
 local PEDESTAL_TOP = 2.5
 local MAX_MODEL_SIZE = 3.6
 
@@ -108,12 +112,21 @@ end
 local function placeOnPedestal(model: Model, target: CFrame)
 	model:PivotTo(CFrame.identity)
 
+	-- `GetScale()` multiplier: `ScaleTo` is ABSOLUTE relative to the model's TRUE
+	-- native (unscaled) size, not whatever its current visual size happens to be
+	-- (see NukeBase's own header, and Shops.luau:877's `ScaleTo(GetScale() * f)`
+	-- for the same gotcha already solved once elsewhere in this repo). Every
+	-- imported-mesh template arrives here ALREADY pre-scaled to NATURAL_SIZE by
+	-- the migration script, so `targetSize / longest` alone would divide the
+	-- target by that prior scale a second time -- multiplying by the model's
+	-- current `GetScale()` compounds onto whatever scale it already had instead
+	-- of overwriting it (a no-op for the cube-fallback/native-scale case).
 	local size = model:GetExtentsSize()
 	local longest = math.max(size.X, size.Y, size.Z)
 	if longest > 0 then
 		local requested = model:GetAttribute("GallerySize")
 		local targetSize = if typeof(requested) == "number" and requested > 0 then requested else MAX_MODEL_SIZE
-		model:ScaleTo(targetSize / longest)
+		model:ScaleTo(model:GetScale() * (targetSize / longest))
 	end
 
 	model:PivotTo(target * ItemModels.rotation(model, "Gallery"))
@@ -148,10 +161,13 @@ local function buildStand(gallery: Model, origin: CFrame, item: any, index: numb
 		},
 	})
 
-	-- 3.7 sat BELOW the tallest models (Legendary/Anomaly items can reach ~4.6 studs
-	-- above the pedestal at MAX_MODEL_SIZE), so the name plate hung right in front of
-	-- the item it was labelling. 6 clears the tallest catalogued item with margin.
-	Kit.billboard(pedestal, 150, 6, string.upper(item.name), `{item.id} / {item.model}`, Kit.C.hazard, 80)
+	-- Height offset of 15 clears even the tallest item (old_compass, ~10.6 studs
+	-- of top clearance from pedestal-centre at the current GallerySize) with
+	-- comfortable margin, so the tag reads as "above the model" rather than
+	-- overlapping it. Smaller text (14/10 vs. the shared default 22/14) reads
+	-- as a label, not a headline -- ModelGallery is the only caller that opts
+	-- into non-default sizes, see Kit.billboard.
+	Kit.billboard(pedestal, 120, 15, string.upper(item.name), `{item.id} / {item.model}`, Kit.C.hazard, 80, 14, 10)
 
 	local itemModel = ItemModels.create(item.model, item.id)
 	if itemModel then

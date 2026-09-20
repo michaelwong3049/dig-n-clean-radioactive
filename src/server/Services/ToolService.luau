@@ -47,6 +47,7 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear)
 local Items = require(Shared.Config.Items)
+local Payload = require(Shared.Config.Payload)
 local Rarity = require(Shared.Config.Rarity)
 local ItemModels = require(Shared.ItemModels)
 local ItemCrust = require(Shared.ItemCrust)
@@ -66,11 +67,12 @@ local HELD_ITEM_NAME = "HeldItem"
 --- Longest axis a held item model is scaled to -- same normalise-to-a-target-
 --- dimension trick as ExhibitService's LOCKER_ITEM_SIZE and WashService's
 --- WASH_DISPLAY_SIZE, sized up a bit since this one is held close to the camera
---- rather than tucked in a cabinet. Needed now that rarity carries a real size
---- ramp (NukeBase.sizeScale, feat/nuke-model-rework): the biggest tier authors
---- nearly 10 studs tall, which reads as an impressive trophy standing on its own
---- fins at a pedestal but would dwarf and clip through the character in-hand.
-local HELD_ITEM_SIZE = 2.2
+--- rather than tucked in a cabinet. Every item's authored size is arbitrary
+--- (an imported mesh's real-world proportions, not a tuned game size), so this
+--- is what actually makes a held item read consistently regardless of source.
+--- Bigger than a whole character (~5 studs tall) on purpose -- matches the
+--- same scale-up as the exhibit stand, model yard, and wash stand.
+local HELD_ITEM_SIZE = 5.94
 
 local equipped: { [Player]: string? } = {}
 
@@ -531,11 +533,16 @@ local function equipItem(character: Model, item: any?): boolean
 
 	-- NORMALISED TO HELD_ITEM_SIZE before the crust goes on, same ordering
 	-- WashService uses -- the crust should wrap the size the player actually sees.
+	-- `GetScale()` multiplier: see WashService.placeOnStand's identical fix -- a
+	-- model already pre-scaled (every imported-mesh template) would otherwise get
+	-- HELD_ITEM_SIZE divided by its prior scale a second time.
+	-- Config/Payload's per-dig roll applies at full range here -- nothing physically
+	-- encloses a held item the way GantryBeam does at the wash stand.
 	do
 		local _, extents = held:GetBoundingBox()
 		local longest = math.max(extents.X, extents.Y, extents.Z)
 		if longest > 0 then
-			held:ScaleTo(HELD_ITEM_SIZE / longest)
+			held:ScaleTo(held:GetScale() * (HELD_ITEM_SIZE * Payload.forUid(item.uid) / longest))
 		end
 	end
 
