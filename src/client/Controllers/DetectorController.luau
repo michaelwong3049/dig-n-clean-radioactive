@@ -86,7 +86,13 @@ local KEYCAP_RADIUS = UDim.new(0, 17)
 local KEY_TEXT_SIZE = 26
 local KEY_TEXT_SIZE_TOUCH = 15
 -- Tracked by hand -- Roblox has no letter-spacing. See the label in buildLockPromptGui.
-local ACTION_TEXT = "P I C K  U P"
+--
+-- THREE SPACES BETWEEN THE WORDS, NOT TWO. Measured in Studio at the size this actually
+-- ships at (16 design px x GLOBAL_SCALE = ~12.8 on screen): with a two-space gap the
+-- word break is indistinguishable from the letter gaps and the whole thing reads as one
+-- run, "P I C K U P". Three separates them. Dropping the tracking entirely also works
+-- and is a touch more legible -- set this to "PICK UP" -- but loses the airier look.
+local ACTION_TEXT = "P I C K   U P"
 
 -- THE PROMPT WAITS FOR THE SPOT (on request: it landed on bare ground and sat there for
 -- about half a second while the glow came up underneath it). It hangs directly over one
