@@ -115,7 +115,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 20,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "steel_rod",
@@ -128,7 +128,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 27,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "glass_pebble",
@@ -141,7 +141,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 33,
-		model = nil,
+		model = "ImportedNuke",
 	},
 
 	-- ── Common ── $35-170 ─────────────────────────────────────────────────
@@ -156,7 +156,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 80,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "house_key",
@@ -169,7 +169,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 120,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "stopped_watch",
@@ -182,7 +182,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 150,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		-- RETIRED, ON REQUEST (see "RETIRED ITEMS" note up top) -- dropped from the
@@ -217,7 +217,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "childrens_toys" },
 		baseValue = 300,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "wind_up_flashlight",
@@ -230,7 +230,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
 		baseValue = 400,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "gold_ring",
@@ -243,7 +243,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "left_behind" },
 		baseValue = 570,
-		model = nil,
+		model = "ImportedNuke",
 	},
 
 	-- ── Rare ── $800-4.7k ───────────────────────────────────────────────
@@ -258,7 +258,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "salvage_kit" },
 		baseValue = 2300,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "film_canister",
@@ -271,7 +271,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 3200,
-		model = nil,
+		model = "ImportedNuke",
 	},
 
 	-- ── Epic ── $4.7k-27k ─────────────────────────────────────────────────
@@ -286,7 +286,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 13000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 
 	-- ── Legendary ── $27k-200k ────────────────────────────────────────────
