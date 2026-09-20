@@ -188,6 +188,13 @@ local signalsByStage: { [number]: { Signal } } = {}
 local auras: { [string]: Model } = {}
 local revealed: { [string]: Signal } = {}
 
+-- os.clock() of the tick each aura stopped being revealed by anybody, for the ones
+-- currently on their way out. An aura in here is still a real part in the world with
+-- Tuning.AURA_FADE_ATTR set, and the clients are easing it out; reconcileAuras destroys
+-- it once Tuning.AURA_LINGER has passed. Walking back into range drops the entry and
+-- clears the flag, and the fade reverses on its own.
+local auraFadingSince: { [string]: number } = {}
+
 -- Yanks banked since the last tick, and the token bucket that decides which incoming
 -- clicks were allowed to bank. `lastYankAt` feeds `pulling` (below) as well as the
 -- minimum-interval check, so it is written on ACCEPTED yanks only -- a rejected click
@@ -233,6 +240,7 @@ local function clearAura(uid: string)
 		model:Destroy()
 		auras[uid] = nil
 	end
+	auraFadingSince[uid] = nil
 end
 
 --- Drag the world into line with whatever the players revealed this tick.
@@ -242,8 +250,15 @@ end
 --- across every player is the only cheap way to say that. Doing it inside stepPlayer
 --- instead would have the second player's pass destroy the first player's aura and
 --- rebuild it, ten times a second, forever.
+---
+--- AN AURA NOBODY REVEALED THIS TICK IS NOT DESTROYED THIS TICK. It is flagged
+--- (Tuning.AURA_FADE_ATTR) so every client can ease it out, and destroyed once
+--- Tuning.AURA_LINGER has passed — which is also what stops a player stood on the
+--- radius boundary churning the same aura tick after tick. Read that constant's comment
+--- before touching either half.
 local function reconcileAuras()
 	local folder = auraFolder()
+	local now = os.clock()
 
 	for uid, signal in revealed do
 		if auras[uid] == nil then
@@ -254,12 +269,25 @@ local function reconcileAuras()
 			local model = SignalAura.create(signal.position, Weight.auraScale(signal.weight))
 			model.Parent = folder
 			auras[uid] = model
+		elseif auraFadingSince[uid] then
+			-- Somebody reached it again before it finished going out. Un-flag it and the
+			-- clients ease the same spot back up, cracks and all — nothing is rebuilt.
+			auraFadingSince[uid] = nil
+			auras[uid]:SetAttribute(Tuning.AURA_FADE_ATTR, false)
 		end
 	end
 
 	local stale: { string } = {}
-	for uid in auras do
-		if revealed[uid] == nil then
+	for uid, model in auras do
+		if revealed[uid] ~= nil then
+			continue
+		end
+
+		local since = auraFadingSince[uid]
+		if since == nil then
+			auraFadingSince[uid] = now
+			model:SetAttribute(Tuning.AURA_FADE_ATTR, true)
+		elseif now - since >= Tuning.AURA_LINGER then
 			table.insert(stale, uid)
 		end
 	end

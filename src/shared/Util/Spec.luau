@@ -686,6 +686,19 @@ function Spec.run(): boolean
 		Tuning.DIG_RADIUS * 2 < Gear.tier("Detector", 1).radius
 	)
 
+	-- An aura nobody is revealing lingers so the clients can fade it out instead of it
+	-- vanishing between two frames (Tuning.AURA_LINGER). Two things have to hold, and
+	-- both are easy to break from the other end of the codebase:
+	--   * the linger has to outlast client/SpotCracks' FADE_OUT (0.6s) with room for the
+	--     flag to replicate, or the part is deleted mid-fade and the pop is back;
+	--   * it has to stay SHORT. It is also the window in which a glow stands over ground
+	--     the player can no longer read, and (DigService.standingOnUnregistered) counts
+	--     as a glow to be confused by. A second is a fade; five is a lie.
+	check(
+		string.format("§2.1 an unrevealed aura fades out rather than vanishing (%.2fs linger)", Tuning.AURA_LINGER),
+		Tuning.AURA_LINGER >= 0.8 and Tuning.AURA_LINGER <= 1.5
+	)
+
 	local field = Stages.builtIds()[1]
 	if field then
 		local walk = Gear.tier("Boots", 1).walkSpeed

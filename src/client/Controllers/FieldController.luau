@@ -9,7 +9,10 @@
 	server can see, and this controller may only ever change how they LOOK. Never
 	where they are, never whether they exist. If it ever decides that, the reveal has
 	moved to the client and the field is a free ESP. (The cracks are client parts, but
-	they only ever dress an aura the server already put there, and go when it goes.)
+	they only ever dress an aura the server already put there, and go when it goes.
+	"When it goes" is a window rather than an instant now — the server flags an aura
+	nobody is revealing and holds the part for Tuning.AURA_LINGER so every client can
+	fade the spot out — but it is still the server's call, not ours.)
 
 	THE RANGE RING EXISTS BECAUSE THE NEEDLE DIED.
 	The old detector answered "which way" continuously, so its range never had to be
@@ -523,6 +526,24 @@ local function stepAuras()
 			end
 		end
 		local rarity = entry.rarity
+
+		-- IS ANYONE STILL REVEALING THIS? The server's answer, never ours. It flags an
+		-- aura nobody's detector reaches instead of deleting it on the spot, and holds
+		-- the part for Tuning.AURA_LINGER so the spot can go OUT rather than vanish
+		-- between two frames — walking away used to blink the cracks, the light and the
+		-- whole fan of rays out at once, which is the one thing every other fade in
+		-- here exists to avoid. Coming back inside the radius clears the flag and the
+		-- same burst eases back up; nothing is rebuilt.
+		--
+		-- It is read off the model and not from this client's own contacts on purpose:
+		-- auras are public (Tuning, "the reveal"), so a spot somebody ELSE is standing
+		-- in has to keep burning for us long after it has left our radius.
+		if entry.burst then
+			-- Pushed every frame rather than on the edge: retire only sets a flag, and
+			-- a burst built on THIS frame (above) needs the current answer too — an
+			-- aura can stream in already flagged.
+			SpotCracks.retire(entry.burst, (model :: any):GetAttribute(Tuning.AURA_FADE_ATTR) == true)
+		end
 
 		-- No reading yet (the position match still settling) or ever (a signal someone
 		-- else revealed that sits past this player's depth gate): nothing to say about

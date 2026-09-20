@@ -263,6 +263,30 @@ Tuning.PULL_YANK_BURST = 4 -- bucket capacity: an opening flurry, NOT a whole it
 -- hardcoded copies of a tag string is how one of them quietly becomes "SignalAuras".
 Tuning.AURA_TAG = "SignalAura"
 Tuning.AURA_FOLDER = "SignalAuras"
+
+-- AN AURA NOBODY IS REVEALING ANY MORE DOES NOT VANISH, IT GOES OUT (on request: it
+-- used to be destroyed on the first tick nobody's detector reached it, which meant
+-- walking away blinked a whole starburst of cracks, a light and a fan of rays out of
+-- existence between two frames -- the single most sudden thing in the field).
+--
+-- So the server keeps the model alive for AURA_LINGER seconds past its last reveal
+-- with AURA_FADE_ATTR stamped true, and the client (client/SpotCracks) reads that flag
+-- and eases the whole spot out -- cracks to transparent, rays sinking back into the
+-- ground -- before the part ever leaves. The client's fade has to FINISH inside the
+-- linger or the pop is back, so keep SpotCracks.FADE_OUT comfortably under this: the
+-- difference is the ping budget for the attribute to replicate.
+--
+-- It doubles as hysteresis. Standing exactly on the radius boundary used to churn the
+-- aura -- destroyed and rebuilt tick after tick, which rebuilt every crack part on
+-- every client each time. Now the model survives the flicker and only the flag toggles,
+-- and walking back in eases the same spot back up instead of re-fanning it.
+--
+-- A signal that is DUG still clears instantly (DigService.removeSignal). That is not a
+-- reveal ending, it is the thing being gone, and a glow that lingers over empty ground
+-- is a player walking to nothing.
+Tuning.AURA_LINGER = 1.0 -- seconds an unrevealed aura stays in the world, fading
+Tuning.AURA_FADE_ATTR = "Fading" -- attribute the server stamps on a lingering aura
+
 -- The aura is a STARBURST OF GLOWING CRACKS now (on request; it was a pulsing well
 -- with a dome and ripple rings, and before that a pillar). Flat on the ground: a hot
 -- spot where the cracks meet, dark jagged cracks running out from it, and light
