@@ -74,6 +74,14 @@ local bagContents: { [Instance]: { any } } = {}
 -- that should die with the session.
 local speedOverrides: { [Player]: number } = {}
 
+-- Debug console only (see DebugService's /jump). Same shape as speedOverrides, but
+-- shaped like JumpHeight (studs) rather than JumpPower -- "height" is the number a
+-- person actually means when they ask for a higher jump. JumpPower is still derived
+-- and written alongside it (see the tick loop below) for the same reason the two
+-- DEFAULT_JUMP_* constants both get written every tick: UseJumpPower decides which
+-- one the rig actually honours, and this shouldn't have to guess which.
+local jumpOverrides: { [Player]: number } = {}
+
 local stateRemote: any = nil
 local blackoutRemote: any = nil
 
@@ -376,8 +384,19 @@ local function stepPlayer(player: Player, dt: number)
 			-- signal or washing, same as any other speed.
 			local override = speedOverrides[player]
 			humanoid.WalkSpeed = override or StatResolver.effectiveWalkSpeed(stats, #data.carry, false)
-			humanoid.JumpPower = DEFAULT_JUMP_POWER
-			humanoid.JumpHeight = DEFAULT_JUMP_HEIGHT
+
+			-- Same deal for /jump. JumpPower is DERIVED from the requested height via
+			-- the standard projectile relation (v0 = sqrt(2 * g * h)) rather than a
+			-- second unrelated override number, so both properties stay physically
+			-- consistent with each other regardless of which one the rig honours.
+			local jumpOverride = jumpOverrides[player]
+			if jumpOverride then
+				humanoid.JumpHeight = jumpOverride
+				humanoid.JumpPower = math.sqrt(2 * Workspace.Gravity * jumpOverride)
+			else
+				humanoid.JumpPower = DEFAULT_JUMP_POWER
+				humanoid.JumpHeight = DEFAULT_JUMP_HEIGHT
+			end
 		end
 	end
 	-- The decay clock. CarryService now EXISTS and is the obvious owner by name — it
@@ -514,6 +533,18 @@ function ExposureService.speedOverrideOf(player: Player): number?
 	return speedOverrides[player]
 end
 
+--- Debug console (/jump). A number pins the player's JumpHeight there until cleared
+--- (JumpPower is derived from it every tick, see the tick loop above); nil clears it
+--- and hands jump back to the engine defaults. The dig/wash root still wins over this,
+--- same as /speed.
+function ExposureService.setJumpOverride(player: Player, jumpHeight: number?)
+	jumpOverrides[player] = jumpHeight
+end
+
+function ExposureService.jumpOverrideOf(player: Player): number?
+	return jumpOverrides[player]
+end
+
 function ExposureService.init()
 	stateRemote = Net.get("ExposureState")
 	blackoutRemote = Net.get("Blackout")
@@ -527,6 +558,7 @@ function ExposureService.start()
 	Players.PlayerRemoving:Connect(function(player)
 		states[player] = nil
 		speedOverrides[player] = nil
+		jumpOverrides[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)

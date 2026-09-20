@@ -272,6 +272,29 @@ COMMANDS["/speed"] = {
 	end,
 }
 
+COMMANDS["/jump"] = {
+	-- Same shape as /speed: hands a sustained override to ExposureService's per-tick
+	-- loop rather than poking the Humanoid directly (a direct write would be gone
+	-- within one tick, same reason /speed works this way). Height in studs -- the
+	-- loop derives an equivalent JumpPower from it every tick so it lands correctly
+	-- whichever of JumpPower/JumpHeight the rig actually honours.
+	help = "/jump <height> — pin JumpHeight there for the session, in studs (engine default is 7.2); /jump off to clear",
+	run = function(player, _sandbox, args)
+		local raw = args[1]
+		if raw == nil or raw == "off" or raw == "clear" or raw == "reset" then
+			ExposureService.setJumpOverride(player, nil)
+			return "jump override cleared — back to normal jump height"
+		end
+		local value = tonumber(raw)
+		if value == nil then
+			return "usage: /jump <height>  |  /jump off"
+		end
+		value = math.clamp(value, 0, 200)
+		ExposureService.setJumpOverride(player, value)
+		return `JumpHeight pinned to {value} studs — /jump off to undo`
+	end,
+}
+
 COMMANDS["/fly"] = {
 	-- Client-side only (FlyController.luau reacts to the attribute) -- there is no
 	-- server movement validation to bypass here because reaching this command at
