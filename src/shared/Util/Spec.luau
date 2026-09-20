@@ -31,6 +31,7 @@ local Rarity = require(Config.Rarity)
 local Liquids = require(Config.Liquids)
 local Items = require(Config.Items)
 local Weight = require(Config.Weight)
+local Payload = require(Config.Payload)
 local ItemModels = require(script.Parent.Parent.ItemModels)
 local ToolModels = require(script.Parent.Parent.ToolModels)
 local ToolTiers = require(Config.ToolTiers)
@@ -141,6 +142,40 @@ function Spec.run(): boolean
 		check(
 			string.format("§weight the heaviest item (%s, %gkg) is Rare or better", heaviest.id, heaviest.weight),
 			Rarity.get(heaviest.rarity).order >= Rarity.get("Rare").order
+		)
+	end
+
+	-- Config/Payload — the per-DIG size/value roll, separate from Weight's per-item-
+	-- TYPE intrinsic. Pins: never outside its own band, deterministic per uid (the
+	-- whole point of seeding on uid instead of storing a rolled field), and the
+	-- distribution actually leans toward MIN the way "bigger is rarer" promises.
+	do
+		local inBand = true
+		local deterministic = true
+		local sampleSum = 0
+		local sampleCount = 2000
+		for i = 1, sampleCount do
+			local uid = `spec-payload-sample-{i}`
+			local a = Payload.forUid(uid)
+			local b = Payload.forUid(uid)
+			if a < Payload.MIN - 1e-9 or a > Payload.MAX + 1e-9 then
+				inBand = false
+			end
+			if math.abs(a - b) > 1e-9 then
+				deterministic = false
+			end
+			sampleSum += a
+		end
+		check("§payload every roll stays inside Payload.MIN..MAX", inBand)
+		check("§payload the same uid always rolls the same number", deterministic)
+
+		-- A flat/uniform roll would average to the midpoint of the band; "bigger is
+		-- rarer" means the real average has to sit below that midpoint.
+		local mean = sampleSum / sampleCount
+		local midpoint = (Payload.MIN + Payload.MAX) / 2
+		check(
+			string.format("§payload the roll leans toward MIN, not flat (mean %.3f < midpoint %.3f)", mean, midpoint),
+			mean < midpoint
 		)
 	end
 

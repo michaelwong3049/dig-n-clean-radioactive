@@ -99,6 +99,7 @@ local Stages = require(Shared.Config.Stages)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Weight = require(Shared.Config.Weight)
+local Payload = require(Shared.Config.Payload)
 local ItemModels = require(Shared.ItemModels)
 local ItemCrust = require(Shared.ItemCrust)
 local Contamination = require(Shared.Contamination)
@@ -647,7 +648,12 @@ local function createHaul(player: Player, signal: Signal, itemId: string, rarity
 	-- property of the item inside, and it is fair for the rock to carry it: you can feel
 	-- the heft of what you are hauling long before you know what it is. Scaled about the
 	-- pivot updateHaul then drives, so it has to happen before the first PivotTo.
-	local scale = Weight.sizeScale(item.weight)
+	--
+	-- STACKS WITH Config/Payload, this dig's OWN size/value roll (Weight is per item
+	-- TYPE, Payload is per DIG) -- seeded on signal.uid, same identity the lump
+	-- itself is already seeded on, so the crust you see hauling it out is exactly as
+	-- big as the item will turn out to be once identified, not a different roll.
+	local scale = Weight.sizeScale(item.weight) * Payload.forUid(signal.uid)
 	if scale ~= 1 then
 		model:ScaleTo(scale)
 	end

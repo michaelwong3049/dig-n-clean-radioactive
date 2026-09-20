@@ -90,6 +90,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Items = require(Shared.Config.Items)
+local Payload = require(Shared.Config.Payload)
 local Rarity = require(Shared.Config.Rarity)
 local Liquids = require(Shared.Config.Liquids)
 local ItemModels = require(Shared.ItemModels)
@@ -124,11 +125,21 @@ local APPROACH = 1.2
 --- the same footprint there regardless of its authored size -- the same normalise-
 --- to-a-target-dimension trick ExhibitService's locker and ModelGallery use for
 --- arbitrary item art. Measured live in Plot1: WashRack's top sits at Y 2.83 and
---- GantryBeam's underside at Y 5.70, a 2.87-stud gap that does not fit every tier
---- now that rarity carries a real size ramp (NukeBase's sizeScale, feat/nuke-model-
---- rework) -- Anomaly alone is 2.5x Uncommon elsewhere. 1.6 studs leaves headroom
---- for the crust chunks ItemCrust wraps around the model on top of this.
-local WASH_DISPLAY_SIZE = 1.6
+--- GantryBeam's underside at Y 5.70, a 2.87-stud gap that an unnormalised import
+--- could easily miss either way.
+---
+--- This is the one display context with a hard physical ceiling, so it's kept
+--- smaller than the other three (exhibit stand, held-in-hand, model yard) even
+--- though they all scale together -- 2.16 leaves ~0.71 studs of headroom under
+--- GantryBeam before crust even goes on top of the item.
+local WASH_DISPLAY_SIZE = 2.16
+
+--- Config/Payload's per-dig roll (0.6..2.5) applies here too, same as every other
+--- display context -- EXCEPT its upside is capped at this, not the full 2.5. The
+--- 2.87-stud GantryBeam gap above has no slack for a "giga nuke" roll on top of an
+--- already-normalised display size; the downside (a small roll shrinking the item
+--- further) carries no clipping risk, so only the top end is clamped.
+local WASH_PAYLOAD_CAP = 1.15
 
 type Session = {
 	uid: string,
@@ -259,10 +270,21 @@ local function placeOnStand(stand: BasePart, item: any): (Model, { [number]: { B
 	built:PivotTo(stand.CFrame * ItemModels.rotation(built, "Wash"))
 
 	-- NORMALISED TO WASH_DISPLAY_SIZE before seating -- see the constant's comment.
+	-- `ScaleTo` is ABSOLUTE relative to the model's TRUE native (unscaled) size, not
+	-- its current visual size (see NukeBase's own header, and Shops.luau:877's
+	-- `ScaleTo(GetScale() * f)` for the same gotcha already solved once in this repo)
+	-- -- so a model that arrived here ALREADY pre-scaled (every imported-mesh
+	-- template is baked to NATURAL_SIZE by the migration script) would get its
+	-- target divided by that prior scale a second time if `longest` fed straight
+	-- into `WASH_DISPLAY_SIZE / longest`. Multiplying by the model's current
+	-- `GetScale()` compounds onto whatever scale it already had instead of
+	-- overwriting it -- a no-op for anything starting at native scale 1 (every
+	-- procedural/cube-fallback model), and the fix for anything pre-scaled.
 	local _, rawExtent = built:GetBoundingBox()
 	local longest = math.max(rawExtent.X, rawExtent.Y, rawExtent.Z)
 	if longest > 0 then
-		built:ScaleTo(WASH_DISPLAY_SIZE / longest)
+		local payload = math.min(Payload.forUid(item.uid), WASH_PAYLOAD_CAP)
+		built:ScaleTo(built:GetScale() * (WASH_DISPLAY_SIZE * payload / longest))
 	end
 
 	-- SEATED ON THE RACK'S TOP, NOT CENTRED ON THE STAND. WashStand is a single

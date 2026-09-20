@@ -42,6 +42,7 @@ local Gear = require(Shared.Config.Gear) -- renderLuck: the plot's luck-button b
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Weight = require(Shared.Config.Weight)
+local Payload = require(Shared.Config.Payload)
 local ItemModels = require(Shared.ItemModels)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
@@ -63,6 +64,10 @@ local ExhibitService = {}
 local PLOT_COUNT = 6 -- matches build/Plots.Plots.COUNT; not required so Services never depend on build/
 local LOCKER_VISIBLE = 3 -- matches build/Plots.Plots.LOCKER_SLOTS; overflow racked items just aren't shown
 local LOCKER_ITEM_SIZE = 1.2 -- longest axis a racked item model is scaled to; the cabinet bays are cramped
+-- Config/Payload's per-dig roll applies here too, capped the same way WashService
+-- caps it -- the bays are only ~1.5 studs tall, no room for a "giga nuke" roll on
+-- top of an already-normalised size.
+local LOCKER_PAYLOAD_CAP = 1.15
 
 -- Who is sitting on which physical plot this session. Never persisted — see header.
 local plotOf: { [Player]: number } = {}
@@ -234,8 +239,10 @@ local function ensurePrompt(stand: BasePart, plot: number, slot: number): Proxim
 end
 
 --- Repaint one stand with real item art when it exists, or the old rarity-coloured
---- block while that catalogue entry is still waiting for a model.
-local function renderStand(index: number, slot: number, itemId: string?, rarity: string?)
+--- block while that catalogue entry is still waiting for a model. `uid` is the
+--- specific dig on display, so its own Config/Payload roll can size the model --
+--- nil (clearing a stand) just skips that.
+local function renderStand(index: number, slot: number, itemId: string?, rarity: string?, uid: string?)
 	local plot = plotModel(index)
 	if plot == nil then
 		return
@@ -274,6 +281,13 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 		model.Name = "ItemModel"
 		model:SetAttribute("ItemId", itemId)
 		model.Parent = display
+
+		-- Config/Payload's per-dig roll, full range -- this is an open plinth, not a
+		-- fixed-footprint aiming surface (unlike WashService's capped version), so
+		-- nothing here needs to defend against a physical ceiling.
+		if uid then
+			model:ScaleTo(model:GetScale() * Payload.forUid(uid))
+		end
 
 		-- -0.72 used to be a hand-tuned constant that happened to seat the old
 		-- horizontal nuke's belly on the plinth; it has no relation to an upright
@@ -330,11 +344,13 @@ local function entryYieldPerSecond(entry: any, damping: number, stats: any): num
 	local def = Items.get(entry.itemId)
 	local rarity = Rarity.get(entry.rarity)
 	local mod = Rarity.MODIFIERS[entry.modifier] or Rarity.MODIFIERS.None
-	-- Weight.valueMult layers in here exactly as it does in EconomyService.valueOf, so
-	-- a heavy piece pays more per second AND sells for more, off one factor.
+	-- Weight.valueMult and Payload.forUid layer in here exactly as they do in
+	-- EconomyService.valueOf, so a heavy/big-rolled piece pays more per second AND
+	-- sells for more, off the same two factors.
 	return def.baseValue
 		* mod.valueMult
 		* Weight.valueMult(def.weight)
+		* Payload.forUid(entry.uid)
 		* rarity.displayYield
 		* damping
 		* stats.yieldMultiplier
@@ -540,11 +556,15 @@ local function renderLocker(index: number, data: any)
 					-- The bays are ~1.5 studs tall; normalise every model to a common
 					-- longest-axis size (unlike the pedestals, which show items life-ish
 					-- size on an open plinth) and seat it on the bay floor.
+					-- `GetScale()` multiplier: see WashService.placeOnStand's identical fix
+					-- -- a model already pre-scaled (every imported-mesh template) would
+					-- otherwise get LOCKER_ITEM_SIZE divided by its prior scale a second time.
 					model:PivotTo(CFrame.identity)
 					local extents = model:GetExtentsSize()
 					local longest = math.max(extents.X, extents.Y, extents.Z)
 					if longest > 0 then
-						model:ScaleTo(LOCKER_ITEM_SIZE / longest)
+						local payload = math.min(Payload.forUid(entry.uid), LOCKER_PAYLOAD_CAP)
+						model:ScaleTo(model:GetScale() * (LOCKER_ITEM_SIZE * payload / longest))
 					end
 					model:PivotTo(anchor.CFrame * ItemModels.rotation(model, "Display"))
 					local bounds, size = model:GetBoundingBox()
@@ -570,7 +590,7 @@ local function renderAll(index: number, data: any)
 		renderStand(index, slot, nil, nil)
 	end
 	for _, entry in data.exhibit.pedestals do
-		renderStand(index, entry.slot, entry.itemId, entry.rarity)
+		renderStand(index, entry.slot, entry.itemId, entry.rarity, entry.uid)
 	end
 	renderLocker(index, data)
 	renderHose(index, data)
@@ -1011,7 +1031,7 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 		placedAt = os.time(),
 	})
 
-	renderStand(plot, slot, item.itemId, item.rarity)
+	renderStand(plot, slot, item.itemId, item.rarity, item.uid)
 	refreshYieldTags(plot, data)
 
 	if displaced then

@@ -38,6 +38,7 @@ local Gear = require(Shared.Config.Gear)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Weight = require(Shared.Config.Weight)
+local Payload = require(Shared.Config.Payload)
 local Decay = require(Shared.Decay)
 local Liquids = require(Shared.Config.Liquids)
 local Contamination = require(Shared.Contamination)
@@ -137,11 +138,13 @@ function CarryService.describe(item: any, stats: any): any
 	if clean and item.modifier ~= "Slagged" then
 		local rarity = Rarity.get(item.rarity)
 		local mod = Rarity.MODIFIERS[item.modifier] or Rarity.MODIFIERS.None
-		-- Same Weight.valueMult factor ExhibitService.entryYieldPerSecond applies, so the
-		-- bag's "would earn $/s" preview matches what the pedestal actually pays.
+		-- Same Weight.valueMult/Payload.forUid factors ExhibitService.entryYieldPerSecond
+		-- applies, so the bag's "would earn $/s" preview matches what the pedestal
+		-- actually pays.
 		perSecond = def.baseValue
 			* mod.valueMult
 			* Weight.valueMult(def.weight)
+			* Payload.forUid(item.uid)
 			* rarity.displayYield
 			* stats.yieldMultiplier
 			/ 60

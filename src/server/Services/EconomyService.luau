@@ -7,10 +7,12 @@
 	way. That is deliberate: "I can't clean this yet" has to stay a reason to upgrade,
 	not a reason to quit.
 
-	Four multipliers stack into one number, and each is a different system asking to
-	be respected:
+	Multipliers stack into one number, and each is a different system asking to be
+	respected:
 	  base value        — the item (Items.lua)
 	  modifier          — the roll   (Rarity.MODIFIERS)
+	  weight            — intrinsic per item TYPE (Config/Weight)
+	  payload           — this dig's OWN random roll (Config/Payload)
 	  value retained    — the decay clock, so the run home has a felt cost (§3.6)
 	  clean / dirty     — the cleaning gate (§2 step 4)
 	then sellMultiplier from rebirth and gamepasses, via StatResolver like everything else.
@@ -23,6 +25,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Weight = require(Shared.Config.Weight)
+local Payload = require(Shared.Config.Payload)
 local Decay = require(Shared.Decay)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
@@ -75,7 +78,16 @@ function EconomyService.valueOf(item: any, stats: any): (number, boolean)
 
 	-- Heavier items are worth more (Config/Weight.valueMult). Rides ON TOP of the
 	-- authored baseValue exactly like mod.valueMult does — see Config/Items' header.
-	local value = def.baseValue * mod.valueMult * Weight.valueMult(def.weight) * retained * stats.sellMultiplier
+	--
+	-- Payload is this SPECIFIC dig's own random roll (Config/Payload), separate from
+	-- the item's intrinsic weight -- a 0.6x roll sells for 0.6x, a 2.5x "giga nuke"
+	-- for 2.5x, same number that scaled its display size everywhere it showed up.
+	local value = def.baseValue
+		* mod.valueMult
+		* Weight.valueMult(def.weight)
+		* Payload.forUid(item.uid)
+		* retained
+		* stats.sellMultiplier
 	if not clean then
 		value *= Tuning.DIRTY_SELL_MULTIPLIER
 	end
