@@ -70,8 +70,14 @@ local LAND_THICKNESS = 0.12
 -- curved perimeter wall sits at radius Plots.RING_OUTER + WALL_THICKNESS/2, so this
 -- reproduces that same offset rather than importing an unexported local. YARD_GAP is
 -- extra breathing room past the wall face so the platform's own trim clears it.
+--
+-- 20 WASN'T ENOUGH, ON REQUEST -- the ring's due-west point (where the yard anchors)
+-- lands right next to Plot4's own apron/platform, not open water, so a 20-stud gap
+-- past the WALL still let the yard's near corner visually clip Plot4's raised
+-- ground. Bumped by the same amount the user dragged the live yard outward in
+-- Studio to clear it (confirmed via the moved model's new WorldPivot).
 local WALL_CLEARANCE = 8
-local YARD_GAP = 20
+local YARD_GAP = 124.4
 
 -- Anchor the yard due west of the ring's own centre, just outside the perimeter
 -- wall, rather than inside the plaza footprint. It is a self-contained floating
