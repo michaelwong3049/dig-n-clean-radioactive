@@ -30,9 +30,15 @@
 	whose migration hasn't been re-run since a fresh Studio session) has no
 	template yet, and this returns nil -- the same graceful degrade as any
 	other unmodelled item.
+
+	EVERY CLONE IS TAGGED FOR ITS EFFECTS HERE (Shared/ItemFx), because this is the
+	one door every display context comes through. The glow, light and motion itself
+	is client-side (ItemFxController) and waits for the crust to come off.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local ItemFx = require(script.Parent.ItemFx)
 
 local IMPORTED_NUKE_KEY = "ImportedNuke"
 local TEMPLATE_PATH = { "Assets", "ImportedNukeTemplates" }
@@ -63,7 +69,12 @@ function ItemModels.create(modelKey: string?, itemId: string?): Model?
 
 	if modelKey == IMPORTED_NUKE_KEY then
 		local template = if itemId then importedNukeTemplate(itemId) else nil
-		return if template then template:Clone() else nil
+		if template == nil then
+			return nil
+		end
+		local clone = template:Clone()
+		ItemFx.tag(clone, itemId)
+		return clone
 	end
 
 	warn(`[items] unknown model key "{modelKey}"`)

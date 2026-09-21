@@ -33,6 +33,8 @@ local Items = require(Config.Items)
 local Weight = require(Config.Weight)
 local Payload = require(Config.Payload)
 local ItemModels = require(script.Parent.Parent.ItemModels)
+local ItemFxConfig = require(Config.ItemFx)
+local ItemFx = require(script.Parent.Parent.ItemFx)
 local ToolModels = require(script.Parent.Parent.ToolModels)
 local ToolTiers = require(Config.ToolTiers)
 local Radiation = require(script.Parent.Parent.Radiation)
@@ -102,6 +104,66 @@ function Spec.run(): boolean
 			`item weight is in Weight.MIN..MAX: {item.id}`,
 			type(item.weight) == "number" and item.weight >= Weight.MIN and item.weight <= Weight.MAX
 		)
+	end
+
+	-- Config/ItemFx. Every entry has to land on a real, modelled item and name parts
+	-- that exist, or the effect silently never shows. The part-name check runs only
+	-- where the imported templates live (Studio, or a published place): they are
+	-- installed by migration, not synced from git.
+	do
+		local byId: { [string]: any } = {}
+		for _, item in Items.DEFS do
+			byId[item.id] = item
+		end
+		local templates = game:GetService("ReplicatedStorage"):FindFirstChild("Assets")
+		templates = templates and templates:FindFirstChild("ImportedNukeTemplates")
+
+		for itemId, def in ItemFxConfig.DEFS do
+			local item = byId[itemId]
+			check(`item fx names a modelled item: {itemId}`, item ~= nil and item.model == "ImportedNuke")
+
+			local lightAnims, periodsOk, parentsOk, finishOk = 0, true, true, true
+			for _, anim in def.anims or {} do
+				if anim.light then
+					lightAnims += 1
+				end
+				if not (anim.period >= 0.05 and anim.period <= 10) then
+					periodsOk = false
+				end
+			end
+			for index, spin in def.spins or {} do
+				if math.abs(spin.rpm) > 60 or (spin.parent and spin.parent >= index) then
+					parentsOk = false
+				end
+			end
+			for _, finish in def.finish or {} do
+				-- A material without a colour strips the SurfaceAppearance and leaves the
+				-- part flat default grey.
+				if finish.material and finish.color == nil then
+					finishOk = false
+				end
+			end
+			check(`item fx drives its light from at most one anim: {itemId}`, lightAnims <= 1)
+			check(`item fx anim periods are 0.05-10s: {itemId}`, periodsOk)
+			check(`item fx spins stay under 60 rpm and nest parents-first: {itemId}`, parentsOk)
+			check(`item fx finishes that set a material also set a colour: {itemId}`, finishOk)
+
+			local template = templates and templates:FindFirstChild(itemId)
+			if template then
+				local missing = {}
+				for _, name in ItemFx.referencedNames(def) do
+					if #ItemFx.partsNamed(template, { name }) == 0 then
+						table.insert(missing, name)
+					end
+				end
+				check(
+					`item fx part names all exist in the template: {itemId}` .. (if #missing > 0
+						then ` (missing {table.concat(missing, ", ")})`
+						else ""),
+					#missing == 0
+				)
+			end
+		end
 	end
 
 	-- Config/Weight — the five curves and the one U-shaped bias. These pin the shape,

@@ -93,16 +93,27 @@ COMMANDS["/stage"] = {
 }
 
 COMMANDS["/dig"] = {
-	help = "/dig <Rarity> [Modifier] — put a fake item in your bag, clock running",
+	help = "/dig <Rarity|itemId> [Modifier] — put a fake item in your bag, clock running",
 	run = function(player, _sandbox, args)
 		local data = DataService.data(player)
 		if data == nil then
 			return "your profile hasn't loaded yet"
 		end
 
-		local rarity = args[1] or "Rare"
+		-- AN ITEM ID DIGS THAT EXACT ITEM, at its own rarity. The only way to put a
+		-- specific nuke from a deeper stage through the dig -> wash -> reveal loop
+		-- without walking there (Config/ItemFx's effects are checked this way).
+		local picked: any = nil
+		for _, item in Items.DEFS do
+			if item.id == args[1] then
+				picked = item
+				break
+			end
+		end
+
+		local rarity = if picked then picked.rarity else (args[1] or "Rare")
 		if Rarity.DEFS[rarity] == nil then
-			return `unknown rarity "{rarity}" — one of: {table.concat(Rarity.ORDER, ", ")}`
+			return `unknown rarity or item id "{rarity}" — a rarity is one of: {table.concat(Rarity.ORDER, ", ")}`
 		end
 
 		local modifier = args[2] or "None"
@@ -113,11 +124,14 @@ COMMANDS["/dig"] = {
 		-- Must be a REAL catalogue item: everything downstream does Items.get(itemId)
 		-- and asserts. A synthetic "debug_item" blew up DeconService the moment you
 		-- carried one to a station.
-		local pool = Items.inStage(1, rarity)
-		if #pool == 0 then
-			return `stage 1 has no {rarity} items in the catalogue yet`
+		local def = picked
+		if def == nil then
+			local pool = Items.inStage(1, rarity)
+			if #pool == 0 then
+				return `stage 1 has no {rarity} items in the catalogue yet`
+			end
+			def = pool[math.random(1, #pool)]
 		end
-		local def = pool[math.random(1, #pool)]
 
 		table.insert(data.carry, {
 			uid = HttpService:GenerateGUID(false),
