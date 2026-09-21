@@ -44,7 +44,10 @@
 	  particles  emitters from the controller's presets: drift | sparkle | arcSpark |
 	             shrinkMotes | smoke | ember | steam | spore | flame. `rate` is per
 	             second; `burstEvery` (seconds) instead fires `burstCount` at once on
-	             a timer and leaves the emitter idle in between.
+	             a timer and leaves the emitter idle in between. `outward` emits
+	             from a point that far (times the part's size) out from the model's
+	             axis instead of from the part's box: for a part flush on the shell,
+	             whose particles would otherwise be born inside it and never seen.
 	  anims      pulse | flash | heartbeat | blink | flicker | wink | colorCycle |
 	             smoulder | glitter, each a 0..1 wave over `period` seconds, floored
 	             at `min`. `light = true` also drives the light (at most one anim per
@@ -109,6 +112,7 @@ export type Particles = {
 	rate: number,
 	burstEvery: number?,
 	burstCount: number?,
+	outward: number?,
 }
 
 export type Anim = {
@@ -584,8 +588,10 @@ ItemFx.DEFS = {
 	-- soft lustre, not a hard glint: a gentle band over the cream shell, and a
 	-- pastel sheen that runs round the strand.
 	pearl_necklace = {
+		-- Warm on purpose: the sky's cyan fill turns anything near-white grey-blue,
+		-- and a lilac or mint tint reads as a blue pearl.
 		finish = {
-			{ parts = { "Shell", "TailTaper", "Fin" }, tint = Color3.fromHex("FFF4E6") },
+			{ parts = { "Shell", "TailTaper", "Fin" }, tint = Color3.fromHex("FFE4CC") },
 			{ parts = { "StrandClasp", "CrownCollar" }, tint = GOLD_TINT },
 		},
 		anims = {
@@ -595,10 +601,10 @@ ItemFx.DEFS = {
 				parts = { "Pearl", "CrownPearl" },
 				period = 6,
 				colors = {
-					Color3.fromHex("FFF8EE"),
-					Color3.fromHex("FFE2EC"),
-					Color3.fromHex("E9E4FF"),
-					Color3.fromHex("E2FBF2"),
+					Color3.fromHex("FFF6EA"),
+					Color3.fromHex("FFE4E8"),
+					Color3.fromHex("FFEFD9"),
+					Color3.fromHex("F6E9FF"),
 				},
 			},
 		},
@@ -620,12 +626,13 @@ ItemFx.DEFS = {
 	-- Exposed Nuke. The casing is cut open down one side, and the core canister
 	-- inside glows: the light is hung inside the frame, so it spills out through
 	-- the gap onto the struts and panels. The coolant elbows vent now and then.
+	-- A purer green than RAD_GREEN: a whole canister of that in Neon reads lime.
 	film_canister = {
 		finish = {
-			{ parts = { "CoreCanister" }, material = "Neon", color = RAD_GREEN },
+			{ parts = { "CoreCanister" }, material = "Neon", color = Color3.fromHex("33FF55") },
 			{ parts = { "GlowRing" }, material = "Neon", color = Color3.fromHex("C4FF9A") },
 		},
-		light = { part = "CoreCanister", color = RAD_GREEN, brightness = 2, range = 1.2 },
+		light = { part = "CoreCanister", color = Color3.fromHex("33FF55"), brightness = 2, range = 1.2 },
 		particles = {
 			{ part = "CoreCanister", preset = "drift", color = SOFT_GREEN, rate = 2 },
 			{
@@ -651,30 +658,30 @@ ItemFx.DEFS = {
 	},
 
 	-- Scorched Nuke. "Rated to hold back anything. Didn't." Still burning: the
-	-- embers breathe like coals, the torn plate's edges glow, small flames lick up
+	-- embers breathe like coals, the torn plate's tips glow, small flames lick up
 	-- off it, and smoke and sparks rise. A Common, so it smoulders; no bonfire.
+	-- The blister plates stay dark: lit, their flat rectangles read as stickers.
 	scorched_metal_plate = {
 		finish = {
 			{ parts = { "Ember", "CurledPlateEnd" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
-			{ parts = { "BlisterLip" }, material = "Neon", color = Color3.fromHex("A8300E") },
 		},
 		light = { part = "Ember2", color = Color3.fromHex("FF7A2A"), brightness = 1.3, range = 0.9 },
 		particles = {
-			{ part = "CurledPlate", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 7 },
+			{ part = "CurledPlate", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 24, outward = 0.35 },
 			{
 				part = "Ember3",
 				preset = "flame",
 				color = Color3.fromHex("FF7A22"),
 				rate = 0,
 				burstEvery = 2.5,
-				burstCount = 3,
+				burstCount = 5,
+				outward = 0.4,
 			},
-			{ part = "Ember2", preset = "ember", color = Color3.fromHex("FFA040"), rate = 3 },
-			{ part = "CurledPlate", preset = "smoke", color = Color3.fromHex("2E2724"), rate = 1.5 },
+			{ part = "Ember2", preset = "ember", color = Color3.fromHex("FFA040"), rate = 3, outward = 0.4 },
+			{ part = "CurledPlate", preset = "smoke", color = Color3.fromHex("2E2724"), rate = 1.5, outward = 0.35 },
 		},
 		anims = {
 			{ kind = "smoulder", parts = { "Ember", "CurledPlateEnd" }, light = true, period = 1.6, min = 0.35 },
-			{ kind = "smoulder", parts = { "BlisterLip" }, period = 3, min = 0.25 },
 		},
 	},
 } :: { [string]: ItemFxDef }

@@ -32,11 +32,10 @@
 	hands over to the top. A vertical streak is one world-space plane: the camera-
 	facing side and the top both have a texture axis along the sweep, so the same
 	plane lands on both and the streak runs unbroken up the side and over the dome.
-	It is also what a real highlight on a round, polished thing looks like. The
-	stripe image is diagonal; stretching its tile out along the other axis
-	(GLINT_LONG) stands it upright. Each part gets its own offset so the streak
-	lines up across the whole group. It fades in and out at the ends of a pass,
-	where it crosses into the sides the texture can't reach.
+	It is also what a real highlight on a round, polished thing looks like. Each
+	part gets its own offset so the streak lines up across the whole group. It
+	fades in and out at the ends of a pass, where it crosses into the sides the
+	texture can't reach.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -84,18 +83,23 @@ local WRITE_EPSILON = 0.004
 
 local PING_TIME = 0.9
 
---- One soft diagonal band per 512px tile, white with the shape in alpha: a bright
---- core, a faint halo, and a thin second streak just behind it. Generated for this
---- effect and uploaded 2026-09-21.
-local GLINT_TEXTURE = "rbxassetid://102040958373097"
+--- The glint streak, white with the shape in alpha: a bright core, a faint halo and
+--- a thin twin line either side. It varies only across U and is symmetric, so it
+--- reads the same whichever way a face's U runs. Generated for this effect and
+--- uploaded 2026-09-21.
+local GLINT_TEXTURE = "rbxassetid://82985290105398"
+
+--- A streak along a face's V (only the Top face, when the sweep runs along Z)
+--- can't use that image, so it uses the first one: one diagonal band per tile,
+--- stood upright by stretching U out to GLINT_LONG. Its twin line is on one side
+--- only.
+local GLINT_TEXTURE_V = "rbxassetid://102040958373097"
+local GLINT_LONG = 4096
 
 --- The tile is this many times the group's width across the sweep, so one streak
 --- crosses every part before the next copy of the tile reaches any of them. The
 --- streak's thickness scales with it too.
 local GLINT_TILE_SLACK = 1.8
-
---- The tile along the streak: long enough that the image's diagonal stands upright.
-local GLINT_LONG = 4096
 
 --- The streak starts and ends this fraction of a tile beyond the group's edges.
 local GLINT_MARGIN = 0.08
@@ -110,7 +114,12 @@ local STAR_FACING = 0.2
 --- Chance each star flashes as the band crosses it, so passes don't all look alike.
 local STAR_CHANCE = 0.7
 
-local FLAME_TEXTURE = "rbxasset://textures/particles/fire_main.dds"
+--- A soft flame tongue, white with the shape in alpha, tinted by the emitter.
+--- Generated and uploaded 2026-09-21. The built-in fire_main.dds is only half of
+--- the legacy Fire's art (its alpha lives in another file) and draws as a dull
+--- speckled cloud; a Fire instance can't go under 2 studs, the size of a whole
+--- nuke on the wash stand.
+local FLAME_TEXTURE = "rbxassetid://80667240595677"
 local SMOKE_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
 
 local BLACK = Color3.new(0, 0, 0)
@@ -412,26 +421,32 @@ local PRESETS: { [string]: (Color3, number, number) -> ParticleEmitter } = {
 		e.Color = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Color3.fromHex("FFE9A8")),
 			ColorSequenceKeypoint.new(0.35, color),
-			ColorSequenceKeypoint.new(1, Color3.fromHex("6B1C08")),
+			ColorSequenceKeypoint.new(1, Color3.fromHex("8A1E08")),
 		})
+		-- Sizes vary per tongue (the envelopes), and each one stretches tall and
+		-- thin as it burns out, so the fire flickers instead of sitting like a
+		-- candle flame.
 		e.Size = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.32 * s),
-			NumberSequenceKeypoint.new(0.45, 0.26 * s),
+			NumberSequenceKeypoint.new(0, 0.16 * s, 0.05 * s),
+			NumberSequenceKeypoint.new(0.35, 0.3 * s, 0.1 * s),
 			NumberSequenceKeypoint.new(1, 0.04 * s),
 		})
+		e.Squash = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, -0.35) })
 		e.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.7),
-			NumberSequenceKeypoint.new(0.15, 0.2),
-			NumberSequenceKeypoint.new(0.7, 0.45),
+			NumberSequenceKeypoint.new(0, 0.55),
+			NumberSequenceKeypoint.new(0.12, 0.1),
+			NumberSequenceKeypoint.new(0.6, 0.35),
 			NumberSequenceKeypoint.new(1, 1),
 		})
-		e.Lifetime = NumberRange.new(0.3, 0.55)
-		e.Speed = NumberRange.new(0.6 * s, 1.2 * s)
-		e.SpreadAngle = Vector2.new(10, 10)
-		e.Acceleration = Vector3.new(0, 1.4 * s, 0)
-		e.Rotation = NumberRange.new(-15, 15)
-		e.RotSpeed = NumberRange.new(-40, 40)
+		e.Lifetime = NumberRange.new(0.22, 0.45)
+		e.Speed = NumberRange.new(0.6 * s, 1.5 * s)
+		e.SpreadAngle = Vector2.new(22, 22)
+		e.Acceleration = Vector3.new(0, 1.6 * s, 0)
+		e.Rotation = NumberRange.new(-20, 20)
+		e.RotSpeed = NumberRange.new(-70, 70)
 		e.EmissionDirection = Enum.NormalId.Top
+		-- Tongues stay upright however the camera tilts.
+		e.Orientation = Enum.ParticleOrientation.FacingCameraWorldUp
 		return e
 	end,
 }
@@ -1057,8 +1072,12 @@ local function startPass(glint: GlintRun, now: number, cameraPosition: Vector3)
 	local tile = (hi - lo) * GLINT_TILE_SLACK
 	for _, layer in glint.layers do
 		local texture = layer.texture
+		local image = if layer.onU then GLINT_TEXTURE else GLINT_TEXTURE_V
+		if texture.Texture ~= image then
+			texture.Texture = image
+		end
 		texture.StudsPerTileU = if layer.onU then tile else GLINT_LONG
-		texture.StudsPerTileV = if layer.onU then GLINT_LONG else tile
+		texture.StudsPerTileV = tile
 		texture.OffsetStudsU = 0
 		texture.OffsetStudsV = 0
 	end
@@ -1144,11 +1163,25 @@ local function activate(entry: Entry, now: number)
 		end
 	end
 
+	local box = model:GetBoundingBox()
 	for _, particles in def.particles or {} do
 		local part = ItemFx.firstPart(model, particles.part)
 		local build = PRESETS[particles.preset]
 		if part and build then
 			local e = build(particles.color, particles.rate, entry.scale)
+			local host: Instance = part
+			if particles.outward then
+				-- A part flush on the shell has half its box inside it, and anything
+				-- born there rises into the shell and is never seen. Emit from a point
+				-- just off the surface instead: straight out from the model's axis.
+				local offset = box:PointToObjectSpace(part.Position) * Vector3.new(1, 0, 1)
+				local out = if offset.Magnitude > 1e-3 then box:VectorToWorldSpace(offset.Unit) else box.UpVector
+				local attachment = Instance.new("Attachment")
+				attachment.Name = "ItemFxEmitPoint"
+				attachment.Parent = part
+				attachment.WorldPosition = part.Position + out * part.Size.Magnitude * particles.outward
+				host = attachment
+			end
 			if particles.burstEvery then
 				-- On a timer instead of a stream: idle, then a puff all at once.
 				e.Rate = 0
@@ -1159,7 +1192,7 @@ local function activate(entry: Entry, now: number)
 					nextAt = now + particles.burstEvery * entry.rng:NextNumber(0.3, 1),
 				})
 			end
-			e.Parent = part
+			e.Parent = host
 			table.insert(entry.emitters, e)
 		end
 	end
