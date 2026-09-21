@@ -31,7 +31,7 @@ local ModelGallery = {}
 
 local NAME = "ModelYard"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 9
+local BUILDER_VERSION = 10
 
 -- feat/wire-stage2-nuke-imports: the yard is organised into ONE ROW PER STAGE (the
 -- item's lowest stocked stage, for a { 3, 4 }-style item shared across two), each row
@@ -175,7 +175,11 @@ local function buildLand(gallery: Model, origin: CFrame)
 	end
 end
 
-local function placeOnPedestal(model: Model, target: CFrame)
+--- `sizeMult` is the item's own Config/Items `sizeMult` (1 when unset): every template
+--- is normalised to the same GallerySize, so without it a per-item size nudge could
+--- never show up here. It stays a gentle 0.5-2x (Spec-pinned), so the taller stand
+--- tags and row labels below still clear the largest model.
+local function placeOnPedestal(model: Model, target: CFrame, sizeMult: number)
 	model:PivotTo(CFrame.identity)
 
 	-- `GetScale()` multiplier: `ScaleTo` is ABSOLUTE relative to the model's TRUE
@@ -192,7 +196,7 @@ local function placeOnPedestal(model: Model, target: CFrame)
 	if longest > 0 then
 		local requested = model:GetAttribute("GallerySize")
 		local targetSize = if typeof(requested) == "number" and requested > 0 then requested else MAX_MODEL_SIZE
-		model:ScaleTo(model:GetScale() * (targetSize / longest))
+		model:ScaleTo(model:GetScale() * (targetSize * sizeMult / longest))
 	end
 
 	model:PivotTo(target * ItemModels.rotation(model, "Gallery"))
@@ -229,9 +233,9 @@ local function buildStand(
 		},
 	})
 
-	-- Height offset of 15 clears even the tallest item (old_compass, ~10.6 studs
-	-- of top clearance from pedestal-centre at the current GallerySize) with
-	-- comfortable margin, so the tag reads as "above the model" rather than
+	-- Height offset of 15 clears even the tallest item (~10.6 studs of top clearance
+	-- from pedestal-centre at the current GallerySize, ~12.7 for a 1.2x `sizeMult`
+	-- item) with comfortable margin, so the tag reads as "above the model" rather than
 	-- overlapping it. Smaller text (14/10 vs. the shared default 22/14) reads
 	-- as a label, not a headline -- ModelGallery is the only caller that opts
 	-- into non-default sizes, see Kit.billboard.
@@ -269,7 +273,7 @@ local function buildStand(
 	itemModel.Name = `Item_{item.id}`
 	itemModel:SetAttribute("ItemId", item.id)
 	itemModel.Parent = gallery
-	placeOnPedestal(itemModel, origin * CFrame.new(x, 0, z))
+	placeOnPedestal(itemModel, origin * CFrame.new(x, 0, z), item.sizeMult or 1)
 end
 
 -- Floating well above the tallest catalogued item (buildStand's own billboard note
