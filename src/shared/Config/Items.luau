@@ -511,7 +511,11 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
 		baseValue = 73,
-		model = "ImportedNuke",
+		-- Reverted to nil: the batch 3 scene found for "SnapCollar" turned out to be
+		-- byte-identical to cracked_glow_badge's (Fading Nuke) already-claimed
+		-- design (confirmed -- sorted part lists matched exactly), not a distinct
+		-- Split Nuke model. No genuine art for this one exists yet.
+		model = nil,
 	},
 	{
 		id = "old_food_tin",
