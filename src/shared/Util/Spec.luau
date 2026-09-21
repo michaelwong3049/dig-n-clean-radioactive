@@ -272,6 +272,21 @@ function Spec.run(): boolean
 			string.format("§payload the roll leans toward MIN, not flat (mean %.3f < midpoint %.3f)", mean, midpoint),
 			mean < midpoint
 		)
+
+		-- The dig callout: tiers run highest-first inside the band, an ordinary roll
+		-- says nothing, and the top of the band earns the top tier.
+		local tiersOk = #Payload.CALLOUTS > 0
+		for i, tier in Payload.CALLOUTS do
+			local prev = Payload.CALLOUTS[i - 1]
+			if tier.min <= 1 or tier.min > Payload.MAX or (prev and prev.min <= tier.min) then
+				tiersOk = false
+			end
+		end
+		check("§payload callout tiers are above 1x, inside the band, highest first", tiersOk)
+		check(
+			"§payload an ordinary roll has no callout; MAX earns the top one",
+			Payload.calloutFor(1) == nil and Payload.calloutFor(Payload.MAX) == Payload.CALLOUTS[1].label
+		)
 	end
 
 	-- PLAN §3.5 — the Dive is ~one dig, in every stage. Tested at the ENTRANCE

@@ -40,6 +40,27 @@ Payload.MAX = 2.5
 -- the raw [0,1) roll above ~0.997 -- a real jackpot, not just an uncommon sight.
 Payload.POWER = 3
 
+-- THE ONE THING A DIG CAN TELL YOU. What comes out of the ground is a nameless lump
+-- (Shared/ItemCrust) whose rarity you already read off the spot and the haul panel,
+-- so the dig itself announces nothing -- except a big payload roll, which is news:
+-- it is worth that many times its usual price, and nothing else on screen says so.
+-- Highest `min` first; the first tier a roll clears names it, below the last one
+-- the dig stays silent. At POWER 3, ~19% of digs clear 1.6x and ~6% clear 2.2x.
+Payload.CALLOUTS = {
+	{ min = 2.2, label = "GIGA" },
+	{ min = 1.6, label = "OVERSIZED" },
+}
+
+--- The callout tier a roll earns, or nil for an ordinary-sized dig.
+function Payload.calloutFor(mult: number): string?
+	for _, tier in Payload.CALLOUTS do
+		if mult >= tier.min then
+			return tier.label
+		end
+	end
+	return nil
+end
+
 --- A stable integer for `Random.new` out of a carry uid. Salted differently from
 --- ItemCrust's own `seedOf` (same shape, different string prefix) so a payload
 --- roll doesn't visibly correlate with that item's crust arrangement -- two

@@ -811,6 +811,7 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 		rarity = rarity,
 		modifier = modifier,
 		weight = item.weight,
+		payload = Payload.forUid(signal.uid),
 		carrying = #data.carry,
 	})
 
