@@ -59,6 +59,12 @@ Kit.UPGRADE_TAG = "Upgrade"
 -- a signal aura's locator glow — one substance in one stage — read the note at
 -- POOL_MATERIAL and at the light itself in `oozePool` before extending either
 -- anywhere else. No shop accent, prop or sign goes back to Neon or grows a light.
+--
+-- A SECOND EXCEPTION, ON REQUEST (2026-09-21): the nukes themselves. Their named
+-- glow parts may be Neon/Glass and may carry one light (Config/ItemFx, applied
+-- client-side by ItemFxController once an item is out of its crust). That covers the
+-- loot, not the world: this rule still holds for every prop, shop and sign, and
+-- bloom stays off.
 Kit.C = {
 	-- Base camp (original values — do not repaint without rebuilding the camp)
 	floor = "C9C4B8",

@@ -23,6 +23,7 @@ local ORDER = {
 	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"LiquidController", -- the loaded-liquid readout on the wash pad; reads LiquidState + PlotState
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState
+	"ItemFxController", -- nuke glow/glass/motion on any `ItemFx`-tagged model, once its crust is off
 	"NameTagController", -- subdued overhead player names; replaces Roblox's bright default tag
 	"WarpController", -- the top-of-screen BASE / SHOPS bar; reads stageId off ExposureState
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState

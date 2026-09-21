@@ -372,6 +372,19 @@ function ItemCrust.strip(parts: { BasePart })
 	end
 end
 
+--- Is there still rock on this item? The crust's own light is the marker: `encase`
+--- hangs it, `clear` takes it down at the wash reveal, and a held item with no
+--- patches left is built without it. ItemFxController keeps every effect off
+--- until this goes false, so the glow is part of the reveal and does not leak
+--- through the slag.
+function ItemCrust.isCrusted(root: Instance): boolean
+	local own = root:FindFirstChild(GLOW_NAME, true)
+	return own ~= nil and own:IsA("PointLight")
+end
+
+--- The name of the crust's light, for a caller that watches for it to go away.
+ItemCrust.GLOW_NAME = GLOW_NAME
+
 --- Nothing left to hide: put the light out. Called when the last patch clears, so an
 --- item standing revealed on the tub is lit by the bay and not by its own fallout.
 function ItemCrust.clear(root: Instance)
