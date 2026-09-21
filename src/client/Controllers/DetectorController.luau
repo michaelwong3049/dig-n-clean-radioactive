@@ -39,6 +39,7 @@ local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Tuning = require(Shared.Config.Tuning)
+local Payload = require(Shared.Config.Payload)
 local Stages = require(Shared.Config.Stages)
 local DetonationConfig = require(Shared.Config.Detonation)
 local Net = require(Shared.Net)
@@ -602,6 +603,26 @@ local function build(): ScreenGui
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
 	})
+
+	-- The oversized-payload callout. Bare outlined text, no card: it is a shout, not
+	-- a readout, and it sits where the banner would so the two never share the screen
+	-- (a dig only ever raises one of them). A UIScale does the pop and the exit,
+	-- because UIKit.label's outline and shadow ignore TextTransparency -- a fade would
+	-- leave a black ghost of the word behind.
+	local callout = UIKit.label(canvas, {
+		name = "PayloadCallout",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.fromScale(0.5, 0.32),
+		size = UDim2.fromOffset(640, 64),
+		font = UIKit.Font.hero,
+		textSize = UIKit.TextSize.hero + 8,
+		xAlign = Enum.TextXAlignment.Center,
+		visible = false,
+	})
+	local calloutScale = Instance.new("UIScale")
+	calloutScale.Parent = callout
+	ui.callout = callout
+	ui.calloutScale = calloutScale
 
 	-- ── The haul panel ────────────────────────────────────────────────
 	-- Up only while locked onto a signal. This is the second beat of the pull: the
@@ -1259,17 +1280,10 @@ local function formatWeight(kg: number): string
 	return string.format("%d kg", math.floor(kg + 0.5))
 end
 
---- What the banner says over a find nobody has identified yet. It is not a placeholder
---- for a name the client is withholding -- the client genuinely does not have one, and
---- will not until the crust comes off (Services/IdentifyService).
-local UNKNOWN_NAME = "???"
-local UNKNOWN_FLAVOR = "caked in irradiated slag \u{2014} wash it to find out what it is"
-
---- ONE BANNER, TWO MOMENTS. The dig fires it with a rarity and no name; the wash bay
---- fires it again, on the same item, with the name it turned out to have. Sharing the
---- renderer is what keeps them feeling like two halves of one event rather than two
---- unrelated pieces of UI, and `found.name` being nil is the only thing that separates
---- them here.
+--- THE REVEAL BANNER. Fired when a find gets its name: at the wash bay once the crust
+--- is off, at the trader on a blind sale, or straight out of the ground for a sealed
+--- find with no crust to wash (onUnearthed below). A crusted dig no longer raises it
+--- with a "???" -- that only rehearsed this moment, badly, on every pull.
 local function showFind(found, header: string?)
 	local def = Rarity.DEFS[found.rarity]
 	local colour = if def then def.color else COLOR.text
@@ -1279,9 +1293,10 @@ local function showFind(found, header: string?)
 	local prefix = if header then header .. `  \u{00B7}  ` else ""
 	ui.bannerRarity.Text = prefix .. string.upper(modifier .. found.rarity) .. heft
 	ui.bannerRarity.TextColor3 = colour
-	ui.bannerName.Text = found.name or UNKNOWN_NAME
-	ui.bannerFlavor.Text = found.flavor or UNKNOWN_FLAVOR
+	ui.bannerName.Text = found.name
+	ui.bannerFlavor.Text = found.flavor or ""
 	ui.bannerStroke.Color = colour
+	ui.callout.Visible = false
 	ui.banner.Visible = true
 
 	bannerToken += 1
@@ -1291,6 +1306,59 @@ local function showFind(found, header: string?)
 			ui.banner.Visible = false
 		end
 	end)
+end
+
+--- "OVERSIZED  ×1.8" / "GIGA  ×2.4" over a dig that rolled a big payload
+--- (Config/Payload.CALLOUTS). Pops in past full size, settles, holds, shrinks out.
+local CALLOUT_COLOR = {
+	GIGA = Color3.fromHex("FACC15"),
+	OVERSIZED = COLOR.amber,
+}
+
+local function showCallout(label: string, mult: number)
+	ui.banner.Visible = false
+	bannerToken += 1 -- a pending banner hide must not outlive this
+	local token = bannerToken
+
+	ui.callout.Text = string.format("%s  \u{00D7}%.1f", label, mult)
+	ui.callout.TextColor3 = CALLOUT_COLOR[label] or COLOR.amber
+	ui.calloutScale.Scale = 0.4
+	ui.callout.Visible = true
+	TweenService:Create(ui.calloutScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Scale = 1,
+	}):Play()
+
+	task.delay(1.9, function()
+		if token ~= bannerToken then
+			return
+		end
+		local out = TweenService:Create(ui.calloutScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Scale = 0,
+		})
+		out.Completed:Connect(function()
+			if token == bannerToken then
+				ui.callout.Visible = false
+			end
+		end)
+		out:Play()
+	end)
+end
+
+--- The dig's own moment. A crusted find announces NOTHING -- its rarity was on the
+--- spot and the haul panel already, and "???" only rehearsed the wash bay's reveal
+--- badly. What a dig can say is how big it came out, and only when that is news.
+--- A sealed find (no crust to wash) is the exception: it identifies right here, so
+--- this is its only reveal and it keeps the full banner.
+local function onUnearthed(found)
+	if found.name then
+		showFind(found)
+		return
+	end
+	local mult = found.payload
+	local label = if type(mult) == "number" then Payload.calloutFor(mult) else nil
+	if label then
+		showCallout(label, mult)
+	end
 end
 
 -- ── Input ───────────────────────────────────────────────────────────
@@ -1428,9 +1496,7 @@ function Detector.start()
 		renderState()
 	end)
 
-	Net.get("Unearthed").OnClientEvent:Connect(function(found)
-		showFind(found)
-	end)
+	Net.get("Unearthed").OnClientEvent:Connect(onUnearthed)
 
 	-- THE OTHER HALF OF THE SAME BANNER. Fired from the wash bay once the last chunk of
 	-- crust is off (or from the trader, when a find is sold blind and named on its way
