@@ -754,8 +754,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 400,
-		-- No art yet -- its scene duplicated the Airtight Nuke's (first_aid_tin).
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "old_headphones",
@@ -930,8 +929,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 3100,
-		-- No art yet -- the scene first mapped here is the Split Nuke's (gate_latch).
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "fused_tool_roll",
