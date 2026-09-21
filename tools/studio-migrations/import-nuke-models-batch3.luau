@@ -38,6 +38,10 @@ local NATURAL_SIZE = 7.02
 local REGION_MIN = Vector3.new(-155, 65, 160)
 local REGION_MAX = Vector3.new(-135, 98, 180)
 
+-- Remapped on user review (feat/wire-stage2-nuke-imports): `CoreHalo` is Stage 4's
+-- Glowing Nuke (not Sky-Glow) and `ForkBase` is Stage 4's Humming Nuke (not The Big
+-- One). `PressureGauge` and `SnapCollar` rows dropped: both scenes are byte-identical
+-- duplicates of batch 1's ValveWheel (Airtight) and BrokenCore (Split) scenes.
 local ITEMS = {
 	{ itemId = "door_hinge", label = "Creaky Nuke", marker = "SwingSeam", rootPart = "Shell" },
 	{ itemId = "deposit_box", label = "Vault Nuke", marker = "CombinationDial", rootPart = "Shell" },
@@ -49,12 +53,10 @@ local ITEMS = {
 	{ itemId = "charm_bracelet", label = "Trinket Nuke", marker = "Bail", rootPart = "Shell" },
 	{ itemId = "socket_set", label = "Socketed Nuke", marker = "DriveSquare", rootPart = "Shell" },
 	{ itemId = "cracked_tile", label = "Cracked Nuke", marker = "Fissure1", rootPart = "Shell" },
-	{ itemId = "pressure_gauge", label = "Pressurized Nuke", marker = "PressureGauge", rootPart = "Shell" },
 	{ itemId = "rusted_farm_safe", label = "Buried Nuke", marker = "ShoringTimber1", rootPart = "Shell" },
 	{ itemId = "diamond_brooch", label = "Diamond Nuke", marker = "GemPavilion", rootPart = "GemPavilion" },
-	{ itemId = "gate_latch", label = "Split Nuke", marker = "SnapCollar", rootPart = "LowerShell" },
-	{ itemId = "skyglow_core_fragment", label = "Sky-Glow Nuke", marker = "CoreHalo", rootPart = "Shell" },
-	{ itemId = "unlabeled_cylinder", label = "The Big One", marker = "ForkBase", rootPart = "Shell" },
+	{ itemId = "glowing_sample_jar", label = "Glowing Nuke", marker = "CoreHalo", rootPart = "Shell" },
+	{ itemId = "strange_metal_chip", label = "Humming Nuke", marker = "ForkBase", rootPart = "Shell" },
 }
 
 --- Same idea as the first migration's findSourceNode, but only considers an

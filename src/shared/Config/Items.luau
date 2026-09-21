@@ -511,11 +511,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
 		baseValue = 73,
-		-- Reverted to nil: the batch 3 scene found for "SnapCollar" turned out to be
-		-- byte-identical to cracked_glow_badge's (Fading Nuke) already-claimed
-		-- design (confirmed -- sorted part lists matched exactly), not a distinct
-		-- Split Nuke model. No genuine art for this one exists yet.
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "old_food_tin",
@@ -541,7 +537,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 300,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "unlit_signal_flare",
@@ -677,7 +673,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 4400,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "strange_metal_chip",
@@ -690,7 +686,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 23000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "reactor_rod",
@@ -703,7 +699,8 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 120000,
-		model = "ImportedNuke",
+		-- No art yet -- the ValveWheel scene first mapped here is the Airtight Nuke's.
+		model = nil,
 	},
 
 	-- ══ STAGE 5 — REACTOR GROUNDS ═══════════════════════════════════════════
@@ -762,7 +759,8 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 400,
-		model = "ImportedNuke",
+		-- No art yet -- its scene duplicated the Airtight Nuke's (first_aid_tin).
+		model = nil,
 	},
 	{
 		id = "old_headphones",
@@ -937,7 +935,8 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 3100,
-		model = "ImportedNuke",
+		-- No art yet -- the scene first mapped here is the Split Nuke's (gate_latch).
+		model = nil,
 	},
 	{
 		id = "fused_tool_roll",
@@ -976,7 +975,8 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 26000,
-		model = "ImportedNuke",
+		-- No art yet -- the CoreHalo scene first mapped here is the Glowing Nuke's.
+		model = nil,
 	},
 	{
 		id = "ufo_fragment",
@@ -1041,7 +1041,8 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "crater_relics" },
 		baseValue = 6000000,
-		model = "ImportedNuke",
+		-- No art yet -- the ForkBase scene first mapped here is the Humming Nuke's.
+		model = nil,
 	},
 } :: { ItemDef }
 

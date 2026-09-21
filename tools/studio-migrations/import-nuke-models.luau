@@ -72,10 +72,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- physically cramped cabinet bay.
 local NATURAL_SIZE = 7.02
 
+-- Remapped on user review (feat/wire-stage2-nuke-imports): the `ValveWheel` scene
+-- is the Airtight Nuke (first_aid_tin), not Reactor; the `BrokenCore` scene is the
+-- Split Nuke (gate_latch), not Fading. Reactor and Fading have no art yet.
 local ITEMS = {
 	{ itemId = "old_compass", label = "Guided Nuke", marker = "SeekerWindow", rootPart = "Shell" },
 	{ itemId = "mutant_carrot", label = "Mutant Nuke", marker = "Tendril1", rootPart = "Shell" },
-	{ itemId = "reactor_rod", label = "Reactor Nuke", marker = "ValveWheel", rootPart = "Shell" },
+	{ itemId = "first_aid_tin", label = "Airtight Nuke", marker = "ValveWheel", rootPart = "Shell" },
 	{ itemId = "broken_lantern", label = "Glowless Nuke", marker = "DeadLens1", rootPart = "Shell" },
 	{ itemId = "treasure_map", label = "Blueprint Nuke", marker = "PlanRoll", rootPart = "Shell" },
 	{ itemId = "pearl_necklace", label = "Pearl Nuke", marker = "CrownPearl", rootPart = "Shell" },
@@ -85,7 +88,7 @@ local ITEMS = {
 	{ itemId = "unlit_signal_flare", label = "Flare Nuke", marker = "BurnPort", rootPart = "Shell" },
 	{ itemId = "bullion_bar", label = "Bullion Nuke", marker = "BullionStrapCross", rootPart = "BullionStrapCross" },
 	{ itemId = "radiation_badge", label = "Telltale Nuke", marker = "TelltaleFlag", rootPart = "Shell" },
-	{ itemId = "cracked_glow_badge", label = "Fading Nuke", marker = "BrokenCore", rootPart = "UpperShell" },
+	{ itemId = "gate_latch", label = "Split Nuke", marker = "BrokenCore", rootPart = "UpperShell" },
 	{ itemId = "gold_signet", label = "Gilded Nuke", marker = "SignetStone", rootPart = "Shell" },
 	{ itemId = "buried_coin_jar", label = "Bottled Nuke", marker = "WaxSeal", rootPart = "BottleBody" },
 }
