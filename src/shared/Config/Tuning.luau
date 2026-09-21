@@ -416,4 +416,12 @@ Tuning.RESIST_PER_LEVEL = 0.01
 Tuning.RESIST_CAP = 0.40
 Tuning.CAPACITY_EVERY_N_LEVELS = 5
 
+-- ── The wash reveal ───────────────────────────────────────────────────────────
+-- How long the clean nuke holds the screen once the last chunk of crust comes off,
+-- before the wash bay hands the camera back. WashService owns the real clock; the
+-- client (WashReveal) reads the same number to pace its slow push-in across it. Long
+-- enough for the name to land and the price to count up, short enough to be a beat
+-- rather than a wait -- and E/Q skips it anyway.
+Tuning.WASH_REVEAL_HOLD = 4.2
+
 return Tuning
