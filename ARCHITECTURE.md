@@ -44,6 +44,7 @@ src/
     Net.luau                  every remote in the game, one table
     Radiation.luau            pure math: exposure, burn, survivable seconds
     Decay.luau                pure math: the decay clock
+    Detonation.luau           pure math: the pull fuse, blast falloff, crater orb strength
     Contamination.luau        pure math: the cleaning gate
     StatResolver.luau         profile -> stats. The ONLY place gear math happens.
 
@@ -54,8 +55,9 @@ src/
     Services/
       DataService             ProfileStore wrapper, session-locked persistence
       StageService             who is standing where
+      HazardService           detonated nukes: the blast hit and the crater orbs' burn
       ExposureService         the rad meter, burn, blackout, dropped bags
-      DigService              the buried signal field, sweep and haul
+      DigService              the buried signal field, sweep, haul and the pull fuse
       EconomyService          what an item is worth, and the till
       DeconService            docking, scrubbing and racking at every base; sell() exists, no world trader triggers it currently
       LiquidService           the wash pad: rolling liquids, charges, equip
@@ -74,6 +76,8 @@ src/
                               local swivel of the station's own nozzle
       HudController           rad meter, vignette, distortion, blackout curtain
       GeigerController        the click bed (reads HudController)
+      DetonationController    nukes going off: blast FX + knockback, crater orbs,
+                              lit-fuse warnings on the spot and the lump
 ```
 
 ---
@@ -156,6 +160,7 @@ with the place.
 | `Workspace.Stages` (Folder) | `StageService:36`, `DigService:251` | nobody is ever in a stage; no signals spawn |
 | `Workspace.Stages.Stage<id>` (BasePart) | `DigService:255`, `DebugService:142` | that stage spawns no signals; `/stage <id>` refuses |
 | `Workspace.SignalAuras` (Folder) | created and owned by `DigService` | nothing — it is created on demand at runtime and wiped on boot. Do **not** hand-edit or save it with the place; `DigService.init` destroys any copy it finds, because a saved one would be full of glows over empty ground. |
+| `Workspace.Craters` (Folder) | created and owned by `HazardService` | nothing — one invisible marker part per live crater, created at runtime and wiped on boot like `SignalAuras`. Every visual is client-side (`DetonationController`). Do **not** save it with the place. |
 | `Workspace.BaseCamp` (Model) | `DeconService:54` | `stationOf` is always nil — no docking, scrubbing or selling, anywhere. Generate it with `BaseCamp.rebuild()` as documented in the README. |
 | a `SpawnLocation` anywhere in `Workspace` | `ExposureService:221` | blackout respawns to a hardcoded `CFrame.new(0, 8, 0)` |
 | `ReplicatedStorage.Assets.Tools` (Folder) | `ToolService:39` | **`require(ToolService)` throws** — see the note below |

@@ -172,6 +172,33 @@ around desktop mash rate — that quietly locks half the Roblox audience out of 
 **It is also the moment the decay clock starts.** (§3.6) The banner that tells you what you
 found also tells you how long you have to get it home.
 
+#### The pull fuse — every find is a live nuke
+
+Everything down there is a nuke, and hauling one up is not free. **Locking the magnet on
+lights a fuse** (numbers in `Config/Detonation.luau`, maths in `Shared/Detonation.luau`):
+
+* **The window is about thirty seconds**, shorter for rarer nukes (Common ×1.1 down to
+  Anomaly ×0.74) and longer for heavier ones, since they take longer to pull. It has a
+  **fairness floor**: the magnet rated for that soil, clicked at a relaxed 4/sec, always
+  gets the nuke out by 60% of its window. So a pull on your own tier never gets near
+  arming. An over-tier grind can, and that makes over-tier pulls a gamble.
+* **Before 80%, letting go is free.** You walk away and the fuse cools back down at the
+  rate it heated. It does not reset, because that would make "let go at 79% and
+  re-grab" a loophole. A nuke someone else has been working on is still warm when you
+  get there, and its spot shows it.
+* **At 80% it arms.** Q stops working. The panel goes red, and the spot ticks faster
+  and faster with a countdown everyone can see. You have the time left to pull it out.
+* **If you don't, it detonates where it lies.** Everyone inside the blast takes a hit that falls off
+  toward the edge, and gets knocked flat and thrown clear. The nuke is gone. What's left
+  is a **crater with a glowing orb of hot air** that burns health off anyone inside it
+  for 30–90 seconds. The orb is bigger, hotter and longer-lived the rarer and bigger the
+  nuke was. A Common's crater is a bruise you walk out of. A Mythic's or an Anomaly's
+  at point blank is a blackout.
+
+The refusal to let go is the one exception to "release is always instant" (see
+`DigService`'s header). It cannot strand anyone: an armed fuse is at most 20% of its
+window from going off, and going off releases everyone on it.
+
 ### Step 3 — Haul (the run home)
 
 Not a menu step — a *physical* one, and the reason movement speed is a real upgrade track (§5).

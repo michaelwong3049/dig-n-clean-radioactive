@@ -40,6 +40,8 @@ local DataService = require(script.Parent.DataService)
 local ExposureService = require(script.Parent.ExposureService)
 local EconomyService = require(script.Parent.EconomyService)
 local ExhibitService = require(script.Parent.ExhibitService)
+local HazardService = require(script.Parent.HazardService)
+local DigService = require(script.Parent.DigService)
 
 local Workspace = game:GetService("Workspace")
 
@@ -326,6 +328,51 @@ COMMANDS["/fly"] = {
 		return if enabled
 			then "fly on — WASD to move, Space/Ctrl for up/down, Shift to boost, /fly off to land"
 			else "fly off — back to normal movement"
+	end,
+}
+
+COMMANDS["/boom"] = {
+	-- The pull fuse takes 20-40s of hauling to run out; this skips straight to the
+	-- bang for tuning the blast, the crater and the FX. Goes off a few studs in front
+	-- of you rather than on top of you, so the flash, the cloud and the orb are all in
+	-- frame -- and you still catch the edge of it.
+	help = "/boom [Rarity] [scale] — detonate a nuke a few studs in front of you",
+	run = function(player, _sandbox, args)
+		local rarity = args[1] or "Rare"
+		if Rarity.DEFS[rarity] == nil then
+			return `usage: /boom [{table.concat(Rarity.ORDER, "|")}] [visual scale, default 1.5]`
+		end
+		local scale = tonumber(args[2]) or 1.5
+
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if root == nil or not root:IsA("BasePart") then
+			return "no character to aim from"
+		end
+
+		-- Down onto whatever is under that spot, so the crater sits on the ground.
+		local ahead = root.Position + root.CFrame.LookVector * 10
+		local params = RaycastParams.new()
+		params.FilterDescendantsInstances = { character }
+		local hit = Workspace:Raycast(ahead + Vector3.new(0, 20, 0), Vector3.new(0, -80, 0), params)
+		local ground = if hit then hit.Position else ahead - Vector3.new(0, 3, 0)
+
+		HazardService.detonate(ground, rarity, scale)
+		return `{rarity} nuke detonated 10 studs ahead (visual scale {scale})`
+	end,
+}
+
+COMMANDS["/fuse"] = {
+	help = "/fuse <0-99> — set the pull fuse on the nuke you are locked onto (80+ arms it)",
+	run = function(player, _sandbox, args)
+		local percent = tonumber(args[1])
+		if percent == nil then
+			return "usage: /fuse <0-99> — lock onto a nuke first"
+		end
+		if not DigService.debugSetFuse(player, percent / 100) then
+			return "lock onto a nuke first (hold E on a spot), then /fuse"
+		end
+		return `fuse set to {math.clamp(percent, 0, 99)}%`
 	end,
 }
 

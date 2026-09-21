@@ -452,6 +452,15 @@ the place file has no git history to recover from.
       unique ids, every `baseValue` inside its Rarity band, every nonzero loot weight
       in every stage resolves to a real item.
 - [x] Stage 2 and Stage 3 loot progression (`Config/Stages.luau` + `DigService.luau`)
+- [x] **The pull fuse** (PLAN §Step 2, "The pull fuse") — locking onto a nuke lights a
+      ~30s fuse (rarer shorter, heavier longer, fairness floor for the rated magnet); let
+      go before 80% for free, past it you're locked in until it's out or it detonates.
+      `HazardService` banks the blast hit and runs the crater orbs, which `ExposureService`
+      folds into health burn (HUD says CRATER BURN); `DetonationController` draws the
+      blast, the knockback, the orb and the lit-fuse warnings. `/boom [Rarity] [scale]`
+      and `/fuse <0-99>` in the tuning console. Spec pins the shape (§fuse).
+- [ ] Pull-fuse follow-ups, not built: craters that seed fresh finds (a detonation
+      "uncovers" things), bombing-run server events, a test range to detonate on purpose.
 - [ ] Stage gate unlock interaction — gates currently expose `StageId`/`UnlockTier`; wire
       them to the player's progression and open/close behavior when the unlock rule is chosen
 - [ ] Radiation burn / suit tolerance / survivability countdown (PLAN §3.5) — the

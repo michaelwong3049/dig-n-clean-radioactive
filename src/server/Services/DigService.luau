@@ -57,9 +57,17 @@
 
 	THE LOCK IS THE DANGEROUS PART OF THIS FILE, because it roots the player. A rooted
 	player who cannot release is stuck in the world with no way out but rejoining, so
-	releaseLock is called from SEVEN places and every one of them is deliberate — see
+	releaseLock is called from EIGHT places and every one of them is deliberate — see
 	the list on releaseLock itself. Adding a new way for a lock to become invalid means
 	adding a release with it.
+
+	THE PULL FUSE (Config/Detonation). Locking onto a nuke lights a fuse ON THE SIGNAL.
+	Let go before ARM_AT of its window and you walk away free while it cools back down;
+	hang on past it and it ARMS -- the release is refused, and it either comes out of
+	the ground in the time left or it detonates where it lies (HazardService), taking
+	the lock with it. That refusal is the one exception to "release is unconditional",
+	and it is bounded: an armed fuse is at most (1 - ARM_AT) of its window from going
+	off, and going off releases everyone on it. See stepFuses and the lock handler.
 
 	THIS USED TO BE A HOLD, and the change cost something worth writing down. Under the
 	hold, the client sent a boolean and the SERVER integrated it against real elapsed
@@ -92,6 +100,7 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
@@ -100,6 +109,8 @@ local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Weight = require(Shared.Config.Weight)
 local Payload = require(Shared.Config.Payload)
+local DetonationConfig = require(Shared.Config.Detonation)
+local Detonation = require(Shared.Detonation)
 local ItemModels = require(Shared.ItemModels)
 local ItemCrust = require(Shared.ItemCrust)
 local Contamination = require(Shared.Contamination)
@@ -112,6 +123,7 @@ local SignalAura = require(script.Parent.Parent.build.SignalAura)
 local DataService = require(script.Parent.DataService)
 local StageService = require(script.Parent.StageService)
 local IdentifyService = require(script.Parent.IdentifyService)
+local HazardService = require(script.Parent.HazardService)
 
 local DigService = {}
 
@@ -178,6 +190,19 @@ type Signal = {
 	-- Per-player luck re-rolls, keyed by UserId. Filled lazily the first time the
 	-- signal enters that player's radar; goes away with the whole signal on removeSignal.
 	rolls: { [number]: PlayerRoll },
+	-- THE PULL FUSE (Config/Detonation), on the nuke rather than on anyone's haul, so
+	-- letting go and grabbing it again does not reset it. `heat` is 0..1 of the window;
+	-- `armed` is one-way. The window, rarity and visual scale are whichever magnet
+	-- last had hold of it -- the size of the bang if it goes. See stepFuses.
+	heat: number,
+	armed: boolean,
+	fuseWindow: number,
+	fuseRarity: string,
+	fuseScale: number,
+	-- Set by removeSignal. A fuse claim made earlier in the same tick can still be
+	-- holding a reference to a signal that was just dug out; this is how stepFuses
+	-- knows not to relight it.
+	gone: boolean,
 }
 
 local signalsByStage: { [number]: { Signal } } = {}
@@ -213,6 +238,17 @@ local pulling: { [Player]: boolean } = {} -- locked on, and therefore hauling
 local overSignal: { [Player]: boolean } = {} -- standing on one, hauling or not
 local digProgress: { [Player]: number } = {}
 local digTarget: { [Player]: string? } = {}
+
+-- Every signal with a lit fuse (heat > 0), keyed by uid, so the cool-down walks a
+-- handful of signals rather than the whole field every tick.
+local hot: { [string]: Signal } = {}
+
+-- Which signals had a magnet on them THIS tick, and the shortest window any of those
+-- magnets read (two people on one nuke: the more volatile reading wins). Filled by
+-- stepPlayer, spent and cleared by stepFuses after the whole player loop -- so two
+-- players on one signal heat it once, not twice as fast.
+type FuseClaim = { signal: Signal, window: number, rarity: string, scale: number }
+local fuseClaims: { [string]: FuseClaim } = {}
 
 local sweepRemote: any = nil
 local digRemote: any = nil
@@ -405,6 +441,12 @@ local function spawnSignal(stageId: number)
 		soil = stage.soilHardness,
 		weight = Items.get(itemId).weight,
 		rolls = {},
+		heat = 0,
+		armed = false,
+		fuseWindow = 0,
+		fuseRarity = rarity,
+		fuseScale = 1,
+		gone = false,
 	}
 
 	table.insert(signalsByStage[stageId], signal)
@@ -416,10 +458,12 @@ local function removeSignal(stageId: number, uid: string)
 	-- the way to it and mash E at nothing.
 	clearAura(uid)
 	revealed[uid] = nil
+	hot[uid] = nil
 
 	local list = signalsByStage[stageId]
 	for index, signal in list do
 		if signal.uid == uid then
+			signal.gone = true
 			table.remove(list, index)
 			return
 		end
@@ -634,6 +678,11 @@ end
 ---   5. they walk out of the stage              (stepPlayer, stageId == nil)
 ---   6. they BLACK OUT                          (via 5 — see the note there)
 ---   7. they leave the game                     (PlayerRemoving)
+---   8. the nuke DETONATES under them           (detonate)
+---
+--- Number 1 is the only one with a condition on it: an ARMED fuse refuses it (see the
+--- lock handler). Every other path here stays unconditional, and 8 is what guarantees
+--- the refusal ends -- an armed fuse always burns through to it.
 ---
 --- Cheap and idempotent on purpose, so callers never have to check first.
 local function releaseLock(player: Player)
@@ -766,6 +815,130 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 	})
 
 	print(`[dig] {player.Name} unearthed {modifier} {rarity} — {if sealed then item.name else "unidentified"}`)
+end
+
+-- ── The pull fuse ──────────────────────────────────────────────────────
+
+--- Put a lit fuse's state on something players can see: the nuke's spot ("spot") or
+--- the lump climbing out of the ground ("lump"). DetonationController draws the
+--- warmth, the red and the countdown off these. `lit == false` takes it all off again.
+---
+--- Heat is quantised to 2% so a fuse ticking at 10 Hz replicates a handful of changes
+--- rather than every tick; the blow-up time only moves when it has actually moved.
+local function stampFuse(instance: Instance, role: string, signal: Signal, lit: boolean, now: number)
+	if not lit then
+		if CollectionService:HasTag(instance, DetonationConfig.HOT_TAG) then
+			CollectionService:RemoveTag(instance, DetonationConfig.HOT_TAG)
+			instance:SetAttribute(DetonationConfig.ATTR_HEAT, nil)
+			instance:SetAttribute(DetonationConfig.ATTR_ARMED, nil)
+			instance:SetAttribute(DetonationConfig.ATTR_BLOWS_AT, nil)
+			instance:SetAttribute(DetonationConfig.ATTR_ROLE, nil)
+		end
+		return
+	end
+
+	instance:SetAttribute(DetonationConfig.ATTR_ROLE, role)
+	instance:SetAttribute(DetonationConfig.ATTR_HEAT, math.floor(signal.heat * 50 + 0.5) / 50)
+	instance:SetAttribute(DetonationConfig.ATTR_ARMED, signal.armed)
+	if signal.armed then
+		local blowsAt = now + Detonation.secondsLeft(signal.heat, signal.fuseWindow)
+		local shown = instance:GetAttribute(DetonationConfig.ATTR_BLOWS_AT)
+		if typeof(shown) ~= "number" or math.abs(shown - blowsAt) > 0.05 then
+			instance:SetAttribute(DetonationConfig.ATTR_BLOWS_AT, blowsAt)
+		end
+	end
+	if not CollectionService:HasTag(instance, DetonationConfig.HOT_TAG) then
+		CollectionService:AddTag(instance, DetonationConfig.HOT_TAG)
+	end
+end
+
+--- Stamp (or clear) the spot and every lump belonging to this signal.
+local function stampSignal(signal: Signal, lit: boolean, now: number)
+	local aura = auras[signal.uid]
+	if aura then
+		stampFuse(aura, "spot", signal, lit, now)
+	end
+	for player, target in digTarget do
+		if target == signal.uid then
+			local haul = hauled[player]
+			if haul and haul.model.Parent ~= nil then
+				stampFuse(haul.model, "lump", signal, lit, now)
+			end
+		end
+	end
+end
+
+--- The fuse ran out. Everyone on it is let go (RELEASE 8) and anyone partway through
+--- pulling it loses the lump, the signal goes and a fresh one is buried somewhere else
+--- -- exactly like a dig, except nobody gets the nuke -- and HazardService does the rest.
+local function detonate(signal: Signal)
+	for player, uid in lockedTo do
+		if uid == signal.uid then
+			-- RELEASE 8.
+			releaseLock(player)
+		end
+	end
+	for player, target in digTarget do
+		if target == signal.uid then
+			digProgress[player] = 0
+			digTarget[player] = nil
+			clearHaul(player)
+		end
+	end
+
+	local stageId = signal.stageId
+	local position = signal.position
+	removeSignal(stageId, signal.uid)
+	spawnSignal(stageId)
+
+	HazardService.detonate(position, signal.fuseRarity, signal.fuseScale)
+end
+
+--- Once per tick, after every player has had their turn. Every signal a magnet was on
+--- this tick burns; every other lit one cools, unless it has armed, in which case it
+--- keeps burning with nobody on it (a player who blacks out on an armed nuke does not
+--- defuse it by leaving). Anything that reaches 1 goes off.
+local function stepFuses(dt: number)
+	for uid, claim in fuseClaims do
+		local signal = claim.signal
+		if signal.gone then
+			continue
+		end
+		signal.fuseWindow = claim.window
+		signal.fuseRarity = claim.rarity
+		signal.fuseScale = claim.scale
+		hot[uid] = signal
+	end
+
+	local now = Workspace:GetServerTimeNow()
+	local blown: { Signal } = {}
+
+	for uid, signal in hot do
+		local held = fuseClaims[uid] ~= nil
+		signal.heat = Detonation.stepHeat(signal.heat, dt, signal.fuseWindow, held or signal.armed)
+
+		if not signal.armed and Detonation.isArmed(signal.heat) then
+			signal.armed = true
+			print(
+				`[fuse] {signal.fuseRarity} nuke ARMED — {string.format("%.1f", Detonation.secondsLeft(signal.heat, signal.fuseWindow))}s to pull it out`
+			)
+		end
+
+		if signal.heat >= 1 then
+			table.insert(blown, signal)
+		elseif signal.heat <= 0 then
+			hot[uid] = nil
+			stampSignal(signal, false, now)
+		else
+			stampSignal(signal, true, now)
+		end
+	end
+
+	table.clear(fuseClaims)
+
+	for _, signal in blown do
+		detonate(signal)
+	end
 end
 
 -- ── Tick ────────────────────────────────────────────────────────────
@@ -936,6 +1109,26 @@ local function stepPlayer(player: Player, dt: number)
 	local isLocked = lockedTo[player] ~= nil
 	local canPull = isLocked and inRange and blocked ~= "full"
 
+	-- THE FUSE. A magnet on a nuke is what lights it, so a lock is a claim on this tick's
+	-- burn (stepFuses spends it after the player loop). The window is off THIS player's
+	-- reading -- rarity and weight -- the same per-player item the pull itself is sized
+	-- by, and the visual scale is the one the haul lump is :ScaleTo'd by (createHaul),
+	-- so the bang is as big as the thing you were watching come up.
+	local fuseWindow: number? = nil
+	if isLocked then
+		local item = Items.get(itemId)
+		fuseWindow = Detonation.windowFor(rarity, item.weight, signal.depth, signal.soil)
+		local claim = fuseClaims[signal.uid]
+		if claim == nil or (fuseWindow :: number) < claim.window then
+			fuseClaims[signal.uid] = {
+				signal = signal,
+				window = fuseWindow :: number,
+				rarity = rarity,
+				scale = Weight.sizeScale(item.weight) * (item.sizeMult or 1) * Payload.forUid(signal.uid),
+			}
+		end
+	end
+
 	-- Drives which tool is visible in the player's hands (ToolService). The lock is a
 	-- much better signal for this than the old "yanked in the last half second" was:
 	-- it is true for the entire haul, so the magnet stops flickering in and out
@@ -1018,6 +1211,11 @@ local function stepPlayer(player: Player, dt: number)
 	digProgress[player] = progress
 	updateHaul(player, signal, itemId, progress, rarityHint)
 
+	-- The window the panel counts against: the one the fuse is actually burning at
+	-- (the shortest reading of anyone on it, set by stepFuses) once it has one, else
+	-- this player's own reading on the very first tick of the lock.
+	local shownWindow = if signal.fuseWindow > 0 then signal.fuseWindow else fuseWindow or 0
+
 	-- OFFSETS INSIDE THE REVEAL RADIUS ONLY. No world coordinates, no uids, and
 	-- nothing the player is not already looking at a glow for.
 	sweepRemote:FireClient(player, {
@@ -1047,6 +1245,15 @@ local function stepPlayer(player: Player, dt: number)
 		-- metres left out loud. Only while locked: the resting ground gives nothing away
 		-- the aura does not.
 		depth = if lockedTo[player] ~= nil then signal.depth else nil,
+		-- The locked nuke's pull fuse (Config/Detonation): how far through its window
+		-- it is, whether it has armed, and the seconds left before it goes off. Only
+		-- while locked, like `depth` -- a fuse you are not holding is not your panel's
+		-- business (its spot still tells everyone, DetonationController). One tick
+		-- behind by construction: stepFuses burns after the player loop.
+		fuse = if lockedTo[player] ~= nil then signal.heat else nil,
+		fuseArmed = lockedTo[player] ~= nil and signal.armed,
+		fuseWindow = if lockedTo[player] ~= nil then shownWindow else nil,
+		fuseLeft = if lockedTo[player] ~= nil then Detonation.secondsLeft(signal.heat, shownWindow) else nil,
 		carrying = #data.carry,
 		capacity = stats.capacity,
 	})
@@ -1077,6 +1284,26 @@ end
 --- without commitment.
 function DigService.isOverSignal(player: Player): boolean
 	return overSignal[player] == true
+end
+
+--- Debug console only (DebugService's /fuse): jump the fuse on whatever this player is
+--- locked onto to `heat` (0..1), so the armed state and the bang can be tested without
+--- mashing for half a minute first. False if they are not locked onto anything.
+function DigService.debugSetFuse(player: Player, heat: number): boolean
+	local uid = lockedTo[player]
+	if uid == nil then
+		return false
+	end
+	for _, list in signalsByStage do
+		for _, signal in list do
+			if signal.uid == uid then
+				signal.heat = math.clamp(heat, 0, 0.99)
+				hot[uid] = signal
+				return true
+			end
+		end
+	end
+	return false
 end
 
 --- Kept as a thin delegate so callers written during Phase 1 keep working.
@@ -1162,11 +1389,22 @@ function DigService.start()
 	-- ONLY THE LOCK DIRECTION IS RATE LIMITED, and the asymmetry is deliberate. A
 	-- debounced lock costs a player one keypress. A debounced RELEASE costs them their
 	-- character: they are rooted until it goes through, so releasing has to be
-	-- unconditional, instant, and impossible to throttle. If you ever add a guard to
-	-- this handler, add it above the release branch, never below it.
+	-- instant and impossible to throttle. If you ever add a guard to this handler, add
+	-- it above the release branch, never below it.
 	lockRemote.OnServerEvent:Connect(function(player: Player, wantLock: any)
 		if wantLock ~= true then
-			-- RELEASE 1. No checks of any kind on this path, on purpose.
+			-- RELEASE 1. No throttle and no checks, with exactly ONE exception: an ARMED
+			-- fuse (Config/Detonation). Past ARM_AT you are committed -- pull it out or it
+			-- goes off -- and that is the whole rule, on request. It cannot strand anyone:
+			-- an armed fuse burns whether or not anybody holds it, is at most
+			-- (1 - ARM_AT) of its window from the end, and detonating releases everyone
+			-- on it (RELEASE 8). Every OTHER release -- blackout, leaving the stage,
+			-- leaving the game -- still ignores the fuse entirely.
+			local uid = lockedTo[player]
+			local signal = if uid then hot[uid] else nil
+			if signal and signal.armed then
+				return
+			end
 			releaseLock(player)
 			return
 		end
@@ -1259,6 +1497,13 @@ function DigService.start()
 		end
 
 		reconcileAuras()
+
+		-- After the auras, so a spot that appeared this tick is stamped this tick too.
+		-- Wrapped like stepPlayer: a throw here must not take the auras down with it.
+		local ok, err = pcall(stepFuses, dt)
+		if not ok then
+			warn(`[dig] fuse tick failed: {err}`)
+		end
 	end)
 
 	local total = 0
