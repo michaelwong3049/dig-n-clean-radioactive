@@ -6,8 +6,10 @@
 	    require(game.ServerScriptService.Server.build.ModelGallery).remove()
 
 	BaseCamp builds this automatically, so World.rebuild() always ships every
-	catalogued item with a real ItemModels factory on a labelled stand. The yard
-	is a self-contained floating platform (it builds its own floor + trim) parked
+	stocked catalogue item on a labelled stand -- real imported mesh art where it
+	exists, the same rarity-coloured placeholder cube every other gameplay surface
+	falls back to where it doesn't (see buildStand). The yard is a self-contained
+	floating platform (it builds its own floor + trim) parked
 	just outside the base's circular perimeter wall, due west of Plots.RING_CENTER
 	-- off to the side of the playable map rather than competing for space with the
 	shops, central aisle, Stage 1 entrance, or the six player plots.
@@ -61,16 +63,25 @@ local function primaryStage(item: any): number
 	return lowest
 end
 
---- Every modelled item (Items.DEFS filtered to a real ItemModels factory), grouped by
---- primaryStage into one row per stocked stage and sorted least- to most-rare within
---- each row. Row order follows the stage numbers themselves (Stage 1 first). The yard's
---- footprint scales off this, not a fixed column count, so it grows automatically as
---- more catalogue items get real art instead of needing another manual bump. Computed
---- once at require time since the catalogue is static for the life of the server.
+--- EVERY STOCKED ITEM (Items.DEFS filtered to `#stages > 0`, the same "active"
+--- test IndexController's totalItems uses -- see Config/Items.luau's retirement
+--- note), not just the ones with real imported mesh art. An item with no
+--- ItemModels factory still gets a stand; buildStand falls back to the same
+--- rarity-coloured placeholder cube ToolService/WashService use everywhere else,
+--- so the yard is the FULL catalogue, not a preview of whichever items happen to
+--- be modelled yet. Retired items (`stages = {}`) are excluded, same as every
+--- other stocked-item listing in the game -- they are not part of the live
+--- catalogue any more even though their DEFS entry survives for old saves.
+--- Grouped by primaryStage into one row per stocked stage and sorted least- to
+--- most-rare within each row. Row order follows the stage numbers themselves
+--- (Stage 1 first). The yard's footprint scales off this, not a fixed column
+--- count, so it grows automatically as the catalogue changes instead of needing
+--- another manual bump. Computed once at require time since the catalogue is
+--- static for the life of the server.
 local function catalogueRows(): { { stage: number, items: { any } } }
 	local byStage: { [number]: { any } } = {}
 	for _, item in Items.DEFS do
-		if item.model and ItemModels.has(item.model) then
+		if #item.stages > 0 then
 			local stage = primaryStage(item)
 			local bucket = byStage[stage]
 			if bucket == nil then
@@ -224,15 +235,41 @@ local function buildStand(
 	-- overlapping it. Smaller text (14/10 vs. the shared default 22/14) reads
 	-- as a label, not a headline -- ModelGallery is the only caller that opts
 	-- into non-default sizes, see Kit.billboard.
-	Kit.billboard(pedestal, 120, 15, string.upper(item.name), `{item.id} / {item.model}`, Kit.C.hazard, 80, 14, 10)
+	Kit.billboard(
+		pedestal,
+		120,
+		15,
+		string.upper(item.name),
+		`{item.id} / {item.model or "unmodelled"}`,
+		Kit.C.hazard,
+		80,
+		14,
+		10
+	)
 
 	local itemModel = ItemModels.create(item.model, item.id)
-	if itemModel then
-		itemModel.Name = `Item_{item.id}`
-		itemModel:SetAttribute("ItemId", item.id)
-		itemModel.Parent = gallery
-		placeOnPedestal(itemModel, origin * CFrame.new(x, 0, z))
+	if itemModel == nil then
+		-- THE SAME RARITY-COLOURED BLOCK ToolService's off hand and WashService's
+		-- stand fall back to for an item with no authored art (see ItemModels'
+		-- header) -- every stocked item gets a stand here now, so this is the
+		-- common case for the 25-ish items still waiting on real mesh art, not an
+		-- edge case.
+		local block = Instance.new("Part")
+		block.Name = "Placeholder"
+		block.Size = Vector3.new(1.1, 1.1, 1.1)
+		block.Color = Rarity.get(item.rarity).color
+		block.Material = Enum.Material.SmoothPlastic
+		block.CanCollide = false
+
+		itemModel = Instance.new("Model")
+		block.Parent = itemModel
+		itemModel.PrimaryPart = block
 	end
+
+	itemModel.Name = `Item_{item.id}`
+	itemModel:SetAttribute("ItemId", item.id)
+	itemModel.Parent = gallery
+	placeOnPedestal(itemModel, origin * CFrame.new(x, 0, z))
 end
 
 -- Floating well above the tallest catalogued item (buildStand's own billboard note
