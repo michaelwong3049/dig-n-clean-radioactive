@@ -42,7 +42,13 @@ end
 
 --- A part answers to a Config name if it IS that name, or if that name is its
 --- base name. So `GlowSeam` picks up every numbered seam and `GimbalRing3` only one.
+--- A trailing `*` is a prefix match, for sets the base-name rule folds together:
+--- `Glyph1*` is rotor 1's ten glyphs (`Glyph11`..`Glyph110`), not all thirty.
 function ItemFx.matches(partName: string, wanted: string): boolean
+	if string.sub(wanted, -1) == "*" then
+		local prefix = string.sub(wanted, 1, -2)
+		return string.sub(partName, 1, #prefix) == prefix
+	end
 	return partName == wanted or ItemFx.baseName(partName) == wanted
 end
 
@@ -97,11 +103,18 @@ function ItemFx.referencedNames(def: Config.ItemFxDef): { string }
 	if def.ping then
 		add({ def.ping.part })
 	end
+	if def.seam then
+		add({ def.seam.part })
+	end
+	if def.glint then
+		add(def.glint.parts)
+		add(def.glint.starParts)
+	end
 	return names
 end
 
 --- Label a freshly cloned item model for the client. A no-op for any item without an
---- entry in Config/ItemFx, so the other 54 nukes are untouched.
+--- entry in Config/ItemFx, so the nukes without effects are untouched.
 function ItemFx.tag(model: Model, itemId: string?)
 	if itemId == nil or Config.DEFS[itemId] == nil then
 		return
