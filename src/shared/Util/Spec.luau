@@ -227,6 +227,15 @@ function Spec.run(): boolean
 			string.format("§weight the heaviest item (%s, %gkg) is Rare or better", heaviest.id, heaviest.weight),
 			Rarity.get(heaviest.rarity).order >= Rarity.get("Rare").order
 		)
+
+		-- `sizeMult` is a gentle visual nudge on top of sizeScale, never a resize.
+		local sizeMultOk = true
+		for _, item in Items.DEFS do
+			if item.sizeMult ~= nil and not (item.sizeMult >= 0.5 and item.sizeMult <= 2) then
+				sizeMultOk = false
+			end
+		end
+		check("§weight every item's sizeMult is a gentle nudge (0.5-2x) when set", sizeMultOk)
 	end
 
 	-- Config/Payload — the per-DIG size/value roll, separate from Weight's per-item-

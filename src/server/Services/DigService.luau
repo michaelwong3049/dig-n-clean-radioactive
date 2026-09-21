@@ -681,7 +681,10 @@ local function createHaul(player: Player, signal: Signal, itemId: string, rarity
 	-- TYPE, Payload is per DIG) -- seeded on signal.uid, same identity the lump
 	-- itself is already seeded on, so the crust you see hauling it out is exactly as
 	-- big as the item will turn out to be once identified, not a different roll.
-	local scale = Weight.sizeScale(item.weight) * Payload.forUid(signal.uid)
+	--
+	-- `sizeMult` is the per-item visual nudge (Config/Items), for the items whose
+	-- `weight` can't be moved without dragging value/pull/odds along with it.
+	local scale = Weight.sizeScale(item.weight) * (item.sizeMult or 1) * Payload.forUid(signal.uid)
 	if scale ~= 1 then
 		model:ScaleTo(scale)
 	end
