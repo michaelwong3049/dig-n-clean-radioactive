@@ -35,17 +35,26 @@ local Payload = {}
 Payload.MIN = 0.6
 Payload.MAX = 2.5
 
--- Skews the roll toward MIN. 1 would be a flat/uniform roll; every step above 1
--- makes the top end rarer. At 3, a 2.5x "giga nuke" (the top ~1% of rolls) needs
--- the raw [0,1) roll above ~0.997 -- a real jackpot, not just an uncommon sight.
-Payload.POWER = 3
+-- The odds, band by band. Each band runs from the previous band's `upTo` (the
+-- first from MIN) to its own, and `chance` is the percent of digs that land in
+-- it -- spread evenly inside the band. Bands must run in order, end at MAX, and
+-- their chances must total 100 (Spec pins all three). Most digs sit around 1x;
+-- the OVERSIZED/GIGA bands above 1.6x are ~10% of digs between them.
+Payload.BANDS = {
+	{ upTo = 0.8, chance = 24 },
+	{ upTo = 1.0, chance = 28 },
+	{ upTo = 1.6, chance = 38 },
+	{ upTo = 2.2, chance = 8 },
+	{ upTo = 2.5, chance = 2 },
+}
 
 -- THE ONE THING A DIG CAN TELL YOU. What comes out of the ground is a nameless lump
 -- (Shared/ItemCrust) whose rarity you already read off the spot and the haul panel,
 -- so the dig itself announces nothing -- except a big payload roll, which is news:
 -- it is worth that many times its usual price, and nothing else on screen says so.
 -- Highest `min` first; the first tier a roll clears names it, below the last one
--- the dig stays silent. At POWER 3, ~19% of digs clear 1.6x and ~6% clear 2.2x.
+-- the dig stays silent. With the BANDS above, ~10% of digs clear 1.6x and ~2%
+-- clear 2.2x.
 Payload.CALLOUTS = {
 	{ min = 2.2, label = "GIGA" },
 	{ min = 1.6, label = "OVERSIZED" },
@@ -73,13 +82,28 @@ local function seedOf(uid: string): number
 	return total
 end
 
+--- The multiplier a raw [0,1) roll maps to under Payload.BANDS: walk the bands
+--- until the roll's share of 100 runs out, then land that far across the band.
+--- Split out of forUid so Spec can pin the band edges exactly, not by sampling.
+function Payload.fromRoll(roll: number): number
+	local pick = roll * 100
+	local low = Payload.MIN
+	for _, band in Payload.BANDS do
+		if pick < band.chance then
+			return low + (band.upTo - low) * (pick / band.chance)
+		end
+		pick -= band.chance
+		low = band.upTo
+	end
+	return Payload.MAX
+end
+
 --- This dig's size/value multiplier, in Payload.MIN..MAX. Deterministic per uid
 --- -- call it as often as you like from anywhere the item shows up; it never
 --- needs to be rolled once and threaded through.
 function Payload.forUid(uid: string): number
 	local rng = Random.new(seedOf("payload:" .. uid))
-	local t = rng:NextNumber() ^ Payload.POWER
-	return Payload.MIN + (Payload.MAX - Payload.MIN) * t
+	return Payload.fromRoll(rng:NextNumber())
 end
 
 return Payload
