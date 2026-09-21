@@ -695,8 +695,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 120000,
-		-- No art yet -- the ValveWheel scene first mapped here is the Airtight Nuke's.
-		model = nil,
+		model = "ImportedNuke",
 	},
 
 	-- ══ STAGE 5 — REACTOR GROUNDS ═══════════════════════════════════════════
@@ -716,7 +715,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 60,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "shiny_metal_blade",
@@ -729,7 +728,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 67,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "rad_warning_placard",
@@ -742,7 +741,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 100,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "pressure_gauge",
@@ -769,7 +768,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "reactor_control" },
 		baseValue = 430,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "cooling_valve_wheel",
@@ -782,7 +781,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 600,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "reactor_logbook",
@@ -795,7 +794,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 2800,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "sealed_data_drive",
@@ -808,7 +807,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 3900,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "blackbox_recorder",
@@ -821,7 +820,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 17000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "sealed_fuel_casing",
@@ -834,7 +833,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 21000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "reactor_core_sample",
