@@ -845,7 +845,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 100000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "live_fuel_rod",
