@@ -878,7 +878,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 47,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "scorched_metal_plate",
@@ -891,7 +891,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 120,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "sealed_air_filter",
@@ -904,7 +904,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 470,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "bent_door_wheel",
@@ -917,7 +917,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 700,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "cracked_glow_badge",
@@ -944,7 +944,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 4300,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "untouched_ground_sample",
@@ -957,7 +957,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 22000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "skyglow_core_fragment",
@@ -970,8 +970,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 26000,
-		-- No art yet -- the CoreHalo scene first mapped here is the Glowing Nuke's.
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "ufo_fragment",
@@ -984,7 +983,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 24000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "explorers_helmet",
@@ -997,7 +996,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "crater_relics" },
 		baseValue = 140000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "mini_nuke",
@@ -1010,7 +1009,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 160000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "stopped_second_hand",
@@ -1023,7 +1022,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "crater_relics" },
 		baseValue = 930000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "unlabeled_cylinder",
@@ -1036,8 +1035,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "crater_relics" },
 		baseValue = 6000000,
-		-- No art yet -- the ForkBase scene first mapped here is the Humming Nuke's.
-		model = nil,
+		model = "ImportedNuke",
 	},
 } :: { ItemDef }
 
