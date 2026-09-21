@@ -132,21 +132,43 @@ function Spec.run(): boolean
 				end
 			end
 			for index, spin in def.spins or {} do
-				if math.abs(spin.rpm) > 60 or (spin.parent and spin.parent >= index) then
+				-- swing/twitch spins have no rpm.
+				if math.abs(spin.rpm or 0) > 60 or (spin.parent and spin.parent >= index) then
 					parentsOk = false
 				end
 			end
+			local tintOk = true
 			for _, finish in def.finish or {} do
 				-- A material without a colour strips the SurfaceAppearance and leaves the
 				-- part flat default grey.
 				if finish.material and finish.color == nil then
 					finishOk = false
 				end
+				-- A tint lives on the SurfaceAppearance, which a material or colour
+				-- destroys: it would silently do nothing.
+				if finish.tint and (finish.material or finish.color) then
+					tintOk = false
+				end
 			end
 			check(`item fx drives its light from at most one anim: {itemId}`, lightAnims <= 1)
 			check(`item fx anim periods are 0.05-10s: {itemId}`, periodsOk)
 			check(`item fx spins stay under 60 rpm and nest parents-first: {itemId}`, parentsOk)
 			check(`item fx finishes that set a material also set a colour: {itemId}`, finishOk)
+			check(`item fx tints aren't on parts a material or colour strips: {itemId}`, tintOk)
+
+			local glint = def.glint
+			if glint then
+				-- A pass has to finish well inside its period, and a strength under 1
+				-- is dimmer than white paint, over 5 blows out to a flat white slab.
+				check(
+					`item fx glint: pass shorter than its period, strength 1-5: {itemId}`,
+					#glint.parts > 0
+						and glint.sweep > 0
+						and glint.sweep < glint.period * 0.5
+						and glint.strength >= 1
+						and glint.strength <= 5
+				)
+			end
 
 			local template = templates and templates:FindFirstChild(itemId)
 			if template then
