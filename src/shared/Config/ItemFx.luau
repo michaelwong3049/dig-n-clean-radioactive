@@ -684,6 +684,29 @@ ItemFx.DEFS = {
 			{ kind = "smoulder", parts = { "Ember", "CurledPlateEnd" }, light = true, period = 1.6, min = 0.35 },
 		},
 	},
+
+	-- Core Nuke (Legendary). "Warm through three layers of metal. Never once cooled."
+	-- The lid is off, so the pit sits exposed in the throat and still glows amber: it
+	-- breathes like a coal, the collar and the four initiators breathe out of step with
+	-- it, and the heat runs down the three shield bands one after the other, top band
+	-- first, like warmth soaking outward through the layers. Embers rise off the pit.
+	-- Amber, not the Reactor Nuke's Cherenkov blue or the Scorched Nuke's fire orange.
+	reactor_core_sample = {
+		finish = {
+			{ parts = { "Pit" }, material = "Neon", color = Color3.fromHex("FFB454") },
+			{ parts = { "PitCollar" }, material = "Neon", color = Color3.fromHex("FF7A2E") },
+			{ parts = { "Initiator" }, material = "Neon", color = Color3.fromHex("FF4A2A") },
+			{ parts = { "ShieldBand" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+		},
+		light = { part = "Pit", color = Color3.fromHex("FF9A4A"), brightness = 1.9, range = 1.1 },
+		particles = {
+			{ part = "Pit", preset = "ember", color = Color3.fromHex("FFB454"), rate = 3 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "Pit", "PitCollar", "Initiator" }, light = true, period = 2.4, min = 0.55 },
+			{ kind = "pulse", parts = { "ShieldBand" }, stagger = true, period = 3.6, min = 0.3 },
+		},
+	},
 } :: { [string]: ItemFxDef }
 
 return ItemFx
