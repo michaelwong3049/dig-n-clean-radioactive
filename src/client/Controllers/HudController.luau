@@ -74,6 +74,9 @@ local STYLE = {
 	warnMark = INK,
 	dangerMark = Color3.fromHex("E23B4A"),
 	drain = Color3.fromHex("4FC3F7"),
+	-- Standing in a detonated nuke's crater: its own acid yellow-green (the orb's glow,
+	-- DetonationController), because white belongs to suit failure alone.
+	crater = Color3.fromHex("A6FF3E"),
 	text = Color3.new(1, 1, 1),
 	font = Enum.Font.FredokaOne,
 }
@@ -121,6 +124,7 @@ local state = {
 	net = 0,
 	failing = false,
 	inShower = false,
+	inCrater = false,
 	stageName = "Base Camp",
 	downed = false,
 
@@ -554,8 +558,11 @@ local function render(dt: number)
 	setCountdownShown(showCountdown)
 	if showCountdown then
 		local burning = state.threat == "burn"
-		ui.countdownText.Text = string.format("%s  %s", if burning then "SUIT FAILING" else "SURVIVABLE", clock(state.survivable))
-		ui.countdown.BackgroundColor3 = if burning then WHITE else INK
+		-- Burn with the suit holding means the burn is the crater's, not the suit's.
+		local crater = burning and state.inCrater and not state.failing
+		local label = if crater then "CRATER BURN" elseif burning then "SUIT FAILING" else "SURVIVABLE"
+		ui.countdownText.Text = string.format("%s  %s", label, clock(state.survivable))
+		ui.countdown.BackgroundColor3 = if crater then STYLE.crater elseif burning then WHITE else INK
 		ui.countdownText.TextColor3 = if burning then INK else STYLE.rads
 	end
 
@@ -649,6 +656,7 @@ function Hud.start()
 		state.excess = payload.excess or 0
 		state.survivable = if payload.survivable ~= nil then payload.survivable else -1
 		state.threat = payload.threat or ""
+		state.inCrater = payload.inCrater == true
 	end)
 
 	Net.get("Blackout").OnClientEvent:Connect(function(info)

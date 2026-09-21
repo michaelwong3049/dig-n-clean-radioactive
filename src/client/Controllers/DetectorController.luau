@@ -40,6 +40,7 @@ local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Tuning = require(Shared.Config.Tuning)
 local Stages = require(Shared.Config.Stages)
+local DetonationConfig = require(Shared.Config.Detonation)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -158,6 +159,20 @@ local METRES_FORMAT = '%.1f<font size="24">m</font>'
 -- like a stutter; fast enough that a yank still lands as a visible jump.
 local FILL_LERP_RATE = 14
 
+-- The pull fuse (Config/Detonation), in the empty band over the readout: a headline
+-- with the seconds, the bar with its point-of-no-return tick, and a one-line caption.
+local FUSE_LABEL_Y = 10
+local FUSE_TRACK_Y = 42
+local FUSE_TRACK_HEIGHT = 16
+local FUSE_CAPTION_Y = 64
+local FUSE_NOTCH_WIDTH = 4
+-- Cool, warming, armed. Pale straw until WARN_AT, easing to amber by ARM_AT, then red.
+local FUSE_COOL = Color3.fromHex("FDE68A")
+-- What the armed red flashes toward. Deliberately NOT UIKit.C.burn: that white means
+-- suit failure and nothing else (PLAN's one colour rule).
+local FUSE_FLASH = Color3.fromHex("FFD2C4")
+local FUSE_ARMED_PULSE = 7 -- rad/sec on the armed headline's flash
+
 type Contact = { dx: number, dz: number, rarity: string? }
 
 local state = {
@@ -193,12 +208,23 @@ local state = {
 	-- the client never decides it is locked on its own, because being locked is what
 	-- takes the player's movement away.
 	locked = false,
+	-- The locked nuke's pull fuse (Config/Detonation), server-sent only while locked:
+	-- 0..1 through its window, whether it has armed, the seconds left to detonation
+	-- and the window itself. `fuseAt` is the os.clock the payload landed, so the
+	-- seconds count down smoothly between ticks (renderFrame).
+	fuse = nil :: number?,
+	fuseArmed = false,
+	fuseLeft = nil :: number?,
+	fuseWindow = nil :: number?,
+	fuseAt = 0,
 }
 
 local ui = {}
 -- What the fill is currently DRAWING, chasing state.digProgress. Separate from the
 -- server's value so smoothing never feeds back into what we think progress is.
 local shownProgress = 0
+-- Same, for the fuse bar chasing state.fuse.
+local shownFuse = 0
 
 -- Pick-up billboard transition state. `lockGuiShown` is where the card is HEADED (set
 -- the instant a show/hide starts); `lockGuiSettled` only turns true once the show tween
@@ -730,6 +756,76 @@ local function build(): ScreenGui
 	releaseButton.TextStrokeTransparency = 0.2
 	ui.releaseButton = releaseButton
 
+	-- THE PULL FUSE, over the readout (Config/Detonation). Locking on lit it. The bar is
+	-- how far through its window this nuke is, and the white tick at ARM_AT is the point
+	-- of no return: let go left of it and you walk away, cross it and the release above
+	-- stops working. The headline counts down to that tick, then -- once armed -- to the
+	-- bang. Straw until WARN_AT, warming to amber at the tick, red once it has armed.
+	-- Right-aligned against the shaft like the rest of the readout.
+	ui.fuseLabel = UIKit.label(haul, {
+		name = "FuseLabel",
+		position = UDim2.fromOffset(0, FUSE_LABEL_Y),
+		size = UDim2.fromOffset(READOUT_WIDTH, 28),
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.header + 3,
+		color = COLOR.text,
+		xAlign = Enum.TextXAlignment.Right,
+	})
+
+	local fuseTrack = Instance.new("Frame")
+	fuseTrack.Name = "FuseTrack"
+	fuseTrack.Position = UDim2.fromOffset(0, FUSE_TRACK_Y)
+	fuseTrack.Size = UDim2.fromOffset(READOUT_WIDTH, FUSE_TRACK_HEIGHT)
+	fuseTrack.BackgroundColor3 = COLOR.panel
+	fuseTrack.BackgroundTransparency = 0.1
+	fuseTrack.BorderSizePixel = 0
+	fuseTrack.Parent = haul
+	local fuseTrackCorner = Instance.new("UICorner")
+	fuseTrackCorner.CornerRadius = UDim.new(0, 6)
+	fuseTrackCorner.Parent = fuseTrack
+	local fuseTrackStroke = Instance.new("UIStroke")
+	fuseTrackStroke.Color = COLOR.outline
+	fuseTrackStroke.Thickness = UIKit.Stroke.thin
+	fuseTrackStroke.Parent = fuseTrack
+	ui.fuseTrackStroke = fuseTrackStroke
+
+	local fuseFill = Instance.new("Frame")
+	fuseFill.Name = "Fill"
+	fuseFill.Size = UDim2.fromScale(0, 1)
+	fuseFill.BackgroundColor3 = FUSE_COOL
+	fuseFill.BorderSizePixel = 0
+	fuseFill.Parent = fuseTrack
+	local fuseFillCorner = Instance.new("UICorner")
+	fuseFillCorner.CornerRadius = UDim.new(0, 6)
+	fuseFillCorner.Parent = fuseFill
+	ui.fuseFill = fuseFill
+
+	-- Taller than the bar so it reads as a line drawn ACROSS it, not a segment of it.
+	local fuseNotch = Instance.new("Frame")
+	fuseNotch.Name = "ArmLine"
+	fuseNotch.AnchorPoint = Vector2.new(0.5, 0.5)
+	fuseNotch.Position = UDim2.fromScale(DetonationConfig.ARM_AT, 0.5)
+	fuseNotch.Size = UDim2.new(0, FUSE_NOTCH_WIDTH, 1, 10)
+	fuseNotch.BackgroundColor3 = COLOR.text
+	fuseNotch.BorderSizePixel = 0
+	fuseNotch.ZIndex = 2
+	fuseNotch.Parent = fuseTrack
+	local fuseNotchStroke = Instance.new("UIStroke")
+	fuseNotchStroke.Color = COLOR.outline
+	fuseNotchStroke.Thickness = 1.5
+	fuseNotchStroke.Parent = fuseNotch
+
+	ui.fuseCaption = UIKit.label(haul, {
+		name = "FuseCaption",
+		position = UDim2.fromOffset(0, FUSE_CAPTION_Y),
+		size = UDim2.fromOffset(READOUT_WIDTH, 20),
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.body,
+		color = COLOR.text,
+		xAlign = Enum.TextXAlignment.Right,
+		shadow = false,
+	})
+
 	-- THE READOUT, right-aligned against the shaft: what the detector reads about the
 	-- thing you locked onto, then how far it still has to come. The rarity word is the
 	-- headline and carries the accent tint (in step with the nuke's band and REEL IN's
@@ -843,6 +939,46 @@ local function renderFrame(dt: number)
 			now = os.clock(),
 		})
 		ui.haulMetres.Text = if toGo then string.format(METRES_FORMAT, toGo) else ""
+
+		-- THE FUSE. The bar chases the server like the nuke does; the seconds count down
+		-- off the local clock from the last payload, so they tick every frame instead of
+		-- in 10 Hz steps.
+		local fuse = state.fuse or 0
+		shownFuse += (fuse - shownFuse) * (1 - math.exp(-FILL_LERP_RATE * dt))
+		local fill = math.clamp(shownFuse, 0, 1)
+		ui.fuseFill.Size = UDim2.fromScale(fill, 1)
+
+		local sinceTick = os.clock() - state.fuseAt
+		local toBlow = math.max(0, (state.fuseLeft or 0) - sinceTick)
+		local window = state.fuseWindow or 0
+		local armAt = DetonationConfig.ARM_AT
+		local warnAt = DetonationConfig.WARN_AT
+
+		if state.fuseArmed then
+			-- Red, flashing, and the words change: there is one way out of this now.
+			local flash = 0.5 + 0.5 * math.sin(os.clock() * FUSE_ARMED_PULSE)
+			local hot = COLOR.red:Lerp(FUSE_FLASH, flash * 0.5)
+			ui.fuseFill.BackgroundColor3 = hot
+			ui.fuseTrackStroke.Color = COLOR.red:Lerp(COLOR.outline, flash)
+			ui.fuseTrackStroke.Thickness = UIKit.Stroke.normal
+			ui.fuseLabel.TextColor3 = hot
+			ui.fuseLabel.Text = string.format("ARMED  %.1fs", toBlow)
+			ui.fuseCaption.TextColor3 = COLOR.red
+			ui.fuseCaption.Text = "PULL IT OUT!"
+		else
+			-- Seconds to the tick, not to the bang: before it, the number that matters is
+			-- how long you still have to walk away.
+			local toArm = math.max(0, toBlow - (1 - armAt) * window)
+			local warmth = math.clamp((fill - warnAt) / (armAt - warnAt), 0, 1)
+			local colour = FUSE_COOL:Lerp(COLOR.amber, warmth)
+			ui.fuseFill.BackgroundColor3 = colour
+			ui.fuseTrackStroke.Color = COLOR.outline
+			ui.fuseTrackStroke.Thickness = UIKit.Stroke.thin
+			ui.fuseLabel.TextColor3 = if fill >= warnAt then colour else COLOR.text
+			ui.fuseLabel.Text = string.format("FUSE  %.1fs", toArm)
+			ui.fuseCaption.TextColor3 = if fill >= warnAt then COLOR.amber else COLOR.dim
+			ui.fuseCaption.Text = if fill >= warnAt then "let go before the line" else "live nuke"
+		end
 	end
 
 	-- The pick-up prompt's idle life: a slow hover, and the keycap outline breathing on
@@ -1015,6 +1151,16 @@ local function renderState()
 	-- being dropped -- it can never linger over a lock the server has already let go
 	-- of, and it can never hide one that is still holding the player's feet.
 	ui.haul.Visible = state.locked
+	if not state.locked then
+		-- So the next lock's bar grows from empty rather than draining from this one's.
+		shownFuse = 0
+	end
+	-- ARMED IS THE ONE STATE THE RELEASE DOES NOTHING IN (DigService's lock handler), so
+	-- the button stops offering it rather than silently failing. It still sends if
+	-- pressed -- the server is the judge, and the client must never be the reason a
+	-- release did not go through.
+	ui.releaseButton.Text = if state.fuseArmed then "LOCKED IN" else "Q  to release"
+	ui.releaseButton.TextColor3 = if state.fuseArmed then COLOR.red else COLOR.text
 	if state.locked then
 		-- THE SIGNAL'S COLOUR, in two places that move together: the band and glow on
 		-- the nuke in the shaft, and REEL IN's outline. Scope blue only in the brief
@@ -1269,6 +1415,11 @@ function Detector.start()
 		state.depth = payload.depth
 		state.stageId = payload.stageId
 		state.locked = payload.locked == true
+		state.fuse = payload.fuse
+		state.fuseArmed = payload.fuseArmed == true
+		state.fuseLeft = payload.fuseLeft
+		state.fuseWindow = payload.fuseWindow
+		state.fuseAt = os.clock()
 		-- payload.carrying / payload.capacity are deliberately ignored: the hotbar
 		-- (InventoryController, fed by CarryState) is the authority on the bag now,
 		-- and two widgets answering "how full am I" from two different remotes is how

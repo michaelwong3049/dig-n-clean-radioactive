@@ -8,7 +8,8 @@
 
 	TWO WAYS TO GO DOWN, kept apart on purpose (PLAN §14):
 	  exposure hits 100%  — the green death. Ambient plus what you are carrying.
-	  health hits 0       — the white death. Only ever from suit failure, over-tier.
+	  health hits 0       — the white death. From suit failure over-tier, or from a
+	                        detonated nuke: its blast and its crater (HazardService).
 
 	BLACKOUT IS NOT A DEATH PENALTY. You keep cash, gear, the locker and anything
 	displayed. You lose the dirty bag you were greedily hauling, and it stays on the
@@ -40,6 +41,10 @@ local StageService = require(script.Parent.StageService)
 -- DataService and StageService but never this file, so there is no cycle. It is also
 -- the pattern ToolService already uses to ask DigService what the player is doing.
 local DigService = require(script.Parent.DigService)
+-- Craters left by detonated nukes: their burn and the one-off blast hit both land on
+-- HEALTH, and this loop is the only thing that writes health. HazardService requires
+-- nothing server-side, so this adds no cycle.
+local HazardService = require(script.Parent.HazardService)
 
 local ExposureService = {}
 
@@ -420,6 +425,18 @@ local function stepPlayer(player: Player, dt: number)
 	local carried = Decay.totalEmission(data.carry, stats.satchelFuseMult)
 	local reading = Radiation.resolve(ambient, carried, stats)
 
+	-- A DETONATED NUKE'S CRATER BURNS HEALTH, and it is folded into the reading rather
+	-- than applied beside it so that everything downstream -- regen stopping, the
+	-- SURVIVABLE countdown, the threat colour, the white overlay, the "burn" blackout --
+	-- treats standing in a crater exactly like suit failure. `failing` is left alone:
+	-- that flag means the SUIT gave out, and it has not. The suit does not shield this
+	-- either; it is the air itself, a second ago, at a few thousand degrees.
+	local craterBurn = HazardService.burnAt(root.Position)
+	reading.healthBurn += craterBurn
+	-- Always taken, even while downed, so a hit that lands on a blackout is dropped
+	-- rather than banked into the next life (HazardService.takeHit).
+	local blastHit = HazardService.takeHit(player)
+
 	local showering = inShower(root.Position)
 
 	if not state.downed then
@@ -427,6 +444,10 @@ local function stepPlayer(player: Player, dt: number)
 			state.exposure = math.max(0, state.exposure - Tuning.SHOWER_FLUSH_RATE * dt)
 		else
 			state.exposure = math.clamp(state.exposure + reading.net * dt, 0, Tuning.EXPOSURE_CAP)
+		end
+
+		if blastHit > 0 then
+			state.health = math.max(0, state.health - blastHit)
 		end
 
 		if reading.healthBurn > 0 then
@@ -491,6 +512,10 @@ local function stepPlayer(player: Player, dt: number)
 		excess = reading.excess,
 		healthBurn = reading.healthBurn,
 		failing = reading.failing,
+		-- Standing in a detonated nuke's crater (HazardService). Its burn is already in
+		-- healthBurn; this only lets the HUD name the right cause -- "SUIT FAILING" and
+		-- its white are the suit's alone (PLAN's one colour rule).
+		inCrater = craterBurn > 0,
 
 		greed = Radiation.greedFraction(reading, stats),
 		survivable = finite(survivable),

@@ -39,6 +39,8 @@ local ToolModels = require(script.Parent.Parent.ToolModels)
 local ToolTiers = require(Config.ToolTiers)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
+local DetonationConfig = require(Config.Detonation)
+local Detonation = require(script.Parent.Parent.Detonation)
 local Contamination = require(script.Parent.Parent.Contamination)
 local ItemCrust = require(script.Parent.Parent.ItemCrust)
 local StatResolver = require(script.Parent.Parent.StatResolver)
@@ -973,6 +975,136 @@ function Spec.run(): boolean
 		check(
 			"§Step2 a better magnet claws out an over-tier soil the tier below cannot",
 			holdAtDeficit(2, 2) < holdAtDeficit(1, 2)
+		)
+	end
+
+	-- PLAN §Step 2 — THE PULL FUSE (Config/Detonation). Lock onto a nuke and its fuse
+	-- lights; let go before ARM_AT and you walk away, hang on past it and you pull it out
+	-- or it goes off and leaves a burning crater. These pin the shape: about thirty
+	-- seconds, rarer is shorter, bigger is longer, an honest pull never arms, and the
+	-- bang scales with the find.
+	do
+		local D = DetonationConfig
+
+		check(
+			string.format("§fuse arms at %.0f%% of the window (want 70-90%%)", D.ARM_AT * 100),
+			D.ARM_AT >= 0.7 and D.ARM_AT <= 0.9
+		)
+		check("§fuse warns before it arms", D.WARN_AT < D.ARM_AT)
+
+		local shorter = true
+		for index = 2, #Rarity.ORDER do
+			if Detonation.baseWindow(Rarity.ORDER[index], 3) > Detonation.baseWindow(Rarity.ORDER[index - 1], 3) + 1e-9 then
+				shorter = false
+			end
+		end
+		check("§fuse rarer nukes get less time (the window never grows down Rarity.ORDER)", shorter)
+		check(
+			"§fuse bigger nukes get more time (they take longer to pull)",
+			Detonation.baseWindow("Rare", Weight.MAX) > Detonation.baseWindow("Rare", Weight.MIN)
+		)
+
+		local ordinary = Detonation.baseWindow("Uncommon", D.WEIGHT_REF_KG)
+		check(
+			string.format("§fuse an ordinary Uncommon gets about thirty seconds: %.1fs (want 25-35)", ordinary),
+			ordinary >= 25 and ordinary <= 35
+		)
+
+		-- THE FAIRNESS FLOOR, and the reason the window is not a flat thirty seconds.
+		-- Every stocked item, in every stage it stocks, buried at its rarity's DEEPEST
+		-- (full jitter), pulled with the magnet rated for that soil at REF_CPS, has to be
+		-- out of the ground by SAFE_AT of its window -- so an honest pull on your own tier
+		-- never even gets near the arm line. The pull is re-derived here from Tuning the
+		-- way DigService runs it, not read back through Detonation.ratedRope.
+		local worstFrac, worstId = 0, "none"
+		for _, item in Items.DEFS do
+			local order = Rarity.get(item.rarity).order
+			local depth = Tuning.DIG_DEPTH_BASE + (order - 1) * Tuning.DIG_DEPTH_PER_RARITY + Tuning.DIG_DEPTH_JITTER
+			for _, stageId in item.stages do
+				local soil = Stages.get(stageId).soilHardness
+				local magnet = Detonation.ratedMagnet(soil)
+				local rope = Tuning.PULL_SECONDS_PER_STUD * depth * Weight.pullFactor(item.weight)
+				if item.rarity == "Common" then
+					rope *= Tuning.PULL_HOME_COMMON_EASE
+				end
+				local rate = D.REF_CPS * Tuning.PULL_YANK_PER_CLICK * magnet.pullSpeed - (Tuning.PULL_DRAG_RATE - magnet.draw)
+				local frac = (rope / rate) / Detonation.windowFor(item.rarity, item.weight, depth, soil)
+				if frac > worstFrac then
+					worstFrac, worstId = frac, item.id
+				end
+			end
+		end
+		check(
+			string.format(
+				"§fuse the rated magnet at %d clicks/sec lands every nuke well before it arms: worst %s at %.0f%% (want <= %.0f%%)",
+				D.REF_CPS,
+				worstId,
+				worstFrac * 100,
+				D.SAFE_AT * 100
+			),
+			worstFrac <= D.SAFE_AT + 1e-6
+		)
+
+		check(
+			"§fuse letting go and grabbing straight back does not reset it",
+			Detonation.stepHeat(0.79, 0.25, 30, false) > 0.75
+		)
+		check("§fuse an unheld fuse cools no faster than it burned", D.COOL_RATE <= 1)
+		check(
+			"§fuse once armed it burns out in exactly (1 - ARM_AT) of its window",
+			math.abs(Detonation.secondsLeft(D.ARM_AT, 30) - (1 - D.ARM_AT) * 30) < 1e-6
+		)
+
+		local grows = true
+		for index = 2, #Rarity.ORDER do
+			local lower = D.BLAST[Rarity.ORDER[index - 1]]
+			local higher = D.BLAST[Rarity.ORDER[index]]
+			if
+				lower == nil
+				or higher == nil
+				or higher.hit < lower.hit
+				or higher.orbRadius < lower.orbRadius
+				or higher.orbBurn < lower.orbBurn
+				or higher.orbLife < lower.orbLife
+			then
+				grows = false
+			end
+		end
+		check("§fuse every rarity has a blast, and a rarer one is never smaller, weaker or shorter", grows)
+		check(
+			"§fuse a bigger nuke leaves a bigger crater, within the clamp",
+			Detonation.blastFor("Rare", 3).orbRadius > Detonation.blastFor("Rare", 0.5).orbRadius
+				and Detonation.sizeMult(1000) <= D.SIZE_MAX
+				and Detonation.sizeMult(0.001) >= D.SIZE_MIN
+		)
+
+		local epic = Detonation.blastFor("Epic", D.SIZE_REF)
+		check(
+			"§fuse the orb burns hardest at its heart and not at all past its edge",
+			Detonation.orbBurnAt(0, epic.orbRadius, epic.orbBurn, 1) > Detonation.orbBurnAt(epic.orbRadius * 0.9, epic.orbRadius, epic.orbBurn, 1)
+				and Detonation.orbBurnAt(epic.orbRadius * 1.01, epic.orbRadius, epic.orbBurn, 1) == 0
+		)
+		check(
+			"§fuse the orb is full strength when it forms and gone at the end of its life",
+			Detonation.orbStrength(0, epic.orbLife) == 1 and Detonation.orbStrength(epic.orbLife, epic.orbLife) == 0
+		)
+		check(
+			"§fuse the blast hits hardest at ground zero and not at all past its rim",
+			Detonation.hitAt(0, epic) == epic.hit and Detonation.hitAt(epic.blastRadius + 0.1, epic) == 0
+		)
+
+		-- A Common going off in your hands is a bruise, not a blackout: the point-blank
+		-- hit, then walking straight out of the orb at HALF the starting boots' speed.
+		local common = Detonation.blastFor("Common", D.SIZE_REF)
+		local walk = Gear.tier("Boots", 1).walkSpeed * 0.5
+		local taken, walked, step = common.hit, 0, 0.02
+		while walked < common.orbRadius do
+			taken += Detonation.orbBurnAt(walked, common.orbRadius, common.orbBurn, 1) * step
+			walked += walk * step
+		end
+		check(
+			string.format("§fuse a Common nuke going off in your hands is survivable on foot: %.0f of %d health", taken, Tuning.MAX_HEALTH),
+			taken < Tuning.MAX_HEALTH
 		)
 	end
 

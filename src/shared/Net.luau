@@ -87,6 +87,14 @@ local REMOTES: { [string]: string } = {
 	ExposureState = "RemoteEvent", -- server -> client, the rad meter, once per tick
 	Blackout = "RemoteEvent", -- server -> client, you went down and what it cost
 
+	-- A nuke's pull fuse ran out and it went off (Services/HazardService). Fired to
+	-- EVERY client, not just the puller: the flash, the cloud and the shake are a
+	-- shared-server moment, and anyone inside the blast gets knocked flat by their own
+	-- client (the character's physics is theirs). Carries a world position, which is
+	-- fine -- there is nothing buried there any more. The crater it leaves is a real
+	-- part in Workspace (Config/Detonation.FOLDER), so late joiners see that too.
+	Detonation = "RemoteEvent", -- server -> all clients, { position, rarity, blastRadius, orbRadius }
+
 	-- The index GUI. One snapshot of data.discovered on load; the client tops it up
 	-- itself from ItemIdentified's itemId as new discoveries happen, so this never
 	-- needs to fire a second time. It used to top up from Unearthed, which lit the
