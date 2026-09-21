@@ -7,9 +7,17 @@
 	The user re-generated 14 of those designs with real colour and re-imported
 	them; this script re-runs the exact same clone/flatten/scale/anchor pipeline
 	against the NEW raw scenes and OVERWRITES the existing (grey) templates for
-	those same 14 item ids. `sample_case` (Strapped Nuke) was flagged as
-	colourless too but is not part of this re-import -- a future batch 5 covers
-	it, and its existing grey template is left untouched here.
+	those same item ids. `sample_case` (Strapped Nuke) was flagged as colourless
+	too but is not part of this re-import -- a future batch 5 covers it, and its
+	existing grey template is left untouched here.
+
+	CORRECTION (same day): the `LithoStripe` marker below was first assigned to
+	`bottle_cap` (Dud Nuke) by mistake -- `LithoStripe` is `tin_can`'s (Dented
+	Nuke) ORIGINAL marker from the very first migration, and that old, colourless
+	`tin_can` scene is still sitting in Workspace at a DIFFERENT position from
+	this one. `bottle_cap` has no genuine redo of its own in this batch (same
+	situation as `sample_case`) -- Config/Items.luau's `bottle_cap` entry was
+	reverted to `model = nil` rather than left pointing at a stolen template.
 
 	KEPT IN GIT ON PURPOSE, same reason as the first three migrations.
 
@@ -50,7 +58,7 @@ local ITEMS = {
 	{ itemId = "bullion_bar", label = "Bullion Nuke", marker = "BullionStrapCross", rootPart = "BullionStrapCross" },
 	{ itemId = "rusty_horseshoe", label = "Lucky Nuke", marker = "Horseshoe", rootPart = "Shell" },
 	{ itemId = "treasure_map", label = "Blueprint Nuke", marker = "PlanRoll", rootPart = "Shell" },
-	{ itemId = "bottle_cap", label = "Dud Nuke", marker = "LithoStripe", rootPart = "Shell" },
+	{ itemId = "tin_can", label = "Dented Nuke", marker = "LithoStripe", rootPart = "Shell" },
 	{ itemId = "unlit_signal_flare", label = "Flare Nuke", marker = "BurnPort", rootPart = "Shell" },
 	{ itemId = "wind_up_flashlight", label = "Wind-Up Nuke", marker = "GovernorCoil", rootPart = "Shell" },
 	{ itemId = "gold_ring", label = "Golden Nuke", marker = "SignetStone", rootPart = "Shell" },
