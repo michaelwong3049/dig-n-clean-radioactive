@@ -424,4 +424,13 @@ Tuning.CAPACITY_EVERY_N_LEVELS = 5
 -- rather than a wait -- and E/Q skips it anyway.
 Tuning.WASH_REVEAL_HOLD = 4.2
 
+-- The wash bay's lens, vertical field of view in degrees. WashController shoots the
+-- wash through it (see WASH_FOV there for why it is wider than the default 70), and
+-- WashService reads it to decide how far back to plant the player so a big lump
+-- still fits in the frame. One number, so the two cannot disagree about the picture.
+Tuning.WASH_FOV = 72
+-- ...and where that lens sits: studs forward of the head's centre, along the view.
+-- Same reason it is here: WashService measures the frame from this point.
+Tuning.WASH_EYE_FORWARD = 0.4
+
 return Tuning
