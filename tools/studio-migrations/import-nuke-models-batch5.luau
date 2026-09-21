@@ -3,15 +3,16 @@
 	import-nuke-models.luau's header first). Three coloured re-imports that
 	replace wrong or missing templates:
 
-	  bottle_cap  (Dud Nuke)    <- NoseDome/BaseRim scene. Dud's own design from
-	                              batch 2, now in colour; bottle_cap had fallen
-	                              back to the cube after batch 4's mix-up.
-	  tin_can     (Dented Nuke) <- ShellCavity scene (BentFin/PeeledPlate/SplitSeam).
-	  tin_soldier (Tin Nuke)    <- LithoStripe scene (PressedCap/RolledSeam).
+	  bottle_cap  (Dud Nuke)    <- ShellCavity scene: a plain egg-shaped shell with
+	                              a crack (BentFin/PeeledPlate/SplitSeam).
+	  tin_can     (Dented Nuke) <- NoseDome/BaseRim scene: the dome-topped canister.
+	  tin_soldier (Tin Nuke)    <- LithoStripe scene: blue with an orange band
+	                              (PressedCap/RolledSeam).
 
-	Batch 4 had Dented and Tin the other way round (LithoStripe on tin_can,
-	ShellCavity on tin_soldier); the user re-imported both as the "real" models.
-	Batch 4's table no longer lists either id, so re-running it will not undo this.
+	CHECKED ON SCREEN, NOT JUST BY PART NAMES: the first pass guessed from names
+	alone (NoseDome -> Dud, since batch 2 used it for Dud) and the user caught it --
+	NoseDome is the Dented one. Batch 4 had Dented and Tin mixed up too; its table
+	no longer lists either id, so re-running it will not undo this.
 
 	KEPT IN GIT ON PURPOSE, same reason as every prior migration.
 
@@ -30,8 +31,8 @@ local REGION_MIN = Vector3.new(-470, -6, 30)
 local REGION_MAX = Vector3.new(-456, 8, 46)
 
 local ITEMS = {
-	{ itemId = "bottle_cap", label = "Dud Nuke", marker = "NoseDome", rootPart = "Shell" },
-	{ itemId = "tin_can", label = "Dented Nuke", marker = "ShellCavity", rootPart = "Shell" },
+	{ itemId = "bottle_cap", label = "Dud Nuke", marker = "ShellCavity", rootPart = "Shell" },
+	{ itemId = "tin_can", label = "Dented Nuke", marker = "NoseDome", rootPart = "Shell" },
 	{ itemId = "tin_soldier", label = "Tin Nuke", marker = "LithoStripe", rootPart = "Shell" },
 }
 
