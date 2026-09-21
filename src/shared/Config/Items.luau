@@ -93,6 +93,12 @@ export type ItemDef = {
 	-- handful that span Stage 3<->4 share it on purpose).
 	odds: number,
 	weight: number, -- kilograms; Config/Weight turns it into size/glow/pull/value/roll
+	-- Optional VISUAL-ONLY nudge on the hauled size, multiplied onto Weight.sizeScale
+	-- (default 1). Exists because `weight` also drives pull time, value, dig odds and
+	-- aura, and sits at the very floor / ceiling of Weight's curve for the lightest and
+	-- heaviest items, so it cannot resize those without moving balance. Only the haul
+	-- reads it; wash / held / locker / pedestal displays normalise to fixed sizes.
+	sizeMult: number?,
 	stages: { number },
 	appeal: string, -- "Researcher" | "Collector" | "Gearhead"
 	sets: { string },
@@ -137,6 +143,7 @@ Items.DEFS = {
 		rarity = "Common",
 		odds = 8, -- 1 in N per dig in a stocking stage
 		weight = 0.05,
+		sizeMult = 0.8, -- smaller
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
@@ -152,6 +159,7 @@ Items.DEFS = {
 		rarity = "Common",
 		odds = 9, -- 1 in N per dig in a stocking stage
 		weight = 0.4,
+		sizeMult = 0.8, -- smaller
 		stages = { 1 },
 		appeal = "Collector",
 		sets = {},
@@ -165,6 +173,7 @@ Items.DEFS = {
 		rarity = "Common",
 		odds = 12, -- 1 in N per dig in a stocking stage
 		weight = 0.06,
+		sizeMult = 1.2, -- bigger
 		stages = { 1 },
 		appeal = "Collector",
 		sets = { "left_behind" },
@@ -392,6 +401,7 @@ Items.DEFS = {
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
 		weight = 2.5,
+		sizeMult = 0.8, -- smaller
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
@@ -516,6 +526,7 @@ Items.DEFS = {
 		rarity = "Common",
 		odds = 14, -- 1 in N per dig in a stocking stage
 		weight = 0.5,
+		sizeMult = 0.8, -- smaller
 		stages = { 3, 4 },
 		appeal = "Collector",
 		sets = {},
@@ -555,6 +566,7 @@ Items.DEFS = {
 		rarity = "Uncommon",
 		odds = 60, -- 1 in N per dig in a stocking stage
 		weight = 0.15,
+		sizeMult = 1.2, -- bigger
 		stages = { 3 },
 		appeal = "Researcher",
 		sets = {},
@@ -1029,6 +1041,7 @@ Items.DEFS = {
 		rarity = "Anomaly",
 		odds = 500000, -- 1 in N per dig in a stocking stage
 		weight = 240,
+		sizeMult = 1.2, -- bigger
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = { "crater_relics" },
