@@ -859,7 +859,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 600000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 
 	-- ══ STAGE 6 — THE CRATER ════════════════════════════════════════════════
