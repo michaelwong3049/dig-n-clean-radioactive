@@ -283,6 +283,28 @@ function Spec.run(): boolean
 			end
 		end
 		check("§payload callout tiers are above 1x, inside the band, highest first", tiersOk)
+
+		-- The odds table: bands run upward from MIN and end at MAX, chances total
+		-- 100, and fromRoll lands every band edge exactly where its running total
+		-- says (24% of rolls below 0.8x, 52% below 1.0x, and so on).
+		local bandsOk = #Payload.BANDS > 0 and Payload.BANDS[#Payload.BANDS].upTo == Payload.MAX
+		local edgesOk = true
+		local low, cumulative = Payload.MIN, 0
+		for _, band in Payload.BANDS do
+			if band.upTo <= low or band.chance <= 0 then
+				bandsOk = false
+			end
+			cumulative += band.chance
+			if cumulative < 100 and math.abs(Payload.fromRoll(cumulative / 100) - band.upTo) > 1e-6 then
+				edgesOk = false
+			end
+			low = band.upTo
+		end
+		check(
+			string.format("§payload bands climb MIN..MAX and their chances total 100 (got %d)", cumulative),
+			bandsOk and cumulative == 100
+		)
+		check("§payload fromRoll puts each band edge at its running chance", edgesOk)
 		check(
 			"§payload an ordinary roll has no callout; MAX earns the top one",
 			Payload.calloutFor(1) == nil and Payload.calloutFor(Payload.MAX) == Payload.CALLOUTS[1].label
