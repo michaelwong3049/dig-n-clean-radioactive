@@ -19,6 +19,13 @@
 	situation as `sample_case`) -- Config/Items.luau's `bottle_cap` entry was
 	reverted to `model = nil` rather than left pointing at a stolen template.
 
+	SECOND CORRECTION (same day, on user review): `tin_soldier` and
+	`film_canister` had their markers swapped -- the `WarningPlacard`/
+	`CoreCanister` scene (an open framework with a glowing core visible through
+	it) reads as "Exposed", not "Tin", and the user called this out directly
+	after seeing it in colour. `ShellCavity` now goes to `tin_soldier`, and
+	`WarningPlacard`/`CoreCanister` goes to `film_canister`.
+
 	KEPT IN GIT ON PURPOSE, same reason as the first three migrations.
 
 	TWO SEARCH REGIONS, NOT ONE: 13 of these 14 restaged as a vertical column
@@ -62,10 +69,10 @@ local ITEMS = {
 	{ itemId = "unlit_signal_flare", label = "Flare Nuke", marker = "BurnPort", rootPart = "Shell" },
 	{ itemId = "wind_up_flashlight", label = "Wind-Up Nuke", marker = "GovernorCoil", rootPart = "Shell" },
 	{ itemId = "gold_ring", label = "Golden Nuke", marker = "SignetStone", rootPart = "Shell" },
-	{ itemId = "film_canister", label = "Exposed Nuke", marker = "ShellCavity", rootPart = "Shell" },
+	{ itemId = "tin_soldier", label = "Tin Nuke", marker = "ShellCavity", rootPart = "Shell" },
 	{ itemId = "old_food_tin", label = "Canned Nuke", marker = "PullTabRing", rootPart = "Shell" },
 	{ itemId = "steel_rod", label = "Rusty Nuke", marker = "Corrosion1", rootPart = "Shell" },
-	{ itemId = "tin_soldier", label = "Tin Nuke", marker = "WarningPlacard", rootPart = "CoreCanister" },
+	{ itemId = "film_canister", label = "Exposed Nuke", marker = "WarningPlacard", rootPart = "CoreCanister" },
 	{ itemId = "radiation_badge", label = "Telltale Nuke", marker = "TelltaleFlag", rootPart = "Shell" },
 	{ itemId = "radiation_scanner", label = "Clicking Nuke", marker = "ScannerHead", rootPart = "Shell" },
 }
