@@ -60,16 +60,16 @@ local MAIN_MAX = Vector3.new(15, -45, -100)
 local SCANNER_MIN = Vector3.new(-395, -6, -6)
 local SCANNER_MAX = Vector3.new(-383, 6, 6)
 
+-- tin_can and tin_soldier removed: batch 5 (import-nuke-models-batch5.luau) owns
+-- them now, with the user's real Dented/Tin re-imports.
 local ITEMS = {
 	{ itemId = "glass_pebble", label = "Marble Nuke", marker = "SwirlBandA", rootPart = "Shell" },
 	{ itemId = "bullion_bar", label = "Bullion Nuke", marker = "BullionStrapCross", rootPart = "BullionStrapCross" },
 	{ itemId = "rusty_horseshoe", label = "Lucky Nuke", marker = "Horseshoe", rootPart = "Shell" },
 	{ itemId = "treasure_map", label = "Blueprint Nuke", marker = "PlanRoll", rootPart = "Shell" },
-	{ itemId = "tin_can", label = "Dented Nuke", marker = "LithoStripe", rootPart = "Shell" },
 	{ itemId = "unlit_signal_flare", label = "Flare Nuke", marker = "BurnPort", rootPart = "Shell" },
 	{ itemId = "wind_up_flashlight", label = "Wind-Up Nuke", marker = "GovernorCoil", rootPart = "Shell" },
 	{ itemId = "gold_ring", label = "Golden Nuke", marker = "SignetStone", rootPart = "Shell" },
-	{ itemId = "tin_soldier", label = "Tin Nuke", marker = "ShellCavity", rootPart = "Shell" },
 	{ itemId = "old_food_tin", label = "Canned Nuke", marker = "PullTabRing", rootPart = "Shell" },
 	{ itemId = "steel_rod", label = "Rusty Nuke", marker = "Corrosion1", rootPart = "Shell" },
 	{ itemId = "film_canister", label = "Exposed Nuke", marker = "WarningPlacard", rootPart = "CoreCanister" },

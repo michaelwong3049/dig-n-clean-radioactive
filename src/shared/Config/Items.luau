@@ -115,11 +115,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 20,
-		-- Reverted to nil: batch 4's recolor pass mistakenly cloned tin_can's
-		-- LithoStripe scene under this id (see import-nuke-models-batch4-recolor.luau's
-		-- header) -- bottle_cap has no genuine redo of its own in that batch. Falls
-		-- back to the plain rarity cube until a real one exists.
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "steel_rod",
