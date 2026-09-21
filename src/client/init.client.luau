@@ -27,6 +27,7 @@ local ORDER = {
 	"WarpController", -- the top-of-screen BASE / SHOPS bar; reads stageId off ExposureState
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState
 	"SettingsController", -- the Settings panel (top-right gear); base-colour picker, reads/writes PlotColor
+	"FlyController", -- dev-only free-fly; toggled by DebugService's /fly command via LocalPlayer's FlyMode attribute
 }
 
 local loaded: { [string]: any } = {}

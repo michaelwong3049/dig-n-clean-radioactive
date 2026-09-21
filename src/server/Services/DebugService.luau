@@ -272,6 +272,49 @@ COMMANDS["/speed"] = {
 	end,
 }
 
+COMMANDS["/jump"] = {
+	-- Same shape as /speed: hands a sustained override to ExposureService's per-tick
+	-- loop rather than poking the Humanoid directly (a direct write would be gone
+	-- within one tick, same reason /speed works this way). Height in studs -- the
+	-- loop derives an equivalent JumpPower from it every tick so it lands correctly
+	-- whichever of JumpPower/JumpHeight the rig actually honours.
+	help = "/jump <height> — pin JumpHeight there for the session, in studs (engine default is 7.2); /jump off to clear",
+	run = function(player, _sandbox, args)
+		local raw = args[1]
+		if raw == nil or raw == "off" or raw == "clear" or raw == "reset" then
+			ExposureService.setJumpOverride(player, nil)
+			return "jump override cleared — back to normal jump height"
+		end
+		local value = tonumber(raw)
+		if value == nil then
+			return "usage: /jump <height>  |  /jump off"
+		end
+		value = math.clamp(value, 0, 200)
+		ExposureService.setJumpOverride(player, value)
+		return `JumpHeight pinned to {value} studs — /jump off to undo`
+	end,
+}
+
+COMMANDS["/fly"] = {
+	-- Client-side only (FlyController.luau reacts to the attribute) -- there is no
+	-- server movement validation to bypass here because reaching this command at
+	-- all already required mayUseConsole to pass, same gate every other command
+	-- in this file sits behind.
+	help = "/fly [off] — toggle free-fly (WASD + Space/Ctrl, hold Shift to boost); /fly off to land",
+	run = function(player, _sandbox, args)
+		local raw = args[1]
+		if raw == "off" or raw == "clear" or raw == "reset" then
+			player:SetAttribute("FlyMode", false)
+			return "fly off — back to normal movement"
+		end
+		local enabled = not player:GetAttribute("FlyMode")
+		player:SetAttribute("FlyMode", enabled)
+		return if enabled
+			then "fly on — WASD to move, Space/Ctrl for up/down, Shift to boost, /fly off to land"
+			else "fly off — back to normal movement"
+	end,
+}
+
 COMMANDS["/pocket"] = {
 	help = "/pocket — hot pockets belong to StageService and arrive in Phase 4",
 	run = function(_player, _sandbox, _args)
