@@ -318,7 +318,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
 		baseValue = 20,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "door_hinge",
@@ -331,7 +331,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 27,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "cutlery_set",
@@ -344,7 +344,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "suburban_kitchen" },
 		baseValue = 93,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "garden_trowel",
@@ -370,7 +370,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "childrens_toys" },
 		baseValue = 150,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "charm_bracelet",
@@ -383,7 +383,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 370,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "socket_set",
@@ -396,7 +396,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 480,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "photo_locket",
@@ -409,7 +409,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 650,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "mutant_carrot",
@@ -448,7 +448,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 3000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "clock_movement",
@@ -461,7 +461,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 11000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "deposit_box",
@@ -474,7 +474,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 55000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 
 	-- ══ STAGE 3 — FALLOUT FIELDS ════════════════════════════════════════════
@@ -498,7 +498,7 @@ Items.DEFS = {
 	},
 	{
 		id = "gate_latch",
-		name = "Snapped Nuke",
+		name = "Split Nuke",
 		flavor = "Torn clean off whatever it used to arm.",
 		rarity = "Common",
 		odds = 10, -- 1 in N per dig in a stocking stage
@@ -507,7 +507,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
 		baseValue = 73,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "old_food_tin",
@@ -533,7 +533,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 300,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "unlit_signal_flare",
@@ -637,7 +637,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 19000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "rusted_farm_safe",
@@ -650,7 +650,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 60000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 
 	-- ══ STAGE 4 — THE EXCLUSION BELT ════════════════════════════════════════
@@ -669,7 +669,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 4400,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "strange_metal_chip",
@@ -682,7 +682,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 23000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "reactor_rod",
@@ -715,7 +715,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 60,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "shiny_metal_blade",
@@ -728,7 +728,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 67,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "rad_warning_placard",
@@ -741,7 +741,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 100,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "pressure_gauge",
@@ -754,6 +754,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 400,
+		-- No art yet -- its scene duplicated the Airtight Nuke's (first_aid_tin).
 		model = nil,
 	},
 	{
@@ -767,7 +768,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = { "reactor_control" },
 		baseValue = 430,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "cooling_valve_wheel",
@@ -780,7 +781,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 600,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "reactor_logbook",
@@ -793,7 +794,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 2800,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "sealed_data_drive",
@@ -806,7 +807,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 3900,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "blackbox_recorder",
@@ -819,7 +820,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "reactor_control" },
 		baseValue = 17000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "sealed_fuel_casing",
@@ -832,7 +833,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 21000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "reactor_core_sample",
@@ -877,7 +878,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 47,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "scorched_metal_plate",
@@ -890,7 +891,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 120,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "sealed_air_filter",
@@ -903,7 +904,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 470,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "bent_door_wheel",
@@ -916,7 +917,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 700,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "cracked_glow_badge",
@@ -929,7 +930,8 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 3100,
-		model = "ImportedNuke",
+		-- No art yet -- the scene first mapped here is the Split Nuke's (gate_latch).
+		model = nil,
 	},
 	{
 		id = "fused_tool_roll",
@@ -942,7 +944,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 4300,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "untouched_ground_sample",
@@ -955,7 +957,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 22000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "skyglow_core_fragment",
@@ -968,7 +970,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 26000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "ufo_fragment",
@@ -981,7 +983,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 24000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "explorers_helmet",
@@ -994,7 +996,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "crater_relics" },
 		baseValue = 140000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "mini_nuke",
@@ -1007,7 +1009,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 160000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "stopped_second_hand",
@@ -1020,7 +1022,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = { "crater_relics" },
 		baseValue = 930000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 	{
 		id = "unlabeled_cylinder",
@@ -1033,7 +1035,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = { "crater_relics" },
 		baseValue = 6000000,
-		model = nil,
+		model = "ImportedNuke",
 	},
 } :: { ItemDef }
 
