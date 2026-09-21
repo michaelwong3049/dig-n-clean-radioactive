@@ -312,6 +312,7 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local WashReveal = require(script.Parent.Parent.WashReveal)
 
 local Wash = {}
 
@@ -2214,8 +2215,8 @@ local function onRender(dt: number)
 	end
 
 	-- BEFORE the camera reads it, so the shot frames the item's post-turn pose this
-	-- frame rather than last frame's.
-	spinTurntable(dt)
+	-- frame rather than last frame's. Kicked round faster for a moment at the reveal.
+	spinTurntable(dt * WashReveal.spinRate())
 
 	-- Re-asserted per frame rather than once at session start, for the same reason the
 	-- nozzle is re-resolved per frame: a World.rebuild() from the command bar destroys
@@ -2232,6 +2233,18 @@ local function onRender(dt: number)
 		if anchor and anchor:IsA("BasePart") then
 			camera.CFrame = anchor.CFrame
 		end
+		return
+	end
+
+	-- THE REVEAL OWNS THE CAMERA once the last chunk is off (WashReveal): same eye, but
+	-- swung onto the nuke and zoomed in, with no aim, jet or patch to track.
+	if WashReveal.active() then
+		local pivot = itemPivot()
+		WashReveal.drive(camera, eye.Position, if pivot then pivot.Position else eye.Position + eye.LookVector * 6)
+		local lowered = eye * WashReveal.HOSE_DROP
+		aimNozzle(lowered, lowered.Position + eye.LookVector * 3 - Vector3.yAxis * 3, dt)
+		applyHidden(1)
+		hideJet()
 		return
 	end
 
@@ -2416,6 +2429,7 @@ local function teardown()
 	-- Any cut still queued behind a sweep belongs to a session that no longer exists.
 	wipeAtCover = nil
 
+	WashReveal.stop()
 	exitView()
 	state = nil
 	spraying = false
@@ -2516,6 +2530,33 @@ function Wash.start()
 				percent.Text = `{math.floor(pct * 100 + 0.5)}% clean`
 			end
 		end
+	end)
+
+	-- THE REVEAL. WashService announces the name the moment the last chunk pops, marked
+	-- `staged` because this bay shows it itself, on the real model still turning on the
+	-- stand -- the overworld banner stands down for those. The aim furniture goes; the
+	-- server has already stopped counting spray.
+	Net.get("ItemIdentified").OnClientEvent:Connect(function(found)
+		if type(found) ~= "table" or found.staged ~= true or not viewActive or state == nil then
+			return
+		end
+		local camera = Workspace.CurrentCamera
+		local pivot, size = itemPivot()
+		if camera == nil or pivot == nil or size == nil then
+			return
+		end
+		spraying = false
+		hideJet()
+		if reticle then
+			reticle.Visible = false
+		end
+		for _, widgetName in { "Fluid", "CleanBar" } do
+			local widget = wipeGui and wipeGui:FindFirstChild(widgetName, true)
+			if widget and widget:IsA("GuiObject") then
+				widget.Visible = false
+			end
+		end
+		WashReveal.play(found, camera, pivot.Position, math.max(size.X, size.Y, size.Z))
 	end)
 
 	-- MOUSE LOOK. Delta, not Position: with the pointer locked to the middle of the

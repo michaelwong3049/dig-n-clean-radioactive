@@ -523,11 +523,6 @@ function finish(player: Player, reason: string?)
 	end
 end
 
---- How long the item stands there, clean and finally itself, before the session hands
---- the screen back. Long enough to read what came out of the rock and short enough that
---- it is a beat rather than a wait.
-local REVEAL_HOLD = 1.3
-
 --- THE LAST CHUNK IS OFF, SO THE MYSTERY IS OVER. This is the moment the whole feature
 --- is built around: what went into the tub was a "???" in the bag and a lump of slag on
 --- the stand, and what comes out has a name.
@@ -540,9 +535,14 @@ local REVEAL_HOLD = 1.3
 ---      the player spends the beat looking at the object rather than at a target.
 ---   3. the light goes out. Nothing is hiding any more, so the fallout glow the crust
 ---      carried has nothing left to be coming off of.
----   4. THEN the beat, and only after it the banner -- WashController hides every
----      LayerCollector for the first-person view, so a reveal announced before `finish`
----      is a reveal announced onto a hidden screen.
+---   4. THE ANNOUNCEMENT, STRAIGHT AWAY AND STAGED. It used to wait for `finish`, since
+---      the first-person view hides every LayerCollector and a banner fired into it was
+---      a banner nobody saw. The bay now stages the reveal itself, on the real model
+---      still turning on the stand (client WashReveal) -- `staged` tells the overworld
+---      banner to stand down, and `value` is what the price counts up to. Firing it
+---      here also means E/Q during the beat skips the show, not the news: the old
+---      delayed announce died with the session it was waiting on.
+---   5. THEN the beat (Tuning.WASH_REVEAL_HOLD), and only after it the camera comes back.
 local function revealAndFinish(player: Player, session: Session, data: any, item: any)
 	session.revealing = true
 	session.spraying = false
@@ -555,16 +555,18 @@ local function revealAndFinish(player: Player, session: Session, data: any, item
 		ItemCrust.clear(session.model)
 	end
 
+	local value = EconomyService.valueOf(item, StatResolver.get(data))
+	IdentifyService.announce(player, item, first, { staged = true, value = value })
+
 	local def = Items.get(item.itemId)
-	task.delay(REVEAL_HOLD, function()
+	task.delay(Tuning.WASH_REVEAL_HOLD, function()
 		-- The session this beat belongs to, not merely "a session": a player who left and
-		-- came back inside 1.3 seconds would otherwise have someone else's reveal end
-		-- their new wash.
+		-- came back inside the hold would otherwise have someone else's reveal end their
+		-- new wash.
 		if sessions[player] ~= session then
 			return
 		end
 		finish(player, `{def.name} is clean`)
-		IdentifyService.announce(player, item, first)
 	end)
 end
 
@@ -738,7 +740,7 @@ local function stepPlayer(player: Player, dt: number)
 		return
 	end
 
-	-- The reveal beat owns the last second and a half of a session (revealAndFinish):
+	-- The reveal beat owns the last few seconds of a session (revealAndFinish):
 	-- the item is clean, the crust is gone and the only thing left to happen is the
 	-- player looking at it. Nothing here has anything to add, and the leash check below
 	-- would happily end the session out from under the beat.

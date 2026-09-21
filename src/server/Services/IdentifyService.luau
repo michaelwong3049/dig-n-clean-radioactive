@@ -29,7 +29,8 @@
 	banner has to wait until the session has handed the screen back — but the profile
 	write must NOT wait, or a player who disconnects during the reveal beat comes back
 	holding a clean item their index has never heard of. `identify` writes; `announce`
-	shows; the wash calls them a second apart.
+	shows. The wash now calls them back to back and stages the reveal itself, inside the
+	bay (client WashReveal), so it marks its announcement `staged` for the banner to skip.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -60,12 +61,16 @@ end
 
 --- Put it on screen. Same shape as the Unearthed payload, because it lands in the same
 --- banner (client DetectorController) — one renderer, two moments.
-function IdentifyService.announce(player: Player, item: any, firstFind: boolean)
+---
+--- `extra` rides along on top, for a caller with more to say than the banner does: the
+--- wash bay stages its own reveal on the real model (client WashReveal) and passes
+--- `staged = true` so the banner stands down, plus the `value` it counts up to.
+function IdentifyService.announce(player: Player, item: any, firstFind: boolean, extra: { [string]: any }?)
 	if identifiedRemote == nil or item == nil then
 		return
 	end
 	local def = Items.get(item.itemId)
-	identifiedRemote:FireClient(player, {
+	local payload: { [string]: any } = {
 		itemId = def.id,
 		name = def.name,
 		flavor = def.flavor,
@@ -73,7 +78,11 @@ function IdentifyService.announce(player: Player, item: any, firstFind: boolean)
 		modifier = item.modifier,
 		weight = def.weight,
 		firstFind = firstFind,
-	})
+	}
+	for key, value in extra or {} do
+		payload[key] = value
+	end
+	identifiedRemote:FireClient(player, payload)
 end
 
 --- Both halves, for the callers with nothing to wait for.

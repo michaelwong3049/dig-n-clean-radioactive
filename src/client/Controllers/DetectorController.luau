@@ -1436,6 +1436,11 @@ function Detector.start()
 	-- crust is off (or from the trader, when a find is sold blind and named on its way
 	-- out) -- the "so THAT'S what it was" beat the dig no longer gets to have.
 	Net.get("ItemIdentified").OnClientEvent:Connect(function(found)
+		-- A wash reveal is staged in the bay itself, on the real model (WashReveal), so
+		-- the banner is only for the reveals that happen away from it: a blind sale.
+		if found.staged then
+			return
+		end
 		showFind(found, if found.firstFind then "NEW FIND" else "IDENTIFIED")
 	end)
 
