@@ -160,6 +160,11 @@ Kit.C = {
 	-- smooth no-stud plate (glinted in the sun), then charcoal studs.
 	-- `baseTileDark`/`Light` stay above for anything that still wants the old pair.
 	baseFloor = "9C6B43",
+	-- The gallery walkways laid over that deck (Plots.buildGalleryLanes): the plaza
+	-- path's own cream (Hub's PATH_LIGHT), so the path you walk in on carries on through
+	-- the base, and a darker sand kerb edging each lane.
+	baseLane = "EADCBA",
+	baseLaneKerb = "C9B48C",
 	-- The plot's back wall. WAS `plazaWarm` (a light cream) — dropped to a dark warm
 	-- taupe on request so the wall recedes behind the nameplate and the accent trim
 	-- instead of glowing pale over the whole base.
@@ -170,9 +175,10 @@ Kit.C = {
 	railGrey = "8B8E92",
 	railPost = "63666B",
 	-- What every accent piece on a plot (the side Trim, the nameplate frame, the
-	-- cleansing-station lamp, the two station-sign subtitles) is painted UNTIL an
-	-- owner picks a colour for it in the Settings GUI. An unclaimed plot, and a
-	-- claimed one whose owner has never chosen, both wear this. A shade off railGrey
+	-- cleansing-station lamp, the two station-sign subtitles, the gallery's arch, plinth
+	-- bands, fence caps and slot brackets) is painted while NOBODY owns it. A claimed
+	-- plot whose owner has never picked wears its `Plots.DEFAULT_ACCENTS` hue instead,
+	-- until they choose one in the Settings GUI. A shade off railGrey
 	-- so the Trim still reads as its own element against the railings beside it —
 	-- ExhibitService.renderAccent / Plots.setPlotAccent swap in the owner's hex.
 	plotNeutral = "7F8388",

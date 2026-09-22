@@ -80,17 +80,26 @@
 	grid room to spread:
 
 	    ┌─────────────────────────────────────┐
-	    │      [stand]  [stand]  [stand]       │
-	    │                                      │
-	    │      [stand]  [stand]  [stand]       │
-	    │                                      │
-	    │      [stand]  [stand]  [stand]       │
-	    │                                      │
-	    │      [stand]  [stand]  [stand]       │
-	    │               spawn                  │
+	    │ ══════════ back landing ══════════   │
+	    │   [stand] ║ [stand] ║ [stand]        │
+	    │           ║         ║                │
+	    │   [stand] ║ [stand] ║ [stand]        │   ║ = cream aisles
+	    │           ║         ║                │
+	    │   [stand] ║ [stand] ║ [stand]        │
+	    │           ║         ║                │
+	    │   [stand] ║ [stand] ║ [stand]        │
+	    │   ═══════ cross band ═══════         │
 	    ├──────── original front edge ─────────┤
 	    │  WASHER + HOSE  [locker]  WASH PAD   │
-	    └─────────────────────────────────────┘
+	    │           ║ entry (spawn) ║          │
+	    └──────────[post]══arch══[post]───────┘
+
+	THE GALLERY PASS (on request, picked from three live previews) dressed that grid
+	up: the stands stand on waist-high plinths with an accent band, an empty one shows
+	accent corner brackets and a full one a line in its item's rarity colour
+	(Plots.setStandState); cream walkways (buildGalleryLanes) run in from an entrance
+	arch naming the owner (buildEntranceArch); every fence post wears an accent cap.
+	A claimed plot whose owner never picked a colour wears Plots.DEFAULT_ACCENTS.
 
 	The Quarantine Locker (PLAN §10.2) — the physical rack of items you hauled home
 	but can't clean yet — now sits in the +X corner right beside the cleansing
@@ -121,7 +130,11 @@
 	    Stand       StationKind = "pedestal", StationId = "<n>:<slot>", Radius = 7
 	                PlotIndex = n, SlotIndex = s
 	                — the base course of the display plinth (StandTop / StandRim /
-	                Display are the rest of it); see buildDisplayStand.
+	                Display are the rest of it); see buildDisplayStand. StandTop
+	                carries the `SlotMarker` SurfaceGui and RarityLine<slot> wraps it;
+	                both are switched by Plots.setStandState, never by name elsewhere.
+	    EntranceArch  decor; its ArchSign's SurfaceGui label `OwnerName` is written
+	                by ExhibitService.renderName.
 	    PlotSpawn   SpawnLocation, Enabled = false until the plot is claimed
 	    Basin       StationKind = "decon", Shower = true, Radius = 9 — the cleansing
 	                station (see buildCleansingStation below). One per base, replacing
@@ -171,7 +184,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 49
+local BUILDER_VERSION = 50
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -191,6 +204,23 @@ end
 
 Plots.COUNT = 6
 Plots.VISIBLE_SLOTS = 12
+
+--- The accent a CLAIMED plot wears until its owner picks one in Settings, by plot
+--- index. Most players never open Settings, and the gallery (arch caps, plinth bands,
+--- fence caps, slot brackets) is mostly accent — in `C.plotNeutral` it reads as more
+--- grey fence. One hue per plot, so the six bases in a server never match. Never saved
+--- to the profile (ExhibitService.renderAccent picks it at paint time), so a player who
+--- has never chosen simply wears whichever plot they land on. Kept clear of the
+--- quarantine red and the stages' hazard greens.
+Plots.DEFAULT_ACCENTS = {
+	"FF9F43", -- orange
+	"2EC4B6", -- teal
+	"9B5DE5", -- purple
+	"FF5D8F", -- pink
+	"3FA7F5", -- blue
+	"F9C74F", -- yellow
+}
+assert(#Plots.DEFAULT_ACCENTS == Plots.COUNT, "one default accent per plot")
 -- Interior bays in the Quarantine Locker cabinet (buildQuarantineLocker). Kept in
 -- step with the cleansing-station panel's own LOCKER_ROWS; ExhibitService.renderLocker
 -- reads the same number. A locker with more than this many racked items just doesn't
@@ -509,44 +539,131 @@ local function slotOffset(slot: number): (number, number)
 	return GRID_COLS[col + 1], GRID_ROWS[row + 1]
 end
 
---- THE DISPLAY STAND — a low two-course studded riser, on request, replacing the
---- tall marble-and-slate column this used to be. The reference is a wide shallow
---- plinth: a broad base course, a slightly inset top course stacked on it, and a
---- raised lip framing a recessed panel the item rests in. Grey studded plastic —
---- `studs = true` forces Material.Plastic and stud-textures every face (see
---- Kit.build), and the greys are Kit.C.standGrey* (mid neutral grey, the one
---- built-not-poured grey object on an otherwise navy-tiled base).
+--- THE DISPLAY STAND — a two-course studded riser on a waist-high plinth. The riser
+--- replaced the tall marble-and-slate column this used to be: a broad base course, a
+--- slightly inset top course stacked on it, and a raised lip framing a recessed panel
+--- the item rests in. Grey studded plastic — `studs = true` forces Material.Plastic
+--- and stud-textures every face (see Kit.build), and the greys are Kit.C.standGrey*.
+---
+--- THE PLINTH UNDER IT IS THE GALLERY PASS (on request, picked from three live
+--- previews). Knee-high risers read as paving slabs from the entrance — an empty one
+--- did not say "a nuke goes here". `PLINTH` lifts the whole riser stack onto a studded
+--- foot and column with an accent band round the top, so a stand is a pedestal you
+--- walk up to. Nothing about the stack itself changed shape; it just starts PLINTH.h
+--- higher, and every part keeps its name.
 ---
 --- THE BASE COURSE IS THE STATION PART. It keeps the `Stand{slot}` name and every
 --- attribute the world contract (this file's header) publishes. Detection is
---- radius-based off the part CENTRE (StationService, Radius = 7), so dropping that
---- centre from pad.topY + 2 to pad.topY + ~0.5 costs nothing — a player at the
---- plinth sits ~2.5 studs away in Y against a 7-stud reach.
+--- radius-based off the part CENTRE (StationService, Radius = 7), and the lift brings
+--- that centre (pad.topY + ~2.35) CLOSER to a standing player's root than the old
+--- knee-high one was, so the reach only gets easier.
 ---
---- RISER_SURFACE is the pad-local height of the top course's top face — where the
---- item sits and where ExhibitService pivots a displayed model to. `Display{slot}`
---- rides 1.2 studs above it, keeping the same item-to-surface gap ratio the old
---- (smaller) riser had.
+--- RISER_SURFACE is the height of the top course's top face above the riser's own
+--- foot — where the item sits. `Display{slot}` rides 1.2 studs above it, and
+--- ExhibitService seats the model and its StandCard from Display's live position, so
+--- both follow the lift with no change on that side.
 ---
---- ALL THREE ~20% BIGGER THAN BEFORE, on request, alongside the move to the 4x3
---- grid above — the extra GRID_COLS/GRID_ROWS pitch was sized with this bump
---- already accounted for.
+--- EMPTY AND FULL LOOK DIFFERENT, and Plots.setStandState is the switch. An empty
+--- stand shows `SlotMarker` — a dark inset with accent corner brackets drawn by a
+--- SurfaceGui on the top course (GUI, not parts, so twelve of them cost no geometry).
+--- A full one hides it and lights `RarityLine`, a thin band wrapped round the top
+--- course in the displayed item's rarity colour. Neon, deliberately: it belongs to
+--- the item on show, under the same exception the nuke FX use.
 local RISER_BASE = { w = 8.9, h = 1.1 }
 local RISER_TOP = { w = 7.6, h = 0.85 }
 local RISER_RIM = { h = 0.26, thickness = 0.6 } -- the raised frame around the recessed panel
 local RISER_SURFACE = RISER_BASE.h + RISER_TOP.h
+local PLINTH = {
+	h = 1.8, -- how far the riser stack is lifted
+	footW = 8.4,
+	footH = 0.3,
+	columnW = 7.2,
+	bandW = 7.4,
+	bandH = 0.4,
+}
+-- The slot marker, in studs on the top course's face: a dark inset square, and
+-- L-shaped corner brackets (arm length x thickness) just inside the rim.
+local SLOT_MARK = { inset = 5.6, arm = 1.3, thick = 0.3, reach = 2.75, color = "3A3F47" }
+
+--- The empty-slot marker: a SurfaceGui on the top course's top face. Built enabled
+--- (every stand starts empty); Plots.setStandState hides it once something is shown.
+--- The brackets carry `Accent`, so Plots.setPlotAccent repaints them with the Trim.
+local function buildSlotMarker(top: BasePart, accent: string)
+	local width = RISER_TOP.w
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "SlotMarker"
+	gui.Face = Enum.NormalId.Top
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.Parent = top
+
+	local function box(name: string, cx: number, cz: number, sx: number, sz: number, color: string): Frame
+		local f = Instance.new("Frame")
+		f.Name = name
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.fromScale(0.5 + cx / width, 0.5 + cz / width)
+		f.Size = UDim2.fromScale(sx / width, sz / width)
+		f.BackgroundColor3 = Color3.fromHex(color)
+		f.BorderSizePixel = 0
+		f.Parent = gui
+		return f
+	end
+
+	box("Inset", 0, 0, SLOT_MARK.inset, SLOT_MARK.inset, SLOT_MARK.color)
+	-- Symmetric under every flip and axis swap, so whichever way the canvas happens to
+	-- be oriented on the top face does not matter.
+	local along = SLOT_MARK.reach - SLOT_MARK.arm / 2 + SLOT_MARK.thick / 2
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			box("Bracket", sx * along, sz * SLOT_MARK.reach, SLOT_MARK.arm, SLOT_MARK.thick, accent):SetAttribute("Accent", true)
+			box("Bracket", sx * SLOT_MARK.reach, sz * along, SLOT_MARK.thick, SLOT_MARK.arm, accent):SetAttribute("Accent", true)
+		end
+	end
+end
 
 local function buildDisplayStand(parent: Instance, origin: CFrame, index: number, slot: number, accent: string)
 	local pad = Plots.PAD
 	local ox, oz = slotOffset(slot)
+	-- The riser stack's own foot: the plinth's top.
+	local lift = pad.topY + PLINTH.h
 	-- Every stand is usable from the start — there is no locked/dim state any more.
 	-- Base course darker than the top course and its frame, so the two courses read
 	-- as lit from above.
 	local topGrey = C.standGrey
 
+	-- ── The plinth ────────────────────────────────────────────
+	-- A light foot, a dark column, and an accent band wrapping the column's top just
+	-- under the base course's overhang — the band is the plot colour at every stand.
+	build(parent, origin, {
+		name = "PlinthFoot",
+		pos = { ox, pad.topY + PLINTH.footH / 2, oz },
+		size = { PLINTH.footW, PLINTH.footH, PLINTH.footW },
+		color = C.standGrey,
+		material = "Plastic",
+		studs = true,
+	})
+	build(parent, origin, {
+		name = "PlinthColumn",
+		pos = { ox, pad.topY + PLINTH.footH + (PLINTH.h - PLINTH.footH) / 2, oz },
+		size = { PLINTH.columnW, PLINTH.h - PLINTH.footH, PLINTH.columnW },
+		color = C.standGreyDark,
+		material = "Plastic",
+		studs = true,
+	})
+	build(parent, origin, {
+		name = "PlinthBand",
+		pos = { ox, lift - PLINTH.bandH / 2, oz },
+		size = { PLINTH.bandW, PLINTH.bandH, PLINTH.bandW },
+		color = accent,
+		material = "SmoothPlastic",
+		canCollide = false,
+		attributes = { Accent = true },
+	})
+
+	-- ── The riser stack, on the plinth ────────────────────────
 	build(parent, origin, {
 		name = `Stand{slot}`,
-		pos = { ox, pad.topY + RISER_BASE.h / 2, oz },
+		pos = { ox, lift + RISER_BASE.h / 2, oz },
 		size = { RISER_BASE.w, RISER_BASE.h, RISER_BASE.w },
 		color = C.standGreyDark,
 		material = "Plastic",
@@ -560,14 +677,28 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 		},
 	})
 
-	build(parent, origin, {
+	local top = build(parent, origin, {
 		name = `StandTop{slot}`,
-		pos = { ox, pad.topY + RISER_BASE.h + RISER_TOP.h / 2, oz },
+		pos = { ox, lift + RISER_BASE.h + RISER_TOP.h / 2, oz },
 		size = { RISER_TOP.w, RISER_TOP.h, RISER_TOP.w },
 		color = topGrey,
 		material = "Plastic",
 		studs = true,
 	})
+	buildSlotMarker(top, accent)
+
+	-- The rarity line: a hair proud of the top course on every side, hidden until
+	-- Plots.setStandState colours it for whatever is on display.
+	local line = build(parent, origin, {
+		name = `RarityLine{slot}`,
+		pos = { ox, lift + RISER_BASE.h + RISER_TOP.h / 2, oz },
+		size = { RISER_TOP.w + 0.06, 0.2, RISER_TOP.w + 0.06 },
+		color = accent,
+		material = "Neon",
+		transparency = 1,
+		canCollide = false,
+	})
+	line.CastShadow = false
 
 	-- Four bars proud of the top course, framing the recessed panel — the routed
 	-- border the reference plinth has. CanCollide off so nothing catches on them.
@@ -581,7 +712,7 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 	} do
 		build(parent, origin, {
 			name = `StandRim{slot}`,
-			pos = { ox + bar.dx, pad.topY + RISER_SURFACE + RISER_RIM.h / 2, oz + bar.dz },
+			pos = { ox + bar.dx, lift + RISER_SURFACE + RISER_RIM.h / 2, oz + bar.dz },
 			size = { bar.sx, RISER_RIM.h, bar.sz },
 			color = topGrey,
 			material = "Plastic",
@@ -595,7 +726,7 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 	-- matching the colour the haul part used when it came out of the ground.
 	build(parent, origin, {
 		name = `Display{slot}`,
-		pos = { ox, pad.topY + RISER_SURFACE + 1.2, oz },
+		pos = { ox, lift + RISER_SURFACE + 1.2, oz },
 		size = { 1.7, 1.7, 1.7 },
 		color = accent,
 		material = "SmoothPlastic",
@@ -609,6 +740,28 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 	-- shadows (Kit.light's default), under a sky that never gets past mid-afternoon
 	-- (Config/Sky clockTime 13.6-16.0). Invisible in daylight, and still paying for a
 	-- shadow pass each.
+end
+
+--- Show one stand as empty (`color == nil`: slot brackets on, rarity line off) or
+--- full (`color` = the displayed item's rarity colour: brackets off, line on in that
+--- colour). ExhibitService.renderStand calls it every time a stand changes; a plot
+--- built before the gallery pass has neither piece and this quietly does nothing.
+function Plots.setStandState(plot: Instance?, slot: number, color: Color3?)
+	if plot == nil then
+		return
+	end
+	local top = plot:FindFirstChild(`StandTop{slot}`, true)
+	local marker = top and top:FindFirstChild("SlotMarker")
+	if marker and marker:IsA("SurfaceGui") then
+		marker.Enabled = color == nil
+	end
+	local line = plot:FindFirstChild(`RarityLine{slot}`, true)
+	if line and line:IsA("BasePart") then
+		line.Transparency = if color then 0 else 1
+		if color then
+			line.Color = color
+		end
+	end
 end
 
 --- Repaint the reel drum, its wound-coil band and the Beam that runs to the nozzle so
@@ -947,7 +1100,9 @@ end
 
 --- Repaint every accent piece on one plot to `color` — the two side `Trim` strips,
 --- the cleansing-station `Lamp` (and its `PointLight`), the `CLEANSING STATION` /
---- `WASH PAD` sign subtitles, and the avatar plate's `Ring` (buildNamePlate).
+--- `WASH PAD` sign subtitles, the avatar plate's `Ring` (buildNamePlate), and the
+--- gallery's pieces: the arch caps and stripe, every plinth band, every fence-post cap
+--- and the empty-slot bracket Frames.
 ---
 --- A NIL COLOUR MEANS "UNCLAIMED": it puts back `C.plotNeutral`, the grey a freshly
 --- built plot wears — what ExhibitService hands it when a player leaves. Spelled as a
@@ -977,6 +1132,11 @@ function Plots.setPlotAccent(plot: Instance?, color: Color3?)
 		elseif d:IsA("TextLabel") then
 			if d:GetAttribute("Accent") then
 				d.TextColor3 = paint
+			end
+		elseif d:IsA("Frame") then
+			-- The gallery's empty-slot brackets (buildSlotMarker).
+			if d:GetAttribute("Accent") then
+				d.BackgroundColor3 = paint
 			end
 		elseif d:IsA("UIStroke") and d:GetAttribute("Accent") then
 			d.Color = paint
@@ -1916,6 +2076,214 @@ local function buildNamePlate(parent: Instance, origin: CFrame, accent: string)
 	return gui
 end
 
+--- An accent cap on top of every fence post, so the plot colour runs round the whole
+--- enclosure and not just along the Trim at ankle height. A separate pass over the
+--- posts buildSideRailings / buildBackFence already laid, sized off each post's own
+--- CFrame and height, so it follows those builders wherever they put a post (or skip
+--- one — the back fence's corners are the side fence's) without touching their loops.
+local function capFencePosts(fence: Instance?, accent: string)
+	if fence == nil then
+		return
+	end
+	for _, post in fence:GetChildren() do
+		if post.Name == "RailPost" and post:IsA("BasePart") then
+			local cap = build(fence, post.CFrame, {
+				name = "PostCap",
+				pos = { 0, post.Size.Y / 2 + 0.2, 0 },
+				size = { RAIL_POST_W + 0.4, 0.4, RAIL_POST_W + 0.4 },
+				color = accent,
+				material = "Plastic",
+				studs = true,
+				canCollide = false,
+				attributes = { Accent = true },
+			})
+			cap.CanQuery = false
+		end
+	end
+end
+
+--- THE GALLERY WALKWAYS — the plaza's cream path carried on into the base, so the deck
+--- reads as a floor plan instead of one brown field (on request, the Gallery pass).
+---
+---        ┌───────────── back landing ─────────────┐
+---        │  [S]  ║     [S]      ║  [S]              │
+---        │  [S]  ║ aisle [S] aisle║  [S]             │   ║ = aisle between
+---        │  [S]  ║     [S]      ║  [S]              │       stand columns
+---        │  [S]  ║     [S]      ║  [S]              │
+---        │  ════════ cross band ═══════             │
+---        │  tub        ║entry║        pad           │
+---        └─────────────╨─arch╨──────────────────────┘
+---
+--- Every rectangle is derived from the stand grid (GRID_COLS / GRID_ROWS / RISER_BASE),
+--- so moving a column or a row moves its walkway with it. Lanes and kerbs only ever
+--- share EDGES, never area, and all share one top height — coplanar overlap is the
+--- z-fighting shimmer, and an edge is not an overlap.
+---
+--- Thin plates a hair proud of the floor (LANE_LIFT), not cut into it: PadFloor stays
+--- one part. CanCollide off — the floor under them is what a player stands on, so a
+--- 0.06 lip never catches a foot.
+local LANE = { aisle = 6, entry = 8, kerb = 0.5, band = 5, lift = 0.06, thick = 0.12 }
+local function buildGalleryLanes(parent: Instance, origin: CFrame)
+	local pad = Plots.PAD
+	local folder = Instance.new("Folder")
+	folder.Name = "GalleryLanes"
+
+	local function plate(name: string, x0: number, x1: number, z0: number, z1: number, color: string)
+		build(folder, origin, {
+			name = name,
+			pos = { (x0 + x1) / 2, pad.topY + LANE.lift - LANE.thick / 2, (z0 + z1) / 2 },
+			size = { x1 - x0, LANE.thick, z1 - z0 },
+			color = color,
+			material = "Plastic",
+			canCollide = false,
+		})
+	end
+	local function mirrored(name: string, x0: number, x1: number, z0: number, z1: number, color: string)
+		plate(name, x0, x1, z0, z1, color)
+		plate(name, -x1, -x0, z0, z1, color)
+	end
+
+	local K = LANE.kerb
+	local standHalf = RISER_BASE.w / 2
+	-- The aisle runs down the middle of the gap between the centre column and each
+	-- outer one; `inner`/`outer` are its two edges.
+	local aisleX = (GRID_COLS[2] + GRID_COLS[3]) / 2
+	local inner, outer = aisleX - LANE.aisle / 2, aisleX + LANE.aisle / 2
+	local entryHalf = LANE.entry / 2
+	-- The cross band stops ~1.5 short of the front row; the landing starts ~1 past the
+	-- back row and runs to the back fence's inner face.
+	local bandBack = GRID_ROWS[#GRID_ROWS] - standHalf - 1.55
+	local bandFront = bandBack - LANE.band
+	local landingFront = GRID_ROWS[1] + standHalf + 1.05
+	local landingBack = pad.maxZ - 0.5 - RAIL_POST_W
+
+	local CREAM, KERB = C.baseLane, C.baseLaneKerb
+
+	-- Entry: from the pad's front edge (under the arch) to the cross band.
+	plate("Lane", -entryHalf, entryHalf, pad.minZ, bandFront, CREAM)
+	mirrored("Kerb", entryHalf, entryHalf + K, pad.minZ, bandFront, KERB)
+
+	-- Cross band, joining the entry to both aisles.
+	plate("Lane", -outer, outer, bandFront, bandBack, CREAM)
+	mirrored("Kerb", entryHalf + K, outer + K, bandFront - K, bandFront, KERB)
+	mirrored("Kerb", outer, outer + K, bandFront, bandBack, KERB)
+	plate("Kerb", -(inner - K), inner - K, bandBack, bandBack + K, KERB)
+
+	-- The two aisles between the stand columns.
+	mirrored("Lane", inner, outer, bandBack, landingFront, CREAM)
+	mirrored("Kerb", inner - K, inner, bandBack, landingFront, KERB)
+	mirrored("Kerb", outer, outer + K, bandBack, landingFront, KERB)
+
+	-- Back landing along the fence, joining the aisles' far ends.
+	plate("Lane", -outer, outer, landingFront, landingBack, CREAM)
+	plate("Kerb", -(inner - K), inner - K, landingFront - K, landingFront, KERB)
+	mirrored("Kerb", outer, outer + K, landingFront, landingBack, KERB)
+
+	folder.Parent = parent
+end
+
+--- THE ENTRANCE ARCH — two studded posts either side of the entry lane, a lintel
+--- across them, and a sign naming the owner, so whose base this is reads at eye level
+--- from the plaza and not only from the avatar plate floating 38 studs up.
+---
+--- The sign's label is named `OwnerName`; ExhibitService.renderName writes
+--- "<DisplayName>'s Base" into it on claim (the player's own casing, like the plate)
+--- and puts "UNCLAIMED" back on release. The post caps and the stripe under the
+--- lintel carry `Accent`.
+---
+--- Clear of everything on the service strip: the posts stand at x = ±ARCH.x, well
+--- inside the luck button (x = -13) and the cleansing station's deck (x >= 15.6), and
+--- in front of both decks in z. The lintel, stripe, caps and sign are CanQuery off:
+--- the default camera pops forward when a queryable part comes between it and the
+--- character, which every walk under a lintel would do.
+local ARCH = {
+	x = 10,
+	inset = 1.7, -- post centres this far in from the pad's front edge
+	postW = 2.2,
+	postH = 10.8,
+	footW = 3.2,
+	footH = 0.6,
+	capW = 2.8,
+	capH = 0.8,
+	lintelW = 22.4,
+	lintelH = 2.2,
+	lintelD = 1.8,
+	signW = 15,
+	signH = 2,
+}
+local ARCH_SIGN_FILL = "2B2F36"
+local function buildEntranceArch(parent: Instance, origin: CFrame, accent: string)
+	local pad = Plots.PAD
+	local m = Instance.new("Model")
+	m.Name = "EntranceArch"
+	local T = pad.topY
+	local z = pad.minZ + ARCH.inset
+	local postTop = T + ARCH.footH + ARCH.postH
+	local lintelY = postTop + ARCH.lintelH / 2
+
+	local function noQuery(part: BasePart)
+		part.CanQuery = false
+	end
+
+	for _, side in { -1, 1 } do
+		local x = side * ARCH.x
+		build(m, origin, { name = "ArchFoot", pos = { x, T + ARCH.footH / 2, z }, size = { ARCH.footW, ARCH.footH, ARCH.footW }, color = C.standGrey, material = "Plastic", studs = true })
+		build(m, origin, {
+			name = "ArchPost",
+			pos = { x, T + ARCH.footH + ARCH.postH / 2, z },
+			size = { ARCH.postW, ARCH.postH, ARCH.postW },
+			color = C.standGreyDark,
+			material = "Plastic",
+			studs = true,
+		})
+		-- The caps sit on the lintel's ends, which rest on the post tops.
+		noQuery(build(m, origin, {
+			name = "ArchCap",
+			pos = { x, postTop + ARCH.lintelH + ARCH.capH / 2, z },
+			size = { ARCH.capW, ARCH.capH, ARCH.capW },
+			color = accent,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+			attributes = { Accent = true },
+		}))
+	end
+
+	noQuery(build(m, origin, {
+		name = "ArchLintel",
+		pos = { 0, lintelY, z },
+		size = { ARCH.lintelW, ARCH.lintelH, ARCH.lintelD },
+		color = C.standGrey,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	}))
+	noQuery(build(m, origin, {
+		name = "ArchStripe",
+		pos = { 0, postTop - 0.1, z },
+		size = { ARCH.lintelW + 0.2, 0.4, ARCH.lintelD + 0.1 },
+		color = accent,
+		material = "SmoothPlastic",
+		canCollide = false,
+		attributes = { Accent = true },
+	}))
+
+	-- On the lintel's outward (-Z) face, reading to anyone walking in.
+	local sign = build(m, origin, {
+		name = "ArchSign",
+		pos = { 0, lintelY, z - ARCH.lintelD / 2 - 0.1 },
+		size = { ARCH.signW, ARCH.signH, 0.25 },
+		color = ARCH_SIGN_FILL,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	noQuery(sign)
+	local label = Kit.surfaceText(sign, Enum.NormalId.Front, "UNCLAIMED", C.labelText)
+	label.Name = "OwnerName"
+
+	m.Parent = parent
+end
+
 local function buildPlot(parent: Instance, index: number)
 	local m = Instance.new("Model")
 	m.Name = `Plot{index}`
@@ -1927,12 +2295,12 @@ local function buildPlot(parent: Instance, index: number)
 	-- whichever way each was authored.
 	local origin = CFrame.new(center.x, 0, center.z) * CFrame.Angles(0, math.rad(center.facing), 0)
 	-- Every accent piece (Trim, the avatar plate's Ring, the cleansing-station Lamp,
-	-- the two station sign subtitles) is built in this ONE neutral grey and carries
-	-- an `Accent` attribute. A plot is colourless until an owner picks a hue in the
-	-- Settings GUI:
-	-- ExhibitService.renderAccent -> Plots.setPlotAccent walks those tagged pieces and
-	-- repaints them from `data.plotColor` on claim, and back to grey on release. Plots
-	-- used to pick a fixed hue by index here (Kit.PLOT_ACCENT, now gone).
+	-- the two station sign subtitles, and the gallery's arch caps/stripe, plinth bands,
+	-- fence caps and slot brackets) is built in this ONE neutral grey and carries an
+	-- `Accent` attribute. ExhibitService.renderAccent -> Plots.setPlotAccent walks those
+	-- tagged pieces on claim and repaints them from `data.plotColor` — or, until the
+	-- owner picks one in Settings, from this plot's Plots.DEFAULT_ACCENTS entry — and
+	-- back to grey on release. The build itself stays neutral: an unclaimed plot is grey.
 	local accent = C.plotNeutral
 	local pad = Plots.PAD
 
@@ -1972,6 +2340,8 @@ local function buildPlot(parent: Instance, index: number)
 		color = C.baseFloor,
 		material = "Plastic",
 	})
+	-- The cream walkways laid over it (the Gallery pass).
+	buildGalleryLanes(m, origin)
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
 	-- the colour alone carries the "whose plot" cue now, no glow. `Accent` tags it for
@@ -1997,12 +2367,15 @@ local function buildPlot(parent: Instance, index: number)
 	-- just the owner.
 	buildSideRailings(m, origin)
 	buildBackFence(m, origin)
+	capFencePosts(m:FindFirstChild("SideRailings"), accent)
+	capFencePosts(m:FindFirstChild("BackFence"), accent)
 	buildNamePlate(m, origin, accent)
 
 	-- No claim board any more: exhibit income is auto-deposited into the owner's
 	-- wallet (ExhibitService.deposit), so there is nothing here to walk up to and
-	-- collect. The avatar plate floating over the pad is the only thing that marks
-	-- whose plot this is.
+	-- collect. Whose plot this is reads from the avatar plate floating over the pad
+	-- and, at eye level, from the entrance arch's sign.
+	buildEntranceArch(m, origin, accent)
 
 	-- Where this plot's owner respawns. Disabled until somebody owns it, so nobody
 	-- ever lands on a stranger's stage. ExhibitService flips this on assignment.

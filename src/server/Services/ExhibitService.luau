@@ -83,6 +83,14 @@ local incomeRemote: any = nil
 -- PlotColor remote into a repaint loop. Cleared on release.
 local lastColorSet: { [Player]: number } = {}
 
+--- The colour this player's plot wears while they have not picked one
+--- (Plots.DEFAULT_ACCENTS, by plot index) — sent alongside every PlotColor echo so the
+--- Settings swatch shows what the base actually wears. "" if they hold no plot.
+local function defaultAccentHex(player: Player): string
+	local index = plotOf[player]
+	return if index then Plots.DEFAULT_ACCENTS[index] or "" else ""
+end
+
 -- ── Rendering ─────────────────────────────────────────────────────────────────
 -- The only place this file touches Workspace directly. Kept small and separate so
 -- the rest of the service can be reasoned about as pure data manipulation.
@@ -114,15 +122,24 @@ local function renderName(index: number, owner: Player?)
 	if caption and caption:IsA("TextLabel") then
 		caption.Text = if owner and owner.DisplayName ~= "" then owner.DisplayName else "UNCLAIMED"
 	end
+	-- The entrance arch's sign (build/Plots.buildEntranceArch): the same name in the
+	-- same casing, at eye level.
+	local archName = plot:FindFirstChild("OwnerName", true)
+	if archName and archName:IsA("TextLabel") then
+		archName.Text = if owner and owner.DisplayName ~= "" then `{owner.DisplayName}'s Base` else "UNCLAIMED"
+	end
 end
 
 --- Repaint one plot's accent pieces — the side Trim, the nameplate frame, the
---- cleansing-station lamp, the two station-sign subtitles — from the owner's chosen
---- colour (`data.plotColor`, an "RRGGBB" hex). `data == nil`, an empty string, or a
---- malformed hex all fall through to nil, and Plots.setPlotAccent then paints the
---- neutral grey a freshly built (unclaimed) plot wears. `Color3.fromHex` throws on
---- bad input, hence the pcall — the format is checked on the way in (setPlotColor)
---- but a save could still carry something odd.
+--- cleansing-station lamp, the two station-sign subtitles and the gallery's arch,
+--- plinth bands, fence caps and slot brackets — from the owner's chosen colour
+--- (`data.plotColor`, an "RRGGBB" hex). A claimed plot whose owner has never picked
+--- (an empty string) wears that plot's Plots.DEFAULT_ACCENTS hue instead — chosen
+--- here at paint time, never written to the profile. `data == nil` (unclaimed) or a
+--- malformed hex fall through to nil, and Plots.setPlotAccent then paints the neutral
+--- grey a freshly built plot wears. `Color3.fromHex` throws on bad input, hence the
+--- pcall — the format is checked on the way in (setPlotColor) but a save could still
+--- carry something odd.
 local function renderAccent(index: number, data: any?)
 	local plot = plotModel(index)
 	if plot == nil then
@@ -130,6 +147,9 @@ local function renderAccent(index: number, data: any?)
 	end
 	local color: Color3? = nil
 	local hex = data and data.plotColor
+	if data ~= nil and (type(hex) ~= "string" or hex == "") then
+		hex = Plots.DEFAULT_ACCENTS[index]
+	end
 	if type(hex) == "string" and hex ~= "" then
 		local ok, parsed = pcall(Color3.fromHex, hex)
 		if ok then
@@ -261,6 +281,10 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 		local prompt = ensurePrompt(stand, index, slot)
 		prompt.ActionText = if itemId == nil then "Place" else "Take"
 	end
+
+	-- The gallery's empty/full look (build/Plots.setStandState): slot brackets while
+	-- empty, a line in the displayed item's rarity colour while full.
+	Plots.setStandState(plot, slot, if rarity then Rarity.get(rarity).color else nil)
 
 	local display = plot:FindFirstChild(`Display{slot}`, true) :: BasePart?
 	if display == nil then
@@ -606,7 +630,8 @@ function ExhibitService.refreshLocker(player: Player)
 end
 
 --- Set this player's chosen base accent colour and repaint their plot. `hex` is a
---- bare "RRGGBB" (a leading "#" is tolerated) or "" to go back to the neutral grey.
+--- bare "RRGGBB" (a leading "#" is tolerated) or "" to go back to the plot's default
+--- hue (Plots.DEFAULT_ACCENTS, see renderAccent).
 --- The Settings GUI's picker is a full RGB wheel by design, so this validates FORMAT
 --- ONLY — there is no palette to check against and no saturation/brightness floor.
 --- The colour lives on the profile and renderAccent re-applies it on the next
@@ -966,10 +991,12 @@ function ExhibitService.start()
 	-- (a rejected or debounced change leaves data.plotColor unchanged, so the echo
 	-- reverts the client). No StationResult toast — the picker is not a station, and
 	-- that toast is invisible away from one (memory: station-result-toast-needs-panel).
+	-- The second value is the plot's default hue, which the base wears while the first
+	-- is "" — the picker shows it rather than a grey the world no longer uses.
 	colorRemote.OnServerEvent:Connect(function(player: Player, hex)
 		ExhibitService.setPlotColor(player, if type(hex) == "string" then hex else "")
 		local data = DataService.data(player)
-		colorRemote:FireClient(player, if data then data.plotColor else "")
+		colorRemote:FireClient(player, if data then data.plotColor else "", defaultAccentHex(player))
 	end)
 
 	DataService.onLoaded(function(player, data)
@@ -984,8 +1011,9 @@ function ExhibitService.start()
 		assign(player)
 
 		-- Open the Settings picker on the player's saved base colour ("" = never
-		-- picked). Same "once on load" timing as the PlotState fire inside assign().
-		colorRemote:FireClient(player, data.plotColor)
+		-- picked, so the plot's default hue follows). Same "once on load" timing as the
+		-- PlotState fire inside assign(), which is also what makes plotOf valid here.
+		colorRemote:FireClient(player, data.plotColor, defaultAccentHex(player))
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
