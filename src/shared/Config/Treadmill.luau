@@ -81,13 +81,14 @@ export type TreadmillTier = {
 	blurb: string,
 }
 
---- PRICED ON THE RETIRED BOOTS LADDER, RUNG FOR RUNG (0 / 2300 / 6500 / 18000 /
---- 51000 / 140000). That is not nostalgia: Boots was the steep ~2.8x curve PLAN §5.2
---- asked for precisely because speed is the dangerous stat, and this track inherits
---- that exact economic role. It also means DataService's one-time Boots refund hands
---- a returning player back the exact cash to buy the belt rung matching whatever
---- boots they had, which is as close to "nothing was taken from you" as a retirement
---- gets.
+--- PRICED ON THE RETIRED BOOTS LADDER, RUNG FOR RUNG (0 / 11500 / 32500 / 90000 /
+--- 255000 / 700000 — the whole ladder was multiplied by 5x, feat/shop-price-increase,
+--- to slow the game loop down; see this file's price-pass note below). That is not
+--- nostalgia: Boots was the steep ~2.8x curve PLAN §5.2 asked for precisely because
+--- speed is the dangerous stat, and this track inherits that exact economic role. It
+--- also means DataService's one-time Boots refund hands a returning player back the
+--- exact cash to buy the belt rung matching whatever boots they had, which is as
+--- close to "nothing was taken from you" as a retirement gets.
 ---
 --- `rated` covers a 12-point band each, tiling START_SPEED..MAX_SPEED with the top
 --- rung rated for the cap itself — so a maxed player on a maxed belt is never in
@@ -95,11 +96,11 @@ export type TreadmillTier = {
 --- expensive, not because the belt is fighting them.
 Treadmill.TIERS = {
 	{ name = "Scrap Belt", price = 0, rate = 1.00, rated = 40, blurb = "A conveyor off a dead factory line. It turns. Mostly." },
-	{ name = "Chain Runner", price = 2300, rate = 1.40, rated = 52, blurb = "Bicycle chain and a flywheel. Keeps its own pace." },
-	{ name = "Geared Treadplate", price = 6500, rate = 1.96, rated = 64, blurb = "Geared plate deck. Pushes back when you push it." },
-	{ name = "Servo Track", price = 18000, rate = 2.74, rated = 76, blurb = "Servo-driven. Reads your stride and outruns it." },
-	{ name = "Reactor Mill", price = 51000, rate = 3.84, rated = 88, blurb = "Runs off a slug of core. Warm underfoot." },
-	{ name = "Isotope Strider", price = 140000, rate = 5.38, rated = 100, blurb = "The last belt. Nothing here is rated past what it does." },
+	{ name = "Chain Runner", price = 11500, rate = 1.40, rated = 52, blurb = "Bicycle chain and a flywheel. Keeps its own pace." },
+	{ name = "Geared Treadplate", price = 32500, rate = 1.96, rated = 64, blurb = "Geared plate deck. Pushes back when you push it." },
+	{ name = "Servo Track", price = 90000, rate = 2.74, rated = 76, blurb = "Servo-driven. Reads your stride and outruns it." },
+	{ name = "Reactor Mill", price = 255000, rate = 3.84, rated = 88, blurb = "Runs off a slug of core. Warm underfoot." },
+	{ name = "Isotope Strider", price = 700000, rate = 5.38, rated = 100, blurb = "The last belt. Nothing here is rated past what it does." },
 } :: { TreadmillTier }
 
 --- Training units to buy the point that takes you FROM `speed` to `speed + 1`.
