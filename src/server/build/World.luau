@@ -37,6 +37,7 @@ local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear)
+local Camps = require(Shared.Config.Camps)
 
 local Kit = require(script.Parent.Kit)
 local BaseCamp = require(script.Parent.BaseCamp)
@@ -44,6 +45,7 @@ local Hub = require(script.Parent.Hub)
 local StageFields = require(script.Parent.StageFields)
 local Shops = require(script.Parent.Shops)
 local Plots = require(script.Parent.Plots)
+local CampSite = require(script.Parent.CampSite)
 local Scenery = require(script.Parent.Scenery)
 local Daylight = require(script.Parent.Daylight)
 
@@ -64,6 +66,7 @@ function World.rebuild()
 	BaseCamp.rebuild(Hub.CAMP_ORIGIN)
 	Shops.rebuild()
 	Plots.rebuild()
+	CampSite.rebuild()
 	Scenery.rebuild()
 	Daylight.apply()
 
@@ -236,6 +239,23 @@ function World.verify(): (boolean, { string })
 				`Stage{id} does not touch the camp or any stage connected to it — there is no terrain in this world, so it is a plate across open void that no player can walk to`
 			)
 		end
+
+		-- ── Site camps sit OUTSIDE every stage ────────────────────────────
+		-- The same rule as the plaza: a camp is safe only because it is in no stage
+		-- rectangle. Its bounding box (wall included) may touch a stage -- Toxic
+		-- Twilight's clip line IS the Crater's east edge -- but never overlap one.
+		for _, def in Camps.sites() do
+			local c, r, clip = def.center :: { number }, def.radius :: number, def.clipX :: number
+			local reach = r + 8 -- the wall stands just outside the floor
+			local box = { clip, c[2] - reach, c[1] + reach, c[2] + reach }
+			for _, id in built do
+				local ax, az, bx, bz = Stages.bounds(id)
+				check(
+					not rectsOverlap({ ax, az, bx, bz }, box),
+					`camp "{def.name}" overlaps Stage{id} — the camp would irradiate the people resting in it`
+				)
+			end
+		end
 	end
 
 	-- ── Plot pads: on the ring, not in it ────────────────────────────────
@@ -304,6 +324,67 @@ function World.verify(): (boolean, { string })
 		end
 	end
 
+	-- ── Site camps (build/CampSite) ───────────────────────────────────────
+	-- One Workspace.Camps (Kit.swap rebuilds the first match only, the same trap as
+	-- Workspace.Shops below), one model per site camp, and exactly one CampAnchor in
+	-- it -- that part is where WarpService lands a player, so a missing one strands
+	-- the warp button and one inside a stage would warp people into the radiation.
+	local sites = Camps.sites()
+	local campRoots = {}
+	for _, child in Workspace:GetChildren() do
+		if child.Name == CampSite.MODEL_NAME then
+			table.insert(campRoots, child)
+		end
+	end
+	check(
+		#campRoots == 1,
+		`expected exactly one Workspace.{CampSite.MODEL_NAME}, found {#campRoots} — Kit.swap rebuilds the FIRST match only`
+	)
+	local campRoot = campRoots[1]
+	if campRoot then
+		for _, def in sites do
+			local model: Instance? = nil
+			for _, child in campRoot:GetChildren() do
+				if child:GetAttribute("CampKey") == def.key then
+					model = child
+				end
+			end
+			check(model ~= nil, `Workspace.{CampSite.MODEL_NAME} has no model for camp "{def.name}" (CampKey "{def.key}")`)
+			if model then
+				local anchors = {}
+				for _, d in model:GetDescendants() do
+					if d.Name == CampSite.ANCHOR_NAME and d:IsA("BasePart") then
+						table.insert(anchors, d)
+					end
+				end
+				check(#anchors == 1, `camp "{def.name}" has {#anchors} {CampSite.ANCHOR_NAME}s, expected 1 — WarpService lands players on it`)
+				local anchor = anchors[1] :: BasePart?
+				if anchor then
+					check(anchor:GetAttribute("CampKey") == def.key, `camp "{def.name}"'s anchor has CampKey {tostring(anchor:GetAttribute("CampKey"))}`)
+					for _, id in Stages.builtIds() do
+						local ax, az, bx, bz = Stages.bounds(id)
+						local pos = anchor.Position
+						check(
+							not (pos.X > ax and pos.X < bx and pos.Z > az and pos.Z < bz),
+							`camp "{def.name}"'s anchor is inside Stage{id} — a warp there would drop players into the radiation`
+						)
+					end
+				end
+			end
+		end
+		for _, d in campRoot:GetDescendants() do
+			check(d:GetAttribute("StageId") == nil, `camp part {d:GetFullName()} carries a StageId and would register as a stage`)
+		end
+		-- An empty stall sells nothing; a StationKind on one would open a panel for it.
+		for _, d in campRoot:GetDescendants() do
+			if d:IsA("Model") and d.Name == "EmptyStall" then
+				for _, part in d:GetDescendants() do
+					check(part:GetAttribute("StationKind") == nil, `{part:GetFullName()} is part of an empty stall but carries a StationKind`)
+				end
+			end
+		end
+	end
+
 	-- ── Stations: attribute and tag must agree, both directions ──────────
 	local census: { [string]: number } = {}
 	for _, d in Workspace:GetDescendants() do
@@ -330,11 +411,15 @@ function World.verify(): (boolean, { string })
 	-- The sell loop needs one shared, visible destination. A missing trader leaves
 	-- EconomyService working but makes every carried item effectively unsellable;
 	-- a second one makes the intended central rendezvous point ambiguous.
-	check((census.trader or 0) == 1, `expected 1 trader station, found {census.trader or 0}`)
-	-- One cleansing station per base now, not one shared station at camp.
+	-- ONE PER CAMP now: Base Camp's, plus one in every site camp (build/CampSite).
+	local traders = 1 + #sites
+	check((census.trader or 0) == traders, `expected {traders} trader stations (one per camp), found {census.trader or 0}`)
+	-- One cleansing station per base, not one shared station at Base Camp -- plus the
+	-- one shared station each site camp stands, since those have no plots.
+	local deconCount = Plots.COUNT + #sites
 	check(
-		(census.decon or 0) == Plots.COUNT,
-		`expected {Plots.COUNT} decon stations (one per base), found {census.decon or 0}`
+		(census.decon or 0) == deconCount,
+		`expected {deconCount} decon stations (one per base + one per site camp), found {census.decon or 0}`
 	)
 	-- NOT `>= #Gear.TRACKS` any more. That equated "a track" with "a shop counter",
 	-- which stopped being true when Luck moved to a wooden sign with a prompt — and it
@@ -452,7 +537,7 @@ function World.verify(): (boolean, { string })
 			end
 		end
 	end
-	check(hoses == Plots.COUNT, `expected {Plots.COUNT} wash hoses (one per base), found {hoses}`)
+	check(hoses == deconCount, `expected {deconCount} wash hoses (one per cleansing station), found {hoses}`)
 
 	-- Every priced track must be buyable somewhere. TWO WAYS TO SELL ONE now, and the
 	-- check has to know both or moving a track between them looks like a clean
