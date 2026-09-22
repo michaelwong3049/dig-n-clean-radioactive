@@ -32,6 +32,7 @@ local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Gear = require(Shared.Config.Gear)
 local Liquids = require(Shared.Config.Liquids)
+local Camps = require(Shared.Config.Camps)
 local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
@@ -42,6 +43,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local ExhibitService = require(script.Parent.ExhibitService)
 local HazardService = require(script.Parent.HazardService)
 local DigService = require(script.Parent.DigService)
+local CampService = require(script.Parent.CampService)
 
 local Workspace = game:GetService("Workspace")
 
@@ -91,6 +93,43 @@ COMMANDS["/stage"] = {
 		-- ambientFor(player) -- same depthFrac math, evaluated immediately instead.
 		local ambientHere = Stages.radsAt(id, 0.5)
 		return `moved into stage {id}: {stage.name} — {stage.baseRads}-{stage.deepRads} rads/s across the stage, ~{string.format("%.1f", ambientHere)} here`
+	end,
+}
+
+COMMANDS["/camp"] = {
+	-- Straight onto a site camp's warp anchor, lock or no lock -- standing there is
+	-- then what reaches it, exactly as walking in would (CampService's tick).
+	help = "/camp <key> — teleport to a site camp (e.g. twilight); reaching it unlocks its warp",
+	run = function(player, _sandbox, args)
+		local key = args[1]
+		local camp = if key then Camps.get(key) else nil
+		if camp == nil or camp.key == Camps.BASE then
+			local keys = {}
+			for _, def in Camps.sites() do
+				table.insert(keys, def.key)
+			end
+			return `usage: /camp <{table.concat(keys, "|")}>`
+		end
+		local landing = CampService.arrivalCFrame(camp.key)
+		if landing == nil then
+			return `{camp.name} is not built in this world yet — run World.rebuild()`
+		end
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if root == nil or not root:IsA("BasePart") then
+			return "no character to move"
+		end
+		root.CFrame = landing + Vector3.new(0, 4, 0)
+		root.AssemblyLinearVelocity = Vector3.zero
+		return `moved to {camp.name}`
+	end,
+}
+
+COMMANDS["/camplock"] = {
+	help = "/camplock — forget every camp you have reached (re-locks their warp buttons)",
+	run = function(player, _sandbox, _args)
+		CampService.clearReached(player)
+		return "every site camp is locked again — walk (or /camp) back in to unlock"
 	end,
 }
 

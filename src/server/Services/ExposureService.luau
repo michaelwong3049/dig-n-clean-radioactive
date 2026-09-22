@@ -37,6 +37,9 @@ local Net = require(Shared.Net)
 local DataService = require(script.Parent.DataService)
 local WashService = require(script.Parent.WashService)
 local StageService = require(script.Parent.StageService)
+-- Read ONLY to name the camp you are standing in on the HUD. CampService requires
+-- only DataService, so the direction is safe.
+local CampService = require(script.Parent.CampService)
 -- Read ONLY for DigService.isLocked, below. The direction is safe: DigService requires
 -- DataService and StageService but never this file, so there is no cycle. It is also
 -- the pattern ToolService already uses to ask DigService what the player is doing.
@@ -494,9 +497,14 @@ local function stepPlayer(player: Player, dt: number)
 		survivable = state.survivableRatchet
 	end
 
+	-- Outside every stage you are in a camp: a site camp's own name if you are standing
+	-- in one (Config/Camps), Base Camp everywhere else -- the name the HUD always used.
+	local camp = if stageId then nil else CampService.campOf(player)
+
 	stateRemote:FireClient(player, {
 		stageId = stageId,
-		stageName = if stageId then Stages.get(stageId).name else "Base Camp",
+		stageName = if stageId then Stages.get(stageId).name elseif camp then camp.name else "Base Camp",
+		campId = if camp then camp.id else nil,
 		ambient = ambient,
 		depth = depth,
 		inShower = showering,

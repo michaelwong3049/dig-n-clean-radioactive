@@ -21,6 +21,12 @@
 
 	Base camp is not a stage and gets no card — crossing back into it just dismisses
 	whatever is showing.
+
+	A SITE CAMP DOES GET ONE (Config/Camps — Toxic Twilight): "CAMP / Toxic Twilight",
+	tinted to the camp's first awning colour, off ExposureState's `campId`. The first
+	time you reach a camp the eyebrow reads CAMP UNLOCKED instead — CampState's
+	`unlocked` says so, and whichever of the two remotes lands first, the card ends up
+	saying it (see `unlockedAt`).
 ]]
 
 local Players = game:GetService("Players")
@@ -29,6 +35,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
+local Camps = require(Shared.Config.Camps)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -43,9 +50,15 @@ local IN = TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local OUT = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local HOLD = 2.6
 
---- -1 so the first ExposureState always applies. nil is base camp (no card).
-local currentStage: number? = -1
+--- Where the card last settled: "stage:<id>", "camp:<id>", or nil for Base Camp (no
+--- card). "?" so the first ExposureState always applies.
+local currentWhere: string? = "?"
 local token = 0
+
+--- Camp key -> os.clock() of its CampState `unlocked`, so a camp card shown just after
+--- (or just before) the unlock reads CAMP UNLOCKED rather than plain CAMP.
+local unlockedAt: { [string]: number } = {}
+local UNLOCK_FRESH = 4
 
 local ui: {
 	panel: Frame,
@@ -139,21 +152,15 @@ local function hide()
 	end
 end
 
-local function show(stageId: number)
+local function showCard(eyebrow: string, title: string, accent: Color3)
 	if ui == nil then
 		return
 	end
 	local u = ui
 
-	local ok, def = pcall(Stages.get, stageId)
-	if not (ok and def) then
-		return
-	end
-
-	local accent = accentFor(def.color)
-	u.eyebrow.Text = `STAGE {stageId}`
+	u.eyebrow.Text = eyebrow
 	u.eyebrow.TextColor3 = accent
-	u.name.Text = def.name
+	u.name.Text = title
 	u.stroke.Color = accent
 
 	token += 1
@@ -181,6 +188,23 @@ local function show(stageId: number)
 	end)
 end
 
+local function showStage(stageId: number)
+	local ok, def = pcall(Stages.get, stageId)
+	if ok and def then
+		showCard(`STAGE {stageId}`, def.name, accentFor(def.color))
+	end
+end
+
+local function showCamp(campId: number)
+	local def = Camps.byId(campId)
+	if def == nil then
+		return
+	end
+	local fresh = os.clock() - (unlockedAt[def.key] or -math.huge) < UNLOCK_FRESH
+	local tint = if def.palette then def.palette.awnings[1] else "A855FF"
+	showCard(if fresh then "CAMP UNLOCKED" else "CAMP", def.name, accentFor(tint))
+end
+
 --- SETTLE BEFORE ACTING. `StageService.stageOf` can read nil for a tick or two while a
 --- player is crossing a seam or dropping onto a plate after a teleport, so a raw
 --- edge-trigger produces a stage->nil->stage flicker that slides the card in, out and in
@@ -189,11 +213,12 @@ end
 --- long enough to swallow the blip.
 local pendingToken = 0
 
-local function applyFor(stageId: number?)
-	if stageId == currentStage then
+local function applyFor(stageId: number?, campId: number?)
+	local where = if stageId then `stage:{stageId}` elseif campId then `camp:{campId}` else nil
+	if where == currentWhere then
 		return
 	end
-	currentStage = stageId
+	currentWhere = where
 
 	pendingToken += 1
 	local mine = pendingToken
@@ -201,10 +226,12 @@ local function applyFor(stageId: number?)
 		if mine ~= pendingToken then
 			return -- a newer transition superseded this one
 		end
-		if stageId == nil then
-			hide()
+		if stageId then
+			showStage(stageId)
+		elseif campId then
+			showCamp(campId)
 		else
-			show(stageId)
+			hide()
 		end
 	end)
 end
@@ -215,14 +242,32 @@ function StageBannerController.start()
 	gui.Parent = player:WaitForChild("PlayerGui")
 
 	Net.get("ExposureState").OnClientEvent:Connect(function(state)
-		applyFor(state.stageId)
+		applyFor(state.stageId, state.campId)
+	end)
+
+	-- A camp reached for the first time. If the camp's card is already up (or settling)
+	-- this re-announces it as unlocked; if it has not arrived yet, showCamp reads
+	-- `unlockedAt` when it does.
+	Net.get("CampState").OnClientEvent:Connect(function(state)
+		if type(state) ~= "table" or type(state.unlocked) ~= "string" then
+			return
+		end
+		local def = Camps.get(state.unlocked)
+		if def == nil then
+			return
+		end
+		unlockedAt[def.key] = os.clock()
+		if currentWhere == `camp:{def.id}` then
+			pendingToken += 1 -- supersede a settle timer that would show plain CAMP
+			showCamp(def.id)
+		end
 	end)
 
 	-- Respawn: ExposureState does not re-fire immediately, and a card left up from
 	-- before the blackout would hang there. Wipe it and let the next tick re-announce
 	-- wherever the player actually wakes up (nothing, if that is camp).
 	player.CharacterAdded:Connect(function()
-		currentStage = -1
+		currentWhere = "?"
 		token += 1
 		pendingToken += 1 -- cancel any settle timer mid-flight
 		if ui then

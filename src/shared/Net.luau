@@ -126,8 +126,17 @@ local REMOTES: { [string]: string } = {
 	-- position, and WarpService re-derives the CFrame server-side, exactly the way
 	-- DigService re-derives which signal a yank means. It is REFUSED from inside a
 	-- stage (StageService.stageOf ~= nil) so it can never be an escape hatch out of a
-	-- lethal field; the bar hides itself there too, so that path is edge-only.
-	Warp = "RemoteEvent", -- client -> server, { dest = "base" | "shops" }
+	-- lethal field; the bar hides itself there too, so that path is edge-only. A site
+	-- camp's key (Config/Camps, e.g. "twilight") is also a destination, refused until
+	-- the player has reached that camp on foot once.
+	Warp = "RemoteEvent", -- client -> server, { dest = "base" | "shops" | <camp key> }
+	--
+	-- Which site camps this player has reached on foot (so their warp is unlocked) and
+	-- which exist in this world at all (a place saved before the camp was built has no
+	-- CampAnchor to land on, so the button must not show). Change-driven: once on load,
+	-- then whenever either set moves. `unlocked` names a camp reached THIS push, so the
+	-- banner can say so exactly once. Services/CampService.
+	CampState = "RemoteEvent", -- server -> client, { reached, available, unlocked? }
 
 	-- Which physical plot this player was assigned this session, so the client can
 	-- mark it (client BaseMarkerController's "YOUR BASE" avatar beacon). Server ->

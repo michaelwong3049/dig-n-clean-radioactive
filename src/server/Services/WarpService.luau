@@ -24,6 +24,14 @@
 	            aisle between the stalls and the Outfitter — already the shared
 	            "where you land when you leave the field" point (blackout uses it).
 
+	  <camp key> -> CampService.arrivalCFrame(key), the CampAnchor build/CampSite stands
+	            in that camp's plaza (Config/Camps; "twilight" is Toxic Twilight). A
+	            third rule on top of "not from inside a stage": the player must have
+	            REACHED that camp on foot once (CampService.reached). The bar shows the
+	            button locked until then; this is the refusal for a client that lies.
+	            nil (the saved place predates the camp) refuses too, rather than
+	            dropping anyone into open water.
+
 	Neither is looked up from Workspace here: this service owns the RULE (are you
 	allowed to, and where does the name point), not the geometry.
 ]]
@@ -32,11 +40,13 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Net = require(ReplicatedStorage.Shared.Net)
+local Camps = require(ReplicatedStorage.Shared.Config.Camps)
 
 local StageService = require(script.Parent.StageService)
 local DigService = require(script.Parent.DigService)
 local ExhibitService = require(script.Parent.ExhibitService)
 local ExposureService = require(script.Parent.ExposureService)
+local CampService = require(script.Parent.CampService)
 
 local WarpService = {}
 
@@ -62,6 +72,14 @@ local function destinationFor(player: Player, dest: string): CFrame?
 		-- than leaving the button do nothing.
 		return ExposureService.baseCampCFrame()
 	end
+	-- A site camp. Reached on foot first, and actually in this world -- see the header.
+	local camp = Camps.get(dest)
+	if camp and camp.key ~= Camps.BASE and CampService.reached(player, camp.key) then
+		local anchor = CampService.arrivalCFrame(camp.key)
+		if anchor then
+			return anchor + DROP_IN
+		end
+	end
 	return nil
 end
 
@@ -70,7 +88,7 @@ local function onWarp(player: Player, payload: any)
 		return
 	end
 	local dest = payload.dest
-	if dest ~= "base" and dest ~= "shops" then
+	if type(dest) ~= "string" or (dest ~= "base" and dest ~= "shops" and Camps.get(dest) == nil) then
 		return
 	end
 

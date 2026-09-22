@@ -54,6 +54,28 @@ function WarpIcons.build(parent: GuiObject, destination: string): { Frame }
 		rectangle(28, 51, 44, 11)
 		rectangle(28, 62, 18, 14)
 		rectangle(55, 62, 17, 14)
+	elseif destination ~= "shops" then
+		-- A site camp (Config/Camps): a pitched tent under a crescent moon -- somewhere
+		-- you rest on the far side of the wasteland, not a house you own.
+		-- The crescent: an outer arc and a smaller inner arc offset up-right, meeting at
+		-- the horns.
+		local function arc(cx: number, cy: number, r: number, from: number, to: number, thickness: number)
+			local steps = 10
+			for step = 0, steps - 1 do
+				local a = math.rad(from + (to - from) * step / steps)
+				local b = math.rad(from + (to - from) * (step + 1) / steps)
+				line(cx + r * math.cos(a), cy + r * math.sin(a), cx + r * math.cos(b), cy + r * math.sin(b), thickness)
+			end
+		end
+		arc(70, 24, 17, 60, 300, 5)
+		arc(78, 19, 12, 90, 270, 4)
+		-- The tent: two poles meeting at the ridge, a ground line, and the open flap.
+		line(12, 90, 46, 36, 6)
+		line(46, 36, 82, 90, 6)
+		line(6, 90, 90, 90, 6)
+		line(46, 56, 36, 90, 5)
+		line(46, 56, 56, 90, 5)
+		line(46, 36, 46, 28, 4)
 	else
 		-- Shop outline, open doorway/window and a striped, scalloped awning.
 		line(16, 44, 16, 94, 6)
@@ -84,6 +106,52 @@ function WarpIcons.build(parent: GuiObject, destination: string): { Frame }
 		end
 	end
 	return pieces
+end
+
+--- A small padlock badge for a locked destination, pinned to `parent`'s top-right
+--- corner. Returns the root so the caller can show or hide the whole badge.
+function WarpIcons.lock(parent: GuiObject): Frame
+	local root = Instance.new("Frame")
+	root.Name = "LockBadge"
+	root.AnchorPoint = Vector2.new(1, 0)
+	root.Position = UDim2.new(1, -5, 0, 5)
+	root.Size = UDim2.fromOffset(18, 18)
+	root.BackgroundTransparency = 1
+	root.ZIndex = 9
+	root.Parent = parent
+
+	local function piece(x: number, y: number, w: number, h: number, color: Color3, rotation: number?): Frame
+		local part = Instance.new("Frame")
+		part.AnchorPoint = Vector2.new(0.5, 0.5)
+		part.Position = UDim2.fromScale(x / 100, y / 100)
+		part.Size = UDim2.fromScale(w / 100, h / 100)
+		part.Rotation = rotation or 0
+		part.BackgroundColor3 = color
+		part.BorderSizePixel = 0
+		part.ZIndex = 9
+		part.Parent = root
+		return part
+	end
+
+	local gold = Color3.fromRGB(255, 210, 74)
+	-- The shackle: two legs and a rounded top, drawn as short rotated bars.
+	piece(30, 36, 12, 34, gold)
+	piece(70, 36, 12, 34, gold)
+	for step = 0, 5 do
+		local a, b = math.pi + step * math.pi / 6, math.pi + (step + 1) * math.pi / 6
+		local x1, y1 = 50 + 20 * math.cos(a), 24 + 20 * math.sin(a)
+		local x2, y2 = 50 + 20 * math.cos(b), 24 + 20 * math.sin(b)
+		local dx, dy = x2 - x1, y2 - y1
+		piece((x1 + x2) / 2, (y1 + y2) / 2, math.sqrt(dx * dx + dy * dy) + 3, 12, gold, math.deg(math.atan2(dy, dx)))
+	end
+	-- The body, and a dark keyhole on it.
+	local body = piece(50, 72, 76, 52, gold)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.2, 0)
+	corner.Parent = body
+	piece(50, 70, 14, 22, Color3.fromRGB(18, 20, 24))
+
+	return root
 end
 
 return WarpIcons
