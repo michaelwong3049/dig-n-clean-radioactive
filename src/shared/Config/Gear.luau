@@ -215,19 +215,40 @@ Gear.Suit = {
 	{ name = "Containment Rig", price = 100000, reduction = 0.9889, tolerance = 105.0, capacity = 20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
 }
 
--- PLAN §5.2: boots are the most economically dangerous track in the game.
--- Priced on a steeper ~2.8x curve than everything else, deliberately.
+-- ── RETIRED ───────────────────────────────────────────────────────────────────
 --
--- Every tier's walkSpeed +4 on request ("base speed is too slow"): 16->20 for the
--- starting tier, same +4 straight up the ladder so the relative gaps between tiers
--- (and their haulPenalty/stamina pairing) are untouched -- only the floor moved.
--- Then +3 more, same deal: whole ladder shifts up together (20->23 at the floor),
--- gaps and pairings still untouched. Then +3 again on request ("bump the base
--- walkspeed a bit more"): floor now 23->26, ladder and pairings still untouched.
--- This used to be inert data: nothing set Humanoid.WalkSpeed from it at all outside
--- the /speed debug command (see DebugService.luau). ExposureService's per-tick loop
--- now applies StatResolver.effectiveWalkSpeed live, so this table finally means
--- something in actual play, not just in Spec's math.
+-- THE BOOTS TRACK NO LONGER EXISTS. It is not in Gear.TRACKS, it has no STAT_META
+-- entry, no shop counter and no stall: nothing sells it and nothing reads a stat off
+-- it. Speed is TRAINED now, on the treadmill on your own plot — see
+-- Config/Treadmill.luau, which owns `walkSpeed` outright and explains why a purchase
+-- became a grind.
+--
+-- WHY THE TABLE IS STILL HERE, when the rule for a retired ITEM is to empty its
+-- stages and leave the entry (see Config/Items): DataService's one-time refund prices
+-- against this exact `price` column. A returning player is handed back the cash for
+-- every rung they actually bought, and it cannot compute that from a table that has
+-- been deleted. Treadmill.TIERS deliberately reuses this same price ladder rung for
+-- rung, so that refund buys back the equivalent belt.
+--
+-- WHERE THE FOUR STATS WENT:
+--   walkSpeed    -> Config/Treadmill. The whole feature.
+--   haulPenalty  -> Gear.Satchel, below. It is a bag stat: what drags you is the
+--                   loot, and the Satchel track already owns everything else about
+--                   how your own haul treats you. It also restores the alternation
+--                   PLAN §5.1 wanted — Suit buys capacity, Satchel makes carrying it
+--                   bearable — which Boots-vs-Suit used to provide.
+--   stamina      -> nowhere. Verified inert before removal: StatResolver was the only
+--   canVault        writer and NOTHING in the game ever read any of the three. Sprint
+--   canDash         (Gear.SPRINT_MULTIPLIER) is in the same state — `effectiveWalkSpeed`
+--                   takes a `sprinting` flag that no call site has ever passed true.
+--                   PLAN §5.1 specced all four; none was ever built.
+--
+-- The history of the numbers, kept because the treadmill's START_SPEED is one of
+-- them: every tier's walkSpeed was raised +4, then +3, then +3 again on request
+-- ("base speed is too slow", "bump the base walkspeed a bit more"), moving the floor
+-- 16 -> 26 while the ladder and its pairings stayed put. That floor of 26 is exactly
+-- Treadmill.START_SPEED, so an untrained player today walks at the speed a
+-- freshly-booted player walked at before any of this changed.
 Gear.Boots = {
 	{ name = "Taped Boots", price = 0, walkSpeed = 26, haulPenalty = 1.20, stamina = 4, canVault = false, canDash = false, blurb = "Taped at the toe. They hold, mostly." },
 	{ name = "Tread Boots", price = 2300, walkSpeed = 28, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false, blurb = "Real tread. A full load stops dragging you." },
@@ -237,21 +258,35 @@ Gear.Boots = {
 	{ name = "Strider Rig", price = 140000, walkSpeed = 36, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true, blurb = "Full load, full speed. The haul stops mattering." },
 }
 
--- The satchel does two jobs, and the second one matters more than PLAN §3.7 realised:
---   fuseMult  — multiplies the decay clock's fuse length. 1.25 = 20% slower decay.
---   shielding — fraction of CARRIED emission blocked. The suit shields you from the
---               world; the satchel shields you from your own loot. Without this the
---               greed dial (§3.3) stops working the moment you buy a decent suit,
---               because suit reduction would erase your backpack too.
+-- The satchel does THREE jobs now, and the second one matters more than PLAN §3.7
+-- realised:
+--   fuseMult    — multiplies the decay clock's fuse length. 1.25 = 20% slower decay.
+--   shielding   — fraction of CARRIED emission blocked. The suit shields you from the
+--                 world; the satchel shields you from your own loot. Without this the
+--                 greed dial (§3.3) stops working the moment you buy a decent suit,
+--                 because suit reduction would erase your backpack too.
+--   haulPenalty — studs/sec of walk speed lost PER CARRIED HOT ITEM. Inherited from
+--                 the retired Boots track (see its header above).
 --
 -- PLAN §3.7: this line SLOWS the clock, it never stops it. Keep fuseMult finite, and
 -- keep shielding under 1.0 forever — a bag that fully shields is a bag with no greed.
+--
+-- haulPenalty IS THE STAT THAT MAKES CAPACITY A DECISION, and PLAN §5.1 is emphatic
+-- about it: without it, capacity is just a bigger number. It reads as a Satchel column
+-- far more naturally than it ever did as a Boots one — the weight that slows you is
+-- the bag's, and this is now the only track that speaks to what carrying loot costs
+-- you. Five rungs against Boots' six, spanning the same 1.20 -> 0.20 range, so the
+-- stat's floor and ceiling are unchanged and only the step size moved.
+--
+-- KEEP THE FLOOR ABOVE ZERO. A bag with no haul penalty is the same failure as one
+-- with full shielding: the greed dial stops turning. 0.20 against a 20-item Suit
+-- capacity is still 4 studs/sec off a trained runner.
 Gear.Satchel = {
-	{ name = "Canvas Bag", price = 0, fuseMult = 1.00, shielding = 0.00, blurb = "Canvas. Stops nothing, holds everything." },
-	{ name = "Lined Pack", price = 4000, fuseMult = 1.25, shielding = 0.25, blurb = "Lined seams slow the clock a fifth." },
-	{ name = "Lead Satchel", price = 9600, fuseMult = 1.61, shielding = 0.45, blurb = "Lead sheet at your back. Your finds stop cooking you." },
-	{ name = "Shielded Case", price = 23000, fuseMult = 2.17, shielding = 0.62, blurb = "Hard case, sealed lid. Buys real time." },
-	{ name = "Containment Pack", price = 55000, fuseMult = 3.12, shielding = 0.78, blurb = "Three times the fuse, and nearly silent to wear." },
+	{ name = "Canvas Bag", price = 0, fuseMult = 1.00, shielding = 0.00, haulPenalty = 1.20, blurb = "Canvas. Stops nothing, holds everything." },
+	{ name = "Lined Pack", price = 4000, fuseMult = 1.25, shielding = 0.25, haulPenalty = 0.90, blurb = "Lined seams slow the clock a fifth, and sit square on your back." },
+	{ name = "Lead Satchel", price = 9600, fuseMult = 1.61, shielding = 0.45, haulPenalty = 0.65, blurb = "Lead sheet at your back. Your finds stop cooking you." },
+	{ name = "Shielded Case", price = 23000, fuseMult = 2.17, shielding = 0.62, haulPenalty = 0.42, blurb = "Hard case, sealed lid. Buys real time and carries itself." },
+	{ name = "Containment Pack", price = 55000, fuseMult = 3.12, shielding = 0.78, haulPenalty = 0.20, blurb = "Three times the fuse, nearly silent to wear, and you stop feeling the load." },
 }
 
 -- THE SEVENTH TRACK, AND THE ONLY ONE THAT BUYS NOTHING YOU HOLD, AND THE ONLY ONE
@@ -292,6 +327,10 @@ function Gear.luckPrice(level: number): number
 	return math.floor(Gear.LUCK_START_PRICE * Gear.LUCK_PRICE_GROWTH ^ (math.max(level, 1) - 1) + 0.5)
 end
 
+-- INERT, and kept only so `effectiveWalkSpeed`'s signature does not have to change
+-- with the Boots retirement. Sprint was specced in PLAN §5.1 and never built: no call
+-- site has ever passed `sprinting = true`. Building it means finding it a stamina
+-- number to drain, which no longer exists on any track — see Gear.Boots' header.
 Gear.SPRINT_MULTIPLIER = 1.35
 
 -- LUCK IS NOT HERE. It has no tiers to iterate, no `Gear.tier("Luck", n)` to call,
@@ -301,15 +340,26 @@ Gear.SPRINT_MULTIPLIER = 1.35
 -- NEITHER IS A PEDESTAL PRICE. All exhibit stands are free from the start
 -- (Tuning.EXHIBIT_MAX_SLOTS); the cash-bought slot track and its `pedestalPrice`
 -- curve were cut with it.
-Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Boots", "Satchel" }
+--
+-- AND NEITHER IS BOOTS, ANY MORE. Dropping it from this list is the whole mechanism
+-- of the retirement: the shop's stall row, the generic sell path, the card panel's
+-- stat block and Spec's STAT_META coverage check all walk THIS table, so a track that
+-- leaves it stops existing everywhere at once with no per-file surgery. Its data is
+-- still in the file for the refund (see Gear.Boots).
+Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Satchel" }
 
 --- Track name (capitalised, as used here and in the world's StationId attribute)
 --- to profile field (lowercase, as used in DataService's TEMPLATE.gear).
 ---
 --- This mapping used to live as a 3-entry local inside ToolService, covering only
---- the tracks that have held models. The shop needs all six, and two copies of a
---- translation table is how you end up writing data.gear.Detector alongside
+--- the tracks that have held models. The shop needs every live track, and two copies
+--- of a translation table is how you end up writing data.gear.Detector alongside
 --- data.gear.detector and losing a purchase. One table, here, next to the data.
+---
+--- BOOTS IS STILL IN HERE AND IS NOT IN Gear.TRACKS. That is deliberate and it is the
+--- only entry for which the two disagree: this table answers "what does this track
+--- call itself in a profile", which the refund in DataService still has to ask about a
+--- track nobody can buy. Membership of TRACKS is what decides whether a track is live.
 Gear.PROFILE_KEY = {
 	Detector = "detector",
 	Magnet = "magnet",
@@ -347,8 +397,9 @@ end
 --- Per-field entries:
 ---   label          what the card prints. Short, uppercase — these sit in a 62px gutter.
 ---   kind           "number" (default, draws a bar) or "flag" (a boolean; draws a chip).
----   lowerIsBetter  the bar fills as the number FALLS. Only Boots' haulPenalty, which
----                  is the one column in the game where 0.10 beats 1.20.
+---   lowerIsBetter  the bar fills as the number FALLS. Only Satchel's haulPenalty,
+---                  which is the one column in the game where 0.20 beats 1.20. (It
+---                  was Boots' column before that track was retired.)
 ---   complement     the bar measures `1 - value`, not the value. Only Suit's
 ---                  `reduction`, which is the fraction of dose BLOCKED: it sits at
 ---                  0.63..0.9988 and what actually varies between rungs is the sliver
@@ -404,20 +455,20 @@ Gear.STAT_META = {
 		tolerance = { label = "TOLERANCE" },
 		capacity = { label = "CARRY" },
 	},
-	Boots = {
-		order = { "walkSpeed", "haulPenalty", "stamina", "canVault", "canDash" },
-		hidden = {},
-		walkSpeed = { label = "SPEED" },
-		haulPenalty = { label = "HAUL", lowerIsBetter = true },
-		stamina = { label = "STAMINA" },
-		canVault = { label = "VAULT", kind = "flag" },
-		canDash = { label = "DASH", kind = "flag" },
-	},
+	-- NO BOOTS ENTRY. The track is retired (see Gear.Boots) and is not in Gear.TRACKS,
+	-- which is the table Spec's coverage check and the shop both walk — so its columns
+	-- are neither advertised nor asserted over. Do not re-add one to "document" the
+	-- old stats; the header on that table is where they are written down.
 	Satchel = {
-		order = { "fuseMult", "shielding" },
+		order = { "fuseMult", "shielding", "haulPenalty" },
 		hidden = {},
 		fuseMult = { label = "FUSE" },
 		shielding = { label = "SHIELDING" },
+		-- Last of the three because it is the column inherited from Boots, and a
+		-- returning player should still find FUSE where they left it. `lowerIsBetter`
+		-- is the only use of that flag left in the game now: 0.20 beats 1.20, and
+		-- drawn straight the bar would empty as the bag got better.
+		haulPenalty = { label = "HAUL", lowerIsBetter = true },
 	},
 }
 

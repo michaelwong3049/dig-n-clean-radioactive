@@ -11,12 +11,18 @@
 	which is the cheapest legibility win available anywhere in this map.
 
 	PLUS AN OUTFITTER, a fourth stall, and this one is not decoration.
-	Gear.TRACKS has seven entries. Three stalls covers Detector, Magnet and Cleaner and
-	leaves Suit, Boots and Satchel priced but unbuyable — and the SUIT is the gate
-	on every stage in the game. Without a way to buy one, Stage 2 stops being "you can go
-	there and here is what it costs" and becomes exactly the locked door PLAN §3.5
-	promises never to build. It costs nothing to add because the shop system
-	is track-generic: it is four more counters with four more StationIds.
+	Three stalls covers Detector, Magnet and Cleaner and leaves Suit and Satchel priced
+	but unbuyable — and the SUIT is the gate on every stage in the game. Without a way
+	to buy one, Stage 2 stops being "you can go there and here is what it costs" and
+	becomes exactly the locked door PLAN §3.5 promises never to build. It costs nothing
+	to add because the shop system is track-generic: it is more counters with more
+	StationIds.
+
+	THE OUTFITTER USED TO BE THREE COUNTERS WIDE. Boots was the middle one, and the
+	track was retired when speed stopped being something you buy — see
+	Config/Treadmill.luau, and the treadmill build/Plots now stands on every base. The
+	building resized itself: its span and width are both derived from
+	`#OUTFITTER.counters`, so removing an entry was the whole edit.
 
 	THE SPLIT BETWEEN THE STALLS AND THIS BENCH IS "DO YOU HOLD IT". The three stalls
 	sell the three things ToolService can put in your hands; the Outfitter sells the
@@ -66,9 +72,9 @@
 	shared awning red), and a small one-line sign centred over the whole stall
 	that NAMES WHAT THE STALL SELLS ("Detector Shop" / "Magnet Shop" / "Hose
 	Shop") in that same accent. The Outfitter gets the identical shell at its own
-	width, its three counters each signed the same stall-style way ("Suit Shop" /
-	"Boots Shop" / "Satchel Shop") — see `buildOutfitter`'s own header for why it
-	used to be a separate building.
+	width, its two counters each signed the same stall-style way ("Suit Shop" /
+	"Satchel Shop") — see `buildOutfitter`'s own header for why it used to be a
+	separate building, and why it used to be three counters.
 
 	THE DECORATION IS GONE, AND THAT WAS A DELIBERATE STRIP. Earlier passes stood a
 	blocky shopkeeper behind each counter, a big silhouette prop of the thing sold
@@ -177,7 +183,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 38
+local BUILDER_VERSION = 39
 
 local C = Kit.C
 local build = Kit.build
@@ -410,8 +416,10 @@ local function stallAt(spec: { at: { number } }): (number, number)
 	return spec.at[1], spec.at[2]
 end
 
---- The outfitter's three counters on one bench. Radius 6 at a 13-stud pitch, so
---- no two counters' circles overlap and standing at one is unambiguous.
+--- The outfitter's counters on one bench. Radius 6 at a 13-stud pitch, so no two
+--- counters' circles overlap and standing at one is unambiguous. The bench's own span
+--- and width are derived from this list's length, so adding or retiring a track here
+--- resizes the building rather than leaving a gap where a counter used to be.
 ---
 --- `at` PUTS THIS RIGHT NEXT TO DETECTORSHOP, in the north row (z=30) —
 --- hand-placed alongside it, same as STALLS now (see that table's header).
@@ -426,8 +434,13 @@ local OUTFITTER = {
 	pitch = 13,
 	counters = {
 		{ track = "Suit", label = "Suit Shop" },
-		{ track = "Boots", label = "Boots Shop" },
 		{ track = "Satchel", label = "Satchel Shop" },
+		-- BOOTS IS NOT HERE ANY MORE. The track is retired (Config/Gear's `Gear.Boots`
+		-- header): speed is trained on a treadmill at your own base now, not bought at
+		-- a counter, and the haul penalty it used to carry moved onto the Satchel desk
+		-- one place up. Nothing here had to learn that -- dropping it from Gear.TRACKS
+		-- is what took it out of the sell path, and this entry only had to go so the
+		-- bench would not build a counter selling a track the shop refuses.
 		-- LUCK IS NOT HERE, and it briefly was. It is the one track you neither hold
 		-- nor wear, and a fourth desk here sold it as though it were a satchel. It
 		-- moved to a glowing button staked next to the wash pad it actually affects
@@ -1267,13 +1280,18 @@ end
 
 --- The outfitter: the SAME shell the plaza stalls build — StallFloor, studded
 --- posts, an open slatted back, a striped canopy in the shop's own accent — just
---- three counters wide instead of one stand. Suit, Boots and Satchel would
---- otherwise be priced but unbuyable, and hazard gear that actually reduces
---- incoming damage earns more than a picnic table. Sits right next to
+--- several counters wide instead of one stand. Suit and Satchel would otherwise be
+--- priced but unbuyable, and hazard gear that actually reduces incoming damage earns
+--- more than a picnic table. Sits right next to
 --- DetectorShop in the north row (see OUTFITTER.at); `faceYaw` points its front
 --- south, matching that row-mate. Each counter carries its own stall-style sign naming
---- the track (SUITS / BOOTS / SATCHELS) — there is no separate building-level
+--- the track (SUITS / SATCHELS) — there is no separate building-level
 --- sign, the same as a plaza stall has no sign beyond its one stand's.
+---
+--- WAS THREE COUNTERS, NOW TWO — Boots retired. `span` and `width` below both read
+--- `#OUTFITTER.counters`, so the bench shrank on its own and the canopy, floor and
+--- posts followed it. The `at` anchor did not move: the building is centred on that
+--- point, so it narrowed symmetrically and its row-mate DetectorShop kept its gap.
 ---
 --- USED TO BE A REAL WALLED BUILDING WITH A GABLE ROOF, because three counters
 --- side by side read as too wide for one stall-sized canopy at the time. Once

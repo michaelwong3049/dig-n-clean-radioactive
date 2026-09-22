@@ -101,6 +101,23 @@ local TEMPLATE = {
 	cleanTokens = 0,
 	rebirths = 0,
 
+	-- THE TREADMILL (Config/Treadmill, Services/TreadmillService). `speedXp` is banked
+	-- training units -- one unit is one second on the free starting belt -- and it is
+	-- the ONLY thing that decides how fast this player walks. `treadmill` is the belt
+	-- rung they own, 1-based like every gear track's tier, so the template's 1 needs no
+	-- migration and an existing save Reconciles straight onto the free belt.
+	--
+	-- A FLOAT, AND DELIBERATELY NOT AN INTEGER SPEED. Storing the resolved speed would
+	-- throw away the progress bar on every save and make the curve un-retunable: change
+	-- one constant in Config/Treadmill and every stored speed would mean a different
+	-- amount of work. Banking the INPUT and resolving the speed on read means a retune
+	-- moves everyone consistently, the way `xp` already relates to `level`.
+	--
+	-- Bounded by Treadmill.xpForSpeed(MAX_SPEED) before it is ever written (see
+	-- TreadmillService), so this cannot grow without limit in the save file.
+	speedXp = 0,
+	treadmill = 1,
+
 	-- The player's chosen base accent colour, "RRGGBB" hex (no leading "#"). "" means
 	-- they have never picked one, which renders the same neutral grey as an unclaimed
 	-- plot until they choose in the Settings GUI. NOT per-plot: plots are assigned per
@@ -184,6 +201,46 @@ local function thawCarry(data: any)
 	end
 end
 
+--- THE BOOTS REFUND — a one-time, self-erasing migration.
+---
+--- The Boots track was retired when speed became something you train rather than buy
+--- (Config/Treadmill). A player who had spent up to $140,000 climbing that ladder
+--- would otherwise log in one day to find the purchase gone and the cash with it,
+--- which is the single most trust-destroying thing a live game can do.
+---
+--- So: hand back the list price of every rung they actually bought. Treadmill.TIERS
+--- reuses the Boots price ladder rung for rung, so the refund buys the equivalent
+--- belt almost exactly -- a player who owned Servo Braces can immediately buy the
+--- Servo Track.
+---
+--- KEYED ON `gearOwned.boots` BEING NON-NIL, not on a version field or a `refunded`
+--- flag, for the same reason backfillGearOwned is keyed the way it is: the evidence
+--- IS the state. Clearing both keys is what makes it one-time, and a save that has
+--- already been through it has no `gearOwned.boots` to find. Note the ORDER below --
+--- this must run AFTER backfillGearOwned, or a legacy save that has never had
+--- `gearOwned` populated would present no boots to refund and silently lose them.
+---
+--- `gear.boots` (the EQUIPPED rung) is cleared alongside it. Nothing reads it any
+--- more -- StatResolver stopped, and Gear.TRACKS no longer lists the track -- but
+--- leaving a stale equipped tier behind invites exactly the sort of "this field looks
+--- live" mistake the retirement is trying to avoid.
+local function refundRetiredBoots(data: any): number
+	local owned = data.gearOwned and data.gearOwned.boots
+	if owned == nil then
+		return 0
+	end
+
+	local refund = 0
+	for _, tier in owned do
+		refund += Gear.tier("Boots", tier).price
+	end
+
+	data.gearOwned.boots = nil
+	data.gear.boots = nil
+	data.cash += refund
+	return refund
+end
+
 -- ── Session lifecycle ─────────────────────────────────────────────────────────
 
 local function onPlayerAdded(player: Player)
@@ -202,6 +259,11 @@ local function onPlayerAdded(player: Player)
 	profile:AddUserId(player.UserId) -- GDPR association
 	profile:Reconcile() -- fill in keys added to TEMPLATE since this save was made
 	backfillGearOwned(profile.Data)
+	-- Strictly after the backfill — see refundRetiredBoots for why the order matters.
+	local refunded = refundRetiredBoots(profile.Data)
+	if refunded > 0 then
+		print(`[data] {player.Name}: refunded ${refunded} for the retired Boots track`)
+	end
 
 	profile.OnSessionEnd:Connect(function()
 		profiles[player] = nil

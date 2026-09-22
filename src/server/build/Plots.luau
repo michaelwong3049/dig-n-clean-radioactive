@@ -161,6 +161,16 @@
 	                buildWashPad below). One per base, three steps from the basin.
 	    Button      SellsTrack = "Luck" + a ProximityPrompt — the luck button
 	                (see buildLuckButton). ShopService wires the prompt at boot.
+	    Belt        StationKind = "treadmill", Radius = 5 — the treadmill's running
+	                surface (see buildTreadmill). Standing on it IS training; no
+	                prompt, no session. Services/TreadmillService owns the clock.
+	    Console     UpgradesTreadmill = true + a ProximityPrompt — buys the next belt
+	                rung. TreadmillService wires it at boot, by tag, the same way
+	                ShopService wires the luck button.
+	    Drive       the motor housing, repainted per rung by Plots.setTreadmillTier;
+	                the Console's `Sign` billboard carries the speed and the bar.
+	                Both are written by ExhibitService.renderTreadmill, never by name
+	                from anywhere else.
 	    QuarantineLocker   no station attributes — a display cabinet. LockerSlot1..
 	                Plots.LOCKER_SLOTS are hidden item anchors; LockerDoor is a Model
 	                carrying ClosedPivot / OpenPivot CFrame attributes. Both are
@@ -177,6 +187,7 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Liquids = require(Shared.Config.Liquids)
 local Gear = require(Shared.Config.Gear)
+local Treadmill = require(Shared.Config.Treadmill)
 local ToolModels = require(Shared.ToolModels)
 
 local Kit = require(script.Parent.Kit)
@@ -184,7 +195,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 50
+local BUILDER_VERSION = 51
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1786,7 +1797,7 @@ end
 ---
 --- LUCK IS THE ONE TRACK YOU DO NOT WEAR, so it was the one track that did not belong
 --- on a shop counter. It used to be a fourth desk at the Outfitter, visually identical
---- to Suits and Boots and Satchels, selling something with no physical form at all —
+--- to Suits and Satchels, selling something with no physical form at all —
 --- then a free-standing sign staked next to the pad, painting a whole seven-tier
 --- ladder on a board; then a button on the plot's back wall under the name. Luck
 --- itself changed shape too (Config/Gear.luau's header): there is no ladder left to
@@ -1876,6 +1887,230 @@ local function buildLuckButton(parent: Instance, origin: CFrame)
 		string.format("LUCK %.1fx", Gear.luckMultiplier(1)),
 		string.format("+0.1x for $%d", Gear.luckPrice(1)),
 		C.grass
+	)
+
+	m.Parent = parent
+end
+
+-- ── The treadmill ─────────────────────────────────────────────────────────
+--
+-- Where speed comes from, now that the Boots track is retired (Config/Treadmill).
+-- Step on the belt and the number climbs; press E on the console to buy a faster
+-- belt. Services/TreadmillService owns both halves.
+--
+-- IT SHARES THE ENTRANCE SERVICE STRIP with the cleansing station (+X), the wash pad
+-- (-X) and the luck button, and the clearances here are a CORRECTNESS constraint, not
+-- a layout preference — the same one buildWashPad's header sets out. Training is an
+-- edge like a roll is, so overlapping station radii would mean a player at one machine
+-- being registered at another. Belt centre sits at plot-local (2, -35) with Radius 5:
+--
+--   to the Basin  (26, -32), Radius 9 ...... 24.2 studs against a 14-stud combined reach
+--   to the Plate  (-21, -31), Radius 6 ..... 23.3 studs against 11
+--   to PlotSpawn  (0, -24), 6x6 ............ 11.2 studs against 8
+--
+-- Keep those gaps if any of the four moves. World.verify() is the actual authority and
+-- asserts the first two every rebuild, not this comment.
+--
+-- THE RUNNER FACES -Z, out through the entrance arch at the wasteland, with the
+-- console at that end. That is the one orientation that keeps the console's prompt
+-- away from both the luck button's (17.7 studs apart against a 10-stud activation
+-- radius each, so no player can ever be in range of both) and the spawn pad. Two
+-- prompts a player can reach at once is a known-unreliable state in this codebase.
+local TREADMILL = {
+	cx = 2,
+	cz = -35,
+	beltW = 5.2, -- across the runner
+	beltL = 10, -- along the run
+	railH = 3.2,
+}
+
+--- The drive housing's colour per rung. Bare steel at the bottom, reactor orange at
+--- the top; deliberately clear of the quarantine red and the stages' hazard greens,
+--- the same rule Plots.DEFAULT_ACCENTS follows.
+local TREADMILL_DRIVE = {
+	"6E7683", -- Scrap Belt: bare steel
+	"7A8796", -- Chain Runner
+	"5E8CA8", -- Geared Treadplate: cold blue
+	"4F9E86", -- Servo Track: servo teal
+	"C98A2E", -- Reactor Mill: warm
+	"E8631F", -- Isotope Strider: hot
+}
+assert(#TREADMILL_DRIVE == #Treadmill.TIERS, "one drive colour per treadmill rung")
+
+--- Dress one plot's treadmill in a belt rung. Returns the tier actually applied, or
+--- nil if this plot has no treadmill to dress (a place file saved before the machine
+--- existed — degrade quietly, exactly as setHoseTier does).
+---
+--- A REPAINT AND A RELABEL, NOT SIX MODELS. The hose track earns its seven authored
+--- silhouettes because you hold it up to your own face at a tub; a treadmill is a box
+--- you stand on and look away from, and six variants of it would be six times the
+--- parts on every plot in the world for a difference nobody is positioned to see. So
+--- the rung reads off the drive housing's colour and off the sign — which is also
+--- where the numbers that actually matter live.
+---
+--- `xp` is optional and only feeds the sign. nil means "unclaimed plot", which prints
+--- the starting speed and no progress, because a bar that always reads empty on six
+--- plots is worse than no bar at all.
+function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, xp: number?): number?
+	if treadmill == nil then
+		return nil
+	end
+
+	local wanted = math.clamp(math.floor(tier or 1), 1, Treadmill.maxTier())
+	local def = Treadmill.tier(wanted)
+
+	-- The housing is the rung you can see from across the plot: it walks a ladder from
+	-- bare steel up to the hot end, so a maxed belt reads as machinery rather than as
+	-- scrap without anyone having to read the sign.
+	local drive = treadmill:FindFirstChild("Drive", true)
+	if drive and drive:IsA("BasePart") then
+		drive.Color = Color3.fromHex(TREADMILL_DRIVE[wanted])
+	end
+
+	local sign = treadmill:FindFirstChild("Sign", true)
+	local title = sign and sign:FindFirstChild("Title")
+	local subtitle = sign and sign:FindFirstChild("Subtitle")
+	local speed, progress = Treadmill.speedFor(xp or 0)
+	if title then
+		(title :: TextLabel).Text = string.format("SPEED %d", if xp == nil then Treadmill.START_SPEED else speed)
+	end
+	if subtitle then
+		(subtitle :: TextLabel).Text = if xp == nil or speed >= Treadmill.MAX_SPEED
+			then `{def.name} — rated {def.rated}`
+			else string.format("%s — %d%% to speed %d", def.name, math.floor(progress * 100), speed + 1)
+	end
+
+	treadmill:SetAttribute("Tier", wanted)
+	return wanted
+end
+
+local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
+	local m = Instance.new("Model")
+	m.Name = "Treadmill"
+	local pad = Plots.PAD
+	local T = pad.topY
+	local cx, cz = TREADMILL.cx, TREADMILL.cz
+	local halfL = TREADMILL.beltL / 2
+
+	local BODY, FACE, LINER, FIT = C.standGreyDark, C.standGrey, C.drain, C.steelDark
+
+	-- ── The deck ──────────────────────────────────────────────
+	-- The same studded-block kit as the wash pad across the aisle, so the strip reads
+	-- as one installation rather than three unrelated machines.
+	build(m, origin, { name = "Deck", pos = { cx, T - 0.35, cz }, size = { TREADMILL.beltW + 3.6, 1.0, TREADMILL.beltL + 2.4 }, color = BODY, material = "Plastic", studs = true })
+	for _, side in { -1, 1 } do
+		build(m, origin, {
+			name = "DeckKerb",
+			pos = { cx + side * (TREADMILL.beltW / 2 + 1.5), T + 0.25, cz },
+			size = { 0.6, 0.35, TREADMILL.beltL + 2.4 },
+			color = FACE,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
+
+	-- ── The belt ──────────────────────────────────────────────
+	-- THE STATION. Radius 5 covers the whole running surface and nothing past the
+	-- deck; see this section's header for why both the number and the position are
+	-- load-bearing. Proud of the deck by a hair — a threshold you step over rather
+	-- than a step you climb, exactly like the wash pad's plate.
+	build(m, origin, {
+		name = "Belt",
+		pos = { cx, T + 0.15, cz },
+		size = { TREADMILL.beltW, 0.5, TREADMILL.beltL },
+		color = LINER,
+		material = "SmoothPlastic",
+		attributes = { StationKind = "treadmill", Radius = 5 },
+	})
+
+	-- The tread itself: thin slats across the belt, spaced along the run. Purely
+	-- decorative and non-colliding — the client scrolls them during training
+	-- (TreadmillController) and they give the surface something to read against while
+	-- it is standing still.
+	for i = -4, 4 do
+		build(m, origin, {
+			name = "Slat",
+			pos = { cx, T + 0.42, cz + i * (TREADMILL.beltL / 10) },
+			size = { TREADMILL.beltW - 0.3, 0.06, 0.35 },
+			color = FIT,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+	end
+
+	-- Rollers at each end, the width of the belt. Cylinders lying left-to-right.
+	for _, endZ in { cz - halfL, cz + halfL } do
+		build(m, origin, {
+			name = "Roller",
+			pos = { cx, T + 0.25, endZ },
+			size = { TREADMILL.beltW + 0.4, 1.1, 1.1 },
+			color = FIT,
+			material = "Metal",
+			shape = "Cylinder",
+			rot = Kit.R.cylAlongX,
+			canCollide = false,
+		})
+	end
+
+	-- ── Side rails ────────────────────────────────────────────
+	-- Chest-high bars either side, on stubby posts. They do NOT collide: a rail that
+	-- catches a player stepping on or off a machine they will be standing on for hours
+	-- is the single most irritating thing this build could get wrong.
+	for _, side in { -1, 1 } do
+		local x = cx + side * (TREADMILL.beltW / 2 + 1.1)
+		for _, postZ in { cz - halfL + 0.8, cz + halfL - 0.8 } do
+			build(m, origin, { name = "RailPost", pos = { x, T + TREADMILL.railH / 2, postZ }, size = { 0.55, TREADMILL.railH, 0.55 }, color = FIT, material = "Metal", canCollide = false })
+		end
+		build(m, origin, { name = "Rail", pos = { x, T + TREADMILL.railH, cz }, size = { 0.5, 0.5, TREADMILL.beltL - 1.6 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+	end
+
+	-- ── The console ───────────────────────────────────────────
+	-- At the -Z end, so the runner faces out through the entrance arch. Carries the
+	-- upgrade prompt and the readout; TreadmillService wires the prompt at boot by
+	-- tag, the same build-time/runtime split every station in this file uses.
+	local consoleZ = cz - halfL - 0.9
+	build(m, origin, { name = "ConsoleFoot", pos = { cx, T + 0.3, consoleZ }, size = { TREADMILL.beltW + 1.6, 1.2, 1.4 }, color = BODY, material = "Plastic", studs = true })
+
+	-- The drive housing — the part setTreadmillTier repaints. Sits under the console
+	-- where the motor would be, wide enough to read as the machine's guts from the
+	-- aisle.
+	build(m, origin, {
+		name = "Drive",
+		pos = { cx, T + 1.4, consoleZ },
+		size = { TREADMILL.beltW + 0.8, 1.4, 1.2 },
+		color = TREADMILL_DRIVE[1],
+		material = "Metal",
+	})
+
+	local console = build(m, origin, {
+		name = "Console",
+		pos = { cx, T + 3.1, consoleZ },
+		size = { TREADMILL.beltW + 0.4, 2.0, 0.6 },
+		color = FIT,
+		material = "Metal",
+		attributes = { UpgradesTreadmill = true },
+	})
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "Upgrade"
+	prompt.ActionText = "Upgrade Treadmill"
+	prompt.ObjectText = "Treadmill"
+	prompt.HoldDuration = 0.4
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = console
+
+	-- Tier 1, untrained — the only state that exists before a player has ever claimed
+	-- this plot. ExhibitService.renderTreadmill overwrites both lines the moment real
+	-- per-player state does, exactly as it does for the luck button.
+	accentBillboard(
+		console,
+		230,
+		3.0,
+		string.format("SPEED %d", Treadmill.START_SPEED),
+		`{Treadmill.tier(1).name} — rated {Treadmill.tier(1).rated}`,
+		accent
 	)
 
 	m.Parent = parent
@@ -2404,6 +2639,7 @@ local function buildPlot(parent: Instance, index: number)
 	buildQuarantineLocker(m, origin, accent)
 	buildWashPad(m, origin, accent)
 	buildLuckButton(m, origin)
+	buildTreadmill(m, origin, accent)
 
 	m.Parent = parent
 	return m

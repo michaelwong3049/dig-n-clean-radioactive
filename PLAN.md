@@ -642,43 +642,78 @@ a **first-class upgrade track**. It is also the single biggest quality-of-life l
 game: without it, a deep run is a walking simulator with a stopwatch, and that is a real risk
 worth designing against directly.
 
-### 5.1 The Boots line
+### 5.1 The treadmill — speed is trained, not bought
 
-Six tiers, same pricing curve as everything else (§6):
+> **SUPERSEDES THE BOOTS LINE.** This section originally specced a six-rung Boots track
+> (Taped Boots → … → Strider Rig) moving four stats: walk speed, sprint/stamina, haul
+> penalty and traversal. Of those four, **only two were ever built** — walk speed and the
+> haul penalty. `stamina`, `canVault`, `canDash` and the sprint multiplier were resolved
+> every tick by `StatResolver` and read by nothing, for the whole life of the track.
+>
+> The track is now **retired** (`Config/Gear.Boots`, kept as data only so the one-time
+> refund can price against it). Speed moved to the treadmill below; the haul penalty moved
+> to the **Satchel** track. Everything under §5.2's three guards still applies and is more
+> load-bearing than ever, because the ceiling went up.
 
-**Taped Boots → Tread Boots → Field Runners → Servo Braces → Powered Frame → Strider Rig**
+Speed is a **grind, not a purchase.** You park on a treadmill on your own plot and the
+number climbs; what cash buys is a *better belt*, never a point of speed.
 
-Each tier moves four stats, so an upgrade is always felt on multiple axes:
+**Why time instead of money.** Speed multiplies everything (§5.2) — sweep rate, round
+trips, value retained against the decay clock. Sold for cash, one lucky Legendary makes a
+player permanently fast. Charged in time, the ceiling is gated by something nobody can
+shortcut, and an idle player has a reason to leave the game open.
 
-|Stat|What it does|Why it matters|
-|-|-|-|
-|**Walk speed**|Base movement|The floor. Affects every second of play.|
-|**Sprint + Stamina**|Burst speed on a drainable meter that refills when walking|Makes the run home an *active* skill, not a hold-forward. Lets a player spend a resource to save an item.|
-|**Haul penalty**|Reduces the slow applied per carried hot item|The key one. See below.|
-|**Traversal**|T3 unlocks vault/climb over rubble; T5 unlocks a short dash|Turns level geometry into skill expression — good players learn the fast lines out of Stage 5.|
+|Number|Value|
+|-|-|
+|Untrained|**26** studs/sec — deliberately the old Taped Boots floor, so day one is unchanged|
+|Cap|**100**|
+|Intermediate|**45**, about **1 hour** of training|
+|Advanced|**70**, about **4 hours**|
+|Endgame|**100**, about **15 hours**|
 
-**The haul penalty is the important stat.** Carrying hot items should physically slow you
-down — a full bag is heavy and you are visibly staggering. This creates the tradeoff that
-makes capacity interesting: more items means more rads, more decay risk, *and* a slower run
-home to deal with all of it. Better boots erase the penalty, which is why the boots track and
-the suit track want to be bought in alternation rather than straight down one line.
+Six belt rungs on the **retired Boots price ladder, rung for rung** ($0 → $140,000), so the
+refund buys a returning player the equivalent belt. Each rung trains ~40% faster than the
+last and is *rated* for a 12-point speed band.
 
-Without the haul penalty, capacity is just a bigger number. With it, capacity is a decision.
+**The difficulty ramp is the ratio between two ladders.** Cost per point grows ~2.2x per
+band; belts get faster by only 1.4x. The upgrade buys back most of the climb, never all of
+it, so the grind stays a grind at every height. Past a belt's rating the rate **halves every
+6 points over** — the same soft-gate shape the magnet uses for over-tier soil. Never a wall:
+speed 64 is 3.2h on the right belt, 6.4h one rung under, 30h on the free one.
+
+**The haul penalty is still the important stat** — it just lives on the Satchel now.
+Carrying hot items physically slows you: a full bag is heavy and you are visibly staggering.
+More items means more rads, more decay risk, *and* a slower run home. Without it, capacity
+is just a bigger number; with it, capacity is a decision. Putting it on the bag restores the
+alternation this section wanted from Boots-vs-Suit: **Suit buys capacity, Satchel makes
+carrying it bearable.**
+
+> **KNOWN CONSEQUENCE, UNRESOLVED.** A speed-100 player outruns the dig reveal. The gap
+> between the starting detector's reveal edge and `DIG_RADIUS` is 8 studs — 0.08s at the
+> cap, against `SpotCracks.REVEAL` of 0.4s that cannot go under ~0.3 without the reveal
+> reading as a switch being flipped. `Util/Spec` pins this and **fails on purpose**; the
+> fix is to scale the reveal radius with trained speed in `DigService`. The PICK UP card
+> already waits for the spot (`PROMPT_MIN_SHOWN`), which covers the worst of it.
 
 ### 5.2 Speed as a balance problem
 
 Speed multiplies everything: more ground swept per minute, faster round trips, more value
 retained on the decay clock, longer effective dive windows. It is the most economically
-dangerous track in the game and should be priced as the most expensive per unit of stat.
+dangerous stat in the game — which is precisely why it is no longer for sale at all (§5.1).
+The belt ladder that gates it inherited the old Boots pricing for the same reason.
 
 Three guards:
 
 * **Cap total movement speed** well below "the wasteland feels small." The round trip has to
 stay a commitment or §3.6 stops meaning anything.
-* **Sprint costs stamina, stamina does not scale as fast as speed.** Top-tier boots make you
-fast in bursts, not permanently fast. Preserves the decision.
-* **Deep-stage station distances scale with expected player boot tier.** As the player gets
-faster, the deep stages get further. Net tension stays flat; net *comfort* rises, which is
+* ~~**Sprint costs stamina, stamina does not scale as fast as speed.**~~ **Never built**, and
+there is no longer a track to hang it on — `Gear.SPRINT_MULTIPLIER` exists and no call site
+has ever passed `sprinting = true`. The grind itself now does this guard's job: a player is
+permanently fast only after 15 hours, not after one good sale.
+* **Deep-stage station distances scale with expected player speed.** As the player gets
+faster, the deep stages get further. **This is now the outstanding balance work**: the cap
+went from 36 to 100, so the round trip a trained player experiences is roughly a third of
+what it was, and §3.6's decay clock is what pays for that. Net tension stays flat; net *comfort* rises, which is
 exactly the right outcome — the player feels the upgrade without the game getting easier.
 
 ### 5.3 The Rail Network — the structural answer

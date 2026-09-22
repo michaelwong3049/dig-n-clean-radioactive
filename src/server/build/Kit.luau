@@ -39,6 +39,12 @@ Kit.SHOWER_TAG = "Shower"
 -- exist un-wired -- which is the failure that would present as "this one sign just
 -- does nothing".
 Kit.UPGRADE_TAG = "Upgrade"
+--- Anything with an `UpgradesTreadmill` attribute: the console beside a plot's belt.
+--- Its own tag rather than UPGRADE_TAG, because a treadmill does not sell a GEAR TRACK
+--- -- ShopService's generic seller path is built entirely around `SellsTrack` plus an
+--- optional tier, and there is no track here to name. TreadmillService scans this the
+--- same way, for the same "a console can never exist un-wired" reason.
+Kit.TREADMILL_TAG = "TreadmillUpgrade"
 
 -- ── Palette ───────────────────────────────────────────────────────────────────
 -- Named so a re-skin is one edit rather than a find-and-replace over hex codes.
@@ -414,6 +420,9 @@ function Kit.build(parent: Instance, origin: CFrame, spec: Spec): BasePart
 	end
 	if p:GetAttribute("SellsTrack") ~= nil then
 		CollectionService:AddTag(p, Kit.UPGRADE_TAG)
+	end
+	if p:GetAttribute("UpgradesTreadmill") == true then
+		CollectionService:AddTag(p, Kit.TREADMILL_TAG)
 	end
 
 	p.Parent = parent

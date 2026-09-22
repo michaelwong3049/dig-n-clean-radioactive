@@ -25,7 +25,8 @@ src/
       Rarity.luau             the 8 rarities + the roll-on modifiers
       Stages.luau              the 6 stages
       Camps.luau               the safe camps along the chain: Base Camp + site camps (Toxic Twilight)
-      Gear.luau               the 7 upgrade tracks
+      Gear.luau               the live upgrade tracks (+ the RETIRED Boots table, kept for the refund)
+      Treadmill.luau          the speed track: the trained-speed curve + the 6 belt rungs
       Liquids.luau            the wash pad's 10 cleaning liquids + the luck curve
       Items.luau              the item catalogue (+ id / stage-rarity indexes)
       ToolTiers.luau          per-tier look: scale, colours, material, glow
@@ -64,6 +65,7 @@ src/
       EconomyService          what an item is worth, and the till
       DeconService            docking, scrubbing and racking at every base; sell() exists, no world trader triggers it currently
       LiquidService           the wash pad: rolling liquids, charges, equip
+      TreadmillService        the speed grind: banks training while you stand on a belt
       WashService             the hose bay: the E-to-wash session and its clock
                               (the nozzle is world geometry; this never moves it)
       ToolService             puts the right model in the player's hands
@@ -200,13 +202,14 @@ Also required, and each corresponds to a real silent failure:
 | `Workspace.Stages` holds plates and **nothing else** | A decoration carrying a `StageId` becomes a stage, and smallest-area-wins means a stray barrel silently becomes the stage you are in. Decor lives in `Workspace.Scenery`. |
 | any BasePart in `Workspace` | `Shower` | boolean | Decon shower. Flushes player exposure, does **not** touch items. Since `build/Plots.luau`, each base's cleansing station carries this **on the same part** as `StationKind="decon"` — one stop for both, sharing one `Radius` — rather than two separate structures the way camp used to have them. |
 | ″ | `Radius` | number | Shower radius in studs. Optional, default 10. |
-| any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"pedestal"` \| `"roller"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; pedestal is one display slot; **roller is the wash pad — arriving inside its radius IS the roll**, and it charges cash, so its radius must never overlap a `decon` one (`World.verify()` asserts this). Only the first four open a panel: `StationController`'s `PANEL_KINDS` is an allowlist, because the decon branch is the fallthrough and an unrecognised kind would otherwise open a panel titled TRADER. |
+| any BasePart **anywhere in `Workspace`** | `StationKind` | `"decon"` \| `"trader"` \| `"shop"` \| `"pedestal"` \| `"roller"` \| `"treadmill"` | What you are standing at. Decon freezes decay clocks; trader is a till; shop sells one gear track; pedestal is one display slot; **roller is the wash pad — arriving inside its radius IS the roll**, and it charges cash; **treadmill is the speed belt — standing inside its radius IS training** (`TreadmillService`), which is why it never roots the character. All three edge-firing kinds (`roller`, `decon`, `treadmill`) must have non-overlapping radii, and `World.verify()` asserts every pair. Only `trader` and `shop` open a panel: `StationController`'s `PANEL_KINDS` is an allowlist, because the decon branch is the fallthrough and an unrecognised kind would otherwise open a panel titled TRADER. |
 | ″ | `SellsTrack` | string | This part sells one `Gear.TRACKS` entry through a **ProximityPrompt**, with no panel and no station kind. `ShopService` scans by the `Upgrade` tag (added by `Kit.build` alongside the attribute) and wires the prompt to `ShopService.buyNext`. Currently just `"Luck"`, on the wooden sign at every base. A prompt's `Triggered` fires on the server with `MaxActivationDistance` already enforced by the engine, which is why this can skip the position re-derivation `ShopService.buy` has to do. |
 | ″ | `IsWashStand` | boolean | The invisible part inside a cleansing station where the item sits during a wash. Two sibling anchors go with it: `WashSpot` (where the player is planted, facing the tub — `WashService` steps them `APPROACH` studs forward of it) and `WashCam` (a **side-on** camera aimed at the midpoint of the two). The wash is shot **first person from the character's own head**, aimed down the line from there to `WashStand`, so `WashSpot` is the tripod; `WashCam` framed the original third-person version and survives as `WashController`'s fallback for the frame where the head has gone. They are anchors rather than numbers in `WashController` for the same reason `HoldCFrame` is an attribute: framing is judged by looking at it. |
 | a `Hose` Model in a cleansing station | `ParkedPivot` | CFrame | Where the station's nozzle rests, aimed at the `WashStand`. `WashController` rewrites the model's pivot every frame of a wash to point it — **locally**, since it is anchored server-built geometry the server never touches again, so the swivel costs no traffic and is per-viewer like the spray — and restores this pose on every exit path. `World.verify()` fails a hose without it: aiming still works (the controller falls back to wherever it finds the thing standing) but nothing puts it back, so a busy base slowly ends up with a machine staring at the sky. |
 | ″ | `Tier` | number | Which `Gear.Cleaner` rung is on the mast. Set by the `ToolModels.Hose` factory; read by `Plots.setHoseTier` to no-op a swap that would rebuild the same rung. |
 | ″ | `StationId` | string | Discriminator within a kind. For `"shop"` it is the **exact `Gear.TRACKS` spelling** (`"Detector"`, `"Suit"`, …). For `"pedestal"` it is `"<plot>:<slot>"`. |
 | ″ | `Radius` | number | Station radius in studs. Optional, default 12. |
+| ″ | `UpgradesTreadmill` | boolean | The console beside a plot's belt. Its own attribute and its own tag (`TreadmillUpgrade`) rather than `SellsTrack`, because a treadmill sells no *gear track* and `ShopService`'s generic seller path is built entirely around one. `TreadmillService` wires its `ProximityPrompt` at boot. |
 | ″ | *CollectionService tag* `Station` | — | Index only — `StationService` scans tagged parts instead of walking Workspace. `Kit.build` adds it whenever it sets `StationKind`, and `World.verify()` asserts attribute and tag agree in **both** directions. The attribute stays the source of truth. |
 | `ReplicatedStorage.Assets.Tools.<Track>.T<n>` (Model) | `HoldCFrame` | CFrame | Offset from the attach point. Optional, defaults to `CFrame.new()`. Tuned in Studio against a live character. |
 | ″ | `HoldPart` | string | Body part to weld to. **Optional.** Absent, set to `"RightHand"`, or naming a part the character lacks all fall through to the right hand (R15 `RightHand`, then R6 `Right Arm`). Set it to `HumanoidRootPart` for the detector, which must not bob. |
@@ -310,6 +313,12 @@ The profile itself — `TEMPLATE` in `DataService`, which is the authoritative c
 {
     cash = 0, xp = 0, level = 1,
     gear    = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1, luck = 1 },
+                    -- `boots` is VESTIGIAL: the track is retired (Config/Treadmill) and
+                    -- DataService's one-time refund clears it on first load. Nothing reads it.
+    speedXp   = 0,  -- banked treadmill training. THE ONLY THING THAT SETS WALK SPEED.
+                    -- One unit is one second on the free belt; resolved to an integer
+                    -- speed by Treadmill.speedFor, bounded at the cap before it is stored.
+    treadmill = 1,  -- which belt rung is installed on this player's plot, 1-based.
     carry   = {},   -- array of the carried item above. The backpack.
     locker  = {},   -- Quarantine Locker: found, not yet cleanable.
     exhibit = { slots = 8, pedestals = {}, bankedCash = 0, bankedAt = 0 },  -- all 8 stands free; `slots` fixed; `bankedCash` is a sub-dollar buffer that auto-deposits into `cash`

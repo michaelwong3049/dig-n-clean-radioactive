@@ -209,6 +209,22 @@ local function renderHose(index: number, data: any?)
 	Plots.setHoseTier(station, if data then data.gear.cleaner else nil)
 end
 
+--- Dress the plot's treadmill in the belt rung this profile owns, or the free
+--- starting belt when `data` is nil (an unclaimed plot).
+---
+--- SAME SHAPE AS renderHose, and it is the same argument: TreadmillService takes the
+--- money, this file owns what a plot looks like, and the buy path should not have to
+--- know a plot has a treadmill in it. What "dressing" means — which parts repaint,
+--- what the sign says — is entirely build/Plots.setTreadmillTier's business.
+local function renderTreadmill(index: number, data: any?)
+	local plot = plotModel(index)
+	if plot == nil then
+		return
+	end
+	local treadmill = plot:FindFirstChild("Treadmill", true)
+	Plots.setTreadmillTier(treadmill, if data then data.treadmill else nil, if data then data.speedXp else nil)
+end
+
 --- The world half of "hold the item, hold E on the stand": a plain default-styled
 --- ProximityPrompt (small white ActionText, same as the wash tub's own "Wash"
 --- prompt — see WashService/build/Plots' `buildCleansingStation`), built once per
@@ -529,6 +545,7 @@ local function renderAll(index: number, data: any)
 	end
 	renderLocker(index, data)
 	renderHose(index, data)
+	renderTreadmill(index, data)
 	refreshStandCards(index, data)
 end
 
@@ -598,6 +615,25 @@ function ExhibitService.refreshHose(player: Player)
 		return
 	end
 	renderHose(index, DataService.data(player))
+end
+
+--- Re-dress this player's own treadmill: after an upgrade lands (TreadmillService
+--- .buy) and once on data load. Exactly refreshHose's contract, including the no-op
+--- when they have no plot this session — which is a state a treadmill owner really can
+--- be in, since a belt on somebody else's base trains them just as well (see
+--- TreadmillService's header).
+---
+--- Also the readout's refresh path: the sign shows banked progress, so a player who
+--- crosses a point of speed while standing on their own belt wants the world to say so
+--- without waiting for a rebuild. TreadmillService does not call this per tick — the
+--- sign is repainted on the events that change the RUNG, and the live bar is the
+--- client's SpeedState readout.
+function ExhibitService.refreshTreadmill(player: Player)
+	local index = plotOf[player]
+	if index == nil then
+		return
+	end
+	renderTreadmill(index, DataService.data(player))
 end
 
 --- This player's assigned plot's spawn pad, or nil if they never got a plot this
@@ -738,6 +774,7 @@ local function release(player: Player)
 		renderAccent(index, nil)
 		renderLuck(index, nil)
 		renderHose(index, nil)
+		renderTreadmill(index, nil)
 		for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
 			renderStand(index, slot, nil, nil)
 		end

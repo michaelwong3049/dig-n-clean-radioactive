@@ -83,6 +83,17 @@ local REMOTES: { [string]: string } = {
 	WashState = "RemoteEvent", -- server -> client, the session (nil payload = ended)
 	WashInput = "RemoteEvent", -- client -> server, { spraying, patchIndex }
 
+	-- The treadmill (Config/Treadmill, Services/TreadmillService). What the player's
+	-- banked training is worth right now: speed, the bar to the next point, the rate
+	-- the belt they are standing on is paying, and what the next rung costs.
+	--
+	-- CHANGE-DRIVEN, NOT PER-TICK, with one deliberate exception: while a player is
+	-- actually ON a belt this fires on the training cadence, because the bar creeping
+	-- forward IS the feedback and a readout that only moves once every few minutes is
+	-- indistinguishable from a broken one. Off the belt it goes quiet entirely, which
+	-- is most of the time for most players.
+	SpeedState = "RemoteEvent", -- server -> client, the trained-speed readout
+
 	-- Phase 2: exposure.
 	ExposureState = "RemoteEvent", -- server -> client, the rad meter, once per tick
 	Blackout = "RemoteEvent", -- server -> client, you went down and what it cost

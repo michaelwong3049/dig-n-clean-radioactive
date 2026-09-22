@@ -76,8 +76,8 @@ local states: { [Player]: State } = {}
 local bagContents: { [Instance]: { any } } = {}
 
 -- Debug console only (see DebugService's /speed). A sustained WalkSpeed override:
--- nil follows the player's boots gear as normal, a number pins WalkSpeed to exactly
--- that and ignores the haul penalty. Session-only and deliberately NOT persisted --
+-- nil follows the player's trained speed as normal (Config/Treadmill), a number pins
+-- WalkSpeed to exactly that and ignores the haul penalty. Session-only and deliberately NOT persisted --
 -- unlike /cash and /gear, which are real game state, this is a testing convenience
 -- that should die with the session.
 local speedOverrides: { [Player]: number } = {}
@@ -353,17 +353,23 @@ local function stepPlayer(player: Player, dt: number)
 	-- function of X position -- 0 in camp, climbing as the player walks the chain.
 	local depth = Stages.depthBelowCamp(root.Position.X)
 
-	-- BOOTS GEAR APPLIED LIVE, HERE, FOR THE SAME REASON THE DECAY CLOCK IS: this loop
-	-- already resolves `stats` (which carries `walkSpeed`/`haulPenalty` off the
-	-- player's current Boots tier) and already has `root`/`character` in hand for
-	-- every player, every tick. Before this, NOTHING ever wrote to Humanoid.WalkSpeed
-	-- outside the /speed debug command (see DebugService.luau) -- StatResolver.
-	-- effectiveWalkSpeed existed and Spec.luau checked its math, but no live system
-	-- actually applied it, so buying Boots did nothing you could feel. Recomputing it
-	-- every tick rather than hooking the purchase event follows ShopService's own
-	-- stated rule ("resist the urge to add machinery here... StatResolver.get() is
-	-- recomputed every tick, and ToolService... re-equips on a mismatch") -- the same
-	-- reason a new tier is in your hands within a third of a second with no event.
+	-- MOVEMENT APPLIED LIVE, HERE, FOR THE SAME REASON THE DECAY CLOCK IS: this loop
+	-- already resolves `stats` (which carries `walkSpeed`/`haulPenalty`) and already
+	-- has `root`/`character` in hand for every player, every tick. Before this,
+	-- NOTHING ever wrote to Humanoid.WalkSpeed outside the /speed debug command (see
+	-- DebugService.luau) -- StatResolver.effectiveWalkSpeed existed and Spec.luau
+	-- checked its math, but no live system actually applied it, so the speed stat did
+	-- nothing you could feel. Recomputing it every tick rather than hooking an event
+	-- follows ShopService's own stated rule ("resist the urge to add machinery here...
+	-- StatResolver.get() is recomputed every tick, and ToolService... re-equips on a
+	-- mismatch") -- the same reason a new tier is in your hands within a third of a
+	-- second with no event.
+	--
+	-- IT IS ALSO WHAT MAKES THE TREADMILL WORK AT ALL. `walkSpeed` is trained now
+	-- (Config/Treadmill) and climbs while the player stands on a belt, so the number
+	-- this loop reads genuinely changes mid-session -- where a Boots tier only ever
+	-- changed at a shop counter. Nothing here had to learn that: the stat moved tracks
+	-- underneath StatResolver and this loop still just asks for it.
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		-- LOCKED ON, OR WASHING == ROOTED. Two independent features each need to plant
@@ -387,7 +393,7 @@ local function stepPlayer(player: Player, dt: number)
 			humanoid.JumpPower = 0
 			humanoid.JumpHeight = 0
 		else
-			-- The debug /speed override, when set, wins over gear here -- but NOT over
+			-- The debug /speed override, when set, wins over training here -- but NOT over
 			-- the root above: an override still leaves you planted while locked to a
 			-- signal or washing, same as any other speed.
 			local override = speedOverrides[player]
@@ -556,7 +562,7 @@ function ExposureService.flush(player: Player)
 end
 
 --- Debug console (/speed). A number pins the player's WalkSpeed there until cleared;
---- nil clears it and hands movement back to their boots gear. The dig/wash root still
+--- nil clears it and hands movement back to their trained speed. The dig/wash root still
 --- wins over this -- an override does not let you walk while locked to a signal.
 function ExposureService.setSpeedOverride(player: Player, walkSpeed: number?)
 	speedOverrides[player] = walkSpeed
