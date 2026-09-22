@@ -446,6 +446,37 @@ the place file has no git history to recover from.
 
 ## 5. Mechanical loop content — Phase 4
 
+- [x] **The treadmill — speed is trained, not bought** (PLAN §5.1, rewritten). Every base
+      gets a belt in its entrance service strip. Standing on it banks training; the console
+      beside it sells the next belt rung. `Config/Treadmill.luau` owns the curve (26 → 100,
+      each point costing 1.068x the last), `TreadmillService` owns the clock, and
+      `StatResolver.walkSpeed` reads it — so `ExposureService`'s tick loop, still the only
+      thing in the game that writes `Humanoid.WalkSpeed`, needed no change at all.
+      Milestones pinned in Spec: **45 ≈ 1h, 70 ≈ 4.1h, 100 ≈ 15.3h** upgrading on schedule.
+      Past a belt's rating the rate halves every 6 points over (soft gate, not a wall:
+      30h to speed 64 on the free belt versus 3.2h on the right one). `/train <speed>` and
+      `/train belt <n>` in the tuning console, because the endgame is otherwise a 15-hour
+      test. **Needs `World.rebuild()` + Save + Publish** — new plot geometry.
+- [x] **The Boots track is retired** — it went with the above. `walkSpeed` moved to the
+      treadmill; `haulPenalty` moved to the **Satchel** track (the bag is what drags you,
+      and it restores the Suit-capacity-vs-Satchel-drag alternation PLAN §5.1 wanted).
+      `stamina`, `canVault`, `canDash` and the sprint multiplier were **verified inert**
+      before removal — `StatResolver` was the only writer and nothing ever read them.
+      `Gear.Boots` survives as data only, because `DataService` refunds every rung a player
+      bought on first load (keyed off the leftover `gearOwned.boots`, self-erasing), and
+      `Treadmill.TIERS` reuses that exact price ladder so the refund buys the equivalent
+      belt. The Outfitter lost its middle counter and resized itself.
+- [ ] **Speed 100 outruns the dig reveal** — the one open consequence of raising the cap
+      from 36. The starting detector's reveal edge is 8 studs outside `DIG_RADIUS`, which a
+      maxed player crosses in 0.08s against `SpotCracks.REVEAL` of 0.4s (and its header
+      forbids going under ~0.3). **Spec fails this on purpose** — third known failure,
+      alongside §2.1's two. Fix: scale the reveal radius with trained speed in `DigService`
+      rather than widening the starting detector, which would make §2.1's density failures
+      worse. `DetectorController.PROMPT_MIN_SHOWN` already covers the worst of it.
+- [ ] **Deep-stage distances want a pass** (PLAN §5.2's third guard) — a trained player's
+      round trip is now roughly a third of what it was, and the decay clock is what pays
+      for that. Not urgent until speed 70+ is common.
+
 - [x] **Stage loot pools stocked** — 41 items total (was 13), themed per PLAN §4. The
       former Stages 1–4 catalogue remains available, while the active map rolls the former
       Stage 1/2/3 pools in its three internal stages. Verified:

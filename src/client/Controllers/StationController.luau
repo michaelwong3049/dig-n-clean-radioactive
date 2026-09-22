@@ -227,7 +227,6 @@ local CODE_PREFIX: { [string]: string } = {
 	Magnet = "MG",
 	Cleaner = "HS",
 	Suit = "ST",
-	Boots = "BT",
 	Satchel = "SC",
 }
 
@@ -285,8 +284,8 @@ local BROWSE_PROMPT = "ViewShop"
 ---
 --- The result was not a cosmetic mismatch. `dismissed` started true for every shop and
 --- nothing in that world could ever set it false, so no shop panel could open at all —
---- and the Outfitter's three counters have never had rack prompts, which made Suit,
---- Boots and Satchel unbuyable outright. The Suit gates every stage in the game.
+--- and the Outfitter's counters have never had rack prompts, which made Suit and
+--- Satchel unbuyable outright. The Suit gates every stage in the game.
 ---
 --- So the press-E behaviour is now CONDITIONAL ON THE THING THAT IMPLEMENTS IT being
 --- present. A shop with a browse prompt opens on E; a shop without one falls back to
@@ -385,7 +384,12 @@ local function makeRow(parent: Instance, order: number): TextButton
 	return row
 end
 
---- The most stat rows any one track shows (Boots: speed, haul, stamina, vault, dash).
+--- A CEILING OVER EVERY TRACK'S COLUMN COUNT, deliberately above the current high
+--- water mark rather than equal to it. It was exactly Boots' five (speed, haul,
+--- stamina, vault, dash); that track is retired and the widest live block is now three,
+--- but the number is left at five so adding a fourth column to a track is a one-line
+--- change in Config/Gear rather than a layout change here too.
+---
 --- Rows are built once at this count and hidden, the same reuse the cards themselves
 --- use — a stat block that rebuilt its children on every StationState tick would churn
 --- forty frames' worth of instances ten times a second.
@@ -395,10 +399,14 @@ local STAT_LABEL_WIDTH = 62
 local STAT_VALUE_WIDTH = 34
 local BAR_FLOOR = 0.06
 
---- One row of a card's stat block: label, bar, value. A flag cell (Boots' vault and
---- dash) reuses the same row and simply fills its bar to 0 or 1 — same geometry, so
---- five numeric rows and three-plus-two mixed rows put the button on the same
---- baseline.
+--- One row of a card's stat block: label, bar, value. A flag cell reuses the same row
+--- and simply fills its bar to 0 or 1 — same geometry, so a block of numeric rows and a
+--- mixed block put the button on the same baseline.
+---
+--- NO LIVE TRACK USES A FLAG CELL any more: Boots' vault and dash were the only two,
+--- and they were retired with it. The support is kept because `kind = "flag"` is still
+--- a documented option in Gear.STAT_META and deleting the render path would make the
+--- next boolean stat a two-file change instead of a one-line one.
 local function makeStatRow(parent: Instance, order: number): Frame
 	local row = Instance.new("Frame")
 	row.Name = `Stat{order}`
@@ -998,10 +1006,10 @@ end
 --- Paint one card's stat block. Rows are reused, so every row past the track's own
 --- column count is hidden rather than destroyed — see STAT_ROWS.
 ---
---- A FLAG CELL KEEPS THE BAR'S GEOMETRY AND THROWS AWAY ITS MEANING. Boots' vault and
---- dash are capabilities, not amounts, so the row prints YES/NO and fills its track
---- whole or not at all. Sharing the row shape is what keeps the button on the same
---- baseline whether a track has two numeric stats or three numeric plus two flags.
+--- A FLAG CELL KEEPS THE BAR'S GEOMETRY AND THROWS AWAY ITS MEANING: a capability is
+--- not an amount, so the row prints YES/NO and fills its track whole or not at all.
+--- Sharing the row shape is what keeps the button on the same baseline whether a track
+--- has two numeric stats or a mix. Currently exercised by no track — see makeStatRow.
 local function paintStats(card: Frame, entry, accent: Color3)
 	local stats = card.CardStats :: Frame
 	for index = 1, STAT_ROWS do

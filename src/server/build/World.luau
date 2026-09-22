@@ -485,6 +485,14 @@ function World.verify(): (boolean, { string })
 		`expected {Plots.COUNT} wash pads (one per base), found {census.roller or 0}`
 	)
 
+	-- One treadmill per base (Plots.buildTreadmill) — the only place speed comes from
+	-- now that the Boots track is retired. A base without one is a base whose owner has
+	-- no way to train at home at all.
+	check(
+		(census.treadmill or 0) == Plots.COUNT,
+		`expected {Plots.COUNT} treadmills (one per base), found {census.treadmill or 0}`
+	)
+
 	-- ...and one luck button per base, staked beside the wash pad it bends the odds for.
 	local luckButtons = 0
 	for _, d in Workspace:GetDescendants() do
@@ -544,7 +552,7 @@ function World.verify(): (boolean, { string })
 	-- refactor and is actually a priced dead end:
 	--
 	--   StationKind = "shop"   a counter with a panel  (Detector, Magnet, Cleaner,
-	--                          Suit, Boots, Satchel)
+	--                          Suit, Satchel)
 	--   SellsTrack = "<track>" a world object with a ProximityPrompt, no panel
 	--                          (used to be Luck; Luck itself left Gear.TRACKS the
 	--                          moment it stopped having a priced ladder to check
@@ -596,32 +604,46 @@ function World.verify(): (boolean, { string })
 		check(sells[track] == true, `no shop sells "{track}" — it has prices in Gear.luau and nowhere to spend them`)
 	end
 
-	-- THE WASH PAD AND THE CLEANSING STATION MUST NOT OVERLAP, and this is a real
-	-- correctness check rather than a layout preference. Rolling fires off
-	-- StationService's ENTRY EDGE and charges cash, so a player scrubbing at the
-	-- basin who drifts into an overlapping roller radius is billed for a roll they
-	-- never asked for. Nearest-wins settles which panel opens; it does not settle
-	-- which edges fire. See Plots.buildWashPad for the numbers this protects.
-	local rollers: { BasePart } = {}
-	local decons: { BasePart } = {}
+	-- THE MACHINES IN THE SERVICE STRIP MUST NOT OVERLAP EACH OTHER, and this is a real
+	-- correctness check rather than a layout preference. All three of these fire off
+	-- StationService's ENTRY EDGE: rolling charges cash, docking freezes your bag, and
+	-- stepping onto a belt starts banking training. A player scrubbing at the basin who
+	-- drifts into an overlapping roller radius is billed for a roll they never asked
+	-- for. Nearest-wins settles which panel opens; it does not settle which edges fire.
+	-- See Plots.buildWashPad and Plots.buildTreadmill for the numbers this protects.
+	--
+	-- CHECKED PAIRWISE ACROSS ALL THREE KINDS rather than roller-against-decon alone,
+	-- which is what it used to be. The treadmill went into the same strip and would
+	-- have been the one machine nothing measured.
+	local EDGE_KINDS = { "roller", "decon", "treadmill" }
+	local edgeStations: { [string]: { BasePart } } = {}
+	for _, kind in EDGE_KINDS do
+		edgeStations[kind] = {}
+	end
 	for _, d in Workspace:GetDescendants() do
 		if d:IsA("BasePart") then
 			local kind = d:GetAttribute("StationKind")
-			if kind == "roller" then
-				table.insert(rollers, d)
-			elseif kind == "decon" then
-				table.insert(decons, d)
+			local bucket = if type(kind) == "string" then edgeStations[kind] else nil
+			if bucket then
+				table.insert(bucket, d)
 			end
 		end
 	end
-	for _, roller in rollers do
-		for _, decon in decons do
-			local reach = ((roller:GetAttribute("Radius") :: number?) or 12) + ((decon:GetAttribute("Radius") :: number?) or 12)
-			local gap = (roller.Position - decon.Position).Magnitude
-			check(
-				gap > reach,
-				`{roller:GetFullName()} and {decon:GetFullName()} are {gap // 1} studs apart but reach {reach} — walking between them would bill an unasked-for roll`
-			)
+	local function reachOf(part: BasePart): number
+		return (part:GetAttribute("Radius") :: number?) or 12
+	end
+	for i = 1, #EDGE_KINDS do
+		for j = i + 1, #EDGE_KINDS do
+			for _, a in edgeStations[EDGE_KINDS[i]] do
+				for _, b in edgeStations[EDGE_KINDS[j]] do
+					local reach = reachOf(a) + reachOf(b)
+					local gap = (a.Position - b.Position).Magnitude
+					check(
+						gap > reach,
+						`{a:GetFullName()} and {b:GetFullName()} are {gap // 1} studs apart but reach {reach} — walking between them would fire an edge nobody asked for`
+					)
+				end
+			end
 		end
 	end
 

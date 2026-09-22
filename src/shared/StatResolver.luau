@@ -20,6 +20,7 @@ local Config = script.Parent.Config
 local Tuning = require(Config.Tuning)
 local Gear = require(Config.Gear)
 local Liquids = require(Config.Liquids)
+local Treadmill = require(Config.Treadmill)
 
 local StatResolver = {}
 
@@ -27,6 +28,12 @@ export type Profile = {
 	level: number,
 	gear: { [string]: number },
 	perks: { [string]: boolean },
+	-- The treadmill (Config/Treadmill). `speedXp` is banked training, `treadmill` the
+	-- belt rung owned. Both optional for the same reason `liquids` is: Util/Spec builds
+	-- fake profiles by hand and every call site predates them. Absent means "untrained,
+	-- on the free belt" -- a real starting state, not a degraded one.
+	speedXp: number?,
+	treadmill: number?,
 	multipliers: { [string]: number }?, -- rebirth / gamepass / pet, all pre-summed
 	-- The wash pad's rolled liquids (Config/Liquids). Both optional because
 	-- Util/Spec builds fake profiles by hand and every existing call site predates
@@ -43,12 +50,19 @@ export type Stats = {
 	satchelShielding: number,
 	levelResist: number,
 	capacity: number,
-	-- movement
+	-- movement. `walkSpeed` is TRAINED (Config/Treadmill), not bought: it is the
+	-- integer studs/sec the player's banked `speedXp` has earned. `speedProgress` is
+	-- how far into the next point they are (0..1), carried here rather than recomputed
+	-- because the treadmill's own readout and the HUD both want it and neither should
+	-- own a second copy of the curve.
+	--
+	-- `stamina`, `canVault` and `canDash` USED TO BE HERE, off the Boots track. All
+	-- three were resolved every tick and read by nothing at all; they went with the
+	-- track (see Gear.Boots' header). Do not restore them as constants -- an inert
+	-- field that every service can see is how a perk gets wired to nothing twice.
 	walkSpeed: number,
+	speedProgress: number,
 	haulPenalty: number,
-	stamina: number,
-	canVault: boolean,
-	canDash: boolean,
 	-- loop
 	detectorRadius: number,
 	detectorLuck: number, -- dig roll only; Config/Items.luckBias. NOT the wash pad's luck.
@@ -109,8 +123,11 @@ function StatResolver.get(profile: Profile): Stats
 	local magnet = Gear.tier("Magnet", g.magnet or 1)
 	local cleaner = Gear.tier("Cleaner", g.cleaner or 1)
 	local suit = Gear.tier("Suit", g.suit or 1)
-	local boots = Gear.tier("Boots", g.boots or 1)
 	local satchel = Gear.tier("Satchel", g.satchel or 1)
+	-- SPEED IS TRAINED, NOT EQUIPPED, so it is the one stat in this function that does
+	-- not come out of `profile.gear` at all. The Boots track that used to answer this
+	-- is retired (Gear.Boots' header); Config/Treadmill owns the number now.
+	local walkSpeed, speedProgress = Treadmill.speedFor(profile.speedXp or 0)
 	local luckMultiplier = Gear.luckMultiplier(g.luck or 1)
 	local liquidId, liquid = liquidFor(profile)
 
@@ -130,12 +147,12 @@ function StatResolver.get(profile: Profile): Stats
 		levelResist = math.min(profile.level * Tuning.RESIST_PER_LEVEL, Tuning.RESIST_CAP),
 		capacity = capacity,
 
-		walkSpeed = boots.walkSpeed,
-		-- Sure Footing (PLAN §9.2)
-		haulPenalty = boots.haulPenalty * (if perks.sureFooting then 0.5 else 1),
-		stamina = boots.stamina,
-		canVault = boots.canVault,
-		canDash = boots.canDash,
+		walkSpeed = walkSpeed,
+		speedProgress = speedProgress,
+		-- Sure Footing (PLAN §9.2). Reads off the SATCHEL now -- the perk halves the
+		-- haul penalty wherever that stat lives, and it moved tracks without changing
+		-- what the perk means.
+		haulPenalty = satchel.haulPenalty * (if perks.sureFooting then 0.5 else 1),
 
 		detectorRadius = detector.radius,
 		detectorLuck = detector.luck,
@@ -180,6 +197,13 @@ end
 --- Movement speed after the haul penalty. PLAN §5.1: carrying hot items should
 --- physically slow you, which is what turns capacity from a bigger number into
 --- a decision.
+---
+--- UNCHANGED BY THE BOOTS RETIREMENT, which is the whole reason the treadmill was
+--- wired into `walkSpeed` rather than added as a separate bonus anywhere downstream.
+--- Both halves moved tracks underneath this function -- speed to Config/Treadmill,
+--- the penalty to Gear.Satchel -- and it did not have to notice, so neither did
+--- ExposureService's tick loop, still the only thing in the game that writes
+--- Humanoid.WalkSpeed.
 function StatResolver.effectiveWalkSpeed(stats: Stats, carriedCount: number, sprinting: boolean): number
 	local speed = stats.walkSpeed - (carriedCount * stats.haulPenalty)
 	if sprinting then

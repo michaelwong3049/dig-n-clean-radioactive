@@ -152,7 +152,7 @@ local RAY_STAGGER = 0.45 -- the last ray starts growing up to this long after th
 -- stand on it at Tuning.DIG_RADIUS, so the fade-in has to finish inside the time it
 -- takes to cover the difference:
 --
---   starting kit (Bent Coil r=13, Taped Boots 26 studs/s):  (13 - 5) / 26 = 0.31s
+--   starting kit (Bent Coil r=13, untrained 26 studs/s):    (13 - 5) / 26 = 0.31s
 --   fastest arrival anywhere (r=13, Strider Rig 36):        (13 - 5) / 36 = 0.22s
 --
 -- The STARTING detector is the tight one — a wider radius only ever buys more walk —

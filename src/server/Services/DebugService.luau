@@ -33,6 +33,7 @@ local Items = require(Shared.Config.Items)
 local Gear = require(Shared.Config.Gear)
 local Liquids = require(Shared.Config.Liquids)
 local Camps = require(Shared.Config.Camps)
+local Treadmill = require(Shared.Config.Treadmill)
 local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
@@ -305,12 +306,15 @@ COMMANDS["/speed"] = {
 	-- ExposureService's per-tick loop is the ONLY thing allowed to write WalkSpeed
 	-- (its own header says so). The previous version of this command poked the
 	-- Humanoid directly and the write was gone within ~0.1s, the moment that loop
-	-- recomputed speed from boots gear. It now hands a sustained override to that
-	-- loop, which applies it every tick until cleared. The override ignores the
-	-- boots tier and the haul penalty while set; `/speed off` returns you to normal
-	-- gear-derived speed. It does NOT override the dig/wash root -- you still stand
-	-- still while locked to a signal.
-	help = "/speed <value> — pin WalkSpeed there for the session (ignores boots + haul); /speed off to clear",
+	-- recomputed speed. It now hands a sustained override to that loop, which applies
+	-- it every tick until cleared. The override ignores trained speed and the haul
+	-- penalty while set; `/speed off` returns you to normal. It does NOT override the
+	-- dig/wash root -- you still stand still while locked to a signal.
+	--
+	-- SESSION-ONLY, AND THAT IS THE DIFFERENCE FROM /train BELOW. This pins the number
+	-- the Humanoid gets and banks nothing; /train writes real profile state. Use this
+	-- to test how a speed FEELS, and /train to test the progression around it.
+	help = "/speed <value> — pin WalkSpeed there for the session (ignores training + haul); /speed off to clear",
 	run = function(player, _sandbox, args)
 		local raw = args[1]
 		if raw == nil or raw == "off" or raw == "clear" or raw == "reset" then
@@ -324,6 +328,48 @@ COMMANDS["/speed"] = {
 		value = math.clamp(math.floor(value), 0, 500)
 		ExposureService.setSpeedOverride(player, value)
 		return `WalkSpeed pinned to {value} — /speed off to undo`
+	end,
+}
+
+COMMANDS["/train"] = {
+	-- REAL PROFILE STATE, unlike /speed. Banks exactly the training a given speed
+	-- costs (Config/Treadmill.xpForSpeed), which is the only practical way to test
+	-- anything at the top of a curve whose endgame is fifteen hours of standing still.
+	--
+	-- Pokes data.speedXp directly, the same way /gear pokes data.gear -- there is no
+	-- "grant training" path on TreadmillService to go through, and there should not be
+	-- one: the tick loop is the only thing that ought to be able to earn it.
+	-- ExposureService picks the new speed up on its next tick with no event, so there
+	-- is nothing to push here.
+	--
+	-- `/train belt <n>` moves the RUNG instead, because a speed you cannot reach at a
+	-- sane rate is most of what there is to test -- the falloff past a belt's rating is
+	-- the part of this feature with the least forgiving math.
+	help = "/train <speed> — bank exactly the training for that speed; /train belt <1-6> to swap rung",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your save hasn't loaded"
+		end
+
+		if args[1] == "belt" then
+			local rung = tonumber(args[2])
+			if rung == nil then
+				return `usage: /train belt <1-{Treadmill.maxTier()}>`
+			end
+			data.treadmill = math.clamp(math.floor(rung), 1, Treadmill.maxTier())
+			ExhibitService.refreshTreadmill(player)
+			local def = Treadmill.tier(data.treadmill)
+			return `belt -> {def.name} (rated {def.rated}, {def.rate}/s)`
+		end
+
+		local wanted = tonumber(args[1])
+		if wanted == nil then
+			return `usage: /train <{Treadmill.START_SPEED}-{Treadmill.MAX_SPEED}>  |  /train belt <n>`
+		end
+		wanted = math.clamp(math.floor(wanted), Treadmill.START_SPEED, Treadmill.MAX_SPEED)
+		data.speedXp = Treadmill.xpForSpeed(wanted)
+		return `trained to speed {wanted} — walk it off and back on to refresh the readout`
 	end,
 }
 

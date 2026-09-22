@@ -33,6 +33,7 @@ local Liquids = require(Config.Liquids)
 local Items = require(Config.Items)
 local Weight = require(Config.Weight)
 local Payload = require(Config.Payload)
+local Treadmill = require(Config.Treadmill)
 local ItemModels = require(script.Parent.Parent.ItemModels)
 local ItemFxConfig = require(Config.ItemFx)
 local ItemFx = require(script.Parent.Parent.ItemFx)
@@ -598,17 +599,167 @@ function Spec.run(): boolean
 	-- PLAN §9.2 / §5.1 — one resolver, perks folded in exactly once
 	local profile = {
 		level = 20,
-		gear = { detector = 3, magnet = 2, cleaner = 4, suit = 3, boots = 2, satchel = 3 },
+		-- No `boots` key: the track is retired (Config/Gear's Gear.Boots header) and
+		-- StatResolver no longer looks for one. Speed comes from `speedXp` below.
+		gear = { detector = 3, magnet = 2, cleaner = 4, suit = 3, satchel = 3 },
 		perks = { steadyHands = true, sureFooting = true },
 		multipliers = { sell = 2 },
+		speedXp = Treadmill.xpForSpeed(45),
 	}
 	local stats = StatResolver.get(profile)
 	check("§9.2 Steady Hands adds exactly +1 potency", stats.cleanPotency == Gear.tier("Cleaner", 4).power + 1)
 	check("§9.2 level 20 = 20% resist", math.abs(stats.levelResist - 0.20) < 1e-9)
 	check("§9.2 level 20 = +4 carry capacity", stats.capacity == Gear.tier("Suit", 3).capacity + 4)
-	check("§9.2 Sure Footing halves the haul penalty", math.abs(stats.haulPenalty - Gear.tier("Boots", 2).haulPenalty * 0.5) < 1e-9)
+	check("§9.2 Sure Footing halves the haul penalty", math.abs(stats.haulPenalty - Gear.tier("Satchel", 3).haulPenalty * 0.5) < 1e-9)
+	-- SPEED COMES OUT OF THE TREADMILL AND NOTHING ELSE. The profile above banks
+	-- exactly enough training for 45, so this is also the check that `xpForSpeed` and
+	-- `speedFor` are actual inverses at a boundary — the one place floating point can
+	-- make a player's level-up read as the point below it.
+	check("§5.1 walk speed is whatever the treadmill trained", stats.walkSpeed == 45)
 	check("§5.1 a full bag physically slows you", StatResolver.effectiveWalkSpeed(stats, stats.capacity, false) < stats.walkSpeed)
 	check("§5.1 but never immobilises you", StatResolver.effectiveWalkSpeed(stats, 999, false) >= 6)
+
+	-- ── §5.1 THE TREADMILL ────────────────────────────────────────────────
+	--
+	-- The speed track, since Boots was retired (Config/Treadmill). These are the checks
+	-- that stop a retune from quietly turning a 15-hour endgame into a 3-hour one, and
+	-- they are the reason the curve's constants can be touched at all.
+
+	check("§5.1 an untrained player walks at the old starting-boots speed", Treadmill.START_SPEED == 26)
+	check("§5.1 a fully trained player tops out at 100", Treadmill.MAX_SPEED == 100)
+
+	-- xpForSpeed and speedFor must be exact inverses at EVERY point, not just at the
+	-- one the profile above happens to sit on. This is the check that would have caught
+	-- the floating-point boundary bug `speedFor`'s correction loops exist to fix: it
+	-- fails on every rung at once if that correction is ever "simplified" away.
+	do
+		local exact = true
+		for speed = Treadmill.START_SPEED, Treadmill.MAX_SPEED do
+			local resolved = Treadmill.speedFor(Treadmill.xpForSpeed(speed))
+			if resolved ~= speed then
+				exact = false
+				break
+			end
+		end
+		check("§5.1 banked training resolves back to the exact speed it bought", exact)
+	end
+
+	-- THE BELT LADDER TILES THE WHOLE RANGE, and the top rung is rated for the cap
+	-- itself — so a maxed player on a maxed belt is never in falloff, and the last
+	-- point of speed is expensive because the CURVE is expensive rather than because
+	-- the machine is fighting them.
+	do
+		local rising, rated = true, Treadmill.START_SPEED
+		for _, tier in Treadmill.TIERS do
+			if tier.rated <= rated then
+				rising = false
+			end
+			rated = tier.rated
+		end
+		check("§5.1 each belt is rated higher than the last", rising)
+		check("§5.1 the top belt is rated for the speed cap", Treadmill.TIERS[#Treadmill.TIERS].rated == Treadmill.MAX_SPEED)
+	end
+
+	-- SOFT GATE, NOT A WALL (PLAN's "no binary can't"). Training past a belt's rating
+	-- has to get punishing without ever reaching zero — a rate of exactly 0 is a hard
+	-- cap wearing a curve's clothes, and it is the failure this whole falloff shape
+	-- exists to avoid.
+	do
+		local floorTier = 1
+		local rated = Treadmill.tier(floorTier).rated
+		local atRating = Treadmill.rateFor(floorTier, rated)
+		local wayOver = Treadmill.rateFor(floorTier, Treadmill.MAX_SPEED)
+		check("§5.1 a belt pays its full rate up to its rating", math.abs(atRating - Treadmill.tier(floorTier).rate) < 1e-9)
+		check("§5.1 training past the rating is slower", wayOver < atRating)
+		check("§5.1 ...but never actually stops", wayOver > 0)
+	end
+
+	-- THE DIFFICULTY RAMP IS THE RATIO BETWEEN TWO LADDERS, and this is the check that
+	-- says so out loud. Cost per point grows XP_GROWTH^12 across a 12-point band; the
+	-- belts get faster by less than that. If a retune ever lets the rate ladder catch
+	-- the cost curve, every band takes the same time as the one before it and the
+	-- endgame stops being an endgame — which is a change nobody would see in play for
+	-- about ten hours.
+	do
+		local costGrowthPerBand = Treadmill.XP_GROWTH ^ 12
+		local rateGrowth = Treadmill.TIERS[2].rate / Treadmill.TIERS[1].rate
+		check(
+			string.format("§5.1 cost outruns the belt ladder (x%.2f per band against x%.2f)", costGrowthPerBand, rateGrowth),
+			costGrowthPerBand > rateGrowth
+		)
+	end
+
+	-- The three numbers the feature was specified against, measured the way a player
+	-- actually experiences them: banking training on whichever belt is rated for the
+	-- speed they are currently at. Bands are ±25%, wide enough that a cosmetic tweak to
+	-- one rung does not fail the suite and narrow enough that "15 hours" cannot drift
+	-- into "4 hours" unnoticed.
+	do
+		local function hoursTo(target: number): number
+			local seconds = 0
+			for speed = Treadmill.START_SPEED, target - 1 do
+				-- The lowest rung rated for this speed: what an on-schedule player owns.
+				local tier = Treadmill.maxTier()
+				for index, def in Treadmill.TIERS do
+					if speed < def.rated then
+						tier = index
+						break
+					end
+				end
+				seconds += Treadmill.costFor(speed) / Treadmill.rateFor(tier, speed)
+			end
+			return seconds / 3600
+		end
+
+		for _, milestone in { { at = 45, hours = 1.0 }, { at = 70, hours = 4.1 }, { at = 100, hours = 15.3 } } do
+			local actual = hoursTo(milestone.at)
+			check(
+				string.format("§5.1 speed %d is about %.1f h of training (got %.1f h)", milestone.at, milestone.hours, actual),
+				actual > milestone.hours * 0.75 and actual < milestone.hours * 1.25
+			)
+		end
+
+		-- ...and the gate has teeth. Never upgrading has to cost a player something
+		-- enormous rather than nothing, or the belts are decoration.
+		local stuck = 0
+		for speed = Treadmill.START_SPEED, 63 do
+			stuck += Treadmill.costFor(speed) / Treadmill.rateFor(1, speed)
+		end
+		check(
+			string.format("§5.1 refusing to upgrade is brutal, not blocked (%.0f h to speed 64 on the free belt)", stuck / 3600),
+			stuck / 3600 > hoursTo(64) * 5
+		)
+	end
+
+	-- THE REFUND HAS TO BUY THE REPLACEMENT. DataService hands a returning player back
+	-- the list price of every Boots rung they owned, and Treadmill.TIERS reuses that
+	-- exact ladder so the cash lands them on the equivalent belt. Retiring the Boots
+	-- TABLE (rather than just the track) would break this silently — the refund would
+	-- come back zero and nobody would hear about it.
+	do
+		local matched = #Gear.Boots == #Treadmill.TIERS
+		if matched then
+			for index, belt in Treadmill.TIERS do
+				if Gear.Boots[index].price ~= belt.price then
+					matched = false
+					break
+				end
+			end
+		end
+		check("§5.1 belt prices still mirror the retired Boots ladder, so the refund buys the equivalent rung", matched)
+	end
+
+	-- The track really is gone from the storefront. `Gear.Boots` surviving as data for
+	-- the refund is exactly the state that could rot into "it is still half-sold".
+	do
+		local listed = false
+		for _, track in Gear.TRACKS do
+			if track == "Boots" then
+				listed = true
+			end
+		end
+		check("§5.1 the Boots track is retired, not merely unstocked", not listed and Gear.STAT_META.Boots == nil)
+	end
 
 	-- The liquid folds into effectivePotency and NOWHERE ELSE. `cleanPotency` is the
 	-- permanent capability the Locker and the hose shop both read; the day someone
@@ -905,13 +1056,39 @@ function Spec.run(): boolean
 	-- A spot surfaces at the edge of your detector radius and you can stand on it at
 	-- DIG_RADIUS, so the gap between the two is all the time client/SpotCracks has to
 	-- fade the thing in before the player is on top of it — and it is the STARTING
-	-- detector against the FASTEST boots that sets the floor, since a wider radius only
-	-- ever buys more walk. It came to 0.22s, and the reveal was 0.6: the pick-up card
-	-- landed on ground that was still bare. Widening DIG_RADIUS or narrowing the first
-	-- detector shrinks this again, silently, from two files away.
+	-- detector against the FASTEST a player can ever move that sets the floor, since a
+	-- wider radius only ever buys more walk. It came to 0.22s, and the reveal was 0.6:
+	-- the pick-up card landed on ground that was still bare. Widening DIG_RADIUS or
+	-- narrowing the first detector shrinks this again, silently, from two files away.
+	--
+	-- *** THIS CHECK FAILS ON PURPOSE, AND IT IS THE THIRD KNOWN FAILURE. ***
+	--
+	-- The ceiling used to be the top Boots rung (36) and is now Treadmill.MAX_SPEED
+	-- (100). That is not a rename — it is a real and unsolvable tightening. The gap
+	-- between the starting detector's reveal edge and DIG_RADIUS is 8 studs; a fully
+	-- trained player crosses it in 0.08s, and client/SpotCracks' REVEAL is 0.4s with
+	-- its own header forbidding anything under ~0.3 ("the reveal stops reading as
+	-- ground splitting open and starts reading as a part being switched on"). So a
+	-- maxed player outruns the reveal animation and arrives at ground that is still
+	-- coming up.
+	--
+	-- IT CANNOT BE FIXED FROM HERE. Holding 0.2s of walk at speed 100 needs `reach`
+	-- >= 20 studs, and the starting detector's whole radius is 13 — shrinking
+	-- DIG_RADIUS cannot get there. The two real fixes are both design calls:
+	--
+	--   * widen the starting detector (radius 25+), which makes §2.1's two other
+	--     known failures — contact density already being too fast — worse; or
+	--   * scale the REVEAL RADIUS with trained speed in DigService, so a fast player
+	--     simply has spots surface further out. This is the better one.
+	--
+	-- Left failing rather than re-pointed at a friendlier speed, because a check that
+	-- is quietly weakened to go green stops being a check. What currently carries the
+	-- player-facing half of this is DetectorController's PROMPT_MIN_SHOWN — the PICK
+	-- UP card waits a beat for the spot, which SpotCracks' own header calls "the
+	-- cheaper half" of exactly this fix.
 	do
 		local reach = Gear.tier("Detector", 1).radius - Tuning.DIG_RADIUS
-		local fastest = Gear.tier("Boots", Gear.maxTier("Boots")).walkSpeed
+		local fastest = Treadmill.MAX_SPEED
 		check(
 			string.format("§2.1 a spot has time to fade in before you reach it (%.2fs of walk)", reach / fastest),
 			reach / fastest >= 0.2
@@ -933,7 +1110,7 @@ function Spec.run(): boolean
 
 	local field = Stages.builtIds()[1]
 	if field then
-		local walk = Gear.tier("Boots", 1).walkSpeed
+		local walk = Treadmill.START_SPEED
 		local lo = Gear.tier("Detector", 1).radius
 		local hi = Gear.tier("Detector", Gear.maxTier("Detector")).radius
 		local slow = Stages.secondsBetweenContacts(field, lo, walk, Tuning.SIGNALS_PER_STAGE)
@@ -1215,9 +1392,12 @@ function Spec.run(): boolean
 		)
 
 		-- A Common going off in your hands is a bruise, not a blackout: the point-blank
-		-- hit, then walking straight out of the orb at HALF the starting boots' speed.
+		-- hit, then walking straight out of the orb at HALF an UNTRAINED player's speed.
+		-- Deliberately the floor of the speed curve rather than anything a treadmill
+		-- buys: the worst case is the player who has never trained, and a check written
+		-- against a trained speed would pass while that player died.
 		local common = Detonation.blastFor("Common", D.SIZE_REF)
-		local walk = Gear.tier("Boots", 1).walkSpeed * 0.5
+		local walk = Treadmill.START_SPEED * 0.5
 		local taken, walked, step = common.hit, 0, 0.02
 		while walked < common.orbRadius do
 			taken += Detonation.orbBurnAt(walked, common.orbRadius, common.orbBurn, 1) * step
