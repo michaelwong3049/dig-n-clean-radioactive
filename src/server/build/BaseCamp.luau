@@ -40,14 +40,16 @@
 	STALLS west column moved from x=-30 to x=-42 specifically to open this gap —
 	see that file's header for the clearance numbers.
 
-	THE STALL READS AS A BUILT FRAME, not four poles under a sheet: four slim posts
-	in the pale storefront grey, deep-brown rail beams wrapping the frame in two
-	rings (ground and counter height), a low grey counter across the front, and a
-	striped gold-and-white awning that leans forward from tall back posts to short
-	front ones, is cantilevered past the frame at both ends, and drops a short
+	THE STALL IS A HAZMAT BUYBACK BOOTH (picked on request over a gold "cash
+	exchange" and a carnival marquee): dark steel posts, hazard-yellow rail beams in
+	two rings (ground and counter height), a ribbed steel back wall carrying a big
+	radiation badge, a grey counter with hazard tape along its kick and a platform
+	scale on it, two banded drums in the back corner, and a yellow-and-black striped
+	awning that leans forward from tall back posts to short front ones with a
 	striped valance off its front edge — the same read as the plaza stalls
-	(build/Shops' buildStripedCanopy), scaled up for one kiosk. The frame is studded
-	plastic throughout (no wood texture); the awning is flat-coloured SmoothPlastic.
+	(build/Shops' buildStripedCanopy), scaled up for one kiosk. A black TRADER sign
+	box stands on the awning's front edge. The frame is studded plastic; the awning,
+	badge and sign are flat-coloured SmoothPlastic. Nothing is Neon or lit.
 
 	NO ENTRANCE GATE EITHER. The two posts, their lamps, and the "BASE CAMP" sign
 	spanning between them read as an archway framing the approach, which wasn't
@@ -64,7 +66,7 @@ local ModelGallery = require(script.Parent.ModelGallery)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 15
+local BUILDER_VERSION = 16
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -80,13 +82,18 @@ local DEFAULT_ORIGIN = CFrame.new(0, 0.9, 136)
 export type Spec = Kit.Spec
 
 local C = Kit.C
-local build, billboard = Kit.build, Kit.billboard
+local build = Kit.build
+
+-- The trader booth's back wall and scale pan: a plain mid steel and a darker rib
+-- tone, so the ribbed wall reads as corrugated sheet without a texture.
+local SHED_STEEL = "8A949B"
+local SHED_RIB = "7A838A"
 
 -- ── The trader awning ─────────────────────────────────────────────────────────
 
 --- A striped market awning centred on `origin` at height `y`: flat-coloured stripes
---- running front-to-back alternating gold and off-white, forced to an odd count so
---- the cloth opens and closes on gold, pitched `tilt` degrees down toward the
+--- running front-to-back alternating hazard yellow and black, forced to an odd count
+--- so the cloth opens and closes on yellow, pitched `tilt` degrees down toward the
 --- customer (+Z), with a short valance of the same stripes hanging straight down off
 --- the front edge — the same read as the plaza stalls' canopies (build/Shops'
 --- buildStripedCanopy), scaled for one open kiosk. SmoothPlastic, pure colour, no
@@ -102,7 +109,7 @@ local function buildTraderAwning(parent: Instance, origin: CFrame, y: number, ce
 	local frontY = y - sinT * (depth / 2)
 
 	for i = 1, stripeCount do
-		local color = if i % 2 == 1 then C.gold else C.canvasPale
+		local color = if i % 2 == 1 then C.hazard else C.hazardBlack
 		local x = -width / 2 + (i - 0.5) * stripeWidth
 		build(parent, origin, {
 			name = `AwningStripe{i}`,
@@ -197,21 +204,21 @@ function BaseCamp.buildTrader(parent: Instance, kiosk: CFrame): Model
 	-- tiles or sinks into them.
 	local G = -0.9 + Hub.PLAZA_LIFT
 
-	-- A low grey studded deck, just proud of the plaza tiles — the stall is studded
+	-- A dark grey studded deck, just proud of the plaza tiles — the stall is studded
 	-- throughout, like the plaza shops.
 	build(trader, kiosk, {
 		name = "Deck",
 		pos = { 0, G + 0.2, 0 },
 		size = { 17, 0.8, 13 },
-		color = C.standGrey,
+		color = C.railPost,
 		material = "Plastic",
 		studs = true,
 	})
 
-	-- Four slim studded posts in the pale storefront grey — the stall's frame, not
-	-- four poles under a sheet. The back pair stands taller than the front pair so
-	-- the awning leans forward on a real slope (a lean-to stall), which also keeps
-	-- every post tucked under the cloth instead of poking through it.
+	-- Four slim studded posts in dark steel — the stall's frame, not four poles under
+	-- a sheet. The back pair stands taller than the front pair so the awning leans
+	-- forward on a real slope (a lean-to stall), which also keeps every post tucked
+	-- under the cloth instead of poking through it.
 	local POST = 0.95
 	local POST_DX, POST_DZ = 6.8, 4.9
 	local FRONT_H, BACK_H = 10.6, 11.8
@@ -225,23 +232,22 @@ function BaseCamp.buildTrader(parent: Instance, kiosk: CFrame): Model
 				name = "Post",
 				pos = { x, G + h / 2, z },
 				size = { POST, h, POST },
-				color = C.shopWoodLight,
+				color = C.steelDark,
 				material = "Plastic",
 				studs = true,
 			})
 		end
 	end
 
-	-- Rail beams wrapping the frame — the market-stall read: a ground-height
-	-- stretcher ring and a second at counter height, on the back and the two sides.
-	-- The front is left open (that side is the counter). Deep-brown and studded, not
-	-- a wood texture — the whole stall is studded plastic.
+	-- Rail beams wrapping the frame: a ground-height stretcher ring and a second at
+	-- counter height, on the back and the two sides, in hazard yellow. The front is
+	-- left open (that side is the counter).
 	local function railBeam(px: number, py: number, pz: number, sx: number, sz: number)
 		build(trader, kiosk, {
 			name = "RailBeam",
 			pos = { px, py, pz },
 			size = { sx, BEAM, sz },
-			color = C.wood,
+			color = C.hazard,
 			material = "Plastic",
 			studs = true,
 			canCollide = false,
@@ -259,9 +265,12 @@ function BaseCamp.buildTrader(parent: Instance, kiosk: CFrame): Model
 	-- G + 0.6) so it reads as furniture on the stall rather than a slab through it.
 	local DECK_TOP = G + 0.6
 	local COUNTER_H = 2.1
-	local counter = build(trader, kiosk, {
+	local COUNTER_Z = POST_DZ - 0.3
+	local COUNTER_FRONT = COUNTER_Z + 1.0
+	local COUNTER_TOP = DECK_TOP + COUNTER_H + 0.32
+	build(trader, kiosk, {
 		name = "TraderCounter",
-		pos = { 0, DECK_TOP + COUNTER_H / 2, POST_DZ - 0.3 },
+		pos = { 0, DECK_TOP + COUNTER_H / 2, COUNTER_Z },
 		size = { SPAN_X, COUNTER_H, 2.0 },
 		color = C.shopWood,
 		material = "Plastic",
@@ -270,19 +279,233 @@ function BaseCamp.buildTrader(parent: Instance, kiosk: CFrame): Model
 	})
 	build(trader, kiosk, {
 		name = "CounterTop",
-		pos = { 0, DECK_TOP + COUNTER_H + 0.16, POST_DZ - 0.3 },
+		pos = { 0, DECK_TOP + COUNTER_H + 0.16, COUNTER_Z },
 		size = { SPAN_X + 0.9, 0.32, 2.7 },
 		color = C.steel,
 		material = "Metal",
 		canCollide = false,
 	})
-	billboard(counter, 210, 4.3, "TRADER", "turn finds into cash", C.gold)
+
+	-- Hazard tape along the counter's kick: a black backing strip with yellow blocks
+	-- laid proud of it, so the counter reads as the edge of a controlled area — you
+	-- hand hot material over this line, you don't walk past it.
+	local TAPE_Y = DECK_TOP + 0.55
+	local TAPE_SPAN = SPAN_X - 0.4
+	local TAPE_BLOCKS = 16
+	build(trader, kiosk, {
+		name = "HazardTape",
+		pos = { 0, TAPE_Y, COUNTER_FRONT + 0.04 },
+		size = { SPAN_X, 0.9, 0.08 },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	for i = 0, TAPE_BLOCKS - 1, 2 do
+		build(trader, kiosk, {
+			name = "HazardStripe",
+			pos = { -TAPE_SPAN / 2 + i * TAPE_SPAN / (TAPE_BLOCKS - 1), TAPE_Y, COUNTER_FRONT + 0.105 },
+			size = { 0.42, 0.9, 0.05 },
+			color = C.hazard,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+	end
+
+	-- A platform scale on the counter's left end — the trader weighs what you bring
+	-- (weight drives value, see Config/Items). Diamond-plate pan, a black neck and a
+	-- white dial facing the customer with the needle kicked partway round.
+	local SCALE_X = -3.8
+	build(trader, kiosk, {
+		name = "ScalePan",
+		pos = { SCALE_X, COUNTER_TOP + 0.09, COUNTER_Z },
+		size = { 2.6, 0.18, 1.8 },
+		color = SHED_STEEL,
+		material = "DiamondPlate",
+		canCollide = false,
+	})
+	build(trader, kiosk, {
+		name = "ScaleNeck",
+		pos = { SCALE_X, COUNTER_TOP + 0.88, COUNTER_Z - 0.6 },
+		size = { 0.3, 1.5, 0.3 },
+		color = C.hazardBlack,
+		material = "Metal",
+		canCollide = false,
+	})
+	build(trader, kiosk, {
+		name = "ScaleDial",
+		pos = { SCALE_X, COUNTER_TOP + 1.98, COUNTER_Z - 0.6 },
+		size = { 0.3, 1.6, 1.6 },
+		color = C.labelText,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		rot = Kit.R.yaw90,
+		canCollide = false,
+	})
+	build(trader, kiosk, {
+		name = "ScaleNeedle",
+		pos = { SCALE_X + 0.2, COUNTER_TOP + 2.18, COUNTER_Z - 0.42 },
+		size = { 0.08, 0.7, 0.05 },
+		color = C.quarantineRed,
+		material = "SmoothPlastic",
+		rot = Kit.ang(0, 0, -35),
+		canCollide = false,
+	})
+
+	-- A ribbed steel back wall between the back posts, closing the stall into a
+	-- booth. The ribs are separate strips rather than a texture: the whole stall is
+	-- plain parts, and ribs read at any distance where a texture would mip away.
+	local WALL_Z = -POST_DZ - 0.1
+	local WALL_H = 9.8
+	local WALL_Y = G + 0.3 + WALL_H / 2
+	local RIB_SPAN = SPAN_X - 0.65
+	local RIBS = 15
+	build(trader, kiosk, {
+		name = "BackWall",
+		pos = { 0, WALL_Y, WALL_Z },
+		size = { SPAN_X, WALL_H, 0.3 },
+		color = SHED_STEEL,
+		material = "Metal",
+	})
+	for i = 0, RIBS - 1 do
+		build(trader, kiosk, {
+			name = "WallRib",
+			pos = { -RIB_SPAN / 2 + i * RIB_SPAN / (RIBS - 1), WALL_Y, WALL_Z + 0.17 },
+			size = { 0.3, WALL_H, 0.1 },
+			color = SHED_RIB,
+			material = "Metal",
+			canCollide = false,
+		})
+	end
+
+	-- The radiation badge on the back wall: a black ring, a yellow disc and a black
+	-- trefoil, standing proud of the counter-height rail that runs behind it. Each
+	-- blade is five stacked bars widening outward, laid out the standard way (one
+	-- blade straight down, two up and out). Each arm's origin carries its own
+	-- rotation and pushes out along its own Y, so position and facing agree by
+	-- construction (the same trick as Scenery's flatTrefoil).
+	local BADGE_Y = G + 7.0
+	build(trader, kiosk, {
+		name = "BadgeRing",
+		pos = { 0, BADGE_Y, WALL_Z + 0.48 },
+		size = { 0.12, 5.5, 5.5 },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		rot = Kit.R.yaw90,
+		canCollide = false,
+	})
+	build(trader, kiosk, {
+		name = "BadgeDisc",
+		pos = { 0, BADGE_Y, WALL_Z + 0.55 },
+		size = { 0.12, 5, 5 },
+		color = C.hazard,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		rot = Kit.R.yaw90,
+		canCollide = false,
+	})
+	local hub = kiosk * CFrame.new(0, BADGE_Y, WALL_Z + 0.64)
+	build(trader, hub, {
+		name = "TrefoilHub",
+		pos = { 0, 0, 0 },
+		size = { 0.08, 0.7, 0.7 },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		rot = Kit.R.yaw90,
+		canCollide = false,
+	})
+	for arm = 0, 2 do
+		local armOrigin = hub * Kit.ang(0, 0, 60 + arm * 120)
+		for j = 0, 4 do
+			build(trader, armOrigin, {
+				name = "TrefoilBlade",
+				pos = { 0, 0.75 + j * 0.3, 0 },
+				size = { 0.75 + j * 0.42, 0.32, 0.08 },
+				color = C.hazardBlack,
+				material = "SmoothPlastic",
+				canCollide = false,
+			})
+		end
+	end
+
+	-- Two drums in the back corner behind the counter, one hazard yellow and one
+	-- rust, each with three black bands. Kept inside the frame: at Base Camp the
+	-- neighbouring stalls sit under 2 studs off the deck's sides.
+	local DRUM_H = 2.8
+	for _, drum in { { 5.1, -3.5, C.barrelYellow }, { 3.0, -3.7, C.barrelRust } } do
+		local dx, dz, color = drum[1], drum[2], drum[3]
+		build(trader, kiosk, {
+			name = "Drum",
+			pos = { dx, DECK_TOP + DRUM_H / 2, dz },
+			size = { DRUM_H, 1.9, 1.9 },
+			color = color,
+			material = "Metal",
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+		})
+		for _, dy in { -1.0, 0, 1.0 } do
+			build(trader, kiosk, {
+				name = "DrumBand",
+				pos = { dx, DECK_TOP + DRUM_H / 2 + dy, dz },
+				size = { 0.14, 2.0, 2.0 },
+				color = C.hazardBlack,
+				material = "Metal",
+				shape = "Cylinder",
+				rot = Kit.R.cylUp,
+				canCollide = false,
+			})
+		end
+	end
 
 	-- The striped awning: a gently forward-sloping roof with a modest, roughly even
 	-- oversail front and back. The `y`/`centerZ`/tilt trio is tuned so the slab
 	-- underside meets every post top flush (none poke through). A striped valance
 	-- drops off the front edge.
 	buildTraderAwning(trader, kiosk, G + 11.45, 0, 7, 14.6, 12.0)
+
+	-- The TRADER sign box standing on the awning's front edge on two short legs: a
+	-- black board in a hazard-yellow frame, the name in yellow and "turn finds into
+	-- cash" on a strip below it. It replaces the floating billboard, which hung
+	-- right over the radiation badge. Painted, not lit (see Kit.C's header — no shop
+	-- sign is Neon or carries a light).
+	local SIGN_Y, SIGN_Z = G + 12.75, POST_DZ + 0.7
+	for _, x in { -3.5, 3.5 } do
+		build(trader, kiosk, {
+			name = "SignLeg",
+			pos = { x, G + 11.2, SIGN_Z - 0.1 },
+			size = { 0.35, 0.8, 0.35 },
+			color = C.hazardBlack,
+			material = "Metal",
+			canCollide = false,
+		})
+	end
+	build(trader, kiosk, {
+		name = "SignFrame",
+		pos = { 0, SIGN_Y, SIGN_Z - 0.05 },
+		size = { 10.6, 3.0, 0.6 },
+		color = C.hazard,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	local title = build(trader, kiosk, {
+		name = "SignTitle",
+		pos = { 0, SIGN_Y + 0.35, SIGN_Z + 0.05 },
+		size = { 10.0, 1.8, 0.6 },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	Kit.surfaceText(title, Enum.NormalId.Back, "TRADER", C.hazard)
+	local subtitle = build(trader, kiosk, {
+		name = "SignSubtitle",
+		pos = { 0, SIGN_Y - 0.9, SIGN_Z + 0.05 },
+		size = { 10.0, 0.6, 0.6 },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	Kit.surfaceText(subtitle, Enum.NormalId.Back, "turn finds into cash", C.labelText)
 
 	trader.Parent = parent
 	return trader
