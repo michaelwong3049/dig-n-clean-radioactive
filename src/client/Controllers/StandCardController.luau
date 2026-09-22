@@ -606,7 +606,14 @@ local function draw(card: Card)
 	local coinLeft = 3
 	local rateLeft = coinLeft + L.coin + 6
 	local ratePillW = rateLeft + rateW + 12
-	local kgText = formatWeight(def.weight)
+	-- The rate pill and the SizeSticker above it both already ride Payload.forUid
+	-- (ExhibitService.entryYieldPerSecond: "a heavy/big-rolled piece pays more per
+	-- second AND sells for more, off the same two factors"). The weight pill used to
+	-- read the catalogue's intrinsic def.weight straight, so a card could show a
+	-- "GIGA x2.3" sticker over a kg number that never moved -- fold the same roll in
+	-- so what the card says it weighs matches what it says it pays and how big the
+	-- sticker says it rolled.
+	local kgText = formatWeight(def.weight * (if type(payload) == "number" then payload else 1))
 	local kgW = textWidth(kgText, L.kgSize, STYLE.font) + 22
 	local rowLeft = mid - (ratePillW + L.pillGap + kgW) / 2
 
