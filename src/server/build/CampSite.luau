@@ -68,7 +68,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 1
+local BUILDER_VERSION = 2
 
 local C = Kit.C
 local build = Kit.build
@@ -268,9 +268,12 @@ local function buildFloor(parent: Instance, L: Layout)
 	})
 	tiles.Parent = parent
 
-	-- The body: thin bands under the tiles, each running from the clip line to the
-	-- disc's edge (wall included) at its own z, so the island's cliff follows the
-	-- circle rather than stepping out in big rectangles.
+	-- The body: thin bands under the tiles, each spanning the disc's own chord (wall
+	-- included) at its z -- cut off at the clip line where the chord reaches past it --
+	-- so the island's cliff follows the circle on BOTH sides rather than stepping out in
+	-- big rectangles. (Starting every band at the clip line regardless, as the first
+	-- version did, left a slab wedge sticking out past the wall in both west corners,
+	-- where the circle is well east of the clip line.)
 	local slab = Instance.new("Folder")
 	slab.Name = "Slab"
 	local outer = L.radius + WALL_T
@@ -280,12 +283,13 @@ local function buildFloor(parent: Instance, L: Layout)
 		local z1 = math.min(z + SLAB_BAND, L.cz + outer)
 		local mid = (z + z1) / 2 - L.cz
 		local half = math.sqrt(math.max(0, outer * outer - mid * mid))
+		local minX = math.max(L.clipX, L.cx - half)
 		local maxX = L.cx + half
-		if maxX > L.clipX + 0.5 then
+		if maxX > minX + 0.5 then
 			build(slab, CFrame.new(0, 0, 0), {
 				name = "Slab",
-				pos = { (L.clipX + maxX) / 2, topY - SLAB_THICKNESS / 2, (z + z1) / 2 },
-				size = { maxX - L.clipX, SLAB_THICKNESS, z1 - z },
+				pos = { (minX + maxX) / 2, topY - SLAB_THICKNESS / 2, (z + z1) / 2 },
+				size = { maxX - minX, SLAB_THICKNESS, z1 - z },
 				color = p.wallDark,
 				material = "SmoothPlastic",
 			})
@@ -475,12 +479,15 @@ local function buildStalls(parent: Instance, L: Layout)
 		local origin = CFrame.new(L.ox + dx, PLAZA_Y, L.oz + dz) * CFrame.Angles(0, math.rad(yaw), 0)
 		Shops.buildStallShell(folder, origin, STALL_WIDTH, accents[(i - 1) % #accents + 1], STALL_LABEL)
 	end
-	-- North row faces south (yaw 180), south row faces north (yaw 0), across the aisle.
-	for _, dx in NORTH_STALL_X do
-		stall(dx, ROW_Z, 180)
-	end
+	-- South row faces north (yaw 0), north row faces south (yaw 180), across the aisle.
+	-- SOUTH FIRST, so it takes the palette's first two accents (violet, teal) and the
+	-- gold trader between them stays the only yellow in its row -- with the palette's
+	-- yellow stall beside it, the two read as one stall from across the plaza.
 	for _, dx in SOUTH_STALL_X do
 		stall(dx, -ROW_Z, 0)
+	end
+	for _, dx in NORTH_STALL_X do
+		stall(dx, ROW_Z, 180)
 	end
 	folder.Parent = parent
 
