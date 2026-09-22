@@ -184,7 +184,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 41
+local BUILDER_VERSION = 42
 
 local C = Kit.C
 local build = Kit.build
@@ -297,6 +297,22 @@ local RACK_SLOT_DEPTH = 3.6 -- into the stall: keep the tier's nose clear of the
 --- the rail, so it still reads as hung rather than floating.
 local RACK_DROP_BASE = 0.1 -- local Y a tier's base rests at — the stall deck's top face
 local RACK_DROP_TOP = RACK_RAIL_Y - 1.0 -- highest a tier's top may reach — the mount block's underside
+
+--- THE RACK IS A STAIRCASE. Every tier stands on its own riser, each one step higher
+--- than the tier before it, and the rail steps up with them — so the row climbs as the
+--- price climbs and the upgrade path reads before you read a single price card. The
+--- whole hook (riser top, drop, mount, rail) moves up by the tier's `rackLift`, so
+--- every tier keeps the full rail-to-floor drop above and nothing is shrunk to fit.
+---
+--- SIZED AGAINST THE CANOPY. The dearest detector (tier 8, the longest rack) lifts
+--- 0.3 + 7 x 0.22 = 1.84, putting its rail at ~7.2 and its price card at ~8.4 — under
+--- the canopy's underside (~9.2 over the shopfront line) with room to spare.
+local RACK_RISER_BASE = 0.3 -- the cheapest tier's riser: low, but enough to read as a step
+local RACK_STEP = 0.22 -- how much higher each dearer tier stands
+
+local function rackLift(tier: number): number
+	return RACK_RISER_BASE + RACK_STEP * (tier - 1)
+end
 
 --- Ceiling on how far a tier is blown up past the size ToolService hands you. The
 --- tool models are authored small (a tier-1 magnet ships at 0.30 scale — it is a
@@ -813,8 +829,8 @@ local function tierTemplate(track: string, tier: number): Model?
 	return nil
 end
 
---- Hang one tier's real model under the rail, standing on the stall deck at local `x`.
---- Returns the tier top's local Y (so the caller can bridge a `Hanger` strap up to
+--- Hang one tier's real model under the rail, standing on its riser at local `x`
+--- (`lift` studs above the deck — see `rackLift`). Returns the tier top's local Y (so the caller can bridge a `Hanger` strap up to
 --- the rail), or nil when this place has no art for the tier.
 ---
 --- ORIENTED THE WAY IT IS CARRIED, via the model's own `HoldCFrame` — the attribute
@@ -846,10 +862,11 @@ end
 --- THEN STOOD ON THE DECK. HoldCFrame places a model's PIVOT, wherever the Handle
 --- happens to sit — a detector's is 1.2 studs off its own box centre. Left alone,
 --- every tier would hang at a different height. So the last step re-measures the
---- scaled box and slides the model straight down until its BASE is on RACK_DROP_BASE,
+--- scaled box and slides the model straight down until its BASE is on its riser top
+--- (RACK_DROP_BASE + lift),
 --- and across so its centre sits on `x` and on the shopfront line, whatever the art's
 --- pivot is doing.
-local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: number, track: string, tier: number): number?
+local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: number, lift: number, track: string, tier: number): number?
 	local template = tierTemplate(track, tier)
 	if template == nil then
 		return nil
@@ -935,10 +952,10 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: 
 	-- sits on the deck and it is centred across the rack and on the shopfront line.
 	lo, hi = localBox()
 	local haveCentre = (lo + hi) / 2
-	local wantCentre = Vector3.new(x, RACK_DROP_BASE + (hi.Y - lo.Y) / 2, SHOPFRONT_Z)
+	local wantCentre = Vector3.new(x, RACK_DROP_BASE + lift + (hi.Y - lo.Y) / 2, SHOPFRONT_Z)
 	clone:PivotTo(clone:GetPivot() + origin:VectorToWorldSpace(wantCentre - haveCentre))
 
-	return RACK_DROP_BASE + (hi.Y - lo.Y)
+	return RACK_DROP_BASE + lift + (hi.Y - lo.Y)
 end
 
 --- The price card over one hanging tier: its name, and what it costs.
@@ -1008,21 +1025,118 @@ end
 --- is the slice `buildTierRack` and `buildRackHook` actually read.
 type RackSpec = { track: string, color: string, present: { yaw: number, pitch: number } }
 
---- One hook on the rail: the mount block that carries the sale, the tier's model
---- standing under it (or a painted stand-in), a slim strap hanging it off the rail,
---- and the price card over it.
+--- The riser a tier stands on: a studded block in the stall's lumber grey, the
+--- tier's `rackLift` tall and one slot wide and deep, with a thin accent cap along its
+--- front top edge so the steps read as a staircase in the stall's colour.
+local function buildRiser(parent: Instance, origin: CFrame, spec: RackSpec, tier: number, x: number, lift: number)
+	build(parent, origin, {
+		name = `Riser{tier}`,
+		pos = { x, RACK_DROP_BASE + lift / 2, SHOPFRONT_Z },
+		size = { RACK_SLOT_WIDTH, lift, RACK_SLOT_DEPTH },
+		color = C.shopWoodLight,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+	build(parent, origin, {
+		name = `RiserCap{tier}`,
+		pos = { x, RACK_DROP_BASE + lift - 0.06, SHOPFRONT_Z + RACK_SLOT_DEPTH / 2 + 0.03 },
+		size = { RACK_SLOT_WIDTH, 0.12, 0.06 },
+		color = spec.color,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+end
+
+--- THE DEAREST TIER STANDS IN A GLASS CASE, so the end of the ladder reads as the
+--- prize. A clear glass box around the tier's whole drop, edged in the stall's
+--- accent (four corner posts and a top rim — no top slab, because the mount block
+--- sits right on the case's top edge), and a BEST plate on the riser's front face.
+---
+--- NOTHING HERE CAN GET IN THE WAY OF BUYING IT. The glass is CanCollide and
+--- CanQuery false, and the hook's prompt already fires without line of sight (see
+--- buildRackHook), so the case is purely something to look through. Painted, not lit.
+local CASE_GLASS_TRANSPARENCY = 0.72
+local CASE_EDGE = 0.18
+
+local function buildDisplayCase(parent: Instance, origin: CFrame, spec: RackSpec, x: number, lift: number)
+	local dropH = RACK_DROP_TOP - RACK_DROP_BASE
+	local baseY = RACK_DROP_BASE + lift
+	local w, d = RACK_SLOT_WIDTH + 0.2, RACK_SLOT_DEPTH + 0.2
+
+	local glass = build(parent, origin, {
+		name = "DisplayCase",
+		pos = { x, baseY + dropH / 2, SHOPFRONT_Z },
+		size = { w, dropH, d },
+		color = C.glass,
+		material = "Glass",
+		transparency = CASE_GLASS_TRANSPARENCY,
+		canCollide = false,
+	})
+	glass.CanQuery = false
+	glass.CastShadow = false
+
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			build(parent, origin, {
+				name = "CasePost",
+				pos = { x + sx * w / 2, baseY + dropH / 2, SHOPFRONT_Z + sz * d / 2 },
+				size = { CASE_EDGE, dropH, CASE_EDGE },
+				color = spec.color,
+				material = "SmoothPlastic",
+				canCollide = false,
+			})
+		end
+	end
+	for _, rim in {
+		{ 0, -d / 2, w, CASE_EDGE },
+		{ 0, d / 2, w, CASE_EDGE },
+		{ -w / 2, 0, CASE_EDGE, d },
+		{ w / 2, 0, CASE_EDGE, d },
+	} do
+		build(parent, origin, {
+			name = "CaseRim",
+			pos = { x + rim[1], baseY + dropH, SHOPFRONT_Z + rim[2] },
+			size = { rim[3], CASE_EDGE, rim[4] },
+			color = spec.color,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+	end
+
+	-- The BEST plate on the riser's front face, gold on black like the TRADER box.
+	local plateH = math.min(0.8, lift - 0.2)
+	local plate = build(parent, origin, {
+		name = "BestPlate",
+		pos = { x, RACK_DROP_BASE + lift / 2, SHOPFRONT_Z + RACK_SLOT_DEPTH / 2 + 0.06 },
+		size = { 2.2, plateH, 0.1 },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	Kit.surfaceText(plate, Enum.NormalId.Back, "BEST", C.gold)
+end
+
+--- One hook on the rail: the riser the tier stands on, the mount block that carries
+--- the sale, the tier's model standing on the riser (or a painted stand-in), a slim
+--- strap hanging it off the rail, and the price card over it. Everything above the
+--- deck moves up by the tier's `rackLift` (see the staircase note up top). `isTop`
+--- adds the dearest tier's glass case.
 ---
 --- THE MOUNT IS BUILT WHETHER OR NOT THE ART IS. A missing template costs the stall
 --- its silhouette, never its ability to sell — the fallback is a plain block in the
 --- shop's accent, and the prompt, the attributes and the billboard are identical
 --- either way. World.verify() asserts every priced track is buyable somewhere, and
 --- that assertion must not depend on which place file this ran in.
-local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, tier: number, x: number)
+local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, tier: number, x: number, isTop: boolean)
 	local def = Gear.tier(spec.track, tier)
+	local lift = rackLift(tier)
+
+	buildRiser(parent, origin, spec, tier, x, lift)
 
 	local mount = build(parent, origin, {
 		name = `Mount{tier}`,
-		pos = { x, RACK_RAIL_Y - 0.5, SHOPFRONT_Z },
+		pos = { x, RACK_RAIL_Y - 0.5 + lift, SHOPFRONT_Z },
 		size = { 1.1, 1.0, 1.1 },
 		color = C.steelDark,
 		material = "Metal",
@@ -1035,28 +1149,28 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, t
 
 	-- THE VIRTUAL HAND: a holder facing the customer, at this track's `present` tip
 	-- (STALLS' `present` and the RACK_DROP_* header). Only the rotation matters —
-	-- hangTierModel stands the model on the deck afterwards. Yaw about the stall's Y,
+	-- hangTierModel stands the model on the riser afterwards. Yaw about the stall's Y,
 	-- then pitch about the yawed X, so the whole row tips forward together.
 	local hand = origin * Kit.ang(0, spec.present.yaw, 0) * Kit.ang(spec.present.pitch, 0, 0)
-	local topY = hangTierModel(parent, origin, hand, x, spec.track, tier)
+	local topY = hangTierModel(parent, origin, hand, x, lift, spec.track, tier)
 
 	if topY == nil then
 		local blockH = RACK_DROP_TOP - RACK_DROP_BASE
 		build(parent, origin, {
 			name = `T{tier}Stand`,
-			pos = { x, RACK_DROP_BASE + blockH / 2, SHOPFRONT_Z },
+			pos = { x, RACK_DROP_BASE + lift + blockH / 2, SHOPFRONT_Z },
 			size = { 1.4, blockH, 1.4 },
 			color = spec.color,
 			material = "SmoothPlastic",
 			canCollide = false,
 		})
-		topY = RACK_DROP_TOP
+		topY = RACK_DROP_TOP + lift
 	end
 
 	-- The strap that hangs a shorter tier off the mount so it reads as hung, not
 	-- floating. Sizes itself to the gap: nothing for a detector that already reaches
 	-- the mount, a visible drop for a stubby hose.
-	local gap = RACK_DROP_TOP - topY
+	local gap = RACK_DROP_TOP + lift - topY
 	if gap > 0.4 then
 		build(parent, origin, {
 			name = `Hanger{tier}`,
@@ -1066,6 +1180,10 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, t
 			material = "Metal",
 			canCollide = false,
 		})
+	end
+
+	if isTop then
+		buildDisplayCase(parent, origin, spec, x, lift)
 	end
 
 	local prompt = Instance.new("ProximityPrompt")
@@ -1095,31 +1213,50 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, t
 	buildPriceCard(mount, def.name, def.price, spec.color)
 end
 
---- Every tier of the track, cheapest on the left, standing on the deck below the rail.
+--- Every tier of the track, cheapest on the left, each on its own step up.
 ---
 --- `origin` IS THE WING'S OWN CENTRE, not the stall's — the caller passes
 --- `stallOrigin * CFrame.new(rackX(track), 0, 0)` the same way buildOutfitter shifts
 --- a counterOrigin, so everything below stays written as a symmetric offset from zero
 --- and this function never has to know where in the store it was hung.
+---
+--- THE RAIL STEPS WITH THE TIERS: one RACK_PITCH-wide segment over each hook at that
+--- tier's height, joined to the next by a short upright, and an end post at each end
+--- carrying it down to the deck (the left one short, the right one tall).
 local function buildTierRack(parent: Instance, origin: CFrame, spec: RackSpec)
 	local span = rackSpan(spec.track)
 	local count = Gear.maxTier(spec.track)
+	local function hookX(tier: number): number
+		return -span / 2 + (tier - 1) * RACK_PITCH
+	end
 
-	-- The rail the tiers hang from, and a full-height post at each end carrying it
-	-- down to the deck — the counter that used to hold the rail up is gone.
-	build(parent, origin, {
-		name = "RackRail",
-		pos = { 0, RACK_RAIL_Y, SHOPFRONT_Z },
-		size = { span + 3, 0.5, 0.5 },
-		color = C.steel,
-		material = "Metal",
-		canCollide = false,
-	})
-	for _, side in { -1, 1 } do
+	for tier = 1, count do
+		local railY = RACK_RAIL_Y + rackLift(tier)
+		build(parent, origin, {
+			name = `RackRail{tier}`,
+			pos = { hookX(tier), railY, SHOPFRONT_Z },
+			size = { RACK_PITCH, 0.5, 0.5 },
+			color = C.steel,
+			material = "Metal",
+			canCollide = false,
+		})
+		if tier < count then
+			build(parent, origin, {
+				name = `RackRailStep{tier}`,
+				pos = { hookX(tier) + RACK_PITCH / 2, railY + RACK_STEP / 2, SHOPFRONT_Z },
+				size = { 0.5, RACK_STEP + 0.5, 0.5 },
+				color = C.steel,
+				material = "Metal",
+				canCollide = false,
+			})
+		end
+	end
+	for _, post in { { -1, 1 }, { 1, count } } do
+		local railY = RACK_RAIL_Y + rackLift(post[2])
 		build(parent, origin, {
 			name = "RackPost",
-			pos = { side * (span / 2 + 1.5), (RACK_RAIL_Y + RACK_DROP_BASE) / 2, SHOPFRONT_Z },
-			size = { 0.5, RACK_RAIL_Y - RACK_DROP_BASE, 0.5 },
+			pos = { post[1] * (span / 2 + 1.5), (railY + RACK_DROP_BASE) / 2, SHOPFRONT_Z },
+			size = { 0.5, railY - RACK_DROP_BASE, 0.5 },
 			color = C.steel,
 			material = "Metal",
 			canCollide = false,
@@ -1127,7 +1264,7 @@ local function buildTierRack(parent: Instance, origin: CFrame, spec: RackSpec)
 	end
 
 	for tier = 1, count do
-		buildRackHook(parent, origin, spec, tier, -span / 2 + (tier - 1) * RACK_PITCH)
+		buildRackHook(parent, origin, spec, tier, hookX(tier), tier == count)
 	end
 end
 
