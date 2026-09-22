@@ -94,10 +94,11 @@ local Hub = require(script.Parent.Hub)
 local Plots = require(script.Parent.Plots)
 local CraterField = require(script.Parent.CraterField)
 local BlastDebris = require(script.Parent.BlastDebris)
+local FieldLitter = require(script.Parent.FieldLitter)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 35
+local BUILDER_VERSION = 36
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -635,9 +636,12 @@ end
 ---            `skulls` human skulls.
 ---   Stage 3 -- the same three bone counts, denser (scatterBones), and then
 ---            `barrels` radioactive drums dumped over the field in loads of one to
----            three (scatterBarrels). Its `kind = "sirens"` set piece is still on
----            the shelf and `props` with it -- the drums are what this field got
----            instead, and they are the only thing standing in it.
+---            three (scatterBarrels), and then the ground litter it is strewn with
+---            (build/FieldLitter): drifted dirt, grit, broken concrete and sprays of
+---            blown-in window glass. Its `kind = "sirens"` set piece is still on the
+---            shelf and `props` with it -- the drums are what this field got instead,
+---            and they are still the only thing standing in it (the litter is flat,
+---            and its one canted glass plate is knee-high at most).
 ---   Stage 6 -- the impact craters (build/CraterField, laid out in Config/StageCraters):
 ---            one big crater off the middle, with fused glass at ground zero and a few
 ---            smoking vents, and a scatter of small ones; then the dirt and wreckage
@@ -667,13 +671,17 @@ local THEME: { [number]: StageTheme } = {
 	-- the detail that lands hardest, and lose all of it the moment there are enough of
 	-- them to be scenery.
 	[2] = { props = 9, pools = 10, kind = "trees", scatter = true, skeletons = 2, bones = 16, skulls = 7 },
-	-- Stage 3 gets the SAME three bone passes, denser, and NOTHING ELSE -- its sirens
-	-- are still on the shelf (`props`/`kind` below are untouched and unused), so this
-	-- is a partial pass, not Stage 3's rework. That is most of why the two fields do
-	-- not read as one: Stage 2 is a tree line with remains under it, Stage 3 is bare
-	-- khaki ground with nothing standing on it at all but the remains -- which is
-	-- exactly the "nothing left standing" the note under Stage 5 already claims starts
-	-- here. The counts are the other half: half again the carcasses, half again the
+	-- Stage 3 gets the SAME three bone passes, denser, plus the drums and the ground
+	-- litter -- its sirens are still on the shelf (`props`/`kind` below are untouched
+	-- and unused), so this is still a partial pass, not Stage 3's rework. That is most
+	-- of why the two fields do not read as one: Stage 2 is a tree line with remains
+	-- under it, Stage 3 is bare khaki ground with nothing standing on it at all but the
+	-- remains -- which is exactly the "nothing left standing" the note under Stage 5
+	-- already claims starts here. THE LITTER DOES NOT CHANGE THAT, deliberately: it is
+	-- all flat or ankle-high (build/FieldLitter's own header has the ceiling and the
+	-- "reads littered looking down, reads empty across the field" constraint the counts
+	-- in there are tuned to), so the field still has nothing standing in it but drums.
+	-- The counts are the other half: half again the carcasses, half again the
 	-- loose bone, and nearly double the human skulls. THE SKULLS ARE THE ESCALATION
 	-- THAT LANDS. One field further in and the ratio of people to animals has moved --
 	-- more of them got this far, fewer of them walked back out.
@@ -3083,6 +3091,10 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- AFTER the bones, always: both passes run off the one stage rng, so putting
 			-- the drums first would move every bone in the field.
 			scatterBarrels(folder, origin, theme.barrels or 0, rng, hx, hz)
+			-- The ground itself: drifted dirt, grit, broken concrete and blown-in window
+			-- glass (build/FieldLitter). Off its own seed, not this stage rng, so retuning
+			-- the litter cannot move a bone or a drum -- it is free to go last.
+			FieldLitter.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
 		elseif id == 4 then
 			-- The `barriers` set piece (`theme.props`) is still on the shelf; the signs
 			-- and the puddles are what this field has had its pass on so far.
