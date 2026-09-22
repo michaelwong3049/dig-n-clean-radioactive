@@ -74,10 +74,9 @@ local HELD_ITEM_NAME = "HeldItem"
 --- same scale-up as the exhibit stand, model yard, and wash stand.
 local HELD_ITEM_SIZE = 5.94
 
---- Extra clearance nudged into every held item's vertical placement (see
---- equipItem) -- small enough to be invisible on a normal-sized item, just
---- enough on an oversized one that its underside reads as resting ON the
---- hands instead of poking through them.
+--- Clearance between the overhead hand and a held item's own lowest point (see
+--- equipItem) -- just enough that the underside reads as resting ON the hands
+--- instead of poking through them.
 local HELD_ITEM_LIFT = 0.15
 
 local equipped: { [Player]: string? } = {}
@@ -172,24 +171,30 @@ local POSES: { [string]: { shoulder: { pitch: number, roll: number }, elbow: { p
 	-- Carrying a dug item back on foot. Nothing braces this against a fixed rig part
 	-- the way the detector and hose do -- it is welded to LeftHand (see equipItem) --
 	-- so the ONLY thing stopping it from swinging through the walk cycle is this same
-	-- upper-body lock. Both arms raise up and fold in, hands meeting at chest height,
-	-- which reads as holding the find up in front of you with two hands rather than
-	-- one arm carrying it down at the side.
+	-- upper-body lock. BOTH ARMS GO STRAIGHT UP, hands meeting overhead -- a two-handed
+	-- press, not a chest cradle -- because equipItem bottom-anchors the item on the
+	-- hand (see HELD_ITEM_LIFT) and a chest-height hand put the model's midpoint
+	-- through the player's own head and torso the moment a big Payload roll (up to
+	-- 2.5x) grew it past a normal item's size. Anchoring off an OVERHEAD hand instead
+	-- means the item's bulk grows up and away from the body at any roll, not just an
+	-- oversized one, and doubles as the "presenting the find" read the old chest pose
+	-- was going for in the first place.
 	--
-	-- Checked on a live character (screen_capture) with a block welded to LeftHand
-	-- with zero offset, because the offset that used to place the item in a relaxed,
-	-- hanging hand (equipItem's old `CFrame.new(0, -0.6, 0)`) turned out to send it
-	-- straight into the character's thigh once the hand itself moved: a shallower
-	-- shoulder pitch (70) with a deep elbow fold (-50) swings the hand back DOWN past
-	-- horizontal on its way to the chest and lands it at hip height despite the raised
-	-- shoulder -- crossed forearms read as high in a screenshot, but the hand at the
-	-- end of them was not. Pushing the shoulder pitch further (95) and easing off the
-	-- elbow (-25) is what actually stops the fold from cancelling the raise back out;
-	-- with those the hand sits level with the chest and equipItem needs no offset at
-	-- all any more, so it was removed there rather than re-tuned.
+	-- Swept a shoulder-pitch range (screen_capture, a real nuke welded to LeftHand
+	-- with equipItem's live math) rather than guessing: pitch traces the arm through
+	-- the same vertical arc the hose pose only starts (hanging down at 0, forward-
+	-- horizontal at 90), and it peaks -- this rig's arm segments cannot reach any
+	-- higher no matter the angle -- around 185-190, at 5.4 studs vs. a 4.6-stud head.
+	-- Past 190 the hand comes back DOWN the other side of the arc, so 190 is a
+	-- ceiling, not a starting point. Roll pulled up to 30 (from the hose's 30, the
+	-- highest value already proven not to cross the wrists) is what brings both hands
+	-- fully together under the item instead of leaving them either side of it. The
+	-- elbow keeps a light fold (-20, well short of the hose's -40) so the pose still
+	-- reads as gripping something rather than a mannequin's locked-straight arms; a
+	-- dead-straight elbow (0) reached no higher and looked stiffer for it.
 	carry = {
-		shoulder = { pitch = 95, roll = 20 },
-		elbow = { pitch = -25, roll = 0 },
+		shoulder = { pitch = 188, roll = 30 },
+		elbow = { pitch = -20, roll = 0 },
 	},
 }
 --- Which pose a character is currently locked into, or nil for none. An attribute
@@ -594,11 +599,14 @@ local function equipItem(character: Model, item: any?): boolean
 			part.Anchored = false
 		end
 	end
-	-- POSITION comes from the hand -- the "carry" pose (see POSES) was tuned so
-	-- LeftHand itself sits at chest height with both arms folded in around it, which
-	-- is the "held up in front of you with two hands" read for anything up to
-	-- HELD_ITEM_SIZE. Past that, only the oversized remainder rises off that point
-	-- (see HELD_ITEM_LIFT below) instead of the whole model re-centring on it.
+	-- POSITION comes from the hand -- the "carry" pose (see POSES) raises both arms
+	-- overhead, hands together, so LeftHand itself is already the "held up above your
+	-- head" point. What sits there is the model's BOTTOM, not its centre (see
+	-- HELD_ITEM_LIFT below): an overhead press holds the underside of the thing, and
+	-- the object rises away from the body from there regardless of how big a Payload
+	-- roll (up to 2.5x, see the scale step above) made it -- unlike a chest cradle,
+	-- there is no "normal" size an overhead hand can centre on without either burying
+	-- the player's own head in it or leaving a floating gap above the hand.
 	--
 	-- ROTATION DOES NOT COME FROM THE HAND, though, and that split is load-bearing.
 	-- LeftHand's ORIENTATION under the carry/detector locks is whatever the shoulder
@@ -609,8 +617,8 @@ local function equipItem(character: Model, item: any?): boolean
 	-- studs) swings its far end out to the side or up past the head chasing whatever
 	-- axis that rotation happened to point along, instead of lying across the two
 	-- hands. Root's rotation has none of that -- it only yaws with which way the
-	-- player is facing -- so an item held level in front of the chest STAYS level in
-	-- front of the chest no matter how the elbow got it there.
+	-- player is facing -- so an item held upright overhead STAYS upright overhead no
+	-- matter how the elbow got it there.
 	--
 	-- `Hold` joins Display / Haul / Gallery as an ItemModels rotation context, so a
 	-- flat object like the bottle cap can still be tilted toward the camera in the
@@ -619,35 +627,9 @@ local function equipItem(character: Model, item: any?): boolean
 	local holdRotation = if root and root:IsA("BasePart") then root.CFrame.Rotation else hand.CFrame.Rotation
 	local rotation = holdRotation * ItemModels.rotation(held, "Hold")
 
-	-- ONLY THE EXCESS OVER HELD_ITEM_SIZE GROWS UPWARD FROM THE HAND. A plain
-	-- centre-on-the-hand placement is what the carry pose above was tuned against
-	-- (screen_capture, zero offset) and reads fine right up to HELD_ITEM_SIZE, so an
-	-- item no bigger than that gets NO offset here either -- exactly the original
-	-- placement, untouched. Payload's per-dig roll (up to 2.5x, see the scale step
-	-- above) can blow well past HELD_ITEM_SIZE, though, and a big lump centred on
-	-- the hand buried the player from hips to head in it. Two hands lifting
-	-- something oversized from underneath is the actual posture: the part of it no
-	-- bigger than normal still sits centred in the hands exactly as tuned, and only
-	-- the OVERSIZED remainder rises up and away from the body instead of also
-	-- ballooning downward through the legs and sideways through the torso.
 	held:PivotTo(CFrame.new(hand.Position) * rotation)
 	local box, extents = held:GetBoundingBox()
-	local lift = 0
-
-	if extents.Y > HELD_ITEM_SIZE then
-		local raisedBottom = hand.Position.Y - HELD_ITEM_SIZE / 2
-
-		-- NEVER BELOW THE CHARACTER'S OWN FEET. A roll big enough can still put
-		-- `raisedBottom` underground on a shorter rig -- the excess is only bounded
-		-- above the hand, not below it -- so the floor under THIS character
-		-- (whole-rig GetBoundingBox, not a hardcoded HipHeight: R15 and R6 do not
-		-- share one) wins the clamp rather than let the model dig into the ground.
-		local charBox, charExtents = character:GetBoundingBox()
-		local floorY = charBox.Position.Y - charExtents.Y / 2
-		local targetBottom = math.max(raisedBottom, floorY) + HELD_ITEM_LIFT
-		lift = targetBottom - (box.Position.Y - extents.Y / 2)
-	end
-
+	local lift = (hand.Position.Y + HELD_ITEM_LIFT) - (box.Position.Y - extents.Y / 2)
 	held:PivotTo(CFrame.new(hand.Position + Vector3.new(0, lift, 0)) * rotation)
 
 	local weld = Instance.new("WeldConstraint")
