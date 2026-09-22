@@ -59,6 +59,7 @@ export type Crater = {
 	digFloor: boolean,
 	segments: number, -- facets round the rim
 	seed: number, -- the builder's jitter
+	vents: number?, -- smoking cracks in the rim (build/CraterField); none if nil
 }
 
 local StageCraters = {}
@@ -95,6 +96,7 @@ StageCraters.DEFS = {
 		digFloor = true,
 		segments = 48,
 		seed = 6001,
+		vents = 5,
 	},
 	-- The small ones. Placed by hand, not dealt: spread down the whole walk (west edge to
 	-- the camp gate) and across both halves of the corridor, clear of the big crater's
@@ -150,6 +152,7 @@ StageCraters.DEFS = {
 		digFloor = false,
 		segments = 16,
 		seed = 6103,
+		vents = 1,
 	},
 	{
 		name = "Pock4",
@@ -167,6 +170,7 @@ StageCraters.DEFS = {
 		digFloor = false,
 		segments = 18,
 		seed = 6104,
+		vents = 1,
 	},
 	{
 		name = "Pock5",

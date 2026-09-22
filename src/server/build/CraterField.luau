@@ -11,7 +11,9 @@
 	inside is the stage's own checkerboard, darkened toward the middle (`groundColorAt`),
 	and the scorch carries a little way out past the outer foot. Every crater has blast
 	rubble kicked up round its lip; the big one also throws dark ejecta rays out across
-	the plain.
+	the plain and has a pool of fused glass at ground zero. A few rims still smoke
+	(`vents` in Config/StageCraters). The dirt and wreckage across the rest of the
+	stage is build/BlastDebris.
 
 	TRIANGLES, NOT A RING OF BLOCKS. A berm of boxes, one per step round the circle,
 	steps wherever two neighbours' heights differ and gaps on the outside of the curve.
@@ -20,9 +22,10 @@
 	crest can rise and fall smoothly all the way round. The facets are the low-poly look.
 
 	SOLID RIM, WALK-THROUGH EVERYTHING ELSE. The facets collide: you climb up and over, so
-	a crater is ground you cross, not a sticker on it. Rubble and rays are CanCollide
-	false like the rest of build/Scenery, and all of them sit where
-	StageCraters.blocksDig already keeps signals out, so nothing here can hide an aura.
+	a crater is ground you cross, not a sticker on it. Rubble, rays, glass and vents are
+	CanCollide false like the rest of build/Scenery. Everything that stands up sits where
+	StageCraters.blocksDig already keeps signals out; the glass is on dug ground and is
+	flat for exactly that reason (see Ground zero below).
 	The facets' thickness hangs BELOW the surface, so the ridge and the feet show clean
 	edges and the slab bodies meet out of sight underneath.
 
@@ -111,6 +114,9 @@ type Palette = {
 	inner: Color3,
 	rubble: { Color3 },
 	ray: Color3,
+	glass: Color3,
+	melt: Color3,
+	crack: Color3,
 }
 
 local function paletteFor(stageId: number): Palette
@@ -120,6 +126,12 @@ local function paletteFor(stageId: number): Palette
 		inner = base:Lerp(SCORCH, 0.5),
 		rubble = { base:Lerp(ASH, 0.42), base:Lerp(ASH, 0.25), base:Lerp(SCORCH, 0.35) },
 		ray = base:Lerp(SCORCH, 0.5),
+		-- The ground at ground zero melted and set as glass (the real thing, trinitite, is
+		-- bottle green; this is the Crater's violet taken nearly to black). A sheen, never
+		-- a light, so the no-glow rule holds -- see GLASS_REFLECTANCE.
+		glass = base:Lerp(SCORCH, 0.74),
+		melt = base:Lerp(SCORCH, 0.62):Lerp(ASH, 0.18),
+		crack = SCORCH:Lerp(Color3.new(0, 0, 0), 0.4),
 	}
 end
 
@@ -136,12 +148,39 @@ end
 
 -- ── Geometry ───────────────────────────────────────────────────────────────────
 
-local function wedge(parent: Instance, cf: CFrame, size: Vector3, color: Color3)
+--- What a run of triangles is made of. The rim is solid ground you climb; everything
+--- flat laid on the floor (the glass) is a skin like the checker cap under it --
+--- CanCollide and CanQuery off, so footing, burial and the range-ring raycast all stay
+--- on the real plate.
+type Style = { name: string, material: Enum.Material, thickness: number, solid: boolean, reflectance: number }
+
+--- GLASS IS NOT Enum.Material.Glass. Shot live, that material mirrored the Crater's
+--- bright hazy sky off a flat, upward-facing pool and turned a near-black violet into a
+--- pale grey puddle. Smooth plastic with a little reflectance keeps the colour dark and
+--- still catches a sheen at a low angle.
+local GLASS_REFLECTANCE = 0.06
+
+local RIM_STYLE: Style = { name = "Rim", material = Enum.Material.SmoothPlastic, thickness = RIM_THICKNESS, solid = true, reflectance = 0 }
+local GLASS_STYLE: Style = {
+	name = "FusedGlass",
+	material = Enum.Material.SmoothPlastic,
+	thickness = 0.05,
+	solid = false,
+	reflectance = GLASS_REFLECTANCE,
+}
+local MELT_STYLE: Style = { name = "Melt", material = Enum.Material.SmoothPlastic, thickness = 0.05, solid = false, reflectance = 0 }
+
+local function wedge(parent: Instance, cf: CFrame, size: Vector3, color: Color3, style: Style)
 	local w = Instance.new("WedgePart")
-	w.Name = "Rim"
+	w.Name = style.name
 	w.Anchored = true
 	w.CanTouch = false
-	w.Material = Enum.Material.SmoothPlastic
+	w.CanCollide = style.solid
+	if not style.solid then
+		w.CanQuery = false -- only settable once CanCollide is off
+	end
+	w.Material = style.material
+	w.Reflectance = style.reflectance
 	w.TopSurface = Enum.SurfaceType.Smooth
 	w.BottomSurface = Enum.SurfaceType.Smooth
 	w.Color = color
@@ -156,7 +195,7 @@ end
 --- normal, so their top faces lie on the triangle and their bodies hang below it.
 --- (Checked numerically: over random triangles both top faces land on the three
 --- vertices and one shared foot, and their areas sum to the triangle's.)
-local function triangle(parent: Instance, a: Vector3, b: Vector3, c: Vector3, color: Color3)
+local function triangle(parent: Instance, a: Vector3, b: Vector3, c: Vector3, color: Color3, style: Style)
 	local ab, ac, bc = b - a, c - a, c - b
 	local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
 	if abd > acd and abd > bcd then
@@ -175,10 +214,11 @@ local function triangle(parent: Instance, a: Vector3, b: Vector3, c: Vector3, co
 	local back = bc.Unit
 	local height = math.abs(ab:Dot(up))
 	local normal = if right.Y >= 0 then right else -right
-	local sink = normal * (-RIM_THICKNESS / 2)
+	local t = style.thickness
+	local sink = normal * (-t / 2)
 
-	wedge(parent, CFrame.fromMatrix((a + b) / 2 + sink, right, up, back), Vector3.new(RIM_THICKNESS, height, math.abs(ab:Dot(back))), color)
-	wedge(parent, CFrame.fromMatrix((a + c) / 2 + sink, -right, up, -back), Vector3.new(RIM_THICKNESS, height, math.abs(ac:Dot(back))), color)
+	wedge(parent, CFrame.fromMatrix((a + b) / 2 + sink, right, up, back), Vector3.new(t, height, math.abs(ab:Dot(back))), color, style)
+	wedge(parent, CFrame.fromMatrix((a + c) / 2 + sink, -right, up, -back), Vector3.new(t, height, math.abs(ac:Dot(back))), color, style)
 end
 
 local function flat(parent: Instance, name: string, cf: CFrame, size: Vector3, color: Color3, material: Enum.Material)
@@ -216,7 +256,9 @@ end
 local RIM_WANDER_R = 0.045
 local RIM_WANDER_Y = 0.14
 local FOOT_WANDER_R = 0.025
-local function buildRim(parent: Instance, c: Crater, profile: { { number } }, groundY: number, rng: Random, palette: Palette)
+--- Returns the vertex columns and which ring is the crest, so the smoke vents can be set
+--- on the rim's real surface rather than on the analytic profile it wanders off.
+local function buildRim(parent: Instance, c: Crater, profile: { { number } }, groundY: number, rng: Random, palette: Palette): ({ { Vector3 } }, number)
 	local n = c.segments
 	local crestRing = 1
 	for j, ring in profile do
@@ -257,14 +299,16 @@ local function buildRim(parent: Instance, c: Crater, profile: { { number } }, gr
 			local color = facetTone(if j < crestRing then palette.inner else palette.outer, rng)
 			local a, b, cc, d = here[j], here[j + 1], there[j + 1], there[j]
 			if (i + j) % 2 == 0 then
-				triangle(parent, a, b, cc, color)
-				triangle(parent, a, cc, d, color)
+				triangle(parent, a, b, cc, color, RIM_STYLE)
+				triangle(parent, a, cc, d, color, RIM_STYLE)
 			else
-				triangle(parent, a, b, d, color)
-				triangle(parent, b, cc, d, color)
+				triangle(parent, a, b, d, color, RIM_STYLE)
+				triangle(parent, b, cc, d, color, RIM_STYLE)
 			end
 		end
 	end
+
+	return columns, crestRing
 end
 
 --- Slabs of ground kicked up round the lip, each lying roughly along its own spoke and
@@ -368,6 +412,225 @@ local function buildRays(parent: Instance, c: Crater, groundY: number, rng: Rand
 	end
 end
 
+--- A flattened ellipsoid lying on the ground: a plain Part carrying a Sphere SpecialMesh,
+--- because a Cylinder or Ball Shape silently forces a circle (build/Scenery's oozeDisc
+--- has the whole story). `a` x `b` across, `h` thick.
+local function disc(parent: Instance, name: string, at: Vector3, a: number, b: number, h: number, yaw: number, color: Color3, material: Enum.Material)
+	local p = flat(parent, name, CFrame.new(at) * CFrame.Angles(0, math.rad(yaw), 0), Vector3.one, color, material)
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Scale = Vector3.new(a, h, b)
+	mesh.Parent = p
+	return p
+end
+
+-- ── Ground zero ────────────────────────────────────────────────────────────────
+-- Where the fireball touched down the ground melted and set as glass: a glossy pool
+-- off the dead middle of the big crater's floor, a dull ring of half-melted ground round
+-- it, dark crazing across it where it cracked as it cooled, and beads of it splashed out
+-- over the floor.
+--
+-- ALL OF IT IS FLAT AND WALK-THROUGH, BECAUSE THIS FLOOR IS DUG. Signals spawn here
+-- (Config/StageCraters `digFloor`), so everything sits under a detector spot's cracks
+-- (client/SpotCracks, 0.15 over the plate and up) and under the range ring's rim. The
+-- heights below are over the checker cap (itself 0.06 over the plate): the glass tops
+-- out at 0.09 over the plate, the crazing at 0.105, a bead at 0.12.
+-- The crazing is dark, never lit -- a lit crack in this floor would read as a signal.
+local GLASS_SIZE = 0.36 -- the pool's mean radius, as a fraction of the floor's short radius
+local GLASS_POINTS = 28
+local GLASS_CRAZE = 7
+local GLASS_BEADS = 14
+local MELT_TOP = 0.02
+local GLASS_TOP = 0.03
+local CRAZE_TOP = 0.045
+--- How far inside the floor's edge (rho) the glass keeps -- clear of the inner wall.
+local GLASS_FLOOR_INSET = 0.08
+
+local function buildGlass(parent: Instance, c: Crater, groundY: number, rng: Random, palette: Palette)
+	local gx = c.center[1] + rng:NextNumber(-3, 3)
+	local gz = c.center[2] + rng:NextNumber(-3, 3)
+	local base = (c.radius / c.aspect) * c.floorFrac * GLASS_SIZE
+	local limit = c.floorFrac - GLASS_FLOOR_INSET
+
+	--- The farthest the glass may reach from its own centre along an angle before it
+	--- would climb the inner wall. Bisected against the crater's real outline.
+	local function room(t: number): number
+		local lo, hi = 0, c.radius
+		for _ = 1, 18 do
+			local mid = (lo + hi) / 2
+			if StageCraters.rho(c, gx + math.cos(t) * mid, gz + math.sin(t) * mid) <= limit then
+				lo = mid
+			else
+				hi = mid
+			end
+		end
+		return lo
+	end
+
+	local p1, p2, p3 = rng:NextNumber(0, math.pi * 2), rng:NextNumber(0, math.pi * 2), rng:NextNumber(0, math.pi * 2)
+	local centre = Vector3.new(gx, groundY + GLASS_TOP, gz)
+	local inner: { Vector3 } = {}
+	local outer: { Vector3 } = {}
+	local reach: { number } = {}
+	for i = 0, GLASS_POINTS - 1 do
+		local t = i / GLASS_POINTS * math.pi * 2
+		local shape = 1 + 0.16 * math.cos(2 * t + p1) + 0.1 * math.cos(3 * t + p2) + 0.06 * math.cos(5 * t + p3)
+		local max = room(t)
+		local r = math.min(base * shape * (1 + rng:NextNumber(-0.12, 0.12)), max * 0.7)
+		local ro = math.min(r * rng:NextNumber(1.2, 1.45), max)
+		inner[i + 1] = Vector3.new(gx + math.cos(t) * r, groundY + GLASS_TOP, gz + math.sin(t) * r)
+		outer[i + 1] = Vector3.new(gx + math.cos(t) * ro, groundY + MELT_TOP, gz + math.sin(t) * ro)
+		reach[i + 1] = r
+	end
+
+	-- The pool is one fan off its centre, the melt ring one strip round it sharing the
+	-- pool's edge -- so nothing overlaps anything and nothing flat can z-fight.
+	for i = 1, GLASS_POINTS do
+		local j = i % GLASS_POINTS + 1
+		triangle(parent, centre, inner[i], inner[j], palette.glass, GLASS_STYLE)
+		local melt = facetTone(palette.melt, rng)
+		triangle(parent, inner[i], outer[i], outer[j], melt, MELT_STYLE)
+		triangle(parent, inner[i], outer[j], inner[j], melt, MELT_STYLE)
+	end
+
+	local function reachAt(t: number): number
+		local index = math.floor((t % (math.pi * 2)) / (math.pi * 2) * GLASS_POINTS) + 1
+		return reach[math.clamp(index, 1, GLASS_POINTS)]
+	end
+
+	-- Crazing: short kinked runs of dark crack, held inside the pool. Each starts
+	-- somewhere of its own across the pool and heads off on its own bearing -- a
+	-- network, the way cooling glass breaks. Started from the middle, the first pass
+	-- read as a splat drawn on the floor.
+	for _ = 1, GLASS_CRAZE do
+		local t = rng:NextNumber(0, math.pi * 2)
+		local from = centre + Vector3.new(math.cos(t), 0, math.sin(t)) * reachAt(t) * rng:NextNumber(0.1, 0.65)
+		local heading = rng:NextNumber(0, math.pi * 2)
+		local width = rng:NextNumber(0.14, 0.26)
+		for _ = 1, 3 do
+			heading += math.rad(rng:NextNumber(-32, 32))
+			local dir = Vector3.new(math.cos(heading), 0, math.sin(heading))
+			local to = from + dir * base * rng:NextNumber(0.16, 0.3)
+			local offset = to - centre
+			if offset.Magnitude > reachAt(math.atan2(offset.Z, offset.X)) * 0.85 then
+				break
+			end
+			local mid = (from + to) / 2
+			mid = Vector3.new(mid.X, groundY + CRAZE_TOP - 0.01, mid.Z)
+			flat(parent, "Craze", CFrame.lookAt(mid, mid + dir), Vector3.new(width, 0.02, (to - from).Magnitude + width), palette.crack, Enum.Material.SmoothPlastic)
+			from = to
+		end
+	end
+
+	-- Beads: splashes of melt thrown out over the floor, domed, never onto the wall.
+	for _ = 1, GLASS_BEADS do
+		local t = rng:NextNumber(0, math.pi * 2)
+		local dist = reachAt(t) * rng:NextNumber(1.05, 1.9)
+		local x, z = gx + math.cos(t) * dist, gz + math.sin(t) * dist
+		if StageCraters.rho(c, x, z) <= limit then
+			local a = rng:NextNumber(0.35, 1.2)
+			local bead = disc(parent, "GlassBead", Vector3.new(x, groundY + 0.01, z), a, a / rng:NextNumber(1, 1.6), 0.1, rng:NextNumber(0, 360), palette.glass, Enum.Material.SmoothPlastic)
+			bead.Reflectance = GLASS_REFLECTANCE
+		end
+	end
+end
+
+-- ── Smoke ──────────────────────────────────────────────────────────────────────
+-- A few cracks in the rim still smoking. Each vent is a clutch of dark slivers lying in
+-- the rim's own surface, set on a real rim vertex (not the analytic profile, which the
+-- facets wander 14% off), and an invisible anchor carrying one slow emitter.
+--
+-- REAL SMOKE, NOT A GLOW: LightEmission 0 and LightInfluence 1, so the plume is lit by
+-- the Crater's amber sky like any other thing in it and nothing emits. Every vent leans
+-- on the one WIND, so the plumes drift together the way real ones would. A vent is a
+-- landmark you see from across the stage, never a wall of fog in front of a detector
+-- spot -- but the first pass (peak opacity 0.3, 5.5 studs wide) was so thin it did not
+-- show at all against the pale walls, so these are the numbers tuned live after it.
+local SMOKE_TEXTURE = "rbxasset://textures/particles/smoke_main.dds" -- the same one the detonations use
+local SMOKE_DARK = Color3.fromHex("2E2934")
+local SMOKE_PALE = Color3.fromHex("6A6472")
+local WIND = Vector3.new(0.55, 0, 0.3)
+
+local function smoke(anchor: BasePart, big: boolean)
+	local s = if big then 1 else 0.65
+	local e = Instance.new("ParticleEmitter")
+	e.Name = "Smoke"
+	e.Texture = SMOKE_TEXTURE
+	e.Color = ColorSequence.new(SMOKE_DARK, SMOKE_PALE)
+	e.LightEmission = 0
+	e.LightInfluence = 1
+	e.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1.2 * s),
+		NumberSequenceKeypoint.new(0.3, 3.6 * s),
+		NumberSequenceKeypoint.new(1, 8 * s),
+	})
+	e.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.08, 0.45),
+		NumberSequenceKeypoint.new(0.5, 0.62),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	e.Lifetime = NumberRange.new(7, 10)
+	e.Rate = if big then 4 else 2.5
+	e.Speed = NumberRange.new(2.2 * s + 0.6, 3.4 * s + 0.6)
+	e.SpreadAngle = Vector2.new(10, 10)
+	e.Acceleration = WIND + Vector3.new(0, 0.1, 0)
+	e.Drag = 0.2
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-18, 18)
+	e.EmissionDirection = Enum.NormalId.Top
+	e.Parent = anchor
+end
+
+local function buildVents(parent: Instance, c: Crater, columns: { { Vector3 } }, crestRing: number, rng: Random, palette: Palette)
+	local count = c.vents or 0
+	if count <= 0 then
+		return
+	end
+	local big = c.radius >= DETAILED_RADIUS
+	local scale = if big then 1 else 0.6
+	local n = #columns
+	local offset = rng:NextInteger(0, n - 1)
+	for k = 1, count do
+		-- Spread round the rim, not bunched: one per 1/count of the way round, jittered.
+		local col = (offset + math.floor((k - 1 + rng:NextNumber(-0.3, 0.3)) * n / count)) % n + 1
+		-- On the detailed rim half of them sit on the inner wall's shoulder, a step
+		-- down from the crest, so not every plume stands on the skyline.
+		local ring = crestRing
+		if crestRing > 2 and rng:NextNumber() < 0.5 then
+			ring = crestRing - 1
+		end
+		local column = columns[col]
+		local at = column[ring]
+		local along = columns[col % n + 1][ring] - columns[(col - 2) % n + 1][ring]
+		local across = column[math.min(ring + 1, #column)] - column[ring - 1]
+		local normal = along:Cross(across).Unit
+		if normal.Y < 0 then
+			normal = -normal
+		end
+		local tangent = along.Unit
+
+		for s = 1, 3 do
+			local dir = CFrame.fromAxisAngle(normal, math.rad((s - 2) * 28 + rng:NextNumber(-25, 25))):VectorToWorldSpace(tangent)
+			local side = normal:Cross(dir).Unit
+			local mid = at + dir * rng:NextNumber(-0.6, 0.6) * scale + side * rng:NextNumber(-0.4, 0.4) * scale
+			flat(
+				parent,
+				"VentCrack",
+				CFrame.fromMatrix(mid, side, normal, side:Cross(normal)),
+				Vector3.new(rng:NextNumber(0.18, 0.35) * scale + 0.08, 0.2, rng:NextNumber(1.2, 2.6) * scale),
+				palette.crack,
+				Enum.Material.SmoothPlastic
+			)
+		end
+
+		local anchor = flat(parent, "Vent", CFrame.new(at + normal * 0.25), Vector3.new(0.4, 0.4, 0.4), palette.crack, Enum.Material.SmoothPlastic)
+		anchor.Transparency = 1
+		anchor.CastShadow = false
+		smoke(anchor, big)
+	end
+end
+
 -- ── Public ─────────────────────────────────────────────────────────────────────
 
 --- Build every crater on `stageId` into `parent` (buildStageScenery's stage folder).
@@ -387,11 +650,15 @@ function CraterField.build(parent: Instance, stageId: number, groundY: number)
 		model.Name = c.name
 		local rng = Random.new(c.seed)
 		local profile = profileOf(c)
-		buildRim(model, c, profile, groundY, rng, palette)
+		-- Order matters: every pass draws on this one rng, so a new pass goes on the END
+		-- or it moves everything built after it.
+		local columns, crestRing = buildRim(model, c, profile, groundY, rng, palette)
 		buildRubble(model, c, profile, groundY, rng, palette)
 		if c.radius >= DETAILED_RADIUS then
 			buildRays(model, c, groundY, rng, palette)
+			buildGlass(model, c, groundY, rng, palette)
 		end
+		buildVents(model, c, columns, crestRing, rng, palette)
 		model.Parent = folder
 	end
 
