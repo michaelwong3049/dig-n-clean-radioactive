@@ -105,6 +105,7 @@ local CollectionService = game:GetService("CollectionService")
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Stages = require(Shared.Config.Stages)
+local StageCraters = require(Shared.Config.StageCraters)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Weight = require(Shared.Config.Weight)
@@ -407,13 +408,31 @@ local function randomPointOn(part: BasePart): Vector3
 	return part.CFrame:PointToWorldSpace(Vector3.new(x, size.Y / 2, z))
 end
 
+--- Tries at an open spot before a spawn gives up for this tick. The crater rims
+--- (Config/StageCraters) cover under a fifth of Stage 6, so eight straight misses is
+--- about a one-in-a-million roll -- and a miss only means topUpField tries again next
+--- tick, never a signal put somewhere it cannot be seen.
+local SPAWN_TRIES = 8
+
 local function spawnSignal(stageId: number)
 	local part = stagePart(stageId)
 	if part == nil then
 		return
 	end
 
-	local position = randomPointOn(part)
+	-- Never under a crater rim: the berm would bury the aura and the haul inside it.
+	-- Re-rolled rather than dropped, so a stage with craters keeps its full count.
+	local position: Vector3? = nil
+	for _ = 1, SPAWN_TRIES do
+		local candidate = randomPointOn(part)
+		if not StageCraters.blocksDig(stageId, candidate.X, candidate.Z) then
+			position = candidate
+			break
+		end
+	end
+	if position == nil then
+		return
+	end
 	local stage = Stages.get(stageId)
 
 	-- The default identity, rolled with NO luck. Everything downstream (burial depth
