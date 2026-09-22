@@ -184,7 +184,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 40
+local BUILDER_VERSION = 41
 
 local C = Kit.C
 local build = Kit.build
@@ -629,20 +629,60 @@ local function buildSlatWall(parent: Instance, origin: CFrame, width: number)
 	end
 end
 
---- The floating stall sign: one small line naming WHAT THE STALL IS ("Detector
---- Shop" / "Magnet Shop" / "Hose Shop") in that shop's own accent colour, so
---- the sign itself does the colour-navigation. `accent` is the shop's hex
---- string. TextScaled so any label length fits its (fixed) band without
---- re-tuning TextSize by hand. Hung ABOVE the canopy (the highest point of
---- `buildStripedCanopy`'s roof panel is ~10.5 studs up at the stall's own
---- origin, so 12.6 clears it) rather than tucked underneath it, so the sign
---- reads over the whole structure instead of hiding behind its own roofline.
+--- The stall's sign box: a real board standing on the canopy's front edge, naming
+--- WHAT THE STALL IS ("DETECTOR SHOP" / "MAGNET SHOP" / "HOSE SHOP") in the shop's
+--- own accent, so the sign itself still does the colour-navigation. A dark board in
+--- an accent frame with the name painted on its customer face — the same read as the
+--- trader's TRADER box (build/BaseCamp), so the whole row reads as one street of
+--- storefronts.
+---
+--- IT REPLACES THE FLOATING BILLBOARD that used to hang over each stall. That label
+--- was AlwaysOnTop and screen-sized, so it drew through walls and never read as part
+--- of the building. A board is part of the building: it is hidden behind things,
+--- it is seen from any distance, and it costs no GUI.
+---
+--- STANDS JUST BEHIND THE VALANCE. `buildStripedCanopy`'s front edge is at z = 3.25
+--- with its top face ~9.5 up there; the box stands at z = SIGN_Z on that face,
+--- behind the valance so the stripes still hang in front of it. `x` is the box's
+--- centre along the shopfront — 0 for a whole stall, a counter's own x for the
+--- Outfitter's SUITS box. Painted, not lit (Kit.C's header).
+local SIGN_Z = 2.8
+local SIGN_BOTTOM_Y = 9.5
+local SIGN_H = 2.4
+local SIGN_FRAME = 0.3
+-- Wide enough for the longest stall name ("DETECTOR SHOP") at a readable height.
+local STALL_SIGN_WIDTH = 11
+local OUTFITTER_SIGN_WIDTH = 7
+
+local function buildStoreSignBox(parent: Instance, origin: CFrame, x: number, width: number, label: string, accent: string)
+	local centreY = SIGN_BOTTOM_Y + SIGN_H / 2
+	build(parent, origin, {
+		name = "SignFrame",
+		pos = { x, centreY, SIGN_Z - 0.05 },
+		size = { width + SIGN_FRAME * 2, SIGN_H + SIGN_FRAME * 2, 0.6 },
+		color = accent,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	local board = build(parent, origin, {
+		name = "SignBoard",
+		pos = { x, centreY, SIGN_Z + 0.05 },
+		size = { width, SIGN_H, 0.6 },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	Kit.surfaceText(board, Enum.NormalId.Back, string.upper(label), accent)
+end
+
+--- The floating per-desk label, kept for ONE desk only: the Outfitter's Satchel
+--- counter, which has no sign box of its own (the Outfitter's one box reads SUITS, on
+--- request). Every stall sign is a `buildStoreSignBox` now.
 ---
 --- GothamBold, NOT `Kit.FONT` (FredokaOne) — every other sign in the world
 --- deliberately shares the one chunky toy-shop face (see Kit.luau's "Signage
 --- voice" header), but that face reads as bubbly/oversized on a short
---- structural caption like this one, which fights the shops' own clean
---- grey-lumber, no-decoration look. A deliberate one-off exception, not a
+--- structural caption like this one. A deliberate one-off exception, not a
 --- start of re-voicing the rest of the signage.
 local function buildStoreBillboard(adornee: BasePart, label: string, accent: string)
 	local gui = Instance.new("BillboardGui")
@@ -1158,22 +1198,10 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		studded = true,
 	})
 
-	-- THE SIGN ANCHOR sits at local x=0 — dead centre of the WHOLE stall — rather
-	-- than on the stand, which is parked off to one side (see `standX`). Hanging
-	-- the sign off the stand read as off-centre against the shop as a whole; an
-	-- invisible, non-colliding anchor lets the sign float over the stall's own
-	-- midpoint regardless of where the stand or rack sit within it.
-	local signAnchor = build(m, origin, {
-		name = "SignAnchor",
-		pos = { 0, 1.1, SHOPFRONT_Z },
-		size = { 1, 1, 1 },
-		color = C.steel,
-		material = "SmoothPlastic",
-		transparency = 1,
-		canCollide = false,
-	})
-	signAnchor.CanQuery = false
-	buildStoreBillboard(signAnchor, spec.label, spec.color)
+	-- THE SIGN BOX sits at local x=0 — dead centre of the WHOLE stall — rather than
+	-- over the stand, which is parked off to one side (see `standX`). A sign over
+	-- the stand read as off-centre against the shop as a whole.
+	buildStoreSignBox(m, origin, 0, STALL_SIGN_WIDTH, spec.label, spec.color)
 
 	-- THE WING'S STATION CIRCLE, carrying the same StationId at its own radius, on an
 	-- invisible anchor now that the shelf under the rack is gone. Not a spare copy of
@@ -1356,7 +1384,14 @@ local function buildOutfitter(parent: Instance)
 			material = "Plastic",
 			studded = true,
 		})
-		buildStoreBillboard(desk, counter.label, C.shopOutfitter)
+		-- ONE SIGN BOX FOR THE OUTFITTER, reading SUITS, over the Suit desk (on
+		-- request) -- off centre so the roof gas mask (build/ShopThemes) stays clear
+		-- between the two desks. The Satchel desk keeps its small floating label.
+		if counter.track == "Suit" then
+			buildStoreSignBox(m, counterOrigin, 0, OUTFITTER_SIGN_WIDTH, "SUITS", C.shopOutfitter)
+		else
+			buildStoreBillboard(desk, counter.label, C.shopOutfitter)
+		end
 	end
 
 	-- The locker room: lockers, the suit behind the Suit desk, satchel pegs behind the
@@ -1400,7 +1435,7 @@ function Shops.buildStallShell(parent: Instance, origin: CFrame, width: number, 
 	-- The counter across the whole front, the plaza stalls' height and trim. No
 	-- `stationKind` and no `promptText`, so buildCounter adds neither attributes nor
 	-- a prompt (see its own doc).
-	local counter = buildCounter(m, origin, {
+	buildCounter(m, origin, {
 		color = accent,
 		width = width - 4,
 		depth = 2.5,
@@ -1408,8 +1443,8 @@ function Shops.buildStallShell(parent: Instance, origin: CFrame, width: number, 
 		material = "Plastic",
 		studded = true,
 	})
-	buildStoreBillboard(counter, label, accent)
 	buildStripedCanopy(m, origin, accent, width)
+	buildStoreSignBox(m, origin, 0, STALL_SIGN_WIDTH, label, accent)
 
 	m.Parent = parent
 	return m
