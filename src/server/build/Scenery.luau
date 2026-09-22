@@ -642,13 +642,21 @@ end
 ---            shelf and `props` with it -- the drums are what this field got instead,
 ---            and they are still the only thing standing in it (the litter is flat,
 ---            and its one canted glass plate is knee-high at most).
+---   Stage 4 -- `signs` a rank of warning signs along the entrance edge
+---            (scatterWarningSigns), then `pools` the ooze puddles dealt off a size
+---            ladder (scatterOozePools), then `trees` a handful of dead trees over the
+---            whole field (scatterStage4Trees). Its `barriers` set piece and `props`
+---            with it are still on the shelf.
 ---   Stage 6 -- the impact craters (build/CraterField, laid out in Config/StageCraters):
 ---            one big crater off the middle, with fused glass at ground zero and a few
 ---            smoking vents, and a scatter of small ones; then the dirt and wreckage
 ---            the blast strewed across the rest of the field (build/BlastDebris). Its
 ---            `shards` set piece and its pools are still on the shelf.
---- `skeletons`/`bones`/`skulls` belong to the two bone fields and `barrels` to Stage 3;
---- unset, and so skipped, everywhere else.
+--- `skeletons`/`bones`/`skulls` belong to the two bone fields, `barrels` to Stage 3 and
+--- `trees` to Stage 4; unset, and so skipped, everywhere else. (`trees` is Stage 4's
+--- own count and NOT Stage 2's -- that field's stand rides on `props`, because trees
+--- are the only thing it scatters; Stage 4's `props` is spoken for by the barriers
+--- still on the shelf.)
 type StageTheme = {
 	props: number,
 	pools: number,
@@ -660,6 +668,7 @@ type StageTheme = {
 	skulls: number?,
 	barrels: number?,
 	signs: number?,
+	trees: number?,
 }
 local THEME: { [number]: StageTheme } = {
 	[1] = { props = 9, deadProps = 14, pools = 8, kind = "trees", scatter = true },
@@ -704,7 +713,10 @@ local THEME: { [number]: StageTheme } = {
 	-- broad, some mid, the rest spills), so this number is now "how many pools" and
 	-- NOT "how much ooze" -- the lake alone covers more ground than a third of the
 	-- old 26 did. Retune the ladder there, not just this number.
-	[4] = { props = 18, pools = 12, kind = "barriers", scatter = true, signs = 5 },
+	-- FOUR DEAD TREES, and the number is the whole design of them -- see
+	-- scatterStage4Trees for why four and not nine. Strays standing out of a field whose
+	-- landmarks are its puddles, not a tree line like Stage 2's.
+	[4] = { props = 18, pools = 12, kind = "barriers", scatter = true, signs = 5, trees = 4 },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
 	-- reads as dark ground rather than as hot ground. Prop counts do not climb with
@@ -2430,6 +2442,78 @@ local function scatterWarningSigns(folder: Instance, origin: CFrame, count: numb
 	end
 end
 
+--- How far a Stage 4 tree has to stand off the WEST edge, clear of the warning-sign
+--- rank scatterWarningSigns puts at x = -hx + 5..11. The rank's whole job is to be the
+--- first thing you read walking in, seen against open ground; a 40-stud snag leaning
+--- over a 5-stud sign takes that away. 30 leaves roughly twenty studs of daylight
+--- between the furthest sign and the nearest trunk.
+local STAGE4_TREE_ENTRANCE_KEEPOUT = 30
+
+--- Studs between Stage 4 trunks. Wider than scatterFieldTrees' 32 for its stand of
+--- nine, and the count is the reason: on a field carrying FOUR trees a pair that reads
+--- as one clump costs a quarter of everything standing out there, where on Stage 2 it
+--- costs a ninth and the rest of the line covers for it.
+local STAGE4_TREE_MIN_GAP = 40
+
+--- Stage 4 -- a HANDFUL of dead trees over the whole field. Not Stage 2's tree line:
+--- that field is edge-weighted (BAND_WEIGHTS) because nine of them reading as a treed
+--- corridor is the point there. Four is not a line and should never try to be one, so
+--- these are dealt off a 2x2 jittered grid -- one per quadrant -- which is what keeps
+--- four trees from landing in the same half of a 290 x 170 field while each one is
+--- still placed anywhere inside its own quadrant. The min-gap rejection is for the one
+--- case the grid cannot cover: two trees in NEIGHBOURING quadrants both jittered hard
+--- toward the shared boundary.
+---
+--- WHY STAGE 4 GETS TREES AT ALL when the note under Stage 5 has "nothing left
+--- standing" starting at Stage 3. Four is the count that keeps that true: the Belt's
+--- landmarks are still its puddles (scatterOozePools' mini lake is the thing you walk
+--- to), and four snags over the whole field are strays on the horizon, not a stand you
+--- walk through. Raise this count and the field turns back into Stage 2.
+---
+--- NO CENTRE LANE, the same call scatterFieldTrees makes: a trunk is something you
+--- walk around, not a carcass laid across the route, and every piece of a deadTree is
+--- CanCollide false anyway.
+---
+--- NOT HELD OFF THE PUDDLES, deliberately -- a dead tree standing in ooze is exactly
+--- what this field is, and pool positions are not tracked past scatterOozePools.
+---
+--- RUNS LAST ON THE STAGE RNG, after the signs AND the puddles, so adding it moved
+--- neither: the same discipline every other multi-pass field in this file follows.
+local function scatterStage4Trees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+	local MAX_ATTEMPTS_PER_TREE = 50
+	local JITTER = 0.38 -- share of a cell, each axis
+
+	local x0 = -hx + STAGE4_TREE_ENTRANCE_KEEPOUT
+	local cols = 2
+	local rows = math.max(1, math.ceil(count / cols))
+	local cellW = (hx - x0) / cols
+	local cellH = 2 * hz / rows
+
+	local placed = {}
+	local function tooClose(x: number, z: number): boolean
+		for _, p in placed do
+			if (x - p[1]) ^ 2 + (z - p[2]) ^ 2 < STAGE4_TREE_MIN_GAP ^ 2 then
+				return true
+			end
+		end
+		return false
+	end
+
+	for i = 0, count - 1 do
+		local col = i % cols
+		local row = math.floor(i / cols) % rows
+		local x, z
+		local attempts = 0
+		repeat
+			x = math.clamp(x0 + (col + 0.5 + rng:NextNumber(-JITTER, JITTER)) * cellW, x0, hx)
+			z = math.clamp(-hz + (row + 0.5 + rng:NextNumber(-JITTER, JITTER)) * cellH, -hz, hz)
+			attempts += 1
+		until not tooClose(x, z) or attempts >= MAX_ATTEMPTS_PER_TREE
+		table.insert(placed, { x, z })
+		deadTree(folder, origin, x, z, rng)
+	end
+end
+
 --- ── Stage 4's ooze puddles ───────────────────────────────────────────────────
 --- THE FIRST POOLS TO COME OFF THE SHELF since the strip-for-rework pass (`1b6ff88`)
 --- took the old whole-field loop out. That loop's pool was ONE Neon cylinder plus one
@@ -3096,12 +3180,16 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- the litter cannot move a bone or a drum -- it is free to go last.
 			FieldLitter.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
 		elseif id == 4 then
-			-- The `barriers` set piece (`theme.props`) is still on the shelf; the signs
-			-- and the puddles are what this field has had its pass on so far.
+			-- The `barriers` set piece (`theme.props`) is still on the shelf; the signs,
+			-- the puddles and the four dead trees are what this field has had its pass on
+			-- so far.
 			scatterWarningSigns(folder, origin, theme.signs or 0, rng, hx, hz)
 			-- AFTER the signs, always: both passes run off the one stage rng, so putting
 			-- the puddles first would move every sign in the entrance rank.
 			scatterOozePools(folder, origin, theme.pools, rng, hx, hz, def.ooze)
+			-- LAST for the same reason the puddles come second -- adding the trees was not
+			-- allowed to move a sign or a pool that was already placed.
+			scatterStage4Trees(folder, origin, theme.trees or 0, rng, hx, hz)
 		elseif id == 6 then
 			-- The craters jitter off their own seeds (Config/StageCraters) and the debris
 			-- off its own, not this stage rng, so anything added to this field later is
