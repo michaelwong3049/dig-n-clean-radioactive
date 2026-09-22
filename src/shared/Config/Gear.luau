@@ -93,15 +93,20 @@ local Gear = {}
 -- `clarity` IS NOW INERT (on request): the ping shows rarity, modifier and the "1 in N"
 -- odds on every detector regardless (DigService.hintFor). The column is left here at
 -- its old values so a repurpose -- or a re-gate -- does not start from a blank field.
+-- PRICE x5 (feat/shop-price-increase): every `price` in this file was multiplied by
+-- 5 and rounded to a clean figure -- deliberately NOT paired with an income-side
+-- rescale like the 20/3 economy pass (see this file's header). Digging/washing/exhibit
+-- payouts are untouched, so the ladder simply takes longer to climb -- the point of
+-- the change (game loop was ending too quickly).
 Gear.Detector = {
 	{ name = "Bent Coil", price = 0, radius = 13, luck = 1.00, depth = 6, clarity = 0, blurb = "A coat hanger with ambition." },
-	{ name = "Scavenger MkI", price = 800, radius = 16, luck = 1.12, depth = 9, clarity = 0, blurb = "Wider sweep. Still deaf to anything deep." },
-	{ name = "Surplus Geiger", price = 1900, radius = 19, luck = 1.25, depth = 12, clarity = 1, blurb = "Army surplus, and it still clicks true." },
-	{ name = "Pulse Array", price = 4700, radius = 22, luck = 1.40, depth = 16, clarity = 1, blurb = "Pulses instead of sweeps. Reaches past rubble." },
-	{ name = "Isotope Scanner", price = 11000, radius = 25, luck = 1.60, depth = 21, clarity = 2, blurb = "Sorts isotopes from scrap before you dig." },
-	{ name = "Resonance Mapper", price = 27000, radius = 28, luck = 1.85, depth = 27, clarity = 2, blurb = "Maps a whole plot in one slow pass." },
-	{ name = "Deep Core Array", price = 64000, radius = 31, luck = 2.15, depth = 34, clarity = 3, blurb = "Hears the core. Ignores everything above it." },
-	{ name = "The Oracle", price = 150000, radius = 34, luck = 2.50, depth = 44, clarity = 3, blurb = "Sees the bottom of the map and is bored by it." },
+	{ name = "Scavenger MkI", price = 4000, radius = 16, luck = 1.12, depth = 9, clarity = 0, blurb = "Wider sweep. Still deaf to anything deep." },
+	{ name = "Surplus Geiger", price = 9500, radius = 19, luck = 1.25, depth = 12, clarity = 1, blurb = "Army surplus, and it still clicks true." },
+	{ name = "Pulse Array", price = 23500, radius = 22, luck = 1.40, depth = 16, clarity = 1, blurb = "Pulses instead of sweeps. Reaches past rubble." },
+	{ name = "Isotope Scanner", price = 55000, radius = 25, luck = 1.60, depth = 21, clarity = 2, blurb = "Sorts isotopes from scrap before you dig." },
+	{ name = "Resonance Mapper", price = 135000, radius = 28, luck = 1.85, depth = 27, clarity = 2, blurb = "Maps a whole plot in one slow pass." },
+	{ name = "Deep Core Array", price = 320000, radius = 31, luck = 2.15, depth = 34, clarity = 3, blurb = "Hears the core. Ignores everything above it." },
+	{ name = "The Oracle", price = 750000, radius = 34, luck = 2.50, depth = 44, clarity = 3, blurb = "Sees the bottom of the map and is bored by it." },
 }
 
 -- The extraction track. You do not dig — you drop a magnet and haul the thing up
@@ -134,11 +139,11 @@ Gear.Detector = {
 -- a phone. Spec pins that tier specifically. If you retune draw, re-run it.
 Gear.Magnet = {
 	{ name = "Horseshoe Magnet", price = 0, pullSpeed = 1.0, draw = 0.00, maxGrip = 1, blurb = "A fridge magnet on a rope. Pull like you mean it." }, -- 2.50 clicks/sec to hold
-	{ name = "Salvage Magnet", price = 670, pullSpeed = 1.3, draw = 0.12, maxGrip = 2, blurb = "Holds its grip between yanks. Barely." }, -- 1.62
-	{ name = "Electromagnet", price = 1600, pullSpeed = 1.7, draw = 0.25, maxGrip = 3, blurb = "Wired to a car battery. Lifts while you rest." }, -- 0.98
-	{ name = "Winch Coil", price = 3900, pullSpeed = 2.2, draw = 0.40, maxGrip = 4, blurb = "One click every two seconds is enough." }, -- 0.53  <- the mobile target
-	{ name = "Rail Coil", price = 9300, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing." }, -- 0.23
-	{ name = "Singularity Coil", price = 22000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest." }, -- 0.04, effectively hands-free
+	{ name = "Salvage Magnet", price = 3350, pullSpeed = 1.3, draw = 0.12, maxGrip = 2, blurb = "Holds its grip between yanks. Barely." }, -- 1.62
+	{ name = "Electromagnet", price = 8000, pullSpeed = 1.7, draw = 0.25, maxGrip = 3, blurb = "Wired to a car battery. Lifts while you rest." }, -- 0.98
+	{ name = "Winch Coil", price = 19500, pullSpeed = 2.2, draw = 0.40, maxGrip = 4, blurb = "One click every two seconds is enough." }, -- 0.53  <- the mobile target
+	{ name = "Rail Coil", price = 46500, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing." }, -- 0.23
+	{ name = "Singularity Coil", price = 110000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest." }, -- 0.04, effectively hands-free
 }
 
 -- THE CLEANING TRACK IS A MACHINE ON YOUR BASE, NOT A THING IN YOUR HAND, and that
@@ -183,12 +188,12 @@ Gear.Magnet = {
 -- ToolTiers.Cleaner's `scale` column is 1.00 all the way down.
 Gear.Cleaner = {
 	{ name = "Garden Hose", price = 0, power = 1, volume = 1.0, blurb = "A dribble and a prayer." },
-	{ name = "Patched Fire Hose", price = 1000, power = 2, volume = 1.2, blurb = "Leaks at every wrap, and still outguns the hose." },
-	{ name = "Pressure Lance", price = 2400, power = 3, volume = 1.5, blurb = "Narrow jet. Strips crust, not your patience." },
-	{ name = "Chem Injector", price = 5800, power = 4, volume = 1.9, blurb = "Doses the stream. Eats what water cannot." },
-	{ name = "Ultrasonic Jet", price = 14000, power = 5, volume = 2.4, blurb = "Shakes the grime loose before it is wet." },
-	{ name = "Ion Cannon", price = 33000, power = 6, volume = 3.0, blurb = "Charges the water. The dirt lets go first." },
-	{ name = "Plasma Lance", price = 80000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you." },
+	{ name = "Patched Fire Hose", price = 5000, power = 2, volume = 1.2, blurb = "Leaks at every wrap, and still outguns the hose." },
+	{ name = "Pressure Lance", price = 12000, power = 3, volume = 1.5, blurb = "Narrow jet. Strips crust, not your patience." },
+	{ name = "Chem Injector", price = 29000, power = 4, volume = 1.9, blurb = "Doses the stream. Eats what water cannot." },
+	{ name = "Ultrasonic Jet", price = 70000, power = 5, volume = 2.4, blurb = "Shakes the grime loose before it is wet." },
+	{ name = "Ion Cannon", price = 165000, power = 6, volume = 3.0, blurb = "Charges the water. The dirt lets go first." },
+	{ name = "Plasma Lance", price = 400000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you." },
 }
 
 -- reduction: fraction of AMBIENT rads/sec removed  (exposure track, green screen)
@@ -208,11 +213,11 @@ Gear.Cleaner = {
 -- Spec check pins those.
 Gear.Suit = {
 	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, blurb = "Rags and tape. Counts as clothing, not shielding." },
-	{ name = "Rubber Suit", price = 3000, reduction = 0.9750, tolerance = 4.4, capacity = 6, blurb = "Sweats more than it shields. Shields a little." },
-	{ name = "Lead-Lined", price = 7200, reduction = 0.9920, tolerance = 13.4, capacity = 8, blurb = "Heavy enough to feel safe. Nearly is." },
-	{ name = "Reinforced Hazmat", price = 17000, reduction = 0.9970, tolerance = 38.4, capacity = 11, blurb = "Sealed seams. The first suit that trusts you." },
-	{ name = "Sealed Exo-Suit", price = 42000, reduction = 0.9988, tolerance = 98.4, capacity = 15, blurb = "Own air supply. Walks into the red and back." },
-	{ name = "Containment Rig", price = 100000, reduction = 0.9889, tolerance = 105.0, capacity = 20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
+	{ name = "Rubber Suit", price = 15000, reduction = 0.9750, tolerance = 4.4, capacity = 6, blurb = "Sweats more than it shields. Shields a little." },
+	{ name = "Lead-Lined", price = 36000, reduction = 0.9920, tolerance = 13.4, capacity = 8, blurb = "Heavy enough to feel safe. Nearly is." },
+	{ name = "Reinforced Hazmat", price = 85000, reduction = 0.9970, tolerance = 38.4, capacity = 11, blurb = "Sealed seams. The first suit that trusts you." },
+	{ name = "Sealed Exo-Suit", price = 210000, reduction = 0.9988, tolerance = 98.4, capacity = 15, blurb = "Own air supply. Walks into the red and back." },
+	{ name = "Containment Rig", price = 500000, reduction = 0.9889, tolerance = 105.0, capacity = 20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
@@ -249,13 +254,16 @@ Gear.Suit = {
 -- 16 -> 26 while the ladder and its pairings stayed put. That floor of 26 is exactly
 -- Treadmill.START_SPEED, so an untrained player today walks at the speed a
 -- freshly-booted player walked at before any of this changed.
+-- Kept in lockstep with the x5 PRICE PASS above: these figures must stay byte-identical
+-- to Treadmill.TIERS' price column (Spec §5.1), so they were multiplied by the same 5x
+-- the live tracks got, not left behind.
 Gear.Boots = {
 	{ name = "Taped Boots", price = 0, walkSpeed = 26, haulPenalty = 1.20, stamina = 4, canVault = false, canDash = false, blurb = "Taped at the toe. They hold, mostly." },
-	{ name = "Tread Boots", price = 2300, walkSpeed = 28, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false, blurb = "Real tread. A full load stops dragging you." },
-	{ name = "Field Runners", price = 6500, walkSpeed = 30, haulPenalty = 0.80, stamina = 6, canVault = true, canDash = false, blurb = "Light enough to vault a fence." },
-	{ name = "Servo Braces", price = 18000, walkSpeed = 32, haulPenalty = 0.55, stamina = 7, canVault = true, canDash = false, blurb = "Braced knees. Carry more, feel less of it." },
-	{ name = "Powered Frame", price = 51000, walkSpeed = 34, haulPenalty = 0.30, stamina = 8, canVault = true, canDash = true, blurb = "Powered stride, and a dash when you need it." },
-	{ name = "Strider Rig", price = 140000, walkSpeed = 36, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true, blurb = "Full load, full speed. The haul stops mattering." },
+	{ name = "Tread Boots", price = 11500, walkSpeed = 28, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false, blurb = "Real tread. A full load stops dragging you." },
+	{ name = "Field Runners", price = 32500, walkSpeed = 30, haulPenalty = 0.80, stamina = 6, canVault = true, canDash = false, blurb = "Light enough to vault a fence." },
+	{ name = "Servo Braces", price = 90000, walkSpeed = 32, haulPenalty = 0.55, stamina = 7, canVault = true, canDash = false, blurb = "Braced knees. Carry more, feel less of it." },
+	{ name = "Powered Frame", price = 255000, walkSpeed = 34, haulPenalty = 0.30, stamina = 8, canVault = true, canDash = true, blurb = "Powered stride, and a dash when you need it." },
+	{ name = "Strider Rig", price = 700000, walkSpeed = 36, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true, blurb = "Full load, full speed. The haul stops mattering." },
 }
 
 -- The satchel does THREE jobs now, and the second one matters more than PLAN §3.7
@@ -283,10 +291,10 @@ Gear.Boots = {
 -- capacity is still 4 studs/sec off a trained runner.
 Gear.Satchel = {
 	{ name = "Canvas Bag", price = 0, fuseMult = 1.00, shielding = 0.00, haulPenalty = 1.20, blurb = "Canvas. Stops nothing, holds everything." },
-	{ name = "Lined Pack", price = 4000, fuseMult = 1.25, shielding = 0.25, haulPenalty = 0.90, blurb = "Lined seams slow the clock a fifth, and sit square on your back." },
-	{ name = "Lead Satchel", price = 9600, fuseMult = 1.61, shielding = 0.45, haulPenalty = 0.65, blurb = "Lead sheet at your back. Your finds stop cooking you." },
-	{ name = "Shielded Case", price = 23000, fuseMult = 2.17, shielding = 0.62, haulPenalty = 0.42, blurb = "Hard case, sealed lid. Buys real time and carries itself." },
-	{ name = "Containment Pack", price = 55000, fuseMult = 3.12, shielding = 0.78, haulPenalty = 0.20, blurb = "Three times the fuse, nearly silent to wear, and you stop feeling the load." },
+	{ name = "Lined Pack", price = 20000, fuseMult = 1.25, shielding = 0.25, haulPenalty = 0.90, blurb = "Lined seams slow the clock a fifth, and sit square on your back." },
+	{ name = "Lead Satchel", price = 48000, fuseMult = 1.61, shielding = 0.45, haulPenalty = 0.65, blurb = "Lead sheet at your back. Your finds stop cooking you." },
+	{ name = "Shielded Case", price = 115000, fuseMult = 2.17, shielding = 0.62, haulPenalty = 0.42, blurb = "Hard case, sealed lid. Buys real time and carries itself." },
+	{ name = "Containment Pack", price = 275000, fuseMult = 3.12, shielding = 0.78, haulPenalty = 0.20, blurb = "Three times the fuse, nearly silent to wear, and you stop feeling the load." },
 }
 
 -- THE SEVENTH TRACK, AND THE ONLY ONE THAT BUYS NOTHING YOU HOLD, AND THE ONLY ONE
@@ -311,7 +319,7 @@ Gear.Satchel = {
 -- there is no need for the gain itself to taper — the compounding price is what
 -- keeps one more click from ever being free.
 Gear.LUCK_STEP = 0.1
-Gear.LUCK_START_PRICE = 670 -- economy rescale: 100 * 20/3, same factor as every tiered price
+Gear.LUCK_START_PRICE = 3350 -- x5 price pass (feat/shop-price-increase), same factor as every tiered price
 Gear.LUCK_PRICE_GROWTH = 1.10
 
 --- The multiplier a player sits at after `level - 1` purchases (level 1 = 1.0x,
