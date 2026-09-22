@@ -119,27 +119,74 @@ local LEASH = 16
 --- at the call site for why this is arithmetic here rather than a moved anchor in
 --- build/Plots. The tub's near rim sits a shade under four studs in front of the mark,
 --- so this stops well clear of standing inside the geometry.
+---
+--- IT IS THE CLOSEST SHOT, not the only one: a lump too big to frame from here backs
+--- the player off from this mark (see `standOff`), and every lump that fits keeps it.
 local APPROACH = 1.2
 
---- The wash stand is a fixed aiming surface, not a trophy case, so every item gets
---- the same footprint there regardless of its authored size -- the same normalise-
+--- The wash stand is a fixed aiming surface, not a trophy case, so every item starts
+--- from the same footprint there regardless of its authored size -- the same normalise-
 --- to-a-target-dimension trick ExhibitService's locker and ModelGallery use for
---- arbitrary item art. Measured live in Plot1: WashRack's top sits at Y 2.83 and
---- GantryBeam's underside at Y 5.70, a 2.87-stud gap that an unnormalised import
---- could easily miss either way.
+--- arbitrary item art. This dig's Config/Payload roll and the item's own `sizeMult`
+--- then scale it from there, in full, so a big roll is a big lump on the tub too.
 ---
---- This is the one display context with a hard physical ceiling, so it's kept
---- smaller than the other three (exhibit stand, held-in-hand, model yard) even
---- though they all scale together -- 2.16 leaves ~0.71 studs of headroom under
---- GantryBeam before crust even goes on top of the item.
-local WASH_DISPLAY_SIZE = 2.16
+--- IT WAS 2.16, WITH THE ROLL CAPPED AT 1.15x, off a measurement of the wrong thing:
+--- "WashRack's top to GantryBeam's underside is a 2.87-stud gap". The beam is not over
+--- the rack. Its front face is 3.2 studs BEHIND the stand and nothing hangs over the
+--- tub at all (build/Plots), so height was never the limit -- how far the lump reaches
+--- is (WASH_BACK_ROOM). At 2.16 every nuke came out the same size, about a third of
+--- the one the player walked up carrying (ToolService's HELD_ITEM_SIZE).
+---
+--- THE BIG ROLLS STILL HAVE A CEILING, and it is the bay rather than a number here:
+--- a lump is shrunk only as far as it has to be to clear the back of the bay
+--- (WASH_BACK_ROOM + WASH_SLIDE) and to fit the frame from WASH_FAR (`fitScale`).
+local WASH_DISPLAY_SIZE = 3.5
 
---- Config/Payload's per-dig roll (0.6..2.5) applies here too, same as every other
---- display context -- EXCEPT its upside is capped at this, not the full 2.5. The
---- 2.87-stud GantryBeam gap above has no slack for a "giga nuke" roll on top of an
---- already-normalised display size; the downside (a small roll shrinking the item
---- further) carries no clipping risk, so only the top end is clamped.
-local WASH_PAYLOAD_CAP = 1.15
+--- How far from the stand's centre the lump may reach before it runs into the back of
+--- the bay, in ANY direction, because the client spins it on a turntable about the
+--- stand (WashController.spinTurntable). Measured in Plot1: GantryBeam's front face is
+--- 3.2 studs back and the splash wall's 3.45; 3.0 leaves a fifth of a stud.
+local WASH_BACK_ROOM = 3.0
+
+--- A lump wider than that SLIDES FORWARD on the rack, toward the player, by up to
+--- this much, instead of being shrunk: the front of the tub is open. In practice the
+--- frame runs out first -- a round lump stops fitting the shot from WASH_FAR a little
+--- over half a stud into the slide -- so this is the bay's allowance, not the usual cap.
+local WASH_SLIDE = 1.2
+
+-- ── Framing a big lump ──
+--- How much of the screen's height the crusted lump may fill before the player is
+--- backed off from the tub to fit it. The camera is centred on the lump, so 0.75 leaves
+--- an eighth above and below it, which is where the nozzle and the clean bar live. A
+--- lump at the old 2.16 filled about half the frame from the APPROACH mark.
+local WASH_FILL = 0.75
+
+--- Studs kept between the circle the spinning lump sweeps and the player. The nozzle
+--- is held about two studs in front of the chest (WashController.HELD_OFFSET); a
+--- chunk swinging through it would be the crust passing through the hose.
+local WASH_ELBOW_ROOM = 2.6
+
+--- The furthest from the stand the player is ever planted, in horizontal studs. NOT
+--- the leash: the Basin's Radius (9) is also the decon station's and the shower's
+--- (StationService, ExposureService), and a player backed out of it mid-wash would be
+--- undocked and stop being showered. 8 here is ~8.4 from the basin's centre at the
+--- height the player stands. WASH_BACK_ROOM + 2 * WASH_SLIDE + WASH_ELBOW_ROOM fits
+--- inside it exactly, so even the biggest lump there is never swept into the player.
+--- A lump that would need the player further back than this to fit WASH_FILL is
+--- shrunk until it does (`fitScale`).
+local WASH_FAR = 8
+
+--- The eight corners of a unit box, for measuring the circle a part sweeps.
+local CORNERS = {
+	Vector3.new(-1, -1, -1),
+	Vector3.new(-1, -1, 1),
+	Vector3.new(-1, 1, -1),
+	Vector3.new(-1, 1, 1),
+	Vector3.new(1, -1, -1),
+	Vector3.new(1, -1, 1),
+	Vector3.new(1, 1, -1),
+	Vector3.new(1, 1, 1),
+}
 
 type Session = {
 	uid: string,
@@ -219,6 +266,89 @@ end
 
 -- ── Rendering the item on the tub ──────────────────────────────────────
 
+--- How far the model reaches from the vertical line through `axis`, and its lowest and
+--- highest points, in world studs. Taken off every part's box corners rather than
+--- GetBoundingBox, because the lump spins on a turntable: what has to clear the bay is
+--- the circle it sweeps, not the box it happens to fit at rest.
+local function sweep(model: Model, axis: Vector3): (number, number, number)
+	local radius, low, high = 0, math.huge, -math.huge
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			local half = part.Size / 2
+			for _, corner in CORNERS do
+				local point = part.CFrame * (half * corner)
+				radius = math.max(radius, Vector2.new(point.X - axis.X, point.Z - axis.Z).Magnitude)
+				low = math.min(low, point.Y)
+				high = math.max(high, point.Y)
+			end
+		end
+	end
+	return radius, low, high
+end
+
+--- Sit the model's bounding-box bottom on `floorY`. See the note at the call site.
+local function seat(model: Model, floorY: number)
+	local bounds, extent = model:GetBoundingBox()
+	model:PivotTo(model:GetPivot() + Vector3.new(0, floorY - (bounds.Position.Y - extent.Y / 2) + 0.05, 0))
+end
+
+--- Level, from the stand toward where the player stands at it: the open front of the
+--- tub, which is the way a lump too wide for the back of the bay slides.
+local function towardPlayer(stand: BasePart): Vector3
+	local spot = stand.Parent and stand.Parent:FindFirstChild("WashSpot")
+	local toward = if spot and spot:IsA("BasePart") then spot.Position - stand.Position else stand.CFrame.LookVector
+	toward = Vector3.new(toward.X, 0, toward.Z)
+	return if toward.Magnitude > 1e-3 then toward.Unit else Vector3.zero
+end
+
+--- How far a lump that sweeps `radius` slides toward the player: just enough for the
+--- far side of its spin to clear WASH_BACK_ROOM.
+local function slideFor(radius: number): number
+	return math.clamp(radius - WASH_BACK_ROOM, 0, WASH_SLIDE)
+end
+
+--- How far from the stand the player has to stand, in horizontal studs, for a lump
+--- that sweeps `radius`, has slid `slide` toward them and stands `height` tall to fill
+--- no more than WASH_FILL of the frame -- and never closer than WASH_ELBOW_ROOM.
+---
+--- MEASURED TO THE LUMP'S NEAR SIDE, NOT ITS CENTRE, and the first cut got that wrong:
+--- it fitted `height` at the centre's distance, and a 1.5x Marble Nuke framed that way
+--- came out filling the whole screen, because the front of a lump eight studs deep is
+--- only a couple of studs off the lens. Treated as an ellipsoid `radius` deep and
+--- `height` tall, the view's tangent to it gives tan(angle) = (height / 2) /
+--- sqrt(d^2 - radius^2) at a centre distance d. Solving that for the fill gives the
+--- square root below. Checked against a raycast silhouette in Play: 96% measured, 99%
+--- predicted.
+local function framedFrom(radius: number, slide: number, height: number): number
+	local reach = height / (2 * WASH_FILL * math.tan(math.rad(Tuning.WASH_FOV) / 2))
+	local eye = Tuning.WASH_EYE_FORWARD + math.sqrt(radius * radius + reach * reach)
+	return slide + math.max(eye, radius + WASH_ELBOW_ROOM)
+end
+
+--- The share of its current size a lump that sweeps `radius` and stands `height` tall
+--- can keep: 1 if it clears the back of the bay and frames from WASH_FAR as it is,
+--- otherwise the largest scale that does both. Everything here grows with the scale,
+--- so it is a bisection over one monotonic test.
+local function fitScale(radius: number, height: number): number
+	local function fits(scale: number): boolean
+		local r = radius * scale
+		return r <= WASH_BACK_ROOM + WASH_SLIDE and framedFrom(r, slideFor(r), height * scale) <= WASH_FAR
+	end
+	if fits(1) then
+		return 1
+	end
+	local low, high = 0, 1
+	for _ = 1, 24 do
+		local mid = (low + high) / 2
+		if fits(mid) then
+			low = mid
+		else
+			high = mid
+		end
+	end
+	return low
+end
+
 --- WHAT SITS ON THE TUB IS THE ITEM, WRAPPED IN ROCK. Server-side, so everyone on the
 --- base sees it: the spray VFX is client-local (see WashController) because it is
 --- per-viewer motion, but the OBJECT is the storytelling — a stranger walking onto your
@@ -238,8 +368,13 @@ end
 --- it, so the clustering, the Lloyd relaxation, the empty-zone rescue and the
 --- stand-in block cluster for unmodelled items all went with it.
 ---
---- Returns the display model, one zone per patch, and each zone's world anchor.
-local function placeOnStand(stand: BasePart, item: any): (Model, { [number]: { BasePart } }, { [number]: Vector3 })
+--- Returns the display model, one zone per patch, each zone's world anchor, and what
+--- `standOff` needs to frame it: the radius the lump sweeps, how far it slid toward the
+--- player, and how tall it stands.
+local function placeOnStand(
+	stand: BasePart,
+	item: any
+): (Model, { [number]: { BasePart } }, { [number]: Vector3 }, number, number, number)
 	local count = math.max(#(item.patches or {}), 1)
 	local def = Items.get(item.itemId)
 	local model = ItemModels.create(def.model, item.itemId)
@@ -280,11 +415,15 @@ local function placeOnStand(stand: BasePart, item: any): (Model, { [number]: { B
 	-- `GetScale()` compounds onto whatever scale it already had instead of
 	-- overwriting it -- a no-op for anything starting at native scale 1 (every
 	-- procedural/cube-fallback model), and the fix for anything pre-scaled.
+	--
+	-- SAME FACTORS AS THE HAUL, minus weight: this dig's payload roll and the item's
+	-- `sizeMult`, both in full. Anything too big for the bay or the shot is dealt with
+	-- below, once the crust is on and the real size is known.
 	local _, rawExtent = built:GetBoundingBox()
 	local longest = math.max(rawExtent.X, rawExtent.Y, rawExtent.Z)
 	if longest > 0 then
-		local payload = math.min(Payload.forUid(item.uid), WASH_PAYLOAD_CAP)
-		built:ScaleTo(built:GetScale() * (WASH_DISPLAY_SIZE * payload / longest))
+		local target = WASH_DISPLAY_SIZE * (def.sizeMult or 1) * Payload.forUid(item.uid)
+		built:ScaleTo(built:GetScale() * (target / longest))
 	end
 
 	-- SEATED ON THE RACK'S TOP, NOT CENTRED ON THE STAND. WashStand is a single
@@ -296,13 +435,41 @@ local function placeOnStand(stand: BasePart, item: any): (Model, { [number]: { B
 	-- uses. Falls back to the stand's own point if a place file predates WashRack.
 	local rack = stand.Parent and stand.Parent:FindFirstChild("WashRack")
 	local floorY = if rack and rack:IsA("BasePart") then rack.Position.Y + rack.Size.Y / 2 else stand.Position.Y
-	local bounds, extent = built:GetBoundingBox()
-	built:PivotTo(built:GetPivot() + Vector3.new(0, floorY - (bounds.Position.Y - extent.Y / 2) + 0.05, 0))
+	seat(built, floorY)
 
 	-- ENCASED AFTER THE PIVOT, not before: the crust is built around the model's
 	-- bounding box in world space, and wrapping it first would leave the rock behind
 	-- when the item moved onto the stand.
+	local axis = built:GetPivot().Position
 	local zones, anchors = ItemCrust.encase(built, count, item.rarity, item.uid)
+
+	-- TOO BIG FOR THE BAY OR THE SHOT: shrink it to fit and wrap it again. The crust is
+	-- sized straight off the item's box (ItemCrust.encase) and re-rolled from the same
+	-- seed, and ScaleTo holds the pivot on the turntable's axis, so the new lump is the
+	-- old one scaled by exactly `fitScale` -- one rebuild, no search on the geometry.
+	local radius, low, high = sweep(built, axis)
+	local scale = fitScale(radius, high - low)
+	if scale < 1 then
+		for _, zone in zones do
+			ItemCrust.strip(zone)
+		end
+		ItemCrust.clear(built)
+		built:ScaleTo(built:GetScale() * scale)
+		seat(built, floorY)
+		zones, anchors = ItemCrust.encase(built, count, item.rarity, item.uid)
+		radius, low, high = sweep(built, axis)
+	end
+
+	-- ...AND WIDER THAN THE BACK OF THE BAY: slide it toward the player until the far
+	-- side of its spin clears. Anchors are world points, so they move with it.
+	local slide = slideFor(radius)
+	if slide > 0 then
+		local shift = towardPlayer(stand) * slide
+		built:PivotTo(built:GetPivot() + shift)
+		for zone, anchor in anchors do
+			anchors[zone] = anchor + shift
+		end
+	end
 
 	for zone = 1, count do
 		-- WHICH DIRTY AREA THIS PIECE OF SLAG BELONGS TO, written onto the real geometry
@@ -317,7 +484,19 @@ local function placeOnStand(stand: BasePart, item: any): (Model, { [number]: { B
 		end
 	end
 
-	return built, zones, anchors
+	return built, zones, anchors, radius, slide, high - low
+end
+
+--- How far from the stand to plant the player, in horizontal studs: `near` (the
+--- APPROACH mark), unless the lump would fill more than WASH_FILL of the frame from
+--- there or sweep into them (`framedFrom`). Never past WASH_FAR, which `fitScale`
+--- already sized the lump to fit from.
+---
+--- THIS IS THE ZOOM-OUT. The shot is first person from the player's own head
+--- (WashController), so the only honest way to back the camera off is to back the
+--- player off. The lens stays Tuning.WASH_FOV; the lump just gets further away.
+local function standOff(near: number, radius: number, slide: number, height: number): number
+	return math.clamp(framedFrom(radius, slide, height), near, math.max(near, WASH_FAR))
 end
 
 -- ── The machine's nozzle ───────────────────────────────────────────────
@@ -687,7 +866,8 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 	-- potency question asked twice, once through a function whose real job was to start
 	-- a clock. Nothing is timed until the player points the hose at something, so there
 	-- is nothing left to prime here.
-	session.model, session.zones, session.zoneAnchor = placeOnStand(stand, item)
+	local model, zones, anchors, lumpRadius, lumpSlide, lumpHeight = placeOnStand(stand, item)
+	session.model, session.zones, session.zoneAnchor = model, zones, anchors
 	for i = 1, #patches do
 		session.zoneIds[i] = i
 	end
@@ -721,8 +901,14 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 	-- places that have been through a World.rebuild(), and a change that silently does
 	-- nothing until someone runs a command is worse than a line of arithmetic. -Z is
 	-- forward in WashSpot's own frame, which is already aimed at the stand.
+	--
+	-- ...AND BACKED OFF AGAIN FOR A BIG LUMP (standOff), along the same line. At the
+	-- APPROACH distance this is exactly the old step forward.
 	if spot and spot:IsA("BasePart") and root and root:IsA("BasePart") then
-		root.CFrame = spot.CFrame * CFrame.new(0, 0, -APPROACH)
+		local offset = spot.Position - stand.Position
+		local mark = Vector3.new(offset.X, 0, offset.Z).Magnitude
+		local distance = standOff(mark - APPROACH, lumpRadius, lumpSlide, lumpHeight)
+		root.CFrame = spot.CFrame * CFrame.new(0, 0, distance - mark)
 	end
 
 	push(player, session, data)

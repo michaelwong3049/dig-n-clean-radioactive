@@ -358,8 +358,9 @@ local AIM_RANGE = 60
 -- ── The first-person shot ───────────────────────────────────────────
 -- Studs the camera sits forward of the head's own centre, along the view. The head is
 -- hidden anyway, so this is not about escaping it -- it is about not being able to see
--- the inside of your own shoulders when you pitch all the way down.
-local EYE_FORWARD = 0.4
+-- the inside of your own shoulders when you pitch all the way down. In Tuning because
+-- WashService frames the lump from this same eye (see WASH_FOV below).
+local EYE_FORWARD = require(Shared.Config.Tuning).WASH_EYE_FORWARD
 -- WIDER THAN THE DEFAULT 70, and it used to be narrower. 60 was a deliberate lean-in
 -- chosen when the thing on the stand was the ITEM -- "a stud and a half across", per the
 -- note this replaces -- and it made the patches bigger targets for free.
@@ -376,7 +377,12 @@ local EYE_FORWARD = 0.4
 -- retreat -- everything at the stand comes back about a fifth -- without moving the eye
 -- off the face it is supposed to be behind. See HELD_OFFSET for the one thing that had
 -- to move with it.
-local WASH_FOV = 72
+--
+-- THE DOLLY BACK IS AVAILABLE AFTER ALL, just not from here: WashService plants the
+-- whole player further from the tub when the lump on it is big, so the head (and this
+-- lens with it) backs off with them. It reads this same number to do the framing sums,
+-- which is why it lives in Tuning. Required inline: this chunk is at the local ceiling.
+local WASH_FOV = require(Shared.Config.Tuning).WASH_FOV
 -- How far off "pointing at the item" the player may look, in each axis. See the
 -- header for why this is a clamp rather than a body that turns.
 local YAW_LIMIT = math.rad(32)
@@ -2016,11 +2022,17 @@ local function aimPointAt(from: CFrame, filter: RaycastParams): (Vector3, BasePa
 	-- 60 studs. See AIM_REACH_PAST for why: past that the water was flying across the
 	-- base. `ahead` is the item's distance projected onto the view, so looking a touch
 	-- off the item still clamps to roughly the item's own range rather than the sky.
-	local pivot = itemPivot()
+	--
+	-- ...OR PAST HALF THE LUMP, whichever is further. A big payload roll puts a lump
+	-- on the rack wider than AIM_REACH_PAST is deep (WashService.placeOnStand), and a
+	-- shot at its far flank has to reach that far or the flank cannot be washed. Every
+	-- ordinary lump is narrower, so for them nothing changes.
+	local pivot, size = itemPivot()
 	local reach = AIM_RANGE
-	if pivot then
+	if pivot and size then
 		local ahead = (pivot.Position - from.Position):Dot(from.LookVector)
-		reach = math.clamp(ahead + AIM_REACH_PAST, AIM_RANGE_MIN, AIM_RANGE)
+		local past = math.max(AIM_REACH_PAST, math.max(size.X, size.Z) * 0.5)
+		reach = math.clamp(ahead + past, AIM_RANGE_MIN, AIM_RANGE)
 	end
 	local hit = Workspace:Raycast(from.Position, from.LookVector * reach, filter)
 	if hit then
