@@ -86,7 +86,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 24
+local BUILDER_VERSION = 25
 
 local C = Kit.C
 local build = Kit.build
@@ -326,6 +326,8 @@ local function cellCentre(x: number, z: number): (number, number)
 	local p, t = Hub.PLAZA, Hub.TILE_SIZE
 	return p.minX + (math.floor((x - p.minX) / t) + 0.5) * t, p.minZ + (math.floor((z - p.minZ) / t) + 0.5) * t
 end
+-- Exported for build/CampSite, whose floors lie on this same grid and snap the same way.
+Hub.cellCentre = cellCentre
 
 --- Is the point (x, z) on the plaza floor -- the octagon, or one of its gate paths? A pure
 --- shape test with no grid in it; floorCover turns it into whole and split cells.
@@ -356,10 +358,13 @@ end
 --- make say which. One sample sits at each triangle's centroid, a third of a tile off the
 --- centre, where no edge can pass; two neighbouring triangles on the floor mean that half
 --- is floor.
-local function floorCover(cx: number, cz: number): (string, number, number)
+---
+--- `Hub.coverOf` is the same test against any shape predicate, exported for
+--- build/CampSite's own octagons; `floorCover` is it applied to this plaza's floor.
+function Hub.coverOf(inside: (number, number) -> boolean, cx: number, cz: number): (string, number, number)
 	local q = Hub.TILE_SIZE / 3
-	local up, right = insideFloor(cx, cz + q), insideFloor(cx + q, cz)
-	local down, left = insideFloor(cx, cz - q), insideFloor(cx - q, cz)
+	local up, right = inside(cx, cz + q), inside(cx + q, cz)
+	local down, left = inside(cx, cz - q), inside(cx - q, cz)
 	if up and right and down and left then
 		return "full", 0, 0
 	elseif not (up or right or down or left) then
@@ -377,6 +382,10 @@ local function floorCover(cx: number, cz: number): (string, number, number)
 	-- above are placed so no such cell occurs (see GATE_DIAGONALS). Round to the majority.
 	local n = (if up then 1 else 0) + (if right then 1 else 0) + (if down then 1 else 0) + (if left then 1 else 0)
 	return if n > 2 then "full" else "none", 0, 0
+end
+
+local function floorCover(cx: number, cz: number): (string, number, number)
+	return Hub.coverOf(insideFloor, cx, cz)
 end
 
 --- The (dark, light) pair for the base-floor tile centred at (x, z): grass in the
@@ -508,6 +517,13 @@ export type TileOpts = {
 	-- set this, and they must keep sharing the one resolver -- see `groundPairAt` on the
 	-- doubled edge tiles.
 	ground: boolean?,
+	-- `ground`, with the resolvers supplied by the caller instead of this plaza's own:
+	-- `pairAt` returns (dark, light, lift) the way `Hub.groundPairAt` does, `splitAt` a
+	-- GroundSplit (or nil) the way `Hub.groundSplitAt` does. `ground = true` is exactly
+	-- these two set to Hub's pair. Added for build/CampSite, whose camps lay their own
+	-- zones (and their own octagon's split diagonals) in their own palettes.
+	pairAt: ((x: number, z: number) -> (string, string, number))?,
+	splitAt: ((x: number, z: number) -> GroundSplit?)?,
 	origin: CFrame?, -- default identity -- see this type's own comment above
 }
 
@@ -630,7 +646,9 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	local light = o.light or PLAZA_LIGHT
 	local skip = o.skip
 	local colorAt = o.colorAt
-	local groundOverlay = o.ground
+	-- `ground = true` is Hub's own pair of zone resolvers; a caller may supply its own.
+	local pairAt = o.pairAt or (if o.ground then Hub.groundPairAt else nil)
+	local splitAt = o.splitAt or (if o.ground then Hub.groundSplitAt else nil)
 
 	local origin = o.origin or CFrame.new(0, 0, 0)
 	local size = Hub.TILE_SIZE
@@ -663,19 +681,19 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 			if colorAt then
 				tileDark, tileLight = colorAt(cx, cz)
 			end
-			if groundOverlay then
+			if pairAt then
 				-- A whole cell a 45-degree floor edge cuts in half goes down as two
 				-- triangles (buildSplitTile). A clipped one could not be halved on the
-				-- diagonal, so it keeps groundPairAt's lawn colour -- none exist at the
-				-- current numbers, since every diagonal cell is a whole one.
-				local split = Hub.groundSplitAt(cx, cz)
+				-- diagonal, so it keeps the pair resolver's lawn colour -- none exist at
+				-- the current numbers, since every diagonal cell is a whole one.
+				local split = if splitAt then splitAt(cx, cz) else nil
 				if split and x1 - x0 == size and z1 - z0 == size then
 					buildSplitTile(parent, origin, cx, topY, cz, split, (ix + iz) % 2 == 0)
 					built += 2
 					continue
 				end
 				local lift
-				tileDark, tileLight, lift = Hub.groundPairAt(cx, cz)
+				tileDark, tileLight, lift = pairAt(cx, cz)
 				tileTop = topY + lift
 			end
 

@@ -177,7 +177,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 37
+local BUILDER_VERSION = 38
 
 local C = Kit.C
 local build = Kit.build
@@ -1334,6 +1334,54 @@ local function buildOutfitter(parent: Instance)
 		})
 		buildStoreBillboard(desk, counter.label, C.shopOutfitter)
 	end
+
+	m.Parent = parent
+	return m
+end
+
+-- ── The empty stall ───────────────────────────────────────────────────────────
+
+--- A plaza stall's SHELL with nothing for sale: the same StallFloor, studded posts,
+--- slatted back and striped canopy `buildStall` puts up, a plain counter across the
+--- front with the accent trim, and a sign over the middle -- and deliberately NO
+--- StationKind, StationId, RackZone or prompt anywhere on it. An empty stall must not
+--- open a shop panel for a track it does not sell, and a StationKind here would also
+--- count toward World.verify()'s station census.
+---
+--- EXPORTED FOR build/CampSite, whose stalls go up before the gear they will sell
+--- exists. `origin` is the stall's own frame on the floor it stands on, local +Z its
+--- customer side -- the same frame `facingOrigin` hands `buildStall`. Returns the
+--- model, already parented. The footprint is `width` across and local z -11.25 (the
+--- canopy's back edge) to +2.75 (the front posts), matching `assertNoShopOverlap`.
+function Shops.buildStallShell(parent: Instance, origin: CFrame, width: number, accent: string, label: string): Model
+	local m = Instance.new("Model")
+	m.Name = "EmptyStall"
+
+	build(m, origin, {
+		name = "StallFloor",
+		pos = { 0, 0.05, -4 },
+		size = { width, 0.1, 12 },
+		color = C.steelDark,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+	buildStorefrontPosts(m, origin, width)
+	buildSlatWall(m, origin, width)
+
+	-- The counter across the whole front, the plaza stalls' height and trim. No
+	-- `stationKind` and no `promptText`, so buildCounter adds neither attributes nor
+	-- a prompt (see its own doc).
+	local counter = buildCounter(m, origin, {
+		color = accent,
+		width = width - 4,
+		depth = 2.5,
+		z = SHOPFRONT_Z,
+		material = "Plastic",
+		studded = true,
+	})
+	buildStoreBillboard(counter, label, accent)
+	buildStripedCanopy(m, origin, accent, width)
 
 	m.Parent = parent
 	return m

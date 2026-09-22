@@ -64,7 +64,7 @@ local ModelGallery = require(script.Parent.ModelGallery)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 14
+local BUILDER_VERSION = 15
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -162,18 +162,6 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- backed by ItemModels whenever this camp is rebuilt.
 	ModelGallery.build(ModelGallery.originForBase(origin), camp)
 
-	-- A small open trader kiosk, deliberately placed in the inner plaza rather than
-	-- behind a wall or at a player's private plot. The counter has an 8-stud
-	-- station radius.
-	local trader = Instance.new("Model")
-	trader.Name = "Trader"
-
-	-- The plaza surface sits 0.9 below the camp datum here, plus the raised plaza
-	-- floor's lift (Hub.PLAZA_LIFT -- the kiosk stands on the shop square, which is part
-	-- of it); every part builds up from this one local-Y so nothing floats over the
-	-- tiles or sinks into them.
-	local G = -0.9 + Hub.PLAZA_LIFT
-
 	-- WORLD (7, -38.5), IN THE GAP BETWEEN MAGNETSHOP AND CLEANERSHOP, not the
 	-- old 12-stud-south-of-spawn spot. `origin` here is Hub.CAMP_ORIGIN, (17.5,
 	-- -0.6, 0) with no rotation, so a local offset maps straight onto world XZ:
@@ -186,7 +174,28 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- kiosk keeps its original unrotated facing (local +Z = world +Z, i.e. north)
 	-- unchanged, which already matches Magnet's and Cleaner's own `faceYaw = 0` —
 	-- the row reads as one line of storefronts, not three different facings.
-	local kiosk = origin * CFrame.new(-10.5, 0, -38.5)
+	BaseCamp.buildTrader(camp, origin * CFrame.new(-10.5, 0, -38.5))
+end
+
+-- ── The trader kiosk ──────────────────────────────────────────────────────────
+
+--- A small open trader kiosk, deliberately placed in a plaza rather than behind a
+--- wall or at a player's private plot. The counter has an 8-stud station radius.
+---
+--- EXPORTED so every camp can stand the same stall: Base Camp calls it from
+--- buildShell above, build/CampSite from each site camp's own shop row. `kiosk` is
+--- the stall's centre on the CAMP DATUM -- 0.9 above the unlifted floor it stands on
+--- (Hub.CAMP_ORIGIN's Y against Stages.SURFACE_Y) -- with local +Z its customer side.
+--- Returns the Trader model, already parented.
+function BaseCamp.buildTrader(parent: Instance, kiosk: CFrame): Model
+	local trader = Instance.new("Model")
+	trader.Name = "Trader"
+
+	-- The plaza surface sits 0.9 below the camp datum here, plus the raised plaza
+	-- floor's lift (Hub.PLAZA_LIFT -- the kiosk stands on the shop square, which is part
+	-- of it); every part builds up from this one local-Y so nothing floats over the
+	-- tiles or sinks into them.
+	local G = -0.9 + Hub.PLAZA_LIFT
 
 	-- A low grey studded deck, just proud of the plaza tiles — the stall is studded
 	-- throughout, like the plaza shops.
@@ -275,7 +284,8 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- drops off the front edge.
 	buildTraderAwning(trader, kiosk, G + 11.45, 0, 7, 14.6, 12.0)
 
-	trader.Parent = camp
+	trader.Parent = parent
+	return trader
 end
 
 -- ── Entry points ──────────────────────────────────────────────────────────────

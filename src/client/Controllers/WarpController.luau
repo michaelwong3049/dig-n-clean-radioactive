@@ -2,17 +2,25 @@
 --[[
 	WarpController.luau — the "getting around" bar at the top of the screen.
 
-	Two buttons, BASE and SHOPS, centred against the top edge. They are a convenience
-	for moving around the safe zone — from your plot out to the shop cluster and back
+	BASE and SHOPS, centred against the top edge, plus one button per site camp
+	(Config/Camps — Toxic Twilight first). They are a convenience for moving around
+	the safe zones — from your plot out to the shop cluster, out to a far camp and back
 	— and they are ONLY on screen while you are standing in no stage. The moment you
 	cross into a field the bar slides away: warping is not an escape hatch (WarpService
 	refuses it server-side from inside a stage as well), and the top-centre strip is
 	the stage-name banner's while you are in one.
 
+	A CAMP BUTTON IS ON EVERYONE'S BAR, LOCKED, until that camp has been reached on
+	foot once (CampService). Locked, it wears a padlock and a dimmed logo, and a click
+	says how to open it instead of warping. That is presentation only — WarpService
+	makes the same refusal for a client that ignores the lock. A camp that is not in
+	this world at all (a place saved before it was built) gets no button: there is
+	nothing to land on, so `available` in CampState hides it rather than locking it.
+
 	READS stageId OFF ExposureState, the same field StageBannerController and
 	AtmosphereController already read — it ticks ~10Hz and costs nothing new on the
-	wire. Pure presentation: the click sends a destination NAME, WarpService decides
-	the CFrame.
+	wire. The camp buttons read CampState, which only fires on change. Pure
+	presentation: the click sends a destination NAME, WarpService decides the CFrame.
 
 	Neutral dark cards keep the destination logos clear.
 ]]
@@ -23,6 +31,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
+local Camps = require(Shared.Config.Camps)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local WarpIcons = require(script.Parent.Parent.WarpIcons)
@@ -34,26 +43,103 @@ local HIDDEN = UDim2.new(0.5, 0, 0, -100) -- fully off the top edge
 local SLIDE = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local CLICK_DEBOUNCE = 0.4
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local HINT_HOLD = 2.4
 -- Shared with IndexController's Index tile (UIKit.C.nav*), so the two read as one
 -- family of buttons.
 local BACKGROUND = UIKit.C.navFill
 local HOVER_BACKGROUND = UIKit.C.navFillHover
 local EDGE = UIKit.C.navEdge
 local HOVER_EDGE = UIKit.C.navEdgeHover
+-- A locked logo stays legible but plainly off.
+local LOCKED_ICON_TRANSPARENCY = 0.6
 
-local BUTTONS = {
+local BTN_W, BTN_H, GAP = 120, 56, 10
+
+type ButtonSpec = { dest: string, text: string, camp: Camps.CampDef? }
+
+local BUTTONS: { ButtonSpec } = {
 	{ dest = "base", text = "BASE" },
 	{ dest = "shops", text = "SHOPS" },
+}
+for _, def in Camps.sites() do
+	table.insert(BUTTONS, { dest = def.key, text = def.name:upper(), camp = def })
+end
+
+type Entry = {
+	spec: ButtonSpec,
+	shadow: Frame,
+	button: TextButton,
+	stroke: UIStroke,
+	icon: { Frame },
+	lock: Frame?,
 }
 
 local ui: {
 	panel: Frame,
+	hint: TextLabel,
+	entries: { Entry },
 }? = nil
 
 local shown = false
 local hideToken = 0
+local hintToken = 0
 local lastClick = 0
 local warpRemote: any = nil
+
+local reached: { [string]: boolean } = {}
+local available: { [string]: boolean } = {}
+
+local function isLocked(spec: ButtonSpec): boolean
+	return spec.camp ~= nil and reached[spec.dest] ~= true
+end
+
+local function isShown(spec: ButtonSpec): boolean
+	return spec.camp == nil or available[spec.dest] == true
+end
+
+--- Lay out whichever buttons this world has, left to right, and size the panel to them.
+local function layout()
+	if ui == nil then
+		return
+	end
+	local index = 0
+	for _, entry in ui.entries do
+		local visible = isShown(entry.spec)
+		entry.shadow.Visible = visible
+		entry.button.Visible = visible
+		if visible then
+			local x = index * (BTN_W + GAP)
+			entry.shadow.Position = UDim2.fromOffset(x, 4)
+			entry.button.Position = UDim2.fromOffset(x, 0)
+			index += 1
+		end
+		if entry.lock then
+			entry.lock.Visible = isLocked(entry.spec)
+		end
+		for _, piece in entry.icon do
+			piece.BackgroundTransparency = if isLocked(entry.spec) then LOCKED_ICON_TRANSPARENCY else 0
+		end
+	end
+	ui.panel.Size = UDim2.fromOffset(math.max(1, index * BTN_W + math.max(0, index - 1) * GAP), BTN_H)
+end
+
+--- Shown and hidden outright rather than faded: UIKit.label's outline is a UIStroke
+--- (and its shadow a second label), neither of which follows TextTransparency, so a
+--- fade would leave the outline hanging on screen after the letters had gone.
+local function showHint(text: string)
+	if ui == nil then
+		return
+	end
+	hintToken += 1
+	local mine = hintToken
+	ui.hint.Text = text
+	ui.hint.Visible = true
+	task.delay(HINT_HOLD, function()
+		if mine == hintToken and ui then
+			ui.hint.Visible = false
+		end
+	end)
+end
 
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
@@ -64,14 +150,10 @@ local function build(): ScreenGui
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	-- Dark cards with a centered destination logo.
-	local BTN_W, BTN_H, GAP = 120, 56, 10
-	local width = #BUTTONS * BTN_W + (#BUTTONS - 1) * GAP
-	local height = BTN_H
-
 	local canvas = UIKit.canvas(gui)
 	local panel = UIKit.panel(canvas, {
 		name = "Panel",
-		size = UDim2.fromOffset(width, height),
+		size = UDim2.fromOffset(BTN_W, BTN_H),
 		position = HIDDEN,
 		anchorPoint = Vector2.new(0.5, 0),
 		color = UIKit.C.panel,
@@ -80,11 +162,27 @@ local function build(): ScreenGui
 		visible = false,
 	})
 
-	for index, spec in BUTTONS do
-		UIKit.panel(panel, {
+	-- Under the bar: "how do I open this", shown briefly when a locked camp is clicked.
+	-- A child of the panel so it slides with it.
+	local hint = UIKit.label(panel, {
+		name = "LockHint",
+		size = UDim2.fromOffset(460, 24),
+		position = UDim2.new(0.5, 0, 1, 12),
+		anchorPoint = Vector2.new(0.5, 0),
+		text = "",
+		font = Enum.Font.GothamBold,
+		textSize = 18,
+		color = Color3.new(1, 1, 1),
+		zIndex = 6,
+		visible = false,
+	})
+
+	local entries: { Entry } = {}
+	for _, spec in BUTTONS do
+		local shadow = UIKit.panel(panel, {
 			name = spec.text .. "Shadow",
 			size = UDim2.fromOffset(BTN_W, BTN_H),
-			position = UDim2.fromOffset((index - 1) * (BTN_W + GAP), 4),
+			position = UDim2.fromOffset(0, 4),
 			color = UIKit.C.navShadow,
 			transparency = 0.2,
 			cornerRadius = UDim.new(0, 9),
@@ -94,7 +192,7 @@ local function build(): ScreenGui
 		local button, stroke = UIKit.button(panel, {
 			name = spec.text,
 			size = UDim2.fromOffset(BTN_W, BTN_H),
-			position = UDim2.fromOffset((index - 1) * (BTN_W + GAP), 0),
+			position = UDim2.fromOffset(0, 0),
 			font = Enum.Font.GothamBlack,
 			textSize = 29,
 			color = Color3.new(1, 1, 1),
@@ -109,6 +207,8 @@ local function build(): ScreenGui
 		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
 		local iconPieces = WarpIcons.build(button, spec.dest)
+		local lock = if spec.camp then WarpIcons.lock(button) else nil
+		table.insert(entries, { spec = spec, shadow = shadow, button = button, stroke = stroke, icon = iconPieces, lock = lock })
 
 		local function setHighlighted(active: boolean)
 			TweenService:Create(button, HOVER, {
@@ -139,11 +239,17 @@ local function build(): ScreenGui
 				return
 			end
 			lastClick = now
+			if isLocked(spec) then
+				local name = if spec.camp then spec.camp.name else spec.text
+				showHint(`Reach {name} on foot to unlock its warp`)
+				return
+			end
 			warpRemote:FireServer({ dest = spec.dest })
 		end)
 	end
 
-	ui = { panel = panel }
+	ui = { panel = panel, hint = hint, entries = entries }
+	layout()
 	return gui
 end
 
@@ -181,6 +287,15 @@ function WarpController.start()
 
 	Net.get("ExposureState").OnClientEvent:Connect(function(state)
 		setShown(state.stageId == nil and state.downed ~= true)
+	end)
+
+	Net.get("CampState").OnClientEvent:Connect(function(state)
+		if type(state) ~= "table" then
+			return
+		end
+		reached = if type(state.reached) == "table" then state.reached else {}
+		available = if type(state.available) == "table" then state.available else {}
+		layout()
 	end)
 end
 

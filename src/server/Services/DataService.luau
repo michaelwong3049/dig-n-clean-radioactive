@@ -110,6 +110,11 @@ local TEMPLATE = {
 
 	railStations = {}, -- stageId -> parts found (PLAN §5.3)
 
+	-- Camp key (Config/Camps) -> true, once this player has stood in that camp on foot.
+	-- That is what unlocks its warp button (CampService / WarpService). Base Camp is never
+	-- stored -- everyone starts there. String keys only, so ProfileStore is happy.
+	camps = {},
+
 	stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0, rolls = 0 },
 }
 

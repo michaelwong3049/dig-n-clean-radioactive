@@ -21,6 +21,7 @@ local ORDER = {
 	"DataService", -- everything downstream needs a profile
 	"IdentifyService", -- "???" -> a name; the index write lives here and nowhere else
 	"StageService", -- who is standing where; exposure and digging both read it
+	"CampService", -- which camp you are in and which you have reached; Exposure + Warp read it
 	"HazardService", -- detonations and their craters; Dig sets them off, Exposure takes the damage
 	"ExposureService", -- Phase 2: the rad meter, burn and blackout
 	"DigService", -- Phase 1: the signal field, sweep and haul
@@ -29,7 +30,7 @@ local ORDER = {
 	"StationService", -- what you are standing at; DeconService, ShopService and ExhibitService read it
 	"ShopService", -- turning cash back into capability; needs Station + Economy
 	"ExhibitService", -- plot assignment, display/undisplay, yield accrual; needs Station + Economy
-	"WarpService", -- the top-of-screen bar's teleport; needs Stage + Dig + Exhibit + Exposure
+	"WarpService", -- the top-of-screen bar's teleport; needs Stage + Camp + Dig + Exhibit + Exposure
 	"LiquidService", -- the wash pad: rolling liquids, charges, equip; needs Station + Economy
 	"WashService", -- the hose bay: the E-to-wash session; needs Carry + Liquid + Economy
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel

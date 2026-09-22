@@ -485,13 +485,21 @@ Stages.DEFS = {
 		id = 6,
 		name = "The Crater",
 		-- Entrance unchanged at 100, clearing Stage 5's (softened) deepest of 88 with
-		-- real room -- see that stage's note. deepRads is the steepest ramp of the
-		-- six (2.5x) since nothing crosses OUT of the Crater, so its own far edge
-		-- doesn't have to leave headroom for a stage 7 that doesn't exist -- the
-		-- "never a farm, at any gear level, forever" stage gets to be the most
-		-- extreme one, right where PLAN §16 already says it should be.
+		-- real room -- see that stage's note.
+		--
+		-- THE FAR EDGE IS A DOORSTEP NOW, NOT THE END OF THE WORLD. deepRads used to be
+		-- the steepest ramp of the six (250, 2.5x) because nothing crossed OUT of the
+		-- Crater. Toxic Twilight (Config/Camps) now stands on its east edge, so that
+		-- edge is where you walk out into a camp -- and at 250 the last stretch before
+		-- the camp's gate killed even a Containment Rig on sight. LOWERED ON REQUEST to
+		-- 104: just under the Rig's own tolerance (105, Gear.Suit[6]), so the Rig can
+		-- walk the whole Crater into the camp on its exposure clock alone, while the
+		-- Sealed Exo-Suit (98.4) still burns the whole way across. Spec pins both
+		-- sides of that. The entrance is untouched, so the 1:30 Rig heist there is too;
+		-- the ramp is shallow now (1.04x) but Spec's "radiation climbs with depth" still
+		-- holds. If Stage 7 wants to climb past the Crater, it starts from 104.
 		baseRads = 100,
-		deepRads = 250, -- 2.5x
+		deepRads = 104, -- 1.04x -- see above: bounded by the Rig's tolerance, not a ratio
 		soilHardness = 6,
 		ratedSuitTier = 6,
 		-- The Crater is a heist, not a hike (PLAN §16) — but "short" has to mean
@@ -503,7 +511,9 @@ Stages.DEFS = {
 		-- until then this number is the warning, not the design. The Crater's entrance
 		-- went x = 2130 -> 2100 (uniform pass) -> 1800 (15% pass) -> 1550 (length pass,
 		-- chain now ends at x = 1840), so the old ~2060 has come down by ~550 total.
-		-- Still not re-walked, same honesty caveat.
+		-- Still not re-walked, same honesty caveat. Toxic Twilight's shared cleansing
+		-- station now stands just past the Crater's EAST edge -- but only a Rig can walk
+		-- there, so for everyone else this westward number is still the honest one.
 		stationDistance = 1510,
 		fogColor = Color3.fromHex("FFD24A"),
 		fogEnd = 400,

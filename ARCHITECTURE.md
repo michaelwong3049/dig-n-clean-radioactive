@@ -24,6 +24,7 @@ src/
       Tuning.luau             global knobs — every magic number in the game
       Rarity.luau             the 8 rarities + the roll-on modifiers
       Stages.luau              the 6 stages
+      Camps.luau               the safe camps along the chain: Base Camp + site camps (Toxic Twilight)
       Gear.luau               the 7 upgrade tracks
       Liquids.luau            the wash pad's 10 cleaning liquids + the luck curve
       Items.luau              the item catalogue (+ id / stage-rarity indexes)
@@ -52,9 +53,11 @@ src/
     init.server.luau          bootstrap: explicit ORDER, two-phase init/start
     lib/ProfileStore.luau     vendored, unmodified (MadStudioRoblox/ProfileStore)
     build/ModelGallery.luau   manual temporary lot for reviewing all real item models
+    build/CampSite.luau       every site camp after Base Camp, built from Config/Camps
     Services/
       DataService             ProfileStore wrapper, session-locked persistence
       StageService             who is standing where
+      CampService              which camp you are in, which you have reached (unlocks its warp)
       HazardService           detonated nukes: the blast hit and the crater orbs' burn
       ExposureService         the rad meter, burn, blackout, dropped bags
       DigService              the buried signal field, sweep, haul and the pull fuse
@@ -161,6 +164,7 @@ with the place.
 | `Workspace.Stages.Stage<id>` (BasePart) | `DigService:255`, `DebugService:142` | that stage spawns no signals; `/stage <id>` refuses |
 | `Workspace.SignalAuras` (Folder) | created and owned by `DigService` | nothing — it is created on demand at runtime and wiped on boot. Do **not** hand-edit or save it with the place; `DigService.init` destroys any copy it finds, because a saved one would be full of glows over empty ground. |
 | `Workspace.Craters` (Folder) | created and owned by `HazardService` | nothing — one invisible marker part per live crater, created at runtime and wiped on boot like `SignalAuras`. Every visual is client-side (`DetonationController`). Do **not** save it with the place. |
+| `Workspace.Camps` (Model) | `CampService.anchorFor`, `World.verify()` | Built by `build/CampSite`. One child Model per site camp (`CampId`, `CampKey`), each with exactly one direct-child `CampAnchor` part (`CampKey`) where a warp lands. Missing: that camp's warp button is hidden and WarpService refuses it (never a drop into open water), and nobody can "reach" it. Its Trader and CleansingStation are ordinary stations (tag-driven), so the trader/decon/hose counts in `verify()` are one per base **plus one per site camp**. Its `EmptyStall`s carry no `StationKind` by contract. |
 | `Workspace.BaseCamp` (Model) | `DeconService:54` | `stationOf` is always nil — no docking, scrubbing or selling, anywhere. Generate it with `BaseCamp.rebuild()` as documented in the README. |
 | a `SpawnLocation` anywhere in `Workspace` | `ExposureService:221` | blackout respawns to a hardcoded `CFrame.new(0, 8, 0)` |
 | `ReplicatedStorage.Assets.Tools` (Folder) | `ToolService:39` | **`require(ToolService)` throws** — see the note below |
@@ -323,6 +327,7 @@ The profile itself — `TEMPLATE` in `DataService`, which is the authoritative c
     multipliers = {},  -- rebirth / gamepass / pet, pre-summed. Read by StatResolver.
     cleanTokens = 0, rebirths = 0,
     railStations = {},
+    camps = {},           -- camp key -> true once reached on foot (CampService); unlocks its warp
     stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0, rolls = 0 },
 }
 ```

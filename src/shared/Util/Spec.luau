@@ -366,6 +366,26 @@ function Spec.run(): boolean
 	local crater = survive(6, 6, 1, 0)
 	check(string.format("§4 Crater with full Rig = %.0fs (want 60-130, a heist)", crater), crater > 60 and crater < 130)
 
+	-- THE CRATER'S FAR EDGE IS TOXIC TWILIGHT'S DOORSTEP (Config/Camps). The top suit has
+	-- to be able to walk out into the camp -- no burn at the east edge, where the camp's
+	-- gate is -- and the suit under it must not, or reaching the camp stops being earned.
+	-- Checked against the tolerances directly (burn is ambient-only; see Radiation), then
+	-- as a survival time, so the Rig's exposure clock still leaves room for the walk.
+	do
+		local rig, exo = Gear.tier("Suit", 6), Gear.tier("Suit", 5)
+		local edge = Stages.radsAt(6, 1)
+		check(
+			string.format("§camp the Crater's east edge (%.0f) is under the Rig's tolerance (%.1f) — Toxic Twilight is reachable on foot", edge, rig.tolerance),
+			edge < rig.tolerance
+		)
+		check(
+			string.format("§camp ...and over the Exo-Suit's (%.1f) — only the top suit walks in", exo.tolerance),
+			edge > exo.tolerance
+		)
+		local walkOut = survive(6, 6, 1, 0, 1.0)
+		check(string.format("§camp full Rig at the Crater's east edge lasts %.0fs (want > 30, time to reach the gate)", walkOut), walkOut > 30)
+	end
+
 	-- NEW: depth-based radiation itself (PLAN's "make it harsher, and make going
 	-- deeper and crossing stages feel like it" request). Checked directly against
 	-- Stages.radsAt rather than through survival-time math, which is sensitive
