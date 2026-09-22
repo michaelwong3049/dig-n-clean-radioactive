@@ -74,6 +74,12 @@ local HELD_ITEM_NAME = "HeldItem"
 --- same scale-up as the exhibit stand, model yard, and wash stand.
 local HELD_ITEM_SIZE = 5.94
 
+--- Extra clearance nudged into every held item's vertical placement (see
+--- equipItem) -- small enough to be invisible on a normal-sized item, just
+--- enough on an oversized one that its underside reads as resting ON the
+--- hands instead of poking through them.
+local HELD_ITEM_LIFT = 0.15
+
 local equipped: { [Player]: string? } = {}
 
 -- Track name in Assets/Tools -> the key it upgrades under in profile.gear.
@@ -589,8 +595,10 @@ local function equipItem(character: Model, item: any?): boolean
 		end
 	end
 	-- POSITION comes from the hand -- the "carry" pose (see POSES) was tuned so
-	-- LeftHand itself sits at chest height with both arms folded in around it, so the
-	-- hand's own location is already "held up in front of you with two hands."
+	-- LeftHand itself sits at chest height with both arms folded in around it, which
+	-- is the "held up in front of you with two hands" read for anything up to
+	-- HELD_ITEM_SIZE. Past that, only the oversized remainder rises off that point
+	-- (see HELD_ITEM_LIFT below) instead of the whole model re-centring on it.
 	--
 	-- ROTATION DOES NOT COME FROM THE HAND, though, and that split is load-bearing.
 	-- LeftHand's ORIENTATION under the carry/detector locks is whatever the shoulder
@@ -609,7 +617,38 @@ local function equipItem(character: Model, item: any?): boolean
 	-- hand without forcing that tilt on an upright one. Missing attribute = identity.
 	local root = character:FindFirstChild("HumanoidRootPart")
 	local holdRotation = if root and root:IsA("BasePart") then root.CFrame.Rotation else hand.CFrame.Rotation
-	held:PivotTo(CFrame.new(hand.Position) * holdRotation * ItemModels.rotation(held, "Hold"))
+	local rotation = holdRotation * ItemModels.rotation(held, "Hold")
+
+	-- ONLY THE EXCESS OVER HELD_ITEM_SIZE GROWS UPWARD FROM THE HAND. A plain
+	-- centre-on-the-hand placement is what the carry pose above was tuned against
+	-- (screen_capture, zero offset) and reads fine right up to HELD_ITEM_SIZE, so an
+	-- item no bigger than that gets NO offset here either -- exactly the original
+	-- placement, untouched. Payload's per-dig roll (up to 2.5x, see the scale step
+	-- above) can blow well past HELD_ITEM_SIZE, though, and a big lump centred on
+	-- the hand buried the player from hips to head in it. Two hands lifting
+	-- something oversized from underneath is the actual posture: the part of it no
+	-- bigger than normal still sits centred in the hands exactly as tuned, and only
+	-- the OVERSIZED remainder rises up and away from the body instead of also
+	-- ballooning downward through the legs and sideways through the torso.
+	held:PivotTo(CFrame.new(hand.Position) * rotation)
+	local box, extents = held:GetBoundingBox()
+	local lift = 0
+
+	if extents.Y > HELD_ITEM_SIZE then
+		local raisedBottom = hand.Position.Y - HELD_ITEM_SIZE / 2
+
+		-- NEVER BELOW THE CHARACTER'S OWN FEET. A roll big enough can still put
+		-- `raisedBottom` underground on a shorter rig -- the excess is only bounded
+		-- above the hand, not below it -- so the floor under THIS character
+		-- (whole-rig GetBoundingBox, not a hardcoded HipHeight: R15 and R6 do not
+		-- share one) wins the clamp rather than let the model dig into the ground.
+		local charBox, charExtents = character:GetBoundingBox()
+		local floorY = charBox.Position.Y - charExtents.Y / 2
+		local targetBottom = math.max(raisedBottom, floorY) + HELD_ITEM_LIFT
+		lift = targetBottom - (box.Position.Y - extents.Y / 2)
+	end
+
+	held:PivotTo(CFrame.new(hand.Position + Vector3.new(0, lift, 0)) * rotation)
 
 	local weld = Instance.new("WeldConstraint")
 	weld.Name = "HoldWeld"
