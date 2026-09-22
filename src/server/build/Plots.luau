@@ -195,7 +195,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 51
+local BUILDER_VERSION = 52
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1919,10 +1919,35 @@ end
 local TREADMILL = {
 	cx = 2,
 	cz = -35,
-	beltW = 5.2, -- across the runner
-	beltL = 10, -- along the run
-	railH = 3.2,
+	beltW = 5.2, -- the running surface, across the runner
+	-- 9, NOT 10, AND THE PAD EDGE IS WHY. The machine is frame + console deep, not just
+	-- belt: at 10 the console head reached plot-local z -43.1 against a pad that stops
+	-- at -43, so it hung over the entrance lip. 9 lands the head at -42.6 and the far
+	-- end of the base at -28.35, which also keeps it clear of PlotSpawn at -27.
+	beltL = 9, -- ...and along the run
+	frameW = 1.8, -- the chunky pale border around the trough
+	beltTop = 0.2, -- what you stand on, relative to the pad top
+	frameTop = 1.0, -- the lip around it. The 0.8 difference IS the recess.
+	railH = 3.4,
+	-- FOUR CHEVRONS AT A PITCH THAT DIVIDES `beltL` EXACTLY (4 x 2.25 = 9). That is
+	-- what makes the scroll seamless: TreadmillController wraps each one modulo the
+	-- belt's own length, so after a full belt-length of travel the pattern is back
+	-- where it started. Break the division and the wrap becomes visible.
+	chevrons = 4,
+	chevronPitch = 2.25, -- 4 x 2.25 = beltL exactly
 }
+
+--- The trough, and the reason this machine reads at a distance. Near-black rather than
+--- `C.drain` (2C363F, the wash bay's liner): against the base's pale grey frame the
+--- extra darkness is the whole silhouette, and drain-grey at plot lighting came out as
+--- a flat slab rather than a hole with something moving in it.
+local BELT_DARK = "141A1F"
+--- The tread chevrons. Only a couple of steps off the belt -- they should be readable
+--- as motion, not as stripes painted on a road.
+local BELT_TREAD = "3A454E"
+--- The side rails. Deliberately lighter than `C.standGrey` (A0A0A0): they are the one
+--- part of the machine that crosses the player's eyeline, and they frame the dark.
+local RAIL_PALE = "D5DADE"
 
 --- The drive housing's colour per rung. Bare steel at the bottom, reactor orange at
 --- the top; deliberately clear of the quarantine red and the stages' hazard greens,
@@ -1984,67 +2009,119 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, xp: number?
 	return wanted
 end
 
+--- REBUILT TO A REFERENCE (the shape the user asked for, replacing a flat studded
+--- plate that read as a bench). Four things carry it, in order of how much they matter:
+---
+---   1. THE TROUGH. The belt sits `frameTop - beltTop` below a chunky pale frame, so
+---      the dark is a HOLE with something moving in it rather than a dark slab. This is
+---      the whole silhouette; if only one thing survives a retune, keep this one.
+---   2. CHEVRONS, not slats. Thin cross-bars vanished against the dark at any real
+---      viewing distance. A chevron reads as direction even when it is four pixels tall.
+---   3. PALE, CHUNKY RAILS at eyeline, framing the dark from both sides.
+---   4. A SCREEN at the head, lit, rather than a flat plate with a sign floating over it.
+---
+--- THE STATION CONTRACT IS UNCHANGED and deliberately so: `Belt` still carries
+--- StationKind/Radius at the same plot-local centre, so the clearances World.verify()
+--- asserts against the basin and the wash plate (24.2 and 23.4 studs) are exactly what
+--- they were. `Console` still carries UpgradesTreadmill and the prompt, `Drive` is still
+--- what setTreadmillTier repaints, and the chevron arms are still named `Slat` because
+--- that is what TreadmillController scrolls.
 local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	local m = Instance.new("Model")
 	m.Name = "Treadmill"
 	local pad = Plots.PAD
 	local T = pad.topY
-	local cx, cz = TREADMILL.cx, TREADMILL.cz
-	local halfL = TREADMILL.beltL / 2
+	local t = TREADMILL
+	local cx, cz = t.cx, t.cz
+	local halfL, halfW = t.beltL / 2, t.beltW / 2
 
-	local BODY, FACE, LINER, FIT = C.standGreyDark, C.standGrey, C.drain, C.steelDark
+	local FRAME, BASE, FIT = C.standGrey, C.standGreyDark, C.steelDark
+	local beltTop = T + t.beltTop
+	local frameTop = T + t.frameTop
 
-	-- ── The deck ──────────────────────────────────────────────
-	-- The same studded-block kit as the wash pad across the aisle, so the strip reads
-	-- as one installation rather than three unrelated machines.
-	build(m, origin, { name = "Deck", pos = { cx, T - 0.35, cz }, size = { TREADMILL.beltW + 3.6, 1.0, TREADMILL.beltL + 2.4 }, color = BODY, material = "Plastic", studs = true })
-	for _, side in { -1, 1 } do
-		build(m, origin, {
-			name = "DeckKerb",
-			pos = { cx + side * (TREADMILL.beltW / 2 + 1.5), T + 0.25, cz },
-			size = { 0.6, 0.35, TREADMILL.beltL + 2.4 },
-			color = FACE,
-			material = "Plastic",
-			studs = true,
-			canCollide = false,
-		})
-	end
-
-	-- ── The belt ──────────────────────────────────────────────
-	-- THE STATION. Radius 5 covers the whole running surface and nothing past the
-	-- deck; see this section's header for why both the number and the position are
-	-- load-bearing. Proud of the deck by a hair — a threshold you step over rather
-	-- than a step you climb, exactly like the wash pad's plate.
+	-- ── The trough ────────────────────────────────────────────
+	-- The running surface. Sunk below the frame, and the ONLY part of this machine a
+	-- service reads -- same centre and Radius as the flat plate it replaced.
 	build(m, origin, {
 		name = "Belt",
-		pos = { cx, T + 0.15, cz },
-		size = { TREADMILL.beltW, 0.5, TREADMILL.beltL },
-		color = LINER,
+		pos = { cx, beltTop - 0.3, cz },
+		size = { t.beltW, 0.6, t.beltL },
+		color = BELT_DARK,
 		material = "SmoothPlastic",
 		attributes = { StationKind = "treadmill", Radius = 5 },
 	})
 
-	-- The tread itself: thin slats across the belt, spaced along the run. Purely
-	-- decorative and non-colliding — the client scrolls them during training
-	-- (TreadmillController) and they give the surface something to read against while
-	-- it is standing still.
-	for i = -4, 4 do
+	-- The frame: four chunky pale bars standing proud of the belt. Sunk 0.2 into the
+	-- pad so nothing floats, and only 0.8 above the running surface -- a lip you step
+	-- over without thinking, not a wall you have to jump.
+	local frameMidY = (frameTop + (T - 0.2)) / 2
+	local frameH = frameTop - (T - 0.2)
+	local outerW, outerL = t.beltW + t.frameW * 2, t.beltL + t.frameW * 2
+	for _, bar in {
+		{ x = cx - halfW - t.frameW / 2, z = cz, sx = t.frameW, sz = outerL },
+		{ x = cx + halfW + t.frameW / 2, z = cz, sx = t.frameW, sz = outerL },
+		{ x = cx, z = cz - halfL - t.frameW / 2, sx = outerW, sz = t.frameW },
+		{ x = cx, z = cz + halfL + t.frameW / 2, sx = outerW, sz = t.frameW },
+	} do
 		build(m, origin, {
-			name = "Slat",
-			pos = { cx, T + 0.42, cz + i * (TREADMILL.beltL / 10) },
-			size = { TREADMILL.beltW - 0.3, 0.06, 0.35 },
-			color = FIT,
-			material = "SmoothPlastic",
-			canCollide = false,
+			name = "Frame",
+			pos = { bar.x, frameMidY, bar.z },
+			size = { bar.sx, frameH, bar.sz },
+			color = FRAME,
+			material = "Plastic",
+			studs = true,
 		})
 	end
 
-	-- Rollers at each end, the width of the belt. Cylinders lying left-to-right.
-	for _, endZ in { cz - halfL, cz + halfL } do
+	-- A darker skirt a touch wider than the frame, so the machine has a shadow line and
+	-- does not read as painted onto the floor. It has to STRADDLE the pad top (T) to be
+	-- visible at all -- sat wholly below it, as this first was, it is a dozen parts per
+	-- plot buried in the floor doing nothing.
+	build(m, origin, {
+		name = "Base",
+		pos = { cx, T + 0.1, cz },
+		size = { outerW + 0.7, 0.5, outerL + 0.7 },
+		color = BASE,
+		material = "Plastic",
+		studs = true,
+	})
+
+	-- ── The tread ─────────────────────────────────────────────
+	-- Chevrons pointing the way the runner faces (-Z), scrolling the other way under
+	-- them. Each is two arms meeting at an apex; laid as ROTATED parts rather than
+	-- stepped blocks, which is this codebase's rule for anything diagonal.
+	--
+	-- THE WRAP IS HANDLED IN THE CONTROLLER, modulo the belt's own length, so these are
+	-- simply tiled across the belt and nothing has to scroll in from off the end. The
+	-- one place it could show is the far edge: an apex sitting at the +Z end trails its
+	-- arms ARM_DEPTH beyond it, which is why `frameW` is 1.8 and not 1.4 -- the frame
+	-- bar spans 5.0..6.8 from the centre and swallows an arm reaching 6.6. Narrow the
+	-- frame and the tread starts poking out of the end of the machine.
+	local ARM_SPREAD, ARM_DEPTH = t.beltW / 2 - 0.5, 1.6
+	local armLength = math.sqrt(ARM_SPREAD * ARM_SPREAD + ARM_DEPTH * ARM_DEPTH)
+	local armYaw = math.deg(math.atan2(ARM_SPREAD, ARM_DEPTH))
+	for i = 1, t.chevrons do
+		local apexZ = cz - halfL + (i - 1) * t.chevronPitch
+		for _, side in { -1, 1 } do
+			build(m, origin, {
+				name = "Slat",
+				pos = { cx + side * ARM_SPREAD / 2, beltTop + 0.03, apexZ + ARM_DEPTH / 2 },
+				size = { 0.45, 0.08, armLength },
+				color = BELT_TREAD,
+				material = "SmoothPlastic",
+				rot = Kit.ang(0, side * armYaw, 0),
+				canCollide = false,
+			})
+		end
+	end
+
+	-- The drums the belt runs on, tucked down in the trough at either end. Mostly
+	-- hidden by the frame; they catch a highlight when the tread is moving.
+	for _, endZ in { cz - halfL + 0.4, cz + halfL - 0.4 } do
 		build(m, origin, {
 			name = "Roller",
-			pos = { cx, T + 0.25, endZ },
-			size = { TREADMILL.beltW + 0.4, 1.1, 1.1 },
+			pos = { cx, beltTop - 0.1, endZ },
+			size = { t.beltW - 0.2, 0.7, 0.7 },
 			color = FIT,
 			material = "Metal",
 			shape = "Cylinder",
@@ -2053,43 +2130,81 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 		})
 	end
 
-	-- ── Side rails ────────────────────────────────────────────
-	-- Chest-high bars either side, on stubby posts. They do NOT collide: a rail that
-	-- catches a player stepping on or off a machine they will be standing on for hours
-	-- is the single most irritating thing this build could get wrong.
+	-- ── The rails ─────────────────────────────────────────────
+	-- Pale, chunky, running the full length at eyeline on square posts. CanCollide off,
+	-- all of it: a rail that catches a player stepping on or off a machine they will be
+	-- standing on for hours is the single most irritating thing this build could do.
+	local railX = halfW + t.frameW / 2
 	for _, side in { -1, 1 } do
-		local x = cx + side * (TREADMILL.beltW / 2 + 1.1)
-		for _, postZ in { cz - halfL + 0.8, cz + halfL - 0.8 } do
-			build(m, origin, { name = "RailPost", pos = { x, T + TREADMILL.railH / 2, postZ }, size = { 0.55, TREADMILL.railH, 0.55 }, color = FIT, material = "Metal", canCollide = false })
+		local x = cx + side * railX
+		for _, postZ in { cz - halfL + 0.9, cz + halfL - 0.9 } do
+			build(m, origin, {
+				name = "RailPost",
+				pos = { x, (frameTop + T + t.railH) / 2, postZ },
+				size = { 0.7, T + t.railH - frameTop, 0.7 },
+				color = RAIL_PALE,
+				material = "Plastic",
+				studs = true,
+				canCollide = false,
+			})
 		end
-		build(m, origin, { name = "Rail", pos = { x, T + TREADMILL.railH, cz }, size = { 0.5, 0.5, TREADMILL.beltL - 1.6 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+		build(m, origin, {
+			name = "Rail",
+			pos = { x, T + t.railH, cz },
+			size = { 0.85, 0.85, t.beltL - 0.6 },
+			color = RAIL_PALE,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
 	end
 
-	-- ── The console ───────────────────────────────────────────
-	-- At the -Z end, so the runner faces out through the entrance arch. Carries the
-	-- upgrade prompt and the readout; TreadmillService wires the prompt at boot by
-	-- tag, the same build-time/runtime split every station in this file uses.
-	local consoleZ = cz - halfL - 0.9
-	build(m, origin, { name = "ConsoleFoot", pos = { cx, T + 0.3, consoleZ }, size = { TREADMILL.beltW + 1.6, 1.2, 1.4 }, color = BODY, material = "Plastic", studs = true })
+	-- ── The head ──────────────────────────────────────────────
+	-- At the -Z end, so the runner faces out through the entrance arch. A lit screen in
+	-- a dark bezel, standing on the motor cowl -- see this function's header for why it
+	-- is a screen rather than the flat plate that was here before.
+	local headZ = cz - halfL - t.frameW - 0.5
 
-	-- The drive housing — the part setTreadmillTier repaints. Sits under the console
-	-- where the motor would be, wide enough to read as the machine's guts from the
-	-- aisle.
+	-- The cowl. THE PART setTreadmillTier REPAINTS: it is the rung you can see from
+	-- across the plot, which is why it is the widest solid mass on the machine.
 	build(m, origin, {
 		name = "Drive",
-		pos = { cx, T + 1.4, consoleZ },
-		size = { TREADMILL.beltW + 0.8, 1.4, 1.2 },
+		pos = { cx, T + 1.1, headZ },
+		size = { outerW - 0.4, 2.2, 1.6 },
 		color = TREADMILL_DRIVE[1],
 		material = "Metal",
+		studs = true,
 	})
 
+	-- Two stems carrying the console up off the cowl, in line with the rails.
+	for _, side in { -1, 1 } do
+		build(m, origin, {
+			name = "ConsoleStem",
+			pos = { cx + side * railX, T + 2.7, headZ },
+			size = { 0.7, 1.4, 0.7 },
+			color = RAIL_PALE,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
+
+	-- The bezel carries the prompt and the attributes; the screen is a lit inset.
 	local console = build(m, origin, {
 		name = "Console",
-		pos = { cx, T + 3.1, consoleZ },
-		size = { TREADMILL.beltW + 0.4, 2.0, 0.6 },
+		pos = { cx, T + 3.7, headZ },
+		size = { outerW - 0.8, 2.3, 0.55 },
 		color = FIT,
 		material = "Metal",
 		attributes = { UpgradesTreadmill = true },
+	})
+	build(m, origin, {
+		name = "Screen",
+		pos = { cx, T + 3.7, headZ - 0.32 },
+		size = { outerW - 1.9, 1.5, 0.12 },
+		color = "E8EDE6",
+		material = "SmoothPlastic",
+		canCollide = false,
 	})
 
 	local prompt = Instance.new("ProximityPrompt")
@@ -2101,7 +2216,7 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = console
 
-	-- Tier 1, untrained — the only state that exists before a player has ever claimed
+	-- Tier 1, untrained -- the only state that exists before a player has ever claimed
 	-- this plot. ExhibitService.renderTreadmill overwrites both lines the moment real
 	-- per-player state does, exactly as it does for the luck button.
 	accentBillboard(

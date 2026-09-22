@@ -44,11 +44,6 @@ local UIKit = require(script.Parent.Parent.UIKit)
 
 local Treadmill = {}
 
---- How far a slat travels before it wraps back to the start, in studs. One slat
---- pitch: build/Plots spaces them at beltL/10, so a slat that has travelled exactly
---- this far is sitting where its neighbour was and the loop is invisible.
-local SLAT_PITCH = 1.0
-
 --- Belt speed in studs/sec, purely cosmetic. Fast enough to read as "running", slow
 --- enough not to strobe against the slat pitch at 60fps.
 local BELT_SPEED = 9
@@ -64,8 +59,31 @@ local state: any = nil
 --- The parts we are animating this session, resolved once on arrival: the model, its
 --- slats and their home positions. Cleared on departure, which is also what puts
 --- every slat back exactly where the server built it.
-local machine: { model: Instance?, slats: { { part: BasePart, home: CFrame } }, rollers: { BasePart } } =
-	{ model = nil, slats = {}, rollers = {} }
+--- The belt, resolved into the terms the scroll needs, captured once at latch:
+---
+---   travel   the belt's own +Z in WORLD space. Every plot in the ring is yawed to face
+---            the centre, so there is no shared axis to hardcode.
+---   start    the world point at the belt's -Z end, which distances are measured from.
+---   length   the belt's own length, and therefore the period of the whole pattern.
+---
+--- Each chevron keeps `along` (how far down the belt it started) and `lateral` (its
+--- offset across and above the belt, which never changes). Scrolling is then "advance
+--- `along`, wrap it modulo `length`, rebuild the position" — the chevron cannot walk
+--- off the end of the belt, because the wrap is in belt space rather than a global
+--- offset that everything shares.
+---
+--- IT IS NOT `home * CFrame.new(0, 0, -d)`, which is what this did first. That offsets
+--- each part along its OWN axis, and the two arms of a chevron are yawed ~53 degrees
+--- apart — so instead of the pattern moving down the belt, every chevron slid apart
+--- into a diagonal streak.
+local machine: {
+	model: Instance?,
+	slats: { { part: BasePart, home: CFrame, along: number, lateral: Vector3 } },
+	rollers: { BasePart },
+	travel: Vector3,
+	start: Vector3,
+	length: number,
+} = { model = nil, slats = {}, rollers = {}, travel = Vector3.zero, start = Vector3.zero, length = 0 }
 
 local runTrack: AnimationTrack? = nil
 local travelled = 0
@@ -275,11 +293,30 @@ local function latch()
 	if model == nil then
 		return
 	end
+	local belt = model:FindFirstChild("Belt", true)
+	if belt == nil or not belt:IsA("BasePart") then
+		return -- a place file built before the belt existed; the card still works
+	end
+
 	machine.model = model
+	-- LookVector is the part's -Z, so negating it gives the +Z the chevrons scroll
+	-- toward: backwards under a runner who is facing -Z, which is the way a real belt
+	-- moves. Size.Z is the long axis because the builder sizes it {width, _, length}.
+	machine.travel = -belt.CFrame.LookVector
+	machine.length = belt.Size.Z
+	machine.start = belt.Position - machine.travel * (machine.length / 2)
+
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			if part.Name == "Slat" then
-				table.insert(machine.slats, { part = part, home = part.CFrame })
+				local rel = part.Position - machine.start
+				local along = rel:Dot(machine.travel)
+				table.insert(machine.slats, {
+					part = part,
+					home = part.CFrame,
+					along = along,
+					lateral = rel - machine.travel * along,
+				})
 			elseif part.Name == "Roller" then
 				table.insert(machine.rollers, part)
 			end
@@ -293,21 +330,30 @@ local function release()
 		slat.part.CFrame = slat.home
 	end
 	machine.model = nil
+	machine.travel = Vector3.zero
+	machine.start = Vector3.zero
+	machine.length = 0
 	table.clear(machine.slats)
 	table.clear(machine.rollers)
 	travelled = 0
 end
 
---- Slide every slat one notch along the belt's own local -Z (the direction the runner
---- faces), wrapping at a full pitch. Rollers spin about their own long axis.
+--- Run every chevron down the belt, wrapping each one at the belt's far end. Rollers
+--- spin about their own long axis.
+---
+--- `home.Rotation + position` keeps each arm's authored yaw and moves only where it
+--- sits — see `machine` for why composing CFrames here is wrong. The pattern is
+--- seamless because build/Plots lays the chevrons at a pitch that divides the belt
+--- length exactly, so a chevron that wraps lands precisely where its neighbour was.
 local function animate(dt: number)
-	if machine.model == nil then
+	if machine.model == nil or machine.length <= 0 then
 		return
 	end
-	travelled = (travelled + BELT_SPEED * dt) % SLAT_PITCH
+	travelled = (travelled + BELT_SPEED * dt) % machine.length
 
 	for _, slat in machine.slats do
-		slat.part.CFrame = slat.home * CFrame.new(0, 0, -travelled)
+		local along = (slat.along + travelled) % machine.length
+		slat.part.CFrame = slat.home.Rotation + (machine.start + machine.travel * along + slat.lateral)
 	end
 	local spin = CFrame.Angles(0, 0, -BELT_SPEED * dt)
 	for _, roller in machine.rollers do
