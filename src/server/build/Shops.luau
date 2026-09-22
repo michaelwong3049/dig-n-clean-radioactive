@@ -170,6 +170,7 @@ local ToolModels = require(Shared.ToolModels)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
+local ShopThemes = require(script.Parent.ShopThemes)
 
 local Shops = {}
 
@@ -183,7 +184,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 39
+local BUILDER_VERSION = 40
 
 local C = Kit.C
 local build = Kit.build
@@ -1204,6 +1205,9 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 
 	buildStripedCanopy(m, origin, spec.color, width)
 
+	-- The trade's own props, behind the shopfront and on the roof (build/ShopThemes).
+	ShopThemes.dressStall(m, origin, spec.track, width, sx)
+
 	-- TWO FLOOR MARKERS, ONE PER HALF, because there are two different things to do
 	-- here now and the ground should say which is which. The box in front of the stand
 	-- outlines where you stand for the panel; the long strip in front of the wing marks
@@ -1326,8 +1330,10 @@ local function buildOutfitter(parent: Instance)
 	-- marker the way a plaza stall has, because there is no rack here.
 	buildFloorMarker(m, origin, 0, 3.4, width - 6, 5, C.shopOutfitter)
 
+	local counterX: { [string]: number } = {}
 	for index, counter in OUTFITTER.counters do
 		local x = -span / 2 + (index - 1) * OUTFITTER.pitch
+		counterX[counter.track] = x
 		local counterOrigin = origin * CFrame.new(x, 0, 0)
 
 		local desk = buildCounter(m, counterOrigin, {
@@ -1352,6 +1358,10 @@ local function buildOutfitter(parent: Instance)
 		})
 		buildStoreBillboard(desk, counter.label, C.shopOutfitter)
 	end
+
+	-- The locker room: lockers, the suit behind the Suit desk, satchel pegs behind the
+	-- Satchel desk, and the roof gas mask (build/ShopThemes).
+	ShopThemes.dressOutfitter(m, origin, counterX.Suit, counterX.Satchel)
 
 	m.Parent = parent
 	return m
