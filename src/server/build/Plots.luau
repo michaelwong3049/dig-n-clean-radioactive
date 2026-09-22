@@ -54,12 +54,12 @@
 	makes the six bases read as decks set into the lawn, and walking onto one a change
 	of colour rather than a change of surface.
 
-	A PAD'S OWN TILES ARE BUILT IN ITS YAWED LOCAL SPACE, NOT WORLD SPACE — the
-	semicircular ring's facings are no longer multiples of 90, so a pad's true
-	footprint is a rotated rectangle, not the axis-aligned one this grid math would
-	otherwise assume; `Hub.TileOpts.origin` carries that. The tile cap tops out at
-	`pad.topY` and is what a player stands on; the structural `Hub.groundSlab`
-	(which carries `PlotIndex`) is recessed one cap-thickness below it.
+	A PAD'S FLOOR IS ONE PART, NOT A TILE GRID. It used to be `Hub.tileRect` laid in the
+	pad's yawed local space — 391 cap tiles per pad, every one the same colour, so the
+	grid bought nothing a single studded part does not show (studs are a surface type,
+	not geometry). One `PadFloor` cap tops out at `pad.topY` and is what a player
+	stands on; the structural `Hub.groundSlab` (which carries `PlotIndex`) is recessed
+	one cap-thickness below it.
 
 	THE DEPENDENCY FLIPPED, AGAIN, AND THIS TIME IT IS DERIVED RATHER THAN COMMENTED.
 	This file used to require `Hub`, then stopped, and `Hub.luau` carried a comment
@@ -171,7 +171,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 48
+local BUILDER_VERSION = 49
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -544,7 +544,7 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 	-- as lit from above.
 	local topGrey = C.standGrey
 
-	local base = build(parent, origin, {
+	build(parent, origin, {
 		name = `Stand{slot}`,
 		pos = { ox, pad.topY + RISER_BASE.h / 2, oz },
 		size = { RISER_BASE.w, RISER_BASE.h, RISER_BASE.w },
@@ -604,11 +604,11 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 		attributes = { PlotIndex = index, SlotIndex = slot },
 	})
 
-	-- A dim WARM lift on the plinth (the old column carried an accent-coloured
-	-- PointLight here — that stained a grey plinth the plot's accent and fought the
-	-- "keep it grey" brief). Warm and low so it reads as a gallery spot on the
-	-- panel, not a coloured object.
-	light(base, C.lampWarm, 6, 0.35)
+	-- NO LIGHT ON THE PLINTH. Each stand used to carry a dim warm PointLight (range 6,
+	-- brightness 0.35) as a "gallery spot" — 72 across the ring, every one casting
+	-- shadows (Kit.light's default), under a sky that never gets past mid-afternoon
+	-- (Config/Sky clockTime 13.6-16.0). Invisible in daylight, and still paying for a
+	-- shadow pass each.
 end
 
 --- Repaint the reel drum, its wound-coil band and the Beam that runs to the nozzle so
@@ -1282,7 +1282,9 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 		canCollide = false,
 		attributes = { Accent = true },
 	})
-	light(lamp, accent, 14, 0.9)
+	-- No shadows: a small accent glow on the header has nothing to throw them onto
+	-- that the sun has not already shaded, and shadow casting is a PointLight's cost.
+	light(lamp, accent, 14, 0.9, false)
 
 	buildHoseRig(m, origin, cx, cz)
 
@@ -1429,7 +1431,8 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 		transparency = 0.12,
 		canCollide = false,
 	})
-	light(disc, Liquids.get(Liquids.WATER).color, 10, 0.35)
+	-- Shadows off, same reason as the cleansing station's Lamp.
+	light(disc, Liquids.get(Liquids.WATER).color, 10, 0.35, false)
 
 	-- ── The odds shelf: a studded plinth down the -X edge ─────
 	-- The same two-course studded riser as a display stand, run long against the
@@ -1955,15 +1958,20 @@ local function buildPlot(parent: Instance, index: number)
 	local slab = Hub.groundSlab(m, rect, "Pad", pad.thickness, tint)
 	slab:SetAttribute("PlotIndex", index)
 
-	-- The visible floor: the plaza's studded tile board (Hub.tileRect) on the plaza's
-	-- own grid, `dark == light == C.baseFloor` so it reads as one flat studded tone
-	-- rather than the plaza's green checker. Solid and queryable, same as the plaza's
-	-- own tiles — the tile cap tops out at pad.topY and IS what a player stands on
-	-- (the structural slab is recessed CAP below it).
-	local tiles = Instance.new("Folder")
-	tiles.Name = "PadTiles"
-	Hub.tileRect(tiles, rect, tint)
-	tiles.Parent = m
+	-- The visible floor: ONE studded cap over the whole pad, topping out at pad.topY —
+	-- it IS what a player stands on (the structural slab is recessed a cap below it).
+	-- This used to be the plaza's tile board (Hub.tileRect) with `dark == light`, i.e.
+	-- 391 identical 4x4 tiles per pad, 2,346 across the ring, for a floor with no
+	-- pattern to draw. Studs are a surface type, so one part shows the same studded
+	-- board; the pad's width and depth are whole studs, so no stud is cut at an edge.
+	local cap = Hub.TILE_CAP
+	build(m, origin, {
+		name = "PadFloor",
+		pos = { 0, pad.topY - cap / 2, PAD_CENTER_Z },
+		size = { rect.maxX - rect.minX, cap, rect.maxZ - rect.minZ },
+		color = C.baseFloor,
+		material = "Plastic",
+	})
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
 	-- the colour alone carries the "whose plot" cue now, no glow. `Accent` tags it for

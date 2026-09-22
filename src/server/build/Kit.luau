@@ -152,8 +152,8 @@ Kit.C = {
 	baseTileDark = "212639",
 	baseTileLight = "545A66",
 
-	-- The player bases' pad floor: ONE flat tone on the plaza's studded tile board
-	-- (buildPlot passes it as both `dark` and `light` to Hub.tileRect), instead of
+	-- The player bases' pad floor: ONE flat tone, one studded part per pad
+	-- (buildPlot's `PadFloor`; it was once the plaza's tile board in one colour), instead of
 	-- the navy/grey `baseTileDark`/`baseTileLight` checker. A warm wooden-deck brown,
 	-- on request (the cartoon base pass): the pads sit on grass now, and the old dark
 	-- charcoal (282A33) read as car parks laid on a lawn. Has been grey, near-black, a
