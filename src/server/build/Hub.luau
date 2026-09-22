@@ -64,13 +64,13 @@
 	(Scenery.buildStageCheckerboard) meets it with no seam at the x = 100 line.
 
 	A PAD'S OWN BOARD IS THE ONE EXCEPTION, AND ONLY SINCE THE SEMICIRCLE. Both
-	builders below take an optional `opts.origin` CFrame so a caller can tile a
+	builders below take an optional `opts.origin` CFrame so a caller can lay a
 	rectangle defined in ITS OWN local frame instead of always in world space —
 	added because a pad's facing is no longer a multiple of 90 degrees, so its
 	footprint is no longer axis-aligned in world space the way the grid math here
-	assumes. A pad's tiles stay an exact 4x4 checkerboard, they just no longer
-	phase-lock with the apron's grid across the shared edge the way a 90-degree pad
-	could. See Plots.buildPlot.
+	assumes. The pads themselves no longer tile: their board was one flat colour,
+	so Plots.buildPlot lays a single studded `PadFloor` on the `groundSlab` instead
+	(391 tiles a pad down to one). `origin` stays for the slab and for CampSite.
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -487,6 +487,9 @@ end
 -- the one shared grid, through the one shared resolver.
 Hub.TILE_SIZE = 4
 local CAP = 0.4
+-- The cap layer's thickness, for a caller laying its own surface on a `groundSlab`
+-- (which is recessed by exactly this much) instead of tiling it -- Plots' PadFloor.
+Hub.TILE_CAP = CAP
 
 export type Rect = { minX: number, maxX: number, minZ: number, maxZ: number }
 
@@ -618,9 +621,9 @@ end
 --- is KEPT, and ends up buried inside the pad — the pad is 3 studs thick with its top
 --- 1.5 above this layer, so it swallows the overlap completely.
 ---
---- `opts.topY`, `opts.dark` and `opts.light` are how the plot pads wear this board in
---- their own colours a step above the plaza's. For a `rect` given in world space
---- (every caller except a pad's own tiles, see `opts.origin` below) the GRID is
+--- `opts.topY`, `opts.dark` and `opts.light` are how a raised deck (CampSite's wash
+--- deck) wears this board in its own colours a step above the plaza's. For a `rect`
+--- given in world space (every caller that does not pass `opts.origin`) the GRID is
 --- still the plaza's, so walking off e.g. the apron onto ground built the same way
 --- keeps the tiles in register, one step down and in a different palette.
 ---
@@ -630,10 +633,10 @@ end
 --- semicircular ring, whose facing is no longer a multiple of 90 degrees: at an
 --- arbitrary yaw a pad's true footprint is a rotated rectangle, not the
 --- axis-aligned one this grid math otherwise assumes, so tiling it in world space
---- would tile a diamond of excess area outside the pad. The one cost: a pad tiled
---- this way is still an exact 3x3 checkerboard, it just no longer phase-locks
---- with the apron's grid across their shared edge — only possible at 90-degree
---- multiples. See Plots.buildPlot.
+--- would tile a diamond of excess area outside the pad. The one cost: a rect tiled
+--- this way is still an exact checkerboard, it just no longer phase-locks with the
+--- apron's grid across their shared edge — only possible at 90-degree multiples.
+--- (The pads have since stopped tiling altogether -- see this file's header.)
 ---
 --- Studs are the look, and they only render on Plastic — the plaza's old Pavement
 --- swallowed them completely, which is why every other surface in this world is
