@@ -171,7 +171,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 47
+local BUILDER_VERSION = 48
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1288,6 +1288,19 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 
 	m.Parent = parent
 end
+
+--- EXPORTED FOR build/CampSite, which stands one shared cleansing station in each site
+--- camp. Nothing in here is tied to a plot: the Basin's decon/shower attributes, the
+--- Wash prompt WashService wires by tag, WashStand/WashSpot/WashCam and the hose's
+--- ParkedPivot are all found by what they carry, not by which plot holds them. Only
+--- ExhibitService.refreshHose is plot-bound (it swaps the rung on an OWNED plot), so a
+--- camp station keeps the ToolModels.Hose.STATION_TIER rung it was built with -- and
+--- washing there still uses the washer's own Cleaner stats (WashService's header).
+---
+--- `origin` is a PLOT origin (Y = 0, the pad's own top is Plots.PAD.topY): the bay's
+--- centre lands at origin * (26, 0, -32), turned a quarter-turn -- see the top of the
+--- function for that pivot.
+Plots.buildCleansingStation = buildCleansingStation
 
 --- The wash pad — step on it, roll a liquid (Config/Liquids, Services/LiquidService).
 ---
