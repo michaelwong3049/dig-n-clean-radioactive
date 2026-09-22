@@ -4,11 +4,14 @@
 
 	WHY A COLOUR PICKER LIVES HERE. Every plot is built in one neutral grey
 	(build/Plots' `C.plotNeutral`), and the accent — the two side Trim strips, the
-	four bars framing the nameplate, the cleansing-station lamp, and the CLEANSING
-	STATION / WASH PAD sign subtitles — is RUNTIME state now, not a fixed hue baked in
-	by plot index. The server owns it: `ExhibitService.setPlotColor` validates a hex,
-	stores it on the profile (`data.plotColor`) and repaints via `Plots.setPlotAccent`.
-	This file is the other end of that remote — a full RGB picker, and nothing else.
+	four bars framing the nameplate, the cleansing-station lamp, the CLEANSING
+	STATION / WASH PAD sign subtitles, and the gallery's arch, plinth bands, fence caps
+	and slot brackets — is RUNTIME state now. The server owns it:
+	`ExhibitService.setPlotColor` validates a hex, stores it on the profile
+	(`data.plotColor`) and repaints via `Plots.setPlotAccent`. Until a player picks, a
+	claimed plot wears its own default hue (build/Plots' `DEFAULT_ACCENTS`), which the
+	server sends alongside every echo so the swatch shows it. This file is the other
+	end of that remote — a full RGB picker, and nothing else.
 
 	THE CLIENT NEVER PAINTS THE WORLD. Picking a colour fires `Net.PlotColor` and waits;
 	the plot repaints when the server's own render runs. The only thing this file
@@ -56,6 +59,9 @@ local state = {
 	v = 0.92,
 	committed = false,
 	dragging = false,
+	-- The plot's default hue, which the base wears while nothing is committed. nil
+	-- until the server says (and if the player holds no plot).
+	fallback = nil :: Color3?,
 }
 
 local ui = {}
@@ -88,13 +94,13 @@ local function applyPreview()
 	ui.svHandle.Position = UDim2.fromScale(state.s, 1 - state.v)
 
 	local live = state.committed or state.dragging
-	ui.swatch.BackgroundColor3 = if live then picked else NEUTRAL
-	ui.hexLabel.Text = if live then "#" .. hexOf(picked) else "not set"
+	ui.swatch.BackgroundColor3 = if live then picked else (state.fallback or NEUTRAL)
+	ui.hexLabel.Text = if live then "#" .. hexOf(picked) elseif state.fallback then "auto" else "not set"
 end
 
 -- ── Commit ──────────────────────────────────────────────────────────
 
---- Send the pick to the server. "" resets the base to neutral. The server echoes the
+--- Send the pick to the server. "" resets the base to its default hue. The server echoes the
 --- confirmed value back on Net.PlotColor, which `onServerColor` reconciles — so this
 --- does NOT optimistically set `state.committed`; it waits for the echo.
 local function commit(hex: string)
@@ -102,8 +108,16 @@ local function commit(hex: string)
 	Net.get("PlotColor"):FireServer(hex)
 end
 
---- The server's authoritative value (fired once on load, and after every change).
-local function onServerColor(hex: any)
+--- The server's authoritative value (fired once on load, and after every change),
+--- plus the plot's default hue — what the base wears while `hex` is "".
+local function onServerColor(hex: any, fallback: any)
+	state.fallback = nil
+	if type(fallback) == "string" and fallback ~= "" then
+		local ok, parsed = pcall(Color3.fromHex, fallback)
+		if ok then
+			state.fallback = parsed
+		end
+	end
 	if type(hex) ~= "string" or hex == "" then
 		state.committed = false
 		setStatus("")
@@ -389,7 +403,7 @@ local function buildColorPicker(section: Instance)
 		name = "Reset",
 		position = UDim2.fromOffset(SV_SIZE.X + GAP + HUE_W - 132, footerY + 42),
 		size = UDim2.fromOffset(132, 28),
-		text = "RESET TO NEUTRAL",
+		text = "RESET TO DEFAULT",
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.caption,
 		color = UIKit.C.dim,
