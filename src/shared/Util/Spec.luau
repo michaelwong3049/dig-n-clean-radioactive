@@ -24,6 +24,7 @@
 
 local Config = script.Parent.Parent.Config
 local Stages = require(Config.Stages)
+local StageCraters = require(Config.StageCraters)
 local SkyConfig = require(Config.Sky)
 local Gear = require(Config.Gear)
 local Tuning = require(Config.Tuning)
@@ -384,6 +385,69 @@ function Spec.run(): boolean
 		)
 		local walkOut = survive(6, 6, 1, 0, 1.0)
 		check(string.format("§camp full Rig at the Crater's east edge lasts %.0fs (want > 30, time to reach the gate)", walkOut), walkOut > 30)
+	end
+
+	-- Config/StageCraters — the craters pocking the Crater. Level design, so what is
+	-- pinned is placement: every crater stands wholly on its own plate, off the side
+	-- walls, clear of the seam you arrive over and of Toxic Twilight's gate on the east
+	-- edge; no two run into each other; and the no-dig ground they claim stays a
+	-- minority of the plate, since DigService re-rolls those spawns onto the rest.
+	do
+		local placed, walled, seams, apart = true, true, true, true
+		local detail = ""
+		for _, c in StageCraters.DEFS do
+			local minX, minZ, maxX, maxZ = Stages.bounds(c.stageId)
+			local reach = StageCraters.reach(c)
+			local cx, cz = c.center[1], c.center[2]
+			if cx - reach < minX or cx + reach > maxX or cz - reach < minZ or cz + reach > maxZ then
+				placed = false
+				detail ..= ` {c.name}`
+			end
+			if cz - reach < minZ + 8 or cz + reach > maxZ - 8 then
+				walled = false
+			end
+			if cx - reach < minX + 20 or cx + reach > maxX - 20 then
+				seams = false
+			end
+		end
+		for i = 1, #StageCraters.DEFS do
+			for j = i + 1, #StageCraters.DEFS do
+				local a, b = StageCraters.DEFS[i], StageCraters.DEFS[j]
+				local d = math.sqrt((a.center[1] - b.center[1]) ^ 2 + (a.center[2] - b.center[2]) ^ 2)
+				if a.stageId == b.stageId and d < StageCraters.reach(a) + StageCraters.reach(b) + 6 then
+					apart = false
+				end
+			end
+		end
+		check(`§craters every crater lies wholly on its own stage plate{detail}`, placed)
+		check("§craters ...at least 8 studs off the side walls", walled)
+		check("§craters ...and 20 studs clear of the entrance seam and the far edge (Toxic Twilight's gate)", seams)
+		check("§craters no two craters' outer feet come within 6 studs of each other", apart)
+
+		for _, id in Stages.builtIds() do
+			local minX, minZ, maxX, maxZ = Stages.bounds(id)
+			local blocked, total = 0, 0
+			for x = minX + 1, maxX - 1, 2 do
+				for z = minZ + 1, maxZ - 1, 2 do
+					total += 1
+					if StageCraters.blocksDig(id, x, z) then
+						blocked += 1
+					end
+				end
+			end
+			local share = blocked / total
+			if #StageCraters.forStage(id) > 0 then
+				check(string.format("§craters stage %d keeps most of its plate diggable (%.1f%% under rims, want < 20%%)", id, share * 100), share < 0.2)
+			else
+				check(string.format("§craters stage %d has no crater, so nothing blocks a dig", id), blocked == 0)
+			end
+		end
+
+		for _, c in StageCraters.DEFS do
+			if c.digFloor then
+				check(`§craters {c.name}'s floor is open to digging at its centre`, not StageCraters.blocksDig(c.stageId, c.center[1], c.center[2]))
+			end
+		end
 	end
 
 	-- NEW: depth-based radiation itself (PLAN's "make it harsher, and make going

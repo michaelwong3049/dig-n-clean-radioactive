@@ -92,10 +92,12 @@ local Stages = require(Shared.Config.Stages)
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
 local Plots = require(script.Parent.Plots)
+local CraterField = require(script.Parent.CraterField)
+local BlastDebris = require(script.Parent.BlastDebris)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 33
+local BUILDER_VERSION = 35
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -636,6 +638,11 @@ end
 ---            three (scatterBarrels). Its `kind = "sirens"` set piece is still on
 ---            the shelf and `props` with it -- the drums are what this field got
 ---            instead, and they are the only thing standing in it.
+---   Stage 6 -- the impact craters (build/CraterField, laid out in Config/StageCraters):
+---            one big crater off the middle, with fused glass at ground zero and a few
+---            smoking vents, and a scatter of small ones; then the dirt and wreckage
+---            the blast strewed across the rest of the field (build/BlastDebris). Its
+---            `shards` set piece and its pools are still on the shelf.
 --- `skeletons`/`bones`/`skulls` belong to the two bone fields and `barrels` to Stage 3;
 --- unset, and so skipped, everywhere else.
 type StageTheme = {
@@ -695,7 +702,9 @@ local THEME: { [number]: StageTheme } = {
 	-- reads as dark ground rather than as hot ground. Prop counts do not climb with
 	-- them: past Stage 3 the story is that there is nothing left standing.
 	[5] = { props = 22, pools = 60, kind = "reactor" },
-	[6] = { props = 26, pools = 78, kind = "shards" },
+	-- `scatter` turns on the craters only (see the list above); `props`/`pools`/`kind`
+	-- are still on the shelf, same as Stage 4's barriers.
+	[6] = { props = 26, pools = 78, kind = "shards", scatter = true },
 }
 
 --- ── The radioactive drum ─────────────────────────────────────────────────────
@@ -3166,6 +3175,12 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- AFTER the signs, always: both passes run off the one stage rng, so putting
 			-- the puddles first would move every sign in the entrance rank.
 			scatterOozePools(folder, origin, theme.pools, rng, hx, hz, def.ooze)
+		elseif id == 6 then
+			-- The craters jitter off their own seeds (Config/StageCraters) and the debris
+			-- off its own, not this stage rng, so anything added to this field later is
+			-- free to use it.
+			CraterField.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
+			BlastDebris.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
 		end
 	end
 
@@ -3234,7 +3249,12 @@ local function buildStageCheckerboard(parent: Instance, id: number)
 			return wD:Lerp(stageDark, t):ToHex(), wL:Lerp(stageLight, t):ToHex()
 		end
 	else
-		flatDark, flatLight = stageDark:ToHex(), stageLight:ToHex()
+		-- A stage with craters on it (Stage 6) scorches its board round each one;
+		-- every other stage keeps the flat pair.
+		colorAt = CraterField.groundColorAt(id, stageDark, stageLight)
+		if colorAt == nil then
+			flatDark, flatLight = stageDark:ToHex(), stageLight:ToHex()
+		end
 	end
 
 	local folder = Instance.new("Folder")
