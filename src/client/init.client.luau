@@ -26,6 +26,7 @@ local ORDER = {
 	"ItemFxController", -- nuke glow/glass/motion on any `ItemFx`-tagged model, once its crust is off
 	"DetonationController", -- nukes going off: the blast, the crater orb, the lit-fuse warnings; reads Detonation
 	"NameTagController", -- subdued overhead player names; replaces Roblox's bright default tag
+	"StandCardController", -- the trophy-ribbon card over each displayed nuke; reads the StandCard attributes ExhibitService writes
 	"WarpController", -- the top-of-screen BASE / SHOPS bar; reads stageId off ExposureState
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState
 	"SettingsController", -- the Settings panel (top-right gear); base-colour picker, reads/writes PlotColor
