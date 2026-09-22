@@ -15,10 +15,13 @@
 	goes up and the crating countdown all run here, so none of it costs a replicated
 	write.
 
-	A PIXEL-SIZED BILLBOARD ON THE HUD CANVAS -- the same UIKit.billboardCanvas
-	NameTagController uses: a constant on-screen size that grows with the screen like the
-	rest of the HUD. Every TextSize is fixed (the old card's TextScaled name resized
-	itself card to card); only the ribbon's width follows its name.
+	A STUD-SIZED BILLBOARD, on request. A pixel-sized one holds its size on screen while
+	the world shrinks around it, so zooming out made every card look huge next to its
+	stand. This one is CARD_STUDS wide in the world: it still turns to face the camera,
+	but it shrinks and grows with the plinth under it. The card is still laid out in
+	design px (L below) and one UIScale fits that layout to whatever the gui measures on
+	screen this frame, so every TextSize stays fixed relative to the card (the old card's
+	TextScaled name resized itself card to card); only the ribbon's width follows its name.
 
 	HUNG FROM THE NUKE'S OWN TOP. The gui's bottom edge sits LIFT studs above CardTop, the
 	top of whatever model is on the plinth, so a GIGA roll carries its card up with it
@@ -97,7 +100,7 @@ local SHIMMER: { [string]: { kind: string, glint: Color3? } } = {
 local RAINBOW = { "FF5D5D", "FFCF3A", "5CD65C", "3DB8F5", "A855F7", "FF5D9E" }
 local RIBBON_RAINBOW = { "FF8F8F", "FFD97A", "8FE68F", "7FCAF7", "C89BFA" }
 
--- Design px on the card's own footprint, before CARD_SCALE. Top to bottom: rarity,
+-- Design px on the card's own footprint, fitted to CARD_STUDS. Top to bottom: rarity,
 -- stars, ribbon, pill row, footer. With no footer everything drops FOOTLESS_DROP so
 -- the pill row sits on the card's bottom edge either way.
 local L = {
@@ -143,9 +146,11 @@ local L = {
 }
 local FOOTLESS_DROP = 24
 
--- One knob for the card's overall size against the HUD's scale. 0.9 puts the ribbon
--- at roughly the old card's width on a 1080p screen.
-local CARD_SCALE = 0.9
+-- The card's footprint in studs, L.width wide. 11 puts the ribbon itself at ~7-10
+-- studs, about the width of the plinth under it (8.9), and inside the 20-stud column
+-- pitch so neighbours never touch side to side. Picked by eye in a Play session: 8
+-- left the rate and kg unreadable from where you normally stand on the pad.
+local CARD_STUDS = 11
 local LIFT = 0.6 -- studs between the nuke's top and the card's bottom edge
 -- CAMERA-to-adornee, as the old card had it: every stand on your own pad from anywhere
 -- on it, and short of the next plot on the ring.
@@ -158,7 +163,7 @@ local RAINBOW_ROCK = TweenInfo.new(2.6, Enum.EasingStyle.Sine, Enum.EasingDirect
 type Card = {
 	display: BasePart,
 	gui: BillboardGui,
-	canvas: Frame,
+	canvas: Frame, -- L.width x L.height design px, fitted to the gui by its own UIScale
 	root: Frame?,
 	shimmer: Tween?,
 	key: string?, -- what is drawn (item + when it went up); a change pops the card
@@ -508,11 +513,10 @@ local function draw(card: Card)
 	root.Name = "Card"
 	root.AnchorPoint = Vector2.new(0.5, 1)
 	root.Position = UDim2.fromScale(0.5, 1)
-	root.Size = UDim2.fromOffset(L.width, L.height)
+	root.Size = UDim2.fromScale(1, 1)
 	root.BackgroundTransparency = 1
 	local scale = Instance.new("UIScale")
 	scale.Name = "Pop"
-	scale.Scale = CARD_SCALE
 	scale.Parent = root
 
 	local body = Instance.new("Frame")
@@ -662,8 +666,8 @@ local function draw(card: Card)
 	card.gui.Enabled = true
 
 	if pop then
-		scale.Scale = CARD_SCALE * 0.25
-		TweenService:Create(scale, POP, { Scale = CARD_SCALE }):Play()
+		scale.Scale = 0.25
+		TweenService:Create(scale, POP, { Scale = 1 }):Play()
 	end
 end
 
@@ -700,7 +704,26 @@ local function track(instance: Instance)
 	gui.SizeOffset = Vector2.new(0, 0.5)
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.Enabled = false
-	local canvas = UIKit.billboardCanvas(gui, Vector2.new(L.width, L.height) * CARD_SCALE)
+	-- Scale components of a BillboardGui's Size are studs: a fixed size in the world.
+	gui.Size = UDim2.fromScale(CARD_STUDS, CARD_STUDS * L.height / L.width)
+
+	-- The design-px layout, blown up or shrunk to exactly cover the gui. AbsoluteSize
+	-- is what the gui measures on screen right now, so this follows every zoom.
+	local canvas = Instance.new("Frame")
+	canvas.Name = "Canvas"
+	canvas.AnchorPoint = Vector2.new(0.5, 1)
+	canvas.Position = UDim2.fromScale(0.5, 1)
+	canvas.Size = UDim2.fromOffset(L.width, L.height)
+	canvas.BackgroundTransparency = 1
+	canvas.Parent = gui
+	local fit = Instance.new("UIScale")
+	fit.Name = "Fit"
+	fit.Parent = canvas
+	local function refit()
+		fit.Scale = gui.AbsoluteSize.X / L.width
+	end
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(refit)
+	refit()
 	gui.Parent = display
 
 	local card: Card = {
