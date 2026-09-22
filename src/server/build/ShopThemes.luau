@@ -33,7 +33,12 @@
 	    wing from the floor to the rail, so anything low behind them is hidden. The
 	    stand is only waist high, which leaves the whole back wall above it visible.
 	  * NOTHING GLOWS. No Neon, no lights (Kit.C's header): the radar is painted and
-	    the tank is steel. Nothing moves either — motion is a separate, later pass.
+	    the tank is steel.
+	  * MOTION IS THE CLIENT'S. Three props move — the radar head spins, the crane's
+	    load sways, the shower heads drip — and this file only TAGS them
+	    (Shared/ShopFx). ShopFxController moves them locally on each player's client,
+	    culled by distance. A moving group is its own Model whose WorldPivot is the
+	    joint it turns about, so the controller never has to know the geometry.
 	  * WALK-THROUGH. Every prop is CanCollide false, like the rest of the plaza
 	    dressing, so none of them can trap a player who wanders behind a counter.
 
@@ -41,6 +46,10 @@
 	customer, Y from the plaza top, X across the shopfront. `standX` is the stand's
 	centre along that line.
 ]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local ShopFx = require(ReplicatedStorage.Shared.ShopFx)
 
 local Kit = require(script.Parent.Kit)
 
@@ -149,7 +158,8 @@ local function dressDetector(parent: Instance, origin: CFrame, width: number, st
 
 	-- The radar dish on the roof over the stand: a mast on a plinth, and a white dish
 	-- in an accent rim tilted 25 degrees up toward the plaza, with its feed arm and
-	-- horn and a gearbox behind it. Static (see the header).
+	-- horn and a gearbox behind it. The head (everything but the mast) is its own
+	-- model pivoted on the top of the mast, tagged SPIN for ShopFxController.
 	roofPlinth(parent, origin, standX, 1.6, 1.6)
 	prop(parent, origin, {
 		name = "RadarMast",
@@ -162,7 +172,9 @@ local function dressDetector(parent: Instance, origin: CFrame, width: number, st
 	})
 	local hub = origin * CFrame.new(standX, ROOF_Y + 3.45, ROOF_Z)
 	local dish = hub * Kit.ang(-25, 0, 0)
-	prop(parent, dish, {
+	local head = Instance.new("Model")
+	head.Name = "RadarHead"
+	prop(head, dish, {
 		name = "RadarDish",
 		pos = { 0, 0, 0 },
 		size = { 0.3, 5.2, 5.2 },
@@ -171,7 +183,7 @@ local function dressDetector(parent: Instance, origin: CFrame, width: number, st
 		shape = "Cylinder",
 		rot = R_CYL_Z,
 	})
-	prop(parent, dish, {
+	prop(head, dish, {
 		name = "RadarRim",
 		pos = { 0, 0, -0.18 },
 		size = { 0.2, 5.6, 5.6 },
@@ -180,7 +192,7 @@ local function dressDetector(parent: Instance, origin: CFrame, width: number, st
 		shape = "Cylinder",
 		rot = R_CYL_Z,
 	})
-	prop(parent, dish, {
+	prop(head, dish, {
 		name = "RadarFeedArm",
 		pos = { 0, 0, 1.2 },
 		size = { 2.2, 0.18, 0.18 },
@@ -189,20 +201,23 @@ local function dressDetector(parent: Instance, origin: CFrame, width: number, st
 		shape = "Cylinder",
 		rot = R_CYL_Z,
 	})
-	prop(parent, dish, {
+	prop(head, dish, {
 		name = "RadarFeedHorn",
 		pos = { 0, 0, 2.35 },
 		size = { 0.5, 0.5, 0.5 },
 		color = accent,
 		material = "SmoothPlastic",
 	})
-	prop(parent, hub, {
+	prop(head, hub, {
 		name = "RadarGearbox",
 		pos = { 0, -0.6, -0.5 },
 		size = { 1, 1, 1.2 },
 		color = C.steelDark,
 		material = "Metal",
 	})
+	head.WorldPivot = hub
+	head.Parent = parent
+	ShopFx.tag(head, ShopFx.SPIN)
 
 	-- A surveyor's tripod behind the stand's outer end: three splayed wooden legs,
 	-- a steel head, a yellow instrument body and its lens toward the plaza.
@@ -315,8 +330,12 @@ local function dressMagnet(parent: Instance, origin: CFrame, _width: number, sta
 
 	-- A wall crane behind the stand: a yellow jib off the back wall with a diagonal
 	-- brace, a cable, and an electromagnet in the stall's accent lifting a rusty plate.
+	-- The load (cable, magnet, plate) is its own model pivoted where the cable meets
+	-- the jib, tagged SWAY for ShopFxController.
 	local jx = standX + 2
 	local hookZ = -6.2
+	local load = Instance.new("Model")
+	load.Name = "CraneLoad"
 	prop(parent, origin, {
 		name = "CraneMount",
 		pos = { jx, 8.2, WALL_FACE_Z + 0.03 },
@@ -339,14 +358,14 @@ local function dressMagnet(parent: Instance, origin: CFrame, _width: number, sta
 		material = "Metal",
 		rot = Kit.ang(-45, 0, 0),
 	})
-	prop(parent, origin, {
+	prop(load, origin, {
 		name = "CraneCable",
 		pos = { jx, 7.25, hookZ },
 		size = { 0.1, 1.7, 0.1 },
 		color = C.hazardBlack,
 		material = "SmoothPlastic",
 	})
-	prop(parent, origin, {
+	prop(load, origin, {
 		name = "Electromagnet",
 		pos = { jx, 6.25, hookZ },
 		size = { 0.6, 2.2, 2.2 },
@@ -355,7 +374,7 @@ local function dressMagnet(parent: Instance, origin: CFrame, _width: number, sta
 		shape = "Cylinder",
 		rot = R_CYL_UP,
 	})
-	prop(parent, origin, {
+	prop(load, origin, {
 		name = "ElectromagnetBand",
 		pos = { jx, 6.25, hookZ },
 		size = { 0.3, 2.35, 2.35 },
@@ -364,7 +383,7 @@ local function dressMagnet(parent: Instance, origin: CFrame, _width: number, sta
 		shape = "Cylinder",
 		rot = R_CYL_UP,
 	})
-	prop(parent, origin, {
+	prop(load, origin, {
 		name = "LiftedPlate",
 		pos = { jx + 0.2, 5.75, hookZ },
 		size = { 2.6, 0.3, 1.6 },
@@ -372,6 +391,10 @@ local function dressMagnet(parent: Instance, origin: CFrame, _width: number, sta
 		material = "CorrodedMetal",
 		rot = Kit.ang(0, 12, -6),
 	})
+	-- The cable's top end, on the jib's underside.
+	load.WorldPivot = origin * CFrame.new(jx, 8.1, hookZ)
+	load.Parent = parent
+	ShopFx.tag(load, ShopFx.SWAY)
 
 	-- A scrap pile in the back corner behind the stand's outer end, stacked about
 	-- three studs high so it shows over the waist-high stand. Its own fixed seed, so
@@ -422,6 +445,9 @@ end
 local TILE = "D6ECF7"
 local GROUT = "8FB8D0"
 local TANK_BLUE = "7FB9D6"
+local SHOWER_HEAD_Y = 7.8
+-- The top face of Shops' StallFloor, where a drip lands.
+local STALL_FLOOR_Y = 0.1
 
 local function dressCleaner(parent: Instance, origin: CFrame, _width: number, standX: number)
 	local accent = C.shopCleaner
@@ -463,7 +489,8 @@ local function dressCleaner(parent: Instance, origin: CFrame, _width: number, st
 		material = "SmoothPlastic",
 	})
 
-	-- A shower bar across the top of the tiles with three nozzles hanging off it.
+	-- A shower bar across the top of the tiles with three nozzles hanging off it. Each
+	-- head is tagged DRIP, with how far a drop falls from its underside to the floor.
 	prop(parent, origin, {
 		name = "ShowerBar",
 		pos = { standX, 8.4, -9.1 },
@@ -480,15 +507,17 @@ local function dressCleaner(parent: Instance, origin: CFrame, _width: number, st
 			color = C.steel,
 			material = "Metal",
 		})
-		prop(parent, origin, {
+		local head = prop(parent, origin, {
 			name = "ShowerHead",
-			pos = { standX + dx, 7.8, -8.85 },
+			pos = { standX + dx, SHOWER_HEAD_Y, -8.85 },
 			size = { 0.25, 0.8, 0.8 },
 			color = C.steelDark,
 			material = "Metal",
 			shape = "Cylinder",
 			rot = R_CYL_UP,
 		})
+		head:SetAttribute(ShopFx.DRIP_FALL, SHOWER_HEAD_Y - 0.125 - STALL_FLOOR_Y)
+		ShopFx.tag(head, ShopFx.DRIP)
 	end
 
 	-- A hose reel on a wall bracket. Its axle runs along the wall, so the plaza sees
