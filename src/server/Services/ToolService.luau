@@ -599,9 +599,14 @@ local function equipItem(character: Model, item: any?): boolean
 			part.Anchored = false
 		end
 	end
-	-- POSITION comes from the hand -- the "carry" pose (see POSES) raises both arms
-	-- overhead, hands together, so LeftHand itself is already the "held up above your
-	-- head" point. What sits there is the model's BOTTOM, not its centre (see
+	-- POSITION comes from BETWEEN the hands, not from LeftHand alone -- the "carry"
+	-- pose (see POSES) brings both up overhead but not onto the same point, and a
+	-- model pivoted straight onto LeftHand reads as visibly off-centre, biased to that
+	-- side, instead of gripped in the middle with two hands the way the pose looks.
+	-- RightHand is still busy with a tool slot of its own, so it never gets the WELD
+	-- (below) -- only the target position borrows it.
+	--
+	-- What sits at that midpoint is the model's BOTTOM, not its centre (see
 	-- HELD_ITEM_LIFT below): an overhead press holds the underside of the thing, and
 	-- the object rises away from the body from there regardless of how big a Payload
 	-- roll (up to 2.5x, see the scale step above) made it -- unlike a chest cradle,
@@ -627,10 +632,13 @@ local function equipItem(character: Model, item: any?): boolean
 	local holdRotation = if root and root:IsA("BasePart") then root.CFrame.Rotation else hand.CFrame.Rotation
 	local rotation = holdRotation * ItemModels.rotation(held, "Hold")
 
-	held:PivotTo(CFrame.new(hand.Position) * rotation)
+	local rightHand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+	local anchor = if rightHand and rightHand:IsA("BasePart") then (hand.Position + rightHand.Position) / 2 else hand.Position
+
+	held:PivotTo(CFrame.new(anchor) * rotation)
 	local box, extents = held:GetBoundingBox()
-	local lift = (hand.Position.Y + HELD_ITEM_LIFT) - (box.Position.Y - extents.Y / 2)
-	held:PivotTo(CFrame.new(hand.Position + Vector3.new(0, lift, 0)) * rotation)
+	local lift = (anchor.Y + HELD_ITEM_LIFT) - (box.Position.Y - extents.Y / 2)
+	held:PivotTo(CFrame.new(anchor + Vector3.new(0, lift, 0)) * rotation)
 
 	local weld = Instance.new("WeldConstraint")
 	weld.Name = "HoldWeld"
