@@ -183,6 +183,23 @@ local BARREL_LEANING = 0.10
 local DEAD_WOOD = "6E5A42"
 local DEAD_WOOD_DARK = "504230"
 
+--- What DEAD_WOOD/_DARK weather INTO, for `deadTree`'s `wither` (blended by
+--- Kit.blendHex, never swapped for). NOT a second species: these are the same two
+--- tones taken most of the way to bone-grey -- bark gone, grain bleached -- so a
+--- withered tree and a merely dead one still read as one tree at two ages rather than
+--- as two different props standing in the same world.
+---
+--- GREY, NOT WHITE, AND BARELY LIGHTER THAN THE WOOD IT COMES FROM. The first pass
+--- ran 9A9083/6B6458, which lifted the rendered trunk to (147,136,121) -- a good
+--- twenty points of value ABOVE live dead wood -- and shot live it read as poured
+--- concrete standing on a dark brown field, the exact failure build/FieldLitter's
+--- glass palette records for near-white over tan. Weathering takes the SATURATION out
+--- of wood; it does not turn it into a lighter material. These keep the value close to
+--- DEAD_WOOD's and pull the red-to-blue spread from 44 points down to 33, which is the
+--- whole effect: at a glance the tree has gone grey, not been rebuilt out of stone.
+local WITHERED_WOOD = "8A7C69"
+local WITHERED_WOOD_DARK = "584E40"
+
 --- Living leaf green, for `bush` in Stage 1's alive west half. Brighter and more
 --- saturated than the old muted "brush"/"liveTree" scrub greens -- these are meant to
 --- pop against the grass like the reference. Plastic (studded), never Neon, so bloom
@@ -642,13 +659,21 @@ end
 ---            shelf and `props` with it -- the drums are what this field got instead,
 ---            and they are still the only thing standing in it (the litter is flat,
 ---            and its one canted glass plate is knee-high at most).
+---   Stage 4 -- `signs` a rank of warning signs along the entrance edge
+---            (scatterWarningSigns), then `pools` the ooze puddles dealt off a size
+---            ladder (scatterOozePools), then `trees` a handful of dead trees over the
+---            whole field (scatterStage4Trees). Its `barriers` set piece and `props`
+---            with it are still on the shelf.
 ---   Stage 6 -- the impact craters (build/CraterField, laid out in Config/StageCraters):
 ---            one big crater off the middle, with fused glass at ground zero and a few
 ---            smoking vents, and a scatter of small ones; then the dirt and wreckage
 ---            the blast strewed across the rest of the field (build/BlastDebris). Its
 ---            `shards` set piece and its pools are still on the shelf.
---- `skeletons`/`bones`/`skulls` belong to the two bone fields and `barrels` to Stage 3;
---- unset, and so skipped, everywhere else.
+--- `skeletons`/`bones`/`skulls` belong to the two bone fields, `barrels` to Stage 3 and
+--- `trees` to Stage 4; unset, and so skipped, everywhere else. (`trees` is Stage 4's
+--- own count and NOT Stage 2's -- that field's stand rides on `props`, because trees
+--- are the only thing it scatters; Stage 4's `props` is spoken for by the barriers
+--- still on the shelf.)
 type StageTheme = {
 	props: number,
 	pools: number,
@@ -660,6 +685,7 @@ type StageTheme = {
 	skulls: number?,
 	barrels: number?,
 	signs: number?,
+	trees: number?,
 }
 local THEME: { [number]: StageTheme } = {
 	[1] = { props = 9, deadProps = 14, pools = 8, kind = "trees", scatter = true },
@@ -704,7 +730,10 @@ local THEME: { [number]: StageTheme } = {
 	-- broad, some mid, the rest spills), so this number is now "how many pools" and
 	-- NOT "how much ooze" -- the lake alone covers more ground than a third of the
 	-- old 26 did. Retune the ladder there, not just this number.
-	[4] = { props = 18, pools = 12, kind = "barriers", scatter = true, signs = 5 },
+	-- FOUR DEAD TREES, and the number is the whole design of them -- see
+	-- scatterStage4Trees for why four and not nine. Strays standing out of a field whose
+	-- landmarks are its puddles, not a tree line like Stage 2's.
+	[4] = { props = 18, pools = 12, kind = "barriers", scatter = true, signs = 5, trees = 4 },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
 	-- reads as dark ground rather than as hot ground. Prop counts do not climb with
@@ -974,8 +1003,80 @@ end
 --- Recurses down a length/thickness ramp. Everything CanCollide=false (walk through
 --- it) and thin -- the same rules the file header sets for anything tall over a dig
 --- field, and the same the old one-box DeadTree followed.
-local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, rng: Random)
-	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rng:NextNumber(0, 360), 0)
+---
+--- `wither` (0 = as above, 1 = a rotted-out snag) AGES THE TREE, on request for Stage
+--- 4's four. A dead tree and a LONG dead one are not the same silhouette, and the
+--- difference is almost all subtraction -- bark gone, branches gone, the crown gone,
+--- the wood bleached, the whole thing off plumb. So every knob below takes something
+--- away rather than adding decoration on top: the WITHERED_* palette, snapped branch
+--- ends instead of clean points, fewer forks, limbs drooping past horizontal, a
+--- faster taper, a share of trees with the crown snapped clean off, a lean, and the
+--- limbs it has already shed lying at its foot.
+---
+--- ZERO IS BYTE-IDENTICAL TO BEFORE THIS PARAMETER EXISTED, and that is a hard
+--- constraint, not a nicety: Stage 2's stand of nine is shipped and approved, and it
+--- is built from this same function. Every new `rng` draw in here is behind a
+--- `w > 0` short-circuit and every reordered draw keeps its original position in the
+--- sequence, so an unwithered tree consumes the stage rng exactly as it always did
+--- and lands exactly where it always did. Verified against a fingerprint of the
+--- built Stage 2 -- 891 parts, all 18 trunk segments unmoved. Anything added here
+--- later has to hold that line the same way.
+local TREE_LEAN_MAX = 7 -- degrees off plumb at w = 1; roots let go before a trunk does
+--- Half-diagonal of the thickest trunk section this builder makes (3.1 * 1.8 scale,
+--- square, so 5.58 * sqrt(2)/2). Leaning pivots about the foot, which lifts the high
+--- corner by this times sin(tilt) -- the tree is sunk by exactly that so a leaning
+--- trunk never shows daylight under one edge. A constant rather than the tree's own
+--- thickness because the thickness is not rolled until after the lean is (and
+--- reordering those two draws would move Stage 2).
+local TREE_LEAN_HALF_DIAG = 3.95
+local TREE_TOP_SNAP_SHARE = 0.5 -- share of trees at w = 1 that lost the crown entirely
+local TREE_SNAP_SHARE = 0.55 -- share of branch ENDS that broke off instead of tapering
+local TREE_LIMB_LOSS = 0.45 -- chance a fork never grew back
+--- Chance a tree has limbs lying at its foot, and how many. HIGH, and deliberately so
+--- at a count of four: the first pass ran 0.8 with one or two limbs, which is a fine
+--- expectation over a stand of nine and a coin flip over four -- the built field came
+--- up with a single shed limb in the whole stage, so the detail may as well not have
+--- been there. A per-tree detail on a four-tree field has to be nearly certain or it
+--- is not a detail, it is a rumour.
+local TREE_SHED_SHARE = 0.95
+local TREE_SHED_MAX = 3
+--- Degrees of extra outward lean at w = 1. The main limbs off the trunk get the most:
+--- 18-32 becomes 44-58, which is where a limb stops reaching UP and starts hanging,
+--- and that swap is most of what reads as "withered" from across a field. The stem
+--- carrying past a fork gets least -- a stem drooping as hard as its own side limbs
+--- turns the crown into an umbrella.
+local TREE_LIMB_DROOP_TRUNK = 26
+local TREE_LIMB_DROOP = 18
+local TREE_STEM_DROOP = 10
+--- Taken off every crown length/thickness ratio at w = 1, so the wood runs out sooner
+--- and thinner. Small numbers, compounding four levels deep -- 0.10 off a ratio is
+--- roughly a third off the outermost twig.
+local TREE_LIMB_SHORTEN = 0.10
+local TREE_LIMB_THIN = 0.08
+local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, rng: Random, wither: number?)
+	local w = math.clamp(wither or 0, 0, 1)
+	-- The palette ages with `w`, and so does the share of segments taking the darker
+	-- tone: a weathered snag is blotchy where fresher dead wood is even, and the extra
+	-- contrast is what makes the studded facets read against each other (foliageBlob's
+	-- trick) once the colour itself has gone flat and grey.
+	local wood = if w > 0 then Kit.blendHex(DEAD_WOOD, WITHERED_WOOD, w) else DEAD_WOOD
+	local woodDark = if w > 0 then Kit.blendHex(DEAD_WOOD_DARK, WITHERED_WOOD_DARK, w) else DEAD_WOOD_DARK
+	local darkShare = 0.28 + w * 0.16
+
+	local rootYaw = rng:NextNumber(0, 360) -- not `yaw`: the fork loop has its own
+	local base = origin * CFrame.new(x, 0, z) * Kit.ang(0, rootYaw, 0)
+	local topSnapped = false
+	if w > 0 then
+		-- Off plumb, in its own direction, sunk to keep the foot in the ground.
+		local tilt = rng:NextNumber(0, TREE_LEAN_MAX) * w
+		local sink = TREE_LEAN_HALF_DIAG * math.sin(math.rad(tilt))
+		base = origin
+			* CFrame.new(x, -sink, z)
+			* Kit.ang(0, rootYaw, 0)
+			* Kit.ang(0, rng:NextNumber(0, 360), 0)
+			* Kit.ang(tilt, 0, 0)
+		topSnapped = rng:NextNumber() < w * TREE_TOP_SNAP_SHARE
+	end
 
 	-- depth 4..3 = trunk: two thick, near-vertical segments. The split happens at the
 	-- TOP of depth 3, so a clear tall trunk stands before anything forks -- the
@@ -987,7 +1088,7 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 			name = if isTrunk then "Trunk" else "Limb",
 			pos = { 0, length / 2, 0 },
 			size = { thick, length, thick },
-			color = if rng:NextNumber() < 0.28 then DEAD_WOOD_DARK else DEAD_WOOD,
+			color = if rng:NextNumber() < darkShare then woodDark else wood,
 			material = "Plastic",
 			studs = true, -- studded like everything else in this world (floor, walls, bushes)
 			-- Barely any roll on the trunk (a visible kink there reads as broken, not
@@ -999,6 +1100,24 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 		local tip = cf * CFrame.new(0, length, 0)
 
 		if depth == 0 then
+			-- SNAPPED, not tapered. A branch that broke does not come to a point, and
+			-- swapping the clean spike for a short stub thrown well off the twig's own
+			-- line is the single cheapest thing in here that reads as damage: the
+			-- silhouette stops resolving into neat arrowheads and starts looking chewed.
+			-- Yawed the full circle and pitched hard over, the opposite of the Tip below.
+			if w > 0 and rng:NextNumber() < w * TREE_SNAP_SHARE then
+				build(parent, tip * Kit.ang(0, rng:NextNumber(0, 360), 0) * Kit.ang(rng:NextNumber(18, 44), 0, 0), {
+					name = "Snap",
+					pos = { 0, thick * 0.45, 0 },
+					size = { thick * 0.5, thick * 0.9, thick * 0.5 },
+					color = woodDark,
+					material = "Plastic",
+					studs = true,
+					shape = "Wedge",
+					canCollide = false,
+				})
+				return
+			end
 			-- The point. One Wedge tapers in a single plane -- from the angles a player
 			-- sees a field prop that reads as a flattened spike, which is the
 			-- reference's branch tips. Kept roughly in line with the twig, not yawed
@@ -1007,7 +1126,10 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 				name = "Tip",
 				pos = { 0, thick * 0.9, 0 },
 				size = { thick * 0.7, thick * 1.9, thick * 0.7 },
-				color = DEAD_WOOD_DARK,
+				-- `woodDark`, NOT DEAD_WOOD_DARK: this line was the one place the palette
+				-- did not age with the tree, and it showed -- twelve tips rendering live
+				-- dead brown on trunks that had gone grey.
+				color = woodDark,
 				material = "Plastic",
 				studs = true,
 				shape = "Wedge",
@@ -1021,19 +1143,40 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 		-- the way up through it. Trunk segments keep their bearing (no yaw before the
 		-- lean) so the two-piece trunk stays a clean line.
 		if isTrunk then
-			branch(
-				tip * Kit.ang(rng:NextNumber(0, 3), 0, rng:NextNumber(-3, 3)),
-				length * rng:NextNumber(0.82, 0.92),
-				thick * rng:NextNumber(0.85, 0.93),
-				depth - 1
-			)
+			if depth == 3 and topSnapped then
+				-- THE CROWN CAME OFF -- the stem stops here on a jagged break and nothing
+				-- carries on above it. Cut at depth 3, so the tree keeps the main limbs
+				-- that fork off this same point: a broken-off snag still holding two or
+				-- three bare arms, not a stump. That is the shape the whole `wither` knob
+				-- is chasing, and it only lands because the forks below are untouched by
+				-- it -- snapping the top AND taking the limbs would leave a fence post.
+				build(parent, tip, {
+					name = "Snap",
+					pos = { 0, thick * 0.3, 0 },
+					size = { thick * 0.85, thick * 0.6, thick * 0.85 },
+					color = woodDark,
+					material = "Plastic",
+					studs = true,
+					shape = "Wedge",
+					canCollide = false,
+				})
+			else
+				branch(
+					tip * Kit.ang(rng:NextNumber(0, 3), 0, rng:NextNumber(-3, 3)),
+					length * rng:NextNumber(0.82, 0.92),
+					thick * rng:NextNumber(0.85, 0.93),
+					depth - 1
+				)
+			end
 		else
-			branch(
-				tip * Kit.ang(0, rng:NextNumber(0, 360), 0) * Kit.ang(rng:NextNumber(6, 16), 0, 0),
-				length * rng:NextNumber(0.76, 0.9),
-				thick * rng:NextNumber(0.64, 0.8),
-				depth - 1
-			)
+			-- Drawn into locals, in the original order (yaw, lean, length, thickness),
+			-- because `wither` has to adjust three of the four -- see the ZERO IS
+			-- BYTE-IDENTICAL note above.
+			local stemYaw = rng:NextNumber(0, 360)
+			local stemLean = rng:NextNumber(6, 16) + w * TREE_STEM_DROOP
+			local stemLen = rng:NextNumber(0.76, 0.9) - w * TREE_LIMB_SHORTEN
+			local stemThick = rng:NextNumber(0.64, 0.8) - w * TREE_LIMB_THIN
+			branch(tip * Kit.ang(0, stemYaw, 0) * Kit.ang(stemLean, 0, 0), length * stemLen, thick * stemThick, depth - 1)
 		end
 
 		-- Side limbs fork off at the trunk top (2-3) and the primary limbs (1-2); past
@@ -1042,14 +1185,21 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 		-- Kept long (little length drop) so the crown is a few reaching branches, not a
 		-- tight ball of stubs.
 		local forks = if depth == 3 then rng:NextInteger(2, 3) elseif depth == 2 then rng:NextInteger(1, 2) else 0
+		-- A fork that never grew back. NEVER below two at the trunk top: the tree can
+		-- lose its crown (topSnapped) or its limbs, but losing both leaves a bare pole,
+		-- and a pole in open ground reads as an unfinished prop rather than a dead tree.
+		if w > 0 and forks > 0 and rng:NextNumber() < w * TREE_LIMB_LOSS then
+			forks = math.max(forks - 1, if depth == 3 then 2 else 0)
+		end
 		local yaw0 = rng:NextNumber(0, 360)
 		for i = 1, forks do
 			local yaw = yaw0 + (i - 1) * (360 / forks) + rng:NextNumber(-24, 24)
 			local lean = if depth == 3 then rng:NextNumber(18, 32) else rng:NextNumber(26, 42)
+			lean += w * (if depth == 3 then TREE_LIMB_DROOP_TRUNK else TREE_LIMB_DROOP)
 			branch(
 				tip * Kit.ang(0, yaw, 0) * Kit.ang(lean, 0, 0),
-				length * rng:NextNumber(0.66, 0.82),
-				thick * rng:NextNumber(0.55, 0.7),
+				length * (rng:NextNumber(0.66, 0.82) - w * TREE_LIMB_SHORTEN),
+				thick * (rng:NextNumber(0.55, 0.7) - w * TREE_LIMB_THIN),
 				depth - 1
 			)
 		end
@@ -1062,7 +1212,49 @@ local function deadTree(parent: Instance, origin: CFrame, x: number, z: number, 
 	-- downstream is a ratio of this trunk-base pair; the roll spans ~30 studs tall to
 	-- ~45 (the tallest is ~9 characters).
 	local scale = rng:NextNumber(1.2, 1.8)
-	branch(base, rng:NextNumber(5.2, 6.2) * scale, rng:NextNumber(2.5, 3.1) * scale, 4)
+	local trunkLen = rng:NextNumber(5.2, 6.2) * scale
+	local trunkThick = rng:NextNumber(2.5, 3.1) * scale
+	branch(base, trunkLen, trunkThick, 4)
+
+	-- WHAT IT HAS ALREADY DROPPED, lying at its foot. The rest of `wither` subtracts
+	-- from the tree; this is the only piece that puts something back, and it is the
+	-- same missing wood -- a crown that shed branches left them on the ground under
+	-- itself. Cheap, and it does the work the snapped ends cannot: those read as damage
+	-- close up, a limb lying in the dirt reads as damage from the walk past.
+	--
+	-- PLACED OFF `origin`, NOT `base` -- a limb on the ground is flat whatever angle
+	-- the trunk ended up leaning at. Ankle-high and CanCollide false like everything
+	-- else this file lays over a dig field (see the header).
+	if w > 0 then
+		local shed = if rng:NextNumber() < w * TREE_SHED_SHARE then rng:NextInteger(1, TREE_SHED_MAX) else 0
+		for _ = 1, shed do
+			local bearing = math.rad(rng:NextNumber(0, 360))
+			local out = trunkThick * 0.6 + rng:NextNumber(1, 5)
+			local len = trunkLen * rng:NextNumber(0.25, 0.5)
+			local th = trunkThick * rng:NextNumber(0.16, 0.28)
+			-- Kit.ang(90, ...) lays the segment's own +Y down onto the ground, so `len`
+			-- runs horizontally and the piece's VERTICAL extent is `th` -- centred at
+			-- th/2, it rests on the surface. The few degrees either side of 90 are the
+			-- one end lifting or digging in, which is what keeps a row of them from
+			-- reading as dropped dowels.
+			build(
+				parent,
+				origin
+					* CFrame.new(x + math.cos(bearing) * out, th * 0.5, z + math.sin(bearing) * out)
+					* Kit.ang(0, rng:NextNumber(0, 360), 0)
+					* Kit.ang(90 + rng:NextNumber(-3, 3), 0, 0),
+				{
+					name = "ShedLimb",
+					pos = { 0, len / 2, 0 },
+					size = { th, len, th },
+					color = if rng:NextNumber() < darkShare then woodDark else wood,
+					material = "Plastic",
+					studs = true,
+					canCollide = false,
+				}
+			)
+		end
+	end
 end
 
 --- A knee-high dead shrub -- `deadTree` shrunk to scrub height and made to fork at the
@@ -2430,6 +2622,86 @@ local function scatterWarningSigns(folder: Instance, origin: CFrame, count: numb
 	end
 end
 
+--- How far a Stage 4 tree has to stand off the WEST edge, clear of the warning-sign
+--- rank scatterWarningSigns puts at x = -hx + 5..11. The rank's whole job is to be the
+--- first thing you read walking in, seen against open ground; a 40-stud snag leaning
+--- over a 5-stud sign takes that away. 30 leaves roughly twenty studs of daylight
+--- between the furthest sign and the nearest trunk.
+local STAGE4_TREE_ENTRANCE_KEEPOUT = 30
+
+--- Studs between Stage 4 trunks. Wider than scatterFieldTrees' 32 for its stand of
+--- nine, and the count is the reason: on a field carrying FOUR trees a pair that reads
+--- as one clump costs a quarter of everything standing out there, where on Stage 2 it
+--- costs a ninth and the rest of the line covers for it.
+local STAGE4_TREE_MIN_GAP = 40
+
+--- How far gone Stage 4's trees are (`deadTree`'s `wither`). High, and the stage is
+--- the argument: Stage 2's stand is the last field where anything was recently alive,
+--- and the Belt is two fields past it with 37.5 rads at the far end. Whatever died
+--- here died a long time before a player walked in. Stage 2's nine stay at 0 -- that
+--- field is shipped, and two fields of trees at the SAME age would throw away the one
+--- thing this parameter buys, which is that you can see how much further in you are.
+local STAGE4_TREE_WITHER = 0.85
+
+--- Stage 4 -- a HANDFUL of dead trees over the whole field. Not Stage 2's tree line:
+--- that field is edge-weighted (BAND_WEIGHTS) because nine of them reading as a treed
+--- corridor is the point there. Four is not a line and should never try to be one, so
+--- these are dealt off a 2x2 jittered grid -- one per quadrant -- which is what keeps
+--- four trees from landing in the same half of a 290 x 170 field while each one is
+--- still placed anywhere inside its own quadrant. The min-gap rejection is for the one
+--- case the grid cannot cover: two trees in NEIGHBOURING quadrants both jittered hard
+--- toward the shared boundary.
+---
+--- WHY STAGE 4 GETS TREES AT ALL when the note under Stage 5 has "nothing left
+--- standing" starting at Stage 3. Four is the count that keeps that true: the Belt's
+--- landmarks are still its puddles (scatterOozePools' mini lake is the thing you walk
+--- to), and four snags over the whole field are strays on the horizon, not a stand you
+--- walk through. Raise this count and the field turns back into Stage 2.
+---
+--- NO CENTRE LANE, the same call scatterFieldTrees makes: a trunk is something you
+--- walk around, not a carcass laid across the route, and every piece of a deadTree is
+--- CanCollide false anyway.
+---
+--- NOT HELD OFF THE PUDDLES, deliberately -- a dead tree standing in ooze is exactly
+--- what this field is, and pool positions are not tracked past scatterOozePools.
+---
+--- RUNS LAST ON THE STAGE RNG, after the signs AND the puddles, so adding it moved
+--- neither: the same discipline every other multi-pass field in this file follows.
+local function scatterStage4Trees(folder: Instance, origin: CFrame, count: number, rng: Random, hx: number, hz: number)
+	local MAX_ATTEMPTS_PER_TREE = 50
+	local JITTER = 0.38 -- share of a cell, each axis
+
+	local x0 = -hx + STAGE4_TREE_ENTRANCE_KEEPOUT
+	local cols = 2
+	local rows = math.max(1, math.ceil(count / cols))
+	local cellW = (hx - x0) / cols
+	local cellH = 2 * hz / rows
+
+	local placed = {}
+	local function tooClose(x: number, z: number): boolean
+		for _, p in placed do
+			if (x - p[1]) ^ 2 + (z - p[2]) ^ 2 < STAGE4_TREE_MIN_GAP ^ 2 then
+				return true
+			end
+		end
+		return false
+	end
+
+	for i = 0, count - 1 do
+		local col = i % cols
+		local row = math.floor(i / cols) % rows
+		local x, z
+		local attempts = 0
+		repeat
+			x = math.clamp(x0 + (col + 0.5 + rng:NextNumber(-JITTER, JITTER)) * cellW, x0, hx)
+			z = math.clamp(-hz + (row + 0.5 + rng:NextNumber(-JITTER, JITTER)) * cellH, -hz, hz)
+			attempts += 1
+		until not tooClose(x, z) or attempts >= MAX_ATTEMPTS_PER_TREE
+		table.insert(placed, { x, z })
+		deadTree(folder, origin, x, z, rng, STAGE4_TREE_WITHER)
+	end
+end
+
 --- ── Stage 4's ooze puddles ───────────────────────────────────────────────────
 --- THE FIRST POOLS TO COME OFF THE SHELF since the strip-for-rework pass (`1b6ff88`)
 --- took the old whole-field loop out. That loop's pool was ONE Neon cylinder plus one
@@ -3096,12 +3368,16 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- the litter cannot move a bone or a drum -- it is free to go last.
 			FieldLitter.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
 		elseif id == 4 then
-			-- The `barriers` set piece (`theme.props`) is still on the shelf; the signs
-			-- and the puddles are what this field has had its pass on so far.
+			-- The `barriers` set piece (`theme.props`) is still on the shelf; the signs,
+			-- the puddles and the four dead trees are what this field has had its pass on
+			-- so far.
 			scatterWarningSigns(folder, origin, theme.signs or 0, rng, hx, hz)
 			-- AFTER the signs, always: both passes run off the one stage rng, so putting
 			-- the puddles first would move every sign in the entrance rank.
 			scatterOozePools(folder, origin, theme.pools, rng, hx, hz, def.ooze)
+			-- LAST for the same reason the puddles come second -- adding the trees was not
+			-- allowed to move a sign or a pool that was already placed.
+			scatterStage4Trees(folder, origin, theme.trees or 0, rng, hx, hz)
 		elseif id == 6 then
 			-- The craters jitter off their own seeds (Config/StageCraters) and the debris
 			-- off its own, not this stage rng, so anything added to this field later is
