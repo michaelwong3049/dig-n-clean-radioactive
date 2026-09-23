@@ -325,7 +325,10 @@ local function paletteFor(stageId: number): Palette
 		coolant = Color3.fromHex(def.ooze.bright),
 		coolantHex = def.ooze.bright,
 		glowHex = def.ooze.glow,
-		stain = deep:Lerp(base, 0.58),
+		-- 0.68, NOT 0.58: at the lower mix the tide line read as a drawn pink band rather
+		-- than as a mark on the ground, which is half of what made the first rings look
+		-- like targets. The other half was their shape -- see crustRing.
+		stain = deep:Lerp(base, 0.68),
 		stainDeep = deep:Lerp(base, 0.3),
 		chalk = base:Lerp(CHALK, CHALK_MIX),
 		pan = base:Lerp(PAN, PAN_MIX),
@@ -446,25 +449,111 @@ end
 
 -- ── Crust ──────────────────────────────────────────────────────────────────────
 
---- One dried pool: a pale chalk rim, the tide line inside it, the pan it left, and —
---- for the few that have not finished drying — a shrunken eye of coolant in the middle.
+--- The distance from an ellipse's centre to its edge on a world bearing, for an
+--- ellipse of full width `a` by `b` turned by `yaw`. Lobes hang off this.
+local function ellipseEdge(a: number, b: number, yaw: number, bearing: number): number
+	local t = math.rad(bearing - yaw)
+	local ca, sa = math.cos(t) / (a / 2), math.sin(t) / (b / 2)
+	return 1 / math.sqrt(ca * ca + sa * sa)
+end
+
+--- One dried pool: a pale chalk rim, the tide line inside it, the pan it left, and --
+--- for the few that have not finished drying -- a shrunken eye of coolant in it.
 ---
---- BUILT OUTSIDE IN, each oval smaller and a hundredth of a stud higher than the last.
---- That stack IS the ring: there is no annulus primitive here, and four concentric
---- discs read as one the moment the steps between them are small enough that no edge
---- catches a different light. Ascending Y is also what stops the renderer having to
---- break a coplanar tie four ways, which it does badly and differently every frame.
+--- BUILT OUTSIDE IN, each band smaller and a hundredth of a stud higher than the last.
+--- That stack IS the ring: there is no annulus primitive here, and the ascending Y is
+--- what stops the renderer having to break a coplanar tie four ways, which it does
+--- badly and differently every frame.
+---
+--- NOT CONCENTRIC, AND THAT IS THE WHOLE SHAPE. Shot live on the built field, the first
+--- version of this read as a BULLSEYE -- four ellipses on one centre with one aspect
+--- and one yaw, which the eye resolves as a painted target long before it resolves as
+--- crud on the ground. The fix is not contrast, it is eccentricity: a real pan drains
+--- toward its own low corner, so every band inside the rim is shifted that way (`low`),
+--- carries its own yaw and its own aspect, and the rim itself is broken by a lobe or two
+--- near its poles so the outline is not an ellipse at all. The rim ends up thick on the
+--- high side and thin on the low one, which is exactly what a tide mark looks like.
+---
+--- THE LOBES GO NEAR THE POLES, SHORT OF TANGENT. Dropped at a bearing near the waist
+--- they widen the middle, which cancels the body's own elongation back toward a circle
+--- -- build/Scenery's oozePool has the full measured argument for this, and it cost that
+--- file two passes to find. Same rule here, same reason.
 local function crustRing(parent: Instance, x: number, z: number, groundY: number, rng: Random, palette: Palette)
 	local a = rng:NextNumber(5, 13)
 	local b = a / rng:NextNumber(1.05, 1.6)
 	local yaw = rng:NextNumber(0, 360)
 	local y = groundY + CRUST_BASE
 
+	-- The side the pan drained to. Every band inside the rim walks this way, and the
+	-- eye ends up sitting in it.
+	local low = yaw + rng:NextNumber(-70, 70)
+	local lx, lz = math.cos(math.rad(low)), math.sin(math.rad(low))
+
 	disc(parent, "CrustRim", x, y, z, a, b, yaw, palette.chalk, CRUST_THICK)
-	disc(parent, "CrustTide", x, y + CRUST_STEP, z, a * 0.78, b * 0.78, yaw, palette.stain, CRUST_THICK)
-	disc(parent, "CrustPan", x, y + CRUST_STEP * 2, z, a * 0.54, b * 0.54, yaw, palette.pan, CRUST_THICK)
+	for i = 1, rng:NextInteger(1, 2) do
+		local pole = if i % 2 == 1 then yaw else yaw + 180
+		local bearing = pole + rng:NextNumber(-22, 22)
+		local la = a * rng:NextNumber(0.3, 0.52)
+		local lb = la / rng:NextNumber(1.2, 2.0)
+		local reach = (ellipseEdge(a, b, yaw, bearing) - la / 2) * rng:NextNumber(0.5, 0.95)
+		disc(
+			parent,
+			"CrustRim",
+			x + math.cos(math.rad(bearing)) * reach,
+			y,
+			z + math.sin(math.rad(bearing)) * reach,
+			la,
+			lb,
+			bearing + rng:NextNumber(-20, 20),
+			palette.chalk,
+			CRUST_THICK
+		)
+	end
+
+	local tideShift = a * rng:NextNumber(0.07, 0.15)
+	local tideA = a * rng:NextNumber(0.72, 0.84)
+	disc(
+		parent,
+		"CrustTide",
+		x + lx * tideShift,
+		y + CRUST_STEP,
+		z + lz * tideShift,
+		tideA,
+		tideA / rng:NextNumber(1.0, 1.7),
+		yaw + rng:NextNumber(-25, 25),
+		palette.stain,
+		CRUST_THICK
+	)
+
+	-- THE PAN COVERS MOST OF THE TIDE, AND SITS WELL OFF ITS CENTRE. Second live shot:
+	-- making the bands eccentric killed the bullseye but left a DONUT -- the tide still
+	-- showed as a closed, even band all the way round, because the pan inside it was
+	-- small and nearly on its centre. A real pan does not keep an even rim: it holds its
+	-- heaviest mineral on the side the water sat longest and thins to nothing opposite.
+	-- Pushing the pan out to 0.58-0.74 of the body and shifting it a further tenth of the
+	-- width down the low side leaves the tide showing as a CRESCENT on the high side and
+	-- closed nowhere.
+	local panShift = tideShift + a * rng:NextNumber(0.1, 0.22)
+	local panA = a * rng:NextNumber(0.58, 0.74)
+	disc(
+		parent,
+		"CrustPan",
+		x + lx * panShift,
+		y + CRUST_STEP * 2,
+		z + lz * panShift,
+		panA,
+		panA / rng:NextNumber(1.0, 1.8),
+		yaw + rng:NextNumber(-40, 40),
+		palette.pan,
+		CRUST_THICK
+	)
 
 	if rng:NextNumber() < CRUST_EYE_SHARE then
+		-- The remnant sits in the low corner, not in the middle -- a centred dot was half
+		-- of what made the old version a target -- and it is elongated along the drain
+		-- rather than round.
+		local eyeShift = panShift + a * rng:NextNumber(0.04, 0.12)
+		local eyeA = a * rng:NextNumber(0.1, 0.19)
 		-- No light on an eye. One PointLight per dried puddle, thirty of them over the
 		-- field, is the mistake build/Scenery's pool section already talks itself out of
 		-- for the small spills: the ground under a two-stud remnant does not need its own
@@ -472,12 +561,12 @@ local function crustRing(parent: Instance, x: number, z: number, groundY: number
 		disc(
 			parent,
 			"CrustEye",
-			x + rng:NextNumber(-a * 0.1, a * 0.1),
+			x + lx * eyeShift,
 			y + CRUST_STEP * 3,
-			z + rng:NextNumber(-b * 0.1, b * 0.1),
-			a * rng:NextNumber(0.16, 0.3),
-			b * rng:NextNumber(0.16, 0.3),
-			yaw + rng:NextNumber(-25, 25),
+			z + lz * eyeShift,
+			eyeA,
+			eyeA / rng:NextNumber(1.3, 2.4),
+			low + rng:NextNumber(-30, 30),
 			palette.coolant,
 			CRUST_THICK,
 			true
@@ -509,10 +598,26 @@ end
 
 --- Where a run has failed: the liquid leaves the channel and spreads over open ground.
 ---
---- A TONGUE, NOT A PUDDLE. The ovals march AWAY from the break on one bearing, each
---- smaller and slightly off the last one's axis, so the spill has a direction and a
---- head — which is the whole difference between "it leaked here" and "there is a pool
---- here". Stage 4's puddles are the other read, on purpose (see this file's header).
+--- A TONGUE, NOT A PUDDLE. The ovals march AWAY from the break on one bearing, so the
+--- spill has a direction and a head -- which is the whole difference between "it leaked
+--- here" and "there is a pool here". Stage 4's puddles are the other read, on purpose
+--- (see this file's header).
+---
+--- IT WIDENS AS IT GOES, IT DOES NOT TAPER. Shot live on the built field, the first
+--- version put its biggest oval AT the break and shrank from there, which built a
+--- keyhole: a fat round head with a tail hanging off it, reading as a paint splat
+--- rather than as liquid. Liquid coming out of a broken kerb does the opposite -- it
+--- leaves the gap narrow, spreads as it runs and POOLS at the far end where it stops.
+--- `swell` is that curve, peaking around three quarters along and easing off at the
+--- very end, and it is what makes the shape read as flow.
+---
+--- EVERY OVAL WANDERS OFF THE LINE, sideways as well as along it, and carries its own
+--- aspect. Ovals that share a centreline and an aspect merge into one sausage however
+--- many of them there are.
+---
+--- DROPLETS PAST THE HEAD, the same trick scatterOozePools throws off its puddles: a
+--- couple of detached specks past where the body stops break the outline, so the spill
+--- ends in a spatter instead of a clean curve.
 ---
 --- HELD INSIDE THE FIELD, ON A LIVE CHECK -- the same clamp scatterOozePools puts on
 --- its thrown droplets, and needed here for the same reason: a tongue is placed
@@ -524,9 +629,9 @@ end
 ---
 --- ONE LIGHT, ON THE HEAD. build/Scenery's pools carry a PointLight each because Neon
 --- alone reads as bright rather than as lighting the ground around it, and the same
---- holds here — but there are six breaks on this field against Stage 4's twelve pools,
---- and the light goes on the first and biggest oval only, never on every piece of the
---- tongue. Shadows off, the same call every other light on a field makes.
+--- holds here -- but there are six breaks on this field against Stage 4's twelve pools,
+--- and the light goes on the widest oval only, never on every piece of the tongue.
+--- Shadows off, the same call every other light on a field makes.
 local function spillTongue(
 	parent: Instance,
 	x: number,
@@ -537,21 +642,30 @@ local function spillTongue(
 	palette: Palette,
 	bounds: Bounds
 )
-	local reach = rng:NextNumber(9, 16)
+	local reach = rng:NextNumber(11, 19)
+	local count = rng:NextInteger(4, 6)
 	local head: Part? = nil
+	local headA = 0
 	local cx, cz = x, z
+	-- Across the flow, for the sideways wander.
+	local px, pz = math.cos(math.rad(bearing + 90)), math.sin(math.rad(bearing + 90))
 
-	for i = 1, rng:NextInteger(3, 5) do
-		local shrink = 1 - (i - 1) * rng:NextNumber(0.14, 0.24)
-		local a = math.max(2, reach * 0.55 * shrink)
-		local b = a / rng:NextNumber(1.3, 2.2)
-		local axis = bearing + rng:NextNumber(-18, 18)
+	for i = 1, count do
+		-- Narrow at the break, widest about three quarters down, easing off at the end.
+		local t = (i - 1) / math.max(1, count - 1)
+		local swell = 0.32 + 0.68 * math.sin(math.min(t / 0.78, 1) * math.pi * 0.5)
+		if t > 0.78 then
+			swell *= 1 - (t - 0.78) * 1.1
+		end
+		local a = math.max(1.8, reach * 0.42 * swell * rng:NextNumber(0.86, 1.14))
+		local b = a / rng:NextNumber(1.15, 2.6)
+		local axis = bearing + rng:NextNumber(-34, 34)
 
 		-- The crust collar goes down FIRST and a touch wider, so every tongue is ringed
-		-- by the same dried edge the scattered rings out in the field wear — that shared
+		-- by the same dried edge the scattered rings out in the field wear -- that shared
 		-- fringe is what makes the two passes read as one substance.
-		disc(parent, "SpillCrust", cx, groundY + CRUST_BASE, cz, a * 1.22, b * 1.3, axis, palette.chalk, CRUST_THICK)
-		disc(parent, "SpillTide", cx, groundY + CRUST_BASE + CRUST_STEP, cz, a * 1.08, b * 1.14, axis, palette.stain, CRUST_THICK)
+		disc(parent, "SpillCrust", cx, groundY + CRUST_BASE, cz, a * 1.35, b * 1.45, axis, palette.chalk, CRUST_THICK)
+		disc(parent, "SpillTide", cx, groundY + CRUST_BASE + CRUST_STEP, cz, a * 1.16, b * 1.24, axis, palette.stain, CRUST_THICK)
 
 		local part = disc(
 			parent,
@@ -566,13 +680,34 @@ local function spillTongue(
 			COOLANT_THICK,
 			true
 		)
-		if i == 1 then
-			head = part
+		if a > headA then
+			head, headA = part, a
 		end
 
-		local step = a * rng:NextNumber(0.5, 0.8)
-		cx = math.clamp(cx + math.cos(math.rad(bearing)) * step, bounds.minX, bounds.maxX)
-		cz = math.clamp(cz + math.sin(math.rad(bearing)) * step, bounds.minZ, bounds.maxZ)
+		local step = a * rng:NextNumber(0.55, 0.85)
+		local drift = a * rng:NextNumber(-0.3, 0.3)
+		cx = math.clamp(cx + math.cos(math.rad(bearing)) * step + px * drift, bounds.minX, bounds.maxX)
+		cz = math.clamp(cz + math.sin(math.rad(bearing)) * step + pz * drift, bounds.minZ, bounds.maxZ)
+	end
+
+	-- The spatter past the head.
+	for _ = 1, rng:NextInteger(2, 4) do
+		local throw = reach * rng:NextNumber(0.1, 0.42)
+		local off = bearing + rng:NextNumber(-48, 48)
+		local da = rng:NextNumber(0.7, 2.2)
+		disc(
+			parent,
+			"SpillDrop",
+			math.clamp(cx + math.cos(math.rad(off)) * throw, bounds.minX, bounds.maxX),
+			groundY + COOLANT_TOP,
+			math.clamp(cz + math.sin(math.rad(off)) * throw, bounds.minZ, bounds.maxZ),
+			da,
+			da / rng:NextNumber(1.0, 1.8),
+			off,
+			palette.coolant,
+			COOLANT_THICK,
+			true
+		)
 	end
 
 	if head then
