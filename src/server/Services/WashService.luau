@@ -728,14 +728,14 @@ local function revealAndFinish(player: Player, session: Session, data: any, item
 	session.lockedZone = nil
 	session.aimZone = nil
 
-	local first = IdentifyService.identify(player, item)
+	local first, previousBest = IdentifyService.identify(player, item)
 	push(player, session, data)
 	if session.model then
 		ItemCrust.clear(session.model)
 	end
 
 	local value = EconomyService.valueOf(item, StatResolver.get(data))
-	IdentifyService.announce(player, item, first, { staged = true, value = value })
+	IdentifyService.announce(player, item, first, { staged = true, value = value, previousBest = previousBest })
 
 	local def = Items.get(item.itemId)
 	task.delay(Tuning.WASH_REVEAL_HOLD, function()

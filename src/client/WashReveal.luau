@@ -73,6 +73,7 @@ local T = {
 	NAME_AT = 0.5,
 	PILL_AT = 0.75,
 	VALUE_AT = 0.9,
+	RECORD_AT = 0.6,
 	COUNT_TIME = 0.9,
 
 	-- Which rarities (by Rarity order) earn the extras.
@@ -364,6 +365,21 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 
 	local pill, pillScale = chip(canvas, rarityLine(found), colour, T.INK, 0.785)
 
+	-- NEW HEAVIEST: this one out-weighs the index's record for it (IdentifyService's
+	-- `previousBest`, never set on a first find). Gold, under the ribbon, with the
+	-- record it just beat.
+	local record: Frame? = nil
+	local recordScale: UIScale? = nil
+	if type(found.previousBest) == "number" and type(found.weight) == "number" then
+		record, recordScale = chip(
+			canvas,
+			`NEW HEAVIEST!  {UIKit.formatKg(found.weight)}  (was {UIKit.formatKg(found.previousBest)})`,
+			T.GOLD,
+			T.INK,
+			0.205
+		)
+	end
+
 	local valueLabel: TextLabel? = nil
 	local valueScale: UIScale? = nil
 	if type(found.value) == "number" then
@@ -464,6 +480,11 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		end },
 		{ at = T.PILL_AT, done = false, run = function()
 			rise(pill, pillScale)
+		end },
+		{ at = T.RECORD_AT, done = false, run = function()
+			if record and recordScale then
+				pop(record, recordScale, 0, 0.35)
+			end
 		end },
 		{
 			at = T.VALUE_AT,

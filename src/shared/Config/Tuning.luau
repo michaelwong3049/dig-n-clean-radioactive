@@ -433,4 +433,12 @@ Tuning.WASH_FOV = 72
 -- Same reason it is here: WashService measures the frame from this point.
 Tuning.WASH_EYE_FORWARD = 0.4
 
+-- THE INDEX'S STAGE REWARD. Identify every nuke a stage stocks and your detector reads
+-- that stage with this much more dig luck, forever (Shared/IndexProgress, applied in
+-- DigService's rollFor). Added to the detector's own `luck`, not multiplied: a tier-1
+-- Bent Coil (1.00) becomes 1.10, just under the Scavenger MkI's 1.12, so a completed
+-- stage is worth most of one detector rung there and a small nudge on an Oracle. Items
+-- stocked in two stages count toward both.
+Tuning.INDEX_COMPLETE_LUCK = 0.10
+
 return Tuning

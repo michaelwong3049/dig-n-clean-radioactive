@@ -91,6 +91,11 @@ local TEMPLATE = {
 	heldUid = "",
 
 	discovered = {}, -- itemId -> true. Drives the museum (PLAN §10.10).
+	-- itemId -> Shared/IndexProgress.Entry: heaviest payload identified, times found,
+	-- first-found time, NEW flag. Written by IdentifyService only. Kept beside
+	-- `discovered` rather than replacing it: every existing save and reader keys off
+	-- that set, and a record is extra detail about a discovery, not the discovery.
+	indexStats = {},
 	perks = {}, -- perkId -> true. Read by StatResolver.
 
 	-- Rebirth / gamepass / pet multipliers, pre-summed by whoever grants them.

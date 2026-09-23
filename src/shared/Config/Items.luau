@@ -1096,6 +1096,12 @@ function Items.get(id: string): ItemDef
 	return item
 end
 
+--- Whether `id` names a catalogue entry. For input that did not come from the
+--- catalogue itself (a client remote, an old save), where `get`'s assert would throw.
+function Items.has(id: string): boolean
+	return byId[id] ~= nil
+end
+
 --- Every item of one rarity that can spawn in one stage. May be empty — Stage 1 has
 --- no Mythic or Anomaly entries, so callers must handle the empty case rather than
 --- assuming a hit.

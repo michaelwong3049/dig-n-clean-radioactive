@@ -106,11 +106,15 @@ local REMOTES: { [string]: string } = {
 	-- part in Workspace (Config/Detonation.FOLDER), so late joiners see that too.
 	Detonation = "RemoteEvent", -- server -> all clients, { position, rarity, blastRadius, orbRadius }
 
-	-- The index GUI. One snapshot of data.discovered on load; the client tops it up
-	-- itself from ItemIdentified's itemId as new discoveries happen, so this never
-	-- needs to fire a second time. It used to top up from Unearthed, which lit the
-	-- catalogue tile for something the player had not been told they were carrying.
+	-- The index GUI. One snapshot on load, { discovered, stats } (data.discovered and
+	-- data.indexStats); the client tops it up itself from the `index` record riding on
+	-- ItemIdentified as new identifications happen, so this never needs to fire a
+	-- second time. It used to top up from Unearthed, which lit the catalogue tile for
+	-- something the player had not been told they were carrying.
 	IndexState = "RemoteEvent", -- server -> client, once per load
+	-- "I have looked at this entry": clears its NEW badge. Carries one itemId. The
+	-- server only ever flips a flag it set itself, so a spoofed id does nothing.
+	IndexSeen = "RemoteEvent", -- client -> server
 
 	-- WHAT THE LUMP TURNED OUT TO BE. An item comes out of the ground encased in slag
 	-- (Shared/ItemCrust) and is "???" everywhere until the crust is off, so Unearthed
