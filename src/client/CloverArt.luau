@@ -1,0 +1,150 @@
+--!strict
+--[[
+	CloverArt.luau — a four-leaf clover drawn out of Frames, for the 2x-luck badge
+	(LuckBoostController) and the Lucky Clover card in the Shop panel (ShopController).
+
+	FRAMES, NOT AN IMAGE, for the same reason the rad panel's trefoil is Frames
+	(HealthPanel): an uploaded icon is an asset the account has to own and moderation
+	can take away, and a Frame drawing takes any colour the palette asks for.
+
+	DRAWN IN THE HUD'S CARTOON VOICE (CashController's header): one thick INK outline
+	around the whole silhouette and a hard black shadow dropped a few px, never a blur.
+	A per-shape UIStroke would outline every overlap too -- a line through the middle
+	of each leaf where its two lobes meet -- so the outline is a LAYER instead: the same
+	shapes grown by the outline width in INK, the fill shapes laid on top of them. The
+	shadow is that silhouette again, offset, under both.
+
+	VIOLET, NOT GREEN. Green on the HUD means exposure and nothing else (PLAN §14;
+	StageBannerController's and CashController's headers both hit the same wall), and a
+	green clover in the corner would read as a rad warning at a glance. Violet is the
+	Violet Aurora's colour, so the corner clover, the sky and the shop card are one
+	thing: violet means luck. PALETTE is the one place to change that.
+
+	Each leaf is a heart: two round lobes outboard and a square turned 45 degrees whose
+	corner is the leaf's point, meeting the other three at the clover's centre.
+]]
+
+local CloverArt = {}
+
+local INK = Color3.fromHex("1A1A1A")
+
+export type Palette = {
+	leaf: Color3,
+	shade: Color3,
+	shine: Color3,
+	stem: Color3,
+}
+
+CloverArt.PALETTE = {
+	leaf = Color3.fromHex("A46BFF"),
+	shade = Color3.fromHex("7E45E6"),
+	shine = Color3.fromHex("E6D6FF"),
+	stem = Color3.fromHex("6A34C9"),
+} :: Palette
+
+local ROUND = UDim.new(0.5, 0)
+
+local function shape(parent: Instance, name: string, size: Vector2, center: Vector2, color: Color3, z: number, round: boolean, rotation: number?): Frame
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Size = UDim2.fromOffset(size.X, size.Y)
+	frame.Position = UDim2.new(0.5, center.X, 0.5, center.Y)
+	frame.BackgroundColor3 = color
+	frame.BorderSizePixel = 0
+	frame.Rotation = rotation or 0
+	frame.ZIndex = z
+	if round then
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = ROUND
+		corner.Parent = frame
+	end
+	frame.Parent = parent
+	return frame
+end
+
+--- Rotate a screen-space offset clockwise by `degrees` (screen y points down).
+local function turn(v: Vector2, degrees: number): Vector2
+	local r = math.rad(degrees)
+	local c, s = math.cos(r), math.sin(r)
+	return Vector2.new(v.X * c - v.Y * s, v.X * s + v.Y * c)
+end
+
+--- One heart-shaped leaf pointing `angle` degrees clockwise from straight up, in leaf
+--- units `u` (the leaf's own box), grown by `grow` px on every edge.
+local function leaf(parent: Instance, u: number, angle: number, grow: number, fill: Color3, lobeFill: Color3?, z: number)
+	-- In the leaf's own frame (point toward +y, the clover's centre), measured from the
+	-- point: lobes out at y = -0.68u, the diamond centred at -0.40u.
+	local lobeD = 0.56 * u + 2 * grow
+	local diamond = 0.56 * u + 2 * grow
+	local lobes = {
+		Vector2.new(-0.28 * u, -0.68 * u),
+		Vector2.new(0.28 * u, -0.68 * u),
+	}
+	local body = turn(Vector2.new(0, -0.40 * u), angle)
+	shape(parent, "Point", Vector2.new(diamond, diamond), body, fill, z, false, 45 + angle)
+	for i, lobe in lobes do
+		shape(parent, `Lobe{i}`, Vector2.new(lobeD, lobeD), turn(lobe, angle), lobeFill or fill, z, true)
+	end
+end
+
+local function stem(parent: Instance, u: number, grow: number, color: Color3, z: number)
+	local length = 0.95 * u + 2 * grow
+	local width = 0.17 * u + 2 * grow
+	shape(parent, "Stem", Vector2.new(width, length), turn(Vector2.new(0, 0.5 * length - grow), -45), color, z, true, -45)
+end
+
+--- Build a clover `size` px square, centred in a transparent frame of that size.
+--- `outline` is the INK width, `shadow` the drop in px (0 = none). Returns the frame.
+function CloverArt.build(parent: Instance, size: number, zIndex: number?, palette: Palette?, outline: number?, shadow: number?): Frame
+	local colors = palette or CloverArt.PALETTE
+	local z = zIndex or 1
+	local line = outline or math.max(2, size * 0.045)
+	local drop = shadow or math.max(2, size * 0.05)
+	-- The whole clover spans ~1.95 leaf units each way from its centre.
+	local u = size / 2.05
+
+	local root = Instance.new("Frame")
+	root.Name = "Clover"
+	root.BackgroundTransparency = 1
+	root.Size = UDim2.fromOffset(size, size)
+	root.Parent = parent
+
+	local angles = { 0, 90, 180, 270 }
+
+	-- Shadow, then outline: the same silhouette twice, grown by the line width.
+	if drop > 0 then
+		local shadowLayer = Instance.new("Frame")
+		shadowLayer.Name = "Shadow"
+		shadowLayer.BackgroundTransparency = 1
+		shadowLayer.Size = UDim2.fromScale(1, 1)
+		shadowLayer.Position = UDim2.fromOffset(drop * 0.6, drop)
+		shadowLayer.Parent = root
+		stem(shadowLayer, u, line, INK, z)
+		for _, angle in angles do
+			leaf(shadowLayer, u, angle, line, INK, nil, z)
+		end
+	end
+	stem(root, u, line, INK, z + 1)
+	for _, angle in angles do
+		leaf(root, u, angle, line, INK, nil, z + 1)
+	end
+
+	-- Fill: stem under the leaves, lobes a shade lighter than the point so each leaf
+	-- reads as a heart and not a blob.
+	stem(root, u, 0, colors.stem, z + 2)
+	for _, angle in angles do
+		leaf(root, u, angle, 0, colors.shade, colors.leaf, z + 3)
+	end
+	-- The seam where the four points meet, and a glint on each leaf's upper lobe.
+	shape(root, "Heart", Vector2.new(0.3 * u, 0.3 * u), Vector2.zero, colors.shade, z + 4, true)
+	for _, angle in angles do
+		local glint = turn(Vector2.new(-0.33 * u, -0.78 * u), angle)
+		local spot = shape(root, "Glint", Vector2.new(0.2 * u, 0.13 * u), glint, colors.shine, z + 5, true, angle - 35)
+		spot.BackgroundTransparency = 0.15
+	end
+
+	return root
+end
+
+return CloverArt

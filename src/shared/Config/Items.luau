@@ -1171,28 +1171,34 @@ Items.DIG_LUCK_BIAS_CAP = 20
 
 --- The luck exponent for a rarity: luck^1 at Rare, luck^2 at Epic, ... clamped to
 --- DIG_LUCK_BIAS_CAP. Exactly 1 (untouched) for anything below DIG_LUCK_MIN_ORDER.
-function Items.luckBias(rarity: string, luck: number): number
+---
+--- `boost` is 2x luck (Config/LuckBoost, 1 when absent): a flat multiplier on the
+--- same Rare+ rungs, applied OUTSIDE the cap. The cap bounds what a detector can do;
+--- the boost is "twice as likely" on top of whatever that is. Folding it into `luck`
+--- instead would hit the cap and lower a maxed detector's Legendary odds -- see
+--- Config/LuckBoost's header for the measured numbers.
+function Items.luckBias(rarity: string, luck: number, boost: number?): number
 	local order = Rarity.get(rarity).order
 	if order < Items.DIG_LUCK_MIN_ORDER then
 		return 1
 	end
-	return math.min(luck ^ (order - Items.DIG_LUCK_MIN_ORDER + 1), Items.DIG_LUCK_BIAS_CAP)
+	return math.min(luck ^ (order - Items.DIG_LUCK_MIN_ORDER + 1), Items.DIG_LUCK_BIAS_CAP) * (boost or 1)
 end
 
 --- One item's roll weight in a stage: 1/odds, tilted by rarity, luck-boosted at the
 --- top, and biased down by its physical weight (Config/Weight.rollBias).
-function Items.effectiveWeight(item: ItemDef, tilt: number, luck: number): number
+function Items.effectiveWeight(item: ItemDef, tilt: number, luck: number, boost: number?): number
 	local order = Rarity.get(item.rarity).order
 	return (1 / item.odds)
 		* tilt ^ (order - 1)
-		* Items.luckBias(item.rarity, luck)
+		* Items.luckBias(item.rarity, luck, boost)
 		* Weight.rollBias(item.weight)
 end
 
 --- Normalised roll probability per stocked item in a stage, keyed by id. Sums to 1.
 --- Empty when the stage stocks nothing. The odds this could be shown next to and the
 --- odds Items.rollItem draws against come out of here together.
-function Items.rollWeights(stageId: number, tilt: number, luck: number): { [string]: number }
+function Items.rollWeights(stageId: number, tilt: number, luck: number, boost: number?): { [string]: number }
 	local pool = stageItems[stageId]
 	local out: { [string]: number } = {}
 	if pool == nil then
@@ -1201,13 +1207,13 @@ function Items.rollWeights(stageId: number, tilt: number, luck: number): { [stri
 
 	local total = 0
 	for _, item in pool do
-		total += Items.effectiveWeight(item, tilt, luck)
+		total += Items.effectiveWeight(item, tilt, luck, boost)
 	end
 	if total <= 0 then
 		return out
 	end
 	for _, item in pool do
-		out[item.id] = Items.effectiveWeight(item, tilt, luck) / total
+		out[item.id] = Items.effectiveWeight(item, tilt, luck, boost) / total
 	end
 	return out
 end
@@ -1215,7 +1221,7 @@ end
 --- Weighted pick of one item id from a stage's pool. Walks `stageItems` in its stable
 --- order so the roll is reproducible. Returns nil ONLY when the stage stocks nothing at
 --- all -- callers treat that as a content gap (no signals spawn), not a crash.
-function Items.rollItem(stageId: number, tilt: number, luck: number): string?
+function Items.rollItem(stageId: number, tilt: number, luck: number, boost: number?): string?
 	local pool = stageItems[stageId]
 	if pool == nil or #pool == 0 then
 		return nil
@@ -1223,12 +1229,12 @@ function Items.rollItem(stageId: number, tilt: number, luck: number): string?
 
 	local total = 0
 	for _, item in pool do
-		total += Items.effectiveWeight(item, tilt, luck)
+		total += Items.effectiveWeight(item, tilt, luck, boost)
 	end
 
 	local pick = math.random() * total
 	for _, item in pool do
-		pick -= Items.effectiveWeight(item, tilt, luck)
+		pick -= Items.effectiveWeight(item, tilt, luck, boost)
 		if pick <= 0 then
 			return item.id
 		end

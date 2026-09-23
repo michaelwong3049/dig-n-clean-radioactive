@@ -29,6 +29,8 @@ local ORDER = {
 	"CarryService", -- describes the backpack for every surface that renders it; needs Economy
 	"StationService", -- what you are standing at; DeconService, ShopService and ExhibitService read it
 	"ShopService", -- turning cash back into capability; needs Station + Economy
+	"ProductService", -- Robux developer products; the ONE owner of ProcessReceipt; needs Data
+	"LuckBoostService", -- 2x luck: the Violet Aurora event + the bought Lucky Clover; needs Product
 	"ExhibitService", -- plot assignment, display/undisplay, yield accrual; needs Station + Economy
 	"TreadmillService", -- the speed grind on your plot's belt; needs Station + Economy + Exhibit
 	"WarpService", -- the top-of-screen bar's teleport; needs Stage + Camp + Dig + Exhibit + Exposure
