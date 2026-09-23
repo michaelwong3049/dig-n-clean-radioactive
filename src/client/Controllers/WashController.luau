@@ -1529,6 +1529,10 @@ local function ensureGui(): boolean
 	gui.Name = "WashBay"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
+	-- And no notch inset, for the same two reasons (UIKit's "The notch"): the reticle
+	-- marks the camera's own centre, and the wipe has to cover the whole screen. The
+	-- two corner widgets add the inset back themselves.
+	gui.ScreenInsets = Enum.ScreenInsets.None
 	-- Above everything, including HudController's blackout curtain (100). A transition
 	-- that something else can draw on top of is not covering the cut it exists to hide.
 	gui.DisplayOrder = 200
@@ -1592,8 +1596,9 @@ local function ensureGui(): boolean
 	-- Bottom-right, name only, tinted the liquid's own colour. The wash pad's own
 	-- billboard readout (LiquidController) is hidden with the rest of the HUD for the
 	-- session, so this is the only "what am I spraying" cue inside the shot. Kept to a
-	-- word in the corner: the aim, not the inventory, is what this view is about.
-	UIKit.label(canvas, {
+	-- word in the corner: the aim, not the inventory, is what this view is about. On a
+	-- phone that corner is the jump button's, so it stands on top of it instead.
+	local fluidLabel = UIKit.label(canvas, {
 		name = "Fluid",
 		anchorPoint = Vector2.new(1, 1),
 		position = UDim2.new(1, -22, 1, -22),
@@ -1605,6 +1610,16 @@ local function ensureGui(): boolean
 		visible = false,
 		zIndex = 1,
 	})
+	-- Its drop shadow (UIKit.label's, a sibling) is placed once at build, so it moves too.
+	local fluidShadow = canvas:FindFirstChild("FluidShadow") :: TextLabel?
+	UIKit.onScaleChanged(function()
+		local inset = UIKit.safeInsets()
+		local lift = math.max(22, UIKit.touchCorner().Y + UIKit.Dock.GAP) + inset.bottom
+		fluidLabel.Position = UDim2.new(1, -22 - inset.right, 1, -lift)
+		if fluidShadow then
+			fluidShadow.Position = fluidLabel.Position + UDim2.fromOffset(UIKit.TextShadow.offset.X, UIKit.TextShadow.offset.Y)
+		end
+	end)
 
 	-- ── The clean-percent bar ──
 	-- Bottom-centre: how much of the ITEM is clean, not any one patch. WashService
@@ -1621,6 +1636,9 @@ local function ensureGui(): boolean
 	cleanBar.Visible = false
 	cleanBar.ZIndex = 1
 	cleanBar.Parent = canvas
+	UIKit.onScaleChanged(function()
+		cleanBar.Position = UDim2.new(0.5, 0, 1, -22 - UIKit.safeInsets().bottom)
+	end)
 
 	local cleanCorner = Instance.new("UICorner")
 	cleanCorner.CornerRadius = UIKit.Radius.button

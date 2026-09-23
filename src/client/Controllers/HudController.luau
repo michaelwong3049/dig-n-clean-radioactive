@@ -322,6 +322,11 @@ local function build(): ScreenGui
 	gui.Name = "RadHud"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
+	-- Edge to edge, notch and all (UIKit's "The notch"): the damage overlay and the
+	-- blackout curtain are both the whole screen, and a curtain that stops at the safe
+	-- area leaves a strip of the world showing down one side. The meter, the one thing
+	-- here that hugs an edge, adds the inset back itself.
+	gui.ScreenInsets = Enum.ScreenInsets.None
 	gui.DisplayOrder = 100
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
@@ -341,7 +346,14 @@ local function build(): ScreenGui
 	local meter = Instance.new("Frame")
 	meter.Name = "Meter"
 	meter.Size = Dock.METER_SIZE
-	meter.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.METER_TOP_Y)
+	-- Placed in the safe area's frame, not the screen's, to stay stacked under the cash
+	-- badge (CashController), whose gui IS inset: its left edge, and its centre line,
+	-- which a home bar at the bottom lifts by half the bar.
+	UIKit.onScaleChanged(function()
+		local inset = UIKit.safeInsets()
+		local centreShift = (inset.top - inset.bottom) / 2
+		meter.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + inset.left, 0.5, Dock.METER_TOP_Y + centreShift)
+	end)
 	meter.BackgroundTransparency = 1
 	meter.ZIndex = 4
 	meter.Parent = canvas

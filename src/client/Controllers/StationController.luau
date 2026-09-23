@@ -252,6 +252,16 @@ local STALL_ACCENT: { [string]: Color3 } = {
 -- the cards do not shrink to fit, so the panel has to.
 local SCREEN_MARGIN = 24
 
+-- ...AND THE HEIGHT IS A CEILING TOO, on a short screen. The shop card alone is 500
+-- design px tall and the whole panel ~660, which a phone at UIKit.MIN_SCALE does not
+-- have: the panel ran off the top and bottom and the hotbar (drawn over it, see
+-- build()) sat on the BUY button. So when the panel does not fit between FIT_TOP and
+-- the top of the hotbar, fitPanel() shrinks it with its own UIScale until it does,
+-- and lifts it clear of the hotbar. A screen with the room — any desktop at 1280x720
+-- or more — never triggers either, and sees the panel exactly as before.
+local FIT_TOP = 12
+local FIT_BOTTOM = UIKit.Dock.HOTBAR_BOTTOM + UIKit.Dock.HOTBAR_HEIGHT + UIKit.Dock.GAP
+
 local ui = {}
 local state = { station = nil, items = {}, locker = {} }
 local selected: string? = nil
@@ -797,17 +807,50 @@ local function build(): ScreenGui
 	closeButton.ZIndex = 10
 	ui.closeButton = closeButton
 
+	-- The panel's own shrink-to-fit on a short screen (fitPanel below). The close badge
+	-- is not inside the panel, so it wears the same factor by hand, or a full-size badge
+	-- lands on the shrunken wallet beside it.
+	local fitScale = Instance.new("UIScale")
+	fitScale.Parent = panel
+	ui.panelFit = fitScale
+	local closeFit = Instance.new("UIScale")
+	closeFit.Parent = closeButton
+
 	local function repositionClose()
 		-- AbsolutePosition / AbsoluteSize are SCREEN pixels and the button's Offset is a
 		-- design pixel on the same UIKit canvas, so measure from the canvas's own corner
 		-- and divide by its scale — or the badge drifts off the corner as the HUD scales.
 		local s = UIKit.canvasScale(canvas)
+		local inset = 14 * fitScale.Scale
 		local corner = (panel.AbsolutePosition - canvas.AbsolutePosition) / s
-		closeButton.Position = UDim2.fromOffset(corner.X + panel.AbsoluteSize.X / s - 14, corner.Y + 14)
+		closeButton.Position = UDim2.fromOffset(corner.X + panel.AbsoluteSize.X / s - inset, corner.Y + inset)
+		closeFit.Scale = fitScale.Scale
 	end
 	panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(repositionClose)
 	panel:GetPropertyChangedSignal("AbsolutePosition"):Connect(repositionClose)
 	repositionClose()
+
+	-- See FIT_TOP. Everything is measured unscaled (divided back out of AbsoluteSize),
+	-- so setting the scale does not feed back into the next measurement.
+	local function fitPanel()
+		local s = UIKit.canvasScale(canvas)
+		local screenHeight = canvas.AbsoluteSize.Y / s
+		local height = panel.AbsoluteSize.Y / (s * fitScale.Scale)
+		if screenHeight <= 0 or height <= 0 then
+			return
+		end
+		local room = screenHeight - FIT_TOP - FIT_BOTTOM
+		local fit = math.min(1, math.floor(room / height * 1000) / 1000)
+		if math.abs(fitScale.Scale - fit) > 0.001 then
+			fitScale.Scale = fit
+		end
+		-- Centred as always, unless that leaves its bottom edge under the hotbar.
+		local overlap = (screenHeight + height * fit) / 2 - (screenHeight - FIT_BOTTOM)
+		panel.Position = UDim2.new(0.5, 0, 0.5, -math.max(0, overlap))
+	end
+	panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitPanel)
+	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitPanel)
+	fitPanel()
 
 	-- The ceiling half of "viewport minus a margin, but never wider than". render()
 	-- retunes MaxSize.X per mode; MinSize stops a phone-width viewport collapsing the
@@ -1970,7 +2013,9 @@ function Station.start()
 		if (byMouse and kind ~= Enum.UserInputType.MouseMovement) or (not byMouse and input ~= dragInput) then
 			return
 		end
-		local dx = (input.Position.X - dragStartX) / UIKit.canvasScale(ui.canvas)
+		-- Screen px to the row's own design px: the canvas scale, and the fit scale the
+		-- panel wears on a short screen (fitPanel).
+		local dx = (input.Position.X - dragStartX) / (UIKit.canvasScale(ui.canvas) * ui.panelFit.Scale)
 		if not dragMoved and math.abs(dx) < DRAG_SLOP then
 			return
 		end
