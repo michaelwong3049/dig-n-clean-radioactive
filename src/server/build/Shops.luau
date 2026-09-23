@@ -30,12 +30,13 @@
 	do not physically have at all — since moved out to its own button (see the LUCK
 	IS NOT HERE note below).
 
-	EVERY TIER OF A TRACK HANGS ON A RAIL BESIDE THE STAND, AND YOU BUY THE ONE YOU
+	EVERY TIER OF A TRACK HANGS ON A RAIL BESIDE THE STAND, AND YOU PICK THE ONE YOU
 	ARE STANDING AT. The ladder used to be visible only as a list: walk into a radius,
 	a scrolling panel of cards opens, pick a row. It is a physical object now — eight
 	detectors in a row, cheapest first, each hung from the rail and standing on the
 	deck, its price on a card above it and its own ProximityPrompt — so browsing is
-	WALKING, and buying is pressing E in front of the one you want. The models are the
+	WALKING, and pressing E in front of the one you want opens that tier's own shop
+	card, whose button buys it. The models are the
 	real ones: Assets/Tools/<Track>/T<n>, exactly what ToolService clones into your hands.
 
 	THE GEAR HANGS FLOOR-TO-RAIL, AND THAT STRIP IS THIS PASS. The rack first shipped
@@ -52,10 +53,10 @@
 	why BOTH halves carry the station attributes.
 
 	THE PANEL DID NOT GO AWAY. The stand keeps its StationKind and the card panel
-	still opens — that is where the stat blocks live. The rack is the fast path ("I
-	know which one I want"), the panel the slow one ("which one SHOULD I want"). Two
-	doors on the same purchase; ShopService.buyTier is behind both of them and
-	validates identically either way.
+	still opens — the whole storefront, every tier side by side. The rack's E opens
+	just the one card you walked up to ("I know which one I want"), the stand's E the
+	whole row ("which one SHOULD I want"). Both are the same card and the same button,
+	so ShopService.buyTier sits behind one door, not two.
 
 	A STALL IS AS WIDE AS ITS TRACK IS LONG. `stallWidth` derives it from
 	Gear.maxTier, so the Detector stall (8 tiers) is wider than the Magnet stall (6),
@@ -184,7 +185,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 40
+local BUILDER_VERSION = 41
 
 local C = Kit.C
 local build = Kit.build
@@ -252,7 +253,7 @@ local STALLS = {
 -- ── The rack ─────────────────────────────────────────────────────────────────
 --
 -- EVERY TIER OF THE TRACK HANGS ON A RAIL OVER THE WING'S SHELF, beside the stand,
--- and you buy the one you are standing in front of. That is the whole feature: the
+-- and E on the one you are standing in front of opens its shop card. That is the whole feature: the
 -- shop panel used to be the only way to see what a track sold, so a player had to
 -- walk into a radius, read a scrolling list of cards and pick a row. Now the ladder
 -- is a physical object — eight detectors in a row, cheapest nearest the stand, each
@@ -260,9 +261,8 @@ local STALLS = {
 -- browsing it.
 --
 -- THE PANEL IS STILL THERE. This does not replace it; the stand keeps its
--- StationKind and the card panel still opens (that is where the stat blocks live).
--- The rack is the fast path for "I know which one I want", the panel the slow path
--- for "which one SHOULD I want".
+-- StationKind and the card panel still opens. The rack's E opens one tier's card, the
+-- stand's E the whole row of them.
 --
 -- ONE PROMPT WINS AT A TIME, and that is Roblox's default, not something arranged
 -- here: ProximityPromptService's default Exclusivity is OnePerButton, so of the
@@ -901,28 +901,89 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: 
 	return RACK_DROP_BASE + (hi.Y - lo.Y)
 end
 
---- The price card over one hanging tier: its name, and what it costs.
+--- The price card over one hanging tier: its price, big, with the tier's name small
+--- above it.
 ---
---- NOT Kit.billboard, and the difference is width. Every other sign in the world
---- stands alone, so Kit.billboard's 200-400px card can be as wide as its text wants.
---- These sit RACK_PITCH studs apart in a row of up to eight, and at that spacing a
---- 200px card overlaps its neighbours into an unreadable smear the moment you walk
---- up to the counter. So: a narrow card, and the name is TextScaled rather than a
---- fixed TextSize, because "Bent Coil" and "Resonance Mapper" have to fit the same
---- band. MaxDistance is short for the same crowding reason — 21 price cards visible
---- from the middle of the plaza is noise, not information.
+--- SIZED IN STUDS, NOT PIXELS, and that is the whole fix to the rack's old look. The
+--- card used to be a fixed 130x46 px on screen at any distance, while the tiers under
+--- it are only RACK_PITCH studs apart, so the moment you stood back far enough for
+--- that gap to be under 130px the names ran into each other. A BillboardGui's Size in
+--- SCALE is measured in studs, so these shrink with the rack as you walk away and a
+--- card can never reach the next one: PRICE_CARD_WIDTH is under RACK_PITCH by design.
+---
+--- PRICE FIRST, on request, picked from a round of mockups: the thing a player scans a
+--- rail for is what they can afford, so the price is the big line (LuckiestGuy, gold)
+--- and the name the small one (FredokaOne) — both in the HUD's black cartoon outline.
+---
+--- THE NAME IS SPLIT ONTO TWO LINES HERE, NOT WRAPPED BY THE ENGINE. With a stud-sized
+--- card the text has to be TextScaled, and TextScaled + TextWrapped sizes each label
+--- to its own box: "Bent Coil" would come out twice the height of "Resonance Mapper"
+--- beside it. Splitting long names by hand and growing the name box by one line
+--- height per line keeps every line on the rail at the same height (see nameLines).
 ---
 --- NAMED "Sign" WITH "Title" / "Subtitle" CHILDREN, matching Kit.billboard exactly.
 --- The client rewrites the subtitle into the owned-check (StationController's rack
 --- pass) and finds it by those names; a card that spelled them differently would be
 --- invisible to it.
-local function buildPriceCard(mount: BasePart, name: string, price: number, accent: string)
+local PRICE_CARD_WIDTH = RACK_PITCH - 0.6 -- studs; the gap to the next card is the 0.6
+local PRICE_LINE_HEIGHT = 0.72 -- studs; the price
+local NAME_LINE_HEIGHT = 0.46 -- studs, per line of the name
+local PRICE_CARD_LIFT = 0.35 -- studs from the mount's top face to the card's bottom edge
+local PRICE_GOLD = "FFD84A" -- the cash badge's gold, so a price reads as the same money
+-- A name longer than this goes onto two lines: about what FredokaOne fits across
+-- PRICE_CARD_WIDTH at NAME_LINE_HEIGHT before TextScaled starts shrinking it. A long
+-- name with no space to split at ("Electromagnet") stays one line and shrinks a little.
+local NAME_ONE_LINE_MAX = 11
+
+--- "$320,000", not "$320000": every other price in the game is grouped.
+local function priceText(price: number): string
+	if price <= 0 then
+		return "FREE"
+	end
+	local grouped = tostring(math.floor(price))
+	while true do
+		local nextText, count = string.gsub(grouped, "^(%-?%d+)(%d%d%d)", "%1,%2")
+		grouped = nextText
+		if count == 0 then
+			break
+		end
+	end
+	return `${grouped}`
+end
+
+--- The name as one line, or two split at the space nearest the middle.
+local function nameLines(name: string): (string, number)
+	if #name <= NAME_ONE_LINE_MAX then
+		return name, 1
+	end
+	local best: number? = nil
+	for index = 1, #name do
+		if string.sub(name, index, index) == " " then
+			if best == nil or math.abs(index - #name / 2) < math.abs(best - #name / 2) then
+				best = index
+			end
+		end
+	end
+	if best == nil then
+		return name, 1
+	end
+	return string.sub(name, 1, best - 1) .. "\n" .. string.sub(name, best + 1), 2
+end
+
+local function buildPriceCard(mount: BasePart, name: string, price: number)
+	local nameText, lines = nameLines(name)
+	local nameHeight = lines * NAME_LINE_HEIGHT
+	local height = nameHeight + PRICE_LINE_HEIGHT
+
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Sign"
-	gui.Size = UDim2.fromOffset(130, 46)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, 1.5, 0)
+	gui.Size = UDim2.fromScale(PRICE_CARD_WIDTH, height)
+	-- The card's CENTRE, so its bottom edge sits PRICE_CARD_LIFT over the mount's top.
+	gui.StudsOffsetWorldSpace = Vector3.new(0, mount.Size.Y / 2 + PRICE_CARD_LIFT + height / 2, 0)
 	gui.AlwaysOnTop = true
-	gui.MaxDistance = 28
+	-- Longer than the old 28 now that a far card is simply small rather than a smear:
+	-- a price you can read from the aisle is worth drawing.
+	gui.MaxDistance = 44
 	-- Same reason Kit.billboard sets this: the stall signs sit near lamps and a sign
 	-- should not wash toward white along with whatever it is bolted to.
 	gui.LightInfluence = 0
@@ -930,34 +991,36 @@ local function buildPriceCard(mount: BasePart, name: string, price: number, acce
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
-	title.Size = UDim2.new(1, 0, 0, 24)
+	title.Size = UDim2.fromScale(1, nameHeight / height)
 	title.BackgroundTransparency = 1
 	title.Font = Kit.FONT
-	title.Text = name
+	title.Text = nameText
 	title.TextScaled = true
+	title.TextWrapped = false
+	title.TextYAlignment = Enum.TextYAlignment.Bottom
 	title.TextColor3 = Color3.fromHex(C.labelText)
 	title.TextStrokeTransparency = 1
 	title.Parent = gui
-	Kit.textOutline(title, 2)
+	Kit.textOutline(title, 1.5)
 
 	local sub = Instance.new("TextLabel")
 	sub.Name = "Subtitle"
-	sub.Position = UDim2.fromOffset(0, 24)
-	sub.Size = UDim2.new(1, 0, 0, 20)
+	sub.Position = UDim2.fromScale(0, nameHeight / height)
+	sub.Size = UDim2.fromScale(1, PRICE_LINE_HEIGHT / height)
 	sub.BackgroundTransparency = 1
-	sub.Font = Kit.FONT
-	sub.TextSize = 16
-	sub.Text = `${price}`
-	sub.TextColor3 = Color3.fromHex(accent)
+	sub.Font = Enum.Font.LuckiestGuy
+	sub.TextScaled = true
+	sub.Text = priceText(price)
+	sub.TextColor3 = Color3.fromHex(PRICE_GOLD)
 	sub.TextStrokeTransparency = 1
-	Kit.textOutline(sub, 1.5)
+	Kit.textOutline(sub, 2)
 
 	-- WHAT THIS LABEL SAYS WHEN NOBODY OWNS THE TIER, stamped onto the label itself.
 	-- The client overwrites this subtitle with the green owned-check for whoever is
 	-- standing here (StationController's rack pass) and has to be able to put the
 	-- price back afterwards. Stamping the as-built values here means it never has to
-	-- know the price OR the shop accent to do that -- the same RestText/RestColor
-	-- trick LiquidService uses to restore the wash pad sign after announcing a roll.
+	-- know the price OR the colour to do that -- the same RestText/RestColor trick
+	-- LiquidService uses to restore the wash pad sign after announcing a roll.
 	sub:SetAttribute("RestText", sub.Text)
 	sub:SetAttribute("RestColor", sub.TextColor3)
 	sub.Parent = gui
@@ -1030,21 +1093,19 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, t
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Upgrade"
-	prompt.ActionText = `Buy ${def.price}`
+	-- E OPENS THIS TIER'S SHOP CARD; IT DOES NOT BUY. The card (StationController's
+	-- rack card) carries the stats, the picture and the Buy / Equip button, and that
+	-- button is the only thing that spends money, through the same StationAction the
+	-- storefront's cards use. So the prompt says the same thing to everyone, owned or
+	-- not, and needs no hold: nothing irreversible happens on it.
+	prompt.ActionText = "View"
 	prompt.ObjectText = def.name
-	prompt.HoldDuration = 0.4
+	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = MOUNT_REACH
 	-- The hanging gear is non-colliding and set CanQuery = false, but the mount sits
 	-- high and a customer's sightline to it grazes the rail, so keep the prompt
 	-- firing without line of sight.
 	prompt.RequiresLineOfSight = false
-
-	-- WHAT THIS PROMPT SAYS WHEN THE TIER IS NOT YOURS, stamped on the prompt itself,
-	-- the same RestText trick the price card below uses and for the same reason. A
-	-- ProximityPrompt is ONE shared instance, so the client rewrites ActionText to
-	-- "Equip" locally on tiers the viewer already owns (StationController's rack pass)
-	-- and needs the as-built wording to put back afterwards without knowing the price.
-	prompt:SetAttribute("RestActionText", prompt.ActionText)
 	prompt.Parent = mount
 
 	-- Name and price. A client turns this into the green owned-check when the player
@@ -1052,7 +1113,7 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, t
 	-- StationController's rack pass. Built with the price showing because that is
 	-- what it says to everyone who has not bought it, which is most people most of
 	-- the time.
-	buildPriceCard(mount, def.name, def.price, spec.color)
+	buildPriceCard(mount, def.name, def.price)
 end
 
 --- Every tier of the track, cheapest on the left, standing on the deck below the rail.
