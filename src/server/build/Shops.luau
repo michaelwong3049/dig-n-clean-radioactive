@@ -925,7 +925,7 @@ end
 --- The client rewrites the subtitle into the owned-check (StationController's rack
 --- pass) and finds it by those names; a card that spelled them differently would be
 --- invisible to it.
-local PRICE_CARD_WIDTH = RACK_PITCH - 0.4 -- studs; the gap to the next card is the 0.4
+local PRICE_CARD_WIDTH = RACK_PITCH - 0.6 -- studs; the gap to the next card is the 0.6
 local PRICE_LINE_HEIGHT = 0.72 -- studs; the price
 local NAME_LINE_HEIGHT = 0.46 -- studs, per line of the name
 local PRICE_CARD_LIFT = 0.35 -- studs from the mount's top face to the card's bottom edge
