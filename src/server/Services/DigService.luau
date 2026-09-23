@@ -255,7 +255,6 @@ local sweepRemote: any = nil
 local digRemote: any = nil
 local lockRemote: any = nil
 local unearthedRemote: any = nil
-local indexRemote: any = nil
 
 -- ── The auras ─────────────────────────────────────────────────────────
 
@@ -369,7 +368,13 @@ local unstockedWarned: { [number]: boolean } = {}
 --- with no allocation and no cache entry. Anything above re-rolls once, the first time
 --- the signal enters their radar, and the result is pinned on the signal under their
 --- UserId so the ping, the haul and the unearth all agree.
+---
+--- A COMPLETED INDEX STAGE ADDS ITS LUCK HERE (Tuning.INDEX_COMPLETE_LUCK, via
+--- IdentifyService.stageLuck), on top of the detector's, for signals in that stage only.
+--- It is the one place every reading goes through, so the ping, the haul and the
+--- unearth cannot disagree about it either.
 local function rollFor(signal: Signal, detectorLuck: number, userId: number): (string, string, string)
+	detectorLuck += IdentifyService.stageLuck(userId)[signal.stageId] or 0
 	if detectorLuck <= 1 then
 		return signal.itemId, signal.rarity, signal.modifier
 	end
@@ -832,6 +837,8 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 		weight = item.weight,
 		payload = Payload.forUid(signal.uid),
 		carrying = #data.carry,
+		-- A sealed find's index record, the same `index` ItemIdentified carries.
+		index = if sealed then IdentifyService.entry(player, item.id) else nil,
 	})
 
 	print(`[dig] {player.Name} unearthed {modifier} {rarity} — {if sealed then item.name else "unidentified"}`)
@@ -1337,7 +1344,6 @@ function DigService.init()
 	digRemote = Net.get("DigYank")
 	lockRemote = Net.get("DigLock")
 	unearthedRemote = Net.get("Unearthed")
-	indexRemote = Net.get("IndexState")
 
 	-- Auras are runtime objects, but Workspace is a thing people save from Studio, so
 	-- a folder full of them can absolutely end up published into the place. Those
@@ -1356,14 +1362,6 @@ end
 
 function DigService.start()
 	topUpField()
-
-	-- The index GUI's one and only snapshot. Everything discovered AFTER this fires
-	-- arrives incrementally instead, via the itemId already riding along on every
-	-- unearthedRemote fire below — no second remote needed to keep the client caught
-	-- up, just this one at load to seed it with what a returning player already knew.
-	DataService.onLoaded(function(player, data)
-		indexRemote:FireClient(player, data.discovered)
-	end)
 
 	-- THE YANK LIMITER. Every accepted click is progress the client asked for, so this
 	-- is the only thing standing between an autoclicker and a free economy. Two gates,

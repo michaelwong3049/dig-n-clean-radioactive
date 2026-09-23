@@ -1514,7 +1514,13 @@ function Detector.start()
 		if found.staged then
 			return
 		end
-		showFind(found, if found.firstFind then "NEW FIND" else "IDENTIFIED")
+		-- `previousBest` is IdentifyService's word that this one out-weighs the index's
+		-- record for it (never on a first find, which has nothing to beat).
+		local header = if found.firstFind
+			then "NEW FIND"
+			elseif type(found.previousBest) == "number" then "NEW HEAVIEST"
+			else "IDENTIFIED"
+		showFind(found, header)
 	end)
 
 	-- InputBegan only, and no InputEnded partner. Roblox does not auto-repeat a held

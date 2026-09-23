@@ -46,6 +46,7 @@ local Detonation = require(script.Parent.Parent.Detonation)
 local Contamination = require(script.Parent.Parent.Contamination)
 local ItemCrust = require(script.Parent.Parent.ItemCrust)
 local StatResolver = require(script.Parent.Parent.StatResolver)
+local IndexProgress = require(script.Parent.Parent.IndexProgress)
 
 local Spec = {}
 
@@ -240,6 +241,62 @@ function Spec.run(): boolean
 			end
 		end
 		check("§weight every item's sizeMult is a gentle nudge (0.5-2x) when set", sizeMultOk)
+	end
+
+	-- Shared/IndexProgress — the index's stage-completion reward and record weights.
+	-- Pins: every stage can be completed, the reward is all-or-nothing per stage (one
+	-- missing nuke withholds it), it stays smaller than one detector rung, and a record
+	-- with no roll on file reads as "none", not 0 kg.
+	do
+		local all: { [string]: boolean } = {}
+		local stocked = true
+		for _, stage in Stages.DEFS do
+			local list = IndexProgress.stageItems(stage.id)
+			if #list == 0 then
+				stocked = false
+			end
+			for _, item in list do
+				all[item.id] = true
+			end
+		end
+		check("§index every stage stocks at least one nuke to complete", stocked)
+
+		local none = IndexProgress.stageLuck({})
+		check("§index an empty index earns no stage luck", next(none) == nil)
+
+		local full = IndexProgress.stageLuck(all)
+		local fullOk = true
+		for _, stage in Stages.DEFS do
+			if full[stage.id] ~= Tuning.INDEX_COMPLETE_LUCK then
+				fullOk = false
+			end
+		end
+		check("§index identifying everything completes every stage", fullOk)
+
+		local firstStage = Stages.DEFS[1].id
+		local missing = table.clone(all)
+		missing[IndexProgress.stageItems(firstStage)[1].id] = nil
+		check(
+			"§index one missing nuke withholds that stage's luck",
+			IndexProgress.stageLuck(missing)[firstStage] == nil
+		)
+
+		local rung = Gear.tier("Detector", 2).luck - Gear.tier("Detector", 1).luck
+		check(
+			string.format("§index stage luck is positive and under one detector rung (%.2f)", rung),
+			Tuning.INDEX_COMPLETE_LUCK > 0 and Tuning.INDEX_COMPLETE_LUCK < rung
+		)
+
+		local sample = IndexProgress.stageItems(firstStage)[1]
+		local entry = { best = 2, count = 1, first = 0, new = false }
+		check(
+			"§index a record weighs catalogue weight x its payload roll",
+			math.abs((IndexProgress.bestKg(sample.id, entry) or 0) - sample.weight * 2) < 1e-9
+		)
+		check(
+			"§index a record with no roll on file has no weight",
+			IndexProgress.bestKg(sample.id, { best = 0, count = 1, first = 0, new = false }) == nil
+		)
 	end
 
 	-- Config/Payload — the per-DIG size/value roll, separate from Weight's per-item-

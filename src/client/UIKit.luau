@@ -922,4 +922,18 @@ function UIKit.button(parent: Instance, props: ButtonProps): (TextButton, UIStro
 	return button, stroke
 end
 
+-- ── Formatting ───────────────────────────────────────────────────────────────────
+
+--- A RECORD weight: "0.12 kg", "16.2 kg", "461 kg". One more digit than the banners'
+--- whole-kilo ladder, because a record is compared against the last one — "7 kg, was
+--- 7 kg" is what the coarse ladder says about a 7.4 beating a 6.9.
+function UIKit.formatKg(kg: number): string
+	if kg < 1 then
+		return string.format("%.2f kg", kg)
+	elseif kg < 100 then
+		return string.format("%.1f kg", kg)
+	end
+	return string.format("%d kg", math.floor(kg + 0.5))
+end
+
 return UIKit
