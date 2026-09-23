@@ -653,12 +653,19 @@ local function build(): ScreenGui
 	-- far corner either, which put the reading a long way from where the player is
 	-- looking. Its left edge sits Dock.HAULPANEL_CENTRE_GAP right of screen centre; on a
 	-- screen too narrow for that it slides left only as far as it must to stop short of
-	-- the Index/Shop tiles (Dock.HAULPANEL_RIGHT). Re-placed on every canvas resize,
+	-- the Index/Shop tiles (Dock.HAULPANEL_RIGHT), or of the jump button on a tablet,
+	-- whose corner box reaches up past the widget's bottom edge (UIKit.touchCorner; a
+	-- phone's smaller button stays under it). Re-placed on every canvas resize,
 	-- because the design width moves with both the window and the HUD scale.
 	local function placeHaul()
 		local width = canvas.AbsoluteSize.X / UIKit.canvasScale(canvas)
 		local nearCentre = width / 2 + Dock.HAULPANEL_CENTRE_GAP
-		local clearOfTiles = width - Dock.HAULPANEL_RIGHT - Dock.HAULPANEL_SIZE.X.Offset
+		local right = Dock.HAULPANEL_RIGHT
+		local jump = UIKit.touchCorner()
+		if jump.Y > Dock.HAULPANEL_BOTTOM then
+			right = math.max(right, jump.X + Dock.GAP)
+		end
+		local clearOfTiles = width - right - Dock.HAULPANEL_SIZE.X.Offset
 		haul.Position = UDim2.new(0, math.min(nearCentre, clearOfTiles), 1, -Dock.HAULPANEL_BOTTOM)
 	end
 	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(placeHaul)

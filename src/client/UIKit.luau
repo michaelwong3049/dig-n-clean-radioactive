@@ -31,6 +31,8 @@
 	and blows the result up to fill whatever screen it is actually on.
 ]]
 
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local UIKit = {}
@@ -183,13 +185,24 @@ UIKit.Stroke = {
 -- draws them UIKit.scale() times bigger. 1080p gets 1.5x, 1440p 2x; it is the SAME
 -- layout on all of them, just larger, so no Dock formula had to change.
 --
--- THE VIEWPORT RATIO NEVER DROPS BELOW 1, AND THAT FLOOR IS DOING REAL WORK. Screens
--- smaller than the design screen (a docked Studio viewport, a phone) keep exactly the
--- sizes they had rather than shrinking to fit as the viewport shrinks: that kind of
--- shrink would be a change nobody asked for. min() over both axes so a tall-but-narrow
--- window is never scaled past what its width can hold. GLOBAL_SCALE below is a
--- separate, deliberate multiplier on top of this — it DOES apply below the floor,
--- because "make the GUI smaller" is supposed to affect every screen size uniformly.
+-- SMALL SCREENS SHRINK TOO, DOWN TO A FLOOR. The viewport ratio used to be clamped at
+-- 1, so anything smaller than the design screen (a docked Studio viewport, a phone)
+-- kept the full 1280x720 layout at 0.8x and simply ran off the edges: on an 844x390
+-- phone that is a 1024x576 HUD. The scale now follows the screen all the way down and
+-- stops at MIN_SCALE, the smallest size text is still readable at (15px body text
+-- lands at ~9 screen px). Above 1280x720 nothing changed: 1080p is still 1.5x0.8.
+-- min() over both axes so a tall-but-narrow window is never scaled past what its width
+-- can hold.
+--
+-- TOUCH GETS ITS OWN MULTIPLIER. GLOBAL_SCALE's 0.8 was a "smaller, please" asked for
+-- on a monitor with a mouse. A finger needs bigger targets than a cursor, so a phone or
+-- tablet uses TOUCH_SCALE in its place: a tablet reads larger than a laptop of the same
+-- resolution, and a phone sits at the MIN_SCALE floor either way.
+--
+-- THE FLOOR IS ALSO WHAT KEEPS A PHONE'S LAYOUT FITTING. At 0.6 an 844x390 phone gets a
+-- ~1400x650 design canvas, which still holds the tallest HUD stack (the haul widget,
+-- 442 tall above a 132 dock). Raise MIN_SCALE and that stops being true on the
+-- shortest phones — check a 375-tall screen before moving it.
 --
 -- WHAT A CANVAS COSTS ITS CALLER: anything that reads AbsoluteSize / AbsolutePosition
 -- (screen pixels) and writes the answer back into an Offset (design pixels) has to
@@ -198,12 +211,14 @@ UIKit.Stroke = {
 -- canvas on purpose: it already sizes itself from the camera viewport.
 UIKit.DESIGN_SCREEN = Vector2.new(1280, 720)
 
--- A flat multiplier on top of the viewport-derived scale above, so every canvas
--- can be shrunk (or grown) uniformly without retuning a single Offset anywhere.
--- Applied AFTER the max(1, ...) floor, so it also takes effect on screens at or
--- below DESIGN_SCREEN (a docked Studio viewport, a phone) — those would otherwise
--- never shrink at all.
+-- A flat multiplier on the viewport-derived scale above, so every canvas can be shrunk
+-- (or grown) uniformly without retuning a single Offset anywhere. Mouse and keyboard
+-- only; touch uses TOUCH_SCALE (see the section header).
 UIKit.GLOBAL_SCALE = 0.8
+UIKit.TOUCH_SCALE = 1
+-- The smallest the HUD is ever drawn, on any screen. See the section header before
+-- raising it.
+UIKit.MIN_SCALE = 0.6
 
 -- Every live canvas, plus — for a billboard's canvas — the gui and design size to
 -- resize along with it. A STRONG table, pruned by ancestry (see track()). The first
@@ -217,16 +232,52 @@ local fitted: { [Frame]: Fit } = {}
 local watching = false
 local viewportConn: RBXScriptConnection? = nil
 
+--- A phone or tablet: a touch screen with no keyboard. TouchEnabled alone is true on
+--- touchscreen laptops too, and those are played with a mouse.
+function UIKit.isTouch(): boolean
+	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+end
+
+local function viewportSize(): Vector2
+	local camera = Workspace.CurrentCamera
+	return if camera then camera.ViewportSize else Vector2.zero
+end
+
 --- Screen pixels per design pixel on the current viewport. See the section header.
 function UIKit.scale(): number
-	local camera = Workspace.CurrentCamera
-	local viewport = if camera then camera.ViewportSize else Vector2.zero
+	local viewport = viewportSize()
+	local multiplier = if UIKit.isTouch() then UIKit.TOUCH_SCALE else UIKit.GLOBAL_SCALE
 	-- Studio reports a zero viewport for a frame or two on load (RadFx.viewport hit the
 	-- same thing); treat that as "no room yet" rather than dividing by it.
 	if viewport.X < 1 or viewport.Y < 1 then
-		return UIKit.GLOBAL_SCALE
+		return multiplier
 	end
-	return UIKit.GLOBAL_SCALE * math.max(1, math.min(viewport.X / UIKit.DESIGN_SCREEN.X, viewport.Y / UIKit.DESIGN_SCREEN.Y))
+	local fit = math.min(viewport.X / UIKit.DESIGN_SCREEN.X, viewport.Y / UIKit.DESIGN_SCREEN.Y)
+	return math.max(UIKit.MIN_SCALE, multiplier * fit)
+end
+
+-- ── Touch controls ───────────────────────────────────────────────────────────────
+-- ON A PHONE, ROBLOX DRAWS ITS OWN CONTROLS IN BOTH BOTTOM CORNERS: the jump button on
+-- the right, the thumbstick on the left. Anything of ours in those corners is either
+-- hidden under them or, worse, eats the touch meant for them. These are the corner
+-- boxes they take, in SCREEN px, copied from the default PlayerModule (TouchJump):
+-- a 70px button inset 25 from the right and 20 from the bottom when the short side of
+-- the screen is 500 or less, otherwise a 120px button inset 50 and 90. The thumbstick
+-- gets the same box mirrored onto the left, which covers its resting ring.
+local TOUCH_CORNER_SMALL = Vector2.new(95, 90)
+local TOUCH_CORNER_LARGE = Vector2.new(170, 210)
+
+--- The box each bottom corner's touch control takes, in DESIGN px: X in from the side
+--- edge, Y up from the bottom edge. Zero off touch, so a caller can max() against it
+--- unconditionally. It changes with the viewport, so read it from an onScaleChanged
+--- callback, not once at build time.
+function UIKit.touchCorner(): Vector2
+	if not UIKit.isTouch() then
+		return Vector2.zero
+	end
+	local viewport = viewportSize()
+	local corner = if math.min(viewport.X, viewport.Y) <= 500 then TOUCH_CORNER_SMALL else TOUCH_CORNER_LARGE
+	return corner / UIKit.scale()
 end
 
 local function fit(canvas: Frame, spec: Fit, s: number)
@@ -240,10 +291,15 @@ local function fit(canvas: Frame, spec: Fit, s: number)
 	end
 end
 
+local listeners: { () -> () } = {}
+
 local function refresh()
 	local s = UIKit.scale()
 	for canvas, spec in fitted do
 		fit(canvas, spec, s)
+	end
+	for _, listener in listeners do
+		task.spawn(listener)
 	end
 end
 
@@ -311,6 +367,16 @@ function UIKit.canvas(parent: Instance, zIndex: number?): Frame
 	return newCanvas(parent, zIndex, {})
 end
 
+--- Call `listener` now and again after every viewport change, once the canvases have
+--- been refitted. For layout that depends on the scale itself (UIKit.touchCorner())
+--- rather than on a canvas's size. Listeners live as long as the game does, so this
+--- is for HUD built once, not for anything rebuilt.
+function UIKit.onScaleChanged(listener: () -> ())
+	table.insert(listeners, listener)
+	watchViewport()
+	listener()
+end
+
 --- The scale `canvas` is drawing at right now — what to divide a screen-pixel reading
 --- (AbsoluteSize / AbsolutePosition of anything on it) by to get design pixels back.
 function UIKit.canvasScale(canvas: Frame): number
@@ -324,6 +390,66 @@ end
 --- to that times the scale, and its contents go on the returned canvas.
 function UIKit.billboardCanvas(gui: BillboardGui, size: Vector2): Frame
 	return newCanvas(gui, nil, { billboard = gui, size = size })
+end
+
+-- ── The notch ────────────────────────────────────────────────────────────────────
+-- EVERY HUD GUI ALREADY STAYS OUT OF IT. A ScreenGui with IgnoreGuiInset = true gets
+-- ScreenInsets = DeviceSafeInsets from the engine (and one without it, CoreUISafe-
+-- Insets), so on a notched phone the whole gui — canvas and all — is already inset
+-- clear of the camera cut-out, the rounded corners and the home bar.
+--
+-- A FULL-SCREEN LAYER MUST NOT BE. A wipe or a blackout that stops at the safe area
+-- leaves a strip of the world showing down the notch side, and a layer placed in
+-- viewport pixels (WorldToViewportPoint) lands off by the inset. Those guis set
+-- ScreenInsets = None, and the few edge-hugging widgets on them add safeInsets() to
+-- their margins so they still clear the notch themselves.
+--
+-- Two empty guis measured against each other: one with the HUD's own insets, whose
+-- rect IS the safe area, and one with none, whose rect is the whole screen. Measured
+-- against each other rather than against ViewportSize because AbsolutePosition is
+-- reported below the topbar inset, not from the top of the screen.
+local probes: { safe: ScreenGui, full: ScreenGui }? = nil
+
+local function makeProbe(playerGui: Instance, name: string, insets: Enum.ScreenInsets): ScreenGui
+	local gui = Instance.new("ScreenGui")
+	gui.Name = name
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.ScreenInsets = insets
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(refresh)
+	gui:GetPropertyChangedSignal("AbsolutePosition"):Connect(refresh)
+	gui.Parent = playerGui
+	return gui
+end
+
+--- The device safe area's inset from each screen edge, in DESIGN px. Zero on a screen
+--- without a notch, and until the first layout pass. Read it from an onScaleChanged
+--- callback: rotating a phone swaps which side the notch is on.
+function UIKit.safeInsets(): { left: number, top: number, right: number, bottom: number }
+	local none = { left = 0, top = 0, right = 0, bottom = 0 }
+	if probes == nil then
+		local playerGui = Players.LocalPlayer and Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+		if playerGui == nil then
+			return none
+		end
+		probes = {
+			safe = makeProbe(playerGui, "SafeAreaProbe", Enum.ScreenInsets.DeviceSafeInsets),
+			full = makeProbe(playerGui, "FullScreenProbe", Enum.ScreenInsets.None),
+		}
+	end
+	local safe, full = (probes :: any).safe, (probes :: any).full
+	if safe.AbsoluteSize.X < 1 or full.AbsoluteSize.X < 1 then
+		return none
+	end
+	local s = UIKit.scale()
+	local topLeft = safe.AbsolutePosition - full.AbsolutePosition
+	local bottomRight = (full.AbsolutePosition + full.AbsoluteSize) - (safe.AbsolutePosition + safe.AbsoluteSize)
+	return {
+		left = math.max(0, topLeft.X) / s,
+		top = math.max(0, topLeft.Y) / s,
+		right = math.max(0, bottomRight.X) / s,
+		bottom = math.max(0, bottomRight.Y) / s,
+	}
 end
 
 -- ── The dock ─────────────────────────────────────────────────────────────────────
@@ -511,7 +637,8 @@ Dock.METER_TOP_Y = Dock.SIDE_TOP_Y + Dock.CASH_SIZE.Y.Offset + Dock.GAP
 -- under ~460 the tile rises into the Settings gear in the corner above. So a shorter
 -- screen gets the tile back on the vertical centre, where the old pill sat and where
 -- both leave it room. Every screen the HUD scales up on is DESIGN_SCREEN.Y (720) tall
--- or more in design pixels, so this only bites on an unscaled small window or a phone.
+-- or more in design pixels, so this only bites on a small window or a phone, where
+-- the MIN_SCALE floor leaves the design canvas shorter than that.
 Dock.SIDE_TOP_MIN_HEIGHT = 700
 
 -- The Index and Shop tiles on the right edge (IndexController / ShopController): one

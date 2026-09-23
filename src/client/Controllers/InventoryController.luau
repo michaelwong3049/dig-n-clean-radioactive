@@ -180,11 +180,35 @@ local function build(): ScreenGui
 	local canvas = UIKit.canvas(gui)
 	ui.canvas = canvas
 
-	local row = Instance.new("Frame")
+	-- A SWIPEABLE ROW ON TOUCH. Between the thumbstick and the jump button a full
+	-- Containment Rig (20 slots) runs past the row at SLOT_MIN, and a phone has no
+	-- number keys to reach a clipped slot with, so there the row scrolls sideways
+	-- instead of clipping (renderSlots left-aligns it once it overflows). Not on
+	-- desktop: a ScrollingFrame under the cursor would eat the mouse wheel the camera
+	-- zooms with.
+	local row: Frame
+	if UIKit.isTouch() then
+		local scroller = Instance.new("ScrollingFrame")
+		scroller.ScrollingDirection = Enum.ScrollingDirection.X
+		scroller.AutomaticCanvasSize = Enum.AutomaticSize.X
+		scroller.CanvasSize = UDim2.new()
+		scroller.ScrollBarThickness = 0
+		scroller.BorderSizePixel = 0
+		scroller.ElasticBehavior = Enum.ElasticBehavior.Always
+		row = scroller :: any
+	else
+		row = Instance.new("Frame")
+	end
 	row.Name = "Hotbar"
 	row.AnchorPoint = Vector2.new(0.5, 1)
 	row.Position = UDim2.new(0.5, 0, 1, -Dock.HOTBAR_BOTTOM)
-	row.Size = UDim2.new(1, -2 * Dock.ROW_SIDE_MARGIN, 0, SLOT_MAX + 2 * BORDER_PADDING)
+	-- Clear of the touch controls on a phone, the same inset both sides so the row
+	-- stays centred under the character. Re-read on every resize: the corner boxes are
+	-- fixed in screen px, so their size in design px moves with the scale.
+	UIKit.onScaleChanged(function()
+		local margin = math.max(Dock.ROW_SIDE_MARGIN, UIKit.touchCorner().X + Dock.GAP)
+		row.Size = UDim2.new(1, -2 * margin, 0, SLOT_MAX + 2 * BORDER_PADDING)
+	end)
 	row.BackgroundTransparency = 1
 	-- Safety net, not a fix: slotWidth()'s shrink-to-fit clamp can already run wider
 	-- than its target at max capacity (SLOT_MIN floors before the row runs out of
@@ -213,6 +237,7 @@ local function build(): ScreenGui
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, SLOT_GAP)
 	layout.Parent = row
+	ui.layout = layout
 
 
 	return gui
@@ -256,6 +281,16 @@ end
 
 local function renderSlots()
 	local width = slotWidth()
+	-- Centred content wider than a ScrollingFrame spills off BOTH ends, and the left
+	-- spill cannot be scrolled to, so the touch row packs from the left once it
+	-- overflows (see build()).
+	if ui.row:IsA("ScrollingFrame") then
+		local available = ui.row.AbsoluteSize.X / UIKit.canvasScale(ui.canvas)
+		local needed = state.capacity * (width + SLOT_GAP) - SLOT_GAP + 2 * BORDER_PADDING
+		ui.layout.HorizontalAlignment = if needed > available + 0.5
+			then Enum.HorizontalAlignment.Left
+			else Enum.HorizontalAlignment.Center
+	end
 
 	for index = 1, math.max(#slots, state.capacity) do
 		if slots[index] == nil and index <= state.capacity then

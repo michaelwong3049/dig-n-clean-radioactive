@@ -294,6 +294,8 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 	gui.Name = "WashReveal"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true -- ray positions are viewport pixels from WorldToViewportPoint
+	-- ...measured from the true screen corner, so no notch inset either (UIKit's "The notch").
+	gui.ScreenInsets = Enum.ScreenInsets.None
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	-- Under the bay's own WashBay layer (200), whose exit wipe has to cover this.
 	gui.DisplayOrder = 199

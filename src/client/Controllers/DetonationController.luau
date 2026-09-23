@@ -926,6 +926,7 @@ function DetonationController.start()
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "DetonationFlash"
 	gui.IgnoreGuiInset = true
+	gui.ScreenInsets = Enum.ScreenInsets.None -- the flash is the whole screen, notch and all
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 50
 	gui.Parent = player:WaitForChild("PlayerGui")
