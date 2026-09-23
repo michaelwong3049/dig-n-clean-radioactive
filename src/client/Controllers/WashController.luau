@@ -312,6 +312,7 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local WashFluidBar = require(script.Parent.Parent.WashFluidBar)
 local WashReveal = require(script.Parent.Parent.WashReveal)
 
 local Wash = {}
@@ -1612,87 +1613,14 @@ local function ensureGui(): boolean
 		table.insert(reticleTicks, { frame = tick, dir = dir })
 	end
 
-	-- ── The loaded-fluid label ──
-	-- Bottom-right, name only, tinted the liquid's own colour. The wash pad's own
-	-- billboard readout (LiquidController) is hidden with the rest of the HUD for the
-	-- session, so this is the only "what am I spraying" cue inside the shot. Kept to a
-	-- word in the corner: the aim, not the inventory, is what this view is about. On a
-	-- phone that corner is the jump button's, so it stands on top of it instead.
-	local fluidLabel = UIKit.label(canvas, {
-		name = "Fluid",
-		anchorPoint = Vector2.new(1, 1),
-		position = UDim2.new(1, -22, 1, -22),
-		size = UDim2.fromOffset(240, 24),
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.header,
-		xAlign = Enum.TextXAlignment.Right,
-		color = UIKit.C.text,
-		visible = false,
-		zIndex = 1,
-	})
-	-- Its drop shadow (UIKit.label's, a sibling) is placed once at build, so it moves too.
-	local fluidShadow = canvas:FindFirstChild("FluidShadow") :: TextLabel?
-	UIKit.onScaleChanged(function()
-		local inset = UIKit.safeInsets()
-		local lift = math.max(22, UIKit.touchCorner().Y + UIKit.Dock.GAP) + inset.bottom
-		fluidLabel.Position = UDim2.new(1, -22 - inset.right, 1, -lift)
-		if fluidShadow then
-			fluidShadow.Position = fluidLabel.Position + UDim2.fromOffset(UIKit.TextShadow.offset.X, UIKit.TextShadow.offset.Y)
-		end
-	end)
-
-	-- ── The clean-percent bar ──
-	-- Bottom-centre: how much of the ITEM is clean, not any one patch. WashService
-	-- sums every patch's own soak fraction (cleared patches count as fully soaked) and
-	-- normalizes against how many it started with, so this climbs every second the
-	-- water is on something instead of jumping only when a patch pops.
-	local cleanBar = Instance.new("Frame")
-	cleanBar.Name = "CleanBar"
-	cleanBar.AnchorPoint = Vector2.new(0.5, 1)
-	cleanBar.Position = UDim2.new(0.5, 0, 1, -22)
-	cleanBar.Size = UDim2.fromOffset(420, 22)
-	cleanBar.BackgroundColor3 = UIKit.C.empty
-	cleanBar.BorderSizePixel = 0
-	cleanBar.Visible = false
-	cleanBar.ZIndex = 1
-	cleanBar.Parent = canvas
-	UIKit.onScaleChanged(function()
-		cleanBar.Position = UDim2.new(0.5, 0, 1, -22 - UIKit.safeInsets().bottom)
-	end)
-
-	local cleanCorner = Instance.new("UICorner")
-	cleanCorner.CornerRadius = UIKit.Radius.button
-	cleanCorner.Parent = cleanBar
-
-	local cleanStroke = Instance.new("UIStroke")
-	cleanStroke.Color = UIKit.C.stroke
-	cleanStroke.Thickness = UIKit.Stroke.thin
-	cleanStroke.Parent = cleanBar
-
-	local cleanFill = Instance.new("Frame")
-	cleanFill.Name = "Fill"
-	cleanFill.AnchorPoint = Vector2.new(0, 0)
-	cleanFill.Position = UDim2.fromScale(0, 0)
-	cleanFill.Size = UDim2.fromScale(0, 1)
-	cleanFill.BackgroundColor3 = PATCH_GREEN
-	cleanFill.BorderSizePixel = 0
-	cleanFill.ZIndex = 1
-	cleanFill.Parent = cleanBar
-
-	local cleanFillCorner = Instance.new("UICorner")
-	cleanFillCorner.CornerRadius = UIKit.Radius.button
-	cleanFillCorner.Parent = cleanFill
-
-	UIKit.label(cleanBar, {
-		name = "Percent",
-		size = UDim2.fromScale(1, 1),
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.caption,
-		color = UIKit.C.text,
-		xAlign = Enum.TextXAlignment.Center,
-		text = "0% clean",
-		zIndex = 2,
-	})
+	-- ── The clean bar ──
+	-- Bottom-centre, and it answers both "how clean is the ITEM" (not any one patch) and
+	-- "what am I spraying": a striped pill filled with the loaded fluid's own colour,
+	-- the fluid's name and charges left on its top-left, a bottle on its end that drains
+	-- as the canister does. The wash pad's own billboard readout (LiquidController) is
+	-- hidden with the rest of the HUD for the session, so this is the only fluid cue
+	-- inside the shot. All of it lives in WashFluidBar; this file only feeds and shows it.
+	WashFluidBar.mount(canvas)
 
 	-- ── The wipe panel ──
 	-- Parked off the RIGHT edge, which is where every completed sweep leaves it.
@@ -1848,7 +1776,7 @@ end
 ---
 --- LayerCollector, not ScreenGui: LiquidController's loaded-fluid readout is a
 --- BillboardGui adorned to the wash pad, and it hangs in the world where the shot can
---- see it. This view draws its own bottom-right fluid label instead.
+--- see it. This view shows the fluid on its own clean bar (WashFluidBar) instead.
 local function hideHud()
 	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
 	if playerGui == nil then
@@ -2407,19 +2335,7 @@ local function enterView()
 	if reticle then
 		reticle.Visible = true
 	end
-	-- RECURSIVE, NOT A DIRECT CHILD LOOKUP: `Fluid` (and `CleanBar` below) live on the
-	-- canvas Frame under this ScreenGui, not on the ScreenGui itself, ever since the
-	-- HUD-scale pass parented every widget onto UIKit.canvas(). A plain FindFirstChild
-	-- against wipeGui silently returned nil here for a while — the label existed and
-	-- was simply never told to show or update. Caught while wiring the clean-bar below.
-	local fluid = wipeGui and wipeGui:FindFirstChild("Fluid", true)
-	if fluid then
-		fluid.Visible = true
-	end
-	local cleanBar = wipeGui and wipeGui:FindFirstChild("CleanBar", true)
-	if cleanBar then
-		cleanBar.Visible = true
-	end
+	WashFluidBar.show(true)
 
 	if not renderBound then
 		RunService:BindToRenderStep("WashBay", Enum.RenderPriority.Camera.Value + 1, onRender)
@@ -2449,14 +2365,7 @@ local function exitView()
 	if reticle then
 		reticle.Visible = false
 	end
-	local fluid = wipeGui and wipeGui:FindFirstChild("Fluid", true)
-	if fluid then
-		fluid.Visible = false
-	end
-	local cleanBar = wipeGui and wipeGui:FindFirstChild("CleanBar", true)
-	if cleanBar then
-		cleanBar.Visible = false
-	end
+	WashFluidBar.show(false)
 
 	local camera = Workspace.CurrentCamera
 	if camera then
@@ -2558,30 +2467,12 @@ function Wash.start()
 			applySprayColor(wipeTint)
 		end
 
-		-- The loaded liquid can change mid-wash (a canister runs dry and drops you back
-		-- to Plain Water), so this is set on every payload, not just the first. beginSession
-		-- has already run ensureGui by here on a fresh session.
-		local fluid = wipeGui and wipeGui:FindFirstChild("Fluid", true)
-		if fluid and fluid:IsA("TextLabel") then
-			fluid.Text = payload.liquidName or "Plain Water"
-			fluid.TextColor3 = Color3.fromHex(payload.liquidColor or DEFAULT_LIQUID)
-		end
-
-		-- SERVER-COMPUTED, LIKE `soak` ON EACH PATCH ABOVE: the client draws the number,
-		-- it does not derive it. `percentClean` is already 0-1 and monotonic (WashService
-		-- only ever adds banked seconds), so there is nothing to clamp or smooth here.
-		local cleanBar = wipeGui and wipeGui:FindFirstChild("CleanBar", true)
-		if cleanBar then
-			local pct = payload.percentClean or 0
-			local fill = cleanBar:FindFirstChild("Fill")
-			if fill then
-				fill.Size = UDim2.fromScale(pct, 1)
-			end
-			local percent = cleanBar:FindFirstChild("Percent")
-			if percent and percent:IsA("TextLabel") then
-				percent.Text = `{math.floor(pct * 100 + 0.5)}% clean`
-			end
-		end
+		-- Every payload, not just the first: the loaded liquid can change mid-wash (a
+		-- canister runs dry and drops you back to Plain Water) and `percentClean` climbs
+		-- every tick. SERVER-COMPUTED, like `soak` on each patch: the bar draws the
+		-- numbers, it does not derive them. beginSession has already run ensureGui by here
+		-- on a fresh session, so the bar is mounted.
+		WashFluidBar.update(payload)
 	end)
 
 	-- THE REVEAL. WashService announces the name the moment the last chunk pops, marked
@@ -2602,12 +2493,7 @@ function Wash.start()
 		if reticle then
 			reticle.Visible = false
 		end
-		for _, widgetName in { "Fluid", "CleanBar" } do
-			local widget = wipeGui and wipeGui:FindFirstChild(widgetName, true)
-			if widget and widget:IsA("GuiObject") then
-				widget.Visible = false
-			end
-		end
+		WashFluidBar.show(false)
 		WashReveal.play(found, camera, pivot.Position, math.max(size.X, size.Y, size.Z))
 	end)
 

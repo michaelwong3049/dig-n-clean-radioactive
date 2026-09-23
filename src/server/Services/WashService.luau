@@ -651,6 +651,11 @@ local function push(player: Player, session: Session?, data: any)
 		liquidId = stats.liquidId,
 		liquidName = liquid.name,
 		liquidColor = liquid.color,
+		-- HOW MANY PATCHES THE LOADED CANISTER HAS LEFT IN IT, for the bottle on the clean
+		-- bar. nil on Plain Water, which never runs out. Re-read every push because
+		-- LiquidService.spendCharge takes one per cleared patch mid-session, and the last
+		-- one drops `liquidId` back to water on the very next push.
+		liquidHeld = if stats.liquidId == Liquids.WATER then nil else (data.liquids[stats.liquidId] or 0),
 		potency = stats.effectivePotency,
 		stand = session.stand,
 		-- WHICH NOZZLE IS LIVE, and re-read every push rather than sent once at the
