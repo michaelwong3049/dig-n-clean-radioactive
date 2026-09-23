@@ -217,6 +217,13 @@ local function build()
 	emitter.Rate = 0
 	emitter.Parent = source
 
+	-- Placed over the camera BEFORE it is parented. Built at the world origin and left
+	-- for `step` to move, the first frames hung the ribbons around base camp, which sits
+	-- near the origin -- a wide halo swept through the spawn gate on one fade-in.
+	local at = if camera then camera.CFrame.Position else Vector3.zero
+	anchor.CFrame = CFrame.new(at.X, at.Y + HEIGHT, at.Z)
+	source.CFrame = CFrame.new(at.X, at.Y + SPARKLE_HEIGHT, at.Z)
+
 	model.Parent = camera
 	rig = model
 	root = anchor

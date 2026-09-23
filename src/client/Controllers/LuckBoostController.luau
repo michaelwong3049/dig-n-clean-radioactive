@@ -12,7 +12,7 @@
 	THE CLOVER shows only while a boost is running. It says the multiplier ON the
 	clover (x2, or x4 with the aurora and a bought clover together) and the time UNDER
 	it -- the time until that number next changes, which is the soonest of the two
-	clocks. Hovering it names both; clicking it opens the Shop, which is where more
+	clocks. Green at x2, purple at x4 (CloverArt.paletteFor), timer pill to match. Hovering it names both; clicking it opens the Shop, which is where more
 	clover time is sold. The last 30 seconds pulse.
 
 	POSITION IS A FORMULA OVER Dock: the right column margin, one band above the hotbar
@@ -50,9 +50,13 @@ local INK = Color3.fromHex("1A1A1A")
 local WHITE = Color3.new(1, 1, 1)
 
 local STYLE = {
-	pill = Color3.fromHex("6A34C9"),
+	-- The timer pill wears the clover's colour: its stem shade, dark enough for white
+	-- text. Keyed by CloverArt palette.
+	pill = {
+		[CloverArt.GREEN] = Color3.fromHex("2E7D32"),
+		[CloverArt.PURPLE] = Color3.fromHex("6A34C9"),
+	} :: { [CloverArt.Palette]: Color3 },
 	pillWarn = Color3.fromHex("C23B9A"),
-	lilac = Color3.fromHex("E6D6FF"),
 	tip = Color3.fromHex("241640"),
 	numberFont = Enum.Font.LuckiestGuy,
 	textFont = Enum.Font.FredokaOne,
@@ -196,7 +200,7 @@ local function buildBadge(canvas: Frame): (TextButton, UIScale, UIScale, Frame, 
 	pill.AnchorPoint = Vector2.new(0.5, 0)
 	pill.Size = UDim2.fromOffset(BADGE_W - 6, PILL_H)
 	pill.Position = UDim2.new(0.5, 0, 0, CLOVER + PILL_GAP)
-	pill.BackgroundColor3 = STYLE.pill
+	pill.BackgroundColor3 = STYLE.pill[CloverArt.GREEN]
 	pill.BorderSizePixel = 0
 	pill.ZIndex = 20
 	pill.Parent = body
@@ -282,7 +286,6 @@ local function buildBanner(canvas: Frame): (CanvasGroup, UIScale, TextLabel, Tex
 	local title = text(banner, "Title", STYLE.numberFont, 50, 42)
 	title.Size = UDim2.new(1, 0, 0, 62)
 	title.Position = UDim2.fromOffset(0, 6)
-	title.TextColor3 = STYLE.lilac
 	ink(title, 4.5)
 
 	local sub = text(banner, "Subtitle", STYLE.textFont, 26, 42)
@@ -355,10 +358,23 @@ end
 
 -- ── Behaviour ─────────────────────────────────────────────────────────
 
+local function currentMultiplier(): number
+	local t = now()
+	return LuckBoost.multiplier(eventEndsAt() > t, personalEndsAt() > t)
+end
+
+--- The banner's clovers and title in the colour of the multiplier it leaves you on.
 local function showBanner(title: string, subtitle: string)
 	bannerToken += 1
 	local token = bannerToken
 	local banner = ui.banner
+	local palette = CloverArt.paletteFor(currentMultiplier())
+	for _, child in banner:GetChildren() do
+		if string.sub(child.Name, 1, 6) == "Clover" then
+			CloverArt.paint(child, palette)
+		end
+	end
+	ui.bannerTitle.TextColor3 = palette.shine
 	ui.bannerTitle.Text = title
 	ui.bannerSub.Text = subtitle
 	banner.Visible = true
@@ -409,6 +425,7 @@ end
 
 local lastMult = 1
 local lastText = ""
+local palette = CloverArt.GREEN
 
 local function refresh(t: number)
 	local event = eventEndsAt() - t
@@ -426,6 +443,8 @@ local function refresh(t: number)
 
 	if mult ~= lastMult then
 		ui.mult.Text = `x{mult}`
+		palette = CloverArt.paletteFor(mult)
+		CloverArt.paint(ui.clover, palette)
 		if lastMult > 1 then
 			punch()
 		end
@@ -448,7 +467,7 @@ local function refresh(t: number)
 
 	local warn = left <= WARN_SECONDS
 	local pulse = if warn then 0.5 + 0.5 * math.sin(t * 8) else 0
-	ui.pill.BackgroundColor3 = STYLE.pill:Lerp(STYLE.pillWarn, pulse)
+	ui.pill.BackgroundColor3 = STYLE.pill[palette]:Lerp(STYLE.pillWarn, pulse)
 
 	if hovering then
 		local lines = {}

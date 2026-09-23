@@ -16,7 +16,8 @@
 
 	Its look is the gear panel's (StationController's FIELD): slate panel, the HUD's
 	cartoon text on it (LuckiestGuy headlines, FredokaOne body, INK outlines), with the
-	clover card in the Violet Aurora's violet so it reads as the same thing as the sky.
+	clover card in the clover's own green: green is x2, and x2 is what it sells
+	(CloverArt's header -- purple is kept for the stacked x4).
 ]]
 
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -49,15 +50,14 @@ local TILE_ICON_SIZE = 54
 local TILE_ICON_TOP = 3
 local TILE_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
--- The panel. StationController's FIELD slate, plus the Violet Aurora's violet for the
--- clover card.
+-- The panel. StationController's FIELD slate, plus the clover's green for its card.
 local PANEL = {
 	panel = Color3.fromHex("1B1F23"),
-	card = Color3.fromHex("2A1B4A"),
-	cardEdge = Color3.fromHex("8A5CE6"),
-	well = Color3.fromHex("3B2766"),
-	lilac = Color3.fromHex("E6D6FF"),
-	dim = Color3.fromHex("B9A8DA"),
+	card = Color3.fromHex("183020"),
+	cardEdge = Color3.fromHex("4FB853"),
+	well = Color3.fromHex("21452A"),
+	light = Color3.fromHex("DDF8D2"),
+	dim = Color3.fromHex("A9C9A3"),
 	buy = Color3.fromHex("3FB35A"),
 	buyHover = Color3.fromHex("52C96C"),
 	off = Color3.fromHex("4A4F55"),
@@ -166,7 +166,7 @@ local function buildCloverCard(parent: Frame)
 		Text = `{LuckBoost.MULT}x LUCK for {math.floor(LuckBoost.PRODUCT_SECONDS / 60)} minutes`,
 		Font = PANEL.label,
 		TextSize = 20,
-		TextColor3 = PANEL.lilac,
+		TextColor3 = PANEL.light,
 		Size = UDim2.new(1, -textLeft - 12, 0, 24),
 		Position = UDim2.fromOffset(textLeft, 54),
 		ZIndex = 14,
@@ -215,7 +215,7 @@ local function buildCloverCard(parent: Frame)
 		Text = "",
 		Font = PANEL.label,
 		TextSize = 16,
-		TextColor3 = PANEL.lilac,
+		TextColor3 = PANEL.light,
 		Size = UDim2.new(1, -textLeft - 196, 0, 46),
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, textLeft, 1, -14),
