@@ -159,8 +159,8 @@ local PANEL_KINDS: { [string]: boolean } = {
 -- that rebuilds its children on every StationState tick would churn 8 frames' worth
 -- of instances ten times a second.
 local CARD_SLOTS = 8
-local CARD_WIDTH = 440
-local CARD_HEIGHT = 400
+local CARD_WIDTH = 500
+local CARD_HEIGHT = 500
 local CARD_GAP = 18
 -- How much of each neighbour shows at the panel's edges on a full-width panel. On a
 -- viewport too narrow for the ceiling, the panel narrows and the peeks go first; the
@@ -239,18 +239,6 @@ local STALL_ACCENT: { [string]: Color3 } = {
 	Detector = Color3.fromHex("E0714E"),
 	Magnet = Color3.fromHex("4E9AAE"),
 	Cleaner = Color3.fromHex("9560B0"),
-}
-
---- The two-letter code stamped on every card ("DT-05"). Spelled out rather than taken
---- as the first two letters, because Suit and Satchel both start "SA"/"SU" closely
---- enough to collide once you are reading them at 13px out of the corner of your eye.
---- Pure flavour, but it gives a grid of eight cards a fixed left edge to scan down.
-local CODE_PREFIX: { [string]: string } = {
-	Detector = "DT",
-	Magnet = "MG",
-	Cleaner = "HS",
-	Suit = "ST",
-	Satchel = "SC",
 }
 
 -- THE WIDTHS ABOVE ARE A CEILING, NOT A SIZE, and that distinction is load-bearing.
@@ -417,11 +405,26 @@ end
 --- use — a stat block that rebuilt its children on every StationState tick would churn
 --- forty frames' worth of instances ten times a second.
 local STAT_ROWS = 5
-local STAT_ROW_HEIGHT = 22
+local STAT_ROW_HEIGHT = 30
 local STAT_ROW_GAP = 10
-local STAT_LABEL_WIDTH = 92
-local STAT_VALUE_WIDTH = 64
+local STAT_LABEL_WIDTH = 130
+local STAT_VALUE_WIDTH = 90
+local STAT_TEXT_SIZE = 23
 local BAR_FLOOR = 0.06
+
+-- The card's vertical stack, top to bottom: the name strip, the art well, the stat
+-- block, the buy button. The stat block and the button are pinned to the bottom edge;
+-- the art well takes whatever height is left between them and the strip, so a track
+-- with fewer stat columns gets a bigger picture rather than a gap (see paintShopCard).
+local CARD_INSET = 20
+local CARD_STRIP_HEIGHT = 54
+local CARD_ART_TOP = CARD_STRIP_HEIGHT + 16
+local CARD_ART_GAP = 18
+local CARD_BUY_HEIGHT = 56
+local CARD_BUY_BOTTOM = 18
+local CARD_STATS_GAP = 16
+-- The stat block's bottom edge, measured from the card's top.
+local CARD_STATS_BOTTOM = CARD_HEIGHT - CARD_BUY_BOTTOM - CARD_BUY_HEIGHT - CARD_STATS_GAP
 
 --- One row of a card's stat block: label, bar, value. A flag cell reuses the same row
 --- and simply fills its bar to 0 or 1 — same geometry, so a block of numeric rows and a
@@ -444,7 +447,7 @@ local function makeStatRow(parent: Instance, order: number): Frame
 		name = "StatLabel",
 		size = UDim2.fromOffset(STAT_LABEL_WIDTH, STAT_ROW_HEIGHT),
 		font = FIELD.label,
-		textSize = 17,
+		textSize = STAT_TEXT_SIZE,
 		color = FIELD.dim,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
@@ -452,12 +455,12 @@ local function makeStatRow(parent: Instance, order: number): Frame
 	})
 
 	-- The track, and the fill inside it. Two plain Frames rather than a UIKit helper:
-	-- a 6px bar wants no corner, no stroke and no text, which is all a helper would add.
+	-- an 8px bar wants no corner, no stroke and no text, which is all a helper would add.
 	local track = Instance.new("Frame")
 	track.Name = "StatTrack"
 	track.AnchorPoint = Vector2.new(0, 0.5)
 	track.Position = UDim2.new(0, STAT_LABEL_WIDTH + 10, 0.5, 0)
-	track.Size = UDim2.new(1, -(STAT_LABEL_WIDTH + STAT_VALUE_WIDTH + 26), 0, 6)
+	track.Size = UDim2.new(1, -(STAT_LABEL_WIDTH + STAT_VALUE_WIDTH + 26), 0, 8)
 	track.BackgroundColor3 = FIELD.rule
 	track.BorderSizePixel = 0
 	track.Parent = row
@@ -475,7 +478,7 @@ local function makeStatRow(parent: Instance, order: number): Frame
 		position = UDim2.fromScale(1, 0),
 		size = UDim2.fromOffset(STAT_VALUE_WIDTH, STAT_ROW_HEIGHT),
 		font = FIELD.mono,
-		textSize = 17,
+		textSize = STAT_TEXT_SIZE,
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
@@ -485,16 +488,15 @@ local function makeStatRow(parent: Instance, order: number): Frame
 	return row
 end
 
---- One shop card: unit code and status, art beside the name and its copy, the stat
---- block, and the price button — drawn at hero size, because the carousel shows one
---- of these at a time rather than eight in a grid.
+--- One shop card: name and status, a big art well, the stat block, and the price
+--- button — drawn at hero size, because the carousel shows one of these at a time
+--- rather than eight in a grid.
 ---
 --- THE ART WELL IS DELIBERATELY EMPTY. `CardArt` is a real ImageLabel with no Image
 --- set, sized and positioned as the finished thing will be, so dropping in artwork
 --- later is one assignment per tier and not a re-layout. It is not a placeholder
---- rectangle to be replaced — it is the frame the art goes in. It sits beside the name
---- rather than above it: a plate that shape reads as an inventory thumbnail, which is
---- what a tool in a catalogue wants to be.
+--- rectangle to be replaced — it is the frame the art goes in, and with one card on
+--- screen it is the biggest thing on it.
 ---
 --- THE CARD IS PLACED BY HAND, NOT BY A LAYOUT. Its slot on the carousel row is a fixed
 --- x (one CAROUSEL_STEP per tier) and it is anchored at its own centre, so the
@@ -531,14 +533,13 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	scale.Scale = NEIGHBOUR_SCALE
 	scale.Parent = card
 
-	-- ── The code strip ───────────────────────────────────────────────
-	-- A rule across the top carrying the unit's catalogue code on the left and its
-	-- status word on the right. The code is pure flavour and it earns its place: it
-	-- gives every card the same fixed left edge, so paging along the row the eye lands
-	-- in the same spot each time.
+	-- ── The name strip ───────────────────────────────────────────────
+	-- The tier's name on the left, its status word (ISSUED / OWNED / NEED $x) on the
+	-- right, over a rule. No catalogue code and no blurb any more, on request: the card
+	-- is the picture, the numbers and the price.
 	local strip = Instance.new("Frame")
 	strip.Name = "CardStrip"
-	strip.Size = UDim2.new(1, 0, 0, 42)
+	strip.Size = UDim2.new(1, 0, 0, CARD_STRIP_HEIGHT)
 	strip.BackgroundTransparency = 1
 	strip.Parent = card
 
@@ -552,53 +553,9 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	stripRule.Parent = strip
 
 	UIKit.label(strip, {
-		name = "CardCode",
-		position = UDim2.fromOffset(20, 0),
-		size = UDim2.new(0, 90, 1, -1),
-		font = FIELD.mono,
-		textSize = 16,
-		color = FIELD.faint,
-		xAlign = Enum.TextXAlignment.Left,
-		outline = false,
-		shadow = false,
-	})
-
-	UIKit.label(strip, {
-		name = "CardFlag",
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, -20, 0, 0),
-		size = UDim2.new(1, -130, 1, -1),
-		font = FIELD.label,
-		textSize = 18,
-		color = FIELD.dim,
-		xAlign = Enum.TextXAlignment.Right,
-		outline = false,
-		shadow = false,
-	})
-
-	-- ── Art, name, blurb ─────────────────────────────────────────────
-	local art = Instance.new("ImageLabel")
-	art.Name = "CardArt"
-	art.Position = UDim2.fromOffset(20, 60)
-	art.Size = UDim2.fromOffset(132, 84)
-	art.BackgroundColor3 = FIELD.well
-	art.BackgroundTransparency = 0
-	art.BorderSizePixel = 0
-	art.Image = ""
-	art.ScaleType = Enum.ScaleType.Fit
-	art.Parent = card
-
-	local artEdge = Instance.new("UIStroke")
-	artEdge.Color = FIELD.rule
-	artEdge.Thickness = 1
-	artEdge.Parent = art
-
-	-- Fixed heights, not AutomaticSize: every card on the row has to put its button on
-	-- the same baseline, so paging from one to the next never makes the button jump.
-	UIKit.label(card, {
 		name = "CardName",
-		position = UDim2.fromOffset(168, 56),
-		size = UDim2.new(1, -188, 0, 36),
+		position = UDim2.fromOffset(CARD_INSET, 0),
+		size = UDim2.new(1, -(2 * CARD_INSET + 150), 1, -1),
 		font = FIELD.label,
 		textSize = 32,
 		color = FIELD.text,
@@ -607,25 +564,51 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		shadow = false,
 	})
 
-	UIKit.label(card, {
-		name = "CardBlurb",
-		position = UDim2.fromOffset(168, 96),
-		size = UDim2.new(1, -188, 0, 50),
-		font = UIKit.Font.body,
-		textSize = 15,
-		color = FIELD.muted,
-		xAlign = Enum.TextXAlignment.Left,
-		yAlign = Enum.TextYAlignment.Top,
-		wrapped = true,
+	UIKit.label(strip, {
+		name = "CardFlag",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, -CARD_INSET, 0, 0),
+		size = UDim2.new(0, 150, 1, -1),
+		font = FIELD.label,
+		textSize = 18,
+		color = FIELD.dim,
+		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
 		shadow = false,
 	})
 
+	-- ── Art ──────────────────────────────────────────────────────────
+	-- Full card width, from under the strip down to the stat block. Its height is set
+	-- per tier in paintShopCard, once the number of stat rows is known.
+	local art = Instance.new("ImageLabel")
+	art.Name = "CardArt"
+	art.Position = UDim2.fromOffset(CARD_INSET, CARD_ART_TOP)
+	art.Size = UDim2.new(1, -2 * CARD_INSET, 0, CARD_STATS_BOTTOM - CARD_ART_GAP - CARD_ART_TOP)
+	art.BackgroundColor3 = FIELD.well
+	art.BackgroundTransparency = 0
+	art.BorderSizePixel = 0
+	art.Image = ""
+	art.ScaleType = Enum.ScaleType.Fit
+	art.Parent = card
+
+	local artCorner = Instance.new("UICorner")
+	artCorner.CornerRadius = UDim.new(0, 6)
+	artCorner.Parent = art
+
+	local artEdge = Instance.new("UIStroke")
+	artEdge.Color = FIELD.rule
+	artEdge.Thickness = 1
+	artEdge.Parent = art
+
 	-- ── Stat block ───────────────────────────────────────────────────
+	-- Pinned by its BOTTOM edge just above the button and sized to its visible rows,
+	-- so the rows sit together at the foot of the card and the art gets the rest.
 	local stats = Instance.new("Frame")
 	stats.Name = "CardStats"
-	stats.Position = UDim2.fromOffset(20, 164)
-	stats.Size = UDim2.new(1, -40, 0, STAT_ROWS * STAT_ROW_HEIGHT + (STAT_ROWS - 1) * STAT_ROW_GAP)
+	stats.AnchorPoint = Vector2.new(0, 1)
+	stats.Position = UDim2.fromOffset(CARD_INSET, CARD_STATS_BOTTOM)
+	stats.Size = UDim2.new(1, -2 * CARD_INSET, 0, 0)
+	stats.AutomaticSize = Enum.AutomaticSize.Y
 	stats.BackgroundTransparency = 1
 	stats.Parent = card
 
@@ -641,10 +624,10 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	local buy = UIKit.button(card, {
 		name = "CardBuy",
 		anchorPoint = Vector2.new(0, 1),
-		position = UDim2.new(0, 20, 1, -18),
-		size = UDim2.new(1, -40, 0, 54),
+		position = UDim2.new(0, CARD_INSET, 1, -CARD_BUY_BOTTOM),
+		size = UDim2.new(1, -2 * CARD_INSET, 0, CARD_BUY_HEIGHT),
 		font = FIELD.mono,
-		textSize = 21,
+		textSize = 22,
 		cornerRadius = UDim.new(0, 5),
 		strokeThickness = 1,
 		outline = false,
@@ -773,8 +756,8 @@ local function build(): ScreenGui
 	-- ── The shop's own header ────────────────────────────────────────
 	-- SHOP MODE DOES NOT USE `ui.title` / `ui.subtitle`. Those two are the trader's,
 	-- centred-then-left-aligned per mode, and this header is a different object: an
-	-- accent bar in the stall's own colour, the track name, a stock line, and the
-	-- wallet on the right. Building it inside `ui.shop` rather than reshaping the
+	-- accent bar in the stall's own colour, the track name, and the wallet on the
+	-- right. (The "N units on the rail" stock line under the name was cut on request.) Building it inside `ui.shop` rather than reshaping the
 	-- shared pair means the trader keeps exactly the header it has today and render()
 	-- simply hides one or the other — no mode-specific repainting of a widget two
 	-- modes share.
@@ -786,7 +769,7 @@ local function build(): ScreenGui
 	local header = Instance.new("Frame")
 	header.Name = "ShopHeader"
 	header.LayoutOrder = 0
-	header.Size = UDim2.new(1, 0, 0, 56)
+	header.Size = UDim2.new(1, 0, 0, 48)
 	header.BackgroundTransparency = 1
 	header.Parent = shop
 	ui.shopHeader = header
@@ -805,8 +788,8 @@ local function build(): ScreenGui
 	local accentBar = Instance.new("Frame")
 	accentBar.Name = "AccentBar"
 	accentBar.AnchorPoint = Vector2.new(0, 0.5)
-	accentBar.Position = UDim2.new(0, 0, 0.5, -2)
-	accentBar.Size = UDim2.fromOffset(4, 38)
+	accentBar.Position = UDim2.new(0, 0, 0.5, -1)
+	accentBar.Size = UDim2.fromOffset(4, 32)
 	accentBar.BackgroundColor3 = FIELD.amber
 	accentBar.BorderSizePixel = 0
 	accentBar.Parent = header
@@ -817,23 +800,11 @@ local function build(): ScreenGui
 	-- breaks the moment a track name wraps. The condensed face carries it alone.
 	ui.shopTitle = UIKit.label(header, {
 		name = "ShopTitle",
-		position = UDim2.fromOffset(16, 2),
-		size = UDim2.new(1, -230, 0, 30),
+		position = UDim2.fromOffset(16, 0),
+		size = UDim2.new(1, -230, 1, -1),
 		font = FIELD.label,
 		textSize = 30,
 		color = FIELD.text,
-		xAlign = Enum.TextXAlignment.Left,
-		outline = false,
-		shadow = false,
-	})
-
-	ui.shopStock = UIKit.label(header, {
-		name = "ShopStock",
-		position = UDim2.fromOffset(16, 31),
-		size = UDim2.new(1, -230, 0, 18),
-		font = UIKit.Font.body,
-		textSize = 13,
-		color = FIELD.dim,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
 		shadow = false,
@@ -1214,10 +1185,8 @@ end
 --- NEED $x   buyable, unaffordable. The flag carries the SHORTFALL against your wallet
 ---           rather than the price, because the price is already on the button and the
 ---           gap is the thing you do not know.
-local function paintShopCard(card: Frame, entry, accent: Color3, cash: number, prefix: string)
-	local nameLabel = card.CardName :: TextLabel
-	local blurb = card.CardBlurb :: TextLabel
-	local code = card.CardStrip.CardCode :: TextLabel
+local function paintShopCard(card: Frame, entry, accent: Color3, cash: number)
+	local nameLabel = card.CardStrip.CardName :: TextLabel
 	local flag = card.CardStrip.CardFlag :: TextLabel
 	local art = card.CardArt :: ImageLabel
 	local buy = card.CardBuy :: TextButton
@@ -1225,8 +1194,10 @@ local function paintShopCard(card: Frame, entry, accent: Color3, cash: number, p
 	local buyStroke = buy:FindFirstChildOfClass("UIStroke") :: UIStroke
 
 	nameLabel.Text = entry.name
-	blurb.Text = entry.blurb or ""
-	code.Text = string.format("%s-%02d", prefix, entry.tier)
+	-- The art well fills everything the stat block does not use.
+	local rows = math.min(#entry.stats, STAT_ROWS)
+	local statsHeight = if rows > 0 then rows * STAT_ROW_HEIGHT + (rows - 1) * STAT_ROW_GAP else 0
+	art.Size = UDim2.new(1, -2 * CARD_INSET, 0, CARD_STATS_BOTTOM - statsHeight - CARD_ART_GAP - CARD_ART_TOP)
 	card:SetAttribute("Buyable", entry.buyable == true)
 	card:SetAttribute("Equippable", entry.equippable == true)
 	card:SetAttribute("Tier", entry.tier)
@@ -1608,32 +1579,16 @@ local function render()
 		ui.shopTitle.Text = string.upper(track)
 
 		local count = if tiers then #tiers else 0
-		local owned = 0
-		if tiers then
-			for _, entry in tiers do
-				if entry.owned then
-					owned += 1
-				end
-			end
-		end
-		ui.shopStock.Text = if offer and offer.maxed
-			then `{count} units on the rail \u{00B7} you own every one`
-			else `{count} units on the rail \u{00B7} you own {owned} \u{00B7} buy any of them, in any order`
 
 		ui.shopCarousel.Visible = count > 0
 		ui.shopPager.Visible = count > 0
 		ui.shopEmpty.Visible = count == 0
 
-		-- Two letters off the track name: Detector -> DT, Magnet -> MG, Cleaner -> CL.
-		-- Consonant-first rather than the first two letters, so Satchel and Suit do not
-		-- both come out "SU".
-		local prefix = CODE_PREFIX[track] or string.upper(string.sub(track, 1, 2))
-
 		for index, card in ui.shopCards do
 			local entry = if tiers then tiers[index] else nil
 			card.Visible = entry ~= nil
 			if entry then
-				paintShopCard(card, entry, accent, cash, prefix)
+				paintShopCard(card, entry, accent, cash)
 			end
 		end
 
