@@ -205,13 +205,11 @@ local SHOP_PANEL_WIDTH = CARD_WIDTH + 2 * (CARD_GAP + CARD_PEEK) + 2 * PANEL_PAD
 -- pushed into UIKit.C for the same reason CashController keeps its own STYLE table —
 -- nothing else should reach for these, and a shared palette invites exactly that.
 --
--- THE FONTS DIVERGE FROM UIKit.Font ON PURPOSE. UIKit's rule is one family (Gotham) in
--- three weights, and it is the right rule for the HUD. This panel is a spec sheet:
--- Oswald is condensed enough to fit a stat label in a 62px gutter without abbreviating
--- it to noise, and RobotoMono keeps eight prices in a grid on the same digit width so
--- the column scans as a ladder. Both are stock Enum.Font values — no FontFace, no
--- asset ids. If this look ever spreads past the shop, move these into UIKit rather
--- than copying them.
+-- THE TEXT IS THE HUD'S CARTOON VOICE, on request, even though the slate is not. It
+-- used to be Oswald and RobotoMono, a spec-sheet voice; now it is what the cash badge,
+-- the rad meter and the stand cards speak: LuckiestGuy for the headline pieces (the
+-- track, the tier's name, the price, the wallet), FredokaOne for everything else, all
+-- white-ish and all wearing the same rounded INK outline — see inkShopText.
 local FIELD = {
 	panel = Color3.fromHex("1B1F23"),
 	card = Color3.fromHex("22272C"),
@@ -219,15 +217,18 @@ local FIELD = {
 	edge = Color3.fromHex("343B42"),
 	rule = Color3.fromHex("30373D"),
 	amber = Color3.fromHex("F2A93B"),
-	text = Color3.fromHex("E8E6E1"),
+	text = Color3.new(1, 1, 1),
 	dim = Color3.fromHex("9AA0A6"),
-	faint = Color3.fromHex("7E868D"),
 	muted = Color3.fromHex("8B9198"),
 	ownedFill = Color3.fromHex("2A3036"),
 	dearFill = Color3.fromHex("20262B"),
-	dearEdge = Color3.fromHex("2C3339"),
-	label = Enum.Font.Oswald,
-	mono = Enum.Font.RobotoMono,
+	-- NEED $x: the cash badge's own spend red, so a shortfall reads as the same money.
+	short = Color3.fromHex("FF5A4E"),
+	-- The cartoon black every chunky card in the game is outlined in (CashController's
+	-- and StandCardController's INK, Kit.C.hazardBlack).
+	ink = Color3.fromHex("1A1A1A"),
+	headline = Enum.Font.LuckiestGuy,
+	label = Enum.Font.FredokaOne,
 }
 
 --- The stall's own accent, the same three hexes build/Shops paints each stall's
@@ -448,7 +449,7 @@ local function makeStatRow(parent: Instance, order: number): Frame
 		size = UDim2.fromOffset(STAT_LABEL_WIDTH, STAT_ROW_HEIGHT),
 		font = FIELD.label,
 		textSize = STAT_TEXT_SIZE,
-		color = FIELD.dim,
+		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
 		shadow = false,
@@ -477,7 +478,7 @@ local function makeStatRow(parent: Instance, order: number): Frame
 		anchorPoint = Vector2.new(1, 0),
 		position = UDim2.fromScale(1, 0),
 		size = UDim2.fromOffset(STAT_VALUE_WIDTH, STAT_ROW_HEIGHT),
-		font = FIELD.mono,
+		font = FIELD.label,
 		textSize = STAT_TEXT_SIZE,
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Right,
@@ -556,8 +557,8 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		name = "CardName",
 		position = UDim2.fromOffset(CARD_INSET, 0),
 		size = UDim2.new(1, -(2 * CARD_INSET + 150), 1, -1),
-		font = FIELD.label,
-		textSize = 32,
+		font = FIELD.headline,
+		textSize = 28,
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
@@ -571,7 +572,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		size = UDim2.new(0, 150, 1, -1),
 		font = FIELD.label,
 		textSize = 18,
-		color = FIELD.dim,
+		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
 		shadow = false,
@@ -626,7 +627,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		anchorPoint = Vector2.new(0, 1),
 		position = UDim2.new(0, CARD_INSET, 1, -CARD_BUY_BOTTOM),
 		size = UDim2.new(1, -2 * CARD_INSET, 0, CARD_BUY_HEIGHT),
-		font = FIELD.mono,
+		font = FIELD.headline,
 		textSize = 22,
 		cornerRadius = UDim.new(0, 5),
 		strokeThickness = 1,
@@ -651,6 +652,32 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	focus.Selectable = false
 
 	return card
+end
+
+--- Put every piece of shop text in the cartoon outline: a rounded INK stroke scaled
+--- to the text, the same recipe StandCardController's `text` uses. One pass over the
+--- finished shop rather than a flag on each of its dozen labels, so a label added
+--- later picks it up without anyone remembering to ask. Buttons with no text (the
+--- arrows, dots and veils are all `textSize = 1`) are skipped.
+---
+--- On a TextButton the stroke's default Contextual mode outlines the GLYPHS, not the
+--- box, which is what the buy button wants — paintShopCard no longer recolours it.
+local function inkShopText(root: Instance)
+	for _, node in root:GetDescendants() do
+		if not (node:IsA("TextLabel") or node:IsA("TextButton")) or node.TextSize <= 1 then
+			continue
+		end
+		local stroke = node:FindFirstChildOfClass("UIStroke")
+		if stroke == nil then
+			stroke = Instance.new("UIStroke")
+			stroke.Parent = node
+		end
+		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+		stroke.LineJoinMode = Enum.LineJoinMode.Round
+		stroke.Color = FIELD.ink
+		stroke.Thickness = math.clamp(node.TextSize / 9, 1.5, 3.5)
+		node.TextStrokeTransparency = 1
+	end
 end
 
 local function build(): ScreenGui
@@ -795,14 +822,13 @@ local function build(): ScreenGui
 	accentBar.Parent = header
 	ui.shopAccent = accentBar
 
-	-- Oswald at 30 and no letter-spacing: Roblox TextLabels have no tracking property,
-	-- and the usual workaround (spacing the glyphs out by hand, "D E T E C T O R S")
-	-- breaks the moment a track name wraps. The condensed face carries it alone.
+	-- LuckiestGuy is all-caps already; render() upper-cases the track name anyway so
+	-- a font swap never silently turns it back into "Detector".
 	ui.shopTitle = UIKit.label(header, {
 		name = "ShopTitle",
 		position = UDim2.fromOffset(16, 0),
 		size = UDim2.new(1, -230, 1, -1),
-		font = FIELD.label,
+		font = FIELD.headline,
 		textSize = 30,
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Left,
@@ -819,7 +845,7 @@ local function build(): ScreenGui
 		size = UDim2.fromOffset(200, 14),
 		font = FIELD.label,
 		textSize = 12,
-		color = FIELD.faint,
+		color = FIELD.text,
 		text = "ON HAND",
 		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
@@ -831,7 +857,7 @@ local function build(): ScreenGui
 		anchorPoint = Vector2.new(1, 0),
 		position = UDim2.new(1, -WALLET_INSET, 0, 18),
 		size = UDim2.fromOffset(200, 30),
-		font = FIELD.mono,
+		font = FIELD.headline,
 		textSize = 26,
 		color = FIELD.amber,
 		xAlign = Enum.TextXAlignment.Right,
@@ -962,9 +988,9 @@ local function build(): ScreenGui
 		anchorPoint = Vector2.new(1, 0),
 		position = UDim2.fromScale(1, 0),
 		size = UDim2.new(0, 80, 1, 0),
-		font = FIELD.mono,
+		font = FIELD.label,
 		textSize = 15,
-		color = FIELD.faint,
+		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
 		shadow = false,
@@ -974,9 +1000,9 @@ local function build(): ScreenGui
 	ui.shopEmpty = UIKit.label(shop, {
 		name = "Empty",
 		size = UDim2.new(1, 0, 0, 28),
-		font = UIKit.Font.body,
+		font = FIELD.label,
 		textSize = 16,
-		color = FIELD.dim,
+		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Center,
 		text = "nothing for sale here",
 		visible = false,
@@ -984,6 +1010,8 @@ local function build(): ScreenGui
 		shadow = false,
 	})
 	ui.shopEmpty.LayoutOrder = 3
+
+	inkShopText(shop)
 
 	-- Plots have no panel any more: exhibit income auto-deposits into the owner's
 	-- wallet (server-side ExhibitService), so the claim board — whose only verb was
@@ -1191,7 +1219,6 @@ local function paintShopCard(card: Frame, entry, accent: Color3, cash: number)
 	local art = card.CardArt :: ImageLabel
 	local buy = card.CardBuy :: TextButton
 	local cardStroke = card:FindFirstChildOfClass("UIStroke") :: UIStroke
-	local buyStroke = buy:FindFirstChildOfClass("UIStroke") :: UIStroke
 
 	nameLabel.Text = entry.name
 	-- The art well fills everything the stat block does not use.
@@ -1220,25 +1247,22 @@ local function paintShopCard(card: Frame, entry, accent: Color3, cash: number)
 		buy.Text = "IN HAND"
 		buy.TextColor3 = FIELD.amber
 		buy.BackgroundTransparency = 1
-		buyStroke.Color = FIELD.amber
 	elseif entry.owned then
 		cardStroke.Color = FIELD.edge
 		flag.Text = "OWNED"
-		flag.TextColor3 = FIELD.dim
+		flag.TextColor3 = FIELD.text
 		buy.Text = "EQUIP"
 		buy.TextColor3 = FIELD.text
 		buy.BackgroundColor3 = FIELD.ownedFill
 		buy.BackgroundTransparency = 0
-		buyStroke.Color = FIELD.edge
 	elseif dear then
 		cardStroke.Color = FIELD.edge
 		flag.Text = `NEED {money(entry.price - cash)}`
-		flag.TextColor3 = FIELD.muted
+		flag.TextColor3 = FIELD.short
 		buy.Text = money(entry.price)
 		buy.TextColor3 = FIELD.muted
 		buy.BackgroundColor3 = FIELD.dearFill
 		buy.BackgroundTransparency = 0
-		buyStroke.Color = FIELD.dearEdge
 	else
 		cardStroke.Color = FIELD.edge
 		flag.Text = ""
@@ -1246,10 +1270,9 @@ local function paintShopCard(card: Frame, entry, accent: Color3, cash: number)
 		-- outlined, ghosted or muted, so the things worth clicking are the only things
 		-- that look clickable.
 		buy.Text = money(entry.price)
-		buy.TextColor3 = FIELD.panel
+		buy.TextColor3 = FIELD.text
 		buy.BackgroundColor3 = FIELD.amber
 		buy.BackgroundTransparency = 0
-		buyStroke.Color = FIELD.amber
 	end
 	-- current, owned and buyable are exhaustive over every tier: `current` is checked
 	-- first and `owned` second, so the equipped tier takes the ISSUED branch even
