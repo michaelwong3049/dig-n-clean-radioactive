@@ -19,6 +19,14 @@
 	(the haul widget's own floor, Dock.HAULPANEL_BOTTOM), and no wider than the haul
 	widget's right-hand clearance (Dock.HAULPANEL_RIGHT) so the two never overlap. On a
 	touch screen it lifts clear of the jump button (UIKit.touchCorner).
+
+	AND NEVER UP INTO THE INDEX/SHOP COLUMN (ShopController.columnBottom). On a short
+	canvas -- the docked Studio viewport, a phone held sideways -- that column is centred
+	rather than hung high, and the first draft's clover sat right on top of the Shop
+	tile. Where the gap between the column and the hotbar is too short, the clover first
+	slides down toward the hotbar, then shrinks (a `Fit` UIScale, floored at MIN_FIT).
+	The pop-in animation rides a second UIScale on the inner `Body`, so the two never
+	fight over one Scale.
 ]]
 
 local Players = game:GetService("Players")
@@ -56,6 +64,7 @@ local CLOVER = 80
 local PILL_H = 28
 local PILL_GAP = 2
 local BADGE_H = CLOVER + PILL_GAP + PILL_H + 4
+local MIN_FIT = 0.6
 local WARN_SECONDS = 30
 
 local POP = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -68,6 +77,7 @@ type Ui = {
 	gui: ScreenGui,
 	canvas: Frame,
 	badge: TextButton,
+	fit: UIScale,
 	scale: UIScale,
 	clover: Frame,
 	mult: TextLabel,
@@ -140,8 +150,9 @@ end
 
 -- ── Build ─────────────────────────────────────────────────────────────
 
-local function buildBadge(canvas: Frame): (TextButton, UIScale, Frame, TextLabel, Frame, TextLabel)
-	-- A button so it can be hovered and clicked; it draws nothing itself.
+local function buildBadge(canvas: Frame): (TextButton, UIScale, UIScale, Frame, TextLabel, Frame, TextLabel)
+	-- A button so it can be hovered and clicked; it draws nothing itself. Its UIScale
+	-- is the layout fit (place); the pop lives on `Body` below.
 	local badge = Instance.new("TextButton")
 	badge.Name = "LuckBadge"
 	badge.Text = ""
@@ -151,16 +162,26 @@ local function buildBadge(canvas: Frame): (TextButton, UIScale, Frame, TextLabel
 	badge.Size = UDim2.fromOffset(BADGE_W, BADGE_H)
 	badge.Visible = false
 	badge.Parent = canvas
+	local fit = Instance.new("UIScale")
+	fit.Name = "Fit"
+	fit.Parent = badge
 
+	local body = Instance.new("Frame")
+	body.Name = "Body"
+	body.BackgroundTransparency = 1
+	body.AnchorPoint = Vector2.new(0.5, 0.5)
+	body.Position = UDim2.fromScale(0.5, 0.5)
+	body.Size = UDim2.fromScale(1, 1)
+	body.Parent = badge
 	local scale = Instance.new("UIScale")
 	scale.Scale = 0
-	scale.Parent = badge
+	scale.Parent = body
 
-	local clover = CloverArt.build(badge, CLOVER, 2)
+	local clover = CloverArt.build(body, CLOVER, 2)
 	clover.AnchorPoint = Vector2.new(0.5, 0)
 	clover.Position = UDim2.fromScale(0.5, 0)
 
-	local mult = text(badge, "Multiplier", STYLE.numberFont, 30, 20)
+	local mult = text(body, "Multiplier", STYLE.numberFont, 30, 20)
 	mult.AnchorPoint = Vector2.new(0.5, 0.5)
 	mult.Size = UDim2.fromOffset(BADGE_W, 34)
 	-- LuckiestGuy draws high in its box (CashController's valueDrop); nudged down to sit
@@ -178,7 +199,7 @@ local function buildBadge(canvas: Frame): (TextButton, UIScale, Frame, TextLabel
 	pill.BackgroundColor3 = STYLE.pill
 	pill.BorderSizePixel = 0
 	pill.ZIndex = 20
-	pill.Parent = badge
+	pill.Parent = body
 	local round = Instance.new("UICorner")
 	round.CornerRadius = UDim.new(0.5, 0)
 	round.Parent = pill
@@ -196,7 +217,7 @@ local function buildBadge(canvas: Frame): (TextButton, UIScale, Frame, TextLabel
 	shadow.BackgroundColor3 = INK
 	shadow.BorderSizePixel = 0
 	shadow.ZIndex = 19
-	shadow.Parent = badge
+	shadow.Parent = body
 	local shadowRound = round:Clone()
 	shadowRound.Parent = shadow
 
@@ -205,7 +226,7 @@ local function buildBadge(canvas: Frame): (TextButton, UIScale, Frame, TextLabel
 	time.Position = UDim2.fromOffset(0, -1)
 	time.Text = "10:00"
 
-	return badge, scale, clover, mult, pill, time
+	return badge, fit, scale, clover, mult, pill, time
 end
 
 local function buildTip(canvas: Frame): (Frame, TextLabel)
@@ -282,11 +303,21 @@ local function buildBanner(canvas: Frame): (CanvasGroup, UIScale, TextLabel, Tex
 end
 
 local function place()
+	local height = ui.canvas.AbsoluteSize.Y / UIKit.canvasScale(ui.canvas)
 	local corner = UIKit.touchCorner()
-	local bottom = math.max(Dock.HAULPANEL_BOTTOM, if corner.Y > 0 then corner.Y + Dock.GAP else 0)
+	-- The lowest it may sit: above the hotbar, and above the jump button on touch.
+	local floor = math.max(Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP, if corner.Y > 0 then corner.Y + Dock.GAP else 0)
+	local bottom = math.max(Dock.HAULPANEL_BOTTOM, floor)
+	-- The highest its top may reach, measured up from the bottom edge like `bottom`.
+	local ceiling = height - ShopController.columnBottom(height) - Dock.GAP
+	if ceiling - bottom < BADGE_H then
+		bottom = math.max(floor, ceiling - BADGE_H)
+	end
+	local fit = math.clamp((ceiling - bottom) / BADGE_H, MIN_FIT, 1)
 	local right = Dock.ROW_SIDE_MARGIN
+	ui.fit.Scale = fit
 	ui.badge.Position = UDim2.new(1, -right, 1, -bottom)
-	ui.tip.Position = UDim2.new(1, -(right + BADGE_W + Dock.GAP), 1, -(bottom + PILL_H))
+	ui.tip.Position = UDim2.new(1, -(right + BADGE_W * fit + Dock.GAP), 1, -(bottom + PILL_H * fit))
 end
 
 local function build(): Ui
@@ -299,7 +330,7 @@ local function build(): Ui
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local canvas = UIKit.canvas(gui)
 
-	local badge, scale, clover, mult, pill, time = buildBadge(canvas)
+	local badge, fit, scale, clover, mult, pill, time = buildBadge(canvas)
 	local tip, tipText = buildTip(canvas)
 	local banner, bannerScale, bannerTitle, bannerSub = buildBanner(canvas)
 
@@ -307,6 +338,7 @@ local function build(): Ui
 		gui = gui,
 		canvas = canvas,
 		badge = badge,
+		fit = fit,
 		scale = scale,
 		clover = clover,
 		mult = mult,
@@ -463,6 +495,7 @@ function LuckBoostController.start()
 	ui.gui.Parent = player:WaitForChild("PlayerGui")
 	place()
 	UIKit.onScaleChanged(place)
+	ui.canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 
 	ui.badge.MouseEnter:Connect(function()
 		hovering = true

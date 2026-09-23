@@ -10,8 +10,14 @@
 
 	IT FOLLOWS THE CAMERA ON PURPOSE. A real aurora is a hundred kilometres up and has
 	no parallax at all when you walk under it; ribbons pinned to the world would slide
-	overhead like low cloud and give the scale away. So the rig rides the camera's XZ at
-	a fixed height above it, and only drifts on its own slow clock.
+	overhead like low cloud and give the scale away. So the rig rides the camera, and
+	only drifts on its own slow clock.
+
+	A RING, NOT A CANOPY. The first draft laid the ribbons straight overhead, and from
+	the game's own third-person camera -- which looks at the horizon, not the zenith --
+	they were simply not on screen. They now stand in a loose ring a few hundred studs
+	out, 20-35 degrees above the horizon, so whichever way a player faces there is an
+	arc in the top of their view. Further out than ~450 the Atmosphere's haze eats them.
 
 	NO TEXTURE ASSETS. Each ribbon is two untextured additive Beams of the same curve --
 	a narrow bright core and a wide faint halo -- which is enough to soften the edge of
@@ -29,17 +35,19 @@ local Workspace = game:GetService("Workspace")
 
 local AuroraFx = {}
 
-local HEIGHT = 190 -- studs above the camera
-local SPREAD = 1300 -- how long each ribbon is, end to end
+local HEIGHT = 190 -- the rig's centre, studs above the camera
 local FADE = 4 -- seconds for the whole display to come up or die away
 local SPARKLE_HEIGHT = 70
 local SPARKLE_RATE = 26
 
--- Each ribbon: where it sits across the sky (`z`, studs off the rig's centre line),
--- its yaw off the rig, its core width, colours along its length, and its own wave.
+-- Each ribbon: which way round the ring it stands (`bearing`, degrees), how far out
+-- (`radius`) and up (`lift`, above the rig) it is, how long it runs along the ring,
+-- its core width, colours along its length, and its own wave.
 type RibbonDef = {
-	z: number,
-	yaw: number,
+	bearing: number,
+	radius: number,
+	lift: number,
+	length: number,
 	width: number,
 	colors: { Color3 },
 	speed: number,
@@ -53,28 +61,31 @@ local ROSE = Color3.fromHex("FF7AD9")
 local ICE = Color3.fromHex("8FD8FF")
 local LILAC = Color3.fromHex("C9A8FF")
 
+-- Tuned live in Studio against the Sky.AURORA night: at these distances a core much
+-- under ~80 wide is a hairline, and much brighter blows out into a flat sheet.
 local RIBBONS: { RibbonDef } = {
-	{ z = -230, yaw = 8, width = 70, colors = { ICE, VIOLET, ORCHID }, speed = 0.21, amp = 140, brightness = 2.4 },
-	{ z = -90, yaw = -5, width = 95, colors = { VIOLET, ORCHID, ROSE }, speed = 0.17, amp = 190, brightness = 3.0 },
-	{ z = 40, yaw = 12, width = 60, colors = { LILAC, VIOLET, ICE }, speed = 0.26, amp = 120, brightness = 2.2 },
-	{ z = 170, yaw = -10, width = 85, colors = { ROSE, ORCHID, VIOLET }, speed = 0.19, amp = 160, brightness = 2.6 },
+	{ bearing = 20, radius = 380, lift = 150, length = 640, width = 90, colors = { ICE, VIOLET, ORCHID }, speed = 0.21, amp = 140, brightness = 2.0 },
+	{ bearing = 95, radius = 420, lift = 200, length = 700, width = 100, colors = { VIOLET, ORCHID, ROSE }, speed = 0.17, amp = 170, brightness = 2.3 },
+	{ bearing = 165, radius = 360, lift = 140, length = 580, width = 80, colors = { LILAC, VIOLET, ICE }, speed = 0.26, amp = 120, brightness = 1.8 },
+	{ bearing = 235, radius = 410, lift = 185, length = 660, width = 95, colors = { ROSE, ORCHID, VIOLET }, speed = 0.19, amp = 160, brightness = 2.1 },
+	{ bearing = 305, radius = 390, lift = 165, length = 620, width = 85, colors = { ICE, LILAC, ORCHID }, speed = 0.23, amp = 150, brightness = 1.9 },
 }
 
 -- The halo is the same curve, this much wider and this much fainter.
-local HALO_WIDTH = 2.6
+local HALO_WIDTH = 2.5
 local HALO_BRIGHTNESS = 0.35
 local CORE_TRANSPARENCY = NumberSequence.new({
 	NumberSequenceKeypoint.new(0, 1),
-	NumberSequenceKeypoint.new(0.15, 0.45),
+	NumberSequenceKeypoint.new(0.18, 0.5),
 	NumberSequenceKeypoint.new(0.5, 0.3),
-	NumberSequenceKeypoint.new(0.85, 0.45),
+	NumberSequenceKeypoint.new(0.82, 0.5),
 	NumberSequenceKeypoint.new(1, 1),
 })
 local HALO_TRANSPARENCY = NumberSequence.new({
 	NumberSequenceKeypoint.new(0, 1),
-	NumberSequenceKeypoint.new(0.2, 0.75),
-	NumberSequenceKeypoint.new(0.5, 0.65),
-	NumberSequenceKeypoint.new(0.8, 0.75),
+	NumberSequenceKeypoint.new(0.2, 0.8),
+	NumberSequenceKeypoint.new(0.5, 0.7),
+	NumberSequenceKeypoint.new(0.8, 0.8),
 	NumberSequenceKeypoint.new(1, 1),
 })
 
@@ -142,16 +153,25 @@ local function build()
 
 	local anchor = ghostPart("AuroraRoot", Vector3.one, model)
 	for index, def in RIBBONS do
-		-- The ribbon runs along the rig's X axis. Both ends' attachments point their
-		-- Axis sideways (+Z) so CurveSize bends the band across the sky, not up it.
-		local yawed = CFrame.Angles(0, math.rad(def.yaw), 0)
+		-- The ribbon runs along the ring (tangent to it) at its bearing. Both ends'
+		-- attachments turn their Axis to point out along the radius, so CurveSize bows
+		-- the band toward and away from the player -- a curtain folding -- rather than
+		-- up and down the sky.
+		local theta = math.rad(def.bearing)
+		local radial = Vector3.new(math.cos(theta), 0, math.sin(theta))
+		local tangent = Vector3.new(-radial.Z, 0, radial.X)
+		local centre = radial * def.radius + Vector3.new(0, def.lift, 0)
+		local function endAt(side: number): CFrame
+			local at = centre + tangent * (side * def.length / 2)
+			return CFrame.lookAt(at, at + radial) * CFrame.Angles(0, math.rad(90), 0)
+		end
 		local a0 = Instance.new("Attachment")
 		a0.Name = `Ribbon{index}A`
-		a0.CFrame = yawed * CFrame.new(-SPREAD / 2, (index % 2) * 18, def.z) * CFrame.Angles(0, math.rad(90), 0)
+		a0.CFrame = endAt(-1)
 		a0.Parent = anchor
 		local a1 = Instance.new("Attachment")
 		a1.Name = `Ribbon{index}B`
-		a1.CFrame = yawed * CFrame.new(SPREAD / 2, (index % 2) * 18, def.z) * CFrame.Angles(0, math.rad(90), 0)
+		a1.CFrame = endAt(1)
 		a1.Parent = anchor
 
 		local colors = colorSequence(def.colors)

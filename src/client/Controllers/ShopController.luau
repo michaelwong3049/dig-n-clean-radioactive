@@ -363,6 +363,23 @@ local function buildPanel(): ScreenGui
 	return gui
 end
 
+--- The Shop tile's top edge, in design px from the canvas's vertical centre, on a
+--- canvas `height` design px tall. Hung directly under the Index tile: same hang/centre
+--- switch at the same Dock.SIDE_TOP_MIN_HEIGHT breakpoint, one Dock.GAP below wherever
+--- the Index tile's own bottom edge falls in each case (see IndexController.place — the
+--- hang case ends at SIDE_TOP_Y + TILE_SIZE, the centred case at +TILE_SIZE/2).
+local function tileTop(height: number): number
+	local hang = height >= Dock.SIDE_TOP_MIN_HEIGHT
+	local indexBottom = if hang then Dock.SIDE_TOP_Y + TILE_SIZE else TILE_SIZE / 2
+	return indexBottom + Dock.GAP
+end
+
+--- Where the right-hand tile column ends: the Shop tile's bottom edge, in design px
+--- from the canvas TOP. LuckBoostController keeps the 2x-luck clover below it.
+function Shop.columnBottom(height: number): number
+	return height / 2 + tileTop(height) + TILE_SIZE
+end
+
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "ShopButton"
@@ -398,15 +415,10 @@ local function build(): ScreenGui
 	})
 	buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-	-- Hung directly under the Index tile: same hang/centre switch at the same
-	-- Dock.SIDE_TOP_MIN_HEIGHT breakpoint, one Dock.GAP below wherever the Index
-	-- tile's own bottom edge falls in each case (see IndexController.place — the
-	-- hang case ends at SIDE_TOP_Y + TILE_SIZE, the centred case at +TILE_SIZE/2).
+	-- Hung directly under the Index tile -- see tileTop.
 	local function place()
 		local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-		local hang = height >= Dock.SIDE_TOP_MIN_HEIGHT
-		local indexBottom = if hang then Dock.SIDE_TOP_Y + TILE_SIZE else TILE_SIZE / 2
-		local y = indexBottom + Dock.GAP
+		local y = tileTop(height)
 		button.AnchorPoint = Vector2.new(1, 0)
 		button.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y)
 		shadow.AnchorPoint = Vector2.new(1, 0)

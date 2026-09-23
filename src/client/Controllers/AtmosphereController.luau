@@ -53,12 +53,13 @@
 
 	── THE VIOLET AURORA (Config/LuckBoost) ───────────────────────────────────────
 	The 2x-luck event is weather, and weather is this file's job, so the violet sky
-	lives here rather than in LuckBoostController. It is a BLEND, not a replacement:
-	whatever stage you are in, its own look is pulled Sky.AURORA_BLEND of the way toward
-	Sky.AURORA (Config/Sky.blend), fog included. Walking between stages mid-aurora still
-	changes the air; the aurora just rides on top of it. It comes and goes on its own
-	slower AURORA_TWEEN, because a sky changing colour over four seconds reads as
-	something arriving. The ribbons overhead are AuroraFx, driven by LuckBoostController.
+	lives here rather than in LuckBoostController. Whatever stage you are in, its own
+	look is pulled Sky.AURORA_BLEND of the way toward Sky.AURORA (Config/Sky.blend), fog
+	colour included -- at the shipped blend of 1 that is the same violet night over the
+	whole map (Config/Sky says why it has to be night). Fog DISTANCE is still the
+	stage's, so the deep stages still close in. It comes and goes on its own slower
+	AURORA_TWEEN, because a sky changing colour over four seconds reads as something
+	arriving. The ribbons in it are AuroraFx, driven by LuckBoostController.
 ]]
 
 local Players = game:GetService("Players")

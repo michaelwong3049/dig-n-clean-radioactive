@@ -7,12 +7,19 @@
 	(HealthPanel): an uploaded icon is an asset the account has to own and moderation
 	can take away, and a Frame drawing takes any colour the palette asks for.
 
-	DRAWN IN THE HUD'S CARTOON VOICE (CashController's header): one thick INK outline
-	around the whole silhouette and a hard black shadow dropped a few px, never a blur.
-	A per-shape UIStroke would outline every overlap too -- a line through the middle
-	of each leaf where its two lobes meet -- so the outline is a LAYER instead: the same
-	shapes grown by the outline width in INK, the fill shapes laid on top of them. The
-	shadow is that silhouette again, offset, under both.
+	DRAWN IN THE HUD'S CARTOON VOICE (CashController's header): thick INK outlines and a
+	hard black shadow dropped a few px, never a blur. A per-shape UIStroke would outline
+	every overlap too -- a line through the middle of each leaf where its two lobes
+	meet -- so each outline is a LAYER instead: the same shapes grown by the outline
+	width in INK, with the fill laid on top. The shadow is the whole silhouette again,
+	offset, under everything.
+
+	ONE OUTLINE PER LEAF, STACKED LIKE STICKERS. The first draft outlined the four
+	leaves as one silhouette, and at badge size the eight touching lobes merged into a
+	purple flower; nobody would have called it a clover. Drawing each leaf's outline
+	and fill in turn, one on top of the last, puts an ink seam between every pair of
+	leaves -- the X down the middle is what makes it read as four hearts. (Picked from a
+	four-way comparison in Studio; the leaves were narrowed at the same time.)
 
 	VIOLET, NOT GREEN. Green on the HUD means exposure and nothing else (PLAN §14;
 	StageBannerController's and CashController's headers both hit the same wall), and a
@@ -70,18 +77,26 @@ local function turn(v: Vector2, degrees: number): Vector2
 	return Vector2.new(v.X * c - v.Y * s, v.X * s + v.Y * c)
 end
 
+-- The leaf's geometry, in leaf units: lobes at (+-LOBE_X, -LOBE_Y) of LOBE_D across,
+-- the diamond POINT_SIDE square centred POINT_Y out from the clover's centre.
+local LOBE_X = 0.22
+local LOBE_Y = 0.70
+local LOBE_D = 0.5
+local POINT_SIDE = 0.5
+local POINT_Y = 0.37
+
 --- One heart-shaped leaf pointing `angle` degrees clockwise from straight up, in leaf
 --- units `u` (the leaf's own box), grown by `grow` px on every edge.
 local function leaf(parent: Instance, u: number, angle: number, grow: number, fill: Color3, lobeFill: Color3?, z: number)
 	-- In the leaf's own frame (point toward +y, the clover's centre), measured from the
-	-- point: lobes out at y = -0.68u, the diamond centred at -0.40u.
-	local lobeD = 0.56 * u + 2 * grow
-	local diamond = 0.56 * u + 2 * grow
+	-- point: the lobes outboard, the diamond between them and the centre.
+	local lobeD = LOBE_D * u + 2 * grow
+	local diamond = POINT_SIDE * u + 2 * grow
 	local lobes = {
-		Vector2.new(-0.28 * u, -0.68 * u),
-		Vector2.new(0.28 * u, -0.68 * u),
+		Vector2.new(-LOBE_X * u, -LOBE_Y * u),
+		Vector2.new(LOBE_X * u, -LOBE_Y * u),
 	}
-	local body = turn(Vector2.new(0, -0.40 * u), angle)
+	local body = turn(Vector2.new(0, -POINT_Y * u), angle)
 	shape(parent, "Point", Vector2.new(diamond, diamond), body, fill, z, false, 45 + angle)
 	for i, lobe in lobes do
 		shape(parent, `Lobe{i}`, Vector2.new(lobeD, lobeD), turn(lobe, angle), lobeFill or fill, z, true)
@@ -89,7 +104,8 @@ local function leaf(parent: Instance, u: number, angle: number, grow: number, fi
 end
 
 local function stem(parent: Instance, u: number, grow: number, color: Color3, z: number)
-	local length = 0.95 * u + 2 * grow
+	-- Long enough to show past the leaves, down the gap between the east and south ones.
+	local length = 1.2 * u + 2 * grow
 	local width = 0.17 * u + 2 * grow
 	shape(parent, "Stem", Vector2.new(width, length), turn(Vector2.new(0, 0.5 * length - grow), -45), color, z, true, -45)
 end
@@ -126,21 +142,20 @@ function CloverArt.build(parent: Instance, size: number, zIndex: number?, palett
 		end
 	end
 	stem(root, u, line, INK, z + 1)
-	for _, angle in angles do
-		leaf(root, u, angle, line, INK, nil, z + 1)
-	end
-
-	-- Fill: stem under the leaves, lobes a shade lighter than the point so each leaf
-	-- reads as a heart and not a blob.
 	stem(root, u, 0, colors.stem, z + 2)
-	for _, angle in angles do
-		leaf(root, u, angle, 0, colors.shade, colors.leaf, z + 3)
+
+	-- Each leaf's outline, then its fill, each leaf over the last (the header's
+	-- stickers). Lobes a shade lighter than the point, so each leaf reads as a heart.
+	for i, angle in angles do
+		leaf(root, u, angle, line, INK, nil, z + 1 + 2 * i)
+		leaf(root, u, angle, 0, colors.shade, colors.leaf, z + 2 + 2 * i)
 	end
-	-- The seam where the four points meet, and a glint on each leaf's upper lobe.
-	shape(root, "Heart", Vector2.new(0.3 * u, 0.3 * u), Vector2.zero, colors.shade, z + 4, true)
+	local top = z + 3 + 2 * #angles
+	-- The knot where the four points meet, and a glint on each leaf's upper lobe.
+	shape(root, "Heart", Vector2.new(0.3 * u, 0.3 * u), Vector2.zero, colors.shade, top, true)
 	for _, angle in angles do
-		local glint = turn(Vector2.new(-0.33 * u, -0.78 * u), angle)
-		local spot = shape(root, "Glint", Vector2.new(0.2 * u, 0.13 * u), glint, colors.shine, z + 5, true, angle - 35)
+		local glint = turn(Vector2.new(-(LOBE_X + 0.05) * u, -(LOBE_Y + 0.1) * u), angle)
+		local spot = shape(root, "Glint", Vector2.new(0.2 * u, 0.13 * u), glint, colors.shine, top + 1, true, angle - 35)
 		spot.BackgroundTransparency = 0.15
 	end
 
