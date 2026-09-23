@@ -99,6 +99,8 @@
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -138,10 +140,18 @@ local PANEL_KINDS: { [string]: boolean } = {
 	shop = true,
 }
 
--- ── Shop card grid ──────────────────────────────────────────────────
--- The shop is a storefront now, not a one-line upgrade prompt: every tier of the
--- track laid out worst-to-best as cards in a horizontal scroller, so the ladder you
--- are climbing is visible before you have climbed it.
+-- ── Shop carousel ───────────────────────────────────────────────────
+-- The shop is a storefront, not a one-line upgrade prompt: every tier of the track
+-- laid out worst-to-best, side by side in one row, so the ladder you are climbing is
+-- there to scroll along before you have climbed it.
+--
+-- ONE CARD AT A TIME, ON REQUEST. This was a 4x2 grid of 258-wide spec cards, which
+-- fit the longest track on screen at once but made every card small enough that eight
+-- of them read as a price list. Now one card holds the middle of the panel at hero
+-- size, and its neighbours peek in, dimmed, at either edge — the sliver is what tells
+-- you there is more to the left and right. Arrows, the mouse wheel, a drag, the pager
+-- dots or a click on a peeking card move along the row; it always settles with one
+-- card centred.
 --
 -- CARD_SLOTS IS A CEILING OVER ALL SIX TRACKS, NOT A GUESS. The longest is Detector
 -- at 8 tiers (Config/Gear); the rest run 5-7. Cards are built once at that count and
@@ -149,30 +159,43 @@ local PANEL_KINDS: { [string]: boolean } = {
 -- that rebuilds its children on every StationState tick would churn 8 frames' worth
 -- of instances ten times a second.
 local CARD_SLOTS = 8
-local CARD_COLS = 4
-local CARD_ROWS = 2
-local CARD_WIDTH = 258
-local CARD_HEIGHT = 243
-local CARD_GAP = 14
+local CARD_WIDTH = 440
+local CARD_HEIGHT = 400
+local CARD_GAP = 18
+-- How much of each neighbour shows at the panel's edges on a full-width panel. On a
+-- viewport too narrow for the ceiling, the panel narrows and the peeks go first; the
+-- focused card stays whole and centred because the row is placed from the carousel's
+-- own centre (Scale 0.5), not from its left edge.
+local CARD_PEEK = 64
+-- Distance from one card's centre to the next — one "notch" of the carousel.
+local CAROUSEL_STEP = CARD_WIDTH + CARD_GAP
+-- A few px taller than a card so the focused card's stroke is never clipped.
+local CAROUSEL_HEIGHT = CARD_HEIGHT + 8
+-- Neighbours sit slightly smaller and behind a slate veil, so the focused card is the
+-- only thing on the row that reads as in front of you.
+local NEIGHBOUR_SCALE = 0.92
+local NEIGHBOUR_VEIL = 0.35
+local CAROUSEL_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+-- A drag must travel this far (design px) before it counts as a drag and not a click,
+-- and past this fraction of a step it moves one card even if it did not reach halfway.
+local DRAG_SLOP = 6
+local DRAG_FLICK = 0.18
+-- Past either end the row follows the pointer at this rate, so it gives but plainly
+-- stops.
+local DRAG_RUBBER = 0.35
+-- One wheel notch is one card. Trackpads fire a burst of small wheel events per swipe,
+-- and without a cooldown one swipe would run the whole ladder.
+local WHEEL_COOLDOWN = 0.15
+-- Pager dots: a dot per tier, the focused one stretched into a pill.
+local DOT_SIZE = 9
+local DOT_FOCUS_WIDTH = 26
+-- The close badge's 32px plus the 14px it is inset by, less the panel pad it shares.
+local WALLET_INSET = 34
 
--- THE SLIVER IS GONE, AND SO IS THE SCROLLING IT ADVERTISED. The row used to be a
--- horizontal scroller sized to show four cards plus 30px of a fifth, because eight
--- 270-wide cards could not fit a screen. They fit now: the cards are 258 wide in a
--- 4x2 grid, so the longest track in the game (Detector, 8 tiers) is entirely on screen
--- with nothing behind an edge. What made the room was dropping the six-track rail the
--- mockup carried — the panel shows only the stall you walked up to, so every pixel of
--- it belongs to that one track's ladder.
---
--- CARD_SLOTS is still a ceiling over all six tracks and still the number of cards
--- built once and reused; CARD_COLS x CARD_ROWS is what fits without scrolling. A track
--- longer than that would scroll VERTICALLY rather than not fitting, which is the one
--- failure mode worth leaving a door open for.
 local PANEL_PAD = 16
 local PANEL_WIDTH = 620
--- Four whole cards, their three gaps, the panel's own padding, and 8px of gutter so a
--- scrollbar (narrow viewports only) never sits on top of the fourth column.
-local SHOP_PANEL_WIDTH = CARD_COLS * CARD_WIDTH + (CARD_COLS - 1) * CARD_GAP + 2 * PANEL_PAD + 8
-local SHOP_GRID_HEIGHT = CARD_ROWS * CARD_HEIGHT + (CARD_ROWS - 1) * CARD_GAP
+-- The focused card, a gap and a peek either side, and the panel's own padding.
+local SHOP_PANEL_WIDTH = CARD_WIDTH + 2 * (CARD_GAP + CARD_PEEK) + 2 * PANEL_PAD
 
 -- ── The field-kit skin ───────────────────────────────────────────────
 -- The shop panel is the one screen in the game wearing this, and it is deliberately
@@ -394,9 +417,10 @@ end
 --- use — a stat block that rebuilt its children on every StationState tick would churn
 --- forty frames' worth of instances ten times a second.
 local STAT_ROWS = 5
-local STAT_ROW_HEIGHT = 17
-local STAT_LABEL_WIDTH = 62
-local STAT_VALUE_WIDTH = 34
+local STAT_ROW_HEIGHT = 22
+local STAT_ROW_GAP = 10
+local STAT_LABEL_WIDTH = 92
+local STAT_VALUE_WIDTH = 64
 local BAR_FLOOR = 0.06
 
 --- One row of a card's stat block: label, bar, value. A flag cell reuses the same row
@@ -420,7 +444,7 @@ local function makeStatRow(parent: Instance, order: number): Frame
 		name = "StatLabel",
 		size = UDim2.fromOffset(STAT_LABEL_WIDTH, STAT_ROW_HEIGHT),
 		font = FIELD.label,
-		textSize = 13,
+		textSize = 17,
 		color = FIELD.dim,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
@@ -428,12 +452,12 @@ local function makeStatRow(parent: Instance, order: number): Frame
 	})
 
 	-- The track, and the fill inside it. Two plain Frames rather than a UIKit helper:
-	-- a 4px bar wants no corner, no stroke and no text, which is all a helper would add.
+	-- a 6px bar wants no corner, no stroke and no text, which is all a helper would add.
 	local track = Instance.new("Frame")
 	track.Name = "StatTrack"
 	track.AnchorPoint = Vector2.new(0, 0.5)
-	track.Position = UDim2.new(0, STAT_LABEL_WIDTH + 8, 0.5, 0)
-	track.Size = UDim2.new(1, -(STAT_LABEL_WIDTH + STAT_VALUE_WIDTH + 22), 0, 4)
+	track.Position = UDim2.new(0, STAT_LABEL_WIDTH + 10, 0.5, 0)
+	track.Size = UDim2.new(1, -(STAT_LABEL_WIDTH + STAT_VALUE_WIDTH + 26), 0, 6)
 	track.BackgroundColor3 = FIELD.rule
 	track.BorderSizePixel = 0
 	track.Parent = row
@@ -451,7 +475,7 @@ local function makeStatRow(parent: Instance, order: number): Frame
 		position = UDim2.fromScale(1, 0),
 		size = UDim2.fromOffset(STAT_VALUE_WIDTH, STAT_ROW_HEIGHT),
 		font = FIELD.mono,
-		textSize = 13,
+		textSize = 17,
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
@@ -461,16 +485,26 @@ local function makeStatRow(parent: Instance, order: number): Frame
 	return row
 end
 
---- One shop card: unit code and status, art beside the name and its one line of copy,
---- the stat block, and the price button.
+--- One shop card: unit code and status, art beside the name and its copy, the stat
+--- block, and the price button — drawn at hero size, because the carousel shows one
+--- of these at a time rather than eight in a grid.
 ---
 --- THE ART WELL IS DELIBERATELY EMPTY. `CardArt` is a real ImageLabel with no Image
 --- set, sized and positioned as the finished thing will be, so dropping in artwork
 --- later is one assignment per tier and not a re-layout. It is not a placeholder
---- rectangle to be replaced — it is the frame the art goes in. It moved beside the
---- name rather than above it when the card became a spec sheet: a 78x46 plate reads as
---- an inventory thumbnail, which is what a tool in a catalogue wants to be, and the
---- height it gave up is what the stat bars and the blurb now stand in.
+--- rectangle to be replaced — it is the frame the art goes in. It sits beside the name
+--- rather than above it: a plate that shape reads as an inventory thumbnail, which is
+--- what a tool in a catalogue wants to be.
+---
+--- THE CARD IS PLACED BY HAND, NOT BY A LAYOUT. Its slot on the carousel row is a fixed
+--- x (one CAROUSEL_STEP per tier) and it is anchored at its own centre, so the
+--- neighbour `UIScale` shrinks it in place rather than toward a corner — a
+--- UIListLayout would have to be fought for that.
+---
+--- `CardFocus` is a clear button over the whole card, shown only while the card is a
+--- neighbour. It carries the veil that dims it and catches the click, so pressing a
+--- peeking card brings it to the middle instead of buying something you have not
+--- looked at.
 ---
 --- Children are reached by `card.CardXxx` at paint time, so none of them may be
 --- named `Name`: every Instance already has a `.Name` property and Roblox never
@@ -481,23 +515,30 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	local card = UIKit.panel(parent, {
 		name = `Card{order}`,
 		size = UDim2.fromOffset(CARD_WIDTH, CARD_HEIGHT),
+		position = UDim2.new(0, (order - 1) * CAROUSEL_STEP + CARD_WIDTH / 2, 0.5, 0),
+		anchorPoint = Vector2.new(0.5, 0.5),
 		color = FIELD.card,
 		transparency = 0,
 		strokeColor = FIELD.edge,
 		strokeThickness = 1,
-		cornerRadius = UDim.new(0, 6),
+		cornerRadius = UDim.new(0, 8),
 		visible = false,
 	})
 	card.LayoutOrder = order
 
+	local scale = Instance.new("UIScale")
+	scale.Name = "FocusScale"
+	scale.Scale = NEIGHBOUR_SCALE
+	scale.Parent = card
+
 	-- ── The code strip ───────────────────────────────────────────────
 	-- A rule across the top carrying the unit's catalogue code on the left and its
 	-- status word on the right. The code is pure flavour and it earns its place: it
-	-- gives the eye a fixed left edge to run down a grid of eight cards by, which the
-	-- names (2 to 16 characters, centred before this) never did.
+	-- gives every card the same fixed left edge, so paging along the row the eye lands
+	-- in the same spot each time.
 	local strip = Instance.new("Frame")
 	strip.Name = "CardStrip"
-	strip.Size = UDim2.new(1, 0, 0, 33)
+	strip.Size = UDim2.new(1, 0, 0, 42)
 	strip.BackgroundTransparency = 1
 	strip.Parent = card
 
@@ -512,10 +553,10 @@ local function makeShopCard(parent: Instance, order: number): Frame
 
 	UIKit.label(strip, {
 		name = "CardCode",
-		position = UDim2.fromOffset(14, 0),
-		size = UDim2.new(0, 70, 1, -1),
+		position = UDim2.fromOffset(20, 0),
+		size = UDim2.new(0, 90, 1, -1),
 		font = FIELD.mono,
-		textSize = 13,
+		textSize = 16,
 		color = FIELD.faint,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
@@ -525,10 +566,10 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	UIKit.label(strip, {
 		name = "CardFlag",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, -14, 0, 0),
-		size = UDim2.new(1, -90, 1, -1),
+		position = UDim2.new(1, -20, 0, 0),
+		size = UDim2.new(1, -130, 1, -1),
 		font = FIELD.label,
-		textSize = 14,
+		textSize = 18,
 		color = FIELD.dim,
 		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
@@ -538,8 +579,8 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	-- ── Art, name, blurb ─────────────────────────────────────────────
 	local art = Instance.new("ImageLabel")
 	art.Name = "CardArt"
-	art.Position = UDim2.fromOffset(14, 45)
-	art.Size = UDim2.fromOffset(78, 46)
+	art.Position = UDim2.fromOffset(20, 60)
+	art.Size = UDim2.fromOffset(132, 84)
 	art.BackgroundColor3 = FIELD.well
 	art.BackgroundTransparency = 0
 	art.BorderSizePixel = 0
@@ -552,15 +593,14 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	artEdge.Thickness = 1
 	artEdge.Parent = art
 
-	-- Fixed heights, not AutomaticSize: every card in the grid has to put its button on
-	-- the same baseline, and a 2-line name on one card must not push that card's button
-	-- below its neighbours'.
+	-- Fixed heights, not AutomaticSize: every card on the row has to put its button on
+	-- the same baseline, so paging from one to the next never makes the button jump.
 	UIKit.label(card, {
 		name = "CardName",
-		position = UDim2.fromOffset(102, 43),
-		size = UDim2.new(1, -116, 0, 25),
+		position = UDim2.fromOffset(168, 56),
+		size = UDim2.new(1, -188, 0, 36),
 		font = FIELD.label,
-		textSize = 23,
+		textSize = 32,
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
@@ -569,10 +609,10 @@ local function makeShopCard(parent: Instance, order: number): Frame
 
 	UIKit.label(card, {
 		name = "CardBlurb",
-		position = UDim2.fromOffset(102, 68),
-		size = UDim2.new(1, -116, 0, 30),
+		position = UDim2.fromOffset(168, 96),
+		size = UDim2.new(1, -188, 0, 50),
 		font = UIKit.Font.body,
-		textSize = 12,
+		textSize = 15,
 		color = FIELD.muted,
 		xAlign = Enum.TextXAlignment.Left,
 		yAlign = Enum.TextYAlignment.Top,
@@ -584,14 +624,14 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	-- ── Stat block ───────────────────────────────────────────────────
 	local stats = Instance.new("Frame")
 	stats.Name = "CardStats"
-	stats.Position = UDim2.fromOffset(14, 106)
-	stats.Size = UDim2.new(1, -28, 0, STAT_ROWS * STAT_ROW_HEIGHT + (STAT_ROWS - 1) * 6)
+	stats.Position = UDim2.fromOffset(20, 164)
+	stats.Size = UDim2.new(1, -40, 0, STAT_ROWS * STAT_ROW_HEIGHT + (STAT_ROWS - 1) * STAT_ROW_GAP)
 	stats.BackgroundTransparency = 1
 	stats.Parent = card
 
 	local statLayout = Instance.new("UIListLayout")
 	statLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	statLayout.Padding = UDim.new(0, 6)
+	statLayout.Padding = UDim.new(0, STAT_ROW_GAP)
 	statLayout.Parent = stats
 
 	for index = 1, STAT_ROWS do
@@ -601,16 +641,31 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	local buy = UIKit.button(card, {
 		name = "CardBuy",
 		anchorPoint = Vector2.new(0, 1),
-		position = UDim2.new(0, 14, 1, -13),
-		size = UDim2.new(1, -28, 0, 44),
+		position = UDim2.new(0, 20, 1, -18),
+		size = UDim2.new(1, -40, 0, 54),
 		font = FIELD.mono,
-		textSize = 16,
-		cornerRadius = UDim.new(0, 4),
+		textSize = 21,
+		cornerRadius = UDim.new(0, 5),
 		strokeThickness = 1,
 		outline = false,
 		shadow = false,
 	})
 	buy.LayoutOrder = 9
+
+	local focus = UIKit.button(card, {
+		name = "CardFocus",
+		size = UDim2.fromScale(1, 1),
+		text = "",
+		textSize = 1,
+		fillColor = FIELD.panel,
+		fillTransparency = NEIGHBOUR_VEIL,
+		cornerRadius = UDim.new(0, 8),
+		strokeThickness = 0,
+		outline = false,
+		shadow = false,
+		zIndex = 20,
+	})
+	focus.Selectable = false
 
 	return card
 end
@@ -635,6 +690,7 @@ local function build(): ScreenGui
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	local canvas = UIKit.canvas(gui)
+	ui.canvas = canvas
 
 	local panel, panelStroke = UIKit.panel(canvas, {
 		name = "Panel",
@@ -783,10 +839,12 @@ local function build(): ScreenGui
 		shadow = false,
 	})
 
+	-- Inset from the panel's right edge by the close badge's width, which sits over
+	-- this corner (repositionClose) and used to cover the top of the wallet.
 	UIKit.label(header, {
 		name = "WalletLabel",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, 0, 0, 3),
+		position = UDim2.new(1, -WALLET_INSET, 0, 3),
 		size = UDim2.fromOffset(200, 14),
 		font = FIELD.label,
 		textSize = 12,
@@ -800,7 +858,7 @@ local function build(): ScreenGui
 	ui.shopCash = UIKit.label(header, {
 		name = "Cash",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, 0, 0, 18),
+		position = UDim2.new(1, -WALLET_INSET, 0, 18),
 		size = UDim2.fromOffset(200, 30),
 		font = FIELD.mono,
 		textSize = 26,
@@ -810,40 +868,138 @@ local function build(): ScreenGui
 		shadow = false,
 	})
 
-	-- The storefront grid. AutomaticCanvasSize.Y + a UIGridLayout means the canvas is
-	-- whatever the visible cards add up to, so a 5-tier track reserves one row less
-	-- than an 8-tier one without anyone computing a canvas height — and on a viewport
-	-- wide enough for four columns (the ceiling the panel is sized to) nothing scrolls
-	-- at all. The direction flipped from X with the sliver: see CARD_COLS above.
-	local scroll = Instance.new("ScrollingFrame")
-	scroll.Name = "Cards"
-	scroll.LayoutOrder = 1
-	scroll.Size = UDim2.new(1, 0, 0, SHOP_GRID_HEIGHT)
-	scroll.BackgroundTransparency = 1
-	scroll.BorderSizePixel = 0
-	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
-	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-	scroll.ScrollBarThickness = 6
-	scroll.ScrollBarImageColor3 = FIELD.edge
-	scroll.ScrollBarImageTransparency = 0.3
-	scroll.Parent = shop
-	ui.shopScroll = scroll
+	-- ── The carousel ─────────────────────────────────────────────────
+	-- A clipping window over one long row. The row (`Strip`) is every card side by
+	-- side at a fixed CAROUSEL_STEP, and moving along it is moving the ROW, placed from
+	-- the window's centre (Scale 0.5) so the focused card is centred at any panel
+	-- width. Not a ScrollingFrame: it has no snap, its CanvasPosition is in screen
+	-- pixels under the canvas's UIScale, and its own wheel handling scrolls vertically.
+	-- Every way of moving the row goes through setShopFocus instead — see Station.start.
+	--
+	-- Active so the mouse wheel over it is marked game-processed and does not also
+	-- zoom the camera.
+	local carousel = Instance.new("Frame")
+	carousel.Name = "Cards"
+	carousel.LayoutOrder = 1
+	carousel.Size = UDim2.new(1, 0, 0, CAROUSEL_HEIGHT)
+	carousel.BackgroundTransparency = 1
+	carousel.ClipsDescendants = true
+	carousel.Active = true
+	carousel.Parent = shop
+	ui.shopCarousel = carousel
 
-	local cardLayout = Instance.new("UIGridLayout")
-	cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	cardLayout.CellSize = UDim2.fromOffset(CARD_WIDTH, CARD_HEIGHT)
-	cardLayout.CellPadding = UDim2.fromOffset(CARD_GAP, CARD_GAP)
-	cardLayout.FillDirectionMaxCells = CARD_COLS
-	cardLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-	cardLayout.Parent = scroll
+	local row = Instance.new("Frame")
+	row.Name = "Strip"
+	row.AnchorPoint = Vector2.new(0, 0.5)
+	row.Position = UDim2.new(0.5, -CARD_WIDTH / 2, 0.5, 0)
+	row.Size = UDim2.fromOffset(CARD_SLOTS * CAROUSEL_STEP, CARD_HEIGHT)
+	row.BackgroundTransparency = 1
+	row.Parent = carousel
+	ui.shopRow = row
 
 	ui.shopCards = {}
 	for index = 1, CARD_SLOTS do
-		table.insert(ui.shopCards, makeShopCard(scroll, index))
+		table.insert(ui.shopCards, makeShopCard(row, index))
 	end
 
-	-- Shown instead of the grid when a shop has no track behind it at all.
+	-- The two arrows, over the peeks at either edge. The chevron is two rotated bars
+	-- rather than a glyph: ◀/▶ render as colour emoji on some clients (the ☢ on the
+	-- rad meter did), and a "<" in any of this panel's faces reads as code.
+	local function makeArrow(name: string, side: number): TextButton
+		local arrow = UIKit.button(carousel, {
+			name = name,
+			anchorPoint = Vector2.new(if side < 0 then 0 else 1, 0.5),
+			position = UDim2.new(if side < 0 then 0 else 1, -side * 6, 0.5, 0),
+			size = UDim2.fromOffset(42, 76),
+			text = "",
+			textSize = 1,
+			fillColor = FIELD.panel,
+			fillTransparency = 0.1,
+			strokeColor = FIELD.edge,
+			strokeThickness = 1,
+			cornerRadius = UDim.new(0, 6),
+			outline = false,
+			shadow = false,
+			zIndex = 30,
+		})
+		-- The apex points `side`; each bar's centre sits half a bar back from it and
+		-- half a bar above or below, turned 45° toward the apex.
+		for _, up in { -1, 1 } do
+			local bar = Instance.new("Frame")
+			bar.Name = "Chevron"
+			bar.AnchorPoint = Vector2.new(0.5, 0.5)
+			bar.Position = UDim2.new(0.5, 0, 0.5, up * 5)
+			bar.Size = UDim2.fromOffset(16, 3)
+			bar.Rotation = -side * up * 45
+			bar.BackgroundColor3 = FIELD.text
+			bar.BorderSizePixel = 0
+			bar.ZIndex = 31
+			bar.Parent = arrow
+		end
+		return arrow
+	end
+	ui.shopPrev = makeArrow("Prev", -1)
+	ui.shopNext = makeArrow("Next", 1)
+
+	-- ── The pager ────────────────────────────────────────────────────
+	-- One dot per tier, the focused one stretched into a pill, and "3 / 8" beside it.
+	-- Each dot is a button straight to that tier. Dots carry ownership as well
+	-- (amber = in hand, light = owned), so the row can be read without paging it.
+	local pager = Instance.new("Frame")
+	pager.Name = "Pager"
+	pager.LayoutOrder = 2
+	pager.Size = UDim2.new(1, 0, 0, 22)
+	pager.BackgroundTransparency = 1
+	pager.Parent = shop
+	ui.shopPager = pager
+
+	local dots = Instance.new("Frame")
+	dots.Name = "Dots"
+	dots.Size = UDim2.fromScale(1, 1)
+	dots.BackgroundTransparency = 1
+	dots.Parent = pager
+
+	local dotLayout = Instance.new("UIListLayout")
+	dotLayout.FillDirection = Enum.FillDirection.Horizontal
+	dotLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	dotLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	dotLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	dotLayout.Padding = UDim.new(0, 8)
+	dotLayout.Parent = dots
+
+	ui.shopDots = {}
+	for index = 1, CARD_SLOTS do
+		local dot = UIKit.button(dots, {
+			name = `Dot{index}`,
+			size = UDim2.fromOffset(DOT_SIZE, DOT_SIZE),
+			text = "",
+			textSize = 1,
+			fillColor = FIELD.edge,
+			fillTransparency = 0,
+			cornerRadius = UDim.new(0.5, 0),
+			strokeThickness = 0,
+			outline = false,
+			shadow = false,
+		})
+		dot.LayoutOrder = index
+		dot.Visible = false
+		table.insert(ui.shopDots, dot)
+	end
+
+	ui.shopCounter = UIKit.label(pager, {
+		name = "Counter",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.fromScale(1, 0),
+		size = UDim2.new(0, 80, 1, 0),
+		font = FIELD.mono,
+		textSize = 15,
+		color = FIELD.faint,
+		xAlign = Enum.TextXAlignment.Right,
+		outline = false,
+		shadow = false,
+	})
+
+	-- Shown instead of the carousel when a shop has no track behind it at all.
 	ui.shopEmpty = UIKit.label(shop, {
 		name = "Empty",
 		size = UDim2.new(1, 0, 0, 28),
@@ -856,7 +1012,7 @@ local function build(): ScreenGui
 		outline = false,
 		shadow = false,
 	})
-	ui.shopEmpty.LayoutOrder = 2
+	ui.shopEmpty.LayoutOrder = 3
 
 	-- Plots have no panel any more: exhibit income auto-deposits into the owner's
 	-- wallet (server-side ExhibitService), so the claim board — whose only verb was
@@ -1294,10 +1450,126 @@ local function refreshRack()
 	paintRack(state.stationId, tiers)
 end
 
+-- ── Carousel focus ───────────────────────────────────────────────────────────
+--
+-- WHICH CARD IS IN THE MIDDLE IS CLIENT STATE, AND ONLY CLIENT STATE. The server's
+-- offer is the whole ladder every tick and knows nothing about paging; every way of
+-- moving along the row — arrows, wheel, drag, dots, a click on a peeking card — ends
+-- in setShopFocus, and render() only ever re-picks the focus when the panel opens.
+local carousel = {
+	focus = 1,
+	count = 0,
+	-- Design px the row is currently dragged off its resting place.
+	drag = 0,
+	-- The shop the focus was last chosen for. Cleared whenever the panel is not
+	-- showing a shop, so opening it again starts on a fresh card instead of wherever
+	-- you left it last visit.
+	openedFor = nil :: string?,
+	tiers = nil :: { any }?,
+	accent = FIELD.amber,
+}
+local rowTween: Tween? = nil
+
+local function placeRow(animate: boolean)
+	if rowTween then
+		rowTween:Cancel()
+		rowTween = nil
+	end
+	local target = UDim2.new(0.5, -CARD_WIDTH / 2 - (carousel.focus - 1) * CAROUSEL_STEP + carousel.drag, 0.5, 0)
+	if animate then
+		rowTween = TweenService:Create(ui.shopRow, CAROUSEL_TWEEN, { Position = target })
+		rowTween:Play()
+	else
+		ui.shopRow.Position = target
+	end
+end
+
+--- Dots, counter and arrows. Plain property writes with no tweens, so render() can
+--- call this on every tick — buying a tier recolours its dot without the focus moving.
+local function paintPager()
+	local tiers = carousel.tiers
+	for index, dot in ui.shopDots do
+		local entry = if tiers then tiers[index] else nil
+		dot.Visible = entry ~= nil
+		if entry == nil then
+			continue
+		end
+		local focused = index == carousel.focus
+		dot.Size = UDim2.fromOffset(if focused then DOT_FOCUS_WIDTH else DOT_SIZE, DOT_SIZE)
+		dot.BackgroundColor3 = if focused
+			then carousel.accent
+			elseif entry.current then FIELD.amber
+			elseif entry.owned then FIELD.dim
+			else FIELD.edge
+	end
+	ui.shopCounter.Text = if carousel.count > 0 then `{carousel.focus} / {carousel.count}` else ""
+	ui.shopPrev.Visible = carousel.focus > 1
+	ui.shopNext.Visible = carousel.focus < carousel.count
+end
+
+--- Neighbours shrink and go behind the veil; the focused card comes forward. The
+--- veil is also what catches a click on a neighbour, so it is hidden outright on the
+--- focused card once its fade finishes — or it would sit over the buy button.
+local function paintFocus(animate: boolean)
+	for index, card in ui.shopCards do
+		local focused = index == carousel.focus
+		local scale = card:FindFirstChildOfClass("UIScale") :: UIScale
+		local veil = card.CardFocus :: TextButton
+		local scaleTarget = if focused then 1 else NEIGHBOUR_SCALE
+		local veilTarget = if focused then 1 else NEIGHBOUR_VEIL
+		if not focused then
+			veil.Visible = true
+		end
+		if animate then
+			TweenService:Create(scale, CAROUSEL_TWEEN, { Scale = scaleTarget }):Play()
+			local fade = TweenService:Create(veil, CAROUSEL_TWEEN, { BackgroundTransparency = veilTarget })
+			if focused then
+				fade.Completed:Connect(function(playback)
+					if playback == Enum.PlaybackState.Completed and carousel.focus == index then
+						veil.Visible = false
+					end
+				end)
+			end
+			fade:Play()
+		else
+			scale.Scale = scaleTarget
+			veil.BackgroundTransparency = veilTarget
+			veil.Visible = not focused
+		end
+	end
+end
+
+local function setShopFocus(index: number, animate: boolean)
+	carousel.focus = math.clamp(index, 1, math.max(carousel.count, 1))
+	carousel.drag = 0
+	placeRow(animate)
+	paintFocus(animate)
+	paintPager()
+end
+
+--- Where the row opens: the first rung past the one in your hands that you do not
+--- own yet — the upgrade you most likely walked over for, with your own tool peeking
+--- in on its left. Owning everything above it, the one in your hands.
+local function defaultShopFocus(tiers: { any }): number
+	local current = 0
+	for index, entry in tiers do
+		if entry.current then
+			current = index
+		end
+	end
+	for index = current + 1, #tiers do
+		if not tiers[index].owned then
+			return index
+		end
+	end
+	return math.max(current, 1)
+end
+
 local function render()
 	if state.station == nil or dismissed or not PANEL_KINDS[state.station] then
 		ui.panel.Visible = false
 		ui.closeButton.Visible = false
+		carousel.openedFor = nil
 		return
 	end
 
@@ -1348,7 +1620,8 @@ local function render()
 			then `{count} units on the rail \u{00B7} you own every one`
 			else `{count} units on the rail \u{00B7} you own {owned} \u{00B7} buy any of them, in any order`
 
-		ui.shopScroll.Visible = count > 0
+		ui.shopCarousel.Visible = count > 0
+		ui.shopPager.Visible = count > 0
 		ui.shopEmpty.Visible = count == 0
 
 		-- Two letters off the track name: Detector -> DT, Magnet -> MG, Cleaner -> CL.
@@ -1366,12 +1639,30 @@ local function render()
 
 		ui.shopCash.Text = money(cash)
 
+		-- Re-pick the focus only on opening (or when the offer first arrives with
+		-- tiers in it); every other tick keeps the card you paged to and just repaints
+		-- the pager. A changed count clamps rather than resets.
+		local previous = carousel.count
+		carousel.tiers = tiers
+		carousel.accent = accent
+		carousel.count = count
+		if tiers and count > 0 and (carousel.openedFor ~= track or previous == 0) then
+			setShopFocus(defaultShopFocus(tiers), false)
+		elseif count ~= previous then
+			setShopFocus(carousel.focus, false)
+		else
+			paintPager()
+		end
+		carousel.openedFor = track
+
 		for _, row in ui.rows do
 			row.Visible = false
 		end
 		ui.sellButton.Visible = false
 		return
 	end
+
+	carousel.openedFor = nil
 
 	-- TRADER ONLY down here now. This used to be the decon/trader fork; the decon half
 	-- moved into the world (the tub's E prompt) and took the Quarantine Locker rows and
@@ -1458,6 +1749,130 @@ function Station.start()
 		end
 	end)
 
+	-- ── Moving along the carousel ────────────────────────────────────
+	-- All of it goes through setShopFocus. The wheel and the drag are read off
+	-- UserInputService with `gameProcessed` ignored — over a GUI it is always true —
+	-- and hit-tested against the carousel's own rect instead. InputObject.Position is
+	-- below the topbar inset, the same space as this gui's AbsolutePosition
+	-- (IgnoreGuiInset is false, see build()).
+	local function shopShowing(): boolean
+		return ui.panel.Visible and ui.shop.Visible and carousel.count > 0
+	end
+	local function overCarousel(position: Vector3): boolean
+		local corner = ui.shopCarousel.AbsolutePosition
+		local size = ui.shopCarousel.AbsoluteSize
+		return position.X >= corner.X
+			and position.X <= corner.X + size.X
+			and position.Y >= corner.Y
+			and position.Y <= corner.Y + size.Y
+	end
+
+	ui.shopPrev.MouseButton1Click:Connect(function()
+		setShopFocus(carousel.focus - 1, true)
+	end)
+	ui.shopNext.MouseButton1Click:Connect(function()
+		setShopFocus(carousel.focus + 1, true)
+	end)
+	for index, dot in ui.shopDots do
+		dot.MouseButton1Click:Connect(function()
+			setShopFocus(index, true)
+		end)
+	end
+
+	-- A DRAG IS NOT A CLICK. Releasing a drag over a button still fires its
+	-- MouseButton1Click, so `dragMoved` stays set from the moment a press passes
+	-- DRAG_SLOP until the next press, and every button on the row checks it.
+	local dragInput: InputObject? = nil
+	local dragStartX = 0
+	local dragMoved = false
+	local lastWheel = 0
+
+	for index, card in ui.shopCards do
+		(card.CardFocus :: TextButton).MouseButton1Click:Connect(function()
+			if not dragMoved then
+				setShopFocus(index, true)
+			end
+		end)
+	end
+
+	UserInputService.InputBegan:Connect(function(input)
+		if not shopShowing() then
+			return
+		end
+		-- Shoulder buttons page on a gamepad; the stick is still walking you around.
+		if input.KeyCode == Enum.KeyCode.ButtonL1 or input.KeyCode == Enum.KeyCode.ButtonR1 then
+			setShopFocus(carousel.focus + (if input.KeyCode == Enum.KeyCode.ButtonR1 then 1 else -1), true)
+			return
+		end
+		local kind = input.UserInputType
+		if (kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch) and overCarousel(input.Position) then
+			dragInput = input
+			dragStartX = input.Position.X
+			dragMoved = false
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		local kind = input.UserInputType
+		if kind == Enum.UserInputType.MouseWheel then
+			if shopShowing() and overCarousel(input.Position) and os.clock() - lastWheel >= WHEEL_COOLDOWN then
+				lastWheel = os.clock()
+				-- Wheel down (towards you) is next, the way a sideways list scrolls.
+				setShopFocus(carousel.focus + (if input.Position.Z < 0 then 1 else -1), true)
+			end
+			return
+		end
+		if dragInput == nil then
+			return
+		end
+		-- A mouse drag reports through separate MouseMovement objects; a touch
+		-- updates the object it began with.
+		local byMouse = dragInput.UserInputType == Enum.UserInputType.MouseButton1
+		if (byMouse and kind ~= Enum.UserInputType.MouseMovement) or (not byMouse and input ~= dragInput) then
+			return
+		end
+		local dx = (input.Position.X - dragStartX) / UIKit.canvasScale(ui.canvas)
+		if not dragMoved and math.abs(dx) < DRAG_SLOP then
+			return
+		end
+		dragMoved = true
+		-- Where along the row the pointer has taken you, with anything past either
+		-- end followed at DRAG_RUBBER.
+		local rest = (carousel.focus - 1) * CAROUSEL_STEP
+		local limit = (carousel.count - 1) * CAROUSEL_STEP
+		local along = rest - dx
+		if along < 0 then
+			along *= DRAG_RUBBER
+		elseif along > limit then
+			along = limit + (along - limit) * DRAG_RUBBER
+		end
+		carousel.drag = rest - along
+		placeRow(false)
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if dragInput == nil then
+			return
+		end
+		local sameMouse = dragInput.UserInputType == Enum.UserInputType.MouseButton1
+			and input.UserInputType == Enum.UserInputType.MouseButton1
+		if input ~= dragInput and not sameMouse then
+			return
+		end
+		dragInput = nil
+		if not dragMoved then
+			return
+		end
+		-- Settle on the nearest card, but a flick past DRAG_FLICK of a step always
+		-- moves at least one.
+		local steps = -carousel.drag / CAROUSEL_STEP
+		local moved = math.floor(steps + 0.5)
+		if moved == 0 and math.abs(steps) >= DRAG_FLICK then
+			moved = if steps > 0 then 1 else -1
+		end
+		setShopFocus(carousel.focus + moved, true)
+	end)
+
 	-- Every card's button is bound, and now more than one can be live at once — any
 	-- tier past what you own is a real purchase, not a preview. The request carries
 	-- the clicked card's own tier; `Buyable` is presentation only (it is false on
@@ -1473,7 +1888,7 @@ function Station.start()
 		-- again regardless -- ShopService re-checks ownership on both paths -- so a
 		-- stale attribute here can only ever produce a refused action, never a wrong one.
 		buy.MouseButton1Click:Connect(function()
-			if state.stationId == nil then
+			if state.stationId == nil or dragMoved then
 				return
 			end
 			if card:GetAttribute("Buyable") then
