@@ -21,11 +21,12 @@
 	leaves -- the X down the middle is what makes it read as four hearts. (Picked from a
 	four-way comparison in Studio; the leaves were narrowed at the same time.)
 
-	VIOLET, NOT GREEN. Green on the HUD means exposure and nothing else (PLAN §14;
-	StageBannerController's and CashController's headers both hit the same wall), and a
-	green clover in the corner would read as a rad warning at a glance. Violet is the
-	Violet Aurora's colour, so the corner clover, the sky and the shop card are one
-	thing: violet means luck. PALETTE is the one place to change that.
+	GREEN AT x2, PURPLE AT x4 -- the user's call (2026-09-23). The first cut was violet
+	everywhere, on PLAN §14's "green on the HUD means exposure" rule, and the user asked
+	for a clover that looks like a clover, keeping purple for the stacked x4: purple is
+	the Violet Aurora's colour, so x4 reads as "aurora plus clover". GREEN is a leafy
+	mid-green, well clear of radiation's acid #4FD11A. `paint` recolours a clover that
+	is already built, which is how the corner badge swaps between the two.
 
 	Each leaf is a heart: two round lobes outboard and a square turned 45 degrees whose
 	corner is the leaf's point, meeting the other three at the clover's centre.
@@ -42,16 +43,46 @@ export type Palette = {
 	stem: Color3,
 }
 
-CloverArt.PALETTE = {
+-- 2x: one boost running.
+CloverArt.GREEN = {
+	leaf = Color3.fromHex("5ED15A"),
+	shade = Color3.fromHex("3A9E3F"),
+	shine = Color3.fromHex("DDF8D2"),
+	stem = Color3.fromHex("2E7D32"),
+} :: Palette
+
+-- 4x: the aurora and a clover stacked.
+CloverArt.PURPLE = {
 	leaf = Color3.fromHex("A46BFF"),
 	shade = Color3.fromHex("7E45E6"),
 	shine = Color3.fromHex("E6D6FF"),
 	stem = Color3.fromHex("6A34C9"),
 } :: Palette
 
+CloverArt.PALETTE = CloverArt.GREEN
+
+--- The palette for a luck multiplier: purple once it is past 2x, green otherwise.
+function CloverArt.paletteFor(multiplier: number): Palette
+	return if multiplier > 2 then CloverArt.PURPLE else CloverArt.GREEN
+end
+
+-- Fill shapes carry their palette key here so `paint` can find them; the INK outline
+-- and shadow layers carry none and are never touched.
+local ROLE = "CloverRole"
+
 local ROUND = UDim.new(0.5, 0)
 
-local function shape(parent: Instance, name: string, size: Vector2, center: Vector2, color: Color3, z: number, round: boolean, rotation: number?): Frame
+local function shape(
+	parent: Instance,
+	name: string,
+	size: Vector2,
+	center: Vector2,
+	color: Color3,
+	z: number,
+	round: boolean,
+	rotation: number?,
+	role: string?
+): Frame
 	local frame = Instance.new("Frame")
 	frame.Name = name
 	frame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -65,6 +96,9 @@ local function shape(parent: Instance, name: string, size: Vector2, center: Vect
 		local corner = Instance.new("UICorner")
 		corner.CornerRadius = ROUND
 		corner.Parent = frame
+	end
+	if role then
+		frame:SetAttribute(ROLE, role)
 	end
 	frame.Parent = parent
 	return frame
@@ -86,8 +120,9 @@ local POINT_SIDE = 0.5
 local POINT_Y = 0.37
 
 --- One heart-shaped leaf pointing `angle` degrees clockwise from straight up, in leaf
---- units `u` (the leaf's own box), grown by `grow` px on every edge.
-local function leaf(parent: Instance, u: number, angle: number, grow: number, fill: Color3, lobeFill: Color3?, z: number)
+--- units `u` (the leaf's own box), grown by `grow` px on every edge. `tag` marks it
+--- as a fill layer (point = shade, lobes = leaf) for `paint`.
+local function leaf(parent: Instance, u: number, angle: number, grow: number, fill: Color3, lobeFill: Color3?, z: number, tag: boolean?)
 	-- In the leaf's own frame (point toward +y, the clover's centre), measured from the
 	-- point: the lobes outboard, the diamond between them and the centre.
 	local lobeD = LOBE_D * u + 2 * grow
@@ -97,17 +132,17 @@ local function leaf(parent: Instance, u: number, angle: number, grow: number, fi
 		Vector2.new(LOBE_X * u, -LOBE_Y * u),
 	}
 	local body = turn(Vector2.new(0, -POINT_Y * u), angle)
-	shape(parent, "Point", Vector2.new(diamond, diamond), body, fill, z, false, 45 + angle)
+	shape(parent, "Point", Vector2.new(diamond, diamond), body, fill, z, false, 45 + angle, if tag then "shade" else nil)
 	for i, lobe in lobes do
-		shape(parent, `Lobe{i}`, Vector2.new(lobeD, lobeD), turn(lobe, angle), lobeFill or fill, z, true)
+		shape(parent, `Lobe{i}`, Vector2.new(lobeD, lobeD), turn(lobe, angle), lobeFill or fill, z, true, nil, if tag then "leaf" else nil)
 	end
 end
 
-local function stem(parent: Instance, u: number, grow: number, color: Color3, z: number)
+local function stem(parent: Instance, u: number, grow: number, color: Color3, z: number, role: string?)
 	-- Long enough to show past the leaves, down the gap between the east and south ones.
 	local length = 1.2 * u + 2 * grow
 	local width = 0.17 * u + 2 * grow
-	shape(parent, "Stem", Vector2.new(width, length), turn(Vector2.new(0, 0.5 * length - grow), -45), color, z, true, -45)
+	shape(parent, "Stem", Vector2.new(width, length), turn(Vector2.new(0, 0.5 * length - grow), -45), color, z, true, -45, role)
 end
 
 --- Build a clover `size` px square, centred in a transparent frame of that size.
@@ -142,24 +177,34 @@ function CloverArt.build(parent: Instance, size: number, zIndex: number?, palett
 		end
 	end
 	stem(root, u, line, INK, z + 1)
-	stem(root, u, 0, colors.stem, z + 2)
+	stem(root, u, 0, colors.stem, z + 2, "stem")
 
 	-- Each leaf's outline, then its fill, each leaf over the last (the header's
 	-- stickers). Lobes a shade lighter than the point, so each leaf reads as a heart.
 	for i, angle in angles do
 		leaf(root, u, angle, line, INK, nil, z + 1 + 2 * i)
-		leaf(root, u, angle, 0, colors.shade, colors.leaf, z + 2 + 2 * i)
+		leaf(root, u, angle, 0, colors.shade, colors.leaf, z + 2 + 2 * i, true)
 	end
 	local top = z + 3 + 2 * #angles
 	-- The knot where the four points meet, and a glint on each leaf's upper lobe.
-	shape(root, "Heart", Vector2.new(0.3 * u, 0.3 * u), Vector2.zero, colors.shade, top, true)
+	shape(root, "Heart", Vector2.new(0.3 * u, 0.3 * u), Vector2.zero, colors.shade, top, true, nil, "shade")
 	for _, angle in angles do
 		local glint = turn(Vector2.new(-(LOBE_X + 0.05) * u, -(LOBE_Y + 0.1) * u), angle)
-		local spot = shape(root, "Glint", Vector2.new(0.2 * u, 0.13 * u), glint, colors.shine, top + 1, true, angle - 35)
+		local spot = shape(root, "Glint", Vector2.new(0.2 * u, 0.13 * u), glint, colors.shine, top + 1, true, angle - 35, "shine")
 		spot.BackgroundTransparency = 0.15
 	end
 
 	return root
+end
+
+--- Recolour a clover `build` made, in place. Outline and shadow stay INK.
+function CloverArt.paint(clover: Instance, palette: Palette)
+	for _, node in clover:GetDescendants() do
+		local role = node:GetAttribute(ROLE)
+		if node:IsA("Frame") and type(role) == "string" then
+			node.BackgroundColor3 = (palette :: any)[role]
+		end
+	end
 end
 
 return CloverArt
