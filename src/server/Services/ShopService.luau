@@ -38,24 +38,20 @@
 	WHICH MAKES EQUIPPING A REAL VERB — `equipTier`, and the only other thing in the
 	codebase that writes `gear[track]`. Owning a set you cannot choose from would be a
 	trap: buying a lighter detector on purpose would take your good one away with no
-	way back. An owned tier's panel card is an EQUIP button and its rack hook's E
-	switches to it instead of charging you again, so dropping down a rung and climbing
-	back is one press each way.
+	way back. An owned tier's card is an EQUIP button instead of charging you again,
+	so dropping down a rung and climbing back is one press each way.
 
 	`offerFor` returns a `tiers` catalog — every tier of the track, worst first, each
 	tagged owned/current/buyable/equippable/affordable — so the panel can draw all of
 	them with the right verb on each. `buyable` means "not owned", `equippable` means
 	"owned but not in your hands"; see `CatalogEntry` below.
 
-	THERE ARE TWO DOORS ONTO buyTier NOW, AND ONLY ONE OF THEM IS THE PANEL.
-	Every tier of the three tool tracks also hangs on a rail beside its shop's stand
-	with its own ProximityPrompt (build/Shops' rack), so a player who knows which
-	detector they want walks up to that detector and presses E — no panel, no card,
-	no row to find. `wireUpgrade` below is that path. It lands on exactly the same
-	`buyTier` the panel's Buy button does, with the same validation, so nothing about
-	what a purchase COSTS or whether it is legal depends on which door it came
-	through. The panel is still there and still opens; see build/Shops' header for
-	why both are worth keeping.
+	THERE IS ONE DOOR ONTO buyTier, AND IT IS A CARD'S BUTTON. Every tier of the three
+	tool tracks also hangs on a rail beside its shop's stand with its own
+	ProximityPrompt (build/Shops' rack), but that E only OPENS the tier's card on the
+	client; it used to buy outright on a short hold, which spent money on a tool the
+	player had not seen the stats of. The card's button is the same StationAction the
+	storefront's cards send, so `wireUpgrade` below wires only Luck's button now.
 
 	THE CLIENT IS NEVER TRUSTED ABOUT WHERE IT IS STANDING, OR WHAT THINGS COST.
 	The buy request carries a track name and a tier number, and neither is trusted on
@@ -601,16 +597,21 @@ local UPGRADE_TAG = "Upgrade"
 ---
 ---   SellsTrack only ............. Luck's button. No ladder to index, so it takes
 ---                                 buyLuck's own path — Config/Gear's header above
----                                 `luckMultiplier` says why Luck has no tiers.
----   SellsTrack + SellsTier ...... one hook on a shop rack: THIS rung of that track.
----                                 Straight to buyTier, the same call the panel's
----                                 Buy button lands on.
+---                                 `luckMultiplier` says why Luck has no tiers. The
+---                                 only seller whose E still buys on its own.
+---   SellsTrack + SellsTier ...... one hook on a shop rack. Validated and NOT wired:
+---                                 its E opens that tier's shop card on the client
+---                                 (StationController's rack card), and the card's
+---                                 button comes back through StationAction to
+---                                 `buy`/`equip`, which re-derive the shop from the
+---                                 player's position like any panel request. A buy
+---                                 here as well would be a second door onto a
+---                                 purchase the player has not looked at yet.
 ---
---- NEITHER PATH CHECKS PROXIMITY, and that is not an omission — see buyTier's own
---- header. ProximityPrompt.Triggered fires on the SERVER and Roblox enforces
+--- LUCK'S PATH DOES NOT CHECK PROXIMITY, and that is not an omission — see buyTier's
+--- own header. ProximityPrompt.Triggered fires on the SERVER and Roblox enforces
 --- MaxActivationDistance before it ever fires, so the player's position is a
---- precondition the engine established rather than a claim to re-derive. The panel's
---- `buy()` has to do that work because a client sent it a request; a prompt does not.
+--- precondition the engine established rather than a claim to re-derive.
 local function wireUpgrade(part: Instance)
 	if not part:IsA("BasePart") then
 		return
@@ -625,49 +626,23 @@ local function wireUpgrade(part: Instance)
 		return
 	end
 
-	-- Read ONCE, at wiring time, not inside the handler. A rack hook's tier is
-	-- geometry — it is which hook this is — and re-reading it per trigger would make
-	-- the price a player pays depend on an attribute that anything could have moved
-	-- since. buyTier re-validates it against the track's length regardless.
-	local tier = part:GetAttribute("SellsTier")
-	local sellsTier = if type(tier) == "number" then tier else nil
-
-	if sellsTier == nil and track ~= "Luck" then
+	if type(part:GetAttribute("SellsTier")) == "number" then
+		return
+	end
+	if track ~= "Luck" then
 		warn(`[shop] {part:GetFullName()} sells "{track}" with no SellsTier — only Luck may omit it`)
 		return
 	end
 
 	prompt.Triggered:Connect(function(player: Player)
-		local ok: boolean, message: string
-		if sellsTier ~= nil then
-			-- ONE HOOK, TWO VERBS, DECIDED HERE RATHER THAN BY THE CLIENT. Pressing E
-			-- on a tool you already own equips it; on one you don't, it buys it. The
-			-- prompt is a single shared instance and cannot say different things to
-			-- two players, so the client repaints its ActionText locally off the same
-			-- offer that paints the price cards (StationController's rack pass) — but
-			-- what the press DOES is decided from the profile, right here, and never
-			-- from what that player's screen happened to say.
-			local data = DataService.data(player)
-			if data ~= nil and ownsTier(data, track, sellsTier) then
-				ok, message = ShopService.equipTier(player, track, sellsTier)
-			else
-				ok, message = ShopService.buyTier(player, track, sellsTier)
-			end
-		else
-			ok, message = ShopService.buyLuck(player)
-		end
+		local ok, message = ShopService.buyLuck(player)
 		resultRemote:FireClient(player, message)
 		if ok then
 			print(`[shop] {player.Name}: {message}`)
-			if sellsTier == nil then
-				-- The luck button's own billboard names the buyer's multiplier, not a
-				-- shop panel that isn't there — see ExhibitService.refreshLuck's header
-				-- for why that lives in ExhibitService rather than here. A rack hook has
-				-- nothing to refresh: its card is world geometry showing a fixed price,
-				-- and the per-player owned-check over it is drawn client-side off the
-				-- offer the panel is already receiving (StationController's rack pass).
-				ExhibitService.refreshLuck(player)
-			end
+			-- The luck button's own billboard names the buyer's multiplier, not a
+			-- shop panel that isn't there — see ExhibitService.refreshLuck's header
+			-- for why that lives in ExhibitService rather than here.
+			ExhibitService.refreshLuck(player)
 		end
 	end)
 end

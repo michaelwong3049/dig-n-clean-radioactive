@@ -61,14 +61,13 @@
 
 	AND THE SHOP IS ALSO A RACK IN THE WORLD NOW, WHICH THIS FILE PAINTS BUT DOES NOT
 	OWN. Every tier of the three tool tracks hangs on the wing beside its stand with a
-	price card above it and its own E prompt (build/Shops), so a player who knows which
-	detector they want buys it without ever opening this panel. The one thing those
+	price card above it and its own E prompt (build/Shops). That E opens THIS panel
+	with just that one tier's card in it — see `rackCard`. The one thing the price
 	cards cannot show on their own is whether YOU own that tier — they are single
 	shared instances — so the owned-check is written locally, off the same `offer` this
 	panel is already receiving. See "The rack beside the stand" below for what it costs.
-	The panel is still there and still holds the stat blocks, but it does not open on
-	approach any more: press E on the stand for it. The rack is the fast path, the
-	panel the one you ask for. See `dismissed`.
+	The panel does not open on approach any more: press E on the stand for the whole
+	row, or on a rack hook for one card. See `dismissed`.
 
 	THE SHOP PANEL IS A STOREFRONT, NOT A ONE-LINE OFFER. It used to render exactly
 	one thing —
@@ -197,6 +196,13 @@ local PANEL_PAD = 16
 local PANEL_WIDTH = 620
 -- The focused card, a gap and a peek either side, and the panel's own padding.
 local SHOP_PANEL_WIDTH = CARD_WIDTH + 2 * (CARD_GAP + CARD_PEEK) + 2 * PANEL_PAD
+-- The rack card (see `rackCard`): one card and nothing either side of it, with a few
+-- px spare so the carousel window does not clip the card's outline.
+local RACK_CARD_EDGE = 4
+local RACK_PANEL_WIDTH = CARD_WIDTH + 2 * (PANEL_PAD + RACK_CARD_EDGE)
+-- The card starts this much smaller and eases up to full size as it opens.
+local RACK_CARD_POP = 0.94
+local RACK_CARD_TWEEN = TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
 -- ── The field-kit skin ───────────────────────────────────────────────
 -- The shop panel is the one screen in the game wearing this, and it is deliberately
@@ -289,6 +295,25 @@ local toastToken = 0
 -- you choose to go, not a thing that happens to you.
 local dismissed = false
 local lastKey: string? = nil
+
+--- THE RACK CARD: which rack hook's E opened this panel, or nil for the storefront.
+---
+--- Pressing E on a tier hanging on a shop's rack opens this same panel with ONLY that
+--- tier's card in it — no neighbours, no arrows, no pager — the card the storefront
+--- would have shown for it, with the same live model, stats and Buy / Equip button.
+--- It is the same panel rather than a second one on purpose: the card, its button
+--- binding and the StationAction it sends are all already here, and the server
+--- treats a buy from it exactly like a buy from the storefront (it re-derives the
+--- shop from where you stand).
+---
+--- Cleared by the X, by walking out of the shop's radius, and by the stand's E,
+--- which swaps the one card for the whole row. The same rack hook's E again closes
+--- it; another hook's E swaps to that hook's card.
+local rackCard: { track: string, tier: number }? = nil
+
+--- The name build/Shops gives every rack hook's prompt. Hardcoded for the same reason
+--- as BROWSE_PROMPT above.
+local RACK_PROMPT = "Upgrade"
 
 --- The name build/Shops gives the stand's own prompt. Hardcoded here for the same
 --- reason RACK_TAG below is: this is a client script and build/Kit lives in
@@ -1520,7 +1545,7 @@ end
 --- never lighting up.
 local RACK_TAG = "Upgrade"
 
---- U+2713 first, the word after it. FredokaOne has no check glyph of its own, so
+--- U+2713 first, the word after it. The price card's fonts have no check glyph, so
 --- this leans on Roblox's font fallback — and if that ever fails, what is left on the
 --- card is the word, which still says the thing. A bare check would leave a tofu box.
 ---
@@ -1528,8 +1553,8 @@ local RACK_TAG = "Upgrade"
 --- tick on every tier at or below yours, which is exactly the complaint that started
 --- this: eight identical ticks after buying one detector, and no way to tell which
 --- tool you were actually holding. EQUIPPED is the one in your hands; OWNED is a tool
---- you bought and are not using, and its hook's E switches to it rather than charging
---- you for it again.
+--- you bought and are not using, and its card's button equips it rather than
+--- charging you for it again.
 local EQUIPPED_TEXT = "✓ EQUIPPED"
 local OWNED_TEXT = "✓ OWNED"
 
@@ -1544,23 +1569,20 @@ local rackKey: string? = nil
 --- that is what leaving a shop does.
 ---
 --- THREE STATES OUT HERE NOW, MATCHING THE PANEL'S THREE. The equipped tier gets the
---- green EQUIPPED tick; a tier you own but are not holding gets a neutral OWNED tick
---- and its prompt flips from "Buy $x" to "Equip"; everything else keeps the price it
---- was built with. That prompt rewrite is the reason this function touches
---- ProximityPrompts at all — a prompt is a single shared instance and the server
---- cannot word it per player, exactly like the price cards.
+--- green EQUIPPED tick; a tier you own but are not holding gets a neutral OWNED tick;
+--- everything else keeps the price it was built with.
 ---
---- WHAT THE PROMPT SAYS IS COSMETIC, AND THE SERVER DOES NOT TRUST IT. ShopService's
---- own handler re-reads ownership from the profile and picks buy-or-equip there. If
---- this paint is stale, the worst case is a prompt that says the wrong verb for one
---- tick, never a wrong purchase.
+--- THE PROMPT IS NOT TOUCHED ANY MORE. It used to flip from "Buy $x" to "Equip" per
+--- player, because its E did whichever of the two applied. Now its E only opens the
+--- tier's card (see `rackCard`), so it says "View" to everyone and the card's button
+--- carries the verb.
 ---
---- RESTORE READS RestText / RestColor OFF THE LABEL (and RestActionText off the
---- prompt), the same trick LiquidService uses to put the wash pad's sign back after
---- it announces a roll: the builder stamps the as-built values onto the instance
---- itself, so whatever overwrites it never has to remember what was there. A hook
---- with no SellsTier is skipped entirely rather than restored — that is the Luck
---- button, whose subtitle is owned by ExhibitService and must not be touched here.
+--- RESTORE READS RestText / RestColor OFF THE LABEL, the same trick LiquidService uses
+--- to put the wash pad's sign back after it announces a roll: the builder stamps the
+--- as-built values onto the instance itself, so whatever overwrites it never has to
+--- remember what was there. A hook with no SellsTier is skipped entirely rather than
+--- restored — that is the Luck button, whose subtitle is owned by ExhibitService and
+--- must not be touched here.
 local function paintRack(track: string?, tiers: { any }?)
 	for _, part in CollectionService:GetTagged(RACK_TAG) do
 		local tier = part:GetAttribute("SellsTier")
@@ -1575,40 +1597,15 @@ local function paintRack(track: string?, tiers: { any }?)
 		end
 
 		local entry = if tiers ~= nil and part:GetAttribute("SellsTrack") == track then tiers[tier] else nil
-		local prompt = part:FindFirstChildOfClass("ProximityPrompt")
-
-		-- Stamp the as-built wording if the BUILDER did not. A world built before the
-		-- rack learned about equipping has prompts with no RestActionText, and without
-		-- this the first repaint would overwrite "Buy $4700" with "Equip" and have
-		-- nothing to put back — the price would be gone from that hook until the next
-		-- world rebuild. Doing it here, before any overwrite, makes the restore path
-		-- correct in a stale world as well as a fresh one.
-		if prompt and prompt:GetAttribute("RestActionText") == nil then
-			prompt:SetAttribute("RestActionText", prompt.ActionText)
-		end
-
 		if entry ~= nil and entry.current then
 			sub.Text = EQUIPPED_TEXT
 			sub.TextColor3 = COLOR.green
-			if prompt then
-				-- Nothing to do to a tool you are already holding. The prompt stays
-				-- visible rather than being disabled, because a hook with no E at all
-				-- reads as broken next to seven that have one; pressing it is refused
-				-- server-side with "already in your hands".
-				prompt.ActionText = "Equipped"
-			end
 		elseif entry ~= nil and entry.owned then
 			sub.Text = OWNED_TEXT
 			sub.TextColor3 = COLOR.text
-			if prompt then
-				prompt.ActionText = "Equip"
-			end
 		else
 			sub.Text = (sub:GetAttribute("RestText") :: string?) or sub.Text
 			sub.TextColor3 = (sub:GetAttribute("RestColor") :: Color3?) or sub.TextColor3
-			if prompt then
-				prompt.ActionText = (prompt:GetAttribute("RestActionText") :: string?) or prompt.ActionText
-			end
 		end
 	end
 end
@@ -1665,6 +1662,10 @@ local carousel = {
 	openedFor = nil :: string?,
 	tiers = nil :: { any }?,
 	accent = FIELD.amber,
+	-- Showing one rack card rather than the row (see `rackCard`), and which tier it
+	-- was last put up for, so the open pop plays once per card rather than per tick.
+	single = false,
+	singleFor = nil :: string?,
 }
 local rowTween: Tween? = nil
 
@@ -1768,6 +1769,7 @@ local function render()
 		ui.panel.Visible = false
 		ui.closeButton.Visible = false
 		carousel.openedFor = nil
+		carousel.singleFor = nil
 		return
 	end
 
@@ -1785,7 +1787,18 @@ local function render()
 	ui.title.Visible = not atShop
 	ui.subtitle.Visible = not atShop
 	ui.actions.Visible = not atShop
-	ui.panelSize.MaxSize = Vector2.new(if atShop then SHOP_PANEL_WIDTH else PANEL_WIDTH, math.huge)
+
+	-- One rack card, if a rack hook's E opened this and it is for the shop you are at.
+	local offerTiers = if atShop and state.offer then state.offer.tiers else nil
+	local single = atShop
+		and rackCard ~= nil
+		and rackCard.track == state.stationId
+		and offerTiers ~= nil
+		and offerTiers[rackCard.tier] ~= nil
+	carousel.single = single
+
+	local shopWidth = if single then RACK_PANEL_WIDTH else SHOP_PANEL_WIDTH
+	ui.panelSize.MaxSize = Vector2.new(if atShop then shopWidth else PANEL_WIDTH, math.huge)
 
 	-- THE PANEL FRAME IS SHARED, SO ITS SKIN IS PER MODE. The shop wears the field-kit
 	-- slate; the trader keeps the near-black it always had. Both are set on every
@@ -1808,12 +1821,13 @@ local function render()
 		local count = if tiers then #tiers else 0
 
 		ui.shopCarousel.Visible = count > 0
-		ui.shopPager.Visible = count > 0
+		ui.shopPager.Visible = count > 0 and not single
 		ui.shopEmpty.Visible = count == 0
 
 		for index, card in ui.shopCards do
 			local entry = if tiers then tiers[index] else nil
-			card.Visible = entry ~= nil
+			-- A rack card shows its own tier and nothing either side of it.
+			card.Visible = entry ~= nil and (not single or index == (rackCard :: any).tier)
 			if entry then
 				paintShopCard(card, entry, track, accent, cash)
 			end
@@ -1828,12 +1842,31 @@ local function render()
 		carousel.tiers = tiers
 		carousel.accent = accent
 		carousel.count = count
-		if tiers and count > 0 and (carousel.openedFor ~= track or previous == 0) then
+		if single then
+			-- Focused on the rack card's tier, which also leaves the storefront there if
+			-- the stand's E swaps this card for the whole row.
+			local tier = (rackCard :: any).tier
+			local key = `{track}/{tier}`
+			if carousel.focus ~= tier or carousel.singleFor ~= key then
+				setShopFocus(tier, false)
+			end
+			if carousel.singleFor ~= key then
+				carousel.singleFor = key
+				local pop = ui.shopCards[tier]:FindFirstChildOfClass("UIScale") :: UIScale
+				pop.Scale = RACK_CARD_POP
+				TweenService:Create(pop, RACK_CARD_TWEEN, { Scale = 1 }):Play()
+			end
+			ui.shopPrev.Visible = false
+			ui.shopNext.Visible = false
+		elseif tiers and count > 0 and (carousel.openedFor ~= track or previous == 0) then
 			setShopFocus(defaultShopFocus(tiers), false)
 		elseif count ~= previous then
 			setShopFocus(carousel.focus, false)
 		else
 			paintPager()
+		end
+		if not single then
+			carousel.singleFor = nil
 		end
 		carousel.openedFor = track
 
@@ -1937,8 +1970,9 @@ function Station.start()
 	-- and hit-tested against the carousel's own rect instead. InputObject.Position is
 	-- below the topbar inset, the same space as this gui's AbsolutePosition
 	-- (IgnoreGuiInset is false, see build()).
+	-- A rack card is one card with nothing to page to, so it takes none of this input.
 	local function shopShowing(): boolean
-		return ui.panel.Visible and ui.shop.Visible and carousel.count > 0
+		return ui.panel.Visible and ui.shop.Visible and carousel.count > 0 and not carousel.single
 	end
 	local function overCarousel(position: Vector3): boolean
 		local corner = ui.shopCarousel.AbsolutePosition
@@ -2072,7 +2106,9 @@ function Station.start()
 		-- again regardless -- ShopService re-checks ownership on both paths -- so a
 		-- stale attribute here can only ever produce a refused action, never a wrong one.
 		buy.MouseButton1Click:Connect(function()
-			if state.stationId == nil or dragMoved then
+			-- `dragMoved` is left over from the last drag of the row, and a rack card
+			-- cannot be dragged (shopShowing), so it never resets there: ignore it.
+			if state.stationId == nil or (dragMoved and not carousel.single) then
 				return
 			end
 			if card:GetAttribute("Buyable") then
@@ -2085,6 +2121,7 @@ function Station.start()
 
 	ui.closeButton.MouseButton1Click:Connect(function()
 		dismissed = true
+		rackCard = nil
 		render()
 	end)
 
@@ -2097,14 +2134,43 @@ function Station.start()
 	-- for the X with the mouse to close something you opened with a keypress is a
 	-- worse exit than pressing the same key again.
 	--
-	-- MATCHED ON NAME, because this same event carries the rack's "Upgrade" prompts,
-	-- which spend money. Anything that is not the stand's own prompt is not ours.
+	-- MATCHED ON NAME: the stand's own prompt, and the rack hooks' (below). Anything
+	-- else on this event is not ours.
+	--
+	-- WITH A RACK CARD UP, THE STAND'S E OPENS THE WHOLE ROW rather than closing, so
+	-- "show me the rest" is one press from the card you were looking at. The row opens
+	-- on that same tier (render leaves the focus where the card put it).
+	--
+	-- A RACK HOOK'S E OPENS ITS OWN CARD (see `rackCard`), and toggles it like the
+	-- stand's does. The tier comes off the hook the prompt is parented to; Luck's
+	-- button has no SellsTier and is left to ShopService, which buys on it.
 	ProximityPromptService.PromptTriggered:Connect(function(prompt, triggeredBy)
-		if triggeredBy ~= Players.LocalPlayer or prompt.Name ~= "ViewShop" then
+		if triggeredBy ~= Players.LocalPlayer then
 			return
 		end
-		dismissed = not dismissed
-		render()
+		if prompt.Name == BROWSE_PROMPT then
+			local showingCard = rackCard ~= nil and not dismissed
+			rackCard = nil
+			if not showingCard then
+				dismissed = not dismissed
+			end
+			render()
+		elseif prompt.Name == RACK_PROMPT then
+			local hook = prompt.Parent
+			local track = if hook then hook:GetAttribute("SellsTrack") else nil
+			local tier = if hook then hook:GetAttribute("SellsTier") else nil
+			if type(track) ~= "string" or type(tier) ~= "number" then
+				return
+			end
+			if rackCard ~= nil and rackCard.track == track and rackCard.tier == tier and not dismissed then
+				rackCard = nil
+				dismissed = true
+			else
+				rackCard = { track = track, tier = tier }
+				dismissed = false
+			end
+			render()
+		end
 	end)
 
 	Net.get("StationState").OnClientEvent:Connect(function(payload)
@@ -2123,7 +2189,17 @@ function Station.start()
 			--
 			-- Reads `payload.station`, not `state.station` -- `state` is not assigned
 			-- until two lines below, so the old value is still in it here.
-			dismissed = payload.station == "shop" and shopHasBrowsePrompt(payload.stationId)
+			--
+			-- A RACK CARD OPENED FOR THIS SHOP SURVIVES ARRIVING. A rack hook's reach
+			-- can put its E under you a moment before the server's tick says you are in
+			-- the shop's radius, so a card asked for just before that tick is kept open
+			-- rather than dismissed by it. Any other change of station drops it.
+			if rackCard ~= nil and payload.station == "shop" and payload.stationId == rackCard.track then
+				dismissed = false
+			else
+				rackCard = nil
+				dismissed = payload.station == "shop" and shopHasBrowsePrompt(payload.stationId)
+			end
 			lastKey = key
 		end
 
