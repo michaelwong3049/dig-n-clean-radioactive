@@ -66,9 +66,13 @@
 	    crust rings / fringes   +0.012 .. +0.024   (under everything)
 	    concrete bed            +0.02              (the channel bottom)
 	    dry stretch's stain     +0.05
-	    coolant surface         +0.09 .. +0.102    = build/Scenery's POOL_TOP over the plate,
-	                                                 a spill's ovals stacking over it the
+	    spilt coolant on ground +0.09 .. +0.105    = build/Scenery's POOL_TOP over the plate,
+	                                                 a tongue's ovals stacking over it the
 	                                                 same hundredths its pools do
+	    coolant IN a channel    +0.82              = CHANNEL_FILL_TOP, see its note --
+	                                                 the drains are backed up, and a
+	                                                 surface at ground level is invisible
+	                                                 over the kerb from standing height
 	    border strip            +0.20              = build/Scenery's SKIM over the plate
 	    fallen kerb             +1.10              = KERB_W, lying on its side
 	    kerb crown              +1.20              = KERB_H
@@ -214,6 +218,23 @@ local COOLANT_TOP = 0.09
 local COOLANT_THICK = 0.12
 local STAIN_TOP = 0.05
 
+--- THE CHANNELS RUN NEAR-BRIMMING, and this number is the whole reason the field has a
+--- colour at eye level. Shot live standing beside the south collector: with the liquid
+--- lying at COOLANT_TOP, the near kerb (KERB_H, 1.2) hides it completely from standing
+--- height, so walking the field you see two grey rails and no coolant at all -- the
+--- exact opposite of this stage's premise. A drain that has BACKED UP sits high in its
+--- channel, which puts the magenta just under the lip where a grazing angle catches it,
+--- and it also explains the breaks: a blocked system under head is why the thing is
+--- bursting its kerbs in six places rather than quietly draining.
+---
+--- 0.38 OF FREEBOARD LEFT. Brim-full to the crown would read as a painted stripe rather
+--- than as liquid in a trench -- the shadow line of the inner kerb face above the
+--- surface is what says "there is a channel here" at all.
+---
+--- SPILLS DO NOT USE THIS. A tongue is liquid lying on open GROUND and stays at
+--- COOLANT_TOP with the rest of the ground layer.
+local CHANNEL_FILL_TOP = 0.82
+
 --- Share of segments whose kerb has gone on one side — not a break in the run (the
 --- liquid stays in), just a stretch that has lost its edge. Low: this is decay under
 --- the eye, and past about one in ten the channel stops reading as built.
@@ -232,9 +253,22 @@ local WET_RESUME_CHANCE = 0.24
 --- the point of decking this crossing at all: a player walking the route meets flat
 --- concrete across the full corridor, never a kerb standing in it. DECK_SPAN is the
 --- other axis, across the channel, and carries enough overhang for the run's tilt.
+---
+--- THE ABUTMENTS ARE WHAT MAKE IT A CULVERT. Shot live standing on the lane, the deck
+--- alone read as a grey concrete PAD lying on the ground: the channel came in from one
+--- side, stopped, and picked up again on the other, with nothing to say the liquid went
+--- anywhere. A real crossing has a headwall at each end with the bore opening through
+--- it, and that opening is the whole tell -- you can see the coolant run into the dark
+--- under the deck. Two blocks per end, flanking the channel, carrying the deck.
+---
+--- AND THE DECK NEEDS A THICKNESS TO READ AS A STRUCTURE. At 0.18 it had no visible
+--- edge from standing height and looked painted on; 0.45 gives it a slab edge that
+--- catches light without lifting the walking surface, since DECK_TOP is unchanged.
 local DECK_HALF = LANE_HALF
 local DECK_SPAN = 14
 local DECK_TOP = KERB_H + 0.06
+local DECK_THICK = 0.45
+local ABUT_W = 2.2
 
 -- ── Crust ──────────────────────────────────────────────────────────────────────
 
@@ -860,7 +894,7 @@ local function buildRun(
 				local liquid = block(
 					parent,
 					"Coolant",
-					CFrame.new(cx, groundY + COOLANT_TOP - COOLANT_THICK / 2, cz) * rot,
+					CFrame.new(cx, groundY + CHANNEL_FILL_TOP - COOLANT_THICK / 2, cz) * rot,
 					Vector3.new(segLen + SEG_OVERLAP, COOLANT_THICK, CHANNEL_W - 0.2),
 					palette.coolant
 				)
@@ -901,16 +935,39 @@ local function buildRun(
 		local at = points[1]
 		local b = points[#points]
 		local dx, dz = b.X - at.X, b.Z - at.Z
-		local t = if dz ~= 0 then (0 - at.Z) / dz else 0
-		local deckX = at.X + dx * t
+		local runLen = math.sqrt(dx * dx + dz * dz)
+		local ux, uz = dx / runLen, dz / runLen
+		local nx, nz = -uz, ux
+		local function xAtZ(atZ: number): number
+			return at.X + dx * (if dz ~= 0 then (atZ - at.Z) / dz else 0)
+		end
+
 		block(
 			parent,
 			"CulvertDeck",
-			CFrame.new(deckX, groundY + DECK_TOP - 0.09, 0),
-			Vector3.new(DECK_SPAN, 0.18, DECK_HALF * 2),
+			CFrame.new(xAtZ(0), groundY + DECK_TOP - DECK_THICK / 2, 0),
+			Vector3.new(DECK_SPAN, DECK_THICK, DECK_HALF * 2),
 			palette.concrete[1],
 			true
 		)
+
+		-- A headwall either side of the bore, at each end of the deck. The gap they
+		-- leave between them IS the opening, and the coolant runs into it.
+		for _, endZ in { -DECK_HALF, DECK_HALF } do
+			local ex = xAtZ(endZ)
+			for side = -1, 1, 2 do
+				local ax = ex + nx * (halfKerb + ABUT_W / 2 - KERB_W / 2) * side
+				local az = endZ + nz * (halfKerb + ABUT_W / 2 - KERB_W / 2) * side
+				block(
+					parent,
+					"CulvertAbutment",
+					CFrame.new(ax, groundY + DECK_TOP / 2, az) * CFrame.Angles(0, yawAlong(at.X, at.Z, b.X, b.Z), 0),
+					Vector3.new(2.6, DECK_TOP, ABUT_W),
+					palette.concrete[2],
+					true
+				)
+			end
+		end
 	end
 end
 
