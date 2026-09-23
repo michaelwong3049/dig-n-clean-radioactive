@@ -95,10 +95,11 @@ local Plots = require(script.Parent.Plots)
 local CraterField = require(script.Parent.CraterField)
 local BlastDebris = require(script.Parent.BlastDebris)
 local FieldLitter = require(script.Parent.FieldLitter)
+local CoolantField = require(script.Parent.CoolantField)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 36
+local BUILDER_VERSION = 37
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -664,6 +665,14 @@ end
 ---            ladder (scatterOozePools), then `trees` a handful of dead trees over the
 ---            whole field (scatterStage4Trees). Its `barriers` set piece and `props`
 ---            with it are still on the shelf.
+---   Stage 5 -- the coolant drainage (build/CoolantField): a trunk channel running the
+---            field's length with four spurs off it, in concrete beds between low
+---            kerbs, wet where the liquid still runs and stained where it does not,
+---            broken at six points where it floods out over the ground; then the crust
+---            it dried into, both fringing the channels and scattered over the open
+---            plate as this field's ground layer. `props`/`kind = "reactor"` (the
+---            cooling stacks) stay on the shelf and `pools` is now 0 -- see the THEME
+---            entry. Nothing out here stands but the kerbs.
 ---   Stage 6 -- the impact craters (build/CraterField, laid out in Config/StageCraters):
 ---            one big crater off the middle, with fused glass at ground zero and a few
 ---            smoking vents, and a scatter of small ones; then the dirt and wreckage
@@ -738,7 +747,19 @@ local THEME: { [number]: StageTheme } = {
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
 	-- reads as dark ground rather than as hot ground. Prop counts do not climb with
 	-- them: past Stage 3 the story is that there is nothing left standing.
-	[5] = { props = 22, pools = 60, kind = "reactor" },
+	--
+	-- STAGE 5 DOES NOT DEAL POOLS AT ALL ANY MORE, and `pools` is 0 rather than left
+	-- shelved at its old 60. The field's pass (build/CoolantField) runs its magenta in
+	-- CHANNELS instead -- a drainage network that leaks, rather than puddles that
+	-- happen to be there -- precisely so this field does not rhyme with Stage 4's
+	-- puddles next door; that module's header has the full argument. The 60 was not
+	-- harmless sitting there: Stage 4's own count was cut 26 -> 12 on a "way too many"
+	-- report against the same size ladder scatterOozePools still deals from, so a
+	-- later pass flipping this field's pools on from the shelf would have flooded it.
+	-- `props = 22` and `kind = "reactor"` ARE still shelved and unused -- and note that
+	-- 22 intact cooling stacks contradicts the "nothing left standing" line directly
+	-- above, besides being tall enough to swallow a haul.
+	[5] = { props = 22, pools = 0, kind = "reactor", scatter = true },
 	-- `scatter` turns on the craters only (see the list above); `props`/`pools`/`kind`
 	-- are still on the shelf, same as Stage 4's barriers.
 	[6] = { props = 26, pools = 78, kind = "shards", scatter = true },
@@ -3335,7 +3356,9 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- two loops here -- ooze pools and a jittered-grid prop scatter. They come back per
 	-- stage, gated on `theme.scatter`, each with its own bespoke placement (see the
 	-- scatter* functions): Stage 2's dead trees flank the corridor, Stage 1's bushes
-	-- fill its living west half.
+	-- fill its living west half. Stage 5 was the last field still bare; it now builds
+	-- its coolant channels (build/CoolantField) instead of pools, so every stage in the
+	-- chain has had at least a partial pass.
 	--
 	-- STILL ON THE SHELF: every `prop()` set-piece kind for the fields that have not
 	-- had their pass yet. `THEME` and `prop()` are still defined above -- the full
@@ -3378,6 +3401,12 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- LAST for the same reason the puddles come second -- adding the trees was not
 			-- allowed to move a sign or a pool that was already placed.
 			scatterStage4Trees(folder, origin, theme.trees or 0, rng, hx, hz)
+		elseif id == 5 then
+			-- Reactor Grounds' only pass: the coolant drainage network and the crust it
+			-- dried into (build/CoolantField). Off its own two seeds, not this stage rng --
+			-- this field has nothing else on it yet, so anything added here later is free
+			-- to use the rng untouched.
+			CoolantField.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
 		elseif id == 6 then
 			-- The craters jitter off their own seeds (Config/StageCraters) and the debris
 			-- off its own, not this stage rng, so anything added to this field later is
