@@ -297,6 +297,74 @@ Sky.LOOKS = {
 	},
 } :: { [number]: SkyLook }
 
+--- THE VIOLET AURORA (Config/LuckBoost) -- 2x luck, server-wide. Not a stage: a
+--- weather that falls OVER whatever stage you are in. AtmosphereController moves every
+--- value AURORA_BLEND of the way from that stage's own look toward this one.
+---
+--- IT IS NIGHT, AND THAT WAS MEASURED, NOT CHOSEN. The first draft was a violet tint
+--- at late afternoon (clockTime 16.9, haze 2.9 over a bright day) and the procedural
+--- sky came out nearly WHITE -- lavender haze over a lit dome -- with the ribbons
+--- AuroraFx hangs in it reading as pale stripes. An aurora needs a dark sky to glow
+--- against. Past ~17.8 the sun is down, the dome goes deep blue with stars in it, and
+--- the haze pulls that toward violet; the ribbons then glow the way the real thing
+--- does. `outdoorAmbient` stays high (a lavender fill) so the ground is still plainly
+--- playable in the dark -- this is a lit night, not a blackout.
+---
+--- Same rules as every row above, and Util/Spec pins the two that bite: haze stays
+--- under the 3.4 ceiling, and the cloud deck is darker than the air or it vanishes.
+Sky.AURORA = {
+	atmoColor = Color3.fromHex("B27BFF"),
+	atmoDecay = Color3.fromHex("5A2AA8"),
+	atmoDensity = 0.3,
+	atmoGlare = 0.1,
+	atmoHaze = 2.9,
+
+	cloudColor = Color3.fromHex("3E2468"),
+	cloudCover = 0.5,
+	cloudDensity = 0.45,
+
+	brightness = 1.6,
+	outdoorAmbient = Color3.fromHex("9483C4"),
+	colorShiftTop = Color3.fromHex("C9A8FF"),
+	sunRays = 0.05,
+	sunSize = 11,
+	clockTime = 17.9,
+} :: SkyLook
+
+--- How far toward Sky.AURORA every value moves while the aurora is up. 1: the same
+--- violet night over every stage. The knob exists to let a stage's own colour bleed
+--- through, but clockTime blends with everything else, and below ~17.8 the night --
+--- and the aurora's glow with it -- washes back out (Sky.AURORA's note). Lower it only
+--- while looking at it.
+Sky.AURORA_BLEND = 1
+--- The fog's half of the same blend (Config/Stages owns fog, not this file, so it is
+--- one colour rather than a SkyLook field).
+Sky.AURORA_FOG = Color3.fromHex("B9A0EC")
+
+--- `look` blended `t` of the way toward `toward`, value by value. Shared rather than
+--- private to AtmosphereController so Util/Spec checks the exact look players see.
+function Sky.blend(look: SkyLook, toward: SkyLook, t: number): SkyLook
+	local function num(a: number, b: number): number
+		return a + (b - a) * t
+	end
+	return {
+		atmoColor = look.atmoColor:Lerp(toward.atmoColor, t),
+		atmoDecay = look.atmoDecay:Lerp(toward.atmoDecay, t),
+		atmoDensity = num(look.atmoDensity, toward.atmoDensity),
+		atmoGlare = num(look.atmoGlare, toward.atmoGlare),
+		atmoHaze = num(look.atmoHaze, toward.atmoHaze),
+		cloudColor = look.cloudColor:Lerp(toward.cloudColor, t),
+		cloudCover = num(look.cloudCover, toward.cloudCover),
+		cloudDensity = num(look.cloudDensity, toward.cloudDensity),
+		brightness = num(look.brightness, toward.brightness),
+		outdoorAmbient = look.outdoorAmbient:Lerp(toward.outdoorAmbient, t),
+		colorShiftTop = look.colorShiftTop:Lerp(toward.colorShiftTop, t),
+		sunRays = num(look.sunRays, toward.sunRays),
+		sunSize = num(look.sunSize, toward.sunSize),
+		clockTime = num(look.clockTime, toward.clockTime),
+	}
+end
+
 --- The look for a stage, or the base-camp look for nil / an unskinned stage.
 function Sky.get(stageId: number?): SkyLook
 	if stageId == nil then

@@ -137,6 +137,18 @@ local TEMPLATE = {
 	-- stored -- everyone starts there. String keys only, so ProfileStore is happy.
 	camps = {},
 
+	-- BANKED SECONDS OF 2x LUCK from the Lucky Clover (Config/LuckBoost), bought with
+	-- Robux. Seconds LEFT rather than an end time, because it only counts down while the
+	-- player is in a server (LuckBoostService's tick) -- logging off must never burn
+	-- what somebody paid for. Capped at LuckBoost.MAX_BANKED_SECONDS on every grant.
+	luckBoostLeft = 0,
+
+	-- The last few Robux PurchaseIds granted to this profile (ProductService). Kept IN
+	-- the save because that is the only way a retried receipt -- Roblox re-sends until
+	-- it hears PurchaseGranted -- can be told apart from a new purchase. A short FIFO
+	-- of strings; ProductService trims it.
+	receipts = {},
+
 	stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0, rolls = 0 },
 }
 

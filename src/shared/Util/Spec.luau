@@ -34,6 +34,7 @@ local Items = require(Config.Items)
 local Weight = require(Config.Weight)
 local Payload = require(Config.Payload)
 local Treadmill = require(Config.Treadmill)
+local LuckBoost = require(Config.LuckBoost)
 local ItemModels = require(script.Parent.Parent.ItemModels)
 local ItemFxConfig = require(Config.ItemFx)
 local ItemFx = require(script.Parent.Parent.ItemFx)
@@ -1678,6 +1679,98 @@ function Spec.run(): boolean
 			check("§2 a cleared patch takes its chunk off the item", stripped)
 			sample:Destroy()
 		end
+	end
+
+	-- ── 2x luck (Config/LuckBoost) ────────────────────────────────────────────────
+	do
+		check(
+			"§luck no boost is 1x, the aurora or a clover is MULT, both together stack",
+			LuckBoost.multiplier(false, false) == 1
+				and LuckBoost.multiplier(true, false) == LuckBoost.MULT
+				and LuckBoost.multiplier(false, true) == LuckBoost.MULT
+				and LuckBoost.multiplier(true, true) == LuckBoost.MULT * LuckBoost.MULT
+		)
+
+		-- The dig boost is a flat MULT on the Rare+ weight, outside the detector's cap,
+		-- and exactly nothing below Rare -- at both ends of the detector ladder.
+		local maxLuck = Gear.tier("Detector", Gear.maxTier("Detector")).luck
+		local exact = true
+		for _, luck in { 1, maxLuck } do
+			for _, name in Rarity.ORDER do
+				local base = Items.luckBias(name, luck)
+				local want = if Rarity.get(name).order >= Items.DIG_LUCK_MIN_ORDER then base * LuckBoost.MULT else base
+				if math.abs(Items.luckBias(name, luck, LuckBoost.MULT) - want) > 1e-9 then
+					exact = false
+				end
+			end
+		end
+		check("§luck the dig boost multiplies every Rare+ weight and nothing below Rare", exact)
+
+		-- THE REASON IT IS A WEIGHT AND NOT THE DETECTOR'S `luck` STAT: doubling the
+		-- stat runs into DIG_LUCK_BIAS_CAP and LOWERS a maxed detector's Legendary+
+		-- share in the late stages (Config/LuckBoost's header). The boost must raise it
+		-- everywhere, for everyone.
+		local legendary = Rarity.get("Legendary").order
+		local rises = true
+		for _, stage in Stages.DEFS do
+			for _, luck in { 1, maxLuck } do
+				local function share(boost: number): number
+					local total = 0
+					for id, p in Items.rollWeights(stage.id, stage.rarityTilt, luck, boost) do
+						if Rarity.get(Items.get(id).rarity).order >= legendary then
+							total += p
+						end
+					end
+					return total
+				end
+				local before = share(1)
+				if before > 0 and share(LuckBoost.MULT) <= before then
+					rises = false
+				end
+			end
+		end
+		check("§luck 2x luck raises Legendary+ odds in every stage, even on a maxed detector", rises)
+
+		-- The wash pad: a bought clover doubles the luck the pad rolls AND displays.
+		-- Measured as a ratio so an aurora running while Spec runs cannot fail it.
+		local plain = StatResolver.get({ level = 1, gear = {}, perks = {} })
+		local clover = StatResolver.get({ level = 1, gear = {}, perks = {}, luckBoostLeft = 60 })
+		check(
+			"§luck a bought clover doubles the wash pad's luck and the dig boost",
+			math.abs(clover.luckMultiplier / plain.luckMultiplier - LuckBoost.MULT) < 1e-9
+				and clover.luckBoost == plain.luckBoost * LuckBoost.MULT
+		)
+		check(
+			"§luck a spent clover is no boost at all",
+			StatResolver.get({ level = 1, gear = {}, perks = {}, luckBoostLeft = 0 }).luckBoost == plain.luckBoost
+		)
+
+		-- The Violet Aurora sits OVER every stage's sky (Config/Sky.blend), so every
+		-- blend has to clear the same ceilings the stages do, and keep a deck darker
+		-- than its air.
+		local function luma(c: Color3): number
+			return 0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B
+		end
+		local legal, deck = true, true
+		local looks ={ SkyConfig.blend(SkyConfig.BASE, SkyConfig.AURORA, SkyConfig.AURORA_BLEND) }
+		for _, stage in Stages.DEFS do
+			table.insert(looks, SkyConfig.blend(SkyConfig.get(stage.id), SkyConfig.AURORA, SkyConfig.AURORA_BLEND))
+		end
+		for _, look in looks do
+			if look.cloudCover >= 1 or look.atmoDensity > 0.6 or look.atmoHaze > 3.4 then
+				legal = false
+			end
+			if look.atmoHaze >= 2 and luma(look.cloudColor) >= luma(look.atmoColor) then
+				deck = false
+			end
+		end
+		check("§sky the Violet Aurora stays under the sky's ceilings over every stage", legal)
+		check("§sky the Violet Aurora's cloud deck is darker than its air over every stage", deck)
+		check(
+			"§sky the Violet Aurora is violet (blue over green, red over green)",
+			SkyConfig.AURORA.atmoColor.B > SkyConfig.AURORA.atmoColor.G
+				and SkyConfig.AURORA.atmoColor.R > SkyConfig.AURORA.atmoColor.G
+		)
 	end
 
 	table.insert(lines, string.format("\n%d passed, %d failed", passed, failed))

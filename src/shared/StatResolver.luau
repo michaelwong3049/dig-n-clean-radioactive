@@ -14,13 +14,24 @@
 
 	Pure and side-effect free. Cheap enough to call every tick; cache it per-player
 	per-tick if profiling ever says otherwise.
+
+	ONE READ FROM OUTSIDE THE PROFILE: whether the Violet Aurora is up (Config/
+	LuckBoost). It is a server-wide clock, not a per-player field, so it cannot ride
+	on the profile -- it is read off the ReplicatedStorage attribute LuckBoostService
+	writes, against the synced server clock. Still side-effect free, and still the
+	only place the boost is applied, which is the point: the dig roll, the wash pad's
+	roll and the odds it displays all get the same number.
 ]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Config = script.Parent.Config
 local Tuning = require(Config.Tuning)
 local Gear = require(Config.Gear)
 local Liquids = require(Config.Liquids)
 local Treadmill = require(Config.Treadmill)
+local LuckBoost = require(Config.LuckBoost)
 
 local StatResolver = {}
 
@@ -41,6 +52,9 @@ export type Profile = {
 	-- rather than a degraded one.
 	liquids: { [string]: number }?, -- liquid id -> charges remaining
 	equippedLiquid: string?,
+	-- Banked seconds of the bought Lucky Clover (Config/LuckBoost). Optional for the
+	-- same reason as the two above; absent means no clover running.
+	luckBoostLeft: number?,
 }
 
 export type Stats = {
@@ -84,7 +98,17 @@ export type Stats = {
 	sellMultiplier: number,
 	luckMultiplier: number,
 	yieldMultiplier: number,
+	-- 2x luck (Config/LuckBoost): 1, 2 or 4. Already folded into `luckMultiplier`;
+	-- the dig roll reads it separately because dig luck is applied as a weight on
+	-- Rare+ rather than on the detector's `luck` stat (Config/LuckBoost's header).
+	luckBoost: number,
 }
+
+--- Is the server-wide Violet Aurora up right now? See the header's one outside read.
+function StatResolver.luckEventActive(): boolean
+	local endsAt = ReplicatedStorage:GetAttribute(LuckBoost.EVENT_ATTR)
+	return type(endsAt) == "number" and endsAt > Workspace:GetServerTimeNow()
+end
 
 local function mult(profile: Profile, key: string): number
 	local m = profile.multipliers
@@ -129,6 +153,7 @@ function StatResolver.get(profile: Profile): Stats
 	-- is retired (Gear.Boots' header); Config/Treadmill owns the number now.
 	local walkSpeed, speedProgress = Treadmill.speedFor(profile.speedXp or 0)
 	local luckMultiplier = Gear.luckMultiplier(g.luck or 1)
+	local luckBoost = LuckBoost.multiplier(StatResolver.luckEventActive(), (profile.luckBoostLeft or 0) > 0)
 	local liquidId, liquid = liquidFor(profile)
 
 	-- Steady Hands (PLAN §9.2) is a PERK on the tool, so it belongs to the permanent
@@ -187,10 +212,11 @@ function StatResolver.get(profile: Profile): Stats
 		-- because nothing in the game rolled anything a player could influence. The
 		-- wash pad does, so the Luck button's own multiplier folds in here where every
 		-- other piece of gear math already lives. The gamepass multiplier stacks on
-		-- top of it exactly as it was always meant to.
-		luckMultiplier = luckMultiplier * mult(profile, "luck"),
+		-- top of it exactly as it was always meant to, and so does 2x luck.
+		luckMultiplier = luckMultiplier * mult(profile, "luck") * luckBoost,
 		-- Curator (PLAN §9.2)
 		yieldMultiplier = mult(profile, "yield") * (if perks.curator then 1.15 else 1),
+		luckBoost = luckBoost,
 	}
 end
 

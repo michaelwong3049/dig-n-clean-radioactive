@@ -34,6 +34,7 @@ local Gear = require(Shared.Config.Gear)
 local Liquids = require(Shared.Config.Liquids)
 local Camps = require(Shared.Config.Camps)
 local Treadmill = require(Shared.Config.Treadmill)
+local LuckBoost = require(Shared.Config.LuckBoost)
 local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
@@ -45,6 +46,7 @@ local ExhibitService = require(script.Parent.ExhibitService)
 local HazardService = require(script.Parent.HazardService)
 local DigService = require(script.Parent.DigService)
 local CampService = require(script.Parent.CampService)
+local LuckBoostService = require(script.Parent.LuckBoostService)
 
 local Workspace = game:GetService("Workspace")
 
@@ -513,7 +515,13 @@ COMMANDS["/odds"] = {
 		local odds = Liquids.oddsAt(stats.luckMultiplier)
 		local level = data.gear.luck or 1
 		local lines = {
-			string.format("luck %.3gx (level %d, next +0.1x for $%d)", stats.luckMultiplier, level, Gear.luckPrice(level)),
+			string.format(
+				"luck %.3gx (level %d, next +0.1x for $%d; %dx boost in that)",
+				stats.luckMultiplier,
+				level,
+				Gear.luckPrice(level),
+				stats.luckBoost
+			),
 		}
 		for _, id in Liquids.ORDER do
 			local chance = odds[id]
@@ -542,7 +550,7 @@ COMMANDS["/field"] = {
 		-- analogue of /odds. tilt from the stage, luck from the player's detector.
 		local stats = StatResolver.get(data)
 		local tilt = Stages.get(stageId).rarityTilt
-		local weights = Items.rollWeights(stageId, tilt, stats.detectorLuck)
+		local weights = Items.rollWeights(stageId, tilt, stats.detectorLuck, stats.luckBoost)
 
 		local byRarity: { [string]: number } = {}
 		local ordered = {}
@@ -556,7 +564,13 @@ COMMANDS["/field"] = {
 		end)
 
 		local lines = {
-			string.format("stage %d — tilt %.2f, detector luck %.2fx", stageId, tilt, stats.detectorLuck),
+			string.format(
+				"stage %d — tilt %.2f, detector luck %.2fx, boost %dx on Rare+",
+				stageId,
+				tilt,
+				stats.detectorLuck,
+				stats.luckBoost
+			),
 		}
 		for _, name in Rarity.ORDER do
 			if byRarity[name] then
@@ -577,6 +591,42 @@ COMMANDS["/field"] = {
 			))
 		end
 		return table.concat(lines, "\n")
+	end,
+}
+
+COMMANDS["/luckevent"] = {
+	-- The Violet Aurora on demand, so the sky, the clover and the roll can be checked
+	-- without waiting out the 20-30 minute gap. Server-wide, like the real thing.
+	help = "/luckevent [seconds|stop] — start the Violet Aurora now (2x luck, server-wide), or end it",
+	run = function(_player, _sandbox, args)
+		if args[1] == "stop" then
+			LuckBoostService.stopEvent()
+			return `{LuckBoost.EVENT_NAME} ended; next in {math.floor(LuckBoostService.secondsToNext())}s`
+		end
+		local seconds = tonumber(args[1]) or LuckBoost.EVENT_SECONDS
+		if seconds <= 0 then
+			return "usage: /luckevent [seconds|stop]"
+		end
+		LuckBoostService.startEvent(seconds)
+		return `{LuckBoost.EVENT_NAME} up for {seconds}s`
+	end,
+}
+
+COMMANDS["/luckboost"] = {
+	-- The Lucky Clover without Robux: exactly the grant a real purchase runs. 0 clears.
+	help = "/luckboost [seconds|0] — bank Lucky Clover time on yourself (0 clears it)",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		local seconds = tonumber(args[1]) or LuckBoost.PRODUCT_SECONDS
+		if seconds == 0 then
+			LuckBoostService.grant(player, data, -LuckBoost.MAX_BANKED_SECONDS)
+		else
+			LuckBoostService.grant(player, data, seconds)
+		end
+		return `clover: {math.floor(data.luckBoostLeft)}s banked, luck boost now {StatResolver.get(data).luckBoost}x`
 	end,
 }
 

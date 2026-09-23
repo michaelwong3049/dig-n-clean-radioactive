@@ -373,19 +373,27 @@ local unstockedWarned: { [number]: boolean } = {}
 --- IdentifyService.stageLuck), on top of the detector's, for signals in that stage only.
 --- It is the one place every reading goes through, so the ping, the haul and the
 --- unearth cannot disagree about it either.
-local function rollFor(signal: Signal, detectorLuck: number, userId: number): (string, string, string)
-	detectorLuck += IdentifyService.stageLuck(userId)[signal.stageId] or 0
-	if detectorLuck <= 1 then
-		return signal.itemId, signal.rarity, signal.modifier
-	end
-
+---
+--- 2x LUCK (stats.luckBoost, Config/LuckBoost) re-rolls too, even on a tier-1
+--- detector, and pins the same way. THE CACHE IS READ FIRST, before the "no luck"
+--- short-circuit, because the boost is the one input that switches OFF mid-session:
+--- a signal that read Legendary under the Violet Aurora must still be that Legendary
+--- when the sky clears, not quietly fall back to its default Common. (It also means a
+--- player who drops back to a lower detector keeps readings they already took.)
+local function rollFor(signal: Signal, stats: StatResolver.Stats, userId: number): (string, string, string)
 	local cached = signal.rolls[userId]
 	if cached then
 		return cached.itemId, cached.rarity, cached.modifier
 	end
 
+	local detectorLuck = stats.detectorLuck + (IdentifyService.stageLuck(userId)[signal.stageId] or 0)
+	local boost = stats.luckBoost
+	if detectorLuck <= 1 and boost <= 1 then
+		return signal.itemId, signal.rarity, signal.modifier
+	end
+
 	local tilt = Stages.get(signal.stageId).rarityTilt
-	local itemId = Items.rollItem(signal.stageId, tilt, detectorLuck) or signal.itemId
+	local itemId = Items.rollItem(signal.stageId, tilt, detectorLuck, boost) or signal.itemId
 	local roll: PlayerRoll = {
 		itemId = itemId,
 		rarity = Items.get(itemId).rarity,
@@ -393,6 +401,19 @@ local function rollFor(signal: Signal, detectorLuck: number, userId: number): (s
 	}
 	signal.rolls[userId] = roll
 	return roll.itemId, roll.rarity, roll.modifier
+end
+
+--- Freeze this player's reading of a signal as they lock on to it, whatever it is. A
+--- default (unrolled) reading has no cache entry, so without this a tier-1 player who
+--- locked on and then had the Violet Aurora start mid-haul would see the lump change
+--- identity under the magnet on the next tick. The lock already stops the TARGET
+--- drifting; this stops what the target IS from drifting.
+local function pinRoll(signal: Signal, stats: StatResolver.Stats, userId: number)
+	if signal.rolls[userId] ~= nil then
+		return
+	end
+	local itemId, rarity, modifier = rollFor(signal, stats, userId)
+	signal.rolls[userId] = { itemId = itemId, rarity = rarity, modifier = modifier }
 end
 
 -- ── The signal field ────────────────────────────────────────────────────
@@ -618,13 +639,13 @@ end
 local function contactPayload(
 	contacts: { Contact },
 	position: Vector3,
-	detectorLuck: number,
+	stats: StatResolver.Stats,
 	userId: number
 ): { any }
 	local out = {}
 
 	for _, entry in contacts do
-		local itemId, rarity, modifier = rollFor(entry.signal, detectorLuck, userId)
+		local itemId, rarity, modifier = rollFor(entry.signal, stats, userId)
 		local rarityHint = hintFor(rarity, modifier, itemId)
 		table.insert(out, {
 			dx = entry.signal.position.X - position.X,
@@ -1073,7 +1094,7 @@ local function stepPlayer(player: Player, dt: number)
 	local strength = math.clamp(1 - (distance / stats.detectorRadius), 0, 1)
 	-- This player's reading of the working signal, resolved once and threaded through
 	-- the ping, the haul model and the unearth below so all three agree.
-	local itemId, rarity, modifier = rollFor(signal, stats.detectorLuck, player.UserId)
+	local itemId, rarity, modifier = rollFor(signal, stats, player.UserId)
 	local rarityHint, modifierHint, oddsHint = hintFor(rarity, modifier, itemId)
 
 	-- Reset progress if they wandered off this signal onto another one. While locked
@@ -1208,7 +1229,7 @@ local function stepPlayer(player: Player, dt: number)
 			local following = surviving[1]
 			local followRarityHint: string? = nil
 			if following then
-				local fId, fRarity, fMod = rollFor(following.signal, stats.detectorLuck, player.UserId)
+				local fId, fRarity, fMod = rollFor(following.signal, stats, player.UserId)
 				followRarityHint = hintFor(fRarity, fMod, fId)
 			end
 			sweepRemote:FireClient(player, {
@@ -1218,7 +1239,7 @@ local function stepPlayer(player: Player, dt: number)
 				hasSignal = following ~= nil,
 				strength = if following then math.clamp(1 - (following.distance / stats.detectorRadius), 0, 1) else 0,
 				rarityHint = followRarityHint,
-				contacts = contactPayload(surviving, position, stats.detectorLuck, player.UserId),
+				contacts = contactPayload(surviving, position, stats, player.UserId),
 				newContacts = noteContacts(player, surviving),
 				digProgress = 0,
 				locked = false,
@@ -1251,7 +1272,7 @@ local function stepPlayer(player: Player, dt: number)
 		radius = stats.detectorRadius,
 		hasSignal = true,
 		strength = strength,
-		contacts = contactPayload(contacts, position, stats.detectorLuck, player.UserId),
+		contacts = contactPayload(contacts, position, stats, player.UserId),
 		newContacts = noteContacts(player, contacts),
 		rarityHint = rarityHint,
 		modifierHint = modifierHint,
@@ -1463,6 +1484,7 @@ function DigService.start()
 			return
 		end
 
+		pinRoll(nearest.signal, stats, player.UserId)
 		lockedTo[player] = nearest.signal.uid
 	end)
 

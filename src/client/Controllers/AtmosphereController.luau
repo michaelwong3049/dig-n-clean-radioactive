@@ -50,6 +50,16 @@
 	genuinely run before they exist. A missing instance is skipped, not waited on —
 	the next stage change (or the next respawn) picks it up, and a player who never
 	changes stage was already looking at the right base look anyway.
+
+	── THE VIOLET AURORA (Config/LuckBoost) ───────────────────────────────────────
+	The 2x-luck event is weather, and weather is this file's job, so the violet sky
+	lives here rather than in LuckBoostController. Whatever stage you are in, its own
+	look is pulled Sky.AURORA_BLEND of the way toward Sky.AURORA (Config/Sky.blend), fog
+	colour included -- at the shipped blend of 1 that is the same violet night over the
+	whole map (Config/Sky says why it has to be night). Fog DISTANCE is still the
+	stage's, so the deep stages still close in. It comes and goes on its own slower
+	AURORA_TWEEN, because a sky changing colour over four seconds reads as something
+	arriving. The ribbons in it are AuroraFx, driven by LuckBoostController.
 ]]
 
 local Players = game:GetService("Players")
@@ -61,6 +71,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
 local SkyConfig = require(Shared.Config.Sky)
+local LuckBoost = require(Shared.Config.LuckBoost)
 local Net = require(Shared.Net)
 
 local AtmosphereController = {}
@@ -78,9 +89,11 @@ local BASE = {
 
 local AIR_TWEEN = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local SKY_TWEEN = TweenInfo.new(1.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local AURORA_TWEEN = TweenInfo.new(4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 
 local currentStage: number? = -1 -- -1 so the first update always applies
 local activeTweens: { Tween } = {}
+local auroraOn = false
 
 --- Fog for a stage. Unchanged behaviour — pulled out of applyFor only because that
 --- function now has a second, larger job.
@@ -110,14 +123,20 @@ local function tween(instance: Instance?, info: TweenInfo, goal: { [string]: any
 	created:Play()
 end
 
-local function applyFor(stageId: number?)
-	if stageId == currentStage then
-		return
-	end
-	currentStage = stageId
+--- Whether the Violet Aurora is up, off the attribute LuckBoostService writes.
+local function auroraActive(): boolean
+	local endsAt = ReplicatedStorage:GetAttribute(LuckBoost.EVENT_ATTR)
+	return type(endsAt) == "number" and endsAt > Workspace:GetServerTimeNow()
+end
 
+local function apply(stageId: number?, skyTween: TweenInfo)
 	local fog = fogFor(stageId)
 	local sky = SkyConfig.get(stageId)
+	local fogColor = fog.fogColor
+	if auroraOn then
+		sky = SkyConfig.blend(sky, SkyConfig.AURORA, SkyConfig.AURORA_BLEND)
+		fogColor = fogColor:Lerp(SkyConfig.AURORA_FOG, SkyConfig.AURORA_BLEND)
+	end
 
 	for _, active in activeTweens do
 		active:Cancel()
@@ -128,34 +147,52 @@ local function applyFor(stageId: number?)
 	-- one. Brightness/ambient/clock ride with the SKY rather than the fog because
 	-- they are what the sky is lighting, and splitting them looks like a flicker.
 	tween(Lighting, AIR_TWEEN, {
-		FogColor = fog.fogColor,
+		FogColor = fogColor,
 		FogEnd = fog.fogEnd,
 		FogStart = fog.fogStart,
 	})
-	tween(Lighting, SKY_TWEEN, {
+	tween(Lighting, skyTween, {
 		Brightness = sky.brightness,
 		OutdoorAmbient = sky.outdoorAmbient,
 		ColorShift_Top = sky.colorShiftTop,
 		ClockTime = sky.clockTime,
 	})
-	tween(Lighting:FindFirstChildOfClass("Atmosphere"), SKY_TWEEN, {
+	tween(Lighting:FindFirstChildOfClass("Atmosphere"), skyTween, {
 		Color = sky.atmoColor,
 		Decay = sky.atmoDecay,
 		Density = sky.atmoDensity,
 		Glare = sky.atmoGlare,
 		Haze = sky.atmoHaze,
 	})
-	tween(Workspace.Terrain:FindFirstChildOfClass("Clouds"), SKY_TWEEN, {
+	tween(Workspace.Terrain:FindFirstChildOfClass("Clouds"), skyTween, {
 		Color = sky.cloudColor,
 		Cover = sky.cloudCover,
 		Density = sky.cloudDensity,
 	})
-	tween(Lighting:FindFirstChildOfClass("SunRaysEffect"), SKY_TWEEN, {
+	tween(Lighting:FindFirstChildOfClass("SunRaysEffect"), skyTween, {
 		Intensity = sky.sunRays,
 	})
-	tween(Lighting:FindFirstChildOfClass("Sky"), SKY_TWEEN, {
+	tween(Lighting:FindFirstChildOfClass("Sky"), skyTween, {
 		SunAngularSize = sky.sunSize,
 	})
+end
+
+local function applyFor(stageId: number?)
+	if stageId == currentStage then
+		return
+	end
+	currentStage = stageId
+	apply(stageId, SKY_TWEEN)
+end
+
+--- The aurora arrived or cleared: re-apply the stage you are already in, slowly.
+local function refreshAurora()
+	local on = auroraActive()
+	if on == auroraOn then
+		return
+	end
+	auroraOn = on
+	apply(if currentStage == -1 then nil else currentStage, AURORA_TWEEN)
 end
 
 function AtmosphereController.init()
@@ -174,6 +211,16 @@ function AtmosphereController.start()
 	Players.LocalPlayer.CharacterAdded:Connect(function()
 		currentStage = -1
 		applyFor(nil)
+	end)
+
+	-- The server clears the attribute when the aurora ends; the 1s poll is only the
+	-- belt to that brace (a clock that runs past its end with the attribute still set).
+	ReplicatedStorage:GetAttributeChangedSignal(LuckBoost.EVENT_ATTR):Connect(refreshAurora)
+	task.spawn(function()
+		while true do
+			refreshAurora()
+			task.wait(1)
+		end
 	end)
 end
 
