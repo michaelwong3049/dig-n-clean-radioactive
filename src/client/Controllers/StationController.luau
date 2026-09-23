@@ -107,6 +107,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
 local Net = require(Shared.Net)
+local ToolModels = require(Shared.ToolModels)
 
 -- No `Dock` alias any more: this panel is centred on the screen rather than on the
 -- space above the dock, so it no longer reads Dock.RESERVE. See the header.
@@ -427,6 +428,46 @@ local CARD_STATS_GAP = 16
 -- The stat block's bottom edge, measured from the card's top.
 local CARD_STATS_BOTTOM = CARD_HEIGHT - CARD_BUY_BOTTOM - CARD_BUY_HEIGHT - CARD_STATS_GAP
 
+-- ── The art well's model ─────────────────────────────────────────────
+-- A LIVE RENDER, NOT AN UPLOADED PICTURE. Every tier's model is already on the client
+-- (Assets/Tools for Detector and Magnet, Shared/ToolModels for the hose), so a
+-- ViewportFrame draws the real thing at any resolution, with nothing to upload or
+-- moderate — and it cannot drift from the rack or the hand when a model is re-imported,
+-- which a folder of screenshots would the first time anyone touched the art.
+--
+-- A STILL HERO SHOT, ON REQUEST — no turntable. One angle per track, picked from
+-- rendered candidates. Each is a direction to look FROM and an `up`, both in the model's
+-- own frame (its pivot put at the origin), and all three put the working end on the
+-- right: the detector is laid along the well with its coil there, since stood up the
+-- way it is carried it would be a thin stripe in a box this wide; the magnet and the
+-- hose are three-quarter views from a little above.
+--
+-- EVERY TIER IS FRAMED TO FILL THE WELL, so a tier-1 horseshoe is as big on its card as
+-- a Singularity Coil is on its own. Tier is carried by the model itself — it is the
+-- card's picture, not a size chart.
+type ArtView = { from: Vector3, up: Vector3 }
+local ART_VIEW: { [string]: ArtView } = {
+	Detector = { from = Vector3.new(1, 0.5, 0.3), up = Vector3.new(0, 0.6, -1) },
+	Magnet = { from = Vector3.new(1, 0.6, 0.35), up = Vector3.yAxis },
+	Cleaner = { from = Vector3.new(1, 0.55, -0.35), up = Vector3.yAxis },
+}
+-- Narrow, so a long detector does not bulge at the near end the way a wide lens makes
+-- it; the camera just stands further back.
+local ART_FOV = 25
+-- How much bigger than the model the framed view is — the breathing room at the edges.
+local ART_MARGIN = 1.12
+-- The ViewportFrame's defaults (a 200 grey ambient under a 140 key) wash every tier out
+-- to the same pale grey. A low ambient and a warm key over the camera's left shoulder
+-- give the models back the colour that tells one tier from the next.
+local ART_LIGHT = {
+	ambient = Color3.fromRGB(90, 92, 98),
+	color = Color3.fromRGB(255, 248, 235),
+	direction = Vector3.new(-1, -1, -1),
+}
+-- Parts that only make sense in the hand: the same gag build/Shops' rack strips
+-- (RACK_HIDE_ON_DISPLAY), hardcoded again because build/ cannot be required from here.
+local ART_HIDE = { "Realistically Sized Magnet" }
+
 --- One row of a card's stat block: label, bar, value. A flag cell reuses the same row
 --- and simply fills its bar to 0 or 1 — same geometry, so a block of numeric rows and a
 --- mixed block put the button on the same baseline.
@@ -493,11 +534,12 @@ end
 --- button — drawn at hero size, because the carousel shows one of these at a time
 --- rather than eight in a grid.
 ---
---- THE ART WELL IS DELIBERATELY EMPTY. `CardArt` is a real ImageLabel with no Image
---- set, sized and positioned as the finished thing will be, so dropping in artwork
---- later is one assignment per tier and not a re-layout. It is not a placeholder
---- rectangle to be replaced — it is the frame the art goes in, and with one card on
---- screen it is the biggest thing on it.
+--- THE ART WELL SHOWS THE REAL MODEL. `CardArt` is the well — an ImageLabel with no
+--- Image, kept for its fill, corner and edge — and `CardModel` is a ViewportFrame
+--- inside it that renders the tier's own model, the one the rack hangs and the one
+--- ToolService puts in your hands. See "The art well's model" below for why it is a
+--- live render and not an uploaded picture. A track with no model (the Outfitter's
+--- Suit and Satchel) leaves the viewport empty and the well reads as it always did.
 ---
 --- THE CARD IS PLACED BY HAND, NOT BY A LAYOUT. Its slot on the carousel row is a fixed
 --- x (one CAROUSEL_STEP per tier) and it is anchored at its own centre, so the
@@ -600,6 +642,22 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	artEdge.Color = FIELD.rule
 	artEdge.Thickness = 1
 	artEdge.Parent = art
+
+	-- Clear over the well, so the well's own fill is the backdrop. The camera is made
+	-- once here and only ever moved; paintArt swaps the model in front of it.
+	local viewport = Instance.new("ViewportFrame")
+	viewport.Name = "CardModel"
+	viewport.Size = UDim2.fromScale(1, 1)
+	viewport.BackgroundTransparency = 1
+	viewport.Ambient = ART_LIGHT.ambient
+	viewport.LightColor = ART_LIGHT.color
+	viewport.LightDirection = ART_LIGHT.direction
+	viewport.Parent = art
+
+	local camera = Instance.new("Camera")
+	camera.FieldOfView = ART_FOV
+	camera.Parent = viewport
+	viewport.CurrentCamera = camera
 
 	-- ── Stat block ───────────────────────────────────────────────────
 	-- Pinned by its BOTTOM edge just above the button and sized to its visible rows,
@@ -1202,9 +1260,111 @@ local function paintStats(card: Frame, entry, accent: Color3)
 	end
 end
 
+--- A fresh copy of one tier's model, or nil for a track with no art. Code-authored
+--- first, the place's Assets/Tools second — the order build/Shops' `tierTemplate` uses
+--- and for its reason: Assets/Tools/Cleaner still holds the retired brushes and sponges,
+--- and they must not win over the hoses ToolModels builds.
+local function artModel(track: string, tier: number): Model?
+	if ToolModels.has(track) then
+		return ToolModels.create(track, tier)
+	end
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local library = if assets then assets:FindFirstChild("Tools") else nil
+	local folder = if library then library:FindFirstChild(track) else nil
+	local template = if folder then folder:FindFirstChild(`T{tier}`) else nil
+	if template and template:IsA("Model") then
+		return template:Clone()
+	end
+	return nil
+end
+
+local BOX_CORNERS = {}
+for _, x in { -1, 1 } do
+	for _, y in { -1, 1 } do
+		for _, z in { -1, 1 } do
+			table.insert(BOX_CORNERS, Vector3.new(x, y, z))
+		end
+	end
+end
+
+--- Aim `camera` so `model` fills a well `aspect` wide per unit tall, seen from `view`.
+---
+--- THE BOX IS MEASURED IN THE CAMERA'S OWN AXES: every visible part's eight corners are
+--- turned into the view's frame, then min/max. `GetBoundingBox` would hand back a box
+--- aligned to the model, whose corners overstate a three-quarter view and leave the
+--- model floating small in the middle of the well. Invisible parts (every tool's Grip)
+--- are skipped, or a hidden handle nub would decide the framing.
+---
+--- The fit is taken at the box's NEAR face, where perspective makes things largest, so
+--- nothing can poke past the edge.
+local function frameArt(camera: Camera, model: Model, view: ArtView, aspect: number)
+	local look = CFrame.lookAt(Vector3.zero, -view.from.Unit, view.up)
+	local lo = Vector3.one * math.huge
+	local hi = -lo
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") and part.Transparency < 1 then
+			local half = part.Size / 2
+			for _, corner in BOX_CORNERS do
+				local point = look:PointToObjectSpace(part.CFrame * (half * corner))
+				lo = lo:Min(point)
+				hi = hi:Max(point)
+			end
+		end
+	end
+	if lo.X > hi.X then
+		return
+	end
+
+	local mid = (lo + hi) / 2
+	local extent = (hi - lo) / 2
+	local tanHalf = math.tan(math.rad(ART_FOV) / 2)
+	local reach = math.max(extent.Y / tanHalf, extent.X / (tanHalf * aspect)) * ART_MARGIN
+	camera.CFrame = look * CFrame.new(mid.X, mid.Y, hi.Z + reach)
+end
+
+--- Put `track`'s tier `tier` in the card's well. Cards are REUSED across stalls and
+--- this runs on every StationState tick, so the model is only rebuilt when the card is
+--- asked for a different tier or track than it already shows (`ArtKey`) — which is
+--- once, the first time a stall is opened.
+---
+--- The well's height is per track (paintShopCard sizes it to the stat block), so the
+--- aspect comes from that design height rather than from AbsoluteSize, which reads 0
+--- until the panel has been laid out once.
+local function paintArt(card: Frame, track: string, tier: number, artHeight: number)
+	local key = `{track}/{tier}`
+	if card:GetAttribute("ArtKey") == key then
+		return
+	end
+	card:SetAttribute("ArtKey", key)
+
+	local viewport = card.CardArt.CardModel :: ViewportFrame
+	for _, child in viewport:GetChildren() do
+		if child:IsA("Model") then
+			child:Destroy()
+		end
+	end
+
+	local view = ART_VIEW[track]
+	local model = if view then artModel(track, tier) else nil
+	if model == nil or view == nil then
+		return
+	end
+
+	for _, name in ART_HIDE do
+		local extra = model:FindFirstChild(name)
+		if extra then
+			extra:Destroy()
+		end
+	end
+	-- The views are written in the model's own frame, so its pivot goes to the origin.
+	model:PivotTo(CFrame.identity)
+	model.Parent = viewport
+	frameArt(viewport.CurrentCamera :: Camera, model, view, (CARD_WIDTH - 2 * CARD_INSET) / artHeight)
+end
+
 --- Four states, and all four are drawn on the same card rather than on four layouts.
 ---
---- ISSUED    the one in your hands. Amber edge, amber art, a ghost button that says so.
+--- ISSUED    the one in your hands. Amber edge, a ghost button that says so.
 --- OWNED     bought and not held. The button is a live EQUIP — see ShopService's note
 ---           on why ownership being a set is what makes that a real verb.
 --- (buyable) no flag at all. The price button already says it is for sale, and a word
@@ -1213,7 +1373,7 @@ end
 --- NEED $x   buyable, unaffordable. The flag carries the SHORTFALL against your wallet
 ---           rather than the price, because the price is already on the button and the
 ---           gap is the thing you do not know.
-local function paintShopCard(card: Frame, entry, accent: Color3, cash: number)
+local function paintShopCard(card: Frame, entry, track: string, accent: Color3, cash: number)
 	local nameLabel = card.CardStrip.CardName :: TextLabel
 	local flag = card.CardStrip.CardFlag :: TextLabel
 	local art = card.CardArt :: ImageLabel
@@ -1224,7 +1384,9 @@ local function paintShopCard(card: Frame, entry, accent: Color3, cash: number)
 	-- The art well fills everything the stat block does not use.
 	local rows = math.min(#entry.stats, STAT_ROWS)
 	local statsHeight = if rows > 0 then rows * STAT_ROW_HEIGHT + (rows - 1) * STAT_ROW_GAP else 0
-	art.Size = UDim2.new(1, -2 * CARD_INSET, 0, CARD_STATS_BOTTOM - statsHeight - CARD_ART_GAP - CARD_ART_TOP)
+	local artHeight = CARD_STATS_BOTTOM - statsHeight - CARD_ART_GAP - CARD_ART_TOP
+	art.Size = UDim2.new(1, -2 * CARD_INSET, 0, artHeight)
+	paintArt(card, track, entry.tier, artHeight)
 	card:SetAttribute("Buyable", entry.buyable == true)
 	card:SetAttribute("Equippable", entry.equippable == true)
 	card:SetAttribute("Tier", entry.tier)
@@ -1237,7 +1399,6 @@ local function paintShopCard(card: Frame, entry, accent: Color3, cash: number)
 	local barColour = if entry.current then FIELD.amber elseif dear then FIELD.muted else accent
 	paintStats(card, entry, barColour)
 
-	art.ImageColor3 = barColour
 	nameLabel.TextColor3 = FIELD.text
 
 	if entry.current then
@@ -1611,7 +1772,7 @@ local function render()
 			local entry = if tiers then tiers[index] else nil
 			card.Visible = entry ~= nil
 			if entry then
-				paintShopCard(card, entry, accent, cash)
+				paintShopCard(card, entry, track, accent, cash)
 			end
 		end
 
