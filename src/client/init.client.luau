@@ -17,6 +17,7 @@ local ORDER = {
 	"InventoryController", -- Phase 1: the hotbar and its detail card; reads CarryState + StationController
 	"HudController", -- Phase 2: rad meter, the RadFx damage overlay, distortion, blackout
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
+	"SuitWarningController", -- Phase 2: the "UPGRADE SUIT" card when an over-tier stage is burning you down; reads ExposureState
 	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState
 	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
 	"IndexController", -- the item index GUI; Index tile on the right edge, reads IndexState + Unearthed
