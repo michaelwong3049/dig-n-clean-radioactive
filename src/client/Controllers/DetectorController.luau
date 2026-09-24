@@ -38,7 +38,6 @@ local CollectionService = game:GetService("CollectionService")
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
-local Crates = require(Shared.Config.Crates)
 local Tuning = require(Shared.Config.Tuning)
 local Payload = require(Shared.Config.Payload)
 local Stages = require(Shared.Config.Stages)
@@ -193,8 +192,6 @@ local state = {
 	-- detector now -- the old clarity gate on it is gone. Display flavour; nil only
 	-- when there is no signal in range.
 	oddsHint = nil :: number?,
-	-- A supply crate (Config/Crates) instead of a nuke: the ping names the crate.
-	crateHint = nil :: string?,
 	inRange = false,
 	blocked = nil :: string?,
 	-- Stages the soil outclasses the held magnet (0 = rated for it). Server-sent, read
@@ -1165,9 +1162,7 @@ local function updateLockPrompt()
 	-- now), scope blue only in the frame before it resolves. Cheap, and the hint can
 	-- change under the prompt, so set it every tick.
 	local accent = signalColor()
-	ui.prompt.ObjectText = if state.crateHint and Crates.has(state.crateHint)
-		then string.upper(Crates.get(state.crateHint).short)
-		elseif state.rarityHint then string.upper(state.rarityHint)
+	ui.prompt.ObjectText = if state.rarityHint then string.upper(state.rarityHint)
 		else "Buried Signal"
 	ui.lockGui.action.TextColor3 = accent
 	ui.lockGui.stroke.Color = accent
@@ -1219,11 +1214,7 @@ local function renderState()
 		-- THE ODDS FOLLOW THE RARITY, not their own hint. They are the odds OF the
 		-- rarity above them; printing "1 in 50k" under a blank headline would be a
 		-- number with nothing to attach to, so the "?" branch clears both.
-		if state.crateHint and Crates.has(state.crateHint) then
-			-- A crate is named outright; its tier colour is the accent and it has no odds.
-			ui.haulTitle.Text = string.upper(Crates.get(state.crateHint).short)
-			ui.haulOdds.Text = "SUPPLY CRATE"
-		elseif state.rarityHint then
+		if state.rarityHint then
 			ui.haulTitle.Text = string.upper(state.rarityHint)
 			ui.haulOdds.Text = if state.oddsHint then Items.oddsText(state.oddsHint) else ""
 		else
@@ -1367,10 +1358,6 @@ end
 --- A sealed find (no crust to wash) is the exception: it identifies right here, so
 --- this is its only reveal and it keeps the full banner.
 local function onUnearthed(found)
-	if found.crate then
-		showFind(found, "SUPPLY CRATE")
-		return
-	end
 	if found.name then
 		showFind(found)
 		return
@@ -1497,7 +1484,6 @@ function Detector.start()
 		end
 		state.rarityHint = payload.rarityHint
 		state.oddsHint = payload.oddsHint
-		state.crateHint = payload.crateHint
 		state.inRange = payload.inRange == true
 		state.blocked = payload.blocked
 		state.overGrip = payload.overGrip or 0
@@ -1531,8 +1517,10 @@ function Detector.start()
 		end
 		-- `previousBest` is IdentifyService's word that this one out-weighs the index's
 		-- record for it (never on a first find, which has nothing to beat).
-		local header = if found.firstFind
-			then "NEW FIND"
+		-- A dirty supply crate sold blind (EconomyService) was a crate all along.
+		local header = if found.crate
+			then "SUPPLY CRATE"
+			elseif found.firstFind then "NEW FIND"
 			elseif type(found.previousBest) == "number" then "NEW HEAVIEST"
 			else "IDENTIFIED"
 		showFind(found, header)

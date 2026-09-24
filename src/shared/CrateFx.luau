@@ -360,4 +360,23 @@ function CrateFx.apply(model: Model, crateId: string, hex: string, variant: numb
 	build({ core = core, top = top, extents = extents })
 end
 
+--- Take every glow and particle off a crate model: the FxCore/FxTop carriers `apply`
+--- added and any light a built crate carries on its own parts. For a crate still under
+--- its crust (Shared/ItemCrust), where a tier-coloured sparkle through the rock would
+--- say "crate" before the wash has. Call before the crust goes on -- the crust's own
+--- light is added after, and this would take it too.
+function CrateFx.strip(model: Model)
+	for _, name in { "FxCore", "FxTop" } do
+		local carrierPart = model:FindFirstChild(name)
+		if carrierPart then
+			carrierPart:Destroy()
+		end
+	end
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("Light") or descendant:IsA("ParticleEmitter") then
+			descendant:Destroy()
+		end
+	end
+end
+
 return CrateFx

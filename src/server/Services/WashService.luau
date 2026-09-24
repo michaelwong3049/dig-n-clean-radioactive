@@ -94,6 +94,9 @@ local Payload = require(Shared.Config.Payload)
 local Rarity = require(Shared.Config.Rarity)
 local Liquids = require(Shared.Config.Liquids)
 local ItemModels = require(Shared.ItemModels)
+local CrateModels = require(Shared.CrateModels)
+local CrateFx = require(Shared.CrateFx)
+local Crates = require(Shared.Config.Crates)
 local ItemCrust = require(Shared.ItemCrust)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
@@ -378,7 +381,12 @@ local function placeOnStand(
 ): (Model, { [number]: { BasePart } }, { [number]: Vector3 }, number, number, number)
 	local count = math.max(#(item.patches or {}), 1)
 	local def = Items.get(item.itemId)
-	local model = ItemModels.create(def.model, item.itemId)
+	-- A DIRTY SUPPLY CRATE (DigService.unearth) is the crate under the rock, not its
+	-- stand-in nuke -- stripped of anything that would say so before the last chunk
+	-- goes (CrateModels.createHidden). Sized below exactly like a nuke would be.
+	local model: Model? = if item.crateId
+		then CrateModels.createHidden(item.crateId)
+		else ItemModels.create(def.model, item.itemId)
 
 	if model == nil then
 		-- The same rarity-coloured block ToolService's off hand and ExhibitService's
@@ -733,6 +741,35 @@ local function revealAndFinish(player: Player, session: Session, data: any, item
 	session.spraying = false
 	session.lockedZone = nil
 	session.aimZone = nil
+
+	-- A SUPPLY CRATE UNDER THE CRUST (DigService.unearth). The same beat, but what comes
+	-- out is a crate: it leaves `data.carry` for `data.crates` in the same frame as the
+	-- last push (so nothing ever sees a clean crate in the carry list), keeps its uid so
+	-- it stays in your hands, and gets its effects back as the rock comes off. Its
+	-- stand-in nuke never reaches the index.
+	if item.crateId then
+		push(player, session, data)
+		local crateId = item.crateId
+		local _, list, index = EconomyService.find(data, item.uid)
+		if list and index then
+			table.remove(list, index)
+		end
+		data.crates = data.crates or {}
+		table.insert(data.crates, { uid = item.uid, crateId = crateId })
+		local crate = Crates.get(crateId)
+		if session.model then
+			ItemCrust.clear(session.model)
+			CrateFx.apply(session.model, crateId, crate.color, crate.variant)
+		end
+		IdentifyService.announceCrate(player, crateId, item.rarity, { staged = true })
+		task.delay(Tuning.WASH_REVEAL_HOLD, function()
+			if sessions[player] ~= session then
+				return
+			end
+			finish(player, `{crate.name} is clean`)
+		end)
+		return
+	end
 
 	local first, previousBest = IdentifyService.identify(player, item)
 	push(player, session, data)

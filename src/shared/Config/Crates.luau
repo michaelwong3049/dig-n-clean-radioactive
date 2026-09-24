@@ -3,9 +3,12 @@
 	Crates.lua — supply crates you dig up, carry home, and crack open for a prize.
 
 	WHAT A CRATE IS. About one buried signal in CRATE_CHANCE is not a nuke but a
-	crate. You haul it out like anything else (no pull fuse -- a crate cannot go off),
-	it rides in your backpack taking a slot, and when you hold it an OPEN keycap
-	appears. Opening it spends the crate and rolls a prize:
+	crate -- AND NOTHING SAYS SO UNTIL IT IS WASHED. At the dig it passes for a nuke of
+	its own tier (DigService.standInFor): same ping, odds, pull, lump and fuse (if the
+	fuse goes, the crate goes with it). It rides in the bag as a crusted "???" like any
+	find, and the wash bay's last chunk is where it turns out to be a crate
+	(WashService.revealAndFinish). A clean crate takes a slot, and when you hold it an
+	OPEN keycap appears. Opening it spends the crate and rolls a prize:
 
 	  * NUKE CRATES roll one nuke off the whole catalogue with a RARITY FLOOR. The
 	    prize comes out CLEAN, IDENTIFIED and FROZEN (no decay clock) -- it was sealed
@@ -17,12 +20,17 @@
 	THREE VARIANTS OF EACH, and the better the crate, the higher the floor and the
 	fatter the top of its table. Only the Void crate can ever hand you an Anomaly.
 
-	CRATES ARE NOT IN `data.carry`. They live in their own list, `data.crates`, and
-	share the backpack's SLOTS with it (CarryService.used). Every service that walks
+	A CLEAN CRATE IS NOT IN `data.carry`. It lives in its own list, `data.crates`, and
+	shares the backpack's SLOTS with it (Shared/Bag). Every service that walks
 	`data.carry` -- decay, exposure, washing, selling, the stands -- assumes each entry
-	is a nuke with an Items.DEFS id, and a crate in there would crash the first
-	`Items.get` it met. Keeping them apart means none of that code can see a crate,
-	so none of it can break.
+	is a nuke with an Items.DEFS id.
+
+	A DIRTY CRATE IS, on purpose: it is a normal carried item whose `itemId` is its
+	stand-in nuke, plus a `crateId`. Every one of those services sees a crusted nuke
+	and treats it as one, which is exactly the disguise. It never stays in
+	`data.carry` clean -- the wash moves it to `data.crates` the moment the last patch
+	goes, and a blind sale names the crate (IdentifyService.announceCrate), never the
+	stand-in.
 
 	WHERE THEY DROP. Deeper stages drop better crates (STAGE_VARIANT_WEIGHTS), and a
 	detector with luck nudges the variant up the same way it nudges a nuke's rarity:

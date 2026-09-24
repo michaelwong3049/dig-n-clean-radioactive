@@ -3,9 +3,10 @@
 	Bag.luau — how many backpack slots a player is using.
 
 	The backpack holds two lists that share one set of slots: `data.carry` (nukes,
-	Decay.CarriedItem) and `data.crates` (Config/Crates, `{ uid, crateId }`). They are
-	kept apart so nothing that walks `data.carry` can ever meet a crate -- see
-	Config/Crates' header -- but every "is the bag full?" question has to count both,
+	Decay.CarriedItem -- and dirty crates disguised as crusted nukes) and `data.crates`
+	(CLEAN crates, Config/Crates, `{ uid, crateId }`). See Config/Crates' header for
+	why a crate only joins `data.crates` once it is washed. Every "is the bag full?"
+	question has to count both,
 	and this is the one place that knows it. Shared so a service at any depth of the
 	require graph can ask without reaching for CarryService.
 ]]

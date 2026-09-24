@@ -513,11 +513,14 @@ local function equipItem(character: Model, item: any?): boolean
 		return false
 	end
 
-	-- A SUPPLY CRATE (Config/Crates) has its own model and nothing else here applies
-	-- to it: no catalogue entry, no Payload roll, no crust.
+	-- A SUPPLY CRATE (Config/Crates) has its own model. A CLEAN one (in `data.crates`)
+	-- is the crate itself: no catalogue entry, no Payload roll, no crust. A DIRTY one is
+	-- still in `data.carry` passing for a nuke (DigService.unearth), so it is the crate
+	-- with its effects and CrateId stripped, sized like a nuke and crusted like one.
 	local model: Model? = nil
+	local openCrate = item.crateId ~= nil and wantedChunks == 0
 	if item.crateId then
-		model = CrateModels.create(item.crateId)
+		model = if openCrate then CrateModels.create(item.crateId) else CrateModels.createHidden(item.crateId)
 	else
 		local def = Items.get(item.itemId)
 		model = ItemModels.create(def.model, item.itemId)
@@ -566,9 +569,9 @@ local function equipItem(character: Model, item: any?): boolean
 	-- encloses a held item the way GantryBeam does at the wash stand.
 	do
 		local _, extents = held:GetBoundingBox()
-		local longest = if item.crateId then CrateModels.FOOTPRINT_OF(extents) else math.max(extents.X, extents.Y, extents.Z)
+		local longest = if openCrate then CrateModels.FOOTPRINT_OF(extents) else math.max(extents.X, extents.Y, extents.Z)
 		if longest > 0 then
-			local target = if item.crateId
+			local target = if openCrate
 				then HELD_CRATE_SIZE * (Crates.get(item.crateId).sizeMult or 1)
 				else HELD_ITEM_SIZE * Payload.forUid(item.uid)
 			held:ScaleTo(held:GetScale() * (target / longest))

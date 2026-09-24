@@ -24,6 +24,7 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
+local Crates = require(Shared.Config.Crates)
 local Weight = require(Shared.Config.Weight)
 local Payload = require(Shared.Config.Payload)
 local Decay = require(Shared.Decay)
@@ -123,12 +124,20 @@ function EconomyService.sell(player: Player, uid: string): (boolean, string)
 	-- just bought, and the moment he does the player knows, so the index has to know too.
 	-- That is the whole shape of the gamble: 20% and an answer, or the hose and the full
 	-- price. Idempotent for a clean item, which was identified at the tub already.
-	if not clean then
+	--
+	-- A DIRTY SUPPLY CRATE (DigService.unearth) sells as the nuke it was passing for --
+	-- same 20% -- and the trader names the crate rather than its stand-in, which never
+	-- reaches the index.
+	local name = def.name
+	if item.crateId and Crates.has(item.crateId) then
+		name = Crates.get(item.crateId).name
+		IdentifyService.announceCrate(player, item.crateId, item.rarity)
+	elseif not clean then
 		IdentifyService.reveal(player, item)
 	end
 
 	local note = if clean then "" else ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
-	return true, `sold {def.name} for ${value}{note}`
+	return true, `sold {name} for ${value}{note}`
 end
 
 --- Take cash off a player, or refuse. THE ONLY DEBIT IN THE GAME.
