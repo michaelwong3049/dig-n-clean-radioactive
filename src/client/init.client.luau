@@ -23,6 +23,7 @@ local ORDER = {
 	"LuckBoostController", -- the 2x-luck clover (bottom right), the Violet Aurora banner + lights; opens the Shop
 	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"LiquidController", -- the fluid spin popup; reads FluidSpin
+	"CrateController", -- supply crates: the Open prompt on a held crate + the nuke-crate reveal; reads CrateOpened
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState
 	"TreadmillController", -- the speed-training card and the belt's own motion; reads SpeedState
 	"StationMotionController", -- base machines moving on their own: fans, dial, gauge needle, tub ripples, screen pulse

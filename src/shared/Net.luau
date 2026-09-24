@@ -87,6 +87,11 @@ local REMOTES: { [string]: string } = {
 	-- client-only hotbar selection it used to be.
 	HoldInput = "RemoteEvent", -- client -> server, "hold this uid" (or nil for nothing)
 
+	-- Supply crates (Config/Crates). CrateOpen asks to open the crate in your hands; a
+	-- nuke crate answers on CrateOpened (the reel popup), a liquid crate on FluidSpin.
+	CrateOpen = "RemoteEvent", -- client -> server, the held crate's uid
+	CrateOpened = "RemoteEvent", -- server -> client, { crate, reel, land, seconds, result, name, rarity, modifier, notice? }
+
 	-- The wash bay. WashState is the session; WashInput is aim + intent, never
 	-- progress -- the server owns the clock, exactly as the scrub timer did before it.
 	WashState = "RemoteEvent", -- server -> client, the session (nil payload = ended)

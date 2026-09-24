@@ -99,6 +99,7 @@ local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
+local Bag = require(Shared.Bag)
 
 local DataService = require(script.Parent.DataService)
 local CarryService = require(script.Parent.CarryService)
@@ -774,6 +775,9 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 
 	local item = EconomyService.find(data, data.heldUid)
 	if item == nil then
+		if Bag.findCrate(data, data.heldUid) then
+			return false, "open the crate first \u{2014} you can't do that with a crate"
+		end
 		return false, "you aren't carrying that any more"
 	end
 
