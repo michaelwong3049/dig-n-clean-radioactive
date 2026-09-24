@@ -105,6 +105,10 @@ local TEMPLATE = {
 	-- that set, and a record is extra detail about a discovery, not the discovery.
 	indexStats = {},
 	perks = {}, -- perkId -> true. Read by StatResolver.
+	-- Which one-time walkthroughs this player has finished or skipped, by id (just
+	-- "locker" so far, client/LockerTutorial). An array of strings, not a set, for the
+	-- same no-gaps storage rule as everything else here.
+	tutorialsSeen = {},
 
 	-- Rebirth / gamepass / pet multipliers, pre-summed by whoever grants them.
 	-- StatResolver reads this key; the schema in ARCHITECTURE.md omits it, which
