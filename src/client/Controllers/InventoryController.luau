@@ -39,6 +39,8 @@
 ]]
 
 local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -97,6 +99,14 @@ local BAG_CAPTION = 20
 local BAG_SECTION_GAP = 12
 local BAG_VISIBLE_ROWS = 4
 
+-- The Notice popup over the hotbar: pops in, holds, fades. The group is wider than
+-- any message so the pill (auto-sized to its text) never clips.
+local NOTICE_WIDTH = 640
+local NOTICE_HEIGHT = 50
+local NOTICE_HOLD = 1.6
+local NOTICE_IN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local NOTICE_OUT = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+
 local state = {
 	capacity = 0,
 	fuseMult = 1,
@@ -109,6 +119,8 @@ local bagCells: { any } = {} -- the bag panel, index 1..capacity
 local selected: string? = nil -- uid, NOT an index: the bag reorders when you sell
 local bagOpen = false
 local holdRemote: any = nil
+local noticeToken = 0
+local standPrompts: { [ProximityPrompt]: boolean } = {} -- exhibit stand prompts seen so far
 
 local function rarityColor(name: string?): Color3
 	local def = if name then Rarity.DEFS[name] else nil
@@ -255,6 +267,57 @@ local function buildBagTile(row: Frame)
 	ui.bagTileCount = count
 end
 
+--- The Notice popup: a red-edged pill just above the hotbar. A CanvasGroup so the
+--- whole thing fades as one -- UIKit's text outlines ignore TextTransparency.
+local function buildNotice(canvas: Frame)
+	local group = Instance.new("CanvasGroup")
+	group.Name = "Notice"
+	group.AnchorPoint = Vector2.new(0.5, 1)
+	group.Position = UDim2.new(0.5, 0, 1, -Dock.BAGCOUNT_BOTTOM)
+	group.Size = UDim2.fromOffset(NOTICE_WIDTH, NOTICE_HEIGHT)
+	group.BackgroundTransparency = 1
+	group.GroupTransparency = 1
+	group.Visible = false
+	group.ZIndex = 20
+	group.Parent = canvas
+
+	local scale = Instance.new("UIScale")
+	scale.Parent = group
+
+	-- Inset from the group's edges so the stroke is not clipped by the CanvasGroup.
+	local pill = UIKit.panel(group, {
+		name = "Pill",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.fromScale(0.5, 0.5),
+		size = UDim2.fromOffset(0, NOTICE_HEIGHT - 8),
+		color = COLOR.panel,
+		transparency = 0.04,
+		strokeColor = COLOR.red,
+		strokeThickness = 2.5,
+		cornerRadius = UDim.new(0.5, 0),
+	})
+	pill.AutomaticSize = Enum.AutomaticSize.X
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, 22)
+	padding.PaddingRight = UDim.new(0, 22)
+	padding.Parent = pill
+
+	local text = UIKit.label(pill, {
+		name = "Text",
+		size = UDim2.fromScale(0, 1),
+		font = UIKit.Font.title,
+		textSize = 22,
+		color = COLOR.red,
+		xAlign = Enum.TextXAlignment.Center,
+		shadow = false,
+	})
+	text.AutomaticSize = Enum.AutomaticSize.X
+
+	ui.notice = group
+	ui.noticeScale = scale
+	ui.noticeText = text
+end
+
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "InventoryHud"
@@ -328,6 +391,7 @@ local function build(): ScreenGui
 	ui.layout = layout
 
 	buildBagTile(row)
+	buildNotice(canvas)
 
 	return gui
 end
@@ -475,6 +539,58 @@ local function itemByUid(uid: string?): any
 		end
 	end
 	return nil
+end
+
+-- ── Stand prompt verb ───────────────────────────────────────────────
+
+--- An exhibit stand's prompt, as THIS player should read it. The server can only
+--- label a stand by what is on it (Place/Take, the same for everyone), so the
+--- per-player half lives here: at an occupied stand, holding a nuke swaps it with the
+--- one on display (ExhibitService.interact), so the prompt says so. A held crate is
+--- refused there, so it keeps "Take".
+local function standVerb(prompt: ProximityPrompt): string
+	if prompt:GetAttribute("Occupied") ~= true then
+		return "Place"
+	end
+	local held = itemByUid(selected)
+	return if held ~= nil and held.crateId == nil then "Swap" else "Take"
+end
+
+--- A local ActionText write. The server's own writes replicate over it whenever the
+--- stand fills or empties, which is why the ActionText listener below re-applies it.
+local function relabelStand(prompt: ProximityPrompt)
+	local verb = standVerb(prompt)
+	if prompt.ActionText ~= verb then
+		prompt.ActionText = verb
+	end
+end
+
+local function relabelStands()
+	for prompt in standPrompts do
+		relabelStand(prompt)
+	end
+end
+
+local function adoptStand(prompt: ProximityPrompt)
+	if standPrompts[prompt] or prompt:GetAttribute("ExhibitStand") ~= true then
+		return
+	end
+	standPrompts[prompt] = true
+	local connections = {
+		prompt:GetPropertyChangedSignal("ActionText"):Connect(function()
+			relabelStand(prompt)
+		end),
+		prompt:GetAttributeChangedSignal("Occupied"):Connect(function()
+			relabelStand(prompt)
+		end),
+	}
+	prompt.Destroying:Connect(function()
+		standPrompts[prompt] = nil
+		for _, connection in connections do
+			connection:Disconnect()
+		end
+	end)
+	relabelStand(prompt)
 end
 
 --- How many tiles the hotbar row draws: up to ten slots, plus the bag tile.
@@ -646,6 +762,36 @@ local function renderSlots()
 
 	renderBagTile()
 	renderBag()
+	-- What you are holding just changed (or might have): a stand's Take/Swap follows.
+	relabelStands()
+end
+
+-- ── Notice popup ────────────────────────────────────────────────────
+
+--- Pop a refusal up over the hotbar ("inventory full"). A new one restarts the
+--- clock rather than queueing behind the last.
+function Inventory.notice(message: string)
+	noticeToken += 1
+	local token = noticeToken
+	local group = ui.notice
+	ui.noticeText.Text = string.upper(message)
+	group.Visible = true
+	group.GroupTransparency = 0
+	ui.noticeScale.Scale = 0.6
+	TweenService:Create(ui.noticeScale, NOTICE_IN, { Scale = 1 }):Play()
+
+	task.delay(NOTICE_HOLD, function()
+		if token ~= noticeToken then
+			return
+		end
+		local fade = TweenService:Create(group, NOTICE_OUT, { GroupTransparency = 1 })
+		fade.Completed:Connect(function()
+			if token == noticeToken then
+				group.Visible = false
+			end
+		end)
+		fade:Play()
+	end)
 end
 
 -- ── Bag panel ───────────────────────────────────────────────────────
@@ -719,6 +865,14 @@ function Inventory.start()
 	end)
 
 	holdRemote = Net.get("HoldInput")
+
+	Net.get("Notice").OnClientEvent:Connect(function(message)
+		Inventory.notice(tostring(message))
+	end)
+
+	-- Stand prompts are adopted as they come into range: only a shown prompt's label
+	-- matters, and the plots' stands stream in and out with the player.
+	ProximityPromptService.PromptShown:Connect(adoptStand)
 
 	Net.get("CarryState").OnClientEvent:Connect(function(payload)
 		state.capacity = payload.capacity or 0
