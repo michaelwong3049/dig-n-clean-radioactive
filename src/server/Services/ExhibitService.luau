@@ -994,6 +994,11 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 		if elapsed < Tuning.EXHIBIT_UNCRATE_SECONDS then
 			return false, `still crating \u{2014} {Tuning.EXHIBIT_UNCRATE_SECONDS - elapsed}s left`
 		end
+		-- A plain take is the one stand action that ADDS a slot (a swap trades one
+		-- for one), so it is the one that has to ask whether there is room.
+		if Bag.used(data) >= StatResolver.get(data).capacity then
+			return false, "inventory full"
+		end
 
 		table.remove(data.exhibit.pedestals, occupiedIndex)
 		table.insert(data.carry, {
