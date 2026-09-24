@@ -185,7 +185,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 41
+local BUILDER_VERSION = 42
 
 local C = Kit.C
 local build = Kit.build
@@ -559,6 +559,43 @@ end
 --- colour rather than on white — an even count reads as a printing error from the
 --- ground, and it is the same "the pattern has to close on itself" constraint the
 --- plaza's checkerboard tiles are tuned for.
+--- The canopy is solid cloth over the whole stall, so the sun never reaches the
+--- deck, the rack or the slat wall under it and the shop reads as a dark cave from
+--- the plaza. This hangs one invisible panel just under the cloth, at its tilt,
+--- with a warm SurfaceLight shining down off its Bottom face — the whole roof
+--- glows evenly instead of a few hot bulbs. ONE light per stall, Shadows off: a
+--- shadow-casting light per stall is the cost the plots dropped their stand lights
+--- over. The panel is CanQuery false, so it never eats a prompt or a
+--- camera ray the way the invisible WashStand box did.
+local CANOPY_LIGHT_COLOR = "FFE7C2" -- warm lamp white, so the accent cloth colours stay true
+local CANOPY_LIGHT_BRIGHTNESS = 2.4 -- picked live in Studio: 1.6 still read dim, 2.4 lights the deck without washing the cloth out
+local CANOPY_LIGHT_RANGE = 14 -- the panel sits ~9.5 up; reaches the deck with room to spare
+
+local function buildCanopyLight(parent: Instance, origin: CFrame, width: number, centerY: number, centerZ: number, depth: number, tiltDegrees: number)
+	local panel = build(parent, origin, {
+		name = "CanopyLight",
+		pos = { 0, centerY - 0.6, centerZ },
+		size = { width - 1, 0.1, depth - 1.5 },
+		color = CANOPY_LIGHT_COLOR,
+		material = "SmoothPlastic",
+		rot = Kit.ang(tiltDegrees, 0, 0),
+		transparency = 1,
+		canCollide = false,
+	})
+	panel.CanQuery = false
+	panel.CanTouch = false
+	panel.CastShadow = false
+
+	local light = Instance.new("SurfaceLight")
+	light.Face = Enum.NormalId.Bottom
+	light.Color = Color3.fromHex(CANOPY_LIGHT_COLOR)
+	light.Brightness = CANOPY_LIGHT_BRIGHTNESS
+	light.Range = CANOPY_LIGHT_RANGE
+	light.Angle = 120
+	light.Shadows = false
+	light.Parent = panel
+end
+
 local function buildStripedCanopy(parent: Instance, origin: CFrame, accent: string, width: number)
 	local stripeCount = math.max(3, math.floor(width / 2.5))
 	if stripeCount % 2 == 0 then
@@ -609,6 +646,8 @@ local function buildStripedCanopy(parent: Instance, origin: CFrame, accent: stri
 			canCollide = false,
 		})
 	end
+
+	buildCanopyLight(parent, origin, width, centerY, centerZ, depth, tiltDegrees)
 end
 
 --- Seven separated boards form the open slatted back seen most clearly in the
