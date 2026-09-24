@@ -380,8 +380,15 @@ local BUILDERS: { [string]: (Model) -> BasePart } = {
 	liquid3 = cryo,
 }
 
---- An imported crate's longest side once normalised, in studs: the built crates'.
-local IMPORTED_SIZE = 2.6
+--- An imported crate's FOOTPRINT once normalised: the wider of its width and depth,
+--- in studs. Footprint rather than longest side, on request ("even in size"): an
+--- antenna or a pile of sludge on the lid would otherwise count as the crate's size and
+--- shrink its box, so every crate is the same box across and extras stand on top.
+--- Exported so ToolService sizes held crates the same way.
+CrateModels.FOOTPRINT_OF = function(extents: Vector3): number
+	return math.max(extents.X, extents.Z)
+end
+local IMPORTED_FOOTPRINT = 3.2
 
 --- An imported crate for this id, normalised, or nil when none has been imported.
 local function imported(crateId: string): Model?
@@ -411,9 +418,9 @@ local function imported(crateId: string): Model?
 	-- The built crates' size, whatever scale it was imported at. ScaleTo is absolute,
 	-- hence the GetScale() multiplier (see ToolService's held-item note).
 	local _, extents = model:GetBoundingBox()
-	local longest = math.max(extents.X, extents.Y, extents.Z)
-	if longest > 0 then
-		model:ScaleTo(model:GetScale() * (IMPORTED_SIZE / longest))
+	local across = CrateModels.FOOTPRINT_OF(extents)
+	if across > 0 then
+		model:ScaleTo(model:GetScale() * (IMPORTED_FOOTPRINT / across))
 	end
 	-- Centre the box on the origin, like the built crates.
 	local box = model:GetBoundingBox()
