@@ -1072,6 +1072,264 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 	return true, `{Items.get(item.itemId).name} is on display`
 end
 
+-- ── The Nukes panel: list + Equip Best ───────────────────────────────────────
+
+type Pick = { item: any, value: number, onStand: boolean }
+
+local nukeListRemote: any = nil
+local lastEquip: { [Player]: number } = {}
+local EQUIP_COOLDOWN = 1
+
+--- Seconds this stand's piece is still crating for (0 = free to come off). The same
+--- clock `interact` refuses a take/swap on.
+local function crateLeft(entry: any): number
+	return math.max(0, Tuning.EXHIBIT_UNCRATE_SECONDS - (os.time() - (entry.placedAt or 0)))
+end
+
+--- What one item id's copies pay together: highest first, each at its
+--- EXHIBIT_DUPLICATE_YIELD step. `values` is every copy's undamped rate.
+local function groupYield(values: { number }): number
+	local sorted = table.clone(values)
+	table.sort(sorted, function(a, b)
+		return a > b
+	end)
+	local total = 0
+	for i, value in sorted do
+		total += value * Tuning.EXHIBIT_DUPLICATE_YIELD[math.min(i, #Tuning.EXHIBIT_DUPLICATE_YIELD)]
+	end
+	return total
+end
+
+--- Everything the Nukes panel draws, from the profile. Displayed pieces carry the rate
+--- their stand card prints (damped, walked in `pedestals` order like refreshStandCards);
+--- bag pieces carry what they WOULD pay alone on a stand, the hotbar's number
+--- (CarryService.describe). A crusted find is "???" with no itemId and no rate: a rate
+--- would name it by another route.
+function ExhibitService.nukeList(player: Player): any?
+	local data = DataService.data(player)
+	if data == nil then
+		return nil
+	end
+	local stats = StatResolver.get(data)
+
+	local displayed = {}
+	local seen: { [string]: number } = {}
+	for _, entry in data.exhibit.pedestals do
+		local copyIndex = (seen[entry.itemId] or 0) + 1
+		seen[entry.itemId] = copyIndex
+		local damping = Tuning.EXHIBIT_DUPLICATE_YIELD[math.min(copyIndex, #Tuning.EXHIBIT_DUPLICATE_YIELD)]
+		table.insert(displayed, {
+			uid = entry.uid,
+			itemId = entry.itemId,
+			name = Items.get(entry.itemId).name,
+			rarity = entry.rarity,
+			modifier = entry.modifier or "None",
+			rate = entryYieldPerSecond(entry, damping, stats),
+			copy = copyIndex,
+			slot = entry.slot,
+			crating = crateLeft(entry),
+		})
+	end
+
+	local bag = {}
+	for _, item in data.carry do
+		local clean = Contamination.isClean(item.patches or {})
+		local slag = item.modifier == "Slagged"
+		table.insert(bag, {
+			uid = item.uid,
+			itemId = if clean then item.itemId else nil,
+			name = if clean then Items.get(item.itemId).name else "???",
+			rarity = item.rarity,
+			modifier = item.modifier or "None",
+			rate = if clean and not slag then entryYieldPerSecond(item, 1, stats) else nil,
+			status = if not clean then "dirty" elseif slag then "slag" else "ready",
+		})
+	end
+
+	return {
+		slots = Floors.slotsFor(data.exhibit.floors),
+		used = #data.exhibit.pedestals,
+		rate = cappedRatePerSecond(data, stats),
+		-- Before the hourly cap: the rows add up to this, so the panel can say when the
+		-- cap is what is holding the total back.
+		raw = rawRatePerSecond(data, stats),
+		displayed = displayed,
+		bag = bag,
+	}
+end
+
+--- Fill every stand with the best set of nukes the player owns, and swap weaker
+--- displayed ones back into the bag. "Best" is what the plot actually earns: the
+--- duplicate damping is counted, so it spreads across different nukes instead of
+--- stacking four copies of one Legendary.
+---
+--- THE PICK IS GREEDY ON MARGINAL YIELD, which is exact here: every item id's copies
+--- earn a decreasing sequence (sorted value times a decreasing damping step), and the
+--- best k picks from a set of decreasing sequences are the k biggest heads. Pieces
+--- still crating are pinned -- they stay where they are and count as copies -- the
+--- same clock `interact` refuses a take on.
+---
+--- The bag can never overflow: every piece that comes off a stand is replaced by one
+--- going up out of the bag, and the picked set is never smaller than what was up.
+--- Pieces that stay stay on their own stand; new ones fill the lowest free slot.
+function ExhibitService.equipBest(player: Player): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+	local plot = plotOf[player]
+	if plot == nil then
+		return false, "you don't have a base yet"
+	end
+	-- Required here, not at the top: WashService -> LiquidService -> ExhibitService
+	-- is already a chain, so a top-level require would close the loop.
+	local WashService = require(script.Parent.WashService) :: any
+	if WashService.isWashing(player) then
+		return false, "finish your wash first"
+	end
+
+	local stats = StatResolver.get(data)
+	local slots = Floors.slotsFor(data.exhibit.floors)
+
+	local chosen: { Pick } = {}
+	local pool: { Pick } = {}
+	local groups: { [string]: { number } } = {}
+
+	local function take(pick: Pick)
+		table.insert(chosen, pick)
+		local group = groups[pick.item.itemId]
+		if group == nil then
+			group = {}
+			groups[pick.item.itemId] = group
+		end
+		table.insert(group, pick.value)
+	end
+
+	for _, entry in data.exhibit.pedestals do
+		local pick = { item = entry, value = entryYieldPerSecond(entry, 1, stats), onStand = true }
+		if crateLeft(entry) > 0 or entry.slot > slots then
+			take(pick)
+		else
+			table.insert(pool, pick)
+		end
+	end
+	for _, item in data.carry do
+		if Contamination.isClean(item.patches or {}) and item.modifier ~= "Slagged" then
+			table.insert(pool, { item = item, value = entryYieldPerSecond(item, 1, stats), onStand = false })
+		end
+	end
+
+	while #chosen < slots and #pool > 0 do
+		local bestIndex, bestGain = 0, -math.huge
+		for i, pick in pool do
+			local group = groups[pick.item.itemId] or {}
+			local with = table.clone(group)
+			table.insert(with, pick.value)
+			local gain = groupYield(with) - groupYield(group)
+			-- A tie keeps what is already up, so pressing it twice never shuffles.
+			local better = gain > bestGain + 1e-9
+				or (math.abs(gain - bestGain) <= 1e-9 and pick.onStand and not pool[bestIndex].onStand)
+			if better then
+				bestIndex, bestGain = i, gain
+			end
+		end
+		take(table.remove(pool, bestIndex) :: Pick)
+	end
+
+	-- What goes up and what comes off.
+	local keep: { [string]: boolean } = {}
+	local goingUp: { any } = {}
+	for _, pick in chosen do
+		if pick.onStand then
+			keep[pick.item.uid] = true
+		else
+			table.insert(goingUp, pick.item)
+		end
+	end
+	if #goingUp == 0 then
+		return false, "your best nukes are already on display"
+	end
+
+	local stays = {}
+	local comingOff = {}
+	local used: { [number]: boolean } = {}
+	for _, entry in data.exhibit.pedestals do
+		if keep[entry.uid] then
+			table.insert(stays, entry)
+			used[entry.slot] = true
+		else
+			table.insert(comingOff, entry)
+		end
+	end
+
+	local placing: { [string]: boolean } = {}
+	for _, item in goingUp do
+		placing[item.uid] = true
+	end
+	for i = #data.carry, 1, -1 do
+		if placing[data.carry[i].uid] then
+			table.remove(data.carry, i)
+		end
+	end
+	-- Same shape a plain take gives a retrieved piece (see `interact`).
+	for _, entry in comingOff do
+		table.insert(data.carry, {
+			uid = entry.uid,
+			itemId = entry.itemId,
+			rarity = entry.rarity,
+			modifier = entry.modifier,
+			elapsed = 0,
+			frozen = true,
+			patches = {},
+		})
+	end
+
+	local changed: { [number]: any } = {}
+	for _, entry in comingOff do
+		changed[entry.slot] = false
+	end
+	local now = os.time()
+	local nextSlot = 1
+	for _, item in goingUp do
+		while used[nextSlot] do
+			nextSlot += 1
+		end
+		used[nextSlot] = true
+		local entry = {
+			slot = nextSlot,
+			uid = item.uid,
+			itemId = item.itemId,
+			rarity = item.rarity,
+			modifier = item.modifier,
+			placedAt = now,
+		}
+		table.insert(stays, entry)
+		changed[nextSlot] = entry
+	end
+
+	-- Best first, so each item id's top copy is the one paid at full rate:
+	-- rawRatePerSecond hands out the damping in array order.
+	table.sort(stays, function(a, b)
+		return entryYieldPerSecond(a, 1, stats) > entryYieldPerSecond(b, 1, stats)
+	end)
+	data.exhibit.pedestals = stays
+
+	for slot, entry in changed do
+		if entry then
+			renderStand(plot, slot, entry.itemId, entry.rarity, entry.uid)
+		else
+			renderStand(plot, slot, nil, nil)
+		end
+	end
+	refreshStandCards(plot, data)
+
+	local message = `{#goingUp} {if #goingUp == 1 then "nuke" else "nukes"} on display`
+	if #comingOff > 0 then
+		message ..= ` \u{2014} {#comingOff} back in your bag`
+	end
+	return true, message
+end
+
 -- ── Floors ────────────────────────────────────────────────────────────────────
 
 --- Build the next floor on this player's own base. `plot`/`floor` come from the
@@ -1177,6 +1435,7 @@ function ExhibitService.init()
 	resultRemote = Net.get("StationResult")
 	colorRemote = Net.get("PlotColor")
 	incomeRemote = Net.get("IncomeState")
+	nukeListRemote = Net.get("NukeList")
 end
 
 function ExhibitService.start()
@@ -1192,6 +1451,29 @@ function ExhibitService.start()
 		ExhibitService.setPlotColor(player, if type(hex) == "string" then hex else "")
 		local data = DataService.data(player)
 		colorRemote:FireClient(player, if data then data.plotColor else "", defaultAccentHex(player))
+	end)
+
+	-- The Nukes panel. "list" answers with a snapshot; "equipBest" does the work and
+	-- answers with the snapshot after it, carrying the outcome as `notice`. Equip Best
+	-- rewrites a whole plot, so it gets a short cooldown the list does not need.
+	Net.get("NukeAction").OnServerEvent:Connect(function(player: Player, action)
+		local notice: string? = nil
+		if action == "equipBest" then
+			local now = os.clock()
+			if now - (lastEquip[player] or 0) < EQUIP_COOLDOWN then
+				return
+			end
+			lastEquip[player] = now
+			local _, message = ExhibitService.equipBest(player)
+			notice = message
+		elseif action ~= "list" then
+			return
+		end
+		local list = ExhibitService.nukeList(player)
+		if list then
+			list.notice = notice
+			nukeListRemote:FireClient(player, list)
+		end
 	end)
 
 	-- Every floor sign, including ones a later World.rebuild() adds mid-session.
@@ -1225,6 +1507,7 @@ function ExhibitService.start()
 	Players.PlayerRemoving:Connect(function(player)
 		release(player)
 		lastIncome[player] = nil
+		lastEquip[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)

@@ -20,7 +20,7 @@
 	widget's right-hand clearance (Dock.HAULPANEL_RIGHT) so the two never overlap. On a
 	touch screen it lifts clear of the jump button (UIKit.touchCorner).
 
-	AND NEVER UP INTO THE INDEX/SHOP COLUMN (ShopController.columnBottom). On a short
+	AND NEVER UP INTO THE INDEX/SHOP/NUKES COLUMN (NukesController.columnBottom). On a short
 	canvas -- the docked Studio viewport, a phone held sideways -- that column is centred
 	rather than hung high, and the first draft's clover sat right on top of the Shop
 	tile. Where the gap between the column and the hotbar is too short, the clover first
@@ -43,6 +43,7 @@ local Dock = UIKit.Dock
 local CloverArt = require(script.Parent.Parent.CloverArt)
 local AuroraFx = require(script.Parent.Parent.AuroraFx)
 local ShopController = require(script.Parent.ShopController)
+local NukesController = require(script.Parent.NukesController)
 
 local LuckBoostController = {}
 
@@ -312,7 +313,7 @@ local function place()
 	local floor = math.max(Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP, if corner.Y > 0 then corner.Y + Dock.GAP else 0)
 	local bottom = math.max(Dock.HAULPANEL_BOTTOM, floor)
 	-- The highest its top may reach, measured up from the bottom edge like `bottom`.
-	local ceiling = height - ShopController.columnBottom(height) - Dock.GAP
+	local ceiling = height - NukesController.columnBottom(height) - Dock.GAP
 	if ceiling - bottom < BADGE_H then
 		bottom = math.max(floor, ceiling - BADGE_H)
 	end
