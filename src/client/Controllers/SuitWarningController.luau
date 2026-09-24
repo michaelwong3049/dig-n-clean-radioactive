@@ -1,25 +1,31 @@
 --[[
-	SuitWarningController.lua — the "! UPGRADE SUIT" warning for a player out of their depth.
+	SuitWarningController.lua — the "!! UPGRADE SUIT" warning for a player out of their depth.
 
 	The rad meter already says SUIT FAILING and counts down, and RadFx whitens the
 	screen, but none of that says WHAT TO DO about it. A new player who walks one stage
 	too far just watches their health melt. This names the fix: a better suit — or,
-	past the top of the ladder, to turn back. Just the words and a "!" floating over
-	the world, white with an ink outline; no card behind them.
+	past the top of the ladder, to turn back. Just red words and "!!" floating near the
+	top of the screen with an ink outline, no card behind them, and a small IGNORE
+	button beside them.
 
 	IT ONLY SHOWS FOR HEAVY DAMAGE. A toe over the suit's rating burns slowly and the
 	meter's own countdown is enough for that. It waits until the burn would put
 	you down inside HEAVY_SECONDS, or has already taken you under HEAVY_HEALTH, and has
 	held for SHOW_DELAY — so brushing a stage line does not flash it.
 
+	IGNORE LASTS ONE TRIP. It hides the warning until the suit is holding again (you
+	walked back out) or you go down; the next time you push too deep it warns again.
+
+	IT SITS AS HIGH AS THE TOP OF THE SCREEN ALLOWS. The warp bar is hidden in a stage,
+	which is the only place this shows, so it hugs the top edge — but the stage title
+	card and the tutorial banner share that strip, and while either is up the warning
+	slides down under it (clearTop).
+
 	NO NEW FIELD ON THE WIRE. ExposureState carries `ambient`, `excess` and `failing`,
 	and Radiation.resolve defines excess as ambient minus suit tolerance. Whether any
-	suit could hold this air is a Gear.Suit rung whose tolerance reaches `ambient`. The burn is
-	recomputed from `excess` rather than read off `healthBurn`, because `healthBurn`
-	also carries a detonated crater's burn, which no suit helps with.
-
-	WHITE AND INK, because white is suit failure's colour and nothing else's
-	(HudController's ONE COLOUR RULE) — this warning is about exactly that.
+	suit could hold this air is a Gear.Suit rung whose tolerance reaches `ambient`. The
+	burn is recomputed from `excess` rather than read off `healthBurn`, because
+	`healthBurn` also carries a detonated crater's burn, which no suit helps with.
 ]]
 
 local Players = game:GetService("Players")
@@ -46,17 +52,30 @@ local HEAVY_HEALTH = 0.6
 local SHOW_DELAY = 0.75
 local HIDE_DELAY = 1.5
 
--- Design px on the 1280x720 canvas. Under WarpController's bar (to 68), the stage
--- title card (34..~100) and TutorialController's banner (84..~170).
-local WARNING_Y = 196
+-- Design px on the 1280x720 canvas.
+local TOP_Y = 16 -- with nothing else up there
+local CLEARANCE = 8 -- under whatever top banner is showing
 local WARNING_W = 520
-local WARNING_H = 64
-local TITLE_SIZE = 44
-local BANG_SIZE = 56
-local GAP = 12
+local WARNING_H = 40
+local TITLE_SIZE = 28
+local BANG_SIZE = 34
+local GAP = 10
+local IGNORE_W = 62
+local IGNORE_H = 22
+local IGNORE_GAP = 14
 local FONT = Enum.Font.LuckiestGuy
 
-local WHITE = UIKit.C.burn
+-- The top-of-screen pieces the warning must not sit on: ScreenGui name -> the frame in
+-- it that is drawn only while showing (StageBannerController, TutorialController,
+-- WarpController).
+local TOP_BANNERS = {
+	{ gui = "StageBanner", frame = "Panel" },
+	{ gui = "TutorialHud", frame = "Banner" },
+	{ gui = "WarpBar", frame = "Panel" },
+}
+
+local RED = UIKit.C.red
+local INK = Color3.fromHex("1A1A1A")
 
 local POP = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local FADE = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
@@ -73,6 +92,7 @@ local reading = {
 }
 
 local shown = false
+local ignored = false
 local heavyFor = 0
 local calmFor = 0
 local throb = 0
@@ -122,13 +142,15 @@ local function place(label: TextLabel, shadow: TextLabel?, x: number, width: num
 	end
 end
 
---- "!" and the words side by side, centred as a pair whatever the words' width.
+--- "!!" and the words side by side, centred as a pair whatever the words' width, with
+--- IGNORE hung off to the right so the warning itself stays centred.
 local function layoutRow()
 	local bangW = textWidth(ui.badge.Text, BANG_SIZE)
 	local titleW = textWidth(ui.title.Text, TITLE_SIZE)
 	local x = (WARNING_W - (bangW + GAP + titleW)) / 2
 	place(ui.badge, ui.badgeShadow, x, bangW)
 	place(ui.title, ui.titleShadow, x + bangW + GAP, titleW)
+	ui.ignore.Position = UDim2.new(0, x + bangW + GAP + titleW + IGNORE_GAP, 0.5, 0)
 end
 
 local function refreshText()
@@ -139,6 +161,26 @@ local function refreshText()
 	end
 end
 
+--- The highest design-px Y the warning can take without covering a top banner.
+local function clearTop(): number
+	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	local scale = UIKit.canvasScale(ui.canvas)
+	local canvasTop = ui.canvas.AbsolutePosition.Y
+	local y = TOP_Y
+	if playerGui == nil or scale <= 0 then
+		return y
+	end
+	for _, spec in TOP_BANNERS do
+		local gui = playerGui:FindFirstChild(spec.gui)
+		local frame = gui and gui:FindFirstChild(spec.frame, true)
+		if frame and frame:IsA("GuiObject") and frame.Visible and (gui :: ScreenGui).Enabled then
+			local bottom = (frame.AbsolutePosition.Y + frame.AbsoluteSize.Y - canvasTop) / scale
+			y = math.max(y, bottom + CLEARANCE)
+		end
+	end
+	return y
+end
+
 local function setShown(on: boolean)
 	if on == shown then
 		return
@@ -146,6 +188,7 @@ local function setShown(on: boolean)
 	shown = on
 	if on then
 		refreshText()
+		ui.root.Position = UDim2.new(0.5, 0, 0, clearTop())
 		ui.root.Visible = true
 		ui.group.GroupTransparency = 0
 		ui.scale.Scale = 0.6
@@ -173,11 +216,11 @@ local function build(): ScreenGui
 
 	local canvas = UIKit.canvas(gui)
 
-	-- A CanvasGroup so the "!" and the words (and their outlines) fade as one.
+	-- A CanvasGroup so the "!!", the words and the button (and their outlines) fade as one.
 	local root = Instance.new("Frame")
 	root.Name = "Warning"
 	root.AnchorPoint = Vector2.new(0.5, 0)
-	root.Position = UDim2.new(0.5, 0, 0, WARNING_Y)
+	root.Position = UDim2.new(0.5, 0, 0, TOP_Y)
 	root.Size = UDim2.fromOffset(WARNING_W, WARNING_H)
 	root.BackgroundTransparency = 1
 	root.Visible = false
@@ -197,11 +240,11 @@ local function build(): ScreenGui
 	local throbScale = Instance.new("UIScale")
 	throbScale.Parent = group
 
-	-- White with UIKit's heavy ink outline and drop shadow, so it reads over bright
-	-- sky and the RadFx whiteout alike. Plain ASCII "!" on purpose — the warning-sign
-	-- glyphs render as colour emoji or boxes in Roblox. Laid out by hand (layoutRow),
-	-- not by a UIListLayout: UIKit's shadow is a SIBLING label, and a list layout would
-	-- line it up as a third word.
+	-- Red with UIKit's heavy ink outline and drop shadow, so it reads over bright sky
+	-- and the RadFx whiteout alike. Plain ASCII "!" on purpose — the warning-sign glyphs
+	-- render as colour emoji or boxes in Roblox. Laid out by hand (layoutRow), not by a
+	-- UIListLayout: UIKit's shadow is a SIBLING label, and a list layout would line it
+	-- up as another word.
 	local function word(name: string, text: string, size: number): TextLabel
 		return UIKit.label(group, {
 			name = name,
@@ -209,15 +252,42 @@ local function build(): ScreenGui
 			text = text,
 			font = FONT,
 			textSize = size,
-			color = WHITE,
+			color = RED,
 			xAlign = Enum.TextXAlignment.Center,
 			shadow = true,
 		})
 	end
-	local badge = word("Bang", "!", BANG_SIZE)
+	local badge = word("Bang", "!!", BANG_SIZE)
 	local title = word("Title", "UPGRADE SUIT", TITLE_SIZE)
 
+	local ignore = UIKit.button(group, {
+		name = "Ignore",
+		anchorPoint = Vector2.new(0, 0.5),
+		size = UDim2.fromOffset(IGNORE_W, IGNORE_H),
+		text = "IGNORE",
+		font = Enum.Font.FredokaOne,
+		textSize = 12,
+		color = Color3.new(1, 1, 1),
+		fillColor = INK,
+		fillTransparency = 0.25,
+		strokeThickness = 1.5,
+		cornerRadius = UDim.new(0.5, 0),
+		shadow = false,
+		zIndex = 3,
+	})
+	ignore.MouseEnter:Connect(function()
+		ignore.BackgroundTransparency = 0.05
+	end)
+	ignore.MouseLeave:Connect(function()
+		ignore.BackgroundTransparency = 0.25
+	end)
+	ignore.Activated:Connect(function()
+		ignored = true
+		setShown(false)
+	end)
+
 	ui = {
+		canvas = canvas,
 		root = root,
 		group = group,
 		scale = scale,
@@ -226,6 +296,7 @@ local function build(): ScreenGui
 		titleShadow = group:FindFirstChild("TitleShadow"),
 		badge = badge,
 		badgeShadow = group:FindFirstChild("BangShadow"),
+		ignore = ignore,
 	}
 	layoutRow()
 	return gui
@@ -241,9 +312,14 @@ local function step(dt: number)
 		calmFor = if reading.downed then HIDE_DELAY else calmFor + dt
 	end
 
+	-- An ignore holds until this trip is over: back under the suit's rating, or down.
+	if ignored and (reading.downed or (not reading.failing and calmFor >= HIDE_DELAY)) then
+		ignored = false
+	end
+
 	-- Stays up while the suit is still failing, even if the damage eases off, and only
 	-- goes once it has actually been holding for HIDE_DELAY.
-	if not shown and heavyFor >= SHOW_DELAY then
+	if not shown and not ignored and heavyFor >= SHOW_DELAY then
 		setShown(true)
 	elseif shown and (reading.downed or (not reading.failing and calmFor >= HIDE_DELAY)) then
 		setShown(false)
@@ -252,6 +328,10 @@ local function step(dt: number)
 	if shown then
 		-- The air changes as you walk deeper (or back), and the advice with it.
 		refreshText()
+		-- Glide under a top banner that slides in, and back up once it goes.
+		local y = ui.root.Position.Y.Offset
+		y += (clearTop() - y) * math.min(1, dt * 12)
+		ui.root.Position = UDim2.new(0.5, 0, 0, y)
 		throb += dt * 6
 		ui.throbScale.Scale = 1 + 0.035 * math.abs(math.sin(throb))
 		local wobble = math.sin(throb * 1.3) * 8
