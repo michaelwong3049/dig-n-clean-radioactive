@@ -232,23 +232,22 @@ local function renderTreadmill(index: number, data: any?)
 	Plots.setTreadmillTier(treadmill, if data then data.treadmill else nil, if data then data.speedPoints else nil)
 end
 
---- Fill the plot's fluid bottle with the fluid this profile has loaded, or Plain Water
---- when `data` is nil (an unclaimed plot). Colour only: the fluid's name, washes left
---- and the ROLL button live on the owner's own panel (the client's LiquidController).
+--- Fill the plot's fluid bottle AND its cleansing tub with the fluid this profile has
+--- loaded, or Plain Water when `data` is nil (an unclaimed plot). Colour only: the
+--- fluid's name, washes left and the ROLL button live on the owner's own panel (the
+--- client's LiquidController).
 ---
 --- SAME SHAPE AS renderTreadmill: LiquidService spins, this file owns what a plot
---- looks like, and which parts of the bottle hold the fluid is build/Plots'
---- business (Plots.setFluidBottle).
+--- looks like, and which parts of the bottle and the tub hold the fluid is
+--- build/Plots' business (Plots.setFluidBottle, Plots.setTubFluid).
 local function renderBottle(index: number, data: any?)
 	local plot = plotModel(index)
 	if plot == nil then
 		return
 	end
-	local bottle = plot:FindFirstChild("FluidBottle", true)
-	if bottle == nil then
-		return
-	end
-	Plots.setFluidBottle(bottle, if data then StatResolver.get(data).liquidId else nil)
+	local liquidId = if data then StatResolver.get(data).liquidId else nil
+	Plots.setFluidBottle(plot:FindFirstChild("FluidBottle", true), liquidId)
+	Plots.setTubFluid(plot:FindFirstChild("CleansingStation", true), liquidId)
 end
 
 --- The world half of "hold the item, hold E on the stand": a plain default-styled
