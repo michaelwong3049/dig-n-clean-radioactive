@@ -200,6 +200,10 @@ Gear.Cleaner = {
 -- tolerance: ambient rads/sec the suit handles before it fails (burn track, white screen)
 -- capacity : hot items carried before it gets unmanageable (PLAN §3.4)
 --
+-- Capacity ladder raised 4/6/8/11/15/20 -> 6/10/14/20/26/34 on request ("start at 6
+-- slots, raise the max for the other upgrades"). Past 10 slots the hotbar stops growing
+-- and the rest lives in the bag panel (InventoryController, ` key).
+--
 -- Cloth Wrap's reduction dropped 0.9000 -> 0.6296 in the third harshening pass, SOLELY
 -- to hit an explicit Stage 1 target (unsuited survival capped at 9 minutes, was ~33
 -- minutes) without touching Stage 1's ambient rate itself -- see this file's header.
@@ -212,12 +216,12 @@ Gear.Cleaner = {
 -- informational Z2-Z6 cells below shift with this (Z2 entrance 17s -> ~28s) but no
 -- Spec check pins those.
 Gear.Suit = {
-	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, blurb = "Rags and tape. Counts as clothing, not shielding." },
-	{ name = "Rubber Suit", price = 15000, reduction = 0.9750, tolerance = 4.4, capacity = 6, blurb = "Sweats more than it shields. Shields a little." },
-	{ name = "Lead-Lined", price = 36000, reduction = 0.9920, tolerance = 13.4, capacity = 8, blurb = "Heavy enough to feel safe. Nearly is." },
-	{ name = "Reinforced Hazmat", price = 85000, reduction = 0.9970, tolerance = 38.4, capacity = 11, blurb = "Sealed seams. The first suit that trusts you." },
-	{ name = "Sealed Exo-Suit", price = 210000, reduction = 0.9988, tolerance = 98.4, capacity = 15, blurb = "Own air supply. Walks into the red and back." },
-	{ name = "Containment Rig", price = 500000, reduction = 0.9889, tolerance = 105.0, capacity = 20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
+	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 6, blurb = "Rags and tape. Counts as clothing, not shielding." },
+	{ name = "Rubber Suit", price = 15000, reduction = 0.9750, tolerance = 4.4, capacity = 10, blurb = "Sweats more than it shields. Shields a little." },
+	{ name = "Lead-Lined", price = 36000, reduction = 0.9920, tolerance = 13.4, capacity = 14, blurb = "Heavy enough to feel safe. Nearly is." },
+	{ name = "Reinforced Hazmat", price = 85000, reduction = 0.9970, tolerance = 38.4, capacity = 20, blurb = "Sealed seams. The first suit that trusts you." },
+	{ name = "Sealed Exo-Suit", price = 210000, reduction = 0.9988, tolerance = 98.4, capacity = 26, blurb = "Own air supply. Walks into the red and back." },
+	{ name = "Containment Rig", price = 500000, reduction = 0.9889, tolerance = 105.0, capacity = 34, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
@@ -287,8 +291,8 @@ Gear.Boots = {
 -- stat's floor and ceiling are unchanged and only the step size moved.
 --
 -- KEEP THE FLOOR ABOVE ZERO. A bag with no haul penalty is the same failure as one
--- with full shielding: the greed dial stops turning. 0.20 against a 20-item Suit
--- capacity is still 4 studs/sec off a trained runner.
+-- with full shielding: the greed dial stops turning. 0.20 against a 34-item Suit
+-- capacity is still ~7 studs/sec off a trained runner.
 Gear.Satchel = {
 	{ name = "Canvas Bag", price = 0, fuseMult = 1.00, shielding = 0.00, haulPenalty = 1.20, blurb = "Canvas. Stops nothing, holds everything." },
 	{ name = "Lined Pack", price = 20000, fuseMult = 1.25, shielding = 0.25, haulPenalty = 0.90, blurb = "Lined seams slow the clock a fifth, and sit square on your back." },

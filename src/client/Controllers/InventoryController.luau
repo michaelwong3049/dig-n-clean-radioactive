@@ -4,8 +4,8 @@
 	WHAT THE SLOTS SAY, AND WHAT THEY DELIBERATELY DO NOT.
 	A slot shows the ITEM: a clear name with a rarity-coloured border. The obvious
 	temptation is to hang the whole decay apparatus off every slot — a draining fuse
-	bar, a condition tint, the value — and it is the wrong call. Twenty slots each
-	running their own countdown is twenty things moving in the corner of your eye while
+	bar, a condition tint, the value — and it is the wrong call. Ten slots each
+	running their own countdown is ten things moving in the corner of your eye while
 	you are trying to read the ground, and the eye stops being able to find any of them.
 
 	PRESSING A NUMBER PICKS THE ITEM UP. That is the whole verb now. It fires HoldInput
@@ -28,6 +28,14 @@
 	they are how a player sees the headroom a suit upgrade bought them, and PLAN §3.4
 	makes capacity one of the six tracks. A hotbar that only draws what you own hides
 	the entire upgrade.
+
+	THE HOTBAR STOPS AT TEN, THE BAG DOES NOT. A Containment Rig plus the level bonus
+	carries 50+ items, and one row of fifty slots is unreadable at any width. So the
+	row holds slots 1-10 (keys 1-9 and 0), and once capacity passes ten a BAG tile
+	joins the end of it. ` (or tapping the tile) opens the bag panel: every slot, the
+	hotbar's ten on top and the rest of the backpack under them. Clicking any of them
+	picks it up exactly like its number key would. Empty slots still draw in the
+	panel, for the same headroom reason as above.
 ]]
 
 local Players = game:GetService("Players")
@@ -49,7 +57,7 @@ local Inventory = {}
 -- working unchanged.
 local COLOR = UIKit.C
 
--- Slots shrink as capacity grows so a maxed satchel still fits one row. Below the
+-- Slots shrink as the row fills so ten slots plus the bag tile fit one row. Below the
 -- floor the name is unreadable anyway, so the row is allowed to run wider instead.
 local SLOT_MAX = 64
 local SLOT_MIN = 48
@@ -59,9 +67,9 @@ local SLOT_FILL = Color3.fromHex("090C10")
 local SLOT_SELECTED = Color3.fromHex("18221C")
 local SLOT_BORDER = Color3.fromHex("505B66")
 
--- Number keys only reach so far. Slots past this are visible and perfectly usable,
--- they just have no key — which is the normal hotbar bargain.
-local BINDABLE = 9
+-- The hotbar's length, and exactly the number row: 1-9 then 0. Everything past it
+-- lives in the bag panel.
+local HOTBAR_SLOTS = 10
 local KEYS = {
 	[Enum.KeyCode.One] = 1,
 	[Enum.KeyCode.Two] = 2,
@@ -72,7 +80,22 @@ local KEYS = {
 	[Enum.KeyCode.Seven] = 7,
 	[Enum.KeyCode.Eight] = 8,
 	[Enum.KeyCode.Nine] = 9,
+	[Enum.KeyCode.Zero] = 10,
 }
+local BAG_KEY = Enum.KeyCode.Backquote
+
+-- The bag panel's grid. BAG_COLS matches HOTBAR_SLOTS so the panel's top row IS the
+-- hotbar, slot for slot; the backpack grid under it wraps at the same width and
+-- scrolls past BAG_VISIBLE_ROWS.
+local BAG_COLS = HOTBAR_SLOTS
+-- Same size as a full-width hotbar slot, so a name wraps the same way in both.
+local BAG_CELL = SLOT_MAX
+local BAG_GAP = 6
+local BAG_PAD = 16
+local BAG_HEADER = 46
+local BAG_CAPTION = 20
+local BAG_SECTION_GAP = 12
+local BAG_VISIBLE_ROWS = 4
 
 local state = {
 	capacity = 0,
@@ -80,20 +103,11 @@ local state = {
 	items = {} :: { any },
 }
 
--- Seconds since the last CarryState landed.
---
--- THIS IS LOAD-BEARING AND THE FIRST DRAFT DID NOT HAVE IT. CarryState fires only
--- when the bag CHANGES, so `elapsed` on an item is a snapshot from whenever that
--- last happened — usually the moment it came out of the ground. Reading the clock
--- straight off it gives a countdown that sits perfectly still for two minutes and
--- then jumps a whole condition, which looks like the decay system is broken.
---
--- So the client predicts: advance a local offset every frame and add it to `elapsed`
--- before asking Shared/Decay anything. The server still owns the real number and
--- every CarryState resets this to zero, which is the correction half of the deal.
 local ui = {}
-local slots: { any } = {}
+local slots: { any } = {} -- the hotbar row, index 1..HOTBAR_SLOTS
+local bagCells: { any } = {} -- the bag panel, index 1..capacity
 local selected: string? = nil -- uid, NOT an index: the bag reorders when you sell
+local bagOpen = false
 local holdRemote: any = nil
 
 local function rarityColor(name: string?): Color3
@@ -101,9 +115,66 @@ local function rarityColor(name: string?): Color3
 	return if def then def.color else COLOR.dim
 end
 
+local function keyText(index: number): string
+	if index < HOTBAR_SLOTS then
+		return tostring(index)
+	elseif index == HOTBAR_SLOTS then
+		return "0"
+	end
+	return ""
+end
+
+local function hasBag(): boolean
+	return state.capacity > HOTBAR_SLOTS
+end
+
+local function itemColour(item: any): Color3
+	return if item.crateId then Color3.fromHex(Crates.get(item.crateId).color) else rarityColor(item.rarity)
+end
+
 -- ── Build ───────────────────────────────────────────────────────────
 
-local function makeSlot(parent: Instance, index: number)
+--- A small keycap with a ` on it. The bare glyph is a speck at any text size that
+--- fits a slot corner (it sits at the top of its em box), so it gets drawn big inside
+--- a box that says "this is a key", nudged down to sit centred in it.
+local function backtickCap(parent: Instance, size: number, position: UDim2, anchorPoint: Vector2?): Frame
+	local cap = Instance.new("Frame")
+	cap.Name = "KeyCap"
+	cap.AnchorPoint = anchorPoint or Vector2.zero
+	cap.Position = position
+	cap.Size = UDim2.fromOffset(size, size)
+	cap.BackgroundColor3 = COLOR.empty
+	cap.BorderSizePixel = 0
+	cap.Parent = parent
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 4)
+	corner.Parent = cap
+
+	local stroke = Instance.new("UIStroke")
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Color = Color3.fromHex("BBC5D0")
+	stroke.Thickness = 1
+	stroke.Parent = cap
+
+	UIKit.label(cap, {
+		name = "Glyph",
+		position = UDim2.fromOffset(0, math.floor(size * 0.4)),
+		size = UDim2.fromScale(1, 1),
+		font = UIKit.Font.title,
+		textSize = math.floor(size * 1.6),
+		color = Color3.fromHex("E4E9DE"),
+		xAlign = Enum.TextXAlignment.Center,
+		yAlign = Enum.TextYAlignment.Center,
+		outline = false,
+		shadow = false,
+		strokeTransparency = 1,
+		text = "`",
+	})
+	return cap
+end
+
+local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 	local slot = Instance.new("TextButton")
 	slot.Name = `Slot{index}`
 	slot.AutoButtonColor = false
@@ -125,7 +196,7 @@ local function makeSlot(parent: Instance, index: number)
 	stroke.Thickness = 1.5
 	stroke.Parent = slot
 
-	-- A bright, compact key hint; renderSlots hides it past the bindable range.
+	-- A bright, compact key hint; blank past the number row.
 	local key = UIKit.label(slot, {
 		name = "Key",
 		position = UDim2.fromOffset(7, 4),
@@ -134,7 +205,7 @@ local function makeSlot(parent: Instance, index: number)
 		textSize = 12,
 		color = Color3.fromHex("BBC5D0"),
 		strokeTransparency = 1,
-		text = tostring(index),
+		text = keyText(index),
 	})
 
 	local name = UIKit.label(slot, {
@@ -157,13 +228,74 @@ local function makeSlot(parent: Instance, index: number)
 	textConstraint.MaxTextSize = 13
 	textConstraint.Parent = name
 
-	slot.MouseButton1Click:Connect(function()
-		Inventory.select(index)
-	end)
+	slot.MouseButton1Click:Connect(onClick)
 
-	slots[index] = { button = slot, stroke = stroke, key = key, name = name, uid = nil :: string? }
+	return { button = slot, stroke = stroke, key = key, name = name, uid = nil :: string? }
 end
 
+--- The last tile on the hotbar once capacity passes ten: opens the bag panel, and
+--- says how many of your items are in there rather than on the row.
+local function buildBagTile(row: Frame)
+	local tile = Instance.new("TextButton")
+	tile.Name = "BagTile"
+	tile.AutoButtonColor = false
+	tile.BackgroundColor3 = SLOT_FILL
+	tile.BackgroundTransparency = 0.05
+	tile.BorderSizePixel = 0
+	tile.Text = ""
+	tile.LayoutOrder = HOTBAR_SLOTS + 1
+	tile.Size = UDim2.fromOffset(SLOT_MAX, SLOT_MAX)
+	tile.Visible = false
+	tile.Parent = row
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 7)
+	corner.Parent = tile
+
+	local stroke = Instance.new("UIStroke")
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Color = SLOT_BORDER
+	stroke.Thickness = 1.5
+	stroke.Parent = tile
+
+	-- No key hint on touch: there is no ` key to press, the tile itself is the button.
+	if not UIKit.isTouch() then
+		backtickCap(tile, 15, UDim2.fromOffset(5, 5))
+	end
+
+	UIKit.label(tile, {
+		name = "Title",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.fromScale(0.5, 0.5),
+		size = UDim2.new(1, -6, 0, 16),
+		font = UIKit.Font.title,
+		textSize = 14,
+		color = COLOR.text,
+		xAlign = Enum.TextXAlignment.Center,
+		strokeTransparency = 1,
+		text = "BAG",
+	})
+
+	local count = UIKit.label(tile, {
+		name = "Count",
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -5),
+		size = UDim2.new(1, -6, 0, 14),
+		font = UIKit.Font.title,
+		textSize = 12,
+		color = COLOR.amber,
+		xAlign = Enum.TextXAlignment.Center,
+		strokeTransparency = 1,
+	})
+
+	tile.MouseButton1Click:Connect(function()
+		Inventory.setBagOpen(not bagOpen)
+	end)
+
+	ui.bagTile = tile
+	ui.bagTileStroke = stroke
+	ui.bagTileCount = count
+end
 
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
@@ -181,12 +313,11 @@ local function build(): ScreenGui
 	local canvas = UIKit.canvas(gui)
 	ui.canvas = canvas
 
-	-- A SWIPEABLE ROW ON TOUCH. Between the thumbstick and the jump button a full
-	-- Containment Rig (20 slots) runs past the row at SLOT_MIN, and a phone has no
-	-- number keys to reach a clipped slot with, so there the row scrolls sideways
-	-- instead of clipping (renderSlots left-aligns it once it overflows). Not on
-	-- desktop: a ScrollingFrame under the cursor would eat the mouse wheel the camera
-	-- zooms with.
+	-- A SWIPEABLE ROW ON TOUCH. Between the thumbstick and the jump button ten slots
+	-- plus the bag tile can run past the row at SLOT_MIN, and a phone has no number
+	-- keys to reach a clipped slot with, so there the row scrolls sideways instead of
+	-- clipping (renderSlots left-aligns it once it overflows). Not on desktop: a
+	-- ScrollingFrame under the cursor would eat the mouse wheel the camera zooms with.
 	local row: Frame
 	if UIKit.isTouch() then
 		local scroller = Instance.new("ScrollingFrame")
@@ -211,11 +342,9 @@ local function build(): ScreenGui
 		row.Size = UDim2.new(1, -2 * margin, 0, SLOT_MAX + 2 * BORDER_PADDING)
 	end)
 	row.BackgroundTransparency = 1
-	-- Safety net, not a fix: slotWidth()'s shrink-to-fit clamp can already run wider
-	-- than its target at max capacity (SLOT_MIN floors before the row runs out of
-	-- room) — pre-existing, invisible only because nothing clipped it. A narrower
-	-- live target on small viewports widens that gap; this keeps it from spilling
-	-- into whatever sits either side of the hotbar instead of fixing the clamp math.
+	-- Safety net, not a fix: slotWidth()'s shrink-to-fit clamp can run wider than its
+	-- target on a narrow viewport (SLOT_MIN floors before the row runs out of room).
+	-- This keeps it from spilling into whatever sits either side of the hotbar.
 	row.ClipsDescendants = true
 	row.Parent = canvas
 	ui.row = row
@@ -240,6 +369,154 @@ local function build(): ScreenGui
 	layout.Parent = row
 	ui.layout = layout
 
+	buildBagTile(row)
+
+	return gui
+end
+
+local function sectionCaption(parent: Instance, name: string, text: string, y: number): TextLabel
+	return UIKit.label(parent, {
+		name = name,
+		position = UDim2.fromOffset(BAG_PAD, y),
+		size = UDim2.new(1, -2 * BAG_PAD, 0, BAG_CAPTION - 4),
+		font = UIKit.Font.title,
+		textSize = 12,
+		color = COLOR.dim,
+		strokeTransparency = 1,
+		outline = false,
+		text = text,
+	})
+end
+
+--- The bag panel. Its own ScreenGui so it can sit over the instrument band (the HUD
+--- is 60-100) but under the Index/Shop panels (110), and still gets stowed with every
+--- other LayerCollector when the wash bay hides the HUD.
+local function buildBag(): ScreenGui
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "BagPanel"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 108
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	gui.Enabled = false
+
+	local canvas = UIKit.canvas(gui)
+	local gridWidth = BAG_COLS * BAG_CELL + (BAG_COLS - 1) * BAG_GAP
+
+	local panel = UIKit.panel(canvas, {
+		name = "Bag",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.new(0.5, 0, 0.5, -30),
+		size = UDim2.fromOffset(gridWidth + 2 * BAG_PAD, 200),
+		color = COLOR.panel,
+		transparency = 0.04,
+		strokeThickness = 2,
+	})
+	ui.bagPanel = panel
+
+	UIKit.label(panel, {
+		name = "Title",
+		position = UDim2.fromOffset(BAG_PAD, 0),
+		size = UDim2.fromOffset(80, BAG_HEADER),
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.header,
+		text = "BAG",
+	})
+	ui.bagCount = UIKit.label(panel, {
+		name = "Count",
+		position = UDim2.fromOffset(BAG_PAD + 70, 0),
+		size = UDim2.fromOffset(160, BAG_HEADER),
+		font = UIKit.Font.title,
+		textSize = 16,
+		color = COLOR.dim,
+		outline = false,
+		strokeTransparency = 1,
+	})
+	if not UIKit.isTouch() then
+		UIKit.label(panel, {
+			name = "Hint",
+			anchorPoint = Vector2.new(1, 0),
+			position = UDim2.new(1, -(BAG_PAD + 46), 0, 0),
+			size = UDim2.fromOffset(62, BAG_HEADER),
+			font = UIKit.Font.body,
+			textSize = 15,
+			color = COLOR.dim,
+			xAlign = Enum.TextXAlignment.Right,
+			outline = false,
+			strokeTransparency = 1,
+			text = "to close",
+		})
+		backtickCap(panel, 18, UDim2.new(1, -(BAG_PAD + 46 + 62 + 6), 0, BAG_HEADER / 2), Vector2.new(1, 0.5))
+	end
+
+	-- A PLAIN "X", NOT U+2715 (see StationController's close badge).
+	local close = UIKit.button(panel, {
+		name = "Close",
+		anchorPoint = Vector2.new(1, 0.5),
+		position = UDim2.new(1, -BAG_PAD + 4, 0, BAG_HEADER / 2),
+		size = UDim2.fromOffset(34, 34),
+		text = "X",
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.header,
+		color = COLOR.text,
+		fillColor = COLOR.empty,
+		fillTransparency = 0,
+		strokeColor = COLOR.stroke,
+		strokeThickness = 2,
+		cornerRadius = UDim.new(0, 9),
+		outline = false,
+		shadow = false,
+	})
+	close.MouseButton1Click:Connect(function()
+		Inventory.setBagOpen(false)
+	end)
+
+	-- HOTBAR: the row, slot for slot, with its number keys.
+	local hotbarTop = BAG_HEADER
+	sectionCaption(panel, "HotbarCaption", "HOTBAR", hotbarTop)
+	local hotbarRow = Instance.new("Frame")
+	hotbarRow.Name = "HotbarRow"
+	hotbarRow.BackgroundTransparency = 1
+	hotbarRow.Position = UDim2.fromOffset(BAG_PAD, hotbarTop + BAG_CAPTION)
+	hotbarRow.Size = UDim2.fromOffset(gridWidth, BAG_CELL)
+	hotbarRow.Parent = panel
+	local hotbarLayout = Instance.new("UIListLayout")
+	hotbarLayout.FillDirection = Enum.FillDirection.Horizontal
+	hotbarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	hotbarLayout.Padding = UDim.new(0, BAG_GAP)
+	hotbarLayout.Parent = hotbarRow
+	ui.bagHotbarRow = hotbarRow
+
+	-- BACKPACK: slots 11 and up, wrapping at the hotbar's width and scrolling past
+	-- BAG_VISIBLE_ROWS. The scroller is a few px wider than the grid so the cells'
+	-- outer strokes are not clipped.
+	local backpackTop = hotbarTop + BAG_CAPTION + BAG_CELL + BAG_SECTION_GAP
+	ui.bagBackpackTop = backpackTop
+	sectionCaption(panel, "BackpackCaption", "BACKPACK", backpackTop)
+	local scroller = Instance.new("ScrollingFrame")
+	scroller.Name = "Backpack"
+	scroller.BackgroundTransparency = 1
+	scroller.BorderSizePixel = 0
+	scroller.Position = UDim2.fromOffset(BAG_PAD - BORDER_PADDING, backpackTop + BAG_CAPTION - BORDER_PADDING)
+	scroller.Size = UDim2.fromOffset(gridWidth + 2 * BORDER_PADDING + 6, BAG_CELL)
+	scroller.CanvasSize = UDim2.new()
+	scroller.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroller.ScrollingDirection = Enum.ScrollingDirection.Y
+	scroller.ScrollBarThickness = 4
+	scroller.ScrollBarImageColor3 = COLOR.dim
+	scroller.Parent = panel
+	local scrollPadding = Instance.new("UIPadding")
+	scrollPadding.PaddingTop = UDim.new(0, BORDER_PADDING)
+	scrollPadding.PaddingBottom = UDim.new(0, BORDER_PADDING)
+	scrollPadding.PaddingLeft = UDim.new(0, BORDER_PADDING)
+	scrollPadding.Parent = scroller
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.fromOffset(BAG_CELL, BAG_CELL)
+	grid.CellPadding = UDim2.fromOffset(BAG_GAP, BAG_GAP)
+	grid.FillDirectionMaxCells = BAG_COLS
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = scroller
+	ui.bagScroller = scroller
 
 	return gui
 end
@@ -258,15 +535,21 @@ local function itemByUid(uid: string?): any
 	return nil
 end
 
---- Slot width for the current capacity. Shrinks toward SLOT_MIN as the bag grows so
---- a Containment Rig's twenty slots still land on one row.
+--- How many tiles the hotbar row draws: up to ten slots, plus the bag tile.
+local function rowCells(): number
+	return math.min(state.capacity, HOTBAR_SLOTS) + (if hasBag() then 1 else 0)
+end
+
+--- Slot width for the current row. Shrinks toward SLOT_MIN as the row fills so ten
+--- slots and the bag tile still land on one row.
 ---
 --- READS THE ROW'S LIVE AbsoluteSize NOW, not a compile-time target — the row is
 --- Scale-based (see build()), so its actual pixel width depends on the viewport.
 --- AbsoluteSize can read 0 for one frame before the GUI's first layout pass
 --- resolves; the fallback below is just "use the default until it does."
 local function slotWidth(): number
-	if state.capacity <= 0 then
+	local cells = rowCells()
+	if cells <= 0 then
 		return SLOT_MAX
 	end
 	-- Screen pixels in, design pixels out: the row is on a UIKit canvas, so AbsoluteSize
@@ -276,26 +559,131 @@ local function slotWidth(): number
 	if available <= 0 then
 		return SLOT_MAX
 	end
-	local fit = (available - 2 * BORDER_PADDING - SLOT_GAP * (state.capacity - 1)) / state.capacity
+	local fit = (available - 2 * BORDER_PADDING - SLOT_GAP * (cells - 1)) / cells
 	return math.clamp(math.floor(fit), SLOT_MIN, SLOT_MAX)
+end
+
+--- Paints one slot (hotbar or bag cell) for bag index `index`.
+local function paintSlot(slot: any, index: number)
+	slot.key.Text = keyText(index)
+
+	local item = state.items[index]
+	slot.uid = if item then item.uid else nil
+
+	if item == nil then
+		slot.name.Text = ""
+		slot.button.BackgroundColor3 = SLOT_FILL
+		slot.button.BackgroundTransparency = 0.05
+		slot.stroke.Color = SLOT_BORDER
+		slot.stroke.Thickness = 1.5
+		return
+	end
+
+	slot.name.Text = item.name
+	slot.name.TextColor3 = COLOR.text
+	slot.button.BackgroundColor3 = if item.uid == selected then SLOT_SELECTED else SLOT_FILL
+	slot.button.BackgroundTransparency = 0.05
+	slot.stroke.Color = itemColour(item)
+	slot.stroke.Thickness = if item.uid == selected then 3 else 1.5
+end
+
+local function renderBagTile()
+	local tile = ui.bagTile
+	tile.Visible = hasBag()
+	if not tile.Visible then
+		return
+	end
+	tile.Size = UDim2.fromOffset(slotWidth(), slotWidth())
+
+	local overflow = math.max(0, #state.items - HOTBAR_SLOTS)
+	ui.bagTileCount.Text = if overflow > 0 then `+{overflow}` else `{#state.items}/{state.capacity}`
+	ui.bagTileCount.TextColor3 = if overflow > 0 then COLOR.amber else COLOR.dim
+
+	-- Holding something that lives in the bag: the tile wears its colour, so the
+	-- selection is never invisible just because its slot is off the row.
+	local heldIndex = nil
+	for index, item in state.items do
+		if item.uid == selected then
+			heldIndex = index
+			break
+		end
+	end
+	if heldIndex and heldIndex > HOTBAR_SLOTS then
+		tile.BackgroundColor3 = SLOT_SELECTED
+		ui.bagTileStroke.Color = itemColour(state.items[heldIndex])
+		ui.bagTileStroke.Thickness = 3
+	else
+		tile.BackgroundColor3 = if bagOpen then SLOT_SELECTED else SLOT_FILL
+		ui.bagTileStroke.Color = if bagOpen then COLOR.text else SLOT_BORDER
+		ui.bagTileStroke.Thickness = if bagOpen then 2 else 1.5
+	end
+end
+
+local function renderBag()
+	if not bagOpen then
+		return
+	end
+	ui.bagCount.Text = `{#state.items}/{state.capacity}`
+
+	local capacity = state.capacity
+	for index = 1, math.max(#bagCells, capacity) do
+		if bagCells[index] == nil and index <= capacity then
+			local parent = if index <= HOTBAR_SLOTS then ui.bagHotbarRow else ui.bagScroller
+			bagCells[index] = makeSlot(parent, index, function()
+				Inventory.select(index)
+				-- Picking something up is "grab and go": put the bag away. Putting the
+				-- held item back down leaves it open.
+				if selected ~= nil then
+					Inventory.setBagOpen(false)
+				end
+			end)
+			bagCells[index].button.Size = UDim2.fromOffset(BAG_CELL, BAG_CELL)
+		end
+		local cell = bagCells[index]
+		if cell == nil then
+			continue
+		end
+		cell.button.Visible = index <= capacity
+		if index <= capacity then
+			paintSlot(cell, index)
+		else
+			cell.uid = nil
+		end
+	end
+
+	local backpackSlots = math.max(0, capacity - HOTBAR_SLOTS)
+	local rows = math.ceil(backpackSlots / BAG_COLS)
+	local visibleRows = math.min(rows, BAG_VISIBLE_ROWS)
+	local gridHeight = visibleRows * BAG_CELL + math.max(0, visibleRows - 1) * BAG_GAP
+	ui.bagScroller.Size = UDim2.fromOffset(ui.bagScroller.Size.X.Offset, gridHeight + 2 * BORDER_PADDING)
+	-- Only show a scrollbar when there is something to scroll to.
+	ui.bagScroller.ScrollBarThickness = if rows > BAG_VISIBLE_ROWS then 4 else 0
+	ui.bagPanel.Size = UDim2.fromOffset(
+		ui.bagPanel.Size.X.Offset,
+		ui.bagBackpackTop + BAG_CAPTION + gridHeight + BAG_PAD
+	)
 end
 
 local function renderSlots()
 	local width = slotWidth()
+	local shown = math.min(state.capacity, HOTBAR_SLOTS)
 	-- Centred content wider than a ScrollingFrame spills off BOTH ends, and the left
 	-- spill cannot be scrolled to, so the touch row packs from the left once it
 	-- overflows (see build()).
 	if ui.row:IsA("ScrollingFrame") then
 		local available = ui.row.AbsoluteSize.X / UIKit.canvasScale(ui.canvas)
-		local needed = state.capacity * (width + SLOT_GAP) - SLOT_GAP + 2 * BORDER_PADDING
+		local cells = rowCells()
+		local needed = cells * (width + SLOT_GAP) - SLOT_GAP + 2 * BORDER_PADDING
 		ui.layout.HorizontalAlignment = if needed > available + 0.5
 			then Enum.HorizontalAlignment.Left
 			else Enum.HorizontalAlignment.Center
 	end
 
-	for index = 1, math.max(#slots, state.capacity) do
-		if slots[index] == nil and index <= state.capacity then
-			makeSlot(ui.row, index)
+	for index = 1, HOTBAR_SLOTS do
+		if slots[index] == nil and index <= shown then
+			slots[index] = makeSlot(ui.row, index, function()
+				Inventory.select(index)
+			end)
 		end
 
 		local slot = slots[index]
@@ -303,7 +691,7 @@ local function renderSlots()
 			continue
 		end
 
-		if index > state.capacity then
+		if index > shown then
 			slot.button.Visible = false
 			slot.uid = nil
 			continue
@@ -311,29 +699,28 @@ local function renderSlots()
 
 		slot.button.Visible = true
 		slot.button.Size = UDim2.fromOffset(width, width)
-		slot.key.Text = if index <= BINDABLE then tostring(index) else ""
-
-		local item = state.items[index]
-		slot.uid = if item then item.uid else nil
-
-		if item == nil then
-			slot.name.Text = ""
-			slot.button.BackgroundColor3 = SLOT_FILL
-			slot.button.BackgroundTransparency = 0.05
-			slot.stroke.Color = SLOT_BORDER
-			slot.stroke.Thickness = 1.5
-			continue
-		end
-
-		local colour = if item.crateId then Color3.fromHex(Crates.get(item.crateId).color) else rarityColor(item.rarity)
-		slot.name.Text = item.name
-		slot.name.TextColor3 = COLOR.text
-		slot.button.BackgroundColor3 = if item.uid == selected then SLOT_SELECTED else SLOT_FILL
-		slot.button.BackgroundTransparency = 0.05
-		slot.stroke.Color = colour
-		slot.stroke.Thickness = if item.uid == selected then 3 else 1.5
+		paintSlot(slot, index)
 	end
+
+	renderBagTile()
+	renderBag()
 end
+
+-- ── Bag panel ───────────────────────────────────────────────────────
+
+function Inventory.setBagOpen(open: boolean)
+	open = open and hasBag()
+	if open == bagOpen then
+		return
+	end
+	bagOpen = open
+	ui.bagGui.Enabled = open
+	if open then
+		ui.bagScroller.CanvasPosition = Vector2.zero
+	end
+	renderSlots()
+end
+
 -- ── Selection ───────────────────────────────────────────────────────
 
 --- SELECTING IS NOW ALSO HOLDING, and that is the whole reason the tub can refuse
@@ -368,17 +755,20 @@ end
 
 function Inventory.start()
 	local player = Players.LocalPlayer
+	local playerGui = player:WaitForChild("PlayerGui")
 	local gui = build()
-	gui.Parent = player:WaitForChild("PlayerGui")
+	gui.Parent = playerGui
+	ui.bagGui = buildBag()
+	ui.bagGui.Parent = playerGui
 
 	-- ROBLOX'S OWN BACKPACK HAS TO GO, AND NOT JUST BECAUSE IT IS REDUNDANT.
-	-- CoreGui binds the number row to its hotbar slots. ToolService welds models to
-	-- the character instead of using Tool instances, so that backpack is always empty
-	-- and the keys currently fall through to us by luck — but the moment anything
-	-- puts a real Tool in it, CoreGui consumes 1-9 first, `gameProcessedEvent` comes
-	-- back true, and every slot key here silently stops working. Turning it off makes
-	-- that impossible rather than unlikely, and removes an empty widget that competes
-	-- with this one for the same corner of the screen.
+	-- CoreGui binds the number row to its hotbar slots (and ` to its inventory).
+	-- ToolService welds models to the character instead of using Tool instances, so
+	-- that backpack is always empty and the keys currently fall through to us by luck
+	-- — but the moment anything puts a real Tool in it, CoreGui consumes 1-9 first,
+	-- `gameProcessedEvent` comes back true, and every slot key here silently stops
+	-- working. Turning it off makes that impossible rather than unlikely, and removes
+	-- an empty widget that competes with this one for the same corner of the screen.
 	--
 	-- pcall because SetCoreGuiEnabled throws if the CoreGui is not ready yet, and a
 	-- hotbar that fails to build over a cosmetic call would be a bad trade.
@@ -419,6 +809,11 @@ function Inventory.start()
 			-- NEXT keypress -- it is not what unloads the hand.
 		end
 
+		-- A suit swap back under ten slots takes the bag tile away; take its panel too.
+		if bagOpen and not hasBag() then
+			Inventory.setBagOpen(false)
+		end
+
 		renderSlots()
 	end)
 
@@ -430,6 +825,10 @@ function Inventory.start()
 
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed then
+			return
+		end
+		if input.KeyCode == BAG_KEY then
+			Inventory.setBagOpen(not bagOpen)
 			return
 		end
 		local index = KEYS[input.KeyCode]
