@@ -1,12 +1,12 @@
 --[[
 	StationController.lua — the base camp panel.
 
-	Appears at the trader and the shops. Select a row, then act on it. The one verb
-	left on the list itself is SELL — scrubbing and racking both left this file, see
-	below.
+	Appears at the trader and the shops. The trader's body is its own module now
+	(client/TraderPanel, the buyback counter: a tile grid of the bag, a detail card with
+	SELL, and SELL ALL CLEAN / SELL ALL ???); the shop's body is built here. Scrubbing
+	and racking both left this file, see below.
 
-	ONE MODE NOW, AND THE SHRINKING IS THE POINT. shop replaces the list with its own
-	body; trader is the list itself. The plot claim board was a mode until exhibit
+	TWO BODIES ON ONE PANEL, AND THE SHRINKING IS THE POINT. The plot claim board was a mode until exhibit
 	income went auto-deposit — with nothing left to COLLECT, the board and its panel
 	both went.
 
@@ -104,21 +104,19 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
-local Rarity = require(Shared.Config.Rarity)
 local Net = require(Shared.Net)
 local ToolModels = require(Shared.ToolModels)
 
 -- No `Dock` alias any more: this panel is centred on the screen rather than on the
 -- space above the dock, so it no longer reads Dock.RESERVE. See the header.
 local UIKit = require(script.Parent.Parent.UIKit)
+local TraderPanel = require(script.Parent.Parent.TraderPanel)
 
 local Station = {}
 
 -- Same fields UIKit.C already carries (panel/stroke/selected/text/dim/green/amber/
 -- red/blue), aliased so every COLOR.xxx read below keeps working unchanged.
 local COLOR = UIKit.C
-
-local ROWS = 9
 
 -- WHICH STATION KINDS THIS PANEL HAS A BODY FOR, and it is an allowlist rather than
 -- a fallthrough for a reason that bit immediately. The decon/trader branch is LAST in
@@ -155,7 +153,7 @@ local PANEL_KINDS: { [string]: boolean } = {
 --
 -- CARD_SLOTS IS A CEILING OVER ALL SIX TRACKS, NOT A GUESS. The longest is Detector
 -- at 8 tiers (Config/Gear); the rest run 5-7. Cards are built once at that count and
--- hidden, the same reuse the item ROWS above have always used, because a shop panel
+-- hidden, the same reuse the trader's bag tiles use, because a shop panel
 -- that rebuilds its children on every StationState tick would churn 8 frames' worth
 -- of instances ten times a second.
 local CARD_SLOTS = 8
@@ -193,7 +191,6 @@ local DOT_FOCUS_WIDTH = 26
 local WALLET_INSET = 34
 
 local PANEL_PAD = 16
-local PANEL_WIDTH = 620
 -- The focused card, a gap and a peek either side, and the panel's own padding.
 local SHOP_PANEL_WIDTH = CARD_WIDTH + 2 * (CARD_GAP + CARD_PEEK) + 2 * PANEL_PAD
 -- The rack card (see `rackCard`): one card and nothing either side of it, with a few
@@ -270,7 +267,6 @@ local FIT_BOTTOM = UIKit.Dock.HOTBAR_BOTTOM + UIKit.Dock.HOTBAR_HEIGHT + UIKit.D
 
 local ui = {}
 local state = { station = nil, items = {}, locker = {} }
-local selected: string? = nil
 local actionRemote: any = nil
 local toastToken = 0
 
@@ -365,72 +361,7 @@ local function shopHasBrowsePrompt(stationId: any): boolean
 	return false
 end
 
-local function rarityColor(name: string): Color3
-	local def = Rarity.DEFS[name]
-	return if def then def.color else COLOR.text
-end
-
 -- ── Build ───────────────────────────────────────────────────────────
-
---- One item row. USED TO BE ONE TextButton whose whole Text was a single
---- string.format("%-22s %-7s %-7s $%d", ...) call — columns only lined up because
---- Font.Code is monospace, and no rounded display font has fixed character widths.
---- Four child labels instead: name flexes, condition/pips/value are fixed-width. The
---- button itself and its Uid attribute are unchanged — only what is drawn INSIDE it
---- changes. Reached via Roblox's child-by-name lookup (row.ItemNameLabel, ...), so
---- every existing row.Visible / row:SetAttribute call elsewhere needs no changes.
----
---- The scrub-progress `Fill` that used to sit behind these labels is gone with the
---- scrub button: washing happens at the tub now and draws its progress there, on the
---- object being washed, where the player is actually looking.
-local function makeRow(parent: Instance, order: number): TextButton
-	local row = Instance.new("TextButton")
-	row.LayoutOrder = order
-	row.Size = UDim2.new(1, 0, 0, 26)
-	row.BackgroundColor3 = COLOR.panel
-	row.BackgroundTransparency = 1
-	row.AutoButtonColor = false
-	row.Text = ""
-	row.Visible = false
-	row.Parent = parent
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 6)
-	corner.Parent = row
-
-	UIKit.label(row, {
-		name = "ItemNameLabel",
-		position = UDim2.fromOffset(8, 0),
-		size = UDim2.fromOffset(270, 26),
-		font = UIKit.Font.body,
-		textSize = 15,
-	})
-	UIKit.label(row, {
-		name = "ConditionLabel",
-		position = UDim2.fromOffset(286, 0),
-		size = UDim2.fromOffset(90, 26),
-		font = UIKit.Font.body,
-		textSize = 15,
-	})
-	UIKit.label(row, {
-		name = "PipsLabel",
-		position = UDim2.fromOffset(384, 0),
-		size = UDim2.fromOffset(80, 26),
-		font = UIKit.Font.body,
-		textSize = 15,
-		xAlign = Enum.TextXAlignment.Center,
-	})
-	UIKit.label(row, {
-		name = "ValueLabel",
-		position = UDim2.fromOffset(472, 0),
-		size = UDim2.fromOffset(108, 26),
-		font = UIKit.Font.body,
-		textSize = 15,
-		xAlign = Enum.TextXAlignment.Right,
-	})
-
-	return row
-end
 
 --- A CEILING OVER EVERY TRACK'S COLUMN COUNT, deliberately above the current high
 --- water mark rather than equal to it. It was exactly Boots' five (speed, haul,
@@ -882,7 +813,7 @@ local function build(): ScreenGui
 	-- panel to something narrower than one card.
 	local panelSize = Instance.new("UISizeConstraint")
 	panelSize.MinSize = Vector2.new(CARD_WIDTH + 2 * PANEL_PAD, 0)
-	panelSize.MaxSize = Vector2.new(PANEL_WIDTH, math.huge)
+	panelSize.MaxSize = Vector2.new(TraderPanel.WIDTH, math.huge)
 	panelSize.Parent = panel
 	ui.panelSize = panelSize
 
@@ -907,13 +838,10 @@ local function build(): ScreenGui
 	shopLayout.Parent = shop
 
 	-- ── The shop's own header ────────────────────────────────────────
-	-- SHOP MODE DOES NOT USE `ui.title` / `ui.subtitle`. Those two are the trader's,
-	-- centred-then-left-aligned per mode, and this header is a different object: an
-	-- accent bar in the stall's own colour, the track name, and the wallet on the
-	-- right. (The "N units on the rail" stock line under the name was cut on request.) Building it inside `ui.shop` rather than reshaping the
-	-- shared pair means the trader keeps exactly the header it has today and render()
-	-- simply hides one or the other — no mode-specific repainting of a widget two
-	-- modes share.
+	-- The trader builds its own header too (TraderPanel), so neither mode repaints a
+	-- widget the other one owns: an accent bar in the stall's own colour, the track
+	-- name, and the wallet on the right. (The "N units on the rail" stock line under the
+	-- name was cut on request.)
 	--
 	-- THE WALLET LIVES HERE NOW. It used to sit under the card row, which was right
 	-- while the mockup had a left rail to anchor the panel's chrome; with the rail
@@ -1159,57 +1087,9 @@ local function build(): ScreenGui
 	layout.Padding = UDim.new(0, 6)
 	layout.Parent = panel
 
-	ui.title = UIKit.label(panel, {
-		name = "Title",
-		size = UDim2.new(1, 0, 0, 44),
-		font = UIKit.Font.title,
-		textSize = 34,
-		color = COLOR.text,
-	})
-	ui.title.LayoutOrder = 1
-
-	ui.subtitle = UIKit.label(panel, {
-		name = "Subtitle",
-		size = UDim2.new(1, 0, 0, 20),
-		font = UIKit.Font.body,
-		textSize = 16,
-		color = COLOR.dim,
-	})
-	ui.subtitle.LayoutOrder = 2
-
-	ui.rows = {}
-	for index = 1, ROWS do
-		table.insert(ui.rows, makeRow(panel, 10 + index))
-	end
-
-	local actions = Instance.new("Frame")
-	actions.LayoutOrder = 60
-	actions.Size = UDim2.new(1, 0, 0, 48)
-	actions.BackgroundTransparency = 1
-	actions.Parent = panel
-	-- Hiding the three buttons individually is not enough: UIListLayout skips
-	-- INVISIBLE children, so an empty-but-visible container still charges the panel
-	-- its full 48px plus a gap. Shop mode hides every button in here, and it is the
-	-- tallest mode in the panel, so that dead band is the cheapest 54px available.
-	ui.actions = actions
-
-	local actionLayout = Instance.new("UIListLayout")
-	actionLayout.FillDirection = Enum.FillDirection.Horizontal
-	actionLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	actionLayout.Padding = UDim.new(0, 8)
-	actionLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	actionLayout.Parent = actions
-
-	-- The only button left in this row: RACK went with the decon panel.
-	ui.sellButton = UIKit.button(actions, {
-		name = "Sell",
-		size = UDim2.fromScale(1, 1),
-		font = UIKit.Font.body,
-		textSize = 17,
-		color = COLOR.amber,
-		text = "SELL",
-	})
-	ui.sellButton.LayoutOrder = 2
+	-- The trader's whole body. It sizes itself; the panel's MaxSize is set to its width
+	-- in render().
+	ui.trader = TraderPanel.new(panel, 20)
 
 	ui.toast = UIKit.label(panel, {
 		name = "Toast",
@@ -1224,39 +1104,6 @@ local function build(): ScreenGui
 end
 
 -- ── Render ──────────────────────────────────────────────────────────
-
-local function patchPips(item): string
-	if item.clean then
-		return "clean"
-	end
-	local pips = string.rep("\u{25CF}", math.min(#item.patches, 6))
-	return pips
-end
-
-local function paintRow(row: TextButton, item, isSelected: boolean)
-	row.Visible = true
-
-	local colour = rarityColor(item.rarity)
-	-- All four keep the SAME single colour, exactly as the old one-string row did —
-	-- this is a rendering restructure, not a new visual design for the row.
-	local nameLabel = row.ItemNameLabel :: TextLabel
-	local conditionLabel = row.ConditionLabel :: TextLabel
-	local pipsLabel = row.PipsLabel :: TextLabel
-	local valueLabel = row.ValueLabel :: TextLabel
-
-	nameLabel.Text = string.sub(item.name, 1, 26)
-	nameLabel.TextColor3 = colour
-	conditionLabel.Text = string.lower(item.condition)
-	conditionLabel.TextColor3 = colour
-	pipsLabel.Text = patchPips(item)
-	pipsLabel.TextColor3 = colour
-	valueLabel.Text = `${item.value}`
-	valueLabel.TextColor3 = colour
-
-	row.BackgroundTransparency = if isSelected then 0.55 else 1
-	row.BackgroundColor3 = COLOR.selected
-	row:SetAttribute("Uid", item.uid)
-end
 
 --- Three states, and ALL THREE are now a button you can press.
 ---
@@ -1776,17 +1623,11 @@ local function render()
 	ui.panel.Visible = true
 	ui.closeButton.Visible = true
 
-	-- Shop mode replaces the item list entirely: you are not carrying anything
-	-- relevant to this transaction, so showing your backpack is noise.
+	-- One body or the other: the shop's storefront, or the trader's buyback counter.
+	-- Each builds its own header, so there is nothing shared to repaint between them.
 	local atShop = state.station == "shop"
 	ui.shop.Visible = atShop
-	-- SHOP MODE HIDES THE SHARED HEADER ENTIRELY. `ui.title`/`ui.subtitle` are the
-	-- trader's; the shop builds its own (ui.shopHeader) with the accent bar, the stock
-	-- line and the wallet. Hiding rather than repainting is what keeps the trader's
-	-- header exactly as it was — see the shop header's own note.
-	ui.title.Visible = not atShop
-	ui.subtitle.Visible = not atShop
-	ui.actions.Visible = not atShop
+	ui.trader.frame.Visible = not atShop
 
 	-- One rack card, if a rack hook's E opened this and it is for the shop you are at.
 	local offerTiers = if atShop and state.offer then state.offer.tiers else nil
@@ -1798,14 +1639,13 @@ local function render()
 	carousel.single = single
 
 	local shopWidth = if single then RACK_PANEL_WIDTH else SHOP_PANEL_WIDTH
-	ui.panelSize.MaxSize = Vector2.new(if atShop then shopWidth else PANEL_WIDTH, math.huge)
+	ui.panelSize.MaxSize = Vector2.new(if atShop then shopWidth else TraderPanel.WIDTH, math.huge)
 
-	-- THE PANEL FRAME IS SHARED, SO ITS SKIN IS PER MODE. The shop wears the field-kit
-	-- slate; the trader keeps the near-black it always had. Both are set on every
-	-- render rather than once at build, because a player can walk from one straight
-	-- into the other without the panel ever being rebuilt.
-	ui.panel.BackgroundColor3 = if atShop then FIELD.panel else COLOR.panel
-	ui.panel.BackgroundTransparency = if atShop then 0.02 else 0.08
+	-- BOTH MODES WEAR THE FIELD-KIT SLATE now; the trader used to keep the near-black
+	-- list panel it always had, until it was rebuilt as a counter in the shop's skin.
+	-- Still set on every render, because the stroke is repainted per stall below.
+	ui.panel.BackgroundColor3 = FIELD.panel
+	ui.panel.BackgroundTransparency = 0.02
 
 	if atShop then
 		local offer = state.offer
@@ -1869,11 +1709,6 @@ local function render()
 			carousel.singleFor = nil
 		end
 		carousel.openedFor = track
-
-		for _, row in ui.rows do
-			row.Visible = false
-		end
-		ui.sellButton.Visible = false
 		return
 	end
 
@@ -1881,43 +1716,9 @@ local function render()
 
 	-- TRADER ONLY down here now. This used to be the decon/trader fork; the decon half
 	-- moved into the world (the tub's E prompt) and took the Quarantine Locker rows and
-	-- the RACK button with it -- see this file's header.
-	ui.title.Text = "TRADER"
-	ui.title.TextColor3 = COLOR.amber
-	ui.panelStroke.Color = COLOR.amber
-	ui.subtitle.Text = string.format("$%d    dirty items sell at 20%%", state.cash or 0)
-
-	-- keep the selection valid
-	local stillThere = false
-	for _, item in state.items do
-		if item.uid == selected then
-			stillThere = true
-			break
-		end
-	end
-	if not stillThere then
-		selected = if #state.items > 0 then state.items[1].uid else nil
-	end
-
-	for index, row in ui.rows do
-		local item = state.items[index]
-		if item then
-			paintRow(row, item, item.uid == selected)
-		else
-			row.Visible = false
-		end
-	end
-
-	local chosen = nil
-	for _, item in state.items do
-		if item.uid == selected then
-			chosen = item
-			break
-		end
-	end
-
-	ui.sellButton.Visible = true
-	ui.sellButton.Text = if chosen then `SELL  ${chosen.value}` else "SELL"
+	-- the RACK button with it -- see this file's header. The body is TraderPanel's.
+	ui.panelStroke.Color = FIELD.edge
+	ui.trader.paint(state)
 end
 
 --- Read by InventoryController: the hotbar detail card hides itself while this
@@ -1949,19 +1750,13 @@ function Station.start()
 
 	actionRemote = Net.get("StationAction")
 
-	local function bindRow(row: TextButton)
-		row.MouseButton1Click:Connect(function()
-			selected = row:GetAttribute("Uid")
-			render()
-		end)
-	end
-	for _, row in ui.rows do
-		bindRow(row)
-	end
-	ui.sellButton.MouseButton1Click:Connect(function()
-		if selected then
-			actionRemote:FireServer({ action = "sell", uid = selected })
-		end
+	-- The trader's two verbs. The server re-derives the price, the ownership and the
+	-- station itself (DeconService / EconomyService), so these only ever ask.
+	ui.trader.onSell(function(uid)
+		actionRemote:FireServer({ action = "sell", uid = uid })
+	end)
+	ui.trader.onSellAll(function(which)
+		actionRemote:FireServer({ action = "sellAll", which = which })
 	end)
 
 	-- ── Moving along the carousel ────────────────────────────────────

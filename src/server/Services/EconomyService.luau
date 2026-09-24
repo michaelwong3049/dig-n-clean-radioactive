@@ -98,26 +98,54 @@ function EconomyService.valueOf(item: any, stats: any): (number, boolean)
 	return math.max(1, math.floor(value + 0.5)), clean
 end
 
---- Sell one item. Server-side ownership check on every call — the client asks by
---- uid and is never trusted about what it holds.
-function EconomyService.sell(player: Player, uid: string): (boolean, string)
-	local data = DataService.data(player)
-	if data == nil then
-		return false, "your save hasn't loaded"
-	end
+--- How far apart a bulk sale's "???" reveals land, in seconds. See sellAll.
+local REVEAL_STAGGER = 1.2
 
-	local item, list, index = EconomyService.find(data, uid)
-	if item == nil or list == nil or index == nil then
-		return false, "you aren't carrying that"
+--- Name a find sold blind, now or `delay` seconds from now. The index write is never
+--- the part that waits -- only the banner does -- so a player who leaves mid-queue has
+--- still learnt everything they sold.
+local function revealSold(player: Player, item: any, delay: number)
+	if item.crateId and Crates.has(item.crateId) then
+		if delay <= 0 then
+			IdentifyService.announceCrate(player, item.crateId, item.rarity)
+		else
+			task.delay(delay, function()
+				if player.Parent then
+					IdentifyService.announceCrate(player, item.crateId, item.rarity)
+				end
+			end)
+		end
+		return
 	end
+	local first, previous = IdentifyService.identify(player, item)
+	if delay <= 0 then
+		IdentifyService.announce(player, item, first, { previousBest = previous })
+	else
+		task.delay(delay, function()
+			if player.Parent then
+				IdentifyService.announce(player, item, first, { previousBest = previous })
+			end
+		end)
+	end
+end
 
-	local stats = StatResolver.get(data)
+--- The till itself, shared by SELL and both SELL ALLs: take the item out of `list`,
+--- pay for it, and name it if it went blind. Does NOT push the wallet -- a bulk sale
+--- pushes once at the end rather than once per item. Returns (value, clean, name).
+local function takeSale(
+	player: Player,
+	data: any,
+	item: any,
+	list: any,
+	index: number,
+	stats: any,
+	revealDelay: number
+): (number, boolean, string)
 	local value, clean = EconomyService.valueOf(item, stats)
 	local def = Items.get(item.itemId)
 
 	table.remove(list, index)
 	data.cash += value
-	EconomyService.pushCash(player)
 
 	-- SELLING A "???" IS HOW YOU FIND OUT WHAT IT WAS. An item still in its crust has no
 	-- name on any surface (Services/IdentifyService) -- but the trader has to say what he
@@ -131,14 +159,77 @@ function EconomyService.sell(player: Player, uid: string): (boolean, string)
 	local name = def.name
 	if item.crateId and Crates.has(item.crateId) then
 		name = Crates.get(item.crateId).name
-		IdentifyService.announceCrate(player, item.crateId, item.rarity)
+		revealSold(player, item, revealDelay)
 	elseif not clean then
-		IdentifyService.reveal(player, item)
+		revealSold(player, item, revealDelay)
 	end
+	return value, clean, name
+end
+
+--- Sell one item. Server-side ownership check on every call — the client asks by
+--- uid and is never trusted about what it holds.
+function EconomyService.sell(player: Player, uid: string): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+
+	local item, list, index = EconomyService.find(data, uid)
+	if item == nil or list == nil or index == nil then
+		return false, "you aren't carrying that"
+	end
+
+	local value, clean, name = takeSale(player, data, item, list, index, StatResolver.get(data), 0)
+	EconomyService.pushCash(player)
 
 	local note = if clean then "" else ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
 	return true, `sold {name} for ${value}{note}`
 end
+
+--- The trader's SELL ALL CLEAN / SELL ALL ???. `which` is "clean" or "dirty", and
+--- only the BAG is swept -- the Quarantine Locker is a shelf you chose to keep things
+--- on, and a bulk button reaching into it would sell what the player filed away.
+---
+--- Every item goes through the same takeSale as a single SELL, so the price, the 20%
+--- and the "???" reveal cannot drift between the two. The reveals are STAGGERED:
+--- DetectorController's find banner shows one find at a time and the newest replaces
+--- it, so five blind sales announced in one frame would show the player one name and
+--- swallow four. The index learns all of them now; only the banners wait their turn.
+function EconomyService.sellAll(player: Player, which: string): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+	if which ~= "clean" and which ~= "dirty" then
+		return false, "sell what?"
+	end
+
+	local stats = StatResolver.get(data)
+	local total, count, reveals = 0, 0, 0
+	-- Backwards, so removing an entry never skips the one after it.
+	for index = #data.carry, 1, -1 do
+		local item = data.carry[index]
+		local _, clean = EconomyService.valueOf(item, stats)
+		if clean ~= (which == "clean") then
+			continue
+		end
+		local value, _, _ = takeSale(player, data, item, data.carry, index, stats, reveals * REVEAL_STAGGER)
+		if not clean then
+			reveals += 1
+		end
+		total += value
+		count += 1
+	end
+
+	if count == 0 then
+		return false, if which == "clean" then "nothing clean to sell" else "nothing crusted to sell"
+	end
+	EconomyService.pushCash(player)
+	local noun = if count == 1 then "item" else "items"
+	local note = if which == "clean" then "" else ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
+	return true, `sold {count} {noun} for ${total}{note}`
+end
+
 
 --- Take cash off a player, or refuse. THE ONLY DEBIT IN THE GAME.
 ---

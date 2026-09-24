@@ -220,6 +220,18 @@ function DeconService.start()
 				-- the physical cabinet in step. Cheap and idempotent for a bag sale.
 				ExhibitService.refreshLocker(player)
 			end
+		elseif request.action == "sellAll" then
+			-- The trader panel's SELL ALL CLEAN / SELL ALL ???. Bag only, so no locker
+			-- refresh -- see EconomyService.sellAll.
+			if kind ~= "trader" then
+				resultRemote:FireClient(player, "the trader is the other one")
+				return
+			end
+			local ok, message = EconomyService.sellAll(player, tostring(request.which))
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[econ] {player.Name}: {message}`)
+			end
 		elseif request.action == "buy" then
 			-- ShopService re-derives the station from the player's position itself,
 			-- so this is not the security boundary -- it is just a better message.

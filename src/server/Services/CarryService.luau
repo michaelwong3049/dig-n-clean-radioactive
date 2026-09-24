@@ -162,6 +162,10 @@ function CarryService.describe(item: any, stats: any): any
 	-- not a gamble -- "$41 now, or clean it and find out" is the decision.
 	return {
 		uid = item.uid,
+		-- Only once it is identified, for the same reason `name` is "???" until then:
+		-- the trader panel draws the real model off this, and a crusted find's id would
+		-- be its name by another route.
+		itemId = if clean then item.itemId else nil,
 		identified = clean,
 		name = if clean then def.name else UNKNOWN_NAME,
 		flavor = if clean then def.flavor else nil,
