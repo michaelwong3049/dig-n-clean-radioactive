@@ -8,9 +8,10 @@
 	lived with it for a while: you held a button on a panel and an item you could not
 	see got cleaner. This is the version that was actually asked for.
 
-	THE MATHS DID NOT CHANGE. Not one number. `Contamination.secondsFor`, the
-	effective-potency gate and one charge per cleared patch are lifted from
-	DeconService's old scrub tick untouched. What changed is who drives the clock and
+	THE MATHS DID NOT CHANGE when this replaced the scrub panel. `Contamination.secondsFor`,
+	the effective-potency gate and one charge per cleared patch were lifted from
+	DeconService's old scrub tick untouched. (The gate has since softened: past-potency
+	crust grinds on a steep clock rather than refusing -- Tuning.WASH_POTENCY_FALLOFF.) What changed is who drives the clock and
 	what the player is looking at while it runs. That is deliberate: a feel change that
 	also moves the balance is two changes wearing one commit, and there would be no way
 	to tell which one broke the economy.
@@ -46,8 +47,10 @@
 	lies about aim picks a different patch to work on, which it could already do by
 	clicking a different row in the panel this replaced; a client that could report
 	progress would clean an Anomaly instantly. The zone id the client sends is read off
-	a `WashZone` attribute this service stamped on the real geometry, and it is still
-	re-checked against the potency gate here before a single tick counts.
+	a `WashZone` attribute this service stamped on the real geometry. Potency is no
+	longer a gate on that zone but a price: a patch harder than the stream still takes
+	water, on a clock `Contamination.secondsFor` stretches steeply per point of
+	overmatch, and that clock never leaves the server.
 
 	PRECONDITION: YOU MUST BE HOLDING IT. `data.heldUid` (CarryService) has to name a
 	carried item with contamination on it, or the prompt refuses with a toast. That is
@@ -223,12 +226,13 @@ type Session = {
 	-- Last erosion level actually written to each zone's chunk, so `push` can skip the
 	-- per-part property writes on the zones that have not moved this tick -- which,
 	-- once every zone erodes independently, is nearly all of them. `walled` is the same
-	-- guard for the other thing a chunk renders: whether this liquid can shift it.
+	-- guard for the other thing a chunk renders: whether it is past this liquid's
+	-- potency (tough, and grinding) or not.
 	painted: { [number]: number },
 	walled: { [number]: boolean },
 	-- The zone the water is on RIGHT NOW and which therefore took this tick's dt: the
-	-- resolved, potency-checked form of `aimZone`, recomputed every tick. Nil when the
-	-- player is spraying at nothing, at a blocked patch, or not spraying at all.
+	-- resolved form of `aimZone`, recomputed every tick. Nil when the player is
+	-- spraying at nothing or not spraying at all.
 	lockedZone: number?,
 	-- The last patch is off and the item is standing revealed on the stand. The tick
 	-- does nothing at all while this is set: the session is over in every way except
@@ -534,8 +538,12 @@ end
 --- out because `stepPlayer` needs it for the zone taking water and `push` needs it for
 --- every other zone's banked fraction, and the two disagreeing by so much as a
 --- rounding is a fade that stops at 0.98 of clean.
+---
+--- THE POTENCY GATE IS IN HERE NOW, as time. A patch past `effectivePotency` used to
+--- bank nothing at all, so an Epic under a tier 2-3 hose sat in the tub and never
+--- moved; it now takes Tuning.WASH_POTENCY_FALLOFF's steep multiple instead.
 local function soakTarget(hardness: number, stats: any): number
-	return Contamination.secondsFor(hardness, stats.scrubRate * stats.liquidRate)
+	return Contamination.secondsFor(hardness, stats.scrubRate * stats.liquidRate, stats.effectivePotency)
 end
 
 --- Which patch the water is ACTUALLY ON, as an index into `item.patches`, or nil.
@@ -548,20 +556,16 @@ end
 --- banks nothing for it.
 ---
 --- THE TRUST BOUNDARY IS UNCHANGED, and is why this lives on the server. The client
---- names WHICH zone, which it could always do; it may not name a patch its potency
---- cannot shift, so `<= effectivePotency` is checked here rather than taken on faith.
---- A blocked patch under the stream is the crusted one visibly repelling the water,
---- and it banks nothing either.
-local function workedIndex(session: Session, item: any, stats: any): number?
+--- names WHICH zone, which it could always do. It used to be refused a patch past its
+--- potency here; it no longer is, because that patch now costs its steep overmatch
+--- price on the server's own clock (`soakTarget`), and naming the slow chunk buys the
+--- client nothing but a slow chunk.
+local function workedIndex(session: Session, item: any): number?
 	if session.aimZone == nil then
 		return nil
 	end
 	local index = table.find(session.zoneIds, session.aimZone)
-	if index == nil then
-		return nil
-	end
-	local hardness = (item.patches or {})[index]
-	if hardness == nil or hardness > stats.effectivePotency then
+	if index == nil or (item.patches or {})[index] == nil then
 		return nil
 	end
 	return index
@@ -603,11 +607,14 @@ local function push(player: Player, session: Session?, data: any)
 		local target = soakTarget(hardness, stats)
 		local soak = if target > 0 then math.clamp((session.soaked[zoneId] or 0) / target, 0, 1) else 0
 		soakedSum += soak
-		local blocked = hardness > stats.effectivePotency
+		-- `blocked` WAS A BOOLEAN WALL AND IS NOW A NUMBER: how many points of hardness
+		-- this chunk has over the stream. It still takes water; it just erodes on a clock
+		-- stretched per point (soakTarget), and the rock is drawn tougher to say so.
+		local overmatch = Contamination.overmatch(hardness, stats.effectivePotency)
 		table.insert(patches, {
 			zone = zoneId,
 			hardness = hardness,
-			blocked = blocked,
+			overmatch = overmatch,
 			anchor = session.zoneAnchor[zoneId],
 			soak = soak,
 		})
@@ -617,15 +624,16 @@ local function push(player: Player, session: Session?, data: any)
 		-- ItemCrust.erode writes four properties per part: at ten hertz across three
 		-- pieces a chunk that is a lot of writes to set values that already hold.
 		--
-		-- BLOCKED IS IN THE GUARD ALONGSIDE THE LEVEL, because it moves on its own: a
+		-- OVERMATCH IS IN THE GUARD ALONGSIDE THE LEVEL, because it moves on its own: a
 		-- canister running dry mid-session (LiquidService.spendCharge, below) drops the
-		-- player's potency and turns chunks they were shifting into chunks they are not,
+		-- player's potency and turns chunks they were shifting easily into tough ones,
 		-- with nothing about their soak having changed.
+		local tough = overmatch > 0
 		local level = 1 - soak
-		if math.abs((session.painted[zoneId] or -1) - level) > 0.01 or session.walled[zoneId] ~= blocked then
+		if math.abs((session.painted[zoneId] or -1) - level) > 0.01 or session.walled[zoneId] ~= tough then
 			session.painted[zoneId] = level
-			session.walled[zoneId] = blocked
-			ItemCrust.erode(session.zones[zoneId] or {}, level, blocked)
+			session.walled[zoneId] = tough
+			ItemCrust.erode(session.zones[zoneId] or {}, level, tough)
 		end
 	end
 
@@ -654,8 +662,8 @@ local function push(player: Player, session: Session?, data: any)
 		-- NEITHER `targetZone` NOR A WORKED-ZONE ECHO IS SENT ANY MORE. Both were the
 		-- client's own aim coming back to it a tick late, and the client had it exactly
 		-- right sixty times a second: `patchAt` resolves the zone from the impact ray, and
-		-- `blocked` on each patch below is everything else needed to decide whether that
-		-- zone is one the water can actually shift. A ten-hertz echo driving a reticle
+		-- every zone takes water now (tough ones just take it slowly), so the client needs
+		-- nothing else to decide the reticle. A ten-hertz echo driving a reticle
 		-- that renders at sixty is a reticle that lags the crosshair it is drawn on.
 		liquidId = stats.liquidId,
 		liquidName = liquid.name,
@@ -825,35 +833,11 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 	end
 
 	local stats = StatResolver.get(data)
+	-- NO REFUSAL HERE ANY MORE. An item whose every patch was past the stream's potency
+	-- used to bounce off the tub with "too tough"; it now goes on the stand and grinds
+	-- (soakTarget). What the refusal said is still worth hearing, so it rides on the
+	-- opening toast instead (bottom of this function).
 	local blocked = Contamination.blockedBy(patches, stats.effectivePotency)
-	local reachable = false
-	for _, hardness in patches do
-		if hardness <= stats.effectivePotency then
-			reachable = true
-			break
-		end
-	end
-
-	if not reachable and blocked then
-		-- TWO CLEARLY-TYPED CLAUSES, and the old one-liner is why. It read "needs Acid
-		-- Sponge, or Glacier Melt in the hose" -- a cleaning TOOL and a LIQUID named in
-		-- one breath with nothing to say they were different kinds of thing, which is
-		-- exactly the confusion that got reported. The liquid goes first because it is
-		-- the thing a player standing next to a wash pad can act on in the next thirty
-		-- seconds; the hose is named as the permanent fix.
-		--
-		-- THE TWO ARE HARDER TO TELL APART NOW THAT THE TOOL IS A HOSE TOO, which is
-		-- why neither clause calls the liquid "the hose" any more: what is loaded is
-		-- named on its own ("roll Glacier Melt at the pad") and the purchase is named
-		-- by its rung, with no "tool" tacked on the end that would now read as a
-		-- different object from the one already in your hands.
-		local shortfall = blocked - stats.cleanPotency
-		local rescue = Liquids.cheapestWithPotency(shortfall)
-		if rescue then
-			return false, `too tough \u{2014} roll {rescue.name} at the pad, or buy the {CarryService.hoseNameFor(blocked)}`
-		end
-		return false, `too tough \u{2014} needs the {CarryService.hoseNameFor(blocked)}; no liquid reaches this`
-	end
 
 	local stand = basin.Parent and basin.Parent:FindFirstChild("WashStand")
 	if stand == nil or not stand:IsA("BasePart") then
@@ -904,13 +888,9 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		initialPatchCount = #patches,
 	}
 
-	-- `reachable` was already confirmed above, so this is not spent building geometry
-	-- for a session that is about to refuse anyway.
-	--
 	-- THERE IS NO OPENING `aim` ANY MORE, and its refusal ("nothing you can shift
-	-- here") went with it. That call was the belt to `reachable`'s braces — the same
-	-- potency question asked twice, once through a function whose real job was to start
-	-- a clock. Nothing is timed until the player points the hose at something, so there
+	-- here") went with it, as did the `reachable` pre-check it doubled: nothing is out
+	-- of reach now, only slow. Nothing is timed until the player points the hose at something, so there
 	-- is nothing left to prime here.
 	local model, zones, anchors, lumpRadius, lumpSlide, lumpHeight = placeOnStand(stand, item)
 	session.model, session.zones, session.zoneAnchor = model, zones, anchors
@@ -961,6 +941,19 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 
 	-- NAMES THE LIQUID, NOT THE ITEM. Whatever is under the crust is exactly what this
 	-- session exists to find out, and the toast that opens it must not answer it.
+	--
+	-- OVER-POTENCY CRUST GETS A HEADS-UP instead of the old refusal: same two typed
+	-- clauses (the liquid first, because it is the thirty-second fix; the hose by its
+	-- rung), reworded from "can't" to "slow". Naming the hose rung says nothing about
+	-- what is inside beyond "rarer than your kit", which the crust already shows.
+	if blocked then
+		local rescue = Liquids.cheapestWithPotency(blocked - stats.cleanPotency)
+		local hose = CarryService.hoseNameFor(blocked)
+		if rescue then
+			return true, `tough crust \u{2014} slow going. {rescue.name} or the {hose} strips it fast`
+		end
+		return true, `tough crust \u{2014} slow going. The {hose} strips it fast`
+	end
 	return true, `washing with {Liquids.get(stats.liquidId).name}`
 end
 
@@ -1015,7 +1008,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- Now: no water on a dirty area, no time spent.
 	session.lockedZone = nil
 	if session.spraying then
-		local index = workedIndex(session, item, stats)
+		local index = workedIndex(session, item)
 		if index then
 			local zoneId = session.zoneIds[index]
 			local hardness = item.patches[index]
@@ -1035,7 +1028,7 @@ local function stepPlayer(player: Player, dt: number)
 				-- while there was one shared clock and plainly wrong once there are six
 				-- independent ones: you would finish eight seconds of work on a crusted
 				-- corner and watch an easy patch on the far side pop instead.
-				local cleared, removedIndex = Contamination.clearAt(item.patches, index, stats.effectivePotency)
+				local cleared, removedIndex = Contamination.clearAt(item.patches, index)
 				if cleared and removedIndex then
 					-- Partial progress pays. PLAN §2: a failed clean is never wasted.
 					data.xp += math.floor(cleared * XP_PER_HARDNESS * stats.liquidXp + 0.5)
@@ -1081,14 +1074,9 @@ local function stepPlayer(player: Player, dt: number)
 					revealAndFinish(player, session, data, item)
 					return
 				end
-				-- THE WALL, asked as its own question now rather than inferred from `aim`
-				-- failing to find a target. It has to stay decoupled from where the player
-				-- happens to be pointing: aiming at nothing is an ordinary thing to be doing
-				-- for a second, and it must not read as "this liquid is finished".
-				if not Contamination.anyReachable(item.patches, stats.effectivePotency) then
-					finish(player, "that's as far as this liquid goes")
-					return
-				end
+				-- NO WALL CHECK HERE ANY MORE. It ended the session on "that's as far as
+				-- this liquid goes" once only over-potency patches were left; those patches
+				-- now grind (soakTarget) instead of refusing, so there is always a way on.
 			end
 		end
 	end

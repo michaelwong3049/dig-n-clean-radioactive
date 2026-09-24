@@ -329,10 +329,12 @@ function ItemCrust.lump(rarityName: string?, seed: (string | number)?): Model
 end
 
 --- Erode one chunk. `level` is 1 for untouched slag and 0 for a chunk about to come
---- off; `blocked` means this liquid cannot shift it at all, so it stays dry, dark and
---- full size no matter how long the stream sits on it — the potency wall, shown rather
---- than written on a label.
-function ItemCrust.erode(parts: { BasePart }, level: number, blocked: boolean)
+--- off; `tough` means it is harder than this liquid is rated for. It used to mean
+--- "cannot shift it at all" and froze the chunk dry and full size -- the potency wall.
+--- There is no wall now (Contamination.secondsFor grinds instead), so a tough chunk
+--- erodes like any other, only slowly, and is drawn darker slate the whole way down so
+--- the player can see which rock is the slow one.
+function ItemCrust.erode(parts: { BasePart }, level: number, tough: boolean)
 	local amount = math.clamp(level, 0, 1)
 	for _, part in parts do
 		local storedSize = part:GetAttribute(SIZE_ATTR)
@@ -349,15 +351,13 @@ function ItemCrust.erode(parts: { BasePart }, level: number, blocked: boolean)
 		local baseSize = storedSize :: Vector3
 		local baseColor = storedColor :: Color3
 
-		if blocked then
-			part.Size = baseSize
-			part.Transparency = 0
-			part.Color = baseColor:Lerp(Color3.new(0, 0, 0), 0.35)
+		local soaked = 1 - amount
+		part.Size = baseSize * (SHRINK_FLOOR + (1 - SHRINK_FLOOR) * amount)
+		part.Transparency = soaked * WET_FADE
+		if tough then
+			part.Color = baseColor:Lerp(Color3.new(0, 0, 0), 0.35 + soaked * WET_DARKEN * 0.65)
 			part.Material = Enum.Material.Slate
 		else
-			local soaked = 1 - amount
-			part.Size = baseSize * (SHRINK_FLOOR + (1 - SHRINK_FLOOR) * amount)
-			part.Transparency = soaked * WET_FADE
 			part.Color = baseColor:Lerp(Color3.new(0, 0, 0), soaked * WET_DARKEN)
 			part.Material = Enum.Material.Rock
 		end

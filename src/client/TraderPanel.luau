@@ -700,7 +700,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 			local percent = math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100 + 0.5)
 			local times = math.floor(1 / Tuning.DIRTY_SELL_MULTIPLIER + 0.5)
 			warning.Text = if item.blockedBy ~= nil and item.needs
-				then `Your hose can't crack this crust yet: it needs {item.needs}. Sell it blind for {percent}% and find out what it was.`
+				then `This crust is tougher than your hose: it will wash, slowly, or fast with {item.needs}. Sell it blind for {percent}% and find out what it was.`
 				else `Still crusted. Sell it blind for {percent}% and find out what it was, or wash it at the tub for {times}x this.`
 		end
 

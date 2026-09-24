@@ -1726,26 +1726,58 @@ function Spec.run(): boolean
 	-- anything if `clearAt` removes THAT patch. Its predecessor `clearOne` picked the
 	-- easiest itself -- invisible while there was one shared clock, and a live bug the
 	-- moment there are six: eight seconds of work on a crusted corner would pop an easy
-	-- patch on the far side of the object instead. The potency gate lives in here too,
-	-- because the index arrives from the client and a client naming a patch it cannot
-	-- reach is the one thing on that path worth calling an exploit.
+	-- patch on the far side of the object instead. The potency gate USED to live in here
+	-- too; it is the soak clock now (below), which only the server runs.
 	do
 		local patches = { 1, 4, 2 }
-		local hardness, index = Contamination.clearAt(patches, 2, 5)
+		local hardness, index = Contamination.clearAt(patches, 2)
 		check("§2 clearAt removes the patch it was told to", hardness == 4 and index == 2 and #patches == 2 and patches[2] == 2)
 
-		local walled = Contamination.clearAt(patches, 1, 0)
-		check("§2 clearAt refuses a patch past this potency", walled == nil and #patches == 2)
-
-		local missing = Contamination.clearAt(patches, 9, 99)
+		local missing = Contamination.clearAt(patches, 9)
 		check("§2 clearAt refuses an index that names nothing", missing == nil and #patches == 2)
+	end
 
-		-- The wall, asked on its own now that no clear attempt reports it as a side
-		-- effect. It has to stay a question about the PATCHES: a player aiming at empty
-		-- air is an ordinary thing to be doing for a second and must never end the session.
-		check("§2 anyReachable sees a patch inside this potency", Contamination.anyReachable({ 3, 6 }, 3))
-		check("§2 anyReachable is the wall when every patch is past it", not Contamination.anyReachable({ 4, 6 }, 3))
-		check("§2 anyReachable on a clean item is false", not Contamination.anyReachable({}, 99))
+	-- OVER-POTENCY CRUST IS A GRIND, NOT A WALL (Tuning.WASH_POTENCY_FALLOFF). The
+	-- reported bug: an Epic or Legendary under a tier 2-3 hose would not move at all.
+	-- Pinned the same way the magnet's over-tier grind is (§Step2): +1 a slog, +2 a
+	-- real ask, +3 minutes on one chunk, and the far end possible but absurd -- every
+	-- step finite, every step steeper than the last.
+	do
+		local function hoseSeconds(hardness: number, tier: number): number
+			local hose = Gear.tier("Cleaner", tier)
+			return Contamination.secondsFor(hardness, hose.volume, hose.power)
+		end
+		local rated = Contamination.secondsFor(4, 1, 4)
+		check("§2 a patch inside potency pays no overmatch", rated == (0.9 + 4 * 0.5))
+		check("§2 overmatch counts only the hardness past the stream", Contamination.overmatch(5, 2) == 3 and Contamination.overmatch(2, 5) == 0)
+
+		local steps = {}
+		for deficit = 0, 6 do
+			steps[deficit] = Contamination.secondsFor(1 + deficit, 1, 1) / Contamination.secondsFor(1 + deficit, 1, 1 + deficit)
+		end
+		local steepening = true
+		for deficit = 1, 6 do
+			if not (steps[deficit] > steps[deficit - 1] * 2.5) then
+				steepening = false
+			end
+		end
+		check("§2 each point of overmatch multiplies the clock by well over double", steepening)
+
+		local epic = hoseSeconds(Rarity.get("Epic").hardness, 2)
+		local legendary = hoseSeconds(Rarity.get("Legendary").hardness, 2)
+		local anomaly = hoseSeconds(Rarity.get("Anomaly").hardness, 1)
+		check(
+			string.format("§2 an Epic's gate chunk on a tier-2 hose is a grind, not a wall (%.0fs, want 15-60)", epic),
+			epic >= 15 and epic <= 60
+		)
+		check(
+			string.format("§2 a Legendary's gate chunk on a tier-2 hose is extremely hard (%.0fs, want 60-240)", legendary),
+			legendary >= 60 and legendary <= 240
+		)
+		check(
+			string.format("§2 an Anomaly under a Garden Hose is finite but absurd (%.0f min, want > 30)", anomaly / 60),
+			anomaly < math.huge and anomaly > 30 * 60
+		)
 	end
 
 	-- THE CRUST HAS TO ACTUALLY HIDE IT. This is the whole feature in one check: an item
@@ -1802,13 +1834,16 @@ function Spec.run(): boolean
 				end
 			end
 
-			-- ...and a chunk this liquid cannot shift does not move at all, however long
-			-- the water sits on it. The potency wall, shown rather than written down.
-			ItemCrust.erode(zones[2], 0, true)
-			local unmoved = true
+			-- ...and a chunk past this potency STILL ERODES. It used to freeze dry and full
+			-- size -- the potency wall -- and that is exactly the bug that got reported: an
+			-- Epic under a tier 2-3 hose would not move. It shrinks now like any other chunk
+			-- at the same level, and is only drawn as tougher rock.
+			ItemCrust.erode(zones[2], 0.5, true)
+			local toughErodes = true
 			for _, part in zones[2] do
-				if part.Size ~= (part:GetAttribute("CrustSize") :: Vector3) then
-					unmoved = false
+				local full = part:GetAttribute("CrustSize") :: Vector3
+				if part.Size.Magnitude >= full.Magnitude or part.Material ~= Enum.Material.Slate then
+					toughErodes = false
 				end
 			end
 
@@ -1823,7 +1858,7 @@ function Spec.run(): boolean
 			check("§2 the crust builds one chunk per patch", chunked)
 			check("§2 the crust encloses the item it is hiding", swallowed)
 			check("§2 eroding at one level does not compound", stable)
-			check("§2 a chunk past this potency does not erode at all", unmoved)
+			check("§2 a chunk past this potency still erodes, drawn as tougher slate", toughErodes)
 			check("§2 a cleared patch takes its chunk off the item", stripped)
 			sample:Destroy()
 		end
