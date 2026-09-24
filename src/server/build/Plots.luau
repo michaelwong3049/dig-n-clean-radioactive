@@ -164,7 +164,8 @@
 	                your own opens the fluid panel (LiquidController): roll for a
 	                fluid, upgrade Luck. `Liquid` parts inside FluidBottle wear the
 	                owner's loaded fluid (Plots.setFluidBottle, written by
-	                ExhibitService.renderBottle, never by name elsewhere).
+	                ExhibitService.renderBottle, never by name elsewhere), and so
+	                does the tub's `Water` / `WaterSheen` (Plots.setTubFluid).
 	    Belt        StationKind = "treadmill", Radius = 5 — the treadmill's running
 	                surface (see buildTreadmill). Standing on it IS training; no
 	                prompt, no session. Services/TreadmillService owns the clock.
@@ -2184,6 +2185,28 @@ function Plots.setFluidBottle(bottleModel: Instance?, liquidId: string?)
 		end
 	end
 	bottleModel:SetAttribute("Liquid", liquidId or Liquids.WATER)
+end
+
+--- Fill one plot's tub with a fluid: the `Water` body takes the fluid's colour and the
+--- `WaterSheen` over it a paler wash of the same, so the tub you wash in holds what the
+--- bottle beside it does. `liquidId` nil (an unclaimed plot) is Plain Water. Written by
+--- ExhibitService.renderBottle alongside setFluidBottle, so the two never disagree.
+--- The sheen is NOT left at C.glass: its blue tint over an orange fill read as a
+--- second, different liquid floating on top.
+function Plots.setTubFluid(stationModel: Instance?, liquidId: string?)
+	if stationModel == nil then
+		return
+	end
+	local colour = Color3.fromHex(Liquids.get(liquidId or Liquids.WATER).color)
+	local water = stationModel:FindFirstChild("Water", true)
+	if water and water:IsA("BasePart") then
+		water.Color = colour
+	end
+	local sheen = stationModel:FindFirstChild("WaterSheen", true)
+	if sheen and sheen:IsA("BasePart") then
+		sheen.Color = colour:Lerp(Color3.new(1, 1, 1), 0.5)
+	end
+	stationModel:SetAttribute("Liquid", liquidId or Liquids.WATER)
 end
 
 --- THE QUARANTINE LOCKER (PLAN §10.2) — a steel cabinet beside the cleansing
