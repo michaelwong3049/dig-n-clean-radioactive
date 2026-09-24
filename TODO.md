@@ -572,7 +572,9 @@ We shipped the fallback. This section is the two-slice plan to ship the real thi
       model per rung, names agreeing between `Gear` and `ToolTiers`, price and potency
       both ascending (`CarryService.hoseNameFor` walks that order and would otherwise
       name the wrong hose *confidently*), and `STATION_TIER` landing on a real rung.
-- [ ] **The Quarantine Locker needs a world object.** Removing the decon panel (on
+- [x] **The Quarantine Locker needs a world object.** DONE: an 8-tube specimen rack
+      beside the tub (`StationKind = "locker"`, own E prompt) opens `client/LockerPanel`,
+      with STORE / TAKE OUT (`DeconService` `store` / `take`). Was: Removing the decon panel (on
       request — walking up to the tub should show only the E prompt) took RACK and the
       locker rows with it. The locker still exists in the profile and `DeconService`
       still implements `rack`, but nothing in the world triggers either any more, so

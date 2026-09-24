@@ -97,6 +97,13 @@ Tuning.CARRY_EMISSION = { 0.006, 0.012, 0.03, 0.07, 0.16, 0.36, 0.8, 1.8 }
 -- player's bag while they were offline is the fastest way to lose them.
 Tuning.FREEZE_ON_LOGOUT = true
 
+-- The Quarantine Locker's tubes: how many finds you can park at home instead of
+-- carrying. build/Plots builds this many (two tiers of four), DeconService refuses a
+-- store past it and client/LockerPanel draws one tube per slot. A profile racked
+-- past it before the cap existed keeps everything (nothing is ever deleted); it just
+-- cannot store more until it drops back under.
+Tuning.LOCKER_SLOTS = 8
+
 -- ── Economy (PLAN §2 step 5) ──────────────────────────────────────────────────
 -- ── The signal field (PLAN §2 steps 1-2) ────────────────────────────────
 --

@@ -1,10 +1,11 @@
 --[[
 	StationController.lua — the base camp panel.
 
-	Appears at the trader and the shops. The trader's body is its own module now
-	(client/TraderPanel, the buyback counter: a tile grid of the bag, a detail card with
-	SELL, and SELL ALL CLEAN / SELL ALL ???); the shop's body is built here. Scrubbing
-	and racking both left this file, see below.
+	Appears at the trader, the shops and your own Quarantine Locker. The trader's body
+	is its own module (client/TraderPanel, the buyback counter: a tile grid of the bag, a
+	detail card with SELL, and SELL ALL CLEAN / SELL ALL ???), and so is the locker's
+	(client/LockerPanel, a rack of specimen tubes over your bag); the shop's body is
+	built here. Scrubbing left this file, see below.
 
 	TWO BODIES ON ONE PANEL, AND THE SHRINKING IS THE POINT. The plot claim board was a mode until exhibit
 	income went auto-deposit — with nothing left to COLLECT, the board and its panel
@@ -23,10 +24,10 @@
 	the click meant to start the spray arrived with `gameProcessedEvent` true and the
 	hose never fired. "I press E and nothing happens" was this panel eating the input.
 
-	WHAT WENT WITH THE DECON PANEL, stated plainly because it is a real loss: the RACK
-	button and the Quarantine Locker rows. The locker still exists in the profile and
-	DeconService still implements `rack`, but nothing in the world triggers it any
-	more. PLAN §10.2 wants a physical locker anyway; see TODO §5b.
+	WHAT WENT WITH THE DECON PANEL: the RACK button and the Quarantine Locker rows. For
+	a while nothing in the world could put a find in the locker at all; it came back as
+	its own station (StationKind = "locker", the tube rack beside the tub) with its own
+	E prompt and its own body here, LockerPanel.
 
 	The pedestal panel used to open on approach with an item-picker list and a
 	DISPLAY button, then (briefly) a hold-progress bar for a hold-E-to-place redesign.
@@ -111,6 +112,7 @@ local ToolModels = require(Shared.ToolModels)
 -- space above the dock, so it no longer reads Dock.RESERVE. See the header.
 local UIKit = require(script.Parent.Parent.UIKit)
 local TraderPanel = require(script.Parent.Parent.TraderPanel)
+local LockerPanel = require(script.Parent.Parent.LockerPanel)
 
 local Station = {}
 
@@ -133,9 +135,14 @@ local COLOR = UIKit.C
 -- bug nobody had diagnosed yet: that panel sat under the crosshair, so the click
 -- that was supposed to start the hose arrived with `gameProcessedEvent` true and
 -- the spray never began. "Nothing happens" was the panel eating the input.
+--
+-- THE LOCKER IS IN HERE, and opens only on its own E ("OpenLocker"), like a shop with
+-- a browse prompt: it stands right beside the tub, and a panel that opened on
+-- approach would sit over the screen every time you walked to the wash.
 local PANEL_KINDS: { [string]: boolean } = {
 	trader = true,
 	shop = true,
+	locker = true,
 }
 
 -- ── Shop carousel ───────────────────────────────────────────────────
@@ -315,6 +322,14 @@ local RACK_PROMPT = "Upgrade"
 --- reason RACK_TAG below is: this is a client script and build/Kit lives in
 --- ServerScriptService, so it cannot be required.
 local BROWSE_PROMPT = "ViewShop"
+
+--- The name build/Plots gives the locker rack's prompt (Plots.lockerStation), and how
+--- long an E on it waits for the server to say you are at the locker. The prompt can
+--- fire a tick before StationState catches up, and arriving at a station resets
+--- `dismissed`, so the press is remembered for that long rather than lost.
+local LOCKER_PROMPT = "OpenLocker"
+local LOCKER_PRESS_GRACE = 1.5
+local lockerPressedAt = -math.huge
 
 --- Does THIS shop actually have a browse prompt standing in the world?
 ---
@@ -1099,6 +1114,8 @@ local function build(): ScreenGui
 	-- The trader's whole body. It sizes itself; the panel's MaxSize is set to its width
 	-- in render().
 	ui.trader = TraderPanel.new(panel, 20)
+	-- The locker's, the same way.
+	ui.locker = LockerPanel.new(panel, 21)
 
 	ui.toast = UIKit.label(panel, {
 		name = "Toast",
@@ -1632,11 +1649,14 @@ local function render()
 	ui.panel.Visible = true
 	ui.closeButton.Visible = true
 
-	-- One body or the other: the shop's storefront, or the trader's buyback counter.
-	-- Each builds its own header, so there is nothing shared to repaint between them.
+	-- One body of three: the shop's storefront, the locker's tube rack, or the trader's
+	-- buyback counter. Each builds its own header, so there is nothing shared to repaint
+	-- between them.
 	local atShop = state.station == "shop"
+	local atLocker = state.station == "locker"
 	ui.shop.Visible = atShop
-	ui.trader.frame.Visible = not atShop
+	ui.locker.frame.Visible = atLocker
+	ui.trader.frame.Visible = not atShop and not atLocker
 
 	-- One rack card, if a rack hook's E opened this and it is for the shop you are at.
 	local offerTiers = if atShop and state.offer then state.offer.tiers else nil
@@ -1648,7 +1668,10 @@ local function render()
 	carousel.single = single
 
 	local shopWidth = if single then RACK_PANEL_WIDTH else SHOP_PANEL_WIDTH
-	ui.panelSize.MaxSize = Vector2.new(if atShop then shopWidth else TraderPanel.WIDTH, math.huge)
+	ui.panelSize.MaxSize = Vector2.new(
+		if atShop then shopWidth elseif atLocker then LockerPanel.WIDTH else TraderPanel.WIDTH,
+		math.huge
+	)
 
 	-- BOTH MODES WEAR THE FIELD-KIT SLATE now; the trader used to keep the near-black
 	-- list panel it always had, until it was rebuilt as a counter in the shop's skin.
@@ -1723,6 +1746,12 @@ local function render()
 
 	carousel.openedFor = nil
 
+	if atLocker then
+		ui.panelStroke.Color = FIELD.edge
+		ui.locker.paint(state)
+		return
+	end
+
 	-- TRADER ONLY down here now. This used to be the decon/trader fork; the decon half
 	-- moved into the world (the tub's E prompt) and took the Quarantine Locker rows and
 	-- the RACK button with it -- see this file's header. The body is TraderPanel's.
@@ -1766,6 +1795,14 @@ function Station.start()
 	end)
 	ui.trader.onSellAll(function(which)
 		actionRemote:FireServer({ action = "sellAll", which = which })
+	end)
+	-- The locker's two, the same way: DeconService re-derives that you are at your own
+	-- rack and that there is room on the other side.
+	ui.locker.onStore(function(uid)
+		actionRemote:FireServer({ action = "store", uid = uid })
+	end)
+	ui.locker.onTake(function(uid)
+		actionRemote:FireServer({ action = "take", uid = uid })
 	end)
 
 	-- ── Moving along the carousel ────────────────────────────────────
@@ -1952,7 +1989,17 @@ function Station.start()
 		if triggeredBy ~= Players.LocalPlayer then
 			return
 		end
-		if prompt.Name == BROWSE_PROMPT then
+		if prompt.Name == LOCKER_PROMPT then
+			-- Toggles like the stand's E. Somebody else's rack reaches here too; the
+			-- server never reports it as a station (DeconService.ownsLocker), so the
+			-- panel stays shut and ExhibitService tells them why.
+			if state.station == "locker" then
+				dismissed = not dismissed
+				render()
+			else
+				lockerPressedAt = os.clock()
+			end
+		elseif prompt.Name == BROWSE_PROMPT then
 			local showingCard = rackCard ~= nil and not dismissed
 			rackCard = nil
 			if not showingCard then
@@ -1998,8 +2045,15 @@ function Station.start()
 			-- can put its E under you a moment before the server's tick says you are in
 			-- the shop's radius, so a card asked for just before that tick is kept open
 			-- rather than dismissed by it. Any other change of station drops it.
+			--
+			-- THE LOCKER ARRIVES DISMISSED too, and opens on its E -- unless that E came
+			-- a moment before this tick did (LOCKER_PRESS_GRACE).
 			if rackCard ~= nil and payload.station == "shop" and payload.stationId == rackCard.track then
 				dismissed = false
+			elseif payload.station == "locker" then
+				rackCard = nil
+				dismissed = os.clock() - lockerPressedAt > LOCKER_PRESS_GRACE
+				lockerPressedAt = -math.huge
 			else
 				rackCard = nil
 				dismissed = payload.station == "shop" and shopHasBrowsePrompt(payload.stationId)

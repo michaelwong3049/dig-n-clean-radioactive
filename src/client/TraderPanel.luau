@@ -18,27 +18,22 @@
 	               own cannot crack it at all, what would.
 	  the footer   SELL ALL CLEAN and SELL ALL ???, each carrying its own total.
 
-	THE MODEL IS THE REAL ONE, OR THE CRUST. A clean item's art is ItemModels' model for
-	its id (the payload only carries `itemId` once it is identified, CarryService.describe);
-	a "???" is ItemCrust.lump seeded on its uid, the same lump the dig pulled up. Both are
-	built once per tile per item (`ArtKey`), not on every 10 Hz StationState tick.
+	THE MODEL IS THE REAL ONE, OR THE CRUST (client/ItemArt, shared with the locker
+	panel): ItemModels' model once the item is identified, ItemCrust.lump seeded on its
+	uid while it is "???". Built once per tile per item, not on every StationState tick.
 
 	Everything here is presentation. The client asks for a sale by uid, or for a bulk sale
 	by "clean"/"dirty"; EconomyService re-derives the price and the ownership itself.
 ]]
 
-local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
-local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Tuning = require(Shared.Config.Tuning)
-local ItemModels = require(Shared.ItemModels)
-local ItemCrust = require(Shared.ItemCrust)
-local ItemFx = require(Shared.ItemFx)
 
 local UIKit = require(script.Parent.UIKit)
+local ItemArt = require(script.Parent.ItemArt)
 
 local TraderPanel = {}
 
@@ -86,26 +81,6 @@ local WALLET_INSET = 44
 --- sets the panel's MaxSize to this in trader mode.
 TraderPanel.WIDTH = 860
 local DETAIL_ART_W = TraderPanel.WIDTH - 2 * PANEL_PAD - GRID_W - BODY_GAP - 2 * DETAIL_PAD
-
--- Same camera recipe as the shop cards and the index: a narrow lens from a little right
--- of front and above, and a low ambient under a warm key so rarities keep their colour.
-local ART_FOV = 30
-local ART_MARGIN = 1.12
-local ART_FROM = Vector3.new(0.45, 0.3, 1).Unit
-local ART_LIGHT = {
-	ambient = Color3.fromRGB(90, 92, 98),
-	color = Color3.fromRGB(255, 248, 235),
-	direction = Vector3.new(-1, -1, -1),
-}
-
-local BOX_CORNERS = {}
-for _, x in { -1, 1 } do
-	for _, y in { -1, 1 } do
-		for _, z in { -1, 1 } do
-			table.insert(BOX_CORNERS, Vector3.new(x, y, z))
-		end
-	end
-end
 
 local function money(amount: number): string
 	local grouped = tostring(math.floor(amount))
@@ -183,111 +158,6 @@ local function frame(parent: Instance, name: string, color: Color3?): Frame
 	return f
 end
 
-local function newViewport(parent: Instance): ViewportFrame
-	local viewport = Instance.new("ViewportFrame")
-	viewport.Name = "Model"
-	viewport.Size = UDim2.fromScale(1, 1)
-	viewport.BackgroundTransparency = 1
-	viewport.Ambient = ART_LIGHT.ambient
-	viewport.LightColor = ART_LIGHT.color
-	viewport.LightDirection = ART_LIGHT.direction
-	viewport.Parent = parent
-
-	local camera = Instance.new("Camera")
-	camera.FieldOfView = ART_FOV
-	camera.Parent = viewport
-	viewport.CurrentCamera = camera
-	return viewport
-end
-
---- Aim `camera` so `model` fills a well `aspect` wide per unit tall. The box is measured
---- in the camera's own axes (StationController.frameArt's reasoning), so a three-quarter
---- view is framed tight rather than to the model's loose aligned box.
-local function frameModel(camera: Camera, model: Model, aspect: number)
-	local look = CFrame.lookAt(Vector3.zero, -ART_FROM, Vector3.yAxis)
-	local lo = Vector3.one * math.huge
-	local hi = -lo
-	for _, part in model:GetDescendants() do
-		if part:IsA("BasePart") and part.Transparency < 1 then
-			local half = part.Size / 2
-			for _, c in BOX_CORNERS do
-				local point = look:PointToObjectSpace(part.CFrame * (half * c))
-				lo = lo:Min(point)
-				hi = hi:Max(point)
-			end
-		end
-	end
-	if lo.X > hi.X then
-		return
-	end
-	local mid = (lo + hi) / 2
-	local extent = (hi - lo) / 2
-	local tanHalf = math.tan(math.rad(ART_FOV) / 2)
-	local reach = math.max(extent.Y / tanHalf, extent.X / (tanHalf * aspect)) * ART_MARGIN
-	camera.CFrame = look * CFrame.new(mid.X, mid.Y, hi.Z + reach)
-end
-
---- A fresh model for one bag entry: the item itself once it is identified, its crust
---- until then. ItemFx comes off (its lights and particles do not render in a viewport).
-local function modelFor(item: any): Model
-	local model: Model? = nil
-	if item.identified and type(item.itemId) == "string" and Items.has(item.itemId) then
-		local def = Items.get(item.itemId)
-		model = ItemModels.create(def.model, item.itemId)
-		if model then
-			CollectionService:RemoveTag(model, ItemFx.TAG)
-			for _, node in model:GetDescendants() do
-				CollectionService:RemoveTag(node, ItemFx.TAG)
-			end
-			model:PivotTo(ItemModels.rotation(model, "Gallery"))
-		end
-	end
-	if model == nil and not item.identified then
-		model = ItemCrust.lump(item.rarity, item.uid)
-	end
-	if model == nil then
-		local block = Instance.new("Part")
-		block.Name = "Placeholder"
-		block.Size = Vector3.one
-		block.Color = rarityColor(item.rarity)
-		block.Material = Enum.Material.SmoothPlastic
-		local holder = Instance.new("Model")
-		block.Parent = holder
-		holder.PrimaryPart = block
-		model = holder
-	end
-	return model :: Model
-end
-
---- Swap `item`'s model into `viewport`, unless it is already showing it.
-local function paintArt(viewport: ViewportFrame, item: any, aspect: number)
-	local key = `{item.uid}/{item.itemId or "crust"}`
-	if viewport:GetAttribute("ArtKey") == key then
-		return
-	end
-	viewport:SetAttribute("ArtKey", key)
-	for _, child in viewport:GetChildren() do
-		if child:IsA("Model") then
-			child:Destroy()
-		end
-	end
-	local model = modelFor(item)
-	model.Parent = viewport
-	frameModel(viewport.CurrentCamera :: Camera, model, aspect)
-end
-
-local function clearArt(viewport: ViewportFrame)
-	if viewport:GetAttribute("ArtKey") == nil then
-		return
-	end
-	viewport:SetAttribute("ArtKey", nil)
-	for _, child in viewport:GetChildren() do
-		if child:IsA("Model") then
-			child:Destroy()
-		end
-	end
-end
-
 --- A rounded chip that grows to its text. Used for rarity and modifier.
 local function chip(parent: Instance, name: string, order: number): TextLabel
 	local label = Instance.new("TextLabel")
@@ -340,7 +210,7 @@ local function makeTile(parent: Instance, order: number): TextButton
 	local art = frame(tile, "Art")
 	art.Position = UDim2.fromOffset(8, 14)
 	art.Size = UDim2.new(1, -16, 0, 62)
-	newViewport(art)
+	ItemArt.newViewport(art)
 
 	local crusted = text(tile, {
 		name = "Crusted",
@@ -477,7 +347,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 	well.Position = UDim2.fromOffset(DETAIL_PAD, DETAIL_PAD)
 	well.Size = UDim2.new(1, -2 * DETAIL_PAD, 0, DETAIL_ART_H)
 	corner(well, 10)
-	local detailViewport = newViewport(well)
+	local detailViewport = ItemArt.newViewport(well)
 
 	local detailName = text(detail, {
 		name = "ItemName",
@@ -646,7 +516,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 			crusted.Visible = false
 			nameLabel.Text = ""
 			price.Text = ""
-			clearArt(viewport)
+			ItemArt.clear(viewport)
 			return
 		end
 
@@ -661,7 +531,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		crusted.Visible = not item.clean
 		nameLabel.Text = item.name
 		price.Text = money(item.value or 0)
-		paintArt(viewport, item, (TILE_W - 16) / 62)
+		ItemArt.paint(viewport, item, (TILE_W - 16) / 62)
 	end
 
 	local function paintDetail(item: any?)
@@ -674,7 +544,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		if item == nil then
 			facts.Visible = false
 			warning.Visible = false
-			clearArt(detailViewport)
+			ItemArt.clear(detailViewport)
 			return
 		end
 
@@ -705,7 +575,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		end
 
 		sell.Text = `SELL {money(item.value or 0)}`
-		paintArt(detailViewport, item, DETAIL_ART_W / DETAIL_ART_H)
+		ItemArt.paint(detailViewport, item, DETAIL_ART_W / DETAIL_ART_H)
 	end
 
 	local function paintFootButton(button: TextButton, label: string, count: number, total: number)
@@ -743,7 +613,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		end
 		for index = slots + 1, #tiles do
 			tiles[index].Visible = false
-			clearArt((tiles[index]:FindFirstChild("Art") :: Frame):FindFirstChild("Model") :: ViewportFrame)
+			ItemArt.clear((tiles[index]:FindFirstChild("Art") :: Frame):FindFirstChild("Model") :: ViewportFrame)
 		end
 
 		paintDetail(chosen)
