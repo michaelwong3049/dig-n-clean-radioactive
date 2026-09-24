@@ -39,6 +39,7 @@ local ORDER = {
 	"CrateService", -- opening dug-up supply crates; needs Dig + Wash + Liquid + Identify
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel
 	"ToolService", -- held models; reads DigService + DeconService + WashService state
+	"TutorialService", -- the new-player walkthrough; reads Stage + Dig + Carry, nudges Carry
 	"DebugService", -- the tuning console; reads the services above
 }
 
