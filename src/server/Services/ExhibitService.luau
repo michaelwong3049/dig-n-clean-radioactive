@@ -40,6 +40,7 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net) -- assign(): tell the owning client its plot index for the "YOUR BASE" beacon
 local Bag = require(Shared.Bag)
 local Tuning = require(Shared.Config.Tuning)
+local Floors = require(Shared.Config.Floors)
 local Gear = require(Shared.Config.Gear) -- renderLuck: the plot's luck-button billboard
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
@@ -71,6 +72,11 @@ local LOCKER_ITEM_SIZE = 1.2 -- longest axis a racked item model is scaled to; t
 -- caps it -- the bays are only ~1.5 studs tall, no room for a "giga nuke" roll on
 -- top of an already-normalised size.
 local LOCKER_PAYLOAD_CAP = 1.15
+-- Matches build/Kit.FLOOR_TAG: the sign that sells a base's next floor. A string,
+-- not a require, for the same reason PLOT_COUNT is.
+local FLOOR_TAG = "BuyFloor"
+-- How long a refused floor purchase stays written on the sign before it goes back.
+local SIGN_FLASH_SECONDS = 2.5
 
 -- Who is sitting on which physical plot this session. Never persisted — see header.
 local plotOf: { [Player]: number } = {}
@@ -550,10 +556,24 @@ local function renderLocker(index: number, data: any)
 	end
 end
 
+--- Show the floors this profile has built on its plot and hide the rest, or strip an
+--- unclaimed plot back to its ground floor (`data == nil`) — which also takes every
+--- floor sign away, since there is nobody there to buy one. Which parts that moves is
+--- build/Plots.setFloors' business.
+---
+--- CALL IT BEFORE ANYTHING THAT PAINTS THE PLOT. A hidden floor is out of Workspace,
+--- so renderAccent and renderStand cannot reach it; renderAll brings the floors back
+--- first so the accent and the stands on them are painted for THIS owner.
+local function renderFloors(index: number, data: any?)
+	Plots.setFloors(plotModel(index), if data then data.exhibit.floors else 1, data ~= nil)
+end
+
 --- Redraw everything on a plot from the profile — called once on assignment so a
---- returning player's collection shows up on whichever physical plot they land on.
+--- returning player's collection shows up on whichever physical plot they land on,
+--- and again after a floor is built, so the new floor's stands wake up.
 local function renderAll(index: number, data: any)
 	local owner = plotOwner[index]
+	renderFloors(index, data)
 	renderName(index, owner)
 	renderAccent(index, data)
 	renderLuck(index, data)
@@ -813,6 +833,9 @@ local function release(player: Player)
 		end
 		renderLocker(index, nil)
 		refreshStandCards(index, nil)
+		-- Last: the stands on the upper floors have to be cleared while they are
+		-- still in Workspace to be found.
+		renderFloors(index, nil)
 	end
 end
 
@@ -948,7 +971,7 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 	if plotOf[player] ~= plot then
 		return false, "that isn't your plot"
 	end
-	if slot < 1 or slot > data.exhibit.slots then
+	if slot < 1 or slot > Floors.slotsFor(data.exhibit.floors) then
 		return false, "that stand doesn't exist"
 	end
 
@@ -1049,6 +1072,105 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 	return true, `{Items.get(item.itemId).name} is on display`
 end
 
+-- ── Floors ────────────────────────────────────────────────────────────────────
+
+--- Build the next floor on this player's own base. `plot`/`floor` come from the
+--- sign's own attributes (which base it stands on, which floor it sells), the same
+--- "the prompt IS the thing" rule `interact` follows. Same shape as
+--- TreadmillService.buy: check everything, debit FIRST, and only touch the profile
+--- once the money has actually moved.
+---
+--- NO PROXIMITY CHECK: only ever reached from a ProximityPrompt.Triggered, which the
+--- engine has already range-checked (TreadmillService.buy says the same).
+function ExhibitService.buyFloor(player: Player, plot: number, floor: number): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+	if plotOf[player] ~= plot then
+		return false, "that isn't your base"
+	end
+
+	local owned = Floors.clamp(data.exhibit.floors)
+	if floor <= owned then
+		return false, `you already have floor {floor}`
+	end
+	if floor ~= owned + 1 then
+		return false, `build floor {owned + 1} first`
+	end
+	local price = Floors.PRICES[floor]
+	if price == nil then
+		return false, "your base can't go any higher"
+	end
+
+	local paid, reason = EconomyService.spend(player, price)
+	if not paid then
+		return false, reason
+	end
+
+	data.exhibit.floors = floor
+	data.exhibit.slots = Floors.slotsFor(floor)
+	renderAll(plot, data)
+	-- The "YOUR BASE" beacon rides over the top deck; PlotState is what (re)builds it.
+	Net.get("PlotState"):FireClient(player, plot)
+	return true, `floor {floor} built \u{2014} {Floors.UPPER_SLOTS} more stands (paid ${price})`
+end
+
+-- Per sign, so a second refusal inside the flash window restarts it rather than
+-- being cut short by the first one's timer.
+local signFlash: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
+
+--- Write `message` into a floor sign's billboard subtitle for a moment, then put its
+--- price back. The world answer for a refused purchase — see build/Plots.buildFloorSign.
+local function flashSign(board: BasePart, message: string)
+	local sign = board:FindFirstChild("Sign")
+	local subtitle = sign and sign:FindFirstChild("Subtitle")
+	if subtitle == nil or not subtitle:IsA("TextLabel") then
+		return
+	end
+	local token = (signFlash[board] or 0) + 1
+	signFlash[board] = token
+	subtitle.Text = message
+	task.delay(SIGN_FLASH_SECONDS, function()
+		if signFlash[board] == token then
+			local rest = board:GetAttribute("SignText")
+			subtitle.Text = if type(rest) == "string" then rest else ""
+		end
+	end)
+end
+
+local wiredSigns: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+
+--- Connect one floor sign's prompt to buyFloor. Built by build/Plots.buildFloorSign and
+--- saved with the place; wired here by tag, the same build-time/runtime split every
+--- world purchase uses. Once per board: a parked floor sign never leaves the DataModel
+--- (it goes to ServerStorage), so its connection survives being hidden.
+local function wireFloorSign(board: Instance)
+	if not board:IsA("BasePart") or wiredSigns[board] then
+		return
+	end
+	local prompt = board:FindFirstChildOfClass("ProximityPrompt")
+	if prompt == nil then
+		warn(`[exhibit] {board:GetFullName()} sells a floor but has no ProximityPrompt — nobody can buy from it`)
+		return
+	end
+	wiredSigns[board] = true
+
+	prompt.Triggered:Connect(function(player: Player)
+		local plot = board:GetAttribute("PlotIndex")
+		local floor = board:GetAttribute("BuysFloor")
+		if type(plot) ~= "number" or type(floor) ~= "number" then
+			return
+		end
+		local ok, message = ExhibitService.buyFloor(player, plot, floor)
+		if ok then
+			print(`[exhibit] {player.Name}: {message}`)
+		else
+			flashSign(board, message)
+		end
+	end)
+end
+
 -- ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 function ExhibitService.init()
@@ -1072,13 +1194,24 @@ function ExhibitService.start()
 		colorRemote:FireClient(player, if data then data.plotColor else "", defaultAccentHex(player))
 	end)
 
+	-- Every floor sign, including ones a later World.rebuild() adds mid-session.
+	for _, board in CollectionService:GetTagged(FLOOR_TAG) do
+		wireFloorSign(board)
+	end
+	CollectionService:GetInstanceAddedSignal(FLOOR_TAG):Connect(wireFloorSign)
+
+	-- The place is saved with every floor of every plot showing (build/Plots builds
+	-- them all); nobody owns anything yet, so strip every plot to its ground floor.
+	for index = 1, PLOT_COUNT do
+		renderFloors(index, nil)
+	end
+
 	DataService.onLoaded(function(player, data)
-		-- Saves made before every stand was free stored a lower slot count (the old
-		-- EXHIBIT_STARTING_SLOTS was 3, upgraded with cash). Bring anyone below the
-		-- current count up to it; Reconcile can't, since the key already exists.
-		if data.exhibit.slots < Tuning.EXHIBIT_MAX_SLOTS then
-			data.exhibit.slots = Tuning.EXHIBIT_MAX_SLOTS
-		end
+		-- `slots` is always derived from `floors` (Config/Floors). This also brings up
+		-- saves from before every ground stand was free (the old EXHIBIT_STARTING_SLOTS
+		-- was 3, upgraded with cash) — Reconcile can't, since the key already exists.
+		data.exhibit.floors = Floors.clamp(data.exhibit.floors)
+		data.exhibit.slots = Floors.slotsFor(data.exhibit.floors)
 		bankOffline(data)
 		deposit(player, data)
 		assign(player)

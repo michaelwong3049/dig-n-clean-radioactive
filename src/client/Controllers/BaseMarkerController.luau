@@ -30,6 +30,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
+local Floors = require(Shared.Config.Floors)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 
@@ -45,14 +46,28 @@ local FACE_FILL = Color3.fromHex("11150F") -- shows for the beat before the thum
 local ACCENT_FALLBACK = Color3.fromHex("B7C0B8") -- if the plot has no Trim to read a colour off
 
 local marker: BillboardGui? = nil
+local floorsWatch: RBXScriptConnection? = nil
 -- Set from ExposureState every tick. The beacon shows only in the safe zone.
 local inStage = false
+
+-- Over a one-floor base. Each floor built on top (the plot's `Floors` attribute,
+-- written by build/Plots.setFloors) lifts it by Floors.HEIGHT, so it keeps floating
+-- over the top deck rather than sitting in it.
+local BASE_HEIGHT = 38
 
 local function clear()
 	if marker then
 		marker:Destroy()
 		marker = nil
 	end
+	if floorsWatch then
+		floorsWatch:Disconnect()
+		floorsWatch = nil
+	end
+end
+
+local function heightOver(plot: Instance): number
+	return BASE_HEIGHT + (Floors.clamp(plot:GetAttribute("Floors") :: number?) - 1) * Floors.HEIGHT
 end
 
 --- Beacon is visible only outside a stage. Re-applied both on every ExposureState
@@ -75,14 +90,14 @@ local function accentOf(plot: Instance): Color3
 	return ACCENT_FALLBACK
 end
 
-local function build(pad: BasePart, accent: Color3)
+local function build(plot: Instance, pad: BasePart, accent: Color3)
 	local player = Players.LocalPlayer
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = MARKER_NAME
 	-- Well above the 16-stud back wall, so it floats free of the plot's own geometry
 	-- and reads as a beacon rather than a sign bolted to something.
-	gui.StudsOffsetWorldSpace = Vector3.new(0, 38, 0)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, heightOver(plot), 0)
 	gui.MaxDistance = 600 -- plaza-wide; it fades out once you are deep in a field
 	gui.AlwaysOnTop = true -- a beacon: visible even with another plot between you and it
 	-- LightInfluence = 0, NOT 1 — every base sits next to a PointLight or two, and the
@@ -147,7 +162,14 @@ local function onPlot(index: number?)
 		return
 	end
 
-	build(pad :: BasePart, accentOf(plot :: Instance))
+	build(plot :: Instance, pad :: BasePart, accentOf(plot :: Instance))
+	-- A floor built while the beacon is up moves it too, whichever of the attribute and
+	-- the server's PlotState re-fire lands first.
+	floorsWatch = (plot :: Instance):GetAttributeChangedSignal("Floors"):Connect(function()
+		if marker then
+			marker.StudsOffsetWorldSpace = Vector3.new(0, heightOver(plot :: Instance), 0)
+		end
+	end)
 end
 
 function BaseMarker.start()
