@@ -37,6 +37,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
+local Crates = require(Shared.Config.Crates)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -324,7 +325,7 @@ local function renderSlots()
 			continue
 		end
 
-		local colour = rarityColor(item.rarity)
+		local colour = if item.crateId then Color3.fromHex(Crates.get(item.crateId).color) else rarityColor(item.rarity)
 		slot.name.Text = item.name
 		slot.name.TextColor3 = COLOR.text
 		slot.button.BackgroundColor3 = if item.uid == selected then SLOT_SELECTED else SLOT_FILL
@@ -391,6 +392,22 @@ function Inventory.start()
 		state.capacity = payload.capacity or 0
 		state.fuseMult = payload.fuseMult or 1
 		state.items = payload.items or {}
+
+		-- SUPPLY CRATES (Config/Crates) share the bag's slots, after the nukes. They
+		-- arrive on their own field so nothing else that reads `items` meets one; here
+		-- they become slots like any other, named for the crate and bordered in its
+		-- colour. Selecting one holds it, and holding it is what offers "Open".
+		for _, entry in payload.crates or {} do
+			if Crates.has(entry.crateId) then
+				local crate = Crates.get(entry.crateId)
+				table.insert(state.items, {
+					uid = entry.uid,
+					crateId = entry.crateId,
+					name = crate.short,
+					rarity = crate.tier,
+				})
+			end
+		end
 
 		-- A selection whose item just left the bag — sold, racked, slagged — must not
 		-- keep a stale card on screen. Keyed by uid rather than index precisely so

@@ -47,6 +47,7 @@ local Liquids = require(Shared.Config.Liquids)
 local Rarity = require(Shared.Config.Rarity)
 local Gear = require(Shared.Config.Gear)
 local Tuning = require(Shared.Config.Tuning)
+local Crates = require(Shared.Config.Crates)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -662,10 +663,12 @@ end
 local function describe(payload: any): string
 	local loaded = Liquids.get(payload.loaded)
 	local washes = if payload.held == 1 then "1 wash" else `{payload.held} washes`
+	-- A liquid crate (Config/Crates) plays this same brew; say where it came from.
+	local source = if Crates.has(payload.crate) then `from a {Crates.get(payload.crate).name} \u{2014} ` else ""
 	if payload.loaded == payload.result then
-		return `loaded in the hose \u{2014} {washes} in the bottle`
+		return `{source}loaded in the hose \u{2014} {washes} in the bottle`
 	end
-	return `{washes} stored \u{2014} kept {loaded.name} loaded`
+	return `{source}{washes} stored \u{2014} kept {loaded.name} loaded`
 end
 
 --- The landing: pop, flash, burst, rays, and the result slamming in.
