@@ -420,7 +420,7 @@ local function imported(crateId: string): Model?
 	local _, extents = model:GetBoundingBox()
 	local across = CrateModels.FOOTPRINT_OF(extents)
 	if across > 0 then
-		model:ScaleTo(model:GetScale() * (IMPORTED_FOOTPRINT / across))
+		model:ScaleTo(model:GetScale() * (IMPORTED_FOOTPRINT * (Crates.get(crateId).sizeMult or 1) / across))
 	end
 	-- Centre the box on the origin, like the built crates.
 	local box = model:GetBoundingBox()

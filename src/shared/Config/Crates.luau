@@ -55,6 +55,9 @@ export type CrateDef = {
 	liquidFloor: string?,
 	liquidLuck: number?,
 	pullWeight: number, -- kg, for the haul (Config/Weight), like an item's `weight`
+	-- Visual size nudge on top of the shared crate footprint (CrateModels), for a model
+	-- that reads small next to the others. 1 when absent.
+	sizeMult: number?,
 }
 
 --- One in this many spawned signals is a crate instead of a nuke.
@@ -124,6 +127,7 @@ Crates.DEFS = {
 		liquidFloor = "gel",
 		liquidLuck = 1.5,
 		pullWeight = 35,
+		sizeMult = 1.25, -- on request: the Toxic model read small beside the rest
 	},
 	liquid2 = {
 		id = "liquid2",

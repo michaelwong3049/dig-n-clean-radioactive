@@ -53,6 +53,7 @@ local ItemModels = require(Shared.ItemModels)
 local ItemCrust = require(Shared.ItemCrust)
 local ToolModels = require(Shared.ToolModels)
 local CrateModels = require(Shared.CrateModels)
+local Crates = require(Shared.Config.Crates)
 local Bag = require(Shared.Bag)
 local Ticker = require(Shared.Util.Ticker)
 
@@ -567,7 +568,9 @@ local function equipItem(character: Model, item: any?): boolean
 		local _, extents = held:GetBoundingBox()
 		local longest = if item.crateId then CrateModels.FOOTPRINT_OF(extents) else math.max(extents.X, extents.Y, extents.Z)
 		if longest > 0 then
-			local target = if item.crateId then HELD_CRATE_SIZE else HELD_ITEM_SIZE * Payload.forUid(item.uid)
+			local target = if item.crateId
+				then HELD_CRATE_SIZE * (Crates.get(item.crateId).sizeMult or 1)
+				else HELD_ITEM_SIZE * Payload.forUid(item.uid)
 			held:ScaleTo(held:GetScale() * (target / longest))
 		end
 	end
