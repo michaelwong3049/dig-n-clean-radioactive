@@ -35,6 +35,8 @@ local Weight = require(Config.Weight)
 local Payload = require(Config.Payload)
 local Treadmill = require(Config.Treadmill)
 local LuckBoost = require(Config.LuckBoost)
+local Crates = require(Config.Crates)
+local Bag = require(script.Parent.Parent.Bag)
 local ItemModels = require(script.Parent.Parent.ItemModels)
 local ItemFxConfig = require(Config.ItemFx)
 local ItemFx = require(script.Parent.Parent.ItemFx)
@@ -1789,6 +1791,107 @@ function Spec.run(): boolean
 			SkyConfig.AURORA.atmoColor.B > SkyConfig.AURORA.atmoColor.G
 				and SkyConfig.AURORA.atmoColor.R > SkyConfig.AURORA.atmoColor.G
 		)
+	end
+
+	-- ── Supply crates (Config/Crates) ─────────────────────────────────
+	do
+		local function near1(x: number): boolean
+			return math.abs(x - 1) < 1e-6
+		end
+
+		local defsOk, sums, floors, variantsOk = true, true, true, true
+		for _, id in Crates.ORDER do
+			local def = Crates.DEFS[id]
+			if def == nil or def.id ~= id or Rarity.DEFS[def.tier] == nil or Crates.idFor(def.kind, def.variant) ~= id then
+				defsOk = false
+				continue
+			end
+			if def.kind == "nuke" then
+				local odds = Crates.nukeOdds(id)
+				local total, lowest = 0, math.huge
+				for itemId, p in odds do
+					total += p
+					lowest = math.min(lowest, Rarity.get(Items.get(itemId).rarity).order)
+				end
+				if not near1(total) then
+					sums = false
+				end
+				-- The floor: nothing under the crate's lowest listed rarity.
+				local floor = math.huge
+				for rarity in def.rarities or {} do
+					floor = math.min(floor, Rarity.get(rarity).order)
+				end
+				if lowest < floor then
+					floors = false
+				end
+			else
+				local odds = Crates.liquidOdds(id, 1)
+				local total = 0
+				for liquidId, p in odds do
+					total += p
+					if Liquids.get(liquidId).order < Liquids.get(def.liquidFloor).order then
+						floors = false
+					end
+				end
+				if not near1(total) then
+					sums = false
+				end
+			end
+		end
+		for _, kind in { "nuke", "liquid" } do
+			for variant = 1, 3 do
+				if not Crates.has(Crates.idFor(kind, variant)) then
+					variantsOk = false
+				end
+			end
+		end
+		check("§crate every crate is well-formed (id, tier, kind + variant)", defsOk and variantsOk)
+		check("§crate every crate's prize table sums to 1", sums)
+		check("§crate no crate ever hands out anything under its floor", floors)
+
+		-- Better crate, better prize: the chance of Epic-or-better climbs nuke1 -> nuke3,
+		-- and only the Reactor crate can roll an Anomaly.
+		local function epicPlus(id: string): number
+			local total = 0
+			for itemId, p in Crates.nukeOdds(id) do
+				if Rarity.get(Items.get(itemId).rarity).order >= Rarity.get("Epic").order then
+					total += p
+				end
+			end
+			return total
+		end
+		local function anomaly(id: string): number
+			local total = 0
+			for itemId, p in Crates.nukeOdds(id) do
+				if Items.get(itemId).rarity == "Anomaly" then
+					total += p
+				end
+			end
+			return total
+		end
+		check("§crate nuke crates get better up the ladder", epicPlus("nuke1") < epicPlus("nuke2") and epicPlus("nuke2") < epicPlus("nuke3"))
+		check("§crate only the Reactor crate can roll an Anomaly", anomaly("nuke1") == 0 and anomaly("nuke2") == 0 and anomaly("nuke3") > 0)
+
+		-- Deeper stages drop better crates; detector luck only ever moves the top up.
+		local deeper, lucky = true, true
+		for stageId = 2, #Stages.DEFS do
+			if Crates.variantOdds(stageId, 1)[3] < Crates.variantOdds(stageId - 1, 1)[3] then
+				deeper = false
+			end
+		end
+		for stageId = 1, #Stages.DEFS do
+			local plain, boosted = Crates.variantOdds(stageId, 1), Crates.variantOdds(stageId, 2.5)
+			if boosted[3] < plain[3] or boosted[1] > plain[1] or not near1(boosted[1] + boosted[2] + boosted[3]) then
+				lucky = false
+			end
+		end
+		check("§crate deeper stages drop more top-tier crates", deeper)
+		check("§crate detector luck moves crate odds up, never down", lucky)
+
+		-- Crates share the bag's slots but never enter `carry`.
+		local data = { carry = { {}, {} }, crates = { { uid = "a", crateId = "nuke1" } } }
+		check("§crate crates count toward the bag's slots", Bag.used(data) == 3)
+		check("§crate Bag.findCrate finds a crate and nothing else", Bag.findCrate(data, "a") ~= nil and Bag.findCrate(data, "b") == nil)
 	end
 
 	table.insert(lines, string.format("\n%d passed, %d failed", passed, failed))
