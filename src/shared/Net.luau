@@ -61,17 +61,16 @@ local REMOTES: { [string]: string } = {
 	StationAction = "RemoteEvent", -- client -> server, scrub / sell / rack
 	StationResult = "RemoteEvent", -- server -> client, "sold for $340", "needs Chem Bath"
 
-	-- The wash pad (Config/Liquids). What is loaded and how much of it is left,
-	-- change-driven like CarryState rather than per-tick, because a canister moves on
-	-- a roll and on a spent charge and at no other time.
+	-- The fluid bottle (Config/Liquids, Services/LiquidService). There used to be a
+	-- LiquidState remote here feeding the wash pad's loaded-fluid readout; the bottle's
+	-- own colour and sign replaced it, so it went with the pad.
 	--
-	-- THERE WAS A SECOND REMOTE HERE, LiquidRoll, carrying the roll reveal. It is gone
-	-- with the panel it fed: the pad announces its own result in the world now (it
-	-- flashes the liquid's colour and names it on its own billboard, LiquidService),
-	-- which every player on that base can see rather than just the one who stepped on
-	-- it. The only client-side liquid surface left is a persistent corner badge, and a
-	-- badge renders fine from idempotent state.
-	LiquidState = "RemoteEvent", -- server -> client, on change
+	-- One spin, already decided: the reel of liquid ids to scroll, the index it lands
+	-- on, how long to take, and what came out. The server rolls before this fires, so
+	-- the client is only ever animating a result -- it never asks for one, and the
+	-- remote carries nothing the client could send back to steer it. The request half
+	-- is the bottle's ProximityPrompt, which fires on the server by itself.
+	FluidSpin = "RemoteEvent", -- server -> client, { reel, land, seconds, result, held, loaded }
 
 	-- Which carried item the player is physically holding. The tub refuses to wash
 	-- anything you are not holding, so this had to become real state rather than the

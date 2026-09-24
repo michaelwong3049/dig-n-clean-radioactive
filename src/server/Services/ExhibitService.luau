@@ -47,6 +47,7 @@ local Payload = require(Shared.Config.Payload)
 local ItemModels = require(Shared.ItemModels)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
+local Liquids = require(Shared.Config.Liquids) -- renderBottle: the fluid bottle's sign
 local StandCard = require(Shared.StandCard) -- the attribute contract StandCardController draws from
 local Ticker = require(Shared.Util.Ticker)
 
@@ -162,8 +163,8 @@ end
 --- Repaint one plot's luck button to the given profile's current multiplier and the
 --- price of the NEXT purchase, or to the starting values when `data` is nil (an
 --- unclaimed plot). The Sign/Title/Subtitle names match build/Plots.buildLuckButton
---- exactly, the same convention LiquidService.announce uses to name a roll on the
---- wash pad. Title carries the multiplier, Subtitle the price — Luck has no tier
+--- exactly, the same convention renderBottle uses to name the fluid on the bottle.
+--- Title carries the multiplier, Subtitle the price — Luck has no tier
 --- name left to put in Title's place now that a purchase is a flat +0.1x.
 local function renderLuck(index: number, data: any?)
 	local plot = plotModel(index)
@@ -223,6 +224,41 @@ local function renderTreadmill(index: number, data: any?)
 	end
 	local treadmill = plot:FindFirstChild("Treadmill", true)
 	Plots.setTreadmillTier(treadmill, if data then data.treadmill else nil, if data then data.speedXp else nil)
+end
+
+--- Fill the plot's fluid bottle with the fluid this profile has loaded, or Plain Water
+--- when `data` is nil (an unclaimed plot). The subtitle says what the fluid is worth
+--- right now: washes left in it, or an invitation to spin when it is plain water.
+---
+--- SAME SHAPE AS renderTreadmill: LiquidService spins, this file owns what a plot
+--- looks like, and which parts of the bottle hold the fluid is build/Plots'
+--- business (Plots.setFluidBottle). An unclaimed plot also gets its prompt's verb
+--- back, since the countdown LiquidService writes there belonged to the last owner.
+local function renderBottle(index: number, data: any?)
+	local plot = plotModel(index)
+	if plot == nil then
+		return
+	end
+	local bottle = plot:FindFirstChild("FluidBottle", true)
+	if bottle == nil then
+		return
+	end
+	if data == nil then
+		Plots.setFluidBottle(bottle, nil, "spin for a better fluid")
+		local body = bottle:FindFirstChild("Bottle")
+		local prompt = body and body:FindFirstChildOfClass("ProximityPrompt")
+		if prompt then
+			prompt.ActionText = "Spin Fluid"
+		end
+		return
+	end
+	local id = StatResolver.get(data).liquidId
+	local held = data.liquids[id] or 0
+	local subtitle = if id == Liquids.WATER
+		then "spin for a better fluid"
+		elseif held == 1 then "1 wash left"
+		else `{held} washes left`
+	Plots.setFluidBottle(bottle, id, subtitle)
 end
 
 --- The world half of "hold the item, hold E on the stand": a plain default-styled
@@ -546,6 +582,7 @@ local function renderAll(index: number, data: any)
 	renderLocker(index, data)
 	renderHose(index, data)
 	renderTreadmill(index, data)
+	renderBottle(index, data)
 	refreshStandCards(index, data)
 end
 
@@ -634,6 +671,25 @@ function ExhibitService.refreshTreadmill(player: Player)
 		return
 	end
 	renderTreadmill(index, DataService.data(player))
+end
+
+--- Refill this player's own fluid bottle from their profile. Called by LiquidService
+--- when their loaded fluid or its charges change, and once a spin has landed on their
+--- screen. Exactly refreshTreadmill's contract, including the no-op without a plot.
+function ExhibitService.refreshBottle(player: Player)
+	local index = plotOf[player]
+	if index == nil then
+		return
+	end
+	renderBottle(index, DataService.data(player))
+end
+
+--- The same for a plot rather than a player: its owner's fluid, or Plain Water if
+--- nobody owns it. LiquidService puts a bottle's sign back this way after a refusal,
+--- which can come from a visitor who is not the owner.
+function ExhibitService.refreshBottleAt(index: number)
+	local owner = plotOwner[index]
+	renderBottle(index, if owner then DataService.data(owner) else nil)
 end
 
 --- This player's assigned plot's spawn pad, or nil if they never got a plot this
@@ -775,6 +831,7 @@ local function release(player: Player)
 		renderLuck(index, nil)
 		renderHose(index, nil)
 		renderTreadmill(index, nil)
+		renderBottle(index, nil)
 		for slot = 1, Tuning.EXHIBIT_MAX_SLOTS do
 			renderStand(index, slot, nil, nil)
 		end

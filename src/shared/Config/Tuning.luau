@@ -352,39 +352,30 @@ Tuning.RANGE_SWEEP_SLICES = 12 -- wedge slices; the fade steps once per slice, s
 Tuning.RANGE_SWEEP_ALPHA = 0.26 -- opacity of the slice right behind the arm; the rest fall off as its square
 Tuning.RANGE_SWEEP_COMET = 0.9 -- radians of rim left glowing behind the arm
 
--- ── The wash pad (Config/Liquids) ───────────────────────────────────────
+-- ── The fluid spin (Config/Liquids) ─────────────────────────────────────
 --
--- Stepping onto the pad IS the roll — it fires off StationService's entry edge, not
--- off a button in a panel, because "step on it and something happens" is the whole
--- charm and a confirmation dialog would kill it.
+-- Press E on the fluid bottle beside the tub and a spin plays on your screen, landing
+-- on a fluid (build/Plots.buildFluidBottle, Services/LiquidService, the client's
+-- LiquidController). It replaced the wash pad's paid step-on roll, on request.
 --
--- WHICH MEANS THE COST IS THE ONLY THING STOPPING AN INFINITE RE-ROLL. A free pad is
--- farmed: you hop on and off until Stardust lands, and every number in Liquids.luau
--- becomes decoration. The fee is what makes the Luck button an actual purchase —
--- better odds per dollar spent — rather than a formality you buy once for completeness.
--- Deliberately FLAT rather than scaling with luck or with rolls-this-session: a
--- scaling fee punishes the player who engages with the mechanic most, and `charges`
--- already limits how much value a good roll can be turned into.
---
--- The cooldown is not a balance lever, it is a debounce. Walking on and off the pad
--- repeatedly would otherwise fire one roll per crossing, and the reveal animation is
--- roughly this long, so a second roll landing mid-reveal reads as a dropped one.
---
--- 80, NOT 170, AND Util/Spec IS WHY. A Common sells for 35-170, so a fee up near the
--- top of that band meant the pad cost a brand-new player their single best find per
--- pull -- and a mechanic nobody can afford to try is a mechanic nobody discovers. At
--- 80 it is roughly half a mid Common: cheap enough to be the first thing a new player
--- spends money on, and still non-zero, which is all the fee has to be. It is irrelevant
--- either way to a rich player, whose real limiter is `charges`, never cash.
--- (Economy rescale: was 12 against the old 5-25 Common band; 12 * 20/3 ~= 80.)
-Tuning.LIQUID_ROLL_COST = 80
-Tuning.LIQUID_ROLL_COOLDOWN = 3 -- seconds between rolls, per player
+-- FREE, AND THE COOLDOWN IS THE ONLY THING STOPPING AN INFINITE RE-SPIN. The pad used
+-- to charge $80 a roll with a 3s debounce; the user asked for a free spin on a longer
+-- cooldown instead. A minute is long enough that you go and do something between
+-- spins -- dig, wash, sell -- rather than standing at the bottle mashing E until
+-- Stardust lands, and short enough that a spin is always nearly ready when you get
+-- home. `charges` still limits how much value one good spin can be turned into.
+Tuning.LIQUID_SPIN_COOLDOWN = 60 -- seconds between spins, per player
 
--- Charges stack when you roll the same liquid twice, up to this multiple of the
--- liquid's own `charges`. Without a ceiling, an idle player parked on the pad
--- accumulates an unbounded Stardust supply and the pad stops being somewhere you
--- ever need to go back to — which is the exact failure the charge system exists to
--- prevent. Five rolls' worth is generous enough that nobody hits it by accident.
+-- How long the spin runs on screen before it lands. The bottle recolours when it
+-- lands, not when the server rolls, so the reveal is not spoilt by the world behind
+-- the popup. Spec pins it under the cooldown.
+Tuning.LIQUID_SPIN_SECONDS = 4
+
+-- Charges stack when you spin the same liquid twice, up to this multiple of the
+-- liquid's own `charges`. Without a ceiling, a player who spins every minute for an
+-- hour accumulates an unbounded Stardust supply and the bottle stops being somewhere
+-- you ever need to go back to — which is the exact failure the charge system exists
+-- to prevent. Five spins' worth is generous enough that nobody hits it by accident.
 Tuning.LIQUID_MAX_STACK = 5
 
 Tuning.DIRTY_SELL_MULTIPLIER = 0.20

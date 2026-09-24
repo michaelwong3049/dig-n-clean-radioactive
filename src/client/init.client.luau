@@ -22,7 +22,7 @@ local ORDER = {
 	"ShopController", -- the Shop tile, stacked below the Index tile, and the Robux shop panel it opens
 	"LuckBoostController", -- the 2x-luck clover (bottom right), the Violet Aurora banner + lights; opens the Shop
 	"CashController", -- the persistent cash badge; top-left, reads CashState
-	"LiquidController", -- the loaded-liquid readout on the wash pad; reads LiquidState + PlotState
+	"LiquidController", -- the fluid spin popup; reads FluidSpin
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState
 	"TreadmillController", -- the speed-training card and the belt's own motion; reads SpeedState
 	"StationMotionController", -- base machines moving on their own: fans, dial, gauge needle, tub ripples, screen pulse

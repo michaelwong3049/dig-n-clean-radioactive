@@ -45,8 +45,12 @@ Kit.UPGRADE_TAG = "Upgrade"
 --- optional tier, and there is no track here to name. TreadmillService scans this the
 --- same way, for the same "a console can never exist un-wired" reason.
 Kit.TREADMILL_TAG = "TreadmillUpgrade"
+--- Anything with a `SpinsFluid` attribute: the fluid bottle beside each plot's tub.
+--- LiquidService scans this tag to wire the bottle's spin prompt, for the same "can
+--- never exist un-wired" reason as the two tags above.
+Kit.FLUID_TAG = "FluidSpin"
 --- Anything a machine does on its own while you watch it: a pump's gauge needle, a
---- fan in a treadmill cowl, the ticks round the wash pad's dial, the ripples on a tub.
+--- fan in a treadmill cowl, the ripples on a tub.
 --- StationMotionController animates these client-side from the attributes `Kit.motion`
 --- stamps, so the server never moves a part and nothing crosses the wire per frame.
 --- A world built before the tag existed simply has nothing tagged and stands still.
@@ -429,6 +433,9 @@ function Kit.build(parent: Instance, origin: CFrame, spec: Spec): BasePart
 	end
 	if p:GetAttribute("UpgradesTreadmill") == true then
 		CollectionService:AddTag(p, Kit.TREADMILL_TAG)
+	end
+	if p:GetAttribute("SpinsFluid") == true then
+		CollectionService:AddTag(p, Kit.FLUID_TAG)
 	end
 
 	p.Parent = parent

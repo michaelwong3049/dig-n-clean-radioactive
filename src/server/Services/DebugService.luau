@@ -501,16 +501,16 @@ COMMANDS["/liquid"] = {
 }
 
 COMMANDS["/odds"] = {
-	help = "/odds — the wash pad's table at your current luck",
+	help = "/odds — the fluid spin's table at your current luck",
 	run = function(player)
 		local data = DataService.data(player)
 		if data == nil then
 			return "your profile hasn't loaded yet"
 		end
 
-		-- Reads Liquids.oddsAt, the SAME function LiquidService rolls against and the
-		-- panel displays. This command is only useful if it cannot disagree with
-		-- either, which is exactly why none of the three has its own copy.
+		-- Reads Liquids.oddsAt, the SAME function LiquidService's spin rolls against.
+		-- This command is only useful if it cannot disagree with it, which is exactly
+		-- why neither has its own copy.
 		local stats = StatResolver.get(data)
 		local odds = Liquids.oddsAt(stats.luckMultiplier)
 		local level = data.gear.luck or 1

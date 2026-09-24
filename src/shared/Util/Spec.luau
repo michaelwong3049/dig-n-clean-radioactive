@@ -1073,12 +1073,13 @@ function Spec.run(): boolean
 	end
 	check("§6 every luck purchase is both luckier and pricier than the last", luckAscending)
 
-	-- A ROLL MUST BE WORTH LESS THAN WHAT IT CLEANS. The pad charges cash per roll and
-	-- pays in charges; if a roll ever costs more than the cheapest item in the game is
-	-- worth, the pad is a trap for exactly the players with the least money.
+	-- THE SPIN MUST LAND BEFORE THE NEXT ONE IS ALLOWED. The fluid spin is free and
+	-- the cooldown is its only limiter (Tuning's fluid-spin block); a cooldown shorter
+	-- than the on-screen spin would let a second spin start under the first one's
+	-- reveal, and the bottle would recolour out of order.
 	check(
-		string.format("§6 a roll ($%d) costs less than a Common sells for ($%d)", Tuning.LIQUID_ROLL_COST, Rarity.get("Common").maxValue),
-		Tuning.LIQUID_ROLL_COST < Rarity.get("Common").maxValue
+		string.format("§6 the fluid spin (%ds) lands inside its own cooldown (%ds)", Tuning.LIQUID_SPIN_SECONDS, Tuning.LIQUID_SPIN_COOLDOWN),
+		Tuning.LIQUID_SPIN_SECONDS < Tuning.LIQUID_SPIN_COOLDOWN
 	)
 
 	-- PLAN §2 step 1 — the reveal. These are the checks that catch someone "fixing"
