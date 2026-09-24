@@ -16,7 +16,7 @@
 	HIDDEN INSIDE A STAGE. It is a safe-zone wayfinding aid, not a HUD element — once
 	you step into a field there is nothing to navigate to and the sky-high AlwaysOnTop
 	marker would just hang in view over the hazard. Toggled off `ExposureState.stageId`
-	(nil = safe zone), the exact signal WarpController uses to hide its BASE/SHOPS bar.
+	(nil = safe zone), the exact signal WarpController uses to hide its HOME/SHOPS bar.
 
 	A WORLD-SPACE BillboardGui PARENTED TO THE PAD, not a ScreenGui — same choice
 	NameTagController makes for the overhead name. It rides the plot slab, so a

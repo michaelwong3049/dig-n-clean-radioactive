@@ -426,7 +426,8 @@ local function build(): ScreenGui
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	-- The button: a small gear, top-RIGHT corner — clear of the top-centre warp bar
-	-- (WarpController) and the full bottom-left dock column.
+	-- (WarpController) and the full bottom-left dock column. The right-edge tile column
+	-- keeps below it on short screens (Dock.CORNER_BUTTON_BOTTOM is its 12 + 44).
 	local canvas = UIKit.canvas(gui)
 
 	local button = UIKit.button(canvas, {

@@ -163,22 +163,25 @@ local REMOTES: { [string]: string } = {
 	-- stands from the bag). No uid, no slot: the server picks everything.
 	NukeAction = "RemoteEvent", -- client -> server, "list" | "equipBest"
 
-	-- The top-of-screen "getting around" bar (client WarpController). The client
-	-- sends only a destination NAME -- { dest = "base" | "shops" } -- never a
-	-- position, and WarpService re-derives the CFrame server-side, exactly the way
-	-- DigService re-derives which signal a yank means. It is REFUSED from inside a
-	-- stage (StageService.stageOf ~= nil) so it can never be an escape hatch out of a
-	-- lethal field; the bar hides itself there too, so that path is edge-only. A site
-	-- camp's key (Config/Camps, e.g. "twilight") is also a destination, refused until
-	-- the player has reached that camp on foot once.
+	-- "Getting around": the top-of-screen HOME / SHOPS portals (client WarpController)
+	-- and the Warp tile's camp list (client CampWarpController). The client sends only
+	-- a destination NAME -- { dest = "base" | "shops" } -- never a position, and
+	-- WarpService re-derives the CFrame server-side, exactly the way DigService
+	-- re-derives which signal a yank means. It is REFUSED from inside a stage
+	-- (StageService.stageOf ~= nil) so it can never be an escape hatch out of a lethal
+	-- field; the bar hides itself there and the camp list greys out, so that path is
+	-- edge-only. A site camp's key (Config/Camps, e.g. "twilight") is also a
+	-- destination, refused until the player has reached that camp on foot once.
 	Warp = "RemoteEvent", -- client -> server, { dest = "base" | "shops" | <camp key> }
 	--
 	-- Which site camps this player has reached on foot (so their warp is unlocked) and
 	-- which exist in this world at all (a place saved before the camp was built has no
-	-- CampAnchor to land on, so the button must not show). Change-driven: once on load,
+	-- CampAnchor to land on, so its Warp-panel row must not show). Change-driven: once on load,
 	-- then whenever either set moves. `unlocked` names a camp reached THIS push, so the
-	-- banner can say so exactly once. Services/CampService.
-	CampState = "RemoteEvent", -- server -> client, { reached, available, unlocked? }
+	-- banner can say so exactly once. Services/CampService. A client may also fire it
+	-- EMPTY to ask for a fresh push: a push that lands before any listener is queued for
+	-- the first controller to connect only (StageBanner), so the Warp panel asks.
+	CampState = "RemoteEvent", -- server -> client, { reached, available, unlocked? }; client -> server, (nothing)
 
 	-- Which physical plot this player was assigned this session, so the client can
 	-- mark it (client BaseMarkerController's "YOUR BASE" avatar beacon). Server ->

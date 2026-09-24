@@ -31,6 +31,7 @@
 	and blows the result up to fill whatever screen it is actually on.
 ]]
 
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
@@ -57,8 +58,8 @@ UIKit.C = {
 	-- shared table named "white" invites some future caller to grab it for an
 	-- unrelated highlight and quietly break the rule the original comment protected.
 	burn = Color3.fromHex("FFFFFF"),
-	-- The dark navigation cards: WarpController's BASE / SHOPS and IndexController's
-	-- Index tile. Neutral near-black on purpose, so the white logo each one
+	-- The dark navigation cards: the right-edge tiles (Index, Shop, Nukes, Warp).
+	-- Neutral near-black on purpose, so the white logo each one
 	-- carries is the only thing on it with any colour. `navIcon` is that logo at rest;
 	-- it goes to pure white on hover.
 	navFill = Color3.fromRGB(18, 20, 24),
@@ -645,15 +646,36 @@ Dock.METER_TOP_Y = Dock.SIDE_TOP_Y + Dock.CASH_SIZE.Y.Offset + Dock.GAP + Dock.S
 -- ...and the shortest design screen that line is used on. Below it the hang stops
 -- working in both directions: the readout climbs into it as the screen shortens, and
 -- under ~460 the tile rises into the Settings gear in the corner above. So a shorter
--- screen gets the tile back on the vertical centre, where the old pill sat and where
--- both leave it room. Every screen the HUD scales up on is DESIGN_SCREEN.Y (720) tall
+-- screen gets the whole tile column back on the vertical centre (Dock.sideColumnTop),
+-- where both leave it room. Every screen the HUD scales up on is DESIGN_SCREEN.Y (720) tall
 -- or more in design pixels, so this only bites on a small window or a phone, where
 -- the MIN_SCALE floor leaves the design canvas shorter than that.
 Dock.SIDE_TOP_MIN_HEIGHT = 700
 
--- The Index and Shop tiles on the right edge (IndexController / ShopController): one
--- square size for both, and what the haul widget measures its clearance against.
+-- The square tiles on the right edge (Index, Shop, Nukes, Warp -- top to bottom): one
+-- size for all, and what the haul widget measures its clearance against.
 Dock.SIDE_TILE_SIZE = 80
+-- How many of them hang in that column, one Dock.GAP apart.
+Dock.SIDE_TILE_COUNT = 4
+-- The Settings gear's bottom edge in the top-right corner (SettingsController: 12 down,
+-- 44 tall), measured from the bottom of the topbar inset, not the screen top.
+Dock.CORNER_BUTTON_BOTTOM = 56
+
+--- The right-hand tile column's TOP edge (the Index tile's), in design px from the
+--- vertical centre of a canvas `height` design px tall. Hung from SIDE_TOP_Y on a tall
+--- enough screen; below SIDE_TOP_MIN_HEIGHT the WHOLE column is centred instead, so the
+--- bottom tile stays clear of the hotbar and a touch screen's jump button -- but never
+--- so high that the Index tile runs up into the Settings gear above it. Every tile in
+--- the column places itself from this one line.
+function Dock.sideColumnTop(height: number): number
+	if height >= Dock.SIDE_TOP_MIN_HEIGHT then
+		return Dock.SIDE_TOP_Y
+	end
+	local column = Dock.SIDE_TILE_COUNT * Dock.SIDE_TILE_SIZE + (Dock.SIDE_TILE_COUNT - 1) * Dock.GAP
+	local inset = GuiService:GetGuiInset().Y / UIKit.scale()
+	local underGear = inset + Dock.CORNER_BUTTON_BOTTOM + Dock.GAP - height / 2
+	return math.max(-column / 2, underGear)
+end
 
 -- The dock's total reserved height with no card open. Nothing anchors against it today
 -- — StationController and IndexController both centre their panels on the screen itself

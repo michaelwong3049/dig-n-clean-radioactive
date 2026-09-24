@@ -27,8 +27,8 @@
 	top of whatever model is on the plinth, so a GIGA roll carries its card up with it
 	instead of swallowing a card pinned at one height.
 
-	PRIMITIVES ONLY, NO UPLOADED ART. The tails' notches are horizontal strips (the
-	WarpIcons trick: a triangle without masking the world behind it), the coin is
+	PRIMITIVES ONLY, NO UPLOADED ART. The tails' notches are horizontal strips (a
+	triangle without masking the world behind it), the coin is
 	CashController's coin in miniature, and the lock is three rounded frames.
 ]]
 
