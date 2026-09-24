@@ -10,8 +10,9 @@
 	     SpeedController's copy of SpeedState — the same number the HUD badge counts, so
 	     the two can never disagree — and computes no part of the curve itself.
 
-	  2. THE MACHINE. The belt's slats scroll and its rollers turn while a session is
-	     live, and the character plays its own run animation on the spot. All of it is
+	  2. THE MACHINE. Every belt near the camera scrolls its chevrons and turns its
+	     rollers all the time, and while you train the character plays its own run
+	     animation on the spot. All of it is
 	     LOCAL: the parts moved here are cosmetic children of a server-built model (see
 	     build/Plots.buildTreadmill — the Belt part itself, the one thing a service
 	     reads, is never touched), and nothing about the animation crosses the wire.
@@ -46,47 +47,16 @@ local Treadmill = {}
 --- enough not to strobe against the slat pitch at 60fps.
 local BELT_SPEED = 9
 
---- How far from the character we will look for the belt they are standing on. The
---- station radius is 5 and the machine is 10 studs long, so anything inside 9 of the
---- root is the one they are on; nothing else on a plot is named "Belt".
-local BELT_SEARCH = 9
+--- Belts further than this from the camera are left still. Far enough that the one
+--- across the plot you are looking at runs, near enough that the other five bases in
+--- the ring are not all scrolling for nobody.
+local ANIM_RANGE = 90
+local RANGE_REFRESH = 0.5
 
 local ui: any = {}
 local shown = false
 
---- The parts we are animating this session, resolved once on arrival: the model, its
---- slats and their home positions. Cleared on departure, which is also what puts
---- every slat back exactly where the server built it.
---- The belt, resolved into the terms the scroll needs, captured once at latch:
----
----   travel   the belt's own +Z in WORLD space. Every plot in the ring is yawed to face
----            the centre, so there is no shared axis to hardcode.
----   start    the world point at the belt's -Z end, which distances are measured from.
----   length   the belt's own length, and therefore the period of the whole pattern.
----
---- Each chevron keeps `along` (how far down the belt it started) and `lateral` (its
---- offset across and above the belt, which never changes). Scrolling is then "advance
---- `along`, wrap it modulo `length`, rebuild the position" — the chevron cannot walk
---- off the end of the belt, because the wrap is in belt space rather than a global
---- offset that everything shares.
----
---- IT IS NOT `home * CFrame.new(0, 0, -d)`, which is what this did first. That offsets
---- each part along its OWN axis, and the two arms of a chevron are yawed ~53 degrees
---- apart — so instead of the pattern moving down the belt, every chevron slid apart
---- into a diagonal streak.
-local machine: {
-	model: Instance?,
-	slats: { { part: BasePart, home: CFrame, along: number, lateral: Vector3 } },
-	rollers: { { part: BasePart, home: CFrame } },
-	travel: Vector3,
-	start: Vector3,
-	length: number,
-} = { model = nil, slats = {}, rollers = {}, travel = Vector3.zero, start = Vector3.zero, length = 0 }
-
 local runTrack: AnimationTrack? = nil
-local travelled = 0
---- How far the belt surface has run this session, unwrapped -- the rollers turn by it.
-local rolled = 0
 
 -- ── The card ──────────────────────────────────────────────────────────────
 
@@ -280,118 +250,148 @@ local function show(visible: boolean)
 end
 
 -- ── The machine ───────────────────────────────────────────────────────────
+--
+-- EVERY BELT IN RANGE RUNS, ALL THE TIME. It used to scroll only the belt the local
+-- player was training on; on request the tread now moves on every treadmill near the
+-- camera, so a base reads as a working machine whether or not anyone is on it. Still
+-- purely local and purely cosmetic -- the `Belt` part a service reads is never moved.
 
---- The treadmill model the local character is standing on, or nil. Found by distance
---- rather than by plot index on purpose: you can train on anyone's belt, so "which
---- plot is mine" is the wrong question to ask here.
-local function findMachine(): Instance?
-	local character = Players.LocalPlayer.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if root == nil or not root:IsA("BasePart") then
-		return nil
-	end
-	local plots = Workspace:FindFirstChild("Plots")
-	if plots == nil then
-		return nil
-	end
+--- One belt, resolved into the terms the scroll needs, captured once per model:
+---
+---   travel   the belt's own +Z in WORLD space. Every plot in the ring is yawed to face
+---            the centre, so there is no shared axis to hardcode.
+---   start    the world point at the belt's -Z end, which distances are measured from.
+---   length   the belt's own length, and therefore the period of the whole pattern.
+---
+--- Each chevron keeps `along` (how far down the belt it started) and `lateral` (its
+--- offset across and above the belt, which never changes). Scrolling is then "advance
+--- `along`, wrap it modulo `length`, rebuild the position" — the chevron cannot walk
+--- off the end of the belt, because the wrap is in belt space.
+---
+--- IT IS NOT `home * CFrame.new(0, 0, -d)`. That offsets each part along its OWN axis,
+--- and the two arms of a chevron are yawed ~53 degrees apart — so instead of the
+--- pattern moving down the belt, every chevron slid apart into a diagonal streak.
+type Machine = {
+	slats: { { part: BasePart, home: CFrame, along: number, lateral: Vector3 } },
+	rollers: { { part: BasePart, home: CFrame } },
+	travel: Vector3,
+	start: Vector3,
+	length: number,
+	centre: Vector3,
+}
 
-	local best, bestDistance = nil, BELT_SEARCH * BELT_SEARCH
-	for _, plot in plots:GetChildren() do
-		local model = plot:FindFirstChild("Treadmill", true)
-		local belt = model and model:FindFirstChild("Belt", true)
-		if belt and belt:IsA("BasePart") then
-			local distance = (belt.Position - root.Position).Magnitude
-			if distance * distance < bestDistance then
-				best, bestDistance = model, distance * distance
-			end
-		end
-	end
-	return best
-end
+--- Resolved machines, by model. Weak keys: a plot rebuilt mid-session drops its old
+--- model and this lets go of it.
+local machines: { [Instance]: Machine } = setmetatable({}, { __mode = "k" }) :: any
+--- The ones currently near enough to animate, refreshed every RANGE_REFRESH seconds.
+local active: { Machine } = {}
+local sinceRefresh = math.huge
+--- How far the belt surface has run, unwrapped. One clock for every belt: they all
+--- run at the same speed, so there is nothing per-machine to keep.
+local travelled = 0
 
---- Latch onto a machine: cache its slats' home CFrames so the scroll below is always
---- an offset from where the SERVER put them, never from wherever they drifted to.
---- That is what makes `release` exact rather than approximately exact.
-local function latch()
-	local model = findMachine()
-	if model == nil then
-		return
-	end
+local function resolve(model: Instance): Machine?
 	local belt = model:FindFirstChild("Belt", true)
 	if belt == nil or not belt:IsA("BasePart") then
-		return -- a place file built before the belt existed; the card still works
+		return nil -- not streamed in yet, or a world built before the belt existed
 	end
-
-	machine.model = model
 	-- LookVector is the part's -Z, so negating it gives the +Z the chevrons scroll
 	-- toward: backwards under a runner who is facing -Z, which is the way a real belt
 	-- moves. Size.Z is the long axis because the builder sizes it {width, _, length}.
-	machine.travel = -belt.CFrame.LookVector
-	machine.length = belt.Size.Z
-	machine.start = belt.Position - machine.travel * (machine.length / 2)
-
+	local travel = -belt.CFrame.LookVector
+	local length = belt.Size.Z
+	local start = belt.Position - travel * (length / 2)
+	local machine: Machine = {
+		slats = {},
+		rollers = {},
+		travel = travel,
+		start = start,
+		length = length,
+		centre = belt.Position,
+	}
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			if part.Name == "Slat" then
-				local rel = part.Position - machine.start
-				local along = rel:Dot(machine.travel)
-				table.insert(machine.slats, {
-					part = part,
-					home = part.CFrame,
-					along = along,
-					lateral = rel - machine.travel * along,
-				})
+				local rel = part.Position - start
+				local along = rel:Dot(travel)
+				table.insert(machine.slats, { part = part, home = part.CFrame, along = along, lateral = rel - travel * along })
 			elseif part.Name == "Roller" then
 				table.insert(machine.rollers, { part = part, home = part.CFrame })
 			end
 		end
 	end
-	travelled = 0
-	rolled = 0
+	if #machine.slats == 0 then
+		return nil -- slats still streaming in; try again on the next refresh
+	end
+	return machine
 end
 
-local function release()
-	for _, slat in machine.slats do
-		slat.part.CFrame = slat.home
-	end
-	for _, roller in machine.rollers do
-		roller.part.CFrame = roller.home
-	end
-	machine.model = nil
-	machine.travel = Vector3.zero
-	machine.start = Vector3.zero
-	machine.length = 0
-	table.clear(machine.slats)
-	table.clear(machine.rollers)
-	travelled = 0
-	rolled = 0
-end
-
---- Run every chevron down the belt, wrapping each one at the belt's far end. Rollers
---- spin about their own long axis -- a Cylinder's axis is its local X, so the turn is
---- about X. It was about Z, which swung each five-stud drum end over end like a
---- propeller, up through the belt. The angle is rebuilt from `rolled` rather than
---- accumulated onto the CFrame, so it cannot drift, and at the belt's own surface
---- speed (radius 0.35) the drum's top moves with the tread, toward +Z.
----
---- `home.Rotation + position` keeps each arm's authored yaw and moves only where it
---- sits — see `machine` for why composing CFrames here is wrong. The pattern is
---- seamless because build/Plots lays the chevrons at a pitch that divides the belt
---- length exactly, so a chevron that wraps lands precisely where its neighbour was.
-local function animate(dt: number)
-	if machine.model == nil or machine.length <= 0 then
+--- Re-pick the belts near the camera. Cheap (six plots), and twice a second is far
+--- more often than anyone crosses ANIM_RANGE.
+local function refreshActive()
+	table.clear(active)
+	local camera = Workspace.CurrentCamera
+	local plots = Workspace:FindFirstChild("Plots")
+	if camera == nil or plots == nil then
 		return
 	end
-	travelled = (travelled + BELT_SPEED * dt) % machine.length
-	rolled += BELT_SPEED * dt
-
-	for _, slat in machine.slats do
-		local along = (slat.along + travelled) % machine.length
-		slat.part.CFrame = slat.home.Rotation + (machine.start + machine.travel * along + slat.lateral)
+	local eye = camera.CFrame.Position
+	for _, plot in plots:GetChildren() do
+		local model = plot:FindFirstChild("Treadmill", true)
+		if model == nil then
+			continue
+		end
+		local machine = machines[model]
+		if machine and machine.slats[1].part.Parent == nil then
+			machine = nil -- streamed out and back in as new parts; resolve them afresh
+		end
+		if machine == nil then
+			machine = resolve(model)
+			if machine == nil then
+				continue
+			end
+			machines[model] = machine
+		end
+		if (machine.centre - eye).Magnitude <= ANIM_RANGE then
+			table.insert(active, machine)
+		end
 	end
-	for _, roller in machine.rollers do
-		local radius = math.max(roller.part.Size.Y / 2, 0.05)
-		roller.part.CFrame = roller.home * CFrame.Angles((rolled / radius) % (2 * math.pi), 0, 0)
+end
+
+--- Run every chevron down its belt, wrapping at the far end, and turn the drums. The
+--- rollers spin about their own long axis -- a Cylinder's axis is its local X, so the
+--- turn is about X. The angle is rebuilt from `travelled` rather than accumulated onto
+--- the CFrame, so it cannot drift, and at the belt's own surface speed the drum's top
+--- moves with the tread.
+---
+--- `home.Rotation + position` keeps each arm's authored yaw and moves only where it
+--- sits. The pattern is seamless because build/Plots lays the chevrons at a pitch
+--- that divides the belt length exactly, so a chevron that wraps lands precisely
+--- where its neighbour was.
+local function animate(dt: number)
+	sinceRefresh += dt
+	if sinceRefresh >= RANGE_REFRESH then
+		sinceRefresh = 0
+		refreshActive()
+	end
+	if #active == 0 then
+		return
+	end
+	travelled += BELT_SPEED * dt
+
+	for _, machine in active do
+		local offset = travelled % machine.length
+		for _, slat in machine.slats do
+			if slat.part.Parent == nil then
+				continue -- streamed out under us; the next resolve picks up the new one
+			end
+			local along = (slat.along + offset) % machine.length
+			slat.part.CFrame = slat.home.Rotation + (machine.start + machine.travel * along + slat.lateral)
+		end
+		for _, roller in machine.rollers do
+			local radius = math.max(roller.part.Size.Y / 2, 0.05)
+			roller.part.CFrame = roller.home * CFrame.Angles((travelled / radius) % (2 * math.pi), 0, 0)
+		end
 	end
 end
 
@@ -436,7 +436,6 @@ end
 --- `startRunning` reloads from whatever rig exists at the time.
 local function onCharacter()
 	runTrack = nil
-	release()
 end
 
 -- ── Wiring ────────────────────────────────────────────────────────────────
@@ -447,18 +446,16 @@ function Treadmill.start()
 	Speed.onChanged(function(view, previous)
 		local wasTraining = previous ~= nil and previous.training
 		if view.training and not wasTraining then
-			latch()
 			startRunning()
 			show(true)
 		elseif not view.training and wasTraining then
-			release()
 			stopRunning()
 			show(false)
 		end
 	end)
 
-	-- One connection for the life of the session, and it does nothing at all unless a
-	-- machine is latched or the card is up. Connecting and disconnecting per session
+	-- One connection for the life of the session, and it does next to nothing unless a
+	-- belt is near the camera or the card is up. Connecting and disconnecting per session
 	-- would be the same work plus a leak the first time an edge is missed — and the
 	-- client bootstrap never calls a `stop` on anything, so there would be nowhere
 	-- honest to undo it.
