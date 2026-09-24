@@ -200,7 +200,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 56
+local BUILDER_VERSION = 57
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1956,19 +1956,22 @@ Plots.buildCleansingStation = buildCleansingStation
 --- is no fee and no first-roll-free special case. While it runs, the prompt's own
 --- ActionText counts down, so the answer to "why won't it spin" is on the bottle.
 ---
---- IN THE LOCKER'S OLD SPOT. The Quarantine Locker moved back toward the stand grid
---- to make room (buildQuarantineLocker), so the bottle stands right behind the tub on
---- the +X side, inside the accent trim at x ~= 32. Round, so it needs no pivot: every
---- part below is written straight in plot space.
+--- RIGHT NEXT TO THE TUB, on request. The table stands against the tub's +Z face
+--- (the rim's flat side at z ~= -27.8), a few tenths of a stud off it, so tub and
+--- bottle read as one station. That side is free: the gantry posts are at x ~= 30,
+--- the hose rig and pump are off the -Z end, and the player washes from the -X side
+--- (WashSpot, plot (20, -32)). Nothing reaches over the tub (crust-fills-the-wash-bay).
+--- Round, so it needs no pivot: every part below is written straight in plot space.
 ---
---- THE PROMPT SHARES E WITH THE TUB'S "Wash" PROMPT, on a different part ~10 studs
+--- THE PROMPT SHARES E WITH THE TUB'S "Wash" PROMPT, on a different part ~6 studs
 --- away. A prompt's default Exclusivity is OnePerButton -- Roblox shows one E prompt
---- at a time, whichever you are nearest -- so walking up to the bottle offers the
---- spin and walking up to the tub offers the wash. (The known-unreliable case is two
---- prompts on the SAME part; this is two parts.)
+--- at a time, whichever you are nearest -- so standing at the table offers the spin
+--- and standing at the tub offers the wash. The bottle's reach is kept short (6) so
+--- the wash spot is well outside it. (The known-unreliable case is two prompts on the
+--- SAME part; this is two parts.)
 local BOTTLE = {
-	x = 29,
-	z = -22.5,
+	x = 26,
+	z = -26.1,
 }
 
 local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string)
@@ -1985,7 +1988,7 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 	-- beside a raised machine. Studded, in the display plinths' pair of greys: a thick
 	-- top on four square legs.
 	local TOP_Y = T + 2.3
-	local TOP_W, TOP_H, LEG_W = 3.4, 0.4, 0.5
+	local TOP_W, TOP_H, LEG_W = 2.8, 0.4, 0.45
 	build(m, origin, { name = "TableTop", pos = { bx, TOP_Y - TOP_H / 2, bz }, size = { TOP_W, TOP_H, TOP_W }, color = FACE, material = "Plastic", studs = true })
 	local legH = TOP_Y - TOP_H - T
 	local legOff = TOP_W / 2 - LEG_W / 2 - 0.15
@@ -2002,10 +2005,10 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 	-- A low stretcher between the legs, so the table stands braced rather than on stilts.
 	build(m, origin, { name = "TableShelf", pos = { bx, T + 0.55, bz }, size = { TOP_W - 0.5, 0.2, TOP_W - 0.5 }, color = BODY, material = "Plastic", studs = true, canCollide = false })
 
-	-- SMALLER, on request: the bottle is the old one scaled by S, so every proportion
-	-- (fill, shoulder, neck, cap) is kept and only the size changes. `at(v)` is a height
-	-- in the old full-size bottle's units above the tabletop.
-	local S = 0.55
+	-- SMALLER, on request (twice): the bottle is the original one scaled by S, so every
+	-- proportion (fill, shoulder, neck, cap) is kept and only the size changes. `at(v)`
+	-- is a height in the original full-size bottle's units above the tabletop.
+	local S = 0.4
 	local baseY = TOP_Y
 	local function at(v: number): number
 		return baseY + v * S
@@ -2026,7 +2029,7 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 		transparency = 0.05,
 		canCollide = false,
 	})
-	light(fill, water, 6, 0.35, false)
+	light(fill, water, 5, 0.35, false)
 
 	-- The glass: a near-clear neutral, NOT C.glass, whose blue tint would shift the
 	-- colour you came to read (the same call the wash pad's specimen jars made).
@@ -2086,7 +2089,7 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 	})
 
 	-- Bubbles rising through the fill: speed x lifetime tops out under the fill's own
-	-- height (~1.8 studs), so none climbs into the empty headspace.
+	-- height (~1.3 studs), so none climbs into the empty headspace.
 	local source = carrier(m, origin, "BottleBubbles", { bx, at(0.3), bz }, { 2 * S, 0.05, 2 * S })
 	local bubbles = Instance.new("ParticleEmitter")
 	bubbles.Name = "Bubbles"
@@ -2096,11 +2099,11 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 	bubbles.EmissionDirection = Enum.NormalId.Top
 	bubbles.Rate = 3
 	bubbles.Lifetime = NumberRange.new(2.0, 2.3)
-	bubbles.Speed = NumberRange.new(0.6, 0.65)
+	bubbles.Speed = NumberRange.new(0.45, 0.5)
 	bubbles.SpreadAngle = Vector2.new(8, 8)
 	bubbles.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.06),
-		NumberSequenceKeypoint.new(1, 0.12),
+		NumberSequenceKeypoint.new(0, 0.05),
+		NumberSequenceKeypoint.new(1, 0.09),
 	})
 	bubbles.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0.3),
@@ -2115,14 +2118,14 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 	prompt.ActionText = "Spin Fluid"
 	prompt.ObjectText = "Fluid Bottle"
 	prompt.HoldDuration = 0.3
-	prompt.MaxActivationDistance = 9
+	prompt.MaxActivationDistance = 6
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = bottle
 
 	-- Plain Water until somebody owns the plot; ExhibitService.renderBottle writes the
 	-- owner's fluid over both lines the moment they do.
 	-- Offset from the body's centre to just over the cap.
-	accentBillboard(bottle, 230, 3.4, "PLAIN WATER", "spin for a better fluid", accent)
+	accentBillboard(bottle, 230, 2.6, "PLAIN WATER", "spin for a better fluid", accent)
 
 	m.Parent = parent
 end
@@ -2309,7 +2312,7 @@ local function buildLuckButton(parent: Instance, origin: CFrame)
 	m.Name = "LuckButton"
 	local pad = Plots.PAD
 	-- Between the entrance path (x ~= +-4) and the wash pump (x ~= 16), level with the
-	-- tub: ~22 studs from the bottle and ~16 from the tub's centre, and a long way from
+	-- tub: ~17 studs from the bottle and ~16 from the tub's centre, and a long way from
 	-- the treadmill console on the far (-X) side.
 	local bx, bz = 10, -33
 	local buttonY = pad.topY + 3
