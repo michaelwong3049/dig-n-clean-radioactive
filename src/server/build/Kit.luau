@@ -49,6 +49,10 @@ Kit.TREADMILL_TAG = "TreadmillUpgrade"
 --- LiquidService and the client's LiquidController find a plot's bottle by this tag
 --- (walking up to it opens the fluid panel).
 Kit.FLUID_TAG = "FluidSpin"
+--- Anything with a `BuysFloor` attribute (the floor number it sells): the sign at the
+--- foot of the next flight of stairs on a base (Plots.buildFloorSign). ExhibitService
+--- wires every one by this tag, for the same "can never exist un-wired" reason.
+Kit.FLOOR_TAG = "BuyFloor"
 --- Anything a machine does on its own while you watch it: a pump's gauge needle, a
 --- fan in a treadmill cowl, the ripples on a tub.
 --- StationMotionController animates these client-side from the attributes `Kit.motion`
@@ -436,6 +440,9 @@ function Kit.build(parent: Instance, origin: CFrame, spec: Spec): BasePart
 	end
 	if p:GetAttribute("SpinsFluid") == true then
 		CollectionService:AddTag(p, Kit.FLUID_TAG)
+	end
+	if p:GetAttribute("BuysFloor") ~= nil then
+		CollectionService:AddTag(p, Kit.FLOOR_TAG)
 	end
 
 	p.Parent = parent

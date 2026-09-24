@@ -118,14 +118,14 @@
 	until the pad was removed on request), with a deliberate safe gap between
 	their station radii.
 
-	SLOTS: 12 BUILT, ALL FREE.
-	Tuning.EXHIBIT_MAX_SLOTS is 12 and VISIBLE_SLOTS is the 12 the grid above
-	shows — they're the same number. Every stand is usable from the moment a
-	plot is claimed; there is no slot to buy or unlock.
-
-	slotOffset only makes sense for exactly these 12 (3 columns x 4 rows) —
-	raising VISIBLE_SLOTS past 12 needs a real rule for where the extra
-	pedestals go.
+	FLOORS: THE GROUND 12 ARE FREE, AND UP TO TWO MORE STOREYS ARE BOUGHT.
+	A base can be built up to Config/Floors.MAX = 3 floors. The ground floor's 12
+	stands are usable from the moment a plot is claimed; each floor bought on top
+	(Floors.PRICES, at the sign at the foot of the next flight of stairs) adds a
+	4 x 2 gallery of Floors.UPPER_SLOTS more. Slot numbers run on across floors:
+	1..12 are the ground grid above, 13..20 floor 2, 21..28 floor 3
+	(slotPlacement). Every plot is BUILT with all of its floors; ExhibitService
+	hides the ones its owner has not bought (Plots.setFloors) — see buildFloor.
 
 	THE WORLD CONTRACT:
 	    Pad         PlotIndex = n
@@ -175,6 +175,15 @@
 	                the Console's `Sign` billboard carries the speed and the bar.
 	                Both are written by ExhibitService.renderTreadmill, never by name
 	                from anywhere else.
+	    Floor<f>    Model, one per floor above the ground (f = 2..Floors.MAX): deck,
+	                pillars, the flight of stairs up to it, its railings and its
+	                Stand/StandTop/Display parts for slots Floors.firstSlot(f)... Moved
+	                in and out of ServerStorage by Plots.setFloors, never by name
+	                elsewhere.
+	    FloorSign<f>  Model; its SignBoard carries BuysFloor = f, PlotIndex = n and
+	                a ProximityPrompt — builds floor f. ExhibitService wires it by
+	                Kit.FLOOR_TAG and writes its billboard's Subtitle. Shown only on a
+	                claimed plot whose owner has exactly f - 1 floors.
 	    QuarantineLocker   no station attributes — a display cabinet. LockerSlot1..
 	                Plots.LOCKER_SLOTS are hidden item anchors; LockerDoor is a Model
 	                carrying ClosedPivot / OpenPivot CFrame attributes. Both are
@@ -186,9 +195,10 @@
 
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Shared = ReplicatedStorage.Shared
-local Tuning = require(Shared.Config.Tuning)
+local Floors = require(Shared.Config.Floors)
 local Liquids = require(Shared.Config.Liquids)
 local Treadmill = require(Shared.Config.Treadmill)
 local ToolModels = require(Shared.ToolModels)
@@ -198,7 +208,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 60
+local BUILDER_VERSION = 61
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -217,7 +227,10 @@ local function accentBillboard(part: BasePart, width: number, height: number, ti
 end
 
 Plots.COUNT = 6
-Plots.VISIBLE_SLOTS = 12
+-- Every stand built per base, across all of its floors (Config/Floors): the ground
+-- floor's 12 plus UPPER_SLOTS on each floor above. Floors a plot's owner has not
+-- bought are built too, and hidden at runtime (Plots.setFloors).
+Plots.VISIBLE_SLOTS = Floors.MAX_SLOTS
 
 --- The accent a CLAIMED plot wears until its owner picks one in Settings, by plot
 --- index. Most players never open Settings, and the gallery (arch caps, plinth bands,
@@ -552,6 +565,38 @@ local function slotOffset(slot: number): (number, number)
 	local row = math.floor((slot - 1) / #GRID_COLS)
 	return GRID_COLS[col + 1], GRID_ROWS[row + 1]
 end
+assert(#GRID_COLS * #GRID_ROWS == Floors.GROUND_SLOTS, "the ground grid must hold exactly Floors.GROUND_SLOTS stands")
+
+--- THE UPPER FLOORS' GALLERY — 4 columns x 2 rows (Floors.UPPER_SLOTS = 8), on every
+--- floor above the ground (see buildFloor). Pitch 13 across keeps the outer columns'
+--- plinths (edge at +/-23.95) clear of the stairwell guard rail at +/-25.5 on one side
+--- and the next flight's handrail at +/-26.4 on the other. The rows sit either side of
+--- the deck's middle, the front one well behind the deck's front rail.
+---
+--- Numbered the same way as the ground: left to right, back row first.
+local UPPER_COLS = { -19.5, -6.5, 6.5, 19.5 }
+local UPPER_ROWS = { 28, 6 }
+assert(#UPPER_COLS * #UPPER_ROWS == Floors.UPPER_SLOTS, "the upper grid must hold exactly Floors.UPPER_SLOTS stands")
+
+--- The top of `floor`'s deck — what a player on it stands on. Floor 1 is the pad.
+local function floorTopY(floor: number): number
+	return Plots.PAD.topY + (floor - 1) * Floors.HEIGHT
+end
+
+--- Where a slot's stand goes: plot-local x and z, and the top of the floor it stands
+--- on. Slots run on across floors (Config/Floors), so 1..12 are the ground grid above
+--- exactly as they always were, and everything past that is an upper floor's grid.
+local function slotPlacement(slot: number): (number, number, number)
+	local floor, i = Floors.floorOf(slot)
+	assert(floor ~= nil and i ~= nil, `slot {slot} is on no floor`)
+	if floor == 1 then
+		local x, z = slotOffset(i)
+		return x, z, floorTopY(1)
+	end
+	local col = (i - 1) % #UPPER_COLS
+	local row = math.floor((i - 1) / #UPPER_COLS)
+	return UPPER_COLS[col + 1], UPPER_ROWS[row + 1], floorTopY(floor)
+end
 
 --- THE DISPLAY STAND — a two-course studded riser on a waist-high plinth. The riser
 --- replaced the tall marble-and-slate column this used to be: a broad base course, a
@@ -636,10 +681,10 @@ local function buildSlotMarker(top: BasePart, accent: string)
 end
 
 local function buildDisplayStand(parent: Instance, origin: CFrame, index: number, slot: number, accent: string)
-	local pad = Plots.PAD
-	local ox, oz = slotOffset(slot)
+	-- `floorY` is the top of whichever floor this slot stands on (slotPlacement).
+	local ox, oz, floorY = slotPlacement(slot)
 	-- The riser stack's own foot: the plinth's top.
-	local lift = pad.topY + PLINTH.h
+	local lift = floorY + PLINTH.h
 	-- Every stand is usable from the start — there is no locked/dim state any more.
 	-- Base course darker than the top course and its frame, so the two courses read
 	-- as lit from above.
@@ -650,7 +695,7 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 	-- under the base course's overhang — the band is the plot colour at every stand.
 	build(parent, origin, {
 		name = "PlinthFoot",
-		pos = { ox, pad.topY + PLINTH.footH / 2, oz },
+		pos = { ox, floorY + PLINTH.footH / 2, oz },
 		size = { PLINTH.footW, PLINTH.footH, PLINTH.footW },
 		color = C.standGrey,
 		material = "Plastic",
@@ -658,7 +703,7 @@ local function buildDisplayStand(parent: Instance, origin: CFrame, index: number
 	})
 	build(parent, origin, {
 		name = "PlinthColumn",
-		pos = { ox, pad.topY + PLINTH.footH + (PLINTH.h - PLINTH.footH) / 2, oz },
+		pos = { ox, floorY + PLINTH.footH + (PLINTH.h - PLINTH.footH) / 2, oz },
 		size = { PLINTH.columnW, PLINTH.h - PLINTH.footH, PLINTH.columnW },
 		color = C.standGreyDark,
 		material = "Plastic",
@@ -2940,6 +2985,9 @@ local function buildNamePlate(parent: Instance, origin: CFrame, accent: string)
 		transparency = 1,
 		canCollide = false,
 	})
+	-- Where it floats over a one-floor base. Plots.setFloors lifts it a floor's height
+	-- per floor bought, so it keeps floating over the top deck instead of inside it.
+	anchor:SetAttribute("BaseCFrame", anchor.CFrame)
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "Plate"
@@ -3210,6 +3258,386 @@ local function buildEntranceArch(parent: Instance, origin: CFrame, accent: strin
 	m.Parent = parent
 end
 
+-- ── Upper floors (Config/Floors) ─────────────────────────────────────────────
+
+--- THE UPPER FLOORS — up to two more storeys stacked over the gallery, on request.
+---
+---   side view, looking along +X, all three floors bought:
+---
+---              ┌───────────── deck 3 ──────────────┐  T + 32
+---              │  [stand]  [stand]  [stand]  [stand]
+---              ├───────────── deck 2 ──────────────┤  T + 16
+---              │  [stand]  [stand]  [stand]  [stand]
+---   ═══════════╧═══════════════ pad ═══════════════╧  T
+---   entrance strip       (the ground gallery)
+---   (open to the sky)
+---
+--- A DECK COVERS THE GALLERY, NOT THE WHOLE PAD. It runs from FLOOR.front (just in
+--- front of the ground grid's front row) to the back edge, full width. The entrance
+--- strip in front of it — the tub, the bottle, the treadmill, the locker — stays open
+--- to the sky: the wash camera and the crust reach both assume nothing hangs over the
+--- tub (memory: crust-fills-the-wash-bay).
+---
+--- THE FLIGHTS ALTERNATE SIDES. The flight up from the ground climbs the -X side
+--- corridor (between the outer stand column and the fence), front to back; the flight
+--- up from floor 2 climbs the +X side the same way. Each deck has a stairwell hole
+--- over the flight that arrives at it, fenced on its inner edge (the guard rail) and
+--- open at the back, where you step off. You walk off the top of one flight, across
+--- the deck, and the next flight's foot is on the far side at the front.
+---
+--- EVERY FLOOR IS BUILT, AND HIDDEN AT RUNTIME. buildPlot builds Floor2..Floor<MAX>
+--- and a FloorSign per floor on every plot, so Studio shows the whole three-storey
+--- building. Plots.setFloors (called by ExhibitService) moves the ones a plot's owner
+--- has not bought out to ServerStorage and back; nothing here knows who owns what.
+---
+--- DECKS CAST NO SHADOW. A 66 x 55 deck over the gallery would put every stand under
+--- it in shade the moment a floor is bought, and a gallery is for looking at. The
+--- pillars and stairs still cast one, so the building does not read as floating.
+local FLOOR = {
+	front = -11, -- the decks' front edge (plot-local z); the ground grid's front plinths end at -10.45
+	thick = 1.2,
+	fascia = 0.6, -- the accent band round a deck's edge
+	stairX = 28.6, -- |x| of a flight's centre line: the side corridor past the outer stand column
+	stairW = 4.8,
+	stairZ = -9.6, -- where a flight's first step starts, just behind the deck's front rail
+	tread = 1.75,
+	rise = 1, -- Floors.HEIGHT steps of this, so a flight lands exactly on the next deck
+	openIn = 25.8, -- |x| of a stairwell's inner edge
+	openOut = 31.4, -- |x| of its outer edge; the ledge past it carries the side rail
+	-- Pillars stand on the fence line, at z's picked between BOTH rows of fence posts
+	-- (the ground's side railing and every deck's own), so a pillar never swallows a
+	-- post or shares a face with one.
+	pillarX = 32,
+	pillarW = 1.4,
+	pillarZ = { -5.3, 15, 39 },
+	handrails = { 2.0, 3.5 }, -- heights of a flight's two sloped rails over the step line
+	handPostH = 3.2,
+}
+local FLIGHT_STEPS = math.round(Floors.HEIGHT / FLOOR.rise)
+local FLIGHT_TOP_Z = FLOOR.stairZ + FLIGHT_STEPS * FLOOR.tread
+
+--- Which side (-1 = -X, +1 = +X) the flight climbing UP FROM `floor` runs up.
+local function flightSide(floor: number): number
+	return if floor % 2 == 1 then -1 else 1
+end
+
+--- One straight run of fence (posts + two rails) along x or along z, at deck height
+--- `y`. Unlike the ground's railings every piece COLLIDES: past the ground floor the
+--- other side of a rail is a drop. `skipStart`/`skipEnd` leave off an end post that
+--- another run already puts in the same spot (two identical posts z-fight).
+local function railRun(folder: Instance, origin: CFrame, y: number, x0: number, z0: number, x1: number, z1: number, skipStart: boolean?, skipEnd: boolean?)
+	local alongX = math.abs(x1 - x0) >= math.abs(z1 - z0)
+	local span = math.max(math.abs(x1 - x0), math.abs(z1 - z0))
+	local posts = math.max(2, math.ceil(span / RAIL_POST_SPACING) + 1)
+	local postH = RAIL_H + RAIL_BAR_T / 2 + 0.4
+	for _, railY in { RAIL_H, RAIL_H * 0.5 } do
+		build(folder, origin, {
+			name = "Rail",
+			pos = { (x0 + x1) / 2, y + railY, (z0 + z1) / 2 },
+			size = if alongX then { span + RAIL_POST_W, RAIL_BAR_T, RAIL_BAR_T } else { RAIL_BAR_T, RAIL_BAR_T, span + RAIL_POST_W },
+			color = C.railGrey,
+			material = "Plastic",
+			studs = true,
+		})
+	end
+	for i = 0, posts - 1 do
+		if (i == 0 and skipStart) or (i == posts - 1 and skipEnd) then
+			continue
+		end
+		local t = i / (posts - 1)
+		build(folder, origin, {
+			name = "RailPost",
+			pos = { x0 + (x1 - x0) * t, y + postH / 2, z0 + (z1 - z0) * t },
+			size = { RAIL_POST_W, postH, RAIL_POST_W },
+			color = C.railPost,
+			material = "Plastic",
+			studs = true,
+		})
+	end
+end
+
+--- The flight of stairs from `fromFloor` up to the floor above it: solid studded
+--- blocks, each one from the floor below to its own tread, in alternating greys so
+--- the steps read from across the plaza, and a pair of sloped handrails down each
+--- side. The rails are rotated straight parts, not a staircase of little bars
+--- (memory: straight-edges-over-pixel-stairs).
+local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
+	local m = Instance.new("Model")
+	m.Name = "Stairs"
+	local baseY = floorTopY(fromFloor)
+	local x = flightSide(fromFloor) * FLOOR.stairX
+
+	for i = 1, FLIGHT_STEPS do
+		local h = i * FLOOR.rise
+		build(m, origin, {
+			name = "Step",
+			pos = { x, baseY + h / 2, FLOOR.stairZ + (i - 0.5) * FLOOR.tread },
+			size = { FLOOR.stairW, h, FLOOR.tread },
+			color = if i % 2 == 1 then C.standGrey else C.standGreyDark,
+			material = "Plastic",
+			studs = true,
+		})
+	end
+
+	-- The step line runs from the flight's foot (z = stairZ, the floor below) to its
+	-- head (FLIGHT_TOP_Z, the deck above); a handrail is that line lifted `lift`, so
+	-- over the middle of step i it sits at i - 0.5 + lift.
+	local run = FLIGHT_STEPS * FLOOR.tread
+	local climb = FLIGHT_STEPS * FLOOR.rise
+	local length = math.sqrt(run * run + climb * climb)
+	local pitch = CFrame.Angles(-math.atan2(climb, run), 0, 0)
+	for _, edge in { -1, 1 } do
+		local hx = x + edge * (FLOOR.stairW / 2 - RAIL_BAR_T / 2)
+		for _, lift in FLOOR.handrails do
+			build(m, origin, {
+				name = "Handrail",
+				pos = { hx, baseY + climb / 2 + lift, FLOOR.stairZ + run / 2 },
+				size = { RAIL_BAR_T, RAIL_BAR_T, length },
+				color = C.railGrey,
+				material = "Plastic",
+				studs = true,
+				rot = pitch,
+			})
+		end
+		-- Posts at the foot, the middle and the head, each from its tread up into the
+		-- top rail (which is 3.0 over the tread there — see above).
+		for _, i in { 1, math.ceil(FLIGHT_STEPS / 2), FLIGHT_STEPS } do
+			build(m, origin, {
+				name = "HandrailPost",
+				pos = { hx, baseY + i * FLOOR.rise + FLOOR.handPostH / 2, FLOOR.stairZ + (i - 0.5) * FLOOR.tread },
+				size = { RAIL_BAR_T, FLOOR.handPostH, RAIL_BAR_T },
+				color = C.railPost,
+				material = "Plastic",
+				studs = true,
+			})
+		end
+	end
+
+	m.Parent = parent
+end
+
+--- One whole storey: its deck (with a stairwell hole over the flight arriving at it),
+--- the accent band round the deck's edge, the pillars holding it up, that flight of
+--- stairs, the railings round the deck and the stairwell, and its gallery of stands.
+local function buildFloor(parent: Instance, origin: CFrame, index: number, floor: number, accent: string)
+	local pad = Plots.PAD
+	local m = Instance.new("Model")
+	m.Name = `Floor{floor}`
+	m:SetAttribute("FloorIndex", floor)
+
+	local top = floorTopY(floor)
+	local below = floorTopY(floor - 1)
+	local side = flightSide(floor - 1) -- the side this floor's stairwell is on
+	local front, back = FLOOR.front, pad.maxZ
+
+	-- ── The deck: three plates round the stairwell ─────────────
+	-- The plates only ever share edges; one studded board, like the pad's own floor.
+	local function deck(xa: number, xb: number, z0: number, z1: number)
+		local x0, x1 = math.min(xa, xb), math.max(xa, xb)
+		local plate = build(m, origin, {
+			name = "Deck",
+			pos = { (x0 + x1) / 2, top - FLOOR.thick / 2, (z0 + z1) / 2 },
+			size = { x1 - x0, FLOOR.thick, z1 - z0 },
+			color = C.baseFloor,
+			material = "Plastic",
+		})
+		plate.CastShadow = false
+	end
+	deck(-side * HALF_W, side * FLOOR.openIn, front, back) -- everything inside the stairwell's inner edge
+	deck(side * FLOOR.openIn, side * HALF_W, FLIGHT_TOP_Z, back) -- behind it, where the flight lands
+	deck(side * FLOOR.openOut, side * HALF_W, front, FLIGHT_TOP_Z) -- the ledge outside it, under the side rail
+
+	-- The accent band round the deck's outer edge, so a bought floor wears the plot's
+	-- colour from across the plaza the way the ground's Trim does.
+	local bandY = top - 0.1 - FLOOR.fascia / 2
+	for _, band in {
+		{ x = 0, z = front - 0.15, sx = pad.width + 0.6, sz = 0.3 },
+		{ x = 0, z = back + 0.15, sx = pad.width + 0.6, sz = 0.3 },
+		{ x = -HALF_W - 0.15, z = (front + back) / 2, sx = 0.3, sz = back - front },
+		{ x = HALF_W + 0.15, z = (front + back) / 2, sx = 0.3, sz = back - front },
+	} do
+		build(m, origin, {
+			name = "Fascia",
+			pos = { band.x, bandY, band.z },
+			size = { band.sx, FLOOR.fascia, band.sz },
+			color = accent,
+			material = "SmoothPlastic",
+			canCollide = false,
+			attributes = { Accent = true },
+		})
+	end
+
+	-- ── Pillars, from the floor below to this deck's underside ─
+	local pillarH = top - FLOOR.thick - below
+	for _, sx in { -1, 1 } do
+		for _, pz in FLOOR.pillarZ do
+			build(m, origin, {
+				name = "Pillar",
+				pos = { sx * FLOOR.pillarX, below + pillarH / 2, pz },
+				size = { FLOOR.pillarW, pillarH, FLOOR.pillarW },
+				color = C.standGreyDark,
+				material = "Plastic",
+				studs = true,
+			})
+		end
+	end
+
+	-- The flight that arrives here. It belongs to THIS floor, not the one it stands
+	-- on, so it appears when this floor is bought.
+	buildFlight(m, origin, floor - 1)
+
+	-- ── Railings: the deck's four edges and the stairwell ──────
+	local rails = Instance.new("Folder")
+	rails.Name = "Railings"
+	local rx = HALF_W - RAIL_POST_W / 2
+	local rzFront, rzBack = front + RAIL_POST_W / 2, back - RAIL_POST_W / 2
+	railRun(rails, origin, top, -rx, rzFront, rx, rzFront)
+	railRun(rails, origin, top, -rx, rzFront, -rx, rzBack, true)
+	railRun(rails, origin, top, rx, rzFront, rx, rzBack, true)
+	railRun(rails, origin, top, -rx, rzBack, rx, rzBack, true, true)
+	-- The stairwell's inner edge, from the front rail back to where the flight lands.
+	-- Its front post would sit exactly on one of the front run's.
+	local gx = side * (FLOOR.openIn - RAIL_POST_W / 2)
+	railRun(rails, origin, top, gx, rzFront, gx, FLIGHT_TOP_Z, true)
+	rails.Parent = m
+	capFencePosts(rails, accent)
+
+	-- ── The gallery ─────────────────────────────────────────────
+	local first = Floors.firstSlot(floor)
+	for slot = first, first + Floors.UPPER_SLOTS - 1 do
+		buildDisplayStand(m, origin, index, slot, accent)
+	end
+
+	m.Parent = parent
+end
+
+--- "$75,000" rather than "$75000".
+local function withCommas(n: number): string
+	local digits = tostring(math.floor(n))
+	local grouped = string.reverse((string.gsub(string.reverse(digits), "(%d%d%d)", "%1,")))
+	return (string.gsub(grouped, "^,", ""))
+end
+
+--- The sign that sells floor `floor`: a post and a board standing where that floor's
+--- flight of stairs will go, on the floor below it. Holding E on the board buys the
+--- floor (ExhibitService wires it by Kit.FLOOR_TAG); the sign then disappears and the
+--- stairs are there in its place. Plots.setFloors shows exactly one of these on a
+--- claimed plot — the next floor up — and none on a full or unclaimed one.
+---
+--- ANSWERS IN THE WORLD. A refused purchase is written into this sign's billboard
+--- subtitle for a moment (ExhibitService), not sent as a StationResult toast, which
+--- nobody sees away from a panel (memory: station-result-toast-needs-panel).
+--- `SignText` on the board is the subtitle to put back afterwards.
+local function buildFloorSign(parent: Instance, origin: CFrame, index: number, floor: number, accent: string)
+	local m = Instance.new("Model")
+	m.Name = `FloorSign{floor}`
+	local base = floorTopY(floor - 1)
+	local x = flightSide(floor - 1) * FLOOR.stairX
+	local z = FLOOR.stairZ + 3
+	local price = withCommas(Floors.PRICES[floor] or 0)
+	local subtitle = `+{Floors.UPPER_SLOTS} stands for ${price}`
+
+	build(m, origin, { name = "SignFoot", pos = { x, base + 0.2, z }, size = { 2, 0.4, 2 }, color = C.standGrey, material = "Plastic", studs = true })
+	build(m, origin, { name = "SignPost", pos = { x, base + 2.3, z }, size = { 0.8, 3.8, 0.8 }, color = C.standGreyDark, material = "Plastic", studs = true })
+	build(m, origin, {
+		name = "SignStripe",
+		pos = { x, base + 3.85, z },
+		size = { 5.2, 0.3, 0.7 },
+		color = accent,
+		material = "SmoothPlastic",
+		canCollide = false,
+		attributes = { Accent = true },
+	})
+	local board = build(m, origin, {
+		name = "SignBoard",
+		pos = { x, base + 5.2, z },
+		size = { 5, 2.4, 0.5 },
+		color = ARCH_SIGN_FILL,
+		material = "SmoothPlastic",
+		attributes = { BuysFloor = floor, PlotIndex = index, SignText = subtitle },
+	})
+	-- Front is -Z: the face you see walking in from the entrance.
+	Kit.surfaceText(board, Enum.NormalId.Front, `FLOOR {floor}`, C.labelText)
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "BuyFloor"
+	prompt.ActionText = `Build Floor {floor}`
+	prompt.ObjectText = `${price}`
+	prompt.HoldDuration = 0.5
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = board
+
+	accentBillboard(board, 230, 2.8, `BUILD FLOOR {floor}`, subtitle, accent)
+
+	m.Parent = parent
+end
+
+--- Where ExhibitService parks the floors a plot's owner has not bought. Out of
+--- Workspace entirely (not just transparent), so a hidden floor costs the clients
+--- nothing, its stands' prompts cannot be reached and nobody walks into invisible
+--- pillars. One folder per plot, created on first use — only ever at runtime.
+local STASH_NAME = "PlotFloorStash"
+local function stashFor(plot: Instance): Instance
+	local root = ServerStorage:FindFirstChild(STASH_NAME)
+	if root == nil then
+		root = Instance.new("Folder")
+		root.Name = STASH_NAME
+		root.Parent = ServerStorage
+	end
+	local mine = (root :: Instance):FindFirstChild(plot.Name)
+	if mine == nil then
+		mine = Instance.new("Folder")
+		mine.Name = plot.Name
+		mine.Parent = root
+	end
+	return mine :: Instance
+end
+
+--- Show the floors a plot's owner has built and hide the rest: Floor2..Floor`owned`
+--- in the plot, everything above that parked in ServerStorage, and — only on a
+--- `claimed` plot — the one FloorSign that sells the next floor up. Also lifts the
+--- avatar plate over the top deck, and publishes the count as the plot's `Floors`
+--- attribute (the client's "YOUR BASE" beacon rides at the same height).
+---
+--- Idempotent, and quiet on a world built before floors existed (nothing to move).
+--- The stands on a floor coming back keep whatever they showed when they were parked:
+--- ExhibitService re-renders them straight after calling this.
+function Plots.setFloors(plot: Instance?, owned: number?, claimed: boolean)
+	if plot == nil then
+		return
+	end
+	local model: Instance = plot
+	local count = Floors.clamp(owned)
+	local stash = stashFor(model)
+
+	local function place(name: string, visible: boolean)
+		local here = model:FindFirstChild(name)
+		local away = stash:FindFirstChild(name)
+		if visible then
+			if here == nil and away ~= nil then
+				away.Parent = model
+			end
+		elseif here ~= nil then
+			if away ~= nil then
+				away:Destroy() -- a leftover from a plot rebuilt mid-session
+			end
+			here.Parent = stash
+		end
+	end
+	for floor = 2, Floors.MAX do
+		place(`Floor{floor}`, floor <= count)
+		place(`FloorSign{floor}`, claimed and floor == count + 1)
+	end
+
+	local plate = model:FindFirstChild("NamePlate")
+	local rest = plate and plate:GetAttribute("BaseCFrame")
+	if plate and plate:IsA("BasePart") and typeof(rest) == "CFrame" then
+		plate.CFrame = rest + Vector3.new(0, (count - 1) * Floors.HEIGHT, 0)
+	end
+	model:SetAttribute("Floors", count)
+end
+
 local function buildPlot(parent: Instance, index: number)
 	local m = Instance.new("Model")
 	m.Name = `Plot{index}`
@@ -3321,8 +3749,9 @@ local function buildPlot(parent: Instance, index: number)
 	spawn.Enabled = false
 	spawn.Neutral = true
 
-	-- Every stand is usable from the start. See buildDisplayStand for the plinth's form.
-	for slot = 1, math.min(Plots.VISIBLE_SLOTS, Tuning.EXHIBIT_MAX_SLOTS) do
+	-- The ground floor's stands are usable from the start. See buildDisplayStand for
+	-- the plinth's form.
+	for slot = 1, Floors.GROUND_SLOTS do
 		buildDisplayStand(m, origin, index, slot, accent)
 	end
 
@@ -3330,6 +3759,13 @@ local function buildPlot(parent: Instance, index: number)
 	buildQuarantineLocker(m, origin, accent)
 	buildFluidBottle(m, origin)
 	buildTreadmill(m, origin, accent)
+
+	-- Every floor above, and the sign that sells each one. All built; the ones this
+	-- plot's owner has not bought are hidden at runtime (Plots.setFloors).
+	for floor = 2, Floors.MAX do
+		buildFloor(m, origin, index, floor, accent)
+		buildFloorSign(m, origin, index, floor, accent)
+	end
 
 	m.Parent = parent
 	return m
@@ -3438,8 +3874,8 @@ end
 function Plots.rebuild(parent: Instance?): Model
 	local row = Kit.swap("Plots", createPlots, parent) :: Model
 	print(
-		`[build] Plots rebuilt — {Plots.COUNT} plots, {Plots.VISIBLE_SLOTS} stands each `
-			.. `(all free), `
+		`[build] Plots rebuilt — {Plots.COUNT} plots, {Floors.MAX} floors and `
+			.. `{Plots.VISIBLE_SLOTS} stands each ({Floors.GROUND_SLOTS} free on the ground), `
 			.. `{Plots.LOCKER_SLOTS}-bay quarantine locker each, `
 			.. `{#row.Apron:GetChildren()} apron parts`
 	)

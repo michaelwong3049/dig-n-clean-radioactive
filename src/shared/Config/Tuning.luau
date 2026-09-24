@@ -386,10 +386,11 @@ Tuning.EXHIBIT_OFFLINE_RATE = 0.25
 Tuning.EXHIBIT_OFFLINE_BANK_HOURS = 4
 Tuning.EXHIBIT_DUPLICATE_YIELD = { 1.0, 0.40, 0.15, 0.05 } -- 4th+ uses the last entry
 Tuning.EXHIBIT_UNCRATE_SECONDS = 60
--- Every plot ships with all of its display stands usable — there is no slot to buy
--- or unlock. Matches Plots.VISIBLE_SLOTS (the stands actually built per base): a
--- 4-column x 3-row grid, 12 stands total.
-Tuning.EXHIBIT_MAX_SLOTS = 12
+-- Every stand a base can ever have, across all of its floors (Config/Floors): the
+-- ground floor's 12 are free from the start, and each floor bought on top adds 8
+-- more. How many a given player has unlocked is `Floors.slotsFor(data.exhibit.floors)`
+-- -- this is the ceiling loops that scan "every stand" walk up to.
+Tuning.EXHIBIT_MAX_SLOTS = require(script.Parent.Floors).MAX_SLOTS
 -- Hard ceiling on passive income per real hour, as a multiple of Contractor Level.
 -- PLAN §16: ship this LOW. Raising an income cap is a beloved patch note.
 -- Economy rescale: 250 -> 500000. Item baseValues moved x6.667 and Rarity.displayYield

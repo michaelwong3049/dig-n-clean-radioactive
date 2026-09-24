@@ -72,7 +72,11 @@ local TEMPLATE = {
 	crates = {},
 
 	exhibit = {
-		slots = Tuning.EXHIBIT_MAX_SLOTS, -- every stand is free; kept as a field so a save always carries it
+		-- How many floors this base has been built up to (Config/Floors): 1 is the free
+		-- ground floor, each one bought on top adds stands. `slots` is always derived
+		-- from it (Floors.slotsFor) -- ExhibitService re-derives it on every load.
+		floors = 1,
+		slots = 12, -- the ground floor's stands; see `floors`
 		pedestals = {},
 		bankedCash = 0, -- sub-dollar income remainder; ExhibitService sweeps whole dollars straight into `cash`
 		bankedAt = 0, -- os.time() of the last accrual, for the offline-earnings catch-up

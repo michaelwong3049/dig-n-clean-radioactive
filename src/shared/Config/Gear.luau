@@ -345,9 +345,9 @@ Gear.SPRINT_MULTIPLIER = 1.35
 -- and no per-track shop counter or SellsTrack-generic sell path to require one — see
 -- ShopService.buyLuck and the header above Gear.luckMultiplier for the replacement.
 --
--- NEITHER IS A PEDESTAL PRICE. All exhibit stands are free from the start
--- (Tuning.EXHIBIT_MAX_SLOTS); the cash-bought slot track and its `pedestalPrice`
--- curve were cut with it.
+-- NEITHER IS A PEDESTAL PRICE. The ground floor's exhibit stands are free from the
+-- start; the cash-bought slot track and its `pedestalPrice` curve were cut with it.
+-- More stands now come a floor at a time (Config/Floors), priced there.
 --
 -- AND NEITHER IS BOOTS, ANY MORE. Dropping it from this list is the whole mechanism
 -- of the retirement: the shop's stall row, the generic sell path, the card panel's
