@@ -571,7 +571,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		color = SKIN.dim,
 		xAlign = Enum.TextXAlignment.Center,
 		wrapped = true,
-		text = "Your bag is empty.\nGo dig something up.",
+		text = "Your bag is empty.",
 		ink = false,
 	})
 
