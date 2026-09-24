@@ -83,6 +83,7 @@ local plotOf: { [Player]: number } = {}
 local plotOwner: { [number]: Player? } = {}
 
 local resultRemote: any = nil
+local noticeRemote: any = nil
 local colorRemote: any = nil
 local incomeRemote: any = nil
 
@@ -293,6 +294,11 @@ local function ensurePrompt(stand: BasePart, plot: number, slot: number): Proxim
 		if resultRemote then
 			resultRemote:FireClient(player, message)
 		end
+		-- A stand has no panel, so the StationResult toast above lands in a hidden
+		-- widget. A refusal also goes to the hotbar popup, where it is actually seen.
+		if not ok and noticeRemote then
+			noticeRemote:FireClient(player, message)
+		end
 		if ok then
 			print(`[exhibit] {player.Name}: {message}`)
 		end
@@ -321,6 +327,11 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 	if stand then
 		local prompt = ensurePrompt(stand, index, slot)
 		prompt.ActionText = if itemId == nil then "Place" else "Take"
+		-- The per-player half of the label: InventoryController reads these and says
+		-- "Swap" on an occupied stand while YOU are holding a nuke. `interact` still
+		-- decides; the label only tells the truth about what it will do.
+		prompt:SetAttribute("ExhibitStand", true)
+		prompt:SetAttribute("Occupied", itemId ~= nil)
 	end
 
 	-- The gallery's empty/full look (build/Plots.setStandState): slot brackets while
@@ -1419,6 +1430,7 @@ end
 
 function ExhibitService.init()
 	resultRemote = Net.get("StationResult")
+	noticeRemote = Net.get("Notice")
 	colorRemote = Net.get("PlotColor")
 	incomeRemote = Net.get("IncomeState")
 	nukeListRemote = Net.get("NukeList")

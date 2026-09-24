@@ -60,6 +60,10 @@ local REMOTES: { [string]: string } = {
 	StationState = "RemoteEvent", -- server -> client, what you're standing at and what's in your bag
 	StationAction = "RemoteEvent", -- client -> server, scrub / sell / rack
 	StationResult = "RemoteEvent", -- server -> client, "sold for $340", "needs Chem Bath"
+	-- The popup over the hotbar (InventoryController) for a refusal at something that
+	-- has no panel to toast into -- StationResult is invisible there (memory:
+	-- station-result-toast-needs-panel). The exhibit stands are the first user.
+	Notice = "RemoteEvent", -- server -> client, "inventory full"
 
 	-- The fluid bottle (Config/Liquids, Services/LiquidService). There used to be a
 	-- LiquidState remote here feeding the wash pad's loaded-fluid readout; the bottle's
