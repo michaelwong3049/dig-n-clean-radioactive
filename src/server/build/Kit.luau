@@ -46,8 +46,8 @@ Kit.UPGRADE_TAG = "Upgrade"
 --- same way, for the same "a console can never exist un-wired" reason.
 Kit.TREADMILL_TAG = "TreadmillUpgrade"
 --- Anything with a `SpinsFluid` attribute: the fluid bottle beside each plot's tub.
---- LiquidService scans this tag to wire the bottle's spin prompt, for the same "can
---- never exist un-wired" reason as the two tags above.
+--- LiquidService and the client's LiquidController find a plot's bottle by this tag
+--- (walking up to it opens the fluid panel).
 Kit.FLUID_TAG = "FluidSpin"
 --- Anything a machine does on its own while you watch it: a pump's gauge needle, a
 --- fan in a treadmill cowl, the ripples on a tub.

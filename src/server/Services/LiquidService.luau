@@ -1,26 +1,29 @@
 --!strict
 --[[
-	LiquidService.lua — the fluid bottle. Press E on it, spin for a fluid, load the hose.
+	LiquidService.lua — the fluid bottle and its panel. Roll for a fluid, load the hose,
+	upgrade Luck.
 
 	THE WASH PAD IS GONE, on request. It was a step-on pressure plate across the aisle
 	that charged a fee per roll and flashed the result on its own sign. The mechanic
 	is simpler now and lives next to the tub it feeds: a big glass bottle beside the
-	washer (build/Plots.buildFluidBottle), full of whatever fluid is loaded. Press E on
-	it and a spin plays on your screen (the client's LiquidController), landing on a
-	fluid; when it lands, the bottle recolours to match.
+	washer (build/Plots.buildFluidBottle), full of whatever fluid is loaded. Walk up to
+	your own and a panel opens on your screen (the client's LiquidController) showing
+	the loaded fluid, a ROLL button and the Luck upgrade (which used to be a lever out
+	on the floor). ROLL plays a spin that lands on a fluid; when it lands, the bottle
+	recolours to match. Both buttons send FluidAction, and the server checks the player
+	is actually standing at their own bottle before doing anything.
 
 	FREE, AND THE COOLDOWN IS THE ONLY LIMITER. Tuning.LIQUID_SPIN_COOLDOWN, per player.
-	There is no fee and no first-spin-free special case. While it runs, the owner's
-	bottle prompt counts down in its own ActionText ("Ready in 42s"), so the answer to
-	"why won't it spin" is on the bottle rather than in a toast that has no panel to
-	render into (station-result-toast-needs-panel). The cooldown is per server session
+	There is no fee and no first-spin-free special case. While it runs, the panel's
+	ROLL button counts down, so the answer to "why won't it spin" is on the button.
+	The cooldown is per server session
 	-- rejoining resets it, which costs at most one early spin and is not worth a
 	profile field.
 
-	ONLY THE OWNER SPINS THEIR OWN BOTTLE. The bottle wears its owner's fluid, so a
-	visitor spinning it would change their own hose while the bottle went on showing
-	someone else's. The plot is read off the bottle's own ancestry (the `Plot{n}` model
-	it was built into), not from where the player happens to be standing.
+	ONLY THE OWNER USES THEIR OWN BOTTLE. The bottle wears its owner's fluid, so a
+	visitor rolling at it would change their own hose while the bottle went on showing
+	someone else's. The panel only opens at your own, and the server resolves "your
+	bottle" from your plot, never from the client.
 
 	THE ODDS ARE UNCHANGED. `roll()` below is the same deterministic-order weighted walk
 	`DigService.rollRarity` uses, sampled against `Liquids.effectiveWeight` at the
@@ -45,9 +48,11 @@ local Liquids = require(Shared.Config.Liquids)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
+local Gear = require(Shared.Config.Gear)
 
 local DataService = require(script.Parent.DataService)
 local ExhibitService = require(script.Parent.ExhibitService)
+local ShopService = require(script.Parent.ShopService)
 
 local LiquidService = {}
 
@@ -56,7 +61,9 @@ local LiquidService = {}
 --- asserts every plot has a bottle carrying it.
 local FLUID_TAG = "FluidSpin"
 
+local stateRemote: any = nil
 local spinRemote: any = nil
+local actionRemote: any = nil
 
 --- Last spin time per player, for the cooldown. Wall clock rather than a tick counter:
 --- this is a "how long since a human did a thing" question.
@@ -164,54 +171,6 @@ local function pull(player: Player, data: any): (string?, string?)
 	return id, nil
 end
 
--- ── The bottle answers a refusal for itself ────────────────────────────
-
---- How long a refusal stays on the bottle's sign before it settles back.
-local REFUSAL_SECONDS = 3
---- Amber, because "not yet" is information, not an error.
-local REFUSAL_HEX = "F2B134"
-
-local refusalToken: { [BasePart]: number } = {}
-
---- Put a refusal on the bottle's own sign for a few seconds: the subtitle turns amber
---- and says why nothing happened. SERVER-SIDE ON PURPOSE -- the bottle is a physical
---- thing, and a physical thing answers on itself, not on a screen.
----
---- The subtitle's resting colour is the plot's accent, which Plots.setPlotAccent can
---- repaint at any time, so it is captured when the first of a run of flashes starts
---- and put back after the last one; the resting TEXT is not remembered at all, it is
---- re-rendered from the plot owner's profile (ExhibitService.refreshBottleAt), because
---- the fluid it names can change while the refusal is up.
-local function flashRefusal(bottle: BasePart, index: number?, text: string)
-	local sign = bottle:FindFirstChild("Sign")
-	local subtitle = sign and sign:FindFirstChild("Subtitle")
-	if subtitle == nil or not subtitle:IsA("TextLabel") then
-		return
-	end
-
-	local token = (refusalToken[bottle] or 0) + 1
-	refusalToken[bottle] = token
-	if subtitle:GetAttribute("RestColor") == nil then
-		subtitle:SetAttribute("RestColor", subtitle.TextColor3)
-	end
-	subtitle.Text = text
-	subtitle.TextColor3 = Color3.fromHex(REFUSAL_HEX)
-
-	task.delay(REFUSAL_SECONDS, function()
-		if refusalToken[bottle] ~= token or subtitle.Parent == nil then
-			return -- a newer refusal owns the sign now
-		end
-		local rest = subtitle:GetAttribute("RestColor")
-		if typeof(rest) == "Color3" then
-			subtitle.TextColor3 = rest
-		end
-		subtitle:SetAttribute("RestColor", nil)
-		if index then
-			ExhibitService.refreshBottleAt(index)
-		end
-	end)
-end
-
 -- ── Reading ───────────────────────────────────────────────────────────
 
 --- The loaded liquid: its id and its definition. Thin delegate over StatResolver so
@@ -241,35 +200,57 @@ function LiquidService.spendCharge(data: any): ()
 	end
 end
 
---- Fingerprints everything the bottle shows, so it repaints on a real change and not
---- ten times a second. Same rule CarryService.signatureOf spells out: anything drawn
---- has to be in here or it silently goes stale.
-local function signatureOf(data: any, stats: any): string
-	local parts = { stats.liquidId, string.format("%.4f", stats.luckMultiplier) }
+--- Everything the fluid panel draws. `cooldown` is seconds left as of now; the client
+--- counts it down itself, and a push lands again the moment it reaches zero (the
+--- signature carries readiness), so the two never drift far.
+local function stateFor(player: Player, data: any): any
+	local stats = StatResolver.get(data)
+	local level = data.gear.luck or 1
+	return {
+		liquid = stats.liquidId,
+		held = data.liquids[stats.liquidId] or 0,
+		cooldown = LiquidService.cooldownLeft(player),
+		luck = Gear.luckMultiplier(level),
+		luckLevel = level,
+		luckPrice = Gear.luckPrice(level),
+		boost = stats.luckBoost,
+	}
+end
+
+--- Fingerprints everything the bottle and the panel show, so they repaint on a real
+--- change and not ten times a second. Same rule CarryService.signatureOf spells out:
+--- anything drawn has to be in here or it silently goes stale.
+local function signatureOf(player: Player, data: any, stats: any): string
+	local parts = {
+		stats.liquidId,
+		tostring(data.gear.luck or 1),
+		tostring(stats.luckBoost),
+		tostring(LiquidService.cooldownLeft(player) > 0),
+	}
 	for _, id in Liquids.ORDER do
 		table.insert(parts, `{id}:{data.liquids[id] or 0}`)
 	end
 	return table.concat(parts, "|")
 end
 
---- Repaint the owner's bottle, only on a real change. Two things move it: a spin, and
---- a charge spent at the tub (the bottle's subtitle counts washes left, and a canister
---- running dry turns it back to water).
----
---- THERE USED TO BE A LiquidState REMOTE HERE feeding the wash pad's per-player
---- readout. The bottle's colour and sign replaced that readout, and a remote nobody
---- listens to queues on the client, so it went with the pad.
-function LiquidService.push(player: Player)
+--- Repaint the owner's bottle and push their panel state, only on a real change. What
+--- moves them: a roll, a charge spent at the tub (a canister running dry turns the
+--- bottle back to water), a Luck purchase, a luck boost starting or ending, and the
+--- cooldown running out.
+function LiquidService.push(player: Player, notice: string?)
 	local data = DataService.data(player)
 	if data == nil then
 		return
 	end
 	local stats = StatResolver.get(data)
-	local signature = signatureOf(data, stats)
-	if lastSignature[player] == signature then
+	local signature = signatureOf(player, data, stats)
+	if lastSignature[player] == signature and notice == nil then
 		return
 	end
 	lastSignature[player] = signature
+	local state = stateFor(player, data)
+	state.notice = notice
+	stateRemote:FireClient(player, state)
 	if not spinning[player] then
 		ExhibitService.refreshBottle(player)
 	end
@@ -314,23 +295,43 @@ local function plotIndexOf(part: Instance): number?
 	return nil
 end
 
---- The owner pressed E on their bottle: spin, tell their client to play it, and
---- recolour the bottle once it lands.
-function LiquidService.spin(player: Player, bottle: BasePart)
-	local data = DataService.data(player)
-	if data == nil then
-		return
+--- The player's own bottle, or nil if they have no plot (or a world built before the
+--- bottle existed).
+local function bottleOf(player: Player): BasePart?
+	local index = ExhibitService.plotOf(player)
+	if index == nil then
+		return nil
 	end
-
-	local index = plotIndexOf(bottle)
-	if index == nil or ExhibitService.plotOf(player) ~= index then
-		flashRefusal(bottle, index, "not your bottle")
-		return
+	for _, part in CollectionService:GetTagged(FLUID_TAG) do
+		if part:IsA("BasePart") and plotIndexOf(part) == index then
+			return part
+		end
 	end
+	return nil
+end
 
+--- How far from the bottle the server still accepts a panel action. The client opens
+--- the panel inside LiquidController's PANEL_REACH; this is that plus slack for
+--- latency, so a player who is visibly at the table is never refused.
+local ACTION_REACH = 12
+
+--- Is the player standing at their own bottle? The panel is only ever shown there,
+--- but the remote is a client's claim, so the server checks for itself.
+local function atBottle(player: Player): boolean
+	local bottle = bottleOf(player)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if bottle == nil or root == nil or not root:IsA("BasePart") then
+		return false
+	end
+	return (root.Position - bottle.Position).Magnitude <= ACTION_REACH
+end
+
+--- ROLL: spin, tell the client to play it, and recolour the bottle once it lands.
+local function spin(player: Player, data: any)
 	local id, refusal = pull(player, data)
 	if id == nil then
-		flashRefusal(bottle, index, tostring(refusal))
+		LiquidService.push(player, refusal)
 		return
 	end
 
@@ -346,6 +347,7 @@ function LiquidService.spin(player: Player, bottle: BasePart)
 		loaded = loaded,
 	})
 	print(`[liquid] {player.Name} spun {def.name}`)
+	LiquidService.push(player)
 
 	task.delay(Tuning.LIQUID_SPIN_SECONDS, function()
 		spinning[player] = nil
@@ -355,81 +357,67 @@ function LiquidService.spin(player: Player, bottle: BasePart)
 	end)
 end
 
+--- UPGRADE LUCK: the same purchase the luck lever used to make (ShopService.buyLuck),
+--- moved onto the panel on request. Luck weights the roll, so the button sits under
+--- ROLL where you can see what you are buying odds for.
+local function buyLuck(player: Player)
+	local ok, message = ShopService.buyLuck(player)
+	if ok then
+		print(`[liquid] {player.Name}: {message}`)
+		LiquidService.push(player)
+	else
+		LiquidService.push(player, message)
+	end
+end
+
+local function onAction(player: Player, verb: any)
+	if verb ~= "roll" and verb ~= "luck" then
+		return
+	end
+	local data = DataService.data(player)
+	if data == nil then
+		return
+	end
+	if not atBottle(player) then
+		LiquidService.push(player, "walk up to your bottle")
+		return
+	end
+	if verb == "roll" then
+		spin(player, data)
+	else
+		buyLuck(player)
+	end
+end
+
 -- ── Bootstrap ──────────────────────────────────────────────────────────
 
---- Connect one bottle's prompt. Built by build/Plots.buildFluidBottle and saved with
---- the place; wired here at boot, the same build-time/runtime split every prompt in
---- the world uses.
-local function wireBottle(part: Instance)
-	if not part:IsA("BasePart") then
-		return
-	end
-	local prompt = part:FindFirstChildOfClass("ProximityPrompt")
-	if prompt == nil then
-		warn(`[liquid] {part:GetFullName()} is tagged as a fluid bottle but has no ProximityPrompt — nobody can spin it`)
-		return
-	end
-	prompt.Triggered:Connect(function(player: Player)
-		LiquidService.spin(player, part)
-	end)
-end
-
---- The owner's bottle prompt counts their cooldown down. The prompt is one shared
---- instance, but only the owner can use it, so the owner's clock is the right one to
---- show everybody. Written only on a change, so it is one string compare per plot per
---- tick at rest.
-local function paintCountdown(player: Player)
-	local index = ExhibitService.plotOf(player)
-	if index == nil then
-		return
-	end
-	for _, part in CollectionService:GetTagged(FLUID_TAG) do
-		if plotIndexOf(part) == index then
-			local prompt = part:FindFirstChildOfClass("ProximityPrompt")
-			if prompt then
-				local left = LiquidService.cooldownLeft(player)
-				local text = if left > 0 then `Ready in {math.ceil(left)}s` else "Spin Fluid"
-				if prompt.ActionText ~= text then
-					prompt.ActionText = text
-				end
-			end
-		end
-	end
-end
-
 function LiquidService.init()
+	stateRemote = Net.get("FluidState")
 	spinRemote = Net.get("FluidSpin")
+	actionRemote = Net.get("FluidAction")
 end
 
 function LiquidService.start()
-	-- Tag-indexed and live, not a one-shot Workspace walk: World.rebuild() can be run
-	-- from the command bar mid-session and a bottle built then would otherwise sit
-	-- inert until the next server start.
-	for _, part in CollectionService:GetTagged(FLUID_TAG) do
-		wireBottle(part)
-	end
-	CollectionService:GetInstanceAddedSignal(FLUID_TAG):Connect(wireBottle)
+	actionRemote.OnServerEvent:Connect(onAction)
 
 	-- A returning player's bottle has to show their fluid, and plot assignment and
 	-- data load race each other — refreshBottle is a no-op until they have a plot, and
 	-- assign() renders it again from its own side.
 	DataService.onLoaded(function(player)
 		ExhibitService.refreshBottle(player)
+		LiquidService.push(player)
 	end)
 
 	-- PUSHED ON THE TICK, GATED BY THE SIGNATURE — the CarryService pattern. Charges
-	-- are spent from WashService mid-session and have no reason to know this service
-	-- exists; a tick that almost always compares one string and returns is cheaper
-	-- than the bug where a caller forgets.
+	-- are spent from WashService mid-session, and a luck boost starts and ends in
+	-- LuckBoostService; neither has any reason to know this service exists, and a tick
+	-- that almost always compares one string and returns is cheaper than the bug where
+	-- a caller forgets.
 	Ticker.every(Tuning.TICK_RATE, function()
 		for _, player in Players:GetPlayers() do
 			local ok, err = pcall(LiquidService.push, player)
 			if not ok then
 				warn(`[liquid] push failed for {player.Name}: {err}`)
-			end
-			ok, err = pcall(paintCountdown, player)
-			if not ok then
-				warn(`[liquid] countdown failed for {player.Name}: {err}`)
 			end
 		end
 	end)

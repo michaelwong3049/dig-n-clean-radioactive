@@ -91,7 +91,7 @@
 	    │   ═══════ cross band ═══════         │
 	    ├──────── original front edge ─────────┤
 	    │  [locker]                            │
-	    │  WASHER [bottle]  [luck]  TREADMILL  │
+	    │  WASHER [bottle]          TREADMILL  │
 	    │           ║ entry (spawn) ║          │
 	    └──────────[post]══arch══[post]───────┘
 
@@ -159,13 +159,12 @@
 	                ("HoseLine") on HoseReel, from HoseAnchor to that nozzle's HoseEnd.
 	    HoseMast    the post it is bolted to, with HoseMastFoot under it and HoseYoke —
 	                the ball joint — at the top. Decor: nothing reads them.
-	    Bottle      SpinsFluid = true + a ProximityPrompt — the fluid bottle beside
-	                the tub (see buildFluidBottle). E spins for a fluid; LiquidService
-	                wires the prompt at boot, by tag. `Liquid` parts inside
-	                FluidBottle wear the owner's loaded fluid (Plots.setFluidBottle,
-	                written by ExhibitService.renderBottle, never by name elsewhere).
-	    Button     SellsTrack = "Luck" + a ProximityPrompt — the luck button
-	                (see buildLuckButton). ShopService wires the prompt at boot.
+	    Bottle      SpinsFluid = true, tagged Kit.FLUID_TAG — the fluid bottle on
+	                its table beside the tub (see buildFluidBottle). Walking up to
+	                your own opens the fluid panel (LiquidController): roll for a
+	                fluid, upgrade Luck. `Liquid` parts inside FluidBottle wear the
+	                owner's loaded fluid (Plots.setFluidBottle, written by
+	                ExhibitService.renderBottle, never by name elsewhere).
 	    Belt        StationKind = "treadmill", Radius = 5 — the treadmill's running
 	                surface (see buildTreadmill). Standing on it IS training; no
 	                prompt, no session. Services/TreadmillService owns the clock.
@@ -191,7 +190,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Liquids = require(Shared.Config.Liquids)
-local Gear = require(Shared.Config.Gear)
 local Treadmill = require(Shared.Config.Treadmill)
 local ToolModels = require(Shared.ToolModels)
 
@@ -200,7 +198,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 57
+local BUILDER_VERSION = 58
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1963,18 +1961,17 @@ Plots.buildCleansingStation = buildCleansingStation
 --- (WashSpot, plot (20, -32)). Nothing reaches over the tub (crust-fills-the-wash-bay).
 --- Round, so it needs no pivot: every part below is written straight in plot space.
 ---
---- THE PROMPT SHARES E WITH THE TUB'S "Wash" PROMPT, on a different part ~6 studs
---- away. A prompt's default Exclusivity is OnePerButton -- Roblox shows one E prompt
---- at a time, whichever you are nearest -- so standing at the table offers the spin
---- and standing at the tub offers the wash. The bottle's reach is kept short (6) so
---- the wash spot is well outside it. (The known-unreliable case is two prompts on the
---- SAME part; this is two parts.)
+--- NO PROMPT OF ITS OWN. Walking within reach of your own bottle opens the fluid
+--- panel on your screen (LiquidController): the loaded fluid, ROLL, and the Luck
+--- upgrade. So the tub's "Wash" E prompt is the only prompt in this corner. The reach
+--- is kept short (LiquidController's PANEL_REACH) so the wash spot, plot (20, -32),
+--- is well outside it.
 local BOTTLE = {
 	x = 26,
 	z = -26.1,
 }
 
-local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string)
+local function buildFluidBottle(parent: Instance, origin: CFrame)
 	local m = Instance.new("Model")
 	m.Name = "FluidBottle"
 	local T = Plots.PAD.topY
@@ -2051,9 +2048,9 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 		return part
 	end
 
-	-- The body is the one glass part you bump into, and the one the prompt hangs on.
-	-- `SpinsFluid` is what Kit.build tags it FLUID_TAG by, for LiquidService to wire.
-	local bottle = glass("Bottle", { bx, at(1.95), bz }, { 3.9 * S, 3.2 * S, 3.2 * S }, "Cylinder", { SpinsFluid = true })
+	-- The body is the one glass part you bump into, and the one the panel measures to.
+	-- `SpinsFluid` is what Kit.build tags it FLUID_TAG by.
+	glass("Bottle", { bx, at(1.95), bz }, { 3.9 * S, 3.2 * S, 3.2 * S }, "Cylinder", { SpinsFluid = true })
 
 	-- Shouldered into a neck, so it reads as a bottle and not a tin can: a squashed
 	-- sphere mesh, since a Ball part can only be round (roblox-cylinder-ball-no-ellipse).
@@ -2113,28 +2110,20 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 	bubbles.ZOffset = 0.55
 	bubbles.Parent = source
 
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "Spin"
-	prompt.ActionText = "Spin Fluid"
-	prompt.ObjectText = "Fluid Bottle"
-	prompt.HoldDuration = 0.3
-	prompt.MaxActivationDistance = 6
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = bottle
-
-	-- Plain Water until somebody owns the plot; ExhibitService.renderBottle writes the
-	-- owner's fluid over both lines the moment they do.
-	-- Offset from the body's centre to just over the cap.
-	accentBillboard(bottle, 230, 2.6, "PLAIN WATER", "spin for a better fluid", accent)
+	-- NO PROMPT AND NO SIGN, on request. Walking up to your own bottle opens a panel on
+	-- your screen instead (the client's LiquidController): the loaded fluid, a ROLL
+	-- button, and the Luck upgrade that used to be a lever out on the floor. The panel
+	-- finds the bottle by its `SpinsFluid` tag, so the body part is all it needs.
 
 	m.Parent = parent
 end
 
 --- Dress one plot's bottle in a fluid: every `Liquid` part and its light take the
---- fluid's colour and the sign names it. `liquidId` nil (an unclaimed plot) is Plain
---- Water. The only writer is ExhibitService.renderBottle, the same split
---- setTreadmillTier has: the service decides WHAT, this file knows WHERE.
-function Plots.setFluidBottle(bottleModel: Instance?, liquidId: string?, subtitle: string?)
+--- fluid's colour. `liquidId` nil (an unclaimed plot) is Plain Water. The only writer
+--- is ExhibitService.renderBottle, the same split setTreadmillTier has: the service
+--- decides WHAT, this file knows WHERE. The fluid's NAME is on the owner's panel, not
+--- over the bottle -- the floating sign was removed on request.
+function Plots.setFluidBottle(bottleModel: Instance?, liquidId: string?)
 	if bottleModel == nil then
 		return
 	end
@@ -2148,16 +2137,6 @@ function Plots.setFluidBottle(bottleModel: Instance?, liquidId: string?, subtitl
 				glow.Color = colour
 			end
 		end
-	end
-	local bottle = bottleModel:FindFirstChild("Bottle")
-	local sign = bottle and bottle:FindFirstChild("Sign")
-	local title = sign and sign:FindFirstChild("Title")
-	local sub = sign and sign:FindFirstChild("Subtitle")
-	if title and title:IsA("TextLabel") then
-		title.Text = string.upper(def.name)
-	end
-	if sub and sub:IsA("TextLabel") and subtitle then
-		sub.Text = subtitle
 	end
 	bottleModel:SetAttribute("Liquid", liquidId or Liquids.WATER)
 end
@@ -2273,114 +2252,14 @@ local function buildQuarantineLocker(parent: Instance, origin: CFrame, accent: s
 	m.Parent = parent
 end
 
---- The luck button — a free-standing stake on the way to the fluid bottle, where you
---- press E to buy the next +0.1x.
----
---- LUCK IS THE ONE TRACK YOU DO NOT WEAR, so it was the one track that did not belong
---- on a shop counter. It used to be a fourth desk at the Outfitter, visually identical
---- to Suits and Satchels, selling something with no physical form at all —
---- then a free-standing sign staked next to the pad, painting a whole seven-tier
---- ladder on a board; then a button on the plot's back wall under the name. Luck
---- itself changed shape too (Config/Gear.luau's header): there is no ladder left to
---- paint, only a flat +0.1x at a price that climbs every time, so the button just
---- says the two numbers that are true right now.
----
---- ON THE WAY TO THE BOTTLE. Luck weights the fluid spin, so the control belongs on
---- the washer's side of the strip where you do the spinning. It stood beside the wash
---- pad until the pad was removed; now it is a short stake between the entrance path
---- and the pump, out on the floor like the tub because it is a thing you walk up to
---- and DO, not a line on the back-wall console. Not right beside the bottle, so the
---- two E prompts never trade places as you shuffle between them.
----
---- NO PANEL, NO STATION KIND, NO REMOTE. A ProximityPrompt's Triggered fires on the
---- server and Roblox enforces MaxActivationDistance itself, so proximity is a
---- precondition the engine established rather than a claim to be re-checked — see
---- ShopService.buyLuck's header for why that lets this skip StationService entirely.
----
---- GREEN, DELIBERATELY REUSING C.grass RATHER THAN THE PLOT'S OWN ACCENT COLOUR.
---- It wears the same "safe" green the plaza and base camp already do, not one of the
---- hazard greens the stages use. Matte, like
---- every surface in the world now (see Kit.C's header) — a button reads as "press me"
---- from its shape and its billboard, it never needed to glow.
----
---- THE BILLBOARD SHOWS YOUR MULTIPLIER AND THE NEXT PRICE, not a ladder — ShopService
---- rewrites both the moment a purchase lands, and ExhibitService rewrites them again
---- on plot assignment, the exact Sign/Title/Subtitle convention the fluid bottle's
---- sign uses (Plots.setFluidBottle).
-local function buildLuckButton(parent: Instance, origin: CFrame)
-	local m = Instance.new("Model")
-	m.Name = "LuckButton"
-	local pad = Plots.PAD
-	-- Between the entrance path (x ~= +-4) and the wash pump (x ~= 16), level with the
-	-- tub: ~17 studs from the bottle and ~16 from the tub's centre, and a long way from
-	-- the treadmill console on the far (-X) side.
-	local bx, bz = 10, -33
-	local buttonY = pad.topY + 3
-
-	-- The stake: a short steel post the button sits on, so it reads as planted
-	-- furniture out on the floor rather than a control that needs a wall.
-	build(m, origin, {
-		name = "Post",
-		pos = { bx, pad.topY + 1.3, bz },
-		size = { 0.5, 2.6, 0.5 },
-		color = C.steelDark,
-		material = "Metal",
-	})
-	build(m, origin, {
-		name = "Base",
-		pos = { bx, pad.topY + 0.15, bz },
-		size = { 1.8, 0.3, 1.8 },
-		color = C.steelDark,
-		material = "Metal",
-		canCollide = false,
-	})
-
-	-- The button — a Ball rather than an oriented Cylinder, because a sphere reads as
-	-- "press me" from every angle a player can walk up from and needs no rotation to
-	-- face the right way.
-	local button = build(m, origin, {
-		name = "Button",
-		pos = { bx, buttonY, bz },
-		size = { 1.4, 1.4, 1.4 },
-		color = C.grass,
-		material = "SmoothPlastic",
-		shape = "Ball",
-		canCollide = false,
-		attributes = { SellsTrack = "Luck" },
-	})
-
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "Upgrade"
-	prompt.ActionText = "Upgrade Luck"
-	prompt.ObjectText = "Luck"
-	prompt.HoldDuration = 0.4
-	prompt.MaxActivationDistance = 10
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = button
-
-	-- Level 1 -- the only value that exists before any player has ever claimed this
-	-- plot. ShopService and ExhibitService both overwrite it the moment real
-	-- per-player state does.
-	billboard(
-		button,
-		220,
-		2.6,
-		string.format("LUCK %.1fx", Gear.luckMultiplier(1)),
-		string.format("+0.1x for $%d", Gear.luckPrice(1)),
-		C.grass
-	)
-
-	m.Parent = parent
-end
-
 -- ── The treadmill ─────────────────────────────────────────────────────────
 --
 -- Where speed comes from, now that the Boots track is retired (Config/Treadmill).
 -- Step on the belt and the number climbs; press E on the console to buy a faster
 -- belt. Services/TreadmillService owns both halves.
 --
--- IT SHARES THE ENTRANCE SERVICE STRIP with the cleansing station (+X) and the luck
--- button, and the clearances here are a CORRECTNESS constraint, not a layout
+-- IT SHARES THE ENTRANCE SERVICE STRIP with the cleansing station (+X), and the
+-- clearances here are a CORRECTNESS constraint, not a layout
 -- preference. Training is an edge, so overlapping station radii would mean a player at
 -- one machine being registered at another. MOVED TO THE -X SIDE, into the wash pad's
 -- old spot, when the pad was removed on request -- it used to stand in the middle of
@@ -2394,7 +2273,7 @@ end
 -- the -X accent trim at -32.
 --
 -- THE RUNNER FACES -Z, out through the entrance arch at the wasteland, with the
--- console at that end, clear of the spawn pad and ~34 studs from the luck button.
+-- console at that end, clear of the spawn pad.
 local TREADMILL = {
 	cx = -21,
 	cz = -35,
@@ -3449,8 +3328,7 @@ local function buildPlot(parent: Instance, index: number)
 
 	buildCleansingStation(m, origin, accent)
 	buildQuarantineLocker(m, origin, accent)
-	buildFluidBottle(m, origin, accent)
-	buildLuckButton(m, origin)
+	buildFluidBottle(m, origin)
 	buildTreadmill(m, origin, accent)
 
 	m.Parent = parent
