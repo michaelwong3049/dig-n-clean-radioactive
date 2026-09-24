@@ -12,9 +12,10 @@
 	your backlog before it rots" into a second chore would sour a mechanic that works
 	because it is short and sharp. So the freeze is generous and one-way.
 
-	THE POTENCY GATE is the other half. A patch harder than your cleaner never comes
-	off. The item is not destroyed and not lost — it can be racked in the Quarantine
-	Locker as a labelled reminder of exactly which tool you need, or dirty-sold at 20%.
+	THE POTENCY GATE is the other half. A patch harder than your hose comes off slowly
+	(WashService's soak clock). The item is not destroyed and not lost — it can be
+	parked in the Quarantine Locker, labelled with exactly which hose washes it at full
+	speed, or dirty-sold at 20%.
 
 	SCRUBBING LEFT THIS FILE. It used to live here as a timer driven by a HOLD TO
 	SCRUB button on the station panel — you held a button and an item you could not
@@ -22,10 +23,12 @@
 	and hose it down in third person. The maths did not change at all (Contamination,
 	the potency gate, one charge per patch); only who owns the clock did.
 
-	What is left here is what still has no world object: docking, the bag list, RACK,
-	the Quarantine Locker, and the panel payload for the shop/plot/pedestal modes.
-	`rack()` below still reports the potency gate, so this file still reads
-	Contamination -- it just no longer runs a scrub.
+	What is left here: docking, the panel payload for the trader / shop / locker panels,
+	and the locker's two verbs. THE LOCKER IS A STATION AGAIN (StationKind = "locker",
+	build/Plots.buildQuarantineLocker's tube rack, opened with its own E prompt), after
+	a stretch where removing the decon panel had left STORE with nothing in the world
+	to press it. `store` and `take` below move items between `data.carry` and
+	`data.locker`; both ask that you are at YOUR OWN rack.
 ]]
 
 local Players = game:GetService("Players")
@@ -47,6 +50,8 @@ local EconomyService = require(script.Parent.EconomyService)
 local StationService = require(script.Parent.StationService)
 local ShopService = require(script.Parent.ShopService)
 local ExhibitService = require(script.Parent.ExhibitService)
+local WashService = require(script.Parent.WashService)
+local Bag = require(Shared.Bag)
 
 local DeconService = {}
 
@@ -85,30 +90,68 @@ end
 -- beginScrub used to live here, driving a HOLD TO SCRUB timer. It left with the rest
 -- of scrubbing (see this file's header) -- WashService owns the hose session now, and
 -- nothing in this file calls into a `scrubbing` table any more.
-local function rack(_player: Player, data: any, uid: string): (boolean, string)
+
+--- Is `stationId` the locker on this player's own plot? A locker is a station anyone
+--- can walk up to, but `data.locker` is only ever the player's own, so a neighbour's
+--- rack must neither open the panel nor take a store.
+local function ownsLocker(player: Player, stationId: string?): boolean
+	local plot = ExhibitService.plotOf(player)
+	return plot ~= nil and tonumber(stationId) == plot
+end
+
+--- Bag -> locker. Freezes the decay clock for good, like docking.
+local function store(player: Player, data: any, uid: string): (boolean, string)
 	local item, list, index = EconomyService.find(data, uid)
 	if item == nil or list ~= data.carry or index == nil then
+		if Bag.findCrate(data, uid) then
+			return false, "crates don't go in the locker \u{2014} open it first"
+		end
 		return false, "that isn't in your bag"
+	end
+	-- The one held item WashService may have on the tub right now.
+	if data.heldUid == uid and WashService.isWashing(player) then
+		return false, "finish washing it first"
+	end
+	if #data.locker >= Tuning.LOCKER_SLOTS then
+		return false, `locker full \u{2014} {Tuning.LOCKER_SLOTS} tubes`
 	end
 
 	table.remove(data.carry, index)
 	table.insert(data.locker, item)
 	Decay.freeze(item)
+	-- Out of your hands too: CarryService's self-heal would not catch it, because
+	-- EconomyService.find still finds a locker item.
+	if data.heldUid == uid then
+		data.heldUid = ""
+	end
 
-	-- "???" FOR ANYTHING STILL IN ITS CRUST (CarryService.nameOf). Racking is what you
-	-- do with a find your cleaner cannot open, so this toast is the one most likely to
-	-- be talking about something the player has not been told the name of -- and telling
-	-- them on the way to the shelf would be the shelf answering the question the hose is
-	-- supposed to.
+	-- "???" FOR ANYTHING STILL IN ITS CRUST (CarryService.nameOf) -- the shelf must not
+	-- answer the question the hose is supposed to.
 	local label = CarryService.nameOf(item)
-	-- cleanPotency, NOT effectivePotency: the locker's label is a shopping list, and
-	-- a shopping list written against a liquid you are three patches from running out
-	-- of is worse than no label. The Locker names the permanent fix.
+	-- cleanPotency, NOT effectivePotency: the label is a shopping list, and a shopping
+	-- list written against a liquid you are three patches from running out of is worse
+	-- than no label.
 	local blocked = Contamination.blockedBy(item.patches or {}, StatResolver.get(data).cleanPotency)
 	if blocked then
-		return true, `{label} racked \u{2014} waiting on {CarryService.hoseNameFor(blocked)}`
+		return true, `{label} sealed in \u{2014} {CarryService.hoseNameFor(blocked)} washes it fast`
 	end
-	return true, `{label} racked`
+	return true, `{label} sealed in`
+end
+
+--- Locker -> bag, when there is room. The item stays frozen: it was docked the
+--- moment it went in, and coming out must not restart its clock.
+local function take(data: any, uid: string): (boolean, string)
+	local item, list, index = EconomyService.find(data, uid)
+	if item == nil or list ~= data.locker or index == nil then
+		return false, "that isn't in your locker"
+	end
+	if Bag.used(data) >= StatResolver.get(data).capacity then
+		return false, "inventory full"
+	end
+
+	table.remove(data.locker, index)
+	table.insert(data.carry, item)
+	return true, `{CarryService.nameOf(item)} back in your bag`
 end
 
 -- ── Tick ────────────────────────────────────────────────────────────
@@ -128,6 +171,10 @@ local function stepPlayer(player: Player, _dt: number)
 	local stats = StatResolver.get(data)
 	local kind = StationService.kindOf(player)
 	local stationId = StationService.idOf(player)
+	-- Somebody else's rack is not a station you are at (see ownsLocker).
+	if kind == "locker" and not ownsLocker(player, stationId) then
+		kind, stationId = nil, nil
+	end
 
 	if kind == nil then
 		stateRemote:FireClient(player, { station = nil })
@@ -164,6 +211,7 @@ local function stepPlayer(player: Player, _dt: number)
 		capacity = stats.capacity,
 		items = carried,
 		locker = locker,
+		lockerSlots = Tuning.LOCKER_SLOTS,
 	})
 end
 
@@ -251,15 +299,23 @@ function DeconService.start()
 			if ok then
 				print(`[shop] {player.Name}: {message}`)
 			end
-		elseif request.action == "rack" then
-			if kind ~= "decon" then
-				resultRemote:FireClient(player, "racking happens at the decon station")
+		elseif request.action == "store" or request.action == "take" then
+			-- The locker panel's two verbs. Standing at your own rack is the gate; the
+			-- station is re-derived here, never taken from the client.
+			if kind ~= "locker" or not ownsLocker(player, StationService.idOf(player)) then
+				resultRemote:FireClient(player, "that happens at your own locker")
 				return
 			end
-			local ok, message = rack(player, data, tostring(request.uid))
+			local uid = tostring(request.uid)
+			local ok, message
+			if request.action == "store" then
+				ok, message = store(player, data, uid)
+			else
+				ok, message = take(data, uid)
+			end
 			resultRemote:FireClient(player, message)
 			if ok then
-				print(`[decon] {player.Name}: {message}`)
+				print(`[locker] {player.Name}: {message}`)
 				ExhibitService.refreshLocker(player)
 			end
 		end

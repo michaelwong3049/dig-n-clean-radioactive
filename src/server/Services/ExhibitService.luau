@@ -47,6 +47,7 @@ local Items = require(Shared.Config.Items)
 local Weight = require(Shared.Config.Weight)
 local Payload = require(Shared.Config.Payload)
 local ItemModels = require(Shared.ItemModels)
+local ItemCrust = require(Shared.ItemCrust)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local StandCard = require(Shared.StandCard) -- the attribute contract StandCardController draws from
@@ -66,12 +67,18 @@ local Plots = require(script.Parent.Parent.build.Plots)
 local ExhibitService = {}
 
 local PLOT_COUNT = 6 -- matches build/Plots.Plots.COUNT; not required so Services never depend on build/
-local LOCKER_VISIBLE = 3 -- matches build/Plots.Plots.LOCKER_SLOTS; overflow racked items just aren't shown
-local LOCKER_ITEM_SIZE = 1.2 -- longest axis a racked item model is scaled to; the cabinet bays are cramped
+local LOCKER_VISIBLE = Tuning.LOCKER_SLOTS -- one per tube; a profile racked past the cap shows the first eight
+local LOCKER_ITEM_SIZE = 1.3 -- longest axis a stored item model is scaled to; the tubes are 1.45 across
 -- Config/Payload's per-dig roll applies here too, capped the same way WashService
--- caps it -- the bays are only ~1.5 studs tall, no room for a "giga nuke" roll on
--- top of an already-normalised size.
-local LOCKER_PAYLOAD_CAP = 1.15
+-- caps it -- the tubes are narrow, no room for a "giga nuke" roll on top of an
+-- already-normalised size.
+local LOCKER_PAYLOAD_CAP = 1.05
+-- The pool a crusted ??? sits in: the crust's own brown, since its rarity is all the
+-- rack is allowed to say and the brown says "not washed yet" first.
+local LOCKER_CRUST_GLOW = Color3.fromHex("8A6440")
+local LOCKER_EMPTY_GLOW = Color3.fromHex("4A5560")
+-- The reach of the station ensureLockerStation stands in front of an old cabinet.
+local STALE_LOCKER_RADIUS = 4.5
 -- Matches build/Kit.FLOOR_TAG: the sign that sells a base's next floor. A string,
 -- not a require, for the same reason PLOT_COUNT is.
 local FLOOR_TAG = "BuyFloor"
@@ -498,18 +505,70 @@ local function refreshStandCards(index: number, data: any?)
 	end
 end
 
+--- Give a plot's locker its station part and "OpenLocker" prompt if it has none, and
+--- wire that prompt's refusal once. A world rebuilt since the tube rack landed already
+--- has both (build/Plots.buildQuarantineLocker); an older world still stands the old
+--- cabinet, and gets the same invisible station in front of it, so the panel opens on
+--- a stale world instead of the locker going dead again. The prompt's only server-side
+--- job is telling a visitor it isn't theirs -- the owner's E opens the panel
+--- client-side (StationController).
+local function ensureLockerStation(index: number)
+	local plot = plotModel(index)
+	local locker = if plot then plot:FindFirstChild("QuarantineLocker", true) else nil
+	if locker == nil or not locker:IsA("Model") then
+		return
+	end
+	local station = locker:FindFirstChild("LockerStation")
+	if station == nil then
+		-- The old cabinet faced -Z in its Sign's frame; stand the station off that
+		-- front, down on the cabinet's floor.
+		local box, size = locker:GetBoundingBox()
+		local sign = locker:FindFirstChild("Sign")
+		local rotation = if sign and sign:IsA("BasePart") then sign.CFrame.Rotation else box.Rotation
+		local face = CFrame.new(box.X, box.Y - size.Y / 2, box.Z) * rotation
+		station = Plots.lockerStation(locker, face, index)
+		-- The old cabinet stands ~2 studs nearer the tub than the rack does; a shorter
+		-- reach keeps the stand-in clear of the Basin's (World.verify's gap rule).
+		local stale = station :: BasePart
+		stale:SetAttribute("Radius", STALE_LOCKER_RADIUS)
+		local stalePrompt = stale:FindFirstChild("OpenLocker") :: ProximityPrompt?
+		if stalePrompt then
+			stalePrompt.MaxActivationDistance = STALE_LOCKER_RADIUS - 0.5
+		end
+	end
+	local prompt = (station :: Instance):FindFirstChild("OpenLocker")
+	if prompt and prompt:IsA("ProximityPrompt") and not prompt:GetAttribute("Wired") then
+		prompt:SetAttribute("Wired", true)
+		prompt.Triggered:Connect(function(player: Player)
+			if plotOf[player] ~= index and noticeRemote then
+				noticeRemote:FireClient(player, "that isn't your locker")
+			end
+		end)
+	end
+end
+
+--- The model a stored entry shows in its tube: the nuke itself once washed, the slag
+--- lump it came up in while it is still ???. The lump matters: the old cabinet drew
+--- the real model for a crusted find, which named it before the hose had.
+local function lockerModel(entry: any): Model?
+	if Contamination.isClean(entry.patches or {}) then
+		return ItemModels.create(Items.get(entry.itemId).model, entry.itemId)
+	end
+	return ItemCrust.lump(entry.rarity, entry.uid)
+end
+
 --- Fill one plot's Quarantine Locker (build/Plots.buildQuarantineLocker) from
---- `data.locker`, and swing its door: open the moment anything is racked, shut
---- when the last item leaves. `data == nil` clears it — used on release.
+--- `data.locker`: a model in each filled tube, its pool tinted and lit. `data == nil`
+--- clears it -- used on release.
 ---
---- The locker has no station of its own; racking still happens at the cleansing
---- station. This only mirrors the profile's `locker` array onto the cabinet the
---- same way renderStand mirrors `exhibit.pedestals` onto the plinths.
+--- Also still swings an old cabinet's LockerDoor when the world predates the rack, so
+--- an un-rebuilt place keeps looking the way it did.
 local function renderLocker(index: number, data: any)
 	local plot = plotModel(index)
 	if plot == nil then
 		return
 	end
+	ensureLockerStation(index)
 
 	local locker = if data ~= nil then data.locker else {}
 
@@ -522,6 +581,22 @@ local function renderLocker(index: number, data: any)
 	end
 
 	for i = 1, LOCKER_VISIBLE do
+		local entry = locker[i]
+
+		local glow = plot:FindFirstChild(`LockerGlow{i}`, true) :: BasePart?
+		if glow then
+			local tint: Color3? = if entry == nil
+				then nil
+				elseif Contamination.isClean(entry.patches or {}) then Rarity.get(entry.rarity).color
+				else LOCKER_CRUST_GLOW
+			glow.Color = tint or LOCKER_EMPTY_GLOW
+			local lamp = glow:FindFirstChild("GlowLight") :: PointLight?
+			if lamp then
+				lamp.Enabled = tint ~= nil
+				lamp.Color = tint or lamp.Color
+			end
+		end
+
 		local anchor = plot:FindFirstChild(`LockerSlot{i}`, true) :: BasePart?
 		if anchor then
 			local previous = anchor:FindFirstChild("ItemModel")
@@ -529,23 +604,26 @@ local function renderLocker(index: number, data: any)
 				previous:Destroy()
 			end
 
-			local entry = locker[i]
 			if entry == nil then
 				anchor.Transparency = 1
 			else
-				local model = ItemModels.create(Items.get(entry.itemId).model, entry.itemId)
+				local model = lockerModel(entry)
 				if model then
 					anchor.Transparency = 1
 					model.Name = "ItemModel"
-					model:SetAttribute("ItemId", entry.itemId)
+					-- Only a washed find's id: a crust lump carrying its real id would
+					-- name it to anything that reads attributes.
+					if Contamination.isClean(entry.patches or {}) then
+						model:SetAttribute("ItemId", entry.itemId)
+					end
 					model.Parent = anchor
 
-					-- The bays are ~1.5 studs tall; normalise every model to a common
-					-- longest-axis size (unlike the pedestals, which show items life-ish
-					-- size on an open plinth) and seat it on the bay floor.
-					-- `GetScale()` multiplier: see WashService.placeOnStand's identical fix
-					-- -- a model already pre-scaled (every imported-mesh template) would
-					-- otherwise get LOCKER_ITEM_SIZE divided by its prior scale a second time.
+					-- Every model normalised to one longest-axis size (unlike the
+					-- pedestals, which show items life-ish size on an open plinth) and
+					-- seated on the tube's floor. `GetScale()` multiplier: see
+					-- WashService.placeOnStand's identical fix -- a model already
+					-- pre-scaled (every imported-mesh template) would otherwise get
+					-- LOCKER_ITEM_SIZE divided by its prior scale a second time.
 					model:PivotTo(CFrame.identity)
 					local extents = model:GetExtentsSize()
 					local longest = math.max(extents.X, extents.Y, extents.Z)
@@ -716,9 +794,9 @@ function ExhibitService.plotSpawn(player: Player): SpawnLocation?
 	return plot:FindFirstChild("PlotSpawn", true) :: SpawnLocation?
 end
 
---- Re-mirror `data.locker` onto this player's plot cabinet. Called by DeconService
---- after a rack or a (dirty-)sell, since those are the only two things that move
---- an item in or out of the locker. No-op if the player has no plot this session.
+--- Re-mirror `data.locker` onto this player's plot rack. Called by DeconService after a
+--- store, a take or a sale, the only things that move an item in or out of the locker.
+--- No-op if the player has no plot this session.
 function ExhibitService.refreshLocker(player: Player)
 	local index = plotOf[player]
 	local data = DataService.data(player)
@@ -1473,6 +1551,12 @@ function ExhibitService.start()
 			nukeListRemote:FireClient(player, list)
 		end
 	end)
+
+	-- Every locker's prompt, claimed or not, so a visitor pressing E on a stranger's
+	-- rack is told why nothing opened. renderLocker re-runs this after a rebuild.
+	for index = 1, PLOT_COUNT do
+		ensureLockerStation(index)
+	end
 
 	-- Every floor sign, including ones a later World.rebuild() adds mid-session.
 	for _, board in CollectionService:GetTagged(FLOOR_TAG) do

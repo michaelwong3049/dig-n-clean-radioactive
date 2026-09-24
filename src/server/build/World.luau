@@ -504,6 +504,14 @@ function World.verify(): (boolean, { string })
 		`expected {Plots.COUNT} treadmills (one per base), found {census.treadmill or 0}`
 	)
 
+	-- One Quarantine Locker rack per base (Plots.buildQuarantineLocker). Without its
+	-- station a base's locker cannot be opened at all, which is exactly how it went
+	-- dead once before.
+	check(
+		(census.locker or 0) == Plots.COUNT,
+		`expected {Plots.COUNT} quarantine lockers (one per base), found {census.locker or 0}`
+	)
+
 	-- No luck buttons any more: Luck is bought from the fluid panel at each base's
 	-- bottle (LiquidService), so the six stakes that used to be counted here are gone.
 
@@ -617,7 +625,12 @@ function World.verify(): (boolean, { string })
 	-- panel opens; it does not settle which edges fire. See Plots.buildTreadmill for
 	-- the numbers this protects. (The wash pad's paid `roller` edge was the third kind
 	-- here until the pad was removed.)
-	local EDGE_KINDS = { "decon", "treadmill" }
+	--
+	-- THE LOCKER IS CHECKED WITH THEM, though it fires no edge: StationService reports
+	-- one station per player, so a locker reaching over the tub would make standing at
+	-- the tub read as "locker" and put your hose away (ToolService only hands it out at
+	-- "decon"), and dock nothing. See Plots.buildQuarantineLocker for its gap.
+	local EDGE_KINDS = { "decon", "treadmill", "locker" }
 	local edgeStations: { [string]: { BasePart } } = {}
 	for _, kind in EDGE_KINDS do
 		edgeStations[kind] = {}
