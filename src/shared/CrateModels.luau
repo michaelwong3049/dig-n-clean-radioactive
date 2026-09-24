@@ -10,6 +10,10 @@
 	plank, post and drum is studded Plastic. Only glass, glowing cores and thin sign
 	plates are smooth.
 
+	THESE ARE THE FALLBACK. The shipped crates are the user's imported models
+	(Assets.CrateTemplates, below): nuke1-3 = scrap / field / void, liquid1-3 = toxic /
+	isotope / coolant. The built ones below stand in for any id with no import.
+
 	THE LADDER, told in silhouette:
 	  nuke1   Rusty    rotten wooden slats, rust brackets, a trefoil on a tin plate
 	  nuke2   Military olive-steel ammo box, chamfered lid, ribs, latches, handles
@@ -376,8 +380,9 @@ local BUILDERS: { [string]: (Model) -> BasePart } = {
 	liquid3 = cryo,
 }
 
---- A fresh model for one crate, centred on the origin. Errors on an unknown id: a
---- crate id only ever comes from Config/Crates.
+--- An imported crate's longest side once normalised, in studs: the built crates'.
+local IMPORTED_SIZE = 2.6
+
 --- An imported crate for this id, normalised, or nil when none has been imported.
 local function imported(crateId: string): Model?
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
@@ -403,12 +408,21 @@ local function imported(crateId: string): Model?
 		return nil
 	end
 	model.PrimaryPart = model.PrimaryPart or first
+	-- The built crates' size, whatever scale it was imported at. ScaleTo is absolute,
+	-- hence the GetScale() multiplier (see ToolService's held-item note).
+	local _, extents = model:GetBoundingBox()
+	local longest = math.max(extents.X, extents.Y, extents.Z)
+	if longest > 0 then
+		model:ScaleTo(model:GetScale() * (IMPORTED_SIZE / longest))
+	end
 	-- Centre the box on the origin, like the built crates.
 	local box = model:GetBoundingBox()
 	model:PivotTo(model:GetPivot() - box.Position)
 	return model
 end
 
+--- A fresh model for one crate -- imported if there is one, else built -- centred on
+--- the origin. Errors on an unknown id: a crate id only ever comes from Config/Crates.
 function CrateModels.create(crateId: string): Model
 	local def = Crates.get(crateId)
 

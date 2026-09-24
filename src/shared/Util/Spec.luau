@@ -1851,7 +1851,7 @@ function Spec.run(): boolean
 		check("§crate no crate ever hands out anything under its floor", floors)
 
 		-- Better crate, better prize: the chance of Epic-or-better climbs nuke1 -> nuke3,
-		-- and only the Reactor crate can roll an Anomaly.
+		-- and only the top (Void) crate can roll an Anomaly.
 		local function epicPlus(id: string): number
 			local total = 0
 			for itemId, p in Crates.nukeOdds(id) do
@@ -1871,7 +1871,7 @@ function Spec.run(): boolean
 			return total
 		end
 		check("§crate nuke crates get better up the ladder", epicPlus("nuke1") < epicPlus("nuke2") and epicPlus("nuke2") < epicPlus("nuke3"))
-		check("§crate only the Reactor crate can roll an Anomaly", anomaly("nuke1") == 0 and anomaly("nuke2") == 0 and anomaly("nuke3") > 0)
+		check("§crate only the top nuke crate can roll an Anomaly", anomaly("nuke1") == 0 and anomaly("nuke2") == 0 and anomaly("nuke3") > 0)
 
 		-- Deeper stages drop better crates; detector luck only ever moves the top up.
 		local deeper, lucky = true, true
