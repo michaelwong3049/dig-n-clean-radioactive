@@ -747,19 +747,28 @@ local function build(): ScreenGui
 	-- tracking the panel's own corner by hand instead of getting it for free, hence
 	-- repositionClose() below, re-run whenever the panel moves or resizes (it does
 	-- both: automaticSizeY, and MaxSize swaps between shop/list widths per mode).
-	local closeButton = UIKit.button(canvas, {
+	--
+	-- A PLAIN "X", NOT U+2715. No font this badge could wear has the multiplication
+	-- cross glyph, so it drew as a missing-glyph box on every panel. LuckiestGuy's X
+	-- is the Robux shop's close badge (ShopController), so the two read as one.
+	local closeButton, closeInk = UIKit.button(canvas, {
 		name = "Close",
 		size = UDim2.fromOffset(32, 32),
 		anchorPoint = Vector2.new(1, 0),
-		font = UIKit.Font.title,
-		textSize = 20,
+		font = FIELD.headline,
+		textSize = 22,
 		color = Color3.new(1, 1, 1),
 		fillColor = COLOR.red,
 		fillTransparency = 0,
 		cornerRadius = UDim.new(0, 10),
-		strokeThickness = 0,
-		text = "\u{2715}",
+		strokeThickness = 2,
+		strokeColor = FIELD.ink,
+		shadow = false,
+		text = "X",
 	})
+	-- UIKit.button's stroke is Contextual, which on a TextButton outlines the GLYPH:
+	-- the ink outline every other piece of field-kit text wears.
+	closeInk.LineJoinMode = Enum.LineJoinMode.Round
 	closeButton.ZIndex = 10
 	ui.closeButton = closeButton
 
