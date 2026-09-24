@@ -55,6 +55,7 @@ ToolTiers.BASE = {
 -- be held almost horizontal to avoid burying its coil, which stops reading as
 -- sweeping. Tier is carried by COLOUR here, and only nudged by size.
 ToolTiers.Detector = {
+	{ name = "Rust Bucket", scale = 1.00, body = Color3.fromHex("8A4B2A"), accent = Color3.fromHex("4A2E1E"), material = Enum.Material.CorrodedMetal },
 	{ name = "Bent Coil", scale = 1.00, body = Color3.fromHex("6B4A2F"), accent = Color3.fromHex("3E2F22"), material = Enum.Material.Plastic },
 	{ name = "Scavenger MkI", scale = 1.03, body = Color3.fromHex("7A7A72"), accent = Color3.fromHex("4A4A44"), material = Enum.Material.Metal },
 	{ name = "Surplus Geiger", scale = 1.06, body = Color3.fromHex("5C6B3F"), accent = Color3.fromHex("38412A"), material = Enum.Material.Metal },
