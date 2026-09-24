@@ -2064,18 +2064,6 @@ local function patchAt(point: Vector3, hit: BasePart?): number?
 	return best
 end
 
---- Is that zone's patch one this liquid cannot shift? Read off the payload the server
---- already sends rather than asked over the wire per frame -- `blocked` is a property
---- of the patch and the player's own potency, and neither changes between pushes.
-local function blockedZone(zone: number): boolean
-	for _, patch in (state and state.patches) or {} do
-		if patch.zone == zone then
-			return patch.blocked == true
-		end
-	end
-	return false
-end
-
 -- ── The first-person view ────────────────────────────────────────────
 
 --- The head, and anything hanging off it. Cached because `applyHidden` runs every
@@ -2288,13 +2276,11 @@ local function onRender(dt: number)
 
 	local target = patchAt(landing, landingPart)
 
-	-- A CRUSTED PATCH IS NOT A LOCK. The reticle closing means "water here shifts
-	-- grime", and on a patch this liquid cannot touch it does not: the server banks
-	-- nothing for it (WashService.workedIndex gates on effectivePotency), so a ring that
-	-- closed on one would be promising a clean the tick is refusing to sell. The blob
-	-- itself already says so in slate grey, and the stream visibly running off it is the
-	-- rest of the answer.
-	paintReticle(dt, target ~= nil and not blockedZone(target))
+	-- EVERY CRUSTED PATCH IS A LOCK NOW. The ring used to stay open on a patch past
+	-- this liquid's potency, because the server banked nothing for it; it banks a slow
+	-- trickle now (WashService.soakTarget), so the water IS shifting grime there, and
+	-- the slate-grey rock eroding at a crawl is what says how slowly.
+	paintReticle(dt, target ~= nil)
 
 	if target ~= aimedZone then
 		aimedZone = target

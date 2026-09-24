@@ -190,6 +190,21 @@ Tuning.PULL_YANK_PER_CLICK = 0.30
 -- ceiling clamp any more. Spec §Step2 pins the +1 / +2 / +3 behaviour off this number.
 Tuning.PULL_GRIP_FALLOFF = 0.5
 
+-- ── Over-potency crust (Contamination.secondsFor) ──────────────────────
+--
+-- The hose's potency USED TO BE A HARD WALL: a patch harder than it banked nothing,
+-- sat there in slate grey, and the session ended on "that's as far as this liquid
+-- goes". An Epic or Legendary under a tier 2-3 hose simply would not move. It is now
+-- the same steep soft gradient the magnet got above -- each point of hardness past
+-- the stream's potency divides the patch's clock by this again:
+--   seconds = base / WASH_POTENCY_FALLOFF ^ deficit    deficit = max(0, hardness - potency)
+-- At 0.25 that is x4 at +1 (a slog), x16 at +2 (Epic on a Patched Fire Hose: ~40s on
+-- its hardest chunk, against ~1.5s on its own rung), x64 at +3 (Legendary on the same
+-- hose: ~3 minutes), x256 at +4 and x4096 at +6 (an Anomaly under a Garden Hose: about
+-- five hours on one chunk -- possible, and nobody will). No message, no wall; the
+-- stopwatch is the lesson. Spec §2 pins it.
+Tuning.WASH_POTENCY_FALLOFF = 0.25
+
 -- ── Home-turf Common ease (DigService: `required`) ─────────────────────
 --
 -- The junk you pull most is Common, and in your own rated stage you pull a LOT of
