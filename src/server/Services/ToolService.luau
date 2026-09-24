@@ -251,6 +251,27 @@ local function torsoFromRoot(character: Model): CFrame
 	return CFrame.identity
 end
 
+--- Where a LOCKED limb sits relative to HumanoidRootPart, composed back up its chain of
+--- CarryLock welds -- read off the welds' own C0/C1, never off the part's live CFrame.
+--- A weld created this tick has not been solved yet, so the hand's Position is still
+--- wherever the walk cycle last left it; the weld data is already the pose. nil if any
+--- link in the chain is unlocked (no pose, or a rig lockUpperBody could not handle).
+local function lockedFromRoot(root: BasePart, part: Instance?): CFrame?
+	local frame = CFrame.identity
+	for _ = 1, #UPPER_BODY_POSE + 1 do
+		if part == root then
+			return frame
+		end
+		local lock = if part then part:FindFirstChild(LOCK_NAME) else nil
+		if lock == nil or not lock:IsA("Weld") then
+			return nil
+		end
+		frame = lock.C0 * lock.C1:Inverse() * frame
+		part = lock.Part0
+	end
+	return nil
+end
+
 local function unlockUpperBody(character: Model)
 	for _, spec in UPPER_BODY_POSE do
 		local limb = character:FindFirstChild(spec.limb)
@@ -620,14 +641,12 @@ local function equipItem(character: Model, item: any?): boolean
 			part.Anchored = false
 		end
 	end
-	-- POSITION comes from BETWEEN the hands, not from LeftHand alone -- the "carry"
-	-- pose (see POSES) brings both up overhead but not onto the same point, and a
-	-- model pivoted straight onto LeftHand reads as visibly off-centre, biased to that
-	-- side, instead of gripped in the middle with two hands the way the pose looks.
-	-- RightHand is still busy with a tool slot of its own, so it never gets the WELD
-	-- (below) -- only the target position borrows it.
+	-- POSITION is centred over the head at the height of BOTH hands, not pinned to
+	-- LeftHand alone -- the "carry" pose (see POSES) brings both up overhead but not
+	-- onto the same point, and a model pivoted straight onto LeftHand reads as visibly
+	-- off-centre, biased to that side, instead of gripped in the middle with two hands.
 	--
-	-- What sits at that midpoint is the model's BOTTOM, not its centre (see
+	-- What sits at that point is the model's BOTTOM, not its centre (see
 	-- HELD_ITEM_LIFT below): an overhead press holds the underside of the thing, and
 	-- the object rises away from the body from there regardless of how big a Payload
 	-- roll (up to 2.5x, see the scale step above) made it -- unlike a chest cradle,
@@ -649,22 +668,60 @@ local function equipItem(character: Model, item: any?): boolean
 	-- `Hold` joins Display / Haul / Gallery as an ItemModels rotation context, so a
 	-- flat object like the bottle cap can still be tilted toward the camera in the
 	-- hand without forcing that tilt on an upright one. Missing attribute = identity.
+	--
+	-- EVERYTHING BELOW IS WORKED OUT IN ROOT SPACE, NEVER FROM THE HANDS' LIVE POSITION.
+	-- It used to read hand.Position and weld with a WeldConstraint, which freezes
+	-- whatever offset the hand had at that instant -- and on the tick an item first
+	-- goes into your hands the carry pose is not on yet (or is, but its welds have not
+	-- been solved), so the hands were still down at the hips. The item got glued on
+	-- down there, then the arms swung up through 188 degrees and carried it over the
+	-- top and down BEHIND the head. Only sometimes, because switching items while
+	-- already posed read the right hands. Now the grip comes from the pose welds' own
+	-- data (lockedFromRoot) and the item is welded to the root at an explicit C0, so
+	-- where it sits does not depend on what the physics has caught up with.
 	local root = character:FindFirstChild("HumanoidRootPart")
-	local holdRotation = if root and root:IsA("BasePart") then root.CFrame.Rotation else hand.CFrame.Rotation
-	local rotation = holdRotation * ItemModels.rotation(held, "Hold")
-
+	if root == nil or not root:IsA("BasePart") then
+		held:Destroy()
+		return false
+	end
 	local rightHand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
-	local anchor = if rightHand and rightHand:IsA("BasePart") then (hand.Position + rightHand.Position) / 2 else hand.Position
+	local head = character:FindFirstChild("Head")
 
-	held:PivotTo(CFrame.new(anchor) * rotation)
+	-- Height: on the two overhead hands, and never lower than the top of the head.
+	-- Across: centred over the HEAD, not the hands -- the carry pose's hands sit a
+	-- touch past vertical, and "above the head" is the whole read.
+	local headFrame = if head and head:IsA("BasePart")
+		then lockedFromRoot(root, head) or root.CFrame:ToObjectSpace(head.CFrame)
+		else CFrame.new(0, 1.5, 0)
+	local headTop = headFrame.Position.Y + (if head and head:IsA("BasePart") then head.Size.Y / 2 else 0.6)
+	local leftGrip = lockedFromRoot(root, hand)
+	local rightGrip = if rightHand then lockedFromRoot(root, rightHand) else nil
+	local gripY = headTop
+	if leftGrip and rightGrip then
+		gripY = math.max(gripY, (leftGrip.Position.Y + rightGrip.Position.Y) / 2)
+	end
+	local grip = Vector3.new(headFrame.Position.X, gripY + HELD_ITEM_LIFT, headFrame.Position.Z)
+
+	-- Seat the model's real BOUNDING BOX on that point, not its pivot: an imported
+	-- mesh's pivot is wherever its author left it, and the crust grows lopsided, so a
+	-- pivot on the grip can still leave the bulk of the thing hanging off one side. The
+	-- box is measured along the root's axes (a rotated primary part's extents are not).
+	local rotation = ItemModels.rotation(held, "Hold")
+	held:PivotTo(root.CFrame * CFrame.new(grip) * rotation)
 	local box, extents = held:GetBoundingBox()
-	local lift = (anchor.Y + HELD_ITEM_LIFT) - (box.Position.Y - extents.Y / 2)
-	held:PivotTo(CFrame.new(anchor + Vector3.new(0, lift, 0)) * rotation)
+	local boxLocal = root.CFrame:ToObjectSpace(box)
+	local half = (boxLocal.XVector * extents.X / 2):Abs()
+		+ (boxLocal.YVector * extents.Y / 2):Abs()
+		+ (boxLocal.ZVector * extents.Z / 2):Abs()
+	local bottomCentre = boxLocal.Position - Vector3.new(0, half.Y, 0)
+	local seat = CFrame.new(grip - bottomCentre) * root.CFrame:ToObjectSpace(held:GetPivot())
+	held:PivotTo(root.CFrame * seat)
 
-	local weld = Instance.new("WeldConstraint")
+	local weld = Instance.new("Weld")
 	weld.Name = "HoldWeld"
-	weld.Part0 = hand
+	weld.Part0 = root
 	weld.Part1 = primary
+	weld.C0 = root.CFrame:ToObjectSpace(primary.CFrame)
 	weld.Parent = primary
 
 	return true
@@ -740,6 +797,16 @@ local function stepPlayer(player: Player)
 			heldItem = Bag.findCrate(data, data.heldUid)
 		end
 	end
+
+	-- POSE FIRST, THEN THE ITEM. equipItem seats the item on the carry pose's hands,
+	-- read off the pose welds, so on the tick something first goes into your hands
+	-- those welds have to exist already. Decided every tick, unlike the tool slot
+	-- below: an item can start or stop being held without the tool track changing at
+	-- all, and setPose() is cheap to call redundantly (it bails the moment the pose
+	-- attribute already matches). A wash sets its own pose in the branch below.
+	if not WashService.isWashing(player) then
+		setPose(character, poseFor(target, heldItem ~= nil))
+	end
 	equipItem(character, heldItem)
 
 	-- ── Washing ───────────────────────────────────────────────────
@@ -766,11 +833,6 @@ local function stepPlayer(player: Player)
 		equipped[player] = nil
 		return
 	end
-
-	-- Decided every tick, unlike the tool slot below: an item can start or stop being
-	-- held without the tool track changing at all, and setPose() is cheap to call
-	-- redundantly (it bails the moment the pose attribute already matches).
-	setPose(character, poseFor(target, heldItem ~= nil))
 
 	-- Tier comes from the profile, so buying an upgrade changes what is in your hands
 	-- the moment it lands — no reconnect, no re-equip step.
