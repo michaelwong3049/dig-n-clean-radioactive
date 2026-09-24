@@ -45,6 +45,12 @@ Kit.UPGRADE_TAG = "Upgrade"
 --- optional tier, and there is no track here to name. TreadmillService scans this the
 --- same way, for the same "a console can never exist un-wired" reason.
 Kit.TREADMILL_TAG = "TreadmillUpgrade"
+--- Anything a machine does on its own while you watch it: a pump's gauge needle, a
+--- fan in a treadmill cowl, the ticks round the wash pad's dial, the ripples on a tub.
+--- StationMotionController animates these client-side from the attributes `Kit.motion`
+--- stamps, so the server never moves a part and nothing crosses the wire per frame.
+--- A world built before the tag existed simply has nothing tagged and stands still.
+Kit.MOTION_TAG = "StationMotion"
 
 -- ── Palette ───────────────────────────────────────────────────────────────────
 -- Named so a re-skin is one edit rather than a find-and-replace over hex codes.
@@ -450,6 +456,31 @@ function Kit.light(part: BasePart, color: string, range: number, brightness: num
 		l.Shadows = shadows
 	end
 	l.Parent = part
+end
+
+export type Motion = {
+	kind: string, -- "spin" | "sway" | "ripples" | "screen" (StationMotionController)
+	axis: string?, -- "X" | "Y" | "Z", the pivot's OWN axis to turn about (spin, sway)
+	rate: number?, -- spin: radians per second. sway: how fast the wander changes.
+	amp: number?, -- sway: the widest swing either side of rest, in radians
+}
+
+--- Mark `target` as something StationMotionController animates. A Model turns about
+--- its WorldPivot and a BasePart about its pivot (so a needle's PivotOffset is its
+--- spindle) -- set those BEFORE calling this, because the controller captures wherever
+--- the pivot is when the tag first appears as the rest pose.
+function Kit.motion(target: Instance, motion: Motion)
+	target:SetAttribute("Motion", motion.kind)
+	if motion.axis then
+		target:SetAttribute("MotionAxis", motion.axis)
+	end
+	if motion.rate then
+		target:SetAttribute("MotionRate", motion.rate)
+	end
+	if motion.amp then
+		target:SetAttribute("MotionAmp", motion.amp)
+	end
+	CollectionService:AddTag(target, Kit.MOTION_TAG)
 end
 
 --- The floating "TRADER / turn it into cash" card over each station.

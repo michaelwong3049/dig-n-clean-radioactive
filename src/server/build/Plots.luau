@@ -195,7 +195,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 52
+local BUILDER_VERSION = 53
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -775,6 +775,147 @@ function Plots.setStandState(plot: Instance?, slot: number, color: Color3?)
 	end
 end
 
+-- ── Round machines out of studded blocks ─────────────────────────────────────
+-- The tub and the wash pad's well used to be four straight bars round a square, and a
+-- square of studded bars reads as a crate however it is painted. These two lay the
+-- same studded blocks round a regular polygon instead, so the machines keep the
+-- base's stud texture and lose the crate.
+
+type RingSpec = {
+	name: string,
+	sides: number,
+	cx: number,
+	cz: number,
+	apothem: number, -- centre to the middle of each segment's thickness
+	thickness: number,
+	y: number, -- centre height
+	height: number,
+	color: string,
+	material: string?,
+	studs: boolean?,
+	canCollide: boolean?,
+	skip: ((number) -> boolean)?, -- leave segment i out (the wash pad's open mouth)
+}
+
+--- A regular polygon of wall segments round (cx, cz). Segment `i` faces out along
+--- i * 360 / sides degrees, measured from +Z toward +X, so segment 0 is the +Z side.
+--- Each is exactly as long as the polygon's OUTER face: neighbouring outer corners meet
+--- on the vertices, and the overlap the inner corners need to close up is buried
+--- inside the next segment along.
+local function polygonRing(parent: Instance, origin: CFrame, spec: RingSpec)
+	local step = 360 / spec.sides
+	local outer = spec.apothem + spec.thickness / 2
+	local length = 2 * outer * math.tan(math.rad(step / 2))
+	for i = 0, spec.sides - 1 do
+		if spec.skip and spec.skip(i) then
+			continue
+		end
+		local a = math.rad(i * step)
+		build(parent, origin, {
+			name = spec.name,
+			pos = { spec.cx + spec.apothem * math.sin(a), spec.y, spec.cz + spec.apothem * math.cos(a) },
+			size = { length, spec.height, spec.thickness },
+			color = spec.color,
+			material = spec.material or "Plastic",
+			studs = spec.studs,
+			canCollide = spec.canCollide,
+			rot = Kit.ang(0, i * step, 0),
+		})
+	end
+end
+
+--- Where vertex `i` of a `polygonRing` falls -- the corner between segments i and i + 1 --
+--- for a polygon whose flats sit `apothem` from the centre.
+local function ringVertex(sides: number, cx: number, cz: number, apothem: number, i: number): (number, number)
+	local step = math.rad(360 / sides)
+	local r = apothem / math.cos(step / 2)
+	local a = (i + 0.5) * step
+	return cx + r * math.sin(a), cz + r * math.cos(a)
+end
+
+--- The cleansing station's tub shell (buildCleansingStation): an octagon of studded
+--- walls, `apothem` from the basin centre to the middle of each wall. The hose rig's
+--- pipe reads it to stop at the wall's outer face.
+local TUB_SHELL = { sides = 8, apothem = 3.55, wall = 0.7 }
+
+--- A cylinder lying along the authored Z axis. NOT Kit.R.cylAlongZ, which composes to
+--- standing the cylinder up (Shared/ToolModels/Hose has the long version of that note).
+local CYL_ALONG_Z = Kit.R.yaw90
+
+--- An invisible part that only carries something -- a particle emitter, a SurfaceGui.
+--- Never a thing a ray should land on: the wash hose traces its stream against the
+--- whole bay, and a see-through box over the water would catch the splash in mid-air.
+local function carrier(parent: Instance, origin: CFrame, name: string, pos: { number }, size: { number }): BasePart
+	local part = build(parent, origin, {
+		name = name,
+		pos = pos,
+		size = size,
+		color = "FFFFFF",
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+	})
+	part.CanQuery = false
+	part.CanTouch = false
+	return part
+end
+
+--- The radiation trefoil painted on one square face of `part`, `studs` across, in a
+--- black border: three 60-degree blades round a hub, one pointing down like the sign.
+--- Each blade is a fan of thin rotated bars close enough together to read as a solid
+--- wedge -- HudController's rads badge draws it the same way, because the Unicode
+--- trefoil renders as a colour emoji and ignores TextColor3. A GUI rather than parts:
+--- blocks cannot make a wedge, and a trefoil of stacked blocks at placard size read as
+--- a fan.
+local function paintTrefoil(part: BasePart, face: Enum.NormalId, studs: number, ink: string)
+	local pps = 100
+	local px = studs * pps
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Trefoil"
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = pps
+	gui.MaxDistance = 80
+	gui.Parent = part
+
+	local color = Color3.fromHex(ink)
+	local function box(name: string, x: number, y: number, w: number, h: number, rotation: number): Frame
+		local frame = Instance.new("Frame")
+		frame.Name = name
+		frame.AnchorPoint = Vector2.new(0.5, 0.5)
+		frame.Position = UDim2.fromOffset(x, y)
+		frame.Size = UDim2.fromOffset(w, h)
+		frame.Rotation = rotation
+		frame.BackgroundColor3 = color
+		frame.BorderSizePixel = 0
+		frame.Parent = gui
+		return frame
+	end
+
+	local border = box("Border", px / 2, px / 2, px, px, 0)
+	border.BackgroundTransparency = 1
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = color
+	stroke.Thickness = px * 0.05
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = border
+
+	local centre = px / 2
+	local inner, outer = px * 0.13, px * 0.42
+	local mid, length = (inner + outer) / 2, outer - inner
+	for _, blade in { 90, 210, 330 } do
+		for spread = -26, 26, 4 do
+			local angle = blade + spread
+			local rad = math.rad(angle)
+			box("Blade", centre + mid * math.cos(rad), centre + mid * math.sin(rad), length, px * 0.035, angle)
+		end
+	end
+	local hub = box("Hub", centre, centre, px * 0.16, px * 0.16, 0)
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(0.5, 0)
+	round.Parent = hub
+end
+
 --- Repaint the reel drum, its wound-coil band and the Beam that runs to the nozzle so
 --- the hose "still on the reel" matches whichever Cleaner rung is on the mast. The rig
 --- is built once at STATION_TIER and never rebuilt; without this, buying a new hose swaps
@@ -843,10 +984,10 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	local pad = Plots.PAD
 	local T = pad.topY
 
-	-- Studded plastic to match the enlarged bay (buildCleansingStation). `BODY` is the
-	-- base-course grey, `FACE` the lighter cap grey -- the same pair the display
-	-- plinths and the tub wear -- and `FIT` the smooth metal of the pipes and bolts.
-	local BODY, FACE, FIT = C.standGreyDark, C.standGrey, C.steelDark
+	-- Studded plastic to match the bay (buildCleansingStation). `BODY` is the base-course
+	-- grey the deck and the display plinths wear, `FIT` the smooth metal of the pipes and
+	-- bolts; the tank itself is hazard yellow.
+	local BODY, FIT = C.standGreyDark, C.steelDark
 
 	-- Tucked into the front-left corner of the deck, well clear of the straight walk-up
 	-- to WashSpot and out of the tub's own sightline from the aisle. The whole rig
@@ -857,28 +998,123 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	-- than a crate left on the tiles.
 	build(parent, origin, { name = "PumpSkid", pos = { px, T + 0.35, pz }, size = { 3.2, 0.7, 2.8 }, color = BODY, material = "Plastic", studs = true })
 
-	-- Studded like the tub, a touch bigger than the old squat crate but kept below the
-	-- rim of the tub so it does not compete with it.
+	-- ── The pressure tank ─────────────────────────────────────
+	-- A round, domed, hazard-yellow tank standing on the skid, where a studded grey
+	-- crate used to be. The crate was the same colour and the same box as the tub, the
+	-- fence and the plinths, so the one machine on the plot with a job to do read as more
+	-- base. Round and yellow, it reads as plant from across the plot, and it still wears
+	-- studs like everything else here. Kept under the mast's height and off the walk-up.
+	local tx = px + 0.3
+	local tankR, tankBottom, tankTop = 1.1, T + 0.7, T + 3.1
 	build(parent, origin, {
 		name = "HosePump",
-		pos = { px, T + 1.9, pz },
-		size = { 2.6, 3.0, 2.2 },
-		color = BODY,
+		pos = { tx, (tankBottom + tankTop) / 2, pz },
+		size = { tankTop - tankBottom, tankR * 2, tankR * 2 },
+		color = C.hazard,
 		material = "Plastic",
 		studs = true,
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
 	})
-	build(parent, origin, { name = "PumpCap", pos = { px, T + 3.55, pz }, size = { 3.0, 0.35, 2.6 }, color = FACE, material = "Plastic", studs = true })
+	-- Two black hoops, so the tank reads as a riveted vessel and not a painted post.
+	for _, hoopY in { tankBottom + 0.45, tankTop - 0.45 } do
+		build(parent, origin, {
+			name = "PumpHoop",
+			pos = { tx, hoopY, pz },
+			size = { 0.22, tankR * 2 + 0.1, tankR * 2 + 0.1 },
+			color = C.hazardBlack,
+			material = "Plastic",
+			studs = true,
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+			canCollide = false,
+		})
+	end
+	-- The dome: a ball as wide as the tank, sunk to its equator in the tank's top, so
+	-- only the upper half shows.
+	build(parent, origin, {
+		name = "PumpDome",
+		pos = { tx, tankTop, pz },
+		size = { tankR * 2, tankR * 2, tankR * 2 },
+		color = C.hazard,
+		material = "Plastic",
+		studs = true,
+		shape = "Ball",
+		canCollide = false,
+	})
+	build(parent, origin, {
+		name = "PumpValve",
+		pos = { tx, tankTop + tankR + 0.15, pz },
+		size = { 0.3, 0.3, 0.3 },
+		color = FIT,
+		material = "Metal",
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		canCollide = false,
+	})
+	build(parent, origin, {
+		name = "PumpValveWheel",
+		pos = { tx, tankTop + tankR + 0.36, pz },
+		size = { 0.12, 0.9, 0.9 },
+		color = C.hazardBlack,
+		material = "Plastic",
+		studs = true,
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		canCollide = false,
+	})
+
+	-- THE GAUGE, facing the plot entrance (authored +X) so it is the first thing you
+	-- see walking in. The bezel is sunk into the tank's curve so its rim does not stand
+	-- off it; the needle wanders about the dial (StationMotionController), because a
+	-- pressure gauge that never twitches reads as a sticker.
+	local gy = T + 2.05
 	build(parent, origin, {
 		name = "PumpGauge",
-		pos = { px + 1.55, T + 2.3, pz },
-		size = { 0.2, 0.9, 0.9 },
-		color = C.glass,
-		material = "SmoothPlastic",
+		pos = { tx + tankR - 0.1, gy, pz },
+		size = { 0.34, 1.0, 1.0 },
+		color = FIT,
+		material = "Metal",
 		shape = "Cylinder",
-		-- Axis along authored X (plot -Z) so the dial faces the player walking up.
 		rot = Kit.R.cylAlongX,
 		canCollide = false,
 	})
+	build(parent, origin, {
+		name = "GaugeFace",
+		pos = { tx + tankR + 0.09, gy, pz },
+		size = { 0.04, 0.82, 0.82 },
+		color = C.labelText,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		rot = Kit.R.cylAlongX,
+		canCollide = false,
+	})
+	local needle = build(parent, origin, {
+		name = "GaugeNeedle",
+		pos = { tx + tankR + 0.13, gy + 0.16, pz },
+		size = { 0.04, 0.34, 0.06 },
+		color = C.quarantineRed,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	-- Pivot on the spindle at the dial's centre, not on the needle's own middle.
+	needle.PivotOffset = CFrame.new(0, -0.16, 0)
+	Kit.motion(needle, { kind = "sway", axis = "X", rate = 0.9, amp = 0.55 })
+
+	-- The trefoil, on a warning placard bolted to the aisle side of the tank: yellow,
+	-- black-bordered, the real sign. A flat placard on a standoff rather than paint on
+	-- the tank, because the mark is flat and the tank is not.
+	local PLACARD = 1.3
+	build(parent, origin, { name = "PumpPlacardMount", pos = { tx, gy, pz - tankR + 0.05 }, size = { 0.6, 0.6, 0.3 }, color = FIT, material = "Metal", canCollide = false })
+	local placard = build(parent, origin, {
+		name = "PumpPlacard",
+		pos = { tx, gy, pz - tankR - 0.06 },
+		size = { PLACARD, PLACARD, 0.08 },
+		color = C.hazard,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	paintTrefoil(placard, Enum.NormalId.Front, PLACARD, C.hazardBlack)
 
 	-- THE DRUM IS THE ONLY THING THAT SAYS THE HOSE IS LONG. The Beam below draws exactly
 	-- one span -- reel to nozzle -- and a hose that is only ever a few studs long is a
@@ -938,12 +1174,42 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	anchor.CFrame = CFrame.lookAt(Vector3.new(0, -1.1, 0.9), Vector3.new(0, -1.75, 4.9))
 	anchor.Parent = reel
 
-	-- A square-section conduit from the skid into the tub base, so the pump reads as
-	-- plumbed in. A thin box is a clean pipe at this scale with none of a rotated
-	-- cylinder's axis ambiguity.
-	build(parent, origin, { name = "Conduit", pos = { px, T + 0.7, (pz + cz) * 0.5 - 1.5 }, size = { 0.5, 0.5, math.abs(cz - pz) - 3 }, color = FIT, material = "Metal", canCollide = false })
-	build(parent, origin, { name = "ConduitElbow", pos = { px, T + 0.7, cz - 3 }, size = { 0.7, 0.7, 0.7 }, color = FIT, material = "Metal", canCollide = false })
-	build(parent, origin, { name = "Conduit", pos = { (px + cx) * 0.5, T + 0.7, cz - 3 }, size = { math.abs(px - cx) + 0.5, 0.5, 0.5 }, color = FIT, material = "Metal", canCollide = false })
+	-- ── The plumbing ──────────────────────────────────────────
+	-- A round pipe from the foot of the tank to the tub's front diagonal wall, on
+	-- studded clamps, with a ball elbow at the turn and a flange where it goes in. It
+	-- used to be a square conduit that ran on INTO the tub, to its centre line -- harmless
+	-- while the tub was solid, a bar across the water now that it is not -- so it stops at
+	-- the wall. `wallX` is where that wall's outer face crosses the pipe's line, and it
+	-- follows TUB_SHELL rather than being a second copy of it.
+	local pipeY, pipeZ = T + 0.95, cz - 3
+	local wallX = cx + (TUB_SHELL.apothem + TUB_SHELL.wall / 2) * math.sqrt(2) - (cz - pipeZ) - 0.1
+	local tankFront = pz + tankR
+	build(parent, origin, {
+		name = "Conduit",
+		pos = { tx, pipeY, (tankFront + pipeZ) / 2 },
+		size = { pipeZ - tankFront, 0.45, 0.45 },
+		color = FIT,
+		material = "Metal",
+		shape = "Cylinder",
+		rot = CYL_ALONG_Z,
+		canCollide = false,
+	})
+	build(parent, origin, { name = "ConduitElbow", pos = { tx, pipeY, pipeZ }, size = { 0.62, 0.62, 0.62 }, color = FIT, material = "Metal", shape = "Ball", canCollide = false })
+	build(parent, origin, {
+		name = "Conduit",
+		pos = { (tx + wallX) / 2, pipeY, pipeZ },
+		size = { tx - wallX, 0.45, 0.45 },
+		color = FIT,
+		material = "Metal",
+		shape = "Cylinder",
+		canCollide = false,
+	})
+	build(parent, origin, { name = "ConduitFlange", pos = { wallX + 0.2, pipeY, pipeZ }, size = { 0.16, 0.8, 0.8 }, color = FIT, material = "Metal", shape = "Cylinder", canCollide = false })
+	-- Clamps: one on the bare floor under the first run, one on the deck under the
+	-- second. Each stands from whatever it is on up to the pipe's underside.
+	local pipeUnder = pipeY - 0.225
+	build(parent, origin, { name = "ConduitClamp", pos = { tx, (T + pipeUnder) / 2, pz + tankR + 1.1 }, size = { 0.7, pipeUnder - T, 0.4 }, color = BODY, material = "Plastic", studs = true, canCollide = false })
+	build(parent, origin, { name = "ConduitClamp", pos = { (tx + wallX) / 2, (T + 0.15 + pipeUnder) / 2, pipeZ }, size = { 0.4, pipeUnder - (T + 0.15), 0.7 }, color = BODY, material = "Plastic", studs = true, canCollide = false })
 
 	-- ── The mast, and the monitor bolted to it ────────────────
 	-- The nozzle is not something you pick up: it stands on its own mast and the player
@@ -1199,14 +1465,21 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- rims and a bare slab that read as a table; it is a heavy decontamination bay now,
 	-- built out of the same studded blocks as the display plinths and the fence so
 	-- it belongs to the base. `BODY` is the base-course grey, `FACE` the lighter cap
-	-- grey (the display-plinth pair), `LINER` the dark recess inside the tub, `FIT` the
-	-- smooth metal of the pipework. Hose stays jade, water stays cyan.
+	-- grey (the display-plinth pair), `LINER` the dark of the drain, `FIT` the smooth
+	-- metal of the pipework. Hose stays jade, water stays cyan.
+	--
+	-- THE TUB IS WHITE, and that is the point of it. It used to be the same grey as
+	-- the deck, the gantry, the fence and every plinth on the plot, so the one object
+	-- you come here to use melted into everything round it. `TUB_WALL`/`TUB_TOP` are a
+	-- porcelain pair (walls a shade under the lip, so it reads as lit from above),
+	-- `TUB_POST` the corner pillars, `TUB_TILE` the pale pool-blue of the inside.
 	--
 	-- THE WASH MINIGAME GEOMETRY DID NOT MOVE. WashStand (the item point), WashSpot
 	-- (where WashService plants the player) and WashCam (WashController's fallback) keep
 	-- the exact offsets the previous bay had, and the tub grew around them, not through
 	-- them -- so nothing about the first-person shot, the aim, or the placement changed.
 	local BODY, FACE, LINER, FIT = C.standGreyDark, C.standGrey, C.drain, C.steelDark
+	local TUB_WALL, TUB_TOP, TUB_POST, TUB_TILE = "DCE3E8", "F2F5F7", "AEB8C0", "9ED6E3"
 
 	-- ── The deck ──────────────────────────────────────────────
 	-- One studded plate the whole installation stands on, kerbed round the edge, so the
@@ -1215,62 +1488,209 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- just off its front edge, so nothing here changes the height they stand at.
 	build(m, origin, { name = "Deck", pos = { 21, T - 0.35, -32 }, size = { 12.5, 1.0, 10 }, color = BODY, material = "Plastic", studs = true })
 	for _, e in {
-		{ x = 21, z = -37, sx = 13.1, sz = 0.6 },
 		{ x = 21, z = -27, sx = 13.1, sz = 0.6 },
 		{ x = 27.25, z = -32, sx = 0.6, sz = 10.6 },
 		{ x = 14.75, z = -32, sx = 0.6, sz = 10.6 },
 	} do
 		build(m, origin, { name = "DeckKerb", pos = { e.x, T + 0.25, e.z }, size = { e.sx, 0.35, e.sz }, color = FACE, material = "Plastic", studs = true, canCollide = false })
 	end
+	-- The front kerb -- the edge you walk over to reach the wash mark -- is hazard-striped:
+	-- studded yellow and black bricks, the toy-brick version of the tape round a real
+	-- decontamination bay, and the first thing on the plot that says what this bay is for.
+	local STRIPES = 10
+	local stripeW = 13.1 / STRIPES
+	for s = 0, STRIPES - 1 do
+		build(m, origin, {
+			name = "DeckKerb",
+			pos = { 21 - 13.1 / 2 + (s + 0.5) * stripeW, T + 0.25, -37 },
+			size = { stripeW, 0.35, 0.6 },
+			color = if s % 2 == 0 then C.hazard else C.hazardBlack,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
 
 	-- ── The tub ───────────────────────────────────────────────
-	-- THE DOCK + THE FLUSH, one part: StationKind="decon" is what DeconService matches
-	-- on, Shower=true what ExposureService scans for, and the "Wash" prompt hangs off
-	-- it. It is the solid lower body of the trough now -- a heavy studded block, not the
-	-- old thin steel slab -- with its centre kept exactly where it was so the item
-	-- point and the prompt do not move.
+	-- AN OCTAGON, AND HOLLOW. It was a solid 7.4 x 3 x 7 studded block with the liner,
+	-- the water and the drain all sealed INSIDE it: the block's top sat 0.45 above the
+	-- liner's and 0.7 above the water's, so for its whole life this "deep tub" was a flat
+	-- studded lid with a rim round it, and a ray straight down anywhere off the rack
+	-- landed on Basin. Found by raycasting it, not by reading this code, which described
+	-- a recess nobody could ever see. Now eight studded walls stand round a real well,
+	-- and the water you wash over is water you can see.
+	--
+	-- THE DOCK + THE FLUSH IS STILL ONE PART, AT THE SAME CENTRE: StationKind="decon" is
+	-- what DeconService matches on, Shower=true what ExposureService scans for, and the
+	-- "Wash" prompt hangs off it. Every service reads its Position and Radius and nothing
+	-- reads its Size, so it became the tub's FLOOR -- a round studded plate centred
+	-- exactly where the solid block was, its top the bottom of the well. Round, not
+	-- octagonal, because a Cylinder is one part; its edge tucks under the walls all round.
+	local floorTop, wallTop = T + 0.65, T + 1.8
+	local wallMid, wallH = (T + 0.15 + wallTop) / 2, wallTop - (T + 0.15)
+	local tubInner = TUB_SHELL.apothem - TUB_SHELL.wall / 2
 	local basin = build(m, origin, {
 		name = "Basin",
 		pos = { cx, T + 0.55, cz },
-		size = { 7.4, 3.0, 7 },
-		color = BODY,
+		size = { 0.2, 7.0, 7.0 },
+		color = TUB_TILE,
 		material = "Plastic",
 		studs = true,
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
 		attributes = { StationKind = "decon", Shower = true, Radius = 9 },
 	})
 
-	-- A dark liner sunk WELL below the body's top, so looking in you see a real recess
-	-- -- a grey lip, a step down, then the dark well and the water at the bottom -- not
-	-- a flat plate. This is what turns the block into a basin you wash a thing IN.
-	build(m, origin, { name = "TubLiner", pos = { cx, T + 0.15, cz }, size = { 5.9, 2.9, 5.4 }, color = LINER, material = "SmoothPlastic" })
-
-	-- A wide flat rim lip capping the body -- four studded bars, tops at T+2.3, a shade
-	-- under the old rims' T+2.6 so the stream still clears them from the player's side
-	-- and the item still sits proud of them.
-	for _, side in { -1, 1 } do
-		build(m, origin, { name = "TubRim", pos = { cx, T + 2.05, cz + side * 3.7 }, size = { 7.9, 0.5, 0.95 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
-		build(m, origin, { name = "TubRim", pos = { cx + side * 3.9, T + 2.05, cz }, size = { 0.95, 0.5, 7.4 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+	polygonRing(m, origin, {
+		name = "TubWall",
+		sides = TUB_SHELL.sides,
+		cx = cx,
+		cz = cz,
+		apothem = TUB_SHELL.apothem,
+		thickness = TUB_SHELL.wall,
+		y = wallMid,
+		height = wallH,
+		color = TUB_WALL,
+		studs = true,
+	})
+	-- The lining: pale studded panels on every inside face, floor to lip, so what you
+	-- look down into is a pool and not the back of the outside wall.
+	polygonRing(m, origin, {
+		name = "TubLiner",
+		sides = TUB_SHELL.sides,
+		cx = cx,
+		cz = cz,
+		apothem = tubInner - 0.05,
+		thickness = 0.1,
+		y = (floorTop + wallTop) / 2,
+		height = wallTop - floorTop,
+		color = TUB_TILE,
+		studs = true,
+		canCollide = false,
+	})
+	-- A round studded pillar on every outside corner, deck to lip, so the octagon's
+	-- corners read as posts the walls are set between rather than as two boxes meeting.
+	for i = 0, TUB_SHELL.sides - 1 do
+		local vx, vz = ringVertex(TUB_SHELL.sides, cx, cz, TUB_SHELL.apothem + TUB_SHELL.wall / 2, i)
+		build(m, origin, {
+			name = "TubPillar",
+			pos = { vx, wallMid, vz },
+			size = { wallH, 0.7, 0.7 },
+			color = TUB_POST,
+			material = "Plastic",
+			studs = true,
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+		})
 	end
 
-	-- The water: a translucent body low in the well, with a fainter sheen plane on top
-	-- -- one flat glass slab reads as a lid, two layers reads as depth.
-	build(m, origin, { name = "Water", pos = { cx, T + 1.1, cz }, size = { 5.4, 0.5, 4.9 }, color = C.cyan, material = "Glass", transparency = 0.3 })
-	local sheen = build(m, origin, { name = "WaterSheen", pos = { cx, T + 1.38, cz }, size = { 5.2, 0.06, 4.7 }, color = C.glass, material = "SmoothPlastic", transparency = 0.55, canCollide = false })
+	-- A wide flat rim lip capping the walls -- eight studded bars, tops at T+2.3, a shade
+	-- under the old rims' T+2.6 so the stream still clears them from the player's side
+	-- and the item still sits proud of them. Flush with the lining inside, a little proud
+	-- of the walls outside.
+	local RIM_APOTHEM = 3.7
+	polygonRing(m, origin, {
+		name = "TubRim",
+		sides = TUB_SHELL.sides,
+		cx = cx,
+		cz = cz,
+		apothem = RIM_APOTHEM,
+		thickness = 1.0,
+		y = T + 2.05,
+		height = 0.5,
+		color = TUB_TOP,
+		studs = true,
+		canCollide = false,
+	})
+	-- Flat bolt heads on the lip's corners. FLAT ON PURPOSE: the crusted lump sits on the
+	-- rack only half a stud above the lip, and slides up to 1.2 toward the player, so a
+	-- rounded cap here would be the first thing a big roll grazed (crust-fills-the-wash-bay).
+	for i = 0, TUB_SHELL.sides - 1 do
+		local vx, vz = ringVertex(TUB_SHELL.sides, cx, cz, RIM_APOTHEM, i)
+		build(m, origin, {
+			name = "TubBolt",
+			pos = { vx, T + 2.375, vz },
+			size = { 0.15, 0.45, 0.45 },
+			color = FIT,
+			material = "Metal",
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+			canCollide = false,
+		})
+	end
+
+	-- The water: a translucent round body filling the well to two-thirds, with a fainter
+	-- sheen disc on top -- one flat glass slab reads as a lid, two layers reads as depth.
+	-- Wide enough that its edge is buried in the walls, so no dry corner shows. Not
+	-- solid: a player who jumps in stands on the floor, not on the surface.
+	local waterTop = T + 1.45
+	build(m, origin, {
+		name = "Water",
+		pos = { cx, (floorTop + waterTop) / 2, cz },
+		size = { waterTop - floorTop, 6.9, 6.9 },
+		color = C.cyan,
+		material = "Glass",
+		transparency = 0.3,
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		canCollide = false,
+	})
+	local sheen = build(m, origin, {
+		name = "WaterSheen",
+		pos = { cx, waterTop + 0.03, cz },
+		size = { 0.06, 6.9, 6.9 },
+		color = C.glass,
+		material = "SmoothPlastic",
+		transparency = 0.55,
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		canCollide = false,
+	})
 	sheen.Reflectance = 0.05
 
-	-- A grated drain in the floor of the basin, just visible under the water, so the
-	-- trough has an outfall and is not a sealed tank.
-	build(m, origin, { name = "Drain", pos = { cx, T + 0.7, cz }, size = { 0.3, 1.3, 1.3 }, color = LINER, material = "Metal", shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
-	for _, r in { Kit.R.cylAlongX, Kit.R.cylAlongZ } do
-		build(m, origin, { name = "DrainBar", pos = { cx, T + 0.85, cz }, size = { 1.3, 0.12, 0.12 }, color = FIT, material = "Metal", shape = "Cylinder", rot = r, canCollide = false })
+	-- Rings spreading across the surface, drawn on a SurfaceGui lying just over the water
+	-- (StationMotionController). A GUI rather than parts because a ring is an outline, and
+	-- a Cylinder part can only be a solid disc.
+	local ripples = carrier(m, origin, "WaterRipples", { cx, waterTop + 0.08, cz }, { 6.2, 0.02, 6.2 })
+	local surface = Instance.new("SurfaceGui")
+	surface.Name = "Ripples"
+	surface.Face = Enum.NormalId.Top
+	surface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	surface.PixelsPerStud = 40
+	surface.MaxDistance = 90
+	surface.ClipsDescendants = true
+	surface.Parent = ripples
+	Kit.motion(ripples, { kind = "ripples" })
+
+	-- A grated drain in the floor, off to one side of the rack's post, just visible under
+	-- the water, so the tub has an outfall and is not a sealed tank.
+	local drainX, drainZ = cx - 1.8, cz + 1.4
+	build(m, origin, { name = "Drain", pos = { drainX, floorTop + 0.03, drainZ }, size = { 0.06, 1.1, 1.1 }, color = LINER, material = "Metal", shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
+	for _, r in { Kit.R.cylAlongX, CYL_ALONG_Z } do
+		build(m, origin, { name = "DrainBar", pos = { drainX, floorTop + 0.08, drainZ }, size = { 1.0, 0.1, 0.1 }, color = FIT, material = "Metal", shape = "Cylinder", rot = r, canCollide = false })
 	end
 
 	-- ── The item rack and the three shot anchors ──────────────
-	-- WashRack lifts the item clear of the rim so water from the side reaches it. The
-	-- three anchors are UNCHANGED from the previous bay -- WashService pivots the item
-	-- to WashStand's centre, plants the player a step forward of WashSpot, and
-	-- WashController falls back to WashCam for the frame a respawn leaves the head
-	-- missing. Framing is judged by looking, so these stay anchors, not numbers.
+	-- WashRack lifts the item clear of the rim so water from the side reaches it. It
+	-- used to sit on the solid block's top; with the tub hollow it stands on a studded
+	-- post up out of the water, under a metal collar. The three anchors are UNCHANGED
+	-- from the previous bay -- WashService seats the item on the rack, plants the player
+	-- a step forward of WashSpot, and WashController falls back to WashCam for the frame
+	-- a respawn leaves the head missing. Framing is judged by looking, so these stay
+	-- anchors, not numbers.
+	local collarY = T + 2.525
+	build(m, origin, {
+		name = "RackPost",
+		pos = { cx, (floorTop + collarY - 0.05) / 2, cz },
+		size = { collarY - 0.05 - floorTop, 1.0, 1.0 },
+		color = TUB_POST,
+		material = "Plastic",
+		studs = true,
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		canCollide = false,
+	})
+	build(m, origin, { name = "RackCollar", pos = { cx, collarY, cz }, size = { 0.1, 1.9, 1.9 }, color = FIT, material = "Metal", shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
 	build(m, origin, {
 		name = "WashRack",
 		pos = { cx, T + 2.7, cz },
@@ -1399,15 +1819,9 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- with no per-frame script anywhere. Matte like everything out here (Kit's palette
 	-- header) -- LightEmission stays a fraction, no PointLight; the fallout is the only
 	-- thing on a plot that glows.
-	local churnHost = build(m, origin, {
-		name = "TubChurn",
-		pos = { cx, T + 1.45, cz },
-		size = { 3.8, 0.1, 3.2 },
-		color = "E9F4FF",
-		material = "SmoothPlastic",
-		transparency = 1,
-		canCollide = false,
-	})
+	-- Sat on the water's surface. It was at T+1.45 inside the old solid block, where
+	-- nothing it threw could ever be seen.
+	local churnHost = carrier(m, origin, "TubChurn", { cx, T + 1.5, cz }, { 3.8, 0.1, 3.2 })
 	local churn = Instance.new("ParticleEmitter")
 	churn.Name = "Churn"
 	churn.Texture = "rbxasset://textures/particles/smoke_main.dds"
@@ -1553,21 +1967,67 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 		build(m, origin, { name = "DeckKerb", pos = { e.x, T + 0.25, e.z }, size = { e.sx, 0.35, e.sz }, color = FACE, material = "Plastic", studs = true, canCollide = false })
 	end
 
-	-- ── The well: the step-plate, recessed ────────────────────
-	-- The disc drops into a shallow dark tray and a studded kerb rises round it on the
-	-- far three sides -- front, back and the -X border side -- open toward the aisle so
-	-- you walk straight in over a flush threshold. A proud FACE lip caps the kerb, and
-	-- you look over it and DOWN at the lit disc: the tub liner across the aisle, at pad
-	-- scale. All of it CanCollide off -- framing, not a barrier, like the tub rim.
-	local WELL_H = 1.5
-	build(m, origin, { name = "WellLiner", pos = { cx, T + 0.15, cz }, size = { 9.6, 0.9, 9.6 }, color = LINER, material = "SmoothPlastic", canCollide = false })
-	for _, bar in {
-		{ x = cx, z = cz + 5.4, sx = 12, sz = 1.2 }, -- -X border side
-		{ x = cx - 5.4, z = cz + 1.5, sx = 1.2, sz = 10.2 }, -- front (toward the apron)
-		{ x = cx + 5.4, z = cz + 1.5, sx = 1.2, sz = 10.2 }, -- back (toward the interior)
-	} do
-		build(m, origin, { name = "WellKerb", pos = { bar.x, T + 0.55, bar.z }, size = { bar.sx, WELL_H, bar.sz }, color = BODY, material = "Plastic", studs = true, canCollide = false })
-		build(m, origin, { name = "WellLip", pos = { bar.x, T + 1.45, bar.z }, size = { bar.sx + 0.4, 0.3, bar.sz + 0.4 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
+	-- ── The well: the step-plate, in a round kerb ─────────────
+	-- The disc drops into a shallow dark tray and a studded kerb curves round it, open
+	-- toward the aisle so you walk straight in over a flush threshold. A proud lip caps
+	-- the kerb, and you look over it and DOWN at the lit disc. All of it CanCollide off --
+	-- framing, not a barrier, like the tub rim.
+	--
+	-- ROUND, AND BLUE. It was a square U of grey bars round a round plate, which read as
+	-- a crate with a disc dropped in it. Twelve studded facets follow the plate instead,
+	-- the three that would face the aisle left out for the mouth, a round post with a
+	-- ball on it finishing each end. `PAD_KERB` is the pad's own colour -- the tub across
+	-- the aisle is white, the pump yellow, and a grey pad was the one machine you could
+	-- not pick out from the fence behind it. The mouth ends sit further from the luck
+	-- button than the old U's did, not closer.
+	local PAD_KERB, PAD_LIP = "3A7DC4", "DCE6EE"
+	local WELL_SIDES, WELL_APOTHEM = 12, 5.3
+	local function mouth(i: number): boolean
+		return i >= 5 and i <= 7 -- the three facets facing authored -z, the aisle
+	end
+	build(m, origin, {
+		name = "WellLiner",
+		pos = { cx, T + 0.15, cz },
+		size = { 0.9, 9.7, 9.7 },
+		color = LINER,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		canCollide = false,
+	})
+	polygonRing(m, origin, {
+		name = "WellKerb",
+		sides = WELL_SIDES,
+		cx = cx,
+		cz = cz,
+		apothem = WELL_APOTHEM,
+		thickness = 1.2,
+		y = T + 0.55,
+		height = 1.5,
+		color = PAD_KERB,
+		studs = true,
+		canCollide = false,
+		skip = mouth,
+	})
+	polygonRing(m, origin, {
+		name = "WellLip",
+		sides = WELL_SIDES,
+		cx = cx,
+		cz = cz,
+		apothem = WELL_APOTHEM,
+		thickness = 1.6,
+		y = T + 1.45,
+		height = 0.3,
+		color = PAD_LIP,
+		studs = true,
+		canCollide = false,
+		skip = mouth,
+	})
+	-- The two ends of the horseshoe: the vertices either side of the mouth.
+	for _, i in { 4, 7 } do
+		local vx, vz = ringVertex(WELL_SIDES, cx, cz, WELL_APOTHEM, i)
+		build(m, origin, { name = "WellEnd", pos = { vx, T + 0.7, vz }, size = { 1.8, 1.4, 1.4 }, color = PAD_LIP, material = "Plastic", studs = true, shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
+		build(m, origin, { name = "WellEndCap", pos = { vx, T + 1.6, vz }, size = { 1.4, 1.4, 1.4 }, color = PAD_KERB, material = "Plastic", studs = true, shape = "Ball", canCollide = false })
 	end
 
 	-- ── The plate and its lit disc ────────────────────────────
@@ -1605,6 +2065,32 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 	-- Shadows off, same reason as the cleansing station's Lamp.
 	light(disc, Liquids.get(Liquids.WATER).color, 10, 0.35, false)
 
+	-- THE DIAL: twelve studded ticks on the plate's bare metal ring, round the disc,
+	-- alternating white and hazard yellow and turning slowly (StationMotionController).
+	-- This pad is a wheel of chance you stand on, and a ring going round is the one
+	-- thing that says so before anyone reads the sign. Its own Model so it turns as one
+	-- about the plate's centre, streamed as a unit so no tick is ever left behind.
+	local dial = Instance.new("Model")
+	dial.Name = "PadDial"
+	dial.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+	for k = 0, 11 do
+		local deg = k * 30 + 15
+		local a = math.rad(deg)
+		build(dial, origin, {
+			name = "DialTick",
+			pos = { cx + 4.2 * math.sin(a), T + 0.9, cz + 4.2 * math.cos(a) },
+			size = { 0.3, 0.1, 0.5 },
+			color = if k % 2 == 0 then C.labelText else C.hazard,
+			material = "Plastic",
+			studs = true,
+			rot = Kit.ang(0, deg, 0),
+			canCollide = false,
+		})
+	end
+	dial.WorldPivot = origin * CFrame.new(cx, T + 0.9, cz)
+	dial.Parent = m
+	Kit.motion(dial, { kind = "spin", axis = "Y", rate = 0.25 })
+
 	-- ── The odds shelf: a studded plinth down the -X edge ─────
 	-- The same two-course studded riser as a display stand, run long against the
 	-- border, with the prize jars seated in a shallow dark channel in the top course
@@ -1622,14 +2108,36 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 	-- whose blue tint shifted the colour you actually came to read -- so the fill reads
 	-- true; the fill is near-opaque and fills most of the jar so it still carries from
 	-- across the pad. Base sits in the channel (T + 1.55).
+	--
+	-- SHOULDERED, AND BUBBLING. A straight cylinder under a lid wider than itself read
+	-- as a tin can. The body now rounds in at the top (a squashed sphere mesh, since a
+	-- Ball part can only be round -- roblox-cylinder-ball-no-ellipse) to a narrow neck
+	-- and a small lid, and bubbles rise through the fill. The bubbles are particles, so
+	-- they animate themselves with no script, and `ZOffset` draws them just in front of
+	-- the near-opaque fill rather than hidden inside it.
 	local jarGlass = "F1F1F2"
+	local function glass(name: string, pos: { number }, size: { number }, shape: string?): BasePart
+		local part = build(m, origin, {
+			name = name,
+			pos = pos,
+			size = size,
+			color = jarGlass,
+			material = "SmoothPlastic",
+			shape = shape,
+			rot = if shape == "Cylinder" then Kit.R.cylUp else nil,
+			transparency = 0.58,
+			canCollide = false,
+		})
+		part.Reflectance = 0.06
+		return part
+	end
 	local function jar(x: number, id: string)
 		local def = Liquids.get(id)
 		local baseY = T + 1.55
 		build(m, origin, {
 			name = "JarFill",
 			pos = { x, baseY + 0.55, shelfZ },
-			size = { 1.0, 1.05, 1.05 },
+			size = { 0.95, 1.05, 1.05 },
 			color = def.color,
 			material = "SmoothPlastic",
 			shape = "Cylinder",
@@ -1637,28 +2145,48 @@ local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
 			transparency = 0.05,
 			canCollide = false,
 		})
-		local body = build(m, origin, {
-			name = "Jar",
-			pos = { x, baseY + 0.8, shelfZ },
-			size = { 1.5, 1.35, 1.35 },
-			color = jarGlass,
-			material = "SmoothPlastic",
-			shape = "Cylinder",
-			rot = Kit.R.cylUp,
-			transparency = 0.58,
-			canCollide = false,
-		})
-		body.Reflectance = 0.06
+		glass("Jar", { x, baseY + 0.65, shelfZ }, { 1.2, 1.35, 1.35 }, "Cylinder")
+		local shoulder = glass("JarShoulder", { x, baseY + 1.25, shelfZ }, { 1, 1, 1 })
+		local dome = Instance.new("SpecialMesh")
+		dome.MeshType = Enum.MeshType.Sphere
+		dome.Scale = Vector3.new(1.35, 0.5, 1.35)
+		dome.Parent = shoulder
+		glass("JarNeck", { x, baseY + 1.55, shelfZ }, { 0.2, 0.8, 0.8 }, "Cylinder")
 		build(m, origin, {
 			name = "JarLid",
-			pos = { x, baseY + 1.55, shelfZ },
-			size = { 0.35, 1.45, 1.45 },
+			pos = { x, baseY + 1.76, shelfZ },
+			size = { 0.22, 0.95, 0.95 },
 			color = FIT,
 			material = "Metal",
 			shape = "Cylinder",
 			rot = Kit.R.cylUp,
 			canCollide = false,
 		})
+
+		-- Rising from a patch on the jar's floor to the top of the fill: speed x lifetime
+		-- tops out at the fill's own height, so no bubble climbs into the empty headspace.
+		local source = carrier(m, origin, "JarBubbles", { x, baseY + 0.15, shelfZ }, { 0.6, 0.05, 0.6 })
+		local bubbles = Instance.new("ParticleEmitter")
+		bubbles.Name = "Bubbles"
+		bubbles.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		bubbles.Color = ColorSequence.new(Color3.fromHex("FFFFFF"))
+		bubbles.LightInfluence = 1
+		bubbles.EmissionDirection = Enum.NormalId.Top
+		bubbles.Rate = 2.5
+		bubbles.Lifetime = NumberRange.new(1.0, 1.3)
+		bubbles.Speed = NumberRange.new(0.6, 0.7)
+		bubbles.SpreadAngle = Vector2.new(8, 8)
+		bubbles.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.05),
+			NumberSequenceKeypoint.new(1, 0.1),
+		})
+		bubbles.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.3),
+			NumberSequenceKeypoint.new(0.85, 0.3),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		bubbles.ZOffset = 0.55
+		bubbles.Parent = source
 	end
 
 	-- WALKED BACKWARDS FROM THE TOP OF Liquids.ORDER, so the plinth re-sorts itself
@@ -1948,6 +2476,16 @@ local BELT_TREAD = "3A454E"
 --- The side rails. Deliberately lighter than `C.standGrey` (A0A0A0): they are the one
 --- part of the machine that crosses the player's eyeline, and they frame the dark.
 local RAIL_PALE = "D5DADE"
+--- How far the sloped fairings stand out from the frame. The back one sets how close
+--- the machine comes to PlotSpawn: 0.8 lands its low edge at z -27.9 against the
+--- spawn's -27.
+local FAIRING_W = 0.8
+--- The console leans back 22 degrees so the screen on its runner-side face looks up at
+--- whoever is on the belt.
+local CONSOLE_TILT = Kit.ang(-22, 0, 0)
+--- The screen: dark glass, mint readout, a dimmer mint for the empty progress track.
+local SCREEN_DARK, SCREEN_INK, SCREEN_DIM = "14262B", "8FF0C8", "2B4A50"
+local SCREEN_BARS = 7
 
 --- The drive housing's colour per rung. Bare steel at the bottom, reactor orange at
 --- the top; deliberately clear of the quarantine red and the stages' hazard greens,
@@ -1987,17 +2525,39 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, xp: number?
 	-- The housing is the rung you can see from across the plot: it walks a ladder from
 	-- bare steel up to the hot end, so a maxed belt reads as machinery rather than as
 	-- scrap without anyone having to read the sign.
+	-- Every part tagged `TierPaint` (the cowl, its hood, the rail grips) wears it; `Drive`
+	-- by name as well, for a world built before the tag existed.
+	local paint = Color3.fromHex(TREADMILL_DRIVE[wanted])
 	local drive = treadmill:FindFirstChild("Drive", true)
 	if drive and drive:IsA("BasePart") then
-		drive.Color = Color3.fromHex(TREADMILL_DRIVE[wanted])
+		drive.Color = paint
+	end
+	for _, d in treadmill:GetDescendants() do
+		if d:IsA("BasePart") and d:GetAttribute("TierPaint") then
+			d.Color = paint
+		end
 	end
 
 	local sign = treadmill:FindFirstChild("Sign", true)
 	local title = sign and sign:FindFirstChild("Title")
 	local subtitle = sign and sign:FindFirstChild("Subtitle")
 	local speed, progress = Treadmill.speedFor(xp or 0)
+	local shownSpeed = if xp == nil then Treadmill.START_SPEED else speed
 	if title then
-		(title :: TextLabel).Text = string.format("SPEED %d", if xp == nil then Treadmill.START_SPEED else speed)
+		(title :: TextLabel).Text = string.format("SPEED %d", shownSpeed)
+	end
+
+	-- The console's own screen says the same number to the runner, with the bar to the
+	-- next point. Absent on a world built before the screen faced the belt.
+	local readout = treadmill:FindFirstChild("Readout", true)
+	local screenSpeed = readout and readout:FindFirstChild("Speed")
+	if screenSpeed and screenSpeed:IsA("TextLabel") then
+		screenSpeed.Text = string.format("SPEED %d", shownSpeed)
+	end
+	local fill = readout and readout:FindFirstChild("Fill", true)
+	if fill and fill:IsA("Frame") then
+		local shown = if xp == nil then 0 elseif speed >= Treadmill.MAX_SPEED then 1 else progress
+		fill.Size = UDim2.fromScale(math.clamp(shown, 0, 1), 1)
 	end
 	if subtitle then
 		(subtitle :: TextLabel).Text = if xp == nil or speed >= Treadmill.MAX_SPEED
@@ -2041,13 +2601,14 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 
 	-- ── The trough ────────────────────────────────────────────
 	-- The running surface. Sunk below the frame, and the ONLY part of this machine a
-	-- service reads -- same centre and Radius as the flat plate it replaced.
+	-- service reads -- same centre and Radius as the flat plate it replaced. Rubber, so
+	-- the dark has a grain to it up close rather than reading as a painted hole.
 	build(m, origin, {
 		name = "Belt",
 		pos = { cx, beltTop - 0.3, cz },
 		size = { t.beltW, 0.6, t.beltL },
 		color = BELT_DARK,
-		material = "SmoothPlastic",
+		material = "Rubber",
 		attributes = { StationKind = "treadmill", Radius = 5 },
 	})
 
@@ -2077,13 +2638,46 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	-- does not read as painted onto the floor. It has to STRADDLE the pad top (T) to be
 	-- visible at all -- sat wholly below it, as this first was, it is a dozen parts per
 	-- plot buried in the floor doing nothing.
+	--
+	-- AND ITS TOP HAS TO STAY UNDER THE BELT'S. It is one slab under the whole machine,
+	-- trough included, and at T+0.35 it stood 0.15 above the belt (T+0.2) and over every
+	-- chevron: the dark trough and its tread -- this machine's whole silhouette, see the
+	-- header -- were buried under a studded grey lid, and a ray down the middle landed on
+	-- Base. Topping out at T+0.15 it is still a shadow line round the frame.
 	build(m, origin, {
 		name = "Base",
-		pos = { cx, T + 0.1, cz },
+		pos = { cx, T - 0.1, cz },
 		size = { outerW + 0.7, 0.5, outerL + 0.7 },
 		color = BASE,
 		material = "Plastic",
 		studs = true,
+	})
+
+	-- Sloped studded fairings down both long sides and a ramp across the back, where you
+	-- step on: the frame was four boxes on the floor, and a slope off its outside edge is
+	-- what turns a kerb into a machine's deck. Wedges stand tall on their local +Z and
+	-- fall away toward -Z, so each is yawed to put its tall face against the frame.
+	for _, side in { -1, 1 } do
+		build(m, origin, {
+			name = "Fairing",
+			class = "WedgePart",
+			pos = { cx + side * (outerW / 2 + FAIRING_W / 2), T + (frameTop - T) / 2, cz },
+			size = { outerL, frameTop - T, FAIRING_W },
+			color = FRAME,
+			material = "Plastic",
+			studs = true,
+			rot = Kit.ang(0, -side * 90, 0),
+		})
+	end
+	build(m, origin, {
+		name = "Fairing",
+		class = "WedgePart",
+		pos = { cx, T + (frameTop - T) / 2, cz + outerL / 2 + FAIRING_W / 2 },
+		size = { outerW, frameTop - T, FAIRING_W },
+		color = FRAME,
+		material = "Plastic",
+		studs = true,
+		rot = Kit.ang(0, 180, 0),
 	})
 
 	-- ── The tread ─────────────────────────────────────────────
@@ -2131,17 +2725,23 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	end
 
 	-- ── The rails ─────────────────────────────────────────────
-	-- Pale, chunky, running the full length at eyeline on square posts. CanCollide off,
-	-- all of it: a rail that catches a player stepping on or off a machine they will be
+	-- Round tubes at eyeline on square studded posts, running from the back of the machine
+	-- right into the console the way a real treadmill's handlebars do, a studded ball on
+	-- the open end and a rubber grip where the runner's hands fall. The grips wear the belt
+	-- rung's colour along with the cowl (`TierPaint`, setTreadmillTier). CanCollide off, all
+	-- of it: a rail that catches a player stepping on or off a machine they will be
 	-- standing on for hours is the single most irritating thing this build could do.
 	local railX = halfW + t.frameW / 2
+	local railY = T + t.railH
+	local headZ = cz - halfL - t.frameW - 0.5
+	local railBack = cz + halfL - 0.3
 	for _, side in { -1, 1 } do
 		local x = cx + side * railX
 		for _, postZ in { cz - halfL + 0.9, cz + halfL - 0.9 } do
 			build(m, origin, {
 				name = "RailPost",
-				pos = { x, (frameTop + T + t.railH) / 2, postZ },
-				size = { 0.7, T + t.railH - frameTop, 0.7 },
+				pos = { x, (frameTop + railY) / 2, postZ },
+				size = { 0.7, railY - frameTop, 0.7 },
 				color = RAIL_PALE,
 				material = "Plastic",
 				studs = true,
@@ -2150,12 +2750,34 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 		end
 		build(m, origin, {
 			name = "Rail",
-			pos = { x, T + t.railH, cz },
-			size = { 0.85, 0.85, t.beltL - 0.6 },
+			pos = { x, railY, (headZ + railBack) / 2 },
+			size = { railBack - headZ, 0.55, 0.55 },
+			color = RAIL_PALE,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = CYL_ALONG_Z,
+			canCollide = false,
+		})
+		build(m, origin, {
+			name = "RailEnd",
+			pos = { x, railY, railBack },
+			size = { 0.75, 0.75, 0.75 },
 			color = RAIL_PALE,
 			material = "Plastic",
 			studs = true,
+			shape = "Ball",
 			canCollide = false,
+		})
+		build(m, origin, {
+			name = "RailGrip",
+			pos = { x, railY, cz - halfL + 2.2 },
+			size = { 1.8, 0.7, 0.7 },
+			color = TREADMILL_DRIVE[1],
+			material = "Rubber",
+			shape = "Cylinder",
+			rot = CYL_ALONG_Z,
+			canCollide = false,
+			attributes = { TierPaint = true },
 		})
 	end
 
@@ -2163,10 +2785,10 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	-- At the -Z end, so the runner faces out through the entrance arch. A lit screen in
 	-- a dark bezel, standing on the motor cowl -- see this function's header for why it
 	-- is a screen rather than the flat plate that was here before.
-	local headZ = cz - halfL - t.frameW - 0.5
 
 	-- The cowl. THE PART setTreadmillTier REPAINTS: it is the rung you can see from
-	-- across the plot, which is why it is the widest solid mass on the machine.
+	-- across the plot, which is why it is the widest solid mass on the machine. Every
+	-- part tagged `TierPaint` follows it -- the cowl, its hood, the grips.
 	build(m, origin, {
 		name = "Drive",
 		pos = { cx, T + 1.1, headZ },
@@ -2174,7 +2796,64 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 		color = TREADMILL_DRIVE[1],
 		material = "Metal",
 		studs = true,
+		attributes = { TierPaint = true },
 	})
+	-- A sloped studded hood along the cowl's entrance-side top edge, so the housing
+	-- reads as a shaped motor cover rather than a box set down in front of the belt.
+	build(m, origin, {
+		name = "DriveHood",
+		class = "WedgePart",
+		pos = { cx, T + 2.2 + 0.25, headZ - 0.5 },
+		size = { outerW - 0.4, 0.5, 0.6 },
+		color = TREADMILL_DRIVE[1],
+		material = "Plastic",
+		studs = true,
+		attributes = { TierPaint = true },
+	})
+
+	-- Two cooling fans in the cowl's entrance face, turning (StationMotionController):
+	-- the motor you are paying to upgrade is visibly running, belt or no belt. Each rotor
+	-- is its own Model so it turns as one about its hub, streamed as a unit.
+	for _, side in { -1, 1 } do
+		local hub = origin * CFrame.new(cx + side * 2.4, T + 1.1, headZ - 0.8)
+		build(m, hub, {
+			name = "FanHousing",
+			pos = { 0, 0, -0.05 },
+			size = { 0.1, 1.5, 1.5 },
+			color = FIT,
+			material = "Metal",
+			shape = "Cylinder",
+			rot = CYL_ALONG_Z,
+			canCollide = false,
+		})
+		local rotor = Instance.new("Model")
+		rotor.Name = "FanRotor"
+		rotor.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+		build(rotor, hub, {
+			name = "FanHub",
+			pos = { 0, 0, -0.14 },
+			size = { 0.1, 0.4, 0.4 },
+			color = RAIL_PALE,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = CYL_ALONG_Z,
+			canCollide = false,
+		})
+		for k = 0, 2 do
+			build(rotor, hub * Kit.ang(0, 0, k * 120), {
+				name = "FanBlade",
+				pos = { 0, 0.38, -0.13 },
+				size = { 0.28, 0.56, 0.05 },
+				color = RAIL_PALE,
+				material = "SmoothPlastic",
+				rot = Kit.ang(0, 25, 0),
+				canCollide = false,
+			})
+		end
+		rotor.WorldPivot = hub
+		rotor.Parent = m
+		Kit.motion(rotor, { kind = "spin", axis = "Z", rate = 7 })
+	end
 
 	-- Two stems carrying the console up off the cowl, in line with the rails.
 	for _, side in { -1, 1 } do
@@ -2189,23 +2868,90 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 		})
 	end
 
-	-- The bezel carries the prompt and the attributes; the screen is a lit inset.
+	-- The bezel carries the prompt and the attributes; the screen is a lit inset. BOTH
+	-- LEAN BACK AND FACE THE RUNNER now. The screen used to be on the entrance side of
+	-- an upright console, reading out to people walking in while the one player on the
+	-- belt stared at its bare back; the billboard over it already serves the walk-in.
 	local console = build(m, origin, {
 		name = "Console",
-		pos = { cx, T + 3.7, headZ },
+		pos = { cx, T + 3.75, headZ },
 		size = { outerW - 0.8, 2.3, 0.55 },
 		color = FIT,
 		material = "Metal",
+		rot = CONSOLE_TILT,
 		attributes = { UpgradesTreadmill = true },
 	})
-	build(m, origin, {
+	local screen = build(m, origin, {
 		name = "Screen",
-		pos = { cx, T + 3.7, headZ - 0.32 },
+		pos = { cx, T + 3.75, headZ },
 		size = { outerW - 1.9, 1.5, 0.12 },
-		color = "E8EDE6",
+		color = SCREEN_DARK,
 		material = "SmoothPlastic",
+		rot = CONSOLE_TILT * CFrame.new(0, 0, 0.32),
 		canCollide = false,
 	})
+
+	-- The readout: the owner's speed, a bar to the next point (both written by
+	-- setTreadmillTier alongside the billboard), and a stride pulse that bounces
+	-- (StationMotionController). Lit text on a dark glass, LightInfluence 0 so the sun
+	-- does not wash it out -- a screen, not paint.
+	local readout = Instance.new("SurfaceGui")
+	readout.Name = "Readout"
+	readout.Face = Enum.NormalId.Back
+	readout.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	readout.PixelsPerStud = 60
+	readout.LightInfluence = 0
+	readout.MaxDistance = 60
+	readout.Parent = screen
+
+	local speedLabel = Instance.new("TextLabel")
+	speedLabel.Name = "Speed"
+	speedLabel.BackgroundTransparency = 1
+	speedLabel.Position = UDim2.fromScale(0.04, 0.08)
+	speedLabel.Size = UDim2.fromScale(0.6, 0.58)
+	speedLabel.Font = Kit.FONT
+	speedLabel.TextScaled = true
+	speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+	speedLabel.TextColor3 = Color3.fromHex(SCREEN_INK)
+	speedLabel.Text = string.format("SPEED %d", Treadmill.START_SPEED)
+	speedLabel.Parent = readout
+
+	local pulse = Instance.new("Frame")
+	pulse.Name = "Pulse"
+	pulse.BackgroundTransparency = 1
+	pulse.Position = UDim2.fromScale(0.68, 0.12)
+	pulse.Size = UDim2.fromScale(0.28, 0.52)
+	pulse.Parent = readout
+	for i = 1, SCREEN_BARS do
+		local bar = Instance.new("Frame")
+		bar.Name = "Bar" .. i
+		bar.AnchorPoint = Vector2.new(0, 1)
+		bar.Position = UDim2.fromScale((i - 1) / SCREEN_BARS, 1)
+		bar.Size = UDim2.fromScale(0.6 / SCREEN_BARS, 0.4)
+		bar.BackgroundColor3 = Color3.fromHex(SCREEN_INK)
+		bar.BorderSizePixel = 0
+		bar.Parent = pulse
+	end
+
+	local track = Instance.new("Frame")
+	track.Name = "Progress"
+	track.Position = UDim2.fromScale(0.04, 0.76)
+	track.Size = UDim2.fromScale(0.92, 0.12)
+	track.BackgroundColor3 = Color3.fromHex(SCREEN_DIM)
+	track.BorderSizePixel = 0
+	track.Parent = readout
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.Size = UDim2.fromScale(0, 1)
+	fill.BackgroundColor3 = Color3.fromHex(SCREEN_INK)
+	fill.BorderSizePixel = 0
+	fill.Parent = track
+	for _, frame in { track, fill } do
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = frame
+	end
+	Kit.motion(screen, { kind = "screen" })
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Upgrade"
