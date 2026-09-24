@@ -1672,11 +1672,6 @@ local function syncTutorial()
 			body = "One find per tube. Under each is the hose that washes it at full speed: green pips are what your hose covers, red is how far short it is.",
 		},
 		{
-			target = parts.bag,
-			title = "YOUR BAG",
-			body = "Pick a find from your bag to seal it in. Crusted ??? finds stay crusted in here.",
-		},
-		{
 			target = parts.action,
 			title = "SEAL IN, TAKE OUT",
 			body = "This button seals the find you picked. Pick a tube instead to take it back out, once there is room in your bag.",

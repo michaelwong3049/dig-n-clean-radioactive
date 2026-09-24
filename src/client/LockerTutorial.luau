@@ -6,7 +6,7 @@
 	else black transparent besides the screen and explain it". So it is a spotlight: the
 	whole screen goes a see-through black EXCEPT a cut-out over the part of the locker
 	panel being explained, ringed in amber, with a small card beside it saying what that
-	part is. Four quick steps (the locker, the tubes, the bag, the button), NEXT / SKIP,
+	part is. Three quick steps (the locker, the tubes, the button), NEXT / SKIP,
 	and a click anywhere also moves on.
 
 	THE CUT-OUT IS FOUR BLACK FRAMES, not a frame with a hole (Roblox has no masking):
