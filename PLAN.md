@@ -177,11 +177,17 @@ found also tells you how long you have to get it home.
 Everything down there is a nuke, and hauling one up is not free. **Locking the magnet on
 lights a fuse** (numbers in `Config/Detonation.luau`, maths in `Shared/Detonation.luau`):
 
-* **The window is about thirty seconds**, shorter for rarer nukes (Common ×1.1 down to
-  Anomaly ×0.74) and longer for heavier ones, since they take longer to pull. It has a
-  **fairness floor**: the magnet rated for that soil, clicked at a relaxed 4/sec, always
-  gets the nuke out by 60% of its window. So a pull on your own tier never gets near
-  arming. An over-tier grind can, and that makes over-tier pulls a gamble.
+* **The window is 5 to 30 seconds and averages about twenty.** Every nuke rolls its own
+  *temper* off its uid (`Config/Detonation` `TEMPER_BANDS`), so two nukes side by side
+  can be a hair-trigger and a slow burn: roughly one in ten burns down in under eight
+  seconds. Rarity and weight still tilt the centre, shorter for rarer nukes (Common ×1.1
+  down to Anomaly ×0.74) and longer for heavier ones, since they take longer to pull.
+  It has a **fairness floor**: the magnet rated for that soil, clicked at a relaxed
+  4/sec, gets the nuke out by 70% of its window. That is what keeps a hair-trigger to
+  the nukes that come up fast, and lifts the slow deep ones (never past 30s). So a pull
+  on your own tier rarely gets near arming, and a rated magnet mashing at the sustained
+  8/sec always lands everything before it arms. An over-tier grind can arm, and that
+  makes over-tier pulls a gamble.
 * **Before 80%, letting go is free.** You walk away and the fuse cools back down at the
   rate it heated. It does not reset, because that would make "let go at 79% and
   re-grab" a loophole. A nuke someone else has been working on is still warm when you

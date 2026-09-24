@@ -28,9 +28,37 @@ local Detonation = {}
 
 -- ── The fuse ───────────────────────────────────────────────────────────
 
--- The window in seconds for an average nuke at Uncommon, before rarity and weight
--- bend it. "About thirty seconds" is the brief; everything below is a nudge off it.
-Detonation.BASE_WINDOW = 30
+-- The window in seconds for an average nuke at Uncommon, before rarity, weight and
+-- its own temper (TEMPER_BANDS) bend it. It was thirty; the brief is now "about twenty
+-- on average, and nothing like the same twenty twice".
+Detonation.BASE_WINDOW = 20
+
+-- THE RANGE A FUSE CAN HAVE. Whatever rarity, weight, temper and the fairness floor
+-- (below) multiply and lift out to is clamped into this, LAST, so the fastest nuke in
+-- the ground is a five-second scramble and the most patient is thirty. Nothing goes
+-- past it -- Spec pins every window in the catalogue inside it.
+Detonation.MIN_WINDOW = 5
+Detonation.MAX_WINDOW = 30
+
+-- EVERY NUKE HAS ITS OWN TEMPER. A per-nuke roll multiplies the rarity/weight window,
+-- so two Uncommons side by side can be a hair-trigger and a slow burn. Same shape and
+-- the same reasons as Config/Payload: seeded on the signal's uid and never stored, so
+-- the server that blows it up and every client that draws the bar read one number
+-- (Shared/Detonation.temperFor). Bands run in order from TEMPER_MIN, each ending at
+-- its `upTo`, and `chance` is the percent of nukes landing in it, spread evenly inside
+-- the band. Spec pins the order, that the last band ends where the MAX_WINDOW clamp
+-- above expects and that the chances total 100.
+--
+-- Against BASE_WINDOW = 20: the first band is the "under eight seconds" nukes -- about
+-- one in six on the roll, one in ten once the fairness floor has lifted the slow pulls
+-- out of it -- and the last is the slow burn that tops out at MAX_WINDOW.
+Detonation.TEMPER_MIN = 0.25
+Detonation.TEMPER_BANDS = {
+	{ upTo = 0.4, chance = 16 }, -- hair-trigger: 5-8s
+	{ upTo = 0.85, chance = 24 }, -- twitchy: 8-17s
+	{ upTo = 1.15, chance = 34 }, -- steady: 17-23s
+	{ upTo = 1.5, chance = 26 }, -- slow burn: 23-30s
+}
 
 -- RARER NUKES ARE LESS STABLE. Multiplies BASE_WINDOW. Monotonic non-increasing down
 -- Rarity.ORDER (Spec pins it): the find worth the most is the one with the shortest
@@ -68,20 +96,27 @@ Detonation.WARN_AT = 0.5
 
 -- ── The fairness floor ──────────────────────────────────────────────────
 --
--- A flat thirty seconds blows up honest pulls. The starting magnet has no draw, and a
+-- A flat thirty seconds blew up honest pulls. The starting magnet has no draw, and a
 -- Rare dug out of Stage 1 is a 25-40s mash with it -- longer than its whole window --
 -- so a new player's first good find would go off in their hands for no fault of
 -- their own. The window therefore has a FLOOR: long enough that the magnet RATED for
 -- this soil, clicked at a relaxed REF_CPS, has the nuke out of the ground by SAFE_AT
--- of the window. Most pulls never touch the floor (the rarity/weight window is longer
--- already); it only lifts the slow deep ones.
+-- of the window. Most pulls never touch the floor; it lifts the slow deep ones -- and
+-- since the temper rolls now reach down to five seconds, it is also what keeps a
+-- hair-trigger to the nukes that actually come up fast (a light find, buried shallow).
+--
+-- The floor lifts a fuse up to MAX_WINDOW and no further. The handful of pulls slower
+-- than that (an Epic in Stage 1 with the starter magnet, at its deepest) can still
+-- outrun their fuse at REF_CPS: they want a better magnet or a quicker thumb, and
+-- walking away before ARM_AT stays free. Spec pins that a rated magnet mashing at the
+-- sustained rate lands EVERY nuke before it arms.
 --
 -- The floor is sized off the STAGE's rated magnet, never the player's own. A better
 -- magnet is simply safer; an under-rated one pulling over its tier is slower than the
 -- floor assumed and can run the fuse down -- over-tier pulls were already a grind
 -- (Tuning.PULL_GRIP_FALLOFF) and are now a gamble as well, which is the intent.
 Detonation.REF_CPS = 4 -- clicks/sec: relaxed desktop, a busy thumb on a phone
-Detonation.SAFE_AT = 0.6 -- the rated pull has to land by this fraction of the window
+Detonation.SAFE_AT = 0.7 -- the rated pull has to land by this fraction of the window
 
 -- How fast an unheld fuse cools, as a multiple of the rate it heated. 1 = it takes as
 -- long to settle as you spent on it. Above 1 starts to reopen the let-go-and-regrab
