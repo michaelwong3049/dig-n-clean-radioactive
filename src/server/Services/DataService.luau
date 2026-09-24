@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear)
+local Treadmill = require(Shared.Config.Treadmill)
 local Decay = require(Shared.Decay)
 
 local ProfileStore = require(script.Parent.Parent.lib.ProfileStore)
@@ -113,21 +114,20 @@ local TEMPLATE = {
 	cleanTokens = 0,
 	rebirths = 0,
 
-	-- THE TREADMILL (Config/Treadmill, Services/TreadmillService). `speedXp` is banked
-	-- training units -- one unit is one second on the free starting belt -- and it is
-	-- the ONLY thing that decides how fast this player walks. `treadmill` is the belt
-	-- rung they own, 1-based like every gear track's tier, so the template's 1 needs no
-	-- migration and an existing save Reconciles straight onto the free belt.
+	-- THE TREADMILL (Config/Treadmill, Services/TreadmillService). `speedPoints` is
+	-- lifetime SPEED -- the visible unit a belt pays per second -- and it is the ONLY
+	-- thing that decides how fast this player walks: the speed level is read off it
+	-- against Treadmill.REQUIREMENTS. `treadmill` is the belt rung they own, 1-based
+	-- like every gear track's tier.
 	--
-	-- A FLOAT, AND DELIBERATELY NOT AN INTEGER SPEED. Storing the resolved speed would
-	-- throw away the progress bar on every save and make the curve un-retunable: change
-	-- one constant in Config/Treadmill and every stored speed would mean a different
-	-- amount of work. Banking the INPUT and resolving the speed on read means a retune
-	-- moves everyone consistently, the way `xp` already relates to `level`.
+	-- A FLOAT, AND DELIBERATELY NOT A LEVEL. Banking the input and resolving the level
+	-- on read keeps the progress bar across saves and lets the requirement curve be
+	-- retuned without rewriting anyone's save.
 	--
-	-- Bounded by Treadmill.xpForSpeed(MAX_SPEED) before it is ever written (see
-	-- TreadmillService), so this cannot grow without limit in the save file.
-	speedXp = 0,
+	-- NO `speedXp` HERE ANY MORE. Saves from before the Speed unit carry it; see
+	-- convertLegacySpeed, which is keyed on it being present. Leaving it in the template
+	-- would make Reconcile hand every new save one to convert.
+	speedPoints = 0,
 	treadmill = 1,
 
 	-- The player's chosen base accent colour, "RRGGBB" hex (no leading "#"). "" means
@@ -265,6 +265,23 @@ local function refundRetiredBoots(data: any): number
 	return refund
 end
 
+--- THE SPEED CONVERSION — one-time, self-erasing, same shape as the Boots refund.
+---
+--- Before Speed was a visible unit, training was banked as hidden `speedXp` on a
+--- different curve. Treadmill.fromLegacyXp turns it into lifetime Speed that lands
+--- the player on the SAME walk speed with the same fraction of the bar filled, so
+--- nobody loses a level to the rework. Keyed on `speedXp` being present (the evidence
+--- IS the state); clearing it is what makes this run once.
+local function convertLegacySpeed(data: any): number?
+	local legacy = data.speedXp
+	if legacy == nil then
+		return nil
+	end
+	data.speedXp = nil
+	data.speedPoints = math.max(data.speedPoints or 0, Treadmill.fromLegacyXp(legacy))
+	return data.speedPoints
+end
+
 -- ── Session lifecycle ─────────────────────────────────────────────────────────
 
 local function onPlayerAdded(player: Player)
@@ -287,6 +304,10 @@ local function onPlayerAdded(player: Player)
 	local refunded = refundRetiredBoots(profile.Data)
 	if refunded > 0 then
 		print(`[data] {player.Name}: refunded ${refunded} for the retired Boots track`)
+	end
+	local converted = convertLegacySpeed(profile.Data)
+	if converted then
+		print(`[data] {player.Name}: converted old treadmill training to {math.floor(converted)} Speed`)
 	end
 
 	profile.OnSessionEnd:Connect(function()

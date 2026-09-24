@@ -106,7 +106,7 @@ local REMOTES: { [string]: string } = {
 	-- forward IS the feedback and a readout that only moves once every few minutes is
 	-- indistinguishable from a broken one. Off the belt it goes quiet entirely, which
 	-- is most of the time for most players.
-	SpeedState = "RemoteEvent", -- server -> client, the trained-speed readout
+	SpeedState = "RemoteEvent", -- server -> client, lifetime Speed + level + belt readout
 
 	-- Phase 2: exposure.
 	ExposureState = "RemoteEvent", -- server -> client, the rad meter, once per tick

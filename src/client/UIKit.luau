@@ -590,7 +590,8 @@ Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 -- button — reconsider this the moment that stops being true.
 Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 
--- The LEFT column: cash badge on top, meter one GAP below it, the pair centred on the
+-- The LEFT column: cash badge on top, the speed badge one GAP below it, the meter one
+-- GAP below that (SPEED_SIZE, added with the Speed unit), the stack centred on the
 -- vertical (Dock.CASH_MID_Y / Dock.METER_MID_Y — defined just below CASH_BOTTOM). It
 -- was bottom-anchored in the corner until "middle left" was requested. (The
 -- loaded-liquid badge used to top this stack — it is a BillboardGui on the wash pad
@@ -609,6 +610,10 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 -- baseline — kept as the reference point the SIDE_* offsets below are documented
 -- against, and in case the column ever moves back.
 Dock.CASH_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 86)
+-- THE SPEED BADGE (SpeedController), between the cash badge and the meter: a 48-tall
+-- card plus the level pill hanging off its bottom edge, the same overhang shape as the
+-- cash badge's income pill. Same width as the column, read off the meter like CASH_SIZE.
+Dock.SPEED_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 64)
 Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
 
 -- MIDDLE-LEFT / MIDDLE-RIGHT PLACEMENT. On request the cash+meter column and the
@@ -617,8 +622,13 @@ Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
 -- placed by each panel's OWN centre (anchorPoint y = 0.5) at a fixed offset from
 -- screen middle, so it packs the same way however either element is resized. These
 -- are offsets from 0.5-scale, negative = above centre.
-Dock.SIDE_STACK_HEIGHT = Dock.CASH_SIZE.Y.Offset + Dock.GAP + Dock.METER_SIZE.Y.Offset
+Dock.SIDE_STACK_HEIGHT = Dock.CASH_SIZE.Y.Offset
+	+ Dock.GAP
+	+ Dock.SPEED_SIZE.Y.Offset
+	+ Dock.GAP
+	+ Dock.METER_SIZE.Y.Offset
 Dock.CASH_MID_Y = Dock.CASH_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
+Dock.SPEED_MID_Y = Dock.CASH_SIZE.Y.Offset + Dock.GAP + Dock.SPEED_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
 Dock.METER_MID_Y = Dock.SIDE_STACK_HEIGHT / 2 - Dock.METER_SIZE.Y.Offset / 2
 -- The column's TOP edge, as the same kind of offset from screen middle. IndexController
 -- hangs the Index tile from it on the right edge, so both sides start on one line.
@@ -628,10 +638,10 @@ Dock.METER_MID_Y = Dock.SIDE_STACK_HEIGHT / 2 - Dock.METER_SIZE.Y.Offset / 2
 -- widget now stops short of the tile column entirely (HAULPANEL_RIGHT), but the tiles
 -- stay hung from this line so both sides of the screen start level.
 Dock.SIDE_TOP_Y = -Dock.SIDE_STACK_HEIGHT / 2
--- The meter's TOP edge, one GAP under the cash badge. HudController anchors the panel
+-- The meter's TOP edge, one GAP under the speed badge. HudController anchors the panel
 -- here rather than on METER_MID_Y because its height changes (the countdown strip), and
--- it must grow away from the cash badge, not into it.
-Dock.METER_TOP_Y = Dock.SIDE_TOP_Y + Dock.CASH_SIZE.Y.Offset + Dock.GAP
+-- it must grow away from the badges above, not into them.
+Dock.METER_TOP_Y = Dock.SIDE_TOP_Y + Dock.CASH_SIZE.Y.Offset + Dock.GAP + Dock.SPEED_SIZE.Y.Offset + Dock.GAP
 -- ...and the shortest design screen that line is used on. Below it the hang stops
 -- working in both directions: the readout climbs into it as the screen shortens, and
 -- under ~460 the tile rises into the Settings gear in the corner above. So a shorter

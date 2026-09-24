@@ -39,11 +39,11 @@ export type Profile = {
 	level: number,
 	gear: { [string]: number },
 	perks: { [string]: boolean },
-	-- The treadmill (Config/Treadmill). `speedXp` is banked training, `treadmill` the
-	-- belt rung owned. Both optional for the same reason `liquids` is: Util/Spec builds
+	-- The treadmill (Config/Treadmill). `speedPoints` is lifetime Speed, `treadmill`
+	-- the belt rung owned. Both optional for the same reason `liquids` is: Util/Spec builds
 	-- fake profiles by hand and every call site predates them. Absent means "untrained,
 	-- on the free belt" -- a real starting state, not a degraded one.
-	speedXp: number?,
+	speedPoints: number?,
 	treadmill: number?,
 	multipliers: { [string]: number }?, -- rebirth / gamepass / pet, all pre-summed
 	-- The wash pad's rolled liquids (Config/Liquids). Both optional because
@@ -65,10 +65,9 @@ export type Stats = {
 	levelResist: number,
 	capacity: number,
 	-- movement. `walkSpeed` is TRAINED (Config/Treadmill), not bought: it is the
-	-- integer studs/sec the player's banked `speedXp` has earned. `speedProgress` is
-	-- how far into the next point they are (0..1), carried here rather than recomputed
-	-- because the treadmill's own readout and the HUD both want it and neither should
-	-- own a second copy of the curve.
+	-- studs/sec of the speed level the player's lifetime `speedPoints` has reached.
+	-- `speedProgress` is how far toward the next level's requirement they are (0..1),
+	-- carried here rather than recomputed so nothing owns a second copy of the curve.
 	--
 	-- `stamina`, `canVault` and `canDash` USED TO BE HERE, off the Boots track. All
 	-- three were resolved every tick and read by nothing at all; they went with the
@@ -151,7 +150,7 @@ function StatResolver.get(profile: Profile): Stats
 	-- SPEED IS TRAINED, NOT EQUIPPED, so it is the one stat in this function that does
 	-- not come out of `profile.gear` at all. The Boots track that used to answer this
 	-- is retired (Gear.Boots' header); Config/Treadmill owns the number now.
-	local walkSpeed, speedProgress = Treadmill.speedFor(profile.speedXp or 0)
+	local walkSpeed, speedProgress = Treadmill.walkFor(profile.speedPoints or 0)
 	local luckMultiplier = Gear.luckMultiplier(g.luck or 1)
 	local luckBoost = LuckBoost.multiplier(StatResolver.luckEventActive(), (profile.luckBoostLeft or 0) > 0)
 	local liquidId, liquid = liquidFor(profile)
