@@ -21,6 +21,7 @@ local ORDER = {
 	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
 	"IndexController", -- the item index GUI; Index tile on the right edge, reads IndexState + Unearthed
 	"ShopController", -- the Shop tile, stacked below the Index tile, and the Robux shop panel it opens
+	"NukesController", -- the Nukes tile under Shop: every owned nuke + $/s, and Equip Best; reads NukeList
 	"LuckBoostController", -- the 2x-luck clover (bottom right), the Violet Aurora banner + lights; opens the Shop
 	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"SpeedController", -- the persistent Speed badge under the cash badge; the one reader of SpeedState

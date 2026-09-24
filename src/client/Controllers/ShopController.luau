@@ -375,7 +375,7 @@ local function tileTop(height: number): number
 end
 
 --- Where the right-hand tile column ends: the Shop tile's bottom edge, in design px
---- from the canvas TOP. LuckBoostController keeps the 2x-luck clover below it.
+--- from the canvas TOP. NukesController hangs its tile one Dock.GAP below it.
 function Shop.columnBottom(height: number): number
 	return height / 2 + tileTop(height) + TILE_SIZE
 end

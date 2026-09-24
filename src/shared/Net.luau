@@ -149,6 +149,16 @@ local REMOTES: { [string]: string } = {
 	-- applied -- the number the badge prints under the balance. Fired only when that
 	-- rate changes (a stand placed or cleared, a yield or level change), never per tick.
 	IncomeState = "RemoteEvent", -- server -> client, exhibit $/s, on change
+	--
+	-- The Nukes panel (client NukesController, ExhibitService.nukeList). Every nuke the
+	-- player owns -- on a stand or in the bag -- with what it pays per second. Asked
+	-- for, never streamed: the panel requests a snapshot when it opens and again when
+	-- CarryState / IncomeState say something moved while it is showing. A crusted find
+	-- rides as "???" with no rate, for the same reason CarryState names it that way.
+	NukeList = "RemoteEvent", -- server -> client, { slots, used, rate, raw, displayed, bag, notice? }
+	-- A bare verb: "list" (send me a snapshot) or "equipBest" (fill + upgrade my
+	-- stands from the bag). No uid, no slot: the server picks everything.
+	NukeAction = "RemoteEvent", -- client -> server, "list" | "equipBest"
 
 	-- The top-of-screen "getting around" bar (client WarpController). The client
 	-- sends only a destination NAME -- { dest = "base" | "shops" } -- never a
