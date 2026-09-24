@@ -12,11 +12,25 @@
 	TWO POPUPS, ONE LOOK. A LIQUID crate plays the fluid bottle's own brew
 	(LiquidController, FluidSpin) -- the server just sends that popup a reel drawn from
 	the crate's table. A NUKE crate plays this file's popup, built as that brew's
-	sibling: the same dimmed screen, light rays, burst, name slam, tier pill and chips,
-	with the CRATE itself in the middle in place of the flask. It turns and shakes
-	harder as a reel of nuke names slows under it, then bursts open in the rarity's
-	colour and the nuke you got takes its place. The reel is made of real rolls off the
-	crate's own table, so the names that flash past most are the ones that come up most.
+	sibling: the same dimmed screen, light rays, burst, name slam, tier pill and chips.
+	Where the brew has its flask, this has the NUKES THEMSELVES: every name on the reel
+	flicks its own 3D model into the middle, fast at first and slowing down, each tick
+	popping in with a faint glow in its rarity's colour, until it lands on your prize
+	and bursts. (It used to be the crate rattling here; the user asked for the nukes.)
+	The reel is made of real rolls off the crate's own table, so the nukes that flash
+	past most are the ones that come up most.
+
+	EVERY REEL MODEL IS BUILT ONCE, when the popup opens, and cached by item id: the
+	reel ticks up to ~20 times a second and rebuilding a nuke per tick would hitch.
+	They all live IN the ViewportFrame the whole time and the idle ones are parked far
+	below the camera: a model freshly parented into a ViewportFrame can miss a frame
+	before it draws, which at this tick rate read as a flicker, and a move never does.
+
+	THE MESHES ARE PRELOADED BEFORE YOU OPEN ANYTHING. A nuke whose mesh this client has
+	never downloaded draws as nothing the first time it flicks past (the Clockwork and
+	Reactor nukes showed as an empty glow in testing). So the imported nuke templates
+	are warmed with ContentProvider once in the background after you join, and again
+	the moment you pick a crate up -- see preloadNukes.
 
 	All sizes are 1280x720 design pixels on UIKit.canvas (hud-scale-canvas).
 ]]
@@ -26,12 +40,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local CollectionService = game:GetService("CollectionService")
+local ContentProvider = game:GetService("ContentProvider")
 
 local Shared = ReplicatedStorage.Shared
 local Crates = require(Shared.Config.Crates)
 local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
-local CrateModels = require(Shared.CrateModels)
 local ItemModels = require(Shared.ItemModels)
 local Net = require(Shared.Net)
 
@@ -159,22 +173,53 @@ local function untag(model: Instance)
 	end
 end
 
---- Put `model` in the viewport, centred on the origin, and aim the camera to fit it.
-local function show(model: Model)
-	if ui.model then
-		ui.model:Destroy()
-	end
+--- One model ready for the viewport: centred on the origin (`home`), with the camera
+--- that frames it.
+type Framed = { model: Model, home: CFrame, camera: CFrame }
+
+--- Where idle cached models wait, well out of the camera's view.
+local PARKED = CFrame.new(0, -1000, 0)
+
+--- Centre `model` on the origin, work out the camera that fits it, and park it in the
+--- viewport. `display` brings it into view.
+local function frame(model: Model): Framed
 	untag(model)
 	model:PivotTo(CFrame.new())
 	local box, extents = model:GetBoundingBox()
 	model:PivotTo(CFrame.new(-box.Position))
-	model.Parent = ui.viewport
-	ui.model = model
-	ui.modelHome = model:GetPivot()
 
 	local radius = extents.Magnitude / 2
 	local distance = radius / math.tan(math.rad(ui.camera.FieldOfView / 2)) * 1.08
-	ui.camera.CFrame = CFrame.lookAt(Vector3.new(0, radius * 0.45, -distance), Vector3.zero)
+	local home = model:GetPivot()
+	model:PivotTo(PARKED * home)
+	model.Parent = ui.viewport
+	return {
+		model = model,
+		home = home,
+		camera = CFrame.lookAt(Vector3.new(0, radius * 0.45, -distance), Vector3.zero),
+	}
+end
+
+--- Swap the view onto `framed` (nil shows nothing): park the last one, bring this one
+--- home. Only one model is ever in front of the camera.
+local function display(framed: Framed?)
+	if ui.current and ui.current ~= framed then
+		ui.current.model:PivotTo(PARKED * ui.current.home)
+	end
+	ui.current = framed
+	if framed then
+		framed.model:PivotTo(framed.home)
+		ui.camera.CFrame = framed.camera
+	end
+end
+
+--- Destroy every model cached for the last opening.
+local function clearCache()
+	display(nil)
+	for _, framed in ui.cache or {} do
+		framed.model:Destroy()
+	end
+	ui.cache = {}
 end
 
 --- The prize's model: the nuke's own art, or the rarity-coloured block every other
@@ -196,6 +241,17 @@ local function prizeModel(itemId: string, rarity: string): Model
 	block.Parent = wrapper
 	wrapper.PrimaryPart = block
 	return wrapper
+end
+
+--- The cached, framed model for one reel entry, built on first ask.
+local function cached(itemId: string, rarity: string?): Framed
+	ui.cache = ui.cache or {}
+	local framed = ui.cache[itemId]
+	if framed == nil then
+		framed = frame(prizeModel(itemId, rarity or "Common"))
+		ui.cache[itemId] = framed
+	end
+	return framed
 end
 
 -- ── Build ─────────────────────────────────────────────────────────────
@@ -496,10 +552,7 @@ local function close(token: number)
 				ui.connection:Disconnect()
 				ui.connection = nil
 			end
-			if ui.model then
-				ui.model:Destroy()
-				ui.model = nil
-			end
+			clearCache()
 		end
 	end)
 end
@@ -535,8 +588,7 @@ local function reveal(payload: any, token: number)
 	local colour, rank = rarityColour(payload.rarity)
 	local crateColour = Color3.fromHex(Crates.get(payload.crate).color)
 
-	show(prizeModel(payload.result, payload.rarity))
-	ui.viewHolder.Position = ui.viewHome
+	display(cached(payload.result, payload.rarity))
 	ui.cycle.Visible = false
 
 	ui.viewScale.Scale = 1.2
@@ -603,7 +655,16 @@ local function play(payload: any)
 	local seconds = math.max(tonumber(payload.seconds) or 4.5, 0.5)
 	local from = math.min(REEL_FROM, land)
 
-	show(CrateModels.create(payload.crate))
+	-- Every nuke the reel can show, built now (behind the popup's own scale-in) so the
+	-- flicker below never builds anything mid-spin.
+	clearCache()
+	for _, entry in reel do
+		if type(entry) == "table" and type(entry.itemId) == "string" then
+			cached(entry.itemId, entry.rarity)
+		end
+	end
+	local first = reel[from]
+	display(if first then cached(first.itemId, first.rarity) else nil)
 	ui.header.Text = string.upper(crate.name)
 	ui.header.TextColor3 = Color3.fromHex(crate.color)
 	ui.result.Visible = false
@@ -626,6 +687,7 @@ local function play(payload: any)
 	local mainSeconds = seconds * 0.88
 	local started = os.clock()
 	local lastTile = from
+	local tickedAt = 0
 	local landed = false
 	ui.connection = RunService.RenderStepped:Connect(function(dt)
 		if token ~= spinToken then
@@ -644,34 +706,63 @@ local function play(payload: any)
 			local centred = math.clamp(math.floor(position + 0.5), 1, #reel)
 			if centred ~= lastTile then
 				lastTile = centred
+				tickedAt = elapsed
 				local entry = reel[centred]
+				local colour = rarityColour(entry.rarity)
+				display(cached(entry.itemId, entry.rarity))
 				ui.cycle.Text = entry.name or "???"
-				ui.cycle.TextColor3 = (rarityColour(entry.rarity))
+				ui.cycle.TextColor3 = colour
+				-- A faint glow in this nuke's rarity behind it, so a Legendary flicking
+				-- past is felt before it is read. The real rays wait for the landing.
+				for _, bar in ui.rayBars do
+					bar.BackgroundColor3 = colour
+					bar.BackgroundTransparency = 0.82
+				end
 				ui.tick:Play()
 			end
 
-			-- The crate turns, and rattles harder the closer the reel gets to stopping.
-			local progress = elapsed / seconds
-			local amp = if progress > 0.45 then (progress - 0.45) * 0.22 else 0
-			if ui.model then
-				-- Rotation on the LEFT: about the box centre (the origin), not the pivot.
-				ui.model:PivotTo(CFrame.Angles(
-					math.sin(elapsed * 41) * amp,
-					elapsed * 0.9,
-					math.sin(elapsed * 53) * amp
-				) * ui.modelHome)
+			-- Each nuke pops in a touch large and settles, and the current one turns.
+			local pop = math.max(0, 1 - (elapsed - tickedAt) / 0.12)
+			ui.viewScale.Scale = 1 + 0.12 * pop
+			if ui.current then
+				-- Rotation on the LEFT: about the model's centre (the origin), not its pivot.
+				ui.current.model:PivotTo(CFrame.Angles(0, elapsed * 1.6, 0) * ui.current.home)
 			end
-			ui.viewHolder.Position = ui.viewHome + UDim2.fromOffset(math.sin(elapsed * 47) * amp * 30, 0)
 
 			if elapsed >= seconds then
 				landed = true
 				reveal(payload, token)
 			end
-		elseif ui.model then
+		elseif ui.current then
 			-- The prize turns slowly on its plinth while the result is up.
-			ui.model:PivotTo(CFrame.Angles(0, elapsed * 0.8, 0) * ui.modelHome)
+			ui.current.model:PivotTo(CFrame.Angles(0, elapsed * 0.8, 0) * ui.current.home)
 		end
 		animateAmbient(dt)
+	end)
+end
+
+-- ── Preloading ────────────────────────────────────────────────────────
+
+--- Seconds after joining before the background warm-up, so it never competes with
+--- the first things a player loads.
+local PRELOAD_DELAY = 20
+local preloaded = false
+
+--- Download every imported nuke mesh once, so no reel shows a blank. Idempotent and
+--- non-blocking; the templates live in ReplicatedStorage.Assets (Shared/ItemModels).
+local function preloadNukes()
+	if preloaded then
+		return
+	end
+	preloaded = true
+	task.spawn(function()
+		local assets = ReplicatedStorage:FindFirstChild("Assets")
+		local templates = assets and assets:FindFirstChild("ImportedNukeTemplates")
+		if templates then
+			pcall(function()
+				ContentProvider:PreloadAsync({ templates })
+			end)
+		end
 	end)
 end
 
@@ -696,6 +787,8 @@ local function refreshPrompt(character: Model?)
 		clearPrompt()
 		return
 	end
+	-- A crate in hand is about to be opened: make sure the reel's nukes are loaded.
+	preloadNukes()
 	if prompt and prompt:GetAttribute("Uid") == uid and prompt.Parent and prompt.Parent:IsDescendantOf(held) then
 		return
 	end
@@ -743,6 +836,8 @@ end
 function CrateController.start()
 	openRemote = Net.get("CrateOpen")
 	Net.get("CrateOpened").OnClientEvent:Connect(play)
+
+	task.delay(PRELOAD_DELAY, preloadNukes)
 
 	local player = Players.LocalPlayer
 	if player.Character then
