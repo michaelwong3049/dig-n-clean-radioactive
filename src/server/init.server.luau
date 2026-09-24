@@ -36,6 +36,7 @@ local ORDER = {
 	"WarpService", -- the top-of-screen bar's teleport; needs Stage + Camp + Dig + Exhibit + Exposure
 	"LiquidService", -- the fluid bottle + panel: rolling liquids, charges, Luck; needs Exhibit + Shop
 	"WashService", -- the hose bay: the E-to-wash session; needs Carry + Liquid + Economy
+	"CrateService", -- opening dug-up supply crates; needs Dig + Wash + Liquid + Identify
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel
 	"ToolService", -- held models; reads DigService + DeconService + WashService state
 	"DebugService", -- the tuning console; reads the services above

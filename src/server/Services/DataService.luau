@@ -67,6 +67,9 @@ local TEMPLATE = {
 
 	carry = {}, -- array of Decay.CarriedItem. The backpack.
 	locker = {}, -- Quarantine Locker (PLAN §10.2): found but not yet cleanable.
+	-- Supply crates (Config/Crates), { uid, crateId }. Their own list, NOT in `carry`,
+	-- but they share its slots -- Shared/Bag.used counts both.
+	crates = {},
 
 	exhibit = {
 		slots = Tuning.EXHIBIT_MAX_SLOTS, -- every stand is free; kept as a field so a save always carries it
@@ -149,7 +152,7 @@ local TEMPLATE = {
 	-- of strings; ProductService trims it.
 	receipts = {},
 
-	stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0, rolls = 0 },
+	stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0, rolls = 0, cratesOpened = 0 },
 }
 
 local STORE_VERSION = 1 -- bump to abandon all existing saves

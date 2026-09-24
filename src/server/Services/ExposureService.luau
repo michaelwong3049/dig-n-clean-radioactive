@@ -33,6 +33,7 @@ local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
+local Bag = require(Shared.Bag)
 
 local DataService = require(script.Parent.DataService)
 local WashService = require(script.Parent.WashService)
@@ -158,7 +159,7 @@ local function giveBagTo(bag: BasePart, taker: Player)
 
 	local stats = StatResolver.get(data)
 	local taken = 0
-	while #contents > 0 and #data.carry < stats.capacity do
+	while #contents > 0 and Bag.used(data) < stats.capacity do
 		table.insert(data.carry, table.remove(contents, 1))
 		taken += 1
 	end

@@ -118,6 +118,9 @@ local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
+local Bag = require(Shared.Bag)
+local Crates = require(Shared.Config.Crates)
+local CrateModels = require(Shared.CrateModels)
 
 local SignalAura = require(script.Parent.Parent.build.SignalAura)
 
@@ -166,6 +169,11 @@ type PlayerRoll = {
 	itemId: string,
 	rarity: string,
 	modifier: string,
+	-- A SUPPLY CRATE (Config/Crates) rather than a nuke. `itemId` is still a real
+	-- catalogue id (the signal's default nuke) so nothing that calls Items.get on it
+	-- can throw; every crate-aware branch below checks this first. `rarity` is the
+	-- crate's tier, which is what colours its glow.
+	crateId: string?,
 }
 
 type Signal = {
@@ -188,6 +196,9 @@ type Signal = {
 	-- already makes for rarity. The PULL, by contrast, reads the per-player item's
 	-- weight (stepPlayer), so that part IS per-player-correct.
 	weight: number,
+	-- A supply crate (Config/Crates) instead of a nuke; see PlayerRoll.crateId. The
+	-- default variant, rolled at spawn with no luck.
+	crateId: string?,
 	-- Per-player luck re-rolls, keyed by UserId. Filled lazily the first time the
 	-- signal enters that player's radar; goes away with the whole signal on removeSignal.
 	rolls: { [number]: PlayerRoll },
@@ -380,16 +391,32 @@ local unstockedWarned: { [number]: boolean } = {}
 --- a signal that read Legendary under the Violet Aurora must still be that Legendary
 --- when the sky clears, not quietly fall back to its default Common. (It also means a
 --- player who drops back to a lower detector keeps readings they already took.)
-local function rollFor(signal: Signal, stats: StatResolver.Stats, userId: number): (string, string, string)
+local function rollFor(signal: Signal, stats: StatResolver.Stats, userId: number): (string, string, string, string?)
 	local cached = signal.rolls[userId]
 	if cached then
-		return cached.itemId, cached.rarity, cached.modifier
+		return cached.itemId, cached.rarity, cached.modifier, cached.crateId
 	end
 
 	local detectorLuck = stats.detectorLuck + (IdentifyService.stageLuck(userId)[signal.stageId] or 0)
 	local boost = stats.luckBoost
 	if detectorLuck <= 1 and boost <= 1 then
-		return signal.itemId, signal.rarity, signal.modifier
+		return signal.itemId, signal.rarity, signal.modifier, signal.crateId
+	end
+
+	-- A CRATE STAYS A CRATE OF THE SAME KIND; luck only moves its VARIANT up the
+	-- ladder (Config/Crates.variantOdds), pinned per player like a nuke reading.
+	if signal.crateId then
+		local kind = Crates.get(signal.crateId).kind
+		local variant = Crates.rollVariant(signal.stageId, detectorLuck * boost, math.random())
+		local crateId = Crates.idFor(kind, variant)
+		local crateRoll: PlayerRoll = {
+			itemId = signal.itemId,
+			rarity = Crates.get(crateId).tier,
+			modifier = "None",
+			crateId = crateId,
+		}
+		signal.rolls[userId] = crateRoll
+		return crateRoll.itemId, crateRoll.rarity, crateRoll.modifier, crateRoll.crateId
 	end
 
 	local tilt = Stages.get(signal.stageId).rarityTilt
@@ -412,8 +439,8 @@ local function pinRoll(signal: Signal, stats: StatResolver.Stats, userId: number
 	if signal.rolls[userId] ~= nil then
 		return
 	end
-	local itemId, rarity, modifier = rollFor(signal, stats, userId)
-	signal.rolls[userId] = { itemId = itemId, rarity = rarity, modifier = modifier }
+	local itemId, rarity, modifier, crateId = rollFor(signal, stats, userId)
+	signal.rolls[userId] = { itemId = itemId, rarity = rarity, modifier = modifier, crateId = crateId }
 end
 
 -- ── The signal field ────────────────────────────────────────────────────
@@ -473,6 +500,21 @@ local function spawnSignal(stageId: number)
 	end
 
 	local rarity = Items.get(itemId).rarity
+	local weight = Items.get(itemId).weight
+	local modifier = rollModifier()
+
+	-- ONE IN Crates.CRATE_CHANCE IS A SUPPLY CRATE. It keeps the nuke roll above as its
+	-- placeholder itemId (see PlayerRoll.crateId) and takes its glow colour, burial
+	-- depth and heft from the crate instead.
+	local crateId: string? = nil
+	if math.random() * Crates.CRATE_CHANCE < 1 then
+		local kind = if math.random() < Crates.NUKE_SHARE then "nuke" else "liquid"
+		crateId = Crates.idFor(kind, Crates.rollVariant(stageId, 1, math.random()))
+		local crate = Crates.get(crateId :: string)
+		rarity = crate.tier
+		weight = crate.pullWeight
+		modifier = "None"
+	end
 	local order = Rarity.get(rarity).order
 
 	local signal: Signal = {
@@ -481,10 +523,11 @@ local function spawnSignal(stageId: number)
 		position = position,
 		itemId = itemId,
 		rarity = rarity,
-		modifier = rollModifier(),
+		modifier = modifier,
 		depth = DEPTH_BASE + (order - 1) * DEPTH_PER_RARITY + math.random() * DEPTH_JITTER,
 		soil = stage.soilHardness,
-		weight = Items.get(itemId).weight,
+		weight = weight,
+		crateId = crateId,
 		rolls = {},
 		heat = 0,
 		armed = false,
@@ -645,12 +688,13 @@ local function contactPayload(
 	local out = {}
 
 	for _, entry in contacts do
-		local itemId, rarity, modifier = rollFor(entry.signal, stats, userId)
+		local itemId, rarity, modifier, crateId = rollFor(entry.signal, stats, userId)
 		local rarityHint = hintFor(rarity, modifier, itemId)
 		table.insert(out, {
 			dx = entry.signal.position.X - position.X,
 			dz = entry.signal.position.Z - position.Z,
 			rarity = rarityHint,
+			crate = crateId,
 		})
 	end
 
@@ -697,6 +741,7 @@ end
 -- you are actively hauling shows itself.
 type Haul = {
 	itemId: string,
+	crateId: string?,
 	model: Model,
 }
 
@@ -753,7 +798,20 @@ end
 --- unearth(), and sizing the crust by it here would leak the one modifier that needs no
 --- cleaning at all -- a Prewar Sealed pull would surface visibly bare, telling the
 --- player what they had before anything has earned it.
-local function createHaul(player: Player, signal: Signal, itemId: string, rarityHint: string?): Haul
+local function createHaul(player: Player, signal: Signal, itemId: string, rarityHint: string?, crateId: string?): Haul
+	-- A CRATE COMES UP AS ITSELF. There is nothing to hide -- the ping already said
+	-- which crate it is -- and the crate IS the find, so no crust.
+	if crateId then
+		local crate = CrateModels.create(crateId)
+		crate.Name = `Haul_{player.Name}`
+		crate.Parent = Workspace
+		return {
+			itemId = itemId,
+			crateId = crateId,
+			model = crate,
+		}
+	end
+
 	local item = Items.get(itemId)
 	-- SEEDED ON THE SIGNAL, NOT THE ITEM, and the difference is a tell worth closing:
 	-- seeded on the itemId every Gold Ring in the game would come up wearing the same
@@ -791,16 +849,16 @@ local function createHaul(player: Player, signal: Signal, itemId: string, rarity
 	}
 end
 
-local function updateHaul(player: Player, signal: Signal, itemId: string, progress: number, rarityHint: string?)
+local function updateHaul(player: Player, signal: Signal, itemId: string, progress: number, rarityHint: string?, crateId: string?)
 	if progress <= 0.01 then
 		clearHaul(player)
 		return
 	end
 
 	local haul = hauled[player]
-	if haul == nil or haul.model.Parent == nil or haul.itemId ~= itemId then
+	if haul == nil or haul.model.Parent == nil or haul.itemId ~= itemId or haul.crateId ~= crateId then
 		clearHaul(player)
-		haul = createHaul(player, signal, itemId, rarityHint)
+		haul = createHaul(player, signal, itemId, rarityHint, crateId)
 		hauled[player] = haul
 	end
 
@@ -823,7 +881,38 @@ end
 --- THE ONE EXCEPTION IS AN ITEM THAT NEEDS NO CLEANING. Prewar Sealed comes up in its
 --- packaging with zero patches (Contamination.initialCount), so there is no crust to
 --- take off and nothing to withhold: it identifies on the spot and the banner names it.
-local function unearth(player: Player, data: any, signal: Signal, itemId: string, rarity: string, modifier: string)
+--- A supply crate out of the ground: into `data.crates` (Shared/Bag), never
+--- `data.carry`. No decay clock, no crust, no identify -- the crate is exactly what the
+--- ping said it was, and opening it is CrateService's job.
+local function unearthCrate(player: Player, data: any, signal: Signal, crateId: string)
+	clearHaul(player)
+	local crate = Crates.get(crateId)
+	data.crates = data.crates or {}
+	table.insert(data.crates, { uid = signal.uid, crateId = crateId })
+
+	removeSignal(signal.stageId, signal.uid)
+	spawnSignal(signal.stageId)
+
+	unearthedRemote:FireClient(player, {
+		identified = true,
+		crate = crateId,
+		name = crate.name,
+		flavor = crate.flavor,
+		rarity = crate.tier,
+		modifier = "None",
+		weight = crate.pullWeight,
+		payload = 1,
+		carrying = Bag.used(data),
+	})
+
+	print(`[dig] {player.Name} unearthed a {crate.name}`)
+end
+
+local function unearth(player: Player, data: any, signal: Signal, itemId: string, rarity: string, modifier: string, crateId: string?)
+	if crateId then
+		unearthCrate(player, data, signal, crateId)
+		return
+	end
 	clearHaul(player)
 	local item = Items.get(itemId)
 
@@ -857,7 +946,7 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 		modifier = modifier,
 		weight = item.weight,
 		payload = Payload.forUid(signal.uid),
-		carrying = #data.carry,
+		carrying = Bag.used(data),
 		-- A sealed find's index record, the same `index` ItemIdentified carries.
 		index = if sealed then IdentifyService.entry(player, item.id) else nil,
 	})
@@ -1026,7 +1115,7 @@ local function stepPlayer(player: Player, dt: number)
 		sweepRemote:FireClient(player, {
 			inStage = false,
 			locked = false,
-			carrying = #data.carry,
+			carrying = Bag.used(data),
 			capacity = stats.capacity,
 		})
 		return
@@ -1058,7 +1147,7 @@ local function stepPlayer(player: Player, dt: number)
 			-- they are in.
 			blocked = if standingOnUnregistered(stageId, position, stats) then "unregistered" else nil,
 			locked = false,
-			carrying = #data.carry,
+			carrying = Bag.used(data),
 			capacity = stats.capacity,
 		})
 		return
@@ -1094,8 +1183,11 @@ local function stepPlayer(player: Player, dt: number)
 	local strength = math.clamp(1 - (distance / stats.detectorRadius), 0, 1)
 	-- This player's reading of the working signal, resolved once and threaded through
 	-- the ping, the haul model and the unearth below so all three agree.
-	local itemId, rarity, modifier = rollFor(signal, stats, player.UserId)
+	local itemId, rarity, modifier, crateId = rollFor(signal, stats, player.UserId)
 	local rarityHint, modifierHint, oddsHint = hintFor(rarity, modifier, itemId)
+	-- A crate has no modifier and no "1 in N" of its own; the ping names the crate.
+	local oddsShown: number? = if crateId then nil else oddsHint
+	local modifierShown: string? = if crateId then nil else modifierHint
 
 	-- Reset progress if they wandered off this signal onto another one. While locked
 	-- this never fires, which is the point: the target cannot drift mid-haul.
@@ -1105,7 +1197,7 @@ local function stepPlayer(player: Player, dt: number)
 	end
 
 	local inRange = distance <= DIG_RADIUS
-	local hasRoom = #data.carry < stats.capacity
+	local hasRoom = Bag.used(data) < stats.capacity
 
 	-- How far the ground outclasses the magnet, in stages. Zero when the magnet is
 	-- rated for this soil or better. `gripEff` scales the magnet's whole side of the
@@ -1132,7 +1224,8 @@ local function stepPlayer(player: Player, dt: number)
 	-- promise is untouched. pullSpeed still lives entirely on the yank, not here (see
 	-- Tuning's note: counting it in both places would make the magnet scale
 	-- quadratically). Off the PER-PLAYER item, so a lucky re-roll pulls at its real weight.
-	local required = PULL_SECONDS_PER_STUD * signal.depth * Weight.pullFactor(Items.get(itemId).weight)
+	local heft = if crateId then Crates.get(crateId).pullWeight else Items.get(itemId).weight
+	local required = PULL_SECONDS_PER_STUD * signal.depth * Weight.pullFactor(heft)
 
 	-- HOME-TURF EASE. Common junk in a stage this magnet is rated for comes up ~35%
 	-- faster (Config/Tuning.PULL_HOME_COMMON_EASE). gripDeficit > 0 means the soil
@@ -1140,7 +1233,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- design -- the ease is not allowed to soften that, so it is rated-soil-only.
 	-- Common-only, and off THIS player's roll (`rarity`, from rollFor above): a lucky
 	-- re-roll up to Rare hauls at Rare length.
-	if rarity == "Common" and gripDeficit == 0 then
+	if rarity == "Common" and gripDeficit == 0 and crateId == nil then
 		required *= HOME_COMMON_EASE
 	end
 
@@ -1162,8 +1255,10 @@ local function stepPlayer(player: Player, dt: number)
 	-- reading -- rarity and weight -- the same per-player item the pull itself is sized
 	-- by, and the visual scale is the one the haul lump is :ScaleTo'd by (createHaul),
 	-- so the bang is as big as the thing you were watching come up.
+	-- A CRATE HAS NO FUSE. It is a box of goods, not a warhead: no claim, so the
+	-- signal never heats, never arms, and the release is never refused.
 	local fuseWindow: number? = nil
-	if isLocked then
+	if isLocked and crateId == nil then
 		local item = Items.get(itemId)
 		fuseWindow = Detonation.windowFor(rarity, item.weight, signal.depth, signal.soil)
 		local claim = fuseClaims[signal.uid]
@@ -1212,7 +1307,7 @@ local function stepPlayer(player: Player, dt: number)
 			-- RELEASE 2: it is out of the ground. Nothing left to hold on to, and the
 			-- player gets their feet back the instant the banner fires.
 			releaseLock(player)
-			unearth(player, data, signal, itemId, rarity, modifier)
+			unearth(player, data, signal, itemId, rarity, modifier, crateId)
 
 			-- Everything ELSE in range is still in range; only the thing that came out
 			-- of the ground is gone. Sending an empty payload here and waiting for the
@@ -1243,7 +1338,7 @@ local function stepPlayer(player: Player, dt: number)
 				newContacts = noteContacts(player, surviving),
 				digProgress = 0,
 				locked = false,
-				carrying = #data.carry,
+				carrying = Bag.used(data),
 				capacity = stats.capacity,
 			})
 			return
@@ -1257,7 +1352,7 @@ local function stepPlayer(player: Player, dt: number)
 	end
 
 	digProgress[player] = progress
-	updateHaul(player, signal, itemId, progress, rarityHint)
+	updateHaul(player, signal, itemId, progress, rarityHint, crateId)
 
 	-- The window the panel counts against: the one the fuse is actually burning at
 	-- (the shortest reading of anyone on it, set by stepFuses) once it has one, else
@@ -1275,8 +1370,9 @@ local function stepPlayer(player: Player, dt: number)
 		contacts = contactPayload(contacts, position, stats, player.UserId),
 		newContacts = noteContacts(player, contacts),
 		rarityHint = rarityHint,
-		modifierHint = modifierHint,
-		oddsHint = oddsHint,
+		modifierHint = modifierShown,
+		oddsHint = oddsShown,
+		crateHint = crateId,
 		inRange = inRange,
 		blocked = blocked,
 		-- Stages the soil is over the magnet (0 = rated). The client reads it only to
@@ -1302,7 +1398,7 @@ local function stepPlayer(player: Player, dt: number)
 		fuseArmed = lockedTo[player] ~= nil and signal.armed,
 		fuseWindow = if lockedTo[player] ~= nil then shownWindow else nil,
 		fuseLeft = if lockedTo[player] ~= nil then Detonation.secondsLeft(signal.heat, shownWindow) else nil,
-		carrying = #data.carry,
+		carrying = Bag.used(data),
 		capacity = stats.capacity,
 	})
 end
@@ -1480,7 +1576,7 @@ function DigService.start()
 
 		-- A full bag is refused UP FRONT rather than locked and then released a tick
 		-- later, which would root the player for a moment and flash a panel at them.
-		if #data.carry >= stats.capacity then
+		if Bag.used(data) >= stats.capacity then
 			return
 		end
 

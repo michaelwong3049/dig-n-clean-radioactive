@@ -38,6 +38,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net) -- assign(): tell the owning client its plot index for the "YOUR BASE" beacon
+local Bag = require(Shared.Bag)
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear) -- renderLuck: the plot's luck-button billboard
 local Rarity = require(Shared.Config.Rarity)
@@ -992,6 +993,9 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 	-- already up there.
 	local item, list, index = EconomyService.find(data, data.heldUid)
 	if item == nil or list ~= data.carry or index == nil then
+		if Bag.findCrate(data, data.heldUid) then
+			return false, "open the crate first \u{2014} you can't do that with a crate"
+		end
 		return false, "you aren't carrying that"
 	end
 	if not Contamination.isClean(item.patches or {}) then

@@ -32,6 +32,7 @@ local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Gear = require(Shared.Config.Gear)
 local Liquids = require(Shared.Config.Liquids)
+local Crates = require(Shared.Config.Crates)
 local Camps = require(Shared.Config.Camps)
 local Treadmill = require(Shared.Config.Treadmill)
 local LuckBoost = require(Shared.Config.LuckBoost)
@@ -45,6 +46,7 @@ local EconomyService = require(script.Parent.EconomyService)
 local ExhibitService = require(script.Parent.ExhibitService)
 local HazardService = require(script.Parent.HazardService)
 local DigService = require(script.Parent.DigService)
+local CrateService = require(script.Parent.CrateService)
 local CampService = require(script.Parent.CampService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
 
@@ -190,6 +192,20 @@ COMMANDS["/dig"] = {
 	end,
 }
 
+COMMANDS["/crate"] = {
+	help = "/crate <nuke1-3|liquid1-3> — put a supply crate in your bag (Config/Crates)",
+	run = function(player, _sandbox, args)
+		local crateId = args[1] or "nuke1"
+		if not Crates.has(crateId) then
+			return `unknown crate "{crateId}" — one of: {table.concat(Crates.ORDER, ", ")}`
+		end
+		if not CrateService.grant(player, crateId) then
+			return "your profile hasn't loaded yet"
+		end
+		return `crated a {Crates.get(crateId).name}`
+	end,
+}
+
 COMMANDS["/clear"] = {
 	help = "/clear — empty your bag",
 	run = function(player, _sandbox, _args)
@@ -197,8 +213,9 @@ COMMANDS["/clear"] = {
 		if data == nil then
 			return "your profile hasn't loaded yet"
 		end
-		local n = #data.carry
+		local n = #data.carry + #(data.crates or {})
 		table.clear(data.carry)
+		table.clear(data.crates or {})
 		return `dropped {n} item(s)`
 	end,
 }

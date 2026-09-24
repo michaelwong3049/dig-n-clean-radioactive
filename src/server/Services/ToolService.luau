@@ -52,6 +52,8 @@ local Rarity = require(Shared.Config.Rarity)
 local ItemModels = require(Shared.ItemModels)
 local ItemCrust = require(Shared.ItemCrust)
 local ToolModels = require(Shared.ToolModels)
+local CrateModels = require(Shared.CrateModels)
+local Bag = require(Shared.Bag)
 local Ticker = require(Shared.Util.Ticker)
 
 local DataService = require(script.Parent.DataService)
@@ -78,6 +80,11 @@ local HELD_ITEM_SIZE = 5.94
 --- equipItem) -- just enough that the underside reads as resting ON the hands
 --- instead of poking through them.
 local HELD_ITEM_LIFT = 0.15
+
+--- A held supply crate's longest side, in studs. Smaller than HELD_ITEM_SIZE and not
+--- scaled by Config/Payload: a crate is a box you carry, not a trophy you lift, and
+--- every crate of one kind is the same size.
+local HELD_CRATE_SIZE = 3.6
 
 local equipped: { [Player]: string? } = {}
 
@@ -505,8 +512,15 @@ local function equipItem(character: Model, item: any?): boolean
 		return false
 	end
 
-	local def = Items.get(item.itemId)
-	local model = ItemModels.create(def.model, item.itemId)
+	-- A SUPPLY CRATE (Config/Crates) has its own model and nothing else here applies
+	-- to it: no catalogue entry, no Payload roll, no crust.
+	local model: Model? = nil
+	if item.crateId then
+		model = CrateModels.create(item.crateId)
+	else
+		local def = Items.get(item.itemId)
+		model = ItemModels.create(def.model, item.itemId)
+	end
 
 	if model == nil then
 		-- THE SAME RARITY-COLOURED BLOCK the registry documents for unmodelled keys,
@@ -553,7 +567,8 @@ local function equipItem(character: Model, item: any?): boolean
 		local _, extents = held:GetBoundingBox()
 		local longest = math.max(extents.X, extents.Y, extents.Z)
 		if longest > 0 then
-			held:ScaleTo(held:GetScale() * (HELD_ITEM_SIZE * Payload.forUid(item.uid) / longest))
+			local target = if item.crateId then HELD_CRATE_SIZE else HELD_ITEM_SIZE * Payload.forUid(item.uid)
+			held:ScaleTo(held:GetScale() * (target / longest))
 		end
 	end
 
@@ -714,6 +729,9 @@ local function stepPlayer(player: Player)
 				heldItem = item
 				break
 			end
+		end
+		if heldItem == nil then
+			heldItem = Bag.findCrate(data, data.heldUid)
 		end
 	end
 	equipItem(character, heldItem)

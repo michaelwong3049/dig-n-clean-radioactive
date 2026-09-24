@@ -45,6 +45,7 @@ local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
+local Bag = require(Shared.Bag)
 
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
@@ -216,6 +217,12 @@ function CarryService.hold(player: Player, uid: string?): boolean
 			return true
 		end
 	end
+	-- A SUPPLY CRATE IS HELD THE SAME WAY (Config/Crates). `heldUid` naming a crate is
+	-- what CrateService checks before it will open one, and what ToolService welds.
+	if Bag.findCrate(data, uid) then
+		data.heldUid = uid
+		return true
+	end
 	return false
 end
 
@@ -268,7 +275,7 @@ local function stepPlayer(player: Player)
 	-- different service. Patching all four to clear heldUid is four chances to forget
 	-- and one stale weld left in the player's hand; checking it here, where the bag is
 	-- already being walked every tick, cannot be forgotten.
-	if data.heldUid ~= "" and EconomyService.find(data, data.heldUid) == nil then
+	if data.heldUid ~= "" and EconomyService.find(data, data.heldUid) == nil and Bag.findCrate(data, data.heldUid) == nil then
 		data.heldUid = ""
 	end
 
@@ -288,7 +295,17 @@ local function stepPlayer(player: Player)
 		table.insert(described, CarryService.describe(item, stats))
 	end
 
-	local signature = signatureOf(described, stats.capacity)
+	-- Crates ride on their own field so every reader of `items` still only ever sees
+	-- nukes. Their uids go in the signature: a crate arriving or being opened is a
+	-- change the hotbar has to hear about.
+	local crates = {}
+	local crateUids = {}
+	for _, entry in data.crates or {} do
+		table.insert(crates, { uid = entry.uid, crateId = entry.crateId })
+		table.insert(crateUids, `{entry.uid}={entry.crateId}`)
+	end
+
+	local signature = signatureOf(described, stats.capacity) .. "#" .. table.concat(crateUids, ",")
 	if lastSignature[player] == signature then
 		return
 	end
@@ -300,6 +317,7 @@ local function stepPlayer(player: Player)
 		-- already owns, so it leaks nothing.
 		fuseMult = stats.satchelFuseMult,
 		items = described,
+		crates = crates,
 	})
 end
 

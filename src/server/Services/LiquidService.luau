@@ -49,6 +49,7 @@ local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 local Gear = require(Shared.Config.Gear)
+local Crates = require(Shared.Config.Crates)
 
 local DataService = require(script.Parent.DataService)
 local ExhibitService = require(script.Parent.ExhibitService)
@@ -139,6 +140,26 @@ function LiquidService.cooldownLeft(player: Player): number
 	return math.max(0, Tuning.LIQUID_SPIN_COOLDOWN - (os.clock() - previous))
 end
 
+--- Put one roll's worth of `id` in the player's hose. Shared by the bottle and the
+--- liquid crates (CrateService) so both stack and auto-load the same way.
+local function grant(data: any, id: string)
+	local def = Liquids.get(id)
+
+	-- Stacking, capped. A repeat spin of something you already hold tops it up rather
+	-- than replacing it, which is what makes the common end of the table feel like a
+	-- consolation prize instead of a wasted spin.
+	local ceiling = def.charges * Tuning.LIQUID_MAX_STACK
+	local held = data.liquids[id] or 0
+	data.liquids[id] = math.min(held + def.charges, ceiling)
+
+	-- Auto-equip anything strictly better than what is loaded. Spinning something
+	-- WORSE never silently downgrades you -- that would be a punishment for spinning.
+	local _, current = LiquidService.equipped(data)
+	if def.order > current.order then
+		data.equippedLiquid = id
+	end
+end
+
 --- Perform one spin. Returns the liquid id, or nil plus a reason. Refusal strings are
 --- kept SHORT because they are shown on the bottle's own sign.
 local function pull(player: Player, data: any): (string?, string?)
@@ -150,24 +171,8 @@ local function pull(player: Player, data: any): (string?, string?)
 
 	local stats = StatResolver.get(data)
 	local id = roll(stats.luckMultiplier)
-	local def = Liquids.get(id)
-
-	-- Stacking, capped. A repeat spin of something you already hold tops it up rather
-	-- than replacing it, which is what makes the common end of the table feel like a
-	-- consolation prize instead of a wasted spin.
-	local ceiling = def.charges * Tuning.LIQUID_MAX_STACK
-	local held = data.liquids[id] or 0
-	data.liquids[id] = math.min(held + def.charges, ceiling)
-
+	grant(data, id)
 	data.stats.rolls = (data.stats.rolls or 0) + 1
-
-	-- Auto-equip anything strictly better than what is loaded. Spinning something
-	-- WORSE never silently downgrades you -- that would be a punishment for spinning.
-	local _, current = LiquidService.equipped(data)
-	if def.order > current.order then
-		data.equippedLiquid = id
-	end
-
 	return id, nil
 end
 
@@ -359,6 +364,43 @@ local function spin(player: Player, data: any)
 			ExhibitService.refreshBottle(player)
 		end
 	end)
+end
+
+--- OPEN A LIQUID CRATE (Config/Crates). Rolls off the crate's floored table at the
+--- player's fluid luck times the crate's, grants it exactly like a bottle roll, and
+--- plays the SAME brew popup (FluidSpin) with a reel drawn from the crate's own odds,
+--- so the fluids flashing past are the ones this crate can really give. Ignores the
+--- bottle's cooldown: the crate is what you paid. Returns the liquid id.
+function LiquidService.openCrate(player: Player, data: any, crateId: string): string
+	local playerLuck = StatResolver.get(data).luckMultiplier
+	local id = Crates.rollLiquid(crateId, playerLuck, math.random())
+	grant(data, id)
+
+	local reel = table.create(REEL_LAND + REEL_TAIL)
+	for i = 1, REEL_LAND + REEL_TAIL do
+		reel[i] = if i == REEL_LAND then id else Crates.rollLiquid(crateId, playerLuck, math.random())
+	end
+
+	spinning[player] = true
+	spinRemote:FireClient(player, {
+		reel = reel,
+		land = REEL_LAND,
+		seconds = Tuning.LIQUID_SPIN_SECONDS,
+		result = id,
+		held = data.liquids[id] or 0,
+		loaded = LiquidService.equipped(data),
+		crate = crateId,
+	})
+	print(`[liquid] {player.Name} opened a {Crates.get(crateId).name}: {Liquids.get(id).name}`)
+	LiquidService.push(player)
+
+	task.delay(Tuning.LIQUID_SPIN_SECONDS, function()
+		spinning[player] = nil
+		if player.Parent then
+			ExhibitService.refreshBottle(player)
+		end
+	end)
+	return id
 end
 
 --- UPGRADE LUCK: the same purchase the luck lever used to make (ShopService.buyLuck),
