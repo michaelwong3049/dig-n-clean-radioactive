@@ -23,15 +23,20 @@
 	NO "RATED SPEED" ANY MORE. Belts used to train at full rate only up to a rating and
 	then fall off geometrically. That is gone on request: a belt is now just its
 	Speed/sec. The push to upgrade comes from the requirements climbing `LEVEL_GROWTH`
-	per level against belts that each pay ~1.8x the last — the ladder is the gate.
+	per level against belts that each pay ~2.5x the last — the ladder is the gate.
 
-	WHAT THAT LANDS ON, upgrading roughly on schedule (one belt per 12 levels; checked
-	in Util/Spec, which pins all three). Deliberately easier than the old curve
-	(1.0 h / 4.1 h / 15.3 h), on request:
+	FOUR BELTS, ONE IMPORTED MODEL EACH. There used to be six rungs sharing one
+	procedural machine that only changed colour; the user imported four treadmill
+	models (basic, green, blue, gold) and asked that every upgrade turn the machine
+	into the next one, so the ladder was cut to four. Saves on the old six-rung ladder
+	are collapsed by `fromSixRungLadder` (below), which refunds the difference in cash.
 
-	      walk 45  ~0.7 h   — intermediate. One session.
-	      walk 70  ~2.9 h   — advanced.
-	      walk 100 ~11 h    — endgame.
+	WHAT THAT LANDS ON, upgrading roughly on schedule (one belt per 18 levels; checked
+	in Util/Spec, which pins all three):
+
+	      walk 45  ~0.8 h   — intermediate. One session.
+	      walk 70  ~2.7 h   — advanced.
+	      walk 100 ~10 h    — endgame.
 
 	And the cost of never upgrading: walk 64 is ~2.2 h on schedule, ~5.6 h on the free
 	belt. Slow enough to make the belts worth buying, finite enough to wall nobody out.
@@ -81,19 +86,19 @@ export type TreadmillTier = {
 	price: number,
 	rate: number, -- Speed per second while standing on it
 	blurb: string,
+	-- The imported model this rung wears: a child of
+	-- ReplicatedStorage.Assets.TreadmillTemplates (build/Plots.setTreadmillTier).
+	model: string,
 }
 
---- PRICED ON THE RETIRED BOOTS LADDER, RUNG FOR RUNG, so DataService's one-time Boots
---- refund hands a returning player back the exact cash for the equivalent belt (Spec
---- §5.1 pins the match). Rates climb ~1.8x a rung: with no rated-speed falloff left,
---- this ratio is the whole reason to upgrade.
+--- Rates climb ~2.5x a rung: with no rated-speed falloff left, this ratio is the whole
+--- reason to upgrade. The top rung kept the old top rung's price and rate, so the
+--- endgame lands where it always did.
 Treadmill.TIERS = {
-	{ name = "Scrap Belt", price = 0, rate = 10, blurb = "A conveyor off a dead factory line. It turns. Mostly." },
-	{ name = "Chain Runner", price = 11500, rate = 18, blurb = "Bicycle chain and a flywheel. Keeps its own pace." },
-	{ name = "Geared Treadplate", price = 32500, rate = 32, blurb = "Geared plate deck. Pushes back when you push it." },
-	{ name = "Servo Track", price = 90000, rate = 58, blurb = "Servo-driven. Reads your stride and outruns it." },
-	{ name = "Reactor Mill", price = 255000, rate = 105, blurb = "Runs off a slug of core. Warm underfoot." },
-	{ name = "Isotope Strider", price = 700000, rate = 190, blurb = "The last belt. Nothing on this map runs faster." },
+	{ name = "Scrap Belt", price = 0, rate = 10, model = "t1_basic", blurb = "A conveyor off a dead factory line. It turns. Mostly." },
+	{ name = "Servo Track", price = 25000, rate = 30, model = "t2_green", blurb = "Servo-driven. Reads your stride and outruns it." },
+	{ name = "Reactor Mill", price = 150000, rate = 80, model = "t3_blue", blurb = "Runs off a slug of core. Warm underfoot." },
+	{ name = "Isotope Strider", price = 700000, rate = 190, model = "t4_gold", blurb = "The last belt. Nothing on this map runs faster." },
 } :: { TreadmillTier }
 
 --- Lifetime Speed needed to be at `level`, or nil past the top. nil rather than
@@ -187,6 +192,37 @@ function Treadmill.fromLegacyXp(xp: number): number
 	local into = (banked - legacyXpFor(walk)) / (legacyXpFor(walk + 1) - legacyXpFor(walk))
 	local from, to = Treadmill.REQUIREMENTS[level], Treadmill.REQUIREMENTS[level + 1]
 	return from + math.clamp(into, 0, 1) * (to - from)
+end
+
+--- What each rung of the OLD six-belt ladder cost to buy (Scrap Belt, Chain Runner,
+--- Geared Treadplate, Servo Track, Reactor Mill, Isotope Strider). Kept ONLY to read
+--- a save made before the ladder was cut to four.
+local SIX_RUNG_PRICES = { 0, 11500, 32500, 90000, 255000, 700000 }
+
+--- Cash spent climbing a ladder of per-rung `prices` up to and including `tier`.
+local function spentTo(prices: { number }, tier: number): number
+	local total = 0
+	for index = 2, math.clamp(tier, 1, #prices) do
+		total += prices[index]
+	end
+	return total
+end
+
+--- An old six-rung `treadmill` number -> the new rung, and the cash to hand back. The
+--- player lands on the best new belt their old spend covers and gets the rest as cash,
+--- so nobody loses a dollar to the cut and nobody is handed a belt they did not pay
+--- for. Spec §5.1 pins that the two always add back up to the old spend.
+function Treadmill.fromSixRungLadder(oldTier: number): (number, number)
+	local spent = spentTo(SIX_RUNG_PRICES, math.floor(oldTier))
+	local newPrices = {}
+	for index, def in Treadmill.TIERS do
+		newPrices[index] = def.price
+	end
+	local tier = 1
+	while tier < #Treadmill.TIERS and spentTo(newPrices, tier + 1) <= spent do
+		tier += 1
+	end
+	return tier, spent - spentTo(newPrices, tier)
 end
 
 return Treadmill

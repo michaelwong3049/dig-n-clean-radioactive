@@ -250,8 +250,7 @@ Gear.Suit = {
 -- stages and leave the entry (see Config/Items): DataService's one-time refund prices
 -- against this exact `price` column. A returning player is handed back the cash for
 -- every rung they actually bought, and it cannot compute that from a table that has
--- been deleted. Treadmill.TIERS deliberately reuses this same price ladder rung for
--- rung, so that refund buys back the equivalent belt.
+-- been deleted.
 --
 -- WHERE THE FOUR STATS WENT:
 --   walkSpeed    -> Config/Treadmill. The whole feature.
@@ -272,9 +271,8 @@ Gear.Suit = {
 -- 16 -> 26 while the ladder and its pairings stayed put. That floor of 26 is exactly
 -- Treadmill.START_WALK, so an untrained player today walks at the speed a
 -- freshly-booted player walked at before any of this changed.
--- Kept in lockstep with the x5 PRICE PASS above: these figures must stay byte-identical
--- to Treadmill.TIERS' price column (Spec §5.1), so they were multiplied by the same 5x
--- the live tracks got, not left behind.
+-- These prices got the same x5 PRICE PASS as the live tracks above. They are what a
+-- returning player is refunded, so they must not change.
 Gear.Boots = {
 	{ name = "Taped Boots", price = 0, walkSpeed = 26, haulPenalty = 1.20, stamina = 4, canVault = false, canDash = false, blurb = "Taped at the toe. They hold, mostly." },
 	{ name = "Tread Boots", price = 11500, walkSpeed = 28, haulPenalty = 1.00, stamina = 5, canVault = false, canDash = false, blurb = "Real tread. A full load stops dragging you." },

@@ -150,6 +150,11 @@ local TEMPLATE = {
 	-- would make Reconcile hand every new save one to convert.
 	speedPoints = 0,
 	treadmill = 1,
+	-- Which belt ladder `treadmill` is numbered against: 4 is the four-belt ladder, one
+	-- imported model per rung (Config/Treadmill). A save from the six-belt days has no
+	-- key, is detected before Reconcile like `detectorLadder`, and is collapsed once by
+	-- collapseTreadmillLadder.
+	treadmillLadder = 4,
 
 	-- The player's chosen base accent colour, "RRGGBB" hex (no leading "#"). "" means
 	-- they have never picked one, which renders the same neutral grey as an unclaimed
@@ -275,10 +280,8 @@ end
 --- would otherwise log in one day to find the purchase gone and the cash with it,
 --- which is the single most trust-destroying thing a live game can do.
 ---
---- So: hand back the list price of every rung they actually bought. Treadmill.TIERS
---- reuses the Boots price ladder rung for rung, so the refund buys the equivalent
---- belt almost exactly -- a player who owned Servo Braces can immediately buy the
---- Servo Track.
+--- So: hand back the list price of every rung they actually bought, as cash they can
+--- spend on belts.
 ---
 --- KEYED ON `gearOwned.boots` BEING NON-NIL, not on a version field or a `refunded`
 --- flag, for the same reason backfillGearOwned is keyed the way it is: the evidence
@@ -325,6 +328,20 @@ local function convertLegacySpeed(data: any): number?
 	return data.speedPoints
 end
 
+--- THE FOUR-BELT COLLAPSE — one-time, keyed on `treadmillLadder` being missing before
+--- Reconcile, the same way as shiftDetectorLadder.
+---
+--- The treadmill ladder went from six belts to four when each rung got its own
+--- imported model. Treadmill.fromSixRungLadder puts the player on the best new belt
+--- their old spend covers and returns the remainder, which is paid back as cash.
+local function collapseTreadmillLadder(data: any): number
+	local tier, refund = Treadmill.fromSixRungLadder(data.treadmill or 1)
+	data.treadmill = tier
+	data.cash += refund
+	data.treadmillLadder = 4
+	return refund
+end
+
 -- ── Session lifecycle ─────────────────────────────────────────────────────────
 
 local function onPlayerAdded(player: Player)
@@ -346,6 +363,7 @@ local function onPlayerAdded(player: Player)
 	-- TEMPLATE and already has them.
 	local predatesTutorial = profile.Data.onboarding == nil
 	local predatesRustBucket = profile.Data.detectorLadder == nil
+	local predatesFourBelts = profile.Data.treadmillLadder == nil
 	profile:Reconcile() -- fill in keys added to TEMPLATE since this save was made
 	backfillGearOwned(profile.Data)
 	if predatesTutorial then
@@ -354,6 +372,10 @@ local function onPlayerAdded(player: Player)
 	if predatesRustBucket then
 		shiftDetectorLadder(profile.Data)
 		print(`[data] {player.Name}: detector ladder shifted, now tier {profile.Data.gear.detector}`)
+	end
+	if predatesFourBelts then
+		local refund = collapseTreadmillLadder(profile.Data)
+		print(`[data] {player.Name}: treadmill ladder collapsed to belt {profile.Data.treadmill}, refunded ${refund}`)
 	end
 	-- Strictly after the backfill — see refundRetiredBoots for why the order matters.
 	local refunded = refundRetiredBoots(profile.Data)
