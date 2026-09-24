@@ -481,6 +481,16 @@ local function buildResult(root: Frame)
 		zIndex = 5,
 	})
 
+	-- The rarity of whatever is flicking past right now, under its name, on request, so
+	-- a Legendary going by reads as one before it lands.
+	local cycleTier = plainFrame(root, "CycleTierBox", UDim2.fromOffset(240, 22), UDim2.fromOffset(FLASK_X, top + 44), Vector2.new(0.5, 0))
+	cycleTier.ZIndex = 5
+	cycleTier.Visible = false
+	ui.cycleTier = cycleTier
+	ui.cycleTierPill, ui.cycleTierText = pill(cycleTier, "Tier", "", UIKit.TextSize.caption, 22, UIKit.C.dim, INK)
+	ui.cycleTierPill.AnchorPoint = Vector2.new(0.5, 0)
+	ui.cycleTierPill.Position = UDim2.fromScale(0.5, 0)
+
 	local result = plainFrame(root, "Result", UDim2.fromOffset(760, 180), UDim2.fromOffset(FLASK_X, top - 6), Vector2.new(0.5, 0))
 	result.ZIndex = 5
 	result.Visible = false
@@ -682,6 +692,7 @@ local function reveal(payload: any, token: number)
 	ui.flask.Position = ui.flaskHome
 	ui.surface.Rotation = 0
 	ui.cycle.Visible = false
+	ui.cycleTier.Visible = false
 
 	ui.flaskScale.Scale = 1.1
 	tween(ui.flaskScale, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
@@ -746,6 +757,7 @@ local function play(payload: any)
 	ui.result.Visible = false
 	ui.cycle.Visible = true
 	ui.cycle.Text = ""
+	ui.cycleTier.Visible = false
 	ui.flask.Rotation = 0
 	ui.flask.Position = ui.flaskHome
 	ui.surface.Rotation = 0
@@ -793,6 +805,10 @@ local function play(payload: any)
 				paintLiquid(reel[centred])
 				ui.cycle.Text = def.name
 				ui.cycle.TextColor3 = Color3.fromHex(def.color)
+				local tierName, tierColour = tierOf(def)
+				ui.cycleTierText.Text = tierName
+				ui.cycleTierPill.BackgroundColor3 = tierColour
+				ui.cycleTier.Visible = true
 				ui.tick:Play()
 			end
 
