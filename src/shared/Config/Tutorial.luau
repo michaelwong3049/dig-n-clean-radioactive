@@ -19,6 +19,9 @@ local Tutorial = {}
 
 export type StepId = "stage" | "dig" | "haul" | "clean" | "place" | "upgrade" | "finish"
 
+--- `title` is the whole banner. The banner went text-only on request (client
+--- TutorialController), so `hint` and `holdHint` are not drawn at the moment. They
+--- are kept so a hint line can come back without rewriting the copy.
 export type Step = {
 	title: string,
 	hint: string,

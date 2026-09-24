@@ -64,13 +64,15 @@ local SKIN = {
 }
 
 -- ── Banner layout (design px on the 1280x720 canvas) ─────────────────────────────
--- Under WarpController's HOME / SHOPS portals (y 10..74) with a little air, so the two
--- never overlap in camp, where both are up.
-local BANNER_Y = 84
-local BANNER_PAD_X = 30
-local BANNER_MIN_W = 380
-local TITLE_SIZE = 30
-local HINT_SIZE = 17
+-- TEXT ONLY, ON REQUEST: no card behind it, no hint line under it, bigger, and lower
+-- down the screen, clear of WarpController's HOME / SHOPS portals (y 10..74). The frame
+-- named "Banner" is still there, invisible and sized to the words, because
+-- StageBannerController and SuitWarningController read its rect to stack themselves
+-- underneath it.
+local BANNER_Y = 118
+local BANNER_H = 60
+local TITLE_SIZE = 46
+local SKIP_GAP = 14
 local SKIP_CONFIRM_SECONDS = 3
 local FINISH_AUTO_CLOSE = 10
 
@@ -84,8 +86,26 @@ local ARRIVED = 9 -- inside this, the ribbon and the marker step aside; the ring
 -- target slides along its edge with you, and the nearest empty stand can change as you
 -- walk; neither is worth a fresh ribbon every frame.
 local RETARGET = 6
-local REPATH_SECONDS = 0.8
+-- How far you may walk along Stage 1's edge before the "head to the first stage" goal
+-- slides to follow you.
+local STAGE_DRIFT = 30
+-- A fresh route every REPATH_SECONDS while you move, sooner (but not more than every
+-- OFF_ROUTE_SECONDS) once you have strayed OFF_ROUTE studs from the one on screen.
+-- Pathfinding snaps to a 4-stud grid, so every new route lies a little differently from
+-- the last one. Asking less often is most of what keeps the trail still under you, and
+-- the rest is ROUTE_BLEND.
+local REPATH_SECONDS = 2.5
 local REPATH_MOVE = 3 -- studs moved before a repath is worth it
+local OFF_ROUTE = 4
+local OFF_ROUTE_SECONDS = 0.5
+-- A new route does not replace the old one in a frame: every point glides from where
+-- the old route had it (matched by distance from the target) to its new place.
+local ROUTE_BLEND = 0.35
+-- How fast the ribbon's start catches up with where you are on the route (per second,
+-- exponential). High enough to feel attached, low enough to swallow a step's wobble.
+local HEAD_EASE = 10
+-- The last arrow stops this far short of the route's end, clear of the ring.
+local CHEVRON_END_PAD = 1.5
 local CHEVRON_GAP = 4
 local CHEVRON_SPEED = 7 -- studs/sec along the ribbon
 local CHEVRON_MAX = 24
@@ -111,47 +131,19 @@ local function buildBanner(canvas: Frame)
 	banner.Name = "Banner"
 	banner.AnchorPoint = Vector2.new(0.5, 0)
 	banner.Position = UDim2.new(0.5, 0, 0, BANNER_Y)
-	banner.Size = UDim2.fromOffset(BANNER_MIN_W, 84)
-	banner.BackgroundColor3 = SKIN.card
+	banner.Size = UDim2.fromOffset(400, BANNER_H)
+	banner.BackgroundTransparency = 1
 	banner.BorderSizePixel = 0
 	banner.Visible = false
 	banner.Parent = canvas
 
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 14)
-	corner.Parent = banner
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = SKIN.edge
-	stroke.Thickness = 3
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Parent = banner
-
-	local gradient = Instance.new("UIGradient")
-	gradient.Rotation = 90
-	gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(215, 218, 222))
-	gradient.Parent = banner
-
 	local scale = Instance.new("UIScale")
 	scale.Parent = banner
 
-	-- The amber lip along the bottom: the mockup's one splash of colour.
-	local lip = Instance.new("Frame")
-	lip.Name = "Lip"
-	lip.AnchorPoint = Vector2.new(0.5, 1)
-	lip.Position = UDim2.fromScale(0.5, 1)
-	lip.Size = UDim2.new(1, -28, 0, 5)
-	lip.BackgroundColor3 = SKIN.amber
-	lip.BorderSizePixel = 0
-	lip.Parent = banner
-	local lipCorner = Instance.new("UICorner")
-	lipCorner.CornerRadius = UDim.new(1, 0)
-	lipCorner.Parent = lip
-
+	-- UIKit's default outline and drop shadow carry it over sky, grass and pavers alike.
 	local title = UIKit.label(banner, {
 		name = "Title",
-		size = UDim2.new(1, 0, 0, 36),
-		position = UDim2.fromOffset(0, 12),
+		size = UDim2.fromScale(1, 1),
 		font = SKIN.headline,
 		textSize = TITLE_SIZE,
 		color = SKIN.text,
@@ -159,25 +151,12 @@ local function buildBanner(canvas: Frame)
 		text = "",
 	})
 
-	local hint = UIKit.label(banner, {
-		name = "Hint",
-		size = UDim2.new(1, 0, 0, 22),
-		position = UDim2.fromOffset(0, 50),
-		font = SKIN.label,
-		textSize = HINT_SIZE,
-		color = SKIN.dim,
-		xAlign = Enum.TextXAlignment.Center,
-		outline = false,
-		shadow = false,
-		text = "",
-	})
-
-	-- SKIP sits on the banner's top-right corner. It needs a second press: one
-	-- stray click should not throw away a new player's only walkthrough.
+	-- SKIP sits just off the end of the words. It needs a second press: one stray
+	-- click should not throw away a new player's only walkthrough.
 	local skip = Instance.new("TextButton")
 	skip.Name = "Skip"
-	skip.AnchorPoint = Vector2.new(0.5, 0.5)
-	skip.Position = UDim2.new(1, -10, 0, 4)
+	skip.AnchorPoint = Vector2.new(0, 0.5)
+	skip.Position = UDim2.new(1, SKIP_GAP, 0.5, 0)
 	skip.Size = UDim2.fromOffset(64, 26)
 	skip.AutoButtonColor = true
 	skip.BackgroundColor3 = SKIN.button
@@ -219,7 +198,6 @@ local function buildBanner(canvas: Frame)
 	ui.banner = banner
 	ui.bannerScale = scale
 	ui.title = title
-	ui.hint = hint
 end
 
 local function buildFinish(canvas: Frame)
@@ -322,15 +300,13 @@ local function showFinish()
 	task.delay(FINISH_AUTO_CLOSE, ui.closeFinish)
 end
 
-local function setBanner(step: Tutorial.StepId, holding: boolean)
+local function setBanner(step: Tutorial.StepId)
 	local def = Tutorial.STEPS[step]
-	local hint = if not holding and def.holdHint then def.holdHint else def.hint
 	local changed = ui.title.Text ~= def.title
 	ui.title.Text = def.title
-	ui.hint.Text = hint
-
-	local width = math.max(textWidth(def.title, TITLE_SIZE, SKIN.headline), textWidth(hint, HINT_SIZE, SKIN.label))
-	ui.banner.Size = UDim2.fromOffset(math.max(BANNER_MIN_W, math.ceil(width) + BANNER_PAD_X * 2), 84)
+	-- Sized to the words, so SKIP sits right after them and the banners that stack
+	-- under this one (see BANNER_Y) measure the text, not an empty box.
+	ui.banner.Size = UDim2.fromOffset(math.ceil(textWidth(def.title, TITLE_SIZE, SKIN.headline)) + 8, BANNER_H)
 
 	local wasHidden = not ui.banner.Visible
 	ui.banner.Visible = true
@@ -399,10 +375,22 @@ local markerLabel: TextLabel? = nil
 --- with the cumulative length at each point.
 local route: { Vector3 } = {}
 local routeLen: { number } = {}
+-- `route` is what is DRAWN. While a new route blends in it is rebuilt every frame from
+-- `baseRoute` (the new one) and `fromRoute` (the one it is replacing); afterwards it
+-- simply equals `baseRoute`.
+local baseRoute: { Vector3 } = {}
+local baseLen: { number } = {}
+local fromRoute: { Vector3 } = {}
+local fromLen: { number } = {}
+local blendAt = -math.huge
 local target: Vector3? = nil
 local lastPathAt = -math.huge
 local lastPathFrom: Vector3? = nil
 local pathBusy = false
+--- How far along `route` you are, eased, in studs. The ribbon starts TRAIL_START ahead
+--- of this every frame. -1 means "not measured on this route yet", so a new route is
+--- picked up straight away rather than eased in from the old one's numbers.
+local head = -1
 
 local function localPart(name: string, parent: Instance): Part
 	local p = Instance.new("Part")
@@ -594,7 +582,13 @@ local function clearGuide()
 	table.clear(ringPulses)
 	table.clear(route)
 	table.clear(routeLen)
+	table.clear(baseRoute)
+	table.clear(baseLen)
+	table.clear(fromRoute)
+	table.clear(fromLen)
+	blendAt = -math.huge
 	liveLegs, liveJoints = 0, 0
+	head = -1
 	ring = nil
 	marker = nil
 	markerLabel = nil
@@ -649,8 +643,14 @@ local function targetFor(step: Tutorial.StepId, from: Vector3): Vector3?
 	if step == "stage" then
 		-- The nearest point of Stage 1's west edge, a few studs in: the stage is a
 		-- long edge, so walking straight at it is the shortest way in.
+		-- STICKY: it only follows you along the edge once you are STAGE_DRIFT studs off
+		-- it, so walking at an angle does not keep moving the goal (and the route) under you.
 		local minX, minZ, _, maxZ = Stages.bounds(1)
-		return Vector3.new(minX + 8, Stages.SURFACE_Y, math.clamp(from.Z, minZ + 12, maxZ - 12))
+		local z = math.clamp(from.Z, minZ + 12, maxZ - 12)
+		if target and math.abs(target.X - (minX + 8)) < 1 and math.abs(target.Z - z) < STAGE_DRIFT then
+			z = target.Z
+		end
+		return Vector3.new(minX + 8, Stages.SURFACE_Y, z)
 	elseif step == "clean" then
 		local plot = plotModel()
 		local spot = plot and (plot:FindFirstChild("WashSpot", true) or plot:FindFirstChild("WashStand", true))
@@ -690,32 +690,86 @@ local function targetFor(step: Tutorial.StepId, from: Vector3): Vector3?
 end
 
 -- ── Route ───────────────────────────────────────────────────────────────────────
-local function setRoute(points: { Vector3 })
-	table.clear(route)
-	table.clear(routeLen)
+--- Copy `points` into `into`, with the running length at each point in `lens`.
+local function fill(into: { Vector3 }, lens: { number }, points: { Vector3 })
+	table.clear(into)
+	table.clear(lens)
 	local total = 0
 	for i, p in points do
 		if i > 1 then
 			total += (p - points[i - 1]).Magnitude
 		end
-		table.insert(route, p)
-		table.insert(routeLen, total)
+		table.insert(into, p)
+		table.insert(lens, total)
 	end
 end
 
---- The point `d` studs along the route, and the direction it is heading there.
-local function along(d: number): (Vector3, Vector3)
-	for i = 2, #route do
-		if routeLen[i] >= d or i == #route then
-			local a, b = route[i - 1], route[i]
-			local seg = routeLen[i] - routeLen[i - 1]
-			local t = if seg > 0 then math.clamp((d - routeLen[i - 1]) / seg, 0, 1) else 0
+--- The point `d` studs along a polyline, and the direction it is heading there.
+local function alongIn(pts: { Vector3 }, lens: { number }, d: number): (Vector3, Vector3)
+	for i = 2, #pts do
+		if lens[i] >= d or i == #pts then
+			local a, b = pts[i - 1], pts[i]
+			local seg = lens[i] - lens[i - 1]
+			local t = if seg > 0 then math.clamp((d - lens[i - 1]) / seg, 0, 1) else 0
 			local dir = b - a
 			dir = Vector3.new(dir.X, 0, dir.Z)
 			return a:Lerp(b, t), if dir.Magnitude > 1e-3 then dir.Unit else Vector3.new(0, 0, -1)
 		end
 	end
-	return route[1] or Vector3.zero, Vector3.new(0, 0, -1)
+	return pts[1] or Vector3.zero, Vector3.new(0, 0, -1)
+end
+
+--- The point `d` studs along the DRAWN route.
+local function along(d: number): (Vector3, Vector3)
+	return alongIn(route, routeLen, d)
+end
+
+--- Rebuild the drawn route for this frame. Mid-blend, each of the new route's points
+--- sits part-way between its own place and the point the OLD route had at the same
+--- distance from the target, so the whole trail slides into its new shape; the ends
+--- (the target, and near you) barely move because both routes share them.
+local function blendRoute(now: number)
+	local alpha = math.clamp((now - blendAt) / ROUTE_BLEND, 0, 1)
+	if alpha >= 1 or #fromRoute < 2 then
+		if #route ~= #baseRoute or route[#route] ~= baseRoute[#baseRoute] or route[1] ~= baseRoute[1] then
+			fill(route, routeLen, baseRoute)
+		end
+		return
+	end
+	local eased = 1 - (1 - alpha) * (1 - alpha)
+	local baseTotal = baseLen[#baseLen] or 0
+	local fromTotal = fromLen[#fromLen] or 0
+	local mixed: { Vector3 } = {}
+	for i, p in baseRoute do
+		local fromEnd = baseTotal - baseLen[i]
+		local old = alongIn(fromRoute, fromLen, math.max(0, fromTotal - fromEnd))
+		table.insert(mixed, old:Lerp(p, eased))
+	end
+	fill(route, routeLen, mixed)
+end
+
+--- How far along the route the point nearest `p` is, in studs, measured flat. Only the
+--- first PROJECT_REACH studs are searched: a route that doubles back past you must not
+--- let your nearest point jump to its far end.
+local PROJECT_REACH = 60
+
+local function project(p: Vector3): (number, number)
+	local best, bestDist = 0, math.huge
+	for i = 2, #route do
+		if routeLen[i - 1] > PROJECT_REACH then
+			break
+		end
+		local a, b = route[i - 1], route[i]
+		local ab = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+		local ap = Vector3.new(p.X - a.X, 0, p.Z - a.Z)
+		local len2 = ab:Dot(ab)
+		local t = if len2 > 1e-6 then math.clamp(ap:Dot(ab) / len2, 0, 1) else 0
+		local dist = (ap - ab * t).Magnitude
+		if dist < bestDist then
+			best, bestDist = routeLen[i - 1] + t * (routeLen[i] - routeLen[i - 1]), dist
+		end
+	end
+	return best, bestDist
 end
 
 --- Lay the ribbon along `route`: one flat slab per leg, and a flat disc at each real
@@ -744,12 +798,24 @@ local function simplify(points: { Vector3 }): { Vector3 }
 	return out
 end
 
-local function drawRibbon()
+--- Drawn from `start` studs along the route to its end, every frame: the near end
+--- follows you as you walk instead of snapping forward each time a new route lands. A
+--- simplified route is a handful of legs, so resizing them per frame costs nothing.
+local function drawRibbon(start: number)
 	local folder = ensureGuide()
-	local legs = math.max(0, #route - 1)
+	local view: { Vector3 } = {}
+	if #route > 1 and start < (routeLen[#routeLen] or 0) then
+		table.insert(view, (along(start)))
+		for i = 2, #route do
+			if routeLen[i] > start + 0.05 then
+				table.insert(view, route[i])
+			end
+		end
+	end
+	local legs = math.max(0, #view - 1)
 	liveLegs, liveJoints = legs, math.max(0, legs - 1)
 	for i = 1, legs do
-		local a, b = route[i], route[i + 1]
+		local a, b = view[i], view[i + 1]
 		local slab = ribbonPool[i]
 		if slab == nil then
 			slab = localPart("Ribbon", folder)
@@ -817,40 +883,33 @@ local function repath(from: Vector3, goal: Vector3)
 			end
 		end
 
-		-- Trim the first TRAIL_START studs off, so the ribbon starts ahead of you.
-		local trimmed: { Vector3 } = {}
-		local walked = 0
+		-- The whole route, from your feet. The ribbon's start is cut off per frame
+		-- (drawRibbon), measured from where you are NOW rather than where you were when
+		-- this was asked for.
 		for i, p in points do
-			if i == 1 then
-				continue
-			end
-			local prev = points[i - 1]
-			local seg = (p - prev).Magnitude
-			if walked + seg > TRAIL_START then
-				if #trimmed == 0 then
-					local t = if seg > 0 then math.clamp((TRAIL_START - walked) / seg, 0, 1) else 0
-					table.insert(trimmed, prev:Lerp(p, t))
-				end
-				table.insert(trimmed, p)
-			end
-			walked += seg
-		end
-		for i, p in trimmed do
-			trimmed[i] = floorAt(p)
+			points[i] = floorAt(p)
 		end
 
 		pathBusy = false
 		if target == nil or (target - goal).Magnitude > 0.5 then
 			return -- the step moved on while this was computing
 		end
-		setRoute(simplify(trimmed))
-		drawRibbon()
+		-- Blend from whatever is on screen right now (itself possibly mid-blend).
+		if #route > 1 then
+			fill(fromRoute, fromLen, route)
+			blendAt = os.clock()
+		else
+			table.clear(fromRoute)
+			table.clear(fromLen)
+		end
+		fill(baseRoute, baseLen, simplify(points))
+		head = -1
 	end)
 end
 
 --- Once a frame while a step with a target is up: move the chevrons along the
 --- ribbon, pulse the ring, bob the marker, and ask for a new route when it is due.
-local function stepGuide()
+local function stepGuide(dt: number)
 	local s = state
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -869,23 +928,25 @@ local function stepGuide()
 	local folder = ensureGuide()
 	local fresh = floorAt(goal)
 	if target == nil or (target - fresh).Magnitude > RETARGET then
+		-- The old route stays drawn until the new one lands (repath), so a moved goal
+		-- bends the trail rather than blinking it out and back.
 		target = fresh
-		table.clear(route)
-		table.clear(routeLen)
-		drawRibbon()
 		lastPathAt = -math.huge
 		lastPathFrom = nil
 	end
 	local ground = target :: Vector3
 
+	local now = os.clock()
+	blendRoute(now)
+
 	local from = root.Position - Vector3.new(0, 2.5, 0)
-	local due = os.clock() - lastPathAt >= REPATH_SECONDS
+	local onRoute, offBy = project(root.Position)
+	local since = now - lastPathAt
 	local moved = lastPathFrom == nil or (from - lastPathFrom).Magnitude >= REPATH_MOVE
-	if due and moved then
+	local strayed = #route < 2 or offBy > OFF_ROUTE
+	if moved and (since >= REPATH_SECONDS or (strayed and since >= OFF_ROUTE_SECONDS)) then
 		repath(from, ground)
 	end
-
-	local now = os.clock()
 	local flatDist = Vector3.new(ground.X - root.Position.X, 0, ground.Z - root.Position.Z).Magnitude
 	local arrived = flatDist <= ARRIVED
 
@@ -912,9 +973,23 @@ local function stepGuide()
 		markerLabel.Text = `{math.floor(flatDist / Stages.STUDS_PER_METRE + 0.5)}m`
 	end
 
-	-- Chevrons running along the ribbon toward the target.
+	-- Where you are on the route, eased so a step or a wobble does not jitter the
+	-- ribbon's start; snapped straight on for a route that has just arrived.
 	local total = routeLen[#routeLen] or 0
-	local wanted = if arrived or total < 2 then 0 else math.min(CHEVRON_MAX, math.floor(total / CHEVRON_GAP))
+	if head < 0 then
+		head = onRoute
+	else
+		head += (onRoute - head) * (1 - math.exp(-HEAD_EASE * dt))
+	end
+	local start = math.min(head + TRAIL_START, total)
+	drawRibbon(start)
+
+	-- Chevrons running along the ribbon toward the target, COUNTED BACK FROM THE END
+	-- rather than out from the start. The target end is the part of the route that
+	-- stays put when a fresh route replaces the old one, or when the start slides
+	-- with you, so the arrows keep flowing instead of all jumping at once.
+	local visibleLen = total - CHEVRON_END_PAD - start
+	local wanted = if arrived or visibleLen < 1 then 0 else math.min(CHEVRON_MAX, math.floor(visibleLen / CHEVRON_GAP) + 1)
 	while #chevrons < wanted do
 		local arms = {}
 		for _ = 1, 2 do
@@ -926,24 +1001,24 @@ local function stepGuide()
 		end
 		table.insert(chevrons, arms)
 	end
-	local offset = (now * CHEVRON_SPEED) % CHEVRON_GAP
+	local phase = (now * CHEVRON_SPEED) % CHEVRON_GAP
 	local parts: { BasePart } = {}
 	local cframes: { CFrame } = {}
+	local sa, ca = math.sin(CHEVRON_ANGLE), math.cos(CHEVRON_ANGLE)
+	local back = CHEVRON_ARM / 2
+	local tip = CFrame.new(0, 0, -0.5)
 	for i, arms in chevrons do
-		local d = offset + (i - 1) * CHEVRON_GAP
-		local visible = i <= wanted and d < total - 1.5
-		if not visible then
+		local d = total - CHEVRON_END_PAD - (i - 1) * CHEVRON_GAP - (CHEVRON_GAP - phase)
+		if i > wanted or d < start then
 			arms[1].Transparency = 1
 			arms[2].Transparency = 1
 			continue
 		end
 		local p, dir = along(d)
-		-- Fade in over the first two studs and out over the last three.
-		local fade = math.clamp(math.min(d / 2, (total - d) / 3), 0, 1)
-		local base = CFrame.lookAt(p + Vector3.new(0, RIBBON_LIFT + 0.05, 0), p + Vector3.new(0, RIBBON_LIFT + 0.05, 0) + dir)
-		local tip = CFrame.new(0, 0, -0.5)
-		local back = CHEVRON_ARM / 2
-		local sa, ca = math.sin(CHEVRON_ANGLE), math.cos(CHEVRON_ANGLE)
+		-- Fade in over the first two studs of ribbon and out over the last arrow gap.
+		local fade = math.clamp(math.min((d - start) / 2, (total - CHEVRON_END_PAD - d) / CHEVRON_GAP * 3), 0, 1)
+		local lifted = p + Vector3.new(0, RIBBON_LIFT + 0.05, 0)
+		local base = CFrame.lookAt(lifted, lifted + dir)
 		table.insert(parts, arms[1])
 		table.insert(cframes, base * tip * CFrame.new(-sa * back, 0, ca * back) * CFrame.Angles(0, -CHEVRON_ANGLE, 0))
 		table.insert(parts, arms[2])
@@ -955,7 +1030,7 @@ local function stepGuide()
 		Workspace:BulkMoveTo(parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
 	end
 
-	setGuideVisible(not arrived and #route > 1, true, not arrived)
+	setGuideVisible(not arrived and liveLegs > 0, true, not arrived)
 end
 
 -- ── State ───────────────────────────────────────────────────────────────────────
@@ -982,7 +1057,7 @@ local function apply(payload: any)
 		return
 	end
 
-	setBanner(payload.step, payload.holding ~= false)
+	setBanner(payload.step)
 	setHaulRing(payload.step == "haul")
 end
 
@@ -1005,7 +1080,7 @@ function TutorialController.start()
 
 	Net.get("TutorialState").OnClientEvent:Connect(apply)
 
-	RunService.RenderStepped:Connect(function()
+	RunService.RenderStepped:Connect(function(dt)
 		if state == nil then
 			return
 		end
@@ -1021,7 +1096,7 @@ function TutorialController.start()
 				stroke.Transparency = 0.35 * (1 - t)
 			end
 		end
-		local ok, err = pcall(stepGuide)
+		local ok, err = pcall(stepGuide, dt)
 		if not ok then
 			warn(`[tutorial] guide step failed: {err}`)
 		end
