@@ -361,6 +361,16 @@ local function buildResult(root: Frame)
 		zIndex = 5,
 	})
 
+	-- The rarity of whatever is flicking past right now, under its name, on request, so
+	-- a Legendary going by reads as one before it lands.
+	local cycleTier = plainFrame(root, "CycleTierBox", UDim2.fromOffset(240, 22), UDim2.fromOffset(VIEW_X, top + 44), Vector2.new(0.5, 0))
+	cycleTier.ZIndex = 5
+	cycleTier.Visible = false
+	ui.cycleTier = cycleTier
+	ui.cycleTierPill, ui.cycleTierText = pill(cycleTier, "Tier", "", UIKit.TextSize.caption, 22, UIKit.C.dim, INK)
+	ui.cycleTierPill.AnchorPoint = Vector2.new(0.5, 0)
+	ui.cycleTierPill.Position = UDim2.fromScale(0.5, 0)
+
 	local result = plainFrame(root, "Result", UDim2.fromOffset(760, 180), UDim2.fromOffset(VIEW_X, top - 6), Vector2.new(0.5, 0))
 	result.ZIndex = 5
 	result.Visible = false
@@ -590,6 +600,7 @@ local function reveal(payload: any, token: number)
 
 	display(cached(payload.result, payload.rarity))
 	ui.cycle.Visible = false
+	ui.cycleTier.Visible = false
 
 	ui.viewScale.Scale = 1.2
 	tween(ui.viewScale, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
@@ -670,6 +681,7 @@ local function play(payload: any)
 	ui.result.Visible = false
 	ui.cycle.Visible = true
 	ui.cycle.Text = ""
+	ui.cycleTier.Visible = false
 	ui.viewHolder.Position = ui.viewHome
 	ui.viewScale.Scale = 1
 	for _, bar in ui.rayBars do
@@ -712,6 +724,9 @@ local function play(payload: any)
 				display(cached(entry.itemId, entry.rarity))
 				ui.cycle.Text = entry.name or "???"
 				ui.cycle.TextColor3 = colour
+				ui.cycleTierText.Text = string.upper(entry.rarity or "")
+				ui.cycleTierPill.BackgroundColor3 = colour
+				ui.cycleTier.Visible = entry.rarity ~= nil
 				-- A faint glow in this nuke's rarity behind it, so a Legendary flicking
 				-- past is felt before it is read. The real rays wait for the landing.
 				for _, bar in ui.rayBars do
