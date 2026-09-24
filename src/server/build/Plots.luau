@@ -2386,10 +2386,10 @@ assert(#TREADMILL_DRIVE == #Treadmill.TIERS, "one drive colour per treadmill run
 --- the rung reads off the drive housing's colour and off the sign — which is also
 --- where the numbers that actually matter live.
 ---
---- `xp` is optional and only feeds the sign. nil means "unclaimed plot", which prints
---- the starting speed and no progress, because a bar that always reads empty on six
---- plots is worse than no bar at all.
-function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, xp: number?): number?
+--- `points` (the owner's lifetime Speed) is optional and only feeds the sign. nil
+--- means "unclaimed plot", which prints level 1 and no progress, because a bar that
+--- always reads empty on six plots is worse than no bar at all.
+function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: number?): number?
 	if treadmill == nil then
 		return nil
 	end
@@ -2416,28 +2416,28 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, xp: number?
 	local sign = treadmill:FindFirstChild("Sign", true)
 	local title = sign and sign:FindFirstChild("Title")
 	local subtitle = sign and sign:FindFirstChild("Subtitle")
-	local speed, progress = Treadmill.speedFor(xp or 0)
-	local shownSpeed = if xp == nil then Treadmill.START_SPEED else speed
+	local level, progress = Treadmill.levelFor(points or 0)
+	local maxed = level >= Treadmill.MAX_LEVEL
 	if title then
-		(title :: TextLabel).Text = string.format("SPEED %d", shownSpeed)
+		(title :: TextLabel).Text = string.format("SPEED LV %d", level)
 	end
 
 	-- The console's own screen says the same number to the runner, with the bar to the
-	-- next point. Absent on a world built before the screen faced the belt.
+	-- next level. Absent on a world built before the screen faced the belt.
 	local readout = treadmill:FindFirstChild("Readout", true)
 	local screenSpeed = readout and readout:FindFirstChild("Speed")
 	if screenSpeed and screenSpeed:IsA("TextLabel") then
-		screenSpeed.Text = string.format("SPEED %d", shownSpeed)
+		screenSpeed.Text = string.format("LV %d", level)
 	end
 	local fill = readout and readout:FindFirstChild("Fill", true)
 	if fill and fill:IsA("Frame") then
-		local shown = if xp == nil then 0 elseif speed >= Treadmill.MAX_SPEED then 1 else progress
+		local shown = if points == nil then 0 elseif maxed then 1 else progress
 		fill.Size = UDim2.fromScale(math.clamp(shown, 0, 1), 1)
 	end
 	if subtitle then
-		(subtitle :: TextLabel).Text = if xp == nil or speed >= Treadmill.MAX_SPEED
-			then `{def.name} — rated {def.rated}`
-			else string.format("%s — %d%% to speed %d", def.name, math.floor(progress * 100), speed + 1)
+		(subtitle :: TextLabel).Text = if points == nil or maxed
+			then `{def.name} — +{def.rate} Speed/s`
+			else string.format("%s — %d%% to LV %d", def.name, math.floor(progress * 100), level + 1)
 	end
 
 	treadmill:SetAttribute("Tier", wanted)
@@ -2766,7 +2766,7 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 		canCollide = false,
 	})
 
-	-- The readout: the owner's speed, a bar to the next point (both written by
+	-- The readout: the owner's speed level, a bar to the next one (both written by
 	-- setTreadmillTier alongside the billboard), and a stride pulse that bounces
 	-- (StationMotionController). Lit text on a dark glass, LightInfluence 0 so the sun
 	-- does not wash it out -- a screen, not paint.
@@ -2788,7 +2788,7 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	speedLabel.TextScaled = true
 	speedLabel.TextXAlignment = Enum.TextXAlignment.Left
 	speedLabel.TextColor3 = Color3.fromHex(SCREEN_INK)
-	speedLabel.Text = string.format("SPEED %d", Treadmill.START_SPEED)
+	speedLabel.Text = "LV 1"
 	speedLabel.Parent = readout
 
 	local pulse = Instance.new("Frame")
@@ -2844,8 +2844,8 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 		console,
 		230,
 		3.0,
-		string.format("SPEED %d", Treadmill.START_SPEED),
-		`{Treadmill.tier(1).name} — rated {Treadmill.tier(1).rated}`,
+		"SPEED LV 1",
+		`{Treadmill.tier(1).name} — +{Treadmill.tier(1).rate} Speed/s`,
 		accent
 	)
 

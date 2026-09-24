@@ -3,11 +3,12 @@
 
 	TWO JOBS, AND THEY ARE DELIBERATELY BOTH SMALL:
 
-	  1. THE CARD. While you are training, a panel above the hotbar shows the speed you
-	     are at, the bar to the next point, what the belt is paying per second and what
-	     the next rung costs. It fades in on arrival and out on departure, and it is
-	     drawn from SpeedState — this file computes no part of the curve, because
-	     Config/Treadmill owns it and a second copy would drift.
+	  1. THE CARD. While you are training, a card above the hotbar shows your speed
+	     level, the Speed you have against the next level's requirement, what the belt
+	     pays per second, roughly how long until the next level, and what the next belt
+	     costs. It pops in on arrival and out on departure. It is drawn from
+	     SpeedController's copy of SpeedState — the same number the HUD badge counts, so
+	     the two can never disagree — and computes no part of the curve itself.
 
 	  2. THE MACHINE. The belt's slats scroll and its rollers turn while a session is
 	     live, and the character plays its own run animation on the spot. All of it is
@@ -20,7 +21,7 @@
 	YOUR plot, so the machine can answer for it. Training is not — any belt on any base
 	trains whoever is standing on it, at their own rung (TreadmillService's header), so
 	the numbers here belong to the player rather than to the plot. The console's own
-	world billboard keeps showing its OWNER's rung, exactly as the luck button shows
+	world billboard keeps showing its OWNER's level, exactly as the luck button shows
 	its owner's multiplier, and the two never claim to be the same thing.
 
 	THE RUN ANIMATION IS BORROWED, NOT AUTHORED. The id is read off the character's own
@@ -32,15 +33,12 @@
 ]]
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
-local Shared = ReplicatedStorage.Shared
-local Net = require(Shared.Net)
-
 local UIKit = require(script.Parent.Parent.UIKit)
+local Speed = require(script.Parent.SpeedController)
 
 local Treadmill = {}
 
@@ -53,8 +51,8 @@ local BELT_SPEED = 9
 --- root is the one they are on; nothing else on a plot is named "Belt".
 local BELT_SEARCH = 9
 
-local ui = {}
-local state: any = nil
+local ui: any = {}
+local shown = false
 
 --- The parts we are animating this session, resolved once on arrival: the model, its
 --- slats and their home positions. Cleared on departure, which is also what puts
@@ -92,6 +90,76 @@ local rolled = 0
 
 -- ── The card ──────────────────────────────────────────────────────────────
 
+local INK = Color3.fromHex("1A1A1A")
+local WHITE = Color3.new(1, 1, 1)
+
+-- The speed badge's palette (SpeedController), so the card reads as the same system.
+local STYLE = {
+	card = Color3.fromHex("33AEFF"),
+	cardShine = Color3.fromHex("8AD4FF"),
+	pill = Color3.fromHex("2445B8"),
+	trough = Color3.fromHex("123A7A"),
+	fill = Color3.fromHex("FFE45C"),
+	caption = Color3.fromHex("DDF3FF"),
+	valueFont = Enum.Font.LuckiestGuy,
+	bodyFont = Enum.Font.FredokaOne,
+}
+
+local CARD_W, CARD_H = 380, 122
+local ROUND = UDim.new(0.5, 0)
+local POP_IN = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local POP_OUT = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+
+local function formatCash(amount: number): string
+	if amount >= 1_000_000 then
+		return string.format("$%.1fM", amount / 1_000_000)
+	elseif amount >= 1_000 then
+		return string.format("$%.1fK", amount / 1_000)
+	end
+	return string.format("$%d", amount)
+end
+
+--- "45s", "3m 20s", "1h 05m" — how long the belt still has to run for the next level.
+local function formatEta(seconds: number): string
+	local s = math.max(0, math.ceil(seconds))
+	if s < 60 then
+		return `{s}s`
+	elseif s < 3600 then
+		return string.format("%dm %02ds", s // 60, s % 60)
+	end
+	return string.format("%dh %02dm", s // 3600, (s % 3600) // 60)
+end
+
+local function blob(parent: Instance, name: string, rect: { number }, color: Color3, zIndex: number, radius: UDim, stroke: number?): Frame
+	local frame = UIKit.panel(parent, {
+		name = name,
+		position = UDim2.fromOffset(rect[1], rect[2]),
+		size = UDim2.fromOffset(rect[3], rect[4]),
+		color = color,
+		transparency = 0,
+		cornerRadius = radius,
+		strokeColor = INK,
+		strokeThickness = stroke or 0,
+		zIndex = zIndex,
+	})
+	return frame
+end
+
+local function text(parent: Instance, name: string, rect: { number }, props: any): TextLabel
+	return UIKit.label(parent, {
+		name = name,
+		position = UDim2.fromOffset(rect[1], rect[2]),
+		size = UDim2.fromOffset(rect[3], rect[4]),
+		font = props.font or STYLE.bodyFont,
+		textSize = props.textSize,
+		color = props.color or WHITE,
+		xAlign = props.xAlign or Enum.TextXAlignment.Left,
+		shadow = false,
+		text = props.text or "",
+		zIndex = props.zIndex or 5,
+	})
+end
+
 local function build(): Frame?
 	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
 	if playerGui == nil then
@@ -111,146 +179,100 @@ local function build(): Frame?
 
 	-- Bottom centre, sat above the hotbar. The player is looking down the belt while
 	-- this is up, so it wants to be in the middle rather than off in the instrument
-	-- column where the rad meter lives.
-	local panel = UIKit.panel(canvas, {
-		name = "Card",
-		size = UDim2.fromOffset(330, 92),
-		position = UDim2.new(0.5, 0, 1, -170),
-		anchorPoint = Vector2.new(0.5, 1),
-		color = UIKit.C.panel,
-		transparency = 0.12,
-		cornerRadius = UIKit.Radius.card,
-		strokeThickness = UIKit.Stroke.normal,
-	})
-	ui.panel = panel
+	-- column where the rad meter lives. An invisible footprint holds the card and its
+	-- hard shadow, so one UIScale pops the lot.
+	local root = Instance.new("Frame")
+	root.Name = "Card"
+	root.Size = UDim2.fromOffset(CARD_W, CARD_H + 5)
+	root.Position = UDim2.new(0.5, 0, 1, -170)
+	root.AnchorPoint = Vector2.new(0.5, 1)
+	root.BackgroundTransparency = 1
+	root.Visible = false
+	root.Parent = canvas
+	ui.panel = root
+	ui.scale = Instance.new("UIScale")
+	ui.scale.Parent = root
 
-	ui.speed = UIKit.label(panel, {
-		name = "Speed",
-		size = UDim2.fromOffset(150, 34),
-		position = UDim2.fromOffset(16, 10),
-		font = UIKit.Font.hero,
-		textSize = UIKit.TextSize.title,
-		color = UIKit.C.text,
-		xAlign = Enum.TextXAlignment.Left,
-		text = "SPEED 26",
-	})
+	local radius = UDim.new(0, 20)
+	blob(root, "Shadow", { 0, 5, CARD_W, CARD_H }, INK, 1, radius)
+	local card = blob(root, "Body", { 0, 0, CARD_W, CARD_H }, STYLE.card, 2, radius, 4)
+	blob(card, "Shine", { 12, 6, CARD_W - 24, 12 }, STYLE.cardShine, 3, ROUND)
 
-	ui.rate = UIKit.label(panel, {
-		name = "Rate",
-		size = UDim2.fromOffset(148, 34),
-		position = UDim2.new(1, -164, 0, 10),
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.header,
-		color = UIKit.C.green,
-		xAlign = Enum.TextXAlignment.Right,
-		text = "",
-	})
+	ui.level = text(card, "Level", { 16, 10, 170, 38 }, { font = STYLE.valueFont, textSize = 34 })
+	local stroke = ui.level:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Thickness = 3.5
+	end
+	ui.walk = text(card, "Walk", { 18, 46, CARD_W - 36, 16 }, { textSize = 14, color = STYLE.caption })
 
-	-- The bar. A dark trough with a green fill, the same two-frame shape the wash
-	-- bay's clean-percent bar uses.
-	local trough = UIKit.panel(panel, {
-		name = "Trough",
-		size = UDim2.new(1, -32, 0, 10),
-		position = UDim2.fromOffset(16, 50),
-		color = UIKit.C.empty,
-		transparency = 0,
-		cornerRadius = UIKit.Radius.pill,
-		strokeThickness = 0,
-	})
-	ui.fill = UIKit.panel(trough, {
-		name = "Fill",
-		size = UDim2.fromScale(0, 1),
-		position = UDim2.fromScale(0, 0),
-		color = UIKit.C.green,
-		transparency = 0,
-		cornerRadius = UIKit.Radius.pill,
-		strokeThickness = 0,
-	})
+	-- What the belt pays, on a pill in the top-right corner.
+	local pill = blob(card, "RatePill", { CARD_W - 16 - 156, 14, 156, 30 }, STYLE.pill, 4, ROUND, 3)
+	ui.rate = text(pill, "Rate", { 0, 0, 156, 30 }, { textSize = 17, xAlign = Enum.TextXAlignment.Center, zIndex = 6 })
 
-	ui.belt = UIKit.label(panel, {
-		name = "Belt",
-		size = UDim2.new(1, -32, 0, 18),
-		position = UDim2.fromOffset(16, 66),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption,
-		color = UIKit.C.dim,
-		xAlign = Enum.TextXAlignment.Left,
-		text = "",
-	})
+	-- The bar to the next requirement, with the two numbers written across it.
+	local trough = blob(card, "Trough", { 16, 66, CARD_W - 32, 24 }, STYLE.trough, 4, ROUND, 3)
+	ui.fill = blob(trough, "Fill", { 0, 0, 0, 24 }, STYLE.fill, 5, ROUND)
+	ui.fill.Size = UDim2.fromScale(0, 1)
+	ui.need = text(trough, "Need", { 0, 0, CARD_W - 32, 24 }, { textSize = 15, xAlign = Enum.TextXAlignment.Center, zIndex = 6 })
 
-	panel.Visible = false
-	return panel
+	ui.belt = text(card, "Belt", { 18, 96, CARD_W - 36, 18 }, { textSize = 13, color = STYLE.caption })
+
+	return root
 end
 
 local function ensure()
 	if ui.panel == nil or ui.panel.Parent == nil then
-		ui.panel = build()
+		build()
 	end
 end
 
-local function paint(view: any)
-	ensure()
-	if ui.panel == nil then
+--- Repaint from the latest readout and the locally counted Speed. Every frame while the
+--- card is up, so the bar and the numbers run with the badge's counter.
+local function paint()
+	local view = Speed.view()
+	if view == nil or ui.panel == nil then
 		return
 	end
+	local points = Speed.shownPoints()
 
-	ui.speed.Text = `SPEED {view.speed}`
-	ui.fill.Size = UDim2.fromScale(math.clamp(view.progress or 0, 0, 1), 1)
-
-	if view.speed >= view.maxSpeed then
-		-- The one line in this whole feature that ever stops counting. Say so plainly
-		-- rather than leaving a full bar and a rate that is buying nothing.
-		ui.rate.Text = "MAXED"
-		ui.rate.TextColor3 = UIKit.C.amber
+	if view.level >= view.maxLevel then
+		ui.level.Text = "MAX LV"
+		ui.walk.Text = `WALK SPEED {view.walk}  |  NOTHING LEFT TO TRAIN`
 		ui.fill.Size = UDim2.fromScale(1, 1)
-		ui.belt.Text = `{view.tierName} — nothing left to train`
-		return
-	end
-
-	ui.rate.Text = if view.training then string.format("+%.2f/s", view.rate) else "STEP ON"
-	ui.rate.TextColor3 = if view.training then UIKit.C.green else UIKit.C.dim
-
-	-- OVER-RATED IS THE ONE THING THE PLAYER MUST BE ABLE TO SEE. The falloff is
-	-- multiplicative and silent (Config/Treadmill.rateFor) — a player grinding at a
-	-- sixteenth rate with no explanation just thinks the feature is broken. Naming the
-	-- belt's rating next to their speed is what turns it back into a decision.
-	local over = view.speed >= view.rated
-	if over then
-		ui.belt.Text = if view.nextCost
-			then `{view.tierName} is rated {view.rated} — next belt $ {view.nextCost}`
-			else `{view.tierName} — past its rating`
-		ui.belt.TextColor3 = UIKit.C.amber
+		ui.need.Text = `{Speed.format(points)} SPEED`
 	else
-		ui.belt.Text = if view.nextCost
-			then `{view.tierName} — rated {view.rated}, next belt $ {view.nextCost}`
-			else `{view.tierName} — the last belt there is`
-		ui.belt.TextColor3 = UIKit.C.dim
+		local from, to = view.current or 0, view.nextReq or 1
+		local progress = math.clamp((points - from) / math.max(to - from, 1), 0, 1)
+		ui.level.Text = `LV {view.level}`
+		local eta = if view.rate > 0 then `  |  LV {view.level + 1} IN {formatEta((to - points) / view.rate)}` else ""
+		ui.walk.Text = `WALK SPEED {view.walk}{eta}`
+		ui.fill.Size = UDim2.fromScale(progress, 1)
+		ui.need.Text = `{Speed.format(points)} / {Speed.format(to)}`
 	end
+
+	ui.rate.Text = `+{view.rate} SPEED/S`
+	ui.belt.Text = if view.nextName
+		then string.upper(`{view.tierName}  |  next: {view.nextName} {formatCash(view.nextCost)} (+{view.nextRate}/s)`)
+		else string.upper(`{view.tierName}  |  the fastest belt there is`)
 end
 
 local function show(visible: boolean)
 	ensure()
-	if ui.panel == nil then
+	if ui.panel == nil or visible == shown then
 		return
 	end
+	shown = visible
 	if visible then
+		paint()
 		ui.panel.Visible = true
-	end
-	-- Fade rather than snap, and destroy nothing: the card comes back every time the
-	-- player steps on, which for an AFK grind may be hundreds of times a session.
-	TweenService:Create(ui.panel, TweenInfo.new(0.25), {
-		BackgroundTransparency = if visible then 0.12 else 1,
-	}):Play()
-	for _, child in ui.panel:GetDescendants() do
-		if child:IsA("TextLabel") then
-			TweenService:Create(child, TweenInfo.new(0.25), { TextTransparency = if visible then 0 else 1 }):Play()
-		elseif child:IsA("Frame") then
-			TweenService:Create(child, TweenInfo.new(0.25), { BackgroundTransparency = if visible then 0 else 1 }):Play()
-		end
-	end
-	if not visible then
-		task.delay(0.3, function()
-			if ui.panel and state and not state.training then
+		ui.scale.Scale = 0.6
+		TweenService:Create(ui.scale, POP_IN, { Scale = 1 }):Play()
+	else
+		-- Destroy nothing: the card comes back every time the player steps on, which
+		-- for an AFK grind may be hundreds of times a session.
+		TweenService:Create(ui.scale, POP_OUT, { Scale = 0 }):Play()
+		task.delay(POP_OUT.Time, function()
+			if not shown and ui.panel then
 				ui.panel.Visible = false
 			end
 		end)
@@ -422,14 +444,8 @@ end
 function Treadmill.start()
 	Players.LocalPlayer.CharacterAdded:Connect(onCharacter)
 
-	Net.get("SpeedState").OnClientEvent:Connect(function(view)
-		if type(view) ~= "table" then
-			return
-		end
-		local wasTraining = state ~= nil and state.training
-		state = view
-		paint(view)
-
+	Speed.onChanged(function(view, previous)
+		local wasTraining = previous ~= nil and previous.training
 		if view.training and not wasTraining then
 			latch()
 			startRunning()
@@ -442,10 +458,16 @@ function Treadmill.start()
 	end)
 
 	-- One connection for the life of the session, and it does nothing at all unless a
-	-- machine is latched. Connecting and disconnecting per session would be the same
-	-- work plus a leak the first time an edge is missed — and the client bootstrap
-	-- never calls a `stop` on anything, so there would be nowhere honest to undo it.
-	RunService.RenderStepped:Connect(animate)
+	-- machine is latched or the card is up. Connecting and disconnecting per session
+	-- would be the same work plus a leak the first time an edge is missed — and the
+	-- client bootstrap never calls a `stop` on anything, so there would be nowhere
+	-- honest to undo it.
+	RunService.RenderStepped:Connect(function(dt)
+		animate(dt)
+		if shown then
+			paint()
+		end
+	end)
 end
 
 return Treadmill

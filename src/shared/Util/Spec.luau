@@ -662,21 +662,20 @@ function Spec.run(): boolean
 	local profile = {
 		level = 20,
 		-- No `boots` key: the track is retired (Config/Gear's Gear.Boots header) and
-		-- StatResolver no longer looks for one. Speed comes from `speedXp` below.
+		-- StatResolver no longer looks for one. Speed comes from `speedPoints` below.
 		gear = { detector = 3, magnet = 2, cleaner = 4, suit = 3, satchel = 3 },
 		perks = { steadyHands = true, sureFooting = true },
 		multipliers = { sell = 2 },
-		speedXp = Treadmill.xpForSpeed(45),
+		speedPoints = Treadmill.requirementFor(45 - Treadmill.START_WALK + 1),
 	}
 	local stats = StatResolver.get(profile)
 	check("§9.2 Steady Hands adds exactly +1 potency", stats.cleanPotency == Gear.tier("Cleaner", 4).power + 1)
 	check("§9.2 level 20 = 20% resist", math.abs(stats.levelResist - 0.20) < 1e-9)
 	check("§9.2 level 20 = +4 carry capacity", stats.capacity == Gear.tier("Suit", 3).capacity + 4)
 	check("§9.2 Sure Footing halves the haul penalty", math.abs(stats.haulPenalty - Gear.tier("Satchel", 3).haulPenalty * 0.5) < 1e-9)
-	-- SPEED COMES OUT OF THE TREADMILL AND NOTHING ELSE. The profile above banks
-	-- exactly enough training for 45, so this is also the check that `xpForSpeed` and
-	-- `speedFor` are actual inverses at a boundary — the one place floating point can
-	-- make a player's level-up read as the point below it.
+	-- SPEED COMES OUT OF THE TREADMILL AND NOTHING ELSE. The profile above holds
+	-- exactly the requirement for walk 45, so this is also the check that a player
+	-- sitting on a requirement reads as that level and not the one below it.
 	check("§5.1 walk speed is whatever the treadmill trained", stats.walkSpeed == 45)
 	check("§5.1 a full bag physically slows you", StatResolver.effectiveWalkSpeed(stats, stats.capacity, false) < stats.walkSpeed)
 	check("§5.1 but never immobilises you", StatResolver.effectiveWalkSpeed(stats, 999, false) >= 6)
@@ -720,114 +719,102 @@ function Spec.run(): boolean
 
 	-- ── §5.1 THE TREADMILL ────────────────────────────────────────────────
 	--
-	-- The speed track, since Boots was retired (Config/Treadmill). These are the checks
-	-- that stop a retune from quietly turning a 15-hour endgame into a 3-hour one, and
-	-- they are the reason the curve's constants can be touched at all.
+	-- The Speed unit and its levels (Config/Treadmill). These are the checks that stop
+	-- a retune from quietly turning an 11-hour endgame into a 2-hour one.
 
-	check("§5.1 an untrained player walks at the old starting-boots speed", Treadmill.START_SPEED == 26)
-	check("§5.1 a fully trained player tops out at 100", Treadmill.MAX_SPEED == 100)
+	check("§5.1 level 1 walks at the old starting-boots speed", Treadmill.walkSpeedFor(1) == 26)
+	check("§5.1 the top level walks at 100", Treadmill.walkSpeedFor(Treadmill.MAX_LEVEL) == 100)
+	check("§5.1 one level is one stud/sec: 75 levels from 26 to 100", Treadmill.MAX_LEVEL == 75 and #Treadmill.REQUIREMENTS == 75)
+	check("§5.1 level 1 needs no Speed", Treadmill.requirementFor(1) == 0 and Treadmill.levelFor(0) == 1)
+	check("§5.1 there is no requirement past the top level", Treadmill.requirementFor(Treadmill.MAX_LEVEL + 1) == nil)
 
-	-- xpForSpeed and speedFor must be exact inverses at EVERY point, not just at the
-	-- one the profile above happens to sit on. This is the check that would have caught
-	-- the floating-point boundary bug `speedFor`'s correction loops exist to fix: it
-	-- fails on every rung at once if that correction is ever "simplified" away.
+	-- Every requirement is dearer than the last, and holding EXACTLY a requirement
+	-- reads as that level with an empty bar — never the level below with a full one,
+	-- which is the most visible bug this feature could have.
 	do
-		local exact = true
-		for speed = Treadmill.START_SPEED, Treadmill.MAX_SPEED do
-			local resolved = Treadmill.speedFor(Treadmill.xpForSpeed(speed))
-			if resolved ~= speed then
-				exact = false
-				break
-			end
-		end
-		check("§5.1 banked training resolves back to the exact speed it bought", exact)
-	end
-
-	-- THE BELT LADDER TILES THE WHOLE RANGE, and the top rung is rated for the cap
-	-- itself — so a maxed player on a maxed belt is never in falloff, and the last
-	-- point of speed is expensive because the CURVE is expensive rather than because
-	-- the machine is fighting them.
-	do
-		local rising, rated = true, Treadmill.START_SPEED
-		for _, tier in Treadmill.TIERS do
-			if tier.rated <= rated then
+		local rising, exact = true, true
+		for level = 1, Treadmill.MAX_LEVEL do
+			local req = Treadmill.REQUIREMENTS[level]
+			if level > 1 and req <= Treadmill.REQUIREMENTS[level - 1] then
 				rising = false
 			end
-			rated = tier.rated
+			local got, progress = Treadmill.levelFor(req)
+			if got ~= level or (level < Treadmill.MAX_LEVEL and progress ~= 0) then
+				exact = false
+			end
+			if level > 1 and Treadmill.levelFor(req - 0.01) ~= level - 1 then
+				exact = false
+			end
 		end
-		check("§5.1 each belt is rated higher than the last", rising)
-		check("§5.1 the top belt is rated for the speed cap", Treadmill.TIERS[#Treadmill.TIERS].rated == Treadmill.MAX_SPEED)
+		check("§5.1 each level's Speed requirement is higher than the last", rising)
+		check("§5.1 reaching a requirement levels you up exactly on it", exact)
+		check("§5.1 Speed past the top level still reads as the top level", Treadmill.levelFor(1e12) == Treadmill.MAX_LEVEL)
 	end
 
-	-- SOFT GATE, NOT A WALL (PLAN's "no binary can't"). Training past a belt's rating
-	-- has to get punishing without ever reaching zero — a rate of exactly 0 is a hard
-	-- cap wearing a curve's clothes, and it is the failure this whole falloff shape
-	-- exists to avoid.
+	-- THE BELTS: dearer each rung, and each pays meaningfully more Speed/sec. With no
+	-- rated-speed falloff left, the rate ladder is the whole reason to upgrade.
 	do
-		local floorTier = 1
-		local rated = Treadmill.tier(floorTier).rated
-		local atRating = Treadmill.rateFor(floorTier, rated)
-		local wayOver = Treadmill.rateFor(floorTier, Treadmill.MAX_SPEED)
-		check("§5.1 a belt pays its full rate up to its rating", math.abs(atRating - Treadmill.tier(floorTier).rate) < 1e-9)
-		check("§5.1 training past the rating is slower", wayOver < atRating)
-		check("§5.1 ...but never actually stops", wayOver > 0)
+		local rising = true
+		for index = 2, Treadmill.maxTier() do
+			local prev, def = Treadmill.TIERS[index - 1], Treadmill.TIERS[index]
+			if def.price <= prev.price or def.rate < prev.rate * 1.5 then
+				rising = false
+			end
+		end
+		check("§5.1 each belt costs more and pays at least 1.5x the Speed/sec of the last", rising)
+		check("§5.1 a belt's rate does not fall off with level", Treadmill.rateFor(1) == Treadmill.TIERS[1].rate)
 	end
 
-	-- THE DIFFICULTY RAMP IS THE RATIO BETWEEN TWO LADDERS, and this is the check that
-	-- says so out loud. Cost per point grows XP_GROWTH^12 across a 12-point band; the
-	-- belts get faster by less than that. If a retune ever lets the rate ladder catch
-	-- the cost curve, every band takes the same time as the one before it and the
-	-- endgame stops being an endgame — which is a change nobody would see in play for
-	-- about ten hours.
+	-- The three numbers the curve was tuned against, measured the way a player
+	-- experiences them: buying one belt per 12 levels. Bands are ±25%, wide enough that
+	-- a cosmetic tweak to one rung does not fail the suite and narrow enough that
+	-- "11 hours" cannot drift into "3 hours" unnoticed.
 	do
-		local costGrowthPerBand = Treadmill.XP_GROWTH ^ 12
-		local rateGrowth = Treadmill.TIERS[2].rate / Treadmill.TIERS[1].rate
-		check(
-			string.format("§5.1 cost outruns the belt ladder (x%.2f per band against x%.2f)", costGrowthPerBand, rateGrowth),
-			costGrowthPerBand > rateGrowth
-		)
-	end
-
-	-- The three numbers the feature was specified against, measured the way a player
-	-- actually experiences them: banking training on whichever belt is rated for the
-	-- speed they are currently at. Bands are ±25%, wide enough that a cosmetic tweak to
-	-- one rung does not fail the suite and narrow enough that "15 hours" cannot drift
-	-- into "4 hours" unnoticed.
-	do
-		local function hoursTo(target: number): number
+		local function hoursTo(walk: number, belt: ((level: number) -> number)?): number
 			local seconds = 0
-			for speed = Treadmill.START_SPEED, target - 1 do
-				-- The lowest rung rated for this speed: what an on-schedule player owns.
-				local tier = Treadmill.maxTier()
-				for index, def in Treadmill.TIERS do
-					if speed < def.rated then
-						tier = index
-						break
-					end
-				end
-				seconds += Treadmill.costFor(speed) / Treadmill.rateFor(tier, speed)
+			for level = 1, walk - Treadmill.START_WALK do
+				local tier = if belt then belt(level) else math.min(Treadmill.maxTier(), (level - 1) // 12 + 1)
+				local cost = Treadmill.REQUIREMENTS[level + 1] - Treadmill.REQUIREMENTS[level]
+				seconds += cost / Treadmill.rateFor(tier)
 			end
 			return seconds / 3600
 		end
 
-		for _, milestone in { { at = 45, hours = 1.0 }, { at = 70, hours = 4.1 }, { at = 100, hours = 15.3 } } do
+		for _, milestone in { { at = 45, hours = 0.68 }, { at = 70, hours = 2.9 }, { at = 100, hours = 11.0 } } do
 			local actual = hoursTo(milestone.at)
 			check(
-				string.format("§5.1 speed %d is about %.1f h of training (got %.1f h)", milestone.at, milestone.hours, actual),
+				string.format("§5.1 walk %d is about %.1f h of training (got %.2f h)", milestone.at, milestone.hours, actual),
 				actual > milestone.hours * 0.75 and actual < milestone.hours * 1.25
 			)
 		end
 
-		-- ...and the gate has teeth. Never upgrading has to cost a player something
-		-- enormous rather than nothing, or the belts are decoration.
-		local stuck = 0
-		for speed = Treadmill.START_SPEED, 63 do
-			stuck += Treadmill.costFor(speed) / Treadmill.rateFor(1, speed)
-		end
+		-- ...and never upgrading costs something real without walling anyone out.
+		local stuck = hoursTo(64, function()
+			return 1
+		end)
 		check(
-			string.format("§5.1 refusing to upgrade is brutal, not blocked (%.0f h to speed 64 on the free belt)", stuck / 3600),
-			stuck / 3600 > hoursTo(64) * 5
+			string.format("§5.1 skipping the belts is slow, not blocked (%.1f h to walk 64 on the free belt)", stuck),
+			stuck > hoursTo(64) * 2 and stuck < math.huge
 		)
+	end
+
+	-- THE CONVERSION KEEPS EVERY LEVEL. Old saves banked hidden `speedXp` on a
+	-- different curve; DataService converts it once. A player must land on the same
+	-- walk speed with the same fraction of the bar, at every walk speed.
+	do
+		local kept = true
+		for walk = Treadmill.START_WALK, Treadmill.MAX_WALK - 1 do
+			local n = walk - Treadmill.START_WALK
+			local base = 110 * (1.068 ^ n - 1) / 0.068
+			local halfway = base + 0.5 * 110 * 1.068 ^ n
+			local w1, p1 = Treadmill.walkFor(Treadmill.fromLegacyXp(base))
+			local w2, p2 = Treadmill.walkFor(Treadmill.fromLegacyXp(halfway))
+			if w1 ~= walk or p1 > 1e-6 or w2 ~= walk or math.abs(p2 - 0.5) > 1e-6 then
+				kept = false
+			end
+		end
+		check("§5.1 converting an old save keeps its walk speed and its bar", kept)
+		check("§5.1 a maxed old save converts to the top level", Treadmill.walkFor(Treadmill.fromLegacyXp(1e9)) == Treadmill.MAX_WALK)
 	end
 
 	-- THE REFUND HAS TO BUY THE REPLACEMENT. DataService hands a returning player back
@@ -1180,7 +1167,7 @@ function Spec.run(): boolean
 	--
 	-- *** THIS CHECK FAILS ON PURPOSE, AND IT IS THE THIRD KNOWN FAILURE. ***
 	--
-	-- The ceiling used to be the top Boots rung (36) and is now Treadmill.MAX_SPEED
+	-- The ceiling used to be the top Boots rung (36) and is now Treadmill.MAX_WALK
 	-- (100). That is not a rename — it is a real and unsolvable tightening. The gap
 	-- between the starting detector's reveal edge and DIG_RADIUS is 8 studs; a fully
 	-- trained player crosses it in 0.08s, and client/SpotCracks' REVEAL is 0.4s with
@@ -1205,7 +1192,7 @@ function Spec.run(): boolean
 	-- cheaper half" of exactly this fix.
 	do
 		local reach = Gear.tier("Detector", 1).radius - Tuning.DIG_RADIUS
-		local fastest = Treadmill.MAX_SPEED
+		local fastest = Treadmill.MAX_WALK
 		check(
 			string.format("§2.1 a spot has time to fade in before you reach it (%.2fs of walk)", reach / fastest),
 			reach / fastest >= 0.2
@@ -1227,7 +1214,7 @@ function Spec.run(): boolean
 
 	local field = Stages.builtIds()[1]
 	if field then
-		local walk = Treadmill.START_SPEED
+		local walk = Treadmill.START_WALK
 		local lo = Gear.tier("Detector", 1).radius
 		local hi = Gear.tier("Detector", Gear.maxTier("Detector")).radius
 		local slow = Stages.secondsBetweenContacts(field, lo, walk, Tuning.SIGNALS_PER_STAGE)
@@ -1616,7 +1603,7 @@ function Spec.run(): boolean
 		-- buys: the worst case is the player who has never trained, and a check written
 		-- against a trained speed would pass while that player died.
 		local common = Detonation.blastFor("Common", D.SIZE_REF)
-		local walk = Treadmill.START_SPEED * 0.5
+		local walk = Treadmill.START_WALK * 0.5
 		local taken, walked, step = common.hit, 0, 0.02
 		while walked < common.orbRadius do
 			taken += Detonation.orbBurnAt(walked, common.orbRadius, common.orbBurn, 1) * step

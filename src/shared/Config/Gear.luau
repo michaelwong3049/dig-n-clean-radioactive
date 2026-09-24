@@ -248,11 +248,11 @@ Gear.Suit = {
 --                   takes a `sprinting` flag that no call site has ever passed true.
 --                   PLAN §5.1 specced all four; none was ever built.
 --
--- The history of the numbers, kept because the treadmill's START_SPEED is one of
+-- The history of the numbers, kept because the treadmill's START_WALK is one of
 -- them: every tier's walkSpeed was raised +4, then +3, then +3 again on request
 -- ("base speed is too slow", "bump the base walkspeed a bit more"), moving the floor
 -- 16 -> 26 while the ladder and its pairings stayed put. That floor of 26 is exactly
--- Treadmill.START_SPEED, so an untrained player today walks at the speed a
+-- Treadmill.START_WALK, so an untrained player today walks at the speed a
 -- freshly-booted player walked at before any of this changed.
 -- Kept in lockstep with the x5 PRICE PASS above: these figures must stay byte-identical
 -- to Treadmill.TIERS' price column (Spec §5.1), so they were multiplied by the same 5x

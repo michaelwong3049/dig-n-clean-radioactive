@@ -1,11 +1,15 @@
 --!strict
 --[[
-	TreadmillService.lua — the speed grind. Stand on a belt, get faster, forever.
+	TreadmillService.lua — the Speed grind. Stand on a belt, earn Speed, level up.
+
+	SPEED IS A LIFETIME TOTAL (`data.speedPoints`). Every second on a belt adds that
+	belt's rate; every walk-speed level has a Speed requirement (Config/Treadmill), and
+	crossing one levels you up on the spot. Nothing is ever spent.
 
 	THE BELT IS A PLACE, NOT A BUTTON. There is no "start training" action and no
 	session to open: `StationService.onChanged` says the moment a player's feet land
 	inside a `StationKind = "treadmill"` radius, and from then until they step off,
-	the tick loop below banks training. That is the same arrival edge the old wash
+	the tick loop below banks Speed. That is the same arrival edge the old wash
 	pad rolled on (and DeconService still docks on), minus the one-shot — the pad paid
 	out once on the edge, this pays out continuously between two edges.
 
@@ -24,14 +28,14 @@
 	six taken, see ExhibitService.assign — can still train at someone else's base
 	instead of being locked out of a whole progression track by a full server.
 
-	WHAT THE UPGRADE BUYS is `rate` and `rated` (Config/Treadmill), not speed itself.
-	Cash cannot buy a single point of walk speed anywhere in this game any more; it can
-	only buy a belt that converts your time into speed less slowly. That is the entire
+	WHAT THE UPGRADE BUYS is `rate` — Speed per second (Config/Treadmill) — not Speed
+	itself. Cash cannot buy a single level anywhere in this game; it can only buy a
+	belt that converts your time into Speed faster. That is the entire
 	reason the Boots track was retired — see Config/Treadmill's header — and it is the
 	property to protect if anyone ever adds a gamepass here.
 
 	THE SERVER OWNS THE CLOCK, as it does for the wash timer and the pull fuse. The
-	client is told what its speed is; it never reports training. There is no remote in
+	client is told its Speed; it never reports training. There is no remote in
 	this file that a client can send, which makes the whole feature unexploitable by
 	construction rather than by validation.
 ]]
@@ -60,10 +64,11 @@ local STATION_KIND = "treadmill"
 --- requires it drags the whole builder into every service's dependency graph.
 local UPGRADE_TAG = "TreadmillUpgrade"
 
---- The hard ceiling on banked training, in the same units `speedXp` is stored in.
---- Computed once: it is what MAX_SPEED costs, and clamping to it is what keeps a
---- number that only ever grows out of the save file's tail.
-local XP_MAX = Treadmill.xpForSpeed(Treadmill.MAX_SPEED)
+--- How often a trainee's readout is re-sent while they run. The Speed total moves
+--- every tick, but the client counts it up locally from `rate` between pushes (see
+--- TreadmillController / SpeedController), so once a second is only a drift correction.
+--- Edges — stepping on or off, a level-up, a new belt, loading in — always push at once.
+local PUSH_INTERVAL = 1
 
 local stateRemote: any = nil
 local resultRemote: any = nil
@@ -73,112 +78,86 @@ local resultRemote: any = nil
 --- entire work list, which is why an empty camp costs nothing per tick.
 local training: { [Player]: boolean } = {}
 
---- The last payload each player was sent, to keep the remote quiet when nothing has
---- moved. Keyed by player and cleared on leave; a string rather than a table so the
---- comparison is one equality test rather than a field-by-field walk.
-local lastSignature: { [Player]: string } = {}
+--- When each trainee was last sent a readout (os.clock), for PUSH_INTERVAL.
+local lastPush: { [Player]: number } = {}
 
 -- ── The readout ───────────────────────────────────────────────────────────
 
---- What this player's training is worth, as the client renders it.
+--- This player's Speed, as the client renders it: the HUD counter reads `points` and
+--- `level`, the treadmill card reads the rest.
 ---
 --- `rate` is what they would earn per second ON A BELT — reported even when they are
---- not standing on one, because the number the HUD wants to show an idle player is
---- "this is what going back to the treadmill is worth", not zero. `training` is the
---- flag that says whether it is actually being paid right now.
----
---- `nextCost` is the price of the next RUNG, not of the next point of speed. Points
---- are not for sale (see the header).
+--- not standing on one, because what the card wants to show is "this is what going
+--- back to the treadmill is worth". `training` says whether it is being paid now.
 local function snapshot(player: Player, data: any)
 	local tier = math.clamp(math.floor(data.treadmill or 1), 1, Treadmill.maxTier())
-	local speed, progress = Treadmill.speedFor(data.speedXp or 0)
+	local points = data.speedPoints or 0
+	local level, progress = Treadmill.levelFor(points)
+	local nextTier = Treadmill.TIERS[tier + 1]
 	return {
-		speed = speed,
+		points = points,
+		level = level,
+		maxLevel = Treadmill.MAX_LEVEL,
+		walk = Treadmill.walkSpeedFor(level),
 		progress = progress,
-		maxSpeed = Treadmill.MAX_SPEED,
+		current = Treadmill.requirementFor(level),
+		nextReq = Treadmill.requirementFor(level + 1),
+		rate = Treadmill.rateFor(tier),
+		training = training[player] == true,
 		tier = tier,
 		tierName = Treadmill.tier(tier).name,
-		rated = Treadmill.tier(tier).rated,
-		rate = Treadmill.rateFor(tier, speed),
-		training = training[player] == true,
-		nextCost = Treadmill.priceFor(tier),
+		nextCost = if nextTier then nextTier.price else nil,
+		nextName = if nextTier then nextTier.name else nil,
+		nextRate = if nextTier then nextTier.rate else nil,
 	}
 end
 
---- Fire SpeedState, but only if this player's readout actually changed.
----
---- The signature deliberately rounds `progress` to a thousandth. At the top of the
---- curve one tick of training moves the bar by about a millionth of a percent, and
---- without the rounding this would fire ten times a second, forever, for every AFK
---- player on the server — to redraw a bar that has not visibly moved. Three decimals
---- is finer than a pixel on any bar the client draws.
-local function push(player: Player, force: boolean?)
+local function push(player: Player)
 	local data = DataService.data(player)
 	if data == nil or stateRemote == nil then
 		return
 	end
-
-	local state = snapshot(player, data)
-	local signature = string.format(
-		"%d|%.3f|%d|%s|%.3f",
-		state.speed,
-		state.progress,
-		state.tier,
-		tostring(state.training),
-		state.rate
-	)
-	if not force and lastSignature[player] == signature then
-		return
-	end
-	lastSignature[player] = signature
-	stateRemote:FireClient(player, state)
+	lastPush[player] = os.clock()
+	stateRemote:FireClient(player, snapshot(player, data))
 end
 
 -- ── Training ──────────────────────────────────────────────────────────────
 
---- One tick of banked training for every player currently standing on a belt.
+--- One tick of Speed for every player currently standing on a belt. The belt is
+--- re-read every tick, so an upgrade bought mid-run pays from the next tick on.
 ---
---- THE RATE IS RE-RESOLVED EVERY TICK, against the speed they are at THIS instant
---- rather than the one they stepped on at. That matters at a band edge: crossing your
---- belt's `rated` speed mid-session has to start the falloff immediately, or a player
---- who parks at 39 on a belt rated for 40 trains the next twenty points at full rate
---- because nothing re-asked. It is the same reason ShopService refuses to cache gear
---- and ExposureService recomputes stats per tick — a number derived from live state is
---- cheaper to recompute than to invalidate.
+--- Speed keeps counting past the top level. It is a lifetime total, not a bar, and a
+--- maxed player's number still going up is the only thing their belt has left to say.
 local function step(dt: number)
+	local now = os.clock()
 	for player in training do
 		local data = DataService.data(player)
 		if data == nil then
 			continue
 		end
 
-		local banked = data.speedXp or 0
-		if banked >= XP_MAX then
-			continue -- maxed; the belt still turns, it just has nothing left to teach
-		end
-
 		local tier = math.clamp(math.floor(data.treadmill or 1), 1, Treadmill.maxTier())
-		local speed = Treadmill.speedFor(banked)
-		local before = speed
+		local banked = data.speedPoints or 0
+		local before = Treadmill.levelFor(banked)
+		data.speedPoints = banked + Treadmill.rateFor(tier) * dt
+		local after = Treadmill.levelFor(data.speedPoints)
 
-		data.speedXp = math.min(banked + Treadmill.rateFor(tier, speed) * dt, XP_MAX)
-
-		-- A crossed point is worth saying out loud in the log: it is the only moment
-		-- in this whole feature where a number a player cares about changes, and it is
-		-- otherwise invisible in a server that is doing nothing but idling.
-		local after = Treadmill.speedFor(data.speedXp)
 		if after > before then
-			print(`[treadmill] {player.Name}: speed {before} -> {after}`)
+			-- The only moment in this feature where walk speed changes. Pushed at once
+			-- so the level-up lands on screen the same tick StatResolver starts
+			-- reporting the faster walk.
+			print(`[treadmill] {player.Name}: level {before} -> {after} (walk {Treadmill.walkSpeedFor(after)})`)
+			push(player)
+		elseif now - (lastPush[player] or 0) >= PUSH_INTERVAL then
+			push(player)
 		end
 	end
+end
 
-	-- Trainees only. A player who steps OFF is no longer in this table, and does not
-	-- need to be: the StationService edge that removed them already forced a final
-	-- push to clear the `training` flag on their readout. An idle camp therefore costs
-	-- exactly one empty loop per tick.
-	for player in training do
-		push(player)
-	end
+--- Re-send this player's readout now. For DebugService's /train, which pokes
+--- `speedPoints` directly and would otherwise leave the HUD a second stale.
+function TreadmillService.refresh(player: Player)
+	push(player)
 end
 
 -- ── Buying a rung ─────────────────────────────────────────────────────────
@@ -211,8 +190,8 @@ function TreadmillService.buy(player: Player): (boolean, string)
 	data.treadmill = tier + 1
 	local bought = Treadmill.tier(data.treadmill)
 	ExhibitService.refreshTreadmill(player)
-	push(player, true)
-	return true, `{bought.name} installed — rated to speed {bought.rated} (paid ${price})`
+	push(player)
+	return true, `{bought.name} installed — +{bought.rate} Speed/s (paid ${price})`
 end
 
 -- ── Bootstrap ──────────────────────────────────────────────────────────
@@ -258,10 +237,13 @@ function TreadmillService.start()
 	StationService.onChanged(function(player, kind, _id, previousKind)
 		if kind == STATION_KIND then
 			training[player] = true
-			push(player, true)
+			push(player)
 		elseif previousKind == STATION_KIND then
 			training[player] = nil
-			push(player, true)
+			-- Their plot's console shows the owner's level; bring it up to date with
+			-- whatever this run earned. Once per run, not per tick.
+			ExhibitService.refreshTreadmill(player)
+			push(player)
 		end
 	end)
 
@@ -270,12 +252,12 @@ function TreadmillService.start()
 		-- and data load race each other — ExhibitService.refreshTreadmill is a no-op
 		-- until they have a plot, and assign() calls it again from its own side.
 		ExhibitService.refreshTreadmill(player)
-		push(player, true)
+		push(player)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
 		training[player] = nil
-		lastSignature[player] = nil
+		lastPush[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, step, "treadmill")

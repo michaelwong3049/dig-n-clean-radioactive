@@ -23,10 +23,11 @@ local ORDER = {
 	"ShopController", -- the Shop tile, stacked below the Index tile, and the Robux shop panel it opens
 	"LuckBoostController", -- the 2x-luck clover (bottom right), the Violet Aurora banner + lights; opens the Shop
 	"CashController", -- the persistent cash badge; top-left, reads CashState
+	"SpeedController", -- the persistent Speed badge under the cash badge; the one reader of SpeedState
 	"LiquidController", -- the fluid spin popup; reads FluidSpin
 	"CrateController", -- supply crates: the Open prompt on a held crate + the nuke-crate reveal; reads CrateOpened
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState
-	"TreadmillController", -- the speed-training card and the belt's own motion; reads SpeedState
+	"TreadmillController", -- the speed-training card and the belt's own motion; reads SpeedController
 	"StationMotionController", -- base machines moving on their own: fans, dial, gauge needle, tub ripples, screen pulse
 	"ItemFxController", -- nuke glow/glass/motion on any `ItemFx`-tagged model, once its crust is off
 	"DetonationController", -- nukes going off: the blast, the crater orb, the lit-fuse warnings; reads Detonation

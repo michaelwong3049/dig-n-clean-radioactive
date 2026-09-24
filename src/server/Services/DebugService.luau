@@ -49,6 +49,7 @@ local DigService = require(script.Parent.DigService)
 local CrateService = require(script.Parent.CrateService)
 local CampService = require(script.Parent.CampService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
+local TreadmillService = require(script.Parent.TreadmillService)
 
 local Workspace = game:GetService("Workspace")
 
@@ -357,20 +358,18 @@ COMMANDS["/speed"] = {
 }
 
 COMMANDS["/train"] = {
-	-- REAL PROFILE STATE, unlike /speed. Banks exactly the training a given speed
-	-- costs (Config/Treadmill.xpForSpeed), which is the only practical way to test
-	-- anything at the top of a curve whose endgame is fifteen hours of standing still.
+	-- REAL PROFILE STATE, unlike /speed. Sets lifetime Speed to exactly a level's
+	-- requirement (Config/Treadmill.REQUIREMENTS), which is the only practical way to
+	-- test the top of a curve whose endgame is eleven hours of standing still.
 	--
-	-- Pokes data.speedXp directly, the same way /gear pokes data.gear -- there is no
-	-- "grant training" path on TreadmillService to go through, and there should not be
-	-- one: the tick loop is the only thing that ought to be able to earn it.
-	-- ExposureService picks the new speed up on its next tick with no event, so there
-	-- is nothing to push here.
+	-- Pokes data.speedPoints directly, the same way /gear pokes data.gear -- there is
+	-- no "grant Speed" path on TreadmillService, and there should not be one: the tick
+	-- loop is the only thing that ought to earn it. ExposureService picks the new walk
+	-- speed up on its next tick; the readout is re-pushed so the HUD follows at once.
 	--
-	-- `/train belt <n>` moves the RUNG instead, because a speed you cannot reach at a
-	-- sane rate is most of what there is to test -- the falloff past a belt's rating is
-	-- the part of this feature with the least forgiving math.
-	help = "/train <speed> — bank exactly the training for that speed; /train belt <1-6> to swap rung",
+	-- `/train speed <n>` sets the raw total (to test a point just under a requirement),
+	-- `/train belt <n>` moves the RUNG.
+	help = "/train <level 1-75> — set Speed to that level's requirement; /train speed <n>; /train belt <1-6>",
 	run = function(player, _sandbox, args)
 		local data = DataService.data(player)
 		if data == nil then
@@ -384,17 +383,29 @@ COMMANDS["/train"] = {
 			end
 			data.treadmill = math.clamp(math.floor(rung), 1, Treadmill.maxTier())
 			ExhibitService.refreshTreadmill(player)
+			TreadmillService.refresh(player)
 			local def = Treadmill.tier(data.treadmill)
-			return `belt -> {def.name} (rated {def.rated}, {def.rate}/s)`
+			return `belt -> {def.name} (+{def.rate} Speed/s)`
 		end
 
-		local wanted = tonumber(args[1])
-		if wanted == nil then
-			return `usage: /train <{Treadmill.START_SPEED}-{Treadmill.MAX_SPEED}>  |  /train belt <n>`
+		if args[1] == "speed" then
+			local points = tonumber(args[2])
+			if points == nil then
+				return "usage: /train speed <n>"
+			end
+			data.speedPoints = math.max(0, points)
+		else
+			local wanted = tonumber(args[1])
+			if wanted == nil then
+				return `usage: /train <1-{Treadmill.MAX_LEVEL}>  |  /train speed <n>  |  /train belt <n>`
+			end
+			wanted = math.clamp(math.floor(wanted), 1, Treadmill.MAX_LEVEL)
+			data.speedPoints = Treadmill.requirementFor(wanted) :: number
 		end
-		wanted = math.clamp(math.floor(wanted), Treadmill.START_SPEED, Treadmill.MAX_SPEED)
-		data.speedXp = Treadmill.xpForSpeed(wanted)
-		return `trained to speed {wanted} — walk it off and back on to refresh the readout`
+		ExhibitService.refreshTreadmill(player)
+		TreadmillService.refresh(player)
+		local level = Treadmill.levelFor(data.speedPoints)
+		return `Speed {math.floor(data.speedPoints)} — level {level}, walk {Treadmill.walkSpeedFor(level)}`
 	end,
 }
 
