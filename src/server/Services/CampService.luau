@@ -4,8 +4,8 @@
 
 	Base Camp is everyone's from the start. Every camp after it (Config/Camps, built by
 	build/CampSite) is REACHED by standing in it on foot once, and that is saved:
-	`data.camps[key] = true`. Reaching it is what unlocks its button on the warp bar --
-	the button is on everybody's screen from day one, just locked (WarpController), and
+	`data.camps[key] = true`. Reaching it is what unlocks its row on the Warp panel --
+	the row is on everybody's list from day one, just locked (CampWarpController), and
 	WarpService refuses the warp until this file says the camp is reached.
 
 	WHY ON FOOT, AND NOT A PURCHASE. The camps sit on the stage chain: Toxic Twilight is
@@ -47,8 +47,12 @@ local TICK = 0.25
 --- A root this far below the camp's floor is falling past it, not standing in it.
 local STANDING_BAND = 6
 
+--- The least time between two asked-for pushes from one client (see start()).
+local ASK_COOLDOWN = 1
+
 local stateRemote: any = nil
 local lastAvailable = ""
+local lastAsk: { [Player]: number } = {}
 
 local function rootOf(player: Player): BasePart?
 	local character = player.Character
@@ -157,6 +161,22 @@ function CampService.start()
 			data.camps = {} -- Reconcile() fills this; belt and braces for a mid-session hot reload
 		end
 		push(player, availableSet(), nil)
+	end)
+
+	-- A client asks for a fresh push with an empty FireServer. More than one client
+	-- controller reads CampState, and a push that lands before any of them listens is
+	-- queued for the FIRST one to connect only; the others ask once they are listening.
+	-- Nothing is taken from the request but the player.
+	stateRemote.OnServerEvent:Connect(function(player: Player)
+		local now = os.clock()
+		if now - (lastAsk[player] or -math.huge) < ASK_COOLDOWN then
+			return
+		end
+		lastAsk[player] = now
+		push(player, availableSet(), nil)
+	end)
+	Players.PlayerRemoving:Connect(function(player)
+		lastAsk[player] = nil
 	end)
 
 	Ticker.every(TICK, function()

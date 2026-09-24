@@ -609,7 +609,7 @@ local function tileTop(height: number): number
 end
 
 --- Where the right-hand tile column ends now: the Nukes tile's bottom edge, in design
---- px from the canvas TOP. LuckBoostController keeps the 2x-luck clover below it.
+--- px from the canvas TOP. CampWarpController hangs the Warp tile one Dock.GAP below it.
 function Nukes.columnBottom(height: number): number
 	return height / 2 + tileTop(height) + TILE_SIZE
 end

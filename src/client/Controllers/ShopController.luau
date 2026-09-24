@@ -364,14 +364,10 @@ local function buildPanel(): ScreenGui
 end
 
 --- The Shop tile's top edge, in design px from the canvas's vertical centre, on a
---- canvas `height` design px tall. Hung directly under the Index tile: same hang/centre
---- switch at the same Dock.SIDE_TOP_MIN_HEIGHT breakpoint, one Dock.GAP below wherever
---- the Index tile's own bottom edge falls in each case (see IndexController.place — the
---- hang case ends at SIDE_TOP_Y + TILE_SIZE, the centred case at +TILE_SIZE/2).
+--- canvas `height` design px tall. Hung directly under the Index tile, which heads the
+--- column at Dock.sideColumnTop: one Dock.GAP below the Index tile's bottom edge.
 local function tileTop(height: number): number
-	local hang = height >= Dock.SIDE_TOP_MIN_HEIGHT
-	local indexBottom = if hang then Dock.SIDE_TOP_Y + TILE_SIZE else TILE_SIZE / 2
-	return indexBottom + Dock.GAP
+	return Dock.sideColumnTop(height) + TILE_SIZE + Dock.GAP
 end
 
 --- Where the right-hand tile column ends: the Shop tile's bottom edge, in design px

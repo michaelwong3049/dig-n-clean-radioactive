@@ -1,9 +1,10 @@
 --!strict
 --[[
-	WarpService.luau — the top-of-screen "getting around" bar's one server verb.
+	WarpService.luau — the one server verb behind every warp button.
 
-	The client's WarpController shows two buttons whenever the player is standing in
-	no stage — BASE and SHOPS — and this is what those buttons call. The client sends
+	The client's WarpController shows two portals whenever the player is standing in
+	no stage — HOME and SHOPS — and CampWarpController's Warp tile opens a list of every
+	camp; this is what all of them call. The client sends
 	a destination NAME and nothing else (`{ dest = "base" | "shops" }`); this file
 	re-derives the actual CFrame server-side, the same way DigService decides which
 	buried signal a yank meant from where the player is standing rather than trusting
@@ -13,8 +14,8 @@
 	player is the arithmetic in Shared/Radiation (PLAN §3.5) — a button that lifts you
 	out of a lethal field for free would gut that. So a Warp from inside a stage is
 	REFUSED here, not merely hidden by the bar: `StageService.stageOf` must be nil.
-	The bar hides itself in stages too, so a legitimate client never reaches the
-	refusal; it is here for the one that lies.
+	The bar hides itself in stages and the camp list greys out, so a legitimate client
+	never reaches the refusal; it is here for the one that lies.
 
 	DESTINATIONS, AND WHY THEY ARE NOT THIS FILE'S TO DEFINE:
 	  base   -> ExhibitService.plotSpawn(player), the same PlotSpawn assign() already
@@ -27,8 +28,8 @@
 	  <camp key> -> CampService.arrivalCFrame(key), the CampAnchor build/CampSite stands
 	            in that camp's plaza (Config/Camps; "twilight" is Toxic Twilight). A
 	            third rule on top of "not from inside a stage": the player must have
-	            REACHED that camp on foot once (CampService.reached). The bar shows the
-	            button locked until then; this is the refusal for a client that lies.
+	            REACHED that camp on foot once (CampService.reached). The Warp panel shows
+	            the row locked until then; this is the refusal for a client that lies.
 	            nil (the saved place predates the camp) refuses too, rather than
 	            dropping anyone into open water.
 

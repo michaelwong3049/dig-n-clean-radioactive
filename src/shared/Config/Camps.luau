@@ -43,10 +43,27 @@ export type Palette = {
 	awnings: { string }, -- one accent per stall shell, striped against white
 }
 
+--- How a camp looks on its row in the Warp panel (client CampWarpController): a little
+--- postcard of the place -- sky, wall, lawn, path and two stall roofs -- in the camp's
+--- own colours. Every camp carries one, Base Camp included, so a new camp only needs
+--- its entry here to show up on the panel.
+export type Card = {
+	skyTop: string,
+	skyBottom: string,
+	wall: string,
+	wallCap: string,
+	lawn: string,
+	path: string,
+	roofs: { string }, -- left stall, right stall
+	accent: string, -- the "CAMP N" caption over the name
+}
+
 export type CampDef = {
 	id: number,
 	key: string,
 	name: string,
+	blurb: string, -- the Warp panel's one line under the name
+	card: Card,
 	-- Site camps only (nil on Base Camp, whose footprint lives in build/Hub + Plots).
 	center: { number }?, -- { x, z } of the disc
 	radius: number?, -- the walkable floor's radius; the wall stands just outside it
@@ -80,11 +97,34 @@ Camps.DEFS = {
 		id = 1,
 		key = "base",
 		name = "Base Camp",
+		blurb = "Your base, the shops and the trader",
+		card = {
+			skyTop = "7FB8DE",
+			skyBottom = "D9E6C4",
+			wall = "6B4A2E",
+			wallCap = "8A6440",
+			lawn = "5DAA3C",
+			path = "B9B2A0",
+			roofs = { "D8563B", "E5A53A" },
+			accent = "4ADE80",
+		},
 	},
 	{
 		id = 2,
 		key = "twilight",
 		name = "Toxic Twilight",
+		blurb = "Past the Crater, at the end of Stage 6",
+		-- Its palette below, under a dusk sky.
+		card = {
+			skyTop = "2B1D4A",
+			skyBottom = "B0709A",
+			wall = "3E2A5C",
+			wallCap = "5B4382",
+			lawn = "2F8A7D",
+			path = "CBBBE9",
+			roofs = { "A855FF", "4FD1C5" },
+			accent = "C084FC",
+		},
 		center = { CRATER_EAST_X + TWILIGHT_CENTRE_OFFSET, 0 },
 		-- About 65% of Base Camp's ring (Plots.RING_OUTER 230). There are no plots here,
 		-- only the plaza, the stalls, the trader and one shared cleansing station.

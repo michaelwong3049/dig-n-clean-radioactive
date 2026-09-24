@@ -23,6 +23,7 @@ local ORDER = {
 	"IndexController", -- the item index GUI; Index tile on the right edge, reads IndexState + Unearthed
 	"ShopController", -- the Shop tile, stacked below the Index tile, and the Robux shop panel it opens
 	"NukesController", -- the Nukes tile under Shop: every owned nuke + $/s, and Equip Best; reads NukeList
+	"CampWarpController", -- the Warp tile under Nukes and its camp list: warp to any camp reached on foot; reads CampState
 	"LuckBoostController", -- the 2x-luck clover (bottom right), the Violet Aurora banner + lights; opens the Shop
 	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"SpeedController", -- the persistent Speed badge under the cash badge; the one reader of SpeedState
@@ -35,7 +36,7 @@ local ORDER = {
 	"DetonationController", -- nukes going off: the blast, the crater orb, the lit-fuse warnings; reads Detonation
 	"NameTagController", -- subdued overhead player names; replaces Roblox's bright default tag
 	"StandCardController", -- the trophy-ribbon card over each displayed nuke; reads the StandCard attributes ExhibitService writes
-	"WarpController", -- the top-of-screen BASE / SHOPS bar; reads stageId off ExposureState
+	"WarpController", -- the top-of-screen HOME / SHOPS portals; reads stageId off ExposureState
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState
 	"SettingsController", -- the Settings panel (top-right gear); base-colour picker, reads/writes PlotColor
 	"TutorialController", -- the new-player walkthrough: top banner + ground trail; reads TutorialState

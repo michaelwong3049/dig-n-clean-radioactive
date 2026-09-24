@@ -2,143 +2,264 @@
 --[[
 	WarpController.luau — the "getting around" bar at the top of the screen.
 
-	BASE and SHOPS, centred against the top edge, plus one button per site camp
-	(Config/Camps — Toxic Twilight first). They are a convenience for moving around
-	the safe zones — from your plot out to the shop cluster, out to a far camp and back
-	— and they are ONLY on screen while you are standing in no stage. The moment you
-	cross into a field the bar slides away: warping is not an escape hatch (WarpService
+	Two portals, HOME and SHOPS, centred against the top edge. They are a convenience
+	for moving around Base Camp — from your plot out to the shop cluster and back — and
+	they are ONLY on screen while you are standing in no stage. The moment you cross
+	into a field the bar slides away: warping is not an escape hatch (WarpService
 	refuses it server-side from inside a stage as well), and the top-centre strip is
 	the stage-name banner's while you are in one.
 
-	A CAMP BUTTON IS ON EVERYONE'S BAR, LOCKED, until that camp has been reached on
-	foot once (CampService). Locked, it wears a padlock and a dimmed logo, and a click
-	says how to open it instead of warping. That is presentation only — WarpService
-	makes the same refusal for a client that ignores the lock. A camp that is not in
-	this world at all (a place saved before it was built) gets no button: there is
-	nothing to land on, so `available` in CampState hides it rather than locking it.
+	CAMPS ARE NOT UP HERE. Every other camp (Config/Camps) is on the Warp tile's panel
+	on the right edge (CampWarpController), which lists them all, locked or not, so the
+	bar stays two buttons however many camps the chain grows.
+
+	THE LOOK is a portal ring per destination: a disc of the destination's colour whose
+	bands turn slowly (a UIGradient's Rotation, stepped every frame while the bar is
+	up — Roblox has no conic gradient, so two counter-turning banded discs stand in for
+	the swirl), an INK rim, a soft halo, the destination's picture on top, and a dark
+	name pill tucked under its right side. Hover spins it fast and grows it a little.
 
 	READS stageId OFF ExposureState, the same field StageBannerController and
 	AtmosphereController already read — it ticks ~10Hz and costs nothing new on the
-	wire. The camp buttons read CampState, which only fires on change. Pure
-	presentation: the click sends a destination NAME, WarpService decides the CFrame.
-
-	Neutral dark cards keep the destination logos clear.
+	wire. Pure presentation: the click sends a destination NAME, WarpService decides
+	the CFrame.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
-local Camps = require(Shared.Config.Camps)
 
 local UIKit = require(script.Parent.Parent.UIKit)
-local WarpIcons = require(script.Parent.Parent.WarpIcons)
+local Artwork = require(script.Parent.Parent.HudArtwork)
 
 local WarpController = {}
 
-local SHOWN = UDim2.new(0.5, 0, 0, 12)
+local SHOWN = UDim2.new(0.5, 0, 0, 10)
 local HIDDEN = UDim2.new(0.5, 0, 0, -100) -- fully off the top edge
 local SLIDE = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local CLICK_DEBOUNCE = 0.4
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local HINT_HOLD = 2.4
--- Shared with IndexController's Index tile (UIKit.C.nav*), so the two read as one
--- family of buttons.
-local BACKGROUND = UIKit.C.navFill
-local HOVER_BACKGROUND = UIKit.C.navFillHover
-local EDGE = UIKit.C.navEdge
-local HOVER_EDGE = UIKit.C.navEdgeHover
--- A locked logo stays legible but plainly off.
-local LOCKED_ICON_TRANSPARENCY = 0.6
+local POP = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local CLICK_DEBOUNCE = 0.4
 
-local BTN_W, BTN_H, GAP = 120, 56, 10
+-- Design px. The disc sits on the left; the name pill starts OVERLAP under its right
+-- side, so the pill's left end is always hidden and only its rounded right end shows.
+-- The bar's bottom (with the disc's drop shadow) stays above TutorialController's
+-- banner at y 84.
+local DISC = 60
+local RIM = 3
+local PILL_W = 112
+local PILL_H = 42
+local OVERLAP = 22
+local BTN_W = DISC - OVERLAP + PILL_W
+local BTN_H = DISC + 4
+local GAP = 18
+local ICON = 34
+local ICON_OUTLINE = 2
+local NAME_SIZE = 21
+local HOVER_GROW = 1.08
+local PRESS_SHRINK = 0.9
 
-type ButtonSpec = { dest: string, text: string, camp: Camps.CampDef? }
+-- Degrees per second the bands turn, at rest and under the pointer.
+local SPIN_REST = 90
+local SPIN_HOVER = 540
+-- The inner disc turns the other way, a little faster, so the two read as a swirl.
+local INNER_SPIN = -1.4
 
-local BUTTONS: { ButtonSpec } = {
-	{ dest = "base", text = "BASE" },
-	{ dest = "shops", text = "SHOPS" },
+local INK = Color3.fromHex("1A1A1A")
+local PILL = Color3.fromHex("161A22")
+local PILL_HOVER = Color3.fromHex("232936")
+local EYE = Color3.fromHex("0F0F19")
+
+type Spec = {
+	dest: string,
+	text: string,
+	image: string,
+	light: Color3,
+	mid: Color3,
+	dark: Color3,
 }
-for _, def in Camps.sites() do
-	table.insert(BUTTONS, { dest = def.key, text = def.name:upper(), camp = def })
-end
+
+local BUTTONS: { Spec } = {
+	{
+		dest = "base",
+		text = "HOME",
+		image = Artwork.IMAGE.house,
+		light = Color3.fromHex("86F27A"),
+		mid = Color3.fromHex("34C446"),
+		dark = Color3.fromHex("1D8A2A"),
+	},
+	{
+		dest = "shops",
+		text = "SHOPS",
+		image = Artwork.IMAGE.storefront,
+		light = Color3.fromHex("FFE36B"),
+		mid = Color3.fromHex("FFB61C"),
+		dark = Color3.fromHex("C47A00"),
+	},
+}
 
 type Entry = {
-	spec: ButtonSpec,
-	shadow: Frame,
-	button: TextButton,
-	stroke: UIStroke,
-	icon: { Frame },
-	lock: Frame?,
+	outer: UIGradient,
+	inner: UIGradient,
+	angle: number,
+	speed: number,
 }
 
-local ui: {
-	panel: Frame,
-	hint: TextLabel,
-	entries: { Entry },
-}? = nil
-
+local panel: Frame? = nil
+local entries: { Entry } = {}
 local shown = false
 local hideToken = 0
-local hintToken = 0
 local lastClick = 0
 local warpRemote: any = nil
 
-local reached: { [string]: boolean } = {}
-local available: { [string]: boolean } = {}
-
-local function isLocked(spec: ButtonSpec): boolean
-	return spec.camp ~= nil and reached[spec.dest] ~= true
+local function circle(parent: Instance, name: string, size: number, color: Color3, zIndex: number): Frame
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Position = UDim2.fromScale(0.5, 0.5)
+	frame.Size = UDim2.fromOffset(size, size)
+	frame.BackgroundColor3 = color
+	frame.BorderSizePixel = 0
+	frame.ZIndex = zIndex
+	frame.Parent = parent
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = frame
+	return frame
 end
 
-local function isShown(spec: ButtonSpec): boolean
-	return spec.camp == nil or available[spec.dest] == true
+--- Alternating bands of two colours across a white fill: turned by Rotation, they are
+--- the portal's swirl.
+local function bands(parent: Instance, a: Color3, b: Color3): UIGradient
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, a),
+		ColorSequenceKeypoint.new(0.25, b),
+		ColorSequenceKeypoint.new(0.5, a),
+		ColorSequenceKeypoint.new(0.75, b),
+		ColorSequenceKeypoint.new(1, a),
+	})
+	gradient.Parent = parent
+	return gradient
 end
 
---- Lay out whichever buttons this world has, left to right, and size the panel to them.
-local function layout()
-	if ui == nil then
-		return
-	end
-	local index = 0
-	for _, entry in ui.entries do
-		local visible = isShown(entry.spec)
-		entry.shadow.Visible = visible
-		entry.button.Visible = visible
-		if visible then
-			local x = index * (BTN_W + GAP)
-			entry.shadow.Position = UDim2.fromOffset(x, 4)
-			entry.button.Position = UDim2.fromOffset(x, 0)
-			index += 1
-		end
-		if entry.lock then
-			entry.lock.Visible = isLocked(entry.spec)
-		end
-		for _, piece in entry.icon do
-			piece.BackgroundTransparency = if isLocked(entry.spec) then LOCKED_ICON_TRANSPARENCY else 0
-		end
-	end
-	ui.panel.Size = UDim2.fromOffset(math.max(1, index * BTN_W + math.max(0, index - 1) * GAP), BTN_H)
-end
+local function buildButton(parent: Frame, spec: Spec, x: number): Entry
+	local button = Instance.new("TextButton")
+	button.Name = spec.text
+	button.AutoButtonColor = false
+	button.BackgroundTransparency = 1
+	button.Text = ""
+	button.Size = UDim2.fromOffset(BTN_W, BTN_H)
+	button.Position = UDim2.fromOffset(x, 0)
+	button.ZIndex = 2
+	button.Parent = parent
 
---- Shown and hidden outright rather than faded: UIKit.label's outline is a UIStroke
---- (and its shadow a second label), neither of which follows TextTransparency, so a
---- fade would leave the outline hanging on screen after the letters had gone.
-local function showHint(text: string)
-	if ui == nil then
-		return
+	-- The name pill, and its hard drop shadow.
+	local pillTop = (DISC - PILL_H) / 2
+	local pillShadow = Instance.new("Frame")
+	pillShadow.Name = "PillShadow"
+	pillShadow.Position = UDim2.fromOffset(DISC - OVERLAP, pillTop + 4)
+	pillShadow.Size = UDim2.fromOffset(PILL_W, PILL_H)
+	pillShadow.BackgroundColor3 = INK
+	pillShadow.BorderSizePixel = 0
+	pillShadow.ZIndex = 3
+	pillShadow.Parent = button
+	local pill = pillShadow:Clone()
+	pill.Name = "Pill"
+	pill.Position = UDim2.fromOffset(DISC - OVERLAP, pillTop)
+	pill.BackgroundColor3 = PILL
+	pill.ZIndex = 4
+	pill.Parent = button
+	for _, frame in { pillShadow, pill } do
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = frame
 	end
-	hintToken += 1
-	local mine = hintToken
-	ui.hint.Text = text
-	ui.hint.Visible = true
-	task.delay(HINT_HOLD, function()
-		if mine == hintToken and ui then
-			ui.hint.Visible = false
-		end
+	local pillEdge = Instance.new("UIStroke")
+	pillEdge.Color = INK
+	pillEdge.Thickness = RIM
+	pillEdge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	pillEdge.Parent = pill
+	UIKit.label(pill, {
+		name = "Name",
+		size = UDim2.new(1, -(OVERLAP + 12), 1, 0),
+		position = UDim2.fromOffset(OVERLAP + 4, 0),
+		text = spec.text,
+		font = Enum.Font.FredokaOne,
+		textSize = NAME_SIZE,
+		color = Color3.new(1, 1, 1),
+		xAlign = Enum.TextXAlignment.Center,
+		zIndex = 6,
+	})
+
+	-- The portal: halo, drop shadow, banded disc, counter-turning inner disc, dark eye.
+	local seat = Instance.new("Frame")
+	seat.Name = "Portal"
+	seat.Size = UDim2.fromOffset(DISC, DISC)
+	seat.BackgroundTransparency = 1
+	seat.ZIndex = 5
+	seat.Parent = button
+	local halo = circle(seat, "Halo", DISC + 22, spec.mid, 2)
+	halo.BackgroundTransparency = 0.85
+	local glow = circle(seat, "Glow", DISC + 10, spec.mid, 2)
+	glow.BackgroundTransparency = 0.65
+	local shadow = circle(seat, "Shadow", DISC, INK, 5)
+	shadow.Position = UDim2.new(0.5, 0, 0.5, 4)
+
+	local disc = circle(seat, "Disc", DISC, Color3.new(1, 1, 1), 6)
+	local rim = Instance.new("UIStroke")
+	rim.Color = INK
+	rim.Thickness = RIM
+	rim.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	rim.Parent = disc
+	local grow = Instance.new("UIScale")
+	grow.Parent = disc
+	local outer = bands(disc, spec.light, spec.dark)
+	local innerDisc = circle(disc, "Inner", math.floor(DISC * 0.64), Color3.new(1, 1, 1), 7)
+	local inner = bands(innerDisc, spec.mid, spec.dark)
+	local eye = circle(disc, "Eye", math.floor(DISC * 0.36), EYE, 8)
+	eye.BackgroundTransparency = 0.45
+
+	local icon = Artwork.inkedPicture(disc, "Icon", spec.image, ICON, Color3.new(1, 1, 1), ICON_OUTLINE, 9)
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.Position = UDim2.fromScale(0.5, 0.5)
+
+	local entry: Entry = { outer = outer, inner = inner, angle = x, speed = SPIN_REST }
+
+	local function setHighlighted(active: boolean)
+		entry.speed = if active then SPIN_HOVER else SPIN_REST
+		TweenService:Create(grow, HOVER, { Scale = if active then HOVER_GROW else 1 }):Play()
+		TweenService:Create(pill, HOVER, { BackgroundColor3 = if active then PILL_HOVER else PILL }):Play()
+	end
+	button.MouseEnter:Connect(function()
+		setHighlighted(true)
 	end)
+	button.MouseLeave:Connect(function()
+		setHighlighted(false)
+	end)
+	button.SelectionGained:Connect(function()
+		setHighlighted(true)
+	end)
+	button.SelectionLost:Connect(function()
+		setHighlighted(false)
+	end)
+	button.Activated:Connect(function()
+		local now = os.clock()
+		if now - lastClick < CLICK_DEBOUNCE then
+			return
+		end
+		lastClick = now
+		-- A quick press, then back to whatever the pointer says.
+		grow.Scale = PRESS_SHRINK
+		TweenService:Create(grow, POP, { Scale = if entry.speed == SPIN_HOVER then HOVER_GROW else 1 }):Play()
+		warpRemote:FireServer({ dest = spec.dest })
+	end)
+
+	return entry
 end
 
 local function build(): ScreenGui
@@ -149,11 +270,11 @@ local function build(): ScreenGui
 	gui.DisplayOrder = 90 -- under StageBanner (95) so the banner wins the brief stage-exit overlap
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Dark cards with a centered destination logo.
 	local canvas = UIKit.canvas(gui)
-	local panel = UIKit.panel(canvas, {
+	-- Named Panel: SuitWarningController finds the bar by WarpBar.Panel to stay clear of it.
+	local frame = UIKit.panel(canvas, {
 		name = "Panel",
-		size = UDim2.fromOffset(BTN_W, BTN_H),
+		size = UDim2.fromOffset(#BUTTONS * BTN_W + (#BUTTONS - 1) * GAP, BTN_H),
 		position = HIDDEN,
 		anchorPoint = Vector2.new(0.5, 0),
 		color = UIKit.C.panel,
@@ -162,94 +283,11 @@ local function build(): ScreenGui
 		visible = false,
 	})
 
-	-- Under the bar: "how do I open this", shown briefly when a locked camp is clicked.
-	-- A child of the panel so it slides with it.
-	local hint = UIKit.label(panel, {
-		name = "LockHint",
-		size = UDim2.fromOffset(460, 24),
-		position = UDim2.new(0.5, 0, 1, 12),
-		anchorPoint = Vector2.new(0.5, 0),
-		text = "",
-		font = Enum.Font.GothamBold,
-		textSize = 18,
-		color = Color3.new(1, 1, 1),
-		zIndex = 6,
-		visible = false,
-	})
-
-	local entries: { Entry } = {}
-	for _, spec in BUTTONS do
-		local shadow = UIKit.panel(panel, {
-			name = spec.text .. "Shadow",
-			size = UDim2.fromOffset(BTN_W, BTN_H),
-			position = UDim2.fromOffset(0, 4),
-			color = UIKit.C.navShadow,
-			transparency = 0.2,
-			cornerRadius = UDim.new(0, 9),
-			strokeThickness = 0,
-			zIndex = 3,
-		})
-		local button, stroke = UIKit.button(panel, {
-			name = spec.text,
-			size = UDim2.fromOffset(BTN_W, BTN_H),
-			position = UDim2.fromOffset(0, 0),
-			font = Enum.Font.GothamBlack,
-			textSize = 29,
-			color = Color3.new(1, 1, 1),
-			fillColor = BACKGROUND,
-			fillTransparency = 0,
-			strokeColor = EDGE,
-			cornerRadius = UDim.new(0, 9),
-			strokeThickness = 2,
-			text = "",
-			zIndex = 4,
-		})
-		stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-		local iconPieces = WarpIcons.build(button, spec.dest)
-		local lock = if spec.camp then WarpIcons.lock(button) else nil
-		table.insert(entries, { spec = spec, shadow = shadow, button = button, stroke = stroke, icon = iconPieces, lock = lock })
-
-		local function setHighlighted(active: boolean)
-			TweenService:Create(button, HOVER, {
-				BackgroundColor3 = if active then HOVER_BACKGROUND else BACKGROUND,
-			}):Play()
-			TweenService:Create(stroke, HOVER, { Color = if active then HOVER_EDGE else EDGE }):Play()
-			for _, piece in iconPieces do
-				TweenService:Create(piece, HOVER, {
-					BackgroundColor3 = if active then Color3.new(1, 1, 1) else UIKit.C.navIcon,
-				}):Play()
-			end
-		end
-		button.MouseEnter:Connect(function()
-			setHighlighted(true)
-		end)
-		button.MouseLeave:Connect(function()
-			setHighlighted(false)
-		end)
-		button.SelectionGained:Connect(function()
-			setHighlighted(true)
-		end)
-		button.SelectionLost:Connect(function()
-			setHighlighted(false)
-		end)
-		button.MouseButton1Click:Connect(function()
-			local now = os.clock()
-			if now - lastClick < CLICK_DEBOUNCE then
-				return
-			end
-			lastClick = now
-			if isLocked(spec) then
-				local name = if spec.camp then spec.camp.name else spec.text
-				showHint(`Reach {name} on foot to unlock its warp`)
-				return
-			end
-			warpRemote:FireServer({ dest = spec.dest })
-		end)
+	for index, spec in BUTTONS do
+		table.insert(entries, buildButton(frame, spec, (index - 1) * (BTN_W + GAP)))
 	end
 
-	ui = { panel = panel, hint = hint, entries = entries }
-	layout()
+	panel = frame
 	return gui
 end
 
@@ -257,24 +295,36 @@ end
 --- Visible = false so a rapid out/in does not leave it hidden mid-slide — the same
 --- pattern StageBannerController uses for its card.
 local function setShown(next: boolean)
-	if next == shown or ui == nil then
+	local frame = panel
+	if next == shown or frame == nil then
 		return
 	end
 	shown = next
-	local panel = ui.panel
 
 	if next then
-		panel.Visible = true
-		TweenService:Create(panel, SLIDE, { Position = SHOWN }):Play()
+		frame.Visible = true
+		TweenService:Create(frame, SLIDE, { Position = SHOWN }):Play()
 	else
 		hideToken += 1
 		local mine = hideToken
-		TweenService:Create(panel, SLIDE, { Position = HIDDEN }):Play()
+		TweenService:Create(frame, SLIDE, { Position = HIDDEN }):Play()
 		task.delay(SLIDE.Time, function()
-			if not shown and mine == hideToken and ui then
-				ui.panel.Visible = false
+			if not shown and mine == hideToken and panel then
+				panel.Visible = false
 			end
 		end)
+	end
+end
+
+--- Turn every portal's bands. Only while the bar is on screen.
+local function spin(dt: number)
+	if panel == nil or not panel.Visible then
+		return
+	end
+	for _, entry in entries do
+		entry.angle = (entry.angle + entry.speed * dt) % 360
+		entry.outer.Rotation = entry.angle
+		entry.inner.Rotation = (entry.angle * INNER_SPIN) % 360
 	end
 end
 
@@ -288,15 +338,7 @@ function WarpController.start()
 	Net.get("ExposureState").OnClientEvent:Connect(function(state)
 		setShown(state.stageId == nil and state.downed ~= true)
 	end)
-
-	Net.get("CampState").OnClientEvent:Connect(function(state)
-		if type(state) ~= "table" then
-			return
-		end
-		reached = if type(state.reached) == "table" then state.reached else {}
-		available = if type(state.available) == "table" then state.available else {}
-		layout()
-	end)
+	RunService.Heartbeat:Connect(spin)
 end
 
 return WarpController

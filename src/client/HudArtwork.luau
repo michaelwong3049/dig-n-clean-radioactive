@@ -67,6 +67,14 @@ Artwork.IMAGE = {
 	book = "rbxassetid://6867518941",
 	-- "Shopping Cart Icon" by EgizianoEG, store decal 11385395257.
 	cart = "rbxassetid://11385395241",
+	-- The warp bar's HOME and SHOPS portals (WarpController).
+	-- "House Icon" by uR1St3nLe4hH4lt0n, store decal 124662272665879.
+	house = "rbxassetid://82460327730975",
+	-- "shop icon" by kqvest, store decal 18517062241.
+	storefront = "rbxassetid://18517062196",
+	-- The Warp tile (CampWarpController). "Teleport_Icon(White)" by Ex_Zviye, store
+	-- decal 6723742959.
+	teleport = "rbxassetid://6723742952",
 }
 
 --- A picture icon: a square, transparent ImageLabel `size` design px on a side, with
@@ -83,6 +91,36 @@ function Artwork.picture(parent: Instance, name: string, image: string, size: nu
 	icon.ZIndex = 6
 	icon.Parent = parent
 	return icon
+end
+
+--- A picture with a hard INK outline, for sitting on a busy coloured fill: eight INK
+--- copies nudged `outline` design px out around a centred box `size` px square, and the
+--- picture itself on top, tinted `color`. An ImageLabel has no stroke of its own; the
+--- copies are that stroke. Returns the box (position it) and the top picture (tint it).
+function Artwork.inkedPicture(
+	parent: Instance,
+	name: string,
+	image: string,
+	size: number,
+	color: Color3,
+	outline: number,
+	zIndex: number
+): (Frame, ImageLabel)
+	local box = Instance.new("Frame")
+	box.Name = name
+	box.Size = UDim2.fromOffset(size, size)
+	box.BackgroundTransparency = 1
+	box.ZIndex = zIndex
+	box.Parent = parent
+	for step = 0, 7 do
+		local angle = step * math.pi / 4
+		local copy = Artwork.picture(box, "Outline", image, size, INK)
+		copy.Position = UDim2.fromOffset(math.cos(angle) * outline, math.sin(angle) * outline)
+		copy.ZIndex = zIndex
+	end
+	local face = Artwork.picture(box, "Face", image, size, color)
+	face.ZIndex = zIndex + 1
+	return box, face
 end
 
 function Artwork.studs(parent: GuiObject)

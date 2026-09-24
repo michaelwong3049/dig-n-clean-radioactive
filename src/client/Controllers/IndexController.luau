@@ -59,13 +59,13 @@ local Index = {}
 
 -- THE INDEX TILE. A square dark card with a big white book on it and its name
 -- under that in outlined type — the side-button shape the reference asked for, in
--- place of the wide purple INDEX pill. Same palette as WarpController's BASE / SHOPS
--- cards (UIKit.C.nav*), so the HUD's buttons read as one family.
+-- place of the wide purple INDEX pill. Same palette as the other right-edge tiles
+-- (UIKit.C.nav*), so the HUD's buttons read as one family.
 --
--- It stands alone on the right edge — nothing stacks on it — its TOP level with the top
--- of the cash/meter column on the left (Dock.SIDE_TOP_Y; see there for why the top and
--- not the centre), or on the vertical centre on a screen too short for that line
--- (Dock.SIDE_TOP_MIN_HEIGHT). It gets its OWN ScreenGui (IgnoreGuiInset = true) so
+-- It heads the right-edge column (Shop, Nukes and Warp hang under it), its TOP level
+-- with the top of the cash/meter column on the left (Dock.SIDE_TOP_Y; see there for why
+-- the top and not the centre), or with the whole column centred on a screen too short
+-- for that line (Dock.sideColumnTop). It gets its OWN ScreenGui (IgnoreGuiInset = true) so
 -- those offsets measure against the true screen exactly as the left column's do; the
 -- detail panel keeps the inset-aware gui it needs (see build()).
 --
@@ -459,18 +459,16 @@ local function buildButton(): ScreenGui
 	})
 	buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-	-- Hung from the left column's top line on a tall enough design screen, on the
-	-- vertical centre below that — see Dock.SIDE_TOP_MIN_HEIGHT for why the switch.
+	-- The top of the right-edge column: hung from the left column's top line on a tall
+	-- enough design screen, the whole column centred below that (Dock.sideColumnTop).
 	-- Re-run on every canvas resize: the design height is what decides, and it moves
 	-- with both the window and the HUD scale.
 	local function place()
 		local height = buttonCanvas.AbsoluteSize.Y / UIKit.canvasScale(buttonCanvas)
-		local hang = height >= Dock.SIDE_TOP_MIN_HEIGHT
-		local y = if hang then Dock.SIDE_TOP_Y else 0
-		local anchor = Vector2.new(1, if hang then 0 else 0.5)
-		button.AnchorPoint = anchor
+		local y = Dock.sideColumnTop(height)
+		button.AnchorPoint = Vector2.new(1, 0)
 		button.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y)
-		shadow.AnchorPoint = anchor
+		shadow.AnchorPoint = Vector2.new(1, 0)
 		shadow.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y + 4)
 	end
 	buttonCanvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)

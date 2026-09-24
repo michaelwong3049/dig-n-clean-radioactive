@@ -64,7 +64,7 @@ local SKIN = {
 }
 
 -- ── Banner layout (design px on the 1280x720 canvas) ─────────────────────────────
--- Under WarpController's BASE / SHOPS bar (y 12..68) with a little air, so the two
+-- Under WarpController's HOME / SHOPS portals (y 10..74) with a little air, so the two
 -- never overlap in camp, where both are up.
 local BANNER_Y = 84
 local BANNER_PAD_X = 30
