@@ -196,6 +196,12 @@ local REMOTES: { [string]: string } = {
 	-- (data.plotColor), not on a plot -- it follows the player onto whatever plot they
 	-- are assigned. ExhibitService validates the hex (format only) and repaints.
 	PlotColor = "RemoteEvent",
+
+	-- The new-player walkthrough (Config/Tutorial, client TutorialController). Server ->
+	-- client on change: { step = StepId, holding = boolean, plot = number? }, or nil once it is over
+	-- (finished or skipped). Client -> server: the bare verb "skip".
+	TutorialState = "RemoteEvent",
+	TutorialAction = "RemoteEvent",
 }
 
 local Net = {}

@@ -227,6 +227,28 @@ COMMANDS["/clear"] = {
 	end,
 }
 
+COMMANDS["/tutorial"] = {
+	help = "/tutorial [off] — restart the new-player walkthrough (Rust Bucket back in hand), or end it",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		if args[1] == "off" then
+			data.onboarding = "done"
+			return "walkthrough ended"
+		end
+		-- The step is read off the bag, the stands and the detector (TutorialService),
+		-- so restarting means putting the detector back to the Rust Bucket. A full bag
+		-- or a filled stand starts it further along: /clear the bag, and take nukes
+		-- off the stands, for the walk from the very top.
+		data.onboarding = "active"
+		data.gear.detector = 1
+		data.gearOwned.detector = { 1 }
+		return "walkthrough restarted — /clear your bag and empty your stands to start from step one"
+	end,
+}
+
 COMMANDS["/dock"] = {
 	help = "/dock — simulate reaching a decon station: freezes every clock, for good",
 	run = function(player, _sandbox, _args)

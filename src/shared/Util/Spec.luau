@@ -286,7 +286,11 @@ function Spec.run(): boolean
 			IndexProgress.stageLuck(missing)[firstStage] == nil
 		)
 
-		local rung = Gear.tier("Detector", 2).luck - Gear.tier("Detector", 1).luck
+		-- Measured from the free starter to the first detector that costs real money
+		-- (the Scavenger MkI, tier 3). Tier 2 is the tutorial's $50 Bent Coil, a
+		-- deliberately tiny step (Config/Gear), and before it existed this exact
+		-- comparison was starter -> Scavenger too: 1.00 -> 1.12, unchanged.
+		local rung = Gear.tier("Detector", 3).luck - Gear.tier("Detector", 1).luck
 		check(
 			string.format("§index stage luck is positive and under one detector rung (%.2f)", rung),
 			Tuning.INDEX_COMPLETE_LUCK > 0 and Tuning.INDEX_COMPLETE_LUCK < rung
@@ -1139,7 +1143,7 @@ function Spec.run(): boolean
 	check("§2.1 every detector tier reveals further than the last", ascending)
 
 	-- `luck` replaced `maxRarity`. Tier 1 must be exactly 1.0 -- Config/Items.luckBias
-	-- treats <=1 as "no bias", so a Bent Coil rolls the raw per-stage distribution --
+	-- treats <=1 as "no bias", so a Rust Bucket rolls the raw per-stage distribution --
 	-- and every tier above must buy strictly more of it.
 	check("§2.1 the starting detector has luck 1.0 (no dig bias)", Gear.tier("Detector", 1).luck == 1.0)
 	local luckAsc = true

@@ -218,6 +218,9 @@ local state = {
 	fuseLeft = nil :: number?,
 	fuseWindow = nil :: number?,
 	fuseAt = 0,
+	-- The new-player tutorial's first dig lights no fuse (Config/Tutorial.isSafeDig);
+	-- the readout says so instead of counting down a window of 0.
+	fuseless = false,
 }
 
 local ui = {}
@@ -982,7 +985,15 @@ local function renderFrame(dt: number)
 		local armAt = DetonationConfig.ARM_AT
 		local warnAt = DetonationConfig.WARN_AT
 
-		if state.fuseArmed then
+		if state.fuseless then
+			ui.fuseFill.BackgroundColor3 = FUSE_COOL
+			ui.fuseTrackStroke.Color = COLOR.outline
+			ui.fuseTrackStroke.Thickness = UIKit.Stroke.thin
+			ui.fuseLabel.TextColor3 = COLOR.text
+			ui.fuseLabel.Text = "NO FUSE"
+			ui.fuseCaption.TextColor3 = COLOR.dim
+			ui.fuseCaption.Text = "take your time"
+		elseif state.fuseArmed then
 			-- Red, flashing, and the words change: there is one way out of this now.
 			local flash = 0.5 + 0.5 * math.sin(os.clock() * FUSE_ARMED_PULSE)
 			local hot = COLOR.red:Lerp(FUSE_FLASH, flash * 0.5)
@@ -1495,6 +1506,7 @@ function Detector.start()
 		state.fuseArmed = payload.fuseArmed == true
 		state.fuseLeft = payload.fuseLeft
 		state.fuseWindow = payload.fuseWindow
+		state.fuseless = payload.fuseless == true
 		state.fuseAt = os.clock()
 		-- payload.carrying / payload.capacity are deliberately ignored: the hotbar
 		-- (InventoryController, fed by CarryState) is the authority on the bag now,

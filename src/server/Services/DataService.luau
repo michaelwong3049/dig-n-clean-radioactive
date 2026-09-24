@@ -110,6 +110,23 @@ local TEMPLATE = {
 	-- same no-gaps storage rule as everything else here.
 	tutorialsSeen = {},
 
+	-- THE NEW-PLAYER TUTORIAL (Config/Tutorial, Services/TutorialService). "active" for a save
+	-- still being walked through it, "done" once it has been finished or skipped. It is a
+	-- FLAG, not the step: which step you are on is read live off the bag, the stands and
+	-- the gear (TutorialService.stepFor), so losing the nuke half-way sends you back a
+	-- step instead of stranding you on one you can no longer do.
+	--
+	-- Only a brand-new save starts "active". An existing save predates the key, so
+	-- onPlayerAdded sees it missing BEFORE Reconcile and writes "done", and a
+	-- veteran never sees the tutorial.
+	onboarding = "active",
+
+	-- Which Detector ladder this save's tier numbers are written against. 2 is the
+	-- ladder with the Rust Bucket at tier 1 (Config/Gear). A save from before it has no
+	-- key at all, so it is detected before Reconcile, the same way as `onboarding`, and
+	-- shifted up one tier by shiftDetectorLadder.
+	detectorLadder = 2,
+
 	-- Rebirth / gamepass / pet multipliers, pre-summed by whoever grants them.
 	-- StatResolver reads this key; the schema in ARCHITECTURE.md omits it, which
 	-- would have left every multiplier in the game with nowhere to live.
@@ -223,6 +240,28 @@ local function backfillGearOwned(data: any)
 	end
 end
 
+--- THE DETECTOR LADDER SHIFT, a one-time migration keyed on `detectorLadder` being
+--- missing from the save before Reconcile runs.
+---
+--- The Rust Bucket went in as the new free tier 1 (Config/Gear), so every detector a
+--- save refers to by number moved up one: what was tier 1 (the Bent Coil) is tier 2,
+--- what was tier 8 (The Oracle) is tier 9. Without this an old save would silently
+--- be handed the detector one rung below what it paid for.
+---
+--- The equipped tier and every owned tier move up one, and tier 1 (the Rust Bucket,
+--- free) is added to what the save owns, so the owned list stays a true list of rungs.
+--- Runs strictly after backfillGearOwned, so a save that has never had `gearOwned` is
+--- seeded against the OLD numbering first and then shifted along with everything else.
+local function shiftDetectorLadder(data: any)
+	data.gear.detector = (data.gear.detector or 1) + 1
+	local owned = { 1 }
+	for _, tier in data.gearOwned.detector or {} do
+		table.insert(owned, tier + 1)
+	end
+	data.gearOwned.detector = owned
+	data.detectorLadder = 2
+end
+
 local function thawCarry(data: any)
 	for _, item in data.carry do
 		item.frozen = false
@@ -302,8 +341,20 @@ local function onPlayerAdded(player: Player)
 	end
 
 	profile:AddUserId(player.UserId) -- GDPR association
+	-- Read BEFORE Reconcile, which would fill both keys from the template and make
+	-- an old save look exactly like a new one. A brand-new save is a hard copy of
+	-- TEMPLATE and already has them.
+	local predatesTutorial = profile.Data.onboarding == nil
+	local predatesRustBucket = profile.Data.detectorLadder == nil
 	profile:Reconcile() -- fill in keys added to TEMPLATE since this save was made
 	backfillGearOwned(profile.Data)
+	if predatesTutorial then
+		profile.Data.onboarding = "done"
+	end
+	if predatesRustBucket then
+		shiftDetectorLadder(profile.Data)
+		print(`[data] {player.Name}: detector ladder shifted, now tier {profile.Data.gear.detector}`)
+	end
 	-- Strictly after the backfill — see refundRetiredBoots for why the order matters.
 	local refunded = refundRetiredBoots(profile.Data)
 	if refunded > 0 then

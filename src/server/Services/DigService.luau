@@ -120,6 +120,7 @@ local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 local Bag = require(Shared.Bag)
 local Crates = require(Shared.Config.Crates)
+local Tutorial = require(Shared.Config.Tutorial)
 
 local SignalAura = require(script.Parent.Parent.build.SignalAura)
 
@@ -250,6 +251,11 @@ local pulling: { [Player]: boolean } = {} -- locked on, and therefore hauling
 local overSignal: { [Player]: boolean } = {} -- standing on one, hauling or not
 local digProgress: { [Player]: number } = {}
 local digTarget: { [Player]: string? } = {}
+-- UserIds whose next dig is the tutorial's safe one (Config/Tutorial.isSafeDig):
+-- every signal reads as a plain Common and no fuse lights under their magnet. Keyed by
+-- UserId, not Player, because rollFor only has the UserId. Refreshed from the save
+-- every tick in stepPlayer and again in the lock handler.
+local safeDiggers: { [number]: boolean } = {}
 
 -- Every signal with a lit fuse (heat > 0), keyed by uid, so the cool-down walks a
 -- handful of signals rather than the whole field every tick.
@@ -423,7 +429,29 @@ local unstockedWarned: { [number]: boolean } = {}
 --- a signal that read Legendary under the Violet Aurora must still be that Legendary
 --- when the sky clears, not quietly fall back to its default Common. (It also means a
 --- player who drops back to a lower detector keeps readings they already took.)
+--- THE TUTORIAL'S SAFE DIG. A plain Common from this signal's own stage, with no
+--- modifier and no crate, picked by the signal's uid so every read of one signal lands on
+--- the same nuke: the ping, the lock and the haul all ask again and must agree.
+local function safeRoll(signal: Signal): (string, string, string, string?)
+	local pool = Items.inStage(signal.stageId, "Common")
+	if #pool == 0 then
+		return signal.itemId, signal.rarity, signal.modifier, nil
+	end
+	local seed = 0
+	for i = 1, #signal.uid do
+		seed = (seed * 31 + string.byte(signal.uid, i)) % 2147483647
+	end
+	return pool[Random.new(seed):NextInteger(1, #pool)].id, "Common", "None", nil
+end
+
 local function rollFor(signal: Signal, stats: StatResolver.Stats, userId: number): (string, string, string, string?)
+	-- Ahead of the cache: a reading pinned before the tutorial began (it cannot have
+	-- been, for a fresh save, but a crate's variant roll pins eagerly) must not leak
+	-- a Legendary into the first dig.
+	if safeDiggers[userId] then
+		return safeRoll(signal)
+	end
+
 	local cached = signal.rolls[userId]
 	if cached then
 		return cached.itemId, cached.rarity, cached.modifier, cached.crateId
@@ -471,7 +499,7 @@ end
 --- identity under the magnet on the next tick. The lock already stops the TARGET
 --- drifting; this stops what the target IS from drifting.
 local function pinRoll(signal: Signal, stats: StatResolver.Stats, userId: number)
-	if signal.rolls[userId] ~= nil then
+	if signal.rolls[userId] ~= nil and not safeDiggers[userId] then
 		return
 	end
 	local itemId, rarity, modifier, crateId = rollFor(signal, stats, userId)
@@ -1100,6 +1128,8 @@ local function stepPlayer(player: Player, dt: number)
 		return
 	end
 
+	safeDiggers[player.UserId] = Tutorial.isSafeDig(data) or nil
+
 	local stats = StatResolver.get(data)
 	local position = root.Position
 	local stageId = StageService.stageOf(player)
@@ -1264,8 +1294,10 @@ local function stepPlayer(player: Player, dt: number)
 	-- so the bang is as big as the thing you were watching come up.
 	-- A CRATE BURNS THE SAME FUSE. It is disguised as its stand-in nuke, and a lump
 	-- that never heated would give it away; if it goes off, the crate is lost with it.
+	-- THE TUTORIAL'S SAFE DIG LIGHTS NOTHING (Config/Tutorial.isSafeDig): no claim, no
+	-- heat, no countdown. Someone else locked onto the same signal still burns it.
 	local fuseWindow: number? = nil
-	if isLocked then
+	if isLocked and not safeDiggers[player.UserId] then
 		local item = Items.get(itemId)
 		fuseWindow = Detonation.windowFor(rarity, item.weight, signal.depth, signal.soil, signal.uid)
 		local claim = fuseClaims[signal.uid]
@@ -1404,6 +1436,9 @@ local function stepPlayer(player: Player, dt: number)
 		fuseArmed = lockedTo[player] ~= nil and signal.armed,
 		fuseWindow = if lockedTo[player] ~= nil then shownWindow else nil,
 		fuseLeft = if lockedTo[player] ~= nil then Detonation.secondsLeft(signal.heat, shownWindow) else nil,
+		-- The tutorial's safe dig claims no fuse (see the claim above), so there is no
+		-- window to count down; the panel says "NO FUSE" rather than "0.0s".
+		fuseless = lockedTo[player] ~= nil and safeDiggers[player.UserId] == true,
 		carrying = Bag.used(data),
 		capacity = stats.capacity,
 	})
@@ -1624,6 +1659,7 @@ function DigService.start()
 			return
 		end
 
+		safeDiggers[player.UserId] = Tutorial.isSafeDig(data) or nil
 		pinRoll(nearest.signal, stats, player.UserId)
 		lockedTo[player] = nearest.signal.uid
 	end)
@@ -1641,6 +1677,7 @@ function DigService.start()
 		pulling[player] = nil
 		overSignal[player] = nil
 		lastContacts[player] = nil
+		safeDiggers[player.UserId] = nil
 		clearHaul(player)
 
 		-- Drop this player's cached per-signal rolls. Not strictly required (a signal
