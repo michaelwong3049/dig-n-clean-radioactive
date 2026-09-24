@@ -10,6 +10,7 @@
 local CONTROLLERS = script.Controllers
 
 local ORDER = {
+	"PromptController", -- the glass-card face for every default-style ProximityPrompt; first so it restyles them before any shows
 	"DetectorController", -- Phase 1: hold-to-pull lock prompt, haul panel, unearth banner
 	"FieldController", -- Phase 1: the range ring and the aura pulse; reads DetectorController, and it reads back
 	"StationController", -- Phase 1: base camp — scrub, sell, rack
