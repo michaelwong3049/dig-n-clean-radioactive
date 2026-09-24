@@ -200,7 +200,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 55
+local BUILDER_VERSION = 56
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1941,7 +1941,7 @@ end
 --- function for that pivot.
 Plots.buildCleansingStation = buildCleansingStation
 
---- The fluid bottle — a big glass bottle standing beside the tub, full of whatever
+--- The fluid bottle — a glass bottle on a table beside the tub, full of whatever
 --- fluid its owner has loaded in the hose (Config/Liquids, Services/LiquidService).
 ---
 --- IT REPLACED THE WASH PAD, on request. The pad was a step-on pressure plate across
@@ -1979,11 +1979,37 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 	local BODY, FACE, FIT = C.standGreyDark, C.standGrey, C.steelDark
 	local water = Liquids.get(Liquids.WATER).color
 
-	-- A studded two-step plinth, the display plinths' pair of greys, so the bottle
-	-- reads as set down on the base like every other machine rather than on the floor.
-	build(m, origin, { name = "BottlePlinth", pos = { bx, T + 0.3, bz }, size = { 4.4, 0.6, 4.4 }, color = BODY, material = "Plastic", studs = true })
-	build(m, origin, { name = "BottlePlinthCap", pos = { bx, T + 0.7, bz }, size = { 3.8, 0.2, 3.8 }, color = FACE, material = "Plastic", studs = true })
-	local baseY = T + 0.8
+	-- ON A TABLE AT THE TUB'S OWN HEIGHT, on request. The tabletop's surface is level
+	-- with the tub's rim (T + 2.3, see TubRim in buildCleansingStation), so the bottle
+	-- and the wash read as one bench-height station rather than a bottle on the floor
+	-- beside a raised machine. Studded, in the display plinths' pair of greys: a thick
+	-- top on four square legs.
+	local TOP_Y = T + 2.3
+	local TOP_W, TOP_H, LEG_W = 3.4, 0.4, 0.5
+	build(m, origin, { name = "TableTop", pos = { bx, TOP_Y - TOP_H / 2, bz }, size = { TOP_W, TOP_H, TOP_W }, color = FACE, material = "Plastic", studs = true })
+	local legH = TOP_Y - TOP_H - T
+	local legOff = TOP_W / 2 - LEG_W / 2 - 0.15
+	for _, corner in { { -1, -1 }, { -1, 1 }, { 1, -1 }, { 1, 1 } } do
+		build(m, origin, {
+			name = "TableLeg",
+			pos = { bx + corner[1] * legOff, T + legH / 2, bz + corner[2] * legOff },
+			size = { LEG_W, legH, LEG_W },
+			color = BODY,
+			material = "Plastic",
+			studs = true,
+		})
+	end
+	-- A low stretcher between the legs, so the table stands braced rather than on stilts.
+	build(m, origin, { name = "TableShelf", pos = { bx, T + 0.55, bz }, size = { TOP_W - 0.5, 0.2, TOP_W - 0.5 }, color = BODY, material = "Plastic", studs = true, canCollide = false })
+
+	-- SMALLER, on request: the bottle is the old one scaled by S, so every proportion
+	-- (fill, shoulder, neck, cap) is kept and only the size changes. `at(v)` is a height
+	-- in the old full-size bottle's units above the tabletop.
+	local S = 0.55
+	local baseY = TOP_Y
+	local function at(v: number): number
+		return baseY + v * S
+	end
 
 	-- The fluid: near-opaque and filling most of the body, so its colour carries from
 	-- across the base. Deliberately matte with a faint light -- nuke FX are the only
@@ -1991,8 +2017,8 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 	-- repaints every part named `Liquid` and its light.
 	local fill = build(m, origin, {
 		name = "Liquid",
-		pos = { bx, baseY + 0.1 + 1.65, bz },
-		size = { 3.3, 2.7, 2.7 },
+		pos = { bx, at(0.1 + 1.65), bz },
+		size = { 3.3 * S, 2.7 * S, 2.7 * S },
 		color = water,
 		material = "SmoothPlastic",
 		shape = "Cylinder",
@@ -2000,7 +2026,7 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 		transparency = 0.05,
 		canCollide = false,
 	})
-	light(fill, water, 10, 0.35, false)
+	light(fill, water, 6, 0.35, false)
 
 	-- The glass: a near-clear neutral, NOT C.glass, whose blue tint would shift the
 	-- colour you came to read (the same call the wash pad's specimen jars made).
@@ -2024,22 +2050,22 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 
 	-- The body is the one glass part you bump into, and the one the prompt hangs on.
 	-- `SpinsFluid` is what Kit.build tags it FLUID_TAG by, for LiquidService to wire.
-	local bottle = glass("Bottle", { bx, baseY + 1.95, bz }, { 3.9, 3.2, 3.2 }, "Cylinder", { SpinsFluid = true })
+	local bottle = glass("Bottle", { bx, at(1.95), bz }, { 3.9 * S, 3.2 * S, 3.2 * S }, "Cylinder", { SpinsFluid = true })
 
 	-- Shouldered into a neck, so it reads as a bottle and not a tin can: a squashed
 	-- sphere mesh, since a Ball part can only be round (roblox-cylinder-ball-no-ellipse).
-	local shoulder = glass("BottleShoulder", { bx, baseY + 3.9, bz }, { 1, 1, 1 })
+	local shoulder = glass("BottleShoulder", { bx, at(3.9), bz }, { 1, 1, 1 })
 	local dome = Instance.new("SpecialMesh")
 	dome.MeshType = Enum.MeshType.Sphere
-	dome.Scale = Vector3.new(3.2, 1.3, 3.2)
+	dome.Scale = Vector3.new(3.2 * S, 1.3 * S, 3.2 * S)
 	dome.Parent = shoulder
-	glass("BottleNeck", { bx, baseY + 4.6, bz }, { 1.1, 1.2, 1.2 }, "Cylinder")
+	glass("BottleNeck", { bx, at(4.6), bz }, { 1.1 * S, 1.2 * S, 1.2 * S }, "Cylinder")
 
 	-- A studded cap, so the one solid thing up top belongs to the base's brick kit.
 	build(m, origin, {
 		name = "BottleCap",
-		pos = { bx, baseY + 5.35, bz },
-		size = { 0.6, 1.5, 1.5 },
+		pos = { bx, at(5.35), bz },
+		size = { 0.6 * S, 1.5 * S, 1.5 * S },
 		color = FIT,
 		material = "Plastic",
 		studs = true,
@@ -2049,8 +2075,8 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 	})
 	build(m, origin, {
 		name = "BottleCapTop",
-		pos = { bx, baseY + 5.77, bz },
-		size = { 0.25, 1.0, 1.0 },
+		pos = { bx, at(5.77), bz },
+		size = { 0.25 * S, 1.0 * S, 1.0 * S },
 		color = FIT,
 		material = "Plastic",
 		studs = true,
@@ -2059,33 +2085,22 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 		canCollide = false,
 	})
 
-	-- A paper label on the aisle-facing (-X) side, the one face a player walks up to.
-	local label = build(m, origin, {
-		name = "BottleLabel",
-		pos = { bx - 1.63, baseY + 1.7, bz },
-		size = { 0.1, 1.3, 1.9 },
-		color = "F2E6C8",
-		material = "SmoothPlastic",
-		canCollide = false,
-	})
-	Kit.surfaceText(label, Enum.NormalId.Left, "FLUID", C.hazardBlack)
-
 	-- Bubbles rising through the fill: speed x lifetime tops out under the fill's own
-	-- height, so none climbs into the empty headspace.
-	local source = carrier(m, origin, "BottleBubbles", { bx, baseY + 0.3, bz }, { 2, 0.05, 2 })
+	-- height (~1.8 studs), so none climbs into the empty headspace.
+	local source = carrier(m, origin, "BottleBubbles", { bx, at(0.3), bz }, { 2 * S, 0.05, 2 * S })
 	local bubbles = Instance.new("ParticleEmitter")
 	bubbles.Name = "Bubbles"
 	bubbles.Texture = "rbxasset://textures/particles/smoke_main.dds"
 	bubbles.Color = ColorSequence.new(Color3.fromHex("FFFFFF"))
 	bubbles.LightInfluence = 1
 	bubbles.EmissionDirection = Enum.NormalId.Top
-	bubbles.Rate = 4
+	bubbles.Rate = 3
 	bubbles.Lifetime = NumberRange.new(2.0, 2.3)
-	bubbles.Speed = NumberRange.new(1.1, 1.2)
+	bubbles.Speed = NumberRange.new(0.6, 0.65)
 	bubbles.SpreadAngle = Vector2.new(8, 8)
 	bubbles.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.1),
-		NumberSequenceKeypoint.new(1, 0.2),
+		NumberSequenceKeypoint.new(0, 0.06),
+		NumberSequenceKeypoint.new(1, 0.12),
 	})
 	bubbles.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0.3),
@@ -2106,7 +2121,8 @@ local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string
 
 	-- Plain Water until somebody owns the plot; ExhibitService.renderBottle writes the
 	-- owner's fluid over both lines the moment they do.
-	accentBillboard(bottle, 230, 5.2, "PLAIN WATER", "spin for a better fluid", accent)
+	-- Offset from the body's centre to just over the cap.
+	accentBillboard(bottle, 230, 3.4, "PLAIN WATER", "spin for a better fluid", accent)
 
 	m.Parent = parent
 end
