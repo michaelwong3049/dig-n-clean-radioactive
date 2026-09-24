@@ -208,7 +208,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 61
+local BUILDER_VERSION = 62
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -2314,7 +2314,7 @@ end
 --   to PlotSpawn  (0, -24), 6x6 ............ 23.7 studs against 8
 --
 -- Keep those gaps if either moves. World.verify() is the actual authority and asserts
--- the first every rebuild, not this comment. The frame reaches plot x ~= -26 against
+-- the first every rebuild, not this comment. The gears reach plot x ~= -25.5 against
 -- the -X accent trim at -32.
 --
 -- THE RUNNER FACES -Z, out through the entrance arch at the wasteland, with the
@@ -2323,43 +2323,35 @@ local TREADMILL = {
 	cx = -21,
 	cz = -35,
 	beltW = 5.2, -- the running surface, across the runner
-	-- 9, NOT 10, AND THE PAD EDGE IS WHY. The machine is frame + console deep, not just
-	-- belt: at 10 the console head reached plot-local z -43.1 against a pad that stops
-	-- at -43, so it hung over the entrance lip. 9 lands the head at -42.6 and the far
-	-- end of the base at -28.35, which also keeps it clear of PlotSpawn at -27.
-	beltL = 9, -- ...and along the run
-	frameW = 1.8, -- the chunky pale border around the trough
+	-- 9 along the run. The motor block at the head reaches plot-local z -42.6 against a
+	-- pad that stops at -43, and the hazard ramp at the tail -28.4 against PlotSpawn at
+	-- -27; lengthen the belt and one of those two gives.
+	beltL = 9,
 	beltTop = 0.2, -- what you stand on, relative to the pad top
-	frameTop = 1.0, -- the lip around it. The 0.8 difference IS the recess.
-	railH = 3.4,
 	-- FOUR CHEVRONS AT A PITCH THAT DIVIDES `beltL` EXACTLY (4 x 2.25 = 9). That is
 	-- what makes the scroll seamless: TreadmillController wraps each one modulo the
 	-- belt's own length, so after a full belt-length of travel the pattern is back
 	-- where it started. Break the division and the wrap becomes visible.
 	chevrons = 4,
 	chevronPitch = 2.25, -- 4 x 2.25 = beltL exactly
+	wallX = 3.1, -- centre of each hazard wall, out from the belt's centreline
+	headZ = -6.6, -- the motor block's centre, relative to the belt's
 }
 
---- The trough, and the reason this machine reads at a distance. Near-black rather than
---- `C.drain` (2C363F, the wash bay's liner): against the base's pale grey frame the
---- extra darkness is the whole silhouette, and drain-grey at plot lighting came out as
---- a flat slab rather than a hole with something moving in it.
-local BELT_DARK = "141A1F"
---- The tread chevrons. Only a couple of steps off the belt -- they should be readable
---- as motion, not as stripes painted on a road.
-local BELT_TREAD = "3A454E"
---- The side rails. Deliberately lighter than `C.standGrey` (A0A0A0): they are the one
---- part of the machine that crosses the player's eyeline, and they frame the dark.
-local RAIL_PALE = "D5DADE"
---- How far the sloped fairings stand out from the frame. The back one sets how close
---- the machine comes to PlotSpawn: 0.8 lands its low edge at z -27.9 against the
---- spawn's -27.
-local FAIRING_W = 0.8
---- The console leans back 22 degrees so the screen on its runner-side face looks up at
---- whoever is on the belt.
-local CONSOLE_TILT = Kit.ang(-22, 0, 0)
---- The screen: dark glass, mint readout, a dimmer mint for the empty progress track.
-local SCREEN_DARK, SCREEN_INK, SCREEN_DIM = "14262B", "8FF0C8", "2B4A50"
+--- THE HAZARD CONVEYOR PALETTE, picked from three live mock-ups (option 2 of Arcade
+--- Runner / Hazard Conveyor / Reactor Wheel). Hazard yellow and a near-black for the
+--- stripes, dark steel for the machine, a bare steel for the rollers and gears.
+local HAZ_YELLOW, HAZ_BLACK = "FFC21A", "22252A"
+local HAZ_STEEL, HAZ_STEEL_DARK = "6B7682", "2E3338"
+local HAZ_RUST, HAZ_BEACON = "8A4B2A", "FF6A00"
+--- The belt's own surface and the chevrons on it. The tread is only a couple of steps
+--- off the belt -- readable as motion, not as stripes painted on a road.
+local BELT_DARK = "1A1F24"
+local BELT_TREAD = "4A5561"
+--- The CRT leans back 15 degrees so its screen looks up at whoever is on the belt.
+local CONSOLE_TILT = Kit.ang(-15, 0, 0)
+--- The screen: dark glass, hazard-yellow readout, a dim track for the progress bar.
+local SCREEN_DARK, SCREEN_INK, SCREEN_DIM = "14262B", "FFC21A", "3A3A2A"
 local SCREEN_BARS = 7
 
 --- The drive housing's colour per rung. Bare steel at the bottom, reactor orange at
@@ -2444,137 +2436,76 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	return wanted
 end
 
---- REBUILT TO A REFERENCE (the shape the user asked for, replacing a flat studded
---- plate that read as a bench). Four things carry it, in order of how much they matter:
+--- THE HAZARD CONVEYOR, picked by the user from three live mock-ups built on empty
+--- plots in a Play session ("something like 2, don't have to do too much"). An
+--- industrial belt rather than a gym machine, which is what this world is:
 ---
----   1. THE TROUGH. The belt sits `frameTop - beltTop` below a chunky pale frame, so
----      the dark is a HOLE with something moving in it rather than a dark slab. This is
----      the whole silhouette; if only one thing survives a retune, keep this one.
----   2. CHEVRONS, not slats. Thin cross-bars vanished against the dark at any real
----      viewing distance. A chevron reads as direction even when it is four pixels tall.
----   3. PALE, CHUNKY RAILS at eyeline, framing the dark from both sides.
----   4. A SCREEN at the head, lit, rather than a flat plate with a sign floating over it.
+---   * yellow/black studded hazard walls down both sides of a dark, recessed belt,
+---     with chevrons that scroll ALL THE TIME (TreadmillController) so the machine
+---     reads as running from across the plot, not only while somebody is on it;
+---   * a dark steel motor block at the head, hazard-striped on top, with a gear
+---     turning on each flank (StationMotionController), two exhaust stacks and an
+---     orange beacon;
+---   * a chunky CRT on an arm, leaning back at the runner, carrying the readout;
+---   * a striped ramp at the tail, which is where you step on.
 ---
---- THE STATION CONTRACT IS UNCHANGED and deliberately so: `Belt` still carries
---- StationKind/Radius at the same plot-local centre, so the clearances World.verify()
---- asserts against the basin and the wash plate (24.2 and 23.4 studs) are exactly what
---- they were. `Console` still carries UpgradesTreadmill and the prompt, `Drive` is still
---- what setTreadmillTier repaints, and the chevron arms are still named `Slat` because
---- that is what TreadmillController scrolls.
+--- THE STATION CONTRACT IS UNCHANGED. `Belt` carries StationKind/Radius at the same
+--- plot-local centre (World.verify's clearances are measured from it), `Console`
+--- carries UpgradesTreadmill + the prompt + the billboard, `Drive` (the motor block)
+--- (tagged `TierPaint`) is what setTreadmillTier repaints per belt rung, the
+--- chevron arms are `Slat` and the end drums `Roller` because TreadmillController
+--- scrolls and turns those, and the screen's SurfaceGui is still `Readout` with
+--- `Speed` / `Pulse` / `Progress.Fill`.
+---
+--- THE WALLS COLLIDE, and that is deliberate: they are the machine's sides, the ramp
+--- at the tail is the way on, and both are low enough to jump. Everything above them
+--- -- rails, gears, stacks, the monitor -- does not, so nothing catches a player's
+--- head on the way on or off a machine they will stand on for hours.
 local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	local m = Instance.new("Model")
 	m.Name = "Treadmill"
-	local pad = Plots.PAD
-	local T = pad.topY
 	local t = TREADMILL
 	local cx, cz = t.cx, t.cz
 	local halfL, halfW = t.beltL / 2, t.beltW / 2
+	-- Everything below is laid out from the belt's top centre: x across, y up from the
+	-- running surface, z along the run (the runner faces -z, the head).
+	local B = Plots.PAD.topY + t.beltTop
+	local function at(x: number, y: number, z: number): { number }
+		return { cx + x, B + y, cz + z }
+	end
+	local CYL_UP = Kit.R.cylUp
 
-	local FRAME, BASE, FIT = C.standGrey, C.standGreyDark, C.steelDark
-	local beltTop = T + t.beltTop
-	local frameTop = T + t.frameTop
-
-	-- ── The trough ────────────────────────────────────────────
-	-- The running surface. Sunk below the frame, and the ONLY part of this machine a
-	-- service reads -- same centre and Radius as the flat plate it replaced. Rubber, so
-	-- the dark has a grain to it up close rather than reading as a painted hole.
+	-- ── The belt ──────────────────────────────────────────────
+	-- The running surface, and the ONLY part of this machine a service reads.
 	build(m, origin, {
 		name = "Belt",
-		pos = { cx, beltTop - 0.3, cz },
+		pos = at(0, -0.3, 0),
 		size = { t.beltW, 0.6, t.beltL },
 		color = BELT_DARK,
 		material = "Rubber",
 		attributes = { StationKind = "treadmill", Radius = 5 },
 	})
-
-	-- The frame: four chunky pale bars standing proud of the belt. Sunk 0.2 into the
-	-- pad so nothing floats, and only 0.8 above the running surface -- a lip you step
-	-- over without thinking, not a wall you have to jump.
-	local frameMidY = (frameTop + (T - 0.2)) / 2
-	local frameH = frameTop - (T - 0.2)
-	local outerW, outerL = t.beltW + t.frameW * 2, t.beltL + t.frameW * 2
-	for _, bar in {
-		{ x = cx - halfW - t.frameW / 2, z = cz, sx = t.frameW, sz = outerL },
-		{ x = cx + halfW + t.frameW / 2, z = cz, sx = t.frameW, sz = outerL },
-		{ x = cx, z = cz - halfL - t.frameW / 2, sx = outerW, sz = t.frameW },
-		{ x = cx, z = cz + halfL + t.frameW / 2, sx = outerW, sz = t.frameW },
-	} do
-		build(m, origin, {
-			name = "Frame",
-			pos = { bar.x, frameMidY, bar.z },
-			size = { bar.sx, frameH, bar.sz },
-			color = FRAME,
-			material = "Plastic",
-			studs = true,
-		})
-	end
-
-	-- A darker skirt a touch wider than the frame, so the machine has a shadow line and
-	-- does not read as painted onto the floor. It has to STRADDLE the pad top (T) to be
-	-- visible at all -- sat wholly below it, as this first was, it is a dozen parts per
-	-- plot buried in the floor doing nothing.
-	--
-	-- AND ITS TOP HAS TO STAY UNDER THE BELT'S. It is one slab under the whole machine,
-	-- trough included, and at T+0.35 it stood 0.15 above the belt (T+0.2) and over every
-	-- chevron: the dark trough and its tread -- this machine's whole silhouette, see the
-	-- header -- were buried under a studded grey lid, and a ray down the middle landed on
-	-- Base. Topping out at T+0.15 it is still a shadow line round the frame.
+	-- The bed under it, running out past both ends beneath the drums.
 	build(m, origin, {
-		name = "Base",
-		pos = { cx, T - 0.1, cz },
-		size = { outerW + 0.7, 0.5, outerL + 0.7 },
-		color = BASE,
+		name = "Deck",
+		pos = at(0, -0.35, 0),
+		size = { t.beltW + 0.2, 0.5, t.beltL + 2 },
+		color = HAZ_STEEL_DARK,
 		material = "Plastic",
 		studs = true,
 	})
 
-	-- Sloped studded fairings down both long sides and a ramp across the back, where you
-	-- step on: the frame was four boxes on the floor, and a slope off its outside edge is
-	-- what turns a kerb into a machine's deck. Wedges stand tall on their local +Z and
-	-- fall away toward -Z, so each is yawed to put its tall face against the frame.
-	for _, side in { -1, 1 } do
-		build(m, origin, {
-			name = "Fairing",
-			class = "WedgePart",
-			pos = { cx + side * (outerW / 2 + FAIRING_W / 2), T + (frameTop - T) / 2, cz },
-			size = { outerL, frameTop - T, FAIRING_W },
-			color = FRAME,
-			material = "Plastic",
-			studs = true,
-			rot = Kit.ang(0, -side * 90, 0),
-		})
-	end
-	build(m, origin, {
-		name = "Fairing",
-		class = "WedgePart",
-		pos = { cx, T + (frameTop - T) / 2, cz + outerL / 2 + FAIRING_W / 2 },
-		size = { outerW, frameTop - T, FAIRING_W },
-		color = FRAME,
-		material = "Plastic",
-		studs = true,
-		rot = Kit.ang(0, 180, 0),
-	})
-
-	-- ── The tread ─────────────────────────────────────────────
 	-- Chevrons pointing the way the runner faces (-Z), scrolling the other way under
-	-- them. Each is two arms meeting at an apex; laid as ROTATED parts rather than
-	-- stepped blocks, which is this codebase's rule for anything diagonal.
-	--
-	-- THE WRAP IS HANDLED IN THE CONTROLLER, modulo the belt's own length, so these are
-	-- simply tiled across the belt and nothing has to scroll in from off the end. The
-	-- one place it could show is the far edge: an apex sitting at the +Z end trails its
-	-- arms ARM_DEPTH beyond it, which is why `frameW` is 1.8 and not 1.4 -- the frame
-	-- bar spans 5.0..6.8 from the centre and swallows an arm reaching 6.6. Narrow the
-	-- frame and the tread starts poking out of the end of the machine.
-	local ARM_SPREAD, ARM_DEPTH = t.beltW / 2 - 0.5, 1.6
+	-- them. Two rotated arms each, meeting at an apex.
+	local ARM_SPREAD, ARM_DEPTH = halfW - 0.5, 1.6
 	local armLength = math.sqrt(ARM_SPREAD * ARM_SPREAD + ARM_DEPTH * ARM_DEPTH)
 	local armYaw = math.deg(math.atan2(ARM_SPREAD, ARM_DEPTH))
 	for i = 1, t.chevrons do
-		local apexZ = cz - halfL + (i - 1) * t.chevronPitch
+		local apexZ = -halfL + (i - 1) * t.chevronPitch
 		for _, side in { -1, 1 } do
 			build(m, origin, {
 				name = "Slat",
-				pos = { cx + side * ARM_SPREAD / 2, beltTop + 0.03, apexZ + ARM_DEPTH / 2 },
+				pos = at(side * ARM_SPREAD / 2, 0.03, apexZ + ARM_DEPTH / 2),
 				size = { 0.45, 0.08, armLength },
 				color = BELT_TREAD,
 				material = "SmoothPlastic",
@@ -2584,14 +2515,13 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 		end
 	end
 
-	-- The drums the belt runs on, tucked down in the trough at either end. Mostly
-	-- hidden by the frame; they catch a highlight when the tread is moving.
-	for _, endZ in { cz - halfL + 0.4, cz + halfL - 0.4 } do
+	-- Exposed steel drums at both ends, half sunk in the bed; they turn with the tread.
+	for _, endZ in { -halfL - 0.5, halfL + 0.5 } do
 		build(m, origin, {
 			name = "Roller",
-			pos = { cx, beltTop - 0.1, endZ },
-			size = { t.beltW - 0.2, 0.7, 0.7 },
-			color = FIT,
+			pos = at(0, -0.05, endZ),
+			size = { t.beltW + 0.2, 1.0, 1.0 },
+			color = HAZ_STEEL,
 			material = "Metal",
 			shape = "Cylinder",
 			rot = Kit.R.cylAlongX,
@@ -2599,25 +2529,39 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 		})
 	end
 
-	-- ── The rails ─────────────────────────────────────────────
-	-- Round tubes at eyeline on square studded posts, running from the back of the machine
-	-- right into the console the way a real treadmill's handlebars do, a studded ball on
-	-- the open end and a rubber grip where the runner's hands fall. The grips wear the belt
-	-- rung's colour along with the cowl (`TierPaint`, setTreadmillTier). CanCollide off, all
-	-- of it: a rail that catches a player stepping on or off a machine they will be
-	-- standing on for hours is the single most irritating thing this build could do.
-	local railX = halfW + t.frameW / 2
-	local railY = T + t.railH
-	local headZ = cz - halfL - t.frameW - 0.5
-	local railBack = cz + halfL - 0.3
+	-- ── The walls ─────────────────────────────────────────────
+	-- Alternating yellow and black studded blocks, eight a side, capped in dark steel.
+	-- The blocks ARE the hazard stripe: no decal, no texture, just bricks.
+	local wallRun = t.beltL + 1.8
+	local blocks = 8
+	local blockL = wallRun / blocks
 	for _, side in { -1, 1 } do
-		local x = cx + side * railX
-		for _, postZ in { cz - halfL + 0.9, cz + halfL - 0.9 } do
+		for i = 0, blocks - 1 do
+			build(m, origin, {
+				name = "Wall",
+				pos = at(side * t.wallX, 0.45, -wallRun / 2 + blockL / 2 + i * blockL),
+				size = { 1.0, 1.3, blockL },
+				color = if i % 2 == 0 then HAZ_YELLOW else HAZ_BLACK,
+				material = "Plastic",
+				studs = true,
+			})
+		end
+		build(m, origin, {
+			name = "WallCap",
+			pos = at(side * t.wallX, 1.2, 0),
+			size = { 1.2, 0.2, wallRun },
+			color = HAZ_STEEL_DARK,
+			material = "Plastic",
+			studs = true,
+		})
+
+		-- Handrails at eyeline on two black posts, a lower bar between them.
+		for _, postZ in { -halfL + 0.1, halfL - 1.9 } do
 			build(m, origin, {
 				name = "RailPost",
-				pos = { x, (frameTop + railY) / 2, postZ },
-				size = { 0.7, railY - frameTop, 0.7 },
-				color = RAIL_PALE,
+				pos = at(side * t.wallX, 2.25, postZ),
+				size = { 0.55, 2.1, 0.55 },
+				color = HAZ_BLACK,
 				material = "Plastic",
 				studs = true,
 				canCollide = false,
@@ -2625,150 +2569,218 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 		end
 		build(m, origin, {
 			name = "Rail",
-			pos = { x, railY, (headZ + railBack) / 2 },
-			size = { railBack - headZ, 0.55, 0.55 },
-			color = RAIL_PALE,
+			pos = at(side * t.wallX, 3.3, -1.1),
+			size = { 0.5, 0.5, t.beltL - 0.4 },
+			color = HAZ_YELLOW,
 			material = "SmoothPlastic",
-			shape = "Cylinder",
-			rot = CYL_ALONG_Z,
 			canCollide = false,
 		})
 		build(m, origin, {
-			name = "RailEnd",
-			pos = { x, railY, railBack },
-			size = { 0.75, 0.75, 0.75 },
-			color = RAIL_PALE,
+			name = "RailBar",
+			pos = at(side * t.wallX, 2.3, -0.9),
+			size = { 0.3, 0.3, t.beltL - 2 },
+			color = HAZ_BLACK,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+	end
+
+	-- The step-on end: a striped ramp across the tail, sloping down away from the belt.
+	local rampBlocks = 6
+	local rampW = (t.wallX * 2 - 0.6) / rampBlocks
+	for i = 0, rampBlocks - 1 do
+		build(m, origin, {
+			name = "Ramp",
+			class = "WedgePart",
+			pos = at(-(t.wallX - 0.3) + rampW / 2 + i * rampW, 0, halfL + 1.6),
+			size = { rampW, 0.45, 1.0 },
+			color = if i % 2 == 0 then HAZ_YELLOW else HAZ_BLACK,
 			material = "Plastic",
 			studs = true,
-			shape = "Ball",
-			canCollide = false,
-		})
-		build(m, origin, {
-			name = "RailGrip",
-			pos = { x, railY, cz - halfL + 2.2 },
-			size = { 1.8, 0.7, 0.7 },
-			color = TREADMILL_DRIVE[1],
-			material = "Rubber",
-			shape = "Cylinder",
-			rot = CYL_ALONG_Z,
-			canCollide = false,
-			attributes = { TierPaint = true },
+			rot = Kit.ang(0, 180, 0),
 		})
 	end
 
 	-- ── The head ──────────────────────────────────────────────
-	-- At the -Z end, so the runner faces out through the entrance arch. A lit screen in
-	-- a dark bezel, standing on the motor cowl -- see this function's header for why it
-	-- is a screen rather than the flat plate that was here before.
-
-	-- The cowl. THE PART setTreadmillTier REPAINTS: it is the rung you can see from
-	-- across the plot, which is why it is the widest solid mass on the machine. Every
-	-- part tagged `TierPaint` follows it -- the cowl, its hood, the grips.
+	-- The motor block. THE PART setTreadmillTier REPAINTS: bare steel on the free belt,
+	-- reactor orange on the last, and the widest solid mass on the machine, so the rung
+	-- reads from across the plot.
+	local hz = t.headZ
 	build(m, origin, {
 		name = "Drive",
-		pos = { cx, T + 1.1, headZ },
-		size = { outerW - 0.4, 2.2, 1.6 },
-		color = TREADMILL_DRIVE[1],
-		material = "Metal",
-		studs = true,
-		attributes = { TierPaint = true },
-	})
-	-- A sloped studded hood along the cowl's entrance-side top edge, so the housing
-	-- reads as a shaped motor cover rather than a box set down in front of the belt.
-	build(m, origin, {
-		name = "DriveHood",
-		class = "WedgePart",
-		pos = { cx, T + 2.2 + 0.25, headZ - 0.5 },
-		size = { outerW - 0.4, 0.5, 0.6 },
+		pos = at(0, 1.2, hz),
+		size = { t.wallX * 2 + 1, 2.8, 2.0 },
 		color = TREADMILL_DRIVE[1],
 		material = "Plastic",
 		studs = true,
 		attributes = { TierPaint = true },
 	})
+	local stripes = 8
+	local stripeW = (t.wallX * 2 + 1) / stripes
+	for i = 0, stripes - 1 do
+		build(m, origin, {
+			name = "Stripe",
+			pos = at(-(t.wallX + 0.5) + stripeW / 2 + i * stripeW, 2.75, hz),
+			size = { stripeW, 0.3, 2.05 },
+			color = if i % 2 == 0 then HAZ_YELLOW else HAZ_BLACK,
+			material = "Plastic",
+			studs = true,
+		})
+	end
 
-	-- Two cooling fans in the cowl's entrance face, turning (StationMotionController):
-	-- the motor you are paying to upgrade is visibly running, belt or no belt. Each rotor
-	-- is its own Model so it turns as one about its hub, streamed as a unit.
+	-- "RAD MILL" on a yellow plate on the runner's side of the block.
+	local placard = build(m, origin, {
+		name = "Placard",
+		pos = at(0, 1.2, hz + 1.05),
+		size = { 3.0, 1.2, 0.12 },
+		color = HAZ_YELLOW,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	local placardGui = Instance.new("SurfaceGui")
+	placardGui.Name = "PlacardText"
+	placardGui.Face = Enum.NormalId.Back
+	placardGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	placardGui.PixelsPerStud = 50
+	placardGui.Parent = placard
+	local placardText = Instance.new("TextLabel")
+	placardText.BackgroundTransparency = 1
+	placardText.Size = UDim2.fromScale(0.9, 0.8)
+	placardText.Position = UDim2.fromScale(0.05, 0.1)
+	placardText.Font = Kit.FONT
+	placardText.TextScaled = true
+	placardText.TextColor3 = Color3.fromHex(HAZ_BLACK)
+	placardText.Text = "RAD MILL"
+	placardText.Parent = placardGui
+
+	-- A gear on each flank, turning (StationMotionController). Each is its own Model so
+	-- it turns as one about its hub, streamed as a unit. Set 0.4 back from the block's
+	-- centre: on it, the teeth swept out to z -43.35 past a pad that ends at -43.
 	for _, side in { -1, 1 } do
-		local hub = origin * CFrame.new(cx + side * 2.4, T + 1.1, headZ - 0.8)
-		build(m, hub, {
-			name = "FanHousing",
-			pos = { 0, 0, -0.05 },
-			size = { 0.1, 1.5, 1.5 },
-			color = FIT,
-			material = "Metal",
+		local hub = origin * CFrame.new(cx + side * (t.wallX + 0.85), B + 1.4, cz + hz + 0.4)
+		local gear = Instance.new("Model")
+		gear.Name = "Gear"
+		gear.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+		build(gear, hub, {
+			name = "GearBody",
+			pos = { 0, 0, 0 },
+			size = { 0.5, 2.8, 2.8 },
+			color = HAZ_STEEL,
+			material = "Plastic",
+			studs = true,
 			shape = "Cylinder",
-			rot = CYL_ALONG_Z,
 			canCollide = false,
 		})
-		local rotor = Instance.new("Model")
-		rotor.Name = "FanRotor"
-		rotor.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
-		build(rotor, hub, {
-			name = "FanHub",
-			pos = { 0, 0, -0.14 },
-			size = { 0.1, 0.4, 0.4 },
-			color = RAIL_PALE,
-			material = "SmoothPlastic",
+		build(gear, hub, {
+			name = "GearHub",
+			pos = { side * 0.2, 0, 0 },
+			size = { 0.5, 0.9, 0.9 },
+			color = HAZ_YELLOW,
+			material = "Plastic",
+			studs = true,
 			shape = "Cylinder",
-			rot = CYL_ALONG_Z,
 			canCollide = false,
 		})
-		for k = 0, 2 do
-			build(rotor, hub * Kit.ang(0, 0, k * 120), {
-				name = "FanBlade",
-				pos = { 0, 0.38, -0.13 },
-				size = { 0.28, 0.56, 0.05 },
-				color = RAIL_PALE,
-				material = "SmoothPlastic",
-				rot = Kit.ang(0, 25, 0),
+		for k = 0, 9 do
+			build(gear, hub * Kit.ang(k * 36, 0, 0), {
+				name = "Tooth",
+				pos = { 0, 1.5, 0 },
+				size = { 0.5, 0.5, 0.55 },
+				color = HAZ_STEEL,
+				material = "Plastic",
+				studs = true,
 				canCollide = false,
 			})
 		end
-		rotor.WorldPivot = hub
-		rotor.Parent = m
-		Kit.motion(rotor, { kind = "spin", axis = "Z", rate = 7 })
+		gear.WorldPivot = hub
+		gear.Parent = m
+		Kit.motion(gear, { kind = "spin", axis = "X", rate = side * 1.5 })
 	end
 
-	-- Two stems carrying the console up off the cowl, in line with the rails.
+	-- Two exhaust stacks and a beacon on the block's back edge.
 	for _, side in { -1, 1 } do
 		build(m, origin, {
-			name = "ConsoleStem",
-			pos = { cx + side * railX, T + 2.7, headZ },
-			size = { 0.7, 1.4, 0.7 },
-			color = RAIL_PALE,
+			name = "Stack",
+			pos = at(side * 2.6, 3.7, hz - 0.5),
+			size = { 2.2, 0.6, 0.6 },
+			color = HAZ_BLACK,
 			material = "Plastic",
 			studs = true,
+			shape = "Cylinder",
+			rot = CYL_UP,
+			canCollide = false,
+		})
+		build(m, origin, {
+			name = "StackCap",
+			pos = at(side * 2.6, 4.85, hz - 0.5),
+			size = { 0.3, 0.8, 0.8 },
+			color = HAZ_RUST,
+			material = "Plastic",
+			studs = true,
+			shape = "Cylinder",
+			rot = CYL_UP,
 			canCollide = false,
 		})
 	end
+	build(m, origin, {
+		name = "BeaconBase",
+		pos = at(0, 3.05, hz - 0.5),
+		size = { 0.3, 1.2, 1.2 },
+		color = HAZ_BLACK,
+		material = "Plastic",
+		studs = true,
+		shape = "Cylinder",
+		rot = CYL_UP,
+		canCollide = false,
+	})
+	build(m, origin, {
+		name = "Beacon",
+		pos = at(0, 3.45, hz - 0.5),
+		size = { 1.0, 1.0, 1.0 },
+		color = HAZ_BEACON,
+		material = "SmoothPlastic",
+		shape = "Ball",
+		canCollide = false,
+	})
 
-	-- The bezel carries the prompt and the attributes; the screen is a lit inset. BOTH
-	-- LEAN BACK AND FACE THE RUNNER now. The screen used to be on the entrance side of
-	-- an upright console, reading out to people walking in while the one player on the
-	-- belt stared at its bare back; the billboard over it already serves the walk-in.
+	-- ── The console ───────────────────────────────────────────
+	-- A chunky CRT on an arm off the front of the block, leaning back at the runner.
+	-- The bezel carries the prompt, the attributes and the billboard; the screen is a
+	-- lit inset on its runner-side face.
+	local monitorZ = hz + 0.7
+	build(m, origin, {
+		name = "ConsoleStem",
+		pos = at(0, 3.4, monitorZ),
+		size = { 0.6, 1.4, 0.6 },
+		color = HAZ_BLACK,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
 	local console = build(m, origin, {
 		name = "Console",
-		pos = { cx, T + 3.75, headZ },
-		size = { outerW - 0.8, 2.3, 0.55 },
-		color = FIT,
-		material = "Metal",
+		pos = at(0, 4.6, monitorZ),
+		size = { 3.2, 2.1, 1.3 },
+		color = HAZ_STEEL_DARK,
+		material = "Plastic",
+		studs = true,
 		rot = CONSOLE_TILT,
+		canCollide = false,
 		attributes = { UpgradesTreadmill = true },
 	})
 	local screen = build(m, origin, {
 		name = "Screen",
-		pos = { cx, T + 3.75, headZ },
-		size = { outerW - 1.9, 1.5, 0.12 },
+		pos = at(0, 4.6, monitorZ),
+		size = { 2.6, 1.6, 0.1 },
 		color = SCREEN_DARK,
 		material = "SmoothPlastic",
-		rot = CONSOLE_TILT * CFrame.new(0, 0, 0.32),
+		rot = CONSOLE_TILT * CFrame.new(0, 0, 0.66),
 		canCollide = false,
 	})
 
 	-- The readout: the owner's speed level, a bar to the next one (both written by
 	-- setTreadmillTier alongside the billboard), and a stride pulse that bounces
-	-- (StationMotionController). Lit text on a dark glass, LightInfluence 0 so the sun
+	-- (StationMotionController). Lit text on dark glass, LightInfluence 0 so the sun
 	-- does not wash it out -- a screen, not paint.
 	local readout = Instance.new("SurfaceGui")
 	readout.Name = "Readout"
@@ -2840,14 +2852,7 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	-- Tier 1, untrained -- the only state that exists before a player has ever claimed
 	-- this plot. ExhibitService.renderTreadmill overwrites both lines the moment real
 	-- per-player state does, exactly as it does for the luck button.
-	accentBillboard(
-		console,
-		230,
-		3.0,
-		"SPEED LV 1",
-		`{Treadmill.tier(1).name} — +{Treadmill.tier(1).rate} Speed/s`,
-		accent
-	)
+	accentBillboard(console, 230, 3.0, "SPEED LV 1", `{Treadmill.tier(1).name} — +{Treadmill.tier(1).rate} Speed/s`, accent)
 
 	m.Parent = parent
 end
