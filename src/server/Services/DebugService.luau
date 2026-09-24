@@ -391,7 +391,7 @@ COMMANDS["/train"] = {
 	--
 	-- `/train speed <n>` sets the raw total (to test a point just under a requirement),
 	-- `/train belt <n>` moves the RUNG.
-	help = "/train <level 1-75> — set Speed to that level's requirement; /train speed <n>; /train belt <1-6>",
+	help = "/train <level 1-75> — set Speed to that level's requirement; /train speed <n>; /train belt <1-4>",
 	run = function(player, _sandbox, args)
 		local data = DataService.data(player)
 		if data == nil then

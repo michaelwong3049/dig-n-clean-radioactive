@@ -770,21 +770,21 @@ function Spec.run(): boolean
 	end
 
 	-- The three numbers the curve was tuned against, measured the way a player
-	-- experiences them: buying one belt per 12 levels. Bands are ±25%, wide enough that
+	-- experiences them: buying one belt per 18 levels (four belts over 75 levels). Bands are ±25%, wide enough that
 	-- a cosmetic tweak to one rung does not fail the suite and narrow enough that
 	-- "11 hours" cannot drift into "3 hours" unnoticed.
 	do
 		local function hoursTo(walk: number, belt: ((level: number) -> number)?): number
 			local seconds = 0
 			for level = 1, walk - Treadmill.START_WALK do
-				local tier = if belt then belt(level) else math.min(Treadmill.maxTier(), (level - 1) // 12 + 1)
+				local tier = if belt then belt(level) else math.min(Treadmill.maxTier(), (level - 1) // 18 + 1)
 				local cost = Treadmill.REQUIREMENTS[level + 1] - Treadmill.REQUIREMENTS[level]
 				seconds += cost / Treadmill.rateFor(tier)
 			end
 			return seconds / 3600
 		end
 
-		for _, milestone in { { at = 45, hours = 0.68 }, { at = 70, hours = 2.9 }, { at = 100, hours = 11.0 } } do
+		for _, milestone in { { at = 45, hours = 0.84 }, { at = 70, hours = 2.7 }, { at = 100, hours = 10.3 } } do
 			local actual = hoursTo(milestone.at)
 			check(
 				string.format("§5.1 walk %d is about %.1f h of training (got %.2f h)", milestone.at, milestone.hours, actual),
@@ -821,22 +821,41 @@ function Spec.run(): boolean
 		check("§5.1 a maxed old save converts to the top level", Treadmill.walkFor(Treadmill.fromLegacyXp(1e9)) == Treadmill.MAX_WALK)
 	end
 
-	-- THE REFUND HAS TO BUY THE REPLACEMENT. DataService hands a returning player back
-	-- the list price of every Boots rung they owned, and Treadmill.TIERS reuses that
-	-- exact ladder so the cash lands them on the equivalent belt. Retiring the Boots
-	-- TABLE (rather than just the track) would break this silently — the refund would
-	-- come back zero and nobody would hear about it.
+	-- THE FOUR-BELT COLLAPSE LOSES NOBODY A DOLLAR. The ladder went from six belts to
+	-- four (one imported model each); DataService moves an old save onto the best new
+	-- belt its old spend covers and pays the rest back. New belt + refund must add back
+	-- up to exactly what the old rungs cost, at every old rung, and never hand anyone a
+	-- belt dearer than they paid for.
 	do
-		local matched = #Gear.Boots == #Treadmill.TIERS
-		if matched then
-			for index, belt in Treadmill.TIERS do
-				if Gear.Boots[index].price ~= belt.price then
-					matched = false
-					break
-				end
+		local oldPrices = { 0, 11500, 32500, 90000, 255000, 700000 }
+		local fair = true
+		local spent = 0
+		for oldTier = 1, #oldPrices do
+			spent += oldPrices[oldTier]
+			local tier, refund = Treadmill.fromSixRungLadder(oldTier)
+			local newSpent = 0
+			for index = 2, tier do
+				newSpent += Treadmill.TIERS[index].price
+			end
+			local nextRung = Treadmill.TIERS[tier + 1]
+			if newSpent + refund ~= spent or refund < 0 or (nextRung and refund >= nextRung.price) then
+				fair = false
 			end
 		end
-		check("§5.1 belt prices still mirror the retired Boots ladder, so the refund buys the equivalent rung", matched)
+		check("§5.1 collapsing a six-belt save refunds exactly what the new belt does not cover", fair)
+		check("§5.1 a maxed six-belt save lands on the top belt", (Treadmill.fromSixRungLadder(6)) == Treadmill.maxTier())
+		check("§5.1 a free-belt save stays on the free belt with no refund", select(2, Treadmill.fromSixRungLadder(1)) == 0)
+	end
+
+	-- Every belt names the imported model it wears (build/Plots.setTreadmillTier).
+	do
+		local named = true
+		for _, belt in Treadmill.TIERS do
+			if type(belt.model) ~= "string" or belt.model == "" then
+				named = false
+			end
+		end
+		check("§5.1 every belt rung names its treadmill model", named)
 	end
 
 	-- The track really is gone from the storefront. `Gear.Boots` surviving as data for
