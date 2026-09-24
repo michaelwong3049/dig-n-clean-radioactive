@@ -480,16 +480,16 @@ function World.verify(): (boolean, { string })
 	-- No plot-board census any more: exhibit income auto-deposits, so Plots.luau
 	-- builds no ClaimBoard and nothing emits StationKind = "plot".
 	-- One fluid bottle per base, beside that base's tub (Plots.buildFluidBottle), and
-	-- each one tagged AND carrying the prompt LiquidService wires -- a bottle missing
-	-- either is a bottle that silently never spins. The wash pad it replaced was a
-	-- `roller` station; nothing may still claim that kind.
+	-- each one tagged -- the fluid panel finds the bottle by tag, so an untagged one is
+	-- a bottle whose panel never opens. The wash pad it replaced was a `roller`
+	-- station; nothing may still claim that kind.
 	local bottles = 0
 	for _, d in Workspace:GetDescendants() do
 		if d:IsA("BasePart") and d:GetAttribute("SpinsFluid") == true then
 			bottles += 1
 			check(
-				CollectionService:HasTag(d, Kit.FLUID_TAG) and d:FindFirstChildOfClass("ProximityPrompt") ~= nil,
-				`{d:GetFullName()} is a fluid bottle without its {Kit.FLUID_TAG} tag or its prompt — nobody can spin it`
+				CollectionService:HasTag(d, Kit.FLUID_TAG),
+				`{d:GetFullName()} is a fluid bottle without its {Kit.FLUID_TAG} tag — its panel will never open`
 			)
 		end
 	end
@@ -504,14 +504,8 @@ function World.verify(): (boolean, { string })
 		`expected {Plots.COUNT} treadmills (one per base), found {census.treadmill or 0}`
 	)
 
-	-- ...and one luck button per base, staked on the way to the bottle it bends the odds for.
-	local luckButtons = 0
-	for _, d in Workspace:GetDescendants() do
-		if d:IsA("BasePart") and d:GetAttribute("SellsTrack") == "Luck" then
-			luckButtons += 1
-		end
-	end
-	check(luckButtons == Plots.COUNT, `expected {Plots.COUNT} luck buttons (one per base), found {luckButtons}`)
+	-- No luck buttons any more: Luck is bought from the fluid panel at each base's
+	-- bottle (LiquidService), so the six stakes that used to be counted here are gone.
 
 	-- ...and one hose per base, on the mast beside that base's tub
 	-- (Plots.buildHoseRig). Counted for the same reason the buttons are: a missing

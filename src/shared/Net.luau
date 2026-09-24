@@ -71,6 +71,16 @@ local REMOTES: { [string]: string } = {
 	-- remote carries nothing the client could send back to steer it. The request half
 	-- is the bottle's ProximityPrompt, which fires on the server by itself.
 	FluidSpin = "RemoteEvent", -- server -> client, { reel, land, seconds, result, held, loaded }
+	--
+	-- The fluid panel you get walking up to your own bottle (LiquidController). State
+	-- is change-driven: the loaded fluid and what is left of it, seconds until the
+	-- next roll, and the Luck upgrade's multiplier and next price. `notice` rides along
+	-- once when an action is refused ("not enough cash"), so the panel can say why.
+	FluidState = "RemoteEvent", -- server -> client, { liquid, held, cooldown, luck, luckLevel, luckPrice, boost, notice? }
+	--
+	-- The panel's two buttons. A bare verb, never an amount or a target: the server
+	-- finds the player's own bottle, checks they are standing at it, and does the rest.
+	FluidAction = "RemoteEvent", -- client -> server, "roll" | "luck"
 
 	-- Which carried item the player is physically holding. The tub refuses to wash
 	-- anything you are not holding, so this had to become real state rather than the

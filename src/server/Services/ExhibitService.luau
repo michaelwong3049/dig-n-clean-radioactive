@@ -47,7 +47,6 @@ local Payload = require(Shared.Config.Payload)
 local ItemModels = require(Shared.ItemModels)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
-local Liquids = require(Shared.Config.Liquids) -- renderBottle: the fluid bottle's sign
 local StandCard = require(Shared.StandCard) -- the attribute contract StandCardController draws from
 local Ticker = require(Shared.Util.Ticker)
 
@@ -227,13 +226,12 @@ local function renderTreadmill(index: number, data: any?)
 end
 
 --- Fill the plot's fluid bottle with the fluid this profile has loaded, or Plain Water
---- when `data` is nil (an unclaimed plot). The subtitle says what the fluid is worth
---- right now: washes left in it, or an invitation to spin when it is plain water.
+--- when `data` is nil (an unclaimed plot). Colour only: the fluid's name, washes left
+--- and the ROLL button live on the owner's own panel (the client's LiquidController).
 ---
 --- SAME SHAPE AS renderTreadmill: LiquidService spins, this file owns what a plot
 --- looks like, and which parts of the bottle hold the fluid is build/Plots'
---- business (Plots.setFluidBottle). An unclaimed plot also gets its prompt's verb
---- back, since the countdown LiquidService writes there belonged to the last owner.
+--- business (Plots.setFluidBottle).
 local function renderBottle(index: number, data: any?)
 	local plot = plotModel(index)
 	if plot == nil then
@@ -243,22 +241,7 @@ local function renderBottle(index: number, data: any?)
 	if bottle == nil then
 		return
 	end
-	if data == nil then
-		Plots.setFluidBottle(bottle, nil, "spin for a better fluid")
-		local body = bottle:FindFirstChild("Bottle")
-		local prompt = body and body:FindFirstChildOfClass("ProximityPrompt")
-		if prompt then
-			prompt.ActionText = "Spin Fluid"
-		end
-		return
-	end
-	local id = StatResolver.get(data).liquidId
-	local held = data.liquids[id] or 0
-	local subtitle = if id == Liquids.WATER
-		then "spin for a better fluid"
-		elseif held == 1 then "1 wash left"
-		else `{held} washes left`
-	Plots.setFluidBottle(bottle, id, subtitle)
+	Plots.setFluidBottle(bottle, if data then StatResolver.get(data).liquidId else nil)
 end
 
 --- The world half of "hold the item, hold E on the stand": a plain default-styled
@@ -682,14 +665,6 @@ function ExhibitService.refreshBottle(player: Player)
 		return
 	end
 	renderBottle(index, DataService.data(player))
-end
-
---- The same for a plot rather than a player: its owner's fluid, or Plain Water if
---- nobody owns it. LiquidService puts a bottle's sign back this way after a refusal,
---- which can come from a visitor who is not the owner.
-function ExhibitService.refreshBottleAt(index: number)
-	local owner = plotOwner[index]
-	renderBottle(index, if owner then DataService.data(owner) else nil)
 end
 
 --- This player's assigned plot's spawn pad, or nil if they never got a plot this
