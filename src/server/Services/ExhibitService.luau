@@ -1100,11 +1100,9 @@ local function groupYield(values: { number }): number
 	return total
 end
 
---- Everything the Nukes panel draws, from the profile. Displayed pieces carry the rate
---- their stand card prints (damped, walked in `pedestals` order like refreshStandCards);
---- bag pieces carry what they WOULD pay alone on a stand, the hotbar's number
---- (CarryService.describe). A crusted find is "???" with no itemId and no rate: a rate
---- would name it by another route.
+--- Everything the Nukes panel draws, from the profile: the pieces on the stands, each
+--- with the rate its stand card prints (damped, walked in `pedestals` order like
+--- refreshStandCards). The bag is not listed -- the hotbar already shows it.
 function ExhibitService.nukeList(player: Player): any?
 	local data = DataService.data(player)
 	if data == nil then
@@ -1131,21 +1129,6 @@ function ExhibitService.nukeList(player: Player): any?
 		})
 	end
 
-	local bag = {}
-	for _, item in data.carry do
-		local clean = Contamination.isClean(item.patches or {})
-		local slag = item.modifier == "Slagged"
-		table.insert(bag, {
-			uid = item.uid,
-			itemId = if clean then item.itemId else nil,
-			name = if clean then Items.get(item.itemId).name else "???",
-			rarity = item.rarity,
-			modifier = item.modifier or "None",
-			rate = if clean and not slag then entryYieldPerSecond(item, 1, stats) else nil,
-			status = if not clean then "dirty" elseif slag then "slag" else "ready",
-		})
-	end
-
 	return {
 		slots = Floors.slotsFor(data.exhibit.floors),
 		used = #data.exhibit.pedestals,
@@ -1154,7 +1137,6 @@ function ExhibitService.nukeList(player: Player): any?
 		-- cap is what is holding the total back.
 		raw = rawRatePerSecond(data, stats),
 		displayed = displayed,
-		bag = bag,
 	}
 end
 

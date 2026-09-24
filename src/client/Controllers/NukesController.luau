@@ -3,11 +3,9 @@
 	outlined caption as the Index and Shop tiles, stacked one Dock.GAP under Shop on
 	the right edge.
 
-	THE PANEL IS EVERY NUKE YOU OWN ON ONE LIST: what is up on your stands, then what
-	is in your bag, each with its rarity and what it pays per second. A stand row
-	prints the rate its stand card prints (duplicate damping and all); a bag row prints
-	what it would pay alone on a stand, the hotbar's number. A crusted find is "???"
-	with no rate -- CarryState names it the same way, for the same reason.
+	THE PANEL IS EVERY NUKE ON YOUR STANDS, ON ONE LIST: each with its rarity and what
+	it pays per second, the rate its stand card prints (duplicate damping and all),
+	best first. The bag is deliberately not listed -- the hotbar already shows it.
 
 	EQUIP BEST is the panel's one verb (ExhibitService.equipBest): fill every stand
 	with the set that earns the most, swapping weaker pieces back into the bag. It
@@ -50,7 +48,6 @@ local TILE_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirecti
 local PANEL = {
 	panel = Color3.fromHex("1B1F23"),
 	row = Color3.fromHex("252A30"),
-	rowDim = Color3.fromHex("1F2328"),
 	well = Color3.fromHex("14171A"),
 	light = Color3.fromHex("E6EAF0"),
 	dim = Color3.fromHex("9AA3AD"),
@@ -72,7 +69,6 @@ local SUMMARY_H = 56
 local NOTICE_H = 26
 local LIST_TOP = HEADER_H + SUMMARY_H + NOTICE_H + 8
 local ROW_H = 52
-local SECTION_H = 28
 local CHIP_W = 104
 local OPEN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 -- The fastest the panel re-asks for its list while CarryState / IncomeState chatter.
@@ -140,11 +136,6 @@ end
 local function rarityColor(name: string): Color3
 	local ok, def = pcall(Rarity.get, name)
 	return if ok and def then def.color else PANEL.dim
-end
-
-local function rarityOrder(name: string): number
-	local ok, def = pcall(Rarity.get, name)
-	return if ok and def then def.order else 0
 end
 
 --- Ask the server for a fresh list, at most once per REFRESH_GAP; a burst of asks
@@ -218,37 +209,20 @@ end
 
 -- ── Rows ────────────────────────────────────────────────────────────
 
-local function section(parent: Instance, order: number, text: string)
-	inked(parent, {
-		Name = "Section",
-		Text = text,
-		Font = PANEL.headline,
-		TextSize = 20,
-		TextColor3 = PANEL.dim,
-		Size = UDim2.new(1, 0, 0, SECTION_H),
-		TextYAlignment = Enum.TextYAlignment.Bottom,
-		LayoutOrder = order,
-		ZIndex = 13,
-	})
-end
-
 type RowSpec = {
 	name: string,
 	rarity: string,
 	sub: string,
 	rate: number?,
-	rateText: string?,
-	dim: boolean,
-	crating: number?,
 }
 
---- One nuke: rarity stripe + chip on the left, name over a where/why line, rate right.
+--- One nuke: rarity stripe + chip on the left, name over its stand line, rate right.
 local function row(parent: Instance, order: number, spec: RowSpec): TextLabel
 	local color = rarityColor(spec.rarity)
 	local frame = Instance.new("Frame")
 	frame.Name = "Row"
 	frame.Size = UDim2.new(1, -8, 0, ROW_H)
-	frame.BackgroundColor3 = if spec.dim then PANEL.rowDim else PANEL.row
+	frame.BackgroundColor3 = PANEL.row
 	frame.BorderSizePixel = 0
 	frame.LayoutOrder = order
 	frame.ZIndex = 13
@@ -271,7 +245,6 @@ local function row(parent: Instance, order: number, spec: RowSpec): TextLabel
 	chip.Position = UDim2.new(0, 18, 0.5, 0)
 	chip.Size = UDim2.fromOffset(CHIP_W, 24)
 	chip.BackgroundColor3 = color
-	chip.BackgroundTransparency = if spec.dim then 0.35 else 0
 	chip.BorderSizePixel = 0
 	chip.Font = PANEL.label
 	chip.TextSize = 14
@@ -288,7 +261,7 @@ local function row(parent: Instance, order: number, spec: RowSpec): TextLabel
 		Text = spec.name,
 		Font = PANEL.label,
 		TextSize = 20,
-		TextColor3 = if spec.dim then PANEL.dim else PANEL.white,
+		TextColor3 = PANEL.white,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		Size = UDim2.new(1, -textLeft - 130, 0, 24),
 		Position = UDim2.fromOffset(textLeft, 4),
@@ -307,7 +280,7 @@ local function row(parent: Instance, order: number, spec: RowSpec): TextLabel
 	})
 	inked(frame, {
 		Name = "Rate",
-		Text = spec.rateText or (if spec.rate then formatRate(spec.rate) else "\u{2014}"),
+		Text = if spec.rate then formatRate(spec.rate) else "\u{2014}",
 		Font = PANEL.headline,
 		TextSize = 20,
 		TextColor3 = if spec.rate then PANEL.gold else PANEL.dim,
@@ -374,7 +347,6 @@ local function render()
 	table.sort(displayed, function(a, b)
 		return a.rate > b.rate
 	end)
-	section(scroll, nextOrder(), "ON DISPLAY")
 	if #displayed == 0 then
 		inked(scroll, {
 			Name = "Empty",
@@ -393,50 +365,10 @@ local function render()
 			rarity = entry.rarity,
 			sub = standText(entry, entry.crating),
 			rate = entry.rate,
-			dim = false,
 		})
 		if entry.crating > 0 then
 			table.insert(cratingRows, { label = sub, entry = entry })
 		end
-	end
-
-	local STATUS_RANK = { ready = 1, dirty = 2, slag = 3 }
-	local bag = table.clone(list.bag)
-	table.sort(bag, function(a, b)
-		local ra, rb = STATUS_RANK[a.status] or 9, STATUS_RANK[b.status] or 9
-		if ra ~= rb then
-			return ra < rb
-		end
-		if a.rate and b.rate and a.rate ~= b.rate then
-			return a.rate > b.rate
-		end
-		return rarityOrder(a.rarity) > rarityOrder(b.rarity)
-	end)
-	section(scroll, nextOrder(), `IN YOUR BAG ({#bag})`)
-	if #bag == 0 then
-		inked(scroll, {
-			Name = "Empty",
-			Text = "Your bag is empty",
-			Font = PANEL.label,
-			TextSize = 16,
-			TextColor3 = PANEL.dim,
-			Size = UDim2.new(1, 0, 0, 26),
-			LayoutOrder = nextOrder(),
-			ZIndex = 13,
-		})
-	end
-	for _, item in bag do
-		local sub = if item.status == "dirty"
-			then "Wash it first"
-			elseif item.status == "slag" then "Slag \u{2014} can't go on a stand"
-			else withModifier("In your bag", item.modifier)
-		row(scroll, nextOrder(), {
-			name = item.name,
-			rarity = item.rarity,
-			sub = sub,
-			rate = item.rate,
-			dim = item.status ~= "ready",
-		})
 	end
 end
 
