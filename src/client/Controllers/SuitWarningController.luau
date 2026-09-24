@@ -161,7 +161,9 @@ local function refreshText()
 	end
 end
 
---- The highest design-px Y the warning can take without covering a top banner.
+--- The highest design-px Y the warning can take without covering a top banner. Only a
+--- banner in the warning's way moves it: the stage title and the tutorial banner both
+--- sit below y 16, and dropping under them anyway just parked the warning over the field.
 local function clearTop(): number
 	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
 	local scale = UIKit.canvasScale(ui.canvas)
@@ -170,12 +172,22 @@ local function clearTop(): number
 	if playerGui == nil or scale <= 0 then
 		return y
 	end
+	local spans = {}
 	for _, spec in TOP_BANNERS do
 		local gui = playerGui:FindFirstChild(spec.gui)
 		local frame = gui and gui:FindFirstChild(spec.frame, true)
 		if frame and frame:IsA("GuiObject") and frame.Visible and (gui :: ScreenGui).Enabled then
-			local bottom = (frame.AbsolutePosition.Y + frame.AbsoluteSize.Y - canvasTop) / scale
-			y = math.max(y, bottom + CLEARANCE)
+			local top = (frame.AbsolutePosition.Y - canvasTop) / scale
+			table.insert(spans, { top = top, bottom = top + frame.AbsoluteSize.Y / scale })
+		end
+	end
+	-- Top-down, so a banner the warning was pushed onto pushes it on in turn.
+	table.sort(spans, function(a, b)
+		return a.top < b.top
+	end)
+	for _, span in spans do
+		if span.top < y + WARNING_H + CLEARANCE and span.bottom + CLEARANCE > y then
+			y = span.bottom + CLEARANCE
 		end
 	end
 	return y

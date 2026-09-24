@@ -4,9 +4,22 @@
 
 	Config/Stages has carried a `name` for all six stages since the first commit and
 	nothing has ever shown it. Crossing a stage seam gave you a fog tween
-	(AtmosphereController) and a floor colour and no words. This is the words: a
-	title card that slides in at the top of the screen — "STAGE 3 / Fallout Fields"
-	— tinted to that stage's own ground colour, holds a beat, slides back out.
+	(AtmosphereController) and a floor colour and no words. This is the words: an
+	area title over the world near the top of the screen — "STAGE 3" with a thin
+	rule either side, "FALLOUT FIELDS" under it — that fades in from slightly large,
+	holds a beat, and fades out drifting up.
+
+	NO CARD BEHIND IT (the user picked this over the old dark pill from a round of
+	mockups: option 2, "area title", in the HUD's own Gotham Black, smaller). The
+	name is UIKit.C.text with the usual heavy outline; only the eyebrow and its rules
+	carry the stage colour, with a thicker outline than UIKit gives text that size so
+	the tan stages still read against a tan sky. Everything sits in one CanvasGroup
+	so the outlines and shadows fade with the words.
+
+	IT KEEPS A FRAME NAMED "Panel". SuitWarningController finds the banner by that
+	name to stay clear of it; here it is just the invisible box around the title.
+	While the tutorial's banner is up (same spot, TutorialController) the title drops
+	below it instead of landing on top of it.
 
 	COSTS NOTHING NEW ON THE WIRE. ExposureState already carries `stageId` every
 	tick (ExposureService) and AtmosphereController already reads it; this is a
@@ -31,6 +44,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
@@ -42,12 +56,32 @@ local UIKit = require(script.Parent.Parent.UIKit)
 
 local StageBannerController = {}
 
-local SHOWN = UDim2.new(0.5, 0, 0, 34) -- clear of the Roblox topbar (IgnoreGuiInset is on)
-local HIDDEN = UDim2.new(0.5, 0, 0, -110) -- fully off the top edge
-local PANEL_TRANSPARENCY = 0.12
+-- Design px on the 1280x720 canvas. The eyebrow's text starts at y 104, well clear of
+-- the Roblox topbar (IgnoreGuiInset is on) and of the suit warning at y 16.
+local TOP = 98
+local PAD = 6 -- inside the CanvasGroup, so the outlines and shadow are not clipped
+local WIDTH = 820 -- wider than the longest name, "THE EXCLUSION BELT"
+local EYEBROW_H = 22
+local NAME_Y = PAD + EYEBROW_H + 1
+local NAME_H = 46
+local HEIGHT = NAME_Y + NAME_H + PAD
 
-local IN = TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-local OUT = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+local EYEBROW_FONT = UIKit.Font.title
+local EYEBROW_SIZE = 17
+local EYEBROW_STROKE = 2 -- UIKit's 1.5 for this size lets tan-on-tan wash out
+local NAME_SIZE = UIKit.TextSize.hero
+
+local RULE_W = 110
+local RULE_H = 3
+local RULE_GAP = 12 -- between the eyebrow's text and each rule
+
+local GROW = 1.12 -- the scale it fades in from
+local DRIFT = 12 -- how far it rises as it fades out
+local TUTORIAL_GAP = 10
+
+local IN = TweenInfo.new(0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local RULE_IN = TweenInfo.new(0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, 0, false, 0.2)
+local OUT = TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local HOLD = 2.6
 
 --- Where the card last settled: "stage:<id>", "camp:<id>", or nil for Base Camp (no
@@ -61,11 +95,19 @@ local unlockedAt: { [string]: number } = {}
 local UNLOCK_FRESH = 4
 
 local ui: {
+	canvas: Frame,
 	panel: Frame,
-	stroke: UIStroke,
+	grow: UIScale,
+	group: CanvasGroup,
 	eyebrow: TextLabel,
+	ruleL: Frame,
+	ruleR: Frame,
 	name: TextLabel,
 }? = nil
+
+--- The fade-out's rise. A new card sets Position outright, which a tween still running
+--- would keep overwriting, so it is cancelled by hand.
+local drift: Tween? = nil
 
 --- The stage's ground colour, pulled to a consistent brightness so the near-black
 --- Exclusion Belt and the near-white Reactor Grounds both read as an accent.
@@ -84,71 +126,134 @@ local function build(): ScreenGui
 
 	local canvas = UIKit.canvas(gui)
 
-	local panel, stroke = UIKit.panel(canvas, {
-		name = "Panel",
-		size = UDim2.fromOffset(460, 64),
-		position = HIDDEN,
-		anchorPoint = Vector2.new(0.5, 0),
-		color = UIKit.C.panel,
-		transparency = 1,
-		cornerRadius = UIKit.Radius.panel,
-		strokeThickness = UIKit.Stroke.thick,
-		visible = false,
-	})
-	stroke.Transparency = 1
+	-- Invisible: the box SuitWarningController measures. Anchored at its centre so the
+	-- fade-in shrinks toward the middle of the title rather than toward its top edge.
+	local panel = Instance.new("Frame")
+	panel.Name = "Panel"
+	panel.AnchorPoint = Vector2.new(0.5, 0.5)
+	panel.Position = UDim2.new(0.5, 0, 0, TOP + HEIGHT / 2)
+	panel.Size = UDim2.fromOffset(WIDTH, HEIGHT)
+	panel.BackgroundTransparency = 1
+	panel.Visible = false
+	panel.Parent = canvas
 
-	local eyebrow = UIKit.label(panel, {
+	local grow = Instance.new("UIScale")
+	grow.Name = "Grow"
+	grow.Parent = panel
+
+	-- A CanvasGroup so the words, their outlines and shadows, and the rules fade as one:
+	-- a UIStroke does not fade with TextTransparency.
+	local group = Instance.new("CanvasGroup")
+	group.Name = "Group"
+	group.Size = UDim2.fromScale(1, 1)
+	group.BackgroundTransparency = 1
+	group.GroupTransparency = 1
+	group.Parent = panel
+
+	local eyebrow = UIKit.label(group, {
 		name = "Eyebrow",
-		position = UDim2.fromOffset(0, 9),
-		size = UDim2.new(1, 0, 0, 14),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption,
+		position = UDim2.fromOffset(0, PAD),
+		size = UDim2.new(1, 0, 0, EYEBROW_H),
+		font = EYEBROW_FONT,
+		textSize = EYEBROW_SIZE,
 		xAlign = Enum.TextXAlignment.Center,
 	})
-	eyebrow.TextTransparency = 1
+	local eyebrowStroke = eyebrow:FindFirstChildOfClass("UIStroke")
+	if eyebrowStroke then
+		eyebrowStroke.Thickness = EYEBROW_STROKE
+	end
 
-	local name = UIKit.label(panel, {
+	-- The rules either side of the eyebrow, placed per card against its text width
+	-- (showCard) and grown outward from zero.
+	local function rule(name: string, anchorX: number): Frame
+		local frame = Instance.new("Frame")
+		frame.Name = name
+		frame.AnchorPoint = Vector2.new(anchorX, 0.5)
+		frame.Size = UDim2.fromOffset(0, RULE_H)
+		frame.BorderSizePixel = 0
+		frame.Parent = group
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = frame
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = UIKit.C.outline
+		stroke.Thickness = 1.5
+		stroke.Parent = frame
+		return frame
+	end
+	local ruleL = rule("RuleL", 1)
+	local ruleR = rule("RuleR", 0)
+
+	local name = UIKit.label(group, {
 		name = "NameLabel", -- NOT "Name": a child called "Name" is shadowed by the
 		-- Instance property, unreachable by path. Every reader here uses the captured
 		-- reference, but naming it safely is free.
-		position = UDim2.fromOffset(0, 24),
-		size = UDim2.new(1, 0, 0, 32),
+		position = UDim2.fromOffset(0, NAME_Y),
+		size = UDim2.new(1, 0, 0, NAME_H),
 		font = UIKit.Font.hero,
-		textSize = UIKit.TextSize.title,
+		textSize = NAME_SIZE,
 		color = UIKit.C.text,
 		xAlign = Enum.TextXAlignment.Center,
 	})
-	name.TextTransparency = 1
 
-	ui = { panel = panel, stroke = stroke, eyebrow = eyebrow, name = name }
+	ui = {
+		canvas = canvas,
+		panel = panel,
+		grow = grow,
+		group = group,
+		eyebrow = eyebrow,
+		ruleL = ruleL,
+		ruleR = ruleR,
+		name = name,
+	}
 	return gui
 end
 
---- Tween the four pieces to `t` (0 shown, 1 gone) and the panel to `pos`.
-local function tweenTo(info: TweenInfo, pos: UDim2, t: number)
+--- Where the title's top edge goes: TOP, or just under the tutorial's banner while that
+--- is up, since it sits in the same spot.
+local function topY(): number
+	if ui == nil then
+		return TOP
+	end
+	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	local scale = UIKit.canvasScale(ui.canvas)
+	local tutorial = playerGui and playerGui:FindFirstChild("TutorialHud")
+	local banner = tutorial and tutorial:FindFirstChild("Banner", true)
+	if scale > 0 and banner and banner:IsA("GuiObject") and banner.Visible and (tutorial :: ScreenGui).Enabled then
+		local bottom = (banner.AbsolutePosition.Y + banner.AbsoluteSize.Y - ui.canvas.AbsolutePosition.Y) / scale
+		return math.max(TOP, bottom + TUTORIAL_GAP)
+	end
+	return TOP
+end
+
+local function stopDrift()
+	if drift then
+		drift:Cancel()
+		drift = nil
+	end
+end
+
+--- Fade out rising DRIFT px, then hide — unless a newer card has started by then.
+local function fadeOut(mine: number)
 	if ui == nil then
 		return
 	end
 	local u = ui
-	TweenService:Create(u.panel, info, {
-		Position = pos,
-		BackgroundTransparency = if t >= 1 then 1 else PANEL_TRANSPARENCY,
-	}):Play()
-	TweenService:Create(u.stroke, info, { Transparency = t }):Play()
-	TweenService:Create(u.eyebrow, info, { TextTransparency = t }):Play()
-	TweenService:Create(u.name, info, { TextTransparency = t }):Play()
+	stopDrift()
+	TweenService:Create(u.group, OUT, { GroupTransparency = 1 }):Play()
+	drift = TweenService:Create(u.panel, OUT, { Position = u.panel.Position - UDim2.fromOffset(0, DRIFT) })
+	drift:Play()
+	task.delay(OUT.Time, function()
+		if ui and mine == token then
+			ui.panel.Visible = false
+		end
+	end)
 end
 
 local function hide()
 	token += 1
 	if ui and ui.panel.Visible then
-		tweenTo(OUT, HIDDEN, 1)
-		local mine = token
-		task.delay(OUT.Time, function()
-			if ui and mine == token then
-				ui.panel.Visible = false
-			end
-		end)
+		fadeOut(token)
 	end
 end
 
@@ -160,31 +265,36 @@ local function showCard(eyebrow: string, title: string, accent: Color3)
 
 	u.eyebrow.Text = eyebrow
 	u.eyebrow.TextColor3 = accent
-	u.name.Text = title
-	u.stroke.Color = accent
+	u.name.Text = string.upper(title)
+	u.ruleL.BackgroundColor3 = accent
+	u.ruleR.BackgroundColor3 = accent
+
+	-- Each rule starts RULE_GAP out from the eyebrow's text, on the centre line of its row.
+	local half = TextService:GetTextSize(eyebrow, EYEBROW_SIZE, EYEBROW_FONT, Vector2.new(4000, 200)).X / 2
+	local ruleY = PAD + EYEBROW_H / 2
+	u.ruleL.Position = UDim2.new(0.5, -(half + RULE_GAP), 0, ruleY)
+	u.ruleR.Position = UDim2.new(0.5, half + RULE_GAP, 0, ruleY)
 
 	token += 1
 	local mine = token
 
-	u.panel.Position = HIDDEN
-	u.panel.BackgroundTransparency = 1
-	u.stroke.Transparency = 1
-	u.eyebrow.TextTransparency = 1
-	u.name.TextTransparency = 1
+	stopDrift()
+	u.panel.Position = UDim2.new(0.5, 0, 0, topY() + HEIGHT / 2)
+	u.grow.Scale = GROW
+	u.group.GroupTransparency = 1
+	u.ruleL.Size = UDim2.fromOffset(0, RULE_H)
+	u.ruleR.Size = UDim2.fromOffset(0, RULE_H)
 	u.panel.Visible = true
 
-	tweenTo(IN, SHOWN, 0)
+	TweenService:Create(u.group, IN, { GroupTransparency = 0 }):Play()
+	TweenService:Create(u.grow, IN, { Scale = 1 }):Play()
+	TweenService:Create(u.ruleL, RULE_IN, { Size = UDim2.fromOffset(RULE_W, RULE_H) }):Play()
+	TweenService:Create(u.ruleR, RULE_IN, { Size = UDim2.fromOffset(RULE_W, RULE_H) }):Play()
 
-	task.delay(HOLD, function()
-		if mine ~= token then
-			return
+	task.delay(IN.Time + HOLD, function()
+		if mine == token then
+			fadeOut(mine)
 		end
-		tweenTo(OUT, HIDDEN, 1)
-		task.delay(OUT.Time, function()
-			if ui and mine == token then
-				ui.panel.Visible = false
-			end
-		end)
 	end)
 end
 
@@ -270,9 +380,10 @@ function StageBannerController.start()
 		currentWhere = "?"
 		token += 1
 		pendingToken += 1 -- cancel any settle timer mid-flight
+		stopDrift()
 		if ui then
 			ui.panel.Visible = false
-			ui.panel.Position = HIDDEN
+			ui.group.GroupTransparency = 1
 		end
 	end)
 end
