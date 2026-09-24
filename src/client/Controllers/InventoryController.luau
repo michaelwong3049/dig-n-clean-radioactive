@@ -134,46 +134,6 @@ end
 
 -- ── Build ───────────────────────────────────────────────────────────
 
---- A small keycap with a ` on it. The bare glyph is a speck at any text size that
---- fits a slot corner (it sits at the top of its em box), so it gets drawn big inside
---- a box that says "this is a key", nudged down to sit centred in it.
-local function backtickCap(parent: Instance, size: number, position: UDim2, anchorPoint: Vector2?): Frame
-	local cap = Instance.new("Frame")
-	cap.Name = "KeyCap"
-	cap.AnchorPoint = anchorPoint or Vector2.zero
-	cap.Position = position
-	cap.Size = UDim2.fromOffset(size, size)
-	cap.BackgroundColor3 = COLOR.empty
-	cap.BorderSizePixel = 0
-	cap.Parent = parent
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 4)
-	corner.Parent = cap
-
-	local stroke = Instance.new("UIStroke")
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Color = Color3.fromHex("BBC5D0")
-	stroke.Thickness = 1
-	stroke.Parent = cap
-
-	UIKit.label(cap, {
-		name = "Glyph",
-		position = UDim2.fromOffset(0, math.floor(size * 0.4)),
-		size = UDim2.fromScale(1, 1),
-		font = UIKit.Font.title,
-		textSize = math.floor(size * 1.6),
-		color = Color3.fromHex("E4E9DE"),
-		xAlign = Enum.TextXAlignment.Center,
-		yAlign = Enum.TextYAlignment.Center,
-		outline = false,
-		shadow = false,
-		strokeTransparency = 1,
-		text = "`",
-	})
-	return cap
-end
-
 local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 	local slot = Instance.new("TextButton")
 	slot.Name = `Slot{index}`
@@ -258,8 +218,8 @@ local function buildBagTile(row: Frame)
 	stroke.Thickness = 1.5
 	stroke.Parent = tile
 
-	-- No ` key hint on the tile, on request: players are expected to know the key,
-	-- and the panel's own header still says how to close it.
+	-- No ` key hint here or on the panel, on request: players are expected to know
+	-- the key. The panel's X closes it for anyone who doesn't.
 
 	UIKit.label(tile, {
 		name = "Title",
@@ -430,22 +390,6 @@ local function buildBag(): ScreenGui
 		outline = false,
 		strokeTransparency = 1,
 	})
-	if not UIKit.isTouch() then
-		UIKit.label(panel, {
-			name = "Hint",
-			anchorPoint = Vector2.new(1, 0),
-			position = UDim2.new(1, -(BAG_PAD + 46), 0, 0),
-			size = UDim2.fromOffset(62, BAG_HEADER),
-			font = UIKit.Font.body,
-			textSize = 15,
-			color = COLOR.dim,
-			xAlign = Enum.TextXAlignment.Right,
-			outline = false,
-			strokeTransparency = 1,
-			text = "to close",
-		})
-		backtickCap(panel, 18, UDim2.new(1, -(BAG_PAD + 46 + 62 + 6), 0, BAG_HEADER / 2), Vector2.new(1, 0.5))
-	end
 
 	-- A PLAIN "X", NOT U+2715 (see StationController's close badge).
 	local close = UIKit.button(panel, {
