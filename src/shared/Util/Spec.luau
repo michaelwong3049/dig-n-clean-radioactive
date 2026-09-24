@@ -37,6 +37,7 @@ local Treadmill = require(Config.Treadmill)
 local LuckBoost = require(Config.LuckBoost)
 local Crates = require(Config.Crates)
 local Bag = require(script.Parent.Parent.Bag)
+local CrateModels = require(script.Parent.Parent.CrateModels)
 local ItemModels = require(script.Parent.Parent.ItemModels)
 local ItemFxConfig = require(Config.ItemFx)
 local ItemFx = require(script.Parent.Parent.ItemFx)
@@ -1892,6 +1893,21 @@ function Spec.run(): boolean
 		local data = { carry = { {}, {} }, crates = { { uid = "a", crateId = "nuke1" } } }
 		check("§crate crates count toward the bag's slots", Bag.used(data) == 3)
 		check("§crate Bag.findCrate finds a crate and nothing else", Bag.findCrate(data, "a") ~= nil and Bag.findCrate(data, "b") == nil)
+
+		-- Every crate builds: a PrimaryPart to weld by, its id stamped, and CrateFx's
+		-- carriers + at least one effect on it.
+		local builds = true
+		for _, id in Crates.ORDER do
+			local ok, model = pcall(CrateModels.create, id)
+			if not ok or model.PrimaryPart == nil or model:GetAttribute("CrateId") ~= id
+				or model:FindFirstChild("FxCore") == nil or model:FindFirstChildWhichIsA("ParticleEmitter", true) == nil then
+				builds = false
+			end
+			if ok then
+				model:Destroy()
+			end
+		end
+		check("§crate every crate model builds with its effects", builds)
 	end
 
 	table.insert(lines, string.format("\n%d passed, %d failed", passed, failed))

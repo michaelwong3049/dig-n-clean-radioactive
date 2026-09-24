@@ -24,9 +24,19 @@
 	the same contract ItemModels keeps: callers move the whole thing with PivotTo, and
 	ToolService welds it together itself before it lets go of the anchor. PrimaryPart is
 	`Body`. `CrateId` is stamped on the model.
+
+	IMPORTED MODELS WIN. A model named after the crate id (`nuke1` ... `liquid3`) in
+	ReplicatedStorage.Assets.CrateTemplates is cloned instead of the built one -- the
+	same convention as Assets.ImportedNukeTemplates (see Shared/ItemModels). It is
+	normalised on the way out: every part anchored and non-colliding, a PrimaryPart
+	set, and centred on the origin like the built crates. Either way, Shared/CrateFx
+	then fits the crate's ambient effects to its bounding box.
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Crates = require(script.Parent.Config.Crates)
+local CrateFx = require(script.Parent.CrateFx)
 
 local CrateModels = {}
 
@@ -368,16 +378,53 @@ local BUILDERS: { [string]: (Model) -> BasePart } = {
 
 --- A fresh model for one crate, centred on the origin. Errors on an unknown id: a
 --- crate id only ever comes from Config/Crates.
+--- An imported crate for this id, normalised, or nil when none has been imported.
+local function imported(crateId: string): Model?
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local folder = assets and assets:FindFirstChild("CrateTemplates")
+	local template = folder and folder:FindFirstChild(crateId)
+	if template == nil or not template:IsA("Model") then
+		return nil
+	end
+
+	local model = template:Clone()
+	local first: BasePart? = nil
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Anchored = true
+			part.CanCollide = false
+			part.CanTouch = false
+			part.CanQuery = false
+			first = first or part
+		end
+	end
+	if first == nil then
+		model:Destroy()
+		return nil
+	end
+	model.PrimaryPart = model.PrimaryPart or first
+	-- Centre the box on the origin, like the built crates.
+	local box = model:GetBoundingBox()
+	model:PivotTo(model:GetPivot() - box.Position)
+	return model
+end
+
 function CrateModels.create(crateId: string): Model
 	local def = Crates.get(crateId)
-	local build = BUILDERS[crateId]
-	assert(build, `no model for crate "{crateId}"`)
 
-	local model = Instance.new("Model")
-	model.Name = def.name
-	model.PrimaryPart = build(model)
-	model:SetAttribute("CrateId", crateId)
-	return model
+	local model = imported(crateId)
+	if model == nil then
+		local build = BUILDERS[crateId]
+		assert(build, `no model for crate "{crateId}"`)
+		model = Instance.new("Model")
+		model.PrimaryPart = build(model)
+	end
+
+	local crate = model :: Model
+	crate.Name = def.name
+	crate:SetAttribute("CrateId", crateId)
+	CrateFx.apply(crate, crateId, def.color, def.variant)
+	return crate
 end
 
 return CrateModels
