@@ -170,12 +170,12 @@ Kit.C = {
 
 	-- The player bases' pad floor: ONE flat tone, one studded part per pad
 	-- (buildPlot's `PadFloor`; it was once the plaza's tile board in one colour), instead of
-	-- the navy/grey `baseTileDark`/`baseTileLight` checker. A cool teal-slate (was wooden-deck brown 9C6B43),
+	-- the navy/grey `baseTileDark`/`baseTileLight` checker. A light neutral grey (was wooden-deck brown 9C6B43),
 	-- on request (the cartoon base pass): the pads sit on grass now, and the old dark
 	-- charcoal (282A33) read as car parks laid on a lawn. Has been grey, near-black, a
 	-- smooth no-stud plate (glinted in the sun), then charcoal studs.
 	-- `baseTileDark`/`Light` stay above for anything that still wants the old pair.
-	baseFloor = "4F8A8B",
+	baseFloor = "A7ABB0",
 	-- The gallery walkways laid over that deck (Plots.buildGalleryLanes): the plaza
 	-- path's own cream (Hub's PATH_LIGHT), so the path you walk in on carries on through
 	-- the base, and a darker sand kerb edging each lane.
