@@ -17,6 +17,11 @@
 	  3. IT NEEDED NO CLEAN.  DigService, for a Prewar Sealed pull. It came out of the
 	                          ground in its packaging, so there was never a mystery.
 
+	A SUPPLY CRATE CAN BE UNDER THE CRUST TOO (DigService.unearth): it rides in the bag
+	as a "???" with a stand-in nuke's itemId, and the wash or a blind sale is where it
+	turns out to be a crate. That goes out through `announceCrate`, which writes nothing
+	-- the stand-in was never really dug, so it must never reach the index.
+
 	WHY THIS IS NOT JUST A LINE IN EACH OF THOSE FILES. `data.discovered` is the index,
 	and the index is a spoiler surface: it used to be written in `unearth`, which meant
 	the catalogue tile for a Gold Ring lit up the instant one broke the surface, some
@@ -46,6 +51,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Items = require(Shared.Config.Items)
+local Crates = require(Shared.Config.Crates)
 local Payload = require(Shared.Config.Payload)
 local Contamination = require(Shared.Contamination)
 local IndexProgress = require(Shared.IndexProgress)
@@ -139,6 +145,29 @@ function IdentifyService.announce(player: Player, item: any, firstFind: boolean,
 		weight = def.weight * mult,
 		firstFind = firstFind,
 		index = if data then copyEntry(data.indexStats[def.id]) else nil,
+	}
+	for key, value in extra or {} do
+		payload[key] = value
+	end
+	identifiedRemote:FireClient(player, payload)
+end
+
+--- "It was a supply crate." The ItemIdentified banner for a dirty crate coming clean
+--- (WashService) or being sold blind (EconomyService). No itemId and no `index`, so
+--- the index never hears of the stand-in; `crate` is what tells the client this reveal
+--- is a crate. `extra` rides along as in `announce` (`staged` for the wash bay).
+function IdentifyService.announceCrate(player: Player, crateId: string, rarity: string, extra: { [string]: any }?)
+	if identifiedRemote == nil or not Crates.has(crateId) then
+		return
+	end
+	local crate = Crates.get(crateId)
+	local payload: { [string]: any } = {
+		crate = crateId,
+		name = crate.name,
+		flavor = crate.flavor,
+		rarity = rarity,
+		modifier = "None",
+		firstFind = false,
 	}
 	for key, value in extra or {} do
 		payload[key] = value

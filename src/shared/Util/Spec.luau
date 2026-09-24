@@ -2048,6 +2048,38 @@ function Spec.run(): boolean
 			end
 		end
 		check("§crate every crate model builds with its effects", builds)
+
+		-- A DUG CRATE PASSES FOR A NUKE until washed (DigService.standInFor): every tier
+		-- a crate can be needs a real nuke of that tier somewhere to stand in for it...
+		local standIns = true
+		for _, id in Crates.ORDER do
+			local found = false
+			for _, stageId in Stages.builtIds() do
+				if Items.hasAny(stageId, Crates.DEFS[id].tier) then
+					found = true
+					break
+				end
+			end
+			standIns = standIns and found
+		end
+		check("§crate every crate tier has a stand-in nuke to hide as", standIns)
+
+		-- ...and the crusted crate under the rock says nothing: no effects, no attributes
+		-- (CrateId hangs the Open prompt; SourceName names the template), no crate name.
+		local hidden = true
+		for _, id in Crates.ORDER do
+			local ok, model = pcall(CrateModels.createHidden, id)
+			if not ok or model.PrimaryPart == nil or next(model:GetAttributes()) ~= nil
+				or model.Name == Crates.DEFS[id].name or model:FindFirstChild("FxCore") ~= nil
+				or model:FindFirstChildWhichIsA("ParticleEmitter", true) ~= nil
+				or model:FindFirstChildWhichIsA("Light", true) ~= nil then
+				hidden = false
+			end
+			if ok then
+				model:Destroy()
+			end
+		end
+		check("§crate a crusted crate model carries nothing that says crate", hidden)
 	end
 
 	table.insert(lines, string.format("\n%d passed, %d failed", passed, failed))

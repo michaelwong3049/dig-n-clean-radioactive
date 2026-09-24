@@ -448,4 +448,19 @@ function CrateModels.create(crateId: string): Model
 	return crate
 end
 
+--- The same crate with nothing on it that says "crate": no effects, no attributes
+--- (CrateId, which CrateController hangs its Open prompt off, and an imported
+--- template's SourceName, e.g. "field_crate"), and a plain name. For a crate still dug
+--- up in its crust, which has to pass for a nuke until it is washed. CrateFx.apply
+--- puts the effects back at the reveal.
+function CrateModels.createHidden(crateId: string): Model
+	local crate = CrateModels.create(crateId)
+	CrateFx.strip(crate)
+	for name in crate:GetAttributes() do
+		crate:SetAttribute(name, nil)
+	end
+	crate.Name = "Item"
+	return crate
+end
+
 return CrateModels

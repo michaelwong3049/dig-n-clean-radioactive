@@ -193,11 +193,17 @@ COMMANDS["/dig"] = {
 }
 
 COMMANDS["/crate"] = {
-	help = "/crate <nuke1-3|liquid1-3> — put a supply crate in your bag (Config/Crates)",
+	help = "/crate <nuke1-3|liquid1-3> [dirty] — put a supply crate in your bag (Config/Crates); dirty = still crusted, a ??? until washed",
 	run = function(player, _sandbox, args)
 		local crateId = args[1] or "nuke1"
 		if not Crates.has(crateId) then
 			return `unknown crate "{crateId}" — one of: {table.concat(Crates.ORDER, ", ")}`
+		end
+		if args[2] == "dirty" then
+			if not DigService.debugGrantDirtyCrate(player, crateId) then
+				return "couldn't bury it (profile not loaded, or no stage stocks that tier)"
+			end
+			return `buried a crusted {Crates.get(crateId).name} in your bag -- wash it to find out`
 		end
 		if not CrateService.grant(player, crateId) then
 			return "your profile hasn't loaded yet"

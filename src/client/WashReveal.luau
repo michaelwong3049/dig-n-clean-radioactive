@@ -34,6 +34,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
+local Crates = require(Shared.Config.Crates)
 local Tuning = require(Shared.Config.Tuning)
 
 local UIKit = require(script.Parent.UIKit)
@@ -289,6 +290,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 
 	local def = Rarity.DEFS[found.rarity]
 	local colour = if def then def.color else UIKit.C.text
+	local crate = if Crates.has(found.crate) then Crates.get(found.crate) else nil
 	local order = if def then def.order else 1
 
 	local gui = Instance.new("ScreenGui")
@@ -331,7 +333,8 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		size = UDim2.fromOffset(300, 58),
 		position = UDim2.fromScale(0.5, 0.12),
 		anchorPoint = Vector2.new(0.5, 0.5),
-		color = if found.firstFind then T.RIBBON_NEW else T.RIBBON_KNOWN,
+		-- A dirty supply crate coming clean (WashService) wears its own colour and says so.
+		color = if crate then Color3.fromHex(crate.color) elseif found.firstFind then T.RIBBON_NEW else T.RIBBON_KNOWN,
 		transparency = 0,
 		strokeColor = UIKit.C.outline,
 		strokeThickness = 4,
@@ -341,7 +344,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 	UIKit.label(ribbon, {
 		name = "Text",
 		size = UDim2.fromScale(1, 1),
-		text = if found.firstFind then "NEW FIND!" else "IDENTIFIED",
+		text = if crate then "SUPPLY CRATE!" elseif found.firstFind then "NEW FIND!" else "IDENTIFIED",
 		font = UIKit.Font.hero,
 		textSize = 32,
 		xAlign = Enum.TextXAlignment.Center,

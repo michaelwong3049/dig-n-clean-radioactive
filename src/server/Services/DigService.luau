@@ -120,7 +120,6 @@ local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 local Bag = require(Shared.Bag)
 local Crates = require(Shared.Config.Crates)
-local CrateModels = require(Shared.CrateModels)
 
 local SignalAura = require(script.Parent.Parent.build.SignalAura)
 
@@ -169,10 +168,11 @@ type PlayerRoll = {
 	itemId: string,
 	rarity: string,
 	modifier: string,
-	-- A SUPPLY CRATE (Config/Crates) rather than a nuke. `itemId` is still a real
-	-- catalogue id (the signal's default nuke) so nothing that calls Items.get on it
-	-- can throw; every crate-aware branch below checks this first. `rarity` is the
-	-- crate's tier, which is what colours its glow.
+	-- A SUPPLY CRATE (Config/Crates) rather than a nuke -- and NOTHING at the dig may
+	-- say so. `itemId` is a STAND-IN nuke of the crate's own tier (standInFor), so the
+	-- ping's odds, the pull, the lump and the fuse are all a real nuke's; `rarity` is
+	-- the crate's tier. The crate only comes out when the wash takes the crust off
+	-- (WashService.revealAndFinish).
 	crateId: string?,
 }
 
@@ -368,6 +368,38 @@ local function rollModifier(): string
 	return "None"
 end
 
+--- A crate's disguise modifier. Anything but one that needs no cleaning: a Prewar
+--- Sealed find identifies at the dig, and a crate must never skip the wash.
+local function crateModifier(): string
+	for _ = 1, 8 do
+		local modifier = rollModifier()
+		if (Rarity.MODIFIERS[modifier] or Rarity.MODIFIERS.None).needsCleaning then
+			return modifier
+		end
+	end
+	return "None"
+end
+
+--- THE NUKE A CRATE PRETENDS TO BE. A real item of the crate's own tier from this
+--- stage, picked the way the dig picks (weighted by 1/odds), so the ping's "1 in N",
+--- the pull, the lump, the fuse and the blind-sale price are all an ordinary nuke's
+--- of that rarity. Falls back to `fallback` for a stage that stocks nothing of it.
+local function standInFor(stageId: number, tier: string, fallback: string): string
+	local pool = Items.inStage(stageId, tier)
+	local total = 0
+	for _, def in pool do
+		total += 1 / math.max(def.odds, 1)
+	end
+	local pick = math.random() * total
+	for _, def in pool do
+		pick -= 1 / math.max(def.odds, 1)
+		if pick <= 0 then
+			return def.id
+		end
+	end
+	return if #pool > 0 then pool[#pool].id else fallback
+end
+
 --- A stage that stocks nothing is a content gap, not a crash. This used to be an
 --- error() inside the 10 Hz tick, which — before Ticker gained per-subscriber
 --- isolation — took down every service booted after this one. It should degrade to
@@ -404,15 +436,18 @@ local function rollFor(signal: Signal, stats: StatResolver.Stats, userId: number
 	end
 
 	-- A CRATE STAYS A CRATE OF THE SAME KIND; luck only moves its VARIANT up the
-	-- ladder (Config/Crates.variantOdds), pinned per player like a nuke reading.
+	-- ladder (Config/Crates.variantOdds), pinned per player like a nuke reading. A
+	-- variant on a different tier gets a stand-in from THAT tier, so the reading
+	-- still looks like an ordinary nuke of the rarity it shows.
 	if signal.crateId then
 		local kind = Crates.get(signal.crateId).kind
 		local variant = Crates.rollVariant(signal.stageId, detectorLuck * boost, math.random())
 		local crateId = Crates.idFor(kind, variant)
+		local tier = Crates.get(crateId).tier
 		local crateRoll: PlayerRoll = {
-			itemId = signal.itemId,
-			rarity = Crates.get(crateId).tier,
-			modifier = "None",
+			itemId = if tier == signal.rarity then signal.itemId else standInFor(signal.stageId, tier, signal.itemId),
+			rarity = tier,
+			modifier = if tier == signal.rarity then signal.modifier else crateModifier(),
 			crateId = crateId,
 		}
 		signal.rolls[userId] = crateRoll
@@ -503,17 +538,19 @@ local function spawnSignal(stageId: number)
 	local weight = Items.get(itemId).weight
 	local modifier = rollModifier()
 
-	-- ONE IN Crates.CRATE_CHANCE IS A SUPPLY CRATE. It keeps the nuke roll above as its
-	-- placeholder itemId (see PlayerRoll.crateId) and takes its glow colour, burial
-	-- depth and heft from the crate instead.
+	-- ONE IN Crates.CRATE_CHANCE IS A SUPPLY CRATE, DISGUISED AS A NUKE. It takes a
+	-- stand-in nuke of the crate's own tier (standInFor) as its itemId, and that
+	-- stand-in's weight and a real modifier roll, so its glow, burial depth, ping,
+	-- pull and fuse are an ordinary nuke's. Nobody learns it is a crate until the wash
+	-- takes the crust off.
 	local crateId: string? = nil
 	if math.random() * Crates.CRATE_CHANCE < 1 then
 		local kind = if math.random() < Crates.NUKE_SHARE then "nuke" else "liquid"
 		crateId = Crates.idFor(kind, Crates.rollVariant(stageId, 1, math.random()))
-		local crate = Crates.get(crateId :: string)
-		rarity = crate.tier
-		weight = crate.pullWeight
-		modifier = "None"
+		rarity = Crates.get(crateId :: string).tier
+		itemId = standInFor(stageId, rarity, itemId)
+		weight = Items.get(itemId).weight
+		modifier = crateModifier()
 	end
 	local order = Rarity.get(rarity).order
 
@@ -688,13 +725,12 @@ local function contactPayload(
 	local out = {}
 
 	for _, entry in contacts do
-		local itemId, rarity, modifier, crateId = rollFor(entry.signal, stats, userId)
+		local itemId, rarity, modifier = rollFor(entry.signal, stats, userId)
 		local rarityHint = hintFor(rarity, modifier, itemId)
 		table.insert(out, {
 			dx = entry.signal.position.X - position.X,
 			dz = entry.signal.position.Z - position.Z,
 			rarity = rarityHint,
-			crate = crateId,
 		})
 	end
 
@@ -798,20 +834,11 @@ end
 --- unearth(), and sizing the crust by it here would leak the one modifier that needs no
 --- cleaning at all -- a Prewar Sealed pull would surface visibly bare, telling the
 --- player what they had before anything has earned it.
+---
+--- A SUPPLY CRATE COMES UP THE SAME WAY. Its itemId is a stand-in nuke of its tier
+--- (standInFor), so the lump is that nuke's size and nothing here can tell the two
+--- apart; the crate is only named when the wash takes the crust off.
 local function createHaul(player: Player, signal: Signal, itemId: string, rarityHint: string?, crateId: string?): Haul
-	-- A CRATE COMES UP AS ITSELF. There is nothing to hide -- the ping already said
-	-- which crate it is -- and the crate IS the find, so no crust.
-	if crateId then
-		local crate = CrateModels.create(crateId)
-		crate.Name = `Haul_{player.Name}`
-		crate.Parent = Workspace
-		return {
-			itemId = itemId,
-			crateId = crateId,
-			model = crate,
-		}
-	end
-
 	local item = Items.get(itemId)
 	-- SEEDED ON THE SIGNAL, NOT THE ITEM, and the difference is a tell worth closing:
 	-- seeded on the itemId every Gold Ring in the game would come up wearing the same
@@ -845,6 +872,7 @@ local function createHaul(player: Player, signal: Signal, itemId: string, rarity
 
 	return {
 		itemId = itemId,
+		crateId = crateId,
 		model = model,
 	}
 end
@@ -881,38 +909,13 @@ end
 --- THE ONE EXCEPTION IS AN ITEM THAT NEEDS NO CLEANING. Prewar Sealed comes up in its
 --- packaging with zero patches (Contamination.initialCount), so there is no crust to
 --- take off and nothing to withhold: it identifies on the spot and the banner names it.
---- A supply crate out of the ground: into `data.crates` (Shared/Bag), never
---- `data.carry`. No decay clock, no crust, no identify -- the crate is exactly what the
---- ping said it was, and opening it is CrateService's job.
-local function unearthCrate(player: Player, data: any, signal: Signal, crateId: string)
-	clearHaul(player)
-	local crate = Crates.get(crateId)
-	data.crates = data.crates or {}
-	table.insert(data.crates, { uid = signal.uid, crateId = crateId })
-
-	removeSignal(signal.stageId, signal.uid)
-	spawnSignal(signal.stageId)
-
-	unearthedRemote:FireClient(player, {
-		identified = true,
-		crate = crateId,
-		name = crate.name,
-		flavor = crate.flavor,
-		rarity = crate.tier,
-		modifier = "None",
-		weight = crate.pullWeight,
-		payload = 1,
-		carrying = Bag.used(data),
-	})
-
-	print(`[dig] {player.Name} unearthed a {crate.name}`)
-end
-
+---
+--- A SUPPLY CRATE COMES OUT AS A "???" TOO. It goes into `data.carry` like any crusted
+--- find, carrying `crateId` and its stand-in nuke's itemId, and is indistinguishable
+--- from one on every surface until the wash takes the last patch off -- at which point
+--- WashService moves it to `data.crates` and it becomes a crate you can open. It always
+--- has crust (crateModifier never rolls Prewar Sealed), so it can never identify here.
 local function unearth(player: Player, data: any, signal: Signal, itemId: string, rarity: string, modifier: string, crateId: string?)
-	if crateId then
-		unearthCrate(player, data, signal, crateId)
-		return
-	end
 	clearHaul(player)
 	local item = Items.get(itemId)
 
@@ -926,7 +929,11 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 		-- Contamination is rolled the moment it leaves the ground, not at the station,
 		-- because that is when it picked the dirt up. Extends ARCHITECTURE's CarriedItem.
 		patches = Contamination.rollPatches(rarity, modifier),
+		crateId = crateId,
 	}
+	if crateId and #carried.patches == 0 then
+		carried.patches = { Rarity.get(rarity).hardness }
+	end
 	table.insert(data.carry, carried)
 
 	local sealed = #carried.patches == 0
@@ -951,7 +958,8 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 		index = if sealed then IdentifyService.entry(player, item.id) else nil,
 	})
 
-	print(`[dig] {player.Name} unearthed {modifier} {rarity} — {if sealed then item.name else "unidentified"}`)
+	local what = if sealed then item.name elseif crateId then "unidentified crate " .. crateId else "unidentified"
+	print(`[dig] {player.Name} unearthed {modifier} {rarity} — {what}`)
 end
 
 -- ── The pull fuse ──────────────────────────────────────────────────────
@@ -1183,11 +1191,10 @@ local function stepPlayer(player: Player, dt: number)
 	local strength = math.clamp(1 - (distance / stats.detectorRadius), 0, 1)
 	-- This player's reading of the working signal, resolved once and threaded through
 	-- the ping, the haul model and the unearth below so all three agree.
+	-- A crate reads exactly like its stand-in nuke here (standInFor): same hints, pull,
+	-- lump and fuse. `crateId` only rides through to unearth.
 	local itemId, rarity, modifier, crateId = rollFor(signal, stats, player.UserId)
 	local rarityHint, modifierHint, oddsHint = hintFor(rarity, modifier, itemId)
-	-- A crate has no modifier and no "1 in N" of its own; the ping names the crate.
-	local oddsShown: number? = if crateId then nil else oddsHint
-	local modifierShown: string? = if crateId then nil else modifierHint
 
 	-- Reset progress if they wandered off this signal onto another one. While locked
 	-- this never fires, which is the point: the target cannot drift mid-haul.
@@ -1224,7 +1231,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- promise is untouched. pullSpeed still lives entirely on the yank, not here (see
 	-- Tuning's note: counting it in both places would make the magnet scale
 	-- quadratically). Off the PER-PLAYER item, so a lucky re-roll pulls at its real weight.
-	local heft = if crateId then Crates.get(crateId).pullWeight else Items.get(itemId).weight
+	local heft = Items.get(itemId).weight
 	local required = PULL_SECONDS_PER_STUD * signal.depth * Weight.pullFactor(heft)
 
 	-- HOME-TURF EASE. Common junk in a stage this magnet is rated for comes up ~35%
@@ -1233,7 +1240,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- design -- the ease is not allowed to soften that, so it is rated-soil-only.
 	-- Common-only, and off THIS player's roll (`rarity`, from rollFor above): a lucky
 	-- re-roll up to Rare hauls at Rare length.
-	if rarity == "Common" and gripDeficit == 0 and crateId == nil then
+	if rarity == "Common" and gripDeficit == 0 then
 		required *= HOME_COMMON_EASE
 	end
 
@@ -1255,10 +1262,10 @@ local function stepPlayer(player: Player, dt: number)
 	-- reading -- rarity and weight -- the same per-player item the pull itself is sized
 	-- by, and the visual scale is the one the haul lump is :ScaleTo'd by (createHaul),
 	-- so the bang is as big as the thing you were watching come up.
-	-- A CRATE HAS NO FUSE. It is a box of goods, not a warhead: no claim, so the
-	-- signal never heats, never arms, and the release is never refused.
+	-- A CRATE BURNS THE SAME FUSE. It is disguised as its stand-in nuke, and a lump
+	-- that never heated would give it away; if it goes off, the crate is lost with it.
 	local fuseWindow: number? = nil
-	if isLocked and crateId == nil then
+	if isLocked then
 		local item = Items.get(itemId)
 		fuseWindow = Detonation.windowFor(rarity, item.weight, signal.depth, signal.soil, signal.uid)
 		local claim = fuseClaims[signal.uid]
@@ -1370,9 +1377,8 @@ local function stepPlayer(player: Player, dt: number)
 		contacts = contactPayload(contacts, position, stats, player.UserId),
 		newContacts = noteContacts(player, contacts),
 		rarityHint = rarityHint,
-		modifierHint = modifierShown,
-		oddsHint = oddsShown,
-		crateHint = crateId,
+		modifierHint = modifierHint,
+		oddsHint = oddsHint,
 		inRange = inRange,
 		blocked = blocked,
 		-- Stages the soil is over the magnet (0 = rated). The client reads it only to
@@ -1448,6 +1454,44 @@ function DigService.debugSetFuse(player: Player, heat: number): boolean
 		end
 	end
 	return false
+end
+
+--- A dirty supply crate straight into the bag, built exactly as `unearth` builds one:
+--- a "???" in `data.carry` with a stand-in nuke of the crate's tier. For DebugService's
+--- `/crate <id> dirty`, so the wash reveal can be tested without a lucky dig. The
+--- stand-in comes from the first built stage that stocks that tier.
+function DigService.debugGrantDirtyCrate(player: Player, crateId: string): boolean
+	local data = DataService.data(player)
+	if data == nil or not Crates.has(crateId) then
+		return false
+	end
+	local tier = Crates.get(crateId).tier
+	local itemId: string? = nil
+	for _, stageId in Stages.builtIds() do
+		if Items.hasAny(stageId, tier) then
+			itemId = standInFor(stageId, tier, "")
+			break
+		end
+	end
+	if itemId == nil or itemId == "" then
+		return false
+	end
+	local modifier = crateModifier()
+	local patches = Contamination.rollPatches(tier, modifier)
+	if #patches == 0 then
+		patches = { Rarity.get(tier).hardness }
+	end
+	table.insert(data.carry, {
+		uid = HttpService:GenerateGUID(false),
+		itemId = itemId,
+		rarity = tier,
+		modifier = modifier,
+		elapsed = 0,
+		frozen = false,
+		patches = patches,
+		crateId = crateId,
+	})
+	return true
 end
 
 --- Kept as a thin delegate so callers written during Phase 1 keep working.
