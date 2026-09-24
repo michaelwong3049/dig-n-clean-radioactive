@@ -79,6 +79,12 @@
 	    rarer as luck rises — and `luckBias` ascending with `order` is what
 	    guarantees it. Util/Spec pins both halves.
 
+	TIERS ARE A LABEL, NOT A MECHANIC. Each rollable liquid carries a Config/Rarity name
+	(`tier`) so the brew reveal can say how good a roll was at a glance, in the same
+	colours the nukes use. Nothing rolls on it: the odds are `weight` and `luckBias`
+	alone. Util/Spec pins that every tier is a real Rarity and never steps DOWN along
+	ORDER, so the chip never calls a rarer fluid a lesser tier.
+
 	HOW LUCK BENDS IT: `effectiveWeight = weight * luck ^ luckBias`. Soapy Suds has
 	bias 0, so its weight is luck-proof and every other entry gains on it — that is
 	why the whole table can be described by one exponent per row instead of by a
@@ -91,6 +97,7 @@ export type LiquidDef = {
 	order: number,
 	name: string,
 	color: string, -- hex; the canister, the stream, and the roll card all read it
+	tier: string?, -- a Config/Rarity name, for the brew reveal's chip and colour. nil on water.
 	flavor: string,
 	weight: number, -- base roll weight at luck 1.0. 0 = never rolled.
 	luckBias: number, -- the exponent luck is raised to for THIS entry. 0 = luck-proof.
@@ -136,6 +143,7 @@ Liquids.DEFS = {
 		charges = 0,
 	},
 	suds = {
+		tier = "Common",
 		order = 2,
 		name = "Soapy Suds",
 		color = "F2F5F7",
@@ -148,6 +156,7 @@ Liquids.DEFS = {
 		charges = 40,
 	},
 	pop = {
+		tier = "Common",
 		order = 3,
 		name = "Fizzy Pop",
 		color = "F59E0B",
@@ -160,6 +169,7 @@ Liquids.DEFS = {
 		charges = 30,
 	},
 	gel = {
+		tier = "Uncommon",
 		order = 4,
 		name = "Bubblegum Gel",
 		color = "F472B6",
@@ -172,6 +182,7 @@ Liquids.DEFS = {
 		charges = 24,
 	},
 	glacier = {
+		tier = "Rare",
 		order = 5,
 		name = "Glacier Melt",
 		color = "A5E9FF",
@@ -184,6 +195,7 @@ Liquids.DEFS = {
 		charges = 18,
 	},
 	honey = {
+		tier = "Rare",
 		order = 6,
 		name = "Honey Wax",
 		color = "FFC94A",
@@ -196,6 +208,7 @@ Liquids.DEFS = {
 		charges = 14,
 	},
 	ghost = {
+		tier = "Epic",
 		order = 7,
 		name = "Ghost Mist",
 		color = "C4B5FD",
@@ -208,6 +221,7 @@ Liquids.DEFS = {
 		charges = 12,
 	},
 	lava = {
+		tier = "Epic",
 		order = 8,
 		name = "Molten Lava",
 		color = "FF6B35",
@@ -220,6 +234,7 @@ Liquids.DEFS = {
 		charges = 8,
 	},
 	nano = {
+		tier = "Legendary",
 		order = 9,
 		name = "Nano-Foam",
 		color = "5EEAD4",
@@ -232,6 +247,7 @@ Liquids.DEFS = {
 		charges = 6,
 	},
 	stardust = {
+		tier = "Mythic",
 		order = 10,
 		name = "Stardust Rinse",
 		color = "FFF3B0",
