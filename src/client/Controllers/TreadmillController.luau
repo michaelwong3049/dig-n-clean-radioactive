@@ -79,7 +79,7 @@ local state: any = nil
 local machine: {
 	model: Instance?,
 	slats: { { part: BasePart, home: CFrame, along: number, lateral: Vector3 } },
-	rollers: { BasePart },
+	rollers: { { part: BasePart, home: CFrame } },
 	travel: Vector3,
 	start: Vector3,
 	length: number,
@@ -87,6 +87,8 @@ local machine: {
 
 local runTrack: AnimationTrack? = nil
 local travelled = 0
+--- How far the belt surface has run this session, unwrapped -- the rollers turn by it.
+local rolled = 0
 
 -- ── The card ──────────────────────────────────────────────────────────────
 
@@ -318,16 +320,20 @@ local function latch()
 					lateral = rel - machine.travel * along,
 				})
 			elseif part.Name == "Roller" then
-				table.insert(machine.rollers, part)
+				table.insert(machine.rollers, { part = part, home = part.CFrame })
 			end
 		end
 	end
 	travelled = 0
+	rolled = 0
 end
 
 local function release()
 	for _, slat in machine.slats do
 		slat.part.CFrame = slat.home
+	end
+	for _, roller in machine.rollers do
+		roller.part.CFrame = roller.home
 	end
 	machine.model = nil
 	machine.travel = Vector3.zero
@@ -336,10 +342,15 @@ local function release()
 	table.clear(machine.slats)
 	table.clear(machine.rollers)
 	travelled = 0
+	rolled = 0
 end
 
 --- Run every chevron down the belt, wrapping each one at the belt's far end. Rollers
---- spin about their own long axis.
+--- spin about their own long axis -- a Cylinder's axis is its local X, so the turn is
+--- about X. It was about Z, which swung each five-stud drum end over end like a
+--- propeller, up through the belt. The angle is rebuilt from `rolled` rather than
+--- accumulated onto the CFrame, so it cannot drift, and at the belt's own surface
+--- speed (radius 0.35) the drum's top moves with the tread, toward +Z.
 ---
 --- `home.Rotation + position` keeps each arm's authored yaw and moves only where it
 --- sits — see `machine` for why composing CFrames here is wrong. The pattern is
@@ -350,14 +361,15 @@ local function animate(dt: number)
 		return
 	end
 	travelled = (travelled + BELT_SPEED * dt) % machine.length
+	rolled += BELT_SPEED * dt
 
 	for _, slat in machine.slats do
 		local along = (slat.along + travelled) % machine.length
 		slat.part.CFrame = slat.home.Rotation + (machine.start + machine.travel * along + slat.lateral)
 	end
-	local spin = CFrame.Angles(0, 0, -BELT_SPEED * dt)
 	for _, roller in machine.rollers do
-		roller.CFrame = roller.CFrame * spin
+		local radius = math.max(roller.part.Size.Y / 2, 0.05)
+		roller.part.CFrame = roller.home * CFrame.Angles((rolled / radius) % (2 * math.pi), 0, 0)
 	end
 end
 

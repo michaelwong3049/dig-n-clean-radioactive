@@ -25,6 +25,7 @@ local ORDER = {
 	"LiquidController", -- the loaded-liquid readout on the wash pad; reads LiquidState + PlotState
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState
 	"TreadmillController", -- the speed-training card and the belt's own motion; reads SpeedState
+	"StationMotionController", -- base machines moving on their own: fans, dial, gauge needle, tub ripples, screen pulse
 	"ItemFxController", -- nuke glow/glass/motion on any `ItemFx`-tagged model, once its crust is off
 	"DetonationController", -- nukes going off: the blast, the crater orb, the lit-fuse warnings; reads Detonation
 	"NameTagController", -- subdued overhead player names; replaces Roblox's bright default tag
