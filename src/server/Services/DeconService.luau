@@ -55,6 +55,10 @@ local Bag = require(Shared.Bag)
 
 local DeconService = {}
 
+--- The walkthroughs a client may mark seen ("tutorialSeen"). An allowlist, so a client
+--- cannot grow `data.tutorialsSeen` with whatever strings it likes.
+local TUTORIALS: { [string]: boolean } = { locker = true }
+
 local stateRemote: any = nil
 local actionRemote: any = nil
 local resultRemote: any = nil
@@ -212,6 +216,8 @@ local function stepPlayer(player: Player, _dt: number)
 		items = carried,
 		locker = locker,
 		lockerSlots = Tuning.LOCKER_SLOTS,
+		-- Owed the locker's first-visit walkthrough (client/LockerTutorial)?
+		lockerTutorial = kind == "locker" and table.find(data.tutorialsSeen, "locker") == nil,
 	})
 end
 
@@ -298,6 +304,11 @@ function DeconService.start()
 			resultRemote:FireClient(player, message)
 			if ok then
 				print(`[shop] {player.Name}: {message}`)
+			end
+		elseif request.action == "tutorialSeen" then
+			local id = request.id
+			if type(id) == "string" and TUTORIALS[id] and table.find(data.tutorialsSeen, id) == nil then
+				table.insert(data.tutorialsSeen, id)
 			end
 		elseif request.action == "store" or request.action == "take" then
 			-- The locker panel's two verbs. Standing at your own rack is the gate; the

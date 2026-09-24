@@ -113,6 +113,7 @@ local ToolModels = require(Shared.ToolModels)
 local UIKit = require(script.Parent.Parent.UIKit)
 local TraderPanel = require(script.Parent.Parent.TraderPanel)
 local LockerPanel = require(script.Parent.Parent.LockerPanel)
+local LockerTutorial = require(script.Parent.Parent.LockerTutorial)
 
 local Station = {}
 
@@ -330,6 +331,13 @@ local BROWSE_PROMPT = "ViewShop"
 local LOCKER_PROMPT = "OpenLocker"
 local LOCKER_PRESS_GRACE = 1.5
 local lockerPressedAt = -math.huge
+
+--- THE LOCKER'S FIRST-VISIT TUTORIAL (client/LockerTutorial): a spotlight walk over the
+--- panel, owed while the server's `lockerTutorial` is true. `tutorial` is the running
+--- one; `tutorialDone` stops it re-running this session in the tick or two before the
+--- server's flag catches up with the "tutorialSeen" we sent.
+local tutorial: { stop: () -> () }? = nil
+local tutorialDone = false
 
 --- Does THIS shop actually have a browse prompt standing in the world?
 ---
@@ -1637,7 +1645,53 @@ local function defaultShopFocus(tiers: { any }): number
 	return math.max(current, 1)
 end
 
+--- Start the locker tutorial the first time its panel is on screen, and drop it the
+--- moment the panel is not (walked off, closed). Deferred a frame on start, so the
+--- panel has laid out before the spotlight measures it.
+local function syncTutorial()
+	local lockerOpen = state.station == "locker" and not dismissed
+	if not lockerOpen then
+		if tutorial then
+			tutorial.stop()
+		end
+		return
+	end
+	if tutorial or tutorialDone or state.lockerTutorial ~= true then
+		return
+	end
+	local parts = ui.locker.parts
+	tutorial = LockerTutorial.run({
+		{
+			target = parts.header,
+			title = "QUARANTINE LOCKER",
+			body = "Park finds here instead of carrying them. Anything sealed in a tube stops decaying, for good.",
+		},
+		{
+			target = parts.rack,
+			title = "8 TUBES",
+			body = "One find per tube. Under each is the hose that washes it at full speed: green pips are what your hose covers, red is how far short it is.",
+		},
+		{
+			target = parts.bag,
+			title = "YOUR BAG",
+			body = "Pick a find from your bag to seal it in. Crusted ??? finds stay crusted in here.",
+		},
+		{
+			target = parts.action,
+			title = "SEAL IN, TAKE OUT",
+			body = "This button seals the find you picked. Pick a tube instead to take it back out, once there is room in your bag.",
+		},
+	}, function(finished)
+		tutorial = nil
+		if finished then
+			tutorialDone = true
+			actionRemote:FireServer({ action = "tutorialSeen", id = "locker" })
+		end
+	end)
+end
+
 local function render()
+	task.defer(syncTutorial)
 	if state.station == nil or dismissed or not PANEL_KINDS[state.station] then
 		ui.panel.Visible = false
 		ui.closeButton.Visible = false

@@ -231,6 +231,8 @@ end
 
 export type Panel = {
 	frame: Frame,
+	--- The pieces the first-visit tutorial (client/LockerTutorial) spotlights.
+	parts: { header: Frame, rack: ScrollingFrame, bag: Frame, action: Frame },
 	paint: (state: any) -> (),
 	onStore: (callback: (uid: string) -> ()) -> (),
 	onTake: (callback: (uid: string) -> ()) -> (),
@@ -832,6 +834,7 @@ function LockerPanel.new(parent: Instance, layoutOrder: number): Panel
 
 	return {
 		frame = root,
+		parts = { header = header, rack = rack, bag = bag, action = action },
 		paint = function(state: any)
 			paint(state)
 		end,
