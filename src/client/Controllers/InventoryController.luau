@@ -258,10 +258,8 @@ local function buildBagTile(row: Frame)
 	stroke.Thickness = 1.5
 	stroke.Parent = tile
 
-	-- No key hint on touch: there is no ` key to press, the tile itself is the button.
-	if not UIKit.isTouch() then
-		backtickCap(tile, 15, UDim2.fromOffset(5, 5))
-	end
+	-- No ` key hint on the tile, on request: players are expected to know the key,
+	-- and the panel's own header still says how to close it.
 
 	UIKit.label(tile, {
 		name = "Title",
