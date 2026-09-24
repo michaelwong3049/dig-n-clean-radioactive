@@ -1395,9 +1395,10 @@ function Spec.run(): boolean
 
 	-- PLAN §Step 2 — THE PULL FUSE (Config/Detonation). Lock onto a nuke and its fuse
 	-- lights; let go before ARM_AT and you walk away, hang on past it and you pull it out
-	-- or it goes off and leaves a burning crater. These pin the shape: about thirty
-	-- seconds, rarer is shorter, bigger is longer, an honest pull never arms, and the
-	-- bang scales with the find.
+	-- or it goes off and leaves a burning crater. These pin the shape: about twenty
+	-- seconds on average but wildly uneven (5-30s, some hair-triggers under eight),
+	-- rarer is shorter, bigger is longer, an honest pull never arms, and the bang scales
+	-- with the find.
 	do
 		local D = DetonationConfig
 
@@ -1421,17 +1422,42 @@ function Spec.run(): boolean
 
 		local ordinary = Detonation.baseWindow("Uncommon", D.WEIGHT_REF_KG)
 		check(
-			string.format("§fuse an ordinary Uncommon gets about thirty seconds: %.1fs (want 25-35)", ordinary),
-			ordinary >= 25 and ordinary <= 35
+			string.format("§fuse an ordinary Uncommon is centred on about twenty seconds: %.1fs (want 15-25)", ordinary),
+			ordinary >= 15 and ordinary <= 25
 		)
 
-		-- THE FAIRNESS FLOOR, and the reason the window is not a flat thirty seconds.
-		-- Every stocked item, in every stage it stocks, buried at its rarity's DEEPEST
-		-- (full jitter), pulled with the magnet rated for that soil at REF_CPS, has to be
-		-- out of the ground by SAFE_AT of its window -- so an honest pull on your own tier
-		-- never even gets near the arm line. The pull is re-derived here from Tuning the
-		-- way DigService runs it, not read back through Detonation.ratedRope.
+		-- THE TEMPER: every nuke rolls its own multiplier off its uid, and the bands that
+		-- make the roll have to be well-formed (the same three rules Payload.BANDS keeps).
+		local bandsOrdered, bandTotal, bandLow = true, 0, D.TEMPER_MIN
+		for _, band in D.TEMPER_BANDS do
+			if band.upTo <= bandLow or band.chance <= 0 then
+				bandsOrdered = false
+			end
+			bandLow = band.upTo
+			bandTotal += band.chance
+		end
+		check("§fuse temper bands ascend from TEMPER_MIN with a positive chance each", bandsOrdered)
+		check(string.format("§fuse temper chances total 100 (got %d)", bandTotal), bandTotal == 100)
+		check(
+			"§fuse temper roll runs from TEMPER_MIN up to the last band's edge",
+			math.abs(Detonation.temperFromRoll(0) - D.TEMPER_MIN) < 1e-9
+				and math.abs(Detonation.temperFromRoll(0.999999) - bandLow) < 1e-3
+		)
+		check(
+			"§fuse a nuke's temper is fixed by its uid (both sides of the network read one number)",
+			Detonation.temperFor("spec-uid-a") == Detonation.temperFor("spec-uid-a")
+		)
+
+		-- THE WINDOWS THEMSELVES. Every stocked item, in every stage it stocks, buried at
+		-- its rarity's DEEPEST (full jitter), across a spread of uids. Independent of
+		-- Detonation's own pieces: the rated pull is re-derived here from Tuning the way
+		-- DigService runs it, not read back through Detonation.ratedRope / floorFor.
+		local SAMPLES = 40
+		local windowSum, windowSq, windowCount, underEight = 0, 0, 0, 0
+		local windowMin, windowMax = math.huge, 0
+		local rangeHeld, floorHeld = true, true
 		local worstFrac, worstId = 0, "none"
+		local worstSustained, worstSustainedId = 0, "none"
 		for _, item in Items.DEFS do
 			local order = Rarity.get(item.rarity).order
 			local depth = Tuning.DIG_DEPTH_BASE + (order - 1) * Tuning.DIG_DEPTH_PER_RARITY + Tuning.DIG_DEPTH_JITTER
@@ -1442,22 +1468,98 @@ function Spec.run(): boolean
 				if item.rarity == "Common" then
 					rope *= Tuning.PULL_HOME_COMMON_EASE
 				end
-				local rate = D.REF_CPS * Tuning.PULL_YANK_PER_CLICK * magnet.pullSpeed - (Tuning.PULL_DRAG_RATE - magnet.draw)
-				local frac = (rope / rate) / Detonation.windowFor(item.rarity, item.weight, depth, soil)
-				if frac > worstFrac then
-					worstFrac, worstId = frac, item.id
+				local function rateAt(cps: number): number
+					return cps * Tuning.PULL_YANK_PER_CLICK * magnet.pullSpeed - (Tuning.PULL_DRAG_RATE - magnet.draw)
+				end
+				-- What the fairness floor asks for, and what it can actually give: the
+				-- floor lifts a fuse up to MAX_WINDOW and no further.
+				local needed = rope / rateAt(D.REF_CPS) / D.SAFE_AT
+				local floorWindow = math.clamp(needed, D.MIN_WINDOW, D.MAX_WINDOW)
+				for sample = 1, SAMPLES do
+					local window = Detonation.windowFor(item.rarity, item.weight, depth, soil, `spec:{item.id}:{stageId}:{sample}`)
+					windowSum += window
+					windowSq += window * window
+					windowCount += 1
+					windowMin, windowMax = math.min(windowMin, window), math.max(windowMax, window)
+					if window < 8 then
+						underEight += 1
+					end
+					if window < D.MIN_WINDOW - 1e-9 or window > D.MAX_WINDOW + 1e-9 then
+						rangeHeld = false
+					end
+					-- Never shorter than the floor allows for this pull...
+					if window < floorWindow - 1e-9 then
+						floorHeld = false
+					end
+					-- ...so wherever the floor CAN be met, the rated magnet at REF_CPS lands
+					-- the nuke by SAFE_AT of its window.
+					if needed <= D.MAX_WINDOW then
+						local frac = (rope / rateAt(D.REF_CPS)) / window
+						if frac > worstFrac then
+							worstFrac, worstId = frac, item.id
+						end
+					end
+				end
+				-- The promise for the pulls the cap leaves short: even against the
+				-- SHORTEST window this pull can have, a rated magnet at the sustained mash
+				-- rate lands it before it arms.
+				local sustained = (rope / rateAt(Tuning.PULL_YANK_SUSTAINED_CPS)) / floorWindow
+				if sustained > worstSustained then
+					worstSustained, worstSustainedId = sustained, item.id
 				end
 			end
 		end
+		local mean = windowSum / windowCount
+		local spread = math.sqrt(math.max(0, windowSq / windowCount - mean * mean))
+		local hairTrigger = underEight / windowCount
+
+		check(
+			string.format("§fuse every window sits in %d-%ds: %.1f-%.1fs", D.MIN_WINDOW, D.MAX_WINDOW, windowMin, windowMax),
+			rangeHeld
+		)
+		check(
+			string.format("§fuse the average window is about twenty seconds, down from thirty: %.1fs (want 17-22)", mean),
+			mean >= 17 and mean <= 22
+		)
+		check(
+			string.format("§fuse windows vary widely, not a nudge off one number: sd %.1fs (want >= 6)", spread),
+			spread >= 6
+		)
+		check(
+			string.format("§fuse a real share of nukes are hair-triggers under eight seconds: %.1f%% (want 7-25%%)", hairTrigger * 100),
+			hairTrigger >= 0.07 and hairTrigger <= 0.25
+		)
+		check(
+			string.format("§fuse the slowest burns reach the cap and the fastest the floor: %.1f..%.1fs", windowMin, windowMax),
+			windowMin <= D.MIN_WINDOW + 1 and windowMax >= D.MAX_WINDOW - 1
+		)
+
+		-- THE FAIRNESS FLOOR, and the reason the window is not just the roll. A rated
+		-- magnet at a relaxed REF_CPS must have the nuke out by SAFE_AT of its window
+		-- whenever the cap allows a window that long -- so an honest pull on your own tier
+		-- gets nowhere near the arm line...
+		check("§fuse no window is shorter than its pull's floor (up to the cap)", floorHeld)
 		check(
 			string.format(
-				"§fuse the rated magnet at %d clicks/sec lands every nuke well before it arms: worst %s at %.0f%% (want <= %.0f%%)",
+				"§fuse the rated magnet at %d clicks/sec lands every floor-able nuke well before it arms: worst %s at %.0f%% (want <= %.0f%%)",
 				D.REF_CPS,
 				worstId,
 				worstFrac * 100,
 				D.SAFE_AT * 100
 			),
 			worstFrac <= D.SAFE_AT + 1e-6
+		)
+		-- ...and for the few slow deep pulls the 30s cap cannot cover at REF_CPS, a rated
+		-- magnet mashing at the sustained rate still gets it out before ARM_AT.
+		check(
+			string.format(
+				"§fuse the rated magnet at the sustained %d clicks/sec lands EVERY nuke before it arms: worst %s at %.0f%% (want <= %.0f%%)",
+				Tuning.PULL_YANK_SUSTAINED_CPS,
+				worstSustainedId,
+				worstSustained * 100,
+				D.ARM_AT * 100
+			),
+			worstSustained <= D.ARM_AT + 1e-6
 		)
 
 		check(

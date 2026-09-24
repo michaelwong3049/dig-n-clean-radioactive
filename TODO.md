@@ -484,7 +484,8 @@ the place file has no git history to recover from.
       in every stage resolves to a real item.
 - [x] Stage 2 and Stage 3 loot progression (`Config/Stages.luau` + `DigService.luau`)
 - [x] **The pull fuse** (PLAN §Step 2, "The pull fuse") — locking onto a nuke lights a
-      ~30s fuse (rarer shorter, heavier longer, fairness floor for the rated magnet); let
+      5-30s fuse (~20s average, a per-nuke temper roll with hair-triggers under 8s;
+      rarer shorter, heavier longer, fairness floor for the rated magnet); let
       go before 80% for free, past it you're locked in until it's out or it detonates.
       `HazardService` banks the blast hit and runs the crater orbs, which `ExposureService`
       folds into health burn (HUD says CRATER BURN); `DetonationController` draws the

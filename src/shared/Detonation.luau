@@ -63,23 +63,70 @@ function Detonation.ratedRope(rarity: string, kg: number, depth: number): number
 	return rope
 end
 
---- The rarity/weight window alone, before the fairness floor.
+--- The rarity/weight window alone: the CENTRE a nuke's own temper then swings around,
+--- before the clamp and the fairness floor.
 function Detonation.baseWindow(rarity: string, kg: number): number
 	local mult = Cfg.RARITY_WINDOW[rarity] or 1
 	local heft = Weight.pullFactor(kg) / Weight.pullFactor(Cfg.WEIGHT_REF_KG)
 	return Cfg.BASE_WINDOW * mult * heft ^ Cfg.WEIGHT_WINDOW_EXP
 end
 
---- Seconds from lock-on to detonation for this nuke, in this soil, buried this deep.
---- The rarity/weight window, lifted where needed so the rated magnet at REF_CPS lands
---- it by SAFE_AT (Config/Detonation, "The fairness floor").
-function Detonation.windowFor(rarity: string, kg: number, depth: number, soil: number): number
-	local window = Detonation.baseWindow(rarity, kg)
-	local rate = Detonation.refPullRate(soil)
-	if rate > 0 then
-		window = math.max(window, Detonation.ratedRope(rarity, kg, depth) / rate / Cfg.SAFE_AT)
+--- A stable integer for `Random.new` out of a signal uid. Same shape as Payload's and
+--- ItemCrust's own `seedOf`, salted differently ("fuse:") so a nuke's temper does not
+--- correlate with its size roll -- two unrelated facts about one dig.
+local function seedOf(uid: string): number
+	local total = 0
+	for index = 1, #uid do
+		total = (total * 31 + string.byte(uid, index)) % 2147483647
 	end
-	return window
+	return total
+end
+
+--- The multiplier a raw [0,1) roll maps to under TEMPER_BANDS: walk the bands until
+--- the roll's share of 100 runs out, then land that far across the band. Split out of
+--- temperFor so Spec can pin the band edges exactly, not by sampling.
+function Detonation.temperFromRoll(roll: number): number
+	local pick = roll * 100
+	local low = Cfg.TEMPER_MIN
+	for _, band in Cfg.TEMPER_BANDS do
+		if pick < band.chance then
+			return low + (band.upTo - low) * (pick / band.chance)
+		end
+		pick -= band.chance
+		low = band.upTo
+	end
+	return low
+end
+
+--- This nuke's temper: the fuse-length multiplier it was born with, in
+--- TEMPER_MIN..the last band's `upTo`. Deterministic per uid -- ask as often as you
+--- like, from either side of the network.
+function Detonation.temperFor(uid: string): number
+	local rng = Random.new(seedOf("fuse:" .. uid))
+	return Detonation.temperFromRoll(rng:NextNumber())
+end
+
+--- The shortest window the fairness floor allows for this pull: the time the RATED
+--- magnet at REF_CPS needs, divided by SAFE_AT so it lands with room to spare. 0 when
+--- the rated magnet cannot make headway at all (no floor to size off).
+function Detonation.floorFor(rarity: string, kg: number, depth: number, soil: number): number
+	local rate = Detonation.refPullRate(soil)
+	if rate <= 0 then
+		return 0
+	end
+	return Detonation.ratedRope(rarity, kg, depth) / rate / Cfg.SAFE_AT
+end
+
+--- Seconds from lock-on to detonation for this nuke, in this soil, buried this deep.
+--- The rarity/weight window swung by the nuke's own temper, lifted where needed so the
+--- rated magnet at REF_CPS lands it by SAFE_AT (Config/Detonation, "The fairness
+--- floor"), and clamped into MIN_WINDOW..MAX_WINDOW. The clamp is last: the floor can
+--- lift a fuse up to MAX_WINDOW and no further, so the few slowest pulls can outrun
+--- their fuse at a relaxed click rate -- they want a better magnet or a quicker thumb.
+function Detonation.windowFor(rarity: string, kg: number, depth: number, soil: number, uid: string): number
+	local rolled = Detonation.baseWindow(rarity, kg) * Detonation.temperFor(uid)
+	local window = math.max(rolled, Detonation.floorFor(rarity, kg, depth, soil))
+	return math.clamp(window, Cfg.MIN_WINDOW, Cfg.MAX_WINDOW)
 end
 
 --- One tick of a fuse. `burning` is true while anybody's magnet is on it OR once it

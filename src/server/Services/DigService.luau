@@ -1260,7 +1260,7 @@ local function stepPlayer(player: Player, dt: number)
 	local fuseWindow: number? = nil
 	if isLocked and crateId == nil then
 		local item = Items.get(itemId)
-		fuseWindow = Detonation.windowFor(rarity, item.weight, signal.depth, signal.soil)
+		fuseWindow = Detonation.windowFor(rarity, item.weight, signal.depth, signal.soil, signal.uid)
 		local claim = fuseClaims[signal.uid]
 		if claim == nil or (fuseWindow :: number) < claim.window then
 			fuseClaims[signal.uid] = {
