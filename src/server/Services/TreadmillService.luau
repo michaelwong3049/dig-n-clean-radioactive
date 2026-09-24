@@ -5,10 +5,9 @@
 	THE BELT IS A PLACE, NOT A BUTTON. There is no "start training" action and no
 	session to open: `StationService.onChanged` says the moment a player's feet land
 	inside a `StationKind = "treadmill"` radius, and from then until they step off,
-	the tick loop below banks training. That is the wash pad's roller edge exactly
-	(Services/LiquidService's header explains why arriving IS the input), minus the
-	one-shot — the pad pays out once on the edge, this pays out continuously between
-	two edges.
+	the tick loop below banks training. That is the same arrival edge the old wash
+	pad rolled on (and DeconService still docks on), minus the one-shot — the pad paid
+	out once on the edge, this pays out continuously between two edges.
 
 	NOBODY IS EVER ROOTED BY THIS, on purpose. DigService's haul lock and WashService's
 	session both pin WalkSpeed to zero and both carry a written-down list of every path

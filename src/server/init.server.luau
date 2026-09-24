@@ -34,7 +34,7 @@ local ORDER = {
 	"ExhibitService", -- plot assignment, display/undisplay, yield accrual; needs Station + Economy
 	"TreadmillService", -- the speed grind on your plot's belt; needs Station + Economy + Exhibit
 	"WarpService", -- the top-of-screen bar's teleport; needs Stage + Camp + Dig + Exhibit + Exposure
-	"LiquidService", -- the wash pad: rolling liquids, charges, equip; needs Station + Economy
+	"LiquidService", -- the fluid bottle: spinning liquids, charges, equip; needs Exhibit
 	"WashService", -- the hose bay: the E-to-wash session; needs Carry + Liquid + Economy
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel
 	"ToolService", -- held models; reads DigService + DeconService + WashService state

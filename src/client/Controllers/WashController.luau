@@ -1774,9 +1774,9 @@ end
 --- reticle/wipe layer) is the one thing that must stay on, since it is what the
 --- session is about to look through.
 ---
---- LayerCollector, not ScreenGui: LiquidController's loaded-fluid readout is a
---- BillboardGui adorned to the wash pad, and it hangs in the world where the shot can
---- see it. This view shows the fluid on its own clean bar (WashFluidBar) instead.
+--- LayerCollector, not ScreenGui: any client BillboardGui under PlayerGui hangs in the
+--- world where the shot can see it. This view shows the fluid on its own clean bar
+--- (WashFluidBar) instead.
 local function hideHud()
 	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
 	if playerGui == nil then

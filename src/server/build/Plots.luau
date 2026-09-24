@@ -90,7 +90,8 @@
 	    │   [stand] ║ [stand] ║ [stand]        │
 	    │   ═══════ cross band ═══════         │
 	    ├──────── original front edge ─────────┤
-	    │  WASHER + HOSE  [locker]  WASH PAD   │
+	    │  [locker]                            │
+	    │  WASHER [bottle]  [luck]  TREADMILL  │
 	    │           ║ entry (spawn) ║          │
 	    └──────────[post]══arch══[post]───────┘
 
@@ -112,9 +113,10 @@
 	right then back row to front row — slot 1 is back-left, slot 3 is back-right,
 	slot 12 is front-right (`slotOffset`). Also slightly bigger than the old
 	plinths (RISER_BASE/RISER_TOP/RISER_RIM all up ~20%), on request. The
-	cleansing station and its hose rig occupy the +X side of the entrance
-	extension, the wash pad the -X side, with a deliberate safe gap between their
-	station radii.
+	cleansing station, its hose rig and the fluid bottle occupy the +X side of
+	the entrance extension, the treadmill the -X side (where the wash pad stood
+	until the pad was removed on request), with a deliberate safe gap between
+	their station radii.
 
 	SLOTS: 12 BUILT, ALL FREE.
 	Tuning.EXHIBIT_MAX_SLOTS is 12 and VISIBLE_SLOTS is the 12 the grid above
@@ -157,9 +159,12 @@
 	                ("HoseLine") on HoseReel, from HoseAnchor to that nozzle's HoseEnd.
 	    HoseMast    the post it is bolted to, with HoseMastFoot under it and HoseYoke —
 	                the ball joint — at the top. Decor: nothing reads them.
-	    Plate       StationKind = "roller", Radius = 6 — the wash pad (see
-	                buildWashPad below). One per base, three steps from the basin.
-	    Button      SellsTrack = "Luck" + a ProximityPrompt — the luck button
+	    Bottle      SpinsFluid = true + a ProximityPrompt — the fluid bottle beside
+	                the tub (see buildFluidBottle). E spins for a fluid; LiquidService
+	                wires the prompt at boot, by tag. `Liquid` parts inside
+	                FluidBottle wear the owner's loaded fluid (Plots.setFluidBottle,
+	                written by ExhibitService.renderBottle, never by name elsewhere).
+	    Button     SellsTrack = "Luck" + a ProximityPrompt — the luck button
 	                (see buildLuckButton). ShopService wires the prompt at boot.
 	    Belt        StationKind = "treadmill", Radius = 5 — the treadmill's running
 	                surface (see buildTreadmill). Standing on it IS training; no
@@ -195,7 +200,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 54
+local BUILDER_VERSION = 55
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -203,7 +208,7 @@ local build, light, billboard = Kit.build, Kit.light, Kit.billboard
 --- A Kit.billboard whose subtitle is painted in the plot's accent colour. Tags that
 --- Subtitle label `Accent` so Plots.setPlotAccent finds and repaints it alongside the
 --- Trim and the avatar plate's Ring. Same args as `billboard`; drop-in for the two
---- plot signs (cleansing station, wash pad) that pass `accent` as their subtitle
+--- plot signs (cleansing station, fluid bottle) that pass `accent` as their subtitle
 --- colour.
 local function accentBillboard(part: BasePart, width: number, height: number, title: string, subtitle: string, accent: string)
 	local gui = billboard(part, width, height, title, subtitle, accent)
@@ -794,7 +799,7 @@ type RingSpec = {
 	material: string?,
 	studs: boolean?,
 	canCollide: boolean?,
-	skip: ((number) -> boolean)?, -- leave segment i out (the wash pad's open mouth)
+	skip: ((number) -> boolean)?, -- leave segment i out (an open mouth)
 }
 
 --- A regular polygon of wall segments round (cx, cz). Segment `i` faces out along
@@ -1936,324 +1941,206 @@ end
 --- function for that pivot.
 Plots.buildCleansingStation = buildCleansingStation
 
---- The wash pad — step on it, roll a liquid (Config/Liquids, Services/LiquidService).
+--- The fluid bottle — a big glass bottle standing beside the tub, full of whatever
+--- fluid its owner has loaded in the hose (Config/Liquids, Services/LiquidService).
 ---
---- A PRESSURE PLATE, NOT A KIOSK, and the shape is the instruction. There is no
---- button to press and no panel to open first: `StationKind = "roller"` plus
---- StationService's entry edge means arriving IS the input. A five-year-old walks
---- onto a lit circle to see what happens, which is the entire onboarding this
---- mechanic gets, so the circle has to look like something you step on.
+--- IT REPLACED THE WASH PAD, on request. The pad was a step-on pressure plate across
+--- the aisle that charged a fee per roll and flashed its result on its own sign; the
+--- user wanted the mechanic simpler and next to the tub it feeds. So the liquid now
+--- lives in one object you can read from across the base -- the colour in the bottle
+--- IS the loaded fluid -- and pressing E on it opens a spin on your screen
+--- (LiquidController) that lands on a fluid. When the spin lands, the bottle
+--- recolours (LiquidService delays the repaint until then).
 ---
---- BESIDE THE BASIN, BUT THE TWO RADII MUST NOT TOUCH, and that is a correctness
---- constraint rather than a layout preference. Rolling fires off StationService's
---- ENTRY EDGE and costs cash, so a player scrubbing at the basin who drifts into an
---- overlapping roller radius gets charged for a roll they never asked for. Nearest
---- station wins, which resolves an overlap for *rendering* but not for that edge.
+--- FREE, ON A COOLDOWN. Tuning.LIQUID_SPIN_COOLDOWN is the only limiter now; there
+--- is no fee and no first-roll-free special case. While it runs, the prompt's own
+--- ActionText counts down, so the answer to "why won't it spin" is on the bottle.
 ---
---- So: basin at local (18, -32) with radius 9, pad at (-22, -31) with radius 6.
---- Centres are ~40 studs apart against a 15-stud combined reach, leaving a broad
---- central aisle and making an accidental paid roll impossible. Keep that gap if
---- either number moves.
+--- IN THE LOCKER'S OLD SPOT. The Quarantine Locker moved back toward the stand grid
+--- to make room (buildQuarantineLocker), so the bottle stands right behind the tub on
+--- the +X side, inside the accent trim at x ~= 32. Round, so it needs no pivot: every
+--- part below is written straight in plot space.
 ---
---- THE PLINTH DOWN ITS -X EDGE IS THE ODDS TABLE, RENDERED. Five glass jars filled
---- with the top five liquids, biggest prize at the far end. It teaches "there are
---- better ones than what you just got" without a tooltip, and it costs a handful of
---- parts.
----
---- REDETAILED TO MATCH THE CLEANSING STATION (on request, the branch after that
---- rebuild). The pad was a bare metal disc, a wood bench and five loose canisters --
---- the thin-steel-and-timber look the bay across the aisle had just moved away from.
---- It is the same studded-block kit now: `BODY` the base-course grey, `FACE` the
---- lighter cap grey (the display-plinth / cleansing-station pair), `LINER` the dark
---- recess, `FIT` the plate's own metal. NOTHING THE SERVICES READ MOVED: the plate
---- keeps its exact plot centre and Radius (so the ~47-stud gap to the basin that
---- World.verify() enforces is untouched), `Glow` is still a BasePart sibling of the
---- plate that LiquidService flashes, and the `Sign` billboard is still on the plate.
-local function buildWashPad(parent: Instance, origin: CFrame, accent: string)
+--- THE PROMPT SHARES E WITH THE TUB'S "Wash" PROMPT, on a different part ~10 studs
+--- away. A prompt's default Exclusivity is OnePerButton -- Roblox shows one E prompt
+--- at a time, whichever you are nearest -- so walking up to the bottle offers the
+--- spin and walking up to the tub offers the wash. (The known-unreliable case is two
+--- prompts on the SAME part; this is two parts.)
+local BOTTLE = {
+	x = 29,
+	z = -22.5,
+}
+
+local function buildFluidBottle(parent: Instance, origin: CFrame, accent: string)
 	local m = Instance.new("Model")
-	m.Name = "WashPad"
-	local pad = Plots.PAD
-	local T = pad.topY
-	-- Negative local X is the player's RIGHT when approaching from the entrance.
-	local cx, cz = -22, -31
+	m.Name = "FluidBottle"
+	local T = Plots.PAD.topY
+	local bx, bz = BOTTLE.x, BOTTLE.z
+	local BODY, FACE, FIT = C.standGreyDark, C.standGrey, C.steelDark
+	local water = Liquids.get(Liquids.WATER).color
 
-	-- TURNED A QUARTER-TURN THE OTHER WAY so the odds plinth BACKS ONTO THE -X SIDE
-	-- BORDER: the plate faces the central aisle and the canister plinth lines the pad's
-	-- own left edge instead of standing in the strip. Applied to `origin` about the
-	-- pad's centre so every part below stays in local space; the plate and its Radius
-	-- sit on the pivot. The turn puts the deck's -X kerb a stud inside the accent trim
-	-- (x ~= -31 against the trim at -32) and the small +X nudge (plot-local, before the
-	-- pivot) keeps the plinth clear of it. The roll costs cash off StationService's
-	-- entry edge, so the centre-to-centre gap to the basin that World.verify() enforces
-	-- has to survive this: the plate lands near x = -21 against the basin's x ~= 26 --
-	-- ~47 studs, well past the 15 reach.
-	origin = origin
-		* CFrame.new(1, 0, 0)
-		* CFrame.new(cx, 0, cz)
-		* CFrame.Angles(0, math.rad(-90), 0)
-		* CFrame.new(-cx, 0, -cz)
+	-- A studded two-step plinth, the display plinths' pair of greys, so the bottle
+	-- reads as set down on the base like every other machine rather than on the floor.
+	build(m, origin, { name = "BottlePlinth", pos = { bx, T + 0.3, bz }, size = { 4.4, 0.6, 4.4 }, color = BODY, material = "Plastic", studs = true })
+	build(m, origin, { name = "BottlePlinthCap", pos = { bx, T + 0.7, bz }, size = { 3.8, 0.2, 3.8 }, color = FACE, material = "Plastic", studs = true })
+	local baseY = T + 0.8
 
-	-- Authoring runs in the pad's own pre-pivot frame: +x here ends up +Z on the plot
-	-- (toward the interior), +z ends up -X (toward the side border). The plate sits on
-	-- the pivot at (cx, cz); everything else is an offset from it.
-	local BODY, FACE, LINER, FIT = C.standGreyDark, C.standGrey, C.drain, C.steelDark
-
-	-- ── The deck ──────────────────────────────────────────────
-	-- One studded plate the pad stands on, kerbed round the edge, top a hair proud of
-	-- the floor (T + 0.15) -- the same threshold-not-a-step the cleansing station deck
-	-- across the aisle uses, so the two read as one installation. It runs from a stud
-	-- inside the -X trim to flush with the plate's aisle edge; the luck button still
-	-- stands a couple of studs off that edge on the bare floor, as it did before.
-	build(m, origin, { name = "Deck", pos = { cx + 0.5, T - 0.35, cz + 2.5 }, size = { 13, 1.0, 15 }, color = BODY, material = "Plastic", studs = true })
-	for _, e in {
-		{ x = cx + 0.5, z = cz - 5, sx = 13.6, sz = 0.6 },
-		{ x = cx + 0.5, z = cz + 10, sx = 13.6, sz = 0.6 },
-		{ x = cx + 7, z = cz + 2.5, sx = 0.6, sz = 15.6 },
-		{ x = cx - 6, z = cz + 2.5, sx = 0.6, sz = 15.6 },
-	} do
-		build(m, origin, { name = "DeckKerb", pos = { e.x, T + 0.25, e.z }, size = { e.sx, 0.35, e.sz }, color = FACE, material = "Plastic", studs = true, canCollide = false })
-	end
-
-	-- ── The well: the step-plate, in a round kerb ─────────────
-	-- The disc drops into a shallow dark tray and a studded kerb curves round it, open
-	-- toward the aisle so you walk straight in over a flush threshold. A proud lip caps
-	-- the kerb, and you look over it and DOWN at the lit disc. All of it CanCollide off --
-	-- framing, not a barrier, like the tub rim.
-	--
-	-- ROUND, AND BLUE. It was a square U of grey bars round a round plate, which read as
-	-- a crate with a disc dropped in it. Twelve studded facets follow the plate instead,
-	-- the three that would face the aisle left out for the mouth, a round post with a
-	-- ball on it finishing each end. `PAD_KERB` is the pad's own colour -- the tub across
-	-- the aisle is white, the pump yellow, and a grey pad was the one machine you could
-	-- not pick out from the fence behind it. The mouth ends sit further from the luck
-	-- button than the old U's did, not closer.
-	local PAD_KERB, PAD_LIP = "3A7DC4", "DCE6EE"
-	local WELL_SIDES, WELL_APOTHEM = 12, 5.3
-	local function mouth(i: number): boolean
-		return i >= 5 and i <= 7 -- the three facets facing authored -z, the aisle
-	end
-	build(m, origin, {
-		name = "WellLiner",
-		pos = { cx, T + 0.15, cz },
-		size = { 0.9, 9.7, 9.7 },
-		color = LINER,
+	-- The fluid: near-opaque and filling most of the body, so its colour carries from
+	-- across the base. Deliberately matte with a faint light -- nuke FX are the only
+	-- thing on a base allowed to glow (nuke-fx-neon-exception). Plots.setFluidBottle
+	-- repaints every part named `Liquid` and its light.
+	local fill = build(m, origin, {
+		name = "Liquid",
+		pos = { bx, baseY + 0.1 + 1.65, bz },
+		size = { 3.3, 2.7, 2.7 },
+		color = water,
 		material = "SmoothPlastic",
 		shape = "Cylinder",
 		rot = Kit.R.cylUp,
+		transparency = 0.05,
 		canCollide = false,
 	})
-	polygonRing(m, origin, {
-		name = "WellKerb",
-		sides = WELL_SIDES,
-		cx = cx,
-		cz = cz,
-		apothem = WELL_APOTHEM,
-		thickness = 1.2,
-		y = T + 0.55,
-		height = 1.5,
-		color = PAD_KERB,
-		studs = true,
-		canCollide = false,
-		skip = mouth,
-	})
-	polygonRing(m, origin, {
-		name = "WellLip",
-		sides = WELL_SIDES,
-		cx = cx,
-		cz = cz,
-		apothem = WELL_APOTHEM,
-		thickness = 1.6,
-		y = T + 1.45,
-		height = 0.3,
-		color = PAD_LIP,
-		studs = true,
-		canCollide = false,
-		skip = mouth,
-	})
-	-- The two ends of the horseshoe: the vertices either side of the mouth.
-	for _, i in { 4, 7 } do
-		local vx, vz = ringVertex(WELL_SIDES, cx, cz, WELL_APOTHEM, i)
-		build(m, origin, { name = "WellEnd", pos = { vx, T + 0.7, vz }, size = { 1.8, 1.4, 1.4 }, color = PAD_LIP, material = "Plastic", studs = true, shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
-		build(m, origin, { name = "WellEndCap", pos = { vx, T + 1.6, vz }, size = { 1.4, 1.4, 1.4 }, color = PAD_KERB, material = "Plastic", studs = true, shape = "Ball", canCollide = false })
-	end
+	light(fill, water, 10, 0.35, false)
 
-	-- ── The plate and its lit disc ────────────────────────────
-	-- The plate keeps its exact plot position and Radius (see the pivot note above);
-	-- only its height changed, up onto the tray floor. Still a bare metal disc -- the
-	-- one thing here that is not a studded block -- so it still reads as a surface you
-	-- step onto, now cupped in the well. Cylinder on its end (Kit.R.cylUp), so `size`
-	-- reads {thickness, diameter, diameter}.
-	local plate = build(m, origin, {
-		name = "Plate",
-		pos = { cx, T + 0.7, cz },
-		size = { 0.3, 9, 9 },
-		color = FIT,
-		material = "Metal",
-		shape = "Cylinder",
-		rot = Kit.R.cylUp,
-		attributes = { StationKind = "roller", Radius = 6 },
-	})
-	accentBillboard(plate, 250, 5.0, "WASH PAD", `first roll free, then ${Tuning.LIQUID_ROLL_COST}`, accent)
-
-	-- The inner disc is coloured water and deliberately matte -- LiquidService flashes
-	-- its Color on a roll and eases it back, and a Neon centre made it compete with
-	-- the field and lit the canisters. Sits just above the plate, down in the well.
-	local disc = build(m, origin, {
-		name = "Glow",
-		pos = { cx, T + 0.9, cz },
-		size = { 0.22, 7.8, 7.8 },
-		color = Liquids.get(Liquids.WATER).color,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = Kit.R.cylUp,
-		transparency = 0.12,
-		canCollide = false,
-	})
-	-- Shadows off, same reason as the cleansing station's Lamp.
-	light(disc, Liquids.get(Liquids.WATER).color, 10, 0.35, false)
-
-	-- THE DIAL: twelve studded ticks on the plate's bare metal ring, round the disc,
-	-- alternating white and hazard yellow and turning slowly (StationMotionController).
-	-- This pad is a wheel of chance you stand on, and a ring going round is the one
-	-- thing that says so before anyone reads the sign. Its own Model so it turns as one
-	-- about the plate's centre, streamed as a unit so no tick is ever left behind.
-	local dial = Instance.new("Model")
-	dial.Name = "PadDial"
-	dial.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
-	for k = 0, 11 do
-		local deg = k * 30 + 15
-		local a = math.rad(deg)
-		build(dial, origin, {
-			name = "DialTick",
-			pos = { cx + 4.2 * math.sin(a), T + 0.9, cz + 4.2 * math.cos(a) },
-			size = { 0.3, 0.1, 0.5 },
-			color = if k % 2 == 0 then C.labelText else C.hazard,
-			material = "Plastic",
-			studs = true,
-			rot = Kit.ang(0, deg, 0),
-			canCollide = false,
-		})
-	end
-	dial.WorldPivot = origin * CFrame.new(cx, T + 0.9, cz)
-	dial.Parent = m
-	Kit.motion(dial, { kind = "spin", axis = "Y", rate = 0.25 })
-
-	-- ── The odds shelf: a studded plinth down the -X edge ─────
-	-- The same two-course studded riser as a display stand, run long against the
-	-- border, with the prize jars seated in a shallow dark channel in the top course
-	-- and a low FACE back-board behind them. Still "there are better ones than this"
-	-- told in five filled jars and no tooltip -- just built like the base now.
-	local shelfZ = cz + 7.4
-	build(m, origin, { name = "PadShelf", pos = { cx, T + 0.6, shelfZ }, size = { 12, 0.9, 2.4 }, color = BODY, material = "Plastic", studs = true })
-	build(m, origin, { name = "PadShelfTop", pos = { cx, T + 1.35, shelfZ }, size = { 11, 0.6, 2.0 }, color = FACE, material = "Plastic", studs = true })
-	build(m, origin, { name = "PadShelfChannel", pos = { cx, T + 1.5, shelfZ }, size = { 9.6, 0.35, 1.1 }, color = LINER, material = "SmoothPlastic", canCollide = false })
-	build(m, origin, { name = "PadShelfBoard", pos = { cx, T + 2.55, cz + 8.45 }, size = { 12, 2.2, 0.3 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
-
-	-- One prize = one specimen jar: a near-clear glass body with the liquid itself
-	-- sitting inside it and a dark metal lid, rather than a solid slug in the liquid's
-	-- colour. The glass is a neutral off-white and mostly transparent -- NOT C.glass,
-	-- whose blue tint shifted the colour you actually came to read -- so the fill reads
-	-- true; the fill is near-opaque and fills most of the jar so it still carries from
-	-- across the pad. Base sits in the channel (T + 1.55).
-	--
-	-- SHOULDERED, AND BUBBLING. A straight cylinder under a lid wider than itself read
-	-- as a tin can. The body now rounds in at the top (a squashed sphere mesh, since a
-	-- Ball part can only be round -- roblox-cylinder-ball-no-ellipse) to a narrow neck
-	-- and a small lid, and bubbles rise through the fill. The bubbles are particles, so
-	-- they animate themselves with no script, and `ZOffset` draws them just in front of
-	-- the near-opaque fill rather than hidden inside it.
-	local jarGlass = "F1F1F2"
-	local function glass(name: string, pos: { number }, size: { number }, shape: string?): BasePart
+	-- The glass: a near-clear neutral, NOT C.glass, whose blue tint would shift the
+	-- colour you came to read (the same call the wash pad's specimen jars made).
+	local GLASS = "F1F1F2"
+	local function glass(name: string, pos: { number }, size: { number }, shape: string?, attributes: { [string]: any }?): BasePart
 		local part = build(m, origin, {
 			name = name,
 			pos = pos,
 			size = size,
-			color = jarGlass,
+			color = GLASS,
 			material = "SmoothPlastic",
 			shape = shape,
 			rot = if shape == "Cylinder" then Kit.R.cylUp else nil,
 			transparency = 0.58,
-			canCollide = false,
+			canCollide = attributes ~= nil,
+			attributes = attributes,
 		})
 		part.Reflectance = 0.06
 		return part
 	end
-	local function jar(x: number, id: string)
-		local def = Liquids.get(id)
-		local baseY = T + 1.55
-		build(m, origin, {
-			name = "JarFill",
-			pos = { x, baseY + 0.55, shelfZ },
-			size = { 0.95, 1.05, 1.05 },
-			color = def.color,
-			material = "SmoothPlastic",
-			shape = "Cylinder",
-			rot = Kit.R.cylUp,
-			transparency = 0.05,
-			canCollide = false,
-		})
-		glass("Jar", { x, baseY + 0.65, shelfZ }, { 1.2, 1.35, 1.35 }, "Cylinder")
-		local shoulder = glass("JarShoulder", { x, baseY + 1.25, shelfZ }, { 1, 1, 1 })
-		local dome = Instance.new("SpecialMesh")
-		dome.MeshType = Enum.MeshType.Sphere
-		dome.Scale = Vector3.new(1.35, 0.5, 1.35)
-		dome.Parent = shoulder
-		glass("JarNeck", { x, baseY + 1.55, shelfZ }, { 0.2, 0.8, 0.8 }, "Cylinder")
-		build(m, origin, {
-			name = "JarLid",
-			pos = { x, baseY + 1.76, shelfZ },
-			size = { 0.22, 0.95, 0.95 },
-			color = FIT,
-			material = "Metal",
-			shape = "Cylinder",
-			rot = Kit.R.cylUp,
-			canCollide = false,
-		})
 
-		-- Rising from a patch on the jar's floor to the top of the fill: speed x lifetime
-		-- tops out at the fill's own height, so no bubble climbs into the empty headspace.
-		local source = carrier(m, origin, "JarBubbles", { x, baseY + 0.15, shelfZ }, { 0.6, 0.05, 0.6 })
-		local bubbles = Instance.new("ParticleEmitter")
-		bubbles.Name = "Bubbles"
-		bubbles.Texture = "rbxasset://textures/particles/smoke_main.dds"
-		bubbles.Color = ColorSequence.new(Color3.fromHex("FFFFFF"))
-		bubbles.LightInfluence = 1
-		bubbles.EmissionDirection = Enum.NormalId.Top
-		bubbles.Rate = 2.5
-		bubbles.Lifetime = NumberRange.new(1.0, 1.3)
-		bubbles.Speed = NumberRange.new(0.6, 0.7)
-		bubbles.SpreadAngle = Vector2.new(8, 8)
-		bubbles.Size = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.05),
-			NumberSequenceKeypoint.new(1, 0.1),
-		})
-		bubbles.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.3),
-			NumberSequenceKeypoint.new(0.85, 0.3),
-			NumberSequenceKeypoint.new(1, 1),
-		})
-		bubbles.ZOffset = 0.55
-		bubbles.Parent = source
-	end
+	-- The body is the one glass part you bump into, and the one the prompt hangs on.
+	-- `SpinsFluid` is what Kit.build tags it FLUID_TAG by, for LiquidService to wire.
+	local bottle = glass("Bottle", { bx, baseY + 1.95, bz }, { 3.9, 3.2, 3.2 }, "Cylinder", { SpinsFluid = true })
 
-	-- WALKED BACKWARDS FROM THE TOP OF Liquids.ORDER, so the plinth re-sorts itself
-	-- the moment the catalogue does. Hard-coding five ids here is how it ends up
-	-- advertising a liquid that was renamed two commits ago.
-	local shown = {}
-	for index = #Liquids.ORDER, 1, -1 do
-		local id = Liquids.ORDER[index]
-		if Liquids.isRollable(id) then
-			table.insert(shown, 1, id)
-		end
-		if #shown >= 5 then
-			break
-		end
-	end
-	for index, id in shown do
-		jar(cx - 4 + (index - 1) * 2, id)
-	end
+	-- Shouldered into a neck, so it reads as a bottle and not a tin can: a squashed
+	-- sphere mesh, since a Ball part can only be round (roblox-cylinder-ball-no-ellipse).
+	local shoulder = glass("BottleShoulder", { bx, baseY + 3.9, bz }, { 1, 1, 1 })
+	local dome = Instance.new("SpecialMesh")
+	dome.MeshType = Enum.MeshType.Sphere
+	dome.Scale = Vector3.new(3.2, 1.3, 3.2)
+	dome.Parent = shoulder
+	glass("BottleNeck", { bx, baseY + 4.6, bz }, { 1.1, 1.2, 1.2 }, "Cylinder")
+
+	-- A studded cap, so the one solid thing up top belongs to the base's brick kit.
+	build(m, origin, {
+		name = "BottleCap",
+		pos = { bx, baseY + 5.35, bz },
+		size = { 0.6, 1.5, 1.5 },
+		color = FIT,
+		material = "Plastic",
+		studs = true,
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		canCollide = false,
+	})
+	build(m, origin, {
+		name = "BottleCapTop",
+		pos = { bx, baseY + 5.77, bz },
+		size = { 0.25, 1.0, 1.0 },
+		color = FIT,
+		material = "Plastic",
+		studs = true,
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		canCollide = false,
+	})
+
+	-- A paper label on the aisle-facing (-X) side, the one face a player walks up to.
+	local label = build(m, origin, {
+		name = "BottleLabel",
+		pos = { bx - 1.63, baseY + 1.7, bz },
+		size = { 0.1, 1.3, 1.9 },
+		color = "F2E6C8",
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	Kit.surfaceText(label, Enum.NormalId.Left, "FLUID", C.hazardBlack)
+
+	-- Bubbles rising through the fill: speed x lifetime tops out under the fill's own
+	-- height, so none climbs into the empty headspace.
+	local source = carrier(m, origin, "BottleBubbles", { bx, baseY + 0.3, bz }, { 2, 0.05, 2 })
+	local bubbles = Instance.new("ParticleEmitter")
+	bubbles.Name = "Bubbles"
+	bubbles.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	bubbles.Color = ColorSequence.new(Color3.fromHex("FFFFFF"))
+	bubbles.LightInfluence = 1
+	bubbles.EmissionDirection = Enum.NormalId.Top
+	bubbles.Rate = 4
+	bubbles.Lifetime = NumberRange.new(2.0, 2.3)
+	bubbles.Speed = NumberRange.new(1.1, 1.2)
+	bubbles.SpreadAngle = Vector2.new(8, 8)
+	bubbles.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.1),
+		NumberSequenceKeypoint.new(1, 0.2),
+	})
+	bubbles.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.3),
+		NumberSequenceKeypoint.new(0.85, 0.3),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	bubbles.ZOffset = 0.55
+	bubbles.Parent = source
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "Spin"
+	prompt.ActionText = "Spin Fluid"
+	prompt.ObjectText = "Fluid Bottle"
+	prompt.HoldDuration = 0.3
+	prompt.MaxActivationDistance = 9
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = bottle
+
+	-- Plain Water until somebody owns the plot; ExhibitService.renderBottle writes the
+	-- owner's fluid over both lines the moment they do.
+	accentBillboard(bottle, 230, 5.2, "PLAIN WATER", "spin for a better fluid", accent)
 
 	m.Parent = parent
+end
+
+--- Dress one plot's bottle in a fluid: every `Liquid` part and its light take the
+--- fluid's colour and the sign names it. `liquidId` nil (an unclaimed plot) is Plain
+--- Water. The only writer is ExhibitService.renderBottle, the same split
+--- setTreadmillTier has: the service decides WHAT, this file knows WHERE.
+function Plots.setFluidBottle(bottleModel: Instance?, liquidId: string?, subtitle: string?)
+	if bottleModel == nil then
+		return
+	end
+	local def = Liquids.get(liquidId or Liquids.WATER)
+	local colour = Color3.fromHex(def.color)
+	for _, d in bottleModel:GetDescendants() do
+		if d:IsA("BasePart") and d.Name == "Liquid" then
+			d.Color = colour
+			local glow = d:FindFirstChildOfClass("PointLight")
+			if glow then
+				glow.Color = colour
+			end
+		end
+	end
+	local bottle = bottleModel:FindFirstChild("Bottle")
+	local sign = bottle and bottle:FindFirstChild("Sign")
+	local title = sign and sign:FindFirstChild("Title")
+	local sub = sign and sign:FindFirstChild("Subtitle")
+	if title and title:IsA("TextLabel") then
+		title.Text = string.upper(def.name)
+	end
+	if sub and sub:IsA("TextLabel") and subtitle then
+		sub.Text = subtitle
+	end
+	bottleModel:SetAttribute("Liquid", liquidId or Liquids.WATER)
 end
 
 --- THE QUARANTINE LOCKER (PLAN §10.2) — a steel cabinet beside the cleansing
@@ -2268,12 +2155,12 @@ end
 --- (DeconService gates it on `StationKind == "decon"`); this cabinet is a display,
 --- not a stop. MOVED next to the cleansing station on request — it used to stand
 --- against the back wall on the far LEFT of the base, a long walk from the tub you
---- fill it at. Now it sits in the +X corner just behind the cleansing bay (plot
---- x ~= 30, z ~= -24), still opening toward the plot entrance (-Z), tucked
---- between the gantry (its posts reach plot x ~= 27.5, z ~= -29) and the grid's
---- front row (z = -6) with clear studs to each. `ExhibitService` finds every
---- part of it by name, so the move needs
---- nothing on its side.
+--- fill it at. Now it sits in the +X corner behind the cleansing bay (plot
+--- x ~= 30, z ~= -15.5), still opening toward the plot entrance (-Z). It stood at
+--- z ~= -24, right against the gantry, until the fluid bottle needed that spot
+--- (buildFluidBottle); it moved BACK, toward the grid's front row, on request, and
+--- stays clear of that row's plinths. `ExhibitService` finds every part of it by
+--- name, so neither move needed anything on its side.
 ---
 --- THE DOOR IS ITS OWN MODEL, built CLOSED in a frame anchored at the hinge (the
 --- -X edge of the opening), so a yaw about that frame's own vertical axis swings
@@ -2290,7 +2177,7 @@ local function buildQuarantineLocker(parent: Instance, origin: CFrame, accent: s
 	-- and then rotated as a block through `face`; the door uses the same frame so
 	-- its stamped pivots inherit the turn.
 	local S = 1.4
-	local lx, lz = 30, -24
+	local lx, lz = 30, -15.5
 	local face = origin * CFrame.new(lx, 0, lz) * CFrame.Angles(0, math.rad(40), 0) * CFrame.new(-lx, 0, -lz)
 	local baseY = pad.topY + 0.4 -- top of the plinth; the cabinet's own floor sits here
 	local bodyH = 5.4 * S
@@ -2367,8 +2254,8 @@ local function buildQuarantineLocker(parent: Instance, origin: CFrame, accent: s
 	m.Parent = parent
 end
 
---- The luck button — a free-standing stake beside the wash pad, where you press E to
---- buy the next +0.1x.
+--- The luck button — a free-standing stake on the way to the fluid bottle, where you
+--- press E to buy the next +0.1x.
 ---
 --- LUCK IS THE ONE TRACK YOU DO NOT WEAR, so it was the one track that did not belong
 --- on a shop counter. It used to be a fourth desk at the Outfitter, visually identical
@@ -2379,10 +2266,12 @@ end
 --- paint, only a flat +0.1x at a price that climbs every time, so the button just
 --- says the two numbers that are true right now.
 ---
---- BACK BESIDE THE WASH PAD, on request. Luck weights the wash roll, so the control
---- belongs where you do the rolling — a short stake on the aisle side of the pad
---- plate, out on the floor like the pad and the tub because it is a thing you walk up
---- to and DO, not a line on the back-wall console.
+--- ON THE WAY TO THE BOTTLE. Luck weights the fluid spin, so the control belongs on
+--- the washer's side of the strip where you do the spinning. It stood beside the wash
+--- pad until the pad was removed; now it is a short stake between the entrance path
+--- and the pump, out on the floor like the tub because it is a thing you walk up to
+--- and DO, not a line on the back-wall console. Not right beside the bottle, so the
+--- two E prompts never trade places as you shuffle between them.
 ---
 --- NO PANEL, NO STATION KIND, NO REMOTE. A ProximityPrompt's Triggered fires on the
 --- server and Roblox enforces MaxActivationDistance itself, so proximity is a
@@ -2397,18 +2286,16 @@ end
 ---
 --- THE BILLBOARD SHOWS YOUR MULTIPLIER AND THE NEXT PRICE, not a ladder — ShopService
 --- rewrites both the moment a purchase lands, and ExhibitService rewrites them again
---- on plot assignment, the exact Sign/Title/Subtitle convention LiquidService.announce
---- already uses to name a roll on the wash pad.
+--- on plot assignment, the exact Sign/Title/Subtitle convention the fluid bottle's
+--- sign uses (Plots.setFluidBottle).
 local function buildLuckButton(parent: Instance, origin: CFrame)
 	local m = Instance.new("Model")
 	m.Name = "LuckButton"
 	local pad = Plots.PAD
-	-- Beside the wash pad plate. buildWashPad seats that plate at plot-local
-	-- (-21, _, -31) (its own cx/cz of -22/-31, nudged +1 X, then spun about itself);
-	-- the plate is 9 across, so a stake at x = -13 stands ~2.5 studs off its aisle
-	-- edge, on the +X (plot-centre) side a player walks in from. Same service strip,
-	-- clear of the canister shelf backed onto the -X border at x ~= -27.
-	local bx, bz = -13, -31
+	-- Between the entrance path (x ~= +-4) and the wash pump (x ~= 16), level with the
+	-- tub: ~22 studs from the bottle and ~16 from the tub's centre, and a long way from
+	-- the treadmill console on the far (-X) side.
+	local bx, bz = 10, -33
 	local buttonY = pad.topY + 3
 
 	-- The stake: a short steel post the button sits on, so it reads as planted
@@ -2473,26 +2360,24 @@ end
 -- Step on the belt and the number climbs; press E on the console to buy a faster
 -- belt. Services/TreadmillService owns both halves.
 --
--- IT SHARES THE ENTRANCE SERVICE STRIP with the cleansing station (+X), the wash pad
--- (-X) and the luck button, and the clearances here are a CORRECTNESS constraint, not
--- a layout preference — the same one buildWashPad's header sets out. Training is an
--- edge like a roll is, so overlapping station radii would mean a player at one machine
--- being registered at another. Belt centre sits at plot-local (2, -35) with Radius 5:
+-- IT SHARES THE ENTRANCE SERVICE STRIP with the cleansing station (+X) and the luck
+-- button, and the clearances here are a CORRECTNESS constraint, not a layout
+-- preference. Training is an edge, so overlapping station radii would mean a player at
+-- one machine being registered at another. MOVED TO THE -X SIDE, into the wash pad's
+-- old spot, when the pad was removed on request -- it used to stand in the middle of
+-- the strip, on the entrance path. Belt centre sits at plot-local (-21, -35), Radius 5:
 --
---   to the Basin  (26, -32), Radius 9 ...... 24.2 studs against a 14-stud combined reach
---   to the Plate  (-21, -31), Radius 6 ..... 23.3 studs against 11
---   to PlotSpawn  (0, -24), 6x6 ............ 11.2 studs against 8
+--   to the Basin  (26, -32), Radius 9 ...... 47.1 studs against a 14-stud combined reach
+--   to PlotSpawn  (0, -24), 6x6 ............ 23.7 studs against 8
 --
--- Keep those gaps if any of the four moves. World.verify() is the actual authority and
--- asserts the first two every rebuild, not this comment.
+-- Keep those gaps if either moves. World.verify() is the actual authority and asserts
+-- the first every rebuild, not this comment. The frame reaches plot x ~= -26 against
+-- the -X accent trim at -32.
 --
 -- THE RUNNER FACES -Z, out through the entrance arch at the wasteland, with the
--- console at that end. That is the one orientation that keeps the console's prompt
--- away from both the luck button's (17.7 studs apart against a 10-stud activation
--- radius each, so no player can ever be in range of both) and the spawn pad. Two
--- prompts a player can reach at once is a known-unreliable state in this codebase.
+-- console at that end, clear of the spawn pad and ~34 studs from the luck button.
 local TREADMILL = {
-	cx = 2,
+	cx = -21,
 	cz = -35,
 	beltW = 5.2, -- the running surface, across the runner
 	-- 9, NOT 10, AND THE PAD EDGE IS WHY. The machine is frame + console deep, not just
@@ -3545,7 +3430,7 @@ local function buildPlot(parent: Instance, index: number)
 
 	buildCleansingStation(m, origin, accent)
 	buildQuarantineLocker(m, origin, accent)
-	buildWashPad(m, origin, accent)
+	buildFluidBottle(m, origin, accent)
 	buildLuckButton(m, origin)
 	buildTreadmill(m, origin, accent)
 

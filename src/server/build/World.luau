@@ -479,11 +479,22 @@ function World.verify(): (boolean, { string })
 	end
 	-- No plot-board census any more: exhibit income auto-deposits, so Plots.luau
 	-- builds no ClaimBoard and nothing emits StationKind = "plot".
-	-- One wash pad per base, beside that base's cleansing station (Plots.buildWashPad).
-	check(
-		(census.roller or 0) == Plots.COUNT,
-		`expected {Plots.COUNT} wash pads (one per base), found {census.roller or 0}`
-	)
+	-- One fluid bottle per base, beside that base's tub (Plots.buildFluidBottle), and
+	-- each one tagged AND carrying the prompt LiquidService wires -- a bottle missing
+	-- either is a bottle that silently never spins. The wash pad it replaced was a
+	-- `roller` station; nothing may still claim that kind.
+	local bottles = 0
+	for _, d in Workspace:GetDescendants() do
+		if d:IsA("BasePart") and d:GetAttribute("SpinsFluid") == true then
+			bottles += 1
+			check(
+				CollectionService:HasTag(d, Kit.FLUID_TAG) and d:FindFirstChildOfClass("ProximityPrompt") ~= nil,
+				`{d:GetFullName()} is a fluid bottle without its {Kit.FLUID_TAG} tag or its prompt — nobody can spin it`
+			)
+		end
+	end
+	check(bottles == Plots.COUNT, `expected {Plots.COUNT} fluid bottles (one per base), found {bottles}`)
+	check((census.roller or 0) == 0, `found {census.roller or 0} leftover wash pads (StationKind "roller") — the pad was removed`)
 
 	-- One treadmill per base (Plots.buildTreadmill) — the only place speed comes from
 	-- now that the Boots track is retired. A base without one is a base whose owner has
@@ -493,7 +504,7 @@ function World.verify(): (boolean, { string })
 		`expected {Plots.COUNT} treadmills (one per base), found {census.treadmill or 0}`
 	)
 
-	-- ...and one luck button per base, staked beside the wash pad it bends the odds for.
+	-- ...and one luck button per base, staked on the way to the bottle it bends the odds for.
 	local luckButtons = 0
 	for _, d in Workspace:GetDescendants() do
 		if d:IsA("BasePart") and d:GetAttribute("SellsTrack") == "Luck" then
@@ -606,16 +617,13 @@ function World.verify(): (boolean, { string })
 
 	-- THE MACHINES IN THE SERVICE STRIP MUST NOT OVERLAP EACH OTHER, and this is a real
 	-- correctness check rather than a layout preference. All three of these fire off
-	-- StationService's ENTRY EDGE: rolling charges cash, docking freezes your bag, and
-	-- stepping onto a belt starts banking training. A player scrubbing at the basin who
-	-- drifts into an overlapping roller radius is billed for a roll they never asked
-	-- for. Nearest-wins settles which panel opens; it does not settle which edges fire.
-	-- See Plots.buildWashPad and Plots.buildTreadmill for the numbers this protects.
-	--
-	-- CHECKED PAIRWISE ACROSS ALL THREE KINDS rather than roller-against-decon alone,
-	-- which is what it used to be. The treadmill went into the same strip and would
-	-- have been the one machine nothing measured.
-	local EDGE_KINDS = { "roller", "decon", "treadmill" }
+	-- StationService's ENTRY EDGE: docking freezes your bag and stepping onto a belt
+	-- starts banking training. A player scrubbing at the basin who drifts into an
+	-- overlapping belt radius would be registered at both. Nearest-wins settles which
+	-- panel opens; it does not settle which edges fire. See Plots.buildTreadmill for
+	-- the numbers this protects. (The wash pad's paid `roller` edge was the third kind
+	-- here until the pad was removed.)
+	local EDGE_KINDS = { "decon", "treadmill" }
 	local edgeStations: { [string]: { BasePart } } = {}
 	for _, kind in EDGE_KINDS do
 		edgeStations[kind] = {}
