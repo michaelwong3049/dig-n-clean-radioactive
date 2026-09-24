@@ -195,7 +195,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 53
+local BUILDER_VERSION = 54
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -998,30 +998,33 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	-- than a crate left on the tiles.
 	build(parent, origin, { name = "PumpSkid", pos = { px, T + 0.35, pz }, size = { 3.2, 0.7, 2.8 }, color = BODY, material = "Plastic", studs = true })
 
-	-- ── The pressure tank ─────────────────────────────────────
-	-- A round, domed, hazard-yellow tank standing on the skid, where a studded grey
-	-- crate used to be. The crate was the same colour and the same box as the tub, the
-	-- fence and the plinths, so the one machine on the plot with a job to do read as more
-	-- base. Round and yellow, it reads as plant from across the plot, and it still wears
-	-- studs like everything else here. Kept under the mast's height and off the walk-up.
-	local tx = px + 0.3
-	local tankR, tankBottom, tankTop = 1.1, T + 0.7, T + 3.1
+	-- ── The pump: tank + motor on the skid ────────────────────
+	-- PICKED BY THE USER from a round of AI-generated pump models ("D", built from
+	-- primitives), then rebuilt here out of studded parts so it lives in code, survives a
+	-- rebuild and wears the base's stud texture. A banded yellow pressure tank with a
+	-- gauge and a valve handwheel, and beside it a finned grey motor driving a spoked
+	-- flywheel. The gauge and the flywheel face the aisle (authored -Z), the side you
+	-- walk past; the motor's end cap and a warning placard face the plot entrance (+X).
+	-- The reel still hangs off the tank's -X side on its axle, and the pipe to the tub
+	-- still leaves from the tank's +Z side.
+	local TANK_YELLOW, MOTOR_GREY, METAL_LIGHT = "FAD214", "82878C", "B4B9BE"
+	local tx = px - 0.35
+	local tankR, tankBottom, tankTop = 0.8, T + 0.7, T + 3.7
 	build(parent, origin, {
 		name = "HosePump",
 		pos = { tx, (tankBottom + tankTop) / 2, pz },
 		size = { tankTop - tankBottom, tankR * 2, tankR * 2 },
-		color = C.hazard,
+		color = TANK_YELLOW,
 		material = "Plastic",
 		studs = true,
 		shape = "Cylinder",
 		rot = Kit.R.cylUp,
 	})
-	-- Two black hoops, so the tank reads as a riveted vessel and not a painted post.
-	for _, hoopY in { tankBottom + 0.45, tankTop - 0.45 } do
+	for _, bandY in { T + 1.3, T + 3.1 } do
 		build(parent, origin, {
 			name = "PumpHoop",
-			pos = { tx, hoopY, pz },
-			size = { 0.22, tankR * 2 + 0.1, tankR * 2 + 0.1 },
+			pos = { tx, bandY, pz },
+			size = { 0.2, tankR * 2 + 0.1, tankR * 2 + 0.1 },
 			color = C.hazardBlack,
 			material = "Plastic",
 			studs = true,
@@ -1030,88 +1033,132 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 			canCollide = false,
 		})
 	end
-	-- The dome: a ball as wide as the tank, sunk to its equator in the tank's top, so
-	-- only the upper half shows.
+	-- The dome: a ball as wide as the tank, sunk to its equator in the tank's top.
 	build(parent, origin, {
 		name = "PumpDome",
 		pos = { tx, tankTop, pz },
 		size = { tankR * 2, tankR * 2, tankR * 2 },
-		color = C.hazard,
+		color = TANK_YELLOW,
 		material = "Plastic",
 		studs = true,
 		shape = "Ball",
 		canCollide = false,
 	})
-	build(parent, origin, {
-		name = "PumpValve",
-		pos = { tx, tankTop + tankR + 0.15, pz },
-		size = { 0.3, 0.3, 0.3 },
-		color = FIT,
-		material = "Metal",
-		shape = "Cylinder",
-		rot = Kit.R.cylUp,
-		canCollide = false,
-	})
-	build(parent, origin, {
-		name = "PumpValveWheel",
-		pos = { tx, tankTop + tankR + 0.36, pz },
-		size = { 0.12, 0.9, 0.9 },
-		color = C.hazardBlack,
-		material = "Plastic",
-		studs = true,
-		shape = "Cylinder",
-		rot = Kit.R.cylUp,
-		canCollide = false,
-	})
 
-	-- THE GAUGE, facing the plot entrance (authored +X) so it is the first thing you
-	-- see walking in. The bezel is sunk into the tank's curve so its rim does not stand
-	-- off it; the needle wanders about the dial (StationMotionController), because a
-	-- pressure gauge that never twitches reads as a sticker.
-	local gy = T + 2.05
-	build(parent, origin, {
-		name = "PumpGauge",
-		pos = { tx + tankR - 0.1, gy, pz },
-		size = { 0.34, 1.0, 1.0 },
-		color = FIT,
-		material = "Metal",
-		shape = "Cylinder",
-		rot = Kit.R.cylAlongX,
+	-- The valve on the crown: a base, a stem, and a spoked handwheel whose rim is a
+	-- ring of studded segments rather than a solid disc, so it reads as a wheel.
+	local domeTop = tankTop + tankR
+	build(parent, origin, { name = "PumpValve", pos = { tx, domeTop + 0.07, pz }, size = { 0.15, 0.48, 0.48 }, color = MOTOR_GREY, material = "Plastic", studs = true, shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
+	build(parent, origin, { name = "PumpValveStem", pos = { tx, domeTop + 0.3, pz }, size = { 0.32, 0.24, 0.24 }, color = C.hazardBlack, material = "Metal", shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
+	local wheelY = domeTop + 0.5
+	polygonRing(parent, origin, {
+		name = "PumpValveWheel",
+		sides = 10,
+		cx = tx,
+		cz = pz,
+		apothem = 0.55,
+		thickness = 0.12,
+		y = wheelY,
+		height = 0.12,
+		color = C.hazardBlack,
+		studs = true,
 		canCollide = false,
 	})
-	build(parent, origin, {
-		name = "GaugeFace",
-		pos = { tx + tankR + 0.09, gy, pz },
-		size = { 0.04, 0.82, 0.82 },
-		color = C.labelText,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = Kit.R.cylAlongX,
-		canCollide = false,
-	})
-	local needle = build(parent, origin, {
+	build(parent, origin, { name = "PumpValveHub", pos = { tx, wheelY, pz }, size = { 0.2, 0.36, 0.36 }, color = C.hazardBlack, material = "Plastic", studs = true, shape = "Cylinder", rot = Kit.R.cylUp, canCollide = false })
+	for k = 0, 1 do
+		build(parent, origin, { name = "PumpValveSpoke", pos = { tx, wheelY, pz }, size = { 1.1, 0.08, 0.1 }, color = C.hazardBlack, material = "Metal", rot = Kit.ang(0, 45 + k * 90, 0), canCollide = false })
+	end
+
+	-- THE GAUGE, on the aisle face of the tank: a grey case on a stub mount, a white
+	-- face with eight ticks, and a red needle that wanders about the dial
+	-- (StationMotionController), because a pressure gauge that never twitches reads as
+	-- a sticker.
+	local gy = T + 2.35
+	local gaugeZ = pz - tankR - 0.02
+	build(parent, origin, { name = "GaugeMount", pos = { tx, gy, pz - tankR + 0.2 }, size = { 0.7, 0.6, 0.6 }, color = MOTOR_GREY, material = "Plastic", studs = true, shape = "Cylinder", rot = CYL_ALONG_Z, canCollide = false })
+	build(parent, origin, { name = "PumpGauge", pos = { tx, gy, gaugeZ }, size = { 0.18, 0.92, 0.92 }, color = METAL_LIGHT, material = "Metal", shape = "Cylinder", rot = CYL_ALONG_Z, canCollide = false })
+	local faceZ = gaugeZ - 0.1
+	build(parent, origin, { name = "GaugeFace", pos = { tx, gy, faceZ }, size = { 0.04, 0.76, 0.76 }, color = C.labelText, material = "SmoothPlastic", shape = "Cylinder", rot = CYL_ALONG_Z, canCollide = false })
+	local dial = origin * CFrame.new(tx, gy, faceZ - 0.03)
+	for k = 0, 7 do
+		build(parent, dial * Kit.ang(0, 0, k * 45), { name = "GaugeTick", pos = { 0, 0.3, 0 }, size = { 0.04, 0.1, 0.02 }, color = C.hazardBlack, material = "SmoothPlastic", canCollide = false })
+	end
+	local needle = build(parent, dial, {
 		name = "GaugeNeedle",
-		pos = { tx + tankR + 0.13, gy + 0.16, pz },
-		size = { 0.04, 0.34, 0.06 },
+		pos = { 0, 0.14, -0.01 },
+		size = { 0.04, 0.3, 0.02 },
 		color = C.quarantineRed,
 		material = "SmoothPlastic",
 		canCollide = false,
 	})
 	-- Pivot on the spindle at the dial's centre, not on the needle's own middle.
-	needle.PivotOffset = CFrame.new(0, -0.16, 0)
-	Kit.motion(needle, { kind = "sway", axis = "X", rate = 0.9, amp = 0.55 })
+	needle.PivotOffset = CFrame.new(0, -0.14, 0)
+	Kit.motion(needle, { kind = "sway", axis = "Z", rate = 0.9, amp = 0.55 })
+	build(parent, dial, { name = "GaugePin", pos = { 0, 0, -0.02 }, size = { 0.04, 0.1, 0.1 }, color = C.hazardBlack, material = "SmoothPlastic", shape = "Cylinder", rot = CYL_ALONG_Z, canCollide = false })
 
-	-- The trefoil, on a warning placard bolted to the aisle side of the tank: yellow,
-	-- black-bordered, the real sign. A flat placard on a standoff rather than paint on
-	-- the tank, because the mark is flat and the tank is not.
-	local PLACARD = 1.3
-	build(parent, origin, { name = "PumpPlacardMount", pos = { tx, gy, pz - tankR + 0.05 }, size = { 0.6, 0.6, 0.3 }, color = FIT, material = "Metal", canCollide = false })
+	-- The motor, lying along Z beside the tank on a studded mount: a grey drum ringed
+	-- with cooling fins, an end cap toward the tub, a junction box on top.
+	local motorX, motorY, motorZ = tx + 1.2, T + 1.25, pz + 0.2
+	build(parent, origin, { name = "MotorMount", pos = { motorX, T + 0.97, motorZ }, size = { 0.72, 0.55, 1.2 }, color = MOTOR_GREY, material = "Plastic", studs = true, canCollide = false })
+	build(parent, origin, { name = "MotorCore", pos = { motorX, motorY, motorZ }, size = { 1.6, 0.9, 0.9 }, color = MOTOR_GREY, material = "Plastic", studs = true, shape = "Cylinder", rot = CYL_ALONG_Z, canCollide = false })
+	for k = 0, 5 do
+		build(parent, origin, { name = "MotorFin", pos = { motorX, motorY, motorZ - 0.56 + k * 0.225 }, size = { 0.1, 1.06, 1.06 }, color = "64696E", material = "Plastic", studs = true, shape = "Cylinder", rot = CYL_ALONG_Z, canCollide = false })
+	end
+	build(parent, origin, { name = "MotorCap", pos = { motorX, motorY, motorZ + 0.9 }, size = { 0.28, 0.6, 0.6 }, color = "64696E", material = "Plastic", studs = true, shape = "Cylinder", rot = CYL_ALONG_Z, canCollide = false })
+	build(parent, origin, { name = "MotorBox", pos = { motorX, motorY + 0.55, motorZ }, size = { 0.4, 0.3, 0.5 }, color = MOTOR_GREY, material = "Plastic", studs = true, canCollide = false })
+
+	-- The flywheel on the motor's aisle end, turning (StationMotionController): a
+	-- studded rim of segments round a hub, three spokes, one of them hazard yellow so
+	-- the turn is visible. Its own Model so it spins as one about the shaft, streamed
+	-- as a unit.
+	local shaft = origin * CFrame.new(motorX, motorY, motorZ - 1.0)
+	build(parent, shaft, { name = "FlywheelShaft", pos = { 0, 0, 0.1 }, size = { 0.3, 0.16, 0.16 }, color = METAL_LIGHT, material = "Metal", shape = "Cylinder", rot = CYL_ALONG_Z, canCollide = false })
+	local flywheel = Instance.new("Model")
+	flywheel.Name = "Flywheel"
+	flywheel.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+	-- polygonRing lays its ring round its origin's Y axis; tip that axis onto the shaft.
+	polygonRing(flywheel, shaft * Kit.ang(90, 0, 0), {
+		name = "FlywheelRim",
+		sides = 12,
+		cx = 0,
+		cz = 0,
+		apothem = 0.48,
+		thickness = 0.14,
+		y = 0,
+		height = 0.2,
+		color = C.hazardBlack,
+		studs = true,
+		canCollide = false,
+	})
+	build(flywheel, shaft, { name = "FlywheelHub", pos = { 0, 0, 0 }, size = { 0.3, 0.3, 0.3 }, color = C.hazardBlack, material = "Plastic", studs = true, shape = "Cylinder", rot = CYL_ALONG_Z, canCollide = false })
+	for k = 0, 2 do
+		build(flywheel, shaft * Kit.ang(0, 0, k * 120), {
+			name = "FlywheelSpoke",
+			pos = { 0, 0.25, 0 },
+			size = { 0.12, 0.44, 0.14 },
+			color = if k == 0 then TANK_YELLOW else C.hazardBlack,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+	end
+	flywheel.WorldPivot = shaft
+	flywheel.Parent = parent
+	Kit.motion(flywheel, { kind = "spin", axis = "Z", rate = 4 })
+
+	-- The trefoil, on a warning placard on the tank's entrance face above the motor:
+	-- yellow, black-bordered, the real sign. A flat placard on a standoff rather than
+	-- paint, because the mark is flat and the tank is not.
+	local PLACARD = 0.9
+	local plateY = T + 2.5
+	build(parent, origin, { name = "PumpPlacardMount", pos = { tx + tankR - 0.1, plateY, pz }, size = { 0.3, 0.45, 0.45 }, color = MOTOR_GREY, material = "Metal", canCollide = false })
 	local placard = build(parent, origin, {
 		name = "PumpPlacard",
-		pos = { tx, gy, pz - tankR - 0.06 },
+		pos = { tx + tankR + 0.06, plateY, pz },
 		size = { PLACARD, PLACARD, 0.08 },
 		color = C.hazard,
 		material = "SmoothPlastic",
+		rot = Kit.ang(0, -90, 0),
 		canCollide = false,
 	})
 	paintTrefoil(placard, Enum.NormalId.Front, PLACARD, C.hazardBlack)
