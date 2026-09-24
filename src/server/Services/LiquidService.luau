@@ -211,6 +211,9 @@ local function stateFor(player: Player, data: any): any
 		held = data.liquids[stats.liquidId] or 0,
 		cooldown = LiquidService.cooldownLeft(player),
 		luck = Gear.luckMultiplier(level),
+		-- What `roll()` actually sees: bought luck times any boost. The panel prices
+		-- its "next +0.1x" jackpot line off this so the odds it shows are the real ones.
+		rollLuck = stats.luckMultiplier,
 		luckLevel = level,
 		luckPrice = Gear.luckPrice(level),
 		boost = stats.luckBoost,
@@ -225,6 +228,7 @@ local function signatureOf(player: Player, data: any, stats: any): string
 		stats.liquidId,
 		tostring(data.gear.luck or 1),
 		tostring(stats.luckBoost),
+		tostring(stats.luckMultiplier),
 		tostring(LiquidService.cooldownLeft(player) > 0),
 	}
 	for _, id in Liquids.ORDER do

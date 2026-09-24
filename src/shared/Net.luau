@@ -76,7 +76,7 @@ local REMOTES: { [string]: string } = {
 	-- is change-driven: the loaded fluid and what is left of it, seconds until the
 	-- next roll, and the Luck upgrade's multiplier and next price. `notice` rides along
 	-- once when an action is refused ("not enough cash"), so the panel can say why.
-	FluidState = "RemoteEvent", -- server -> client, { liquid, held, cooldown, luck, luckLevel, luckPrice, boost, notice? }
+	FluidState = "RemoteEvent", -- server -> client, { liquid, held, cooldown, luck, luckLevel, luckPrice, boost, rollLuck, notice? }
 	--
 	-- The panel's two buttons. A bare verb, never an amount or a target: the server
 	-- finds the player's own bottle, checks they are standing at it, and does the rest.

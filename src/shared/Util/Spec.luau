@@ -1035,6 +1035,23 @@ function Spec.run(): boolean
 	check("§6 luck only ever moves mass UP the table (no inversions)", monotone)
 	check("§6 luckBias rises with every rung, which is what guarantees that", biasAscending)
 
+	-- The brew reveal's tier chip (LiquidController) reads `tier` off the def and its
+	-- colour off Config/Rarity, so a typo there is a nil index mid-reveal.
+	local tiersValid = true
+	for index, id in rollable do
+		local tier = Liquids.get(id).tier
+		local def = tier and Rarity.DEFS[tier]
+		if def == nil then
+			tiersValid = false
+		elseif index > 1 then
+			local below = Rarity.DEFS[Liquids.get(rollable[index - 1]).tier or ""]
+			if below and def.order < below.order then
+				tiersValid = false
+			end
+		end
+	end
+	check("§6 every rollable liquid has a real Rarity tier, never stepping down the table", tiersValid)
+
 	local sumLo, sumHi = 0, 0
 	for _, chance in oddsLo do
 		sumLo += chance
