@@ -8,7 +8,7 @@
 
 	THE SAME TOY-SHOP VOICE AS THE CASH BADGE (CashController's header): a thick INK
 	outline on every shape, hard offset shadows, LuckiestGuy numbers. Blue where cash is
-	gold, and a double chevron where cash has a coin, so the two never read as the same
+	gold, and a glossy sneaker where cash has a coin, so the two never read as the same
 	counter at a glance. The level rides a pill hanging off the card's bottom edge, where
 	the cash badge hangs its income.
 
@@ -33,6 +33,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 
+local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
 local Dock = UIKit.Dock
 
@@ -53,7 +54,6 @@ local STYLE = {
 	cardShine = Color3.fromHex("8AD4FF"),
 	disc = Color3.fromHex("1C6FE8"),
 	discFace = Color3.fromHex("3D93FF"),
-	chevron = WHITE,
 	pill = Color3.fromHex("2445B8"),
 	caption = Color3.fromHex("DDF3FF"),
 	gain = Color3.fromHex("8AD4FF"),
@@ -65,6 +65,7 @@ local STYLE = {
 -- Design px inside the Dock.SPEED_SIZE footprint (280 x 64).
 local LAYOUT = {
 	disc = 58,
+	shoe = 52, -- wider than the face, so the sneaker overlaps the disc's rim
 	cardTop = 4,
 	cardHeight = 48, -- 4 + 48 + the pill's overhang = the 64 Dock reserves
 	cardRadius = 16,
@@ -169,29 +170,6 @@ local function textWidth(text: string, size: number, font: Enum.Font): number
 	return TextService:GetTextSize(text, size, font, Vector2.new(2000, 200)).X
 end
 
---- A ">>" fast-forward mark built from four rotated bars, so it cannot fall back to a
---- missing-glyph box the way a unicode arrow can (see the #268 close-badge fix).
-local function chevrons(parent: Instance, size: number)
-	local armLength, armWidth = size * 0.42, size * 0.15
-	for i, dx in { -0.16, 0.14 } do
-		for _, dir in { -1, 1 } do
-			local arm = UIKit.panel(parent, {
-				name = "Chevron" .. i,
-				size = UDim2.fromOffset(armLength, armWidth),
-				anchorPoint = Vector2.new(0.5, 0.5),
-				position = UDim2.new(0.5 + dx, 0, 0.5, dir * armLength * 0.33),
-				color = STYLE.chevron,
-				transparency = 0,
-				cornerRadius = ROUND,
-				strokeColor = INK,
-				strokeThickness = 2,
-				zIndex = 10,
-			})
-			arm.Rotation = dir * -40
-		end
-	end
-end
-
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "SpeedHud"
@@ -247,7 +225,10 @@ local function build(): ScreenGui
 	local disc = blob(badge, "Disc", { 0, discTop, L.disc, L.disc }, STYLE.disc, 7, ROUND, L.outline)
 	local inset = 7
 	blob(disc, "Face", { inset, inset, L.disc - inset * 2, L.disc - inset * 2 }, STYLE.discFace, 8, ROUND)
-	chevrons(disc, L.disc)
+	-- Full colour with its own ink outline baked in, so it stays untinted.
+	local shoe = Artwork.picture(disc, "Shoe", Artwork.IMAGE.speedShoe, L.shoe, WHITE)
+	shoe.Position = UDim2.fromOffset((L.disc - L.shoe) / 2, (L.disc - L.shoe) / 2)
+	shoe.ZIndex = 10
 
 	UIKit.label(badge, {
 		name = "Caption",

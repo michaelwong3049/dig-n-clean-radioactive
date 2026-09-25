@@ -67,6 +67,9 @@ Artwork.IMAGE = {
 	chest = "rbxassetid://137692103278879", -- Shop: open treasure chest of coins
 	mushroomCloud = "rbxassetid://107094805710382", -- Nukes: mushroom cloud
 	portal = "rbxassetid://107949254570705", -- Warp: violet-to-cyan portal swirl
+	-- The SPEED badge's disc (SpeedController): a glossy blue sneaker, same family and
+	-- pipeline. tools/hud-icons/speed_shoe.svg.
+	speedShoe = "rbxassetid://74013499057089",
 	-- The glow behind each tile's symbol: a WHITE disc whose alpha eases from solid to
 	-- nothing at the rim (smoothstep), so a caller tints it with ImageColor3.
 	-- tools/hud-icons/glow.svg.
