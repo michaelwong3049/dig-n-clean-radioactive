@@ -8,9 +8,10 @@
 	they differed only in name, picture and slot, so this builds all of them and each
 	controller keeps its own badge and click handler.
 
-	No radial gradients in Roblox UI, so the glow is a stack of concentric discs, each
-	mostly see-through: where they overlap in the middle they add up to a bright core
-	that fades out to the rim (the same trick as HaulShaft's nuke glow).
+	No radial gradients in Roblox UI, so the glow is a picture: a white disc whose alpha
+	eases from solid in the middle to nothing at the rim (Artwork.IMAGE.glow), tinted to
+	the tile's colour. It was a stack of five see-through discs first; their edges read
+	as rings ("chunky"), which a real gradient doesn't have.
 
 	PLACEMENT IS Dock's: the tile's slot in the grid (1-4, left to right, top to bottom)
 	goes through Dock.sideTileCentre, re-run on every canvas resize. The button is
@@ -40,11 +41,12 @@ local ICON_TOP = 4
 local CAPTION_SIZE = 13
 local CAPTION_BOTTOM = 4
 
--- The glow: disc diameters, largest first, each this see-through. Five at 0.86 make
--- a core about half opaque; hover lowers each disc's transparency to brighten it.
-local GLOW_DISCS = { 46, 38, 30, 22, 14 }
-local GLOW_TRANSPARENCY = 0.86
-local GLOW_TRANSPARENCY_HOVER = 0.8
+-- The glow picture's diameter and how see-through it is. Its alpha falls to nothing
+-- at the rim, so it can be a little wider than the tile's top band without an edge.
+-- At 0.3 it reads about as strong as the old disc stack did; hover brightens it.
+local GLOW_SIZE = 56
+local GLOW_TRANSPARENCY = 0.3
+local GLOW_TRANSPARENCY_HOVER = 0.12
 
 local HOVER_SCALE = 1.07
 local PRESS_SCALE = 0.94
@@ -107,23 +109,11 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 
 	-- The glow, centred on the picture.
 	local iconCentre = ICON_TOP + ICON_SIZE / 2
-	local discs: { Frame } = {}
-	for i, diameter in GLOW_DISCS do
-		local disc = Instance.new("Frame")
-		disc.Name = "Glow" .. i
-		disc.AnchorPoint = Vector2.new(0.5, 0.5)
-		disc.Position = UDim2.new(0.5, 0, 0, iconCentre)
-		disc.Size = UDim2.fromOffset(diameter, diameter)
-		disc.BackgroundColor3 = spec.color
-		disc.BackgroundTransparency = GLOW_TRANSPARENCY
-		disc.BorderSizePixel = 0
-		disc.ZIndex = 5
-		disc.Parent = button
-		local round = Instance.new("UICorner")
-		round.CornerRadius = UDim.new(1, 0)
-		round.Parent = disc
-		table.insert(discs, disc)
-	end
+	local glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)
+	glow.AnchorPoint = Vector2.new(0.5, 0.5)
+	glow.Position = UDim2.new(0.5, 0, 0, iconCentre)
+	glow.ImageTransparency = GLOW_TRANSPARENCY
+	glow.ZIndex = 5
 
 	local icon = Artwork.picture(button, "Icon", spec.image, ICON_SIZE, Color3.new(1, 1, 1))
 	icon.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -150,10 +140,9 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		TweenService:Create(edge, TWEEN, {
 			Transparency = if hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
 		}):Play()
-		local glow = if hovered then GLOW_TRANSPARENCY_HOVER else GLOW_TRANSPARENCY
-		for _, disc in discs do
-			TweenService:Create(disc, TWEEN, { BackgroundTransparency = glow }):Play()
-		end
+		TweenService:Create(glow, TWEEN, {
+			ImageTransparency = if hovered then GLOW_TRANSPARENCY_HOVER else GLOW_TRANSPARENCY,
+		}):Play()
 	end
 	local function setHovered(on: boolean)
 		hovered = on
