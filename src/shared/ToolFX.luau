@@ -130,69 +130,70 @@ local function shrinkMotes(part: BasePart, color: Color3)
 	e.Parent = part
 end
 
--- Track -> tier -> build(model). Only tiers that already carry a `glow` in
--- ToolTiers show up here. Part names are verified against the live Studio
--- models (Detector's sit directly under the tier model; Magnet's are nested
--- one level under a named sub-model), so every lookup below is recursive.
-local SPECS: { [string]: { [number]: (Model) -> () } } = {
+-- Track -> tier NAME -> build(model, glow). Keyed by the ToolTiers name, not
+-- the tier number, because the ladder moves: the Rust Bucket slid every detector
+-- up one rung, and a number-keyed table would have lit the wrong tools. Only
+-- tiers that carry a `glow` in ToolTiers show up here -- the rarest rungs of
+-- each track. Part names are verified against the live Studio models
+-- (Detector's sit directly under the tier model; Magnet's are nested one level
+-- under a named sub-model), so every lookup below is recursive.
+local function partNamed(model: Model, ...: string): BasePart?
+	for _, name in { ... } do
+		local part = model:FindFirstChild(name, true)
+		if part and part:IsA("BasePart") then
+			return part
+		end
+	end
+	return nil
+end
+
+local SPECS: { [string]: { [string]: (Model, Color3) -> () } } = {
 	Detector = {
-		[5] = function(model: Model)
-			local color = ToolTiers.get("Detector", 5).glow
-			local part = model:FindFirstChild("cell_window", true) or model:FindFirstChild("isotope_cell", true)
-			if color and part and part:IsA("BasePart") then
+		["Isotope Scanner"] = function(model: Model, color: Color3)
+			local part = partNamed(model, "cell_window", "isotope_cell")
+			if part then
 				light(part, color, 5, 0.9)
 				drift(part, color, 3, NumberRange.new(0.3, 0.6), NumberRange.new(1.0, 1.8))
 			end
 		end,
-		[6] = function(model: Model)
-			local color = ToolTiers.get("Detector", 6).glow
-			local part = model:FindFirstChild("resonance_node", true)
-			if color and part and part:IsA("BasePart") then
+		["Resonance Mapper"] = function(model: Model, color: Color3)
+			local part = partNamed(model, "resonance_node")
+			if part then
 				light(part, color, 5, 1.0)
 				sparkle(part, color, 9)
 			end
 		end,
-		[7] = function(model: Model)
-			local color = ToolTiers.get("Detector", 7).glow
-			local part = model:FindFirstChild("lit_core", true)
-			if color and part and part:IsA("BasePart") then
+		["Deep Core Array"] = function(model: Model, color: Color3)
+			local part = partNamed(model, "lit_core")
+			if part then
 				light(part, color, 6, 1.1)
 				drift(part, color, 6, NumberRange.new(0.6, 1.0), NumberRange.new(0.7, 1.3))
 			end
 		end,
-		[8] = function(model: Model)
-			local color = ToolTiers.get("Detector", 8).glow
-			if color == nil then
-				return
-			end
-			local lens = model:FindFirstChild("oracle_lens", true)
-			if lens and lens:IsA("BasePart") then
+		["The Oracle"] = function(model: Model, color: Color3)
+			local lens = partNamed(model, "oracle_lens")
+			if lens then
 				light(lens, color, 6, 1.1)
 				sparkle(lens, color, 6)
 			end
-			local ring = model:FindFirstChild("aux_ring", true)
-			if ring and ring:IsA("BasePart") then
+			local ring = partNamed(model, "aux_ring")
+			if ring then
 				sparkle(ring, color, 3)
 			end
 		end,
 	},
 	Magnet = {
-		[5] = function(model: Model)
-			local color = ToolTiers.get("Magnet", 5).glow
-			if color == nil then
-				return
-			end
+		["Rail Coil"] = function(model: Model, color: Color3)
 			for _, name in { "emitter_r", "emitter_l" } do
-				local part = model:FindFirstChild(name, true)
-				if part and part:IsA("BasePart") then
+				local part = partNamed(model, name)
+				if part then
 					arcSpark(part, color)
 				end
 			end
 		end,
-		[6] = function(model: Model)
-			local color = ToolTiers.get("Magnet", 6).glow
-			local part = model:FindFirstChild("core_halo", true)
-			if color and part and part:IsA("BasePart") then
+		["Singularity Coil"] = function(model: Model, color: Color3)
+			local part = partNamed(model, "core_halo")
+			if part then
 				light(part, color, 6, 1.1)
 				shrinkMotes(part, color)
 			end
@@ -201,13 +202,17 @@ local SPECS: { [string]: { [number]: (Model) -> () } } = {
 }
 
 --- Attaches this tier's ambient FX to an already-cloned tool model. A no-op
---- for any track/tier not listed above -- tiers 1-4 on both tracks are
---- untouched by design.
+--- for any tier without a `glow` or an entry above -- the common rungs of both
+--- tracks are untouched by design.
 function ToolFX.apply(model: Model, track: string, tier: number)
-	local byTier = SPECS[track]
-	local build = byTier and byTier[tier]
-	if build then
-		build(model)
+	local byName = SPECS[track]
+	if byName == nil then
+		return
+	end
+	local look = ToolTiers.get(track, tier)
+	local build = byName[look.name]
+	if build and look.glow then
+		build(model, look.glow)
 	end
 end
 
