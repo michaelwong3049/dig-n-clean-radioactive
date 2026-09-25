@@ -1084,6 +1084,12 @@ local function buildPanelLuck(card: Frame)
 		textSize = UIKit.TextSize.caption - 1,
 		color = Color3.fromHex("FFF3B0"),
 	})
+	-- "Antimatter Tonic 1 in 2308" is right at the edge of 180px; shrink rather
+	-- than clip.
+	panel.jackpot.TextScaled = true
+	local jackpotFit = Instance.new("UITextSizeConstraint")
+	jackpotFit.MaxTextSize = UIKit.TextSize.caption - 1
+	jackpotFit.Parent = panel.jackpot
 	panel.jackpotNext = UIKit.label(card, {
 		name = "JackpotNext",
 		size = UDim2.fromOffset(180, 16),
