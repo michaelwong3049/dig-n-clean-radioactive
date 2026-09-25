@@ -166,6 +166,11 @@ local TEMPLATE = {
 	-- physical plot they land on. Set via Net.PlotColor -> ExhibitService.setPlotColor.
 	plotColor = "",
 
+	-- Settings' HIDE MY AURA. true = AuraService stops publishing this player's
+	-- AuraTier, so their aura is drawn for nobody. Cosmetic only: the aura still
+	-- protects (its stats come from gear.aura). Set via Net.HideAura -> AuraService.
+	hideAura = false,
+
 	railStations = {}, -- stageId -> parts found (PLAN §5.3)
 
 	-- Camp key (Config/Camps) -> true, once this player has stood in that camp on foot.

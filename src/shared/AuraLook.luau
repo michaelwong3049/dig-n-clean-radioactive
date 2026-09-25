@@ -24,12 +24,14 @@
 	    the Outfitter's mannequin (`DISPLAY_TAG`).
 	  * server/Services/AuraService — stamps `ATTRIBUTE` on each character.
 	  * client/Controllers/StationController — `icon()` in the shop card's art well.
-	    A ViewportFrame draws no Beams, Trails or lights, so the card gets a still model
-	    built from parts instead.
+	    A ViewportFrame draws no Beams, Trails or lights, so the card gets a model
+	    built from parts instead, which AuraController animates (`ICON_TAG`).
 
 	All geometry is in studs for a stock-sized character (HumanoidRootPart 2 tall) and
 	is scaled by the caller.
 ]]
+
+local CollectionService = game:GetService("CollectionService")
 
 local AuraLook = {}
 
@@ -134,27 +136,45 @@ local function iconPart(model: Model, name: string, color: Color3, size: Vector3
 	return part
 end
 
---- A still model of tier `tier`'s atom, for a ViewportFrame: a nucleus, each ring as a
---- loop of short Neon segments, and its electrons as balls. Built at the origin. The
---- snapshot time is fixed so every card shows the same pose.
+--- Tag on every `icon()` model. AuraController animates the ones on screen: the
+--- electrons orbit (`poseIcon`) and the card's camera circles the atom at PRECESS,
+--- which reads exactly like the rings precessing without moving a hundred segments a
+--- frame. A ViewportFrame redraws whenever anything in it moves, so only the electrons
+--- and the camera ever do.
+AuraLook.ICON_TAG = "AuraIcon"
+
+--- Ring `ring`'s frame inside an icon: its tilt, and nothing else. The icon never
+--- precesses itself; the camera circles it instead (see ICON_TAG).
+local function iconRingFrame(ring: number): CFrame
+	return CFrame.Angles(0, 0, AuraLook.TILTS[ring] or 0)
+end
+
+--- A model of tier `tier`'s atom for a ViewportFrame: a nucleus, each ring as a loop of
+--- short Neon segments, and its electrons as balls (in an "Electrons" child, which is
+--- all `poseIcon` moves). Built at the origin, tagged ICON_TAG, posed at a fixed time
+--- so it reads the same wherever nothing animates it.
 function AuraLook.icon(tier: number): Model
 	local look = AuraLook.get(tier)
 	local model = Instance.new("Model")
 	model.Name = `Aura{tier}`
+	model:SetAttribute("AuraIcon", tier)
 
 	local r = AuraLook.RADIUS
-	local t = 0.9
 	local thick = 0.06 + look.width * 0.6
 	local segments, length = AuraLook.segments(r, 36)
+	local electrons = Instance.new("Model")
+	electrons.Name = "Electrons"
+	electrons.Parent = model
 	for ring = 1, look.rings do
-		local frame = AuraLook.ringFrame(ring, t)
+		local frame = iconRingFrame(ring)
 		for _, segment in segments do
 			iconPart(model, "Ring", look.color, Vector3.new(length, thick, thick), frame * segment, true)
 		end
 		for e = 1, look.electrons do
-			local u = AuraLook.electronAngle(look, ring, e, t)
-			local at = AuraLook.ringPoint(ring, u, t, r)
-			iconPart(model, "Electron", AuraLook.electronColor(look), Vector3.one * (0.36 + look.width), CFrame.new(at), true)
+			local ball = iconPart(electrons, "Electron", AuraLook.electronColor(look), Vector3.one * (0.36 + look.width), CFrame.identity, true)
+			ball.Shape = Enum.PartType.Ball
+			ball:SetAttribute("Ring", ring)
+			ball:SetAttribute("Electron", e)
 		end
 	end
 
@@ -163,13 +183,31 @@ function AuraLook.icon(tier: number): Model
 	if not look.core then
 		nucleus.Color = look.color:Lerp(Color3.new(0, 0, 0), 0.35)
 	end
-	for _, part in model:GetChildren() do
-		if part:IsA("Part") and part.Name == "Electron" then
-			part.Shape = Enum.PartType.Ball
+	model.PrimaryPart = nucleus
+
+	AuraLook.poseIcon(model, 0.9)
+	CollectionService:AddTag(model, AuraLook.ICON_TAG)
+	return model
+end
+
+--- Put an `icon()` model's electrons where they are at time `t`, in the model's own
+--- frame (its pivot is the nucleus at the origin).
+function AuraLook.poseIcon(model: Model, t: number)
+	local electrons = model:FindFirstChild("Electrons")
+	local tier = model:GetAttribute("AuraIcon")
+	if electrons == nil or type(tier) ~= "number" then
+		return
+	end
+	local look = AuraLook.get(tier)
+	local r = AuraLook.RADIUS
+	local pivot = model:GetPivot()
+	for _, ball in electrons:GetChildren() do
+		local ring, e = ball:GetAttribute("Ring"), ball:GetAttribute("Electron")
+		if ball:IsA("BasePart") and type(ring) == "number" and type(e) == "number" then
+			local u = AuraLook.electronAngle(look, ring, e, t)
+			ball.CFrame = pivot * iconRingFrame(ring) * CFrame.new(math.cos(u) * r, 0, math.sin(u) * r)
 		end
 	end
-	model.PrimaryPart = nucleus
-	return model
 end
 
 return AuraLook

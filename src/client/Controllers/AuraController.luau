@@ -25,6 +25,13 @@
 	and CanQuery false, so no raycast (the detector's, the wash bay's aim) can land on
 	it and nothing that walks a character's parts ever meets it.
 
+	THE SHOP CARDS MOVE TOO, on request. A shop card's atom (AuraLook.icon, tagged
+	AuraLook.ICON_TAG) is parts in a ViewportFrame, which redraws whenever anything in
+	it moves. So this moves as little as possible: the card's camera circles the atom
+	at the aura's own precession (which reads exactly as the rings turning) and the
+	electrons ride their rings. The hundred-odd ring segments never move. Only a card
+	actually on screen is touched; the carousel's off-panel slots stand still.
+
 	YOUR OWN AURA HIDES WHEN THE CAMERA IS INSIDE IT. The wash bay is first person
 	from your own head, and first-person zoom is the same: a ring round your chest is
 	then a streak across the whole view. Past FAR from the camera an aura is too small
@@ -289,6 +296,53 @@ end
 local movedParts: { BasePart } = {}
 local movedFrames: { CFrame } = {}
 
+--- Shop card atoms (AuraLook.ICON_TAG) -> the pose their card's camera was framed at,
+--- captured the first frame the card is on screen (StationController frames the
+--- camera as it parents the model, so by then the framing is final).
+local icons: { [Model]: { base: CFrame? } } = {}
+
+--- True while `gui` is drawn and at least partly inside the screen: every ancestor
+--- Visible, its ScreenGui Enabled, and its rect not wholly off either side. The shop
+--- carousel keeps every tier's card alive side by side and clips the ones off the
+--- panel, so Visible alone would animate all six.
+local function onScreen(gui: GuiObject, screenWidth: number): boolean
+	local left = gui.AbsolutePosition.X
+	if left + gui.AbsoluteSize.X <= 0 or left >= screenWidth then
+		return false
+	end
+	local node: Instance? = gui
+	while node do
+		if node:IsA("GuiObject") and not node.Visible then
+			return false
+		end
+		if node:IsA("LayerCollector") then
+			return node.Enabled
+		end
+		node = node.Parent
+	end
+	return false
+end
+
+local function stepIcons(now: number, screenWidth: number)
+	for model, entry in icons do
+		local viewport = model.Parent
+		if viewport == nil or not viewport:IsA("ViewportFrame") or not onScreen(viewport, screenWidth) then
+			continue
+		end
+		local camera = viewport.CurrentCamera
+		if camera == nil then
+			continue
+		end
+		if entry.base == nil then
+			entry.base = camera.CFrame
+		end
+		-- The atom's pivot is the origin (StationController pivots it there), so turning
+		-- the camera about the world Y circles it. Backwards, so the atom turns forwards.
+		camera.CFrame = CFrame.fromAxisAngle(Vector3.yAxis, -now * AuraLook.PRECESS) * (entry.base :: CFrame)
+		AuraLook.poseIcon(model, now)
+	end
+end
+
 local function step(dt: number)
 	sinceScan += dt
 	if sinceScan >= RESCAN then
@@ -302,6 +356,7 @@ local function step(dt: number)
 	end
 	local eye = camera.CFrame.Position
 	local now = os.clock()
+	stepIcons(now, camera.ViewportSize.X)
 	table.clear(movedParts)
 	table.clear(movedFrames)
 
@@ -344,6 +399,19 @@ function AuraController.start()
 	fx = Instance.new("Folder")
 	fx.Name = "AuraFx"
 	fx.Parent = Workspace
+	for _, model in CollectionService:GetTagged(AuraLook.ICON_TAG) do
+		if model:IsA("Model") then
+			icons[model] = {}
+		end
+	end
+	CollectionService:GetInstanceAddedSignal(AuraLook.ICON_TAG):Connect(function(model)
+		if model:IsA("Model") then
+			icons[model] = {}
+		end
+	end)
+	CollectionService:GetInstanceRemovedSignal(AuraLook.ICON_TAG):Connect(function(model)
+		icons[model :: Model] = nil
+	end)
 	RunService.RenderStepped:Connect(function(dt)
 		local ok, err = pcall(step, dt)
 		if not ok and not warned then

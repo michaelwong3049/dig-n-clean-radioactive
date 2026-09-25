@@ -1,6 +1,12 @@
 --[[
-	SettingsController.lua — the player Settings panel. One setting today: the colour
-	of your base.
+	SettingsController.lua — the player Settings panel. Two settings: the colour of
+	your base, and HIDE MY AURA.
+
+	HIDE MY AURA turns your aura off for everyone (on request, over hiding auras only
+	on your own screen). It is a profile setting the server owns, exactly like the
+	colour: the switch fires Net.HideAura with the new boolean and waits for
+	AuraService's confirmed echo before it changes, and the server sends the saved
+	value once on load. The aura keeps protecting you while hidden.
 
 	WHY A COLOUR PICKER LIVES HERE. Every plot is built in one neutral grey
 	(build/Plots' `C.plotNeutral`), and the accent — the two side Trim strips, the
@@ -45,7 +51,9 @@ local Settings = {}
 -- formatCash. Keep in step if the server value changes.
 local NEUTRAL = Color3.fromHex("7F8388")
 
-local PANEL_SIZE = Vector2.new(430, 428)
+local PANEL_SIZE = Vector2.new(430, 464)
+-- The base colour section's height; the aura row sits under it.
+local COLOUR_SECTION_H = 300
 local SV_SIZE = Vector2.new(232, 158)
 local HUE_W = 26
 local GAP = 14
@@ -62,6 +70,14 @@ local state = {
 	-- The plot's default hue, which the base wears while nothing is committed. nil
 	-- until the server says (and if the player holds no plot).
 	fallback = nil :: Color3?,
+}
+
+-- HIDE MY AURA, as the server last confirmed it. `known` stays false until the load
+-- echo, and the switch ignores clicks until then rather than guessing.
+local aura = {
+	hidden = false,
+	known = false,
+	pending = false,
 }
 
 local ui = {}
@@ -130,6 +146,76 @@ local function onServerColor(hex: any, fallback: any)
 		end
 	end
 	applyPreview()
+end
+
+-- ── Hide my aura ────────────────────────────────────────────────────
+
+local function applyAura()
+	local switch = ui.auraSwitch
+	if switch == nil then
+		return
+	end
+	switch.Text = if aura.pending or not aura.known then "\u{2026}" elseif aura.hidden then "ON" else "OFF"
+	switch.BackgroundColor3 = if aura.hidden then UIKit.C.selected else UIKit.C.empty
+	switch.TextColor3 = if aura.hidden then UIKit.C.text else UIKit.C.dim
+end
+
+--- The server's confirmed value: once on load, then after every toggle.
+local function onServerHideAura(hidden: any)
+	aura.hidden = hidden == true
+	aura.known = true
+	aura.pending = false
+	applyAura()
+end
+
+local function toggleAura()
+	if not aura.known or aura.pending then
+		return
+	end
+	aura.pending = true
+	applyAura()
+	Net.get("HideAura"):FireServer(not aura.hidden)
+end
+
+local function buildAuraRow(section: Instance)
+	UIKit.label(section, {
+		name = "SectionTitle",
+		size = UDim2.new(1, -120, 0, 24),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.header,
+		color = UIKit.C.text,
+		text = "HIDE MY AURA",
+		zIndex = 12,
+	})
+
+	UIKit.label(section, {
+		name = "SectionHint",
+		position = UDim2.fromOffset(0, 24),
+		size = UDim2.new(1, -120, 0, 18),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.caption,
+		color = UIKit.C.dim,
+		text = "off for everyone \u{2014} it still protects you",
+		zIndex = 12,
+	})
+
+	local switch = UIKit.button(section, {
+		name = "AuraSwitch",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, 0, 0, 4),
+		size = UDim2.fromOffset(108, 34),
+		text = "\u{2026}",
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.body,
+		color = UIKit.C.dim,
+		fillColor = UIKit.C.empty,
+		fillTransparency = 0,
+		cornerRadius = UIKit.Radius.button,
+		zIndex = 12,
+	})
+	switch.MouseButton1Click:Connect(toggleAura)
+	ui.auraSwitch = switch
+	applyAura()
 end
 
 -- ── Draggable tracks ────────────────────────────────────────────────
@@ -490,11 +576,11 @@ local function build(): ScreenGui
 		zIndex = 12,
 	})
 
-	-- One section for now, laid out so more can stack under it later.
+	-- The base colour section, then the aura row under it.
 	local section = Instance.new("Frame")
 	section.Name = "BaseColour"
 	section.Position = UDim2.fromOffset(0, 64)
-	section.Size = UDim2.new(1, 0, 1, -64)
+	section.Size = UDim2.new(1, 0, 0, COLOUR_SECTION_H)
 	section.BackgroundTransparency = 1
 	section.ZIndex = 11
 	section.Parent = panel
@@ -530,6 +616,15 @@ local function build(): ScreenGui
 
 	buildColorPicker(pickerHost)
 
+	local auraSection = Instance.new("Frame")
+	auraSection.Name = "Aura"
+	auraSection.Position = UDim2.fromOffset(0, 64 + COLOUR_SECTION_H + 8)
+	auraSection.Size = UDim2.new(1, 0, 0, 44)
+	auraSection.BackgroundTransparency = 1
+	auraSection.ZIndex = 11
+	auraSection.Parent = panel
+	buildAuraRow(auraSection)
+
 	local function toggle()
 		panel.Visible = not panel.Visible
 	end
@@ -551,6 +646,8 @@ function Settings.start()
 	-- Fired once on load with the saved value, and again after every change as the
 	-- server-confirmed echo — same channel both ways (Shared/Net.PlotColor).
 	Net.get("PlotColor").OnClientEvent:Connect(onServerColor)
+	-- The same once-on-load-then-echo channel for HIDE MY AURA (AuraService).
+	Net.get("HideAura").OnClientEvent:Connect(onServerHideAura)
 end
 
 return Settings
