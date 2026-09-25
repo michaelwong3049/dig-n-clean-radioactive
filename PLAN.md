@@ -393,6 +393,11 @@ is what stops the answer from always being "push one more."
 
 ### 3.4 Hazmat suits — three stats, not one
 
+> **The Suit is now the Aura** (2026-09-25): the same track, stats and prices, worn as
+> atom rings round the chest instead of a hazmat suit. Tier names are in the Aura line
+> below; everything in this section still holds with "aura" for "suit". See
+> `Shared/AuraLook`.
+
 Suits are the most important purchase in the game and carry three separate stats:
 
 |Stat|What it does|
@@ -794,9 +799,11 @@ Bent Horseshoe → Salvage Magnet → Ferrite Coil → Electromagnet Rig → Ser
 Garden Hose → Patched Fire Hose → Pressure Lance → Chem Injector → Ultrasonic Jet →
 Ion Cannon → Plasma Lance
 
-### Suit line
+### Aura line *(was the Suit line)*
 
-Cloth Wrap → Rubber Suit → Lead-Lined → Reinforced Hazmat → Sealed Exo-Suit → Containment Rig
+Faint Glow → Static Veil → Lead Halo → Ion Shroud → Isotope Mantle → Containment Nimbus
+
+*(Was: Cloth Wrap → Rubber Suit → Lead-Lined → Reinforced Hazmat → Sealed Exo-Suit → Containment Rig.)*
 
 ### Boots line
 

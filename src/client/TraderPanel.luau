@@ -11,7 +11,7 @@
 	  the bag      a 3-wide grid of item tiles, one per slot up to your capacity, each
 	               with a rarity pill, the item's own model and its sale price. Empty
 	               slots draw as empty tiles so "how full am I" is answered by looking.
-	               It scrolls past three rows: a maxed suit and level carries 40.
+	               It scrolls past three rows: a maxed aura and level carries 40.
 	  the detail   the selected item, big: model, name, rarity and modifier chips,
 	               condition, what it pays, and one SELL button. A crusted "???" also
 	               says what the blind sale is trading away -- and, when the hose you

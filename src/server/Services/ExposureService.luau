@@ -8,7 +8,7 @@
 
 	TWO WAYS TO GO DOWN, kept apart on purpose (PLAN §14):
 	  exposure hits 100%  — the green death. Ambient plus what you are carrying.
-	  health hits 0       — the white death. From suit failure over-tier, or from a
+	  health hits 0       — the white death. From aura failure over-tier, or from a
 	                        detonated nuke: its blast and its crater (HazardService).
 
 	BLACKOUT IS NOT A DEATH PENALTY. You keep cash, gear, the locker and anything
@@ -23,7 +23,7 @@
 	nuke in it goes off where you fell, clean or crusted, crates included. Each is a
 	real detonation (HazardService), staggered into a chain, so anyone standing close
 	takes every hit and can go down to it -- and their bag goes off in turn. Radiation
-	(the green death, or plain suit failure) still drops the bag for anyone to grab.
+	(the green death, or plain aura failure) still drops the bag for anyone to grab.
 ]]
 
 local Players = game:GetService("Players")
@@ -493,8 +493,8 @@ local function stepPlayer(player: Player, dt: number)
 	-- A DETONATED NUKE'S CRATER BURNS HEALTH, and it is folded into the reading rather
 	-- than applied beside it so that everything downstream -- regen stopping, the
 	-- SURVIVABLE countdown, the threat colour, the white overlay, the "burn" blackout --
-	-- treats standing in a crater exactly like suit failure. `failing` is left alone:
-	-- that flag means the SUIT gave out, and it has not. The suit does not shield this
+	-- treats standing in a crater exactly like aura failure. `failing` is left alone:
+	-- that flag means the AURA gave out, and it has not. The aura does not shield this
 	-- either; it is the air itself, a second ago, at a few thousand degrees.
 	local craterBurn = HazardService.burnAt(root.Position)
 	reading.healthBurn += craterBurn
@@ -526,7 +526,7 @@ local function stepPlayer(player: Player, dt: number)
 		if state.health <= 0 then
 			-- Down to a detonation -- its hit this tick, or standing in a crater's orb
 			-- when the health ran out -- is a "blast" death, and the bag goes off with
-			-- you. Suit failure alone is still "burn": radiation, and the bag drops.
+			-- you. Aura failure alone is still "burn": radiation, and the bag drops.
 			local blasted = blastHit > 0 or craterBurn > 0
 			blackout(player, state, if blasted then "blast" else "burn")
 		elseif state.exposure >= Tuning.EXPOSURE_CAP then
@@ -587,8 +587,8 @@ local function stepPlayer(player: Player, dt: number)
 		healthBurn = reading.healthBurn,
 		failing = reading.failing,
 		-- Standing in a detonated nuke's crater (HazardService). Its burn is already in
-		-- healthBurn; this only lets the HUD name the right cause -- "SUIT FAILING" and
-		-- its white are the suit's alone (PLAN's one colour rule).
+		-- healthBurn; this only lets the HUD name the right cause -- "AURA FAILING" and
+		-- its white are the aura's alone (PLAN's one colour rule).
 		inCrater = craterBurn > 0,
 
 		greed = Radiation.greedFraction(reading, stats),
@@ -597,7 +597,7 @@ local function stepPlayer(player: Player, dt: number)
 
 		carrying = #data.carry,
 		capacity = stats.capacity,
-		suitTolerance = stats.suitTolerance,
+		auraTolerance = stats.auraTolerance,
 		gear = data.gear,
 	})
 end

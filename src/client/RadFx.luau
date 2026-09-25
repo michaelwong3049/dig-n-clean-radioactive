@@ -10,14 +10,14 @@
 
 	Everything here is Frames, UICorner, UIStroke and UIGradient — no image assets, so
 	every layer re-tints per state. PLAN §14's ONE COLOUR RULE still holds and this
-	file is the strictest place in the client about it: exposure damage is GREEN, suit
+	file is the strictest place in the client about it: exposure damage is GREEN, aura
 	failure is WHITE, and the two never blend into a third thing. The cracks layer is
-	white BECAUSE it only ever appears while the suit is failing. Blood is the third
+	white BECAUSE it only ever appears while the aura is failing. Blood is the third
 	colour and it answers to HEALTH, never to rads — see the BLOOD constant.
 
 	NINE LAYERS, EACH ARRIVING AT ITS OWN THRESHOLD, so escalation is a sequence
 	rather than one slider being dragged. Eight of them answer to the rad meter, your
-	health, or your suit. The ninth answers to WHERE YOU ARE, and it is the loudest
+	health, or your aura. The ninth answers to WHERE YOU ARE, and it is the loudest
 	thing in the file — see `over` on update():
 
 	  iris    elliptical rings closing in from beyond the frame. This is the vignette's
@@ -29,7 +29,7 @@
 	          on the meter, one the LIGHT grade owns outright (LIGHT_GRAIN_COUNT).
 	  tear    horizontal signal breakup past DANGER. The feed failing, not the eye.
 	  cracks  fractures spidering in from the frame's edges, WHITE and dark-outlined so
-	          they read against a bright sky, and only while the suit is failing. This
+	          they read against a bright sky, and only while the aura is failing. This
 	          is the layer that means destroyed.
 	  bleed   a red rim at the very edge of the glass, driven by health.
 	  splats  blood hitting the inside of the visor and running down it. The drips only
@@ -37,7 +37,7 @@
 	          from a decal.
 	  throb   a heartbeat over the whole picture, faster as the meter fills.
 	  veil    the blind layer, and the only one allowed to touch the middle of the
-	          screen. Lit by nothing except standing in air your suit is not rated for:
+	          screen. Lit by nothing except standing in air your aura is not rated for:
 	          the iris slams down to a keyhole, the tunnel goes dark, the blur goes to
 	          24, and the answer to "can I sneak one dig in down here" becomes no.
 
@@ -62,7 +62,7 @@
 	            29.9 at the intense end — and 24 of 80 cracks lit, against all 80).
 	            You can still read the ground. This is a warning you can work through,
 	            and it is the grade a player meets by stepping one stage past their
-	            suit, which used to be a barely-visible darkening.
+	            aura, which used to be a barely-visible darkening.
 	  REGULAR   the low half of `blind`. The tunnel starts closing and the blur
 	            becomes real. Working is possible; it is no longer comfortable.
 	  INTENSE   `blind` at full, ~3x your rating. Untouched to the digit — `light` is
@@ -96,7 +96,7 @@ local ROT = GREEN:Lerp(Color3.new(0, 0, 0), 0.58)
 local VOID = GREEN:Lerp(Color3.new(0, 0, 0), 0.9)
 -- BLOOD IS THE ONE COLOUR IN HERE THAT IS NOT ON THE EXPOSURE LADDER, and it is
 -- deliberately not driven by exposure either: it rides on HEALTH. Green is the dose,
--- white is the suit, red is you — three states that never say the same thing, which
+-- white is the aura, red is you — three states that never say the same thing, which
 -- is why a third colour does not break PLAN §14's rule. Blood driven by RADS would
 -- break it, because then red would only be repeating what the green already said.
 local BLOOD = Color3.fromRGB(122, 10, 14)
@@ -112,10 +112,10 @@ local rng = Random.new(0x2A0D)
 -- deep — so the entrance to a stage you are not rated for is entirely light, and
 -- pushing east into it is what starts closing the tunnel.
 local LIGHT_SPAN = 0.22
--- HOW BROKEN THE SUIT READS AT THE INSTANT IT STARTS FAILING. `failing` is binary, so
+-- HOW BROKEN THE AURA READS AT THE INSTANT IT STARTS FAILING. `failing` is binary, so
 -- something has to stand in for "barely" — this is the bottom of the failure ramp,
 -- with `over` carrying it the rest of the way to 1. High enough that the glass agrees
--- with the countdown when it says SUIT FAILING, low enough that a toe over the line
+-- with the countdown when it says AURA FAILING, low enough that a toe over the line
 -- is a few fractures rather than the whole visor.
 local FAIL_FLOOR = 0.25
 
@@ -707,8 +707,8 @@ local function sleep()
 end
 
 --- `intensity` is HudController's own 0..1 escalation ramp (0 below EXPOSURE_WARN),
---- `failing` is the suit-failure flag, `healthFrac` is 0..1 of max HP, and `over` is
---- 0..1 of "how far past your suit's rating this air is" — 0 anywhere you are rated
+--- `failing` is the aura-failure flag, `healthFrac` is 0..1 of max HP, and `over` is
+--- 0..1 of "how far past your aura's rating this air is" — 0 anywhere you are rated
 --- for, 1 in a stage that should never have let you in. Nothing else belongs here.
 function RadFx.update(dt: number, intensity: number, failing: boolean, healthFrac: number, over: number)
 	if not st.built then
@@ -728,7 +728,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 		st.over = math.max(want, st.over - dt / 0.45)
 	end
 
-	-- HOW BADLY THE SUIT IS FAILING, NOT MERELY WHETHER IT IS. This was the real
+	-- HOW BADLY THE AURA IS FAILING, NOT MERELY WHETHER IT IS. This was the real
 	-- reason crossing a stage line went from nothing to everything, and no amount of
 	-- grading the `over` layers could fix it: `failing` is a BOOLEAN the instant
 	-- excess passes zero (Radiation.resolve: failing = excess > 0), and ramping to a
@@ -740,7 +740,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	-- condition: a toe past your rating cracks a corner of the visor, three times your
 	-- rating still destroys the whole thing (over = 1 gives target = 1, exactly as
 	-- before). FAIL_FLOOR keeps the state legible at the very bottom — the countdown
-	-- says SUIT FAILING, so the glass has to say it too.
+	-- says AURA FAILING, so the glass has to say it too.
 	--
 	-- Ramps in over a couple of seconds and clears fast. Cracks that snap to full the
 	-- instant a flag flips look like a texture swap; cracks that spread look like
@@ -754,7 +754,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 
 	-- Blood starts at a scratch and is total at a quarter health.
 	local bleed = math.clamp((0.75 - healthFrac) / 0.5, 0, 1)
-	-- A failing suit opens you up whatever the health bar still says — but by HOW far
+	-- A failing aura opens you up whatever the health bar still says — but by HOW far
 	-- past your rating you are, not flat. A stride over the line is a nosebleed; three
 	-- times your tolerance is every splat this file owns, at full health, immediately.
 	bleed = math.max(bleed, st.fail * (0.3 + 0.65 * st.over))
@@ -773,7 +773,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	end
 
 	local fail = st.fail
-	-- BLIND. Being somewhere your suit cannot hold is not a worse version of a high
+	-- BLIND. Being somewhere your aura cannot hold is not a worse version of a high
 	-- meter, it is a different sentence: the air itself is past what you are rated
 	-- for, and the game says so by taking your sight rather than by adding another
 	-- number. Every layer below reads this, which is why one stage too deep does not
@@ -975,7 +975,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	ui.veil.BackgroundTransparency = 1 - blind * (0.66 + 0.06 * beat)
 
 	-- Lighting --------------------------------------------------------
-	-- Green sight failing, then bleaching WHITE as the suit goes — the same two-state
+	-- Green sight failing, then bleaching WHITE as the aura goes — the same two-state
 	-- colour story the meter and the blackout curtain tell, told on the world instead.
 	local sick = Color3.new(1, 1, 1):Lerp(Color3.fromRGB(150, 235, 120), 0.2 * intensity)
 	ui.colour.TintColor = sick:Lerp(Color3.new(1, 1, 1), fail)

@@ -23,21 +23,21 @@ Tuning.EXPOSURE_WARN = 0.50 -- vignette + click bed
 Tuning.EXPOSURE_DANGER = 0.80 -- distortion, false pings
 Tuning.SHOWER_FLUSH_RATE = 200 -- rads/sec removed while standing in a decon shower
 
--- ── Radiation burn / suit failure (PLAN §3.5) ─────────────────────────────────
--- healthBurn (HP/sec) = BURN_COEF * (ambientRads - suitTolerance) ^ BURN_EXPONENT
+-- ── Radiation burn / aura failure (PLAN §3.5) ─────────────────────────────────
+-- healthBurn (HP/sec) = BURN_COEF * (ambientRads - auraTolerance) ^ BURN_EXPONENT
 --
 -- These two constants were fitted so that the model reproduces the design targets:
---   * unsuited survival matches the third-pass targets (17s / 5s / 2s / 1s / instant)
+--   * unshielded survival matches the third-pass targets (17s / 5s / 2s / 1s / instant)
 --     for stages 2-6 -- Stage 1 is a separate, exposure-only case, see Gear.luau's
---     Cloth Wrap `reduction` note for why it isn't in this list.
+--     Faint Glow `reduction` note for why it isn't in this list.
 --   * ONE TIER UNDER lands at ~12s in every stage (3-6) -- tightened again, see the
---     note below on why this and the Stage 3 unsuited target could not both be hit
+--     note below on why this and the Stage 3 unshielded target could not both be hit
 --     without moving this number a second time.
---   * a full Containment Rig buys 1:30 in the Crater — §4's "timed heist" (unaffected --
+--   * a full Containment Nimbus buys 1:30 in the Crater — §4's "timed heist" (unaffected --
 --     that scenario is exposure-bound, not burn-bound, so COEF doesn't touch it)
 --
 -- COEF raised 2.0 -> 3.0 -> 6.0 across two harshening passes today. The second raise
--- was driven by an explicit target: Stage 3 unsuited (Cloth Wrap) should die in well
+-- was driven by an explicit target: Stage 3 unshielded (Faint Glow) should die in well
 -- under 5 seconds at the entrance, not the ~10s the first pass produced. Stage 3's own
 -- ambient rate was deliberately NOT what moved to hit that -- raising Stage 3's
 -- baseRads instead would have closed the gap between its entrance and deepest rates,
@@ -47,11 +47,11 @@ Tuning.SHOWER_FLUSH_RATE = 200 -- rads/sec removed while standing in a decon sho
 --
 -- THE UNAVOIDABLE COST: this also compresses the one-tier-under "Dive" window (stages
 -- 3-6) from ~23s down to ~12s, because Stage 3's ambient (6 r/s) sits close enough to
--- both Cloth Wrap's tolerance (1.0) and Rubber Suit's (4.4) that no pure COEF or
--- tolerance scalar can push the Cloth Wrap number down without dragging the Rubber
--- Suit number down with it -- the two are locked to the same stage ambient, and their
+-- both Faint Glow's tolerance (1.0) and Static Veil's (4.4) that no pure COEF or
+-- tolerance scalar can push the Faint Glow number down without dragging the Static
+-- Veil number down with it -- the two are locked to the same stage ambient, and their
 -- burn values differ only by a ratio COEF cancels out of. Decoupling them for real
--- would mean widening the gap between suit tiers' tolerances, a much bigger change
+-- would mean widening the gap between aura tiers' tolerances, a much bigger change
 -- than was asked for here. Flagged rather than hidden: the "one dig" pacing from
 -- PLAN §3.5 is now noticeably tighter than originally designed.
 --
@@ -81,10 +81,10 @@ Tuning.DECAY_CONDITIONS = {
 
 -- Base rads/sec a carried item contributes at Fresh condition, by rarity order (1..8).
 -- Multiplied by the condition emission above, and shielded only by level resist (never
--- the suit — see the header of Shared/Radiation.lua for why).
+-- the aura — see the header of Shared/Radiation.lua for why).
 --
 -- Calibrated against three checks, all asserted in Shared/Util/Spec. Measured in
--- Stage 3 with a rated (Lead-Lined) suit and an unshielded bag — which, with the
+-- Stage 3 with a rated (Lead Halo) aura and an unshielded bag — which, with the
 -- Satchel track retired, is now the only bag there is:
 --   * 8x Rare, all Fresh (a full bag)      -> 2:44. Comfortable; the walk home is ~35s.
 --   * 1x Irradiated Legendary at Critical  -> 27s.  Scary, survivable, RUN.

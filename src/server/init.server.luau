@@ -40,6 +40,7 @@ local ORDER = {
 	"CrateService", -- opening dug-up supply crates; needs Dig + Wash + Liquid + Identify
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel
 	"ToolService", -- held models; reads DigService + DeconService + WashService state
+	"AuraService", -- the worn aura: stamps each character's AuraTier for the clients to draw; reads Data
 	"TutorialService", -- the new-player walkthrough; reads Stage + Dig + Carry, nudges Carry
 	"DebugService", -- the tuning console; reads the services above
 }

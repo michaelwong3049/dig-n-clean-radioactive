@@ -16,7 +16,7 @@
 	the tan stages still read against a tan sky. Everything sits in one CanvasGroup
 	so the outlines and shadows fade with the words.
 
-	IT KEEPS A FRAME NAMED "Panel". SuitWarningController finds the banner by that
+	IT KEEPS A FRAME NAMED "Panel". AuraWarningController finds the banner by that
 	name to stay clear of it; here it is just the invisible box around the title.
 	While the tutorial's banner is up (same spot, TutorialController) the title drops
 	below it instead of landing on top of it.
@@ -57,7 +57,7 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local StageBannerController = {}
 
 -- Design px on the 1280x720 canvas. The eyebrow's text starts at y 104, well clear of
--- the Roblox topbar (IgnoreGuiInset is on) and of the suit warning at y 16.
+-- the Roblox topbar (IgnoreGuiInset is on) and of the aura warning at y 16.
 local TOP = 98
 local PAD = 6 -- inside the CanvasGroup, so the outlines and shadow are not clipped
 local WIDTH = 820 -- wider than the longest name, "THE EXCLUSION BELT"
@@ -126,7 +126,7 @@ local function build(): ScreenGui
 
 	local canvas = UIKit.canvas(gui)
 
-	-- Invisible: the box SuitWarningController measures. Anchored at its centre so the
+	-- Invisible: the box AuraWarningController measures. Anchored at its centre so the
 	-- fade-in shrinks toward the middle of the title rather than toward its top edge.
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"

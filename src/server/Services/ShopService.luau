@@ -123,7 +123,7 @@ local function isTrack(track: string?): boolean
 	return false
 end
 
---- 0.9970 and 0.9988 are two different suits; "1.00" and "1.00" are not. Suit
+--- 0.9970 and 0.9988 are two different auras; "1.00" and "1.00" are not. Aura
 --- `reduction` is the one stat whose whole ladder lives in the fourth decimal, so
 --- format wide and trim the trailing zeros rather than picking a fixed precision
 --- that flattens it.
@@ -143,13 +143,13 @@ end
 --- THREE COLUMNS IN THE GAME NEED THIS, and every one of them draws a misleading bar
 --- without it:
 ---
----   lowerIsBetter  Suit's haulPenalty. 0.20 beats 1.20; negating is the whole fix.
----   complement     Suit's reduction. The number is a fraction of dose BLOCKED, so it
+---   lowerIsBetter  Aura's haulPenalty. 0.20 beats 1.20; negating is the whole fix.
+---   complement     Aura's reduction. The number is a fraction of dose BLOCKED, so it
 ---                  lives at 0.63..0.9988 and a bar drawn on it straight reads "the
----                  Rubber Suit is 98% as good as the best suit in the game". What
+---                  Static Veil is 98% as good as the best aura in the game". What
 ---                  actually varies is what GETS THROUGH (1 - reduction), and that
 ---                  runs 0.37 down to 0.0012 — a 300x spread.
----   scale = "log"  Suit's reduction again. Even on leakage, tier 1 is so much worse
+---   scale = "log"  Aura's reduction again. Even on leakage, tier 1 is so much worse
 ---                  than everything else that a linear bar pins tiers 2-6 to the top
 ---                  of the track. Leakage is a multiplicative quantity (halving it
 ---                  doubles your time in a stage), so the ladder is only legible on a
@@ -159,7 +159,7 @@ local function goodness(field: any, value: number): number
 	local v = value
 	if field.complement then
 		-- What gets through rather than what is stopped. Clamped off zero so a
-		-- hypothetical perfect suit cannot log(0).
+		-- hypothetical perfect aura cannot log(0).
 		v = math.max(1 - v, 1e-6)
 	end
 	if field.scale == "log" then
@@ -182,9 +182,9 @@ end
 --- and a Taped Boot's speed bar was 72% full. Measured against the ladder, the bottom
 --- rung is empty and the top is full, which is the only reading a shop ladder wants.
 ---
---- COMPUTED, NOT TYPED, and over the WHOLE track rather than off its end rungs: Suit's
---- `reduction` peaks at the Sealed Exo-Suit and then deliberately dips for the
---- Containment Rig, so neither end of that ladder is its extreme. Walking it costs at
+--- COMPUTED, NOT TYPED, and over the WHOLE track rather than off its end rungs: Aura's
+--- `reduction` peaks at the Isotope Mantle and then deliberately dips for the
+--- Containment Nimbus, so neither end of that ladder is its extreme. Walking it costs at
 --- most 8 table reads and cannot go stale when a column is retuned.
 local function statRange(track: string, key: string, field: any): (number, number)
 	local worst: number? = nil
@@ -459,7 +459,8 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 
 	-- THE PURCHASE HAS TO LAND SOMEWHERE THE PLAYER CAN SEE. Three of the four tracks
 	-- land on the player: a detector or a magnet appears in their hands the next time
-	-- ToolService looks at them, and a suit is felt rather than seen.
+	-- ToolService looks at them, and an aura lights up round them on the next
+	-- AuraService poll.
 	-- The Cleaner track lands on their BASE — it is the monitor bolted to the mast at
 	-- their own cleansing station (build/Plots.buildHoseRig) — so it needs a poke, the
 	-- same way a Luck purchase needs one to repaint its button. Which plot, and what a

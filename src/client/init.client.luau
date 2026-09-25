@@ -17,7 +17,7 @@ local ORDER = {
 	"InventoryController", -- Phase 1: the hotbar and its detail card; reads CarryState + StationController
 	"HudController", -- Phase 2: rad meter, the RadFx damage overlay, distortion, blackout
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
-	"SuitWarningController", -- Phase 2: the "UPGRADE SUIT" card when an over-tier stage is burning you down; reads ExposureState
+	"AuraWarningController", -- Phase 2: the "UPGRADE AURA" card when an over-tier stage is burning you down; reads ExposureState
 	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState
 	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
 	"IndexController", -- the item index GUI; Index tile on the right edge, reads IndexState + Unearthed
@@ -36,6 +36,7 @@ local ORDER = {
 	"ItemFxController", -- nuke glow/glass/motion on any `ItemFx`-tagged model, once its crust is off
 	"DetonationController", -- nukes going off: the blast, the crater orb, the lit-fuse warnings; reads Detonation
 	"NameTagController", -- subdued overhead player names; replaces Roblox's bright default tag
+	"AuraController", -- the atom-ring aura round every character (AuraTier attribute) and the Outfitter mannequin
 	"StandCardController", -- the trophy-ribbon card over each displayed nuke; reads the StandCard attributes ExhibitService writes
 	"WarpController", -- the top-of-screen HOME / SHOPS portals; reads stageId off ExposureState
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState

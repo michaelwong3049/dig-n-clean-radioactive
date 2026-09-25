@@ -1,19 +1,19 @@
 --[[
-	SuitWarningController.lua — the "!! UPGRADE SUIT" warning for a player out of their depth.
+	AuraWarningController.lua — the "!! UPGRADE AURA" warning for a player out of their depth.
 
-	The rad meter already says SUIT FAILING and counts down, and RadFx whitens the
+	The rad meter already says AURA FAILING and counts down, and RadFx whitens the
 	screen, but none of that says WHAT TO DO about it. A new player who walks one stage
-	too far just watches their health melt. This names the fix: a better suit — or,
+	too far just watches their health melt. This names the fix: a better aura — or,
 	past the top of the ladder, to turn back. Just red words and "!!" floating near the
 	top of the screen with an ink outline, no card behind them, and a small IGNORE
 	button beside them.
 
-	IT ONLY SHOWS FOR HEAVY DAMAGE. A toe over the suit's rating burns slowly and the
+	IT ONLY SHOWS FOR HEAVY DAMAGE. A toe over the aura's rating burns slowly and the
 	meter's own countdown is enough for that. It waits until the burn would put
 	you down inside HEAVY_SECONDS, or has already taken you under HEAVY_HEALTH, and has
 	held for SHOW_DELAY — so brushing a stage line does not flash it.
 
-	IGNORE LASTS ONE TRIP. It hides the warning until the suit is holding again (you
+	IGNORE LASTS ONE TRIP. It hides the warning until the aura is holding again (you
 	walked back out) or you go down; the next time you push too deep it warns again.
 
 	IT SITS AS HIGH AS THE TOP OF THE SCREEN ALLOWS. The warp bar is hidden in a stage,
@@ -22,10 +22,10 @@
 	slides down under it (clearTop).
 
 	NO NEW FIELD ON THE WIRE. ExposureState carries `ambient`, `excess` and `failing`,
-	and Radiation.resolve defines excess as ambient minus suit tolerance. Whether any
-	suit could hold this air is a Gear.Suit rung whose tolerance reaches `ambient`. The
+	and Radiation.resolve defines excess as ambient minus aura tolerance. Whether any
+	aura could hold this air is a Gear.Aura rung whose tolerance reaches `ambient`. The
 	burn is recomputed from `excess` rather than read off `healthBurn`, because
-	`healthBurn` also carries a detonated crater's burn, which no suit helps with.
+	`healthBurn` also carries a detonated crater's burn, which no aura helps with.
 ]]
 
 local Players = game:GetService("Players")
@@ -41,13 +41,13 @@ local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 
-local SuitWarningController = {}
+local AuraWarningController = {}
 
--- Heavy damage: the suit's burn alone would down you within this many seconds...
+-- Heavy damage: the aura's burn alone would down you within this many seconds...
 local HEAVY_SECONDS = 45
 -- ...or it has already taken you under this fraction of max health.
 local HEAVY_HEALTH = 0.6
--- Heavy has to hold this long before the warning shows, and the suit has to be holding
+-- Heavy has to hold this long before the warning shows, and the aura has to be holding
 -- again for HIDE_DELAY before it goes, so walking the stage line does not strobe it.
 local SHOW_DELAY = 0.75
 local HIDE_DELAY = 1.5
@@ -97,8 +97,8 @@ local heavyFor = 0
 local calmFor = 0
 local throb = 0
 
---- HP/sec from the SUIT alone — Radiation.resolve's burn term, without the crater.
-local function suitBurn(): number
+--- HP/sec from the AURA alone — Radiation.resolve's burn term, without the crater.
+local function auraBurn(): number
 	if not reading.failing or reading.excess <= 0 then
 		return 0
 	end
@@ -109,7 +109,7 @@ local function isHeavy(): boolean
 	if reading.downed then
 		return false
 	end
-	local burn = suitBurn()
+	local burn = auraBurn()
 	if burn <= 0 then
 		return false
 	end
@@ -117,10 +117,10 @@ local function isHeavy(): boolean
 	return reading.health / burn <= HEAVY_SECONDS or healthFrac <= HEAVY_HEALTH
 end
 
---- Whether any rung of Gear.Suit would hold this air. Past the top of the ladder
+--- Whether any rung of Gear.Aura would hold this air. Past the top of the ladder
 --- there is nothing to upgrade to, so the warning says to turn back instead.
-local function anySuitHolds(ambient: number): boolean
-	for _, tier in Gear.Suit do
+local function anyAuraHolds(ambient: number): boolean
+	for _, tier in Gear.Aura do
 		if tier.tolerance >= ambient then
 			return true
 		end
@@ -154,7 +154,7 @@ local function layoutRow()
 end
 
 local function refreshText()
-	local text = if anySuitHolds(reading.ambient) then "UPGRADE SUIT" else "TURN BACK"
+	local text = if anyAuraHolds(reading.ambient) then "UPGRADE AURA" else "TURN BACK"
 	if ui.title.Text ~= text then
 		ui.title.Text = text
 		layoutRow()
@@ -218,7 +218,7 @@ end
 
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
-	gui.Name = "SuitWarning"
+	gui.Name = "AuraWarning"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
 	-- Over the RadFx overlay (RadHud is 100) so a whitening screen cannot bury it, and
@@ -270,7 +270,7 @@ local function build(): ScreenGui
 		})
 	end
 	local badge = word("Bang", "!!", BANG_SIZE)
-	local title = word("Title", "UPGRADE SUIT", TITLE_SIZE)
+	local title = word("Title", "UPGRADE AURA", TITLE_SIZE)
 
 	local ignore = UIKit.button(group, {
 		name = "Ignore",
@@ -324,12 +324,12 @@ local function step(dt: number)
 		calmFor = if reading.downed then HIDE_DELAY else calmFor + dt
 	end
 
-	-- An ignore holds until this trip is over: back under the suit's rating, or down.
+	-- An ignore holds until this trip is over: back under the aura's rating, or down.
 	if ignored and (reading.downed or (not reading.failing and calmFor >= HIDE_DELAY)) then
 		ignored = false
 	end
 
-	-- Stays up while the suit is still failing, even if the damage eases off, and only
+	-- Stays up while the aura is still failing, even if the damage eases off, and only
 	-- goes once it has actually been holding for HIDE_DELAY.
 	if not shown and not ignored and heavyFor >= SHOW_DELAY then
 		setShown(true)
@@ -356,7 +356,7 @@ local function step(dt: number)
 	end
 end
 
-function SuitWarningController.start()
+function AuraWarningController.start()
 	local gui = build()
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
@@ -372,9 +372,9 @@ function SuitWarningController.start()
 	RunService.Heartbeat:Connect(function(dt)
 		local ok, err = pcall(step, dt)
 		if not ok then
-			warn(`[suitwarning] step failed: {err}`)
+			warn(`[aurawarning] step failed: {err}`)
 		end
 	end)
 end
 
-return SuitWarningController
+return AuraWarningController

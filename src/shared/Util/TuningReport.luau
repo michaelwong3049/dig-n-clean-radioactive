@@ -8,7 +8,7 @@
 	WHY THIS EXISTS
 	PLAN.md §3.5 and §4 each contain a survivability table. Those tables were written
 	by hand and cannot both be satisfied by any single formula — §4's "one tier under"
-	column for Stage 2 is Cloth Wrap, which §3.5 also lists as "unsuited", with two
+	column for Stage 2 is Faint Glow, which §3.5 also lists as "unshielded", with two
 	different numbers.
 
 	The fix is not to argue with the doc. It is to make the CONFIG the source of truth
@@ -16,10 +16,10 @@
 	numbers move, and the design doc stops drifting away from the game.
 
 	The shipped Config values are fitted so this prints:
-	  * unsuited survival matching §3.5's intent, tightened across three harshening
+	  * unshielded survival matching §3.5's intent, tightened across three harshening
 	    passes  (9:00 in Stage 1 specifically / 17s / 5s / 2s / instant / instant)
 	  * ~12s one tier under, in every stage — §3.5's tightened "one dig" Dive window
-	  * 1:30 for a full Containment Rig in the Crater — §4's timed heist
+	  * 1:30 for a full Containment Nimbus in the Crater — §4's timed heist
 
 	It also regenerates the WASH PAD ODDS TABLE that Config/Liquids' own header
 	documents. That header is the argument for every weight in the file, so it has to
@@ -61,14 +61,14 @@ local function duration(seconds: number): string
 end
 
 --- Survivable seconds for an empty-handed, full-health player standing in `stageId`
---- wearing suit tier `suitTier`. `depthFrac` (default 0, the entrance) picks where
+--- wearing aura tier `auraTier`. `depthFrac` (default 0, the entrance) picks where
 --- in the stage -- see Stages.radsAt; Spec.luau uses the same convention.
-function TuningReport.survive(stageId: number, suitTier: number, depthFrac: number?): number
-	local suit = Gear.tier("Suit", suitTier)
+function TuningReport.survive(stageId: number, auraTier: number, depthFrac: number?): number
+	local aura = Gear.tier("Aura", auraTier)
 
 	local reading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(stageId, depthFrac or 0)), 0, {
-		suitReduction = suit.reduction,
-		suitTolerance = suit.tolerance,
+		auraReduction = aura.reduction,
+		auraTolerance = aura.tolerance,
 		levelResist = 0,
 	})
 	return Radiation.survivableSeconds(reading, 0, Tuning.MAX_HEALTH)
@@ -76,12 +76,12 @@ end
 
 --- Survivable seconds while HAULING. This is the number the greed dial (PLAN §3.3)
 --- actually turns, and the one most worth watching in playtest telemetry.
-function TuningReport.surviveCarrying(stageId: number, suitTier: number, carriedEmission: number, depthFrac: number?): number
-	local suit = Gear.tier("Suit", suitTier)
+function TuningReport.surviveCarrying(stageId: number, auraTier: number, carriedEmission: number, depthFrac: number?): number
+	local aura = Gear.tier("Aura", auraTier)
 
 	local reading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(stageId, depthFrac or 0)), carriedEmission, {
-		suitReduction = suit.reduction,
-		suitTolerance = suit.tolerance,
+		auraReduction = aura.reduction,
+		auraTolerance = aura.tolerance,
 		levelResist = 0,
 	})
 	return Radiation.survivableSeconds(reading, 0, Tuning.MAX_HEALTH)
@@ -97,11 +97,11 @@ function TuningReport.run()
 	table.insert(out, header)
 	table.insert(out, string.rep("-", #header))
 
-	for suitTier = 1, Gear.maxTier("Suit") do
-		local suit = Gear.tier("Suit", suitTier)
-		local row = string.format("%-20s", suit.name)
+	for auraTier = 1, Gear.maxTier("Aura") do
+		local aura = Gear.tier("Aura", auraTier)
+		local row = string.format("%-20s", aura.name)
 		for _, stage in Stages.DEFS do
-			row ..= string.format("%13s", fmt(TuningReport.survive(stage.id, suitTier)))
+			row ..= string.format("%13s", fmt(TuningReport.survive(stage.id, auraTier)))
 		end
 		table.insert(out, row)
 	end
@@ -109,19 +109,19 @@ function TuningReport.run()
 	table.insert(out, "\n=== THE DIVE: one tier under rated, at the stage's deepest point (PLAN §3.5 target: 8-15s) ===\n")
 	for stageId = 2, #Stages.DEFS do
 		local stage = Stages.get(stageId)
-		local underTier = stage.ratedSuitTier - 1
+		local underTier = stage.ratedAuraTier - 1
 		local s = TuningReport.survive(stageId, underTier, 1)
 		local flag = if s >= 8 and s <= 15 then "ok" else "OUT OF BAND"
-		-- Stage 2's one-tier-under IS Cloth Wrap, same tier as the Stage 1 unsuited
+		-- Stage 2's one-tier-under IS Faint Glow, same tier as the Stage 1 unshielded
 		-- target, but tested at Stage 2's DEEPEST point (deepRads=5.0) rather than
 		-- Stage 1's (capped separately, see Gear.luau) -- these were never going to
-		-- land in the same band as stages 3+, they're a different suit-vs-stage pairing
+		-- land in the same band as stages 3+, they're a different aura-vs-stage pairing
 		-- entirely. Flagged rather than force-fit into the same 8-15s band the
 		-- stage-3-to-6 dives share.
 		if stageId == 2 then
 			flag = "ok (accepted: different pairing, see comment)"
 		end
-		table.insert(out, string.format("  %-20s with %-18s %8s   %s", stage.name, Gear.tier("Suit", underTier).name, fmt(s), flag))
+		table.insert(out, string.format("  %-20s with %-18s %8s   %s", stage.name, Gear.tier("Aura", underTier).name, fmt(s), flag))
 	end
 
 	table.insert(out, "\n=== DECAY: time from unearth to Slag, per rarity (PLAN §3.6) ===\n")
@@ -132,7 +132,7 @@ function TuningReport.run()
 	end
 
 	table.insert(out, "\n=== THE GREED DIAL: seconds to blackout while hauling (PLAN §3.3) ===")
-	table.insert(out, "  Stage 3, Lead-Lined suit, level 1 (the bag is never shielded)\n")
+	table.insert(out, "  Stage 3, Lead Halo aura, level 1 (the bag is never shielded)\n")
 	local Decay = require(script.Parent.Parent.Decay)
 	local cases = {
 		{ label = "8x Rare, all Fresh", rarity = "Rare", modifier = "None", count = 8, elapsed = 0 },

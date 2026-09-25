@@ -18,7 +18,7 @@
 	  of that (Shared/Detonation.orbStrength). ExposureService asks burnAt() once per
 	  player per tick and folds the answer into the reading's healthBurn, so the HUD,
 	  the SURVIVABLE countdown, the white burn overlay and the blackout all treat it
-	  exactly like suit failure without knowing it is a different thing.
+	  exactly like aura failure without knowing it is a different thing.
 
 	EVERYONE IN RANGE, not just the puller -- on request. It is a shared server and a
 	detonation is a shared event: the armed nuke ticks and glows red where everyone can
