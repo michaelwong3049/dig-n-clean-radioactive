@@ -1,7 +1,6 @@
 --[[
-	ShopController.lua — the Shop tile, and the panel it opens. Same card, same
-	outlined-caption style as IndexController's Index tile, stacked one Dock.GAP below
-	it on the right edge.
+	ShopController.lua — the Shop tile, and the panel it opens. The tile is the
+	top-right square of the right-edge 2x2 grid, built by HudTile like the other three.
 
 	THE PANEL IS THE ROBUX SHOP (PLAN §11), not the gear stalls: gear is bought by
 	walking up to a stall on the plaza (StationController), and that stays the only
@@ -29,26 +28,20 @@ local Workspace = game:GetService("Workspace")
 local LuckBoost = require(ReplicatedStorage.Shared.Config.LuckBoost)
 
 local UIKit = require(script.Parent.Parent.UIKit)
-local Dock = UIKit.Dock
 local Artwork = require(script.Parent.Parent.HudArtwork)
+local HudTile = require(script.Parent.Parent.HudTile)
 local CloverArt = require(script.Parent.Parent.CloverArt)
 
 local Shop = {}
 
--- Same tile as IndexController's: the size is Dock's (the haul widget measures its
--- clearance against it too); the caption size is a small copy rather than exported
--- from there, same as this codebase's other one-off dup helpers (see
--- IndexController.formatValue).
-local TILE_SIZE = Dock.SIDE_TILE_SIZE
-local TILE_CAPTION = "Shop"
-local TILE_CAPTION_SIZE = 18
--- The cart picture's square box and its top inset. Bigger than the Index tile's book
--- (46) because this picture has more empty margin inside its square; at 54 the two
--- icons read as the same size, and the wheels still end around y=51, clear of the
--- caption band at 57.
-local TILE_ICON_SIZE = 54
-local TILE_ICON_TOP = 3
-local TILE_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+-- THE SHOP TILE: top right of the right-edge 2x2 grid (HudTile), a green glow for the
+-- cart. The cart picture has more empty margin inside its square than the Index book,
+-- so its box is drawn larger for the two to read the same size.
+local TILE_SLOT = 2
+local TILE_COLOR = Color3.fromRGB(86, 212, 71)
+local TILE_LIGHT = Color3.fromRGB(185, 245, 168)
+local TILE_ICON_SCALE = 1.17
+local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- The panel. StationController's FIELD slate, plus the clover's green for its card.
 local PANEL = {
@@ -239,10 +232,10 @@ local function buildCloverCard(parent: Frame)
 	end)
 
 	buy.MouseEnter:Connect(function()
-		TweenService:Create(buy, TILE_HOVER, { BackgroundColor3 = PANEL.buyHover }):Play()
+		TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buyHover }):Play()
 	end)
 	buy.MouseLeave:Connect(function()
-		TweenService:Create(buy, TILE_HOVER, { BackgroundColor3 = PANEL.buy }):Play()
+		TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buy }):Play()
 	end)
 	buy.Activated:Connect(function()
 		MarketplaceService:PromptProductPurchase(Players.LocalPlayer, LuckBoost.PRODUCT_ID)
@@ -363,110 +356,17 @@ local function buildPanel(): ScreenGui
 	return gui
 end
 
---- The Shop tile's top edge, in design px from the canvas's vertical centre, on a
---- canvas `height` design px tall. Hung directly under the Index tile, which heads the
---- column at Dock.sideColumnTop: one Dock.GAP below the Index tile's bottom edge.
-local function tileTop(height: number): number
-	return Dock.sideColumnTop(height) + TILE_SIZE + Dock.GAP
-end
-
---- Where the right-hand tile column ends: the Shop tile's bottom edge, in design px
---- from the canvas TOP. NukesController hangs its tile one Dock.GAP below it.
-function Shop.columnBottom(height: number): number
-	return height / 2 + tileTop(height) + TILE_SIZE
-end
-
 local function build(): ScreenGui
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "ShopButton"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
-	-- Same layer as IndexButton (55) — the two stack as one column, neither over the
-	-- other.
-	gui.DisplayOrder = 55
-	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	local canvas = UIKit.canvas(gui)
-
-	local tileSize = UDim2.fromOffset(TILE_SIZE, TILE_SIZE)
-	local shadow = UIKit.panel(canvas, {
-		name = "ShopShadow",
-		size = tileSize,
-		color = UIKit.C.navShadow,
-		transparency = 0.2,
-		cornerRadius = UDim.new(0, 9),
-		strokeThickness = 0,
-		zIndex = 3,
-	})
-	local button, buttonStroke = UIKit.button(canvas, {
+	local gui = HudTile.build({
 		name = "ShopButton",
-		size = tileSize,
-		text = "",
-		textSize = UIKit.TextSize.body,
-		fillColor = UIKit.C.navFill,
-		fillTransparency = 0,
-		strokeColor = UIKit.C.navEdge,
-		strokeThickness = 2,
-		cornerRadius = UDim.new(0, 9),
-		zIndex = 4,
+		caption = "Shop",
+		slot = TILE_SLOT,
+		color = TILE_COLOR,
+		light = TILE_LIGHT,
+		image = Artwork.IMAGE.cart,
+		iconScale = TILE_ICON_SCALE,
+		onActivated = Shop.toggle,
 	})
-	buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-	-- Hung directly under the Index tile -- see tileTop.
-	local function place()
-		local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-		local y = tileTop(height)
-		button.AnchorPoint = Vector2.new(1, 0)
-		button.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y)
-		shadow.AnchorPoint = Vector2.new(1, 0)
-		shadow.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y + 4)
-	end
-	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-	place()
-
-	-- The cart fills the top of the tile, centred; the bottom band is the name's —
-	-- same split as the Index tile's book.
-	local cart = Artwork.picture(button, "CartIcon", Artwork.IMAGE.cart, TILE_ICON_SIZE, UIKit.C.navIcon)
-	cart.AnchorPoint = Vector2.new(0.5, 0)
-	cart.Position = UDim2.new(0.5, 0, 0, TILE_ICON_TOP)
-
-	UIKit.label(button, {
-		name = "Caption",
-		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 1, -5),
-		size = UDim2.new(1, 0, 0, 18),
-		text = TILE_CAPTION,
-		font = Enum.Font.GothamBlack,
-		textSize = TILE_CAPTION_SIZE,
-		color = Color3.new(1, 1, 1),
-		xAlign = Enum.TextXAlignment.Center,
-		zIndex = 8,
-	})
-
-	local function setHighlighted(active: boolean)
-		local fill = if active then UIKit.C.navFillHover else UIKit.C.navFill
-		TweenService:Create(button, TILE_HOVER, { BackgroundColor3 = fill }):Play()
-		TweenService:Create(buttonStroke, TILE_HOVER, {
-			Color = if active then UIKit.C.navEdgeHover else UIKit.C.navEdge,
-		}):Play()
-		-- The cart brightens to white, same as the Index tile's book.
-		TweenService:Create(cart, TILE_HOVER, {
-			ImageColor3 = if active then Color3.new(1, 1, 1) else UIKit.C.navIcon,
-		}):Play()
-	end
-	button.MouseEnter:Connect(function()
-		setHighlighted(true)
-	end)
-	button.MouseLeave:Connect(function()
-		setHighlighted(false)
-	end)
-	button.SelectionGained:Connect(function()
-		setHighlighted(true)
-	end)
-	button.SelectionLost:Connect(function()
-		setHighlighted(false)
-	end)
-	button.Activated:Connect(Shop.toggle)
-
 	return gui
 end
 

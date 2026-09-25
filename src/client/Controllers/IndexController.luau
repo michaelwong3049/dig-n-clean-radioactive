@@ -36,7 +36,6 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage.Shared
@@ -52,35 +51,21 @@ local ItemFx = require(Shared.ItemFx)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
-local Dock = UIKit.Dock
 local Artwork = require(script.Parent.Parent.HudArtwork)
+local HudTile = require(script.Parent.Parent.HudTile)
 
 local Index = {}
 
--- THE INDEX TILE. A square dark card with a big white book on it and its name
--- under that in outlined type — the side-button shape the reference asked for, in
--- place of the wide purple INDEX pill. Same palette as the other right-edge tiles
--- (UIKit.C.nav*), so the HUD's buttons read as one family.
---
--- It heads the right-edge column (Shop, Nukes and Warp hang under it), its TOP level
--- with the top of the cash/meter column on the left (Dock.SIDE_TOP_Y; see there for why
--- the top and not the centre), or with the whole column centred on a screen too short
--- for that line (Dock.sideColumnTop). It gets its OWN ScreenGui (IgnoreGuiInset = true) so
--- those offsets measure against the true screen exactly as the left column's do; the
--- detail panel keeps the inset-aware gui it needs (see build()).
---
--- "Index" at 18 measures 47px in GothamBlack. 18 is the reference's letter height for
--- an 80px tile — the reference's own word ran the full width only because it was a
--- long one ("Collection"). A much longer word wants a wider tile or a smaller size,
--- not TextScaled.
-local TILE_SIZE = Dock.SIDE_TILE_SIZE
-local TILE_CAPTION = "Index"
-local TILE_CAPTION_SIZE = 18
--- The book picture's square box and its top inset. It fills that box edge to edge, so
--- 46 ends at y=53, clear of the caption band that starts at 57.
-local TILE_ICON_SIZE = 46
-local TILE_ICON_TOP = 7
-local TILE_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+-- THE INDEX TILE heads the right-edge 2x2 grid (top left; Shop, Nukes and Warp fill
+-- the rest), built by HudTile in the grid's shared "glow orb" look: a violet glow for
+-- the collection book. The grid's top is level with the top of the cash/meter column
+-- on the left, or the whole grid is centred on a screen too short for that line
+-- (Dock.sideColumnTop). Its own ScreenGui (IgnoreGuiInset = true), so those offsets
+-- measure against the true screen as the left column's do; the detail panel keeps the
+-- inset-aware gui it needs (see build()).
+local TILE_SLOT = 1
+local TILE_COLOR = Color3.fromRGB(164, 107, 255)
+local TILE_LIGHT = Color3.fromRGB(212, 182, 255)
 
 -- ── Panel geometry (design px, UIKit.canvas) ────────────────────────
 -- "Viewport minus a margin, but never bigger than" like StationController's panel, so
@@ -417,130 +402,16 @@ end
 -- ── Build: the tile ─────────────────────────────────────────────────
 
 local function buildButton(): ScreenGui
-	-- The tile. MIDDLE-RIGHT — the dock's own screen-edge margin, hung from the left
-	-- column's top line (Dock.SIDE_TOP_Y), or centred on a short screen; see place()
-	-- and the constants above. Its own gui so that 0.5-scale anchor measures against
-	-- the true screen (IgnoreGuiInset = true) exactly as CashController's column does.
-	local buttonGui = Instance.new("ScreenGui")
-	buttonGui.Name = "IndexButton"
-	buttonGui.ResetOnSpawn = false
-	buttonGui.IgnoreGuiInset = true
-	-- UNDER DetectorHud (60), where the old pill sat over everything at 90. The haul
-	-- widget no longer shares this edge (it stops short of the tile column, see
-	-- Dock.HAULPANEL_RIGHT), but if a narrow screen ever pushes the two together the
-	-- widget, which is only up mid-haul when it is the thing being read, still draws
-	-- over the tile rather than under it. Still over StationHud (40), as the pill was.
-	buttonGui.DisplayOrder = 55
-	buttonGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	local buttonCanvas = UIKit.canvas(buttonGui)
-
-	-- Both are placed by place() below, once the canvas knows how tall it is.
-	local tileSize = UDim2.fromOffset(TILE_SIZE, TILE_SIZE)
-	local shadow = UIKit.panel(buttonCanvas, {
-		name = "IndexShadow",
-		size = tileSize,
-		color = UIKit.C.navShadow,
-		transparency = 0.2,
-		cornerRadius = UDim.new(0, 9),
-		strokeThickness = 0,
-		zIndex = 3,
-	})
-	local button, buttonStroke = UIKit.button(buttonCanvas, {
+	local buttonGui, button = HudTile.build({
 		name = "IndexButton",
-		size = tileSize,
-		text = "",
-		textSize = UIKit.TextSize.body,
-		fillColor = UIKit.C.navFill,
-		fillTransparency = 0,
-		strokeColor = UIKit.C.navEdge,
-		strokeThickness = 2,
-		cornerRadius = UDim.new(0, 9),
-		zIndex = 4,
+		caption = "Index",
+		slot = TILE_SLOT,
+		color = TILE_COLOR,
+		light = TILE_LIGHT,
+		image = Artwork.IMAGE.book,
 	})
-	buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-	-- The top of the right-edge column: hung from the left column's top line on a tall
-	-- enough design screen, the whole column centred below that (Dock.sideColumnTop).
-	-- Re-run on every canvas resize: the design height is what decides, and it moves
-	-- with both the window and the HUD scale.
-	local function place()
-		local height = buttonCanvas.AbsoluteSize.Y / UIKit.canvasScale(buttonCanvas)
-		local y = Dock.sideColumnTop(height)
-		button.AnchorPoint = Vector2.new(1, 0)
-		button.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y)
-		shadow.AnchorPoint = Vector2.new(1, 0)
-		shadow.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y + 4)
-	end
-	buttonCanvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-	place()
-
-	-- The book fills the top of the tile, centred; the bottom band is the name's.
-	local book = Artwork.picture(button, "BookIcon", Artwork.IMAGE.book, TILE_ICON_SIZE, UIKit.C.navIcon)
-	book.AnchorPoint = Vector2.new(0.5, 0)
-	book.Position = UDim2.new(0.5, 0, 0, TILE_ICON_TOP)
-
-	-- The name, in the reference's outlined type: white GothamBlack under a heavy
-	-- black UIStroke (UIKit.label's hero default).
-	UIKit.label(button, {
-		name = "Caption",
-		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 1, -5),
-		size = UDim2.new(1, 0, 0, 18),
-		text = TILE_CAPTION,
-		font = Enum.Font.GothamBlack,
-		textSize = TILE_CAPTION_SIZE,
-		color = COL.white,
-		xAlign = Enum.TextXAlignment.Center,
-		zIndex = 8,
-	})
-
 	-- NEW entries waiting to be looked at: a red count on the tile's corner.
-	local badge = box(button, "NewBadge", UDim2.fromOffset(24, 24), UDim2.new(1, 4, 0, -4), COL.newTag)
-	badge.AnchorPoint = Vector2.new(1, 0)
-	badge.AutomaticSize = Enum.AutomaticSize.X
-	badge.ZIndex = 9
-	badge.Visible = false
-	corner(badge, 12)
-	edge(badge, COL.black, 2)
-	local badgePad = Instance.new("UIPadding")
-	badgePad.PaddingLeft = UDim.new(0, 6)
-	badgePad.PaddingRight = UDim.new(0, 6)
-	badgePad.Parent = badge
-	local badgeText = text(badge, {
-		name = "Count",
-		size = UDim2.fromScale(0, 1),
-		font = Enum.Font.GothamBlack,
-		textSize = 13,
-		color = COL.white,
-		xAlign = Enum.TextXAlignment.Center,
-		zIndex = 10,
-	})
-	badgeText.AutomaticSize = Enum.AutomaticSize.X
-
-	local function setHighlighted(active: boolean)
-		local fill = if active then UIKit.C.navFillHover else UIKit.C.navFill
-		TweenService:Create(button, TILE_HOVER, { BackgroundColor3 = fill }):Play()
-		TweenService:Create(buttonStroke, TILE_HOVER, {
-			Color = if active then UIKit.C.navEdgeHover else UIKit.C.navEdge,
-		}):Play()
-		-- The book brightens to white. Its cut-outs are see-through, so they already
-		-- show the fill tweening underneath.
-		TweenService:Create(book, TILE_HOVER, {
-			ImageColor3 = if active then COL.white else UIKit.C.navIcon,
-		}):Play()
-	end
-	button.MouseEnter:Connect(function()
-		setHighlighted(true)
-	end)
-	button.MouseLeave:Connect(function()
-		setHighlighted(false)
-	end)
-	button.SelectionGained:Connect(function()
-		setHighlighted(true)
-	end)
-	button.SelectionLost:Connect(function()
-		setHighlighted(false)
-	end)
+	local badge, badgeText = HudTile.badge(button, COL.newTag, COL.black)
 
 	ui.button = button
 	ui.badge = badge
