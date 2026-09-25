@@ -168,6 +168,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 local ToolModels = require(Shared.ToolModels)
+local ToolFX = require(Shared.ToolFX)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
@@ -185,7 +186,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 42
+local BUILDER_VERSION = 43
 
 local C = Kit.C
 local build = Kit.build
@@ -848,6 +849,11 @@ end
 --- scaled box and slides the model straight down until its BASE is on RACK_DROP_BASE,
 --- and across so its centre sits on `x` and on the shopfront line, whatever the art's
 --- pivot is doing.
+--- How much bigger the rack's tool FX particles are than in a player's hands.
+--- 2.5x made the old sparkle clouds read clearly from the counter but was "too
+--- loud"; the quieter per-detector effects that replaced them want only a nudge.
+local RACK_FX_SCALE = 1.5
+
 local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: number, track: string, tier: number): number?
 	local template = tierTemplate(track, tier)
 	if template == nil then
@@ -856,6 +862,8 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: 
 
 	local clone = template:Clone()
 	clone.Name = `T{tier}`
+	-- The scale it is carried at, before the rack resizes it (see ToolFX below).
+	local heldScale = clone:GetScale()
 
 	-- Gag parts that only make sense in the hand — see RACK_HIDE_ON_DISPLAY.
 	for _, name in RACK_HIDE_ON_DISPLAY do
@@ -929,6 +937,14 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: 
 		)
 		clone:ScaleTo(clone:GetScale() * f)
 	end
+
+	-- THE RARE RUNGS GLOW ON THE RAIL TOO, with the same ToolFX a player's hands
+	-- get, so the rack sells the look you are buying. Applied AFTER the resize,
+	-- with the particles grown by however much bigger than in-hand the model now
+	-- is (never shrunk, so a magnet squeezed into its slot keeps a readable
+	-- effect), then by RACK_FX_SCALE on top -- at in-hand size the sparkles were
+	-- specks from the plaza. Lights are not scaled (see ToolFX.apply).
+	ToolFX.apply(clone, track, tier, RACK_FX_SCALE * math.max(clone:GetScale() / heldScale, 1))
 
 	-- Re-measure the scaled box and translate (keeping the orientation) so its base
 	-- sits on the deck and it is centred across the rack and on the shopfront line.
