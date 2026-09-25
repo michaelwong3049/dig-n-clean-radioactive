@@ -40,7 +40,7 @@
 	anything at all, because "I cannot progress and cannot fix it" is the one state
 	this design has no answer for. Water is that answer, permanently.
 
-	`charges` IS THE REAL SCARCITY, NOT THE ODDS. Stardust Rinse clears four patches
+	`charges` IS THE REAL SCARCITY, NOT THE ODDS. Antimatter Tonic clears three patches
 	and a Legendary carries five, so even the jackpot does not finish a top-end item
 	on its own. That is deliberate: it keeps the pad worth stepping on after you have
 	already rolled well once, which a permanent liquid would not.
@@ -49,31 +49,37 @@
 	values (Luck has no fixed ladder any more — see Config/Gear.luau's header).
 	Regenerate this table from Util/TuningReport after touching any weight or bias:
 
-	                   1.0     1.5     2.2     3.1     4.3     6.0     8.0
-	  Soapy Suds      40.97%  36.17%  31.48%  27.23%  23.22%  19.27%  16.06%
-	  Fizzy Pop       25.40%  24.32%  22.85%  21.17%  19.27%  17.10%  15.09%
-	  Bubblegum Gel   15.57%  16.50%  17.06%  17.22%  17.01%  16.40%  15.56%
-	  Glacier Melt     8.60%  10.09%  11.48%  12.63%  13.54%  14.19%  14.46%
-	  Honey Wax        4.92%   6.25%   7.68%   9.05%  10.36%  11.60%  12.52%
-	  Ghost Mist       2.70%   3.73%   4.95%   6.24%   7.62%   9.13%  10.44%
-	  Molten Lava      1.23%   1.88%   2.74%   3.76%   4.99%   6.50%   7.98%
-	  Nano-Foam        0.49%   0.83%   1.33%   2.00%   2.87%   4.07%   5.37%
-	  Stardust Rinse   0.12%   0.23%   0.42%   0.70%   1.11%   1.74%   2.50%
+	                     1.0     1.5     2.2     3.1     4.3     6.0     8.0
+	  Soapy Suds        34.67%  30.17%  25.90%  22.12%  18.63%  15.25%  12.54%
+	  Fizzy Pop         17.91%  16.91%  15.67%  14.33%  12.88%  11.28%   9.82%
+	  Pickle Brine      13.29%  13.06%  12.58%  11.91%  11.06%  10.01%   8.97%
+	  Bubblegum Gel     10.98%  11.47%  11.70%  11.66%  11.37%  10.82%  10.12%
+	  Blue Razz Slush    7.22%   7.95%   8.53%   8.88%   9.04%   8.98%   8.73%
+	  Glacier Melt       6.07%   7.01%   7.87%   8.55%   9.05%   9.35%   9.41%
+	  Honey Wax          3.47%   4.35%   5.27%   6.12%   6.92%   7.65%   8.15%
+	  Rust Eater         2.37%   3.09%   3.89%   4.69%   5.47%   6.25%   6.86%
+	  Ghost Mist         1.91%   2.59%   3.39%   4.22%   5.10%   6.02%   6.79%
+	  Molten Lava        0.87%   1.30%   1.88%   2.55%   3.34%   4.28%   5.19%
+	  Plasma Jelly       0.58%   0.91%   1.35%   1.90%   2.57%   3.42%   4.26%
+	  Nano-Foam          0.35%   0.58%   0.91%   1.35%   1.92%   2.68%   3.49%
+	  Atomic Slime       0.20%   0.36%   0.60%   0.93%   1.40%   2.05%   2.78%
+	  Stardust Rinse     0.09%   0.16%   0.29%   0.47%   0.74%   1.15%   1.63%
+	  Antimatter Tonic   0.04%   0.09%   0.17%   0.30%   0.50%   0.82%   1.24%
 
-	  any +1 potency  16.22%  20.07%  24.11%  27.91%  31.52%  34.92%  37.43%
-	  any +2 potency   1.84%   2.94%   4.49%   6.46%   8.98%  12.30%  15.86%
+	  any +1 potency    15.93%  20.44%  25.63%  31.09%  37.01%  43.67%  49.81%
+	  any +2 potency     2.12%   3.40%   5.21%   7.51%  10.47%  14.39%  18.60%
 
 	Three properties of that table are the design, and Util/Spec pins all three:
 
-	  * THE FLOOR NEVER DISAPPEARS. Soapy Suds is still 16% at maxed luck. A roll you
+	  * THE FLOOR NEVER DISAPPEARS. Soapy Suds is still 12.5% at luck 8. A roll you
 	    can predict is not a roll, and a pad that always pays is a vending machine.
-	  * THE JACKPOT MOVES 20x END TO END (1-in-814 to 1-in-40). That is what the Luck
-	    track is actually buying, and it has to be visible in one sitting or the
-	    ladder feels like a tax.
+	  * THE JACKPOT MOVES 28x END TO END (Antimatter Tonic, 1-in-2,300 to 1-in-81).
+	    That is what the Luck track is actually buying, and it has to be visible in
+	    one sitting or the ladder feels like a tax.
 	  * LUCK MOVES MASS UP THE TABLE, WHICH IS NOT THE SAME AS "EVERYTHING GETS
 	    LIKELIER", and reading the table above carelessly will tell you otherwise.
-	    Fizzy Pop has a positive bias and its share still FALLS, 25.40% -> 15.09%: it
-	    gains on Soapy Suds and loses to all six entries above it, which is exactly
+	    Fizzy Pop has a positive bias and its share still FALLS, 17.91% -> 9.82%: it
+	    gains on Soapy Suds and loses to every entry above it, which is exactly
 	    what a luck curve should do. The property that actually has to hold is that
 	    no adjacent pair ever INVERTS — a rarer liquid must never become relatively
 	    rarer as luck rises — and `luckBias` ascending with `order` is what
@@ -114,13 +120,19 @@ Liquids.ORDER = {
 	"water",
 	"suds",
 	"pop",
+	"pickle",
 	"gel",
+	"razz",
 	"glacier",
 	"honey",
+	"rust",
 	"ghost",
 	"lava",
+	"plasma",
 	"nano",
+	"atomic",
 	"stardust",
+	"antimatter",
 }
 
 --- The floor. Absent from the profile, absent from the roll table, always available.
@@ -148,7 +160,7 @@ Liquids.DEFS = {
 		name = "Soapy Suds",
 		color = "F2F5F7",
 		flavor = "A whole bucket of bubbles. Cheerful, and faster than nothing.",
-		weight = 1000,
+		weight = 1200,
 		luckBias = 0.00,
 		potency = 0,
 		rateMult = 1.35,
@@ -168,9 +180,22 @@ Liquids.DEFS = {
 		xpMult = 1.10,
 		charges = 30,
 	},
+	pickle = {
+		tier = "Common",
+		order = 4,
+		name = "Pickle Brine",
+		color = "9ACD32",
+		flavor = "Sharp, green, and it smells like a deli fridge. The crust hates it more than you do.",
+		weight = 460,
+		luckBias = 0.30,
+		potency = 0,
+		rateMult = 1.50,
+		xpMult = 1.30,
+		charges = 32,
+	},
 	gel = {
 		tier = "Uncommon",
-		order = 4,
+		order = 5,
 		name = "Bubblegum Gel",
 		color = "F472B6",
 		flavor = "Pink, stretchy, and it takes the dirt with it when it peels.",
@@ -181,9 +206,22 @@ Liquids.DEFS = {
 		xpMult = 1.25,
 		charges = 24,
 	},
+	razz = {
+		tier = "Uncommon",
+		order = 6,
+		name = "Blue Razz Slush",
+		color = "3B82F6",
+		flavor = "Tastes like a gas-station freezer. Scrubs like one, too.",
+		weight = 250,
+		luckBias = 0.58,
+		potency = 0,
+		rateMult = 2.20,
+		xpMult = 1.30,
+		charges = 20,
+	},
 	glacier = {
 		tier = "Rare",
-		order = 5,
+		order = 7,
 		name = "Glacier Melt",
 		color = "A5E9FF",
 		flavor = "Meltwater off something very old and very cold. Cracks the crust.",
@@ -196,7 +234,7 @@ Liquids.DEFS = {
 	},
 	honey = {
 		tier = "Rare",
-		order = 6,
+		order = 8,
 		name = "Honey Wax",
 		color = "FFC94A",
 		flavor = "Slow, golden, and it leaves a shine the buyers notice.",
@@ -207,9 +245,22 @@ Liquids.DEFS = {
 		xpMult = 1.90,
 		charges = 14,
 	},
+	rust = {
+		tier = "Rare",
+		order = 9,
+		name = "Rust Eater",
+		color = "C2410C",
+		flavor = "Eats rust, eats paint, eats most gloves. Keep it off your hands.",
+		weight = 82,
+		luckBias = 1.00,
+		potency = 1,
+		rateMult = 2.40,
+		xpMult = 1.50,
+		charges = 14,
+	},
 	ghost = {
 		tier = "Epic",
-		order = 7,
+		order = 10,
 		name = "Ghost Mist",
 		color = "C4B5FD",
 		flavor = "You can barely see it leave the nozzle. The dirt can.",
@@ -222,7 +273,7 @@ Liquids.DEFS = {
 	},
 	lava = {
 		tier = "Epic",
-		order = 8,
+		order = 11,
 		name = "Molten Lava",
 		color = "FF6B35",
 		flavor = "Absolutely not approved for this. Absolutely does work.",
@@ -233,9 +284,22 @@ Liquids.DEFS = {
 		xpMult = 1.50,
 		charges = 8,
 	},
+	plasma = {
+		tier = "Epic",
+		order = 12,
+		name = "Plasma Jelly",
+		color = "D946EF",
+		flavor = "Wobbles in the canister, crackles on contact. Nobody knows what it's made of.",
+		weight = 20,
+		luckBias = 1.45,
+		potency = 2,
+		rateMult = 3.40,
+		xpMult = 1.70,
+		charges = 8,
+	},
 	nano = {
 		tier = "Legendary",
-		order = 9,
+		order = 13,
 		name = "Nano-Foam",
 		color = "5EEAD4",
 		flavor = "Billions of tiny scrubbers, each one having the day of its life.",
@@ -246,9 +310,22 @@ Liquids.DEFS = {
 		xpMult = 1.90,
 		charges = 6,
 	},
+	atomic = {
+		tier = "Legendary",
+		order = 14,
+		name = "Atomic Slime",
+		color = "39FF14",
+		flavor = "Glows in the dark, glows in the light. Dissolves anything that isn't you. Probably.",
+		weight = 7,
+		luckBias = 1.75,
+		potency = 2,
+		rateMult = 4.40,
+		xpMult = 2.20,
+		charges = 5,
+	},
 	stardust = {
 		tier = "Mythic",
-		order = 10,
+		order = 15,
 		name = "Stardust Rinse",
 		color = "FFF3B0",
 		flavor = "Four squirts in the whole canister. Spend them on something good.",
@@ -258,6 +335,19 @@ Liquids.DEFS = {
 		rateMult = 5.00,
 		xpMult = 2.60,
 		charges = 4,
+	},
+	antimatter = {
+		tier = "Mythic",
+		order = 16,
+		name = "Antimatter Tonic",
+		color = "E11D48",
+		flavor = "Three drops in the whole vial. The dirt doesn't come off, it just stops existing.",
+		weight = 1.5,
+		luckBias = 2.10,
+		potency = 2,
+		rateMult = 6.00,
+		xpMult = 3.20,
+		charges = 3,
 	},
 } :: { [string]: LiquidDef }
 

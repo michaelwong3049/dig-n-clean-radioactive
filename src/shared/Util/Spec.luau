@@ -1059,7 +1059,7 @@ function Spec.run(): boolean
 	-- flat +0.1x forever, at a compounding price. 8.0x is not a real cap; it is the
 	-- old seven-tier ladder's top rung, kept here as a fixed, well-understood
 	-- reference point so the invariants below (and the numbers in their own
-	-- descriptions, like "16.1%" and "20.4x") keep meaning the same thing across a
+	-- descriptions, like "12.5%" and "28.5x") keep meaning the same thing across a
 	-- refactor of how a player actually GETS there.
 	local luckFloor = Gear.luckMultiplier(1)
 	local luckCeiling = 8.0
@@ -1067,7 +1067,7 @@ function Spec.run(): boolean
 
 	-- THE INVARIANT IS "MASS MOVES UP THE TABLE", NOT "EVERY ENTRY GETS LIKELIER",
 	-- and the first draft of this check asserted the second one and failed. It failed
-	-- CORRECTLY: Fizzy Pop's share drops 25.4% -> 15.1% across the ladder despite a
+	-- CORRECTLY: Fizzy Pop's share drops 17.9% -> 9.8% across the ladder despite a
 	-- positive bias, because it gains on Soapy Suds while losing to everything above
 	-- it. That is what a luck curve is supposed to do. What must never happen is an
 	-- INVERSION -- a rarer liquid becoming relatively rarer than a commoner one --
