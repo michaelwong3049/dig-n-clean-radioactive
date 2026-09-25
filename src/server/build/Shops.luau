@@ -850,9 +850,9 @@ end
 --- and across so its centre sits on `x` and on the shopfront line, whatever the art's
 --- pivot is doing.
 --- How much bigger the rack's tool FX particles are than in a player's hands.
---- Picked live on the plaza (2026-09-24): at 1x the sparkles read as specks from
---- the counter; 2.5x reads clearly on every rung without crowding the neighbours.
-local RACK_FX_SCALE = 2.5
+--- 2.5x made the old sparkle clouds read clearly from the counter but was "too
+--- loud"; the quieter per-detector effects that replaced them want only a nudge.
+local RACK_FX_SCALE = 1.5
 
 local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: number, track: string, tier: number): number?
 	local template = tierTemplate(track, tier)
