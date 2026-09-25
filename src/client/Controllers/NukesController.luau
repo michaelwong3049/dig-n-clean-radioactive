@@ -29,12 +29,13 @@ local Net = require(Shared.Net)
 local Rarity = require(Shared.Config.Rarity)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
 
 local Nukes = {}
 
 -- THE NUKES TILE: bottom left of the right-edge 2x2 grid (HudTile), a hazard-yellow
--- glow behind the trefoil.
+-- glow behind the mushroom cloud.
 local TILE_SLOT = 3
 local TILE_COLOR = Color3.fromRGB(255, 207, 31)
 local TILE_LIGHT = Color3.fromRGB(255, 240, 160)
@@ -154,52 +155,6 @@ local function ask()
 			end
 		end)
 	end
-end
-
--- ── The trefoil (tile icon) ─────────────────────────────────────────
-
---- The radiation trefoil from primitives, the same way HudController draws its RADS
---- badge: each blade a fan of thin rotated bars. No picture needed, and the Unicode
---- trefoil renders as a colour emoji that ignores TextColor3.
-local function buildTrefoil(parent: Instance, size: number, color: Color3): (Frame, { Frame })
-	local box = Instance.new("Frame")
-	box.Name = "Trefoil"
-	box.Size = UDim2.fromOffset(size, size)
-	box.BackgroundTransparency = 1
-	box.ZIndex = 6
-	box.Parent = parent
-
-	local pieces: { Frame } = {}
-	local function bar(x: number, y: number, w: number, h: number, rotation: number, radius: UDim?)
-		local frame = Instance.new("Frame")
-		frame.AnchorPoint = Vector2.new(0.5, 0.5)
-		frame.Position = UDim2.fromOffset(x, y)
-		frame.Size = UDim2.fromOffset(w, h)
-		frame.Rotation = rotation
-		frame.BackgroundColor3 = color
-		frame.BorderSizePixel = 0
-		frame.ZIndex = 6
-		frame.Parent = box
-		if radius then
-			local corner = Instance.new("UICorner")
-			corner.CornerRadius = radius
-			corner.Parent = frame
-		end
-		table.insert(pieces, frame)
-	end
-
-	local centre = size / 2
-	local inner, outer = size * 0.14, size * 0.48
-	local mid, length = (inner + outer) / 2, outer - inner
-	for _, blade in { 90, 210, 330 } do -- one blade pointing down, like the sign
-		for spread = -26, 26, 4 do
-			local angle = blade + spread
-			local rad = math.rad(angle)
-			bar(centre + mid * math.cos(rad), centre + mid * math.sin(rad), length, 3, angle)
-		end
-	end
-	bar(centre, centre, size * 0.18, size * 0.18, 0, UDim.new(1, 0))
-	return box, pieces
 end
 
 -- ── Rows ────────────────────────────────────────────────────────────
@@ -604,10 +559,7 @@ local function build(): ScreenGui
 		slot = TILE_SLOT,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
-		drawIcon = function(parent: GuiObject, size: number): GuiObject
-			local icon = buildTrefoil(parent, size, Color3.new(1, 1, 1))
-			return icon
-		end,
+		image = Artwork.IMAGE.mushroomCloud,
 		onActivated = Nukes.toggle,
 	})
 	return gui

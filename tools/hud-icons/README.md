@@ -1,0 +1,25 @@
+# HUD tile symbols
+
+Source drawings for the four right-edge HUD tiles (`HudTile`), uploaded as 256px PNGs.
+The ids live in `src/client/HudArtwork.luau` (`Artwork.IMAGE`).
+
+| File | Tile | `Artwork.IMAGE` key |
+| --- | --- | --- |
+| `index_cards.svg` | Index | `cards` |
+| `shop_chest.svg` | Shop | `chest` |
+| `nukes_cloud.svg` | Nukes | `mushroomCloud` |
+| `warp_portal.svg` | Warp | `portal` |
+
+To change one: edit the SVG (100x100 viewBox, `#12161d` outline), render it to a
+transparent 256px PNG, upload it (Studio MCP `upload_image`, or Asset Manager), and paste
+the new `rbxassetid://` into `Artwork.IMAGE`.
+
+Rendering with headless Chrome. The files must come from an http server
+(`python -m http.server 8765` in this folder). Pass a separate `--user-data-dir` if Chrome
+is already open, or it writes nothing:
+
+```
+chrome --headless=new --disable-gpu --hide-scrollbars --user-data-dir=<temp dir>
+  --default-background-color=00000000 --window-size=256,256
+  --screenshot=<out.png> http://127.0.0.1:8765/shop_chest.svg
+```

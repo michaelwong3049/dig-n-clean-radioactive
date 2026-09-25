@@ -1,8 +1,8 @@
 --[[
 	HudTile — one right-edge HUD tile (Index, Shop, Nukes, Warp): the "glow orb" look.
 
-	A small dark square with a soft glow in the tile's own colour behind a white
-	picture, and the tile's name under it in a light tint of that colour. Picked from a
+	A small dark square with a soft glow in the tile's own colour behind a full-colour
+	symbol (Artwork.IMAGE), and the tile's name under it in a light tint of that colour. Picked from a
 	mockup round (option 11) when the four 80px column tiles became a 2x2 grid of
 	smaller ones. The four used to be four hand-copied builders, one per controller;
 	they differed only in name, picture and slot, so this builds all of them and each
@@ -34,8 +34,9 @@ local EDGE_TRANSPARENCY = 0.55
 local EDGE_TRANSPARENCY_HOVER = 0.15
 
 -- The picture's square box and its top inset; the caption owns the bottom band.
-local ICON_SIZE = 31
-local ICON_TOP = 7
+-- The drawn symbols run to the edge of their square, so the box is most of the tile.
+local ICON_SIZE = 36
+local ICON_TOP = 4
 local CAPTION_SIZE = 13
 local CAPTION_BOTTOM = 4
 
@@ -58,13 +59,8 @@ export type Spec = {
 	-- The glow and edge colour, and the lighter caption tint.
 	color: Color3,
 	light: Color3,
-	-- A picture (Artwork.IMAGE) or, for an icon drawn from shapes, a builder that
-	-- makes a white icon `size` px square in `parent` and returns it.
-	image: string?,
-	drawIcon: ((parent: GuiObject, size: number) -> GuiObject)?,
-	-- Grows the picture's box for a picture with more empty margin than the others,
-	-- so every icon reads the same size.
-	iconScale: number?,
+	-- The symbol (Artwork.IMAGE).
+	image: string,
 	-- Optional: a caller that wires its own click (IndexController) leaves it out.
 	onActivated: (() -> ())?,
 }
@@ -129,13 +125,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		table.insert(discs, disc)
 	end
 
-	local iconSize = math.round(ICON_SIZE * (spec.iconScale or 1))
-	local icon: GuiObject
-	if spec.drawIcon then
-		icon = spec.drawIcon(button, iconSize)
-	else
-		icon = Artwork.picture(button, "Icon", spec.image :: string, iconSize, Color3.new(1, 1, 1))
-	end
+	local icon = Artwork.picture(button, "Icon", spec.image, ICON_SIZE, Color3.new(1, 1, 1))
 	icon.AnchorPoint = Vector2.new(0.5, 0.5)
 	icon.Position = UDim2.new(0.5, 0, 0, iconCentre)
 	icon.ZIndex = 6

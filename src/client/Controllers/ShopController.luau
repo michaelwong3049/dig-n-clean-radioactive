@@ -34,13 +34,11 @@ local CloverArt = require(script.Parent.Parent.CloverArt)
 
 local Shop = {}
 
--- THE SHOP TILE: top right of the right-edge 2x2 grid (HudTile), a green glow for the
--- cart. The cart picture has more empty margin inside its square than the Index book,
--- so its box is drawn larger for the two to read the same size.
+-- THE SHOP TILE: top right of the right-edge 2x2 grid (HudTile), a green glow behind
+-- the treasure chest.
 local TILE_SLOT = 2
 local TILE_COLOR = Color3.fromRGB(86, 212, 71)
 local TILE_LIGHT = Color3.fromRGB(185, 245, 168)
-local TILE_ICON_SCALE = 1.17
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- The panel. StationController's FIELD slate, plus the clover's green for its card.
@@ -363,8 +361,7 @@ local function build(): ScreenGui
 		slot = TILE_SLOT,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
-		image = Artwork.IMAGE.cart,
-		iconScale = TILE_ICON_SCALE,
+		image = Artwork.IMAGE.chest,
 		onActivated = Shop.toggle,
 	})
 	return gui
