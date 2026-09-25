@@ -1,7 +1,6 @@
 --[[
-	NukesController.lua — the Nukes tile, and the panel it opens. Same card and
-	outlined caption as the Index and Shop tiles, stacked one Dock.GAP under Shop on
-	the right edge.
+	NukesController.lua — the Nukes tile, and the panel it opens. The tile is the
+	bottom-left square of the right-edge 2x2 grid, built by HudTile like the other three.
 
 	THE PANEL IS EVERY NUKE ON YOUR STANDS, ON ONE LIST: each with its rarity and what
 	it pays per second, the rate its stand card prints (duplicate damping and all),
@@ -30,20 +29,16 @@ local Net = require(Shared.Net)
 local Rarity = require(Shared.Config.Rarity)
 
 local UIKit = require(script.Parent.Parent.UIKit)
-local Dock = UIKit.Dock
-local ShopController = require(script.Parent.ShopController)
+local HudTile = require(script.Parent.Parent.HudTile)
 
 local Nukes = {}
 
--- Same tile as the Shop's (see ShopController for why these are copies).
-local TILE_SIZE = Dock.SIDE_TILE_SIZE
-local TILE_CAPTION = "Nukes"
-local TILE_CAPTION_SIZE = 18
--- The trefoil's box and its top inset: same band as the Index book, clear of the
--- caption at 57.
-local TILE_ICON_SIZE = 46
-local TILE_ICON_TOP = 7
-local TILE_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+-- THE NUKES TILE: bottom left of the right-edge 2x2 grid (HudTile), a hazard-yellow
+-- glow behind the trefoil.
+local TILE_SLOT = 3
+local TILE_COLOR = Color3.fromRGB(255, 207, 31)
+local TILE_LIGHT = Color3.fromRGB(255, 240, 160)
+local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local PANEL = {
 	panel = Color3.fromHex("1B1F23"),
@@ -532,12 +527,12 @@ local function buildPanel(): ScreenGui
 	equipEdge.Parent = equip
 	equip.MouseEnter:Connect(function()
 		if not busy then
-			TweenService:Create(equip, TILE_HOVER, { BackgroundColor3 = PANEL.buyHover }):Play()
+			TweenService:Create(equip, HOVER, { BackgroundColor3 = PANEL.buyHover }):Play()
 		end
 	end)
 	equip.MouseLeave:Connect(function()
 		if not busy then
-			TweenService:Create(equip, TILE_HOVER, { BackgroundColor3 = PANEL.buy }):Play()
+			TweenService:Create(equip, HOVER, { BackgroundColor3 = PANEL.buy }):Play()
 		end
 	end)
 	equip.Activated:Connect(function()
@@ -602,106 +597,19 @@ end
 
 -- ── The tile ────────────────────────────────────────────────────────
 
---- The Nukes tile's top edge, in design px from the canvas's vertical centre: one
---- Dock.GAP under wherever the Shop tile ends on a canvas `height` design px tall.
-local function tileTop(height: number): number
-	return ShopController.columnBottom(height) - height / 2 + Dock.GAP
-end
-
---- Where the right-hand tile column ends now: the Nukes tile's bottom edge, in design
---- px from the canvas TOP. CampWarpController hangs the Warp tile one Dock.GAP below it.
-function Nukes.columnBottom(height: number): number
-	return height / 2 + tileTop(height) + TILE_SIZE
-end
-
 local function build(): ScreenGui
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "NukesButton"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
-	-- Same layer as the Index and Shop tiles (55): one column.
-	gui.DisplayOrder = 55
-	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	local canvas = UIKit.canvas(gui)
-
-	local tileSize = UDim2.fromOffset(TILE_SIZE, TILE_SIZE)
-	local shadow = UIKit.panel(canvas, {
-		name = "NukesShadow",
-		size = tileSize,
-		color = UIKit.C.navShadow,
-		transparency = 0.2,
-		cornerRadius = UDim.new(0, 9),
-		strokeThickness = 0,
-		zIndex = 3,
-	})
-	local button, buttonStroke = UIKit.button(canvas, {
+	local gui = HudTile.build({
 		name = "NukesButton",
-		size = tileSize,
-		text = "",
-		textSize = UIKit.TextSize.body,
-		fillColor = UIKit.C.navFill,
-		fillTransparency = 0,
-		strokeColor = UIKit.C.navEdge,
-		strokeThickness = 2,
-		cornerRadius = UDim.new(0, 9),
-		zIndex = 4,
+		caption = "Nukes",
+		slot = TILE_SLOT,
+		color = TILE_COLOR,
+		light = TILE_LIGHT,
+		drawIcon = function(parent: GuiObject, size: number): GuiObject
+			local icon = buildTrefoil(parent, size, Color3.new(1, 1, 1))
+			return icon
+		end,
+		onActivated = Nukes.toggle,
 	})
-	buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-	local function place()
-		local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-		local y = tileTop(height)
-		button.AnchorPoint = Vector2.new(1, 0)
-		button.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y)
-		shadow.AnchorPoint = Vector2.new(1, 0)
-		shadow.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y + 4)
-	end
-	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-	place()
-
-	local icon, pieces = buildTrefoil(button, TILE_ICON_SIZE, UIKit.C.navIcon)
-	icon.AnchorPoint = Vector2.new(0.5, 0)
-	icon.Position = UDim2.new(0.5, 0, 0, TILE_ICON_TOP)
-
-	UIKit.label(button, {
-		name = "Caption",
-		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 1, -5),
-		size = UDim2.new(1, 0, 0, 18),
-		text = TILE_CAPTION,
-		font = Enum.Font.GothamBlack,
-		textSize = TILE_CAPTION_SIZE,
-		color = Color3.new(1, 1, 1),
-		xAlign = Enum.TextXAlignment.Center,
-		zIndex = 8,
-	})
-
-	local function setHighlighted(active: boolean)
-		local fill = if active then UIKit.C.navFillHover else UIKit.C.navFill
-		TweenService:Create(button, TILE_HOVER, { BackgroundColor3 = fill }):Play()
-		TweenService:Create(buttonStroke, TILE_HOVER, {
-			Color = if active then UIKit.C.navEdgeHover else UIKit.C.navEdge,
-		}):Play()
-		-- The trefoil brightens to white, same as the Index book and the Shop cart.
-		local tint = if active then Color3.new(1, 1, 1) else UIKit.C.navIcon
-		for _, piece in pieces do
-			TweenService:Create(piece, TILE_HOVER, { BackgroundColor3 = tint }):Play()
-		end
-	end
-	button.MouseEnter:Connect(function()
-		setHighlighted(true)
-	end)
-	button.MouseLeave:Connect(function()
-		setHighlighted(false)
-	end)
-	button.SelectionGained:Connect(function()
-		setHighlighted(true)
-	end)
-	button.SelectionLost:Connect(function()
-		setHighlighted(false)
-	end)
-	button.Activated:Connect(Nukes.toggle)
-
 	return gui
 end
 

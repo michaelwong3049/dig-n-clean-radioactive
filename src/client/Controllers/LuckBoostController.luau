@@ -20,8 +20,8 @@
 	widget's right-hand clearance (Dock.HAULPANEL_RIGHT) so the two never overlap. On a
 	touch screen it lifts clear of the jump button (UIKit.touchCorner).
 
-	AND NEVER UP INTO THE INDEX/SHOP/NUKES/WARP COLUMN (CampWarpController.columnBottom). On a short
-	canvas -- the docked Studio viewport, a phone held sideways -- that column is centred
+	AND NEVER UP INTO THE INDEX/SHOP/NUKES/WARP GRID (Dock.sideColumnBottom). On a short
+	canvas -- the docked Studio viewport, a phone held sideways -- that grid is centred
 	rather than hung high, and the first draft's clover sat right on top of the Shop
 	tile. Where the gap between the column and the hotbar is too short, the clover first
 	slides down toward the hotbar, then shrinks (a `Fit` UIScale, floored at MIN_FIT).
@@ -43,7 +43,6 @@ local Dock = UIKit.Dock
 local CloverArt = require(script.Parent.Parent.CloverArt)
 local AuroraFx = require(script.Parent.Parent.AuroraFx)
 local ShopController = require(script.Parent.ShopController)
-local CampWarpController = require(script.Parent.CampWarpController)
 
 local LuckBoostController = {}
 
@@ -63,9 +62,11 @@ local STYLE = {
 	textFont = Enum.Font.FredokaOne,
 }
 
--- Design px. The footprint is exactly the haul widget's right-hand clearance wide.
-local BADGE_W = Dock.HAULPANEL_RIGHT - Dock.ROW_SIDE_MARGIN
+-- Design px. The clover plus a GAP wide: what the haul widget's right-hand clearance
+-- was when the tiles were one 80px column. The 2x2 grid widened that clearance
+-- (Dock.HAULPANEL_RIGHT); the badge keeps its own size inside it.
 local CLOVER = 80
+local BADGE_W = CLOVER + Dock.GAP
 local PILL_H = 28
 local PILL_GAP = 2
 local BADGE_H = CLOVER + PILL_GAP + PILL_H + 4
@@ -313,7 +314,7 @@ local function place()
 	local floor = math.max(Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP, if corner.Y > 0 then corner.Y + Dock.GAP else 0)
 	local bottom = math.max(Dock.HAULPANEL_BOTTOM, floor)
 	-- The highest its top may reach, measured up from the bottom edge like `bottom`.
-	local ceiling = height - CampWarpController.columnBottom(height) - Dock.GAP
+	local ceiling = height - Dock.sideColumnBottom(height) - Dock.GAP
 	if ceiling - bottom < BADGE_H then
 		bottom = math.max(floor, ceiling - BADGE_H)
 	end

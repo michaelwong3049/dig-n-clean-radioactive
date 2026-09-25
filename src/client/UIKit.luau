@@ -652,29 +652,51 @@ Dock.METER_TOP_Y = Dock.SIDE_TOP_Y + Dock.CASH_SIZE.Y.Offset + Dock.GAP + Dock.S
 -- the MIN_SCALE floor leaves the design canvas shorter than that.
 Dock.SIDE_TOP_MIN_HEIGHT = 700
 
--- The square tiles on the right edge (Index, Shop, Nukes, Warp -- top to bottom): one
--- size for all, and what the haul widget measures its clearance against.
-Dock.SIDE_TILE_SIZE = 80
--- How many of them hang in that column, one Dock.GAP apart.
-Dock.SIDE_TILE_COUNT = 4
+-- The square tiles on the right edge: Index, Shop, Nukes, Warp in a 2x2 grid, read
+-- left to right, top to bottom (HudTile builds them). It was one 80px column four
+-- tiles tall until the grid was requested with smaller tiles; at 62 the grid is 134px
+-- square against the column's 80x350. The haul widget measures its clearance against
+-- the grid's width (HAULPANEL_RIGHT).
+Dock.SIDE_TILE_SIZE = 62
+Dock.SIDE_GRID_COLUMNS = 2
+Dock.SIDE_GRID_ROWS = 2
+Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.GAP
+Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_ROWS - 1) * Dock.GAP
 -- The Settings gear's bottom edge in the top-right corner (SettingsController: 12 down,
 -- 44 tall), measured from the bottom of the topbar inset, not the screen top.
 Dock.CORNER_BUTTON_BOTTOM = 56
 
---- The right-hand tile column's TOP edge (the Index tile's), in design px from the
---- vertical centre of a canvas `height` design px tall. Hung from SIDE_TOP_Y on a tall
---- enough screen; below SIDE_TOP_MIN_HEIGHT the WHOLE column is centred instead, so the
---- bottom tile stays clear of the hotbar and a touch screen's jump button -- but never
---- so high that the Index tile runs up into the Settings gear above it. Every tile in
---- the column places itself from this one line.
+--- The right-hand tile grid's TOP edge, in design px from the vertical centre of a
+--- canvas `height` design px tall. Hung from SIDE_TOP_Y on a tall enough screen; below
+--- SIDE_TOP_MIN_HEIGHT the WHOLE grid is centred instead, so its bottom row stays clear
+--- of the hotbar and a touch screen's jump button -- but never so high that the top row
+--- runs up into the Settings gear above it. Every tile places itself from this one line
+--- (Dock.sideTileCentre).
 function Dock.sideColumnTop(height: number): number
 	if height >= Dock.SIDE_TOP_MIN_HEIGHT then
 		return Dock.SIDE_TOP_Y
 	end
-	local column = Dock.SIDE_TILE_COUNT * Dock.SIDE_TILE_SIZE + (Dock.SIDE_TILE_COUNT - 1) * Dock.GAP
 	local inset = GuiService:GetGuiInset().Y / UIKit.scale()
 	local underGear = inset + Dock.CORNER_BUTTON_BOTTOM + Dock.GAP - height / 2
-	return math.max(-column / 2, underGear)
+	return math.max(-Dock.SIDE_GRID_HEIGHT / 2, underGear)
+end
+
+--- The CENTRE of grid tile `slot` (1-4, left to right, top to bottom), as a position on
+--- a canvas `height` design px tall: offset in from the right edge, and down from the
+--- vertical centre. Centred so a tile's hover UIScale grows it evenly on every side.
+function Dock.sideTileCentre(slot: number, height: number): UDim2
+	local column = (slot - 1) % Dock.SIDE_GRID_COLUMNS
+	local row = (slot - 1) // Dock.SIDE_GRID_COLUMNS
+	local step = Dock.SIDE_TILE_SIZE + Dock.GAP
+	local fromRight = Dock.ROW_SIDE_MARGIN + (Dock.SIDE_GRID_COLUMNS - 1 - column) * step + Dock.SIDE_TILE_SIZE / 2
+	local down = Dock.sideColumnTop(height) + row * step + Dock.SIDE_TILE_SIZE / 2
+	return UDim2.new(1, -fromRight, 0.5, down)
+end
+
+--- Where the tile grid ends: its bottom row's bottom edge, in design px from the canvas
+--- TOP. LuckBoostController keeps the 2x-luck clover below it.
+function Dock.sideColumnBottom(height: number): number
+	return height / 2 + Dock.sideColumnTop(height) + Dock.SIDE_GRID_HEIGHT
 end
 
 -- The dock's total reserved height with no card open. Nothing anchors against it today
@@ -715,7 +737,7 @@ Dock.HAULPANEL_CENTRE_GAP = 100
 -- to overlap the surfacing item; further in it tucks behind the meter (DisplayOrder 100
 -- against DetectorHud's 60). The fix if it ever matters is a narrower widget under some
 -- width, not a different anchor.
-Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SIDE_TILE_SIZE + Dock.GAP
+Dock.HAULPANEL_RIGHT = Dock.ROW_SIDE_MARGIN + Dock.SIDE_GRID_WIDTH + Dock.GAP
 
 -- ── Builders ─────────────────────────────────────────────────────────────────────
 -- Spec-table-in, instance-out, same shape as server/build/Kit.build. These replace

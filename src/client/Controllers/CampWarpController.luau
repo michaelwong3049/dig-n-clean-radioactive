@@ -2,8 +2,8 @@
 --[[
 	CampWarpController.luau — the Warp tile, and the camp list it opens.
 
-	THE TILE is the fourth square on the right edge, one Dock.GAP under Nukes: the same
-	dark card and outlined caption as Index, Shop and Nukes, with a teleport picture.
+	THE TILE is the bottom-right square of the right-edge 2x2 grid, built by HudTile
+	like Index, Shop and Nukes, with a teleport picture.
 	A red "!" sits on its corner from the moment a camp is reached on foot (CampState's
 	`unlocked`) until the panel is next opened, so a new warp does not go unnoticed.
 
@@ -38,18 +38,16 @@ local Camps = require(Shared.Config.Camps)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
-local Dock = UIKit.Dock
-local NukesController = require(script.Parent.NukesController)
+local HudTile = require(script.Parent.Parent.HudTile)
 
 local CampWarp = {}
 
--- Same tile as the Nukes one (see ShopController for why these are copies).
-local TILE_SIZE = Dock.SIDE_TILE_SIZE
-local TILE_CAPTION = "Warp"
-local TILE_CAPTION_SIZE = 18
-local TILE_ICON_SIZE = 46
-local TILE_ICON_TOP = 7
-local TILE_HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+-- THE WARP TILE: bottom right of the right-edge 2x2 grid (HudTile), a cyan glow
+-- behind the teleport picture.
+local TILE_SLOT = 4
+local TILE_COLOR = Color3.fromRGB(60, 195, 255)
+local TILE_LIGHT = Color3.fromRGB(183, 236, 255)
+local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local PANEL = {
 	panel = Color3.fromHex("1B1F23"),
@@ -338,10 +336,10 @@ local function rowButton(parent: Instance, status: Status, key: string?)
 	end
 	local dest: string = key
 	button.MouseEnter:Connect(function()
-		TweenService:Create(button, TILE_HOVER, { BackgroundColor3 = PANEL.goHover }):Play()
+		TweenService:Create(button, HOVER, { BackgroundColor3 = PANEL.goHover }):Play()
 	end)
 	button.MouseLeave:Connect(function()
-		TweenService:Create(button, TILE_HOVER, { BackgroundColor3 = PANEL.go }):Play()
+		TweenService:Create(button, HOVER, { BackgroundColor3 = PANEL.go }):Play()
 	end)
 	button.Activated:Connect(function()
 		warpTo(dest)
@@ -624,131 +622,22 @@ end
 
 -- ── The tile ────────────────────────────────────────────────────────
 
---- The Warp tile's top edge, in design px from the canvas's vertical centre: one
---- Dock.GAP under wherever the Nukes tile ends on a canvas `height` design px tall.
-local function tileTop(height: number): number
-	return NukesController.columnBottom(height) - height / 2 + Dock.GAP
-end
-
---- Where the right-hand tile column ends now: the Warp tile's bottom edge, in design
---- px from the canvas TOP. LuckBoostController keeps the 2x-luck clover below it.
-function CampWarp.columnBottom(height: number): number
-	return height / 2 + tileTop(height) + TILE_SIZE
-end
-
 local function build(): ScreenGui
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "WarpButton"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
-	-- Same layer as the Index, Shop and Nukes tiles (55): one column.
-	gui.DisplayOrder = 55
-	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	local canvas = UIKit.canvas(gui)
-
-	local tileSize = UDim2.fromOffset(TILE_SIZE, TILE_SIZE)
-	local shadow = UIKit.panel(canvas, {
-		name = "WarpShadow",
-		size = tileSize,
-		color = UIKit.C.navShadow,
-		transparency = 0.2,
-		cornerRadius = UDim.new(0, 9),
-		strokeThickness = 0,
-		zIndex = 3,
-	})
-	local button, buttonStroke = UIKit.button(canvas, {
+	local gui, button = HudTile.build({
 		name = "WarpButton",
-		size = tileSize,
-		text = "",
-		textSize = UIKit.TextSize.body,
-		fillColor = UIKit.C.navFill,
-		fillTransparency = 0,
-		strokeColor = UIKit.C.navEdge,
-		strokeThickness = 2,
-		cornerRadius = UDim.new(0, 9),
-		zIndex = 4,
+		caption = "Warp",
+		slot = TILE_SLOT,
+		color = TILE_COLOR,
+		light = TILE_LIGHT,
+		image = Artwork.IMAGE.teleport,
+		onActivated = CampWarp.toggle,
 	})
-	buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-	local function place()
-		local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-		local y = tileTop(height)
-		button.AnchorPoint = Vector2.new(1, 0)
-		button.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y)
-		shadow.AnchorPoint = Vector2.new(1, 0)
-		shadow.Position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 0.5, y + 4)
-	end
-	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-	place()
-
-	local icon = Artwork.picture(button, "TeleportIcon", Artwork.IMAGE.teleport, TILE_ICON_SIZE, UIKit.C.navIcon)
-	icon.AnchorPoint = Vector2.new(0.5, 0)
-	icon.Position = UDim2.new(0.5, 0, 0, TILE_ICON_TOP)
-
-	UIKit.label(button, {
-		name = "Caption",
-		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 1, -5),
-		size = UDim2.new(1, 0, 0, 18),
-		text = TILE_CAPTION,
-		font = Enum.Font.GothamBlack,
-		textSize = TILE_CAPTION_SIZE,
-		color = Color3.new(1, 1, 1),
-		xAlign = Enum.TextXAlignment.Center,
-		zIndex = 8,
-	})
-
 	-- A camp reached since the panel was last opened: a red "!" on the corner, the
 	-- same badge the Index tile wears for new entries.
-	local badge = Instance.new("Frame")
-	badge.Name = "NewBadge"
-	badge.AnchorPoint = Vector2.new(1, 0)
-	badge.Position = UDim2.new(1, 4, 0, -4)
-	badge.Size = UDim2.fromOffset(24, 24)
-	badge.BackgroundColor3 = PANEL.badge
-	badge.BorderSizePixel = 0
-	badge.Visible = false
-	badge.ZIndex = 9
-	badge.Parent = button
-	round(badge, 12)
-	edge(badge, PANEL.ink, 2)
-	local mark = Instance.new("TextLabel")
-	mark.Name = "Mark"
-	mark.BackgroundTransparency = 1
-	mark.Size = UDim2.fromScale(1, 1)
-	mark.Font = Enum.Font.GothamBlack
-	mark.TextSize = 15
-	mark.TextColor3 = PANEL.white
+	local badge, mark = HudTile.badge(button, PANEL.badge, PANEL.ink)
 	mark.Text = "!"
-	mark.ZIndex = 10
-	mark.Parent = badge
+	mark.TextSize = 13
 	ui.badge = badge
-
-	local function setHighlighted(active: boolean)
-		local fill = if active then UIKit.C.navFillHover else UIKit.C.navFill
-		TweenService:Create(button, TILE_HOVER, { BackgroundColor3 = fill }):Play()
-		TweenService:Create(buttonStroke, TILE_HOVER, {
-			Color = if active then UIKit.C.navEdgeHover else UIKit.C.navEdge,
-		}):Play()
-		-- The picture brightens to white, same as the Index book and the Shop cart.
-		TweenService:Create(icon, TILE_HOVER, {
-			ImageColor3 = if active then Color3.new(1, 1, 1) else UIKit.C.navIcon,
-		}):Play()
-	end
-	button.MouseEnter:Connect(function()
-		setHighlighted(true)
-	end)
-	button.MouseLeave:Connect(function()
-		setHighlighted(false)
-	end)
-	button.SelectionGained:Connect(function()
-		setHighlighted(true)
-	end)
-	button.SelectionLost:Connect(function()
-		setHighlighted(false)
-	end)
-	button.Activated:Connect(CampWarp.toggle)
-
 	return gui
 end
 
