@@ -227,6 +227,13 @@ local FIELD = {
 	panel = Color3.fromHex("1B1F23"),
 	card = Color3.fromHex("22272C"),
 	well = Color3.fromHex("1A1E22"),
+	-- The shop card's art well, top to bottom: brightest a third of the way down, where
+	-- the framed model's middle sits.
+	wellFade = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromHex("22282E")),
+		ColorSequenceKeypoint.new(0.36, Color3.fromHex("2B3238")),
+		ColorSequenceKeypoint.new(1, Color3.fromHex("16191C")),
+	}),
 	edge = Color3.fromHex("343B42"),
 	rule = Color3.fromHex("30373D"),
 	amber = Color3.fromHex("F2A93B"),
@@ -393,30 +400,37 @@ end
 --- but the number is left at five so adding a fourth column to a track is a one-line
 --- change in Config/Gear rather than a layout change here too.
 ---
---- Rows are built once at this count and hidden, the same reuse the cards themselves
+--- Chips are built once at this count and hidden, the same reuse the cards themselves
 --- use — a stat block that rebuilt its children on every StationState tick would churn
 --- forty frames' worth of instances ten times a second.
 local STAT_ROWS = 5
-local STAT_ROW_HEIGHT = 30
-local STAT_ROW_GAP = 10
-local STAT_LABEL_WIDTH = 130
-local STAT_VALUE_WIDTH = 90
-local STAT_TEXT_SIZE = 23
+local STAT_CHIP_HEIGHT = 58
+local STAT_CHIP_GAP = 8
+local STAT_CHIP_PAD = 11
+local STAT_LABEL_SIZE = 12
+local STAT_VALUE_SIZE = 19
+local STAT_BAR_HEIGHT = 5
 local BAR_FLOOR = 0.06
 
--- The card's vertical stack, top to bottom: the name strip, the art well, the stat
--- block, the buy button. The stat block and the button are pinned to the bottom edge;
--- the art well takes whatever height is left between them and the strip, so a track
--- with fewer stat columns gets a bigger picture rather than a gap (see paintShopCard).
-local CARD_INSET = 20
-local CARD_STRIP_HEIGHT = 54
-local CARD_ART_TOP = CARD_STRIP_HEIGHT + 16
-local CARD_ART_GAP = 18
-local CARD_BUY_HEIGHT = 56
-local CARD_BUY_BOTTOM = 18
-local CARD_STATS_GAP = 16
--- The stat block's bottom edge, measured from the card's top.
-local CARD_STATS_BOTTOM = CARD_HEIGHT - CARD_BUY_BOTTOM - CARD_BUY_HEIGHT - CARD_STATS_GAP
+-- The card's vertical stack, top to bottom: the name row, the art well, one row of stat
+-- chips, the buy button. EVERY PIECE IS A FIXED HEIGHT, on request ("more space to
+-- show the image"). The stats used to be one 30px row each with a long bar, and the
+-- well took whatever they left, so the Aura's four rows cut the picture to 460x172 and
+-- the Detector's three to 460x212. Now the stats share one row of chips whatever their
+-- count, the name row lost its divider, the button lost 6px, and every track gets the
+-- same 472x308 picture.
+local CARD_INSET = 14
+local CARD_NAME_INSET = 18
+local CARD_NAME_TOP = 4
+local CARD_NAME_HEIGHT = 44
+local CARD_ART_TOP = 50
+local CARD_ROW_GAP = 10
+local CARD_BUY_HEIGHT = 50
+local CARD_BUY_BOTTOM = 14
+local CARD_BUY_TOP = CARD_HEIGHT - CARD_BUY_BOTTOM - CARD_BUY_HEIGHT
+local CARD_CHIPS_TOP = CARD_BUY_TOP - CARD_ROW_GAP - STAT_CHIP_HEIGHT
+local CARD_ART_WIDTH = CARD_WIDTH - 2 * CARD_INSET
+local CARD_ART_HEIGHT = CARD_CHIPS_TOP - CARD_ROW_GAP - CARD_ART_TOP
 
 -- ── The art well's model ─────────────────────────────────────────────
 -- A LIVE RENDER, NOT AN UPLOADED PICTURE. Every tier's model is already on the client
@@ -465,28 +479,45 @@ local ART_LIGHT = {
 -- (RACK_HIDE_ON_DISPLAY), hardcoded again because build/ cannot be required from here.
 local ART_HIDE = { "Realistically Sized Magnet" }
 
---- One row of a card's stat block: label, bar, value. A flag cell reuses the same row
---- and simply fills its bar to 0 or 1 — same geometry, so a block of numeric rows and a
---- mixed block put the button on the same baseline.
+--- One chip of a card's stat row: the label small on top, the value under it, a thin
+--- bar along the bottom. Chips are laid side by side and share the row's width, which
+--- paintStats sets per track once it knows how many columns there are. A flag cell
+--- reuses the same chip and simply fills its bar to 0 or 1.
 ---
 --- NO LIVE TRACK USES A FLAG CELL any more: Boots' vault and dash were the only two,
 --- and they were retired with it. The support is kept because `kind = "flag"` is still
 --- a documented option in Gear.STAT_META and deleting the render path would make the
 --- next boolean stat a two-file change instead of a one-line one.
-local function makeStatRow(parent: Instance, order: number): Frame
-	local row = Instance.new("Frame")
-	row.Name = `Stat{order}`
-	row.LayoutOrder = order
-	row.Size = UDim2.new(1, 0, 0, STAT_ROW_HEIGHT)
-	row.BackgroundTransparency = 1
-	row.Visible = false
-	row.Parent = parent
+local function makeStatChip(parent: Instance, order: number): Frame
+	local chip = UIKit.panel(parent, {
+		name = `Stat{order}`,
+		size = UDim2.fromOffset(0, STAT_CHIP_HEIGHT),
+		color = FIELD.well,
+		transparency = 0,
+		strokeColor = FIELD.rule,
+		strokeThickness = 1,
+		cornerRadius = UDim.new(0, 9),
+		visible = false,
+	})
 
-	UIKit.label(row, {
+	UIKit.label(chip, {
 		name = "StatLabel",
-		size = UDim2.fromOffset(STAT_LABEL_WIDTH, STAT_ROW_HEIGHT),
+		position = UDim2.fromOffset(STAT_CHIP_PAD, 6),
+		size = UDim2.new(1, -2 * STAT_CHIP_PAD, 0, 14),
 		font = FIELD.label,
-		textSize = STAT_TEXT_SIZE,
+		textSize = STAT_LABEL_SIZE,
+		color = FIELD.dim,
+		xAlign = Enum.TextXAlignment.Left,
+		outline = false,
+		shadow = false,
+	})
+
+	UIKit.label(chip, {
+		name = "StatValue",
+		position = UDim2.fromOffset(STAT_CHIP_PAD, 18),
+		size = UDim2.new(1, -2 * STAT_CHIP_PAD, 0, 20),
+		font = FIELD.label,
+		textSize = STAT_VALUE_SIZE,
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
@@ -494,15 +525,15 @@ local function makeStatRow(parent: Instance, order: number): Frame
 	})
 
 	-- The track, and the fill inside it. Two plain Frames rather than a UIKit helper:
-	-- an 8px bar wants no corner, no stroke and no text, which is all a helper would add.
+	-- a 5px bar wants a corner and nothing else.
 	local track = Instance.new("Frame")
 	track.Name = "StatTrack"
-	track.AnchorPoint = Vector2.new(0, 0.5)
-	track.Position = UDim2.new(0, STAT_LABEL_WIDTH + 10, 0.5, 0)
-	track.Size = UDim2.new(1, -(STAT_LABEL_WIDTH + STAT_VALUE_WIDTH + 26), 0, 8)
+	track.AnchorPoint = Vector2.new(0, 1)
+	track.Position = UDim2.new(0, STAT_CHIP_PAD, 1, -6)
+	track.Size = UDim2.new(1, -2 * STAT_CHIP_PAD, 0, STAT_BAR_HEIGHT)
 	track.BackgroundColor3 = FIELD.rule
 	track.BorderSizePixel = 0
-	track.Parent = row
+	track.Parent = chip
 
 	local fill = Instance.new("Frame")
 	fill.Name = "StatFill"
@@ -511,23 +542,16 @@ local function makeStatRow(parent: Instance, order: number): Frame
 	fill.BorderSizePixel = 0
 	fill.Parent = track
 
-	UIKit.label(row, {
-		name = "StatValue",
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.fromScale(1, 0),
-		size = UDim2.fromOffset(STAT_VALUE_WIDTH, STAT_ROW_HEIGHT),
-		font = FIELD.label,
-		textSize = STAT_TEXT_SIZE,
-		color = FIELD.text,
-		xAlign = Enum.TextXAlignment.Right,
-		outline = false,
-		shadow = false,
-	})
+	for _, bar in { track, fill } do
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 3)
+		corner.Parent = bar
+	end
 
-	return row
+	return chip
 end
 
---- One shop card: name and status, a big art well, the stat block, and the price
+--- One shop card: name and status, a big art well, a row of stat chips, and the price
 --- button — drawn at hero size, because the carousel shows one of these at a time
 --- rather than eight in a grid.
 ---
@@ -573,31 +597,24 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	scale.Scale = NEIGHBOUR_SCALE
 	scale.Parent = card
 
-	-- ── The name strip ───────────────────────────────────────────────
+	-- ── The name row ─────────────────────────────────────────────────
 	-- The tier's name on the left, its status word (ISSUED / OWNED / NEED $x) on the
-	-- right, over a rule. No catalogue code and no blurb any more, on request: the card
-	-- is the picture, the numbers and the price.
+	-- right. No catalogue code and no blurb any more, on request: the card is the
+	-- picture, the numbers and the price. No rule under it either -- the well's own
+	-- edge starts right below, and the rule was 16px the picture wanted.
 	local strip = Instance.new("Frame")
 	strip.Name = "CardStrip"
-	strip.Size = UDim2.new(1, 0, 0, CARD_STRIP_HEIGHT)
+	strip.Position = UDim2.fromOffset(0, CARD_NAME_TOP)
+	strip.Size = UDim2.new(1, 0, 0, CARD_NAME_HEIGHT)
 	strip.BackgroundTransparency = 1
 	strip.Parent = card
 
-	local stripRule = Instance.new("Frame")
-	stripRule.Name = "StripRule"
-	stripRule.AnchorPoint = Vector2.new(0, 1)
-	stripRule.Position = UDim2.fromScale(0, 1)
-	stripRule.Size = UDim2.new(1, 0, 0, 1)
-	stripRule.BackgroundColor3 = FIELD.rule
-	stripRule.BorderSizePixel = 0
-	stripRule.Parent = strip
-
 	UIKit.label(strip, {
 		name = "CardName",
-		position = UDim2.fromOffset(CARD_INSET, 0),
-		size = UDim2.new(1, -(2 * CARD_INSET + 150), 1, -1),
+		position = UDim2.fromOffset(CARD_NAME_INSET, 0),
+		size = UDim2.new(1, -(2 * CARD_NAME_INSET + 150), 1, 0),
 		font = FIELD.headline,
-		textSize = 28,
+		textSize = 26,
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Left,
 		outline = false,
@@ -607,10 +624,10 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	UIKit.label(strip, {
 		name = "CardFlag",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, -CARD_INSET, 0, 0),
-		size = UDim2.new(0, 150, 1, -1),
+		position = UDim2.new(1, -CARD_NAME_INSET, 0, 0),
+		size = UDim2.new(0, 150, 1, 0),
 		font = FIELD.label,
-		textSize = 18,
+		textSize = 17,
 		color = FIELD.text,
 		xAlign = Enum.TextXAlignment.Right,
 		outline = false,
@@ -618,21 +635,28 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	})
 
 	-- ── Art ──────────────────────────────────────────────────────────
-	-- Full card width, from under the strip down to the stat block. Its height is set
-	-- per tier in paintShopCard, once the number of stat rows is known.
+	-- Full card width, from under the name row down to the stat chips, the same size on
+	-- every card. The fill is a vertical fade (FIELD.wellFade), lit a third of the way
+	-- down where the model sits, so the model reads as standing in light rather than
+	-- pasted on a flat box. The fill is white because a UIGradient multiplies into it.
 	local art = Instance.new("ImageLabel")
 	art.Name = "CardArt"
 	art.Position = UDim2.fromOffset(CARD_INSET, CARD_ART_TOP)
-	art.Size = UDim2.new(1, -2 * CARD_INSET, 0, CARD_STATS_BOTTOM - CARD_ART_GAP - CARD_ART_TOP)
-	art.BackgroundColor3 = FIELD.well
+	art.Size = UDim2.fromOffset(CARD_ART_WIDTH, CARD_ART_HEIGHT)
+	art.BackgroundColor3 = Color3.new(1, 1, 1)
 	art.BackgroundTransparency = 0
 	art.BorderSizePixel = 0
 	art.Image = ""
 	art.ScaleType = Enum.ScaleType.Fit
 	art.Parent = card
 
+	local artFade = Instance.new("UIGradient")
+	artFade.Rotation = 90
+	artFade.Color = FIELD.wellFade
+	artFade.Parent = art
+
 	local artCorner = Instance.new("UICorner")
-	artCorner.CornerRadius = UDim.new(0, 6)
+	artCorner.CornerRadius = UDim.new(0, 8)
 	artCorner.Parent = art
 
 	local artEdge = Instance.new("UIStroke")
@@ -656,25 +680,18 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 
-	-- ── Stat block ───────────────────────────────────────────────────
-	-- Pinned by its BOTTOM edge just above the button and sized to its visible rows,
-	-- so the rows sit together at the foot of the card and the art gets the rest.
+	-- ── Stat chips ───────────────────────────────────────────────────
+	-- One row between the well and the button. Placed by hand, not by a layout:
+	-- paintStats divides the row's width between however many chips the track shows.
 	local stats = Instance.new("Frame")
 	stats.Name = "CardStats"
-	stats.AnchorPoint = Vector2.new(0, 1)
-	stats.Position = UDim2.fromOffset(CARD_INSET, CARD_STATS_BOTTOM)
-	stats.Size = UDim2.new(1, -2 * CARD_INSET, 0, 0)
-	stats.AutomaticSize = Enum.AutomaticSize.Y
+	stats.Position = UDim2.fromOffset(CARD_INSET, CARD_CHIPS_TOP)
+	stats.Size = UDim2.fromOffset(CARD_ART_WIDTH, STAT_CHIP_HEIGHT)
 	stats.BackgroundTransparency = 1
 	stats.Parent = card
 
-	local statLayout = Instance.new("UIListLayout")
-	statLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	statLayout.Padding = UDim.new(0, STAT_ROW_GAP)
-	statLayout.Parent = stats
-
 	for index = 1, STAT_ROWS do
-		makeStatRow(stats, index)
+		makeStatChip(stats, index)
 	end
 
 	local buy = UIKit.button(card, {
@@ -684,7 +701,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		size = UDim2.new(1, -2 * CARD_INSET, 0, CARD_BUY_HEIGHT),
 		font = FIELD.headline,
 		textSize = 22,
-		cornerRadius = UDim.new(0, 5),
+		cornerRadius = UDim.new(0, 8),
 		strokeThickness = 1,
 		outline = false,
 		shadow = false,
@@ -1173,15 +1190,17 @@ local function money(amount: number): string
 	return `${grouped}`
 end
 
---- Paint one card's stat block. Rows are reused, so every row past the track's own
---- column count is hidden rather than destroyed — see STAT_ROWS.
+--- Paint one card's stat chips. Chips are reused, so every chip past the track's own
+--- column count is hidden rather than destroyed — see STAT_ROWS — and the ones shown
+--- split the row's width evenly: three across for a Detector, four for the Aura.
 ---
 --- A FLAG CELL KEEPS THE BAR'S GEOMETRY AND THROWS AWAY ITS MEANING: a capability is
---- not an amount, so the row prints YES/NO and fills its track whole or not at all.
---- Sharing the row shape is what keeps the button on the same baseline whether a track
---- has two numeric stats or a mix. Currently exercised by no track — see makeStatRow.
+--- not an amount, so the chip prints YES/NO and fills its track whole or not at all.
+--- Currently exercised by no track — see makeStatChip.
 local function paintStats(card: Frame, entry, accent: Color3)
 	local stats = card.CardStats :: Frame
+	local count = math.min(#entry.stats, STAT_ROWS)
+	local width = if count > 0 then (CARD_ART_WIDTH - (count - 1) * STAT_CHIP_GAP) / count else 0
 	for index = 1, STAT_ROWS do
 		local row = stats:FindFirstChild(`Stat{index}`) :: Frame?
 		if row == nil then
@@ -1192,6 +1211,8 @@ local function paintStats(card: Frame, entry, accent: Color3)
 		if cell == nil then
 			continue
 		end
+		row.Position = UDim2.fromOffset((index - 1) * (width + STAT_CHIP_GAP), 0)
+		row.Size = UDim2.fromOffset(width, STAT_CHIP_HEIGHT)
 
 		local label = row.StatLabel :: TextLabel
 		local value = row.StatValue :: TextLabel
@@ -1289,10 +1310,9 @@ end
 --- asked for a different tier or track than it already shows (`ArtKey`) — which is
 --- once, the first time a stall is opened.
 ---
---- The well's height is per track (paintShopCard sizes it to the stat block), so the
---- aspect comes from that design height rather than from AbsoluteSize, which reads 0
---- until the panel has been laid out once.
-local function paintArt(card: Frame, track: string, tier: number, artHeight: number)
+--- The aspect comes from the well's design size rather than from AbsoluteSize, which
+--- reads 0 until the panel has been laid out once.
+local function paintArt(card: Frame, track: string, tier: number)
 	local key = `{track}/{tier}`
 	if card:GetAttribute("ArtKey") == key then
 		return
@@ -1321,7 +1341,7 @@ local function paintArt(card: Frame, track: string, tier: number, artHeight: num
 	-- The views are written in the model's own frame, so its pivot goes to the origin.
 	model:PivotTo(CFrame.identity)
 	model.Parent = viewport
-	frameArt(viewport.CurrentCamera :: Camera, model, view, (CARD_WIDTH - 2 * CARD_INSET) / artHeight)
+	frameArt(viewport.CurrentCamera :: Camera, model, view, CARD_ART_WIDTH / CARD_ART_HEIGHT)
 end
 
 --- Four states, and all four are drawn on the same card rather than on four layouts.
@@ -1339,17 +1359,11 @@ end
 local function paintShopCard(card: Frame, entry, track: string, accent: Color3, cash: number)
 	local nameLabel = card.CardStrip.CardName :: TextLabel
 	local flag = card.CardStrip.CardFlag :: TextLabel
-	local art = card.CardArt :: ImageLabel
 	local buy = card.CardBuy :: TextButton
 	local cardStroke = card:FindFirstChildOfClass("UIStroke") :: UIStroke
 
 	nameLabel.Text = entry.name
-	-- The art well fills everything the stat block does not use.
-	local rows = math.min(#entry.stats, STAT_ROWS)
-	local statsHeight = if rows > 0 then rows * STAT_ROW_HEIGHT + (rows - 1) * STAT_ROW_GAP else 0
-	local artHeight = CARD_STATS_BOTTOM - statsHeight - CARD_ART_GAP - CARD_ART_TOP
-	art.Size = UDim2.new(1, -2 * CARD_INSET, 0, artHeight)
-	paintArt(card, track, entry.tier, artHeight)
+	paintArt(card, track, entry.tier)
 	card:SetAttribute("Buyable", entry.buyable == true)
 	card:SetAttribute("Equippable", entry.equippable == true)
 	card:SetAttribute("Tier", entry.tier)
