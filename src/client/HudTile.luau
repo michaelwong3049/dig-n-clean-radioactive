@@ -63,6 +63,9 @@ export type Spec = {
 	light: Color3,
 	-- The symbol (Artwork.IMAGE).
 	image: string,
+	-- Design px to drop the symbol below the glow's centre, for a drawing whose weight
+	-- sits high in its square. The glow stays put, so the symbol lands centred on it.
+	iconDrop: number?,
 	-- Optional: a caller that wires its own click (IndexController) leaves it out.
 	onActivated: (() -> ())?,
 }
@@ -117,7 +120,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 
 	local icon = Artwork.picture(button, "Icon", spec.image, ICON_SIZE, Color3.new(1, 1, 1))
 	icon.AnchorPoint = Vector2.new(0.5, 0.5)
-	icon.Position = UDim2.new(0.5, 0, 0, iconCentre)
+	icon.Position = UDim2.new(0.5, 0, 0, iconCentre + (spec.iconDrop or 0))
 	icon.ZIndex = 6
 
 	UIKit.label(button, {

@@ -39,6 +39,8 @@ local Shop = {}
 local TILE_SLOT = 2
 local TILE_COLOR = Color3.fromRGB(86, 212, 71)
 local TILE_LIGHT = Color3.fromRGB(185, 245, 168)
+-- The chest's dark lid makes it read high in its square; this settles it on the glow.
+local TILE_ICON_DROP = 2
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- The panel. StationController's FIELD slate, plus the clover's green for its card.
@@ -362,6 +364,7 @@ local function build(): ScreenGui
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
 		image = Artwork.IMAGE.chest,
+		iconDrop = TILE_ICON_DROP,
 		onActivated = Shop.toggle,
 	})
 	return gui
