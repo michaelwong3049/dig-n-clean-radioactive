@@ -52,9 +52,10 @@ local C = Kit.C
 
 -- The inner face of the slat wall (Shops' buildSlatWall stands at z = -10, 0.55 deep).
 local WALL_FACE_Z = -9.725
--- The underside of a roof prop's plinth: the canopy (Shops' buildStripedCanopy,
--- centreY 9.8 at z = -4, 4 degree tilt, 0.45 thick) tops out at ~10.2 around z = -5
--- to -6, where every roof prop stands.
+-- The underside of a roof prop's plinth: the roof plates (Shops' buildPlateRoof,
+-- centreY 9.8 at z = -4, 4 degree tilt, 0.45 thick) top out at ~10.2 around z = -5
+-- to -6, where every roof prop stands. The seam straps and rivets stand up to ~0.4
+-- proud of that, which the 0.7-tall plinth swallows.
 local ROOF_Y = 10.2
 local ROOF_Z = -5.5
 
@@ -68,7 +69,7 @@ local function prop(parent: Instance, origin: CFrame, spec: Kit.Spec): BasePart
 	return Kit.build(parent, origin, spec)
 end
 
---- A dark steel plinth on the canopy for a roof prop to stand on.
+--- A dark steel plinth on the roof for a roof prop to stand on.
 local function roofPlinth(parent: Instance, origin: CFrame, x: number, sx: number, sz: number)
 	prop(parent, origin, {
 		name = "RoofPlinth",

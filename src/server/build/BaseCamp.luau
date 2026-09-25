@@ -46,8 +46,9 @@
 	radiation badge, a grey counter with hazard tape along its kick and a platform
 	scale on it, two banded drums in the back corner, and a yellow-and-black striped
 	awning that leans forward from tall back posts to short front ones with a
-	striped valance off its front edge — the same read as the plaza stalls
-	(build/Shops' buildStripedCanopy), scaled up for one kiosk. A black TRADER sign
+	striped valance off its front edge — the read the plaza stalls' striped canopies
+	had before their steel-plate roofs (build/Shops' buildPlateRoof, whose hazard
+	fascia echoes this awning), scaled up for one kiosk. A black TRADER sign
 	box stands on the awning's front edge. The frame is studded plastic; the awning,
 	badge and sign are flat-coloured SmoothPlastic. Nothing is Neon or lit.
 
@@ -95,9 +96,9 @@ local SHED_RIB = "7A838A"
 --- running front-to-back alternating hazard yellow and black, forced to an odd count
 --- so the cloth opens and closes on yellow, pitched `tilt` degrees down toward the
 --- customer (+Z), with a short valance of the same stripes hanging straight down off
---- the front edge — the same read as the plaza stalls' canopies (build/Shops'
---- buildStripedCanopy), scaled for one open kiosk. SmoothPlastic, pure colour, no
---- texture.
+--- the front edge — the read the plaza stalls' striped canopies had before their
+--- steel-plate roofs (build/Shops' buildPlateRoof), scaled for one open kiosk.
+--- SmoothPlastic, pure colour, no texture.
 local function buildTraderAwning(parent: Instance, origin: CFrame, y: number, centerZ: number, tilt: number, width: number, depth: number)
 	local stripeCount = math.floor(width / 1.9)
 	if stripeCount % 2 == 0 then

@@ -14,7 +14,7 @@
 	station (Plots.buildCleansingStation) are the same builders Base Camp uses, carrying
 	the same world contract, so the services find them by tag and they simply work here:
 	sell at the counter, dock and shower at the tub, wash what you hold. The stalls are
-	Shops.buildStallShell -- the frame and canopy with NO station attributes -- because
+	Shops.buildStallShell -- the frame and steel roof with NO station attributes -- because
 	the gear they will sell does not exist yet. They say COMING SOON rather than opening
 	a panel for nothing.
 
@@ -68,7 +68,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 3
+local BUILDER_VERSION = 4
 
 local C = Kit.C
 local build = Kit.build

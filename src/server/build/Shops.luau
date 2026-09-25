@@ -61,16 +61,16 @@
 	A STALL IS AS WIDE AS ITS TRACK IS LONG. `stallWidth` derives it from
 	Gear.maxTier, so the Detector stall (8 tiers) is wider than the Magnet stall (6),
 	and adding a tier in Config/Gear widens that one shop with nothing else to edit.
-	Posts, slats, shelf, canopy stripe count and both floor markers all key off that
+	Posts, slats, shelf, roof plate count and both floor markers all key off that
 	one number, which is why moving a stall's `at` (see below) or widening a track
 	can turn a comfortable gap into an overlap. `assertNoShopOverlap` proves the
 	current arrangement at every rebuild rather than any paragraph here trying to.
 
 	THE LOOK — the supplied classic-Roblox Gear Store reference, stripped to the
 	structure. Each tool stall has studded posts, a slatted rear wall, an open
-	counter with a steel cap, a shallow striped canopy and matching valance IN THE
-	STALL'S OWN COLOUR (coral / teal / purple against white, no longer the one
-	shared awning red), and a small one-line sign centred over the whole stall
+	counter with a steel cap, a shallow riveted steel-plate roof IN THE STALL'S OWN
+	COLOUR (coral / teal / purple) with a hazard-striped fascia across its front
+	edge (see `buildPlateRoof`), and a small one-line sign centred over the whole stall
 	that NAMES WHAT THE STALL SELLS ("Detector Shop" / "Magnet Shop" / "Hose
 	Shop") in that same accent. The Outfitter gets the identical shell at its own
 	width, its one counter signed the same stall-style way ("Suit Shop") — see
@@ -148,7 +148,7 @@
 
 	THE OUTFITTER IS A PLAZA STALL NOW TOO, not a separate walled building — see
 	`buildOutfitter`'s own header for why that changed. It gets the exact same
-	shell (`buildStorefrontPosts`, `buildSlatWall`, `buildStripedCanopy`) at its
+	shell (`buildStorefrontPosts`, `buildSlatWall`, `buildPlateRoof`) at its
 	own width, with three counters standing in for the one stand.
 
 	`facingOrigin` IS THE ONLY PLACEMENT PRIMITIVE. Both builders lay every part as
@@ -186,7 +186,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 45
+local BUILDER_VERSION = 46
 
 local C = Kit.C
 local build = Kit.build
@@ -580,32 +580,48 @@ local function buildStorefrontPosts(parent: Instance, origin: CFrame, width: num
 	end
 end
 
---- The reference roof is one shallow rectangular awning, striped front-to-back,
---- with a short matching valance at the front. Separate studded Plastic parts
---- keep every stripe crisp and give it the chunky classic-Roblox texture.
+--- THE ROOF IS RIVETED STEEL PLATE in the stall's own colour, with a hazard-striped
+--- fascia across the front. It replaced the striped cloth canopy and valance on
+--- 2026-09-25. The user picked it from Play mockups over a see-through corrugated
+--- roof and a shipping-container stall. It matches the Trader's hazmat booth.
 ---
---- `accent` is the stall's own hex — the canopy stripes and valance alternate it
---- with white, so each stall's cloth is its own colour (coral / teal / purple)
---- instead of the shared awning red every stall used to wear. It is the biggest
---- painted surface on the stall, so this is now the loudest of the per-shop
---- colour cues (with the trim cap, floor marker and sign text).
---- `width` IS THE STALL'S OWN WIDTH NOW, not a constant. The canopy used to be a
---- fixed 7 stripes x 2.5 = 17.5 studs because every stall was the same size; a
---- Detector stall is 38 wide and a Magnet stall 31, so the stripe COUNT is derived
---- from the width instead. Forced odd, so the cloth starts and ends on the accent
---- colour rather than on white — an even count reads as a printing error from the
---- ground, and it is the same "the pattern has to close on itself" constraint the
---- plaza's checkerboard tiles are tuned for.
---- The canopy is solid cloth over the whole stall, so the sun never reaches the
+--- `accent` is the stall's own hex. The plates alternate it with a darker shade of
+--- itself, checkered across two rows, so every plate reads as its own sheet of
+--- steel. The roof is still the biggest painted surface on the stall, so it stays
+--- the loudest per-shop colour cue (with the trim cap, floor marker and sign text).
+--- Plates, seams and fascia are studded Plastic like the rest of the stall. Only
+--- the rivets are smooth, because they are metal fittings (see Kit's stud rule).
+---
+--- `width` IS THE STALL'S OWN WIDTH. The plate COUNT is derived from it, about one
+--- plate per ROOF_PLATE_TARGET studs, and forced odd so both ends of the roof finish
+--- on the same shade. The roof keeps the old canopy's pitch and footprint (centre
+--- ROOF_CENTER_Y up at z = ROOF_CENTER_Z, ROOF_DEPTH deep, ROOF_TILT down to the
+--- front). That keeps ShopThemes' roof props standing on its ROOF_Y and keeps
+--- assertNoShopOverlap's -11.25 back edge true.
+local ROOF_CENTER_Y = 9.8
+local ROOF_CENTER_Z = -4
+local ROOF_DEPTH = 14.5
+local ROOF_TILT = 4 -- degrees, front edge low
+local ROOF_PLATE_TARGET = 4.6 -- studs across one plate, before rounding to an odd count
+local ROOF_PLATE_SHADE = 0.16 -- how much darker the second plate of each checker pair is
+local ROOF_STEEL = "59636D" -- seam straps, fascia frame and edge trim
+local ROOF_RIVET = "C9D1D8"
+local ROOF_RIVET_PITCH = 2 -- studs between rivets along a seam strap
+local FASCIA_HEIGHT = 1.5
+local FASCIA_STRIPE_WIDTH = 0.6
+local FASCIA_STRIPE_PITCH = 1.7
+local FASCIA_RIVET_PITCH = 2
+
+--- The roof is solid steel over the whole stall, so the sun never reaches the
 --- deck, the rack or the slat wall under it and the shop reads as a dark cave from
---- the plaza. This hangs one invisible panel just under the cloth, at its tilt,
+--- the plaza. This hangs one invisible panel just under the plates, at their tilt,
 --- with a warm SurfaceLight shining down off its Bottom face — the whole roof
 --- glows evenly instead of a few hot bulbs. ONE light per stall, Shadows off: a
 --- shadow-casting light per stall is the cost the plots dropped their stand lights
 --- over. The panel is CanQuery false, so it never eats a prompt or a
 --- camera ray the way the invisible WashStand box did.
-local CANOPY_LIGHT_COLOR = "FFE7C2" -- warm lamp white, so the accent cloth colours stay true
-local CANOPY_LIGHT_BRIGHTNESS = 2.4 -- picked live in Studio: 1.6 still read dim, 2.4 lights the deck without washing the cloth out
+local CANOPY_LIGHT_COLOR = "FFE7C2" -- warm lamp white, so the accent colours stay true
+local CANOPY_LIGHT_BRIGHTNESS = 2.4 -- picked live in Studio: 1.6 still read dim, 2.4 lights the deck without washing the colour out
 local CANOPY_LIGHT_RANGE = 14 -- the panel sits ~9.5 up; reaches the deck with room to spare
 
 local function buildCanopyLight(parent: Instance, origin: CFrame, width: number, centerY: number, centerZ: number, depth: number, tiltDegrees: number)
@@ -633,50 +649,144 @@ local function buildCanopyLight(parent: Instance, origin: CFrame, width: number,
 	light.Parent = panel
 end
 
-local function buildStripedCanopy(parent: Instance, origin: CFrame, accent: string, width: number)
-	local stripeCount = math.max(3, math.floor(width / 2.5))
-	if stripeCount % 2 == 0 then
-		stripeCount += 1
-	end
-	local stripeWidth = width / stripeCount
-	local totalWidth = width
-	local centerZ = -4
-	local centerY = 9.8
-	local depth = 14.5
-	local tiltDegrees = 4
-	local frontZ = centerZ + depth / 2
-	local frontY = centerY - math.sin(math.rad(tiltDegrees)) * (depth / 2)
+--- One smooth metal rivet head. Rivets are the roof's most numerous part, so they
+--- cast no shadow: a shadow the size of a pea costs the same to draw as a big one.
+local function buildRivet(parent: Instance, frame: CFrame, x: number, y: number, z: number, size: number)
+	local rivet = build(parent, frame, {
+		name = "RoofRivet",
+		pos = { x, y, z },
+		size = { size, size, size },
+		color = ROOF_RIVET,
+		material = "Metal",
+		shape = "Ball",
+		canCollide = false,
+	})
+	rivet.CastShadow = false
+end
 
-	for index = 1, stripeCount do
-		local color = if index % 2 == 1 then accent else C.labelText
-		local x = -totalWidth / 2 + (index - 0.5) * stripeWidth
-		build(parent, origin, {
-			name = `CanopyStripe{index}`,
-			pos = { x, centerY, centerZ },
-			size = { stripeWidth + 0.06, 0.45, depth },
-			color = color,
+--- A straight steel strip: seam straps, fascia frame rails and trim.
+local function buildSteelStrip(parent: Instance, frame: CFrame, name: string, pos: { number }, size: { number })
+	build(parent, frame, {
+		name = name,
+		pos = pos,
+		size = size,
+		color = ROOF_STEEL,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+end
+
+--- The hazard fascia hangs where the valance used to, across the roof's low front
+--- edge. The stripes are rotated bars, not stepped blocks (straight edges read
+--- cleaner from the ground). A bar at 45 degrees pokes a little past the band at
+--- the top and bottom. The two steel frame rails are sized to cover that, and the
+--- end caps cover the part-stripes at each end.
+local function buildHazardFascia(parent: Instance, origin: CFrame, width: number)
+	local half = ROOF_DEPTH / 2
+	local frontZ = ROOF_CENTER_Z + half
+	local frontY = ROOF_CENTER_Y - math.sin(math.rad(ROOF_TILT)) * half
+	local band = origin * CFrame.new(0, frontY - 0.55, frontZ + 0.2)
+
+	build(parent, band, {
+		name = "HazardBand",
+		pos = { 0, 0, 0 },
+		size = { width + 0.4, FASCIA_HEIGHT, 0.4 },
+		color = C.hazard,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+
+	local stripeLength = FASCIA_HEIGHT * math.sqrt(2)
+	local stripeReach = (FASCIA_HEIGHT + FASCIA_STRIPE_WIDTH * math.sqrt(0.5)) / 2
+	local x = -width / 2 + stripeReach - 0.5
+	while x <= width / 2 - stripeReach + 0.5 do
+		build(parent, band, {
+			name = "HazardStripe",
+			pos = { x, 0, 0.22 },
+			size = { FASCIA_STRIPE_WIDTH, stripeLength, 0.06 },
+			color = C.hazardBlack,
 			material = "Plastic",
-			rot = Kit.ang(tiltDegrees, 0, 0),
+			rot = Kit.ang(0, 0, 45),
 			studs = true,
 			canCollide = false,
 		})
-		build(parent, origin, {
-			name = `CanopyValance{index}`,
-			pos = { x, frontY - 0.45, frontZ },
-			size = { stripeWidth + 0.06, 1.15, 0.45 },
-			color = color,
-			material = "Plastic",
-			studs = true,
-			canCollide = false,
-		})
+		x += FASCIA_STRIPE_PITCH
 	end
 
-	for _, z in { centerZ - depth / 2 + 0.35, frontZ - 0.35 } do
-		local y = centerY - math.sin(math.rad(tiltDegrees)) * (z - centerZ) - 0.38
+	for _, dy in { FASCIA_HEIGHT / 2, -FASCIA_HEIGHT / 2 } do
+		buildSteelStrip(parent, band, "FasciaFrame", { 0, dy, 0.1 }, { width + 0.9, 0.5, 0.62 })
+		for i = 0, math.floor(width / FASCIA_RIVET_PITCH) do
+			buildRivet(parent, band, -width / 2 + i * FASCIA_RIVET_PITCH, dy, 0.44, 0.26)
+		end
+	end
+	for _, side in { -1, 1 } do
+		buildSteelStrip(parent, band, "FasciaCap", { side * (width / 2 + 0.2), 0, 0.1 }, { 0.6, FASCIA_HEIGHT + 0.5, 0.64 })
+	end
+end
+
+local function buildPlateRoof(parent: Instance, origin: CFrame, accent: string, width: number)
+	local plateCount = math.max(3, math.floor(width / ROOF_PLATE_TARGET))
+	if plateCount % 2 == 0 then
+		plateCount += 1
+	end
+	local plateWidth = width / plateCount
+	local darkPlate = Kit.blendHex(accent, "000000", ROOF_PLATE_SHADE)
+	local half = ROOF_DEPTH / 2
+
+	-- Everything on the roof is laid in the roof's own tilted frame: x across the
+	-- stall, z down the slope (+z is the low front edge), y up out of the steel.
+	local roof = origin * CFrame.new(0, ROOF_CENTER_Y, ROOF_CENTER_Z) * Kit.ang(ROOF_TILT, 0, 0)
+
+	-- Two rows of plates, checkered. The back row runs 0.3 past the middle and sits
+	-- a hair higher, lapping over the front row the way real roofing sheds rain.
+	for col = 1, plateCount do
+		local x = -width / 2 + (col - 0.5) * plateWidth
+		for row = 1, 2 do
+			local back = row == 1
+			build(parent, roof, {
+				name = "RoofPlate",
+				pos = { x, if back then 0.05 else -0.02, if back then -half / 2 + 0.15 else half / 2 },
+				size = { plateWidth + 0.02, 0.45, if back then half + 0.3 else half },
+				color = if (col + row) % 2 == 0 then accent else darkPlate,
+				material = "Plastic",
+				studs = true,
+				canCollide = false,
+			})
+		end
+	end
+
+	-- A riveted strap down every seam between plates, and a wider one on each edge.
+	local rivetsPerStrap = math.floor((ROOF_DEPTH - 1.2) / ROOF_RIVET_PITCH) + 1
+	for i = 0, plateCount do
+		local strapWidth = if i == 0 or i == plateCount then 0.6 else 0.42
+		local x = math.clamp(-width / 2 + i * plateWidth, -width / 2 + strapWidth / 2, width / 2 - strapWidth / 2)
+		buildSteelStrip(parent, roof, "RoofSeam", { x, 0.33, 0 }, { strapWidth, 0.22, ROOF_DEPTH })
+		for j = 0, rivetsPerStrap - 1 do
+			buildRivet(parent, roof, x, 0.46, -half + 0.6 + j * (ROOF_DEPTH - 1.2) / (rivetsPerStrap - 1), 0.3)
+		end
+	end
+	-- The lap between the two rows, and the back edge: one rivet mid-plate on each.
+	for _, z in { 0.15, -half + 0.3 } do
+		buildSteelStrip(parent, roof, "RoofSeam", { 0, 0.33, z }, { width, 0.22, 0.45 })
+		for col = 1, plateCount do
+			buildRivet(parent, roof, -width / 2 + (col - 0.5) * plateWidth, 0.46, z, 0.3)
+		end
+	end
+	for _, side in { -1, 1 } do
+		buildSteelStrip(parent, roof, "RoofEdge", { side * (width / 2 + 0.15), 0.1, 0 }, { 0.3, 0.9, ROOF_DEPTH })
+	end
+
+	buildHazardFascia(parent, origin, width)
+
+	-- The two lumber beams the roof rests on, front and back, in the posts' grey.
+	for _, z in { ROOF_CENTER_Z - half + 0.35, ROOF_CENTER_Z + half - 0.35 } do
+		local y = ROOF_CENTER_Y - math.sin(math.rad(ROOF_TILT)) * (z - ROOF_CENTER_Z) - 0.38
 		build(parent, origin, {
 			name = "CanopySupport",
 			pos = { 0, y, z },
-			size = { totalWidth, 0.4, 0.5 },
+			size = { width, 0.4, 0.5 },
 			color = C.shopWood,
 			material = "Plastic",
 			studs = true,
@@ -684,7 +794,7 @@ local function buildStripedCanopy(parent: Instance, origin: CFrame, accent: stri
 		})
 	end
 
-	buildCanopyLight(parent, origin, width, centerY, centerZ, depth, tiltDegrees)
+	buildCanopyLight(parent, origin, width, ROOF_CENTER_Y, ROOF_CENTER_Z, ROOF_DEPTH, ROOF_TILT)
 end
 
 --- Seven separated boards form the open slatted back seen most clearly in the
@@ -709,8 +819,8 @@ end
 --- Shop" / "Magnet Shop" / "Hose Shop") in that shop's own accent colour, so
 --- the sign itself does the colour-navigation. `accent` is the shop's hex
 --- string. TextScaled so any label length fits its (fixed) band without
---- re-tuning TextSize by hand. Hung ABOVE the canopy (the highest point of
---- `buildStripedCanopy`'s roof panel is ~10.5 studs up at the stall's own
+--- re-tuning TextSize by hand. Hung ABOVE the roof (the highest point of
+--- `buildPlateRoof`'s plates and rivets is ~10.9 studs up at the stall's own
 --- origin, so 12.6 clears it) rather than tucked underneath it, so the sign
 --- reads over the whole structure instead of hiding behind its own roofline.
 ---
@@ -1272,8 +1382,8 @@ end
 -- ── The plaza stalls ────────────────────────────────────────────────────────────
 
 --- One classic-Roblox gear store, stripped to the structure: studded grey posts
---- and rear slats, an open counter, and a striped canopy + sign both in
---- the stall's own accent colour. The canopy, the sign text, the floor marker
+--- and rear slats, an open counter, and a steel-plate roof + sign both in
+--- the stall's own accent colour. The roof, the sign text, the floor marker
 --- and the counter's trim cap — all `spec.color` — are the per-shop identity now
 --- that the shopkeeper and the identity prop are gone.
 local function buildStall(parent: Instance, spec: { track: string, at: { number }, faceYaw: number?, color: string, label: string, present: { yaw: number, pitch: number }? })
@@ -1381,7 +1491,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- The tier rack itself, standing on the deck — see "The hanging tier rack".
 	buildTierRack(m, origin * CFrame.new(rx, 0, 0), spec)
 
-	buildStripedCanopy(m, origin, spec.color, width)
+	buildPlateRoof(m, origin, spec.color, width)
 
 	-- The trade's own props, behind the shopfront and on the roof (build/ShopThemes).
 	ShopThemes.dressStall(m, origin, spec.track, width, sx)
@@ -1461,7 +1571,7 @@ end
 -- ── The outfitter ─────────────────────────────────────────────────────────────
 
 --- The outfitter: the SAME shell the plaza stalls build — StallFloor, studded
---- posts, an open slatted back, a striped canopy in the shop's own accent — just
+--- posts, an open slatted back, a steel-plate roof in the shop's own accent — just
 --- sized to its own counter row instead of one stand. The Suit would otherwise be priced but
 --- unbuyable, and hazard gear that actually reduces incoming damage earns more than a
 --- picnic table. Sits right next to
@@ -1503,7 +1613,7 @@ local function buildOutfitter(parent: Instance)
 	})
 	buildStorefrontPosts(m, origin, width)
 	buildSlatWall(m, origin, width)
-	buildStripedCanopy(m, origin, C.shopOutfitter, width)
+	buildPlateRoof(m, origin, C.shopOutfitter, width)
 
 	-- One floor marker for the whole counter row — there is no second, rack-side
 	-- marker the way a plaza stall has, because there is no rack here.
@@ -1549,7 +1659,7 @@ end
 -- ── The empty stall ───────────────────────────────────────────────────────────
 
 --- A plaza stall's SHELL with nothing for sale: the same StallFloor, studded posts,
---- slatted back and striped canopy `buildStall` puts up, a plain counter across the
+--- slatted back and steel-plate roof `buildStall` puts up, a plain counter across the
 --- front with the accent trim, and a sign over the middle -- and deliberately NO
 --- StationKind, StationId, RackZone or prompt anywhere on it. An empty stall must not
 --- open a shop panel for a track it does not sell, and a StationKind here would also
@@ -1588,7 +1698,7 @@ function Shops.buildStallShell(parent: Instance, origin: CFrame, width: number, 
 		studded = true,
 	})
 	buildStoreBillboard(counter, label, accent)
-	buildStripedCanopy(m, origin, accent, width)
+	buildPlateRoof(m, origin, accent, width)
 
 	m.Parent = parent
 	return m
