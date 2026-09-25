@@ -3,12 +3,15 @@
 
 	TWO JOBS, AND THEY ARE DELIBERATELY BOTH SMALL:
 
-	  1. THE CARD. While you are training, a card above the hotbar shows your speed
-	     level, the Speed you have against the next level's requirement, what the belt
-	     pays per second, roughly how long until the next level, and what the next belt
-	     costs. It pops in on arrival and out on departure. It is drawn from
-	     SpeedController's copy of SpeedState — the same number the HUD badge counts, so
-	     the two can never disagree — and computes no part of the curve itself.
+	  1. THE BAR. While you are training, a big blue bar floats above the hotbar, with
+	     no card behind it: the Speed you have against what the next walk-speed point
+	     needs, your walk speed and roughly how long until it goes up, and what the next
+	     belt costs. Every Speed push floats a shoe and "+10" off a random spot around
+	     the bar, and filling it floats "WALK SPEED 35!". Levels are never named on
+	     screen: what the player hears about is walk speed. It pops in on arrival and out
+	     on departure. It is drawn from SpeedController's copy of SpeedState — the same
+	     number the HUD badge counts, so the two can never disagree — and computes no
+	     part of the curve itself.
 
 	  2. THE MACHINE. Every belt near the camera scrolls its chevrons and turns its
 	     rollers all the time, and while you train the character plays its own run
@@ -22,8 +25,8 @@
 	YOUR plot, so the machine can answer for it. Training is not — any belt on any base
 	trains whoever is standing on it, at their own rung (TreadmillService's header), so
 	the numbers here belong to the player rather than to the plot. The console's own
-	world billboard keeps showing its OWNER's level, exactly as the luck button shows
-	its owner's multiplier, and the two never claim to be the same thing.
+	world billboard keeps showing its OWNER's walk speed, exactly as the luck button
+	shows its owner's multiplier, and the two never claim to be the same thing.
 
 	THE RUN ANIMATION IS BORROWED, NOT AUTHORED. The id is read off the character's own
 	`Animate` script at play time rather than hardcoded, so this cannot ship a broken
@@ -43,10 +46,12 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Net = require(ReplicatedStorage.Shared.Net)
+local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
 local LockerTutorial = require(script.Parent.Parent.LockerTutorial)
 local Speed = require(script.Parent.SpeedController)
@@ -68,27 +73,47 @@ local shown = false
 
 local runTrack: AnimationTrack? = nil
 
--- ── The card ──────────────────────────────────────────────────────────────
+-- ── The bar ───────────────────────────────────────────────────────────────
 
 local INK = Color3.fromHex("1A1A1A")
 local WHITE = Color3.new(1, 1, 1)
 
--- The speed badge's palette (SpeedController), so the card reads as the same system.
+-- The speed badge's palette (SpeedController), so the bar reads as the same system.
 local STYLE = {
-	card = Color3.fromHex("33AEFF"),
-	cardShine = Color3.fromHex("8AD4FF"),
-	pill = Color3.fromHex("2445B8"),
-	trough = Color3.fromHex("123A7A"),
-	fill = Color3.fromHex("FFE45C"),
+	trough = Color3.fromHex("0F2F66"),
+	fillTop = Color3.fromHex("5CC2FF"),
+	fillBottom = Color3.fromHex("1C8CF0"),
 	caption = Color3.fromHex("DDF3FF"),
+	gain = Color3.fromHex("8AD4FF"),
+	walkUp = Color3.fromHex("FFE45C"),
 	valueFont = Enum.Font.LuckiestGuy,
 	bodyFont = Enum.Font.FredokaOne,
 }
 
-local CARD_W, CARD_H = 380, 122
+-- Design px. Nothing sits behind any of it, so every line of text wears a heavier ink
+-- outline to read against the floor, the grass or the sky.
+local LAYOUT = {
+	barW = 400,
+	barH = 36,
+	outline = 4,
+	shadowDrop = 5,
+	needTextSize = 20,
+	-- The walk and belt lines hang UNDER the bar: the air above it is where the
+	-- popups float.
+	walkTop = 52,
+	beltTop = 74,
+	height = 92,
+	textStroke = 2.5,
+	shoe = 28,
+	gainTextSize = 22,
+	gainGap = 70, -- a new "+10" never lands within this many px of the last one
+}
+
 local ROUND = UDim.new(0.5, 0)
 local POP_IN = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local POP_OUT = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local FADE_TWEEN = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 
 local function formatCash(amount: number): string
 	if amount >= 1_000_000 then
@@ -99,7 +124,8 @@ local function formatCash(amount: number): string
 	return string.format("$%d", amount)
 end
 
---- "45s", "3m 20s", "1h 05m" — how long the belt still has to run for the next level.
+--- "45s", "3m 20s", "1h 05m" — how long the belt still has to run for the next walk
+--- speed point.
 local function formatEta(seconds: number): string
 	local s = math.max(0, math.ceil(seconds))
 	if s < 60 then
@@ -126,7 +152,7 @@ local function blob(parent: Instance, name: string, rect: { number }, color: Col
 end
 
 local function text(parent: Instance, name: string, rect: { number }, props: any): TextLabel
-	return UIKit.label(parent, {
+	local label = UIKit.label(parent, {
 		name = name,
 		position = UDim2.fromOffset(rect[1], rect[2]),
 		size = UDim2.fromOffset(rect[3], rect[4]),
@@ -138,6 +164,11 @@ local function text(parent: Instance, name: string, rect: { number }, props: any
 		text = props.text or "",
 		zIndex = props.zIndex or 5,
 	})
+	local stroke = label:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Thickness = props.stroke or LAYOUT.textStroke
+	end
+	return label
 end
 
 local function build(): Frame?
@@ -159,11 +190,12 @@ local function build(): Frame?
 
 	-- Bottom centre, sat above the hotbar. The player is looking down the belt while
 	-- this is up, so it wants to be in the middle rather than off in the instrument
-	-- column where the rad meter lives. An invisible footprint holds the card and its
-	-- hard shadow, so one UIScale pops the lot.
+	-- column where the rad meter lives. An invisible footprint holds the bar, its lines
+	-- and the popups, so one UIScale pops the lot. Its top edge IS the bar's top edge.
+	local L = LAYOUT
 	local root = Instance.new("Frame")
-	root.Name = "Card"
-	root.Size = UDim2.fromOffset(CARD_W, CARD_H + 5)
+	root.Name = "SpeedBar"
+	root.Size = UDim2.fromOffset(L.barW, L.height)
 	root.Position = UDim2.new(0.5, 0, 1, -170)
 	root.AnchorPoint = Vector2.new(0.5, 1)
 	root.BackgroundTransparency = 1
@@ -173,29 +205,33 @@ local function build(): Frame?
 	ui.scale = Instance.new("UIScale")
 	ui.scale.Parent = root
 
-	local radius = UDim.new(0, 20)
-	blob(root, "Shadow", { 0, 5, CARD_W, CARD_H }, INK, 1, radius)
-	local card = blob(root, "Body", { 0, 0, CARD_W, CARD_H }, STYLE.card, 2, radius, 4)
-	blob(card, "Shine", { 12, 6, CARD_W - 24, 12 }, STYLE.cardShine, 3, ROUND)
+	-- The hard shadow is the whole outlined bar dropped a few px, so it shows under the
+	-- ink outline rather than hiding inside it.
+	blob(root, "BarShadow", { 0, L.shadowDrop, L.barW, L.barH }, INK, 2, ROUND, L.outline)
+	local trough = blob(root, "Trough", { 0, 0, L.barW, L.barH }, STYLE.trough, 3, ROUND, L.outline)
+	ui.punch = Instance.new("UIScale")
+	ui.punch.Parent = trough
 
-	ui.level = text(card, "Level", { 16, 10, 170, 38 }, { font = STYLE.valueFont, textSize = 34 })
-	local stroke = ui.level:FindFirstChildOfClass("UIStroke")
-	if stroke then
-		stroke.Thickness = 3.5
-	end
-	ui.walk = text(card, "Walk", { 18, 46, CARD_W - 36, 16 }, { textSize = 14, color = STYLE.caption })
-
-	-- What the belt pays, on a pill in the top-right corner.
-	local pill = blob(card, "RatePill", { CARD_W - 16 - 156, 14, 156, 30 }, STYLE.pill, 4, ROUND, 3)
-	ui.rate = text(pill, "Rate", { 0, 0, 156, 30 }, { textSize = 17, xAlign = Enum.TextXAlignment.Center, zIndex = 6 })
-
-	-- The bar to the next requirement, with the two numbers written across it.
-	local trough = blob(card, "Trough", { 16, 66, CARD_W - 32, 24 }, STYLE.trough, 4, ROUND, 3)
-	ui.fill = blob(trough, "Fill", { 0, 0, 0, 24 }, STYLE.fill, 5, ROUND)
+	-- The fill is white under a top-to-bottom gradient, with a glassy shine along its top.
+	ui.fill = blob(trough, "Fill", { 0, 0, 0, L.barH }, WHITE, 4, ROUND)
 	ui.fill.Size = UDim2.fromScale(0, 1)
-	ui.need = text(trough, "Need", { 0, 0, CARD_W - 32, 24 }, { textSize = 15, xAlign = Enum.TextXAlignment.Center, zIndex = 6 })
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new(STYLE.fillTop, STYLE.fillBottom)
+	gradient.Rotation = 90
+	gradient.Parent = ui.fill
+	ui.shine = blob(ui.fill, "Shine", { 8, 5, 0, 9 }, WHITE, 5, ROUND)
+	ui.shine.Size = UDim2.new(1, -16, 0, 9)
+	ui.shine.BackgroundTransparency = 0.55
 
-	ui.belt = text(card, "Belt", { 18, 96, CARD_W - 36, 18 }, { textSize = 13, color = STYLE.caption })
+	ui.need = text(trough, "Need", { 0, 0, L.barW, L.barH }, {
+		font = STYLE.valueFont,
+		textSize = L.needTextSize,
+		xAlign = Enum.TextXAlignment.Center,
+		zIndex = 6,
+	})
+
+	ui.walk = text(root, "Walk", { 4, L.walkTop, L.barW - 8, 20 }, { textSize = 16 })
+	ui.belt = text(root, "Belt", { 4, L.beltTop, L.barW - 8, 16 }, { textSize = 13, color = STYLE.caption })
 
 	return root
 end
@@ -207,7 +243,8 @@ local function ensure()
 end
 
 --- Repaint from the latest readout and the locally counted Speed. Every frame while the
---- card is up, so the bar and the numbers run with the badge's counter.
+--- bar is up, so the fill and the numbers run with the badge's counter. The bar is the
+--- way to the next walk-speed point; levels stay internal and are never named here.
 local function paint()
 	local view = Speed.view()
 	if view == nil or ui.panel == nil then
@@ -215,25 +252,130 @@ local function paint()
 	end
 	local points = Speed.shownPoints()
 
+	local progress = 1
 	if view.level >= view.maxLevel then
-		ui.level.Text = "MAX LV"
 		ui.walk.Text = `WALK SPEED {view.walk}  |  NOTHING LEFT TO TRAIN`
-		ui.fill.Size = UDim2.fromScale(1, 1)
 		ui.need.Text = `{Speed.format(points)} SPEED`
 	else
 		local from, to = view.current or 0, view.nextReq or 1
-		local progress = math.clamp((points - from) / math.max(to - from, 1), 0, 1)
-		ui.level.Text = `LV {view.level}`
-		local eta = if view.rate > 0 then `  |  LV {view.level + 1} IN {formatEta((to - points) / view.rate)}` else ""
+		progress = math.clamp((points - from) / math.max(to - from, 1), 0, 1)
+		local eta = if view.rate > 0 then `  |  {view.walk + 1} IN {formatEta((to - points) / view.rate)}` else ""
 		ui.walk.Text = `WALK SPEED {view.walk}{eta}`
-		ui.fill.Size = UDim2.fromScale(progress, 1)
 		ui.need.Text = `{Speed.format(points)} / {Speed.format(to)}`
 	end
+	ui.fill.Size = UDim2.fromScale(progress, 1)
+	-- The shine is inset 8 px each side, so a sliver of fill would turn it inside out.
+	ui.shine.Visible = progress * LAYOUT.barW > 28
 
-	ui.rate.Text = `+{view.rate} SPEED/S`
 	ui.belt.Text = if view.nextName
 		then string.upper(`{view.tierName}  |  next: {view.nextName} {formatCash(view.nextCost)} (+{view.nextRate}/s)`)
 		else string.upper(`{view.tierName}  |  the fastest belt there is`)
+end
+
+-- ── The popups ────────────────────────────────────────────────────────────
+
+--- Where the last "+10" floated from, so two in a row never land on one spot.
+local lastGainX = math.huge
+
+--- The centre of the next "+10", in the bar footprint's px: usually somewhere along
+--- the air above the bar, sometimes off either end of it. Re-rolled (a few times at
+--- most) when it lands within LAYOUT.gainGap of the last one.
+local function gainSpot(): Vector2
+	local L = LAYOUT
+	local spot = Vector2.zero
+	for _ = 1, 4 do
+		local roll = math.random()
+		local sideY = L.barH / 2 - 8 + 16 * math.random()
+		if roll < 0.7 then
+			spot = Vector2.new(L.barW * (0.08 + 0.84 * math.random()), -14 - 12 * math.random())
+		elseif roll < 0.85 then
+			spot = Vector2.new(L.barW + 52 + 16 * math.random(), sideY)
+		else
+			spot = Vector2.new(-52 - 16 * math.random(), sideY)
+		end
+		if math.abs(spot.X - lastGainX) >= L.gainGap then
+			break
+		end
+	end
+	lastGainX = spot.X
+	return spot
+end
+
+--- Grow in, rise `rise` px over `life` seconds, fade out for the last stretch, then go.
+--- Every text, its outline and every picture inside fades together.
+local function float(popup: GuiObject, rise: number, life: number)
+	local grow = Instance.new("UIScale")
+	grow.Scale = 0.4
+	grow.Parent = popup
+	TweenService:Create(grow, PUNCH_TWEEN, { Scale = 1 }):Play()
+	TweenService:Create(popup, TweenInfo.new(life, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = popup.Position - UDim2.fromOffset(0, rise),
+	}):Play()
+	task.delay(life * 0.6, function()
+		local parts = popup:GetDescendants()
+		table.insert(parts, popup)
+		for _, part in parts do
+			if part:IsA("TextLabel") then
+				TweenService:Create(part, FADE_TWEEN, { TextTransparency = 1 }):Play()
+			elseif part:IsA("UIStroke") then
+				TweenService:Create(part, FADE_TWEEN, { Transparency = 1 }):Play()
+			elseif part:IsA("ImageLabel") then
+				TweenService:Create(part, FADE_TWEEN, { ImageTransparency = 1 }):Play()
+			end
+		end
+		task.wait(FADE_TWEEN.Time)
+		popup:Destroy()
+	end)
+end
+
+--- A shoe and "+10" floating off a random spot around the bar: one per Speed push.
+local function popGain(amount: number)
+	local L = LAYOUT
+	local label = `+{Speed.format(amount)}`
+	local textW = TextService:GetTextSize(label, L.gainTextSize, STYLE.valueFont, Vector2.new(400, 60)).X + 6
+	local width = L.shoe + 2 + textW
+	local spot = gainSpot()
+
+	local popup = Instance.new("Frame")
+	popup.Name = "GainPopup"
+	popup.Size = UDim2.fromOffset(width, 32)
+	popup.Position = UDim2.fromOffset(spot.X, spot.Y)
+	popup.AnchorPoint = Vector2.new(0.5, 0.5)
+	popup.BackgroundTransparency = 1
+	popup.ZIndex = 8
+	popup.Parent = ui.panel
+
+	local shoe = Artwork.picture(popup, "Shoe", Artwork.IMAGE.speedShoe, L.shoe, WHITE)
+	shoe.Position = UDim2.fromOffset(0, (32 - L.shoe) / 2)
+	shoe.ZIndex = 8
+	text(popup, "Amount", { L.shoe + 2, 0, textW, 32 }, {
+		font = STYLE.valueFont,
+		textSize = L.gainTextSize,
+		color = STYLE.gain,
+		text = label,
+		zIndex = 9,
+	})
+	float(popup, 30, 0.85)
+end
+
+--- The bar just filled: "WALK SPEED 35!" over its middle, and a punch on the bar.
+local function popWalkUp(walk: number)
+	local L = LAYOUT
+	local popup = text(ui.panel, "WalkUpPopup", { L.barW / 2, -30, 360, 40 }, {
+		font = STYLE.valueFont,
+		textSize = 30,
+		color = STYLE.walkUp,
+		xAlign = Enum.TextXAlignment.Center,
+		text = `WALK SPEED {walk}!`,
+		stroke = 3.5,
+		zIndex = 10,
+	})
+	popup.AnchorPoint = Vector2.new(0.5, 0.5)
+	popup.Rotation = -6
+	float(popup, 44, 1.6)
+
+	ui.punch.Scale = 1.06
+	TweenService:Create(ui.punch, PUNCH_TWEEN, { Scale = 1 }):Play()
 end
 
 local function show(visible: boolean)
@@ -526,7 +668,7 @@ local function checkTutorial()
 		table.insert(steps, {
 			target = badge,
 			title = "SPEED",
-			body = "Your Speed adds up here. Every level it reaches makes you walk faster, for good.",
+			body = "Your Speed adds up here. The more you have, the faster you walk, for good.",
 		})
 	end
 	table.insert(steps, {
@@ -557,6 +699,14 @@ function Treadmill.start()
 		elseif not view.training and wasTraining then
 			stopRunning()
 			show(false)
+		end
+		-- The popups belong to the bar, so they only fly while it is up.
+		if shown and previous ~= nil then
+			if view.level > previous.level then
+				popWalkUp(view.walk)
+			elseif view.points > previous.points + 0.5 then
+				popGain(view.points - previous.points)
+			end
 		end
 	end)
 

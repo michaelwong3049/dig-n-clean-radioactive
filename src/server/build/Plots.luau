@@ -2539,7 +2539,7 @@ local function buildReadout(look: Model, screenMesh: BasePart)
 	speedLabel.TextScaled = true
 	speedLabel.TextXAlignment = Enum.TextXAlignment.Left
 	speedLabel.TextColor3 = Color3.fromHex(SCREEN_INK)
-	speedLabel.Text = "LV 1"
+	speedLabel.Text = `WALK {Treadmill.walkSpeedFor(1)}` -- setTreadmillTier's until it runs
 	speedLabel.Parent = readout
 
 	local pulse = Instance.new("Frame")
@@ -2729,10 +2729,12 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	local sign = treadmill:FindFirstChild("Sign", true)
 	local title = sign and sign:FindFirstChild("Title")
 	local subtitle = sign and sign:FindFirstChild("Subtitle")
+	-- Levels are internal: every word a player reads is walk speed.
 	local level, progress = Treadmill.levelFor(points or 0)
+	local walk = Treadmill.walkSpeedFor(level)
 	local maxed = level >= Treadmill.MAX_LEVEL
 	if title then
-		(title :: TextLabel).Text = if locked then "LOCKED" else string.format("SPEED LV %d", level)
+		(title :: TextLabel).Text = if locked then "LOCKED" else string.format("WALK SPEED %d", walk)
 	end
 	treadmill:SetAttribute("Locked", locked == true)
 	local console = treadmill:FindFirstChild("Console")
@@ -2742,11 +2744,11 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	end
 
 	-- The console's own screen says the same number to the runner, with the bar to the
-	-- next level. Absent when the model has no screen or failed to load.
+	-- next walk-speed point. Absent when the model has no screen or failed to load.
 	local readout = treadmill:FindFirstChild("Readout", true)
 	local screenSpeed = readout and readout:FindFirstChild("Speed")
 	if screenSpeed and screenSpeed:IsA("TextLabel") then
-		screenSpeed.Text = if locked then "LOCKED" else string.format("LV %d", level)
+		screenSpeed.Text = if locked then "LOCKED" else string.format("WALK %d", walk)
 	end
 	local fill = readout and readout:FindFirstChild("Fill", true)
 	if fill and fill:IsA("Frame") then
@@ -2758,7 +2760,7 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 			then `{Treadmill.unlockPriceText()} to unlock — then +{def.rate} Speed/s`
 			elseif points == nil or maxed
 			then `{def.name} — +{def.rate} Speed/s`
-			else string.format("%s — %d%% to LV %d", def.name, math.floor(progress * 100), level + 1)
+			else string.format("%s — %d%% to walk speed %d", def.name, math.floor(progress * 100), walk + 1)
 	end
 
 	treadmill:SetAttribute("Tier", wanted)

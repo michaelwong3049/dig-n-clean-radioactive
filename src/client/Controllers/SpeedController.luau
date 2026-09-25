@@ -2,32 +2,32 @@
 	SpeedController.lua — the persistent SPEED badge, and the one reader of SpeedState.
 
 	SPEED IS A UNIT NOW (Config/Treadmill): a lifetime total a treadmill pays per
-	second, with a walk-speed level unlocked at each requirement. This badge is where a
-	player sees it at all times — sat in the left column between the cash badge and the
-	meter (Dock.SPEED_MID_Y), so the two numbers you earn read as one cluster.
+	second, with one more point of walk speed unlocked at each requirement. This badge is
+	where a player sees it at all times — sat in the left column between the cash badge
+	and the meter (Dock.SPEED_MID_Y), so the two numbers you earn read as one cluster.
 
 	THE SAME TOY-SHOP VOICE AS THE CASH BADGE (CashController's header): a thick INK
 	outline on every shape, hard offset shadows, LuckiestGuy numbers. Blue where cash is
 	gold, and a glossy sneaker where cash has a coin, so the two never read as the same
-	counter at a glance. The level rides a pill hanging off the card's bottom edge, where
-	the cash badge hangs its income.
+	counter at a glance. No level is shown: the requirements are levels internally
+	(SpeedState still carries `level`), but on screen the player only ever hears about
+	walk speed.
 
 	THE NUMBER COUNTS SMOOTHLY WHILE YOU RUN. The server only re-sends the readout once a
 	second (TreadmillService.PUSH_INTERVAL), so between pushes this counts up locally
 	from the belt's `rate`. It never leads the last push by more than LEAD_CAP seconds,
-	so a stalled server shows a paused counter, not a runaway one. Each push that
-	lands with more Speed floats a small "+18" off the badge; a level-up floats a loud
-	"LEVEL UP" and punches the badge.
+	so a stalled server shows a paused counter, not a runaway one. A walk-speed point
+	punches the badge. The "+10" and "WALK SPEED 35!" popups float off the training bar
+	instead (TreadmillController), where the player is looking while they earn.
 
 	TreadmillController reads `Speed.view()` / `Speed.shownPoints()` / `Speed.onChanged`
-	rather than listening to the remote itself, so the card and the badge can never
+	rather than listening to the remote itself, so the bar and the badge can never
 	disagree about the number.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
@@ -40,7 +40,6 @@ local Dock = UIKit.Dock
 local Speed = {}
 
 local BADGE_W = Dock.SPEED_SIZE.X.Offset
-local BADGE_H = Dock.SPEED_SIZE.Y.Offset
 
 --- How far past the last push the local count may run, in seconds of belt time.
 local LEAD_CAP = 1.5
@@ -54,12 +53,9 @@ local STYLE = {
 	cardShine = Color3.fromHex("8AD4FF"),
 	disc = Color3.fromHex("1C6FE8"),
 	discFace = Color3.fromHex("3D93FF"),
-	pill = Color3.fromHex("2445B8"),
 	caption = Color3.fromHex("DDF3FF"),
-	gain = Color3.fromHex("8AD4FF"),
-	levelUp = Color3.fromHex("FFE45C"),
 	valueFont = Enum.Font.LuckiestGuy,
-	pillFont = Enum.Font.FredokaOne,
+	captionFont = Enum.Font.FredokaOne,
 }
 
 -- Design px inside the Dock.SPEED_SIZE footprint (280 x 64).
@@ -67,7 +63,7 @@ local LAYOUT = {
 	disc = 58,
 	shoe = 52, -- wider than the face, so the sneaker overlaps the disc's rim
 	cardTop = 4,
-	cardHeight = 48, -- 4 + 48 + the pill's overhang = the 64 Dock reserves
+	cardHeight = 48, -- the 12 px under it in Dock's 64 held the old level pill
 	cardRadius = 16,
 	shadowDrop = 4,
 	outline = 4,
@@ -75,18 +71,11 @@ local LAYOUT = {
 	captionTextSize = 13,
 	valueTextSize = 26,
 	valueStroke = 3,
-	pillHeight = 24,
-	pillInset = 14,
-	pillPad = 12,
-	pillMinWidth = 64,
-	pillTextSize = 15,
 }
 local CARD_LEFT = LAYOUT.disc / 2
 local ROUND = UDim.new(0.5, 0)
 
 local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-local POP_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-local FADE_TWEEN = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 
 local ui: any = {}
 local view: any = nil
@@ -166,10 +155,6 @@ local function setStroke(label: TextLabel, thickness: number)
 	end
 end
 
-local function textWidth(text: string, size: number, font: Enum.Font): number
-	return TextService:GetTextSize(text, size, font, Vector2.new(2000, 200)).X
-end
-
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "SpeedHud"
@@ -179,7 +164,6 @@ local function build(): ScreenGui
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	local canvas = UIKit.canvas(gui)
-	ui.canvas = canvas
 
 	local badge = Instance.new("Frame")
 	badge.Name = "SpeedBadge"
@@ -203,22 +187,6 @@ local function build(): ScreenGui
 	local shineLeft = L.valueLeft - CARD_LEFT - 2
 	blob(card, "Shine", { shineLeft, 6, cardW - shineLeft - 8, 12 }, STYLE.cardShine, 3, ROUND)
 
-	-- The level pill, hanging off the card's bottom-right edge. Width follows its text.
-	local pillTop = BADGE_H - L.pillHeight
-	ui.pillShadow = blob(badge, "LevelShadow", { 0, pillTop + 3, L.pillMinWidth, L.pillHeight }, INK, 4, ROUND)
-	ui.pill = blob(badge, "LevelPill", { 0, pillTop, L.pillMinWidth, L.pillHeight }, STYLE.pill, 5, ROUND, 3)
-	ui.level = UIKit.label(ui.pill, {
-		name = "Level",
-		size = UDim2.fromScale(1, 1),
-		font = STYLE.pillFont,
-		textSize = L.pillTextSize,
-		color = WHITE,
-		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
-		zIndex = 6,
-		text = "LV 1",
-	})
-
 	-- The disc, breaking out past the card's left end like the cash coin.
 	local discTop = L.cardTop + L.cardHeight / 2 - L.disc / 2
 	blob(badge, "DiscShadow", { 0, discTop + L.shadowDrop, L.disc, L.disc }, INK, 6, ROUND)
@@ -234,7 +202,7 @@ local function build(): ScreenGui
 		name = "Caption",
 		position = UDim2.fromOffset(L.valueLeft, L.cardTop + 3),
 		size = UDim2.fromOffset(120, 16),
-		font = STYLE.pillFont,
+		font = STYLE.captionFont,
 		textSize = L.captionTextSize,
 		color = STYLE.caption,
 		xAlign = Enum.TextXAlignment.Left,
@@ -259,70 +227,9 @@ local function build(): ScreenGui
 	return gui
 end
 
-local function setLevelText(text: string)
-	local L = LAYOUT
-	ui.level.Text = text
-	local width = math.max(L.pillMinWidth, textWidth(text, L.pillTextSize, STYLE.pillFont) + L.pillPad * 2)
-	local left = BADGE_W - L.pillInset - width
-	ui.pill.Size = UDim2.fromOffset(width, L.pillHeight)
-	ui.pill.Position = UDim2.fromOffset(left, ui.pill.Position.Y.Offset)
-	ui.pillShadow.Size = ui.pill.Size
-	ui.pillShadow.Position = UDim2.fromOffset(left, ui.pillShadow.Position.Y.Offset)
-end
-
 local function punch()
 	ui.punch.Scale = 1.08
 	TweenService:Create(ui.punch, PUNCH_TWEEN, { Scale = 1 }):Play()
-end
-
---- Float a line of text off the badge's right edge. Parented to the canvas so the
---- badge's punch never drags it around.
-local function popup(text: string, loud: boolean)
-	local L = LAYOUT
-	local y = Dock.SPEED_MID_Y + L.cardTop + L.cardHeight / 2 - BADGE_H / 2
-	local start = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BADGE_W + 12, 0.5, y)
-	local label = UIKit.label(ui.canvas, {
-		name = "SpeedPopup",
-		size = UDim2.fromOffset(260, 40),
-		position = start,
-		anchorPoint = Vector2.new(0, 0.5),
-		font = STYLE.valueFont,
-		textSize = if loud then 30 else 20,
-		color = if loud then STYLE.levelUp else STYLE.gain,
-		xAlign = Enum.TextXAlignment.Left,
-		shadow = false,
-		text = text,
-		zIndex = 6,
-	})
-	label.Rotation = if loud then -6 else 0
-	setStroke(label, if loud then 3.5 else 2.5)
-
-	local scaler = Instance.new("UIScale")
-	scaler.Scale = 0.4
-	scaler.Parent = label
-	TweenService:Create(scaler, POP_TWEEN, { Scale = 1 }):Play()
-
-	local rise = if loud then 44 else 22
-	local life = if loud then 1.6 else 0.8
-	TweenService:Create(label, TweenInfo.new(life, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Position = start - UDim2.fromOffset(0, rise),
-	}):Play()
-	task.delay(life * 0.6, function()
-		TweenService:Create(label, FADE_TWEEN, { TextTransparency = 1 }):Play()
-		local stroke = label:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			TweenService:Create(stroke, FADE_TWEEN, { Transparency = 1 }):Play()
-		end
-		task.wait(FADE_TWEEN.Time)
-		label:Destroy()
-	end)
-end
-
-local function paintLevel()
-	if view == nil then
-		return
-	end
-	setLevelText(if view.level >= view.maxLevel then "MAX" else `LV {view.level}`)
 end
 
 local function onState(next: any)
@@ -332,15 +239,10 @@ local function onState(next: any)
 	local previous = view
 	view = next
 	receivedAt = os.clock()
-	paintLevel()
 
-	if previous ~= nil then
-		if next.level > previous.level then
-			popup(if next.level >= next.maxLevel then "MAX SPEED!" else `LEVEL UP! {next.walk} WALK`, true)
-			punch()
-		elseif next.points > previous.points + 0.5 then
-			popup("+" .. Speed.format(next.points - previous.points), false)
-		end
+	-- One more point of walk speed. Its popup is the training bar's.
+	if previous ~= nil and next.level > previous.level then
+		punch()
 	end
 
 	for _, fn in listeners do
