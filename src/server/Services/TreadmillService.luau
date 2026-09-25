@@ -28,6 +28,11 @@
 	six taken, see ExhibitService.assign — can still train at someone else's base
 	instead of being locked out of a whole progression track by a full server.
 
+	BUT ACCESS IS BOUGHT FIRST. On request, a player pays Treadmill.UNLOCK_PRICE at a
+	console before any belt pays them anything, their own or anyone else's -- a lock on
+	only their own machine would be dodged by standing on a neighbour's. The console's
+	first purchase is that unlock (TreadmillService.buy); belt upgrades come after.
+
 	WHAT THE UPGRADE BUYS is `rate` — Speed per second (Config/Treadmill) — not Speed
 	itself. Cash cannot buy a single level anywhere in this game; it can only buy a
 	belt that converts your time into Speed faster. That is the entire
@@ -72,6 +77,7 @@ local PUSH_INTERVAL = 1
 
 local stateRemote: any = nil
 local resultRemote: any = nil
+local noticeRemote: any = nil
 
 --- Who is standing on a belt right now. Written only by the StationService edge, so
 --- it cannot drift from what the world thinks — and read by the tick loop as its
@@ -109,6 +115,13 @@ local function snapshot(player: Player, data: any)
 		nextCost = if nextTier then nextTier.price else nil,
 		nextName = if nextTier then nextTier.name else nil,
 		nextRate = if nextTier then nextTier.rate else nil,
+		unlocked = data.treadmillUnlocked == true,
+		unlockPrice = Treadmill.UNLOCK_PRICE,
+		-- Owed the post-unlock walkthrough (TreadmillController)? Marked seen through
+		-- DeconService's "tutorialSeen" allowlist, the same as the locker's.
+		tutorial = data.treadmillUnlocked == true and table.find(data.tutorialsSeen or {}, "treadmill") == nil,
+		-- Which base is theirs this session, so the walkthrough can find their machine.
+		plot = ExhibitService.plotOf(player),
 	}
 end
 
@@ -132,7 +145,7 @@ local function step(dt: number)
 	local now = os.clock()
 	for player in training do
 		local data = DataService.data(player)
-		if data == nil then
+		if data == nil or not data.treadmillUnlocked then
 			continue
 		end
 
@@ -174,6 +187,24 @@ function TreadmillService.buy(player: Player): (boolean, string)
 	local data = DataService.data(player)
 	if data == nil then
 		return false, "your save hasn't loaded"
+	end
+
+	-- THE FIRST PURCHASE IS ACCESS, not a belt. Until it is made no belt trains this
+	-- player (see the StationService edge in start), so the console sells that first.
+	if not data.treadmillUnlocked then
+		local paid, reason = EconomyService.spend(player, Treadmill.UNLOCK_PRICE)
+		if not paid then
+			return false, reason
+		end
+		data.treadmillUnlocked = true
+		ExhibitService.refreshTreadmill(player)
+		-- Bought while already standing on a belt: start paying now, not on the next
+		-- step-on, because the StationService edge has already fired.
+		if StationService.kindOf(player) == STATION_KIND then
+			training[player] = true
+		end
+		push(player)
+		return true, `Treadmill unlocked — step on the belt to train (paid {Treadmill.unlockPriceText()})`
 	end
 
 	local tier = math.clamp(math.floor(data.treadmill or 1), 1, Treadmill.maxTier())
@@ -223,6 +254,9 @@ function TreadmillService.init()
 	-- The console answers on the same channel every other world purchase does, so a
 	-- refused upgrade reads exactly like a refused rung at a shop rack.
 	resultRemote = Net.get("StationResult")
+	-- The hotbar popup ("INVENTORY FULL"), for telling a locked player why the belt
+	-- under them is not paying.
+	noticeRemote = Net.get("Notice")
 end
 
 function TreadmillService.start()
@@ -236,6 +270,12 @@ function TreadmillService.start()
 
 	StationService.onChanged(function(player, kind, _id, previousKind)
 		if kind == STATION_KIND then
+			local data = DataService.data(player)
+			if data and not data.treadmillUnlocked then
+				-- Locked: say how to fix it, once per step-on, and pay nothing.
+				noticeRemote:FireClient(player, `UNLOCK THE TREADMILL AT ITS SCREEN · {Treadmill.unlockPriceText()}`)
+				return
+			end
 			training[player] = true
 			push(player)
 		elseif previousKind == STATION_KIND then

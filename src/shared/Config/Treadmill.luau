@@ -91,6 +91,20 @@ export type TreadmillTier = {
 	model: string,
 }
 
+--- What a player pays at the console before ANY belt will train them. On request: the
+--- treadmill is bought, not handed out, and buying it runs a short walkthrough
+--- (TreadmillController). Until then TreadmillService pays a player standing on a belt
+--- nothing, and their own machine stands still with a LOCKED sign. The belt ladder
+--- (TIERS) starts after it: the unlock is what puts a player on the Scrap Belt.
+Treadmill.UNLOCK_PRICE = 1000
+
+--- "$1,000": the unlock price as every sign, prompt and notice prints it.
+function Treadmill.unlockPriceText(): string
+	local digits = tostring(math.floor(Treadmill.UNLOCK_PRICE))
+	local grouped = string.reverse((string.gsub(string.reverse(digits), "(%d%d%d)", "%1,")))
+	return "$" .. (string.gsub(grouped, "^,", ""))
+end
+
 --- Rates climb ~2.5x a rung: with no rated-speed falloff left, this ratio is the whole
 --- reason to upgrade. The top rung kept the old top rung's price and rate, so the
 --- endgame lands where it always did.

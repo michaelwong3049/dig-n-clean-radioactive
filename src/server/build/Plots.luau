@@ -168,8 +168,8 @@
 	    Belt        StationKind = "treadmill", Radius sized to the fitted model — the treadmill's running
 	                surface (see buildTreadmill). Standing on it IS training; no
 	                prompt, no session. Services/TreadmillService owns the clock.
-	    Console     UpgradesTreadmill = true + a ProximityPrompt — buys the next belt
-	                rung. TreadmillService wires it at boot, by tag, the same way
+	    Console     UpgradesTreadmill = true + a ProximityPrompt — unlocks the treadmill
+	                (Treadmill.UNLOCK_PRICE), then buys the next belt rung. TreadmillService wires it at boot, by tag, the same way
 	                ShopService wires the luck button.
 	    Look        the imported treadmill model for the owner's belt rung, swapped
 	                by Plots.setTreadmillTier; the Console's `Sign` billboard carries
@@ -210,7 +210,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 66
+local BUILDER_VERSION = 67
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -2710,7 +2710,11 @@ end
 --- `points` (the owner's lifetime Speed) is optional and only feeds the sign. nil
 --- means "unclaimed plot", which prints level 1 and no progress, because a bar that
 --- always reads empty on six plots is worse than no bar at all.
-function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: number?): number?
+---
+--- `locked` means the owner has not bought treadmill access (Treadmill.UNLOCK_PRICE),
+--- or there is no owner. The sign and screen say so, the prompt offers the unlock, and
+--- the `Locked` attribute tells TreadmillController to leave this belt standing still.
+function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: number?, locked: boolean?): number?
 	if treadmill == nil then
 		return nil
 	end
@@ -2728,7 +2732,13 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	local level, progress = Treadmill.levelFor(points or 0)
 	local maxed = level >= Treadmill.MAX_LEVEL
 	if title then
-		(title :: TextLabel).Text = string.format("SPEED LV %d", level)
+		(title :: TextLabel).Text = if locked then "LOCKED" else string.format("SPEED LV %d", level)
+	end
+	treadmill:SetAttribute("Locked", locked == true)
+	local console = treadmill:FindFirstChild("Console")
+	local prompt = console and console:FindFirstChild("Upgrade")
+	if prompt and prompt:IsA("ProximityPrompt") then
+		prompt.ActionText = if locked then `Unlock Treadmill ({Treadmill.unlockPriceText()})` else "Upgrade Treadmill"
 	end
 
 	-- The console's own screen says the same number to the runner, with the bar to the
@@ -2736,15 +2746,17 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	local readout = treadmill:FindFirstChild("Readout", true)
 	local screenSpeed = readout and readout:FindFirstChild("Speed")
 	if screenSpeed and screenSpeed:IsA("TextLabel") then
-		screenSpeed.Text = string.format("LV %d", level)
+		screenSpeed.Text = if locked then "LOCKED" else string.format("LV %d", level)
 	end
 	local fill = readout and readout:FindFirstChild("Fill", true)
 	if fill and fill:IsA("Frame") then
-		local shown = if points == nil then 0 elseif maxed then 1 else progress
+		local shown = if points == nil or locked then 0 elseif maxed then 1 else progress
 		fill.Size = UDim2.fromScale(math.clamp(shown, 0, 1), 1)
 	end
 	if subtitle then
-		(subtitle :: TextLabel).Text = if points == nil or maxed
+		(subtitle :: TextLabel).Text = if locked
+			then `{Treadmill.unlockPriceText()} to unlock — then +{def.rate} Speed/s`
+			elseif points == nil or maxed
 			then `{def.name} — +{def.rate} Speed/s`
 			else string.format("%s — %d%% to LV %d", def.name, math.floor(progress * 100), level + 1)
 	end
@@ -2806,12 +2818,12 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = console
 
-	-- Tier 1, untrained -- the only state that exists before a player has ever claimed
+	-- Locked, tier 1 -- the only state that exists before a player has ever claimed
 	-- this plot. ExhibitService.renderTreadmill overwrites both lines the moment real
 	-- per-player state does, exactly as it does for the luck button.
-	accentBillboard(console, 230, 3.0, "SPEED LV 1", `{Treadmill.tier(1).name} — +{Treadmill.tier(1).rate} Speed/s`, accent)
+	accentBillboard(console, 230, 3.0, "LOCKED", `{Treadmill.unlockPriceText()} to unlock`, accent)
 
-	Plots.setTreadmillTier(m, 1)
+	Plots.setTreadmillTier(m, 1, nil, true)
 	m.Parent = parent
 end
 
