@@ -17,8 +17,8 @@
 	    holding an electromagnet with a rusty plate stuck to it, and a scrap pile.
 	  * CLEANER (the Hose Shop) — a decon bay: a tiled wall with a shower bar, a hose
 	    reel, a drain grate, a mop bucket, and a water tank on the roof.
-	  * OUTFITTER — a locker room: a bank of lockers with a bench, a hazmat suit on a
-	    stand, satchels on a peg rack, and a giant gas mask on the roof.
+	  * OUTFITTER — a locker room: a hazmat suit on a stand in front of a bank of
+	    lockers, a bench either side, and a giant gas mask on the roof.
 
 	THIS OVERRIDES THE OLD "NO PROPS IN THE SHOPS" CALL, ON REQUEST. The stalls were
 	stripped to bare structure once (grey lumber, no identity props, no vendors). The
@@ -641,24 +641,26 @@ local LOCKER_DARK = "4A665C"
 local LOCKER_HANDLE = "C8C8C8"
 local SUIT = C.barrelYellow
 local VISOR = "2B3A44"
-local SATCHEL_LEATHER = "8A5A34"
-local SATCHEL_CANVAS = "6F7A45"
-local SATCHEL_FLAP = "6B4428"
 local GAS_MASK = "3E4A40"
 
---- `suitX` / `satchelX` are the two counters' centres along the shopfront.
-function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, suitX: number, satchelX: number): Model
+--- `suitX` is the Suit counter's centre along the shopfront.
+---
+--- ONE COUNTER NOW (the Satchel desk went with its track), so the room is laid out
+--- round it: the suit stand behind the desk, the locker bank against the wall behind
+--- the suit, and a bench either side. The bench used to sit dead centre, between two
+--- counters; with the suit at centre it would stand in the mannequin, so it split.
+function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, suitX: number): Model
 	local theme = Instance.new("Model")
 	theme.Name = "Theme"
 	local accent = C.shopOutfitter
 
-	-- A bank of five lockers against the back wall between the two counters, in two
+	-- A bank of five lockers against the back wall behind the suit, in two
 	-- alternating greens, each with three vent slits, a handle and an accent tag.
 	local LW, LH, LD = 1.5, 6.4, 1.5
 	local lockerZ = WALL_FACE_Z + LD / 2 - 0.02
 	local frontZ = lockerZ + LD / 2
 	for i = 0, 4 do
-		local x = (i - 2) * (LW + 0.08)
+		local x = suitX + (i - 2) * (LW + 0.08)
 		prop(theme, origin, {
 			name = "Locker",
 			pos = { x, 0.1 + LH / 2, lockerZ },
@@ -690,21 +692,26 @@ function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, suitX: numb
 			material = "SmoothPlastic",
 		})
 	end
-	prop(theme, origin, {
-		name = "Bench",
-		pos = { 0, 1.3, -6.6 },
-		size = { 6.5, 0.35, 1.2 },
-		color = C.woodLight,
-		material = "WoodPlanks",
-	})
-	for _, x in { -2.8, 2.8 } do
+	-- 5.5 out from the suit clears its gloves (~1.8) and, on the one-counter bench's
+	-- 20-stud width, stays inside the posts (inner faces at 8.5).
+	for _, side in { -1, 1 } do
+		local bx = suitX + side * 5.5
 		prop(theme, origin, {
-			name = "BenchLeg",
-			pos = { x, 0.6, -6.6 },
-			size = { 0.35, 1.1, 1.0 },
-			color = C.hazardBlack,
-			material = "Metal",
+			name = "Bench",
+			pos = { bx, 1.3, -6.6 },
+			size = { 4.5, 0.35, 1.2 },
+			color = C.woodLight,
+			material = "WoodPlanks",
 		})
+		for _, dx in { -1.8, 1.8 } do
+			prop(theme, origin, {
+				name = "BenchLeg",
+				pos = { bx + dx, 0.6, -6.6 },
+				size = { 0.35, 1.1, 1.0 },
+				color = C.hazardBlack,
+				material = "Metal",
+			})
+		end
 	end
 
 	-- A hazmat suit on a stand behind the Suit counter: legs, boots, torso with a
@@ -790,57 +797,6 @@ function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, suitX: numb
 		shape = "Cylinder",
 		rot = R_CYL_Z,
 	})
-
-	-- A peg rack on the back wall behind the Satchel counter with three satchels
-	-- hanging off it: body, flap, brass buckle and strap.
-	local bz = WALL_FACE_Z + 0.375
-	prop(theme, origin, {
-		name = "PegRail",
-		pos = { satchelX, 6.4, bz },
-		size = { 4.5, 0.4, 0.3 },
-		color = C.woodLight,
-		material = "Wood",
-	})
-	for _, dx in { -1.5, 0, 1.5 } do
-		prop(theme, origin, {
-			name = "Peg",
-			pos = { satchelX + dx, 6.3, bz + 0.35 },
-			size = { 0.18, 0.18, 0.5 },
-			color = C.hazardBlack,
-			material = "Metal",
-		})
-	end
-	for _, bag in { { -1.5, 5.2, 0.9, SATCHEL_LEATHER }, { 0, 5.0, 1.1, SATCHEL_CANVAS }, { 1.5, 5.2, 0.9, SATCHEL_LEATHER } } do
-		local x, y, s = satchelX + bag[1], bag[2], bag[3]
-		prop(theme, origin, {
-			name = "Satchel",
-			pos = { x, y, bz + 0.6 },
-			size = { 1.3 * s, 1.5 * s, 0.7 * s },
-			color = bag[4],
-			material = "Fabric",
-		})
-		prop(theme, origin, {
-			name = "SatchelFlap",
-			pos = { x, y + 0.45 * s, bz + 0.97 * s },
-			size = { 1.35 * s, 0.75 * s, 0.1 },
-			color = SATCHEL_FLAP,
-			material = "Fabric",
-		})
-		prop(theme, origin, {
-			name = "SatchelBuckle",
-			pos = { x, y + 0.15 * s, bz + 1.0 * s + 0.03 },
-			size = { 0.3 * s, 0.3 * s, 0.06 },
-			color = C.hoseBrass,
-			material = "Metal",
-		})
-		prop(theme, origin, {
-			name = "SatchelStrap",
-			pos = { x, y + 1.0 * s, bz + 0.5 },
-			size = { 0.9 * s, 0.12, 0.12 },
-			color = SATCHEL_FLAP,
-			material = "Fabric",
-		})
-	end
 
 	-- A giant gas mask on the roof, centred over the stall: the face, a brow band,
 	-- two glass eyepieces in accent rims, and the filter canister.

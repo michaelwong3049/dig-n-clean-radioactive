@@ -109,7 +109,6 @@ local NOTICE_OUT = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirectio
 
 local state = {
 	capacity = 0,
-	fuseMult = 1,
 	items = {} :: { any },
 }
 
@@ -876,7 +875,6 @@ function Inventory.start()
 
 	Net.get("CarryState").OnClientEvent:Connect(function(payload)
 		state.capacity = payload.capacity or 0
-		state.fuseMult = payload.fuseMult or 1
 		state.items = payload.items or {}
 
 		-- SUPPLY CRATES (Config/Crates) share the bag's slots, after the nukes. They

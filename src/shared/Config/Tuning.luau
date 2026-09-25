@@ -80,11 +80,12 @@ Tuning.DECAY_CONDITIONS = {
 }
 
 -- Base rads/sec a carried item contributes at Fresh condition, by rarity order (1..8).
--- Multiplied by the condition emission above, and shielded by the SATCHEL (not the suit —
--- see the header of Shared/Radiation.lua for why).
+-- Multiplied by the condition emission above, and shielded only by level resist (never
+-- the suit — see the header of Shared/Radiation.lua for why).
 --
 -- Calibrated against three checks, all asserted in Shared/Util/Spec. Measured in
--- Stage 3 with a rated (Lead-Lined) suit and an unshielded Canvas Bag:
+-- Stage 3 with a rated (Lead-Lined) suit and an unshielded bag — which, with the
+-- Satchel track retired, is now the only bag there is:
 --   * 8x Rare, all Fresh (a full bag)      -> 2:44. Comfortable; the walk home is ~35s.
 --   * 1x Irradiated Legendary at Critical  -> 27s.  Scary, survivable, RUN.
 --   * 1x Anomaly at Fresh                  -> 54s.  And it goes Hot at 75s, so the

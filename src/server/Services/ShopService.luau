@@ -143,7 +143,7 @@ end
 --- THREE COLUMNS IN THE GAME NEED THIS, and every one of them draws a misleading bar
 --- without it:
 ---
----   lowerIsBetter  Boots' haulPenalty. 0.10 beats 1.20; negating is the whole fix.
+---   lowerIsBetter  Suit's haulPenalty. 0.20 beats 1.20; negating is the whole fix.
 ---   complement     Suit's reduction. The number is a fraction of dose BLOCKED, so it
 ---                  lives at 0.63..0.9988 and a bar drawn on it straight reads "the
 ---                  Rubber Suit is 98% as good as the best suit in the game". What
@@ -457,9 +457,9 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 	-- in one press rather than being a trap you cannot undo.
 	data.gear[key] = tier
 
-	-- THE PURCHASE HAS TO LAND SOMEWHERE THE PLAYER CAN SEE. Five of the six tracks
+	-- THE PURCHASE HAS TO LAND SOMEWHERE THE PLAYER CAN SEE. Three of the four tracks
 	-- land on the player: a detector or a magnet appears in their hands the next time
-	-- ToolService looks at them, and a suit, boots or satchel is felt rather than seen.
+	-- ToolService looks at them, and a suit is felt rather than seen.
 	-- The Cleaner track lands on their BASE — it is the monitor bolted to the mast at
 	-- their own cleansing station (build/Plots.buildHoseRig) — so it needs a poke, the
 	-- same way a Luck purchase needs one to repaint its button. Which plot, and what a

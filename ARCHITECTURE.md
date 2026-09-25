@@ -218,9 +218,9 @@ Also required, and each corresponds to a real silent failure:
 | a `Player` | `DebugCmd` | string | Scriptable entry point to the tuning console (`DebugService:308`). Set it and the line runs, then the attribute is cleared so the same line can repeat. Exists because Studio's command bar gets its own module cache and cannot reach the live service. |
 
 `<Track>` is one of `Detector`, `Magnet`, and `T<n>` indexes the matching list in
-`Config/Gear.luau`. The other four tracks (`Suit`, `Boots`, `Satchel`, `Luck`) are
-priced and buyable but have no held model — `Luck` deliberately never will, since it is
-a charm on a workbench rather than a tool.
+`Config/Gear.luau`. `Suit` and `Luck` are priced and buyable but have no held model —
+`Luck` deliberately never will, since it is a charm on a workbench rather than a tool.
+(`Boots` and `Satchel` are retired; see `Config/Gear`'s RETIRED block.)
 
 **`Cleaner` is not a held model at all.** Its seven hoses are built from primitives by
 `Shared/ToolModels/Hose`, in git, on the same footing as `Shared/ItemModels` — so that
@@ -313,7 +313,7 @@ The profile itself — `TEMPLATE` in `DataService`, which is the authoritative c
 ```lua
 {
     cash = 0, xp = 0, level = 1,
-    gear    = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1, luck = 1 },
+    gear    = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, luck = 1 },
                     -- `boots` is VESTIGIAL: the track is retired (Config/Treadmill) and
                     -- DataService's one-time refund clears it on first load. Nothing reads it.
     speedXp   = 0,  -- banked treadmill training. THE ONLY THING THAT SETS WALK SPEED.
@@ -353,7 +353,7 @@ The design has two ways to go down and they must never bleed into each other:
 
 | | source | shielded by | meter | screen |
 |---|---|---|---|---|
-| **Exposure** | ambient **+** what you carry | suit (ambient) / satchel (carried) | `exposure` → 100 | **green** |
+| **Exposure** | ambient **+** what you carry | suit (ambient) / level resist only (carried) | `exposure` → 100 | **green** |
 | **Burn** | ambient only, past suit tolerance | suit tolerance | `health` → 0 | **white** |
 
 Consequences that were both bugs in the first draft, and are now pinned by `Util/Spec`:
@@ -362,8 +362,9 @@ Consequences that were both bugs in the first draft, and are now pinned by `Util
   burn, a full backpack would trigger the "you should not be here" white screen inside
   your own rated stage.
 - The suit does **not** shield you from your own backpack — the loot is inside the suit
-  with you. That is what gives the Satchel track its real job, and without it the greed
-  dial stops working the moment you buy a mid-tier suit.
+  with you. Without that rule the greed dial stops working the moment you buy a mid-tier
+  suit. (The Satchel track used to sell a partial shield against your own loot; it is
+  retired, so carried rads now meet only level resist.)
 
 White is used exactly once in this entire game, which is why it reads instantly.
 

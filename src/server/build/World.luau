@@ -453,7 +453,7 @@ function World.verify(): (boolean, { string })
 	--                                   them forever and never touch the other.
 	--
 	-- build/Shops is the only thing in the codebase that emits StationKind = "shop"
-	-- (the three stalls and the Outfitter's three counters), which is what makes
+	-- (the three stalls and the Outfitter's counter), which is what makes
 	-- "outside the model" unambiguously wrong rather than merely unusual.
 	local shopRoots = {}
 	for _, child in Workspace:GetChildren() do
@@ -565,7 +565,7 @@ function World.verify(): (boolean, { string })
 	-- refactor and is actually a priced dead end:
 	--
 	--   StationKind = "shop"   a counter with a panel  (Detector, Magnet, Cleaner,
-	--                          Suit, Satchel)
+	--                          Suit)
 	--   SellsTrack = "<track>" a world object with a ProximityPrompt, no panel
 	--                          (used to be Luck; Luck itself left Gear.TRACKS the
 	--                          moment it stopped having a priced ladder to check

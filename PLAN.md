@@ -588,6 +588,10 @@ of them create new decisions rather than removing the old one:
 * **Lead-Lined Satchel** (upgrade line, 5 tiers): slows the decay clock by 15% / 30% / 45% /
 60% / 70%. The single most-wanted item in the game by hour three. Note it slows, never
 stops — a floor of tension always survives.
+> **RETIRED.** The Satchel shipped with a fuse stretch, a partial shield against carried
+> rads and (inherited from Boots) the haul penalty. Only the haul penalty was ever felt —
+> the decay countdown had already left the hotbar — so the track was cut and the haul
+> penalty moved onto the **Suit** (§5.1). See `Config/Gear`'s RETIRED block.
 * **Containment Cell** (consumable): freezes one item's clock for 3 minutes. Bought in
 stacks. This is the "I found something incredible and I need to not lose it" panic button,
 and players will pay real money for it, which makes it the cleanest monetization in §11.
@@ -658,7 +662,7 @@ worth designing against directly.
 >
 > The track is now **retired** (`Config/Gear.Boots`, kept as data only so the one-time
 > refund can price against it). Speed moved to the treadmill below; the haul penalty moved
-> to the **Satchel** track. Everything under §5.2's three guards still applies and is more
+> to the **Satchel** track, and on to the **Suit** when the Satchel was retired too. Everything under §5.2's three guards still applies and is more
 > load-bearing than ever, because the ceiling went up.
 
 Speed is a **grind, not a purchase.** You park on a treadmill on your own plot and the
@@ -687,12 +691,14 @@ it, so the grind stays a grind at every height. Past a belt's rating the rate **
 6 points over** — the same soft-gate shape the magnet uses for over-tier soil. Never a wall:
 speed 64 is 3.2h on the right belt, 6.4h one rung under, 30h on the free one.
 
-**The haul penalty is still the important stat** — it just lives on the Satchel now.
-Carrying hot items physically slows you: a full bag is heavy and you are visibly staggering.
-More items means more rads, more decay risk, *and* a slower run home. Without it, capacity
-is just a bigger number; with it, capacity is a decision. Putting it on the bag restores the
-alternation this section wanted from Boots-vs-Suit: **Suit buys capacity, Satchel makes
-carrying it bearable.**
+**The haul penalty is still the important stat** — it lives on the Suit now (it went to
+the Satchel first; that track is retired). Carrying hot items physically slows you: a full
+bag is heavy and you are visibly staggering. More items means more rads, more decay risk,
+*and* a slower run home. Without it, capacity is just a bigger number; with it, capacity is
+a decision. On the Suit, one purchase buys the room **and** the frame to carry it: the
+per-item penalty falls 1.20 → 0.20 as capacity climbs 6 → 34, fitted so a *full* bag drags
+a roughly level 7–10 studs/sec at every rung. The treadmill is what makes that drag a
+smaller share of your speed.
 
 > **KNOWN CONSEQUENCE, UNRESOLVED.** A speed-100 player outruns the dig reveal. The gap
 > between the starting detector's reveal edge and `DIG_RADIUS` is 8 studs — 0.08s at the
@@ -767,7 +773,7 @@ deliberately gate different things so no single purchase trivializes the game.
 |**Cleaning tool**|*what you can sell*|7|Unlocking your locker|
 |**Hazmat suit**|*how long you survive, and how far over-tier you dare go*|6|Territory \& nerve|
 |**Boots**|*how much of what you found survives the trip*|6|Freedom|
-|**Satchel**|*how long the clock gives you*|5|Breathing room|
+|**Satchel** *(retired — haul penalty moved to the Suit)*|*how long the clock gives you*|5|Breathing room|
 |**Luck**|*what the wash pad hands you*|7|The good stuff, more often|
 
 Exhibit pedestals (§8.4) were once a seventh, cash-bought track. They are now free: every
@@ -796,7 +802,7 @@ Cloth Wrap → Rubber Suit → Lead-Lined → Reinforced Hazmat → Sealed Exo-S
 
 Taped Boots → Tread Boots → Field Runners → Servo Braces → Powered Frame → Strider Rig
 
-### Satchel line
+### Satchel line (retired)
 
 Canvas Bag → Lined Pack → Lead Satchel → Shielded Case → Containment Pack
 
@@ -1486,7 +1492,8 @@ round-trip time, decay retention, and dive viability simultaneously. If one thin
 document breaks the balance, it will be boots.
 * **Six upgrade tracks plus pedestals may be too many** for the audience. The staggered
 reveal (§6) is the intended answer, but if playtest shows players spreading thin and never
-feeling powerful in any direction, merge satchel into suit and make it five.
+feeling powerful in any direction, merge satchel into suit and make it five. *(Done: the
+Satchel is retired and its haul penalty lives on the Suit.)*
 * **Cleaning as a mini-game** — the scrub interaction needs to stay satisfying at repetition
 #500, not just #5. If it doesn't, fall back to a hold-to-clean bar with the potency gate
 intact; the gate matters more than the interaction.

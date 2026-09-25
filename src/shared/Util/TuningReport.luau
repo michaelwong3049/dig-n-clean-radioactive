@@ -69,7 +69,6 @@ function TuningReport.survive(stageId: number, suitTier: number, depthFrac: numb
 	local reading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(stageId, depthFrac or 0)), 0, {
 		suitReduction = suit.reduction,
 		suitTolerance = suit.tolerance,
-		satchelShielding = 0,
 		levelResist = 0,
 	})
 	return Radiation.survivableSeconds(reading, 0, Tuning.MAX_HEALTH)
@@ -77,14 +76,12 @@ end
 
 --- Survivable seconds while HAULING. This is the number the greed dial (PLAN §3.3)
 --- actually turns, and the one most worth watching in playtest telemetry.
-function TuningReport.surviveCarrying(stageId: number, suitTier: number, satchelTier: number, carriedEmission: number, depthFrac: number?): number
+function TuningReport.surviveCarrying(stageId: number, suitTier: number, carriedEmission: number, depthFrac: number?): number
 	local suit = Gear.tier("Suit", suitTier)
-	local satchel = Gear.tier("Satchel", satchelTier)
 
 	local reading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(stageId, depthFrac or 0)), carriedEmission, {
 		suitReduction = suit.reduction,
 		suitTolerance = suit.tolerance,
-		satchelShielding = satchel.shielding,
 		levelResist = 0,
 	})
 	return Radiation.survivableSeconds(reading, 0, Tuning.MAX_HEALTH)
@@ -135,7 +132,7 @@ function TuningReport.run()
 	end
 
 	table.insert(out, "\n=== THE GREED DIAL: seconds to blackout while hauling (PLAN §3.3) ===")
-	table.insert(out, "  Stage 3, Lead-Lined suit, Canvas Bag (no shielding)\n")
+	table.insert(out, "  Stage 3, Lead-Lined suit, level 1 (the bag is never shielded)\n")
 	local Decay = require(script.Parent.Parent.Decay)
 	local cases = {
 		{ label = "8x Rare, all Fresh", rarity = "Rare", modifier = "None", count = 8, elapsed = 0 },
@@ -149,7 +146,7 @@ function TuningReport.run()
 			table.insert(bag, { uid = "t", itemId = "t", rarity = case.rarity, modifier = case.modifier, elapsed = case.elapsed, frozen = false })
 		end
 		local emission = Decay.totalEmission(bag, 1)
-		table.insert(out, string.format("    %-38s %10s", case.label, fmt(TuningReport.surviveCarrying(3, 3, 1, emission))))
+		table.insert(out, string.format("    %-38s %10s", case.label, fmt(TuningReport.surviveCarrying(3, 3, emission))))
 	end
 
 	-- ── The wash pad ─────────────────────────────────────────────────

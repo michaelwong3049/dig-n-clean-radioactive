@@ -61,7 +61,6 @@ export type Stats = {
 	-- radiation
 	suitReduction: number,
 	suitTolerance: number,
-	satchelShielding: number,
 	levelResist: number,
 	capacity: number,
 	-- movement. `walkSpeed` is TRAINED (Config/Treadmill), not bought: it is the
@@ -86,7 +85,9 @@ export type Stats = {
 	maxGrip: number,
 	cleanPotency: number,
 	scrubRate: number,
-	satchelFuseMult: number,
+	-- The decay clock's fuse stretch (Shared/Decay). 1 unless a profile multiplier
+	-- says otherwise; the Satchel track that used to sell it is retired (Config/Gear).
+	fuseMult: number,
 	-- the wash pad
 	liquidId: string,
 	liquidPotency: number,
@@ -146,7 +147,6 @@ function StatResolver.get(profile: Profile): Stats
 	local magnet = Gear.tier("Magnet", g.magnet or 1)
 	local cleaner = Gear.tier("Cleaner", g.cleaner or 1)
 	local suit = Gear.tier("Suit", g.suit or 1)
-	local satchel = Gear.tier("Satchel", g.satchel or 1)
 	-- SPEED IS TRAINED, NOT EQUIPPED, so it is the one stat in this function that does
 	-- not come out of `profile.gear` at all. The Boots track that used to answer this
 	-- is retired (Gear.Boots' header); Config/Treadmill owns the number now.
@@ -167,16 +167,15 @@ function StatResolver.get(profile: Profile): Stats
 	return {
 		suitReduction = suit.reduction,
 		suitTolerance = suit.tolerance,
-		satchelShielding = satchel.shielding,
 		levelResist = math.min(profile.level * Tuning.RESIST_PER_LEVEL, Tuning.RESIST_CAP),
 		capacity = capacity,
 
 		walkSpeed = walkSpeed,
 		speedProgress = speedProgress,
-		-- Sure Footing (PLAN §9.2). Reads off the SATCHEL now -- the perk halves the
-		-- haul penalty wherever that stat lives, and it moved tracks without changing
-		-- what the perk means.
-		haulPenalty = satchel.haulPenalty * (if perks.sureFooting then 0.5 else 1),
+		-- Sure Footing (PLAN §9.2). Reads off the SUIT now -- the perk halves the haul
+		-- penalty wherever that stat lives, and it has moved tracks twice (Boots, then
+		-- Satchel, then Suit) without changing what the perk means.
+		haulPenalty = suit.haulPenalty * (if perks.sureFooting then 0.5 else 1),
 
 		detectorRadius = detector.radius,
 		detectorLuck = detector.luck,
@@ -197,7 +196,7 @@ function StatResolver.get(profile: Profile): Stats
 		-- names: `volume` where it is sold, `scrubRate` where it is spent. The wash bay
 		-- reads it back off here to size the stream (WashService.push -> `volume`).
 		scrubRate = cleaner.volume,
-		satchelFuseMult = satchel.fuseMult * mult(profile, "fuse"),
+		fuseMult = mult(profile, "fuse"),
 
 		liquidId = liquidId,
 		liquidPotency = liquid.potency,
@@ -226,7 +225,7 @@ end
 --- UNCHANGED BY THE BOOTS RETIREMENT, which is the whole reason the treadmill was
 --- wired into `walkSpeed` rather than added as a separate bonus anywhere downstream.
 --- Both halves moved tracks underneath this function -- speed to Config/Treadmill,
---- the penalty to Gear.Satchel -- and it did not have to notice, so neither did
+--- the penalty to Gear.Suit -- and it did not have to notice, so neither did
 --- ExposureService's tick loop, still the only thing in the game that writes
 --- Humanoid.WalkSpeed.
 function StatResolver.effectiveWalkSpeed(stats: Stats, carriedCount: number, sprinting: boolean): number

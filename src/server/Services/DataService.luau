@@ -44,7 +44,7 @@ local TEMPLATE = {
 	-- split off it, which is the whole reason equipping writes here rather than
 	-- somewhere new. `luck` is not a track and has no tiers — it is a level that only
 	-- ever counts up, so it has no entry in `gearOwned`.
-	gear = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, satchel = 1, luck = 1 },
+	gear = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, luck = 1 },
 
 	-- EVERY TIER YOU ACTUALLY BOUGHT, per track: `gearOwned.detector = {1, 4, 8}`,
 	-- ascending. Buying tier 8 straight from tier 1 used to make you "own" 2 through

@@ -75,7 +75,7 @@ function EconomyService.valueOf(item: any, stats: any): (number, boolean)
 	local def = Items.get(item.itemId)
 	local mod = Rarity.MODIFIERS[item.modifier] or Rarity.MODIFIERS.None
 	local clean = Contamination.isClean(item.patches or {})
-	local retained = Decay.valueRetained(item, stats.satchelFuseMult)
+	local retained = Decay.valueRetained(item, stats.fuseMult)
 
 	-- Heavier items are worth more (Config/Weight.valueMult). Rides ON TOP of the
 	-- authored baseValue exactly like mod.valueMult does — see Config/Items' header.
