@@ -239,4 +239,50 @@ function HudTile.badge(button: GuiObject, color: Color3, ink: Color3): (Frame, T
 	return badge, label
 end
 
+-- ── One panel at a time ─────────────────────────────────────────────
+-- The tiles' panels (Index, Shop, Nukes, Warp) are modals centred on the same spot,
+-- so only one may be open: the player closes it before another will open. An open
+-- that is refused shakes the panel in the way, so the click visibly did something.
+-- Every open path checks, not just the tile clicks (the luck clover opens the Shop).
+
+local SHAKE_STEPS = { 8, -7, 5, -3, 0 }
+local SHAKE_STEP = TweenInfo.new(0.04, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+
+local panels: { [string]: GuiObject } = {}
+local shaking: { [GuiObject]: boolean } = {}
+
+--- Registers `panel` (the frame whose Visible opens and closes it) under `name`.
+function HudTile.registerPanel(name: string, panel: GuiObject)
+	panels[name] = panel
+end
+
+local function shake(panel: GuiObject)
+	if shaking[panel] then
+		return
+	end
+	shaking[panel] = true
+	local home = panel.Position
+	task.spawn(function()
+		for _, dx in SHAKE_STEPS do
+			local tween = TweenService:Create(panel, SHAKE_STEP, { Position = home + UDim2.fromOffset(dx, 0) })
+			tween:Play()
+			tween.Completed:Wait()
+		end
+		panel.Position = home
+		shaking[panel] = nil
+	end)
+end
+
+--- True when a panel other than `name`'s is open, and shakes that one: the caller
+--- must not open. Call it at the top of every open path.
+function HudTile.blocked(name: string): boolean
+	for other, panel in panels do
+		if other ~= name and panel.Visible then
+			shake(panel)
+			return true
+		end
+	end
+	return false
+end
+
 return HudTile
