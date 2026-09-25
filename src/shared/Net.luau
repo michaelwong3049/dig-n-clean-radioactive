@@ -208,6 +208,14 @@ local REMOTES: { [string]: string } = {
 	-- are assigned. ExhibitService validates the hex (format only) and repaints.
 	PlotColor = "RemoteEvent",
 
+	-- Settings' HIDE MY AURA toggle (client SettingsController, server AuraService). Same
+	-- shape as PlotColor: server -> client once on load with the saved boolean, and
+	-- again as the confirmed echo after every change; client -> server a bare boolean.
+	-- It is a profile setting (data.hideAura), and while it is on AuraService stops
+	-- publishing the player's AuraTier, so NOBODY draws their aura. The protection is
+	-- untouched: the aura's stats come from data.gear.aura, never from this.
+	HideAura = "RemoteEvent",
+
 	-- The new-player walkthrough (Config/Tutorial, client TutorialController). Server ->
 	-- client on change: { step = StepId, holding = boolean, plot = number? }, or nil once it is over
 	-- (finished or skipped). Client -> server: the bare verb "skip".

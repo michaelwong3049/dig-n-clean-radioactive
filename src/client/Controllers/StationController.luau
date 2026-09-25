@@ -435,6 +435,10 @@ local CARD_STATS_BOTTOM = CARD_HEIGHT - CARD_BUY_BOTTOM - CARD_BUY_HEIGHT - CARD
 -- EVERY TIER IS FRAMED TO FILL THE WELL, so a tier-1 horseshoe is as big on its card as
 -- a Singularity Coil is on its own. Tier is carried by the model itself — it is the
 -- card's picture, not a size chart.
+--
+-- THE AURA'S ATOM IS THE ONE CARD THAT MOVES, also on request: AuraController circles
+-- its camera and orbits its electrons (AuraLook.ICON_TAG). Nothing in this file knows;
+-- it frames the atom like any other model.
 type ArtView = { from: Vector3, up: Vector3 }
 local ART_VIEW: { [string]: ArtView } = {
 	Detector = { from = Vector3.new(1, 0.5, 0.3), up = Vector3.new(0, 0.6, -1) },

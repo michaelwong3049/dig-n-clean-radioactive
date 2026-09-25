@@ -40,7 +40,7 @@ local ORDER = {
 	"StandCardController", -- the trophy-ribbon card over each displayed nuke; reads the StandCard attributes ExhibitService writes
 	"WarpController", -- the top-of-screen HOME / SHOPS portals; reads stageId off ExposureState
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState
-	"SettingsController", -- the Settings panel (top-right gear); base-colour picker, reads/writes PlotColor
+	"SettingsController", -- the Settings panel (top-right gear); base-colour picker + HIDE MY AURA, reads/writes PlotColor and HideAura
 	"TutorialController", -- the new-player walkthrough: top banner + ground trail; reads TutorialState
 	"FlyController", -- dev-only free-fly; toggled by DebugService's /fly command via LocalPlayer's FlyMode attribute
 }
