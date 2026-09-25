@@ -19,8 +19,9 @@
 	same bright sparkle cloud at different colours, and it read as loud and
 	repetitive. Each detector now does one small thing its own model suggests: a
 	cell that breathes, a pulse running along a grid bar, embers off a core, glints
-	running round a ring. Low rates and low brightness -- they should reward a
-	look at the coil, not shout across the field.
+	running round a ring. The first quiet cut of these (half the size, half the
+	rate, dim lights) could not be seen at all from the gameplay camera; the
+	numbers below are the middle the user signed off on, live in Studio.
 
 	NO NEW GAMEPLAY SIGNAL. DetectorController's header says the needle and
 	audio ping were removed on request -- everything here is passive cosmetic
@@ -44,8 +45,9 @@ local FX_NAME = "ToolFX"
 
 local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
 
---- A coloured PointLight, kept low: enough to tint the coil and the ground
---- just under it, not a pool that announces the tool from across the field.
+--- A coloured PointLight tinting the coil and a small pool of ground under it.
+--- From the usual high, pulled-back camera that pool is the most readable cue,
+--- so the detectors keep a moderate one (range 8, brightness 1.8).
 local function light(part: BasePart, color: Color3, range: number, brightness: number)
 	local l = Instance.new("PointLight")
 	l.Color = color
@@ -89,7 +91,7 @@ local function breathe(part: BasePart, color: Color3, size: number)
 	e.Size = seq(0, 0, 0.5, size, 1, 0)
 	e.Transparency = seq(0, 1, 0.5, 0.25, 1, 1)
 	e.Lifetime = NumberRange.new(2.2)
-	e.Rate = 0.45
+	e.Rate = 0.6
 	e.Speed = NumberRange.new(0)
 	e.Rotation = NumberRange.new(0, 360)
 	e.RotSpeed = NumberRange.new(-12, 12)
@@ -116,21 +118,21 @@ local function travelPulse(part: BasePart, color: Color3, axis: Vector3, directi
 	e.Speed = NumberRange.new((part.Size * axis).Magnitude / lifetime)
 	e.Lifetime = NumberRange.new(lifetime)
 	e.Rate = rate
-	e.Size = seq(0, 0.15, 0.15, 0.55, 0.85, 0.55, 1, 0.15)
+	e.Size = seq(0, 0.25, 0.15, 0.95, 0.85, 0.95, 1, 0.25)
 	e.Transparency = seq(0, 1, 0.15, 0.1, 0.85, 0.1, 1, 1)
 	e.Parent = a
 end
 
 --- DEEP CORE ARRAY: embers. A few small sparks lift off the core, cooling from
 --- the tier colour towards a deeper orange as they rise and slow. Sparse on
---- purpose -- three a second reads as heat, thirty read as a fire.
+--- purpose -- six a second reads as heat, thirty read as a fire.
 local function embers(part: BasePart, color: Color3)
 	local e = baseEmitter(ColorSequence.new(color, color:Lerp(Color3.fromRGB(255, 90, 20), 0.6)))
 	e.Brightness = 2.5
-	e.Size = seq(0, 0.22, 1, 0)
+	e.Size = seq(0, 0.37, 1, 0)
 	e.Transparency = seq(0, 0, 0.7, 0.2, 1, 1)
 	e.Lifetime = NumberRange.new(1.2, 2)
-	e.Rate = 3
+	e.Rate = 6
 	e.Speed = NumberRange.new(0.8, 1.6)
 	e.Drag = 1.5
 	e.Acceleration = Vector3.new(0, 0.6, 0)
@@ -151,10 +153,10 @@ local function rimGlints(part: BasePart, colors: ColorSequence)
 	e.ShapePartial = 0.9
 	e.LockedToPart = true
 	e.Brightness = 3
-	e.Size = seq(0, 0, 0.3, 0.55, 1, 0)
+	e.Size = seq(0, 0, 0.3, 0.9, 1, 0)
 	e.Transparency = seq(0, 0, 1, 0.4)
 	e.Lifetime = NumberRange.new(0.35, 0.55)
-	e.Rate = 6
+	e.Rate = 10
 	e.Speed = NumberRange.new(0)
 	e.Rotation = NumberRange.new(0, 360)
 	e.RotSpeed = NumberRange.new(-60, 60)
@@ -226,8 +228,8 @@ local SPECS: { [string]: { [string]: (Model, Color3) -> () } } = {
 		["Isotope Scanner"] = function(model: Model, color: Color3)
 			local part = partNamed(model, "cell_window", "isotope_cell")
 			if part then
-				light(part, color, 5, 0.8)
-				breathe(part, color, 1.1)
+				light(part, color, 8, 1.8)
+				breathe(part, color, 1.9)
 			end
 		end,
 		["Resonance Mapper"] = function(model: Model, color: Color3)
@@ -236,21 +238,21 @@ local SPECS: { [string]: { [string]: (Model, Color3) -> () } } = {
 			-- two cross the node out of step.
 			local bar = partNamed(model, "grid_bar2")
 			if bar then
-				travelPulse(bar, color, Vector3.zAxis, Enum.NormalId.Back, 1.1, 0.7)
+				travelPulse(bar, color, Vector3.zAxis, Enum.NormalId.Back, 1.1, 1.1)
 			end
 			local frame = partNamed(model, "hex_frame")
 			if frame then
-				travelPulse(frame, color, Vector3.xAxis, Enum.NormalId.Right, 1.4, 0.5)
+				travelPulse(frame, color, Vector3.xAxis, Enum.NormalId.Right, 1.4, 0.8)
 			end
 			local node = partNamed(model, "resonance_node")
 			if node then
-				light(node, color, 5, 0.8)
+				light(node, color, 8, 1.8)
 			end
 		end,
 		["Deep Core Array"] = function(model: Model, color: Color3)
 			local part = partNamed(model, "lit_core")
 			if part then
-				light(part, color, 6, 1)
+				light(part, color, 8, 1.8)
 				embers(part, color)
 			end
 		end,
@@ -261,7 +263,7 @@ local SPECS: { [string]: { [string]: (Model, Color3) -> () } } = {
 			end
 			local lens = partNamed(model, "oracle_lens")
 			if lens then
-				light(lens, color, 6, 1)
+				light(lens, color, 8, 1.8)
 			end
 		end,
 	},
