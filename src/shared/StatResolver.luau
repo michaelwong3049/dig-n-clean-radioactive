@@ -59,8 +59,8 @@ export type Profile = {
 
 export type Stats = {
 	-- radiation
-	suitReduction: number,
-	suitTolerance: number,
+	auraReduction: number,
+	auraTolerance: number,
 	levelResist: number,
 	capacity: number,
 	-- movement. `walkSpeed` is TRAINED (Config/Treadmill), not bought: it is the
@@ -146,7 +146,7 @@ function StatResolver.get(profile: Profile): Stats
 	local detector = Gear.tier("Detector", g.detector or 1)
 	local magnet = Gear.tier("Magnet", g.magnet or 1)
 	local cleaner = Gear.tier("Cleaner", g.cleaner or 1)
-	local suit = Gear.tier("Suit", g.suit or 1)
+	local aura = Gear.tier("Aura", g.aura or 1)
 	-- SPEED IS TRAINED, NOT EQUIPPED, so it is the one stat in this function that does
 	-- not come out of `profile.gear` at all. The Boots track that used to answer this
 	-- is retired (Gear.Boots' header); Config/Treadmill owns the number now.
@@ -162,20 +162,20 @@ function StatResolver.get(profile: Profile): Stats
 	-- "what can I clean right now" (the wash bay's).
 	local cleanPotency = cleaner.power + (if perks.steadyHands then 1 else 0)
 
-	local capacity = suit.capacity + math.floor(profile.level / Tuning.CAPACITY_EVERY_N_LEVELS)
+	local capacity = aura.capacity + math.floor(profile.level / Tuning.CAPACITY_EVERY_N_LEVELS)
 
 	return {
-		suitReduction = suit.reduction,
-		suitTolerance = suit.tolerance,
+		auraReduction = aura.reduction,
+		auraTolerance = aura.tolerance,
 		levelResist = math.min(profile.level * Tuning.RESIST_PER_LEVEL, Tuning.RESIST_CAP),
 		capacity = capacity,
 
 		walkSpeed = walkSpeed,
 		speedProgress = speedProgress,
-		-- Sure Footing (PLAN §9.2). Reads off the SUIT now -- the perk halves the haul
+		-- Sure Footing (PLAN §9.2). Reads off the AURA now -- the perk halves the haul
 		-- penalty wherever that stat lives, and it has moved tracks twice (Boots, then
-		-- Satchel, then Suit) without changing what the perk means.
-		haulPenalty = suit.haulPenalty * (if perks.sureFooting then 0.5 else 1),
+		-- Satchel, then Aura) without changing what the perk means.
+		haulPenalty = aura.haulPenalty * (if perks.sureFooting then 0.5 else 1),
 
 		detectorRadius = detector.radius,
 		detectorLuck = detector.luck,
@@ -225,7 +225,7 @@ end
 --- UNCHANGED BY THE BOOTS RETIREMENT, which is the whole reason the treadmill was
 --- wired into `walkSpeed` rather than added as a separate bonus anywhere downstream.
 --- Both halves moved tracks underneath this function -- speed to Config/Treadmill,
---- the penalty to Gear.Suit -- and it did not have to notice, so neither did
+--- the penalty to Gear.Aura -- and it did not have to notice, so neither did
 --- ExposureService's tick loop, still the only thing in the game that writes
 --- Humanoid.WalkSpeed.
 function StatResolver.effectiveWalkSpeed(stats: Stats, carriedCount: number, sprinting: boolean): number

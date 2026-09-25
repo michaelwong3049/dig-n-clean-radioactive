@@ -9,7 +9,7 @@
 	WarpService refuses the warp until this file says the camp is reached.
 
 	WHY ON FOOT, AND NOT A PURCHASE. The camps sit on the stage chain: Toxic Twilight is
-	past the Crater, and the only way in is to survive the walk (a Containment Rig, or a
+	past the Crater, and the only way in is to survive the walk (a Containment Nimbus, or a
 	very brave dive -- Config/Stages' Crater note). Getting there IS the unlock. The warp
 	only takes the tedium out of doing it twice. No gate stands in the way of the walk
 	itself -- PLAN §3.5, nothing here denies entry.

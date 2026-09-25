@@ -13,8 +13,8 @@
 	right here, which is why it read as UI rather than as dying; that file explains
 	what replaced them and this one just hands it the escalation number.
 
-	ONE COLOUR RULE (PLAN §14): exposure is GREEN, suit failure is WHITE, and they never
-	share a shade. Green means "the meter is filling". White means "your suit is coming
+	ONE COLOUR RULE (PLAN §14): exposure is GREEN, aura failure is WHITE, and they never
+	share a shade. Green means "the meter is filling". White means "your aura is coming
 	apart" — a different category of dying, not a worse degree of the same one. White is
 	used exactly once in this entire game, which is why it will read instantly forever.
 
@@ -31,7 +31,7 @@
 	    plus arrows instead of the old "+0.00 r/s": green ▲ filling, blue ▼ draining in
 	    a decon shower, one to three of them for how fast;
 	  - the COUNTDOWN strip, only while it means something, which is the one thing that
-	    changes the panel's height. White with ink text when the suit is failing, ink with
+	    changes the panel's height. White with ink text when the aura is failing, ink with
 	    green text for a plain "survivable" clock.
 
 	THE PANEL HANGS FROM ITS TOP EDGE (Dock.METER_TOP_Y), one GAP under the cash badge, so
@@ -75,7 +75,7 @@ local STYLE = {
 	dangerMark = Color3.fromHex("E23B4A"),
 	drain = Color3.fromHex("4FC3F7"),
 	-- Standing in a detonated nuke's crater: its own acid yellow-green (the orb's glow,
-	-- DetonationController), because white belongs to suit failure alone.
+	-- DetonationController), because white belongs to aura failure alone.
 	crater = Color3.fromHex("A6FF3E"),
 	text = Color3.new(1, 1, 1),
 	font = Enum.Font.FredokaOne,
@@ -144,16 +144,16 @@ local heartClock = 0
 local radsClock = 0
 local countdownShown = false
 
---- HOW FAR PAST YOUR SUIT'S RATING THIS AIR IS, 0..1. `failing` only ever answers
+--- HOW FAR PAST YOUR AURA'S RATING THIS AIR IS, 0..1. `failing` only ever answers
 --- yes or no, and yes covers both "a stride over the line" and "this stage would
 --- have killed three of you already" — one flag cannot tell a player which of those
 --- they walked into.
 ---
 --- No new field on the wire: ExposureState already carries `ambient` and `excess`,
---- and Radiation.resolve defines excess as ambient minus suit tolerance, so the
+--- and Radiation.resolve defines excess as ambient minus aura tolerance, so the
 --- tolerance is just their difference and the ratio falls out. Divided by three
 --- because three times your own tolerance is comfortably past any argument about
---- whether you meant to be here — a Rubber Suit reaches it in the Exclusion Belt,
+--- whether you meant to be here — a Static Veil reaches it in the Exclusion Belt,
 --- which is exactly the walk this is meant to punish.
 local function overTier(): number
 	if state.excess <= 0 then
@@ -407,7 +407,7 @@ local function build(): ScreenGui
 	})
 
 	-- The countdown strip PLAN §3.5 calls "the single most important UI element" for
-	-- suit failure. Hidden until render() says it means something.
+	-- aura failure. Hidden until render() says it means something.
 	local C = P.countdown
 	ui.countdown = blob(card, "Countdown", { C.x, C.y, P.width - C.x * 2, C.height }, WHITE, 3, UDim.new(0, 12), 3)
 	ui.countdown.Visible = false
@@ -525,7 +525,7 @@ local function render(dt: number)
 	if frac >= Tuning.EXPOSURE_WARN then
 		intensity = (frac - Tuning.EXPOSURE_WARN) / (1 - Tuning.EXPOSURE_WARN)
 	end
-	-- A failing suit always shows something, but HOW MUCH is graded by how far past
+	-- A failing aura always shows something, but HOW MUCH is graded by how far past
 	-- your rating you are — a flat 0.65 floor here meant one step over the line lit
 	-- the overlay as hard as a nearly-full meter. Lands back on exactly 0.65 at three
 	-- times your tolerance. Same reasoning as RadFx's `failTarget`; the two have to
@@ -552,7 +552,7 @@ local function render(dt: number)
 		ui.heartScale.Scale = lerp(ui.heartScale.Scale, 1, math.min(1, dt * 10))
 	end
 
-	-- RADS: the badge pulses once the meter is past the danger notch or the suit fails.
+	-- RADS: the badge pulses once the meter is past the danger notch or the aura fails.
 	setBar(ui.rads, frac, string.format("%d%%", math.floor(frac * 100 + 0.5)))
 	renderArrows()
 	if frac >= Tuning.EXPOSURE_DANGER or state.failing then
@@ -570,9 +570,9 @@ local function render(dt: number)
 	setCountdownShown(showCountdown)
 	if showCountdown then
 		local burning = state.threat == "burn"
-		-- Burn with the suit holding means the burn is the crater's, not the suit's.
+		-- Burn with the aura holding means the burn is the crater's, not the aura's.
 		local crater = burning and state.inCrater and not state.failing
-		local label = if crater then "CRATER BURN" elseif burning then "SUIT FAILING" else "SURVIVABLE"
+		local label = if crater then "CRATER BURN" elseif burning then "AURA FAILING" else "SURVIVABLE"
 		ui.countdownText.Text = string.format("%s  %s", label, clock(state.survivable))
 		ui.countdown.BackgroundColor3 = if crater then STYLE.crater elseif burning then WHITE else INK
 		ui.countdownText.TextColor3 = if burning then INK else STYLE.rads
@@ -610,7 +610,7 @@ end
 -- ── Blackout ─────────────────────────────────────────────────────────
 
 local function playBlackout(info)
-	-- A blast death ("blast") flashes white like suit burn -- it is heat either way --
+	-- A blast death ("blast") flashes white like aura burn -- it is heat either way --
 	-- but its bag went off with it rather than dropping (ExposureService).
 	local burn = info.cause == "burn" or info.cause == "blast"
 	local dropped = info.itemsDropped or 0

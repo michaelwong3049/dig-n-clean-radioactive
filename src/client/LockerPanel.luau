@@ -21,7 +21,7 @@
 	               room on the other side.
 
 	THE LOCKER IS WHERE YOU PARK A FIND instead of carrying it: the bag fills up
-	(Config/Gear's Suit capacity), a stored find's decay clock stops for good, and a
+	(Config/Gear's Aura capacity), a stored find's decay clock stops for good, and a
 	crust your hose only grinds through slowly can wait for a better hose. Nothing in
 	here earns and nothing sells; the trader still sells a locker find by uid.
 

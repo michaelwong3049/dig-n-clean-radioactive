@@ -25,11 +25,11 @@
 	it any more, and there is no longer a Heartbeat connection in this file at all.
 
 	SLOT COUNT IS `capacity`, NOT THE NUMBER OF ITEMS. Empty slots are the point —
-	they are how a player sees the headroom a suit upgrade bought them, and PLAN §3.4
+	they are how a player sees the headroom an aura upgrade bought them, and PLAN §3.4
 	makes capacity one of the six tracks. A hotbar that only draws what you own hides
 	the entire upgrade.
 
-	THE HOTBAR STOPS AT TEN, THE BAG DOES NOT. A Containment Rig plus the level bonus
+	THE HOTBAR STOPS AT TEN, THE BAG DOES NOT. A Containment Nimbus plus the level bonus
 	carries 50+ items, and one row of fifty slots is unreadable at any width. So the
 	row holds slots 1-10 (keys 1-9 and 0), and once capacity passes ten a BAG tile
 	joins the end of it. ` (or tapping the tile) opens the bag panel: every slot, the
@@ -903,7 +903,7 @@ function Inventory.start()
 			-- NEXT keypress -- it is not what unloads the hand.
 		end
 
-		-- A suit swap back under ten slots takes the bag tile away; take its panel too.
+		-- An aura swap back under ten slots takes the bag tile away; take its panel too.
 		if bagOpen and not hasBag() then
 			Inventory.setBagOpen(false)
 		end

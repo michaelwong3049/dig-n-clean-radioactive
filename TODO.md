@@ -474,6 +474,13 @@ the place file has no git history to recover from.
       refund — nobody had played yet, so the template just lost `satchel`. The Outfitter
       is down to one counter (suit in front of the lockers, a bench either side).
       **Needs a Shops rebuild (v45) + Save + Publish.**
+- [x] **The Suit is now the Aura** — same four stats and prices, renamed end to end
+      (`Gear.Aura`, `data.gear.aura`, "AURA FAILING", "UPGRADE AURA") with new tier names
+      (Faint Glow → Containment Nimbus). Worn as atom rings round the chest: `AuraService`
+      stamps `AuraTier` on the character, every client's `AuraController` draws it
+      (`Shared/AuraLook`). No save migration (nobody has played). The Outfitter is the
+      Aura Shop: a mannequin wearing a cycling aura, six sample tubes, a roof atom.
+      **Needs a Shops rebuild (v47) + Save + Publish.**
 - [ ] **Speed 100 outruns the dig reveal** — the one open consequence of raising the cap
       from 36. The starting detector's reveal edge is 8 studs outside `DIG_RADIUS`, which a
       maxed player crosses in 0.08s against `SpotCracks.REVEAL` of 0.4s (and its header

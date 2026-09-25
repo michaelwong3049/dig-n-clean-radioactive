@@ -17,8 +17,10 @@
 	    holding an electromagnet with a rusty plate stuck to it, and a scrap pile.
 	  * CLEANER (the Hose Shop) — a decon bay: a tiled wall with a shower bar, a hose
 	    reel, a drain grate, a mop bucket, and a water tank on the roof.
-	  * OUTFITTER — a locker room: a hazmat suit on a stand in front of a bank of
-	    lockers, a bench either side, and a giant gas mask on the roof.
+	  * OUTFITTER (the Aura Shop) — a faceless mannequin wearing a live aura that walks
+	    the tier ladder, a sample tube per tier either side of it, and a giant atom
+	    turning on the roof. It was a locker room round a hazmat suit until the Suit
+	    track became the Aura.
 
 	THIS OVERRIDES THE OLD "NO PROPS IN THE SHOPS" CALL, ON REQUEST. The stalls were
 	stripped to bare structure once (grey lumber, no identity props, no vendors). The
@@ -33,7 +35,9 @@
 	    wing from the floor to the rail, so anything low behind them is hidden. The
 	    stand is only waist high, which leaves the whole back wall above it visible.
 	  * NOTHING GLOWS. No Neon, no lights (Kit.C's header): the radar is painted and
-	    the tank is steel. Nothing moves either — motion is a separate, later pass.
+	    the tank is steel. The one exception is the Outfitter mannequin's aura, which
+	    this file does not build (see dressOutfitter). Motion goes through Kit.motion
+	    and StationMotionController, like the roof atom's spin.
 	  * WALK-THROUGH. Every prop is CanCollide false, like the rest of the plaza
 	    dressing, so none of them can trap a player who wanders behind a counter.
 
@@ -42,6 +46,10 @@
 	centre along that line.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local AuraLook = require(ReplicatedStorage.Shared.AuraLook)
 local Kit = require(script.Parent.Kit)
 
 local ShopThemes = {}
@@ -635,226 +643,209 @@ local function dressCleaner(parent: Instance, origin: CFrame, _width: number, st
 	})
 end
 
--- ── Outfitter: the locker room ────────────────────────────────────────────────
+-- ── Outfitter: the aura shop ──────────────────────────────────────────────────
 
-local LOCKER = "5F7F74"
-local LOCKER_DARK = "4A665C"
-local LOCKER_HANDLE = "C8C8C8"
-local SUIT = C.barrelYellow
-local VISOR = "2B3A44"
-local GAS_MASK = "3E4A40"
+local MANNEQUIN = "3A3F47"
+local MANNEQUIN_DARK = "2A2E35"
+local TUBE_GLASS = "CFE8F2"
 
---- `suitX` is the Suit counter's centre along the shopfront.
+--- `auraX` is the Aura counter's centre along the shopfront.
 ---
---- ONE COUNTER NOW (the Satchel desk went with its track), so the room is laid out
---- round it: the suit stand behind the desk, the locker bank against the wall behind
---- the suit, and a bench either side. The bench used to sit dead centre, between two
---- counters; with the suit at centre it would stand in the mannequin, so it split.
-function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, suitX: number): Model
+--- THE SUIT SHOP BECAME THE AURA SHOP. The hazmat Suit track is the Aura now (see
+--- Shared/AuraLook), and the locker room went with the suits: a faceless mannequin
+--- stands on the old suit stand behind the desk, three sample tubes either side hold
+--- each tier's colour in ladder order (low to high, left to right as the customer
+--- sees it), and a giant atom turns on the roof.
+---
+--- THE MANNEQUIN'S AURA IS THE ONE THING IN THE PLAZA THAT GLOWS, AND IT IS NOT BUILT
+--- HERE. Its torso carries AuraLook.DISPLAY_TAG, and client/Controllers/AuraController
+--- draws the same rings a player wears round it, walking the whole ladder
+--- (`AuraCycle`). The shop therefore cannot drift from the product. Everything this
+--- file builds still keeps the header's rule: no Neon, no lights.
+---
+--- The aura's rings reach RADIUS (2.5) round the torso, so the tubes start 3.4 out and
+--- the torso stands 3.2 off the slat wall: the precessing rings clear both.
+function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, auraX: number): Model
 	local theme = Instance.new("Model")
 	theme.Name = "Theme"
 	local accent = C.shopOutfitter
 
-	-- A bank of five lockers against the back wall behind the suit, in two
-	-- alternating greens, each with three vent slits, a handle and an accent tag.
-	local LW, LH, LD = 1.5, 6.4, 1.5
-	local lockerZ = WALL_FACE_Z + LD / 2 - 0.02
-	local frontZ = lockerZ + LD / 2
-	for i = 0, 4 do
-		local x = suitX + (i - 2) * (LW + 0.08)
-		prop(theme, origin, {
-			name = "Locker",
-			pos = { x, 0.1 + LH / 2, lockerZ },
-			size = { LW, LH, LD },
-			color = if i % 2 == 0 then LOCKER else LOCKER_DARK,
-			material = "Metal",
-		})
-		for v = 0, 2 do
-			prop(theme, origin, {
-				name = "LockerVent",
-				pos = { x, LH - 0.6 - v * 0.3, frontZ + 0.02 },
-				size = { 0.9, 0.1, 0.04 },
-				color = C.hazardBlack,
-				material = "SmoothPlastic",
-			})
-		end
-		prop(theme, origin, {
-			name = "LockerHandle",
-			pos = { x + 0.5, LH / 2, frontZ + 0.05 },
-			size = { 0.12, 0.6, 0.1 },
-			color = LOCKER_HANDLE,
-			material = "Metal",
-		})
-		prop(theme, origin, {
-			name = "LockerTag",
-			pos = { x, 1.0, frontZ + 0.02 },
-			size = { 0.7, 0.35, 0.04 },
-			color = accent,
-			material = "SmoothPlastic",
-		})
-	end
-	-- 5.5 out from the suit clears its gloves (~1.8) and, on the one-counter bench's
-	-- 20-stud width, stays inside the posts (inner faces at 8.5).
-	for _, side in { -1, 1 } do
-		local bx = suitX + side * 5.5
-		prop(theme, origin, {
-			name = "Bench",
-			pos = { bx, 1.3, -6.6 },
-			size = { 4.5, 0.35, 1.2 },
-			color = C.woodLight,
-			material = "WoodPlanks",
-		})
-		for _, dx in { -1.8, 1.8 } do
-			prop(theme, origin, {
-				name = "BenchLeg",
-				pos = { bx + dx, 0.6, -6.6 },
-				size = { 0.35, 1.1, 1.0 },
-				color = C.hazardBlack,
-				material = "Metal",
-			})
-		end
-	end
-
-	-- A hazmat suit on a stand behind the Suit counter: legs, boots, torso with a
-	-- zip line, arms and gloves, a hood and its dark visor, and a respirator.
+	-- The mannequin: the old suit stand with an accent band, two legs, a torso, arms
+	-- hanging a little out, a neck and a plain ball head. Dark slate, so the aura is
+	-- the brightest thing in the stall.
 	local mz = -6.5
 	prop(theme, origin, {
-		name = "SuitStand",
-		pos = { suitX, 0.2, mz },
+		name = "MannequinStand",
+		pos = { auraX, 0.2, mz },
 		size = { 0.4, 2.4, 2.4 },
 		color = C.hazardBlack,
 		material = "Metal",
 		shape = "Cylinder",
 		rot = R_CYL_UP,
 	})
-	for _, dx in { -0.45, 0.45 } do
-		prop(theme, origin, {
-			name = "SuitLeg",
-			pos = { suitX + dx, 1.5, mz },
-			size = { 0.8, 2.4, 0.9 },
-			color = SUIT,
-			material = "SmoothPlastic",
-		})
-		prop(theme, origin, {
-			name = "SuitBoot",
-			pos = { suitX + dx, 0.5, mz + 0.1 },
-			size = { 0.85, 0.5, 1.1 },
-			color = C.hazardBlack,
-			material = "SmoothPlastic",
-		})
-	end
 	prop(theme, origin, {
-		name = "SuitTorso",
-		pos = { suitX, 3.6, mz },
-		size = { 2.0, 2.0, 1.1 },
-		color = SUIT,
-		material = "SmoothPlastic",
-	})
-	prop(theme, origin, {
-		name = "SuitBelt",
-		pos = { suitX, 3.2, mz + 0.57 },
-		size = { 1.6, 0.18, 0.05 },
-		color = C.hazardBlack,
-		material = "SmoothPlastic",
-	})
-	for _, dx in { -1.3, 1.3 } do
-		prop(theme, origin, {
-			name = "SuitArm",
-			pos = { suitX + dx, 3.5, mz },
-			size = { 0.7, 2.2, 0.8 },
-			color = SUIT,
-			material = "SmoothPlastic",
-			rot = Kit.ang(0, 0, if dx > 0 then 8 else -8),
-		})
-		prop(theme, origin, {
-			name = "SuitGlove",
-			pos = { suitX + dx * 1.08, 2.25, mz },
-			size = { 0.75, 0.5, 0.85 },
-			color = C.hazardBlack,
-			material = "SmoothPlastic",
-		})
-	end
-	prop(theme, origin, {
-		name = "SuitHood",
-		pos = { suitX, 5.25, mz },
-		size = { 1.5, 1.5, 1.5 },
-		color = SUIT,
-		material = "SmoothPlastic",
-		shape = "Ball",
-	})
-	prop(theme, origin, {
-		name = "SuitVisor",
-		pos = { suitX, 5.3, mz + 0.45 },
-		size = { 1.1, 0.8, 0.7 },
-		color = VISOR,
-		material = "Glass",
-	})
-	prop(theme, origin, {
-		name = "SuitRespirator",
-		pos = { suitX, 4.65, mz + 0.7 },
-		size = { 0.5, 0.5, 0.5 },
-		color = C.hazardBlack,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = R_CYL_Z,
-	})
-
-	-- A giant gas mask on the roof, centred over the stall: the face, a brow band,
-	-- two glass eyepieces in accent rims, and the filter canister.
-	roofPlinth(theme, origin, 0, 4.2, 2)
-	local mask = origin * CFrame.new(0, ROOF_Y + 2.4, ROOF_Z)
-	prop(theme, mask, {
-		name = "MaskFace",
-		pos = { 0, 0, 0 },
-		size = { 3.4, 3.0, 1.6 },
-		color = GAS_MASK,
-		material = "SmoothPlastic",
-	})
-	prop(theme, mask, {
-		name = "MaskBrow",
-		pos = { 0, 0.8, 0.02 },
-		size = { 3.5, 0.9, 1.5 },
-		color = GAS_MASK,
-		material = "SmoothPlastic",
-	})
-	for _, dx in { -0.8, 0.8 } do
-		prop(theme, mask, {
-			name = "MaskEye",
-			pos = { dx, 0.35, 0.82 },
-			size = { 0.15, 1.1, 1.1 },
-			color = VISOR,
-			material = "Glass",
-			shape = "Cylinder",
-			rot = R_CYL_Z,
-		})
-		prop(theme, mask, {
-			name = "MaskEyeRim",
-			pos = { dx, 0.35, 0.78 },
-			size = { 0.12, 1.3, 1.3 },
-			color = accent,
-			material = "SmoothPlastic",
-			shape = "Cylinder",
-			rot = R_CYL_Z,
-		})
-	end
-	prop(theme, mask, {
-		name = "MaskFilter",
-		pos = { 0, -1.0, 1.0 },
-		size = { 0.9, 1.2, 1.2 },
-		color = C.hazardBlack,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = R_CYL_Z,
-	})
-	prop(theme, mask, {
-		name = "MaskFilterCap",
-		pos = { 0, -1.0, 1.62 },
-		size = { 0.1, 0.9, 0.9 },
+		name = "MannequinBand",
+		pos = { auraX, 0.2, mz },
+		size = { 0.14, 2.52, 2.52 },
 		color = accent,
 		material = "SmoothPlastic",
 		shape = "Cylinder",
-		rot = R_CYL_Z,
+		rot = R_CYL_UP,
 	})
+	for _, dx in { -0.45, 0.45 } do
+		prop(theme, origin, {
+			name = "MannequinLeg",
+			pos = { auraX + dx, 1.5, mz },
+			size = { 0.8, 2.2, 0.9 },
+			color = MANNEQUIN_DARK,
+			material = "SmoothPlastic",
+		})
+	end
+	local torso = prop(theme, origin, {
+		name = "MannequinTorso",
+		pos = { auraX, 3.6, mz },
+		size = { 2.0, 2.0, 1.0 },
+		color = MANNEQUIN,
+		material = "SmoothPlastic",
+		-- Centred on the torso itself (no lift), at stock size, walking the ladder.
+		attributes = { AuraCycle = true, AuraLift = 0, AuraScale = 1 },
+	})
+	CollectionService:AddTag(torso, AuraLook.DISPLAY_TAG)
+	for _, dx in { -1.35, 1.35 } do
+		prop(theme, origin, {
+			name = "MannequinArm",
+			pos = { auraX + dx, 3.5, mz },
+			size = { 0.7, 2.2, 0.8 },
+			color = MANNEQUIN,
+			material = "SmoothPlastic",
+			rot = Kit.ang(0, 0, if dx > 0 then 8 else -8),
+		})
+	end
+	prop(theme, origin, {
+		name = "MannequinNeck",
+		pos = { auraX, 4.75, mz },
+		size = { 0.3, 0.6, 0.6 },
+		color = MANNEQUIN_DARK,
+		material = "SmoothPlastic",
+		shape = "Cylinder",
+		rot = R_CYL_UP,
+	})
+	prop(theme, origin, {
+		name = "MannequinHead",
+		pos = { auraX, 5.45, mz },
+		size = { 1.3, 1.3, 1.3 },
+		color = MANNEQUIN,
+		material = "SmoothPlastic",
+		shape = "Ball",
+	})
+
+	-- Six sample tubes against the back wall, one per tier in the aura's own colour:
+	-- tiers 1-3 left of the mannequin, 4-6 right, each a steel base and cap with an
+	-- accent band, a glass tube and a coloured orb floating in it.
+	local tubeZ = -8.2
+	for tier, look in AuraLook.TIERS do
+		local side = if tier <= 3 then -1 else 1
+		local slot = if tier <= 3 then 4 - tier else tier - 3
+		local x = auraX + side * (3.4 + (slot - 1) * 1.5)
+		prop(theme, origin, {
+			name = "TubeBase",
+			pos = { x, 0.25, tubeZ },
+			size = { 0.5, 1.3, 1.3 },
+			color = C.steelDark,
+			material = "Metal",
+			shape = "Cylinder",
+			rot = R_CYL_UP,
+		})
+		prop(theme, origin, {
+			name = "TubeGlass",
+			pos = { x, 2.0, tubeZ },
+			size = { 3.0, 1.0, 1.0 },
+			color = TUBE_GLASS,
+			material = "Glass",
+			transparency = 0.55,
+			shape = "Cylinder",
+			rot = R_CYL_UP,
+		})
+		prop(theme, origin, {
+			name = "TubeOrb",
+			pos = { x, 2.0, tubeZ },
+			size = { 0.7, 0.7, 0.7 },
+			color = look.color:ToHex(),
+			material = "SmoothPlastic",
+			shape = "Ball",
+		})
+		prop(theme, origin, {
+			name = "TubeCap",
+			pos = { x, 3.65, tubeZ },
+			size = { 0.3, 1.3, 1.3 },
+			color = C.steelDark,
+			material = "Metal",
+			shape = "Cylinder",
+			rot = R_CYL_UP,
+		})
+		prop(theme, origin, {
+			name = "TubeBand",
+			pos = { x, 3.65, tubeZ },
+			size = { 0.12, 1.36, 1.36 },
+			color = accent,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = R_CYL_UP,
+		})
+	end
+
+	-- A giant atom on the roof, centred over the stall: a steel post off the plinth, an
+	-- accent nucleus, three steel rings at the aura's own tilts and an accent electron
+	-- on each. Everything but the post is one Model that StationMotionController turns
+	-- slowly about its nucleus.
+	roofPlinth(theme, origin, 0, 3, 2)
+	local centre = origin * CFrame.new(0, ROOF_Y + 3, ROOF_Z)
+	prop(theme, origin, {
+		name = "AtomPost",
+		pos = { 0, ROOF_Y + 1.6, ROOF_Z },
+		size = { 1.8, 0.4, 0.4 },
+		color = C.steelDark,
+		material = "Metal",
+		shape = "Cylinder",
+		rot = R_CYL_UP,
+	})
+	local atom = Instance.new("Model")
+	atom.Name = "RoofAtom"
+	local nucleus = prop(atom, centre, {
+		name = "AtomNucleus",
+		pos = { 0, 0, 0 },
+		size = { 1.4, 1.4, 1.4 },
+		color = accent,
+		material = "SmoothPlastic",
+		shape = "Ball",
+	})
+	local ROOF_RING = 2
+	local segments, length = AuraLook.segments(ROOF_RING, 20)
+	for ring, tilt in AuraLook.TILTS do
+		local frame = centre * CFrame.Angles(0, 0, tilt)
+		for _, segment in segments do
+			prop(atom, frame * segment, {
+				name = "AtomRing",
+				pos = { 0, 0, 0 },
+				size = { length, 0.22, 0.22 },
+				color = C.steel,
+				material = "Metal",
+				rot = CFrame.identity,
+			})
+		end
+		local u = 0.6 + ring * 2.1
+		prop(atom, frame, {
+			name = "AtomElectron",
+			pos = { math.cos(u) * ROOF_RING, 0, math.sin(u) * ROOF_RING },
+			size = { 0.5, 0.5, 0.5 },
+			color = accent,
+			material = "SmoothPlastic",
+			shape = "Ball",
+		})
+	end
+	atom.PrimaryPart = nucleus
+	atom.Parent = theme
+	Kit.motion(atom, { kind = "spin", axis = "Y", rate = 0.5 })
 
 	theme.Parent = parent
 	return theme

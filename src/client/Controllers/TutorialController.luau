@@ -67,7 +67,7 @@ local SKIN = {
 -- TEXT ONLY, ON REQUEST: no card behind it, no hint line under it, bigger, and lower
 -- down the screen, clear of WarpController's HOME / SHOPS portals (y 10..74). The frame
 -- named "Banner" is still there, invisible and sized to the words, because
--- StageBannerController and SuitWarningController read its rect to stack themselves
+-- StageBannerController and AuraWarningController read its rect to stack themselves
 -- underneath it.
 local BANNER_Y = 118
 local BANNER_H = 60

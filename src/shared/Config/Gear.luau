@@ -9,12 +9,12 @@
 	stat columns (radius, tolerance, pullSpeed, price ratios in comments) are untouched.
 	See Config/Rarity.luau's header for why displayYield alone moved differently.
 
-	SUIT NUMBERS ARE FITTED, NOT GUESSED.
+	AURA NUMBERS ARE FITTED, NOT GUESSED.
 	`reduction` and `tolerance` were solved so the model in Shared/Radiation.lua
 	reproduces the design's stated intent. Table below regenerated via
 	Shared/Util/TuningReport after four radiation-harshening passes today
 	(Tuning.BURN_COEF 2.0 -> 3.0 -> 6.0, Stage 1's deepRads 1.25 -> 1.8 -> 1.97,
-	Cloth Wrap's `reduction` 0.9000 -> 0.6296) — all figures below are at each
+	Faint Glow's `reduction` 0.9000 -> 0.6296) — all figures below are at each
 	stage's ENTRANCE (depthFrac=0); the deep edge of every stage is meaningfully
 	worse, see Stages.radsAt/Stages.DEFS. Stage 1's deepRads specifically governs
 	its OWN far edge (NOT the separate, distant Stage 3 "Fallout Fields" its old
@@ -22,24 +22,24 @@
 	story:
 
 	                     Z1      Z2      Z3      Z4      Z5      Z6
-	  Cloth Wrap        9:00   ~28s      5s       2s  instant  instant   (Z2 was 17s before tolerance 1.0 -> 1.5)
-	  Rubber Suit        inf     inf     12s      3s  instant  instant
-	  Lead-Lined         inf     inf     inf     12s  instant  instant
-	  Reinforced Hazmat  inf     inf     inf     inf     12s  instant
-	  Sealed Exo-Suit    inf     inf     inf     inf     inf     12s
-	  Containment Rig    inf     inf     inf   10:00    3:45    1:30
+	  Faint Glow        9:00   ~28s      5s       2s  instant  instant   (Z2 was 17s before tolerance 1.0 -> 1.5)
+	  Static Veil        inf     inf     12s      3s  instant  instant
+	  Lead Halo         inf     inf     inf     12s  instant  instant
+	  Ion Shroud  inf     inf     inf     inf     12s  instant
+	  Isotope Mantle    inf     inf     inf     inf     inf     12s
+	  Containment Nimbus    inf     inf     inf   10:00    3:45    1:30
 
-	STAGE 1's CLOTH WRAP CELL IS NOT "inf" ANY MORE, AND IT DID NOT MOVE VIA BURN.
-	Stage 1's ENTRANCE ambient (0.5) is still below Cloth Wrap's tolerance (1.5) -- the
-	entrance never enters the burn/white-screen track at all, by design (Stage 1's rated suit tier IS
+	STAGE 1's FAINT GLOW CELL IS NOT "inf" ANY MORE, AND IT DID NOT MOVE VIA BURN.
+	Stage 1's ENTRANCE ambient (0.5) is still below Faint Glow's tolerance (1.5) -- the
+	entrance never enters the burn/white-screen track at all, by design (Stage 1's rated aura tier IS
 	the starting tier, and Spec still requires SOME stage to be a true no-pressure
-	tutorial space). The 9:00 instead comes entirely from lowering Cloth Wrap's own
+	tutorial space). The 9:00 instead comes entirely from lowering Faint Glow's own
 	`reduction` (0.9000 -> 0.6296), which only touches the EXPOSURE/green-screen track
 	-- raising Stage 1's ambient far enough to trigger burn at exactly 9 minutes would
-	have required an ambient value within about 0.02 rads/sec of Cloth Wrap's exact
+	have required an ambient value within about 0.02 rads/sec of Faint Glow's exact
 	tolerance, a razor-thin, un-maintainable number given how steeply burn responds to
 	`excess`. Lowering `reduction` instead needed no such precision and is provably
-	isolated to Stage 1: every other stage already burns Cloth Wrap long before its
+	isolated to Stage 1: every other stage already burns Faint Glow long before its
 	exposure meter would matter, so `reduction` is inert everywhere else for this tier.
 
 	Three properties that matter fall out of that table:
@@ -49,8 +49,8 @@
 	    see Tuning.luau's BURN_COEF comment.
 	  * TWO TIERS UNDER is instant almost everywhere now. A suicide sprint, more
 	    punishing than ever.
-	  * Even a full Containment Rig gets 1:30 in the Crater — §4's "timed heist",
-	    preserved by giving the Rig a deliberately imperfect reduction rather than
+	  * Even a full Containment Nimbus gets 1:30 in the Crater — §4's "timed heist",
+	    preserved by giving the Nimbus a deliberately imperfect reduction rather than
 	    a special-case rule. Unaffected by either COEF change: this scenario is
 	    exposure-bound, not burn-bound.
 
@@ -211,45 +211,45 @@ Gear.Cleaner = {
 }
 
 -- reduction  : fraction of AMBIENT rads/sec removed  (exposure track, green screen)
--- tolerance  : ambient rads/sec the suit handles before it fails (burn track, white screen)
+-- tolerance  : ambient rads/sec the aura handles before it fails (burn track, white screen)
 -- capacity   : hot items carried before it gets unmanageable (PLAN §3.4)
 -- haulPenalty: studs/sec of walk speed lost PER CARRIED ITEM (StatResolver.effectiveWalkSpeed)
 --
 -- haulPenalty MOVED HERE WITH THE SATCHEL'S RETIREMENT (see the RETIRED block below),
 -- and it is the stat that makes capacity a decision rather than a bigger number (PLAN
--- §5.1). Living on the Suit means one purchase buys the room AND the frame to carry
+-- §5.1). Living on the Aura means one purchase buys the room AND the frame to carry
 -- it, so the ladder is fitted to keep a FULL BAG'S drag roughly level while the bag
--- grows: 7.2 / 9.5 / 10.1 / 10.4 / 9.1 / 6.8 studs/sec, tier 1 to 6. A bigger suit
+-- grows: 7.2 / 9.5 / 10.1 / 10.4 / 9.1 / 6.8 studs/sec, tier 1 to 6. A bigger aura
 -- never makes a full bag feel lighter than a smaller full one did, and never much
 -- heavier either; the treadmill is what makes that drag a smaller slice of your speed.
 -- Tier 1 (1.20) and tier 6 (0.20) are the Satchel's old ends, so a new player's first
 -- haul feels exactly as it did.
 --
--- KEEP THE FLOOR ABOVE ZERO. A suit with no haul penalty turns capacity back into a
+-- KEEP THE FLOOR ABOVE ZERO. An aura with no haul penalty turns capacity back into a
 -- free number, and Spec pins every rung above zero and none heavier than the one below.
 --
 -- Capacity ladder raised 4/6/8/11/15/20 -> 6/10/14/20/26/34 on request ("start at 6
 -- slots, raise the max for the other upgrades"). Past 10 slots the hotbar stops growing
 -- and the rest lives in the bag panel (InventoryController, ` key).
 --
--- Cloth Wrap's reduction dropped 0.9000 -> 0.6296 in the third harshening pass, SOLELY
--- to hit an explicit Stage 1 target (unsuited survival capped at 9 minutes, was ~33
+-- Faint Glow's reduction dropped 0.9000 -> 0.6296 in the third harshening pass, SOLELY
+-- to hit an explicit Stage 1 target (unshielded survival capped at 9 minutes, was ~33
 -- minutes) without touching Stage 1's ambient rate itself -- see this file's header.
 --
--- Cloth Wrap's tolerance raised 1.0 -> 1.5 on request ("radiation damage kicks in too
--- early for unsuited players"). Stage 1's ambient climbs 0.5 -> 1.97 across its depth,
+-- Faint Glow's tolerance raised 1.0 -> 1.5 on request ("radiation damage kicks in too
+-- early for unshielded players"). Stage 1's ambient climbs 0.5 -> 1.97 across its depth,
 -- so burn onset moves from ~34% depth to ~68% depth. Deliberately capped at 1.5, not
--- higher: Spec still requires an unsuited player to die within 30s at Stage 1's own
+-- higher: Spec still requires an unshielded player to die within 30s at Stage 1's own
 -- deepest point (radsAt 1.97), and 1.5 lands that at ~28s -- 1.6 would break it. The
 -- informational Z2-Z6 cells below shift with this (Z2 entrance 17s -> ~28s) but no
 -- Spec check pins those.
-Gear.Suit = {
-	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 6, haulPenalty = 1.20, blurb = "Rags and tape. Counts as clothing, not shielding." },
-	{ name = "Rubber Suit", price = 15000, reduction = 0.9750, tolerance = 4.4, capacity = 10, haulPenalty = 0.95, blurb = "Sweats more than it shields. Shields a little." },
-	{ name = "Lead-Lined", price = 36000, reduction = 0.9920, tolerance = 13.4, capacity = 14, haulPenalty = 0.72, blurb = "Heavy enough to feel safe. Nearly is." },
-	{ name = "Reinforced Hazmat", price = 85000, reduction = 0.9970, tolerance = 38.4, capacity = 20, haulPenalty = 0.52, blurb = "Sealed seams. The first suit that trusts you." },
-	{ name = "Sealed Exo-Suit", price = 210000, reduction = 0.9988, tolerance = 98.4, capacity = 26, haulPenalty = 0.35, blurb = "Own air supply. Walks into the red and back." },
-	{ name = "Containment Rig", price = 500000, reduction = 0.9889, tolerance = 105.0, capacity = 34, haulPenalty = 0.20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
+Gear.Aura = {
+	{ name = "Faint Glow", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 6, haulPenalty = 1.20, blurb = "A flicker of static. Counts as a glow, not a shield." },
+	{ name = "Static Veil", price = 15000, reduction = 0.9750, tolerance = 4.4, capacity = 10, haulPenalty = 0.95, blurb = "Crackles more than it shields. Shields a little." },
+	{ name = "Lead Halo", price = 36000, reduction = 0.9920, tolerance = 13.4, capacity = 14, haulPenalty = 0.72, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
+	{ name = "Ion Shroud", price = 85000, reduction = 0.9970, tolerance = 38.4, capacity = 20, haulPenalty = 0.52, blurb = "Wound tight around you. The first aura that trusts you." },
+	{ name = "Isotope Mantle", price = 210000, reduction = 0.9988, tolerance = 98.4, capacity = 26, haulPenalty = 0.35, blurb = "Burns hotter than the air. Walks into the red and back." },
+	{ name = "Containment Nimbus", price = 500000, reduction = 0.9889, tolerance = 105.0, capacity = 34, haulPenalty = 0.20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
@@ -268,8 +268,8 @@ Gear.Suit = {
 --
 -- WHERE THE FOUR STATS WENT:
 --   walkSpeed    -> Config/Treadmill. The whole feature.
---   haulPenalty  -> Gear.Suit. It went to the Satchel first, and moved on to the
---                   Suit when the Satchel was retired too (see below).
+--   haulPenalty  -> Gear.Aura. It went to the Satchel first, and moved on to the
+--                   Aura when the Satchel was retired too (see below).
 --   stamina      -> nowhere. Verified inert before removal: StatResolver was the only
 --   canVault        writer and NOTHING in the game ever read any of the three. Sprint
 --   canDash         (Gear.SPRINT_MULTIPLIER) is in the same state — `effectiveWalkSpeed`
@@ -297,7 +297,7 @@ Gear.Boots = {
 -- a save that bought one, so there is nothing to refund and nothing to price against.
 -- It sold three columns, and only one of them was ever something a player felt:
 --
---   haulPenalty -> Gear.Suit (see its header). The one that mattered: a full bag
+--   haulPenalty -> Gear.Aura (see its header). The one that mattered: a full bag
 --                  on the free Canvas Bag was a 28% slowdown, and nothing else in the
 --                  game touched it.
 --   fuseMult    -> nowhere. It stretched the decay clock, whose countdown left the
@@ -306,7 +306,7 @@ Gear.Boots = {
 --                  The decay clock itself is untouched and still runs at 1x.
 --   shielding   -> nowhere. Carried emission is now blocked only by level resist,
 --                  which is exactly what the free Canvas Bag always gave you. The
---                  suit still does NOT shield your own backpack (Shared/Radiation's
+--                  aura still does NOT shield your own backpack (Shared/Radiation's
 --                  header) -- that rule was never the Satchel's, and it stays.
 
 -- THE SEVENTH TRACK, AND THE ONLY ONE THAT BUYS NOTHING YOU HOLD, AND THE ONLY ONE
@@ -367,7 +367,7 @@ Gear.SPRINT_MULTIPLIER = 1.35
 -- leaves it stops existing everywhere at once with no per-file surgery. Its data is
 -- still in the file for the refund (see Gear.Boots). THE SATCHEL LEFT THE SAME WAY,
 -- plus its counter at the Outfitter (build/Shops' OUTFITTER.counters).
-Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit" }
+Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Aura" }
 
 --- Track name (capitalised, as used here and in the world's StationId attribute)
 --- to profile field (lowercase, as used in DataService's TEMPLATE.gear).
@@ -385,7 +385,7 @@ Gear.PROFILE_KEY = {
 	Detector = "detector",
 	Magnet = "magnet",
 	Cleaner = "cleaner",
-	Suit = "suit",
+	Aura = "aura",
 	Boots = "boots",
 }
 
@@ -405,7 +405,7 @@ end
 ---     detector regardless). The shop was charging for a stat that does nothing.
 ---   * The order was ALPHABETICAL, so "clarity" led every detector card and the stat
 ---     a player actually buys the track for (radius) came third.
----   * The label was the field name, so a suit sold "reduction 0.997" — a number whose
+---   * The label was the field name, so an aura sold "reduction 0.997" — a number whose
 ---     units only make sense if you have read Shared/Radiation.
 ---
 --- `order` fixes all three: it is the exact list, in the exact sequence, that the shop
@@ -417,15 +417,15 @@ end
 --- Per-field entries:
 ---   label          what the card prints. Short, uppercase — these sit in a 62px gutter.
 ---   kind           "number" (default, draws a bar) or "flag" (a boolean; draws a chip).
----   lowerIsBetter  the bar fills as the number FALLS. Only Suit's haulPenalty,
+---   lowerIsBetter  the bar fills as the number FALLS. Only Aura's haulPenalty,
 ---                  which is the one column in the game where 0.20 beats 1.20. (It
 ---                  was Boots' column, then Satchel's, before both were retired.)
----   complement     the bar measures `1 - value`, not the value. Only Suit's
+---   complement     the bar measures `1 - value`, not the value. Only Aura's
 ---                  `reduction`, which is the fraction of dose BLOCKED: it sits at
 ---                  0.63..0.9988 and what actually varies between rungs is the sliver
 ---                  that gets THROUGH (0.37 down to 0.0012, a 300x spread). Drawn
----                  straight, the bar says a Rubber Suit is 98% as good as the best
----                  suit in the game, which would sell four upgrades as rounding error.
+---                  straight, the bar says a Static Veil is 98% as good as the best
+---                  aura in the game, which would sell four upgrades as rounding error.
 ---   scale = "log"  place the rung on a logarithmic ladder. Also only `reduction`:
 ---                  leakage is multiplicative (halving it doubles your time in a
 ---                  stage) and on a linear axis tier 1 is so bad that every other rung
@@ -468,7 +468,7 @@ Gear.STAT_META = {
 		power = { label = "POWER" },
 		volume = { label = "VOLUME" },
 	},
-	Suit = {
+	Aura = {
 		order = { "reduction", "tolerance", "capacity", "haulPenalty" },
 		hidden = {},
 		reduction = { label = "SHIELD", complement = true, scale = "log" },
@@ -477,7 +477,7 @@ Gear.STAT_META = {
 		-- Right under CARRY because it is the other half of the same question: how
 		-- much you can take, then how much taking it slows you. `lowerIsBetter` is
 		-- the only use of that flag in the game: 0.20 beats 1.20, and drawn straight
-		-- the bar would empty as the suit got better.
+		-- the bar would empty as the aura got better.
 		haulPenalty = { label = "HAUL", lowerIsBetter = true },
 	},
 	-- NO BOOTS OR SATCHEL ENTRY. Both tracks are retired (see the RETIRED block above)

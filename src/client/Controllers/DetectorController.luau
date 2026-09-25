@@ -170,7 +170,7 @@ local FUSE_NOTCH_WIDTH = 4
 -- Cool, warming, armed. Pale straw until WARN_AT, easing to amber by ARM_AT, then red.
 local FUSE_COOL = Color3.fromHex("FDE68A")
 -- What the armed red flashes toward. Deliberately NOT UIKit.C.burn: that white means
--- suit failure and nothing else (PLAN's one colour rule).
+-- aura failure and nothing else (PLAN's one colour rule).
 local FUSE_FLASH = Color3.fromHex("FFD2C4")
 local FUSE_ARMED_PULSE = 7 -- rad/sec on the armed headline's flash
 

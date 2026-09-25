@@ -565,7 +565,7 @@ function World.verify(): (boolean, { string })
 	-- refactor and is actually a priced dead end:
 	--
 	--   StationKind = "shop"   a counter with a panel  (Detector, Magnet, Cleaner,
-	--                          Suit)
+	--                          Aura)
 	--   SellsTrack = "<track>" a world object with a ProximityPrompt, no panel
 	--                          (used to be Luck; Luck itself left Gear.TRACKS the
 	--                          moment it stopped having a priced ladder to check
@@ -694,7 +694,7 @@ function World.coverageReport()
 	print("[build] stage search coverage (target c ~= 0.26 at the stage's rated tier)")
 	for _, id in Stages.builtIds() do
 		local def = Stages.get(id)
-		local radius = Gear.tier("Detector", def.ratedSuitTier).radius
+		local radius = Gear.tier("Detector", def.ratedAuraTier).radius
 		local c = Stages.coverage(id, radius, Tuning.SIGNALS_PER_STAGE)
 		local gap = Stages.meanSignalGap(id, Tuning.SIGNALS_PER_STAGE)
 		print(string.format("  %-20s area %-8d r=%-3d c=%.3f  mean gap %.0f studs", def.name, Stages.area(id), radius, c, gap))

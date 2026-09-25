@@ -1,7 +1,7 @@
 --!strict
 -- Stages.lua — PLAN §4.
 --
--- NOTE: `ratedSuitTier` is documentation, not enforcement. There is no gate anywhere
+-- NOTE: `ratedAuraTier` is documentation, not enforcement. There is no gate anywhere
 -- in this codebase that reads it to deny entry. Stages are open (PLAN §3.5); the only
 -- thing that stops a player is the arithmetic in Shared/Radiation.lua.
 --
@@ -174,7 +174,7 @@ export type StageDef = {
 	baseRads: number, -- rads/sec at this stage's ENTRANCE (west) edge. See Stages.radsAt.
 	deepRads: number, -- rads/sec at this stage's DEEPEST (east) edge. See Stages.radsAt.
 	soilHardness: number,
-	ratedSuitTier: number,
+	ratedAuraTier: number,
 	stationDistance: number,
 	fogColor: Color3,
 	fogEnd: number,
@@ -249,16 +249,16 @@ Stages.DEFS = {
 		-- notes). See Stages.radsAt for how the two combine.
 		--
 		-- STAGE 1'S OWN GAP, closed in the second harshening pass: entrance (0.5) is
-		-- BELOW the starting Cloth Wrap suit's tolerance (1.5, was 1.0) by design -- Stage 1's
-		-- rated suit tier IS the starting tier, so a no-gear player must be able to
+		-- BELOW the starting Faint Glow aura's tolerance (1.5, was 1.0) by design -- Stage 1's
+		-- rated aura tier IS the starting tier, so a no-gear player must be able to
 		-- farm the entrance forever (Spec's own farmable check requires it, though
 		-- as of the third pass "forever" at the entrance is actually a ~9min cap --
-		-- see Gear.luau's Cloth Wrap `reduction` note; that's an EXPOSURE-track
+		-- see Gear.luau's Faint Glow `reduction` note; that's an EXPOSURE-track
 		-- change and does not touch this deepRads value at all).
 		--
 		-- deepRads RAISED AGAIN in the third pass, for a target that turns out to be
-		-- about THIS stage's OWN far end, not the separate, far-away Stage 3. With Cloth
-		-- Wrap's tolerance now 1.5 (was 1.0), burn onset for an unsuited player sits at
+		-- about THIS stage's OWN far end, not the separate, far-away Stage 3. With Faint
+		-- Glow's tolerance now 1.5 (was 1.0), burn onset for an unshielded player sits at
 		-- ~depthFrac 0.68 (about two-thirds across), and by depthFrac 1.0 (this stage's
 		-- true deepest point, its east edge) survival is ~28s -- while staying just under Stage 2's
 		-- baseRads (2.0), a thin but real 1.5% ordering margin. Going any higher
@@ -269,7 +269,7 @@ Stages.DEFS = {
 		baseRads = 0.5,
 		deepRads = 1.97, -- 3.94x
 		soilHardness = 1,
-		ratedSuitTier = 1,
+		ratedAuraTier = 1,
 		-- Was 230 before the hub-to-field connector shrank by 40 studs (Hub.luau's
 		-- CampToRadiationRoad) so the plaza and the field read as one connected
 		-- complex rather than two places joined by a long empty road. Re-measured
@@ -321,7 +321,7 @@ Stages.DEFS = {
 		baseRads = 2,
 		deepRads = 5.0, -- 2.5x
 		soilHardness = 2,
-		ratedSuitTier = 2,
+		ratedAuraTier = 2,
 		-- Was 719 at an x = 760 entrance; the uniform-length pass pulled the west edge
 		-- to x = 500 (-260), the 15% pass to x = 440 (-60), the length pass to x = 390
 		-- (another -50). Still an estimate, not re-walked — same caveat as before.
@@ -357,7 +357,7 @@ Stages.DEFS = {
 		-- and 2.4 rather than 2.5 leaves Stage 4's unchanged entrance (15) a small
 		-- but real margin over this stage's deepest instead of landing exactly on it.
 		soilHardness = 3,
-		ratedSuitTier = 3,
+		ratedAuraTier = 3,
 		-- Was 939 at an x = 980 entrance; uniform-length pulled the west edge to
 		-- x = 900, the 15% pass to x = 780, the length pass to x = 680. Estimate, not
 		-- re-walked.
@@ -391,7 +391,7 @@ Stages.DEFS = {
 		baseRads = 15,
 		deepRads = 37.5, -- 2.5x
 		soilHardness = 4,
-		ratedSuitTier = 4,
+		ratedAuraTier = 4,
 		-- USED TO BE DELIBERATELY SHORT, AND IS NOT ANY MORE. PLAN §15's second
 		-- validation question is "do players cross into Stage 4 unrated, on purpose,
 		-- more than once?" — once answerable because the field sat off the camp's
@@ -451,14 +451,14 @@ Stages.DEFS = {
 		id = 5,
 		name = "Reactor Grounds",
 		baseRads = 40,
-		deepRads = 88, -- 2.2x, not 2.5 -- Tier 5's suit tolerance (98.4) and Tier 6's
+		deepRads = 88, -- 2.2x, not 2.5 -- Tier 5's aura tolerance (98.4) and Tier 6's
 		-- (105) sit only 6.7% apart, so Stage 6's unchanged entrance (100) has very
 		-- little headroom to clear this stage's deepest point without ALSO blowing
-		-- past what a Sealed Exo-Suit or Containment Rig can absorb (breaking Stage
+		-- past what a Isotope Mantle or Containment Nimbus can absorb (breaking Stage
 		-- 6's own dive/Crater checks). Softening this stage's own multiplier is what
 		-- buys that room back, rather than inflating Stage 6 to compensate.
 		soilHardness = 5,
-		ratedSuitTier = 5,
+		ratedAuraTier = 5,
 		stationDistance = 1220, -- entrance x=1530 -> 1700 (uniform) -> 1460 (15%) -> 1260 (length); est., not re-walked
 		fogColor = Color3.fromHex("C8E85A"),
 		fogEnd = 500,
@@ -491,17 +491,17 @@ Stages.DEFS = {
 		-- the steepest ramp of the six (250, 2.5x) because nothing crossed OUT of the
 		-- Crater. Toxic Twilight (Config/Camps) now stands on its east edge, so that
 		-- edge is where you walk out into a camp -- and at 250 the last stretch before
-		-- the camp's gate killed even a Containment Rig on sight. LOWERED ON REQUEST to
-		-- 104: just under the Rig's own tolerance (105, Gear.Suit[6]), so the Rig can
+		-- the camp's gate killed even a Containment Nimbus on sight. LOWERED ON REQUEST to
+		-- 104: just under the Nimbus's own tolerance (105, Gear.Aura[6]), so the Nimbus can
 		-- walk the whole Crater into the camp on its exposure clock alone, while the
-		-- Sealed Exo-Suit (98.4) still burns the whole way across. Spec pins both
+		-- Isotope Mantle (98.4) still burns the whole way across. Spec pins both
 		-- sides of that. The entrance is untouched, so the 1:30 Rig heist there is too;
 		-- the ramp is shallow now (1.04x) but Spec's "radiation climbs with depth" still
 		-- holds. If Stage 7 wants to climb past the Crater, it starts from 104.
 		baseRads = 100,
-		deepRads = 104, -- 1.04x -- see above: bounded by the Rig's tolerance, not a ratio
+		deepRads = 104, -- 1.04x -- see above: bounded by the Nimbus's tolerance, not a ratio
 		soilHardness = 6,
-		ratedSuitTier = 6,
+		ratedAuraTier = 6,
 		-- The Crater is a heist, not a hike (PLAN §16) — but "short" has to mean
 		-- short from its OWN on-site station, which still does not exist. This is the
 		-- honest walk from the nearest cleansing station until that station is built,

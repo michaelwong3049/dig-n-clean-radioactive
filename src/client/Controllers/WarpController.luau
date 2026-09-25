@@ -271,7 +271,7 @@ local function build(): ScreenGui
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	local canvas = UIKit.canvas(gui)
-	-- Named Panel: SuitWarningController finds the bar by WarpBar.Panel to stay clear of it.
+	-- Named Panel: AuraWarningController finds the bar by WarpBar.Panel to stay clear of it.
 	local frame = UIKit.panel(canvas, {
 		name = "Panel",
 		size = UDim2.fromOffset(#BUTTONS * BTN_W + (#BUTTONS - 1) * GAP, BTN_H),

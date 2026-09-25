@@ -12,10 +12,10 @@
 
 	Two of these exist because the first draft of the config got them WRONG, and only
 	running the numbers caught it:
-	  * "hot bag does not trip suit failure" — carried emission was counting toward
-	    suit tolerance, so a full backpack triggered the white-screen over-tier state
+	  * "hot bag does not trip aura failure" — carried emission was counting toward
+	    aura tolerance, so a full backpack triggered the white-screen over-tier state
 	    inside your own rated stage.
-	  * "the bag, not the world, is what is killing you" — the suit's reduction was
+	  * "the bag, not the world, is what is killing you" — the aura's reduction was
 	    being applied to your own backpack, which erased 99% of a screaming Legendary
 	    and quietly switched off the greed dial (§3.3), the mechanic the whole game is
 	    built on.
@@ -38,6 +38,7 @@ local Treadmill = require(Config.Treadmill)
 local Floors = require(Config.Floors)
 local LuckBoost = require(Config.LuckBoost)
 local Crates = require(Config.Crates)
+local AuraLook = require(script.Parent.Parent.AuraLook)
 local Bag = require(script.Parent.Parent.Bag)
 local CrateModels = require(script.Parent.Parent.CrateModels)
 local ItemModels = require(script.Parent.Parent.ItemModels)
@@ -56,11 +57,11 @@ local IndexProgress = require(script.Parent.Parent.IndexProgress)
 
 local Spec = {}
 
-local function statsFor(suitTier: number)
-	local suit = Gear.tier("Suit", suitTier)
+local function statsFor(auraTier: number)
+	local aura = Gear.tier("Aura", auraTier)
 	return {
-		suitReduction = suit.reduction,
-		suitTolerance = suit.tolerance,
+		auraReduction = aura.reduction,
+		auraTolerance = aura.tolerance,
 		levelResist = 0,
 	}
 end
@@ -69,8 +70,8 @@ end
 --- here safely", 1 (deepest) for "what happens if you actually push in" -- see
 --- Stages.radsAt. Defaults to 0 so existing call sites that don't care about depth
 --- keep testing the same "just inside the stage" point they always did.
-local function survive(stageId: number, suitTier: number, carried: number, depthFrac: number?): number
-	local reading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(stageId, depthFrac or 0)), carried, statsFor(suitTier))
+local function survive(stageId: number, auraTier: number, carried: number, depthFrac: number?): number
+	local reading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(stageId, depthFrac or 0)), carried, statsFor(auraTier))
 	return Radiation.survivableSeconds(reading, 0, 100)
 end
 
@@ -389,43 +390,43 @@ function Spec.run(): boolean
 	-- BAND TIGHTENED 25-40 -> 18-30 (second pass) -> 8-15 (third pass, BURN_COEF
 	-- 3.0->6.0, Tuning.luau): the dive now lands at ~12s, was ~23s, was ~35s
 	-- originally. This band moved a second time as a direct, unavoidable side
-	-- effect of an explicit Stage 3 unsuited-survival target, NOT an independent
+	-- effect of an explicit Stage 3 unshielded-survival target, NOT an independent
 	-- decision to keep tightening the Dive on its own -- see Tuning.luau's
 	-- BURN_COEF comment for the full reasoning on why the two couldn't be
 	-- decoupled. Still "sprint in, grab one signal, extract, run," just a much
 	-- faster sprint than PLAN §3.5 originally imagined.
 	for stageId = 3, 6 do
-		local s = survive(stageId, Stages.get(stageId).ratedSuitTier - 1, 0)
+		local s = survive(stageId, Stages.get(stageId).ratedAuraTier - 1, 0)
 		check(string.format("§3.5 dive window in stage %d = %.0fs (want 8-15)", stageId, s), s >= 8 and s <= 15)
 	end
 
-	-- PLAN §3.4 — a rated suit means you can work, not just survive. Entrance,
+	-- PLAN §3.4 — a rated aura means you can work, not just survive. Entrance,
 	-- same reasoning as the Dive above.
 	--
 	-- STAGE 1 IS DELIBERATELY EXCLUDED FROM THIS LOOP as of the third harshening
-	-- pass. Stage 1's rated suit tier IS Cloth Wrap (the starting/no-gear tier), so
+	-- pass. Stage 1's rated aura tier IS Faint Glow (the starting/no-gear tier), so
 	-- this check used to mean "a fresh player can stand in Stage 1 forever" -- true
 	-- before this pass (it was exposure-bound at ~33 minutes), no longer true by
-	-- explicit design choice (capped at 9 minutes via Cloth Wrap's own `reduction`,
+	-- explicit design choice (capped at 9 minutes via Faint Glow's own `reduction`,
 	-- see Gear.luau). Checked on its own immediately below instead of silently
 	-- dropped, so a future change can't quietly regress it back past 15 minutes
 	-- without this file complaining.
 	for stageId = 2, 5 do
-		check(string.format("§3.4 rated suit farmable in stage %d", stageId), survive(stageId, Stages.get(stageId).ratedSuitTier, 0) > 900)
+		check(string.format("§3.4 rated aura farmable in stage %d", stageId), survive(stageId, Stages.get(stageId).ratedAuraTier, 0) > 900)
 	end
 	do
 		local s = survive(1, 1, 0)
-		check(string.format("§3.4 stage 1 unsuited capped at ~9min = %.0fs (want 480-600)", s), s >= 480 and s <= 600)
+		check(string.format("§3.4 stage 1 unshielded capped at ~9min = %.0fs (want 480-600)", s), s >= 480 and s <= 600)
 	end
 
-	-- The ask was "an unsuited player should die fast near Stage 1's own far end" --
+	-- The ask was "an unshielded player should die fast near Stage 1's own far end" --
 	-- checked at Stage 1's own deepest point (depthFrac=1.0, its worst case for this
 	-- bound, since ambient only climbs further in), tuned via Stage 1's deepRads
 	-- specifically (see Stages.luau's Stage 1 comment for why 1.97 and not higher --
 	-- any higher breaks "Stage 1 is the safest stage" against Stage 2's own entrance).
 	do
 		local s = survive(1, 1, 0, 1.0)
-		check(string.format("§new Stage 1's own deepest point, unsuited dies within 30s = %.0fs", s), s < 30)
+		check(string.format("§new Stage 1's own deepest point, unshielded dies within 30s = %.0fs", s), s < 30)
 	end
 
 	-- PLAN §4 — the Crater never becomes a farm, at any gear level, forever.
@@ -433,21 +434,21 @@ function Spec.run(): boolean
 	local crater = survive(6, 6, 0)
 	check(string.format("§4 Crater with full Rig = %.0fs (want 60-130, a heist)", crater), crater > 60 and crater < 130)
 
-	-- THE CRATER'S FAR EDGE IS TOXIC TWILIGHT'S DOORSTEP (Config/Camps). The top suit has
+	-- THE CRATER'S FAR EDGE IS TOXIC TWILIGHT'S DOORSTEP (Config/Camps). The top aura has
 	-- to be able to walk out into the camp -- no burn at the east edge, where the camp's
-	-- gate is -- and the suit under it must not, or reaching the camp stops being earned.
+	-- gate is -- and the aura under it must not, or reaching the camp stops being earned.
 	-- Checked against the tolerances directly (burn is ambient-only; see Radiation), then
-	-- as a survival time, so the Rig's exposure clock still leaves room for the walk.
+	-- as a survival time, so the Nimbus's exposure clock still leaves room for the walk.
 	do
-		local rig, exo = Gear.tier("Suit", 6), Gear.tier("Suit", 5)
+		local nimbus, mantle = Gear.tier("Aura", 6), Gear.tier("Aura", 5)
 		local edge = Stages.radsAt(6, 1)
 		check(
-			string.format("§camp the Crater's east edge (%.0f) is under the Rig's tolerance (%.1f) — Toxic Twilight is reachable on foot", edge, rig.tolerance),
-			edge < rig.tolerance
+			string.format("§camp the Crater's east edge (%.0f) is under the Nimbus's tolerance (%.1f) — Toxic Twilight is reachable on foot", edge, nimbus.tolerance),
+			edge < nimbus.tolerance
 		)
 		check(
-			string.format("§camp ...and over the Exo-Suit's (%.1f) — only the top suit walks in", exo.tolerance),
-			edge > exo.tolerance
+			string.format("§camp ...and over the Isotope Mantle's (%.1f) — only the top aura walks in", mantle.tolerance),
+			edge > mantle.tolerance
 		)
 		local walkOut = survive(6, 6, 0, 1.0)
 		check(string.format("§camp full Rig at the Crater's east edge lasts %.0fs (want > 30, time to reach the gate)", walkOut), walkOut > 30)
@@ -611,14 +612,14 @@ function Spec.run(): boolean
 	local overFull = survive(5, 3, Decay.totalEmission(bagOf("Rare", "None", 8, 0), 1), 0)
 	check("§3.5 over-tier burn is unaffected by what you carry", math.abs(overEmpty - overFull) < 1)
 	local overReading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(5, 0)), 0, statsFor(3))
-	check("§3.5 over-tier flags suit failure", overReading.failing)
+	check("§3.5 over-tier flags aura failure", overReading.failing)
 	check("§3.5 over-tier dominant threat is burn", Radiation.dominantThreat(overReading, 0, 100) == "burn")
 
 	-- PLAN §3.3 — the greed dial. Carrying loot is the GREEN threat, never the
 	-- white one. Tested at depthFrac=0, same "safe at the entrance" reasoning.
 	local hotBag = { bagOf("Epic", "None", 1, 0)[1], bagOf("Legendary", "Irradiated", 1, 200)[1] }
 	local hotReading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(3, 0)), Decay.totalEmission(hotBag, 1), statsFor(3))
-	check("§3.3 a hot bag does NOT trip suit failure in your rated stage", not hotReading.failing)
+	check("§3.3 a hot bag does NOT trip aura failure in your rated stage", not hotReading.failing)
 	check("§3.3 a hot bag's threat is exposure, not burn", Radiation.dominantThreat(hotReading, 0, 100) == "exposure")
 	local hotS = Radiation.survivableSeconds(hotReading, 0, 100)
 	check(string.format("§3.3 cooking Legendary creates real pressure: %.0fs (want 20-90)", hotS), hotS > 20 and hotS < 90)
@@ -629,23 +630,50 @@ function Spec.run(): boolean
 	check(string.format("§3.3 a full bag of rated loot is comfortable: %.0fs (want 150-330)", fullS), fullS > 150 and fullS < 330)
 	check("§3.3 an empty bag in your rated stage is safe indefinitely", survive(3, 3, 0) > 900)
 
-	-- PLAN §5.1 — the haul penalty lives on the Suit now (the Satchel track is retired,
+	-- PLAN §5.1 — the haul penalty lives on the Aura now (the Satchel track is retired,
 	-- Config/Gear's RETIRED block). Every rung still drags a loaded player, and a better
-	-- suit never drags harder per item than the one below it.
+	-- aura never drags harder per item than the one below it.
 	do
 		local floored, easing = true, true
-		for tier = 1, Gear.maxTier("Suit") do
-			local haul = Gear.tier("Suit", tier).haulPenalty
+		for tier = 1, Gear.maxTier("Aura") do
+			local haul = Gear.tier("Aura", tier).haulPenalty
 			if type(haul) ~= "number" or haul <= 0 then
 				floored = false
 			end
-			if tier > 1 and haul > Gear.tier("Suit", tier - 1).haulPenalty then
+			if tier > 1 and haul > Gear.tier("Aura", tier - 1).haulPenalty then
 				easing = false
 			end
 		end
-		check("§5.1 every suit's haul penalty stays above zero (capacity is never free)", floored)
-		check("§5.1 a better suit never drags harder per item", easing)
-		check("§5.1 a new player's first haul drags exactly as it always did (1.20/item)", Gear.tier("Suit", 1).haulPenalty == 1.20)
+		check("§5.1 every aura's haul penalty stays above zero (capacity is never free)", floored)
+		check("§5.1 a better aura never drags harder per item", easing)
+		check("§5.1 a new player's first haul drags exactly as it always did (1.20/item)", Gear.tier("Aura", 1).haulPenalty == 1.20)
+	end
+
+	-- The Aura's look (Shared/AuraLook): one per rung, a ladder you can read off the
+	-- rings, and never either of the HUD's two reserved colours (PLAN §14's one
+	-- colour rule: white is aura failure, green is exposure).
+	do
+		check("§5.1 every Aura rung has a look", AuraLook.count() == Gear.maxTier("Aura"))
+		local climbing, offLimits = true, true
+		local burn, exposure = Color3.fromHex("FFFFFF"), Color3.fromHex("22C55E")
+		local function near(a: Color3, b: Color3): boolean
+			return math.abs(a.R - b.R) + math.abs(a.G - b.G) + math.abs(a.B - b.B) < 0.35
+		end
+		for tier = 1, AuraLook.count() do
+			local look = AuraLook.get(tier)
+			if tier > 1 then
+				local below = AuraLook.get(tier - 1)
+				if look.rings < below.rings or look.width <= below.width or look.speed <= below.speed or look.transparency >= below.transparency then
+					climbing = false
+				end
+			end
+			if near(look.color, burn) or near(look.color, exposure) then
+				offLimits = false
+			end
+		end
+		check("§5.1 each aura rung is wider, faster and brighter than the one below, never fewer rings", climbing)
+		check("§14 no aura is burn-white or exposure-green", offLimits)
+		check("§5.1 the top aura has the most rings", AuraLook.get(AuraLook.count()).rings == #AuraLook.TILTS)
 	end
 
 	-- PLAN §3.6 — the decay clock
@@ -677,7 +705,7 @@ function Spec.run(): boolean
 		level = 20,
 		-- No `boots` key: the track is retired (Config/Gear's Gear.Boots header) and
 		-- StatResolver no longer looks for one. Speed comes from `speedPoints` below.
-		gear = { detector = 3, magnet = 2, cleaner = 4, suit = 3 },
+		gear = { detector = 3, magnet = 2, cleaner = 4, aura = 3 },
 		perks = { steadyHands = true, sureFooting = true },
 		multipliers = { sell = 2 },
 		speedPoints = Treadmill.requirementFor(45 - Treadmill.START_WALK + 1),
@@ -685,8 +713,8 @@ function Spec.run(): boolean
 	local stats = StatResolver.get(profile)
 	check("§9.2 Steady Hands adds exactly +1 potency", stats.cleanPotency == Gear.tier("Cleaner", 4).power + 1)
 	check("§9.2 level 20 = 20% resist", math.abs(stats.levelResist - 0.20) < 1e-9)
-	check("§9.2 level 20 = +4 carry capacity", stats.capacity == Gear.tier("Suit", 3).capacity + 4)
-	check("§9.2 Sure Footing halves the haul penalty", math.abs(stats.haulPenalty - Gear.tier("Suit", 3).haulPenalty * 0.5) < 1e-9)
+	check("§9.2 level 20 = +4 carry capacity", stats.capacity == Gear.tier("Aura", 3).capacity + 4)
+	check("§9.2 Sure Footing halves the haul penalty", math.abs(stats.haulPenalty - Gear.tier("Aura", 3).haulPenalty * 0.5) < 1e-9)
 	-- SPEED COMES OUT OF THE TREADMILL AND NOTHING ELSE. The profile above holds
 	-- exactly the requirement for walk 45, so this is also the check that a player
 	-- sitting on a requirement reads as that level and not the one below it.

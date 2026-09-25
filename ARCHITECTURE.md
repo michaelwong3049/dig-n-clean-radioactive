@@ -49,6 +49,8 @@ src/
     Detonation.luau           pure math: the pull fuse, blast falloff, crater orb strength
     Contamination.luau        pure math: the cleaning gate
     StatResolver.luau         profile -> stats. The ONLY place gear math happens.
+    AuraLook.luau             the Aura track's look: per-tier ring colour/count, the ring
+                              geometry, and a still part-built icon for the shop card
 
   server/
     init.server.luau          bootstrap: explicit ORDER, two-phase init/start
@@ -69,6 +71,7 @@ src/
       WashService             the hose bay: the E-to-wash session and its clock
                               (the nozzle is world geometry; this never moves it)
       ToolService             puts the right model in the player's hands
+      AuraService             stamps each character's equipped Aura tier (`AuraTier`)
       DebugService            the tuning console (/radhelp)
 
   client/
@@ -76,6 +79,8 @@ src/
     Controllers/
       DetectorController      sweep dial, ping audio, hold-to-pull
       StationController       the station panel (trader, decon, shop, pedestal)
+      AuraController          draws every character's aura (atom rings) locally, plus
+                              the Outfitter mannequin's (`AuraDisplay` tag)
       LiquidController        the loaded-liquid badge
       WashController          the wash bay: camera, patch blobs, the stream, and the
                               local swivel of the station's own nozzle
@@ -207,7 +212,7 @@ Also required, and each corresponds to a real silent failure:
 | ″ | `IsWashStand` | boolean | The invisible part inside a cleansing station where the item sits during a wash. Two sibling anchors go with it: `WashSpot` (where the player is planted, facing the tub — `WashService` steps them `APPROACH` studs forward of it) and `WashCam` (a **side-on** camera aimed at the midpoint of the two). The wash is shot **first person from the character's own head**, aimed down the line from there to `WashStand`, so `WashSpot` is the tripod; `WashCam` framed the original third-person version and survives as `WashController`'s fallback for the frame where the head has gone. They are anchors rather than numbers in `WashController` for the same reason `HoldCFrame` is an attribute: framing is judged by looking at it. |
 | a `Hose` Model in a cleansing station | `ParkedPivot` | CFrame | Where the station's nozzle rests, aimed at the `WashStand`. `WashController` rewrites the model's pivot every frame of a wash to point it — **locally**, since it is anchored server-built geometry the server never touches again, so the swivel costs no traffic and is per-viewer like the spray — and restores this pose on every exit path. `World.verify()` fails a hose without it: aiming still works (the controller falls back to wherever it finds the thing standing) but nothing puts it back, so a busy base slowly ends up with a machine staring at the sky. |
 | ″ | `Tier` | number | Which `Gear.Cleaner` rung is on the mast. Set by the `ToolModels.Hose` factory; read by `Plots.setHoseTier` to no-op a swap that would rebuild the same rung. |
-| ″ | `StationId` | string | Discriminator within a kind. For `"shop"` it is the **exact `Gear.TRACKS` spelling** (`"Detector"`, `"Suit"`, …). For `"pedestal"` it is `"<plot>:<slot>"`. |
+| ″ | `StationId` | string | Discriminator within a kind. For `"shop"` it is the **exact `Gear.TRACKS` spelling** (`"Detector"`, `"Aura"`, …). For `"pedestal"` it is `"<plot>:<slot>"`. |
 | ″ | `Radius` | number | Station radius in studs. Optional, default 12. |
 | ″ | `UpgradesTreadmill` | boolean | The console beside a plot's belt. Its own attribute and its own tag (`TreadmillUpgrade`) rather than `SellsTrack`, because a treadmill sells no *gear track* and `ShopService`'s generic seller path is built entirely around one. `TreadmillService` wires its `ProximityPrompt` at boot. |
 | ″ | `BuysFloor` | number | The sign at the foot of a base's next flight of stairs (`Plots.buildFloorSign`); the value is the floor it sells (`Config/Floors`), with `PlotIndex` beside it. Tagged `BuyFloor` by `Kit.build`; `ExhibitService` wires its `ProximityPrompt` to `buyFloor` and answers a refusal on the sign's own billboard. Every plot is **built** with all `Floors.MAX` floors (`Floor<f>` models) and every sign; `Plots.setFloors` parks the floors an owner has not bought, and every sign but the next one, in `ServerStorage.PlotFloorStash` at runtime. Stands on upper floors are ordinary `pedestal` stations whose slot numbers run on past the ground's 12 (13..20 floor 2, 21..28 floor 3). |
@@ -215,11 +220,15 @@ Also required, and each corresponds to a real silent failure:
 | `ReplicatedStorage.Assets.Tools.<Track>.T<n>` (Model) | `HoldCFrame` | CFrame | Offset from the attach point. Optional, defaults to `CFrame.new()`. Tuned in Studio against a live character. |
 | ″ | `HoldPart` | string | Body part to weld to. **Optional.** Absent, set to `"RightHand"`, or naming a part the character lacks all fall through to the right hand (R15 `RightHand`, then R6 `Right Arm`). Set it to `HumanoidRootPart` for the detector, which must not bob. |
 | ″ | *PrimaryPart* | — | Must be set (the `Grip`). The model's pivot is the handle. |
+| a character `Model` | `AuraTier` | number | The equipped `Gear.Aura` rung, written by `AuraService` (polled, like `ToolService`) and read by every client's `AuraController`, which draws the rings. Only the tier crosses the wire; the spinning rig is local to each viewer. |
+| any BasePart | *CollectionService tag* `AuraDisplay` | — | `AuraController` draws an aura round this part too (the Outfitter mannequin's torso). Attributes on it: `AuraTier` (fixed rung), `AuraCycle` (true = walk the whole ladder), `AuraLift` and `AuraScale`. |
 | a `Player` | `DebugCmd` | string | Scriptable entry point to the tuning console (`DebugService:308`). Set it and the line runs, then the attribute is cleared so the same line can repeat. Exists because Studio's command bar gets its own module cache and cannot reach the live service. |
 
 `<Track>` is one of `Detector`, `Magnet`, and `T<n>` indexes the matching list in
-`Config/Gear.luau`. `Suit` and `Luck` are priced and buyable but have no held model —
-`Luck` deliberately never will, since it is a charm on a workbench rather than a tool.
+`Config/Gear.luau`. `Aura` and `Luck` are priced and buyable but have no held model.
+The `Aura` is worn: `AuraService` writes the tier onto the character and every client's
+`AuraController` draws it (`Shared/AuraLook`). `Luck` deliberately never will have one,
+since it is a charm on a workbench rather than a tool.
 (`Boots` and `Satchel` are retired; see `Config/Gear`'s RETIRED block.)
 
 **`Cleaner` is not a held model at all.** Its seven hoses are built from primitives by
@@ -313,7 +322,7 @@ The profile itself — `TEMPLATE` in `DataService`, which is the authoritative c
 ```lua
 {
     cash = 0, xp = 0, level = 1,
-    gear    = { detector = 1, magnet = 1, cleaner = 1, suit = 1, boots = 1, luck = 1 },
+    gear    = { detector = 1, magnet = 1, cleaner = 1, aura = 1, boots = 1, luck = 1 },
                     -- `boots` is VESTIGIAL: the track is retired (Config/Treadmill) and
                     -- DataService's one-time refund clears it on first load. Nothing reads it.
     speedXp   = 0,  -- banked treadmill training. THE ONLY THING THAT SETS WALK SPEED.
@@ -353,17 +362,17 @@ The design has two ways to go down and they must never bleed into each other:
 
 | | source | shielded by | meter | screen |
 |---|---|---|---|---|
-| **Exposure** | ambient **+** what you carry | suit (ambient) / level resist only (carried) | `exposure` → 100 | **green** |
-| **Burn** | ambient only, past suit tolerance | suit tolerance | `health` → 0 | **white** |
+| **Exposure** | ambient **+** what you carry | aura (ambient) / level resist only (carried) | `exposure` → 100 | **green** |
+| **Burn** | ambient only, past aura tolerance | aura tolerance | `health` → 0 | **white** |
 
 Consequences that were both bugs in the first draft, and are now pinned by `Util/Spec`:
 
-- Suit tolerance is checked against **ambient only**. If carried emission counted toward
+- Aura tolerance is checked against **ambient only**. If carried emission counted toward
   burn, a full backpack would trigger the "you should not be here" white screen inside
   your own rated stage.
-- The suit does **not** shield you from your own backpack — the loot is inside the suit
+- The aura does **not** shield you from your own backpack — the loot is inside the aura
   with you. Without that rule the greed dial stops working the moment you buy a mid-tier
-  suit. (The Satchel track used to sell a partial shield against your own loot; it is
+  aura. (The Satchel track used to sell a partial shield against your own loot; it is
   retired, so carried rads now meet only level resist.)
 
 White is used exactly once in this entire game, which is why it reads instantly.

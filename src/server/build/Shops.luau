@@ -11,8 +11,8 @@
 	which is the cheapest legibility win available anywhere in this map.
 
 	PLUS AN OUTFITTER, a fourth stall, and this one is not decoration.
-	Three stalls covers Detector, Magnet and Cleaner and leaves the Suit priced
-	but unbuyable — and the SUIT is the gate on every stage in the game. Without a way
+	Three stalls covers Detector, Magnet and Cleaner and leaves the Aura priced
+	but unbuyable — and the AURA is the gate on every stage in the game. Without a way
 	to buy one, Stage 2 stops being "you can go there and here is what it costs" and
 	becomes exactly the locked door PLAN §3.5 promises never to build. It costs nothing
 	to add because the shop system is track-generic: it is more counters with more
@@ -73,13 +73,13 @@
 	edge (see `buildPlateRoof`), and a small one-line sign centred over the whole stall
 	that NAMES WHAT THE STALL SELLS ("Detector Shop" / "Magnet Shop" / "Hose
 	Shop") in that same accent. The Outfitter gets the identical shell at its own
-	width, its one counter signed the same stall-style way ("Suit Shop") — see
+	width, its one counter signed the same stall-style way ("Aura Shop") — see
 	`buildOutfitter`'s own header for why it used to be a separate building, and
 	why it used to be three counters, then two.
 
 	THE DECORATION IS GONE, AND THAT WAS A DELIBERATE STRIP. Earlier passes stood a
 	blocky shopkeeper behind each counter, a big silhouette prop of the thing sold
-	(a detector, a horseshoe magnet, a bucket-and-brush, a hazmat suit…) beside it,
+	(a detector, a horseshoe magnet, a bucket-and-brush, an aura mannequin…) beside it,
 	a crate and an open chest of clutter on the deck, and a rubber duck on the roof.
 	All removed. What identifies a stall now is the sign naming its wares plus its
 	accent colour — the sign text, the counter trim cap and the floor-marker
@@ -186,7 +186,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 46
+local BUILDER_VERSION = 47
 
 local C = Kit.C
 local build = Kit.build
@@ -471,14 +471,14 @@ local OUTFITTER = {
 	faceYaw = 180,
 	pitch = 13,
 	counters = {
-		{ track = "Suit", label = "Suit Shop" },
+		{ track = "Aura", label = "Aura Shop" },
 		-- BOOTS IS NOT HERE ANY MORE. The track is retired (Config/Gear's `Gear.Boots`
 		-- header): speed is trained on a treadmill at your own base now, not bought at
 		-- a counter. Nothing here had to learn that -- dropping it from Gear.TRACKS
 		-- is what took it out of the sell path, and this entry only had to go so the
 		-- bench would not build a counter selling a track the shop refuses.
 		-- NEITHER IS THE SATCHEL, for the same reason: retired (Config/Gear's RETIRED
-		-- block), and the haul penalty it carried moved onto the Suit sold here.
+		-- block), and the haul penalty it carried moved onto the Aura sold here.
 		-- LUCK IS NOT HERE, and it briefly was. It is the one track you neither hold
 		-- nor wear, and a desk here sold it as though it were a satchel. It
 		-- moved to a glowing button staked next to the wash pad it actually affects
@@ -1572,12 +1572,12 @@ end
 
 --- The outfitter: the SAME shell the plaza stalls build — StallFloor, studded
 --- posts, an open slatted back, a steel-plate roof in the shop's own accent — just
---- sized to its own counter row instead of one stand. The Suit would otherwise be priced but
+--- sized to its own counter row instead of one stand. The Aura would otherwise be priced but
 --- unbuyable, and hazard gear that actually reduces incoming damage earns more than a
 --- picnic table. Sits right next to
 --- DetectorShop in the north row (see OUTFITTER.at); `faceYaw` points its front
 --- south, matching that row-mate. Each counter carries its own stall-style sign naming
---- the track ("Suit Shop") — there is no separate building-level
+--- the track ("Aura Shop") — there is no separate building-level
 --- sign, the same as a plaza stall has no sign beyond its one stand's.
 ---
 --- WAS THREE COUNTERS, THEN TWO, NOW ONE — Boots retired, then the Satchel. `span`
@@ -1648,9 +1648,9 @@ local function buildOutfitter(parent: Instance)
 		buildStoreBillboard(desk, counter.label, C.shopOutfitter)
 	end
 
-	-- The locker room: lockers and the suit behind the Suit desk, a bench either side,
-	-- and the roof gas mask (build/ShopThemes).
-	ShopThemes.dressOutfitter(m, origin, counterX.Suit)
+	-- The aura shop: a mannequin wearing a live aura behind the Aura desk, a sample
+	-- tube per tier either side, and the roof atom (build/ShopThemes).
+	ShopThemes.dressOutfitter(m, origin, counterX.Aura)
 
 	m.Parent = parent
 	return m

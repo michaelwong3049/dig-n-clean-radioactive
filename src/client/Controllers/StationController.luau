@@ -105,6 +105,7 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
+local AuraLook = require(Shared.AuraLook)
 local Net = require(Shared.Net)
 local ToolModels = require(Shared.ToolModels)
 
@@ -351,8 +352,8 @@ local tutorialDone = false
 ---
 --- The result was not a cosmetic mismatch. `dismissed` started true for every shop and
 --- nothing in that world could ever set it false, so no shop panel could open at all —
---- and the Outfitter's counters have never had rack prompts, which made Suit and
---- Satchel unbuyable outright. The Suit gates every stage in the game.
+--- and the Outfitter's counters have never had rack prompts, which made Aura and
+--- Satchel unbuyable outright. The Aura gates every stage in the game.
 ---
 --- So the press-E behaviour is now CONDITIONAL ON THE THING THAT IMPLEMENTS IT being
 --- present. A shop with a browse prompt opens on E; a shop without one falls back to
@@ -439,6 +440,9 @@ local ART_VIEW: { [string]: ArtView } = {
 	Detector = { from = Vector3.new(1, 0.5, 0.3), up = Vector3.new(0, 0.6, -1) },
 	Magnet = { from = Vector3.new(1, 0.6, 0.35), up = Vector3.yAxis },
 	Cleaner = { from = Vector3.new(1, 0.55, -0.35), up = Vector3.yAxis },
+	-- Nearly head on and a little above, so the flat ring reads as a ring and the
+	-- tilted pair cross in front of the nucleus the way they do round a chest.
+	Aura = { from = Vector3.new(0.25, 0.4, 1), up = Vector3.yAxis },
 }
 -- Narrow, so a long detector does not bulge at the near end the way a wide lens makes
 -- it; the camera just stands further back.
@@ -527,8 +531,8 @@ end
 --- Image, kept for its fill, corner and edge — and `CardModel` is a ViewportFrame
 --- inside it that renders the tier's own model, the one the rack hangs and the one
 --- ToolService puts in your hands. See "The art well's model" below for why it is a
---- live render and not an uploaded picture. A track with no model (the Outfitter's
---- Suit) leaves the viewport empty and the well reads as it always did.
+--- live render and not an uploaded picture. The Outfitter's Aura is worn rather than
+--- held, so its well shows AuraLook's still atom model instead (see `artModel`).
 ---
 --- THE CARD IS PLACED BY HAND, NOT BY A LAYOUT. Its slot on the carousel row is a fixed
 --- x (one CAROUSEL_STEP per tier) and it is anchored at its own centre, so the
@@ -1214,6 +1218,11 @@ end
 --- and for its reason: Assets/Tools/Cleaner still holds the retired brushes and sponges,
 --- and they must not win over the hoses ToolModels builds.
 local function artModel(track: string, tier: number): Model?
+	-- Worn, not held: there is no tool model, and a ViewportFrame cannot draw the Beams
+	-- the real aura is made of, so AuraLook builds a still one out of parts.
+	if track == "Aura" then
+		return AuraLook.icon(tier)
+	end
 	if ToolModels.has(track) then
 		return ToolModels.create(track, tier)
 	end

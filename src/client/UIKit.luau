@@ -54,7 +54,7 @@ UIKit.C = {
 	blue = Color3.fromHex("6FA8C7"),
 	scope = Color3.fromHex("8FD8FF"),
 	-- HudController's old WHITE. Named for what it MEANS, not what it looks like:
-	-- PLAN's ONE COLOUR RULE says this hex is suit-failure and nothing else, ever. A
+	-- PLAN's ONE COLOUR RULE says this hex is aura-failure and nothing else, ever. A
 	-- shared table named "white" invites some future caller to grab it for an
 	-- unrelated highlight and quietly break the rule the original comment protected.
 	burn = Color3.fromHex("FFFFFF"),
