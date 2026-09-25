@@ -149,6 +149,14 @@ local REMOTES: { [string]: string } = {
 	-- seconds, so the badge can give those a quieter popup than a sale; nil otherwise.
 	CashState = "RemoteEvent", -- server -> client, on change
 	--
+	-- The "While you were away" card (AwayEarningsService, client
+	-- AwayEarningsController). Server -> client: the offer
+	-- { amount, away, counted, rate, capped } on login, then { collected, doubled? }
+	-- once it is paid. Client -> server: a bare verb, "ask" (push the offer if there
+	-- is one) or "collect". Never an amount: the server holds that on the save. The
+	-- DOUBLE IT half is a Robux product and arrives through ProcessReceipt instead.
+	AwayEarnings = "RemoteEvent",
+	--
 	-- The combined $/s every nuke on the player's stands is paying right now, hourly cap
 	-- applied -- the number the badge prints under the balance. Fired only when that
 	-- rate changes (a stand placed or cleared, a yield or level change), never per tick.

@@ -26,6 +26,7 @@ local ORDER = {
 	"CampWarpController", -- the Warp tile under Nukes and its camp list: warp to any camp reached on foot; reads CampState
 	"LuckBoostController", -- the 2x-luck clover (bottom right), the Violet Aurora banner + lights; opens the Shop
 	"CashController", -- the persistent cash badge; top-left, reads CashState
+	"AwayEarningsController", -- the "While you were away" card on login: COLLECT flies coins into the cash badge, DOUBLE IT is Robux
 	"SpeedController", -- the persistent Speed badge under the cash badge; the one reader of SpeedState
 	"LiquidController", -- the fluid spin popup; reads FluidSpin
 	"CrateController", -- supply crates: the Open prompt on a held crate + the nuke-crate reveal; reads CrateOpened

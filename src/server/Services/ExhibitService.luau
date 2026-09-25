@@ -55,6 +55,7 @@ local Ticker = require(Shared.Util.Ticker)
 
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local AwayEarningsService = require(script.Parent.AwayEarningsService)
 
 -- THE ONE build/ REQUIRE IN THIS FILE, and it is the same shape as DigService's
 -- require of build/SignalAura: a service that has to change world geometry asks the
@@ -961,30 +962,38 @@ local function cappedRatePerSecond(data: any, stats: any): number
 	return math.min(raw, cap)
 end
 
---- Called once, right after a profile loads. Credits time spent offline into
---- bankedCash; start()'s loaded hook then calls deposit() straight away, so the
---- offline haul just lands in the wallet on login rather than waiting to be
---- collected. Still capped at EXHIBIT_OFFLINE_BANK_HOURS.
-local function bankOffline(data: any)
+--- Called once, right after a profile loads. Works out what the stands earned while
+--- the player was offline (capped at EXHIBIT_OFFLINE_BANK_HOURS) and hands it to
+--- AwayEarningsService, which holds it for the "While you were away" card's COLLECT
+--- rather than dropping it silently into the wallet.
+local function bankOffline(player: Player, data: any)
 	local now = os.time()
 	if data.exhibit.bankedAt <= 0 then
 		data.exhibit.bankedAt = now
 		return
 	end
 
-	local elapsed = math.clamp(now - data.exhibit.bankedAt, 0, Tuning.EXHIBIT_OFFLINE_BANK_HOURS * 3600)
+	local away = math.max(0, now - data.exhibit.bankedAt)
+	local elapsed = math.min(away, Tuning.EXHIBIT_OFFLINE_BANK_HOURS * 3600)
+	data.exhibit.bankedAt = now
 	if elapsed <= 0 then
-		data.exhibit.bankedAt = now
 		return
 	end
 
 	local stats = StatResolver.get(data)
-	local rate = cappedRatePerSecond(data, stats)
-	local credit = rate * elapsed * Tuning.EXHIBIT_OFFLINE_RATE
-	if credit > 0 then
-		data.exhibit.bankedCash += math.floor(credit + 0.5)
+	local offlineRate = cappedRatePerSecond(data, stats) * Tuning.EXHIBIT_OFFLINE_RATE
+	AwayEarningsService.offer(player, data, offlineRate * elapsed, away, offlineRate)
+end
+
+--- /away: pretend this player just came back from `seconds` offline, through the
+--- same path a real login takes.
+function ExhibitService.simulateAway(player: Player, seconds: number)
+	local data = DataService.data(player)
+	if data == nil then
+		return
 	end
-	data.exhibit.bankedAt = now
+	data.exhibit.bankedAt = os.time() - seconds
+	bankOffline(player, data)
 end
 
 --- Whole dollars are swept from bankedCash into spendable cash on a slow cadence,
@@ -1581,7 +1590,7 @@ function ExhibitService.start()
 		-- was 3, upgraded with cash) — Reconcile can't, since the key already exists.
 		data.exhibit.floors = Floors.clamp(data.exhibit.floors)
 		data.exhibit.slots = Floors.slotsFor(data.exhibit.floors)
-		bankOffline(data)
+		bankOffline(player, data)
 		deposit(player, data)
 		assign(player)
 

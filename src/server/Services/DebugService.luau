@@ -50,6 +50,8 @@ local CrateService = require(script.Parent.CrateService)
 local CampService = require(script.Parent.CampService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
 local TreadmillService = require(script.Parent.TreadmillService)
+local AwayEarningsService = require(script.Parent.AwayEarningsService)
+local Tuning = require(Shared.Config.Tuning)
 
 local Workspace = game:GetService("Workspace")
 
@@ -698,6 +700,29 @@ COMMANDS["/luckboost"] = {
 			LuckBoostService.grant(player, data, seconds)
 		end
 		return `clover: {math.floor(data.luckBoostLeft)}s banked, luck boost now {StatResolver.get(data).luckBoost}x`
+	end,
+}
+
+COMMANDS["/away"] = {
+	-- The "While you were away" card without logging off. With no rate it runs the real
+	-- login path (so a base with empty stands earns nothing and shows no card); a rate
+	-- stands in for the stands' live $/s so the card can be seen on an empty base.
+	help = "/away [seconds] [live $/s] — come back from `seconds` offline (default 3h) and get the away card",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		local seconds = tonumber(args[1]) or 3 * 3600
+		local rate = tonumber(args[2])
+		if rate == nil then
+			ExhibitService.simulateAway(player, seconds)
+		else
+			local offlineRate = rate * Tuning.EXHIBIT_OFFLINE_RATE
+			local counted = math.min(seconds, Tuning.EXHIBIT_OFFLINE_BANK_HOURS * 3600)
+			AwayEarningsService.offer(player, data, offlineRate * counted, seconds, offlineRate)
+		end
+		return `away {seconds}s: ${data.awayPending} waiting on the card`
 	end,
 }
 
