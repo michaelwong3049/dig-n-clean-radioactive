@@ -210,7 +210,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 64
+local BUILDER_VERSION = 65
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -2436,10 +2436,10 @@ end
 -- preference. Training is an edge, so overlapping station radii would mean a player at
 -- one machine being registered at another. MOVED TO THE -X SIDE, into the wash pad's
 -- old spot, when the pad was removed on request -- it used to stand in the middle of
--- the strip, on the entrance path. Belt centre sits at plot-local (-21, -35), Radius 5:
+-- the strip, on the entrance path. Belt centre sits at plot-local (-21, -34.5), Radius 5:
 --
 --   to the Basin  (26, -32), Radius 9 ...... 47.1 studs against a 14-stud combined reach
---   to PlotSpawn  (0, -24), 6x6 ............ 23.7 studs against 8
+--   to PlotSpawn  (0, -24), 6x6 ............ 23.5 studs against 8
 --
 -- Keep those gaps if either moves. World.verify() is the actual authority and asserts
 -- the first every rebuild, not this comment.
@@ -2448,16 +2448,18 @@ end
 -- console at that end, clear of the spawn pad.
 local TREADMILL = {
 	cx = -21,
-	cz = -35,
+	-- Half a stud back from -35 so the gold rung fits at `scale` 5: see below.
+	cz = -34.5,
 	-- The imported models come in at ~2 studs long; every rung is scaled by the SAME
 	-- factor, so the machine visibly grows as it is upgraded (the gold one is half again
-	-- the basic one's length, as authored). At 4.5 the gold one's console reaches
-	-- plot-local z -42.3 against a pad that ends at -43, and its tail -29.5 against
-	-- PlotSpawn at -27; raise this and one of those two gives.
-	scale = 4.5,
+	-- the basic one's length, as authored). 5, up from 4.5 on request ("slightly
+	-- bigger"). At 5 the gold one's console reaches plot-local z -42.7 against a pad
+	-- that ends at -43, and its tail -28.4 against PlotSpawn at -27; raise this and one
+	-- of those two gives.
+	scale = 5,
 	-- The belt surface above the pad top. The models' belts sit ~0.1 model units above
 	-- their lowest part, so at `scale` this rests every rung on the pad.
-	beltTop = 0.45,
+	beltTop = 0.5,
 	-- The skeleton belt before a model is fitted to it, and what shows if the templates
 	-- are missing (a place without Assets.TreadmillTemplates).
 	beltW = 3.2,
