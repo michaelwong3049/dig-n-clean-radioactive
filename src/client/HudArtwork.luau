@@ -67,6 +67,10 @@ Artwork.IMAGE = {
 	chest = "rbxassetid://137692103278879", -- Shop: open treasure chest of coins
 	mushroomCloud = "rbxassetid://107094805710382", -- Nukes: mushroom cloud
 	portal = "rbxassetid://107949254570705", -- Warp: violet-to-cyan portal swirl
+	-- The glow behind each tile's symbol: a WHITE disc whose alpha eases from solid to
+	-- nothing at the rim (smoothstep), so a caller tints it with ImageColor3.
+	-- tools/hud-icons/glow.svg.
+	glow = "rbxassetid://76655055685501",
 	-- The warp bar's HOME and SHOPS portals (WarpController).
 	-- "House Icon" by uR1St3nLe4hH4lt0n, store decal 124662272665879.
 	house = "rbxassetid://82460327730975",

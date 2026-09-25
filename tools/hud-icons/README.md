@@ -9,6 +9,7 @@ The ids live in `src/client/HudArtwork.luau` (`Artwork.IMAGE`).
 | `shop_chest.svg` | Shop | `chest` |
 | `nukes_cloud.svg` | Nukes | `mushroomCloud` |
 | `warp_portal.svg` | Warp | `portal` |
+| `glow.svg` | the soft glow behind every symbol (white, tinted per tile) | `glow` |
 
 To change one: edit the SVG (100x100 viewBox, `#12161d` outline), render it to a
 transparent 256px PNG, upload it (Studio MCP `upload_image`, or Asset Manager), and paste
