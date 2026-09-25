@@ -105,8 +105,8 @@ local TEMPLATE = {
 	-- that set, and a record is extra detail about a discovery, not the discovery.
 	indexStats = {},
 	perks = {}, -- perkId -> true. Read by StatResolver.
-	-- Which one-time walkthroughs this player has finished or skipped, by id (just
-	-- "locker" so far, client/LockerTutorial). An array of strings, not a set, for the
+	-- Which one-time walkthroughs this player has finished or skipped, by id ("locker"
+	-- and "treadmill", both run by client/LockerTutorial). An array of strings, not a set, for the
 	-- same no-gaps storage rule as everything else here.
 	tutorialsSeen = {},
 
@@ -155,6 +155,9 @@ local TEMPLATE = {
 	-- key, is detected before Reconcile like `detectorLadder`, and is collapsed once by
 	-- collapseTreadmillLadder.
 	treadmillLadder = 4,
+	-- Whether this player has bought treadmill access (Treadmill.UNLOCK_PRICE). No belt
+	-- trains them until they have; TreadmillService.buy sells it at the console.
+	treadmillUnlocked = false,
 
 	-- The player's chosen base accent colour, "RRGGBB" hex (no leading "#"). "" means
 	-- they have never picked one, which renders the same neutral grey as an unclaimed

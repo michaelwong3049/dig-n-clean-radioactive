@@ -237,7 +237,12 @@ local function renderTreadmill(index: number, data: any?)
 		return
 	end
 	local treadmill = plot:FindFirstChild("Treadmill", true)
-	Plots.setTreadmillTier(treadmill, if data then data.treadmill else nil, if data then data.speedPoints else nil)
+	Plots.setTreadmillTier(
+		treadmill,
+		if data then data.treadmill else nil,
+		if data then data.speedPoints else nil,
+		data == nil or data.treadmillUnlocked ~= true
+	)
 end
 
 --- Fill the plot's fluid bottle AND its cleansing tub with the fluid this profile has

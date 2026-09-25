@@ -31,14 +31,24 @@
 	If the script is not there — a custom rig, a future avatar change — the belt still
 	scrolls and the card still works, and nobody sees an error. It is decoration, and
 	decoration is not allowed to be load-bearing.
+
+	3. THE WALKTHROUGH. Buying treadmill access (Treadmill.UNLOCK_PRICE) is owed a short
+	   spotlight walkthrough, the Quarantine Locker's (client/LockerTutorial): the
+	   machine, the Speed badge, the console. SpeedState's `tutorial` says it is owed;
+	   it starts once the player's own machine is near and on screen, and finishing or
+	   skipping reports it seen. A LOCKED machine (`Locked` attribute, build/Plots)
+	   stands still: its belt is not scrolled.
 ]]
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
+local Net = require(ReplicatedStorage.Shared.Net)
 local UIKit = require(script.Parent.Parent.UIKit)
+local LockerTutorial = require(script.Parent.Parent.LockerTutorial)
 local Speed = require(script.Parent.SpeedController)
 
 local Treadmill = {}
@@ -338,8 +348,8 @@ local function refreshActive()
 	local eye = camera.CFrame.Position
 	for _, plot in plots:GetChildren() do
 		local model = plot:FindFirstChild("Treadmill", true)
-		if model == nil then
-			continue
+		if model == nil or model:GetAttribute("Locked") == true then
+			continue -- a locked machine stands still until its owner buys it
 		end
 		local machine = machines[model]
 		if machine and machine.slats[1].part.Parent == nil then
@@ -438,10 +448,106 @@ local function onCharacter()
 	runTrack = nil
 end
 
+-- ── The walkthrough ──────────────────────────────────────────────────────
+
+--- Start it once the player's own machine is this close and on screen. They have just
+--- bought it at the console, so normally that is immediately.
+local TUTORIAL_RANGE = 45
+--- Walking this far off mid-way closes it, unmarked, so it comes back next visit.
+local TUTORIAL_LEAVE = 70
+local TUTORIAL_CHECK = 0.5
+
+local tutorial: { stop: () -> () }? = nil
+local tutorialDone = false
+local tutorialPrompt: ProximityPrompt? = nil
+local sinceTutorialCheck = 0
+local actionRemote: any = nil
+
+local function ownTreadmill(view: any): Instance?
+	local plots = Workspace:FindFirstChild("Plots")
+	local plot = plots and view.plot and plots:FindFirstChild(`Plot{view.plot}`)
+	return plot and plot:FindFirstChild("Treadmill", true)
+end
+
+local function rootPosition(): Vector3?
+	local character = Players.LocalPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	return if root and root:IsA("BasePart") then root.Position else nil
+end
+
+local function endTutorial(finished: boolean)
+	tutorial = nil
+	-- The console's prompt was held off so a stray E could not buy a belt mid-card.
+	if tutorialPrompt then
+		tutorialPrompt.Enabled = true
+		tutorialPrompt = nil
+	end
+	if finished then
+		tutorialDone = true
+		actionRemote:FireServer({ action = "tutorialSeen", id = "treadmill" })
+	end
+end
+
+local function checkTutorial()
+	local view = Speed.view()
+	local model = if view then ownTreadmill(view) else nil
+	local look = model and model:FindFirstChild("Look")
+	local console = model and model:FindFirstChild("Console")
+	local here = rootPosition()
+
+	if tutorial then
+		if console == nil or here == nil or (here - (console :: BasePart).Position).Magnitude > TUTORIAL_LEAVE then
+			tutorial.stop()
+		end
+		return
+	end
+	if tutorialDone or view == nil or view.tutorial ~= true then
+		return
+	end
+	if look == nil or console == nil or not console:IsA("BasePart") or here == nil then
+		return
+	end
+	local camera = Workspace.CurrentCamera
+	local _, visible = camera:WorldToViewportPoint(console.Position)
+	if (here - console.Position).Magnitude > TUTORIAL_RANGE or not visible then
+		return
+	end
+
+	local hud = Players.LocalPlayer.PlayerGui:FindFirstChild("SpeedHud")
+	local badge = hud and hud:FindFirstChild("SpeedBadge", true)
+	local steps: { LockerTutorial.Step } = {
+		{
+			world = look,
+			title = "YOUR TREADMILL",
+			body = "Stand on the belt to train. Every second on it earns Speed, even while you're AFK.",
+		},
+	}
+	if badge and badge:IsA("GuiObject") then
+		table.insert(steps, {
+			target = badge,
+			title = "SPEED",
+			body = "Your Speed adds up here. Every level it reaches makes you walk faster, for good.",
+		})
+	end
+	table.insert(steps, {
+		world = console,
+		title = "FASTER BELTS",
+		body = "Press E at this screen to upgrade. Each belt earns Speed faster, and looks the part.",
+	})
+
+	local prompt = console:FindFirstChildOfClass("ProximityPrompt")
+	if prompt then
+		prompt.Enabled = false
+		tutorialPrompt = prompt
+	end
+	tutorial = LockerTutorial.run(steps, endTutorial)
+end
+
 -- ── Wiring ────────────────────────────────────────────────────────────────
 
 function Treadmill.start()
 	Players.LocalPlayer.CharacterAdded:Connect(onCharacter)
+	actionRemote = Net.get("StationAction")
 
 	Speed.onChanged(function(view, previous)
 		local wasTraining = previous ~= nil and previous.training
@@ -463,6 +569,11 @@ function Treadmill.start()
 		animate(dt)
 		if shown then
 			paint()
+		end
+		sinceTutorialCheck += dt
+		if sinceTutorialCheck >= TUTORIAL_CHECK then
+			sinceTutorialCheck = 0
+			checkTutorial()
 		end
 	end)
 end

@@ -57,7 +57,7 @@ local DeconService = {}
 
 --- The walkthroughs a client may mark seen ("tutorialSeen"). An allowlist, so a client
 --- cannot grow `data.tutorialsSeen` with whatever strings it likes.
-local TUTORIALS: { [string]: boolean } = { locker = true }
+local TUTORIALS: { [string]: boolean } = { locker = true, treadmill = true }
 
 local stateRemote: any = nil
 local actionRemote: any = nil

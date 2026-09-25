@@ -14,6 +14,10 @@
 	target's screen rect every frame, eased, so the hole glides from one step to the
 	next and keeps up if the panel refits to a resized window.
 
+	A STEP CAN RING A THING IN THE WORLD, not only a panel: `world` (a Model or a part)
+	is projected to the screen every frame, so the treadmill's walkthrough
+	(TreadmillController) can ring the machine itself and follow the camera.
+
 	ONCE PER PLAYER. The server says whether it is still owed (`lockerTutorial` on the
 	locker's StationState, from `data.tutorialsSeen`); finishing or skipping reports it
 	seen. Walking away mid-way just closes it, unmarked, so it comes back next visit.
@@ -59,7 +63,9 @@ local BODY_SIZE = 16
 local EASE = 14
 
 export type Step = {
-	target: GuiObject,
+	-- One of the two: a GuiObject to ring, or a Model/BasePart in the world.
+	target: GuiObject?,
+	world: Instance?,
 	title: string,
 	body: string,
 }
@@ -259,8 +265,50 @@ function LockerTutorial.run(steps: { Step }, onDone: (finished: boolean) -> ()):
 	--- Where the target is right now, relative to this gui, padded. AbsolutePosition is
 	--- in one space for every ScreenGui (below the topbar), so subtracting this layer's
 	--- own origin puts it in this layer's pixels whatever the target's gui insets are.
+	--- A world thing's screen rect: its bounding box's eight corners through the camera,
+	--- clipped to the screen. Viewport pixels ARE this layer's pixels (IgnoreGuiInset).
+	--- nil while any corner is behind the camera, which keeps the last good hole.
+	local function worldRect(world: Instance): Rect?
+		local camera = workspace.CurrentCamera
+		local cf: CFrame, size: Vector3
+		if world:IsA("Model") then
+			cf, size = world:GetBoundingBox()
+		elseif world:IsA("BasePart") then
+			cf, size = world.CFrame, world.Size
+		else
+			return nil
+		end
+		if camera == nil or world.Parent == nil then
+			return nil
+		end
+		local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+		for _, sx in { -0.5, 0.5 } do
+			for _, sy in { -0.5, 0.5 } do
+				for _, sz in { -0.5, 0.5 } do
+					local corner = (cf * CFrame.new(size.X * sx, size.Y * sy, size.Z * sz)).Position
+					local point = camera:WorldToViewportPoint(corner)
+					if point.Z <= 0 then
+						return nil
+					end
+					x0, y0 = math.min(x0, point.X), math.min(y0, point.Y)
+					x1, y1 = math.max(x1, point.X), math.max(y1, point.Y)
+				end
+			end
+		end
+		local screen = catcher.AbsoluteSize
+		x0, y0 = math.max(x0, HOLE_PAD), math.max(y0, HOLE_PAD)
+		x1, y1 = math.min(x1, screen.X - HOLE_PAD), math.min(y1, screen.Y - HOLE_PAD)
+		if x1 - x0 < 4 or y1 - y0 < 4 then
+			return nil
+		end
+		return Rect.new(Vector2.new(x0 - HOLE_PAD, y0 - HOLE_PAD), Vector2.new(x1 + HOLE_PAD, y1 + HOLE_PAD))
+	end
+
 	local function targetRect(): Rect?
 		local step = steps[index]
+		if step and step.world then
+			return worldRect(step.world)
+		end
 		local target = step and step.target
 		if target == nil or not target.Visible or target.AbsoluteSize.X <= 0 then
 			return nil

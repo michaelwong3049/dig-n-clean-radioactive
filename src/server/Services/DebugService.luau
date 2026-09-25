@@ -391,11 +391,26 @@ COMMANDS["/train"] = {
 	--
 	-- `/train speed <n>` sets the raw total (to test a point just under a requirement),
 	-- `/train belt <n>` moves the RUNG.
-	help = "/train <level 1-75> — set Speed to that level's requirement; /train speed <n>; /train belt <1-4>",
+	help = "/train <level 1-75> — set Speed to that level's requirement; /train speed <n>; /train belt <1-4>; /train lock|unlock",
 	run = function(player, _sandbox, args)
 		local data = DataService.data(player)
 		if data == nil then
 			return "your save hasn't loaded"
+		end
+
+		-- `/train lock` puts the treadmill back behind its price AND forgets the
+		-- walkthrough, so buying it again replays both; `/train unlock` skips the buy.
+		if args[1] == "lock" or args[1] == "unlock" then
+			data.treadmillUnlocked = args[1] == "unlock"
+			if args[1] == "lock" then
+				local seen = table.find(data.tutorialsSeen, "treadmill")
+				if seen then
+					table.remove(data.tutorialsSeen, seen)
+				end
+			end
+			ExhibitService.refreshTreadmill(player)
+			TreadmillService.refresh(player)
+			return `treadmill {args[1]}ed`
 		end
 
 		if args[1] == "belt" then
