@@ -662,23 +662,26 @@ Dock.SIDE_GRID_COLUMNS = 2
 Dock.SIDE_GRID_ROWS = 2
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.GAP
 Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_ROWS - 1) * Dock.GAP
+-- How far the grid sits BELOW the line it is hung from (the cash badge's top, or the
+-- centre on a short screen), on request: level with the badge read as too high.
+Dock.SIDE_GRID_DROP = 40
 -- The Settings gear's bottom edge in the top-right corner (SettingsController: 12 down,
 -- 44 tall), measured from the bottom of the topbar inset, not the screen top.
 Dock.CORNER_BUTTON_BOTTOM = 56
 
 --- The right-hand tile grid's TOP edge, in design px from the vertical centre of a
---- canvas `height` design px tall. Hung from SIDE_TOP_Y on a tall enough screen; below
+--- canvas `height` design px tall. Hung SIDE_GRID_DROP under SIDE_TOP_Y on a tall enough screen; below
 --- SIDE_TOP_MIN_HEIGHT the WHOLE grid is centred instead, so its bottom row stays clear
 --- of the hotbar and a touch screen's jump button -- but never so high that the top row
 --- runs up into the Settings gear above it. Every tile places itself from this one line
 --- (Dock.sideTileCentre).
 function Dock.sideColumnTop(height: number): number
 	if height >= Dock.SIDE_TOP_MIN_HEIGHT then
-		return Dock.SIDE_TOP_Y
+		return Dock.SIDE_TOP_Y + Dock.SIDE_GRID_DROP
 	end
 	local inset = GuiService:GetGuiInset().Y / UIKit.scale()
 	local underGear = inset + Dock.CORNER_BUTTON_BOTTOM + Dock.GAP - height / 2
-	return math.max(-Dock.SIDE_GRID_HEIGHT / 2, underGear)
+	return math.max(-Dock.SIDE_GRID_HEIGHT / 2 + Dock.SIDE_GRID_DROP, underGear)
 end
 
 --- The CENTRE of grid tile `slot` (1-4, left to right, top to bottom), as a position on
