@@ -263,7 +263,7 @@ end
 --- Open the Shop panel. Also what clicking the 2x-luck clover does (LuckBoostController).
 function Shop.open()
 	local panel = panelFrame
-	if panel == nil or panel.Visible then
+	if panel == nil or panel.Visible or HudTile.blocked("Shop") then
 		return
 	end
 	refreshStatus()
@@ -375,6 +375,7 @@ function Shop.start()
 	local playerGui = player:WaitForChild("PlayerGui")
 	build().Parent = playerGui
 	buildPanel().Parent = playerGui
+	HudTile.registerPanel("Shop", panelFrame :: Frame)
 
 	player:GetAttributeChangedSignal(LuckBoost.PERSONAL_ATTR):Connect(refreshStatus)
 	task.spawn(function()

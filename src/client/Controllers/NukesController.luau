@@ -386,7 +386,7 @@ end
 
 function Nukes.open()
 	local panel = ui.panel
-	if panel == nil or panel.Visible then
+	if panel == nil or panel.Visible or HudTile.blocked("Nukes") then
 		return
 	end
 	ui.notice.Text = ""
@@ -618,6 +618,7 @@ function Nukes.start()
 	local playerGui = player:WaitForChild("PlayerGui")
 	build().Parent = playerGui
 	buildPanel().Parent = playerGui
+	HudTile.registerPanel("Nukes", ui.panel)
 
 	actionRemote = Net.get("NukeAction")
 	Net.get("NukeList").OnClientEvent:Connect(function(list)

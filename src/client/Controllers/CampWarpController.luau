@@ -467,7 +467,7 @@ end
 
 function CampWarp.open()
 	local panel = ui.panel
-	if panel == nil or panel.Visible then
+	if panel == nil or panel.Visible or HudTile.blocked("Warp") then
 		return
 	end
 	unseen = false
@@ -646,6 +646,7 @@ function CampWarp.start()
 	local playerGui = player:WaitForChild("PlayerGui")
 	build().Parent = playerGui
 	buildPanel().Parent = playerGui
+	HudTile.registerPanel("Warp", ui.panel)
 
 	warpRemote = Net.get("Warp")
 

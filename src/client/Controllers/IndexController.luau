@@ -950,7 +950,11 @@ local function build(): (ScreenGui, ScreenGui)
 	buildMiddle(panel)
 	buildDetail(panel)
 
+	HudTile.registerPanel("Index", panel)
 	local function toggle()
+		if not panel.Visible and HudTile.blocked("Index") then
+			return
+		end
 		panel.Visible = not panel.Visible
 		if panel.Visible and dirty then
 			Index.render()
