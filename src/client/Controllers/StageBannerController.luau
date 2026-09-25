@@ -121,7 +121,7 @@ local function build(): ScreenGui
 	gui.Name = "StageBanner"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
-	gui.DisplayOrder = 95 -- under HudController's blackout curtain (100), over the rest
+	gui.DisplayOrder = 95 -- under the death screen (DeathScreen, 120), over the rest
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	local canvas = UIKit.canvas(gui)

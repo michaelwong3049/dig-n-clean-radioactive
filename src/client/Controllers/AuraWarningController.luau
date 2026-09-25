@@ -222,7 +222,7 @@ local function build(): ScreenGui
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
 	-- Over the RadFx overlay (RadHud is 100) so a whitening screen cannot bury it, and
-	-- under the blackout curtain's moment, which hides this warning anyway (downed).
+	-- under the death screen's moment (DeathScreen), which hides this warning anyway (downed).
 	gui.DisplayOrder = 101
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
@@ -320,7 +320,7 @@ local function step(dt: number)
 		calmFor = 0
 	else
 		heavyFor = 0
-		-- Downed hides at once: the curtain is already the loudest thing on screen.
+		-- Downed hides at once: the death screen is already the loudest thing on screen.
 		calmFor = if reading.downed then HIDE_DELAY else calmFor + dt
 	end
 

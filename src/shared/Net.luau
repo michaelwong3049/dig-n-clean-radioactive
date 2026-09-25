@@ -115,6 +115,11 @@ local REMOTES: { [string]: string } = {
 	-- Phase 2: exposure.
 	ExposureState = "RemoteEvent", -- server -> client, the rad meter, once per tick
 	Blackout = "RemoteEvent", -- server -> client, you went down and what it cost
+	-- Your own dropped bag, for the "get it back" tracker (BagTrackerController). One
+	-- message when it lands { id, position, expiresAt, items }, another whenever someone
+	-- takes from it { id, items }, and a last one when it is emptied or times out
+	-- { id, gone = true }. Owner only: everyone else already sees the bag and its label.
+	DroppedBag = "RemoteEvent", -- server -> client
 
 	-- A nuke's pull fuse ran out and it went off (Services/HazardService). Fired to
 	-- EVERY client, not just the puller: the flash, the cloud and the shake are a

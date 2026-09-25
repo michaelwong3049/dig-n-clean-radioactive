@@ -50,12 +50,12 @@ local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local RadFx = require(script.Parent.Parent.RadFx)
+local DeathScreen = require(script.Parent.Parent.DeathScreen)
 local Dock = UIKit.Dock
 
 local Hud = {}
 
--- The blackout curtain's palette, unchanged.
-local GREEN = UIKit.C.green
+-- The aura-failing countdown strip's white (the colour rule above).
 local WHITE = UIKit.C.burn
 
 -- The same cartoon black every sign and outline in the game uses (Kit.C.hazardBlack).
@@ -322,22 +322,22 @@ local function build(): ScreenGui
 	gui.Name = "RadHud"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
-	-- Edge to edge, notch and all (UIKit's "The notch"): the damage overlay and the
-	-- blackout curtain are both the whole screen, and a curtain that stops at the safe
-	-- area leaves a strip of the world showing down one side. The meter, the one thing
-	-- here that hugs an edge, adds the inset back itself.
+	-- Edge to edge, notch and all (UIKit's "The notch"): the damage overlay is the
+	-- whole screen, and an overlay that stops at the safe area leaves a strip of the
+	-- world showing down one side. The meter, the one thing here that hugs an edge,
+	-- adds the inset back itself.
 	gui.ScreenInsets = Enum.ScreenInsets.None
 	gui.DisplayOrder = 100
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	-- The damage overlay. Not part of the dock — it is the whole screen, under every
-	-- panel (ZIndex 2) and under the blackout curtain, which has to cover it.
+	-- panel (ZIndex 2). The death screen covers it from its own gui (DeathScreen).
 	RadFx.build(gui)
 
 	-- Everything else goes on the scaled canvas (UIKit.canvas). RadFx stays beside it,
 	-- straight on the gui: it already sizes every crack and ring off the camera's own
 	-- viewport, and scaling it a second time would push it past the screen edges. ZIndex
-	-- 3 so the canvas — meter and curtain alike — still draws over the overlay's 2.
+	-- 3 so the canvas and the meter on it still draw over the overlay's 2.
 	local canvas = UIKit.canvas(gui, 3)
 
 	local P = PANEL
@@ -422,50 +422,6 @@ local function build(): ScreenGui
 		strokeTransparency = 1,
 		shadow = false,
 		zIndex = 4,
-	})
-
-	-- Blackout curtain. Full-screen background, unchanged; the text on it is bigger
-	-- and centred exactly as before — it already lived at true screen-centre.
-	ui.curtain = Instance.new("Frame")
-	ui.curtain.Name = "Curtain"
-	ui.curtain.Size = UDim2.fromScale(1, 1)
-	ui.curtain.BackgroundColor3 = Color3.new(0, 0, 0)
-	ui.curtain.BackgroundTransparency = 1
-	ui.curtain.BorderSizePixel = 0
-	ui.curtain.ZIndex = 20
-	ui.curtain.Visible = false
-	ui.curtain.Parent = canvas
-
-	-- SPLIT FROM ONE LABEL INTO TWO. LuckiestGuy is a heavy display face — it reads
-	-- as a punch of a headline and badly as a full sentence, and the drop-items line
-	-- is a full sentence. The headline's TEXT never changes (it is always "YOU WENT
-	-- DOWN" — only the cause, the body line, and both labels' colour/fade vary per
-	-- call), so it is set once here and playBlackout() never touches its Text again.
-	ui.curtainHeadline = UIKit.label(ui.curtain, {
-		name = "Headline",
-		anchorPoint = Vector2.new(0.5, 0.5),
-		position = UDim2.new(0.5, 0, 0.5, -50),
-		size = UDim2.fromOffset(900, 70),
-		font = UIKit.Font.hero,
-		textSize = UIKit.TextSize.hero,
-		color = GREEN,
-		xAlign = Enum.TextXAlignment.Center,
-		text = "YOU WENT DOWN",
-		zIndex = 21,
-	})
-
-	ui.curtainBody = UIKit.label(ui.curtain, {
-		name = "Body",
-		anchorPoint = Vector2.new(0.5, 0.5),
-		position = UDim2.new(0.5, 0, 0.5, 45),
-		size = UDim2.fromOffset(860, 90),
-		font = UIKit.Font.body,
-		textSize = 20,
-		color = GREEN,
-		xAlign = Enum.TextXAlignment.Center,
-		wrapped = true,
-		text = "",
-		zIndex = 21,
 	})
 
 	return gui
@@ -564,7 +520,7 @@ local function render(dt: number)
 	end
 
 	-- The countdown, only while it means something. Downed and showering both already
-	-- have their own loud signals (the curtain, the draining arrows), so it stays
+	-- have their own loud signals (the death screen, the draining arrows), so it stays
 	-- hidden there too rather than repeating the news.
 	local showCountdown = not state.downed and not state.inShower and state.survivable >= 0
 	setCountdownShown(showCountdown)
@@ -607,41 +563,6 @@ local function render(dt: number)
 	end
 end
 
--- ── Blackout ─────────────────────────────────────────────────────────
-
-local function playBlackout(info)
-	-- A blast death ("blast") flashes white like aura burn -- it is heat either way --
-	-- but its bag went off with it rather than dropping (ExposureService).
-	local burn = info.cause == "burn" or info.cause == "blast"
-	local dropped = info.itemsDropped or 0
-	local detonated = info.itemsDetonated or 0
-
-	local textColor = if burn then Color3.new(0.1, 0.1, 0.1) else GREEN
-
-	ui.curtain.BackgroundColor3 = if burn then Color3.new(1, 1, 1) else Color3.new(0, 0, 0)
-	ui.curtainHeadline.TextColor3 = textColor
-	ui.curtainBody.TextColor3 = textColor
-	ui.curtainBody.Text = if detonated > 0
-		then `your bag went off \u{2014} {detonated} nuke(s) blew where you fell`
-		elseif dropped > 0 then `dropped {dropped} item(s) where you fell \u{2014} 90 seconds to get back`
-		else "nothing to lose \u{2014} your bag was empty"
-	ui.curtain.Visible = true
-	ui.curtain.BackgroundTransparency = 0
-
-	task.spawn(function()
-		task.wait(1.6)
-		for i = 1, 30 do
-			ui.curtain.BackgroundTransparency = i / 30
-			ui.curtainHeadline.TextTransparency = i / 30
-			ui.curtainBody.TextTransparency = i / 30
-			task.wait(0.03)
-		end
-		ui.curtain.Visible = false
-		ui.curtainHeadline.TextTransparency = 0
-		ui.curtainBody.TextTransparency = 0
-	end)
-end
-
 -- ── Lifecycle ────────────────────────────────────────────────────────
 
 --- Read by GeigerController so the audio bed and the picture cannot disagree.
@@ -675,8 +596,10 @@ function Hud.start()
 		state.inCrater = payload.inCrater == true
 	end)
 
+	-- Going down is DeathScreen's ("Flatline"), on its own gui over every panel.
+	DeathScreen.start()
 	Net.get("Blackout").OnClientEvent:Connect(function(info)
-		local ok, err = pcall(playBlackout, info)
+		local ok, err = pcall(DeathScreen.play, info)
 		if not ok then
 			warn(`[hud] blackout render failed: {err}`)
 		end

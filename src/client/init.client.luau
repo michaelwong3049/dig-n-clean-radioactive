@@ -15,9 +15,10 @@ local ORDER = {
 	"FieldController", -- Phase 1: the range ring and the aura pulse; reads DetectorController, and it reads back
 	"StationController", -- Phase 1: base camp — scrub, sell, rack
 	"InventoryController", -- Phase 1: the hotbar and its detail card; reads CarryState + StationController
-	"HudController", -- Phase 2: rad meter, the RadFx damage overlay, distortion, blackout
+	"HudController", -- Phase 2: rad meter, the RadFx damage overlay, distortion, the death screen (DeathScreen)
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
 	"AuraWarningController", -- Phase 2: the "UPGRADE AURA" card when an over-tier stage is burning you down; reads ExposureState
+	"BagTrackerController", -- after a blackout: where your dropped bag is and how long it has left; reads DroppedBag
 	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState
 	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
 	"IndexController", -- the item index GUI; Index tile on the right edge, reads IndexState + Unearthed
