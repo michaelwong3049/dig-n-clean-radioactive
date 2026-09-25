@@ -88,6 +88,16 @@ local HELD_ITEM_LIFT = 0.15
 --- every crate is the same box in your hands whatever sticks up off its lid.
 local HELD_CRATE_SIZE = 3.8
 
+--- Per-track shrink applied to a held TOOL after it is placed in the hand, on top
+--- of the scale the place template already carries. The magnet art ships sized for
+--- a close-up, and in play a Singularity Coil came out as big as the character
+--- holding it. Scaling about the pivot (the Grip) keeps the hold exactly where
+--- HoldCFrame puts it; only the model around the hand gets smaller. A track not
+--- listed is held at its authored size.
+local HELD_TOOL_SCALE: { [string]: number } = {
+	Magnet = 0.75,
+}
+
 local equipped: { [Player]: string? } = {}
 
 -- Track name in Assets/Tools -> the key it upgrades under in profile.gear.
@@ -483,6 +493,10 @@ local function equip(character: Model, track: string, tier: number)
 	-- at the hand times the tuned offset and everything else follows.
 	clone.Parent = character
 	clone:PivotTo(anchor.CFrame * offset)
+	local shrink = HELD_TOOL_SCALE[track]
+	if shrink then
+		clone:ScaleTo(clone:GetScale() * shrink)
+	end
 
 	local weld = Instance.new("WeldConstraint")
 	weld.Name = "HoldWeld"

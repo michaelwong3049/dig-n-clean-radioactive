@@ -186,7 +186,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 43
+local BUILDER_VERSION = 44
 
 local C = Kit.C
 local build = Kit.build
@@ -234,6 +234,7 @@ local PLAZA_MID = { x = 17.5, z = 0 }
 --- `present` is the per-track hang angle for the rail models — see RACK_DROP_* and
 --- `hangTierModel`. Tuned against front-on screenshots so each track stands from the
 --- deck to (near) the rail without clipping its neighbour: the hose barely tips at all.
+--- Magnet has none: it hangs off its hook instead of standing (see RACK_HANG).
 ---
 --- DETECTOR'S `pitch = 0` IS NOT "UNTUNED", IT IS THE TUNED VALUE for the imported
 --- per-tier models (tools/studio-migrations/import-detector-models.luau). `hand * hold`
@@ -247,7 +248,7 @@ local PLAZA_MID = { x = 17.5, z = 0 }
 --- still need a real `pitch` to compose with their own art's `HoldCFrame`.
 local STALLS = {
 	{ track = "Detector", at = { 31.87, 30 }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop", present = { yaw = 205, pitch = 0 } },
-	{ track = "Magnet", at = { -22, -34.43 }, faceYaw = 0, color = C.shopMagnet, label = "Magnet Shop", present = { yaw = 202, pitch = -56 } },
+	{ track = "Magnet", at = { -22, -34.43 }, faceYaw = 0, color = C.shopMagnet, label = "Magnet Shop" },
 	{ track = "Cleaner", at = { 37.5, -37.10 }, faceYaw = 0, color = C.shopCleaner, label = "Hose Shop", present = { yaw = 196, pitch = -12 } },
 }
 
@@ -313,6 +314,41 @@ local RACK_MAX_UPSCALE = 1.85
 --- on the deck. Matched by name and skipped silently if the art no longer has it —
 --- this file does not own the model's shape (see the mount note above).
 local RACK_HIDE_ON_DISPLAY = { "Realistically Sized Magnet" }
+
+--- TRACKS THAT HANG OFF THEIR HOOK instead of standing floor-to-rail. A horseshoe
+--- magnet stood up on the deck read as a row of U's with the hanger strap stabbed
+--- down through each one, and the free tier lay on its side beside them: its art is
+--- authored with the poles along -X where every other tier's run along +Z, so one
+--- shared `present` angle could never stand all six the same way. So a magnet
+--- ignores HoldCFrame and `present` entirely and is posed from its own geometry:
+--- `legs` (the grip-frame direction its poles point) goes straight DOWN, `face`
+--- (the side its details sit on) turns toward the customer, then the row yaws by
+--- `yaw` together for a three-quarter view. Bend up, poles down: how a magnet hangs
+--- off a hook, and where the Salvage Magnet's own `lift_hook` already sits.
+---
+--- SMALLER THAN THE DROP, on purpose. Each tier is fitted to a height that climbs
+--- from `height[1]` (the free tier) to `height[2]` (the top one), and hangs with its
+--- top `drop` studs under the mount, so the strap (`Hanger`) always shows and the
+--- poles never reach the deck. Keyed by tier NAME for the odd-axis tiers, not tier
+--- number, so a tier inserted into the line does not inherit someone else's axis.
+type HangSpec = {
+	legs: Vector3,
+	legsByName: { [string]: Vector3 },
+	face: Vector3,
+	yaw: number,
+	height: { number },
+	drop: number,
+}
+local RACK_HANG: { [string]: HangSpec } = {
+	Magnet = {
+		legs = Vector3.new(0, 0, 1),
+		legsByName = { ["Horseshoe Magnet"] = Vector3.new(-1, 0, 0) },
+		face = Vector3.new(0, 1, 0),
+		yaw = -20,
+		height = { 1.4, 3.0 },
+		drop = 0.6,
+	},
+}
 
 --- Which way the virtual holder faces, and it is PER TRACK now (STALLS' `present`).
 --- One shared pair cannot stand all three tracks up floor-to-rail: a detector's shaft
@@ -849,12 +885,16 @@ end
 --- scaled box and slides the model straight down until its BASE is on RACK_DROP_BASE,
 --- and across so its centre sits on `x` and on the shopfront line, whatever the art's
 --- pivot is doing.
+---
+--- A RACK_HANG track skips all of that: no `hand`, posed from its own axes, fitted
+--- to its tier's display height and hung from the top instead of stood on the deck.
+---
 --- How much bigger the rack's tool FX particles are than in a player's hands.
 --- 2.5x made the old sparkle clouds read clearly from the counter but was "too
 --- loud"; the quieter per-detector effects that replaced them want only a nudge.
 local RACK_FX_SCALE = 1.5
 
-local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: number, track: string, tier: number): number?
+local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame?, x: number, track: string, tier: number): number?
 	local template = tierTemplate(track, tier)
 	if template == nil then
 		return nil
@@ -887,11 +927,21 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: 
 
 	clone.Parent = parent
 
-	local hold = template:GetAttribute("HoldCFrame")
-	if typeof(hold) ~= "CFrame" then
-		hold = CFrame.new()
+	local hang = RACK_HANG[track]
+	if hang then
+		-- Model-frame basis whose up is "against the legs" and whose back is the
+		-- face; its inverse carries legs to the stall's -Y and face to its +Z.
+		local legs = hang.legsByName[Gear.tier(track, tier).name] or hang.legs
+		local up = -legs
+		local basis = CFrame.fromMatrix(Vector3.zero, up:Cross(hang.face), up, hang.face)
+		clone:PivotTo(origin * Kit.ang(0, hang.yaw, 0) * basis:Inverse())
+	else
+		local hold = template:GetAttribute("HoldCFrame")
+		if typeof(hold) ~= "CFrame" then
+			hold = CFrame.new()
+		end
+		clone:PivotTo((hand :: CFrame) * hold)
 	end
-	clone:PivotTo(hand * hold)
 
 	-- A code-authored template is built for this call and has no parent; a library one
 	-- lives in Assets/Tools and must survive. Parentage is the honest test for which is
@@ -929,12 +979,19 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: 
 	local lo, hi = localBox()
 	local e = hi - lo
 	if math.min(e.X, e.Y, e.Z) > 0 then
-		local f = math.min(
-			(RACK_DROP_TOP - RACK_DROP_BASE) / e.Y,
-			RACK_SLOT_WIDTH / e.X,
-			RACK_SLOT_DEPTH / e.Z,
-			RACK_MAX_UPSCALE
-		)
+		local f
+		if hang then
+			local t = (tier - 1) / math.max(Gear.maxTier(track) - 1, 1)
+			local height = hang.height[1] + (hang.height[2] - hang.height[1]) * t
+			f = math.min(height / e.Y, RACK_SLOT_WIDTH / e.X, RACK_SLOT_DEPTH / e.Z)
+		else
+			f = math.min(
+				(RACK_DROP_TOP - RACK_DROP_BASE) / e.Y,
+				RACK_SLOT_WIDTH / e.X,
+				RACK_SLOT_DEPTH / e.Z,
+				RACK_MAX_UPSCALE
+			)
+		end
 		clone:ScaleTo(clone:GetScale() * f)
 	end
 
@@ -947,13 +1004,16 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame, x: 
 	ToolFX.apply(clone, track, tier, RACK_FX_SCALE * math.max(clone:GetScale() / heldScale, 1))
 
 	-- Re-measure the scaled box and translate (keeping the orientation) so its base
-	-- sits on the deck and it is centred across the rack and on the shopfront line.
+	-- sits on the deck -- or, hung, its top sits `drop` under the mount -- and it is
+	-- centred across the rack and on the shopfront line.
 	lo, hi = localBox()
+	local height = hi.Y - lo.Y
+	local topY = if hang then RACK_DROP_TOP - hang.drop else RACK_DROP_BASE + height
 	local haveCentre = (lo + hi) / 2
-	local wantCentre = Vector3.new(x, RACK_DROP_BASE + (hi.Y - lo.Y) / 2, SHOPFRONT_Z)
+	local wantCentre = Vector3.new(x, topY - height / 2, SHOPFRONT_Z)
 	clone:PivotTo(clone:GetPivot() + origin:VectorToWorldSpace(wantCentre - haveCentre))
 
-	return RACK_DROP_BASE + (hi.Y - lo.Y)
+	return topY
 end
 
 --- The price card over one hanging tier: its price, big, with the tier's name small
@@ -1084,7 +1144,7 @@ end
 --- What the rack builders need off a STALLS entry: the track, its accent, and the
 --- per-track hang angle. The full STALLS row carries more (at, label, …); this
 --- is the slice `buildTierRack` and `buildRackHook` actually read.
-type RackSpec = { track: string, color: string, present: { yaw: number, pitch: number } }
+type RackSpec = { track: string, color: string, present: { yaw: number, pitch: number }? }
 
 --- One hook on the rail: the mount block that carries the sale, the tier's model
 --- standing under it (or a painted stand-in), a slim strap hanging it off the rail,
@@ -1115,7 +1175,9 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, t
 	-- (STALLS' `present` and the RACK_DROP_* header). Only the rotation matters —
 	-- hangTierModel stands the model on the deck afterwards. Yaw about the stall's Y,
 	-- then pitch about the yawed X, so the whole row tips forward together.
-	local hand = origin * Kit.ang(0, spec.present.yaw, 0) * Kit.ang(spec.present.pitch, 0, 0)
+	-- A RACK_HANG track (the magnets) has no `present` and poses itself.
+	local present = spec.present
+	local hand = if present then origin * Kit.ang(0, present.yaw, 0) * Kit.ang(present.pitch, 0, 0) else nil
 	local topY = hangTierModel(parent, origin, hand, x, spec.track, tier)
 
 	if topY == nil then
@@ -1214,7 +1276,7 @@ end
 --- the stall's own accent colour. The canopy, the sign text, the floor marker
 --- and the counter's trim cap — all `spec.color` — are the per-shop identity now
 --- that the shopkeeper and the identity prop are gone.
-local function buildStall(parent: Instance, spec: { track: string, at: { number }, faceYaw: number?, color: string, label: string, present: { yaw: number, pitch: number } })
+local function buildStall(parent: Instance, spec: { track: string, at: { number }, faceYaw: number?, color: string, label: string, present: { yaw: number, pitch: number }? })
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
