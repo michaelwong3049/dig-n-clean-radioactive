@@ -29,6 +29,7 @@
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local Debris = game:GetService("Debris")
+local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
@@ -111,6 +112,7 @@ local jumpOverrides: { [Player]: number } = {}
 
 local stateRemote: any = nil
 local blackoutRemote: any = nil
+local droppedBagRemote: any = nil
 
 local INFINITE = -1
 local function finite(n: number): number
@@ -164,6 +166,17 @@ end
 
 -- ── The dropped bag (PLAN §3.1) ────────────────────────────────────────────
 
+--- Tell the bag's owner something about it (Net.DroppedBag), if they are still here.
+--- The owner is read off the bag's OwnerId attribute rather than its name, which is
+--- display text.
+local function tellOwner(bag: BasePart, payload: { [string]: any })
+	local owner = Players:GetPlayerByUserId((bag:GetAttribute("OwnerId") :: number?) or 0)
+	if owner then
+		payload.id = bag:GetAttribute("BagId")
+		droppedBagRemote:FireClient(owner, payload)
+	end
+end
+
 local function giveBagTo(bag: BasePart, taker: Player)
 	local contents = bagContents[bag]
 	if contents == nil then
@@ -196,6 +209,11 @@ local function giveBagTo(bag: BasePart, taker: Player)
 	local label = billboard and billboard:FindFirstChildOfClass("TextLabel")
 	if label then
 		label.Text = `dropped bag\n{#contents} item(s)`
+	end
+
+	-- The last take is told by the bag's Destroying hook (dropBag), not here.
+	if #contents > 0 then
+		tellOwner(bag, { items = #contents })
 	end
 
 	if #contents == 0 then
@@ -280,6 +298,22 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 	bagContents[bag] = dropped
 	Debris:AddItem(bag, BAG_LIFETIME)
 
+	-- The owner's "get it back" tracker (BagTrackerController). Sent as a position and
+	-- a server-clock deadline rather than the part itself: the bag lies where you fell
+	-- and you have just been sent to camp, so the part may not be streamed in on your
+	-- client at all. Emptied or timed out, it goes the same way -- Destroying.
+	bag:SetAttribute("OwnerId", player.UserId)
+	bag:SetAttribute("BagId", HttpService:GenerateGUID(false))
+	tellOwner(bag, {
+		position = bag.Position,
+		expiresAt = Workspace:GetServerTimeNow() + BAG_LIFETIME,
+		items = #dropped,
+	})
+	bag.Destroying:Connect(function()
+		bagContents[bag] = nil
+		tellOwner(bag, { gone = true })
+	end)
+
 	return #dropped
 end
 
@@ -353,7 +387,11 @@ function ExposureService.baseCampCFrame(): CFrame
 	return CFrame.new(0, 8, 0)
 end
 
-local function blackout(player: Player, state: State, cause: string)
+--- Where you went down, for the death screen: the stage (or camp) name the HUD was
+--- showing, and how deep. Read by the caller before blackout teleports you to camp.
+type Where = { stageName: string, depth: number }
+
+local function blackout(player: Player, state: State, cause: string, where: Where)
 	state.downed = true
 
 	local data = DataService.data(player)
@@ -378,7 +416,13 @@ local function blackout(player: Player, state: State, cause: string)
 		root.CFrame = ExposureService.baseCampCFrame()
 	end
 
-	blackoutRemote:FireClient(player, { cause = cause, itemsDropped = lost, itemsDetonated = detonated })
+	blackoutRemote:FireClient(player, {
+		cause = cause,
+		itemsDropped = lost,
+		itemsDetonated = detonated,
+		stageName = where.stageName,
+		depth = where.depth,
+	})
 	print(`[rads] {player.Name} blacked out ({cause}) — dropped {lost}, detonated {detonated} item(s)`)
 
 	-- Brief grace so they do not immediately re-accrue while the screen is still white.
@@ -523,14 +567,22 @@ local function stepPlayer(player: Player, dt: number)
 			state.health = math.min(Tuning.MAX_HEALTH, state.health + rate * dt)
 		end
 
+		local function where(): Where
+			local camp = if stageId then nil else CampService.campOf(player)
+			return {
+				stageName = if stageId then Stages.get(stageId).name elseif camp then camp.name else "Base Camp",
+				depth = depth,
+			}
+		end
+
 		if state.health <= 0 then
 			-- Down to a detonation -- its hit this tick, or standing in a crater's orb
 			-- when the health ran out -- is a "blast" death, and the bag goes off with
 			-- you. Aura failure alone is still "burn": radiation, and the bag drops.
 			local blasted = blastHit > 0 or craterBurn > 0
-			blackout(player, state, if blasted then "blast" else "burn")
+			blackout(player, state, if blasted then "blast" else "burn", where())
 		elseif state.exposure >= Tuning.EXPOSURE_CAP then
-			blackout(player, state, "exposure")
+			blackout(player, state, "exposure", where())
 		end
 	end
 
@@ -647,6 +699,7 @@ end
 function ExposureService.init()
 	stateRemote = Net.get("ExposureState")
 	blackoutRemote = Net.get("Blackout")
+	droppedBagRemote = Net.get("DroppedBag")
 end
 
 function ExposureService.start()

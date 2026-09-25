@@ -1554,7 +1554,7 @@ local function ensureGui(): boolean
 	-- marks the camera's own centre, and the wipe has to cover the whole screen. The
 	-- two corner widgets add the inset back themselves.
 	gui.ScreenInsets = Enum.ScreenInsets.None
-	-- Above everything, including HudController's blackout curtain (100). A transition
+	-- Above everything, including the death screen (DeathScreen, 120). A transition
 	-- that something else can draw on top of is not covering the cut it exists to hide.
 	gui.DisplayOrder = 200
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
