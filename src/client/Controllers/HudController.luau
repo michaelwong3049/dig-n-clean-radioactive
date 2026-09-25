@@ -610,16 +610,20 @@ end
 -- ── Blackout ─────────────────────────────────────────────────────────
 
 local function playBlackout(info)
-	local burn = info.cause == "burn"
+	-- A blast death ("blast") flashes white like suit burn -- it is heat either way --
+	-- but its bag went off with it rather than dropping (ExposureService).
+	local burn = info.cause == "burn" or info.cause == "blast"
 	local dropped = info.itemsDropped or 0
+	local detonated = info.itemsDetonated or 0
 
 	local textColor = if burn then Color3.new(0.1, 0.1, 0.1) else GREEN
 
 	ui.curtain.BackgroundColor3 = if burn then Color3.new(1, 1, 1) else Color3.new(0, 0, 0)
 	ui.curtainHeadline.TextColor3 = textColor
 	ui.curtainBody.TextColor3 = textColor
-	ui.curtainBody.Text = if dropped > 0
-		then `dropped {dropped} item(s) where you fell \u{2014} 90 seconds to get back`
+	ui.curtainBody.Text = if detonated > 0
+		then `your bag went off \u{2014} {detonated} nuke(s) blew where you fell`
+		elseif dropped > 0 then `dropped {dropped} item(s) where you fell \u{2014} 90 seconds to get back`
 		else "nothing to lose \u{2014} your bag was empty"
 	ui.curtain.Visible = true
 	ui.curtain.BackgroundTransparency = 0

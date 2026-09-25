@@ -17,6 +17,13 @@
 	by anyone including the player who watched you go down. PLAN §3.1 is emphatic that
 	this punishes greed rather than existence, and that losing progress in a casual
 	Roblox digging game kills retention.
+
+	EXCEPT WHEN A BLAST PUTS YOU DOWN. Go down to a detonation -- its hit, or its
+	crater's orb burning the last of your health -- and the bag does not drop: every
+	nuke in it goes off where you fell, clean or crusted, crates included. Each is a
+	real detonation (HazardService), staggered into a chain, so anyone standing close
+	takes every hit and can go down to it -- and their bag goes off in turn. Radiation
+	(the green death, or plain suit failure) still drops the bag for anyone to grab.
 ]]
 
 local Players = game:GetService("Players")
@@ -34,6 +41,9 @@ local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 local Bag = require(Shared.Bag)
+local Items = require(Shared.Config.Items)
+local Weight = require(Shared.Config.Weight)
+local Payload = require(Shared.Config.Payload)
 
 local DataService = require(script.Parent.DataService)
 local WashService = require(script.Parent.WashService)
@@ -55,6 +65,14 @@ local ExposureService = {}
 local HEALTH_REGEN_PER_SEC = 2.5 -- PLAN §3.5: slowly out of radiation...
 local BAG_LIFETIME = 90 -- §3.1, exactly ninety seconds
 local DEFAULT_SHOWER_RADIUS = 10
+
+-- A blast death sets the bag off as a CHAIN, one nuke every CHAIN_STAGGER seconds,
+-- rather than all on one frame: it reads as a string of booms instead of one, and it
+-- spreads the client's detonation FX over a few seconds for a full 34-slot bag. Each
+-- goes off a little way from where you fell (up to CHAIN_SCATTER studs) so the
+-- craters overlap rather than stacking into a single one.
+local CHAIN_STAGGER = 0.15
+local CHAIN_SCATTER = 4
 
 -- Roblox's own out-of-the-box jump values, restored whenever a player is not rooted by
 -- a dig lock. Hardcoding the engine defaults is safe here only because NOTHING else in
@@ -265,6 +283,38 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 	return #dropped
 end
 
+--- A blast put this player down: EVERY nuke in the bag goes off where they fell, and
+--- the bag is empty afterwards. Clean ones too -- dropBag's "washed work stays with
+--- you" generosity is the radiation penalty; this one is the whole haul. Each is sized
+--- exactly as it was dug (the same Weight * sizeMult * Payload product DigService
+--- hands HazardService for a fuse that ran out), so a bag of big rare finds makes a
+--- far worse crater field than a bag of scrap.
+local function detonateBag(player: Player, data: any, position: Vector3): number
+	local blowing = table.clone(data.carry)
+	table.clear(data.carry)
+	if #blowing == 0 then
+		return 0
+	end
+
+	-- Onto the ground under where they fell, so the craters sit on it (the root is a
+	-- few studs up). Cast before blackout teleports the character away.
+	local params = RaycastParams.new()
+	params.FilterDescendantsInstances = { player.Character :: Instance }
+	local hit = Workspace:Raycast(position + Vector3.new(0, 4, 0), Vector3.new(0, -60, 0), params)
+	local ground = if hit then hit.Position else position - Vector3.new(0, 3, 0)
+
+	for index, item in blowing do
+		local def = if Items.has(item.itemId) then Items.get(item.itemId) else nil
+		local scale = if def then Weight.sizeScale(def.weight) * (def.sizeMult or 1) * Payload.forUid(item.uid) else 1
+		local angle = math.random() * math.pi * 2
+		local reach = if index == 1 then 0 else math.random() * CHAIN_SCATTER
+		local at = ground + Vector3.new(math.cos(angle) * reach, 0, math.sin(angle) * reach)
+		task.delay(CHAIN_STAGGER * (index - 1), HazardService.detonate, at, item.rarity, scale)
+	end
+
+	return #blowing
+end
+
 -- ── Blackout ───────────────────────────────────────────────────────────
 
 --- Where a blacked-out player wakes up — and, since the top-of-screen warp bar,
@@ -310,9 +360,14 @@ local function blackout(player: Player, state: State, cause: string)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 
-	local lost = 0
+	-- A blast death sets the bag off; any other death drops it (header).
+	local lost, detonated = 0, 0
 	if data and root and root:IsA("BasePart") then
-		lost = dropBag(player, data, root.Position)
+		if cause == "blast" then
+			detonated = detonateBag(player, data, root.Position)
+		else
+			lost = dropBag(player, data, root.Position)
+		end
 	end
 
 	state.exposure = 0
@@ -323,8 +378,8 @@ local function blackout(player: Player, state: State, cause: string)
 		root.CFrame = ExposureService.baseCampCFrame()
 	end
 
-	blackoutRemote:FireClient(player, { cause = cause, itemsDropped = lost })
-	print(`[rads] {player.Name} blacked out ({cause}) — dropped {lost} item(s)`)
+	blackoutRemote:FireClient(player, { cause = cause, itemsDropped = lost, itemsDetonated = detonated })
+	print(`[rads] {player.Name} blacked out ({cause}) — dropped {lost}, detonated {detonated} item(s)`)
 
 	-- Brief grace so they do not immediately re-accrue while the screen is still white.
 	task.delay(1.5, function()
@@ -469,7 +524,11 @@ local function stepPlayer(player: Player, dt: number)
 		end
 
 		if state.health <= 0 then
-			blackout(player, state, "burn")
+			-- Down to a detonation -- its hit this tick, or standing in a crater's orb
+			-- when the health ran out -- is a "blast" death, and the bag goes off with
+			-- you. Suit failure alone is still "burn": radiation, and the bag drops.
+			local blasted = blastHit > 0 or craterBurn > 0
+			blackout(player, state, if blasted then "blast" else "burn")
 		elseif state.exposure >= Tuning.EXPOSURE_CAP then
 			blackout(player, state, "exposure")
 		end
