@@ -15,8 +15,8 @@
 	(PLAN §14: green screen vs white screen). This module keeps them separate by
 	construction:
 
-	    AMBIENT (the stage)   -> shielded by the SUIT     -> can cause BURN  (white)
-	    CARRIED (your loot)  -> shielded by the SATCHEL  -> only fills EXPOSURE (green)
+	    AMBIENT (the stage)   -> shielded by the SUIT            -> can cause BURN  (white)
+	    CARRIED (your loot)  -> shielded by LEVEL RESIST only  -> only fills EXPOSURE (green)
 
 	Two consequences worth stating out loud, because both were bugs in the first draft:
 
@@ -32,9 +32,10 @@
 	   the single mechanic the whole game is built on — would stop working the
 	   moment you bought a mid-tier suit.
 
-	That second point is what gives the Satchel track (§3.7) its real job. It was
-	only slowing the decay clock; it should also be the thing standing between you
-	and what you are carrying.
+	The Satchel track (§3.7) used to sell a partial shield against your own loot.
+	It is retired (Config/Gear's RETIRED block), so the bag's rads now meet only
+	level resist -- exactly what the free Canvas Bag always gave you. Rule 2 above
+	still stands on its own: the suit never shields what you are carrying.
 ]]
 
 local Config = script.Parent.Config
@@ -45,13 +46,12 @@ local Radiation = {}
 export type Stats = {
 	suitReduction: number, -- fraction of AMBIENT rads blocked
 	suitTolerance: number, -- ambient rads/sec before the suit fails
-	satchelShielding: number, -- fraction of CARRIED rads blocked
 	levelResist: number, -- 0..RESIST_CAP, applies to both
 }
 
 export type Reading = {
 	ambient: number, -- raw stage rads/sec, before the suit
-	carried: number, -- raw backpack rads/sec, before the satchel
+	carried: number, -- raw backpack rads/sec, before level resist
 	net: number, -- rads/sec actually accumulating on the exposure meter
 	excess: number, -- ambient rads/sec past suit tolerance (0 = suit holding)
 	healthBurn: number, -- HP/sec
@@ -64,7 +64,7 @@ function Radiation.resolve(ambient: number, carried: number, stats: Stats): Read
 	local resist = 1 - math.clamp(stats.levelResist, 0, Tuning.RESIST_CAP)
 
 	local fromStage = ambient * (1 - math.clamp(stats.suitReduction, 0, 1)) * resist
-	local fromBag = carried * (1 - math.clamp(stats.satchelShielding, 0, 1)) * resist
+	local fromBag = carried * resist
 
 	-- AMBIENT ONLY. See the header.
 	local excess = math.max(0, ambient - stats.suitTolerance)
@@ -111,7 +111,7 @@ end
 --- than from the world. Drives the "drop something" nudge in the HUD, and is the
 --- cleanest single number for telemetry on whether §3.3 is actually working.
 function Radiation.greedFraction(reading: Reading, stats: Stats): number
-	local fromBag = reading.carried * (1 - math.clamp(stats.satchelShielding, 0, 1))
+	local fromBag = reading.carried * (1 - math.clamp(stats.levelResist, 0, Tuning.RESIST_CAP))
 	return if reading.net > 1e-6 then math.clamp(fromBag / reading.net, 0, 1) else 0
 end
 

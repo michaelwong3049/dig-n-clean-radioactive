@@ -26,16 +26,16 @@ export type CarriedItem = {
 	frozen: boolean, -- true once docked at a station / locker / on logout
 }
 
---- Effective fuse length for one item, after satchel and modifier.
-function Decay.fuseFor(item: CarriedItem, satchelFuseMult: number): number
+--- Effective fuse length for one item, after the fuse multiplier and modifier.
+function Decay.fuseFor(item: CarriedItem, fuseMult: number): number
 	local base = Rarity.get(item.rarity).fuse
 	local mod = Rarity.MODIFIERS[item.modifier] or Rarity.MODIFIERS.None
-	return base * satchelFuseMult * mod.fuseMult
+	return base * fuseMult * mod.fuseMult
 end
 
 --- Returns condition index (1..4) and the definition. Fresh / Hot / Critical / Slag.
-function Decay.conditionOf(item: CarriedItem, satchelFuseMult: number): (number, any)
-	local fuse = Decay.fuseFor(item, satchelFuseMult)
+function Decay.conditionOf(item: CarriedItem, fuseMult: number): (number, any)
+	local fuse = Decay.fuseFor(item, fuseMult)
 	if fuse == math.huge or fuse <= 0 then
 		return 1, Tuning.DECAY_CONDITIONS[1] -- Prewar Sealed never starts
 	end
@@ -53,16 +53,16 @@ end
 
 --- Seconds until this item drops to the NEXT condition. math.huge if it is already Slag
 --- or frozen. This is what the fuse bar counts down.
-function Decay.secondsToNextCondition(item: CarriedItem, satchelFuseMult: number): number
+function Decay.secondsToNextCondition(item: CarriedItem, fuseMult: number): number
 	if item.frozen then
 		return math.huge
 	end
-	local fuse = Decay.fuseFor(item, satchelFuseMult)
+	local fuse = Decay.fuseFor(item, fuseMult)
 	if fuse == math.huge then
 		return math.huge
 	end
 
-	local index = Decay.conditionOf(item, satchelFuseMult)
+	local index = Decay.conditionOf(item, fuseMult)
 	local nextCondition = Tuning.DECAY_CONDITIONS[index + 1]
 	if not nextCondition then
 		return math.huge
@@ -71,8 +71,8 @@ function Decay.secondsToNextCondition(item: CarriedItem, satchelFuseMult: number
 end
 
 --- rads/sec this single item contributes to the player right now.
-function Decay.emissionOf(item: CarriedItem, satchelFuseMult: number): number
-	local _, condition = Decay.conditionOf(item, satchelFuseMult)
+function Decay.emissionOf(item: CarriedItem, fuseMult: number): number
+	local _, condition = Decay.conditionOf(item, fuseMult)
 	local order = Rarity.get(item.rarity).order
 	local base = Tuning.CARRY_EMISSION[order] or 0
 	local mod = Rarity.MODIFIERS[item.modifier] or Rarity.MODIFIERS.None
@@ -80,11 +80,11 @@ function Decay.emissionOf(item: CarriedItem, satchelFuseMult: number): number
 end
 
 --- Total rads/sec from a whole backpack. Feeds Radiation.resolve().
-function Decay.totalEmission(carry: { CarriedItem }, satchelFuseMult: number): number
+function Decay.totalEmission(carry: { CarriedItem }, fuseMult: number): number
 	local sum = 0
 	for _, item in carry do
 		if not item.frozen then
-			sum += Decay.emissionOf(item, satchelFuseMult)
+			sum += Decay.emissionOf(item, fuseMult)
 		end
 	end
 	return sum
@@ -92,20 +92,20 @@ end
 
 --- Fraction of base value this item is still worth. PLAN §3.6 — the value BLEEDS,
 --- it does not fall off a cliff, so every second of the run home has a felt cost.
-function Decay.valueRetained(item: CarriedItem, satchelFuseMult: number): number
-	local _, condition = Decay.conditionOf(item, satchelFuseMult)
+function Decay.valueRetained(item: CarriedItem, fuseMult: number): number
+	local _, condition = Decay.conditionOf(item, fuseMult)
 	return condition.valueRetained
 end
 
 --- Advance one item by dt. Returns the new condition index if it CHANGED, else nil —
 --- callers use that to fire the audio ladder and the "your Legendary is cooking" alert.
-function Decay.tick(item: CarriedItem, dt: number, satchelFuseMult: number): number?
+function Decay.tick(item: CarriedItem, dt: number, fuseMult: number): number?
 	if item.frozen then
 		return nil
 	end
-	local before = Decay.conditionOf(item, satchelFuseMult)
+	local before = Decay.conditionOf(item, fuseMult)
 	item.elapsed += dt
-	local after = Decay.conditionOf(item, satchelFuseMult)
+	local after = Decay.conditionOf(item, fuseMult)
 	return if after ~= before then after else nil
 end
 

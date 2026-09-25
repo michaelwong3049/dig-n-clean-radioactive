@@ -103,7 +103,7 @@ function CarryService.describe(item: any, stats: any): any
 	local def = Items.get(item.itemId)
 	local patches = item.patches or {}
 	local value, clean = EconomyService.valueOf(item, stats)
-	local _, condition = Decay.conditionOf(item, stats.satchelFuseMult)
+	local _, condition = Decay.conditionOf(item, stats.fuseMult)
 
 	-- TWO GATES, ASKED SEPARATELY, because the card has to answer two questions that
 	-- stopped having the same answer when Config/Liquids landed:
@@ -317,9 +317,6 @@ local function stepPlayer(player: Player)
 
 	carryRemote:FireClient(player, {
 		capacity = stats.capacity,
-		-- The client needs this to run Decay locally. It is a gear stat the player
-		-- already owns, so it leaks nothing.
-		fuseMult = stats.satchelFuseMult,
 		items = described,
 		crates = crates,
 	})

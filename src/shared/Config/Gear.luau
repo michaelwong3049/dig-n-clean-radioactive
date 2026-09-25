@@ -210,9 +210,23 @@ Gear.Cleaner = {
 	{ name = "Plasma Lance", price = 400000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you." },
 }
 
--- reduction: fraction of AMBIENT rads/sec removed  (exposure track, green screen)
--- tolerance: ambient rads/sec the suit handles before it fails (burn track, white screen)
--- capacity : hot items carried before it gets unmanageable (PLAN §3.4)
+-- reduction  : fraction of AMBIENT rads/sec removed  (exposure track, green screen)
+-- tolerance  : ambient rads/sec the suit handles before it fails (burn track, white screen)
+-- capacity   : hot items carried before it gets unmanageable (PLAN §3.4)
+-- haulPenalty: studs/sec of walk speed lost PER CARRIED ITEM (StatResolver.effectiveWalkSpeed)
+--
+-- haulPenalty MOVED HERE WITH THE SATCHEL'S RETIREMENT (see the RETIRED block below),
+-- and it is the stat that makes capacity a decision rather than a bigger number (PLAN
+-- §5.1). Living on the Suit means one purchase buys the room AND the frame to carry
+-- it, so the ladder is fitted to keep a FULL BAG'S drag roughly level while the bag
+-- grows: 7.2 / 9.5 / 10.1 / 10.4 / 9.1 / 6.8 studs/sec, tier 1 to 6. A bigger suit
+-- never makes a full bag feel lighter than a smaller full one did, and never much
+-- heavier either; the treadmill is what makes that drag a smaller slice of your speed.
+-- Tier 1 (1.20) and tier 6 (0.20) are the Satchel's old ends, so a new player's first
+-- haul feels exactly as it did.
+--
+-- KEEP THE FLOOR ABOVE ZERO. A suit with no haul penalty turns capacity back into a
+-- free number, and Spec pins every rung above zero and none heavier than the one below.
 --
 -- Capacity ladder raised 4/6/8/11/15/20 -> 6/10/14/20/26/34 on request ("start at 6
 -- slots, raise the max for the other upgrades"). Past 10 slots the hotbar stops growing
@@ -230,12 +244,12 @@ Gear.Cleaner = {
 -- informational Z2-Z6 cells below shift with this (Z2 entrance 17s -> ~28s) but no
 -- Spec check pins those.
 Gear.Suit = {
-	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 6, blurb = "Rags and tape. Counts as clothing, not shielding." },
-	{ name = "Rubber Suit", price = 15000, reduction = 0.9750, tolerance = 4.4, capacity = 10, blurb = "Sweats more than it shields. Shields a little." },
-	{ name = "Lead-Lined", price = 36000, reduction = 0.9920, tolerance = 13.4, capacity = 14, blurb = "Heavy enough to feel safe. Nearly is." },
-	{ name = "Reinforced Hazmat", price = 85000, reduction = 0.9970, tolerance = 38.4, capacity = 20, blurb = "Sealed seams. The first suit that trusts you." },
-	{ name = "Sealed Exo-Suit", price = 210000, reduction = 0.9988, tolerance = 98.4, capacity = 26, blurb = "Own air supply. Walks into the red and back." },
-	{ name = "Containment Rig", price = 500000, reduction = 0.9889, tolerance = 105.0, capacity = 34, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
+	{ name = "Cloth Wrap", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 6, haulPenalty = 1.20, blurb = "Rags and tape. Counts as clothing, not shielding." },
+	{ name = "Rubber Suit", price = 15000, reduction = 0.9750, tolerance = 4.4, capacity = 10, haulPenalty = 0.95, blurb = "Sweats more than it shields. Shields a little." },
+	{ name = "Lead-Lined", price = 36000, reduction = 0.9920, tolerance = 13.4, capacity = 14, haulPenalty = 0.72, blurb = "Heavy enough to feel safe. Nearly is." },
+	{ name = "Reinforced Hazmat", price = 85000, reduction = 0.9970, tolerance = 38.4, capacity = 20, haulPenalty = 0.52, blurb = "Sealed seams. The first suit that trusts you." },
+	{ name = "Sealed Exo-Suit", price = 210000, reduction = 0.9988, tolerance = 98.4, capacity = 26, haulPenalty = 0.35, blurb = "Own air supply. Walks into the red and back." },
+	{ name = "Containment Rig", price = 500000, reduction = 0.9889, tolerance = 105.0, capacity = 34, haulPenalty = 0.20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
@@ -254,11 +268,8 @@ Gear.Suit = {
 --
 -- WHERE THE FOUR STATS WENT:
 --   walkSpeed    -> Config/Treadmill. The whole feature.
---   haulPenalty  -> Gear.Satchel, below. It is a bag stat: what drags you is the
---                   loot, and the Satchel track already owns everything else about
---                   how your own haul treats you. It also restores the alternation
---                   PLAN §5.1 wanted — Suit buys capacity, Satchel makes carrying it
---                   bearable — which Boots-vs-Suit used to provide.
+--   haulPenalty  -> Gear.Suit. It went to the Satchel first, and moved on to the
+--                   Suit when the Satchel was retired too (see below).
 --   stamina      -> nowhere. Verified inert before removal: StatResolver was the only
 --   canVault        writer and NOTHING in the game ever read any of the three. Sprint
 --   canDash         (Gear.SPRINT_MULTIPLIER) is in the same state — `effectiveWalkSpeed`
@@ -282,36 +293,21 @@ Gear.Boots = {
 	{ name = "Strider Rig", price = 700000, walkSpeed = 36, haulPenalty = 0.10, stamina = 10, canVault = true, canDash = true, blurb = "Full load, full speed. The haul stops mattering." },
 }
 
--- The satchel does THREE jobs now, and the second one matters more than PLAN §3.7
--- realised:
---   fuseMult    — multiplies the decay clock's fuse length. 1.25 = 20% slower decay.
---   shielding   — fraction of CARRIED emission blocked. The suit shields you from the
---                 world; the satchel shields you from your own loot. Without this the
---                 greed dial (§3.3) stops working the moment you buy a decent suit,
---                 because suit reduction would erase your backpack too.
---   haulPenalty — studs/sec of walk speed lost PER CARRIED HOT ITEM. Inherited from
---                 the retired Boots track (see its header above).
+-- THE SATCHEL TRACK IS GONE TOO, and unlike Boots it left no table behind: nobody has
+-- a save that bought one, so there is nothing to refund and nothing to price against.
+-- It sold three columns, and only one of them was ever something a player felt:
 --
--- PLAN §3.7: this line SLOWS the clock, it never stops it. Keep fuseMult finite, and
--- keep shielding under 1.0 forever — a bag that fully shields is a bag with no greed.
---
--- haulPenalty IS THE STAT THAT MAKES CAPACITY A DECISION, and PLAN §5.1 is emphatic
--- about it: without it, capacity is just a bigger number. It reads as a Satchel column
--- far more naturally than it ever did as a Boots one — the weight that slows you is
--- the bag's, and this is now the only track that speaks to what carrying loot costs
--- you. Five rungs against Boots' six, spanning the same 1.20 -> 0.20 range, so the
--- stat's floor and ceiling are unchanged and only the step size moved.
---
--- KEEP THE FLOOR ABOVE ZERO. A bag with no haul penalty is the same failure as one
--- with full shielding: the greed dial stops turning. 0.20 against a 34-item Suit
--- capacity is still ~7 studs/sec off a trained runner.
-Gear.Satchel = {
-	{ name = "Canvas Bag", price = 0, fuseMult = 1.00, shielding = 0.00, haulPenalty = 1.20, blurb = "Canvas. Stops nothing, holds everything." },
-	{ name = "Lined Pack", price = 20000, fuseMult = 1.25, shielding = 0.25, haulPenalty = 0.90, blurb = "Lined seams slow the clock a fifth, and sit square on your back." },
-	{ name = "Lead Satchel", price = 48000, fuseMult = 1.61, shielding = 0.45, haulPenalty = 0.65, blurb = "Lead sheet at your back. Your finds stop cooking you." },
-	{ name = "Shielded Case", price = 115000, fuseMult = 2.17, shielding = 0.62, haulPenalty = 0.42, blurb = "Hard case, sealed lid. Buys real time and carries itself." },
-	{ name = "Containment Pack", price = 275000, fuseMult = 3.12, shielding = 0.78, haulPenalty = 0.20, blurb = "Three times the fuse, nearly silent to wear, and you stop feeling the load." },
-}
+--   haulPenalty -> Gear.Suit (see its header). The one that mattered: a full bag
+--                  on the free Canvas Bag was a 28% slowdown, and nothing else in the
+--                  game touched it.
+--   fuseMult    -> nowhere. It stretched the decay clock, whose countdown left the
+--                  hotbar long ago (InventoryController's header), so a purchase that
+--                  only moved an invisible clock was selling nothing you could see.
+--                  The decay clock itself is untouched and still runs at 1x.
+--   shielding   -> nowhere. Carried emission is now blocked only by level resist,
+--                  which is exactly what the free Canvas Bag always gave you. The
+--                  suit still does NOT shield your own backpack (Shared/Radiation's
+--                  header) -- that rule was never the Satchel's, and it stays.
 
 -- THE SEVENTH TRACK, AND THE ONLY ONE THAT BUYS NOTHING YOU HOLD, AND THE ONLY ONE
 -- WITH NO TOP RUNG. Luck does exactly one thing: it bends the liquid roll at the wash
@@ -369,8 +365,9 @@ Gear.SPRINT_MULTIPLIER = 1.35
 -- of the retirement: the shop's stall row, the generic sell path, the card panel's
 -- stat block and Spec's STAT_META coverage check all walk THIS table, so a track that
 -- leaves it stops existing everywhere at once with no per-file surgery. Its data is
--- still in the file for the refund (see Gear.Boots).
-Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit", "Satchel" }
+-- still in the file for the refund (see Gear.Boots). THE SATCHEL LEFT THE SAME WAY,
+-- plus its counter at the Outfitter (build/Shops' OUTFITTER.counters).
+Gear.TRACKS = { "Detector", "Magnet", "Cleaner", "Suit" }
 
 --- Track name (capitalised, as used here and in the world's StationId attribute)
 --- to profile field (lowercase, as used in DataService's TEMPLATE.gear).
@@ -390,7 +387,6 @@ Gear.PROFILE_KEY = {
 	Cleaner = "cleaner",
 	Suit = "suit",
 	Boots = "boots",
-	Satchel = "satchel",
 }
 
 function Gear.profileKey(track: string): string
@@ -421,9 +417,9 @@ end
 --- Per-field entries:
 ---   label          what the card prints. Short, uppercase — these sit in a 62px gutter.
 ---   kind           "number" (default, draws a bar) or "flag" (a boolean; draws a chip).
----   lowerIsBetter  the bar fills as the number FALLS. Only Satchel's haulPenalty,
+---   lowerIsBetter  the bar fills as the number FALLS. Only Suit's haulPenalty,
 ---                  which is the one column in the game where 0.20 beats 1.20. (It
----                  was Boots' column before that track was retired.)
+---                  was Boots' column, then Satchel's, before both were retired.)
 ---   complement     the bar measures `1 - value`, not the value. Only Suit's
 ---                  `reduction`, which is the fraction of dose BLOCKED: it sits at
 ---                  0.63..0.9988 and what actually varies between rungs is the sliver
@@ -438,8 +434,8 @@ end
 --- The bar's ENDS are not here on purpose: ShopService derives them from that track's
 --- own tiers, so retuning a column cannot leave a stale ceiling behind. They are the
 --- ladder's min and max rather than zero and max, which matters for every column whose
---- floor is not zero — `luck` and `fuseMult` start at 1.00 (no bonus at all), and a
---- bar drawn from zero showed the do-nothing starting detector as 40% full.
+--- floor is not zero — `luck` starts at 1.00 (no bonus at all), and a bar drawn from
+--- zero showed the do-nothing starting detector as 40% full.
 ---
 --- Util/Spec asserts this table covers every column of every tier, so a new stat
 --- cannot silently fail to appear in the shop the way `clarity` silently appeared in it.
@@ -473,27 +469,20 @@ Gear.STAT_META = {
 		volume = { label = "VOLUME" },
 	},
 	Suit = {
-		order = { "reduction", "tolerance", "capacity" },
+		order = { "reduction", "tolerance", "capacity", "haulPenalty" },
 		hidden = {},
 		reduction = { label = "SHIELD", complement = true, scale = "log" },
 		tolerance = { label = "TOLERANCE" },
 		capacity = { label = "CARRY" },
-	},
-	-- NO BOOTS ENTRY. The track is retired (see Gear.Boots) and is not in Gear.TRACKS,
-	-- which is the table Spec's coverage check and the shop both walk — so its columns
-	-- are neither advertised nor asserted over. Do not re-add one to "document" the
-	-- old stats; the header on that table is where they are written down.
-	Satchel = {
-		order = { "fuseMult", "shielding", "haulPenalty" },
-		hidden = {},
-		fuseMult = { label = "FUSE" },
-		shielding = { label = "SHIELDING" },
-		-- Last of the three because it is the column inherited from Boots, and a
-		-- returning player should still find FUSE where they left it. `lowerIsBetter`
-		-- is the only use of that flag left in the game now: 0.20 beats 1.20, and
-		-- drawn straight the bar would empty as the bag got better.
+		-- Right under CARRY because it is the other half of the same question: how
+		-- much you can take, then how much taking it slows you. `lowerIsBetter` is
+		-- the only use of that flag in the game: 0.20 beats 1.20, and drawn straight
+		-- the bar would empty as the suit got better.
 		haulPenalty = { label = "HAUL", lowerIsBetter = true },
 	},
+	-- NO BOOTS OR SATCHEL ENTRY. Both tracks are retired (see the RETIRED block above)
+	-- and are not in Gear.TRACKS, which is the table Spec's coverage check and the shop
+	-- both walk — so their columns are neither advertised nor asserted over.
 }
 
 --- Every column of `track` that is neither sold nor deliberately retired is a bug, and

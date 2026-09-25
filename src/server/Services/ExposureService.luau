@@ -481,13 +481,13 @@ local function stepPlayer(player: Player, dt: number)
 	-- ticking here — where the bag is already being walked once per tick anyway — is
 	-- the honest place for it.
 	for _, item in data.carry do
-		local changedTo = Decay.tick(item, dt, stats.satchelFuseMult)
+		local changedTo = Decay.tick(item, dt, stats.fuseMult)
 		if changedTo then
 			print(`[decay] {player.Name}: {item.modifier} {item.rarity} -> {Tuning.DECAY_CONDITIONS[changedTo].name}`)
 		end
 	end
 
-	local carried = Decay.totalEmission(data.carry, stats.satchelFuseMult)
+	local carried = Decay.totalEmission(data.carry, stats.fuseMult)
 	local reading = Radiation.resolve(ambient, carried, stats)
 
 	-- A DETONATED NUKE'S CRATER BURNS HEALTH, and it is folded into the reading rather

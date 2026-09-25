@@ -466,6 +466,14 @@ the place file has no git history to recover from.
       bought on first load (keyed off the leftover `gearOwned.boots`, self-erasing), and
       `Treadmill.TIERS` reuses that exact price ladder so the refund buys the equivalent
       belt. The Outfitter lost its middle counter and resized itself.
+- [x] **The Satchel track is retired** — `haulPenalty` moved again, onto the **Suit**
+      (1.20 → 0.95 → 0.72 → 0.52 → 0.35 → 0.20, fitted so a *full* bag drags a roughly
+      level 7–10 studs/sec at every rung). `fuseMult` and `shielding` went nowhere: the
+      decay countdown had already left the hotbar, so the fuse stretch was invisible, and
+      carried rads now meet only level resist (what the free Canvas Bag always gave). No
+      refund — nobody had played yet, so the template just lost `satchel`. The Outfitter
+      is down to one counter (suit in front of the lockers, a bench either side).
+      **Needs a Shops rebuild (v45) + Save + Publish.**
 - [ ] **Speed 100 outruns the dig reveal** — the one open consequence of raising the cap
       from 36. The starting detector's reveal edge is 8 studs outside `DIG_RADIUS`, which a
       maxed player crosses in 0.08s against `SpotCracks.REVEAL` of 0.4s (and its header

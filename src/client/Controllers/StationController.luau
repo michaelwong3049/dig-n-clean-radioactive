@@ -528,7 +528,7 @@ end
 --- inside it that renders the tier's own model, the one the rack hangs and the one
 --- ToolService puts in your hands. See "The art well's model" below for why it is a
 --- live render and not an uploaded picture. A track with no model (the Outfitter's
---- Suit and Satchel) leaves the viewport empty and the well reads as it always did.
+--- Suit) leaves the viewport empty and the well reads as it always did.
 ---
 --- THE CARD IS PLACED BY HAND, NOT BY A LAYOUT. Its slot on the carousel row is a fixed
 --- x (one CAROUSEL_STEP per tier) and it is anchored at its own centre, so the
