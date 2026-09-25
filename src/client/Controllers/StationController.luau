@@ -1326,7 +1326,8 @@ end
 
 --- Four states, and all four are drawn on the same card rather than on four layouts.
 ---
---- ISSUED    the one in your hands. Amber edge, a ghost button that says so.
+--- ISSUED    the one in your hands. Amber edge, a ghost button that says so: IN HAND,
+---           or WEARING for the Aura, which is worn rather than held.
 --- OWNED     bought and not held. The button is a live EQUIP — see ShopService's note
 ---           on why ownership being a set is what makes that a real verb.
 --- (buyable) no flag at all. The price button already says it is for sale, and a word
@@ -1367,7 +1368,7 @@ local function paintShopCard(card: Frame, entry, track: string, accent: Color3, 
 		cardStroke.Color = FIELD.amber
 		flag.Text = "ISSUED"
 		flag.TextColor3 = FIELD.amber
-		buy.Text = "IN HAND"
+		buy.Text = if track == "Aura" then "WEARING" else "IN HAND"
 		buy.TextColor3 = FIELD.amber
 		buy.BackgroundTransparency = 1
 	elseif entry.owned then
