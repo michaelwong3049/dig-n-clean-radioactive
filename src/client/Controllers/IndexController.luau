@@ -57,8 +57,8 @@ local HudTile = require(script.Parent.Parent.HudTile)
 local Index = {}
 
 -- THE INDEX TILE heads the right-edge 2x2 grid (top left; Shop, Nukes and Warp fill
--- the rest), built by HudTile in the grid's shared "glow orb" look: a violet glow for
--- the collection book. The grid's top is level with the top of the cash/meter column
+-- the rest), built by HudTile in the grid's shared "glow orb" look: a violet glow
+-- behind the fanned rarity cards. The grid's top is level with the top of the cash/meter column
 -- on the left, or the whole grid is centred on a screen too short for that line
 -- (Dock.sideColumnTop). Its own ScreenGui (IgnoreGuiInset = true), so those offsets
 -- measure against the true screen as the left column's do; the detail panel keeps the
@@ -408,7 +408,7 @@ local function buildButton(): ScreenGui
 		slot = TILE_SLOT,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
-		image = Artwork.IMAGE.book,
+		image = Artwork.IMAGE.cards,
 	})
 	-- NEW entries waiting to be looked at: a red count on the tile's corner.
 	local badge, badgeText = HudTile.badge(button, COL.newTag, COL.black)

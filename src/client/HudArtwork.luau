@@ -1,5 +1,5 @@
--- Small HUD illustrations. Most are built from GUI shapes; the Index and Shop tile
--- icons are real pictures (see Artwork.IMAGE).
+-- Small HUD illustrations. Most are built from GUI shapes; the right-edge tiles and
+-- the warp bar use real pictures (see Artwork.IMAGE).
 local Artwork = {}
 local INK = Color3.fromRGB(8, 14, 5)
 
@@ -53,28 +53,25 @@ function Artwork.cash(parent: Instance)
 	shape(band, "Highlight", 2, 2, 4, 43, Color3.fromRGB(255, 237, 95), 9)
 end
 
--- THE TILE PICTURES. Free white silhouettes from the Creator Store, not GUI shapes.
--- White on purpose: ImageColor3 multiplies, so the caller tints the picture to the
--- icon colour and tweens it to white on hover, the same change the shape-built icons
--- made. The see-through cuts in a picture (the book's title plate and page edge) show
--- the tile's own fill, so they follow the hover fill with no tween of their own.
---
--- These are IMAGE ids, which is what an ImageLabel needs, NOT the store listing's
--- decal id (the number in its URL). To swap a picture, load the listing's decal on
--- the server (`InsertService:LoadAsset(decalId)`) and copy its Decal.Texture here.
+-- THE PICTURES. These are IMAGE ids, which is what an ImageLabel needs, NOT a store
+-- listing's decal id (the number in its URL). To swap in a store picture, load the
+-- listing's decal on the server (`InsertService:LoadAsset(decalId)`) and copy its
+-- Decal.Texture here.
 Artwork.IMAGE = {
-	-- "Book Icon" by AtomicSlumber, store decal 6867518950.
-	book = "rbxassetid://6867518941",
-	-- "Shopping Cart Icon" by EgizianoEG, store decal 11385395257.
-	cart = "rbxassetid://11385395241",
+	-- The four right-edge tiles (HudTile). Drawn for this game as full-colour cartoon
+	-- symbols with a dark outline, the left column's coin/heart family, and uploaded as
+	-- 256px PNGs. Picked from a mockup round (I6, S7, N4, W2). The SVG sources are in
+	-- tools/hud-icons: edit one, re-render it transparent at 256px, upload, and paste
+	-- the new id here. Full colour, so a caller leaves ImageColor3 white.
+	cards = "rbxassetid://79446288774542", -- Index: fanned rarity cards with a star
+	chest = "rbxassetid://137692103278879", -- Shop: open treasure chest of coins
+	mushroomCloud = "rbxassetid://107094805710382", -- Nukes: mushroom cloud
+	portal = "rbxassetid://107949254570705", -- Warp: violet-to-cyan portal swirl
 	-- The warp bar's HOME and SHOPS portals (WarpController).
 	-- "House Icon" by uR1St3nLe4hH4lt0n, store decal 124662272665879.
 	house = "rbxassetid://82460327730975",
 	-- "shop icon" by kqvest, store decal 18517062241.
 	storefront = "rbxassetid://18517062196",
-	-- The Warp tile (CampWarpController). "Teleport_Icon(White)" by Ex_Zviye, store
-	-- decal 6723742959.
-	teleport = "rbxassetid://6723742952",
 }
 
 --- A picture icon: a square, transparent ImageLabel `size` design px on a side, with
