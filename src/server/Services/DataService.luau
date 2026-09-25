@@ -179,6 +179,13 @@ local TEMPLATE = {
 	-- what somebody paid for. Capped at LuckBoost.MAX_BANKED_SECONDS on every grant.
 	luckBoostLeft = 0,
 
+	-- What the stands earned while the player was offline, waiting for COLLECT on the
+	-- "While you were away" card (AwayEarningsService). On the save so leaving with the
+	-- card up loses nothing. `awayLast` is the last amount the card showed, which a
+	-- late DOUBLE IT receipt pays the extra on.
+	awayPending = 0,
+	awayLast = 0,
+
 	-- The last few Robux PurchaseIds granted to this profile (ProductService). Kept IN
 	-- the save because that is the only way a retried receipt -- Roblox re-sends until
 	-- it hears PurchaseGranted -- can be told apart from a new purchase. A short FIFO

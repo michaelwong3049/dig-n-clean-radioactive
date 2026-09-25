@@ -31,6 +31,7 @@ local ORDER = {
 	"ShopService", -- turning cash back into capability; needs Station + Economy
 	"ProductService", -- Robux developer products; the ONE owner of ProcessReceipt; needs Data
 	"LuckBoostService", -- 2x luck: the Violet Aurora event + the bought Lucky Clover; needs Product
+	"AwayEarningsService", -- the "While you were away" card: holds offline income for COLLECT / Robux DOUBLE IT; needs Economy + Product
 	"ExhibitService", -- plot assignment, display/undisplay, yield accrual; needs Station + Economy
 	"TreadmillService", -- the speed grind on your plot's belt; needs Station + Economy + Exhibit
 	"WarpService", -- the top-of-screen bar's teleport; needs Stage + Camp + Dig + Exhibit + Exposure
