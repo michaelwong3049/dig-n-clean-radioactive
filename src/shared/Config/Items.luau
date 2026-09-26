@@ -2,7 +2,7 @@
 --[[
 	Items.lua — the catalogue. Data only, like everything else in Config/.
 
-	Stages 1-6, ~68 items, Common through Anomaly.
+	Stages 1-6, ~70 items, Common through Anomaly.
 
 	NO ITEM IS AT SCRAP ANY MORE, ON REQUEST. Every former Scrap item was folded
 	into Common (across all stages now, not just 3-6). The Scrap tier still exists in
@@ -282,6 +282,21 @@ Items.DEFS = {
 		baseValue = 3200,
 		model = "ImportedNuke",
 	},
+	-- The first of three rockets, one per Stage 1-3, each a rarity up from the last
+	-- (Rare here, Epic Seeker in Stage 2, Legendary Two-Stage in Stage 3).
+	{
+		id = "model_rocket",
+		name = "Rocket Nuke",
+		flavor = "A warhead on a hobby rocket. It never left the pad.",
+		rarity = "Rare",
+		odds = 300, -- 1 in N per dig in a stocking stage
+		weight = 18,
+		stages = { 1 },
+		appeal = "Gearhead",
+		sets = {},
+		baseValue = 3600,
+		model = "ImportedNuke",
+	},
 
 	-- ── Epic ── $4.7k-27k ─────────────────────────────────────────────────
 	{
@@ -474,6 +489,19 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 	{
+		id = "seeker_missile",
+		name = "Seeker Nuke",
+		flavor = "The seeker head still twitches toward anything warm.",
+		rarity = "Epic",
+		odds = 1800, -- 1 in N per dig in a stocking stage
+		weight = 45,
+		stages = { 2 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 14000,
+		model = "ImportedNuke",
+	},
+	{
 		id = "deposit_box",
 		name = "Vault Nuke",
 		flavor = "Whatever was worth a bank vault is still attached.",
@@ -662,6 +690,19 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 60000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "two_stage_rocket",
+		name = "Two-Stage Nuke",
+		flavor = "Two stages, one warhead, and a launch that never came.",
+		rarity = "Legendary",
+		odds = 5000, -- 1 in N per dig in a stocking stage
+		weight = 180,
+		stages = { 3 },
+		appeal = "Gearhead",
+		sets = {},
+		baseValue = 75000,
 		model = "ImportedNuke",
 	},
 

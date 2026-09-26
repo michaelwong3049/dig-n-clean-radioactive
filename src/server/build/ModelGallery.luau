@@ -31,7 +31,7 @@ local ModelGallery = {}
 
 local NAME = "ModelYard"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 10
+local BUILDER_VERSION = 11
 
 -- feat/wire-stage2-nuke-imports: the yard is organised into ONE ROW PER STAGE (the
 -- item's lowest stocked stage, for a { 3, 4 }-style item shared across two), each row
