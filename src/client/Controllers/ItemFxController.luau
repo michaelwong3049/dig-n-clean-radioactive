@@ -158,6 +158,9 @@ type SpinGroup = {
 	parent: number?,
 	twitchAt: number,
 	twitchUntil: number,
+	-- How far a `bob` group travels each way, in studs: `amp` times the pivot's
+	-- own size along the axis, so it follows the display scale.
+	bobStuds: number,
 }
 
 type Burst = { emitter: ParticleEmitter, every: number, count: number, nextAt: number }
@@ -789,7 +792,13 @@ local function buildSpins(model: Model, def: Def, now: number, rng: Random): ({ 
 			parent = spin.parent,
 			twitchAt = now + (spin.period or 3) * rng:NextNumber(0.3, 1.2),
 			twitchUntil = 0,
+			bobStuds = 0,
 		}
+		if spin.mode == "bob" then
+			local axis, size = group.axis, pivot.Size
+			local extent = math.abs(axis.X) * size.X + math.abs(axis.Y) * size.Y + math.abs(axis.Z) * size.Z
+			group.bobStuds = (spin.amp or 0.2) * extent
+		end
 		for _, part in candidates do
 			if not claimed[part] then
 				claimed[part] = true
@@ -852,6 +861,11 @@ local function stepSpins(groups: { SpinGroup }, ref: BasePart, t: number, now: n
 	local refFrame = ref.CFrame
 	for index, group in groups do
 		local own = CFrame.fromAxisAngle(group.axis, spinAngle(group, t, now, dt, rng))
+		if group.bobStuds > 0 then
+			local spin = group.spin
+			local wave = math.sin((t / (spin.period or 2) + (spin.phase or 0)) * TAU)
+			own = CFrame.new(group.axis * (group.bobStuds * wave)) * own
+		end
 		local parentChain = if group.parent then chains[group.parent] else nil
 		local chain = if parentChain then parentChain * own else own
 		chains[index] = chain
