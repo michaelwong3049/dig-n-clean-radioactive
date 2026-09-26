@@ -32,6 +32,7 @@ local ORDER = {
 	"LiquidController", -- the fluid spin popup; reads FluidSpin
 	"CrateController", -- supply crates: the Open prompt on a held crate + the nuke-crate reveal; reads CrateOpened
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState
+	"CrustDebrisController", -- crust flakes and chunks tumbling off an item as it is washed; watches ItemCrust-tagged parts
 	"TreadmillController", -- the speed-training card and the belt's own motion; reads SpeedController
 	"StationMotionController", -- base machines moving on their own: fans, dial, gauge needle, tub ripples, screen pulse
 	"ItemFxController", -- nuke glow/glass/motion on any `ItemFx`-tagged model, once its crust is off

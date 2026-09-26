@@ -1052,8 +1052,11 @@ local function stepPlayer(player: Player, dt: number)
 					-- whole feature exists for: the chunk of slag you were pointing at breaks
 					-- off, live, under the stream, and the thing inside starts to be a thing.
 					table.remove(session.zoneIds, removedIndex)
+					-- SHED, NOT STRIPPED: what is left of the chunk tumbles off the item the
+					-- way its flakes already did (CrustDebrisController), instead of blinking
+					-- out of existence under the stream.
 					if session.zones[zoneId] then
-						ItemCrust.strip(session.zones[zoneId])
+						ItemCrust.shed(session.zones[zoneId])
 						session.zones[zoneId] = nil
 					end
 					-- The bank and the paint cache go with the patch. Nothing re-uses a zone
