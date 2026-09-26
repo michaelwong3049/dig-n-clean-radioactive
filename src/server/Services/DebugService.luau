@@ -491,6 +491,26 @@ COMMANDS["/fly"] = {
 	end,
 }
 
+COMMANDS["/immunity"] = {
+	-- Same session-only shape as /fly: a toggle, with an explicit "off". Turning it on
+	-- also flushes the meter, so you are not left carrying the dose you came in with.
+	-- Radiation only -- /boom's blast and crater still hurt (ExposureService.setImmune).
+	help = "/immunity [off] — toggle immunity to radiation (blasts still hurt); /immunity off to clear",
+	run = function(player, _sandbox, args)
+		local raw = args[1]
+		local enabled = if raw == "off" or raw == "clear" or raw == "reset"
+			then false
+			elseif raw == "on" then true
+			else not ExposureService.isImmune(player)
+		ExposureService.setImmune(player, enabled)
+		if enabled then
+			ExposureService.flush(player)
+			return "immunity on — radiation can't touch you (blasts and craters still can); /immunity off to clear"
+		end
+		return "immunity off — radiation is back"
+	end,
+}
+
 COMMANDS["/boom"] = {
 	-- The pull fuse takes 20-40s of hauling to run out; this skips straight to the
 	-- bang for tuning the blast, the crater and the FX. Goes off a few studs in front
