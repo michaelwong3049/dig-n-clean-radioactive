@@ -720,8 +720,9 @@ local SPECS: { [string]: { [string]: (Model, Color3) -> () } } = {
 }
 
 --[[
-	MOVING PARTS. The top magnets' balls, rings and crystals turn, orbit and ride
-	up and down their poles instead of sitting welded solid.
+	MOVING PARTS. The top magnets' outer balls, rings and crystals turn, orbit
+	and float instead of sitting welded solid. The bands wrapped round the poles
+	stay put (user rule: only the outer pieces move).
 
 	Every part of a magnet is WeldConstraint-joined to its `bend`, which cannot be
 	animated. rig() swaps a chosen part's constraint for a `Weld` of the same pose,
@@ -798,17 +799,6 @@ local function orbit(bend: BasePart, parts: { BasePart }, centre: BasePart?, spi
 	end
 end
 
---- Bands stacked up a pole riding a travelling wave, bottom to top.
-local function ripple(bend: BasePart, parts: { BasePart })
-	-- partsMatching sorts by name, and "_10" sorts before "_2": order by height instead.
-	table.sort(parts, function(a, b)
-		return bend.CFrame:PointToObjectSpace(a.Position).Y < bend.CFrame:PointToObjectSpace(b.Position).Y
-	end)
-	for i, part in parts do
-		rig(bend, part, { bob = 0.03, hz = 0.7, phase = -i * 0.8 })
-	end
-end
-
 local function spinAll(bend: BasePart, parts: { BasePart }, motion: Motion)
 	for _, part in parts do
 		rig(bend, part, motion)
@@ -841,25 +831,22 @@ local MOTION: { [string]: (Model, BasePart) -> () } = {
 			table.insert(wheel, halo)
 		end
 		orbit(bend, wheel, halo, 0.7)
-		ripple(bend, partsMatching(model, "^ring_l_"))
-		ripple(bend, partsMatching(model, "^ring_r_"))
 	end,
 	["Lattice Magnet"] = function(model: Model, bend: BasePart)
 		local core = partNamed(model, "lattice_core")
-		-- The six diamonds circle the core, bobbing out of step.
+		-- The big crystal ball and its cage float as one (a spin alone is invisible on
+		-- a sphere), and the six diamonds circling it ride along.
+		local float = { bob = 0.25, hz = 0.35 }
 		local c = at(bend, core)
-		for i, shard in partsMatching(model, "^lattice_shard_") do
-			rig(bend, shard, { pivot = c, spin = 1.1, bob = 0.05, hz = 0.6, phase = i * math.pi / 3 })
+		for _, shard in partsMatching(model, "^lattice_shard_") do
+			rig(bend, shard, { pivot = c, spin = 1.1, bob = float.bob, hz = float.hz })
 		end
-		-- The big crystal ball and its cage float as one: a spin alone is invisible on a sphere.
-		local float = { bob = 0.1, hz = 0.4 }
 		spinAll(bend, one(model, "lattice_halo"), { axis = TILT, spin = 0.6, bob = float.bob, hz = float.hz })
 		spinAll(bend, one(model, "lattice_core"), { spin = -0.8, bob = float.bob, hz = float.hz })
 		for i, side in { "l", "r" } do
 			local lift = { bob = 0.04, hz = 0.45, phase = i * math.pi }
 			spinAll(bend, one(model, `float_pole_{side}`), lift)
 			spinAll(bend, one(model, `pole_gem_{side}`), { spin = 1.5, bob = lift.bob, hz = lift.hz, phase = lift.phase })
-			ripple(bend, partsMatching(model, `^band_{side}_`))
 		end
 	end,
 	["Solar Magnet"] = function(model: Model, bend: BasePart)
@@ -868,19 +855,16 @@ local MOTION: { [string]: (Model, BasePart) -> () } = {
 		spinAll(bend, one(model, "flare_ring_a"), { pivot = at(bend, sun), spin = 1.2 })
 		spinAll(bend, one(model, "flare_ring_b"), { pivot = at(bend, sun), spin = -1.2 })
 		spinAll(bend, one(model, "sun_halo"), { axis = TILT, spin = 0.5 })
-		ripple(bend, partsMatching(model, "^heat_band_l_"))
-		ripple(bend, partsMatching(model, "^heat_band_r_"))
 	end,
 	["Void Magnet"] = function(model: Model, bend: BasePart)
 		-- The big ball floats, carrying its halo and event rings with it.
-		local float = { bob = 0.1, hz = 0.4 }
+		local float = { bob = 0.25, hz = 0.35 }
 		spinAll(bend, one(model, "void_core"), float)
 		spinAll(bend, one(model, "event_ring"), { spin = 1.4, bob = float.bob, hz = float.hz })
 		spinAll(bend, one(model, "event_rim"), { spin = -0.9, bob = float.bob, hz = float.hz })
 		spinAll(bend, one(model, "void_halo"), { axis = TILT_BACK, spin = 0.7, bob = float.bob, hz = float.hz })
 		for i, side in { "l", "r" } do
 			spinAll(bend, one(model, `twin_core_{side}`), { axis = TILT, spin = 1.2, bob = 0.08, hz = 0.5, phase = i * math.pi })
-			ripple(bend, partsMatching(model, `^vein_{side}_`))
 		end
 	end,
 	["Nebula Magnet"] = function(model: Model, bend: BasePart)
@@ -899,7 +883,6 @@ local MOTION: { [string]: (Model, BasePart) -> () } = {
 		for arm = 1, 3 do
 			for i, side in { "l", "r" } do
 				spinAll(bend, one(model, `arm{arm}_tip_{side}`), { spin = 1.3, bob = 0.04, hz = 0.5, phase = arm * 2.1 + i * math.pi })
-				ripple(bend, partsMatching(model, `^arm{arm}_ring_{side}_`))
 			end
 		end
 	end,
@@ -920,11 +903,6 @@ local MOTION: { [string]: (Model, BasePart) -> () } = {
 			orbit(bend, wheel, halo, spin)
 		end
 		spinAll(bend, one(model, "apex_star"), { spin = 1.5, bob = 0.05, hz = 0.5 })
-		for arc = 1, 4 do
-			for _, side in { "l", "r" } do
-				ripple(bend, partsMatching(model, `^arc{arc}_band_{side}_`))
-			end
-		end
 	end,
 }
 
@@ -943,9 +921,18 @@ end
 function ToolFX.animate(model: Model, track: string, tier: number)
 	local moves = if track == "Magnet" then MOTION[ToolTiers.get(track, tier).name] else nil
 	local bend = partNamed(model, "bend")
-	if moves and bend then
-		moves(model, bend)
+	if moves == nil or bend == nil then
+		return
 	end
+	-- Still anything rigged by an older MOTION (a rack built before a retune); the
+	-- current one restamps what should move.
+	for _, d in model:GetDescendants() do
+		if d:IsA("Weld") and d.Name == MOTION_TAG then
+			d:SetAttribute("Spin", 0)
+			d:SetAttribute("Bob", 0)
+		end
+	end
+	moves(model, bend)
 end
 
 --- Attaches this tier's ambient FX to an already-cloned tool model. A no-op
