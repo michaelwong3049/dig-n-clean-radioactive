@@ -110,6 +110,12 @@ local speedOverrides: { [Player]: number } = {}
 -- one the rig actually honours, and this shouldn't have to guess which.
 local jumpOverrides: { [Player]: number } = {}
 
+-- Debug console only (see DebugService's /immunity). Radiation stops reaching the
+-- player: no exposure build-up, no aura-failure burn. Deliberately radiation ONLY --
+-- a detonation's blast and its crater still hurt, so /boom stays testable while
+-- immune. Session-only, like the overrides above.
+local immune: { [Player]: boolean } = {}
+
 local stateRemote: any = nil
 local blackoutRemote: any = nil
 local droppedBagRemote: any = nil
@@ -533,6 +539,14 @@ local function stepPlayer(player: Player, dt: number)
 
 	local carried = Decay.totalEmission(data.carry, stats.fuseMult)
 	local reading = Radiation.resolve(ambient, carried, stats)
+	-- /immunity: the reading still names the ambient and the bag (the HUD keeps its
+	-- numbers), but none of it lands -- nothing accrues, nothing burns, the aura holds.
+	if immune[player] then
+		reading.net = 0
+		reading.excess = 0
+		reading.healthBurn = 0
+		reading.failing = false
+	end
 
 	-- A DETONATED NUKE'S CRATER BURNS HEALTH, and it is folded into the reading rather
 	-- than applied beside it so that everything downstream -- regen stopping, the
@@ -696,6 +710,16 @@ function ExposureService.jumpOverrideOf(player: Player): number?
 	return jumpOverrides[player]
 end
 
+--- Debug console (/immunity). While on, radiation (stage + bag) neither builds
+--- exposure nor burns health; blasts and craters still do.
+function ExposureService.setImmune(player: Player, enabled: boolean)
+	immune[player] = if enabled then true else nil
+end
+
+function ExposureService.isImmune(player: Player): boolean
+	return immune[player] == true
+end
+
 function ExposureService.init()
 	stateRemote = Net.get("ExposureState")
 	blackoutRemote = Net.get("Blackout")
@@ -711,6 +735,7 @@ function ExposureService.start()
 		states[player] = nil
 		speedOverrides[player] = nil
 		jumpOverrides[player] = nil
+		immune[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)
