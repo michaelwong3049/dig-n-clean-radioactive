@@ -2,7 +2,7 @@
 --[[
 	Items.lua — the catalogue. Data only, like everything else in Config/.
 
-	Stages 1-6, ~70 items, Common through Anomaly.
+	Stages 1-6, ~72 items, Common through Anomaly.
 
 	NO ITEM IS AT SCRAP ANY MORE, ON REQUEST. Every former Scrap item was folded
 	into Common (across all stages now, not just 3-6). The Scrap tier still exists in
@@ -900,6 +900,20 @@ Items.DEFS = {
 		baseValue = 100000,
 		model = "ImportedNuke",
 	},
+	-- The fourth rocket (Stage 4 has none): Legendary here, Mythic Booster in Stage 6.
+	{
+		id = "cruise_missile",
+		name = "Cruise Nuke",
+		flavor = "Wings folded out, course locked in, fuel long gone.",
+		rarity = "Legendary",
+		odds = 8000, -- 1 in N per dig in a stocking stage
+		weight = 120,
+		stages = { 5 },
+		appeal = "Gearhead",
+		sets = {},
+		baseValue = 130000,
+		model = "ImportedNuke",
+	},
 	{
 		id = "live_fuel_rod",
 		name = "Atomic Bomb",
@@ -1060,6 +1074,19 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 160000,
+		model = "ImportedNuke",
+	},
+	{
+		id = "booster_rocket",
+		name = "Booster Nuke",
+		flavor = "Four boosters strapped on and a porthole with nobody behind it.",
+		rarity = "Mythic",
+		odds = 45000, -- 1 in N per dig in a stocking stage
+		weight = 300,
+		stages = { 6 },
+		appeal = "Gearhead",
+		sets = {},
+		baseValue = 750000,
 		model = "ImportedNuke",
 	},
 	{

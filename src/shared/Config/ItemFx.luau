@@ -197,32 +197,23 @@ local CHERENKOV = Color3.fromHex("3FA9FF")
 local GOLD_TINT = Color3.fromHex("FFE9C0")
 local GLINT_GOLD = Color3.fromHex("FFF0C8")
 
--- Sky-Glow's ribbons and their end caps. The caps are named `AuroraRibbon<N>End<k>`,
--- which the base-name rule does not fold into `AuroraRibbon`, so they are listed.
-local AURORA_RIBBONS = {
-	"AuroraRibbon",
-	"AuroraRibbon1End",
-	"AuroraRibbon2End",
-	"AuroraRibbon3End",
-	"AuroraRibbon4End",
-}
-
 ItemFx.DEFS = {
 	-- Atomic Bomb (Mythic). The flavour says "still glowing, still humming", so this
-	-- one leaks the light. The casing seams breathe green, the tail lamp is armed.
+	-- one leaks the light. The casing seams and nose ring breathe green, the arming
+	-- ports are live amber, and the fuze tip blinks like it is counting.
 	live_fuel_rod = {
 		finish = {
-			{ parts = { "CasingSeam" }, material = "Neon", color = RAD_GREEN },
-			{ parts = { "TailLamp" }, material = "Neon", color = Color3.fromHex("FF3B2F") },
-			{ parts = { "ArmingPlug" }, material = "Neon", color = Color3.fromHex("FFB020") },
+			{ parts = { "GlowSeam", "NoseGlow", "TailCore" }, material = "Neon", color = RAD_GREEN },
+			{ parts = { "ArmingPort" }, material = "Neon", color = Color3.fromHex("FFB020") },
+			{ parts = { "FuzeTip" }, material = "Neon", color = Color3.fromHex("FF3B2F") },
 		},
-		light = { part = "Shell", color = RAD_GREEN, brightness = 1.6, range = 1.1 },
+		light = { part = "Casing", color = RAD_GREEN, brightness = 1.6, range = 1.1 },
 		particles = {
-			{ part = "Shell", preset = "drift", color = RAD_GREEN, rate = 3 },
+			{ part = "Casing", preset = "drift", color = RAD_GREEN, rate = 3 },
 		},
 		anims = {
-			{ kind = "pulse", parts = { "CasingSeam", "ArmingPlug" }, light = true, period = 2.2, min = 0.35 },
-			{ kind = "blink", parts = { "TailLamp" }, period = 1.0, duty = 0.18, min = 0.12 },
+			{ kind = "pulse", parts = { "GlowSeam", "NoseGlow", "TailCore", "ArmingPort" }, light = true, period = 2.2, min = 0.35 },
+			{ kind = "blink", parts = { "FuzeTip" }, period = 1.0, duty = 0.18, min = 0.12 },
 		},
 	},
 
@@ -241,26 +232,24 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Warped Nuke. The rift on its back is a whole portal: a dark vortex surface, three
-	-- swirl bands turning at different speeds, a bright eye in the middle.
+	-- Warped Nuke. "Spun the wrong way, hard": the shell is wrung like a towel and
+	-- torn open on a rift. The rift is a dark vortex with a bright core, the cracks
+	-- round it glow, and the torn-off debris circles the body.
 	bent_door_wheel = {
 		finish = {
-			{ parts = { "RiftSurface" }, material = "Neon", color = Color3.fromHex("2A1F8F"), transparency = 0.15 },
-			{ parts = { "SwirlBand" }, material = "Neon", color = Color3.fromHex("56D8FF") },
-			{ parts = { "RiftEye" }, material = "Neon", color = Color3.fromHex("E6FBFF") },
-			{ parts = { "GlowSeam", "EmitterLens" }, material = "Neon", color = Color3.fromHex("3C8CFF") },
+			{ parts = { "Rift" }, material = "Neon", color = Color3.fromHex("2A1F8F"), transparency = 0.15 },
+			{ parts = { "RiftCore" }, material = "Neon", color = Color3.fromHex("E6FBFF") },
+			{ parts = { "GlowCrack" }, material = "Neon", color = Color3.fromHex("3C8CFF") },
 		},
-		light = { part = "RiftEye", color = Color3.fromHex("4FA8FF"), brightness = 1.5, range = 0.9 },
+		light = { part = "RiftCore", color = Color3.fromHex("4FA8FF"), brightness = 1.5, range = 0.9 },
 		particles = {
-			{ part = "RiftSurface", preset = "shrinkMotes", color = Color3.fromHex("8FD8FF"), rate = 8 },
+			{ part = "Rift", preset = "shrinkMotes", color = Color3.fromHex("8FD8FF"), rate = 8 },
 		},
 		anims = {
-			{ kind = "pulse", parts = { "RiftEye", "GlowSeam", "EmitterLens" }, light = true, period = 2.6, min = 0.45 },
+			{ kind = "pulse", parts = { "RiftCore", "GlowCrack" }, light = true, period = 2.6, min = 0.45 },
 		},
 		spins = {
-			{ parts = { "SwirlBand1" }, pivot = "RiftFrame", axisParts = { "Shell", "RiftFrame" }, rpm = 16 },
-			{ parts = { "SwirlBand2" }, pivot = "RiftFrame", axisParts = { "Shell", "RiftFrame" }, rpm = 24 },
-			{ parts = { "SwirlBand3" }, pivot = "RiftFrame", axisParts = { "Shell", "RiftFrame" }, rpm = 34 },
+			{ parts = { "Debris" }, pivot = "TwistedShell", axis = "Y", rpm = -9 },
 		},
 	},
 
@@ -280,57 +269,78 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Glassy Nuke. "Fused into glass": a see-through shell with bubbles trapped in it
-	-- and a warm core still glowing at the centre.
+	-- Glassy Nuke. "Fused into glass": the whole shell has gone to sea-green glass,
+	-- running and dripping off the fins, with bubbles trapped in it and loose shards
+	-- that catch the light. None of these parts carry a SurfaceAppearance.
 	glassy_ground_chip = {
 		finish = {
-			{ parts = { "Shell", "GlassDrip" }, material = "Glass", color = Color3.fromHex("5FC9BF"), transparency = 0.5 },
+			{
+				parts = { "FusedShell", "MeltedFin", "Drip", "FinDrip" },
+				material = "Glass",
+				color = Color3.fromHex("5FC9BF"),
+				transparency = 0.45,
+			},
+			{ parts = { "DripBead", "Shard" }, material = "Glass", color = Color3.fromHex("A8F0E6"), transparency = 0.3 },
 			{ parts = { "Bubble" }, material = "Glass", color = Color3.fromHex("F2FFFF"), transparency = 0.35 },
-			{ parts = { "TrappedCore" }, material = "Neon", color = Color3.fromHex("FF8A3D") },
 		},
-		light = { part = "TrappedCore", color = Color3.fromHex("FF8A3D"), brightness = 0.9, range = 0.7 },
+		particles = {
+			{ part = "FusedShell", preset = "sparkle", color = Color3.fromHex("E8FFFB"), rate = 1.2 },
+		},
 		anims = {
-			{ kind = "pulse", parts = { "TrappedCore" }, light = true, period = 3.4, min = 0.5 },
+			{ kind = "glitter", parts = { "Shard", "DripBead" }, period = 3.5, duration = 0.25 },
 		},
 	},
 
-	-- Fading Nuke. "Went dark in under a second": a ghost afterimage of the shell,
-	-- plates fading out step by step, and a core that flashes and dies away.
+	-- Fading Nuke. "Went dark in under a second": the base is still solid, but the
+	-- plates above it fade out row by row into ghost lines, motes drift off the top,
+	-- and the dissolve edge flashes and dies away.
 	cracked_glow_badge = {
 		finish = {
-			{ parts = { "GhostShell", "GhostTail" }, material = "ForceField", color = Color3.fromHex("9FE8FF") },
-			{ parts = { "FadePlate" }, ramp = { from = 0.1, to = 0.85, levels = 10 } },
-			{ parts = { "Wisp" }, material = "Neon", color = Color3.fromHex("CFF4FF"), transparency = 0.4 },
-			{ parts = { "FadingCore" }, material = "Neon", color = Color3.fromHex("BDF6FF") },
+			{ parts = { "GhostLine" }, material = "ForceField", color = Color3.fromHex("9FE8FF") },
+			{ parts = { "Plate", "PlateEdge" }, ramp = { from = 0.05, to = 0.85, levels = 7 } },
+			{ parts = { "Mote" }, material = "Neon", color = Color3.fromHex("CFF4FF"), transparency = 0.4 },
+			{ parts = { "DissolveEdge" }, material = "Neon", color = Color3.fromHex("BDF6FF") },
 		},
-		light = { part = "FadingCore", color = Color3.fromHex("9FE8FF"), brightness = 1.8, range = 0.9 },
+		light = { part = "DissolveEdge", color = Color3.fromHex("9FE8FF"), brightness = 1.8, range = 0.9 },
 		anims = {
-			{ kind = "flash", parts = { "FadingCore", "Wisp" }, light = true, period = 3.2, min = 0.08 },
+			{ kind = "flash", parts = { "DissolveEdge" }, light = true, period = 3.2, min = 0.08 },
+			{
+				kind = "flicker",
+				parts = { "Mote" },
+				period = 0.8,
+				min = 0.1,
+				onChance = 0.7,
+				mode = "transparency",
+				perPart = true,
+			},
 		},
 	},
 
-	-- Static Nuke. An arc between the two electrode horns, flickering like a bad
-	-- connection, throwing sparks off its ends.
+	-- Static Nuke. A Tesla coil on a warhead: a ladder arc climbs between the two
+	-- electrode horns, flickering like a bad connection, the fin arcs crackle with it,
+	-- and sparks fly off the horns.
 	old_headphones = {
 		finish = {
-			{ parts = { "Arc", "ArcEnd" }, material = "Neon", color = Color3.fromHex("D8F0FF") },
-			{ parts = { "SparkNode" }, material = "Neon", color = Color3.fromHex("5AA8FF") },
+			{ parts = { "LadderArc", "FinArc" }, material = "Neon", color = Color3.fromHex("D8F0FF") },
+			{ parts = { "SparkNode", "NodeGlow" }, material = "Neon", color = Color3.fromHex("5AA8FF") },
+			{ parts = { "StaticHalo", "CoronaRing" }, material = "Neon", color = Color3.fromHex("9CCBFF"), transparency = 0.5 },
 		},
-		light = { part = "Arc", color = Color3.fromHex("9CCBFF"), brightness = 1.6, range = 0.9 },
+		light = { part = "LadderArc1", color = Color3.fromHex("9CCBFF"), brightness = 1.6, range = 0.9 },
 		particles = {
-			{ part = "ArcEnd1", preset = "arcSpark", color = Color3.fromHex("CFE8FF"), rate = 10 },
-			{ part = "ArcEnd2", preset = "arcSpark", color = Color3.fromHex("CFE8FF"), rate = 10 },
+			{ part = "ElectrodeHorn1", preset = "arcSpark", color = Color3.fromHex("CFE8FF"), rate = 10 },
+			{ part = "ElectrodeHorn2", preset = "arcSpark", color = Color3.fromHex("CFE8FF"), rate = 10 },
 		},
 		anims = {
 			{
 				kind = "flicker",
-				parts = { "Arc", "ArcEnd" },
+				parts = { "LadderArc", "FinArc" },
 				light = true,
 				period = 0.09,
 				min = 0,
 				onChance = 0.72,
 				mode = "transparency",
 			},
+			{ kind = "pulse", parts = { "SparkNode", "NodeGlow", "StaticHalo", "CoronaRing" }, period = 1.2, min = 0.5 },
 		},
 	},
 
@@ -358,25 +368,26 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Cosmic Nuke (Mythic). A working armillary. Each gimbal ring turns on its own
-	-- pin axis, nested outer to inner the way a real gimbal carries its rings. The
-	-- satellites orbit and the dust ring twinkles.
+	-- Cosmic Nuke (Mythic). A working orrery round a little star. Each gimbal ring
+	-- turns on the axis through its own pivot pair, nested outer to inner the way a
+	-- real gimbal carries its rings, and each ring takes its planet, moon and tick
+	-- marks with it. The dust specks circle slowly and twinkle.
 	stopped_second_hand = {
 		finish = {
 			{ parts = { "StarCore" }, material = "Neon", color = Color3.fromHex("FFF1C4") },
-			{ parts = { "Corona" }, material = "Neon", color = Color3.fromHex("FFC94A"), transparency = 0.35 },
-			{ parts = { "Flare" }, material = "Neon", color = Color3.fromHex("FFD66B") },
-			{ parts = { "DustGrain" }, material = "Neon", color = Color3.fromHex("FFFFFF") },
+			{ parts = { "CoronaSpike" }, material = "Neon", color = Color3.fromHex("FFC94A"), transparency = 0.25 },
+			{ parts = { "NoseStar" }, material = "Neon", color = Color3.fromHex("FFD66B") },
+			{ parts = { "Speck" }, material = "Neon", color = Color3.fromHex("FFFFFF") },
 		},
 		light = { part = "StarCore", color = Color3.fromHex("FFD98A"), brightness = 1.7, range = 1.1 },
 		particles = {
 			{ part = "StarCore", preset = "sparkle", color = Color3.fromHex("FFE9A8"), rate = 7 },
 		},
 		anims = {
-			{ kind = "pulse", parts = { "StarCore", "Corona" }, light = true, period = 4.0, min = 0.75 },
+			{ kind = "pulse", parts = { "StarCore", "CoronaSpike", "NoseStar" }, light = true, period = 4.0, min = 0.75 },
 			{
 				kind = "flicker",
-				parts = { "DustGrain" },
+				parts = { "Speck" },
 				period = 0.7,
 				min = 0.1,
 				onChance = 0.8,
@@ -385,81 +396,84 @@ ItemFx.DEFS = {
 			},
 		},
 		spins = {
-			-- 1: the outer ring, on the near-vertical pins the cradle holds it by.
+			-- 1: the outer ring.
 			{
-				parts = { "GimbalRing3", "GimbalSpoke31", "GimbalSpoke32", "GimbalSpoke33", "GimbalSpoke34", "GimbalPin31", "GimbalPin32" },
+				parts = { "GimbalRing3", "Pivot31", "Pivot32", "Tick3*", "Planet3", "MoonOrbit3", "Moon3" },
 				pivot = "StarCore",
-				axisParts = { "GimbalPin32", "GimbalPin31" },
+				axisParts = { "Pivot32", "Pivot31" },
 				rpm = 4,
 			},
-			-- 2: the flat middle ring and its dust, carried by ring 1.
+			-- 2: the middle ring, carried by ring 1.
 			{
-				parts = { "GimbalRing2", "GimbalSpoke21", "GimbalSpoke22", "GimbalSpoke23", "GimbalSpoke24", "GimbalPin21", "GimbalPin22", "DustGrain" },
+				parts = { "GimbalRing2", "Pivot21", "Pivot22", "Tick2*", "Planet2", "MoonOrbit2", "Moon2" },
 				pivot = "StarCore",
-				axisParts = { "GimbalPin21", "GimbalPin22" },
+				axisParts = { "Pivot21", "Pivot22" },
 				rpm = -7,
 				parent = 1,
 			},
 			-- 3: the inner ring, carried by ring 2.
 			{
-				parts = { "GimbalRing1", "GimbalSpoke11", "GimbalSpoke12", "GimbalSpoke13", "GimbalSpoke14", "GimbalPin11", "GimbalPin12" },
+				parts = { "GimbalRing1", "Pivot11", "Pivot12", "Tick1*", "Planet1", "MoonOrbit1", "Moon1" },
 				pivot = "StarCore",
-				axisParts = { "GimbalPin11", "GimbalPin12" },
+				axisParts = { "Pivot11", "Pivot12" },
 				rpm = 11,
 				parent = 2,
 			},
-			-- 4: the satellites orbit on their own, slow.
-			{ parts = { "Satellite", "SatelliteRing" }, pivot = "StarCore", axis = "Y", rpm = 2.5 },
+			-- 4: the dust ring drifts round on its own, slow.
+			{ parts = { "Speck" }, pivot = "StarCore", axis = "Y", rpm = 2.5 },
 		},
 	},
 
 	-- Sky-Glow Nuke. "Lights up the crater at night all by itself": aurora ribbons
-	-- cycling colour out of step with each other, lit vane slots, and the widest
-	-- light in the set.
+	-- cycling colour out of step with each other inside a lattice canopy, lit vane
+	-- slots, a beacon on the crown mast, and the widest light in the set.
 	skyglow_core_fragment = {
 		finish = {
 			{ parts = { "AuroraCore" }, material = "Neon", color = Color3.fromHex("3FF2D0") },
-			{ parts = AURORA_RIBBONS, material = "Neon", color = Color3.fromHex("3FF2D0") },
+			{ parts = { "AuroraRibbon", "InnerRibbon" }, material = "Neon", color = Color3.fromHex("3FF2D0") },
 			{ parts = { "VaneSlot" }, material = "Neon", color = Color3.fromHex("3FF2D0"), transparency = 0.3 },
-			{ parts = { "GlowBleed" }, material = "Neon", color = Color3.fromHex("3FF2D0"), transparency = 0.55 },
+			{ parts = { "CrownBeacon" }, material = "Neon", color = Color3.fromHex("C9FFF4") },
 		},
 		light = { part = "AuroraCore", color = Color3.fromHex("3FF2D0"), brightness = 1.4, range = 2.0 },
 		anims = {
 			{
 				kind = "colorCycle",
-				parts = AURORA_RIBBONS,
+				parts = { "AuroraRibbon", "InnerRibbon" },
 				period = 7,
 				colors = { Color3.fromHex("3FF2D0"), Color3.fromHex("7CFF6B"), Color3.fromHex("A06BFF") },
 			},
-			{ kind = "pulse", parts = { "AuroraCore", "VaneSlot", "GlowBleed" }, light = true, period = 5, min = 0.6 },
+			{ kind = "pulse", parts = { "AuroraCore", "VaneSlot" }, light = true, period = 5, min = 0.6 },
+			{ kind = "blink", parts = { "CrownBeacon" }, period = 2.4, duty = 0.2, min = 0.2 },
 		},
 	},
 
-	-- Alien Nuke. Veins with a heartbeat, and an eye that blinks now and then.
+	-- Alien Nuke. A living hull under a chitin carapace: bio-nodes with a heartbeat,
+	-- glowing feeler tips, and an eye between the lids that blinks now and then.
 	ufo_fragment = {
 		finish = {
 			{ parts = { "IrisCore" }, material = "Neon", color = Color3.fromHex("D4FF3A") },
-			{ parts = { "IrisRing" }, material = "Neon", color = Color3.fromHex("9CFF3A") },
-			{ parts = { "Vein", "FeelerPod" }, material = "Neon", color = Color3.fromHex("7DFF2F") },
+			{ parts = { "BioNode", "FeelerTip" }, material = "Neon", color = Color3.fromHex("7DFF2F") },
 		},
 		light = { part = "IrisCore", color = Color3.fromHex("9CFF3A"), brightness = 1.3, range = 0.9 },
 		anims = {
-			{ kind = "heartbeat", parts = { "Vein", "FeelerPod" }, light = true, period = 1.6, min = 0.35 },
-			{ kind = "wink", parts = { "IrisCore", "IrisRing" }, period = 5.5, duration = 0.12, min = 0.05 },
+			{ kind = "heartbeat", parts = { "BioNode", "FeelerTip" }, light = true, period = 1.6, min = 0.35 },
+			{ kind = "wink", parts = { "IrisCore" }, period = 5.5, duration = 0.12, min = 0.05 },
 		},
 	},
 
 	-- Black-Box Nuke. An underwater-locator-style beacon: a short orange strobe and a
-	-- sonar ring off the lamp every flash.
+	-- sonar ring off the tip every flash, with the case's status lamps chasing.
 	blackbox_recorder = {
 		finish = {
-			{ parts = { "BeaconLamp" }, material = "Neon", color = Color3.fromHex("FF8A1F") },
+			{ parts = { "BeaconTip" }, material = "Neon", color = Color3.fromHex("FF8A1F") },
+			{ parts = { "StatusLamp" }, material = "Neon", color = Color3.fromHex("5CFF6A") },
 		},
-		light = { part = "BeaconLamp", color = Color3.fromHex("FF8A1F"), brightness = 2.6, range = 1.2 },
+		light = { part = "BeaconTip", color = Color3.fromHex("FF8A1F"), brightness = 2.6, range = 1.2 },
 		anims = {
-			{ kind = "blink", parts = { "BeaconLamp" }, light = true, period = 1.4, duty = 0.09, min = 0.08 },
+			{ kind = "blink", parts = { "BeaconTip" }, light = true, period = 1.4, duty = 0.09, min = 0.08 },
+			{ kind = "blink", parts = { "StatusLamp" }, period = 1.8, duty = 0.3, min = 0.2, stagger = true },
 		},
-		ping = { part = "BeaconLamp", color = Color3.fromHex("FF9A3A"), period = 1.4 },
+		ping = { part = "BeaconTip", color = Color3.fromHex("FF9A3A"), period = 1.4 },
 	},
 
 	-- ── Shine ─────────────────────────────────────────────────────────────
@@ -467,21 +481,40 @@ ItemFx.DEFS = {
 	-- carry a PointLight. They shine by a warmer finish, a glint sweeping across the
 	-- polished parts, and star flares as it passes.
 
-	-- Golden Nuke. "Gold-plated. Somebody really wanted this one to shine." The
-	-- whole shell is polished gold, and the signet stone on top is a clear gem.
+	-- Golden Nuke. "Gold-plated. Somebody really wanted this one to shine." A gold
+	-- shell wreathed in laurel under a signet crest, with a clear orb on the nose
+	-- and modelled star glints that wink as the light moves.
 	gold_ring = {
 		finish = {
 			{
-				parts = { "Shell", "TailTaper", "Fin", "ChasedBand", "RingCollar", "SignetBezel" },
+				parts = {
+					"Shell",
+					"Fin",
+					"FinRoll",
+					"FineBand",
+					"Laurel",
+					"NoseCollar",
+					"SignetCollar",
+					"SignetBezel",
+					"SignetCrest",
+				},
 				tint = GOLD_TINT,
 			},
-			{ parts = { "SignetStone" }, material = "Glass", color = Color3.fromHex("F2FAFF"), transparency = 0.15 },
+			{ parts = { "NoseOrb" }, material = "Glass", color = Color3.fromHex("F2FAFF"), transparency = 0.15 },
 		},
 		anims = {
-			{ kind = "glitter", parts = { "SignetStone" }, period = 1.8, duration = 0.3 },
+			{ kind = "glitter", parts = { "NoseOrb" }, period = 1.8, duration = 0.3 },
+			{
+				kind = "wink",
+				parts = { "GlintH", "GlintV" },
+				period = 1.6,
+				min = 0,
+				mode = "transparency",
+				perPart = true,
+			},
 		},
 		glint = {
-			parts = { "Shell", "TailTaper", "ChasedBand", "RingCollar", "SignetBezel" },
+			parts = { "Shell", "FineBand", "Laurel", "SignetBezel" },
 			period = 4.5,
 			sweep = 0.9,
 			color = GLINT_GOLD,
@@ -685,19 +718,19 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Scorched Nuke. "Rated to hold back anything. Didn't." Still burning: the
-	-- embers breathe like coals, the torn plate's tips glow, small flames lick up
-	-- off it, and smoke and sparks rise. A Common, so it smoulders; no bonfire.
-	-- The blister plates stay dark: lit, their flat rectangles read as stickers.
+	-- Scorched Nuke. "Rated to hold back anything. Didn't." Still burning: the ember
+	-- cracks breathe like coals, the burnt fuze smoulders at the top with small
+	-- flames licking off it, and smoke and sparks rise. A Common, so it smoulders;
+	-- no bonfire. The soot and blisters stay dark.
 	scorched_metal_plate = {
 		finish = {
-			{ parts = { "Ember", "CurledPlateEnd" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+			{ parts = { "EmberCrack", "FuzeEmber" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
 		},
-		light = { part = "Ember2", color = Color3.fromHex("FF7A2A"), brightness = 1.3, range = 0.9 },
+		light = { part = "EmberCrack2", color = Color3.fromHex("FF7A2A"), brightness = 1.3, range = 0.9 },
 		particles = {
-			{ part = "CurledPlate", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 24, outward = 0.35 },
+			{ part = "FuzeEmber", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 18, outward = 0.35 },
 			{
-				part = "Ember3",
+				part = "EmberCrack3",
 				preset = "flame",
 				color = Color3.fromHex("FF7A22"),
 				rate = 0,
@@ -705,34 +738,85 @@ ItemFx.DEFS = {
 				burstCount = 5,
 				outward = 0.4,
 			},
-			{ part = "Ember2", preset = "ember", color = Color3.fromHex("FFA040"), rate = 3, outward = 0.4 },
-			{ part = "CurledPlate", preset = "smoke", color = Color3.fromHex("2E2724"), rate = 1.5, outward = 0.35 },
+			{ part = "EmberCrack1", preset = "ember", color = Color3.fromHex("FFA040"), rate = 3, outward = 0.4 },
+			{ part = "BurntFuze", preset = "smoke", color = Color3.fromHex("2E2724"), rate = 1.5, outward = 0.35 },
 		},
 		anims = {
-			{ kind = "smoulder", parts = { "Ember", "CurledPlateEnd" }, light = true, period = 1.6, min = 0.35 },
+			{ kind = "smoulder", parts = { "EmberCrack", "FuzeEmber" }, light = true, period = 1.6, min = 0.35 },
 		},
 	},
 
 	-- Core Nuke (Legendary). "Warm through three layers of metal. Never once cooled."
-	-- The lid is off, so the pit sits exposed in the throat and still glows amber: it
-	-- breathes like a coal, the collar and the four initiators breathe out of step with
-	-- it, and the heat runs down the three shield bands one after the other, top band
-	-- first, like warmth soaking outward through the layers. Embers rise off the pit.
-	-- Amber, not the Reactor Nuke's Cherenkov blue or the Scorched Nuke's fire orange.
+	-- A shielded cask on a pedestal over a glowing pit, lid hoisted off: the pit
+	-- breathes amber like a coal, the coolant risers pulse up one after the other, and
+	-- three orbit rings turn round the cask at their own speeds. Embers rise off the
+	-- pit. Amber, not the Reactor Nuke's Cherenkov blue or the Scorched Nuke's fire.
 	reactor_core_sample = {
 		finish = {
 			{ parts = { "Pit" }, material = "Neon", color = Color3.fromHex("FFB454") },
-			{ parts = { "PitCollar" }, material = "Neon", color = Color3.fromHex("FF7A2E") },
-			{ parts = { "Initiator" }, material = "Neon", color = Color3.fromHex("FF4A2A") },
-			{ parts = { "ShieldBand" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+			{ parts = { "PitSeam" }, material = "Neon", color = Color3.fromHex("FF7A2E") },
+			{ parts = { "RiserGlow" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
 		},
 		light = { part = "Pit", color = Color3.fromHex("FF9A4A"), brightness = 1.9, range = 1.1 },
 		particles = {
 			{ part = "Pit", preset = "ember", color = Color3.fromHex("FFB454"), rate = 3 },
 		},
 		anims = {
-			{ kind = "smoulder", parts = { "Pit", "PitCollar", "Initiator" }, light = true, period = 2.4, min = 0.55 },
-			{ kind = "pulse", parts = { "ShieldBand" }, stagger = true, period = 3.6, min = 0.3 },
+			{ kind = "smoulder", parts = { "Pit", "PitSeam" }, light = true, period = 2.4, min = 0.55 },
+			{ kind = "pulse", parts = { "RiserGlow" }, stagger = true, period = 3.6, min = 0.3 },
+		},
+		spins = {
+			{ parts = { "OrbitRing1" }, pivot = "Cask", axis = "Y", rpm = 5 },
+			{ parts = { "OrbitRing2" }, pivot = "Cask", axis = "Y", rpm = -8 },
+			{ parts = { "OrbitRing3" }, pivot = "Cask", axis = "Y", rpm = 12 },
+		},
+	},
+	-- ── Batch 13 newcomers ───────────────────────────────────────────────
+
+	-- Booster Nuke (Mythic). Four strap-on boosters round the core: the engine bells
+	-- still hold a dull glow, the emblem on the flank pulses, and the porthole is
+	-- clear glass with nobody behind it.
+	booster_rocket = {
+		finish = {
+			{
+				parts = { "EngineGlow", "NozzleGlow", "BoosterGlow", "BoosterBellGlow" },
+				material = "Neon",
+				color = Color3.fromHex("FF7A2A"),
+			},
+			{ parts = { "EmblemCore" }, material = "Neon", color = RAD_GREEN },
+			{ parts = { "PortholeGlass" }, material = "Glass", color = Color3.fromHex("BFE6FF"), transparency = 0.4 },
+		},
+		light = { part = "EngineGlow", color = Color3.fromHex("FF8A3A"), brightness = 1.4, range = 1.0 },
+		anims = {
+			{
+				kind = "smoulder",
+				parts = { "EngineGlow", "NozzleGlow", "BoosterGlow", "BoosterBellGlow" },
+				light = true,
+				period = 2.2,
+				min = 0.4,
+			},
+			{ kind = "pulse", parts = { "EmblemCore" }, period = 2.8, min = 0.4 },
+		},
+	},
+
+	-- The Big One (Anomaly). A black monolith hovering over a cracked ground plate:
+	-- the glow under it breathes, the cracks answer it, and a ring of debris orbits
+	-- the slab on a faint trace.
+	unlabeled_cylinder = {
+		finish = {
+			{ parts = { "HoverGlow" }, material = "Neon", color = Color3.fromHex("B46BFF") },
+			{ parts = { "GroundCrack" }, material = "Neon", color = Color3.fromHex("7A3CFF") },
+			{ parts = { "OrbitTrace" }, material = "Neon", color = Color3.fromHex("D9C2FF"), transparency = 0.6 },
+		},
+		light = { part = "HoverGlow", color = Color3.fromHex("A45CFF"), brightness = 2, range = 1.3 },
+		particles = {
+			{ part = "HoverGlow", preset = "shrinkMotes", color = Color3.fromHex("D2B0FF"), rate = 6 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "HoverGlow", "GroundCrack" }, light = true, period = 3.8, min = 0.4 },
+		},
+		spins = {
+			{ parts = { "OrbitDebris", "OrbitTrace" }, pivot = "Monolith", axis = "Y", rpm = 6 },
 		},
 	},
 } :: { [string]: ItemFxDef }
