@@ -68,13 +68,19 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 16
+local BUILDER_VERSION = 17
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
 -- Floor's centre; the floor is gone (see buildShell) and the origin is now just the
 -- camp's own datum, which is what it always actually was.
-local DEFAULT_ORIGIN = CFrame.new(0, 0.9, 136)
+--
+-- IT IS Hub.CAMP_ORIGIN, THE SAME DATUM World.rebuild PASSES. It used to be a
+-- separate literal, (0, 0.9, 136) — where the camp stood before the plaza moved —
+-- so the bare `BaseCamp.rebuild()` this file's header tells you to run built the
+-- trader ~136 studs north of the shop row and dragged the model yard with it. A
+-- default that disagrees with the real caller is a trap; there is only one datum.
+local DEFAULT_ORIGIN = Hub.CAMP_ORIGIN
 
 -- ── Primitives ────────────────────────────────────────────────────────────────
 -- `build`/`C` used to be aliased here from Kit, for the floor pad and the spawn.
