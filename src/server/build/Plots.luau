@@ -2860,13 +2860,30 @@ local RAIL_H = 3.4
 local RAIL_POST_SPACING = 8
 local RAIL_POST_W = 1.2
 local RAIL_BAR_T = 0.8
+-- The Trim strip (built in buildPlot) sits at pad.topY + 0.1, height 0.5, so its top
+-- face is pad.topY + 0.35 — posts must stand on that face rather than pad.topY itself,
+-- or the Trim pokes up through the bottom third of every post along the trimmed edges.
+local RAIL_BASE_Y = 0.35
+
+-- buildCleansingStation backs its gantry onto the +X border (its own header: "slides it
+-- outward to sit inside the +X accent trim") and its SplashWall/TubRim reach out to
+-- plot-local x ~= 33.6 (POST_Z = -28.2 there is authored as "plot x ~= 29.8", half its
+-- 7.6/7.9-wide span beyond that) — past this fence's own line at x = railX (32.4), at a
+-- height that overlaps both rail bars and the post column. The station (PR #123) predates
+-- this side fence (PR #154), which never checked clearance against it. Leave a gap on the
+-- +1 side only, over the tub's own z (-32) with margin, the same "something else already
+-- closes this stretch of edge" treatment the open entrance already gets.
+local STATION_GAP_SIDE = 1
+local STATION_GAP_Z_MIN, STATION_GAP_Z_MAX = -34, -30
+
 local function buildSideRailings(parent: Instance, origin: CFrame)
 	local pad = Plots.PAD
 	local folder = Instance.new("Folder")
 	folder.Name = "SideRailings"
 
 	-- Stands on the Trim (width/2 - 1 .. width/2), outer face flush with the pad edge,
-	-- so the thicker posts still clear the wash pad / cleansing station deck edges.
+	-- so the thicker posts still clear the wash pad deck edges (the cleansing station's
+	-- own reach is handled by STATION_GAP_* above, not by standing back from it here).
 	local railX = pad.width / 2 - RAIL_POST_W / 2
 	local z0, z1 = pad.minZ + 0.5 + RAIL_POST_W / 2, pad.maxZ - 0.5 - RAIL_POST_W / 2
 	local span = z1 - z0
@@ -2876,29 +2893,51 @@ local function buildSideRailings(parent: Instance, origin: CFrame)
 
 	for _, side in { -1, 1 } do
 		local x = side * railX
+		local gapMin, gapMax = if side == STATION_GAP_SIDE then STATION_GAP_Z_MIN else nil,
+			if side == STATION_GAP_SIDE then STATION_GAP_Z_MAX else nil
 
 		for _, railY in { RAIL_H, RAIL_H * 0.5 } do
-			build(folder, origin, {
-				name = "Rail",
-				pos = { x, pad.topY + railY, midZ },
-				size = { RAIL_BAR_T, RAIL_BAR_T, span + RAIL_POST_W },
-				color = C.railGrey,
-				material = "Plastic",
-				studs = true,
-				canCollide = false,
-			})
+			if gapMin then
+				-- Split into the two segments either side of the gap instead of one bar
+				-- running its full length, so nothing physically occupies the station's
+				-- footprint.
+				for _, seg in { { z0, gapMin }, { gapMax, z1 } } do
+					local segLen = seg[2] - seg[1]
+					build(folder, origin, {
+						name = "Rail",
+						pos = { x, pad.topY + railY, (seg[1] + seg[2]) / 2 },
+						size = { RAIL_BAR_T, RAIL_BAR_T, segLen + RAIL_POST_W },
+						color = C.railGrey,
+						material = "Plastic",
+						studs = true,
+						canCollide = false,
+					})
+				end
+			else
+				build(folder, origin, {
+					name = "Rail",
+					pos = { x, pad.topY + railY, midZ },
+					size = { RAIL_BAR_T, RAIL_BAR_T, span + RAIL_POST_W },
+					color = C.railGrey,
+					material = "Plastic",
+					studs = true,
+					canCollide = false,
+				})
+			end
 		end
 
 		for i = 0, postCount - 1 do
 			local z = z0 + span * (i / (postCount - 1))
-			build(folder, origin, {
-				name = "RailPost",
-				pos = { x, pad.topY + postH / 2, z },
-				size = { RAIL_POST_W, postH, RAIL_POST_W },
-				color = C.railPost,
-				material = "Plastic",
-				studs = true,
-			})
+			if not (gapMin and z > gapMin and z < gapMax) then
+				build(folder, origin, {
+					name = "RailPost",
+					pos = { x, pad.topY + RAIL_BASE_Y + postH / 2, z },
+					size = { RAIL_POST_W, postH, RAIL_POST_W },
+					color = C.railPost,
+					material = "Plastic",
+					studs = true,
+				})
+			end
 		end
 	end
 
@@ -2908,8 +2947,10 @@ end
 --- Closes the back-wall edge with the same rail/post fence buildSideRailings runs
 --- down the long edges, standing where the old NameSign's standoff arms used to —
 --- on request, in place of a nameplate mounted there. `railZ`/end-post X match
---- buildSideRailings' own `railX`/`z1` exactly, so the back fence's corner posts
---- land flush with the side fence's rather than leaving a gap or doubling up.
+--- buildSideRailings' own `railX`/`z1` exactly, so the back fence's rail lands flush
+--- with the side fence's corner post; the post loop itself skips both ends (i = 0 and
+--- i = postCount - 1) since those coordinates are that same corner post — building it
+--- again there duplicated the geometry exactly and z-fought.
 local function buildBackFence(parent: Instance, origin: CFrame)
 	local pad = Plots.PAD
 	local folder = Instance.new("Folder")
@@ -2933,11 +2974,15 @@ local function buildBackFence(parent: Instance, origin: CFrame)
 		})
 	end
 
-	for i = 0, postCount - 1 do
+	-- i = 0 and i = postCount - 1 land at x = +-railX, z = railZ — exactly the same
+	-- spot as buildSideRailings' own corner post (its last post, at z1 == railZ).
+	-- Skip both ends here so the corner post is built once, not doubled into a
+	-- z-fighting duplicate.
+	for i = 1, postCount - 2 do
 		local x = -railX + span * (i / (postCount - 1))
 		build(folder, origin, {
 			name = "RailPost",
-			pos = { x, pad.topY + postH / 2, railZ },
+			pos = { x, pad.topY + RAIL_BASE_Y + postH / 2, railZ },
 			size = { RAIL_POST_W, postH, RAIL_POST_W },
 			color = C.railPost,
 			material = "Plastic",
