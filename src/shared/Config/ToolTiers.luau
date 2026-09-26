@@ -86,6 +86,15 @@ ToolTiers.Magnet = {
 	{ name = "Winch Coil", scale = 1.90, body = Color3.fromHex("D4A017"), accent = Color3.fromHex("2E2E2E"), material = Enum.Material.Metal },
 	{ name = "Rail Coil", scale = 2.30, body = Color3.fromHex("2E86DE"), accent = Color3.fromHex("1B3A5C"), material = Enum.Material.Metal, glow = Color3.fromHex("7FD0FF") },
 	{ name = "Singularity Coil", scale = 2.80, body = Color3.fromHex("7A3FD4"), accent = Color3.fromHex("EDEDED"), material = Enum.Material.Metal, glow = Color3.fromHex("D6A6FF") },
+	-- TOXIC TWILIGHT'S FIVE, here for their NAMES like the detector ladder's six above:
+	-- ToolTiers.get clamps, so without a row per rung every magnet past the Singularity
+	-- Coil would read as it and get its core halo and motes from ToolFX. The models are
+	-- hand-imported and textured, nothing repaints them, and none has a `glow`.
+	{ name = "Lattice Magnet", scale = 1.00, body = Color3.fromHex("3FB8A0"), accent = Color3.fromHex("1F5A4E"), material = Enum.Material.Metal },
+	{ name = "Solar Magnet", scale = 1.00, body = Color3.fromHex("F2A33A"), accent = Color3.fromHex("C0392B"), material = Enum.Material.Metal },
+	{ name = "Void Magnet", scale = 1.00, body = Color3.fromHex("2A2438"), accent = Color3.fromHex("8B6BD6"), material = Enum.Material.Metal },
+	{ name = "Nebula Magnet", scale = 1.00, body = Color3.fromHex("C45AD8"), accent = Color3.fromHex("4F8BFF"), material = Enum.Material.Metal },
+	{ name = "Omega Magnet", scale = 1.00, body = Color3.fromHex("F2E9D0"), accent = Color3.fromHex("C89B3C"), material = Enum.Material.Metal },
 } :: { TierLook }
 
 -- THE ONLY TRACK WHOSE ROWS ARE ACTUALLY READ AT RUNTIME. The note above this table

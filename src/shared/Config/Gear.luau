@@ -178,6 +178,25 @@ Gear.Magnet = {
 	{ name = "Winch Coil", price = 19500, pullSpeed = 2.2, draw = 0.40, maxGrip = 4, blurb = "One click every two seconds is enough." }, -- 0.53  <- the mobile target
 	{ name = "Rail Coil", price = 46500, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing." }, -- 0.23
 	{ name = "Singularity Coil", price = 110000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest." }, -- 0.04, effectively hands-free
+	-- TOXIC TWILIGHT'S FIVE. Sold at the Magnet stall in that camp and nowhere else
+	-- (`camp`, Gear.campOf), like the camp's six detectors. The order is the art pack's
+	-- own (its tier_6_lattice .. tier_10_omega), which is the order they cost.
+	--
+	-- `draw` HAS NOWHERE LEFT TO GO, so the climb is in pullSpeed. The Singularity Coil
+	-- already draws 0.70 against a 0.75 drag, and Spec wants every rung to ask for fewer
+	-- clicks to hold than the last without draw ever reaching the drag (that would lift
+	-- on its own, and the pull stops being a beat), so draw only creeps toward it.
+	-- pullSpeed rises ~x1.25 a rung; Spec's "heaviest deep item takes >= 2s at 4 clicks/sec
+	-- with the best magnet" is what caps it, and the Omega sits near 3s.
+	--
+	-- `maxGrip` runs 7-11 AHEAD OF THE MAP: soil hardness stops at 6 today, so it buys
+	-- nothing until Stage 7 is built, and it is written down now so those stages have a
+	-- ladder to be rated against. Prices keep the Detector ladder's x2.4 stride.
+	{ name = "Lattice Magnet", price = 1200000, pullSpeed = 4.8, draw = 0.72, maxGrip = 7, blurb = "A cage of field lines. Nothing slips through it.", camp = "twilight" }, -- 0.021
+	{ name = "Solar Magnet", price = 2900000, pullSpeed = 6.0, draw = 0.73, maxGrip = 8, blurb = "Runs hot enough to pull the soil off the soil.", camp = "twilight" }, -- 0.011
+	{ name = "Void Magnet", price = 7000000, pullSpeed = 7.4, draw = 0.74, maxGrip = 9, blurb = "Pulls from somewhere past the bottom of the hole.", camp = "twilight" }, -- 0.0045
+	{ name = "Nebula Magnet", price = 17000000, pullSpeed = 9.0, draw = 0.745, maxGrip = 10, blurb = "Three fields at once. The ground stops arguing.", camp = "twilight" }, -- 0.0019
+	{ name = "Omega Magnet", price = 40000000, pullSpeed = 11.0, draw = 0.748, maxGrip = 11, blurb = "The last magnet. The earth just hands things over.", camp = "twilight" }, -- 0.0006
 }
 
 -- THE CLEANING TRACK IS A MACHINE ON YOUR BASE, NOT A THING IN YOUR HAND, and that
@@ -518,7 +537,8 @@ function Gear.tier(track: string, index: number): GearTier
 end
 
 --- The camp whose stall sells this rung. A row with no `camp` is sold at Base Camp,
---- which is every rung of every track but Toxic Twilight's six detectors. It is a
+--- which is every rung of every track but Toxic Twilight's six detectors and five
+--- magnets. It is a
 --- Config/Camps key, spelled the way that file spells it ("base" is Camps.BASE).
 ---
 --- WHERE A RUNG IS SOLD AND WHERE YOU CAN USE IT ARE NOT THE SAME QUESTION. This gates
