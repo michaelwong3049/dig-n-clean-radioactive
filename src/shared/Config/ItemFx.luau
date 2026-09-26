@@ -73,6 +73,10 @@
 	               tick    `rpm`, but in `steps` jumps per turn, like a clock hand
 	               swing   back and forth by `deg` over `period`, offset by `phase`
 	               twitch  still, then a `deg` jerk for `duration` every ~`period`
+	               bob     slides back and forth along the axis over `period`
+	                       (offset by `phase`), `amp` times the pivot's own size
+	                       along it each way, while still turning at `rpm` (0 by
+	                       default): a core floating inside its setting.
 	             `parent` (an index into this list) nests a group inside another one,
 	             gimbal-style. A part joins the first group that claims it. Spins only
 	             run on anchored models; a held item is welded to the hand and skips
@@ -146,6 +150,7 @@ export type Spin = {
 	period: number?,
 	phase: number?,
 	duration: number?,
+	amp: number?,
 	parent: number?,
 }
 
@@ -245,7 +250,9 @@ ItemFx.DEFS = {
 		},
 		light = { part = "RiftCore", color = Color3.fromHex("4FA8FF"), brightness = 1.5, range = 0.9 },
 		particles = {
-			{ part = "Rift", preset = "shrinkMotes", color = Color3.fromHex("8FD8FF"), rate = 8 },
+			{ part = "Rift", preset = "shrinkMotes", color = Color3.fromHex("8FD8FF"), rate = 18 },
+			{ part = "TwistedShell", preset = "spore", color = Color3.fromHex("8FD8FF"), rate = 7 },
+			{ part = "RiftCore", preset = "sparkle", color = Color3.fromHex("E6FBFF"), rate = 5 },
 		},
 		anims = {
 			{ kind = "pulse", parts = { "RiftCore", "GlowCrack" }, light = true, period = 2.6, min = 0.45 },
@@ -295,7 +302,8 @@ ItemFx.DEFS = {
 
 	-- Fading Nuke. "Went dark in under a second": the base is still solid, but the
 	-- plates above it fade out row by row into ghost lines, motes drift off the top,
-	-- and the dissolve edge flashes and dies away.
+	-- and the dissolve edge flashes and dies away. The motes bob up and down in
+	-- three out-of-step clusters as they circle, and the ghost lines turn slowly.
 	cracked_glow_badge = {
 		finish = {
 			{ parts = { "GhostLine" }, material = "ForceField", color = Color3.fromHex("9FE8FF") },
@@ -315,6 +323,15 @@ ItemFx.DEFS = {
 				mode = "transparency",
 				perPart = true,
 			},
+		},
+		particles = {
+			{ part = "DissolveEdge", preset = "drift", color = Color3.fromHex("CFF4FF"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "Mote1", "Mote4", "Mote7", "Mote10" }, pivot = "SolidBase", mode = "bob", amp = 0.14, period = 3.4, rpm = 6 },
+			{ parts = { "Mote2", "Mote5", "Mote8", "Mote11" }, pivot = "SolidBase", mode = "bob", amp = 0.14, period = 4.1, phase = 0.33, rpm = -5 },
+			{ parts = { "Mote3", "Mote6", "Mote9", "Mote12" }, pivot = "SolidBase", mode = "bob", amp = 0.14, period = 3.7, phase = 0.66, rpm = 8 },
+			{ parts = { "GhostLine" }, pivot = "SolidBase", axis = "Y", rpm = -4 },
 		},
 	},
 
@@ -428,7 +445,9 @@ ItemFx.DEFS = {
 
 	-- Sky-Glow Nuke. "Lights up the crater at night all by itself": aurora ribbons
 	-- cycling colour out of step with each other inside a lattice canopy, lit vane
-	-- slots, a beacon on the crown mast, and the widest light in the set.
+	-- slots, a beacon on the crown mast, and the widest light in the set. The
+	-- outer ribbons turn on slightly tilted axes, so each one wobbles as it goes
+	-- round, and the three inner ribbons gyre round the core like a gyroscope.
 	skyglow_core_fragment = {
 		finish = {
 			{ parts = { "AuroraCore" }, material = "Neon", color = Color3.fromHex("3FF2D0") },
@@ -446,6 +465,14 @@ ItemFx.DEFS = {
 			},
 			{ kind = "pulse", parts = { "AuroraCore", "VaneSlot" }, light = true, period = 5, min = 0.6 },
 			{ kind = "blink", parts = { "CrownBeacon" }, period = 2.4, duty = 0.2, min = 0.2 },
+		},
+		spins = {
+			{ parts = { "AuroraRibbon1" }, pivot = "AuroraRibbon1", axisVector = Vector3.new(0.14, 1, 0), rpm = 7 },
+			{ parts = { "AuroraRibbon2" }, pivot = "AuroraRibbon2", axisVector = Vector3.new(-0.1, 1, 0.1), rpm = -5 },
+			{ parts = { "AuroraRibbon3" }, pivot = "AuroraRibbon3", axisVector = Vector3.new(0, 1, 0.14), rpm = 9 },
+			{ parts = { "InnerRibbon1" }, pivot = "AuroraCore", axis = "X", rpm = 18 },
+			{ parts = { "InnerRibbon2" }, pivot = "AuroraCore", axis = "Z", rpm = -14 },
+			{ parts = { "InnerRibbon3" }, pivot = "AuroraCore", axisVector = Vector3.new(1, 0, 1), rpm = 22 },
 		},
 	},
 
@@ -579,9 +606,12 @@ ItemFx.DEFS = {
 	-- Diamond Nuke (Epic). "Catches light nobody else out here can see." One big
 	-- brilliant in a pronged cup, ringed with small stones: the brilliant goes clear
 	-- so the shards inside show, its kite facets and the small stones throw white and
-	-- the odd flash of rainbow fire, and the modelled star glints wink.
+	-- the odd flash of rainbow fire, and the modelled star glints wink. The core
+	-- ball inside floats up and down, turning, with its two orbit rings gyring
+	-- round it and the loose shards circling.
 	diamond_brooch = {
 		finish = {
+			{ parts = { "InnerCore" }, material = "Neon", color = Color3.fromHex("CFF3FF"), transparency = 0.1 },
 			{
 				parts = { "BrilliantBody" },
 				material = "Glass",
@@ -595,10 +625,18 @@ ItemFx.DEFS = {
 				transparency = 0.3,
 			},
 		},
+		light = { part = "InnerCore", color = Color3.fromHex("BFEFFF"), brightness = 0.9, range = 0.8 },
 		particles = {
 			{ part = "BrilliantBody", preset = "sparkle", color = Color3.fromHex("FFFFFF"), rate = 1.5 },
 		},
+		spins = {
+			{ parts = { "InnerCore", "CoreSpark" }, pivot = "InnerCore", mode = "bob", amp = 0.22, period = 3.2, rpm = 20 },
+			{ parts = { "CoreOrbit1" }, pivot = "InnerCore", axis = "X", rpm = 22, parent = 1 },
+			{ parts = { "CoreOrbit2" }, pivot = "InnerCore", axis = "Z", rpm = -16, parent = 1 },
+			{ parts = { "CoreShard" }, pivot = "InnerCore", axis = "Y", rpm = -12, parent = 1 },
+		},
 		anims = {
+			{ kind = "pulse", parts = { "InnerCore" }, light = true, period = 3.2, min = 0.55 },
 			{
 				kind = "glitter",
 				parts = { "KiteA", "KiteB", "HaloStone", "GirdleStone", "ChannelStone", "FinStone" },
@@ -806,6 +844,105 @@ ItemFx.DEFS = {
 		},
 		spins = {
 			{ parts = { "OrbitDebris", "OrbitTrace" }, pivot = "Monolith", axis = "Y", rpm = 6 },
+		},
+	},
+	-- ── Motion + shine pass ──────────────────────────────────────────────
+
+	-- Rusty Nuke (Common). "Rusted solid": the whole shell goes to corroded metal,
+	-- the bands and fins a darker, flakier brown, and the modelled corrosion
+	-- patches a raw orange so they read as fresh rust breaking through.
+	steel_rod = {
+		finish = {
+			{ parts = { "Shell", "TailTaper" }, material = "CorrodedMetal", color = Color3.fromHex("9A4A22") },
+			{
+				parts = { "HoopBand", "EquatorSeam", "Fin", "TailCap", "TailShroud", "ShroudFloor" },
+				material = "CorrodedMetal",
+				color = Color3.fromHex("5C2E17"),
+			},
+			{ parts = { "Corrosion" }, material = "CorrodedMetal", color = Color3.fromHex("C8621F") },
+		},
+	},
+
+	-- Lucky Nuke. A four-leaf clover plate and a horseshoe on a gold-banded shell:
+	-- the gold catches a sweeping glint with star flares, the clover leaves go a
+	-- polished emerald that glitters, and green-and-gold sparkles hang round it.
+	rusty_horseshoe = {
+		finish = {
+			{ parts = { "Horseshoe", "GoldBand", "CloverPlate", "FinTip" }, reflectance = 0.3 },
+			{ parts = { "CloverLeaf", "CloverStem" }, color = Color3.fromHex("2FC24E"), reflectance = 0.25 },
+		},
+		light = { part = "CloverPlate", color = Color3.fromHex("9CFF8A"), brightness = 0.9, range = 0.8 },
+		particles = {
+			{ part = "Shell", preset = "sparkle", color = Color3.fromHex("FFE9A0"), rate = 3 },
+			{ part = "CloverPlate", preset = "sparkle", color = Color3.fromHex("8CFF7A"), rate = 3 },
+		},
+		anims = {
+			{
+				kind = "glitter",
+				parts = { "CloverLeaf" },
+				period = 2.2,
+				duration = 0.25,
+				colors = { Color3.fromHex("FFFFFF"), Color3.fromHex("C8FFB0"), Color3.fromHex("FFF2A8") },
+			},
+		},
+		glint = {
+			parts = { "Horseshoe", "GoldBand", "CloverPlate", "Shell" },
+			period = 3.5,
+			sweep = 0.7,
+			color = GLINT_GOLD,
+			strength = 2.4,
+			stars = 6,
+			starParts = { "Horseshoe", "GoldBand", "CloverPlate" },
+		},
+	},
+
+	-- Flare Nuke. "Never got its chance to light up the sky", but it's trying: the
+	-- flame twists on the burn port, sparks circle it rising and falling, and the
+	-- pull cord sways from the firing cap.
+	unlit_signal_flare = {
+		finish = {
+			{ parts = { "Spark" }, material = "Neon", color = Color3.fromHex("FFC04A") },
+		},
+		light = { part = "FlameCore", color = Color3.fromHex("FF9A3A"), brightness = 1.1, range = 0.9 },
+		particles = {
+			{ part = "FlameCore", preset = "ember", color = Color3.fromHex("FFB347"), rate = 5 },
+		},
+		anims = {
+			{ kind = "flicker", parts = { "Spark" }, light = true, period = 0.3, min = 0.35, perPart = true },
+		},
+		spins = {
+			{ parts = { "Spark" }, pivot = "FlameCore", mode = "bob", amp = 0.25, period = 1.8, rpm = 30 },
+			{ parts = { "FlameCore" }, pivot = "FlameCore", axis = "Y", rpm = 40 },
+			{ parts = { "FlameOuter" }, pivot = "FlameCore", axis = "Y", rpm = -25 },
+			{ parts = { "PullCord", "PullRing" }, pivot = "FiringCap", axis = "X", mode = "swing", deg = 9, period = 2.4 },
+		},
+	},
+
+	-- Mutant Nuke. Infected: glowing pustules and veins on a heartbeat, the root
+	-- tendrils writhing at the base, the growths twitching, and ooze dripping off
+	-- the shoulders.
+	mutant_carrot = {
+		finish = {
+			{ parts = { "Pustule*" }, material = "Neon", color = Color3.fromHex("9BFF3A") },
+			{ parts = { "Vein" }, material = "Neon", color = Color3.fromHex("4CD62A"), transparency = 0.25 },
+			{ parts = { "Drip", "OozeCap" }, material = "Neon", color = RAD_GREEN, transparency = 0.15 },
+		},
+		light = { part = "Shell", color = RAD_GREEN, brightness = 1.2, range = 1.0 },
+		particles = {
+			{ part = "OozeCap", preset = "spore", color = SOFT_GREEN, rate = 3 },
+			{ part = "Shell", preset = "spore", color = RAD_GREEN, rate = 2 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "Pustule*", "Vein" }, light = true, period = 1.4, min = 0.35 },
+		},
+		spins = {
+			{ parts = { "Tendril1" }, pivot = "Tendril1", axis = "X", mode = "swing", deg = 7, period = 2.6 },
+			{ parts = { "Tendril2" }, pivot = "Tendril2", axis = "Z", mode = "swing", deg = 7, period = 3.1, phase = 0.3 },
+			{ parts = { "Tendril3" }, pivot = "Tendril3", axis = "X", mode = "swing", deg = 6, period = 2.2, phase = 0.6 },
+			{ parts = { "Growth1", "Pustule1*" }, pivot = "Growth1", axis = "Z", mode = "twitch", deg = 8, period = 2.5, duration = 0.15 },
+			{ parts = { "Growth3", "Pustule3*" }, pivot = "Growth3", axis = "X", mode = "twitch", deg = 8, period = 3, duration = 0.15 },
+			{ parts = { "Growth4", "Pustule4*" }, pivot = "Growth4", axis = "Z", mode = "twitch", deg = -8, period = 2.8, duration = 0.15 },
+			{ parts = { "Drip" }, pivot = "Drip1", mode = "bob", amp = 0.35, period = 1.8 },
 		},
 	},
 } :: { [string]: ItemFxDef }

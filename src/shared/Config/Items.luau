@@ -295,6 +295,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 3600,
+		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
 
@@ -499,6 +500,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 14000,
+		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
 	{
@@ -703,6 +705,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 75000,
+		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
 
@@ -912,6 +915,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 130000,
+		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
 	{
@@ -925,6 +929,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 600000,
+		sizeMult = 1.8, -- much bigger than the rest: it's the Atomic Bomb
 		model = "ImportedNuke",
 	},
 
@@ -1087,6 +1092,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 750000,
+		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
 	{
