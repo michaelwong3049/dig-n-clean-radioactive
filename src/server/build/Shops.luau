@@ -815,41 +815,134 @@ local function buildSlatWall(parent: Instance, origin: CFrame, width: number)
 	end
 end
 
---- The floating stall sign: one small line naming WHAT THE STALL IS ("Detector
---- Shop" / "Magnet Shop" / "Hose Shop") in that shop's own accent colour, so
---- the sign itself does the colour-navigation. `accent` is the shop's hex
---- string. TextScaled so any label length fits its (fixed) band without
---- re-tuning TextSize by hand. Hung ABOVE the roof (the highest point of
---- `buildPlateRoof`'s plates and rivets is ~10.9 studs up at the stall's own
---- origin, so 12.6 clears it) rather than tucked underneath it, so the sign
---- reads over the whole structure instead of hiding behind its own roofline.
+-- The icon-disc glyphs, drawn from Frames so the server needs no uploaded art. Keyed
+-- by a word in the sign's label; a label with none of them (a camp stall's own name)
+-- simply gets no disc and a shorter pill.
+local SIGN_ICON_INK = Color3.fromRGB(15, 26, 10)
+local SIGN_GLOW_IMAGE = "rbxassetid://76655055685501" -- HudArtwork.IMAGE.glow
+
+local function signShape(parent: Instance, x: number, y: number, w: number, h: number, color: Color3, rot: number?, round: boolean?): Frame
+	local f = Instance.new("Frame")
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.Position = UDim2.fromOffset(x, y)
+	f.Size = UDim2.fromOffset(w, h)
+	f.BackgroundColor3 = color
+	f.BorderSizePixel = 0
+	f.Rotation = rot or 0
+	f.Parent = parent
+	if round then
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = f
+	end
+	return f
+end
+
+local function signRing(parent: Instance, x: number, y: number, w: number, h: number, thickness: number, rot: number?)
+	local f = signShape(parent, x, y, w, h, SIGN_ICON_INK, rot, true)
+	f.BackgroundTransparency = 1
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = SIGN_ICON_INK
+	stroke.Thickness = thickness
+	stroke.Parent = f
+end
+
+--- Draws the glyph for `label` inside a 36x36 `disc` filled with `accentColor`.
+local function buildSignIcon(disc: Frame, label: string, accentColor: Color3)
+	local lower = label:lower()
+	if lower:find("detector") then
+		signRing(disc, 18, 18, 24, 24, 2.5)
+		signRing(disc, 18, 18, 11, 11, 2.5)
+		signShape(disc, 18, 18, 4, 4, SIGN_ICON_INK, 0, true)
+	elseif lower:find("magnet") then
+		signRing(disc, 18, 20, 20, 20, 5)
+		signShape(disc, 18, 12, 30, 14, accentColor) -- hides the ring's top half: a horseshoe
+		signShape(disc, 10, 14, 5, 12, SIGN_ICON_INK)
+		signShape(disc, 26, 14, 5, 12, SIGN_ICON_INK)
+		signShape(disc, 10, 9, 5, 4, Color3.new(1, 1, 1))
+		signShape(disc, 26, 9, 5, 4, Color3.new(1, 1, 1))
+	elseif lower:find("hose") then
+		signRing(disc, 18, 18, 24, 24, 3)
+		signRing(disc, 18, 18, 10, 10, 3)
+		signShape(disc, 28, 28, 13, 3, SIGN_ICON_INK, 45)
+	elseif lower:find("aura") then
+		signShape(disc, 18, 18, 6, 6, SIGN_ICON_INK, 0, true)
+		signRing(disc, 18, 18, 28, 11, 2, 0)
+		signRing(disc, 18, 18, 28, 11, 2, 60)
+		signRing(disc, 18, 18, 28, 11, 2, 120)
+	end
+end
+
+--- The floating stall sign: a dark glow pill in the shop's accent colour -- the same
+--- family as the HUD's glow-orb tiles -- with a round icon disc and the stall's name
+--- ("Detector Shop" / "Magnet Shop" / "Hose Shop" / "Aura Shop"), so the sign does
+--- the colour-navigation. `accent` is the shop's hex string. Hung ABOVE the roof (the
+--- highest point of `buildPlateRoof`'s plates and rivets is ~10.9 studs up at the
+--- stall's own origin, so 11.5 clears it) so it reads over the whole structure
+--- instead of hiding behind its own roofline.
 ---
---- GothamBold, NOT `Kit.FONT` (FredokaOne) — every other sign in the world
---- deliberately shares the one chunky toy-shop face (see Kit.luau's "Signage
---- voice" header), but that face reads as bubbly/oversized on a short
---- structural caption like this one, which fights the shops' own clean
---- grey-lumber, no-decoration look. A deliberate one-off exception, not a
---- start of re-voicing the rest of the signage.
+--- Kit.FONT (FredokaOne) now, matching the HUD tiles it is modelled on; TextScaled
+--- so any label length fits the fixed band.
 local function buildStoreBillboard(adornee: BasePart, label: string, accent: string)
+	local accentColor = Color3.fromHex(accent)
+	local iconed = label:lower():find("detector") or label:lower():find("magnet") or label:lower():find("hose") or label:lower():find("aura")
+
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "StoreSign"
 	gui.Adornee = adornee
-	gui.Size = UDim2.fromOffset(180, 32)
+	gui.Size = UDim2.fromOffset(iconed and 250 or 210, 50)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, 11.5, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = 60
 	gui.Parent = adornee
 
+	local glow = Instance.new("ImageLabel")
+	glow.Name = "Glow"
+	glow.AnchorPoint = Vector2.new(0.5, 0.5)
+	glow.Position = UDim2.fromScale(0.5, 0.5)
+	glow.Size = UDim2.fromScale(1.3, 1.9)
+	glow.BackgroundTransparency = 1
+	glow.Image = SIGN_GLOW_IMAGE
+	glow.ImageColor3 = accentColor
+	glow.ImageTransparency = 0.55
+	glow.Parent = gui
+
+	local pill = Instance.new("Frame")
+	pill.Name = "Pill"
+	pill.AnchorPoint = Vector2.new(0.5, 0.5)
+	pill.Position = UDim2.fromScale(0.5, 0.5)
+	pill.Size = UDim2.new(1, -10, 0, 44)
+	pill.BackgroundColor3 = Color3.fromRGB(17, 26, 17)
+	pill.BackgroundTransparency = 0.06
+	pill.BorderSizePixel = 0
+	pill.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = pill
+	local rim = Instance.new("UIStroke")
+	rim.Color = accentColor
+	rim.Thickness = 3
+	rim.Parent = pill
+
+	local textLeft = 16
+	if iconed then
+		local disc = signShape(pill, 26, 22, 36, 36, accentColor, 0, true)
+		disc.Name = "Icon"
+		buildSignIcon(disc, label, accentColor)
+		textLeft = 50
+	end
+
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
-	title.Size = UDim2.fromScale(1, 1)
+	title.Position = UDim2.fromOffset(textLeft, 5)
+	title.Size = UDim2.new(1, -(textLeft + 16), 1, -10)
 	title.BackgroundTransparency = 1
-	title.Font = Enum.Font.GothamBold
+	title.Font = Kit.FONT
 	title.Text = label
 	title.TextScaled = true
-	title.TextColor3 = Color3.fromHex(accent)
-	title.TextStrokeTransparency = 1
-	title.Parent = gui
+	title.TextColor3 = Color3.new(1, 1, 1)
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = pill
 	Kit.textOutline(title, 2)
 end
 
