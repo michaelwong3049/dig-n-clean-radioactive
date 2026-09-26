@@ -77,20 +77,6 @@ local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
 end
 
--- Rare and up get their own spot light, one rung per rarity, each wider, hotter and
--- throbbing harder and faster than the last, so a good spot reads as an event from
--- across the field. Below Rare the quiet `loudness` curve in stepAuras still applies.
--- `pulse` is how deep the throb dips (the peak is `brightness`, so it never washes
--- past it); `rate` is its speed in rad/s. Range tops out at PointLight's 60 cap.
--- Brightness stays modest: past ~4 a PointLight whites the rarity hue out.
-local SPOT_LIGHT: { [number]: { range: number, brightness: number, pulse: number, rate: number } } = {
-	[4] = { range = 24, brightness = 2.8, pulse = 0.15, rate = 2.2 }, -- Rare
-	[5] = { range = 31, brightness = 3.1, pulse = 0.25, rate = 2.8 }, -- Epic
-	[6] = { range = 39, brightness = 3.4, pulse = 0.35, rate = 3.4 }, -- Legendary
-	[7] = { range = 48, brightness = 3.8, pulse = 0.45, rate = 4.2 }, -- Mythic
-	[8] = { range = 58, brightness = 4.2, pulse = 0.55, rate = 5.2 }, -- Anomaly
-}
-
 -- How the rim reads between sweeps and under the arm. The dim end is a hairline on
 -- purpose now that the wedge carries the "this is live" job: a rim at the old 0.72
 -- fought the wedge for the same attention, and the point of the comet is that the
@@ -597,26 +583,13 @@ local function stepAuras()
 		entry.core.Transparency = 1 - (1 - lerp(idle, 0, onIt)) * shown
 
 		-- Nothing is Neon, so this light is what makes the spot read as a light source
-		-- rather than paint, and it is where "louder" shows most: Common and Uncommon
-		-- stay a small low glow, and from Rare up SPOT_LIGHT takes over — a pool of
-		-- light reaching 24 studs for a Rare out to 58 for an Anomaly, throbbing harder
-		-- each tier, so you can pick a good spot out across the field.
+		-- rather than paint, and it is where "louder" shows most: a Legendary spot
+		-- throws four times the Common one's brightness and reaches half again as far,
+		-- so you can pick it out across the field.
 		if entry.light then
-			local drama = SPOT_LIGHT[Rarity.get(rarity).order]
-			if drama then
-				-- A sharpened sine so the top tiers beat rather than breathe; the
-				-- range swells a little with each beat so the pool of light itself
-				-- pulses out across the ground.
-				local wave = 0.5 + 0.5 * math.sin(now * drama.rate + entry.phase)
-				local beat = wave ^ lerp(1, 3, (drama.pulse - 0.15) / 0.4)
-				local throb = 1 - drama.pulse * (1 - beat)
-				entry.light.Brightness = drama.brightness * throb * lerp(1, 1.25, onIt) * shown
-				entry.light.Range = math.min(60, drama.range * lerp(0.92, 1.04, beat) * lerp(1, 1.1, onIt))
-			else
-				local brightness = lerp(0.7, 2.4, t)
-				entry.light.Brightness = brightness * lerp(1, 1.6, onIt) * shown
-				entry.light.Range = lerp(10, 18, t)
-			end
+			local brightness = lerp(0.7, 2.4, t)
+			entry.light.Brightness = brightness * lerp(1, 1.6, onIt) * shown
+			entry.light.Range = lerp(10, 18, t)
 		end
 		if entry.motes then
 			entry.motes.Rate = (lerp(5, 19, t) + 12 * onIt) * shown

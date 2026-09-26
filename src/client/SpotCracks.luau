@@ -387,8 +387,8 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 		beam.Attachment1 = tip
 		beam.FaceCamera = true
 		beam.Segments = 1
-		beam.Width0 = RAY_FOOT
-		beam.Width1 = RAY_SPREAD * (0.7 + rng:NextNumber() * 0.6)
+		beam.Width0 = RAY_FOOT * row.rayWidth
+		beam.Width1 = RAY_SPREAD * row.rayWidth * (0.7 + rng:NextNumber() * 0.6)
 		beam.Color = rayColor
 		beam.Transparency = RAY_SEQUENCES[1]
 		beam.LightEmission = 0.6
