@@ -921,6 +921,18 @@ local function scaleSequence(s: NumberSequence, k: number): NumberSequence
 	return NumberSequence.new(points)
 end
 
+--- Rigs this tier's moving parts (MOTION above) on an already-cloned tool model.
+--- Part of apply(); on its own it re-rigs a model built before MOTION existed
+--- without doubling its particles. Idempotent: a part already rigged has no
+--- WeldConstraint left to swap.
+function ToolFX.animate(model: Model, track: string, tier: number)
+	local moves = if track == "Magnet" then MOTION[ToolTiers.get(track, tier).name] else nil
+	local bend = partNamed(model, "bend")
+	if moves and bend then
+		moves(model, bend)
+	end
+end
+
 --- Attaches this tier's ambient FX to an already-cloned tool model. A no-op
 --- for any tier without a `glow` or an entry above -- the common rungs of both
 --- tracks are untouched by design.
@@ -934,11 +946,7 @@ function ToolFX.apply(model: Model, track: string, tier: number, particleScale: 
 		return
 	end
 	local look = ToolTiers.get(track, tier)
-	local moves = if track == "Magnet" then MOTION[look.name] else nil
-	local bend = partNamed(model, "bend")
-	if moves and bend then
-		moves(model, bend)
-	end
+	ToolFX.animate(model, track, tier)
 	local build = byName[look.name]
 	if build and look.glow then
 		build(model, look.glow)
