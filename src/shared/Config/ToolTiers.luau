@@ -64,17 +64,17 @@ ToolTiers.Detector = {
 	{ name = "Resonance Mapper", scale = 1.15, body = Color3.fromHex("6B4FA8"), accent = Color3.fromHex("3E2E63"), material = Enum.Material.Metal, glow = Color3.fromHex("B08CFF") },
 	{ name = "Deep Core Array", scale = 1.19, body = Color3.fromHex("C89B3C"), accent = Color3.fromHex("7A5E24"), material = Enum.Material.Metal, glow = Color3.fromHex("FFD772") },
 	{ name = "The Oracle", scale = 1.22, body = Color3.fromHex("EDEDED"), accent = Color3.fromHex("9FE8FF"), material = Enum.Material.Metal, glow = Color3.fromHex("CFF6FF") },
-	-- TOXIC TWILIGHT'S SIX. These rows exist for their NAMES, not their colours: ToolFX
-	-- looks a tier up here by index and by name, and ToolTiers.get CLAMPS, so without a
-	-- row per rung every detector past the Oracle would read as the Oracle and get its
-	-- lens and glints. Nothing repaints these models (they are hand-imported and
-	-- textured), and none has a `glow`, so ToolFX leaves them alone.
-	{ name = "Vein Whisperer", scale = 1.00, body = Color3.fromHex("3F8F6B"), accent = Color3.fromHex("1F4A38"), material = Enum.Material.Metal },
-	{ name = "Aurora Rake", scale = 1.00, body = Color3.fromHex("4FD1C5"), accent = Color3.fromHex("A855FF"), material = Enum.Material.Metal },
-	{ name = "Strata Lance", scale = 1.00, body = Color3.fromHex("B8783C"), accent = Color3.fromHex("5C3A1E"), material = Enum.Material.Metal },
-	{ name = "Leyline Tap", scale = 1.00, body = Color3.fromHex("2E86DE"), accent = Color3.fromHex("1B3A5C"), material = Enum.Material.Metal },
-	{ name = "Null Compass", scale = 1.00, body = Color3.fromHex("2A2438"), accent = Color3.fromHex("8B6BD6"), material = Enum.Material.Metal },
-	{ name = "Prime Meridian", scale = 1.00, body = Color3.fromHex("F2E9D0"), accent = Color3.fromHex("C89B3C"), material = Enum.Material.Metal },
+	-- TOXIC TWILIGHT'S SIX. Nothing repaints these models (they are hand-imported and
+	-- textured), so `body`/`accent` are only a record of each one's look; the row is here
+	-- for its NAME and its `glow`. ToolFX keys its effects off the name, and ToolTiers.get
+	-- CLAMPS, so without a row per rung every detector past the Oracle would read as the
+	-- Oracle and get its lens and glints. `glow` is the colour of each rung's ToolFX.
+	{ name = "Vein Whisperer", scale = 1.00, body = Color3.fromHex("3F8F6B"), accent = Color3.fromHex("1F4A38"), material = Enum.Material.Metal, glow = Color3.fromHex("6BFFB0") },
+	{ name = "Aurora Rake", scale = 1.00, body = Color3.fromHex("4FD1C5"), accent = Color3.fromHex("A855FF"), material = Enum.Material.Metal, glow = Color3.fromHex("7FFFE8") },
+	{ name = "Strata Lance", scale = 1.00, body = Color3.fromHex("B8783C"), accent = Color3.fromHex("5C3A1E"), material = Enum.Material.Metal, glow = Color3.fromHex("FF9A3C") },
+	{ name = "Leyline Tap", scale = 1.00, body = Color3.fromHex("2E86DE"), accent = Color3.fromHex("1B3A5C"), material = Enum.Material.Metal, glow = Color3.fromHex("6EC8FF") },
+	{ name = "Null Compass", scale = 1.00, body = Color3.fromHex("2A2438"), accent = Color3.fromHex("8B6BD6"), material = Enum.Material.Metal, glow = Color3.fromHex("A57BFF") },
+	{ name = "Prime Meridian", scale = 1.00, body = Color3.fromHex("F2E9D0"), accent = Color3.fromHex("C89B3C"), material = Enum.Material.Metal, glow = Color3.fromHex("FFE39A") },
 } :: { TierLook }
 
 -- The magnet starts deliberately tiny (PLAN: the base tier is a toy horseshoe), so
@@ -86,15 +86,15 @@ ToolTiers.Magnet = {
 	{ name = "Winch Coil", scale = 1.90, body = Color3.fromHex("D4A017"), accent = Color3.fromHex("2E2E2E"), material = Enum.Material.Metal },
 	{ name = "Rail Coil", scale = 2.30, body = Color3.fromHex("2E86DE"), accent = Color3.fromHex("1B3A5C"), material = Enum.Material.Metal, glow = Color3.fromHex("7FD0FF") },
 	{ name = "Singularity Coil", scale = 2.80, body = Color3.fromHex("7A3FD4"), accent = Color3.fromHex("EDEDED"), material = Enum.Material.Metal, glow = Color3.fromHex("D6A6FF") },
-	-- TOXIC TWILIGHT'S FIVE, here for their NAMES like the detector ladder's six above:
-	-- ToolTiers.get clamps, so without a row per rung every magnet past the Singularity
-	-- Coil would read as it and get its core halo and motes from ToolFX. The models are
-	-- hand-imported and textured, nothing repaints them, and none has a `glow`.
-	{ name = "Lattice Magnet", scale = 1.00, body = Color3.fromHex("3FB8A0"), accent = Color3.fromHex("1F5A4E"), material = Enum.Material.Metal },
-	{ name = "Solar Magnet", scale = 1.00, body = Color3.fromHex("F2A33A"), accent = Color3.fromHex("C0392B"), material = Enum.Material.Metal },
-	{ name = "Void Magnet", scale = 1.00, body = Color3.fromHex("2A2438"), accent = Color3.fromHex("8B6BD6"), material = Enum.Material.Metal },
-	{ name = "Nebula Magnet", scale = 1.00, body = Color3.fromHex("C45AD8"), accent = Color3.fromHex("4F8BFF"), material = Enum.Material.Metal },
-	{ name = "Omega Magnet", scale = 1.00, body = Color3.fromHex("F2E9D0"), accent = Color3.fromHex("C89B3C"), material = Enum.Material.Metal },
+	-- TOXIC TWILIGHT'S FIVE, here for their NAMES and `glow` like the detector ladder's
+	-- six above: ToolTiers.get clamps, so without a row per rung every magnet past the
+	-- Singularity Coil would read as it and get its core halo and motes from ToolFX. The
+	-- models are hand-imported and textured and nothing repaints them.
+	{ name = "Lattice Magnet", scale = 1.00, body = Color3.fromHex("3FB8A0"), accent = Color3.fromHex("1F5A4E"), material = Enum.Material.Metal, glow = Color3.fromHex("7FF2DA") },
+	{ name = "Solar Magnet", scale = 1.00, body = Color3.fromHex("F2A33A"), accent = Color3.fromHex("C0392B"), material = Enum.Material.Metal, glow = Color3.fromHex("FFB347") },
+	{ name = "Void Magnet", scale = 1.00, body = Color3.fromHex("2A2438"), accent = Color3.fromHex("8B6BD6"), material = Enum.Material.Metal, glow = Color3.fromHex("B08CFF") },
+	{ name = "Nebula Magnet", scale = 1.00, body = Color3.fromHex("C45AD8"), accent = Color3.fromHex("4F8BFF"), material = Enum.Material.Metal, glow = Color3.fromHex("FF8FE0") },
+	{ name = "Omega Magnet", scale = 1.00, body = Color3.fromHex("F2E9D0"), accent = Color3.fromHex("C89B3C"), material = Enum.Material.Metal, glow = Color3.fromHex("FFE9A0") },
 } :: { TierLook }
 
 -- THE ONLY TRACK WHOSE ROWS ARE ACTUALLY READ AT RUNTIME. The note above this table

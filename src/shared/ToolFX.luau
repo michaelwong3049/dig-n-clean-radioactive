@@ -8,7 +8,9 @@
 	models -- Detector and Magnet are still hand-authored in the place
 	(ToolTiers.luau's header), so this is the way to give their top tiers a
 	tell without touching that art, and it keeps the whole feature in git.
-	build/Shops puts the same FX on the shop rack's display models.
+	build/Shops puts the same FX on the shop rack's display models, and
+	Plots.setHoseTier on the hose parked on a player's wash-station mast (a hose
+	is never held, so that and the rack are the only places the Cleaner's show).
 
 	No Neon or bloom (the world has neither since the de-neon pass): the glow is
 	particles and a low coloured PointLight. Particles are alpha-blended
@@ -126,7 +128,7 @@ end
 --- DEEP CORE ARRAY: embers. A few small sparks lift off the core, cooling from
 --- the tier colour towards a deeper orange as they rise and slow. Sparse on
 --- purpose -- six a second reads as heat, thirty read as a fire.
-local function embers(part: BasePart, color: Color3)
+local function embers(part: BasePart, color: Color3): ParticleEmitter
 	local e = baseEmitter(ColorSequence.new(color, color:Lerp(Color3.fromRGB(255, 90, 20), 0.6)))
 	e.Brightness = 2.5
 	e.Size = seq(0, 0.37, 1, 0)
@@ -140,13 +142,14 @@ local function embers(part: BasePart, color: Color3)
 	e.EmissionDirection = Enum.NormalId.Top
 	e.Rotation = NumberRange.new(0, 360)
 	e.Parent = part
+	return e
 end
 
 --- THE ORACLE: glints running round the rim. A Disc-shaped emitter with its
 --- inner radius pushed almost to the edge (ShapePartial) only ever places a
 --- particle on the ring itself, so small star glints wink on and off at random
 --- points round the search ring, each in a different colour of the spectrum.
-local function rimGlints(part: BasePart, colors: ColorSequence)
+local function rimGlints(part: BasePart, colors: ColorSequence): ParticleEmitter
 	local e = baseEmitter(colors)
 	e.Shape = Enum.ParticleEmitterShape.Disc
 	e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
@@ -161,6 +164,7 @@ local function rimGlints(part: BasePart, colors: ColorSequence)
 	e.Rotation = NumberRange.new(0, 360)
 	e.RotSpeed = NumberRange.new(-60, 60)
 	e.Parent = part
+	return e
 end
 
 --- The Oracle's `glow` is nearly white, and white glints looked exactly like
@@ -203,6 +207,120 @@ local function shrinkMotes(part: BasePart, color: Color3)
 	e.Speed = NumberRange.new(0.3, 0.6)
 	e.SpreadAngle = Vector2.new(180, 180)
 	e.Parent = part
+end
+
+-- ── Toxic Twilight presets ────────────────────────────────────────────────────
+--
+-- The sixteen imported rungs Twilight's shops sell (Detector 10-15, Magnet 7-11,
+-- Cleaner 8-12). Same rules as above -- one idea per tool, taken from what its
+-- model is (a molten core puffs heat, a void swallows light) -- but a step
+-- LOUDER than the Base Camp rungs, by request: these are the endgame tools, so
+-- sizes run ~1.3x and rates higher. Each preset is a property table on top of
+-- baseEmitter rather than a function per effect: sixteen near-identical bodies
+-- of assignments would bury what makes each one different.
+
+local SMOKE_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
+local SQUARE_TEXTURE = "rbxasset://textures/particles/SquareParticle.png"
+
+local function emit(parent: Instance, color: Color3 | ColorSequence, props: { [string]: any }): ParticleEmitter
+	local e = baseEmitter(color)
+	for key, value in props do
+		(e :: any)[key] = value
+	end
+	e.Parent = parent
+	return e
+end
+
+local function gradient(...: Color3): ColorSequence
+	local colors = { ... }
+	local points = {}
+	for i, c in colors do
+		table.insert(points, ColorSequenceKeypoint.new((i - 1) / (#colors - 1), c))
+	end
+	return ColorSequence.new(points)
+end
+
+local WHITE = Color3.new(1, 1, 1)
+
+-- BRIGHTNESS STAYS LOW (1.2-2) WHEREVER THE HUE IS THE POINT. An unlit particle's
+-- colour is multiplied by Brightness, so the 3-4 the Base Camp glints use clips a
+-- pastel tint straight to white: the first cut of these made a green seep, a teal
+-- aurora and a pink nebula that all read as the same white haze. The glints and
+-- stars below keep a high value because white-hot is what they should be.
+
+--- Soft motes seeping up out of a small part and fading as they rise.
+local function seep(part: BasePart, color: Color3, rate: number)
+	emit(part, color, {
+		Brightness = 1.6,
+		Size = seq(0, 0, 0.25, 0.65, 1, 0),
+		Transparency = seq(0, 0.3, 1, 1),
+		Lifetime = NumberRange.new(1.2, 1.8),
+		Rate = rate,
+		Speed = NumberRange.new(0.4, 0.8),
+		EmissionDirection = Enum.NormalId.Top,
+		SpreadAngle = Vector2.new(15, 15),
+		Acceleration = Vector3.new(0, 0.5, 0),
+		Drag = 0.5,
+	})
+end
+
+--- One star that swells and winks out on a part, spinning as it goes.
+local function wink(part: BasePart, color: Color3, size: number, rate: number)
+	emit(part, color:Lerp(WHITE, 0.25), {
+		LockedToPart = true,
+		Brightness = 3.5,
+		Size = seq(0, 0, 0.35, size, 1, 0),
+		Transparency = seq(0, 0.1, 1, 0.5),
+		Lifetime = NumberRange.new(0.6, 0.9),
+		Rate = rate,
+		Speed = NumberRange.new(0),
+		Rotation = NumberRange.new(0, 360),
+		RotSpeed = NumberRange.new(-90, 90),
+	})
+end
+
+--- Something collapsing INTO a point: a big dim ring shrinking to nothing on the
+--- part, darkening as it goes. The Singularity Coil's motes shrink too, but they
+--- glow; these go dark, which is what sells "null" and "void".
+local function collapse(part: BasePart, color: Color3, size: number, rate: number)
+	emit(part, gradient(color:Lerp(WHITE, 0.3), color, Color3.fromHex("140A24")), {
+		LockedToPart = true,
+		Brightness = 2,
+		Size = seq(0, size, 1, 0),
+		Transparency = seq(0, 1, 0.3, 0.2, 1, 0),
+		Lifetime = NumberRange.new(1.1, 1.4),
+		Rate = rate,
+		Speed = NumberRange.new(0),
+		Rotation = NumberRange.new(0, 360),
+		RotSpeed = NumberRange.new(120, 180),
+	})
+end
+
+--- Every BasePart in `model` whose name matches `pattern`, in a stable order.
+local function partsMatching(model: Model, pattern: string): { BasePart }
+	local found = {}
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") and string.match(d.Name, pattern) then
+			table.insert(found, d)
+		end
+	end
+	table.sort(found, function(a, b)
+		return a.Name < b.Name
+	end)
+	return found
+end
+
+--- The hoses are two or three textured meshes plus a hidden `Nozzle` core whose
+--- `Muzzle` attachment sits on the business end, facing out down -Z (Front). The
+--- barrel is always the `*_part2` mesh.
+local function muzzleOf(model: Model): Attachment?
+	local core = model.PrimaryPart
+	local muzzle = if core then core:FindFirstChild("Muzzle") else nil
+	return if muzzle and muzzle:IsA("Attachment") then muzzle else nil
+end
+
+local function barrelOf(model: Model): BasePart?
+	return partsMatching(model, "_part2$")[1]
 end
 
 -- Track -> tier NAME -> build(model, glow). Keyed by the ToolTiers name, not
@@ -266,6 +384,114 @@ local SPECS: { [string]: { [string]: (Model, Color3) -> () } } = {
 				light(lens, color, 8, 1.8)
 			end
 		end,
+
+		-- Toxic Twilight. Every coil head is axis-aligned with its model and the model
+		-- is carried (and racked, via HoldCFrame) upright, so each part's Top is up.
+		["Vein Whisperer"] = function(model: Model, color: Color3)
+			-- Sap seeping up out of the twelve emitter nodes round the twin coils.
+			for _, node in partsMatching(model, "^emitter_%d_%d$") do
+				seep(node, color, 1.3)
+			end
+			local hub = partNamed(model, "phase_hub")
+			if hub then
+				light(hub, color, 9, 2.2)
+			end
+		end,
+		["Aurora Rake"] = function(model: Model, color: Color3)
+			-- A curtain of aurora rising off the ribbon strung between the tines: tall
+			-- (negative Squash) soft wisps born all along the bar, teal into violet.
+			local ribbon = partNamed(model, "aurora_ribbon")
+			if ribbon then
+				emit(ribbon, gradient(color, Color3.fromHex("7CFFB2"), Color3.fromHex("B58CFF")), {
+					Texture = SMOKE_TEXTURE,
+					Brightness = 1.3,
+					Size = seq(0, 0.5, 0.4, 1, 1, 0.7),
+					Squash = seq(0, -1.4, 1, -1.4),
+					Transparency = seq(0, 1, 0.25, 0.15, 0.7, 0.3, 1, 1),
+					Lifetime = NumberRange.new(1.6, 2.2),
+					Rate = 9,
+					Speed = NumberRange.new(0.6, 1),
+					EmissionDirection = Enum.NormalId.Top,
+					SpreadAngle = Vector2.new(4, 4),
+				})
+			end
+			local eye = partNamed(model, "aurora_eye")
+			if eye then
+				light(eye, color, 9, 2.2)
+			end
+		end,
+		["Strata Lance"] = function(model: Model, color: Color3)
+			-- Hot smoke puffing out of the three exhaust stacks, glowing where it
+			-- leaves the stack and cooling to soot as it climbs.
+			for _, stack in partsMatching(model, "^stack_glow") do
+				emit(stack, gradient(color, Color3.fromHex("8A5A3A"), Color3.fromHex("4A423C")), {
+					Texture = SMOKE_TEXTURE,
+					Brightness = 2,
+					Size = seq(0, 0.3, 1, 1.1),
+					Transparency = seq(0, 0.2, 1, 1),
+					Lifetime = NumberRange.new(1.1, 1.5),
+					Rate = 3.5,
+					Speed = NumberRange.new(1.2, 1.8),
+					Drag = 1,
+					EmissionDirection = Enum.NormalId.Top,
+					SpreadAngle = Vector2.new(8, 8),
+					Rotation = NumberRange.new(0, 360),
+					RotSpeed = NumberRange.new(-40, 40),
+				})
+			end
+			local core = partNamed(model, "molten_core")
+			if core then
+				light(core, color, 9, 2.4)
+			end
+		end,
+		["Leyline Tap"] = function(model: Model, color: Color3)
+			-- A thin column of light tapped straight up out of the ley core, and the
+			-- eight rune nodes round the halo winking in turn.
+			local core = partNamed(model, "ley_core")
+			if core then
+				emit(core, color, {
+					Brightness = 2,
+					Size = seq(0, 0.55, 1, 0),
+					Transparency = seq(0, 0.1, 1, 0.6),
+					Lifetime = NumberRange.new(0.8, 1.1),
+					Rate = 16,
+					Speed = NumberRange.new(2.6, 3.2),
+					EmissionDirection = Enum.NormalId.Top,
+					SpreadAngle = Vector2.new(2, 2),
+				})
+				light(core, color, 9, 2.2)
+			end
+			for _, rune in partsMatching(model, "^rune_node") do
+				wink(rune, color, 0.8, 0.5)
+			end
+		end,
+		["Null Compass"] = function(model: Model, color: Color3)
+			-- Light falling into the void sphere, and the orbiting shards catching it.
+			local sphere = partNamed(model, "void_sphere")
+			if sphere then
+				collapse(sphere, color, 3, 1.6)
+				light(sphere, color, 9, 2.2)
+			end
+			for _, shard in partsMatching(model, "^orbit_shard") do
+				wink(shard, color, 0.7, 0.5)
+			end
+		end,
+		["Prime Meridian"] = function(model: Model, color: Color3)
+			-- The top rung: gold glints racing round the halo, the crown gems flaring.
+			local halo = partNamed(model, "gold_halo")
+			if halo then
+				local glints = rimGlints(halo, gradient(color, WHITE, color))
+				glints.Rate = 18
+				glints.Size = seq(0, 0, 0.3, 1.2, 1, 0)
+			end
+			for _, gem in partsMatching(model, "^crown_gem") do
+				wink(gem, color, 1.1, 0.7)
+			end
+			local core = partNamed(model, "meridian_core")
+			if core then
+				light(core, color, 10, 2.4)
+			end
+		end,
 	},
 	Magnet = {
 		["Rail Coil"] = function(model: Model, color: Color3)
@@ -285,6 +511,205 @@ local SPECS: { [string]: { [string]: (Model, Color3) -> () } } = {
 			if part then
 				light(part, color, 12, 3)
 				shrinkMotes(part, color)
+			end
+		end,
+
+		-- Toxic Twilight. The magnets' parts are turned 90 degrees off their model and
+		-- the haul pose swings them about, so nothing here trusts a face to be "up":
+		-- effects spray every way, or rise under a world-space Acceleration.
+		["Lattice Magnet"] = function(model: Model, color: Color3)
+			-- Square crystal flecks (turned 45 degrees: diamonds) flaking off the cage.
+			local halo = partNamed(model, "lattice_halo")
+			if halo then
+				emit(halo, color, {
+					Texture = SQUARE_TEXTURE,
+					Brightness = 2,
+					Size = seq(0, 0, 0.2, 0.4, 1, 0),
+					Transparency = seq(0, 0, 1, 0.5),
+					Lifetime = NumberRange.new(0.8, 1.4),
+					Rate = 16,
+					Speed = NumberRange.new(0.8, 1.6),
+					Drag = 1.5,
+					SpreadAngle = Vector2.new(180, 180),
+					Rotation = NumberRange.new(45),
+				})
+			end
+			local core = partNamed(model, "lattice_core")
+			if core then
+				light(core, color, 10, 2.5)
+			end
+		end,
+		["Solar Magnet"] = function(model: Model, color: Color3)
+			-- Flames licking off both pole tips and curling upward.
+			for _, flame in partsMatching(model, "^pole_flame") do
+				-- The sparkle texture stretched tall, not fire_main: that one has soot baked
+				-- into it and, alpha-blended, every flame read as a puff of black smoke.
+				emit(flame, gradient(Color3.fromHex("FFD23A"), Color3.fromHex("FF8A1E"), Color3.fromHex("E0401E")), {
+					Brightness = 1.6,
+					Size = seq(0, 0.9, 1, 0.25),
+					Squash = seq(0, -0.8, 1, -0.8),
+					Transparency = seq(0, 0, 1, 1),
+					Lifetime = NumberRange.new(0.3, 0.5),
+					Rate = 18,
+					Speed = NumberRange.new(1.5, 2.5),
+					EmissionDirection = Enum.NormalId.Top,
+					SpreadAngle = Vector2.new(20, 20),
+					Acceleration = Vector3.new(0, 4, 0),
+					Rotation = NumberRange.new(0, 360),
+					RotSpeed = NumberRange.new(-90, 90),
+				})
+			end
+			local core = partNamed(model, "sun_core")
+			if core then
+				light(core, color, 12, 3)
+			end
+		end,
+		["Void Magnet"] = function(model: Model, color: Color3)
+			-- An event horizon: light falling into the core, the twin pole cores
+			-- swallowing their own.
+			local core = partNamed(model, "void_core")
+			if core then
+				collapse(core, color, 3.4, 2)
+				light(core, color, 12, 3)
+			end
+			for _, twin in partsMatching(model, "^twin_core") do
+				collapse(twin, color, 1.6, 1.2)
+			end
+		end,
+		["Nebula Magnet"] = function(model: Model, color: Color3)
+			-- A slow pink-into-blue gas cloud round the core, with stars in it.
+			local halo = partNamed(model, "nebula_halo")
+			if halo then
+				emit(halo, gradient(Color3.fromHex("FF5FD2"), Color3.fromHex("9A5CFF"), Color3.fromHex("4F7BFF")), {
+					Texture = SMOKE_TEXTURE,
+					Brightness = 1.2,
+					Size = seq(0, 1.2, 1, 2.8),
+					Transparency = seq(0, 1, 0.3, 0.2, 1, 1),
+					Lifetime = NumberRange.new(2, 3),
+					Rate = 8,
+					Speed = NumberRange.new(0.6, 1),
+					SpreadAngle = Vector2.new(180, 180),
+					Rotation = NumberRange.new(0, 360),
+					RotSpeed = NumberRange.new(-30, 30),
+				})
+				wink(halo, WHITE, 0.6, 6)
+			end
+			local core = partNamed(model, "nebula_core")
+			if core then
+				light(core, color, 12, 3)
+			end
+		end,
+		["Omega Magnet"] = function(model: Model, color: Color3)
+			-- Gold discharge crackling off all eight spires, and the apex star flaring.
+			for _, spire in partsMatching(model, "^arc%d_spire") do
+				emit(spire, color, {
+					Brightness = 4,
+					Size = seq(0, 0.7, 1, 0),
+					Transparency = seq(0, 0, 1, 1),
+					Lifetime = NumberRange.new(0.12, 0.25),
+					Rate = 10,
+					Speed = NumberRange.new(4, 7),
+					EmissionDirection = Enum.NormalId.Top,
+					SpreadAngle = Vector2.new(45, 45),
+				})
+			end
+			local star = partNamed(model, "apex_star")
+			if star then
+				wink(star, color, 2.4, 1.2)
+			end
+			local core = partNamed(model, "omega_core")
+			if core then
+				light(core, color, 12, 3)
+			end
+		end,
+	},
+	-- Only Twilight's five hoses: the Base Camp rungs' `glow` paints their drawn
+	-- fallback nozzles and nothing more. Built on the mast of your own wash station
+	-- (Plots.setHoseTier) and on the shop rack; a hose is never held.
+	Cleaner = {
+		["Singularity Nozzle"] = function(model: Model, color: Color3)
+			-- Motes pulled into the muzzle, shrinking to nothing as they reach it.
+			local barrel = barrelOf(model)
+			if barrel then
+				shrinkMotes(barrel, color)
+				light(barrel, color, 8, 2)
+			end
+		end,
+		["Cryo Nova"] = function(model: Model, color: Color3)
+			-- Frost vapour rolling off the muzzle and sinking, as off anything that cold.
+			local muzzle = muzzleOf(model)
+			if muzzle then
+				emit(muzzle, gradient(WHITE, color), {
+					Texture = SMOKE_TEXTURE,
+					Brightness = 1.4,
+					Size = seq(0, 0.4, 1, 1.4),
+					Transparency = seq(0, 0.35, 1, 1),
+					Lifetime = NumberRange.new(1.2, 1.8),
+					Rate = 8,
+					Speed = NumberRange.new(0.4, 0.8),
+					EmissionDirection = Enum.NormalId.Front,
+					SpreadAngle = Vector2.new(25, 25),
+					Acceleration = Vector3.new(0, -1.2, 0),
+					Rotation = NumberRange.new(0, 360),
+					RotSpeed = NumberRange.new(-30, 30),
+				})
+			end
+			local barrel = barrelOf(model)
+			if barrel then
+				wink(barrel, color, 0.6, 3)
+				light(barrel, color, 8, 2)
+			end
+		end,
+		["Solar Forge"] = function(model: Model, color: Color3)
+			-- A forge-hot barrel throwing embers.
+			local barrel = barrelOf(model)
+			if barrel then
+				local e = embers(barrel, color)
+				e.Rate = 10
+				e.Size = seq(0, 0.45, 1, 0)
+				light(barrel, color, 8, 2)
+			end
+		end,
+		["Quantum Rift"] = function(model: Model, color: Color3)
+			-- The barrel glitching: square pixels popping in and out, teal flicking to
+			-- the model's pink.
+			local barrel = barrelOf(model)
+			if barrel then
+				emit(barrel, gradient(color, Color3.fromHex("FF5FA8")), {
+					Texture = SQUARE_TEXTURE,
+					Brightness = 1.6,
+					-- One flat size with a wide envelope: every pixel a different size.
+					Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.28, 0.14), NumberSequenceKeypoint.new(1, 0.28, 0.14) }),
+					Transparency = seq(0, 0, 0.8, 0, 1, 1),
+					Lifetime = NumberRange.new(0.15, 0.3),
+					Rate = 22,
+					Speed = NumberRange.new(0),
+				})
+				light(barrel, color, 8, 2)
+			end
+		end,
+		["Celestial Deluge"] = function(model: Model, color: Color3)
+			-- Stardust spilling out of the muzzle and drifting down.
+			local muzzle = muzzleOf(model)
+			if muzzle then
+				emit(muzzle, gradient(color, WHITE), {
+					Brightness = 3.5,
+					Size = seq(0, 0.6, 1, 0),
+					Transparency = seq(0, 0, 1, 0.5),
+					Lifetime = NumberRange.new(0.8, 1.3),
+					Rate = 12,
+					Speed = NumberRange.new(1, 2),
+					Drag = 2,
+					EmissionDirection = Enum.NormalId.Front,
+					SpreadAngle = Vector2.new(25, 25),
+					Acceleration = Vector3.new(0, -0.6, 0),
+					Rotation = NumberRange.new(0, 360),
+					RotSpeed = NumberRange.new(-60, 60),
+				})
+			end
+			local barrel = barrelOf(model)
+			if barrel then
+				light(barrel, color, 8, 2)
 			end
 		end,
 	},
