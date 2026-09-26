@@ -264,19 +264,19 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Bottled Nuke. "Packed in a glass jar": the jar is glass, and the little nuke
-	-- modelled inside it finally shows.
+	-- Bottled Nuke. A corked, wax-sealed bottle with a little nuke (InnerShell,
+	-- InnerFin, InnerFuze) modelled inside: the bottle goes glass so it finally shows.
 	buried_coin_jar = {
 		finish = {
 			{
-				parts = { "BottleBody", "BottleShoulder", "BottleNeck", "BottleBase" },
+				parts = { "Bottle", "BottleBase" },
 				material = "Glass",
 				color = Color3.fromHex("CFE8D6"),
 				transparency = 0.55,
 			},
 		},
 		particles = {
-			{ part = "BottleBody", preset = "sparkle", color = Color3.fromHex("FFFFFF"), rate = 1.5 },
+			{ part = "Bottle", preset = "sparkle", color = Color3.fromHex("FFFFFF"), rate = 1.5 },
 		},
 	},
 
@@ -490,45 +490,62 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Gilded Nuke. "Gold doesn't care what it's welded to." Gold leaf on junk: the
-	-- shell is corroded scrap, and only the gold trim and a ruby catch the glint.
-	-- This is also what tells it apart from the Golden Nuke, which shares its model.
+	-- Gilded Nuke. "Gold doesn't care what it's welded to." A fluted gold egg under a
+	-- crown, rubies set round its waist: the most ornate gold of the set, so the
+	-- rubies glitter red and the glint throws its stars off the crown points.
 	gold_signet = {
 		finish = {
-			{ parts = { "Shell", "TailTaper", "Fin" }, material = "CorrodedMetal", color = Color3.fromHex("5E5249") },
-			{ parts = { "ChasedBand", "RingCollar", "SignetBezel" }, tint = GOLD_TINT },
-			{ parts = { "SignetStone" }, material = "Glass", color = Color3.fromHex("B0102C"), transparency = 0.1 },
+			{
+				parts = {
+					"Shell",
+					"Flute",
+					"Fin",
+					"FinScroll",
+					"FiligreeBand",
+					"CrownBand",
+					"CrownArch",
+					"CrownPoint",
+					"GemSetting",
+				},
+				tint = GOLD_TINT,
+			},
+			{ parts = { "Ruby" }, material = "Glass", color = Color3.fromHex("B0102C"), transparency = 0.1 },
 		},
 		anims = {
 			{
 				kind = "glitter",
-				parts = { "SignetStone" },
+				parts = { "Ruby" },
 				period = 2.2,
 				duration = 0.3,
 				colors = { Color3.fromHex("FF8A9C") },
 			},
 		},
 		glint = {
-			parts = { "ChasedBand", "RingCollar", "SignetBezel", "SignetStone" },
+			parts = { "Shell", "Flute", "FiligreeBand", "CrownBand" },
 			period = 5,
 			sweep = 0.9,
 			color = GLINT_GOLD,
 			strength = 2.6,
-			stars = 3,
+			stars = 4,
+			starParts = { "Ruby", "CrownPoint" },
 		},
 	},
 
-	-- Bullion Nuke (Epic). "Cast in gold. Somebody got greedy." A stack of bars,
-	-- the most gold of the set, so the strongest and most frequent glint.
+	-- Bullion Nuke (Epic). "Cast in gold. Somebody got greedy." A faceted gold shell
+	-- on a heap of ingots, coins and a nugget -- the most gold of the set, so the
+	-- strongest and most frequent glint.
 	bullion_bar = {
 		finish = {
-			{ parts = { "Ingot", "NoseCone", "TailTaper", "Fin" }, tint = GOLD_TINT },
+			{
+				parts = { "FacetedShell", "Ingot", "Coin", "GoldNugget", "FinialCollar", "Fin", "Buckle" },
+				tint = GOLD_TINT,
+			},
 		},
 		particles = {
-			{ part = "Ingot2", preset = "sparkle", color = Color3.fromHex("FFE7A6"), rate = 1.2 },
+			{ part = "GoldNugget", preset = "sparkle", color = Color3.fromHex("FFE7A6"), rate = 1.2 },
 		},
 		glint = {
-			parts = { "Ingot", "NoseCone" },
+			parts = { "FacetedShell", "Ingot", "Coin" },
 			period = 3.6,
 			sweep = 0.8,
 			color = GLINT_GOLD,
@@ -537,30 +554,32 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Diamond Nuke (Epic). "Catches light nobody else out here can see." The gem
-	-- goes clear, and its facets throw white and the odd flash of rainbow fire.
+	-- Diamond Nuke (Epic). "Catches light nobody else out here can see." One big
+	-- brilliant in a pronged cup, ringed with small stones: the brilliant goes clear
+	-- so the shards inside show, its kite facets and the small stones throw white and
+	-- the odd flash of rainbow fire, and the modelled star glints wink.
 	diamond_brooch = {
 		finish = {
 			{
-				parts = { "GemPavilion", "GemCrown", "GemTable", "Culet" },
+				parts = { "BrilliantBody" },
 				material = "Glass",
 				color = Color3.fromHex("DDF2FF"),
 				transparency = 0.45,
 			},
 			{
-				parts = { "CrownFacet", "PavilionFacet" },
+				parts = { "KiteA", "KiteB", "HaloStone", "GirdleStone", "ChannelStone", "FinStone" },
 				material = "Glass",
 				color = Color3.fromHex("E6F6FF"),
 				transparency = 0.3,
 			},
 		},
 		particles = {
-			{ part = "GemCrown", preset = "sparkle", color = Color3.fromHex("FFFFFF"), rate = 1.5 },
+			{ part = "BrilliantBody", preset = "sparkle", color = Color3.fromHex("FFFFFF"), rate = 1.5 },
 		},
 		anims = {
 			{
 				kind = "glitter",
-				parts = { "CrownFacet", "PavilionFacet", "GemTable" },
+				parts = { "KiteA", "KiteB", "HaloStone", "GirdleStone", "ChannelStone", "FinStone" },
 				period = 5,
 				duration = 0.22,
 				colors = {
@@ -572,33 +591,42 @@ ItemFx.DEFS = {
 					Color3.fromHex("FFF2A8"),
 				},
 			},
+			{
+				kind = "wink",
+				parts = { "GlintH", "GlintV" },
+				period = 1.6,
+				min = 0,
+				mode = "transparency",
+				perPart = true,
+			},
 		},
 		glint = {
-			parts = { "GemCrown", "GemPavilion", "GemTable" },
+			parts = { "BrilliantBody", "TableEdge", "CrownEdge" },
 			period = 4,
 			sweep = 0.7,
 			color = Color3.fromHex("F4FBFF"),
 			strength = 2.6,
 			stars = 6,
-			starParts = { "CrownFacet", "PavilionFacet", "GemTable" },
+			starParts = { "KiteA", "KiteB", "HaloStone" },
 		},
 	},
 
-	-- Pearl Nuke. "Strung with pearls, saved for good occasions." Pearls have a
-	-- soft lustre, not a hard glint: a gentle band over the cream shell, and a
-	-- pastel sheen that runs round the strand.
+	-- Pearl Nuke. "Strung with pearls, saved for good occasions." A pearl egg sitting
+	-- in an open clam, a strand swagged round it. Pearls have a soft lustre, not a
+	-- hard glint: a gentle band over the cream shell, and a pastel sheen that runs
+	-- round the strand.
 	pearl_necklace = {
 		-- Warm on purpose: the sky's cyan fill turns anything near-white grey-blue,
 		-- and a lilac or mint tint reads as a blue pearl.
 		finish = {
-			{ parts = { "Shell", "TailTaper", "Fin" }, tint = Color3.fromHex("FFE4CC") },
-			{ parts = { "StrandClasp", "CrownCollar" }, tint = GOLD_TINT },
+			{ parts = { "Shell", "Fin", "FinEdge" }, tint = Color3.fromHex("FFE4CC") },
 		},
+		-- These pearls are plain parts (no SurfaceAppearance), so the sheen cycles
+		-- Part.Color directly rather than a tint.
 		anims = {
 			{
 				kind = "colorCycle",
-				mode = "tint",
-				parts = { "Pearl", "CrownPearl" },
+				parts = { "StrandPearl", "CrownPearl" },
 				period = 6,
 				colors = {
 					Color3.fromHex("FFF6EA"),
@@ -609,13 +637,13 @@ ItemFx.DEFS = {
 			},
 		},
 		glint = {
-			parts = { "Shell", "TailTaper", "CrownCollar" },
+			parts = { "Shell", "ClamUpper" },
 			period = 5,
 			sweep = 1.1,
 			color = Color3.fromHex("FFF4F0"),
 			strength = 2,
 			stars = 5,
-			starParts = { "Pearl", "CrownPearl" },
+			starParts = { "StrandPearl", "CrownPearl" },
 			starColor = Color3.fromHex("FFEAF4"),
 			starSize = 0.4,
 		},
