@@ -113,6 +113,34 @@ local MIN_BODY = 0.9
 --- faded to zero would have the last second of work land on something invisible.
 local SHRINK_FLOOR = 0.42
 
+--- FLAKES: the loose scale on the OUTSIDE of each chunk, on top of its PIECES. The core
+--- pieces are what hide the item and they come off only when the patch pops; the
+--- flakes are what makes the soak between those two moments something you can watch.
+--- Each one breaks off at its own point in the soak (SHED_AT_ATTR) and the client
+--- tumbles it off the item (CrustDebrisController), so a chunk under the stream sheds
+--- a flake every half second or so instead of shrinking silently and then vanishing
+--- in one step. Visual only: the patch -- its clock, its charge, its XP -- is still
+--- the whole chunk (Shared/Contamination), so none of this moves balance.
+local FLAKES = 6
+
+--- How big a flake is, as a share of its chunk's mean span across its face, and how
+--- thick it is through the face. Scale, not boulders: a flake is a bump on the rock's
+--- outline, big enough at the wash bay's framing to see go.
+local FLAKE_FACE_MIN = 0.2
+local FLAKE_FACE_MAX = 0.32
+local FLAKE_THICK = 0.55
+
+--- How far out a flake sits, as a share of the item's own half extent on each axis.
+--- Past 1 so the flakes stand on the outside of the shell rather than buried in it.
+local FLAKE_REACH_MIN = 1.0
+local FLAKE_REACH_MAX = 1.2
+
+--- The stretch of the soak the flakes come off across: none at the very first touch
+--- of water, none left by the time the patch is nearly through, and the core pieces
+--- do the last stretch on their own.
+local SHED_FIRST = 0.08
+local SHED_LAST = 0.85
+
 --- How see-through a fully soaked chunk goes on its way out. Wet slag, sloughing off.
 local WET_FADE = 0.3
 
@@ -123,6 +151,16 @@ local WET_DARKEN = 0.35
 local GLOW_NAME = "CrustGlow"
 local SIZE_ATTR = "CrustSize"
 local COLOR_ATTR = "CrustColor"
+--- The erode level at or under which a flake breaks off (1 = dry, 0 = about to pop).
+local SHED_AT_ATTR = "CrustShedAt"
+--- Set true the moment a piece has come off. The client watches it to throw the
+--- falling copy; the server keeps the (now invisible) part until `shed` sweeps up.
+local SHED_ATTR = "CrustShed"
+--- Every crust part carries it, so CrustDebrisController can find them to watch.
+local TAG = "ItemCrust"
+--- How long a shed part hangs about, invisible, before the server destroys it: long
+--- enough that every client has seen the SHED_ATTR change before the part is gone.
+local SHED_LINGER = 1
 
 local GOLDEN = 2.39996323
 
@@ -165,8 +203,15 @@ local function rockShade(rng: Random, accent: Color3): Color3
 	return base:Lerp(accent, RARITY_TINT)
 end
 
-local function slagPart(name: string, size: Vector3, cframe: CFrame, color: Color3, parent: Instance): BasePart
-	local part = Instance.new("Part")
+local function slagPart(
+	name: string,
+	size: Vector3,
+	cframe: CFrame,
+	color: Color3,
+	parent: Instance,
+	className: string?
+): BasePart
+	local part = Instance.new(className or "Part") :: BasePart
 	part.Name = name
 	part.Size = size
 	part.CFrame = cframe
@@ -181,6 +226,7 @@ local function slagPart(name: string, size: Vector3, cframe: CFrame, color: Colo
 	-- CanQuery STAYS ON, and it is the one property here that is load-bearing rather
 	-- than cosmetic: WashController answers "what did the water just hit" with a
 	-- raycast, and a chunk the ray passes through is a chunk you cannot aim at.
+	part:AddTag(TAG)
 	part.Parent = parent
 	return part
 end
@@ -241,6 +287,55 @@ local function buildChunks(
 				zone,
 				slagPart(`Crust{index}_{piece}`, size, centre * offset * turn, rockShade(rng, accent), parent)
 			)
+		end
+
+		-- THE FLAKES, laid flat on the outside of the shell round this chunk's side of
+		-- the item. Pointed off the chunk's own spiral direction with a generous scatter,
+		-- so each chunk's scale covers its own side and neighbours overlap a little.
+		-- Every draw comes off the same seeded `rng` after the core pieces, so the lump,
+		-- the hand and the tub still grow identical rubble.
+		local outward = spiralDir(index, count)
+		local faceSpan = (span.X + span.Y + span.Z) / 3
+		-- A shuffled shedding order, so flakes do not peel off in the order they were
+		-- laid (which is spatially clustered by the scatter above).
+		local order = {}
+		for flake = 1, FLAKES do
+			order[flake] = flake
+		end
+		for flake = FLAKES, 2, -1 do
+			local swap = rng:NextInteger(1, flake)
+			order[flake], order[swap] = order[swap], order[flake]
+		end
+		for flake = 1, FLAKES do
+			local scatter = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-1, 1), rng:NextNumber(-1, 1))
+			local aim = outward + scatter * 0.8
+			local dir = if aim.Magnitude > 1e-3 then aim.Unit else outward
+			local spot = dir * body * 0.5 * rng:NextNumber(FLAKE_REACH_MIN, FLAKE_REACH_MAX)
+			local face = faceSpan * rng:NextNumber(FLAKE_FACE_MIN, FLAKE_FACE_MAX)
+			local size = Vector3.new(
+				face * rng:NextNumber(0.8, 1.2),
+				face * rng:NextNumber(0.8, 1.2),
+				face * FLAKE_THICK * rng:NextNumber(0.8, 1.2)
+			)
+			-- Face-on to the direction it sits in, tipped and rolled so it reads as a
+			-- broken scale and not a tile. Every other flake is a wedge, for the angles.
+			local lay = CFrame.lookAt(spot, spot + dir)
+				* CFrame.Angles(
+					math.rad(rng:NextNumber(-20, 20)),
+					math.rad(rng:NextNumber(-20, 20)),
+					math.rad(rng:NextNumber(0, 360))
+				)
+			local part = slagPart(
+				`Crust{index}_flake{flake}`,
+				size,
+				pivot * lay,
+				rockShade(rng, accent),
+				parent,
+				if flake % 2 == 0 then "WedgePart" else "Part"
+			)
+			local share = (order[flake] - rng:NextNumber()) / FLAKES
+			part:SetAttribute(SHED_AT_ATTR, 1 - (SHED_FIRST + (SHED_LAST - SHED_FIRST) * share))
+			table.insert(zone, part)
 		end
 
 		zones[index] = zone
@@ -328,6 +423,16 @@ function ItemCrust.lump(rarityName: string?, seed: (string | number)?): Model
 	return model
 end
 
+--- One piece comes off: invisible and out of the aim ray at once, flagged so every
+--- client can throw a falling copy of it from wherever it stands on their screen (the
+--- turntable spins client-side, so only the client knows that). NOT destroyed here --
+--- a part that is gone before the flag replicates is a flake nobody sees fall.
+local function shedOne(part: BasePart)
+	part:SetAttribute(SHED_ATTR, true)
+	part.Transparency = 1
+	part.CanQuery = false
+end
+
 --- Erode one chunk. `level` is 1 for untouched slag and 0 for a chunk about to come
 --- off; `tough` means it is harder than this liquid is rated for. It used to mean
 --- "cannot shift it at all" and froze the chunk dry and full size -- the potency wall.
@@ -337,6 +442,14 @@ end
 function ItemCrust.erode(parts: { BasePart }, level: number, tough: boolean)
 	local amount = math.clamp(level, 0, 1)
 	for _, part in parts do
+		if part:GetAttribute(SHED_ATTR) then
+			continue
+		end
+		local shedAt = part:GetAttribute(SHED_AT_ATTR)
+		if type(shedAt) == "number" and amount <= shedAt then
+			shedOne(part)
+			continue
+		end
 		local storedSize = part:GetAttribute(SIZE_ATTR)
 		if typeof(storedSize) ~= "Vector3" then
 			storedSize = part.Size
@@ -372,6 +485,25 @@ function ItemCrust.strip(parts: { BasePart })
 	end
 end
 
+--- That patch is gone, in the wash bay: break every piece still on the chunk off at
+--- once, so the core tumbles away the way its flakes did, and sweep the lot up once
+--- every client has seen it go. `strip` stays the instant version, for a crust being
+--- rebuilt rather than washed off.
+function ItemCrust.shed(parts: { BasePart })
+	for _, part in parts do
+		if part.Parent and not part:GetAttribute(SHED_ATTR) then
+			shedOne(part)
+		end
+	end
+	task.delay(SHED_LINGER, function()
+		for _, part in parts do
+			if part.Parent then
+				part:Destroy()
+			end
+		end
+	end)
+end
+
 --- Is there still rock on this item? The crust's own light is the marker: `encase`
 --- hangs it, `clear` takes it down at the wash reveal, and a held item with no
 --- patches left is built without it. ItemFxController keeps every effect off
@@ -384,6 +516,10 @@ end
 
 --- The name of the crust's light, for a caller that watches for it to go away.
 ItemCrust.GLOW_NAME = GLOW_NAME
+
+--- The tag on every crust part, and the attribute that flips when one comes off.
+ItemCrust.TAG = TAG
+ItemCrust.SHED_ATTR = SHED_ATTR
 
 --- Nothing left to hide: put the light out. Called when the last patch clears, so an
 --- item standing revealed on the tub is lit by the bay and not by its own fallout.
