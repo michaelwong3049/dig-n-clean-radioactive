@@ -58,9 +58,12 @@
 	whole row ("which one SHOULD I want"). Both are the same card and the same button,
 	so ShopService.buyTier sits behind one door, not two.
 
-	A STALL IS AS WIDE AS ITS TRACK IS LONG. `stallWidth` derives it from
-	Gear.maxTier, so the Detector stall (8 tiers) is wider than the Magnet stall (6),
-	and adding a tier in Config/Gear widens that one shop with nothing else to edit.
+	A STALL IS AS WIDE AS THE LADDER IT SELLS. `stallWidth` derives it from how many rungs
+	the stall hangs (`stallTiers`: the rungs of its track that Config/Gear sells at
+	its camp), so the Detector stall (9 tiers) is wider than the Magnet stall (6), and
+	adding a tier in Config/Gear widens that one shop with nothing else to edit. A track
+	can be split across camps: Toxic Twilight's Detector stall hangs only tiers 10-15
+	and Base Camp's keeps 1-9 (see `Shops.buildCampStall`).
 	Posts, slats, shelf, roof plate count and both floor markers all key off that
 	one number, which is why moving a stall's `at` (see below) or widening a track
 	can turn a comfortable gap into an overlap. `assertNoShopOverlap` proves the
@@ -404,12 +407,27 @@ local STAND_RADIUS = STAND_WIDTH / 2 + 6 -- the desk, plus the forecourt you sta
 --- ~10Hz station tick to have caught up by the time the prompt is pressable.
 local STAND_PROMPT_REACH = 8
 
+--- What a stall sells, in the shape every layout function below takes: `track` and the
+--- camp it stands in (a Config/Camps key; nil is Base Camp). The rest of a STALLS row
+--- (its `at`, colour and label) is only read by `buildStall` itself.
+type StallKind = { track: string, camp: string? }
+
+--- The rungs a stall hangs, ascending: the ones of its track that Config/Gear says are
+--- sold at its camp. A stall with none is a bug in STALLS or in Gear's `camp` column,
+--- and would build an empty rack with a station that sells nothing, so it fails here.
+local function stallTiers(spec: StallKind): { number }
+	local tiers = Gear.tiersAt(spec.track, spec.camp or "base")
+	assert(#tiers > 0, `{spec.track} sells no tiers at camp "{spec.camp or "base"}" — nothing to hang`)
+	return tiers
+end
+
 --- How wide a stall has to be to hold its stand AND its whole ladder. DERIVED, not
---- written down: Detector has 8 tiers and Magnet 6, and a fixed width would either
---- crush the Detector rack or leave the Magnet stall two thirds empty. Every other
+--- written down: Detector has 9 tiers at Base Camp and Magnet 6, and a fixed width would
+--- either crush the Detector rack or leave the Magnet stall two thirds empty. Every other
 --- dimension of a stall (posts, slats, rack, canopy, floor markers) keys off this,
 --- so adding a tier to a track in Config/Gear widens its shop and nothing else has
---- to move.
+--- to move. All of them take `count`, the number of rungs the STALL hangs, which is not
+--- always the number the TRACK has (Twilight's Detector stall hangs six of fifteen).
 ---
 --- IT GREW BY SIX STUDS WHEN THE RACK CAME OFF THE COUNTER. It used to be
 --- `rackSpan + 13` — the ladder plus five studs of clear counter either side. The
@@ -418,35 +436,35 @@ local STAND_PROMPT_REACH = 8
 --- end margin. `assertNoShopOverlap` re-proves the layout at every rebuild, and at
 --- the stalls' current `at` values it passes with ~21 studs to spare between fronts
 --- and ~13 to the Outfitter, so nothing had to move to make room for this.
-local function rackSpan(track: string): number
-	return RACK_PITCH * (Gear.maxTier(track) - 1)
+local function rackSpan(count: number): number
+	return RACK_PITCH * (count - 1)
 end
 
-local function stallWidth(track: string): number
-	return STAND_EDGE + STAND_WIDTH + STAND_RACK_GAP + RACK_SLOT_WIDTH + rackSpan(track) + RACK_END_MARGIN
+local function stallWidth(count: number): number
+	return STAND_EDGE + STAND_WIDTH + STAND_RACK_GAP + RACK_SLOT_WIDTH + rackSpan(count) + RACK_END_MARGIN
 end
 
 --- The stand's centre, in the stall's own local x: hard against the LEFT end of the
 --- store. Left as the customer sees it — a stall's +Z faces PLAZA_MID, so somebody
 --- walking up to it has their right hand on the stall's +X, and the ladder that runs
 --- cheapest-first from here therefore climbs away to their right.
-local function standX(track: string): number
-	return -stallWidth(track) / 2 + STAND_EDGE + STAND_WIDTH / 2
+local function standX(count: number): number
+	return -stallWidth(count) / 2 + STAND_EDGE + STAND_WIDTH / 2
 end
 
 --- The wing's centre: past the stand, past the gap, then half a ladder. Falls at a
---- constant local x=5 for every track as the numbers currently stand (the stall grows
+--- constant local x=5 for every stall as the numbers currently stand (the stall grows
 --- symmetrically about it), which is a coincidence of the arithmetic and not
 --- something to hardcode — move any one constant above and it stops being true.
-local function rackX(track: string): number
-	return standX(track) + STAND_WIDTH / 2 + STAND_RACK_GAP + RACK_SLOT_WIDTH / 2 + rackSpan(track) / 2
+local function rackX(count: number): number
+	return standX(count) + STAND_WIDTH / 2 + STAND_RACK_GAP + RACK_SLOT_WIDTH / 2 + rackSpan(count) / 2
 end
 
 --- How wide the rack sits: the ladder, plus the half-slot each end tier needs, plus
 --- a stud of margin. Drives the wing's station-circle radius and its floor marker.
 --- The rack's own end posts (span/2 + 1.5) stand just inside it.
-local function rackFootprintWidth(track: string): number
-	return rackSpan(track) + RACK_SLOT_WIDTH + 1
+local function rackFootprintWidth(count: number): number
+	return rackSpan(count) + RACK_SLOT_WIDTH + 1
 end
 
 --- A stall's placed position, world XZ — just its `at`, same as OUTFITTER.at.
@@ -963,6 +981,10 @@ export type CounterSpec = {
 	z: number,
 	stationKind: string?,
 	stationId: string?,
+	-- Which camp's stall this is (a Config/Camps key), stamped as `ShopCamp`. ShopService
+	-- reads it to know which rungs of the track this counter may sell. Nil is Base Camp,
+	-- and is stamped as nothing at all so Base Camp's parts stay exactly as they were.
+	stationCamp: string?,
 	radius: number?,
 	promptText: string?,
 	promptReach: number?,
@@ -988,7 +1010,7 @@ local function buildCounter(parent: Instance, origin: CFrame, spec: CounterSpec)
 
 	local attrs = nil
 	if spec.stationKind then
-		attrs = { StationKind = spec.stationKind, StationId = spec.stationId, Radius = spec.radius }
+		attrs = { StationKind = spec.stationKind, StationId = spec.stationId, Radius = spec.radius, ShopCamp = spec.stationCamp }
 	end
 
 	local name = spec.name or "Counter"
@@ -1351,10 +1373,11 @@ local function buildPriceCard(mount: BasePart, name: string, price: number)
 	sub.Parent = gui
 end
 
---- What the rack builders need off a STALLS entry: the track, its accent, and the
---- per-track hang angle. The full STALLS row carries more (at, label, …); this
+--- What the rack builders need off a STALLS entry: the track, its accent, the
+--- per-track hang angle, and the camp it stands in (which decides the rungs it
+--- hangs, via `stallTiers`). The full STALLS row carries more (at, label, …); this
 --- is the slice `buildTierRack` and `buildRackHook` actually read.
-type RackSpec = { track: string, color: string, present: { yaw: number, pitch: number }? }
+type RackSpec = { track: string, color: string, present: { yaw: number, pitch: number }?, camp: string? }
 
 --- One hook on the rail: the mount block that carries the sale, the tier's model
 --- standing under it (or a painted stand-in), a slim strap hanging it off the rail,
@@ -1450,8 +1473,8 @@ end
 --- a counterOrigin, so everything below stays written as a symmetric offset from zero
 --- and this function never has to know where in the store it was hung.
 local function buildTierRack(parent: Instance, origin: CFrame, spec: RackSpec)
-	local span = rackSpan(spec.track)
-	local count = Gear.maxTier(spec.track)
+	local tiers = stallTiers(spec)
+	local span = rackSpan(#tiers)
 
 	-- The rail the tiers hang from, and a full-height post at each end carrying it
 	-- down to the deck — the counter that used to hold the rail up is gone.
@@ -1474,8 +1497,10 @@ local function buildTierRack(parent: Instance, origin: CFrame, spec: RackSpec)
 		})
 	end
 
-	for tier = 1, count do
-		buildRackHook(parent, origin, spec, tier, -span / 2 + (tier - 1) * RACK_PITCH)
+	-- Left to right in ladder order, from the rack's own first slot: a rack that hangs
+	-- tiers 10-15 still starts at its left end, not ten slots along.
+	for slot, tier in tiers do
+		buildRackHook(parent, origin, spec, tier, -span / 2 + (slot - 1) * RACK_PITCH)
 	end
 end
 
@@ -1486,7 +1511,21 @@ end
 --- the stall's own accent colour. The roof, the sign text, the floor marker
 --- and the counter's trim cap — all `spec.color` — are the per-shop identity now
 --- that the shopkeeper and the identity prop are gone.
-local function buildStall(parent: Instance, spec: { track: string, at: { number }, faceYaw: number?, color: string, label: string, present: { yaw: number, pitch: number }? })
+type StallSpec = {
+	track: string,
+	at: { number },
+	faceYaw: number?,
+	color: string,
+	label: string,
+	present: { yaw: number, pitch: number }?,
+	-- The camp this stall stands in (a Config/Camps key). Nil is Base Camp.
+	camp: string?,
+}
+
+--- `originOverride` is where the stall stands. Omitted, it is the plaza stall's own: its
+--- `at`, turned to face `spec.faceYaw`. A camp passes its own (`Shops.buildCampStall`),
+--- since its floor is not the plaza's.
+local function buildStall(parent: Instance, spec: StallSpec, originOverride: CFrame?)
 	local m = Instance.new("Model")
 	m.Name = `{spec.track}Shop`
 
@@ -1495,14 +1534,20 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- comes from Hub.PLAZA.topY + Hub.PLAZA_LIFT (the raised plaza floor). Every
 	-- part below is a LOCAL offset from this, so this one line carries the whole
 	-- stall's placement.
-	local atX, atZ = stallAt(spec)
-	local origin = facingOrigin(atX, atZ, spec.faceYaw)
+	local origin: CFrame
+	if originOverride then
+		origin = originOverride
+	else
+		local atX, atZ = stallAt(spec)
+		origin = facingOrigin(atX, atZ, spec.faceYaw)
+	end
 
 	-- EVERY DIMENSION BELOW KEYS OFF THIS, and it is a function of how many tiers the
-	-- track has (see `stallWidth`). A Detector stall is wider than a Magnet stall
+	-- STALL hangs (see `stallWidth`). A Detector stall is wider than a Magnet stall
 	-- because a Detector ladder is longer, and that is the honest thing for the
 	-- building to say.
-	local width = stallWidth(spec.track)
+	local count = #stallTiers(spec)
+	local width = stallWidth(count)
 
 	-- A thin blue-grey floor is visible through the open sides in the reference.
 	-- It is non-colliding and lifted just enough to avoid z-fighting with the plaza.
@@ -1523,7 +1568,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 
 	-- The two halves of the shopfront, on one line, with STAND_RACK_GAP of open air
 	-- between them — see "The stand, and the wing beside it".
-	local sx, rx = standX(spec.track), rackX(spec.track)
+	local sx, rx = standX(count), rackX(count)
 
 	-- THE STAND. This is the part the whole file exists to place correctly: the desk
 	-- you walk up to for the card panel, and the shop's own StationId. Eight studs
@@ -1540,6 +1585,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		z = SHOPFRONT_Z,
 		stationKind = "shop",
 		stationId = spec.track,
+		stationCamp = spec.camp,
 		radius = STAND_RADIUS,
 		promptText = spec.label,
 		material = "Plastic",
@@ -1582,7 +1628,8 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 		attributes = {
 			StationKind = "shop",
 			StationId = spec.track,
-			Radius = rackFootprintWidth(spec.track) / 2 + 6,
+			ShopCamp = spec.camp,
+			Radius = rackFootprintWidth(count) / 2 + 6,
 		},
 	})
 	rackZone.CanQuery = false
@@ -1602,7 +1649,7 @@ local function buildStall(parent: Instance, spec: { track: string, at: { number 
 	-- the ground you walk ALONG to browse the tools. A stud of gap between them, in the
 	-- shop's own colour — never green, see the header.
 	buildFloorMarker(m, origin, sx, 3.4, STAND_WIDTH + 3, 5, spec.color)
-	buildFloorMarker(m, origin, rx, 3.4, rackFootprintWidth(spec.track), 5, spec.color)
+	buildFloorMarker(m, origin, rx, 3.4, rackFootprintWidth(count), 5, spec.color)
 
 	m.Parent = parent
 	return m
@@ -1648,7 +1695,7 @@ local function assertNoShopOverlap()
 		-- everything buildStall lays down.
 		table.insert(rects, {
 			name = `{spec.track} stall`,
-			rect = shopFootprint(x, z, stallWidth(spec.track), -11.25, 5.9, spec.faceYaw),
+			rect = shopFootprint(x, z, stallWidth(#stallTiers(spec)), -11.25, 5.9, spec.faceYaw),
 		})
 	end
 
@@ -1805,6 +1852,39 @@ function Shops.buildStallShell(parent: Instance, origin: CFrame, width: number, 
 
 	m.Parent = parent
 	return m
+end
+
+--- A WORKING stall in a camp: the same storefront a plaza stall is, for the same track and
+--- in the same accent (coral is the detector shop everywhere, see the header), hung with
+--- only the rungs Config/Gear sells at `camp`. Its stand and rack zone carry `ShopCamp`,
+--- which is how ShopService knows to refuse the rungs it does not sell.
+---
+--- EXPORTED FOR build/CampSite, which places it in the camp's own frame the way it places
+--- `buildStallShell`. `origin` is the stall's frame on the floor it stands on, local +Z
+--- its customer side. The footprint is `Shops.campStallWidth` across and local z -11.25
+--- to +5.9, like a plaza stall's. Returns the model, already parented.
+function Shops.buildCampStall(parent: Instance, origin: CFrame, track: string, camp: string): Model
+	local plaza: typeof(STALLS[1])? = nil
+	for _, s in STALLS do
+		if s.track == track then
+			plaza = s
+		end
+	end
+	assert(plaza, `{track} has no plaza stall to base a camp stall on`)
+	return buildStall(parent, {
+		track = plaza.track,
+		at = plaza.at,
+		faceYaw = plaza.faceYaw,
+		color = plaza.color,
+		label = plaza.label,
+		present = plaza.present,
+		camp = camp,
+	}, origin)
+end
+
+--- How wide that stall is, so a camp can lay out around it before it builds it.
+function Shops.campStallWidth(track: string, camp: string): number
+	return stallWidth(#stallTiers({ track = track, camp = camp }))
 end
 
 local function createShops(): Model

@@ -46,6 +46,7 @@ local ItemFxConfig = require(Config.ItemFx)
 local ItemFx = require(script.Parent.Parent.ItemFx)
 local ToolModels = require(script.Parent.Parent.ToolModels)
 local ToolTiers = require(Config.ToolTiers)
+local Camps = require(Config.Camps)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
 local DetonationConfig = require(Config.Detonation)
@@ -1236,6 +1237,72 @@ function Spec.run(): boolean
 		end
 	end
 	check("§2.1 every detector tier is luckier than the last", luckAsc)
+
+	-- ── The detector ladder is ONE ladder sold at more than one camp ──────────────
+	--
+	-- Config/Gear's `camp` column says whose stall sells a rung (nil is Base Camp), and
+	-- Toxic Twilight sells tiers 10-15. Three things quietly go wrong if that column and
+	-- its neighbours drift, and none of them errors:
+	--
+	--   * ToolTiers is the palette AND the name ToolFX keys off, and ToolTiers.get CLAMPS. A
+	--     rung with no row of its own reads as the last row that has one, so a sixteenth
+	--     detector would light up with The Oracle's lens and glints.
+	--   * a `camp` that is not a Config/Camps key is a rung no stall in the world sells (a
+	--     typo, or a camp that was renamed), which the shop would price and never offer.
+	--   * the rack hangs a stall's rungs left to right in ladder order, so a camp whose rungs
+	--     are not one unbroken run would hang a rack with a hole in the price ladder.
+	local detectorRungs = Gear.maxTier("Detector")
+	check(
+		string.format("the detector ladder has one look per rung (%d rungs, %d looks)", detectorRungs, ToolTiers.count("Detector")),
+		ToolTiers.count("Detector") == detectorRungs
+	)
+	local looksAgree = true
+	for tier = 1, detectorRungs do
+		if Gear.tier("Detector", tier).name ~= ToolTiers.get("Detector", tier).name then
+			looksAgree = false
+		end
+	end
+	check("the detector ladder's looks carry the rungs' own names (ToolFX keys off them)", looksAgree)
+
+	local campsReal, campsUnbroken = true, true
+	local campsSeen: { [string]: boolean } = {}
+	local previousCamp = ""
+	for tier = 1, detectorRungs do
+		local camp = Gear.campOf("Detector", tier)
+		if camp ~= Camps.BASE and Camps.get(camp) == nil then
+			campsReal = false
+		end
+		if camp ~= previousCamp then
+			if campsSeen[camp] then
+				campsUnbroken = false
+			end
+			campsSeen[camp] = true
+			previousCamp = camp
+		end
+	end
+	check("every detector rung is sold at a real camp (Config/Camps)", campsReal)
+	check("each camp's detector rungs are one unbroken run of the ladder", campsUnbroken)
+	check("Base Camp sells the first rung of every track (the free one)", (function()
+		for _, track in Gear.TRACKS do
+			if Gear.campOf(track, 1) ~= Camps.BASE then
+				return false
+			end
+		end
+		return true
+	end)())
+
+	-- Twilight's six, pinned by name so a reorder of the ladder is a decision, not a drift:
+	-- the shop's rack and cards, the model templates (Assets/Tools/Detector/T10-T15) and
+	-- the hold poses were all made for exactly this order.
+	local twilightWant = { "Vein Whisperer", "Aurora Rake", "Strata Lance", "Leyline Tap", "Null Compass", "Prime Meridian" }
+	local twilightHave = Gear.tiersAt("Detector", "twilight")
+	local twilightOk = #twilightHave == #twilightWant
+	for slot, tier in twilightHave do
+		if Gear.tier("Detector", tier).name ~= twilightWant[slot] or tier ~= 9 + slot then
+			twilightOk = false
+		end
+	end
+	check("Toxic Twilight sells detector tiers 10-15, in the order they were drawn", twilightOk)
 
 	-- Revealing is not the same as reaching. If the pull radius ever grows into the
 	-- reveal radius, the walk to the glow disappears and the loop is one button.

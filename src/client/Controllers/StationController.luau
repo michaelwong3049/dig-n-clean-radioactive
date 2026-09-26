@@ -106,6 +106,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local AuraLook = require(Shared.AuraLook)
+local Gear = require(Shared.Config.Gear)
 local Net = require(Shared.Net)
 local ToolModels = require(Shared.ToolModels)
 
@@ -160,12 +161,18 @@ local PANEL_KINDS: { [string]: boolean } = {
 -- dots or a click on a peeking card move along the row; it always settles with one
 -- card centred.
 --
--- CARD_SLOTS IS A CEILING OVER ALL SIX TRACKS, NOT A GUESS. The longest is Detector
--- at 8 tiers (Config/Gear); the rest run 5-7. Cards are built once at that count and
--- hidden, the same reuse the trader's bag tiles use, because a shop panel
--- that rebuilds its children on every StationState tick would churn 8 frames' worth
--- of instances ten times a second.
-local CARD_SLOTS = 8
+-- CARD_SLOTS IS A CEILING OVER EVERY TRACK, READ OFF CONFIG/GEAR. It was typed as 8
+-- when Detector was the longest track at 8 tiers, and then the Rust Bucket made it 9
+-- and Toxic Twilight's six made it 15: a typed ceiling one short is a card that never
+-- draws (and, from a rack's E, an index into a nil card). A stall lists at most the whole
+-- track, so the longest track is the most cards one can show. Cards are built once at
+-- that count and hidden, the same reuse the trader's bag tiles use, because a shop panel
+-- that rebuilds its children on every StationState tick would churn a dozen frames'
+-- worth of instances ten times a second.
+local CARD_SLOTS = 1
+for _, track in Gear.TRACKS do
+	CARD_SLOTS = math.max(CARD_SLOTS, Gear.maxTier(track))
+end
 local CARD_WIDTH = 500
 local CARD_HEIGHT = 500
 local CARD_GAP = 18
@@ -1492,6 +1499,19 @@ local rackKey: string? = nil
 --- remember what was there. A hook with no SellsTier is skipped entirely rather than
 --- restored — that is the Luck button, whose subtitle is owned by ExhibitService and
 --- must not be touched here.
+--- Where tier number `tier` sits in an offer's list, or nil when this stall does not list
+--- it. THE POSITION IS NOT THE TIER: a stall lists what it sells plus what you own, so
+--- Toxic Twilight's Detector stall opens on tier 10 as its first card, and this is the one
+--- place that turns a tier (a rack hook's `SellsTier`, a rack card) into a card.
+local function tierIndex(tiers: { any }, tier: number): number?
+	for index, entry in tiers do
+		if entry.tier == tier then
+			return index
+		end
+	end
+	return nil
+end
+
 local function paintRack(track: string?, tiers: { any }?)
 	for _, part in CollectionService:GetTagged(RACK_TAG) do
 		local tier = part:GetAttribute("SellsTier")
@@ -1505,7 +1525,8 @@ local function paintRack(track: string?, tiers: { any }?)
 			continue
 		end
 
-		local entry = if tiers ~= nil and part:GetAttribute("SellsTrack") == track then tiers[tier] else nil
+		local index = if tiers ~= nil and part:GetAttribute("SellsTrack") == track then tierIndex(tiers, tier) else nil
+		local entry = if index then (tiers :: { any })[index] else nil
 		if entry ~= nil and entry.current then
 			sub.Text = EQUIPPED_TEXT
 			sub.TextColor3 = COLOR.green
@@ -1737,11 +1758,15 @@ local function render()
 
 	-- One rack card, if a rack hook's E opened this and it is for the shop you are at.
 	local offerTiers = if atShop and state.offer then state.offer.tiers else nil
-	local single = atShop
-		and rackCard ~= nil
-		and rackCard.track == state.stationId
-		and offerTiers ~= nil
-		and offerTiers[rackCard.tier] ~= nil
+	-- The rack card's position in THIS stall's list (see tierIndex), nil when it is not
+	-- listed here, which is what makes it not a rack card at all.
+	local rackIndex: number? = if atShop
+			and rackCard ~= nil
+			and rackCard.track == state.stationId
+			and offerTiers ~= nil
+		then tierIndex(offerTiers, (rackCard :: any).tier)
+		else nil
+	local single = rackIndex ~= nil
 	carousel.single = single
 
 	local shopWidth = if single then RACK_PANEL_WIDTH else SHOP_PANEL_WIDTH
@@ -1776,7 +1801,7 @@ local function render()
 		for index, card in ui.shopCards do
 			local entry = if tiers then tiers[index] else nil
 			-- A rack card shows its own tier and nothing either side of it.
-			card.Visible = entry ~= nil and (not single or index == (rackCard :: any).tier)
+			card.Visible = entry ~= nil and (not single or index == rackIndex)
 			if entry then
 				paintShopCard(card, entry, track, accent, cash)
 			end
@@ -1795,13 +1820,14 @@ local function render()
 			-- Focused on the rack card's tier, which also leaves the storefront there if
 			-- the stand's E swaps this card for the whole row.
 			local tier = (rackCard :: any).tier
+			local slot = rackIndex :: number
 			local key = `{track}/{tier}`
-			if carousel.focus ~= tier or carousel.singleFor ~= key then
-				setShopFocus(tier, false)
+			if carousel.focus ~= slot or carousel.singleFor ~= key then
+				setShopFocus(slot, false)
 			end
 			if carousel.singleFor ~= key then
 				carousel.singleFor = key
-				local pop = ui.shopCards[tier]:FindFirstChildOfClass("UIScale") :: UIScale
+				local pop = ui.shopCards[slot]:FindFirstChildOfClass("UIScale") :: UIScale
 				pop.Scale = RACK_CARD_POP
 				TweenService:Create(pop, RACK_CARD_TWEEN, { Scale = 1 }):Play()
 			end

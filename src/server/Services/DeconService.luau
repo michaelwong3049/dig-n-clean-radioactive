@@ -195,7 +195,7 @@ local function stepPlayer(player: Player, _dt: number)
 		table.insert(locker, CarryService.describe(item, stats))
 	end
 
-	local offer = if kind == "shop" and stationId then ShopService.offerFor(data, stationId) else nil
+	local offer = if kind == "shop" and stationId then ShopService.offerFor(data, stationId, ShopService.campAt(player)) else nil
 
 	-- Pedestals have no panel of their own any more: placing and retrieving are
 	-- both a "Place"/"Take" ProximityPrompt on the stand itself (ExhibitService),
