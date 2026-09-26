@@ -95,6 +95,7 @@ local Plots = require(script.Parent.Plots)
 local CraterField = require(script.Parent.CraterField)
 local BlastDebris = require(script.Parent.BlastDebris)
 local FieldLitter = require(script.Parent.FieldLitter)
+local WasteDump = require(script.Parent.WasteDump)
 local CoolantField = require(script.Parent.CoolantField)
 local CinderField = require(script.Parent.CinderField)
 local CobaltShelf = require(script.Parent.CobaltShelf)
@@ -105,7 +106,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 38
+local BUILDER_VERSION = 39
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -662,10 +663,12 @@ end
 ---            `barrels` radioactive drums dumped over the field in loads of one to
 ---            three (scatterBarrels), and then the ground litter it is strewn with
 ---            (build/FieldLitter): drifted dirt, grit, broken concrete and sprays of
----            blown-in window glass. Its `kind = "sirens"` set piece is still on the
----            shelf and `props` with it -- the drums are what this field got instead,
----            and they are still the only thing standing in it (the litter is flat,
----            and its one canted glass plate is knee-high at most).
+---            blown-in window glass, thinned once the dump went in; and then the
+---            waste dump (build/WasteDump): a derelict crane with a drum on its hook,
+---            a tipper truck with its load spilled, drum yards on pallets behind
+---            broken chain-link, burial trenches, and the ruts between them. Its
+---            `kind = "sirens"` set piece is still on the shelf and `props` with it --
+---            the dump is what this field got instead.
 ---   Stage 4 -- `signs` a rank of warning signs along the entrance edge
 ---            (scatterWarningSigns), then `pools` the ooze puddles dealt off a size
 ---            ladder (scatterOozePools), then `trees` a handful of dead trees over the
@@ -722,16 +725,13 @@ local THEME: { [number]: StageTheme } = {
 	-- the detail that lands hardest, and lose all of it the moment there are enough of
 	-- them to be scenery.
 	[2] = { props = 9, pools = 10, kind = "trees", scatter = true, skeletons = 2, bones = 16, skulls = 7 },
-	-- Stage 3 gets the SAME three bone passes, denser, plus the drums and the ground
-	-- litter -- its sirens are still on the shelf (`props`/`kind` below are untouched
-	-- and unused), so this is still a partial pass, not Stage 3's rework. That is most
-	-- of why the two fields do not read as one: Stage 2 is a tree line with remains
-	-- under it, Stage 3 is bare khaki ground with nothing standing on it at all but the
-	-- remains -- which is exactly the "nothing left standing" the note under Stage 5
-	-- already claims starts here. THE LITTER DOES NOT CHANGE THAT, deliberately: it is
-	-- all flat or ankle-high (build/FieldLitter's own header has the ceiling and the
-	-- "reads littered looking down, reads empty across the field" constraint the counts
-	-- in there are tuned to), so the field still has nothing standing in it but drums.
+	-- Stage 3 gets the SAME three bone passes, denser, plus the drums, the ground
+	-- litter and -- the redesign -- a WASTE DUMP (build/WasteDump): a crane, a tipper
+	-- truck, drum yards and burial trenches. Its sirens are still on the shelf
+	-- (`props`/`kind` below are untouched and unused). The dump is what separates it
+	-- from Stage 2: that field is a tree line with remains under it, this one is where
+	-- the drums were trucked to and left. Nothing in the dump glows (the first Neon on
+	-- the chain stays Stage 4's ooze) and its counts live in its own module.
 	-- The counts are the other half: half again the carcasses, half again the
 	-- loose bone, and nearly double the human skulls. THE SKULLS ARE THE ESCALATION
 	-- THAT LANDS. One field further in and the ratio of people to animals has moved --
@@ -3426,6 +3426,18 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- glass (build/FieldLitter). Off its own seed, not this stage rng, so retuning
 			-- the litter cannot move a bone or a drum -- it is free to go last.
 			FieldLitter.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
+			-- The waste dump itself (build/WasteDump): the crane, the tipper truck, the
+			-- drum yards, the burial trenches and the ruts between them. Last, because it
+			-- reads where the bones and drums above landed and builds around them -- and
+			-- off its own seed, so it moves none of them. Handed this file's drum and
+			-- trefoil so every drum on the field is the same drum.
+			WasteDump.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM, {
+				build = radBarrel,
+				trefoil = flatTrefoil,
+				h = DRUM_H,
+				r = DRUM_R,
+				chime = DRUM_CHIME,
+			})
 		elseif id == 4 then
 			-- The `barriers` set piece (`theme.props`) is still on the shelf; the signs,
 			-- the puddles and the four dead trees are what this field has had its pass on
