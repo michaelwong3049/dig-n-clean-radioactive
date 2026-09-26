@@ -31,8 +31,9 @@ src/
       Items.luau              the item catalogue (+ id / stage-rarity indexes)
       ToolTiers.luau          per-tier look: scale, colours, material, glow
     ItemModels/               versioned item-art factories; nil keys use placeholders
-    ToolModels/               gear-tier art as code; Cleaner only so far (the 7 hoses,
-                              which are wash-bay fixtures, not held tools)
+    ToolModels/               gear-tier model factories; Cleaner only so far (the 7 hoses,
+                              which are wash-bay fixtures, not held tools). Clones the
+                              imported art from Assets.HoseModels, primitives as fallback
       init.luau               model-key registry used by haul + exhibition rendering
       BottleCap.luau          clean 21-crimp crown cap
       DentedTinCan.luau       asymmetrically crushed ribbed food tin
@@ -232,10 +233,14 @@ The `Aura` is worn: `AuraService` writes the tier onto the character and every c
 since it is a charm on a workbench rather than a tool.
 (`Boots` and `Satchel` are retired; see `Config/Gear`'s RETIRED block.)
 
-**`Cleaner` is not a held model at all.** Its seven hoses are built from primitives by
-`Shared/ToolModels/Hose`, in git, on the same footing as `Shared/ItemModels` — so that
-track needs no place-file art and its models can be edited by anyone with the repo. It is
-the first track moved across, and the intended way out of the gap below.
+**`Cleaner` is not a held model at all.** Its seven hoses come from one factory,
+`Shared/ToolModels/Hose.create`, which clones the hand-imported, textured models parked in
+`ReplicatedStorage.Assets.HoseModels.T1..T7` (made once by
+`tools/studio-migrations/import-hose-models.luau`; `MeshId` cannot be written from a script
+here, so the meshes can only be cloned) and falls back to building the same seven from
+primitives when a place has no templates. Both routes give callers the same contract: a
+`Nozzle` core with `Muzzle` and `HoseEnd` attachments, business end down -Z. The factory,
+the contract and the fallback are in git; the imported meshes are place-file art.
 
 It is also the only track that is a **fixture rather than a tool**. The rung you own is
 the monitor bolted to the mast at your own cleansing station (`build/Plots.buildHoseRig`),
@@ -252,10 +257,12 @@ still asks `ToolModels.has(track)` first so the plaza rack hangs the real geomet
 >
 > 1. **The Detector and Magnet models** (`ReplicatedStorage.Assets.Tools`) are genuinely
 >    hand-authored — unions, a `SpecialMesh`, an imported detector model — so they stay
->    binary. They are not Rojo-managed. **The `Cleaner` track no longer belongs on this
->    list**: `Shared/ToolModels/Hose` builds all seven of its hoses from primitives, so
->    that third of the gap closed. Whether the other two follow is a question about how
->    much a union buys over a well-composed pile of parts, not a question about tooling.
+>    binary. They are not Rojo-managed. **The `Cleaner` track is a partial case**: its
+>    factory, frame contract and primitive fallback are in git, but its shipped look is now
+>    the imported meshes in `Assets.HoseModels` (place file), so a place without them
+>    still works and simply draws the plainer primitive hoses. Whether the other two
+>    tracks follow the primitive route is a question about how much a union buys over a
+>    well-composed pile of parts, not a question about tooling.
 > 2. **`MaxPlayers = 6`** is a Studio *Game Settings* value, not repo state. It has to
 >    be 6 for the six exhibition plots to be 1:1 with players.
 > 3. **Everything else is now code.** `build/World.rebuild()` regenerates the hub, the

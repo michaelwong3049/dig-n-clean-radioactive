@@ -80,8 +80,11 @@ ToolTiers.Magnet = {
 -- THE ONLY TRACK WHOSE ROWS ARE ACTUALLY READ AT RUNTIME. The note above this table
 -- used to say the line "changes OBJECT, not just finish — a Chem Bath is not a brush
 -- with a different paint job", and that bespoke silhouettes were the most worthwhile
--- art job left. They got built: Shared/ToolModels/Hose authors seven hoses from
--- primitives and asks this table for their colours. So `body`, `accent`, `glow` and
+-- art job left. They got built: Shared/ToolModels/Hose authors seven hoses (now the
+-- imported, textured models, with the primitives as its fallback) and asks this table
+-- for their colours. The imported nozzles carry their own texture, so for them these
+-- rows only colour what is NOT the nozzle: the reel drum, the wound coil and the line
+-- that runs from the reel to it (Hose.rigLook). `body`, `accent`, `glow` and
 -- `material` below are live values, not a recipe waiting for a cook.
 --
 -- `scale` IS 1.00 ALL THE WAY DOWN, AND THAT IS NOT AN OVERSIGHT. The column exists
@@ -98,12 +101,15 @@ ToolTiers.Magnet = {
 -- the other six. Dull rubber and grey plastic: it is the free rung and it should read
 -- as the free rung.
 --
--- Tier 2 is the one palette that is pinned rather than chosen — build/Plots parks a
--- tier-2 hose on every plot's pump, and hoseGreen/hoseBrass are the colours that prop
--- has always been, matched to Kit.C's own hose entries.
+-- Every row's `body` is the dominant colour of that rung's imported nozzle, so the
+-- reel and its line read as the hose you bought rather than as a stranger's. Tier 2 is
+-- the one that had to move: it used to be the jade of Kit.C.hoseGreen (the prop
+-- build/Plots parks on every plot's pump used to be that colour), but the imported
+-- Patched Fire Hose is red with a brass nozzle, and a jade line into a red fire hose
+-- was the only mismatch on the ladder. The brass accent is unchanged.
 ToolTiers.Cleaner = {
 	{ name = "Garden Hose", scale = 1.00, body = Color3.fromHex("3E7D52"), accent = Color3.fromHex("B9C2C6"), material = Enum.Material.SmoothPlastic },
-	{ name = "Patched Fire Hose", scale = 1.00, body = Color3.fromHex("2FA36A"), accent = Color3.fromHex("C8A24A"), material = Enum.Material.SmoothPlastic },
+	{ name = "Patched Fire Hose", scale = 1.00, body = Color3.fromHex("D0342C"), accent = Color3.fromHex("C8A24A"), material = Enum.Material.SmoothPlastic },
 	{ name = "Pressure Lance", scale = 1.00, body = Color3.fromHex("3F7FBF"), accent = Color3.fromHex("C9D6E0"), material = Enum.Material.Metal },
 	{ name = "Chem Injector", scale = 1.00, body = Color3.fromHex("7A4FA8"), accent = Color3.fromHex("D8C6F0"), material = Enum.Material.Metal },
 	{ name = "Ultrasonic Jet", scale = 1.00, body = Color3.fromHex("2E9BA8"), accent = Color3.fromHex("BFF2F7"), material = Enum.Material.Metal, glow = Color3.fromHex("7FE8F2") },

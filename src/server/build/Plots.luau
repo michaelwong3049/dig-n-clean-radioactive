@@ -210,7 +210,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 67
+local BUILDER_VERSION = 68
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -1399,6 +1399,12 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	beam.Parent = reel
 
 	hose.Parent = parent
+
+	-- The drum, coil and line above were painted the jade they were first drawn in.
+	-- Repaint them to the station rung's own colours (ToolTiers.Cleaner), which is what
+	-- Plots.setHoseTier does on every purchase, so an unclaimed plot's rig already
+	-- matches the nozzle on its mast instead of only after somebody buys one.
+	paintHoseRig(parent, ToolModels.Hose.STATION_TIER)
 end
 
 --- Swap the monitor on one cleansing station's mast to `tier`, in place. Returns the
