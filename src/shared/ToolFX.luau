@@ -926,9 +926,7 @@ local MOTION: { [string]: (Model, BasePart) -> () } = {
 ]]
 local DETECTOR_MOTION: { [string]: (Model, BasePart) -> () } = {
 	["Aurora Rake"] = function(model: Model, shaft: BasePart)
-		-- The comb pumps: tines, their tips and the ribbon strung between the tips
-		-- plunge together through the still collars, raking the ground.
-		spinAll(shaft, gather(model, { "^tine%d+$", "^tine_tip%d+$", "^aurora_ribbon$" }), { bob = 0.06, hz = 0.6 })
+		-- The comb underneath (tines, tips, ribbon) stays still (user rule).
 		-- The eye turns and rides up and down the neck.
 		spinAll(shaft, one(model, "aurora_eye"), { spin = 1.2, bob = 0.03, hz = 0.35 })
 		-- The five fins over the bar spin like radar vanes, out of step.
