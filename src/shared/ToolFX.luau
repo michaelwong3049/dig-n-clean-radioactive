@@ -577,49 +577,53 @@ local SPECS: { [string]: { [string]: (Model, Color3) -> () } } = {
 			end
 		end,
 		["Nebula Magnet"] = function(model: Model, color: Color3)
-			-- A slow pink-into-blue gas cloud round the core, with stars in it.
+			-- A slow pink-into-blue gas cloud round the core, with stars in it. Thinned
+			-- after the user's first look ("a little too loud"): half the puffs, smaller
+			-- and fainter, half the stars.
 			local halo = partNamed(model, "nebula_halo")
 			if halo then
 				emit(halo, gradient(Color3.fromHex("FF5FD2"), Color3.fromHex("9A5CFF"), Color3.fromHex("4F7BFF")), {
 					Texture = SMOKE_TEXTURE,
 					Brightness = 1.2,
-					Size = seq(0, 1.2, 1, 2.8),
-					Transparency = seq(0, 1, 0.3, 0.2, 1, 1),
+					Size = seq(0, 0.9, 1, 2),
+					Transparency = seq(0, 1, 0.3, 0.45, 1, 1),
 					Lifetime = NumberRange.new(2, 3),
-					Rate = 8,
+					Rate = 4,
 					Speed = NumberRange.new(0.6, 1),
 					SpreadAngle = Vector2.new(180, 180),
 					Rotation = NumberRange.new(0, 360),
 					RotSpeed = NumberRange.new(-30, 30),
 				})
-				wink(halo, WHITE, 0.6, 6)
+				wink(halo, WHITE, 0.5, 3)
 			end
 			local core = partNamed(model, "nebula_core")
 			if core then
-				light(core, color, 12, 3)
+				light(core, color, 10, 2.2)
 			end
 		end,
 		["Omega Magnet"] = function(model: Model, color: Color3)
 			-- Gold discharge crackling off all eight spires, and the apex star flaring.
+			-- Eight spires at 10 sparks a second was 80 a second and "a little too
+			-- loud": now 3 each, smaller and shorter, and a smaller, slower star.
 			for _, spire in partsMatching(model, "^arc%d_spire") do
 				emit(spire, color, {
 					Brightness = 4,
-					Size = seq(0, 0.7, 1, 0),
+					Size = seq(0, 0.5, 1, 0),
 					Transparency = seq(0, 0, 1, 1),
 					Lifetime = NumberRange.new(0.12, 0.25),
-					Rate = 10,
-					Speed = NumberRange.new(4, 7),
+					Rate = 3,
+					Speed = NumberRange.new(3, 5),
 					EmissionDirection = Enum.NormalId.Top,
 					SpreadAngle = Vector2.new(45, 45),
 				})
 			end
 			local star = partNamed(model, "apex_star")
 			if star then
-				wink(star, color, 2.4, 1.2)
+				wink(star, color, 1.6, 0.8)
 			end
 			local core = partNamed(model, "omega_core")
 			if core then
-				light(core, color, 12, 3)
+				light(core, color, 10, 2.2)
 			end
 		end,
 	},
