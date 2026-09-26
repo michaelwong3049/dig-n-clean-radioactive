@@ -865,6 +865,12 @@ local function buildSignIcon(disc: Frame, label: string, accentColor: Color3)
 		signRing(disc, 18, 18, 24, 24, 3)
 		signRing(disc, 18, 18, 10, 10, 3)
 		signShape(disc, 28, 28, 13, 3, SIGN_ICON_INK, 45)
+	elseif lower:find("trader") then
+		signRing(disc, 18, 18, 24, 24, 2.5)
+		signShape(disc, 18, 18, 4, 18, SIGN_ICON_INK) -- a "$": bar + three strokes
+		signShape(disc, 18, 13, 12, 3, SIGN_ICON_INK)
+		signShape(disc, 18, 18, 12, 3, SIGN_ICON_INK)
+		signShape(disc, 18, 23, 12, 3, SIGN_ICON_INK)
 	elseif lower:find("aura") then
 		signShape(disc, 18, 18, 6, 6, SIGN_ICON_INK, 0, true)
 		signRing(disc, 18, 18, 28, 11, 2, 0)
@@ -883,15 +889,16 @@ end
 ---
 --- Kit.FONT (FredokaOne) now, matching the HUD tiles it is modelled on; TextScaled
 --- so any label length fits the fixed band.
-local function buildStoreBillboard(adornee: BasePart, label: string, accent: string)
+local function buildStoreBillboard(adornee: BasePart, label: string, accent: string, offsetY: number?)
 	local accentColor = Color3.fromHex(accent)
-	local iconed = label:lower():find("detector") or label:lower():find("magnet") or label:lower():find("hose") or label:lower():find("aura")
+	local lower = label:lower()
+	local iconed = lower:find("detector") or lower:find("magnet") or lower:find("hose") or lower:find("aura") or lower:find("trader")
 
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "StoreSign"
 	gui.Adornee = adornee
 	gui.Size = UDim2.fromOffset(iconed and 250 or 210, 50)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, 11.5, 0)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, offsetY or 11.5, 0)
 	gui.AlwaysOnTop = true
 	gui.MaxDistance = 60
 	gui.Parent = adornee
@@ -1763,6 +1770,9 @@ end
 --- customer side -- the same frame `facingOrigin` hands `buildStall`. Returns the
 --- model, already parented. The footprint is `width` across and local z -11.25 (the
 --- canopy's back edge) to +2.75 (the front posts), matching `assertNoShopOverlap`.
+--- The pill sign, for the Trader kiosk in build/BaseCamp. `offsetY` is studs above `adornee`.
+Shops.buildSign = buildStoreBillboard
+
 function Shops.buildStallShell(parent: Instance, origin: CFrame, width: number, accent: string, label: string): Model
 	local m = Instance.new("Model")
 	m.Name = "EmptyStall"
