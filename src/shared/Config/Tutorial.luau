@@ -34,21 +34,21 @@ export type Step = {
 Tutorial.ORDER = { "stage", "dig", "haul", "clean", "place", "upgrade", "finish" } :: { StepId }
 
 Tutorial.STEPS = {
-	stage = { title = "HEAD TO THE FIRST STAGE", hint = "Follow the trail out of camp" },
-	dig = { title = "FIND A SPOT TO DIG", hint = "Walk onto a glowing spot and hold E" },
-	haul = { title = "CLICK THE NUKE TO THE TOP", hint = "Click the button or press E" },
+	stage = { title = "Head to the first stage", hint = "Follow the trail out of camp" },
+	dig = { title = "Find a spot to dig", hint = "Walk onto a glowing spot and hold E" },
+	haul = { title = "Click the nuke to the top", hint = "Click the button or press E" },
 	clean = {
-		title = "CLEAN THE NUKE",
+		title = "Clean the nuke",
 		hint = "Take it to your cleansing station",
 		holdHint = "Pick your nuke from the hotbar, then take it to your cleansing station",
 	},
 	place = {
-		title = "PLACE THE NUKE ON A STAND",
+		title = "Place the nuke on a stand",
 		hint = "Hold E at an empty stand",
 		holdHint = "Pick your nuke from the hotbar, then hold E at an empty stand",
 	},
-	upgrade = { title = "UPGRADE YOUR DETECTOR", hint = "Buy the Bent Coil at the Detector Shop" },
-	finish = { title = "YOU'RE SET!", hint = "Dig deeper, clean rarer nukes, fill your stands." },
+	upgrade = { title = "Upgrade your detector", hint = "Buy the Bent Coil at the Detector Shop" },
+	finish = { title = "You're set!", hint = "Dig deeper, clean rarer nukes, fill your stands." },
 } :: { [StepId]: Step }
 
 --- The tier the last step asks for: the $50 Bent Coil (Config/Gear.Detector).
