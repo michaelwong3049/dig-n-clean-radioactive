@@ -48,9 +48,9 @@
 	awning that leans forward from tall back posts to short front ones with a
 	striped valance off its front edge — the read the plaza stalls' striped canopies
 	had before their steel-plate roofs (build/Shops' buildPlateRoof, whose hazard
-	fascia echoes this awning), scaled up for one kiosk. A black TRADER sign
-	box stands on the awning's front edge. The frame is studded plastic; the awning,
-	badge and sign are flat-coloured SmoothPlastic. Nothing is Neon or lit.
+	fascia echoes this awning), scaled up for one kiosk. A glow-pill TRADER sign (Shops.buildSign)
+	hangs over the awning's front edge. The frame is studded plastic; the awning,
+	badge are flat-coloured SmoothPlastic. Nothing is Neon or lit.
 
 	NO ENTRANCE GATE EITHER. The two posts, their lamps, and the "BASE CAMP" sign
 	spanning between them read as an archway framing the approach, which wasn't
@@ -64,6 +64,7 @@ local Workspace = game:GetService("Workspace")
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
 local ModelGallery = require(script.Parent.ModelGallery)
+local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
@@ -465,48 +466,20 @@ function BaseCamp.buildTrader(parent: Instance, kiosk: CFrame): Model
 	-- drops off the front edge.
 	buildTraderAwning(trader, kiosk, G + 11.45, 0, 7, 14.6, 12.0)
 
-	-- The TRADER sign box standing on the awning's front edge on two short legs: a
-	-- black board in a hazard-yellow frame, the name in yellow and "turn finds into
-	-- cash" on a strip below it. It replaces the floating billboard, which hung
-	-- right over the radiation badge. Painted, not lit (see Kit.C's header — no shop
-	-- sign is Neon or carries a light).
-	local SIGN_Y, SIGN_Z = G + 12.75, POST_DZ + 0.7
-	for _, x in { -3.5, 3.5 } do
-		build(trader, kiosk, {
-			name = "SignLeg",
-			pos = { x, G + 11.2, SIGN_Z - 0.1 },
-			size = { 0.35, 0.8, 0.35 },
-			color = C.hazardBlack,
-			material = "Metal",
-			canCollide = false,
-		})
-	end
-	build(trader, kiosk, {
-		name = "SignFrame",
-		pos = { 0, SIGN_Y, SIGN_Z - 0.05 },
-		size = { 10.6, 3.0, 0.6 },
-		color = C.hazard,
+	-- The TRADER sign: the same glow pill the plaza shops hang (Shops.buildSign), over
+	-- the awning's front edge. It replaced the black/yellow box on legs, so the kiosk
+	-- reads as one of the family. The anchor is an invisible part, like the stalls'.
+	local signAnchor = build(trader, kiosk, {
+		name = "SignAnchor",
+		pos = { 0, G + 12.75, POST_DZ + 0.7 },
+		size = { 1, 1, 1 },
+		color = C.steel,
 		material = "SmoothPlastic",
+		transparency = 1,
 		canCollide = false,
 	})
-	local title = build(trader, kiosk, {
-		name = "SignTitle",
-		pos = { 0, SIGN_Y + 0.35, SIGN_Z + 0.05 },
-		size = { 10.0, 1.8, 0.6 },
-		color = C.hazardBlack,
-		material = "SmoothPlastic",
-		canCollide = false,
-	})
-	Kit.surfaceText(title, Enum.NormalId.Back, "TRADER", C.hazard)
-	local subtitle = build(trader, kiosk, {
-		name = "SignSubtitle",
-		pos = { 0, SIGN_Y - 0.9, SIGN_Z + 0.05 },
-		size = { 10.0, 0.6, 0.6 },
-		color = C.hazardBlack,
-		material = "SmoothPlastic",
-		canCollide = false,
-	})
-	Kit.surfaceText(subtitle, Enum.NormalId.Back, "turn finds into cash", C.labelText)
+	signAnchor.CanQuery = false
+	Shops.buildSign(signAnchor, "Trader", C.hazard, 1.5)
 
 	trader.Parent = parent
 	return trader
