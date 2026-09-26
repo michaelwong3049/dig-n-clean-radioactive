@@ -17,6 +17,18 @@
 	nozzle in one fist). So the thing you bought was never the thing you cleaned with.
 	Seven hoses collapses that: the tier you own IS the nozzle you aim.
 
+	IMPORTED ART NOW WINS, AND THE PRIMITIVES ARE THE FALLBACK. Seven hand-imported,
+	textured models (one per rung, coloured by their own texture) live in
+	ReplicatedStorage.Assets.HoseModels.T1..T7, made once by
+	tools/studio-migrations/import-hose-models.luau. `create` clones one of those when
+	it is there and builds the primitives below when it is not (a place file without
+	the templates, an offline run, a rung someone adds before its art exists). MeshId
+	cannot be written from a script in this place, so the meshes can only ever be
+	cloned; that is why the art sits in the place file and this file merely finds it.
+	The templates carry the SAME contract as the primitive build (everything under THE
+	FRAME below), so no caller can tell which one it got. FORMS is still the count of
+	rungs (Spec checks it) and still what draws a hose when the template is missing.
+
 	THE FRAME, and everything downstream depends on it:
 	  * authored at the ORIGIN, so callers own placement and move the Model with PivotTo
 	  * -Z is the business end. `CFrame.lookAt` puts its target on -Z, and WashController
@@ -61,6 +73,14 @@
 -- so Parent.Parent is Shared. Reaching through ReplicatedStorage instead would hardcode
 -- this file to one Rojo mount point.
 local ToolTiers = require(script.Parent.Parent.Config.ToolTiers)
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+--- Where the imported hoses are parked. NOT Assets/Tools/Cleaner: that folder still
+--- holds the retired brushes and sponges, and every other lookup in the game must keep
+--- losing to this factory rather than ever finding them. NOT under Shared either, which
+--- Rojo owns and prunes.
+local ART_PATH = { "Assets", "HoseModels" }
 
 local Hose = {}
 
@@ -291,6 +311,25 @@ function Hose.count(): number
 	return #FORMS
 end
 
+--- The imported art for one rung, or nil if this place has none (yet). A template with
+--- no PrimaryPart is refused the way a missing one is: a hose the wash bay cannot
+--- pivot is worse than a plainer hose it can.
+local function artTemplate(index: number): Model?
+	local folder: Instance = ReplicatedStorage
+	for _, name in ART_PATH do
+		local next_ = folder:FindFirstChild(name)
+		if next_ == nil then
+			return nil
+		end
+		folder = next_
+	end
+	local template = folder:FindFirstChild(`T{index}`)
+	if template and template:IsA("Model") and template.PrimaryPart ~= nil then
+		return template
+	end
+	return nil
+end
+
 --- The colours build/Plots' hose rig paints its reel drum, wound-coil band and the Beam
 --- that spans to the nozzle. The rig is one prop built at STATION_TIER and never rebuilt,
 --- so when a purchase swaps the nozzle silhouette (Plots.setHoseTier) this is what lets
@@ -309,6 +348,20 @@ end
 --- to be the way out of one.
 function Hose.create(tier: number): Model
 	local index = math.clamp(math.floor(tier), 1, #FORMS)
+
+	-- The imported art already has the frame, the core, the welds and both attachments
+	-- (see the migration's header), so all a clone needs is the two attributes the
+	-- primitive build stamps last. Restated rather than trusted from the template so a
+	-- template saved before an attribute existed still hands callers a complete model.
+	local art = artTemplate(index)
+	if art then
+		local model = art:Clone()
+		model.Name = "Hose"
+		model:SetAttribute("HoldCFrame", Hose.HOLD)
+		model:SetAttribute("Tier", index)
+		return model
+	end
+
 	local form = FORMS[index]
 	local look = ToolTiers.get(Hose.TRACK, index)
 
