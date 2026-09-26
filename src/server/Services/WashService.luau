@@ -621,7 +621,8 @@ local function push(player: Player, session: Session?, data: any)
 
 		-- EVERY CHUNK ERODES ON ITS OWN BANK, not just the one under the stream. Guarded
 		-- on a real change because this is a loop over every patch on every tick and
-		-- ItemCrust.erode writes four properties per part: at ten hertz across three
+		-- ItemCrust.erode stamps two attributes per part (CrustController eases the look
+		-- on each client from them): at ten hertz across nine
 		-- pieces a chunk that is a lot of writes to set values that already hold.
 		--
 		-- OVERMATCH IS IN THE GUARD ALONGSIDE THE LEVEL, because it moves on its own: a
@@ -1053,7 +1054,7 @@ local function stepPlayer(player: Player, dt: number)
 					-- off, live, under the stream, and the thing inside starts to be a thing.
 					table.remove(session.zoneIds, removedIndex)
 					-- SHED, NOT STRIPPED: what is left of the chunk tumbles off the item the
-					-- way its flakes already did (CrustDebrisController), instead of blinking
+					-- way its flakes already did (CrustController), instead of blinking
 					-- out of existence under the stream.
 					if session.zones[zoneId] then
 						ItemCrust.shed(session.zones[zoneId])
