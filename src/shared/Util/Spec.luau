@@ -1343,6 +1343,18 @@ function Spec.run(): boolean
 	end
 	check("Toxic Twilight sells magnet tiers 7-11, in the art pack's order", twilightMagnetsOk)
 
+	-- Twilight's five hoses, pinned by name for the same reason: the templates
+	-- (Assets/HoseModels/T8-T12) were made for exactly this order, the user's.
+	local twilightHosesWant = { "Singularity Nozzle", "Cryo Nova", "Solar Forge", "Quantum Rift", "Celestial Deluge" }
+	local twilightHosesHave = Gear.tiersAt("Cleaner", "twilight")
+	local twilightHosesOk = #twilightHosesHave == #twilightHosesWant
+	for slot, tier in twilightHosesHave do
+		if Gear.tier("Cleaner", tier).name ~= twilightHosesWant[slot] or tier ~= 7 + slot then
+			twilightHosesOk = false
+		end
+	end
+	check("Toxic Twilight sells hose tiers 8-12, in the user's order", twilightHosesOk)
+
 	-- Revealing is not the same as reaching. If the pull radius ever grows into the
 	-- reveal radius, the walk to the glow disappears and the loop is one button.
 	check(
