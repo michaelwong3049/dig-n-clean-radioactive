@@ -19,19 +19,19 @@
 	a panel for nothing.
 
 	ONE CAMP'S LAYOUT, RELATIVE TO ITS OWN PLAZA CENTRE. Config/Camps gives the disc
-	(centre, radius, the clip line where the stage chain meets it) and the palette;
-	everything on the disc is placed off `plazaCentre`, the grid cell nearest the disc's
-	own centre, so every edge below lands on a tile line. Moving a camp is a Config
+	(centre, radius, the clip lines where the stage chain comes in and goes on) and the
+	palette; everything on the disc is placed off `plazaCentre`, the grid cell nearest
+	the disc's own centre, so every edge below lands on a tile line. Moving a camp is a Config
 	change and a rebuild.
 
-	              wall (closed east until Stage 7 exists)
+	          two-layer wall: inner 48, outer 72 behind it (a stepped cliff)
 	         .-'''''''''''''''''-.
 	        /      [WASH DECK]    \          +Z ("north", this codebase's convention)
-	  ====|         |path|         |
-	 STAGE   .-''''''''''''''''-.  |
-	   6  =  | [shell]  [shell] |  |
-	 ======  |   (anchor)       |  |
-	         | [shell][TRADER][shell]
+	  ====|         |path|         |====
+	 STAGE   .-''''''''''''''''-.   | STAGE
+	   6  =  | [shell]  [shell] |  ==  7   (the east mouth; a COMING SOON
+	 ======  |   (anchor)       |  ==      barricade until Stage 7 is built)
+	         | [shell][TRADER][shell]|====
 	        \ `-..............-'  /
 	         `-..................-'
 
@@ -68,7 +68,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 4
+local BUILDER_VERSION = 5
 
 local C = Kit.C
 local build = Kit.build
@@ -124,11 +124,26 @@ local BAY_Z = 94
 local WALL_T = 8
 local WALL_H = 48
 local WALL_TILE = 4
-local WALL_ROWS = math.ceil(WALL_H / WALL_TILE)
 local CAP_T = 2
 local LIP_OVERHANG = 0.5
 local CROWN_BUSH_EVERY = 5
 local CROWN_BUSH_CHANCE = 0.4
+
+--- THE WALL IS TWO LAYERS, ON REQUEST ("like how it is in base 1"): the original ring,
+--- and a taller outer ring standing flush behind it, so from inside the camp the wall
+--- reads as a stepped cliff -- the inner ring's turf crown becomes a ledge in front of
+--- the outer face. Same height as Base Camp's outer ring (Scenery OUTER_WALL_HEIGHT).
+local OUTER_WALL_H = 72
+
+--- The barricade across the east mouth while the stage beyond it is unbuilt. It stands
+--- on the camp's own floor just inside the clip line (there is nothing past it yet), and
+--- an invisible wall-height collider behind it keeps anyone from hopping the rails.
+local GATE_POST_EVERY = 17
+local GATE_RAIL_Y = { 2.6, 5.2 }
+local GATE_POST_H = 6.4
+local GATE_SIGN_W, GATE_SIGN_H = 34, 7
+local GATE_SIGN_Y = 9
+local GATE_TEXT = "STAGE 7 · COMING SOON"
 
 --- The hazard line on the seam where the stage chain opens into the camp, the same
 --- tape Scenery.buildStageBorderLines lays between every pair of stages.
@@ -160,6 +175,8 @@ type Layout = {
 	cz: number,
 	radius: number,
 	clipX: number,
+	exitX: number?, -- the east clip line, where the next stage opens out (nil = walled shut)
+	nextBuilt: boolean, -- a built stage already starts at exitX, so the mouth is open
 	ox: number, -- the plaza centre: the grid cell nearest the disc centre
 	oz: number,
 	corridorHalfZ: number, -- the stage chain's half-width, where it opens in
@@ -168,10 +185,15 @@ type Layout = {
 local function layoutOf(def: Camps.CampDef): Layout
 	local center = def.center :: { number }
 	local ox, oz = Hub.cellCentre(center[1], center[2])
+	local exitX = def.exitX
 	local corridorHalfZ = 0
+	local nextBuilt = false
 	for _, id in Stages.builtIds() do
-		local _, minZ, _, maxZ = Stages.bounds(id)
+		local minX, minZ, _, maxZ = Stages.bounds(id)
 		corridorHalfZ = math.max(corridorHalfZ, -minZ, maxZ)
+		if exitX and math.abs(minX - exitX) < 0.5 then
+			nextBuilt = true
+		end
 	end
 	return {
 		def = def,
@@ -180,6 +202,8 @@ local function layoutOf(def: Camps.CampDef): Layout
 		cz = center[2],
 		radius = def.radius :: number,
 		clipX = def.clipX :: number,
+		exitX = exitX,
+		nextBuilt = nextBuilt,
 		ox = ox,
 		oz = oz,
 		corridorHalfZ = corridorHalfZ,
@@ -197,6 +221,10 @@ local function paved(L: Layout, x: number, z: number): boolean
 	end
 	-- West, in from the stage: the clip line to the octagon's west side.
 	if az <= PATH_HALF and x >= L.clipX and x <= L.ox then
+		return true
+	end
+	-- East, out to the next stage's mouth.
+	if L.exitX and az <= PATH_HALF and x >= L.ox and x <= L.exitX then
 		return true
 	end
 	-- North, up to (and on under) the wash deck.
@@ -253,7 +281,11 @@ local function buildFloor(parent: Instance, L: Layout)
 		}
 	end
 
-	local rect: Hub.Rect = { minX = L.clipX, maxX = L.cx + reach, minZ = L.cz - reach, maxZ = L.cz + reach }
+	local tileMaxX = L.cx + reach
+	if L.exitX then
+		tileMaxX = math.min(tileMaxX, L.exitX)
+	end
+	local rect: Hub.Rect = { minX = L.clipX, maxX = tileMaxX, minZ = L.cz - reach, maxZ = L.cz + reach }
 
 	local tiles = Instance.new("Folder")
 	tiles.Name = "Tiles"
@@ -268,24 +300,32 @@ local function buildFloor(parent: Instance, L: Layout)
 	})
 	tiles.Parent = parent
 
-	-- The body: thin bands under the tiles, each running from the clip line to the
-	-- disc's edge (wall included) at its own z, so the island's cliff follows the
-	-- circle rather than stepping out in big rectangles.
+	-- The body: thin bands under the tiles, each spanning the disc's own chord (both
+	-- wall layers included) at its z, so the island's cliff follows the circle rather
+	-- than stepping out in big rectangles -- cut off at the clip lines where the chord
+	-- reaches past them. Outside the corridor mouths the bands run one wall-thickness
+	-- further, under the outer layer's shoulders, which stand beyond the clip lines.
 	local slab = Instance.new("Folder")
 	slab.Name = "Slab"
-	local outer = L.radius + WALL_T
+	local outer = L.radius + 2 * WALL_T
 	local topY = FLOOR_Y - 0.4 -- Hub's CAP: the slab is recessed by exactly the tile cap
 	local z = L.cz - outer
 	while z < L.cz + outer - 1e-3 do
 		local z1 = math.min(z + SLAB_BAND, L.cz + outer)
 		local mid = (z + z1) / 2 - L.cz
 		local half = math.sqrt(math.max(0, outer * outer - mid * mid))
+		local beside = math.max(math.abs(z - L.cz), math.abs(z1 - L.cz)) > L.corridorHalfZ
+		local pad = if beside then WALL_T else 0
+		local minX = math.max(L.cx - half, L.clipX - pad)
 		local maxX = L.cx + half
-		if maxX > L.clipX + 0.5 then
+		if L.exitX then
+			maxX = math.min(maxX, L.exitX + pad)
+		end
+		if maxX > minX + 0.5 then
 			build(slab, CFrame.new(0, 0, 0), {
 				name = "Slab",
-				pos = { (L.clipX + maxX) / 2, topY - SLAB_THICKNESS / 2, (z + z1) / 2 },
-				size = { maxX - L.clipX, SLAB_THICKNESS, z1 - z },
+				pos = { (minX + maxX) / 2, topY - SLAB_THICKNESS / 2, (z + z1) / 2 },
+				size = { maxX - minX, SLAB_THICKNESS, z1 - z },
 				color = p.wallDark,
 				material = "SmoothPlastic",
 			})
@@ -295,13 +335,14 @@ local function buildFloor(parent: Instance, L: Layout)
 	slab.Parent = parent
 end
 
---- The hazard tape across the mouth of the stage corridor, centred on the clip line --
---- half on the stage's floor, half on the camp's, exactly like every stage seam.
-local function buildSeam(parent: Instance, L: Layout)
+--- The hazard tape across a corridor mouth, its west edge at `x0`. On a mouth with a
+--- stage beyond it the tape is centred on the clip line -- half on the stage's floor,
+--- half on the camp's, exactly like every stage seam. The east mouth has no floor past
+--- it until Stage 7 exists, so there it lies wholly on the camp side.
+local function buildSeam(parent: Instance, L: Layout, name: string, x0: number)
 	local folder = Instance.new("Folder")
-	folder.Name = "Seam"
+	folder.Name = name
 	local rowWidth = SEAM_WIDTH / SEAM_ROWS
-	local x0 = L.clipX - SEAM_WIDTH / 2
 	local minZ, maxZ = -L.corridorHalfZ, L.corridorHalfZ
 	local cols = math.ceil((maxZ - minZ) / SEAM_CELL_Z)
 	for ix = 0, SEAM_ROWS - 1 do
@@ -353,15 +394,26 @@ local function lipRowsOf(col: number, salt: number): number
 	return 1 + (if h < 0.15 then 2 elseif h < 0.5 then 1 else 0)
 end
 
---- One column of wall `width` wide at `origin`, whose local -Z faces the walkable side
---- (so `face` -- FrontSurface on an arc column, or whichever face the caller names --
---- carries the studs).
-local function wallColumn(parent: Instance, origin: CFrame, width: number, col: number, p: Camps.Palette, salt: number, face: string, inward: Vector3)
+--- One column of wall `width` wide and `height` tall at `origin`, whose `face` --
+--- FrontSurface on an arc column, or whichever face the caller names -- is the one the
+--- camp sees and carries the studs; `inward` is that face's normal, for the lip's nudge.
+local function wallColumn(
+	parent: Instance,
+	origin: CFrame,
+	width: number,
+	height: number,
+	col: number,
+	p: Camps.Palette,
+	salt: number,
+	face: string,
+	inward: Vector3
+)
+	local rows = math.ceil(height / WALL_TILE)
 	local lipRows = lipRowsOf(col, salt)
-	for row = 0, WALL_ROWS - 1 do
+	for row = 0, rows - 1 do
 		local y0 = FLOOR_Y + row * WALL_TILE
-		local y1 = math.min(y0 + WALL_TILE, FLOOR_Y + WALL_H)
-		local grassy = row >= WALL_ROWS - lipRows
+		local y1 = math.min(y0 + WALL_TILE, FLOOR_Y + height)
+		local grassy = row >= rows - lipRows
 		local thick = if grassy then WALL_T + LIP_OVERHANG else WALL_T
 		local shift = if grassy then inward * (LIP_OVERHANG / 2) else Vector3.zero
 		local dark, light = p.wallDark, p.wallLight
@@ -380,75 +432,50 @@ local function wallColumn(parent: Instance, origin: CFrame, width: number, col: 
 	end
 end
 
-local function buildWall(parent: Instance, L: Layout)
+--- Everything that differs between the two wall layers. Each layer is the same pieces:
+--- the arc (split in two by the east mouth when the camp has one) and a pair of short
+--- straight shoulders at each clip line, closing the gap between the arc's end and the
+--- corridor that opens there.
+type WallLayer = {
+	name: string, -- the folder it builds into
+	radius: number, -- the arc's centreline radius about the disc centre
+	westX: number, -- the west shoulders' centreline X
+	eastX: number?, -- the east shoulders' centreline X (nil: the arc closes the east)
+	height: number,
+	westFrom: number, -- |z| the west shoulders start at, off the camp's centre line
+	eastFrom: number,
+	salt: number,
+}
+
+--- A straight shoulder at `x` from |z| = `z0` out to `z1`, both sides of the centre
+--- line, facing the camp across `face` (whose world normal is `inward`, +-X).
+local function buildShoulders(
+	folder: Instance,
+	L: Layout,
+	layer: WallLayer,
+	x: number,
+	z0: number,
+	z1: number,
+	face: string,
+	inward: Vector3,
+	salt: number
+)
 	local p = L.palette
-	local folder = Instance.new("Folder")
-	folder.Name = "Wall"
-
-	local rw = L.radius + WALL_T / 2 -- the wall's centreline radius
-	local shoulderX = L.clipX + WALL_T / 2 -- the shoulders stand wholly on the camp side
-	local crossing = math.sqrt(math.max(0, rw * rw - (shoulderX - L.cx) ^ 2))
-
-	-- THE ARC, in Scenery's bearing convention (x = cx + r sin b, z = cz + r cos b),
-	-- the long way round through due east (b = 90) between the two points where the
-	-- centreline circle crosses the shoulder line. Columns are sized to a WALL_TILE
-	-- chord and centred on the TRUE chord midpoint, so neighbours share exact corners.
-	local s = math.deg(math.asin(math.clamp((shoulderX - L.cx) / rw, -1, 1)))
-	local startB, endB = s, 180 - s -- s is negative: the arc spans the east side
-	local total = endB - startB
-	local cols = math.max(1, math.ceil(total / math.deg(WALL_TILE / rw)))
-	local capY = FLOOR_Y + WALL_H + CAP_T / 2 - 0.1
-	for ix = 0, cols - 1 do
-		local a0 = startB + ix * (total / cols)
-		local a1 = startB + (ix + 1) * (total / cols)
-		local aMid = math.rad((a0 + a1) / 2)
-		local half = math.rad(a1 - a0) / 2
-		local chord = 2 * rw * math.sin(half)
-		local rMid = rw * math.cos(half)
-		local origin = CFrame.new(L.cx + rMid * math.sin(aMid), 0, L.cz + rMid * math.cos(aMid)) * CFrame.Angles(0, aMid, 0)
-		-- Local -Z points at the centre; its world direction, for the lip's nudge.
-		wallColumn(folder, origin, chord, ix, p, 11, "FrontSurface", Vector3.new(0, 0, -1))
-
-		for cell = 0, 1 do
-			local rCell = rMid + (if cell == 0 then -WALL_TILE / 2 else WALL_TILE / 2)
-			local reachIn = if cell == 0 then LIP_OVERHANG else 0
-			local cap = build(folder, CFrame.new(L.cx + rCell * math.sin(aMid), 0, L.cz + rCell * math.cos(aMid)) * CFrame.Angles(0, aMid, 0), {
-				name = "WallCap",
-				pos = { 0, capY, -reachIn / 2 },
-				size = { chord, CAP_T, WALL_TILE + reachIn },
-				color = if (ix + cell) % 2 == 0 then p.lipDark else p.lipLight,
-				material = "Plastic",
-				studs = true,
-				canCollide = false,
-			})
-			cap.CanQuery = false
-		end
-
-		if ix % CROWN_BUSH_EVERY == 2 and hash01(ix, 29) < CROWN_BUSH_CHANCE then
-			bush(folder, L.cx + rMid * math.sin(aMid), FLOOR_Y + WALL_H + CAP_T - 0.1, L.cz + rMid * math.cos(aMid), p, ix)
-		end
-	end
-
-	-- THE TWO SHOULDERS: short straight runs along z at shoulderX, from the stage
-	-- corridor's own wall (its inner face at +-corridorHalfZ) out to where the arc ends.
-	-- They face east, into the camp, so their +X face (RightSurface) takes the studs.
-	-- A one-stud overlap into the arc, for the same reason Scenery's shoulders overlap
-	-- the corridor: an exactly-touching seam between two computed edges is the one that
-	-- opens first when either number moves.
+	local capY = FLOOR_Y + layer.height + CAP_T / 2 - 0.1
+	local n = math.max(1, math.ceil((z1 - z0) / WALL_TILE))
 	for _, sign in { -1, 1 } do
-		local z0, z1 = L.corridorHalfZ, crossing + 1
-		local n = math.max(1, math.ceil((z1 - z0) / WALL_TILE))
 		for iz = 0, n - 1 do
 			local a = z0 + (z1 - z0) * iz / n
 			local b = z0 + (z1 - z0) * (iz + 1) / n
 			local mid = sign * (a + b) / 2
-			local origin = CFrame.new(shoulderX, 0, L.cz + mid)
-			wallColumn(folder, origin, b - a, 1000 + iz * sign, p, 17, "RightSurface", Vector3.new(1, 0, 0))
+			wallColumn(folder, CFrame.new(x, 0, L.cz + mid), b - a, layer.height, 1000 + iz * sign, p, salt, face, inward)
 			for cell = 0, 1 do
-				local reachIn = if cell == 1 then LIP_OVERHANG else 0
+				-- Two cells across the crown; the camp-side one reaches out over the lip.
+				local side = if cell == 0 then -1 else 1
+				local reachIn = if side == inward.X then LIP_OVERHANG else 0
 				local cap = build(folder, CFrame.new(0, 0, 0), {
 					name = "WallCap",
-					pos = { shoulderX + (cell - 0.5) * WALL_TILE + reachIn / 2, capY, L.cz + mid },
+					pos = { x + side * WALL_TILE / 2 + inward.X * reachIn / 2, capY, L.cz + mid },
 					size = { WALL_TILE + reachIn, CAP_T, b - a },
 					color = if (iz + cell) % 2 == 0 then p.lipDark else p.lipLight,
 					material = "Plastic",
@@ -459,7 +486,199 @@ local function buildWall(parent: Instance, L: Layout)
 			end
 		end
 	end
+end
 
+local function buildWallLayer(parent: Instance, L: Layout, layer: WallLayer)
+	local p = L.palette
+	local folder = Instance.new("Folder")
+	folder.Name = layer.name
+
+	local rw = layer.radius
+	local capY = FLOOR_Y + layer.height + CAP_T / 2 - 0.1
+
+	-- Where the centreline circle crosses a shoulder line: as a bearing in Scenery's
+	-- convention (x = cx + r sin b, z = cz + r cos b), and as |z| off the centre line.
+	local function crossingAt(x: number): (number, number)
+		local b = math.deg(math.asin(math.clamp((x - L.cx) / rw, -1, 1)))
+		return b, math.sqrt(math.max(0, rw * rw - (x - L.cx) ^ 2))
+	end
+	local w, westZ = crossingAt(layer.westX) -- w is negative: the west crossings are NW and SW
+
+	-- THE ARC. With no east mouth it runs the long way round through due east (b = 90)
+	-- between the two west crossings. With one it is two arcs, north and south, each
+	-- from a west crossing to the matching east one. Columns are sized to a WALL_TILE
+	-- chord and centred on the TRUE chord midpoint, so neighbours share exact corners.
+	local arcs: { { number } } = {}
+	local eastZ = 0
+	if layer.eastX then
+		local e
+		e, eastZ = crossingAt(layer.eastX)
+		table.insert(arcs, { w, e }) -- north, through b = 0
+		table.insert(arcs, { 180 - e, 180 - w }) -- south, through b = 180
+	else
+		table.insert(arcs, { w, 180 - w })
+	end
+
+	local ix = 0 -- counts on across both arcs, so the checker and the bushes never restart
+	for _, arc in arcs do
+		local startB, total = arc[1], arc[2] - arc[1]
+		local cols = math.max(1, math.ceil(total / math.deg(WALL_TILE / rw)))
+		for i = 0, cols - 1 do
+			local a0 = startB + i * (total / cols)
+			local a1 = startB + (i + 1) * (total / cols)
+			local aMid = math.rad((a0 + a1) / 2)
+			local half = math.rad(a1 - a0) / 2
+			local chord = 2 * rw * math.sin(half)
+			local rMid = rw * math.cos(half)
+			local origin = CFrame.new(L.cx + rMid * math.sin(aMid), 0, L.cz + rMid * math.cos(aMid)) * CFrame.Angles(0, aMid, 0)
+			-- Local -Z points at the centre; its world direction, for the lip's nudge.
+			wallColumn(folder, origin, chord, layer.height, ix, p, layer.salt, "FrontSurface", Vector3.new(0, 0, -1))
+
+			for cell = 0, 1 do
+				local rCell = rMid + (if cell == 0 then -WALL_TILE / 2 else WALL_TILE / 2)
+				local reachIn = if cell == 0 then LIP_OVERHANG else 0
+				local cellOrigin = CFrame.new(L.cx + rCell * math.sin(aMid), 0, L.cz + rCell * math.cos(aMid)) * CFrame.Angles(0, aMid, 0)
+				local cap = build(folder, cellOrigin, {
+					name = "WallCap",
+					pos = { 0, capY, -reachIn / 2 },
+					size = { chord, CAP_T, WALL_TILE + reachIn },
+					color = if (ix + cell) % 2 == 0 then p.lipDark else p.lipLight,
+					material = "Plastic",
+					studs = true,
+					canCollide = false,
+				})
+				cap.CanQuery = false
+			end
+
+			if ix % CROWN_BUSH_EVERY == 2 and hash01(ix, layer.salt + 18) < CROWN_BUSH_CHANCE then
+				local bx, bz = L.cx + rMid * math.sin(aMid), L.cz + rMid * math.cos(aMid)
+				bush(folder, bx, FLOOR_Y + layer.height + CAP_T - 0.1, bz, p, ix + layer.salt * 1000)
+			end
+			ix += 1
+		end
+	end
+
+	-- THE SHOULDERS: short straight runs along z at each clip line, from the corridor
+	-- side out to where the arc ends, each studded on the face the camp sees -- +X
+	-- (RightSurface) on the west, -X (LeftSurface) on the east. A one-stud overlap into
+	-- the arc, for the same reason Scenery's shoulders overlap the corridor: an
+	-- exactly-touching seam between two computed edges is the one that opens first
+	-- when either number moves.
+	buildShoulders(folder, L, layer, layer.westX, layer.westFrom, westZ + 1, "RightSurface", Vector3.new(1, 0, 0), layer.salt + 6)
+	local eastX = layer.eastX
+	if eastX then
+		buildShoulders(folder, L, layer, eastX, layer.eastFrom, eastZ + 1, "LeftSurface", Vector3.new(-1, 0, 0), layer.salt + 12)
+	end
+
+	folder.Parent = parent
+end
+
+--- Both wall layers, the Base Camp arrangement (Scenery buildBaseWalls). The inner one
+--- is the original ring: inner face on the floor's edge, shoulders standing wholly on
+--- the camp side of each clip line, starting at the corridor's inner edge. The outer
+--- one is the same pieces grown one wall-thickness outward all round -- inner face on
+--- the inner ring's outer face, shoulders flush behind the inner shoulders (so just
+--- PAST each clip line) -- and OUTER_WALL_H tall. On the west its shoulders start at
+--- the Crater's corridor wall's outer face, since that wall fills the slot between;
+--- on the east there is no corridor wall until the next stage is built, so they run
+--- in to the mouth's edge, and leave that slot to the corridor wall once it exists.
+local function buildWalls(parent: Instance, L: Layout)
+	local h = L.corridorHalfZ
+	local exitX = L.exitX
+	local layers: { WallLayer } = {
+		{
+			name = "Wall",
+			radius = L.radius + WALL_T / 2,
+			westX = L.clipX + WALL_T / 2,
+			eastX = if exitX then exitX - WALL_T / 2 else nil,
+			height = WALL_H,
+			westFrom = h,
+			eastFrom = h,
+			salt = 11,
+		},
+		{
+			name = "OuterWall",
+			radius = L.radius + WALL_T * 1.5,
+			westX = L.clipX - WALL_T / 2,
+			eastX = if exitX then exitX + WALL_T / 2 else nil,
+			height = OUTER_WALL_H,
+			westFrom = h + WALL_T - 1,
+			eastFrom = if L.nextBuilt then h + WALL_T - 1 else h,
+			salt = 23,
+		},
+	}
+	for _, layer in layers do
+		buildWallLayer(parent, L, layer)
+	end
+end
+
+--- Across the east mouth until the next stage exists: a run of hazard-striped rails
+--- on posts with a COMING SOON board over the middle, and behind it an invisible
+--- collider the height of the wall. All of it stands on the camp's floor, facing west.
+local function buildGate(parent: Instance, L: Layout)
+	local exitX = L.exitX
+	if exitX == nil or L.nextBuilt then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "ExitGate"
+	local h = L.corridorHalfZ
+	local x = exitX - SEAM_WIDTH / 2 -- on the tape
+
+	local posts = math.ceil(2 * h / GATE_POST_EVERY)
+	for i = 0, posts do
+		build(folder, CFrame.new(0, 0, 0), {
+			name = "GatePost",
+			pos = { x, PLAZA_Y + GATE_POST_H / 2, L.cz - h + 2 * h * i / posts },
+			size = { 1.2, GATE_POST_H, 1.2 },
+			color = C.hazardBlack,
+			material = "SmoothPlastic",
+		})
+	end
+	-- The rails, in yellow/black blocks a tile long, offset one block between the two.
+	local cells = math.ceil(2 * h / WALL_TILE)
+	for r, y in GATE_RAIL_Y do
+		for iz = 0, cells - 1 do
+			local z0 = -h + iz * WALL_TILE
+			local z1 = math.min(z0 + WALL_TILE, h)
+			build(folder, CFrame.new(0, 0, 0), {
+				name = "GateRail",
+				pos = { x, PLAZA_Y + y, L.cz + (z0 + z1) / 2 },
+				size = { 0.8, 1, z1 - z0 },
+				color = if (iz + r) % 2 == 0 then C.barrelYellow else C.hazardBlack,
+				material = "SmoothPlastic",
+			})
+		end
+	end
+	-- The board, on two legs of its own.
+	for _, dz in { -GATE_SIGN_W / 2 + 3, GATE_SIGN_W / 2 - 3 } do
+		build(folder, CFrame.new(0, 0, 0), {
+			name = "GateSignLeg",
+			pos = { x + 0.2, PLAZA_Y + GATE_SIGN_Y / 2, L.cz + dz },
+			size = { 1, GATE_SIGN_Y, 1 },
+			color = C.hazardBlack,
+			material = "SmoothPlastic",
+		})
+	end
+	local board = build(folder, CFrame.new(0, 0, 0), {
+		name = "GateSign",
+		pos = { x - 0.4, PLAZA_Y + GATE_SIGN_Y + GATE_SIGN_H / 2, L.cz },
+		size = { 0.6, GATE_SIGN_H, GATE_SIGN_W },
+		color = L.palette.wallDark,
+		material = "SmoothPlastic",
+	})
+	Kit.surfaceText(board, Enum.NormalId.Left, GATE_TEXT, C.barrelYellow)
+
+	local block = build(folder, CFrame.new(0, 0, 0), {
+		name = "GateCollider",
+		pos = { exitX - 0.5, FLOOR_Y + WALL_H / 2, L.cz },
+		size = { 1, WALL_H, 2 * h },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		transparency = 1,
+	})
+	block.CanQuery = false
+	block.CanTouch = false
 	folder.Parent = parent
 end
 
@@ -574,8 +793,12 @@ local function buildCamp(parent: Instance, def: Camps.CampDef)
 	m:SetAttribute("CampKey", def.key)
 
 	buildFloor(m, L)
-	buildSeam(m, L)
-	buildWall(m, L)
+	buildSeam(m, L, "Seam", L.clipX - SEAM_WIDTH / 2)
+	if L.exitX then
+		buildSeam(m, L, "ExitSeam", if L.nextBuilt then L.exitX - SEAM_WIDTH / 2 else L.exitX - SEAM_WIDTH)
+	end
+	buildWalls(m, L)
+	buildGate(m, L)
 	buildStalls(m, L)
 	buildWashDeck(m, L)
 	buildAnchor(m, L)
