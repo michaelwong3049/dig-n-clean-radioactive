@@ -367,6 +367,18 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 	local nameScale = scaler(name)
 
 	local pill, pillScale = chip(canvas, rarityLine(found), colour, T.INK, 0.785)
+	-- The star rating hangs under the pill and pops in with it.
+	UIKit.label(pill, {
+		name = "Stars",
+		size = UDim2.fromOffset(300, 24),
+		position = UDim2.new(0.5, 0, 1, 4),
+		anchorPoint = Vector2.new(0.5, 0),
+		text = Rarity.starText(found.rarity),
+		font = UIKit.Font.hero,
+		textSize = 24,
+		xAlign = Enum.TextXAlignment.Center,
+		color = T.GOLD,
+	})
 
 	-- NEW HEAVIEST: this one out-weighs the index's record for it (IdentifyService's
 	-- `previousBest`, never set on a first find). Gold, under the ribbon, with the
