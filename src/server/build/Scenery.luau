@@ -96,10 +96,16 @@ local CraterField = require(script.Parent.CraterField)
 local BlastDebris = require(script.Parent.BlastDebris)
 local FieldLitter = require(script.Parent.FieldLitter)
 local CoolantField = require(script.Parent.CoolantField)
+local CinderField = require(script.Parent.CinderField)
+local CobaltShelf = require(script.Parent.CobaltShelf)
+local GlassBarrens = require(script.Parent.GlassBarrens)
+local SulfurFlats = require(script.Parent.SulfurFlats)
+local BloodrockRift = require(script.Parent.BloodrockRift)
+local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 37
+local BUILDER_VERSION = 38
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -678,6 +684,16 @@ end
 ---            smoking vents, and a scatter of small ones; then the dirt and wreckage
 ---            the blast strewed across the rest of the field (build/BlastDebris). Its
 ---            `shards` set piece and its pools are still on the shelf.
+---   Stages 7-12 -- the far biomes east of Toxic Twilight, one module each off the
+---            shared build/BiomeKit: Cinder Fields (build/CinderField, charred snags
+---            and ember beds), Cobalt Shelf (build/CobaltShelf, terraced ledges, cobalt
+---            crystals, coolant puddles, a derelict ore cart), Glass Barrens
+---            (build/GlassBarrens, trinitite spires, fused pools, fulgurites), Sulfur
+---            Flats (build/SulfurFlats, steaming fumaroles, acid pools, hex crust),
+---            Bloodrock Rift (build/BloodrockRift, the glowing fissure, spires, basalt)
+---            and Ground Zero (build/GroundZero, the tower footings and bomb casing at
+---            the hypocentre, lava pools and flows). Each runs off its own seed and
+---            reads no THEME count but `scatter`; the numbers live in its module.
 --- `skeletons`/`bones`/`skulls` belong to the two bone fields, `barrels` to Stage 3 and
 --- `trees` to Stage 4; unset, and so skipped, everywhere else. (`trees` is Stage 4's
 --- own count and NOT Stage 2's -- that field's stand rides on `props`, because trees
@@ -763,6 +779,26 @@ local THEME: { [number]: StageTheme } = {
 	-- `scatter` turns on the craters only (see the list above); `props`/`pools`/`kind`
 	-- are still on the shelf, same as Stage 4's barriers.
 	[6] = { props = 26, pools = 78, kind = "shards", scatter = true },
+	-- The far biomes. `props`/`pools`/`kind` are unused out here -- every count lives in
+	-- the stage's own module (see the list above) -- so they are zeroed rather than
+	-- borrowed from a shelved set piece.
+	[7] = { props = 0, pools = 0, kind = "cinders", scatter = true },
+	[8] = { props = 0, pools = 0, kind = "cobalt", scatter = true },
+	[9] = { props = 0, pools = 0, kind = "glass", scatter = true },
+	[10] = { props = 0, pools = 0, kind = "sulfur", scatter = true },
+	[11] = { props = 0, pools = 0, kind = "rift", scatter = true },
+	[12] = { props = 0, pools = 0, kind = "hypocentre", scatter = true },
+}
+
+--- The far biomes' builders, by stage id. Each takes (folder, id, groundY) and runs
+--- off its own seed, so nothing it places can move a thing in Stages 1-6.
+local FAR_BIOMES: { [number]: { build: (Instance, number, number) -> () } } = {
+	[7] = CinderField,
+	[8] = CobaltShelf,
+	[9] = GlassBarrens,
+	[10] = SulfurFlats,
+	[11] = BloodrockRift,
+	[12] = GroundZero,
 }
 
 --- ── The radioactive drum ─────────────────────────────────────────────────────
@@ -3413,6 +3449,8 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- free to use it.
 			CraterField.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
 			BlastDebris.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
+		elseif FAR_BIOMES[id] then
+			FAR_BIOMES[id].build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
 		end
 	end
 
