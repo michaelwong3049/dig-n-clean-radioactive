@@ -9,6 +9,7 @@ uploaded as 256px PNGs. The ids live in `src/client/HudArtwork.luau` (`Artwork.I
 | `shop_chest.svg` | Shop tile | `chest` |
 | `nukes_cloud.svg` | Nukes tile | `mushroomCloud` |
 | `warp_portal.svg` | Warp tile | `portal` |
+| `gear_toolbox.svg` | Gear tile | `toolbox` |
 | `glow.svg` | the soft glow behind every tile symbol (white, tinted per tile) | `glow` |
 | `speed_shoe.svg` | the SPEED badge's disc (`SpeedController`) | `speedShoe` |
 

@@ -653,13 +653,14 @@ Dock.METER_TOP_Y = Dock.SIDE_TOP_Y + Dock.CASH_SIZE.Y.Offset + Dock.GAP + Dock.S
 Dock.SIDE_TOP_MIN_HEIGHT = 700
 
 -- The square tiles on the right edge: Index, Shop, Nukes, Warp in a 2x2 grid, read
--- left to right, top to bottom (HudTile builds them). It was one 80px column four
+-- left to right, top to bottom (HudTile builds them), and Gear alone on a third row
+-- under Nukes. It was one 80px column four
 -- tiles tall until the grid was requested with smaller tiles; at 62 the grid is 134px
 -- square against the column's 80x350. The haul widget measures its clearance against
 -- the grid's width (HAULPANEL_RIGHT).
 Dock.SIDE_TILE_SIZE = 62
 Dock.SIDE_GRID_COLUMNS = 2
-Dock.SIDE_GRID_ROWS = 2
+Dock.SIDE_GRID_ROWS = 3
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.GAP
 Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_ROWS - 1) * Dock.GAP
 -- How far the grid sits BELOW the line it is hung from (the cash badge's top, or the
@@ -684,7 +685,7 @@ function Dock.sideColumnTop(height: number): number
 	return math.max(-Dock.SIDE_GRID_HEIGHT / 2 + Dock.SIDE_GRID_DROP, underGear)
 end
 
---- The CENTRE of grid tile `slot` (1-4, left to right, top to bottom), as a position on
+--- The CENTRE of grid tile `slot` (1-6, left to right, top to bottom), as a position on
 --- a canvas `height` design px tall: offset in from the right edge, and down from the
 --- vertical centre. Centred so a tile's hover UIScale grows it evenly on every side.
 function Dock.sideTileCentre(slot: number, height: number): UDim2

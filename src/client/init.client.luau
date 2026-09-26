@@ -24,6 +24,7 @@ local ORDER = {
 	"IndexController", -- the item index GUI; Index tile on the right edge, reads IndexState + Unearthed
 	"ShopController", -- the Shop tile, stacked below the Index tile, and the Robux shop panel it opens
 	"NukesController", -- the Nukes tile under Shop: every owned nuke + $/s, and Equip Best; reads NukeList
+	"GearController", -- the Gear tile under Nukes: every owned gear tier, equip from anywhere; reads GearList
 	"CampWarpController", -- the Warp tile under Nukes and its camp list: warp to any camp reached on foot; reads CampState
 	"LuckBoostController", -- the 2x-luck clover (bottom right), the Violet Aurora banner + lights; opens the Shop
 	"CashController", -- the persistent cash badge; top-left, reads CashState

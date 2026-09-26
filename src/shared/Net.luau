@@ -175,6 +175,13 @@ local REMOTES: { [string]: string } = {
 	-- A bare verb: "list" (send me a snapshot) or "equipBest" (fill + upgrade my
 	-- stands from the bag). No uid, no slot: the server picks everything.
 	NukeAction = "RemoteEvent", -- client -> server, "list" | "equipBest"
+	--
+	-- The Gear panel (client GearController, ShopService.loadout). Every tier you own on
+	-- every track, and which is in your hands. Asked for, never streamed. "equip" names a
+	-- track and a tier; the server checks you own it (ShopService.equipAnywhere) and
+	-- answers with the loadout after it, carrying the outcome as `notice`.
+	GearList = "RemoteEvent", -- server -> client, { tracks = { LoadoutTrack }, notice? }
+	GearAction = "RemoteEvent", -- client -> server, "list" | "equip", track?, tier?
 
 	-- "Getting around": the top-of-screen HOME / SHOPS portals (client WarpController)
 	-- and the Warp tile's camp list (client CampWarpController). The client sends only
