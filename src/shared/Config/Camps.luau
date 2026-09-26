@@ -68,6 +68,7 @@ export type CampDef = {
 	center: { number }?, -- { x, z } of the disc
 	radius: number?, -- the walkable floor's radius; the wall stands just outside it
 	clipX: number?, -- the disc is cut off west of this line, where the stage chain meets it
+	exitX: number?, -- and east of this one, where the next stage will open out of it
 	palette: Palette?,
 }
 
@@ -82,6 +83,12 @@ local CRATER_EAST_X = select(3, Stages.bounds(6))
 --- the corridor walls (z = +-89), so two short shoulder walls close the gap the same
 --- way Base Camp's shoulders meet Stage 1 (build/Scenery buildCampWallLayer).
 local TWILIGHT_CENTRE_OFFSET = 110
+
+--- THE WAY ON EAST, ON REQUEST: the disc is cut off at the mirror of the Crater's clip
+--- line, so the next stage opens out of the camp through a mouth exactly as wide as the
+--- one the Crater opens in by. Stage 7's west edge belongs here (x = 2060); until it is
+--- built, build/CampSite stands a COMING SOON barricade across the mouth.
+local TWILIGHT_EXIT_X = CRATER_EAST_X + 2 * TWILIGHT_CENTRE_OFFSET
 
 Camps.BASE = "base"
 
@@ -130,6 +137,7 @@ Camps.DEFS = {
 		-- only the plaza, the stalls, the trader and one shared cleansing station.
 		radius = 150,
 		clipX = CRATER_EAST_X,
+		exitX = TWILIGHT_EXIT_X,
 		-- Mockup #3, picked from six on request: it carries the Crater's violet on into
 		-- the camp instead of snapping back to Base Camp's green.
 		palette = {
@@ -184,7 +192,7 @@ end
 function Camps.at(x: number, z: number): CampDef?
 	for _, def in Camps.DEFS do
 		local c, r, clip = def.center, def.radius, def.clipX
-		if c and r and clip and x >= clip then
+		if c and r and clip and x >= clip and (def.exitX == nil or x <= def.exitX) then
 			local dx, dz = x - c[1], z - c[2]
 			if dx * dx + dz * dz <= r * r then
 				return def
