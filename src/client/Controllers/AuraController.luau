@@ -21,6 +21,17 @@
 	follow the body; the precession is the Attachments turning on the hub. Electrons
 	are small Neon balls with a Trail, moved in the same pass (one BulkMoveTo).
 
+	THE TOP RUNG IS A HELIX, NOT AN ATOM (AuraLook's `form`). Its two strands are chains
+	of Beams through Attachments laid along the spiral with their Axes on its tangent,
+	its halo and foot ring are half-circle pairs like the atom's, and all of it is fixed
+	in the hub: the hub turning is the helix turning. The electrons climb the strands.
+
+	THE SPARKLE STORM (tiers 3-6, AuraLook's `sparkle`) is ParticleEmitters with the
+	engine's sparkle texture: star dust off an invisible shell round the aura, sparkles
+	shed by each electron, embers off a pad at the feet, and a glitter burst out of the
+	core that `step` fires on a clock and flares the core light with. They switch with
+	the rest of the aura (setShown), so a hidden or far one emits nothing.
+
 	NOTHING IS PUT IN THE CHARACTER. The rig lives in its own `AuraFx` folder, anchored
 	and CanQuery false, so no raycast (the detector's, the wash bay's aim) can land on
 	it and nothing that walks a character's parts ever meets it.
@@ -67,7 +78,18 @@ local CORE_BRIGHTNESS = 1.3
 --- this much the gold still reads as gold on a sunny plaza.
 local GLOW = 0.4
 
-type Electron = { part: Part, trail: Trail, ring: number, index: number }
+--- The sparkle storm's texture: the engine's own sparkle, as the aurora and crates use.
+local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
+--- Sparkles glow a little more than the rings (they are small, and a twinkle has to
+--- pop), but not fully: at 1 the gold ones read white in daylight, like the rings did.
+local SPARKLE_GLOW = 0.7
+--- Beams per helix strand. Each is a cubic Bezier through the strand's tangents, so a
+--- quarter turn or less apiece keeps the spiral round.
+local STRAND_BEAMS = 6
+--- How hard the core light flares on a glitter burst, on top of its breathing.
+local BURST_FLARE = 2.5
+
+type Electron = { part: Part, trail: Trail, ring: number, index: number, progress: number }
 
 type Rig = {
 	anchor: BasePart,
@@ -84,6 +106,15 @@ type Rig = {
 	beams: { Beam },
 	electrons: { Electron },
 	light: PointLight?,
+	-- The sparkle storm: every emitter (switched with the aura), the parts they emit
+	-- from, and the core's burst.
+	emitters: { ParticleEmitter },
+	dust: Part?,
+	dustOffset: CFrame,
+	embers: Part?,
+	burst: ParticleEmitter?,
+	sinceBurst: number,
+	flare: number,
 	shown: boolean,
 }
 
@@ -114,6 +145,176 @@ local function destroyRig(rig: Rig)
 	rigs[rig.anchor] = nil
 end
 
+local function ringBeam(name: string, a: Attachment, b: Attachment, curve0: number, curve1: number, segments: number, look: AuraLook.Look, scale: number, parent: Instance): Beam
+	local beam = Instance.new("Beam")
+	beam.Name = name
+	beam.Attachment0 = a
+	beam.Attachment1 = b
+	beam.CurveSize0 = curve0
+	beam.CurveSize1 = curve1
+	beam.Segments = segments
+	beam.FaceCamera = true
+	beam.Width0 = look.width * scale
+	beam.Width1 = look.width * scale
+	beam.Color = ColorSequence.new(look.color)
+	beam.Transparency = NumberSequence.new(look.transparency)
+	beam.LightEmission = GLOW
+	beam.LightInfluence = 0
+	beam.Brightness = 1
+	beam.Parent = parent
+	return beam
+end
+
+--- A ring as two half-circle Beams between an A and a B Attachment on `hub`, set at
+--- `frame` (the ring's own frame, relative to the hub) when it is given. The atom's rings
+--- pass none and are posed every frame; the helix's halo and foot ring never move.
+local function halfCircles(hub: Part, name: string, radius: number, frame: CFrame?, look: AuraLook.Look, scale: number, beams: { Beam }): { Attachment }
+	local a = Instance.new("Attachment")
+	a.Name = `{name}A`
+	a.Parent = hub
+	local b = Instance.new("Attachment")
+	b.Name = `{name}B`
+	b.Parent = hub
+	if frame then
+		a.CFrame = frame * CFrame.new(radius, 0, 0) * AXIS_TO_Z
+		b.CFrame = frame * CFrame.new(-radius, 0, 0) * AXIS_TO_Z
+	end
+	local bend = HALF_CIRCLE * radius
+	for _, side in { 1, -1 } do
+		table.insert(beams, ringBeam(name, a, b, side * bend, -side * bend, 24, look, scale, hub))
+	end
+	return { a, b }
+end
+
+--- The top rung's strands: each a chain of Beams through Attachments on the hub, every
+--- Attachment's Axis along the strand's tangent there, so each Beam's CurveSizes (a
+--- third of the tangent over its span, the cubic Bezier that matches a curve's ends
+--- and slopes) bend it along the spiral. Fixed in the hub; the hub turns.
+local function strands(hub: Part, look: AuraLook.Look, scale: number, beams: { Beam })
+	local span = 1 / STRAND_BEAMS
+	for strand = 1, AuraLook.HELIX.strands do
+		local previous: Attachment? = nil
+		local previousPull = 0
+		for step = 0, STRAND_BEAMS do
+			local point, tangent = AuraLook.helixPoint(strand, step * span)
+			point *= scale
+			tangent *= scale
+			local along = tangent.Unit
+			local out = Vector3.new(point.X, 0, point.Z).Unit
+			local side = along:Cross(out).Unit
+			local attachment = Instance.new("Attachment")
+			attachment.Name = `Strand{strand}_{step}`
+			attachment.CFrame = CFrame.fromMatrix(point, along, side:Cross(along), side)
+			attachment.Parent = hub
+			local pull = tangent.Magnitude * span / 3
+			if previous then
+				table.insert(beams, ringBeam(`Strand{strand}`, previous, attachment, previousPull, pull, 10, look, scale, hub))
+			end
+			previous = attachment
+			previousPull = pull
+		end
+	end
+end
+
+local function sparkleEmitter(look: AuraLook.Look, size: number, parent: Instance): ParticleEmitter
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = SPARKLE_TEXTURE
+	emitter.Color = ColorSequence.new(AuraLook.electronColor(look))
+	emitter.LightEmission = SPARKLE_GLOW
+	emitter.LightInfluence = 0
+	-- Grows in, twinkles once, and goes out.
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.2, size),
+		NumberSequenceKeypoint.new(0.5, size * 0.45),
+		NumberSequenceKeypoint.new(0.75, size),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	emitter.Transparency = NumberSequence.new(0.1)
+	emitter.Rotation = NumberRange.new(0, 360)
+	emitter.RotSpeed = NumberRange.new(-90, 90)
+	emitter.Parent = parent
+	return emitter
+end
+
+--- The sparkle storm's layers for this rung (AuraLook's `sparkle`), each only if on.
+local function buildSparkle(rig: Rig)
+	local look, scale, model = rig.look, rig.scale, rig.model
+	local sparkle = look.sparkle
+
+	if sparkle.dust > 0 then
+		-- Star dust drifts off a shell just outside the rings (a ball round the atom, a
+		-- cylinder round the helix), carried along with the body.
+		local dust = fxPart("Dust", model)
+		dust.Transparency = 1
+		local emitter = sparkleEmitter(look, 0.35 * scale, dust)
+		if look.form == "helix" then
+			local h = AuraLook.HELIX
+			dust.Size = Vector3.new(2 * h.radius + 0.6, h.top - h.bottom, 2 * h.radius + 0.6) * scale
+			rig.dustOffset = CFrame.new(0, (h.top + h.bottom) / 2 * scale, 0)
+			emitter.Shape = Enum.ParticleEmitterShape.Cylinder
+		else
+			dust.Shape = Enum.PartType.Ball
+			dust.Size = Vector3.one * 2 * (AuraLook.RADIUS + 0.4) * scale
+			emitter.Shape = Enum.ParticleEmitterShape.Sphere
+		end
+		emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+		emitter.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
+		emitter.Rate = sparkle.dust
+		emitter.Lifetime = NumberRange.new(1.2, 2)
+		emitter.Speed = NumberRange.new(0.1 * scale, 0.4 * scale)
+		emitter.Acceleration = Vector3.new(0, 0.5 * scale, 0)
+		emitter.LockedToPart = true
+		rig.dust = dust
+		table.insert(rig.emitters, emitter)
+	end
+
+	if sparkle.shed > 0 then
+		-- Each electron sheds sparkles that hang where it was and fall away.
+		for _, electron in rig.electrons do
+			local emitter = sparkleEmitter(look, 0.28 * scale, electron.part)
+			emitter.Rate = sparkle.shed
+			emitter.Lifetime = NumberRange.new(0.4, 0.8)
+			emitter.Speed = NumberRange.new(0.3 * scale, 1.2 * scale)
+			emitter.SpreadAngle = Vector2.new(180, 180)
+			emitter.Drag = 2
+			emitter.Acceleration = Vector3.new(0, -1 * scale, 0)
+			table.insert(rig.emitters, emitter)
+		end
+	end
+
+	if sparkle.embers > 0 then
+		-- Embers rise off a flat pad at the feet and stay in the world as you walk on.
+		local embers = fxPart("Embers", model)
+		embers.Transparency = 1
+		embers.Size = Vector3.new(3.6, 0.1, 3.6) * scale
+		local emitter = sparkleEmitter(look, 0.3 * scale, embers)
+		emitter.EmissionDirection = Enum.NormalId.Top
+		emitter.Rate = sparkle.embers
+		emitter.Lifetime = NumberRange.new(1, 1.8)
+		emitter.Speed = NumberRange.new(2.5 * scale, 5 * scale)
+		emitter.SpreadAngle = Vector2.new(12, 12)
+		emitter.Acceleration = Vector3.new(0, 1 * scale, 0)
+		rig.embers = embers
+		table.insert(rig.emitters, emitter)
+	end
+
+	if sparkle.burst > 0 then
+		-- The core's glitter burst: nothing flows, `step` fires it every BURST_SECONDS.
+		local core = Instance.new("Attachment")
+		core.Name = "Core"
+		core.Parent = rig.hub
+		local emitter = sparkleEmitter(look, 0.45 * scale, core)
+		emitter.Rate = 0
+		emitter.Lifetime = NumberRange.new(0.6, 1.1)
+		emitter.Speed = NumberRange.new(5 * scale, 11 * scale)
+		emitter.SpreadAngle = Vector2.new(180, 180)
+		emitter.Drag = 4
+		emitter.Acceleration = Vector3.new(0, -2 * scale, 0)
+		rig.burst = emitter
+	end
+end
+
 local function build(anchor: BasePart, tier: number, scale: number, lift: number, character: Model?): Rig
 	local look = AuraLook.get(tier)
 	local model = Instance.new("Model")
@@ -122,71 +323,60 @@ local function build(anchor: BasePart, tier: number, scale: number, lift: number
 	local hub = fxPart("Hub", model)
 	hub.Transparency = 1
 
-	local radius = AuraLook.RADIUS * scale
-	local bend = HALF_CIRCLE * radius
 	local ends: { { Attachment } } = {}
 	local beams: { Beam } = {}
-	for ring = 1, look.rings do
-		local a = Instance.new("Attachment")
-		a.Name = `Ring{ring}A`
-		a.Parent = hub
-		local b = Instance.new("Attachment")
-		b.Name = `Ring{ring}B`
-		b.Parent = hub
-		table.insert(ends, { a, b })
-		for _, side in { 1, -1 } do
-			local beam = Instance.new("Beam")
-			beam.Name = `Ring{ring}`
-			beam.Attachment0 = a
-			beam.Attachment1 = b
-			beam.CurveSize0 = side * bend
-			beam.CurveSize1 = -side * bend
-			beam.Segments = 24
-			beam.FaceCamera = true
-			beam.Width0 = look.width * scale
-			beam.Width1 = look.width * scale
-			beam.Color = ColorSequence.new(look.color)
-			beam.Transparency = NumberSequence.new(look.transparency)
-			beam.LightEmission = GLOW
-			beam.LightInfluence = 0
-			beam.Brightness = 1
-			beam.Parent = hub
-			table.insert(beams, beam)
-		end
-	end
-
 	local electrons: { Electron } = {}
 	local ballSize = (0.3 + look.width) * scale
 	local trailHalf = look.width * 0.8 * scale
-	for ring = 1, look.rings do
-		for index = 1, look.electrons do
-			local ball = fxPart("Electron", model)
-			ball.Shape = Enum.PartType.Ball
-			ball.Material = Enum.Material.Neon
-			ball.Color = AuraLook.electronColor(look)
-			ball.Size = Vector3.one * ballSize
-			-- The ball's Y is kept on the ring's axis (see step), so these two sit
-			-- across the direction of travel and the trail has width.
-			local t0 = Instance.new("Attachment")
-			t0.Position = Vector3.new(0, trailHalf, 0)
-			t0.Parent = ball
-			local t1 = Instance.new("Attachment")
-			t1.Position = Vector3.new(0, -trailHalf, 0)
-			t1.Parent = ball
-			local trail = Instance.new("Trail")
-			trail.Attachment0 = t0
-			trail.Attachment1 = t1
-			trail.Lifetime = 0.3
-			trail.MinLength = 0.05
-			trail.FaceCamera = true
-			trail.Color = ColorSequence.new(look.color)
-			trail.Transparency = NumberSequence.new(0.15, 1)
-			trail.WidthScale = NumberSequence.new(1, 0.2)
-			trail.LightEmission = GLOW
-			trail.LightInfluence = 0
-			trail.Brightness = 1
-			trail.Parent = ball
-			table.insert(electrons, { part = ball, trail = trail, ring = ring, index = index })
+	local function electron(ring: number, index: number)
+		local ball = fxPart("Electron", model)
+		ball.Shape = Enum.PartType.Ball
+		ball.Material = Enum.Material.Neon
+		ball.Color = AuraLook.electronColor(look)
+		ball.Size = Vector3.one * ballSize
+		-- The ball's Y is kept on the ring's axis (see step), so these two sit
+		-- across the direction of travel and the trail has width.
+		local t0 = Instance.new("Attachment")
+		t0.Position = Vector3.new(0, trailHalf, 0)
+		t0.Parent = ball
+		local t1 = Instance.new("Attachment")
+		t1.Position = Vector3.new(0, -trailHalf, 0)
+		t1.Parent = ball
+		local trail = Instance.new("Trail")
+		trail.Attachment0 = t0
+		trail.Attachment1 = t1
+		trail.Lifetime = 0.3
+		trail.MinLength = 0.05
+		trail.FaceCamera = true
+		trail.Color = ColorSequence.new(look.color)
+		trail.Transparency = NumberSequence.new(0.15, 1)
+		trail.WidthScale = NumberSequence.new(1, 0.2)
+		trail.LightEmission = GLOW
+		trail.LightInfluence = 0
+		trail.Brightness = 1
+		trail.Parent = ball
+		table.insert(electrons, { part = ball, trail = trail, ring = ring, index = index, progress = 0 })
+	end
+
+	if look.form == "helix" then
+		local h = AuraLook.HELIX
+		strands(hub, look, scale, beams)
+		halfCircles(hub, "Halo", h.haloRadius * scale, CFrame.new(0, h.haloY * scale, 0), look, scale, beams)
+		halfCircles(hub, "Foot", h.footRadius * scale, CFrame.new(0, h.footY * scale, 0), look, scale, beams)
+		-- `ring` is the strand here.
+		for strand = 1, h.strands do
+			for index = 1, look.electrons do
+				electron(strand, index)
+			end
+		end
+	else
+		for ring = 1, look.rings do
+			table.insert(ends, halfCircles(hub, `Ring{ring}`, AuraLook.RADIUS * scale, nil, look, scale, beams))
+		end
+		for ring = 1, look.rings do
+			for index = 1, look.electrons do
+				electron(ring, index)
+			end
 		end
 	end
 
@@ -201,7 +391,6 @@ local function build(anchor: BasePart, tier: number, scale: number, lift: number
 		light = core
 	end
 
-	model.Parent = fx
 	local rig: Rig = {
 		anchor = anchor,
 		humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil,
@@ -218,8 +407,17 @@ local function build(anchor: BasePart, tier: number, scale: number, lift: number
 		beams = beams,
 		electrons = electrons,
 		light = light,
+		emitters = {},
+		dust = nil,
+		dustOffset = CFrame.identity,
+		embers = nil,
+		burst = nil,
+		sinceBurst = rng:NextNumber(0, AuraLook.BURST_SECONDS),
+		flare = 0,
 		shown = true,
 	}
+	buildSparkle(rig)
+	model.Parent = fx
 	rigs[anchor] = rig
 	return rig
 end
@@ -243,6 +441,9 @@ local function setShown(rig: Rig, shown: boolean)
 	end
 	if rig.light then
 		rig.light.Enabled = shown
+	end
+	for _, emitter in rig.emitters do
+		emitter.Enabled = shown
 	end
 end
 
@@ -295,6 +496,7 @@ end
 
 local movedParts: { BasePart } = {}
 local movedFrames: { CFrame } = {}
+local wrapped: { Trail } = {}
 
 --- Shop card atoms (AuraLook.ICON_TAG) -> the pose their card's camera was framed at,
 --- captured the first frame the card is on screen (StationController frames the
@@ -372,27 +574,70 @@ local function step(dt: number)
 		end
 
 		local t = now + rig.seed
-		table.insert(movedParts, rig.hub)
-		table.insert(movedFrames, chest)
-		for ring, pair in rig.ends do
-			local frame = AuraLook.ringFrame(ring, t)
-			pair[1].CFrame = frame * CFrame.new(radius, 0, 0) * AXIS_TO_Z
-			pair[2].CFrame = frame * CFrame.new(-radius, 0, 0) * AXIS_TO_Z
+		if rig.look.form == "helix" then
+			-- The whole helix is fixed in the hub, so turning the hub turns it; only the
+			-- electrons climb. One that wraps from the top back to the bottom has its
+			-- trail cleared once it has moved, or it would streak down through the body.
+			local hub = chest * AuraLook.helixFrame(t)
+			table.insert(movedParts, rig.hub)
+			table.insert(movedFrames, hub)
+			for _, electron in rig.electrons do
+				local s = AuraLook.helixProgress(rig.look, electron.ring, electron.index, t)
+				local point, tangent = AuraLook.helixPoint(electron.ring, s)
+				point *= rig.scale
+				if s < electron.progress then
+					table.insert(wrapped, electron.trail)
+				end
+				electron.progress = s
+				table.insert(movedParts, electron.part)
+				table.insert(movedFrames, hub * CFrame.lookAt(point, point + tangent))
+			end
+		else
+			table.insert(movedParts, rig.hub)
+			table.insert(movedFrames, chest)
+			for ring, pair in rig.ends do
+				local frame = AuraLook.ringFrame(ring, t)
+				pair[1].CFrame = frame * CFrame.new(radius, 0, 0) * AXIS_TO_Z
+				pair[2].CFrame = frame * CFrame.new(-radius, 0, 0) * AXIS_TO_Z
+			end
+			for _, electron in rig.electrons do
+				local u = AuraLook.electronAngle(rig.look, electron.ring, electron.index, t)
+				local frame = AuraLook.ringFrame(electron.ring, t)
+				table.insert(movedParts, electron.part)
+				table.insert(movedFrames, chest * frame * CFrame.new(math.cos(u) * radius, 0, math.sin(u) * radius))
+			end
 		end
-		for _, electron in rig.electrons do
-			local u = AuraLook.electronAngle(rig.look, electron.ring, electron.index, t)
-			local frame = AuraLook.ringFrame(electron.ring, t)
-			table.insert(movedParts, electron.part)
-			table.insert(movedFrames, chest * frame * CFrame.new(math.cos(u) * radius, 0, math.sin(u) * radius))
+
+		-- The sparkle storm's emitting parts follow the body upright (not the hub's turn).
+		if rig.dust then
+			table.insert(movedParts, rig.dust)
+			table.insert(movedFrames, chest * rig.dustOffset)
 		end
+		if rig.embers then
+			table.insert(movedParts, rig.embers)
+			table.insert(movedFrames, chest * CFrame.new(0, AuraLook.FEET * rig.scale, 0))
+		end
+		if rig.burst then
+			rig.sinceBurst += dt
+			if rig.sinceBurst >= AuraLook.BURST_SECONDS then
+				rig.sinceBurst = 0
+				rig.flare = 1
+				rig.burst:Emit(rig.look.sparkle.burst)
+			end
+		end
+		rig.flare = math.max(0, rig.flare - dt * 2.5)
 		if rig.light then
-			rig.light.Brightness = CORE_BRIGHTNESS * (0.8 + 0.2 * math.sin(t * 2.4))
+			rig.light.Brightness = CORE_BRIGHTNESS * (0.8 + 0.2 * math.sin(t * 2.4)) + BURST_FLARE * rig.flare
 		end
 	end
 
 	if #movedParts > 0 then
 		Workspace:BulkMoveTo(movedParts, movedFrames, Enum.BulkMoveMode.FireCFrameChanged)
 	end
+	for _, trail in wrapped do
+		trail:Clear()
+	end
+	table.clear(wrapped)
 end
 
 function AuraController.start()
