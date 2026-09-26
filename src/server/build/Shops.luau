@@ -172,6 +172,7 @@ local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 local ToolModels = require(Shared.ToolModels)
 local ToolFX = require(Shared.ToolFX)
+local MagnetHang = require(Shared.MagnetHang)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
@@ -335,20 +336,12 @@ local RACK_HIDE_ON_DISPLAY = { "Realistically Sized Magnet" }
 --- poles never reach the deck. Keyed by tier NAME for the odd-axis tiers, not tier
 --- number, so a tier inserted into the line does not inherit someone else's axis.
 type HangSpec = {
-	legs: Vector3,
-	legsByName: { [string]: Vector3 },
-	face: Vector3,
-	yaw: number,
-	height: { number },
 	drop: number,
 }
+-- Pose, axes and display heights live in Shared/MagnetHang, which the player's hand
+-- reads too, so a held magnet is exactly the size its hook shows.
 local RACK_HANG: { [string]: HangSpec } = {
 	Magnet = {
-		legs = Vector3.new(0, 0, 1),
-		legsByName = { ["Horseshoe Magnet"] = Vector3.new(-1, 0, 0) },
-		face = Vector3.new(0, 1, 0),
-		yaw = -20,
-		height = { 1.4, 3.0 },
 		drop = 0.6,
 	},
 }
@@ -1163,10 +1156,8 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame?, x:
 	if hang then
 		-- Model-frame basis whose up is "against the legs" and whose back is the
 		-- face; its inverse carries legs to the stall's -Y and face to its +Z.
-		local legs = hang.legsByName[Gear.tier(track, tier).name] or hang.legs
-		local up = -legs
-		local basis = CFrame.fromMatrix(Vector3.zero, up:Cross(hang.face), up, hang.face)
-		clone:PivotTo(origin * Kit.ang(0, hang.yaw, 0) * basis:Inverse())
+		-- Posed AND sized by the shared spec, so the hand matches it (MagnetHang.fit).
+		MagnetHang.fit(clone, origin, tier, rank)
 	else
 		local hold = template:GetAttribute("HoldCFrame")
 		if typeof(hold) ~= "CFrame" then
@@ -1210,23 +1201,14 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame?, x:
 
 	local lo, hi = localBox()
 	local e = hi - lo
-	if math.min(e.X, e.Y, e.Z) > 0 then
-		local f
-		if hang then
-			-- Up THIS STALL's own ladder (`rank`, 0 at its cheapest hook, 1 at its dearest;
-			-- a camp stall passes 1 for every hook), not the whole track's: a camp that
-			-- sells tiers 7-11 would otherwise leave Base Camp's six squeezed into the
-			-- bottom half of the ramp.
-			local height = hang.height[1] + (hang.height[2] - hang.height[1]) * rank
-			f = math.min(height / e.Y, RACK_SLOT_WIDTH / e.X, RACK_SLOT_DEPTH / e.Z)
-		else
-			f = math.min(
-				(RACK_DROP_TOP - RACK_DROP_BASE) / e.Y,
-				RACK_SLOT_WIDTH / e.X,
-				RACK_SLOT_DEPTH / e.Z,
-				RACK_MAX_UPSCALE
-			)
-		end
+	-- A hung magnet was already sized by MagnetHang.fit above.
+	if hang == nil and math.min(e.X, e.Y, e.Z) > 0 then
+		local f = math.min(
+			(RACK_DROP_TOP - RACK_DROP_BASE) / e.Y,
+			RACK_SLOT_WIDTH / e.X,
+			RACK_SLOT_DEPTH / e.Z,
+			RACK_MAX_UPSCALE
+		)
 		clone:ScaleTo(clone:GetScale() * f)
 	end
 

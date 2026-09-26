@@ -56,6 +56,7 @@ local CrateModels = require(Shared.CrateModels)
 local Crates = require(Shared.Config.Crates)
 local Bag = require(Shared.Bag)
 local ToolFX = require(Shared.ToolFX)
+local MagnetHang = require(Shared.MagnetHang)
 local Ticker = require(Shared.Util.Ticker)
 
 local DataService = require(script.Parent.DataService)
@@ -88,15 +89,13 @@ local HELD_ITEM_LIFT = 0.15
 --- every crate is the same box in your hands whatever sticks up off its lid.
 local HELD_CRATE_SIZE = 3.8
 
---- Per-track shrink applied to a held TOOL after it is placed in the hand, on top
---- of the scale the place template already carries. The magnet art ships sized for
---- a close-up, and in play a Singularity Coil came out as big as the character
---- holding it. Scaling about the pivot (the Grip) keeps the hold exactly where
---- HoldCFrame puts it; only the model around the hand gets smaller. A track not
---- listed is held at its authored size.
-local HELD_TOOL_SCALE: { [string]: number } = {
-	Magnet = 0.75,
-}
+--- Clearance between the posed hands and the top of a held magnet, which hangs
+--- poles-down below them at its shop size (see Shared/MagnetHang).
+local HELD_MAGNET_DROP = 0.2
+
+--- Where the hands are under the "magnet" pose, root space, if the pose welds are not
+--- readable yet -- out in front at chest height.
+local HELD_MAGNET_FALLBACK = Vector3.new(0, 0.6, -1.8)
 
 local equipped: { [Player]: string? } = {}
 
@@ -185,6 +184,14 @@ local POSES: { [string]: { shoulder: { pitch: number, roll: number }, elbow: { p
 	-- back down toward the rim. High shoulder, folded elbow.
 	hose = {
 		shoulder = { pitch = 74, roll = 30 },
+		elbow = { pitch = -40, roll = 0 },
+	},
+	-- Pulling a find up with the magnet: both hands out in front on its top, the
+	-- magnet hanging poles-down over the hole below them. The hose's pose with the
+	-- shoulders lifted past level: at the hose's 74 the hands sat at the hips and a
+	-- 3-stud top tier (its full shop size) dipped 0.4 studs into the ground.
+	magnet = {
+		shoulder = { pitch = 100, roll = 30 },
 		elbow = { pitch = -40, roll = 0 },
 	},
 	-- Carrying a dug item back on foot. Nothing braces this against a fixed rig part
@@ -489,20 +496,52 @@ local function equip(character: Model, track: string, tier: number)
 		offset = CFrame.new()
 	end
 
-	-- PrimaryPart is the Handle, so the model's pivot IS the handle: place the pivot
-	-- at the hand times the tuned offset and everything else follows.
 	clone.Parent = character
-	clone:PivotTo(anchor.CFrame * offset)
-	local shrink = HELD_TOOL_SCALE[track]
-	if shrink then
-		clone:ScaleTo(clone:GetScale() * shrink)
-	end
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if track == "Magnet" and root and root:IsA("BasePart") then
+		-- THE MAGNET YOU BOUGHT, AT THE SIZE YOU BOUGHT IT: posed and sized by the same
+		-- spec as the shop rack (Shared/MagnetHang), hanging poles-down below the two
+		-- posed hands, face forward. Worked out in root space and welded to the root at
+		-- an explicit C0, like equipItem, so it never inherits the arm's bend or gets
+		-- glued on before the pose's welds have solved.
+		for _, d in clone:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.CanCollide = false
+				d.Massless = true
+			end
+		end
+		local facing = root.CFrame * CFrame.Angles(0, math.pi, 0)
+		MagnetHang.fit(clone, facing, tier, MagnetHang.rank(tier))
+		clone:PivotTo(facing * MagnetHang.basis(tier))
 
-	local weld = Instance.new("WeldConstraint")
-	weld.Name = "HoldWeld"
-	weld.Part0 = anchor
-	weld.Part1 = clone.PrimaryPart
-	weld.Parent = clone.PrimaryPart
+		local left = lockedFromRoot(root, character:FindFirstChild("LeftHand"))
+		local right = lockedFromRoot(root, character:FindFirstChild("RightHand"))
+		local grip = if left and right then (left.Position + right.Position) / 2 else HELD_MAGNET_FALLBACK
+		local topAt = grip - Vector3.new(0, HELD_MAGNET_DROP, 0)
+
+		local lo, hi = MagnetHang.box(clone, root.CFrame)
+		local haveTop = Vector3.new((lo.X + hi.X) / 2, hi.Y, (lo.Z + hi.Z) / 2)
+		local primary = clone.PrimaryPart :: BasePart
+		clone:PivotTo(root.CFrame * CFrame.new(topAt - haveTop) * root.CFrame:ToObjectSpace(clone:GetPivot()))
+		local seat = root.CFrame:ToObjectSpace(primary.CFrame)
+
+		local weld = Instance.new("Weld")
+		weld.Name = "HoldWeld"
+		weld.Part0 = root
+		weld.Part1 = primary
+		weld.C0 = seat
+		weld.Parent = primary
+	else
+		-- PrimaryPart is the Handle, so the model's pivot IS the handle: place the pivot
+		-- at the hand times the tuned offset and everything else follows.
+		clone:PivotTo(anchor.CFrame * offset)
+
+		local weld = Instance.new("WeldConstraint")
+		weld.Name = "HoldWeld"
+		weld.Part0 = anchor
+		weld.Part1 = clone.PrimaryPart
+		weld.Parent = clone.PrimaryPart
+	end
 
 	ToolFX.apply(clone, track, tier)
 
@@ -777,6 +816,9 @@ end
 local function poseFor(target: string?, hasItem: boolean): string?
 	if target == "Detector" then
 		return "detector"
+	end
+	if target == "Magnet" then
+		return "magnet"
 	end
 	if hasItem then
 		return "carry"
