@@ -17,7 +17,7 @@
 	    clean    banner + trail to YOUR cleansing station
 	    place    banner + trail to your nearest EMPTY stand
 	    upgrade  banner + trail to the Detector Shop
-	    finish   the "YOU'RE SET!" card, once
+	    finish   the "You're set!" card, once
 
 	THE TRAIL IS CLIENT-ONLY PARTS in a local Workspace folder, so nobody else sees
 	anyone's trail. The route is PathfindingService's, recomputed every couple of seconds
@@ -32,7 +32,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
-local TextService = game:GetService("TextService")
 local PathfindingService = game:GetService("PathfindingService")
 local Workspace = game:GetService("Workspace")
 
@@ -60,23 +59,24 @@ local SKIN = {
 	go = Color3.fromHex("3FBF5A"),
 	ink = Color3.fromHex("1A1A1A"),
 	cream = Color3.fromHex("FFF1D6"),
-	headline = Enum.Font.LuckiestGuy,
+	headline = Enum.Font.FredokaOne, -- on request, over LuckiestGuy
 	label = Enum.Font.FredokaOne,
 }
 
 -- ── Banner layout (design px on the 1280x720 canvas) ─────────────────────────────
 -- The words sit on a see-through black pill (ON REQUEST, over the earlier text-only
--- banner) with no hint line under them, big, and low enough to clear
+-- banner, then made roomier) in Fredoka One and sentence case (both on request, over
+-- all-caps LuckiestGuy), with no hint line under them, and low enough to clear
 -- WarpController's HOME / SHOPS portals (y 10..74). The pill is the frame named
 -- "Banner", sized to the words plus SKIP, because StageBannerController and
 -- AuraWarningController read its rect to stack themselves underneath it.
 local BANNER_Y = 118
-local BANNER_H = 64
-local BANNER_PAD_X = 22
-local BANNER_SHADE = 0.45 -- the pill's BackgroundTransparency
+local BANNER_H = 84
+local BANNER_PAD_X = 34
+local BANNER_SHADE = 0.4 -- the pill's BackgroundTransparency
 local TITLE_SIZE = 46
 local SKIP_W = 64
-local SKIP_GAP = 14
+local SKIP_GAP = 18
 local SKIP_CONFIRM_SECONDS = 3
 local FINISH_AUTO_CLOSE = 10
 
@@ -133,47 +133,56 @@ local state: State? = nil
 -- ── UI ──────────────────────────────────────────────────────────────────────────
 local ui: any = {}
 
-local function textWidth(text: string, size: number, font: Enum.Font): number
-	return TextService:GetTextSize(text, size, font, Vector2.new(4000, 200)).X
-end
-
 local function buildBanner(canvas: Frame)
+	-- The pill sizes ITSELF to the words and SKIP (AutomaticSize + a row layout).
+	-- Measuring with TextService does not work here: it answers with the fallback
+	-- font's width until Fredoka One has loaded, and the words overran the pill.
 	local banner = Instance.new("Frame")
 	banner.Name = "Banner"
 	banner.AnchorPoint = Vector2.new(0.5, 0)
 	banner.Position = UDim2.new(0.5, 0, 0, BANNER_Y)
-	banner.Size = UDim2.fromOffset(400, BANNER_H)
+	banner.Size = UDim2.fromOffset(0, BANNER_H)
+	banner.AutomaticSize = Enum.AutomaticSize.X
 	banner.BackgroundColor3 = Color3.new(0, 0, 0)
 	banner.BackgroundTransparency = BANNER_SHADE
 	banner.BorderSizePixel = 0
 	banner.Visible = false
 	banner.Parent = canvas
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 16)
+	corner.CornerRadius = UDim.new(0, 20)
 	corner.Parent = banner
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, BANNER_PAD_X)
+	padding.PaddingRight = UDim.new(0, BANNER_PAD_X)
+	padding.Parent = banner
+	local row = Instance.new("UIListLayout")
+	row.FillDirection = Enum.FillDirection.Horizontal
+	row.VerticalAlignment = Enum.VerticalAlignment.Center
+	row.SortOrder = Enum.SortOrder.LayoutOrder
+	row.Padding = UDim.new(0, SKIP_GAP)
+	row.Parent = banner
 
 	local scale = Instance.new("UIScale")
 	scale.Parent = banner
 
-	-- UIKit's default outline and drop shadow keep the words crisp on the pill. The
-	-- label is sized to the words by setBanner, with SKIP just after it.
+	-- UIKit's default outline and drop shadow keep the words crisp on the pill.
 	local title = UIKit.label(banner, {
 		name = "Title",
-		size = UDim2.new(0, 300, 1, 0),
-		position = UDim2.fromOffset(BANNER_PAD_X, 0),
+		size = UDim2.fromScale(0, 1),
 		font = SKIN.headline,
 		textSize = TITLE_SIZE,
 		color = SKIN.text,
 		xAlign = Enum.TextXAlignment.Center,
 		text = "",
 	})
+	title.AutomaticSize = Enum.AutomaticSize.X
+	title.LayoutOrder = 1
 
 	-- SKIP sits at the pill's right end, after the words. It needs a second press: one
 	-- stray click should not throw away a new player's only walkthrough.
 	local skip = Instance.new("TextButton")
 	skip.Name = "Skip"
-	skip.AnchorPoint = Vector2.new(1, 0.5)
-	skip.Position = UDim2.new(1, -BANNER_PAD_X, 0.5, 0)
+	skip.LayoutOrder = 2
 	skip.Size = UDim2.fromOffset(SKIP_W, 26)
 	skip.AutoButtonColor = true
 	skip.BackgroundColor3 = SKIN.button
@@ -181,7 +190,7 @@ local function buildBanner(canvas: Frame)
 	skip.Font = SKIN.label
 	skip.TextSize = 14
 	skip.TextColor3 = SKIN.dim
-	skip.Text = "SKIP"
+	skip.Text = "Skip"
 	skip.ZIndex = 3
 	skip.Parent = banner
 	local skipCorner = Instance.new("UICorner")
@@ -198,15 +207,15 @@ local function buildBanner(canvas: Frame)
 		local now = os.clock()
 		if now - armedAt <= SKIP_CONFIRM_SECONDS then
 			Net.get("TutorialAction"):FireServer("skip")
-			skip.Text = "SKIP"
+			skip.Text = "Skip"
 			return
 		end
 		armedAt = now
-		skip.Text = "SURE?"
+		skip.Text = "Sure?"
 		skip.TextColor3 = SKIN.amber
 		task.delay(SKIP_CONFIRM_SECONDS, function()
 			if os.clock() - armedAt >= SKIP_CONFIRM_SECONDS then
-				skip.Text = "SKIP"
+				skip.Text = "Skip"
 				skip.TextColor3 = SKIN.dim
 			end
 		end)
@@ -287,7 +296,7 @@ local function buildFinish(canvas: Frame)
 	go.Font = SKIN.headline
 	go.TextSize = 26
 	go.TextColor3 = SKIN.text
-	go.Text = "LET'S GO"
+	go.Text = "Let's go"
 	go.ZIndex = 7
 	go.Parent = card
 	local goCorner = Instance.new("UICorner")
@@ -320,12 +329,8 @@ end
 local function setBanner(step: Tutorial.StepId)
 	local def = Tutorial.STEPS[step]
 	local changed = ui.title.Text ~= def.title
+	-- The pill resizes itself round the new words (buildBanner).
 	ui.title.Text = def.title
-	-- The pill hugs the words and SKIP, so the banners that stack under this one (see
-	-- BANNER_Y) measure what is drawn, not an empty box.
-	local wordsW = math.ceil(textWidth(def.title, TITLE_SIZE, SKIN.headline)) + 8
-	ui.title.Size = UDim2.new(0, wordsW, 1, 0)
-	ui.banner.Size = UDim2.fromOffset(BANNER_PAD_X + wordsW + SKIP_GAP + SKIP_W + BANNER_PAD_X, BANNER_H)
 
 	local wasHidden = not ui.banner.Visible
 	ui.banner.Visible = true
