@@ -86,6 +86,12 @@ export type Burst = {
 	-- 0..1, eased toward 1 while the player stands on the spot and back to 0 after, so
 	-- stepping on and off blends into the flare instead of switching to it.
 	onIt: number,
+	-- The rarity's motion row (Tuning.AURA_CRACKS): blink speed, fan spin in rad/s
+	-- (signed per spot so neighbouring fans do not all turn the same way), and how far
+	-- each ray's length surges.
+	raySpeed: number,
+	raySpin: number,
+	rayPump: number,
 }
 
 local GASH = Color3.fromHex("241A10")
@@ -323,6 +329,9 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 		life = 1,
 		dying = false,
 		onIt = 0,
+		raySpeed = row.raySpeed,
+		raySpin = row.raySpin,
+		rayPump = row.rayPump,
 	}
 
 	for _, path in paths do
@@ -406,6 +415,10 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 			level = -1,
 		})
 	end
+	-- Drawn after the fan so every ray keeps the shape it had before spin existed.
+	if rng:NextNumber() < 0.5 then
+		burst.raySpin = -burst.raySpin
+	end
 
 	model.Parent = folder
 	return burst
@@ -425,13 +438,24 @@ end
 --- ride their own growth, so a retired spot's fan sinks back into the ground and dims
 --- out along the way instead of being switched off where it stands.
 local function stepRays(burst: Burst, now: number, age: number, loud: number, alive: number)
-	local speed = 1.6 + 0.8 * loud
+	local speed = (1.6 + 0.8 * loud) * burst.raySpeed
+	-- Still fans (below Rare) keep the old write-only-when-growing path; a spinning
+	-- or pumping fan moves every frame, so its tips are written every frame.
+	local moving = burst.raySpin ~= 0 or burst.rayPump ~= 0
+	local turn = if burst.raySpin ~= 0 then CFrame.Angles(0, now * burst.raySpin, 0) else nil
 	for _, ray in burst.rays do
 		local grow = math.clamp((age - ray.delay) / RAY_GROW, 0, 1)
 		-- Eased in AND out: an ease-out alone still leaves the ground at full speed,
 		-- which is exactly the jolt this is here to remove.
 		local extend = smooth(grow) * alive
-		if extend ~= ray.extend then
+		if moving then
+			ray.extend = extend
+			-- Its own surge on a beat off the blink's, so the fan flares unevenly.
+			local surge = 0.5 + 0.5 * math.sin(now * speed * 1.3 + ray.phase * 1.7)
+			local length = math.max(extend * (1 - burst.rayPump * (1 - surge)), 0.01)
+			local reach = if turn then turn:VectorToWorldSpace(ray.reach) else ray.reach
+			ray.tip.Position = Vector3.new(0, RAY_BASE_Y, 0) + reach * length
+		elseif extend ~= ray.extend then
 			ray.extend = extend
 			ray.tip.Position = Vector3.new(0, RAY_BASE_Y, 0) + ray.reach * math.max(extend, 0.01)
 		end
