@@ -66,13 +66,17 @@ local SEED = 8400
 local CELL = 14
 local EDGE_MARGIN = 6
 
---- Per-cell chances. They sum to 0.30 — roughly one cell in three carries something,
---- which over Stage 3's 290 x 170 plate is about seventy sites in the whole field.
+--- Per-cell chances. They sum to 0.165 — roughly one cell in six carries something,
+--- which over Stage 3's 290 x 170 plate is about forty sites in the whole field.
+--- THINNED FROM 0.30 when build/WasteDump went in: the dump's ruts, sludge, lids and
+--- crushed drums are this field's ground layer now, and the litter underneath them
+--- only has to keep the bare stretches from reading swept. Glass took the biggest cut —
+--- window glass is the one kind that says "town", not "dump".
 --- Read the header before raising any of them.
-local DIRT_CHANCE = 0.14
-local GRIT_CHANCE = 0.08
-local GLASS_CHANCE = 0.05
-local RUBBLE_CHANCE = 0.03
+local DIRT_CHANCE = 0.08
+local GRIT_CHANCE = 0.05
+local GLASS_CHANCE = 0.015
+local RUBBLE_CHANCE = 0.02
 
 --- Share of dirt drifts that are pale dust rather than dark ash. Lower than an even
 --- split because the ash is the one that works here: Stage 3's ground is already a

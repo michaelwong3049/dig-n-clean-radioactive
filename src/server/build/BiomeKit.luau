@@ -3,7 +3,8 @@
 	BiomeKit.luau — the shared parts and placement helpers for the far biomes, Stages 7-12.
 
 	    used by build/CinderField, CobaltShelf, GlassBarrens, SulfurFlats, BloodrockRift
-	    and GroundZero, each called from build/Scenery's buildStageScenery
+	    and GroundZero, each called from build/Scenery's buildStageScenery -- and by
+	    Stage 3's build/WasteDump, which keeps the same rules minus the glow
 
 	Every one of those six fields keeps build/Scenery's two standing rules for anything
 	over a dig plate, even though the far stages have no nukes stocked yet (dig is OFF out
