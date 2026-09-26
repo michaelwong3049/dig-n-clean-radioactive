@@ -89,13 +89,13 @@ local HELD_ITEM_LIFT = 0.15
 --- every crate is the same box in your hands whatever sticks up off its lid.
 local HELD_CRATE_SIZE = 3.8
 
---- Clearance between the posed hands and the top of a held magnet, which hangs
+--- Clearance between the posed right hand and the top of a held magnet, which hangs
 --- poles-down below them at its shop size (see Shared/MagnetHang).
 local HELD_MAGNET_DROP = 0.2
 
---- Where the hands are under the "magnet" pose, root space, if the pose welds are not
+--- Where the right hand is under the "magnet" pose, root space, if the pose welds are not
 --- readable yet -- out in front at chest height.
-local HELD_MAGNET_FALLBACK = Vector3.new(0, 0.6, -1.8)
+local HELD_MAGNET_FALLBACK = Vector3.new(1, 0.6, -1.8)
 
 local equipped: { [Player]: string? } = {}
 
@@ -160,7 +160,8 @@ local LOCK_NAME = "CarryLock"
 --- into here rather than being copied into a second lockUpperBody.
 ---
 --- `pitch` swings the limb forward, `roll` brings it in toward the body's midline.
-local POSES: { [string]: { shoulder: { pitch: number, roll: number }, elbow: { pitch: number, roll: number } } } = {
+--- `oneArm` locks only the spine and the RIGHT arm; the left keeps its walk/idle swing.
+local POSES: { [string]: { shoulder: { pitch: number, roll: number }, elbow: { pitch: number, roll: number }, oneArm: boolean? } } = {
 	-- The detector: braced against the chest and swept from the hips. These are the
 	-- numbers this file carried before there was more than one pose.
 	detector = {
@@ -186,13 +187,14 @@ local POSES: { [string]: { shoulder: { pitch: number, roll: number }, elbow: { p
 		shoulder = { pitch = 74, roll = 30 },
 		elbow = { pitch = -40, roll = 0 },
 	},
-	-- Pulling a find up with the magnet: both hands out in front on its top, the
-	-- magnet hanging poles-down over the hole below them. The hose's pose with the
-	-- shoulders lifted past level: at the hose's 74 the hands sat at the hips and a
-	-- 3-stud top tier (its full shop size) dipped 0.4 studs into the ground.
+	-- Pulling a find up with the magnet: ONE hand, the right, held out in front with
+	-- the magnet dangling poles-down from it. Two hands on it looked awkward (user
+	-- call). The shoulder is lifted past level so a 3-stud top tier (its full shop
+	-- size) still clears the ground; roll 0 keeps the arm out in front of the shoulder.
 	magnet = {
-		shoulder = { pitch = 100, roll = 30 },
-		elbow = { pitch = -40, roll = 0 },
+		shoulder = { pitch = 100, roll = 0 },
+		elbow = { pitch = -30, roll = 0 },
+		oneArm = true,
 	},
 	-- Carrying a dug item back on foot. Nothing braces this against a fixed rig part
 	-- the way the detector and hose do -- it is welded to LeftHand (see equipItem) --
@@ -330,6 +332,9 @@ local function lockUpperBody(character: Model, kind: string)
 	for _, spec in UPPER_BODY_POSE do
 		local limb = character:FindFirstChild(spec.limb)
 		local joint = limb and limb:FindFirstChild(spec.joint)
+		if angles.oneArm and string.sub(spec.limb, 1, 4) == "Left" then
+			joint = nil
+		end
 		if joint and limb:FindFirstChild(LOCK_NAME) == nil then
 			local part0, part1, c0, c1 = jointFrames(joint)
 			if part0 and part1 and c0 and c1 then
@@ -500,8 +505,8 @@ local function equip(character: Model, track: string, tier: number)
 	local root = character:FindFirstChild("HumanoidRootPart")
 	if track == "Magnet" and root and root:IsA("BasePart") then
 		-- THE MAGNET YOU BOUGHT, AT THE SIZE YOU BOUGHT IT: posed and sized by the same
-		-- spec as the shop rack (Shared/MagnetHang), hanging poles-down below the two
-		-- posed hands, face forward. Worked out in root space and welded to the root at
+		-- spec as the shop rack (Shared/MagnetHang), hanging poles-down below the
+		-- posed right hand, face forward. Worked out in root space and welded to the root at
 		-- an explicit C0, like equipItem, so it never inherits the arm's bend or gets
 		-- glued on before the pose's welds have solved.
 		for _, d in clone:GetDescendants() do
@@ -514,9 +519,8 @@ local function equip(character: Model, track: string, tier: number)
 		MagnetHang.fit(clone, facing, tier, MagnetHang.rank(tier))
 		clone:PivotTo(facing * MagnetHang.basis(tier))
 
-		local left = lockedFromRoot(root, character:FindFirstChild("LeftHand"))
 		local right = lockedFromRoot(root, character:FindFirstChild("RightHand"))
-		local grip = if left and right then (left.Position + right.Position) / 2 else HELD_MAGNET_FALLBACK
+		local grip = if right then right.Position else HELD_MAGNET_FALLBACK
 		local topAt = grip - Vector3.new(0, HELD_MAGNET_DROP, 0)
 
 		local lo, hi = MagnetHang.box(clone, root.CFrame)
