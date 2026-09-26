@@ -1348,9 +1348,9 @@ local function renderDetail()
 		d.marker.Visible = false
 		d.sticker.Visible = false
 	end
-	d.range[1].Text = UIKit.formatKg(item.weight * Payload.MIN)
+	d.range[1].Text = UIKit.formatKg(Weight.shownKg(item.weight, Payload.MIN))
 	d.range[2].Text = `usual {UIKit.formatKg(item.weight)}`
-	d.range[3].Text = UIKit.formatKg(item.weight * Payload.MAX)
+	d.range[3].Text = UIKit.formatKg(Weight.shownKg(item.weight, Payload.MAX))
 
 	-- Value carries the item's weight (Config/Weight): the sale floor is baseValue *
 	-- valueMult. The odds are what the roll actually does (odds / rollBias).

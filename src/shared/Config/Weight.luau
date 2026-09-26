@@ -6,7 +6,7 @@
 	anything outside Config/. This file requires nothing; Config/Items requires it.
 
 	An item's `weight` is in KILOGRAMS and authored per entry in Config/Items. It is
-	INTRINSIC — a Bottle Cap is always ~0.05 kg, a buried safe always ~220 — not a
+	INTRINSIC — a Dud Nuke is always ~5 kg, a buried nuke always ~470 — not a
 	per-dig roll. Rarity and weight are ORTHOGONAL: a Diamond Chain is light and
 	precious, a Steel Rod is heavy and worthless. Five things read the mass:
 
@@ -28,11 +28,17 @@
 
 local Weight = {}
 
--- The catalogue's real span. MIN is a bottle cap / glass pebble; MAX is a buried
--- safe / the Containment Cylinder. `norm` is LOG between them because mass is
--- perceived multiplicatively — 0.1 vs 1 kg reads like 10 vs 100.
-Weight.MIN = 0.05
-Weight.MAX = 250
+-- The catalogue's real span. MIN is the floor no nuke may show under (a Dud Nuke);
+-- MAX is the Containment Cylinder. `norm` is LOG between them because mass is
+-- perceived multiplicatively — 10 vs 100 kg reads like 100 vs 1000.
+--
+-- SIZE CLASSES (an authoring guide, not a mechanic — the curves below do the work):
+--   Small 5-15 kg, Normal 16-50, Large 51-250, Extra Large 250+.
+-- Every authored `weight` was rebased from the old 0.05..250 span onto 5..500 along
+-- the same log curve (kg = 5 * 100^oldNorm), so every curve below reads each item at
+-- the same `norm` as before and balance is unchanged; only the printed kg moved.
+Weight.MIN = 5
+Weight.MAX = 500
 
 -- `rollBias` knobs. The curve is `min(light, heavy)` over `norm`:
 --   * feather items (norm <= LIGHT_END) are lifted from LIGHT_FLOOR back up to 1
@@ -99,6 +105,13 @@ function Weight.rollBias(kg: number): number
 	local light = lerp(Weight.LIGHT_FLOOR, 1, clamp01(n / Weight.LIGHT_END))
 	local heavy = lerp(1, Weight.HEAVY_FLOOR, clamp01((n - Weight.HEAVY_START) / (1 - Weight.HEAVY_START)))
 	return math.min(light, heavy)
+end
+
+--- The kg a surface PRINTS for one specific find: the item's authored weight times
+--- its per-dig Payload roll, floored at MIN so a small item on a low roll still
+--- reads as the 5 kg minimum rather than dipping under it.
+function Weight.shownKg(kg: number, roll: number): number
+	return math.max(kg * roll, Weight.MIN)
 end
 
 --- The "1 in N" a surface should PRINT for an item: its authored headline inflated

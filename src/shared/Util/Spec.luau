@@ -238,6 +238,15 @@ function Spec.run(): boolean
 			Rarity.get(heaviest.rarity).order >= Rarity.get("Rare").order
 		)
 
+		-- No nuke under 5 kg: authored weights sit at or above the floor, and the
+		-- shown kg (weight x the 0.6x-2.5x payload roll) is floored at it too.
+		local lightest = Items.DEFS[1].weight
+		for _, item in Items.DEFS do
+			lightest = math.min(lightest, item.weight)
+		end
+		check(string.format("§weight no nuke is authored under 5 kg (lightest %gkg)", lightest), lightest >= 5)
+		check("§weight shownKg floors a low roll at 5 kg", Weight.shownKg(5, 0.6) == 5 and Weight.shownKg(100, 2) == 200)
+
 		-- `sizeMult` is a gentle visual nudge on top of sizeScale, never a resize.
 		local sizeMultOk = true
 		for _, item in Items.DEFS do

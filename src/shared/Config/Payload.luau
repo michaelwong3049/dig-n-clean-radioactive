@@ -7,7 +7,7 @@
 	anything outside Config/. This file requires nothing.
 
 	WHY THIS IS SEPARATE FROM Config/Weight. Weight is INTRINSIC per item TYPE — a
-	Bottle Cap is always ~0.05 kg, a buried safe always ~220, and it never varies
+	Dud Nuke is always ~5 kg, a buried nuke always ~470, and it never varies
 	between two Bottle Caps. Payload is the opposite: a per-DIG roll, so two Rusty
 	Nukes sitting side by side can be wildly different sizes. They stack
 	multiplicatively (both feed the same `model:ScaleTo`/value formulas) rather

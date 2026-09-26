@@ -42,6 +42,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
 local Items = require(Shared.Config.Items)
+local Weight = require(Shared.Config.Weight)
 local Rarity = require(Shared.Config.Rarity)
 local Tuning = require(Shared.Config.Tuning)
 local Payload = require(Shared.Config.Payload)
@@ -613,7 +614,7 @@ local function draw(card: Card)
 	-- "GIGA x2.3" sticker over a kg number that never moved -- fold the same roll in
 	-- so what the card says it weighs matches what it says it pays and how big the
 	-- sticker says it rolled.
-	local kgText = formatWeight(def.weight * (if type(payload) == "number" then payload else 1))
+	local kgText = formatWeight(Weight.shownKg(def.weight, if type(payload) == "number" then payload else 1))
 	local kgW = textWidth(kgText, L.kgSize, STYLE.font) + 22
 	local rowLeft = mid - (ratePillW + L.pillGap + kgW) / 2
 

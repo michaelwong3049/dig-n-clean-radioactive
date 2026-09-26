@@ -80,10 +80,10 @@ Detonation.RARITY_WINDOW = {
 -- to a typical nuke so a typical nuke gets BASE_WINDOW exactly, and softened so a
 -- buried safe is not handed the whole of its extra rope back as free time. 0 would
 -- ignore weight entirely; 1 would scale the window exactly as hard as the pull.
--- WEIGHT_REF_KG is the catalogue's median weight (1 kg); a feather-light nuke comes in
+-- WEIGHT_REF_KG is the catalogue's median weight (25 kg); a feather-light nuke comes in
 -- ~25% under BASE_WINDOW, the heaviest ~35% over.
 Detonation.WEIGHT_WINDOW_EXP = 0.5
-Detonation.WEIGHT_REF_KG = 1
+Detonation.WEIGHT_REF_KG = 25
 
 -- The point of no return, as a fraction of the window. Before it the release is free;
 -- at it the nuke arms and the release stops working (DigService's lock handler).

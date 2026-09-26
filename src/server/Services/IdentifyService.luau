@@ -51,6 +51,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Items = require(Shared.Config.Items)
+local Weight = require(Shared.Config.Weight)
 local Crates = require(Shared.Config.Crates)
 local Payload = require(Shared.Config.Payload)
 local Contamination = require(Shared.Contamination)
@@ -142,7 +143,7 @@ function IdentifyService.announce(player: Player, item: any, firstFind: boolean,
 		flavor = def.flavor,
 		rarity = item.rarity,
 		modifier = item.modifier,
-		weight = def.weight * mult,
+		weight = Weight.shownKg(def.weight, mult),
 		firstFind = firstFind,
 		index = if data then copyEntry(data.indexStats[def.id]) else nil,
 	}

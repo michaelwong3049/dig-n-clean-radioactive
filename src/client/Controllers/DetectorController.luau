@@ -1290,7 +1290,7 @@ end
 
 local bannerToken = 0
 
---- "0.05 kg" / "12 kg" / "220 kg" — two sig figs under a kilo, whole numbers above.
+--- "5 kg" / "12 kg" / "470 kg" — two sig figs under a kilo, whole numbers above.
 --- Small dup of IndexController.formatWeight (the 2nd caller); lift to UIKit on a 3rd.
 local function formatWeight(kg: number): string
 	if kg < 1 then
