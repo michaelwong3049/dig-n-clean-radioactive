@@ -36,7 +36,7 @@
 	into a coloured toy. Everything else about the item — name, flavour, what it is worth,
 	what it looks like — stays under the rock.
 
-	STASH-AND-RESTORE, THE SAME DEAL ITEMGRIME MADE. `erode` re-derives from the size and
+	STASH-AND-RESTORE, THE SAME DEAL ITEMGRIME MADE. `paint` re-derives from the size and
 	colour stashed on each part the first time it touched it, never from what is on the
 	part now, so calling it every tick with a falling level walks the chunk down smoothly
 	instead of compounding a shrink onto a shrink.
@@ -117,7 +117,7 @@ local SHRINK_FLOOR = 0.42
 --- pieces are what hide the item and they come off only when the patch pops; the
 --- flakes are what makes the soak between those two moments something you can watch.
 --- Each one breaks off at its own point in the soak (SHED_AT_ATTR) and the client
---- tumbles it off the item (CrustDebrisController), so a chunk under the stream sheds
+--- tumbles it off the item (CrustController), so a chunk under the stream sheds
 --- a flake every half second or so instead of shrinking silently and then vanishing
 --- in one step. Visual only: the patch -- its clock, its charge, its XP -- is still
 --- the whole chunk (Shared/Contamination), so none of this moves balance.
@@ -156,7 +156,11 @@ local SHED_AT_ATTR = "CrustShedAt"
 --- Set true the moment a piece has come off. The client watches it to throw the
 --- falling copy; the server keeps the (now invisible) part until `shed` sweeps up.
 local SHED_ATTR = "CrustShed"
---- Every crust part carries it, so CrustDebrisController can find them to watch.
+--- How eroded a piece is (1 dry, 0 about to pop) and whether it is past the stream's
+--- potency. Written by the server (`erode`), eased and drawn by CrustController.
+local LEVEL_ATTR = "CrustLevel"
+local TOUGH_ATTR = "CrustTough"
+--- Every crust part carries it, so CrustController can find them to watch.
 local TAG = "ItemCrust"
 --- How long a shed part hangs about, invisible, before the server destroys it: long
 --- enough that every client has seen the SHED_ATTR change before the part is gone.
@@ -439,6 +443,13 @@ end
 --- There is no wall now (Contamination.secondsFor grinds instead), so a tough chunk
 --- erodes like any other, only slowly, and is drawn darker slate the whole way down so
 --- the player can see which rock is the slow one.
+---
+--- THE SERVER SAYS HOW ERODED, THE CLIENT DRAWS IT. This used to write Size, Colour,
+--- Transparency and Material straight onto the part, which replicated at the wash
+--- tick's ten hertz: every chunk shrank in visible steps. Now it stamps the level (and
+--- whether the rock is tough) as attributes, and CrustController eases each part
+--- toward them every frame and draws the look with `paint`. Shedding stays here: when a
+--- piece comes off is the server's call.
 function ItemCrust.erode(parts: { BasePart }, level: number, tough: boolean)
 	local amount = math.clamp(level, 0, 1)
 	for _, part in parts do
@@ -450,30 +461,43 @@ function ItemCrust.erode(parts: { BasePart }, level: number, tough: boolean)
 			shedOne(part)
 			continue
 		end
-		local storedSize = part:GetAttribute(SIZE_ATTR)
-		if typeof(storedSize) ~= "Vector3" then
-			storedSize = part.Size
-			part:SetAttribute(SIZE_ATTR, storedSize)
-		end
-		local storedColor = part:GetAttribute(COLOR_ATTR)
-		if typeof(storedColor) ~= "Color3" then
-			storedColor = part.Color
-			part:SetAttribute(COLOR_ATTR, storedColor)
-		end
+		part:SetAttribute(LEVEL_ATTR, amount)
+		part:SetAttribute(TOUGH_ATTR, tough)
+	end
+end
 
-		local baseSize = storedSize :: Vector3
-		local baseColor = storedColor :: Color3
+--- Draw one piece of crust at `level` (1 dry and whole, 0 about to come off). Client
+--- side, every frame a part is moving (CrustController). It re-derives from the size
+--- and colour stashed on the part the first time it was painted, never from what is on
+--- it now, so painting a falling level each frame walks the chunk down smoothly
+--- instead of compounding a shrink onto a shrink.
+function ItemCrust.paint(part: BasePart, level: number, tough: boolean)
+	local amount = math.clamp(level, 0, 1)
+	local storedSize = part:GetAttribute(SIZE_ATTR)
+	if typeof(storedSize) ~= "Vector3" then
+		storedSize = part.Size
+		part:SetAttribute(SIZE_ATTR, storedSize)
+	end
+	local storedColor = part:GetAttribute(COLOR_ATTR)
+	if typeof(storedColor) ~= "Color3" then
+		storedColor = part.Color
+		part:SetAttribute(COLOR_ATTR, storedColor)
+	end
 
-		local soaked = 1 - amount
-		part.Size = baseSize * (SHRINK_FLOOR + (1 - SHRINK_FLOOR) * amount)
-		part.Transparency = soaked * WET_FADE
-		if tough then
-			part.Color = baseColor:Lerp(Color3.new(0, 0, 0), 0.35 + soaked * WET_DARKEN * 0.65)
-			part.Material = Enum.Material.Slate
-		else
-			part.Color = baseColor:Lerp(Color3.new(0, 0, 0), soaked * WET_DARKEN)
-			part.Material = Enum.Material.Rock
-		end
+	local baseSize = storedSize :: Vector3
+	local baseColor = storedColor :: Color3
+
+	local soaked = 1 - amount
+	part.Size = baseSize * (SHRINK_FLOOR + (1 - SHRINK_FLOOR) * amount)
+	part.Transparency = soaked * WET_FADE
+	if tough then
+		part.Color = baseColor:Lerp(Color3.new(0, 0, 0), 0.35 + soaked * WET_DARKEN * 0.65)
+	else
+		part.Color = baseColor:Lerp(Color3.new(0, 0, 0), soaked * WET_DARKEN)
+	end
+	local material = if tough then Enum.Material.Slate else Enum.Material.Rock
+	if part.Material ~= material then
+		part.Material = material
 	end
 end
 
@@ -520,6 +544,8 @@ ItemCrust.GLOW_NAME = GLOW_NAME
 --- The tag on every crust part, and the attribute that flips when one comes off.
 ItemCrust.TAG = TAG
 ItemCrust.SHED_ATTR = SHED_ATTR
+ItemCrust.LEVEL_ATTR = LEVEL_ATTR
+ItemCrust.TOUGH_ATTR = TOUGH_ATTR
 
 --- Nothing left to hide: put the light out. Called when the last patch clears, so an
 --- item standing revealed on the tub is lit by the bay and not by its own fallout.

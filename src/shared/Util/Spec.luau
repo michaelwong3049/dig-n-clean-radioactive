@@ -1895,16 +1895,36 @@ function Spec.run(): boolean
 			local _, encased = sample:GetBoundingBox()
 			local swallowed = encased.X > bare.X and encased.Y > bare.Y and encased.Z > bare.Z
 
-			-- Eroding is a per-tick call at ten hertz, so it has to be idempotent the same
-			-- way the film it replaced was: the SECOND call at one level must land on the
+			-- The server only STAMPS the level (CrustController draws it smooth on each
+			-- client), so erode must leave the part's own size alone -- a server write
+			-- would replicate over the client's eased one in ten-hertz steps again.
+			local before = {}
+			for _, part in zones[1] do
+				before[part] = part.Size
+			end
+			ItemCrust.erode(zones[1], 0.5, false)
+			local stamped = true
+			for _, part in zones[1] do
+				local shed = part:GetAttribute(ItemCrust.SHED_ATTR) == true
+				if part.Size ~= before[part] or (not shed and part:GetAttribute(ItemCrust.LEVEL_ATTR) ~= 0.5) then
+					stamped = false
+				end
+			end
+
+			-- Painting runs every frame on the client, so it has to be idempotent the same
+			-- way the film it replaced was: the SECOND paint at one level must land on the
 			-- same size as the first, or a chunk shrinks away under a stream that is not
 			-- moving.
-			ItemCrust.erode(zones[1], 0.5, false)
+			for _, part in zones[1] do
+				ItemCrust.paint(part, 0.5, false)
+			end
 			local once = {}
 			for _, part in zones[1] do
 				once[part] = part.Size
 			end
-			ItemCrust.erode(zones[1], 0.5, false)
+			for _, part in zones[1] do
+				ItemCrust.paint(part, 0.5, false)
+			end
 			local stable = true
 			for _, part in zones[1] do
 				if part.Size ~= once[part] then
@@ -1916,7 +1936,9 @@ function Spec.run(): boolean
 			-- size -- the potency wall -- and that is exactly the bug that got reported: an
 			-- Epic under a tier 2-3 hose would not move. It shrinks now like any other chunk
 			-- at the same level, and is only drawn as tougher rock.
-			ItemCrust.erode(zones[2], 0.5, true)
+			for _, part in zones[2] do
+				ItemCrust.paint(part, 0.5, true)
+			end
 			local toughErodes = true
 			for _, part in zones[2] do
 				local full = part:GetAttribute("CrustSize") :: Vector3
@@ -1935,7 +1957,8 @@ function Spec.run(): boolean
 
 			check("§2 the crust builds one chunk per patch", chunked)
 			check("§2 the crust encloses the item it is hiding", swallowed)
-			check("§2 eroding at one level does not compound", stable)
+			check("§2 the server stamps the erode level and leaves the drawing to the client", stamped)
+			check("§2 painting at one level does not compound", stable)
 			check("§2 a chunk past this potency still erodes, drawn as tougher slate", toughErodes)
 			check("§2 a cleared patch takes its chunk off the item", stripped)
 			sample:Destroy()
