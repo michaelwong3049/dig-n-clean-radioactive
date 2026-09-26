@@ -64,6 +64,17 @@ ToolTiers.Detector = {
 	{ name = "Resonance Mapper", scale = 1.15, body = Color3.fromHex("6B4FA8"), accent = Color3.fromHex("3E2E63"), material = Enum.Material.Metal, glow = Color3.fromHex("B08CFF") },
 	{ name = "Deep Core Array", scale = 1.19, body = Color3.fromHex("C89B3C"), accent = Color3.fromHex("7A5E24"), material = Enum.Material.Metal, glow = Color3.fromHex("FFD772") },
 	{ name = "The Oracle", scale = 1.22, body = Color3.fromHex("EDEDED"), accent = Color3.fromHex("9FE8FF"), material = Enum.Material.Metal, glow = Color3.fromHex("CFF6FF") },
+	-- TOXIC TWILIGHT'S SIX. These rows exist for their NAMES, not their colours: ToolFX
+	-- looks a tier up here by index and by name, and ToolTiers.get CLAMPS, so without a
+	-- row per rung every detector past the Oracle would read as the Oracle and get its
+	-- lens and glints. Nothing repaints these models (they are hand-imported and
+	-- textured), and none has a `glow`, so ToolFX leaves them alone.
+	{ name = "Vein Whisperer", scale = 1.00, body = Color3.fromHex("3F8F6B"), accent = Color3.fromHex("1F4A38"), material = Enum.Material.Metal },
+	{ name = "Aurora Rake", scale = 1.00, body = Color3.fromHex("4FD1C5"), accent = Color3.fromHex("A855FF"), material = Enum.Material.Metal },
+	{ name = "Strata Lance", scale = 1.00, body = Color3.fromHex("B8783C"), accent = Color3.fromHex("5C3A1E"), material = Enum.Material.Metal },
+	{ name = "Leyline Tap", scale = 1.00, body = Color3.fromHex("2E86DE"), accent = Color3.fromHex("1B3A5C"), material = Enum.Material.Metal },
+	{ name = "Null Compass", scale = 1.00, body = Color3.fromHex("2A2438"), accent = Color3.fromHex("8B6BD6"), material = Enum.Material.Metal },
+	{ name = "Prime Meridian", scale = 1.00, body = Color3.fromHex("F2E9D0"), accent = Color3.fromHex("C89B3C"), material = Enum.Material.Metal },
 } :: { TierLook }
 
 -- The magnet starts deliberately tiny (PLAN: the base tier is a toy horseshoe), so

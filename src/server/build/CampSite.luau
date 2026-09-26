@@ -13,10 +13,12 @@
 	WHAT IS REAL AND WHAT IS A SHELL. The trader (BaseCamp.buildTrader) and the cleansing
 	station (Plots.buildCleansingStation) are the same builders Base Camp uses, carrying
 	the same world contract, so the services find them by tag and they simply work here:
-	sell at the counter, dock and shower at the tub, wash what you hold. The stalls are
-	Shops.buildStallShell -- the frame and steel roof with NO station attributes -- because
-	the gear they will sell does not exist yet. They say COMING SOON rather than opening
-	a panel for nothing.
+	sell at the counter, dock and shower at the tub, wash what you hold. A stall is real
+	only where Config/Gear sells something at this camp (a rung's `camp` column): Toxic
+	Twilight's north row is the Detector Shop (Shops.buildCampStall), selling that camp's
+	six detectors. Every other stall is Shops.buildStallShell -- the frame and steel roof
+	with NO station attributes -- because the gear they will sell does not exist yet. They
+	say COMING SOON rather than opening a panel for nothing.
 
 	ONE CAMP'S LAYOUT, RELATIVE TO ITS OWN PLAZA CENTRE. Config/Camps gives the disc
 	(centre, radius, the clip lines where the stage chain comes in and goes on) and the
@@ -49,6 +51,8 @@
 	    ...<Key>.Trader               StationKind = "trader" (one per camp)
 	    ...<Key>.CleansingStation     StationKind = "decon", Shower, IsWashStand, Hose
 	    ...<Key>.Stalls.EmptyStall    NO StationKind, by contract
+	    ...<Key>.Stalls.DetectorShop  StationKind = "shop", ShopCamp = <Key>; only where
+	                                  Gear sells detector rungs at this camp
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -57,6 +61,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
 local Camps = require(Shared.Config.Camps)
+local Gear = require(Shared.Config.Gear)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
@@ -68,7 +73,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 5
+local BUILDER_VERSION = 6
 
 local C = Kit.C
 local build = Kit.build
@@ -695,8 +700,22 @@ local function buildStalls(parent: Instance, L: Layout)
 		Shops.buildStallShell(folder, origin, STALL_WIDTH, accents[(i - 1) % #accents + 1], STALL_LABEL)
 	end
 	-- North row faces south (yaw 180), south row faces north (yaw 0), across the aisle.
-	for _, dx in NORTH_STALL_X do
-		stall(dx, ROW_Z, 180)
+	--
+	-- THE NORTH ROW IS THE DETECTOR SHOP, when Config/Gear sells any detector rung at this
+	-- camp (`camp` on the row). It is one stall where two shells stood: a ladder of six
+	-- makes a stall ~37 studs wide (Shops.campStallWidth), and the two shells' 24-stud
+	-- slots (NORTH_STALL_X) only hold ~54 between them, so it takes both and stands at the
+	-- row's middle. A camp Config/Gear sells nothing at keeps its shells.
+	if #Gear.tiersAt("Detector", L.def.key) > 0 then
+		local origin = CFrame.new(L.ox, PLAZA_Y, L.oz + ROW_Z) * CFrame.Angles(0, math.rad(180), 0)
+		Shops.buildCampStall(folder, origin, "Detector", L.def.key)
+		-- The two shells it replaced would have taken the first two awnings; skip them so
+		-- the south row keeps the colours it had.
+		i += #NORTH_STALL_X
+	else
+		for _, dx in NORTH_STALL_X do
+			stall(dx, ROW_Z, 180)
+		end
 	end
 	for _, dx in SOUTH_STALL_X do
 		stall(dx, -ROW_Z, 0)

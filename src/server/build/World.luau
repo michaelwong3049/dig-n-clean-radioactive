@@ -470,10 +470,24 @@ function World.verify(): (boolean, { string })
 	if shopRoot then
 		for _, d in Workspace:GetDescendants() do
 			if d:IsA("BasePart") and d:GetAttribute("StationKind") == "shop" and not d:IsDescendantOf(shopRoot) then
-				check(
-					false,
-					`{d:GetFullName()} is a shop counter outside Workspace.{Shops.MODEL_NAME} — no builder can clear it and StationService will serve it as a real shop. Delete it.`
-				)
+				if campRoot and d:IsDescendantOf(campRoot) then
+					-- A camp's working stall (build/CampSite, via Shops.buildCampStall) is
+					-- built and cleared by CampSite.rebuild, so it is not a ghost -- but it
+					-- has to say which camp it sells for, and Config/Gear has to actually
+					-- sell rungs of its track there, or ShopService would refuse every
+					-- purchase at a counter that looks open.
+					local camp = d:GetAttribute("ShopCamp")
+					local track = d:GetAttribute("StationId")
+					check(
+						type(camp) == "string" and type(track) == "string" and #Gear.tiersAt(track, camp) > 0,
+						`{d:GetFullName()} is a camp shop counter with ShopCamp {tostring(camp)}, but Config/Gear sells no {tostring(track)} rungs at that camp`
+					)
+				else
+					check(
+						false,
+						`{d:GetFullName()} is a shop counter outside Workspace.{Shops.MODEL_NAME} — no builder can clear it and StationService will serve it as a real shop. Delete it.`
+					)
+				end
 			end
 		end
 	end

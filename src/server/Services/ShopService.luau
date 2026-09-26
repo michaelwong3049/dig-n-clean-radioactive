@@ -322,19 +322,32 @@ local function grantTier(data: any, track: string, tier: number)
 	table.sort(list)
 end
 
---- Every tier of `track`, worst first, tagged with where the player sits on it.
+--- Every tier `camp`'s stall of `track` puts in front of the player, worst first, tagged
+--- with where the player sits on it: the rungs it SELLS (Config/Gear's `camp` column) and
+--- any rung of the track the player already OWNS, wherever it was bought.
+---
+--- THE SECOND HALF IS WHAT KEEPS EQUIP A ONE-PRESS VERB. Toxic Twilight sells detector
+--- tiers 10-15 and Base Camp 1-9, and a player who bought a Twilight tier and then
+--- swapped down to an old one at Base Camp could otherwise only swap back by walking
+--- to Twilight. So an owned rung shows up at every stall of its track as an EQUIP card;
+--- an unowned one shows up only at the stall that sells it, which is also why `buyable`
+--- (= not owned) needs no separate "sold here" test.
 ---
 --- Worst-first needs no sorting: Config/Gear already lists each track in ascending
 --- tier order, and `Gear.tier(track, n)` indexes that list directly. If a track is
 --- ever reordered there, this comes out reordered too — which is correct, since the
---- tier NUMBER is the thing the profile stores.
-local function catalogFor(data: any, track: string): { CatalogEntry }
+--- tier NUMBER is the thing the profile stores. `entry.tier` is that number, and it is
+--- NOT the entry's index in the list any more: a stall that sells 10-15 lists six entries.
+local function catalogFor(data: any, track: string, camp: string): { CatalogEntry }
 	local equipped = data.gear[Gear.profileKey(track)] or 1
 	local entries = {}
 
 	for tier = 1, Gear.maxTier(track) do
 		local def = Gear.tier(track, tier)
 		local owned = ownsTier(data, track, tier)
+		if not owned and Gear.campOf(track, tier) ~= camp then
+			continue
+		end
 		local current = tier == equipped
 		local buyable = not owned
 		table.insert(entries, {
@@ -358,13 +371,24 @@ local function catalogFor(data: any, track: string): { CatalogEntry }
 	return entries
 end
 
---- Pure. Safe to call every tick to drive the panel.
-function ShopService.offerFor(data: any, track: string): Offer?
+--- The camp whose stall this player is standing at: the `ShopCamp` its station part
+--- carries, or Base Camp when it carries none (every Base Camp stall, which is stamped
+--- with nothing so its parts are as they always were). Read off the part rather than
+--- the player's position because two stalls of one track are the same kind and id.
+function ShopService.campAt(player: Player): string
+	local part = StationService.partOf(player)
+	local camp = if part then part:GetAttribute("ShopCamp") else nil
+	return if type(camp) == "string" then camp else "base"
+end
+
+--- Pure. Safe to call every tick to drive the panel. `camp` is the stall's (see
+--- `campAt`); left out it is Base Camp's.
+function ShopService.offerFor(data: any, track: string, camp: string?): Offer?
 	if not isTrack(track) or data == nil then
 		return nil
 	end
 
-	local tiers = catalogFor(data, track)
+	local tiers = catalogFor(data, track, camp or "base")
 
 	-- MAXED IS "NOTHING LEFT TO BUY", not "you are standing on the top rung". Those
 	-- were the same sentence while ownership was a high-water mark; with a set, a
@@ -555,6 +579,17 @@ function ShopService.buy(player: Player, track: string, tier: number?): (boolean
 	local id = StationService.idOf(player)
 	if kind ~= "shop" or id ~= track then
 		return false, "you aren't at that shop"
+	end
+
+	-- AND THE STALL SELLS WHAT IS BEING ASKED FOR. Being at a Detector shop is not being
+	-- at the one that sells tier 12: Toxic Twilight's stall sells 10-15 and Base Camp's
+	-- 1-9, and a crafted request from one naming the other's tier would otherwise buy it.
+	-- Only a real tier is judged here; a malformed one falls through to buyTier's own
+	-- "no such tier" so its message does not change.
+	if type(tier) == "number" and tier == math.floor(tier) and tier >= 1 and tier <= Gear.maxTier(track) then
+		if Gear.campOf(track, tier) ~= ShopService.campAt(player) then
+			return false, "this shop doesn't sell that one"
+		end
 	end
 
 	return ShopService.buyTier(player, track, tier)

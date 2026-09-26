@@ -121,6 +121,26 @@ Gear.Detector = {
 	{ name = "Resonance Mapper", price = 135000, radius = 28, luck = 1.85, depth = 27, clarity = 2, blurb = "Maps a whole plot in one slow pass." },
 	{ name = "Deep Core Array", price = 320000, radius = 31, luck = 2.15, depth = 34, clarity = 3, blurb = "Hears the core. Ignores everything above it." },
 	{ name = "The Oracle", price = 750000, radius = 34, luck = 2.50, depth = 44, clarity = 3, blurb = "Sees the bottom of the map and is bored by it." },
+	-- TOXIC TWILIGHT'S SIX. Sold at the Detector stall in that camp and nowhere else
+	-- (`camp` below, and Gear.campOf), so a player has to reach the end of Stage 6 to
+	-- spend on them. The order is the order they were drawn in, which is the order they
+	-- cost.
+	--
+	-- THE CLIMB IS IN LUCK AND DEPTH, AND `radius` BARELY MOVES, ON PURPOSE. The note above
+	-- says why the reveal curve is flat, and the Spec pins a ratio guard on it (top radius
+	-- over the Rust Bucket's, <= 4). The Oracle already sits at 3.1x; +1 a rung to 40 is
+	-- 3.6x, which is the most this ladder can take before that guard trips. Spec still
+	-- needs every rung to reveal further than the last, so it is a whole stud, no more.
+	-- Prices keep the ladder's x2.4 stride. Luck steps 0.30 a rung, a touch under the
+	-- Oracle's last 0.35. It buys less than it looks like: Items.luckBias caps a weight at
+	-- DIG_LUCK_BIAS_CAP (20), and luck^3 (Legendary) reaches that at 2.71 and luck^2 (Epic)
+	-- at 4.47, so from the second rung up the extra luck is mostly Rare and Epic weight.
+	{ name = "Vein Whisperer", price = 1800000, radius = 35, luck = 2.80, depth = 48, clarity = 3, blurb = "Hums along a vein and tells you where it thickens.", camp = "twilight" },
+	{ name = "Aurora Rake", price = 4300000, radius = 36, luck = 3.10, depth = 53, clarity = 3, blurb = "Combs the ground with light. The rare things snag first.", camp = "twilight" },
+	{ name = "Strata Lance", price = 10000000, radius = 37, luck = 3.40, depth = 58, clarity = 3, blurb = "One beam through every layer at once.", camp = "twilight" },
+	{ name = "Leyline Tap", price = 24000000, radius = 38, luck = 3.70, depth = 64, clarity = 3, blurb = "Drinks from the fault lines. Warm to hold.", camp = "twilight" },
+	{ name = "Null Compass", price = 58000000, radius = 39, luck = 4.00, depth = 70, clarity = 3, blurb = "Points at whatever the ground is hiding from you.", camp = "twilight" },
+	{ name = "Prime Meridian", price = 140000000, radius = 40, luck = 4.30, depth = 76, clarity = 3, blurb = "Every direction agrees on where the good stuff is.", camp = "twilight" },
 }
 
 -- The extraction track. You do not dig — you drop a magnet and haul the thing up
@@ -488,13 +508,36 @@ Gear.STAT_META = {
 --- Every column of `track` that is neither sold nor deliberately retired is a bug, and
 --- Spec calls this to say so. `name`, `price` and `blurb` are the card's chrome rather
 --- than stats, so they are never expected in `order`.
-Gear.STAT_CHROME = { name = true, price = true, blurb = true }
+Gear.STAT_CHROME = { name = true, price = true, blurb = true, camp = true }
 
 function Gear.tier(track: string, index: number): GearTier
 	local list = (Gear :: any)[track]
 	assert(list, `unknown gear track "{track}"`)
 	local t = list[math.clamp(index, 1, #list)]
 	return t
+end
+
+--- The camp whose stall sells this rung. A row with no `camp` is sold at Base Camp,
+--- which is every rung of every track but Toxic Twilight's six detectors. It is a
+--- Config/Camps key, spelled the way that file spells it ("base" is Camps.BASE).
+---
+--- WHERE A RUNG IS SOLD AND WHERE YOU CAN USE IT ARE NOT THE SAME QUESTION. This gates
+--- the purchase only (ShopService.buyTier's caller, the stall's rack and card row). What
+--- you own you carry anywhere, and can switch to at any stall of the track.
+function Gear.campOf(track: string, index: number): string
+	return (Gear.tier(track, index) :: any).camp or "base"
+end
+
+--- The rungs `camp`'s stall of `track` sells, ascending. Empty when the camp has no
+--- stall for the track, which is the case for most track/camp pairs.
+function Gear.tiersAt(track: string, camp: string): { number }
+	local tiers = {}
+	for index = 1, Gear.maxTier(track) do
+		if Gear.campOf(track, index) == camp then
+			table.insert(tiers, index)
+		end
+	end
+	return tiers
 end
 
 function Gear.maxTier(track: string): number

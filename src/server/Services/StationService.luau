@@ -62,7 +62,7 @@ type Entry = {
 local cache: { Entry } = {}
 local cacheAge = math.huge
 
-type Current = { kind: string?, id: string? }
+type Current = { kind: string?, id: string?, part: BasePart? }
 
 local current: { [Player]: Current } = {}
 local listeners: { (Player, string?, string?, string?, string?) -> () } = {}
@@ -116,6 +116,18 @@ function StationService.idOf(player: Player): string?
 	return if entry then entry.id else nil
 end
 
+--- The station PART the player is standing at, for whatever else it carries.
+---
+--- kind and id are not enough to tell two stations apart when a track is sold in more than
+--- one place: Base Camp's Detector stall and Toxic Twilight's are both ("shop", "Detector"),
+--- and only the part says which camp's rungs are for sale (`ShopCamp`, see
+--- ShopService.campAt). Kept current every tick rather than on an edge, because walking
+--- from one stall to another of the same kind fires no edge.
+function StationService.partOf(player: Player): BasePart?
+	local entry = current[player]
+	return if entry then entry.part else nil
+end
+
 --- fn(player, kind, id, previousKind, previousId). Fires only on a real change.
 function StationService.onChanged(fn: (Player, string?, string?, string?, string?) -> ())
 	table.insert(listeners, fn)
@@ -135,12 +147,13 @@ local function step(dt: number)
 			continue
 		end
 
-		local kind, id = StationService.at(root.Position)
+		local kind, id, part = StationService.at(root.Position)
 		local entry = current[player]
 		if entry == nil then
-			entry = { kind = nil, id = nil }
+			entry = { kind = nil, id = nil, part = nil }
 			current[player] = entry
 		end
+		entry.part = part
 
 		if entry.kind ~= kind or entry.id ~= id then
 			local previousKind, previousId = entry.kind, entry.id
