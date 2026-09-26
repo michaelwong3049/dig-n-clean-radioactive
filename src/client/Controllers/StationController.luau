@@ -105,14 +105,13 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
-local AuraLook = require(Shared.AuraLook)
 local Gear = require(Shared.Config.Gear)
 local Net = require(Shared.Net)
-local ToolModels = require(Shared.ToolModels)
 
 -- No `Dock` alias any more: this panel is centred on the screen rather than on the
 -- space above the dock, so it no longer reads Dock.RESERVE. See the header.
 local UIKit = require(script.Parent.Parent.UIKit)
+local GearArt = require(script.Parent.Parent.GearArt)
 local TraderPanel = require(script.Parent.Parent.TraderPanel)
 local LockerPanel = require(script.Parent.Parent.LockerPanel)
 local LockerTutorial = require(script.Parent.Parent.LockerTutorial)
@@ -460,31 +459,7 @@ local CARD_ART_HEIGHT = CARD_CHIPS_TOP - CARD_ROW_GAP - CARD_ART_TOP
 -- THE AURA'S ATOM IS THE ONE CARD THAT MOVES, also on request: AuraController circles
 -- its camera and orbits its electrons (AuraLook.ICON_TAG). Nothing in this file knows;
 -- it frames the atom like any other model.
-type ArtView = { from: Vector3, up: Vector3 }
-local ART_VIEW: { [string]: ArtView } = {
-	Detector = { from = Vector3.new(1, 0.5, 0.3), up = Vector3.new(0, 0.6, -1) },
-	Magnet = { from = Vector3.new(1, 0.6, 0.35), up = Vector3.yAxis },
-	Cleaner = { from = Vector3.new(1, 0.55, -0.35), up = Vector3.yAxis },
-	-- Nearly head on and a little above, so the flat ring reads as a ring and the
-	-- tilted pair cross in front of the nucleus the way they do round a chest.
-	Aura = { from = Vector3.new(0.25, 0.4, 1), up = Vector3.yAxis },
-}
--- Narrow, so a long detector does not bulge at the near end the way a wide lens makes
--- it; the camera just stands further back.
-local ART_FOV = 25
--- How much bigger than the model the framed view is — the breathing room at the edges.
-local ART_MARGIN = 1.12
--- The ViewportFrame's defaults (a 200 grey ambient under a 140 key) wash every tier out
--- to the same pale grey. A low ambient and a warm key over the camera's left shoulder
--- give the models back the colour that tells one tier from the next.
-local ART_LIGHT = {
-	ambient = Color3.fromRGB(90, 92, 98),
-	color = Color3.fromRGB(255, 248, 235),
-	direction = Vector3.new(-1, -1, -1),
-}
--- Parts that only make sense in the hand: the same gag build/Shops' rack strips
--- (RACK_HIDE_ON_DISPLAY), hardcoded again because build/ cannot be required from here.
-local ART_HIDE = { "Realistically Sized Magnet" }
+-- The views, lighting and framing live in client/GearArt, shared with the Gear panel.
 
 --- One chip of a card's stat row: the label small on top, the value under it, a thin
 --- bar along the bottom. Chips are laid side by side and share the row's width, which
@@ -673,19 +648,8 @@ local function makeShopCard(parent: Instance, order: number): Frame
 
 	-- Clear over the well, so the well's own fill is the backdrop. The camera is made
 	-- once here and only ever moved; paintArt swaps the model in front of it.
-	local viewport = Instance.new("ViewportFrame")
+	local viewport = GearArt.viewport(art)
 	viewport.Name = "CardModel"
-	viewport.Size = UDim2.fromScale(1, 1)
-	viewport.BackgroundTransparency = 1
-	viewport.Ambient = ART_LIGHT.ambient
-	viewport.LightColor = ART_LIGHT.color
-	viewport.LightDirection = ART_LIGHT.direction
-	viewport.Parent = art
-
-	local camera = Instance.new("Camera")
-	camera.FieldOfView = ART_FOV
-	camera.Parent = viewport
-	viewport.CurrentCamera = camera
 
 	-- ── Stat chips ───────────────────────────────────────────────────
 	-- One row between the well and the button. Placed by hand, not by a layout:
@@ -1245,73 +1209,6 @@ local function paintStats(card: Frame, entry, accent: Color3)
 	end
 end
 
---- A fresh copy of one tier's model, or nil for a track with no art. Code-authored
---- first, the place's Assets/Tools second — the order build/Shops' `tierTemplate` uses
---- and for its reason: Assets/Tools/Cleaner still holds the retired brushes and sponges,
---- and they must not win over the hoses ToolModels builds.
-local function artModel(track: string, tier: number): Model?
-	-- Worn, not held: there is no tool model, and a ViewportFrame cannot draw the Beams
-	-- the real aura is made of, so AuraLook builds a still one out of parts.
-	if track == "Aura" then
-		return AuraLook.icon(tier)
-	end
-	if ToolModels.has(track) then
-		return ToolModels.create(track, tier)
-	end
-	local assets = ReplicatedStorage:FindFirstChild("Assets")
-	local library = if assets then assets:FindFirstChild("Tools") else nil
-	local folder = if library then library:FindFirstChild(track) else nil
-	local template = if folder then folder:FindFirstChild(`T{tier}`) else nil
-	if template and template:IsA("Model") then
-		return template:Clone()
-	end
-	return nil
-end
-
-local BOX_CORNERS = {}
-for _, x in { -1, 1 } do
-	for _, y in { -1, 1 } do
-		for _, z in { -1, 1 } do
-			table.insert(BOX_CORNERS, Vector3.new(x, y, z))
-		end
-	end
-end
-
---- Aim `camera` so `model` fills a well `aspect` wide per unit tall, seen from `view`.
----
---- THE BOX IS MEASURED IN THE CAMERA'S OWN AXES: every visible part's eight corners are
---- turned into the view's frame, then min/max. `GetBoundingBox` would hand back a box
---- aligned to the model, whose corners overstate a three-quarter view and leave the
---- model floating small in the middle of the well. Invisible parts (every tool's Grip)
---- are skipped, or a hidden handle nub would decide the framing.
----
---- The fit is taken at the box's NEAR face, where perspective makes things largest, so
---- nothing can poke past the edge.
-local function frameArt(camera: Camera, model: Model, view: ArtView, aspect: number)
-	local look = CFrame.lookAt(Vector3.zero, -view.from.Unit, view.up)
-	local lo = Vector3.one * math.huge
-	local hi = -lo
-	for _, part in model:GetDescendants() do
-		if part:IsA("BasePart") and part.Transparency < 1 then
-			local half = part.Size / 2
-			for _, corner in BOX_CORNERS do
-				local point = look:PointToObjectSpace(part.CFrame * (half * corner))
-				lo = lo:Min(point)
-				hi = hi:Max(point)
-			end
-		end
-	end
-	if lo.X > hi.X then
-		return
-	end
-
-	local mid = (lo + hi) / 2
-	local extent = (hi - lo) / 2
-	local tanHalf = math.tan(math.rad(ART_FOV) / 2)
-	local reach = math.max(extent.Y / tanHalf, extent.X / (tanHalf * aspect)) * ART_MARGIN
-	camera.CFrame = look * CFrame.new(mid.X, mid.Y, hi.Z + reach)
-end
-
 --- Put `track`'s tier `tier` in the card's well. Cards are REUSED across stalls and
 --- this runs on every StationState tick, so the model is only rebuilt when the card is
 --- asked for a different tier or track than it already shows (`ArtKey`) — which is
@@ -1326,29 +1223,7 @@ local function paintArt(card: Frame, track: string, tier: number)
 	end
 	card:SetAttribute("ArtKey", key)
 
-	local viewport = card.CardArt.CardModel :: ViewportFrame
-	for _, child in viewport:GetChildren() do
-		if child:IsA("Model") then
-			child:Destroy()
-		end
-	end
-
-	local view = ART_VIEW[track]
-	local model = if view then artModel(track, tier) else nil
-	if model == nil or view == nil then
-		return
-	end
-
-	for _, name in ART_HIDE do
-		local extra = model:FindFirstChild(name)
-		if extra then
-			extra:Destroy()
-		end
-	end
-	-- The views are written in the model's own frame, so its pivot goes to the origin.
-	model:PivotTo(CFrame.identity)
-	model.Parent = viewport
-	frameArt(viewport.CurrentCamera :: Camera, model, view, CARD_ART_WIDTH / CARD_ART_HEIGHT)
+	GearArt.show(card.CardArt.CardModel :: ViewportFrame, track, tier, CARD_ART_WIDTH / CARD_ART_HEIGHT)
 end
 
 --- Four states, and all four are drawn on the same card rather than on four layouts.

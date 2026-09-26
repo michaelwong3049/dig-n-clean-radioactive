@@ -13,7 +13,7 @@
 	the tile's colour. It was a stack of five see-through discs first; their edges read
 	as rings ("chunky"), which a real gradient doesn't have.
 
-	PLACEMENT IS Dock's: the tile's slot in the grid (1-4, left to right, top to bottom)
+	PLACEMENT IS Dock's: the tile's slot in the grid (1-6, left to right, top to bottom)
 	goes through Dock.sideTileCentre, re-run on every canvas resize. The button is
 	anchored on its centre so the hover UIScale grows it evenly on every side.
 ]]
@@ -56,7 +56,7 @@ export type Spec = {
 	-- The ScreenGui's and the button's name ("IndexButton").
 	name: string,
 	caption: string,
-	-- Where in the 2x2 grid: 1-4, left to right, top to bottom.
+	-- Where in the grid (two wide): 1-6, left to right, top to bottom.
 	slot: number,
 	-- The glow and edge colour, and the lighter caption tint.
 	color: Color3,
