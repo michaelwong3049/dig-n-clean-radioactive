@@ -746,21 +746,29 @@ type Motion = {
 }
 
 local function rig(bend: BasePart, part: BasePart, motion: Motion)
+	-- Already rigged (a rack built before a motion was retuned): restamp the same
+	-- weld. Its C0 is still the rest pose -- only clients ever move it.
+	local weld = part:FindFirstChild(MOTION_TAG)
 	local old: WeldConstraint? = nil
-	for _, j in bend:GetChildren() do
-		if j:IsA("WeldConstraint") and (j.Part1 == part or j.Part0 == part) then
-			old = j
-			break
+	if not (weld and weld:IsA("Weld") and weld.Part0 == bend) then
+		weld = nil
+		for _, j in bend:GetChildren() do
+			if j:IsA("WeldConstraint") and (j.Part1 == part or j.Part0 == part) then
+				old = j
+				break
+			end
 		end
+		if old == nil then
+			return
+		end
+		local fresh = Instance.new("Weld")
+		fresh.Name = MOTION_TAG
+		fresh.Part0 = bend
+		fresh.Part1 = part
+		fresh.C0 = bend.CFrame:ToObjectSpace(part.CFrame)
+		weld = fresh
 	end
-	if old == nil then
-		return
-	end
-	local weld = Instance.new("Weld")
-	weld.Name = MOTION_TAG
-	weld.Part0 = bend
-	weld.Part1 = part
-	weld.C0 = bend.CFrame:ToObjectSpace(part.CFrame)
+	assert(weld and weld:IsA("Weld"), "ToolFX.rig: no weld")
 	weld:SetAttribute("Pivot", motion.pivot or weld.C0.Position)
 	weld:SetAttribute("Axis", (motion.axis or Vector3.yAxis).Unit)
 	weld:SetAttribute("Spin", motion.spin or 0)
@@ -769,7 +777,9 @@ local function rig(bend: BasePart, part: BasePart, motion: Motion)
 	weld:SetAttribute("Phase", motion.phase or 0)
 	weld:AddTag(MOTION_TAG)
 	weld.Parent = part
-	old:Destroy()
+	if old then
+		old:Destroy()
+	end
 end
 
 --- Where `part` sits in the bend's frame.
@@ -841,8 +851,10 @@ local MOTION: { [string]: (Model, BasePart) -> () } = {
 		for i, shard in partsMatching(model, "^lattice_shard_") do
 			rig(bend, shard, { pivot = c, spin = 1.1, bob = 0.05, hz = 0.6, phase = i * math.pi / 3 })
 		end
-		spinAll(bend, one(model, "lattice_halo"), { axis = TILT, spin = 0.6 })
-		spinAll(bend, one(model, "lattice_core"), { spin = -0.8 })
+		-- The big crystal ball and its cage float as one: a spin alone is invisible on a sphere.
+		local float = { bob = 0.1, hz = 0.4 }
+		spinAll(bend, one(model, "lattice_halo"), { axis = TILT, spin = 0.6, bob = float.bob, hz = float.hz })
+		spinAll(bend, one(model, "lattice_core"), { spin = -0.8, bob = float.bob, hz = float.hz })
 		for i, side in { "l", "r" } do
 			local lift = { bob = 0.04, hz = 0.45, phase = i * math.pi }
 			spinAll(bend, one(model, `float_pole_{side}`), lift)
@@ -860,11 +872,14 @@ local MOTION: { [string]: (Model, BasePart) -> () } = {
 		ripple(bend, partsMatching(model, "^heat_band_r_"))
 	end,
 	["Void Magnet"] = function(model: Model, bend: BasePart)
-		spinAll(bend, one(model, "event_ring"), { spin = 1.4 })
-		spinAll(bend, one(model, "event_rim"), { spin = -0.9 })
-		spinAll(bend, one(model, "void_halo"), { axis = TILT_BACK, spin = 0.7 })
+		-- The big ball floats, carrying its halo and event rings with it.
+		local float = { bob = 0.1, hz = 0.4 }
+		spinAll(bend, one(model, "void_core"), float)
+		spinAll(bend, one(model, "event_ring"), { spin = 1.4, bob = float.bob, hz = float.hz })
+		spinAll(bend, one(model, "event_rim"), { spin = -0.9, bob = float.bob, hz = float.hz })
+		spinAll(bend, one(model, "void_halo"), { axis = TILT_BACK, spin = 0.7, bob = float.bob, hz = float.hz })
 		for i, side in { "l", "r" } do
-			spinAll(bend, one(model, `twin_core_{side}`), { axis = TILT, spin = 1.2, bob = 0.05, hz = 0.5, phase = i * math.pi })
+			spinAll(bend, one(model, `twin_core_{side}`), { axis = TILT, spin = 1.2, bob = 0.08, hz = 0.5, phase = i * math.pi })
 			ripple(bend, partsMatching(model, `^vein_{side}_`))
 		end
 	end,
@@ -923,8 +938,8 @@ end
 
 --- Rigs this tier's moving parts (MOTION above) on an already-cloned tool model.
 --- Part of apply(); on its own it re-rigs a model built before MOTION existed
---- without doubling its particles. Idempotent: a part already rigged has no
---- WeldConstraint left to swap.
+--- without doubling its particles. Re-runnable: a part already rigged keeps its
+--- weld and takes the current motion.
 function ToolFX.animate(model: Model, track: string, tier: number)
 	local moves = if track == "Magnet" then MOTION[ToolTiers.get(track, tier).name] else nil
 	local bend = partNamed(model, "bend")
