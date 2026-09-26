@@ -628,7 +628,7 @@ end
 
 --- Per-stage character. `props` is roughly how many set pieces to scatter; the pool
 --- count scales with area so a big stage does not look empty.
---- Pool counts climb with the stage: Ash Flats is barely contaminated, the Belt is
+--- Pool counts climb with the stage: Fading Fields is barely contaminated, the Marsh is
 --- more ooze than ground. That gradient is the map teaching you what "deeper" means
 --- before any number on the HUD does.
 ---
@@ -2694,7 +2694,7 @@ local STAGE4_TREE_MIN_GAP = 40
 
 --- How far gone Stage 4's trees are (`deadTree`'s `wither`). High, and the stage is
 --- the argument: Stage 2's stand is the last field where anything was recently alive,
---- and the Belt is two fields past it with 37.5 rads at the far end. Whatever died
+--- and the Marsh is two fields past it with 37.5 rads at the far end. Whatever died
 --- here died a long time before a player walked in. Stage 2's nine stay at 0 -- that
 --- field is shipped, and two fields of trees at the SAME age would throw away the one
 --- thing this parameter buys, which is that you can see how much further in you are.
@@ -2710,7 +2710,7 @@ local STAGE4_TREE_WITHER = 0.85
 --- toward the shared boundary.
 ---
 --- WHY STAGE 4 GETS TREES AT ALL when the note under Stage 5 has "nothing left
---- standing" starting at Stage 3. Four is the count that keeps that true: the Belt's
+--- standing" starting at Stage 3. Four is the count that keeps that true: the Marsh's
 --- landmarks are still its puddles (scatterOozePools' mini lake is the thing you walk
 --- to), and four snags over the whole field are strays on the horizon, not a stand you
 --- walk through. Raise this count and the field turns back into Stage 2.

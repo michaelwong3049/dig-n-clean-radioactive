@@ -12,7 +12,7 @@
 	was sitting in the config doing nothing. Wiring it is about forty lines and it is
 	the difference between four green rectangles and four places.
 
-	The gradient runs bright-and-open at base camp to close-and-toxic at the Belt:
+	The gradient runs bright-and-open at base camp to close-and-toxic at the Marsh:
 	fogEnd 900 -> 600 as you go deeper, so the deep stages literally close in around
 	you. That is the cheapest possible way to make distance feel dangerous, and it
 	reinforces the one rule the whole map teaches — the paths are safe, the green is
@@ -207,7 +207,7 @@ function AtmosphereController.start()
 	end)
 
 	-- Respawning does not re-fire ExposureState immediately, and waking up at base
-	-- camp still tinted like the Exclusion Belt looks broken.
+	-- camp still tinted like the Ooze Marsh looks broken.
 	Players.LocalPlayer.CharacterAdded:Connect(function()
 		currentStage = -1
 		applyFor(nil)

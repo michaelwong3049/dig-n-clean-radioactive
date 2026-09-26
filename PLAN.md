@@ -418,8 +418,8 @@ warning signage. Nothing stops you. This is a deliberate reversal of the standar
 
 1. **It reads as a real place.** A world where you physically cannot walk down a road is a
 menu with trees. A world where you can walk down the road and die is a world.
-2. **It teaches by consequence, not by refusal.** A player who sprints into the Exclusion
-Belt at level 3, watches their screen go white and wakes up at base camp has learned more
+2. **It teaches by consequence, not by refusal.** A player who sprints into the Ooze
+Marsh at level 3, watches their screen go white and wakes up at base camp has learned more
 about the game in eight seconds than any tooltip could teach them — and they had *fun*
 doing it.
 3. **It creates the gamble.** Which is the actual point. See "The Dive," below.
@@ -457,10 +457,10 @@ climbs further the deeper in you go, see Stages.radsAt). Regenerated via
 
 |Stage|Rated suit|One tier under|Two tiers under|Cloth wrap / unsuited|
 |-|-|-|-|-|
-|1 Ash Flats|\~9:00 (capped, see below)|—|—|\~9:00|
-|2 The Suburbs|indefinite|\~17s|—|\~17s|
-|3 Fallout Fields|indefinite|\~12s|\~5s|\~5s|
-|4 The Exclusion Belt|indefinite|\~12s|\~3s|\~2s|
+|1 Fading Fields|\~9:00 (capped, see below)|—|—|\~9:00|
+|2 Deadwood Grove|indefinite|\~17s|—|\~17s|
+|3 The Waste Dump|indefinite|\~12s|\~5s|\~5s|
+|4 Ooze Marsh|indefinite|\~12s|\~3s|\~2s|
 |5 Reactor Grounds|indefinite|\~12s|instant|instant|
 |6 The Crater|\~1:30|\~12s|instant|instant|
 
@@ -619,10 +619,10 @@ any time by anyone willing to pay for it in health. (§3.5)
 
 |#|Stage|Base rads/s|Rated suit|Unsuited survival|Flavor|Signature items|
 |-|-|-|-|-|-|-|
-|1|**Ash Flats**|0.5|Cloth Wrap|indefinite|Grey dust, dead trees, tutorial ground|Bottle caps, steel rods, coins|
-|2|**The Suburbs**|2|Rubber Suit|\~50s|Collapsed houses, half-buried cars|Jewelry, tools, family heirlooms|
-|3|**Fallout Fields**|6|Lead-Lined|\~18s|Green haze, glass-fused soil, sirens|Farm relics, buried coins, gold|
-|4|**The Exclusion Belt**|15|Reinforced Hazmat|\~8s|Concrete barriers, tipped choppers, silence|Prewar tech, lab samples|
+|1|**Fading Fields**|0.5|Cloth Wrap|indefinite|Green grass dying to tan, bushes and dead snags, tutorial ground|Bottle caps, steel rods, coins|
+|2|**Deadwood Grove**|2|Rubber Suit|\~50s|Big dead trees, scattered skeletons|Jewelry, tools, family heirlooms|
+|3|**The Waste Dump**|6|Lead-Lined|\~18s|Crane, tipper truck, drum yards, burial trenches|Farm relics, buried coins, gold|
+|4|**Ooze Marsh**|15|Reinforced Hazmat|\~8s|Muddy ground, green ooze pools, warning signs|Prewar tech, lab samples|
 |5|**Reactor Grounds**|40|Sealed Exo-Suit|\~3s|Cooling towers, visible heat shimmer|Fuel rods, control tech, black-box data|
 |6|**The Crater**|100|Containment Rig|instant|Glassed floor, sky-glow, no ambient sound|Anomalies, one-of-a-kind relics|
 
@@ -1001,7 +1001,7 @@ should be the reason a player stands in their own exhibit watching instead of le
 |**Researchers**|Lab samples, prewar tech, fuel rods, black-box data, Anomalies|**Research grants**: cash lump sum + a large XP payout. Occasionally leave a **Data Cache** (10 min of ×2 luck).|
 |**Collectors**|Pristine, Prewar Sealed, heirlooms, story items|High admission, and **buyout offers** (§8.4).|
 |**Gearheads**|Tools, detectors, salvaged gadgets|Small frequent tips, plus **parts**: a 15% discount voucher on your next purchase in one upgrade track.|
-|**Rival Curator**|High-prestige exhibits only|Issues a themed challenge ("show me three Fallout Fields relics by tomorrow") for a large payout. Ties into Field Contracts (§10.14).|
+|**Rival Curator**|High-prestige exhibits only|Issues a themed challenge ("show me three The Waste Dump relics by tomorrow") for a large payout. Ties into Field Contracts (§10.14).|
 
 Researchers are the load-bearing one for the fantasy the pitch promises — *scientists come to
 look at what you dug up*. Give them the best behavior: they linger longest, they bring
@@ -1246,7 +1246,7 @@ and much more valuable now that there's a clock to triage against.
 ### 10.14 Field Contracts — *retention*
 
 Rotating daily/weekly objectives from an NPC quartermaster: "Recover 3 Rare items from
-Fallout Fields," "Survive a Fallout Storm at 80%+ exposure," "Clean an Exclusion Belt item
+The Waste Dump," "Survive a Fallout Storm at 80%+ exposure," "Clean an Ooze Marsh item
 while wearing a Lead-Lined suit," "Bring home a Legendary at Fresh condition," "Host 50 visitors."
 Rewards: cash, XP, Clean Tokens, Containment Cells, cosmetic dyes. Standard, and it works.
 
@@ -1307,7 +1307,7 @@ room; you cannot buy a better collection.
 The most important five minutes in any Roblox game. Scripted tightly:
 
 1. **0:00** — Spawn at base camp in a cloth wrap, broken detector already in hand.
-No menu, no cutscene. A quartermaster NPC says one line: *"Ash Flats. Find me something."*
+No menu, no cutscene. A quartermaster NPC says one line: *"Fading Fields. Find me something."*
 2. **0:15** — First ping fires within seconds of walking. First pull — four
 clicks, it's rigged short. Guaranteed **Uncommon**
 (rigged) so the first find feels good. The fuse bar appears on the item card — generous,
@@ -1404,7 +1404,7 @@ rule is the whole map's tutorial and it costs nothing to enforce.
 a game whose entire tension is *how far away is base camp* fights the design directly.
 Bloom is threshold-gated so Neon blooms and paint does not.
 * **Per-stage fog** carries the gradient: bright and open at camp (`fogEnd` 900) closing
-in to toxic and near (600) at the Exclusion Belt, so the deep stages literally shrink
+in to toxic and near (600) at the Ooze Marsh, so the deep stages literally shrink
 around you. Tinted per stage from `Config/Stages`.
 * **Models:** low-poly, chunky, readable at distance. Roblox-native, no realism attempt.
 * **Audio:** Geiger clicks are the lead instrument. Sparse ambient drone, distant wind,

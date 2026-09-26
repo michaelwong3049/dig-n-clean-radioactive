@@ -153,7 +153,7 @@ local countdownShown = false
 --- and Radiation.resolve defines excess as ambient minus aura tolerance, so the
 --- tolerance is just their difference and the ratio falls out. Divided by three
 --- because three times your own tolerance is comfortably past any argument about
---- whether you meant to be here — a Static Veil reaches it in the Exclusion Belt,
+--- whether you meant to be here — a Static Veil reaches it in the Ooze Marsh,
 --- which is exactly the walk this is meant to punish.
 local function overTier(): number
 	if state.excess <= 0 then

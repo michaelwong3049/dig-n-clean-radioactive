@@ -89,8 +89,8 @@
 -- touches nothing walkable is a stage nobody can reach. Four of the five needed
 -- moving for that reason or because they overlapped Stage 1.
 --
---     camp ═══> [ 1 Ash Flats ] [ 2 Suburbs ] [ 3 Fallout ] [ 4 Exclusion ] [ 5 Reactor ] [ 6 Crater ]
---       x            100-390      390-680      680-970      970-1260       1260-1550     1550-1840
+--     camp ═══> [ 1 Fading Fields ] [ 2 Deadwood ] [ 3 Waste Dump ] [ 4 Ooze Marsh ] [ 5 Reactor ] [ 6 Crater ]
+--       x             100-390           390-680         680-970         970-1260       1260-1550     1550-1840
 --
 -- ONE STRAIGHT CHAIN NOW, TIER-ORDERED, NOT A SIDE SPUR. Stage 4 used to sit north of
 -- Stage 1, touching only its west edge — close enough to camp that a fresh player
@@ -238,7 +238,7 @@ local FOOTPRINT_X, FOOTPRINT_Z = 290, 170
 Stages.DEFS = {
 	{
 		id = 1,
-		name = "Ash Flats",
+		name = "Fading Fields",
 		-- DEPTH-BASED RADIATION PASS. Entrance (baseRads) is UNCHANGED from the old
 		-- flat rate on every stage, deliberately -- every existing Spec check that
 		-- reads "how safe is this stage" samples the entrance, so leaving it alone
@@ -303,7 +303,7 @@ Stages.DEFS = {
 		-- THIS BREAKS THE "SAND FAMILY" STAGES 1-3 USED TO SHARE. Stage 3's own
 		-- comment below (`material = "Sand"`) explains why it moved off Slate onto
 		-- Sand: continuity with the rest of this stretch. Stages 2 and 3 are still
-		-- Sand, so Stage 1's own east edge meets Stage 2's Suburbs across a material
+		-- Sand, so Stage 1's own east edge meets Stage 2's Deadwood Grove across a material
 		-- seam even though `buildStageBlend` still blends their COLOUR smoothly --
 		-- texture does not blend, only hue does. Left as the honest cost of a
 		-- Stage-1-only change rather than silently reskinning stages nobody asked to
@@ -317,7 +317,7 @@ Stages.DEFS = {
 	},
 	{
 		id = 2,
-		name = "The Suburbs",
+		name = "Deadwood Grove",
 		baseRads = 2,
 		deepRads = 5.0, -- 2.5x
 		soilHardness = 2,
@@ -351,7 +351,7 @@ Stages.DEFS = {
 	},
 	{
 		id = 3,
-		name = "Fallout Fields",
+		name = "The Waste Dump",
 		baseRads = 6,
 		deepRads = 14.4, -- 2.4x, not 2.5 -- clears Stage 2's deepest (5.0) with room,
 		-- and 2.4 rather than 2.5 leaves Stage 4's unchanged entrance (15) a small
@@ -387,7 +387,7 @@ Stages.DEFS = {
 	},
 	{
 		id = 4,
-		name = "The Exclusion Belt",
+		name = "Ooze Marsh",
 		baseRads = 15,
 		deepRads = 37.5, -- 2.5x
 		soilHardness = 4,

@@ -17,7 +17,7 @@
 	Faint Glow's `reduction` 0.9000 -> 0.6296) — all figures below are at each
 	stage's ENTRANCE (depthFrac=0); the deep edge of every stage is meaningfully
 	worse, see Stages.radsAt/Stages.DEFS. Stage 1's deepRads specifically governs
-	its OWN far edge (NOT the separate, distant Stage 3 "Fallout Fields" its old
+	its OWN far edge (NOT the separate, distant Stage 3 "The Waste Dump" its old
 	sub-band naming used to resemble) — see Stages.luau's Stage 1 comment for that
 	story:
 
