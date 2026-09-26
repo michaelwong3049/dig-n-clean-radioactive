@@ -810,6 +810,17 @@ local function one(model: Model, name: string): { BasePart }
 	return if part then { part } else {}
 end
 
+--- Every part matching any of `patterns`, as one list.
+local function gather(model: Model, patterns: { string }): { BasePart }
+	local found = {}
+	for _, pattern in patterns do
+		for _, part in partsMatching(model, pattern) do
+			table.insert(found, part)
+		end
+	end
+	return found
+end
+
 local TILT = Vector3.new(1, 1, 0)
 local TILT_BACK = Vector3.new(-1, 1, 1)
 
@@ -906,6 +917,93 @@ local MOTION: { [string]: (Model, BasePart) -> () } = {
 	end,
 }
 
+--[[
+	The Twilight detectors (Aurora Rake..Prime Meridian). Every part is welded to
+	`upper_shaft`, which stands axis-aligned with the model: +Y is up and each
+	head lies flat in the XZ plane. So the same rig() applies with `upper_shaft`
+	as the anchor, and distances are in shaft heights instead. The shaft, box,
+	arm and grip never move -- only the head's outer pieces.
+]]
+local DETECTOR_MOTION: { [string]: (Model, BasePart) -> () } = {
+	["Aurora Rake"] = function(model: Model, shaft: BasePart)
+		-- The comb pumps: tines, their tips and the ribbon strung between the tips
+		-- plunge together through the still collars, raking the ground.
+		spinAll(shaft, gather(model, { "^tine%d+$", "^tine_tip%d+$", "^aurora_ribbon$" }), { bob = 0.06, hz = 0.6 })
+		-- The eye turns and rides up and down the neck.
+		spinAll(shaft, one(model, "aurora_eye"), { spin = 1.2, bob = 0.03, hz = 0.35 })
+		-- The five fins over the bar spin like radar vanes, out of step.
+		for i, fin in partsMatching(model, "^bar_fin%d+$") do
+			rig(shaft, fin, { spin = if i % 2 == 0 then -3 else 3 })
+		end
+	end,
+	["Strata Lance"] = function(model: Model, shaft: BasePart)
+		local core = partNamed(model, "molten_core")
+		-- The outer drill wheel -- rim, spokes and the six heat claws -- grinds round,
+		-- the inner ring and its cooling fins counter-turning inside it.
+		orbit(shaft, gather(model, { "^coil_rim$", "^coil_spoke%d+$", "^rim_glow$", "^heat_claw%d+$", "^claw_glow%d+$" }), core, 0.9)
+		orbit(shaft, gather(model, { "^inner_ring$", "^core_lip$", "^cool_fin%d+$" }), core, -1.4)
+		spinAll(shaft, one(model, "molten_core"), { spin = 2 })
+		-- The three exhaust stacks pump like pistons, one after another.
+		for i = 1, 3 do
+			spinAll(shaft, gather(model, { `^exhaust_stack{i}$`, `^stack_glow{i}$`, `^stack_band{i}$` }), { bob = 0.05, hz = 1.2, phase = i * 2.1 })
+		end
+	end,
+	["Leyline Tap"] = function(model: Model, shaft: BasePart)
+		local core = partNamed(model, "ley_core")
+		local c = at(shaft, core)
+		-- The outer halo wheels round with its rune nodes, carrying the four crystals
+		-- on its rim; each crystal also rises and settles in its socket in turn.
+		orbit(shaft, gather(model, { "^halo_outer$", "^halo_spoke%d+$", "^rune_node%d+$", "^crystal_socket%d+$" }), core, 0.6)
+		for i = 1, 4 do
+			spinAll(shaft, one(model, `ley_crystal{i}`), { pivot = c, spin = 0.6, bob = 0.04, hz = 0.5, phase = i * math.pi / 2 })
+		end
+		-- The inner halo counter-turns; the core floats and turns inside it.
+		orbit(shaft, gather(model, { "^halo_inner$", "^inner_spoke%d+$" }), core, -1)
+		spinAll(shaft, one(model, "ley_core"), { spin = 1.2, bob = 0.04, hz = 0.4 })
+		spinAll(shaft, one(model, "keystone_ring"), { spin = 1.5 })
+	end,
+	["Null Compass"] = function(model: Model, shaft: BasePart)
+		local sphere = partNamed(model, "void_sphere")
+		local c = at(shaft, sphere)
+		-- A compass gyro: the big ring and its spokes tumble end over end round the
+		-- void, the meridian disc swings round it, the band rolls the other way.
+		orbit(shaft, gather(model, { "^null_ring$", "^null_spoke%d+$" }), sphere, 0.8, Vector3.xAxis)
+		spinAll(shaft, one(model, "void_meridian"), { pivot = c, spin = 1.2 })
+		spinAll(shaft, one(model, "void_band"), { pivot = c, axis = Vector3.zAxis, spin = -1 })
+		-- The five shards circle on their tethers.
+		orbit(shaft, gather(model, { "^orbit_shard%d+$", "^shard_tether%d+$" }), sphere, 0.9)
+		spinAll(shaft, one(model, "singularity"), { axis = TILT, spin = 2.5 })
+	end,
+	["Prime Meridian"] = function(model: Model, shaft: BasePart)
+		local core = partNamed(model, "meridian_core")
+		local c = at(shaft, core)
+		-- The crown -- gold halo, spokes, nine points, three gems on their posts --
+		-- turns slowly, the gems bobbing on their posts as it goes.
+		orbit(shaft, gather(model, { "^gold_halo$", "^crown_spoke%d+$", "^crown_point%d+$", "^gem_post%d+$", "^gem_setting%d+$" }), core, 0.5)
+		for i = 1, 3 do
+			spinAll(shaft, one(model, `crown_gem{i}`), { pivot = c, spin = 0.5, bob = 0.03, hz = 0.6, phase = i * 2.1 })
+		end
+		-- The filigree ring and its inlays drift the other way underneath.
+		orbit(shaft, gather(model, { "^filigree_ring$", "^filigree_post%d+$", "^inlay%d+$" }), core, -0.4)
+		-- Inside: an armillary. The orbit ring tumbles, the meridian ring rolls
+		-- across it, and the twelve sun rays wheel fast round the core.
+		orbit(shaft, gather(model, { "^orbit_ring$", "^orbit_spoke%d+$" }), core, 1, Vector3.xAxis)
+		spinAll(shaft, one(model, "meridian_ring"), { pivot = c, axis = Vector3.zAxis, spin = -1.4 })
+		orbit(shaft, partsMatching(model, "^sun_ray%d+$"), core, 1.6)
+		spinAll(shaft, one(model, "meridian_core"), { spin = 0.8 })
+	end,
+}
+
+-- Track -> { tier name -> rig }, and the part every other part is welded to.
+local MOTION_BY_TRACK: { [string]: { [string]: (Model, BasePart) -> () } } = {
+	Magnet = MOTION,
+	Detector = DETECTOR_MOTION,
+}
+local MOTION_ANCHOR: { [string]: string } = {
+	Magnet = "bend",
+	Detector = "upper_shaft",
+}
+
 local function scaleSequence(s: NumberSequence, k: number): NumberSequence
 	local points = {}
 	for _, p in s.Keypoints do
@@ -919,8 +1017,9 @@ end
 --- without doubling its particles. Re-runnable: a part already rigged keeps its
 --- weld and takes the current motion.
 function ToolFX.animate(model: Model, track: string, tier: number)
-	local moves = if track == "Magnet" then MOTION[ToolTiers.get(track, tier).name] else nil
-	local bend = partNamed(model, "bend")
+	local byName = MOTION_BY_TRACK[track]
+	local moves = if byName then byName[ToolTiers.get(track, tier).name] else nil
+	local bend = if moves then partNamed(model, MOTION_ANCHOR[track]) else nil
 	if moves == nil or bend == nil then
 		return
 	end
