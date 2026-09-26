@@ -204,6 +204,7 @@ local Liquids = require(Shared.Config.Liquids)
 local Treadmill = require(Shared.Config.Treadmill)
 local Tuning = require(Shared.Config.Tuning)
 local ToolModels = require(Shared.ToolModels)
+local ToolFX = require(Shared.ToolFX)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
@@ -1457,6 +1458,9 @@ function Plots.setHoseTier(station: Instance?, tier: number?): Model?
 	local hose = ToolModels.Hose.create(wanted)
 	hose:PivotTo(parked)
 	hose:SetAttribute("ParkedPivot", parked)
+	-- The rung's ambient effects (Toxic Twilight's hoses have them), the same ones the
+	-- shop rack shows. Runtime, like the rest of this swap, so no rebuild carries it.
+	ToolFX.apply(hose, "Cleaner", wanted)
 	hose.Parent = station
 
 	local reel = station:FindFirstChild("HoseReel")
