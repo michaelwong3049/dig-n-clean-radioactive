@@ -453,7 +453,7 @@ Tuning.WASH_EYE_FORWARD = 0.4
 -- DigService's rollFor). Added to the detector's own `luck`, not multiplied: a tier-1
 -- Rust Bucket (1.00) becomes 1.10, just under the Scavenger MkI's 1.12, so a completed
 -- stage is worth most of the first real detector purchase there and a small nudge on an
--- Oracle. (The $50 Bent Coil between them is a tutorial step, not a rung this is sized
+-- Oracle. (The $15 Bent Coil between them is a tutorial step, not a rung this is sized
 -- against -- see Config/Gear.) Items
 -- stocked in two stages count toward both.
 Tuning.INDEX_COMPLETE_LUCK = 0.10

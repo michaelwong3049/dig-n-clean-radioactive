@@ -51,7 +51,7 @@ Tutorial.STEPS = {
 	finish = { title = "You're set!", hint = "Dig deeper, clean rarer nukes, fill your stands." },
 } :: { [StepId]: Step }
 
---- The tier the last step asks for: the $50 Bent Coil (Config/Gear.Detector).
+--- The tier the last step asks for: the $15 Bent Coil (Config/Gear.Detector).
 Tutorial.UPGRADE_TIER = 2
 
 --- True while this save's first dig should be made safe. That means the walkthrough is

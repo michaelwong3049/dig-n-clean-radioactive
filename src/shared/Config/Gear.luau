@@ -99,21 +99,21 @@ local Gear = {}
 -- payouts are untouched, so the ladder simply takes longer to climb -- the point of
 -- the change (game loop was ending too quickly).
 --
--- THE RUST BUCKET IS THE FREE RUNG, AND THE BENT COIL IS NOW A $50 ONE (on request,
+-- THE RUST BUCKET IS THE FREE RUNG, AND THE BENT COIL IS NOW A $15 ONE (on request,
 -- with the new-player tutorial). The tutorial ends on "upgrade your detector", and a
--- first stand pays for a $50 upgrade in well under a minute, so the Bent Coil is the
--- first thing a new player buys. Everything above it kept its stats and price and only
+-- first stand pays for a $15 upgrade in seconds (it was $50 until a later request),
+-- so the Bent Coil is the first thing a new player buys. Everything above it kept its stats and price and only
 -- moved one index up. DataService.shiftDetectorLadder moved old saves up with it,
 -- so nobody's paid-for tier became the one below it.
 --
 -- The Rust Bucket is a little worse than the old starter in every column except luck.
 -- The Spec pins luck at exactly 1.0 on tier 1 and requires it to go strictly up after that. The
 -- Bent Coil's 1.06 is the smallest step that still reads as a real upgrade. Its radius and
--- depth are the old starter's, so a $50 upgrade restores the old starter exactly and then
+-- depth are the old starter's, so a $15 upgrade restores the old starter exactly and then
 -- adds a little luck.
 Gear.Detector = {
 	{ name = "Rust Bucket", price = 0, radius = 11, luck = 1.00, depth = 5, clarity = 0, blurb = "Found in a ditch. Mostly works." },
-	{ name = "Bent Coil", price = 50, radius = 13, luck = 1.06, depth = 6, clarity = 0, blurb = "A coat hanger with ambition." },
+	{ name = "Bent Coil", price = 15, radius = 13, luck = 1.06, depth = 6, clarity = 0, blurb = "A coat hanger with ambition." },
 	{ name = "Scavenger MkI", price = 4000, radius = 16, luck = 1.12, depth = 9, clarity = 0, blurb = "Wider sweep. Still deaf to anything deep." },
 	{ name = "Surplus Geiger", price = 9500, radius = 19, luck = 1.25, depth = 12, clarity = 1, blurb = "Army surplus, and it still clicks true." },
 	{ name = "Pulse Array", price = 23500, radius = 22, luck = 1.40, depth = 16, clarity = 1, blurb = "Pulses instead of sweeps. Reaches past rubble." },
