@@ -63,7 +63,10 @@ local function stepPlayer(player: Player)
 	if character == nil then
 		return
 	end
-	local tier: number? = if data.hideAura == true then nil else math.clamp(data.gear[AURA_KEY] or 1, 1, Gear.maxTier("Aura"))
+	-- The free starter rung (Faint Glow) keeps its stats but is never drawn: a new
+	-- player starts with no visible aura until they buy one.
+	local equipped = math.clamp(data.gear[AURA_KEY] or 1, 1, Gear.maxTier("Aura"))
+	local tier: number? = if data.hideAura == true or equipped <= 1 then nil else equipped
 	if character:GetAttribute(AuraLook.ATTRIBUTE) ~= tier then
 		character:SetAttribute(AuraLook.ATTRIBUTE, tier)
 	end
