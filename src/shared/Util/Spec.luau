@@ -654,7 +654,7 @@ function Spec.run(): boolean
 	-- colour rule: white is aura failure, green is exposure).
 	do
 		check("§5.1 every Aura rung has a look", AuraLook.count() == Gear.maxTier("Aura"))
-		local climbing, offLimits = true, true
+		local climbing, offLimits, sparkling = true, true, true
 		local burn, exposure = Color3.fromHex("FFFFFF"), Color3.fromHex("22C55E")
 		local function near(a: Color3, b: Color3): boolean
 			return math.abs(a.R - b.R) + math.abs(a.G - b.G) + math.abs(a.B - b.B) < 0.35
@@ -666,6 +666,12 @@ function Spec.run(): boolean
 				if look.rings < below.rings or look.width <= below.width or look.speed <= below.speed or look.transparency >= below.transparency then
 					climbing = false
 				end
+				-- The sparkle storm only ever adds: no layer thins out going up.
+				for layer, rate in below.sparkle do
+					if (look.sparkle :: any)[layer] < rate then
+						sparkling = false
+					end
+				end
 			end
 			if near(look.color, burn) or near(look.color, exposure) then
 				offLimits = false
@@ -674,6 +680,10 @@ function Spec.run(): boolean
 		check("§5.1 each aura rung is wider, faster and brighter than the one below, never fewer rings", climbing)
 		check("§14 no aura is burn-white or exposure-green", offLimits)
 		check("§5.1 the top aura has the most rings", AuraLook.get(AuraLook.count()).rings == #AuraLook.TILTS)
+		check("§5.1 no aura rung sparkles less than the one below", sparkling)
+		local plain = AuraLook.get(2).sparkle
+		check("§5.1 auras 1-2 are plain, the sparkles start at 3", plain.dust + plain.shed + plain.embers + plain.burst == 0 and AuraLook.get(3).sparkle.dust > 0)
+		check("§5.1 only the top aura is the helix", AuraLook.get(AuraLook.count()).form == "helix" and AuraLook.get(AuraLook.count() - 1).form == "atom")
 	end
 
 	-- PLAN §3.6 — the decay clock
