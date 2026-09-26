@@ -73,7 +73,7 @@ end
 --- other stocked-item listing in the game -- they are not part of the live
 --- catalogue any more even though their DEFS entry survives for old saves.
 --- Grouped by primaryStage into one row per stocked stage and sorted least- to
---- most-rare within each row. Row order follows the stage numbers themselves
+--- most-rare (by `odds`) within each row. Row order follows the stage numbers themselves
 --- (Stage 1 first). The yard's footprint scales off this, not a fixed column
 --- count, so it grows automatically as the catalogue changes instead of needing
 --- another manual bump. Computed once at require time since the catalogue is
@@ -102,6 +102,10 @@ local function catalogueRows(): { { stage: number, items: { any } } }
 	for _, stage in stageNumbers do
 		local items = byStage[stage]
 		table.sort(items, function(a, b)
+			-- Actual drop odds first (1 in N, smaller = commoner); tier only breaks ties.
+			if a.odds ~= b.odds then
+				return a.odds < b.odds
+			end
 			local orderA, orderB = Rarity.get(a.rarity).order, Rarity.get(b.rarity).order
 			if orderA ~= orderB then
 				return orderA < orderB
