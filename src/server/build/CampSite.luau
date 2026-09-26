@@ -17,7 +17,9 @@
 	only where Config/Gear sells something at this camp (a rung's `camp` column): Toxic
 	Twilight's north row is the Detector Shop (Shops.buildCampStall), selling that camp's
 	six detectors, the south-west slot is its Magnet Shop, selling its five magnets, and
-	the south-east slot is its Hose Shop, selling its five hoses. Every other stall is Shops.buildStallShell -- the frame and steel roof
+	the south-east slot is its Hose Shop, selling its five hoses, and its Aura Shop (the
+	Outfitter's building, Shops.buildCampOutfitter) stands west of the Detector Shop in
+	the north row, selling its four auras. Every other stall is Shops.buildStallShell -- the frame and steel roof
 	with NO station attributes -- because the gear they will sell does not exist yet. They
 	say COMING SOON rather than opening a panel for nothing.
 
@@ -57,6 +59,8 @@
 	    ...<Key>.Stalls.MagnetShop    the same, in the south-west slot, where Gear sells
 	                                  magnet rungs at this camp
 	    ...<Key>.Stalls.CleanerShop   the same, in the south-east slot, for hose rungs
+	    ...<Key>.Stalls.AuraShop      its Aura counter carries StationId "Aura" and
+	                                  ShopCamp = <Key>; west of the Detector Shop
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -77,7 +81,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 12
+local BUILDER_VERSION = 13
 
 local C = Kit.C
 local build = Kit.build
@@ -718,6 +722,18 @@ local function buildStalls(parent: Instance, L: Layout)
 		-- The two shells it replaced would have taken the first two awnings; skip them so
 		-- the south row keeps the colours it had.
 		i += #NORTH_STALL_X
+
+		-- THE AURA SHOP STANDS BESIDE IT, west, when Config/Gear sells any aura rung at
+		-- this camp: the Outfitter's own building (a mannequin wearing the camp's auras),
+		-- one TRADER_CLEARANCE off the Detector Shop's west end, on the side you arrive
+		-- from. It has to stay on the paver square.
+		if #Gear.tiersAt("Aura", L.def.key) > 0 then
+			local half = Shops.campOutfitterWidth() / 2
+			local x = -(Shops.campStallWidth("Detector", L.def.key) / 2 + TRADER_CLEARANCE + half)
+			assert(x - half >= -SHOP_HALF_X, `{L.def.key}'s Aura Shop runs off the paver square (west end {x - half})`)
+			local auraOrigin = CFrame.new(L.ox + x, PLAZA_Y, L.oz + ROW_Z) * CFrame.Angles(0, math.rad(180), 0)
+			Shops.buildCampOutfitter(folder, auraOrigin, L.def.key)
+		end
 	else
 		for _, dx in NORTH_STALL_X do
 			stall(dx, ROW_Z, 180)

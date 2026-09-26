@@ -50,6 +50,7 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AuraLook = require(ReplicatedStorage.Shared.AuraLook)
+local Gear = require(ReplicatedStorage.Shared.Config.Gear)
 local Kit = require(script.Parent.Kit)
 
 local ShopThemes = {}
@@ -665,10 +666,17 @@ local TUBE_GLASS = "CFE8F2"
 ---
 --- The aura's rings reach RADIUS (2.5) round the torso, so the tubes start 3.4 out and
 --- the torso stands 3.2 off the slat wall: the precessing rings clear both.
-function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, auraX: number): Model
+---
+--- `camp` (a Config/Camps key) is the camp whose shop this is; nil is Base Camp. The
+--- mannequin walks and the tubes show only the rungs that camp sells (Gear.tiersAt), so
+--- a stall never models an aura it cannot sell. A camp's tubes start further out:
+--- Toxic Twilight's corona and wings reach wider than any ring.
+function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, auraX: number, camp: string?): Model
 	local theme = Instance.new("Model")
 	theme.Name = "Theme"
 	local accent = C.shopOutfitter
+	local tiers = Gear.tiersAt("Aura", camp or "base")
+	local tubeStart = if camp then 4.8 else 3.4
 
 	-- The mannequin: the old suit stand with an accent band, two legs, a torso, arms
 	-- hanging a little out, a neck and a plain ball head. Dark slate, so the aura is
@@ -708,7 +716,10 @@ function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, auraX: numb
 		color = MANNEQUIN,
 		material = "SmoothPlastic",
 		-- Centred on the torso itself (no lift), at stock size, walking the ladder.
-		attributes = { AuraCycle = true, AuraLift = 0, AuraScale = 1 },
+		attributes = { AuraCycle = true, AuraLift = 0, AuraScale = 1, AuraCamp = camp },
+		-- Facing the customer, the way a wearer's LookVector (-Z) points. The atom and
+		-- the helix look the same either way round; the corona and the wings have a back.
+		rot = Kit.ang(0, 180, 0),
 	})
 	CollectionService:AddTag(torso, AuraLook.DISPLAY_TAG)
 	for _, dx in { -1.35, 1.35 } do
@@ -739,14 +750,17 @@ function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, auraX: numb
 		shape = "Ball",
 	})
 
-	-- Six sample tubes against the back wall, one per tier in the aura's own colour:
-	-- tiers 1-3 left of the mannequin, 4-6 right, each a steel base and cap with an
-	-- accent band, a glass tube and a coloured orb floating in it.
+	-- A sample tube against the back wall per tier this stall sells, in the aura's own
+	-- colour: the lower half left of the mannequin, the upper half right (Base Camp:
+	-- tiers 1-3 left, 4-6 right), each a steel base and cap with an accent band, a
+	-- glass tube and a coloured orb floating in it.
 	local tubeZ = -8.2
-	for tier, look in AuraLook.TIERS do
-		local side = if tier <= 3 then -1 else 1
-		local slot = if tier <= 3 then 4 - tier else tier - 3
-		local x = auraX + side * (3.4 + (slot - 1) * 1.5)
+	local leftCount = math.ceil(#tiers / 2)
+	for index, tier in tiers do
+		local look = AuraLook.get(tier)
+		local side = if index <= leftCount then -1 else 1
+		local slot = if index <= leftCount then leftCount - index + 1 else index - leftCount
+		local x = auraX + side * (tubeStart + (slot - 1) * 1.5)
 		prop(theme, origin, {
 			name = "TubeBase",
 			pos = { x, 0.25, tubeZ },

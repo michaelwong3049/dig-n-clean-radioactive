@@ -443,6 +443,18 @@ function Spec.run(): boolean
 	-- Entrance, same reasoning.
 	local crater = survive(6, 6, 0)
 	check(string.format("§4 Crater with full Rig = %.0fs (want 60-130, a heist)", crater), crater > 60 and crater < 130)
+	-- "At any gear level, forever": Toxic Twilight's auras (tiers 7+) are past the Nimbus,
+	-- and none of them may turn the Crater into a farm either.
+	do
+		local farmable: string? = nil
+		for tier = 7, Gear.maxTier("Aura") do
+			local s = survive(6, tier, 0)
+			if s >= 130 then
+				farmable = string.format("%s %.0fs", Gear.tier("Aura", tier).name, s)
+			end
+		end
+		check(`§4 no aura past the Nimbus farms the Crater either ({farmable or "all under 130s"})`, farmable == nil)
+	end
 
 	-- THE CRATER'S FAR EDGE IS TOXIC TWILIGHT'S DOORSTEP (Config/Camps). The top aura has
 	-- to be able to walk out into the camp -- no burn at the east edge, where the camp's
@@ -693,7 +705,19 @@ function Spec.run(): boolean
 		check("§5.1 no aura rung sparkles less than the one below", sparkling)
 		local plain = AuraLook.get(2).sparkle
 		check("§5.1 auras 1-2 are plain, the sparkles start at 3", plain.dust + plain.shed + plain.embers + plain.burst == 0 and AuraLook.get(3).sparkle.dust > 0)
-		check("§5.1 only the top aura is the helix", AuraLook.get(AuraLook.count()).form == "helix" and AuraLook.get(AuraLook.count() - 1).form == "atom")
+		check("§5.1 the Nimbus (tier 6) is the helix, the rung under it an atom", AuraLook.get(6).form == "helix" and AuraLook.get(5).form == "atom")
+		-- Past the Nimbus, every rung is a shape of its own, drawn from moving curves.
+		local ownShapes = true
+		local shapes: { [string]: boolean } = {}
+		for tier = 7, AuraLook.count() do
+			local look = AuraLook.get(tier)
+			local form = AuraLook.curveForm(look)
+			if form == nil or shapes[look.form] or #form.curves == 0 or #form.riders(0) == 0 then
+				ownShapes = false
+			end
+			shapes[look.form] = true
+		end
+		check("§5.1 each aura past the Nimbus has its own moving shape", ownShapes)
 	end
 
 	-- PLAN §3.6 — the decay clock
@@ -1354,6 +1378,18 @@ function Spec.run(): boolean
 		end
 	end
 	check("Toxic Twilight sells hose tiers 8-12, in the user's order", twilightHosesOk)
+
+	-- Twilight's four auras, pinned by name: AuraLook's shapes (corona, aurora, torus,
+	-- wings) were picked for exactly these rungs, in this order.
+	local twilightAurasWant = { "Dusk Corona", "Toxic Aurora", "Eclipse Veil", "Twilight Singularity" }
+	local twilightAurasHave = Gear.tiersAt("Aura", "twilight")
+	local twilightAurasOk = #twilightAurasHave == #twilightAurasWant
+	for slot, tier in twilightAurasHave do
+		if Gear.tier("Aura", tier).name ~= twilightAurasWant[slot] or tier ~= 6 + slot then
+			twilightAurasOk = false
+		end
+	end
+	check("Toxic Twilight sells aura tiers 7-10, in the order their shapes were picked", twilightAurasOk)
 
 	-- Revealing is not the same as reaching. If the pull radius ever grows into the
 	-- reveal radius, the walk to the glow disappears and the loop is one button.
