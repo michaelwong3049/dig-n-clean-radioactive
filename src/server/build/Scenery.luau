@@ -96,6 +96,7 @@ local CraterField = require(script.Parent.CraterField)
 local BlastDebris = require(script.Parent.BlastDebris)
 local FieldLitter = require(script.Parent.FieldLitter)
 local WasteDump = require(script.Parent.WasteDump)
+local WiltingMeadow = require(script.Parent.WiltingMeadow)
 local CoolantField = require(script.Parent.CoolantField)
 local CinderField = require(script.Parent.CinderField)
 local CobaltShelf = require(script.Parent.CobaltShelf)
@@ -106,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 39
+local BUILDER_VERSION = 40
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -654,7 +655,11 @@ end
 --- scatter:
 ---   Stage 1 -- chunky green bushes across the alive west half (scatterBushes),
 ---            then `deadProps` knee-high dead snags across the dead-tan east half
----            (scatterDeadBushes).
+---            (scatterDeadBushes), then grass and rocks (scatterStage1GroundDetail),
+---            and then the wilting meadow (build/WiltingMeadow): a creek drying up
+---            as it runs east, a half-dead tree at the middle, a mossy fallen log, an
+---            abandoned picnic, a live and a dead sunflower patch, and wildflowers
+---            that wilt with the ground. Its counts live in its own module.
 ---   Stage 2 -- big dead trees across the whole field (scatterFieldTrees), then the
 ---            remains scattered over the whole field (scatterBones): `skeletons` whole
 ---            carcasses as landmarks, `bones` handfuls of loose bone underfoot and
@@ -3410,6 +3415,12 @@ local function buildStageScenery(parent: Instance, id: number)
 			scatterBushes(folder, origin, theme.props, 3, rng, hx, hz)
 			scatterDeadBushes(folder, origin, theme.deadProps or 0, rng, hx, hz)
 			scatterStage1GroundDetail(folder, origin, hx, hz, 9214)
+			-- The wilting meadow itself (build/WiltingMeadow): the creek drying up as it
+			-- runs east, the half-dead tree, the fallen log, the picnic, two sunflower
+			-- patches and the wildflowers wilting across the field. Last, because it reads
+			-- where the bushes, snags, grass and rocks above landed and builds round them
+			-- -- and off its own seed, so it moves none of them.
+			WiltingMeadow.build(folder, id, Stages.SURFACE_Y + GROUND_SKIM)
 		elseif id == 2 then
 			scatterFieldTrees(folder, origin, theme.props, rng, hx, hz)
 			-- hz - 30 keeps a carcass off the outer wall band, same margin as before.
