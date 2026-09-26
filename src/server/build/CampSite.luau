@@ -16,7 +16,8 @@
 	sell at the counter, dock and shower at the tub, wash what you hold. A stall is real
 	only where Config/Gear sells something at this camp (a rung's `camp` column): Toxic
 	Twilight's north row is the Detector Shop (Shops.buildCampStall), selling that camp's
-	six detectors. Every other stall is Shops.buildStallShell -- the frame and steel roof
+	six detectors, and the south-west slot is its Magnet Shop, selling its five magnets.
+	Every other stall is Shops.buildStallShell -- the frame and steel roof
 	with NO station attributes -- because the gear they will sell does not exist yet. They
 	say COMING SOON rather than opening a panel for nothing.
 
@@ -53,6 +54,8 @@
 	    ...<Key>.Stalls.EmptyStall    NO StationKind, by contract
 	    ...<Key>.Stalls.DetectorShop  StationKind = "shop", ShopCamp = <Key>; only where
 	                                  Gear sells detector rungs at this camp
+	    ...<Key>.Stalls.MagnetShop    the same, in the south-west slot, where Gear sells
+	                                  magnet rungs at this camp
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -73,7 +76,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 6
+local BUILDER_VERSION = 7
 
 local C = Kit.C
 local build = Kit.build
@@ -113,6 +116,8 @@ local STALL_WIDTH = 24
 local NORTH_STALL_X = { -15, 15 }
 local SOUTH_STALL_X = { -26, 26 }
 local TRADER_Z = -26 -- the kiosk's deck is 13 deep, so its front lines up with the row
+local TRADER_HALF_X = 8.5 -- BaseCamp.buildTrader's deck is 17 wide
+local TRADER_CLEARANCE = 1 -- walkable gap between the kiosk and a working stall beside it
 local STALL_LABEL = "COMING SOON"
 
 --- The wash deck, north of the octagon, one plot-pad step (1.5) above the lawn so the
@@ -717,8 +722,20 @@ local function buildStalls(parent: Instance, L: Layout)
 			stall(dx, ROW_Z, 180)
 		end
 	end
-	for _, dx in SOUTH_STALL_X do
-		stall(dx, -ROW_Z, 0)
+	-- THE SOUTH-WEST SLOT IS THE MAGNET SHOP, when Config/Gear sells any magnet rung at
+	-- this camp. A ladder of five is ~33 studs, wider than the 24-stud shell it replaces,
+	-- and the kiosk sits east of it, so it grows WEST: its centre moves just far enough
+	-- out that its east end keeps TRADER_CLEARANCE off the kiosk's deck.
+	for slot, dx in SOUTH_STALL_X do
+		if slot == 1 and #Gear.tiersAt("Magnet", L.def.key) > 0 then
+			local half = Shops.campStallWidth("Magnet", L.def.key) / 2
+			local x = math.min(dx, -(TRADER_HALF_X + TRADER_CLEARANCE + half))
+			Shops.buildCampStall(folder, CFrame.new(L.ox + x, PLAZA_Y, L.oz - ROW_Z), "Magnet", L.def.key)
+			-- Skip the shell's awning colour too, so the south-east shell keeps its own.
+			i += 1
+		else
+			stall(dx, -ROW_Z, 0)
+		end
 	end
 	folder.Parent = parent
 

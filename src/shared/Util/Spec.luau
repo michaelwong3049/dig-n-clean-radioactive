@@ -1304,6 +1304,45 @@ function Spec.run(): boolean
 	end
 	check("Toxic Twilight sells detector tiers 10-15, in the order they were drawn", twilightOk)
 
+	-- The magnet ladder is sold the same way (Twilight sells tiers 7-11), so the same
+	-- three drifts apply: a look per rung (ToolFX keys off the name, and get clamps, so
+	-- an Omega with no row would sprout the Singularity Coil's core halo), real camps,
+	-- and one unbroken run per camp. Then the five pinned by name, because the templates
+	-- (Assets/Tools/Magnet/T7-T11) were made for exactly this order.
+	local magnetRungs = Gear.maxTier("Magnet")
+	local magnetLooks = ToolTiers.count("Magnet") == magnetRungs
+	local magnetCampsOk = true
+	local magnetSeen: { [string]: boolean } = {}
+	local magnetPrevious = ""
+	for tier = 1, magnetRungs do
+		if Gear.tier("Magnet", tier).name ~= ToolTiers.get("Magnet", tier).name then
+			magnetLooks = false
+		end
+		local camp = Gear.campOf("Magnet", tier)
+		if camp ~= Camps.BASE and Camps.get(camp) == nil then
+			magnetCampsOk = false
+		end
+		if camp ~= magnetPrevious then
+			if magnetSeen[camp] then
+				magnetCampsOk = false
+			end
+			magnetSeen[camp] = true
+			magnetPrevious = camp
+		end
+	end
+	check(string.format("the magnet ladder has one look per rung, by name (%d rungs, %d looks)", magnetRungs, ToolTiers.count("Magnet")), magnetLooks)
+	check("each camp's magnet rungs are one unbroken run at a real camp", magnetCampsOk)
+
+	local twilightMagnetsWant = { "Lattice Magnet", "Solar Magnet", "Void Magnet", "Nebula Magnet", "Omega Magnet" }
+	local twilightMagnetsHave = Gear.tiersAt("Magnet", "twilight")
+	local twilightMagnetsOk = #twilightMagnetsHave == #twilightMagnetsWant
+	for slot, tier in twilightMagnetsHave do
+		if Gear.tier("Magnet", tier).name ~= twilightMagnetsWant[slot] or tier ~= 6 + slot then
+			twilightMagnetsOk = false
+		end
+	end
+	check("Toxic Twilight sells magnet tiers 7-11, in the art pack's order", twilightMagnetsOk)
+
 	-- Revealing is not the same as reaching. If the pull radius ever grows into the
 	-- reveal radius, the walk to the glow disappears and the loop is one button.
 	check(
@@ -1430,7 +1469,10 @@ function Spec.run(): boolean
 		-- "make tier 1 feel weightier" pressure. `draw` is the promise that it will
 		-- not, and this is where the promise is kept: by the mid magnet the answer has
 		-- to be about one click every two seconds, which is comfortable on a phone.
-		local mid = math.ceil(Gear.maxTier("Magnet") / 2) + 1
+		-- The middle of BASE CAMP's ladder (the Winch Coil): Toxic Twilight's magnets
+		-- are all near hands-free, and letting them drag "mid" up the ladder would turn
+		-- this into a check nothing can fail.
+		local mid = math.ceil(#Gear.tiersAt("Magnet", Camps.BASE) / 2) + 1
 		check(
 			string.format("§Step2 a mid magnet (%s) is comfortable on a phone: %.2f clicks/sec (want <= 1)", Gear.tier("Magnet", mid).name, clicksToHold(mid)),
 			clicksToHold(mid) <= 1

@@ -330,7 +330,7 @@ local RACK_HIDE_ON_DISPLAY = { "Realistically Sized Magnet" }
 --- off a hook, and where the Salvage Magnet's own `lift_hook` already sits.
 ---
 --- SMALLER THAN THE DROP, on purpose. Each tier is fitted to a height that climbs
---- from `height[1]` (the free tier) to `height[2]` (the top one), and hangs with its
+--- from `height[1]` (the stall's cheapest) to `height[2]` (its dearest), and hangs with its
 --- top `drop` studs under the mount, so the strap (`Hanger`) always shows and the
 --- poles never reach the deck. Keyed by tier NAME for the odd-axis tiers, not tier
 --- number, so a tier inserted into the line does not inherit someone else's axis.
@@ -1126,7 +1126,7 @@ end
 --- loud"; the quieter per-detector effects that replaced them want only a nudge.
 local RACK_FX_SCALE = 1.5
 
-local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame?, x: number, track: string, tier: number): number?
+local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame?, x: number, track: string, tier: number, rank: number): number?
 	local template = tierTemplate(track, tier)
 	if template == nil then
 		return nil
@@ -1213,8 +1213,11 @@ local function hangTierModel(parent: Instance, origin: CFrame, hand: CFrame?, x:
 	if math.min(e.X, e.Y, e.Z) > 0 then
 		local f
 		if hang then
-			local t = (tier - 1) / math.max(Gear.maxTier(track) - 1, 1)
-			local height = hang.height[1] + (hang.height[2] - hang.height[1]) * t
+			-- Up THIS STALL's own ladder (`rank`, 0 at its cheapest hook, 1 at its dearest;
+			-- a camp stall passes 1 for every hook), not the whole track's: a camp that
+			-- sells tiers 7-11 would otherwise leave Base Camp's six squeezed into the
+			-- bottom half of the ramp.
+			local height = hang.height[1] + (hang.height[2] - hang.height[1]) * rank
 			f = math.min(height / e.Y, RACK_SLOT_WIDTH / e.X, RACK_SLOT_DEPTH / e.Z)
 		else
 			f = math.min(
@@ -1388,7 +1391,7 @@ type RackSpec = { track: string, color: string, present: { yaw: number, pitch: n
 --- shop's accent, and the prompt, the attributes and the billboard are identical
 --- either way. World.verify() asserts every priced track is buyable somewhere, and
 --- that assertion must not depend on which place file this ran in.
-local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, tier: number, x: number)
+local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, tier: number, x: number, rank: number)
 	local def = Gear.tier(spec.track, tier)
 
 	local mount = build(parent, origin, {
@@ -1411,7 +1414,7 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, t
 	-- A RACK_HANG track (the magnets) has no `present` and poses itself.
 	local present = spec.present
 	local hand = if present then origin * Kit.ang(0, present.yaw, 0) * Kit.ang(present.pitch, 0, 0) else nil
-	local topY = hangTierModel(parent, origin, hand, x, spec.track, tier)
+	local topY = hangTierModel(parent, origin, hand, x, spec.track, tier, rank)
 
 	if topY == nil then
 		local blockH = RACK_DROP_TOP - RACK_DROP_BASE
@@ -1499,8 +1502,14 @@ local function buildTierRack(parent: Instance, origin: CFrame, spec: RackSpec)
 
 	-- Left to right in ladder order, from the rack's own first slot: a rack that hangs
 	-- tiers 10-15 still starts at its left end, not ten slots along.
+	--
+	-- A hung rack's rungs grow from its cheapest to its dearest (RACK_HANG `height`), which
+	-- sells Base Camp's line from toy horseshoe to Singularity Coil. A CAMP stall's rungs
+	-- all hang at the top height instead: Toxic Twilight's magnets are one family drawn
+	-- at one size, and the user wanted them shown that way.
 	for slot, tier in tiers do
-		buildRackHook(parent, origin, spec, tier, -span / 2 + (slot - 1) * RACK_PITCH)
+		local rank = if spec.camp then 1 else (slot - 1) / math.max(#tiers - 1, 1)
+		buildRackHook(parent, origin, spec, tier, -span / 2 + (slot - 1) * RACK_PITCH, rank)
 	end
 end
 
