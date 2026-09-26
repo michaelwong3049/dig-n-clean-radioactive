@@ -49,6 +49,7 @@ local DigService = require(script.Parent.DigService)
 local CrateService = require(script.Parent.CrateService)
 local CampService = require(script.Parent.CampService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
+local RareDropService = require(script.Parent.RareDropService)
 local TreadmillService = require(script.Parent.TreadmillService)
 local AwayEarningsService = require(script.Parent.AwayEarningsService)
 local Tuning = require(Shared.Config.Tuning)
@@ -702,6 +703,30 @@ COMMANDS["/luckevent"] = {
 		end
 		LuckBoostService.startEvent(seconds)
 		return `{LuckBoost.EVENT_NAME} up for {seconds}s`
+	end,
+}
+
+COMMANDS["/raredrop"] = {
+	-- The announced drop on demand, without waiting out the 8-12 minute gap. `where`
+	-- prints the live drop's position (server-only knowledge; the banner never says).
+	help = "/raredrop [stage] [rarity] | stop | where — drop an announced rare nuke now, sink it, or locate it",
+	run = function(_player, _sandbox, args)
+		if args[1] == "stop" then
+			return if RareDropService.stopDrop() then "drop sunk" else "no drop live, or someone is locked on"
+		end
+		if args[1] == "where" then
+			local position = RareDropService.livePosition()
+			if position == nil then
+				return `no drop live; next in {math.floor(RareDropService.secondsToNext())}s`
+			end
+			return `drop at {math.floor(position.X)}, {math.floor(position.Y)}, {math.floor(position.Z)}`
+		end
+		local stageId = tonumber(args[1])
+		local rarity = args[2]
+		if rarity and not table.find(Rarity.ORDER, rarity) then
+			return `unknown rarity {rarity}`
+		end
+		return RareDropService.startDrop(stageId, rarity)
 	end,
 }
 

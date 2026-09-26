@@ -27,6 +27,7 @@ local ORDER = {
 	"GearController", -- the Gear tile under Nukes: every owned gear tier, equip from anywhere; reads GearList
 	"CampWarpController", -- the Warp tile under Nukes and its camp list: warp to any camp reached on foot; reads CampState
 	"LuckBoostController", -- the 2x-luck clover (bottom right), the Violet Aurora banner + lights; opens the Shop
+	"RareDropController", -- the announced rare drop: the "LEGENDARY DROP!" card, the live tracker pill, who claimed it
 	"CashController", -- the persistent cash badge; top-left, reads CashState
 	"AwayEarningsController", -- the "While you were away" card on login: COLLECT flies coins into the cash badge, DOUBLE IT is Robux
 	"SpeedController", -- the persistent Speed badge under the cash badge; the one reader of SpeedState

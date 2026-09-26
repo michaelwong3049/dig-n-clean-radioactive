@@ -216,9 +216,24 @@ type Signal = {
 	-- holding a reference to a signal that was just dug out; this is how stepFuses
 	-- knows not to relight it.
 	gone: boolean,
+	-- THE ANNOUNCED DROP (Config/RareDrop, Services/RareDropService): identity fixed at
+	-- plant time (no per-player luck re-roll), aura lit for everyone, and it is not
+	-- replaced when it goes -- it was one over the stage's SIGNALS_PER_STAGE.
+	rareDrop: boolean?,
 }
 
 local signalsByStage: { [number]: { Signal } } = {}
+
+-- Live announced drops by uid (normally zero or one), and who hears when one goes:
+-- `claimer` is the player who dug it up, nil when it blew up in someone's hands.
+local rareDrops: { [string]: Signal } = {}
+local rareDropGone: { (uid: string, claimer: Player?) -> () } = {}
+
+local function notifyRareDropGone(uid: string, claimer: Player?)
+	for _, listener in rareDropGone do
+		task.spawn(listener, uid, claimer)
+	end
+end
 
 -- One aura per REVEALED signal, keyed by uid, and the set of signals somebody
 -- revealed on the current tick. `revealed` is rebuilt from scratch every tick and
@@ -445,6 +460,12 @@ local function safeRoll(signal: Signal): (string, string, string, string?)
 end
 
 local function rollFor(signal: Signal, stats: StatResolver.Stats, userId: number): (string, string, string, string?)
+	-- The announced drop is what the banner said it is, for everyone -- even a tutorial
+	-- digger. Its luck was spent once, server-wide, at the roll (RareDropService).
+	if signal.rareDrop then
+		return signal.itemId, signal.rarity, signal.modifier, nil
+	end
+
 	-- Ahead of the cache: a reading pinned before the tutorial began (it cannot have
 	-- been, for a fresh save, but a crate's variant roll pins eagerly) must not leak
 	-- a Legendary into the first dig.
@@ -612,6 +633,7 @@ local function removeSignal(stageId: number, uid: string)
 	clearAura(uid)
 	revealed[uid] = nil
 	hot[uid] = nil
+	rareDrops[uid] = nil
 
 	local list = signalsByStage[stageId]
 	for index, signal in list do
@@ -970,7 +992,11 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 	end
 
 	removeSignal(signal.stageId, signal.uid)
-	spawnSignal(signal.stageId) -- keep the field populated
+	if signal.rareDrop then
+		notifyRareDropGone(signal.uid, player) -- it was an extra; nothing to replace
+	else
+		spawnSignal(signal.stageId) -- keep the field populated
+	end
 
 	unearthedRemote:FireClient(player, {
 		identified = sealed,
@@ -1062,7 +1088,11 @@ local function detonate(signal: Signal)
 	local stageId = signal.stageId
 	local position = signal.position
 	removeSignal(stageId, signal.uid)
-	spawnSignal(stageId)
+	if signal.rareDrop then
+		notifyRareDropGone(signal.uid, nil)
+	else
+		spawnSignal(stageId)
+	end
 
 	HazardService.detonate(position, signal.fuseRarity, signal.fuseScale)
 end
@@ -1529,6 +1559,96 @@ function DigService.debugGrantDirtyCrate(player: Player, crateId: string): boole
 	return true
 end
 
+-- ── The announced drop (Services/RareDropService) ───────────────────────
+
+--- Stages that have signals buried right now: dig is on and the stage plate exists.
+function DigService.digStages(): { number }
+	local out = {}
+	for stageId, list in signalsByStage do
+		if #list > 0 then
+			table.insert(out, stageId)
+		end
+	end
+	table.sort(out)
+	return out
+end
+
+--- Bury the announced drop: `itemId`, fixed, at the shallowest band of a random open
+--- spot in `stageId`. Returns its uid, or nil when no spot could be found.
+function DigService.plantRareDrop(stageId: number, itemId: string): string?
+	local part = stagePart(stageId)
+	local list = signalsByStage[stageId]
+	if part == nil or list == nil then
+		return nil
+	end
+	local position: Vector3? = nil
+	for _ = 1, SPAWN_TRIES do
+		local candidate = randomPointOn(part)
+		if not StageCraters.blocksDig(stageId, candidate.X, candidate.Z) then
+			position = candidate
+			break
+		end
+	end
+	if position == nil then
+		return nil
+	end
+
+	local item = Items.get(itemId)
+	local signal: Signal = {
+		uid = HttpService:GenerateGUID(false),
+		stageId = stageId,
+		position = position,
+		itemId = itemId,
+		rarity = item.rarity,
+		modifier = rollModifier(),
+		-- Shallow on purpose: the starter detector reaches it (Config/RareDrop).
+		depth = DEPTH_BASE + math.random() * DEPTH_JITTER,
+		soil = Stages.get(stageId).soilHardness,
+		weight = item.weight,
+		crateId = nil,
+		rolls = {},
+		heat = 0,
+		armed = false,
+		fuseWindow = 0,
+		fuseRarity = item.rarity,
+		fuseScale = 1,
+		gone = false,
+		rareDrop = true,
+	}
+	table.insert(list, signal)
+	rareDrops[signal.uid] = signal
+	return signal.uid
+end
+
+--- Sink an unclaimed drop. Refuses (false) while somebody is locked on to it: a drop
+--- never vanishes out from under a magnet mid-haul -- the service asks again next tick.
+--- True when it is gone, or was already.
+function DigService.sinkRareDrop(uid: string): boolean
+	local signal = rareDrops[uid]
+	if signal == nil then
+		return true
+	end
+	for _, locked in lockedTo do
+		if locked == uid then
+			return false
+		end
+	end
+	removeSignal(signal.stageId, uid)
+	return true
+end
+
+--- Where a live drop is, for /raredrop. Server-side only.
+function DigService.rareDropPosition(uid: string): Vector3?
+	local signal = rareDrops[uid]
+	return if signal then signal.position else nil
+end
+
+--- `listener(uid, claimer)` when a live drop leaves the field by being dug up (claimer
+--- = the digger) or blowing up (claimer = nil). NOT called for sinkRareDrop.
+function DigService.onRareDropGone(listener: (uid: string, claimer: Player?) -> ())
+	table.insert(rareDropGone, listener)
+end
+
 --- Kept as a thin delegate so callers written during Phase 1 keep working.
 --- StageService is the authority now.
 function DigService.stageOf(player: Player): number?
@@ -1705,6 +1825,12 @@ function DigService.start()
 		-- pcall, so it will. Recomputing costs one table clear and leaves a dropped
 		-- tick self-healing instead of permanently stranding a glow in the field.
 		table.clear(revealed)
+
+		-- The announced drop glows for everyone, detector or not: the banner names the
+		-- stage, the glow is how you find it in there (Config/RareDrop).
+		for uid, signal in rareDrops do
+			revealed[uid] = signal
+		end
 
 		for _, player in Players:GetPlayers() do
 			local ok, err = pcall(stepPlayer, player, dt)
