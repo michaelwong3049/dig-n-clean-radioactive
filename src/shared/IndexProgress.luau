@@ -22,6 +22,7 @@
 
 local Config = script.Parent.Config
 local Items = require(Config.Items)
+local Weight = require(Config.Weight)
 local Stages = require(Config.Stages)
 local Tuning = require(Config.Tuning)
 
@@ -88,7 +89,7 @@ function IndexProgress.bestKg(itemId: string, entry: Entry?): number?
 	if entry == nil or type(entry.best) ~= "number" or entry.best <= 0 then
 		return nil
 	end
-	return Items.get(itemId).weight * entry.best
+	return Weight.shownKg(Items.get(itemId).weight, entry.best)
 end
 
 return IndexProgress
