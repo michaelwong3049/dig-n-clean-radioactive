@@ -83,6 +83,13 @@ function Rarity.get(name: string): RarityDef
 	return def
 end
 
+--- The star rating: one filled star per rarity tier ("★★★★" for Rare), the same count
+--- the stand card lights. Empty for an unknown or missing rarity.
+function Rarity.starText(name: string?): string
+	local def = if name then Rarity.DEFS[name] else nil
+	return if def then string.rep("\u{2605}", def.order) else ""
+end
+
 function Rarity.byOrder(order: number): (string, RarityDef)
 	local name = Rarity.ORDER[order]
 	assert(name, `no rarity at order {order}`)

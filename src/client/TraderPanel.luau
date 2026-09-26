@@ -228,6 +228,16 @@ local function makeTile(parent: Instance, order: number): TextButton
 	crusted.ZIndex = 2
 	corner(crusted, 6)
 
+	-- The star rating, small under the name-side of the art, ink-outlined so it reads on the art.
+	local tileStars = text(tile, {
+		name = "Stars",
+		position = UDim2.fromOffset(8, 16),
+		size = UDim2.fromOffset(70, 14),
+		textSize = 10,
+		color = SKIN.amber,
+	})
+	tileStars.ZIndex = 2
+
 	text(tile, {
 		name = "ItemName",
 		position = UDim2.new(0, 8, 1, -50),
@@ -369,6 +379,15 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 	local rarityChip = chip(chips, "Rarity", 1)
 	local modifierChip = chip(chips, "Modifier", 2)
 	modifierChip.BackgroundColor3 = SKIN.dim
+	local starLabel = text(chips, {
+		name = "Stars",
+		size = UDim2.fromOffset(0, 22),
+		textSize = 16,
+		color = SKIN.amber,
+		ink = false,
+	})
+	starLabel.LayoutOrder = 3
+	starLabel.AutomaticSize = Enum.AutomaticSize.X
 
 	-- Label on the left, value on the right, three lines.
 	local facts = frame(detail, "Facts")
@@ -504,6 +523,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		local crusted = tile:FindFirstChild("Crusted") :: TextLabel
 		local nameLabel = tile:FindFirstChild("ItemName") :: TextLabel
 		local price = tile:FindFirstChild("Price") :: TextLabel
+		local tileStars = tile:FindFirstChild("Stars") :: TextLabel
 
 		if item == nil then
 			tile:SetAttribute("Uid", nil)
@@ -513,6 +533,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 			stroke.Thickness = 2
 			stroke.Transparency = 0.4
 			strip.Visible = false
+			tileStars.Text = ""
 			crusted.Visible = false
 			nameLabel.Text = ""
 			price.Text = ""
@@ -529,6 +550,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		strip.Visible = true
 		strip.BackgroundColor3 = rarityColor(item.rarity)
 		crusted.Visible = not item.clean
+		tileStars.Text = Rarity.starText(item.rarity)
 		nameLabel.Text = item.name
 		price.Text = money(item.value or 0)
 		ItemArt.paint(viewport, item, (TILE_W - 16) / 62)
@@ -552,6 +574,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		detailName.TextColor3 = if item.clean then SKIN.text else SKIN.crustText
 		rarityChip.Text = string.upper(item.rarity or "")
 		rarityChip.BackgroundColor3 = rarityColor(item.rarity)
+		starLabel.Text = Rarity.starText(item.rarity)
 		local modifier = item.modifier
 		modifierChip.Visible = type(modifier) == "string" and modifier ~= "None"
 		modifierChip.Text = if type(modifier) == "string" then string.upper(modifier) else ""
