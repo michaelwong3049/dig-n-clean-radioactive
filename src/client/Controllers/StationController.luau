@@ -460,6 +460,8 @@ local CARD_ART_HEIGHT = CARD_CHIPS_TOP - CARD_ROW_GAP - CARD_ART_TOP
 -- its camera and orbits its electrons (AuraLook.ICON_TAG). Nothing in this file knows;
 -- it frames the atom like any other model.
 -- The views, lighting and framing live in client/GearArt, shared with the Gear panel.
+-- The card also asks for the tier's ToolFX (client/GearArtFx): the sparks, glow and
+-- moving parts a held tool shows, which a ViewportFrame cannot render by itself.
 
 --- One chip of a card's stat row: the label small on top, the value under it, a thin
 --- bar along the bottom. Chips are laid side by side and share the row's width, which
@@ -1223,7 +1225,7 @@ local function paintArt(card: Frame, track: string, tier: number)
 	end
 	card:SetAttribute("ArtKey", key)
 
-	GearArt.show(card.CardArt.CardModel :: ViewportFrame, track, tier, CARD_ART_WIDTH / CARD_ART_HEIGHT)
+	GearArt.show(card.CardArt.CardModel :: ViewportFrame, track, tier, CARD_ART_WIDTH / CARD_ART_HEIGHT, true)
 end
 
 --- Four states, and all four are drawn on the same card rather than on four layouts.

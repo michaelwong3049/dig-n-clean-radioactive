@@ -8,8 +8,10 @@
 	Magnet, Shared/ToolModels for the hose, AuraLook for the aura), so it cannot drift
 	from the rack or the hand when a model is re-imported.
 
-	The aura's atom is the one picture that moves: it is tagged AuraLook.ICON_TAG, and
-	AuraController circles the camera of whatever ViewportFrame it sits in.
+	The aura's atom moves on its own: it is tagged AuraLook.ICON_TAG, and AuraController
+	circles the camera of whatever ViewportFrame it sits in. Gear pictures asked for
+	`effects` (the shop card) also get their tier's ToolFX — sparks, glow, moving parts
+	— redrawn by client/GearArtFx, since a ViewportFrame renders none of them.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,17 +20,19 @@ local Shared = ReplicatedStorage.Shared
 local AuraLook = require(Shared.AuraLook)
 local ToolModels = require(Shared.ToolModels)
 
+local GearArtFx = require(script.Parent.GearArtFx)
+
 local GearArt = {}
 
 -- A STILL HERO SHOT per track. Each is a direction to look FROM and an `up`, both in the
--- model's own frame (its pivot put at the origin), and all put the working end on the
--- right: the detector is laid along the well with its coil there, since stood up the
--- way it is carried it would be a thin stripe in a box this wide; the magnet and the
--- hose are three-quarter views from a little above. Every tier is framed to fill its
--- box, so tier is carried by the model itself, not by its size.
+-- model's own frame (its pivot put at the origin). The detector STANDS the way it is
+-- carried, by request — it used to be laid along the well, which read as fallen over —
+-- seen side-on from a little above so both its display box and its coil read; the
+-- magnet and the hose are three-quarter views from a little above. Every tier is
+-- framed to fill its box, so tier is carried by the model itself, not by its size.
 type ArtView = { from: Vector3, up: Vector3 }
 local ART_VIEW: { [string]: ArtView } = {
-	Detector = { from = Vector3.new(1, 0.5, 0.3), up = Vector3.new(0, 0.6, -1) },
+	Detector = { from = Vector3.new(1, 0.25, 0.4), up = Vector3.yAxis },
 	Magnet = { from = Vector3.new(1, 0.6, 0.35), up = Vector3.yAxis },
 	Cleaner = { from = Vector3.new(1, 0.55, -0.35), up = Vector3.yAxis },
 	-- Nearly head on and a little above, so the flat ring reads as a ring and the
@@ -141,7 +145,9 @@ end
 --- Put `track`'s tier `tier` in `viewport` (one made by `GearArt.viewport`), framed for
 --- a box `aspect` wide per unit tall. Clears whatever model was there. The aspect is a
 --- caller's design size, not AbsoluteSize, which reads 0 until the first layout.
-function GearArt.show(viewport: ViewportFrame, track: string, tier: number, aspect: number)
+--- `effects` also draws the tier's ToolFX over the picture (see GearArtFx).
+function GearArt.show(viewport: ViewportFrame, track: string, tier: number, aspect: number, effects: boolean?)
+	GearArtFx.clear(viewport)
 	for _, child in viewport:GetChildren() do
 		if child:IsA("Model") then
 			child:Destroy()
@@ -164,6 +170,9 @@ function GearArt.show(viewport: ViewportFrame, track: string, tier: number, aspe
 	model:PivotTo(CFrame.identity)
 	model.Parent = viewport
 	frameArt(viewport.CurrentCamera :: Camera, model, view, aspect)
+	if effects then
+		GearArtFx.attach(viewport, model, track, tier, aspect)
+	end
 end
 
 return GearArt
