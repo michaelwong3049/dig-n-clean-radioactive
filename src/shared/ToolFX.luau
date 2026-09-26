@@ -719,6 +719,200 @@ local SPECS: { [string]: { [string]: (Model, Color3) -> () } } = {
 	},
 }
 
+--[[
+	MOVING PARTS. The top magnets' balls, rings and crystals turn, orbit and ride
+	up and down their poles instead of sitting welded solid.
+
+	Every part of a magnet is WeldConstraint-joined to its `bend`, which cannot be
+	animated. rig() swaps a chosen part's constraint for a `Weld` of the same pose,
+	stamps the motion on it as attributes and tags it MOTION_TAG. That is all the
+	server does; ToolMotionController moves them on each client -- the weld's C0 in
+	a hand, the part's CFrame on an anchored shop rack -- recomputed from the rest
+	pose every frame so nothing drifts.
+
+	All in the BEND'S frame, where every magnet stands the same way: poles up +Y,
+	cores centred on its X=0, Z=0 line. Distances are in bend heights so a motion
+	reads the same on a 0.75x held magnet and a 3x one on the rack.
+]]
+local MOTION_TAG = "ToolMotion"
+
+type Motion = {
+	pivot: Vector3?, -- bend-space point the part turns about (default: its own centre)
+	axis: Vector3?, -- bend-space axis it turns about (default: +Y)
+	spin: number?, -- radians a second
+	bob: number?, -- up-and-down travel along +Y, in bend heights
+	hz: number?, -- bob cycles a second
+	phase: number?, -- bob phase, radians
+}
+
+local function rig(bend: BasePart, part: BasePart, motion: Motion)
+	local old: WeldConstraint? = nil
+	for _, j in bend:GetChildren() do
+		if j:IsA("WeldConstraint") and (j.Part1 == part or j.Part0 == part) then
+			old = j
+			break
+		end
+	end
+	if old == nil then
+		return
+	end
+	local weld = Instance.new("Weld")
+	weld.Name = MOTION_TAG
+	weld.Part0 = bend
+	weld.Part1 = part
+	weld.C0 = bend.CFrame:ToObjectSpace(part.CFrame)
+	weld:SetAttribute("Pivot", motion.pivot or weld.C0.Position)
+	weld:SetAttribute("Axis", (motion.axis or Vector3.yAxis).Unit)
+	weld:SetAttribute("Spin", motion.spin or 0)
+	weld:SetAttribute("Bob", (motion.bob or 0) * bend.Size.Y)
+	weld:SetAttribute("Hz", motion.hz or 0.5)
+	weld:SetAttribute("Phase", motion.phase or 0)
+	weld:AddTag(MOTION_TAG)
+	weld.Parent = part
+	old:Destroy()
+end
+
+--- Where `part` sits in the bend's frame.
+local function at(bend: BasePart, part: BasePart?): Vector3?
+	return if part then bend.CFrame:PointToObjectSpace(part.Position) else nil
+end
+
+--- Parts carried round `centre` as one rigid wheel.
+local function orbit(bend: BasePart, parts: { BasePart }, centre: BasePart?, spin: number, axis: Vector3?)
+	local pivot = at(bend, centre)
+	if pivot == nil then
+		return
+	end
+	for _, part in parts do
+		rig(bend, part, { pivot = pivot, axis = axis, spin = spin })
+	end
+end
+
+--- Bands stacked up a pole riding a travelling wave, bottom to top.
+local function ripple(bend: BasePart, parts: { BasePart })
+	-- partsMatching sorts by name, and "_10" sorts before "_2": order by height instead.
+	table.sort(parts, function(a, b)
+		return bend.CFrame:PointToObjectSpace(a.Position).Y < bend.CFrame:PointToObjectSpace(b.Position).Y
+	end)
+	for i, part in parts do
+		rig(bend, part, { bob = 0.03, hz = 0.7, phase = -i * 0.8 })
+	end
+end
+
+local function spinAll(bend: BasePart, parts: { BasePart }, motion: Motion)
+	for _, part in parts do
+		rig(bend, part, motion)
+	end
+end
+
+local function one(model: Model, name: string): { BasePart }
+	local part = partNamed(model, name)
+	return if part then { part } else {}
+end
+
+local TILT = Vector3.new(1, 1, 0)
+local TILT_BACK = Vector3.new(-1, 1, 1)
+
+-- Magnet tier NAME -> rig(model, bend). Same keying as SPECS.
+local MOTION: { [string]: (Model, BasePart) -> () } = {
+	["Singularity Coil"] = function(model: Model, bend: BasePart)
+		local core = partNamed(model, "singularity_core")
+		local c = at(bend, core)
+		-- A gyroscope: three rings round the core, each tumbling on its own axis.
+		spinAll(bend, one(model, "gyro_ring_a"), { pivot = c, axis = Vector3.xAxis, spin = 1.6 })
+		spinAll(bend, one(model, "gyro_ring_b"), { pivot = c, axis = Vector3.zAxis, spin = -1.2 })
+		spinAll(bend, one(model, "gyro_ring_c"), { pivot = c, axis = Vector3.yAxis, spin = 0.9 })
+		spinAll(bend, one(model, "core_halo"), { axis = TILT, spin = 0.8 })
+		spinAll(bend, one(model, "singularity_core"), { spin = -0.6 })
+		-- The big ring and its six balls wheel round the waist.
+		local halo = partNamed(model, "halo_ring")
+		local wheel = partsMatching(model, "^halo_node_")
+		if halo then
+			table.insert(wheel, halo)
+		end
+		orbit(bend, wheel, halo, 0.7)
+		ripple(bend, partsMatching(model, "^ring_l_"))
+		ripple(bend, partsMatching(model, "^ring_r_"))
+	end,
+	["Lattice Magnet"] = function(model: Model, bend: BasePart)
+		local core = partNamed(model, "lattice_core")
+		-- The six diamonds circle the core, bobbing out of step.
+		local c = at(bend, core)
+		for i, shard in partsMatching(model, "^lattice_shard_") do
+			rig(bend, shard, { pivot = c, spin = 1.1, bob = 0.05, hz = 0.6, phase = i * math.pi / 3 })
+		end
+		spinAll(bend, one(model, "lattice_halo"), { axis = TILT, spin = 0.6 })
+		spinAll(bend, one(model, "lattice_core"), { spin = -0.8 })
+		for i, side in { "l", "r" } do
+			local lift = { bob = 0.04, hz = 0.45, phase = i * math.pi }
+			spinAll(bend, one(model, `float_pole_{side}`), lift)
+			spinAll(bend, one(model, `pole_gem_{side}`), { spin = 1.5, bob = lift.bob, hz = lift.hz, phase = lift.phase })
+			ripple(bend, partsMatching(model, `^band_{side}_`))
+		end
+	end,
+	["Solar Magnet"] = function(model: Model, bend: BasePart)
+		local sun = partNamed(model, "sun_core")
+		orbit(bend, partsMatching(model, "^corona_"), sun, 0.8)
+		spinAll(bend, one(model, "flare_ring_a"), { pivot = at(bend, sun), spin = 1.2 })
+		spinAll(bend, one(model, "flare_ring_b"), { pivot = at(bend, sun), spin = -1.2 })
+		spinAll(bend, one(model, "sun_halo"), { axis = TILT, spin = 0.5 })
+		ripple(bend, partsMatching(model, "^heat_band_l_"))
+		ripple(bend, partsMatching(model, "^heat_band_r_"))
+	end,
+	["Void Magnet"] = function(model: Model, bend: BasePart)
+		spinAll(bend, one(model, "event_ring"), { spin = 1.4 })
+		spinAll(bend, one(model, "event_rim"), { spin = -0.9 })
+		spinAll(bend, one(model, "void_halo"), { axis = TILT_BACK, spin = 0.7 })
+		for i, side in { "l", "r" } do
+			spinAll(bend, one(model, `twin_core_{side}`), { axis = TILT, spin = 1.2, bob = 0.05, hz = 0.5, phase = i * math.pi })
+			ripple(bend, partsMatching(model, `^vein_{side}_`))
+		end
+	end,
+	["Nebula Magnet"] = function(model: Model, bend: BasePart)
+		-- The crown and its six diamond stars turn slowly overhead.
+		local crown = partNamed(model, "crown_halo")
+		local wheel = partsMatching(model, "^halo_star_")
+		if crown then
+			table.insert(wheel, crown)
+		end
+		orbit(bend, wheel, crown, 0.6)
+		local c = at(bend, partNamed(model, "nebula_core"))
+		spinAll(bend, one(model, "field_line_1"), { pivot = c, spin = 0.9 })
+		spinAll(bend, one(model, "field_line_2"), { pivot = c, spin = -0.7 })
+		spinAll(bend, one(model, "field_line_3"), { pivot = c, spin = 0.5 })
+		spinAll(bend, one(model, "nebula_halo"), { axis = TILT, spin = 0.5 })
+		for arm = 1, 3 do
+			for i, side in { "l", "r" } do
+				spinAll(bend, one(model, `arm{arm}_tip_{side}`), { spin = 1.3, bob = 0.04, hz = 0.5, phase = arm * 2.1 + i * math.pi })
+				ripple(bend, partsMatching(model, `^arm{arm}_ring_{side}_`))
+			end
+		end
+	end,
+	["Omega Magnet"] = function(model: Model, bend: BasePart)
+		local c = at(bend, partNamed(model, "omega_core"))
+		spinAll(bend, one(model, "gyro_1"), { pivot = c, axis = Vector3.xAxis, spin = 1.5 })
+		spinAll(bend, one(model, "gyro_2"), { pivot = c, axis = Vector3.yAxis, spin = -1.2 })
+		spinAll(bend, one(model, "gyro_3"), { pivot = c, axis = Vector3.zAxis, spin = 1.0 })
+		spinAll(bend, one(model, "gyro_4"), { pivot = c, axis = TILT, spin = -0.8 })
+		spinAll(bend, one(model, "omega_halo"), { axis = TILT_BACK, spin = 0.6 })
+		-- Three stacked halos and their shards, counter-rotating.
+		for n, spin in { 0.6, -0.8, 1.0 } do
+			local halo = partNamed(model, `halo_{n}`)
+			local wheel = partsMatching(model, `^halo{n}_shard_`)
+			if halo then
+				table.insert(wheel, halo)
+			end
+			orbit(bend, wheel, halo, spin)
+		end
+		spinAll(bend, one(model, "apex_star"), { spin = 1.5, bob = 0.05, hz = 0.5 })
+		for arc = 1, 4 do
+			for _, side in { "l", "r" } do
+				ripple(bend, partsMatching(model, `^arc{arc}_band_{side}_`))
+			end
+		end
+	end,
+}
+
 local function scaleSequence(s: NumberSequence, k: number): NumberSequence
 	local points = {}
 	for _, p in s.Keypoints do
@@ -740,6 +934,11 @@ function ToolFX.apply(model: Model, track: string, tier: number, particleScale: 
 		return
 	end
 	local look = ToolTiers.get(track, tier)
+	local moves = if track == "Magnet" then MOTION[look.name] else nil
+	local bend = partNamed(model, "bend")
+	if moves and bend then
+		moves(model, bend)
+	end
 	local build = byName[look.name]
 	if build and look.glow then
 		build(model, look.glow)
