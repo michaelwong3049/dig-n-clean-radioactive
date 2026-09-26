@@ -29,9 +29,12 @@
 	    its Grip, so the coil's lowest point sits `lowRel` studs below the grip, and the
 	    right Y is the one that puts that point at the floor. T8 and T9 land the lowest point
 	    at -2.997 and -3.023 in the character root's frame (holdY 0.390 with lowest -3.387,
-	    holdY 0.451 with lowest -3.474), so `FLOOR_IN_ROOT` is -3.0. The script measures
-	    `lowRel` and solves for it. Verify in Play once afterwards: `root.Position.Y` must not
-	    move when a tier is equipped (a collidable part would lift the character).
+	    holdY 0.451 with lowest -3.474), and the root rests 3.0 above the floor. So the target
+	    is `FLOOR_IN_ROOT` = -2.95: 0.05 of clearance like every earlier rung, because -3.0
+	    puts the coil exactly on the ground and it would clip during the sweep. The script
+	    measures `lowRel` and solves for it. Checked in Play on the Strata Lance: root.Y stays
+	    flat at 1.500 with a tier equipped (a collidable part would lift the character), and
+	    no part is collidable.
 
 	HOLD POSE: identity rotation, X/Z shared with every other rung (0.02, -1.1). Every tier
 	is oriented the same way (grip up = +Y, look = -Z), which the script asserts.
@@ -45,7 +48,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TARGET_HEIGHT = 4.0
-local FLOOR_IN_ROOT = -3.0 -- where the coil's lowest point belongs, in the character root's frame
+local FLOOR_IN_ROOT = -2.95 -- where the coil's lowest point belongs, in the character root's frame
 local HOLD_X, HOLD_Z = 0.02, -1.1 -- shared by every rung of the track
 
 local TIERS = {
