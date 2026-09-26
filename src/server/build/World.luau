@@ -215,10 +215,29 @@ function World.verify(): (boolean, { string })
 			},
 		}
 
+		-- Every SITE camp's disc is walkable land too, as its bounding box trimmed to
+		-- its clip lines. It is not reached from nothing -- it has to touch reached land
+		-- itself (Toxic Twilight touches the Crater's east edge) -- so it joins the flood
+		-- fill as one more rect, which is what carries reachability on to Stage 7.
+		local campRects: { { number } } = {}
+		for _, def in Camps.sites() do
+			local c, r = def.center :: { number }, def.radius :: number
+			table.insert(campRects, { def.clipX or c[1] - r, c[2] - r, def.exitX or c[1] + r, c[2] + r })
+		end
+
 		local pending: { number } = table.clone(built)
 		local grew = true
 		while grew do
 			grew = false
+			for index = #campRects, 1, -1 do
+				for _, land in reached do
+					if touches(campRects[index], land) then
+						table.insert(reached, table.remove(campRects, index) :: { number })
+						grew = true
+						break
+					end
+				end
+			end
 			for index = #pending, 1, -1 do
 				local ax, az, bx, bz = Stages.bounds(pending[index])
 				local rect = { ax, az, bx, bz }
@@ -247,7 +266,9 @@ function World.verify(): (boolean, { string })
 		for _, def in Camps.sites() do
 			local c, r, clip = def.center :: { number }, def.radius :: number, def.clipX :: number
 			local reach = r + 8 -- the wall stands just outside the floor
-			local box = { clip, c[2] - reach, c[1] + reach, c[2] + reach }
+			-- Trimmed at the east clip line too when the camp has one: the next stage
+			-- (Stage 7 off Toxic Twilight) starts exactly there, touching, not overlapping.
+			local box = { clip, c[2] - reach, def.exitX or c[1] + reach, c[2] + reach }
 			for _, id in built do
 				local ax, az, bx, bz = Stages.bounds(id)
 				check(

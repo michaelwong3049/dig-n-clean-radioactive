@@ -175,6 +175,14 @@ Crates.STAGE_VARIANT_WEIGHTS = {
 	[4] = { 50, 38, 12 },
 	[5] = { 38, 44, 18 },
 	[6] = { 30, 45, 25 },
+	-- Past Toxic Twilight. Nothing digs here yet (no item stocks 7-12), so these only
+	-- matter once a stage is stocked -- the ladder carries on climbing toward "top".
+	[7] = { 26, 46, 28 },
+	[8] = { 23, 46, 31 },
+	[9] = { 20, 46, 34 },
+	[10] = { 17, 46, 37 },
+	[11] = { 14, 46, 40 },
+	[12] = { 12, 45, 43 },
 } :: { [number]: { number } }
 
 function Crates.get(id: string): CrateDef

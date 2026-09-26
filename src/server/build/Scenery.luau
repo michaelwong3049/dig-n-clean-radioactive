@@ -3514,7 +3514,8 @@ local function buildStageCheckerboard(parent: Instance, id: number)
 end
 
 --- The camp->Stage 1 entrance line plus one strip per INTERNAL stage seam -- see
---- BORDER_WIDTH's comment for what these are and why only Stage 6's east edge has none.
+--- BORDER_WIDTH's comment for what these are. A run's edges that open into a site camp
+--- are left to build/CampSite's own seam tape.
 ---
 --- SEAMS ARE READ, NOT HARDCODED. Every stage's east edge is the next stage's west
 --- edge exactly (Config/Stages centres them that way and World.verify() rejects any
@@ -3523,11 +3524,6 @@ end
 --- is Hub.PLAZA.maxX. This chain has been reordered and resized more than once
 --- already -- same reasoning as buildBoundaryWalls reading its own bounds.
 local function buildStageBorderLines(parent: Instance)
-	local ids = table.clone(Stages.builtIds())
-	table.sort(ids, function(a, b)
-		return Stages.get(a).center[1] < Stages.get(b).center[1]
-	end)
-
 	local folder = Instance.new("Folder")
 	folder.Name = "StageBorders"
 
@@ -3561,23 +3557,28 @@ local function buildStageBorderLines(parent: Instance)
 		end
 	end
 
-	-- Camp -> Stage 1. Stage 1's west edge is exactly Hub.PLAZA.maxX; the strip spans
-	-- Stage 1's own Z extent so it reads as one line with the rest of the chain (the
-	-- plaza is narrower, but the field is what you are crossing into).
-	do
-		local wMinX, wMinZ, _, wMaxZ = Stages.bounds(ids[1])
-		strip(wMinX, wMinZ, wMaxZ, `Camp-Stage{ids[1]}`)
-	end
-
-	-- Every internal stage-to-stage seam. seamX is averaged rather than assumed
-	-- equal: if a future edit ever leaves a hair of gap or overlap between two
+	-- Camp -> Stage 1: the first run's west edge is exactly Hub.PLAZA.maxX; the strip
+	-- spans Stage 1's own Z extent so it reads as one line with the rest of the chain.
+	-- A later run opens out of a SITE camp, and build/CampSite lays that mouth's tape
+	-- itself (its ExitSeam, centred on the clip line once the stage exists) -- a second
+	-- strip here would z-fight it.
+	--
+	-- Then every internal stage-to-stage seam WITHIN a run -- never across a camp,
+	-- which would lay a strip through the middle of it. seamX is averaged rather than
+	-- assumed equal: if a future edit ever leaves a hair of gap or overlap between two
 	-- plates, the line still lands in the middle of it. Z span is the union of both
 	-- plates' depth (identical since the uniform passes, taken as a union so this
 	-- keeps covering the seam if that stops being true).
-	for i = 1, #ids - 1 do
-		local _, aMinZ, aMaxX, aMaxZ = Stages.bounds(ids[i])
-		local bMinX, bMinZ, _, bMaxZ = Stages.bounds(ids[i + 1])
-		strip((aMaxX + bMinX) / 2, math.min(aMinZ, bMinZ), math.max(aMaxZ, bMaxZ), `Seam{ids[i]}-{ids[i + 1]}`)
+	for index, run in Stages.runs() do
+		if index == 1 then
+			local wMinX, wMinZ, _, wMaxZ = Stages.bounds(run[1])
+			strip(wMinX, wMinZ, wMaxZ, `Camp-Stage{run[1]}`)
+		end
+		for i = 1, #run - 1 do
+			local _, aMinZ, aMaxX, aMaxZ = Stages.bounds(run[i])
+			local bMinX, bMinZ, _, bMaxZ = Stages.bounds(run[i + 1])
+			strip((aMaxX + bMinX) / 2, math.min(aMinZ, bMinZ), math.max(aMaxZ, bMaxZ), `Seam{run[i]}-{run[i + 1]}`)
+		end
 	end
 
 	-- Same override buildStageCheckerboard's cap tiles take: a thin marker on the
@@ -3822,23 +3823,16 @@ end
 --- BOUNDS ARE READ, NOT ASSUMED. This chain has moved, resized and had stages
 --- reordered more than once already -- hardcoding today's numbers would just be
 --- tomorrow's silent bug the next time it changes.
-local function buildBoundaryWalls(parent: Instance)
+local function buildBoundaryRun(folder: Instance, ids: { number })
 	local minX, minZ, maxX, maxZ = math.huge, math.huge, -math.huge, -math.huge
-	for _, id in Stages.builtIds() do
+	for _, id in ids do
 		local ax, az, bx, bz = Stages.bounds(id)
 		minX, minZ = math.min(minX, ax), math.min(minZ, az)
 		maxX, maxZ = math.max(maxX, bx), math.max(maxZ, bz)
 	end
 
-	local folder = Instance.new("Folder")
-	folder.Name = "BoundaryWalls"
-
-	-- West-to-east stage list, so a column's X resolves to the stage behind it. The wall
-	-- face (wallPair) and its crown cap (capPairAt) share this one resolver.
-	local ids = table.clone(Stages.builtIds())
-	table.sort(ids, function(a, b)
-		return Stages.get(a).center[1] < Stages.get(b).center[1]
-	end)
+	-- A column's X resolves to the stage behind it (ids arrive sorted west to east).
+	-- The wall face (wallPair) and its crown cap (capPairAt) share this one resolver.
 	local function stageAt(x: number): number
 		for _, id in ids do
 			local _, _, bx = Stages.bounds(id)
@@ -3868,13 +3862,15 @@ local function buildBoundaryWalls(parent: Instance)
 	-- camp arc's crown bushes on along it (buildBaseWalls). ON REQUEST, that stays
 	-- Stage-1-only even though every stage's crown is grass now -- the grass lip below
 	-- runs the whole chain (see the drip loop just below), bushes do not.
-	local s1MinX, _, s1MaxX = Stages.bounds(1)
-	local spots = {}
-	for x = s1MinX + WALL_TILE * 2, s1MaxX - WALL_TILE, WALL_TILE * CROWN_BUSH_EVERY do
-		table.insert(spots, Vector2.new(x, northZ))
-		table.insert(spots, Vector2.new(x, southZ))
+	if table.find(ids, 1) then
+		local s1MinX, _, s1MaxX = Stages.bounds(1)
+		local spots = {}
+		for x = s1MinX + WALL_TILE * 2, s1MaxX - WALL_TILE, WALL_TILE * CROWN_BUSH_EVERY do
+			table.insert(spots, Vector2.new(x, northZ))
+			table.insert(spots, Vector2.new(x, southZ))
+		end
+		crownBushes(folder, "CrownBushes", spots, CORRIDOR_SALT, crownTopY(WALL_HEIGHT))
 	end
-	crownBushes(folder, "CrownBushes", spots, CORRIDOR_SALT, crownTopY(WALL_HEIGHT))
 
 	-- Thin grass drips under EVERY stage's lip on both walls, ON REQUEST -- widened
 	-- from Stage 1's own stretch to the full chain, each column coloured with its own
@@ -3888,8 +3884,6 @@ local function buildBoundaryWalls(parent: Instance)
 		thinDrips(folder, CFrame.new(xc, 0, northZ), WALL_TILE, FACE_SIGN.BackSurface, topY, CORRIDOR_SALT * 100003 + col, id)
 		thinDrips(folder, CFrame.new(xc, 0, southZ), WALL_TILE, FACE_SIGN.FrontSurface, topY, (CORRIDOR_SALT + 1) * 100003 + col, id)
 	end
-
-	folder.Parent = parent
 end
 
 --- A short straight run along Z at a fixed X -- the mirror image of `buildWall`
@@ -3989,6 +3983,61 @@ local function buildShoulderCap(parent: Instance, name: string, atX: number, min
 			tile.CanQuery = false
 		end
 	end
+end
+
+--- The chain's far east end, where the last stage stops at open void: one straight
+--- wall across the corridor, running along Z, in the last stage's own wall colours
+--- (wallPair / wallCapPair keyed by that stage, with Z standing in for X as the
+--- column coordinate). It reaches past both corridor walls' outer faces so the
+--- corners are closed by overlap, not by an exactly-touching seam.
+local function buildEndWall(folder: Instance, id: number, atX: number, minZ: number, maxZ: number)
+	local z0 = minZ - WALL_THICKNESS
+	local cols = math.ceil((maxZ - z0 + WALL_THICKNESS) / WALL_TILE)
+	for iz = 0, cols - 1 do
+		local za = z0 + iz * WALL_TILE
+		local zb = za + WALL_TILE
+		for iy = 0, WALL_ROWS - 1 do
+			local y0 = Stages.SURFACE_Y + iy * WALL_TILE
+			local darkHex, lightHex, grassy = wallPair(id, (za + zb) / 2, iy)
+			local thick, xOff = overhangOf(grassy, FACE_SIGN.LeftSurface)
+			local tile = build(folder, CFrame.new(0, 0, 0), {
+				name = "EndWall",
+				pos = { atX + xOff, y0 + WALL_TILE / 2, (za + zb) / 2 },
+				size = { thick, WALL_TILE, WALL_TILE },
+				color = if (iz + iy) % 2 == 0 then darkHex else lightHex,
+				material = "Plastic",
+				canCollide = true,
+			})
+			tile.LeftSurface = Enum.SurfaceType.Studs
+		end
+	end
+	local dark, light = wallCapPair(id)
+	buildShoulderCap(folder, "EndWallCap", atX, z0, z0 + cols * WALL_TILE, dark, light, WALL_HEIGHT, FACE_SIGN.LeftSurface)
+end
+
+--- The corridor walls, one pair PER RUN (Stages.runs) -- a site camp between two runs
+--- has its own walls (build/CampSite), and one pair spanning the whole chain would
+--- cut straight across it. The last run's east end opens on void, so it gets an end
+--- wall; every other run's east end opens into a camp.
+local function buildBoundaryWalls(parent: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "BoundaryWalls"
+
+	local runs = Stages.runs()
+	for index, run in runs do
+		buildBoundaryRun(folder, run)
+		if index == #runs then
+			local last = run[#run]
+			local _, minZ, maxX, maxZ = Stages.bounds(last)
+			for _, id in run do
+				local _, az, _, bz = Stages.bounds(id)
+				minZ, maxZ = math.min(minZ, az), math.max(maxZ, bz)
+			end
+			buildEndWall(folder, last, maxX + WALL_THICKNESS / 2, minZ, maxZ)
+		end
+	end
+
+	folder.Parent = parent
 end
 
 --- The base camp's own perimeter -- see this file's header for WHY (there was no
