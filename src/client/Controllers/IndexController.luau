@@ -519,6 +519,12 @@ local function buildRail(panel: Frame)
 
 	ui.railRows = {}
 	for order, stage in Stages.DEFS do
+		-- A stage that stocks nothing yet (7-12, dig off) has nothing to identify, and
+		-- the rail is a fixed column that only fits the six that do. It joins the rail
+		-- the moment Config/Items stocks it.
+		if #IndexProgress.stageItems(stage.id) == 0 then
+			continue
+		end
 		local tint = stageColor(stage)
 		local row = Instance.new("TextButton")
 		row.Name = `Stage{stage.id}`
@@ -1043,6 +1049,9 @@ end
 local function renderRail()
 	for _, stage in Stages.DEFS do
 		local refs = ui.railRows[stage.id]
+		if refs == nil then
+			continue
+		end
 		local found, total = IndexProgress.stageCount(discovered, stage.id)
 		local complete = total > 0 and found == total
 		local on = stage.id == currentStage

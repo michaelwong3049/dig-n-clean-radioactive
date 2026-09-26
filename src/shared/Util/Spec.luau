@@ -263,30 +263,38 @@ function Spec.run(): boolean
 	-- missing nuke withholds it), it stays smaller than one detector rung, and a record
 	-- with no roll on file reads as "none", not 0 kg.
 	do
+		-- Stages 7-12 are floor only with dig OFF (Config/Stages): they stock nothing, so
+		-- they are held to "never completes" instead of "can be completed".
 		local all: { [string]: boolean } = {}
 		local stocked = true
 		for _, stage in Stages.DEFS do
 			local list = IndexProgress.stageItems(stage.id)
-			if #list == 0 then
+			if #list == 0 and stage.id <= 6 then
 				stocked = false
 			end
 			for _, item in list do
 				all[item.id] = true
 			end
 		end
-		check("§index every stage stocks at least one nuke to complete", stocked)
+		check("§index every stage 1-6 stocks at least one nuke to complete", stocked)
 
 		local none = IndexProgress.stageLuck({})
 		check("§index an empty index earns no stage luck", next(none) == nil)
 
 		local full = IndexProgress.stageLuck(all)
 		local fullOk = true
+		local emptyNever = true
 		for _, stage in Stages.DEFS do
-			if full[stage.id] ~= Tuning.INDEX_COMPLETE_LUCK then
+			local empty = #IndexProgress.stageItems(stage.id) == 0
+			if not empty and full[stage.id] ~= Tuning.INDEX_COMPLETE_LUCK then
 				fullOk = false
 			end
+			if empty and full[stage.id] ~= nil then
+				emptyNever = false
+			end
 		end
-		check("§index identifying everything completes every stage", fullOk)
+		check("§index identifying everything completes every stocked stage", fullOk)
+		check("§index a stage that stocks nothing never grants its luck", emptyNever)
 
 		local firstStage = Stages.DEFS[1].id
 		local missing = table.clone(all)
@@ -561,15 +569,21 @@ function Spec.run(): boolean
 	-- rows is exactly the sort of table where one typo silently makes Stage 5 the
 	-- pleasant one, and nothing in play would ever tell you.
 	do
+		-- The arc is Stages 1-6 -- the run out of Base Camp. Stages 7-12 are floor only
+		-- (Config/Stages) and fall back to BASE until they get their own looks; add them
+		-- here when they do.
 		local looks = { SkyConfig.BASE }
 		local everyStageSkinned = true
 		for _, id in Stages.builtIds() do
+			if id > 6 then
+				continue
+			end
 			if SkyConfig.LOOKS[id] == nil then
 				everyStageSkinned = false
 			end
 			table.insert(looks, SkyConfig.get(id))
 		end
-		check("§sky every built stage has its own look (none silently falling back to camp)", everyStageSkinned)
+		check("§sky every stage 1-6 has its own look (none silently falling back to camp)", everyStageSkinned)
 
 		local worsens, brightens, sealed = true, true, false
 		for i = 2, #looks do
@@ -1906,6 +1920,11 @@ function Spec.run(): boolean
 	local topLuck = Gear.tier("Detector", Gear.maxTier("Detector")).luck
 	for _, id in Stages.builtIds() do
 		local tilt = Stages.get(id).rarityTilt
+		-- Dig is OFF on a stage that stocks nothing (7-12 for now): no roll, no crash.
+		if #IndexProgress.stageItems(id) == 0 then
+			check(string.format("§7 unstocked stage %d rolls nothing", id), Items.rollItem(id, tilt, 1) == nil and id > 6)
+			continue
+		end
 		check(string.format("§7 stage %d rolls a stocked item", id), Items.rollItem(id, tilt, 1) ~= nil)
 
 		local base = Items.rarityWeights(id, tilt)

@@ -535,6 +535,136 @@ Stages.DEFS = {
 		ooze = { bright = "A855FF", deep = "3B1070", glow = "A855FF" },
 		built = true,
 	},
+
+	-- ── STAGES 7-12: THE CHAIN PAST TOXIC TWILIGHT ──────────────────────────────
+	-- A second run of six, opening east out of the Twilight camp's mouth (Camps
+	-- TWILIGHT_EXIT_X, x = 2060) at the same FOOTPRINT_X pitch. The camp disc sits
+	-- between Stage 6 and Stage 7, so the two runs do NOT share an edge -- see
+	-- Stages.runs(), which the corridor walls and seam lines are built per.
+	--
+	-- FLOOR ONLY, ON REQUEST: no THEME entry in build/Scenery, so each field is its
+	-- checker board and corridor walls and nothing else. Sky falls back to Config/Sky
+	-- BASE, and `fogColor` / `ooze` are placeholders nothing draws yet.
+	--
+	-- DIG IS OFF, ON REQUEST: no item in Config/Items stocks these stages, so
+	-- DigService spawns no signals here (it warns once per stage). Stock a stage
+	-- in Items and it starts digging -- `rarityTilt` is already set for that day.
+	--
+	-- RADIATION CONTINUES FROM THE CRATER'S 104 and each field is walked end to end
+	-- by one Twilight aura (Gear.Aura tolerance 140/190/255/340); 11 and 12 run past
+	-- every aura that exists and wait on new ones. `soilHardness` 7-12 against the
+	-- Twilight magnets' maxGrip 7-11 -- Stage 12 is one over the Omega Magnet, a
+	-- slower haul (Gear's 0.5^deficit), not a wall.
+	{
+		id = 7,
+		name = "Cinder Fields",
+		baseRads = 105,
+		deepRads = 138, -- Dusk Corona (140) walks it all; the Containment Nimbus (105) burns past the gate
+		soilHardness = 7,
+		ratedAuraTier = 7,
+		stationDistance = 150, -- Toxic Twilight's cleansing station, just back through the mouth; est., not walked
+		fogColor = Color3.fromHex("5A5560"),
+		fogEnd = 400,
+		rarityTilt = 5.6,
+		-- West edge = the Twilight exit (x = 2060); centre = 2060 + 290/2.
+		center = { 2205, 0 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		color = "34313A", -- charcoal
+		material = "Slate",
+		ooze = { bright = "FF7A2E", deep = "5A2408", glow = "FF7A2E" },
+		built = true,
+	},
+	{
+		id = 8,
+		name = "Cobalt Shelf",
+		baseRads = 140,
+		deepRads = 188, -- Toxic Aurora (190)
+		soilHardness = 8,
+		ratedAuraTier = 8,
+		stationDistance = 440,
+		fogColor = Color3.fromHex("7FA6D6"),
+		fogEnd = 400,
+		rarityTilt = 5.8,
+		center = { 2495, 0 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		color = "3D6FB0", -- steel blue
+		material = "Slate",
+		ooze = { bright = "4FE3FF", deep = "0B3F5C", glow = "4FE3FF" },
+		built = true,
+	},
+	{
+		id = 9,
+		name = "Glass Barrens",
+		baseRads = 190,
+		deepRads = 252, -- Eclipse Veil (255)
+		soilHardness = 9,
+		ratedAuraTier = 9,
+		stationDistance = 730,
+		fogColor = Color3.fromHex("CFF4F5"),
+		fogEnd = 400,
+		rarityTilt = 6.0,
+		center = { 2785, 0 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		color = "9FE3E6", -- pale ice-cyan
+		material = "Glass",
+		ooze = { bright = "3FD9C8", deep = "0E4F4A", glow = "3FD9C8" },
+		built = true,
+	},
+	{
+		id = 10,
+		name = "Sulfur Flats",
+		baseRads = 255,
+		deepRads = 335, -- Twilight Singularity (340), the last aura
+		soilHardness = 10,
+		ratedAuraTier = 10,
+		stationDistance = 1020,
+		fogColor = Color3.fromHex("E8D57A"),
+		fogEnd = 400,
+		rarityTilt = 6.2,
+		center = { 3075, 0 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		color = "C9A227", -- mustard
+		material = "Sand",
+		ooze = { bright = "D8F02E", deep = "4A5208", glow = "D8F02E" },
+		built = true,
+	},
+	{
+		id = 11,
+		name = "Bloodrock Rift",
+		baseRads = 340,
+		deepRads = 450, -- past every aura that exists
+		soilHardness = 11,
+		ratedAuraTier = 11,
+		stationDistance = 1310,
+		fogColor = Color3.fromHex("C45A6A"),
+		fogEnd = 400,
+		rarityTilt = 6.4,
+		center = { 3365, 0 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		color = "9E1B32", -- crimson
+		material = "Slate",
+		ooze = { bright = "FF4A5E", deep = "5C0714", glow = "FF4A5E" },
+		built = true,
+	},
+	{
+		id = 12,
+		name = "Ground Zero",
+		baseRads = 455,
+		deepRads = 600,
+		soilHardness = 12,
+		ratedAuraTier = 12,
+		stationDistance = 1600,
+		fogColor = Color3.fromHex("FFB27A"),
+		fogEnd = 400,
+		rarityTilt = 6.6,
+		-- The chain's east end (x = 3800), closed by build/Scenery's end wall.
+		center = { 3655, 0 },
+		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		color = "FF6A1A", -- molten orange
+		material = "Glass",
+		ooze = { bright = "FFE04A", deep = "7A2A05", glow = "FFE04A" },
+		built = true,
+	},
 } :: { StageDef }
 
 function Stages.get(id: number): StageDef
@@ -552,6 +682,29 @@ function Stages.builtIds(): { number }
 		end
 	end
 	return ids
+end
+
+--- The built stages as CONTIGUOUS RUNS, west to east: each run is a list of ids whose
+--- plates butt edge to edge. A site camp (Config/Camps) standing in the chain splits
+--- it -- Stages 1-6 and 7-12 are two runs with Toxic Twilight between them -- and
+--- everything that treats "the chain" as one strip (corridor walls, seam lines) has
+--- to be built per run, or it cuts straight through the camp.
+function Stages.runs(): { { number } }
+	local ids = table.clone(Stages.builtIds())
+	table.sort(ids, function(a, b)
+		return Stages.get(a).center[1] < Stages.get(b).center[1]
+	end)
+	local runs: { { number } } = {}
+	local lastMaxX = -math.huge
+	for _, id in ids do
+		local minX, _, maxX = Stages.bounds(id)
+		if #runs == 0 or math.abs(minX - lastMaxX) > 0.5 then
+			table.insert(runs, {})
+		end
+		table.insert(runs[#runs], id)
+		lastMaxX = maxX
+	end
+	return runs
 end
 
 --- Studs-per-metre for the HUD's "how deep below base camp" readout. The world has

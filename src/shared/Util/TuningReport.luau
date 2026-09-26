@@ -110,6 +110,11 @@ function TuningReport.run()
 	for stageId = 2, #Stages.DEFS do
 		local stage = Stages.get(stageId)
 		local underTier = stage.ratedAuraTier - 1
+		-- Stage 12's one-under (tier 11) is an aura that does not exist yet.
+		if underTier > Gear.maxTier("Aura") then
+			table.insert(out, string.format("  %-20s (no tier-%d aura yet)", stage.name, underTier))
+			continue
+		end
 		local s = TuningReport.survive(stageId, underTier, 1)
 		local flag = if s >= 8 and s <= 15 then "ok" else "OUT OF BAND"
 		-- Stage 2's one-tier-under IS Faint Glow, same tier as the Stage 1 unshielded
