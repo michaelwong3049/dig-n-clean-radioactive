@@ -92,6 +92,8 @@ export type Burst = {
 	raySpeed: number,
 	raySpin: number,
 	rayPump: number,
+	-- How much faster the light runs out along the cracks (Tuning.AURA_CRACKS).
+	crackSpeed: number,
 }
 
 local GASH = Color3.fromHex("241A10")
@@ -332,6 +334,7 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 		raySpeed = row.raySpeed,
 		raySpin = row.raySpin,
 		rayPump = row.rayPump,
+		crackSpeed = row.crackSpeed,
 	}
 
 	for _, path in paths do
@@ -533,7 +536,7 @@ function SpotCracks.step(burst: Burst, now: number, loud: number, phase: number,
 		end
 	end
 
-	local speed = 3 + 2 * loud
+	local speed = (3 + 2 * loud) * burst.crackSpeed
 	local flicker = 0.85 + 0.15 * math.sin(now * 8 + phase)
 
 	for _, segment in burst.segments do

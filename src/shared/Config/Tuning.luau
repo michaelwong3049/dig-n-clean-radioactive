@@ -343,6 +343,8 @@ Tuning.AURA_CRACK_WIDTH = 0.45 -- a crack's width at its root, studs; it tapers 
 -- blinks, `raySpin` turns the whole fan around the spot (rad/s, direction picked per
 -- spot), and `rayPump` is how far each ray's length surges and falls back on its own
 -- beat (0.35 = down to 65% of full). All three are 1/0/0 below Rare, i.e. still.
+-- `crackSpeed` does the same for the light running out along the cracks: it
+-- multiplies how fast each pulse races from the hot spot to the tips (1 below Rare).
 --
 -- They stand ~6-20 studs, which does break the old "the spot hugs the ground" rule --
 -- on request. That rule existed so a spot could never be mistaken for PLAN 10.9's
@@ -350,15 +352,15 @@ Tuning.AURA_CRACK_WIDTH = 0.45 -- a crack's width at its root, studs; it tapers 
 -- single steady pillar, well taller than this, so a blinking fan and a beacon stay two
 -- different things at a glance.
 Tuning.AURA_CRACKS = {
-	Scrap = { count = 3, forks = false, rays = 5, rayHeight = 6.0, rayWidth = 1.0, raySpeed = 1.0, raySpin = 0.0, rayPump = 0.0 },
-	Common = { count = 3, forks = false, rays = 5, rayHeight = 6.0, rayWidth = 1.0, raySpeed = 1.0, raySpin = 0.0, rayPump = 0.0 },
-	Uncommon = { count = 4, forks = false, rays = 6, rayHeight = 6.5, rayWidth = 1.0, raySpeed = 1.0, raySpin = 0.0, rayPump = 0.0 },
-	Rare = { count = 5, forks = false, rays = 6, rayHeight = 9.0, rayWidth = 1.35, raySpeed = 1.4, raySpin = 0.25, rayPump = 0.15 },
-	Epic = { count = 6, forks = true, rays = 7, rayHeight = 11.5, rayWidth = 1.7, raySpeed = 1.8, raySpin = 0.4, rayPump = 0.2 },
-	Legendary = { count = 8, forks = true, rays = 8, rayHeight = 14.0, rayWidth = 2.1, raySpeed = 2.3, raySpin = 0.6, rayPump = 0.25 },
-	Mythic = { count = 10, forks = true, rays = 9, rayHeight = 17.0, rayWidth = 2.6, raySpeed = 2.9, raySpin = 0.85, rayPump = 0.3 },
-	Anomaly = { count = 12, forks = true, rays = 10, rayHeight = 20.0, rayWidth = 3.2, raySpeed = 3.6, raySpin = 1.2, rayPump = 0.35 },
-} :: { [string]: { count: number, forks: boolean, rays: number, rayHeight: number, rayWidth: number, raySpeed: number, raySpin: number, rayPump: number } }
+	Scrap = { count = 3, forks = false, rays = 5, rayHeight = 6.0, rayWidth = 1.0, raySpeed = 1.0, raySpin = 0.0, rayPump = 0.0, crackSpeed = 1.0 },
+	Common = { count = 3, forks = false, rays = 5, rayHeight = 6.0, rayWidth = 1.0, raySpeed = 1.0, raySpin = 0.0, rayPump = 0.0, crackSpeed = 1.0 },
+	Uncommon = { count = 4, forks = false, rays = 6, rayHeight = 6.5, rayWidth = 1.0, raySpeed = 1.0, raySpin = 0.0, rayPump = 0.0, crackSpeed = 1.0 },
+	Rare = { count = 5, forks = false, rays = 6, rayHeight = 9.0, rayWidth = 1.35, raySpeed = 1.4, raySpin = 0.25, rayPump = 0.15, crackSpeed = 1.5 },
+	Epic = { count = 6, forks = true, rays = 7, rayHeight = 11.5, rayWidth = 1.7, raySpeed = 1.8, raySpin = 0.4, rayPump = 0.2, crackSpeed = 2.0 },
+	Legendary = { count = 8, forks = true, rays = 8, rayHeight = 14.0, rayWidth = 2.1, raySpeed = 2.3, raySpin = 0.6, rayPump = 0.25, crackSpeed = 2.6 },
+	Mythic = { count = 10, forks = true, rays = 9, rayHeight = 17.0, rayWidth = 2.6, raySpeed = 2.9, raySpin = 0.85, rayPump = 0.3, crackSpeed = 3.2 },
+	Anomaly = { count = 12, forks = true, rays = 10, rayHeight = 20.0, rayWidth = 3.2, raySpeed = 3.6, raySpin = 1.2, rayPump = 0.35, crackSpeed = 4.0 },
+} :: { [string]: { count: number, forks: boolean, rays: number, rayHeight: number, rayWidth: number, raySpeed: number, raySpin: number, rayPump: number, crackSpeed: number } }
 
 -- The range ring the detector draws on the ground around YOU. Client-side, so unlike
 -- the auras it is yours alone — it answers "what am I actually sweeping right now",
