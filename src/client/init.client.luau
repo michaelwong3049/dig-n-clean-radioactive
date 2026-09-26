@@ -35,6 +35,7 @@ local ORDER = {
 	"CrustController", -- crust on a washed item: eases the server's erode level every frame, tumbles shed pieces off; watches ItemCrust-tagged parts
 	"TreadmillController", -- the speed-training card and the belt's own motion; reads SpeedController
 	"StationMotionController", -- base machines moving on their own: fans, dial, gauge needle, tub ripples, screen pulse
+	"ToolMotionController", -- the top magnets' moving parts (gyros, halos, orbiting diamonds, rippling bands); watches ToolMotion-tagged welds from Shared/ToolFX
 	"ItemFxController", -- nuke glow/glass/motion on any `ItemFx`-tagged model, once its crust is off
 	"DetonationController", -- nukes going off: the blast, the crater orb, the lit-fuse warnings; reads Detonation
 	"NameTagController", -- subdued overhead player names; replaces Roblox's bright default tag
