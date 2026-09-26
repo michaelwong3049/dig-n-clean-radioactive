@@ -49,8 +49,8 @@ local function stageAt(position: Vector3): number?
 			if id then
 				local localPos = part.CFrame:PointToObjectSpace(position)
 				local half = part.Size / 2
-				-- Y is ignored on purpose: standing on a rock in the Ash Flats is
-				-- still standing in the Ash Flats.
+				-- Y is ignored on purpose: standing on a rock in the Fading Fields is
+				-- still standing in the Fading Fields.
 				if math.abs(localPos.X) <= half.X and math.abs(localPos.Z) <= half.Z then
 					local volume = part.Size.X * part.Size.Z
 					if volume < bestVolume then

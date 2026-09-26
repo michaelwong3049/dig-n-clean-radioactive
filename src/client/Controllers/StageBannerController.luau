@@ -6,7 +6,7 @@
 	nothing has ever shown it. Crossing a stage seam gave you a fog tween
 	(AtmosphereController) and a floor colour and no words. This is the words: an
 	area title over the world near the top of the screen — "STAGE 3" with a thin
-	rule either side, "FALLOUT FIELDS" under it — that fades in from slightly large,
+	rule either side, "THE WASTE DUMP" under it — that fades in from slightly large,
 	holds a beat, and fades out drifting up.
 
 	NO CARD BEHIND IT (the user picked this over the old dark pill from a round of
@@ -60,7 +60,7 @@ local StageBannerController = {}
 -- the Roblox topbar (IgnoreGuiInset is on) and of the aura warning at y 16.
 local TOP = 98
 local PAD = 6 -- inside the CanvasGroup, so the outlines and shadow are not clipped
-local WIDTH = 820 -- wider than the longest name, "THE EXCLUSION BELT"
+local WIDTH = 820 -- wider than the longest name, "REACTOR GROUNDS"
 local EYEBROW_H = 22
 local NAME_Y = PAD + EYEBROW_H + 1
 local NAME_H = 46
@@ -110,7 +110,7 @@ local ui: {
 local drift: Tween? = nil
 
 --- The stage's ground colour, pulled to a consistent brightness so the near-black
---- Exclusion Belt and the near-white Reactor Grounds both read as an accent.
+--- Ooze Marsh and the near-white Reactor Grounds both read as an accent.
 local function accentFor(hex: string): Color3
 	local h, s, v = Color3.fromHex(hex):ToHSV()
 	return Color3.fromHSV(h, math.clamp(s * 1.4, 0.35, 0.85), math.clamp(v, 0.5, 0.9))

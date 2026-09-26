@@ -37,10 +37,10 @@
 	than as six unrelated colour schemes.
 
 	    base camp    a normal bright day. thin air, a few white clouds.
-	    1 Ash Flats  the same day with dust in it. barely wrong.
-	    2 Suburbs    the light yellows. the cloud deck thickens and goes dun.
-	    3 Fallout F. full dust ceiling, khaki, the sun going hazy.
-	    4 Exclusion  THE TURN. the sky itself is acid green, lidded with green cloud.
+	    1 Fading F.  the same day with dust in it. barely wrong.
+	    2 Deadwood   the light yellows. the cloud deck thickens and goes dun.
+	    3 Waste Dump full dust ceiling, khaki, the sun going hazy.
+	    4 Ooze Marsh THE TURN. the sky itself is acid green, lidded with green cloud.
 	    5 Reactor    sickly chartreuse, glare climbing, the sun swollen.
 	    6 Crater     an amber lid over violet ground. the day is dying.
 
@@ -149,7 +149,7 @@ Sky.BASE = {
 --- Keyed by Stages.DEFS id. A stage with no entry falls back to BASE, which is the
 --- right failure mode: an unskinned stage looks like a normal day, not like a bug.
 Sky.LOOKS = {
-	-- 1 — ASH FLATS. Deliberately almost nothing. Stage 1's fog is still base camp's
+	-- 1 — FADING FIELDS. Deliberately almost nothing. Stage 1's fog is still base camp's
 	-- pale blue (CFF3FF) and its west end is literal grass; if the sky turned here
 	-- there would be no "before" left for Stage 4 to be a departure from.
 	[1] = {
@@ -171,7 +171,7 @@ Sky.LOOKS = {
 		clockTime = 13.8,
 	},
 
-	-- 2 — THE SUBURBS. Follows the ground. Stage 2's fog stopped being green and went
+	-- 2 — DEADWOOD GROVE. Follows the ground. Stage 2's fog stopped being green and went
 	-- dusty tan (E8D9B0) for exactly the clash reason its own comment gives, and the
 	-- sky does the same. The cloud deck is the first thing here that reads as WEATHER
 	-- rather than as a filter over the same day.
@@ -194,7 +194,7 @@ Sky.LOOKS = {
 		clockTime = 14.2,
 	},
 
-	-- 3 — FALLOUT FIELDS. The dust ceiling closes. This is the last stage that could
+	-- 3 — THE WASTE DUMP. The dust ceiling closes. This is the last stage that could
 	-- plausibly be a bad day on Earth, which is the whole job of the row: Stage 4 has
 	-- to arrive as a different planet, and it can only do that from here.
 	[3] = {
@@ -216,7 +216,7 @@ Sky.LOOKS = {
 		clockTime = 14.7,
 	},
 
-	-- 4 — THE EXCLUSION BELT. WHERE THE SKY TURNS, one stage after the ground did.
+	-- 4 — OOZE MARSH. WHERE THE SKY TURNS, one stage after the ground did.
 	-- Stage 4's fog has been acid green (6FE04A) since long before this file existed
 	-- and nothing above the horizon ever agreed with it; now it does. Green cloud
 	-- over dead brown ground with hot-pink ooze is not a palette anyone would choose

@@ -314,7 +314,7 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 
-	-- ══ STAGE 2 — THE SUBURBS ═══════════════════════════════════════════════
+	-- ══ STAGE 2 — DEADWOOD GROVE ═══════════════════════════════════════════════
 
 	{
 		id = "cracked_tile",
@@ -487,9 +487,9 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 
-	-- ══ STAGE 3 — FALLOUT FIELDS ════════════════════════════════════════════
+	-- ══ STAGE 3 — THE WASTE DUMP ════════════════════════════════════════════
 	-- NO SCRAP TIER (see this file's header) -- its old Scrap items folded into
-	-- Common. Several of these are also tagged for Stage 4: the Exclusion Belt is
+	-- Common. Several of these are also tagged for Stage 4: the Ooze Marsh is
 	-- the same stretch of country, further in, and a dive still wants a stocked low
 	-- end so the roll is not all Legendaries.
 
@@ -665,7 +665,7 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 
-	-- ══ STAGE 4 — THE EXCLUSION BELT ════════════════════════════════════════
+	-- ══ STAGE 4 — OOZE MARSH ════════════════════════════════════════
 	-- Deliberately thin and top-heavy: its job is to answer "will players dive?",
 	-- not to be farmed. The Stage-3 items tagged { 3, 4 } above carry its lower
 	-- rarities; no Scrap tier here either, same as Stage 3.
@@ -712,7 +712,7 @@ Items.DEFS = {
 
 	-- ══ STAGE 5 — REACTOR GROUNDS ═══════════════════════════════════════════
 	-- `reactor_control` extends across the Stage 4 boundary on purpose -- Stage 5
-	-- sits right next to the Belt in the chain, so the set reads as one storyline.
+	-- sits right next to the Marsh in the chain, so the set reads as one storyline.
 	-- NO SCRAP TIER (see this file's header) -- its old Scrap items folded into
 	-- Common, and the old pressure_gauge Common slot promoted to Uncommon.
 
