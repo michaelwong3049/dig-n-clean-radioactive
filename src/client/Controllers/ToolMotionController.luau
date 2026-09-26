@@ -1,7 +1,7 @@
 --[[
 	ToolMotionController.lua — the moving parts of the top magnets: gyro rings
-	tumbling, halos and their balls wheeling round, diamonds circling a core, bands
-	riding a wave up the poles.
+	tumbling, halos and their balls wheeling round, diamonds circling a core, the
+	big balls floating. The bands wrapped round the poles stay still.
 
 	Shared/ToolFX rigs them on the server: each moving part hangs off its magnet's
 	`bend` by a "ToolMotion"-tagged Weld whose C0 is the rest pose, with the motion
