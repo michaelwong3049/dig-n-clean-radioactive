@@ -485,21 +485,9 @@ ItemFx.DEFS = {
 	-- shell wreathed in laurel under a signet crest, with a clear orb on the nose
 	-- and modelled star glints that wink as the light moves.
 	gold_ring = {
+		-- No gold tint: this batch's colours are baked into Part.Color (no
+		-- SurfaceAppearance for a tint to act on), and the baked gold is already warm.
 		finish = {
-			{
-				parts = {
-					"Shell",
-					"Fin",
-					"FinRoll",
-					"FineBand",
-					"Laurel",
-					"NoseCollar",
-					"SignetCollar",
-					"SignetBezel",
-					"SignetCrest",
-				},
-				tint = GOLD_TINT,
-			},
 			{ parts = { "NoseOrb" }, material = "Glass", color = Color3.fromHex("F2FAFF"), transparency = 0.15 },
 		},
 		anims = {

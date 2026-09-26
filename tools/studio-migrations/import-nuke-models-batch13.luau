@@ -23,10 +23,19 @@
 	each must pick out exactly ONE scene -- the script refuses an ambiguous marker
 	instead of guessing.
 
+	COLOURS ARE BAKED INTO Part.Color. Every texture in this batch is one flat
+	colour (max per-channel spread 24/255), but Studio would not draw these
+	ColorMaps: the models rendered plain grey while AssetService could still read
+	the images. So each MeshPart takes its ColorMap's average colour and the
+	SurfaceAppearance is removed. All the metalness maps are full and roughness
+	~0.31, which Material = Metal already covers. Side effect: a `tint` finish in
+	Config/ItemFx does nothing on these parts -- use `color`.
+
 	Set DRY_RUN = true to build every template orphaned (never parented), report,
 	and destroy -- nothing in the place changes.
 ]]
 
+local AssetService = game:GetService("AssetService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DRY_RUN = false
@@ -139,6 +148,45 @@ local function flatten(model: Model): number
 	return rescued
 end
 
+local averageCache: { [string]: Color3 } = {}
+
+--- The mean colour of a (flat) texture. Sampled every 5th pixel.
+local function averageColor(uri: string): Color3
+	local cached = averageCache[uri]
+	if cached then
+		return cached
+	end
+	local image = AssetService:CreateEditableImageAsync(Content.fromUri(uri))
+	local size = image.Size
+	local pixels = image:ReadPixelsBuffer(Vector2.zero, size)
+	local r, g, b, count = 0, 0, 0, 0
+	for i = 0, size.X * size.Y - 1, 5 do
+		r += buffer.readu8(pixels, i * 4)
+		g += buffer.readu8(pixels, i * 4 + 1)
+		b += buffer.readu8(pixels, i * 4 + 2)
+		count += 1
+	end
+	image:Destroy()
+	local color = Color3.fromRGB(r / count, g / count, b / count)
+	averageCache[uri] = color
+	return color
+end
+
+--- Moves each SurfaceAppearance's colour onto the part and drops it (see header).
+local function bakeColors(model: Model)
+	for _, part in ipairs(model:GetDescendants()) do
+		if part:IsA("MeshPart") then
+			local appearance = part:FindFirstChildOfClass("SurfaceAppearance")
+			if appearance then
+				if appearance.ColorMap ~= "" then
+					part.Color = averageColor(appearance.ColorMap)
+				end
+				appearance:Destroy()
+			end
+		end
+	end
+end
+
 local function templateFolder(): Folder
 	local assets = ReplicatedStorage:WaitForChild("Assets")
 	local folder = assets:FindFirstChild("ImportedNukeTemplates")
@@ -180,6 +228,8 @@ for _, item in ipairs(ITEMS) do
 		if longest > 0 then
 			model:ScaleTo(NATURAL_SIZE / longest)
 		end
+
+		bakeColors(model)
 
 		local meshCount = 0
 		for _, part in ipairs(model:GetDescendants()) do
