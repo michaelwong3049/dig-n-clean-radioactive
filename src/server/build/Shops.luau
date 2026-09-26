@@ -1731,13 +1731,20 @@ end
 --- stall already is — so the bespoke building came out in favour of matching
 --- the stalls exactly, and `buildGableRoof` (walls + roof, unique to that old
 --- shape) went with it.
-local function buildOutfitter(parent: Instance)
-	local m = Instance.new("Model")
-	m.Name = "Outfitter"
+---
+--- A CAMP'S AURA SHOP IS THIS SAME BUILDING (Shops.buildCampOutfitter): `camp` stamps
+--- `ShopCamp` on its counter, so ShopService sells only that camp's rungs there, and
+--- the mannequin and tubes show only those rungs (ShopThemes.dressOutfitter).
+local function outfitterWidth(): number
+	return OUTFITTER.pitch * (#OUTFITTER.counters - 1) + 20
+end
 
-	local origin = facingOrigin(OUTFITTER.at[1], OUTFITTER.at[2], OUTFITTER.faceYaw)
+local function buildOutfitterAt(parent: Instance, name: string, origin: CFrame, camp: string?): Model
+	local m = Instance.new("Model")
+	m.Name = name
+
 	local span = OUTFITTER.pitch * (#OUTFITTER.counters - 1)
-	local width = span + 20
+	local width = outfitterWidth()
 
 	-- The plaza stalls' own shell, at this building's width — see buildStall.
 	build(m, origin, {
@@ -1770,6 +1777,7 @@ local function buildOutfitter(parent: Instance)
 			z = SHOPFRONT_Z,
 			stationKind = "shop",
 			stationId = counter.track,
+			stationCamp = camp,
 			-- Tighter than the plaza stalls: the bench was built for several counters
 			-- sharing one building, where standing at one has to be unambiguous.
 			radius = 6,
@@ -1788,10 +1796,14 @@ local function buildOutfitter(parent: Instance)
 
 	-- The aura shop: a mannequin wearing a live aura behind the Aura desk, a sample
 	-- tube per tier either side, and the roof atom (build/ShopThemes).
-	ShopThemes.dressOutfitter(m, origin, counterX.Aura)
+	ShopThemes.dressOutfitter(m, origin, counterX.Aura, camp)
 
 	m.Parent = parent
 	return m
+end
+
+local function buildOutfitter(parent: Instance)
+	buildOutfitterAt(parent, "Outfitter", facingOrigin(OUTFITTER.at[1], OUTFITTER.at[2], OUTFITTER.faceYaw), nil)
 end
 
 -- ── The empty stall ───────────────────────────────────────────────────────────
@@ -1876,6 +1888,19 @@ end
 --- How wide that stall is, so a camp can lay out around it before it builds it.
 function Shops.campStallWidth(track: string, camp: string): number
 	return stallWidth(#stallTiers({ track = track, camp = camp }))
+end
+
+--- A camp's Aura Shop: the Outfitter's building, standing at `origin` (its customer
+--- side along +Z, like a plaza stall's), selling only the Aura rungs Config/Gear sells
+--- at `camp`. Returns the model, already parented, named "AuraShop".
+function Shops.buildCampOutfitter(parent: Instance, origin: CFrame, camp: string): Model
+	assert(#Gear.tiersAt("Aura", camp) > 0, `Config/Gear sells no Aura rungs at {camp}`)
+	return buildOutfitterAt(parent, "AuraShop", origin, camp)
+end
+
+--- How wide a camp's Aura Shop is.
+function Shops.campOutfitterWidth(): number
+	return outfitterWidth()
 end
 
 local function createShops(): Model

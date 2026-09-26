@@ -18,6 +18,12 @@
 	electrons shedding sparkles, then embers at the feet, then a glitter burst from the
 	core) and, for tier 6, the double helix over the atom (`form`, HELIX).
 
+	TIERS 7-10 ARE TOXIC TWILIGHT'S, sold only at that camp's Aura Shop. The user picked
+	their shapes from a round of eight: Dusk Corona (a sun halo with breathing rays),
+	Toxic Aurora (rippling ribbons), Eclipse Veil (a field-line torus) and Twilight
+	Singularity (beating energy wings). Each is a set of moving curves (CURVE_FORMS),
+	since unlike the atom and helix they change shape as they move.
+
 	THE COLOURS STAY OFF THE HUD'S TWO RESERVED ONES. PLAN's one colour rule gives pure
 	white to aura failure (UIKit.C.burn) and green to exposure (UIKit.C.green), so no
 	rung may be either — a gold aura is fine, a white or green one would tell a player
@@ -51,9 +57,10 @@ export type Sparkle = {
 }
 
 export type Look = {
-	--- "atom": `rings` tilted rings round the chest. "helix": the top rung's own
-	--- shape, two strands spiralling feet to head (see HELIX); `rings` is unused.
-	form: "atom" | "helix",
+	--- "atom": `rings` tilted rings round the chest. "helix": the Nimbus's own shape,
+	--- two strands spiralling feet to head (see HELIX); `rings` is unused. The rest are
+	--- Toxic Twilight's four, each a set of moving curves (see CURVE_FORMS).
+	form: "atom" | "helix" | "corona" | "aurora" | "torus" | "wings",
 	color: Color3,
 	rings: number, -- 1..3
 	electrons: number, -- per ring (per strand, for the helix)
@@ -69,6 +76,9 @@ AuraLook.ATTRIBUTE = "AuraTier"
 --- A part carrying this tag gets an aura drawn round it too (the Outfitter's
 --- mannequin). `AuraTier` on it picks the tier; `AuraCycle` = true walks the ladder.
 AuraLook.DISPLAY_TAG = "AuraDisplay"
+--- On a cycling display, the Config/Camps key whose shop's rungs it walks (Gear.tiersAt).
+--- Left off, Base Camp's.
+AuraLook.CAMP_ATTRIBUTE = "AuraCamp"
 --- Seconds each tier shows for on a cycling display.
 AuraLook.CYCLE_SECONDS = 3
 
@@ -106,6 +116,25 @@ AuraLook.TIERS = {
 	{
 		form = "helix", color = Color3.fromRGB(255, 208, 72), rings = 3, electrons = 3, width = 0.26, transparency = 0.1, speed = 4.0, core = true,
 		sparkle = { dust = 16, shed = 10, embers = 22, burst = 40 },
+	},
+	-- Toxic Twilight's four (Config/Gear's `camp = "twilight"` rungs), picked by the user
+	-- from a round of eight shapes: 1 corona, 2 aurora ribbons, 4 field torus, 6 energy
+	-- wings. `rings` is unused by these forms; it stays 3 so the ladder never "loses" one.
+	{
+		form = "corona", color = Color3.fromRGB(255, 122, 61), rings = 3, electrons = 4, width = 0.28, transparency = 0.08, speed = 4.2, core = true,
+		sparkle = { dust = 18, shed = 11, embers = 24, burst = 44 },
+	},
+	{
+		form = "aurora", color = Color3.fromRGB(63, 224, 208), rings = 3, electrons = 2, width = 0.30, transparency = 0.06, speed = 4.4, core = true,
+		sparkle = { dust = 20, shed = 12, embers = 26, burst = 48 },
+	},
+	{
+		form = "torus", color = Color3.fromRGB(255, 111, 200), rings = 3, electrons = 4, width = 0.32, transparency = 0.04, speed = 4.6, core = true,
+		sparkle = { dust = 22, shed = 13, embers = 28, burst = 52 },
+	},
+	{
+		form = "wings", color = Color3.fromRGB(200, 107, 255), rings = 3, electrons = 6, width = 0.34, transparency = 0.02, speed = 4.8, core = true,
+		sparkle = { dust = 24, shed = 14, embers = 30, burst = 56 },
 	},
 } :: { Look }
 
@@ -194,6 +223,226 @@ function AuraLook.helixProgress(look: Look, strand: number, e: number, t: number
 	return s - math.floor(s)
 end
 
+-- ── Toxic Twilight's forms: moving curves ─────────────────────────────────────
+--
+-- The atom and the helix are rigid shapes the hub turns. Twilight's four MOVE WITHIN
+-- THEMSELVES (the corona's rays breathe, the ribbons ripple, the torus's loops sweep
+-- round, the wings beat), so each is a set of curves, `point(s, t)`, that
+-- AuraController re-lays every frame as a chain of Beams, and `icon` samples once.
+
+--- One moving curve: `point(s, t)` is where the curve is `s` of the way along it
+--- (0..1) at time `t`, in studs round the chest centre on a stock rig. The character
+--- faces -Z, so +Z is BEHIND the back. Drawn as `beams` Beams; `width` scales the
+--- look's beam width and `fade` adds transparency (a fainter echo line).
+export type Curve = {
+	beams: number,
+	closed: boolean,
+	width: number,
+	fade: number,
+	point: (s: number, t: number) -> Vector3,
+}
+
+export type CurveForm = {
+	curves: { Curve },
+	--- Where each electron is at time `t`. Always the same count for a form.
+	riders: (t: number) -> { Vector3 },
+	--- Studs from the chest to the form's furthest point: the dust shell's size and
+	--- the "camera is inside your own aura" test.
+	reach: number,
+}
+
+local TAU = 2 * math.pi
+
+local function frac(x: number): number
+	return x - math.floor(x)
+end
+
+--- A flat circle at height `y`, rocking `wobble` radians about the forward axis.
+local function flatRing(y: number, radius: number, wobble: number, beams: number, width: number): Curve
+	return {
+		beams = beams,
+		closed = true,
+		width = width,
+		fade = 0,
+		point = function(s: number, t: number): Vector3
+			local u = s * TAU
+			local tilt = wobble * math.sin(t)
+			local x, z = math.cos(u) * radius, math.sin(u) * radius
+			return Vector3.new(x * math.cos(tilt), y + x * math.sin(tilt), z)
+		end,
+	}
+end
+
+--- 1. DUSK CORONA: a sun halo standing behind the shoulders with rays that grow and
+--- shrink as it turns, and a waist ring the electrons ride.
+local CORONA_CENTRE = Vector3.new(0, 0.9, 1.0)
+local CORONA_RADIUS = 2.7
+local CORONA_RAYS = 14
+local CORONA_WAIST = flatRing(-1.2, 2.6, 0.08, 8, 1)
+local function coronaForm(): CurveForm
+	local curves: { Curve } = {}
+	for _, ring in { { CORONA_RADIUS, 1.2, 0 }, { 2.25, 0.5, 0.35 } } do
+		table.insert(curves, {
+			beams = 8,
+			closed = true,
+			width = ring[2],
+			fade = ring[3],
+			point = function(s: number, _t: number): Vector3
+				local u = s * TAU
+				return CORONA_CENTRE + Vector3.new(math.cos(u) * ring[1], math.sin(u) * ring[1], 0)
+			end,
+		})
+	end
+	for ray = 1, CORONA_RAYS do
+		table.insert(curves, {
+			beams = 1,
+			closed = false,
+			width = 0.8,
+			fade = 0,
+			point = function(s: number, t: number): Vector3
+				local a = ray * TAU / CORONA_RAYS + t * 0.35
+				local length = 0.5 + 0.45 * (0.5 + 0.5 * math.sin(t * 3 + ray * 1.7))
+				local r = CORONA_RADIUS + 0.15 + s * length
+				return CORONA_CENTRE + Vector3.new(math.cos(a) * r, math.sin(a) * r, 0)
+			end,
+		})
+	end
+	table.insert(curves, CORONA_WAIST)
+	return {
+		curves = curves,
+		riders = function(t: number): { Vector3 }
+			local out = table.create(4)
+			for e = 0, 3 do
+				table.insert(out, CORONA_WAIST.point(frac(t * 0.5 + e / 4), t))
+			end
+			return out
+		end,
+		reach = 4.8,
+	}
+end
+
+--- 2. TOXIC AURORA: three rippling ribbons at knee, chest and head height, turning in
+--- alternate directions, each with a fainter echo just above it.
+local AURORA_HEIGHTS = { -2.0, -0.3, 1.6 }
+local function auroraPoint(ribbon: number, lift: number): (number, number) -> Vector3
+	local y0 = AURORA_HEIGHTS[ribbon]
+	local radius = 2.7 - 0.2 * (ribbon - 1)
+	local dir = if ribbon % 2 == 1 then 1 else -1
+	return function(s: number, t: number): Vector3
+		local u = s * TAU + dir * t * 0.5
+		return Vector3.new(math.cos(u) * radius, y0 + lift + 0.55 * math.sin(3 * u + t * 2.2 + ribbon * 1.3), math.sin(u) * radius)
+	end
+end
+local function auroraForm(): CurveForm
+	local curves: { Curve } = {}
+	for ribbon = 1, #AURORA_HEIGHTS do
+		table.insert(curves, { beams = 12, closed = true, width = 1, fade = 0, point = auroraPoint(ribbon, 0) })
+		table.insert(curves, { beams = 12, closed = true, width = 0.6, fade = 0.35, point = auroraPoint(ribbon, 0.3) })
+	end
+	return {
+		curves = curves,
+		riders = function(t: number): { Vector3 }
+			local out = table.create(6)
+			for ribbon = 1, #AURORA_HEIGHTS do
+				local point = auroraPoint(ribbon, 0)
+				for e = 0, 1 do
+					table.insert(out, point(frac(t * 0.25 + ribbon / 3 + e * 0.5), t))
+				end
+			end
+			return out
+		end,
+		reach = 3.2,
+	}
+end
+
+--- 3. ECLIPSE VEIL: magnetic field lines, eight loops from the feet up over the head
+--- and back down through the chest, the whole set sweeping round; sparks ride them up.
+local TORUS_LOOPS = 8
+local function torusPoint(loop: number): (number, number) -> Vector3
+	return function(s: number, t: number): Vector3
+		local phi = loop * TAU / TORUS_LOOPS + t * 0.5
+		local v = s * TAU
+		local r = 1.5 + 1.4 * math.cos(v)
+		return Vector3.new(math.cos(phi) * r, 0.1 + 3.0 * math.sin(v), math.sin(phi) * r)
+	end
+end
+local function torusForm(): CurveForm
+	local curves: { Curve } = {}
+	for loop = 1, TORUS_LOOPS do
+		table.insert(curves, { beams = 8, closed = true, width = 0.75, fade = 0.15, point = torusPoint(loop) })
+	end
+	return {
+		curves = curves,
+		riders = function(t: number): { Vector3 }
+			local out = table.create(4)
+			for loop = 1, TORUS_LOOPS, 2 do
+				table.insert(out, torusPoint(loop)(frac(t * 0.4 + loop * 0.11), t))
+			end
+			return out
+		end,
+		reach = 3.2,
+	}
+end
+
+--- 4. TWILIGHT SINGULARITY: three pairs of wing arcs sweeping out from the upper back,
+--- beating slowly, sparks racing to the tips, and a ring at the feet.
+local function wingPoint(side: number, feather: number): (number, number) -> Vector3
+	return function(s: number, t: number): Vector3
+		local flap = 0.45 * math.sin(t * 2.2) * s
+		local spread = 1 - 0.18 * feather
+		return Vector3.new(
+			side * (0.5 + s * 3.7 * spread),
+			1.1 + math.sin(s * math.pi * 0.9) * (1.7 - 0.55 * feather) - 0.55 * feather + flap,
+			0.8 + 1.0 * s
+		)
+	end
+end
+local function wingsForm(): CurveForm
+	local curves: { Curve } = {}
+	for _, side in { -1, 1 } do
+		for feather = 0, 2 do
+			table.insert(curves, { beams = 5, closed = false, width = 1.1 - 0.2 * feather, fade = 0, point = wingPoint(side, feather) })
+		end
+	end
+	table.insert(curves, flatRing(AuraLook.FEET + 0.25, 2.3, 0, 8, 0.8))
+	return {
+		curves = curves,
+		riders = function(t: number): { Vector3 }
+			local out = table.create(6)
+			for _, side in { -1, 1 } do
+				for feather = 0, 2 do
+					table.insert(out, wingPoint(side, feather)(frac(t * 0.6 + feather * 0.3), t))
+				end
+			end
+			return out
+		end,
+		reach = 4.5,
+	}
+end
+
+local CURVE_FORMS: { [string]: CurveForm } = {
+	corona = coronaForm(),
+	aurora = auroraForm(),
+	torus = torusForm(),
+	wings = wingsForm(),
+}
+
+--- The moving curves for `look`, or nil for the atom and the helix.
+function AuraLook.curveForm(look: Look): CurveForm?
+	return CURVE_FORMS[look.form]
+end
+
+--- Studs from the chest to the furthest point of `look`'s shape.
+function AuraLook.reach(look: Look): number
+	local form = CURVE_FORMS[look.form]
+	if form then
+		return form.reach
+	elseif look.form == "helix" then
+		return AuraLook.HELIX.footRadius
+	end
+	return AuraLook.RADIUS
+end
+
 --- A ring of `count` straight segments at `radius`, for building one out of parts: each
 --- segment's CFrame in the ring's own frame (its X along the ring), and the length that
 --- closes the loop. Used by `icon` and by the Outfitter's roof atom (build/ShopThemes).
@@ -231,6 +480,8 @@ end
 --- frame. A ViewportFrame redraws whenever anything in it moves, so only the electrons
 --- and the camera ever do.
 AuraLook.ICON_TAG = "AuraIcon"
+--- The moment a moving form's icon is frozen at (its curves never move on a card).
+local ICON_TIME = 0.9
 
 --- Ring `ring`'s frame inside an icon: its tilt, and nothing else. The icon never
 --- precesses itself; the camera circles it instead (see ICON_TAG).
@@ -258,6 +509,36 @@ function AuraLook.icon(tier: number): Model
 		ball.Shape = Enum.PartType.Ball
 		ball:SetAttribute("Ring", ring)
 		ball:SetAttribute("Electron", e)
+	end
+
+	local curveForm = CURVE_FORMS[look.form]
+	if curveForm then
+		-- Each curve sampled once at the icon's fixed time as a chain of short segments;
+		-- only the electrons move after (poseIcon), as on every other card.
+		for _, curve in curveForm.curves do
+			local steps = curve.beams * 6
+			local previous = curve.point(0, ICON_TIME)
+			for step = 1, steps do
+				local point = curve.point(step / steps, ICON_TIME)
+				local span = point - previous
+				if span.Magnitude > 1e-3 then
+					local width = thick * curve.width
+					local part = iconPart(model, "Curve", look.color, Vector3.new(width, width, span.Magnitude + 0.02), CFrame.lookAt((point + previous) / 2, point), true)
+					part.Transparency = curve.fade
+				end
+				previous = point
+			end
+		end
+		-- "Ring" is the rider's index here.
+		for index = 1, #curveForm.riders(0) do
+			electron(index, 1)
+		end
+		local nucleus = iconPart(model, "Nucleus", look.color, Vector3.one * 1.1, CFrame.identity, true)
+		nucleus.Shape = Enum.PartType.Ball
+		model.PrimaryPart = nucleus
+		AuraLook.poseIcon(model, ICON_TIME)
+		CollectionService:AddTag(model, AuraLook.ICON_TAG)
+		return model
 	end
 
 	if look.form == "helix" then
@@ -325,6 +606,17 @@ function AuraLook.poseIcon(model: Model, t: number)
 	local look = AuraLook.get(tier)
 	local r = AuraLook.RADIUS
 	local pivot = model:GetPivot()
+	local curveForm = CURVE_FORMS[look.form]
+	if curveForm then
+		local riders = curveForm.riders(t)
+		for _, ball in electrons:GetChildren() do
+			local index = ball:GetAttribute("Ring")
+			if ball:IsA("BasePart") and type(index) == "number" and riders[index] then
+				ball.CFrame = pivot * CFrame.new(riders[index])
+			end
+		end
+		return
+	end
 	for _, ball in electrons:GetChildren() do
 		local ring, e = ball:GetAttribute("Ring"), ball:GetAttribute("Electron")
 		if ball:IsA("BasePart") and type(ring) == "number" and type(e) == "number" and look.form == "helix" then

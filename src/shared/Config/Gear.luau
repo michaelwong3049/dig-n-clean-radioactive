@@ -304,6 +304,23 @@ Gear.Aura = {
 	{ name = "Ion Shroud", price = 85000, reduction = 0.9970, tolerance = 38.4, capacity = 20, haulPenalty = 0.52, blurb = "Wound tight around you. The first aura that trusts you." },
 	{ name = "Isotope Mantle", price = 210000, reduction = 0.9988, tolerance = 98.4, capacity = 26, haulPenalty = 0.35, blurb = "Burns hotter than the air. Walks into the red and back." },
 	{ name = "Containment Nimbus", price = 500000, reduction = 0.9889, tolerance = 105.0, capacity = 34, haulPenalty = 0.20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
+	-- TOXIC TWILIGHT'S FOUR. Sold at that camp's Aura Shop and nowhere else (`camp`,
+	-- Gear.campOf), like its detectors, magnets and hoses. Shapes picked by the user
+	-- from a mockup round (Shared/AuraLook's corona / aurora / torus / wings).
+	--
+	-- WHAT THEY SELL NOW IS THE BAG: capacity keeps climbing and the haul penalty keeps
+	-- falling (never to zero, see KEEP THE FLOOR ABOVE ZERO), so a full bag still drags
+	-- 6.4 / 5.5 / 4.7 / 3.6 studs/sec, easing off the Nimbus's 6.8.
+	--
+	-- `tolerance` RUNS AHEAD OF THE MAP, the way the camp's magnets' maxGrip does: the
+	-- Crater's worst ambient already sits under the Nimbus's 105, so the extra buys
+	-- nothing until Stage 7 exists. `reduction` DELIBERATELY STAYS AT THE NIMBUS'S 0.9889:
+	-- exposure is what keeps the Crater a heist rather than a farm (PLAN §4, "at any gear
+	-- level, forever"), and Spec pins every rung from the Nimbus up to that window.
+	{ name = "Dusk Corona", price = 1200000, reduction = 0.9889, tolerance = 140.0, capacity = 40, haulPenalty = 0.16, blurb = "A setting sun on your shoulders. The rads burn out before they reach you.", camp = "twilight" },
+	{ name = "Toxic Aurora", price = 2900000, reduction = 0.9889, tolerance = 190.0, capacity = 46, haulPenalty = 0.12, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
+	{ name = "Eclipse Veil", price = 7000000, reduction = 0.9889, tolerance = 255.0, capacity = 52, haulPenalty = 0.09, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 17000000, reduction = 0.9889, tolerance = 340.0, capacity = 60, haulPenalty = 0.06, blurb = "The last aura. It lifts the load before you do.", camp = "twilight" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
@@ -553,7 +570,7 @@ end
 
 --- The camp whose stall sells this rung. A row with no `camp` is sold at Base Camp,
 --- which is every rung of every track but Toxic Twilight's six detectors, five
---- magnets and five hoses. It is a
+--- magnets, five hoses and four auras. It is a
 --- Config/Camps key, spelled the way that file spells it ("base" is Camps.BASE).
 ---
 --- WHERE A RUNG IS SOLD AND WHERE YOU CAN USE IT ARE NOT THE SAME QUESTION. This gates

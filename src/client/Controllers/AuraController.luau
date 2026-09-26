@@ -26,6 +26,12 @@
 	its halo and foot ring are half-circle pairs like the atom's, and all of it is fixed
 	in the hub: the hub turning is the helix turning. The electrons climb the strands.
 
+	TOXIC TWILIGHT'S FOUR (tiers 7-10) MOVE WITHIN THEMSELVES: the corona's rays breathe,
+	the aurora's ribbons ripple, the torus's loops sweep round, the wings beat. So each
+	is AuraLook's curves (`curveForm`), chains of Beams whose Attachments `layCurves`
+	re-lays every frame (Axis on the tangent, CurveSizes from it); the hub only follows
+	the chest. The electrons ride `riders`.
+
 	THE SPARKLE STORM (tiers 3-6, AuraLook's `sparkle`) is ParticleEmitters with the
 	engine's sparkle texture: star dust off an invisible shell round the aura, sparkles
 	shed by each electron, embers off a pad at the feet, and a glitter burst out of the
@@ -56,6 +62,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local AuraLook = require(ReplicatedStorage.Shared.AuraLook)
+local Gear = require(ReplicatedStorage.Shared.Config.Gear)
 
 local AuraController = {}
 
@@ -89,7 +96,11 @@ local STRAND_BEAMS = 6
 --- How hard the core light flares on a glitter burst, on top of its breathing.
 local BURST_FLARE = 2.5
 
-type Electron = { part: Part, trail: Trail, ring: number, index: number, progress: number }
+type Electron = { part: Part, trail: Trail, ring: number, index: number, progress: number, last: Vector3? }
+
+--- One of a Twilight form's moving curves (AuraLook.curveForm) as drawn: its ends,
+--- re-laid on the hub every frame, and the Beams between them.
+type CurveRig = { curve: AuraLook.Curve, ends: { Attachment }, beams: { Beam } }
 
 type Rig = {
 	anchor: BasePart,
@@ -105,6 +116,9 @@ type Rig = {
 	ends: { { Attachment } },
 	beams: { Beam },
 	electrons: { Electron },
+	curveForm: AuraLook.CurveForm?,
+	curves: { CurveRig },
+	reach: number,
 	light: PointLight?,
 	-- The sparkle storm: every emitter (switched with the aura), the parts they emit
 	-- from, and the core's burst.
@@ -216,6 +230,71 @@ local function strands(hub: Part, look: AuraLook.Look, scale: number, beams: { B
 	end
 end
 
+--- A Twilight form's curves: `beams` Beams per curve through Attachments on the hub,
+--- the Attachments posed every frame by `layCurves` (the curves move within the
+--- shape, so nothing here is fixed in the hub the way the helix is).
+local function curves(hub: Part, form: AuraLook.CurveForm, look: AuraLook.Look, scale: number, beams: { Beam }): { CurveRig }
+	local out: { CurveRig } = {}
+	for index, curve in form.curves do
+		local count = if curve.closed then curve.beams else curve.beams + 1
+		local ends: { Attachment } = table.create(count)
+		for e = 1, count do
+			local attachment = Instance.new("Attachment")
+			attachment.Name = `Curve{index}_{e}`
+			attachment.Parent = hub
+			table.insert(ends, attachment)
+		end
+		local own: { Beam } = {}
+		for b = 1, curve.beams do
+			local beam = ringBeam(`Curve{index}`, ends[b], ends[b % count + 1], 0, 0, 10, look, scale, hub)
+			beam.Width0 = look.width * curve.width * scale
+			beam.Width1 = beam.Width0
+			beam.Transparency = NumberSequence.new(math.min(1, look.transparency + curve.fade))
+			table.insert(own, beam)
+			table.insert(beams, beam)
+		end
+		table.insert(out, { curve = curve, ends = ends, beams = own })
+	end
+	return out
+end
+
+--- Where a curve is `s` along it at time `t` (scaled), and its tangent by s.
+local TANGENT_STEP = 0.002
+local function curveAt(curve: AuraLook.Curve, s: number, t: number, scale: number): (Vector3, Vector3)
+	local a, b = s - TANGENT_STEP, s + TANGENT_STEP
+	if not curve.closed then
+		a, b = math.max(0, a), math.min(1, b)
+	end
+	local tangent = (curve.point(b, t) - curve.point(a, t)) / (b - a)
+	return curve.point(s, t) * scale, tangent * scale
+end
+
+--- Re-lay every curve of `rig` at time `t`: each end on its curve with its Axis along
+--- the tangent, and each Beam's CurveSizes a third of the tangent over its span (the
+--- cubic Bezier that matches the curve's ends and slopes, as the helix's strands do).
+local function layCurves(rig: Rig, t: number)
+	for _, drawn in rig.curves do
+		local curve = drawn.curve
+		local span = 1 / curve.beams
+		local pulls = table.create(#drawn.ends)
+		for e, attachment in drawn.ends do
+			local point, tangent = curveAt(curve, (e - 1) * span, t, rig.scale)
+			local length = tangent.Magnitude
+			if length > 1e-4 then
+				-- lookAt puts -Z on the tangent; a quarter turn about Y moves the Axis (X) there.
+				attachment.CFrame = CFrame.lookAt(point, point + tangent) * CFrame.Angles(0, math.pi / 2, 0)
+			else
+				attachment.CFrame = CFrame.new(point)
+			end
+			pulls[e] = length * span / 3
+		end
+		for b, beam in drawn.beams do
+			beam.CurveSize0 = pulls[b]
+			beam.CurveSize1 = pulls[b % #drawn.ends + 1]
+		end
+	end
+end
+
 local function sparkleEmitter(look: AuraLook.Look, size: number, parent: Instance): ParticleEmitter
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Texture = SPARKLE_TEXTURE
@@ -248,7 +327,13 @@ local function buildSparkle(rig: Rig)
 		local dust = fxPart("Dust", model)
 		dust.Transparency = 1
 		local emitter = sparkleEmitter(look, 0.35 * scale, dust)
-		if look.form == "helix" then
+		if rig.curveForm then
+			-- A cylinder from the feet to over the head, out to the form's reach.
+			local top = 2.8
+			dust.Size = Vector3.new(2 * rig.reach + 0.6, top - AuraLook.FEET, 2 * rig.reach + 0.6) * scale
+			rig.dustOffset = CFrame.new(0, (top + AuraLook.FEET) / 2 * scale, 0)
+			emitter.Shape = Enum.ParticleEmitterShape.Cylinder
+		elseif look.form == "helix" then
 			local h = AuraLook.HELIX
 			dust.Size = Vector3.new(2 * h.radius + 0.6, h.top - h.bottom, 2 * h.radius + 0.6) * scale
 			rig.dustOffset = CFrame.new(0, (h.top + h.bottom) / 2 * scale, 0)
@@ -358,7 +443,15 @@ local function build(anchor: BasePart, tier: number, scale: number, lift: number
 		table.insert(electrons, { part = ball, trail = trail, ring = ring, index = index, progress = 0 })
 	end
 
-	if look.form == "helix" then
+	local curveForm = AuraLook.curveForm(look)
+	local drawnCurves: { CurveRig } = {}
+	if curveForm then
+		drawnCurves = curves(hub, curveForm, look, scale, beams)
+		-- `ring` is the rider's index here.
+		for index = 1, #curveForm.riders(0) do
+			electron(index, 1)
+		end
+	elseif look.form == "helix" then
 		local h = AuraLook.HELIX
 		strands(hub, look, scale, beams)
 		halfCircles(hub, "Halo", h.haloRadius * scale, CFrame.new(0, h.haloY * scale, 0), look, scale, beams)
@@ -406,6 +499,9 @@ local function build(anchor: BasePart, tier: number, scale: number, lift: number
 		ends = ends,
 		beams = beams,
 		electrons = electrons,
+		curveForm = curveForm,
+		curves = drawnCurves,
+		reach = AuraLook.reach(look),
 		light = light,
 		emitters = {},
 		dust = nil,
@@ -474,13 +570,20 @@ local function scan()
 		end
 	end
 
-	local cycle = math.floor(os.clock() / AuraLook.CYCLE_SECONDS) % AuraLook.count() + 1
+	local beat = math.floor(os.clock() / AuraLook.CYCLE_SECONDS)
 	for _, display in CollectionService:GetTagged(AuraLook.DISPLAY_TAG) do
 		if display:IsA("BasePart") and display:IsDescendantOf(Workspace) then
 			local fixed = display:GetAttribute("AuraTier")
-			local tier = if display:GetAttribute("AuraCycle") == true
-				then cycle
-				else (if type(fixed) == "number" then fixed else AuraLook.count())
+			local tier = if type(fixed) == "number" then fixed else AuraLook.count()
+			if display:GetAttribute("AuraCycle") == true then
+				-- A mannequin walks the rungs ITS camp's shop sells (AuraCamp; Base Camp's
+				-- carries none), so Base Camp's never models an aura it cannot sell.
+				local camp = display:GetAttribute(AuraLook.CAMP_ATTRIBUTE)
+				local ladder = Gear.tiersAt("Aura", if type(camp) == "string" then camp else "base")
+				if #ladder > 0 then
+					tier = ladder[beat % #ladder + 1]
+				end
+			end
 			local scale = display:GetAttribute("AuraScale")
 			local lift = display:GetAttribute("AuraLift")
 			want(display, tier, if type(scale) == "number" then scale else 1, if type(lift) == "number" then lift else 0, nil, seen)
@@ -567,14 +670,36 @@ local function step(dt: number)
 		local radius = AuraLook.RADIUS * rig.scale
 		local distance = (chest.Position - eye).Magnitude
 		local downed = rig.humanoid ~= nil and rig.humanoid.Health <= 0
-		local inside = rig.isLocal and distance < radius + 1.5
+		local inside = rig.isLocal and distance < rig.reach * rig.scale + 1.5
 		setShown(rig, distance <= FAR and not downed and not inside)
 		if not rig.shown then
 			continue
 		end
 
 		local t = now + rig.seed
-		if rig.look.form == "helix" then
+		local curveForm = rig.curveForm
+		if curveForm then
+			-- The hub only follows the chest (upright, like the body); the curves move
+			-- within it. An electron that jumps (a wing spark wrapping back to the root)
+			-- has its trail cleared, or it would streak across the aura.
+			table.insert(movedParts, rig.hub)
+			table.insert(movedFrames, chest)
+			layCurves(rig, t)
+			local here, ahead = curveForm.riders(t), curveForm.riders(t + 0.02)
+			for _, electron in rig.electrons do
+				local point = here[electron.ring] * rig.scale
+				local toward = ahead[electron.ring] * rig.scale
+				if electron.last and (point - electron.last).Magnitude > rig.reach * rig.scale * 0.5 then
+					table.insert(wrapped, electron.trail)
+				end
+				electron.last = point
+				table.insert(movedParts, electron.part)
+				table.insert(
+					movedFrames,
+					if (toward - point).Magnitude > 1e-4 then chest * CFrame.lookAt(point, toward) else chest * CFrame.new(point)
+				)
+			end
+		elseif rig.look.form == "helix" then
 			-- The whole helix is fixed in the hub, so turning the hub turns it; only the
 			-- electrons climb. One that wraps from the top back to the bottom has its
 			-- trail cleared once it has moved, or it would streak down through the body.
