@@ -20,10 +20,11 @@
 	    finish   the "YOU'RE SET!" card, once
 
 	THE TRAIL IS CLIENT-ONLY PARTS in a local Workspace folder, so nobody else sees
-	anyone's trail. The route is PathfindingService's, recomputed a little under once a
-	second while you move, and it falls back to a straight line when there is no path
-	(the target inside a tub, say). Every ribbon point is raycast onto whatever floor is
-	really there. It is built from plain parts and a SurfaceGui, with no uploaded
+	anyone's trail. The route is PathfindingService's, recomputed every couple of seconds
+	while you move (sooner once you stray), and it falls back to a straight line when
+	there is no path (the target inside a tub, say). The ribbon's near end is joined to
+	your feet every frame (JOIN_AHEAD), so it moves with you, never with the repaths.
+	Every ribbon point is raycast onto whatever floor is really there. It is built from plain parts and a SurfaceGui, with no uploaded
 	textures, and no Neon: it is guidance, not an effect.
 ]]
 
@@ -64,14 +65,17 @@ local SKIN = {
 }
 
 -- ── Banner layout (design px on the 1280x720 canvas) ─────────────────────────────
--- TEXT ONLY, ON REQUEST: no card behind it, no hint line under it, bigger, and lower
--- down the screen, clear of WarpController's HOME / SHOPS portals (y 10..74). The frame
--- named "Banner" is still there, invisible and sized to the words, because
--- StageBannerController and AuraWarningController read its rect to stack themselves
--- underneath it.
+-- The words sit on a see-through black pill (ON REQUEST, over the earlier text-only
+-- banner) with no hint line under them, big, and low enough to clear
+-- WarpController's HOME / SHOPS portals (y 10..74). The pill is the frame named
+-- "Banner", sized to the words plus SKIP, because StageBannerController and
+-- AuraWarningController read its rect to stack themselves underneath it.
 local BANNER_Y = 118
-local BANNER_H = 60
+local BANNER_H = 64
+local BANNER_PAD_X = 22
+local BANNER_SHADE = 0.45 -- the pill's BackgroundTransparency
 local TITLE_SIZE = 46
+local SKIP_W = 64
 local SKIP_GAP = 14
 local SKIP_CONFIRM_SECONDS = 3
 local FINISH_AUTO_CLOSE = 10
@@ -101,9 +105,16 @@ local OFF_ROUTE_SECONDS = 0.5
 -- A new route does not replace the old one in a frame: every point glides from where
 -- the old route had it (matched by distance from the target) to its new place.
 local ROUTE_BLEND = 0.35
--- How fast the ribbon's start catches up with where you are on the route (per second,
--- exponential). High enough to feel attached, low enough to swallow a step's wobble.
+-- How fast the point where the ribbon joins the route catches up with where you are
+-- on it (per second, exponential). High enough to feel attached, low enough to
+-- swallow a step's wobble or a fresh route's different length.
 local HEAD_EASE = 10
+-- THE RIBBON IS JOINED TO YOUR FEET EVERY FRAME (ON REQUEST: it used to sit on the last
+-- computed route and catch up only when the next one landed, which read as a trail
+-- that jumped every half second). It runs from your feet to the route JOIN_AHEAD studs
+-- past the point you are level with, then follows the route. Pathfinding only shapes
+-- the far part, so a slow or late route never holds the near end still.
+local JOIN_AHEAD = 6
 -- The last arrow stops this far short of the route's end, clear of the ring.
 local CHEVRON_END_PAD = 1.5
 local CHEVRON_GAP = 4
@@ -132,18 +143,24 @@ local function buildBanner(canvas: Frame)
 	banner.AnchorPoint = Vector2.new(0.5, 0)
 	banner.Position = UDim2.new(0.5, 0, 0, BANNER_Y)
 	banner.Size = UDim2.fromOffset(400, BANNER_H)
-	banner.BackgroundTransparency = 1
+	banner.BackgroundColor3 = Color3.new(0, 0, 0)
+	banner.BackgroundTransparency = BANNER_SHADE
 	banner.BorderSizePixel = 0
 	banner.Visible = false
 	banner.Parent = canvas
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 16)
+	corner.Parent = banner
 
 	local scale = Instance.new("UIScale")
 	scale.Parent = banner
 
-	-- UIKit's default outline and drop shadow carry it over sky, grass and pavers alike.
+	-- UIKit's default outline and drop shadow keep the words crisp on the pill. The
+	-- label is sized to the words by setBanner, with SKIP just after it.
 	local title = UIKit.label(banner, {
 		name = "Title",
-		size = UDim2.fromScale(1, 1),
+		size = UDim2.new(0, 300, 1, 0),
+		position = UDim2.fromOffset(BANNER_PAD_X, 0),
 		font = SKIN.headline,
 		textSize = TITLE_SIZE,
 		color = SKIN.text,
@@ -151,13 +168,13 @@ local function buildBanner(canvas: Frame)
 		text = "",
 	})
 
-	-- SKIP sits just off the end of the words. It needs a second press: one stray
-	-- click should not throw away a new player's only walkthrough.
+	-- SKIP sits at the pill's right end, after the words. It needs a second press: one
+	-- stray click should not throw away a new player's only walkthrough.
 	local skip = Instance.new("TextButton")
 	skip.Name = "Skip"
-	skip.AnchorPoint = Vector2.new(0, 0.5)
-	skip.Position = UDim2.new(1, SKIP_GAP, 0.5, 0)
-	skip.Size = UDim2.fromOffset(64, 26)
+	skip.AnchorPoint = Vector2.new(1, 0.5)
+	skip.Position = UDim2.new(1, -BANNER_PAD_X, 0.5, 0)
+	skip.Size = UDim2.fromOffset(SKIP_W, 26)
 	skip.AutoButtonColor = true
 	skip.BackgroundColor3 = SKIN.button
 	skip.BorderSizePixel = 0
@@ -304,9 +321,11 @@ local function setBanner(step: Tutorial.StepId)
 	local def = Tutorial.STEPS[step]
 	local changed = ui.title.Text ~= def.title
 	ui.title.Text = def.title
-	-- Sized to the words, so SKIP sits right after them and the banners that stack
-	-- under this one (see BANNER_Y) measure the text, not an empty box.
-	ui.banner.Size = UDim2.fromOffset(math.ceil(textWidth(def.title, TITLE_SIZE, SKIN.headline)) + 8, BANNER_H)
+	-- The pill hugs the words and SKIP, so the banners that stack under this one (see
+	-- BANNER_Y) measure what is drawn, not an empty box.
+	local wordsW = math.ceil(textWidth(def.title, TITLE_SIZE, SKIN.headline)) + 8
+	ui.title.Size = UDim2.new(0, wordsW, 1, 0)
+	ui.banner.Size = UDim2.fromOffset(BANNER_PAD_X + wordsW + SKIP_GAP + SKIP_W + BANNER_PAD_X, BANNER_H)
 
 	local wasHidden = not ui.banner.Visible
 	ui.banner.Visible = true
@@ -387,10 +406,18 @@ local target: Vector3? = nil
 local lastPathAt = -math.huge
 local lastPathFrom: Vector3? = nil
 local pathBusy = false
---- How far along `route` you are, eased, in studs. The ribbon starts TRAIL_START ahead
---- of this every frame. -1 means "not measured on this route yet", so a new route is
---- picked up straight away rather than eased in from the old one's numbers.
-local head = -1
+--- How much of `route` is left from the point you are level with, eased, in studs.
+--- Measured from the END because that is what a new route shares with the old one
+--- (blendRoute matches points by distance from the target), so it stays continuous
+--- when a route is replaced. -1 means "not measured yet".
+local headLeft = -1
+--- Where the ribbon meets the route, in the world, eased (HEAD_EASE). A fresh route can
+--- lie a few studs to one side of the old one near you; this glides across instead.
+local joinPoint: Vector3? = nil
+--- What is drawn this frame: from TRAIL_START ahead of your feet to the target, with
+--- the running length at each point. Rebuilt every frame by buildView.
+local view: { Vector3 } = {}
+local viewLen: { number } = {}
 
 local function localPart(name: string, parent: Instance): Part
 	local p = Instance.new("Part")
@@ -586,9 +613,12 @@ local function clearGuide()
 	table.clear(baseLen)
 	table.clear(fromRoute)
 	table.clear(fromLen)
+	table.clear(view)
+	table.clear(viewLen)
 	blendAt = -math.huge
 	liveLegs, liveJoints = 0, 0
-	head = -1
+	headLeft = -1
+	joinPoint = nil
 	ring = nil
 	marker = nil
 	markerLabel = nil
@@ -798,20 +828,48 @@ local function simplify(points: { Vector3 }): { Vector3 }
 	return out
 end
 
---- Drawn from `start` studs along the route to its end, every frame: the near end
---- follows you as you walk instead of snapping forward each time a new route lands. A
---- simplified route is a handful of legs, so resizing them per frame costs nothing.
-local function drawRibbon(start: number)
-	local folder = ensureGuide()
-	local view: { Vector3 } = {}
-	if #route > 1 and start < (routeLen[#routeLen] or 0) then
-		table.insert(view, (along(start)))
+--- Build this frame's `view`: your feet, straight to `join` (on the route `joinAt` studs
+--- along it, give or take its easing), then the rest of the route, with the first
+--- TRAIL_START studs cut off so it never draws under you.
+local function buildView(feet: Vector3, join: Vector3, joinAt: number)
+	local total = routeLen[#routeLen] or 0
+	local raw: { Vector3 } = { feet }
+	if #route > 1 then
+		table.insert(raw, join)
 		for i = 2, #route do
-			if routeLen[i] > start + 0.05 then
-				table.insert(view, route[i])
+			if routeLen[i] > joinAt + 0.05 then
+				table.insert(raw, route[i])
 			end
 		end
+	elseif total <= 0 and target then
+		table.insert(raw, target)
 	end
+	local lens: { number } = { 0 }
+	for i = 2, #raw do
+		lens[i] = lens[i - 1] + (raw[i] - raw[i - 1]).Magnitude
+	end
+
+	table.clear(view)
+	table.clear(viewLen)
+	local rawTotal = lens[#lens] or 0
+	if #raw < 2 or rawTotal <= TRAIL_START then
+		return
+	end
+	local cut = {}
+	table.insert(cut, (alongIn(raw, lens, TRAIL_START)))
+	for i = 2, #raw do
+		if lens[i] > TRAIL_START + 0.05 then
+			table.insert(cut, raw[i])
+		end
+	end
+	fill(view, viewLen, cut)
+end
+
+--- Lay the ribbon along `view`, every frame: the near end follows you as you walk
+--- instead of waiting for a new route. A simplified route is a handful of legs, so
+--- resizing them per frame costs nothing.
+local function drawRibbon()
+	local folder = ensureGuide()
 	local legs = math.max(0, #view - 1)
 	liveLegs, liveJoints = legs, math.max(0, legs - 1)
 	for i = 1, legs do
@@ -902,8 +960,8 @@ local function repath(from: Vector3, goal: Vector3)
 			table.clear(fromRoute)
 			table.clear(fromLen)
 		end
+		-- headLeft is NOT reset: it is measured from the target, which both routes share.
 		fill(baseRoute, baseLen, simplify(points))
-		head = -1
 	end)
 end
 
@@ -973,21 +1031,39 @@ local function stepGuide(dt: number)
 		markerLabel.Text = `{math.floor(flatDist / Stages.STUDS_PER_METRE + 0.5)}m`
 	end
 
-	-- Where you are on the route, eased so a step or a wobble does not jitter the
-	-- ribbon's start; snapped straight on for a route that has just arrived.
-	local total = routeLen[#routeLen] or 0
-	if head < 0 then
-		head = onRoute
+	-- Where you are on the route (as route LEFT, see headLeft), eased so a step, a
+	-- wobble or a fresh route of a different length slides the join rather than
+	-- snapping it. The ribbon itself starts at your feet this frame regardless.
+	local routeTotal = routeLen[#routeLen] or 0
+	local left = math.max(0, routeTotal - onRoute)
+	if headLeft < 0 then
+		headLeft = left
 	else
-		head += (onRoute - head) * (1 - math.exp(-HEAD_EASE * dt))
+		headLeft += (left - headLeft) * (1 - math.exp(-HEAD_EASE * dt))
 	end
-	local start = math.min(head + TRAIL_START, total)
-	drawRibbon(start)
+	local joinAt = math.clamp(routeTotal - (headLeft - JOIN_AHEAD), 0, routeTotal)
+	local joinWanted = along(joinAt)
+	local joinNow = joinPoint
+	if joinNow == nil then
+		joinNow = joinWanted
+	else
+		joinNow = joinNow:Lerp(joinWanted, 1 - math.exp(-HEAD_EASE * dt))
+	end
+	joinPoint = joinNow
+	-- Your feet's height from the character itself, not a raycast: a ray here lands on
+	-- every pebble and fence rail you pass and pops the ribbon's end up and down.
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local hip = if humanoid then humanoid.HipHeight else 2
+	local feet = root.Position - Vector3.new(0, root.Size.Y / 2 + hip, 0)
+	buildView(feet, joinNow, joinAt)
+	drawRibbon()
 
 	-- Chevrons running along the ribbon toward the target, COUNTED BACK FROM THE END
 	-- rather than out from the start. The target end is the part of the route that
 	-- stays put when a fresh route replaces the old one, or when the start slides
 	-- with you, so the arrows keep flowing instead of all jumping at once.
+	local total = viewLen[#viewLen] or 0
+	local start = 0
 	local visibleLen = total - CHEVRON_END_PAD - start
 	local wanted = if arrived or visibleLen < 1 then 0 else math.min(CHEVRON_MAX, math.floor(visibleLen / CHEVRON_GAP) + 1)
 	while #chevrons < wanted do
@@ -1014,7 +1090,7 @@ local function stepGuide(dt: number)
 			arms[2].Transparency = 1
 			continue
 		end
-		local p, dir = along(d)
+		local p, dir = alongIn(view, viewLen, d)
 		-- Fade in over the first two studs of ribbon and out over the last arrow gap.
 		local fade = math.clamp(math.min((d - start) / 2, (total - CHEVRON_END_PAD - d) / CHEVRON_GAP * 3), 0, 1)
 		local lifted = p + Vector3.new(0, RIBBON_LIFT + 0.05, 0)
