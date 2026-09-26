@@ -733,7 +733,7 @@ local SPECS: { [string]: { [string]: (Model, Color3) -> () } } = {
 
 	All in the BEND'S frame, where every magnet stands the same way: poles up +Y,
 	cores centred on its X=0, Z=0 line. Distances are in bend heights so a motion
-	reads the same on a 0.75x held magnet and a 3x one on the rack.
+	reads the same on a held magnet and a scaled-up one on the rack.
 ]]
 local MOTION_TAG = "ToolMotion"
 
