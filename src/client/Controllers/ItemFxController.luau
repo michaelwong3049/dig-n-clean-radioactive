@@ -269,10 +269,20 @@ local function applyFinish(model: Model, def: Def)
 			end
 			if finish.tint then
 				-- Multiplies the painted colour map; the texture's detail stays.
-				for _, child in part:GetChildren() do
-					if child:IsA("SurfaceAppearance") then
-						child.Color = finish.tint
+				local appearance = part:FindFirstChildOfClass("SurfaceAppearance")
+				if appearance then
+					appearance.Color = finish.tint
+				else
+					-- Baked parts (tools/studio-migrations/bake-nuke-texture-colours)
+					-- carry the paint in Part.Color. The untinted colour is kept in an
+					-- attribute so a second pass over the same model can't compound it.
+					local base = part:GetAttribute("FxBaseColor")
+					if typeof(base) ~= "Color3" then
+						base = part.Color
+						part:SetAttribute("FxBaseColor", base)
 					end
+					local tint = finish.tint
+					part.Color = Color3.new(base.R * tint.R, base.G * tint.G, base.B * tint.B)
 				end
 			end
 			local ramp = finish.ramp

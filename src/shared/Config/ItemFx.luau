@@ -35,7 +35,9 @@
 	             matched parts' SurfaceAppearance (it would override both);
 	             `transparency`, `reflectance`, `tint` or `ramp` alone keeps it.
 	             `tint` multiplies the painted colour map (SurfaceAppearance.Color),
-	             so it can only darken or warm: lemon-yellow paint times a peach
+	             or Part.Color on a part whose paint was baked in (see
+	             tools/studio-migrations/bake-nuke-texture-colours.luau), so it
+	             can only darken or warm: lemon-yellow paint times a peach
 	             tint reads as deep gold, but green paint can't be tinted orange.
 	             `ramp` sets transparency from the level number in the name
 	             (`FadePlate<N>_k`), `from` at level 1 to `to` at `levels`.
@@ -485,8 +487,7 @@ ItemFx.DEFS = {
 	-- shell wreathed in laurel under a signet crest, with a clear orb on the nose
 	-- and modelled star glints that wink as the light moves.
 	gold_ring = {
-		-- No gold tint: this batch's colours are baked into Part.Color (no
-		-- SurfaceAppearance for a tint to act on), and the baked gold is already warm.
+		-- No gold tint: this model's baked gold is already warm.
 		finish = {
 			{ parts = { "NoseOrb" }, material = "Glass", color = Color3.fromHex("F2FAFF"), transparency = 0.15 },
 		},
