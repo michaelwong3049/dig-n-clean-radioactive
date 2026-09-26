@@ -247,6 +247,21 @@ Gear.Cleaner = {
 	{ name = "Ultrasonic Jet", price = 70000, power = 5, volume = 2.4, blurb = "Shakes the grime loose before it is wet." },
 	{ name = "Ion Cannon", price = 165000, power = 6, volume = 3.0, blurb = "Charges the water. The dirt lets go first." },
 	{ name = "Plasma Lance", price = 400000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you." },
+	-- TOXIC TWILIGHT'S FIVE. Sold at that camp's Hose Shop and nowhere else (`camp`,
+	-- Gear.campOf), like its detectors and magnets. The order is the user's.
+	--
+	-- `power` runs 8-12 AHEAD OF THE MAP, the way the camp's magnets' maxGrip does:
+	-- crust hardness stops at 7 (Anomaly) today, so the gate buys nothing until harder
+	-- crust exists. What these rungs sell NOW is `volume`, the divisor on
+	-- Contamination.secondsFor, climbing ~x1.25 a rung so every one still washes
+	-- faster than the last. The stream's girth is already capped (WashController's
+	-- JET_GIRTH_MAX), so the extra water is speed, not a wall of spray. Prices keep
+	-- the other Twilight ladders' x2.4 stride.
+	{ name = "Singularity Nozzle", price = 1000000, power = 8, volume = 4.7, blurb = "Folds the stream down to a point. The crust folds with it.", camp = "twilight" },
+	{ name = "Cryo Nova", price = 2400000, power = 9, volume = 5.8, blurb = "Freezes the grime, then shatters it off.", camp = "twilight" },
+	{ name = "Solar Forge", price = 5800000, power = 10, volume = 7.2, blurb = "Water hot enough to glow. Dirt does not argue.", camp = "twilight" },
+	{ name = "Quantum Rift", price = 14000000, power = 11, volume = 8.9, blurb = "Cleans it here and in every other version of here.", camp = "twilight" },
+	{ name = "Celestial Deluge", price = 34000000, power = 12, volume = 11.0, blurb = "The last hose. It rains from somewhere higher.", camp = "twilight" },
 }
 
 -- reduction  : fraction of AMBIENT rads/sec removed  (exposure track, green screen)
@@ -537,8 +552,8 @@ function Gear.tier(track: string, index: number): GearTier
 end
 
 --- The camp whose stall sells this rung. A row with no `camp` is sold at Base Camp,
---- which is every rung of every track but Toxic Twilight's six detectors and five
---- magnets. It is a
+--- which is every rung of every track but Toxic Twilight's six detectors, five
+--- magnets and five hoses. It is a
 --- Config/Camps key, spelled the way that file spells it ("base" is Camps.BASE).
 ---
 --- WHERE A RUNG IS SOLD AND WHERE YOU CAN USE IT ARE NOT THE SAME QUESTION. This gates

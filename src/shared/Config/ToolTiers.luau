@@ -135,6 +135,14 @@ ToolTiers.Cleaner = {
 	{ name = "Ultrasonic Jet", scale = 1.00, body = Color3.fromHex("2E9BA8"), accent = Color3.fromHex("BFF2F7"), material = Enum.Material.Metal, glow = Color3.fromHex("7FE8F2") },
 	{ name = "Ion Cannon", scale = 1.00, body = Color3.fromHex("EDEDED"), accent = Color3.fromHex("6FC8FF"), material = Enum.Material.Metal, glow = Color3.fromHex("9FDCFF") },
 	{ name = "Plasma Lance", scale = 1.00, body = Color3.fromHex("D43FA0"), accent = Color3.fromHex("FFE0F4"), material = Enum.Material.Metal, glow = Color3.fromHex("FF9FE0") },
+	-- TOXIC TWILIGHT'S FIVE. Imported and textured like the seven above, so these rows
+	-- are the reel drum, coil and line colour (Plots.paintHoseRig) plus the fallback
+	-- paint if a template is ever missing. Bodies read off each model's texture.
+	{ name = "Singularity Nozzle", scale = 1.00, body = Color3.fromHex("8C8FD8"), accent = Color3.fromHex("C9A6FF"), material = Enum.Material.Metal, glow = Color3.fromHex("B08CFF") },
+	{ name = "Cryo Nova", scale = 1.00, body = Color3.fromHex("2F7FCF"), accent = Color3.fromHex("D8F2FF"), material = Enum.Material.Metal, glow = Color3.fromHex("9FE4FF") },
+	{ name = "Solar Forge", scale = 1.00, body = Color3.fromHex("E0A21E"), accent = Color3.fromHex("7A4A12"), material = Enum.Material.Metal, glow = Color3.fromHex("FFD36B") },
+	{ name = "Quantum Rift", scale = 1.00, body = Color3.fromHex("2FB8B0"), accent = Color3.fromHex("FF5FA8"), material = Enum.Material.Metal, glow = Color3.fromHex("7FF2E8") },
+	{ name = "Celestial Deluge", scale = 1.00, body = Color3.fromHex("D8B84A"), accent = Color3.fromHex("FFF4D0"), material = Enum.Material.Metal, glow = Color3.fromHex("FFF0A0") },
 } :: { TierLook }
 
 function ToolTiers.get(track: string, tier: number): TierLook

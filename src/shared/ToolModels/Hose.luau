@@ -26,8 +26,13 @@
 	cannot be written from a script in this place, so the meshes can only ever be
 	cloned; that is why the art sits in the place file and this file merely finds it.
 	The templates carry the SAME contract as the primitive build (everything under THE
-	FRAME below), so no caller can tell which one it got. FORMS is still the count of
-	rungs (Spec checks it) and still what draws a hose when the template is missing.
+	FRAME below), so no caller can tell which one it got. FORMS is still what draws
+	a hose when the template is missing.
+
+	TOXIC TWILIGHT'S FIVE ARE ART ONLY. Tiers 8-12 (T8..T12, made by
+	tools/studio-migrations/import-twilight-hoses.luau) have no primitive drawing of
+	their own: the rung count is FORMS plus ART_ONLY (Spec checks it against Gear), and a
+	missing template falls back to the top FORMS silhouette in that rung's own colours.
 
 	THE FRAME, and everything downstream depends on it:
 	  * authored at the ORIGIN, so callers own placement and move the Model with PivotTo
@@ -307,8 +312,13 @@ local function tube(name: string, t: Tube, color: Color3, material: Enum.Materia
 	return p
 end
 
+--- The rungs that exist only as imported art, by Gear.Cleaner name, after FORMS' seven.
+--- Listed rather than counted off the Assets folder so Spec (and an offline run with no
+--- place file) still knows how long the ladder is.
+local ART_ONLY = { "Singularity Nozzle", "Cryo Nova", "Solar Forge", "Quantum Rift", "Celestial Deluge" }
+
 function Hose.count(): number
-	return #FORMS
+	return #FORMS + #ART_ONLY
 end
 
 --- The imported art for one rung, or nil if this place has none (yet). A template with
@@ -336,7 +346,7 @@ end
 --- the hose "still on the reel" follow it instead of staying garden-hose green behind a
 --- violet lance. `coil` is the same darker-than-the-body relationship the grip uses.
 function Hose.rigLook(tier: number): { body: Color3, coil: Color3 }
-	local look = ToolTiers.get(Hose.TRACK, math.clamp(math.floor(tier), 1, #FORMS))
+	local look = ToolTiers.get(Hose.TRACK, math.clamp(math.floor(tier), 1, Hose.count()))
 	return { body = look.body, coil = shaded(look.body) }
 end
 
@@ -347,7 +357,7 @@ end
 --- clean with. Refusing to build is a softlock at the one station whose whole job is
 --- to be the way out of one.
 function Hose.create(tier: number): Model
-	local index = math.clamp(math.floor(tier), 1, #FORMS)
+	local index = math.clamp(math.floor(tier), 1, Hose.count())
 
 	-- The imported art already has the frame, the core, the welds and both attachments
 	-- (see the migration's header), so all a clone needs is the two attributes the
@@ -362,7 +372,8 @@ function Hose.create(tier: number): Model
 		return model
 	end
 
-	local form = FORMS[index]
+	-- An ART_ONLY rung whose template is missing borrows the top drawn silhouette.
+	local form = FORMS[math.min(index, #FORMS)]
 	local look = ToolTiers.get(Hose.TRACK, index)
 
 	local paints: { [string]: Color3 } = {

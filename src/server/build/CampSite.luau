@@ -16,8 +16,8 @@
 	sell at the counter, dock and shower at the tub, wash what you hold. A stall is real
 	only where Config/Gear sells something at this camp (a rung's `camp` column): Toxic
 	Twilight's north row is the Detector Shop (Shops.buildCampStall), selling that camp's
-	six detectors, and the south-west slot is its Magnet Shop, selling its five magnets.
-	Every other stall is Shops.buildStallShell -- the frame and steel roof
+	six detectors, the south-west slot is its Magnet Shop, selling its five magnets, and
+	the south-east slot is its Hose Shop, selling its five hoses. Every other stall is Shops.buildStallShell -- the frame and steel roof
 	with NO station attributes -- because the gear they will sell does not exist yet. They
 	say COMING SOON rather than opening a panel for nothing.
 
@@ -56,6 +56,7 @@
 	                                  Gear sells detector rungs at this camp
 	    ...<Key>.Stalls.MagnetShop    the same, in the south-west slot, where Gear sells
 	                                  magnet rungs at this camp
+	    ...<Key>.Stalls.CleanerShop   the same, in the south-east slot, for hose rungs
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -76,7 +77,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 7
+local BUILDER_VERSION = 8
 
 local C = Kit.C
 local build = Kit.build
@@ -726,12 +727,16 @@ local function buildStalls(parent: Instance, L: Layout)
 	-- this camp. A ladder of five is ~33 studs, wider than the 24-stud shell it replaces,
 	-- and the kiosk sits east of it, so it grows WEST: its centre moves just far enough
 	-- out that its east end keeps TRADER_CLEARANCE off the kiosk's deck.
+	--
+	-- THE SOUTH-EAST SLOT IS THE HOSE SHOP, the mirror image: it grows EAST off the kiosk.
 	for slot, dx in SOUTH_STALL_X do
-		if slot == 1 and #Gear.tiersAt("Magnet", L.def.key) > 0 then
-			local half = Shops.campStallWidth("Magnet", L.def.key) / 2
-			local x = math.min(dx, -(TRADER_HALF_X + TRADER_CLEARANCE + half))
-			Shops.buildCampStall(folder, CFrame.new(L.ox + x, PLAZA_Y, L.oz - ROW_Z), "Magnet", L.def.key)
-			-- Skip the shell's awning colour too, so the south-east shell keeps its own.
+		local track = if slot == 1 then "Magnet" else "Cleaner"
+		if #Gear.tiersAt(track, L.def.key) > 0 then
+			local half = Shops.campStallWidth(track, L.def.key) / 2
+			local reach = TRADER_HALF_X + TRADER_CLEARANCE + half
+			local x = if dx < 0 then math.min(dx, -reach) else math.max(dx, reach)
+			Shops.buildCampStall(folder, CFrame.new(L.ox + x, PLAZA_Y, L.oz - ROW_Z), track, L.def.key)
+			-- Skip the shell's awning colour too, so any shell after it keeps its own.
 			i += 1
 		else
 			stall(dx, -ROW_Z, 0)
