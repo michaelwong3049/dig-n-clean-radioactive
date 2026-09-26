@@ -191,9 +191,8 @@ local function row(parent: Instance, order: number, spec: RowSpec): TextLabel
 
 	local chip = Instance.new("TextLabel")
 	chip.Name = "Rarity"
-	chip.AnchorPoint = Vector2.new(0, 0.5)
-	chip.Position = UDim2.new(0, 18, 0.5, 0)
-	chip.Size = UDim2.fromOffset(CHIP_W, 24)
+	chip.Position = UDim2.fromOffset(18, 5)
+	chip.Size = UDim2.fromOffset(CHIP_W, 21)
 	chip.BackgroundColor3 = color
 	chip.BorderSizePixel = 0
 	chip.Font = PANEL.label
@@ -204,6 +203,20 @@ local function row(parent: Instance, order: number, spec: RowSpec): TextLabel
 	chip.Parent = frame
 	round(chip, 12)
 	edge(chip, PANEL.ink, 2)
+
+	-- The star rating under the chip: one star per rarity tier, as on the stand card.
+	local stars = Instance.new("TextLabel")
+	stars.Name = "Stars"
+	stars.BackgroundTransparency = 1
+	stars.Position = UDim2.fromOffset(18, 28)
+	stars.Size = UDim2.fromOffset(CHIP_W, 18)
+	stars.Font = PANEL.label
+	stars.TextSize = 12
+	stars.TextScaled = false
+	stars.TextColor3 = PANEL.gold
+	stars.Text = Rarity.starText(spec.rarity)
+	stars.ZIndex = 14
+	stars.Parent = frame
 
 	local textLeft = 18 + CHIP_W + 14
 	inked(frame, {
