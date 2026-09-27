@@ -942,7 +942,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 600000,
-		sizeMult = 1.8, -- much bigger than the rest: it's the Atomic Bomb
+		sizeMult = 3.5, -- really big, far past every other nuke: it's the Atomic Bomb
 		model = "ImportedNuke",
 	},
 
@@ -1128,7 +1128,7 @@ Items.DEFS = {
 		rarity = "Anomaly",
 		odds = 500000, -- 1 in N per dig in a stocking stage
 		weight = 490,
-		sizeMult = 2, -- the biggest in the game (Spec caps sizeMult at 2)
+		sizeMult = 2, -- second only to the Atomic Bomb
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = { "crater_relics" },

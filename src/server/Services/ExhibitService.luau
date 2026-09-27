@@ -378,8 +378,11 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 		-- Config/Payload's per-dig roll, full range -- this is an open plinth, not a
 		-- fixed-footprint aiming surface (unlike WashService's capped version), so
 		-- nothing here needs to defend against a physical ceiling.
-		if uid then
-			model:ScaleTo(model:GetScale() * Payload.forUid(uid))
+		-- Plus the item's own Config/Items `sizeMult` (the Atomic Bomb's is huge).
+		local sizeMult = Items.get(itemId :: string).sizeMult or 1
+		local mult = sizeMult * (if uid then Payload.forUid(uid) else 1)
+		if mult ~= 1 then
+			model:ScaleTo(model:GetScale() * mult)
 		end
 
 		-- -0.72 used to be a hand-tuned constant that happened to seat the old
