@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 69
+local BUILDER_VERSION = 70
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -3254,7 +3254,7 @@ local FLOOR = {
 	-- post or shares a face with one.
 	pillarX = 32,
 	pillarW = 1.4,
-	pillarZ = { -16, -5.3, 15, 39 }, -- -16 holds up the front overhang, just past the locker's back
+	pillarZ = { -16, 54.5 }, -- one per corner: the front overhang (just past the locker's back) and the back edge
 	handrails = { 2.0, 3.5 }, -- heights of a flight's two sloped rails over the step line
 	handPostH = 3.2,
 }
@@ -3304,8 +3304,8 @@ local function railRun(folder: Instance, origin: CFrame, y: number, x0: number, 
 	end
 end
 
---- The flight of stairs from `fromFloor` up to the floor above it: solid studded
---- blocks, each one from the floor below to its own tread, in alternating greys so
+--- The flight of stairs from `fromFloor` up to the floor above it: open studded
+--- treads, one stud thick with nothing under them, in alternating greys so
 --- the steps read from across the plaza, and a pair of sloped handrails down each
 --- side. The rails are rotated straight parts, not a staircase of little bars
 --- (memory: straight-edges-over-pixel-stairs).
@@ -3316,11 +3316,11 @@ local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
 	local x = flightSide(fromFloor) * FLOOR.stairX
 
 	for i = 1, FLIGHT_STEPS do
-		local h = i * FLOOR.rise
+		-- One stud-thick tread per step, nothing under it: an open stair.
 		build(m, origin, {
 			name = "Step",
-			pos = { x, baseY + h / 2, FLOOR.stairZ + (i - 0.5) * FLOOR.tread },
-			size = { FLOOR.stairW, h, FLOOR.tread },
+			pos = { x, baseY + (i - 0.5) * FLOOR.rise, FLOOR.stairZ + (i - 0.5) * FLOOR.tread },
+			size = { FLOOR.stairW, FLOOR.rise, FLOOR.tread },
 			color = if i % 2 == 1 then C.standGrey else C.standGreyDark,
 			material = "Plastic",
 			studs = true,
