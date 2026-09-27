@@ -86,7 +86,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 26
+local BUILDER_VERSION = 27
 
 local C = Kit.C
 local build = Kit.build
@@ -297,8 +297,9 @@ end
 --- whole cluster, to centre it in the plaza's visible cream: the plaza's own
 --- centre (RING_CENTER.x = 32) is out of reach, since centring there would run the
 --- cluster's east end onto the green strip at x = 75. maxX 65 leaves two cream tiles
---- before that strip.
-local SHOP_ZONE = { minX = -45, maxX = 65, minZ = -55, maxZ = 47 }
+--- before that strip. 2026-09-27: shifted 8 east (2 tiles) with the shops when they were
+--- centred on the Trader, and made north-south symmetric; 73 still leaves half a tile.
+local SHOP_ZONE = { minX = -37, maxX = 73, minZ = -51, maxZ = 51 }
 
 --- Is the tile at (x, z) under the shop cluster, and so painted pavers rather than the
 --- cream path? A plain rectangle test. `Hub.groundPairAt` asks it inside the plaza
@@ -776,9 +777,9 @@ local function buildSpawns(hub: Model)
 	-- two rows (Shops.luau's STALLS + OUTFITTER) run east-west either side of it, and
 	-- since 2026-09-27 BaseCamp's four-sided Trader kiosk stands ON this point. So the
 	-- anchor marks the centre of a RING: `RingRadius` tells ExposureService.baseCampCFrame
-	-- to land you at one of `RingPoints` spots that far out, facing the kiosk. 13 clears
-	-- the kiosk's 7.5 half-width and its 12-stud sell radius, and stays well short of
-	-- both rows' floor markers.
+	-- to land you at one of `RingPoints` spots that far out, facing the kiosk. 16 lands
+	-- just outside the Trader's ground square (half 11), clear of the kiosk, and well
+	-- short of both shop rows (their footprints start ~24 out).
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",
@@ -788,7 +789,7 @@ local function buildSpawns(hub: Model)
 		material = "SmoothPlastic",
 		transparency = 1,
 		canCollide = false,
-		attributes = { RingRadius = 13, RingPoints = 4 },
+		attributes = { RingRadius = 16, RingPoints = 4 },
 	})
 
 	spawns.Parent = hub

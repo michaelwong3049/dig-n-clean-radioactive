@@ -140,7 +140,10 @@
 	middle of the plaza between the rows (BaseCamp's four-sided kiosk on PLAZA_MID). Since
 	2026-09-27 every plaza shop is PLAZA_STALL_WIDTH (~44) long, so the two rows are four
 	equal blocks with one straight cross-aisle (x 4.25..15.75) through both, and the
-	cluster (x -40..60) is centred on Hub's SHOP_ZONE. `at` was captured
+	cluster (x -32.5..67.5) is centred on Hub's SHOP_ZONE. SINCE 2026-09-27 (on request)
+	THE FOUR ARE MIRROR-SYMMETRIC ABOUT THE TRADER (PLAZA_MID): x = 17.5 -/+ 27.85, and
+	both rows' footprints centre on z = +/-34 (the south shops' `at` -30 is their build
+	origin; the footprint sits 4 behind it). Move a shop, move its mirror. `at` was captured
 	directly off the Studio Explorer selection each was dragged to (see the note
 	on selecting a nested model by name, not by clicking the plaza in the
 	viewport), then hand-transcribed here so a rebuild reproduces it exactly.
@@ -192,7 +195,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 52
+local BUILDER_VERSION = 53
 
 local C = Kit.C
 local build = Kit.build
@@ -253,9 +256,9 @@ local PLAZA_MID = { x = 17.5, z = 0 }
 --- its side under the rail. Magnet and Cleaner are untouched by that migration and
 --- still need a real `pitch` to compose with their own art's `HoldCFrame`.
 local STALLS = {
-	{ track = "Detector", at = { 37.85, 30 }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop", present = { yaw = 205, pitch = 0 }, hideTiers = { 1 } },
-	{ track = "Magnet", at = { -17.85, 30 }, faceYaw = 180, color = C.shopMagnet, label = "Magnet Shop" },
-	{ track = "Cleaner", at = { 37.85, -37.10 }, faceYaw = 0, color = C.shopCleaner, label = "Hose Shop", present = { yaw = 196, pitch = -12 } },
+	{ track = "Detector", at = { 45.35, 30 }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop", present = { yaw = 205, pitch = 0 }, hideTiers = { 1 } },
+	{ track = "Magnet", at = { -10.35, 30 }, faceYaw = 180, color = C.shopMagnet, label = "Magnet Shop" },
+	{ track = "Cleaner", at = { 45.35, -30 }, faceYaw = 0, color = C.shopCleaner, label = "Hose Shop", present = { yaw = 196, pitch = -12 } },
 }
 
 -- ── The rack ─────────────────────────────────────────────────────────────────
@@ -530,13 +533,13 @@ end
 --- and width are derived from this list's length, so adding or retiring a track here
 --- resizes the building rather than leaving a gap where a counter used to be.
 ---
---- `at` PUTS THIS IN THE SOUTH ROW (z=-34.43), its east edge on x=-3.5 so it lines up
+--- `at` PUTS THIS IN THE SOUTH ROW (z=-30), its east edge on x=4 so it lines up
 --- with Magnet's across the aisle and the cross-aisle stays straight. Its width comes
 --- from the mannequin row (`outfitterWidth`); move `at` if that changes. Magnet and the Outfitter swapped rows
 --- on 2026-09-27 at the user's ask: Magnet now faces the Detector across the north row.
 --- `faceYaw = 0` faces it square north like its row-mates, not diagonally at PLAZA_MID.
 local OUTFITTER = {
-	at = { -17.85, -34.43 },
+	at = { -10.35, -30 },
 	faceYaw = 0,
 	pitch = 13,
 	counters = {
