@@ -85,7 +85,7 @@ local FINISH_AUTO_CLOSE = 10
 -- ── Trail ───────────────────────────────────────────────────────────────────────
 local RIBBON_WIDTH = 2.6
 local RIBBON_LIFT = 0.12 -- over the floor, clear of z-fighting
-local RIBBON_TRANSPARENCY = 0.6 -- fainter, so the white chevrons carry the trail
+local RIBBON_TRANSPARENCY = 1 -- ON REQUEST: no amber ribbon, the chevrons alone are the trail
 local TRAIL_START = 3.5 -- studs ahead of your feet, so it never draws under you
 local ARRIVED = 9 -- inside this, the ribbon and the marker step aside; the ring stays
 -- How far the target may drift before the route is thrown away and redrawn. Stage 1's
