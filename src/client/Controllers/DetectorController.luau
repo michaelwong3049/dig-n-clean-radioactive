@@ -607,24 +607,59 @@ local function build(): ScreenGui
 		wrapped = true,
 	})
 
-	-- The oversized-payload callout. Bare outlined text, no card: it is a shout, not
-	-- a readout, and it sits where the banner would so the two never share the screen
-	-- (a dig only ever raises one of them). A UIScale does the pop and the exit,
-	-- because UIKit.label's outline and shadow ignore TextTransparency -- a fade would
-	-- leave a black ghost of the word behind.
-	local callout = UIKit.label(canvas, {
-		name = "PayloadCallout",
-		anchorPoint = Vector2.new(0.5, 0.5),
-		position = UDim2.fromScale(0.5, 0.32),
-		size = UDim2.fromOffset(640, 64),
-		font = UIKit.Font.hero,
-		textSize = UIKit.TextSize.hero + 8,
-		xAlign = Enum.TextXAlignment.Center,
-		visible = false,
-	})
+	-- The oversized-payload callout: a black pill (the tutorial / purchase-hint look)
+	-- holding the tier word in its colour and the multiplier in white. It sits where
+	-- the banner would so the two never share the screen (a dig only ever raises one
+	-- of them). A UIScale does the pop and the exit, never a fade.
+	local callout = Instance.new("Frame")
+	callout.Name = "PayloadCallout"
+	callout.AnchorPoint = Vector2.new(0.5, 0.5)
+	callout.Position = UDim2.fromScale(0.5, 0.32)
+	callout.Size = UDim2.fromOffset(0, 56)
+	callout.AutomaticSize = Enum.AutomaticSize.X
+	callout.BackgroundColor3 = Color3.new(0, 0, 0)
+	callout.BackgroundTransparency = 0.2
+	callout.Visible = false
+	callout.Parent = canvas
+	local calloutCorner = Instance.new("UICorner")
+	calloutCorner.CornerRadius = UDim.new(1, 0)
+	calloutCorner.Parent = callout
+	local calloutStroke = Instance.new("UIStroke")
+	calloutStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	calloutStroke.Thickness = 2
+	calloutStroke.Parent = callout
+	local calloutPad = Instance.new("UIPadding")
+	calloutPad.PaddingLeft = UDim.new(0, 24)
+	calloutPad.PaddingRight = UDim.new(0, 24)
+	calloutPad.Parent = callout
+	local calloutLayout = Instance.new("UIListLayout")
+	calloutLayout.FillDirection = Enum.FillDirection.Horizontal
+	calloutLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	calloutLayout.Padding = UDim.new(0, 12)
+	calloutLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	calloutLayout.Parent = callout
+
+	local function pillText(name: string, order: number, font: Enum.Font): TextLabel
+		local label = Instance.new("TextLabel")
+		label.Name = name
+		label.LayoutOrder = order
+		label.BackgroundTransparency = 1
+		label.Size = UDim2.fromScale(0, 1)
+		label.AutomaticSize = Enum.AutomaticSize.X
+		label.Font = font
+		label.Parent = callout
+		return label
+	end
+	local calloutWord = pillText("Word", 1, Enum.Font.GothamBlack)
+	local calloutMult = pillText("Mult", 2, Enum.Font.GothamBold)
+	calloutMult.TextColor3 = Color3.new(1, 1, 1)
+
 	local calloutScale = Instance.new("UIScale")
 	calloutScale.Parent = callout
 	ui.callout = callout
+	ui.calloutStroke = calloutStroke
+	ui.calloutWord = calloutWord
+	ui.calloutMult = calloutMult
 	ui.calloutScale = calloutScale
 
 	-- ── The haul panel ────────────────────────────────────────────────
@@ -1340,7 +1375,7 @@ local function showFind(found, header: string?)
 	end)
 end
 
---- "OVERSIZED  ×1.8" / "GIGA  ×2.4" over a dig that rolled a big payload
+--- An "OVERSIZED ×1.8" / "GIGA ×2.4" pill over a dig that rolled a big payload
 --- (Config/Payload.CALLOUTS). Pops in past full size, settles, holds, shrinks out.
 local CALLOUT_COLOR = {
 	GIGA = Color3.fromHex("FACC15"),
@@ -1352,15 +1387,24 @@ local function showCallout(label: string, mult: number)
 	bannerToken += 1 -- a pending banner hide must not outlive this
 	local token = bannerToken
 
-	ui.callout.Text = string.format("%s  \u{00D7}%.1f", label, mult)
-	ui.callout.TextColor3 = CALLOUT_COLOR[label] or COLOR.amber
+	-- GIGA is the rarer shout: a bigger pill, thicker rim, and a longer hold.
+	local giga = label == "GIGA"
+	local colour = CALLOUT_COLOR[label] or COLOR.amber
+	ui.calloutWord.Text = label
+	ui.calloutWord.TextColor3 = colour
+	ui.calloutWord.TextSize = if giga then 34 else 26
+	ui.calloutMult.Text = string.format("\u{00D7}%.1f", mult)
+	ui.calloutMult.TextSize = if giga then 22 else 19
+	ui.calloutStroke.Color = colour
+	ui.calloutStroke.Thickness = if giga then 3 else 2
+	ui.callout.Size = UDim2.fromOffset(0, if giga then 64 else 52)
 	ui.calloutScale.Scale = 0.4
 	ui.callout.Visible = true
 	TweenService:Create(ui.calloutScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 		Scale = 1,
 	}):Play()
 
-	task.delay(1.9, function()
+	task.delay(if giga then 2.6 else 1.9, function()
 		if token ~= bannerToken then
 			return
 		end
