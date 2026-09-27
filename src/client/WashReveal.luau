@@ -371,7 +371,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		local label = UIKit.label(canvas, {
 			name = "Weight",
 			size = UDim2.fromOffset(600, 34),
-			position = UDim2.fromScale(0.5, 0.77),
+			position = UDim2.fromScale(0.5, 0.748),
 			anchorPoint = Vector2.new(0.5, 0.5),
 			text = string.upper(formatWeight(found.weight)),
 			font = UIKit.Font.hero,
@@ -388,7 +388,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 	local stars = UIKit.label(canvas, {
 		name = "Stars",
 		size = UDim2.fromOffset(600, 28),
-		position = UDim2.fromScale(0.5, 0.885),
+		position = UDim2.fromScale(0.5, 0.87),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		text = Rarity.starText(found.rarity),
 		font = UIKit.Font.hero,
