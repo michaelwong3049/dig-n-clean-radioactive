@@ -326,7 +326,7 @@ end
 --- block while that catalogue entry is still waiting for a model. `uid` is the
 --- specific dig on display, so its own Config/Payload roll can size the model --
 --- nil (clearing a stand) just skips that.
-local function renderStand(index: number, slot: number, itemId: string?, rarity: string?, uid: string?)
+local function renderStand(index: number, slot: number, itemId: string?, rarity: string?, uid: string?, modifier: string?)
 	local plot = plotModel(index)
 	if plot == nil then
 		return
@@ -366,7 +366,7 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 	local model: Model? = nil
 	if itemId then
 		local item = Items.get(itemId)
-		model = ItemModels.create(item.model, itemId)
+		model = ItemModels.create(item.model, itemId, modifier)
 	end
 
 	if model then
@@ -568,7 +568,7 @@ end
 --- the real model for a crusted find, which named it before the hose had.
 local function lockerModel(entry: any): Model?
 	if Contamination.isClean(entry.patches or {}) then
-		return ItemModels.create(Items.get(entry.itemId).model, entry.itemId)
+		return ItemModels.create(Items.get(entry.itemId).model, entry.itemId, entry.modifier)
 	end
 	return ItemCrust.lump(entry.rarity, entry.uid)
 end
@@ -685,7 +685,7 @@ local function renderAll(index: number, data: any)
 		renderStand(index, slot, nil, nil)
 	end
 	for _, entry in data.exhibit.pedestals do
-		renderStand(index, entry.slot, entry.itemId, entry.rarity, entry.uid)
+		renderStand(index, entry.slot, entry.itemId, entry.rarity, entry.uid, entry.modifier)
 	end
 	renderLocker(index, data)
 	renderHose(index, data)
@@ -1180,7 +1180,7 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 		placedAt = os.time(),
 	})
 
-	renderStand(plot, slot, item.itemId, item.rarity, item.uid)
+	renderStand(plot, slot, item.itemId, item.rarity, item.uid, item.modifier)
 	refreshStandCards(plot, data)
 
 	if displaced then
@@ -1415,7 +1415,7 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 
 	for slot, entry in changed do
 		if entry then
-			renderStand(plot, slot, entry.itemId, entry.rarity, entry.uid)
+			renderStand(plot, slot, entry.itemId, entry.rarity, entry.uid, entry.modifier)
 		else
 			renderStand(plot, slot, nil, nil)
 		end

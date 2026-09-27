@@ -604,7 +604,7 @@ local function equipItem(character: Model, item: any?): boolean
 		model = if openCrate then CrateModels.create(item.crateId) else CrateModels.createHidden(item.crateId)
 	else
 		local def = Items.get(item.itemId)
-		model = ItemModels.create(def.model, item.itemId)
+		model = ItemModels.create(def.model, item.itemId, item.modifier)
 	end
 
 	if model == nil then

@@ -240,6 +240,8 @@ type Entry = {
 	spins: { SpinGroup },
 	spinRef: BasePart?,
 	glint: GlintRun?,
+	pristine: boolean,
+	pristineGlint: GlintRun?,
 	seam: CylinderHandleAdornment?,
 	ping: CylinderHandleAdornment?,
 	bolts: { BoltRun },
@@ -1032,9 +1034,9 @@ end
 --- Scatter the star spots over the glint's surfaces: pick a target part, aim just
 --- off its centre from a random direction (never from below), keep the hit if it
 --- isn't crowding another star.
-local function placeStars(model: Model, def: Glint, ref: BasePart, scale: number, rng: Random): { Star }
+local function placeStars(model: Model, def: Glint, ref: BasePart, scale: number, rng: Random, over: { BasePart }?): { Star }
 	local count = def.stars or 0
-	local targets = ItemFx.partsNamed(model, def.starParts or def.parts)
+	local targets = over or ItemFx.partsNamed(model, def.starParts or def.parts)
 	if count <= 0 or #targets == 0 then
 		return {}
 	end
@@ -1108,9 +1110,11 @@ local function placeStars(model: Model, def: Glint, ref: BasePart, scale: number
 	return stars
 end
 
-local function buildGlint(model: Model, def: Glint, scale: number, now: number, rng: Random): GlintRun?
-	local ref = ItemFx.firstPart(model, def.parts[1])
-	local parts = ItemFx.partsNamed(model, def.parts)
+--- `over` replaces the def's named parts with a given list (the Pristine shine, which
+--- covers the whole model).
+local function buildGlint(model: Model, def: Glint, scale: number, now: number, rng: Random, over: { BasePart }?): GlintRun?
+	local parts = over or ItemFx.partsNamed(model, def.parts)
+	local ref = if over then over[1] else ItemFx.firstPart(model, def.parts[1])
 	if ref == nil or #parts == 0 then
 		return nil
 	end
@@ -1140,7 +1144,7 @@ local function buildGlint(model: Model, def: Glint, scale: number, now: number, 
 		def = def,
 		ref = ref,
 		layers = layers,
-		stars = placeStars(model, def, ref, scale, rng),
+		stars = placeStars(model, def, ref, scale, rng, over),
 		nextAt = now + def.period * rng:NextNumber(0.3, 1),
 		passAt = nil,
 		lo = 0,
@@ -1347,6 +1351,27 @@ local function activate(entry: Entry, now: number)
 		entry.glint = buildGlint(model, def.glint, entry.scale, now, entry.rng)
 	end
 
+	if entry.pristine then
+		-- Every part that can be seen, largest first so the reference part (the one
+		-- the sweep is measured from) is the body rather than some small fitting.
+		local visible: { BasePart } = {}
+		for _, descendant in model:GetDescendants() do
+			if descendant:IsA("BasePart") and descendant.Transparency < 0.9 then
+				table.insert(visible, descendant)
+			end
+		end
+		table.sort(visible, function(a, b)
+			return a.Size.Magnitude > b.Size.Magnitude
+		end)
+		if #visible > 0 then
+			entry.pristineGlint = buildGlint(model, ItemFxConfig.PRISTINE.glint, entry.scale, now, entry.rng, visible)
+			local frost = ItemFxConfig.PRISTINE.sparkle
+			local e = PRESETS.sparkle(frost.color, frost.rate, entry.scale)
+			e.Parent = visible[1]
+			table.insert(entry.emitters, e)
+		end
+	end
+
 	if def.seam then
 		local part = ItemFx.firstPart(model, def.seam.part)
 		if part then
@@ -1421,15 +1446,19 @@ local function track(instance: Instance)
 		return
 	end
 	local model = instance :: Model
+	local pristine = model:GetAttribute(ItemFx.PRISTINE_ATTRIBUTE) == true
 	local def = ItemFx.get(model:GetAttribute(ItemFx.ATTRIBUTE) :: string?)
 	if def == nil then
-		return
+		if not pristine then
+			return
+		end
+		def = {}
 	end
 
 	local now = os.clock()
 	local entry: Entry = {
 		model = model,
-		def = def,
+		def = def :: Def,
 		active = false,
 		checkAt = now + ACTIVATE_GRACE,
 		startedAt = now,
@@ -1444,6 +1473,8 @@ local function track(instance: Instance)
 		spins = {},
 		spinRef = nil,
 		glint = nil,
+		pristine = pristine,
+		pristineGlint = nil,
 		seam = nil,
 		ping = nil,
 		bolts = {},
@@ -1497,6 +1528,9 @@ local function stepEntry(entry: Entry, now: number, dt: number, cameraPosition: 
 		if not awake and entry.glint then
 			hideGlint(entry.glint)
 		end
+		if not awake and entry.pristineGlint then
+			hideGlint(entry.pristineGlint)
+		end
 		if not awake then
 			for _, bolt in entry.bolts do
 				bolt.litUntil = 0
@@ -1538,6 +1572,10 @@ local function stepEntry(entry: Entry, now: number, dt: number, cameraPosition: 
 	local glint = entry.glint
 	if glint then
 		stepGlint(glint, now, cameraPosition, entry.rng)
+	end
+	local pristineGlint = entry.pristineGlint
+	if pristineGlint then
+		stepGlint(pristineGlint, now, cameraPosition, entry.rng)
 	end
 
 	for _, burst in entry.bursts do

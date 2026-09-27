@@ -390,7 +390,7 @@ local function placeOnStand(
 	-- goes (CrateModels.createHidden). Sized below exactly like a nuke would be.
 	local model: Model? = if item.crateId
 		then CrateModels.createHidden(item.crateId)
-		else ItemModels.create(def.model, item.itemId)
+		else ItemModels.create(def.model, item.itemId, item.modifier)
 
 	if model == nil then
 		-- The same rarity-coloured block ToolService's off hand and ExhibitService's
