@@ -36,6 +36,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
+local GearArt = require(script.Parent.GearArt)
 local UIKit = require(script.Parent.UIKit)
 
 local HaulShaft = {}
@@ -77,8 +78,6 @@ local MIN_SOIL_VALUE = 0.46
 local CRACK_COLOR = Color3.fromHex("FF7A45")
 local CABLE_COLOR = Color3.fromHex("1D1D1D")
 local FRAME_COLOR = Color3.fromHex("1C140D")
-local MAGNET_RED = UIKit.C.red
-local MAGNET_TIP = UIKit.C.text
 
 export type Shaft = {
 	root: Frame,
@@ -95,6 +94,8 @@ export type Shaft = {
 	trail: Frame,
 	cable: Frame,
 	nuke: Frame,
+	magnet: ViewportFrame,
+	magnetTier: number?,
 	accentParts: { Frame },
 	cracks: { Frame },
 	stageId: number?,
@@ -204,17 +205,21 @@ local function buildNuke(parent: Instance, z: number): (Frame, { Frame }, { Fram
 	return nuke, accentParts, cracks
 end
 
---- The magnet hanging over the shaft, poles DOWN at the nuke: the red horseshoe and
---- pale tips build/Shops' magnet prop leans on too, so it reads as "magnet" at a glance.
---- Built upside-down piece by piece, because a parent's Rotation does not turn its
---- children in Roblox UI.
-local function buildMagnet(parent: Instance, z: number)
-	local x = AXIS_X - 16.5
-	box(parent, "MagnetBend", x, MAGNET_TOP, 33, 12, MAGNET_RED, z, UDim.new(0, 6))
-	box(parent, "MagnetLegLeft", x, MAGNET_TOP + 6, 10, 16, MAGNET_RED, z)
-	box(parent, "MagnetLegRight", x + 23, MAGNET_TOP + 6, 10, 16, MAGNET_RED, z)
-	box(parent, "MagnetTipLeft", x, MAGNET_TOP + 20, 10, 6, MAGNET_TIP, z, UDim.new(0, 1))
-	box(parent, "MagnetTipRight", x + 23, MAGNET_TOP + 20, 10, 6, MAGNET_TIP, z, UDim.new(0, 1))
+--- The magnet hanging over the shaft, poles DOWN at the nuke: the player's OWN
+--- equipped magnet, drawn live from its model (GearArt.showHung, hung the way the hand
+--- holds it), so it changes as they upgrade. Empty until setMagnet() hands it a tier.
+local MAGNET_BOX = Vector2.new(60, 40)
+local function buildMagnet(parent: Instance, z: number): ViewportFrame
+	local slot = Instance.new("Frame")
+	slot.Name = "Magnet"
+	slot.BackgroundTransparency = 1
+	slot.Position = UDim2.fromOffset(AXIS_X - MAGNET_BOX.X / 2, MAGNET_TOP - 2)
+	slot.Size = UDim2.fromOffset(MAGNET_BOX.X, MAGNET_BOX.Y)
+	slot.ZIndex = z
+	slot.Parent = parent
+	local viewport = GearArt.viewport(slot)
+	viewport.ZIndex = z
+	return viewport
 end
 
 --- Build the cut-away into `parent` at `position`, `width` fixed by the art and
@@ -320,7 +325,7 @@ function HaulShaft.build(parent: Instance, position: UDim2, height: number): Sha
 	end
 
 	local cable = box(root, "Cable", AXIS_X - 1.5, CABLE_TOP, 3, 0, CABLE_COLOR, 13)
-	buildMagnet(root, 15)
+	local magnet = buildMagnet(root, 15)
 	local nuke, accentParts, cracks = buildNuke(root, 16)
 
 	return {
@@ -338,12 +343,24 @@ function HaulShaft.build(parent: Instance, position: UDim2, height: number): Sha
 		trail = trail,
 		cable = cable,
 		nuke = nuke,
+		magnet = magnet,
+		magnetTier = nil,
 		accentParts = accentParts,
 		cracks = cracks,
 		stageId = nil,
 		accent = nil,
 		rng = Random.new(),
 	}
+end
+
+--- Draw magnet tier `tier` over the shaft. A no-op for the tier already drawn, so it
+--- is safe to call on every state update.
+function HaulShaft.setMagnet(shaft: Shaft, tier: number)
+	if shaft.magnetTier == tier then
+		return
+	end
+	shaft.magnetTier = tier
+	GearArt.showHung(shaft.magnet, tier, MAGNET_BOX.X / MAGNET_BOX.Y)
 end
 
 --- Recolour the cut-away in a stage's own soil, sky and grass. A no-op for the stage

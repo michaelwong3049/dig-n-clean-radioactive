@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local AuraLook = require(Shared.AuraLook)
+local MagnetHang = require(Shared.MagnetHang)
 local ToolModels = require(Shared.ToolModels)
 
 local GearArtFx = require(script.Parent.GearArtFx)
@@ -173,6 +174,31 @@ function GearArt.show(viewport: ViewportFrame, track: string, tier: number, aspe
 	if effects then
 		GearArtFx.attach(viewport, model, track, tier, aspect)
 	end
+end
+
+--- Put magnet tier `tier` in `viewport` HUNG the way the hand and the rack hold it
+--- (Shared/MagnetHang: poles down, face to camera), seen nearly head on from a hair
+--- above. For the haul shaft, where the magnet hangs over the nuke on its cable.
+local HUNG_VIEW: ArtView = { from = Vector3.new(0.3, 0.2, 1), up = Vector3.yAxis }
+function GearArt.showHung(viewport: ViewportFrame, tier: number, aspect: number)
+	for _, child in viewport:GetChildren() do
+		if child:IsA("Model") then
+			child:Destroy()
+		end
+	end
+	local model = artModel("Magnet", tier)
+	if model == nil then
+		return
+	end
+	for _, name in ART_HIDE do
+		local extra = model:FindFirstChild(name)
+		if extra then
+			extra:Destroy()
+		end
+	end
+	model:PivotTo(MagnetHang.basis(tier))
+	model.Parent = viewport
+	frameArt(viewport.CurrentCamera :: Camera, model, HUNG_VIEW, aspect)
 end
 
 return GearArt
