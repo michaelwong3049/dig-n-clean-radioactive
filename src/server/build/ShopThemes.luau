@@ -774,51 +774,6 @@ function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, slots: { { 
 		})
 	end
 
-	-- A giant atom over the roof, centred over the stall: an accent nucleus, three steel
-	-- rings at the aura's own tilts and an accent electron on each, one Model that
-	-- StationMotionController turns slowly about its nucleus. It floats with no post
-	-- (2026-09-27, on request: the mast read as a stray pole). ATOM_Y still clears the
-	-- tall shopfront's sign board (top ~16 studs up, Shops' buildShopfront).
-	local ATOM_Y = ROOF_Y + 8.7
-	local centre = origin * CFrame.new(0, ATOM_Y, ROOF_Z)
-	local atom = Instance.new("Model")
-	atom.Name = "RoofAtom"
-	local nucleus = prop(atom, centre, {
-		name = "AtomNucleus",
-		pos = { 0, 0, 0 },
-		size = { 1.4, 1.4, 1.4 },
-		color = accent,
-		material = "SmoothPlastic",
-		shape = "Ball",
-	})
-	local ROOF_RING = 2
-	local segments, length = AuraLook.segments(ROOF_RING, 20)
-	for ring, tilt in AuraLook.TILTS do
-		local frame = centre * CFrame.Angles(0, 0, tilt)
-		for _, segment in segments do
-			prop(atom, frame * segment, {
-				name = "AtomRing",
-				pos = { 0, 0, 0 },
-				size = { length, 0.22, 0.22 },
-				color = C.steel,
-				material = "Metal",
-				rot = CFrame.identity,
-			})
-		end
-		local u = 0.6 + ring * 2.1
-		prop(atom, frame, {
-			name = "AtomElectron",
-			pos = { math.cos(u) * ROOF_RING, 0, math.sin(u) * ROOF_RING },
-			size = { 0.5, 0.5, 0.5 },
-			color = accent,
-			material = "SmoothPlastic",
-			shape = "Ball",
-		})
-	end
-	atom.PrimaryPart = nucleus
-	atom.Parent = theme
-	Kit.motion(atom, { kind = "spin", axis = "Y", rate = 0.5 })
-
 	theme.Parent = parent
 	return theme
 end
