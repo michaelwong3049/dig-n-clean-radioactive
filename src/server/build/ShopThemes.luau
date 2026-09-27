@@ -774,24 +774,13 @@ function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, slots: { { 
 		})
 	end
 
-	-- A giant atom on the roof, centred over the stall: a steel post off the plinth, an
-	-- accent nucleus, three steel rings at the aura's own tilts and an accent electron
-	-- on each. Everything but the post is one Model that StationMotionController turns
-	-- slowly about its nucleus. ATOM_Y puts it on a tall mast so it clears the tall
-	-- shopfront's sign board (top ~16 studs up, Shops' buildShopfront) in front of it.
+	-- A giant atom over the roof, centred over the stall: an accent nucleus, three steel
+	-- rings at the aura's own tilts and an accent electron on each, one Model that
+	-- StationMotionController turns slowly about its nucleus. It floats with no post
+	-- (2026-09-27, on request: the mast read as a stray pole). ATOM_Y still clears the
+	-- tall shopfront's sign board (top ~16 studs up, Shops' buildShopfront).
 	local ATOM_Y = ROOF_Y + 8.7
-	roofPlinth(theme, origin, 0, 3, 2)
 	local centre = origin * CFrame.new(0, ATOM_Y, ROOF_Z)
-	local postBottom = ROOF_Y + 0.7
-	prop(theme, origin, {
-		name = "AtomPost",
-		pos = { 0, (postBottom + ATOM_Y) / 2, ROOF_Z },
-		size = { ATOM_Y - postBottom, 0.4, 0.4 },
-		color = C.steelDark,
-		material = "Metal",
-		shape = "Cylinder",
-		rot = R_CYL_UP,
-	})
 	local atom = Instance.new("Model")
 	atom.Name = "RoofAtom"
 	local nucleus = prop(atom, centre, {

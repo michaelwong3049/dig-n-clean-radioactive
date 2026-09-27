@@ -68,7 +68,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 17
+local BUILDER_VERSION = 18
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -505,7 +505,10 @@ end
 --- `kiosk` is the kiosk's centre on the camp datum, like `buildTrader`'s. The site camps
 --- keep the one-sided `buildTrader` in their shop rows.
 local HUB_TRADER_HALF = 7.5 -- half the deck; the counters' outer faces sit just inside it
-local HUB_TRADER_RADIUS = 12
+-- The sell radius reaches the ground square's corners (OUTLINE_HALF * sqrt 2 ~ 15.6),
+-- so anywhere inside the painted square is close enough to trade.
+local HUB_TRADER_RADIUS = 16
+local HUB_TRADER_OUTLINE_HALF = 11 -- the ground square marking where to stand
 
 function BaseCamp.buildHubTrader(parent: Instance, kiosk: CFrame): Model
 	local trader = Instance.new("Model")
@@ -702,6 +705,27 @@ function BaseCamp.buildHubTrader(parent: Instance, kiosk: CFrame): Model
 	})
 	station.CanQuery = false
 	station.CanTouch = false
+
+	-- A hazard-yellow square outline on the plaza around the kiosk (2026-09-27, on
+	-- request) so players can see where to stand to trade. Four thin flat bars, the
+	-- same outline-not-fill read as the shops' floor markers.
+	local THICK = 0.6
+	local SIDE = HUB_TRADER_OUTLINE_HALF * 2 + THICK
+	for _, bar in {
+		{ 0, -HUB_TRADER_OUTLINE_HALF, SIDE, THICK },
+		{ 0, HUB_TRADER_OUTLINE_HALF, SIDE, THICK },
+		{ -HUB_TRADER_OUTLINE_HALF, 0, THICK, SIDE },
+		{ HUB_TRADER_OUTLINE_HALF, 0, THICK, SIDE },
+	} do
+		build(trader, kiosk, {
+			name = "TraderOutline",
+			pos = { bar[1], G + 0.08, bar[2] },
+			size = { bar[3], 0.15, bar[4] },
+			color = C.hazard,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+	end
 
 	trader.Parent = parent
 	return trader
