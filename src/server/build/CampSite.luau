@@ -173,6 +173,15 @@ local BUSH_WALL_CLEARANCE = 8
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
+--- The face opposite each studded face: walls are seen from both sides (the corridor
+--- from inside, the fields and void from outside), so the back gets studs too.
+local OPPOSITE_FACE = {
+	FrontSurface = "BackSurface",
+	BackSurface = "FrontSurface",
+	LeftSurface = "RightSurface",
+	RightSurface = "LeftSurface",
+}
+
 --- Deterministic 0..1 from an integer and a salt, so a rebuild never reshuffles.
 local function hash01(n: number, salt: number): number
 	local s = math.sin(n * 127.1 + salt * 311.7) * 43758.5453
@@ -443,7 +452,8 @@ local function wallColumn(
 			material = "Plastic",
 			canCollide = true,
 		});
-		(tile :: any)[face] = Enum.SurfaceType.Studs
+		(tile :: any)[face] = Enum.SurfaceType.Studs;
+		(tile :: any)[OPPOSITE_FACE[face]] = Enum.SurfaceType.Studs
 	end
 end
 

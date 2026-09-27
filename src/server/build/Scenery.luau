@@ -125,6 +125,15 @@ local GROUND_SKIM = 0.06
 -- bush never sprouts in the middle of the route.
 local BUSH_CENTRE_CLEARANCE = 28
 
+--- The face opposite each studded face: walls are seen from both sides (the corridor
+--- from inside, the fields and void from outside), so the back gets studs too.
+local OPPOSITE_FACE = {
+	FrontSurface = "BackSurface",
+	BackSurface = "FrontSurface",
+	LeftSurface = "RightSurface",
+	RightSurface = "LeftSurface",
+}
+
 --- Maps a virtual z sampled from the CONTINUOUS gap-free range
 --- [-(hz - BUSH_CENTRE_CLEARANCE), hz - BUSH_CENTRE_CLEARANCE] out into one of the two
 --- real bands either side of the centre lane, splicing the excluded
@@ -3695,7 +3704,8 @@ local function buildWall(parent: Instance, name: string, minX: number, maxX: num
 				material = "Plastic", -- studs only render on Plastic, per Hub.tileRect's note
 				canCollide = true, -- see the header: the one deliberate exception in this file
 			});
-			(tile :: any)[faceProperty] = Enum.SurfaceType.Studs
+			(tile :: any)[faceProperty] = Enum.SurfaceType.Studs;
+			(tile :: any)[OPPOSITE_FACE[faceProperty]] = Enum.SurfaceType.Studs
 		end
 	end
 end
@@ -3988,7 +3998,8 @@ local function buildShoulderWall(parent: Instance, name: string, atX: number, mi
 				material = "Plastic", -- studs only render on Plastic, per Hub.tileRect's note
 				canCollide = true,
 			});
-			(tile :: any)[faceProperty] = Enum.SurfaceType.Studs
+			(tile :: any)[faceProperty] = Enum.SurfaceType.Studs;
+			(tile :: any)[OPPOSITE_FACE[faceProperty]] = Enum.SurfaceType.Studs
 		end
 
 		-- The column's own frame for thinDrips: yawed 90 degrees so local Z is this wall's
@@ -4070,6 +4081,7 @@ local function buildEndWall(folder: Instance, id: number, atX: number, minZ: num
 				canCollide = true,
 			})
 			tile.LeftSurface = Enum.SurfaceType.Studs
+			tile.RightSurface = Enum.SurfaceType.Studs
 		end
 	end
 	local dark, light = wallCapPair(id)
@@ -4226,7 +4238,8 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 				material = "Plastic",
 				canCollide = true,
 			});
-			(tile :: any).FrontSurface = Enum.SurfaceType.Studs
+			(tile :: any).FrontSurface = Enum.SurfaceType.Studs;
+			(tile :: any).BackSurface = Enum.SurfaceType.Studs
 		end
 
 		thinDrips(folder, origin, chord, FACE_SIGN.FrontSurface, grassBottomY(ix, rows, layer.seed), layer.seed * 100003 + ix, 1)
