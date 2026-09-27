@@ -51,6 +51,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
+local Tutorial = require(Shared.Config.Tutorial) -- the console is shut during the walkthrough
 local Treadmill = require(Shared.Config.Treadmill)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
@@ -241,6 +242,9 @@ local function wireConsole(part: Instance)
 	end
 
 	prompt.Triggered:Connect(function(player: Player)
+		if not Tutorial.promptOpen(player, prompt) then
+			return
+		end
 		local ok, message = TreadmillService.buy(player)
 		resultRemote:FireClient(player, message)
 		if ok then

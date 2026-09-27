@@ -33,6 +33,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local PathfindingService = game:GetService("PathfindingService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
@@ -1160,6 +1161,37 @@ local function apply(payload: any)
 	setHaulRing(payload.step == "haul")
 end
 
+-- ── Shut prompts ──────────────────────────────────────────────────────────────────
+-- ON REQUEST: the shops, Trader, locker and the rest are shut while the walkthrough
+-- runs (Config/Tutorial.promptOpen). The server already refuses them. This hides
+-- their prompts too, so nobody sees an E that does nothing. A prompt is caught the
+-- moment it would show and disabled LOCALLY. Each one is remembered, so the step
+-- that opens it (the Detector shop on "upgrade") or the end of the walkthrough can
+-- switch it back on.
+local shutPrompts: { [ProximityPrompt]: true } = {}
+
+local function reopenPrompts()
+	for prompt in shutPrompts do
+		if prompt.Parent == nil then
+			shutPrompts[prompt] = nil
+		elseif Tutorial.promptOpen(player, prompt) then
+			shutPrompts[prompt] = nil
+			prompt.Enabled = true
+		end
+	end
+end
+
+local function watchPrompts()
+	ProximityPromptService.PromptShown:Connect(function(prompt)
+		if not Tutorial.promptOpen(player, prompt) then
+			shutPrompts[prompt] = true
+			prompt.Enabled = false
+		end
+	end)
+	player:GetAttributeChangedSignal("TutorialActive"):Connect(reopenPrompts)
+	player:GetAttributeChangedSignal("TutorialStep"):Connect(reopenPrompts)
+end
+
 function TutorialController.init() end
 
 function TutorialController.start()
@@ -1178,6 +1210,7 @@ function TutorialController.start()
 	buildFinish(canvas)
 
 	Net.get("TutorialState").OnClientEvent:Connect(apply)
+	watchPrompts()
 
 	RunService.RenderStepped:Connect(function(dt)
 		if state == nil then

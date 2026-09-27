@@ -115,11 +115,14 @@ local function stepPlayer(player: Player)
 	-- refuses them too). Read off the save every tick so skip / finish flip it.
 	player:SetAttribute("TutorialActive", data.onboarding == "active")
 	if data.onboarding ~= "active" then
+		player:SetAttribute("TutorialStep", nil)
 		return
 	end
 
 	local previous = lastSent[player]
 	local step, holding = TutorialService.stepFor(player, data)
+	-- Tutorial.stationOpen / promptOpen read this to open the Detector shop on "upgrade".
+	player:SetAttribute("TutorialStep", step)
 
 	-- The nudge from the header: the dig just finished, so the new nuke goes into your hands.
 	if step == "clean" and not holding and previous ~= nil and string.sub(previous, 1, 5) == "haul:" and data.heldUid == "" then
