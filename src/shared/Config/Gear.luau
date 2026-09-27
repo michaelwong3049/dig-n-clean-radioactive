@@ -298,12 +298,12 @@ Gear.Cleaner = {
 -- informational Z2-Z6 cells below shift with this (Z2 entrance 17s -> ~28s) but no
 -- Spec check pins those.
 Gear.Aura = {
-	{ name = "Faint Glow", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 6, haulPenalty = 1.20, blurb = "A flicker of static. Counts as a glow, not a shield." },
-	{ name = "Static Veil", price = 15000, reduction = 0.9750, tolerance = 4.4, capacity = 10, haulPenalty = 0.95, blurb = "Crackles more than it shields. Shields a little." },
-	{ name = "Lead Halo", price = 45000, reduction = 0.9920, tolerance = 13.4, capacity = 14, haulPenalty = 0.72, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
-	{ name = "Ion Shroud", price = 135000, reduction = 0.9970, tolerance = 38.4, capacity = 20, haulPenalty = 0.52, blurb = "Wound tight around you. The first aura that trusts you." },
-	{ name = "Isotope Mantle", price = 405000, reduction = 0.9988, tolerance = 98.4, capacity = 26, haulPenalty = 0.35, blurb = "Burns hotter than the air. Walks into the red and back." },
-	{ name = "Containment Nimbus", price = 1215000, reduction = 0.9889, tolerance = 105.0, capacity = 34, haulPenalty = 0.20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
+	{ name = "Faint Glow", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, haulPenalty = 1.20, blurb = "A flicker of static. Counts as a glow, not a shield." },
+	{ name = "Static Veil", price = 15000, reduction = 0.9750, tolerance = 4.4, capacity = 7, haulPenalty = 0.95, blurb = "Crackles more than it shields. Shields a little." },
+	{ name = "Lead Halo", price = 45000, reduction = 0.9920, tolerance = 13.4, capacity = 10, haulPenalty = 0.72, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
+	{ name = "Ion Shroud", price = 135000, reduction = 0.9970, tolerance = 38.4, capacity = 14, haulPenalty = 0.52, blurb = "Wound tight around you. The first aura that trusts you." },
+	{ name = "Isotope Mantle", price = 405000, reduction = 0.9988, tolerance = 98.4, capacity = 18, haulPenalty = 0.35, blurb = "Burns hotter than the air. Walks into the red and back." },
+	{ name = "Containment Nimbus", price = 1215000, reduction = 0.9889, tolerance = 105.0, capacity = 24, haulPenalty = 0.20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
 	-- TOXIC TWILIGHT'S FOUR. Sold at that camp's Aura Shop and nowhere else (`camp`,
 	-- Gear.campOf), like its detectors, magnets and hoses. Shapes picked by the user
 	-- from a mockup round (Shared/AuraLook's corona / aurora / torus / wings).
@@ -317,10 +317,10 @@ Gear.Aura = {
 	-- nothing until Stage 7 exists. `reduction` DELIBERATELY STAYS AT THE NIMBUS'S 0.9889:
 	-- exposure is what keeps the Crater a heist rather than a farm (PLAN §4, "at any gear
 	-- level, forever"), and Spec pins every rung from the Nimbus up to that window.
-	{ name = "Dusk Corona", price = 3645000, reduction = 0.9889, tolerance = 140.0, capacity = 40, haulPenalty = 0.16, blurb = "A setting sun on your shoulders. The rads burn out before they reach you.", camp = "twilight" },
-	{ name = "Toxic Aurora", price = 10935000, reduction = 0.9889, tolerance = 190.0, capacity = 46, haulPenalty = 0.12, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
-	{ name = "Eclipse Veil", price = 32805000, reduction = 0.9889, tolerance = 255.0, capacity = 52, haulPenalty = 0.09, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
-	{ name = "Twilight Singularity", price = 98415000, reduction = 0.9889, tolerance = 340.0, capacity = 60, haulPenalty = 0.06, blurb = "The last aura. It lifts the load before you do.", camp = "twilight" },
+	{ name = "Dusk Corona", price = 3645000, reduction = 0.9889, tolerance = 140.0, capacity = 28, haulPenalty = 0.16, blurb = "A setting sun on your shoulders. The rads burn out before they reach you.", camp = "twilight" },
+	{ name = "Toxic Aurora", price = 10935000, reduction = 0.9889, tolerance = 190.0, capacity = 32, haulPenalty = 0.12, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
+	{ name = "Eclipse Veil", price = 32805000, reduction = 0.9889, tolerance = 255.0, capacity = 36, haulPenalty = 0.09, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 98415000, reduction = 0.9889, tolerance = 340.0, capacity = 40, haulPenalty = 0.06, blurb = "The last aura. It lifts the load before you do.", camp = "twilight" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
