@@ -2344,7 +2344,7 @@ end
 --- after it in buildStageScenery, and none of those need to move for this to ship.
 local STAGE1_GROUND_DETAIL_CELL = 18
 local STAGE1_GROUND_DETAIL_ROCK_CHANCE = 0.16
-local STAGE1_GROUND_DETAIL_GRASS_CHANCE = 0.28
+local STAGE1_GROUND_DETAIL_GRASS_CHANCE = 0.1 -- was 0.28; thinned on request
 local function scatterStage1GroundDetail(folder: Instance, origin: CFrame, hx: number, hz: number, seed: number)
 	local rng = Random.new(seed)
 	local westEdge = -hx

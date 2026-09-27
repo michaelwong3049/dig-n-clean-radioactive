@@ -59,10 +59,11 @@ local SEED = 8100
 --- Flower clumps: one roll per CELL-stud cell. The chance falls off to the east (the
 --- meadow thins out as it dies), from FLOWER_WEST at the camp edge to FLOWER_EAST at
 --- the Stage 2 seam. Both x0.8 since the middle lane opened up (#377), which holds
---- the field to its old part count instead of adding clumps.
+--- the field to its old part count instead of adding clumps. x0.45 again on request
+--- ("remove a lot of the flowers"), and clumps cut to 1-3 heads so they stop repeating.
 local CELL = 14
-local FLOWER_WEST = 0.42 * 0.8
-local FLOWER_EAST = 0.2 * 0.8
+local FLOWER_WEST = 0.42 * 0.8 * 0.45
+local FLOWER_EAST = 0.2 * 0.8 * 0.45
 
 --- Where along the field (0 = camp edge, 1 = Stage 2 seam) the flowers start to wilt,
 --- and how far on they are fully dead.
@@ -889,7 +890,7 @@ local function wildflowers(parent: Instance, f: K.Field, taken: Taken, rng: Rand
 		end
 		local petal = K.pick(rng, PETALS)
 		local w = math.clamp((t - WILT_START) / WILT_SPAN + rng:NextNumber(-0.15, 0.15), 0, 1)
-		local n = rng:NextInteger(3, 6) - math.floor(w * 2)
+		local n = math.max(1, rng:NextInteger(1, 3) - math.floor(w))
 		for _ = 1, n do
 			local a, d = rng:NextNumber(0, math.pi * 2), rng:NextNumber(0, 1.6)
 			flower(folder, x + math.cos(a) * d, z + math.sin(a) * d, petal, math.clamp(w + rng:NextNumber(-0.08, 0.08), 0, 1), f.groundY, rng)
@@ -955,7 +956,7 @@ function WiltingMeadow.build(parent: Instance, stageId: number, groundY: number)
 	end
 	local deadAt = place(taken, 7, rng, fx(0.69), fx(0.92), f.minZ + 6, -lane)
 	if deadAt then
-		sunflowerPatch(folder, "DeadSunflowers", deadAt, 10, 0.75, 1, groundY, rng)
+		sunflowerPatch(folder, "DeadSunflowers", deadAt, 5, 0.75, 1, groundY, rng)
 	end
 	local picnicAt = place(taken, 6, rng, fx(0.076), fx(0.31), f.minZ + 6, -lane)
 	if picnicAt then
@@ -967,7 +968,7 @@ function WiltingMeadow.build(parent: Instance, stageId: number, groundY: number)
 	end
 	local liveAt = place(taken, 7, rng, fx(0.07), fx(0.33), lane, f.maxZ - 6)
 	if liveAt then
-		sunflowerPatch(folder, "Sunflowers", liveAt, 7, 0, 0.12, groundY, rng)
+		sunflowerPatch(folder, "Sunflowers", liveAt, 4, 0, 0.12, groundY, rng)
 	end
 
 	-- THE FLOWERS last, into whatever ground the rest left.
