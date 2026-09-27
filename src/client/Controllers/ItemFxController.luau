@@ -83,6 +83,11 @@ local WRITE_EPSILON = 0.004
 
 local PING_TIME = 0.9
 
+-- A lit bolt re-draws its zig-zag this often, so it crackles instead of hanging
+-- still, and a strike flares the item's light by this much of its base brightness.
+local BOLT_REDRAW = 0.045
+local BOLT_FLARE = 1.6
+
 --- The glint streak, white with the shape in alpha: a bright core, a faint halo and
 --- a thin twin line either side. It varies only across U and is symmetric, so it
 --- reads the same whichever way a face's U runs. Generated for this effect and
@@ -204,6 +209,20 @@ type GlintRun = {
 	tile: number,
 }
 
+-- One lightning stroke: a chain of attachments inside `from`, re-placed on each
+-- redraw, with a white core beam and a wider coloured glow beam per kink. Held in
+-- `from`'s space so the stroke rides along when the item is carried.
+type BoltRun = {
+	def: ItemFxConfig.Bolt,
+	from: BasePart,
+	to: BasePart,
+	points: { Attachment },
+	beams: { Beam },
+	nextAt: number,
+	litUntil: number,
+	redrawAt: number,
+}
+
 type Entry = {
 	model: Model,
 	def: Def,
@@ -223,6 +242,7 @@ type Entry = {
 	glint: GlintRun?,
 	seam: CylinderHandleAdornment?,
 	ping: CylinderHandleAdornment?,
+	bolts: { BoltRun },
 	pingIndex: number,
 	pingAt: number,
 	pingReach: number,
@@ -231,6 +251,98 @@ type Entry = {
 }
 
 local entries: { [Model]: Entry } = {}
+
+local function buildBolt(def: ItemFxConfig.Bolt, from: BasePart, to: BasePart, scale: number, now: number, rng: Random): BoltRun
+	local segments = def.segments or 6
+	local width = (def.width or 0.07) * scale
+	local points = {}
+	for i = 0, segments do
+		local point = Instance.new("Attachment")
+		point.Name = "ItemFxBolt"
+		point.Parent = from
+		points[i + 1] = point
+	end
+	local beams = {}
+	for i = 1, segments do
+		for _, layer in { { WHITE:Lerp(def.color, 0.25), width }, { def.color, width * 3.2 } } do
+			local beam = Instance.new("Beam")
+			beam.Name = "ItemFxBolt"
+			beam.Attachment0 = points[i]
+			beam.Attachment1 = points[i + 1]
+			beam.Color = ColorSequence.new(layer[1])
+			beam.Width0 = layer[2]
+			beam.Width1 = layer[2]
+			beam.FaceCamera = true
+			beam.Segments = 1
+			beam.LightEmission = 1
+			beam.LightInfluence = 0
+			beam.Enabled = false
+			beam.Parent = from
+			table.insert(beams, beam)
+		end
+	end
+	return {
+		def = def,
+		from = from,
+		to = to,
+		points = points,
+		beams = beams,
+		nextAt = now + def.period * rng:NextNumber(0.2, 1),
+		litUntil = 0,
+		redrawAt = 0,
+	}
+end
+
+--- A fresh zig-zag from `from` to `to`: every kink strays sideways by up to
+--- `jitter` of the length, most in the middle and none at the two ends.
+local function redrawBolt(bolt: BoltRun, rng: Random)
+	local target = bolt.from.CFrame:PointToObjectSpace(bolt.to.Position)
+	local length = target.Magnitude
+	if length < 1e-3 then
+		return
+	end
+	local dir = target / length
+	local side = dir:Cross(if math.abs(dir.Y) < 0.9 then Vector3.yAxis else Vector3.xAxis).Unit
+	local up = dir:Cross(side)
+	local reach = length * (bolt.def.jitter or 0.18)
+	local n = #bolt.points - 1
+	for i, point in bolt.points do
+		local u = (i - 1) / n
+		local sway = math.sin(u * math.pi) * reach
+		local angle = rng:NextNumber(0, TAU)
+		local offset = (side * math.cos(angle) + up * math.sin(angle)) * sway * rng:NextNumber(0.35, 1)
+		point.Position = target * u + offset
+	end
+end
+
+local function showBolt(bolt: BoltRun, on: boolean)
+	for _, beam in bolt.beams do
+		beam.Enabled = on
+	end
+end
+
+--- Strikes, crackles and goes dark. Returns whether the bolt is lit this frame.
+local function stepBolt(bolt: BoltRun, now: number, rng: Random): boolean
+	if now >= bolt.nextAt then
+		bolt.nextAt = now + bolt.def.period * rng:NextNumber(0.5, 1.5)
+		bolt.litUntil = now + bolt.def.duration * rng:NextNumber(0.7, 1.3)
+		bolt.redrawAt = now
+		showBolt(bolt, true)
+	end
+	if now >= bolt.litUntil then
+		if bolt.beams[1].Enabled then
+			showBolt(bolt, false)
+		end
+		return false
+	end
+	if now >= bolt.redrawAt then
+		bolt.redrawAt = now + BOLT_REDRAW
+		redrawBolt(bolt, rng)
+		-- A crackle blinks: now and then one redraw drops out entirely.
+		showBolt(bolt, rng:NextNumber() > 0.2)
+	end
+	return true
+end
 
 local function smoothstep(x: number): number
 	local t = math.clamp(x, 0, 1)
@@ -1280,6 +1392,14 @@ local function activate(entry: Entry, now: number)
 		end
 	end
 
+	for _, boltDef in def.bolts or {} do
+		local from = ItemFx.firstPart(model, boltDef.from)
+		local to = ItemFx.firstPart(model, boltDef.to)
+		if from and to then
+			table.insert(entry.bolts, buildBolt(boltDef, from, to, entry.scale, now, entry.rng))
+		end
+	end
+
 	entry.active = true
 	entry.startedAt = now
 	entry.awake = true
@@ -1326,6 +1446,7 @@ local function track(instance: Instance)
 		glint = nil,
 		seam = nil,
 		ping = nil,
+		bolts = {},
 		pingIndex = -1,
 		pingAt = -math.huge,
 		pingReach = 1,
@@ -1376,6 +1497,12 @@ local function stepEntry(entry: Entry, now: number, dt: number, cameraPosition: 
 		if not awake and entry.glint then
 			hideGlint(entry.glint)
 		end
+		if not awake then
+			for _, bolt in entry.bolts do
+				bolt.litUntil = 0
+				showBolt(bolt, false)
+			end
+		end
 	end
 	if not awake then
 		return
@@ -1390,9 +1517,17 @@ local function stepEntry(entry: Entry, now: number, dt: number, cameraPosition: 
 		end
 	end
 
+	local struck = false
+	for _, bolt in entry.bolts do
+		if stepBolt(bolt, now, entry.rng) then
+			struck = true
+		end
+	end
+
 	local light = entry.light
 	if light then
-		light.Brightness = entry.lightBase * lightFactor * smoothstep(t / IGNITE_TIME)
+		local flare = if struck then BOLT_FLARE * entry.rng:NextNumber(0.6, 1) else 0
+		light.Brightness = entry.lightBase * (lightFactor + flare) * smoothstep(t / IGNITE_TIME)
 	end
 
 	local ref = entry.spinRef
