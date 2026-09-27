@@ -2747,6 +2747,11 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 		(title :: TextLabel).Text = if locked then "LOCKED" else string.format("WALK SPEED %d", walk)
 	end
 	treadmill:SetAttribute("Locked", locked == true)
+	-- A locked machine shows no floating sign: the price only appears on the
+	-- proximity prompt, when the player walks up to it.
+	if sign and sign:IsA("BillboardGui") then
+		sign.Enabled = not locked
+	end
 	local console = treadmill:FindFirstChild("Console")
 	local prompt = console and console:FindFirstChild("Upgrade")
 	if prompt and prompt:IsA("ProximityPrompt") then
