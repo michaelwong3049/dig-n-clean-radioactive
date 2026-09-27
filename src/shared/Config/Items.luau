@@ -279,7 +279,7 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 3200,
+		baseValue = 13000,
 		model = "ImportedNuke",
 	},
 	-- The first of three rockets, one per Stage 1-3
@@ -310,7 +310,7 @@ Items.DEFS = {
 		stages = { 1 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 13000,
+		baseValue = 3200,
 		model = "ImportedNuke",
 	},
 
@@ -486,7 +486,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 3000,
+		baseValue = 14000,
 		model = "ImportedNuke",
 	},
 	{
@@ -512,7 +512,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 14000,
+		baseValue = 3000,
 		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
