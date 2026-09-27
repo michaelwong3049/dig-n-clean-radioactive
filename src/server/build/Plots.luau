@@ -1549,10 +1549,12 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- hair proud of the floor -- a threshold, not a step: WashService plants the player
 	-- just off its front edge, so nothing here changes the height they stand at.
 	build(m, origin, { name = "Deck", pos = { 17.125, T - 0.35, -32 }, size = { 16.75, 1.0, 10 }, color = BODY, material = "Plastic", studs = true })
+	-- The side kerbs stop short of the back kerb and the hazard line (9.4, not 10.6) so no
+	-- corner is two bricks fighting over the same spot; the hazard line owns the whole front.
 	for _, e in {
 		{ x = 17.125, z = -27, sx = 17.35, sz = 0.6 },
-		{ x = 25.5, z = -32, sx = 0.6, sz = 10.6 },
-		{ x = 8.75, z = -32, sx = 0.6, sz = 10.6 },
+		{ x = 25.5, z = -32, sx = 0.6, sz = 9.4 },
+		{ x = 8.75, z = -32, sx = 0.6, sz = 9.4 },
 	} do
 		build(m, origin, { name = "DeckKerb", pos = { e.x, T + 0.25, e.z }, size = { e.sx, 0.35, e.sz }, color = FACE, material = "Plastic", studs = true, canCollide = false })
 	end
