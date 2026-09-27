@@ -412,10 +412,11 @@ function Spec.run(): boolean
 	-- decision to keep tightening the Dive on its own -- see Tuning.luau's
 	-- BURN_COEF comment for the full reasoning on why the two couldn't be
 	-- decoupled. Still "sprint in, grab one signal, extract, run," just a much
-	-- faster sprint than PLAN §3.5 originally imagined.
+	-- faster sprint than PLAN §3.5 originally imagined. Band widened 8-15 -> 8-18
+	-- when BURN_COEF eased 6.0 -> 4.8 (dive ~12s -> ~15s).
 	for stageId = 3, 6 do
 		local s = survive(stageId, Stages.get(stageId).ratedAuraTier - 1, 0)
-		check(string.format("§3.5 dive window in stage %d = %.0fs (want 8-15)", stageId, s), s >= 8 and s <= 15)
+		check(string.format("§3.5 dive window in stage %d = %.0fs (want 8-18)", stageId, s), s >= 8 and s <= 18)
 	end
 
 	-- PLAN §3.4 — a rated aura means you can work, not just survive. Entrance,
@@ -444,7 +445,7 @@ function Spec.run(): boolean
 	-- any higher breaks "Stage 1 is the safest stage" against Stage 2's own entrance).
 	do
 		local s = survive(1, 1, 0, 1.0)
-		check(string.format("§new Stage 1's own deepest point, unshielded dies within 30s = %.0fs", s), s < 30)
+		check(string.format("§new Stage 1's own deepest point, unshielded dies within 40s = %.0fs", s), s < 40)
 	end
 
 	-- PLAN §4 — the Crater never becomes a farm, at any gear level, forever.

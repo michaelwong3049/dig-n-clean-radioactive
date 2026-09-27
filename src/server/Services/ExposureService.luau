@@ -90,6 +90,7 @@ type State = {
 	health: number,
 	downed: boolean,
 	survivableRatchet: number?, -- see stepPlayer's "the countdown does not recover" note
+	survivableBurning: boolean?, -- whether the ratchet above was set by a burn clock
 }
 
 local states: { [Player]: State } = {}
@@ -631,15 +632,26 @@ local function stepPlayer(player: Player, dt: number)
 	-- does not get to bank that as extra time.
 	local liveSurvivable = Radiation.survivableSeconds(reading, state.exposure, state.health)
 	local trulySafe = showering or (reading.net <= 0 and reading.healthBurn <= 0)
+	-- The ratchet only holds within ONE kind of clock. A burn clock (seconds of HP) and
+	-- an exposure clock (seconds of meter) are different numbers: stepping out of the
+	-- burn left the old burn ratchet ticking down to a SURVIVABLE 0:00 that never killed
+	-- anyone. Burn starting or stopping restarts the clock from the live value.
+	local burningNow = reading.healthBurn > 0
 	local survivable: number
-	if trulySafe then
-		state.survivableRatchet = nil
+	if trulySafe or burningNow ~= state.survivableBurning then
+		state.survivableRatchet = if trulySafe then nil else liveSurvivable
+		state.survivableBurning = burningNow
 		survivable = liveSurvivable
 	elseif state.survivableRatchet == nil or liveSurvivable < state.survivableRatchet then
 		state.survivableRatchet = liveSurvivable
 		survivable = liveSurvivable
 	else
 		state.survivableRatchet = math.max(0, state.survivableRatchet - dt)
+		-- Run out while still standing means the clock was wrong, not that you are
+		-- dead: fall back to the honest live number instead of sitting on 0:00.
+		if state.survivableRatchet <= 0 then
+			state.survivableRatchet = liveSurvivable
+		end
 		survivable = state.survivableRatchet
 	end
 

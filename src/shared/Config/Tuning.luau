@@ -60,7 +60,10 @@ Tuning.SHOWER_FLUSH_RATE = 200 -- rads/sec removed while standing in a decon sho
 -- affecting the already-near-instant over-tier deaths, the opposite of "more punishing."
 --
 -- Run Shared.Util.TuningReport to regenerate that matrix after any change here.
-Tuning.BURN_COEF = 6.0
+-- 6.0 -> 4.8 on request ("entering a stage not for your aura should be slightly less
+-- harsh, still fast"): 20% less burn everywhere. One tier under at a stage entrance
+-- ~12s -> ~15s; Stage 2 with no aura ~28s -> ~35s. In-tier play is untouched (no burn).
+Tuning.BURN_COEF = 4.8
 Tuning.BURN_EXPONENT = 0.75
 Tuning.MAX_HEALTH = 100
 
