@@ -657,7 +657,7 @@ local function equipItem(character: Model, item: any?): boolean
 		if longest > 0 then
 			local target = if openCrate
 				then HELD_CRATE_SIZE * (Crates.get(item.crateId).sizeMult or 1)
-				else HELD_ITEM_SIZE * Payload.forUid(item.uid)
+				else HELD_ITEM_SIZE * (if item.itemId then Items.get(item.itemId).sizeMult or 1 else 1) * Payload.forUid(item.uid)
 			held:ScaleTo(held:GetScale() * (target / longest))
 		end
 	end
