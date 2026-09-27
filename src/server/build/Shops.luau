@@ -195,7 +195,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 54
+local BUILDER_VERSION = 55
 
 local C = Kit.C
 local build = Kit.build
@@ -1138,154 +1138,109 @@ local function buildStoreBillboard(adornee: BasePart, label: string, accent: str
 	Kit.textOutline(title, 2)
 end
 
--- ── The shopfront ────────────────────────────────────────────────────────────
+-- ── The roof top ─────────────────────────────────────────────────────────────
 
---- THE TALL SHOPFRONT: a parapet band in the stall's accent along both long edges of
---- the roof, and a raised sign board standing on the roof's centre line with the icon
---- disc and the stall's name painted on BOTH faces, since the stalls are open front and
---- back (see ISLAND_Z). The user asked for it on 2026-09-27 because the low flat roofs
---- read as tables next to the 3-floor bases, and nothing named a shop from across the
---- plaza. It replaces the floating StoreSign pill on the stalls and the Outfitter; the
---- empty camp shells keep theirs.
+--- THE SLANT ROOF AND SQUARE TOP (2026-09-27, on request): a shallow slope rises off
+--- both long edges of the flat plate roof to a flat band down the centre line, and a
+--- square box sits on that band. It replaced the tall shopfront (accent parapets and a
+--- two-sided painted sign board), and the floating StoreSign pill came back to name the
+--- shop. The Trader kiosk in build/BaseCamp wears the same top (Shops.buildSlantTop).
 ---
---- The board is narrower than the stall so the roof props, which stand over the stand
---- at the stall's left end (ShopThemes), stay clear of it. (The Outfitter's roof atom
---- that used to float over the board was removed on 2026-09-27, on request.)
-local FRONT_PARAPET_HEIGHT = 1.6
-local FRONT_BOARD_HEIGHT = 4.4
-local FRONT_BOARD_MIN, FRONT_BOARD_MAX = 14, 20
-local FRONT_PIXELS_PER_STUD = 40
+--- `frame` is the roof's own frame, `baseY` the height the slopes start at, `depth` the
+--- roof's depth across the slopes (local z) and `width` its length along them. The band
+--- stays SLANT_BAND_MIN deep at least: ShopThemes' roof props stand on it (its ROOF_Y is
+--- SLANT_BASE_Y + SLANT_RISE). `capX` slides the box along the band, off a roof prop.
+local SLANT_BASE_Y = 10.3 -- just over the plates' seam straps
+local SLANT_RISE = 1.3
+local SLANT_RUN = 3.5
+local CAP_HEIGHT = 2.6
+local CAP_DEPTH = 5
+local CAP_MIN, CAP_MAX = 6, 11
 
-local function frontGeometry(): (number, number)
-	-- The fascia's front face and the top of its upper frame rail (see buildHazardFascia).
-	local half = ROOF_DEPTH / 2
-	local frontY = ROOF_CENTER_Y - math.sin(math.rad(ROOF_TILT)) * half
-	return ROOF_CENTER_Z + half + 0.2, frontY - 0.55 + FASCIA_HEIGHT / 2 + 0.25
-end
-
---- Paints one face of a sign board: the pill sign's dark fill and accent rim, the icon
---- disc and the name, at the board's own size. `heightStuds` is the face's height.
---- Exported as Shops.paintSign for the Trader's sign box (build/BaseCamp).
-local function paintSignFace(board: BasePart, face: Enum.NormalId, heightStuds: number, label: string, accent: string)
-	local accentColor = Color3.fromHex(accent)
-	local gui = Instance.new("SurfaceGui")
-	gui.Name = "FrontSign"
-	gui.Face = face
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = FRONT_PIXELS_PER_STUD
-	gui.LightInfluence = 0
-	gui.Parent = board
-
-	local fill = Instance.new("Frame")
-	fill.Name = "Face"
-	fill.AnchorPoint = Vector2.new(0.5, 0.5)
-	fill.Position = UDim2.fromScale(0.5, 0.5)
-	fill.Size = UDim2.new(1, -16, 1, -16)
-	fill.BackgroundColor3 = Color3.fromRGB(17, 26, 17)
-	fill.BorderSizePixel = 0
-	fill.Parent = gui
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 18)
-	corner.Parent = fill
-	local rim = Instance.new("UIStroke")
-	rim.Color = accentColor
-	rim.Thickness = 6
-	rim.Parent = fill
-
-	-- The icon disc is drawn at the pill's 36px and scaled up to the board.
-	local faceHeight = heightStuds * FRONT_PIXELS_PER_STUD - 16
-	local discSize = math.floor(faceHeight * 0.74)
-	local discInset = math.floor((faceHeight - discSize) / 2)
-	local holder = Instance.new("Frame")
-	holder.Name = "IconHolder"
-	holder.Position = UDim2.fromOffset(discInset + 6, discInset)
-	holder.Size = UDim2.fromOffset(36, 36)
-	holder.BackgroundTransparency = 1
-	holder.Parent = fill
-	local scale = Instance.new("UIScale")
-	scale.Scale = discSize / 36
-	scale.Parent = holder
-	local disc = signShape(holder, 18, 18, 36, 36, SIGN_DISC_COLOR, 0, true)
-	disc.Name = "Icon"
-	local discRim = Instance.new("UIStroke")
-	discRim.Color = accentColor
-	discRim.Thickness = 2
-	discRim.Parent = disc
-	buildSignIcon(disc, label, accentColor, SIGN_DISC_COLOR)
-
-	local textLeft = discInset * 2 + discSize + 12
-	local title = Instance.new("TextLabel")
-	title.Name = "Title"
-	title.Position = UDim2.fromOffset(textLeft, 14)
-	title.Size = UDim2.new(1, -(textLeft + 20), 1, -28)
-	title.BackgroundTransparency = 1
-	title.Font = Kit.FONT
-	title.Text = label:upper()
-	title.TextScaled = true
-	title.TextColor3 = Color3.new(1, 1, 1)
-	title.Parent = fill
-	Kit.textOutline(title, 4)
-end
-Shops.paintSign = paintSignFace
-
---- One long edge's parapet: the studded accent band on the fascia, its steel cap and a
---- row of rivets. Built in `frame`, so the back edge is the same call in `backFrame`.
-local function buildParapet(parent: Instance, frame: CFrame, width: number, accent: string)
-	local z, baseY = frontGeometry()
+local function buildSlantTop(parent: Instance, frame: CFrame, width: number, depth: number, baseY: number, rise: number, run: number, color: string, capSize: number, capDepth: number, capX: number, capColor: string)
+	local topY = baseY + rise
+	-- A WedgePart's tall face is its local +Z, so the back slope (at -z) is unturned and
+	-- the front one is spun half round to rise toward the centre too.
+	for _, side in { -1, 1 } do
+		build(parent, frame, {
+			name = "RoofSlant",
+			pos = { 0, baseY + rise / 2, side * (depth / 2 - run / 2) },
+			size = { width, rise, run },
+			color = color,
+			material = "Plastic",
+			class = "WedgePart",
+			rot = if side > 0 then Kit.ang(0, 180, 0) else nil,
+			studs = true,
+			canCollide = false,
+		})
+		buildSteelStrip(parent, frame, "RoofSlantEdge", { 0, baseY + 0.1, side * (depth / 2 - 0.15) }, { width + 0.3, 0.3, 0.4 })
+		buildSteelStrip(parent, frame, "RoofRidge", { 0, topY + 0.08, side * (depth / 2 - run) }, { width + 0.2, 0.26, 0.4 })
+	end
 	build(parent, frame, {
-		name = "FrontParapet",
-		pos = { 0, baseY + FRONT_PARAPET_HEIGHT / 2, z },
-		size = { width + 0.9, FRONT_PARAPET_HEIGHT, 0.5 },
-		color = accent,
+		name = "RoofBand",
+		pos = { 0, baseY + rise / 2, 0 },
+		size = { width, rise, depth - run * 2 },
+		color = color,
 		material = "Plastic",
 		studs = true,
 		canCollide = false,
 	})
-	buildSteelStrip(parent, frame, "FrontCap", { 0, baseY + FRONT_PARAPET_HEIGHT + 0.15, z }, { width + 1.1, 0.3, 0.7 })
-	for i = 0, math.floor(width / FASCIA_RIVET_PITCH) do
-		buildRivet(parent, frame, -width / 2 + i * FASCIA_RIVET_PITCH, baseY + FRONT_PARAPET_HEIGHT / 2, z + 0.27, 0.26)
-	end
-end
 
-local function buildShopfront(parent: Instance, origin: CFrame, width: number, accent: string, label: string)
-	local _, baseY = frontGeometry()
-	buildParapet(parent, origin, width, accent)
-	buildParapet(parent, backFrame(origin, 0), width, accent)
-
-	-- The sign board on the centre line, level with the parapet caps, framed in steel
-	-- and stood on two legs off the roof.
-	local boardWidth = math.clamp(width * 0.5, FRONT_BOARD_MIN, FRONT_BOARD_MAX)
-	local boardBottom = baseY + FRONT_PARAPET_HEIGHT + 0.3
-	local boardY = boardBottom + FRONT_BOARD_HEIGHT / 2
-	local board = build(parent, origin, {
-		name = "FrontBoard",
-		pos = { 0, boardY, ISLAND_Z },
-		size = { boardWidth, FRONT_BOARD_HEIGHT, 0.4 },
-		color = Kit.blendHex(accent, "000000", ROOF_PLATE_SHADE),
-		material = "Plastic",
+	-- The square top: a box in `capColor` on a steel footing, capped in steel.
+	build(parent, frame, {
+		name = "RoofTopFooting",
+		pos = { capX, topY + 0.2, 0 },
+		size = { capSize + 0.6, 0.4, capDepth + 0.6 },
+		color = ROOF_STEEL,
+		material = "Metal",
 		canCollide = false,
 	})
-	buildSteelStrip(parent, origin, "FrontBoardFrame", { 0, boardY + FRONT_BOARD_HEIGHT / 2 + 0.2, ISLAND_Z }, { boardWidth + 0.8, 0.4, 0.6 })
-	buildSteelStrip(parent, origin, "FrontBoardFrame", { 0, boardBottom - 0.2, ISLAND_Z }, { boardWidth + 0.8, 0.4, 0.6 })
-	local roofTop = ROOF_CENTER_Y + 0.3
-	for _, side in { -1, 1 } do
-		buildSteelStrip(parent, origin, "FrontBoardFrame", { side * (boardWidth / 2 + 0.2), boardY, ISLAND_Z }, { 0.4, FRONT_BOARD_HEIGHT + 0.8, 0.6 })
-		for _, dz in { -0.3, 0.3 } do
-			buildRivet(parent, origin, side * (boardWidth / 2 + 0.2), boardY + FRONT_BOARD_HEIGHT / 2 + 0.2, ISLAND_Z + dz, 0.34)
+	build(parent, frame, {
+		name = "RoofTop",
+		pos = { capX, topY + 0.4 + CAP_HEIGHT / 2, 0 },
+		size = { capSize, CAP_HEIGHT, capDepth },
+		color = capColor,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+	buildSteelStrip(parent, frame, "RoofTopCap", { capX, topY + 0.4 + CAP_HEIGHT + 0.15, 0 }, { capSize + 0.5, 0.3, capDepth + 0.5 })
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			buildRivet(parent, frame, capX + sx * (capSize / 2 - 0.5), topY + 0.4 + CAP_HEIGHT - 0.5, sz * (capDepth / 2 + 0.02), 0.3)
 		end
-		build(parent, origin, {
-			name = "FrontBoardLeg",
-			pos = { side * (boardWidth / 2 - 1.5), (roofTop + boardBottom) / 2, ISLAND_Z },
-			size = { 0.5, boardBottom - roofTop, 0.5 },
-			color = ROOF_STEEL,
-			material = "Metal",
-			canCollide = false,
-		})
 	end
+	return topY + 0.4 + CAP_HEIGHT + 0.3
+end
+Shops.buildSlantTop = buildSlantTop
 
-	-- NormalId.Back is local +Z (the front customers), Front is local -Z (the back ones).
-	paintSignFace(board, Enum.NormalId.Back, FRONT_BOARD_HEIGHT, label, accent)
-	paintSignFace(board, Enum.NormalId.Front, FRONT_BOARD_HEIGHT, label, accent)
+--- A stall's roof top, and the floating StoreSign over it. `avoidX` is a roof prop's x
+--- (ShopThemes stands one over the stand); the box moves along the band clear of it
+--- when the roof is long enough, and centres otherwise.
+local function buildRoofTop(parent: Instance, origin: CFrame, width: number, accent: string, label: string, avoidX: number?)
+	local capSize = math.clamp(width * 0.3, CAP_MIN, CAP_MAX)
+	local capX = 0
+	if avoidX then
+		local clearX = avoidX + 4 + capSize / 2
+		if math.abs(avoidX) < 4 + capSize / 2 and clearX <= width / 2 - capSize / 2 - 1 then
+			capX = clearX
+		end
+	end
+	local frame = origin * CFrame.new(0, 0, ROOF_CENTER_Z)
+	local top = buildSlantTop(parent, frame, width, ROOF_DEPTH, SLANT_BASE_Y, SLANT_RISE, SLANT_RUN, Kit.blendHex(accent, "000000", ROOF_PLATE_SHADE), capSize, CAP_DEPTH, capX, accent)
+
+	local anchor = build(parent, origin, {
+		name = "SignAnchor",
+		pos = { 0, top, ROOF_CENTER_Z },
+		size = { 1, 1, 1 },
+		color = C.steel,
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+	})
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	buildStoreBillboard(anchor, label, accent, 2)
 end
 
 -- ── The counter ───────────────────────────────────────────────────────────────
@@ -1962,8 +1917,8 @@ local function buildStall(parent: Instance, spec: StallSpec, originOverride: CFr
 	buildTierRack(m, origin * CFrame.new(rx, 0, ISLAND_Z - SHOPFRONT_Z), spec, pitch)
 
 	buildPlateRoof(m, origin, spec.color, width)
-	-- The tall shopfront carries the stall's name now, in place of the floating pill.
-	buildShopfront(m, origin, width, spec.color, spec.label)
+	-- The slant roof and square top, with the floating pill sign over it.
+	buildRoofTop(m, origin, width, spec.color, spec.label, sx)
 
 	-- The trade's own props, behind the shopfront and on the roof (build/ShopThemes).
 	ShopThemes.dressStall(m, origin, spec.track, width, sx)
@@ -2090,10 +2045,10 @@ local function buildOutfitterAt(parent: Instance, name: string, origin: CFrame, 
 	})
 	buildStorefrontPosts(m, origin, width)
 	buildPlateRoof(m, origin, C.shopOutfitter, width)
-	-- One counter names the whole building on the tall shopfront; with several, each
-	-- desk keeps its own pill sign and the front just says what the building is.
+	-- One counter names the whole building on the roof sign; with several, each desk
+	-- keeps its own pill sign and the roof one just says what the building is.
 	local single = #OUTFITTER.counters == 1
-	buildShopfront(m, origin, width, C.shopOutfitter, if single then OUTFITTER.counters[1].label else "Outfitter")
+	buildRoofTop(m, origin, width, C.shopOutfitter, if single then OUTFITTER.counters[1].label else "Outfitter")
 
 	-- The desks at the left end, like a tool stall's stand, with the mannequin row past
 	-- them. A desk on each side of the island, the back one turned to face out the back
@@ -2230,7 +2185,7 @@ function Shops.buildStallShell(parent: Instance, origin: CFrame, width: number, 
 	-- The counter across the whole front, the plaza stalls' height and trim. No
 	-- `stationKind` and no `promptText`, so buildCounter adds neither attributes nor
 	-- a prompt (see its own doc).
-	local counter = buildCounter(m, origin, {
+	buildCounter(m, origin, {
 		color = accent,
 		width = width - 4,
 		depth = 2.5,
@@ -2238,8 +2193,8 @@ function Shops.buildStallShell(parent: Instance, origin: CFrame, width: number, 
 		material = "Plastic",
 		studded = true,
 	})
-	buildStoreBillboard(counter, label, accent)
 	buildPlateRoof(m, origin, accent, width)
+	buildRoofTop(m, origin, width, accent, label)
 
 	m.Parent = parent
 	return m

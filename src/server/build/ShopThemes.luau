@@ -59,11 +59,9 @@ local C = Kit.C
 
 -- The inner face of the slat wall (Shops' buildSlatWall stands at z = -10, 0.55 deep).
 local WALL_FACE_Z = -9.725
--- The underside of a roof prop's plinth: the roof plates (Shops' buildPlateRoof,
--- centreY 9.8 at z = -4, 4 degree tilt, 0.45 thick) top out at ~10.2 around z = -5
--- to -6, where every roof prop stands. The seam straps and rivets stand up to ~0.4
--- proud of that, which the 0.7-tall plinth swallows.
-local ROOF_Y = 10.2
+-- The underside of a roof prop's plinth: the flat band down the middle of the slant roof
+-- (Shops' buildSlantTop, SLANT_BASE_Y 10.3 + SLANT_RISE 1.3), which runs z -7.75 to -0.25.
+local ROOF_Y = 11.6
 local ROOF_Z = -5.5
 
 -- THE STALLS ARE ISLANDS (2026-09-27): open front and back, the rack on the centre line
