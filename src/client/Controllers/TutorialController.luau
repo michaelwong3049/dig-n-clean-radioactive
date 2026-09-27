@@ -70,7 +70,7 @@ local SKIN = {
 -- WarpController's HOME / SHOPS portals (y 10..74). The pill is the frame named
 -- "Banner", sized to the words plus SKIP, because StageBannerController and
 -- AuraWarningController read its rect to stack themselves underneath it.
-local BANNER_Y = 118
+local BANNER_Y = 98
 local BANNER_H = 84
 local BANNER_PAD_X = 34
 local BANNER_SHADE = 0.4 -- the pill's BackgroundTransparency
