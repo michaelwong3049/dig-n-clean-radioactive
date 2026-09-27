@@ -143,11 +143,7 @@ local function rarityLine(found: any): string
 	local modifier = if type(found.modifier) == "string" and found.modifier ~= "None"
 		then string.gsub(found.modifier, "(%l)(%u)", "%1 %2") .. " "
 		else ""
-	local line = string.upper(modifier .. tostring(found.rarity))
-	if type(found.weight) == "number" then
-		line ..= `  \u{00B7}  {string.upper(formatWeight(found.weight))}`
-	end
-	return line
+	return string.upper(modifier .. tostring(found.rarity))
 end
 
 -- ── Building ────────────────────────────────────────────────────────
@@ -366,19 +362,42 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 	})
 	local nameScale = scaler(name)
 
-	local pill, pillScale = chip(canvas, rarityLine(found), colour, T.INK, 0.785)
-	-- The star rating hangs under the pill and pops in with it.
-	UIKit.label(pill, {
+	-- Weight above the pill, the pill holds the rarity alone, the stars sit under it.
+	-- All three are canvas children centred on x = 0.5: the stars used to hang inside the
+	-- auto-sized pill, where their fixed width stretched and shifted it.
+	local weight: TextLabel? = nil
+	local weightScale: UIScale? = nil
+	if type(found.weight) == "number" then
+		local label = UIKit.label(canvas, {
+			name = "Weight",
+			size = UDim2.fromOffset(600, 34),
+			position = UDim2.fromScale(0.5, 0.77),
+			anchorPoint = Vector2.new(0.5, 0.5),
+			text = string.upper(formatWeight(found.weight)),
+			font = UIKit.Font.hero,
+			textSize = 30,
+			xAlign = Enum.TextXAlignment.Center,
+			color = Color3.new(1, 1, 1),
+			visible = false,
+		})
+		weight = label
+		weightScale = scaler(label)
+	end
+
+	local pill, pillScale = chip(canvas, rarityLine(found), colour, T.INK, 0.83)
+	local stars = UIKit.label(canvas, {
 		name = "Stars",
-		size = UDim2.fromOffset(300, 24),
-		position = UDim2.new(0.5, 0, 1, 4),
-		anchorPoint = Vector2.new(0.5, 0),
+		size = UDim2.fromOffset(600, 28),
+		position = UDim2.fromScale(0.5, 0.885),
+		anchorPoint = Vector2.new(0.5, 0.5),
 		text = Rarity.starText(found.rarity),
 		font = UIKit.Font.hero,
-		textSize = 24,
+		textSize = 26,
 		xAlign = Enum.TextXAlignment.Center,
 		color = T.GOLD,
+		visible = false,
 	})
+	local starsScale = scaler(stars)
 
 	-- NEW HEAVIEST: this one out-weighs the index's record for it (IdentifyService's
 	-- `previousBest`, never set on a first find). Gold, under the ribbon, with the
@@ -401,7 +420,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		local label = UIKit.label(canvas, {
 			name = "Value",
 			size = UDim2.fromOffset(600, 50),
-			position = UDim2.fromScale(0.5, 0.87),
+			position = UDim2.fromScale(0.5, 0.94),
 			anchorPoint = Vector2.new(0.5, 0.5),
 			text = money(0),
 			font = UIKit.Font.hero,
@@ -497,7 +516,11 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 			pop(name, nameScale, 2.6, 0.45)
 		end },
 		{ at = T.PILL_AT, done = false, run = function()
+			if weight and weightScale then
+				rise(weight, weightScale)
+			end
 			rise(pill, pillScale)
+			rise(stars, starsScale)
 		end },
 		{ at = T.RECORD_AT, done = false, run = function()
 			if record and recordScale then
