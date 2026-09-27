@@ -92,6 +92,12 @@
 	             only the parts that should shine; a highlight crossing rust looks
 	             wrong. `stars` spots scattered over `starParts` (or `parts`) each
 	             flash a star flare as the streak crosses them.
+	  bolts      jagged lightning strokes from `from`'s centre to `to`'s, each one
+	             striking about every `period` seconds and crackling for `duration`
+	             (re-drawn in a new zig-zag every few frames while it is lit).
+	             `segments` kinks, `jitter` how far each kink strays sideways as a
+	             fraction of the stroke's length. `width` is in studs at the
+	             reference size. A strike also flares the item's light, if it has one.
 ]]
 
 export type Finish = {
@@ -179,6 +185,17 @@ export type Glint = {
 	starSize: number?,
 }
 
+export type Bolt = {
+	from: string,
+	to: string,
+	color: Color3,
+	period: number,
+	duration: number,
+	segments: number?,
+	jitter: number?,
+	width: number?,
+}
+
 export type ItemFxDef = {
 	finish: { Finish }?,
 	light: Light?,
@@ -188,6 +205,7 @@ export type ItemFxDef = {
 	ping: Ping?,
 	seam: Seam?,
 	glint: Glint?,
+	bolts: { Bolt }?,
 }
 
 local ItemFx = {}
@@ -711,37 +729,97 @@ ItemFx.DEFS = {
 
 	-- ── Heat ──────────────────────────────────────────────────────────────
 
-	-- Exposed Nuke. The casing is cut open down one side, and the core canister
-	-- inside glows: the light is hung inside the frame, so it spills out through
-	-- the gap onto the struts and panels. The coolant elbows vent now and then.
-	-- A purer green than RAD_GREEN: a whole canister of that in Neon reads lime.
+	-- Exposed Nuke. The casing has been peeled open on its hinges and the core
+	-- canister stands bare inside a ribbed frame, so nothing holds the current in:
+	-- the canister's bands chase green, the sculpted arcs round it flicker, and
+	-- real bolts jump from the canister to the frame. The two orbit rings wheel
+	-- round it in opposite directions, the loose bolts drift round it, the
+	-- peeled panels flap on their hinges, and the gauges' needles can't settle.
 	film_canister = {
 		finish = {
-			{ parts = { "CoreCanister" }, material = "Neon", color = Color3.fromHex("33FF55") },
-			{ parts = { "GlowRing" }, material = "Neon", color = Color3.fromHex("C4FF9A") },
+			{ parts = { "CanisterGlow" }, material = "Neon", color = Color3.fromHex("33FF55") },
+			{ parts = { "Arc" }, material = "Neon", color = Color3.fromHex("C4FF9A") },
+			{ parts = { "GlowPool" }, material = "Neon", color = Color3.fromHex("33FF55"), transparency = 0.6 },
+			{ parts = { "TopLamp" }, material = "Neon", color = Color3.fromHex("FF3B2F") },
 		},
-		light = { part = "CoreCanister", color = Color3.fromHex("33FF55"), brightness = 2, range = 1.2 },
+		light = { part = "Canister", color = Color3.fromHex("33FF55"), brightness = 2, range = 1.2 },
 		particles = {
-			{ part = "CoreCanister", preset = "drift", color = SOFT_GREEN, rate = 2 },
+			{ part = "Canister", preset = "drift", color = SOFT_GREEN, rate = 2 },
+			{ part = "Arc1", preset = "arcSpark", color = Color3.fromHex("C4FF9A"), rate = 4 },
+			{ part = "Arc3", preset = "arcSpark", color = Color3.fromHex("C4FF9A"), rate = 3 },
 			{
-				part = "PipeElbow1",
+				part = "CoolantLoop",
 				preset = "steam",
 				color = Color3.fromHex("DCE8E0"),
 				rate = 0,
-				burstEvery = 4,
-				burstCount = 6,
-			},
-			{
-				part = "PipeElbow2",
-				preset = "steam",
-				color = Color3.fromHex("DCE8E0"),
-				rate = 0,
-				burstEvery = 5,
+				burstEvery = 4.5,
 				burstCount = 6,
 			},
 		},
 		anims = {
-			{ kind = "pulse", parts = { "CoreCanister", "GlowRing" }, light = true, period = 2.8, min = 0.6 },
+			{ kind = "pulse", parts = { "CanisterGlow", "GlowPool" }, light = true, period = 1.8, min = 0.45, stagger = true },
+			{ kind = "flicker", parts = { "Arc" }, period = 0.12, min = 0.2, perPart = true },
+			{ kind = "blink", parts = { "TopLamp" }, period = 1.2, duty = 0.2, min = 0.1 },
+		},
+		spins = {
+			{ parts = { "OrbitRing1" }, pivot = "Canister", axis = "Y", rpm = 22 },
+			{ parts = { "OrbitRing2" }, pivot = "Canister", axis = "Y", rpm = -15 },
+			{ parts = { "LooseBolt" }, pivot = "Canister", axis = "Y", mode = "bob", amp = 0.06, period = 3.2, rpm = 7 },
+			{ parts = { "PanelSkin1", "PanelHinge1" }, pivot = "PanelHinge1", axis = "Y", mode = "swing", deg = 6, period = 3.1 },
+			{ parts = { "PanelSkin2", "PanelHinge2" }, pivot = "PanelHinge2", axis = "Y", mode = "swing", deg = 5, period = 3.7, phase = 0.4 },
+			{ parts = { "PanelSkin3", "PanelHinge3" }, pivot = "PanelHinge3", axis = "Y", mode = "swing", deg = 6, period = 2.8, phase = 0.7 },
+			{ parts = { "GaugeNeedle1" }, pivot = "Gauge1", axis = "X", mode = "twitch", deg = 35, period = 1.6, duration = 0.2 },
+			{ parts = { "GaugeNeedle2" }, pivot = "Gauge2", axis = "X", mode = "swing", deg = 30, period = 1.3 },
+		},
+		bolts = {
+			{ from = "CanisterGlow2", to = "FrameRib3", color = Color3.fromHex("B8FF8A"), period = 2.2, duration = 0.18 },
+			{ from = "CanisterGlow3", to = "FrameRib7", color = Color3.fromHex("B8FF8A"), period = 2.8, duration = 0.18 },
+			{ from = "CanisterGlow1", to = "FrameRib5", color = Color3.fromHex("B8FF8A"), period = 3.4, duration = 0.15 },
+		},
+	},
+
+	-- Ignition Nuke. "Pulled from a car pointed away from town." A hot-rod coil
+	-- nuke with its ignition live: the four spark plugs throw blue lightning up to
+	-- the distributor and the whirling spark ring on top, the coil pack surges and
+	-- bolts to the cap, every strike flares the light, the exhausts burn, the
+	-- tachometer's needle revs and the start button blinks.
+	ignition_coil = {
+		finish = {
+			{ parts = { "Arc" }, material = "Neon", color = Color3.fromHex("9FDBFF") },
+			{ parts = { "SparkHalo" }, material = "Neon", color = Color3.fromHex("3FA9FF"), transparency = 0.3 },
+			{ parts = { "SparkBead" }, material = "Neon", color = Color3.fromHex("E6F6FF") },
+			{ parts = { "CoilWinding" }, material = "Neon", color = Color3.fromHex("3FA9FF") },
+			{ parts = { "ExhaustFlame" }, material = "Neon", color = Color3.fromHex("FF7A1A"), transparency = 0.35 },
+			{ parts = { "ExhaustCore" }, material = "Neon", color = Color3.fromHex("FFE08A") },
+			{ parts = { "StartButton", "TachRedline" }, material = "Neon", color = Color3.fromHex("FF3B2F") },
+		},
+		light = { part = "DistributorCap", color = Color3.fromHex("7FC8FF"), brightness = 1.2, range = 1.2 },
+		particles = {
+			{ part = "Arc1", preset = "arcSpark", color = Color3.fromHex("9FDBFF"), rate = 5 },
+			{ part = "Arc2", preset = "arcSpark", color = Color3.fromHex("9FDBFF"), rate = 5 },
+			{ part = "Arc3", preset = "arcSpark", color = Color3.fromHex("9FDBFF"), rate = 5 },
+			{ part = "Arc4", preset = "arcSpark", color = Color3.fromHex("9FDBFF"), rate = 5 },
+			{ part = "SparkHalo", preset = "sparkle", color = Color3.fromHex("E6F6FF"), rate = 4 },
+			{ part = "ExhaustTip1", preset = "smoke", color = Color3.fromHex("6E7074"), rate = 1.5 },
+			{ part = "ExhaustTip2", preset = "smoke", color = Color3.fromHex("6E7074"), rate = 1.5 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "SparkHalo", "SparkBead" }, light = true, period = 0.9, min = 0.35 },
+			{ kind = "flicker", parts = { "Arc" }, period = 0.1, min = 0.15, perPart = true },
+			{ kind = "pulse", parts = { "CoilWinding" }, period = 0.6, min = 0.3 },
+			{ kind = "flicker", parts = { "ExhaustFlame", "ExhaustCore" }, period = 0.08, min = 0.5, perPart = true },
+			{ kind = "blink", parts = { "StartButton" }, period = 1.4, duty = 0.3, min = 0.15 },
+		},
+		spins = {
+			{ parts = { "SparkBead" }, pivot = "SparkHalo", axis = "Y", rpm = 45 },
+			{ parts = { "TachNeedle" }, pivot = "Tachometer", axisVector = Vector3.new(-0.79, 0, -0.61), mode = "swing", deg = 35, period = 1.1 },
+		},
+		bolts = {
+			{ from = "Arc1", to = "CenterTower", color = Color3.fromHex("7FC8FF"), period = 1.6, duration = 0.16 },
+			{ from = "Arc2", to = "SparkBead3", color = Color3.fromHex("7FC8FF"), period = 1.9, duration = 0.14 },
+			{ from = "Arc3", to = "CenterTower", color = Color3.fromHex("7FC8FF"), period = 1.7, duration = 0.16 },
+			{ from = "Arc4", to = "SparkBead6", color = Color3.fromHex("7FC8FF"), period = 2.1, duration = 0.14 },
+			{ from = "CoilTerminal", to = "LeadTower3", color = Color3.fromHex("A8E0FF"), period = 2.6, duration = 0.2, width = 0.09 },
 		},
 	},
 

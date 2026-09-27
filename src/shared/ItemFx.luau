@@ -110,6 +110,9 @@ function ItemFx.referencedNames(def: Config.ItemFxDef): { string }
 		add(def.glint.parts)
 		add(def.glint.starParts)
 	end
+	for _, bolt in def.bolts or {} do
+		add({ bolt.from, bolt.to })
+	end
 	return names
 end
 
