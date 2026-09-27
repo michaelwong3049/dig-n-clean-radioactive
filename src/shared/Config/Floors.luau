@@ -4,12 +4,12 @@
 
 	A base starts as ONE floor: the ground deck with its 3 x 4 gallery of stands. Two
 	more floors can be bought on top of it, one at a time, for cash, so a base tops out
-	at MAX = 3 floors. Every floor past the ground carries UPPER_SLOTS stands (a 4 x 2
+	at MAX = 3 floors. Every floor past the ground carries UPPER_SLOTS stands (a 3 x 4
 	gallery), reached by a flight of stairs from the floor below.
 
 	SLOT NUMBERS RUN ON ACROSS FLOORS, they do not restart. Slots 1..12 are the ground
 	floor exactly as they always were (so every existing save's `pedestals` entries
-	keep pointing at the stand they were placed on), 13..20 are floor 2 and 21..28 are
+	keep pointing at the stand they were placed on), 13..24 are floor 2 and 25..36 are
 	floor 3. `data.exhibit.floors` is the only new piece of saved state; how many
 	stands that unlocks is always derived from it (`slotsFor`), never stored on its own.
 
@@ -22,7 +22,7 @@ local Floors = {}
 
 Floors.MAX = 3
 Floors.GROUND_SLOTS = 12
-Floors.UPPER_SLOTS = 8
+Floors.UPPER_SLOTS = 12
 
 --- Deck-top to deck-top, in studs. Tall enough that a stand on its plinth, a GIGA
 --- roll on top of it and its trophy card all clear the deck overhead with room to
