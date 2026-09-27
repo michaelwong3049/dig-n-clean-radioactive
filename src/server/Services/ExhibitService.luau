@@ -68,7 +68,9 @@ local Plots = require(script.Parent.Parent.build.Plots)
 local ExhibitService = {}
 
 local PLOT_COUNT = 6 -- matches build/Plots.Plots.COUNT; not required so Services never depend on build/
-local LOCKER_VISIBLE = Tuning.LOCKER_SLOTS -- one per tube; a profile racked past the cap shows the first eight
+-- Stand display motion: turn rate (radians/sec, ~1 turn per 25s) and bob height (studs).
+local STAND_HOVER = { rate = 0.25, amp = 0.12 }
+local LOCKER_VISIBLE =Tuning.LOCKER_SLOTS -- one per tube; a profile racked past the cap shows the first eight
 local LOCKER_ITEM_SIZE = 1.3 -- longest axis a stored item model is scaled to; the tubes are 1.45 across
 -- Config/Payload's per-dig roll applies here too, capped the same way WashService
 -- caps it -- the tubes are narrow, no room for a "giga nuke" roll on top of an
@@ -391,6 +393,14 @@ local function renderStand(index: number, slot: number, itemId: string?, rarity:
 		-- Where the card hangs from: the model's own top, so a GIGA roll lifts its
 		-- card with it instead of swallowing a card pinned at a fixed height.
 		display:SetAttribute(StandCard.ATTR.top, floorY + 0.03 + extent.Y - display.Position.Y)
+		-- A slow turn and a faint bob, animated client-side by StationMotionController
+		-- from this seated pose. Lifted by the bob's amplitude so the low point still
+		-- clears the plinth.
+		model:PivotTo(model:GetPivot() + Vector3.new(0, STAND_HOVER.amp, 0))
+		model:SetAttribute("Motion", "hover")
+		model:SetAttribute("MotionRate", STAND_HOVER.rate)
+		model:SetAttribute("MotionAmp", STAND_HOVER.amp)
+		CollectionService:AddTag(model, "StationMotion")
 	elseif rarity then
 		display.Color = Rarity.get(rarity).color
 		display.Transparency = 0

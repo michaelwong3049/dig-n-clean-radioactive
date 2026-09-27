@@ -214,6 +214,16 @@ local function step(dt: number)
 			-- A wander, not a metronome: two octaves of noise, clamped to the swing.
 			local wander = math.noise(now * entry.rate, entry.seed) + 0.4 * math.noise(now * entry.rate * 3.1, entry.seed + 17)
 			turn(entry, math.clamp(wander * 1.6, -1, 1) * entry.amp)
+		elseif kind == "hover" then
+			-- A displayed nuke: a slow turn about world up through its pivot, plus a
+			-- gentle bob of `amp` studs either side of rest (~4s period).
+			entry.angle = (entry.angle + entry.rate * dt) % (math.pi * 2)
+			local bob = math.sin(now * 1.5 + entry.seed) * entry.amp
+			local home = entry.home
+			local turned = CFrame.new(home.Position + Vector3.new(0, bob, 0))
+				* CFrame.Angles(0, entry.angle, 0)
+				* home.Rotation;
+			(entry.target :: PVInstance):PivotTo(turned)
 		elseif kind == "ripples" then
 			if now >= entry.nextRipple then
 				entry.nextRipple = now + rng:NextNumber(RIPPLE.gapMin, RIPPLE.gapMax)
