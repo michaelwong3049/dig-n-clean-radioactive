@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 73
+local BUILDER_VERSION = 74
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -3042,15 +3042,20 @@ end
 --- one part. CanCollide off — the floor under them is what a player stands on, so a
 --- 0.06 lip never catches a foot.
 local LANE = { aisle = 6, entry = 8, kerb = 0.5, band = 5, lift = 0.06, thick = 0.12 }
-local function buildGalleryLanes(parent: Instance, origin: CFrame)
+--- `topY` is the floor the lanes lie on and `entryZ` where the entry lane starts:
+--- the pad's front edge on the ground, the deck's front rail on an upper floor
+--- (buildFloor), which has the same grid and so the same walkways.
+local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?, entryZ: number?)
 	local pad = Plots.PAD
+	local floorY = topY or pad.topY
+	local entryFrom = entryZ or pad.minZ
 	local folder = Instance.new("Folder")
 	folder.Name = "GalleryLanes"
 
 	local function plate(name: string, x0: number, x1: number, z0: number, z1: number, color: string)
 		build(folder, origin, {
 			name = name,
-			pos = { (x0 + x1) / 2, pad.topY + LANE.lift - LANE.thick / 2, (z0 + z1) / 2 },
+			pos = { (x0 + x1) / 2, floorY + LANE.lift - LANE.thick / 2, (z0 + z1) / 2 },
 			size = { x1 - x0, LANE.thick, z1 - z0 },
 			color = color,
 			material = "Plastic",
@@ -3079,8 +3084,8 @@ local function buildGalleryLanes(parent: Instance, origin: CFrame)
 	local CREAM, KERB = C.baseLane, C.baseLaneKerb
 
 	-- Entry: from the pad's front edge (under the arch) to the cross band.
-	plate("Lane", -entryHalf, entryHalf, pad.minZ, bandFront, CREAM)
-	mirrored("Kerb", entryHalf, entryHalf + K, pad.minZ, bandFront, KERB)
+	plate("Lane", -entryHalf, entryHalf, entryFrom, bandFront, CREAM)
+	mirrored("Kerb", entryHalf, entryHalf + K, entryFrom, bandFront, KERB)
 
 	-- Cross band, joining the entry to both aisles.
 	plate("Lane", -outer, outer, bandFront, bandBack, CREAM)
@@ -3226,7 +3231,7 @@ end
 --- THE FLIGHTS ALTERNATE SIDES. The flight up from the ground climbs the -X side
 --- corridor (between the outer stand column and the fence), front to back; the flight
 --- up from floor 2 climbs the +X side the same way. Each deck has a stairwell hole
---- over the flight that arrives at it, fenced on its inner edge (the guard rail) and
+--- over the flight that arrives at it, unfenced (the guard rail was removed on request) and
 --- open at the back, where you step off. You walk off the top of one flight, across
 --- the deck, and the next flight's foot is on the far side at the front.
 ---
@@ -3444,15 +3449,13 @@ local function buildFloor(parent: Instance, origin: CFrame, index: number, floor
 	railRun(rails, origin, top, -rx, rzFront, -rx, rzBack, true)
 	railRun(rails, origin, top, rx, rzFront, rx, rzBack, true)
 	railRun(rails, origin, top, -rx, rzBack, rx, rzBack, true, true)
-	-- The stairwell's inner edge, from its front (the flight's foot) back to where the
-	-- flight lands, and across its front, so the plate in front of it is no drop.
-	local gx = side * (FLOOR.openIn - RAIL_POST_W / 2)
-	local ox = side * (FLOOR.openOut + RAIL_POST_W / 2)
-	local gz = FLOOR.stairZ - RAIL_POST_W / 2
-	railRun(rails, origin, top, gx, gz, gx, FLIGHT_TOP_Z)
-	railRun(rails, origin, top, gx, gz, ox, gz, true)
+	-- The stairwell itself is left unfenced (on request): its inner edge and front are
+	-- open, so the deck reads as one floor with the flight cut into it.
 	rails.Parent = m
 	capFencePosts(rails, accent)
+
+	-- The ground's walkways, laid on this deck from its front rail back.
+	buildGalleryLanes(m, origin, top, front + RAIL_POST_W)
 
 	-- ── The gallery ─────────────────────────────────────────────
 	local first = Floors.firstSlot(floor)
