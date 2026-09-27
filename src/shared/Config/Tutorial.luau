@@ -67,4 +67,17 @@ function Tutorial.isSafeDig(data: any): boolean
 	return #data.carry == 0 and #(data.crates or {}) == 0 and #data.exhibit.pedestals == 0
 end
 
+--- ON REQUEST: a brand-new player joins at Stage 1's doorstep instead of on their base,
+--- so "Head to the first stage" is a few steps, not a walk across camp. Their base is
+--- still assigned and still their RespawnLocation. This only moves the join spawn.
+--- Same test as isSafeDig: nothing dug yet. A rejoin partway through the walkthrough
+--- with a nuke in the bag or on a stand has base work to do, so it lands on the base.
+function Tutorial.spawnsAtField(data: any): boolean
+	return Tutorial.isSafeDig(data)
+end
+
+--- Where spawnsAtField puts you: this many studs west of Stage 1's west edge, on the
+--- plaza's green strip, level with the stage's middle and facing into it.
+Tutorial.FIELD_SPAWN_BACK = 12
+
 return Tutorial

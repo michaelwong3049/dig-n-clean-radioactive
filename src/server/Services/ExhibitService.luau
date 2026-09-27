@@ -52,6 +52,8 @@ local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local StandCard = require(Shared.StandCard) -- the attribute contract StandCardController draws from
 local Ticker = require(Shared.Util.Ticker)
+local Tutorial = require(Shared.Config.Tutorial) -- assign(): new players join at Stage 1
+local Stages = require(Shared.Config.Stages)
 
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
@@ -714,24 +716,37 @@ end
 --- practice — CharacterAutoLoads fires immediately on join, well before a
 --- profile finishes loading — but a spawn point silently doing nothing is a
 --- much worse failure than a few seconds of extra caution here).
-local function teleportToSpawn(player: Player, spawn: SpawnLocation)
+local function teleportTo(player: Player, landing: CFrame)
 	local character = player.Character
 	if character == nil then
 		local connection
 		connection = player.CharacterAdded:Connect(function(newCharacter)
 			connection:Disconnect()
-			local root = newCharacter:WaitForChild("HumanoidRootPart", 5)
+			local root = newCharacter:WaitForChild("HumanoidRootPart", 5) :: BasePart?
 			if root then
-				root.CFrame = spawn.CFrame + Vector3.new(0, 4, 0)
+				root.CFrame = landing
 			end
 		end)
 		return
 	end
 
-	local root = character:FindFirstChild("HumanoidRootPart")
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if root then
-		root.CFrame = spawn.CFrame + Vector3.new(0, 4, 0)
+		root.CFrame = landing
 	end
+end
+
+local function teleportToSpawn(player: Player, spawn: SpawnLocation)
+	teleportTo(player, spawn.CFrame + Vector3.new(0, 4, 0))
+end
+
+--- A brand-new player's join spot (Tutorial.spawnsAtField): just west of Stage 1's
+--- west edge, halfway along it, facing east into the field. That strip is open plaza
+--- tile, so the same +4 drop-in as a plot spawn lands them on the floor.
+local function fieldSpawnCFrame(): CFrame
+	local minX, minZ, _, maxZ = Stages.bounds(1)
+	local at = Vector3.new(minX - Tutorial.FIELD_SPAWN_BACK, Stages.SURFACE_Y + 4, (minZ + maxZ) / 2)
+	return CFrame.lookAt(at, at + Vector3.xAxis)
 end
 
 -- ── Plot assignment ──────────────────────────────────────────────────────────
@@ -881,17 +896,26 @@ local function assign(player: Player)
 			plotOwner[index] = player
 			plotOf[player] = index
 
+			local data = DataService.data(player)
+			-- The plot is still theirs and still their RespawnLocation either way; a
+			-- first-timer just starts at Stage 1 for the walkthrough's first step.
+			local startsAtField = data ~= nil and Tutorial.spawnsAtField(data)
+
 			local plot = plotModel(index)
 			if plot then
 				local spawn = plot:FindFirstChild("PlotSpawn", true) :: SpawnLocation?
 				if spawn then
 					spawn.Enabled = true
 					player.RespawnLocation = spawn
-					teleportToSpawn(player, spawn)
+					if not startsAtField then
+						teleportToSpawn(player, spawn)
+					end
 				end
 			end
+			if startsAtField then
+				teleportTo(player, fieldSpawnCFrame())
+			end
 
-			local data = DataService.data(player)
 			if data then
 				renderAll(index, data)
 			end
