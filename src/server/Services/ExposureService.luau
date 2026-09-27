@@ -359,8 +359,8 @@ end
 
 --- Where a blacked-out player wakes up — and, since the top-of-screen warp bar,
 --- where "SHOPS" drops you too (WarpService). It is the one shared answer to "where
---- do you land when you leave the field": the RespawnAnchor in the plaza aisle
---- between the stalls and the Outfitter.
+--- do you land when you leave the field": the RespawnAnchor in the middle of the plaza,
+--- or rather a point on the ring round it (the Trader kiosk stands on the anchor itself).
 ---
 --- This used to be FindFirstChildWhichIsA("SpawnLocation") — which searches DIRECT
 --- CHILDREN OF WORKSPACE ONLY. BaseCamp parents its spawn inside the camp model, so
@@ -378,6 +378,17 @@ local warnedNoAnchor = false
 function ExposureService.baseCampCFrame(): CFrame
 	local anchor = Workspace:FindFirstChild("RespawnAnchor", true)
 	if anchor and anchor:IsA("BasePart") then
+		-- A ring anchor (Hub's, round the Trader kiosk that stands on it): land at one
+		-- of its points, picked at random, facing the middle.
+		local radius = anchor:GetAttribute("RingRadius")
+		if type(radius) == "number" and radius > 0 then
+			local points = anchor:GetAttribute("RingPoints")
+			local count = if type(points) == "number" and points >= 1 then math.floor(points) else 4
+			local angle = math.random(0, count - 1) * (2 * math.pi / count)
+			local centre = anchor.Position + Vector3.new(0, 4, 0)
+			local at = centre + Vector3.new(math.sin(angle), 0, math.cos(angle)) * radius
+			return CFrame.lookAt(at, centre)
+		end
 		return anchor.CFrame + Vector3.new(0, 4, 0)
 	end
 

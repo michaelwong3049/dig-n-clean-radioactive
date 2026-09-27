@@ -86,7 +86,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 25
+local BUILDER_VERSION = 26
 
 local C = Kit.C
 local build = Kit.build
@@ -773,9 +773,12 @@ local function buildSpawns(hub: Model)
 	spawns.Name = "Spawns"
 
 	-- (17.5, 0) — the plaza midpoint (Shops.luau's PLAZA_MID). The shop cluster's
-	-- two rows (Shops.luau's STALLS + OUTFITTER, plus BaseCamp's Trader) run
-	-- east-west either side of it, so a player waking up here stands in the open
-	-- aisle between the storefronts. Nothing is built on this point.
+	-- two rows (Shops.luau's STALLS + OUTFITTER) run east-west either side of it, and
+	-- since 2026-09-27 BaseCamp's four-sided Trader kiosk stands ON this point. So the
+	-- anchor marks the centre of a RING: `RingRadius` tells ExposureService.baseCampCFrame
+	-- to land you at one of `RingPoints` spots that far out, facing the kiosk. 13 clears
+	-- the kiosk's 7.5 half-width and its 12-stud sell radius, and stays well short of
+	-- both rows' floor markers.
 	local grate = Hub.CAMP_ORIGIN * CFrame.new(0, 0.75, 0)
 	build(spawns, CFrame.new(0, 0, 0), {
 		name = "RespawnAnchor",
@@ -785,6 +788,7 @@ local function buildSpawns(hub: Model)
 		material = "SmoothPlastic",
 		transparency = 1,
 		canCollide = false,
+		attributes = { RingRadius = 13, RingPoints = 4 },
 	})
 
 	spawns.Parent = hub

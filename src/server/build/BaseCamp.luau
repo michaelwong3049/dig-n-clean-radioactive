@@ -68,7 +68,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 16
+local BUILDER_VERSION = 17
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -183,7 +183,10 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- kiosk keeps its original unrotated facing (local +Z = world +Z, i.e. north)
 	-- unchanged, which already matches the Outfitter's and Cleaner's own `faceYaw = 0` —
 	-- the row reads as one line of storefronts, not three different facings.
-	BaseCamp.buildTrader(camp, origin * CFrame.new(-10.5, 0, -38.5))
+	-- THE TRADER MOVED TO THE MIDDLE OF THE PLAZA on 2026-09-27: `origin` is
+	-- Hub.CAMP_ORIGIN, which is PLAZA_MID, and the kiosk sells from all four sides (see
+	-- buildHubTrader). The comment above is its history in the south shop row.
+	BaseCamp.buildHubTrader(camp, origin)
 end
 
 -- ── The trader kiosk ──────────────────────────────────────────────────────────
@@ -480,6 +483,225 @@ function BaseCamp.buildTrader(parent: Instance, kiosk: CFrame): Model
 	})
 	signAnchor.CanQuery = false
 	Shops.buildSign(signAnchor, "Trader", C.hazard, 1.5)
+
+	trader.Parent = parent
+	return trader
+end
+
+-- ── The hub trader ────────────────────────────────────────────────────────────
+
+--- BASE CAMP'S TRADER STANDS IN THE MIDDLE OF THE PLAZA AND SELLS FROM ALL FOUR SIDES
+--- (2026-09-27, on request). The shop rows face each other across the aisle it stands
+--- in, so it is the thing every storefront looks at. A square kiosk: a hazard-taped
+--- counter on each face, a steel column and drums in the middle, a flat striped awning
+--- with a valance all round, and a sign box on the roof with TRADER on all four faces.
+---
+--- ONE STATION, NOT FOUR. World.verify() counts exactly one trader per camp, and the
+--- sell panel opens on StationService's radius, so the station is one invisible anchor
+--- at the kiosk's centre whose radius (HUB_TRADER_RADIUS) reaches a few studs past every
+--- counter. Hub rings the respawn points round it just outside that radius, so waking
+--- up or warping in does not drop you straight into the sell panel.
+---
+--- `kiosk` is the kiosk's centre on the camp datum, like `buildTrader`'s. The site camps
+--- keep the one-sided `buildTrader` in their shop rows.
+local HUB_TRADER_HALF = 7.5 -- half the deck; the counters' outer faces sit just inside it
+local HUB_TRADER_RADIUS = 12
+
+function BaseCamp.buildHubTrader(parent: Instance, kiosk: CFrame): Model
+	local trader = Instance.new("Model")
+	trader.Name = "Trader"
+
+	local G = -0.9 + Hub.PLAZA_LIFT
+	local DECK_TOP = G + 0.6
+	local POST, POST_D = 0.95, 6.5
+	local POST_H = 10.4
+	local SPAN = POST_D * 2 - POST
+	local COUNTER_H = 2.1
+	local COUNTER_Z = POST_D - 0.4
+	local COUNTER_TOP = DECK_TOP + COUNTER_H + 0.32
+
+	build(trader, kiosk, {
+		name = "Deck",
+		pos = { 0, G + 0.2, 0 },
+		size = { HUB_TRADER_HALF * 2, 0.8, HUB_TRADER_HALF * 2 },
+		color = C.railPost,
+		material = "Plastic",
+		studs = true,
+	})
+	for _, x in { -POST_D, POST_D } do
+		for _, z in { -POST_D, POST_D } do
+			build(trader, kiosk, {
+				name = "Post",
+				pos = { x, G + POST_H / 2, z },
+				size = { POST, POST_H, POST },
+				color = C.steelDark,
+				material = "Plastic",
+				studs = true,
+			})
+		end
+	end
+
+	-- The four counters, each in its own side's frame (local +Z out through that side).
+	for side = 0, 3 do
+		local face = kiosk * CFrame.Angles(0, math.rad(side * 90), 0)
+		build(trader, face, {
+			name = "TraderCounter",
+			pos = { 0, DECK_TOP + COUNTER_H / 2, COUNTER_Z },
+			size = { SPAN, COUNTER_H, 2.0 },
+			color = C.shopWood,
+			material = "Plastic",
+			studs = true,
+		})
+		build(trader, face, {
+			name = "CounterTop",
+			pos = { 0, DECK_TOP + COUNTER_H + 0.16, COUNTER_Z },
+			size = { SPAN + 0.9, 0.32, 2.7 },
+			color = C.steel,
+			material = "Metal",
+			canCollide = false,
+		})
+		local tapeY, tapeZ = DECK_TOP + 0.55, COUNTER_Z + 1.0
+		build(trader, face, {
+			name = "HazardTape",
+			pos = { 0, tapeY, tapeZ + 0.04 },
+			size = { SPAN, 0.9, 0.08 },
+			color = C.hazardBlack,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+		local blocks, tapeSpan = 14, SPAN - 0.4
+		for i = 0, blocks - 1, 2 do
+			build(trader, face, {
+				name = "HazardStripe",
+				pos = { -tapeSpan / 2 + i * tapeSpan / (blocks - 1), tapeY, tapeZ + 0.105 },
+				size = { 0.42, 0.9, 0.05 },
+				color = C.hazard,
+				material = "SmoothPlastic",
+				canCollide = false,
+			})
+		end
+		-- A platform scale on each counter's left end: the trader weighs what you bring.
+		build(trader, face, {
+			name = "ScalePan",
+			pos = { -3.6, COUNTER_TOP + 0.09, COUNTER_Z },
+			size = { 2.4, 0.18, 1.7 },
+			color = SHED_STEEL,
+			material = "DiamondPlate",
+			canCollide = false,
+		})
+	end
+
+	-- The middle: a ribbed steel column holding the roof up, and four drums round it.
+	build(trader, kiosk, {
+		name = "Column",
+		pos = { 0, G + POST_H / 2, 0 },
+		size = { 2.2, POST_H, 2.2 },
+		color = SHED_STEEL,
+		material = "Metal",
+	})
+	for side = 0, 3 do
+		local face = kiosk * CFrame.Angles(0, math.rad(side * 90 + 45), 0)
+		local color = if side % 2 == 0 then C.barrelYellow else C.barrelRust
+		build(trader, face, {
+			name = "Drum",
+			pos = { 0, DECK_TOP + 1.3, 2.9 },
+			size = { 2.6, 1.8, 1.8 },
+			color = color,
+			material = "Metal",
+			shape = "Cylinder",
+			rot = Kit.R.cylUp,
+		})
+		for _, dy in { -0.9, 0.9 } do
+			build(trader, face, {
+				name = "DrumBand",
+				pos = { 0, DECK_TOP + 1.3 + dy, 2.9 },
+				size = { 0.14, 1.9, 1.9 },
+				color = C.hazardBlack,
+				material = "Metal",
+				shape = "Cylinder",
+				rot = Kit.R.cylUp,
+				canCollide = false,
+			})
+		end
+	end
+
+	-- The flat striped awning, an odd stripe count so both edges end on yellow, and a
+	-- striped valance hanging off all four edges.
+	local ROOF_W = HUB_TRADER_HALF * 2 + 1
+	local roofY = G + POST_H + 0.25
+	local stripes = 9
+	local stripeW = ROOF_W / stripes
+	for i = 1, stripes do
+		build(trader, kiosk, {
+			name = "AwningStripe",
+			pos = { -ROOF_W / 2 + (i - 0.5) * stripeW, roofY, 0 },
+			size = { stripeW + 0.02, 0.5, ROOF_W },
+			color = if i % 2 == 1 then C.hazard else C.hazardBlack,
+			material = "SmoothPlastic",
+			canCollide = false,
+		})
+	end
+	for side = 0, 3 do
+		local face = kiosk * CFrame.Angles(0, math.rad(side * 90), 0)
+		for i = 1, stripes do
+			build(trader, face, {
+				name = "AwningValance",
+				pos = { -ROOF_W / 2 + (i - 0.5) * stripeW, roofY - 0.85, ROOF_W / 2 },
+				size = { stripeW + 0.02, 1.5, 0.3 },
+				color = if i % 2 == 1 then C.hazard else C.hazardBlack,
+				material = "SmoothPlastic",
+				canCollide = false,
+			})
+		end
+	end
+
+	-- The sign box on the roof: TRADER on all four faces, in the pill sign's look
+	-- (Shops.paintSign), framed top and bottom in steel.
+	local BOX_W, BOX_H = 11, 3.2
+	local boxY = roofY + 0.25 + 0.9 + BOX_H / 2
+	build(trader, kiosk, {
+		name = "SignStem",
+		pos = { 0, roofY + 0.25 + 0.45, 0 },
+		size = { 4, 0.9, 4 },
+		color = C.steelDark,
+		material = "Metal",
+		canCollide = false,
+	})
+	local box = build(trader, kiosk, {
+		name = "SignBox",
+		pos = { 0, boxY, 0 },
+		size = { BOX_W, BOX_H, BOX_W },
+		color = C.hazardBlack,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	for _, dy in { -1, 1 } do
+		build(trader, kiosk, {
+			name = "SignBoxFrame",
+			pos = { 0, boxY + dy * (BOX_H / 2 + 0.2), 0 },
+			size = { BOX_W + 0.5, 0.4, BOX_W + 0.5 },
+			color = C.steelDark,
+			material = "Metal",
+			canCollide = false,
+		})
+	end
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right } do
+		Shops.paintSign(box, face, BOX_H, "Trader", C.hazard)
+	end
+
+	-- THE STATION: one invisible anchor in the middle (see the header).
+	local station = build(trader, kiosk, {
+		name = "TraderStation",
+		pos = { 0, DECK_TOP + 1.5, 0 },
+		size = { 1, 1, 1 },
+		color = C.steel,
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+		attributes = { StationKind = "trader", Radius = HUB_TRADER_RADIUS },
+	})
+	station.CanQuery = false
+	station.CanTouch = false
 
 	trader.Parent = parent
 	return trader
