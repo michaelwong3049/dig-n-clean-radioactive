@@ -62,7 +62,8 @@ local function importedNukeTemplate(itemId: string): Model?
 	return if template and template:IsA("Model") then template else nil
 end
 
-function ItemModels.create(modelKey: string?, itemId: string?): Model?
+--- `modifier` is the dig's Rarity.MODIFIERS roll; a Pristine one gets its own shine.
+function ItemModels.create(modelKey: string?, itemId: string?, modifier: string?): Model?
 	if modelKey == nil then
 		return nil
 	end
@@ -73,7 +74,7 @@ function ItemModels.create(modelKey: string?, itemId: string?): Model?
 			return nil
 		end
 		local clone = template:Clone()
-		ItemFx.tag(clone, itemId)
+		ItemFx.tag(clone, itemId, modifier)
 		return clone
 	end
 

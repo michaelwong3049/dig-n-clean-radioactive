@@ -30,6 +30,9 @@ local ItemFx = {}
 
 ItemFx.TAG = "ItemFx"
 ItemFx.ATTRIBUTE = "FxId"
+-- Set on a Pristine-rolled item: the client lays its own shine over the whole model,
+-- on top of (or instead of) any Config/ItemFx entry.
+ItemFx.PRISTINE_ATTRIBUTE = "Pristine"
 
 function ItemFx.get(itemId: string?): Config.ItemFxDef?
 	return if itemId then Config.DEFS[itemId] else nil
@@ -117,12 +120,20 @@ function ItemFx.referencedNames(def: Config.ItemFxDef): { string }
 end
 
 --- Label a freshly cloned item model for the client. A no-op for any item without an
---- entry in Config/ItemFx, so the nukes without effects are untouched.
-function ItemFx.tag(model: Model, itemId: string?)
-	if itemId == nil or Config.DEFS[itemId] == nil then
+--- entry in Config/ItemFx, so the nukes without effects are untouched -- unless the
+--- dig rolled Pristine, which shines whatever the item.
+function ItemFx.tag(model: Model, itemId: string?, modifier: string?)
+	local hasDef = itemId ~= nil and Config.DEFS[itemId] ~= nil
+	local pristine = modifier == "Pristine"
+	if not hasDef and not pristine then
 		return
 	end
-	model:SetAttribute(ItemFx.ATTRIBUTE, itemId)
+	if hasDef then
+		model:SetAttribute(ItemFx.ATTRIBUTE, itemId)
+	end
+	if pristine then
+		model:SetAttribute(ItemFx.PRISTINE_ATTRIBUTE, true)
+	end
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	CollectionService:AddTag(model, ItemFx.TAG)
 end

@@ -222,6 +222,26 @@ local CHERENKOV = Color3.fromHex("3FA9FF")
 local GOLD_TINT = Color3.fromHex("FFE9C0")
 local GLINT_GOLD = Color3.fromHex("FFF0C8")
 
+-- Any nuke that rolled PRISTINE (Rarity.MODIFIERS) shines on top of its own effects.
+-- Gold is a slow warm sweep over the gold parts only; Pristine is its opposite: an
+-- icy blue-white flash across the WHOLE model, quicker and more often, with plenty
+-- of cyan star flares and a few frost sparkles in the air. The cyan is the stand
+-- card's Pristine sticker colour. `parts` stays empty: the controller takes every
+-- visible part of the model.
+ItemFx.PRISTINE = {
+	glint = {
+		parts = {},
+		period = 2.6,
+		sweep = 0.55,
+		color = Color3.fromHex("DDF8FF"),
+		strength = 2.6,
+		stars = 8,
+		starColor = Color3.fromHex("7DF9FF"),
+		starSize = 0.7,
+	} :: Glint,
+	sparkle = { color = Color3.fromHex("BFF6FF"), rate = 2.5 },
+}
+
 ItemFx.DEFS = {
 	-- Atomic Bomb (Mythic). The flavour says "still glowing, still humming", so this
 	-- one leaks the light. The casing seams and nose ring breathe green, the arming
