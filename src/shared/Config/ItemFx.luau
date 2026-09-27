@@ -949,7 +949,8 @@ ItemFx.DEFS = {
 
 	-- Prototype Nuke (Stage 1 Legendary). A test rig nobody switched off: the
 	-- sample orb floats in its window with three gimbal rings tumbling round it,
-	-- the field coils and hex cells chase with charge, the test rings turn, sparks
+	-- the hex cells orbit the shell, rising and falling, the field coils and hex
+	-- cells chase with charge, the test rings turn, sparks
 	-- jump off the arcs and the tip lens pings like it is still transmitting.
 	prototype_nuke = {
 		finish = {
@@ -981,6 +982,8 @@ ItemFx.DEFS = {
 			{ parts = { "OrbRing3" }, pivot = "Orb", axis = "Z", rpm = 24 },
 			{ parts = { "Ring3" }, pivot = "Shell", axis = "Y", rpm = 14 },
 			{ parts = { "Ring2" }, pivot = "Shell", axis = "Y", rpm = -10 },
+			-- The ten hex cells orbit the shell, rising and falling as they go.
+			{ parts = { "Hex", "HexEdge" }, pivot = "Shell", axis = "Y", mode = "bob", amp = 0.04, period = 3.2, rpm = 8 },
 		},
 		ping = { part = "TipLens", color = Color3.fromHex("7FF7FF"), period = 2.4 },
 	},
