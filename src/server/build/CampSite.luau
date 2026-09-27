@@ -731,21 +731,27 @@ local function buildStalls(parent: Instance, L: Layout)
 	-- slots (NORTH_STALL_X) only hold ~54 between them, so it takes both and stands at the
 	-- row's middle. A camp Config/Gear sells nothing at keeps its shells.
 	if #Gear.tiersAt("Detector", L.def.key) > 0 then
-		local origin = CFrame.new(L.ox, PLAZA_Y, L.oz + ROW_Z) * CFrame.Angles(0, math.rad(180), 0)
+		-- THE AURA SHOP STANDS BESIDE IT, west, when Config/Gear sells any aura rung at
+		-- this camp: the Outfitter's own building (a mannequin per aura rung), one
+		-- `gap` off the Detector Shop's west end, on the side you arrive from.
+		-- Since the mannequin row (2026-09-27) the pair is too wide to leave the Detector
+		-- Shop centred, so the two are centred on the row as one block, and the block has
+		-- to stay on the paver square.
+		local detectorWidth = Shops.campStallWidth("Detector", L.def.key)
+		local auraWidth = if #Gear.tiersAt("Aura", L.def.key) > 0 then Shops.campOutfitterWidth(L.def.key) else 0
+		local gap = TRADER_CLEARANCE + 1 -- a stud more, so the two roofs' edge caps do not touch
+		local total = detectorWidth + (if auraWidth > 0 then gap + auraWidth else 0)
+		local west = -total / 2
+		assert(west >= -SHOP_HALF_X, `{L.def.key}'s north row runs off the paver square (west end {west})`)
+		local detectorX = west + total - detectorWidth / 2
+		local origin = CFrame.new(L.ox + detectorX, PLAZA_Y, L.oz + ROW_Z) * CFrame.Angles(0, math.rad(180), 0)
 		Shops.buildCampStall(folder, origin, "Detector", L.def.key)
 		-- The two shells it replaced would have taken the first two awnings; skip them so
 		-- the south row keeps the colours it had.
 		i += #NORTH_STALL_X
 
-		-- THE AURA SHOP STANDS BESIDE IT, west, when Config/Gear sells any aura rung at
-		-- this camp: the Outfitter's own building (a mannequin wearing the camp's auras),
-		-- one TRADER_CLEARANCE off the Detector Shop's west end, on the side you arrive
-		-- from. It has to stay on the paver square.
-		if #Gear.tiersAt("Aura", L.def.key) > 0 then
-			local half = Shops.campOutfitterWidth(L.def.key) / 2
-			local x = -(Shops.campStallWidth("Detector", L.def.key) / 2 + TRADER_CLEARANCE + half)
-			assert(x - half >= -SHOP_HALF_X, `{L.def.key}'s Aura Shop runs off the paver square (west end {x - half})`)
-			local auraOrigin = CFrame.new(L.ox + x, PLAZA_Y, L.oz + ROW_Z) * CFrame.Angles(0, math.rad(180), 0)
+		if auraWidth > 0 then
+			local auraOrigin = CFrame.new(L.ox + west + auraWidth / 2, PLAZA_Y, L.oz + ROW_Z) * CFrame.Angles(0, math.rad(180), 0)
 			Shops.buildCampOutfitter(folder, auraOrigin, L.def.key)
 		end
 	else
