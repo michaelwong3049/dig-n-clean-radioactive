@@ -1286,6 +1286,27 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 
 	build(parent, origin, { name = "ReelPost", pos = { px + 0.15, (T + 0.7 + ry + 0.3) / 2, pz }, size = { 0.5, ry + 0.3 - (T + 0.7), 0.5 }, color = BODY, material = "Plastic", studs = true, canCollide = false })
 
+	-- THE FEED LINE, reel to tank: down the reel post, along the deck past the mast's
+	-- outside, a dog-leg round the flywheel, and into the tank's aisle face under the
+	-- gauge -- so the hose on the drum visibly draws from the tank.
+	do
+		local fy, postX, turnZ = T + 0.95, px + 0.15, tz - 2
+		local tankFace = tz - tankR
+		local function run(name: string, a: Vector3, b: Vector3)
+			local mid, len = (a + b) / 2, (b - a).Magnitude
+			local along = if math.abs(b.X - a.X) > 0.01 then nil else CYL_ALONG_Z
+			build(parent, origin, { name = name, pos = { mid.X, mid.Y, mid.Z }, size = { len, 0.4, 0.4 }, color = FIT, material = "Metal", shape = "Cylinder", rot = along, canCollide = false })
+		end
+		local p1, p2, p3, p4 = Vector3.new(postX, fy, pz + 0.3), Vector3.new(postX, fy, turnZ), Vector3.new(tx, fy, turnZ), Vector3.new(tx, fy, tankFace + 0.05)
+		run("FeedPipe", p1, p2)
+		run("FeedPipe", p2, p3)
+		run("FeedPipe", p3, p4)
+		for _, joint in { p2, p3 } do
+			build(parent, origin, { name = "FeedElbow", pos = { joint.X, joint.Y, joint.Z }, size = { 0.55, 0.55, 0.55 }, color = FIT, material = "Metal", shape = "Ball", canCollide = false })
+		end
+		build(parent, origin, { name = "FeedFlange", pos = { tx, fy, tankFace - 0.05 }, size = { 0.14, 0.7, 0.7 }, color = FIT, material = "Metal", shape = "Cylinder", rot = CYL_ALONG_Z, canCollide = false })
+	end
+
 	-- Where the hose leaves the drum. Its FACING is load-bearing: a Beam's curve
 	-- control point runs along the attachment's LookVector, so this aims down-and-
 	-- toward-the-tub to throw the slack loop that way, not back behind the pump.
