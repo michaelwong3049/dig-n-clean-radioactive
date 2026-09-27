@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 71
+local BUILDER_VERSION = 72
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -631,21 +631,21 @@ end
 --- A full one hides it and lights `RarityLine`, a thin band wrapped round the top
 --- course in the displayed item's rarity colour. Neon, deliberately: it belongs to
 --- the item on show, under the same exception the nuke FX use.
-local RISER_BASE = { w = 8.9, h = 1.1 }
-local RISER_TOP = { w = 7.6, h = 0.85 }
+local RISER_BASE = { w = 7.8, h = 0.95 }
+local RISER_TOP = { w = 6.7, h = 0.75 }
 local RISER_RIM = { h = 0.26, thickness = 0.6 } -- the raised frame around the recessed panel
 local RISER_SURFACE = RISER_BASE.h + RISER_TOP.h
 local PLINTH = {
-	h = 1.8, -- how far the riser stack is lifted
-	footW = 8.4,
+	h = 1.3, -- how far the riser stack is lifted
+	footW = 7.4,
 	footH = 0.3,
-	columnW = 7.2,
-	bandW = 7.4,
+	columnW = 6.3,
+	bandW = 6.5,
 	bandH = 0.4,
 }
 -- The slot marker, in studs on the top course's face: a dark inset square, and
 -- L-shaped corner brackets (arm length x thickness) just inside the rim.
-local SLOT_MARK = { inset = 5.6, arm = 1.3, thick = 0.3, reach = 2.75, color = "3A3F47" }
+local SLOT_MARK = { inset = 4.9, arm = 1.15, thick = 0.3, reach = 2.4, color = "3A3F47" }
 
 --- The empty-slot marker: a SurfaceGui on the top course's top face. Built enabled
 --- (every stand starts empty); Plots.setStandState hides it once something is shown.
