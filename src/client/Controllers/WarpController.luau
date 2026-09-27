@@ -335,8 +335,16 @@ function WarpController.start()
 	local gui = build()
 	gui.Parent = player:WaitForChild("PlayerGui")
 
+	-- HOME / SHOPS stay off until the walkthrough is done or skipped: TutorialService
+	-- sets TutorialActive (nil until the save loads, so hidden by default).
+	local inCamp = false
+	local function refresh()
+		setShown(inCamp and player:GetAttribute("TutorialActive") == false)
+	end
+	player:GetAttributeChangedSignal("TutorialActive"):Connect(refresh)
 	Net.get("ExposureState").OnClientEvent:Connect(function(state)
-		setShown(state.stageId == nil and state.downed ~= true)
+		inCamp = state.stageId == nil and state.downed ~= true
+		refresh()
 	end)
 	RunService.Heartbeat:Connect(spin)
 end

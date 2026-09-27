@@ -43,6 +43,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Net = require(ReplicatedStorage.Shared.Net)
 local Camps = require(ReplicatedStorage.Shared.Config.Camps)
 
+local DataService = require(script.Parent.DataService)
 local StageService = require(script.Parent.StageService)
 local DigService = require(script.Parent.DigService)
 local ExhibitService = require(script.Parent.ExhibitService)
@@ -96,6 +97,13 @@ local function onWarp(player: Player, payload: any)
 	-- Never out of a live field. See the header.
 	if StageService.stageOf(player) ~= nil then
 		return
+	end
+	-- HOME / SHOPS unlock with the walkthrough: the tutorial walks you there on foot.
+	if dest == "base" or dest == "shops" then
+		local data = DataService.data(player)
+		if data == nil or data.onboarding == "active" then
+			return
+		end
 	end
 	-- Rooted mid-haul: DigService releases the lock on every path that can
 	-- invalidate it and a teleport is not one of those paths, so refuse rather than
