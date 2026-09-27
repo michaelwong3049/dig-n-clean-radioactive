@@ -58,19 +58,19 @@ local STYLE = {
 	captionFont = Enum.Font.FredokaOne,
 }
 
--- Design px inside the Dock.SPEED_SIZE footprint (280 x 64).
+-- Design px inside the Dock.SPEED_SIZE footprint (280 x 68).
 local LAYOUT = {
-	disc = 58,
-	shoe = 52, -- wider than the face, so the sneaker overlaps the disc's rim
-	cardTop = 4,
-	cardHeight = 48, -- the 12 px under it in Dock's 64 held the old level pill
-	cardRadius = 16,
-	shadowDrop = 4,
+	disc = 68,
+	shoe = 60, -- wider than the face, so the sneaker overlaps the disc's rim
+	cardTop = 6,
+	cardHeight = 56, -- same card as CashController's, so the two badges read as a pair
+	cardRadius = 20,
+	shadowDrop = 5,
 	outline = 4,
-	valueLeft = 72,
+	valueLeft = 80,
 	captionTextSize = 13,
-	valueTextSize = 26,
-	valueStroke = 3,
+	valueTextSize = 28,
+	valueStroke = 3.5,
 }
 local CARD_LEFT = LAYOUT.disc / 2
 local ROUND = UDim.new(0.5, 0)
@@ -185,7 +185,7 @@ local function build(): ScreenGui
 	blob(badge, "CardShadow", { CARD_LEFT, L.cardTop + L.shadowDrop, cardW, L.cardHeight }, INK, 1, cardRadius)
 	local card = blob(badge, "Card", { CARD_LEFT, L.cardTop, cardW, L.cardHeight }, STYLE.card, 2, cardRadius, L.outline)
 	local shineLeft = L.valueLeft - CARD_LEFT - 2
-	blob(card, "Shine", { shineLeft, 6, cardW - shineLeft - 8, 12 }, STYLE.cardShine, 3, ROUND)
+	blob(card, "Shine", { shineLeft, 6, cardW - shineLeft - 8, 14 }, STYLE.cardShine, 3, ROUND)
 
 	-- The disc, breaking out past the card's left end like the cash coin.
 	local discTop = L.cardTop + L.cardHeight / 2 - L.disc / 2
@@ -200,7 +200,7 @@ local function build(): ScreenGui
 
 	UIKit.label(badge, {
 		name = "Caption",
-		position = UDim2.fromOffset(L.valueLeft, L.cardTop + 3),
+		position = UDim2.fromOffset(L.valueLeft, L.cardTop + 5),
 		size = UDim2.fromOffset(120, 16),
 		font = STYLE.captionFont,
 		textSize = L.captionTextSize,
@@ -212,8 +212,8 @@ local function build(): ScreenGui
 	})
 	ui.value = UIKit.label(badge, {
 		name = "Value",
-		position = UDim2.fromOffset(L.valueLeft, L.cardTop + 16),
-		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, 32),
+		position = UDim2.fromOffset(L.valueLeft, L.cardTop + 19),
+		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, 34),
 		font = STYLE.valueFont,
 		textSize = L.valueTextSize,
 		color = WHITE,

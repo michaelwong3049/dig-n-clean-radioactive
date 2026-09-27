@@ -85,17 +85,17 @@ local STYLE = {
 	pillFont = Enum.Font.FredokaOne,
 }
 
--- Design px inside the Dock.CASH_SIZE footprint (280 x 86).
+-- Design px inside the Dock.CASH_SIZE footprint (280 x 78).
 local LAYOUT = {
-	coin = 76, -- diameter; left edge on the column margin, centred on the card
-	coinFace = 55,
+	coin = 68, -- diameter; left edge on the column margin, centred on the card
+	coinFace = 49,
 	cardTop = 6,
-	cardHeight = 64, -- 6 + 64 + the pill's overhang = the 86 Dock reserves
+	cardHeight = 56, -- 6 + 56 + the pill's overhang = the 78 Dock reserves; matches SpeedController's card
 	cardRadius = 20,
 	shadowDrop = 5,
 	outline = 4,
-	valueLeft = 86,
-	valueTextSize = 30,
+	valueLeft = 80,
+	valueTextSize = 28,
 	valueMinTextSize = 18, -- floor for setValueText's shrink-to-fit
 	valueStroke = 3.5,
 	-- LuckiestGuy draws high inside its line box, so a vertically "centred" label
@@ -266,7 +266,7 @@ local function build(): ScreenGui
 	local card = blob(badge, "Card", { CARD_LEFT, L.cardTop, cardW, L.cardHeight }, STYLE.card, 2, cardRadius, L.outline)
 	-- The flat lighter band along the top: the cartoon version of a shine, no gradient.
 	local shineLeft = L.valueLeft - CARD_LEFT - 2
-	blob(card, "Shine", { shineLeft, 7, cardW - shineLeft - 8, 18 }, STYLE.cardShine, 3, ROUND)
+	blob(card, "Shine", { shineLeft, 6, cardW - shineLeft - 8, 14 }, STYLE.cardShine, 3, ROUND)
 
 	-- The pill hangs off the card's bottom edge. Its width follows its text (setRate),
 	-- so it and its shadow are placed there; hidden until something is earning.
@@ -292,7 +292,7 @@ local function build(): ScreenGui
 	local coin = blob(badge, "Coin", { 0, coinTop, L.coin, L.coin }, STYLE.coin, 7, ROUND, L.outline)
 	local faceInset = (L.coin - L.coinFace) / 2
 	blob(coin, "Face", { faceInset, faceInset, L.coinFace, L.coinFace }, STYLE.coinFace, 8, ROUND, 3, STYLE.coinRim)
-	local glint = blob(coin, "Glint", { 16, 17, 15, 8 }, STYLE.coinGlint, 9, ROUND)
+	local glint = blob(coin, "Glint", { 14, 15, 13, 7 }, STYLE.coinGlint, 9, ROUND)
 	glint.Rotation = -40
 	UIKit.label(coin, {
 		name = "Mark",
@@ -300,7 +300,7 @@ local function build(): ScreenGui
 		position = UDim2.fromOffset(0, L.markDrop),
 		text = "$",
 		font = STYLE.valueFont,
-		textSize = 40,
+		textSize = 36,
 		color = STYLE.coinMark,
 		xAlign = Enum.TextXAlignment.Center,
 		outline = false,

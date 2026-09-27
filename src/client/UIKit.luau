@@ -605,16 +605,17 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 -- a hand-picked 216 while the comment here claimed "same width as the meter", which
 -- was false (the meter is 280); deriving it outright is the only way that claim stays
 -- true. Height grew 52 -> 64 alongside CashController's bigger balance text, then
--- 64 -> 86 for the cartoon gold-coin badge: the card itself is still 64 tall, but the
+-- 64 -> 86 for the cartoon gold-coin badge, then 86 -> 78 when the card shrank to 56 to
+-- match the speed badge's: the card itself is 56 tall, but the
 -- "+$/s" income pill hangs off its bottom edge and the column has to reserve that
 -- overhang or the pill lands on the meter. CASH_BOTTOM is the old bottom-corner
 -- baseline — kept as the reference point the SIDE_* offsets below are documented
 -- against, and in case the column ever moves back.
-Dock.CASH_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 86)
--- THE SPEED BADGE (SpeedController), between the cash badge and the meter: a 48-tall
--- card plus the level pill hanging off its bottom edge, the same overhang shape as the
+Dock.CASH_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 78)
+-- THE SPEED BADGE (SpeedController), between the cash badge and the meter: a 56-tall
+-- card (the same card as cash's, so the pair match) plus room for the shadow; it once held the level pill hanging off its bottom edge, the same overhang shape as the
 -- cash badge's income pill. Same width as the column, read off the meter like CASH_SIZE.
-Dock.SPEED_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 64)
+Dock.SPEED_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 68)
 Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
 
 -- MIDDLE-LEFT / MIDDLE-RIGHT PLACEMENT. On request the cash+meter column and the
