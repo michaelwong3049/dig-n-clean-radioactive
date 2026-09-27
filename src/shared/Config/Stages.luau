@@ -234,6 +234,8 @@ Stages.PLATE_THICKNESS = 16
 --- pass, 340 -> 290 on X with Z held, N left at 75) -- both on request. Move the
 --- footprint again and SIGNALS_PER_STAGE (Config/Tuning) is how you retarget it.
 local FOOTPRINT_X, FOOTPRINT_Z = 290, 170
+-- Stages 7-12 only: 15% longer (290 -> 334) along the walk axis.
+local FAR_X = 334
 
 Stages.DEFS = {
 	{
@@ -567,8 +569,8 @@ Stages.DEFS = {
 		fogEnd = 400,
 		rarityTilt = 5.6,
 		-- West edge = the Twilight exit (x = 2060); centre = 2060 + 290/2.
-		center = { 2205, 0 },
-		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		center = { 2227, 0 },
+		size = { FAR_X, FOOTPRINT_Z },
 		color = "34313A", -- charcoal
 		material = "Slate",
 		ooze = { bright = "FF7A2E", deep = "5A2408", glow = "FF7A2E" },
@@ -585,8 +587,8 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("7FA6D6"),
 		fogEnd = 400,
 		rarityTilt = 5.8,
-		center = { 2495, 0 },
-		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		center = { 2561, 0 },
+		size = { FAR_X, FOOTPRINT_Z },
 		color = "3D6FB0", -- steel blue
 		material = "Slate",
 		ooze = { bright = "4FE3FF", deep = "0B3F5C", glow = "4FE3FF" },
@@ -603,8 +605,8 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("CFF4F5"),
 		fogEnd = 400,
 		rarityTilt = 6.0,
-		center = { 2785, 0 },
-		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		center = { 2895, 0 },
+		size = { FAR_X, FOOTPRINT_Z },
 		color = "9FE3E6", -- pale ice-cyan
 		material = "Glass",
 		ooze = { bright = "3FD9C8", deep = "0E4F4A", glow = "3FD9C8" },
@@ -621,8 +623,8 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("E8D57A"),
 		fogEnd = 400,
 		rarityTilt = 6.2,
-		center = { 3075, 0 },
-		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		center = { 3229, 0 },
+		size = { FAR_X, FOOTPRINT_Z },
 		color = "C9A227", -- mustard
 		material = "Sand",
 		ooze = { bright = "D8F02E", deep = "4A5208", glow = "D8F02E" },
@@ -639,8 +641,8 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("C45A6A"),
 		fogEnd = 400,
 		rarityTilt = 6.4,
-		center = { 3365, 0 },
-		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		center = { 3563, 0 },
+		size = { FAR_X, FOOTPRINT_Z },
 		color = "9E1B32", -- crimson
 		material = "Slate",
 		ooze = { bright = "FF4A5E", deep = "5C0714", glow = "FF4A5E" },
@@ -657,9 +659,9 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("FFB27A"),
 		fogEnd = 400,
 		rarityTilt = 6.6,
-		-- The chain's east end (x = 3800), closed by build/Scenery's end wall.
-		center = { 3655, 0 },
-		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		-- The chain's east end (x = 4064), closed by build/Scenery's end wall.
+		center = { 3897, 0 },
+		size = { FAR_X, FOOTPRINT_Z },
 		color = "FF6A1A", -- molten orange
 		material = "Glass",
 		ooze = { bright = "FFE04A", deep = "7A2A05", glow = "FFE04A" },
