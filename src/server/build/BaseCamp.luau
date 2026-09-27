@@ -68,7 +68,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 18
+local BUILDER_VERSION = 19
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -494,7 +494,7 @@ end
 --- (2026-09-27, on request). The shop rows face each other across the aisle it stands
 --- in, so it is the thing every storefront looks at. A square kiosk: a hazard-taped
 --- counter on each face, a steel column and drums in the middle, a flat striped awning
---- with a valance all round, and a sign box on the roof with TRADER on all four faces.
+--- with a valance all round, a slant roof with a square top, and the floating TRADER pill over it.
 ---
 --- ONE STATION, NOT FOUR. World.verify() counts exactly one trader per camp, and the
 --- sell panel opens on StationService's radius, so the station is one invisible anchor
@@ -658,39 +658,20 @@ function BaseCamp.buildHubTrader(parent: Instance, kiosk: CFrame): Model
 		end
 	end
 
-	-- The sign box on the roof: TRADER on all four faces, in the pill sign's look
-	-- (Shops.paintSign), framed top and bottom in steel.
-	local BOX_W, BOX_H = 11, 3.2
-	local boxY = roofY + 0.25 + 0.9 + BOX_H / 2
-	build(trader, kiosk, {
-		name = "SignStem",
-		pos = { 0, roofY + 0.25 + 0.45, 0 },
-		size = { 4, 0.9, 4 },
-		color = C.steelDark,
-		material = "Metal",
-		canCollide = false,
-	})
-	local box = build(trader, kiosk, {
-		name = "SignBox",
-		pos = { 0, boxY, 0 },
-		size = { BOX_W, BOX_H, BOX_W },
-		color = C.hazardBlack,
+	-- The slant roof and square top the plaza shops wear (Shops.buildSlantTop), in hazard
+	-- yellow on black, with the floating TRADER pill sign over it.
+	local top = Shops.buildSlantTop(trader, kiosk, ROOF_W, ROOF_W, roofY + 0.25, 1.5, 5, C.hazardBlack, 8, 8, 0, C.hazard)
+	local signAnchor = build(trader, kiosk, {
+		name = "SignAnchor",
+		pos = { 0, top, 0 },
+		size = { 1, 1, 1 },
+		color = C.steel,
 		material = "SmoothPlastic",
+		transparency = 1,
 		canCollide = false,
 	})
-	for _, dy in { -1, 1 } do
-		build(trader, kiosk, {
-			name = "SignBoxFrame",
-			pos = { 0, boxY + dy * (BOX_H / 2 + 0.2), 0 },
-			size = { BOX_W + 0.5, 0.4, BOX_W + 0.5 },
-			color = C.steelDark,
-			material = "Metal",
-			canCollide = false,
-		})
-	end
-	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right } do
-		Shops.paintSign(box, face, BOX_H, "Trader", C.hazard)
-	end
+	signAnchor.CanQuery = false
+	Shops.buildSign(signAnchor, "Trader", C.hazard, 2)
 
 	-- THE STATION: one invisible anchor in the middle (see the header).
 	local station = build(trader, kiosk, {
