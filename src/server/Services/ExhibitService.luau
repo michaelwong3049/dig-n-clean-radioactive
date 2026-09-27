@@ -1540,6 +1540,9 @@ local function wireFloorSign(board: Instance)
 	wiredSigns[board] = true
 
 	prompt.Triggered:Connect(function(player: Player)
+		if not Tutorial.promptOpen(player, prompt) then
+			return
+		end
 		local plot = board:GetAttribute("PlotIndex")
 		local floor = board:GetAttribute("BuysFloor")
 		if type(plot) ~= "number" or type(floor) ~= "number" then

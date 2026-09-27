@@ -40,6 +40,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Ticker = require(Shared.Util.Ticker)
+local Tutorial = require(Shared.Config.Tutorial)
 
 local StationService = {}
 
@@ -148,6 +149,11 @@ local function step(dt: number)
 		end
 
 		local kind, id, part = StationService.at(root.Position)
+		-- A station the walkthrough keeps shut (Config/Tutorial) is nowhere: no panel
+		-- opens, and nothing that asks kindOf (buying, selling, the locker, the belt) works.
+		if not Tutorial.stationOpen(player, kind, id) then
+			kind, id, part = nil, nil, nil
+		end
 		local entry = current[player]
 		if entry == nil then
 			entry = { kind = nil, id = nil, part = nil }

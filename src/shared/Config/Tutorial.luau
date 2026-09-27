@@ -78,6 +78,61 @@ end
 
 --- Where spawnsAtField puts you: this many studs west of Stage 1's west edge, on the
 --- plaza's green strip, level with the stage's middle and facing into it.
-Tutorial.FIELD_SPAWN_BACK = 12
+Tutorial.FIELD_SPAWN_BACK = 24
+
+-- ── What is shut while the walkthrough runs ──────────────────────────────────────
+--
+-- ON REQUEST: nothing the walkthrough does not ask for works until it is over. Your
+-- cleansing station and stands stay open (the "clean" and "place" steps need them),
+-- and the Detector shop opens on the "upgrade" step, which asks for the Bent Coil.
+-- The Trader, every other shop, the Quarantine Locker, the treadmill, the luck button
+-- and the floor signs are shut until you finish or SKIP.
+--
+-- Read off two attributes TutorialService writes every tick, `TutorialActive` and
+-- `TutorialStep`, so both sides give the same answer: StationService treats a shut
+-- station as nowhere (no panel opens, and nothing bought or sold there can land), the
+-- server prompt handlers refuse, and TutorialController hides the prompts.
+
+--- Station kinds that stay open for the whole walkthrough.
+local OPEN_STATIONS = { decon = true, pedestal = true }
+--- Steps on which the Detector shop is open.
+local SHOP_STEPS = { upgrade = true, finish = true }
+
+function Tutorial.isActive(player: Player): boolean
+	return player:GetAttribute("TutorialActive") == true
+end
+
+--- Whether `player` may use the station (kind, id) right now.
+function Tutorial.stationOpen(player: Player, kind: string?, id: string?): boolean
+	if kind == nil or OPEN_STATIONS[kind] or not Tutorial.isActive(player) then
+		return true
+	end
+	return kind == "shop" and id == "Detector" and SHOP_STEPS[player:GetAttribute("TutorialStep")] == true
+end
+
+--- Whether `player` may use this prompt right now. Only the prompts that open or buy
+--- something are named. Anything else (dig, crates, wash, stands, pickups) stays open.
+function Tutorial.promptOpen(player: Player, prompt: ProximityPrompt): boolean
+	if not Tutorial.isActive(player) then
+		return true
+	end
+	local parent = prompt.Parent
+	if parent == nil then
+		return true
+	end
+	local name = prompt.Name
+	if name == "ViewShop" or name == "OpenLocker" then
+		-- The desk / the rack carries the station attributes itself.
+		return Tutorial.stationOpen(player, parent:GetAttribute("StationKind"), parent:GetAttribute("StationId"))
+	elseif name == "Upgrade" then
+		-- A rack mount names its track; the treadmill console names none. Luck's
+		-- button is a "Luck" mount, so it stays shut with the other shops.
+		local track = parent:GetAttribute("SellsTrack")
+		return type(track) == "string" and Tutorial.stationOpen(player, "shop", track)
+	elseif name == "BuyFloor" then
+		return false
+	end
+	return true
+end
 
 return Tutorial

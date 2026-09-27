@@ -71,6 +71,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 local Net = require(Shared.Net)
+local Tutorial = require(Shared.Config.Tutorial) -- the luck button is shut during the walkthrough
 
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
@@ -778,6 +779,9 @@ local function wireUpgrade(part: Instance)
 	end
 
 	prompt.Triggered:Connect(function(player: Player)
+		if not Tutorial.promptOpen(player, prompt) then
+			return
+		end
 		local ok, message = ShopService.buyLuck(player)
 		resultRemote:FireClient(player, message)
 		if ok then
