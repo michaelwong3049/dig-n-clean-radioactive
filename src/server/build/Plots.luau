@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 75
+local BUILDER_VERSION = 76
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -3324,39 +3324,36 @@ local function laneStairs(floor: number): LaneStairs
 	}
 end
 
---- THE CEILING LIGHTS — a row of lamp panels on the underside of every deck, lighting
---- the floor below it (the ground under deck 2, floor 2 under deck 3). One per aisle
---- per stand gap, so the lanes read lit. SurfaceLights facing down, NO SHADOWS: the
---- sun already shades under the deck's pillars and stairs, and shadow casting is the
---- expensive part of a light (see the plinth note in buildDisplayStand).
-local CEILING_LAMP = { xs = { -10, 10 }, zs = { 2.5, 19.5, 36.5 }, w = 3.2, d = 1.6, h = 0.3, range = 16, brightness = 1.4 }
-local CEILING_LAMP_COLOR = "FFF1D6"
+--- THE CEILING LIGHT — no fixture, just light (on request: the lamp panels read as
+--- clutter). One invisible, non-colliding sheet under the whole deck carries a wide,
+--- bright SurfaceLight facing down, washing out the stair and rail shadows on the floor
+--- below. A SurfaceLight spreads over its face, so one sheet covers the gallery. NO
+--- SHADOWS of its own: shadow casting is the expensive part of a light.
+local CEILING_LIGHT = { range = 24, brightness = 2.5, color = "FFF6E8" }
 local function buildCeilingLights(parent: Instance, origin: CFrame, deckTop: number)
-	local folder = Instance.new("Folder")
-	folder.Name = "CeilingLights"
-	local y = deckTop - FLOOR.thick - CEILING_LAMP.h / 2
-	for _, x in CEILING_LAMP.xs do
-		for _, z in CEILING_LAMP.zs do
-			local lamp = build(folder, origin, {
-				name = "CeilingLamp",
-				pos = { x, y, z },
-				size = { CEILING_LAMP.w, CEILING_LAMP.h, CEILING_LAMP.d },
-				color = CEILING_LAMP_COLOR,
-				material = "Neon",
-				canCollide = false,
-			})
-			lamp.CastShadow = false
-			local l = Instance.new("SurfaceLight")
-			l.Face = Enum.NormalId.Bottom
-			l.Color = Color3.fromHex(CEILING_LAMP_COLOR)
-			l.Range = CEILING_LAMP.range
-			l.Brightness = CEILING_LAMP.brightness
-			l.Angle = 120
-			l.Shadows = false
-			l.Parent = lamp
-		end
-	end
-	folder.Parent = parent
+	local pad = Plots.PAD
+	local halfW = pad.width / 2 - 1
+	local z0, z1 = FLOOR.front + 1, pad.maxZ - 1
+	local sheet = build(parent, origin, {
+		name = "CeilingLight",
+		pos = { 0, deckTop - FLOOR.thick - 0.1, (z0 + z1) / 2 },
+		size = { halfW * 2, 0.05, z1 - z0 },
+		color = CEILING_LIGHT.color,
+		material = "SmoothPlastic",
+		canCollide = false,
+	})
+	sheet.Transparency = 1
+	sheet.CastShadow = false
+	sheet.CanQuery = false
+	sheet.CanTouch = false
+	local l = Instance.new("SurfaceLight")
+	l.Face = Enum.NormalId.Bottom
+	l.Color = Color3.fromHex(CEILING_LIGHT.color)
+	l.Range = CEILING_LIGHT.range
+	l.Brightness = CEILING_LIGHT.brightness
+	l.Angle = 180
+	l.Shadows = false
+	l.Parent = sheet
 end
 
 --- One straight run of fence (posts + two rails) along x or along z, at deck height
