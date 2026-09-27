@@ -1215,6 +1215,19 @@ local function renderState()
 			HaulShaft.paint(ui.shaft, state.stageId)
 		end
 		HaulShaft.setDepth(ui.shaft, if state.depth then state.depth / Stages.STUDS_PER_METRE else nil)
+		-- The magnet over the shaft is the one in hand (ToolService stamps its tier on
+		-- the held model); the last one drawn if none is in hand, tier 1 before that.
+		local character = Players.LocalPlayer.Character
+		local magnetTier = ui.shaft.magnetTier or 1
+		if character then
+			for _, child in character:GetChildren() do
+				if child:GetAttribute("ToolName") == "Magnet" then
+					magnetTier = tonumber(child:GetAttribute("Tier")) or magnetTier
+					break
+				end
+			end
+		end
+		HaulShaft.setMagnet(ui.shaft, magnetTier)
 
 		-- The readout spells out what the colour only implies: the rarity word
 		-- (state.rarityHint) and the "1 in N" odds (state.oddsHint), both on any
