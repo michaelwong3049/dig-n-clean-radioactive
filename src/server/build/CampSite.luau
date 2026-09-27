@@ -81,7 +81,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 14
+local BUILDER_VERSION = 15
 
 local C = Kit.C
 local build = Kit.build

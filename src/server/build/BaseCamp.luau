@@ -31,7 +31,7 @@
 	`buildCleansingStation` for the replacement and the reasoning.
 
 	THE TRADER IS BACK, but not the old walled camp version. It is an open market
-	stall now standing IN THE PLAZA STALLS' OWN SOUTH ROW, between MagnetShop and
+	stall now standing IN THE PLAZA STALLS' OWN SOUTH ROW, between the Outfitter and
 	CleanerShop (build/Shops), rather than tucked just south of the respawn anchor
 	— a player selling a haul is already walking the shop row to spend it, so the
 	sell counter reads as the fourth stop on that row instead of a separate detour
@@ -176,12 +176,12 @@ local function buildShell(camp: Model, origin: CFrame)
 	-- -0.6, 0) with no rotation, so a local offset maps straight onto world XZ:
 	-- (-10.5, 0, -38.5) local lands on world (7, ~, -38.5). It moved 20 east with
 	-- the whole shop cluster (was -30.5 / world -13) to centre the cluster in the
-	-- plaza octagon -- see Hub.luau's SHOP_ZONE. X and Z both track Magnet and
-	-- Cleaner's own `at` (build/Shops.luau's STALLS) whenever they move — the
+	-- plaza octagon -- see Hub.luau's SHOP_ZONE. X and Z both track the Outfitter's and
+	-- Cleaner's own `at` (build/Shops.luau's OUTFITTER and STALLS) whenever they move — the
 	-- three were dragged together in Studio, so this file's offset has to move with
 	-- theirs by hand each time; there is no live link between the two files. The
 	-- kiosk keeps its original unrotated facing (local +Z = world +Z, i.e. north)
-	-- unchanged, which already matches Magnet's and Cleaner's own `faceYaw = 0` —
+	-- unchanged, which already matches the Outfitter's and Cleaner's own `faceYaw = 0` —
 	-- the row reads as one line of storefronts, not three different facings.
 	BaseCamp.buildTrader(camp, origin * CFrame.new(-10.5, 0, -38.5))
 end
