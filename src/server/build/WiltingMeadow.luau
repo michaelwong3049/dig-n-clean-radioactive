@@ -58,10 +58,11 @@ local SEED = 8100
 
 --- Flower clumps: one roll per CELL-stud cell. The chance falls off to the east (the
 --- meadow thins out as it dies), from FLOWER_WEST at the camp edge to FLOWER_EAST at
---- the Stage 2 seam.
+--- the Stage 2 seam. Both x0.82 since the middle lane opened up (#377), which holds
+--- the field to its old part count instead of adding clumps.
 local CELL = 14
-local FLOWER_WEST = 0.42
-local FLOWER_EAST = 0.2
+local FLOWER_WEST = 0.42 * 0.82
+local FLOWER_EAST = 0.2 * 0.82
 
 --- Where along the field (0 = camp edge, 1 = Stage 2 seam) the flowers start to wilt,
 --- and how far on they are fully dead.
