@@ -74,7 +74,7 @@ local WILT_SPAN = 0.55
 local CREEK_WET = 0.42
 local CREEK_DAMP = 0.66
 --- Distance between creek samples, in studs along the path.
-local CREEK_STEP = 2.5
+local CREEK_STEP = 1
 
 -- ── Colour ─────────────────────────────────────────────────────────────────────
 
@@ -354,7 +354,8 @@ local function deadFish(parent: Instance, at: Vector3, groundY: number, rng: Ran
 	end
 end
 
---- The creek: a ribbon of flattened ovals along the path, water over a wet bank while
+--- The creek: a ribbon of round discs along the path, packed close (CREEK_STEP) so
+--- the edge runs smooth instead of beading, water over a wet bank while
 --- it still runs, mud, then a cracked dry bed. Returns the samples it laid (for the
 --- taken list).
 local function creek(parent: Instance, samples: { { at: Vector3, dir: Vector3 } }, groundY: number, rng: Random): Folder
@@ -371,23 +372,22 @@ local function creek(parent: Instance, samples: { { at: Vector3, dir: Vector3 } 
 		local yaw = math.deg(math.atan2(-s.dir.Z, s.dir.X))
 		-- Neighbours alternate height by a hair so their overlap never z-fights.
 		local lift = (i % 2) * 0.004
-		local len = CREEK_STEP * 1.8
 
 		if p < CREEK_WET then
-			K.disc(bed, "Bank", Vector3.new(s.at.X, groundY + 0.015 + lift, s.at.Z), len, w + 2.6, 0.03, yaw, BANK_WET)
-			K.disc(bed, "Water", Vector3.new(s.at.X, groundY + 0.05 + lift, s.at.Z), len, w, 0.03, yaw, WATER)
+			K.disc(bed, "Bank", Vector3.new(s.at.X, groundY + 0.015 + lift, s.at.Z), w + 2.6, w + 2.6, 0.03, yaw, BANK_WET)
+			K.disc(bed, "Water", Vector3.new(s.at.X, groundY + 0.05 + lift, s.at.Z), w, w, 0.03, yaw, WATER)
 		elseif p < CREEK_DAMP then
 			-- The water pulls back into puddles along a mud channel.
 			local k = (p - CREEK_WET) / (CREEK_DAMP - CREEK_WET)
-			K.disc(bed, "Mud", Vector3.new(s.at.X, groundY + 0.015 + lift, s.at.Z), len, w + 1.8, 0.03, yaw, BANK_WET:Lerp(MUD, k))
-			if rng:NextNumber() < lerp(0.8, 0.15, k) then
+			K.disc(bed, "Mud", Vector3.new(s.at.X, groundY + 0.015 + lift, s.at.Z), w + 1.8, w + 1.8, 0.03, yaw, BANK_WET:Lerp(MUD, k))
+			if rng:NextNumber() < lerp(0.8, 0.15, k) * 0.4 then
 				local pw = w * rng:NextNumber(0.4, 0.8) * (1 - k * 0.5)
-				K.disc(bed, "Puddle", Vector3.new(s.at.X, groundY + 0.05 + lift, s.at.Z), len * rng:NextNumber(0.6, 1), pw, 0.03, yaw, WATER)
+				K.disc(bed, "Puddle", Vector3.new(s.at.X, groundY + 0.05 + lift, s.at.Z), pw, pw, 0.03, yaw, WATER)
 			end
 		else
 			local k = (p - CREEK_DAMP) / (1 - CREEK_DAMP)
-			K.disc(bed, "DryBed", Vector3.new(s.at.X, groundY + 0.015 + lift, s.at.Z), len, w + 1.4, 0.03, yaw, MUD:Lerp(DRY_BED, math.min(1, k * 1.6)))
-			if i % 2 == 0 then
+			K.disc(bed, "DryBed", Vector3.new(s.at.X, groundY + 0.015 + lift, s.at.Z), w + 1.4, w + 1.4, 0.03, yaw, MUD:Lerp(DRY_BED, math.min(1, k * 1.6)))
+			if i % 5 == 0 then
 				for _ = 1, rng:NextInteger(1, 3) do
 					local across = Vector3.new(-s.dir.Z, 0, s.dir.X) * rng:NextNumber(-w / 2, w / 2)
 					local c = s.at + across + s.dir * rng:NextNumber(-1, 1)
@@ -395,13 +395,13 @@ local function creek(parent: Instance, samples: { { at: Vector3, dir: Vector3 } 
 					K.block(bed, "Crack", cf, Vector3.new(0.14, 0.02, rng:NextNumber(0.9, 2.2)), CRACK)
 				end
 			end
-			if i % 5 == 0 then
+			if i % 12 == 0 then
 				K.grit(folder, s.at.X + rng:NextNumber(-1, 1), s.at.Z + rng:NextNumber(-1, 1), groundY, STONE, rng, "Pebble")
 			end
 		end
 
 		-- Reeds on the banks, green where there is water, dry stubble after.
-		if i > 3 and rng:NextNumber() < (if p < CREEK_DAMP then 0.22 else 0.1) then
+		if i > 8 and rng:NextNumber() < (if p < CREEK_DAMP then 0.09 else 0.04) then
 			local side = if rng:NextNumber() < 0.5 then -1 else 1
 			local off = Vector3.new(-s.dir.Z, 0, s.dir.X) * side * (w / 2 + 1.4)
 			reeds(folder, s.at.X + off.X, s.at.Z + off.Z, groundY, rng, p >= CREEK_WET)
