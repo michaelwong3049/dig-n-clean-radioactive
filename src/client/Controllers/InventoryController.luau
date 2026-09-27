@@ -210,6 +210,27 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 	})
 	unknown.Visible = false
 
+	-- The name over the lower half of the model. `shadow = false`: UIKit's shadow is a
+	-- sibling copy that never hears a Text change, which is what drew the name twice.
+	local name = UIKit.label(slot, {
+		name = "ItemName",
+		anchorPoint = Vector2.new(0.5, 1),
+		position = UDim2.new(0.5, 0, 1, -15),
+		size = UDim2.new(1, -8, 0, 14),
+		font = UIKit.Font.title,
+		textSize = 12,
+		color = COLOR.text,
+		xAlign = Enum.TextXAlignment.Center,
+		yAlign = Enum.TextYAlignment.Bottom,
+		shadow = false,
+	})
+	name.TextScaled = true
+	name.TextTruncate = Enum.TextTruncate.AtEnd
+	local nameSize = Instance.new("UITextSizeConstraint")
+	nameSize.MinTextSize = 8
+	nameSize.MaxTextSize = 12
+	nameSize.Parent = name
+
 	-- Its kg, bottom right, in gold.
 	local kg = UIKit.label(slot, {
 		name = "Weight",
@@ -219,11 +240,12 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		font = UIKit.Font.title,
 		textSize = 12,
 		color = KG_GOLD,
+		shadow = false,
 		xAlign = Enum.TextXAlignment.Right,
 		yAlign = Enum.TextYAlignment.Bottom,
 	})
 	-- In front of the model, outline and all.
-	for _, node in { kg, table.unpack(kg:GetDescendants()) } do
+	for _, node in { kg, name, table.unpack(kg:GetDescendants()) } do
 		if node:IsA("GuiObject") then
 			node.ZIndex += 5
 		end
@@ -231,7 +253,7 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 
 	slot.MouseButton1Click:Connect(onClick)
 
-	return { button = slot, stroke = stroke, key = key, viewport = viewport, unknown = unknown, kg = kg, uid = nil :: string? }
+	return { button = slot, stroke = stroke, key = key, viewport = viewport, unknown = unknown, name = name, kg = kg, uid = nil :: string? }
 end
 
 --- The last tile on the hotbar once capacity passes ten: opens the bag panel, and
@@ -660,6 +682,7 @@ local function paintSlot(slot: any, index: number)
 	if item == nil then
 		ItemArt.clear(slot.viewport)
 		slot.unknown.Visible = false
+		slot.name.Text = ""
 		slot.kg.Text = ""
 		slot.button.BackgroundColor3 = SLOT_FILL
 		slot.button.BackgroundTransparency = 0.05
@@ -670,6 +693,7 @@ local function paintSlot(slot: any, index: number)
 
 	local unknown = item.identified == false
 	slot.unknown.Visible = unknown
+	slot.name.Text = if unknown then "" else item.name
 	if unknown then
 		ItemArt.clear(slot.viewport)
 	else
