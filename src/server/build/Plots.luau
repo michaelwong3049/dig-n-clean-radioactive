@@ -1036,13 +1036,13 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 
 	-- Studded plastic to match the bay (buildCleansingStation). `BODY` is the base-course
 	-- grey the deck and the display plinths wear, `FIT` the smooth metal of the pipes and
-	-- bolts; the tank itself is hazard yellow.
+	-- bolts; the tank itself is clear glass with the fluid inside.
 	local BODY, FIT = C.standGreyDark, C.steelDark
 
-	-- Tucked into the front-left corner of the deck, well clear of the straight walk-up
+	-- Tucked into the front-right corner of the deck (the player's right at WashSpot), well clear of the straight walk-up
 	-- to WashSpot and out of the tub's own sightline from the aisle. The whole rig
 	-- follows (px, pz) so the bay moves as one.
-	local px, pz = cx + 7, cz - 9
+	local px, pz = cx - 7, cz - 9
 
 	-- A skid under the housing, so the pump reads as a unit set down and bolted rather
 	-- than a crate left on the tiles.
@@ -1057,18 +1057,35 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	-- walk past; the motor's end cap and a warning placard face the plot entrance (+X).
 	-- The reel still hangs off the tank's -X side on its axle, and the pipe to the tub
 	-- still leaves from the tank's +Z side.
-	local TANK_YELLOW, MOTOR_GREY, METAL_LIGHT = "FAD214", "82878C", "B4B9BE"
-	local tx = px - 0.35
+	local SPOKE_YELLOW, MOTOR_GREY, METAL_LIGHT = "FAD214", "82878C", "B4B9BE"
+	local tx = px + 0.35
 	local tankR, tankBottom, tankTop = 0.8, T + 0.7, T + 3.7
+	-- A CLEAR TANK WITH THE OWNER'S FLUID IN IT, on request (it was solid hazard
+	-- yellow). The shell is see-through glass; `PumpFluid` inside it is filled most of
+	-- the way up and wears the loaded fluid's colour -- Plots.setTubFluid paints it
+	-- alongside the tub's Water, so tank and tub always hold the same liquid.
+	local TANK_GLASS = "D8F0FF"
 	build(parent, origin, {
 		name = "HosePump",
 		pos = { tx, (tankBottom + tankTop) / 2, pz },
 		size = { tankTop - tankBottom, tankR * 2, tankR * 2 },
-		color = TANK_YELLOW,
-		material = "Plastic",
-		studs = true,
+		color = TANK_GLASS,
+		material = "Glass",
+		transparency = 0.65,
 		shape = "Cylinder",
 		rot = Kit.R.cylUp,
+	})
+	local fluidTop = tankBottom + (tankTop - tankBottom) * 0.8
+	build(parent, origin, {
+		name = "PumpFluid",
+		pos = { tx, (tankBottom + 0.05 + fluidTop) / 2, pz },
+		size = { fluidTop - tankBottom - 0.05, tankR * 2 - 0.15, tankR * 2 - 0.15 },
+		color = Liquids.get(Liquids.WATER).color,
+		material = "SmoothPlastic",
+		transparency = 0.2,
+		shape = "Cylinder",
+		rot = Kit.R.cylUp,
+		canCollide = false,
 	})
 	for _, bandY in { T + 1.3, T + 3.1 } do
 		build(parent, origin, {
@@ -1088,9 +1105,9 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 		name = "PumpDome",
 		pos = { tx, tankTop, pz },
 		size = { tankR * 2, tankR * 2, tankR * 2 },
-		color = TANK_YELLOW,
-		material = "Plastic",
-		studs = true,
+		color = TANK_GLASS,
+		material = "Glass",
+		transparency = 0.65,
 		shape = "Ball",
 		canCollide = false,
 	})
@@ -1148,7 +1165,7 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 
 	-- The motor, lying along Z beside the tank on a studded mount: a grey drum ringed
 	-- with cooling fins, an end cap toward the tub, a junction box on top.
-	local motorX, motorY, motorZ = tx + 1.2, T + 1.25, pz + 0.2
+	local motorX, motorY, motorZ = tx - 1.2, T + 1.25, pz + 0.2
 	build(parent, origin, { name = "MotorMount", pos = { motorX, T + 0.97, motorZ }, size = { 0.72, 0.55, 1.2 }, color = MOTOR_GREY, material = "Plastic", studs = true, canCollide = false })
 	build(parent, origin, { name = "MotorCore", pos = { motorX, motorY, motorZ }, size = { 1.6, 0.9, 0.9 }, color = MOTOR_GREY, material = "Plastic", studs = true, shape = "Cylinder", rot = CYL_ALONG_Z, canCollide = false })
 	for k = 0, 5 do
@@ -1186,7 +1203,7 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 			name = "FlywheelSpoke",
 			pos = { 0, 0.25, 0 },
 			size = { 0.12, 0.44, 0.14 },
-			color = if k == 0 then TANK_YELLOW else C.hazardBlack,
+			color = if k == 0 then SPOKE_YELLOW else C.hazardBlack,
 			material = "Plastic",
 			studs = true,
 			canCollide = false,
@@ -1201,14 +1218,14 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	-- paint, because the mark is flat and the tank is not.
 	local PLACARD = 0.9
 	local plateY = T + 2.5
-	build(parent, origin, { name = "PumpPlacardMount", pos = { tx + tankR - 0.1, plateY, pz }, size = { 0.3, 0.45, 0.45 }, color = MOTOR_GREY, material = "Metal", canCollide = false })
+	build(parent, origin, { name = "PumpPlacardMount", pos = { tx - tankR + 0.1, plateY, pz }, size = { 0.3, 0.45, 0.45 }, color = MOTOR_GREY, material = "Metal", canCollide = false })
 	local placard = build(parent, origin, {
 		name = "PumpPlacard",
-		pos = { tx + tankR + 0.06, plateY, pz },
+		pos = { tx - tankR - 0.06, plateY, pz },
 		size = { PLACARD, PLACARD, 0.08 },
 		color = C.hazard,
 		material = "SmoothPlastic",
-		rot = Kit.ang(0, -90, 0),
+		rot = Kit.ang(0, 90, 0),
 		canCollide = false,
 	})
 	paintTrefoil(placard, Enum.NormalId.Front, PLACARD, C.hazardBlack)
@@ -1222,7 +1239,7 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	-- the whole drum from the one angle the reel is legible from. So: the green drum is
 	-- the widest thing, a darker band over it reads as wound coils, and a small steel
 	-- hub caps each end -- what a spool of hose actually looks like face-on.
-	local rx = px - 1.7
+	local rx = px + 1.7
 	local ry = T + 1.9
 	local reel = build(parent, origin, {
 		name = "HoseReel",
@@ -1255,7 +1272,7 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	end
 	build(parent, origin, {
 		name = "ReelAxle",
-		pos = { px - 0.9, ry, pz },
+		pos = { px + 0.9, ry, pz },
 		size = { 1.5, 0.3, 0.3 },
 		color = FIT,
 		material = "Metal",
@@ -1279,7 +1296,7 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	-- the wall. `wallX` is where that wall's outer face crosses the pipe's line, and it
 	-- follows TUB_SHELL rather than being a second copy of it.
 	local pipeY, pipeZ = T + 0.95, cz - 3
-	local wallX = cx + (TUB_SHELL.apothem + TUB_SHELL.wall / 2) * math.sqrt(2) - (cz - pipeZ) - 0.1
+	local wallX = cx - (TUB_SHELL.apothem + TUB_SHELL.wall / 2) * math.sqrt(2) + (cz - pipeZ) + 0.1
 	local tankFront = pz + tankR
 	build(parent, origin, {
 		name = "Conduit",
@@ -1295,13 +1312,13 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	build(parent, origin, {
 		name = "Conduit",
 		pos = { (tx + wallX) / 2, pipeY, pipeZ },
-		size = { tx - wallX, 0.45, 0.45 },
+		size = { wallX - tx, 0.45, 0.45 },
 		color = FIT,
 		material = "Metal",
 		shape = "Cylinder",
 		canCollide = false,
 	})
-	build(parent, origin, { name = "ConduitFlange", pos = { wallX + 0.2, pipeY, pipeZ }, size = { 0.16, 0.8, 0.8 }, color = FIT, material = "Metal", shape = "Cylinder", canCollide = false })
+	build(parent, origin, { name = "ConduitFlange", pos = { wallX - 0.2, pipeY, pipeZ }, size = { 0.16, 0.8, 0.8 }, color = FIT, material = "Metal", shape = "Cylinder", canCollide = false })
 	-- Clamps: one on the bare floor under the first run, one on the deck under the
 	-- second. Each stands from whatever it is on up to the pipe's underside.
 	local pipeUnder = pipeY - 0.225
@@ -1311,9 +1328,9 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	-- ── The mast, and the monitor bolted to it ────────────────
 	-- The nozzle is not something you pick up: it stands on its own mast and the player
 	-- aims it from the mark, hands empty. Three constraints fence the mast into the
-	-- tub's near-left corner -- OUT OF THE BATH (a mast inside the rims stands in the
+	-- tub's near-right corner -- OUT OF THE BATH (a mast inside the rims stands in the
 	-- water), OFF THE WALK-UP (the player comes straight down the aisle to WashSpot),
-	-- and LEFT of the tub because the pump is already there, so the hose runs down one
+	-- and RIGHT of the tub because the pump is already there, so the hose runs down one
 	-- side of the deck past nothing rather than across the walk-up at ankle height.
 	--
 	-- The arc it was tuned for (WashController.jetPath) does NOT depend on this mast any
@@ -1322,7 +1339,7 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	-- `ParkedPivot` on exit. So the mast's whole job now is the at-rest look -- a
 	-- bystander, or the same player before/after their wash, finding the machine parked
 	-- here wearing whichever Cleaner rung its owner bought.
-	local mx, mz = cx + 5, cz - 6
+	local mx, mz = cx - 5, cz - 6
 	local mountY = T + 5.0
 
 	build(parent, origin, {
@@ -1592,11 +1609,11 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- bay is a unit set into the strip and not parts scattered on the tiles. Top a
 	-- hair proud of the floor -- a threshold, not a step: WashService plants the player
 	-- just off its front edge, so nothing here changes the height they stand at.
-	build(m, origin, { name = "Deck", pos = { 21, T - 0.35, -32 }, size = { 12.5, 1.0, 10 }, color = BODY, material = "Plastic", studs = true })
+	build(m, origin, { name = "Deck", pos = { 15, T - 0.35, -32 }, size = { 12.5, 1.0, 10 }, color = BODY, material = "Plastic", studs = true })
 	for _, e in {
-		{ x = 21, z = -27, sx = 13.1, sz = 0.6 },
-		{ x = 27.25, z = -32, sx = 0.6, sz = 10.6 },
-		{ x = 14.75, z = -32, sx = 0.6, sz = 10.6 },
+		{ x = 15, z = -27, sx = 13.1, sz = 0.6 },
+		{ x = 21.25, z = -32, sx = 0.6, sz = 10.6 },
+		{ x = 8.75, z = -32, sx = 0.6, sz = 10.6 },
 	} do
 		build(m, origin, { name = "DeckKerb", pos = { e.x, T + 0.25, e.z }, size = { e.sx, 0.35, e.sz }, color = FACE, material = "Plastic", studs = true, canCollide = false })
 	end
@@ -1608,7 +1625,7 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	for s = 0, STRIPES - 1 do
 		build(m, origin, {
 			name = "DeckKerb",
-			pos = { 21 - 13.1 / 2 + (s + 0.5) * stripeW, T + 0.25, -37 },
+			pos = { 15 - 13.1 / 2 + (s + 0.5) * stripeW, T + 0.25, -37 },
 			size = { stripeW, 0.35, 0.6 },
 			color = if s % 2 == 0 then C.hazard else C.hazardBlack,
 			material = "Plastic",
@@ -2215,6 +2232,10 @@ function Plots.setTubFluid(stationModel: Instance?, liquidId: string?)
 	local sheen = stationModel:FindFirstChild("WaterSheen", true)
 	if sheen and sheen:IsA("BasePart") then
 		sheen.Color = colour:Lerp(Color3.new(1, 1, 1), 0.5)
+	end
+	local tank = stationModel:FindFirstChild("PumpFluid", true)
+	if tank and tank:IsA("BasePart") then
+		tank.Color = colour
 	end
 	stationModel:SetAttribute("Liquid", liquidId or Liquids.WATER)
 end
