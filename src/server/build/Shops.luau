@@ -137,7 +137,7 @@
 	TWO ROWS NOW, NOT A GRID WITH SHARED COLUMNS, AND HAND-PLACED RATHER THAN
 	DERIVED. North row near z=30: Detector at x=31.87 with Magnet at x=-22, the two
 	reading as one pair. South row: Cleaner at (28.27, -37.10) and the Outfitter at
-	(-13.5, -34.43) — close to level but not exactly, since these started as
+	(-22.22, -34.43) — close to level but not exactly, since these started as
 	drag-and-captured positions, not a formula. Magnet and the Outfitter swapped rows on
 	2026-09-27, and the same day the Trader left the south row for the middle of the
 	plaza (BaseCamp's four-sided kiosk on PLAZA_MID). Cleaner then slid west so its left
@@ -176,6 +176,7 @@ local Gear = require(Shared.Config.Gear)
 local ToolModels = require(Shared.ToolModels)
 local ToolFX = require(Shared.ToolFX)
 local MagnetHang = require(Shared.MagnetHang)
+local AuraLook = require(Shared.AuraLook)
 
 local Kit = require(script.Parent.Kit)
 local Hub = require(script.Parent.Hub)
@@ -193,7 +194,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 50
+local BUILDER_VERSION = 51
 
 local C = Kit.C
 local build = Kit.build
@@ -494,12 +495,13 @@ end
 --- and width are derived from this list's length, so adding or retiring a track here
 --- resizes the building rather than leaving a gap where a counter used to be.
 ---
---- `at` PUTS THIS IN THE SOUTH ROW (z=-34.43), just west of the Trader kiosk, with the
---- same ~3-stud gap to it the Magnet stall had. Magnet and the Outfitter swapped rows
+--- `at` PUTS THIS IN THE SOUTH ROW (z=-34.43), its east edge on x=-3.5 so it lines up
+--- with Magnet's across the aisle and the cross-aisle stays straight. Its width comes
+--- from the mannequin row (`outfitterWidth`); move `at` if that changes. Magnet and the Outfitter swapped rows
 --- on 2026-09-27 at the user's ask: Magnet now faces the Detector across the north row.
 --- `faceYaw = 0` faces it square north like its row-mates, not diagonally at PLAZA_MID.
 local OUTFITTER = {
-	at = { -13.5, -34.43 },
+	at = { -22.22, -34.43 },
 	faceYaw = 0,
 	pitch = 13,
 	counters = {
@@ -520,6 +522,45 @@ local OUTFITTER = {
 		-- after this move.
 	},
 }
+
+--- THE AURA SHOP SHOWS EVERY RUNG IT SELLS ON ITS OWN MANNEQUIN (2026-09-27, on request):
+--- a row on the island's centre line, each mannequin wearing its tier's live aura, hung
+--- under a mount on a rail with the tier's price card and a View prompt, exactly as the
+--- tool stalls hang their gear. The mannequins stand at AURA_DISPLAY_SCALE so the row
+--- fits the plaza; their auras are drawn at the same scale (the torso's AuraScale).
+local AURA_DISPLAY_SCALE = 0.8
+local AURA_DISPLAY_GAP = 0.6 -- studs of air between two neighbouring auras at their widest
+local AURA_DESK_WIDTH = 4
+local AURA_RAIL_Y = 7.2 -- over the mannequins' heads (~4.9 at this scale)
+
+--- The rungs the Aura shop at `camp` shows, and where each mannequin stands along the
+--- row, measured from the row's left end: neighbours sit their two scaled auras' reach
+--- apart plus AURA_DISPLAY_GAP, so a wide Twilight corona gets the room it needs and
+--- Base Camp's atoms pack close. Also returns the row's whole length.
+local function auraRow(camp: string?): ({ number }, { number }, number)
+	local tiers = Gear.tiersAt("Aura", camp or "base")
+	local xs: { number } = {}
+	local x, prev = 0, 0
+	for index, tier in tiers do
+		local reach = AuraLook.reach(AuraLook.get(tier)) * AURA_DISPLAY_SCALE
+		x += if index == 1 then reach + AURA_DISPLAY_GAP / 2 else prev + reach + AURA_DISPLAY_GAP
+		xs[index] = x
+		prev = reach
+	end
+	return tiers, xs, x + prev + AURA_DISPLAY_GAP / 2
+end
+
+--- The desks' run at the building's left end, one AURA_DESK_WIDTH desk per counter.
+local function auraDeskRun(): number
+	return OUTFITTER.pitch * (#OUTFITTER.counters - 1) + AURA_DESK_WIDTH
+end
+
+--- Edge, desks, the stand-to-wing gap, the mannequin row, a stud at the far end: the
+--- same left-to-right sum `stallWidth` spells out for a tool stall.
+local function outfitterWidth(camp: string?): number
+	local _, _, row = auraRow(camp)
+	return STAND_EDGE + auraDeskRun() + STAND_RACK_GAP + row + 1
+end
 
 --- The direction a shop's front (local +Z) points in world XZ, as a unit vector.
 --- `faceYaw`, when given, is taken literally (0 = world +Z, matching Kit.ang's Y
@@ -1596,6 +1637,52 @@ end
 --- is the slice `buildTierRack` and `buildRackHook` actually read.
 type RackSpec = { track: string, color: string, present: { yaw: number, pitch: number }?, camp: string? }
 
+--- The part that sells one rung: a small steel mount at local (x, y, z) in `origin`
+--- carrying `SellsTrack` + `SellsTier`, its View prompt and its price card. The tool racks
+--- hang their gear under one (`buildRackHook`) and the Aura shop hangs a mannequin under
+--- each (`buildOutfitterAt`). Returns the mount.
+local function buildTierMount(parent: Instance, origin: CFrame, x: number, y: number, z: number, track: string, tier: number): BasePart
+	local def = Gear.tier(track, tier)
+
+	local mount = build(parent, origin, {
+		name = `Mount{tier}`,
+		pos = { x, y, z },
+		size = { 1.1, 1.0, 1.1 },
+		color = C.steelDark,
+		material = "Metal",
+		canCollide = false,
+		-- Kit.build tags anything carrying SellsTrack with Kit.UPGRADE_TAG as it
+		-- creates it, which is what ShopService scans to wire the prompt and what
+		-- World.verify() asserts is present. Nothing to add here.
+		attributes = { SellsTrack = track, SellsTier = tier },
+	})
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "Upgrade"
+	-- E OPENS THIS TIER'S SHOP CARD; IT DOES NOT BUY. The card (StationController's
+	-- rack card) carries the stats, the picture and the Buy / Equip button, and that
+	-- button is the only thing that spends money, through the same StationAction the
+	-- storefront's cards use. So the prompt says the same thing to everyone, owned or
+	-- not, and needs no hold: nothing irreversible happens on it.
+	prompt.ActionText = "View"
+	prompt.ObjectText = def.name
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = MOUNT_REACH
+	-- The hanging gear is non-colliding and set CanQuery = false, but the mount sits
+	-- high and a customer's sightline to it grazes the rail, so keep the prompt
+	-- firing without line of sight.
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = mount
+
+	-- Name and price. A client turns this into the green owned-check when the player
+	-- is standing here and the server says they already have this tier — see
+	-- StationController's rack pass. Built with the price showing because that is
+	-- what it says to everyone who has not bought it, which is most people most of
+	-- the time.
+	buildPriceCard(mount, def.name, def.price)
+	return mount
+end
+
 --- One hook on the rail: the mount block that carries the sale, the tier's model
 --- standing under it (or a painted stand-in), a slim strap hanging it off the rail,
 --- and the price card over it.
@@ -1606,20 +1693,7 @@ type RackSpec = { track: string, color: string, present: { yaw: number, pitch: n
 --- either way. World.verify() asserts every priced track is buyable somewhere, and
 --- that assertion must not depend on which place file this ran in.
 local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, tier: number, x: number, rank: number)
-	local def = Gear.tier(spec.track, tier)
-
-	local mount = build(parent, origin, {
-		name = `Mount{tier}`,
-		pos = { x, RACK_RAIL_Y - 0.5, SHOPFRONT_Z },
-		size = { 1.1, 1.0, 1.1 },
-		color = C.steelDark,
-		material = "Metal",
-		canCollide = false,
-		-- Kit.build tags anything carrying SellsTrack with Kit.UPGRADE_TAG as it
-		-- creates it, which is what ShopService scans to wire the prompt and what
-		-- World.verify() asserts is present. Nothing to add here.
-		attributes = { SellsTrack = spec.track, SellsTier = tier },
-	})
+	buildTierMount(parent, origin, x, RACK_RAIL_Y - 0.5, SHOPFRONT_Z, spec.track, tier)
 
 	-- THE VIRTUAL HAND: a holder facing the customer, at this track's `present` tip
 	-- (STALLS' `present` and the RACK_DROP_* header). Only the rotation matters —
@@ -1657,30 +1731,6 @@ local function buildRackHook(parent: Instance, origin: CFrame, spec: RackSpec, t
 			canCollide = false,
 		})
 	end
-
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "Upgrade"
-	-- E OPENS THIS TIER'S SHOP CARD; IT DOES NOT BUY. The card (StationController's
-	-- rack card) carries the stats, the picture and the Buy / Equip button, and that
-	-- button is the only thing that spends money, through the same StationAction the
-	-- storefront's cards use. So the prompt says the same thing to everyone, owned or
-	-- not, and needs no hold: nothing irreversible happens on it.
-	prompt.ActionText = "View"
-	prompt.ObjectText = def.name
-	prompt.HoldDuration = 0
-	prompt.MaxActivationDistance = MOUNT_REACH
-	-- The hanging gear is non-colliding and set CanQuery = false, but the mount sits
-	-- high and a customer's sightline to it grazes the rail, so keep the prompt
-	-- firing without line of sight.
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = mount
-
-	-- Name and price. A client turns this into the green owned-check when the player
-	-- is standing here and the server says they already have this tier — see
-	-- StationController's rack pass. Built with the price showing because that is
-	-- what it says to everyone who has not bought it, which is most people most of
-	-- the time.
-	buildPriceCard(mount, def.name, def.price)
 end
 
 --- Every tier of the track, cheapest on the left, standing on the deck below the rail.
@@ -1923,10 +1973,9 @@ local function assertNoShopOverlap()
 		})
 	end
 
-	local outfitterWidth = OUTFITTER.pitch * (#OUTFITTER.counters - 1) + 20
 	table.insert(rects, {
 		name = "Outfitter",
-		rect = shopFootprint(OUTFITTER.at[1], OUTFITTER.at[2], outfitterWidth, mirrorZ(5.9), 5.9, OUTFITTER.faceYaw),
+		rect = shopFootprint(OUTFITTER.at[1], OUTFITTER.at[2], outfitterWidth(nil), mirrorZ(5.9), 5.9, OUTFITTER.faceYaw),
 	})
 
 	for i = 1, #rects do
@@ -1967,17 +2016,13 @@ end
 ---
 --- A CAMP'S AURA SHOP IS THIS SAME BUILDING (Shops.buildCampOutfitter): `camp` stamps
 --- `ShopCamp` on its counter, so ShopService sells only that camp's rungs there, and
---- the mannequin and tubes show only those rungs (ShopThemes.dressOutfitter).
-local function outfitterWidth(): number
-	return OUTFITTER.pitch * (#OUTFITTER.counters - 1) + 20
-end
-
+--- its mannequin row shows only those rungs (see AURA_DISPLAY_SCALE).
 local function buildOutfitterAt(parent: Instance, name: string, origin: CFrame, camp: string?): Model
 	local m = Instance.new("Model")
 	m.Name = name
 
-	local span = OUTFITTER.pitch * (#OUTFITTER.counters - 1)
-	local width = outfitterWidth()
+	local width = outfitterWidth(camp)
+	local left = -width / 2
 
 	-- The plaza stalls' own shell, at this building's width — see buildStall.
 	build(m, origin, {
@@ -1996,23 +2041,18 @@ local function buildOutfitterAt(parent: Instance, name: string, origin: CFrame, 
 	local single = #OUTFITTER.counters == 1
 	buildShopfront(m, origin, width, C.shopOutfitter, if single then OUTFITTER.counters[1].label else "Outfitter")
 
-	-- One floor marker for the whole counter row — there is no second, rack-side
-	-- marker the way a plaza stall has, because there is no rack here.
-	for _, z in { 3.4, mirrorZ(3.4) } do
-		buildFloorMarker(m, origin, 0, z, width - 6, 5, C.shopOutfitter)
-	end
-
-	local counterX: { [string]: number } = {}
+	-- The desks at the left end, like a tool stall's stand, with the mannequin row past
+	-- them. A desk on each side of the island, the back one turned to face out the back
+	-- (see ISLAND_Z).
+	local deskRun = auraDeskRun()
+	local deskLeft = left + STAND_EDGE
 	for index, counter in OUTFITTER.counters do
-		local x = -span / 2 + (index - 1) * OUTFITTER.pitch
-		counterX[counter.track] = x
-		-- A desk on each side of the island, the back one turned to face out the back
-		-- (see ISLAND_Z); the mannequin and tubes stand on the centre line between them.
+		local x = deskLeft + AURA_DESK_WIDTH / 2 + (index - 1) * OUTFITTER.pitch
 		for _, side in { { name = "Counter", frame = origin }, { name = "CounterBack", frame = backFrame(origin, x) } } do
 			local desk = buildCounter(m, side.frame * CFrame.new(x, 0, 0), {
 				name = side.name,
 				color = C.shopOutfitter,
-				width = 4,
+				width = AURA_DESK_WIDTH,
 				depth = 2.4,
 				z = SHOPFRONT_Z,
 				stationKind = "shop",
@@ -2037,9 +2077,60 @@ local function buildOutfitterAt(parent: Instance, name: string, origin: CFrame, 
 		end
 	end
 
-	-- The aura shop: a mannequin wearing a live aura behind the Aura desk, a sample
-	-- tube per tier either side, and the roof atom (build/ShopThemes).
-	ShopThemes.dressOutfitter(m, origin, counterX.Aura, camp)
+	-- THE MANNEQUIN ROW (see AURA_DISPLAY_SCALE): a rail on the centre line over their
+	-- heads, a post at each end, and per rung a mount carrying the sale, its price card
+	-- and prompt, with the mannequin standing under it.
+	local tiers, xs, row = auraRow(camp)
+	local rowLeft = deskLeft + deskRun + STAND_RACK_GAP
+	local rowMid = rowLeft + row / 2
+	build(m, origin, {
+		name = "RackRail",
+		pos = { rowMid, AURA_RAIL_Y, ISLAND_Z },
+		size = { row, 0.5, 0.5 },
+		color = C.steel,
+		material = "Metal",
+		canCollide = false,
+	})
+	for _, x in { rowLeft, rowLeft + row } do
+		build(m, origin, {
+			name = "RackPost",
+			pos = { x, (AURA_RAIL_Y + RACK_DROP_BASE) / 2, ISLAND_Z },
+			size = { 0.5, AURA_RAIL_Y - RACK_DROP_BASE, 0.5 },
+			color = C.steel,
+			material = "Metal",
+			canCollide = false,
+		})
+	end
+	local slots: { { x: number, tier: number } } = {}
+	for index, tier in tiers do
+		local x = rowLeft + xs[index]
+		buildTierMount(m, origin, x, AURA_RAIL_Y - 0.5, ISLAND_Z, "Aura", tier)
+		table.insert(slots, { x = x, tier = tier })
+	end
+
+	-- The row's station circle, for the same reason a tool stall has a RackZone: the
+	-- owned-ticks only paint while StationService has you at this shop.
+	local rackZone = build(m, origin, {
+		name = "RackZone",
+		pos = { rowMid, 3, ISLAND_Z },
+		size = { 1, 1, 1 },
+		color = C.steel,
+		material = "SmoothPlastic",
+		transparency = 1,
+		canCollide = false,
+		attributes = { StationKind = "shop", StationId = "Aura", ShopCamp = camp, Radius = row / 2 + 6 },
+	})
+	rackZone.CanQuery = false
+	rackZone.CanTouch = false
+
+	-- The mannequins and the roof atom (build/ShopThemes).
+	ShopThemes.dressOutfitter(m, origin, slots, AURA_DISPLAY_SCALE)
+
+	-- One marker in front of the desks and one along the row, on both sides.
+	for _, z in { 3.4, mirrorZ(3.4) } do
+		buildFloorMarker(m, origin, deskLeft + deskRun / 2, z, deskRun + 3, 5, C.shopOutfitter)
+		buildFloorMarker(m, origin, rowMid, z, row, 5, C.shopOutfitter)
+	end
 
 	m.Parent = parent
 	return m
@@ -2141,9 +2232,9 @@ function Shops.buildCampOutfitter(parent: Instance, origin: CFrame, camp: string
 	return buildOutfitterAt(parent, "AuraShop", origin, camp)
 end
 
---- How wide a camp's Aura Shop is.
-function Shops.campOutfitterWidth(): number
-	return outfitterWidth()
+--- How wide `camp`'s Aura Shop is: its mannequin row grows with the rungs it sells.
+function Shops.campOutfitterWidth(camp: string): number
+	return outfitterWidth(camp)
 end
 
 local function createShops(): Model

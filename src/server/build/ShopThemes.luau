@@ -17,9 +17,8 @@
 	    holding an electromagnet with a rusty plate stuck to it, and a scrap pile.
 	  * CLEANER (the Hose Shop) — a decon bay: a tiled wall with a shower bar, a hose
 	    reel, a drain grate, a mop bucket, and a water tank on the roof.
-	  * OUTFITTER (the Aura Shop) — a faceless mannequin wearing a live aura that walks
-	    the tier ladder, a sample tube per tier either side of it, and a giant atom
-	    turning on the roof. It was a locker room round a hazmat suit until the Suit
+	  * OUTFITTER (the Aura Shop) — a row of faceless mannequins, one per rung, each
+	    wearing that rung's live aura, and a giant atom turning on the roof. It was a locker room round a hazmat suit until the Suit
 	    track became the Aura.
 
 	THIS OVERRIDES THE OLD "NO PROPS IN THE SHOPS" CALL, ON REQUEST. The stalls were
@@ -50,7 +49,6 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local AuraLook = require(ReplicatedStorage.Shared.AuraLook)
-local Gear = require(ReplicatedStorage.Shared.Config.Gear)
 local Kit = require(script.Parent.Kit)
 
 local ShopThemes = {}
@@ -674,164 +672,105 @@ end
 
 local MANNEQUIN = "3A3F47"
 local MANNEQUIN_DARK = "2A2E35"
-local TUBE_GLASS = "CFE8F2"
 
---- `auraX` is the Aura counter's centre along the shopfront.
+--- `slots` is one entry per rung the shop sells: `x` along the stall and the `tier` that
+--- mannequin wears. `scale` is the mannequins' size (Shops' AURA_DISPLAY_SCALE).
 ---
 --- THE SUIT SHOP BECAME THE AURA SHOP. The hazmat Suit track is the Aura now (see
---- Shared/AuraLook), and the locker room went with the suits: a faceless mannequin
---- stands on the old suit stand behind the desk, three sample tubes either side hold
---- each tier's colour in ladder order (low to high, left to right as the customer
---- sees it), and a giant atom turns on the roof.
+--- Shared/AuraLook), and the locker room went with the suits. Since 2026-09-27 the shop
+--- shows every rung it sells on its own faceless mannequin, in a row on the centre line
+--- under the rail the rungs' mounts hang from (the tool stalls' rack, for auras), with a
+--- giant atom turning on the roof. That replaced one mannequin walking the ladder and a
+--- sample tube per tier.
 ---
---- THE MANNEQUIN'S AURA IS THE ONE THING IN THE PLAZA THAT GLOWS, AND IT IS NOT BUILT
---- HERE. Its torso carries AuraLook.DISPLAY_TAG, and client/Controllers/AuraController
---- draws the same rings a player wears round it, walking the whole ladder
---- (`AuraCycle`). The shop therefore cannot drift from the product. Everything this
---- file builds still keeps the header's rule: no Neon, no lights.
----
---- The aura's rings reach RADIUS (2.5) round the torso, so the tubes start 3.4 out.
---- The mannequin and tubes stand on the island's centre line (ISLAND_Z), between the
---- front and back desks, so the aura shows from either side of the stall.
----
---- `camp` (a Config/Camps key) is the camp whose shop this is; nil is Base Camp. The
---- mannequin walks and the tubes show only the rungs that camp sells (Gear.tiersAt), so
---- a stall never models an aura it cannot sell. A camp's tubes start further out:
---- Toxic Twilight's corona and wings reach wider than any ring.
-function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, auraX: number, camp: string?): Model
+--- THE MANNEQUINS' AURAS ARE THE ONE THING IN THE PLAZA THAT GLOWS, AND THEY ARE NOT
+--- BUILT HERE. Each torso carries AuraLook.DISPLAY_TAG and its rung as `AuraTier`, and
+--- client/Controllers/AuraController draws the same rings a player wears round it. The
+--- shop therefore cannot drift from the product. Everything this file builds still keeps
+--- the header's rule: no Neon, no lights.
+function ShopThemes.dressOutfitter(parent: Instance, origin: CFrame, slots: { { x: number, tier: number } }, scale: number): Model
 	local theme = Instance.new("Model")
 	theme.Name = "Theme"
 	local accent = C.shopOutfitter
-	local tiers = Gear.tiersAt("Aura", camp or "base")
-	local tubeStart = if camp then 4.8 else 3.4
 
-	-- The mannequin: the old suit stand with an accent band, two legs, a torso, arms
-	-- hanging a little out, a neck and a plain ball head. Dark slate, so the aura is
-	-- the brightest thing in the stall.
-	local mz = ISLAND_Z
-	prop(theme, origin, {
-		name = "MannequinStand",
-		pos = { auraX, 0.2, mz },
-		size = { 0.4, 2.4, 2.4 },
-		color = C.hazardBlack,
-		material = "Metal",
-		shape = "Cylinder",
-		rot = R_CYL_UP,
-	})
-	prop(theme, origin, {
-		name = "MannequinBand",
-		pos = { auraX, 0.2, mz },
-		size = { 0.14, 2.52, 2.52 },
-		color = accent,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = R_CYL_UP,
-	})
-	for _, dx in { -0.45, 0.45 } do
-		prop(theme, origin, {
-			name = "MannequinLeg",
-			pos = { auraX + dx, 1.5, mz },
-			size = { 0.8, 2.2, 0.9 },
-			color = MANNEQUIN_DARK,
-			material = "SmoothPlastic",
-		})
-	end
-	local torso = prop(theme, origin, {
-		name = "MannequinTorso",
-		pos = { auraX, 3.6, mz },
-		size = { 2.0, 2.0, 1.0 },
-		color = MANNEQUIN,
-		material = "SmoothPlastic",
-		-- Centred on the torso itself (no lift), at stock size, walking the ladder.
-		attributes = { AuraCycle = true, AuraLift = 0, AuraScale = 1, AuraCamp = camp },
-		-- Facing the customer, the way a wearer's LookVector (-Z) points. The atom and
-		-- the helix look the same either way round; the corona and the wings have a back.
-		rot = Kit.ang(0, 180, 0),
-	})
-	CollectionService:AddTag(torso, AuraLook.DISPLAY_TAG)
-	for _, dx in { -1.35, 1.35 } do
-		prop(theme, origin, {
-			name = "MannequinArm",
-			pos = { auraX + dx, 3.5, mz },
-			size = { 0.7, 2.2, 0.8 },
-			color = MANNEQUIN,
-			material = "SmoothPlastic",
-			rot = Kit.ang(0, 0, if dx > 0 then 8 else -8),
-		})
-	end
-	prop(theme, origin, {
-		name = "MannequinNeck",
-		pos = { auraX, 4.75, mz },
-		size = { 0.3, 0.6, 0.6 },
-		color = MANNEQUIN_DARK,
-		material = "SmoothPlastic",
-		shape = "Cylinder",
-		rot = R_CYL_UP,
-	})
-	prop(theme, origin, {
-		name = "MannequinHead",
-		pos = { auraX, 5.45, mz },
-		size = { 1.3, 1.3, 1.3 },
-		color = MANNEQUIN,
-		material = "SmoothPlastic",
-		shape = "Ball",
-	})
-
-	-- A sample tube on the centre line per tier this stall sells, in the aura's own
-	-- colour: the lower half left of the mannequin, the upper half right (Base Camp:
-	-- tiers 1-3 left, 4-6 right), each a steel base and cap with an accent band, a
-	-- glass tube and a coloured orb floating in it.
-	local tubeZ = ISLAND_Z
-	local leftCount = math.ceil(#tiers / 2)
-	for index, tier in tiers do
-		local look = AuraLook.get(tier)
-		local side = if index <= leftCount then -1 else 1
-		local slot = if index <= leftCount then leftCount - index + 1 else index - leftCount
-		local x = auraX + side * (tubeStart + (slot - 1) * 1.5)
-		prop(theme, origin, {
-			name = "TubeBase",
-			pos = { x, 0.25, tubeZ },
-			size = { 0.5, 1.3, 1.3 },
-			color = C.steelDark,
+	-- One mannequin per rung, on the island's centre line under that rung's mount
+	-- (Shops' buildOutfitterAt): the old suit stand with an accent band, two legs, a
+	-- torso, arms hanging a little out, a neck and a plain ball head, all at `scale`.
+	-- Dark slate, so the aura is the brightest thing in the stall.
+	for _, slot in slots do
+		local base = origin * CFrame.new(slot.x, 0, ISLAND_Z)
+		local function part(spec: Kit.Spec): BasePart
+			local p = spec.pos :: { number }
+			spec.pos = { p[1] * scale, p[2] * scale, p[3] * scale }
+			local size = spec.size :: { number }
+			spec.size = { size[1] * scale, size[2] * scale, size[3] * scale }
+			return prop(theme, base, spec)
+		end
+		part({
+			name = "MannequinStand",
+			pos = { 0, 0.25, 0 },
+			size = { 0.4, 2.4, 2.4 },
+			color = C.hazardBlack,
 			material = "Metal",
 			shape = "Cylinder",
 			rot = R_CYL_UP,
 		})
-		prop(theme, origin, {
-			name = "TubeGlass",
-			pos = { x, 2.0, tubeZ },
-			size = { 3.0, 1.0, 1.0 },
-			color = TUBE_GLASS,
-			material = "Glass",
-			transparency = 0.55,
-			shape = "Cylinder",
-			rot = R_CYL_UP,
-		})
-		prop(theme, origin, {
-			name = "TubeOrb",
-			pos = { x, 2.0, tubeZ },
-			size = { 0.7, 0.7, 0.7 },
-			color = look.color:ToHex(),
-			material = "SmoothPlastic",
-			shape = "Ball",
-		})
-		prop(theme, origin, {
-			name = "TubeCap",
-			pos = { x, 3.65, tubeZ },
-			size = { 0.3, 1.3, 1.3 },
-			color = C.steelDark,
-			material = "Metal",
-			shape = "Cylinder",
-			rot = R_CYL_UP,
-		})
-		prop(theme, origin, {
-			name = "TubeBand",
-			pos = { x, 3.65, tubeZ },
-			size = { 0.12, 1.36, 1.36 },
+		part({
+			name = "MannequinBand",
+			pos = { 0, 0.25, 0 },
+			size = { 0.14, 2.52, 2.52 },
 			color = accent,
 			material = "SmoothPlastic",
 			shape = "Cylinder",
 			rot = R_CYL_UP,
+		})
+		for _, dx in { -0.45, 0.45 } do
+			part({
+				name = "MannequinLeg",
+				pos = { dx, 1.5, 0 },
+				size = { 0.8, 2.2, 0.9 },
+				color = MANNEQUIN_DARK,
+				material = "SmoothPlastic",
+			})
+		end
+		local torso = part({
+			name = "MannequinTorso",
+			pos = { 0, 3.6, 0 },
+			size = { 2.0, 2.0, 1.0 },
+			color = MANNEQUIN,
+			material = "SmoothPlastic",
+			-- This rung's aura, centred on the torso (no lift), at the mannequin's scale.
+			attributes = { AuraTier = slot.tier, AuraLift = 0, AuraScale = scale },
+			-- Facing the front customers, the way a wearer's LookVector (-Z) points.
+			rot = Kit.ang(0, 180, 0),
+		})
+		CollectionService:AddTag(torso, AuraLook.DISPLAY_TAG)
+		for _, dx in { -1.35, 1.35 } do
+			part({
+				name = "MannequinArm",
+				pos = { dx, 3.5, 0 },
+				size = { 0.7, 2.2, 0.8 },
+				color = MANNEQUIN,
+				material = "SmoothPlastic",
+				rot = Kit.ang(0, 0, if dx > 0 then 8 else -8),
+			})
+		end
+		part({
+			name = "MannequinNeck",
+			pos = { 0, 4.75, 0 },
+			size = { 0.3, 0.6, 0.6 },
+			color = MANNEQUIN_DARK,
+			material = "SmoothPlastic",
+			shape = "Cylinder",
+			rot = R_CYL_UP,
+		})
+		part({
+			name = "MannequinHead",
+			pos = { 0, 5.45, 0 },
+			size = { 1.3, 1.3, 1.3 },
+			color = MANNEQUIN,
+			material = "SmoothPlastic",
+			shape = "Ball",
 		})
 	end
 

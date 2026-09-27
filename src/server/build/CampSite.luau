@@ -81,7 +81,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 16
+local BUILDER_VERSION = 17
 
 local C = Kit.C
 local build = Kit.build
@@ -742,7 +742,7 @@ local function buildStalls(parent: Instance, L: Layout)
 		-- one TRADER_CLEARANCE off the Detector Shop's west end, on the side you arrive
 		-- from. It has to stay on the paver square.
 		if #Gear.tiersAt("Aura", L.def.key) > 0 then
-			local half = Shops.campOutfitterWidth() / 2
+			local half = Shops.campOutfitterWidth(L.def.key) / 2
 			local x = -(Shops.campStallWidth("Detector", L.def.key) / 2 + TRADER_CLEARANCE + half)
 			assert(x - half >= -SHOP_HALF_X, `{L.def.key}'s Aura Shop runs off the paver square (west end {x - half})`)
 			local auraOrigin = CFrame.new(L.ox + x, PLAZA_Y, L.oz + ROW_Z) * CFrame.Angles(0, math.rad(180), 0)
