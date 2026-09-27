@@ -51,6 +51,7 @@ local Crates = require(Shared.Config.Crates)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local ItemArt = require(script.Parent.Parent.ItemArt)
 local Dock = UIKit.Dock
 
 local Inventory = {}
@@ -101,6 +102,9 @@ local BAG_VISIBLE_ROWS = 4
 
 -- The Notice popup over the hotbar: pops in, holds, fades. The group is wider than
 -- any message so the pill (auto-sized to its text) never clips.
+-- The slot's kg readout.
+local KG_GOLD = Color3.fromHex("FFC83D")
+
 local NOTICE_WIDTH = 640
 local NOTICE_HEIGHT = 50
 local NOTICE_HOLD = 1.6
@@ -179,29 +183,34 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		text = keyText(index),
 	})
 
-	local name = UIKit.label(slot, {
-		name = "ItemName",
-		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 1, -5),
-		size = UDim2.new(1, -10, 1, -25),
+	-- The item's own model instead of its name: a name read twice (the label and its
+	-- outline copy) at hotbar size was noise, and the art says rarity and kind at a glance.
+	local art = Instance.new("Frame")
+	art.Name = "Art"
+	art.BackgroundTransparency = 1
+	art.AnchorPoint = Vector2.new(0.5, 0.5)
+	art.Position = UDim2.fromScale(0.5, 0.5)
+	art.Size = UDim2.new(1, -8, 1, -8)
+	art.Parent = slot
+	local viewport = ItemArt.newViewport(art)
+
+	-- Its kg, bottom right, in gold.
+	local kg = UIKit.label(slot, {
+		name = "Weight",
+		anchorPoint = Vector2.new(1, 1),
+		position = UDim2.new(1, -5, 1, -3),
+		size = UDim2.new(1, -10, 0, 14),
 		font = UIKit.Font.title,
-		textSize = 13,
-		color = COLOR.text,
-		xAlign = Enum.TextXAlignment.Center,
-		yAlign = Enum.TextYAlignment.Center,
-		wrapped = true,
-		strokeTransparency = 1,
+		textSize = 12,
+		color = KG_GOLD,
+		xAlign = Enum.TextXAlignment.Right,
+		yAlign = Enum.TextYAlignment.Bottom,
 	})
-	name.TextScaled = true
-	name.TextTruncate = Enum.TextTruncate.AtEnd
-	local textConstraint = Instance.new("UITextSizeConstraint")
-	textConstraint.MinTextSize = 10
-	textConstraint.MaxTextSize = 13
-	textConstraint.Parent = name
+	kg.ZIndex = 3
 
 	slot.MouseButton1Click:Connect(onClick)
 
-	return { button = slot, stroke = stroke, key = key, name = name, uid = nil :: string? }
+	return { button = slot, stroke = stroke, key = key, viewport = viewport, kg = kg, uid = nil :: string? }
 end
 
 --- The last tile on the hotbar once capacity passes ten: opens the bag panel, and
@@ -628,7 +637,8 @@ local function paintSlot(slot: any, index: number)
 	slot.uid = if item then item.uid else nil
 
 	if item == nil then
-		slot.name.Text = ""
+		ItemArt.clear(slot.viewport)
+		slot.kg.Text = ""
 		slot.button.BackgroundColor3 = SLOT_FILL
 		slot.button.BackgroundTransparency = 0.05
 		slot.stroke.Color = SLOT_BORDER
@@ -636,8 +646,8 @@ local function paintSlot(slot: any, index: number)
 		return
 	end
 
-	slot.name.Text = item.name
-	slot.name.TextColor3 = COLOR.text
+	ItemArt.paint(slot.viewport, item, 1)
+	slot.kg.Text = if type(item.weight) == "number" then UIKit.formatKg(item.weight) else ""
 	slot.button.BackgroundColor3 = if item.uid == selected then SLOT_SELECTED else SLOT_FILL
 	slot.button.BackgroundTransparency = 0.05
 	slot.stroke.Color = itemColour(item)
@@ -889,6 +899,7 @@ function Inventory.start()
 					crateId = entry.crateId,
 					name = crate.short,
 					rarity = crate.tier,
+					weight = crate.pullWeight,
 				})
 			end
 		end
