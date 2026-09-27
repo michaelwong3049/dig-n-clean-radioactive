@@ -17,7 +17,7 @@
 	    and a flash of the rarity's colour from Legendary up,
 	  * rays spin out from BEHIND it -- they start outside its silhouette, because a GUI
 	    draws over the world and a ray across the nuke would be a ray on top of it,
-	  * and the words land in the lower third: NEW FIND! / IDENTIFIED, the name, rarity
+	  * and the words land in the lower third: NEW FIND! (no ribbon on a repeat), the name, rarity
 	    and weight, and the price counting up.
 
 	WashController drives it. `play` is called when a staged ItemIdentified arrives,
@@ -344,7 +344,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 	UIKit.label(ribbon, {
 		name = "Text",
 		size = UDim2.fromScale(1, 1),
-		text = if crate then "SUPPLY CRATE!" elseif found.firstFind then "NEW FIND!" else "IDENTIFIED",
+		text = if crate then "SUPPLY CRATE!" elseif found.firstFind then "NEW FIND!" else "",
 		font = UIKit.Font.hero,
 		textSize = 32,
 		xAlign = Enum.TextXAlignment.Center,
@@ -488,7 +488,10 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 			end,
 		},
 		{ at = T.RIBBON_AT, done = false, run = function()
-			pop(ribbon, ribbonScale, 0, 0.35)
+			-- A repeat find has nothing to announce, so its ribbon stays hidden.
+			if crate or found.firstFind then
+				pop(ribbon, ribbonScale, 0, 0.35)
+			end
 		end },
 		{ at = T.NAME_AT, done = false, run = function()
 			pop(name, nameScale, 2.6, 0.45)

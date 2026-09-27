@@ -1547,7 +1547,7 @@ function Detector.start()
 			then "SUPPLY CRATE"
 			elseif found.firstFind then "NEW FIND"
 			elseif type(found.previousBest) == "number" then "NEW HEAVIEST"
-			else "IDENTIFIED"
+			else nil
 		showFind(found, header)
 	end)
 
