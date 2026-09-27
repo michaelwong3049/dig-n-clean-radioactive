@@ -121,7 +121,7 @@
 	A base can be built up to Config/Floors.MAX = 3 floors. The ground floor's 12
 	stands are usable from the moment a plot is claimed; each floor bought on top
 	(Floors.PRICES, at the sign at the foot of the next flight of stairs) adds a
-	4 x 2 gallery of Floors.UPPER_SLOTS more. Slot numbers run on across floors:
+	3 x 4 gallery of Floors.UPPER_SLOTS more. Slot numbers run on across floors:
 	1..12 are the ground grid above, 13..20 floor 2, 21..28 floor 3
 	(slotPlacement). Every plot is BUILT with all of its floors; ExhibitService
 	hides the ones its owner has not bought (Plots.setFloors) — see buildFloor.
@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 72
+local BUILDER_VERSION = 73
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -570,15 +570,14 @@ local function slotOffset(slot: number): (number, number)
 end
 assert(#GRID_COLS * #GRID_ROWS == Floors.GROUND_SLOTS, "the ground grid must hold exactly Floors.GROUND_SLOTS stands")
 
---- THE UPPER FLOORS' GALLERY — 4 columns x 2 rows (Floors.UPPER_SLOTS = 8), on every
---- floor above the ground (see buildFloor). Pitch 13 across keeps the outer columns'
---- plinths (edge at +/-23.95) clear of the stairwell guard rail at +/-25.5 on one side
---- and the next flight's handrail at +/-26.4 on the other. The rows sit either side of
---- the deck's middle, the front one well behind the deck's front rail.
+--- THE UPPER FLOORS' GALLERY — the ground's own 3 columns x 4 rows (Floors.UPPER_SLOTS
+--- = 12), on every floor above the ground (see buildFloor). The outer columns' plinths
+--- (edge at +/-24.45) stay clear of the stairwell guard rail at +/-25.4, and the front
+--- row (plinth front at z -10.45) sits behind the deck's front rail at FLOOR.front.
 ---
 --- Numbered the same way as the ground: left to right, back row first.
-local UPPER_COLS = { -19.5, -6.5, 6.5, 19.5 }
-local UPPER_ROWS = { 28, 6 }
+local UPPER_COLS = GRID_COLS
+local UPPER_ROWS = GRID_ROWS
 assert(#UPPER_COLS * #UPPER_ROWS == Floors.UPPER_SLOTS, "the upper grid must hold exactly Floors.UPPER_SLOTS stands")
 
 --- The top of `floor`'s deck — what a player on it stands on. Floor 1 is the pad.
@@ -3240,12 +3239,12 @@ end
 --- it in shade the moment a floor is bought, and a gallery is for looking at. The
 --- pillars and stairs still cast one, so the building does not read as floating.
 local FLOOR = {
-	front = -17, -- the decks' front edge (plot-local z): 6 studs out over the entrance strip, still clear of the tub
+	front = -19, -- the decks' front edge (plot-local z): 8 studs out over the entrance strip, still clear of the tub
 	thick = 1.2,
 	fascia = 0.6, -- the accent band round a deck's edge
 	stairX = 28.6, -- |x| of a flight's centre line: the side corridor past the outer stand column
 	stairW = 4.8,
-	stairZ = -9.6, -- where a flight's first step starts, behind the Quarantine Locker (z -15.5)
+	stairZ = -7.6, -- where a flight's first step starts, behind the Quarantine Locker (z -15.5)
 	landing = 5, -- depth of the deck between a flight's head and the back edge
 	rise = 1, -- Floors.HEIGHT steps of this, so a flight lands exactly on the next deck
 	openIn = 25.8, -- |x| of a stairwell's inner edge
@@ -3255,7 +3254,7 @@ local FLOOR = {
 	-- post or shares a face with one.
 	pillarX = 32,
 	pillarW = 1.4,
-	pillarZ = { -16, 54.5 }, -- one per corner: the front overhang (just past the locker's back) and the back edge
+	pillarZ = { -18, 54.5 }, -- one per corner: the front overhang (just past the locker's back) and the back edge
 	handrails = { 2.0, 3.5 }, -- heights of a flight's two sloped rails over the step line
 	handPostH = 3.2,
 }
