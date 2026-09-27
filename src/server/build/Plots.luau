@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 74
+local BUILDER_VERSION = 75
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -3045,7 +3045,13 @@ local LANE = { aisle = 6, entry = 8, kerb = 0.5, band = 5, lift = 0.06, thick = 
 --- `topY` is the floor the lanes lie on and `entryZ` where the entry lane starts:
 --- the pad's front edge on the ground, the deck's front rail on an upper floor
 --- (buildFloor), which has the same grid and so the same walkways.
-local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?, entryZ: number?)
+---
+--- `stairs` (optional) runs the walkways out to the flights: `depart` is the side
+--- (-1/+1) whose flight climbs up from this floor — the cross band reaches out to its
+--- foot at `footZ` — and `arrive` the side whose flight lands here, where the back
+--- landing reaches over to its head. `inX`/`outX` are a flight's |x| edges.
+type LaneStairs = { depart: number?, arrive: number?, footZ: number, inX: number, outX: number }
+local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?, entryZ: number?, stairs: LaneStairs?)
 	local pad = Plots.PAD
 	local floorY = topY or pad.topY
 	local entryFrom = entryZ or pad.minZ
@@ -3088,10 +3094,27 @@ local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?
 	mirrored("Kerb", entryHalf, entryHalf + K, entryFrom, bandFront, KERB)
 
 	-- Cross band, joining the entry to both aisles.
+	-- On the departing flight's side it runs on out to the flight's outer edge, then a
+	-- spur turns back along the flight's width to its first step.
 	plate("Lane", -outer, outer, bandFront, bandBack, CREAM)
-	mirrored("Kerb", entryHalf + K, outer + K, bandFront - K, bandFront, KERB)
-	mirrored("Kerb", outer, outer + K, bandFront, bandBack, KERB)
 	plate("Kerb", -(inner - K), inner - K, bandBack, bandBack + K, KERB)
+	for _, sd in { -1, 1 } do
+		local function side(name: string, a: number, b: number, z0: number, z1: number, color: string)
+			plate(name, math.min(sd * a, sd * b), math.max(sd * a, sd * b), z0, z1, color)
+		end
+		if stairs and stairs.depart == sd then
+			local sIn, sOut, foot = stairs.inX, stairs.outX, stairs.footZ
+			side("Lane", outer, sOut, bandFront, bandBack, CREAM)
+			side("Lane", sIn, sOut, bandBack, foot, CREAM)
+			side("Kerb", entryHalf + K, sOut + K, bandFront - K, bandFront, KERB)
+			side("Kerb", sOut, sOut + K, bandFront, foot, KERB)
+			side("Kerb", outer + K, sIn - K, bandBack, bandBack + K, KERB)
+			side("Kerb", sIn - K, sIn, bandBack, foot, KERB)
+		else
+			side("Kerb", entryHalf + K, outer + K, bandFront - K, bandFront, KERB)
+			side("Kerb", outer, outer + K, bandFront, bandBack, KERB)
+		end
+	end
 
 	-- The two aisles between the stand columns.
 	mirrored("Lane", inner, outer, bandBack, landingFront, CREAM)
@@ -3099,9 +3122,23 @@ local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?
 	mirrored("Kerb", outer, outer + K, bandBack, landingFront, KERB)
 
 	-- Back landing along the fence, joining the aisles' far ends.
+	-- On the arriving flight's side it reaches over to the flight's head, open where
+	-- the steps meet it.
 	plate("Lane", -outer, outer, landingFront, landingBack, CREAM)
 	plate("Kerb", -(inner - K), inner - K, landingFront - K, landingFront, KERB)
-	mirrored("Kerb", outer, outer + K, landingFront, landingBack, KERB)
+	for _, sd in { -1, 1 } do
+		local function side(name: string, a: number, b: number, z0: number, z1: number, color: string)
+			plate(name, math.min(sd * a, sd * b), math.max(sd * a, sd * b), z0, z1, color)
+		end
+		if stairs and stairs.arrive == sd then
+			local sIn, sOut = stairs.inX, stairs.outX
+			side("Lane", outer, sOut, landingFront, landingBack, CREAM)
+			side("Kerb", outer + K, sIn, landingFront - K, landingFront, KERB)
+			side("Kerb", sOut, sOut + K, landingFront - K, landingBack, KERB)
+		else
+			side("Kerb", outer, outer + K, landingFront, landingBack, KERB)
+		end
+	end
 
 	folder.Parent = parent
 end
@@ -3272,6 +3309,54 @@ local FLIGHT_TOP_Z = FLOOR.stairZ + FLIGHT_STEPS * FLOOR.tread
 --- Which side (-1 = -X, +1 = +X) the flight climbing UP FROM `floor` runs up.
 local function flightSide(floor: number): number
 	return if floor % 2 == 1 then -1 else 1
+end
+
+--- Where `floor`'s walkways meet the stairs (buildGalleryLanes): the flight up from
+--- it, if there is a floor above, and the flight that lands on it, if it is not the
+--- ground.
+local function laneStairs(floor: number): LaneStairs
+	return {
+		depart = if floor < Floors.MAX then flightSide(floor) else nil,
+		arrive = if floor > 1 then flightSide(floor - 1) else nil,
+		footZ = FLOOR.stairZ,
+		inX = FLOOR.stairX - FLOOR.stairW / 2,
+		outX = FLOOR.stairX + FLOOR.stairW / 2,
+	}
+end
+
+--- THE CEILING LIGHTS — a row of lamp panels on the underside of every deck, lighting
+--- the floor below it (the ground under deck 2, floor 2 under deck 3). One per aisle
+--- per stand gap, so the lanes read lit. SurfaceLights facing down, NO SHADOWS: the
+--- sun already shades under the deck's pillars and stairs, and shadow casting is the
+--- expensive part of a light (see the plinth note in buildDisplayStand).
+local CEILING_LAMP = { xs = { -10, 10 }, zs = { 2.5, 19.5, 36.5 }, w = 3.2, d = 1.6, h = 0.3, range = 16, brightness = 1.4 }
+local CEILING_LAMP_COLOR = "FFF1D6"
+local function buildCeilingLights(parent: Instance, origin: CFrame, deckTop: number)
+	local folder = Instance.new("Folder")
+	folder.Name = "CeilingLights"
+	local y = deckTop - FLOOR.thick - CEILING_LAMP.h / 2
+	for _, x in CEILING_LAMP.xs do
+		for _, z in CEILING_LAMP.zs do
+			local lamp = build(folder, origin, {
+				name = "CeilingLamp",
+				pos = { x, y, z },
+				size = { CEILING_LAMP.w, CEILING_LAMP.h, CEILING_LAMP.d },
+				color = CEILING_LAMP_COLOR,
+				material = "Neon",
+				canCollide = false,
+			})
+			lamp.CastShadow = false
+			local l = Instance.new("SurfaceLight")
+			l.Face = Enum.NormalId.Bottom
+			l.Color = Color3.fromHex(CEILING_LAMP_COLOR)
+			l.Range = CEILING_LAMP.range
+			l.Brightness = CEILING_LAMP.brightness
+			l.Angle = 120
+			l.Shadows = false
+			l.Parent = lamp
+		end
+	end
+	folder.Parent = parent
 end
 
 --- One straight run of fence (posts + two rails) along x or along z, at deck height
@@ -3455,7 +3540,8 @@ local function buildFloor(parent: Instance, origin: CFrame, index: number, floor
 	capFencePosts(rails, accent)
 
 	-- The ground's walkways, laid on this deck from its front rail back.
-	buildGalleryLanes(m, origin, top, front + RAIL_POST_W)
+	buildGalleryLanes(m, origin, top, front + RAIL_POST_W, laneStairs(floor))
+	buildCeilingLights(m, origin, top)
 
 	-- ── The gallery ─────────────────────────────────────────────
 	local first = Floors.firstSlot(floor)
@@ -3650,7 +3736,7 @@ local function buildPlot(parent: Instance, index: number)
 		material = "Plastic",
 	})
 	-- The cream walkways laid over it (the Gallery pass).
-	buildGalleryLanes(m, origin)
+	buildGalleryLanes(m, origin, nil, nil, laneStairs(1))
 
 	-- Accent trim, so whose plot is whose is readable from across the plaza. Matte —
 	-- the colour alone carries the "whose plot" cue now, no glow. `Accent` tags it for
