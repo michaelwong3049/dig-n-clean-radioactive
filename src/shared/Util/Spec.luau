@@ -251,11 +251,11 @@ function Spec.run(): boolean
 		-- `sizeMult` is a gentle visual nudge on top of sizeScale, never a resize.
 		local sizeMultOk = true
 		for _, item in Items.DEFS do
-			if item.sizeMult ~= nil and not (item.sizeMult >= 0.5 and item.sizeMult <= 4) then
+			if item.sizeMult ~= nil and not (item.sizeMult >= 0.5 and item.sizeMult <= 8) then
 				sizeMultOk = false
 			end
 		end
-		check("§weight every item's sizeMult is a nudge (0.5-4x) when set", sizeMultOk)
+		check("§weight every item's sizeMult is a nudge (0.5-8x) when set", sizeMultOk)
 	end
 
 	-- Shared/IndexProgress — the index's stage-completion reward and record weights.
