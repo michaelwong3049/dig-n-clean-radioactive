@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 76
+local BUILDER_VERSION = 77
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -3291,12 +3291,12 @@ local FLOOR = {
 	rise = 1, -- Floors.HEIGHT steps of this, so a flight lands exactly on the next deck
 	openIn = 25.8, -- |x| of a stairwell's inner edge
 	openOut = 31.4, -- |x| of its outer edge; the ledge past it carries the side rail
-	-- Pillars stand on the fence line, at z's picked between BOTH rows of fence posts
-	-- (the ground's side railing and every deck's own), so a pillar never swallows a
-	-- post or shares a face with one.
-	pillarX = 32,
-	pillarW = 1.4,
-	pillarZ = { -18, 54.5 }, -- one per corner: the front overhang (just past the locker's back) and the back edge
+	-- Pillars stand ON the fence line, one per deck corner, outer faces flush with the
+	-- pad's side and the deck's front/back edge, so the rails run straight through
+	-- them. A pillar takes over the fence there: the posts it swallows are hidden
+	-- while its floor is up (hidePillarPosts / Plots.setFloors) instead of poking
+	-- out of it.
+	pillarW = 1.2,
 	handrails = { 2.0, 3.5 }, -- heights of a flight's two sloped rails over the step line
 	handPostH = 3.2,
 }
@@ -3504,12 +3504,17 @@ local function buildFloor(parent: Instance, origin: CFrame, index: number, floor
 	end
 
 	-- ── Pillars, from the floor below to this deck's underside ─
+	-- Off the ground they start on the Trim's top, not inside it.
+	if floor == 2 then
+		below += 0.35
+	end
 	local pillarH = top - FLOOR.thick - below
+	local pw = FLOOR.pillarW / 2
 	for _, sx in { -1, 1 } do
-		for _, pz in FLOOR.pillarZ do
+		for _, pz in { front + pw, back - pw } do
 			build(m, origin, {
 				name = "Pillar",
-				pos = { sx * FLOOR.pillarX, below + pillarH / 2, pz },
+				pos = { sx * (HALF_W - pw), below + pillarH / 2, pz },
 				size = { FLOOR.pillarW, pillarH, FLOOR.pillarW },
 				color = C.standGreyDark,
 				material = "Plastic",
@@ -3641,6 +3646,52 @@ end
 --- Idempotent, and quiet on a world built before floors existed (nothing to move).
 --- The stands on a floor coming back keep whatever they showed when they were parked:
 --- ExhibitService re-renders them straight after calling this.
+--- THE PILLARS TAKE OVER THE FENCE. Every fence post (and its cap) a floor's pillar
+--- swallows — the ground railing's under floor 2's, floor 2's deck railing under
+--- floor 3's — is tagged `PillarFloor` = that floor and hidden, so nothing pokes out
+--- of a pillar. The pillar only exists while its floor is bought, though, so
+--- showPillarPosts (Plots.setFloors) brings a post back when its floor is not.
+local PILLAR_FLOOR_ATTR = "PillarFloor"
+local function setPostHidden(part: BasePart, hidden: boolean)
+	part.Transparency = if hidden then 1 else 0
+	part.CanCollide = (not hidden) and part:GetAttribute("PillarCollide") == true
+end
+
+local function hidePillarPosts(m: Model)
+	for floor = 2, Floors.MAX do
+		local f = m:FindFirstChild(`Floor{floor}`)
+		if f == nil then
+			continue
+		end
+		for _, pillar in f:GetChildren() do
+			if pillar.Name ~= "Pillar" or not pillar:IsA("BasePart") then
+				continue
+			end
+			local pc, half = pillar.CFrame, pillar.Size / 2
+			for _, d in m:GetDescendants() do
+				if (d.Name == "RailPost" or d.Name == "PostCap") and d:IsA("BasePart") and not d:IsDescendantOf(f) then
+					local l = pc:PointToObjectSpace(d.Position)
+					local dh = d.Size / 2
+					if math.abs(l.X) < half.X + dh.X and math.abs(l.Z) < half.Z + dh.Z and math.abs(l.Y) < half.Y + dh.Y then
+						d:SetAttribute(PILLAR_FLOOR_ATTR, floor)
+						d:SetAttribute("PillarCollide", d.CanCollide)
+						setPostHidden(d, true)
+					end
+				end
+			end
+		end
+	end
+end
+
+local function showPillarPosts(model: Instance, count: number)
+	for _, d in model:GetDescendants() do
+		local floor = d:GetAttribute(PILLAR_FLOOR_ATTR)
+		if typeof(floor) == "number" and d:IsA("BasePart") then
+			setPostHidden(d, floor <= count)
+		end
+	end
+end
+
 function Plots.setFloors(plot: Instance?, owned: number?, claimed: boolean)
 	if plot == nil then
 		return
@@ -3667,6 +3718,7 @@ function Plots.setFloors(plot: Instance?, owned: number?, claimed: boolean)
 		place(`Floor{floor}`, floor <= count)
 		place(`FloorSign{floor}`, claimed and floor == count + 1)
 	end
+	showPillarPosts(model, count)
 
 	local plate = model:FindFirstChild("NamePlate")
 	local rest = plate and plate:GetAttribute("BaseCFrame")
@@ -3804,6 +3856,7 @@ local function buildPlot(parent: Instance, index: number)
 		buildFloor(m, origin, index, floor, accent)
 		buildFloorSign(m, origin, index, floor, accent)
 	end
+	hidePillarPosts(m)
 
 	m.Parent = parent
 	return m
