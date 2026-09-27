@@ -22,6 +22,9 @@ local Rarity = require(Shared.Config.Rarity)
 local ItemModels = require(Shared.ItemModels)
 local ItemCrust = require(Shared.ItemCrust)
 local ItemFx = require(Shared.ItemFx)
+local Crates = require(Shared.Config.Crates)
+local CrateModels = require(Shared.CrateModels)
+local CrateFx = require(Shared.CrateFx)
 
 local ItemArt = {}
 
@@ -92,7 +95,16 @@ end
 --- until then. ItemFx comes off (its lights and particles do not render in a viewport).
 local function modelFor(item: any): Model
 	local model: Model? = nil
-	if item.identified and type(item.itemId) == "string" and Items.has(item.itemId) then
+	-- A clean supply crate (the hotbar's `crates` entries carry no `identified`): the
+	-- crate itself, effects off like a nuke's.
+	if item.crateId and Crates.has(item.crateId) and item.identified == nil then
+		local ok, crate = pcall(CrateModels.create, item.crateId)
+		if ok then
+			CrateFx.strip(crate)
+			model = crate
+		end
+	end
+	if model == nil and item.identified and type(item.itemId) == "string" and Items.has(item.itemId) then
 		local def = Items.get(item.itemId)
 		model = ItemModels.create(def.model, item.itemId)
 		if model then
@@ -123,7 +135,7 @@ end
 
 --- Swap `item`'s model into `viewport`, unless it is already showing it.
 function ItemArt.paint(viewport: ViewportFrame, item: any, aspect: number)
-	local key = `{item.uid}/{item.itemId or "crust"}`
+	local key = `{item.uid}/{item.itemId or item.crateId or "crust"}`
 	if viewport:GetAttribute("ArtKey") == key then
 		return
 	end
