@@ -44,7 +44,7 @@ local HaulShaft = {}
 -- ── Geometry, in design pixels ──────────────────────────────────────────────────
 -- Everything vertical is derived from the height build() is given; the width is the
 -- shaft's own and fixed, because the art across it (channel, magnet, ruler) is.
-local SKY_HEIGHT = 46 -- the surface line: the nuke's nose sits here once it is up
+local SKY_HEIGHT = 78 -- the surface line: the nuke's nose sits here once it is up
 local FLOOR_MARGIN = 72 -- the nose's start line still leaves the whole nuke in view
 local SHAFT_WIDTH = 166
 HaulShaft.WIDTH = SHAFT_WIDTH -- the panel lays itself out around this
@@ -52,8 +52,8 @@ local BANDS = 5
 local AXIS_X = 83 -- centre of the shaft channel, and of everything hung down it
 local CHANNEL_WIDTH = 42
 local NUKE_SIZE = Vector2.new(40, 62)
-local MAGNET_TOP = 6
-local CABLE_TOP = 22 -- tucked under the magnet's bend, so the cable reads as tied on
+local MAGNET_TOP = 4
+local CABLE_TOP = 40 -- tucked under the magnet's bend, so the cable reads as tied on
 local TRAIL_PITCH = 9 -- one dot of the "where it has been" trail every this many px
 local RULER_MAJOR, RULER_MINOR = 18, 9 -- tick lengths: labelled, and in between
 -- A ruler shorter than this ticks every quarter metre rather than every half, so a
@@ -208,7 +208,7 @@ end
 --- The magnet hanging over the shaft, poles DOWN at the nuke: the player's OWN
 --- equipped magnet, drawn live from its model (GearArt.showHung, hung the way the hand
 --- holds it), so it changes as they upgrade. Empty until setMagnet() hands it a tier.
-local MAGNET_BOX = Vector2.new(60, 40)
+local MAGNET_BOX = Vector2.new(90, 64)
 local function buildMagnet(parent: Instance, z: number): ViewportFrame
 	local slot = Instance.new("Frame")
 	slot.Name = "Magnet"
