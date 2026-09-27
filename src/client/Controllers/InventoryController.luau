@@ -189,10 +189,26 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 	art.Name = "Art"
 	art.BackgroundTransparency = 1
 	art.AnchorPoint = Vector2.new(0.5, 0.5)
-	art.Position = UDim2.fromScale(0.5, 0.5)
+	art.Position = UDim2.new(0.5, 0, 0.5, -6)
 	art.Size = UDim2.new(1, -8, 1, -8)
+	art.ZIndex = 1
 	art.Parent = slot
 	local viewport = ItemArt.newViewport(art)
+
+	-- An unidentified find keeps its "???" rather than a picture that would name it.
+	local unknown = UIKit.label(slot, {
+		name = "Unknown",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.new(0.5, 0, 0.5, -4),
+		size = UDim2.new(1, -8, 0, 30),
+		font = UIKit.Font.title,
+		textSize = 26,
+		color = COLOR.text,
+		xAlign = Enum.TextXAlignment.Center,
+		yAlign = Enum.TextYAlignment.Center,
+		text = "???",
+	})
+	unknown.Visible = false
 
 	-- Its kg, bottom right, in gold.
 	local kg = UIKit.label(slot, {
@@ -206,11 +222,16 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		xAlign = Enum.TextXAlignment.Right,
 		yAlign = Enum.TextYAlignment.Bottom,
 	})
-	kg.ZIndex = 3
+	-- In front of the model, outline and all.
+	for _, node in { kg, table.unpack(kg:GetDescendants()) } do
+		if node:IsA("GuiObject") then
+			node.ZIndex += 5
+		end
+	end
 
 	slot.MouseButton1Click:Connect(onClick)
 
-	return { button = slot, stroke = stroke, key = key, viewport = viewport, kg = kg, uid = nil :: string? }
+	return { button = slot, stroke = stroke, key = key, viewport = viewport, unknown = unknown, kg = kg, uid = nil :: string? }
 end
 
 --- The last tile on the hotbar once capacity passes ten: opens the bag panel, and
@@ -638,6 +659,7 @@ local function paintSlot(slot: any, index: number)
 
 	if item == nil then
 		ItemArt.clear(slot.viewport)
+		slot.unknown.Visible = false
 		slot.kg.Text = ""
 		slot.button.BackgroundColor3 = SLOT_FILL
 		slot.button.BackgroundTransparency = 0.05
@@ -646,7 +668,13 @@ local function paintSlot(slot: any, index: number)
 		return
 	end
 
-	ItemArt.paint(slot.viewport, item, 1)
+	local unknown = item.identified == false
+	slot.unknown.Visible = unknown
+	if unknown then
+		ItemArt.clear(slot.viewport)
+	else
+		ItemArt.paint(slot.viewport, item, 1)
+	end
 	slot.kg.Text = if type(item.weight) == "number" then UIKit.formatKg(item.weight) else ""
 	slot.button.BackgroundColor3 = if item.uid == selected then SLOT_SELECTED else SLOT_FILL
 	slot.button.BackgroundTransparency = 0.05
