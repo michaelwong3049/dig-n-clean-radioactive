@@ -910,62 +910,6 @@ local function carrier(parent: Instance, origin: CFrame, name: string, pos: { nu
 	return part
 end
 
---- The radiation trefoil painted on one square face of `part`, `studs` across, in a
---- black border: three 60-degree blades round a hub, one pointing down like the sign.
---- Each blade is a fan of thin rotated bars close enough together to read as a solid
---- wedge -- HudController's rads badge draws it the same way, because the Unicode
---- trefoil renders as a colour emoji and ignores TextColor3. A GUI rather than parts:
---- blocks cannot make a wedge, and a trefoil of stacked blocks at placard size read as
---- a fan.
-local function paintTrefoil(part: BasePart, face: Enum.NormalId, studs: number, ink: string)
-	local pps = 100
-	local px = studs * pps
-	local gui = Instance.new("SurfaceGui")
-	gui.Name = "Trefoil"
-	gui.Face = face
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = pps
-	gui.MaxDistance = 80
-	gui.Parent = part
-
-	local color = Color3.fromHex(ink)
-	local function box(name: string, x: number, y: number, w: number, h: number, rotation: number): Frame
-		local frame = Instance.new("Frame")
-		frame.Name = name
-		frame.AnchorPoint = Vector2.new(0.5, 0.5)
-		frame.Position = UDim2.fromOffset(x, y)
-		frame.Size = UDim2.fromOffset(w, h)
-		frame.Rotation = rotation
-		frame.BackgroundColor3 = color
-		frame.BorderSizePixel = 0
-		frame.Parent = gui
-		return frame
-	end
-
-	local border = box("Border", px / 2, px / 2, px, px, 0)
-	border.BackgroundTransparency = 1
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = color
-	stroke.Thickness = px * 0.05
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Parent = border
-
-	local centre = px / 2
-	local inner, outer = px * 0.13, px * 0.42
-	local mid, length = (inner + outer) / 2, outer - inner
-	for _, blade in { 90, 210, 330 } do
-		for spread = -26, 26, 4 do
-			local angle = blade + spread
-			local rad = math.rad(angle)
-			box("Blade", centre + mid * math.cos(rad), centre + mid * math.sin(rad), length, px * 0.035, angle)
-		end
-	end
-	local hub = box("Hub", centre, centre, px * 0.16, px * 0.16, 0)
-	local round = Instance.new("UICorner")
-	round.CornerRadius = UDim.new(0.5, 0)
-	round.Parent = hub
-end
-
 --- Repaint the reel drum, its wound-coil band and the Beam that runs to the nozzle so
 --- the hose "still on the reel" matches whichever Cleaner rung is on the mast. The rig
 --- is built once at STATION_TIER and never rebuilt; without this, buying a new hose swaps
@@ -1068,14 +1012,14 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	-- yellow). The shell is see-through glass; `PumpFluid` inside it is filled most of
 	-- the way up and wears the loaded fluid's colour -- Plots.setTubFluid paints it
 	-- alongside the tub's Water, so tank and tub always hold the same liquid.
-	local TANK_GLASS = "D8F0FF"
+	local TANK_GLASS = "FFFFFF"
 	build(parent, origin, {
 		name = "HosePump",
 		pos = { tx, (tankBottom + tankTop) / 2, tz },
 		size = { tankTop - tankBottom, tankR * 2, tankR * 2 },
 		color = TANK_GLASS,
-		material = "Glass",
-		transparency = 0.65,
+		material = "SmoothPlastic",
+		transparency = 0.88,
 		shape = "Cylinder",
 		rot = Kit.R.cylUp,
 	})
@@ -1083,10 +1027,10 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	build(parent, origin, {
 		name = "PumpFluid",
 		pos = { tx, (tankBottom + 0.05 + fluidTop) / 2, tz },
-		size = { fluidTop - tankBottom - 0.05, tankR * 2 - 0.15, tankR * 2 - 0.15 },
+		size = { fluidTop - tankBottom - 0.05, tankR * 2 - 0.08, tankR * 2 - 0.08 },
 		color = Liquids.get(Liquids.WATER).color,
 		material = "SmoothPlastic",
-		transparency = 0.2,
+		transparency = 0,
 		shape = "Cylinder",
 		rot = Kit.R.cylUp,
 		canCollide = false,
@@ -1110,8 +1054,8 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 		pos = { tx, tankTop, tz },
 		size = { tankR * 2, tankR * 2, tankR * 2 },
 		color = TANK_GLASS,
-		material = "Glass",
-		transparency = 0.65,
+		material = "SmoothPlastic",
+		transparency = 0.88,
 		shape = "Ball",
 		canCollide = false,
 	})
@@ -1217,22 +1161,6 @@ local function buildHoseRig(parent: Instance, origin: CFrame, cx: number, cz: nu
 	flywheel.Parent = parent
 	Kit.motion(flywheel, { kind = "spin", axis = "Z", rate = 4 })
 
-	-- The trefoil, on a warning placard on the tank's entrance face above the motor:
-	-- yellow, black-bordered, the real sign. A flat placard on a standoff rather than
-	-- paint, because the mark is flat and the tank is not.
-	local PLACARD = 0.9
-	local plateY = T + 2.5
-	build(parent, origin, { name = "PumpPlacardMount", pos = { tx - tankR + 0.1, plateY, tz }, size = { 0.3, 0.45, 0.45 }, color = MOTOR_GREY, material = "Metal", canCollide = false })
-	local placard = build(parent, origin, {
-		name = "PumpPlacard",
-		pos = { tx - tankR - 0.06, plateY, tz },
-		size = { PLACARD, PLACARD, 0.08 },
-		color = C.hazard,
-		material = "SmoothPlastic",
-		rot = Kit.ang(0, 90, 0),
-		canCollide = false,
-	})
-	paintTrefoil(placard, Enum.NormalId.Front, PLACARD, C.hazardBlack)
 
 	-- THE DRUM IS THE ONLY THING THAT SAYS THE HOSE IS LONG. The Beam below draws exactly
 	-- one span -- reel to nozzle -- and a hose that is only ever a few studs long is a
