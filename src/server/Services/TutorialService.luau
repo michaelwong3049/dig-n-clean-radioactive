@@ -108,7 +108,13 @@ end
 
 local function stepPlayer(player: Player)
 	local data = DataService.data(player)
-	if data == nil or data.onboarding ~= "active" then
+	if data == nil then
+		return
+	end
+	-- WarpController keeps HOME / SHOPS off screen while this is true (WarpService
+	-- refuses them too). Read off the save every tick so skip / finish flip it.
+	player:SetAttribute("TutorialActive", data.onboarding == "active")
+	if data.onboarding ~= "active" then
 		return
 	end
 
