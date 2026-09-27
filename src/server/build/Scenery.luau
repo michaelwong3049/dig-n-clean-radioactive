@@ -107,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 40
+local BUILDER_VERSION = 41
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -307,6 +307,10 @@ local WALL_TILE = 4
 -- wall top so there is no z-fighting seam.
 local WALL_CAP_THICKNESS = 2
 local WALL_ROWS = math.ceil(WALL_HEIGHT / WALL_TILE)
+-- Rows of wall sunk BELOW the surface, so the wall's foot reaches the underside of the
+-- ground slabs (stage plates bottom out 16 studs down) and seen from outside the map the
+-- wall hides the slab edge instead of the ground overhanging a floating wall.
+local WALL_FOOT_ROWS = 4
 -- The camp / Stage 1 wall: ONE terracotta two-tone, the pair it has always worn -- the
 -- two sit ~8% apart per channel, close enough that the checker reads as one brown
 -- material with a faint grid (the original rust pair, B5573A/9C4A2F, read as too bold
@@ -3685,7 +3689,7 @@ local function buildWall(parent: Instance, name: string, minX: number, maxX: num
 			continue
 		end
 
-		for iy = 0, rows - 1 do
+		for iy = -WALL_FOOT_ROWS, rows - 1 do
 			local y0 = baseY + iy * WALL_TILE
 			local y1 = math.min(y0 + WALL_TILE, baseY + WALL_HEIGHT)
 			local h = y1 - y0
@@ -3978,7 +3982,7 @@ local function buildShoulderWall(parent: Instance, name: string, atX: number, mi
 			continue
 		end
 
-		for iy = 0, rows - 1 do
+		for iy = -WALL_FOOT_ROWS, rows - 1 do
 			local y0 = baseY + iy * WALL_TILE
 			local y1 = math.min(y0 + WALL_TILE, baseY + height)
 			local h = y1 - y0
@@ -4068,7 +4072,7 @@ local function buildEndWall(folder: Instance, id: number, atX: number, minZ: num
 	for iz = 0, cols - 1 do
 		local za = z0 + iz * WALL_TILE
 		local zb = za + WALL_TILE
-		for iy = 0, WALL_ROWS - 1 do
+		for iy = -WALL_FOOT_ROWS, WALL_ROWS - 1 do
 			local y0 = Stages.SURFACE_Y + iy * WALL_TILE
 			local darkHex, lightHex, grassy = wallPair(id, (za + zb) / 2, iy)
 			local thick, xOff = overhangOf(grassy, FACE_SIGN.LeftSurface)
@@ -4220,7 +4224,7 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 			table.insert(arcSpots, Vector2.new(px, pz))
 		end
 
-		for iy = 0, rows - 1 do
+		for iy = -WALL_FOOT_ROWS, rows - 1 do
 			local y0 = baseY + iy * WALL_TILE
 			local y1 = math.min(y0 + WALL_TILE, baseY + height)
 			local h = y1 - y0

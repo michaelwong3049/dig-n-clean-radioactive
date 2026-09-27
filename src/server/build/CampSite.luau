@@ -81,7 +81,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 13
+local BUILDER_VERSION = 14
 
 local C = Kit.C
 local build = Kit.build
@@ -90,6 +90,10 @@ local build = Kit.build
 
 local TILE = Hub.TILE_SIZE
 local FLOOR_Y = Stages.SURFACE_Y -- the lawn; flush with the stage it opens off
+-- Rows of wall sunk BELOW the surface, so the wall's foot reaches the underside of the
+-- ground slabs (stage plates bottom out 16 studs down) and seen from outside the map the
+-- wall hides the slab edge instead of the ground overhanging a floating wall.
+local WALL_FOOT_ROWS = 4
 local PLAZA_Y = FLOOR_Y + Hub.PLAZA_LIFT -- the octagon, its paths and the shop square
 
 --- The structural body under the tiles, laid as thin bands clipped to the disc (a
@@ -434,7 +438,7 @@ local function wallColumn(
 )
 	local rows = math.ceil(height / WALL_TILE)
 	local lipRows = lipRowsOf(col, salt)
-	for row = 0, rows - 1 do
+	for row = -WALL_FOOT_ROWS, rows - 1 do
 		local y0 = FLOOR_Y + row * WALL_TILE
 		local y1 = math.min(y0 + WALL_TILE, FLOOR_Y + height)
 		local grassy = row >= rows - lipRows
