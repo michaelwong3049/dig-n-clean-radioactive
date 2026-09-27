@@ -424,6 +424,156 @@ local function creek(parent: Instance, samples: { { at: Vector3, dir: Vector3 } 
 	return folder
 end
 
+
+--- Moving water on the wet stretch: an invisible emitter pad every few samples with
+--- sun glints winking on the surface, pale foam flecks drifting downstream, and soft
+--- rings spreading flat on the water. A splash of droplets at the spring. All matte
+--- whites and blues, nothing Neon, nothing lit.
+local function waterFx(parent: Instance, samples: { { at: Vector3, dir: Vector3 } }, groundY: number)
+	local folder = Instance.new("Folder")
+	folder.Name = "WaterFx"
+	local n = #samples
+	local function pad(at: Vector3, dir: Vector3, w: number, len: number): Part
+		local p = Instance.new("Part")
+		p.Name = "WaterFxPad"
+		p.Anchored = true
+		p.Transparency = 1
+		p.Size = Vector3.new(w, 0.05, len)
+		p.CFrame = CFrame.lookAt(Vector3.new(at.X, groundY + 0.09, at.Z), Vector3.new(at.X, groundY + 0.09, at.Z) + dir)
+		p.Parent = folder
+		return p
+	end
+	local wetEnd = math.floor(n * CREEK_WET)
+	for i = 4, wetEnd, 6 do
+		local s = samples[i]
+		local w = creekWidth((i - 1) / math.max(1, n - 1)) * 0.8
+		local p = pad(s.at, s.dir, w, 6)
+
+		local glint = Instance.new("ParticleEmitter")
+		glint.Name = "Glint"
+		glint.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		glint.Color = ColorSequence.new(Color3.fromRGB(235, 250, 255))
+		glint.LightEmission = 0.4
+		glint.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 0.55), NumberSequenceKeypoint.new(1, 0) })
+		glint.Transparency = NumberSequence.new(0.15)
+		glint.Lifetime = NumberRange.new(0.4, 0.8)
+		glint.Rate = 3
+		glint.Speed = NumberRange.new(0)
+		glint.Rotation = NumberRange.new(0, 360)
+		glint.EmissionDirection = Enum.NormalId.Top
+		glint.Parent = p
+
+		local foam = Instance.new("ParticleEmitter")
+		foam.Name = "Foam"
+		foam.Color = ColorSequence.new(Color3.fromRGB(225, 240, 242))
+		foam.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.12), NumberSequenceKeypoint.new(1, 0.28) })
+		foam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2, 0.35), NumberSequenceKeypoint.new(1, 1) })
+		foam.Lifetime = NumberRange.new(2.5, 4)
+		foam.Rate = 4
+		foam.Speed = NumberRange.new(1.6, 2.4)
+		foam.EmissionDirection = Enum.NormalId.Back -- downstream, along the pad's look
+		foam.SpreadAngle = Vector2.new(0, 0)
+		foam.Orientation = Enum.ParticleOrientation.VelocityPerpendicular
+		foam.Parent = p
+
+		local ring = Instance.new("ParticleEmitter")
+		ring.Name = "Ripple"
+		ring.Color = ColorSequence.new(Color3.fromRGB(170, 215, 228))
+		ring.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1.6) })
+		ring.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 1) })
+		ring.Lifetime = NumberRange.new(1.4, 2)
+		ring.Rate = 0.8
+		ring.Speed = NumberRange.new(0.01)
+		ring.EmissionDirection = Enum.NormalId.Top
+		ring.Orientation = Enum.ParticleOrientation.VelocityPerpendicular
+		ring.Parent = p
+	end
+
+	-- The spring: droplets kicking up where the water comes out from under the wall.
+	local head = samples[math.min(n, 3)]
+	local sp = pad(head.at, head.dir, 3, 3)
+	local drop = Instance.new("ParticleEmitter")
+	drop.Name = "Splash"
+	drop.Color = ColorSequence.new(Color3.fromRGB(200, 232, 240))
+	drop.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.18), NumberSequenceKeypoint.new(1, 0.05) })
+	drop.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	drop.Lifetime = NumberRange.new(0.5, 0.8)
+	drop.Rate = 14
+	drop.Speed = NumberRange.new(3, 5)
+	drop.SpreadAngle = Vector2.new(35, 35)
+	drop.Acceleration = Vector3.new(0, -workspace.Gravity * 0.1, 0)
+	drop.EmissionDirection = Enum.NormalId.Top
+	drop.Parent = sp
+
+	folder.Parent = parent
+end
+
+--- The field's bushes that the creek's route runs over: clump build/Scenery's `Bush`
+--- blocks into bushes (blocks within a few studs of each other), and slide any bush
+--- sitting on the creek out sideways (toward the lane) from the nearest sample until it
+--- clears the bank. Whole bushes move as one, so nothing comes apart.
+local function clearBushesOffCreek(parent: Instance, samples: { { at: Vector3, dir: Vector3 } })
+	local blocks = {}
+	for _, p in parent:GetChildren() do
+		if p.Name == "Bush" and p:IsA("BasePart") then
+			table.insert(blocks, p)
+		end
+	end
+	local group = {}
+	for i = 1, #blocks do
+		group[i] = i
+	end
+	local function root(i: number): number
+		while group[i] ~= i do
+			i = group[i]
+		end
+		return i
+	end
+	for i = 1, #blocks do
+		for j = i + 1, #blocks do
+			local d = blocks[i].Position - blocks[j].Position
+			if Vector2.new(d.X, d.Z).Magnitude < 3.2 then
+				group[root(i)] = root(j)
+			end
+		end
+	end
+	local bushes: { [number]: { BasePart } } = {}
+	for i, b in blocks do
+		local r = root(i)
+		bushes[r] = bushes[r] or {}
+		table.insert(bushes[r], b)
+	end
+	local n = #samples
+	for _, parts in bushes do
+		local c = Vector3.zero
+		for _, b in parts do
+			c += b.Position
+		end
+		c /= #parts
+		for _ = 1, 20 do
+			local best, bestD, bestReach = nil, math.huge, 0
+			for i, s in samples do
+				local reach = creekWidth((i - 1) / math.max(1, n - 1)) / 2 + 1.3 + 3.4
+				local d = Vector2.new(c.X - s.at.X, c.Z - s.at.Z).Magnitude - reach
+				if d < bestD then
+					best, bestD, bestReach = s, d, reach
+				end
+			end
+			if best == nil or bestD >= 0 then
+				break
+			end
+			local across = Vector3.new(-best.dir.Z, 0, best.dir.X)
+			-- Always toward the lane: the creek hugs the north wall, so the other way is a wall.
+			local side = if across.Z * c.Z <= 0 then 1 else -1
+			local shift = across * side * (-bestD + 0.5)
+			for _, b in parts do
+				b.CFrame += shift
+			end
+			c += shift
+		end
+	end
+end
+
 -- ── The half-dead tree ─────────────────────────────────────────────────────────
 
 --- A canopy clump: chunky studded blocks round a point, like build/Scenery's `bush`
@@ -785,6 +935,11 @@ function WiltingMeadow.build(parent: Instance, stageId: number, groundY: number)
 	end
 	local samples = sampleCreek(best :: { Vector3 })
 	creek(folder, samples, groundY, rng)
+	waterFx(folder, samples, groundY)
+	-- A bush the route still runs over is moved off it, and the taken list re-read so
+	-- nothing else lands where it went.
+	clearBushesOffCreek(parent, samples)
+	taken = existing(parent)
 	for i, s in samples do
 		table.insert(taken, { s.at.X, s.at.Z, creekWidth((i - 1) / math.max(1, #samples - 1)) / 2 + 1.5 })
 	end
