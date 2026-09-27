@@ -31,7 +31,7 @@ local ModelGallery = {}
 
 local NAME = "ModelYard"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 12
+local BUILDER_VERSION = 13
 
 -- feat/wire-stage2-nuke-imports: the yard is organised into ONE ROW PER STAGE (the
 -- item's lowest stocked stage, for a { 3, 4 }-style item shared across two), each row
@@ -156,11 +156,11 @@ local function buildLand(gallery: Model, origin: CFrame)
 		name = "YardFloor",
 		pos = { 0, LAND_THICKNESS / 2, 0 },
 		size = { LAND_WIDTH, LAND_THICKNESS, LAND_DEPTH },
-		color = Kit.C.baseTileDark,
-		material = "Concrete",
+		color = "FFFFFF",
+		material = "SmoothPlastic",
 	})
 
-	-- Hazard-yellow trim distinguishes the public showcase from a player plot while
+	-- Light-grey trim outlines the white yard; it distinguishes the public showcase from a player plot while
 	-- remaining low enough to step over from any side.
 	for _, edge in {
 		{ pos = { 0, 0.18, -LAND_DEPTH / 2 + 0.5 }, size = { LAND_WIDTH, 0.24, 1 } },
@@ -172,7 +172,7 @@ local function buildLand(gallery: Model, origin: CFrame)
 			name = "YardTrim",
 			pos = edge.pos,
 			size = edge.size,
-			color = Kit.C.hazard,
+			color = "D9D9D9",
 			material = "SmoothPlastic",
 			canCollide = false,
 		})
@@ -229,7 +229,7 @@ local function buildStand(
 		name = `Stand_{item.id}`,
 		pos = { x, PEDESTAL_TOP / 2, z },
 		size = { 4.5, PEDESTAL_TOP, 4.5 },
-		color = Kit.C.plazaWarm,
+		color = "FFFFFF",
 		material = "Marble",
 		attributes = {
 			ItemId = item.id,
@@ -248,7 +248,7 @@ local function buildStand(
 		120,
 		15,
 		string.upper(item.name),
-		`{item.id} / {item.model or "unmodelled"}`,
+		"",
 		Kit.C.hazard,
 		80,
 		14,
@@ -306,7 +306,7 @@ local function buildHeader(gallery: Model, origin: CFrame, count: number)
 		name = "GallerySign",
 		pos = { 0, 4.5, LAND_DEPTH / 2 - 1.5 },
 		size = { 30, 5, 0.6 },
-		color = Kit.C.hazard,
+		color = "FFFFFF",
 		material = "Metal",
 		canCollide = false,
 	})
