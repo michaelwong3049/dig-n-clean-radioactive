@@ -115,12 +115,12 @@ Gear.Detector = {
 	{ name = "Rust Bucket", price = 0, radius = 11, luck = 1.00, depth = 5, clarity = 0, blurb = "Found in a ditch. Mostly works." },
 	{ name = "Bent Coil", price = 15, radius = 13, luck = 1.06, depth = 6, clarity = 0, blurb = "A coat hanger with ambition." },
 	{ name = "Scavenger MkI", price = 4000, radius = 16, luck = 1.12, depth = 9, clarity = 0, blurb = "Wider sweep. Still deaf to anything deep." },
-	{ name = "Surplus Geiger", price = 9500, radius = 19, luck = 1.25, depth = 12, clarity = 1, blurb = "Army surplus, and it still clicks true." },
-	{ name = "Pulse Array", price = 23500, radius = 22, luck = 1.40, depth = 16, clarity = 1, blurb = "Pulses instead of sweeps. Reaches past rubble." },
-	{ name = "Isotope Scanner", price = 55000, radius = 25, luck = 1.60, depth = 21, clarity = 2, blurb = "Sorts isotopes from scrap before you dig." },
-	{ name = "Resonance Mapper", price = 135000, radius = 28, luck = 1.85, depth = 27, clarity = 2, blurb = "Maps a whole plot in one slow pass." },
-	{ name = "Deep Core Array", price = 320000, radius = 31, luck = 2.15, depth = 34, clarity = 3, blurb = "Hears the core. Ignores everything above it." },
-	{ name = "The Oracle", price = 750000, radius = 34, luck = 2.50, depth = 44, clarity = 3, blurb = "Sees the bottom of the map and is bored by it." },
+	{ name = "Surplus Geiger", price = 12000, radius = 19, luck = 1.25, depth = 12, clarity = 1, blurb = "Army surplus, and it still clicks true." },
+	{ name = "Pulse Array", price = 36000, radius = 22, luck = 1.40, depth = 16, clarity = 1, blurb = "Pulses instead of sweeps. Reaches past rubble." },
+	{ name = "Isotope Scanner", price = 108000, radius = 25, luck = 1.60, depth = 21, clarity = 2, blurb = "Sorts isotopes from scrap before you dig." },
+	{ name = "Resonance Mapper", price = 324000, radius = 28, luck = 1.85, depth = 27, clarity = 2, blurb = "Maps a whole plot in one slow pass." },
+	{ name = "Deep Core Array", price = 972000, radius = 31, luck = 2.15, depth = 34, clarity = 3, blurb = "Hears the core. Ignores everything above it." },
+	{ name = "The Oracle", price = 2916000, radius = 34, luck = 2.50, depth = 44, clarity = 3, blurb = "Sees the bottom of the map and is bored by it." },
 	-- TOXIC TWILIGHT'S SIX. Sold at the Detector stall in that camp and nowhere else
 	-- (`camp` below, and Gear.campOf), so a player has to reach the end of Stage 6 to
 	-- spend on them. The order is the order they were drawn in, which is the order they
@@ -131,16 +131,16 @@ Gear.Detector = {
 	-- over the Rust Bucket's, <= 4). The Oracle already sits at 3.1x; +1 a rung to 40 is
 	-- 3.6x, which is the most this ladder can take before that guard trips. Spec still
 	-- needs every rung to reveal further than the last, so it is a whole stud, no more.
-	-- Prices keep the ladder's x2.4 stride. Luck steps 0.30 a rung, a touch under the
+	-- Prices keep the ladder's x3 stride. Luck steps 0.30 a rung, a touch under the
 	-- Oracle's last 0.35. It buys less than it looks like: Items.luckBias caps a weight at
 	-- DIG_LUCK_BIAS_CAP (20), and luck^3 (Legendary) reaches that at 2.71 and luck^2 (Epic)
 	-- at 4.47, so from the second rung up the extra luck is mostly Rare and Epic weight.
-	{ name = "Vein Whisperer", price = 1800000, radius = 35, luck = 2.80, depth = 48, clarity = 3, blurb = "Hums along a vein and tells you where it thickens.", camp = "twilight" },
-	{ name = "Aurora Rake", price = 4300000, radius = 36, luck = 3.10, depth = 53, clarity = 3, blurb = "Combs the ground with light. The rare things snag first.", camp = "twilight" },
-	{ name = "Strata Lance", price = 10000000, radius = 37, luck = 3.40, depth = 58, clarity = 3, blurb = "One beam through every layer at once.", camp = "twilight" },
-	{ name = "Leyline Tap", price = 24000000, radius = 38, luck = 3.70, depth = 64, clarity = 3, blurb = "Drinks from the fault lines. Warm to hold.", camp = "twilight" },
-	{ name = "Null Compass", price = 58000000, radius = 39, luck = 4.00, depth = 70, clarity = 3, blurb = "Points at whatever the ground is hiding from you.", camp = "twilight" },
-	{ name = "Prime Meridian", price = 140000000, radius = 40, luck = 4.30, depth = 76, clarity = 3, blurb = "Every direction agrees on where the good stuff is.", camp = "twilight" },
+	{ name = "Vein Whisperer", price = 8748000, radius = 35, luck = 2.80, depth = 48, clarity = 3, blurb = "Hums along a vein and tells you where it thickens.", camp = "twilight" },
+	{ name = "Aurora Rake", price = 26244000, radius = 36, luck = 3.10, depth = 53, clarity = 3, blurb = "Combs the ground with light. The rare things snag first.", camp = "twilight" },
+	{ name = "Strata Lance", price = 78732000, radius = 37, luck = 3.40, depth = 58, clarity = 3, blurb = "One beam through every layer at once.", camp = "twilight" },
+	{ name = "Leyline Tap", price = 236196000, radius = 38, luck = 3.70, depth = 64, clarity = 3, blurb = "Drinks from the fault lines. Warm to hold.", camp = "twilight" },
+	{ name = "Null Compass", price = 708588000, radius = 39, luck = 4.00, depth = 70, clarity = 3, blurb = "Points at whatever the ground is hiding from you.", camp = "twilight" },
+	{ name = "Prime Meridian", price = 2125764000, radius = 40, luck = 4.30, depth = 76, clarity = 3, blurb = "Every direction agrees on where the good stuff is.", camp = "twilight" },
 }
 
 -- The extraction track. You do not dig — you drop a magnet and haul the thing up
