@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 70
+local BUILDER_VERSION = 71
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -2816,8 +2816,9 @@ end
 --- fence reads as the same toy-brick plastic as the rest of the base.
 local RAIL_H = 3.4
 local RAIL_POST_SPACING = 8
-local RAIL_POST_W = 1.2
-local RAIL_BAR_T = 0.8
+local RAIL_POST_W = 0.72 -- 1.2, thinned 0.6x on request
+local RAIL_BAR_T = 0.48 -- 0.8, thinned 0.6x
+local STAIR_RAIL_T = 0.4 -- a flight's handrails and their posts: half the old 0.8
 local function buildSideRailings(parent: Instance, origin: CFrame)
 	local pad = Plots.PAD
 	local folder = Instance.new("Folder")
@@ -3335,12 +3336,12 @@ local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
 	local length = math.sqrt(run * run + climb * climb)
 	local pitch = CFrame.Angles(-math.atan2(climb, run), 0, 0)
 	for _, edge in { -1, 1 } do
-		local hx = x + edge * (FLOOR.stairW / 2 - RAIL_BAR_T / 2)
+		local hx = x + edge * (FLOOR.stairW / 2 - STAIR_RAIL_T / 2)
 		for _, lift in FLOOR.handrails do
 			build(m, origin, {
 				name = "Handrail",
 				pos = { hx, baseY + climb / 2 + lift, FLOOR.stairZ + run / 2 },
-				size = { RAIL_BAR_T, RAIL_BAR_T, length },
+				size = { STAIR_RAIL_T, STAIR_RAIL_T, length },
 				color = C.railGrey,
 				material = "Plastic",
 				studs = true,
@@ -3353,7 +3354,7 @@ local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
 			build(m, origin, {
 				name = "HandrailPost",
 				pos = { hx, baseY + i * FLOOR.rise + FLOOR.handPostH / 2, FLOOR.stairZ + (i - 0.5) * FLOOR.tread },
-				size = { RAIL_BAR_T, FLOOR.handPostH, RAIL_BAR_T },
+				size = { STAIR_RAIL_T, FLOOR.handPostH, STAIR_RAIL_T },
 				color = C.railPost,
 				material = "Plastic",
 				studs = true,
