@@ -273,7 +273,7 @@ Items.DEFS = {
 		id = "film_canister",
 		name = "Exposed Nuke",
 		flavor = "Thirty-six photos in here. Nobody's developed them.",
-		rarity = "Rare",
+		rarity = "Epic",
 		odds = 500, -- 1 in N per dig in a stocking stage
 		weight = 6,
 		stages = { 1 },
@@ -282,8 +282,8 @@ Items.DEFS = {
 		baseValue = 3200,
 		model = "ImportedNuke",
 	},
-	-- The first of three rockets, one per Stage 1-3, each a rarity up from the last
-	-- (Rare here, Epic Seeker in Stage 2, Legendary Two-Stage in Stage 3).
+	-- The first of three rockets, one per Stage 1-3
+	-- (Rare here, Rare Seeker in Stage 2, Legendary Two-Stage in Stage 3).
 	{
 		id = "model_rocket",
 		name = "Rocket Nuke",
@@ -304,7 +304,7 @@ Items.DEFS = {
 		id = "sample_case",
 		name = "Strapped Nuke",
 		flavor = "Six glass vials strapped on. One glows on its own.",
-		rarity = "Epic",
+		rarity = "Rare",
 		odds = 300, -- 1 in N per dig in a stocking stage
 		weight = 50,
 		stages = { 1 },
@@ -480,7 +480,7 @@ Items.DEFS = {
 		id = "ignition_coil",
 		name = "Ignition Nuke",
 		flavor = "Pulled from a car pointed away from town, tank full, doors open.",
-		rarity = "Rare",
+		rarity = "Epic",
 		odds = 450, -- 1 in N per dig in a stocking stage
 		weight = 30,
 		stages = { 2 },
@@ -506,7 +506,7 @@ Items.DEFS = {
 		id = "seeker_missile",
 		name = "Seeker Nuke",
 		flavor = "The seeker head still twitches toward anything warm.",
-		rarity = "Epic",
+		rarity = "Rare",
 		odds = 160, -- 1 in N per dig in a stocking stage
 		weight = 45,
 		stages = { 2 },
