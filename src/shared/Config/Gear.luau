@@ -298,7 +298,7 @@ Gear.Cleaner = {
 -- informational Z2-Z6 cells below shift with this (Z2 entrance 17s -> ~28s) but no
 -- Spec check pins those.
 Gear.Aura = {
-	{ name = "Faint Glow", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, haulPenalty = 1.20, blurb = "A flicker of static. Counts as a glow, not a shield." },
+	{ name = "None", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, haulPenalty = 1.20, blurb = "No aura yet. Buy one to shield yourself from the rads." },
 	{ name = "Static Veil", price = 15000, reduction = 0.9750, tolerance = 4.4, capacity = 7, haulPenalty = 0.95, blurb = "Crackles more than it shields. Shields a little." },
 	{ name = "Lead Halo", price = 45000, reduction = 0.9920, tolerance = 13.4, capacity = 10, haulPenalty = 0.72, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
 	{ name = "Ion Shroud", price = 135000, reduction = 0.9970, tolerance = 38.4, capacity = 14, haulPenalty = 0.52, blurb = "Wound tight around you. The first aura that trusts you." },

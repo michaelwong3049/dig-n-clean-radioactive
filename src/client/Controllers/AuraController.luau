@@ -586,7 +586,11 @@ local function scan()
 			end
 			local scale = display:GetAttribute("AuraScale")
 			local lift = display:GetAttribute("AuraLift")
-			want(display, tier, if type(scale) == "number" then scale else 1, if type(lift) == "number" then lift else 0, nil, seen)
+			-- Rung 1 is "None", the free starter: its mannequin stands bare, like its wearers
+			-- (AuraService never stamps it on a character).
+			if tier > 1 then
+				want(display, tier, if type(scale) == "number" then scale else 1, if type(lift) == "number" then lift else 0, nil, seen)
+			end
 		end
 	end
 
