@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 77
+local BUILDER_VERSION = 78
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -3728,6 +3728,50 @@ function Plots.setFloors(plot: Instance?, owned: number?, claimed: boolean)
 	model:SetAttribute("Floors", count)
 end
 
+--- THE FRONT FENCE — the side railings' fence carried across the pad's front edge (on
+--- request), in two runs from each front corner in to the entrance arch, so the base
+--- is fenced all round with the arch as its one way in. Same line as the side
+--- railings' first post (`z`), so the corners meet flush; each run skips its corner
+--- post (buildSideRailings already stands one there) and its arch end, where the
+--- rails run into the arch post, which does that post's job.
+local function buildFrontFence(parent: Instance, origin: CFrame)
+	local pad = Plots.PAD
+	local folder = Instance.new("Folder")
+	folder.Name = "FrontFence"
+
+	local railX = pad.width / 2 - RAIL_POST_W / 2
+	local z = pad.minZ + 0.5 + RAIL_POST_W / 2
+	local postH = RAIL_H + RAIL_BAR_T / 2 + 0.4
+	for _, side in { -1, 1 } do
+		local x0, x1 = side * ARCH.x, side * railX
+		local span = math.abs(x1 - x0)
+		for _, railY in { RAIL_H, RAIL_H * 0.5 } do
+			build(folder, origin, {
+				name = "Rail",
+				pos = { (x0 + x1) / 2, pad.topY + railY, z },
+				size = { span, RAIL_BAR_T, RAIL_BAR_T },
+				color = C.railGrey,
+				material = "Plastic",
+				studs = true,
+				canCollide = false,
+			})
+		end
+		local posts = math.max(2, math.floor(span / RAIL_POST_SPACING) + 1)
+		for i = 1, posts - 2 do
+			build(folder, origin, {
+				name = "RailPost",
+				pos = { x0 + (x1 - x0) * (i / (posts - 1)), pad.topY + postH / 2, z },
+				size = { RAIL_POST_W, postH, RAIL_POST_W },
+				color = C.railPost,
+				material = "Plastic",
+				studs = true,
+			})
+		end
+	end
+
+	folder.Parent = parent
+end
+
 local function buildPlot(parent: Instance, index: number)
 	local m = Instance.new("Model")
 	m.Name = `Plot{index}`
@@ -3813,6 +3857,8 @@ local function buildPlot(parent: Instance, index: number)
 	buildBackFence(m, origin)
 	capFencePosts(m:FindFirstChild("SideRailings"), accent)
 	capFencePosts(m:FindFirstChild("BackFence"), accent)
+	buildFrontFence(m, origin)
+	capFencePosts(m:FindFirstChild("FrontFence"), accent)
 	buildNamePlate(m, origin, accent)
 
 	-- No claim board any more: exhibit income is auto-deposited into the owner's
