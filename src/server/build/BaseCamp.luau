@@ -68,7 +68,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 19
+local BUILDER_VERSION = 20
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -494,7 +494,7 @@ end
 --- (2026-09-27, on request). The shop rows face each other across the aisle it stands
 --- in, so it is the thing every storefront looks at. A square kiosk: a hazard-taped
 --- counter on each face, a steel column and drums in the middle, a flat striped awning
---- with a valance all round, a slant roof with a square top, and the floating TRADER pill over it.
+--- with a valance all round, a solid slant roof, and the floating TRADER pill over it.
 ---
 --- ONE STATION, NOT FOUR. World.verify() counts exactly one trader per camp, and the
 --- sell panel opens on StationService's radius, so the station is one invisible anchor
@@ -641,7 +641,6 @@ function BaseCamp.buildHubTrader(parent: Instance, kiosk: CFrame): Model
 			size = { stripeW + 0.02, 0.5, ROOF_W },
 			color = if i % 2 == 1 then C.hazard else C.hazardBlack,
 			material = "SmoothPlastic",
-			canCollide = false,
 		})
 	end
 	for side = 0, 3 do
@@ -658,9 +657,9 @@ function BaseCamp.buildHubTrader(parent: Instance, kiosk: CFrame): Model
 		end
 	end
 
-	-- The slant roof and square top the plaza shops wear (Shops.buildSlantTop), in hazard
-	-- yellow on black, with the floating TRADER pill sign over it.
-	local top = Shops.buildSlantTop(trader, kiosk, ROOF_W, ROOF_W, roofY + 0.25, 1.5, 5, C.hazardBlack, 8, 8, 0, C.hazard)
+	-- The solid slant roof the plaza shops wear (Shops.buildSlantTop), in black,
+	-- with the floating TRADER pill sign over it.
+	local top = Shops.buildSlantTop(trader, kiosk, ROOF_W, ROOF_W, roofY + 0.25, 1.5, 5, C.hazardBlack) + 3
 	local signAnchor = build(trader, kiosk, {
 		name = "SignAnchor",
 		pos = { 0, top, 0 },
