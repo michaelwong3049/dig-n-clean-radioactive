@@ -135,11 +135,12 @@
 	stops two of them landing on top of each other.
 
 	TWO ROWS NOW, NOT A GRID WITH SHARED COLUMNS, AND HAND-PLACED RATHER THAN
-	DERIVED. North row near z=30: Detector at x=31.87 with Outfitter parked right
-	next to it at x=-17.03, the two reading as one pair. South row: Cleaner at
-	(37.5, -37.10), Magnet at (-22, -34.43) — close to level with Cleaner but not
-	exactly, since these are drag-and-captured positions, not a formula — with the
-	Trader kiosk (BaseCamp.luau) sitting in the gap between them. `at` was captured
+	DERIVED. North row near z=30: Detector at x=31.87 with Magnet at x=-22, the two
+	reading as one pair. South row: Cleaner at (37.5, -37.10), the Outfitter at
+	(-13.5, -34.43) — close to level with Cleaner but not exactly, since these are
+	drag-and-captured positions, not a formula — with the Trader kiosk (BaseCamp.luau)
+	sitting in the gap between them. Magnet and the Outfitter swapped rows on
+	2026-09-27; Magnet kept its x, the Outfitter moved up against the Trader. `at` was captured
 	directly off the Studio Explorer selection each was dragged to (see the note
 	on selecting a nested model by name, not by clicking the plaza in the
 	viewport), then hand-transcribed here so a rebuild reproduces it exactly.
@@ -190,7 +191,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 48
+local BUILDER_VERSION = 49
 
 local C = Kit.C
 local build = Kit.build
@@ -252,7 +253,7 @@ local PLAZA_MID = { x = 17.5, z = 0 }
 --- still need a real `pitch` to compose with their own art's `HoldCFrame`.
 local STALLS = {
 	{ track = "Detector", at = { 31.87, 30 }, faceYaw = 180, color = C.shopDetector, label = "Detector Shop", present = { yaw = 205, pitch = 0 } },
-	{ track = "Magnet", at = { -22, -34.43 }, faceYaw = 0, color = C.shopMagnet, label = "Magnet Shop" },
+	{ track = "Magnet", at = { -22, 30 }, faceYaw = 180, color = C.shopMagnet, label = "Magnet Shop" },
 	{ track = "Cleaner", at = { 37.5, -37.10 }, faceYaw = 0, color = C.shopCleaner, label = "Hose Shop", present = { yaw = 196, pitch = -12 } },
 }
 
@@ -470,16 +471,13 @@ end
 --- and width are derived from this list's length, so adding or retiring a track here
 --- resizes the building rather than leaving a gap where a counter used to be.
 ---
---- `at` PUTS THIS RIGHT NEXT TO DETECTORSHOP, in the north row (z=30) —
---- hand-placed alongside it, same as STALLS now (see that table's header).
---- `faceYaw = 180` is an explicit override, same reason DetectorShop and
---- MagnetShop need one: PLAZA_MID does not sit due east of this spot, so the
---- default "aim at PLAZA_MID" would turn this stall's front to face south-east
---- instead of square south at its row-mate, which is what actually reads as
---- "next to it" rather than merely nearby.
+--- `at` PUTS THIS IN THE SOUTH ROW (z=-34.43), just west of the Trader kiosk, with the
+--- same ~3-stud gap to it the Magnet stall had. Magnet and the Outfitter swapped rows
+--- on 2026-09-27 at the user's ask: Magnet now faces the Detector across the north row.
+--- `faceYaw = 0` faces it square north like its row-mates, not diagonally at PLAZA_MID.
 local OUTFITTER = {
-	at = { -17.03, 30 },
-	faceYaw = 180,
+	at = { -13.5, -34.43 },
+	faceYaw = 0,
 	pitch = 13,
 	counters = {
 		{ track = "Aura", label = "Aura Shop" },
@@ -1003,6 +1001,141 @@ local function buildStoreBillboard(adornee: BasePart, label: string, accent: str
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.Parent = pill
 	Kit.textOutline(title, 2)
+end
+
+-- ── The shopfront ────────────────────────────────────────────────────────────
+
+--- THE TALL SHOPFRONT, a false front standing on the roof's front edge: a parapet
+--- band in the stall's accent across the whole width, and a raised sign board centred
+--- on it carrying the icon disc and the stall's name. The user asked for it on
+--- 2026-09-27 because the low flat roofs read as tables next to the 3-floor bases, and
+--- nothing named a shop from across the plaza. It replaces the floating StoreSign pill
+--- on the stalls and the Outfitter; the Trader and the empty camp shells keep theirs.
+---
+--- The board is narrower than the stall so the roof props, which stand over the stand
+--- at the stall's left end (ShopThemes), stay clear of it. The Outfitter's atom sits at
+--- the centre, so ShopThemes lifts it on a mast above the board (its ATOM_Y has to
+--- clear the board's top, ~16 studs up; move both together).
+local FRONT_PARAPET_HEIGHT = 1.6
+local FRONT_BOARD_HEIGHT = 4.4
+local FRONT_BOARD_MIN, FRONT_BOARD_MAX = 14, 20
+local FRONT_PIXELS_PER_STUD = 40
+
+local function frontGeometry(): (number, number)
+	-- The fascia's front face and the top of its upper frame rail (see buildHazardFascia).
+	local half = ROOF_DEPTH / 2
+	local frontY = ROOF_CENTER_Y - math.sin(math.rad(ROOF_TILT)) * half
+	return ROOF_CENTER_Z + half + 0.2, frontY - 0.55 + FASCIA_HEIGHT / 2 + 0.25
+end
+
+local function buildShopfront(parent: Instance, origin: CFrame, width: number, accent: string, label: string)
+	local z, baseY = frontGeometry()
+	local dark = Kit.blendHex(accent, "000000", ROOF_PLATE_SHADE)
+
+	-- The parapet: a studded accent band the full width of the roof, capped in steel.
+	build(parent, origin, {
+		name = "FrontParapet",
+		pos = { 0, baseY + FRONT_PARAPET_HEIGHT / 2, z },
+		size = { width + 0.9, FRONT_PARAPET_HEIGHT, 0.5 },
+		color = accent,
+		material = "Plastic",
+		studs = true,
+		canCollide = false,
+	})
+	local capY = baseY + FRONT_PARAPET_HEIGHT + 0.15
+	buildSteelStrip(parent, origin, "FrontCap", { 0, capY, z }, { width + 1.1, 0.3, 0.7 })
+	for i = 0, math.floor(width / FASCIA_RIVET_PITCH) do
+		buildRivet(parent, origin, -width / 2 + i * FASCIA_RIVET_PITCH, baseY + FRONT_PARAPET_HEIGHT / 2, z + 0.27, 0.26)
+	end
+
+	-- The sign board on the parapet, framed in steel, braced from behind by two legs
+	-- down to the roof's front beam so it does not read as cardboard from the back.
+	local boardWidth = math.clamp(width * 0.5, FRONT_BOARD_MIN, FRONT_BOARD_MAX)
+	local boardY = capY + 0.15 + FRONT_BOARD_HEIGHT / 2
+	local board = build(parent, origin, {
+		name = "FrontBoard",
+		pos = { 0, boardY, z },
+		size = { boardWidth, FRONT_BOARD_HEIGHT, 0.4 },
+		color = dark,
+		material = "Plastic",
+		canCollide = false,
+	})
+	buildSteelStrip(parent, origin, "FrontBoardFrame", { 0, boardY + FRONT_BOARD_HEIGHT / 2 + 0.2, z }, { boardWidth + 0.8, 0.4, 0.6 })
+	for _, side in { -1, 1 } do
+		buildSteelStrip(parent, origin, "FrontBoardFrame", { side * (boardWidth / 2 + 0.2), boardY, z }, { 0.4, FRONT_BOARD_HEIGHT, 0.6 })
+		buildRivet(parent, origin, side * (boardWidth / 2 + 0.2), boardY + FRONT_BOARD_HEIGHT / 2 + 0.2, z + 0.3, 0.34)
+		local legTop = boardY + FRONT_BOARD_HEIGHT / 2
+		local legBottom = baseY - 1.2
+		build(parent, origin, {
+			name = "FrontBoardLeg",
+			pos = { side * (boardWidth / 2 - 1.5), (legTop + legBottom) / 2, z - 0.5 },
+			size = { 0.5, legTop - legBottom, 0.5 },
+			color = ROOF_STEEL,
+			material = "Metal",
+			canCollide = false,
+		})
+	end
+
+	-- The face: the pill sign's dark fill and accent rim, at the board's own size.
+	-- NormalId.Back is local +Z, the customer side.
+	local accentColor = Color3.fromHex(accent)
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "FrontSign"
+	gui.Face = Enum.NormalId.Back
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = FRONT_PIXELS_PER_STUD
+	gui.LightInfluence = 0
+	gui.Parent = board
+
+	local face = Instance.new("Frame")
+	face.Name = "Face"
+	face.AnchorPoint = Vector2.new(0.5, 0.5)
+	face.Position = UDim2.fromScale(0.5, 0.5)
+	face.Size = UDim2.new(1, -16, 1, -16)
+	face.BackgroundColor3 = Color3.fromRGB(17, 26, 17)
+	face.BorderSizePixel = 0
+	face.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 18)
+	corner.Parent = face
+	local rim = Instance.new("UIStroke")
+	rim.Color = accentColor
+	rim.Thickness = 6
+	rim.Parent = face
+
+	-- The icon disc is drawn at the pill's 36px and scaled up to the board.
+	local faceHeight = FRONT_BOARD_HEIGHT * FRONT_PIXELS_PER_STUD - 16
+	local discSize = math.floor(faceHeight * 0.74)
+	local discInset = math.floor((faceHeight - discSize) / 2)
+	local holder = Instance.new("Frame")
+	holder.Name = "IconHolder"
+	holder.Position = UDim2.fromOffset(discInset + 6, discInset)
+	holder.Size = UDim2.fromOffset(36, 36)
+	holder.BackgroundTransparency = 1
+	holder.Parent = face
+	local scale = Instance.new("UIScale")
+	scale.Scale = discSize / 36
+	scale.Parent = holder
+	local disc = signShape(holder, 18, 18, 36, 36, SIGN_DISC_COLOR, 0, true)
+	disc.Name = "Icon"
+	local discRim = Instance.new("UIStroke")
+	discRim.Color = accentColor
+	discRim.Thickness = 2
+	discRim.Parent = disc
+	buildSignIcon(disc, label, accentColor, SIGN_DISC_COLOR)
+
+	local textLeft = discInset * 2 + discSize + 12
+	local title = Instance.new("TextLabel")
+	title.Name = "Title"
+	title.Position = UDim2.fromOffset(textLeft, 14)
+	title.Size = UDim2.new(1, -(textLeft + 20), 1, -28)
+	title.BackgroundTransparency = 1
+	title.Font = Kit.FONT
+	title.Text = label:upper()
+	title.TextScaled = true
+	title.TextColor3 = Color3.new(1, 1, 1)
+	title.Parent = face
+	Kit.textOutline(title, 4)
 end
 
 -- ── The counter ───────────────────────────────────────────────────────────────
@@ -1624,22 +1757,6 @@ local function buildStall(parent: Instance, spec: StallSpec, originOverride: CFr
 		studded = true,
 	})
 
-	-- THE SIGN ANCHOR sits at local x=0 — dead centre of the WHOLE stall — rather
-	-- than on the stand, which is parked off to one side (see `standX`). Hanging
-	-- the sign off the stand read as off-centre against the shop as a whole; an
-	-- invisible, non-colliding anchor lets the sign float over the stall's own
-	-- midpoint regardless of where the stand or rack sit within it.
-	local signAnchor = build(m, origin, {
-		name = "SignAnchor",
-		pos = { 0, 1.1, SHOPFRONT_Z },
-		size = { 1, 1, 1 },
-		color = C.steel,
-		material = "SmoothPlastic",
-		transparency = 1,
-		canCollide = false,
-	})
-	signAnchor.CanQuery = false
-	buildStoreBillboard(signAnchor, spec.label, spec.color)
 
 	-- THE WING'S STATION CIRCLE, carrying the same StationId at its own radius, on an
 	-- invisible anchor now that the shelf under the rack is gone. Not a spare copy of
@@ -1671,6 +1788,8 @@ local function buildStall(parent: Instance, spec: StallSpec, originOverride: CFr
 	buildTierRack(m, origin * CFrame.new(rx, 0, 0), spec)
 
 	buildPlateRoof(m, origin, spec.color, width)
+	-- The tall shopfront carries the stall's name now, in place of the floating pill.
+	buildShopfront(m, origin, width, spec.color, spec.label)
 
 	-- The trade's own props, behind the shopfront and on the roof (build/ShopThemes).
 	ShopThemes.dressStall(m, origin, spec.track, width, sx)
@@ -1800,6 +1919,10 @@ local function buildOutfitterAt(parent: Instance, name: string, origin: CFrame, 
 	buildStorefrontPosts(m, origin, width)
 	buildSlatWall(m, origin, width)
 	buildPlateRoof(m, origin, C.shopOutfitter, width)
+	-- One counter names the whole building on the tall shopfront; with several, each
+	-- desk keeps its own pill sign and the front just says what the building is.
+	local single = #OUTFITTER.counters == 1
+	buildShopfront(m, origin, width, C.shopOutfitter, if single then OUTFITTER.counters[1].label else "Outfitter")
 
 	-- One floor marker for the whole counter row — there is no second, rack-side
 	-- marker the way a plaza stall has, because there is no rack here.
@@ -1832,7 +1955,9 @@ local function buildOutfitterAt(parent: Instance, name: string, origin: CFrame, 
 			material = "Plastic",
 			studded = true,
 		})
-		buildStoreBillboard(desk, counter.label, C.shopOutfitter)
+		if not single then
+			buildStoreBillboard(desk, counter.label, C.shopOutfitter)
+		end
 	end
 
 	-- The aura shop: a mannequin wearing a live aura behind the Aura desk, a sample
