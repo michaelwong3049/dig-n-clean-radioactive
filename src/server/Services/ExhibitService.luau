@@ -946,9 +946,8 @@ end
 -- ── Yield ─────────────────────────────────────────────────────────────────────
 
 --- Dollars per second this profile's exhibit is currently worth, BEFORE the
---- hourly cap. Duplicate damping (Tuning.EXHIBIT_DUPLICATE_YIELD) keys off how
---- many other displayed pieces share the same item id, so breadth beats depth —
---- one of everything outperforms four of a single Legendary. Per-entry math is
+--- hourly cap. Tuning.EXHIBIT_DUPLICATE_YIELD is flat 100% now, so every copy
+--- pays in full. Per-entry math is
 --- entryYieldPerSecond (also what each plinth's card prints), so the two agree.
 local function rawRatePerSecond(data: any, stats: any): number
 	local seen: { [string]: number } = {}

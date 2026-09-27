@@ -263,14 +263,11 @@ local function withModifier(text: string, modifier: string?): string
 	return text
 end
 
---- "Stand 4", "Stand 4 · crating 42s", "Stand 7 · copy 2 (40%)".
+--- "Stand 4", "Stand 4 · crating 42s".
 local function standText(entry: any, crating: number): string
 	local text = `Stand {entry.slot}`
 	if crating > 0 then
 		text ..= ` \u{00B7} crating {crating}s`
-	end
-	if (entry.copy or 1) > 1 then
-		text ..= ` \u{00B7} copy {entry.copy}`
 	end
 	return withModifier(text, entry.modifier)
 end

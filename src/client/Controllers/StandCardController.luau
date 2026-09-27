@@ -211,18 +211,6 @@ local function formatClock(seconds: number): string
 	return string.format("%d:%02d", whole // 60, whole % 60)
 end
 
-local ORDINAL = { "1st", "2nd", "3rd" }
-
---- "2nd copy · 40% pay" for a duplicate, nil for the first of its kind.
-local function copyLine(copy: number): string?
-	if copy <= 1 then
-		return nil
-	end
-	local ladder = Tuning.EXHIBIT_DUPLICATE_YIELD
-	local share = ladder[math.min(copy, #ladder)]
-	return `{ORDINAL[copy] or `{copy}th`} copy \u{00B7} {math.floor(share * 100 + 0.5)}% pay`
-end
-
 --- "PREWAR SEALED" from "PrewarSealed", nil for "None".
 local function modifierLabel(modifier: string?): string?
 	if modifier == nil or modifier == "" or modifier == "None" then
@@ -487,7 +475,6 @@ local function draw(card: Card)
 	rarityId = if Rarity.DEFS[rarityId] then rarityId else "Common"
 	local color = rarity.color
 	local rate = display:GetAttribute(A.rate)
-	local copy = display:GetAttribute(A.copy)
 	local payload = display:GetAttribute(A.payload)
 	local placedAt = display:GetAttribute(A.placedAt)
 	local owner = display:GetAttribute(A.owner)
@@ -507,8 +494,7 @@ local function draw(card: Card)
 			crateEnds = ends
 		end
 	end
-	local copyText = if type(copy) == "number" then copyLine(copy) else nil
-	local hasFooter = copyText ~= nil or crateEnds ~= nil
+	local hasFooter = crateEnds ~= nil
 
 	local root = Instance.new("Frame")
 	root.Name = "Card"
@@ -637,35 +623,23 @@ local function draw(card: Card)
 	})
 	text(kgPill, "Weight", kgText, L.kgSize, WHITE, 2)
 
-	-- The footer: a duplicate's share, and the owner's crating lock.
-	if hasFooter then
-		local copyW = if copyText then textWidth(copyText, L.footSize, STYLE.font) else 0
-		local clockText = if crateEnds then formatClock(crateEnds - Workspace:GetServerTimeNow()) else ""
+	-- The footer: the owner's crating lock.
+	if crateEnds then
+		local clockText = formatClock(crateEnds - Workspace:GetServerTimeNow())
 		-- Measured on a fixed-width stand-in so the chip doesn't twitch as digits change.
-		local chipW = if crateEnds then 20 + textWidth("0:00", L.footSize, STYLE.font) + 7 else 0
-		local gap = if copyText and crateEnds then L.footGap else 0
-		local left = mid - (copyW + gap + chipW) / 2
-		if copyText then
-			text(body, "CopyShare", copyText, L.footSize, STYLE.foot, 2, {
-				position = UDim2.fromOffset(left, L.footY),
-				size = UDim2.fromOffset(copyW + 4, L.footH),
-				xAlign = Enum.TextXAlignment.Left,
-			})
-		end
-		if crateEnds then
-			local chip = shape(body, "CrateLock", left + copyW + gap, L.footY + 1, chipW, 18, STYLE.chip, {
-				radius = UDim.new(0, 6),
-				stroke = 2.5,
-				shadow = 3,
-			})
-			padlock(chip, 5, 3, STYLE.chip)
-			card.lockLabel = text(chip, "Clock", clockText, L.footSize, WHITE, 1.5, {
-				position = UDim2.fromOffset(20, 0),
-				size = UDim2.new(1, -22, 1, 0),
-				xAlign = Enum.TextXAlignment.Left,
-			})
-			card.crateEnds = crateEnds
-		end
+		local chipW = 20 + textWidth("0:00", L.footSize, STYLE.font) + 7
+		local chip = shape(body, "CrateLock", mid - chipW / 2, L.footY + 1, chipW, 18, STYLE.chip, {
+			radius = UDim.new(0, 6),
+			stroke = 2.5,
+			shadow = 3,
+		})
+		padlock(chip, 5, 3, STYLE.chip)
+		card.lockLabel = text(chip, "Clock", clockText, L.footSize, WHITE, 1.5, {
+			position = UDim2.fromOffset(20, 0),
+			size = UDim2.new(1, -22, 1, 0),
+			xAlign = Enum.TextXAlignment.Left,
+		})
+		card.crateEnds = crateEnds
 	end
 
 	root.Parent = card.canvas
