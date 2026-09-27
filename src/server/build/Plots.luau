@@ -1960,8 +1960,8 @@ local function buildCleansingStation(parent: Instance, origin: CFrame, accent: s
 	-- gantry section above). The accent lamp is a ball on the header end with a soft
 	-- PointLight -- the one coloured light on the plot, kept low; `Accent` tags the ball
 	-- and Plots.setPlotAccent repaints it and the light from `data.plotColor`.
-	local signHost = build(m, origin, { name = "SignHost", pos = { 18, GANTRY_TOP + 0.7, POST_Z }, size = { 9.0, 0.4, 1.0 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
-	accentBillboard(signHost, 240, 2.6, "CLEANSING STATION", "clean it, flush it, rack it", accent)
+	-- No floating title over it: the station's prompt names it up close.
+	build(m, origin, { name = "SignHost", pos = { 18, GANTRY_TOP + 0.7, POST_Z }, size = { 9.0, 0.4, 1.0 }, color = FACE, material = "Plastic", studs = true, canCollide = false })
 
 	local lamp = build(m, origin, {
 		name = "Lamp",
