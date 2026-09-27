@@ -70,11 +70,13 @@ local SKIN = {
 -- WarpController's HOME / SHOPS portals (y 10..74). The pill is the frame named
 -- "Banner", sized to the words plus SKIP, because StageBannerController and
 -- AuraWarningController read its rect to stack themselves underneath it.
+-- ON REQUEST (from a reference shot): the pill became a FULL-WIDTH dark band that
+-- fades out to both screen edges, with big white words in a heavy black outline.
 local BANNER_Y = 98
-local BANNER_H = 84
-local BANNER_PAD_X = 34
-local BANNER_SHADE = 0.4 -- the pill's BackgroundTransparency
-local TITLE_SIZE = 46
+local BANNER_H = 96
+local BANNER_SHADE = 0.35 -- the band's BackgroundTransparency at its middle
+local BANNER_FADE = 0.28 -- fraction of the width each side spends fading out
+local TITLE_SIZE = 56
 local SKIP_W = 64
 local SKIP_GAP = 18
 local SKIP_CONFIRM_SECONDS = 3
@@ -83,7 +85,7 @@ local FINISH_AUTO_CLOSE = 10
 -- ── Trail ───────────────────────────────────────────────────────────────────────
 local RIBBON_WIDTH = 2.6
 local RIBBON_LIFT = 0.12 -- over the floor, clear of z-fighting
-local RIBBON_TRANSPARENCY = 0.45
+local RIBBON_TRANSPARENCY = 0.6 -- fainter, so the white chevrons carry the trail
 local TRAIL_START = 3.5 -- studs ahead of your feet, so it never draws under you
 local ARRIVED = 9 -- inside this, the ribbon and the marker step aside; the ring stays
 -- How far the target may drift before the route is thrown away and redrawn. Stage 1's
@@ -117,11 +119,14 @@ local HEAD_EASE = 10
 local JOIN_AHEAD = 6
 -- The last arrow stops this far short of the route's end, clear of the ring.
 local CHEVRON_END_PAD = 1.5
-local CHEVRON_GAP = 4
+local CHEVRON_GAP = 4.5
 local CHEVRON_SPEED = 7 -- studs/sec along the ribbon
 local CHEVRON_MAX = 24
-local CHEVRON_ARM = 1.3
-local CHEVRON_ANGLE = math.rad(40)
+-- ON REQUEST (from a reference shot): fat, flat, glowing white chevrons, like arrow
+-- decals lit from below. Neon is the exception to "guidance, not an effect" here.
+local CHEVRON_ARM = 1.9
+local CHEVRON_THICK = 0.75
+local CHEVRON_ANGLE = math.rad(45)
 local RING_SIZE = 9
 local MARKER_HEIGHT = 7 -- over the target's floor
 local GUIDE_FOLDER = "TutorialGuide"
@@ -141,22 +146,24 @@ local function buildBanner(canvas: Frame)
 	banner.Name = "Banner"
 	banner.AnchorPoint = Vector2.new(0.5, 0)
 	banner.Position = UDim2.new(0.5, 0, 0, BANNER_Y)
-	banner.Size = UDim2.fromOffset(0, BANNER_H)
-	banner.AutomaticSize = Enum.AutomaticSize.X
+	banner.Size = UDim2.new(1, 0, 0, BANNER_H)
 	banner.BackgroundColor3 = Color3.new(0, 0, 0)
 	banner.BackgroundTransparency = BANNER_SHADE
 	banner.BorderSizePixel = 0
 	banner.Visible = false
 	banner.Parent = canvas
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 20)
-	corner.Parent = banner
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, BANNER_PAD_X)
-	padding.PaddingRight = UDim.new(0, BANNER_PAD_X)
-	padding.Parent = banner
+	-- Solid in the middle, see-through at both edges.
+	local fade = Instance.new("UIGradient")
+	fade.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(BANNER_FADE, 0),
+		NumberSequenceKeypoint.new(1 - BANNER_FADE, 0),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	fade.Parent = banner
 	local row = Instance.new("UIListLayout")
 	row.FillDirection = Enum.FillDirection.Horizontal
+	row.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	row.VerticalAlignment = Enum.VerticalAlignment.Center
 	row.SortOrder = Enum.SortOrder.LayoutOrder
 	row.Padding = UDim.new(0, SKIP_GAP)
@@ -177,6 +184,16 @@ local function buildBanner(canvas: Frame)
 	})
 	title.AutomaticSize = Enum.AutomaticSize.X
 	title.LayoutOrder = 1
+	-- A heavier outline than UIKit's default, as in the reference.
+	for _, d in title:GetDescendants() do
+		if d:IsA("UIStroke") then
+			d.Thickness = math.max(d.Thickness, 4)
+		end
+	end
+	local own = title:FindFirstChildOfClass("UIStroke")
+	if own then
+		own.Thickness = math.max(own.Thickness, 4)
+	end
 
 	-- SKIP sits at the pill's right end, after the words. It needs a second press: one
 	-- stray click should not throw away a new player's only walkthrough.
@@ -1075,8 +1092,9 @@ local function stepGuide(dt: number)
 		local arms = {}
 		for _ = 1, 2 do
 			local arm = localPart("Chevron", folder)
-			arm.Color = SKIN.cream
-			arm.Size = Vector3.new(0.34, 0.07, CHEVRON_ARM)
+			arm.Color = Color3.fromHex("F4FFE8")
+			arm.Material = Enum.Material.Neon
+			arm.Size = Vector3.new(CHEVRON_THICK, 0.07, CHEVRON_ARM)
 			arm.Transparency = 1
 			table.insert(arms, arm)
 		end
@@ -1104,8 +1122,8 @@ local function stepGuide(dt: number)
 		table.insert(cframes, base * tip * CFrame.new(-sa * back, 0, ca * back) * CFrame.Angles(0, -CHEVRON_ANGLE, 0))
 		table.insert(parts, arms[2])
 		table.insert(cframes, base * tip * CFrame.new(sa * back, 0, ca * back) * CFrame.Angles(0, CHEVRON_ANGLE, 0))
-		arms[1].Transparency = 1 - 0.95 * fade
-		arms[2].Transparency = 1 - 0.95 * fade
+		arms[1].Transparency = 1 - 0.9 * fade
+		arms[2].Transparency = 1 - 0.9 * fade
 	end
 	if #parts > 0 then
 		Workspace:BulkMoveTo(parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
