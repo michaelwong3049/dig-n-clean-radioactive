@@ -174,10 +174,10 @@ Gear.Detector = {
 Gear.Magnet = {
 	{ name = "Horseshoe Magnet", price = 0, pullSpeed = 1.0, draw = 0.00, maxGrip = 1, blurb = "A fridge magnet on a rope. Pull like you mean it." }, -- 2.50 clicks/sec to hold
 	{ name = "Salvage Magnet", price = 3350, pullSpeed = 1.3, draw = 0.12, maxGrip = 2, blurb = "Holds its grip between yanks. Barely." }, -- 1.62
-	{ name = "Electromagnet", price = 8000, pullSpeed = 1.7, draw = 0.25, maxGrip = 3, blurb = "Wired to a car battery. Lifts while you rest." }, -- 0.98
-	{ name = "Winch Coil", price = 19500, pullSpeed = 2.2, draw = 0.40, maxGrip = 4, blurb = "One click every two seconds is enough." }, -- 0.53  <- the mobile target
-	{ name = "Rail Coil", price = 46500, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing." }, -- 0.23
-	{ name = "Singularity Coil", price = 110000, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest." }, -- 0.04, effectively hands-free
+	{ name = "Electromagnet", price = 10050, pullSpeed = 1.7, draw = 0.25, maxGrip = 3, blurb = "Wired to a car battery. Lifts while you rest." }, -- 0.98
+	{ name = "Winch Coil", price = 30150, pullSpeed = 2.2, draw = 0.40, maxGrip = 4, blurb = "One click every two seconds is enough." }, -- 0.53  <- the mobile target
+	{ name = "Rail Coil", price = 90450, pullSpeed = 2.9, draw = 0.55, maxGrip = 5, blurb = "Rails the load up. Your wrist stops arguing." }, -- 0.23
+	{ name = "Singularity Coil", price = 271350, pullSpeed = 3.8, draw = 0.70, maxGrip = 6, blurb = "Point it down. It does the rest." }, -- 0.04, effectively hands-free
 	-- TOXIC TWILIGHT'S FIVE. Sold at the Magnet stall in that camp and nowhere else
 	-- (`camp`, Gear.campOf), like the camp's six detectors. The order is the art pack's
 	-- own (its tier_6_lattice .. tier_10_omega), which is the order they cost.
@@ -191,12 +191,12 @@ Gear.Magnet = {
 	--
 	-- `maxGrip` runs 7-11 AHEAD OF THE MAP: soil hardness stops at 6 today, so it buys
 	-- nothing until Stage 7 is built, and it is written down now so those stages have a
-	-- ladder to be rated against. Prices keep the Detector ladder's x2.4 stride.
-	{ name = "Lattice Magnet", price = 1200000, pullSpeed = 4.8, draw = 0.72, maxGrip = 7, blurb = "A cage of field lines. Nothing slips through it.", camp = "twilight" }, -- 0.021
-	{ name = "Solar Magnet", price = 2900000, pullSpeed = 6.0, draw = 0.73, maxGrip = 8, blurb = "Runs hot enough to pull the soil off the soil.", camp = "twilight" }, -- 0.011
-	{ name = "Void Magnet", price = 7000000, pullSpeed = 7.4, draw = 0.74, maxGrip = 9, blurb = "Pulls from somewhere past the bottom of the hole.", camp = "twilight" }, -- 0.0045
-	{ name = "Nebula Magnet", price = 17000000, pullSpeed = 9.0, draw = 0.745, maxGrip = 10, blurb = "Three fields at once. The ground stops arguing.", camp = "twilight" }, -- 0.0019
-	{ name = "Omega Magnet", price = 40000000, pullSpeed = 11.0, draw = 0.748, maxGrip = 11, blurb = "The last magnet. The earth just hands things over.", camp = "twilight" }, -- 0.0006
+	-- ladder to be rated against. Prices keep the Detector ladder's x3 stride.
+	{ name = "Lattice Magnet", price = 814050, pullSpeed = 4.8, draw = 0.72, maxGrip = 7, blurb = "A cage of field lines. Nothing slips through it.", camp = "twilight" }, -- 0.021
+	{ name = "Solar Magnet", price = 2442150, pullSpeed = 6.0, draw = 0.73, maxGrip = 8, blurb = "Runs hot enough to pull the soil off the soil.", camp = "twilight" }, -- 0.011
+	{ name = "Void Magnet", price = 7326450, pullSpeed = 7.4, draw = 0.74, maxGrip = 9, blurb = "Pulls from somewhere past the bottom of the hole.", camp = "twilight" }, -- 0.0045
+	{ name = "Nebula Magnet", price = 21979350, pullSpeed = 9.0, draw = 0.745, maxGrip = 10, blurb = "Three fields at once. The ground stops arguing.", camp = "twilight" }, -- 0.0019
+	{ name = "Omega Magnet", price = 65938050, pullSpeed = 11.0, draw = 0.748, maxGrip = 11, blurb = "The last magnet. The earth just hands things over.", camp = "twilight" }, -- 0.0006
 }
 
 -- THE CLEANING TRACK IS A MACHINE ON YOUR BASE, NOT A THING IN YOUR HAND, and that
@@ -216,7 +216,7 @@ Gear.Magnet = {
 -- the point, and a shop that sells nothing you can see is the failure this whole
 -- change is about, not one it introduces.
 --
--- NOT ONE NUMBER MOVED, TWICE OVER. `price` and both stat columns are exactly what
+-- NOT ONE STAT MOVED, TWICE OVER (prices were later set to a x3-per-rung ladder). Both stat columns are exactly what
 -- they were as the seven nouns and as the seven held hoses; only the column NAMES
 -- changed, and they changed to say what the machine does rather than what a sponge
 -- did. Config/Liquids' entire +2-cap argument is written against "a Garden Hose is
@@ -242,11 +242,11 @@ Gear.Magnet = {
 Gear.Cleaner = {
 	{ name = "Garden Hose", price = 0, power = 1, volume = 1.0, blurb = "A dribble and a prayer." },
 	{ name = "Patched Fire Hose", price = 5000, power = 2, volume = 1.2, blurb = "Leaks at every wrap, and still outguns the hose." },
-	{ name = "Pressure Lance", price = 12000, power = 3, volume = 1.5, blurb = "Narrow jet. Strips crust, not your patience." },
-	{ name = "Chem Injector", price = 29000, power = 4, volume = 1.9, blurb = "Doses the stream. Eats what water cannot." },
-	{ name = "Ultrasonic Jet", price = 70000, power = 5, volume = 2.4, blurb = "Shakes the grime loose before it is wet." },
-	{ name = "Ion Cannon", price = 165000, power = 6, volume = 3.0, blurb = "Charges the water. The dirt lets go first." },
-	{ name = "Plasma Lance", price = 400000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you." },
+	{ name = "Pressure Lance", price = 15000, power = 3, volume = 1.5, blurb = "Narrow jet. Strips crust, not your patience." },
+	{ name = "Chem Injector", price = 45000, power = 4, volume = 1.9, blurb = "Doses the stream. Eats what water cannot." },
+	{ name = "Ultrasonic Jet", price = 135000, power = 5, volume = 2.4, blurb = "Shakes the grime loose before it is wet." },
+	{ name = "Ion Cannon", price = 405000, power = 6, volume = 3.0, blurb = "Charges the water. The dirt lets go first." },
+	{ name = "Plasma Lance", price = 1215000, power = 7, volume = 3.8, blurb = "Overkill, mounted on a mast, aimed by you." },
 	-- TOXIC TWILIGHT'S FIVE. Sold at that camp's Hose Shop and nowhere else (`camp`,
 	-- Gear.campOf), like its detectors and magnets. The order is the user's.
 	--
@@ -256,12 +256,12 @@ Gear.Cleaner = {
 	-- Contamination.secondsFor, climbing ~x1.25 a rung so every one still washes
 	-- faster than the last. The stream's girth is already capped (WashController's
 	-- JET_GIRTH_MAX), so the extra water is speed, not a wall of spray. Prices keep
-	-- the other Twilight ladders' x2.4 stride.
-	{ name = "Singularity Nozzle", price = 1000000, power = 8, volume = 4.7, blurb = "Folds the stream down to a point. The crust folds with it.", camp = "twilight" },
-	{ name = "Cryo Nova", price = 2400000, power = 9, volume = 5.8, blurb = "Freezes the grime, then shatters it off.", camp = "twilight" },
-	{ name = "Solar Forge", price = 5800000, power = 10, volume = 7.2, blurb = "Water hot enough to glow. Dirt does not argue.", camp = "twilight" },
-	{ name = "Quantum Rift", price = 14000000, power = 11, volume = 8.9, blurb = "Cleans it here and in every other version of here.", camp = "twilight" },
-	{ name = "Celestial Deluge", price = 34000000, power = 12, volume = 11.0, blurb = "The last hose. It rains from somewhere higher.", camp = "twilight" },
+	-- the other Twilight ladders' x3 stride.
+	{ name = "Singularity Nozzle", price = 3645000, power = 8, volume = 4.7, blurb = "Folds the stream down to a point. The crust folds with it.", camp = "twilight" },
+	{ name = "Cryo Nova", price = 10935000, power = 9, volume = 5.8, blurb = "Freezes the grime, then shatters it off.", camp = "twilight" },
+	{ name = "Solar Forge", price = 32805000, power = 10, volume = 7.2, blurb = "Water hot enough to glow. Dirt does not argue.", camp = "twilight" },
+	{ name = "Quantum Rift", price = 98415000, power = 11, volume = 8.9, blurb = "Cleans it here and in every other version of here.", camp = "twilight" },
+	{ name = "Celestial Deluge", price = 295245000, power = 12, volume = 11.0, blurb = "The last hose. It rains from somewhere higher.", camp = "twilight" },
 }
 
 -- reduction  : fraction of AMBIENT rads/sec removed  (exposure track, green screen)
@@ -300,10 +300,10 @@ Gear.Cleaner = {
 Gear.Aura = {
 	{ name = "Faint Glow", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 6, haulPenalty = 1.20, blurb = "A flicker of static. Counts as a glow, not a shield." },
 	{ name = "Static Veil", price = 15000, reduction = 0.9750, tolerance = 4.4, capacity = 10, haulPenalty = 0.95, blurb = "Crackles more than it shields. Shields a little." },
-	{ name = "Lead Halo", price = 36000, reduction = 0.9920, tolerance = 13.4, capacity = 14, haulPenalty = 0.72, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
-	{ name = "Ion Shroud", price = 85000, reduction = 0.9970, tolerance = 38.4, capacity = 20, haulPenalty = 0.52, blurb = "Wound tight around you. The first aura that trusts you." },
-	{ name = "Isotope Mantle", price = 210000, reduction = 0.9988, tolerance = 98.4, capacity = 26, haulPenalty = 0.35, blurb = "Burns hotter than the air. Walks into the red and back." },
-	{ name = "Containment Nimbus", price = 500000, reduction = 0.9889, tolerance = 105.0, capacity = 34, haulPenalty = 0.20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
+	{ name = "Lead Halo", price = 45000, reduction = 0.9920, tolerance = 13.4, capacity = 14, haulPenalty = 0.72, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
+	{ name = "Ion Shroud", price = 135000, reduction = 0.9970, tolerance = 38.4, capacity = 20, haulPenalty = 0.52, blurb = "Wound tight around you. The first aura that trusts you." },
+	{ name = "Isotope Mantle", price = 405000, reduction = 0.9988, tolerance = 98.4, capacity = 26, haulPenalty = 0.35, blurb = "Burns hotter than the air. Walks into the red and back." },
+	{ name = "Containment Nimbus", price = 1215000, reduction = 0.9889, tolerance = 105.0, capacity = 34, haulPenalty = 0.20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
 	-- TOXIC TWILIGHT'S FOUR. Sold at that camp's Aura Shop and nowhere else (`camp`,
 	-- Gear.campOf), like its detectors, magnets and hoses. Shapes picked by the user
 	-- from a mockup round (Shared/AuraLook's corona / aurora / torus / wings).
@@ -317,10 +317,10 @@ Gear.Aura = {
 	-- nothing until Stage 7 exists. `reduction` DELIBERATELY STAYS AT THE NIMBUS'S 0.9889:
 	-- exposure is what keeps the Crater a heist rather than a farm (PLAN §4, "at any gear
 	-- level, forever"), and Spec pins every rung from the Nimbus up to that window.
-	{ name = "Dusk Corona", price = 1200000, reduction = 0.9889, tolerance = 140.0, capacity = 40, haulPenalty = 0.16, blurb = "A setting sun on your shoulders. The rads burn out before they reach you.", camp = "twilight" },
-	{ name = "Toxic Aurora", price = 2900000, reduction = 0.9889, tolerance = 190.0, capacity = 46, haulPenalty = 0.12, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
-	{ name = "Eclipse Veil", price = 7000000, reduction = 0.9889, tolerance = 255.0, capacity = 52, haulPenalty = 0.09, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
-	{ name = "Twilight Singularity", price = 17000000, reduction = 0.9889, tolerance = 340.0, capacity = 60, haulPenalty = 0.06, blurb = "The last aura. It lifts the load before you do.", camp = "twilight" },
+	{ name = "Dusk Corona", price = 3645000, reduction = 0.9889, tolerance = 140.0, capacity = 40, haulPenalty = 0.16, blurb = "A setting sun on your shoulders. The rads burn out before they reach you.", camp = "twilight" },
+	{ name = "Toxic Aurora", price = 10935000, reduction = 0.9889, tolerance = 190.0, capacity = 46, haulPenalty = 0.12, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
+	{ name = "Eclipse Veil", price = 32805000, reduction = 0.9889, tolerance = 255.0, capacity = 52, haulPenalty = 0.09, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 98415000, reduction = 0.9889, tolerance = 340.0, capacity = 60, haulPenalty = 0.06, blurb = "The last aura. It lifts the load before you do.", camp = "twilight" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
