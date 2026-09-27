@@ -195,7 +195,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 53
+local BUILDER_VERSION = 54
 
 local C = Kit.C
 local build = Kit.build
@@ -1149,9 +1149,8 @@ end
 --- empty camp shells keep theirs.
 ---
 --- The board is narrower than the stall so the roof props, which stand over the stand
---- at the stall's left end (ShopThemes), stay clear of it. The Outfitter's atom sits at
---- the centre, so ShopThemes lifts it on a mast above the board (its ATOM_Y has to
---- clear the board's top, ~16 studs up; move both together).
+--- at the stall's left end (ShopThemes), stay clear of it. (The Outfitter's roof atom
+--- that used to float over the board was removed on 2026-09-27, on request.)
 local FRONT_PARAPET_HEIGHT = 1.6
 local FRONT_BOARD_HEIGHT = 4.4
 local FRONT_BOARD_MIN, FRONT_BOARD_MAX = 14, 20
