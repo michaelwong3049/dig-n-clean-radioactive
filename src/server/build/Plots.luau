@@ -3288,7 +3288,7 @@ local FLOOR = {
 	stairW = 4.8,
 	stairZ = -7.6, -- where a flight's first step starts, behind the Quarantine Locker (z -15.5)
 	landing = 5, -- depth of the deck between a flight's head and the back edge
-	rise = 0.75, -- Floors.HEIGHT / rise steps of this (keep HEIGHT a multiple), so a flight lands exactly on the next deck
+	rise = 1, -- Floors.HEIGHT steps of this, so a flight lands exactly on the next deck
 	openIn = 25.8, -- |x| of a stairwell's inner edge
 	openOut = 31.4, -- |x| of its outer edge; the ledge past it carries the side rail
 	-- Pillars stand ON the fence line, one per deck corner, outer faces flush with the
