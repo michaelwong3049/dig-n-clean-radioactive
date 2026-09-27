@@ -27,8 +27,9 @@ Floors.UPPER_SLOTS = 8
 --- Deck-top to deck-top, in studs. Tall enough that a stand on its plinth, a GIGA
 --- roll on top of it and its trophy card all clear the deck overhead with room to
 --- spare. The stairs rise exactly this far (Plots.buildFloor), so changing it
---- changes the step count too.
-Floors.HEIGHT = 16
+--- changes the step count too. 16, then 28 on request ("way taller"): the flights
+--- now run the whole depth of the deck to a landing at the back.
+Floors.HEIGHT = 28
 
 --- Cash price of each floor, by the floor it buys. Floor 1 is the ground and free.
 --- Sized against the gear ladders (Config/Gear, Config/Treadmill): floor 2 lands
