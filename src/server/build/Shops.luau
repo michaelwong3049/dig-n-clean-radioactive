@@ -829,7 +829,12 @@ end
 -- The icon-disc glyphs, drawn from Frames so the server needs no uploaded art. Keyed
 -- by a word in the sign's label; a label with none of them (a camp stall's own name)
 -- simply gets no disc and a shorter pill.
-local SIGN_ICON_INK = Color3.fromRGB(15, 26, 10)
+--
+-- A DARK DISC WITH THE GLYPH IN THE SHOP'S ACCENT, rimmed in that accent — picked from
+-- a round of mockups over the old dark-ink-on-accent disc, whose thin strokes blurred
+-- at distance and whose magnet cover block poked out past the round disc. The glyph now
+-- reads as a lit symbol on the same dark as the pill.
+local SIGN_DISC_COLOR = Color3.fromRGB(11, 18, 11)
 local SIGN_GLOW_IMAGE = "rbxassetid://76655055685501" -- HudArtwork.IMAGE.glow
 
 local function signShape(parent: Instance, x: number, y: number, w: number, h: number, color: Color3, rot: number?, round: boolean?): Frame
@@ -849,44 +854,76 @@ local function signShape(parent: Instance, x: number, y: number, w: number, h: n
 	return f
 end
 
-local function signRing(parent: Instance, x: number, y: number, w: number, h: number, thickness: number, rot: number?)
-	local f = signShape(parent, x, y, w, h, SIGN_ICON_INK, rot, true)
+--- A ring whose stroke sits OUTSIDE a `w` x `h` box (UIStroke's Border mode). The aura's
+--- orbits are drawn with this; the other glyphs use `signHoop`, sized by outer edge.
+local function signRing(parent: Instance, x: number, y: number, w: number, h: number, thickness: number, ink: Color3, rot: number?): Frame
+	local f = signShape(parent, x, y, w, h, ink, rot, true)
 	f.BackgroundTransparency = 1
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = SIGN_ICON_INK
+	stroke.Color = ink
 	stroke.Thickness = thickness
 	stroke.Parent = f
+	return f
 end
 
---- Draws the glyph for `label` inside a 36x36 `disc` filled with `accentColor`.
-local function buildSignIcon(disc: Frame, label: string, accentColor: Color3)
+--- A round hoop `outer` px across at its OUTER edge, `thickness` thick.
+local function signHoop(parent: Instance, x: number, y: number, outer: number, thickness: number, ink: Color3): Frame
+	local inner = outer - 2 * thickness
+	return signRing(parent, x, y, inner, inner, thickness, ink)
+end
+
+--- A hoop showing only where it falls inside the rect (rx, ry, rw, rh), so two of them
+--- can draw the "S" of the trader's "$". Clipping goes through a plain unrotated
+--- container with ClipsDescendants; the hoop is placed inside it in disc coordinates.
+local function signArc(parent: Instance, x: number, y: number, outer: number, thickness: number, ink: Color3, rx: number, ry: number, rw: number, rh: number)
+	local clip = Instance.new("Frame")
+	clip.Position = UDim2.fromOffset(rx, ry)
+	clip.Size = UDim2.fromOffset(rw, rh)
+	clip.BackgroundTransparency = 1
+	clip.BorderSizePixel = 0
+	clip.ClipsDescendants = true
+	clip.Parent = parent
+	signHoop(clip, x - rx, y - ry, outer, thickness, ink)
+end
+
+--- Draws the glyph for `label` in `ink` inside a 36x36 `disc` filled with `bg`.
+local function buildSignIcon(disc: Frame, label: string, ink: Color3, bg: Color3)
 	local lower = label:lower()
 	if lower:find("detector") then
-		signRing(disc, 18, 18, 24, 24, 2.5)
-		signRing(disc, 18, 18, 11, 11, 2.5)
-		signShape(disc, 18, 18, 4, 4, SIGN_ICON_INK, 0, true)
+		-- A detector wand: search coil, shaft, grip.
+		signHoop(disc, 15, 13, 16, 3.5, ink)
+		signShape(disc, 22, 23, 4, 14, ink, -40)
+		signShape(disc, 27, 29, 6, 7, ink, -40)
 	elseif lower:find("magnet") then
-		signRing(disc, 18, 20, 20, 20, 5)
-		signShape(disc, 18, 12, 30, 14, accentColor) -- hides the ring's top half: a horseshoe
-		signShape(disc, 10, 14, 5, 12, SIGN_ICON_INK)
-		signShape(disc, 26, 14, 5, 12, SIGN_ICON_INK)
-		signShape(disc, 10, 9, 5, 4, Color3.new(1, 1, 1))
-		signShape(disc, 26, 9, 5, 4, Color3.new(1, 1, 1))
+		-- A U magnet, poles up with white tips. The cover block that turns the hoop into
+		-- a U is the disc's own colour and sits well inside the round disc.
+		signHoop(disc, 18, 20, 22, 6, ink)
+		signShape(disc, 18, 13, 24, 14, bg)
+		signShape(disc, 10, 15, 6, 12, ink)
+		signShape(disc, 26, 15, 6, 12, ink)
+		signShape(disc, 10, 9, 6, 5, Color3.new(1, 1, 1))
+		signShape(disc, 26, 9, 6, 5, Color3.new(1, 1, 1))
 	elseif lower:find("hose") then
-		signRing(disc, 18, 18, 24, 24, 3)
-		signRing(disc, 18, 18, 10, 10, 3)
-		signShape(disc, 28, 28, 13, 3, SIGN_ICON_INK, 45)
+		-- A spray nozzle tipped up-right, throwing three drops.
+		signShape(disc, 13, 22, 14, 7, ink, -30)
+		signShape(disc, 21, 17, 6, 9, ink, -30)
+		signShape(disc, 24, 11, 4, 4, ink, 0, true)
+		signShape(disc, 29, 15, 4, 4, ink, 0, true)
+		signShape(disc, 28, 8, 3, 3, ink, 0, true)
 	elseif lower:find("trader") then
-		signRing(disc, 18, 18, 24, 24, 2.5)
-		signShape(disc, 18, 18, 4, 18, SIGN_ICON_INK) -- a "$": bar + three strokes
-		signShape(disc, 18, 13, 12, 3, SIGN_ICON_INK)
-		signShape(disc, 18, 18, 12, 3, SIGN_ICON_INK)
-		signShape(disc, 18, 23, 12, 3, SIGN_ICON_INK)
+		-- A real curved "$": two stacked hoops, each clipped to three quarters so
+		-- together they sweep an S, with the bar showing only above and below it.
+		signArc(disc, 18, 13, 14, 3, ink, 9, 4, 18, 9) -- top ring: top half
+		signArc(disc, 18, 13, 14, 3, ink, 9, 13, 9, 8) -- top ring: lower-left quarter
+		signArc(disc, 18, 23, 14, 3, ink, 9, 23, 18, 9) -- bottom ring: bottom half
+		signArc(disc, 18, 23, 14, 3, ink, 18, 15, 9, 8) -- bottom ring: upper-right quarter
+		signShape(disc, 18, 5, 3, 6, ink)
+		signShape(disc, 18, 31, 3, 6, ink)
 	elseif lower:find("aura") then
-		signShape(disc, 18, 18, 6, 6, SIGN_ICON_INK, 0, true)
-		signRing(disc, 18, 18, 28, 11, 2, 0)
-		signRing(disc, 18, 18, 28, 11, 2, 60)
-		signRing(disc, 18, 18, 28, 11, 2, 120)
+		signShape(disc, 18, 18, 6, 6, ink, 0, true)
+		signRing(disc, 18, 18, 28, 11, 2, ink, 0)
+		signRing(disc, 18, 18, 28, 11, 2, ink, 60)
+		signRing(disc, 18, 18, 28, 11, 2, ink, 120)
 	end
 end
 
@@ -944,9 +981,13 @@ local function buildStoreBillboard(adornee: BasePart, label: string, accent: str
 
 	local textLeft = 16
 	if iconed then
-		local disc = signShape(pill, 26, 22, 36, 36, accentColor, 0, true)
+		local disc = signShape(pill, 26, 22, 36, 36, SIGN_DISC_COLOR, 0, true)
 		disc.Name = "Icon"
-		buildSignIcon(disc, label, accentColor)
+		local discRim = Instance.new("UIStroke")
+		discRim.Color = accentColor
+		discRim.Thickness = 2
+		discRim.Parent = disc
+		buildSignIcon(disc, label, accentColor, SIGN_DISC_COLOR)
 		textLeft = 50
 	end
 
