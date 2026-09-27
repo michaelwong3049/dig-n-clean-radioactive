@@ -68,7 +68,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 20
+local BUILDER_VERSION = 21
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
@@ -657,6 +657,10 @@ function BaseCamp.buildHubTrader(parent: Instance, kiosk: CFrame): Model
 		end
 	end
 
+	-- Invisible lighting under the awning, the stalls' canopy light (Shops.buildCanopyLight),
+	-- so the counters are not in shadow.
+	Shops.buildCanopyLight(trader, kiosk, ROOF_W, roofY, 0, ROOF_W, 0)
+
 	-- The solid slant roof the plaza shops wear (Shops.buildSlantTop), in black,
 	-- with the floating TRADER pill sign over it.
 	local top = Shops.buildSlantTop(trader, kiosk, ROOF_W, ROOF_W, roofY + 0.25, 1.5, 5, C.hazardBlack) + 3
@@ -697,14 +701,14 @@ function BaseCamp.buildHubTrader(parent: Instance, kiosk: CFrame): Model
 		{ -HUB_TRADER_OUTLINE_HALF, 0, THICK, SIDE },
 		{ HUB_TRADER_OUTLINE_HALF, 0, THICK, SIDE },
 	} do
-		build(trader, kiosk, {
+		Shops.glowOutline(build(trader, kiosk, {
 			name = "TraderOutline",
 			pos = { bar[1], G + 0.08, bar[2] },
 			size = { bar[3], 0.15, bar[4] },
 			color = C.hazard,
 			material = "SmoothPlastic",
 			canCollide = false,
-		})
+		}))
 	end
 
 	trader.Parent = parent

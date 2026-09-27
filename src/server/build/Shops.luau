@@ -195,7 +195,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 56
+local BUILDER_VERSION = 57
 
 local C = Kit.C
 local build = Kit.build
@@ -655,6 +655,25 @@ end
 --- photo's floor square, recoloured per shop instead of always blue so it keeps
 --- doing the colour-navigation job instead of flattening it. Four thin matte bars
 --- rather than a filled plate, matching the "outline, not fill" read the photo has.
+--- THE OUTLINES GLOW (2026-09-27, on request): Neon bars with a soft SurfaceLight off the
+--- top, so each shop's floor squares read as lit strips. Shared with the Trader's outline.
+local OUTLINE_LIGHT_BRIGHTNESS = 1.2
+local OUTLINE_LIGHT_RANGE = 4
+
+local function glowOutline(bar: BasePart)
+	bar.Material = Enum.Material.Neon
+	bar.CastShadow = false
+	local light = Instance.new("SurfaceLight")
+	light.Face = Enum.NormalId.Top
+	light.Color = bar.Color
+	light.Brightness = OUTLINE_LIGHT_BRIGHTNESS
+	light.Range = OUTLINE_LIGHT_RANGE
+	light.Angle = 90
+	light.Shadows = false
+	light.Parent = bar
+end
+Shops.glowOutline = glowOutline
+
 local function buildFloorMarker(parent: Instance, origin: CFrame, x: number, z: number, width: number, depth: number, color: string)
 	local thickness = 0.4
 	for _, bar in {
@@ -663,14 +682,14 @@ local function buildFloorMarker(parent: Instance, origin: CFrame, x: number, z: 
 		{ w = thickness, d = depth, dx = -width / 2, dz = 0 },
 		{ w = thickness, d = depth, dx = width / 2, dz = 0 },
 	} do
-		build(parent, origin, {
+		glowOutline(build(parent, origin, {
 			name = "FloorMarker",
 			pos = { x + bar.dx, 0.08, z + bar.dz },
 			size = { bar.w, 0.15, bar.d },
 			color = color,
 			material = "SmoothPlastic",
 			canCollide = false,
-		})
+		}))
 	end
 end
 
@@ -774,6 +793,7 @@ local function buildCanopyLight(parent: Instance, origin: CFrame, width: number,
 	light.Shadows = false
 	light.Parent = panel
 end
+Shops.buildCanopyLight = buildCanopyLight
 
 --- One smooth metal rivet head. Rivets are the roof's most numerous part, so they
 --- cast no shadow: a shadow the size of a pea costs the same to draw as a big one.
