@@ -1,16 +1,17 @@
 --!strict
 --[[
-	PurchaseHintController.luau — the small "You can purchase ...!" line that sits just
-	under the HOME / SHOPS warp bar.
+	PurchaseHintController.luau — the quick "You can purchase ...!" pop-ups just under
+	the HOME / SHOPS warp bar.
 
-	It names the cheapest gear rung you can afford right now: for each track, the rung
-	one above the best one you own (buying is one rung at a time in spirit, and the
-	next rung is the only one worth nudging towards). When several tracks have an
-	affordable next rung it names the cheapest and adds "+N MORE".
+	EVERY gear rung that becomes affordable gets its own pop-up, once: each one springs
+	in, holds for HOLD seconds, shrinks away, and the next queued rung follows. "A rung"
+	here is any tier above the best one you own on its track (Detector, Magnet, Hose,
+	Aura) whose price is at or under your cash. A rung you drop back below (you spent
+	money) is forgotten, so it pops up again when you can afford it again.
 
 	SHOWN ONLY WHEN THE WARP BAR IS: standing in no stage and not downed, the same test
-	WarpController makes off ExposureState. It also ducks while the tutorial's banner is
-	up, since that banner sits at the same height.
+	WarpController makes off ExposureState. It also waits while the tutorial's banner is
+	up, since that banner sits at the same height. The queue just pauses meanwhile.
 
 	READS CashState (the balance) and GearList (what you own). GearList only answers a
 	GearAction "list", so this asks once on start and again whenever cash goes DOWN —
@@ -34,6 +35,7 @@ local PurchaseHintController = {}
 -- Design px. The warp bar spans y 10..74; this sits a little below it.
 local Y = 84
 local H = 30 -- text row height
+local HOLD = 3.5 -- seconds each pop-up stays up
 local POP = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local FADE = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
@@ -43,33 +45,40 @@ local cash: number? = nil
 local bestOwned: { [string]: number }? = nil
 local atCamp = false
 local ui: { pill: Frame, scale: UIScale, label: TextLabel }? = nil
-local showing = false
-local lastText = ""
 local tutorialBanner: GuiObject? = nil
 
---- The cheapest affordable next rung across the tracks, and how many tracks have one.
-local function pick(): (string?, number)
+-- "Track:tier" keys already queued or shown while affordable.
+local announced: { [string]: boolean } = {}
+type Rung = { track: string, tier: number, price: number }
+local queue: { Rung } = {} -- rungs waiting their turn
+local busy = false
+
+--- Queue every newly affordable rung (cheapest first); forget ones no longer affordable.
+local function scan()
 	if cash == nil or bestOwned == nil then
-		return nil, 0
+		return
 	end
-	local bestText: string? = nil
-	local bestPrice = math.huge
-	local count = 0
+	local fresh: { Rung } = {}
 	for _, track in Gear.TRACKS do
-		local next = (bestOwned[track] or 1) + 1
-		if next > Gear.maxTier(track) then
-			continue
-		end
-		local def = Gear.tier(track, next)
-		if def.price <= cash then
-			count += 1
-			if def.price < bestPrice then
-				bestPrice = def.price
-				bestText = def.name
+		for tier = (bestOwned[track] or 1) + 1, Gear.maxTier(track) do
+			local def = Gear.tier(track, tier)
+			local key = `{track}:{tier}`
+			if def.price <= cash then
+				if not announced[key] then
+					announced[key] = true
+					table.insert(fresh, { track = track, tier = tier, price = def.price })
+				end
+			else
+				announced[key] = nil
 			end
 		end
 	end
-	return bestText, count
+	table.sort(fresh, function(a, b)
+		return a.price < b.price
+	end)
+	for _, item in fresh do
+		table.insert(queue, item)
+	end
 end
 
 local function tutorialUp(): boolean
@@ -82,37 +91,39 @@ local function tutorialUp(): boolean
 	return tutorialBanner ~= nil and tutorialBanner.Visible
 end
 
-local function refresh()
+--- Show the next queued pop-up, if one is waiting and the spot is free.
+local pump: () -> ()
+function pump()
 	local parts = ui
-	if parts == nil then
+	if parts == nil or busy or #queue == 0 or not atCamp or tutorialUp() then
 		return
 	end
-	local name, count = pick()
-	local want = name ~= nil and atCamp and not tutorialUp()
-
-	if want and name then
-		local text = `You can purchase <font color="#{ACCENT:ToHex()}">{name}</font>!`
-		if count > 1 then
-			text ..= ` +{count - 1} more`
-		end
-		if text ~= lastText or not showing then
-			lastText = text
-			parts.label.Text = text
-			parts.pill.Visible = true
-			parts.scale.Scale = 0.6
-			TweenService:Create(parts.scale, POP, { Scale = 1 }):Play()
-		end
-		showing = true
-	elseif showing then
-		showing = false
-		local tween = TweenService:Create(parts.scale, FADE, { Scale = 0 })
-		tween.Completed:Connect(function()
-			if not showing then
-				parts.pill.Visible = false
-			end
-		end)
-		tween:Play()
+	-- Skip anything bought or no longer affordable since it was queued.
+	local rung = table.remove(queue, 1)
+	local owned = (bestOwned :: any)[rung.track] or 1
+	if rung.tier <= owned or cash == nil or rung.price > cash then
+		pump()
+		return
 	end
+	busy = true
+	local name = Gear.tier(rung.track, rung.tier).name
+	parts.label.Text = `You can purchase <font color="#{ACCENT:ToHex()}">{name}</font>!`
+	parts.pill.Visible = true
+	parts.scale.Scale = 0.6
+	TweenService:Create(parts.scale, POP, { Scale = 1 }):Play()
+	task.delay(HOLD, function()
+		local tween = TweenService:Create(parts.scale, FADE, { Scale = 0 })
+		tween:Play()
+		tween.Completed:Wait()
+		parts.pill.Visible = false
+		busy = false
+		pump()
+	end)
+end
+
+local function refresh()
+	scan()
+	pump()
 end
 
 local function build(): ScreenGui
