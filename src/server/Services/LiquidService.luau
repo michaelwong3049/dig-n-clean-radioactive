@@ -165,7 +165,8 @@ end
 local function pull(player: Player, data: any): (string?, string?)
 	local left = LiquidService.cooldownLeft(player)
 	if left > 0 then
-		return nil, `ready in {math.ceil(left)}s`
+		local secs = math.ceil(left)
+		return nil, string.format("ready in %d:%02d", secs // 60, secs % 60)
 	end
 	lastSpin[player] = os.clock()
 
@@ -189,6 +190,12 @@ end
 --- Water is unlimited, so this is a no-op on the floor — which is what makes
 --- "always able to clean something" true rather than aspirational.
 function LiquidService.spendCharge(data: any): ()
+	-- Fluids are infinite now: a rolled fluid stays loaded until a better one
+	-- replaces it, so a clear never spends anything.
+	if Tuning.LIQUID_INFINITE then
+		return
+	end
+
 	local id = LiquidService.equipped(data)
 	if id == Liquids.WATER then
 		return

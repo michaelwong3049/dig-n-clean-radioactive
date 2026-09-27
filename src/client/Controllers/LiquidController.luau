@@ -1249,7 +1249,8 @@ local function paintBrew()
 	local left = (tonumber(state.cooldown) or 0) - (os.clock() - stateAt)
 	local waiting = left > 0
 	if waiting then
-		panel.brew.Text = `BREW IN {math.ceil(left)}s`
+		local secs = math.ceil(left)
+		panel.brew.Text = string.format("BREW IN %d:%02d", secs // 60, secs % 60)
 		panel.brew.TextSize = UIKit.TextSize.title - 4
 		panel.brew.BackgroundColor3 = UIKit.C.empty
 		panel.brew.TextColor3 = UIKit.C.dim
