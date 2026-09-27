@@ -283,18 +283,18 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 	-- The first of three rockets, one per Stage 1-3
-	-- (Rare here, Rare Seeker in Stage 2, Legendary Two-Stage in Stage 3).
+	-- (Uncommon here, Rare Seeker in Stage 2, Epic Two-Stage in Stage 3).
 	{
 		id = "model_rocket",
 		name = "Rocket Nuke",
 		flavor = "A warhead on a hobby rocket. It never left the pad.",
-		rarity = "Rare",
+		rarity = "Uncommon",
 		odds = 30, -- 1 in N per dig in a stocking stage
 		weight = 18,
 		stages = { 1 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 3600,
+		baseValue = 250,
 		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
@@ -420,7 +420,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 370,
+		baseValue = 330,
 		model = "ImportedNuke",
 	},
 	{
@@ -434,7 +434,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 480,
+		baseValue = 370,
 		model = "ImportedNuke",
 	},
 	{
@@ -447,7 +447,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 650,
+		baseValue = 480,
 		model = "ImportedNuke",
 	},
 	{
@@ -460,7 +460,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 330,
+		baseValue = 650,
 		model = "ImportedNuke",
 	},
 	{
@@ -473,7 +473,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 2100,
+		baseValue = 3000,
 		model = "ImportedNuke",
 	},
 	{
@@ -486,7 +486,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 14000,
+		baseValue = 11000,
 		model = "ImportedNuke",
 	},
 	{
@@ -499,7 +499,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 11000,
+		baseValue = 14000,
 		model = "ImportedNuke",
 	},
 	{
@@ -512,7 +512,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 3000,
+		baseValue = 2100,
 		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
@@ -540,13 +540,13 @@ Items.DEFS = {
 		id = "rusty_horseshoe",
 		name = "Lucky Nuke",
 		flavor = "Shaped like luck. Never actually worked.",
-		rarity = "Common",
+		rarity = "Uncommon",
 		odds = 60, -- 1 in N per dig in a stocking stage
 		weight = 19,
 		stages = { 3, 4 },
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
-		baseValue = 53,
+		baseValue = 630,
 		model = "ImportedNuke",
 	},
 	{
@@ -606,14 +606,14 @@ Items.DEFS = {
 		id = "old_compass",
 		name = "Guided Nuke",
 		flavor = "Still points somewhere. Just not always north.",
-		rarity = "Uncommon",
+		rarity = "Common",
 		odds = 8, -- 1 in N per dig in a stocking stage
 		weight = 9,
 		sizeMult = 1.2, -- bigger
 		stages = { 3 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 430,
+		baseValue = 60,
 		model = "ImportedNuke",
 	},
 	{
@@ -626,7 +626,7 @@ Items.DEFS = {
 		stages = { 3, 4 },
 		appeal = "Gearhead",
 		sets = { "abandoned_farm" },
-		baseValue = 630,
+		baseValue = 450,
 		model = "ImportedNuke",
 	},
 	{
@@ -639,7 +639,7 @@ Items.DEFS = {
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 2500,
+		baseValue = 4400,
 		model = "ImportedNuke",
 	},
 	{
@@ -652,7 +652,7 @@ Items.DEFS = {
 		stages = { 3, 4 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 4300,
+		baseValue = 3700,
 		model = "ImportedNuke",
 	},
 	{
@@ -665,7 +665,7 @@ Items.DEFS = {
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 3700,
+		baseValue = 4300,
 		model = "ImportedNuke",
 	},
 	{
@@ -678,46 +678,46 @@ Items.DEFS = {
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 16000,
+		baseValue = 23000,
 		model = "ImportedNuke",
 	},
 	{
 		id = "diamond_brooch",
 		name = "Diamond Nuke",
 		flavor = "Catches light nobody else out here can see.",
-		rarity = "Epic",
+		rarity = "Legendary",
 		odds = 3500, -- 1 in N per dig in a stocking stage
 		weight = 5,
 		stages = { 3 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 19000,
+		baseValue = 75000,
 		model = "ImportedNuke",
 	},
 	{
 		id = "rusted_farm_safe",
 		name = "Buried Nuke",
 		flavor = "Under the old farmhouse. Somebody hid this well.",
-		rarity = "Legendary",
+		rarity = "Epic",
 		odds = 400, -- 1 in N per dig in a stocking stage
 		weight = 470,
 		stages = { 3, 4 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 60000,
+		baseValue = 16000,
 		model = "ImportedNuke",
 	},
 	{
 		id = "two_stage_rocket",
 		name = "Two-Stage Nuke",
 		flavor = "Two stages, one warhead, and a launch that never came.",
-		rarity = "Legendary",
+		rarity = "Epic",
 		odds = 1000, -- 1 in N per dig in a stocking stage
 		weight = 180,
 		stages = { 3 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 75000,
+		baseValue = 19000,
 		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
@@ -737,7 +737,7 @@ Items.DEFS = {
 		stages = { 4 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 4400,
+		baseValue = 2500,
 		model = "ImportedNuke",
 	},
 	{
@@ -750,7 +750,7 @@ Items.DEFS = {
 		stages = { 4 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
-		baseValue = 23000,
+		baseValue = 21000,
 		model = "ImportedNuke",
 	},
 	{
@@ -829,13 +829,13 @@ Items.DEFS = {
 		id = "old_headphones",
 		name = "Static Nuke",
 		flavor = "One side still crackles if you listen close.",
-		rarity = "Uncommon",
+		rarity = "Rare",
 		odds = 240, -- 1 in N per dig in a stocking stage
 		weight = 15,
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = { "reactor_control" },
-		baseValue = 430,
+		baseValue = 2800,
 		model = "ImportedNuke",
 	},
 	{
@@ -855,13 +855,13 @@ Items.DEFS = {
 		id = "reactor_logbook",
 		name = "Marked Nuke",
 		flavor = "One word on the casing, underlined twice.",
-		rarity = "Rare",
+		rarity = "Uncommon",
 		odds = 50, -- 1 in N per dig in a stocking stage
 		weight = 28,
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
-		baseValue = 2800,
+		baseValue = 430,
 		model = "ImportedNuke",
 	},
 	{
@@ -887,7 +887,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
-		baseValue = 17000,
+		baseValue = 21000,
 		model = "ImportedNuke",
 	},
 	{
@@ -900,7 +900,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 21000,
+		baseValue = 17000,
 		model = "ImportedNuke",
 	},
 	{
@@ -913,7 +913,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = { "reactor_control" },
-		baseValue = 100000,
+		baseValue = 130000,
 		model = "ImportedNuke",
 	},
 	-- The fourth rocket (Stage 4 has none): Legendary here, Mythic Booster in Stage 6.
@@ -927,7 +927,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 130000,
+		baseValue = 100000,
 		sizeMult = 1.15, -- rockets run a touch bigger
 		model = "ImportedNuke",
 	},
@@ -994,13 +994,13 @@ Items.DEFS = {
 		id = "bent_door_wheel",
 		name = "Warped Nuke",
 		flavor = "Spun the wrong way, hard.",
-		rarity = "Uncommon",
+		rarity = "Rare",
 		odds = 260, -- 1 in N per dig in a stocking stage
 		weight = 70,
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 700,
+		baseValue = 4300,
 		model = "ImportedNuke",
 	},
 	{
@@ -1020,13 +1020,13 @@ Items.DEFS = {
 		id = "fused_tool_roll",
 		name = "Welded Nuke",
 		flavor = "Every tool on it fused solid.",
-		rarity = "Rare",
+		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
 		weight = 60,
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 4300,
+		baseValue = 700,
 		model = "ImportedNuke",
 	},
 	{
@@ -1039,20 +1039,20 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 22000,
+		baseValue = 24000,
 		model = "ImportedNuke",
 	},
 	{
 		id = "skyglow_core_fragment",
 		name = "Sky-Glow Nuke",
 		flavor = "Lights up the crater at night, all by itself.",
-		rarity = "Epic",
+		rarity = "Legendary",
 		odds = 6000, -- 1 in N per dig in a stocking stage
 		weight = 80,
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 26000,
+		baseValue = 140000,
 		model = "ImportedNuke",
 	},
 	{
@@ -1065,20 +1065,20 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 24000,
+		baseValue = 26000,
 		model = "ImportedNuke",
 	},
 	{
 		id = "explorers_helmet",
 		name = "Pioneer Nuke",
 		flavor = "Carried by whoever mapped this place first.",
-		rarity = "Legendary",
+		rarity = "Epic",
 		odds = 500, -- 1 in N per dig in a stocking stage
 		weight = 35,
 		stages = { 6 },
 		appeal = "Collector",
 		sets = { "crater_relics" },
-		baseValue = 140000,
+		baseValue = 22000,
 		model = "ImportedNuke",
 	},
 	{
