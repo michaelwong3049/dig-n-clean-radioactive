@@ -262,14 +262,15 @@ Plots.LOCKER_SLOTS = Tuning.LOCKER_SLOTS
 -- The original pad ran from local Z -26 to +26. Both edges have since moved,
 -- independently: minZ went to -43 for a 17-stud entrance-side service strip (the
 -- washing equipment and the luck button), and maxZ went from +26 to +44 on
--- request — an 18-stud extension straight out the back, behind the old wall, so
+-- request — an 18-stud extension straight out the back (then +12 more to 56, to
+-- spread the stand rows further apart), behind the old wall, so
 -- the stand grid can be spread over a deeper interior (GRID_ROWS below). The
 -- back fence and accent trim both read maxZ, so they follow the edge out on
 -- their own; the avatar plate floats over PAD_CENTER_Z instead, high above the
 -- whole pad rather than tucked against either edge. Keeping explicit bounds
 -- avoids pretending an asymmetric pad is centred on the plot origin.
 local PAD_MIN_Z = -43
-local PAD_MAX_Z = 44
+local PAD_MAX_Z = 56
 Plots.PAD = {
 	width = 66,
 	depth = PAD_MAX_Z - PAD_MIN_Z,
@@ -362,8 +363,8 @@ Plots.RING_RADIUS = 165
 --- The walkway's outer disc radius — has to clear the farthest PAD CORNER from
 --- RING_CENTER, not just the farthest pad centre. The entrance extension grows
 --- inward toward the ring centre, so the farthest outward corner is the back
---- edge at local Z +44 (the +18 back extension, PAD_MAX_Z above):
---- `sqrt((RING_RADIUS+44)^2 + HALF_W^2)`.
+--- edge at local Z +56 (the back extensions, PAD_MAX_Z above):
+--- `sqrt((RING_RADIUS+56)^2 + HALF_W^2)` = ~223.4 at radius 165; 242 keeps ~18 margin.
 ---
 --- RE-DERIVED FOR RING_RADIUS=165: sqrt(209^2 + 33^2) = ~211.6 studs, down from
 --- ~226.4 at the old radius 180. 230 keeps the same real ~18-stud margin past
@@ -373,7 +374,7 @@ Plots.RING_RADIUS = 165
 --- World.verify()'s landmass square all already read this constant rather than
 --- a hardcoded reach, so shrinking it here pulls the outer wall in with the
 --- ring rather than leaving a wide empty belt around a now-smaller ring.
-Plots.RING_OUTER = 230
+Plots.RING_OUTER = 242
 
 --- 34-degree spacing (was 30, widened on request for more breathing room
 --- between pads at the same radius), sector MIDPOINTS (see this section's own
@@ -549,7 +550,7 @@ end
 --- ±25), and the open floor either side of the centre column (20 studs) clears
 --- the bigger stand footprint below with room to spare.
 ---
---- GRID_ROWS are 4 evenly spaced z's (pitch 13), ROW_TOP first — closest to the
+--- GRID_ROWS are 4 evenly spaced z's (pitch 17, widened from 13 with the +12 pad), ROW_TOP first — closest to the
 --- back wall — counting DOWN from there toward the entrance, the same 4-deep
 --- count the old flanking columns used. Pitch 13 (down slightly from the old
 --- 12.5, to hold the front row back from PlotSpawn now that RISER_BASE below is
@@ -560,7 +561,7 @@ end
 --- (GRID_COLS[1], GRID_ROWS[1]) i.e. back-left, slot 3 is back-right, slot 12 is
 --- front-right.
 local GRID_COLS = { -20, 0, 20 }
-local GRID_ROWS = { 33, 20, 7, -6 }
+local GRID_ROWS = { 45, 28, 11, -6 }
 
 local function slotOffset(slot: number): (number, number)
 	local col = (slot - 1) % #GRID_COLS
