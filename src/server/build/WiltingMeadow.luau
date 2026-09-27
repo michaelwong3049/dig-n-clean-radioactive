@@ -730,8 +730,7 @@ local function wildflowers(parent: Instance, f: K.Field, taken: Taken, rng: Rand
 	K.grid(f, CELL, rng, function(x, z)
 		local t = along(x)
 		local roll = rng:NextNumber()
-		-- They stand up, so they keep off the walk lane.
-		if K.onLane(z, 1) or not clearOf(taken, x, z, 1.6) then
+		if not clearOf(taken, x, z, 1.6) then
 			return
 		end
 		if roll >= lerp(FLOWER_WEST, FLOWER_EAST, t) then

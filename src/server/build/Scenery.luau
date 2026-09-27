@@ -120,10 +120,10 @@ local SKIM = 0.26
 --- the ground rather than buried under it. Low enough to be invisible as a step.
 local GROUND_SKIM = 0.06
 
--- Stage 1 keeps a clear lane down its centreline (z = 0), the walk-through path
--- into the field -- scatterBushes pushes foliage at least this far off it so a
--- bush never sprouts in the middle of the route.
-local BUSH_CENTRE_CLEARANCE = 28
+-- Stage 1 used to keep a clear lane down its centreline (z = 0); on request the
+-- middle is filled now, so the clearance is 0 and the same bushes, snags, grass and
+-- rocks spread evenly over the full depth (laneSplitZ becomes a no-op).
+local BUSH_CENTRE_CLEARANCE = 0
 
 --- The face opposite each studded face: walls are seen from both sides (the corridor
 --- from inside, the fields and void from outside), so the back gets studs too.
