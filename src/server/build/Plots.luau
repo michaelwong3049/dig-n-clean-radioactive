@@ -2212,7 +2212,7 @@ local LOCKER = {
 	z = -15.5,
 	pitch = 1.65, -- tube centre to tube centre, along the rack
 	tubeD = 1.45, -- glass diameter
-	tubeH = 2.75, -- glass height, cap to cap
+	tubeH = 3.8, -- glass height, cap to cap (taller on request; the rack grows with it)
 	capH = 0.24,
 	deckH = 0.3,
 	kerbH = 0.55,
@@ -2382,16 +2382,6 @@ local function buildQuarantineLocker(parent: Instance, origin: CFrame, index: nu
 					rot = Kit.R.cylUp,
 		})
 	end
-
-	-- The header plate, on the lid's front edge.
-	local sign = build(m, face, {
-		name = "Sign",
-		pos = { 0, topY + 0.85, -L.depth / 2 + 0.2 },
-		size = { width - 0.6, 0.7, 0.12 },
-		color = C.steelDark,
-		material = "Metal",
-	})
-	Kit.surfaceText(sign, Enum.NormalId.Front, "QUARANTINE", C.quarantineRed)
 
 	Plots.lockerStation(m, face, index)
 	m.Parent = parent
