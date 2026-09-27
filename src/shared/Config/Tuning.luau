@@ -420,7 +420,8 @@ Tuning.ASSAY_FEE_FRACTION = 0.02
 -- ── Exhibition (PLAN §8.2) ────────────────────────────────────────────────────
 Tuning.EXHIBIT_OFFLINE_RATE = 0.25
 Tuning.EXHIBIT_OFFLINE_BANK_HOURS = 4
-Tuning.EXHIBIT_DUPLICATE_YIELD = { 1.0, 0.40, 0.15, 0.05 } -- 4th+ uses the last entry
+-- Every copy of an item pays in full; the old 100/40/15/5% duplicate damping is gone.
+Tuning.EXHIBIT_DUPLICATE_YIELD = { 1.0 }
 Tuning.EXHIBIT_UNCRATE_SECONDS = 60
 -- Every stand a base can ever have, across all of its floors (Config/Floors): the
 -- ground floor's 12 are free from the start, and each floor bought on top adds 8
