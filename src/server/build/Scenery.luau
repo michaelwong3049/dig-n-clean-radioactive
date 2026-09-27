@@ -3933,6 +3933,25 @@ local function buildBoundaryRun(folder: Instance, ids: { number })
 	buildWallCap(folder, "NorthWallCap", minX, maxX, northZ, capPairAt, FACE_SIGN.BackSurface)
 	buildWallCap(folder, "SouthWallCap", minX, maxX, southZ, capPairAt, FACE_SIGN.FrontSurface)
 
+	-- Invisible barriers on both crowns, ON REQUEST, so nobody can jump up and run
+	-- along the wall tops. Wider than the wall so the lip overhang is covered too;
+	-- CanQuery off so they never block detector/click raycasts.
+	local barrierBottom = Stages.SURFACE_Y + WALL_HEIGHT
+	local barrierHeight = 200
+	for _, z in { northZ, southZ } do
+		local barrier = Instance.new("Part")
+		barrier.Name = "WallTopBarrier"
+		barrier.Anchored = true
+		barrier.CanCollide = true
+		barrier.CanQuery = false
+		barrier.CanTouch = false
+		barrier.CastShadow = false
+		barrier.Transparency = 1
+		barrier.Size = Vector3.new(maxX - minX, barrierHeight, WALL_THICKNESS + 8)
+		barrier.CFrame = CFrame.new((minX + maxX) / 2, barrierBottom + barrierHeight / 2, z)
+		barrier.Parent = folder
+	end
+
 	-- Stage 1's stretch wears the camp cliff and the camp-green crown, so it carries the
 	-- camp arc's crown bushes on along it (buildBaseWalls). ON REQUEST, that stays
 	-- Stage-1-only even though every stage's crown is grass now -- the grass lip below
