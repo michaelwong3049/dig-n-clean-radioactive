@@ -2707,7 +2707,16 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	local console = treadmill:FindFirstChild("Console")
 	local prompt = console and console:FindFirstChild("Upgrade")
 	if prompt and prompt:IsA("ProximityPrompt") then
-		prompt.ActionText = if locked then `Unlock Treadmill ({Treadmill.unlockPriceText()})` else "Upgrade Treadmill"
+		-- The next belt's price rides on the prompt, so walking up to the console says
+		-- what the upgrade costs before you hold E.
+		local nextTier = Treadmill.TIERS[wanted + 1]
+		prompt.ActionText = if locked
+			then `Unlock Treadmill ({Treadmill.unlockPriceText()})`
+			elseif nextTier then `Upgrade Treadmill ({Treadmill.priceText(nextTier.price)})`
+			else "Treadmill Maxed"
+		prompt.ObjectText = if not locked and nextTier
+			then `Next: {nextTier.name} (+{nextTier.rate} Speed/s)`
+			else "Treadmill"
 	end
 
 	-- The console's own screen says the same number to the runner, with the bar to the
