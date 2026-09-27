@@ -811,6 +811,18 @@ local function refreshPrompt(character: Model?)
 
 	local anchor = (held :: Model).PrimaryPart or held:FindFirstChildWhichIsA("BasePart", true)
 	if anchor == nil then
+		-- StreamingEnabled: the model can land before its parts (or its attributes do).
+		-- Try again as soon as a part shows up instead of giving up for good.
+		local waiter
+		waiter = held.DescendantAdded:Connect(function(d)
+			if d:IsA("BasePart") then
+				waiter:Disconnect()
+				task.defer(refreshPrompt, character)
+			end
+		end)
+		held.AncestryChanged:Once(function()
+			waiter:Disconnect()
+		end)
 		return
 	end
 
