@@ -3,15 +3,16 @@
 	PurchaseHintController.luau — the quick "You can purchase ...!" pop-ups just under
 	the HOME / SHOPS warp bar.
 
-	EVERY gear rung that becomes affordable gets its own pop-up, once: each one springs
-	in, holds for HOLD seconds, shrinks away, and the next queued rung follows. "A rung"
+	EVERY gear rung that becomes affordable gets its own pop-up, once. They all pop at
+	the same time, stacked one under another (cheapest on top, at most MAX_ROWS), each
+	holding for HOLD seconds before it shrinks away. "A rung"
 	here is any tier above the best one you own on its track (Detector, Magnet, Hose,
 	Aura) whose price is at or under your cash. A rung you drop back below (you spent
 	money) is forgotten, so it pops up again when you can afford it again.
 
 	SHOWN ONLY WHEN THE WARP BAR IS: standing in no stage and not downed, the same test
 	WarpController makes off ExposureState. It also waits while the tutorial's banner is
-	up, since that banner sits at the same height. The queue just pauses meanwhile.
+	up, since that banner sits at the same height. Anything that became affordable meanwhile pops once it is clear.
 
 	READS CashState (the balance) and GearList (what you own). GearList only answers a
 	GearAction "list", so this asks once on start and again whenever cash goes DOWN —
@@ -36,6 +37,7 @@ local PurchaseHintController = {}
 local Y = 84
 local H = 30 -- text row height
 local HOLD = 3.5 -- seconds each pop-up stays up
+local MAX_ROWS = 8 -- most rows popped in one go, so a big cash jump cannot fill the screen
 local POP = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local FADE = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
@@ -44,14 +46,14 @@ local ACCENT = Color3.fromHex("FFE36B")
 local cash: number? = nil
 local bestOwned: { [string]: number }? = nil
 local atCamp = false
-local ui: { pill: Frame, scale: UIScale, label: TextLabel }? = nil
+local ui: Frame? = nil -- the stack the rows go in
 local tutorialBanner: GuiObject? = nil
 
 -- "Track:tier" keys already queued or shown while affordable.
 local announced: { [string]: boolean } = {}
 type Rung = { track: string, tier: number, price: number }
-local queue: { Rung } = {} -- rungs waiting their turn
-local busy = false
+local queue: { Rung } = {} -- rungs waiting to pop
+local orderSeq = 0
 
 --- Queue every newly affordable rung (cheapest first); forget ones no longer affordable.
 local function scan()
@@ -91,34 +93,67 @@ local function tutorialUp(): boolean
 	return tutorialBanner ~= nil and tutorialBanner.Visible
 end
 
---- Show the next queued pop-up, if one is waiting and the spot is free.
-local pump: () -> ()
-function pump()
-	local parts = ui
-	if parts == nil or busy or #queue == 0 or not atCamp or tutorialUp() then
-		return
-	end
-	-- Skip anything bought or no longer affordable since it was queued.
-	local rung = table.remove(queue, 1)
-	local owned = (bestOwned :: any)[rung.track] or 1
-	if rung.tier <= owned or cash == nil or rung.price > cash then
-		pump()
-		return
-	end
-	busy = true
-	local name = Gear.tier(rung.track, rung.tier).name
-	parts.label.Text = `You can purchase <font color="#{ACCENT:ToHex()}">{name}</font>!`
-	parts.pill.Visible = true
-	parts.scale.Scale = 0.6
-	TweenService:Create(parts.scale, POP, { Scale = 1 }):Play()
+--- One pop-up row: springs in, holds HOLD seconds, shrinks away, then is gone.
+local function popRow(list: Frame, name: string, order: number)
+	local row = Instance.new("Frame")
+	row.Name = "Hint"
+	row.LayoutOrder = order
+	row.Size = UDim2.fromOffset(0, H)
+	row.AutomaticSize = Enum.AutomaticSize.X
+	row.BackgroundTransparency = 1
+	local scale = Instance.new("UIScale")
+	scale.Scale = 0.6
+	scale.Parent = row
+
+	-- No box: just chunky outlined text, like a Roblox game title.
+	local label = Instance.new("TextLabel")
+	label.Name = "Text"
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(0, 1)
+	label.AutomaticSize = Enum.AutomaticSize.X
+	label.Font = Enum.Font.GothamBlack
+	label.TextSize = 22
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.RichText = true
+	label.Text = `You can purchase <font color="#{ACCENT:ToHex()}">{name}</font>!`
+	label.Parent = row
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.new(0, 0, 0)
+	stroke.Thickness = 3
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = label
+
+	row.Parent = list
+	TweenService:Create(scale, POP, { Scale = 1 }):Play()
 	task.delay(HOLD, function()
-		local tween = TweenService:Create(parts.scale, FADE, { Scale = 0 })
+		local tween = TweenService:Create(scale, FADE, { Scale = 0 })
 		tween:Play()
 		tween.Completed:Wait()
-		parts.pill.Visible = false
-		busy = false
-		pump()
+		row:Destroy()
 	end)
+end
+
+--- Pop every queued rung at once, stacked under each other, cheapest on top.
+local function pump()
+	local list = ui
+	if list == nil or #queue == 0 or not atCamp or tutorialUp() then
+		return
+	end
+	local shown = 0
+	for _, rung in queue do
+		-- Skip anything bought or no longer affordable since it was queued.
+		local owned = (bestOwned :: any)[rung.track] or 1
+		if rung.tier <= owned or cash == nil or rung.price > cash then
+			continue
+		end
+		orderSeq += 1
+		shown += 1
+		popRow(list, Gear.tier(rung.track, rung.tier).name, orderSeq)
+		if shown >= MAX_ROWS then
+			break
+		end
+	end
+	table.clear(queue)
 end
 
 local function refresh()
@@ -135,36 +170,22 @@ local function build(): ScreenGui
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	local canvas = UIKit.canvas(gui)
-	-- No box: just chunky outlined text, like a Roblox game title.
-	local pill = Instance.new("Frame")
-	pill.Name = "Hint"
-	pill.AnchorPoint = Vector2.new(0.5, 0)
-	pill.Position = UDim2.new(0.5, 0, 0, Y)
-	pill.Size = UDim2.fromOffset(0, H)
-	pill.AutomaticSize = Enum.AutomaticSize.X
-	pill.BackgroundTransparency = 1
-	pill.Visible = false
-	pill.Parent = canvas
-	local scale = Instance.new("UIScale")
-	scale.Parent = pill
+	local list = Instance.new("Frame")
+	list.Name = "Stack"
+	list.AnchorPoint = Vector2.new(0.5, 0)
+	list.Position = UDim2.new(0.5, 0, 0, Y)
+	list.Size = UDim2.fromOffset(600, 0)
+	list.AutomaticSize = Enum.AutomaticSize.Y
+	list.BackgroundTransparency = 1
+	list.Parent = canvas
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Vertical
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 2)
+	layout.Parent = list
 
-	local label = Instance.new("TextLabel")
-	label.Name = "Text"
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(0, 1)
-	label.AutomaticSize = Enum.AutomaticSize.X
-	label.Font = Enum.Font.GothamBlack
-	label.TextSize = 22
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.RichText = true
-	label.Parent = pill
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.new(0, 0, 0)
-	stroke.Thickness = 3
-	stroke.LineJoinMode = Enum.LineJoinMode.Round
-	stroke.Parent = label
-
-	ui = { pill = pill, scale = scale, label = label }
+	ui = list
 	return gui
 end
 
