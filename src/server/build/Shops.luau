@@ -195,7 +195,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 55
+local BUILDER_VERSION = 56
 
 local C = Kit.C
 local build = Kit.build
@@ -878,7 +878,6 @@ local function buildPlateRoof(parent: Instance, origin: CFrame, accent: string, 
 				color = if (col + row) % 2 == 0 then accent else darkPlate,
 				material = "Plastic",
 				studs = true,
-				canCollide = false,
 			})
 		end
 	end
@@ -1140,24 +1139,23 @@ end
 
 -- ── The roof top ─────────────────────────────────────────────────────────────
 
---- THE SLANT ROOF AND SQUARE TOP (2026-09-27, on request): a shallow slope rises off
---- both long edges of the flat plate roof to a flat band down the centre line, and a
---- square box sits on that band. It replaced the tall shopfront (accent parapets and a
---- two-sided painted sign board), and the floating StoreSign pill came back to name the
---- shop. The Trader kiosk in build/BaseCamp wears the same top (Shops.buildSlantTop).
+--- THE SLANT ROOF (2026-09-27, on request): a shallow slope rises off both long edges
+--- of the flat plate roof to a flat band down the centre line. It replaced the tall
+--- shopfront (accent parapets and a two-sided painted sign board), and the floating
+--- StoreSign pill came back to name the shop. A square box on the band went the same
+--- day, on request. The slopes and band are SOLID (players stand on the roof instead of
+--- falling through it), as are the plates under them. The Trader kiosk in build/BaseCamp
+--- wears the same top (Shops.buildSlantTop).
 ---
 --- `frame` is the roof's own frame, `baseY` the height the slopes start at, `depth` the
---- roof's depth across the slopes (local z) and `width` its length along them. The band
---- stays SLANT_BAND_MIN deep at least: ShopThemes' roof props stand on it (its ROOF_Y is
---- SLANT_BASE_Y + SLANT_RISE). `capX` slides the box along the band, off a roof prop.
+--- roof's depth across the slopes (local z) and `width` its length along them.
+--- ShopThemes' roof props stand on the band (its ROOF_Y is SLANT_BASE_Y + SLANT_RISE).
+--- Returns the band's top height in `frame`.
 local SLANT_BASE_Y = 10.3 -- just over the plates' seam straps
 local SLANT_RISE = 1.3
 local SLANT_RUN = 3.5
-local CAP_HEIGHT = 2.6
-local CAP_DEPTH = 5
-local CAP_MIN, CAP_MAX = 6, 11
 
-local function buildSlantTop(parent: Instance, frame: CFrame, width: number, depth: number, baseY: number, rise: number, run: number, color: string, capSize: number, capDepth: number, capX: number, capColor: string)
+local function buildSlantTop(parent: Instance, frame: CFrame, width: number, depth: number, baseY: number, rise: number, run: number, color: string): number
 	local topY = baseY + rise
 	-- A WedgePart's tall face is its local +Z, so the back slope (at -z) is unturned and
 	-- the front one is spun half round to rise toward the centre too.
@@ -1171,7 +1169,6 @@ local function buildSlantTop(parent: Instance, frame: CFrame, width: number, dep
 			class = "WedgePart",
 			rot = if side > 0 then Kit.ang(0, 180, 0) else nil,
 			studs = true,
-			canCollide = false,
 		})
 		buildSteelStrip(parent, frame, "RoofSlantEdge", { 0, baseY + 0.1, side * (depth / 2 - 0.15) }, { width + 0.3, 0.3, 0.4 })
 		buildSteelStrip(parent, frame, "RoofRidge", { 0, topY + 0.08, side * (depth / 2 - run) }, { width + 0.2, 0.26, 0.4 })
@@ -1183,51 +1180,15 @@ local function buildSlantTop(parent: Instance, frame: CFrame, width: number, dep
 		color = color,
 		material = "Plastic",
 		studs = true,
-		canCollide = false,
 	})
-
-	-- The square top: a box in `capColor` on a steel footing, capped in steel.
-	build(parent, frame, {
-		name = "RoofTopFooting",
-		pos = { capX, topY + 0.2, 0 },
-		size = { capSize + 0.6, 0.4, capDepth + 0.6 },
-		color = ROOF_STEEL,
-		material = "Metal",
-		canCollide = false,
-	})
-	build(parent, frame, {
-		name = "RoofTop",
-		pos = { capX, topY + 0.4 + CAP_HEIGHT / 2, 0 },
-		size = { capSize, CAP_HEIGHT, capDepth },
-		color = capColor,
-		material = "Plastic",
-		studs = true,
-		canCollide = false,
-	})
-	buildSteelStrip(parent, frame, "RoofTopCap", { capX, topY + 0.4 + CAP_HEIGHT + 0.15, 0 }, { capSize + 0.5, 0.3, capDepth + 0.5 })
-	for _, sx in { -1, 1 } do
-		for _, sz in { -1, 1 } do
-			buildRivet(parent, frame, capX + sx * (capSize / 2 - 0.5), topY + 0.4 + CAP_HEIGHT - 0.5, sz * (capDepth / 2 + 0.02), 0.3)
-		end
-	end
-	return topY + 0.4 + CAP_HEIGHT + 0.3
+	return topY
 end
 Shops.buildSlantTop = buildSlantTop
 
---- A stall's roof top, and the floating StoreSign over it. `avoidX` is a roof prop's x
---- (ShopThemes stands one over the stand); the box moves along the band clear of it
---- when the roof is long enough, and centres otherwise.
-local function buildRoofTop(parent: Instance, origin: CFrame, width: number, accent: string, label: string, avoidX: number?)
-	local capSize = math.clamp(width * 0.3, CAP_MIN, CAP_MAX)
-	local capX = 0
-	if avoidX then
-		local clearX = avoidX + 4 + capSize / 2
-		if math.abs(avoidX) < 4 + capSize / 2 and clearX <= width / 2 - capSize / 2 - 1 then
-			capX = clearX
-		end
-	end
+--- A stall's slant roof, and the floating StoreSign over it.
+local function buildRoofTop(parent: Instance, origin: CFrame, width: number, accent: string, label: string)
 	local frame = origin * CFrame.new(0, 0, ROOF_CENTER_Z)
-	local top = buildSlantTop(parent, frame, width, ROOF_DEPTH, SLANT_BASE_Y, SLANT_RISE, SLANT_RUN, Kit.blendHex(accent, "000000", ROOF_PLATE_SHADE), capSize, CAP_DEPTH, capX, accent)
+	local top = buildSlantTop(parent, frame, width, ROOF_DEPTH, SLANT_BASE_Y, SLANT_RISE, SLANT_RUN, Kit.blendHex(accent, "000000", ROOF_PLATE_SHADE))
 
 	local anchor = build(parent, origin, {
 		name = "SignAnchor",
@@ -1240,7 +1201,7 @@ local function buildRoofTop(parent: Instance, origin: CFrame, width: number, acc
 	})
 	anchor.CanQuery = false
 	anchor.CanTouch = false
-	buildStoreBillboard(anchor, label, accent, 2)
+	buildStoreBillboard(anchor, label, accent, 5)
 end
 
 -- ── The counter ───────────────────────────────────────────────────────────────
@@ -1918,7 +1879,7 @@ local function buildStall(parent: Instance, spec: StallSpec, originOverride: CFr
 
 	buildPlateRoof(m, origin, spec.color, width)
 	-- The slant roof and square top, with the floating pill sign over it.
-	buildRoofTop(m, origin, width, spec.color, spec.label, sx)
+	buildRoofTop(m, origin, width, spec.color, spec.label)
 
 	-- The trade's own props, behind the shopfront and on the roof (build/ShopThemes).
 	ShopThemes.dressStall(m, origin, spec.track, width, sx)
