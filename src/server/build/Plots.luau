@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 68
+local BUILDER_VERSION = 71
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -2816,8 +2816,9 @@ end
 --- fence reads as the same toy-brick plastic as the rest of the base.
 local RAIL_H = 3.4
 local RAIL_POST_SPACING = 8
-local RAIL_POST_W = 1.2
-local RAIL_BAR_T = 0.8
+local RAIL_POST_W = 0.72 -- 1.2, thinned 0.6x on request
+local RAIL_BAR_T = 0.48 -- 0.8, thinned 0.6x
+local STAIR_RAIL_T = 0.4 -- a flight's handrails and their posts: half the old 0.8
 local function buildSideRailings(parent: Instance, origin: CFrame)
 	local pad = Plots.PAD
 	local folder = Instance.new("Folder")
@@ -3239,13 +3240,13 @@ end
 --- it in shade the moment a floor is bought, and a gallery is for looking at. The
 --- pillars and stairs still cast one, so the building does not read as floating.
 local FLOOR = {
-	front = -11, -- the decks' front edge (plot-local z); the ground grid's front plinths end at -10.45
+	front = -17, -- the decks' front edge (plot-local z): 6 studs out over the entrance strip, still clear of the tub
 	thick = 1.2,
 	fascia = 0.6, -- the accent band round a deck's edge
 	stairX = 28.6, -- |x| of a flight's centre line: the side corridor past the outer stand column
 	stairW = 4.8,
-	stairZ = -9.6, -- where a flight's first step starts, just behind the deck's front rail
-	tread = 1.75,
+	stairZ = -9.6, -- where a flight's first step starts, behind the Quarantine Locker (z -15.5)
+	landing = 5, -- depth of the deck between a flight's head and the back edge
 	rise = 1, -- Floors.HEIGHT steps of this, so a flight lands exactly on the next deck
 	openIn = 25.8, -- |x| of a stairwell's inner edge
 	openOut = 31.4, -- |x| of its outer edge; the ledge past it carries the side rail
@@ -3254,11 +3255,14 @@ local FLOOR = {
 	-- post or shares a face with one.
 	pillarX = 32,
 	pillarW = 1.4,
-	pillarZ = { -5.3, 15, 39 },
+	pillarZ = { -16, 54.5 }, -- one per corner: the front overhang (just past the locker's back) and the back edge
 	handrails = { 2.0, 3.5 }, -- heights of a flight's two sloped rails over the step line
 	handPostH = 3.2,
 }
 local FLIGHT_STEPS = math.round(Floors.HEIGHT / FLOOR.rise)
+-- Each flight runs the whole depth of the deck, front to a landing at the back, so
+-- the tread is whatever spreads FLIGHT_STEPS over that run.
+FLOOR.tread = (Plots.PAD.maxZ - FLOOR.landing - FLOOR.stairZ) / FLIGHT_STEPS
 local FLIGHT_TOP_Z = FLOOR.stairZ + FLIGHT_STEPS * FLOOR.tread
 
 --- Which side (-1 = -X, +1 = +X) the flight climbing UP FROM `floor` runs up.
@@ -3301,8 +3305,8 @@ local function railRun(folder: Instance, origin: CFrame, y: number, x0: number, 
 	end
 end
 
---- The flight of stairs from `fromFloor` up to the floor above it: solid studded
---- blocks, each one from the floor below to its own tread, in alternating greys so
+--- The flight of stairs from `fromFloor` up to the floor above it: open studded
+--- treads, one stud thick with nothing under them, in alternating greys so
 --- the steps read from across the plaza, and a pair of sloped handrails down each
 --- side. The rails are rotated straight parts, not a staircase of little bars
 --- (memory: straight-edges-over-pixel-stairs).
@@ -3313,11 +3317,11 @@ local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
 	local x = flightSide(fromFloor) * FLOOR.stairX
 
 	for i = 1, FLIGHT_STEPS do
-		local h = i * FLOOR.rise
+		-- One stud-thick tread per step, nothing under it: an open stair.
 		build(m, origin, {
 			name = "Step",
-			pos = { x, baseY + h / 2, FLOOR.stairZ + (i - 0.5) * FLOOR.tread },
-			size = { FLOOR.stairW, h, FLOOR.tread },
+			pos = { x, baseY + (i - 0.5) * FLOOR.rise, FLOOR.stairZ + (i - 0.5) * FLOOR.tread },
+			size = { FLOOR.stairW, FLOOR.rise, FLOOR.tread },
 			color = if i % 2 == 1 then C.standGrey else C.standGreyDark,
 			material = "Plastic",
 			studs = true,
@@ -3332,12 +3336,12 @@ local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
 	local length = math.sqrt(run * run + climb * climb)
 	local pitch = CFrame.Angles(-math.atan2(climb, run), 0, 0)
 	for _, edge in { -1, 1 } do
-		local hx = x + edge * (FLOOR.stairW / 2 - RAIL_BAR_T / 2)
+		local hx = x + edge * (FLOOR.stairW / 2 - STAIR_RAIL_T / 2)
 		for _, lift in FLOOR.handrails do
 			build(m, origin, {
 				name = "Handrail",
 				pos = { hx, baseY + climb / 2 + lift, FLOOR.stairZ + run / 2 },
-				size = { RAIL_BAR_T, RAIL_BAR_T, length },
+				size = { STAIR_RAIL_T, STAIR_RAIL_T, length },
 				color = C.railGrey,
 				material = "Plastic",
 				studs = true,
@@ -3350,7 +3354,7 @@ local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
 			build(m, origin, {
 				name = "HandrailPost",
 				pos = { hx, baseY + i * FLOOR.rise + FLOOR.handPostH / 2, FLOOR.stairZ + (i - 0.5) * FLOOR.tread },
-				size = { RAIL_BAR_T, FLOOR.handPostH, RAIL_BAR_T },
+				size = { STAIR_RAIL_T, FLOOR.handPostH, STAIR_RAIL_T },
 				color = C.railPost,
 				material = "Plastic",
 				studs = true,
@@ -3391,6 +3395,7 @@ local function buildFloor(parent: Instance, origin: CFrame, index: number, floor
 	deck(-side * HALF_W, side * FLOOR.openIn, front, back) -- everything inside the stairwell's inner edge
 	deck(side * FLOOR.openIn, side * HALF_W, FLIGHT_TOP_Z, back) -- behind it, where the flight lands
 	deck(side * FLOOR.openOut, side * HALF_W, front, FLIGHT_TOP_Z) -- the ledge outside it, under the side rail
+	deck(side * FLOOR.openIn, side * FLOOR.openOut, front, FLOOR.stairZ) -- in front of the flight's foot
 
 	-- The accent band round the deck's outer edge, so a bought floor wears the plot's
 	-- colour from across the plaza the way the ground's Trim does.
@@ -3440,10 +3445,13 @@ local function buildFloor(parent: Instance, origin: CFrame, index: number, floor
 	railRun(rails, origin, top, -rx, rzFront, -rx, rzBack, true)
 	railRun(rails, origin, top, rx, rzFront, rx, rzBack, true)
 	railRun(rails, origin, top, -rx, rzBack, rx, rzBack, true, true)
-	-- The stairwell's inner edge, from the front rail back to where the flight lands.
-	-- Its front post would sit exactly on one of the front run's.
+	-- The stairwell's inner edge, from its front (the flight's foot) back to where the
+	-- flight lands, and across its front, so the plate in front of it is no drop.
 	local gx = side * (FLOOR.openIn - RAIL_POST_W / 2)
-	railRun(rails, origin, top, gx, rzFront, gx, FLIGHT_TOP_Z, true)
+	local ox = side * (FLOOR.openOut + RAIL_POST_W / 2)
+	local gz = FLOOR.stairZ - RAIL_POST_W / 2
+	railRun(rails, origin, top, gx, gz, gx, FLIGHT_TOP_Z)
+	railRun(rails, origin, top, gx, gz, ox, gz, true)
 	rails.Parent = m
 	capFencePosts(rails, accent)
 
