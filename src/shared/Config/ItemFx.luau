@@ -945,6 +945,143 @@ ItemFx.DEFS = {
 			{ parts = { "Drip" }, pivot = "Drip1", mode = "bob", amp = 0.35, period = 1.8 },
 		},
 	},
+	-- ── Batch 14 ─────────────────────────────────────────────────────────
+
+	-- Prototype Nuke (Stage 1 Legendary). A test rig nobody switched off: the
+	-- sample orb floats in its window with three gimbal rings tumbling round it,
+	-- the hex cells orbit the shell, rising and falling, the field coils and hex
+	-- cells chase with charge, the test rings turn, sparks
+	-- jump off the arcs and the tip lens pings like it is still transmitting.
+	prototype_nuke = {
+		finish = {
+			{ parts = { "Orb" }, material = "Neon", color = Color3.fromHex("7FF7FF") },
+			{ parts = { "OrbRing" }, material = "Neon", color = Color3.fromHex("C8FBFF"), transparency = 0.3 },
+			{ parts = { "Coil", "Hex", "NozzleGlow", "TipLens", "Lamp" }, material = "Neon", color = Color3.fromHex("3CE6F5") },
+			{ parts = { "Spark" }, material = "Neon", color = Color3.fromHex("E6FDFF") },
+			{ parts = { "Screen" }, material = "Neon", color = Color3.fromHex("5BFFB0") },
+			{ parts = { "PanelLamp" }, material = "Neon", color = Color3.fromHex("FFB43A") },
+			{ parts = { "WindowBack" }, material = "Glass", color = Color3.fromHex("9FE9FF"), transparency = 0.5 },
+		},
+		light = { part = "Orb", color = Color3.fromHex("6FEFFF"), brightness = 1.6, range = 1.0 },
+		particles = {
+			{ part = "Spark1", preset = "arcSpark", color = Color3.fromHex("CFFBFF"), rate = 8 },
+			{ part = "Spark3", preset = "arcSpark", color = Color3.fromHex("CFFBFF"), rate = 8 },
+			{ part = "NozzleGlow", preset = "drift", color = Color3.fromHex("8FF3FF"), rate = 2 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "Orb", "OrbRing" }, light = true, period = 2.4, min = 0.55 },
+			{ kind = "pulse", parts = { "Coil", "Hex", "NozzleGlow" }, period = 1.6, min = 0.35, stagger = true },
+			{ kind = "flicker", parts = { "Spark" }, period = 0.1, min = 0, onChance = 0.6, mode = "transparency", perPart = true },
+			{ kind = "flicker", parts = { "Screen" }, period = 0.25, min = 0.6 },
+			{ kind = "blink", parts = { "PanelLamp", "Lamp", "TipLens" }, period = 1.2, min = 0.2, stagger = true },
+		},
+		spins = {
+			{ parts = { "Orb" }, pivot = "Orb", mode = "bob", amp = 0.12, period = 2.4, rpm = 12 },
+			{ parts = { "OrbRing1" }, pivot = "Orb", axis = "Y", rpm = 40 },
+			{ parts = { "OrbRing2" }, pivot = "Orb", axis = "X", rpm = -30 },
+			{ parts = { "OrbRing3" }, pivot = "Orb", axis = "Z", rpm = 24 },
+			{ parts = { "Ring3" }, pivot = "Shell", axis = "Y", rpm = 14 },
+			{ parts = { "Ring2" }, pivot = "Shell", axis = "Y", rpm = -10 },
+			-- The ten hex cells orbit the shell, rising and falling as they go.
+			{ parts = { "Hex", "HexEdge" }, pivot = "Shell", axis = "Y", mode = "bob", amp = 0.04, period = 3.2, rpm = 8 },
+		},
+		ping = { part = "TipLens", color = Color3.fromHex("7FF7FF"), period = 2.4 },
+	},
+
+	-- Humming Nuke (Stage 4 Epic). "Hums if you hold it": the tuning fork on top
+	-- rings (its echo lines shimmer and a tone ring pings off it), the sine
+	-- ribbons round the shell ripple past each other, the speaker cone pumps, the
+	-- coil windings turn in their drums and the VU meter dances.
+	strange_metal_chip = {
+		finish = {
+			{ parts = { "ForkEcho", "ToneRing" }, material = "Neon", color = Color3.fromHex("8FF0FF"), transparency = 0.2 },
+			{ parts = { "SineRibbon" }, material = "Neon", color = Color3.fromHex("59D8EF"), transparency = 0.25 },
+			{ parts = { "VUBar", "BushingTip", "SpeakerDome" }, material = "Neon", color = Color3.fromHex("6BF3FF") },
+		},
+		light = { part = "ForkBase", color = Color3.fromHex("7FE8FF"), brightness = 1.2, range = 0.9 },
+		particles = {
+			{ part = "ForkBow", preset = "shrinkMotes", color = Color3.fromHex("BFF6FF"), rate = 4 },
+		},
+		anims = {
+			{ kind = "flicker", parts = { "ForkEcho" }, period = 0.06, min = 0, onChance = 0.7, mode = "transparency", perPart = true },
+			{ kind = "pulse", parts = { "ToneRing", "SineRibbon" }, light = true, period = 1.1, min = 0.4, stagger = true },
+			{ kind = "flicker", parts = { "VUBar" }, period = 0.12, min = 0, onChance = 0.65, mode = "transparency", perPart = true },
+			{ kind = "blink", parts = { "BushingTip" }, period = 0.9, min = 0.2, stagger = true },
+		},
+		spins = {
+			{ parts = { "ForkProng", "ForkEcho" }, pivot = "ForkStem", axis = "Y", mode = "twitch", deg = 4, period = 0.4, duration = 0.05 },
+			{ parts = { "ToneRing" }, pivot = "ForkBase", axis = "Y", rpm = 30 },
+			{ parts = { "SineRibbon1", "SineRibbon3" }, pivot = "Shell", axis = "Y", rpm = 12 },
+			{ parts = { "SineRibbon2" }, pivot = "Shell", axis = "Y", rpm = -16 },
+			{ parts = { "SpeakerCone", "SpeakerDome" }, pivot = "SpeakerRim", axisVector = Vector3.new(0.5, 0, 0.87), mode = "bob", amp = 0.08, period = 0.35 },
+			{ parts = { "CoilWinding1" }, pivot = "CoilDrum1", axis = "Y", rpm = 45 },
+			{ parts = { "CoilWinding2" }, pivot = "CoilDrum2", axis = "Y", rpm = -45 },
+		},
+		ping = { part = "ToneRing1", color = Color3.fromHex("9FF4FF"), period = 1.1 },
+	},
+
+	-- Polished Nuke (Stage 5 Common). "Mirror-bright": the shell and bands go
+	-- glossy, a white highlight sweeps them with star flares, the nose orb
+	-- glitters and the modelled glint crosses wink in and out.
+	shiny_metal_blade = {
+		finish = {
+			{ parts = { "Shell", "Fin" }, reflectance = 0.35 },
+			{ parts = { "BrightBand", "TailCap", "NoseOrb" }, color = Color3.fromHex("E8EDF2"), reflectance = 0.5 },
+			{ parts = { "GlintH", "GlintV" }, material = "Neon", color = Color3.fromHex("FFFFFF") },
+		},
+		particles = {
+			{ part = "Shell", preset = "sparkle", color = Color3.fromHex("F4F8FF"), rate = 2 },
+		},
+		anims = {
+			{ kind = "glitter", parts = { "NoseOrb", "BrightBand" }, period = 2.4, duration = 0.25 },
+			{ kind = "wink", parts = { "GlintH", "GlintV" }, period = 1.8, min = 0, mode = "transparency", perPart = true },
+		},
+		glint = {
+			parts = { "Shell", "BrightBand", "NoseOrb", "TailCap", "Fin" },
+			period = 3.5,
+			sweep = 0.8,
+			color = Color3.fromHex("FFFFFF"),
+			strength = 2.6,
+			stars = 5,
+		},
+	},
+
+	-- Pristine Nuke (Stage 6 Epic). "Not a scratch on it": a showroom piece on its
+	-- velvet plinth. Chrome rings and nose mirror-bright, a slow highlight
+	-- sweeps the whole shell throwing star flares, the foil seal and nose bead
+	-- glitter gold and white, and a few sparkles hang in the air round it.
+	untouched_ground_sample = {
+		finish = {
+			{ parts = { "Shell" }, reflectance = 0.3 },
+			{ parts = { "ChromeRing", "NoseTip", "NoseBead", "MountCup", "TailCap" }, color = Color3.fromHex("EEF2F6"), reflectance = 0.55 },
+			{ parts = { "FoilSeal", "PlinthRim" }, color = Color3.fromHex("D9B45A"), reflectance = 0.4 },
+			{ parts = { "GlintH", "GlintV" }, material = "Neon", color = Color3.fromHex("FFFFFF") },
+		},
+		light = { part = "NoseTip", color = Color3.fromHex("F4F8FF"), brightness = 0.6, range = 0.8 },
+		particles = {
+			{ part = "Shell", preset = "sparkle", color = Color3.fromHex("FFFFFF"), rate = 3 },
+			{ part = "VelvetTop", preset = "sparkle", color = Color3.fromHex("FFE9A8"), rate = 1 },
+		},
+		anims = {
+			{
+				kind = "glitter",
+				parts = { "NoseBead", "FoilSeal", "ChromeRing" },
+				period = 2,
+				duration = 0.3,
+				colors = { Color3.fromHex("FFFFFF"), Color3.fromHex("FFF2C0") },
+			},
+			{ kind = "wink", parts = { "GlintH", "GlintV" }, period = 1.6, min = 0, mode = "transparency", perPart = true },
+		},
+		glint = {
+			parts = { "Shell", "ChromeRing", "NoseTip", "FoilSeal" },
+			period = 4,
+			sweep = 1,
+			color = Color3.fromHex("FFFFFF"),
+			strength = 2.8,
+			stars = 6,
+			starParts = { "Shell", "ChromeRing", "NoseTip" },
+		},
+	},
 } :: { [string]: ItemFxDef }
 
 return ItemFx
