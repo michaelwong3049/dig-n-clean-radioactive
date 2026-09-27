@@ -44,6 +44,7 @@ local ORDER = {
 	"AuraController", -- the atom-ring aura round every character (AuraTier attribute) and the Outfitter mannequin
 	"StandCardController", -- the trophy-ribbon card over each displayed nuke; reads the StandCard attributes ExhibitService writes
 	"WarpController", -- the top-of-screen HOME / SHOPS portals; reads stageId off ExposureState
+	"PurchaseHintController", -- the "YOU CAN PURCHASE ..." pill under the warp bar; reads CashState + GearList
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState
 	"SettingsController", -- the Settings panel (top-right gear); base-colour picker + HIDE MY AURA, reads/writes PlotColor and HideAura
 	"TutorialController", -- the new-player walkthrough: top banner + ground trail; reads TutorialState
