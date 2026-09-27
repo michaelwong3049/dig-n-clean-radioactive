@@ -28,8 +28,9 @@ Floors.UPPER_SLOTS = 12
 --- roll on top of it and its trophy card all clear the deck overhead with room to
 --- spare. The stairs rise exactly this far (Plots.buildFloor), so changing it
 --- changes the step count too. 16, then 28 on request ("way taller"): the flights
---- now run the whole depth of the deck to a landing at the back.
-Floors.HEIGHT = 28
+--- now run the whole depth of the deck to a landing at the back. 33 on request
+--- ("shorten the ~2-stud treads to 1.75"): 33 steps over the same 58.6 run = 1.78 treads.
+Floors.HEIGHT = 33
 
 --- Cash price of each floor, by the floor it buys. Floor 1 is the ground and free.
 --- Sized against the gear ladders (Config/Gear, Config/Treadmill): floor 2 lands
