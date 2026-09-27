@@ -633,6 +633,9 @@ local function equipItem(character: Model, item: any?): boolean
 	local held = model :: Model
 	held.Name = HELD_ITEM_NAME
 	held:SetAttribute("Uid", item.uid)
+	-- StreamingEnabled: arrive whole, so the client never sees a held model with no
+	-- parts yet (CrateController hangs its Open prompt on the first one it finds).
+	held.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 
 	local primary = held.PrimaryPart or held:FindFirstChildWhichIsA("BasePart")
 	if primary == nil then
