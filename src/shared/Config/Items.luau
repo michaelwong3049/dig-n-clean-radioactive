@@ -329,6 +329,19 @@ Items.DEFS = {
 		baseValue = 63000,
 		model = "ImportedNuke",
 	},
+	{
+		id = "prototype_nuke",
+		name = "Prototype Nuke",
+		flavor = "A test rig nobody switched off. The orb in the window is still spinning.",
+		rarity = "Legendary",
+		odds = 5000, -- 1 in N per dig in a stocking stage
+		weight = 8,
+		stages = { 1 },
+		appeal = "Researcher",
+		sets = {},
+		baseValue = 125000,
+		model = "ImportedNuke",
+	},
 
 	-- ══ STAGE 2 — DEADWOOD GROVE ═══════════════════════════════════════════════
 
