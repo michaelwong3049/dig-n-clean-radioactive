@@ -942,7 +942,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 600000,
-		sizeMult = 7, -- really big, far past every other nuke: it's the Atomic Bomb
+		sizeMult = 3.5, -- really big, far past every other nuke: it's the Atomic Bomb
 		model = "ImportedNuke",
 	},
 
