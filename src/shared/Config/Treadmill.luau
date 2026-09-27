@@ -98,11 +98,16 @@ export type TreadmillTier = {
 --- (TIERS) starts after it: the unlock is what puts a player on the Scrap Belt.
 Treadmill.UNLOCK_PRICE = 1000
 
---- "$1,000": the unlock price as every sign, prompt and notice prints it.
-function Treadmill.unlockPriceText(): string
-	local digits = tostring(math.floor(Treadmill.UNLOCK_PRICE))
+--- "$25,000": a price as every sign, prompt and notice prints it.
+function Treadmill.priceText(amount: number): string
+	local digits = tostring(math.floor(amount))
 	local grouped = string.reverse((string.gsub(string.reverse(digits), "(%d%d%d)", "%1,")))
 	return "$" .. (string.gsub(grouped, "^,", ""))
+end
+
+--- "$1,000": the unlock price as every sign, prompt and notice prints it.
+function Treadmill.unlockPriceText(): string
+	return Treadmill.priceText(Treadmill.UNLOCK_PRICE)
 end
 
 --- Rates climb ~2.5x a rung: with no rated-speed falloff left, this ratio is the whole
