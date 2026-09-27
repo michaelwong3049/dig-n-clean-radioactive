@@ -537,8 +537,11 @@ local function stepPlayer(player: Player, dt: number)
 		end
 	end
 
-	local carried = Decay.totalEmission(data.carry, stats.fuseMult)
-	local reading = Radiation.resolve(ambient, carried, stats)
+	-- BAG RADIATION IS RETIRED: what you carry no longer adds rads. Only the stage
+	-- does. Decay still ticks above (conditions/fuses are their own mechanic); the bag
+	-- just stops feeding the exposure meter. Radiation.resolve keeps its `carried`
+	-- input as pure math, so passing 0 here is the whole switch.
+	local reading = Radiation.resolve(ambient, 0, stats)
 	-- /immunity: the reading still names the ambient and the bag (the HUD keeps its
 	-- numbers), but none of it lands -- nothing accrues, nothing burns, the aura holds.
 	if immune[player] then
