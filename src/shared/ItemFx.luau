@@ -35,7 +35,7 @@ ItemFx.ATTRIBUTE = "FxId"
 ItemFx.PRISTINE_ATTRIBUTE = "Pristine"
 
 function ItemFx.get(itemId: string?): Config.ItemFxDef?
-	return if itemId then Config.DEFS[itemId] else nil
+	return if itemId then Config.DEFS[itemId] or Config.CRATE_DEFS[itemId] else nil
 end
 
 --- "GlowSeam3_2" -> "GlowSeam", "Lens1" -> "Lens", "Shell" -> "Shell".
