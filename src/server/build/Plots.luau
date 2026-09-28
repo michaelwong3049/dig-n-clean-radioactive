@@ -2542,6 +2542,118 @@ local function buildReadout(look: Model, screenMesh: BasePart)
 	Kit.motion(screen, { kind = "screen" })
 end
 
+--- Per-rung ambient FX, on request ("add effects to the upgraded treadmills"). The
+--- free Scrap Belt gets none; each paid rung adds a layer on top of the last, in its
+--- model's colour, so the machine reads as more powerful at a glance:
+---
+---   Servo Track      green glow + motor sparks off the console end
+---   Reactor Mill     blue glow + motor sparks + motes rising off the belt
+---   Isotope Strider  gold glow + sparks + motes + sparkles + speed streaks down the belt
+---
+--- Everything rides invisible parts inside `look`, so a swap to the next rung (which
+--- destroys the old Look) takes the old FX with it.
+local TREADMILL_FX: { [number]: { color: string, light: number, sparks: number, motes: number, glint: number, streaks: number } } = {
+	[2] = { color = "5BE36B", light = 1.2, sparks = 5, motes = 0, glint = 0, streaks = 0 },
+	[3] = { color = "3AA8FF", light = 1.8, sparks = 8, motes = 7, glint = 0, streaks = 0 },
+	[4] = { color = "FFC21A", light = 2.6, sparks = 12, motes = 10, glint = 5, streaks = 14 },
+}
+
+local function fxPart(look: Model, name: string, cframe: CFrame, size: Vector3): BasePart
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.CFrame = cframe
+	part.Transparency = 1
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Parent = look
+	return part
+end
+
+local function addTreadmillFx(look: Model, belt: BasePart, tier: number)
+	local fx = TREADMILL_FX[tier]
+	if fx == nil then
+		return
+	end
+	local color = Color3.fromHex(fx.color)
+	local white = color:Lerp(Color3.new(1, 1, 1), 0.6)
+	local length, width = belt.Size.Z, belt.Size.X
+	local top = belt.CFrame * CFrame.new(0, belt.Size.Y / 2, 0)
+
+	-- The belt surface: glow from under the tread and the volume the motes rise from.
+	local surface = fxPart(look, "FxBelt", top * CFrame.new(0, 0.1, 0), Vector3.new(width, 0.2, length))
+	local glow = Instance.new("PointLight")
+	glow.Color = color
+	glow.Brightness = fx.light
+	glow.Range = math.max(10, length * 0.9)
+	glow.Shadows = false
+	glow.Parent = surface
+
+	-- Motor sparks: the console (head) end, the runner-facing -Z.
+	local head = fxPart(look, "FxMotor", top * CFrame.new(0, 0.6, -length / 2 + 0.6), Vector3.new(width * 0.8, 0.4, 0.6))
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Name = "Sparks"
+	sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparks.Color = ColorSequence.new(white, color)
+	sparks.LightEmission = 1
+	sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.18), NumberSequenceKeypoint.new(1, 0) })
+	sparks.Lifetime = NumberRange.new(0.25, 0.5)
+	sparks.Speed = NumberRange.new(5, 9)
+	sparks.SpreadAngle = Vector2.new(55, 55)
+	sparks.Acceleration = Vector3.new(0, -28, 0)
+	sparks.Drag = 1
+	sparks.Rate = fx.sparks
+	sparks.EmissionDirection = Enum.NormalId.Top
+	sparks.Parent = head
+
+	if fx.motes > 0 then
+		local motes = Instance.new("ParticleEmitter")
+		motes.Name = "Motes"
+		motes.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		motes.Color = ColorSequence.new(color)
+		motes.LightEmission = 1
+		motes.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2, 0.2), NumberSequenceKeypoint.new(1, 1) })
+		motes.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0.05) })
+		motes.Lifetime = NumberRange.new(1.4, 2.4)
+		motes.Speed = NumberRange.new(1, 2.2)
+		motes.SpreadAngle = Vector2.new(12, 12)
+		motes.Rate = fx.motes
+		motes.EmissionDirection = Enum.NormalId.Top
+		motes.Parent = surface
+	end
+
+	if fx.glint > 0 then
+		local glint = Instance.new("Sparkles")
+		glint.SparkleColor = color
+		glint.Parent = head
+	end
+
+	if fx.streaks > 0 then
+		-- Speed streaks skimming each side rail, running the way the tread does (+Z).
+		for _, side in { -1, 1 } do
+			local rail = fxPart(look, "FxStreak", top * CFrame.new(side * (width / 2 + 0.1), 0.35, -length / 2 + 0.2), Vector3.new(0.1, 0.5, 0.2))
+			local streaks = Instance.new("ParticleEmitter")
+			streaks.Name = "Streaks"
+			streaks.Color = ColorSequence.new(white, color)
+			streaks.LightEmission = 1
+			streaks.Orientation = Enum.ParticleOrientation.VelocityParallel
+			streaks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.12), NumberSequenceKeypoint.new(1, 0.02) })
+			streaks.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+			streaks.Squash = NumberSequence.new(-2.5)
+			streaks.Lifetime = NumberRange.new(length / 22, length / 16)
+			streaks.Speed = NumberRange.new(16, 22)
+			streaks.SpreadAngle = Vector2.new(2, 2)
+			streaks.Rate = fx.streaks / 2
+			-- Back is the part's +Z: down the belt behind the runner.
+			streaks.EmissionDirection = Enum.NormalId.Back
+			streaks.Parent = rail
+		end
+	end
+end
+
 --- Swap the treadmill's `Look` for the imported model of belt rung `tier`, fitted to
 --- the skeleton: the model's belt top lands on the skeleton `Belt`'s top centre, the
 --- skeleton belt is resized to the model's (its CENTRE never moves, and that centre is
@@ -2643,6 +2755,7 @@ local function installTreadmillLook(treadmill: Instance, tier: number): boolean
 	if screenMesh then
 		buildReadout(look, screenMesh)
 	end
+	addTreadmillFx(look, belt, tier)
 	if consoleBody then
 		console.CFrame = consoleBody.CFrame
 		console.Size = consoleBody.Size
