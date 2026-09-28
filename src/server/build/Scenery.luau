@@ -107,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 42
+local BUILDER_VERSION = 43
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -4457,6 +4457,34 @@ local function createScenery(): Model
 	-- module/folder split exists to protect, so it is asserted, not trusted.
 	for _, d in scenery:GetDescendants() do
 		assert(d:GetAttribute("StageId") == nil, `scenery part {d:GetFullName()} carries a StageId — it would register as a stage`)
+	end
+
+	-- PART BUDGET, the cheap half. Nothing listens for Touched on scenery, so no part
+	-- needs touch. Anything you can walk through is decor: out of queries too, so the
+	-- ground-finding raycasts (bag drop, range ring, tutorial trail) land on the ground
+	-- rather than a bush top. Flat ground layers and the wall's light overlays / crown
+	-- sheets / drips cast no shadow worth drawing -- the wall slab behind them already
+	-- throws the wall's shadow.
+	local flatFolders = { scenery:FindFirstChild("StageFloors"), scenery:FindFirstChild("StageBorders") }
+	local wallFolders = { scenery:FindFirstChild("BoundaryWalls"), scenery:FindFirstChild("BaseWalls"), scenery:FindFirstChild("OuterBaseWalls") }
+	local function under(part: Instance, folders: { Instance? }): boolean
+		for _, folder in folders do
+			if folder and part:IsDescendantOf(folder) then
+				return true
+			end
+		end
+		return false
+	end
+	for _, d in scenery:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CanTouch = false
+			if not d.CanCollide then
+				d.CanQuery = false
+			end
+			if under(d, flatFolders) or (not d.CanCollide and under(d, wallFolders)) then
+				d.CastShadow = false
+			end
+		end
 	end
 
 	return scenery

@@ -609,6 +609,7 @@ local function buildSplitTile(parent: Instance, origin: CFrame, cx: number, topY
 			(part :: any)[face] = Enum.SurfaceType.Smooth
 		end
 		part.RightSurface = Enum.SurfaceType.Studs -- local +X, rolled up to be the top
+		part.CastShadow = false
 	end
 end
 
@@ -683,13 +684,14 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 		if not run then
 			return
 		end
-		build(parent, origin, {
+		local plate = build(parent, origin, {
 			name = "TileBase",
 			pos = { (run.x0 + run.x1) / 2, topY - BASE_DROP - (CAP - BASE_DROP) / 2, (rect.minZ + rect.maxZ) / 2 },
 			size = { run.x1 - run.x0, CAP - BASE_DROP, rect.maxZ - rect.minZ },
 			color = run.hex,
 			material = "Plastic",
 		})
+		plate.CastShadow = false -- flat ground: nothing to shade
 		built += 1
 		baseRun = nil
 	end
@@ -751,7 +753,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 				continue -- the base under it already is this tile
 			end
 
-			build(parent, origin, {
+			local tile = build(parent, origin, {
 				name = "Tile",
 				pos = { cx, tileTop - CAP / 2, cz },
 				size = { x1 - x0, CAP, z1 - z0 },
@@ -761,6 +763,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 				color = if isDark then tileDark else tileLight,
 				material = "Plastic",
 			})
+			tile.CastShadow = false -- a 0.4-thick floor cap throws no shadow worth drawing
 			built += 1
 		end
 	end
