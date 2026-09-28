@@ -2542,6 +2542,65 @@ local function buildReadout(look: Model, screenMesh: BasePart)
 	Kit.motion(screen, { kind = "screen" })
 end
 
+--- Per-rung glow, on request ("add effects to the upgraded treadmills", then "remove
+--- sparkles, I was thinking glowed parts"). No particles: each paid rung turns more of
+--- its own model's parts Neon in the rung's colour, plus a light under the belt, so
+--- the machine reads as more powerful at a glance. The free Scrap Belt stays plain.
+---
+---   Servo Track      side rails glow green
+---   Reactor Mill     side rails + uprights glow blue
+---   Isotope Strider  side rails + uprights + motor hood + belt slats glow gold
+---
+--- Everything is inside `look`, so a swap to the next rung takes the old glow with it.
+local TREADMILL_GLOW: { [number]: { color: string, light: number, parts: { string } } } = {
+	[2] = { color = "5BE36B", light = 1.2, parts = { "_side_rail_L", "_side_rail_R" } },
+	[3] = { color = "3AA8FF", light = 1.8, parts = { "_side_rail_L", "_side_rail_R", "_upright_L", "_upright_R" } },
+	[4] = {
+		color = "FFC21A",
+		light = 2.6,
+		parts = { "_side_rail_L", "_side_rail_R", "_upright_L", "_upright_R", "_motor_hood", "Slat" },
+	},
+}
+
+local function addTreadmillFx(look: Model, belt: BasePart, tier: number, model: string)
+	local glow = TREADMILL_GLOW[tier]
+	if glow == nil then
+		return
+	end
+	local color = Color3.fromHex(glow.color)
+	local names: { [string]: boolean } = {}
+	for _, suffix in glow.parts do
+		names[if suffix == "Slat" then suffix else model .. suffix] = true
+	end
+	for _, d in look:GetDescendants() do
+		if d:IsA("BasePart") and names[d.Name] then
+			d.Material = Enum.Material.Neon
+			d.Color = color
+			if d:IsA("MeshPart") then
+				d.TextureID = "" -- a baked texture would paint over the glow
+			end
+		end
+	end
+
+	local lamp = Instance.new("PointLight")
+	lamp.Color = color
+	lamp.Brightness = glow.light
+	lamp.Range = math.max(10, belt.Size.Z * 0.9)
+	lamp.Shadows = false
+	local anchor = Instance.new("Part")
+	anchor.Name = "FxGlow"
+	anchor.Size = Vector3.new(1, 0.2, 1)
+	anchor.CFrame = belt.CFrame * CFrame.new(0, belt.Size.Y / 2 + 0.5, 0)
+	anchor.Transparency = 1
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.CastShadow = false
+	anchor.Parent = look
+	light.Parent = anchor
+end
+
 --- Swap the treadmill's `Look` for the imported model of belt rung `tier`, fitted to
 --- the skeleton: the model's belt top lands on the skeleton `Belt`'s top centre, the
 --- skeleton belt is resized to the model's (its CENTRE never moves, and that centre is
@@ -2643,6 +2702,7 @@ local function installTreadmillLook(treadmill: Instance, tier: number): boolean
 	if screenMesh then
 		buildReadout(look, screenMesh)
 	end
+	addTreadmillFx(look, belt, tier, def.model)
 	if consoleBody then
 		console.CFrame = consoleBody.CFrame
 		console.Size = consoleBody.Size
