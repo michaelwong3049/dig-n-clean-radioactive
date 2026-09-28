@@ -142,7 +142,7 @@ local function block(parent: Instance, name: string, cf: CFrame, size: Vector3, 
 end
 
 --- A flattened ellipsoid lying on the ground (a Sphere SpecialMesh -- a round Shape
---- forces a circle; see build/Scenery's oozeDisc).
+--- forces a circle; see build/BiomeKit's disc).
 local function disc(parent: Instance, at: Vector3, a: number, b: number, yaw: number, color: Color3)
 	local p = block(parent, "Dirt", CFrame.new(at) * CFrame.Angles(0, math.rad(yaw), 0), Vector3.one, color)
 	p.CastShadow = false

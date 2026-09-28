@@ -165,7 +165,8 @@ function BiomeKit.column(parent: Instance, name: string, at: CFrame, h: number, 
 end
 
 --- A flattened ellipsoid lying on the ground (a Sphere SpecialMesh: a round Shape
---- forces a circle, see build/Scenery's oozeDisc). `a`/`b` are the full X/Z extents.
+--- forces a circle whatever unequal Size it is given -- confirmed live by raycast, and it
+--- cost Stage 4's pools three shape passes before anyone noticed). `a`/`b` are the full X/Z extents.
 function BiomeKit.disc(
 	parent: Instance,
 	name: string,

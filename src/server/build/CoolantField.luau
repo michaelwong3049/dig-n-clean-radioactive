@@ -7,86 +7,63 @@
 
 	WHY THIS FIELD GETS CHANNELS AND NOT PUDDLES. What you dig out of Reactor Grounds
 	is fuel rods, cooling valve wheels, core samples, sealed casings and a black-box
-	recorder (Config/Items) — so this ground is the plant site itself, inside the fence
-	line, and not somewhere the fallout happened to land. That is a vocabulary no other
-	field in the chain owns: engineered things, straight lines, concrete. Stage 4 next
-	door already owns round ooze puddles (build/Scenery scatterOozePools) and re-using
-	them here would make two neighbouring fields rhyme when the whole point of Stage 5
-	is that it reads as a different KIND of place — the same argument the stage's own
-	colour note in Config/Stages makes about its pink floor.
+	recorder (Config/Items) — so this ground is the plant site itself, and the magenta
+	is LEAKED COOLANT: it runs in a direction, and where it stopped running it dried into
+	crust. Stage 4 next door owns round ooze pools (build/OozeMarsh); re-using them here
+	would make two neighbouring fields rhyme. It is also the one colour out here that
+	survives the sky — Stage 5's air is yellow-green (Config/Sky), which pushes the pale
+	pink floor and any grey concrete sallow.
 
-	So the magenta out here is LEAKED COOLANT: it comes out of something, it runs in a
-	direction, and where it stopped running it dried into crust. That also makes it the
-	one colour on this field that survives the sky — Stage 5's air is yellow-green
-	(Config/Sky, C8E85A fog over 8A9152 ambient), which pushes both the pale pink floor
-	and any grey concrete sallow. `ooze.bright` is the only thing out here that holds
-	its hue.
+	THE NETWORK, built like a drain is built:
 
-	TWO PASSES, ONE SUBSTANCE.
+	  * A TRUNK down the north side of the walk and a COLLECTOR down the south side, each
+	    in precast units: a concrete bed, two kerbs, a paler coping along each kerb's
+	    crown, and a hairline joint between units.
+	  * SPURS off both, reaching out to the north and south edges and in toward the walk
+	    lane. Every spur ends in an OUTFALL — an apron slab between splayed wingwalls —
+	    where the backed-up coolant pours over and runs out across the ground.
+	  * An INSPECTION CHAMBER at every bend, every junction and where a run leaves the
+	    plate: a square concrete box with a steel grate, coolant standing under it. The
+	    chambers are also what make the network precise: a run's kerbs stop at a chamber
+	    wall, so no two runs ever meet as overlapping boxes or an open mitre.
+	  * ONE CROSSING of the walk lane, under a culvert: a deck on filled sides with ramps,
+	    headwalls with a parapet at each end and the dark of the bore under them. A shut-off
+	    valve stands on the chamber where that crossing leaves the trunk.
+	  * Where a run has FAILED, its kerb on the walk side has cracked and tipped out, the
+	    coping lies in the mud, and the coolant pours through the gap.
 
-	  * THE NETWORK — a trunk running the field's length just off the walk lane, four
-	    spurs branching south off it, and a shorter collector across the field's south
-	    half that one of those spurs crosses the walk lane (under a culvert deck) to
-	    reach. All of it in concrete beds between low kerbs. Wet stretches carry
-	    coolant; dry ones carry only the stain it left. Where a run is BROKEN the kerbs
-	    are gone or toppled and the coolant floods out across the ground in a tongue.
-	  * THE CRUST — pale mineral rings scattered over the rest of the plate where a
-	    spill stood and evaporated, plus fringes hugging the kerbs and collars round
-	    every tongue, so the two passes read as one substance rather than as two
-	    unrelated decorations.
+	THE CRUST — pale mineral rings where a spill stood and evaporated, spread EVENLY over
+	the open plate (best-candidate, off a size ladder), plus fringes along the kerbs and
+	collars round every spill, so the two passes read as one substance.
 
-	THE LAYOUT IS AUTHORED, NOT ROLLED, and that is the same call Config/StageCraters
-	makes for Stage 6: a network you can follow end to end is the one thing this field
-	has to give a player to navigate by (Stage 3 has its drums, Stage 2 its tree line,
-	Stage 5 has had nothing at all), and a landmark that can land anywhere is not a
-	landmark. TRUNK/SPURS below are fixed numbers in plate-local studs. Everything
-	ROLLED off the seed is detail on top of that skeleton: which stretches are wet,
-	which kerb sections have gone, the shape of every tongue and every crust ring.
+	THE LAYOUT IS AUTHORED, NOT ROLLED (the call Config/StageCraters makes for Stage 6): a
+	network you can follow end to end is what this field gives a player to navigate by.
+	TRUNK/SOUTH/SPURS are fixed plate-local studs; the seed only rolls detail on top.
 
-	ITS OWN SEED, TWICE OVER. Never the stage rng — build/Scenery's other fields draw
-	on one shared rng per stage, where adding a pass moves everything placed after it.
-	This file takes two Randoms of its own, one for the network and one for the crust,
-	so retuning the crust cannot move a single kerb.
+	ITS OWN SEED, TWICE OVER: one Random for the network, one for the crust, so retuning
+	the crust cannot move a kerb. Never the stage rng.
 
-	LOW, FLAT AND WALK-THROUGH, BECAUSE THIS IS DUG GROUND. Signals spawn anywhere out
-	here, so this file keeps build/Scenery's two standing rules for anything over a dig
-	plate: CanCollide false, and low enough that a haul rising underneath still shows.
-	The crust and the liquid live in the same thin ground band every other layer in this
-	world lives in (see the Y table below). THE KERBS ARE THE ONLY THING THAT STANDS UP,
-	at KERB_H — between the broken concrete build/FieldLitter already drops on Stage 3
-	(1.23) and the rebar stubs it leans out of them (1.91), both of which stand over a
-	dig plate with no special handling. That is WHY the kerbs are this height and not
-	waist-high: a taller channel would have to register a no-spawn footprint with
-	DigService the way Config/StageCraters does for the crater rims, and none of that
-	machinery is worth a drain.
+	LOW AND WALK-THROUGH, BECAUSE THIS IS DUG GROUND. Every part is CanCollide, CanQuery
+	and CanTouch false, and nothing out here is tall enough to hide a haul surfacing
+	beside it: the kerb crown is 1.2 (between Stage 3's rubble at 1.23 and its rebar at
+	1.91, both over a dig plate unhandled), a chamber 1.5, the culvert deck 1.5. The
+	valve is the one thin thing that stands higher.
 
-	THE Y BAND, measured over the checkerboard cap (`groundY`, which is already
-	Stages.SURFACE_Y + GROUND_SKIM by the time it reaches this file):
+	THE Y BAND, over the checkerboard cap (`groundY`, already Stages.SURFACE_Y +
+	GROUND_SKIM when it arrives here):
 
 	    crust rings / fringes   +0.012 .. +0.024   (under everything)
-	    concrete bed            +0.02              (the channel bottom)
+	    concrete bed            +0.02
 	    dry stretch's stain     +0.05
-	    spilt coolant on ground +0.09 .. +0.105    = build/Scenery's POOL_TOP over the plate,
-	                                                 a tongue's ovals stacking over it the
-	                                                 same hundredths its pools do
-	    coolant IN a channel    +0.82              = CHANNEL_FILL_TOP, see its note --
-	                                                 the drains are backed up, and a
-	                                                 surface at ground level is invisible
-	                                                 over the kerb from standing height
-	    border strip            +0.20              = build/Scenery's SKIM over the plate
-	    fallen kerb             +1.10              = KERB_W, lying on its side
-	    kerb crown              +1.20              = KERB_H
-	    culvert deck            +1.26              (sits ON the kerbs, one crossing only)
+	    spilt coolant on ground +0.09 .. +0.105    = build/OozeMarsh's POOL_TOP
+	    coolant IN a channel    +0.82              = CHANNEL_FILL_TOP (backed up; a
+	                                                 surface lower is hidden by the kerb
+	                                                 from standing height)
+	    kerb crown              +1.20              = KERB_H + COPING_H
+	    chamber / culvert deck  +1.50
 
-	Those are MEASURED off the built field, not intended values.
-
-	THE WALK LANE. Nothing that stands up crosses z = 0 except the one culvert, whose
-	deck is the crossing — the same clear corridor the carcasses, the drums and the
-	Stage 3 litter all keep off (build/Scenery's SKELETON_CENTRE_CLEARANCE /
-	BARREL_CENTRE_CLEARANCE, both 16). The crust rings ignore the lane on purpose, for
-	the reason scatterOozePools gives for its puddles: a flat layer you walk straight
-	over, and holding it off the route would only make the route the one clean stripe in
-	a contaminated field.
+	THE WALK LANE. Nothing that stands crosses z = 0 except the culvert, which is the
+	crossing. The crust ignores the lane: a flat layer you walk over does not block it.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -98,212 +75,165 @@ local Kit = require(script.Parent.Kit)
 
 local CoolantField = {}
 
---- 8400 is build/FieldLitter's. The network and the crust take SEED and SEED + 1 —
---- see the header on why they are two and not one.
+--- 8400 is build/FieldLitter's. The network and the crust take SEED and SEED + 1.
 local SEED = 8600
 
 -- ── The skeleton ───────────────────────────────────────────────────────────────
--- Plate-local studs, x along the field's length and z across it, so the layout is
--- readable against Config/Stages' own `size` (290 x 170 -> x +-145, z +-85) and does
--- not have to be re-derived if a stage's centre ever moves.
+-- Plate-local studs, x along the field's length and z across it (290 x 170 -> x +-145,
+-- z +-85).
 
---- The trunk, west to east, as a polyline. Four points and so three legs: it BENDS,
---- because a drain follows the grade it was cut into and a perfectly straight 270-stud
---- line across a field reads as a ruler, not as something that was built to carry
---- water. The bends are only a few degrees each — enough to see down the length of it,
---- never enough to look like a mistake.
----
---- HELD NORTH OF THE WALK LANE the whole way, parallel to it rather than across it:
---- this is the thing a player walks ALONGSIDE from one end of the field to the other,
---- which is what makes it a spine. Only the spurs reach south toward the route.
+--- The trunk, west to east. It BENDS a few degrees at each vertex, because a drain
+--- follows the grade it was cut into and a ruler-straight 270-stud line reads as a
+--- ruler. Held north of the walk lane the whole way: the spine you walk alongside.
+--- Both ends stop at a chamber against the wall -- the drain carries on under it.
 local TRUNK: { { number } } = {
-	{ -135, 40 },
-	{ -60, 34 },
-	{ 35, 38 },
-	{ 135, 31 },
+	{ -137, 44 },
+	{ -72, 38 },
+	{ 0, 43 },
+	{ 74, 36 },
+	{ 137, 41 },
 }
 
---- The spurs, each attached to a point ON the trunk (`leg` + `t` along it, so a spur
---- can never drift off the run it branches from) and reaching south to an outfall.
----
---- THE OUTFALL IS THE POINT OF A SPUR. Every one of them ends in a break — that is
---- where the coolant leaves the system and floods the ground, and it is the only
---- reason a short dead-end pipe is interesting to walk to.
----
---- ALL BUT ONE STOP SHORT OF THE LANE (|z| >= LANE_HALF). `crosses` marks the one that
---- does not: it runs the full width of the field, over the route, on a culvert deck,
---- and carries on to meet the south collector. One crossing and not four — a crossing
---- is a landmark when there is one of them and a cattle grid when there are four.
----
---- `joins` is that spur's other difference: it ENDS IN A JOINT, not in an outfall, so
---- it gets no break at its tip. Everything else here is a dead end that failed.
-local SPURS: { { leg: number, t: number, to: { number }, crosses: boolean?, joins: boolean? } } = {
-	{ leg = 1, t = 0.26, to = { -136, 16.5 } },
-	{ leg = 2, t = 0.42, to = { -8, 18 } },
-	{ leg = 2, t = 0.8, to = { 20, -41 }, crosses = true, joins = true },
-	{ leg = 3, t = 0.58, to = { 112, 17 } },
-}
-
---- THE SOUTH COLLECTOR, the run the crossing spur drains INTO. Shorter than the trunk
---- and lower down the field.
----
---- FOUND ON A PLAN VIEW OF THE BUILT FIELD, not designed in from the start: with the
---- trunk held north of the lane and every spur hanging off it, the southern 40% of the
---- plate had nothing on it but scattered crust. A second run down there does two things
---- at once -- it fills that half, and it turns the crossing spur from a stub that
---- happens to cross the route into the LINK between two halves of one system, which is
---- what makes the network read as a network when you are standing in it.
---- ITS WEST END RUNS OFF THE PLATE like the trunk's does, rather than stopping in open
---- ground. A run that simply ceases mid-field with no outfall and no joint reads as
---- unfinished geometry; one that leaves the field reads as carrying on under the next
---- one. (The east end does stop in the field, but it stops at a BREAK, which is a
---- reason.)
+--- The collector down the south side. Its west end leaves the plate at a chamber like
+--- the trunk's; its east end is an OUTFALL -- the bottom of the system, where it fails.
 local SOUTH: { { number } } = {
-	{ -134, -50 },
-	{ -62, -46 },
-	{ 20, -41 },
-	{ 104, -52 },
+	{ -137, -42 },
+	{ -58, -49 },
+	{ 16, -44 },
+	{ 92, -51 },
+	{ 126, -47 },
 }
 
---- Breaks in the SOUTH collector. One, near its east end -- the bottom of the system is
---- where a drain fails first.
-local SOUTH_BREAKS: { { leg: number, t: number } } = {
-	{ leg = 3, t = 0.82 },
+--- The spurs, each attached to a point ON a run (`from`, `leg` + `t` along it, so a
+--- spur can never drift off the run it branches from) and ending in an outfall at `to`.
+--- They alternate out to the plate's north and south strips and in toward the walk, so
+--- the whole width of the field has the network in it, not just two bands.
+---
+--- `crosses` is the one that does not end in an outfall: it runs over the walk lane
+--- under the culvert and JOINS the collector at one of its vertices (16, -44). One
+--- crossing, not four -- a crossing is a landmark when there is one of them.
+local SPURS: { { from: string, leg: number, t: number, to: { number }, crosses: boolean? } } = {
+	{ from = "trunk", leg = 1, t = 0.45, to = { -118, 70 } },
+	{ from = "trunk", leg = 2, t = 0.45, to = { -46, 22 } },
+	{ from = "trunk", leg = 3, t = 0.2, to = { 16, -44 }, crosses = true },
+	{ from = "trunk", leg = 3, t = 0.7, to = { 60, 71 } },
+	{ from = "trunk", leg = 4, t = 0.4, to = { 110, 22 } },
+	{ from = "south", leg = 1, t = 0.55, to = { -100, -72 } },
+	{ from = "south", leg = 2, t = 0.4, to = { -24, -22 } },
+	{ from = "south", leg = 3, t = 0.6, to = { 54, -73 } },
 }
 
---- Breaks in the TRUNK, as points along it. Two, and they are deliberately not near
---- the ends: a run that fails in the middle of its own length reads as failure, where
---- one that stops at the edge of the field reads as the field ending.
+--- Failures mid-run, as (leg, t) on the AUTHORED polyline. Deliberately not near the
+--- ends: a run that fails in the middle of its length reads as failure.
 local TRUNK_BREAKS: { { leg: number, t: number } } = {
-	{ leg = 1, t = 0.7 },
-	{ leg = 3, t = 0.3 },
+	{ leg = 2, t = 0.8 },
 }
+local SOUTH_BREAKS: { { leg: number, t: number } } = {}
 
---- Half-width of the open walk lane down z = 0, matching build/Scenery's
---- BARREL_CENTRE_CLEARANCE and build/FieldLitter's LANE_HALF. Three different lane
---- widths across one world would read as none.
+--- Half-width of the open walk lane down z = 0 (build/BiomeKit's LANE_HALF).
 local LANE_HALF = 16
 
---- Kept this far inside the plate's own edges, so nothing here touches a stage seam's
---- border strip or a side wall. Wider than build/FieldLitter's 6 because a kerb STANDS
---- and its litter does not.
+--- Kept this far inside the plate's own edges.
 local EDGE_MARGIN = 8
 
---- The same for the flat spills, which are placed relative to a break rather than on
---- the grid and so need a live clamp of their own -- see spillTongue. Smaller than
---- EDGE_MARGIN: a tongue lying flat may run right up to the border strip, it just may
---- not run under it.
+--- The flat spills may run closer to the edge than anything standing.
 local SPILL_MARGIN = 4
 
 -- ── The channel section ────────────────────────────────────────────────────────
 
---- Inside width, kerb thickness, kerb height. The bed is the two kerbs plus the gap
---- between them; see the header on why the crown is 1.2 and not waist-high.
+--- Inside width, kerb thickness, kerb body height and the coping on top of it. The
+--- crown (KERB_H + COPING_H) is 1.2, the height the header argues for.
 local CHANNEL_W = 4.0
 local KERB_W = 1.1
-local KERB_H = 1.2
+local KERB_H = 1.06
+local COPING_H = 0.14
+--- The coping overhangs the kerb by this each side: the lip that makes it read precast.
+local COPING_LIP = 0.1
+--- The bed's footing shows this far outside each kerb.
+local APRON = 0.45
 
---- Nominal length of one built segment. Each leg is divided into a whole number of
---- equal segments so a run tiles exactly, and each part is grown by SEG_OVERLAP so
---- there is never a hairline of floor showing at a joint.
-local SEG_LEN = 12
+--- Nominal length of one precast unit. Each leg is divided into a whole number of
+--- equal units. Beds are grown by SEG_OVERLAP (no floor showing between them); kerbs
+--- and coping are SHORTENED by JOINT, which is the hairline between units.
+local SEG_LEN = 10
 local SEG_OVERLAP = 0.06
+local JOINT = 0.16
 
---- Heights over `groundY` — see the Y table in the header. COOLANT_TOP is
---- build/Scenery's POOL_TOP (0.15 over the plate) less its GROUND_SKIM (0.06), so the
---- liquid in a channel sits in exactly the plane the puddles on Stage 4 sit in.
 local BED_TOP = 0.02
 local BED_THICK = 0.1
 local COOLANT_TOP = 0.09
 local COOLANT_THICK = 0.12
 local STAIN_TOP = 0.05
 
---- THE CHANNELS RUN NEAR-BRIMMING, and this number is the whole reason the field has a
---- colour at eye level. Shot live standing beside the south collector: with the liquid
---- lying at COOLANT_TOP, the near kerb (KERB_H, 1.2) hides it completely from standing
---- height, so walking the field you see two grey rails and no coolant at all -- the
---- exact opposite of this stage's premise. A drain that has BACKED UP sits high in its
---- channel, which puts the magenta just under the lip where a grazing angle catches it,
---- and it also explains the breaks: a blocked system under head is why the thing is
---- bursting its kerbs in six places rather than quietly draining.
----
---- 0.38 OF FREEBOARD LEFT. Brim-full to the crown would read as a painted stripe rather
---- than as liquid in a trench -- the shadow line of the inner kerb face above the
---- surface is what says "there is a channel here" at all.
----
---- SPILLS DO NOT USE THIS. A tongue is liquid lying on open GROUND and stays at
---- COOLANT_TOP with the rest of the ground layer.
+--- THE CHANNELS RUN NEAR-BRIMMING. Shot live on the first version: with the liquid down
+--- at COOLANT_TOP, the kerb hid it completely from standing height and the field lost
+--- its colour. A backed-up drain sits high, just under the lip where a grazing angle
+--- catches it -- and a blocked system under head is why it bursts.
 local CHANNEL_FILL_TOP = 0.82
 
---- Share of segments whose kerb has gone on one side — not a break in the run (the
---- liquid stays in), just a stretch that has lost its edge. Low: this is decay under
---- the eye, and past about one in ten the channel stops reading as built.
-local KERB_GONE_CHANCE = 0.08
+--- Share of kerb units that have lost their coping (lying beside them). Low: decay
+--- under the eye, not failure.
+local KERB_DAMAGE_CHANCE = 0.1
 
---- Wet/dry as a two-state walk down each run rather than a per-segment roll, so wet
---- stretches come out CONTIGUOUS. A per-segment coin flip gives a dashed line, which
---- reads as a rendering fault rather than as a drain that is half empty. The pair is
---- asymmetric on purpose: roughly two thirds of the network ends up wet, and the dry
---- thirds are what make the wet ones read as wet at all.
+--- Wet/dry as a two-state walk down each run, so wet stretches are CONTIGUOUS (a
+--- per-unit coin flip gives a dashed line, which reads as a rendering fault).
 local DRY_START_CHANCE = 0.1
 local WET_RESUME_CHANCE = 0.24
 
---- The culvert. The deck sits ON the kerbs, and the kerbs stop either side of it for
---- the WHOLE width of the walk lane — not just for the deck's own footprint. That is
---- the point of decking this crossing at all: a player walking the route meets flat
---- concrete across the full corridor, never a kerb standing in it. DECK_SPAN is the
---- other axis, across the channel, and carries enough overhang for the run's tilt.
----
---- THE ABUTMENTS ARE WHAT MAKE IT A CULVERT. Shot live standing on the lane, the deck
---- alone read as a grey concrete PAD lying on the ground: the channel came in from one
---- side, stopped, and picked up again on the other, with nothing to say the liquid went
---- anywhere. A real crossing has a headwall at each end with the bore opening through
---- it, and that opening is the whole tell -- you can see the coolant run into the dark
---- under the deck. Two blocks per end, flanking the channel, carrying the deck.
----
---- AND THE DECK NEEDS A THICKNESS TO READ AS A STRUCTURE. At 0.18 it had no visible
---- edge from standing height and looked painted on; 0.45 gives it a slab edge that
---- catches light without lifting the walking surface, since DECK_TOP is unchanged.
+-- ── Chambers, outfalls, culvert ────────────────────────────────────────────────
+
+--- The inspection chamber: outside size, wall thickness, height, grate bar count. Wide
+--- enough that a run arriving at up to ~25 degrees off square still enters through a
+--- wall, and the kerbs stop CHAMBER_TRIM short of its centre so they end inside it.
+local CHAMBER = CHANNEL_W + 2 * KERB_W + 2.4
+local CHAMBER_WALL = 0.9
+local CHAMBER_H = 1.5
+local CHAMBER_TRIM = CHAMBER / 2 - 0.3
+local GRATE_BARS = 9
+
+--- The outfall: apron slab length, and the wingwalls' length and splay.
+local OUTFALL_APRON = 5
+local WING_LEN = 3.2
+local WING_SPLAY = 35
+
+--- The culvert. The deck covers the full width of the walk lane (DECK_HALF each side of
+--- z = 0) so a player walking the route meets one crossing, never a kerb. DECK_SPAN is
+--- its width across the lane. Headwalls stand HEAD_T thick at each end with a parapet
+--- PARAPET over the deck, and the filled sides slope down to the ground over RAMP_RUN.
 local DECK_HALF = LANE_HALF
 local DECK_SPAN = 14
-local DECK_TOP = KERB_H + 0.06
-local DECK_THICK = 0.45
-local ABUT_W = 2.2
+local DECK_TOP = 1.5
+local DECK_THICK = 0.35
+local HEAD_T = 0.9
+local PARAPET = 0.3
+local RAMP_RUN = 3
 
 -- ── Crust ──────────────────────────────────────────────────────────────────────
 
---- The field-wide scatter: one roll per CELL-stud cell, the same jittered grid
---- build/FieldLitter deals its litter off.
----
---- THE CHANCE IS THE RATE BEFORE THE CHANNEL-CLEAR REJECTION, not the number of rings
---- you get. Roughly a third to a half of the cells that win their roll are then thrown
---- away for sitting on a run (CRUST_CHANNEL_CLEAR), and that share moved once already:
---- adding the south collector took the field from ~29 rings to 10 on the same 0.16,
---- because two more runs' worth of cells left the deal. Raised to 0.26 against the
---- network as it now stands, for about thirty rings over the 290 x 170 plate. Any
---- future change to the SKELETON has to be re-counted here, not assumed.
-local CRUST_CELL = 16
-local CRUST_CHANCE = 0.26
+--- The field-wide rings, as a size ladder (full length of a ring's rim oval), dealt
+--- best-candidate so they spread evenly instead of clumping where a grid cell happened
+--- to win its roll.
+local CRUST_LADDER: { { n: number, a: { number } } } = {
+	{ n = 6, a = { 10, 13 } },
+	{ n = 10, a = { 7, 10 } },
+	{ n = 14, a = { 4, 7 } },
+}
+local CRUST_CANDIDATES = 24
 
---- A ring closer than this to any channel centreline is skipped — the fringes along
---- the kerbs already cover that ground, and a scattered ring lying half across a bed
---- reads as a mistake rather than as a second dried pool.
+--- A ring closer than this (plus a share of its own size) to a channel centreline is
+--- not placed -- the kerb fringes already cover that ground.
 local CRUST_CHANNEL_CLEAR = 9
 
---- Ring heights. Four stacked ovals at CRUST_STEP apart tops out at +0.048 over the
---- cap: under the liquid, under the border strip, and under a detector spot's cracks
---- (client/SpotCracks, 0.15 over the plate) so a signal under one still shows.
+--- Ring heights. Four stacked ovals at CRUST_STEP apart top out at +0.048 over the cap:
+--- under the liquid, the border strip and a detector spot's cracks.
 local CRUST_BASE = 0.012
 local CRUST_STEP = 0.004
 local CRUST_THICK = 0.04
 
---- Share of rings that still have liquid in the middle. A ring is what a spill leaves
---- when it evaporates, so most of them are finished doing it; the few that are not are
---- the ones that say the rest USED to be wet.
+--- Share of rings that still have liquid in the middle.
 local CRUST_EYE_SHARE = 0.3
 
---- Per-side chance a wet segment grows a crust fringe outside its kerb, and how far
---- past the kerb it reaches.
+--- Per-side chance a wet unit grows a crust fringe outside its kerb, and its reach.
 local FRINGE_CHANCE = 0.55
 local FRINGE_REACH = 2.6
 
@@ -330,6 +260,15 @@ local PAN_MIX = 0.22
 --- matters more on this field than on that one: Stage 5's light is yellow-green, and a
 --- warm grey under it goes straight to mud.
 local CONCRETE = { Color3.fromHex("8E8894"), Color3.fromHex("77727E") }
+--- The precast coping along a kerb's crown and the apron slabs: a shade paler than the
+--- kerb body, so the lip catches the light as its own edge.
+local COPING = Color3.fromHex("A39EAA")
+--- Grates, frames and the valve: dark steel, matte-ish Metal.
+local STEEL = Color3.fromHex("4C525A")
+local STEEL_DARK = Color3.fromHex("30343A")
+local VALVE_RED = Color3.fromHex("A8392C")
+--- The dark inside a culvert's bore.
+local BORE = Color3.fromHex("1E1B22")
 
 type Palette = {
 	coolant: Color3,
@@ -448,12 +387,6 @@ end
 --- can reach the edge of the field without any of it hanging over a border strip.
 type Bounds = { minX: number, minZ: number, maxX: number, maxZ: number }
 
-type Run = {
-	points: { Vector3 }, -- world XZ, y unused
-	breaks: { number }, -- indices into the segment list of this run
-	crosses: boolean,
-}
-
 --- A part's Y rotation such that its LOCAL X runs from `ax, az` toward `bx, bz`.
 --- CFrame.Angles(0, t, 0) sends local X to (cos t, 0, -sin t), hence the negated dz.
 local function yawAlong(ax: number, az: number, bx: number, bz: number): number
@@ -510,10 +443,10 @@ end
 ---
 --- THE LOBES GO NEAR THE POLES, SHORT OF TANGENT. Dropped at a bearing near the waist
 --- they widen the middle, which cancels the body's own elongation back toward a circle
---- -- build/Scenery's oozePool has the full measured argument for this, and it cost that
+--- -- Stage 4's old single-oval pools had the full measured argument for this, and it cost that
 --- file two passes to find. Same rule here, same reason.
-local function crustRing(parent: Instance, x: number, z: number, groundY: number, rng: Random, palette: Palette)
-	local a = rng:NextNumber(5, 13)
+local function crustRing(parent: Instance, x: number, z: number, groundY: number, size: number, rng: Random, palette: Palette)
+	local a = size
 	local b = a / rng:NextNumber(1.05, 1.6)
 	local yaw = rng:NextNumber(0, 360)
 	local y = groundY + CRUST_BASE
@@ -649,11 +582,11 @@ end
 --- aspect. Ovals that share a centreline and an aspect merge into one sausage however
 --- many of them there are.
 ---
---- DROPLETS PAST THE HEAD, the same trick scatterOozePools throws off its puddles: a
+--- DROPLETS PAST THE HEAD, the same trick build/OozeMarsh throws off its pools: a
 --- couple of detached specks past where the body stops break the outline, so the spill
 --- ends in a spatter instead of a clean curve.
 ---
---- HELD INSIDE THE FIELD, ON A LIVE CHECK -- the same clamp scatterOozePools puts on
+--- HELD INSIDE THE FIELD, ON A LIVE CHECK -- the same clamp build/OozeMarsh puts on
 --- its thrown droplets, and needed here for the same reason: a tongue is placed
 --- relative to the break it came out of and walks up to eighteen studs further on its
 --- own bearing with nothing stopping it. The west spur's outfall is the one that
@@ -675,9 +608,9 @@ local function spillTongue(
 	rng: Random,
 	palette: Palette,
 	bounds: Bounds
-)
+): (number, number, number)
 	local reach = rng:NextNumber(11, 19)
-	local count = rng:NextInteger(4, 6)
+	local count = rng:NextInteger(5, 7)
 	local head: Part? = nil
 	local headA = 0
 	local cx, cz = x, z
@@ -694,6 +627,11 @@ local function spillTongue(
 		local a = math.max(1.8, reach * 0.42 * swell * rng:NextNumber(0.86, 1.14))
 		local b = a / rng:NextNumber(1.15, 2.6)
 		local axis = bearing + rng:NextNumber(-34, 34)
+		-- Held in by the collar's own reach, not just its centre: a tongue running at the
+		-- wall had its collar poking up to four studs past the plate edge.
+		local collar = a * 1.35 / 2
+		cx = math.clamp(cx, bounds.minX + collar, bounds.maxX - collar)
+		cz = math.clamp(cz, bounds.minZ + collar, bounds.maxZ - collar)
 
 		-- The crust collar goes down FIRST and a touch wider, so every tongue is ringed
 		-- by the same dried edge the scattered rings out in the field wear -- that shared
@@ -718,8 +656,10 @@ local function spillTongue(
 			head, headA = part, a
 		end
 
-		local step = a * rng:NextNumber(0.55, 0.85)
-		local drift = a * rng:NextNumber(-0.3, 0.3)
+		-- Well under half an oval per step, so the tongue is one body and not a string of
+		-- beads (shot live at 0.55-0.85: every oval read as its own blob).
+		local step = a * rng:NextNumber(0.34, 0.5)
+		local drift = a * rng:NextNumber(-0.16, 0.16)
 		cx = math.clamp(cx + math.cos(math.rad(bearing)) * step + px * drift, bounds.minX, bounds.maxX)
 		cz = math.clamp(cz + math.sin(math.rad(bearing)) * step + pz * drift, bounds.minZ, bounds.maxZ)
 	end
@@ -751,21 +691,195 @@ local function spillTongue(
 	if head then
 		Kit.light(head, palette.glowHex, math.clamp(reach * 1.4, 12, 30), math.clamp(reach * 0.08, 0.7, 1.6), false)
 	end
+	-- Where it ended up, and how far it ran: the crust scatter keeps clear of it.
+	return (x + cx) / 2, (z + cz) / 2, reach * 0.75
+end
+
+-- ── Structures ─────────────────────────────────────────────────────────────────
+
+local function metal(p: Part): Part
+	p.Material = Enum.Material.Metal
+	return p
+end
+
+--- A flat unit vector's yaw, in the same convention as yawAlong.
+local function yawOf(ux: number, uz: number): number
+	return math.atan2(-uz, ux)
+end
+
+--- An inspection chamber centred on `at`, turned by `yaw` (radians): a footing, four
+--- studded concrete walls, a steel frame round the opening and a grate across it, and
+--- the backed-up coolant standing under the bars.
+local function chamber(parent: Instance, at: Vector3, yaw: number, groundY: number, palette: Palette)
+	local model = Instance.new("Model")
+	model.Name = "Chamber"
+	local F = CFrame.new(at.X, groundY, at.Z) * CFrame.Angles(0, yaw, 0)
+	local half = CHAMBER / 2
+	local inner = CHAMBER - 2 * CHAMBER_WALL
+
+	block(model, "ChamberFooting", F * CFrame.new(0, BED_TOP - BED_THICK / 2, 0), Vector3.new(CHAMBER + 0.8, BED_THICK, CHAMBER + 0.8), palette.concrete[1], true)
+	for side = -1, 1, 2 do
+		block(model, "ChamberWall", F * CFrame.new(0, CHAMBER_H / 2, side * (half - CHAMBER_WALL / 2)), Vector3.new(CHAMBER, CHAMBER_H, CHAMBER_WALL), palette.concrete[2], true)
+		block(model, "ChamberWall", F * CFrame.new(side * (half - CHAMBER_WALL / 2), CHAMBER_H / 2, 0), Vector3.new(CHAMBER_WALL, CHAMBER_H, inner), palette.concrete[2], true)
+	end
+
+	-- The frame sits on the walls' inner edge, the bars span it.
+	local frameY = CHAMBER_H + 0.06
+	for side = -1, 1, 2 do
+		metal(block(model, "GrateFrame", F * CFrame.new(0, frameY, side * (inner / 2 + 0.05)), Vector3.new(inner + 0.5, 0.12, 0.4), STEEL))
+		metal(block(model, "GrateFrame", F * CFrame.new(side * (inner / 2 + 0.05), frameY, 0), Vector3.new(0.4, 0.12, inner + 0.5), STEEL))
+	end
+	for i = 1, GRATE_BARS do
+		local x = -inner / 2 + inner * i / (GRATE_BARS + 1)
+		metal(block(model, "GrateBar", F * CFrame.new(x, CHAMBER_H - 0.04, 0), Vector3.new(0.16, 0.22, inner + 0.1), STEEL_DARK))
+	end
+
+	local liquid = block(model, "Coolant", F * CFrame.new(0, CHANNEL_FILL_TOP - COOLANT_THICK / 2, 0), Vector3.new(inner + 0.1, COOLANT_THICK, inner + 0.1), palette.coolant)
+	liquid.Material = Enum.Material.Neon
+	model.Parent = parent
+	return F
+end
+
+--- The shut-off valve on a chamber's corner: a stem, a gearbox and a red hand wheel.
+--- The dig table out here has cooling valve wheels in it; this is where they came off.
+local function valve(parent: Instance, F: CFrame)
+	local model = Instance.new("Model")
+	model.Name = "Valve"
+	local corner = F * CFrame.new(CHAMBER / 2 - CHAMBER_WALL / 2, CHAMBER_H, CHAMBER / 2 - CHAMBER_WALL / 2)
+	metal(block(model, "ValveFlange", corner * CFrame.new(0, 0.06, 0), Vector3.new(0.8, 0.12, 0.8), STEEL_DARK))
+	local stem = block(model, "ValveStem", corner * CFrame.new(0, 0.7, 0) * CFrame.Angles(0, 0, math.rad(90)), Vector3.new(1.3, 0.3, 0.3), STEEL)
+	stem.Shape = Enum.PartType.Cylinder
+	metal(stem)
+	metal(block(model, "ValveBox", corner * CFrame.new(0, 1.55, 0), Vector3.new(0.7, 0.5, 0.7), STEEL))
+	local hub = corner * CFrame.new(0, 1.95, 0)
+	local r = 0.85
+	for k = 0, 7 do
+		local th = math.rad(k * 45)
+		local c = hub.Position + Vector3.new(math.cos(th) * r, 0, math.sin(th) * r)
+		local tangent = Vector3.new(-math.sin(th), 0, math.cos(th))
+		block(model, "WheelRim", CFrame.lookAt(c, c + tangent), Vector3.new(0.18, 0.18, 2 * math.pi * r / 8 + 0.08), VALVE_RED)
+	end
+	for _, a in { 0, 90 } do
+		block(model, "WheelSpoke", hub * CFrame.Angles(0, math.rad(a), 0), Vector3.new(2 * r, 0.12, 0.12), VALVE_RED)
+	end
+	metal(block(model, "WheelHub", hub, Vector3.new(0.34, 0.26, 0.34), STEEL_DARK))
+	model.Parent = parent
+end
+
+--- The end of a spur: an apron slab between wingwalls splayed off the kerbs, and the
+--- coolant pouring over the lip of the channel onto it. Returns where the spill starts.
+local function outfall(parent: Instance, E: Vector3, ux: number, uz: number, groundY: number, palette: Palette): Vector3
+	local model = Instance.new("Model")
+	model.Name = "Outfall"
+	local nx, nz = -uz, ux
+	local rot = CFrame.Angles(0, yawOf(ux, uz), 0)
+	local halfKerb = (CHANNEL_W + KERB_W) / 2
+	local bedW = CHANNEL_W + 2 * KERB_W
+
+	local apronC = E + Vector3.new(ux, 0, uz) * (OUTFALL_APRON / 2)
+	block(model, "Apron", CFrame.new(apronC.X, groundY + BED_TOP + 0.02 - BED_THICK / 2, apronC.Z) * rot, Vector3.new(OUTFALL_APRON, BED_THICK, bedW + 3.2), COPING, true)
+
+	for side = -1, 1, 2 do
+		local k = E + Vector3.new(nx, 0, nz) * (halfKerb * side)
+		local splay = math.rad(WING_SPLAY)
+		local w = Vector3.new(ux * math.cos(splay) + nx * side * math.sin(splay), 0, uz * math.cos(splay) + nz * side * math.sin(splay))
+		local c = k + w * (WING_LEN / 2) + Vector3.new(0, groundY + (KERB_H + COPING_H) / 2, 0)
+		-- A WedgePart is full height at its +Z face: lookAt points -Z outward, so the
+		-- wing is full height against the kerb end and slopes down away from it.
+		local wing = Instance.new("WedgePart")
+		wing.Name = "Wingwall"
+		wing.Anchored = true
+		wing.CanCollide = false
+		wing.CanQuery = false
+		wing.CanTouch = false
+		wing.CastShadow = false
+		wing.Size = Vector3.new(KERB_W, KERB_H + COPING_H, WING_LEN)
+		wing.CFrame = CFrame.lookAt(c, c + w)
+		wing.Color = palette.concrete[2]
+		wing.Material = Enum.Material.Plastic
+		for _, face in { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" } do
+			(wing :: any)[face] = Enum.SurfaceType.Studs
+		end
+		wing.Parent = model
+	end
+
+	-- The pour: a sheet from the channel's brim down to the apron's far end.
+	local top = Vector3.new(E.X, groundY + CHANNEL_FILL_TOP - 0.06, E.Z)
+	local bottom = Vector3.new(E.X + ux * (OUTFALL_APRON - 0.4), groundY + COOLANT_TOP + 0.03, E.Z + uz * (OUTFALL_APRON - 0.4))
+	local pour = block(model, "Pour", CFrame.lookAt((top + bottom) / 2, bottom), Vector3.new(CHANNEL_W - 0.3, COOLANT_THICK, (bottom - top).Magnitude), palette.coolant)
+	pour.Material = Enum.Material.Neon
+	model.Parent = parent
+	return Vector3.new(bottom.X, 0, bottom.Z)
+end
+
+--- The culvert where the crossing spur runs under the walk lane, built in the run's
+--- own frame `C` (local X down the channel, centred on z = 0). `L` is the deck's length
+--- along the channel. The channel's bed and coolant run straight through underneath
+--- (buildRun lays them); this is the box, deck, fill, ramps and headwalls round them.
+local function culvert(parent: Instance, C: CFrame, L: number, groundY: number, palette: Palette)
+	local model = Instance.new("Model")
+	model.Name = "Culvert"
+	local F = C + Vector3.new(0, groundY, 0)
+	local H0 = DECK_TOP - DECK_THICK
+	local fillW = DECK_SPAN / 2 - CHANNEL_W / 2
+
+	block(model, "CulvertDeck", F * CFrame.new(0, DECK_TOP - DECK_THICK / 2, 0), Vector3.new(L, DECK_THICK, DECK_SPAN), palette.concrete[1], true)
+	for side = -1, 1, 2 do
+		-- Filled sides under the deck, from the bore out to the deck's edge.
+		block(model, "CulvertFill", F * CFrame.new(0, H0 / 2, side * (CHANNEL_W / 2 + fillW / 2)), Vector3.new(L, H0, fillW), palette.concrete[2], true)
+		-- Ramps down to the ground off both long edges.
+		local ramp = Instance.new("WedgePart")
+		ramp.Name = "CulvertRamp"
+		ramp.Anchored = true
+		ramp.CanCollide = false
+		ramp.CanQuery = false
+		ramp.CanTouch = false
+		ramp.CastShadow = false
+		ramp.Size = Vector3.new(L + 2 * HEAD_T, DECK_TOP, RAMP_RUN)
+		-- Full height at +Z, which has to face the deck.
+		ramp.CFrame = F * CFrame.new(0, DECK_TOP / 2, side * (DECK_SPAN / 2 + RAMP_RUN / 2)) * CFrame.Angles(0, if side > 0 then math.pi else 0, 0)
+		ramp.Color = palette.concrete[1]
+		ramp.Material = Enum.Material.Plastic
+		ramp.TopSurface = Enum.SurfaceType.Studs
+		ramp.Parent = model
+		-- A hazard edge along the top of each long side.
+		block(model, "DeckEdge", F * CFrame.new(0, DECK_TOP + 0.03, side * (DECK_SPAN / 2 - 0.3)), Vector3.new(L, 0.06, 0.5), Color3.fromHex(Kit.C.barrelYellow))
+		local bands = math.floor(L / 3)
+		for i = 1, bands do
+			block(model, "DeckEdgeBand", F * CFrame.new(-L / 2 + (i - 0.5) * L / bands, DECK_TOP + 0.04, side * (DECK_SPAN / 2 - 0.3)), Vector3.new(0.6, 0.07, 0.52), Color3.fromHex(Kit.C.hazardBlack))
+		end
+	end
+
+	-- The headwalls: a block either side of the bore and a lintel over it, standing a
+	-- parapet above the deck. The bore itself reads dark behind the coolant.
+	for e = -1, 1, 2 do
+		local x = e * (L / 2 + HEAD_T / 2)
+		for side = -1, 1, 2 do
+			block(model, "Headwall", F * CFrame.new(x, (DECK_TOP + PARAPET) / 2, side * (CHANNEL_W / 2 + fillW / 2)), Vector3.new(HEAD_T, DECK_TOP + PARAPET, fillW), palette.concrete[2], true)
+		end
+		local lintelH = DECK_TOP + PARAPET - H0
+		block(model, "Lintel", F * CFrame.new(x, H0 + lintelH / 2, 0), Vector3.new(HEAD_T, lintelH, CHANNEL_W + 0.02), palette.concrete[2], true)
+		block(model, "HeadwallCap", F * CFrame.new(x, DECK_TOP + PARAPET + COPING_H / 2, 0), Vector3.new(HEAD_T + 2 * COPING_LIP, COPING_H, DECK_SPAN + 2 * COPING_LIP), COPING, true)
+		local boreH = H0 - CHANNEL_FILL_TOP
+		block(model, "Bore", F * CFrame.new(e * (L / 2 - 0.8), CHANNEL_FILL_TOP + boreH / 2, 0), Vector3.new(0.2, boreH, CHANNEL_W), BORE)
+	end
+	model.Parent = parent
 end
 
 -- ── The run ────────────────────────────────────────────────────────────────────
 
---- One channel run — the trunk or a spur — built leg by leg.
----
---- EACH LEG TILES EXACTLY. Its own length is divided into a whole number of equal
---- segments rather than chopped into SEG_LEN pieces with a remainder on the end, so a
---- leg never finishes with a stub, and every part is grown by SEG_OVERLAP so a joint
---- never shows a hairline of floor between two segments.
----
---- THE MITRE AT A BEND IS COVERED BY A COLLAR, not solved. Two box segments meeting at
---- an angle leave a wedge open on the outside of the turn whatever you do to their
---- lengths; a junction box over the corner is what a real drain has there anyway, and
---- it is one part instead of a trigonometry problem.
+type Run = {
+	points: { Vector3 }, -- world XZ, y unused
+	chambers: { [number]: boolean }, -- vertices this run builds a chamber at
+	trims: { [number]: boolean }, -- vertices whose chamber the kerbs stop short of
+	breaks: { { leg: number, t: number } }, -- on THIS polyline
+	culvertLeg: number?,
+	outfall: boolean,
+	valveAt: number?, -- vertex whose chamber carries the valve
+}
+
+--- Every run's legs with their chambers, units, breaks and outfall. Returns the spill
+--- sites it made ({x, z, r}), for the crust to keep clear of.
 local function buildRun(
 	parent: Instance,
 	run: Run,
@@ -773,50 +887,54 @@ local function buildRun(
 	rng: Random,
 	palette: Palette,
 	crustParent: Instance,
-	bounds: Bounds
+	bounds: Bounds,
+	spills: { { number } }
 )
 	local points = run.points
 	local halfKerb = (CHANNEL_W + KERB_W) / 2
 	local bedW = CHANNEL_W + 2 * KERB_W
-
-	-- Which segment is the last one, so a break there can be recognised as the run's
-	-- OUTFALL: the liquid leaves the end of the pipe still travelling the way the pipe
-	-- pointed, where a failure mid-run dumps it out sideways over open ground.
-	local totalSegs = 0
-	for leg = 1, #points - 1 do
-		local a, b = points[leg], points[leg + 1]
-		totalSegs += math.max(1, math.round(math.sqrt((b.X - a.X) ^ 2 + (b.Z - a.Z) ^ 2) / SEG_LEN))
-	end
-
-	local segIndex = 0
 	local wet = true
+
+	local function spill(x: number, z: number, bearing: number)
+		local sx, sz, sr = spillTongue(parent, x, z, groundY, bearing, rng, palette, bounds)
+		table.insert(spills, { sx, sz, sr })
+	end
 
 	for leg = 1, #points - 1 do
 		local a, b = points[leg], points[leg + 1]
 		local legLen = math.sqrt((b.X - a.X) ^ 2 + (b.Z - a.Z) ^ 2)
-		local count = math.max(1, math.round(legLen / SEG_LEN))
-		local segLen = legLen / count
-		local yaw = yawAlong(a.X, a.Z, b.X, b.Z)
-		local rot = CFrame.Angles(0, yaw, 0)
-		-- Unit vectors along the run and across it, so every offset below is written in
-		-- the run's own frame rather than as a fresh sin/cos each time.
 		local ux, uz = (b.X - a.X) / legLen, (b.Z - a.Z) / legLen
 		local nx, nz = -uz, ux
+		local yaw = yawAlong(a.X, a.Z, b.X, b.Z)
+		local rot = CFrame.Angles(0, yaw, 0)
+
+		-- Kerbs run between the chamber walls, not centre to centre.
+		local s0 = if run.trims[leg] then CHAMBER_TRIM else 0
+		local s1 = legLen - (if run.trims[leg + 1] then CHAMBER_TRIM else 0)
+		local span = s1 - s0
+		if span <= 0.5 then
+			continue
+		end
+		local count = math.max(1, math.round(span / SEG_LEN))
+		local segLen = span / count
+		local inCulvert = run.culvertLeg == leg
+
+		local breakSeg: { [number]: boolean } = {}
+		for _, brk in run.breaks do
+			if brk.leg == leg then
+				breakSeg[math.clamp(math.ceil(((brk.t * legLen) - s0) / segLen), 1, count)] = true
+			end
+		end
+
+		-- The spill side of a break is the one facing the walk lane.
+		local toLane = if (a.Z + b.Z) / 2 * nz > 0 then -1 else 1
 
 		for s = 1, count do
-			segIndex += 1
-			local mid = (s - 0.5) * segLen
+			local mid = s0 + (s - 0.5) * segLen
 			local cx, cz = a.X + ux * mid, a.Z + uz * mid
+			local broken = breakSeg[s] == true and not inCulvert
 
-			-- The culvert's mouth: the kerbs stop either side of the crossing and the deck
-			-- bridges them, so the walk lane crosses flat concrete rather than a wall.
-			local underDeck = run.crosses and math.abs(cz) < DECK_HALF
-
-			local broken = table.find(run.breaks, segIndex) ~= nil
-
-			if broken then
-				-- Everything upstream of a failure is still carrying liquid -- a break that
-				-- opens onto a dry stretch is just a gap in a wall.
+			if broken or inCulvert then
 				wet = true
 			elseif wet then
 				wet = rng:NextNumber() >= DRY_START_CHANCE
@@ -828,78 +946,93 @@ local function buildRun(
 				parent,
 				"CoolantBed",
 				CFrame.new(cx, groundY + BED_TOP - BED_THICK / 2, cz) * rot,
-				Vector3.new(segLen + SEG_OVERLAP, BED_THICK, bedW),
-				palette.concrete[1 + (segIndex % 2)],
+				Vector3.new(segLen + SEG_OVERLAP, BED_THICK, bedW + 2 * APRON),
+				palette.concrete[1 + (s % 2)],
 				true
 			)
 
-			if not underDeck then
+			if not inCulvert then
 				for side = -1, 1, 2 do
-					-- A break loses BOTH kerbs; the rest of the run loses one here and there,
-					-- which is decay rather than failure — see KERB_GONE_CHANCE.
-					if not broken and rng:NextNumber() >= KERB_GONE_CHANCE then
-						local kx, kz = cx + nx * halfKerb * side, cz + nz * halfKerb * side
-						block(
-							parent,
-							"CoolantKerb",
-							CFrame.new(kx, groundY + KERB_H / 2, kz) * rot,
-							Vector3.new(segLen + SEG_OVERLAP, KERB_H, KERB_W),
-							palette.concrete[2],
-							true
-						)
-						if wet and rng:NextNumber() < FRINGE_CHANCE then
-							kerbFringe(
-								crustParent,
-								kx + nx * FRINGE_REACH * 0.8 * side,
-								kz + nz * FRINGE_REACH * 0.8 * side,
-								groundY,
-								yaw,
-								segLen,
-								rng,
-								palette
+					local kx, kz = cx + nx * halfKerb * side, cz + nz * halfKerb * side
+					if broken and side == toLane then
+						-- CRACKED AND TIPPED OUT: two stubs either side of a gap, each rolled
+						-- outward about its own foot, the coping off them lying in the mud.
+						local piece = segLen * 0.36
+						for _, e in { -1, 1 } do
+							local along = e * (segLen / 2 - piece / 2)
+							local foot = Vector3.new(kx + ux * along, groundY, kz + uz * along)
+							local tilt = side * rng:NextNumber(18, 34)
+							local F = CFrame.new(foot) * rot * CFrame.Angles(math.rad(tilt), math.rad(rng:NextNumber(-6, 6)), 0)
+							block(parent, "KerbCracked", F * CFrame.new(0, KERB_H / 2 - 0.12, 0), Vector3.new(piece, KERB_H, KERB_W), palette.concrete[2], true)
+							local out = Vector3.new(nx, 0, nz) * side * rng:NextNumber(2, 3.4)
+							block(
+								parent,
+								"CopingFallen",
+								CFrame.new(foot + out + Vector3.new(0, COPING_H / 2 + 0.02, 0)) * rot * CFrame.Angles(0, math.rad(rng:NextNumber(-30, 30)), 0),
+								Vector3.new(piece * rng:NextNumber(0.6, 0.95), COPING_H, KERB_W + 2 * COPING_LIP),
+								COPING,
+								true
 							)
 						end
+						for _ = 1, rng:NextInteger(3, 5) do
+							local r = rng:NextNumber(0.35, 0.8)
+							local d = rng:NextNumber(0.4, 2.6)
+							local along = rng:NextNumber(-segLen * 0.2, segLen * 0.2)
+							block(
+								parent,
+								"Rubble",
+								CFrame.new(kx + nx * side * d + ux * along, groundY + r * 0.35, kz + nz * side * d + uz * along)
+									* CFrame.Angles(math.rad(rng:NextNumber(-25, 25)), math.rad(rng:NextNumber(0, 360)), math.rad(rng:NextNumber(-25, 25))),
+								Vector3.new(r, r * 0.8, r * 1.1),
+								palette.concrete[rng:NextInteger(1, 2)],
+								true
+							)
+						end
+						-- The coolant pours through the gap onto the ground.
+						local lip = Vector3.new(cx + nx * side * (CHANNEL_W / 2), groundY + CHANNEL_FILL_TOP - 0.05, cz + nz * side * (CHANNEL_W / 2))
+						local land = Vector3.new(cx + nx * side * (halfKerb + KERB_W / 2 + 1.6), groundY + COOLANT_TOP + 0.02, cz + nz * side * (halfKerb + KERB_W / 2 + 1.6))
+						local pour = block(parent, "Pour", CFrame.lookAt((lip + land) / 2, land), Vector3.new(segLen * 0.22, COOLANT_THICK, (land - lip).Magnitude), palette.coolant)
+						pour.Material = Enum.Material.Neon
+						spill(land.X, land.Z, math.deg(math.atan2(nz * side, nx * side)))
+						continue
+					end
+
+					local damaged = rng:NextNumber() < KERB_DAMAGE_CHANCE
+					block(parent, "CoolantKerb", CFrame.new(kx, groundY + KERB_H / 2, kz) * rot, Vector3.new(segLen - JOINT, KERB_H, KERB_W), palette.concrete[2], true)
+					if damaged then
+						-- The coping came off and lies beside the kerb it fell from.
+						local out = Vector3.new(nx, 0, nz) * side * rng:NextNumber(1.6, 2.6)
+						block(
+							parent,
+							"CopingFallen",
+							CFrame.new(kx + out.X, groundY + COPING_H / 2 + 0.02, kz + out.Z) * rot * CFrame.Angles(0, math.rad(rng:NextNumber(-25, 25)), math.rad(rng:NextNumber(-4, 4))),
+							Vector3.new(segLen * rng:NextNumber(0.35, 0.6), COPING_H, KERB_W + 2 * COPING_LIP),
+							COPING,
+							true
+						)
+					else
+						block(
+							parent,
+							"KerbCoping",
+							CFrame.new(kx, groundY + KERB_H + COPING_H / 2, kz) * rot,
+							Vector3.new(segLen - JOINT, COPING_H, KERB_W + 2 * COPING_LIP),
+							COPING,
+							true
+						)
+					end
+					if wet and rng:NextNumber() < FRINGE_CHANCE then
+						kerbFringe(crustParent, kx + nx * FRINGE_REACH * 0.8 * side, kz + nz * FRINGE_REACH * 0.8 * side, groundY, yaw, segLen, rng, palette)
 					end
 				end
 			end
 
-			if broken then
-				-- The kerb did not vanish, it went over: one length of it lying flat beside
-				-- the gap, turned off the run's own line so it reads as fallen rather than
-				-- as placed.
-				--
-				-- TIPPED ABOUT ITS OWN LONG AXIS, WHICH IS THE ONLY ROLL THAT LAYS IT DOWN.
-				-- CFrame.Angles is XYZ order, so folding the roll into the yaw call as a Z
-				-- term (`Angles(0, yaw, pi/2)`) applies Ry * Rz and stands the kerb's LENGTH
-				-- straight up instead -- a seven-stud concrete post in the middle of a dig
-				-- field, well over everything this file's header promises. Post-multiplying
-				-- a separate Rx by 90 degrees rotates it in its own frame, swapping height
-				-- for thickness: 1.2 tall standing becomes KERB_W lying down.
-				local side = if rng:NextNumber() < 0.5 then -1 else 1
-				block(
-					parent,
-					"KerbFallen",
-					CFrame.new(cx + nx * (halfKerb + 1.6) * side, groundY + KERB_W / 2, cz + nz * (halfKerb + 1.6) * side)
-						* CFrame.Angles(0, yaw + math.rad(rng:NextNumber(-22, 22)), 0)
-						* CFrame.Angles(math.rad(90), 0, 0),
-					Vector3.new(segLen * rng:NextNumber(0.5, 0.85), KERB_H, KERB_W),
-					palette.concrete[2],
-					true
-				)
-				-- An outfall carries on down the run's own line; a mid-run failure dumps
-				-- out to the SOUTH side (-n, the trunk running west to east), which is
-				-- where the player walks -- a spill tucked in behind the channel against
-				-- the boundary wall is one nobody ever stands next to.
-				local bearing = if segIndex == totalSegs
-					then math.deg(math.atan2(uz, ux))
-					else math.deg(math.atan2(-nz, -nx))
-				spillTongue(parent, cx, cz, groundY, bearing, rng, palette, bounds)
-			elseif wet then
+			if wet then
 				local liquid = block(
 					parent,
 					"Coolant",
 					CFrame.new(cx, groundY + CHANNEL_FILL_TOP - COOLANT_THICK / 2, cz) * rot,
-					Vector3.new(segLen + SEG_OVERLAP, COOLANT_THICK, CHANNEL_W - 0.2),
+					-- A hair wider than the channel, so its sides bury in the kerbs.
+					Vector3.new(segLen + SEG_OVERLAP, COOLANT_THICK, CHANNEL_W + 0.1),
 					palette.coolant
 				)
 				liquid.Material = Enum.Material.Neon
@@ -913,9 +1046,7 @@ local function buildRun(
 					2.2
 				)
 			else
-				-- A dry stretch is not empty concrete: it is the mark the liquid left on the
-				-- way through, which is what tells you the wet stretches upstream are the
-				-- same run and not a separate thing.
+				-- A dry stretch still carries the mark the liquid left on the way through.
 				block(
 					parent,
 					"CoolantStain",
@@ -925,69 +1056,83 @@ local function buildRun(
 				)
 			end
 		end
+	end
 
-		-- The collar over every interior bend — see this function's note on the mitre.
-		if leg < #points - 1 then
-			local nxt = points[leg + 2]
-			local outYaw = yawAlong(b.X, b.Z, nxt.X, nxt.Z)
-			block(
-				parent,
-				"CoolantCollar",
-				CFrame.new(b.X, groundY + KERB_H / 2 - 0.02, b.Z) * CFrame.Angles(0, (yaw + outYaw) / 2, 0),
-				Vector3.new(bedW + 1.2, KERB_H - 0.04, bedW + 1.2),
-				palette.concrete[1],
-				true
-			)
+	-- Chambers, turned to the bisector of the legs either side of them.
+	for i in run.chambers do
+		local p = points[i]
+		local dx, dz = 0, 0
+		if i > 1 then
+			local q = points[i - 1]
+			local l = math.sqrt((p.X - q.X) ^ 2 + (p.Z - q.Z) ^ 2)
+			dx += (p.X - q.X) / l
+			dz += (p.Z - q.Z) / l
+		end
+		if i < #points then
+			local q = points[i + 1]
+			local l = math.sqrt((q.X - p.X) ^ 2 + (q.Z - p.Z) ^ 2)
+			dx += (q.X - p.X) / l
+			dz += (q.Z - p.Z) / l
+		end
+		local F = chamber(parent, p, yawOf(dx, dz), groundY, palette)
+		if run.valveAt == i then
+			valve(parent, F)
 		end
 	end
 
-	if run.crosses then
-		-- The culvert deck: the road over the drain, spanning the mouth the kerbs left
-		-- open. Axis-aligned with the WALK LANE, not with the channel — it is the route
-		-- that crosses here, and it is the route the deck belongs to.
-		local at = points[1]
-		local b = points[#points]
-		local dx, dz = b.X - at.X, b.Z - at.Z
-		local runLen = math.sqrt(dx * dx + dz * dz)
-		local ux, uz = dx / runLen, dz / runLen
-		local nx, nz = -uz, ux
-		local function xAtZ(atZ: number): number
-			return at.X + dx * (if dz ~= 0 then (atZ - at.Z) / dz else 0)
-		end
-
-		block(
-			parent,
-			"CulvertDeck",
-			CFrame.new(xAtZ(0), groundY + DECK_TOP - DECK_THICK / 2, 0),
-			Vector3.new(DECK_SPAN, DECK_THICK, DECK_HALF * 2),
-			palette.concrete[1],
-			true
-		)
-
-		-- A headwall either side of the bore, at each end of the deck. The gap they
-		-- leave between them IS the opening, and the coolant runs into it.
-		for _, endZ in { -DECK_HALF, DECK_HALF } do
-			local ex = xAtZ(endZ)
-			for side = -1, 1, 2 do
-				local ax = ex + nx * (halfKerb + ABUT_W / 2 - KERB_W / 2) * side
-				local az = endZ + nz * (halfKerb + ABUT_W / 2 - KERB_W / 2) * side
-				block(
-					parent,
-					"CulvertAbutment",
-					CFrame.new(ax, groundY + DECK_TOP / 2, az) * CFrame.Angles(0, yawAlong(at.X, at.Z, b.X, b.Z), 0),
-					Vector3.new(2.6, DECK_TOP, ABUT_W),
-					palette.concrete[2],
-					true
-				)
-			end
-		end
+	if run.outfall then
+		local a, b = points[#points - 1], points[#points]
+		local l = math.sqrt((b.X - a.X) ^ 2 + (b.Z - a.Z) ^ 2)
+		local ux, uz = (b.X - a.X) / l, (b.Z - a.Z) / l
+		local start = outfall(parent, b, ux, uz, groundY, palette)
+		spill(start.X, start.Z, math.deg(math.atan2(uz, ux)))
 	end
 end
 
 -- ── Build ──────────────────────────────────────────────────────────────────────
 
---- Resolves TRUNK/SPURS into world-space runs, builds them, then scatters the crust
---- over whatever ground the network left open.
+--- `points` with extra vertices spliced in at each (leg, t) in `at`, in order along the
+--- line. Returns the new polyline and, for each entry of `at`, its vertex index.
+local function splice(points: { Vector3 }, at: { { leg: number, t: number } }): ({ Vector3 }, { number })
+	local out: { Vector3 } = {}
+	local index: { number } = table.create(#at, 0)
+	for leg = 1, #points - 1 do
+		table.insert(out, points[leg])
+		local here: { number } = {}
+		for j, jn in at do
+			if jn.leg == leg then
+				table.insert(here, j)
+			end
+		end
+		table.sort(here, function(x, y)
+			return at[x].t < at[y].t
+		end)
+		for _, j in here do
+			table.insert(out, points[leg]:Lerp(points[leg + 1], at[j].t))
+			index[j] = #out
+		end
+	end
+	table.insert(out, points[#points])
+	return out, index
+end
+
+--- A break authored as (leg, t) on the original polyline, moved onto the spliced one.
+local function relocate(original: { Vector3 }, spliced: { Vector3 }, brk: { leg: number, t: number }): { leg: number, t: number }
+	local p = pointOn(original, brk.leg, brk.t)
+	local best, bestLeg, bestT = math.huge, 1, 0
+	for i = 1, #spliced - 1 do
+		local a, b = spliced[i], spliced[i + 1]
+		local dx, dz = b.X - a.X, b.Z - a.Z
+		local len2 = dx * dx + dz * dz
+		local t = if len2 > 0 then math.clamp(((p.X - a.X) * dx + (p.Z - a.Z) * dz) / len2, 0, 1) else 0
+		local d = (p.X - a.X - dx * t) ^ 2 + (p.Z - a.Z - dz * t) ^ 2
+		if d < best then
+			best, bestLeg, bestT = d, i, t
+		end
+	end
+	return { leg = bestLeg, t = bestT }
+end
+
 function CoolantField.build(parent: Instance, stageId: number, groundY: number)
 	local palette = paletteFor(stageId)
 	local def = Stages.get(stageId)
@@ -995,61 +1140,106 @@ function CoolantField.build(parent: Instance, stageId: number, groundY: number)
 
 	local folder = Instance.new("Folder")
 	folder.Name = "CoolantField"
-	-- The crust lives in its own folder purely so the field is legible in the Explorer:
-	-- ~200 discs interleaved with the channel parts makes finding a kerb a chore.
 	local crustFolder = Instance.new("Folder")
 	crustFolder.Name = "Crust"
 
 	local function toWorld(p: { number }): Vector3
 		return Vector3.new(cx + p[1], 0, cz + p[2])
 	end
-
-	local trunkPoints: { Vector3 } = {}
-
-	-- Segment indices are what a run's `breaks` list holds, so a break has to be
-	-- converted from its (leg, t) authoring form the same way the builder walks the
-	-- legs: whole segments per leg, counted from the start of the run.
-	local function segmentIndexAt(points: { Vector3 }, leg: number, t: number): number
-		local before = 0
-		for i = 1, leg - 1 do
-			local a, b = points[i], points[i + 1]
-			before += math.max(1, math.round(math.sqrt((b.X - a.X) ^ 2 + (b.Z - a.Z) ^ 2) / SEG_LEN))
+	local function lift(list: { { number } }): { Vector3 }
+		local out = {}
+		for i, p in list do
+			out[i] = toWorld(p)
 		end
-		local a, b = points[leg], points[leg + 1]
-		local count = math.max(1, math.round(math.sqrt((b.X - a.X) ^ 2 + (b.Z - a.Z) ^ 2) / SEG_LEN))
-		return before + math.clamp(math.ceil(t * count), 1, count)
+		return out
+	end
+
+	local trunk0, south0 = lift(TRUNK), lift(SOUTH)
+
+	-- Every spur's junction becomes a vertex (and a chamber) on the run it leaves.
+	local trunkJ, southJ = {}, {}
+	local spurFrom: { { list: string, j: number } } = {}
+	for i, spur in SPURS do
+		local list = if spur.from == "trunk" then trunkJ else southJ
+		table.insert(list, { leg = spur.leg, t = spur.t })
+		spurFrom[i] = { list = spur.from, j = #list }
+	end
+	local trunk, trunkIdx = splice(trunk0, trunkJ)
+	local south, southIdx = splice(south0, southJ)
+
+	local function allChambers(n: number, lastToo: boolean): { [number]: boolean }
+		local set = {}
+		for i = 1, n do
+			if i < n or lastToo then
+				set[i] = true
+			end
+		end
+		return set
 	end
 
 	local runs: { Run } = {}
-
-	--- One of the two authored runs: its plate-local points lifted into world space, and
-	--- its breaks resolved from the (leg, t) they are authored as into the segment index
-	--- the builder will be counting when it reaches them. The crossing spur joins the
-	--- collector at one of its own vertices, so that joint gets the same collar every
-	--- other bend does, for free.
-	local function addAuthoredRun(authoredPoints: { { number } }, authoredBreaks: { { leg: number, t: number } })
-		local points: { Vector3 } = {}
-		for i, p in authoredPoints do
-			points[i] = toWorld(p)
-		end
-		local breaks: { number } = {}
-		for _, brk in authoredBreaks do
-			table.insert(breaks, segmentIndexAt(points, brk.leg, brk.t))
-		end
-		table.insert(runs, { points = points, breaks = breaks, crosses = false })
-		return points
+	local trunkBreaks = {}
+	for _, brk in TRUNK_BREAKS do
+		table.insert(trunkBreaks, relocate(trunk0, trunk, brk))
 	end
+	local southBreaks = {}
+	for _, brk in SOUTH_BREAKS do
+		table.insert(southBreaks, relocate(south0, south, brk))
+	end
+	local trunkRun: Run = {
+		points = trunk,
+		chambers = allChambers(#trunk, true),
+		trims = allChambers(#trunk, true),
+		breaks = trunkBreaks,
+		outfall = false,
+	}
+	local southRun: Run = {
+		points = south,
+		chambers = allChambers(#south, false),
+		trims = allChambers(#south, false),
+		breaks = southBreaks,
+		outfall = true,
+	}
+	table.insert(runs, trunkRun)
+	table.insert(runs, southRun)
 
-	trunkPoints = addAuthoredRun(TRUNK, TRUNK_BREAKS)
-	addAuthoredRun(SOUTH, SOUTH_BREAKS)
-
-	for _, spur in SPURS do
-		local start = pointOn(trunkPoints, spur.leg, spur.t)
-		local points = { start, toWorld(spur.to) }
-		-- A spur ends in a break — the outfall — unless it runs on into another run,
-		-- which only the crossing one does. See SPURS.
-		local breaks = if spur.joins then {} else { segmentIndexAt(points, 1, 1) }
-		table.insert(runs, { points = points, breaks = breaks, crosses = spur.crosses == true })
+	local culvertFrame: CFrame? = nil
+	local culvertLen = 0
+	for i, spur in SPURS do
+		local from = spurFrom[i]
+		local startIdx = if from.list == "trunk" then trunkIdx[from.j] else southIdx[from.j]
+		local start = if from.list == "trunk" then trunk[startIdx] else south[startIdx]
+		local finish = toWorld(spur.to)
+		if spur.crosses then
+			-- Cut the run at the culvert's headwalls, so its kerbs end exactly on them.
+			local dz = finish.Z - start.Z
+			local function atZ(z: number): Vector3
+				return start:Lerp(finish, (z - start.Z) / dz)
+			end
+			local zIn = if dz < 0 then DECK_HALF + HEAD_T else -(DECK_HALF + HEAD_T)
+			local points = { start, atZ(zIn), atZ(-zIn), finish }
+			trunkRun.valveAt = if from.list == "trunk" then startIdx else nil
+			table.insert(runs, {
+				points = points,
+				chambers = {},
+				trims = { [1] = true, [4] = true },
+				breaks = {},
+				culvertLeg = 2,
+				outfall = false,
+			})
+			local u = (finish - start).Unit
+			local mid = atZ(0)
+			culvertFrame = CFrame.fromMatrix(mid, u, Vector3.yAxis)
+			culvertLen = 2 * DECK_HALF / math.abs(u.Z)
+		else
+			table.insert(runs, {
+				points = { start, finish },
+				chambers = {},
+				trims = { [1] = true },
+				breaks = {},
+				outfall = true,
+			})
+		end
 	end
 
 	local minX, minZ, maxX, maxZ = Stages.bounds(stageId)
@@ -1061,8 +1251,12 @@ function CoolantField.build(parent: Instance, stageId: number, groundY: number)
 	}
 
 	local netRng = Random.new(SEED)
+	local spills: { { number } } = {}
 	for _, run in runs do
-		buildRun(folder, run, groundY, netRng, palette, crustFolder, bounds)
+		buildRun(folder, run, groundY, netRng, palette, crustFolder, bounds, spills)
+	end
+	if culvertFrame then
+		culvert(folder, culvertFrame, culvertLen, groundY, palette)
 	end
 
 	-- ── The scattered crust ──
@@ -1070,25 +1264,38 @@ function CoolantField.build(parent: Instance, stageId: number, groundY: number)
 	local crustRng = Random.new(SEED + 1)
 	local x0, x1 = minX + EDGE_MARGIN, maxX - EDGE_MARGIN
 	local z0, z1 = minZ + EDGE_MARGIN, maxZ - EDGE_MARGIN
-	local cols = math.max(1, math.floor((x1 - x0) / CRUST_CELL))
-	local rows = math.max(1, math.floor((z1 - z0) / CRUST_CELL))
-	local cellW, cellH = (x1 - x0) / cols, (z1 - z0) / rows
-
-	for col = 0, cols - 1 do
-		for row = 0, rows - 1 do
-			local x = x0 + (col + 0.5 + crustRng:NextNumber(-0.42, 0.42)) * cellW
-			local z = z0 + (row + 0.5 + crustRng:NextNumber(-0.42, 0.42)) * cellH
-			if crustRng:NextNumber() < CRUST_CHANCE then
+	local rings: { { number } } = {}
+	for _, rung in CRUST_LADDER do
+		for _ = 1, rung.n do
+			local size = crustRng:NextNumber(rung.a[1], rung.a[2])
+			local r = size / 2
+			local bestX, bestZ, bestScore = 0, 0, -math.huge
+			for _ = 1, CRUST_CANDIDATES do
+				local x = crustRng:NextNumber(x0 + r, x1 - r)
+				local z = crustRng:NextNumber(z0 + r, z1 - r)
 				local clear = true
 				for _, run in runs do
-					if distToPolyline(run.points, x, z) < CRUST_CHANNEL_CLEAR then
+					if distToPolyline(run.points, x, z) < CRUST_CHANNEL_CLEAR + r * 0.6 then
 						clear = false
 						break
 					end
 				end
 				if clear then
-					crustRing(crustFolder, x, z, groundY, crustRng, palette)
+					local score = math.huge
+					for _, o in rings do
+						score = math.min(score, math.sqrt((x - o[1]) ^ 2 + (z - o[2]) ^ 2) - o[3] - r)
+					end
+					for _, o in spills do
+						score = math.min(score, math.sqrt((x - o[1]) ^ 2 + (z - o[2]) ^ 2) - o[3] - r)
+					end
+					if score > bestScore then
+						bestX, bestZ, bestScore = x, z, score
+					end
 				end
+			end
+			if bestScore > 1 then
+				crustRing(crustFolder, bestX, bestZ, groundY, size, crustRng, palette)
+				table.insert(rings, { bestX, bestZ, r })
 			end
 		end
 	end
