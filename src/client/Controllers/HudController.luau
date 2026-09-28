@@ -135,6 +135,7 @@ local state = {
 	depth = 0, -- metres below base camp's edge; 0 in camp
 	excess = 0,
 	survivable = -1, -- -1 mirrors DebugService's "never" convention
+	sickness = 0, -- HP/sec of radiation sickness (meter 80%+, out in a stage)
 	threat = "",
 }
 
@@ -528,7 +529,7 @@ local function render(dt: number)
 		local burning = state.threat == "burn"
 		-- Burn with the aura holding means the burn is the crater's, not the aura's.
 		local crater = burning and state.inCrater and not state.failing
-		local label = if crater then "CRATER BURN" elseif burning then "AURA FAILING" else "SURVIVABLE"
+		local label = if crater then "CRATER BURN" elseif burning then "AURA FAILING" elseif state.sickness > 0 then "RAD SICKNESS" else "SURVIVABLE"
 		ui.countdownText.Text = string.format("%s  %s", label, clock(state.survivable))
 		ui.countdown.BackgroundColor3 = if crater then STYLE.crater elseif burning then WHITE else INK
 		ui.countdownText.TextColor3 = if burning then INK else STYLE.rads
@@ -594,6 +595,7 @@ function Hud.start()
 		state.survivable = if payload.survivable ~= nil then payload.survivable else -1
 		state.threat = payload.threat or ""
 		state.inCrater = payload.inCrater == true
+		state.sickness = payload.sickness or 0
 	end)
 
 	-- Going down is DeathScreen's ("Flatline"), on its own gui over every panel.

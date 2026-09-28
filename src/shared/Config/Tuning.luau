@@ -23,6 +23,17 @@ Tuning.EXPOSURE_WARN = 0.50 -- vignette + click bed
 Tuning.EXPOSURE_DANGER = 0.80 -- distortion, false pings
 Tuning.SHOWER_FLUSH_RATE = 200 -- rads/sec removed while standing in a decon shower
 
+-- ── Radiation sickness (out in the stages only) ────────────────────────────────
+-- A high meter now costs HEALTH on the way to 100%, not just at it. Past
+-- SICKNESS_NO_REGEN health stops regenerating; past SICKNESS_DRAIN_AT it drains,
+-- ramping MIN -> MAX HP/sec from that notch to a full meter. Camps are exempt:
+-- the meter only empties in a base's shower, so draining there would kill a
+-- player standing at home. Walk back and the regen returns.
+Tuning.SICKNESS_NO_REGEN = Tuning.EXPOSURE_WARN -- 50%
+Tuning.SICKNESS_DRAIN_AT = Tuning.EXPOSURE_DANGER -- 80%
+Tuning.SICKNESS_DRAIN_MIN = 1.0 -- HP/sec at 80%
+Tuning.SICKNESS_DRAIN_MAX = 4.0 -- HP/sec at 100%
+
 -- ── Radiation burn / aura failure (PLAN §3.5) ─────────────────────────────────
 -- healthBurn (HP/sec) = BURN_COEF * (ambientRads - auraTolerance) ^ BURN_EXPONENT
 --
@@ -60,7 +71,10 @@ Tuning.SHOWER_FLUSH_RATE = 200 -- rads/sec removed while standing in a decon sho
 -- affecting the already-near-instant over-tier deaths, the opposite of "more punishing."
 --
 -- Run Shared.Util.TuningReport to regenerate that matrix after any change here.
-Tuning.BURN_COEF = 6.0
+-- 6.0 -> 4.8 on request ("entering a stage not for your aura should be slightly less
+-- harsh, still fast"): 20% less burn everywhere. One tier under at a stage entrance
+-- ~12s -> ~15s; Stage 2 with no aura ~28s -> ~35s. In-tier play is untouched (no burn).
+Tuning.BURN_COEF = 4.8
 Tuning.BURN_EXPONENT = 0.75
 Tuning.MAX_HEALTH = 100
 
