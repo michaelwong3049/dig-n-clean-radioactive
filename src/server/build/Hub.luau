@@ -529,7 +529,19 @@ export type TileOpts = {
 	pairAt: ((x: number, z: number) -> (string, string, number))?,
 	splitAt: ((x: number, z: number) -> GroundSplit?)?,
 	origin: CFrame?, -- default identity -- see this type's own comment above
+	-- PART BUDGET: lay one dark base under the board and build only the tiles that
+	-- differ from it, instead of one part per cell (a stage floor was ~3,400 parts).
+	-- Returns the base colour for the column centred at world X; consecutive columns
+	-- that share a colour share one base part. A dark tile whose colour matches its
+	-- column's base is skipped; the rest (the light half, plus any dark tile a
+	-- `colorAt` recoloured, e.g. Stage 6's scorch) are built as before, standing
+	-- BASE_DROP proud of the base so they never z-fight it. Not for `ground`/`pairAt`
+	-- boards (their tiles lift and split) or `skip` (the base would fill the holes).
+	base: ((x: number) -> string)?,
 }
+
+--- How far a `base` board's base part sits below the tiles laid on it.
+local BASE_DROP = 0.05
 
 --- The structural slab a tiled rectangle rides on: same footprint, recessed by
 --- exactly the cap thickness so the tiles laid on it top out at PLAZA.topY.
@@ -657,15 +669,48 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	local origin = o.origin or CFrame.new(0, 0, 0)
 	local size = Hub.TILE_SIZE
 
+	local base = o.base
+	assert(not (base and (pairAt or skip)), "Hub.tileRect: `base` can't be combined with `ground`/`pairAt`/`skip`")
+
 	local built = 0
 	local ix0 = math.floor((rect.minX - p.minX) / size)
 	local iz0 = math.floor((rect.minZ - p.minZ) / size)
+
+	-- The open base part: columns x0..x1 so far, all of colour `hex`.
+	local baseRun: { x0: number, x1: number, hex: string }? = nil
+	local function flushBase()
+		local run = baseRun
+		if not run then
+			return
+		end
+		build(parent, origin, {
+			name = "TileBase",
+			pos = { (run.x0 + run.x1) / 2, topY - BASE_DROP - (CAP - BASE_DROP) / 2, (rect.minZ + rect.maxZ) / 2 },
+			size = { run.x1 - run.x0, CAP - BASE_DROP, rect.maxZ - rect.minZ },
+			color = run.hex,
+			material = "Plastic",
+		})
+		built += 1
+		baseRun = nil
+	end
 
 	for ix = ix0, math.ceil((rect.maxX - p.minX) / size) - 1 do
 		local x0 = math.max(p.minX + ix * size, rect.minX)
 		local x1 = math.min(p.minX + (ix + 1) * size, rect.maxX)
 		if x1 - x0 < 1e-3 then
 			continue -- the rectangle's edge landed on this tile's own edge
+		end
+
+		local baseHex: string? = nil
+		if base then
+			baseHex = base((x0 + x1) / 2)
+			local run = baseRun
+			if run and run.hex == baseHex and math.abs(run.x1 - x0) < 1e-3 then
+				run.x1 = x1
+			else
+				flushBase()
+				baseRun = { x0 = x0, x1 = x1, hex = baseHex :: string }
+			end
 		end
 
 		for iz = iz0, math.ceil((rect.maxZ - p.minZ) / size) - 1 do
@@ -701,6 +746,11 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 				tileTop = topY + lift
 			end
 
+			local isDark = (ix + iz) % 2 == 0
+			if baseHex and isDark and tileDark == baseHex then
+				continue -- the base under it already is this tile
+			end
+
 			build(parent, origin, {
 				name = "Tile",
 				pos = { cx, tileTop - CAP / 2, cz },
@@ -708,12 +758,13 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 				-- Parity off the GLOBAL index, never the loop counter: ix already
 				-- counts from the plaza's corner, so a rectangle out at the plot ring
 				-- inherits the phase instead of starting its own.
-				color = if (ix + iz) % 2 == 0 then tileDark else tileLight,
+				color = if isDark then tileDark else tileLight,
 				material = "Plastic",
 			})
 			built += 1
 		end
 	end
+	flushBase()
 
 	return built
 end

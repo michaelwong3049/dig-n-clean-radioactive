@@ -107,7 +107,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 41
+local BUILDER_VERSION = 42
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -496,6 +496,10 @@ end
 --- Which way a wall's visible face points along its thickness axis, keyed by the surface
 --- property its builder studs: +1 for the +axis face, -1 for the -axis one.
 local FACE_SIGN: { [string]: number } = { FrontSurface = -1, BackSurface = 1, LeftSurface = -1, RightSurface = 1 }
+
+--- A wall running along Z is built in a frame yawed +90 degrees (local X along the wall),
+--- where local +Z is world +X: its world Left/Right faces are the frame's Front/Back.
+local SIDE_TO_LOCAL_FACE: { [string]: string } = { LeftSurface = "FrontSurface", RightSurface = "BackSurface" }
 
 --- A wall tile's thickness and how far to shift its centre along that axis: a grass tile
 --- is GRASS_OVERHANG thicker, all of it on the visible side (`faceSign`), so it stands
@@ -3566,11 +3570,22 @@ local function buildStageCheckerboard(parent: Instance, id: number)
 	local folder = Instance.new("Folder")
 	folder.Name = `Stage{id}`
 
+	-- One dark base under the board (see TileOpts.base): Stage 1's gradient runs along X
+	-- only, so its base is a strip per column; every other stage's is its flat dark, and
+	-- Stage 6's scorched dark tiles still build on top of it.
+	local baseDark = stageDark:ToHex()
+	local stage1ColorAt = if id == 1 then colorAt else nil
 	Hub.tileRect(folder, { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }, {
 		topY = Stages.SURFACE_Y + GROUND_SKIM,
 		colorAt = colorAt,
 		dark = flatDark,
 		light = flatLight,
+		base = function(x: number): string
+			if stage1ColorAt then
+				return (stage1ColorAt(x, 0))
+			end
+			return baseDark
+		end,
 	})
 
 	-- See this function's header: footing / burial / the range-ring raycast all stay
@@ -3666,6 +3681,123 @@ local function buildStageBorderLines(parent: Instance)
 	folder.Parent = parent
 end
 
+--- PART BUDGET. A wall used to be one part per 4-stud checker cell -- ~48k parts across
+--- the corridor and camp walls, the bulk of the map's part count and the main source of
+--- lag. Now each column's DARK cells are one solid slab per colour band (body, grass
+--- lip), merged along the wall with every neighbouring column whose band matches, and
+--- only the LIGHT cells are their own parts, laid over that slab. The checker, studs
+--- and grass lip look the same; the part count roughly halves.
+---
+--- An overlay stands OVERLAY_PROUD out of both faces so it never z-fights the slab, and
+--- is OVERLAY_INSET short of its cell's edges so none of its side faces is coplanar with
+--- anything either -- the hairline that exposes is slab, which is dark, and every cell
+--- beside a light one is dark too, so it never shows. Overlays are looks only: the slab
+--- is the barrier, so they drop out of collision, touch and queries.
+local OVERLAY_PROUD = 0.05
+local OVERLAY_INSET = 0.01
+
+type WallSlab = { dark: string, y0: number, y1: number, thick: number, off: number }
+
+--- One wall column in `frame` (local X along the wall, `width` wide, centred on it;
+--- local Z the thickness axis, `faceProperty` the visible face; world Y). Builds the
+--- column's light overlays and RETURNS its dark bands for the caller to lay as slabs
+--- (newSlabRun), so straight walls can merge them across columns. `parity0` is the
+--- column's checker index; `pairAt(iy)` the (dark, light, grassy) for row `iy`.
+local function wallColumn(parent: Instance, name: string, frame: CFrame, width: number, faceProperty: string, rows: number, height: number, parity0: number, pairAt: (number) -> (string, string, boolean)): { WallSlab }
+	local baseY = Stages.SURFACE_Y
+	local faceSign = FACE_SIGN[faceProperty]
+	local slabs: { WallSlab } = {}
+	local current: WallSlab? = nil
+
+	for iy = -WALL_FOOT_ROWS, rows - 1 do
+		local y0 = baseY + iy * WALL_TILE
+		local y1 = math.min(y0 + WALL_TILE, baseY + height)
+		local h = y1 - y0
+		if h <= 1e-3 then
+			continue
+		end
+
+		local darkHex, lightHex, grassy = pairAt(iy)
+		local thick, off = overhangOf(grassy, faceSign)
+		if current and current.dark == darkHex and current.thick == thick and current.off == off and math.abs(current.y1 - y0) < 1e-3 then
+			current.y1 = y1
+		else
+			current = { dark = darkHex, y0 = y0, y1 = y1, thick = thick, off = off }
+			table.insert(slabs, current :: WallSlab)
+		end
+
+		if (parity0 + iy) % 2 ~= 0 then
+			local tile = build(parent, frame, {
+				name = name,
+				pos = { 0, (y0 + y1) / 2, off },
+				size = { width - 2 * OVERLAY_INSET, h - 2 * OVERLAY_INSET, thick + 2 * OVERLAY_PROUD },
+				color = lightHex,
+				material = "Plastic", -- studs only render on Plastic, per Hub.tileRect's note
+				canCollide = false,
+			});
+			(tile :: any)[faceProperty] = Enum.SurfaceType.Studs;
+			(tile :: any)[OPPOSITE_FACE[faceProperty]] = Enum.SurfaceType.Studs
+			tile.CanQuery = false
+			tile.CanTouch = false
+		end
+	end
+
+	return slabs
+end
+
+--- Lays wallColumn's dark bands as slabs, merging a band into the previous column's
+--- when it is the same band (colour, height, thickness) and the columns touch. `frameAt(s)`
+--- is the frame at along-wall coordinate `s`, local X along the wall. Call `add` per
+--- column in order, then `finish`.
+local function newSlabRun(parent: Instance, name: string, faceProperty: string, frameAt: (number) -> CFrame)
+	local open: { [string]: { s0: number, s1: number, slab: WallSlab } } = {}
+
+	local function flush(o: { s0: number, s1: number, slab: WallSlab })
+		local slab = o.slab
+		local part = build(parent, frameAt((o.s0 + o.s1) / 2), {
+			name = name,
+			pos = { 0, (slab.y0 + slab.y1) / 2, slab.off },
+			size = { math.abs(o.s1 - o.s0), slab.y1 - slab.y0, slab.thick },
+			color = slab.dark,
+			material = "Plastic",
+			canCollide = true, -- see the header: the one deliberate exception in this file
+		});
+		(part :: any)[faceProperty] = Enum.SurfaceType.Studs;
+		(part :: any)[OPPOSITE_FACE[faceProperty]] = Enum.SurfaceType.Studs
+	end
+
+	local run = {}
+	function run.add(s0: number, s1: number, slabs: { WallSlab })
+		local seen: { [string]: boolean } = {}
+		for _, slab in slabs do
+			local key = `{slab.dark}|{slab.y0}|{slab.y1}|{slab.thick}|{slab.off}`
+			seen[key] = true
+			local o = open[key]
+			if o and math.abs(o.s1 - s0) < 1e-3 then
+				o.s1 = s1
+			else
+				if o then
+					flush(o)
+				end
+				open[key] = { s0 = s0, s1 = s1, slab = slab }
+			end
+		end
+		for key, o in open do
+			if not seen[key] then
+				flush(o)
+				open[key] = nil
+			end
+		end
+	end
+	function run.finish()
+		for key, o in open do
+			flush(o)
+			open[key] = nil
+		end
+	end
+	return run
+end
+
 --- One checkerboard wall, the full length of the chain, at a fixed Z. `faceProperty`
 --- is whichever side face actually points back toward the chain on an unrotated
 --- part -- "BackSurface" (+Z) for the north wall, "FrontSurface" (-Z) for the south
@@ -3677,9 +3809,10 @@ end
 --- studs and every stage seam lands on a multiple of that, so no column straddles two
 --- stages.
 local function buildWall(parent: Instance, name: string, minX: number, maxX: number, atZ: number, faceProperty: string, pairAt: (number, number) -> (string, string, boolean))
-	local baseY = Stages.SURFACE_Y
 	local cols = math.ceil((maxX - minX) / WALL_TILE)
-	local rows = WALL_ROWS
+	local slabs = newSlabRun(parent, name, faceProperty, function(s)
+		return CFrame.new(s, 0, atZ)
+	end)
 
 	for ix = 0, cols - 1 do
 		local x0 = minX + ix * WALL_TILE
@@ -3689,29 +3822,12 @@ local function buildWall(parent: Instance, name: string, minX: number, maxX: num
 			continue
 		end
 
-		for iy = -WALL_FOOT_ROWS, rows - 1 do
-			local y0 = baseY + iy * WALL_TILE
-			local y1 = math.min(y0 + WALL_TILE, baseY + WALL_HEIGHT)
-			local h = y1 - y0
-			if h <= 1e-3 then
-				continue
-			end
-
-			local darkHex, lightHex, grassy = pairAt((x0 + x1) / 2, iy)
-			local thick, zOff = overhangOf(grassy, FACE_SIGN[faceProperty])
-
-			local tile = build(parent, CFrame.new(0, 0, 0), {
-				name = name,
-				pos = { (x0 + x1) / 2, (y0 + y1) / 2, atZ + zOff },
-				size = { w, h, thick },
-				color = if (ix + iy) % 2 == 0 then darkHex else lightHex,
-				material = "Plastic", -- studs only render on Plastic, per Hub.tileRect's note
-				canCollide = true, -- see the header: the one deliberate exception in this file
-			});
-			(tile :: any)[faceProperty] = Enum.SurfaceType.Studs;
-			(tile :: any)[OPPOSITE_FACE[faceProperty]] = Enum.SurfaceType.Studs
-		end
+		local xc = (x0 + x1) / 2
+		slabs.add(x0, x1, wallColumn(parent, name, CFrame.new(xc, 0, atZ), w, faceProperty, WALL_ROWS, WALL_HEIGHT, ix, function(iy)
+			return pairAt(xc, iy)
+		end))
 	end
+	slabs.finish()
 end
 
 --- A thin studded sheet laid FLAT over a wall's crown -- the ground carried up and
@@ -3989,9 +4105,15 @@ end
 --- Front/BackSurface); these are unrotated too but expose it on their +-X face
 --- instead, so they take Left/RightSurface.
 local function buildShoulderWall(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, faceProperty: string, height: number, salt: number)
-	local baseY = Stages.SURFACE_Y
 	local cols = math.ceil((maxZ - minZ) / WALL_TILE)
 	local rows = math.ceil(height / WALL_TILE)
+	-- Built in a frame yawed 90 degrees (local X along the wall, local Z its X thickness
+	-- axis), so this wall's world Left/Right faces are its local Front/Back.
+	local localFace = SIDE_TO_LOCAL_FACE[faceProperty]
+	local function frameAt(z: number): CFrame
+		return CFrame.new(atX, 0, z) * CFrame.Angles(0, math.rad(90), 0)
+	end
+	local slabs = newSlabRun(parent, name, localFace, frameAt)
 
 	for iz = 0, cols - 1 do
 		local z0 = minZ + iz * WALL_TILE
@@ -4001,36 +4123,17 @@ local function buildShoulderWall(parent: Instance, name: string, atX: number, mi
 			continue
 		end
 
-		for iy = -WALL_FOOT_ROWS, rows - 1 do
-			local y0 = baseY + iy * WALL_TILE
-			local y1 = math.min(y0 + WALL_TILE, baseY + height)
-			local h = y1 - y0
-			if h <= 1e-3 then
-				continue
-			end
-
-			-- Column index off world Z, so the grass drips run on continuously along
-			-- the shoulder rather than restarting at its own local zero.
-			local darkHex, lightHex, grassy = cliffPair(math.floor((z0 + z1) / 2 / WALL_TILE), iy, rows, salt)
-			local thick, xOff = overhangOf(grassy, FACE_SIGN[faceProperty])
-			local tile = build(parent, CFrame.new(0, 0, 0), {
-				name = name,
-				pos = { atX + xOff, (y0 + y1) / 2, (z0 + z1) / 2 },
-				size = { thick, h, d },
-				color = if (iz + iy) % 2 == 0 then darkHex else lightHex,
-				material = "Plastic", -- studs only render on Plastic, per Hub.tileRect's note
-				canCollide = true,
-			});
-			(tile :: any)[faceProperty] = Enum.SurfaceType.Studs;
-			(tile :: any)[OPPOSITE_FACE[faceProperty]] = Enum.SurfaceType.Studs
-		end
-
-		-- The column's own frame for thinDrips: yawed 90 degrees so local Z is this wall's
-		-- X (thickness) axis and local X runs along it.
+		-- Column index off world Z, so the grass drips run on continuously along
+		-- the shoulder rather than restarting at its own local zero.
 		local col = math.floor((z0 + z1) / 2 / WALL_TILE)
-		local colFrame = CFrame.new(atX, 0, (z0 + z1) / 2) * CFrame.Angles(0, math.rad(90), 0)
+		local colFrame = frameAt((z0 + z1) / 2)
+		slabs.add(z0, z1, wallColumn(parent, name, colFrame, d, localFace, rows, height, iz, function(iy)
+			return cliffPair(col, iy, rows, salt)
+		end))
+
 		thinDrips(parent, colFrame, d, FACE_SIGN[faceProperty], grassBottomY(col, rows, salt), salt * 100003 + col, 1)
 	end
+	slabs.finish()
 end
 
 --- `buildWallCap` with the axes swapped -- a thin studded crown sheet running along Z
@@ -4088,25 +4191,20 @@ end
 local function buildEndWall(folder: Instance, id: number, atX: number, minZ: number, maxZ: number)
 	local z0 = minZ - WALL_THICKNESS
 	local cols = math.ceil((maxZ - z0 + WALL_THICKNESS) / WALL_TILE)
+	-- Yawed like buildShoulderWall: world LeftSurface is the frame's FrontSurface.
+	local function frameAt(z: number): CFrame
+		return CFrame.new(atX, 0, z) * CFrame.Angles(0, math.rad(90), 0)
+	end
+	local slabs = newSlabRun(folder, "EndWall", "FrontSurface", frameAt)
 	for iz = 0, cols - 1 do
 		local za = z0 + iz * WALL_TILE
 		local zb = za + WALL_TILE
-		for iy = -WALL_FOOT_ROWS, WALL_ROWS - 1 do
-			local y0 = Stages.SURFACE_Y + iy * WALL_TILE
-			local darkHex, lightHex, grassy = wallPair(id, (za + zb) / 2, iy)
-			local thick, xOff = overhangOf(grassy, FACE_SIGN.LeftSurface)
-			local tile = build(folder, CFrame.new(0, 0, 0), {
-				name = "EndWall",
-				pos = { atX + xOff, y0 + WALL_TILE / 2, (za + zb) / 2 },
-				size = { thick, WALL_TILE, WALL_TILE },
-				color = if (iz + iy) % 2 == 0 then darkHex else lightHex,
-				material = "Plastic",
-				canCollide = true,
-			})
-			tile.LeftSurface = Enum.SurfaceType.Studs
-			tile.RightSurface = Enum.SurfaceType.Studs
-		end
+		local zc = (za + zb) / 2
+		slabs.add(za, zb, wallColumn(folder, "EndWall", frameAt(zc), WALL_TILE, "FrontSurface", WALL_ROWS, WALL_HEIGHT, iz, function(iy)
+			return wallPair(id, zc, iy)
+		end))
 	end
+	slabs.finish()
 	local dark, light = wallCapPair(id)
 	buildShoulderCap(folder, "EndWallCap", atX, z0, z0 + cols * WALL_TILE, dark, light, WALL_HEIGHT, FACE_SIGN.LeftSurface)
 end
@@ -4243,27 +4341,15 @@ local function buildCampWallLayer(folder: Instance, layer: CampWallLayer)
 			table.insert(arcSpots, Vector2.new(px, pz))
 		end
 
-		for iy = -WALL_FOOT_ROWS, rows - 1 do
-			local y0 = baseY + iy * WALL_TILE
-			local y1 = math.min(y0 + WALL_TILE, baseY + height)
-			local h = y1 - y0
-			if h <= 1e-3 then
-				continue
-			end
-
-			local darkHex, lightHex, grassy = cliffPair(ix, iy, rows, layer.seed)
-			local thick, zOff = overhangOf(grassy, FACE_SIGN.FrontSurface)
-			local tile = build(folder, origin, {
-				name = "ArcWall",
-				pos = { 0, (y0 + y1) / 2, zOff },
-				size = { chord, h, thick },
-				color = if (ix + iy) % 2 == 0 then darkHex else lightHex,
-				material = "Plastic",
-				canCollide = true,
-			});
-			(tile :: any).FrontSurface = Enum.SurfaceType.Studs;
-			(tile :: any).BackSurface = Enum.SurfaceType.Studs
-		end
+		-- Each column carries its own yaw, so its slabs merge up the column but never
+		-- along the arc.
+		local slabs = newSlabRun(folder, "ArcWall", "FrontSurface", function()
+			return origin
+		end)
+		slabs.add(-chord / 2, chord / 2, wallColumn(folder, "ArcWall", origin, chord, "FrontSurface", rows, height, ix, function(iy)
+			return cliffPair(ix, iy, rows, layer.seed)
+		end))
+		slabs.finish()
 
 		thinDrips(folder, origin, chord, FACE_SIGN.FrontSurface, grassBottomY(ix, rows, layer.seed), layer.seed * 100003 + ix, 1)
 
