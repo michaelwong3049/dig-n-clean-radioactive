@@ -114,7 +114,9 @@ local function onWarp(player: Player, payload: any)
 
 	local now = os.clock()
 	local previous = lastWarp[player]
-	if previous ~= nil and now - previous < COOLDOWN then
+	-- HOME / SHOPS are instant: no cooldown, only site-camp hops are rate limited.
+	local instant = dest == "base" or dest == "shops"
+	if not instant and previous ~= nil and now - previous < COOLDOWN then
 		return
 	end
 
