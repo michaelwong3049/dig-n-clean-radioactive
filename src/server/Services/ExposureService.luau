@@ -232,7 +232,6 @@ end
 local SACK_CANVAS = Color3.fromHex("5E7A2E")
 local SACK_SHADE = Color3.fromHex("46601F")
 local SACK_TIE = Color3.fromHex("F2C12E")
-local SACK_BLACK = Color3.fromHex("1A1A1A")
 
 --- Where the bag's root sits: its base on whatever is under the fall point, so the
 --- sack slumps on the ground instead of floating at hip height.
@@ -272,8 +271,8 @@ local function sackBlob(root: BasePart, name: string, size: Vector3, offset: CFr
 	return part
 end
 
---- A slumped canvas hazard sack: squat body, pinched neck tied off with a yellow
---- cord, a flared tuft, and a black-on-yellow trefoil patch on the front.
+--- A slumped canvas sack: squat body, pinched neck tied off with a yellow
+--- cord and a flared tuft.
 local function buildSack(root: BasePart)
 	-- A random lean and turn so two bags in one spot don't look stamped.
 	local lean = CFrame.Angles(math.rad(math.random(-8, 8)), math.rad(math.random(0, 359)), math.rad(math.random(-8, 8)))
@@ -292,21 +291,6 @@ local function buildSack(root: BasePart)
 	sackBlob(root, "Tuft", Vector3.new(0.9, 0.45, 0.8), at(0.05, 1.05, 0) * CFrame.Angles(0, 0, math.rad(12)), SACK_CANVAS)
 	sackPart(root, "TieEnd", Vector3.new(0.1, 0.5, 0.1), at(0.28, 0.5, 0.22) * CFrame.Angles(0, 0, math.rad(-25)), SACK_TIE).Material =
 		Enum.Material.SmoothPlastic
-
-	-- Trefoil patch: a yellow disc with three black blades round a black hub, laid on
-	-- the front of the body.
-	local front = at(0, -0.3, -1.0) * CFrame.Angles(math.rad(-10), 0, 0)
-	local patch = sackPart(root, "Patch", Vector3.new(0.06, 0.95, 0.95), front * CFrame.Angles(0, math.rad(90), 0), SACK_TIE)
-	patch.Shape = Enum.PartType.Cylinder
-	patch.Material = Enum.Material.SmoothPlastic
-	local hub = sackPart(root, "Hub", Vector3.new(0.08, 0.16, 0.16), front * CFrame.new(0, 0, -0.02) * CFrame.Angles(0, math.rad(90), 0), SACK_BLACK)
-	hub.Shape = Enum.PartType.Cylinder
-	hub.Material = Enum.Material.SmoothPlastic
-	for blade = 0, 2 do
-		local spin = CFrame.Angles(0, 0, math.rad(90 + blade * 120))
-		sackPart(root, `Blade{blade + 1}`, Vector3.new(0.28, 0.24, 0.04), front * spin * CFrame.new(0.26, 0, -0.03), SACK_BLACK).Material =
-			Enum.Material.SmoothPlastic
-	end
 end
 
 local function dropBag(player: Player, data: any, position: Vector3): number
