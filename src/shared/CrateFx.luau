@@ -142,7 +142,7 @@ local function blinker(at: Attachment, hex: string, size: number, rate: number)
 	})
 end
 
-type Parts = { core: BasePart, top: BasePart, extents: Vector3 }
+type Parts = { core: BasePart, top: BasePart, peak: Attachment, extents: Vector3 }
 
 --- Every crate: faint sparkles in the crate's own colour drifting up round it, a
 --- little denser the better the crate, so the tier reads at a glance.
@@ -165,29 +165,12 @@ local function aura(core: BasePart, hex: string, variant: number)
 end
 
 local EFFECTS: { [string]: (Parts) -> () } = {
-	-- Rusty: something inside is glowing through the gaps in the slats, and dust
-	-- drifts off the rotten wood.
-	nuke1 = function(p)
-		light(p.core, "7CFC00", math.max(p.extents.X, p.extents.Z) * 1.8, 0.7)
-		emitter(p.core, {
-			name = "Dust",
-			texture = SPARKLE,
-			color = colour("E8C9A0", "A0693A"),
-			size = seq(0.1, 0.07, 0),
-			transparency = seq(0.2, 1),
-			rate = 2,
-			lifetime = NumberRange.new(2.5, 4),
-			speed = NumberRange.new(0.1, 0.35),
-			spread = 180,
-			acceleration = Vector3.new(0, 0.05, 0),
-			rotSpeed = NumberRange.new(-30, 30),
-		})
-	end,
+	-- Scrap: no effects on purpose -- a battered junk box, it just sits there.
 
-	-- Military: a red status light on the lid that blinks, and the odd glint off
-	-- the steel.
+	-- Field: a red light blinking on the antenna tip, and the odd glint off the
+	-- steel.
 	nuke2 = function(p)
-		blinker(point(p.core, "StatusLight", -0.55, 0.95, -1.02), "FF3B30", 0.35, 0.8)
+		blinker(p.peak, "FF3B30", 0.3, 0.8)
 		emitter(p.top, {
 			name = "Glint",
 			texture = SPARKLE,
@@ -202,12 +185,11 @@ local EFFECTS: { [string]: (Parts) -> () } = {
 		})
 	end,
 
-	-- Reactor: a soft halo breathing round the core, purple motes lifting off the
-	-- dome, and the whole box lit from inside.
+	-- Void: a soft halo breathing round the dome, purple motes lifting off it, and
+	-- the whole box lit from inside.
 	nuke3 = function(p)
 		light(p.core, "B26BFF", math.max(p.extents.X, p.extents.Z) * 2, 0.8)
-		local crown = point(p.core, "Core", 0, 1.05, 0)
-		emitter(crown, {
+		emitter(p.peak, {
 			name = "Halo",
 			texture = SPARKLE,
 			color = colour("C9A2FF"),
@@ -278,8 +260,8 @@ local EFFECTS: { [string]: (Parts) -> () } = {
 		})
 	end,
 
-	-- Hazmat: cold vapour curling off the canister caps and an amber beacon blinking
-	-- on the cage.
+	-- Isotope: vapour curling off the canister on the lid, blue motes rising
+	-- through the tubes, and a cold blue glow.
 	liquid2 = function(p)
 		emitter(p.top, {
 			name = "Vapour",
@@ -293,8 +275,19 @@ local EFFECTS: { [string]: (Parts) -> () } = {
 			spread = 30,
 			rotSpeed = NumberRange.new(-20, 20),
 		})
-		blinker(point(p.core, "Beacon", 0.9, 1.0, -0.9), "FFB020", 0.4, 0.6)
-		light(p.core, "3DB8F5", math.max(p.extents.X, p.extents.Z) * 1.4, 0.35)
+		emitter(p.core, {
+			name = "Motes",
+			texture = SPARKLE,
+			color = colour("3D6BFF", "BFD4FF"),
+			size = seq(0.07, 0.1, 0),
+			transparency = seq(0.1, 0.6),
+			rate = 2.5,
+			lifetime = NumberRange.new(0.8, 1.3),
+			speed = NumberRange.new(0.4, 0.8),
+			lightEmission = 1,
+			locked = true,
+		})
+		light(p.core, "3D6BFF", math.max(p.extents.X, p.extents.Z) * 1.5, 0.5)
 	end,
 
 	-- Cryo: frost mist spilling over the edges and sinking, bubbles rising through the
@@ -345,7 +338,7 @@ local EFFECTS: { [string]: (Parts) -> () } = {
 --- sizes and speeds with it.
 function CrateFx.apply(model: Model, crateId: string, hex: string, variant: number)
 	local build = EFFECTS[crateId]
-	if build == nil then
+	if build == nil then -- Scrap: bare on purpose, no aura either
 		return
 	end
 	local box, extents = model:GetBoundingBox()
@@ -356,8 +349,25 @@ function CrateFx.apply(model: Model, crateId: string, hex: string, variant: numb
 		Vector3.new(extents.X * 0.7, 0.1, extents.Z * 0.7),
 		box * CFrame.new(0, extents.Y / 2 - 0.05, 0)
 	)
+	-- The model's highest point (an antenna tip, a dome), wherever the drawing put it.
+	local tip = box.Position + Vector3.new(0, extents.Y / 2, 0)
+	local best = -math.huge
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") and part ~= core and part ~= top then
+			local topY = part.Position.Y + part.Size.Y / 2
+			if topY > best then
+				best = topY
+				tip = Vector3.new(part.Position.X, topY, part.Position.Z)
+			end
+		end
+	end
+	local peak = Instance.new("Attachment")
+	peak.Name = "Peak"
+	peak.WorldPosition = tip
+	peak.Parent = core
+	peak.WorldPosition = tip
 	aura(core, hex, variant)
-	build({ core = core, top = top, extents = extents })
+	build({ core = core, top = top, peak = peak, extents = extents })
 end
 
 --- Take every glow and particle off a crate model: the FxCore/FxTop carriers `apply`
