@@ -43,7 +43,6 @@ local HIDDEN = UDim2.new(0.5, 0, 0, -100) -- fully off the top edge
 local SLIDE = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local POP = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-local CLICK_DEBOUNCE = 0.4
 
 -- Design px. The disc sits on the left; the name pill starts OVERLAP under its right
 -- side, so the pill's left end is always hidden and only its rounded right end shows.
@@ -113,7 +112,6 @@ local panel: Frame? = nil
 local entries: { Entry } = {}
 local shown = false
 local hideToken = 0
-local lastClick = 0
 local warpRemote: any = nil
 
 local function circle(parent: Instance, name: string, size: number, color: Color3, zIndex: number): Frame
@@ -248,11 +246,6 @@ local function buildButton(parent: Frame, spec: Spec, x: number): Entry
 		setHighlighted(false)
 	end)
 	button.Activated:Connect(function()
-		local now = os.clock()
-		if now - lastClick < CLICK_DEBOUNCE then
-			return
-		end
-		lastClick = now
 		-- A quick press, then back to whatever the pointer says.
 		grow.Scale = PRESS_SHRINK
 		TweenService:Create(grow, POP, { Scale = if entry.speed == SPIN_HOVER then HOVER_GROW else 1 }):Play()
