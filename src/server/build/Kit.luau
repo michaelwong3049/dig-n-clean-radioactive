@@ -472,6 +472,72 @@ function Kit.light(part: BasePart, color: string, range: number, brightness: num
 	l.Parent = part
 end
 
+--- Small life on a liquid surface, on request: a few bubbles welling up and popping,
+--- and (with `flow`) faint flecks riding downstream along the carrier's own +X. One
+--- invisible carrier the size of the patch at `cf` (its surface), nothing else.
+function Kit.liquidFx(parent: Instance, cf: CFrame, sizeX: number, sizeZ: number, color: string, flow: number?)
+	local carrier = Instance.new("Part")
+	carrier.Name = "LiquidFx"
+	carrier.Anchored = true
+	carrier.CanCollide = false
+	carrier.CanQuery = false
+	carrier.CanTouch = false
+	carrier.CastShadow = false
+	carrier.Transparency = 1
+	carrier.Size = Vector3.new(math.max(sizeX, 0.2), 0.05, math.max(sizeZ, 0.2))
+	carrier.CFrame = cf
+	local tint = Color3.fromHex(color):Lerp(Color3.new(1, 1, 1), 0.55)
+
+	local bubbles = Instance.new("ParticleEmitter")
+	bubbles.Name = "Bubbles"
+	bubbles.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	bubbles.Color = ColorSequence.new(tint)
+	bubbles.LightInfluence = 0.6
+	bubbles.EmissionDirection = Enum.NormalId.Top
+	bubbles.Rate = math.clamp(sizeX * sizeZ * 0.012, 0.6, 5)
+	bubbles.Lifetime = NumberRange.new(0.8, 1.6)
+	bubbles.Speed = NumberRange.new(0.05, 0.15)
+	bubbles.SpreadAngle = Vector2.new(10, 10)
+	-- Swell, then pop: grows to full size and vanishes in the last tenth.
+	bubbles.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.05),
+		NumberSequenceKeypoint.new(0.85, 0.28),
+		NumberSequenceKeypoint.new(1, 0.34),
+	})
+	bubbles.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.5),
+		NumberSequenceKeypoint.new(0.85, 0.35),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	bubbles.Parent = carrier
+
+	if flow then
+		local flecks = Instance.new("ParticleEmitter")
+		flecks.Name = "Flow"
+		flecks.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		flecks.Color = ColorSequence.new(tint)
+		flecks.LightInfluence = 0.6
+		flecks.EmissionDirection = Enum.NormalId.Right
+		flecks.Rate = math.clamp(sizeX * 0.25, 0.8, 4)
+		flecks.Lifetime = NumberRange.new(1.5, 2.5)
+		flecks.Speed = NumberRange.new(flow * 0.8, flow * 1.2)
+		flecks.SpreadAngle = Vector2.new(0, 0)
+		flecks.Orientation = Enum.ParticleOrientation.VelocityParallel
+		flecks.Size = NumberSequence.new(0.14)
+		flecks.Squash = NumberSequence.new(-0.6) -- stretched along the flow: a streak
+		flecks.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.2, 0.55),
+			NumberSequenceKeypoint.new(0.8, 0.55),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		flecks.Parent = carrier
+	end
+
+	carrier.Parent = parent
+	return carrier
+end
+
 export type Motion = {
 	kind: string, -- "spin" | "sway" | "ripples" | "screen" (StationMotionController)
 	axis: string?, -- "X" | "Y" | "Z", the pivot's OWN axis to turn about (spin, sway)
