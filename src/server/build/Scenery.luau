@@ -2189,13 +2189,13 @@ local function scatterBones(
 		local rows = math.ceil(count / cols)
 		local placed = 0
 		for row = 0, rows - 1 do
-			for col = 0, cols - 1 do
-				if placed >= count then
-					break
-				end
+			-- A short last row spreads its items over the full width instead of
+			-- bunching at the west end.
+			local rowCols = math.min(cols, count - placed)
+			for col = 0, rowCols - 1 do
 				placed += 1
-				local x = -hx + (col + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hx / cols)
-				local z = -hz + (row + 0.5 + rng:NextNumber(-0.34, 0.34)) * (2 * hz / rows)
+				local x = -hx + (col + 0.5 + rng:NextNumber(-0.2, 0.2)) * (2 * hx / rowCols)
+				local z = -hz + (row + 0.5 + rng:NextNumber(-0.2, 0.2)) * (2 * hz / rows)
 				place(math.clamp(x, -hx, hx), math.clamp(z, -hz, hz))
 			end
 		end
@@ -2408,7 +2408,8 @@ local function scatterBarrels(folder: Instance, origin: CFrame, count: number, r
 	local loads = {}
 	local left = count
 	while left > 0 do
-		local take = math.min(left, rng:NextInteger(1, 3))
+		-- One drum per site: loads of two or three bunched the field.
+		local take = 1
 		table.insert(loads, take)
 		left -= take
 	end
@@ -2444,14 +2445,12 @@ local function scatterBarrels(folder: Instance, origin: CFrame, count: number, r
 	local rows = math.ceil(#loads / cols)
 	local site = 0
 	for row = 0, rows - 1 do
-		for col = 0, cols - 1 do
+		local rowCols = math.min(cols, #loads - site)
+		for col = 0, rowCols - 1 do
 			site += 1
-			if site > #loads then
-				break
-			end
 
-			local cx = math.clamp(-hx + (col + 0.5 + rng:NextNumber(-0.32, 0.32)) * (2 * hx / cols), -hx, hx)
-			local cz = -hz + (row + 0.5 + rng:NextNumber(-0.32, 0.32)) * (2 * hz / rows)
+			local cx = math.clamp(-hx + (col + 0.5 + rng:NextNumber(-0.2, 0.2)) * (2 * hx / rowCols), -hx, hx)
+			local cz = -hz + (row + 0.5 + rng:NextNumber(-0.2, 0.2)) * (2 * hz / rows)
 			-- Pushed off the walk, never onto it: a site that landed inside the lane goes
 			-- out to the edge of it on the side it was already on. The clearance is owed
 			-- by the DRUM, not by the site, so the site has to clear the lane by the
