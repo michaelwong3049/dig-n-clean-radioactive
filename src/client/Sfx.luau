@@ -104,14 +104,11 @@ local DEFS: { [string]: Def } = {
 
 	-- ── Nuke voices (NukeVoices, via ItemFxController) ──────────────
 	-- 3D beds on a cleaned nuke: short reach, so you only hear one when you walk up to it.
-	voiceGeiger = { id = asset(17541330396), volume = 0.35, group = "ambient", maxDistance = 28, fade = 0.6 },
 	voiceTick = { id = asset(4940109913), volume = 0.45, group = "ambient", maxDistance = 22, fade = 0.4 },
 	voiceDrone = { id = asset(1843770413), volume = 0.5, speed = 0.9, group = "ambient", maxDistance = 30, fade = 1 },
 	voiceRumble = { id = asset(127117160383220), volume = 0.45, group = "ambient", maxDistance = 30, fade = 0.8 },
-	voiceBeep = { id = asset(135900517403042), volume = 0.25, group = "ambient", maxDistance = 22, fade = 0.4 },
 	voiceHum = { id = asset(9125674129), volume = 0.3, speed = 1.35, group = "ambient", maxDistance = 26, fade = 0.8 },
 	voiceChime = { id = asset(9125674114), volume = 0.3, speed = 1.5, group = "ambient", maxDistance = 26, fade = 1 },
-	voiceWarble = { id = asset(108553348043184), volume = 0.35, speed = 0.6, group = "ambient", maxDistance = 26, fade = 0.8 },
 }
 
 Sfx.DEFS = DEFS

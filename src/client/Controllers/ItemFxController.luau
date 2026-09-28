@@ -55,18 +55,17 @@ type Glint = ItemFxConfig.Glint
 
 local Controller = {}
 
---- The cool nukes hum, tick or crackle once cleaned: item id -> Sfx voice cue. The
+--- The cool nukes hum, tick or shimmer once cleaned: item id -> Sfx voice cue. The
 --- cue's maxDistance keeps it to arm's reach, so a base full of them is not a din.
 local NUKE_VOICES: { [string]: string } = {
-	live_fuel_rod = "voiceGeiger", -- Atomic Bomb: hot Geiger crackle
-	reactor_rod = "voiceGeiger", -- Reactor Nuke
+	live_fuel_rod = "voiceHum", -- Atomic Bomb: the big one whines like a charged core
+	reactor_rod = "voiceHum", -- Reactor Nuke: electric whine
 	stopped_second_hand = "voiceTick", -- Cosmic Nuke: the stopped clock still ticks
 	reactor_core_sample = "voiceDrone", -- Core Nuke: deep reactor drone
 	booster_rocket = "voiceRumble", -- Booster Nuke: idling engine rumble
-	blackbox_recorder = "voiceBeep", -- Black-Box Nuke: locator beep
 	prototype_nuke = "voiceHum", -- Prototype Nuke: the orb's electric whine
 	skyglow_core_fragment = "voiceChime", -- Sky-Glow Nuke: airy shimmer
-	ufo_fragment = "voiceWarble", -- Alien Nuke: slow alien warble
+	diamond_brooch = "voiceChime", -- Diamond Nuke: airy shimmer
 }
 
 --- Longest extent every imported template is baked to (import-nuke-models.luau's
