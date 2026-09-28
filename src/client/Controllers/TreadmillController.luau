@@ -196,7 +196,7 @@ local function build(): Frame?
 	local root = Instance.new("Frame")
 	root.Name = "SpeedBar"
 	root.Size = UDim2.fromOffset(L.barW, L.height)
-	root.Position = UDim2.new(0.5, 0, 1, -170)
+	root.Position = UDim2.new(0.5, 0, 1, -UIKit.Dock.VITALS_CLEAR)
 	root.AnchorPoint = Vector2.new(0.5, 1)
 	root.BackgroundTransparency = 1
 	root.Visible = false

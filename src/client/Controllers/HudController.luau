@@ -18,31 +18,26 @@
 	apart" — a different category of dying, not a worse degree of the same one. White is
 	used exactly once in this entire game, which is why it will read instantly forever.
 
-	THE PANEL IS THE CARTOON ONE (layout 2 of a mockup round), matching the gold-coin
-	cash badge above it: one cream card with a thick INK outline and a hard offset
-	shadow, holding
-	  - a yellow header strip: where you are (Stages' name, "Base Camp" in camp) and how
-	    deep ("0 m" in camp — asked for explicitly, so camp shows the same full panel as a
-	    stage rather than collapsing);
-	  - HEALTH: a heart and a red bar, red at every level. Low health (under
-	    LOW_HEALTH) pulses the heart instead of recolouring the bar;
+	THE VITALS BARS (option 2 "Cartoon" of a mockup round) replaced the cream card that
+	used to sit under the cash badge. Two slim ink-outlined bars centred over the hotbar
+	(Dock.VITALS_*), rads on top and health under it, 1px apart, with a label row above:
+	  - top left, the COUNTDOWN, only while it means something: SURVIVABLE (green),
+	    RAD SICKNESS (red), AURA FAILING (white), CRATER BURN (crater yellow-green);
+	  - top right, where you are and how deep ("BASE CAMP · 0 m" in camp: camp shows
+	    the full readout rather than collapsing, asked for explicitly);
 	  - RADS: a radiation badge and a green bar with notches at EXPOSURE_WARN (black) and
-	    EXPOSURE_DANGER (red) — the two lines the escalation above actually happens at —
-	    plus arrows instead of the old "+0.00 r/s": green ▲ filling, blue ▼ draining in
-	    a decon shower, one to three of them for how fast;
-	  - the COUNTDOWN strip, only while it means something, which is the one thing that
-	    changes the panel's height. White with ink text when the aura is failing, ink with
-	    green text for a plain "survivable" clock.
+	    EXPOSURE_DANGER (red), the two lines the escalation above actually happens at,
+	    and the % inside it with arrows instead of "+0.00 r/s": green ▲ filling, blue ▼
+	    draining in a decon shower, one to three of them for how fast;
+	  - HEALTH: a heart and a red bar, red at every level, "74 / 100" inside it. Low
+	    health (under LOW_HEALTH) pulses the heart instead of recolouring the bar.
 
-	THE PANEL HANGS FROM ITS TOP EDGE (Dock.METER_TOP_Y), one GAP under the cash badge, so
-	the countdown strip grows it downward and never into the badge. Dock.METER_SIZE is its
-	tallest shape.
+	FIXED HEIGHT: nothing grows or shrinks; an empty countdown is just a hidden label.
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
@@ -81,27 +76,20 @@ local STYLE = {
 	font = Enum.Font.FredokaOne,
 }
 
--- Panel-local design px. The card is Dock.METER_SIZE wide; `height` is its resting
--- height and Dock.METER_SIZE.Y its height with the countdown strip showing.
-local PANEL = {
-	width = Dock.METER_SIZE.X.Offset,
-	height = 104,
-	radius = 18,
-	outline = 4,
-	shadowDrop = 5,
-	header = { x = 4, y = 4, height = 26, pad = 12, textSize = 14 },
-	iconX = 21, -- icon centre
-	barX = 42,
-	barHeight = 22,
-	barStroke = 3,
-	barTextSize = 13,
-	healthY = 38,
-	healthWidth = 226,
-	radsY = 70,
-	radsWidth = 196, -- shorter than health: the arrows sit at its right end
-	arrowX = 255,
-	arrowTextSize = { 17, 13, 11 }, -- one, two, three arrows
-	countdown = { x = 8, y = 102, height = 28, textSize = 14 },
+-- Vitals-local design px. The frame is Dock.VITALS_WIDTH wide (less on a narrow
+-- screen) and Dock.VITALS_HEIGHT tall; every x below is from its left edge.
+local VITALS = {
+	labelHeight = 18,
+	labelTextSize = 15,
+	icon = 22, -- badge diameter
+	barX = 28, -- icon + 6
+	barHeight = 14,
+	barStroke = 2,
+	barTextSize = 11,
+	valuePad = 6,
+	shadowDrop = 2,
+	radsY = 21, -- row tops; each row is `icon` tall with the bar centred in it
+	healthY = 44,
 }
 
 -- Under this fraction of max health the heart starts to pulse, faster as it drops.
@@ -114,8 +102,6 @@ local STILL_RATE = 0.01
 -- minute, three in about fifteen seconds.
 local ARROW_TWO = 1 / 60
 local ARROW_THREE = 1 / 15
-
-local RESIZE_TWEEN = TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local ROUND = UDim.new(0.5, 0)
 
@@ -143,7 +129,8 @@ local ui = {}
 local shakeSeed = 0
 local heartClock = 0
 local radsClock = 0
-local countdownShown = false
+-- The bars' live track width in design px (the vitals frame minus the icon column).
+local barWidth = Dock.VITALS_WIDTH - VITALS.barX
 
 --- HOW FAR PAST YOUR AURA'S RATING THIS AIR IS, 0..1. `failing` only ever answers
 --- yes or no, and yes covers both "a stride over the line" and "this stage would
@@ -225,14 +212,14 @@ local function buildHeart(parent: Instance, x: number, y: number): UIScale
 	box.Name = "Heart"
 	box.AnchorPoint = Vector2.new(0.5, 0.5)
 	box.Position = UDim2.fromOffset(x, y)
-	box.Size = UDim2.fromOffset(28, 28)
+	box.Size = UDim2.fromOffset(VITALS.icon, VITALS.icon)
 	box.BackgroundTransparency = 1
 	box.ZIndex = 5
 	box.Parent = parent
 
-	local side, edge = 14, 2.5
+	local side, edge = 11, 2
 	local lobe = side / math.sqrt(2) / 2 -- centre of each upper edge, from the square's centre
-	local cx, cy = 14, 15 -- one px low: the lobes make the shape top-heavy
+	local cx, cy = VITALS.icon / 2, VITALS.icon / 2 + 1 -- one px low: the lobes make the shape top-heavy
 	for layer, color in { INK, STYLE.health } do
 		local grow = if layer == 1 then edge else 0
 		local z = 5 + layer
@@ -252,69 +239,74 @@ end
 --- to read as a solid wedge at icon size. No picture needed: the Unicode trefoil renders
 --- as a colour emoji in Roblox and ignores TextColor3.
 local function buildRadsBadge(parent: Instance, x: number, y: number): UIScale
-	local size = 24
+	local size = VITALS.icon - 2
 	local badge = centred(parent, "RadsBadge", x, y, size, size, STYLE.rads, 5, ROUND)
 	local stroke = badge:FindFirstChildOfClass("UIStroke")
 	if stroke then
-		stroke.Thickness = 3
+		stroke.Thickness = 2
 	end
 
 	local centre = size / 2
-	local inner, outer = 2.6, 9.4
+	local inner, outer = 2, 7.6
 	local mid, length = (inner + outer) / 2, outer - inner
 	for _, blade in { 90, 210, 330 } do -- one blade pointing down, like the sign
 		for spread = -24, 24, 8 do
 			local angle = blade + spread
 			local rad = math.rad(angle)
-			local ray = centred(badge, "Blade", centre + mid * math.cos(rad), centre + mid * math.sin(rad), length, 2.2, INK, 6)
+			local ray = centred(badge, "Blade", centre + mid * math.cos(rad), centre + mid * math.sin(rad), length, 1.8, INK, 6)
 			ray.Rotation = angle
 		end
 	end
-	centred(badge, "Hub", centre, centre, 3.4, 3.4, INK, 6, ROUND)
+	centred(badge, "Hub", centre, centre, 2.8, 2.8, INK, 6, ROUND)
 
 	local scale = Instance.new("UIScale")
 	scale.Parent = badge
 	return scale
 end
 
---- One dark track with a coloured fill (and a flat lighter shine along its top) and a
---- centred value label. setBar drives it.
-local function buildBar(parent: Instance, name: string, y: number, width: number, fillColor: Color3, shineColor: Color3)
-	local P = PANEL
-	local track = blob(parent, name .. "Track", { P.barX, y, width, P.barHeight }, STYLE.track, 5, ROUND, P.barStroke)
-	local fill = blob(track, "Fill", { 0, 0, width, P.barHeight }, fillColor, 6, ROUND, P.barStroke)
-	local shine = blob(fill, "Shine", { 6, 3, width - 12, 6 }, shineColor, 7, ROUND)
+--- One dark track with a coloured fill (and a flat lighter shine along its top), a hard
+--- ink drop-shadow, and a right-aligned value label. The track is as wide as the vitals
+--- frame minus the icon column (Scale), so a narrow screen just shortens it; setBar
+--- sizes the fill.
+local function buildBar(parent: Instance, name: string, rowY: number, fillColor: Color3, shineColor: Color3)
+	local V = VITALS
+	local y = rowY + (V.icon - V.barHeight) / 2
+	local shadow = blob(parent, name .. "Shadow", { V.barX, y + V.shadowDrop, 0, V.barHeight }, INK, 4, ROUND, V.barStroke)
+	shadow.Size = UDim2.new(1, -V.barX, 0, V.barHeight)
+	local track = blob(parent, name .. "Track", { V.barX, y, 0, V.barHeight }, STYLE.track, 5, ROUND, V.barStroke)
+	track.Size = UDim2.new(1, -V.barX, 0, V.barHeight)
+	local fill = blob(track, "Fill", { 0, 0, 0, V.barHeight }, fillColor, 6, ROUND)
+	local shine = blob(fill, "Shine", { 4, 2, 0, 3 }, shineColor, 7, ROUND)
+	shine.Size = UDim2.new(1, -8, 0, 3)
 	local value = UIKit.label(track, {
 		name = "Value",
-		size = UDim2.fromScale(1, 1),
+		size = UDim2.new(1, -V.valuePad, 1, 0),
 		font = STYLE.font,
-		textSize = P.barTextSize,
+		textSize = V.barTextSize,
 		color = STYLE.text,
-		xAlign = Enum.TextXAlignment.Center,
+		xAlign = Enum.TextXAlignment.Right,
 		shadow = false,
 		zIndex = 9,
 	})
-	return { track = track, fill = fill, shine = shine, value = value, width = width }
+	value.RichText = true
+	return { track = track, fill = fill, shine = shine, value = value }
 end
 
---- A notch that pokes out of both edges of a bar at `frac` of its length.
+--- A thin line across a bar at `frac` of its length.
 local function notch(bar: any, frac: number, color: Color3)
-	local x = bar.width * frac
-	for _, y in { -4, PANEL.barHeight - 3 } do
-		blob(bar.track, "Notch", { x - 1.5, y, 3, 7 }, color, 8, UDim.new(0, 1.5))
-	end
+	local mark = blob(bar.track, "Notch", { 0, 0, 2, VITALS.barHeight }, color, 8, UDim.new(0, 1))
+	mark.Position = UDim2.new(frac, -1, 0, 0)
 end
 
 local function setBar(bar: any, frac: number, text: string)
-	local P = PANEL
-	local width = bar.width * math.clamp(frac, 0, 1)
+	local h = VITALS.barHeight
+	local width = barWidth * math.clamp(frac, 0, 1)
 	-- A pill narrower than it is tall stops reading as a fill, so anything above zero
 	-- shows at least a full round end, and zero shows nothing.
 	bar.fill.Visible = width > 0.5
-	width = math.max(width, P.barHeight)
-	bar.fill.Size = UDim2.fromOffset(width, P.barHeight)
-	bar.shine.Visible = width - 12 >= 4
-	bar.shine.Size = UDim2.fromOffset(math.max(width - 12, 0), 6)
+	width = math.max(width, h)
+	bar.fill.Size = UDim2.fromOffset(width, h)
+	bar.shine.Visible = width - 8 >= 4
 	bar.value.Text = text
 end
 
@@ -341,109 +333,69 @@ local function build(): ScreenGui
 	-- 3 so the canvas and the meter on it still draw over the overlay's 2.
 	local canvas = UIKit.canvas(gui, 3)
 
-	local P = PANEL
+	local V = VITALS
 
-	-- The panel's footprint: invisible, hung from its top edge (see the header).
-	local meter = Instance.new("Frame")
-	meter.Name = "Meter"
-	meter.Size = Dock.METER_SIZE
-	-- Placed in the safe area's frame, not the screen's, to stay stacked under the cash
-	-- badge (CashController), whose gui IS inset: its left edge, and its centre line,
-	-- which a home bar at the bottom lifts by half the bar.
-	UIKit.onScaleChanged(function()
+	-- The vitals frame: invisible, bottom-centred over the hotbar (Dock.VITALS_BOTTOM).
+	local vitals = Instance.new("Frame")
+	vitals.Name = "Vitals"
+	vitals.AnchorPoint = Vector2.new(0.5, 1)
+	vitals.BackgroundTransparency = 1
+	vitals.ZIndex = 4
+	vitals.Parent = canvas
+	-- Placed in the safe area's frame, not the screen's, to stay on the hotbar, whose gui
+	-- IS inset. Narrower than VITALS_WIDTH only when the screen cannot fit it inside the
+	-- same side margins the hotbar keeps (clear of the touch controls on a phone).
+	local function place()
 		local inset = UIKit.safeInsets()
-		local centreShift = (inset.top - inset.bottom) / 2
-		meter.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + inset.left, 0.5, Dock.METER_TOP_Y + centreShift)
-	end)
-	meter.BackgroundTransparency = 1
-	meter.ZIndex = 4
-	meter.Parent = canvas
-
-	ui.shadow = blob(meter, "Shadow", { 0, P.shadowDrop, P.width, P.height }, INK, 1, UDim.new(0, P.radius))
-	ui.card = blob(meter, "Card", { 0, 0, P.width, P.height }, STYLE.panel, 2, UDim.new(0, P.radius), P.outline)
-	local card = ui.card
-
-	-- Header strip: where you are, and how deep.
-	local H = P.header
-	local header = blob(card, "Header", { H.x, H.y, P.width - H.x * 2, H.height }, STYLE.header, 3, ROUND)
-	local function headerLabel(name: string, align: Enum.TextXAlignment): TextLabel
-		return UIKit.label(header, {
-			name = name,
-			position = UDim2.fromOffset(H.pad, 0),
-			size = UDim2.new(1, -H.pad * 2, 1, 0),
-			font = STYLE.font,
-			textSize = H.textSize,
-			color = INK,
-			xAlign = align,
-			outline = false,
-			strokeTransparency = 1,
-			shadow = false,
-			zIndex = 4,
-		})
+		local screenWidth = canvas.AbsoluteSize.X / UIKit.canvasScale(canvas)
+		local margin = math.max(Dock.ROW_SIDE_MARGIN, UIKit.touchCorner().X + Dock.GAP)
+		local width = Dock.VITALS_WIDTH
+		if screenWidth > 0 then
+			width = math.clamp(screenWidth - inset.left - inset.right - 2 * margin, 240, Dock.VITALS_WIDTH)
+		end
+		barWidth = width - V.barX
+		vitals.Size = UDim2.fromOffset(width, Dock.VITALS_HEIGHT)
+		vitals.Position = UDim2.new(0.5, (inset.left - inset.right) / 2, 1, -(Dock.VITALS_BOTTOM + inset.bottom))
 	end
-	ui.stageName = headerLabel("StageName", Enum.TextXAlignment.Left)
-	ui.depth = headerLabel("Depth", Enum.TextXAlignment.Right)
+	UIKit.onScaleChanged(place)
+	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+	place()
 
-	-- HEALTH
-	ui.heartScale = buildHeart(card, P.iconX, P.healthY + P.barHeight / 2)
-	ui.health = buildBar(card, "Health", P.healthY, P.healthWidth, STYLE.health, STYLE.healthShine)
+	-- Label row: the countdown on the left (over the bars, past the icons), where you are
+	-- and how deep on the right.
+	local function rowLabel(name: string, align: Enum.TextXAlignment): TextLabel
+		local label = UIKit.label(vitals, {
+			name = name,
+			position = UDim2.fromOffset(V.barX, 0),
+			size = UDim2.new(1, -V.barX, 0, V.labelHeight),
+			font = STYLE.font,
+			textSize = V.labelTextSize,
+			color = STYLE.text,
+			xAlign = align,
+			yAlign = Enum.TextYAlignment.Bottom,
+			shadow = false,
+			zIndex = 5,
+		})
+		label.RichText = true
+		return label
+	end
+	ui.countdownText = rowLabel("Countdown", Enum.TextXAlignment.Left)
+	ui.place = rowLabel("Place", Enum.TextXAlignment.Right)
 
 	-- RADS
-	ui.radsScale = buildRadsBadge(card, P.iconX, P.radsY + P.barHeight / 2)
-	ui.rads = buildBar(card, "Rads", P.radsY, P.radsWidth, STYLE.rads, STYLE.radsShine)
+	ui.radsScale = buildRadsBadge(vitals, V.icon / 2, V.radsY + V.icon / 2)
+	ui.rads = buildBar(vitals, "Rads", V.radsY, STYLE.rads, STYLE.radsShine)
 	notch(ui.rads, Tuning.EXPOSURE_WARN, STYLE.warnMark)
 	notch(ui.rads, Tuning.EXPOSURE_DANGER, STYLE.dangerMark)
 
-	ui.arrows = UIKit.label(card, {
-		name = "Arrows",
-		anchorPoint = Vector2.new(0.5, 0.5),
-		position = UDim2.fromOffset(P.arrowX, P.radsY + P.barHeight / 2),
-		size = UDim2.fromOffset(38, P.barHeight),
-		font = STYLE.font,
-		textSize = P.arrowTextSize[1],
-		color = STYLE.rads,
-		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
-		zIndex = 5,
-	})
-
-	-- The countdown strip PLAN §3.5 calls "the single most important UI element" for
-	-- aura failure. Hidden until render() says it means something.
-	local C = P.countdown
-	ui.countdown = blob(card, "Countdown", { C.x, C.y, P.width - C.x * 2, C.height }, WHITE, 3, UDim.new(0, 12), 3)
-	ui.countdown.Visible = false
-	ui.countdownText = UIKit.label(ui.countdown, {
-		name = "Text",
-		size = UDim2.fromScale(1, 1),
-		font = STYLE.font,
-		textSize = C.textSize,
-		color = INK,
-		xAlign = Enum.TextXAlignment.Center,
-		outline = false,
-		strokeTransparency = 1,
-		shadow = false,
-		zIndex = 4,
-	})
+	-- HEALTH
+	ui.heartScale = buildHeart(vitals, V.icon / 2, V.healthY + V.icon / 2)
+	ui.health = buildBar(vitals, "Health", V.healthY, STYLE.health, STYLE.healthShine)
 
 	return gui
 end
 
 -- ── Render ──────────────────────────────────────────────────────────
-
---- Show or hide the countdown strip, growing or shrinking the card to fit it. Only
---- called on a change, so the tween is not restarted every frame.
-local function setCountdownShown(shown: boolean)
-	if shown == countdownShown then
-		return
-	end
-	countdownShown = shown
-
-	local P = PANEL
-	local height = if shown then Dock.METER_SIZE.Y.Offset else P.height
-	ui.countdown.Visible = shown
-	TweenService:Create(ui.card, RESIZE_TWEEN, { Size = UDim2.fromOffset(P.width, height) }):Play()
-	TweenService:Create(ui.shadow, RESIZE_TWEEN, { Size = UDim2.fromOffset(P.width, height) }):Play()
-end
 
 --- ▲ filling, ▼ draining, nothing when still; one to three by speed.
 ---
@@ -453,18 +405,16 @@ end
 --- in the shower with a half-full meter reads `net == 0`. This takes the flush rate
 --- whenever there is something left to flush, which is what the old "RADS — FLUSHING"
 --- caption was keyed to.
-local function renderArrows()
+local function arrows(): string
 	local draining = state.inShower and state.exposureFrac > 0
 	local rate = if draining then Tuning.SHOWER_FLUSH_RATE else state.net
 	if rate < STILL_RATE then
-		ui.arrows.Text = ""
-		return
+		return ""
 	end
 	local perSecond = rate / Tuning.EXPOSURE_CAP
 	local count = if perSecond >= ARROW_THREE then 3 elseif perSecond >= ARROW_TWO then 2 else 1
-	ui.arrows.Text = string.rep(if draining then "\u{25BC}" else "\u{25B2}", count)
-	ui.arrows.TextColor3 = if draining then STYLE.drain else STYLE.rads
-	ui.arrows.TextSize = PANEL.arrowTextSize[count]
+	local glyphs = string.rep(if draining then "\u{25BC}" else "\u{25B2}", count)
+	return string.format(' <font color="#%s">%s</font>', (if draining then STYLE.drain else STYLE.radsShine):ToHex(), glyphs)
 end
 
 --- A heartbeat-style bump for a UIScale: 1 at rest, 1 + `amount` at the top of each
@@ -494,12 +444,16 @@ local function render(dt: number)
 	local healthFrac = state.health / math.max(state.maxHealth, 1)
 	RadFx.update(dt, intensity, state.failing, healthFrac, over)
 
-	-- Header. The payload already names base camp "Base Camp", and camp's depth is 0.
-	ui.stageName.Text = state.stageName
-	ui.depth.Text = string.format("%d m", math.floor(state.depth + 0.5))
+	-- Where you are. The payload already names base camp "Base Camp", and camp's depth is 0.
+	ui.place.Text = string.format(
+		'%s <font color="#%s">\u{00B7} %d m</font>',
+		string.upper(state.stageName),
+		STYLE.header:ToHex(),
+		math.floor(state.depth + 0.5)
+	)
 
 	-- HEALTH: red at every level; low health pulses the heart, faster as it drops.
-	setBar(ui.health, healthFrac, string.format("%d/%d", math.floor(state.health + 0.5), state.maxHealth))
+	setBar(ui.health, healthFrac, string.format("%d / %d", math.floor(state.health + 0.5), state.maxHealth))
 	if healthFrac < LOW_HEALTH and not state.downed then
 		local urgency = 1 - healthFrac / LOW_HEALTH
 		heartClock += dt * lerp(5, 11, urgency)
@@ -510,8 +464,7 @@ local function render(dt: number)
 	end
 
 	-- RADS: the badge pulses once the meter is past the danger notch or the aura fails.
-	setBar(ui.rads, frac, string.format("%d%%", math.floor(frac * 100 + 0.5)))
-	renderArrows()
+	setBar(ui.rads, frac, string.format("%d%%", math.floor(frac * 100 + 0.5)) .. arrows())
 	if frac >= Tuning.EXPOSURE_DANGER or state.failing then
 		radsClock += dt * 8
 		ui.radsScale.Scale = pulse(radsClock, 0.18)
@@ -524,15 +477,18 @@ local function render(dt: number)
 	-- have their own loud signals (the death screen, the draining arrows), so it stays
 	-- hidden there too rather than repeating the news.
 	local showCountdown = not state.downed and not state.inShower and state.survivable >= 0
-	setCountdownShown(showCountdown)
+	ui.countdownText.Visible = showCountdown
 	if showCountdown then
 		local burning = state.threat == "burn"
 		-- Burn with the aura holding means the burn is the crater's, not the aura's.
 		local crater = burning and state.inCrater and not state.failing
 		local label = if crater then "CRATER BURN" elseif burning then "AURA FAILING" elseif state.sickness > 0 then "RAD SICKNESS" else "SURVIVABLE"
 		ui.countdownText.Text = string.format("%s  %s", label, clock(state.survivable))
-		ui.countdown.BackgroundColor3 = if crater then STYLE.crater elseif burning then WHITE else INK
-		ui.countdownText.TextColor3 = if burning then INK else STYLE.rads
+		ui.countdownText.TextColor3 = if crater
+			then STYLE.crater
+			elseif burning then WHITE
+			elseif state.sickness > 0 then STYLE.dangerMark
+			else STYLE.rads
 	end
 
 	-- Above the danger threshold the world starts moving. PLAN §3.1 wants vision
