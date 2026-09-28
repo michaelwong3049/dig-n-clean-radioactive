@@ -27,6 +27,7 @@ local Gear = require(Shared.Config.Gear)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Sfx = require(script.Parent.Parent.Sfx)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
 local GearArt = require(script.Parent.Parent.GearArt)
@@ -265,6 +266,10 @@ local function row(parent: Instance, order: number, track: string, entry: any)
 		button.Text = "..."
 		button.BackgroundColor3 = PANEL.off
 		actionRemote:FireServer("equip", track, entry.tier)
+		-- The aura's own whoosh comes off its AuraTier changing (SfxController).
+		if track ~= "Aura" then
+			Sfx.play("gearEquip")
+		end
 		-- The answer is a GearList carrying `notice`; if it never comes (the server's
 		-- cooldown swallowed a double-press) the panel un-sticks on its own.
 		task.delay(BUSY_TIMEOUT, function()

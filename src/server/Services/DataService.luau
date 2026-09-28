@@ -171,6 +171,10 @@ local TEMPLATE = {
 	-- protects (its stats come from gear.aura). Set via Net.HideAura -> AuraService.
 	hideAura = false,
 
+	-- Settings' SOUND EFFECTS switch. true = the client mutes every effect (Sfx.luau's
+	-- master SoundGroup). Set via Net.SfxMuted -> SfxService.
+	sfxMuted = false,
+
 	railStations = {}, -- stageId -> parts found (PLAN §5.3)
 
 	-- Camp key (Config/Camps) -> true, once this player has stood in that camp on foot.

@@ -20,6 +20,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Tuning = require(ReplicatedStorage.Shared.Config.Tuning)
+local Sfx = require(script.Parent.Parent.Sfx)
 
 local Geiger = {}
 
@@ -52,6 +53,7 @@ function Geiger.start()
 	sound.Name = "GeigerBed"
 	sound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
 	sound.Volume = VOLUME_CALM
+	Sfx.adopt(sound) -- under Settings' SOUND EFFECTS switch
 	sound.Parent = parent
 
 	RunService.Heartbeat:Connect(function(dt)

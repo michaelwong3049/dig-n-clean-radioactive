@@ -51,6 +51,7 @@ local Crates = require(Shared.Config.Crates)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Sfx = require(script.Parent.Parent.Sfx)
 local ItemArt = require(script.Parent.Parent.ItemArt)
 local Dock = UIKit.Dock
 
@@ -832,6 +833,11 @@ end
 --- Pop a refusal up over the hotbar ("inventory full"). A new one restarts the
 --- clock rather than queueing behind the last.
 function Inventory.notice(message: string)
+	-- A full bag gets its thunk here. Other refusals stay silent at this layer: a
+	-- purchase short of cash already buzzes (SfxService's "denied" from the till).
+	if string.find(string.lower(message), "full", 1, true) then
+		Sfx.play("bagFull")
+	end
 	noticeToken += 1
 	local token = noticeToken
 	local group = ui.notice

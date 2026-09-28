@@ -30,6 +30,7 @@ local Net = require(Shared.Net)
 local Gear = require(Shared.Config.Gear)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Sfx = require(script.Parent.Parent.Sfx)
 
 local PurchaseHintController = {}
 
@@ -149,6 +150,7 @@ local function pump()
 		orderSeq += 1
 		shown += 1
 		popRow(list, Gear.tier(rung.track, rung.tier).name, orderSeq)
+		Sfx.play("hint") -- one ding per burst: the cue's cooldown folds a stack of rows
 		if shown >= MAX_ROWS then
 			break
 		end

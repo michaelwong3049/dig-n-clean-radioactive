@@ -861,8 +861,19 @@ end
 --- the refusal ends -- an armed fuse always burns through to it.
 ---
 --- Cheap and idempotent on purpose, so callers never have to check first.
+--- Hauling on the character: whether a haul is live, for everyone's ears. SfxController
+--- hums the magnet on any character with it set; the hauler's own client hums off its
+--- own SweepState instead.
+local function setHaulAttr(player: Player, on: boolean)
+	local character = player.Character
+	if character and character:GetAttribute("Hauling") ~= (on or nil) then
+		character:SetAttribute("Hauling", on or nil)
+	end
+end
+
 local function releaseLock(player: Player)
 	lockedTo[player] = nil
+	setHaulAttr(player, false)
 end
 
 --- WHAT BREAKS THE SURFACE IS A ROCK. It used to be the item's own authored model with
@@ -1714,6 +1725,13 @@ function DigService.start()
 		yankTokens[player] = tokens - 1
 		lastYankAt[player] = now
 		pendingYanks[player] = (pendingYanks[player] or 0) + 1
+
+		-- One accepted yank, one crunch in everyone else's ears (SfxController listens
+		-- for the change). A counter rather than a flag, so every yank is a change.
+		local character = player.Character
+		if character then
+			character:SetAttribute("DigTick", ((character:GetAttribute("DigTick") or 0) + 1) % 1000)
+		end
 	end)
 
 	-- LOCK ON / RELEASE. The client sends a boolean and nothing else -- never a uid, so
@@ -1782,6 +1800,7 @@ function DigService.start()
 		safeDiggers[player.UserId] = Tutorial.isSafeDig(data) or nil
 		pinRoll(nearest.signal, stats, player.UserId)
 		lockedTo[player] = nearest.signal.uid
+		setHaulAttr(player, true)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)

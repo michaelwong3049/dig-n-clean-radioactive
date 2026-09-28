@@ -692,12 +692,23 @@ local function push(player: Player, session: Session?, data: any)
 	})
 end
 
+--- HoseSpraying on the character: the one piece of a wash session other players can
+--- hear. SfxController plays the hose hiss on anyone with it set; the washer's own
+--- client ignores it and plays theirs off the trigger, a round trip sooner.
+local function setSprayAttr(player: Player, on: boolean)
+	local character = player.Character
+	if character and character:GetAttribute("HoseSpraying") ~= (on or nil) then
+		character:SetAttribute("HoseSpraying", on or nil)
+	end
+end
+
 function finish(player: Player, reason: string?)
 	local session = sessions[player]
 	if session == nil then
 		return
 	end
 	sessions[player] = nil
+	setSprayAttr(player, false)
 
 	if session.model then
 		session.model:Destroy()
@@ -748,6 +759,7 @@ end
 local function revealAndFinish(player: Player, session: Session, data: any, item: any)
 	session.revealing = true
 	session.spraying = false
+	setSprayAttr(player, false)
 	session.lockedZone = nil
 	session.aimZone = nil
 
@@ -1136,6 +1148,7 @@ function WashService.start()
 		end
 		session.spraying = request.spraying == true
 		session.aimZone = if type(request.zone) == "number" then request.zone else nil
+		setSprayAttr(player, session.spraying and not session.revealing)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)

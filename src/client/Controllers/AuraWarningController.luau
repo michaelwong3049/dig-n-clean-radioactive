@@ -40,6 +40,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Sfx = require(script.Parent.Parent.Sfx)
 
 local AuraWarningController = {}
 
@@ -200,6 +201,7 @@ local function setShown(on: boolean)
 	shown = on
 	if on then
 		refreshText()
+		Sfx.play("auraWarning")
 		ui.root.Position = UDim2.new(0.5, 0, 0, clearTop())
 		ui.root.Visible = true
 		ui.group.GroupTransparency = 0

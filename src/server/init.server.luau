@@ -19,6 +19,7 @@ local SERVICES = script.Services
 -- because it is the only place that graph is written down.
 local ORDER = {
 	"DataService", -- everything downstream needs a profile
+	"SfxService", -- one-shot sound cues for one player + the SOUND EFFECTS setting; needs Data
 	"IdentifyService", -- "???" -> a name; the index write lives here and nowhere else
 	"StageService", -- who is standing where; exposure and digging both read it
 	"CampService", -- which camp you are in and which you have reached; Exposure + Warp read it

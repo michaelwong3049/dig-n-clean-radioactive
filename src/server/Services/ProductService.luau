@@ -26,6 +26,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 
 local DataService = require(script.Parent.DataService)
+local SfxService = require(script.Parent.SfxService)
 
 local ProductService = {}
 
@@ -75,6 +76,7 @@ local function processReceipt(receipt: any): Enum.ProductPurchaseDecision
 			table.remove(data.receipts, 1)
 		end
 		table.insert(data.receipts, purchaseId)
+		SfxService.play(player, "robux")
 		print(`[product] {player.Name} bought product {receipt.ProductId} ({purchaseId})`)
 	end
 

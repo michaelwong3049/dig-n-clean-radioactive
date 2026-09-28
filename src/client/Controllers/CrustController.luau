@@ -30,6 +30,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local ItemCrust = require(ReplicatedStorage.Shared.ItemCrust)
+local Sfx = require(script.Parent.Parent.Sfx)
 
 local CrustController = {}
 
@@ -113,6 +114,9 @@ local function throw(part: BasePart)
 
 	TweenService:Create(piece, FADE, { Transparency = 1 }):Play()
 	Debris:AddItem(piece, LIFETIME)
+
+	-- Where the flake came off, not on the falling piece: it lives under a second.
+	Sfx.playAt("flake", part.Position)
 end
 
 --- A new level (or toughness) landed from the server: start easing toward it. The very
