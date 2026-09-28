@@ -143,6 +143,8 @@ function IdentifyService.announce(player: Player, item: any, firstFind: boolean,
 		flavor = def.flavor,
 		rarity = item.rarity,
 		modifier = item.modifier,
+		-- The wash reveal re-derives this dig's size roll off it for the star rating.
+		uid = item.uid,
 		weight = Weight.shownKg(def.weight, mult),
 		firstFind = firstFind,
 		index = if data then copyEntry(data.indexStats[def.id]) else nil,

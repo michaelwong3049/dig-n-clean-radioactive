@@ -395,6 +395,22 @@ function Spec.run(): boolean
 			"§payload an ordinary roll has no callout; MAX earns the top one",
 			Payload.calloutFor(1) == nil and Payload.calloutFor(Payload.MAX) == Payload.CALLOUTS[1].label
 		)
+		-- The star rating: rarity tier, quality and size nudges, clamped 1..MAX_STARS.
+		check(
+			"§stars an ordinary find rates its rarity tier",
+			Rarity.stars("Rare", "None", 1) == Rarity.DEFS.Rare.order and Rarity.stars("Rare") == Rarity.DEFS.Rare.order
+		)
+		check(
+			"§stars quality and size move it (Pristine GIGA Rare 7, Cracked small Rare 2)",
+			Rarity.stars("Rare", "Pristine", Payload.MAX) == 7 and Rarity.stars("Rare", "Cracked", Payload.MIN) == 2
+		)
+		check(
+			"§stars clamp to 1..MAX_STARS and every callout adds a star",
+			Rarity.stars("Anomaly", "Pristine", Payload.MAX) == Rarity.MAX_STARS
+				and Rarity.stars("Scrap", "Slagged", Payload.MIN) == 1
+				and Rarity.stars("Rare", nil, Payload.CALLOUTS[#Payload.CALLOUTS].min) > Rarity.DEFS.Rare.order
+				and Rarity.stars(nil) == 0
+		)
 	end
 
 	-- PLAN §3.5 — the Dive is ~one dig, in every stage. Tested at the ENTRANCE

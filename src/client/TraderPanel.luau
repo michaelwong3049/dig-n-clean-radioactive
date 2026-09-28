@@ -30,6 +30,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
+local Payload = require(Shared.Config.Payload)
 local Tuning = require(Shared.Config.Tuning)
 
 local UIKit = require(script.Parent.UIKit)
@@ -97,6 +98,12 @@ end
 local function rarityColor(name: string?): Color3
 	local def = if name then Rarity.DEFS[name] else nil
 	return if def then def.color else SKIN.dim
+end
+
+--- This find's stars: its rarity tier, nudged by its quality and its size roll.
+local function starText(item: any): string
+	local payload = if type(item.uid) == "string" then Payload.forUid(item.uid) else nil
+	return Rarity.starText(item.rarity, item.modifier, payload)
 end
 
 --- The shop's inkShopText recipe: a rounded INK stroke on the glyphs, scaled to the text.
@@ -550,7 +557,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		strip.Visible = true
 		strip.BackgroundColor3 = rarityColor(item.rarity)
 		crusted.Visible = not item.clean
-		tileStars.Text = Rarity.starText(item.rarity)
+		tileStars.Text = starText(item)
 		nameLabel.Text = item.name
 		price.Text = money(item.value or 0)
 		ItemArt.paint(viewport, item, (TILE_W - 16) / 62)
@@ -574,7 +581,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		detailName.TextColor3 = if item.clean then SKIN.text else SKIN.crustText
 		rarityChip.Text = string.upper(item.rarity or "")
 		rarityChip.BackgroundColor3 = rarityColor(item.rarity)
-		starLabel.Text = Rarity.starText(item.rarity)
+		starLabel.Text = starText(item)
 		local modifier = item.modifier
 		modifierChip.Visible = type(modifier) == "string" and modifier ~= "None"
 		modifierChip.Text = if type(modifier) == "string" then string.upper(modifier) else ""
