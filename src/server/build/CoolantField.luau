@@ -724,6 +724,10 @@ local function spillTongue(
 		cz = math.clamp(cz + math.sin(math.rad(bearing)) * step + pz * drift, bounds.minZ, bounds.maxZ)
 	end
 
+	if head then
+		Kit.liquidFx(parent, head.CFrame + Vector3.new(0, COOLANT_THICK / 2, 0), headA * 0.5, headA * 0.4, palette.coolantHex)
+	end
+
 	-- The spatter past the head.
 	for _ = 1, rng:NextInteger(2, 4) do
 		local throw = reach * rng:NextNumber(0.1, 0.42)
@@ -899,6 +903,15 @@ local function buildRun(
 					palette.coolant
 				)
 				liquid.Material = Enum.Material.Neon
+				-- Flow: flecks ride downstream (a -> b) with a few bubbles.
+				Kit.liquidFx(
+					parent,
+					CFrame.fromMatrix(liquid.Position + Vector3.new(0, COOLANT_THICK / 2, 0), Vector3.new(ux, 0, uz), Vector3.yAxis),
+					segLen,
+					CHANNEL_W - 0.6,
+					palette.coolantHex,
+					2.2
+				)
 			else
 				-- A dry stretch is not empty concrete: it is the mark the liquid left on the
 				-- way through, which is what tells you the wet stretches upstream are the

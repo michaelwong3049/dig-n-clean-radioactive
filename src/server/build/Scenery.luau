@@ -3109,6 +3109,9 @@ local function oozePool(
 	-- PointLight. With 12 of these alight in the field at once, that is not optional.
 	if bodyPart then
 		Kit.light(bodyPart, ooze.glow, math.clamp(radius * 1.3, 10, 46), math.clamp(radius * 0.07, 0.7, 2.4), false)
+		-- Bubbles welling up across the body (disc scale is a diameter; 0.7 keeps
+		-- them off the rim).
+		Kit.liquidFx(parent, bodyPart.CFrame + Vector3.new(0, POOL_THICK / 2, 0), bodyA * 0.7, bodyB * 0.7, ooze.bright)
 	end
 
 	-- Thrown clear of the blob, each on its own bearing -- droplets, not a second pool.
