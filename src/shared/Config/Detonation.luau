@@ -30,8 +30,9 @@ local Detonation = {}
 
 -- The window in seconds for an average nuke at Uncommon, before rarity, weight and
 -- its own temper (TEMPER_BANDS) bend it. It was thirty; the brief is now "about twenty
--- on average, and nothing like the same twenty twice".
-Detonation.BASE_WINDOW = 20
+-- on average, and nothing like the same twenty twice"; then trimmed to 17 so the
+-- average fuse runs about three seconds shorter.
+Detonation.BASE_WINDOW = 17
 
 -- THE RANGE A FUSE CAN HAVE. Whatever rarity, weight, temper and the fairness floor
 -- (below) multiply and lift out to is clamped into this, LAST, so the fastest nuke in
@@ -49,7 +50,7 @@ Detonation.MAX_WINDOW = 30
 -- the band. Spec pins the order, that the last band ends where the MAX_WINDOW clamp
 -- above expects and that the chances total 100.
 --
--- Against BASE_WINDOW = 20: the first band is the "under eight seconds" nukes -- about
+-- Against BASE_WINDOW = 17: the first band is the "under eight seconds" nukes -- about
 -- one in six on the roll, one in ten once the fairness floor has lifted the slow pulls
 -- out of it -- and the last is the slow burn that tops out at MAX_WINDOW.
 Detonation.TEMPER_MIN = 0.25
@@ -132,18 +133,19 @@ Detonation.COOL_RATE = 1.0
 --   orbBurn    health/sec at the orb's centre. Falls to ORB_EDGE of that at its rim.
 --   orbLife    seconds the orb hangs there before it has fully dissipated.
 --
--- MAX_HEALTH is 100 (Config/Tuning), so these are percentages of a body. A Common's
+-- MAX_HEALTH is 100 (Config/Tuning), so these are percentages of a body. hit and
+-- orbBurn were doubled across the board so a blast properly hurts. A Common's
 -- crater is a bruise you walk out of; a Mythic's or an Anomaly's at point blank is a
 -- blackout even running straight out (Spec pins the Common end).
 Detonation.BLAST = {
-	Scrap = { hit = 25, orbRadius = 8, orbBurn = 10, orbLife = 30 },
-	Common = { hit = 25, orbRadius = 8, orbBurn = 10, orbLife = 30 },
-	Uncommon = { hit = 30, orbRadius = 10, orbBurn = 14, orbLife = 40 },
-	Rare = { hit = 40, orbRadius = 13, orbBurn = 20, orbLife = 45 },
-	Epic = { hit = 50, orbRadius = 16, orbBurn = 28, orbLife = 50 },
-	Legendary = { hit = 60, orbRadius = 20, orbBurn = 38, orbLife = 60 },
-	Mythic = { hit = 75, orbRadius = 25, orbBurn = 50, orbLife = 75 },
-	Anomaly = { hit = 90, orbRadius = 32, orbBurn = 65, orbLife = 90 },
+	Scrap = { hit = 50, orbRadius = 8, orbBurn = 20, orbLife = 30 },
+	Common = { hit = 50, orbRadius = 8, orbBurn = 20, orbLife = 30 },
+	Uncommon = { hit = 60, orbRadius = 10, orbBurn = 28, orbLife = 40 },
+	Rare = { hit = 80, orbRadius = 13, orbBurn = 40, orbLife = 45 },
+	Epic = { hit = 100, orbRadius = 16, orbBurn = 56, orbLife = 50 },
+	Legendary = { hit = 120, orbRadius = 20, orbBurn = 76, orbLife = 60 },
+	Mythic = { hit = 150, orbRadius = 25, orbBurn = 100, orbLife = 75 },
+	Anomaly = { hit = 180, orbRadius = 32, orbBurn = 130, orbLife = 90 },
 }
 
 -- The blast reaches a little past the orb it leaves: blastRadius = orbRadius * this.
