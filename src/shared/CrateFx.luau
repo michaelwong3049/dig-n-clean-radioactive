@@ -24,6 +24,10 @@
 	No Neon anywhere (the game's de-neon rule); glow is PointLight + LightEmission.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
+
+local ItemFx = require(script.Parent.ItemFx)
+
 local CrateFx = {}
 
 local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
@@ -333,10 +337,38 @@ local EFFECTS: { [string]: (Parts) -> () } = {
 	end,
 }
 
+--- The imported crates' colours are baked into their meshes and render dark, and
+--- BasePart.Color doesn't tint them. A soft Highlight in the crate's own colour lifts
+--- every face without washing the hue out.
+local BRIGHTEN_FILL = 0.72
+
+local function brighten(model: Model, hex: string)
+	local h = Instance.new("Highlight")
+	h.Name = "Brighten"
+	h.FillColor = Color3.fromHex(hex):Lerp(Color3.new(1, 1, 1), 0.55)
+	h.FillTransparency = BRIGHTEN_FILL
+	h.OutlineTransparency = 1
+	h.DepthMode = Enum.HighlightDepthMode.Occluded
+	h.Parent = model
+end
+
+--- Moving parts (Config/ItemFx CRATE_DEFS), run by the client's ItemFxController.
+local function tagMotion(model: Model, crateId: string)
+	local fxId = `crate_{crateId}`
+	if ItemFx.get(fxId) == nil then
+		return
+	end
+	model:SetAttribute(ItemFx.ATTRIBUTE, fxId)
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+	CollectionService:AddTag(model, ItemFx.TAG)
+end
+
 --- Fit this crate's effects to `model` (either kind of crate model). Call after the
 --- model is built and before it is placed or scaled: Model:ScaleTo carries particle
 --- sizes and speeds with it.
 function CrateFx.apply(model: Model, crateId: string, hex: string, variant: number)
+	brighten(model, hex)
+	tagMotion(model, crateId)
 	local build = EFFECTS[crateId]
 	if build == nil then -- Scrap: bare on purpose, no aura either
 		return
@@ -376,6 +408,8 @@ end
 --- say "crate" before the wash has. Call before the crust goes on -- the crust's own
 --- light is added after, and this would take it too.
 function CrateFx.strip(model: Model)
+	CollectionService:RemoveTag(model, ItemFx.TAG)
+	model:SetAttribute(ItemFx.ATTRIBUTE, nil)
 	for _, name in { "FxCore", "FxTop" } do
 		local carrierPart = model:FindFirstChild(name)
 		if carrierPart then
@@ -383,7 +417,7 @@ function CrateFx.strip(model: Model)
 		end
 	end
 	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("Light") or descendant:IsA("ParticleEmitter") then
+		if descendant:IsA("Light") or descendant:IsA("ParticleEmitter") or descendant:IsA("Highlight") then
 			descendant:Destroy()
 		end
 	end

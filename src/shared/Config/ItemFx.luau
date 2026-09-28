@@ -1182,4 +1182,21 @@ ItemFx.DEFS = {
 	},
 } :: { [string]: ItemFxDef }
 
+--- The same effects on a supply crate's imported model (Assets.CrateTemplates), keyed
+--- `crate_<crateId>`. Kept apart from DEFS: Spec checks every DEFS key is a nuke.
+--- Shared/CrateFx tags the crate; ItemFxController runs it like any item.
+ItemFx.CRATE_DEFS = {
+	-- Void: the core turns inside its glass dome, the two rings orbit it in opposite
+	-- directions, and the shards drift up and down round it.
+	crate_nuke3 = {
+		spins = {
+			{ parts = { "void_core", "core_shell" }, pivot = "void_core", axis = "Y", rpm = 18 },
+			{ parts = { "orbit_ring_1" }, pivot = "void_core", axis = "Y", rpm = 30 },
+			{ parts = { "orbit_ring_2" }, pivot = "void_core", axis = "Y", rpm = -22 },
+			{ parts = { "floating_shard_1", "floating_shard_3", "floating_shard_5" }, pivot = "void_core", mode = "bob", amp = 0.6, period = 3.2, rpm = 12 },
+			{ parts = { "floating_shard_2", "floating_shard_4" }, pivot = "void_core", mode = "bob", amp = 0.6, period = 3.8, phase = 0.5, rpm = -10 },
+		},
+	},
+} :: { [string]: ItemFxDef }
+
 return ItemFx
