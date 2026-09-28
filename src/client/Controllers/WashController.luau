@@ -2337,6 +2337,8 @@ function Wash.start()
 			reticle.Visible = false
 		end
 		WashFluidBar.show(false)
+		-- The last chunk is off: the item is clean.
+		Sfx.play("cleaned")
 		WashReveal.play(found, camera, pivot.Position, math.max(size.X, size.Y, size.Z))
 	end)
 
