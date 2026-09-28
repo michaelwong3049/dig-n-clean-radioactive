@@ -480,7 +480,8 @@ Stages.DEFS = {
 		-- shades).
 		color = "FFB6C1",
 		material = "Glass",
-		ooze = { bright = "FF3D9A", deep = "7A0F45", glow = "FF3D9A" },
+		-- Softer on request (was hot pink FF3D9A for both bright + glow).
+		ooze = { bright = "E0709F", deep = "7A0F45", glow = "D8649A" },
 		built = true,
 	},
 	{
