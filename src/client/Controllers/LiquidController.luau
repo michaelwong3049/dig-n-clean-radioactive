@@ -539,6 +539,31 @@ local function buildResult(root: Frame)
 		color = UIKit.C.dim,
 		xAlign = Enum.TextXAlignment.Center,
 	})
+
+	-- REPLACE / KEEP, on request: a roll never auto-loads, the player picks. Shown
+	-- only when the server asks (payload.choose); the answer goes back as FluidAction.
+	local choice = plainFrame(result, "Choice", UDim2.fromOffset(420, 56), UDim2.new(0.5, 0, 0, 196), Vector2.new(0.5, 0))
+	choice.Visible = false
+	ui.choice = choice
+	local function choiceButton(name: string, x: number, fill: Color3): TextButton
+		local button = UIKit.button(choice, {
+			name = name,
+			size = UDim2.fromOffset(200, 56),
+			position = UDim2.fromOffset(x, 0),
+			text = "",
+			font = UIKit.Font.hero,
+			textSize = 26,
+			fillColor = fill,
+			fillTransparency = 0,
+			cornerRadius = UDim.new(0, 14),
+			zIndex = 6,
+		})
+		-- Frees the mouse from shift-lock / first person while the question is up.
+		button.Modal = true
+		return button
+	end
+	ui.replace = choiceButton("Replace", 0, UIKit.C.green)
+	ui.keep = choiceButton("Keep", 220, Color3.fromHex("4A5560"))
 end
 
 --- Build the brew once. Hidden until a spin arrives.
@@ -675,6 +700,12 @@ local function describe(payload: any): string
 	local washes = if payload.held == 1 then "1 wash" else `{payload.held} washes`
 	-- A liquid crate (Config/Crates) plays this same brew; say where it came from.
 	local source = if Crates.has(payload.crate) then `from a {Crates.get(payload.crate).name} \u{2014} ` else ""
+	if payload.choose then
+		return `{source}never runs out \u{2014} replace {loaded.name} or keep it?`
+	end
+	if payload.infinite then
+		return `{source}already loaded \u{2014} never runs out`
+	end
 	if payload.loaded == payload.result then
 		return `{source}loaded in the hose \u{2014} {washes} in the bottle`
 	end
@@ -729,6 +760,33 @@ local function reveal(payload: any, token: number)
 		end)
 	end
 
+	if payload.choose then
+		-- Held open until the player answers; close() runs off the button press.
+		local water = payload.loaded == Liquids.WATER
+		ui.replace.Text = "REPLACE"
+		ui.keep.Text = if water then "KEEP WATER" else "KEEP"
+		ui.keep.TextSize = if water then 22 else 26
+		ui.choice.Visible = true
+		local answered = false
+		local function answer(verb: string)
+			if answered or token ~= spinToken then
+				return
+			end
+			answered = true
+			ui.choice.Visible = false
+			Net.get("FluidAction"):FireServer(verb)
+			close(token)
+		end
+		ui.choiceConnections = {
+			ui.replace.Activated:Connect(function()
+				answer("replace")
+			end),
+			ui.keep.Activated:Connect(function()
+				answer("keep")
+			end),
+		}
+		return
+	end
 	task.delay(HOLD_SECONDS, close, token)
 end
 
@@ -755,6 +813,11 @@ local function play(payload: any)
 	end
 
 	ui.result.Visible = false
+	ui.choice.Visible = false
+	for _, connection in ui.choiceConnections or {} do
+		connection:Disconnect()
+	end
+	ui.choiceConnections = nil
 	ui.cycle.Visible = true
 	ui.cycle.Text = ""
 	ui.cycleTier.Visible = false
@@ -1210,13 +1273,14 @@ local function paintState()
 
 	-- A roll can stack past one canister (Tuning.LIQUID_MAX_STACK); the bottle and bar
 	-- read full from one canister up rather than showing a stack as a sliver.
-	local full = if water then 1 else math.clamp(held / math.max(def.charges, 1), 0, 1)
+	local full = if water or Tuning.LIQUID_INFINITE then 1 else math.clamp(held / math.max(def.charges, 1), 0, 1)
 	panel.fluid.BackgroundColor3 = colour
 	panel.fluid.Size = UDim2.new(1, -8 * ICON_SCALE, FILL_EMPTY + (FILL_FULL - FILL_EMPTY) * full, 0)
 	panel.washFill.BackgroundColor3 = colour
 	panel.washFill.Size = UDim2.fromScale(math.max(full, 0.04), 1)
 	panel.left.Text = if water
 		then "never runs out \u{2014} brew for better"
+		elseif Tuning.LIQUID_INFINITE then "never runs out"
 		elseif held == 1 then "1 wash left"
 		else `{held} washes left`
 	fillChips(panel.chips, def, UIKit.TextSize.caption - 1, 24)
