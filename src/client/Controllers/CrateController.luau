@@ -487,7 +487,7 @@ local function build()
 	ui.notice = UIKit.label(noticeCanvas, {
 		name = "Notice",
 		size = UDim2.fromOffset(700, 28),
-		position = UDim2.new(0.5, 0, 1, -170),
+		position = UDim2.new(0.5, 0, 1, -UIKit.Dock.VITALS_CLEAR),
 		anchorPoint = Vector2.new(0.5, 1),
 		text = "",
 		font = UIKit.Font.title,

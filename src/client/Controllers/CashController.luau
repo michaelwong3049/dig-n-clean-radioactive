@@ -10,8 +10,8 @@
 	change (sell/spend/award, and DebugService's /cash), never per-tick.
 
 	POSITION IS A FORMULA OVER Dock, NOT A FRESH NUMBER (UIKit.luau's own rule) --
-	same left margin as the meter, same width, sitting directly above it with one
-	Dock.GAP between them (Dock.CASH_MID_Y / Dock.METER_MID_Y place the pair around the
+	same left margin and width as the speed badge, sitting directly above it
+	(Dock.CASH_MID_Y / Dock.SPEED_MID_Y place the pair around the
 	vertical centre), so the two read as one stacked instrument cluster on the edge
 	rather than two unrelated floating panels.
 

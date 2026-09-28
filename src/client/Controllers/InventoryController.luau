@@ -318,13 +318,13 @@ local function buildBagTile(row: Frame)
 	ui.bagTileCount = count
 end
 
---- The Notice popup: a red-edged pill just above the hotbar. A CanvasGroup so the
+--- The Notice popup: a red-edged pill just above the vitals bars over the hotbar. A CanvasGroup so the
 --- whole thing fades as one -- UIKit's text outlines ignore TextTransparency.
 local function buildNotice(canvas: Frame)
 	local group = Instance.new("CanvasGroup")
 	group.Name = "Notice"
 	group.AnchorPoint = Vector2.new(0.5, 1)
-	group.Position = UDim2.new(0.5, 0, 1, -Dock.BAGCOUNT_BOTTOM)
+	group.Position = UDim2.new(0.5, 0, 1, -Dock.VITALS_CLEAR)
 	group.Size = UDim2.fromOffset(NOTICE_WIDTH, NOTICE_HEIGHT)
 	group.BackgroundTransparency = 1
 	group.GroupTransparency = 1

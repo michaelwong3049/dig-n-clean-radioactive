@@ -487,9 +487,9 @@ end
 -- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN, THEN TO THE RIGHT
 -- EDGE. It briefly stacked above CashController's badge on the left; it now sits
 -- standalone on the MIDDLE-RIGHT as the square Index tile, its top edge level
--- with the top of the cash/meter column (Dock.SIDE_TOP_Y; centred instead on a short
+-- with the top of the cash/speed column (Dock.SIDE_TOP_Y; centred instead on a short
 -- screen, Dock.SIDE_TOP_MIN_HEIGHT), which itself moved to the middle-left
--- (Dock.CASH_MID_Y / Dock.METER_MID_Y). Its own size lives in IndexController.
+-- (Dock.CASH_MID_Y / Dock.SPEED_MID_Y). Its own size lives in IndexController.
 --
 -- ONE WIDE BAND, NOT STACKED ROWS. What lives in the band sits side by side inside one
 -- INSTRUMENT_HEIGHT-tall row rather than stacking vertically, which would cost roughly
@@ -518,12 +518,19 @@ Dock.ROW_MAX_WIDTH = 1400 -- absolute cap so an ultrawide monitor does not stret
 
 Dock.BAGCOUNT_HEIGHT = 18
 
--- was 240x46, then 280x60 (HEALTH joined RADS), then 144 before the DEPTH row, then 170
--- before HEALTH/RADS got breathing room between them, then 184. Now 142: the cartoon
--- panel (header strip + health + rads = 104) at its TALLEST, with the countdown strip
--- showing. It is anchored by its top edge (METER_TOP_Y) and only grows downward when the
--- countdown appears, so this is the room the left column reserves for it.
-Dock.METER_SIZE = UDim2.fromOffset(280, 142)
+-- The left column's width (cash + speed badges). It used to be read off the rad meter
+-- card that sat under them (METER_SIZE, 280 wide), until health and rads moved down to
+-- the vitals bars above the hotbar.
+Dock.SIDE_WIDTH = 280
+
+-- THE VITALS BARS (HudController): health + rads as two slim cartoon bars, with the
+-- countdown (top left) and stage + depth (top right) on a label row above them.
+-- Centred over the hotbar, sitting where the bag-count line's band starts, so its
+-- bottom is one GAP above the hotbar's top. A fixed width, not the hotbar's live
+-- length: a starter suit's 6 slots would make it too short to read. HudController
+-- narrows it on a screen that cannot fit it.
+Dock.VITALS_WIDTH = 600
+Dock.VITALS_HEIGHT = 66 -- label row 18 + 3 + rads 22 + 1 + health 22
 
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose
@@ -579,6 +586,12 @@ Dock.INSTRUMENT_HEIGHT = 184
 Dock.HOTBAR_BOTTOM = Dock.MARGIN_BOTTOM
 Dock.BAGCOUNT_BOTTOM = Dock.HOTBAR_BOTTOM + Dock.HOTBAR_HEIGHT + Dock.GAP
 Dock.INSTRUMENT_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
+-- The vitals bars start where the bag-count band does and reach up into the instrument
+-- band, which has been empty since the meter moved out of it, so nothing above them
+-- (the status line, the item card) moves. VITALS_CLEAR is the floor for anything that
+-- pops up bottom-centre and must not land on the bars.
+Dock.VITALS_BOTTOM = Dock.BAGCOUNT_BOTTOM
+Dock.VITALS_CLEAR = Dock.VITALS_BOTTOM + Dock.VITALS_HEIGHT + Dock.GAP
 Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 -- A REQUESTED LOWER POSITION, WITH AN HONEST COST. The stack above this point (hotbar
 -- -> bagcount -> instrument -> status) has no slack in it — every band sits Dock.GAP
@@ -591,9 +604,10 @@ Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 -- button — reconsider this the moment that stops being true.
 Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 
--- The LEFT column: cash badge on top, the speed badge one GAP below it, the meter one
--- GAP below that (SPEED_SIZE, added with the Speed unit), the stack centred on the
--- vertical (Dock.CASH_MID_Y / Dock.METER_MID_Y — defined just below CASH_BOTTOM). It
+-- The LEFT column: cash badge on top, the speed badge just below it (SPEED_SIZE, added
+-- with the Speed unit), the stack centred on the vertical (Dock.CASH_MID_Y /
+-- Dock.SPEED_MID_Y — defined just below CASH_BOTTOM). The rad meter card used to hang
+-- under the speed badge; it is the vitals bars over the hotbar now (VITALS_*). It
 -- was bottom-anchored in the corner until "middle left" was requested. (The
 -- loaded-liquid badge used to top this stack — it is a BillboardGui on the wash pad
 -- now, LiquidController — and the index button that briefly replaced it as the top
@@ -601,26 +615,26 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 -- ends at the cash badge.)
 --
 -- CASH_SIZE WAS A PRIVATE LOCAL IN CashController until the index button stacked on
--- top of it here. WIDTH IS A READ OF METER_SIZE, NOT A SEPARATE NUMBER — it used to be
+-- top of it here. WIDTH IS A READ OF SIDE_WIDTH, NOT A SEPARATE NUMBER — it used to be
 -- a hand-picked 216 while the comment here claimed "same width as the meter", which
--- was false (the meter is 280); deriving it outright is the only way that claim stays
+-- was false (the meter was 280); deriving it outright is the only way that claim stays
 -- true. Height grew 52 -> 64 alongside CashController's bigger balance text, then
 -- 64 -> 86 for the cartoon gold-coin badge, then 86 -> 78 when the card shrank to 56 to
 -- match the speed badge's: the card itself is 56 tall, but the
 -- "+$/s" income pill hangs off its bottom edge and the column has to reserve that
--- overhang or the pill lands on the meter. CASH_BOTTOM is the old bottom-corner
+-- overhang or the pill lands on the speed badge. CASH_BOTTOM is the old bottom-corner
 -- baseline — kept as the reference point the SIDE_* offsets below are documented
 -- against, and in case the column ever moves back.
-Dock.CASH_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 78)
--- THE SPEED BADGE (SpeedController), between the cash badge and the meter: a 56-tall
+Dock.CASH_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 78)
+-- THE SPEED BADGE (SpeedController), under the cash badge: a 56-tall
 -- card (the same card as cash's, so the pair match) plus room for the shadow; it once held the level pill hanging off its bottom edge, the same overhang shape as the
--- cash badge's income pill. Same width as the column, read off the meter like CASH_SIZE.
-Dock.SPEED_SIZE = UDim2.fromOffset(Dock.METER_SIZE.X.Offset, 68)
-Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.METER_SIZE.Y.Offset + Dock.GAP
+-- cash badge's income pill. Same width as the column, SIDE_WIDTH like CASH_SIZE.
+Dock.SPEED_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 68)
+Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.GAP
 
--- MIDDLE-LEFT / MIDDLE-RIGHT PLACEMENT. On request the cash+meter column and the
+-- MIDDLE-LEFT / MIDDLE-RIGHT PLACEMENT. On request the cash column and the
 -- INDEX button left the bottom corners for the vertical centre of their screen edge.
--- The column stays one rigid stack — cash badge on top, meter one GAP below it —
+-- The column stays one rigid stack — cash badge on top, speed badge below it —
 -- placed by each panel's OWN centre (anchorPoint y = 0.5) at a fixed offset from
 -- screen middle, so it packs the same way however either element is resized. These
 -- are offsets from 0.5-scale, negative = above centre.
@@ -631,11 +645,8 @@ Dock.PAIR_GAP = -2
 Dock.SIDE_STACK_HEIGHT = Dock.CASH_SIZE.Y.Offset
 	+ Dock.PAIR_GAP
 	+ Dock.SPEED_SIZE.Y.Offset
-	+ Dock.GAP
-	+ Dock.METER_SIZE.Y.Offset
 Dock.CASH_MID_Y = Dock.CASH_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
 Dock.SPEED_MID_Y = Dock.CASH_SIZE.Y.Offset + Dock.PAIR_GAP + Dock.SPEED_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
-Dock.METER_MID_Y = Dock.SIDE_STACK_HEIGHT / 2 - Dock.METER_SIZE.Y.Offset / 2
 -- The column's TOP edge, as the same kind of offset from screen middle. IndexController
 -- hangs the Index tile from it on the right edge, so both sides start on one line.
 --
@@ -644,10 +655,6 @@ Dock.METER_MID_Y = Dock.SIDE_STACK_HEIGHT / 2 - Dock.METER_SIZE.Y.Offset / 2
 -- widget now stops short of the tile column entirely (HAULPANEL_RIGHT), but the tiles
 -- stay hung from this line so both sides of the screen start level.
 Dock.SIDE_TOP_Y = -Dock.SIDE_STACK_HEIGHT / 2
--- The meter's TOP edge, one GAP under the speed badge. HudController anchors the panel
--- here rather than on METER_MID_Y because its height changes (the countdown strip), and
--- it must grow away from the badges above, not into them.
-Dock.METER_TOP_Y = Dock.SIDE_TOP_Y + Dock.CASH_SIZE.Y.Offset + Dock.PAIR_GAP + Dock.SPEED_SIZE.Y.Offset + Dock.GAP
 -- ...and the shortest design screen that line is used on. Below it the hang stops
 -- working in both directions: the readout climbs into it as the screen shortens, and
 -- under ~460 the tile rises into the Settings gear in the corner above. So a shorter
@@ -714,10 +721,10 @@ end
 -- as the honest measure of how much bottom-edge space the dock claims.
 Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 
--- RIGHT ABOVE THE HOTBAR, on request. Its bottom edge sits one GAP above the bag-count
--- line (which is itself one GAP above the hotbar), so the whole hotbar cluster stays
--- visible underneath and the widget drops as low as it possibly can without covering
--- it.
+-- RIGHT ABOVE THE HOTBAR, on request. Its bottom edge sits one GAP above the vitals
+-- bars (VITALS_CLEAR, which sit on the hotbar), so the whole hotbar cluster and the
+-- health/rads readout stay visible underneath -- rads matter most mid-haul -- and the
+-- widget drops as low as it possibly can without covering them.
 --
 -- This is a deliberate reversal of the old "clear the entire dock" placement
 -- (RESERVE + GAP). The widget now overlays the instrument band's vertical space — but
@@ -725,7 +732,7 @@ Dock.RESERVE = Dock.STATUS_BOTTOM + Dock.STATUS_HEIGHT
 -- of centre (HAULPANEL_CENTRE_GAP below). Anchored off the hotbar rather than a
 -- screen fraction for the same reason everything else here is: a fraction that looked
 -- right at 1080p collided with the dock on shorter viewports.
-Dock.HAULPANEL_BOTTOM = Dock.BAGCOUNT_BOTTOM + Dock.BAGCOUNT_HEIGHT + Dock.GAP
+Dock.HAULPANEL_BOTTOM = Dock.VITALS_CLEAR
 
 -- AND JUST RIGHT OF CENTRE, on request. Its LEFT edge sits this far right of screen
 -- centre (DetectorController.placeHaul). Centred, the stack sat straight over the
