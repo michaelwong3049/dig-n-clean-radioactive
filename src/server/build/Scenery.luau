@@ -765,7 +765,7 @@ local THEME: { [number]: StageTheme } = {
 	-- between them. This is the one prop out here tall enough and saturated enough to
 	-- navigate by, which is worth more than cover: enough of them to steer by, never
 	-- so many that the ground stops reading as empty.
-	[3] = { props = 40, pools = 20, kind = "sirens", scatter = true, skeletons = 3, bones = 24, skulls = 12, barrels = 14 },
+	[3] = { props = 40, pools = 20, kind = "sirens", scatter = true, skeletons = 1, bones = 8, skulls = 3, barrels = 14 },
 	-- The rest of THIS pass (`props`/`pools`/`kind = "barriers"`) is still on the
 	-- shelf -- `scatter` only turns on the sign rank below. FIVE signs, spread over
 	-- the entrance's 142-stud width (2 * hz, hz = 170/2 - 14): one roughly every 28
@@ -781,7 +781,7 @@ local THEME: { [number]: StageTheme } = {
 	-- FOUR DEAD TREES, and the number is the whole design of them -- see
 	-- scatterStage4Trees for why four and not nine. Strays standing out of a field whose
 	-- landmarks are its puddles, not a tree line like Stage 2's.
-	[4] = { props = 18, pools = 12, kind = "barriers", scatter = true, signs = 5, trees = 4 },
+	[4] = { props = 18, pools = 12, kind = "barriers", scatter = true, signs = 0, trees = 4 },
 	-- The two pink stages. Pool counts climb with the rads because the pools ARE the
 	-- colour — the plate underneath is deliberately muted, so a field with few pools
 	-- reads as dark ground rather than as hot ground. Prop counts do not climb with
@@ -3476,6 +3476,8 @@ local function buildStageScenery(parent: Instance, id: number)
 			-- The `barriers` set piece (`theme.props`) is still on the shelf; the signs,
 			-- the puddles and the four dead trees are what this field has had its pass on
 			-- so far.
+			-- Signs removed on request (signs = 0); the call stays so the stage rng stream
+			-- is unchanged for the pools and trees.
 			scatterWarningSigns(folder, origin, theme.signs or 0, rng, hx, hz)
 			-- AFTER the signs, always: both passes run off the one stage rng, so putting
 			-- the puddles first would move every sign in the entrance rank.

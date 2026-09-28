@@ -73,10 +73,10 @@ local EDGE_MARGIN = 6
 --- only has to keep the bare stretches from reading swept. Glass took the biggest cut —
 --- window glass is the one kind that says "town", not "dump".
 --- Read the header before raising any of them.
-local DIRT_CHANCE = 0.08
-local GRIT_CHANCE = 0.05
-local GLASS_CHANCE = 0.015
-local RUBBLE_CHANCE = 0.02
+local DIRT_CHANCE = 0.03
+local GRIT_CHANCE = 0.015
+local GLASS_CHANCE = 0.005
+local RUBBLE_CHANCE = 0.008
 
 --- Share of dirt drifts that are pale dust rather than dark ash. Lower than an even
 --- split because the ash is the one that works here: Stage 3's ground is already a
