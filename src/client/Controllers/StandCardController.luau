@@ -2,9 +2,9 @@
 --[[
 	StandCardController.luau — the trophy-ribbon card over every nuke on a display stand.
 
-	WHAT IT SHOWS, top to bottom: the rarity (shimmering from Legendary up), one star
-	per tier, the name across a rarity-coloured prize ribbon with notched tails, a coin
-	pill with what the piece pays per second beside a pill with what it weighs, and --
+	WHAT IT SHOWS, top to bottom: the rarity (shimmering from Legendary up), the star
+	rating (Rarity.stars: the tier, nudged by quality and size), the name across a
+	rarity-coloured prize ribbon with notched tails, a coin pill with what the piece pays per second beside a pill with what it weighs, and --
 	only when they apply -- stickers for the modifier and a big size roll, how far a
 	duplicate's share is cut, and (to the plot's owner only) how long until a nuke that
 	just went up can come back off.
@@ -515,17 +515,23 @@ local function draw(card: Card)
 
 	local mid = L.width / 2
 
-	-- Rarity word and tier stars.
+	-- Rarity word and the star rating: the tier, nudged by this copy's quality and size.
 	local rarityLabel = text(body, "Rarity", string.upper(rarityId), L.raritySize, color, 2.3, {
 		position = UDim2.fromOffset(0, L.rarityY),
 		size = UDim2.new(1, 0, 0, L.rarityH),
 	})
 	card.shimmer = paintRarity(rarityLabel, rarityId, color)
 
-	local tiers = #Rarity.ORDER
+	local modifier = display:GetAttribute(A.modifier)
+	local lit = Rarity.stars(
+		rarityId,
+		if type(modifier) == "string" then modifier else nil,
+		if type(payload) == "number" then payload else nil
+	)
+	local tiers = Rarity.MAX_STARS
 	local starsLeft = mid - tiers * L.starW / 2
 	for i = 1, tiers do
-		local on = i <= rarity.order
+		local on = i <= lit
 		local slot = {
 			position = UDim2.fromOffset(starsLeft + (i - 1) * L.starW, L.starsY),
 			size = UDim2.fromOffset(L.starW, L.starH),
@@ -580,7 +586,6 @@ local function draw(card: Card)
 		local tint = CALLOUT_COLOR[callout] or STYLE.star
 		sticker(body, "SizeSticker", label, tint, bannerX - L.tailTuck + 18, stickerY, -L.stickerTilt)
 	end
-	local modifier = display:GetAttribute(A.modifier)
 	local modText = modifierLabel(if type(modifier) == "string" then modifier else nil)
 	if modText then
 		local tint = MODIFIER_COLOR[modifier] or STYLE.foot

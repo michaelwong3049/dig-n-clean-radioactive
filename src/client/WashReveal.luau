@@ -34,6 +34,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
+local Payload = require(Shared.Config.Payload)
 local Crates = require(Shared.Config.Crates)
 local Tuning = require(Shared.Config.Tuning)
 
@@ -390,7 +391,11 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		size = UDim2.fromOffset(600, 28),
 		position = UDim2.fromScale(0.5, 0.87),
 		anchorPoint = Vector2.new(0.5, 0.5),
-		text = Rarity.starText(found.rarity),
+		text = Rarity.starText(
+			found.rarity,
+			found.modifier,
+			if type(found.uid) == "string" then Payload.forUid(found.uid) else nil
+		),
 		font = UIKit.Font.hero,
 		textSize = 26,
 		xAlign = Enum.TextXAlignment.Center,

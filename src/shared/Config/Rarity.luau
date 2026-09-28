@@ -83,11 +83,52 @@ function Rarity.get(name: string): RarityDef
 	return def
 end
 
---- The star rating: one filled star per rarity tier ("★★★★" for Rare), the same count
---- the stand card lights. Empty for an unknown or missing rarity.
-function Rarity.starText(name: string?): string
+-- THE STAR RATING, 1..Rarity.MAX_STARS. The rarity tier is the base (Rare = 4); this
+-- copy's quality modifier and its per-dig size roll (Config/Payload) then nudge it up or
+-- down, and the total is clamped. A modifier left out of STAR_MODIFIER moves nothing.
+Rarity.MAX_STARS = #Rarity.ORDER
+
+Rarity.STAR_MODIFIER = {
+	Pristine = 1,
+	PrewarSealed = 1,
+	Cracked = -1,
+	Slagged = -2,
+} :: { [string]: number }
+
+-- Payload roll bands, checked in order: the first band the roll clears (`min`) or
+-- falls under (`below`) sets the nudge; a roll matching none moves nothing. The two
+-- upper edges are Payload.CALLOUTS' GIGA and OVERSIZED, so a stickered find always
+-- reads as more stars.
+Rarity.STAR_SIZE = {
+	{ min = 2.2, stars = 2 },
+	{ min = 1.6, stars = 1 },
+	{ below = 0.8, stars = -1 },
+} :: { { min: number?, below: number?, stars: number } }
+
+--- How many stars a find rates. `modifier` and `payload` are optional: leave them out
+--- (a crate, a surface with no uid) and it is the plain rarity tier. 0 for an unknown
+--- or missing rarity.
+function Rarity.stars(name: string?, modifier: string?, payload: number?): number
 	local def = if name then Rarity.DEFS[name] else nil
-	return if def then string.rep("\u{2605}", def.order) else ""
+	if def == nil then
+		return 0
+	end
+	local stars = def.order + (if modifier then Rarity.STAR_MODIFIER[modifier] or 0 else 0)
+	if payload then
+		for _, band in Rarity.STAR_SIZE do
+			if (band.min and payload >= band.min) or (band.below and payload < band.below) then
+				stars += band.stars
+				break
+			end
+		end
+	end
+	return math.clamp(stars, 1, Rarity.MAX_STARS)
+end
+
+--- The star rating as text, one filled star each ("★★★★"). Empty for an unknown or
+--- missing rarity.
+function Rarity.starText(name: string?, modifier: string?, payload: number?): string
+	return string.rep("\u{2605}", Rarity.stars(name, modifier, payload))
 end
 
 function Rarity.byOrder(order: number): (string, RarityDef)

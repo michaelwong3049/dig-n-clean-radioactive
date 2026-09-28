@@ -27,6 +27,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 local Rarity = require(Shared.Config.Rarity)
+local Payload = require(Shared.Config.Payload)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
@@ -162,6 +163,8 @@ end
 type RowSpec = {
 	name: string,
 	rarity: string,
+	modifier: string?,
+	uid: string?,
 	sub: string,
 	rate: number?,
 }
@@ -204,7 +207,8 @@ local function row(parent: Instance, order: number, spec: RowSpec): TextLabel
 	round(chip, 12)
 	edge(chip, PANEL.ink, 2)
 
-	-- The star rating under the chip: one star per rarity tier, as on the stand card.
+	-- The star rating under the chip: rarity tier nudged by quality and size, as on the
+	-- stand card.
 	local stars = Instance.new("TextLabel")
 	stars.Name = "Stars"
 	stars.BackgroundTransparency = 1
@@ -214,7 +218,7 @@ local function row(parent: Instance, order: number, spec: RowSpec): TextLabel
 	stars.TextSize = 12
 	stars.TextScaled = false
 	stars.TextColor3 = PANEL.gold
-	stars.Text = Rarity.starText(spec.rarity)
+	stars.Text = Rarity.starText(spec.rarity, spec.modifier, if spec.uid then Payload.forUid(spec.uid) else nil)
 	stars.ZIndex = 14
 	stars.Parent = frame
 
@@ -323,6 +327,8 @@ local function render()
 		local sub = row(scroll, nextOrder(), {
 			name = entry.name,
 			rarity = entry.rarity,
+			modifier = entry.modifier,
+			uid = entry.uid,
 			sub = standText(entry, entry.crating),
 			rate = entry.rate,
 		})
