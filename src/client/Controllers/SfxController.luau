@@ -21,7 +21,7 @@
 	    held (the haul button, the pick-up card) opts out with a NoClickSound attribute.
 	  * YOUR BODY. The heartbeat once rad sickness drains you (meter 80%+), a low sting
 	    stepping into each sickness band, a thud on a sudden big health loss (a blast), a
-	    whoosh on respawn and on any warp (spotted as a jump in position).
+	    whoosh on respawn. Warps (HOME / SHOPS / camps) are silent, on request.
 ]]
 
 local Players = game:GetService("Players")
@@ -42,10 +42,7 @@ local SfxController = {}
 --- blast, a crater), not the steady sickness drain, which is a few HP a second.
 local HURT_DROP = 8
 
---- A root that moves further than this in one frame was teleported, not walked.
-local WARP_JUMP = 60
-
---- Seconds after a spawn in which position jumps are the spawn itself, not a warp.
+--- Seconds after a spawn in which an AuraTier reading is the spawn itself, not a change.
 local SPAWN_SETTLE = 1.5
 
 --- Heartbeat interval at the drain line (80%) and at a full meter.
@@ -189,13 +186,9 @@ local function watchVitals()
 	local lastHealth: number? = nil
 	local band = 0
 	local beatClock = 0
-	local lastRootPos: Vector3? = nil
-	local spawnedAt = os.clock()
 	local firstSpawn = true
 
 	localPlayer.CharacterAdded:Connect(function()
-		spawnedAt = os.clock()
-		lastRootPos = nil
 		lastHealth = nil
 		if firstSpawn then
 			firstSpawn = false
@@ -243,16 +236,6 @@ local function watchVitals()
 			beatClock = 0
 		end
 
-		-- A warp: the root jumped further than anyone walks in a frame.
-		local character = localPlayer.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if root and root:IsA("BasePart") then
-			local pos = root.Position
-			if lastRootPos and (pos - lastRootPos).Magnitude > WARP_JUMP and os.clock() - spawnedAt > SPAWN_SETTLE then
-				Sfx.play("warp")
-			end
-			lastRootPos = pos
-		end
 	end)
 end
 

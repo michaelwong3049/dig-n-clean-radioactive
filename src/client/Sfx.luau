@@ -98,7 +98,6 @@ local DEFS: { [string]: Def } = {
 	respawn = { id = asset(9114156829), volume = 0.35, group = "sfx", cooldown = 1 },
 
 	-- ── World ───────────────────────────────────────────────────────
-	warp = { id = asset(76843646912123), volume = 0.5, group = "sfx", cooldown = 0.5 },
 	stage = { id = asset(9042305931), volume = 0.25, group = "ambient", cooldown = 3 },
 	bagFull = { id = asset(119089158569324), volume = 0.55, speed = 0.7, group = "ui", cooldown = 0.5 },
 	aurora = { id = asset(86488607363887), volume = 0.55, group = "sfx", cooldown = 5 },
