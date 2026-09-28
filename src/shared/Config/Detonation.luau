@@ -31,15 +31,25 @@ local Detonation = {}
 -- The window in seconds for an average nuke at Uncommon, before rarity, weight and
 -- its own temper (TEMPER_BANDS) bend it. It was thirty; the brief is now "about twenty
 -- on average, and nothing like the same twenty twice"; then trimmed to 17 so the
--- average fuse runs about three seconds shorter.
-Detonation.BASE_WINDOW = 17
+-- average fuse runs about three seconds shorter; then roughly halved to 9 so pulls are
+-- a race -- the faster you mash, the more you land.
+Detonation.BASE_WINDOW = 9
 
 -- THE RANGE A FUSE CAN HAVE. Whatever rarity, weight, temper and the fairness floor
 -- (below) multiply and lift out to is clamped into this, LAST, so the fastest nuke in
--- the ground is a five-second scramble and the most patient is thirty. Nothing goes
--- past it -- Spec pins every window in the catalogue inside it.
-Detonation.MIN_WINDOW = 5
-Detonation.MAX_WINDOW = 30
+-- the ground is a three-second scramble and the most patient is seventeen. Nothing goes
+-- past it except a TROLL nuke (below) -- Spec pins every other window inside it.
+Detonation.MIN_WINDOW = 3
+Detonation.MAX_WINDOW = 17
+
+-- TROLL NUKES. A small share of nukes ignore everything above -- rarity, weight, temper,
+-- the fairness floor and the clamp -- and go off TROLL_MIN..TROLL_MAX seconds after
+-- lock-on. Rolled off the uid like the temper (salted "troll:"), so both sides agree.
+-- Arming comes at ARM_AT of that, so there is barely a beat to let go: a gag, not a
+-- wall, which is why it stays rare.
+Detonation.TROLL_CHANCE = 0.05
+Detonation.TROLL_MIN = 1.5
+Detonation.TROLL_MAX = 2.8
 
 -- EVERY NUKE HAS ITS OWN TEMPER. A per-nuke roll multiplies the rarity/weight window,
 -- so two Uncommons side by side can be a hair-trigger and a slow burn. Same shape and
@@ -50,15 +60,14 @@ Detonation.MAX_WINDOW = 30
 -- the band. Spec pins the order, that the last band ends where the MAX_WINDOW clamp
 -- above expects and that the chances total 100.
 --
--- Against BASE_WINDOW = 17: the first band is the "under eight seconds" nukes -- about
--- one in six on the roll, one in ten once the fairness floor has lifted the slow pulls
--- out of it -- and the last is the slow burn that tops out at MAX_WINDOW.
+-- Against BASE_WINDOW = 9: the first band is the "under five seconds" hair-triggers and
+-- the last is the slow burn that tops out at MAX_WINDOW.
 Detonation.TEMPER_MIN = 0.25
 Detonation.TEMPER_BANDS = {
-	{ upTo = 0.4, chance = 16 }, -- hair-trigger: 5-8s
-	{ upTo = 0.85, chance = 24 }, -- twitchy: 8-17s
-	{ upTo = 1.15, chance = 34 }, -- steady: 17-23s
-	{ upTo = 1.5, chance = 26 }, -- slow burn: 23-30s
+	{ upTo = 0.4, chance = 16 }, -- hair-trigger: 3-4s
+	{ upTo = 0.85, chance = 24 }, -- twitchy: 4-8s
+	{ upTo = 1.15, chance = 34 }, -- steady: 8-10s
+	{ upTo = 1.5, chance = 26 }, -- slow burn: 10-17s
 }
 
 -- RARER NUKES ARE LESS STABLE. Multiplies BASE_WINDOW. Monotonic non-increasing down

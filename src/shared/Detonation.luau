@@ -106,6 +106,16 @@ function Detonation.temperFor(uid: string): number
 	return Detonation.temperFromRoll(rng:NextNumber())
 end
 
+--- A troll nuke's window (Config/Detonation, TROLL_*), or nil for an ordinary nuke.
+--- Deterministic per uid, salted apart from the temper so the two rolls don't correlate.
+function Detonation.trollWindowFor(uid: string): number?
+	local rng = Random.new(seedOf("troll:" .. uid))
+	if rng:NextNumber() >= Cfg.TROLL_CHANCE then
+		return nil
+	end
+	return Cfg.TROLL_MIN + (Cfg.TROLL_MAX - Cfg.TROLL_MIN) * rng:NextNumber()
+end
+
 --- The shortest window the fairness floor allows for this pull: the time the RATED
 --- magnet at REF_CPS needs, divided by SAFE_AT so it lands with room to spare. 0 when
 --- the rated magnet cannot make headway at all (no floor to size off).
@@ -123,7 +133,12 @@ end
 --- floor"), and clamped into MIN_WINDOW..MAX_WINDOW. The clamp is last: the floor can
 --- lift a fuse up to MAX_WINDOW and no further, so the few slowest pulls can outrun
 --- their fuse at a relaxed click rate -- they want a better magnet or a quicker thumb.
+--- Troll nukes skip all of it and take their own short window.
 function Detonation.windowFor(rarity: string, kg: number, depth: number, soil: number, uid: string): number
+	local troll = Detonation.trollWindowFor(uid)
+	if troll then
+		return troll
+	end
 	local rolled = Detonation.baseWindow(rarity, kg) * Detonation.temperFor(uid)
 	local window = math.max(rolled, Detonation.floorFor(rarity, kg, depth, soil))
 	return math.clamp(window, Cfg.MIN_WINDOW, Cfg.MAX_WINDOW)

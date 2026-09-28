@@ -1668,8 +1668,8 @@ function Spec.run(): boolean
 
 		local ordinary = Detonation.baseWindow("Uncommon", D.WEIGHT_REF_KG)
 		check(
-			string.format("§fuse an ordinary Uncommon is centred on about twenty seconds: %.1fs (want 15-25)", ordinary),
-			ordinary >= 15 and ordinary <= 25
+			string.format("§fuse an ordinary Uncommon is centred on about nine seconds: %.1fs (want 7-12)", ordinary),
+			ordinary >= 7 and ordinary <= 12
 		)
 
 		-- THE TEMPER: every nuke rolls its own multiplier off its uid, and the bands that
@@ -1699,7 +1699,7 @@ function Spec.run(): boolean
 		-- Detonation's own pieces: the rated pull is re-derived here from Tuning the way
 		-- DigService runs it, not read back through Detonation.ratedRope / floorFor.
 		local SAMPLES = 40
-		local windowSum, windowSq, windowCount, underEight = 0, 0, 0, 0
+		local windowSum, windowSq, windowCount, underEight, trolls, trollHeld = 0, 0, 0, 0, 0, true
 		local windowMin, windowMax = math.huge, 0
 		local rangeHeld, floorHeld = true, true
 		local worstFrac, worstId = 0, "none"
@@ -1722,12 +1722,20 @@ function Spec.run(): boolean
 				local needed = rope / rateAt(D.REF_CPS) / D.SAFE_AT
 				local floorWindow = math.clamp(needed, D.MIN_WINDOW, D.MAX_WINDOW)
 				for sample = 1, SAMPLES do
-					local window = Detonation.windowFor(item.rarity, item.weight, depth, soil, `spec:{item.id}:{stageId}:{sample}`)
+					local uid = `spec:{item.id}:{stageId}:{sample}`
+					local window = Detonation.windowFor(item.rarity, item.weight, depth, soil, uid)
+					if Detonation.trollWindowFor(uid) then
+						trolls += 1
+						if window < D.TROLL_MIN - 1e-9 or window > D.TROLL_MAX + 1e-9 or window >= 3 then
+							trollHeld = false
+						end
+						continue
+					end
 					windowSum += window
 					windowSq += window * window
 					windowCount += 1
 					windowMin, windowMax = math.min(windowMin, window), math.max(windowMax, window)
-					if window < 8 then
+					if window < 5 then
 						underEight += 1
 					end
 					if window < D.MIN_WINDOW - 1e-9 or window > D.MAX_WINDOW + 1e-9 then
@@ -1758,22 +1766,27 @@ function Spec.run(): boolean
 		local mean = windowSum / windowCount
 		local spread = math.sqrt(math.max(0, windowSq / windowCount - mean * mean))
 		local hairTrigger = underEight / windowCount
+		local trollShare = trolls / (windowCount + trolls)
+		check(
+			string.format("§fuse troll nukes are rare and go off under three seconds: %.1f%% (want 2-10%%)", trollShare * 100),
+			trollHeld and trollShare >= 0.02 and trollShare <= 0.10
+		)
 
 		check(
 			string.format("§fuse every window sits in %d-%ds: %.1f-%.1fs", D.MIN_WINDOW, D.MAX_WINDOW, windowMin, windowMax),
 			rangeHeld
 		)
 		check(
-			string.format("§fuse the average window is about seventeen seconds: %.1fs (want 14-19)", mean),
-			mean >= 14 and mean <= 19
+			string.format("§fuse the average window is about ten seconds: %.1fs (want 8-12)", mean),
+			mean >= 8 and mean <= 12
 		)
 		check(
-			string.format("§fuse windows vary widely, not a nudge off one number: sd %.1fs (want >= 6)", spread),
-			spread >= 6
+			string.format("§fuse windows vary widely, not a nudge off one number: sd %.1fs (want >= 2.5)", spread),
+			spread >= 2.5
 		)
 		check(
-			string.format("§fuse a real share of nukes are hair-triggers under eight seconds: %.1f%% (want 7-25%%)", hairTrigger * 100),
-			hairTrigger >= 0.07 and hairTrigger <= 0.25
+			string.format("§fuse a real share of nukes are hair-triggers under five seconds: %.1f%% (want 4-25%%)", hairTrigger * 100),
+			hairTrigger >= 0.04 and hairTrigger <= 0.25
 		)
 		check(
 			string.format("§fuse the slowest burns reach the cap and the fastest the floor: %.1f..%.1fs", windowMin, windowMax),
