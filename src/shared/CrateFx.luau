@@ -340,7 +340,7 @@ local EFFECTS: { [string]: (Parts) -> () } = {
 --- The imported crates' colours are baked into their meshes and render dark, and
 --- BasePart.Color doesn't tint them. A soft Highlight in the crate's own colour lifts
 --- every face without washing the hue out.
-local BRIGHTEN_FILL = 0.72
+local BRIGHTEN_FILL = 0.82
 
 local function brighten(model: Model, hex: string)
 	local h = Instance.new("Highlight")
