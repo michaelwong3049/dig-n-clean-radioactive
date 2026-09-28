@@ -549,9 +549,9 @@ Stages.DEFS = {
 	-- checker board and corridor walls and nothing else. Sky falls back to Config/Sky
 	-- BASE, and `fogColor` / `ooze` are placeholders nothing draws yet.
 	--
-	-- DIG IS OFF, ON REQUEST: no item in Config/Items stocks these stages, so
+	-- DIG IS OFF, ON REQUEST, for 8-12: no item in Config/Items stocks them, so
 	-- DigService spawns no signals here (it warns once per stage). Stock a stage
-	-- in Items and it starts digging -- `rarityTilt` is already set for that day.
+	-- in Items and it starts digging. Stage 7 is stocked (batch 16 imports).
 	--
 	-- RADIATION CONTINUES FROM THE CRATER'S 104 and each field is walked end to end
 	-- by one Twilight aura (Gear.Aura tolerance 140/190/255/340); 11 and 12 run past
