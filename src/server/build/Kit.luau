@@ -72,12 +72,12 @@ Kit.MOTION_TAG = "StationMotion"
 -- paint, not as light.
 --
 -- ONE NAMED EXCEPTION, ON REQUEST: Stage 4's ooze puddles are Material.Neon
--- (build/OozeMarsh, POOL_MATERIAL) so the green reads as lit from inside rather than
+-- (build/Scenery, POOL_MATERIAL) so the green reads as lit from inside rather than
 -- painted onto the mud, AND each pool carries a real PointLight (radius-scaled,
 -- shadowless, in `ooze.glow`) so it actually lights the ground it sits on. That is
 -- the only Neon and the only standing light source anywhere in the game outside of
 -- a signal aura's locator glow — one substance in one stage — read the note at
--- POOL_MATERIAL and at the light itself in its `buildPool` before extending either
+-- POOL_MATERIAL and at the light itself in `oozePool` before extending either
 -- anywhere else. No shop accent, prop or sign goes back to Neon or grows a light.
 --
 -- A SECOND EXCEPTION, ON REQUEST (2026-09-21): the nukes themselves. Their named

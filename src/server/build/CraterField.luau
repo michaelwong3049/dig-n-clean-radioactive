@@ -413,7 +413,7 @@ local function buildRays(parent: Instance, c: Crater, groundY: number, rng: Rand
 end
 
 --- A flattened ellipsoid lying on the ground: a plain Part carrying a Sphere SpecialMesh,
---- because a Cylinder or Ball Shape silently forces a circle (build/BiomeKit's disc
+--- because a Cylinder or Ball Shape silently forces a circle (build/Scenery's oozeDisc
 --- has the whole story). `a` x `b` across, `h` thick.
 local function disc(parent: Instance, name: string, at: Vector3, a: number, b: number, h: number, yaw: number, color: Color3, material: Enum.Material)
 	local p = flat(parent, name, CFrame.new(at) * CFrame.Angles(0, math.rad(yaw), 0), Vector3.one, color, material)
