@@ -232,16 +232,17 @@ end
 local SACK_CANVAS = Color3.fromHex("5E7A2E")
 local SACK_SHADE = Color3.fromHex("46601F")
 local SACK_TIE = Color3.fromHex("F2C12E")
+local BAG_MAX_SCALE = 1.8
 
 --- Where the bag's root sits: its base on whatever is under the fall point, so the
 --- sack slumps on the ground instead of floating at hip height.
-local function restOnGround(position: Vector3, character: Model?): Vector3
+local function restOnGround(position: Vector3, character: Model?, scale: number): Vector3
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = if character then { character } else {}
 	local hit = Workspace:Raycast(position + Vector3.new(0, 2, 0), Vector3.new(0, -40, 0), params)
 	local groundY = if hit then hit.Position.Y else position.Y - 3
-	return Vector3.new(position.X, groundY + 1.2, position.Z)
+	return Vector3.new(position.X, groundY + 1.2 * scale, position.Z)
 end
 
 local function sackPart(root: BasePart, name: string, size: Vector3, offset: CFrame, color: Color3): Part
@@ -273,23 +274,26 @@ end
 
 --- A slumped canvas sack: squat body, pinched neck tied off with a yellow
 --- cord and a flared tuft.
-local function buildSack(root: BasePart)
+local function buildSack(root: BasePart, scale: number)
+	local function v(x: number, y: number, z: number): Vector3
+		return Vector3.new(x, y, z) * scale
+	end
 	-- A random lean and turn so two bags in one spot don't look stamped.
 	local lean = CFrame.Angles(math.rad(math.random(-8, 8)), math.rad(math.random(0, 359)), math.rad(math.random(-8, 8)))
 	local function at(x: number, y: number, z: number): CFrame
-		return lean * CFrame.new(x, y, z)
+		return lean * CFrame.new(x * scale, y * scale, z * scale)
 	end
 
-	sackBlob(root, "Body", Vector3.new(2.3, 1.7, 2.1), at(0, -0.35, 0), SACK_CANVAS)
-	sackBlob(root, "Bulge", Vector3.new(1.5, 1.1, 1.3), at(0.45, -0.7, 0.35), SACK_SHADE)
-	sackBlob(root, "Shoulder", Vector3.new(1.5, 0.9, 1.4), at(0, 0.3, 0), SACK_CANVAS)
-	sackPart(root, "Neck", Vector3.new(0.7, 0.5, 0.5), at(0, 0.75, 0) * CFrame.Angles(0, 0, math.rad(90)), SACK_SHADE).Shape =
+	sackBlob(root, "Body", v(2.3, 1.7, 2.1), at(0, -0.35, 0), SACK_CANVAS)
+	sackBlob(root, "Bulge", v(1.5, 1.1, 1.3), at(0.45, -0.7, 0.35), SACK_SHADE)
+	sackBlob(root, "Shoulder", v(1.5, 0.9, 1.4), at(0, 0.3, 0), SACK_CANVAS)
+	sackPart(root, "Neck", v(0.7, 0.5, 0.5), at(0, 0.75, 0) * CFrame.Angles(0, 0, math.rad(90)), SACK_SHADE).Shape =
 		Enum.PartType.Cylinder
-	local tie = sackPart(root, "Tie", Vector3.new(0.18, 0.62, 0.62), at(0, 0.72, 0) * CFrame.Angles(0, 0, math.rad(90)), SACK_TIE)
+	local tie = sackPart(root, "Tie", v(0.18, 0.62, 0.62), at(0, 0.72, 0) * CFrame.Angles(0, 0, math.rad(90)), SACK_TIE)
 	tie.Shape = Enum.PartType.Cylinder
 	tie.Material = Enum.Material.SmoothPlastic
-	sackBlob(root, "Tuft", Vector3.new(0.9, 0.45, 0.8), at(0.05, 1.05, 0) * CFrame.Angles(0, 0, math.rad(12)), SACK_CANVAS)
-	sackPart(root, "TieEnd", Vector3.new(0.1, 0.5, 0.1), at(0.28, 0.5, 0.22) * CFrame.Angles(0, 0, math.rad(-25)), SACK_TIE).Material =
+	sackBlob(root, "Tuft", v(0.9, 0.45, 0.8), at(0.05, 1.05, 0) * CFrame.Angles(0, 0, math.rad(12)), SACK_CANVAS)
+	sackPart(root, "TieEnd", v(0.1, 0.5, 0.1), at(0.28, 0.5, 0.22) * CFrame.Angles(0, 0, math.rad(-25)), SACK_TIE).Material =
 		Enum.Material.SmoothPlastic
 end
 
@@ -311,17 +315,21 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 		return 0
 	end
 
+	-- Heavier losses make a bigger sack: +5% per item from 0.85x, capped at 1.8x
+	-- (19+ items), so a full 34-slot bag stays grabbable and doesn't bury the path.
+	local scale = math.min(0.85 + 0.05 * #dropped, BAG_MAX_SCALE)
+
 	-- The root is an invisible hitbox that carries the light, label and prompt; the
 	-- sack itself is dressing parented under it, so Debris/Destroy take the lot.
 	local bag = Instance.new("Part")
 	bag.Name = `DroppedBag_{player.Name}`
-	bag.Size = Vector3.new(2.2, 2.4, 2.2)
-	bag.Position = restOnGround(position, player.Character)
+	bag.Size = Vector3.new(2.2, 2.4, 2.2) * scale
+	bag.Position = restOnGround(position, player.Character, scale)
 	bag.Anchored = true
 	bag.CanCollide = false
 	bag.Transparency = 1
 	bag.Parent = Workspace
-	buildSack(bag)
+	buildSack(bag, scale)
 
 	-- Matte since the de-neon pass; a low locator light stays, because this is a
 	-- recoverable stash sitting out in the world, not decoration -- you need to be able
@@ -335,7 +343,7 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size = UDim2.fromOffset(190, 44)
-	billboard.StudsOffsetWorldSpace = Vector3.new(0, 2.4, 0)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, 2.4 * scale, 0)
 	billboard.AlwaysOnTop = true
 	billboard.Parent = bag
 
