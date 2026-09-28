@@ -576,6 +576,7 @@ local function stepPlayer(player: Player, dt: number)
 	local blastHit = HazardService.takeHit(player)
 
 	local showering = inShower(root.Position)
+	local sickDrain = 0
 
 	if not state.downed then
 		if showering then
@@ -588,9 +589,17 @@ local function stepPlayer(player: Player, dt: number)
 			state.health = math.max(0, state.health - blastHit)
 		end
 
-		if reading.healthBurn > 0 then
-			state.health = math.max(0, state.health - reading.healthBurn * dt)
-		else
+		-- RADIATION SICKNESS: out in a stage, a high meter stops regen (50%) and then
+		-- drains health (80%+). See Tuning's sickness block for why camps are exempt.
+		local frac = Radiation.exposureFraction(state.exposure)
+		local sick = stageId ~= nil and not showering and not immune[player]
+		sickDrain = if sick then Radiation.sicknessDrain(frac) else 0
+		local noRegen = sick and frac >= Tuning.SICKNESS_NO_REGEN
+
+		local hpLoss = reading.healthBurn + sickDrain
+		if hpLoss > 0 then
+			state.health = math.max(0, state.health - hpLoss * dt)
+		elseif not noRegen then
 			-- ...and fully at base camp (PLAN §3.5).
 			local rate = if stageId == nil then HEALTH_REGEN_PER_SEC * 6 else HEALTH_REGEN_PER_SEC
 			state.health = math.min(Tuning.MAX_HEALTH, state.health + rate * dt)
@@ -608,8 +617,10 @@ local function stepPlayer(player: Player, dt: number)
 			-- Down to a detonation -- its hit this tick, or standing in a crater's orb
 			-- when the health ran out -- is a "blast" death, and the bag goes off with
 			-- you. Aura failure alone is still "burn": radiation, and the bag drops.
+			-- Sickness with the aura holding is the meter's doing: an exposure death.
 			local blasted = blastHit > 0 or craterBurn > 0
-			blackout(player, state, if blasted then "blast" else "burn", where())
+			local reason = if blasted then "blast" elseif reading.healthBurn > 0 then "burn" else "exposure"
+			blackout(player, state, reason, where())
 		elseif state.exposure >= Tuning.EXPOSURE_CAP then
 			blackout(player, state, "exposure", where())
 		end
@@ -630,8 +641,13 @@ local function stepPlayer(player: Player, dt: number)
 	-- time instead of jumping to match. A player who fully makes it home sees the
 	-- pressure actually lift; one who ducks back a few studs into the same stage
 	-- does not get to bank that as extra time.
+	-- Sickness counts toward the clock (it is HP you are really losing) without being
+	-- folded into reading.healthBurn, which the HUD reads as "your aura is failing".
 	local liveSurvivable = Radiation.survivableSeconds(reading, state.exposure, state.health)
-	local trulySafe = showering or (reading.net <= 0 and reading.healthBurn <= 0)
+	if sickDrain > 0 then
+		liveSurvivable = math.min(liveSurvivable, state.health / (reading.healthBurn + sickDrain))
+	end
+	local trulySafe = showering or (reading.net <= 0 and reading.healthBurn <= 0 and sickDrain <= 0)
 	-- The ratchet only holds within ONE kind of clock. A burn clock (seconds of HP) and
 	-- an exposure clock (seconds of meter) are different numbers: stepping out of the
 	-- burn left the old burn ratchet ticking down to a SURVIVABLE 0:00 that never killed
@@ -682,6 +698,8 @@ local function stepPlayer(player: Player, dt: number)
 		-- healthBurn; this only lets the HUD name the right cause -- "AURA FAILING" and
 		-- its white are the aura's alone (PLAN's one colour rule).
 		inCrater = craterBurn > 0,
+		-- HP/sec lost to radiation sickness right now (0 below 80%, or in camp).
+		sickness = sickDrain,
 
 		greed = Radiation.greedFraction(reading, stats),
 		survivable = finite(survivable),

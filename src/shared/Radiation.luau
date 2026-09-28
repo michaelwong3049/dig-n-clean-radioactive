@@ -115,6 +115,17 @@ function Radiation.greedFraction(reading: Reading, stats: Stats): number
 	return if reading.net > 1e-6 then math.clamp(fromBag / reading.net, 0, 1) else 0
 end
 
+--- HP/sec lost to radiation sickness at a given meter fraction (0..1). Zero below
+--- SICKNESS_DRAIN_AT, then a straight ramp to SICKNESS_DRAIN_MAX at a full meter.
+--- The caller decides WHERE it applies (stages only, see Tuning).
+function Radiation.sicknessDrain(exposureFrac: number): number
+	if exposureFrac < Tuning.SICKNESS_DRAIN_AT then
+		return 0
+	end
+	local t = math.clamp((exposureFrac - Tuning.SICKNESS_DRAIN_AT) / (1 - Tuning.SICKNESS_DRAIN_AT), 0, 1)
+	return Tuning.SICKNESS_DRAIN_MIN + (Tuning.SICKNESS_DRAIN_MAX - Tuning.SICKNESS_DRAIN_MIN) * t
+end
+
 --- 0 = clean, 1 = blackout. Drives the vignette and the audio bed.
 function Radiation.exposureFraction(exposure: number): number
 	return math.clamp(exposure / Tuning.EXPOSURE_CAP, 0, 1)
