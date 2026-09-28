@@ -421,6 +421,7 @@ local function buildLockPromptGui(adornee: BasePart)
 	-- a lone keycap is a small target on a phone, and the slack around it is deliberate.
 	local hit = Instance.new("TextButton")
 	hit.Name = "Hit"
+	hit:SetAttribute("NoClickSound", true) -- a hold, not a click (SfxController)
 	hit.Size = UDim2.fromScale(1, 1)
 	hit.BackgroundTransparency = 1
 	hit.Text = ""
@@ -737,6 +738,8 @@ local function build(): ScreenGui
 		shadow = false,
 	})
 	ui.haulButton = haulButton
+	-- Mashed: the shovel crunch is its sound, a UI click on top would be noise.
+	haulButton:SetAttribute("NoClickSound", true)
 	ui.haulButtonStroke = haulButtonStroke
 	-- The kick (renderFrame) presses the plate in through this, rather than resizing it.
 	local haulKick = Instance.new("UIScale")

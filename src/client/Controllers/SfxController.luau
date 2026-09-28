@@ -16,6 +16,9 @@
 	    round trip sooner, so the local character is skipped for those three.
 	  * AURAS, EVERYONE'S. A quiet hum on every character wearing one (AuraTier), louder
 	    and lower the higher the tier, and a whoosh when YOUR aura changes to a new tier.
+	  * GUI CLICKS. Every button in PlayerGui ticks when Activated -- hooked here, once,
+	    as buttons appear, so no panel has to remember to. A button that is mashed or
+	    held (the haul button, the pick-up card) opts out with a NoClickSound attribute.
 	  * YOUR BODY. The heartbeat once rad sickness drains you (meter 80%+), a low sting
 	    stepping into each sickness band, a thud on a sudden big health loss (a blast), a
 	    whoosh on respawn and on any warp (spotted as a jump in position).
@@ -253,6 +256,28 @@ local function watchVitals()
 	end)
 end
 
+-- ── GUI clicks ──────────────────────────────────────────────────────
+
+local function hookButton(instance: Instance)
+	if not instance:IsA("GuiButton") then
+		return
+	end
+	local button = instance :: GuiButton
+	button.Activated:Connect(function()
+		if not button:GetAttribute("NoClickSound") then
+			Sfx.play("click")
+		end
+	end)
+end
+
+local function watchButtons()
+	local playerGui = localPlayer:WaitForChild("PlayerGui")
+	playerGui.DescendantAdded:Connect(hookButton)
+	for _, instance in playerGui:GetDescendants() do
+		hookButton(instance)
+	end
+end
+
 -- ── Lifecycle ───────────────────────────────────────────────────────
 
 function SfxController.start()
@@ -271,6 +296,7 @@ function SfxController.start()
 	Players.PlayerAdded:Connect(watchPlayer)
 
 	watchVitals()
+	task.spawn(watchButtons)
 end
 
 return SfxController

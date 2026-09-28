@@ -64,6 +64,7 @@ local DEFS: { [string]: Def } = {
 	sellAll = { id = asset(9113849583), volume = 0.7, group = "ui", cooldown = 0.2 },
 	awayCollect = { id = asset(9113849583), volume = 0.75, speed = 1.1, group = "ui" },
 	robux = { id = asset(4612374393), volume = 0.6, group = "ui" },
+	click = { id = asset(8816939097), volume = 0.35, jitter = 0.04, group = "ui", cooldown = 0.04 },
 	hint = { id = asset(107978604605265), volume = 0.35, group = "ui", cooldown = 0.6 },
 
 	-- ── Digging ─────────────────────────────────────────────────────
