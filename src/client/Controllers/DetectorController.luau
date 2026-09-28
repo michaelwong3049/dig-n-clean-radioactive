@@ -46,6 +46,7 @@ local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local HaulShaft = require(script.Parent.Parent.HaulShaft)
+local Sfx = require(script.Parent.Parent.Sfx)
 local Dock = UIKit.Dock
 
 local Detector = {}
@@ -1426,6 +1427,7 @@ end
 --- A sealed find (no crust to wash) is the exception: it identifies right here, so
 --- this is its only reveal and it keeps the full banner.
 local function onUnearthed(found)
+	Sfx.play("unearth")
 	if found.name then
 		showFind(found)
 		return
@@ -1440,6 +1442,7 @@ end
 -- ── Input ───────────────────────────────────────────────────────────
 
 local digYank: any = nil
+local yankTake = 0
 local digLock: any = nil
 
 --- One click, one yank. There is deliberately NO local rate limit and no debounce
@@ -1454,6 +1457,10 @@ local function sendYank()
 
 	lastYankAt = os.clock()
 	digYank:FireServer()
+	-- Two takes of the same shovel, alternated, with Sfx's pitch jitter on top: one
+	-- sample on a verb mashed this fast is audibly a loop inside a second.
+	yankTake = 1 - yankTake
+	Sfx.play(if yankTake == 0 then "dig" else "dig2")
 	renderState()
 end
 
@@ -1553,6 +1560,11 @@ function Detector.start()
 		state.rarityHint = payload.rarityHint
 		state.oddsHint = payload.oddsHint
 		state.inRange = payload.inRange == true
+		-- Stepping onto a signal with no room for it: the refusal gets a thunk, once
+		-- per arrival rather than every tick you stand there.
+		if payload.blocked == "full" and state.blocked ~= "full" and payload.hasSignal == true then
+			Sfx.play("bagFull")
+		end
 		state.blocked = payload.blocked
 		state.overGrip = payload.overGrip or 0
 		state.digProgress = payload.digProgress or 0
@@ -1701,8 +1713,14 @@ function Detector.start()
 	-- driven off os.clock (not dt), so Heartbeat vs RenderStepped only changes how
 	-- often they refresh, never what they show. Left on Heartbeat — moving it buys
 	-- nothing.
+	-- The magnet's hum for as long as a haul is live. 2D, off our own SweepState;
+	-- other players' hauls hum from SfxController off the Hauling attribute.
+	local haulHum = Sfx.loop("haulHum")
 	RunService.Heartbeat:Connect(function(dt)
 		renderFrame(dt)
+		if haulHum then
+			haulHum:set(state.locked)
+		end
 	end)
 
 	renderState()

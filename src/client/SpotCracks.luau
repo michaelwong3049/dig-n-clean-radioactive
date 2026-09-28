@@ -29,6 +29,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Tuning = require(ReplicatedStorage.Shared.Config.Tuning)
+local Rarity = require(ReplicatedStorage.Shared.Config.Rarity)
+local Sfx = require(script.Parent.Sfx)
 
 local SpotCracks = {}
 
@@ -65,6 +67,8 @@ type Ray = {
 
 export type Burst = {
 	model: Model,
+	-- Rare and up: a faint shimmer on the spot, faded with it (Sfx "rareSpot").
+	hum: any?,
 	segments: { Segment },
 	dim: Color3,
 	bright: Color3,
@@ -423,6 +427,13 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 		burst.raySpin = -burst.raySpin
 	end
 
+	-- Rare and up shimmers faintly as well as shining. On the anchor, so it is 3D and
+	-- dies with the model; its level follows the spot's own fade in step().
+	local def = Rarity.DEFS[rarity]
+	if def and def.order >= Rarity.DEFS.Rare.order then
+		burst.hum = Sfx.loop("rareSpot", anchor)
+	end
+
 	model.Parent = folder
 	return burst
 end
@@ -550,6 +561,10 @@ function SpotCracks.step(burst: Burst, now: number, loud: number, phase: number,
 	end
 
 	stepRays(burst, now, age, loud, alive)
+
+	if burst.hum then
+		burst.hum:set(shown > 0.01, shown * (0.6 + 0.4 * loud))
+	end
 end
 
 return SpotCracks

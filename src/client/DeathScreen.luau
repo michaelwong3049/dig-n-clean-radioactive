@@ -28,6 +28,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local UIKit = require(script.Parent.UIKit)
+local Sfx = require(script.Parent.Sfx)
 
 local DeathScreen = {}
 
@@ -398,6 +399,7 @@ end
 --- Play the screen for one blackout payload (ExposureService): { cause, itemsDropped,
 --- itemsDetonated, stageName, depth }. A second call mid-play starts it over.
 function DeathScreen.play(info: any)
+	Sfx.play("flatline")
 	if ui == nil then
 		return
 	end

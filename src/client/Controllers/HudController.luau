@@ -527,6 +527,18 @@ function Hud.exposureFraction(): number
 	return state.exposureFrac
 end
 
+--- Read by SfxController for the heartbeat, the sickness stings and the hurt thud,
+--- off the same ExposureState copy the bars draw.
+function Hud.vitals(): { exposureFrac: number, health: number, maxHealth: number, sickness: number, downed: boolean }
+	return {
+		exposureFrac = state.exposureFrac,
+		health = state.health,
+		maxHealth = state.maxHealth,
+		sickness = state.sickness,
+		downed = state.downed == true,
+	}
+end
+
 function Hud.start()
 	local player = Players.LocalPlayer
 	local gui = build()

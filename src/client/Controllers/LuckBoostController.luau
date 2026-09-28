@@ -39,6 +39,7 @@ local Shared = ReplicatedStorage.Shared
 local LuckBoost = require(Shared.Config.LuckBoost)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Sfx = require(script.Parent.Parent.Sfx)
 local Dock = UIKit.Dock
 local CloverArt = require(script.Parent.Parent.CloverArt)
 local AuroraFx = require(script.Parent.Parent.AuroraFx)
@@ -490,6 +491,7 @@ local function onEventChanged()
 	-- Only an aurora that has JUST begun gets the banner. Joining mid-event you see the
 	-- sky and the clover; being told it "arrived" ten minutes late would be wrong.
 	if ends > t and type(started) == "number" and t - started < 5 then
+		Sfx.play("aurora")
 		showBanner(string.upper(LuckBoost.EVENT_NAME), `{LuckBoost.MULT}x LUCK for {clock(ends - started)}!`)
 	end
 end

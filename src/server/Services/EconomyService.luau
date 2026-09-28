@@ -34,6 +34,7 @@ local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
 local IdentifyService = require(script.Parent.IdentifyService)
+local SfxService = require(script.Parent.SfxService)
 
 local EconomyService = {}
 
@@ -180,7 +181,7 @@ function EconomyService.sell(player: Player, uid: string): (boolean, string)
 	end
 
 	local value, clean, name = takeSale(player, data, item, list, index, StatResolver.get(data), 0)
-	EconomyService.pushCash(player)
+	EconomyService.pushCash(player, "sell")
 
 	local note = if clean then "" else ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
 	return true, `sold {name} for ${value}{note}`
@@ -224,7 +225,7 @@ function EconomyService.sellAll(player: Player, which: string): (boolean, string
 	if count == 0 then
 		return false, if which == "clean" then "nothing clean to sell" else "nothing crusted to sell"
 	end
-	EconomyService.pushCash(player)
+	EconomyService.pushCash(player, "sellAll")
 	local noun = if count == 1 then "item" else "items"
 	local note = if which == "clean" then "" else ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
 	return true, `sold {count} {noun} for ${total}{note}`
@@ -251,11 +252,12 @@ function EconomyService.spend(player: Player, amount: number): (boolean, string)
 	local price = math.floor(amount + 0.5)
 
 	if data.cash < price then
+		SfxService.play(player, "denied")
 		return false, `you need ${price - data.cash} more`
 	end
 
 	data.cash -= price
-	EconomyService.pushCash(player)
+	EconomyService.pushCash(player, "spend")
 	return true, `paid ${price}`
 end
 

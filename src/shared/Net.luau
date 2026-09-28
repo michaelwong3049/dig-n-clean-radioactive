@@ -233,6 +233,14 @@ local REMOTES: { [string]: string } = {
 	-- (finished or skipped). Client -> server: the bare verb "skip".
 	TutorialState = "RemoteEvent",
 	TutorialAction = "RemoteEvent",
+
+	-- Sound effects (client Sfx.luau). Sfx: server -> client, a cue NAME the client
+	-- plays for its own player only ("denied", "robux") -- for the moments only the
+	-- server sees. SfxMuted: Settings' SOUND EFFECTS switch, the same once-on-load-then-
+	-- echo shape as HideAura; a profile setting (data.sfxMuted), client -> server a
+	-- bare boolean.
+	Sfx = "RemoteEvent",
+	SfxMuted = "RemoteEvent",
 }
 
 local Net = {}

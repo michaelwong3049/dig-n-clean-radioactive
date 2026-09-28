@@ -111,6 +111,7 @@ local Net = require(Shared.Net)
 -- No `Dock` alias any more: this panel is centred on the screen rather than on the
 -- space above the dock, so it no longer reads Dock.RESERVE. See the header.
 local UIKit = require(script.Parent.Parent.UIKit)
+local Sfx = require(script.Parent.Parent.Sfx)
 local GearArt = require(script.Parent.Parent.GearArt)
 local TraderPanel = require(script.Parent.Parent.TraderPanel)
 local LockerPanel = require(script.Parent.Parent.LockerPanel)
@@ -1936,6 +1937,9 @@ function Station.start()
 				actionRemote:FireServer({ action = "buy", track = state.stationId, tier = card:GetAttribute("Tier") })
 			elseif card:GetAttribute("Equippable") then
 				actionRemote:FireServer({ action = "equip", track = state.stationId, tier = card:GetAttribute("Tier") })
+				if state.stationId ~= "Aura" then
+					Sfx.play("gearEquip")
+				end
 			end
 		end)
 	end

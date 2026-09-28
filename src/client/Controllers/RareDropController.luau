@@ -25,6 +25,7 @@ local Rarity = require(Shared.Config.Rarity)
 local Stages = require(Shared.Config.Stages)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Sfx = require(script.Parent.Parent.Sfx)
 
 local RareDropController = {}
 
@@ -164,6 +165,7 @@ local function onLive()
 	local rarity = ReplicatedStorage:GetAttribute(RareDrop.RARITY_ATTR)
 	local stage = ReplicatedStorage:GetAttribute(RareDrop.STAGE_ATTR)
 	local tier = if type(rarity) == "string" then rarity else "Epic"
+	Sfx.play("rareDrop")
 	showCard(
 		`{string.upper(tier)} DROP!`,
 		`Surfaced in {stageName(if type(stage) == "number" then stage else nil)} — first to dig it keeps it!`,

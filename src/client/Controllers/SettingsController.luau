@@ -1,6 +1,11 @@
 --[[
-	SettingsController.lua — the player Settings panel. Two settings: the colour of
-	your base, and HIDE MY AURA.
+	SettingsController.lua — the player Settings panel. Three settings: the colour of
+	your base, HIDE MY AURA, and SOUND EFFECTS.
+
+	SOUND EFFECTS is the same shape as HIDE MY AURA below: a profile setting
+	(data.sfxMuted) the server owns and echoes on Net.SfxMuted. The mute itself is
+	SfxController's (it zeroes Sfx.luau's master group); this panel only shows and
+	flips it.
 
 	HIDE MY AURA turns your aura off for everyone (on request, over hiding auras only
 	on your own screen). It is a profile setting the server owns, exactly like the
@@ -51,7 +56,7 @@ local Settings = {}
 -- formatCash. Keep in step if the server value changes.
 local NEUTRAL = Color3.fromHex("7F8388")
 
-local PANEL_SIZE = Vector2.new(430, 464)
+local PANEL_SIZE = Vector2.new(430, 516)
 -- The base colour section's height; the aura row sits under it.
 local COLOUR_SECTION_H = 300
 local SV_SIZE = Vector2.new(232, 158)
@@ -76,6 +81,13 @@ local state = {
 -- echo, and the switch ignores clicks until then rather than guessing.
 local aura = {
 	hidden = false,
+	known = false,
+	pending = false,
+}
+
+-- SOUND EFFECTS, as the server last confirmed it. Same known/pending gate as `aura`.
+local sound = {
+	muted = false,
 	known = false,
 	pending = false,
 }
@@ -216,6 +228,77 @@ local function buildAuraRow(section: Instance)
 	switch.MouseButton1Click:Connect(toggleAura)
 	ui.auraSwitch = switch
 	applyAura()
+end
+
+-- ── Sound effects ───────────────────────────────────────────────────
+
+local function applySound()
+	local switch = ui.soundSwitch
+	if switch == nil then
+		return
+	end
+	local on = not sound.muted
+	switch.Text = if sound.pending or not sound.known then "\u{2026}" elseif on then "ON" else "OFF"
+	switch.BackgroundColor3 = if on then UIKit.C.selected else UIKit.C.empty
+	switch.TextColor3 = if on then UIKit.C.text else UIKit.C.dim
+end
+
+--- The server's confirmed value: once on load, then after every toggle.
+local function onServerSfxMuted(muted: any)
+	sound.muted = muted == true
+	sound.known = true
+	sound.pending = false
+	applySound()
+end
+
+local function toggleSound()
+	if not sound.known or sound.pending then
+		return
+	end
+	sound.pending = true
+	applySound()
+	Net.get("SfxMuted"):FireServer(not sound.muted)
+end
+
+local function buildSoundRow(section: Instance)
+	UIKit.label(section, {
+		name = "SectionTitle",
+		size = UDim2.new(1, -120, 0, 24),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.header,
+		color = UIKit.C.text,
+		text = "SOUND EFFECTS",
+		zIndex = 12,
+	})
+
+	UIKit.label(section, {
+		name = "SectionHint",
+		position = UDim2.fromOffset(0, 24),
+		size = UDim2.new(1, -120, 0, 18),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.caption,
+		color = UIKit.C.dim,
+		text = "every sound in the game, for you only",
+		zIndex = 12,
+	})
+
+	local switch = UIKit.button(section, {
+		name = "SoundSwitch",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, 0, 0, 4),
+		size = UDim2.fromOffset(108, 34),
+		text = "\u{2026}",
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.body,
+		color = UIKit.C.dim,
+		fillColor = UIKit.C.empty,
+		fillTransparency = 0,
+		cornerRadius = UIKit.Radius.button,
+		zIndex = 12,
+	})
+	switch.MouseButton1Click:Connect(toggleSound)
+	ui.soundSwitch = switch
+	applySound()
 end
 
 -- ── Draggable tracks ────────────────────────────────────────────────
@@ -625,6 +708,15 @@ local function build(): ScreenGui
 	auraSection.Parent = panel
 	buildAuraRow(auraSection)
 
+	local soundSection = Instance.new("Frame")
+	soundSection.Name = "Sound"
+	soundSection.Position = UDim2.fromOffset(0, 64 + COLOUR_SECTION_H + 8 + 44 + 8)
+	soundSection.Size = UDim2.new(1, 0, 0, 44)
+	soundSection.BackgroundTransparency = 1
+	soundSection.ZIndex = 11
+	soundSection.Parent = panel
+	buildSoundRow(soundSection)
+
 	local function toggle()
 		panel.Visible = not panel.Visible
 	end
@@ -648,6 +740,10 @@ function Settings.start()
 	Net.get("PlotColor").OnClientEvent:Connect(onServerColor)
 	-- The same once-on-load-then-echo channel for HIDE MY AURA (AuraService).
 	Net.get("HideAura").OnClientEvent:Connect(onServerHideAura)
+	-- And for SOUND EFFECTS (SfxService). SfxController applies the mute off the same echo.
+	Net.get("SfxMuted").OnClientEvent:Connect(onServerSfxMuted)
+	-- Ask rather than wait: SfxController connected first and took the queued load echo.
+	Net.get("SfxMuted"):FireServer(nil)
 end
 
 return Settings

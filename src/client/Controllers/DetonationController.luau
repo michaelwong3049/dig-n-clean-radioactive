@@ -52,6 +52,7 @@ local Detonation = require(Shared.Detonation)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Sfx = require(script.Parent.Parent.Sfx)
 
 local DetonationController = {}
 
@@ -486,6 +487,7 @@ local function blast(info: any)
 	boom.RollOffMode = Enum.RollOffMode.InverseTapered
 	boom.RollOffMinDistance = r * 2
 	boom.RollOffMaxDistance = 900
+	Sfx.adopt(boom) -- under Settings' SOUND EFFECTS switch
 	boom.Parent = host
 	boom:Play()
 	if order >= CAP_FROM then
@@ -800,6 +802,7 @@ local function trackFuse(instance: Instance)
 		tick.RollOffMode = Enum.RollOffMode.InverseTapered
 		tick.RollOffMinDistance = 8
 		tick.RollOffMaxDistance = 90
+		Sfx.adopt(tick)
 		tick.Parent = anchor
 		fx.tick = tick
 

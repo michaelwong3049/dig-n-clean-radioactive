@@ -17,6 +17,7 @@ local ORDER = {
 	"InventoryController", -- Phase 1: the hotbar and its detail card; reads CarryState + StationController
 	"HudController", -- Phase 2: rad meter, the RadFx damage overlay, distortion, the death screen (DeathScreen)
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
+	"SfxController", -- sound effects no one screen owns: server cues, the mute, other players' dig/haul/hose, aura hums, heartbeat/hurt/warp (reads HudController)
 	"AuraWarningController", -- Phase 2: the "UPGRADE AURA" card when an over-tier stage is burning you down; reads ExposureState
 	"BagTrackerController", -- after a blackout: where your dropped bag is and how long it has left; reads DroppedBag
 	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState
@@ -46,7 +47,7 @@ local ORDER = {
 	"WarpController", -- the top-of-screen HOME / SHOPS portals; reads stageId off ExposureState
 	"PurchaseHintController", -- the "YOU CAN PURCHASE ..." pill under the warp bar; reads CashState + GearList
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState
-	"SettingsController", -- the Settings panel (top-right gear); base-colour picker + HIDE MY AURA, reads/writes PlotColor and HideAura
+	"SettingsController", -- the Settings panel (top-right gear); base-colour picker + HIDE MY AURA + SOUND EFFECTS, reads/writes PlotColor, HideAura and SfxMuted
 	"TutorialController", -- the new-player walkthrough: top banner + ground trail; reads TutorialState
 	"FlyController", -- dev-only free-fly; toggled by DebugService's /fly command via LocalPlayer's FlyMode attribute
 }

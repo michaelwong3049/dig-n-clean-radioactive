@@ -55,6 +55,7 @@ local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Dock = UIKit.Dock
+local Sfx = require(script.Parent.Parent.Sfx)
 
 local Cash = {}
 
@@ -470,6 +471,15 @@ local function popup(delta: number, quiet: boolean)
 	end)
 end
 
+-- CashState `source` -> the cue it plays (Sfx.luau). Untagged changes (the /cash
+-- debug command, refunds) and exhibit income make no sound.
+local SOURCE_CUE: { [string]: string } = {
+	spend = "purchase",
+	sell = "sell",
+	sellAll = "sellAll",
+	away = "awayCollect",
+}
+
 local function setBalance(amount: number, source: string?)
 	local previous = balance
 	balance = amount
@@ -492,6 +502,12 @@ local function setBalance(amount: number, source: string?)
 	popup(delta, quiet)
 	if not quiet then
 		punch()
+	end
+	-- The till's voice, keyed off WHY the balance moved (EconomyService tags every
+	-- push). Exhibit payouts stay silent for the same reason they get no punch.
+	local cue = SOURCE_CUE[source or ""]
+	if cue then
+		Sfx.play(cue)
 	end
 end
 

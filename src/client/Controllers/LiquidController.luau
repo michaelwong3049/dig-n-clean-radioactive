@@ -51,6 +51,7 @@ local Crates = require(Shared.Config.Crates)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Sfx = require(script.Parent.Parent.Sfx)
 
 local Liquid = {}
 
@@ -279,6 +280,7 @@ local function sound(id: string, volume: number): Sound
 	local s = Instance.new("Sound")
 	s.SoundId = id
 	s.Volume = volume
+	Sfx.adopt(s, "ui") -- under Settings' SOUND EFFECTS switch
 	s.Parent = ui.gui
 	return s
 end
@@ -761,6 +763,9 @@ local function reveal(payload: any, token: number)
 			end
 			answered = true
 			ui.choice.Visible = false
+			if verb == "replace" then
+				Sfx.play("pour") -- the new fluid going into the hose tank
+			end
 			Net.get("FluidAction"):FireServer(verb)
 			close(token)
 		end
@@ -790,6 +795,9 @@ local function play(payload: any)
 		ui.connection:Disconnect()
 		ui.connection = nil
 	end
+
+	-- The flask bubbling on the burner for the spin.
+	Sfx.play("brew")
 
 	local reel = payload.reel
 	local land = math.clamp(tonumber(payload.land) or #reel, 1, #reel)

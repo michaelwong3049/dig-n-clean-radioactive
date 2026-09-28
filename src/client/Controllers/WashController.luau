@@ -346,6 +346,7 @@ local Net = require(Shared.Net)
 local UIKit = require(script.Parent.Parent.UIKit)
 local WashFluidBar = require(script.Parent.Parent.WashFluidBar)
 local WashReveal = require(script.Parent.Parent.WashReveal)
+local Sfx = require(script.Parent.Parent.Sfx)
 
 local Wash = {}
 
@@ -2403,6 +2404,27 @@ function Wash.start()
 		end
 		if input.KeyCode == Enum.KeyCode.Thumbstick2 then
 			padLook = Vector2.zero
+		end
+	end)
+
+	-- THE BAY'S SOUND. Your own hose is 2D and driven off the local trigger, so it
+	-- answers the click on the same frame (other players' hoses are SfxController's,
+	-- off the server's HoseSpraying attribute). The scrub fizz rides on top only while
+	-- the water is landing on crust, and the pump hums for the whole session.
+	local hoseLoop = Sfx.loop("hose")
+	local scrubLoop = Sfx.loop("scrub")
+	local pumpLoop = Sfx.loop("pump")
+	RunService.Heartbeat:Connect(function()
+		local live = state ~= nil and viewActive
+		local wet = live and spraying and not WashReveal.active()
+		if hoseLoop then
+			hoseLoop:set(wet)
+		end
+		if scrubLoop then
+			scrubLoop:set(wet and aimedZone ~= nil)
+		end
+		if pumpLoop then
+			pumpLoop:set(state ~= nil)
 		end
 	end)
 

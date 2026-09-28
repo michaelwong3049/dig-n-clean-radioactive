@@ -50,6 +50,7 @@ local ItemModels = require(Shared.ItemModels)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Sfx = require(script.Parent.Parent.Sfx)
 
 local CrateController = {}
 
@@ -260,6 +261,7 @@ local function sound(id: string, volume: number): Sound
 	local s = Instance.new("Sound")
 	s.SoundId = id
 	s.Volume = volume
+	Sfx.adopt(s, "ui") -- under Settings' SOUND EFFECTS switch
 	s.Parent = ui.gui
 	return s
 end
