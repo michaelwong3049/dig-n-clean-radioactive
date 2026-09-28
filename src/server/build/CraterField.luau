@@ -659,6 +659,15 @@ function CraterField.build(parent: Instance, stageId: number, groundY: number)
 			buildGlass(model, c, groundY, rng, palette)
 		end
 		buildVents(model, c, columns, crestRing, rng, palette)
+		-- Only the big crater is solid ground; the small ones are walk-through scenery.
+		if c.radius < DETAILED_RADIUS then
+			for _, d in model:GetDescendants() do
+				if d:IsA("BasePart") then
+					d.CanCollide = false
+					d.CanQuery = false
+				end
+			end
+		end
 		model.Parent = folder
 	end
 
