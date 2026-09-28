@@ -465,7 +465,7 @@ local function buildFlask(root: Frame)
 end
 
 --- The name that flickers under the flask while it brews, and the result block that
---- replaces it: tier chip, name, flavour line, stat chips, and what it did to the hose.
+--- replaces it: tier chip, name, stat chips, and what it did to the hose.
 local function buildResult(root: Frame)
 	local top = BULB_Y + BULB / 2 + 58
 	ui.cycle = UIKit.label(root, {
@@ -516,18 +516,7 @@ local function buildResult(root: Frame)
 	ui.tierPill.AnchorPoint = Vector2.new(0.5, 0)
 	ui.tierPill.Position = UDim2.fromScale(0.5, 0)
 
-	ui.flavour = UIKit.label(result, {
-		name = "Flavour",
-		size = UDim2.fromOffset(720, 20),
-		position = UDim2.new(0.5, 0, 0, 94),
-		anchorPoint = Vector2.new(0.5, 0),
-		text = "",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.body,
-		color = Color3.fromHex("C9D3C2"),
-		xAlign = Enum.TextXAlignment.Center,
-	})
-	ui.chips = chipRow(result, "Chips", UDim2.fromOffset(760, 30), UDim2.new(0.5, 0, 0, 122), Vector2.new(0.5, 0), true)
+	ui.chips = chipRow(result, "Chips", UDim2.fromOffset(760, 42), UDim2.new(0.5, 0, 0, 100), Vector2.new(0.5, 0), true)
 	ui.detail = UIKit.label(result, {
 		name = "Detail",
 		size = UDim2.fromOffset(720, 20),
@@ -702,7 +691,7 @@ local function describe(payload: any): string
 	-- A liquid crate (Config/Crates) plays this same brew; say where it came from.
 	local source = if Crates.has(payload.crate) then `from a {Crates.get(payload.crate).name} \u{2014} ` else ""
 	if payload.choose then
-		return `{source}take it, or leave it and keep {loaded.name}?`
+		return ""
 	end
 	if payload.infinite then
 		return `{source}already loaded`
@@ -743,9 +732,8 @@ local function reveal(payload: any, token: number)
 	ui.tierText.Text = tierName
 	ui.name.Text = def.name
 	ui.name.TextColor3 = colour
-	ui.flavour.Text = def.flavor
 	ui.detail.Text = describe(payload)
-	local chips = fillChips(ui.chips, def, UIKit.TextSize.body, 30)
+	local chips = fillChips(ui.chips, def, UIKit.TextSize.title, 42)
 	ui.result.Visible = true
 
 	ui.tierScale.Scale = 1.8
@@ -1284,7 +1272,7 @@ local function paintState()
 		elseif Tuning.LIQUID_INFINITE then ""
 		elseif held == 1 then "1 wash left"
 		else `{held} washes left`
-	fillChips(panel.chips, def, UIKit.TextSize.caption - 1, 24)
+	fillChips(panel.chips, def, UIKit.TextSize.body, 28)
 
 	local luck = tonumber(state.luck) or 1
 	local level = tonumber(state.luckLevel) or 1
