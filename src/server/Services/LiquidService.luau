@@ -74,6 +74,8 @@ local lastSignature: { [Player]: string } = {}
 --- old colour until the spin lands, so the world behind the popup does not give the
 --- result away first.
 local spinning: { [Player]: boolean } = {}
+--- The rolled fluid waiting on a REPLACE / KEEP answer (see grant()).
+local pending: { [Player]: string } = {}
 
 -- ── Rolling ───────────────────────────────────────────────────────────
 
@@ -141,28 +143,60 @@ function LiquidService.cooldownLeft(player: Player): number
 end
 
 --- Put one roll's worth of `id` in the player's hose. Shared by the bottle and the
---- liquid crates (CrateService) so both stack and auto-load the same way.
-local function grant(data: any, id: string)
+--- liquid crates (CrateService) so both stack and offer the same choice.
+---
+--- REPLACE OR KEEP, on request. Fluids are infinite (Tuning.LIQUID_INFINITE), so a
+--- roll never auto-loads: the brew popup lands, then asks REPLACE or KEEP, and the
+--- answer comes back as a FluidAction (`replace` / `keep`, see choose()). Until then
+--- the rolled fluid waits in `pending` with its charges stashed so equip() accepts it.
+--- Rolling what is already loaded needs no question. Returns whether one is asked.
+local function grant(player: Player, data: any, id: string): boolean
 	local def = Liquids.get(id)
 
-	-- Stacking, capped. A repeat spin of something you already hold tops it up rather
-	-- than replacing it, which is what makes the common end of the table feel like a
-	-- consolation prize instead of a wasted spin.
+	-- Stacking, capped. Kept for the day fluids go finite again (LIQUID_INFINITE off).
 	local ceiling = def.charges * Tuning.LIQUID_MAX_STACK
 	local held = data.liquids[id] or 0
 	data.liquids[id] = math.min(held + def.charges, ceiling)
 
-	-- Auto-equip anything strictly better than what is loaded. Spinning something
-	-- WORSE never silently downgrades you -- that would be a punishment for spinning.
-	local _, current = LiquidService.equipped(data)
-	if def.order > current.order then
-		data.equippedLiquid = id
+	local current = LiquidService.equipped(data)
+	if current == id then
+		pending[player] = nil
+		return false
 	end
+	-- A second roll before the first was answered drops the first unanswered one.
+	local stale = pending[player]
+	if stale and stale ~= id and stale ~= current then
+		data.liquids[stale] = nil
+	end
+	pending[player] = id
+	return true
+end
+
+--- Answer the REPLACE / KEEP question. Allowed anywhere: a crate opens far from the
+--- bottle. Keep throws the rolled fluid away; replace loads it and drops the old one.
+local function choose(player: Player, data: any, replace: boolean)
+	local id = pending[player]
+	if id == nil then
+		return
+	end
+	pending[player] = nil
+	local current = LiquidService.equipped(data)
+	if replace then
+		data.equippedLiquid = id
+		if current ~= Liquids.WATER and current ~= id then
+			data.liquids[current] = nil
+		end
+		print(`[liquid] {player.Name} loaded {Liquids.get(id).name}`)
+	elseif id ~= current then
+		data.liquids[id] = nil
+	end
+	LiquidService.push(player)
+	ExhibitService.refreshBottle(player)
 end
 
 --- Perform one spin. Returns the liquid id, or nil plus a reason. Refusal strings are
 --- kept SHORT because they are shown on the bottle's own sign.
-local function pull(player: Player, data: any): (string?, string?)
+local function pull(player: Player, data: any): (string?, string?, boolean?)
 	local left = LiquidService.cooldownLeft(player)
 	if left > 0 then
 		local secs = math.ceil(left)
@@ -172,9 +206,9 @@ local function pull(player: Player, data: any): (string?, string?)
 
 	local stats = StatResolver.get(data)
 	local id = roll(stats.luckMultiplier)
-	grant(data, id)
+	local ask = grant(player, data, id)
 	data.stats.rolls = (data.stats.rolls or 0) + 1
-	return id, nil
+	return id, nil, ask
 end
 
 -- ── Reading ───────────────────────────────────────────────────────────
@@ -345,7 +379,7 @@ end
 
 --- ROLL: spin, tell the client to play it, and recolour the bottle once it lands.
 local function spin(player: Player, data: any)
-	local id, refusal = pull(player, data)
+	local id, refusal, ask = pull(player, data)
 	if id == nil then
 		LiquidService.push(player, refusal)
 		return
@@ -361,6 +395,8 @@ local function spin(player: Player, data: any)
 		result = id,
 		held = data.liquids[id] or 0,
 		loaded = loaded,
+		choose = ask,
+		infinite = Tuning.LIQUID_INFINITE,
 	})
 	print(`[liquid] {player.Name} spun {def.name}`)
 	LiquidService.push(player)
@@ -381,7 +417,7 @@ end
 function LiquidService.openCrate(player: Player, data: any, crateId: string): string
 	local playerLuck = StatResolver.get(data).luckMultiplier
 	local id = Crates.rollLiquid(crateId, playerLuck, math.random())
-	grant(data, id)
+	local ask = grant(player, data, id)
 
 	local reel = table.create(REEL_LAND + REEL_TAIL)
 	for i = 1, REEL_LAND + REEL_TAIL do
@@ -397,6 +433,8 @@ function LiquidService.openCrate(player: Player, data: any, crateId: string): st
 		held = data.liquids[id] or 0,
 		loaded = LiquidService.equipped(data),
 		crate = crateId,
+		choose = ask,
+		infinite = Tuning.LIQUID_INFINITE,
 	})
 	print(`[liquid] {player.Name} opened a {Crates.get(crateId).name}: {Liquids.get(id).name}`)
 	LiquidService.push(player)
@@ -424,11 +462,15 @@ local function buyLuck(player: Player)
 end
 
 local function onAction(player: Player, verb: any)
-	if verb ~= "roll" and verb ~= "luck" then
-		return
-	end
 	local data = DataService.data(player)
 	if data == nil then
+		return
+	end
+	if verb == "replace" or verb == "keep" then
+		choose(player, data, verb == "replace")
+		return
+	end
+	if verb ~= "roll" and verb ~= "luck" then
 		return
 	end
 	if not atBottle(player) then
@@ -479,6 +521,7 @@ function LiquidService.start()
 		lastSpin[player] = nil
 		lastSignature[player] = nil
 		spinning[player] = nil
+		pending[player] = nil
 	end)
 end
 

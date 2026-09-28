@@ -32,6 +32,7 @@ local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 
 local Liquids = require(ReplicatedStorage.Shared.Config.Liquids)
+local Tuning = require(ReplicatedStorage.Shared.Config.Tuning)
 
 local UIKit = require(script.Parent.UIKit)
 
@@ -574,7 +575,7 @@ function WashFluidBar.update(payload: any)
 	local color = if type(payload.liquidColor) == "string" then Color3.fromHex(payload.liquidColor) else STYLE.water
 
 	bar.pct = math.clamp(tonumber(payload.percentClean) or 0, 0, 1)
-	bar.level = if water or def == nil or def.charges <= 0 then 1 else math.clamp((held :: number) / def.charges, 0, 1)
+	bar.level = if water or Tuning.LIQUID_INFINITE or def == nil or def.charges <= 0 then 1 else math.clamp((held :: number) / def.charges, 0, 1)
 	bar.color = color
 
 	if payload.uid ~= bar.uid then
@@ -605,7 +606,7 @@ function WashFluidBar.update(payload: any)
 	bar.held = held
 
 	local name = if type(payload.liquidName) == "string" then payload.liquidName elseif def then def.name else "Plain Water"
-	setTag(bar, name, if water then "\u{221E} FREE" else `{held} LEFT`)
+	setTag(bar, name, if water then "\u{221E} FREE" elseif Tuning.LIQUID_INFINITE then "\u{221E}" else `{held} LEFT`)
 end
 
 --- Show or hide it, and run the motion only while it shows. Hiding also forgets the
