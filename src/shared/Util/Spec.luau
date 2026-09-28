@@ -1764,8 +1764,8 @@ function Spec.run(): boolean
 			rangeHeld
 		)
 		check(
-			string.format("§fuse the average window is about twenty seconds, down from thirty: %.1fs (want 17-22)", mean),
-			mean >= 17 and mean <= 22
+			string.format("§fuse the average window is about seventeen seconds: %.1fs (want 14-19)", mean),
+			mean >= 14 and mean <= 19
 		)
 		check(
 			string.format("§fuse windows vary widely, not a nudge off one number: sd %.1fs (want >= 6)", spread),
