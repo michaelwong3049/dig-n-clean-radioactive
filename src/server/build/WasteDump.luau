@@ -82,10 +82,10 @@ local MESH_PITCH = 1.5
 --- sixteen pieces over the whole field once the set pieces' own ground was skipped,
 --- which read as swept rather than dumped on.
 local CELL = 16
-local CRUSHED_CHANCE = 0.06
-local LID_CHANCE = 0.05
-local TYRE_CHANCE = 0.03
-local SLUDGE_CHANCE = 0.05
+local CRUSHED_CHANCE = 0.02
+local LID_CHANCE = 0.015
+local TYRE_CHANCE = 0.01
+local SLUDGE_CHANCE = 0.012
 
 --- Tyre-track gauge (centre to centre) and one rut's width.
 local RUT_GAUGE = 4

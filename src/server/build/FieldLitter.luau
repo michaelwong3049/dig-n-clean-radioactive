@@ -73,8 +73,8 @@ local EDGE_MARGIN = 6
 --- only has to keep the bare stretches from reading swept. Glass took the biggest cut —
 --- window glass is the one kind that says "town", not "dump".
 --- Read the header before raising any of them.
-local DIRT_CHANCE = 0.03
-local GRIT_CHANCE = 0.015
+local DIRT_CHANCE = 0.015
+local GRIT_CHANCE = 0.006
 local GLASS_CHANCE = 0.005
 local RUBBLE_CHANCE = 0.008
 

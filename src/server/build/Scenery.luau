@@ -765,7 +765,7 @@ local THEME: { [number]: StageTheme } = {
 	-- between them. This is the one prop out here tall enough and saturated enough to
 	-- navigate by, which is worth more than cover: enough of them to steer by, never
 	-- so many that the ground stops reading as empty.
-	[3] = { props = 40, pools = 20, kind = "sirens", scatter = true, skeletons = 1, bones = 8, skulls = 3, barrels = 14 },
+	[3] = { props = 40, pools = 20, kind = "sirens", scatter = true, skeletons = 1, bones = 4, skulls = 2, barrels = 14 },
 	-- The rest of THIS pass (`props`/`pools`/`kind = "barriers"`) is still on the
 	-- shelf -- `scatter` only turns on the sign rank below. FIVE signs, spread over
 	-- the entrance's 142-stud width (2 * hz, hz = 170/2 - 14): one roughly every 28
