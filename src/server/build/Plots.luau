@@ -2584,7 +2584,7 @@ local function addTreadmillFx(look: Model, belt: BasePart, tier: number, model: 
 
 	local lamp = Instance.new("PointLight")
 	lamp.Color = color
-	lamp.Brightness = glow.lamp
+	lamp.Brightness = glow.light
 	lamp.Range = math.max(10, belt.Size.Z * 0.9)
 	lamp.Shadows = false
 	local anchor = Instance.new("Part")
