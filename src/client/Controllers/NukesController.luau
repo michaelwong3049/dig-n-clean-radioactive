@@ -28,6 +28,7 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 local Rarity = require(Shared.Config.Rarity)
 local Payload = require(Shared.Config.Payload)
+local Merge = require(Shared.Config.Merge)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
@@ -165,6 +166,7 @@ type RowSpec = {
 	rarity: string,
 	modifier: string?,
 	uid: string?,
+	merge: number?, -- Merge Reactor stars (Config/Merge)
 	sub: string,
 	rate: number?,
 }
@@ -219,6 +221,12 @@ local function row(parent: Instance, order: number, spec: RowSpec): TextLabel
 	stars.TextScaled = false
 	stars.TextColor3 = PANEL.gold
 	stars.Text = Rarity.starText(spec.rarity, spec.modifier, if spec.uid then Payload.forUid(spec.uid) else nil)
+	-- Merge Reactor stars after the rating, in their own colour.
+	local merged = spec.merge or 0
+	if merged > 0 then
+		stars.RichText = true
+		stars.Text ..= ` <font color="#{Merge.COLOR:ToHex()}">{Merge.text(merged)}</font>`
+	end
 	stars.ZIndex = 14
 	stars.Parent = frame
 
@@ -329,6 +337,7 @@ local function render()
 			rarity = entry.rarity,
 			modifier = entry.modifier,
 			uid = entry.uid,
+			merge = entry.merge,
 			sub = standText(entry, entry.crating),
 			rate = entry.rate,
 		})

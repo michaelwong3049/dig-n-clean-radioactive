@@ -46,6 +46,7 @@ local StageFields = require(script.Parent.StageFields)
 local Shops = require(script.Parent.Shops)
 local Plots = require(script.Parent.Plots)
 local CampSite = require(script.Parent.CampSite)
+local MergeReactor = require(script.Parent.MergeReactor)
 local Scenery = require(script.Parent.Scenery)
 local Daylight = require(script.Parent.Daylight)
 
@@ -442,6 +443,23 @@ function World.verify(): (boolean, { string })
 		(census.decon or 0) == deconCount,
 		`expected {deconCount} decon stations (one per base + one per site camp), found {census.decon or 0}`
 	)
+	-- One Merge Reactor per site camp that asks for one (Config/Camps `mergeReactor`),
+	-- each with the E the panel opens on (client StationController's MERGE_PROMPT).
+	local reactors = 0
+	for _, def in sites do
+		if def.mergeReactor then
+			reactors += 1
+		end
+	end
+	check((census.merge or 0) == reactors, `expected {reactors} Merge Reactor stations, found {census.merge or 0}`)
+	for _, tagged in CollectionService:GetTagged(Kit.STATION_TAG) do
+		if tagged:IsDescendantOf(Workspace) and tagged:GetAttribute("StationKind") == "merge" then
+			check(
+				tagged:FindFirstChild(MergeReactor.PROMPT_NAME) ~= nil,
+				`{tagged:GetFullName()} is a Merge Reactor station with no "{MergeReactor.PROMPT_NAME}" prompt -- its panel could never open`
+			)
+		end
+	end
 	-- NOT `>= #Gear.TRACKS` any more. That equated "a track" with "a shop counter",
 	-- which stopped being true when Luck moved to a wooden sign with a prompt — and it
 	-- was always the weaker statement anyway: a COUNT cannot tell you *which* track is

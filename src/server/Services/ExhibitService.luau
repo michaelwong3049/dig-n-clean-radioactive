@@ -46,6 +46,7 @@ local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
 local Weight = require(Shared.Config.Weight)
 local Payload = require(Shared.Config.Payload)
+local Merge = require(Shared.Config.Merge)
 local ItemModels = require(Shared.ItemModels)
 local ItemCrust = require(Shared.ItemCrust)
 local Contamination = require(Shared.Contamination)
@@ -442,6 +443,7 @@ local function entryYieldPerSecond(entry: any, damping: number, stats: any): num
 		* mod.valueMult
 		* Weight.valueMult(def.weight)
 		* Payload.forUid(entry.uid)
+		* Merge.valueMult(Merge.levelOf(entry))
 		* rarity.displayYield
 		* damping
 		* stats.yieldMultiplier
@@ -452,6 +454,7 @@ type StandCardInfo = {
 	itemId: string,
 	rarity: string,
 	modifier: string,
+	merge: number,
 	rate: number,
 	copy: number,
 	payload: number,
@@ -471,6 +474,7 @@ local function setStandCard(display: BasePart, card: StandCardInfo?)
 	display:SetAttribute(A.item, if card then card.itemId else "")
 	display:SetAttribute(A.rarity, if card then card.rarity else nil)
 	display:SetAttribute(A.modifier, if card then card.modifier else nil)
+	display:SetAttribute(A.merge, if card and card.merge > 0 then card.merge else nil)
 	display:SetAttribute(A.rate, if card then card.rate else nil)
 	display:SetAttribute(A.copy, if card then card.copy else nil)
 	display:SetAttribute(A.payload, if card then card.payload else nil)
@@ -516,6 +520,7 @@ local function refreshStandCards(index: number, data: any?)
 				itemId = entry.itemId,
 				rarity = entry.rarity,
 				modifier = entry.modifier or "None",
+				merge = Merge.levelOf(entry),
 				rate = entryYieldPerSecond(entry, damping, stats),
 				copy = copyIndex,
 				payload = Payload.forUid(entry.uid),
@@ -1145,6 +1150,7 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 			itemId = entry.itemId,
 			rarity = entry.rarity,
 			modifier = entry.modifier,
+			merge = entry.merge,
 			elapsed = 0,
 			frozen = true,
 			patches = {},
@@ -1191,6 +1197,7 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 			itemId = displaced.itemId,
 			rarity = displaced.rarity,
 			modifier = displaced.modifier,
+			merge = displaced.merge,
 			elapsed = 0,
 			frozen = true,
 			patches = {},
@@ -1203,6 +1210,7 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 		itemId = item.itemId,
 		rarity = item.rarity,
 		modifier = item.modifier,
+		merge = item.merge,
 		placedAt = os.time(),
 	})
 
@@ -1265,6 +1273,7 @@ function ExhibitService.nukeList(player: Player): any?
 			name = Items.get(entry.itemId).name,
 			rarity = entry.rarity,
 			modifier = entry.modifier or "None",
+			merge = Merge.levelOf(entry),
 			rate = entryYieldPerSecond(entry, damping, stats),
 			copy = copyIndex,
 			slot = entry.slot,
@@ -1403,6 +1412,7 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 			itemId = entry.itemId,
 			rarity = entry.rarity,
 			modifier = entry.modifier,
+			merge = entry.merge,
 			elapsed = 0,
 			frozen = true,
 			patches = {},
@@ -1426,6 +1436,7 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 			itemId = item.itemId,
 			rarity = item.rarity,
 			modifier = item.modifier,
+			merge = item.merge,
 			placedAt = now,
 		}
 		table.insert(stays, entry)

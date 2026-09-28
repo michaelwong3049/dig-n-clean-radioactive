@@ -70,6 +70,9 @@ export type CampDef = {
 	clipX: number?, -- the disc is cut off west of this line, where the stage chain meets it
 	exitX: number?, -- and east of this one, where the next stage will open out of it
 	palette: Palette?,
+	-- Stands the Merge Reactor (build/MergeReactor, Services/MergeService) on its own
+	-- deck south of the plaza. Reaching the camp is what unlocks merging.
+	mergeReactor: boolean?,
 }
 
 local Camps = {}
@@ -138,6 +141,7 @@ Camps.DEFS = {
 		radius = 150,
 		clipX = CRATER_EAST_X,
 		exitX = TWILIGHT_EXIT_X,
+		mergeReactor = true,
 		-- Mockup #3, picked from six on request: it carries the Crater's violet on into
 		-- the camp instead of snapping back to Base Camp's green.
 		palette = {

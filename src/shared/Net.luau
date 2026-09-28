@@ -60,6 +60,9 @@ local REMOTES: { [string]: string } = {
 	StationState = "RemoteEvent", -- server -> client, what you're standing at and what's in your bag
 	StationAction = "RemoteEvent", -- client -> server, scrub / sell / rack
 	StationResult = "RemoteEvent", -- server -> client, "sold for $340", "needs Chem Bath"
+	-- The Merge Reactor's roll, already decided (Services/MergeService): the outcome,
+	-- the levels either side of it and the copy that came out, for the panel's reveal.
+	MergeResult = "RemoteEvent", -- server -> client, { outcome, from, to, item }
 	-- The popup over the hotbar (InventoryController) for a refusal at something that
 	-- has no panel to toast into -- StationResult is invisible there (memory:
 	-- station-result-toast-needs-panel). The exhibit stands are the first user.

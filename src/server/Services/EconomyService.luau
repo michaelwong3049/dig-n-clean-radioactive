@@ -27,6 +27,7 @@ local Items = require(Shared.Config.Items)
 local Crates = require(Shared.Config.Crates)
 local Weight = require(Shared.Config.Weight)
 local Payload = require(Shared.Config.Payload)
+local Merge = require(Shared.Config.Merge)
 local Decay = require(Shared.Decay)
 local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
@@ -84,10 +85,13 @@ function EconomyService.valueOf(item: any, stats: any): (number, boolean)
 	-- Payload is this SPECIFIC dig's own random roll (Config/Payload), separate from
 	-- the item's intrinsic weight -- a 0.6x roll sells for 0.6x, a 2.5x "giga nuke"
 	-- for 2.5x, same number that scaled its display size everywhere it showed up.
+	--
+	-- And the Merge Reactor's stars (Config/Merge), x1.5 each, stored on the copy.
 	local value = def.baseValue
 		* mod.valueMult
 		* Weight.valueMult(def.weight)
 		* Payload.forUid(item.uid)
+		* Merge.valueMult(Merge.levelOf(item))
 		* retained
 		* stats.sellMultiplier
 	if not clean then

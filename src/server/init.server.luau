@@ -41,6 +41,7 @@ local ORDER = {
 	"WashService", -- the hose bay: the E-to-wash session; needs Carry + Liquid + Economy
 	"CrateService", -- opening dug-up supply crates; needs Dig + Wash + Liquid + Identify
 	"DeconService", -- base camp: docking, racking, and the shop/plot/pedestal panel
+	"MergeService", -- the Merge Reactor at Toxic Twilight: 3 copies in, 1 out; needs Station + Economy + Carry + Exhibit + Wash
 	"ToolService", -- held models; reads DigService + DeconService + WashService state
 	"AuraService", -- the worn aura: stamps each character's AuraTier for the clients to draw; reads Data
 	"TutorialService", -- the new-player walkthrough; reads Stage + Dig + Carry, nudges Carry

@@ -28,6 +28,7 @@ StandCard.ATTR = {
 	item = "CardItem", -- itemId on display
 	rarity = "CardRarity",
 	modifier = "CardModifier", -- Rarity.MODIFIERS key; "None" draws no sticker
+	merge = "CardMerge", -- Merge Reactor stars on this copy (Config/Merge); nil = none
 	rate = "CardRate", -- $/s this one piece pays (ExhibitService.entryYieldPerSecond)
 	copy = "CardCopy", -- 1 = the first of its item id on the plot; 2+ earn a damped share
 	payload = "CardPayload", -- this dig's Config/Payload roll
