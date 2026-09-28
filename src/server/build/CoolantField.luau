@@ -9,7 +9,7 @@
 	is fuel rods, cooling valve wheels, core samples, sealed casings and a black-box
 	recorder (Config/Items) — so this ground is the plant site itself, and the magenta
 	is LEAKED COOLANT: it runs in a direction, and where it stopped running it dried into
-	crust. Stage 4 next door owns round ooze pools (build/OozeMarsh); re-using them here
+	crust. Stage 4 next door owns round ooze pools (build/Scenery scatterOozePools); re-using them here
 	would make two neighbouring fields rhyme. It is also the one colour out here that
 	survives the sky — Stage 5's air is yellow-green (Config/Sky), which pushes the pale
 	pink floor and any grey concrete sallow.
@@ -55,7 +55,7 @@
 	    crust rings / fringes   +0.012 .. +0.024   (under everything)
 	    concrete bed            +0.02
 	    dry stretch's stain     +0.05
-	    spilt coolant on ground +0.09 .. +0.105    = build/OozeMarsh's POOL_TOP
+	    spilt coolant on ground +0.09 .. +0.105    = build/Scenery's POOL_TOP over the plate
 	    coolant IN a channel    +0.82              = CHANNEL_FILL_TOP (backed up; a
 	                                                 surface lower is hidden by the kerb
 	                                                 from standing height)
@@ -443,7 +443,7 @@ end
 ---
 --- THE LOBES GO NEAR THE POLES, SHORT OF TANGENT. Dropped at a bearing near the waist
 --- they widen the middle, which cancels the body's own elongation back toward a circle
---- -- Stage 4's old single-oval pools had the full measured argument for this, and it cost that
+--- -- build/Scenery's oozePool has the full measured argument for this, and it cost that
 --- file two passes to find. Same rule here, same reason.
 local function crustRing(parent: Instance, x: number, z: number, groundY: number, size: number, rng: Random, palette: Palette)
 	local a = size
@@ -582,11 +582,11 @@ end
 --- aspect. Ovals that share a centreline and an aspect merge into one sausage however
 --- many of them there are.
 ---
---- DROPLETS PAST THE HEAD, the same trick build/OozeMarsh throws off its pools: a
+--- DROPLETS PAST THE HEAD, the same trick scatterOozePools throws off its puddles: a
 --- couple of detached specks past where the body stops break the outline, so the spill
 --- ends in a spatter instead of a clean curve.
 ---
---- HELD INSIDE THE FIELD, ON A LIVE CHECK -- the same clamp build/OozeMarsh puts on
+--- HELD INSIDE THE FIELD, ON A LIVE CHECK -- the same clamp scatterOozePools puts on
 --- its thrown droplets, and needed here for the same reason: a tongue is placed
 --- relative to the break it came out of and walks up to eighteen studs further on its
 --- own bearing with nothing stopping it. The west spur's outfall is the one that

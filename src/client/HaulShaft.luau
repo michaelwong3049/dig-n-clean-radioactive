@@ -69,7 +69,7 @@ local BLACK = Color3.new(0, 0, 0)
 -- Stage 1's walls wear the camp apron's green on their lip (Scenery.wallCapPair); every
 -- other stage caps its walls in its own floor colour, and the grass line follows suit.
 local CAMP_GRASS = Color3.fromHex("5AA34A")
--- Only Stage 4 lays its ooze out on the ground (build/OozeMarsh), so only its
+-- Only Stage 4 lays its ooze out on the ground (Scenery.scatterOozePools), so only its
 -- soil carries a seam of it.
 local OOZE_SEAM_STAGES = { [4] = true }
 -- A floor darker than this (Stage 4's near-black) is lifted before banding, or all five
