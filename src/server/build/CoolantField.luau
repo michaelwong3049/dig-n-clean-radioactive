@@ -429,9 +429,12 @@ local function disc(
 	p.Size = Vector3.one
 	p.CFrame = CFrame.new(x, y - thick / 2, z) * CFrame.Angles(0, math.rad(yaw), 0)
 	p.Color = color
-	-- The one named Neon exception in this world is the ooze, and this is the same
-	-- substance — see build/Scenery's POOL_MATERIAL note. Everything else here is matte.
-	p.Material = if neon then Enum.Material.Neon else Enum.Material.SmoothPlastic
+	-- The ooze is the same substance as build/Scenery's pools, so it wears the same
+	-- rippled OozeLiquid variant (MaterialService, place file) instead of flat Neon.
+	p.Material = Enum.Material.SmoothPlastic
+	if neon then
+		p.MaterialVariant = "OozeLiquid"
+	end
 
 	local mesh = Instance.new("SpecialMesh")
 	mesh.MeshType = Enum.MeshType.Sphere
@@ -898,7 +901,8 @@ local function buildRun(
 					Vector3.new(segLen + SEG_OVERLAP, COOLANT_THICK, CHANNEL_W - 0.2),
 					palette.coolant
 				)
-				liquid.Material = Enum.Material.Neon
+				liquid.Material = Enum.Material.SmoothPlastic
+				liquid.MaterialVariant = "OozeLiquid"
 			else
 				-- A dry stretch is not empty concrete: it is the mark the liquid left on the
 				-- way through, which is what tells you the wet stretches upstream are the
