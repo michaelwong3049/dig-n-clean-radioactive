@@ -557,13 +557,14 @@ local function buildResult(root: Frame)
 			fillTransparency = 0,
 			cornerRadius = UDim.new(0, 14),
 			zIndex = 6,
+			shadow = false,
 		})
 		-- Frees the mouse from shift-lock / first person while the question is up.
 		button.Modal = true
 		return button
 	end
-	ui.replace = choiceButton("Replace", 0, UIKit.C.green)
-	ui.keep = choiceButton("Keep", 220, Color3.fromHex("4A5560"))
+	ui.replace = choiceButton("Take", 0, UIKit.C.green)
+	ui.keep = choiceButton("Leave", 220, Color3.fromHex("D13B3B"))
 end
 
 --- Build the brew once. Hidden until a spin arrives.
@@ -701,10 +702,10 @@ local function describe(payload: any): string
 	-- A liquid crate (Config/Crates) plays this same brew; say where it came from.
 	local source = if Crates.has(payload.crate) then `from a {Crates.get(payload.crate).name} \u{2014} ` else ""
 	if payload.choose then
-		return `{source}never runs out \u{2014} replace {loaded.name} or keep it?`
+		return `{source}take it, or leave it and keep {loaded.name}?`
 	end
 	if payload.infinite then
-		return `{source}already loaded \u{2014} never runs out`
+		return `{source}already loaded`
 	end
 	if payload.loaded == payload.result then
 		return `{source}loaded in the hose \u{2014} {washes} in the bottle`
@@ -762,10 +763,8 @@ local function reveal(payload: any, token: number)
 
 	if payload.choose then
 		-- Held open until the player answers; close() runs off the button press.
-		local water = payload.loaded == Liquids.WATER
-		ui.replace.Text = "REPLACE"
-		ui.keep.Text = if water then "KEEP WATER" else "KEEP"
-		ui.keep.TextSize = if water then 22 else 26
+		ui.replace.Text = "TAKE"
+		ui.keep.Text = "LEAVE"
 		ui.choice.Visible = true
 		local answered = false
 		local function answer(verb: string)
@@ -990,7 +989,7 @@ local function buildPanelFluid(card: Frame)
 		name = "Washes",
 		size = UDim2.fromOffset(214, 20),
 		position = UDim2.fromOffset(100, 100),
-		text = "never runs out",
+		text = "",
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.body - 1,
 		color = UIKit.C.dim,
@@ -1043,6 +1042,8 @@ local function buildPanelBrew(card: Frame)
 		fillTransparency = 0,
 		cornerRadius = UDim.new(0, 16),
 		zIndex = 3,
+		-- No drop-shadow copy: it keeps its first TextSize, so "BREW IN 29:59" drew twice.
+		shadow = false,
 	})
 	panel.brew = brew
 	brew.Activated:Connect(function()
@@ -1279,8 +1280,8 @@ local function paintState()
 	panel.washFill.BackgroundColor3 = colour
 	panel.washFill.Size = UDim2.fromScale(math.max(full, 0.04), 1)
 	panel.left.Text = if water
-		then "never runs out \u{2014} brew for better"
-		elseif Tuning.LIQUID_INFINITE then "never runs out"
+		then "brew for better"
+		elseif Tuning.LIQUID_INFINITE then ""
 		elseif held == 1 then "1 wash left"
 		else `{held} washes left`
 	fillChips(panel.chips, def, UIKit.TextSize.caption - 1, 24)
