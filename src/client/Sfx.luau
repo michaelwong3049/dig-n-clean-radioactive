@@ -58,7 +58,7 @@ end
 
 local DEFS: { [string]: Def } = {
 	-- ── Money and shops ─────────────────────────────────────────────
-	purchase = { id = asset(135483737426662), volume = 0.5, group = "ui", cooldown = 0.15 },
+	purchase = { id = asset(120891770644830), volume = 0.5, group = "ui", cooldown = 0.15 },
 	denied = { id = asset(96076237507837), volume = 0.4, group = "ui", cooldown = 0.25 },
 	sell = { id = asset(9121189379), volume = 0.6, jitter = 0.06, group = "ui", cooldown = 0.08 },
 	sellAll = { id = asset(9113849583), volume = 0.7, group = "ui", cooldown = 0.2 },
