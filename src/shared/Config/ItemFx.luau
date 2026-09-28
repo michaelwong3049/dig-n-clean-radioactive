@@ -1180,6 +1180,271 @@ ItemFx.DEFS = {
 			starParts = { "Shell", "ChromeRing", "NoseTip" },
 		},
 	},
+
+	-- ── STAGE 7: CINDER FIELDS (batch 16) ──────────────────────────────────────
+
+	-- Ashen Nuke. Burnt to its shell: embers smoulder under the ash, flakes drift off.
+	ashen_nuke = {
+		finish = {
+			{ parts = { "Ember" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+		},
+		light = { part = "Shell", color = Color3.fromHex("FF7A2A"), brightness = 0.8, range = 0.8 },
+		particles = {
+			{ part = "AshCap", preset = "smoke", color = Color3.fromHex("5A5560"), rate = 2 },
+			{ part = "Shell", preset = "ember", color = Color3.fromHex("FF8A2A"), rate = 3, outward = 0.5 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "Ember" }, light = true, period = 3.2, min = 0.3 },
+		},
+	},
+
+	-- Taped Nuke. Held together with tape: the torn flap flutters and the cardboard
+	-- fin twitches like it is about to come apart.
+	taped_nuke = {
+		spins = {
+			{ parts = { "TornFlap" }, pivot = "TornFlap", axis = "X", mode = "swing", deg = 14, period = 1.8 },
+			{ parts = { "CardboardFin", "CardTape" }, pivot = "CardboardFin", axis = "Y", mode = "twitch", deg = 10, period = 3.5, duration = 0.25 },
+		},
+	},
+
+	-- Piggy Nuke. A coin spins over the slot, the curly tail wags and a glint
+	-- crosses the coin.
+	piggy_nuke = {
+		finish = {
+			{ parts = { "Coin" }, material = "Metal", color = Color3.fromHex("FFC83A"), reflectance = 0.25 },
+		},
+		particles = {
+			{ part = "Coin", preset = "sparkle", color = Color3.fromHex("FFE38A"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "Coin" }, pivot = "Coin", axis = "Y", rpm = 40 },
+			{ parts = { "CurlyTail" }, pivot = "CurlyTail", axis = "Y", mode = "swing", deg = 20, period = 0.9 },
+		},
+		glint = { parts = { "Coin", "PiggyBody" }, period = 5, sweep = 0.8, color = Color3.new(1, 1, 1), strength = 1.2 },
+	},
+
+	-- Cinder Nuke. Magma cracks breathe through the rock and the vent smokes.
+	cinder_nuke = {
+		finish = {
+			{ parts = { "MagmaCrack", "LavaSeam", "VentGlow" }, material = "Neon", color = Color3.fromHex("FF5A12") },
+		},
+		light = { part = "VentGlow", color = Color3.fromHex("FF6A1A"), brightness = 1.4, range = 0.9 },
+		particles = {
+			{ part = "VentGlow", preset = "smoke", color = Color3.fromHex("3A3438"), rate = 4 },
+			{ part = "VentGlow", preset = "ember", color = Color3.fromHex("FF9A3A"), rate = 5 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "MagmaCrack", "LavaSeam", "VentGlow" }, light = true, period = 2.8, min = 0.35 },
+		},
+	},
+
+	-- Frosted Nuke. Iced over: the crystals glitter, cold mist rolls off and a
+	-- frosty glint crosses the shell.
+	frosted_nuke = {
+		finish = {
+			{ parts = { "Icicle", "FinIcicle", "Crystal" }, material = "Glass", color = Color3.fromHex("CFF4FF"), transparency = 0.3 },
+			{ parts = { "IceBand" }, material = "Neon", color = Color3.fromHex("8FE4FF") },
+		},
+		light = { part = "Shell", color = Color3.fromHex("9FE8FF"), brightness = 0.9, range = 0.8 },
+		particles = {
+			{ part = "SnowCap", preset = "steam", color = Color3.fromHex("E6FBFF"), rate = 3 },
+			{ part = "Crystal", preset = "sparkle", color = Color3.fromHex("E6FBFF"), rate = 4 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "IceBand" }, light = true, period = 3.4, min = 0.5 },
+		},
+		glint = { parts = { "Shell", "IceBand" }, period = 4.5, sweep = 0.9, color = Color3.fromHex("DFF8FF"), strength = 1.4, stars = 4, starParts = { "Crystal" } },
+	},
+
+	-- Beehive Nuke. Honey glows and drips, and the bees circle the hive.
+	beehive_nuke = {
+		finish = {
+			{ parts = { "Honey", "Drip" }, material = "Glass", color = Color3.fromHex("FFB21A"), transparency = 0.15 },
+			{ parts = { "Entrance" }, material = "Neon", color = Color3.fromHex("FF9A1A") },
+		},
+		light = { part = "Entrance", color = Color3.fromHex("FFB43A"), brightness = 1.2, range = 0.9 },
+		particles = {
+			{ part = "Entrance", preset = "drift", color = Color3.fromHex("FFD24A"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "BeeBody", "BeeStripe", "BeeWing" }, pivot = "Shell", axis = "Y", rpm = 14 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "Entrance" }, light = true, period = 2.6, min = 0.5 },
+			{ kind = "flicker", parts = { "BeeWing" }, mode = "transparency", period = 0.12, min = 0.2, perPart = true },
+		},
+	},
+
+	-- Kiln Nuke. The firebox glows through the open door, the coals smoulder, the
+	-- chimney smokes and the door creaks on its hinge.
+	kiln_nuke = {
+		finish = {
+			{ parts = { "FireGlow" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+			{ parts = { "Coal" }, material = "Neon", color = Color3.fromHex("FF3A12") },
+		},
+		light = { part = "FireGlow", color = Color3.fromHex("FF7A2A"), brightness = 1.6, range = 1.0 },
+		particles = {
+			{ part = "ChimneyCap", preset = "smoke", color = Color3.fromHex("4A4448"), rate = 5 },
+			{ part = "FireGlow", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 6 },
+			{ part = "ChimneyCap", preset = "ember", color = Color3.fromHex("FFA040"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "OpenDoor" }, pivot = "DoorHinge", axis = "Y", mode = "swing", deg = 12, period = 3.0 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "FireGlow", "Coal" }, light = true, period = 2.2, min = 0.4 },
+		},
+	},
+
+	-- Lantern Nuke. Lit from inside: the paper glows warm and flickers, the emblems
+	-- pulse and the tassel sways on its cord.
+	lantern_nuke = {
+		finish = {
+			{ parts = { "PaperBody" }, material = "Neon", color = Color3.fromHex("FF7A3A"), transparency = 0.1 },
+			{ parts = { "EmblemGlow" }, material = "Neon", color = Color3.fromHex("FFE08A") },
+		},
+		light = { part = "PaperBody", color = Color3.fromHex("FFA050"), brightness = 1.8, range = 1.1 },
+		particles = {
+			{ part = "TopVent", preset = "ember", color = Color3.fromHex("FFC060"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "TasselStrand", "TasselKnot", "TasselCord" }, pivot = "TasselCord", axis = "X", mode = "swing", deg = 10, period = 2.4 },
+		},
+		anims = {
+			{ kind = "flicker", parts = { "PaperBody" }, light = true, period = 0.5, min = 0.75 },
+			{ kind = "pulse", parts = { "EmblemGlow" }, period = 2.8, min = 0.4 },
+		},
+	},
+
+	-- King Nuke. The jewels glint, the orb glows and turns with its cross, and a
+	-- gold glint crosses the bands and crown.
+	king_nuke = {
+		finish = {
+			{ parts = { "Orb" }, material = "Neon", color = Color3.fromHex("FFD86A") },
+		},
+		light = { part = "Orb", color = Color3.fromHex("FFD86A"), brightness = 1.3, range = 0.9 },
+		particles = {
+			{ part = "CrownCap", preset = "sparkle", color = Color3.fromHex("FFF0B0"), rate = 5 },
+		},
+		spins = {
+			{ parts = { "CrossH", "CrossV", "Orb" }, pivot = "Orb", axis = "Y", rpm = 10 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "Orb" }, light = true, period = 3.0, min = 0.55 },
+		},
+		glint = {
+			parts = { "RoyalBand", "CrownBase", "CrownPoint", "CrownArch" },
+			period = 3.5,
+			sweep = 0.8,
+			color = Color3.fromHex("FFF4C8"),
+			strength = 1.6,
+			stars = 6,
+			starParts = { "CrownJewel", "BandJewel" },
+		},
+	},
+
+	-- Hourglass Nuke. Sand pours through the neck, the dial's hands tick round, the
+	-- runes glow and the bulb lines chase round the pillars.
+	hourglass_nuke = {
+		finish = {
+			{ parts = { "SandStream", "Grain" }, material = "Neon", color = Color3.fromHex("FFD27A") },
+			{ parts = { "Rune" }, material = "Neon", color = Color3.fromHex("7AD8FF") },
+			{ parts = { "BulbLine*" }, material = "Neon", color = Color3.fromHex("FFE9A8") },
+		},
+		light = { part = "NeckRing", color = Color3.fromHex("FFD27A"), brightness = 1.3, range = 0.9 },
+		particles = {
+			{ part = "SandStream", preset = "sparkle", color = Color3.fromHex("FFE9A8"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "TopHand" }, pivot = "TopDial", axis = "Y", mode = "tick", rpm = 5, steps = 12 },
+			{ parts = { "Grain" }, pivot = "SandStream", axis = "Y", mode = "bob", period = 1.2, amp = 0.4 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "Rune" }, light = true, period = 2.4, min = 0.35 },
+			{ kind = "blink", parts = { "BulbLine*" }, period = 1.6, duty = 0.5, min = 0.2, stagger = true },
+		},
+	},
+
+	-- Phoenix Nuke. The ember core beats, flames lick the shell, sparks glitter off
+	-- the wings and the wings beat.
+	phoenix_nuke = {
+		finish = {
+			{ parts = { "EmberCore" }, material = "Neon", color = Color3.fromHex("FFE08A") },
+			{ parts = { "FlameLick", "PlumeTip", "WingSpark" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+		},
+		light = { part = "EmberCore", color = Color3.fromHex("FF8A2A"), brightness = 2.0, range = 1.2 },
+		particles = {
+			{ part = "EmberCore", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 10 },
+			{ part = "WingFeather", preset = "ember", color = Color3.fromHex("FFB040"), rate = 6 },
+			{ part = "TailPlume", preset = "sparkle", color = Color3.fromHex("FFE08A"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "WingFeather1*" }, pivot = "Shell", axis = "Z", mode = "swing", deg = 12, period = 1.1 },
+			{ parts = { "WingFeather2*" }, pivot = "Shell", axis = "Z", mode = "swing", deg = -12, period = 1.1 },
+		},
+		anims = {
+			{ kind = "flicker", parts = { "FlameLick", "PlumeTip" }, period = 0.3, min = 0.5, perPart = true },
+			{ kind = "heartbeat", parts = { "EmberCore" }, light = true, period = 1.6, min = 0.5 },
+			{ kind = "glitter", parts = { "WingSpark" }, period = 1.2, duration = 0.2 },
+		},
+		glint = { parts = { "GoldBand", "CoreRim" }, period = 3.5, sweep = 0.7, color = Color3.fromHex("FFF0B0"), strength = 1.6 },
+	},
+
+	-- Eclipse Nuke. A black void core ringed by a corona: the rays pulse in turn,
+	-- the flare arcs crackle and the shards orbit the halo.
+	eclipse_nuke = {
+		finish = {
+			{ parts = { "VoidCore" }, material = "SmoothPlastic", color = Color3.fromHex("050508") },
+			{ parts = { "CoronaRing", "CoronaRay", "Limb" }, material = "Neon", color = Color3.fromHex("FFB43A") },
+			{ parts = { "FlareArc" }, material = "Neon", color = Color3.fromHex("FF5A1A") },
+			{ parts = { "ShardEdge" }, material = "Neon", color = Color3.fromHex("FFD27A") },
+		},
+		light = { part = "CoronaRing", color = Color3.fromHex("FFA040"), brightness = 2.2, range = 1.3 },
+		particles = {
+			{ part = "CoronaRing", preset = "shrinkMotes", color = Color3.fromHex("FFD27A"), rate = 14 },
+			{ part = "FlareArc", preset = "arcSpark", color = Color3.fromHex("FF8A3A"), rate = 5 },
+		},
+		spins = {
+			{ parts = { "Shard", "ShardEdge", "ShardOrbit" }, pivot = "VoidCore", axis = "Y", rpm = 12 },
+			{ parts = { "CoronaRay", "CoronaRing" }, pivot = "VoidCore", axis = "Z", rpm = -4 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "CoronaRay" }, period = 2.0, min = 0.35, stagger = true },
+			{ kind = "pulse", parts = { "CoronaRing", "Limb" }, light = true, period = 3.2, min = 0.6 },
+			{ kind = "flicker", parts = { "FlareArc" }, period = 0.25, min = 0.3, perPart = true },
+		},
+		ping = { part = "CoronaRing", color = Color3.fromHex("FFB43A"), period = 3.2 },
+	},
+
+	-- Inferno Nuke. The Anomaly: a white-hot core breaking through its shell,
+	-- fireballs circling, flames roaring, lava glowing and shockwaves rolling out.
+	inferno_nuke = {
+		finish = {
+			{ parts = { "WhiteHotCore" }, material = "Neon", color = Color3.fromHex("FFF6DC") },
+			{ parts = { "FireGap", "MagmaVein", "LavaPool", "MoltenDrip", "Vent" }, material = "Neon", color = Color3.fromHex("FF5A12") },
+			{ parts = { "CentralFlame", "FlameTongue", "FinFlame", "HornFlame", "Fireball", "PillarTip" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
+			{ parts = { "FireballTrail", "HeatRing" }, material = "Neon", color = Color3.fromHex("FFB43A"), transparency = 0.35 },
+			{ parts = { "AnchorGlow", "HornVein", "Ember" }, material = "Neon", color = Color3.fromHex("FF3A12") },
+		},
+		light = { part = "WhiteHotCore", color = Color3.fromHex("FF7A2A"), brightness = 2.6, range = 1.4 },
+		particles = {
+			{ part = "CentralFlame", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 16 },
+			{ part = "Vent", preset = "smoke", color = Color3.fromHex("2A2426"), rate = 6 },
+			{ part = "LavaPool", preset = "ember", color = Color3.fromHex("FFA040"), rate = 10 },
+			{ part = "WhiteHotCore", preset = "sparkle", color = Color3.fromHex("FFF6DC"), rate = 5 },
+		},
+		spins = {
+			{ parts = { "Fireball", "FireballTrail" }, pivot = "WhiteHotCore", axis = "Y", rpm = 18 },
+			{ parts = { "HeatRing" }, pivot = "WhiteHotCore", axis = "Y", rpm = -8 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "WhiteHotCore", "FireGap" }, light = true, period = 1.4, min = 0.55 },
+			{ kind = "flicker", parts = { "CentralFlame", "FlameTongue", "FinFlame", "HornFlame" }, period = 0.2, min = 0.45, perPart = true },
+			{ kind = "smoulder", parts = { "MagmaVein", "LavaPool", "MoltenDrip", "AnchorGlow", "HornVein" }, period = 2.6, min = 0.4 },
+			{ kind = "pulse", parts = { "Shockwave" }, mode = "transparency", period = 2.8, min = 0.2 },
+		},
+		ping = { part = "ScorchedGround", color = Color3.fromHex("FF6A1A"), period = 2.8 },
+	},
 } :: { [string]: ItemFxDef }
 
 --- The same effects on a supply crate's imported model (Assets.CrateTemplates), keyed
