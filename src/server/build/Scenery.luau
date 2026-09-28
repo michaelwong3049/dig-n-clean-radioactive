@@ -2938,15 +2938,7 @@ local function oozeDisc(
 	-- small so this part's own (invisible, never-rendered) box can't be mistaken for
 	-- real geometry by anything that walks Workspace looking at BasePart.Size directly.
 	part.Color = Color3.fromHex(color)
-	if material == POOL_MATERIAL then
-		-- FLUID TEXTURE, ON REQUEST: flat Neon read as painted plastic. The OozeLiquid
-		-- MaterialVariant (rippled caustics, tinted by Color) lives in MaterialService in
-		-- the place file; the pool's PointLight still carries the glow.
-		part.Material = Enum.Material.SmoothPlastic
-		part.MaterialVariant = "OozeLiquid"
-	else
-		part.Material = Enum.Material[material]
-	end
+	part.Material = Enum.Material[material]
 	part.CFrame = origin * CFrame.new(x, y - POOL_THICK / 2, z) * Kit.ang(0, yaw, 0)
 
 	local mesh = Instance.new("SpecialMesh")
