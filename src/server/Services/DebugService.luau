@@ -39,6 +39,7 @@ local LuckBoost = require(Shared.Config.LuckBoost)
 local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
+local Bag = require(Shared.Bag)
 
 local DataService = require(script.Parent.DataService)
 local ExposureService = require(script.Parent.ExposureService)
@@ -213,6 +214,38 @@ COMMANDS["/crate"] = {
 			return "your profile hasn't loaded yet"
 		end
 		return `crated a {Crates.get(crateId).name}`
+	end,
+}
+
+COMMANDS["/give"] = {
+	help = "/give <itemId> [count] [merge] — put washed copies of a nuke in your bag, for testing the Merge Reactor (merge = merge stars, 0-3)",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		local itemId = args[1] or ""
+		if not Items.has(itemId) then
+			return `unknown item "{itemId}" — ids are Config/Items' \`id\` (e.g. bottle_cap)`
+		end
+		local count = math.clamp(tonumber(args[2]) or 3, 1, 20)
+		local merge = math.clamp(math.floor(tonumber(args[3]) or 0), 0, 3)
+		local def = Items.get(itemId)
+		local room = StatResolver.get(data).capacity - Bag.used(data)
+		local given = math.min(count, math.max(room, 0))
+		for _ = 1, given do
+			table.insert(data.carry, {
+				uid = HttpService:GenerateGUID(false),
+				itemId = itemId,
+				rarity = def.rarity,
+				modifier = "None",
+				merge = if merge > 0 then merge else nil,
+				elapsed = 0,
+				frozen = true,
+				patches = {},
+			})
+		end
+		return `gave {given}x {def.name}{if merge > 0 then ` (+{merge} merge)` else ""}{if given < count then " — bag full" else ""}`
 	end,
 }
 

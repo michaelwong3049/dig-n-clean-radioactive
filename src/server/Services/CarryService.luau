@@ -39,6 +39,7 @@ local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Weight = require(Shared.Config.Weight)
 local Payload = require(Shared.Config.Payload)
+local Merge = require(Shared.Config.Merge)
 local Crates = require(Shared.Config.Crates)
 local Decay = require(Shared.Decay)
 local Liquids = require(Shared.Config.Liquids)
@@ -147,6 +148,7 @@ function CarryService.describe(item: any, stats: any): any
 			* mod.valueMult
 			* Weight.valueMult(def.weight)
 			* Payload.forUid(item.uid)
+			* Merge.valueMult(Merge.levelOf(item))
 			* rarity.displayYield
 			* stats.yieldMultiplier
 			/ 60
@@ -177,6 +179,8 @@ function CarryService.describe(item: any, stats: any): any
 			then Crates.get(item.crateId).pullWeight
 			else Weight.shownKg(def.weight, Payload.forUid(item.uid)),
 		modifier = item.modifier,
+		-- Merge stars (Config/Merge), 0 for a copy never merged.
+		merge = Merge.levelOf(item),
 		patches = table.clone(patches),
 		clean = clean,
 		blockedBy = blocked,

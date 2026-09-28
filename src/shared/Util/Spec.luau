@@ -47,6 +47,7 @@ local ItemFx = require(script.Parent.Parent.ItemFx)
 local ToolModels = require(script.Parent.Parent.ToolModels)
 local ToolTiers = require(Config.ToolTiers)
 local Camps = require(Config.Camps)
+local Merge = require(Config.Merge)
 local Radiation = require(script.Parent.Parent.Radiation)
 local Decay = require(script.Parent.Parent.Decay)
 local DetonationConfig = require(Config.Detonation)
@@ -411,6 +412,63 @@ function Spec.run(): boolean
 				and Rarity.stars("Rare", nil, Payload.CALLOUTS[#Payload.CALLOUTS].min) > Rarity.DEFS.Rare.order
 				and Rarity.stars(nil) == 0
 		)
+
+		-- The Merge Reactor (Config/Merge): harder per level, pity and luck help but
+		-- are capped, a crit is part of a success and only exists while +2 fits, and
+		-- every merge star is worth more than the last.
+		local climbing = #Merge.SUCCESS == Merge.MAX_LEVEL
+		for index = 2, #Merge.SUCCESS do
+			climbing = climbing and Merge.SUCCESS[index] < Merge.SUCCESS[index - 1]
+		end
+		check("§merge success falls level by level, one entry per level", climbing)
+		local plain = Merge.odds(0, 0, 1)
+		local lucky = Merge.odds(0, 0, 100)
+		local pitied = Merge.odds(0, 100, 1)
+		local last = Merge.odds(Merge.MAX_LEVEL - 1, 0, 100)
+		check(
+			"§merge pity and luck are capped, and a crit never outruns the success",
+			plain ~= nil
+				and lucky ~= nil
+				and pitied ~= nil
+				and plain.crit == Merge.CRIT
+				and lucky.crit == Merge.CRIT_MAX
+				and pitied.success == Merge.SUCCESS_MAX
+				and lucky.crit <= lucky.success
+		)
+		check(
+			"§merge no crit where +2 would pass MAX_LEVEL, and nothing past MAX_LEVEL",
+			last ~= nil and last.crit == 0 and Merge.odds(Merge.MAX_LEVEL, 0, 1) == nil
+		)
+		check(
+			"§merge a roll under the crit is +2, under the success +1, else a fail",
+			plain ~= nil
+				and Merge.gain(plain, 0) == 2
+				and Merge.gain(plain, plain.success - 1e-6) == 1
+				and Merge.gain(plain, plain.success) == 0
+		)
+		check(
+			"§merge each star multiplies value; a missing field is level 0",
+			Merge.valueMult(0) == 1
+				and Merge.valueMult(1) == Merge.VALUE_STEP
+				and Merge.valueMult(Merge.MAX_LEVEL) > Merge.valueMult(Merge.MAX_LEVEL - 1)
+				and Merge.levelOf({}) == 0
+				and Merge.levelOf({ merge = 99 }) == Merge.MAX_LEVEL
+		)
+		local feesOk = true
+		for _, def in Items.DEFS do
+			if Merge.fee(def.id, 0) < Merge.FEE_MIN or Merge.fee(def.id, 1) < Merge.fee(def.id, 0) then
+				feesOk = false
+			end
+		end
+		check("§merge every nuke has a fee, and it grows with the level", feesOk)
+		local reactors = 0
+		for _, def in Camps.DEFS do
+			if def.mergeReactor then
+				reactors += 1
+				check(`§merge {def.name} stands a reactor, so it must be a site camp`, def.center ~= nil)
+			end
+		end
+		check("§merge Toxic Twilight stands a Merge Reactor", (Camps.get("twilight") :: any) ~= nil and (Camps.get("twilight") :: any).mergeReactor == true and reactors >= 1)
 	end
 
 	-- PLAN §3.5 — the Dive is ~one dig, in every stage. Tested at the ENTRANCE

@@ -121,7 +121,7 @@ function Tutorial.promptOpen(player: Player, prompt: ProximityPrompt): boolean
 		return true
 	end
 	local name = prompt.Name
-	if name == "ViewShop" or name == "OpenLocker" then
+	if name == "ViewShop" or name == "OpenLocker" or name == "OpenMerge" then
 		-- The desk / the rack carries the station attributes itself.
 		return Tutorial.stationOpen(player, parent:GetAttribute("StationKind"), parent:GetAttribute("StationId"))
 	elseif name == "Upgrade" then

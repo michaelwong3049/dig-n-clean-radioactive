@@ -31,6 +31,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
 local Payload = require(Shared.Config.Payload)
+local Merge = require(Shared.Config.Merge)
 local Tuning = require(Shared.Config.Tuning)
 
 local UIKit = require(script.Parent.UIKit)
@@ -100,10 +101,17 @@ local function rarityColor(name: string?): Color3
 	return if def then def.color else SKIN.dim
 end
 
---- This find's stars: its rarity tier, nudged by its quality and its size roll.
+--- This find's stars: its rarity tier, nudged by its quality and its size roll, then
+--- any Merge Reactor stars in their own colour. RichText (both labels that show it
+--- have it on).
 local function starText(item: any): string
 	local payload = if type(item.uid) == "string" then Payload.forUid(item.uid) else nil
-	return Rarity.starText(item.rarity, item.modifier, payload)
+	local rating = Rarity.starText(item.rarity, item.modifier, payload)
+	local merged = if type(item.merge) == "number" then item.merge else 0
+	if merged <= 0 then
+		return rating
+	end
+	return `{rating} <font color="#{Merge.COLOR:ToHex()}">{Merge.text(merged)}</font>`
 end
 
 --- The shop's inkShopText recipe: a rounded INK stroke on the glyphs, scaled to the text.
@@ -244,6 +252,7 @@ local function makeTile(parent: Instance, order: number): TextButton
 		color = SKIN.amber,
 	})
 	tileStars.ZIndex = 2
+	tileStars.RichText = true
 
 	text(tile, {
 		name = "ItemName",
@@ -394,6 +403,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		ink = false,
 	})
 	starLabel.LayoutOrder = 3
+	starLabel.RichText = true
 	starLabel.AutomaticSize = Enum.AutomaticSize.X
 
 	-- Label on the left, value on the right, three lines.

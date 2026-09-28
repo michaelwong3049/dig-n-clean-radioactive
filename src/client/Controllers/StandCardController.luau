@@ -46,6 +46,7 @@ local Weight = require(Shared.Config.Weight)
 local Rarity = require(Shared.Config.Rarity)
 local Tuning = require(Shared.Config.Tuning)
 local Payload = require(Shared.Config.Payload)
+local Merge = require(Shared.Config.Merge)
 local StandCard = require(Shared.StandCard)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -529,7 +530,17 @@ local function draw(card: Card)
 		if type(payload) == "number" then payload else nil
 	)
 	local tiers = Rarity.MAX_STARS
-	local starsLeft = mid - tiers * L.starW / 2
+	-- Merge Reactor stars (Config/Merge) ride on the end of the row in their own colour,
+	-- and the whole row stays centred.
+	local mergeAttr = display:GetAttribute(A.merge)
+	local merged = if type(mergeAttr) == "number" then math.clamp(mergeAttr, 0, Merge.MAX_LEVEL) else 0
+	local starsLeft = mid - (tiers + merged) * L.starW / 2
+	for i = 1, merged do
+		text(body, `MergeStar{i}`, Merge.GLYPH, L.starOn, Merge.COLOR, 1.8, {
+			position = UDim2.fromOffset(starsLeft + (tiers + i - 1) * L.starW, L.starsY),
+			size = UDim2.fromOffset(L.starW, L.starH),
+		})
+	end
 	for i = 1, tiers do
 		local on = i <= lit
 		local slot = {

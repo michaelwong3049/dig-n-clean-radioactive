@@ -218,6 +218,10 @@ local function stepPlayer(player: Player, _dt: number)
 		lockerSlots = Tuning.LOCKER_SLOTS,
 		-- Owed the locker's first-visit walkthrough (client/LockerTutorial)?
 		lockerTutorial = kind == "locker" and table.find(data.tutorialsSeen, "locker") == nil,
+		-- The Merge Reactor's odds inputs (Config/Merge.odds), only at the reactor: the
+		-- failed merges per nuke since its last success, and the luck multiplier.
+		mergePity = if kind == "merge" then table.clone(data.mergePity or {}) else nil,
+		luck = if kind == "merge" then stats.luckMultiplier else nil,
 	})
 end
 

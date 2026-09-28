@@ -115,6 +115,7 @@ local Sfx = require(script.Parent.Parent.Sfx)
 local GearArt = require(script.Parent.Parent.GearArt)
 local TraderPanel = require(script.Parent.Parent.TraderPanel)
 local LockerPanel = require(script.Parent.Parent.LockerPanel)
+local MergePanel = require(script.Parent.Parent.MergePanel)
 local LockerTutorial = require(script.Parent.Parent.LockerTutorial)
 
 local Station = {}
@@ -142,10 +143,13 @@ local COLOR = UIKit.C
 -- THE LOCKER IS IN HERE, and opens only on its own E ("OpenLocker"), like a shop with
 -- a browse prompt: it stands right beside the tub, and a panel that opened on
 -- approach would sit over the screen every time you walked to the wash.
+--
+-- THE MERGE REACTOR (Toxic Twilight) opens the same way, on its own E ("OpenMerge").
 local PANEL_KINDS: { [string]: boolean } = {
 	trader = true,
 	shop = true,
 	locker = true,
+	merge = true,
 }
 
 -- ── Shop carousel ───────────────────────────────────────────────────
@@ -346,6 +350,10 @@ local BROWSE_PROMPT = "ViewShop"
 local LOCKER_PROMPT = "OpenLocker"
 local LOCKER_PRESS_GRACE = 1.5
 local lockerPressedAt = -math.huge
+
+--- The Merge Reactor's prompt (build/MergeReactor), with the same press grace.
+local MERGE_PROMPT = "OpenMerge"
+local mergePressedAt = -math.huge
 
 --- THE LOCKER'S FIRST-VISIT TUTORIAL (client/LockerTutorial): a spotlight walk over the
 --- panel, owed while the server's `lockerTutorial` is true. `tutorial` is the running
@@ -1123,6 +1131,8 @@ local function build(): ScreenGui
 	ui.trader = TraderPanel.new(panel, 20)
 	-- The locker's, the same way.
 	ui.locker = LockerPanel.new(panel, 21)
+	-- And the Merge Reactor's.
+	ui.merge = MergePanel.new(panel, 22)
 
 	ui.toast = UIKit.label(panel, {
 		name = "Toast",
@@ -1630,9 +1640,11 @@ local function render()
 	-- between them.
 	local atShop = state.station == "shop"
 	local atLocker = state.station == "locker"
+	local atMerge = state.station == "merge"
 	ui.shop.Visible = atShop
 	ui.locker.frame.Visible = atLocker
-	ui.trader.frame.Visible = not atShop and not atLocker
+	ui.merge.frame.Visible = atMerge
+	ui.trader.frame.Visible = not atShop and not atLocker and not atMerge
 
 	-- One rack card, if a rack hook's E opened this and it is for the shop you are at.
 	local offerTiers = if atShop and state.offer then state.offer.tiers else nil
@@ -1649,7 +1661,10 @@ local function render()
 
 	local shopWidth = if single then RACK_PANEL_WIDTH else SHOP_PANEL_WIDTH
 	ui.panelSize.MaxSize = Vector2.new(
-		if atShop then shopWidth elseif atLocker then LockerPanel.WIDTH else TraderPanel.WIDTH,
+		if atShop then shopWidth
+			elseif atLocker then LockerPanel.WIDTH
+			elseif atMerge then MergePanel.WIDTH
+			else TraderPanel.WIDTH,
 		math.huge
 	)
 
@@ -1733,6 +1748,12 @@ local function render()
 		return
 	end
 
+	if atMerge then
+		ui.panelStroke.Color = FIELD.edge
+		ui.merge.paint(state)
+		return
+	end
+
 	-- TRADER ONLY down here now. This used to be the decon/trader fork; the decon half
 	-- moved into the world (the tub's E prompt) and took the Quarantine Locker rows and
 	-- the RACK button with it -- see this file's header. The body is TraderPanel's.
@@ -1784,6 +1805,14 @@ function Station.start()
 	end)
 	ui.locker.onTake(function(uid)
 		actionRemote:FireServer({ action = "take", uid = uid })
+	end)
+	-- The reactor's one verb. MergeService re-derives the station, the copies, the fee
+	-- and the roll; MergeResult brings the outcome back for the panel's reveal.
+	ui.merge.onMerge(function(uids)
+		actionRemote:FireServer({ action = "merge", uids = uids })
+	end)
+	Net.get("MergeResult").OnClientEvent:Connect(function(result)
+		ui.merge.showResult(result)
 	end)
 
 	-- ── Moving along the carousel ────────────────────────────────────
@@ -1973,7 +2002,14 @@ function Station.start()
 		if triggeredBy ~= Players.LocalPlayer then
 			return
 		end
-		if prompt.Name == LOCKER_PROMPT then
+		if prompt.Name == MERGE_PROMPT then
+			if state.station == "merge" then
+				dismissed = not dismissed
+				render()
+			else
+				mergePressedAt = os.clock()
+			end
+		elseif prompt.Name == LOCKER_PROMPT then
 			-- Toggles like the stand's E. Somebody else's rack reaches here too; the
 			-- server never reports it as a station (DeconService.ownsLocker), so the
 			-- panel stays shut and ExhibitService tells them why.
@@ -2038,6 +2074,11 @@ function Station.start()
 				rackCard = nil
 				dismissed = os.clock() - lockerPressedAt > LOCKER_PRESS_GRACE
 				lockerPressedAt = -math.huge
+			elseif payload.station == "merge" then
+				-- The reactor arrives dismissed too, and opens on its E.
+				rackCard = nil
+				dismissed = os.clock() - mergePressedAt > LOCKER_PRESS_GRACE
+				mergePressedAt = -math.huge
 			else
 				rackCard = nil
 				dismissed = payload.station == "shop" and shopHasBrowsePrompt(payload.stationId)

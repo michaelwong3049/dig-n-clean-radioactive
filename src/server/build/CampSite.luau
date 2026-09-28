@@ -61,6 +61,9 @@
 	    ...<Key>.Stalls.CleanerShop   the same, in the south-east slot, for hose rungs
 	    ...<Key>.Stalls.AuraShop      its Aura counter carries StationId "Aura" and
 	                                  ShopCamp = <Key>; west of the Detector Shop
+	    ...<Key>.MergeReactor         StationKind = "merge", StationId = <Key>, on the
+	                                  MergeDeck south of the plaza; only where Config/Camps
+	                                  sets `mergeReactor`
 ]]
 
 local Workspace = game:GetService("Workspace")
@@ -76,12 +79,13 @@ local Hub = require(script.Parent.Hub)
 local Shops = require(script.Parent.Shops)
 local BaseCamp = require(script.Parent.BaseCamp)
 local Plots = require(script.Parent.Plots)
+local MergeReactor = require(script.Parent.MergeReactor)
 
 local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 17
+local BUILDER_VERSION = 18
 
 local C = Kit.C
 local build = Kit.build
@@ -137,6 +141,13 @@ local DECK_HALF_X = 22
 local DECK_MIN_Z, DECK_MAX_Z = 74, 106
 local DECK_THICKNESS = 3
 local BAY_Z = 94
+
+--- The Merge Reactor's deck, the wash deck's mirror image south of the octagon, on a
+--- south path of its own. The machine stands at the deck's back half facing north, so
+--- the reach of its E (MergeReactor.RADIUS) is all on the deck in front of it.
+local MERGE_DECK_HALF_X = 18
+local MERGE_DECK_MIN_Z, MERGE_DECK_MAX_Z = 74, 106
+local MERGE_Z = 94
 
 --- The perimeter wall. Height matches the stage corridor's (Scenery WALL_HEIGHT), so
 --- the shoulder meets the Crater's wall flush.
@@ -257,6 +268,10 @@ local function paved(L: Layout, x: number, z: number): boolean
 	end
 	-- North, up to (and on under) the wash deck.
 	if ax <= PATH_HALF and z >= L.oz and z <= L.oz + DECK_MIN_Z + TILE then
+		return true
+	end
+	-- South, down to (and on under) the Merge Reactor's deck.
+	if L.def.mergeReactor and ax <= PATH_HALF and z <= L.oz and z >= L.oz - MERGE_DECK_MIN_Z - TILE then
 		return true
 	end
 	return false
@@ -813,6 +828,33 @@ local function buildWashDeck(parent: Instance, L: Layout)
 	Plots.buildCleansingStation(parent, bay * CFrame.Angles(0, math.rad(-90), 0) * CFrame.new(-26, 0, 32), p.awnings[1])
 end
 
+--- The Merge Reactor on its own deck, south of the octagon, facing the plaza.
+local function buildMergeDeck(parent: Instance, L: Layout)
+	if not L.def.mergeReactor then
+		return
+	end
+	local p = L.palette
+	local deckTop = Plots.PAD.topY
+	local rect: Hub.Rect = {
+		minX = L.ox - MERGE_DECK_HALF_X,
+		maxX = L.ox + MERGE_DECK_HALF_X,
+		minZ = L.oz - MERGE_DECK_MAX_Z,
+		maxZ = L.oz - MERGE_DECK_MIN_Z,
+	}
+	local tint: Hub.TileOpts = { topY = deckTop, dark = p.deck, light = lighter(p.deck, 0.06) }
+	local deck = Instance.new("Model")
+	deck.Name = "MergeDeck"
+	Hub.groundSlab(deck, rect, "Deck", DECK_THICKNESS, tint)
+	local tiles = Instance.new("Folder")
+	tiles.Name = "DeckTiles"
+	Hub.tileRect(tiles, rect, tint)
+	tiles.Parent = deck
+	deck.Parent = parent
+
+	-- Unrotated: the machine is authored facing +Z, which is north, up the path.
+	MergeReactor.build(parent, CFrame.new(L.ox, deckTop, L.oz - MERGE_Z), L.def.key)
+end
+
 --- Where WarpService puts you: the middle of the aisle between the two stall rows.
 local function buildAnchor(parent: Instance, L: Layout)
 	local anchor = build(parent, CFrame.new(0, 0, 0), {
@@ -853,6 +895,14 @@ local function buildFoliage(parent: Instance, L: Layout)
 			if math.abs(x - L.ox) <= DECK_HALF_X + 6 and z >= L.oz + DECK_MIN_Z - 6 and z <= L.oz + DECK_MAX_Z + 6 then
 				continue
 			end
+			if
+				L.def.mergeReactor
+				and math.abs(x - L.ox) <= MERGE_DECK_HALF_X + 6
+				and z <= L.oz - MERGE_DECK_MIN_Z + 6
+				and z >= L.oz - MERGE_DECK_MAX_Z - 6
+			then
+				continue
+			end
 			bush(folder, x, FLOOR_Y, z, L.palette, seed)
 		end
 	end
@@ -878,6 +928,7 @@ local function buildCamp(parent: Instance, def: Camps.CampDef)
 	buildGate(m, L)
 	buildStalls(m, L)
 	buildWashDeck(m, L)
+	buildMergeDeck(m, L)
 	buildAnchor(m, L)
 	buildFoliage(m, L)
 
