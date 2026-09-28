@@ -47,12 +47,26 @@ local Shared = ReplicatedStorage.Shared
 local ItemFx = require(Shared.ItemFx)
 local ItemCrust = require(Shared.ItemCrust)
 local ItemFxConfig = require(Shared.Config.ItemFx)
+local Sfx = require(script.Parent.Parent.Sfx)
 
 type Def = ItemFxConfig.ItemFxDef
 type Anim = ItemFxConfig.Anim
 type Glint = ItemFxConfig.Glint
 
 local Controller = {}
+
+--- The cool nukes hum, tick or shimmer once cleaned: item id -> Sfx voice cue. The
+--- cue's maxDistance keeps it to arm's reach, so a base full of them is not a din.
+local NUKE_VOICES: { [string]: string } = {
+	live_fuel_rod = "voiceHum", -- Atomic Bomb: the big one whines like a charged core
+	reactor_rod = "voiceHum", -- Reactor Nuke: electric whine
+	stopped_second_hand = "voiceTick", -- Cosmic Nuke: the stopped clock still ticks
+	reactor_core_sample = "voiceDrone", -- Core Nuke: deep reactor drone
+	booster_rocket = "voiceRumble", -- Booster Nuke: idling engine rumble
+	prototype_nuke = "voiceHum", -- Prototype Nuke: the orb's electric whine
+	skyglow_core_fragment = "voiceChime", -- Sky-Glow Nuke: airy shimmer
+	diamond_brooch = "voiceChime", -- Diamond Nuke: airy shimmer
+}
 
 --- Longest extent every imported template is baked to (import-nuke-models.luau's
 --- NATURAL_SIZE). Particle sizes are authored for it and scale with each context's
@@ -250,6 +264,7 @@ type Entry = {
 	pingReach: number,
 	scale: number,
 	connections: { RBXScriptConnection },
+	voice: Sfx.Loop?,
 }
 
 local entries: { [Model]: Entry } = {}
@@ -1425,6 +1440,15 @@ local function activate(entry: Entry, now: number)
 		end
 	end
 
+	local voice = NUKE_VOICES[model:GetAttribute(ItemFx.ATTRIBUTE) :: string? or ""]
+	local voicePart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+	if voice and voicePart then
+		entry.voice = Sfx.loop(voice, voicePart)
+		if entry.voice then
+			entry.voice:set(true)
+		end
+	end
+
 	entry.active = true
 	entry.startedAt = now
 	entry.awake = true
@@ -1438,6 +1462,9 @@ local function untrack(model: Model)
 	entries[model] = nil
 	for _, connection in entry.connections do
 		connection:Disconnect()
+	end
+	if entry.voice then
+		entry.voice:destroy()
 	end
 end
 
@@ -1483,6 +1510,7 @@ local function track(instance: Instance)
 		pingReach = 1,
 		scale = 1,
 		connections = {},
+		voice = nil,
 	}
 	entries[model] = entry
 

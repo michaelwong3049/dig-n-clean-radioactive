@@ -101,6 +101,14 @@ local DEFS: { [string]: Def } = {
 	stage = { id = asset(9042305931), volume = 0.25, group = "ambient", cooldown = 3 },
 	bagFull = { id = asset(119089158569324), volume = 0.55, speed = 0.7, group = "ui", cooldown = 0.5 },
 	aurora = { id = asset(86488607363887), volume = 0.55, group = "sfx", cooldown = 5 },
+
+	-- ── Nuke voices (NukeVoices, via ItemFxController) ──────────────
+	-- 3D beds on a cleaned nuke: short reach, so you only hear one when you walk up to it.
+	voiceTick = { id = asset(4940109913), volume = 0.45, group = "ambient", maxDistance = 22, fade = 0.4 },
+	voiceDrone = { id = asset(1843770413), volume = 0.5, speed = 0.9, group = "ambient", maxDistance = 30, fade = 1 },
+	voiceRumble = { id = asset(127117160383220), volume = 0.45, group = "ambient", maxDistance = 30, fade = 0.8 },
+	voiceHum = { id = asset(9125674129), volume = 0.3, speed = 1.35, group = "ambient", maxDistance = 26, fade = 0.8 },
+	voiceChime = { id = asset(9125674114), volume = 0.3, speed = 1.5, group = "ambient", maxDistance = 26, fade = 1 },
 }
 
 Sfx.DEFS = DEFS
