@@ -303,7 +303,7 @@ function BlastDebris.build(parent: Instance, stageId: number, groundY: number)
 
 	local rng = Random.new(SEED + stageId)
 	local palette = paletteFor(stageId)
-	local minX, minZ, maxX, maxZ = Stages.bounds(stageId)
+	local minX, minZ, maxX, maxZ = Stages.decorBounds(stageId)
 	local x0, x1 = minX + EDGE_MARGIN, maxX - EDGE_MARGIN
 	local z0, z1 = minZ + EDGE_MARGIN, maxZ - EDGE_MARGIN
 	local cols = math.max(1, math.floor((x1 - x0) / CELL))

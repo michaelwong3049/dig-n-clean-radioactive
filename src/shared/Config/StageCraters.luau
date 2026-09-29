@@ -75,7 +75,7 @@ StageCraters.DIG_FLOOR_MARGIN = 0.1
 StageCraters.DIG_OUTER_MARGIN = 0.04
 
 StageCraters.DEFS = {
-	-- THE crater. Stage 6's middle is (1695, 0); this sits 22 west and 17 north of it, so
+	-- THE crater. Stage 6's middle is (1870, 0); this sits 22 west and 17 north of it, so
 	-- it reads as the stage's centrepiece without being dead centre. The entrance path
 	-- (z = 0, from the Stage 5 seam) runs into its west flank, and the slump faces that
 	-- way: coming in from Stage 5, the low stretch of rim is the first thing you see, and
@@ -83,7 +83,7 @@ StageCraters.DEFS = {
 	{
 		name = "GreatCrater",
 		stageId = 6,
-		center = { 1673, 17 },
+		center = { 1844, 17 },
 		radius = 38,
 		aspect = 1.24,
 		yaw = 22,
@@ -105,7 +105,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock1",
 		stageId = 6,
-		center = { 1583, -50 },
+		center = { 1736, -50 },
 		radius = 6.5,
 		aspect = 1.15,
 		yaw = 60,
@@ -122,7 +122,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock2",
 		stageId = 6,
-		center = { 1597, 55 },
+		center = { 1752, 55 },
 		radius = 5,
 		aspect = 1.1,
 		yaw = 140,
@@ -139,7 +139,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock3",
 		stageId = 6,
-		center = { 1650, -62 },
+		center = { 1816, -62 },
 		radius = 10,
 		aspect = 1.2,
 		yaw = 10,
@@ -157,7 +157,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock4",
 		stageId = 6,
-		center = { 1743, -36 },
+		center = { 1928, -36 },
 		radius = 11.5,
 		aspect = 1.3,
 		yaw = 115,
@@ -175,7 +175,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock5",
 		stageId = 6,
-		center = { 1765, 52 },
+		center = { 1954, 52 },
 		radius = 8.5,
 		aspect = 1.18,
 		yaw = 35,
@@ -192,7 +192,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock6",
 		stageId = 6,
-		center = { 1803, -60 },
+		center = { 2000, -60 },
 		radius = 6,
 		aspect = 1.12,
 		yaw = 160,
@@ -209,7 +209,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock7",
 		stageId = 6,
-		center = { 1791, 14 },
+		center = { 1985, 14 },
 		radius = 7,
 		aspect = 1.2,
 		yaw = 80,
@@ -226,7 +226,7 @@ StageCraters.DEFS = {
 	{
 		name = "Pock8",
 		stageId = 6,
-		center = { 1735, 66 },
+		center = { 1918, 66 },
 		radius = 5.5,
 		aspect = 1.1,
 		yaw = 5,

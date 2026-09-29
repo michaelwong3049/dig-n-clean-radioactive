@@ -183,6 +183,7 @@ export type StageDef = {
 	-- Spatial. See the header.
 	center: { number }, -- { x, z } world space
 	size: { number }, -- { x, z } footprint in studs
+	decorLength: number?, -- X span (from the west edge) the stage's decor is laid over; nil = size[1]
 	color: string, -- hex; the ooze colour of this stage's surface
 	material: string, -- Enum.Material name
 
@@ -236,6 +237,10 @@ Stages.PLATE_THICKNESS = 16
 local FOOTPRINT_X, FOOTPRINT_Z = 290, 170
 -- Stages 7-12 only: 15% longer (290 -> 334) along the walk axis.
 local FAR_X = 334
+-- Stages 2-6 only: PROGRESSIVELY LONGER, on request -- +5/+10/+15/+20/+20% over
+-- FOOTPRINT_X, grown at the EAST end. Decor spreads over the whole grown plate
+-- (no `decorLength`), so props stay evenly spaced end to end.
+local GROWN_X = { [2] = 305, [3] = 319, [4] = 334, [5] = 348, [6] = 348 }
 
 Stages.DEFS = {
 	{
@@ -333,12 +338,12 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("E8D9B0"),
 		fogEnd = 800,
 		rarityTilt = 1.72, -- ~6% Rare+ at a tier-1 detector
-		-- West edge = Stage 1's east edge (x = 390); centre = 390 + 290/2.
-		center = { 535, 0 },
+		-- West edge = Stage 1's east edge (x = 390); centre = 390 + 305/2.
+		center = { 542.5, 0 },
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 220 long, the shortest stage; the uniform pass grew it to match the rest,
 		-- the 15% and length passes took the lot back down.
-		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		size = { GROWN_X[2], FOOTPRINT_Z },
 		-- Dun/tan, not green — see "LIFE FADING INTO A DEAD WASTELAND" below.
 		color = "B8935F",
 		material = "Sand",
@@ -372,11 +377,11 @@ Stages.DEFS = {
 		-- stocks nothing at Scrap; the roll only ever picks from what is stocked, so
 		-- Common is the floor here with no dead rolls to fold away.
 		rarityTilt = 2.26, -- ~14% Rare+ at a tier-1 detector
-		-- West edge = Stage 2's east edge (x = 680); centre = 680 + 290/2.
-		center = { 825, 0 },
+		-- West edge = Stage 2's east edge (x = 695); centre = 695 + 319/2.
+		center = { 854.5, 0 },
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 260 long.
-		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		size = { GROWN_X[3], FOOTPRINT_Z },
 		-- Deeper desert khaki-brown — the endpoint of the Stage 1-3 gradient. Slate
 		-- read as dark grey rock and broke continuity with the sand family this
 		-- whole stretch depends on, so material moved to Sand too.
@@ -415,13 +420,13 @@ Stages.DEFS = {
 		fogEnd = 600,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment above.
 		rarityTilt = 3.18, -- ~28% Rare+ at a tier-1 detector (the Dive stage; loot is the reward)
-		-- West edge = Stage 3's east edge (x = 970); centre = 970 + 290/2.
-		center = { 1115, 0 },
+		-- West edge = Stage 3's east edge (x = 1014); centre = 1014 + 334/2.
+		center = { 1181, 0 },
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 290 long, the "deliberately short" dive; that framing is gone (comment
 		-- above) — and now the shared length has landed back on that same 290 by a
 		-- different route.
-		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		size = { GROWN_X[4], FOOTPRINT_Z },
 		-- WHERE THE GREEN STOPS. See "THE COLOUR TURNS" in the header. A dead muddy
 		-- brown, on request (was a deep plum, "73246B") — nothing grows here any
 		-- more; the pink/violet doesn't start until Stage 5. The checkerboard floor
@@ -466,12 +471,12 @@ Stages.DEFS = {
 		fogEnd = 500,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment above.
 		rarityTilt = 5.06, -- ~45% Rare+ at a tier-1 detector
-		-- West edge = Stage 4's east edge (x = 1260); centre = 1260 + 290/2.
-		center = { 1405, 0 },
+		-- West edge = Stage 4's east edge (x = 1348); centre = 1348 + 348/2.
+		center = { 1522, 0 },
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 600 long, the second of the two big empty-walk stages; still the biggest
 		-- single shrink of the six.
-		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		size = { GROWN_X[5], FOOTPRINT_Z },
 		-- Light pink, on request (was a deep magenta, "A02268"). After Stage 4's dead
 		-- brown the ground going soft candy-pink reads as a jump to a different KIND
 		-- of place, not more of the same. The checkerboard floor is UNtinted
@@ -522,12 +527,12 @@ Stages.DEFS = {
 		fogEnd = 400,
 		-- NO SCRAP TIER, ON REQUEST -- see Stage 3's own comment above.
 		rarityTilt = 5.40, -- ~65% Rare+ at a tier-1 detector -- the Crater is nearly all treasure
-		-- West edge = Stage 5's east edge (x = 1550); centre = 1550 + 290/2. The chain
-		-- ends at x = 1840 (was 2140 after the 15% pass, 2500 before it).
-		center = { 1695, 0 },
+		-- West edge = Stage 5's east edge (x = 1696); centre = 1696 + 348/2. The chain
+		-- ends at x = 2044 (1840 before the longer-stages pass).
+		center = { 1870, 0 },
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 360 long.
-		size = { FOOTPRINT_X, FOOTPRINT_Z },
+		size = { GROWN_X[6], FOOTPRINT_Z },
 		color = "5B1FA8",
 		-- Glass, not Neon. The plate used to be Neon gold, which at Brightness 2.4
 		-- with bloom is a 400x200 light source rather than ground — survivable while
@@ -569,8 +574,8 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("5A5560"),
 		fogEnd = 400,
 		rarityTilt = 5.6,
-		-- West edge = the Twilight exit (x = 2170).
-		center = { 2337, 0 },
+		-- West edge = the Twilight exit (x = 2374).
+		center = { 2541, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "34313A", -- charcoal
 		material = "Slate",
@@ -588,7 +593,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("7FA6D6"),
 		fogEnd = 400,
 		rarityTilt = 5.8,
-		center = { 2671, 0 },
+		center = { 2875, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "3D6FB0", -- steel blue
 		material = "Slate",
@@ -606,7 +611,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("CFF4F5"),
 		fogEnd = 400,
 		rarityTilt = 6.0,
-		center = { 3005, 0 },
+		center = { 3209, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "9FE3E6", -- pale ice-cyan
 		material = "Glass",
@@ -624,7 +629,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("E8D57A"),
 		fogEnd = 400,
 		rarityTilt = 6.2,
-		center = { 3339, 0 },
+		center = { 3543, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "C9A227", -- mustard
 		material = "Sand",
@@ -642,7 +647,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("C45A6A"),
 		fogEnd = 400,
 		rarityTilt = 6.4,
-		center = { 3673, 0 },
+		center = { 3877, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "9E1B32", -- crimson
 		material = "Slate",
@@ -660,8 +665,8 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("FFB27A"),
 		fogEnd = 400,
 		rarityTilt = 6.6,
-		-- The chain's east end (x = 4064), closed by build/Scenery's end wall.
-		center = { 4007, 0 },
+		-- The chain's east end (x = 4378), closed by build/Scenery's end wall.
+		center = { 4211, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "FF6A1A", -- molten orange
 		material = "Glass",
@@ -786,6 +791,21 @@ function Stages.bounds(id: number): (number, number, number, number)
 	local z = Stages.get(id)
 	local hx, hz = z.size[1] / 2, z.size[2] / 2
 	return z.center[1] - hx, z.center[2] - hz, z.center[1] + hx, z.center[2] + hz
+end
+
+--- The part of a stage its decor is laid out over: `decorLength` studs east of the
+--- west edge (the whole plate when unset). Stages 2-6 grew past their decor on
+--- request; building props over this rather than `bounds` keeps them where they were.
+function Stages.decorBounds(id: number): (number, number, number, number)
+	local minX, minZ, maxX, maxZ = Stages.bounds(id)
+	local len = Stages.get(id).decorLength
+	return minX, minZ, if len then minX + len else maxX, maxZ
+end
+
+--- Centre of `decorBounds` -- the origin centre-relative decor is placed from.
+function Stages.decorCenter(id: number): (number, number)
+	local minX, minZ, maxX, maxZ = Stages.decorBounds(id)
+	return (minX + maxX) / 2, (minZ + maxZ) / 2
 end
 
 return Stages
