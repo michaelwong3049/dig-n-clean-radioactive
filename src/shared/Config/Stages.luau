@@ -541,7 +541,7 @@ Stages.DEFS = {
 
 	-- ── STAGES 7-12: THE CHAIN PAST TOXIC TWILIGHT ──────────────────────────────
 	-- A second run of six, opening east out of the Twilight camp's mouth (Camps
-	-- TWILIGHT_EXIT_X, x = 2060) at the same FOOTPRINT_X pitch. The camp disc sits
+	-- TWILIGHT_EXIT_X, x = 2170) at the same FOOTPRINT_X pitch. The camp disc sits
 	-- between Stage 6 and Stage 7, so the two runs do NOT share an edge -- see
 	-- Stages.runs(), which the corridor walls and seam lines are built per.
 	--
@@ -569,8 +569,8 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("5A5560"),
 		fogEnd = 400,
 		rarityTilt = 5.6,
-		-- West edge = the Twilight exit (x = 2060); centre = 2060 + 290/2.
-		center = { 2227, 0 },
+		-- West edge = the Twilight exit (x = 2170).
+		center = { 2337, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "34313A", -- charcoal
 		material = "Slate",
@@ -588,7 +588,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("7FA6D6"),
 		fogEnd = 400,
 		rarityTilt = 5.8,
-		center = { 2561, 0 },
+		center = { 2671, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "3D6FB0", -- steel blue
 		material = "Slate",
@@ -606,7 +606,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("CFF4F5"),
 		fogEnd = 400,
 		rarityTilt = 6.0,
-		center = { 2895, 0 },
+		center = { 3005, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "9FE3E6", -- pale ice-cyan
 		material = "Glass",
@@ -624,7 +624,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("E8D57A"),
 		fogEnd = 400,
 		rarityTilt = 6.2,
-		center = { 3229, 0 },
+		center = { 3339, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "C9A227", -- mustard
 		material = "Sand",
@@ -642,7 +642,7 @@ Stages.DEFS = {
 		fogColor = Color3.fromHex("C45A6A"),
 		fogEnd = 400,
 		rarityTilt = 6.4,
-		center = { 3563, 0 },
+		center = { 3673, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "9E1B32", -- crimson
 		material = "Slate",
@@ -661,7 +661,7 @@ Stages.DEFS = {
 		fogEnd = 400,
 		rarityTilt = 6.6,
 		-- The chain's east end (x = 4064), closed by build/Scenery's end wall.
-		center = { 3897, 0 },
+		center = { 4007, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
 		color = "FF6A1A", -- molten orange
 		material = "Glass",
