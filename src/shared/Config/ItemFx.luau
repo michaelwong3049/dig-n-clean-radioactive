@@ -1736,7 +1736,6 @@ ItemFx.DEFS = {
 		},
 		spins = {
 			{ parts = { "GaugeNeedle" }, pivot = "GaugeFace", axis = "Z", mode = "twitch", deg = 25, period = 2.4, duration = 0.3 },
-			{ parts = { "Steam" }, pivot = "Steam1", axis = "Y", mode = "bob", amp = 0.6, period = 2.2 },
 		},
 	},
 
@@ -1809,7 +1808,7 @@ ItemFx.DEFS = {
 		finish = {
 			{ parts = { "Globe" }, material = "Glass", transparency = 0.45 },
 			{ parts = { "Blob", "PoolBlob", "EscapeBlob", "Drip" }, material = "Neon", color = Color3.fromHex("FF5A2A") },
-			{ parts = { "BaseGlow", "FuzeGlow", "LightSpot" }, material = "Neon", color = Color3.fromHex("FFB23A") },
+			{ parts = { "BaseGlow", "FuzeGlow" }, material = "Neon", color = Color3.fromHex("FFB23A") },
 		},
 		light = { part = "Globe", color = Color3.fromHex("FF6A2A"), brightness = 1.8, range = 1.1 },
 		particles = {
