@@ -572,8 +572,9 @@ assert(#GRID_COLS * #GRID_ROWS == Floors.GROUND_SLOTS, "the ground grid must hol
 
 --- THE UPPER FLOORS' GALLERY — the ground's own 3 columns x 4 rows (Floors.UPPER_SLOTS
 --- = 12), on every floor above the ground (see buildFloor). The outer columns' plinths
---- (edge at +/-24.45) stay clear of the stairwell guard rail at +/-25.4, and the front
+--- (edge at +/-24.45) leave the side corridors clear, and the front
 --- row (plinth front at z -10.45) sits behind the deck's front rail at FLOOR.front.
+--- The walkway corridor past them (out to the stair gates) starts at |x| 27.2.
 ---
 --- Numbered the same way as the ground: left to right, back row first.
 local UPPER_COLS = GRID_COLS
@@ -2887,7 +2888,69 @@ local RAIL_POST_SPACING = 8
 local RAIL_POST_W = 0.72 -- 1.2, thinned 0.6x on request
 local RAIL_BAR_T = 0.48 -- 0.8, thinned 0.6x
 local STAIR_RAIL_T = 0.4 -- a flight's handrails and their posts: half the old 0.8
-local function buildSideRailings(parent: Instance, origin: CFrame)
+--- A gate in a fence line: the gap from `z0` to `z1` (plot-local) that a flight of
+--- stairs outside the base is reached through, and the floor whose purchase opens it
+--- (nil = always open). Until then GateFill rails span the gap (Plots.setFloors).
+type FenceGate = { z0: number, z1: number, floor: number? }
+
+--- GATE_FLOOR_ATTR marks a GateFill piece with the floor that opens its gate.
+local GATE_FLOOR_ATTR = "GateFloor"
+
+--- One fence line along z at `x`, from `z0` to `z1`, broken by `gates`: a run of
+--- posts and two rails between each pair of gates, a post on each gate's edges, and
+--- GateFill rails across each gate that has a floor to wait for.
+local function fenceLineZ(folder: Instance, origin: CFrame, y: number, x: number, z0: number, z1: number, gates: { FenceGate }?, railsCollide: boolean, skipStart: boolean?, skipEnd: boolean?)
+	local postH = RAIL_H + RAIL_BAR_T / 2 + 0.4 -- stands proud of the top rail
+	local function rails(name: string, a: number, b: number, attrs: { [string]: any }?)
+		for _, railY in { RAIL_H, RAIL_H * 0.5 } do
+			build(folder, origin, {
+				name = name,
+				pos = { x, y + railY, (a + b) / 2 },
+				size = { RAIL_BAR_T, RAIL_BAR_T, b - a + RAIL_POST_W },
+				color = C.railGrey,
+				material = "Plastic",
+				studs = true,
+				canCollide = railsCollide,
+				attributes = attrs,
+			})
+		end
+	end
+	local runs = {}
+	local from = z0
+	for _, g in gates or {} do
+		table.insert(runs, { from, g.z0 - RAIL_POST_W / 2 })
+		from = g.z1 + RAIL_POST_W / 2
+		if g.floor then
+			rails("GateFill", g.z0 - RAIL_POST_W / 2, g.z1 + RAIL_POST_W / 2, { [GATE_FLOOR_ATTR] = g.floor, GateCollide = railsCollide })
+		end
+	end
+	table.insert(runs, { from, z1 })
+	for n, r in runs do
+		local a, b = r[1], r[2]
+		if b - a < 0.01 then
+			continue
+		end
+		rails("Rail", a, b)
+		local posts = math.max(2, math.floor((b - a) / RAIL_POST_SPACING) + 1)
+		for i = 0, posts - 1 do
+			if (n == 1 and i == 0 and skipStart) or (n == #runs and i == posts - 1 and skipEnd) then
+				continue
+			end
+			build(folder, origin, {
+				name = "RailPost",
+				pos = { x, y + postH / 2, a + (b - a) * (i / (posts - 1)) },
+				size = { RAIL_POST_W, postH, RAIL_POST_W },
+				color = C.railPost,
+				material = "Plastic",
+				studs = true,
+			})
+		end
+	end
+end
+
+--- `gates[side]` (side -1/+1) is that side's gate list, for the flight of stairs
+--- outside the fence (buildFlight).
+local function buildSideRailings(parent: Instance, origin: CFrame, gates: { [number]: { FenceGate } }?)
 	local pad = Plots.PAD
 	local folder = Instance.new("Folder")
 	folder.Name = "SideRailings"
@@ -2896,37 +2959,8 @@ local function buildSideRailings(parent: Instance, origin: CFrame)
 	-- so the thicker posts still clear the wash pad / cleansing station deck edges.
 	local railX = pad.width / 2 - RAIL_POST_W / 2
 	local z0, z1 = pad.minZ + 0.5 + RAIL_POST_W / 2, pad.maxZ - 0.5 - RAIL_POST_W / 2
-	local span = z1 - z0
-	local midZ = (z0 + z1) / 2
-	local postCount = math.max(2, math.floor(span / RAIL_POST_SPACING) + 1)
-	local postH = RAIL_H + RAIL_BAR_T / 2 + 0.4 -- stands proud of the top rail
-
 	for _, side in { -1, 1 } do
-		local x = side * railX
-
-		for _, railY in { RAIL_H, RAIL_H * 0.5 } do
-			build(folder, origin, {
-				name = "Rail",
-				pos = { x, pad.topY + railY, midZ },
-				size = { RAIL_BAR_T, RAIL_BAR_T, span + RAIL_POST_W },
-				color = C.railGrey,
-				material = "Plastic",
-				studs = true,
-				canCollide = false,
-			})
-		end
-
-		for i = 0, postCount - 1 do
-			local z = z0 + span * (i / (postCount - 1))
-			build(folder, origin, {
-				name = "RailPost",
-				pos = { x, pad.topY + postH / 2, z },
-				size = { RAIL_POST_W, postH, RAIL_POST_W },
-				color = C.railPost,
-				material = "Plastic",
-				studs = true,
-			})
-		end
+		fenceLineZ(folder, origin, pad.topY, side * railX, z0, z1, gates and gates[side], false)
 	end
 
 	folder.Parent = parent
@@ -3334,12 +3368,14 @@ end
 --- to the sky: the wash camera and the crust reach both assume nothing hangs over the
 --- tub (memory: crust-fills-the-wash-bay).
 ---
---- THE FLIGHTS ALTERNATE SIDES. The flight up from the ground climbs the -X side
---- corridor (between the outer stand column and the fence), front to back; the flight
---- up from floor 2 climbs the +X side the same way. Each deck has a stairwell hole
---- over the flight that arrives at it, unfenced (the guard rail was removed on request) and
---- open at the back, where you step off. You walk off the top of one flight, across
---- the deck, and the next flight's foot is on the far side at the front.
+--- THE FLIGHTS RUN OUTSIDE THE BASE, AND ALTERNATE SIDES (on request: the stairs
+--- used to climb the side corridors inside the fence, through a stairwell hole in each
+--- deck). The flight up from the ground climbs the -X side, the one up from floor 2
+--- the +X side, each hugging the OUTSIDE of the side fence, front to back, in the apron
+--- gap between neighbouring bases. You step out through a gate in the fence onto the
+--- foot landing, climb, and step back in through an opening in the next deck's rail
+--- from the head landing at the back. The decks are solid: nothing is cut out of them.
+--- A foot gate is filled with GateFill rails until the floor it leads to is bought.
 ---
 --- EVERY FLOOR IS BUILT, AND HIDDEN AT RUNTIME. buildPlot builds Floor2..Floor<MAX>
 --- and a FloorSign per floor on every plot, so Studio shows the whole three-storey
@@ -3353,13 +3389,12 @@ local FLOOR = {
 	front = -19, -- the decks' front edge (plot-local z): 8 studs out over the entrance strip, still clear of the tub
 	thick = 1.2,
 	fascia = 0.6, -- the accent band round a deck's edge
-	stairX = 28.6, -- |x| of a flight's centre line: the side corridor past the outer stand column
 	stairW = 4.8,
-	stairZ = -7.6, -- where a flight's first step starts, behind the Quarantine Locker (z -15.5)
-	landing = 5, -- depth of the deck between a flight's head and the back edge
+	stairOff = 0.4, -- gap between the pad/deck side edge and a flight's inner edge
+	stairZ = -7.6, -- where a flight's first step starts; its foot gate is the `foot` in front
+	foot = 5, -- depth of the landing (and the fence gate) in front of a flight's first step
+	landing = 6, -- depth of the head landing (and the deck-rail opening) behind a flight's top
 	rise = 1, -- Floors.HEIGHT steps of this, so a flight lands exactly on the next deck
-	openIn = 25.8, -- |x| of a stairwell's inner edge
-	openOut = 31.4, -- |x| of its outer edge; the ledge past it carries the side rail
 	-- Pillars stand ON the fence line, one per deck corner, outer faces flush with the
 	-- pad's side and the deck's front/back edge, so the rails run straight through
 	-- them. A pillar takes over the fence there: the posts it swallows are hidden
@@ -3374,6 +3409,14 @@ local FLIGHT_STEPS = math.round(Floors.HEIGHT / FLOOR.rise)
 -- the tread is whatever spreads FLIGHT_STEPS over that run.
 FLOOR.tread = (Plots.PAD.maxZ - FLOOR.landing - FLOOR.stairZ) / FLIGHT_STEPS
 local FLIGHT_TOP_Z = FLOOR.stairZ + FLIGHT_STEPS * FLOOR.tread
+--- |x| of a flight's inner edge / centre line / outer edge, all past the side fence.
+local STAIR_IN = HALF_W + FLOOR.stairOff
+local STAIR_X = STAIR_IN + FLOOR.stairW / 2
+local STAIR_OUT = STAIR_IN + FLOOR.stairW
+--- The fence gates: where you step out to a flight's foot, and back in off its head.
+--- The head opening stops short of the back corner so the corner post and pillar stay.
+local FOOT_GATE = { z0 = FLOOR.stairZ - FLOOR.foot, z1 = FLOOR.stairZ }
+local HEAD_GATE = { z0 = FLIGHT_TOP_Z, z1 = Plots.PAD.maxZ - FLOOR.pillarW - 0.2 }
 
 --- Which side (-1 = -X, +1 = +X) the flight climbing UP FROM `floor` runs up.
 local function flightSide(floor: number): number
@@ -3388,8 +3431,9 @@ local function laneStairs(floor: number): LaneStairs
 		depart = if floor < Floors.MAX then flightSide(floor) else nil,
 		arrive = if floor > 1 then flightSide(floor - 1) else nil,
 		footZ = FLOOR.stairZ,
-		inX = FLOOR.stairX - FLOOR.stairW / 2,
-		outX = FLOOR.stairX + FLOOR.stairW / 2,
+		-- The walkway corridor along the inside of the fence, out to the gate.
+		inX = HALF_W - 1 - FLOOR.stairW,
+		outX = HALF_W - 1,
 	}
 end
 
@@ -3464,12 +3508,60 @@ end
 --- treads, one stud thick with nothing under them, in alternating greys so
 --- the steps read from across the plaza, and a pair of sloped handrails down each
 --- side. The rails are rotated straight parts, not a staircase of little bars
---- (memory: straight-edges-over-pixel-stairs).
+--- (memory: straight-edges-over-pixel-stairs). Outside the fence: a landing at the
+--- foot (in front of the fence gate) and one at the head (beside the deck's opening),
+--- railed on their open sides, and a support post down to the apron under each
+--- floating landing's outer corners.
 local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
 	local m = Instance.new("Model")
 	m.Name = "Stairs"
 	local baseY = floorTopY(fromFloor)
-	local x = flightSide(fromFloor) * FLOOR.stairX
+	local sd = flightSide(fromFloor)
+	local x = sd * STAIR_X
+	local topY = baseY + Floors.HEIGHT
+	local groundY = Plots.PAD.topY - 1.5 -- the apron the landings' posts stand on
+
+	-- The landings. The foot of the ground flight is a solid block down to the apron.
+	local slab = FLOOR.thick
+	local function landing(name: string, y: number, z0: number, z1: number, solid: boolean)
+		local h = if solid then y - groundY else slab
+		build(m, origin, {
+			name = name,
+			pos = { sd * (HALF_W + STAIR_OUT) / 2, y - h / 2, (z0 + z1) / 2 },
+			size = { STAIR_OUT - HALF_W, h, z1 - z0 },
+			color = C.standGrey,
+			material = "Plastic",
+			studs = true,
+		})
+		if not solid then
+			for _, pz in { z0 + 0.5, z1 - 0.5 } do
+				build(m, origin, {
+					name = "LandingPost",
+					pos = { sd * (STAIR_OUT - 0.5), (groundY + y - slab) / 2, pz },
+					size = { 0.8, y - slab - groundY, 0.8 },
+					color = C.standGreyDark,
+					material = "Plastic",
+					studs = true,
+				})
+			end
+		end
+	end
+	landing("FootLanding", baseY, FOOT_GATE.z0, FOOT_GATE.z1, fromFloor == 1)
+	landing("HeadLanding", topY, FLIGHT_TOP_Z, Plots.PAD.maxZ, false)
+
+	-- Rails round the landings' open sides: the outer edge, and the end away from
+	-- the flight. The side against the base is the fence gate / deck opening.
+	local rails = Instance.new("Folder")
+	rails.Name = "LandingRails"
+	local ox = sd * (STAIR_OUT - RAIL_POST_W / 2)
+	local ix = sd * (HALF_W + RAIL_POST_W / 2)
+	local fz = FOOT_GATE.z0 + RAIL_POST_W / 2
+	railRun(rails, origin, baseY, ix, fz, ox, fz)
+	railRun(rails, origin, baseY, ox, fz, ox, FLOOR.stairZ, true)
+	local bz = Plots.PAD.maxZ - RAIL_POST_W / 2
+	railRun(rails, origin, topY, ox, FLIGHT_TOP_Z, ox, bz)
+	railRun(rails, origin, topY, ox, bz, ix, bz, true)
+	rails.Parent = m
 
 	for i = 1, FLIGHT_STEPS do
 		-- One stud-thick tread per step, nothing under it: an open stair.
@@ -3520,9 +3612,10 @@ local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
 	m.Parent = parent
 end
 
---- One whole storey: its deck (with a stairwell hole over the flight arriving at it),
---- the accent band round the deck's edge, the pillars holding it up, that flight of
---- stairs, the railings round the deck and the stairwell, and its gallery of stands.
+--- One whole storey: its solid deck, the accent band round the deck's edge, the
+--- pillars holding it up, the flight of stairs outside the fence that arrives at it,
+--- the railings round the deck (open where that flight lands, gated where the next
+--- one leaves) and its gallery of stands.
 local function buildFloor(parent: Instance, origin: CFrame, index: number, floor: number, accent: string)
 	local pad = Plots.PAD
 	local m = Instance.new("Model")
@@ -3531,26 +3624,17 @@ local function buildFloor(parent: Instance, origin: CFrame, index: number, floor
 
 	local top = floorTopY(floor)
 	local below = floorTopY(floor - 1)
-	local side = flightSide(floor - 1) -- the side this floor's stairwell is on
 	local front, back = FLOOR.front, pad.maxZ
 
-	-- ── The deck: three plates round the stairwell ─────────────
-	-- The plates only ever share edges; one studded board, like the pad's own floor.
-	local function deck(xa: number, xb: number, z0: number, z1: number)
-		local x0, x1 = math.min(xa, xb), math.max(xa, xb)
-		local plate = build(m, origin, {
-			name = "Deck",
-			pos = { (x0 + x1) / 2, top - FLOOR.thick / 2, (z0 + z1) / 2 },
-			size = { x1 - x0, FLOOR.thick, z1 - z0 },
-			color = C.baseFloor,
-			material = "Plastic",
-		})
-		plate.CastShadow = false
-	end
-	deck(-side * HALF_W, side * FLOOR.openIn, front, back) -- everything inside the stairwell's inner edge
-	deck(side * FLOOR.openIn, side * HALF_W, FLIGHT_TOP_Z, back) -- behind it, where the flight lands
-	deck(side * FLOOR.openOut, side * HALF_W, front, FLIGHT_TOP_Z) -- the ledge outside it, under the side rail
-	deck(side * FLOOR.openIn, side * FLOOR.openOut, front, FLOOR.stairZ) -- in front of the flight's foot
+	-- ── The deck: one solid studded board, like the pad's own floor ─
+	local plate = build(m, origin, {
+		name = "Deck",
+		pos = { 0, top - FLOOR.thick / 2, (front + back) / 2 },
+		size = { pad.width, FLOOR.thick, back - front },
+		color = C.baseFloor,
+		material = "Plastic",
+	})
+	plate.CastShadow = false
 
 	-- The accent band round the deck's outer edge, so a bought floor wears the plot's
 	-- colour from across the plaza the way the ground's Trim does.
@@ -3596,17 +3680,26 @@ local function buildFloor(parent: Instance, origin: CFrame, index: number, floor
 	-- on, so it appears when this floor is bought.
 	buildFlight(m, origin, floor - 1)
 
-	-- ── Railings: the deck's four edges and the stairwell ──────
+	-- ── Railings: the deck's four edges ─────────────────────────
+	-- The side the flight arrives on is open over its head landing; the side the next
+	-- flight leaves from has a foot gate, filled until that floor is bought.
 	local rails = Instance.new("Folder")
 	rails.Name = "Railings"
 	local rx = HALF_W - RAIL_POST_W / 2
 	local rzFront, rzBack = front + RAIL_POST_W / 2, back - RAIL_POST_W / 2
 	railRun(rails, origin, top, -rx, rzFront, rx, rzFront)
-	railRun(rails, origin, top, -rx, rzFront, -rx, rzBack, true)
-	railRun(rails, origin, top, rx, rzFront, rx, rzBack, true)
-	railRun(rails, origin, top, -rx, rzBack, rx, rzBack, true, true)
-	-- The stairwell itself is left unfenced (on request): its inner edge and front are
-	-- open, so the deck reads as one floor with the flight cut into it.
+	railRun(rails, origin, top, -rx, rzBack, rx, rzBack)
+	for _, sd in { -1, 1 } do
+		local gates: { FenceGate } = {}
+		if floor < Floors.MAX and flightSide(floor) == sd then
+			table.insert(gates, { z0 = FOOT_GATE.z0, z1 = FOOT_GATE.z1, floor = floor + 1 })
+		end
+		if flightSide(floor - 1) == sd then
+			table.insert(gates, HEAD_GATE)
+		end
+		-- The corner posts belong to the front and back runs.
+		fenceLineZ(rails, origin, top, sd * rx, rzFront, rzBack, gates, true, true, true)
+	end
 	rails.Parent = m
 	capFencePosts(rails, accent)
 
@@ -3630,10 +3723,10 @@ local function withCommas(n: number): string
 	return (string.gsub(grouped, "^,", ""))
 end
 
---- The sign that sells floor `floor`: a post and a board standing where that floor's
---- flight of stairs will go, on the floor below it. Holding E on the board buys the
---- floor (ExhibitService wires it by Kit.FLOOR_TAG); the sign then disappears and the
---- stairs are there in its place. Plots.setFloors shows exactly one of these on a
+--- The sign that sells floor `floor`: a post and a board standing just inside
+--- the fence gate out to that floor's flight of stairs, on the floor below it. Holding
+--- E on the board buys the floor (ExhibitService wires it by Kit.FLOOR_TAG); the sign
+--- then disappears, the gate opens and the stairs are outside it. Plots.setFloors shows exactly one of these on a
 --- claimed plot — the next floor up — and none on a full or unclaimed one.
 ---
 --- ANSWERS IN THE WORLD. A refused purchase is written into this sign's billboard
@@ -3644,7 +3737,8 @@ local function buildFloorSign(parent: Instance, origin: CFrame, index: number, f
 	local m = Instance.new("Model")
 	m.Name = `FloorSign{floor}`
 	local base = floorTopY(floor - 1)
-	local x = flightSide(floor - 1) * FLOOR.stairX
+	-- Inside the fence, just behind the gate out to that floor's flight.
+	local x = flightSide(floor - 1) * (HALF_W - 1 - FLOOR.stairW / 2)
 	local z = FLOOR.stairZ + 3
 	local price = withCommas(Floors.PRICES[floor] or 0)
 	local subtitle = `+{Floors.UPPER_SLOTS} stands for ${price}`
@@ -3788,6 +3882,15 @@ function Plots.setFloors(plot: Instance?, owned: number?, claimed: boolean)
 		place(`FloorSign{floor}`, claimed and floor == count + 1)
 	end
 	showPillarPosts(model, count)
+	-- Open the gates to the flights that are built, fill the rest.
+	for _, d in model:GetDescendants() do
+		local gate = d:GetAttribute(GATE_FLOOR_ATTR)
+		if typeof(gate) == "number" and d:IsA("BasePart") then
+			local open = gate <= count
+			d.Transparency = if open then 1 else 0
+			d.CanCollide = (not open) and d:GetAttribute("GateCollide") == true
+		end
+	end
 
 	local plate = model:FindFirstChild("NamePlate")
 	local rest = plate and plate:GetAttribute("BaseCFrame")
@@ -3922,7 +4025,7 @@ local function buildPlot(parent: Instance, index: number)
 	-- own "YOUR BASE" beacon — a circular headshot with the owner's name below it —
 	-- except built server-side so it's visible to every player in the plaza, not
 	-- just the owner.
-	buildSideRailings(m, origin)
+	buildSideRailings(m, origin, { [flightSide(1)] = { { z0 = FOOT_GATE.z0, z1 = FOOT_GATE.z1, floor = 2 } } })
 	buildBackFence(m, origin)
 	capFencePosts(m:FindFirstChild("SideRailings"), accent)
 	capFencePosts(m:FindFirstChild("BackFence"), accent)
