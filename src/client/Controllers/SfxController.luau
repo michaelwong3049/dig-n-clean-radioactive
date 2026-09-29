@@ -41,8 +41,6 @@ local SfxController = {}
 --- A health drop at least this big between two ExposureState payloads is a hit (a
 --- blast, a crater), not the steady sickness drain, which is a few HP a second.
 local HURT_DROP = 8
-
---- Seconds after a spawn in which an AuraTier reading is the spawn itself, not a change.
 local SPAWN_SETTLE = 1.5
 
 --- Heartbeat interval at the drain line (80%) and at a full meter.
@@ -105,9 +103,6 @@ local function rig(player: Player, character: Model)
 	}
 	rigs[character] = entry
 
-	local spawnedAt = os.clock()
-	local lastTier: number? = nil
-
 	local function onAura()
 		local tier = character:GetAttribute(AuraLook.ATTRIBUTE)
 		if entry.aura then
@@ -119,27 +114,10 @@ local function rig(player: Player, character: Model)
 				entry.aura:set(false)
 			end
 		end
-		-- The whoosh is yours alone, and only for a real change of tier: never the first
-		-- reading after a spawn, and not HIDE MY AURA flipping it off and back on (nil
-		-- readings are skipped, so the tier you come back to is no change).
-		if mine and type(tier) == "number" then
-			if lastTier ~= nil and tier ~= lastTier and os.clock() - spawnedAt > SPAWN_SETTLE then
-				Sfx.play("auraEquip")
-			end
-			lastTier = tier
-		end
+		-- No whoosh on buying/changing an aura (cut by request).
 	end
 	table.insert(entry.connections, character:GetAttributeChangedSignal(AuraLook.ATTRIBUTE):Connect(onAura))
 	onAura()
-	-- Spawned with nothing drawn: that is the free starter rung (never drawn), so the
-	-- first aura you buy is a change from it.
-	if mine then
-		task.delay(SPAWN_SETTLE, function()
-			if rigs[character] == entry and lastTier == nil then
-				lastTier = 1
-			end
-		end)
-	end
 
 	if not mine then
 		local function onHaul()

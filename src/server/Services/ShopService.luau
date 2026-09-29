@@ -77,6 +77,7 @@ local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local StationService = require(script.Parent.StationService)
 local ExhibitService = require(script.Parent.ExhibitService)
+local ExposureService = require(script.Parent.ExposureService)
 
 local ShopService = {}
 
@@ -493,6 +494,10 @@ function ShopService.buyTier(player: Player, track: string, tier: number?): (boo
 	-- plot looks like, is ExhibitService's business and not this file's.
 	if track == "Cleaner" then
 		ExhibitService.refreshHose(player)
+	end
+	-- A new aura tops you up to its full max health straight away.
+	if track == "Aura" then
+		ExposureService.healFull(player)
 	end
 
 	return true, `bought {def.name} for ${def.price}`

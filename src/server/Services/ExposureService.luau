@@ -784,6 +784,15 @@ function ExposureService.flush(player: Player)
 	state.survivableRatchet = nil
 end
 
+--- Buying an aura: health straight to the new aura's max (rads untouched). A downed
+--- player stays downed.
+function ExposureService.healFull(player: Player)
+	local state = stateFor(player)
+	if not state.downed then
+		state.health = maxHealthOf(player)
+	end
+end
+
 --- Debug console (/speed). A number pins the player's WalkSpeed there until cleared;
 --- nil clears it and hands movement back to their trained speed. The dig/wash root still
 --- wins over this -- an override does not let you walk while locked to a signal.
