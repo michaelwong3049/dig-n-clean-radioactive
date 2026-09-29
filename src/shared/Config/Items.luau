@@ -1456,6 +1456,7 @@ Items.DEFS = {
 		rarity = "Anomaly",
 		odds = 500000, -- 1 in N per dig in a stocking stage
 		weight = 520,
+		sizeMult = 2.5, -- a monster: past The Big One, short of the Atomic Bomb
 		stages = { 8 },
 		appeal = "Collector",
 		sets = {},
