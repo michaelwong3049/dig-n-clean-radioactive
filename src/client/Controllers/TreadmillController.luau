@@ -108,7 +108,8 @@ local LAYOUT = {
 	textStroke = 2.5,
 	shoe = 28,
 	gainTextSize = 22,
-	gainGap = 70, -- a new "+10" never lands within this many px of the last one
+	gainGap = 40, -- a new "+10" never lands within this many px of the last one
+	gainEvery = 0.14, -- seconds between "+10"/"+11" popups while the belt runs
 }
 
 local ROUND = UDim.new(0.5, 0)
@@ -304,6 +305,7 @@ end
 
 --- Where the last "+10" floated from, so two in a row never land on one spot.
 local lastGainX = math.huge
+local sinceGain = 0
 
 --- The centre of the next "+10", in the bar footprint's px: usually somewhere along
 --- the air above the bar, sometimes off either end of it. Re-rolled (a few times at
@@ -356,10 +358,11 @@ local function float(popup: GuiObject, rise: number, life: number)
 	end)
 end
 
---- A shoe and "+10" floating off a random spot around the bar: one per Speed push.
-local function popGain(amount: number)
+--- A shoe and "+10" or "+11" floating off a random spot around the bar. A steady
+--- stream of them while training, for the feel of it: they are not real amounts.
+local function popGain()
 	local L = LAYOUT
-	local label = `+{Speed.format(amount)}`
+	local label = if math.random() < 0.5 then "+10" else "+11"
 	local textW = TextService:GetTextSize(label, L.gainTextSize, STYLE.valueFont, Vector2.new(400, 60)).X + 6
 	local width = L.shoe + 2 + textW
 	local spot = gainSpot()
@@ -740,8 +743,6 @@ function Treadmill.start()
 		if shown and previous ~= nil then
 			if view.level > previous.level then
 				popWalkUp(view.walk)
-			elseif view.points > previous.points + 0.5 then
-				popGain(view.points - previous.points)
 			end
 		end
 	end)
@@ -755,6 +756,12 @@ function Treadmill.start()
 		animate(dt)
 		if shown then
 			paint()
+			local view = Speed.view()
+			sinceGain += dt
+			if view and view.training and sinceGain >= LAYOUT.gainEvery then
+				sinceGain = 0
+				popGain()
+			end
 		end
 		sinceTutorialCheck += dt
 		if sinceTutorialCheck >= TUTORIAL_CHECK then
