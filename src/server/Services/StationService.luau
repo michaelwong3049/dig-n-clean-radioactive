@@ -52,12 +52,23 @@ local DEFAULT_RADIUS = 12
 --- station layout only changes when a builder runs.
 local CACHE_REFRESH = 2
 
+--- Kinds tested against the part's own footprint instead of a sphere. A treadmill belt
+--- is ~4 studs wide, so its old 6.6-stud sphere kept a player "on the belt" after they
+--- stepped off the side: the training bar stayed up and the run animation kept playing
+--- over their walk. Inside the box = feet over the belt (plus FOOTPRINT_MARGIN), with
+--- the root anywhere from just under the belt to a jump above it.
+local FOOTPRINT_KINDS: { [string]: boolean } = { treadmill = true }
+local FOOTPRINT_MARGIN = 0.75
+local FOOTPRINT_BELOW = 1
+local FOOTPRINT_ABOVE = 7
+
 type Entry = {
 	part: BasePart,
 	position: Vector3,
 	radius: number,
 	kind: string,
 	id: string?,
+	footprint: { cframe: CFrame, half: Vector3 }?,
 }
 
 local cache: { Entry } = {}
@@ -81,6 +92,9 @@ local function refresh()
 					radius = (part:GetAttribute("Radius") :: number?) or DEFAULT_RADIUS,
 					kind = kind,
 					id = part:GetAttribute("StationId") :: string?,
+					footprint = if FOOTPRINT_KINDS[kind]
+						then { cframe = part.CFrame, half = part.Size / 2 }
+						else nil,
 				})
 			end
 		end
@@ -99,7 +113,17 @@ function StationService.at(position: Vector3): (string?, string?, BasePart?)
 		-- square root is the only expensive part of it.
 		local delta = entry.position - position
 		local squared = delta.X * delta.X + delta.Y * delta.Y + delta.Z * delta.Z
-		if squared <= entry.radius * entry.radius and squared < bestDistance then
+		local inside = squared <= entry.radius * entry.radius
+		local footprint = entry.footprint
+		if inside and footprint then
+			local localPos = footprint.cframe:PointToObjectSpace(position)
+			local half = footprint.half
+			inside = math.abs(localPos.X) <= half.X + FOOTPRINT_MARGIN
+				and math.abs(localPos.Z) <= half.Z + FOOTPRINT_MARGIN
+				and localPos.Y >= -half.Y - FOOTPRINT_BELOW
+				and localPos.Y <= half.Y + FOOTPRINT_ABOVE
+		end
+		if inside and squared < bestDistance then
 			bestKind, bestId, bestPart, bestDistance = entry.kind, entry.id, entry.part, squared
 		end
 	end
