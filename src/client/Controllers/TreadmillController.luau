@@ -108,7 +108,6 @@ local LAYOUT = {
 	textStroke = 2.5,
 	shoe = 28,
 	gainTextSize = 22,
-	gainGap = 40, -- a new "+10" never lands within this many px of the last one
 	gainEvery = 0.14, -- seconds between "+10"/"+11" popups while the belt runs
 }
 
@@ -303,32 +302,46 @@ end
 
 -- ── The popups ────────────────────────────────────────────────────────────
 
---- Where the last "+10" floated from, so two in a row never land on one spot.
-local lastGainX = math.huge
 local sinceGain = 0
 
---- The centre of the next "+10", in the bar footprint's px: usually somewhere along
---- the air above the bar, sometimes off either end of it. Re-rolled (a few times at
---- most) when it lands within LAYOUT.gainGap of the last one.
-local function gainSpot(): Vector2
-	local L = LAYOUT
-	local spot = Vector2.zero
-	for _ = 1, 4 do
-		local roll = math.random()
-		local sideY = L.barH / 2 - 8 + 16 * math.random()
-		if roll < 0.7 then
-			spot = Vector2.new(L.barW * (0.08 + 0.84 * math.random()), -14 - 12 * math.random())
-		elseif roll < 0.85 then
-			spot = Vector2.new(L.barW + 52 + 16 * math.random(), sideY)
-		else
-			spot = Vector2.new(-52 - 16 * math.random(), sideY)
-		end
-		if math.abs(spot.X - lastGainX) >= L.gainGap then
-			break
-		end
+--- The "+10"s ride a billboard on the runner's own body. They cycle through these
+--- fixed spots (billboard px, centre-anchored) in order, so they read as a steady
+--- pattern around the torso rather than a spray.
+local GAIN_W, GAIN_H = 240, 260
+local GAIN_SPOTS = {
+	Vector2.new(60, 70),
+	Vector2.new(180, 110),
+	Vector2.new(70, 150),
+	Vector2.new(170, 190),
+	Vector2.new(55, 220),
+	Vector2.new(185, 60),
+}
+local gainIndex = 0
+local gainBoard: BillboardGui? = nil
+
+--- The billboard on the local character, rebuilt after a respawn.
+local function gainHost(): BillboardGui?
+	local character = Players.LocalPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root == nil then
+		return nil
 	end
-	lastGainX = spot.X
-	return spot
+	if gainBoard and gainBoard.Parent == root then
+		return gainBoard
+	end
+	if gainBoard then
+		gainBoard:Destroy()
+	end
+	local board = Instance.new("BillboardGui")
+	board.Name = "SpeedGains"
+	board.Size = UDim2.fromOffset(GAIN_W, GAIN_H)
+	board.AlwaysOnTop = true
+	board.LightInfluence = 0
+	board.ResetOnSpawn = false
+	board.Adornee = root
+	board.Parent = root
+	gainBoard = board
+	return board
 end
 
 --- Grow in, rise `rise` px over `life` seconds, fade out for the last stretch, then go.
@@ -358,14 +371,19 @@ local function float(popup: GuiObject, rise: number, life: number)
 	end)
 end
 
---- A shoe and "+10" or "+11" floating off a random spot around the bar. A steady
+--- A shoe and "+10" or "+11" popping on the next spot around the runner's body. A steady
 --- stream of them while training, for the feel of it: they are not real amounts.
 local function popGain()
 	local L = LAYOUT
 	local label = if math.random() < 0.5 then "+10" else "+11"
 	local textW = TextService:GetTextSize(label, L.gainTextSize, STYLE.valueFont, Vector2.new(400, 60)).X + 6
 	local width = L.shoe + 2 + textW
-	local spot = gainSpot()
+	local host = gainHost()
+	if host == nil then
+		return
+	end
+	gainIndex = gainIndex % #GAIN_SPOTS + 1
+	local spot = GAIN_SPOTS[gainIndex]
 
 	local popup = Instance.new("Frame")
 	popup.Name = "GainPopup"
@@ -374,7 +392,7 @@ local function popGain()
 	popup.AnchorPoint = Vector2.new(0.5, 0.5)
 	popup.BackgroundTransparency = 1
 	popup.ZIndex = 8
-	popup.Parent = ui.panel
+	popup.Parent = host
 
 	local shoe = Artwork.picture(popup, "Shoe", Artwork.IMAGE.speedShoe, L.shoe, WHITE)
 	shoe.Position = UDim2.fromOffset(0, (32 - L.shoe) / 2)
@@ -386,7 +404,7 @@ local function popGain()
 		text = label,
 		zIndex = 9,
 	})
-	float(popup, 30, 0.85)
+	float(popup, 10, 0.7)
 end
 
 --- The bar just filled: "WALK SPEED 35!" over its middle, and a punch on the bar.
