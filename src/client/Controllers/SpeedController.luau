@@ -126,8 +126,19 @@ function Speed.shownPoints(): number
 		return view.points
 	end
 	-- The counted lead ticks up in whole steps of COUNT_STEP rather than 1 at a time.
-	local lead = math.min(os.clock() - receivedAt, LEAD_CAP)
-	return view.points + (view.rate * lead) // COUNT_STEP * COUNT_STEP
+	local lead = Speed.smoothPoints() - view.points
+	return view.points + lead // COUNT_STEP * COUNT_STEP
+end
+
+--- The same count unstepped, for things that should glide (the training bar's fill).
+function Speed.smoothPoints(): number
+	if view == nil then
+		return 0
+	end
+	if not view.training then
+		return view.points
+	end
+	return view.points + view.rate * math.min(os.clock() - receivedAt, LEAD_CAP)
 end
 
 --- Called with (view, previous) on every SpeedState push.

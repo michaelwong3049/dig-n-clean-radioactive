@@ -104,6 +104,7 @@ local LAYOUT = {
 	height = 52,
 	stripeGap = 22, -- px between the fill's diagonal hazard stripes
 	stripeW = 9,
+	stripeSpeed = 30, -- px/sec the stripes crawl along the fill
 	textStroke = 2.5,
 	shoe = 28,
 	gainTextSize = 22,
@@ -229,7 +230,13 @@ local function build(): Frame?
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = SQUARE
 	corner.Parent = stripes
-	for x = -L.barH, L.barW + L.barH, L.stripeGap do
+	-- The stripes ride on a holder that slides one gap and wraps, so they crawl forever.
+	ui.stripes = Instance.new("Frame")
+	ui.stripes.Name = "Holder"
+	ui.stripes.Size = UDim2.fromScale(1, 1)
+	ui.stripes.BackgroundTransparency = 1
+	ui.stripes.Parent = stripes
+	for x = -L.barH, L.barW + L.barH + L.stripeGap, L.stripeGap do
 		local stripe = Instance.new("Frame")
 		stripe.Name = "Stripe"
 		stripe.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -240,7 +247,7 @@ local function build(): Frame?
 		stripe.BackgroundTransparency = 0.78
 		stripe.BorderSizePixel = 0
 		stripe.ZIndex = 5
-		stripe.Parent = stripes
+		stripe.Parent = ui.stripes
 	end
 
 	ui.need = text(trough, "Need", { 0, 0, L.barW, L.barH }, {
@@ -280,7 +287,8 @@ local function paint()
 		ui.need.Text = `{Speed.format(points)} SPEED`
 	else
 		local from, to = view.current or 0, view.nextReq or 1
-		progress = math.clamp((points - from) / math.max(to - from, 1), 0, 1)
+		-- The fill glides on the unstepped count; only the number steps.
+		progress = math.clamp((Speed.smoothPoints() - from) / math.max(to - from, 1), 0, 1)
 		local eta = if view.rate > 0 then `  |  {view.walk + 1} IN {formatEta((to - points) / view.rate)}` else ""
 		ui.walk.Text = `WALK SPEED {view.walk}{eta}`
 		ui.need.Text = `{Speed.format(points)} / {Speed.format(to)}`
@@ -288,6 +296,8 @@ local function paint()
 	ui.fill.Size = UDim2.fromScale(progress, 1)
 	-- The shine is inset 8 px each side, so a sliver of fill would turn it inside out.
 	ui.shine.Visible = progress * LAYOUT.barW > 28
+	local gap = LAYOUT.stripeGap
+	ui.stripes.Position = UDim2.fromOffset((os.clock() * LAYOUT.stripeSpeed) % gap - gap, 0)
 end
 
 -- ── The popups ────────────────────────────────────────────────────────────
