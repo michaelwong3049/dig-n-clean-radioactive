@@ -37,8 +37,9 @@
 	picks it up exactly like its number key would. Empty slots still draw in the
 	panel, for the same headroom reason as above.
 
-	G DROPS THE HELD CLEAN NUKE AS A BOMB (Services/BombService; a DROP button on
-	touch). Hovering a slot (or holding it, on touch) pops the bomb card over it:
+	G DROPS THE HELD CLEAN NUKE AS A BOMB (Services/BombService; or the DROP tile at
+	the right end of the hotbar; Rare or better asks "are you sure?" first). Hovering
+	a slot (or holding it, on touch) pops the bomb card over it:
 	stars, damage, radius, fuse and cooldown, out of Shared/Bombing -- the same
 	function the server detonates with. While the drop cooldown runs, every clean nuke
 	slot wears a draining shade and the seconds left.
@@ -105,6 +106,10 @@ local CARD_PAD = 12
 local CARD_ROW = 20
 local STAR_GOLD = Color3.fromHex("FFD34D")
 local COOL_SHADE = Color3.fromHex("000000")
+-- Dropping a nuke this rare or better asks "are you sure?" first.
+local CONFIRM_FROM = Rarity.DEFS.Rare.order
+local CONFIRM_WIDTH = 340
+local CONFIRM_HEIGHT = 176
 
 -- The bag panel's grid. BAG_COLS matches HOTBAR_SLOTS so the panel's top row IS the
 -- hotbar, slot for slot; the backpack grid under it wraps at the same width and
@@ -148,6 +153,7 @@ local bombReadyAt = 0 -- Workspace:GetServerTimeNow() the next drop is allowed
 local bombCooldown = 0 -- the full length of the running cooldown, for the shade
 local coolConnection: RBXScriptConnection? = nil
 local cardSlot: any = nil -- the slot the bomb card is showing for
+local confirmUid: string? = nil -- the Rare+ nuke the "are you sure?" is asking about
 -- Assigned below, once itemByUid exists; the slots' hover handlers call through it.
 local showCard: (slot: any?) -> () = function() end
 
@@ -402,6 +408,85 @@ local function buildBagTile(row: Frame)
 	ui.bagTileCount = count
 end
 
+--- The DROP tile, right of the hotbar (after BAG): drops the held clean nuke as a
+--- bomb, same as G. Always there so players find it; dim until a clean nuke is in
+--- your hands, and it counts the cooldown down while one runs.
+local function buildDropTile(row: Frame)
+	local tile = Instance.new("TextButton")
+	tile.Name = "DropTile"
+	tile.AutoButtonColor = false
+	tile.BackgroundColor3 = SLOT_FILL
+	tile.BackgroundTransparency = 0.05
+	tile.BorderSizePixel = 0
+	tile.Text = ""
+	tile.LayoutOrder = HOTBAR_SLOTS + 2
+	tile.Size = UDim2.fromOffset(SLOT_MAX, SLOT_MAX)
+	tile.Visible = false
+	tile.Parent = row
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 7)
+	corner.Parent = tile
+
+	local stroke = Instance.new("UIStroke")
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Color = SLOT_BORDER
+	stroke.Thickness = 1.5
+	stroke.Parent = tile
+
+	-- The key hint, like a slot's number; touch has no keys.
+	local key = UIKit.label(tile, {
+		name = "Key",
+		position = UDim2.fromOffset(7, 4),
+		size = UDim2.fromOffset(18, 16),
+		font = UIKit.Font.title,
+		textSize = 12,
+		color = Color3.fromHex("BBC5D0"),
+		strokeTransparency = 1,
+		text = if UIKit.isTouch() then "" else "G",
+	})
+
+	local title = UIKit.label(tile, {
+		name = "Title",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.new(0.5, 0, 0.5, 2),
+		size = UDim2.new(1, -6, 0, 16),
+		font = UIKit.Font.title,
+		textSize = 14,
+		color = COLOR.text,
+		xAlign = Enum.TextXAlignment.Center,
+		strokeTransparency = 1,
+		shadow = false,
+		text = "DROP",
+	})
+
+	-- The cooldown: the same draining shade the clean slots wear, and the seconds.
+	local cool = Instance.new("Frame")
+	cool.Name = "Cooldown"
+	cool.AnchorPoint = Vector2.new(0, 1)
+	cool.Position = UDim2.fromScale(0, 1)
+	cool.Size = UDim2.fromScale(1, 1)
+	cool.BackgroundColor3 = COOL_SHADE
+	cool.BackgroundTransparency = 0.45
+	cool.BorderSizePixel = 0
+	cool.Visible = false
+	cool.ZIndex = 10
+	cool.Parent = tile
+	local coolCorner = Instance.new("UICorner")
+	coolCorner.CornerRadius = UDim.new(0, 7)
+	coolCorner.Parent = cool
+
+	tile.MouseButton1Click:Connect(function()
+		Inventory.dropBomb()
+	end)
+
+	ui.dropTile = tile
+	ui.dropTileStroke = stroke
+	ui.dropTileKey = key
+	ui.dropTileTitle = title
+	ui.dropTileCool = cool
+end
+
 --- The Notice popup: a red-edged pill just above the vitals bars over the hotbar. A CanvasGroup so the
 --- whole thing fades as one -- UIKit's text outlines ignore TextTransparency.
 local function buildNotice(canvas: Frame)
@@ -526,6 +611,7 @@ local function build(): ScreenGui
 	ui.layout = layout
 
 	buildBagTile(row)
+	buildDropTile(row)
 	buildNotice(canvas)
 
 	return gui
@@ -744,29 +830,89 @@ local function buildBombCard(): ScreenGui
 		shadow = false,
 	})
 
-	-- Touch has no G key: a DROP button over the right end of the hotbar, shown only
-	-- while a clean nuke is in your hands.
-	local drop = UIKit.button(canvas, {
-		name = "DropBomb",
-		anchorPoint = Vector2.new(1, 1),
-		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -(Dock.VITALS_CLEAR + 8)),
-		size = UDim2.fromOffset(96, 44),
-		text = "DROP",
+	-- "ARE YOU SURE?" before a Rare-or-better nuke goes (CONFIRM_FROM). Centred over
+	-- the screen; G or DROP again confirms, CANCEL (or holding something else) backs out.
+	local confirm = UIKit.panel(canvas, {
+		name = "Confirm",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.new(0.5, 0, 0.5, -40),
+		size = UDim2.fromOffset(CONFIRM_WIDTH, CONFIRM_HEIGHT),
+		color = COLOR.panel,
+		transparency = 0.02,
+		strokeThickness = 2.5,
+		cornerRadius = UDim.new(0, 14),
+		visible = false,
+	})
+	ui.confirm = confirm
+	ui.confirmStroke = confirm:FindFirstChildOfClass("UIStroke")
+
+	UIKit.label(confirm, {
+		name = "Title",
+		position = UDim2.fromOffset(0, 14),
+		size = UDim2.new(1, 0, 0, 30),
 		font = UIKit.Font.title,
-		textSize = 20,
-		color = COLOR.text,
-		fillColor = COLOR.red,
-		fillTransparency = 0.1,
-		strokeColor = COLOR.outline,
-		strokeThickness = 2,
-		cornerRadius = UDim.new(0.5, 0),
+		textSize = 26,
+		color = COLOR.red,
+		xAlign = Enum.TextXAlignment.Center,
+		shadow = false,
+		text = "ARE YOU SURE?",
+	})
+	ui.confirmName = UIKit.label(confirm, {
+		name = "ItemName",
+		position = UDim2.fromOffset(CARD_PAD, 50),
+		size = UDim2.new(1, -2 * CARD_PAD, 0, 22),
+		font = UIKit.Font.title,
+		textSize = 19,
+		xAlign = Enum.TextXAlignment.Center,
 		shadow = false,
 	})
-	drop.Visible = false
-	drop.MouseButton1Click:Connect(function()
-		Inventory.dropBomb()
+	ui.confirmStars = UIKit.label(confirm, {
+		name = "Stars",
+		position = UDim2.fromOffset(CARD_PAD, 73),
+		size = UDim2.new(1, -2 * CARD_PAD, 0, 18),
+		font = UIKit.Font.title,
+		textSize = 16,
+		color = STAR_GOLD,
+		xAlign = Enum.TextXAlignment.Center,
+		shadow = false,
+	})
+	UIKit.label(confirm, {
+		name = "Warning",
+		position = UDim2.fromOffset(CARD_PAD, 96),
+		size = UDim2.new(1, -2 * CARD_PAD, 0, 18),
+		font = UIKit.Font.title,
+		textSize = 14,
+		color = COLOR.dim,
+		xAlign = Enum.TextXAlignment.Center,
+		outline = false,
+		strokeTransparency = 1,
+		text = "It blows up and is gone for good.",
+	})
+
+	local function confirmButton(name: string, text: string, x: number, fill: Color3): TextButton
+		return UIKit.button(confirm, {
+			name = name,
+			anchorPoint = Vector2.new(0.5, 1),
+			position = UDim2.new(x, 0, 1, -14),
+			size = UDim2.fromOffset(130, 42),
+			text = text,
+			font = UIKit.Font.title,
+			textSize = 20,
+			color = COLOR.text,
+			fillColor = fill,
+			fillTransparency = 0,
+			strokeThickness = 2,
+			cornerRadius = UDim.new(0, 10),
+			shadow = false,
+		})
+	end
+	confirmButton("Cancel", "CANCEL", 0.28, COLOR.empty).MouseButton1Click:Connect(function()
+		Inventory.cancelDrop()
 	end)
-	ui.dropButton = drop
+	ui.confirmDrop = confirmButton("Drop", "DROP", 0.72, COLOR.red)
+	ui.confirmDrop.MouseButton1Click:Connect(function()
+		Inventory.dropBomb(true)
+	end)
 
 	return gui
 end
@@ -841,10 +987,31 @@ showCard = function(slot: any?)
 	card.Visible = true
 end
 
+--- The DROP tile: lit red while a clean nuke is in your hands and ready, dim
+--- otherwise, shaded with the seconds left while the cooldown runs.
+local function paintDropTile(left: number, through: number)
+	local tile = ui.dropTile
+	tile.Visible = math.min(state.capacity, HOTBAR_SLOTS) > 0
+	if not tile.Visible then
+		return
+	end
+	local ready = droppable(itemByUid(selected))
+	local cooling = left > 0
+	ui.dropTileCool.Visible = cooling
+	ui.dropTileCool.Size = UDim2.fromScale(1, through)
+	ui.dropTileTitle.Text = if cooling then string.format("%.1f", left) else "DROP"
+	local lit = ready and not cooling
+	ui.dropTileTitle.TextColor3 = if lit then COLOR.red elseif ready then COLOR.text else COLOR.dim
+	ui.dropTileStroke.Color = if lit then COLOR.red else SLOT_BORDER
+	ui.dropTileStroke.Thickness = if lit then 2.5 else 1.5
+	tile.BackgroundColor3 = if lit then SLOT_SELECTED else SLOT_FILL
+end
+
 --- Shade every clean nuke slot for the running cooldown; drops the Heartbeat once done.
 local function paintCooldowns()
 	local left = bombSecondsLeft()
 	local through = if bombCooldown > 0 then math.clamp(left / bombCooldown, 0, 1) else 0
+	paintDropTile(left, through)
 	for _, list in { slots, bagCells } do
 		for _, slot in list do
 			local item = itemByUid(slot.uid)
@@ -875,18 +1042,43 @@ local function startCooldown(readyAt: number, cooldown: number)
 	paintCooldowns()
 end
 
---- Drop the held clean nuke as a bomb (G, or DROP on touch). The server re-checks
---- everything (Services/BombService); this only saves a round trip for the obvious no.
-function Inventory.dropBomb()
+--- Put the "are you sure?" away without dropping anything.
+function Inventory.cancelDrop()
+	confirmUid = nil
+	ui.confirm.Visible = false
+end
+
+--- Drop the held clean nuke as a bomb (G, or the DROP tile). A Rare-or-better nuke
+--- asks "are you sure?" first; `confirmed` is that dialog's DROP (or G pressed again
+--- while it is up, for the same nuke). The server re-checks everything
+--- (Services/BombService); this only saves a round trip for the obvious no.
+function Inventory.dropBomb(confirmed: boolean?)
 	local held = itemByUid(selected)
 	if held == nil or not droppable(held) then
+		Inventory.cancelDrop()
 		Inventory.notice("hold a clean nuke to drop it")
 		return
 	end
 	if bombSecondsLeft() > 0 then
+		Inventory.cancelDrop()
 		Inventory.notice("bomb still cooling down")
 		return
 	end
+
+	local def = Rarity.DEFS[held.rarity]
+	local precious = def ~= nil and def.order >= CONFIRM_FROM
+	local agreed = confirmed == true or (confirmUid == held.uid and ui.confirm.Visible)
+	if precious and not agreed then
+		confirmUid = held.uid
+		ui.confirmName.Text = held.name
+		ui.confirmName.TextColor3 = rarityColor(held.rarity)
+		ui.confirmStroke.Color = rarityColor(held.rarity)
+		ui.confirmStars.Text = `{string.rep("\u{2605}", Bombing.statsFor(held).stars)}  {string.upper(held.rarity)}`
+		ui.confirm.Visible = true
+		return
+	end
+
+	Inventory.cancelDrop()
 	if bombRemote then
 		bombRemote:FireServer()
 	end
@@ -944,9 +1136,10 @@ local function adoptStand(prompt: ProximityPrompt)
 	relabelStand(prompt)
 end
 
---- How many tiles the hotbar row draws: up to ten slots, plus the bag tile.
+--- How many tiles the hotbar row draws: up to ten slots, plus the bag tile, plus DROP.
 local function rowCells(): number
-	return math.min(state.capacity, HOTBAR_SLOTS) + (if hasBag() then 1 else 0)
+	local shown = math.min(state.capacity, HOTBAR_SLOTS)
+	return shown + (if hasBag() then 1 else 0) + (if shown > 0 then 1 else 0)
 end
 
 --- Slot width for the current row. Shrinks toward SLOT_MIN as the row fills so ten
@@ -1126,11 +1319,14 @@ local function renderSlots()
 	-- What you are holding just changed (or might have): a stand's Take/Swap follows.
 	relabelStands()
 
-	-- The bomb bits follow the bag: a new slot needs its cooldown shade, the DROP button
+	-- The bomb bits follow the bag: a new slot needs its cooldown shade, the DROP tile
 	-- follows what is in your hands, and on touch (no hover) the card shows for it.
+	ui.dropTile.Size = UDim2.fromOffset(width, width)
 	paintCooldowns()
-	local held = itemByUid(selected)
-	ui.dropButton.Visible = UIKit.isTouch() and droppable(held)
+	-- Put down or swapped out the nuke the "are you sure?" was about: it no longer applies.
+	if confirmUid ~= nil and confirmUid ~= selected then
+		Inventory.cancelDrop()
+	end
 	if UIKit.isTouch() then
 		local heldSlot = nil
 		for _, slot in slots do
