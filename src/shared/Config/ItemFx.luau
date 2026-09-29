@@ -1256,24 +1256,55 @@ ItemFx.DEFS = {
 		glint = { parts = { "Shell", "IceBand" }, period = 4.5, sweep = 0.9, color = Color3.fromHex("DFF8FF"), strength = 1.4, stars = 4, starParts = { "Crystal" } },
 	},
 
-	-- Beehive Nuke. Honey glows and drips, and the bees circle the hive.
-	beehive_nuke = {
+	-- Tin Can Nuke. The fuse wick is lit: the spark fizzes and throws sparks,
+	-- the peeled lid rattles and the hazard badge pulses.
+	old_food_tin = {
 		finish = {
-			{ parts = { "Honey", "Drip" }, material = "Glass", color = Color3.fromHex("FFB21A"), transparency = 0.15 },
-			{ parts = { "Entrance" }, material = "Neon", color = Color3.fromHex("FF9A1A") },
+			{ parts = { "Spark", "SparkBit" }, material = "Neon", color = Color3.fromHex("FFB43A") },
+			{ parts = { "Opening" }, material = "Neon", color = Color3.fromHex("7CFF4A") },
 		},
-		light = { part = "Entrance", color = Color3.fromHex("FFB43A"), brightness = 1.2, range = 0.9 },
+		light = { part = "Spark", color = Color3.fromHex("FFA040"), brightness = 1.6, range = 0.9 },
 		particles = {
-			{ part = "Entrance", preset = "drift", color = Color3.fromHex("FFD24A"), rate = 3 },
+			{ part = "Spark", preset = "arcSpark", color = Color3.fromHex("FFC24A"), rate = 8 },
+			{ part = "Spark", preset = "smoke", color = Color3.fromHex("4A4448"), rate = 2 },
+			{ part = "Opening", preset = "drift", color = Color3.fromHex("9CFF6A"), rate = 3 },
 		},
 		spins = {
-			{ parts = { "BeeBody", "BeeStripe", "BeeWing" }, pivot = "Shell", axis = "Y", rpm = 14 },
+			{ parts = { "Lid", "LidEdge", "PullRing", "PullTab" }, pivot = "Rim1", axis = "Y", mode = "twitch", deg = 6, duration = 0.15, period = 2.5 },
+		},
+		anims = {
+			{ kind = "flicker", parts = { "Spark", "SparkBit" }, light = true, period = 0.15, min = 0.3, perPart = true },
+			{ kind = "pulse", parts = { "Opening" }, period = 2.2, min = 0.5 },
+		},
+		glint = { parts = { "Body", "Rib", "Rim" }, period = 4, sweep = 0.8, color = Color3.fromHex("FFFFFF"), strength = 1.4 },
+	},
+
+	-- Beehive Nuke. The honey runs glassy and glows, the drops glitter, the
+	-- entrance breathes warm light and the bees circle the skep.
+	beehive_nuke = {
+		finish = {
+			{ parts = { "HoneyDrip", "HoneyDrop", "HoneyPuddle", "DipperHoney", "HoneyCap" }, material = "Glass", color = Color3.fromHex("FFB21A"), transparency = 0.15 },
+			{ parts = { "Cell" }, material = "Glass", color = Color3.fromHex("FFC23A"), transparency = 0.1 },
+			{ parts = { "Entrance" }, material = "Neon", color = Color3.fromHex("FF9A1A") },
+			{ parts = { "BeeWing" }, material = "Glass", color = Color3.fromHex("E8F4FF"), transparency = 0.4 },
+		},
+		light = { part = "Entrance", color = Color3.fromHex("FFB43A"), brightness = 1.4, range = 1.0 },
+		particles = {
+			{ part = "Entrance", preset = "drift", color = Color3.fromHex("FFD24A"), rate = 4 },
+			{ part = "HoneyCap", preset = "sparkle", color = Color3.fromHex("FFE08A"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "BeeBody", "BeeHead", "BeeSting", "BeeStripe", "BeeWing" }, pivot = "Skep", axis = "Y", rpm = 14 },
+			{ parts = { "HoneyDrop" }, pivot = "HoneyDrop1", axis = "Y", mode = "bob", amp = 0.4, period = 2.4 },
 		},
 		anims = {
 			{ kind = "pulse", parts = { "Entrance" }, light = true, period = 2.6, min = 0.5 },
 			{ kind = "flicker", parts = { "BeeWing" }, mode = "transparency", period = 0.12, min = 0.2, perPart = true },
+			{ kind = "pulse", parts = { "Cell" }, period = 3.0, min = 0.6, stagger = true },
 		},
+		glint = { parts = { "HoneyDrip", "DipperHoney" }, period = 3.5, sweep = 0.7, color = Color3.fromHex("FFF0B0"), strength = 1.4 },
 	},
+
 
 	-- Kiln Nuke. The firebox glows through the open door, the coals smoulder, the
 	-- chimney smokes and the door creaks on its hinge.
@@ -1365,32 +1396,37 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Phoenix Nuke. The ember core beats, flames lick the shell, sparks glitter off
-	-- the wings and the wings beat.
+	-- Phoenix Nuke. Reborn in fire: the flame heart and nest burn, the flame
+	-- halo flickers round the bird, embers rise, the tail eyes glitter and the
+	-- crest glows.
 	phoenix_nuke = {
 		finish = {
-			{ parts = { "EmberCore" }, material = "Neon", color = Color3.fromHex("FFE08A") },
-			{ parts = { "FlameLick", "PlumeTip", "WingSpark" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+			{ parts = { "FlameHeart", "CrestCore" }, material = "Neon", color = Color3.fromHex("FFE08A") },
+			{ parts = { "BaseFlame", "HaloFlame", "FinFlame", "FireHalo" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+			{ parts = { "Ember" }, material = "Neon", color = Color3.fromHex("FFA040") },
+			{ parts = { "TailEye", "FeatherTipP" }, material = "Neon", color = Color3.fromHex("FFC23A") },
 		},
-		light = { part = "EmberCore", color = Color3.fromHex("FF8A2A"), brightness = 2.0, range = 1.2 },
+		light = { part = "FlameHeart", color = Color3.fromHex("FF8A2A"), brightness = 2.2, range = 1.3 },
 		particles = {
-			{ part = "EmberCore", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 10 },
-			{ part = "WingFeather", preset = "ember", color = Color3.fromHex("FFB040"), rate = 6 },
-			{ part = "TailPlume", preset = "sparkle", color = Color3.fromHex("FFE08A"), rate = 4 },
+			{ part = "FlameHeart", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 12 },
+			{ part = "AshNest", preset = "ember", color = Color3.fromHex("FFB040"), rate = 8 },
+			{ part = "CrestCore", preset = "sparkle", color = Color3.fromHex("FFE08A"), rate = 4 },
+			{ part = "AshNest", preset = "smoke", color = Color3.fromHex("3A3230"), rate = 2 },
 		},
 		spins = {
-			-- Each wing beats as one piece from its root covert: the coverts and sparks
-			-- ride along, or the feathers tear away from them mid-beat.
-			{ parts = { "WingFeather1*", "CovertFeather1*", "WingSpark1*" }, pivot = "CovertFeather11", axis = "Z", mode = "swing", deg = 12, period = 1.1 },
-			{ parts = { "WingFeather2*", "CovertFeather2*", "WingSpark2*" }, pivot = "CovertFeather21", axis = "Z", mode = "swing", deg = -12, period = 1.1 },
+			{ parts = { "HaloFlame", "FireHalo" }, pivot = "Body", axis = "Y", rpm = 10 },
+			{ parts = { "Ember" }, pivot = "Body", axis = "Y", rpm = -6 },
 		},
 		anims = {
-			{ kind = "flicker", parts = { "FlameLick", "PlumeTip" }, period = 0.3, min = 0.5, perPart = true },
-			{ kind = "heartbeat", parts = { "EmberCore" }, light = true, period = 1.6, min = 0.5 },
-			{ kind = "glitter", parts = { "WingSpark" }, period = 1.2, duration = 0.2 },
+			{ kind = "flicker", parts = { "BaseFlame", "HaloFlame", "FinFlame" }, period = 0.3, min = 0.5, perPart = true },
+			{ kind = "heartbeat", parts = { "FlameHeart", "CrestCore" }, light = true, period = 1.6, min = 0.5 },
+			{ kind = "glitter", parts = { "TailEye", "Ember" }, period = 1.2, duration = 0.2 },
+			{ kind = "smoulder", parts = { "FeatherTipP" }, period = 2.4, min = 0.5 },
 		},
-		glint = { parts = { "GoldBand", "CoreRim" }, period = 3.5, sweep = 0.7, color = Color3.fromHex("FFF0B0"), strength = 1.6 },
+		glint = { parts = { "GoldBand", "Crest", "TailEyeRing" }, period = 3.5, sweep = 0.7, color = Color3.fromHex("FFF0B0"), strength = 1.6 },
+		ping = { part = "FlameHeart", color = Color3.fromHex("FF8A2A"), period = 3.4 },
 	},
+
 
 	-- Eclipse Nuke. A black void core ringed by a corona: the rays pulse in turn,
 	-- the flare arcs crackle and the shards orbit the halo.
