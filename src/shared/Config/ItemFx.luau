@@ -1688,7 +1688,7 @@ ItemFx.DEFS = {
 	},
 
 	-- Kraken Nuke. The Anomaly: a huge eye watching through an armoured mantle. The
-	-- eye glows and its lid twitches, the core window beats, ink clouds and spray
+	-- eye glows and its lid twitches, the core window beats, spray
 	-- swirl round it, drips fall, the horn tips chase and lightning arcs from the
 	-- core window to the eye.
 	kraken_nuke = {
@@ -1698,19 +1698,17 @@ ItemFx.DEFS = {
 			{ parts = { "EyeIris", "SideIris" }, material = "Neon", color = Color3.fromHex("FF8A1A") },
 			{ parts = { "CoreWindow", "GlowBand", "FinStripe" }, material = "Neon", color = Color3.fromHex("3AFFC8") },
 			{ parts = { "HornTip" }, material = "Neon", color = Color3.fromHex("8A5AFF") },
-			{ parts = { "InkCloud" }, material = "SmoothPlastic", color = Color3.fromHex("120A1E"), transparency = 0.35 },
 			{ parts = { "Spray", "Drip" }, material = "Glass", color = Color3.fromHex("9AE8FF"), transparency = 0.3 },
 		},
 		light = { part = "CoreWindow", color = Color3.fromHex("3AFFC8"), brightness = 2.6, range = 1.4 },
 		particles = {
 			{ part = "CoreWindow", preset = "shrinkMotes", color = Color3.fromHex("9AFFE8"), rate = 12 },
-			{ part = "InkCloud", preset = "smoke", color = Color3.fromHex("1A1028"), rate = 5 },
+			{ part = "Mantle", preset = "smoke", color = Color3.fromHex("1A1028"), rate = 5 },
 			{ part = "Spray", preset = "drift", color = Color3.fromHex("DDF6FF"), rate = 6 },
 			{ part = "HornTip", preset = "sparkle", color = Color3.fromHex("C0A0FF"), rate = 4 },
 			{ part = "EyeBall", preset = "arcSpark", color = Color3.fromHex("FFD27A"), rate = 2 },
 		},
 		spins = {
-			{ parts = { "InkCloud" }, pivot = "Mantle", axis = "Y", rpm = 8 },
 			{ parts = { "Spray" }, pivot = "Mantle", axis = "Y", rpm = -5 },
 			{ parts = { "Drip" }, pivot = "Drip1", axis = "Y", mode = "bob", amp = 0.5, period = 1.3 },
 			{ parts = { "EyeLid" }, pivot = "EyeBall", axis = "X", mode = "twitch", deg = 30, period = 4.5, duration = 0.25 },
