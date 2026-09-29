@@ -74,6 +74,13 @@ function Bombing.statsFor(item: any): Stats
 	}
 end
 
+--- What a typical copy of one nuke does as a bomb (the Index's AVG cells): its rarity's
+--- stars at a neutral size roll, no modifier, no per-uid variance.
+function Bombing.averageFor(item: any): (number, number)
+	local stars = math.max(1, Rarity.stars(item.rarity, nil, 1))
+	return Cfg.DAMAGE[stars], Cfg.RADIUS[stars]
+end
+
 --- Can this item be dropped as a bomb? Clean nukes only: a crusted lump is still a
 --- "???" find, and a crate is not a nuke. `clean` is passed in because the two sides
 --- know it differently (the server from Contamination, the hotbar from `describe`).
