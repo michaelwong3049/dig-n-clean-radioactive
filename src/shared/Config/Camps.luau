@@ -81,15 +81,15 @@ local Camps = {}
 --- here, so it is read off the stage rather than typed twice.
 local CRATER_EAST_X = select(3, Stages.bounds(6))
 
---- How far east of the Crater's edge the disc's centre sits. With a 150 floor radius
---- the disc's chord at the clip line is ~102 wide either side of z = 0 -- a little past
+--- How far east of the Crater's edge the disc's centre sits. With a 225 floor radius (1.5x the first cut, on request)
+--- the disc's chord at the clip line is ~153 wide either side of z = 0 -- a little past
 --- the corridor walls (z = +-89), so two short shoulder walls close the gap the same
 --- way Base Camp's shoulders meet Stage 1 (build/Scenery buildCampWallLayer).
-local TWILIGHT_CENTRE_OFFSET = 110
+local TWILIGHT_CENTRE_OFFSET = 165
 
 --- THE WAY ON EAST, ON REQUEST: the disc is cut off at the mirror of the Crater's clip
 --- line, so the next stage opens out of the camp through a mouth exactly as wide as the
---- one the Crater opens in by. Stage 7's west edge belongs here (x = 2060); until it is
+--- one the Crater opens in by. Stage 7's west edge belongs here (x = 2170); until it is
 --- built, build/CampSite stands a COMING SOON barricade across the mouth.
 local TWILIGHT_EXIT_X = CRATER_EAST_X + 2 * TWILIGHT_CENTRE_OFFSET
 
@@ -136,9 +136,9 @@ Camps.DEFS = {
 			accent = "C084FC",
 		},
 		center = { CRATER_EAST_X + TWILIGHT_CENTRE_OFFSET, 0 },
-		-- About 65% of Base Camp's ring (Plots.RING_OUTER 230). There are no plots here,
+		-- Near Base Camp's ring (Plots.RING_OUTER 230); 1.5x the first cut, lawn only. There are no plots here,
 		-- only the plaza, the stalls, the trader and one shared cleansing station.
-		radius = 150,
+		radius = 225,
 		clipX = CRATER_EAST_X,
 		exitX = TWILIGHT_EXIT_X,
 		mergeReactor = true,
