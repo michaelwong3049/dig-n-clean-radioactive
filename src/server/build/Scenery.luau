@@ -102,13 +102,13 @@ local QuarantineCordon = require(script.Parent.QuarantineCordon)
 local CinderField = require(script.Parent.CinderField)
 local CobaltShelf = require(script.Parent.CobaltShelf)
 local GlassBarrens = require(script.Parent.GlassBarrens)
-local SulfurFlats = require(script.Parent.SulfurFlats)
+local CrystalCaves = require(script.Parent.CrystalCaves)
 local BloodrockRift = require(script.Parent.BloodrockRift)
 local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 48
+local BUILDER_VERSION = 49
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -714,8 +714,8 @@ end
 ---            shared build/BiomeKit: Cinder Fields (build/CinderField, charred snags
 ---            and ember beds), Cobalt Shelf (build/CobaltShelf, terraced ledges, cobalt
 ---            crystals, coolant puddles, a derelict ore cart), Glass Barrens
----            (build/GlassBarrens, trinitite spires, fused pools, fulgurites), Sulfur
----            Flats (build/SulfurFlats, steaming fumaroles, acid pools, hex crust),
+---            (build/GlassBarrens, trinitite spires, fused pools, fulgurites), Toxic
+---            Crystal Caves (build/CrystalCaves, rock arches, crystal clusters, geodes),
 ---            Bloodrock Rift (build/BloodrockRift, the glowing fissure, spires, basalt)
 ---            and Ground Zero (build/GroundZero, the tower footings and bomb casing at
 ---            the hypocentre, lava pools and flows). Each runs off its own seed and
@@ -808,7 +808,7 @@ local THEME: { [number]: StageTheme } = {
 	[7] = { props = 0, pools = 0, kind = "cinders", scatter = true },
 	[8] = { props = 0, pools = 0, kind = "cobalt", scatter = true },
 	[9] = { props = 0, pools = 0, kind = "glass", scatter = true },
-	[10] = { props = 0, pools = 0, kind = "sulfur", scatter = true },
+	[10] = { props = 0, pools = 0, kind = "crystal", scatter = true },
 	[11] = { props = 0, pools = 0, kind = "rift", scatter = true },
 	[12] = { props = 0, pools = 0, kind = "hypocentre", scatter = true },
 }
@@ -819,7 +819,7 @@ local FAR_BIOMES: { [number]: { build: (Instance, number, number) -> () } } = {
 	[7] = CinderField,
 	[8] = CobaltShelf,
 	[9] = GlassBarrens,
-	[10] = SulfurFlats,
+	[10] = CrystalCaves,
 	[11] = BloodrockRift,
 	[12] = GroundZero,
 }

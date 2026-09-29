@@ -2,7 +2,7 @@
 --[[
 	BiomeKit.luau — the shared parts and placement helpers for the far biomes, Stages 7-12.
 
-	    used by build/CinderField, CobaltShelf, GlassBarrens, SulfurFlats, BloodrockRift
+	    used by build/CinderField, CobaltShelf, GlassBarrens, CrystalCaves, BloodrockRift
 	    and GroundZero, each called from build/Scenery's buildStageScenery -- and by
 	    Stage 3's build/WasteDump, which keeps the same rules minus the glow
 
@@ -19,7 +19,7 @@
 	glows are smooth.
 
 	GLOW, ON REQUEST FOR THE FAR BIOMES ONLY: Neon is allowed on the HOT bits — embers,
-	lava, the rift's floor, acid, coolant — and nothing else. Lights are few (`glow`),
+	lava, the rift's floor, acid, coolant, crystal — and nothing else. Lights are few (`glow`),
 	shadows off, the same call every light on a field makes. Particles are few and slow
 	(`smoke`), the budget Stage 6's crater vents set.
 ]]
