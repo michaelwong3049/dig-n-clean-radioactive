@@ -39,8 +39,26 @@ local function renormalise(model: Model)
 	local longest = math.max(size.X, size.Y, size.Z)
 	model:ScaleTo(model:GetScale() * (NATURAL_SIZE / longest))
 end
+-- The Big One (unlabeled_cylinder): GroundPlate and its cracks pulled in 15%
+-- toward the centre, so the nuke above them scales up a touch.
+local bigOne = templates.unlabeled_cylinder
+if not bigOne:GetAttribute("BaseShrunk") then
+	local BIG_ONE_BASE = 0.85
+	local centre = bigOne:GetBoundingBox()
+	for _, p in bigOne:GetDescendants() do
+		if p:IsA("BasePart") and (p.Name == "GroundPlate" or p.Name:match("^GroundCrack%d+$")) then
+			local rel = centre:ToObjectSpace(p.CFrame)
+			local pos = rel.Position
+			p.Size = Vector3.new(p.Size.X * BIG_ONE_BASE, p.Size.Y, p.Size.Z * BIG_ONE_BASE)
+			p.CFrame = centre * CFrame.new(pos.X * BIG_ONE_BASE, pos.Y, pos.Z * BIG_ONE_BASE) * (rel - pos)
+		end
+	end
+	bigOne:SetAttribute("BaseShrunk", true)
+end
+
 renormalise(ashen)
 renormalise(inferno)
+renormalise(bigOne)
 
 local _, infernoSize = inferno:GetBoundingBox()
 print(`[tweak-stage7-nukes] ashen: removed {removed} heaps; inferno scale {inferno:GetScale()} size {infernoSize}`)

@@ -1419,7 +1419,7 @@ ItemFx.DEFS = {
 	},
 
 	-- Inferno Nuke. The Anomaly: a white-hot core breaking through its shell,
-	-- fireballs circling, fins wheeling, horns swaying, eruption pillars pumping,
+	-- fireballs circling, fins wheeling, horns swaying, chains rippling,
 	-- drips and embers bobbing, lava glowing and shockwaves rolling out.
 	inferno_nuke = {
 		finish = {
@@ -1442,16 +1442,7 @@ ItemFx.DEFS = {
 			{ parts = { "FireFin", "FinFlame" }, pivot = "ShellSegment1", axis = "Y", rpm = 10 },
 			{ parts = { "Horn1", "HornVein1", "HornFlame1" }, pivot = "Horn1", axis = "Z", mode = "swing", deg = 6, period = 2.2 },
 			{ parts = { "Horn2", "HornVein2", "HornFlame2" }, pivot = "Horn2", axis = "Z", mode = "swing", deg = -6, period = 2.2 },
-			{ parts = { "EruptionPillar1", "PillarTip1" }, pivot = "EruptionPillar1", axis = "Y", mode = "bob", amp = 0.25, period = 1.4 },
-			{ parts = { "EruptionPillar2", "PillarTip2" }, pivot = "EruptionPillar2", axis = "Y", mode = "bob", amp = 0.2, period = 1.4, phase = 0.2 },
-			{ parts = { "EruptionPillar3", "PillarTip3" }, pivot = "EruptionPillar3", axis = "Y", mode = "bob", amp = 0.15, period = 1.4, phase = 0.4 },
-			{ parts = { "EruptionPillar4", "PillarTip4" }, pivot = "EruptionPillar4", axis = "Y", mode = "bob", amp = 0.25, period = 1.4, phase = 0.6 },
-			{ parts = { "EruptionPillar5", "PillarTip5" }, pivot = "EruptionPillar5", axis = "Y", mode = "bob", amp = 0.2, period = 1.4, phase = 0.8 },
-			-- The black chains round the nuke rise and fall, anchors and all, in turn.
-			{ parts = { "ChainLink1_*", "Anchor1", "AnchorGlow1" }, pivot = "Anchor1", axis = "Y", mode = "bob", amp = 1.2, period = 2.4 },
-			{ parts = { "ChainLink2_*", "Anchor2", "AnchorGlow2" }, pivot = "Anchor2", axis = "Y", mode = "bob", amp = 1.2, period = 2.4, phase = 0.25 },
-			{ parts = { "ChainLink3_*", "Anchor3", "AnchorGlow3" }, pivot = "Anchor3", axis = "Y", mode = "bob", amp = 1.2, period = 2.4, phase = 0.5 },
-			{ parts = { "ChainLink4_*", "Anchor4", "AnchorGlow4" }, pivot = "Anchor4", axis = "Y", mode = "bob", amp = 1.2, period = 2.4, phase = 0.75 },
+			-- (The chains are appended link by link below the table.)
 			{ parts = { "MoltenDrip" }, pivot = "MoltenDrip1", axis = "Y", mode = "bob", amp = 0.4, period = 1.0 },
 			{ parts = { "Ember" }, pivot = "Ember1", axis = "Y", mode = "bob", amp = 4, period = 3.0 },
 		},
@@ -1464,6 +1455,34 @@ ItemFx.DEFS = {
 		ping = { part = "ScorchedGround", color = Color3.fromHex("FF6A1A"), period = 2.8 },
 	},
 } :: { [string]: ItemFxDef }
+
+-- Inferno's four black chains sway like hanging chain: each link bobs on its own,
+-- a wave running from the shell down to the anchor, the top link barely moving and
+-- the anchor end moving most. Every group pivots on the chain's anchor so `amp`
+-- means the same distance whatever each link's own thickness.
+do
+	local spins = ItemFx.DEFS.inferno_nuke.spins :: { any }
+	local LINKS = 11
+	for chain = 1, 4 do
+		local anchor = `Anchor{chain}`
+		for link = 1, LINKS do
+			local parts = { `ChainLink{chain}_{link}` }
+			if link == LINKS then
+				table.insert(parts, anchor)
+				table.insert(parts, `AnchorGlow{chain}`)
+			end
+			table.insert(spins, {
+				parts = parts,
+				pivot = anchor,
+				axis = "Y",
+				mode = "bob",
+				amp = 0.2 + 1.0 * (link - 1) / (LINKS - 1),
+				period = 2.4,
+				phase = (chain - 1) * 0.27 - link * 0.05,
+			})
+		end
+	end
+end
 
 --- The same effects on a supply crate's imported model (Assets.CrateTemplates), keyed
 --- `crate_<crateId>`. Kept apart from DEFS: Spec checks every DEFS key is a nuke.
