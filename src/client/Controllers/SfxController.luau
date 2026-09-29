@@ -41,7 +41,7 @@ local SfxController = {}
 --- A health drop at least this big between two ExposureState payloads is a hit (a
 --- blast, a crater), not the steady sickness drain, which is a few HP a second.
 local HURT_DROP = 8
-local SPAWN_SETTLE = 1.5
+
 
 --- Heartbeat interval at the drain line (80%) and at a full meter.
 local BEAT_SLOW, BEAT_FAST = 1.0, 0.45
