@@ -85,7 +85,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 18
+local BUILDER_VERSION = 21
 
 local C = Kit.C
 local build = Kit.build
@@ -109,45 +109,45 @@ local SLAB_BAND = 2
 --- The octagon, from the plaza centre. HALF is 4k + 2 and DIAG a multiple of 4 -- the
 --- same rule Hub's own octagon follows (see PLAZA_OCT_* there), so the axis sides fall
 --- on tile lines and the diagonals run corner to corner through the cells they cut.
---- 70 * sqrt 2 = 99, so 100 is near-regular.
-local OCT_HALF = 70
-local OCT_DIAG = 100
+--- 110 * sqrt 2 = 155.6, so 156 is near-regular. Grown from 70 on request.
+local OCT_HALF = 110
+local OCT_DIAG = 156
 
 --- Half-width of the gate paths: in from the stage on the west, and north up to the
 --- wash deck. 10 either side of centre lands both edges on tile lines.
 local PATH_HALF = 10
 
 --- The paver square, from the plaza centre. Both edges on tile lines; a one-tile kerb.
-local SHOP_HALF_X, SHOP_HALF_Z = 42, 38
+--- Grown from 42 x 38 on request, then trimmed a little from 78.
+local SHOP_HALF_X, SHOP_HALF_Z = 66, 66
 
---- Two rows of storefronts facing each other across the aisle, the Base Camp read:
---- the north row faces south, the south row faces north with the trader in its middle.
---- Stall shells' footprint runs local z -11.25..+2.75 (Shops.buildStallShell), so at
---- ROW_Z = 22 each row stays inside the square with the aisle between them ~38 wide.
-local ROW_Z = 22
+--- The trader stands at the square's middle with the four shops pinwheeled around it on
+--- the diagonals, each facing the kiosk (buildStalls). Slot order = SLOT_ANGLES order;
+--- angles are compass bearings off +Z (north), clockwise toward +X (east).
+local SLOT_TRACKS = { "Aura", "Detector", "Cleaner", "Magnet" }
+local SLOT_ANGLES = { -45, 45, 135, -135 } -- NW, NE, SE, SW
+--- Ring radius = widest shop's half-width + this, so neighbours' front corners never meet.
+local RING_AISLE = 28
 local STALL_WIDTH = 24
-local NORTH_STALL_X = { -15, 15 }
-local SOUTH_STALL_X = { -26, 26 }
-local TRADER_Z = -26 -- the kiosk's deck is 13 deep, so its front lines up with the row
-local TRADER_HALF_X = 8.5 -- BaseCamp.buildTrader's deck is 17 wide
-local TRADER_CLEARANCE = 1 -- walkable gap between the kiosk and a working stall beside it
 local STALL_LABEL = "COMING SOON"
+--- How far west of the kiosk a warp lands you.
+local ANCHOR_WEST = 70
 
 --- The wash deck, north of the octagon, one plot-pad step (1.5) above the lawn so the
 --- cleansing station stands at the height it was built for (Plots.PAD.topY). The bay
 --- sits far enough back that WashService's big-lump stand-off (up to ~14 in front of
 --- the tub) still lands the player on the deck.
 local DECK_HALF_X = 22
-local DECK_MIN_Z, DECK_MAX_Z = 74, 106
+local DECK_MIN_Z, DECK_MAX_Z = 114, 146
 local DECK_THICKNESS = 3
-local BAY_Z = 94
+local BAY_Z = 134
 
 --- The Merge Reactor's deck, the wash deck's mirror image south of the octagon, on a
 --- south path of its own. The machine stands at the deck's back half facing north, so
 --- the reach of its E (MergeReactor.RADIUS) is all on the deck in front of it.
 local MERGE_DECK_HALF_X = 18
-local MERGE_DECK_MIN_Z, MERGE_DECK_MAX_Z = 74, 106
-local MERGE_Z = 94
+local MERGE_DECK_MIN_Z, MERGE_DECK_MAX_Z = 114, 146
+local MERGE_Z = 134
 
 --- The perimeter wall. Height matches the stage corridor's (Scenery WALL_HEIGHT), so
 --- the shoulder meets the Crater's wall flush.
@@ -732,72 +732,63 @@ local function buildStalls(parent: Instance, L: Layout)
 	local folder = Instance.new("Folder")
 	folder.Name = "Stalls"
 	local accents = L.palette.awnings
-	local i = 0
-	local function stall(dx: number, dz: number, yaw: number)
-		i += 1
-		local origin = CFrame.new(L.ox + dx, PLAZA_Y, L.oz + dz) * CFrame.Angles(0, math.rad(yaw), 0)
-		Shops.buildStallShell(folder, origin, STALL_WIDTH, accents[(i - 1) % #accents + 1], STALL_LABEL)
-	end
-	-- North row faces south (yaw 180), south row faces north (yaw 0), across the aisle.
-	--
-	-- THE NORTH ROW IS THE DETECTOR SHOP, when Config/Gear sells any detector rung at this
-	-- camp (`camp` on the row). It is one stall where two shells stood: a ladder of six
-	-- makes a stall ~37 studs wide (Shops.campStallWidth), and the two shells' 24-stud
-	-- slots (NORTH_STALL_X) only hold ~54 between them, so it takes both and stands at the
-	-- row's middle. A camp Config/Gear sells nothing at keeps its shells.
-	if #Gear.tiersAt("Detector", L.def.key) > 0 then
-		-- THE AURA SHOP STANDS BESIDE IT, west, when Config/Gear sells any aura rung at
-		-- this camp: the Outfitter's own building (a mannequin per aura rung), one
-		-- `gap` off the Detector Shop's west end, on the side you arrive from.
-		-- Since the mannequin row (2026-09-27) the pair is too wide to leave the Detector
-		-- Shop centred, so the two are centred on the row as one block, and the block has
-		-- to stay on the paver square.
-		local detectorWidth = Shops.campStallWidth("Detector", L.def.key)
-		local auraWidth = if #Gear.tiersAt("Aura", L.def.key) > 0 then Shops.campOutfitterWidth(L.def.key) else 0
-		local gap = TRADER_CLEARANCE + 1 -- a stud more, so the two roofs' edge caps do not touch
-		local total = detectorWidth + (if auraWidth > 0 then gap + auraWidth else 0)
-		local west = -total / 2
-		assert(west >= -SHOP_HALF_X, `{L.def.key}'s north row runs off the paver square (west end {west})`)
-		local detectorX = west + total - detectorWidth / 2
-		local origin = CFrame.new(L.ox + detectorX, PLAZA_Y, L.oz + ROW_Z) * CFrame.Angles(0, math.rad(180), 0)
-		Shops.buildCampStall(folder, origin, "Detector", L.def.key)
-		-- The two shells it replaced would have taken the first two awnings; skip them so
-		-- the south row keeps the colours it had.
-		i += #NORTH_STALL_X
 
-		if auraWidth > 0 then
-			local auraOrigin = CFrame.new(L.ox + west + auraWidth / 2, PLAZA_Y, L.oz + ROW_Z) * CFrame.Angles(0, math.rad(180), 0)
-			Shops.buildCampOutfitter(folder, auraOrigin, L.def.key)
-		end
-	else
-		for _, dx in NORTH_STALL_X do
-			stall(dx, ROW_Z, 180)
+	-- THE PINWHEEL, ON REQUEST: the trader stands alone at the middle of the square and
+	-- the four shops ring it on the diagonals, each turned to face the kiosk. A slot sells
+	-- its track when Config/Gear sells any rung of it at this camp, else it is a shell.
+	type Slot = { width: number, build: (origin: CFrame) -> () }
+	local slots: { Slot } = {}
+	for i, track in SLOT_TRACKS do
+		local accent = accents[(i - 1) % #accents + 1]
+		local shopColor = L.palette.shopColors and L.palette.shopColors[track]
+		if #Gear.tiersAt(track, L.def.key) > 0 then
+			if track == "Aura" then
+				table.insert(slots, {
+					width = Shops.campOutfitterWidth(L.def.key),
+					build = function(origin)
+						Shops.buildCampOutfitter(folder, origin, L.def.key, shopColor)
+					end,
+				})
+			else
+				table.insert(slots, {
+					width = Shops.campStallWidth(track, L.def.key),
+					build = function(origin)
+						Shops.buildCampStall(folder, origin, track, L.def.key, shopColor)
+					end,
+				})
+			end
+		else
+			table.insert(slots, {
+				width = STALL_WIDTH,
+				build = function(origin)
+					Shops.buildStallShell(folder, origin, STALL_WIDTH, accent, STALL_LABEL)
+				end,
+			})
 		end
 	end
-	-- THE SOUTH-WEST SLOT IS THE MAGNET SHOP, when Config/Gear sells any magnet rung at
-	-- this camp. A ladder of five is ~33 studs, wider than the 24-stud shell it replaces,
-	-- and the kiosk sits east of it, so it grows WEST: its centre moves just far enough
-	-- out that its east end keeps TRADER_CLEARANCE off the kiosk's deck.
-	--
-	-- THE SOUTH-EAST SLOT IS THE HOSE SHOP, the mirror image: it grows EAST off the kiosk.
-	for slot, dx in SOUTH_STALL_X do
-		local track = if slot == 1 then "Magnet" else "Cleaner"
-		if #Gear.tiersAt(track, L.def.key) > 0 then
-			local half = Shops.campStallWidth(track, L.def.key) / 2
-			local reach = TRADER_HALF_X + TRADER_CLEARANCE + half
-			local x = if dx < 0 then math.min(dx, -reach) else math.max(dx, reach)
-			Shops.buildCampStall(folder, CFrame.new(L.ox + x, PLAZA_Y, L.oz - ROW_Z), track, L.def.key)
-			-- Skip the shell's awning colour too, so any shell after it keeps its own.
-			i += 1
-		else
-			stall(dx, -ROW_Z, 0)
-		end
+
+	-- One ring distance for all four, far enough out that the widest shop's front corners
+	-- clear its neighbours' and the kiosk with an aisle to spare.
+	local widest = 0
+	for _, slot in slots do
+		widest = math.max(widest, slot.width)
+	end
+	local ring = widest / 2 + RING_AISLE
+	for i, slot in slots do
+		local angle = math.rad(SLOT_ANGLES[i])
+		local dx, dz = math.sin(angle) * ring, math.cos(angle) * ring
+		-- A shop's customer side is local +Z; turn it to point back at the kiosk.
+		local yaw = math.atan2(-dx, -dz)
+		local reach = (slot.width / 2 + 12) / math.sqrt(2) + math.abs(dx)
+		assert(reach <= SHOP_HALF_X, `{L.def.key}'s {SLOT_TRACKS[i]} shop runs off the paver square ({reach})`)
+		slot.build(CFrame.new(L.ox + dx, PLAZA_Y, L.oz + dz) * CFrame.Angles(0, yaw, 0))
 	end
 	folder.Parent = parent
 
 	-- The kiosk's frame is the camp datum, 0.9 above the unlifted floor (see
-	-- BaseCamp.buildTrader); unrotated, so its counter faces north across the aisle.
-	BaseCamp.buildTrader(parent, CFrame.new(L.ox, FLOOR_Y + 0.9, L.oz + TRADER_Z))
+	-- BaseCamp.buildHubTrader); dead centre. Base Camp's four-sided kiosk, on request, so
+	-- it sells to every shop around it.
+	BaseCamp.buildHubTrader(parent, CFrame.new(L.ox, FLOOR_Y + 0.9, L.oz))
 end
 
 local function buildWashDeck(parent: Instance, L: Layout)
@@ -855,11 +846,12 @@ local function buildMergeDeck(parent: Instance, L: Layout)
 	MergeReactor.build(parent, CFrame.new(L.ox, deckTop, L.oz - MERGE_Z), L.def.key)
 end
 
---- Where WarpService puts you: the middle of the aisle between the two stall rows.
+--- Where WarpService puts you: on the west path, between the plaza's west edge and the
+--- pinwheel (the kiosk now owns the middle).
 local function buildAnchor(parent: Instance, L: Layout)
 	local anchor = build(parent, CFrame.new(0, 0, 0), {
 		name = CampSite.ANCHOR_NAME,
-		pos = { L.ox, PLAZA_Y + 0.5, L.oz },
+		pos = { L.ox - ANCHOR_WEST, PLAZA_Y + 0.5, L.oz },
 		size = { 4, 1, 4 },
 		color = C.cyan,
 		material = "SmoothPlastic",

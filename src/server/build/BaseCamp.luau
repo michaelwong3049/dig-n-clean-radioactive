@@ -502,8 +502,8 @@ end
 --- counter. Hub rings the respawn points round it just outside that radius, so waking
 --- up or warping in does not drop you straight into the sell panel.
 ---
---- `kiosk` is the kiosk's centre on the camp datum, like `buildTrader`'s. The site camps
---- keep the one-sided `buildTrader` in their shop rows.
+--- `kiosk` is the kiosk's centre on the camp datum, like `buildTrader`'s. Toxic Twilight
+--- uses it too, at the middle of its shop pinwheel (build/CampSite).
 local HUB_TRADER_HALF = 7.5 -- half the deck; the counters' outer faces sit just inside it
 -- The sell radius reaches the ground square's corners (OUTLINE_HALF * sqrt 2 ~ 15.6),
 -- so anywhere inside the painted square is close enough to trade.
