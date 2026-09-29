@@ -3510,8 +3510,7 @@ end
 --- side. The rails are rotated straight parts, not a staircase of little bars
 --- (memory: straight-edges-over-pixel-stairs). Outside the fence: a landing at the
 --- foot (in front of the fence gate) and one at the head (beside the deck's opening),
---- railed on their open sides, and a support post down to the apron under each
---- floating landing's outer corners.
+--- railed on their open sides. No support posts under them (removed on request).
 local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
 	local m = Instance.new("Model")
 	m.Name = "Stairs"
@@ -3519,7 +3518,7 @@ local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
 	local sd = flightSide(fromFloor)
 	local x = sd * STAIR_X
 	local topY = baseY + Floors.HEIGHT
-	local groundY = Plots.PAD.topY - 1.5 -- the apron the landings' posts stand on
+	local groundY = Plots.PAD.topY - 1.5 -- the apron the ground flight's foot block stands on
 
 	-- The landings. The foot of the ground flight is a solid block down to the apron.
 	local slab = FLOOR.thick
@@ -3533,18 +3532,6 @@ local function buildFlight(parent: Instance, origin: CFrame, fromFloor: number)
 			material = "Plastic",
 			studs = true,
 		})
-		if not solid then
-			for _, pz in { z0 + 0.5, z1 - 0.5 } do
-				build(m, origin, {
-					name = "LandingPost",
-					pos = { sd * (STAIR_OUT - 0.5), (groundY + y - slab) / 2, pz },
-					size = { 0.8, y - slab - groundY, 0.8 },
-					color = C.standGreyDark,
-					material = "Plastic",
-					studs = true,
-				})
-			end
-		end
 	end
 	landing("FootLanding", baseY, FOOT_GATE.z0, FOOT_GATE.z1, fromFloor == 1)
 	landing("HeadLanding", topY, FLIGHT_TOP_Z, Plots.PAD.maxZ, false)
