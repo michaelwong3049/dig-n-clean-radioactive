@@ -1726,6 +1726,258 @@ ItemFx.DEFS = {
 		},
 		ping = { part = "Mantle", color = Color3.fromHex("3AFFC8"), period = 3.0 },
 	},
+
+	-- ── Stage 9: Glass Barrens (batch 18) ──
+
+	-- Thermos Nuke. Steam curls off the spout, the gauge needle twitches.
+	thermos_nuke = {
+		particles = {
+			{ part = "Spout", preset = "steam", color = Color3.fromHex("F2F6FA"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "GaugeNeedle" }, pivot = "GaugeFace", axis = "Z", mode = "twitch", deg = 25, period = 2.4, duration = 0.3 },
+			{ parts = { "Steam" }, pivot = "Steam1", axis = "Y", mode = "bob", amp = 0.6, period = 2.2 },
+		},
+	},
+
+	-- Traffic Cone Nuke. The warning lamp blinks amber and the reflective bands catch light.
+	traffic_cone_nuke = {
+		finish = {
+			{ parts = { "WarnLamp" }, material = "Neon", color = Color3.fromHex("FFB21A") },
+			{ parts = { "ReflectBand" }, reflectance = 0.4 },
+		},
+		light = { part = "WarnLamp", color = Color3.fromHex("FFB21A"), brightness = 1.2, range = 0.9 },
+		anims = {
+			{ kind = "blink", parts = { "WarnLamp" }, light = true, period = 1.0, duty = 0.5, min = 0.15 },
+		},
+		glint = { parts = { "ReflectBand" }, period = 4, sweep = 0.7, color = Color3.fromHex("FFFFFF"), strength = 1.3 },
+	},
+
+	-- Stained Glass Nuke. The panes turn to lit glass and the rose window turns slowly.
+	stained_glass_nuke = {
+		finish = {
+			{ parts = { "Pane", "FinPane" }, transparency = 0.25 },
+			{ parts = { "RosePetal", "RoseCenter" }, material = "Neon", color = Color3.fromHex("FF6A9A") },
+		},
+		light = { part = "Core", color = Color3.fromHex("FFD9A0"), brightness = 1.2, range = 0.9 },
+		spins = {
+			{ parts = { "RosePetal", "RoseCenter" }, pivot = "RoseCenter", axis = "Z", rpm = 3 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "RosePetal", "RoseCenter" }, light = true, period = 3.2, min = 0.55, stagger = true },
+		},
+	},
+
+	-- Robot Nuke. Eyes glow, chest lights chase, dial needles twitch, antenna blinks.
+	robot_nuke = {
+		finish = {
+			{ parts = { "Eye", "EarLight" }, material = "Neon", color = Color3.fromHex("5AE8FF") },
+			{ parts = { "ChestLight" }, material = "Neon", color = Color3.fromHex("7AFF6A") },
+			{ parts = { "AntennaBall" }, material = "Neon", color = Color3.fromHex("FF4A4A") },
+		},
+		light = { part = "Visor", color = Color3.fromHex("5AE8FF"), brightness = 1.0, range = 0.8 },
+		spins = {
+			{ parts = { "DialNeedle1" }, pivot = "Dial1", axis = "Z", mode = "twitch", deg = 30, period = 2.0, duration = 0.25 },
+			{ parts = { "DialNeedle2" }, pivot = "Dial2", axis = "Z", mode = "twitch", deg = -30, period = 2.6, duration = 0.25 },
+			{ parts = { "DialNeedle3" }, pivot = "Dial3", axis = "Z", mode = "twitch", deg = 30, period = 3.1, duration = 0.25 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "Eye", "EarLight" }, light = true, period = 2.8, min = 0.5 },
+			{ kind = "blink", parts = { "ChestLight" }, period = 1.2, duty = 0.4, min = 0.2, stagger = true },
+			{ kind = "blink", parts = { "AntennaBall" }, period = 1.6, duty = 0.3, min = 0.2 },
+		},
+	},
+
+	-- Geode Nuke. The cavity crystals glow amethyst and glitter inside the rind.
+	geode_nuke = {
+		finish = {
+			{ parts = { "Crystal", "NoseCrystal", "NoseCrystalMain", "FinCrystal", "HalfCrystal" }, material = "Glass", color = Color3.fromHex("B06AFF"), transparency = 0.15 },
+			{ parts = { "CavityGlow", "CrackSeam" }, material = "Neon", color = Color3.fromHex("C88AFF") },
+		},
+		light = { part = "CavityGlow", color = Color3.fromHex("B06AFF"), brightness = 1.4, range = 1.0 },
+		particles = {
+			{ part = "Cavity", preset = "sparkle", color = Color3.fromHex("E8C8FF"), rate = 4 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "CavityGlow", "CrackSeam" }, light = true, period = 3.0, min = 0.4 },
+			{ kind = "glitter", parts = { "Crystal" }, period = 2.5, duration = 0.25 },
+		},
+	},
+
+	-- Lava Lamp Nuke. Molten blobs rise and sink in a glowing globe, stars orbit.
+	lava_lamp_nuke = {
+		finish = {
+			{ parts = { "Globe" }, material = "Glass", transparency = 0.45 },
+			{ parts = { "Blob", "PoolBlob", "EscapeBlob", "Drip" }, material = "Neon", color = Color3.fromHex("FF5A2A") },
+			{ parts = { "BaseGlow", "FuzeGlow", "LightSpot" }, material = "Neon", color = Color3.fromHex("FFB23A") },
+		},
+		light = { part = "Globe", color = Color3.fromHex("FF6A2A"), brightness = 1.8, range = 1.1 },
+		particles = {
+			{ part = "Fuze", preset = "ember", color = Color3.fromHex("FFA040"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "Blob" }, pivot = "Globe", axis = "Y", mode = "bob", amp = 0.12, period = 4.0 },
+			{ parts = { "EscapeBlob" }, pivot = "EscapeBlob1", axis = "Y", mode = "bob", amp = 0.8, period = 3.0, phase = 0.5 },
+			{ parts = { "StarHoop", "HoopStar" }, pivot = "Globe", axis = "Y", rpm = 6 },
+			{ parts = { "Swirl" }, pivot = "Globe", axis = "Y", rpm = -4 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "Blob", "PoolBlob", "EscapeBlob" }, light = true, period = 3.4, min = 0.55 },
+			{ kind = "wink", parts = { "HoopStar" }, period = 1.4, min = 0.3, perPart = true },
+		},
+	},
+
+	-- Prism Nuke. A white beam splits into rainbow rays; halos and rings cycle colour.
+	prism_nuke = {
+		finish = {
+			{ parts = { "FacetBody", "MiniPrism", "FinPrism", "Shard", "CrownShard", "FacetGem" }, material = "Glass", color = Color3.fromHex("E8F6FF"), transparency = 0.2, reflectance = 0.3 },
+			{ parts = { "WhiteBeam", "SpireSpark" }, material = "Neon", color = Color3.fromHex("FFFFFF") },
+			{ parts = { "Ray", "MiniRay", "RainbowHalo", "SpectrumRing", "Flare" }, material = "Neon", color = Color3.fromHex("FF5A5A") },
+		},
+		light = { part = "FacetBody", color = Color3.fromHex("FFFFFF"), brightness = 1.8, range = 1.2 },
+		particles = {
+			{ part = "Spire", preset = "sparkle", color = Color3.fromHex("FFFFFF"), rate = 5 },
+		},
+		spins = {
+			{ parts = { "RainbowHalo" }, pivot = "FacetBody", axis = "Y", rpm = 5 },
+			{ parts = { "SpectrumRing" }, pivot = "FacetBody", axis = "Y", rpm = -3 },
+			{ parts = { "MiniPrism", "MiniRay" }, pivot = "FacetBody", axis = "Y", rpm = 8 },
+		},
+		anims = {
+			{
+				kind = "colorCycle",
+				parts = { "Ray", "MiniRay", "RainbowHalo", "SpectrumRing", "Flare" },
+				period = 4,
+				colors = {
+					Color3.fromHex("FF4A4A"),
+					Color3.fromHex("FFB23A"),
+					Color3.fromHex("FFF04A"),
+					Color3.fromHex("5AFF6A"),
+					Color3.fromHex("4AA8FF"),
+					Color3.fromHex("A05AFF"),
+				},
+			},
+			{ kind = "pulse", parts = { "WhiteBeam", "SpireSpark" }, light = true, period = 2.2, min = 0.5 },
+		},
+		glint = { parts = { "FacetBody", "Edge", "SilverBand" }, period = 4, sweep = 0.8, color = Color3.fromHex("FFFFFF"), strength = 1.6, stars = 3 },
+	},
+
+	-- Mech Nuke. The reactor throbs, jets fire, beacons flash, the cannon arm swings
+	-- and the missile pods twitch as they lock on.
+	mech_nuke = {
+		finish = {
+			{ parts = { "ReactorCore", "Visor" }, material = "Neon", color = Color3.fromHex("3AE8FF") },
+			{ parts = { "JetFlame", "ExhaustGlow", "MuzzleGlow" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
+			{ parts = { "JetCore" }, material = "Neon", color = Color3.fromHex("FFE0A0") },
+			{ parts = { "Beacon", "AntennaTip" }, material = "Neon", color = Color3.fromHex("FF3A3A") },
+		},
+		light = { part = "ReactorCore", color = Color3.fromHex("3AE8FF"), brightness = 1.8, range = 1.1 },
+		particles = {
+			{ part = "JetFlame1", preset = "flame", color = Color3.fromHex("FF9A3A"), rate = 10 },
+			{ part = "JetFlame2", preset = "flame", color = Color3.fromHex("FF9A3A"), rate = 10 },
+			{ part = "Exhaust", preset = "smoke", color = Color3.fromHex("3A3A40"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "ShoulderR", "ArmR", "CannonBody", "CannonBarrel", "BarrelRing", "MuzzleGlow" }, pivot = "ShoulderR", axis = "X", mode = "swing", deg = 10, period = 3.2 },
+			{ parts = { "MissilePod1", "Missile1*", "Tube1*" }, pivot = "MissilePod1", axis = "Y", mode = "twitch", deg = 15, period = 3.0, duration = 0.3 },
+			{ parts = { "MissilePod2", "Missile2*", "Tube2*" }, pivot = "MissilePod2", axis = "Y", mode = "twitch", deg = -15, period = 3.6, duration = 0.3 },
+			{ parts = { "ReactorFin" }, pivot = "ReactorCore", axis = "Y", rpm = 12 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "ReactorCore" }, light = true, period = 1.6, min = 0.5 },
+			{ kind = "flicker", parts = { "JetFlame", "JetCore", "ExhaustGlow" }, period = 0.3, min = 0.5, perPart = true },
+			{ kind = "blink", parts = { "Beacon", "AntennaTip" }, period = 1.0, duty = 0.3, min = 0.15, stagger = true },
+			{ kind = "flash", parts = { "MuzzleGlow" }, period = 2.4, min = 0.2 },
+		},
+	},
+
+	-- Chandelier Nuke. Every candle flickers, the crystal drops glitter, the aura
+	-- rings turn and a gold glint crosses the bands.
+	chandelier_nuke = {
+		finish = {
+			{ parts = { "FlameA", "FlameB" }, material = "Neon", color = Color3.fromHex("FFB84A") },
+			{ parts = { "DropA", "DropB", "RingDrop", "SwagDrop", "Prism", "FinialCrystal" }, material = "Glass", color = Color3.fromHex("E8F4FF"), transparency = 0.2, reflectance = 0.3 },
+			{ parts = { "CrownOrb", "AuraRing" }, material = "Neon", color = Color3.fromHex("C88AFF") },
+		},
+		light = { part = "Shell", color = Color3.fromHex("FFC06A"), brightness = 2.0, range = 1.3 },
+		particles = {
+			{ part = "FlameA1", preset = "flame", color = Color3.fromHex("FFB84A"), rate = 3 },
+			{ part = "FlameB1", preset = "flame", color = Color3.fromHex("FFB84A"), rate = 3 },
+			{ part = "Shell", preset = "sparkle", color = Color3.fromHex("FFF2D0"), rate = 6 },
+		},
+		spins = {
+			{ parts = { "AuraRing1" }, pivot = "Shell", axis = "Y", rpm = 5 },
+			{ parts = { "AuraRing2" }, pivot = "Shell", axis = "Y", rpm = -4 },
+			{ parts = { "Prism", "PendantWire" }, pivot = "Shell", axis = "Y", mode = "swing", deg = 6, period = 3.6 },
+		},
+		anims = {
+			{ kind = "flicker", parts = { "FlameA", "FlameB" }, light = true, period = 0.25, min = 0.6, perPart = true },
+			{ kind = "pulse", parts = { "CrownOrb", "AuraRing" }, period = 2.6, min = 0.4, stagger = true },
+			{ kind = "glitter", parts = { "DropA", "DropB", "RingDrop" }, period = 2.0, duration = 0.2 },
+		},
+		glint = { parts = { "GoldBand", "Filigree", "Shell" }, period = 4, sweep = 0.8, color = GLINT_GOLD, strength = 1.5, stars = 3 },
+	},
+
+	-- Fulgurite Nuke. Lightning strikes from the cloud to the shell, ball lightning
+	-- orbits, and the veins and molten pool glow.
+	fulgurite_nuke = {
+		finish = {
+			{ parts = { "Bolt", "Branch", "BoltCore", "GroundStrike", "GroundStrikeCore", "StrikePoint" }, material = "Neon", color = Color3.fromHex("CFE8FF") },
+			{ parts = { "BallLightning", "BallRing", "PlasmaHalo", "CloudGlow" }, material = "Neon", color = Color3.fromHex("8AB8FF") },
+			{ parts = { "Vein", "RootGlow", "MoltenPool" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
+		},
+		light = { part = "FusedShell", color = Color3.fromHex("A8CCFF"), brightness = 2.2, range = 1.3 },
+		particles = {
+			{ part = "BallLightning1", preset = "arcSpark", color = Color3.fromHex("CFE8FF"), rate = 4 },
+			{ part = "MoltenPool", preset = "ember", color = Color3.fromHex("FF9A3A"), rate = 5 },
+			{ part = "Cloud1", preset = "smoke", color = Color3.fromHex("2A2A38"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "BallLightning", "BallRing" }, pivot = "FusedShell", axis = "Y", rpm = 8 },
+			{ parts = { "OrbitShard" }, pivot = "FusedShell", axis = "Y", rpm = -5 },
+			{ parts = { "PlasmaHalo" }, pivot = "FusedShell", axis = "Y", rpm = 4 },
+		},
+		anims = {
+			{ kind = "flash", parts = { "Bolt", "Branch", "BoltCore", "GroundStrike", "GroundStrikeCore" }, light = true, period = 1.8, min = 0.1 },
+			{ kind = "flicker", parts = { "BallLightning", "PlasmaHalo", "CloudGlow" }, period = 0.3, min = 0.4, perPart = true },
+			{ kind = "smoulder", parts = { "Vein", "RootGlow", "MoltenPool" }, period = 3.0, min = 0.4 },
+		},
+		bolts = {
+			{ from = "Cloud1", to = "FusedShell", color = Color3.fromHex("CFE8FF"), period = 2.2, duration = 0.25, segments = 7, jitter = 0.15, width = 0.08 },
+			{ from = "BallLightning1", to = "BallLightning3", color = Color3.fromHex("8AB8FF"), period = 3.0, duration = 0.2, segments = 5, jitter = 0.2, width = 0.05 },
+		},
+		ping = { part = "Crater", color = Color3.fromHex("A8CCFF"), period = 3.6 },
+	},
+
+	-- Mirage Nuke. Half there: the shell plates fade in and out, the halo eye
+	-- watches, blades and shards orbit, the sand vortex spins.
+	mirage_nuke = {
+		finish = {
+			{ parts = { "MirrorSlab", "Reflection", "GlassSpike", "GlassFloor" }, material = "Glass", color = Color3.fromHex("DDF4FF"), transparency = 0.3, reflectance = 0.5 },
+			{ parts = { "Shimmer", "ReflBand", "LightPillar", "CoreRay", "NoseSpark" }, material = "Neon", color = Color3.fromHex("FFE6B0") },
+			{ parts = { "HaloIris" }, material = "Neon", color = Color3.fromHex("3AE8FF") },
+			{ parts = { "VoidCore", "HaloPupil" }, material = "SmoothPlastic", color = Color3.fromHex("05060A") },
+		},
+		light = { part = "HaloEyeBall", color = Color3.fromHex("FFE6B0"), brightness = 2.4, range = 1.4 },
+		particles = {
+			{ part = "SandVortex", preset = "drift", color = Color3.fromHex("F0D8A0"), rate = 8 },
+			{ part = "HaloEyeBall", preset = "sparkle", color = Color3.fromHex("FFFFFF"), rate = 5 },
+			{ part = "VoidCore", preset = "shrinkMotes", color = Color3.fromHex("9AE8FF"), rate = 10 },
+		},
+		spins = {
+			{ parts = { "Blade" }, pivot = "VoidCore", axis = "Y", rpm = 6 },
+			{ parts = { "OrbitShard" }, pivot = "VoidCore", axis = "Y", rpm = -8 },
+			{ parts = { "SunburstRing" }, pivot = "HaloEyeBall", axis = "Z", rpm = 4 },
+			{ parts = { "SandVortex" }, pivot = "SandVortex", axis = "Y", rpm = 20 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "Plate", "FinShard", "NoseShard", "GateEdge" }, mode = "transparency", period = 5.0, min = 0.35 },
+			{ kind = "pulse", parts = { "Shimmer", "ReflBand", "LightPillar", "CoreRay" }, light = true, period = 2.4, min = 0.35, stagger = true },
+			{ kind = "pulse", parts = { "HaloIris" }, period = 3.0, min = 0.5 },
+		},
+		glint = { parts = { "MirrorSlab", "Reflection" }, period = 3, sweep = 0.6, color = Color3.fromHex("FFFFFF"), strength = 1.8, stars = 3 },
+		ping = { part = "VoidCore", color = Color3.fromHex("FFE6B0"), period = 3.2 },
+	},
 } :: { [string]: ItemFxDef }
 
 -- Inferno's four black chains sway like hanging chain: each link bobs on its own,
