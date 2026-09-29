@@ -32,6 +32,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
+local Treadmill = require(Shared.Config.Treadmill)
 
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -84,16 +85,18 @@ local listeners: { (view: any, previous: any) -> () } = {}
 
 -- ── Formatting ────────────────────────────────────────────────────────────
 
---- 9,150 in full under ten thousand (every point still moves while the early levels
---- come quickly), then 12.4K / 1.30M / 2.1B.
+--- Treadmill.DISPLAY_SCALE: every on-screen Speed number goes through format(), so
+--- they all agree.
+local DISPLAY_SCALE = Treadmill.DISPLAY_SCALE
+
+--- 91,500 in full under a million (so the ticking number keeps visibly moving), then
+--- 1.30M / 2.1B.
 function Speed.format(points: number): string
-	local n = math.floor(points)
+	local n = math.floor(points * DISPLAY_SCALE + 0.5)
 	if n >= 1_000_000_000 then
 		return string.format("%.2fB", n / 1_000_000_000)
 	elseif n >= 1_000_000 then
 		return string.format("%.2fM", n / 1_000_000)
-	elseif n >= 10_000 then
-		return string.format("%.1fK", n / 1_000)
 	end
 	local text = tostring(n)
 	while true do
@@ -115,6 +118,9 @@ end
 
 --- Lifetime Speed as it should be SHOWN right now: the last push, plus what the belt
 --- has paid since if the player is still on it.
+--- The client-side count between pushes climbs this many DISPLAYED points at a time.
+local COUNT_STEP = 11 / DISPLAY_SCALE
+
 function Speed.shownPoints(): number
 	if view == nil then
 		return 0
@@ -122,8 +128,20 @@ function Speed.shownPoints(): number
 	if not view.training then
 		return view.points
 	end
-	local lead = math.min(os.clock() - receivedAt, LEAD_CAP)
-	return view.points + view.rate * lead
+	-- The counted lead ticks up in whole steps of COUNT_STEP rather than 1 at a time.
+	local lead = Speed.smoothPoints() - view.points
+	return view.points + lead // COUNT_STEP * COUNT_STEP
+end
+
+--- The same count unstepped, for things that should glide (the training bar's fill).
+function Speed.smoothPoints(): number
+	if view == nil then
+		return 0
+	end
+	if not view.training then
+		return view.points
+	end
+	return view.points + view.rate * math.min(os.clock() - receivedAt, LEAD_CAP)
 end
 
 --- Called with (view, previous) on every SpeedState push.
@@ -207,7 +225,7 @@ local function build(): ScreenGui
 		color = STYLE.caption,
 		xAlign = Enum.TextXAlignment.Left,
 		shadow = false,
-		text = "SPEED",
+		text = "WALK SPEED",
 		zIndex = 11,
 	})
 	ui.value = UIKit.label(badge, {
@@ -256,11 +274,11 @@ function Speed.start()
 
 	Net.get("SpeedState").OnClientEvent:Connect(onState)
 
-	-- The counter, every frame. Cheap: one string format, and nothing at all when the
-	-- text would not change (an idle player's number is static).
+	-- The badge shows walk speed, not the Speed total (that lives on the training bar).
+	-- Checked every frame, but only written when it changes.
 	local lastText = ""
 	RunService.RenderStepped:Connect(function()
-		local text = Speed.format(Speed.shownPoints())
+		local text = if view then tostring(view.walk) else "0"
 		if text ~= lastText then
 			lastText = text
 			ui.value.Text = text

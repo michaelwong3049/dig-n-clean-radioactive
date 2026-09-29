@@ -2776,7 +2776,7 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 			elseif nextTier then `Upgrade Treadmill ({Treadmill.priceText(nextTier.price)})`
 			else "Treadmill Maxed"
 		prompt.ObjectText = if not locked and nextTier
-			then `Next: {nextTier.name} (+{nextTier.rate} Speed/s)`
+			then `Next: {nextTier.name} (+{Treadmill.rateText(nextTier.rate)} Speed/s)`
 			else "Treadmill"
 	end
 
@@ -2794,9 +2794,9 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	end
 	if subtitle then
 		(subtitle :: TextLabel).Text = if locked
-			then `{Treadmill.unlockPriceText()} to unlock — then +{def.rate} Speed/s`
+			then `{Treadmill.unlockPriceText()} to unlock — then +{Treadmill.rateText(def.rate)} Speed/s`
 			elseif points == nil or maxed
-			then `{def.name} — +{def.rate} Speed/s`
+			then `{def.name} — +{Treadmill.rateText(def.rate)} Speed/s`
 			else string.format("%s — %d%% to walk speed %d", def.name, math.floor(progress * 100), walk + 1)
 	end
 

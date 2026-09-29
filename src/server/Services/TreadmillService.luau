@@ -223,7 +223,7 @@ function TreadmillService.buy(player: Player): (boolean, string)
 	local bought = Treadmill.tier(data.treadmill)
 	ExhibitService.refreshTreadmill(player)
 	push(player)
-	return true, `{bought.name} installed — +{bought.rate} Speed/s (paid ${price})`
+	return true, `{bought.name} installed — +{Treadmill.rateText(bought.rate)} Speed/s (paid ${price})`
 end
 
 -- ── Bootstrap ──────────────────────────────────────────────────────────

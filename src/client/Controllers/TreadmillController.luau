@@ -98,31 +98,26 @@ local LAYOUT = {
 	outline = 4,
 	shadowDrop = 5,
 	needTextSize = 20,
-	-- The walk and belt lines hang UNDER the bar: the air above it is where the
-	-- popups float.
-	walkTop = 52,
-	beltTop = 74,
-	height = 92,
+	-- The walk-speed line sits just ABOVE the bar (negative: the footprint's top edge
+	-- is the bar's top edge, which the popups are placed against).
+	walkTop = -26,
+	height = 52,
+	stripeGap = 22, -- px between the fill's diagonal hazard stripes
+	stripeW = 9,
+	stripeSpeed = 30, -- px/sec the stripes crawl along the fill
 	textStroke = 2.5,
 	shoe = 28,
 	gainTextSize = 22,
-	gainGap = 70, -- a new "+10" never lands within this many px of the last one
+	gainEvery = 0.1, -- seconds between gain popups while the belt runs
 }
 
 local ROUND = UDim.new(0.5, 0)
+-- The bar itself is squared off: just enough corner that the ink outline doesn't alias.
+local SQUARE = UDim.new(0, 3)
 local POP_IN = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local POP_OUT = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local FADE_TWEEN = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-
-local function formatCash(amount: number): string
-	if amount >= 1_000_000 then
-		return string.format("$%.1fM", amount / 1_000_000)
-	elseif amount >= 1_000 then
-		return string.format("$%.1fK", amount / 1_000)
-	end
-	return string.format("$%d", amount)
-end
 
 --- "45s", "3m 20s", "1h 05m" — how long the belt still has to run for the next walk
 --- speed point.
@@ -207,13 +202,13 @@ local function build(): Frame?
 
 	-- The hard shadow is the whole outlined bar dropped a few px, so it shows under the
 	-- ink outline rather than hiding inside it.
-	blob(root, "BarShadow", { 0, L.shadowDrop, L.barW, L.barH }, INK, 2, ROUND, L.outline)
-	local trough = blob(root, "Trough", { 0, 0, L.barW, L.barH }, STYLE.trough, 3, ROUND, L.outline)
+	blob(root, "BarShadow", { 0, L.shadowDrop, L.barW, L.barH }, INK, 2, SQUARE, L.outline)
+	local trough = blob(root, "Trough", { 0, 0, L.barW, L.barH }, STYLE.trough, 3, SQUARE, L.outline)
 	ui.punch = Instance.new("UIScale")
 	ui.punch.Parent = trough
 
 	-- The fill is white under a top-to-bottom gradient, with a glassy shine along its top.
-	ui.fill = blob(trough, "Fill", { 0, 0, 0, L.barH }, WHITE, 4, ROUND)
+	ui.fill = blob(trough, "Fill", { 0, 0, 0, L.barH }, WHITE, 4, SQUARE)
 	ui.fill.Size = UDim2.fromScale(0, 1)
 	local gradient = Instance.new("UIGradient")
 	gradient.Color = ColorSequence.new(STYLE.fillTop, STYLE.fillBottom)
@@ -223,6 +218,38 @@ local function build(): Frame?
 	ui.shine.Size = UDim2.new(1, -16, 0, 9)
 	ui.shine.BackgroundTransparency = 0.55
 
+	-- Diagonal stripes across the fill. Rotated frames ignore ClipsDescendants, so they
+	-- live in a CanvasGroup (which does clip them) laid out at the full bar width: the
+	-- fill grows over them rather than squashing them.
+	local stripes = Instance.new("CanvasGroup")
+	stripes.Name = "Stripes"
+	stripes.Size = UDim2.fromScale(1, 1)
+	stripes.BackgroundTransparency = 1
+	stripes.ZIndex = 5
+	stripes.Parent = ui.fill
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = SQUARE
+	corner.Parent = stripes
+	-- The stripes ride on a holder that slides one gap and wraps, so they crawl forever.
+	ui.stripes = Instance.new("Frame")
+	ui.stripes.Name = "Holder"
+	ui.stripes.Size = UDim2.fromScale(1, 1)
+	ui.stripes.BackgroundTransparency = 1
+	ui.stripes.Parent = stripes
+	for x = -L.barH, L.barW + L.barH + L.stripeGap, L.stripeGap do
+		local stripe = Instance.new("Frame")
+		stripe.Name = "Stripe"
+		stripe.AnchorPoint = Vector2.new(0.5, 0.5)
+		stripe.Position = UDim2.fromOffset(x, L.barH / 2)
+		stripe.Size = UDim2.fromOffset(L.stripeW, L.barH * 2)
+		stripe.Rotation = 35
+		stripe.BackgroundColor3 = WHITE
+		stripe.BackgroundTransparency = 0.78
+		stripe.BorderSizePixel = 0
+		stripe.ZIndex = 5
+		stripe.Parent = ui.stripes
+	end
+
 	ui.need = text(trough, "Need", { 0, 0, L.barW, L.barH }, {
 		font = STYLE.valueFont,
 		textSize = L.needTextSize,
@@ -230,8 +257,10 @@ local function build(): Frame?
 		zIndex = 6,
 	})
 
-	ui.walk = text(root, "Walk", { 4, L.walkTop, L.barW - 8, 20 }, { textSize = 16 })
-	ui.belt = text(root, "Belt", { 4, L.beltTop, L.barW - 8, 16 }, { textSize = 13, color = STYLE.caption })
+	ui.walk = text(root, "Walk", { 4, L.walkTop, L.barW - 8, 22 }, {
+		textSize = 18,
+		xAlign = Enum.TextXAlignment.Center,
+	})
 
 	return root
 end
@@ -258,7 +287,8 @@ local function paint()
 		ui.need.Text = `{Speed.format(points)} SPEED`
 	else
 		local from, to = view.current or 0, view.nextReq or 1
-		progress = math.clamp((points - from) / math.max(to - from, 1), 0, 1)
+		-- The fill glides on the unstepped count; only the number steps.
+		progress = math.clamp((Speed.smoothPoints() - from) / math.max(to - from, 1), 0, 1)
 		local eta = if view.rate > 0 then `  |  {view.walk + 1} IN {formatEta((to - points) / view.rate)}` else ""
 		ui.walk.Text = `WALK SPEED {view.walk}{eta}`
 		ui.need.Text = `{Speed.format(points)} / {Speed.format(to)}`
@@ -266,39 +296,52 @@ local function paint()
 	ui.fill.Size = UDim2.fromScale(progress, 1)
 	-- The shine is inset 8 px each side, so a sliver of fill would turn it inside out.
 	ui.shine.Visible = progress * LAYOUT.barW > 28
-
-	ui.belt.Text = if view.nextName
-		then string.upper(`{view.tierName}  |  next: {view.nextName} {formatCash(view.nextCost)} (+{view.nextRate}/s)`)
-		else string.upper(`{view.tierName}  |  the fastest belt there is`)
+	local gap = LAYOUT.stripeGap
+	ui.stripes.Position = UDim2.fromOffset((os.clock() * LAYOUT.stripeSpeed) % gap - gap, 0)
 end
 
 -- ── The popups ────────────────────────────────────────────────────────────
 
---- Where the last "+10" floated from, so two in a row never land on one spot.
-local lastGainX = math.huge
+local sinceGain = 0
 
---- The centre of the next "+10", in the bar footprint's px: usually somewhere along
---- the air above the bar, sometimes off either end of it. Re-rolled (a few times at
---- most) when it lands within LAYOUT.gainGap of the last one.
-local function gainSpot(): Vector2
-	local L = LAYOUT
-	local spot = Vector2.zero
-	for _ = 1, 4 do
-		local roll = math.random()
-		local sideY = L.barH / 2 - 8 + 16 * math.random()
-		if roll < 0.7 then
-			spot = Vector2.new(L.barW * (0.08 + 0.84 * math.random()), -14 - 12 * math.random())
-		elseif roll < 0.85 then
-			spot = Vector2.new(L.barW + 52 + 16 * math.random(), sideY)
-		else
-			spot = Vector2.new(-52 - 16 * math.random(), sideY)
-		end
-		if math.abs(spot.X - lastGainX) >= L.gainGap then
-			break
-		end
+--- The "+10"s ride a billboard on the runner's own body. They cycle through these
+--- fixed spots (billboard px, centre-anchored) in order, so they read as a steady
+--- pattern around the torso rather than a spray.
+local GAIN_W, GAIN_H = 240, 260
+local GAIN_SPOTS = {
+	Vector2.new(60, 70),
+	Vector2.new(180, 110),
+	Vector2.new(70, 150),
+	Vector2.new(170, 190),
+	Vector2.new(55, 220),
+	Vector2.new(185, 60),
+}
+local gainIndex = 0
+local gainBoard: BillboardGui? = nil
+
+--- The billboard on the local character, rebuilt after a respawn.
+local function gainHost(): BillboardGui?
+	local character = Players.LocalPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root == nil then
+		return nil
 	end
-	lastGainX = spot.X
-	return spot
+	if gainBoard and gainBoard.Parent == root then
+		return gainBoard
+	end
+	if gainBoard then
+		gainBoard:Destroy()
+	end
+	local board = Instance.new("BillboardGui")
+	board.Name = "SpeedGains"
+	board.Size = UDim2.fromOffset(GAIN_W, GAIN_H)
+	board.AlwaysOnTop = true
+	board.LightInfluence = 0
+	board.ResetOnSpawn = false
+	board.Adornee = root
+	board.Parent = root
+	gainBoard = board
+	return board
 end
 
 --- Grow in, rise `rise` px over `life` seconds, fade out for the last stretch, then go.
@@ -328,13 +371,21 @@ local function float(popup: GuiObject, rise: number, life: number)
 	end)
 end
 
---- A shoe and "+10" floating off a random spot around the bar: one per Speed push.
-local function popGain(amount: number)
+--- A shoe and "+10" or "+11" popping on the next spot around the runner's body. A steady
+--- stream of them while training. Each shows what the belt pays per popup (so +10 on
+--- the Scrap Belt, bigger on faster belts), randomly bumped 10% for variety.
+local function popGain(rate: number)
 	local L = LAYOUT
+	local amount = rate * L.gainEvery * (if math.random() < 0.5 then 1 else 1.1)
 	local label = `+{Speed.format(amount)}`
 	local textW = TextService:GetTextSize(label, L.gainTextSize, STYLE.valueFont, Vector2.new(400, 60)).X + 6
 	local width = L.shoe + 2 + textW
-	local spot = gainSpot()
+	local host = gainHost()
+	if host == nil then
+		return
+	end
+	gainIndex = gainIndex % #GAIN_SPOTS + 1
+	local spot = GAIN_SPOTS[gainIndex]
 
 	local popup = Instance.new("Frame")
 	popup.Name = "GainPopup"
@@ -343,7 +394,7 @@ local function popGain(amount: number)
 	popup.AnchorPoint = Vector2.new(0.5, 0.5)
 	popup.BackgroundTransparency = 1
 	popup.ZIndex = 8
-	popup.Parent = ui.panel
+	popup.Parent = host
 
 	local shoe = Artwork.picture(popup, "Shoe", Artwork.IMAGE.speedShoe, L.shoe, WHITE)
 	shoe.Position = UDim2.fromOffset(0, (32 - L.shoe) / 2)
@@ -355,7 +406,7 @@ local function popGain(amount: number)
 		text = label,
 		zIndex = 9,
 	})
-	float(popup, 30, 0.85)
+	float(popup, 10, 0.7)
 end
 
 --- The bar just filled: "WALK SPEED 35!" over its middle, and a punch on the bar.
@@ -712,8 +763,6 @@ function Treadmill.start()
 		if shown and previous ~= nil then
 			if view.level > previous.level then
 				popWalkUp(view.walk)
-			elseif view.points > previous.points + 0.5 then
-				popGain(view.points - previous.points)
 			end
 		end
 	end)
@@ -727,6 +776,12 @@ function Treadmill.start()
 		animate(dt)
 		if shown then
 			paint()
+			local view = Speed.view()
+			sinceGain += dt
+			if view and view.training and sinceGain >= LAYOUT.gainEvery then
+				sinceGain = 0
+				popGain(view.rate)
+			end
 		end
 		sinceTutorialCheck += dt
 		if sinceTutorialCheck >= TUTORIAL_CHECK then
