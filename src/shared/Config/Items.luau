@@ -1996,6 +1996,7 @@ Items.DEFS = {
 		sets = {},
 		baseValue = 230000000,
 		model = "ImportedNuke",
+		sizeMult = 3, -- the Stage 10 Anomaly towers over its row
 	},
 } :: { ItemDef }
 
