@@ -2456,6 +2456,221 @@ ItemFx.DEFS = {
 		},
 		glint = { parts = { "Body", "NoseDome", "TailSection" }, period = 4.0, sweep = 0.8, color = Color3.fromHex("FFFFFF"), strength = 1.2 },
 	},
+	-- ── STAGE 10: TOXIC CRYSTAL CAVES ────────────────────────────────────────
+
+	-- Canister Nuke. A rusted drum leaking ooze: the leak glows, drips wink and the
+	-- puddle steams.
+	canister_nuke = {
+		finish = {
+			{ parts = { "LeakStream", "LeakDrop", "Drip", "DripEnd" }, material = "Neon", color = Color3.fromHex("7CFF3A") },
+			{ parts = { "Puddle" }, material = "Neon", color = Color3.fromHex("4ACF2A") },
+			{ parts = { "Bubble" }, material = "Neon", color = Color3.fromHex("B8FF6A") },
+		},
+		light = { part = "Puddle", color = Color3.fromHex("7CFF3A"), brightness = 1.2, range = 0.9 },
+		particles = {
+			{ part = "Puddle", preset = "steam", color = Color3.fromHex("B8FF8A"), rate = 2 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "LeakStream", "Puddle" }, light = true, period = 2.2, min = 0.5 },
+			{ kind = "wink", parts = { "Drip", "DripEnd", "LeakDrop", "Bubble" }, period = 1.4, min = 0.2, perPart = true },
+		},
+	},
+
+	-- Stalactite Nuke. Crystal shards at the nose glitter, droplets wink and the pool
+	-- under the stalagmite glows.
+	stalactite_nuke = {
+		finish = {
+			{ parts = { "NoseCrystalPrism", "NoseCrystalTip", "NoseShard*" }, material = "Glass", color = Color3.fromHex("9AF5E8") },
+			{ parts = { "StalagmiteGlow", "Pool" }, material = "Neon", color = Color3.fromHex("5AE8C8") },
+			{ parts = { "Droplet", "FinDrop" }, material = "Neon", color = Color3.fromHex("B8FFF0") },
+		},
+		light = { part = "StalagmiteGlow", color = Color3.fromHex("5AE8C8"), brightness = 1.2, range = 1.0 },
+		particles = {
+			{ part = "NoseCrystalTip", preset = "sparkle", color = Color3.fromHex("C8FFF4"), rate = 3 },
+		},
+		anims = {
+			{ kind = "glitter", parts = { "NoseCrystalPrism", "NoseShard*" }, period = 1.6, min = 0.4 },
+			{ kind = "pulse", parts = { "StalagmiteGlow", "Pool" }, light = true, period = 2.6, min = 0.5 },
+			{ kind = "wink", parts = { "Droplet", "FinDrop" }, period = 1.8, min = 0.2, perPart = true },
+		},
+	},
+
+	-- Glowshroom Nuke. Every cap glows toxic green over violet mycelium, and spores
+	-- drift off the crown.
+	glowshroom_nuke = {
+		finish = {
+			{ parts = { "Shroom*", "CrownShroomCap", "FinShroom*", "RootShroom*" }, material = "Neon", color = Color3.fromHex("9AFF4A") },
+			{ parts = { "Mycelium" }, material = "Neon", color = Color3.fromHex("C88AFF") },
+		},
+		light = { part = "CrownShroomCap", color = Color3.fromHex("9AFF4A"), brightness = 1.6, range = 1.1 },
+		particles = {
+			{ part = "CrownShroomCap", preset = "spore", color = Color3.fromHex("C8FF8A"), rate = 4 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "Shroom*", "CrownShroomCap", "FinShroom*", "RootShroom*" }, light = true, period = 2.4, min = 0.4, perPart = true },
+			{ kind = "smoulder", parts = { "Mycelium" }, period = 3.0, min = 0.4 },
+		},
+	},
+
+	-- Acid Flask Nuke. Acid bubbles in its cage over a live burner; fumes rise off the
+	-- stopper.
+	acid_flask_nuke = {
+		finish = {
+			{ parts = { "Acid" }, material = "Neon", color = Color3.fromHex("A8FF2A"), transparency = 0.2 },
+			{ parts = { "Bubble", "TubeDrop" }, material = "Neon", color = Color3.fromHex("DAFF8A") },
+			{ parts = { "BurnerFlame", "BurnerCore" }, material = "Neon", color = Color3.fromHex("3AA8FF") },
+		},
+		light = { part = "Acid", color = Color3.fromHex("A8FF2A"), brightness = 1.6, range = 1.1 },
+		particles = {
+			{ part = "BurnerFlame", preset = "flame", color = Color3.fromHex("4AB8FF"), rate = 4 },
+			{ part = "Stopper", preset = "steam", color = Color3.fromHex("CFFF9A"), rate = 3 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "Acid" }, light = true, period = 1.8, min = 0.5 },
+			{ kind = "wink", parts = { "Bubble", "TubeDrop" }, period = 0.9, min = 0.2, perPart = true },
+			{ kind = "flicker", parts = { "BurnerFlame", "BurnerCore" }, period = 0.12, min = 0.5 },
+		},
+	},
+
+	-- Crystal Cluster Nuke. Crystals burst out of the casing, the orbit shards circle
+	-- and the veins glow underneath.
+	crystal_cluster_nuke = {
+		finish = {
+			{ parts = { "Cluster*", "Crown*", "CrystalFin*", "GroundCrystal*" }, material = "Glass", color = Color3.fromHex("B86AFF") },
+			{ parts = { "OrbitShard*" }, material = "Neon", color = Color3.fromHex("D8AAFF") },
+			{ parts = { "Vein" }, material = "Neon", color = Color3.fromHex("7CFF3A") },
+		},
+		light = { part = "CrownMainPrism", color = Color3.fromHex("B86AFF"), brightness = 1.8, range = 1.2 },
+		particles = {
+			{ part = "CrownMainTip", preset = "sparkle", color = Color3.fromHex("E8CCFF"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "OrbitShard*" }, pivot = "Body", axis = "Y", rpm = 6 },
+		},
+		anims = {
+			{ kind = "glitter", parts = { "Cluster*", "Crown*" }, period = 1.8, min = 0.4 },
+			{ kind = "pulse", parts = { "Vein" }, light = true, period = 2.2, min = 0.4 },
+		},
+	},
+
+	-- Sludge Nuke. Slime slides off the cap, drops bob and wink, and the splash below
+	-- steams.
+	sludge_nuke = {
+		finish = {
+			{ parts = { "SlimeCap", "SlimeDrip" }, material = "Neon", color = Color3.fromHex("6AFF2A") },
+			{ parts = { "SlimeDrop", "Splash" }, material = "Neon", color = Color3.fromHex("A8FF6A") },
+		},
+		light = { part = "SlimeCap", color = Color3.fromHex("6AFF2A"), brightness = 1.6, range = 1.1 },
+		particles = {
+			{ part = "SlimeCap", preset = "drift", color = Color3.fromHex("8AFF4A"), rate = 3 },
+			{ part = "Splash", preset = "steam", color = Color3.fromHex("C8FF9A"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "SlimeDrop" }, pivot = "Body", axis = "Y", mode = "bob", amp = 0.15, period = 1.6 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "SlimeCap", "SlimeDrip" }, light = true, period = 2.6, min = 0.5 },
+			{ kind = "wink", parts = { "SlimeDrop", "Splash" }, period = 1.2, min = 0.2, perPart = true },
+		},
+	},
+
+	-- Crystal Drill Nuke. The bit spins into the rock face, the headlamp and reactor
+	-- band glow, the stack fumes and sparks fly off the tip.
+	crystal_drill_nuke = {
+		finish = {
+			{ parts = { "HeadlampLens" }, material = "Neon", color = Color3.fromHex("FFF2B0") },
+			{ parts = { "ReactorBand" }, material = "Neon", color = Color3.fromHex("7CFF3A") },
+			{ parts = { "FaceCrystal*" }, material = "Glass", color = Color3.fromHex("6AE8FF") },
+		},
+		light = { part = "HeadlampLens", color = Color3.fromHex("FFF2B0"), brightness = 2.0, range = 1.3 },
+		particles = {
+			{ part = "BitTip", preset = "arcSpark", color = Color3.fromHex("BFF4FF"), rate = 5 },
+			{ part = "StackCap", preset = "smoke", color = Color3.fromHex("7A8A6A"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "DrillBit", "BitFlute", "BitTip" }, pivot = "DrillBit", axisParts = { "BitCollar", "BitTip" }, rpm = 60 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "ReactorBand" }, period = 1.6, min = 0.5 },
+			{ kind = "flicker", parts = { "HeadlampLens" }, light = true, period = 0.3, min = 0.7 },
+			{ kind = "glitter", parts = { "FaceCrystal*" }, period = 2.0, min = 0.4 },
+		},
+	},
+
+	-- Crystal Spider Nuke. Eyes burn, venom beads on the fangs, the web glints and the
+	-- crystal spines glitter along its back.
+	crystal_spider_nuke = {
+		finish = {
+			{ parts = { "Eye" }, material = "Neon", color = Color3.fromHex("FF2A4A") },
+			{ parts = { "Venom" }, material = "Neon", color = Color3.fromHex("7CFF3A") },
+			{ parts = { "GlowBand" }, material = "Neon", color = Color3.fromHex("B86AFF") },
+			{ parts = { "Spine*", "NoseCrystal*" }, material = "Glass", color = Color3.fromHex("C88AFF") },
+			{ parts = { "WebLine" }, material = "Neon", color = Color3.fromHex("E8F0FF"), transparency = 0.4 },
+		},
+		light = { part = "Eye", color = Color3.fromHex("FF2A4A"), brightness = 1.4, range = 0.9 },
+		particles = {
+			{ part = "Venom", preset = "drift", color = Color3.fromHex("8AFF4A"), rate = 2 },
+		},
+		anims = {
+			{ kind = "blink", parts = { "Eye" }, light = true, period = 2.4, duty = 0.85, min = 0.1 },
+			{ kind = "wink", parts = { "Venom" }, period = 1.4, min = 0.3, perPart = true },
+			{ kind = "pulse", parts = { "GlowBand", "WebLine" }, period = 2.0, min = 0.4 },
+			{ kind = "glitter", parts = { "Spine*" }, period = 1.8, min = 0.4 },
+		},
+	},
+
+	-- Venom Serpent Nuke. Coiled round the shell, hood flared: eyes glow, venom beads
+	-- on the fangs, the tongue flicks and toxic mist curls off its spots.
+	venom_serpent_nuke = {
+		finish = {
+			{ parts = { "Eye" }, material = "Neon", color = Color3.fromHex("FFD23A") },
+			{ parts = { "Venom", "Spot" }, material = "Neon", color = Color3.fromHex("7CFF3A") },
+			{ parts = { "GlowBand", "HoodMark" }, material = "Neon", color = Color3.fromHex("A8FF4A") },
+			{ parts = { "Tongue" }, material = "Neon", color = Color3.fromHex("FF3A5A") },
+			{ parts = { "Mist" }, material = "Neon", color = Color3.fromHex("9AFF6A"), transparency = 0.6 },
+			{ parts = { "CoilSpine*", "TailTip*" }, material = "Glass", color = Color3.fromHex("6AE8A8") },
+		},
+		light = { part = "Skull", color = Color3.fromHex("7CFF3A"), brightness = 1.8, range = 1.2 },
+		particles = {
+			{ part = "Mist1", preset = "drift", color = Color3.fromHex("9AFF6A"), rate = 3 },
+			{ part = "Venom1", preset = "drift", color = Color3.fromHex("7CFF3A"), rate = 2 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "Eye" }, light = true, period = 1.6, min = 0.5 },
+			{ kind = "flicker", parts = { "Tongue" }, period = 0.25, min = 0.2 },
+			{ kind = "wink", parts = { "Spot", "Venom" }, period = 1.6, min = 0.3, perPart = true },
+			{ kind = "pulse", parts = { "GlowBand", "HoodMark", "Mist" }, period = 2.4, min = 0.4 },
+			{ kind = "glitter", parts = { "CoilSpine*" }, period = 1.8, min = 0.4 },
+		},
+	},
+
+	-- Shatterpoint Nuke. The core burns through its plates, spire arcs crackle, the
+	-- ring of chunks orbits and drops rise off it as the cave breaks open.
+	shatterpoint_nuke = {
+		finish = {
+			{ parts = { "Core" }, material = "Neon", color = Color3.fromHex("7CFF3A") },
+			{ parts = { "Spire*", "NoseSpire*", "NoseShard*", "TailShard*", "FinShard" }, material = "Glass", color = Color3.fromHex("A8FFD8") },
+			{ parts = { "SpireArc" }, material = "Neon", color = Color3.fromHex("C8FFFF") },
+			{ parts = { "RingBand" }, material = "Neon", color = Color3.fromHex("5AE8C8"), transparency = 0.3 },
+			{ parts = { "RisingDrop" }, material = "Neon", color = Color3.fromHex("B8FF8A") },
+		},
+		light = { part = "Core", color = Color3.fromHex("7CFF3A"), brightness = 2.6, range = 1.6 },
+		particles = {
+			{ part = "Core", preset = "arcSpark", color = Color3.fromHex("C8FFE8"), rate = 5 },
+			{ part = "Core", preset = "shrinkMotes", color = Color3.fromHex("9AFF6A"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "RingBand", "RingChunk" }, pivot = "Core", axis = "Y", rpm = 5 },
+			{ parts = { "RisingDrop" }, pivot = "Core", axis = "Y", mode = "bob", amp = 0.3, period = 2.4, rpm = -6 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "Core" }, light = true, period = 1.4, min = 0.5 },
+			{ kind = "flicker", parts = { "SpireArc" }, period = 0.15, min = 0.3, perPart = true },
+			{ kind = "glitter", parts = { "Spire*", "NoseSpire*", "TailShard*" }, period = 1.6, min = 0.4 },
+			{ kind = "wink", parts = { "RisingDrop" }, period = 1.2, min = 0.2, perPart = true },
+		},
+		ping = { part = "Core", color = Color3.fromHex("9AFF6A"), period = 3.0 },
+	},
 } :: { [string]: ItemFxDef }
 
 -- Inferno's four black chains sway like hanging chain: each link bobs on its own,
