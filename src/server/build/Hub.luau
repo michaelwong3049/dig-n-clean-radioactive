@@ -541,7 +541,7 @@ export type TileOpts = {
 }
 
 --- How far a `base` board's base part sits below the tiles laid on it.
-local BASE_DROP = 0.05
+local BASE_DROP = 0.01
 
 --- The structural slab a tiled rectangle rides on: same footprint, recessed by
 --- exactly the cap thickness so the tiles laid on it top out at PLAZA.topY.
