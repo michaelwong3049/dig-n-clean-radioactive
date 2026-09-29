@@ -238,9 +238,8 @@ local FOOTPRINT_X, FOOTPRINT_Z = 290, 170
 -- Stages 7-12 only: 15% longer (290 -> 334) along the walk axis.
 local FAR_X = 334
 -- Stages 2-6 only: PROGRESSIVELY LONGER, on request -- +5/+10/+15/+20/+20% over
--- FOOTPRINT_X, grown at the EAST end. Each stage's decor stays laid out over its
--- original FOOTPRINT_X from the west (entrance) edge (`decorLength`, see
--- Stages.decorBounds), so the added length is open floor before the next seam.
+-- FOOTPRINT_X, grown at the EAST end. Decor spreads over the whole grown plate
+-- (no `decorLength`), so props stay evenly spaced end to end.
 local GROWN_X = { [2] = 305, [3] = 319, [4] = 334, [5] = 348, [6] = 348 }
 
 Stages.DEFS = {
@@ -345,7 +344,6 @@ Stages.DEFS = {
 		-- Was 220 long, the shortest stage; the uniform pass grew it to match the rest,
 		-- the 15% and length passes took the lot back down.
 		size = { GROWN_X[2], FOOTPRINT_Z },
-		decorLength = FOOTPRINT_X,
 		-- Dun/tan, not green — see "LIFE FADING INTO A DEAD WASTELAND" below.
 		color = "B8935F",
 		material = "Sand",
@@ -384,7 +382,6 @@ Stages.DEFS = {
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 260 long.
 		size = { GROWN_X[3], FOOTPRINT_Z },
-		decorLength = FOOTPRINT_X,
 		-- Deeper desert khaki-brown — the endpoint of the Stage 1-3 gradient. Slate
 		-- read as dark grey rock and broke continuity with the sand family this
 		-- whole stretch depends on, so material moved to Sand too.
@@ -430,7 +427,6 @@ Stages.DEFS = {
 		-- above) — and now the shared length has landed back on that same 290 by a
 		-- different route.
 		size = { GROWN_X[4], FOOTPRINT_Z },
-		decorLength = FOOTPRINT_X,
 		-- WHERE THE GREEN STOPS. See "THE COLOUR TURNS" in the header. A dead muddy
 		-- brown, on request (was a deep plum, "73246B") — nothing grows here any
 		-- more; the pink/violet doesn't start until Stage 5. The checkerboard floor
@@ -481,7 +477,6 @@ Stages.DEFS = {
 		-- Was 600 long, the second of the two big empty-walk stages; still the biggest
 		-- single shrink of the six.
 		size = { GROWN_X[5], FOOTPRINT_Z },
-		decorLength = FOOTPRINT_X,
 		-- Light pink, on request (was a deep magenta, "A02268"). After Stage 4's dead
 		-- brown the ground going soft candy-pink reads as a jump to a different KIND
 		-- of place, not more of the same. The checkerboard floor is UNtinted
@@ -538,7 +533,6 @@ Stages.DEFS = {
 		-- FOOTPRINT 290 x 170 (FOOTPRINT_X/Z), the shared footprint — see the header.
 		-- Was 360 long.
 		size = { GROWN_X[6], FOOTPRINT_Z },
-		decorLength = FOOTPRINT_X,
 		color = "5B1FA8",
 		-- Glass, not Neon. The plate used to be Neon gold, which at Brightness 2.4
 		-- with bloom is a 400x200 light source rather than ground — survivable while
