@@ -32,6 +32,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
+local Treadmill = require(Shared.Config.Treadmill)
 
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -84,16 +85,18 @@ local listeners: { (view: any, previous: any) -> () } = {}
 
 -- ── Formatting ────────────────────────────────────────────────────────────
 
---- 9,150 in full under ten thousand (every point still moves while the early levels
---- come quickly), then 12.4K / 1.30M / 2.1B.
+--- Treadmill.DISPLAY_SCALE: every on-screen Speed number goes through format(), so
+--- they all agree.
+local DISPLAY_SCALE = Treadmill.DISPLAY_SCALE
+
+--- 91,500 in full under a million (so the ticking number keeps visibly moving), then
+--- 1.30M / 2.1B.
 function Speed.format(points: number): string
-	local n = math.floor(points)
+	local n = math.floor(points * DISPLAY_SCALE + 0.5)
 	if n >= 1_000_000_000 then
 		return string.format("%.2fB", n / 1_000_000_000)
 	elseif n >= 1_000_000 then
 		return string.format("%.2fM", n / 1_000_000)
-	elseif n >= 10_000 then
-		return string.format("%.1fK", n / 1_000)
 	end
 	local text = tostring(n)
 	while true do
@@ -115,8 +118,8 @@ end
 
 --- Lifetime Speed as it should be SHOWN right now: the last push, plus what the belt
 --- has paid since if the player is still on it.
---- The client-side count between pushes climbs in steps of this many.
-local COUNT_STEP = 11
+--- The client-side count between pushes climbs this many DISPLAYED points at a time.
+local COUNT_STEP = 11 / DISPLAY_SCALE
 
 function Speed.shownPoints(): number
 	if view == nil then

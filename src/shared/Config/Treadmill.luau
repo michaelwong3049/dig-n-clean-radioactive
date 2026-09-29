@@ -105,6 +105,16 @@ function Treadmill.priceText(amount: number): string
 	return "$" .. (string.gsub(grouped, "^,", ""))
 end
 
+--- Every real Speed point is SHOWN as this many, so on-screen numbers race (a 700
+--- requirement reads 7,000, a 10/s belt reads +100/s). Display only: the curve, the
+--- rates and the saves are all in real points.
+Treadmill.DISPLAY_SCALE = 10
+
+--- A real Speed/sec rate as players see it.
+function Treadmill.rateText(rate: number): string
+	return tostring(rate * Treadmill.DISPLAY_SCALE)
+end
+
 --- "$1,000": the unlock price as every sign, prompt and notice prints it.
 function Treadmill.unlockPriceText(): string
 	return Treadmill.priceText(Treadmill.UNLOCK_PRICE)

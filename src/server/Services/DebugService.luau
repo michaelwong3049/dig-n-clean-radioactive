@@ -458,7 +458,7 @@ COMMANDS["/train"] = {
 			ExhibitService.refreshTreadmill(player)
 			TreadmillService.refresh(player)
 			local def = Treadmill.tier(data.treadmill)
-			return `belt -> {def.name} (+{def.rate} Speed/s)`
+			return `belt -> {def.name} (+{Treadmill.rateText(def.rate)} Speed/s)`
 		end
 
 		if args[1] == "speed" then
