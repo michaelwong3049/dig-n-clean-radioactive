@@ -592,9 +592,11 @@ end
 
 -- ── The walkthrough ──────────────────────────────────────────────────────
 
---- Start it once the player's own machine is this close and on screen. They have just
---- bought it at the console, so normally that is immediately.
-local TUTORIAL_RANGE = 45
+--- Start it once the player is at their own machine (on the belt or at the console)
+--- and it is on screen. Was 45, which reached the fluid bottle across the base: the
+--- walkthrough's full-screen click-catcher then swallowed the brew popup's TAKE/LEAVE
+--- and held the upgrade prompt off while the player was doing something else.
+local TUTORIAL_RANGE = 14
 --- Walking this far off mid-way closes it, unmarked, so it comes back next visit.
 local TUTORIAL_LEAVE = 70
 local TUTORIAL_CHECK = 0.5
@@ -647,6 +649,12 @@ local function checkTutorial()
 		return
 	end
 	if look == nil or console == nil or not console:IsA("BasePart") or here == nil then
+		return
+	end
+	-- Never over the brew popup (LiquidController's "FluidSpin" gui): it has buttons
+	-- of its own that the walkthrough's catcher would eat.
+	local brew = Players.LocalPlayer.PlayerGui:FindFirstChild("FluidSpin")
+	if brew and brew:IsA("ScreenGui") and brew.Enabled then
 		return
 	end
 	local camera = Workspace.CurrentCamera

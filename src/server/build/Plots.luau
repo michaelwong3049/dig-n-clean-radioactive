@@ -2598,7 +2598,7 @@ local function addTreadmillFx(look: Model, belt: BasePart, tier: number, model: 
 	anchor.CanTouch = false
 	anchor.CastShadow = false
 	anchor.Parent = look
-	light.Parent = anchor
+	lamp.Parent = anchor
 end
 
 --- Swap the treadmill's `Look` for the imported model of belt rung `tier`, fitted to
