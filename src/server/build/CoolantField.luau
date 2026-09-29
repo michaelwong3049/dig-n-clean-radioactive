@@ -173,7 +173,7 @@ local CHANNEL_FILL_TOP = 0.82
 
 --- Share of kerb units that have lost their coping (lying beside them). Low: decay
 --- under the eye, not failure.
-local KERB_DAMAGE_CHANCE = 0.04
+local KERB_DAMAGE_CHANCE = 0.02
 
 --- Wet/dry as a two-state walk down each run, so wet stretches are CONTIGUOUS (a
 --- per-unit coin flip gives a dashed line, which reads as a rendering fault).
@@ -214,9 +214,9 @@ local RAMP_RUN = 3
 --- best-candidate so they spread evenly instead of clumping where a grid cell happened
 --- to win its roll.
 local CRUST_LADDER: { { n: number, a: { number } } } = {
-	{ n = 3, a = { 10, 13 } },
-	{ n = 5, a = { 7, 10 } },
-	{ n = 6, a = { 4, 7 } },
+	{ n = 1, a = { 10, 13 } },
+	{ n = 2, a = { 7, 10 } },
+	{ n = 3, a = { 4, 7 } },
 }
 local CRUST_CANDIDATES = 24
 
@@ -231,10 +231,10 @@ local CRUST_STEP = 0.004
 local CRUST_THICK = 0.04
 
 --- Share of rings that still have liquid in the middle.
-local CRUST_EYE_SHARE = 0.15
+local CRUST_EYE_SHARE = 0.1
 
 --- Per-side chance a wet unit grows a crust fringe outside its kerb, and its reach.
-local FRINGE_CHANCE = 0.25
+local FRINGE_CHANCE = 0.1
 local FRINGE_REACH = 2.6
 
 -- ── Colour ─────────────────────────────────────────────────────────────────────
