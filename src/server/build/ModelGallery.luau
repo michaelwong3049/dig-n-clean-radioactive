@@ -31,13 +31,13 @@ local ModelGallery = {}
 
 local NAME = "ModelYard"
 local BUILDER_SOURCE = "src/server/build/ModelGallery.luau"
-local BUILDER_VERSION = 13
+local BUILDER_VERSION = 14
 
 -- feat/wire-stage2-nuke-imports: the yard is organised into ONE ROW PER STAGE (the
 -- item's lowest stocked stage, for a { 3, 4 }-style item shared across two), each row
--- sorted least- to most-rare left to right (Rarity.ORDER). GRID_COLUMNS below is no
--- longer a fixed wrap width -- it's derived from the WIDEST row so every row's own
--- item count centres independently within that shared width (see buildStand).
+-- sorted least- to most-rare left to right (Rarity.ORDER). Each row centres on its
+-- own width; the yard is as wide as the WIDEST row. Slots are GRID_SPACING, or wider
+-- for a big `sizeMult` item (see slotOf).
 --
 -- Wide enough that a model at the full GallerySize (9.18 studs, whichever axis
 -- lands horizontal on the pedestal) keeps a real gap from its neighbour.
@@ -117,17 +117,42 @@ local function catalogueRows(): { { stage: number, items: { any } } }
 	return rows
 end
 
-local ROWS = catalogueRows()
-local ROW_COUNT = math.max(1, #ROWS)
-local GRID_COLUMNS = 1
-local MODEL_COUNT = 0
-for _, row in ROWS do
-	GRID_COLUMNS = math.max(GRID_COLUMNS, #row.items)
-	MODEL_COUNT += #row.items
+-- Every imported template's GallerySize; a `sizeMult` item shows at this times it.
+local GALLERY_SIZE = 9.18
+
+--- One stand's square slot: GRID_SPACING, or wider for a big `sizeMult` item (Game
+--- Over at 5x is ~46 studs across) so it never overlaps its neighbours or the next row.
+local function slotOf(item: any): number
+	return math.max(GRID_SPACING, GALLERY_SIZE * (item.sizeMult or 1) + 6)
 end
 
-local LAND_WIDTH = math.max(46, GRID_COLUMNS * GRID_SPACING + EDGE_MARGIN * 2)
-local LAND_DEPTH = math.max(36, ROW_COUNT * GRID_SPACING + EDGE_MARGIN * 2 + HEADER_CLEARANCE)
+local ROWS = catalogueRows()
+local MODEL_COUNT = 0
+local WIDEST_ROW = 0
+local TOTAL_DEPTH = 0
+for _, row in ROWS do
+	MODEL_COUNT += #row.items
+	local width, depth = 0, GRID_SPACING
+	for _, item in row.items do
+		width += slotOf(item)
+		depth = math.max(depth, slotOf(item))
+	end
+	WIDEST_ROW = math.max(WIDEST_ROW, width)
+	TOTAL_DEPTH += depth
+	row.width = width
+	row.depth = depth
+end
+-- Each row's Z centre, the rows packed front to back and centred on the yard.
+do
+	local z = -TOTAL_DEPTH / 2
+	for _, row in ROWS do
+		row.z = z + row.depth / 2
+		z += row.depth
+	end
+end
+
+local LAND_WIDTH = math.max(46, WIDEST_ROW + EDGE_MARGIN * 2)
+local LAND_DEPTH = math.max(36, TOTAL_DEPTH + EDGE_MARGIN * 2 + HEADER_CLEARANCE)
 local LAND_THICKNESS = 0.12
 
 -- WALL_CLEARANCE mirrors Scenery.luau's private WALL_THICKNESS (8): the base's
@@ -181,8 +206,8 @@ end
 
 --- `sizeMult` is the item's own Config/Items `sizeMult` (1 when unset): every template
 --- is normalised to the same GallerySize, so without it a per-item size nudge could
---- never show up here. It stays a gentle 0.5-2x (Spec-pinned), so the taller stand
---- tags and row labels below still clear the largest model.
+--- never show up here. Big ones (Atomic Bomb 3.5x, Game Over 5x) get a wider slot
+--- and taller tags, see slotOf and buildStand.
 local function placeOnPedestal(model: Model, target: CFrame, sizeMult: number)
 	model:PivotTo(CFrame.identity)
 
@@ -209,21 +234,10 @@ local function placeOnPedestal(model: Model, target: CFrame, sizeMult: number)
 	model:PivotTo(model:GetPivot() + Vector3.new(0, PEDESTAL_TOP - bottom + 0.08, 0))
 end
 
---- `column` is 1-based within its own row; `columnsInRow` is that row's own item
---- count (NOT the shared GRID_COLUMNS), so a short row (Stage 4 might have just one
---- item) centres on its own width rather than sitting flush against one edge of the
---- widest row. `rowIndex`/`rowCount` place the row itself along Z, one per stage.
-local function buildStand(
-	gallery: Model,
-	origin: CFrame,
-	item: any,
-	column: number,
-	columnsInRow: number,
-	rowIndex: number,
-	rowCount: number
-)
-	local x = (column - (columnsInRow + 1) / 2) * GRID_SPACING
-	local z = (rowIndex - (rowCount + 1) / 2) * GRID_SPACING
+--- `x`/`z` are the stand's centre in yard space: each row centres on its own width
+--- (see createGallery), so a short row doesn't sit flush against one edge.
+local function buildStand(gallery: Model, origin: CFrame, item: any, x: number, z: number)
+	local sizeMult = item.sizeMult or 1
 
 	local pedestal = Kit.build(gallery, origin, {
 		name = `Stand_{item.id}`,
@@ -246,7 +260,7 @@ local function buildStand(
 	Kit.billboard(
 		pedestal,
 		120,
-		15,
+		math.max(15, GALLERY_SIZE * sizeMult + 6),
 		string.upper(item.name),
 		"",
 		Kit.C.hazard,
@@ -277,7 +291,7 @@ local function buildStand(
 	itemModel.Name = `Item_{item.id}`
 	itemModel:SetAttribute("ItemId", item.id)
 	itemModel.Parent = gallery
-	placeOnPedestal(itemModel, origin * CFrame.new(x, 0, z), item.sizeMult or 1)
+	placeOnPedestal(itemModel, origin * CFrame.new(x, 0, z), sizeMult)
 end
 
 -- Floating well above the tallest catalogued item (buildStand's own billboard note
@@ -287,8 +301,7 @@ end
 -- put a side-mounted label right on top of that single model.
 local ROW_LABEL_HEIGHT = 17
 
-local function buildRowLabel(gallery: Model, origin: CFrame, stage: number, itemCount: number, rowIndex: number, rowCount: number)
-	local z = (rowIndex - (rowCount + 1) / 2) * GRID_SPACING
+local function buildRowLabel(gallery: Model, origin: CFrame, stage: number, itemCount: number, z: number, height: number)
 	local anchor = Kit.build(gallery, origin, {
 		name = `StageLabel_{stage}`,
 		pos = { 0, 0.1, z },
@@ -298,7 +311,7 @@ local function buildRowLabel(gallery: Model, origin: CFrame, stage: number, item
 		canCollide = false,
 		transparency = 1,
 	})
-	Kit.billboard(anchor, 110, ROW_LABEL_HEIGHT, `STAGE {stage}`, `{itemCount} MODEL{if itemCount == 1 then "" else "S"} • LEAST TO MOST RARE`, Kit.C.hazard, 140, 22, 12)
+	Kit.billboard(anchor, 110, height, `STAGE {stage}`, `{itemCount} MODEL{if itemCount == 1 then "" else "S"} • LEAST TO MOST RARE`, Kit.C.hazard, 140, 22, 12)
 end
 
 local function buildHeader(gallery: Model, origin: CFrame, count: number)
@@ -321,11 +334,18 @@ local function createGallery(origin: CFrame): Model
 	gallery:SetAttribute("SpawnBaseYard", true)
 
 	buildLand(gallery, origin)
-	for rowIndex, row in ROWS do
-		for column, item in row.items do
-			buildStand(gallery, origin, item, column, #row.items, rowIndex, ROW_COUNT)
+	for _, row in ROWS do
+		local x = -row.width / 2
+		local tallest = 1
+		for _, item in row.items do
+			local slot = slotOf(item)
+			buildStand(gallery, origin, item, x + slot / 2, row.z)
+			x += slot
+			tallest = math.max(tallest, item.sizeMult or 1)
 		end
-		buildRowLabel(gallery, origin, row.stage, #row.items, rowIndex, ROW_COUNT)
+		-- Above the row's biggest model (a 5x item stands ~46 studs).
+		local height = math.max(ROW_LABEL_HEIGHT, GALLERY_SIZE * tallest + 10)
+		buildRowLabel(gallery, origin, row.stage, #row.items, row.z, height)
 	end
 	buildHeader(gallery, origin, MODEL_COUNT)
 
