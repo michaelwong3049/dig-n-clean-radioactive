@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 78
+local BUILDER_VERSION = 79
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -3482,6 +3482,54 @@ local function buildCeilingLights(parent: Instance, origin: CFrame, deckTop: num
 	l.Parent = sheet
 end
 
+--- EDGE LIGHTS — no fixture, just light (same rule as the ceiling sheet). Tiny
+--- invisible anchors carrying a shadowless PointLight each, so the base and the
+--- camp's rim stay lit without adding lamp props.
+local EDGE_LIGHT = { range = 18, brightness = 1.4, color = "FFF1DC", spacing = 22, height = 7 }
+local function edgeLight(parent: Instance, cf: CFrame)
+	local p = Instance.new("Part")
+	p.Name = "EdgeLight"
+	p.Size = Vector3.new(0.2, 0.2, 0.2)
+	p.CFrame = cf
+	p.Anchored = true
+	p.Transparency = 1
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	local l = Instance.new("PointLight")
+	l.Color = Color3.fromHex(EDGE_LIGHT.color)
+	l.Range = EDGE_LIGHT.range
+	l.Brightness = EDGE_LIGHT.brightness
+	l.Shadows = false
+	l.Parent = p
+	p.Parent = parent
+end
+
+--- A ring of edge lights just inside the pad's perimeter, plus a row down its middle.
+local function buildBaseLights(parent: Instance, origin: CFrame)
+	local folder = Instance.new("Folder")
+	folder.Name = "BaseLights"
+	local pad = Plots.PAD
+	local y = pad.topY + EDGE_LIGHT.height
+	local x0, x1 = -HALF_W + 3, HALF_W - 3
+	local z0, z1 = pad.minZ + 3, pad.maxZ - 3
+	local nx = math.max(1, math.ceil((x1 - x0) / EDGE_LIGHT.spacing))
+	local nz = math.max(1, math.ceil((z1 - z0) / EDGE_LIGHT.spacing))
+	for i = 0, nx do
+		local x = x0 + (x1 - x0) * i / nx
+		edgeLight(folder, origin * CFrame.new(x, y, z0))
+		edgeLight(folder, origin * CFrame.new(x, y, z1))
+	end
+	for j = 1, nz - 1 do
+		local z = z0 + (z1 - z0) * j / nz
+		edgeLight(folder, origin * CFrame.new(x0, y, z))
+		edgeLight(folder, origin * CFrame.new(x1, y, z))
+		edgeLight(folder, origin * CFrame.new(0, y, z))
+	end
+	folder.Parent = parent
+end
+
 --- One straight run of fence (posts + two rails) along x or along z, at deck height
 --- `y`. Unlike the ground's railings every piece COLLIDES: past the ground floor the
 --- other side of a rail is a drop. `skipStart`/`skipEnd` leave off an end post that
@@ -4093,6 +4141,7 @@ local function buildPlot(parent: Instance, index: number)
 	buildQuarantineLocker(m, origin, index)
 	buildFluidBottle(m, origin)
 	buildTreadmill(m, origin, accent)
+	buildBaseLights(m, origin)
 
 	-- Every floor above, and the sign that sells each one. All built; the ones this
 	-- plot's owner has not bought are hidden at runtime (Plots.setFloors).
@@ -4180,6 +4229,22 @@ local function buildApron(row: Model)
 			}, `ApronSlab{i + 1}`)
 		end
 	end
+
+	-- The camp's rim: edge lights just inside the perimeter wall, on the disc's own
+	-- arc, skipping the stretch east of the plaza edge (the field side).
+	local rim = Instance.new("Folder")
+	rim.Name = "RimLights"
+	local r = Plots.RING_OUTER - 4
+	local count = math.ceil(2 * math.pi * r / EDGE_LIGHT.spacing)
+	for i = 0, count - 1 do
+		local a = 2 * math.pi * i / count
+		local x = Plots.RING_CENTER.x + r * math.sin(a)
+		local z = Plots.RING_CENTER.z + r * math.cos(a)
+		if x < PLAZA.maxX then
+			edgeLight(rim, CFrame.new(x, Plots.PAD.topY + EDGE_LIGHT.height, z))
+		end
+	end
+	rim.Parent = apron
 
 	apron.Parent = row
 end
