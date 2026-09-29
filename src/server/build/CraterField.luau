@@ -362,7 +362,7 @@ local RAY_COUNT = 7
 local RAY_MIN_GAP = 26
 
 local function buildRays(parent: Instance, c: Crater, groundY: number, rng: Random, palette: Palette)
-	local minX, minZ, maxX, maxZ = Stages.bounds(c.stageId)
+	local minX, minZ, maxX, maxZ = Stages.decorBounds(c.stageId)
 	local bearings: { number } = {}
 	for _ = 1, 200 do
 		if #bearings >= RAY_COUNT then

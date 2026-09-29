@@ -108,7 +108,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 45
+local BUILDER_VERSION = 46
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -3404,9 +3404,12 @@ local function buildStageScenery(parent: Instance, id: number)
 	-- better before" is never something you have to chase.
 	local rng = Random.new(1000 + id)
 
-	-- Everything is placed relative to the stage's own surface plane.
-	local origin = CFrame.new(def.center[1], Stages.SURFACE_Y, def.center[2])
-	local hx, hz = def.size[1] / 2 - 14, def.size[2] / 2 - 14
+	-- Everything is placed relative to the stage's own surface plane -- over its
+	-- DECOR footprint (Stages.decorBounds), so a stage that grew keeps its props put.
+	local dMinX, dMinZ, dMaxX, dMaxZ = Stages.decorBounds(id)
+	local dcx, dcz = (dMinX + dMaxX) / 2, (dMinZ + dMaxZ) / 2
+	local origin = CFrame.new(dcx, Stages.SURFACE_Y, dcz)
+	local hx, hz = (dMaxX - dMinX) / 2 - 14, (dMaxZ - dMinZ) / 2 - 14
 
 	-- WHAT USED TO BE HERE: the OozeSurface build call -- one translucent Neon
 	-- plate over the whole stage, raised WADE_HEIGHT above the floor. REMOVED, see
@@ -3495,11 +3498,11 @@ local function buildStageScenery(parent: Instance, id: number)
 			end
 			QuarantineCordon.build(
 				folder,
-				def.center[1] + lakeX,
-				def.center[2] + lakeZ,
+				dcx + lakeX,
+				dcz + lakeZ,
 				lakeR * 1.25 + 4,
 				Stages.SURFACE_Y + GROUND_SKIM,
-				{ minX = def.center[1] - hx, maxX = def.center[1] + hx, minZ = def.center[2] - hz, maxZ = def.center[2] + hz },
+				{ minX = dcx - hx, maxX = dcx + hx, minZ = dcz - hz, maxZ = dcz + hz },
 				16,
 				trunks,
 				8500,
