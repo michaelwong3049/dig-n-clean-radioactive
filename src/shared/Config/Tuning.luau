@@ -77,6 +77,12 @@ Tuning.SICKNESS_DRAIN_MAX = 4.0 -- HP/sec at 100%
 Tuning.BURN_COEF = 4.8
 Tuning.BURN_EXPONENT = 0.75
 Tuning.MAX_HEALTH = 100
+-- Every aura level past the first adds this much max health (tier 1 = 100, tier 2 = 150...).
+Tuning.HEALTH_PER_AURA_TIER = 50
+
+function Tuning.maxHealthFor(auraTier: number?): number
+	return Tuning.MAX_HEALTH + math.max(0, (auraTier or 1) - 1) * Tuning.HEALTH_PER_AURA_TIER
+end
 
 -- Burn does NOT also amplify exposure gain. The original design text had it doing both;
 -- that turned out to be double jeopardy that made the survivability numbers impossible

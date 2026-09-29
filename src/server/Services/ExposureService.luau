@@ -126,12 +126,18 @@ local function finite(n: number): number
 	return if n == math.huge or n ~= n then INFINITE else n
 end
 
+--- Max health grows with the equipped aura tier (Tuning.maxHealthFor).
+local function maxHealthOf(player: Player): number
+	local data = DataService.data(player)
+	return Tuning.maxHealthFor(data and data.gear and data.gear.aura)
+end
+
 local function stateFor(player: Player): State
 	local existing = states[player]
 	if existing then
 		return existing
 	end
-	local fresh: State = { exposure = 0, health = Tuning.MAX_HEALTH, downed = false, survivableRatchet = nil }
+	local fresh: State = { exposure = 0, health = maxHealthOf(player), downed = false, survivableRatchet = nil }
 	states[player] = fresh
 	return fresh
 end
@@ -501,11 +507,15 @@ local function blackout(player: Player, state: State, cause: string, where: Wher
 	end
 
 	state.exposure = 0
-	state.health = Tuning.MAX_HEALTH
+	state.health = maxHealthOf(player)
 	state.survivableRatchet = nil
 
+	-- Wake up at your own base (its PlotSpawn); the plaza only if you have no plot.
+	-- Required lazily: ExhibitService sits above this service in the require graph.
 	if root and root:IsA("BasePart") then
-		root.CFrame = ExposureService.baseCampCFrame()
+		local ExhibitService = require(script.Parent.ExhibitService) :: any
+		local spawn = ExhibitService.plotSpawn(player)
+		root.CFrame = if spawn then spawn.CFrame + Vector3.new(0, 4, 0) else ExposureService.baseCampCFrame()
 	end
 
 	blackoutRemote:FireClient(player, {
@@ -676,7 +686,7 @@ local function stepPlayer(player: Player, dt: number)
 		elseif not noRegen then
 			-- ...and fully at base camp (PLAN §3.5).
 			local rate = if stageId == nil then HEALTH_REGEN_PER_SEC * 6 else HEALTH_REGEN_PER_SEC
-			state.health = math.min(Tuning.MAX_HEALTH, state.health + rate * dt)
+			state.health = math.min(maxHealthOf(player), state.health + rate * dt)
 		end
 
 		local function where(): Where
@@ -760,7 +770,7 @@ local function stepPlayer(player: Player, dt: number)
 		exposure = state.exposure,
 		exposureFrac = Radiation.exposureFraction(state.exposure),
 		health = state.health,
-		maxHealth = Tuning.MAX_HEALTH,
+		maxHealth = maxHealthOf(player),
 		downed = state.downed,
 
 		net = reading.net,
@@ -800,7 +810,7 @@ end
 function ExposureService.flush(player: Player)
 	local state = stateFor(player)
 	state.exposure = 0
-	state.health = Tuning.MAX_HEALTH
+	state.health = maxHealthOf(player)
 	state.downed = false
 	state.survivableRatchet = nil
 end
