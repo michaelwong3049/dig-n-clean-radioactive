@@ -46,6 +46,7 @@ local Weight = require(Shared.Config.Weight)
 local Payload = require(Shared.Config.Payload)
 local Tuning = require(Shared.Config.Tuning)
 local IndexProgress = require(Shared.IndexProgress)
+local Bombing = require(Shared.Bombing)
 local ItemModels = require(Shared.ItemModels)
 local ItemFx = require(Shared.ItemFx)
 local Net = require(Shared.Net)
@@ -655,7 +656,7 @@ local function buildMiddle(panel: Frame)
 	ui.gridEmpty = empty
 end
 
---- One CAPTION / value cell of the detail's 2x2 stat block.
+--- One CAPTION / value cell of the detail's 2x3 stat block.
 local function statCell(parent: Instance, order: number, caption: string): TextLabel
 	local cell = box(parent, caption, UDim2.new(), nil, COL.cell)
 	cell.LayoutOrder = order
@@ -863,7 +864,7 @@ local function buildDetail(panel: Frame)
 		})
 	end
 
-	local statsGrid = box(detail, "Stats", UDim2.new(1, 0, 0, 2 * STAT_H + 6))
+	local statsGrid = box(detail, "Stats", UDim2.new(1, 0, 0, 3 * STAT_H + 12))
 	statsGrid.LayoutOrder = 5
 	local statsLayout = Instance.new("UIGridLayout")
 	statsLayout.CellSize = UDim2.new(0.5, -3, 0, STAT_H)
@@ -916,6 +917,8 @@ local function buildDetail(panel: Frame)
 		odds = statCell(statsGrid, 2, "FIND ODDS"),
 		count = statCell(statsGrid, 3, "TIMES FOUND"),
 		first = statCell(statsGrid, 4, "FIRST FOUND"),
+		damage = statCell(statsGrid, 5, "AVG DAMAGE"),
+		radius = statCell(statsGrid, 6, "AVG RADIUS"),
 		flavor = flavor,
 		unknown = unknown,
 	}
@@ -1381,6 +1384,11 @@ local function renderDetail()
 	d.odds.Text = Items.oddsText(Items.shownOdds(item))
 	d.count.Text = if entry and entry.count > 0 then `\u{00D7}{entry.count}` else "—"
 	d.first.Text = if entry and entry.first > 0 then DateTime.fromUnixTimestamp(entry.first):FormatLocalTime("D MMM YYYY", "en-us") else "—"
+	-- As a bomb (Shared/Bombing): a typical copy's damage and blast radius; each real
+	-- copy's size roll and per-uid variance move it a little either way.
+	local damage, radius = Bombing.averageFor(item)
+	d.damage.Text = `{damage} HP`
+	d.radius.Text = `{radius} studs`
 	d.flavor.Text = `"{item.flavor}"`
 end
 
