@@ -36,6 +36,12 @@
 	hotbar's ten on top and the rest of the backpack under them. Clicking any of them
 	picks it up exactly like its number key would. Empty slots still draw in the
 	panel, for the same headroom reason as above.
+
+	G DROPS THE HELD CLEAN NUKE AS A BOMB (Services/BombService; a DROP button on
+	touch). Hovering a slot (or holding it, on touch) pops the bomb card over it:
+	stars, damage, radius, fuse and cooldown, out of Shared/Bombing -- the same
+	function the server detonates with. While the drop cooldown runs, every clean nuke
+	slot wears a draining shade and the seconds left.
 ]]
 
 local Players = game:GetService("Players")
@@ -43,11 +49,14 @@ local ProximityPromptService = game:GetService("ProximityPromptService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
 local Crates = require(Shared.Config.Crates)
+local Bombing = require(Shared.Bombing)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -87,6 +96,15 @@ local KEYS = {
 	[Enum.KeyCode.Zero] = 10,
 }
 local BAG_KEY = Enum.KeyCode.Backquote
+local BOMB_KEY = Enum.KeyCode.G
+
+-- The bomb card over a hovered slot (Shared/Bombing's stats).
+local CARD_WIDTH = 210
+local CARD_HEIGHT = 162
+local CARD_PAD = 12
+local CARD_ROW = 20
+local STAR_GOLD = Color3.fromHex("FFD34D")
+local COOL_SHADE = Color3.fromHex("000000")
 
 -- The bag panel's grid. BAG_COLS matches HOTBAR_SLOTS so the panel's top row IS the
 -- hotbar, slot for slot; the backpack grid under it wraps at the same width and
@@ -125,6 +143,22 @@ local bagOpen = false
 local holdRemote: any = nil
 local noticeToken = 0
 local standPrompts: { [ProximityPrompt]: boolean } = {} -- exhibit stand prompts seen so far
+local bombRemote: any = nil
+local bombReadyAt = 0 -- Workspace:GetServerTimeNow() the next drop is allowed
+local bombCooldown = 0 -- the full length of the running cooldown, for the shade
+local coolConnection: RBXScriptConnection? = nil
+local cardSlot: any = nil -- the slot the bomb card is showing for
+-- Assigned below, once itemByUid exists; the slots' hover handlers call through it.
+local showCard: (slot: any?) -> () = function() end
+
+--- Is this bag entry something G can drop? Clean nukes only (Shared/Bombing).
+local function droppable(item: any): boolean
+	return Bombing.canDrop(item, item ~= nil and item.clean == true)
+end
+
+local function bombSecondsLeft(): number
+	return math.max(0, bombReadyAt - Workspace:GetServerTimeNow())
+end
 
 local function rarityColor(name: string?): Color3
 	local def = if name then Rarity.DEFS[name] else nil
@@ -252,9 +286,58 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		end
 	end
 
+	-- The bomb cooldown: a shade draining down off the slot, and the seconds left.
+	local cool = Instance.new("Frame")
+	cool.Name = "Cooldown"
+	cool.AnchorPoint = Vector2.new(0, 1)
+	cool.Position = UDim2.fromScale(0, 1)
+	cool.Size = UDim2.fromScale(1, 1)
+	cool.BackgroundColor3 = COOL_SHADE
+	cool.BackgroundTransparency = 0.45
+	cool.BorderSizePixel = 0
+	cool.Visible = false
+	cool.ZIndex = 10
+	cool.Parent = slot
+	local coolCorner = Instance.new("UICorner")
+	coolCorner.CornerRadius = UDim.new(0, 7)
+	coolCorner.Parent = cool
+	local coolText = UIKit.label(slot, {
+		name = "CooldownText",
+		anchorPoint = Vector2.new(0.5, 0.5),
+		position = UDim2.fromScale(0.5, 0.5),
+		size = UDim2.new(1, 0, 0, 20),
+		font = UIKit.Font.title,
+		textSize = 16,
+		color = COLOR.text,
+		xAlign = Enum.TextXAlignment.Center,
+		shadow = false,
+	})
+	coolText.Visible = false
+	coolText.ZIndex = 11
+
 	slot.MouseButton1Click:Connect(onClick)
 
-	return { button = slot, stroke = stroke, key = key, viewport = viewport, unknown = unknown, name = name, kg = kg, uid = nil :: string? }
+	local entry = {
+		button = slot,
+		stroke = stroke,
+		key = key,
+		viewport = viewport,
+		unknown = unknown,
+		name = name,
+		kg = kg,
+		cool = cool,
+		coolText = coolText,
+		uid = nil :: string?,
+	}
+	slot.MouseEnter:Connect(function()
+		showCard(entry)
+	end)
+	slot.MouseLeave:Connect(function()
+		if cardSlot == entry then
+			showCard(nil)
+		end
+	end)
+	return entry
 end
 
 --- The last tile on the hotbar once capacity passes ten: opens the bag panel, and
@@ -579,6 +662,115 @@ local function buildBag(): ScreenGui
 	return gui
 end
 
+--- The bomb card and the touch DROP button. Their own ScreenGui, over the bag panel
+--- (108), so a hovered bag cell's card is not drawn underneath it.
+local function buildBombCard(): ScreenGui
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "BombCard"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 109
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+	local canvas = UIKit.canvas(gui)
+	ui.cardCanvas = canvas
+
+	local card, cardStroke = UIKit.panel(canvas, {
+		name = "Card",
+		anchorPoint = Vector2.new(0.5, 1),
+		size = UDim2.fromOffset(CARD_WIDTH, CARD_HEIGHT),
+		color = COLOR.panel,
+		transparency = 0.04,
+		strokeThickness = 2,
+		cornerRadius = UDim.new(0, 12),
+		visible = false,
+	})
+	ui.card = card
+	ui.cardStroke = cardStroke
+
+	ui.cardTitle = UIKit.label(card, {
+		name = "Title",
+		position = UDim2.fromOffset(CARD_PAD, 8),
+		size = UDim2.new(1, -2 * CARD_PAD, 0, 20),
+		font = UIKit.Font.title,
+		textSize = 16,
+		shadow = false,
+	})
+	ui.cardTitle.TextTruncate = Enum.TextTruncate.AtEnd
+	ui.cardStars = UIKit.label(card, {
+		name = "Stars",
+		position = UDim2.fromOffset(CARD_PAD, 28),
+		size = UDim2.new(1, -2 * CARD_PAD, 0, 18),
+		font = UIKit.Font.title,
+		textSize = 15,
+		color = STAR_GOLD,
+		shadow = false,
+	})
+
+	ui.cardRows = {}
+	for index, caption in { "DAMAGE", "RADIUS", "FUSE", "COOLDOWN" } do
+		local y = 52 + (index - 1) * CARD_ROW
+		UIKit.label(card, {
+			name = `{caption}Caption`,
+			position = UDim2.fromOffset(CARD_PAD, y),
+			size = UDim2.new(0.5, -CARD_PAD, 0, CARD_ROW),
+			font = UIKit.Font.title,
+			textSize = 13,
+			color = COLOR.dim,
+			outline = false,
+			strokeTransparency = 1,
+			text = caption,
+		})
+		ui.cardRows[index] = UIKit.label(card, {
+			name = `{caption}Value`,
+			anchorPoint = Vector2.new(1, 0),
+			position = UDim2.new(1, -CARD_PAD, 0, y),
+			size = UDim2.new(0.5, -CARD_PAD, 0, CARD_ROW),
+			font = UIKit.Font.title,
+			textSize = 14,
+			xAlign = Enum.TextXAlignment.Right,
+			shadow = false,
+		})
+	end
+
+	ui.cardFooter = UIKit.label(card, {
+		name = "Footer",
+		position = UDim2.fromOffset(CARD_PAD, CARD_HEIGHT - 28),
+		size = UDim2.new(1, -2 * CARD_PAD, 0, 18),
+		font = UIKit.Font.title,
+		textSize = 13,
+		color = COLOR.amber,
+		xAlign = Enum.TextXAlignment.Center,
+		shadow = false,
+	})
+
+	-- Touch has no G key: a DROP button over the right end of the hotbar, shown only
+	-- while a clean nuke is in your hands.
+	local drop = UIKit.button(canvas, {
+		name = "DropBomb",
+		anchorPoint = Vector2.new(1, 1),
+		position = UDim2.new(1, -Dock.ROW_SIDE_MARGIN, 1, -(Dock.VITALS_CLEAR + 8)),
+		size = UDim2.fromOffset(96, 44),
+		text = "DROP",
+		font = UIKit.Font.title,
+		textSize = 20,
+		color = COLOR.text,
+		fillColor = COLOR.red,
+		fillTransparency = 0.1,
+		strokeColor = COLOR.outline,
+		strokeThickness = 2,
+		cornerRadius = UDim.new(0.5, 0),
+		shadow = false,
+	})
+	drop.Visible = false
+	drop.MouseButton1Click:Connect(function()
+		Inventory.dropBomb()
+	end)
+	ui.dropButton = drop
+
+	return gui
+end
+
 -- ── Render ──────────────────────────────────────────────────────────
 
 local function itemByUid(uid: string?): any
@@ -591,6 +783,113 @@ local function itemByUid(uid: string?): any
 		end
 	end
 	return nil
+end
+
+-- ── Bomb card + cooldown ────────────────────────────────────────────
+
+--- Fill the card's footer: how to drop it, or how long until you can.
+local function paintCardFooter(item: any)
+	local footer = ui.cardFooter
+	if not droppable(item) then
+		footer.Text = "WASH IT TO USE AS A BOMB"
+		footer.TextColor3 = COLOR.dim
+		return
+	end
+	local left = bombSecondsLeft()
+	if left > 0 then
+		footer.Text = `READY IN {string.format("%.1f", left)}s`
+		footer.TextColor3 = COLOR.amber
+	else
+		footer.Text = if UIKit.isTouch() then "TAP DROP TO BOMB" else "PRESS G TO DROP"
+		footer.TextColor3 = COLOR.red
+	end
+end
+
+--- Show the bomb card over `slot` (nil hides it). Nukes only; a crate has no card.
+showCard = function(slot: any?)
+	cardSlot = slot
+	local card = ui.card
+	if card == nil then
+		return
+	end
+	local item = if slot then itemByUid(slot.uid) else nil
+	if slot == nil or item == nil or item.crateId ~= nil or not slot.button.Visible then
+		card.Visible = false
+		return
+	end
+
+	local stats = Bombing.statsFor(item)
+	local unknown = item.identified == false
+	ui.cardTitle.Text = if unknown then "???" else item.name
+	ui.cardTitle.TextColor3 = rarityColor(item.rarity)
+	ui.cardStroke.Color = rarityColor(item.rarity)
+	ui.cardStars.Text = string.rep("\u{2605}", stats.stars)
+	ui.cardRows[1].Text = tostring(stats.damage)
+	ui.cardRows[2].Text = `{stats.radius} studs`
+	ui.cardRows[3].Text = `{stats.fuse}s`
+	ui.cardRows[4].Text = `{stats.cooldown}s`
+	paintCardFooter(item)
+
+	-- Over the slot: its screen position, back into the card canvas's design pixels.
+	local canvas = ui.cardCanvas
+	local scale = UIKit.canvasScale(canvas)
+	local button = slot.button
+	local top = (button.AbsolutePosition - canvas.AbsolutePosition) / scale
+	local width = button.AbsoluteSize.X / scale
+	local x = math.clamp(top.X + width / 2, CARD_WIDTH / 2, canvas.AbsoluteSize.X / scale - CARD_WIDTH / 2)
+	card.Position = UDim2.fromOffset(x, top.Y - 8)
+	card.Visible = true
+end
+
+--- Shade every clean nuke slot for the running cooldown; drops the Heartbeat once done.
+local function paintCooldowns()
+	local left = bombSecondsLeft()
+	local through = if bombCooldown > 0 then math.clamp(left / bombCooldown, 0, 1) else 0
+	for _, list in { slots, bagCells } do
+		for _, slot in list do
+			local item = itemByUid(slot.uid)
+			local cooling = left > 0 and droppable(item)
+			slot.cool.Visible = cooling
+			slot.coolText.Visible = cooling
+			if cooling then
+				slot.cool.Size = UDim2.fromScale(1, through)
+				slot.coolText.Text = string.format("%.1f", left)
+			end
+		end
+	end
+	if cardSlot and ui.card.Visible then
+		paintCardFooter(itemByUid(cardSlot.uid))
+	end
+	if left <= 0 and coolConnection then
+		coolConnection:Disconnect()
+		coolConnection = nil
+	end
+end
+
+local function startCooldown(readyAt: number, cooldown: number)
+	bombReadyAt = readyAt
+	bombCooldown = math.max(cooldown, 0.1)
+	if coolConnection == nil then
+		coolConnection = RunService.Heartbeat:Connect(paintCooldowns)
+	end
+	paintCooldowns()
+end
+
+--- Drop the held clean nuke as a bomb (G, or DROP on touch). The server re-checks
+--- everything (Services/BombService); this only saves a round trip for the obvious no.
+function Inventory.dropBomb()
+	local held = itemByUid(selected)
+	if held == nil or not droppable(held) then
+		Inventory.notice("hold a clean nuke to drop it")
+		return
+	end
+	if bombSecondsLeft() > 0 then
+		Inventory.notice("bomb still cooling down")
+		return
+	end
+	if bombRemote then
+		bombRemote:FireServer()
+	end
 end
 
 -- ── Stand prompt verb ───────────────────────────────────────────────
@@ -826,6 +1125,23 @@ local function renderSlots()
 	renderBag()
 	-- What you are holding just changed (or might have): a stand's Take/Swap follows.
 	relabelStands()
+
+	-- The bomb bits follow the bag: a new slot needs its cooldown shade, the DROP button
+	-- follows what is in your hands, and on touch (no hover) the card shows for it.
+	paintCooldowns()
+	local held = itemByUid(selected)
+	ui.dropButton.Visible = UIKit.isTouch() and droppable(held)
+	if UIKit.isTouch() then
+		local heldSlot = nil
+		for _, slot in slots do
+			if selected ~= nil and slot.uid == selected and slot.button.Visible then
+				heldSlot = slot
+			end
+		end
+		showCard(heldSlot)
+	elseif cardSlot then
+		showCard(cardSlot)
+	end
 end
 
 -- ── Notice popup ────────────────────────────────────────────────────
@@ -872,6 +1188,9 @@ function Inventory.setBagOpen(open: boolean)
 	ui.bagGui.Enabled = open
 	if open then
 		ui.bagScroller.CanvasPosition = Vector2.zero
+	else
+		-- A hovered bag cell never hears MouseLeave once its panel is switched off.
+		showCard(nil)
 	end
 	renderSlots()
 end
@@ -915,6 +1234,8 @@ function Inventory.start()
 	gui.Parent = playerGui
 	ui.bagGui = buildBag()
 	ui.bagGui.Parent = playerGui
+	ui.cardGui = buildBombCard()
+	ui.cardGui.Parent = playerGui
 
 	-- ROBLOX'S OWN BACKPACK HAS TO GO, AND NOT JUST BECAUSE IT IS REDUNDANT.
 	-- CoreGui binds the number row to its hotbar slots (and ` to its inventory).
@@ -932,9 +1253,22 @@ function Inventory.start()
 	end)
 
 	holdRemote = Net.get("HoldInput")
+	bombRemote = Net.get("BombDrop")
 
 	Net.get("Notice").OnClientEvent:Connect(function(message)
 		Inventory.notice(tostring(message))
+	end)
+
+	-- The server's answer to a drop: the cooldown it started, or why it refused.
+	Net.get("BombState").OnClientEvent:Connect(function(payload)
+		if type(payload) ~= "table" then
+			return
+		end
+		if type(payload.notice) == "string" then
+			Inventory.notice(payload.notice)
+		elseif type(payload.readyAt) == "number" then
+			startCooldown(payload.readyAt, tonumber(payload.cooldown) or 0)
+		end
 	end)
 
 	-- Stand prompts are adopted as they come into range: only a shown prompt's label
@@ -992,6 +1326,10 @@ function Inventory.start()
 		end
 		if input.KeyCode == BAG_KEY then
 			Inventory.setBagOpen(not bagOpen)
+			return
+		end
+		if input.KeyCode == BOMB_KEY then
+			Inventory.dropBomb()
 			return
 		end
 		local index = KEYS[input.KeyCode]

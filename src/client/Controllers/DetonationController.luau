@@ -764,9 +764,15 @@ local function trackFuse(instance: Instance)
 		return
 	end
 	local role = instance:GetAttribute(DetonationConfig.ATTR_ROLE)
-	local fx: FuseFx = { instance = instance, role = if role == "lump" then "lump" else "spot", nextTick = 0 }
+	-- A dropped bomb (Services/BombService) is both at once: a nuke you can see glowing,
+	-- and a spot on the ground that ticks and counts down.
+	local fx: FuseFx = {
+		instance = instance,
+		role = if role == "lump" or role == "bomb" then role else "spot",
+		nextTick = 0,
+	}
 
-	if fx.role == "lump" then
+	if fx.role == "lump" or fx.role == "bomb" then
 		-- The nuke itself glowing through its crust as it heats. A Highlight rather
 		-- than recolouring the lump: the lump is a replicated server model, and the
 		-- crust's colour is the rarity's.
@@ -779,7 +785,8 @@ local function trackFuse(instance: Instance)
 		highlight.OutlineTransparency = 1
 		highlight.Parent = fxFolder
 		fx.highlight = highlight
-	else
+	end
+	if fx.role ~= "lump" then
 		-- The spot: a local anchor over it carrying the warning light, the tick and the
 		-- countdown, so nothing is parented into the replicated aura.
 		local anchor = fxPart()
