@@ -41,6 +41,9 @@ export type Palette = {
 	bush: string,
 	bushDark: string,
 	awnings: { string }, -- one accent per stall shell, striped against white
+	-- Per-track roof/sign accent for this camp's working shops (Detector, Magnet, Cleaner,
+	-- Aura); a track missing here keeps its plaza colour.
+	shopColors: { [string]: string }?,
 }
 
 --- How a camp looks on its row in the Warp panel (client CampWarpController): a little
@@ -160,6 +163,13 @@ Camps.DEFS = {
 			bush = "52D6A8",
 			bushDark = "3AAE86",
 			awnings = { "A855FF", "4FD1C5", "FF7AC6", "FFD24A" },
+			-- On request: the shops' own Twilight colours, not the plaza's.
+			shopColors = {
+				Aura = "C084FC", -- lilac
+				Detector = "FF5FA2", -- hot pink
+				Cleaner = "2EE6C8", -- toxic teal
+				Magnet = "7C8CFF", -- periwinkle
+			},
 		},
 	},
 } :: { CampDef }

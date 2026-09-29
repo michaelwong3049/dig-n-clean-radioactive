@@ -2007,7 +2007,8 @@ end
 --- A CAMP'S AURA SHOP IS THIS SAME BUILDING (Shops.buildCampOutfitter): `camp` stamps
 --- `ShopCamp` on its counter, so ShopService sells only that camp's rungs there, and
 --- its mannequin row shows only those rungs (see AURA_DISPLAY_SCALE).
-local function buildOutfitterAt(parent: Instance, name: string, origin: CFrame, camp: string?): Model
+local function buildOutfitterAt(parent: Instance, name: string, origin: CFrame, camp: string?, accent: string?): Model
+	local roofAccent = accent or C.shopOutfitter
 	local m = Instance.new("Model")
 	m.Name = name
 
@@ -2025,11 +2026,11 @@ local function buildOutfitterAt(parent: Instance, name: string, origin: CFrame, 
 		canCollide = false,
 	})
 	buildStorefrontPosts(m, origin, width)
-	buildPlateRoof(m, origin, C.shopOutfitter, width)
+	buildPlateRoof(m, origin, roofAccent, width)
 	-- One counter names the whole building on the roof sign; with several, each desk
 	-- keeps its own pill sign and the roof one just says what the building is.
 	local single = #OUTFITTER.counters == 1
-	buildRoofTop(m, origin, width, C.shopOutfitter, if single then OUTFITTER.counters[1].label else "Outfitter")
+	buildRoofTop(m, origin, width, roofAccent, if single then OUTFITTER.counters[1].label else "Outfitter")
 
 	-- The desks at the left end, like a tool stall's stand, with the mannequin row past
 	-- them. A desk on each side of the island, the back one turned to face out the back
@@ -2189,8 +2190,9 @@ end
 --- EXPORTED FOR build/CampSite, which places it in the camp's own frame the way it places
 --- `buildStallShell`. `origin` is the stall's frame on the floor it stands on, local +Z
 --- its customer side. The footprint is `Shops.campStallWidth` across and local z -11.25
---- to +5.9, like a plaza stall's. Returns the model, already parented.
-function Shops.buildCampStall(parent: Instance, origin: CFrame, track: string, camp: string): Model
+--- to +5.9, like a plaza stall's. `accent` overrides the plaza colour (a camp's own
+--- shop palette, Config/Camps `shopColors`). Returns the model, already parented.
+function Shops.buildCampStall(parent: Instance, origin: CFrame, track: string, camp: string, accent: string?): Model
 	local plaza: typeof(STALLS[1])? = nil
 	for _, s in STALLS do
 		if s.track == track then
@@ -2202,7 +2204,7 @@ function Shops.buildCampStall(parent: Instance, origin: CFrame, track: string, c
 		track = plaza.track,
 		at = plaza.at,
 		faceYaw = plaza.faceYaw,
-		color = plaza.color,
+		color = accent or plaza.color,
 		label = plaza.label,
 		present = plaza.present,
 		camp = camp,
@@ -2217,9 +2219,9 @@ end
 --- A camp's Aura Shop: the Outfitter's building, standing at `origin` (its customer
 --- side along +Z, like a plaza stall's), selling only the Aura rungs Config/Gear sells
 --- at `camp`. Returns the model, already parented, named "AuraShop".
-function Shops.buildCampOutfitter(parent: Instance, origin: CFrame, camp: string): Model
+function Shops.buildCampOutfitter(parent: Instance, origin: CFrame, camp: string, accent: string?): Model
 	assert(#Gear.tiersAt("Aura", camp) > 0, `Config/Gear sells no Aura rungs at {camp}`)
-	return buildOutfitterAt(parent, "AuraShop", origin, camp)
+	return buildOutfitterAt(parent, "AuraShop", origin, camp, accent)
 end
 
 --- How wide `camp`'s Aura Shop is: its mannequin row grows with the rungs it sells.
