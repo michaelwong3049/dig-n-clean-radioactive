@@ -514,14 +514,28 @@ local function buildHeader(panel: Frame)
 end
 
 local function buildRail(panel: Frame)
-	local rail = box(panel, "Rail", UDim2.new(0, RAIL_W, 1, -BODY_TOP), UDim2.fromOffset(0, BODY_TOP))
+	-- Scrolls: with the far stages stocked the rows outgrow the panel, and a plain
+	-- frame let them run off the bottom through the rest of the HUD.
+	local rail = Instance.new("ScrollingFrame")
+	rail.Name = "Rail"
+	rail.Position = UDim2.fromOffset(0, BODY_TOP)
+	rail.Size = UDim2.new(0, RAIL_W, 1, -BODY_TOP)
+	rail.BackgroundTransparency = 1
+	rail.BorderSizePixel = 0
+	rail.ClipsDescendants = true
+	rail.ScrollingDirection = Enum.ScrollingDirection.Y
+	rail.ScrollBarThickness = 4
+	rail.ScrollBarImageColor3 = UIKit.C.dim
+	rail.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
+	rail.CanvasSize = UDim2.new()
+	rail.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	rail.Parent = panel
 	listLayout(rail, Enum.FillDirection.Vertical, 7).VerticalAlignment = Enum.VerticalAlignment.Top
 
 	ui.railRows = {}
 	for order, stage in Stages.DEFS do
 		-- A stage that stocks nothing yet (7-12, dig off) has nothing to identify, and
-		-- the rail is a fixed column that only fits the six that do. It joins the rail
-		-- the moment Config/Items stocks it.
+		-- it joins the rail the moment Config/Items stocks it.
 		if #IndexProgress.stageItems(stage.id) == 0 then
 			continue
 		end
