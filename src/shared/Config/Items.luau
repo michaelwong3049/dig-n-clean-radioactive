@@ -564,7 +564,7 @@ Items.DEFS = {
 	},
 	{
 		id = "old_food_tin",
-		name = "Canned Nuke",
+		name = "Tin Can Nuke",
 		flavor = "Sealed up tight like it's still fresh.",
 		rarity = "Common",
 		odds = 14, -- 1 in N per dig in a stocking stage
