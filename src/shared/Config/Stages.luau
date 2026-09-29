@@ -620,20 +620,20 @@ Stages.DEFS = {
 	},
 	{
 		id = 10,
-		name = "Sulfur Flats",
+		name = "Toxic Crystal Caves",
 		baseRads = 255,
 		deepRads = 335, -- Twilight Singularity (340), the last aura
 		soilHardness = 10,
 		ratedAuraTier = 10,
 		stationDistance = 1020,
-		fogColor = Color3.fromHex("E8D57A"),
+		fogColor = Color3.fromHex("5E8C5A"),
 		fogEnd = 400,
 		rarityTilt = 6.2,
 		center = { 3543, 0 },
 		size = { FAR_X, FOOTPRINT_Z },
-		color = "C9A227", -- mustard
-		material = "Sand",
-		ooze = { bright = "D8F02E", deep = "4A5208", glow = "D8F02E" },
+		color = "2E3A2F", -- basalt, green-black
+		material = "Slate",
+		ooze = { bright = "7CFF3A", deep = "1E4A0E", glow = "7CFF3A" },
 		built = true,
 	},
 	{

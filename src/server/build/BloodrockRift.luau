@@ -180,8 +180,8 @@ local function spire(parent: Instance, at: Vector3, rng: Random)
 	model.Parent = parent
 end
 
---- A hexagonal column: three rectangles at 0/60/120 degrees (see build/SulfurFlats'
---- hexPlate), stood up.
+--- A hexagonal column: three rectangles at 0/60/120 degrees (the regular hexagon's
+--- six vertices), stood up.
 local function hexColumn(parent: Instance, base: CFrame, r: number, h: number, color: Color3)
 	for k = 0, 2 do
 		K.block(parent, "Basalt", base * CFrame.new(0, h / 2, 0) * CFrame.Angles(0, math.rad(k * 60), 0), Vector3.new(r, h, r * math.sqrt(3)), color, { studs = true })
