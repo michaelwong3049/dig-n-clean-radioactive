@@ -2013,6 +2013,226 @@ ItemFx.DEFS = {
 		glint = { parts = { "MirrorSlab", "Reflection" }, period = 3, sweep = 0.6, color = Color3.fromHex("FFFFFF"), strength = 1.8, stars = 3 },
 		ping = { part = "VoidCore", color = Color3.fromHex("FFE6B0"), period = 3.2 },
 	},
+
+	-- ── Stage 11: Bloodrock Rift (batch 20) ──
+
+	-- Rubble Nuke. Hot cracks smoulder through the rock and embers spit from the nose.
+	rubble_nuke = {
+		finish = {
+			{ parts = { "Crack" }, material = "Neon", color = Color3.fromHex("FF5A2A") },
+		},
+		light = { part = "Body", color = Color3.fromHex("FF5A2A"), brightness = 0.8, range = 0.7 },
+		particles = {
+			{ part = "NoseChunk", preset = "ember", color = Color3.fromHex("FF8A3A"), rate = 2 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "Crack" }, light = true, period = 3.4, min = 0.4 },
+		},
+	},
+
+	-- Bloodstone Nuke. The red gem beats like a heart; the flecks catch the light.
+	bloodstone_nuke = {
+		finish = {
+			{ parts = { "Gem", "FinGem" }, material = "Neon", color = Color3.fromHex("FF2A3A") },
+			{ parts = { "Vein" }, material = "Neon", color = Color3.fromHex("B0101E") },
+			{ parts = { "Fleck" }, color = Color3.fromHex("C8202E") },
+		},
+		light = { part = "Gem", color = Color3.fromHex("FF2A3A"), brightness = 1.0, range = 0.8 },
+		anims = {
+			{ kind = "heartbeat", parts = { "Gem", "FinGem" }, light = true, period = 1.6, min = 0.45 },
+			{ kind = "smoulder", parts = { "Vein" }, period = 3.0, min = 0.5 },
+			{ kind = "glitter", parts = { "Fleck" }, period = 2.2, duration = 0.2 },
+		},
+	},
+
+	-- Ruby Vein Nuke. The ruby crystals turn to lit glass and glitter; the veins glow.
+	ruby_vein_nuke = {
+		finish = {
+			{ parts = { "Cluster*", "Crown*", "FinCrystal*", "GroundCrystal*" }, material = "Glass", color = Color3.fromHex("E0182E"), transparency = 0.15 },
+			{ parts = { "Vein" }, material = "Neon", color = Color3.fromHex("FF3A4E") },
+		},
+		light = { part = "CrownMainPrism", color = Color3.fromHex("FF3A4E"), brightness = 1.3, range = 1.0 },
+		particles = {
+			{ part = "CrownMainTip", preset = "sparkle", color = Color3.fromHex("FFB0B8"), rate = 4 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "Vein" }, light = true, period = 3.0, min = 0.45 },
+			{ kind = "glitter", parts = { "Cluster*", "Crown*" }, period = 2.4, duration = 0.25 },
+		},
+	},
+
+	-- Chasm Nuke. Chained over the drop: vents and nose glow, embers rise, heat rings turn.
+	chasm_nuke = {
+		finish = {
+			{ parts = { "NoseGlow", "Vent", "Ember" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+			{ parts = { "HeatRing" }, material = "Neon", color = Color3.fromHex("FFB23A"), transparency = 0.4 },
+		},
+		light = { part = "NoseGlow", color = Color3.fromHex("FF6A1A"), brightness = 1.4, range = 1.0 },
+		particles = {
+			{ part = "Vent1", preset = "ember", color = Color3.fromHex("FF8A3A"), rate = 3 },
+			{ part = "Vent2", preset = "smoke", color = Color3.fromHex("3A2A2A"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "HeatRing" }, pivot = "Body", axis = "Y", rpm = 5 },
+			{ parts = { "Ember" }, pivot = "Body", axis = "Y", mode = "bob", amp = 0.08, period = 2.6, rpm = -3 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "NoseGlow", "Vent", "Ember" }, light = true, period = 2.8, min = 0.4 },
+		},
+	},
+
+	-- Carousel Nuke. The riders go round, the bulbs chase, the top orb glows.
+	carousel_nuke = {
+		finish = {
+			{ parts = { "RimBulb", "RoofBulb", "SkirtBulb" }, material = "Neon", color = Color3.fromHex("FFD98A") },
+			{ parts = { "TopOrb", "RiderGem" }, material = "Neon", color = Color3.fromHex("FF4A6A") },
+		},
+		light = { part = "CanopyUnder", color = Color3.fromHex("FFD98A"), brightness = 1.2, range = 1.0 },
+		spins = {
+			{ parts = { "Rider*", "Saddle", "Pole", "PoleTwist" }, pivot = "Mast", axis = "Y", rpm = 6 },
+			{ parts = { "Flag" }, pivot = "FlagPole", axis = "Y", mode = "swing", deg = 20, period = 1.6 },
+		},
+		anims = {
+			{ kind = "blink", parts = { "RimBulb", "RoofBulb", "SkirtBulb" }, period = 1.2, duty = 0.5, min = 0.3, stagger = true },
+			{ kind = "pulse", parts = { "TopOrb", "RiderGem" }, light = true, period = 2.4, min = 0.5 },
+		},
+	},
+
+	-- Dragon Egg Nuke. Fire leaks through the cracks, the eye glows, the nest smoulders.
+	dragon_egg_nuke = {
+		finish = {
+			{ parts = { "Crack", "CrackHole" }, material = "Neon", color = Color3.fromHex("FF7A1A") },
+			{ parts = { "Eye" }, material = "Neon", color = Color3.fromHex("FFD23A") },
+			{ parts = { "Ember", "Spark" }, material = "Neon", color = Color3.fromHex("FF5A1A") },
+			{ parts = { "Wisp", "WispCore", "HeatRing" }, material = "Neon", color = Color3.fromHex("FFB23A"), transparency = 0.35 },
+		},
+		light = { part = "CrackHole", color = Color3.fromHex("FF7A1A"), brightness = 1.8, range = 1.2 },
+		particles = {
+			{ part = "WispCore", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 4 },
+			{ part = "AshBed", preset = "ember", color = Color3.fromHex("FF6A2A"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "HeatRing" }, pivot = "Egg", axis = "Y", rpm = 6 },
+			{ parts = { "Wisp", "WispCore" }, pivot = "WispCore", axis = "Y", mode = "bob", amp = 0.3, period = 2.2, rpm = 12 },
+			{ parts = { "Pupil" }, pivot = "Eye", axis = "Y", mode = "twitch", deg = 15, period = 3.0, duration = 0.3 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "Crack", "CrackHole", "Ember" }, light = true, period = 2.6, min = 0.4 },
+			{ kind = "pulse", parts = { "Eye" }, period = 3.2, min = 0.5 },
+			{ kind = "flicker", parts = { "Spark" }, period = 0.15, min = 0.2, perPart = true },
+		},
+	},
+
+	-- Tesla Coil Nuke. Lightning cracks off the toroid; streamers and arcs flicker.
+	tesla_coil_nuke = {
+		finish = {
+			{ parts = { "Arc", "ArcCore", "Streamer", "StreamerTip", "StreamerFork", "BallArc", "GapSpark" }, material = "Neon", color = Color3.fromHex("A8D8FF") },
+			{ parts = { "ArcRing", "BallArcRing" }, material = "Neon", color = Color3.fromHex("7AB8FF"), transparency = 0.4 },
+			{ parts = { "Coil" }, reflectance = 0.3 },
+		},
+		light = { part = "Toroid", color = Color3.fromHex("8AC8FF"), brightness = 1.8, range = 1.2 },
+		particles = {
+			{ part = "RodBall1", preset = "sparkle", color = Color3.fromHex("CFE8FF"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "ArcRing" }, pivot = "Toroid", axis = "Y", rpm = 10 },
+			{ parts = { "BallArc", "BallArcRing" }, pivot = "Toroid", axis = "Y", rpm = -14 },
+		},
+		anims = {
+			{ kind = "flicker", parts = { "Arc", "ArcCore", "Streamer", "StreamerTip", "StreamerFork", "BallArc", "GapSpark" }, light = true, period = 0.12, min = 0.2, perPart = true },
+		},
+		bolts = {
+			{ from = "Toroid", to = "RodBall1", color = Color3.fromHex("A8D8FF"), period = 1.4, duration = 0.16 },
+			{ from = "Toroid", to = "RodBall2", color = Color3.fromHex("A8D8FF"), period = 1.8, duration = 0.14 },
+			{ from = "GapBall1", to = "GapBall2", color = Color3.fromHex("CFE8FF"), period = 0.9, duration = 0.12 },
+		},
+		glint = { parts = { "Coil" }, period = 4, sweep = 0.7, color = Color3.fromHex("CFE8FF"), strength = 1.3 },
+	},
+
+	-- Rift Heart Nuke. The heart beats red inside its ribs; two rings of rock orbit it.
+	rift_heart_nuke = {
+		finish = {
+			{ parts = { "HeartCore" }, material = "Neon", color = Color3.fromHex("FF1A34") },
+			{ parts = { "FacetVein" }, material = "Neon", color = Color3.fromHex("FF5A6A") },
+			{ parts = { "Aura" }, material = "Neon", color = Color3.fromHex("FF2A44"), transparency = 0.7 },
+			{ parts = { "BloodShard*", "CrownCrystal*", "CrownCore*" }, material = "Glass", color = Color3.fromHex("C8102A"), transparency = 0.15 },
+			{ parts = { "Halo", "RingTrail1", "RingTrail2", "PedestalCrack" }, material = "Neon", color = Color3.fromHex("FF4A5E") },
+		},
+		light = { part = "HeartCore", color = Color3.fromHex("FF1A34"), brightness = 2.0, range = 1.3 },
+		particles = {
+			{ part = "HeartCore", preset = "drift", color = Color3.fromHex("FF4A5E"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "RingRock1*", "RingChip1*", "RingTrail1" }, pivot = "HeartCore", axis = "Y", rpm = 6 },
+			{ parts = { "RingRock2*", "RingChip2*", "RingTrail2" }, pivot = "HeartCore", axis = "Y", rpm = -9 },
+			{ parts = { "Halo" }, pivot = "Halo", axis = "Y", mode = "bob", amp = 2, period = 2.8, rpm = 8 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "HeartCore", "FacetVein", "Aura" }, light = true, period = 1.2, min = 0.4 },
+			{ kind = "glitter", parts = { "BloodShard*", "CrownCrystal*" }, period = 2.4, duration = 0.2 },
+			{ kind = "smoulder", parts = { "PedestalCrack" }, period = 3.0, min = 0.4 },
+		},
+	},
+
+	-- Black Hole Nuke. The accretion disk whirls round a pitch-black horizon; jets pulse.
+	black_hole_nuke = {
+		finish = {
+			{ parts = { "EventHorizon" }, material = "SmoothPlastic", color = Color3.fromHex("000000") },
+			{ parts = { "PhotonRing", "NoseCutGlow", "TailCutGlow" }, material = "Neon", color = Color3.fromHex("FFD9A0") },
+			{ parts = { "DiskBand", "Stretched" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
+			{ parts = { "LensRing", "LensRing2" }, material = "Glass", transparency = 0.6 },
+			{ parts = { "JetBeam", "JetRing" }, material = "Neon", color = Color3.fromHex("7AB8FF"), transparency = 0.3 },
+			{ parts = { "Star" }, material = "Neon", color = Color3.fromHex("FFFFFF") },
+		},
+		light = { part = "PhotonRing", color = Color3.fromHex("FFB06A"), brightness = 1.8, range = 1.2 },
+		spins = {
+			{ parts = { "DiskBand", "Stretched" }, pivot = "EventHorizon", axis = "Y", rpm = 14 },
+			{ parts = { "Debris" }, pivot = "EventHorizon", axis = "Y", rpm = 9 },
+			{ parts = { "PhotonRing" }, pivot = "EventHorizon", axis = "Y", rpm = -6 },
+			{ parts = { "JetRing" }, pivot = "JetBeam", axis = "Y", mode = "bob", amp = 0.15, period = 1.4 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "JetBeam", "JetRing" }, period = 1.4, min = 0.4 },
+			{ kind = "smoulder", parts = { "DiskBand", "PhotonRing" }, light = true, period = 2.6, min = 0.6 },
+			{ kind = "wink", parts = { "Star" }, period = 1.6, min = 0.2, perPart = true },
+		},
+	},
+
+	-- Rift Nuke. Split in two: the halves drift apart and back over a crackling void,
+	-- glitch cubes blink, runes chase, the core's orbits spin.
+	rift_nuke = {
+		finish = {
+			{ parts = { "RiftVoid" }, material = "SmoothPlastic", color = Color3.fromHex("08000F") },
+			{ parts = { "RiftEdge", "RiftCrackle", "Strand" }, material = "Neon", color = Color3.fromHex("D84AFF") },
+			{ parts = { "RiftStar", "HalfAStar", "HalfBStar" }, material = "Neon", color = Color3.fromHex("FFFFFF") },
+			{ parts = { "RiftCore", "CoreOrbit" }, material = "Neon", color = Color3.fromHex("FF4AE0") },
+			{ parts = { "Rune", "HalfASigilCore", "HalfBSigilCore", "HalfASigilRing", "HalfBSigilRing" }, material = "Neon", color = Color3.fromHex("9A6AFF") },
+			{ parts = { "HalfAThrusterGlow", "HalfBThrusterGlow", "HalfAThrusterFlame", "HalfBThrusterFlame", "HalfANoseSpark", "HalfBNoseSpark" }, material = "Neon", color = Color3.fromHex("6AE8FF") },
+			{ parts = { "GlitchCube" }, material = "Neon", color = Color3.fromHex("4AFFE0"), transparency = 0.2 },
+			{ parts = { "HalfACutFace", "HalfBCutFace", "HalfAVoidFace", "HalfBVoidFace" }, material = "SmoothPlastic", color = Color3.fromHex("12001E") },
+		},
+		light = { part = "RiftCore", color = Color3.fromHex("D84AFF"), brightness = 2.2, range = 1.4 },
+		particles = {
+			{ part = "RiftCore", preset = "sparkle", color = Color3.fromHex("F0B8FF"), rate = 6 },
+			{ part = "HalfAThrusterCore", preset = "flame", color = Color3.fromHex("6AE8FF"), rate = 3 },
+			{ part = "HalfBThrusterCore", preset = "flame", color = Color3.fromHex("6AE8FF"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "HalfA*" }, pivot = "HalfAShell", axisParts = { "RiftCore", "HalfAShell" }, mode = "bob", amp = 0.04, period = 3.2 },
+			{ parts = { "HalfB*" }, pivot = "HalfBShell", axisParts = { "RiftCore", "HalfBShell" }, mode = "bob", amp = 0.04, period = 3.2 },
+			{ parts = { "CoreOrbit" }, pivot = "RiftCore", axis = "Y", rpm = 20 },
+			{ parts = { "Rune1*", "RuneBand1" }, pivot = "RiftCore", axis = "Y", rpm = 4 },
+			{ parts = { "Rune2*", "RuneBand2" }, pivot = "RiftCore", axis = "Y", rpm = -4 },
+			{ parts = { "GlitchCube" }, pivot = "RiftCore", axis = "Y", mode = "bob", amp = 0.3, period = 2.4, rpm = 8 },
+			{ parts = { "Shard" }, pivot = "RiftCore", axis = "Y", mode = "bob", amp = 0.2, period = 3.6, rpm = -5 },
+		},
+		anims = {
+			{ kind = "flicker", parts = { "RiftEdge", "RiftCrackle", "Strand" }, light = true, period = 0.14, min = 0.3, perPart = true },
+			{ kind = "wink", parts = { "RiftStar", "HalfAStar", "HalfBStar" }, period = 1.4, min = 0.2, perPart = true },
+			{ kind = "blink", parts = { "Rune" }, period = 2.0, duty = 0.5, min = 0.3, stagger = true },
+			{ kind = "pulse", parts = { "RiftCore", "CoreOrbit" }, period = 1.8, min = 0.5 },
+		},
+	},
 } :: { [string]: ItemFxDef }
 
 -- Inferno's four black chains sway like hanging chain: each link bobs on its own,
@@ -2088,6 +2308,7 @@ ItemFx.CRATE_DEFS = {
 			{ parts = { "floating_shard_2", "floating_shard_4" }, pivot = "void_core", mode = "bob", amp = 0.6, period = 3.8, phase = 0.5, rpm = -10 },
 		},
 	},
+
 } :: { [string]: ItemFxDef }
 
 return ItemFx
