@@ -1714,6 +1714,7 @@ ItemFx.DEFS = {
 			{ parts = { "Spray" }, pivot = "Mantle", axis = "Y", rpm = -5 },
 			{ parts = { "Drip" }, pivot = "Drip1", axis = "Y", mode = "bob", amp = 0.5, period = 1.3 },
 			{ parts = { "EyeLid" }, pivot = "EyeBall", axis = "X", mode = "twitch", deg = 30, period = 4.5, duration = 0.25 },
+			-- (The arms and tentacles are appended one by one below the table.)
 		},
 		anims = {
 			{ kind = "heartbeat", parts = { "CoreWindow", "GlowBand" }, light = true, period = 1.5, min = 0.5 },
@@ -1754,6 +1755,36 @@ do
 				phase = (chain - 1) * 0.27 - link * 0.05,
 			})
 		end
+	end
+end
+
+-- Kraken's arms writhe: each giant arm swings about the line from its root to its
+-- tip, so the curve of the arm sweeps side to side while both ends stay put. Its
+-- suckers ride in the same group, or they'd peel off mid-swing (Phoenix's lesson).
+-- The five small tentacles do the same, quicker, each on its own phase.
+do
+	local spins = ItemFx.DEFS.kraken_nuke.spins :: { any }
+	for arm = 1, 4 do
+		table.insert(spins, {
+			parts = { `GiantArm{arm}*`, `ArmSucker{arm}*`, `ArmRoot{arm}`, `ArmTip{arm}` },
+			pivot = `ArmRoot{arm}`,
+			axisParts = { `ArmRoot{arm}`, `ArmTip{arm}` },
+			mode = "swing",
+			deg = 14,
+			period = 3.2,
+			phase = (arm - 1) * 0.25,
+		})
+	end
+	for tentacle = 1, 5 do
+		table.insert(spins, {
+			parts = { `Tentacle{tentacle}*`, `Sucker{tentacle}*` },
+			pivot = `Tentacle{tentacle}_1`,
+			axisParts = { `Tentacle{tentacle}_1`, `Tentacle{tentacle}_4` },
+			mode = "swing",
+			deg = 18,
+			period = 2.2,
+			phase = (tentacle - 1) * 0.2,
+		})
 	end
 end
 
