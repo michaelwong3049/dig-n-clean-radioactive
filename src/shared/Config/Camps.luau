@@ -163,12 +163,12 @@ Camps.DEFS = {
 			bush = "52D6A8",
 			bushDark = "3AAE86",
 			awnings = { "A855FF", "4FD1C5", "FF7AC6", "FFD24A" },
-			-- On request: the shops' own Twilight colours, not the plaza's.
+			-- On request: the shops' own Twilight colours, darker tones, not the plaza's.
 			shopColors = {
-				Aura = "C084FC", -- lilac
-				Detector = "FF5FA2", -- hot pink
-				Cleaner = "2EE6C8", -- toxic teal
-				Magnet = "7C8CFF", -- periwinkle
+				Aura = "7B3FB8", -- deep violet
+				Detector = "A8305F", -- dark raspberry
+				Cleaner = "177F70", -- dark teal
+				Magnet = "3F4BA8", -- deep indigo
 			},
 		},
 	},

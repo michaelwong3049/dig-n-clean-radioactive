@@ -85,7 +85,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 20
+local BUILDER_VERSION = 21
 
 local C = Kit.C
 local build = Kit.build
@@ -118,8 +118,8 @@ local OCT_DIAG = 156
 local PATH_HALF = 10
 
 --- The paver square, from the plaza centre. Both edges on tile lines; a one-tile kerb.
---- Its corners (78, 78) sit on the octagon's diagonal sides. Grown from 42 x 38 on request.
-local SHOP_HALF_X, SHOP_HALF_Z = 78, 78
+--- Grown from 42 x 38 on request, then trimmed a little from 78.
+local SHOP_HALF_X, SHOP_HALF_Z = 66, 66
 
 --- The trader stands at the square's middle with the four shops pinwheeled around it on
 --- the diagonals, each facing the kiosk (buildStalls). Slot order = SLOT_ANGLES order;
