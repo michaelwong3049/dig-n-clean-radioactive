@@ -98,11 +98,12 @@ local LAYOUT = {
 	outline = 4,
 	shadowDrop = 5,
 	needTextSize = 20,
-	-- The walk and belt lines hang UNDER the bar: the air above it is where the
-	-- popups float.
-	walkTop = 52,
-	beltTop = 74,
-	height = 92,
+	-- The walk-speed line sits just ABOVE the bar (negative: the footprint's top edge
+	-- is the bar's top edge, which the popups are placed against).
+	walkTop = -26,
+	height = 52,
+	stripeGap = 22, -- px between the fill's diagonal hazard stripes
+	stripeW = 9,
 	textStroke = 2.5,
 	shoe = 28,
 	gainTextSize = 22,
@@ -110,19 +111,12 @@ local LAYOUT = {
 }
 
 local ROUND = UDim.new(0.5, 0)
+-- The bar itself is squared off: just enough corner that the ink outline doesn't alias.
+local SQUARE = UDim.new(0, 3)
 local POP_IN = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local POP_OUT = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local FADE_TWEEN = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-
-local function formatCash(amount: number): string
-	if amount >= 1_000_000 then
-		return string.format("$%.1fM", amount / 1_000_000)
-	elseif amount >= 1_000 then
-		return string.format("$%.1fK", amount / 1_000)
-	end
-	return string.format("$%d", amount)
-end
 
 --- "45s", "3m 20s", "1h 05m" — how long the belt still has to run for the next walk
 --- speed point.
@@ -207,13 +201,13 @@ local function build(): Frame?
 
 	-- The hard shadow is the whole outlined bar dropped a few px, so it shows under the
 	-- ink outline rather than hiding inside it.
-	blob(root, "BarShadow", { 0, L.shadowDrop, L.barW, L.barH }, INK, 2, ROUND, L.outline)
-	local trough = blob(root, "Trough", { 0, 0, L.barW, L.barH }, STYLE.trough, 3, ROUND, L.outline)
+	blob(root, "BarShadow", { 0, L.shadowDrop, L.barW, L.barH }, INK, 2, SQUARE, L.outline)
+	local trough = blob(root, "Trough", { 0, 0, L.barW, L.barH }, STYLE.trough, 3, SQUARE, L.outline)
 	ui.punch = Instance.new("UIScale")
 	ui.punch.Parent = trough
 
 	-- The fill is white under a top-to-bottom gradient, with a glassy shine along its top.
-	ui.fill = blob(trough, "Fill", { 0, 0, 0, L.barH }, WHITE, 4, ROUND)
+	ui.fill = blob(trough, "Fill", { 0, 0, 0, L.barH }, WHITE, 4, SQUARE)
 	ui.fill.Size = UDim2.fromScale(0, 1)
 	local gradient = Instance.new("UIGradient")
 	gradient.Color = ColorSequence.new(STYLE.fillTop, STYLE.fillBottom)
@@ -223,6 +217,32 @@ local function build(): Frame?
 	ui.shine.Size = UDim2.new(1, -16, 0, 9)
 	ui.shine.BackgroundTransparency = 0.55
 
+	-- Diagonal stripes across the fill. Rotated frames ignore ClipsDescendants, so they
+	-- live in a CanvasGroup (which does clip them) laid out at the full bar width: the
+	-- fill grows over them rather than squashing them.
+	local stripes = Instance.new("CanvasGroup")
+	stripes.Name = "Stripes"
+	stripes.Size = UDim2.fromScale(1, 1)
+	stripes.BackgroundTransparency = 1
+	stripes.ZIndex = 5
+	stripes.Parent = ui.fill
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = SQUARE
+	corner.Parent = stripes
+	for x = -L.barH, L.barW + L.barH, L.stripeGap do
+		local stripe = Instance.new("Frame")
+		stripe.Name = "Stripe"
+		stripe.AnchorPoint = Vector2.new(0.5, 0.5)
+		stripe.Position = UDim2.fromOffset(x, L.barH / 2)
+		stripe.Size = UDim2.fromOffset(L.stripeW, L.barH * 2)
+		stripe.Rotation = 35
+		stripe.BackgroundColor3 = WHITE
+		stripe.BackgroundTransparency = 0.78
+		stripe.BorderSizePixel = 0
+		stripe.ZIndex = 5
+		stripe.Parent = stripes
+	end
+
 	ui.need = text(trough, "Need", { 0, 0, L.barW, L.barH }, {
 		font = STYLE.valueFont,
 		textSize = L.needTextSize,
@@ -230,8 +250,10 @@ local function build(): Frame?
 		zIndex = 6,
 	})
 
-	ui.walk = text(root, "Walk", { 4, L.walkTop, L.barW - 8, 20 }, { textSize = 16 })
-	ui.belt = text(root, "Belt", { 4, L.beltTop, L.barW - 8, 16 }, { textSize = 13, color = STYLE.caption })
+	ui.walk = text(root, "Walk", { 4, L.walkTop, L.barW - 8, 22 }, {
+		textSize = 18,
+		xAlign = Enum.TextXAlignment.Center,
+	})
 
 	return root
 end
@@ -266,10 +288,6 @@ local function paint()
 	ui.fill.Size = UDim2.fromScale(progress, 1)
 	-- The shine is inset 8 px each side, so a sliver of fill would turn it inside out.
 	ui.shine.Visible = progress * LAYOUT.barW > 28
-
-	ui.belt.Text = if view.nextName
-		then string.upper(`{view.tierName}  |  next: {view.nextName} {formatCash(view.nextCost)} (+{view.nextRate}/s)`)
-		else string.upper(`{view.tierName}  |  the fastest belt there is`)
 end
 
 -- ── The popups ────────────────────────────────────────────────────────────

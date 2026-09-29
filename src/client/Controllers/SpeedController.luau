@@ -115,6 +115,9 @@ end
 
 --- Lifetime Speed as it should be SHOWN right now: the last push, plus what the belt
 --- has paid since if the player is still on it.
+--- The client-side count between pushes climbs in steps of this many.
+local COUNT_STEP = 11
+
 function Speed.shownPoints(): number
 	if view == nil then
 		return 0
@@ -122,8 +125,9 @@ function Speed.shownPoints(): number
 	if not view.training then
 		return view.points
 	end
+	-- The counted lead ticks up in whole steps of COUNT_STEP rather than 1 at a time.
 	local lead = math.min(os.clock() - receivedAt, LEAD_CAP)
-	return view.points + view.rate * lead
+	return view.points + (view.rate * lead) // COUNT_STEP * COUNT_STEP
 end
 
 --- Called with (view, previous) on every SpeedState push.
