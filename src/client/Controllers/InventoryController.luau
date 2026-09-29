@@ -37,8 +37,8 @@
 	picks it up exactly like its number key would. Empty slots still draw in the
 	panel, for the same headroom reason as above.
 
-	G DROPS THE HELD CLEAN NUKE AS A BOMB (Services/BombService; or the DROP tile at
-	the right end of the hotbar; Rare or better asks "are you sure?" first). Hovering
+	G DROPS THE HELD CLEAN NUKE AS A BOMB (Services/BombService; or the DROP button
+	just right of the hotbar; Rare or better asks "are you sure?" first). Hovering
 	a slot (or holding it, on touch) pops the bomb card over it:
 	stars, damage, radius, fuse and cooldown, out of Shared/Bombing -- the same
 	function the server detonates with. While the drop cooldown runs, every clean nuke
@@ -109,6 +109,11 @@ local COOL_SHADE = Color3.fromHex("000000")
 -- Dropping a nuke this rare or better asks "are you sure?" first.
 local CONFIRM_FROM = Rarity.DEFS.Rare.order
 local CONFIRM_WIDTH = 340
+-- The DROP button right of the hotbar.
+local DROP_WIDTH = 104
+local DROP_HEIGHT = 50
+local DROP_GAP = 14
+local DROP_IDLE = Color3.fromHex("2A2F35")
 local CONFIRM_HEIGHT = 176
 
 -- The bag panel's grid. BAG_COLS matches HOTBAR_SLOTS so the panel's top row IS the
@@ -408,83 +413,61 @@ local function buildBagTile(row: Frame)
 	ui.bagTileCount = count
 end
 
---- The DROP tile, right of the hotbar (after BAG): drops the held clean nuke as a
---- bomb, same as G. Always there so players find it; dim until a clean nuke is in
---- your hands, and it counts the cooldown down while one runs.
-local function buildDropTile(row: Frame)
-	local tile = Instance.new("TextButton")
-	tile.Name = "DropTile"
-	tile.AutoButtonColor = false
-	tile.BackgroundColor3 = SLOT_FILL
-	tile.BackgroundTransparency = 0.05
-	tile.BorderSizePixel = 0
-	tile.Text = ""
-	tile.LayoutOrder = HOTBAR_SLOTS + 2
-	tile.Size = UDim2.fromOffset(SLOT_MAX, SLOT_MAX)
-	tile.Visible = false
-	tile.Parent = row
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 7)
-	corner.Parent = tile
-
-	local stroke = Instance.new("UIStroke")
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.Color = SLOT_BORDER
-	stroke.Thickness = 1.5
-	stroke.Parent = tile
-
-	-- The key hint, like a slot's number; touch has no keys.
-	local key = UIKit.label(tile, {
-		name = "Key",
-		position = UDim2.fromOffset(7, 4),
-		size = UDim2.fromOffset(18, 16),
+--- The DROP button: its own control, not a slot -- a red pill parked just right of
+--- the hotbar (placeDropButton keeps it there as the row grows and shrinks). Drops
+--- the held clean nuke as a bomb, same as G. Always shown so players find it; dark
+--- until a clean nuke is in your hands, and it counts the cooldown down while one runs.
+local function buildDropButton(canvas: Frame)
+	local button = UIKit.button(canvas, {
+		name = "DropBomb",
+		anchorPoint = Vector2.new(0, 0.5),
+		size = UDim2.fromOffset(DROP_WIDTH, DROP_HEIGHT),
+		text = "DROP",
 		font = UIKit.Font.title,
-		textSize = 12,
-		color = Color3.fromHex("BBC5D0"),
-		strokeTransparency = 1,
-		text = if UIKit.isTouch() then "" else "G",
+		textSize = 22,
+		color = COLOR.text,
+		fillColor = COLOR.red,
+		fillTransparency = 0,
+		strokeThickness = 3,
+		cornerRadius = UDim.new(0.5, 0),
+		shadow = false,
 	})
+	button.AutoButtonColor = false
+	button.Visible = false
+	button.ClipsDescendants = false
 
-	local title = UIKit.label(tile, {
-		name = "Title",
+	-- The key, as a little keycap hanging off the pill's top-left; touch has no keys.
+	local cap = UIKit.panel(button, {
+		name = "Keycap",
 		anchorPoint = Vector2.new(0.5, 0.5),
-		position = UDim2.new(0.5, 0, 0.5, 2),
-		size = UDim2.new(1, -6, 0, 16),
+		position = UDim2.fromOffset(8, 4),
+		size = UDim2.fromOffset(22, 22),
+		color = Color3.fromHex("1A1F24"),
+		transparency = 0,
+		strokeColor = COLOR.outline,
+		strokeThickness = 2,
+		cornerRadius = UDim.new(0, 6),
+		zIndex = 3,
+	})
+	cap.Visible = not UIKit.isTouch()
+	UIKit.label(cap, {
+		name = "Key",
+		size = UDim2.fromScale(1, 1),
 		font = UIKit.Font.title,
-		textSize = 14,
+		textSize = 13,
 		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Center,
+		outline = false,
 		strokeTransparency = 1,
-		shadow = false,
-		text = "DROP",
+		zIndex = 4,
+		text = "G",
 	})
 
-	-- The cooldown: the same draining shade the clean slots wear, and the seconds.
-	local cool = Instance.new("Frame")
-	cool.Name = "Cooldown"
-	cool.AnchorPoint = Vector2.new(0, 1)
-	cool.Position = UDim2.fromScale(0, 1)
-	cool.Size = UDim2.fromScale(1, 1)
-	cool.BackgroundColor3 = COOL_SHADE
-	cool.BackgroundTransparency = 0.45
-	cool.BorderSizePixel = 0
-	cool.Visible = false
-	cool.ZIndex = 10
-	cool.Parent = tile
-	local coolCorner = Instance.new("UICorner")
-	coolCorner.CornerRadius = UDim.new(0, 7)
-	coolCorner.Parent = cool
-
-	tile.MouseButton1Click:Connect(function()
+	button.MouseButton1Click:Connect(function()
 		Inventory.dropBomb()
 	end)
 
-	ui.dropTile = tile
-	ui.dropTileStroke = stroke
-	ui.dropTileKey = key
-	ui.dropTileTitle = title
-	ui.dropTileCool = cool
+	ui.dropButton = button
 end
 
 --- The Notice popup: a red-edged pill just above the vitals bars over the hotbar. A CanvasGroup so the
@@ -611,7 +594,7 @@ local function build(): ScreenGui
 	ui.layout = layout
 
 	buildBagTile(row)
-	buildDropTile(row)
+	buildDropButton(canvas)
 	buildNotice(canvas)
 
 	return gui
@@ -987,31 +970,27 @@ showCard = function(slot: any?)
 	card.Visible = true
 end
 
---- The DROP tile: lit red while a clean nuke is in your hands and ready, dim
---- otherwise, shaded with the seconds left while the cooldown runs.
-local function paintDropTile(left: number, through: number)
-	local tile = ui.dropTile
-	tile.Visible = math.min(state.capacity, HOTBAR_SLOTS) > 0
-	if not tile.Visible then
+--- The DROP button: red while a clean nuke is in your hands and ready, dark
+--- otherwise, and the seconds left while the cooldown runs.
+local function paintDropButton(left: number)
+	local button = ui.dropButton
+	button.Visible = math.min(state.capacity, HOTBAR_SLOTS) > 0
+	if not button.Visible then
 		return
 	end
 	local ready = droppable(itemByUid(selected))
 	local cooling = left > 0
-	ui.dropTileCool.Visible = cooling
-	ui.dropTileCool.Size = UDim2.fromScale(1, through)
-	ui.dropTileTitle.Text = if cooling then string.format("%.1f", left) else "DROP"
 	local lit = ready and not cooling
-	ui.dropTileTitle.TextColor3 = if lit then COLOR.red elseif ready then COLOR.text else COLOR.dim
-	ui.dropTileStroke.Color = if lit then COLOR.red else SLOT_BORDER
-	ui.dropTileStroke.Thickness = if lit then 2.5 else 1.5
-	tile.BackgroundColor3 = if lit then SLOT_SELECTED else SLOT_FILL
+	button.Text = if cooling then string.format("%.1f", left) else "DROP"
+	button.BackgroundColor3 = if lit then COLOR.red else DROP_IDLE
+	button.TextColor3 = if lit then COLOR.text elseif cooling then COLOR.amber else COLOR.dim
 end
 
 --- Shade every clean nuke slot for the running cooldown; drops the Heartbeat once done.
 local function paintCooldowns()
 	local left = bombSecondsLeft()
 	local through = if bombCooldown > 0 then math.clamp(left / bombCooldown, 0, 1) else 0
-	paintDropTile(left, through)
+	paintDropButton(left)
 	for _, list in { slots, bagCells } do
 		for _, slot in list do
 			local item = itemByUid(slot.uid)
@@ -1048,7 +1027,7 @@ function Inventory.cancelDrop()
 	ui.confirm.Visible = false
 end
 
---- Drop the held clean nuke as a bomb (G, or the DROP tile). A Rare-or-better nuke
+--- Drop the held clean nuke as a bomb (G, or the DROP button). A Rare-or-better nuke
 --- asks "are you sure?" first; `confirmed` is that dialog's DROP (or G pressed again
 --- while it is up, for the same nuke). The server re-checks everything
 --- (Services/BombService); this only saves a round trip for the obvious no.
@@ -1136,10 +1115,9 @@ local function adoptStand(prompt: ProximityPrompt)
 	relabelStand(prompt)
 end
 
---- How many tiles the hotbar row draws: up to ten slots, plus the bag tile, plus DROP.
+--- How many tiles the hotbar row draws: up to ten slots, plus the bag tile.
 local function rowCells(): number
-	local shown = math.min(state.capacity, HOTBAR_SLOTS)
-	return shown + (if hasBag() then 1 else 0) + (if shown > 0 then 1 else 0)
+	return math.min(state.capacity, HOTBAR_SLOTS) + (if hasBag() then 1 else 0)
 end
 
 --- Slot width for the current row. Shrinks toward SLOT_MIN as the row fills so ten
@@ -1276,6 +1254,26 @@ local function renderBag()
 	)
 end
 
+--- Park the DROP button just right of the hotbar's last tile. The row centres its
+--- tiles, so their right edge is the canvas centre plus half their width; on a
+--- touch row that overflows (packed from the left, see renderSlots) it is the row's
+--- own right edge.
+local function placeDropButton(width: number)
+	local cells = rowCells()
+	local needed = cells * (width + SLOT_GAP) - SLOT_GAP + 2 * BORDER_PADDING
+	local scale = UIKit.canvasScale(ui.canvas)
+	local rowLeft = (ui.row.AbsolutePosition.X - ui.canvas.AbsolutePosition.X) / scale
+	local rowWidth = ui.row.AbsoluteSize.X / scale
+	local right = rowLeft + rowWidth / 2 + needed / 2
+	if needed > rowWidth then
+		right = rowLeft + rowWidth
+	end
+	local canvasWidth = ui.canvas.AbsoluteSize.X / scale
+	local x = math.min(right + DROP_GAP, canvasWidth - DROP_WIDTH - Dock.GAP)
+	local y = -(Dock.HOTBAR_BOTTOM + BORDER_PADDING + width / 2)
+	ui.dropButton.Position = UDim2.new(0, x, 1, y)
+end
+
 local function renderSlots()
 	local width = slotWidth()
 	local shown = math.min(state.capacity, HOTBAR_SLOTS)
@@ -1319,9 +1317,9 @@ local function renderSlots()
 	-- What you are holding just changed (or might have): a stand's Take/Swap follows.
 	relabelStands()
 
-	-- The bomb bits follow the bag: a new slot needs its cooldown shade, the DROP tile
+	-- The bomb bits follow the bag: a new slot needs its cooldown shade, the DROP button
 	-- follows what is in your hands, and on touch (no hover) the card shows for it.
-	ui.dropTile.Size = UDim2.fromOffset(width, width)
+	placeDropButton(width)
 	paintCooldowns()
 	-- Put down or swapped out the nuke the "are you sure?" was about: it no longer applies.
 	if confirmUid ~= nil and confirmUid ~= selected then
