@@ -108,7 +108,7 @@ local LAYOUT = {
 	textStroke = 2.5,
 	shoe = 28,
 	gainTextSize = 22,
-	gainEvery = 0.14, -- seconds between "+10"/"+11" popups while the belt runs
+	gainEvery = 0.1, -- seconds between gain popups while the belt runs
 }
 
 local ROUND = UDim.new(0.5, 0)
@@ -372,10 +372,12 @@ local function float(popup: GuiObject, rise: number, life: number)
 end
 
 --- A shoe and "+10" or "+11" popping on the next spot around the runner's body. A steady
---- stream of them while training, for the feel of it: they are not real amounts.
-local function popGain()
+--- stream of them while training. Each shows what the belt pays per popup (so +10 on
+--- the Scrap Belt, bigger on faster belts), randomly bumped 10% for variety.
+local function popGain(rate: number)
 	local L = LAYOUT
-	local label = if math.random() < 0.5 then "+10" else "+11"
+	local amount = rate * L.gainEvery * (if math.random() < 0.5 then 1 else 1.1)
+	local label = `+{Speed.format(amount)}`
 	local textW = TextService:GetTextSize(label, L.gainTextSize, STYLE.valueFont, Vector2.new(400, 60)).X + 6
 	local width = L.shoe + 2 + textW
 	local host = gainHost()
@@ -778,7 +780,7 @@ function Treadmill.start()
 			sinceGain += dt
 			if view and view.training and sinceGain >= LAYOUT.gainEvery then
 				sinceGain = 0
-				popGain()
+				popGain(view.rate)
 			end
 		end
 		sinceTutorialCheck += dt
