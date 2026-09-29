@@ -3687,7 +3687,16 @@ local function buildFloor(parent: Instance, origin: CFrame, index: number, floor
 	rails.Name = "Railings"
 	local rx = HALF_W - RAIL_POST_W / 2
 	local rzFront, rzBack = front + RAIL_POST_W / 2, back - RAIL_POST_W / 2
-	railRun(rails, origin, top, -rx, rzFront, rx, rzFront)
+	-- The front edge is one skinny bar at rail height, no posts (on request), so the
+	-- gallery below stays open to the plaza. It still collides: past it is a drop.
+	build(rails, origin, {
+		name = "FrontBar",
+		pos = { 0, top + RAIL_H, rzFront },
+		size = { rx * 2 + RAIL_POST_W, STAIR_RAIL_T, STAIR_RAIL_T },
+		color = C.railGrey,
+		material = "Plastic",
+		studs = true,
+	})
 	railRun(rails, origin, top, -rx, rzBack, rx, rzBack)
 	for _, sd in { -1, 1 } do
 		local gates: { FenceGate } = {}
@@ -3697,8 +3706,9 @@ local function buildFloor(parent: Instance, origin: CFrame, index: number, floor
 		if flightSide(floor - 1) == sd then
 			table.insert(gates, HEAD_GATE)
 		end
-		-- The corner posts belong to the front and back runs.
-		fenceLineZ(rails, origin, top, sd * rx, rzFront, rzBack, gates, true, true, true)
+		-- The front corner post is the side's own (the front bar has none); the back
+		-- corner belongs to the back run.
+		fenceLineZ(rails, origin, top, sd * rx, rzFront, rzBack, gates, true, false, true)
 	end
 	rails.Parent = m
 	capFencePosts(rails, accent)
