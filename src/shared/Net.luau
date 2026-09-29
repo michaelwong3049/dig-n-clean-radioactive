@@ -131,6 +131,13 @@ local REMOTES: { [string]: string } = {
 	-- fine -- there is nothing buried there any more. The crater it leaves is a real
 	-- part in Workspace (Config/Detonation.FOLDER), so late joiners see that too.
 	Detonation = "RemoteEvent", -- server -> all clients, { position, rarity, blastRadius, orbRadius }
+	--
+	-- Dropping the held clean nuke as a bomb (Services/BombService). BombDrop carries NO
+	-- PAYLOAD: the server drops whatever the player is holding, so the only thing a
+	-- client can lie about is when. BombState answers the dropper with the cooldown
+	-- { readyAt, cooldown } (a server-clock deadline) or a refusal { notice }.
+	BombDrop = "RemoteEvent", -- client -> server, no payload
+	BombState = "RemoteEvent", -- server -> client, { readyAt, cooldown } | { notice }
 
 	-- The index GUI. One snapshot on load, { discovered, stats } (data.discovered and
 	-- data.indexStats); the client tops it up itself from the `index` record riding on

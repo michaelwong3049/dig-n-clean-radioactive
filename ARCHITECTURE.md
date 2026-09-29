@@ -29,6 +29,7 @@ src/
       Treadmill.luau          the speed track: the trained-speed curve + the 6 belt rungs
       Liquids.luau            the wash pad's 10 cleaning liquids + the luck curve
       Items.luau              the item catalogue (+ id / stage-rarity indexes)
+      Bombing.luau            dropped-nuke bomb stats: damage/radius by stars, fuse, 8-10s cooldown
       ToolTiers.luau          per-tier look: scale, colours, material, glow
     ItemModels/               versioned item-art factories; nil keys use placeholders
     ToolModels/               gear-tier model factories; Cleaner only so far (the 7 hoses,
@@ -48,6 +49,7 @@ src/
     Radiation.luau            pure math: exposure, burn, survivable seconds
     Decay.luau                pure math: the decay clock
     Detonation.luau           pure math: the pull fuse, blast falloff, crater orb strength
+    Bombing.luau              pure math: a clean nuke's bomb stats + the bag star average
     Contamination.luau        pure math: the cleaning gate
     StatResolver.luau         profile -> stats. The ONLY place gear math happens.
     AuraLook.luau             the Aura track's look: per-tier ring colour/count, the ring
@@ -63,7 +65,7 @@ src/
       StageService             who is standing where
       CampService              which camp you are in, which you have reached (unlocks its warp)
       HazardService           detonated nukes: the blast hit and the crater orbs' burn
-      ExposureService         the rad meter, burn, blackout, dropped bags
+      ExposureService         the rad meter, burn, blackout, dropped bags (blast = whole bag for anyone, rads = dirty, owner-only)
       DigService              the buried signal field, sweep, haul and the pull fuse
       EconomyService          what an item is worth, and the till
       DeconService            docking, scrubbing and racking at every base; sell() exists, no world trader triggers it currently
@@ -72,6 +74,7 @@ src/
       WashService             the hose bay: the E-to-wash session and its clock
                               (the nozzle is world geometry; this never moves it)
       ToolService             puts the right model in the player's hands
+      BombService             G drops the held clean nuke as a lit bomb (stages only, per-player cooldown)
       AuraService             stamps each character's equipped Aura tier (`AuraTier`)
       DebugService            the tuning console (/radhelp)
 
@@ -172,6 +175,7 @@ with the place.
 | `Workspace.Stages.Stage<id>` (BasePart) | `DigService:255`, `DebugService:142` | that stage spawns no signals; `/stage <id>` refuses |
 | `Workspace.SignalAuras` (Folder) | created and owned by `DigService` | nothing — it is created on demand at runtime and wiped on boot. Do **not** hand-edit or save it with the place; `DigService.init` destroys any copy it finds, because a saved one would be full of glows over empty ground. |
 | `Workspace.Craters` (Folder) | created and owned by `HazardService` | nothing — one invisible marker part per live crater, created at runtime and wiped on boot like `SignalAuras`. Every visual is client-side (`DetonationController`). Do **not** save it with the place. |
+| `Workspace.Bombs` (Folder) | created and owned by `BombService` | nothing — dropped bombs waiting on their fuse, created at runtime and wiped on boot like `Craters`. Do **not** save it with the place. |
 | `Workspace.Camps` (Model) | `CampService.anchorFor`, `World.verify()` | Built by `build/CampSite`. One child Model per site camp (`CampId`, `CampKey`), each with exactly one direct-child `CampAnchor` part (`CampKey`) where a warp lands. Missing: that camp's warp button is hidden and WarpService refuses it (never a drop into open water), and nobody can "reach" it. Its Trader and CleansingStation are ordinary stations (tag-driven), so the trader/decon/hose counts in `verify()` are one per base **plus one per site camp**. Its `EmptyStall`s carry no `StationKind` by contract. |
 | `Workspace.BaseCamp` (Model) | `DeconService:54` | `stationOf` is always nil — no docking, scrubbing or selling, anywhere. Generate it with `BaseCamp.rebuild()` as documented in the README. |
 | a `SpawnLocation` anywhere in `Workspace` | `ExposureService:221` | blackout respawns to a hardcoded `CFrame.new(0, 8, 0)` |

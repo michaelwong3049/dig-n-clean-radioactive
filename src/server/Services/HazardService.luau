@@ -53,6 +53,15 @@ type Crater = {
 	blast: Detonation.Blast,
 	bornAt: number, -- Workspace:GetServerTimeNow()
 	marker: BasePart,
+	stageOnly: boolean, -- a dropped bomb's: burns nobody standing outside a stage
+}
+
+--- Optional extras for detonate. A dropped bomb (BombService) brings its own blast
+--- from Shared/Bombing, and a `spares` test that keeps anyone in a camp or base out
+--- of the hit -- bombing is a stages-only thing. A dig nuke's fuse passes neither.
+export type Options = {
+	blast: Detonation.Blast?,
+	spares: ((player: Player) -> boolean)?,
 }
 
 local craters: { Crater } = {}
@@ -77,10 +86,14 @@ end
 --- A nuke went off at `position` (the surface point over where it was buried).
 --- `visualScale` is how big it looked -- Weight.sizeScale * sizeMult * Payload, the
 --- product its haul lump was :ScaleTo'd by.
-function HazardService.detonate(position: Vector3, rarity: string, visualScale: number)
-	local blast = Detonation.blastFor(rarity, visualScale)
+function HazardService.detonate(position: Vector3, rarity: string, visualScale: number, options: Options?)
+	local blast = if options and options.blast then options.blast else Detonation.blastFor(rarity, visualScale)
+	local spares = if options then options.spares else nil
 
 	for _, player in Players:GetPlayers() do
+		if spares and spares(player) then
+			continue
+		end
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if root and root:IsA("BasePart") then
@@ -116,6 +129,7 @@ function HazardService.detonate(position: Vector3, rarity: string, visualScale: 
 		blast = blast,
 		bornAt = now,
 		marker = marker,
+		stageOnly = spares ~= nil,
 	})
 
 	detonationRemote:FireAllClients({
@@ -130,7 +144,8 @@ end
 
 --- Health/sec the craters are burning off whoever stands at `position`. Summed, so
 --- overlapping craters stack -- two nukes gone off side by side are worse than one.
-function HazardService.burnAt(position: Vector3): number
+--- `inStage` false skips a dropped bomb's crater, which never reaches into a camp.
+function HazardService.burnAt(position: Vector3, inStage: boolean?): number
 	if #craters == 0 then
 		return 0
 	end
@@ -138,6 +153,9 @@ function HazardService.burnAt(position: Vector3): number
 	local now = Workspace:GetServerTimeNow()
 	local total = 0
 	for _, crater in craters do
+		if crater.stageOnly and inStage == false then
+			continue
+		end
 		local strength = Detonation.orbStrength(now - crater.bornAt, crater.blast.orbLife)
 		if strength > 0 then
 			local distance = (position - crater.position).Magnitude

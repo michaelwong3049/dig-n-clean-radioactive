@@ -397,7 +397,7 @@ end
 -- ── API ─────────────────────────────────────────────────────────────────────
 
 --- Play the screen for one blackout payload (ExposureService): { cause, itemsDropped,
---- itemsDetonated, stageName, depth }. A second call mid-play starts it over.
+--- looted, stageName, depth }. A second call mid-play starts it over.
 function DeathScreen.play(info: any)
 	Sfx.play("flatline")
 	if ui == nil then
@@ -408,7 +408,6 @@ function DeathScreen.play(info: any)
 	local cause = CAUSES[info.cause] or CAUSES.exposure
 	local accent = cause.accent
 	local dropped = info.itemsDropped or 0
-	local detonated = info.itemsDetonated or 0
 
 	local where = { `<font color="#{accent:ToHex()}">{cause.title}</font>` }
 	if info.stageName and info.stageName ~= "" then
@@ -420,8 +419,9 @@ function DeathScreen.play(info: any)
 	end
 	ui.cause.Text = table.concat(where, "  \u{00B7}  ")
 
-	ui.bag.Text = if detonated > 0
-		then `Your bag went off where you fell  \u{00B7}  {plural(detonated, "item", "items")} lost`
+	-- A blast death's bag is up for grabs (ExposureService.dropBag); race them to it.
+	ui.bag.Text = if dropped > 0 and info.looted
+		then `Your whole bag dropped where you fell  \u{00B7}  {plural(dropped, "item", "items")}, anyone can grab {if dropped == 1 then "it" else "them"}`
 		elseif dropped > 0 then `Dropped {plural(dropped, "item", "items")} where you fell  \u{00B7}  1:30 to get {if dropped == 1 then "it" else "them"} back`
 		else "Nothing lost"
 

@@ -12,18 +12,19 @@
 	                        detonated nuke: its blast and its crater (HazardService).
 
 	BLACKOUT IS NOT A DEATH PENALTY. You keep cash, gear, the locker and anything
-	displayed. You lose the dirty bag you were greedily hauling, and it stays on the
-	ground where you fell for ninety seconds — glowing, server-visible, and grabbable
-	by anyone including the player who watched you go down. PLAN §3.1 is emphatic that
-	this punishes greed rather than existence, and that losing progress in a casual
-	Roblox digging game kills retention.
+	displayed. What happens to the bag depends on what put you down:
 
-	EXCEPT WHEN A BLAST PUTS YOU DOWN. Go down to a detonation -- its hit, or its
-	crater's orb burning the last of your health -- and the bag does not drop: every
-	nuke in it goes off where you fell, clean or crusted, crates included. Each is a
-	real detonation (HazardService), staggered into a chain, so anyone standing close
-	takes every hit and can go down to it -- and their bag goes off in turn. Radiation
-	(the green death, or plain aura failure) still drops the bag for anyone to grab.
+	  RADIATION (the green death, or plain aura failure). The dirty part of the bag
+	  drops where you fell for ninety seconds, and only YOU can pick it back up. Washed
+	  work stays with you. PLAN §3.1 is emphatic that this punishes greed rather than
+	  existence, and that losing progress in a casual Roblox digging game kills retention.
+
+	  A BLAST (a detonation's hit, or its crater's orb burning the last of your health).
+	  The WHOLE bag drops, clean nukes and all, and ANYONE can grab it straight away.
+	  That is the prize for bombing someone (Services/BombService): a dropped clean nuke
+	  is how you go after another player's haul, and the overhead star badge
+	  (NameTagController) is how you pick who is worth it. Supply crates that are already
+	  washed (data.crates) stay with you; they are not nukes.
 ]]
 
 local Players = game:GetService("Players")
@@ -42,9 +43,6 @@ local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 local Bag = require(Shared.Bag)
-local Items = require(Shared.Config.Items)
-local Weight = require(Shared.Config.Weight)
-local Payload = require(Shared.Config.Payload)
 
 local DataService = require(script.Parent.DataService)
 local WashService = require(script.Parent.WashService)
@@ -66,14 +64,6 @@ local ExposureService = {}
 local HEALTH_REGEN_PER_SEC = 2.5 -- PLAN §3.5: slowly out of radiation...
 local BAG_LIFETIME = 90 -- §3.1, exactly ninety seconds
 local DEFAULT_SHOWER_RADIUS = 10
-
--- A blast death sets the bag off as a CHAIN, one nuke every CHAIN_STAGGER seconds,
--- rather than all on one frame: it reads as a string of booms instead of one, and it
--- spreads the client's detonation FX over a few seconds for a full 34-slot bag. Each
--- goes off a little way from where you fell (up to CHAIN_SCATTER studs) so the
--- craters overlap rather than stacking into a single one.
-local CHAIN_STAGGER = 0.15
-local CHAIN_SCATTER = 4
 
 -- Roblox's own out-of-the-box jump values, restored whenever a player is not rooted by
 -- a dig lock. Hardcoding the engine defaults is safe here only because NOTHING else in
@@ -120,6 +110,7 @@ local immune: { [Player]: boolean } = {}
 local stateRemote: any = nil
 local blackoutRemote: any = nil
 local droppedBagRemote: any = nil
+local noticeRemote: any = nil
 
 local INFINITE = -1
 local function finite(n: number): number
@@ -196,6 +187,12 @@ local function giveBagTo(bag: BasePart, taker: Player)
 		return
 	end
 
+	-- A radiation drop is the owner's to recover and nobody else's (header).
+	if bag:GetAttribute("OwnerOnly") == true and bag:GetAttribute("OwnerId") ~= taker.UserId then
+		noticeRemote:FireClient(taker, "only its owner can recover that bag")
+		return
+	end
+
 	local data = DataService.data(taker)
 	if data == nil then
 		return
@@ -221,7 +218,8 @@ local function giveBagTo(bag: BasePart, taker: Player)
 	local billboard = bag:FindFirstChildOfClass("BillboardGui")
 	local label = billboard and billboard:FindFirstChildOfClass("TextLabel")
 	if label then
-		label.Text = `dropped bag\n{#contents} item(s)`
+		label.Text = `{bag:GetAttribute("OwnerName")}'s bag\n{#contents} item(s)`
+			.. (if bag:GetAttribute("OwnerOnly") == true then "\n(owner only)" else "")
 	end
 
 	-- The last take is told by the bag's Destroying hook (dropBag), not here.
@@ -303,15 +301,19 @@ local function buildSack(root: BasePart, scale: number)
 		Enum.Material.SmoothPlastic
 end
 
-local function dropBag(player: Player, data: any, position: Vector3): number
+--- Drop the bag where the player fell. `looted` is a blast death: the WHOLE carry
+--- goes and anyone may take it. Otherwise it is a radiation death: only the dirty
+--- items go, and only their owner may take them back (header).
+local function dropBag(player: Player, data: any, position: Vector3, looted: boolean): number
 	-- PLAN §3.1 says you drop your UNCLEANED carry. Read literally: anything you
 	-- already scrubbed clean stays with you. Being generous here is deliberate — a
 	-- cleaned item represents work already done, and taking it back would punish the
-	-- player twice for one mistake.
+	-- player twice for one mistake. A bomb kill is the exception: the clean haul is
+	-- exactly what the bomber came for.
 	local dropped = {}
 	for index = #data.carry, 1, -1 do
 		local item = data.carry[index]
-		if not Contamination.isClean(item.patches or {}) then
+		if looted or not Contamination.isClean(item.patches or {}) then
 			table.insert(dropped, item)
 			table.remove(data.carry, index)
 		end
@@ -360,7 +362,7 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 	label.TextSize = 16
 	label.TextColor3 = Color3.fromHex("D6FFB0")
 	label.TextStrokeTransparency = 1
-	label.Text = `{player.Name}'s bag\n{#dropped} item(s)`
+	label.Text = `{player.Name}'s bag\n{#dropped} item(s)` .. (if looted then "" else "\n(owner only)")
 	label.Parent = billboard
 
 	local labelStroke = Instance.new("UIStroke")
@@ -369,10 +371,10 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 	labelStroke.LineJoinMode = Enum.LineJoinMode.Round
 	labelStroke.Parent = label
 
-	-- Anyone can take it. That is the point (§3.1): a free social system that costs
-	-- almost nothing to build.
+	-- A bomb kill's bag is anyone's: that is the point of bombing. A radiation drop is
+	-- the owner's alone, checked in giveBagTo.
 	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = "Grab bag"
+	prompt.ActionText = if looted then "Grab bag" else "Recover bag"
 	prompt.ObjectText = `{#dropped} item(s)`
 	prompt.HoldDuration = 0.6
 	prompt.MaxActivationDistance = 12
@@ -390,6 +392,8 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 	-- and you have just been sent to camp, so the part may not be streamed in on your
 	-- client at all. Emptied or timed out, it goes the same way -- Destroying.
 	bag:SetAttribute("OwnerId", player.UserId)
+	bag:SetAttribute("OwnerName", player.Name)
+	bag:SetAttribute("OwnerOnly", not looted)
 	bag:SetAttribute("BagId", HttpService:GenerateGUID(false))
 	tellOwner(bag, {
 		position = bag.Position,
@@ -402,38 +406,6 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 	end)
 
 	return #dropped
-end
-
---- A blast put this player down: EVERY nuke in the bag goes off where they fell, and
---- the bag is empty afterwards. Clean ones too -- dropBag's "washed work stays with
---- you" generosity is the radiation penalty; this one is the whole haul. Each is sized
---- exactly as it was dug (the same Weight * sizeMult * Payload product DigService
---- hands HazardService for a fuse that ran out), so a bag of big rare finds makes a
---- far worse crater field than a bag of scrap.
-local function detonateBag(player: Player, data: any, position: Vector3): number
-	local blowing = table.clone(data.carry)
-	table.clear(data.carry)
-	if #blowing == 0 then
-		return 0
-	end
-
-	-- Onto the ground under where they fell, so the craters sit on it (the root is a
-	-- few studs up). Cast before blackout teleports the character away.
-	local params = RaycastParams.new()
-	params.FilterDescendantsInstances = { player.Character :: Instance }
-	local hit = Workspace:Raycast(position + Vector3.new(0, 4, 0), Vector3.new(0, -60, 0), params)
-	local ground = if hit then hit.Position else position - Vector3.new(0, 3, 0)
-
-	for index, item in blowing do
-		local def = if Items.has(item.itemId) then Items.get(item.itemId) else nil
-		local scale = if def then Weight.sizeScale(def.weight) * (def.sizeMult or 1) * Payload.forUid(item.uid) else 1
-		local angle = math.random() * math.pi * 2
-		local reach = if index == 1 then 0 else math.random() * CHAIN_SCATTER
-		local at = ground + Vector3.new(math.cos(angle) * reach, 0, math.sin(angle) * reach)
-		task.delay(CHAIN_STAGGER * (index - 1), HazardService.detonate, at, item.rarity, scale)
-	end
-
-	return #blowing
 end
 
 -- ── Blackout ───────────────────────────────────────────────────────────
@@ -496,14 +468,11 @@ local function blackout(player: Player, state: State, cause: string, where: Wher
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 
-	-- A blast death sets the bag off; any other death drops it (header).
-	local lost, detonated = 0, 0
+	-- A blast death drops the whole bag for anyone; any other death drops the dirty
+	-- part of it for its owner only (header).
+	local lost = 0
 	if data and root and root:IsA("BasePart") then
-		if cause == "blast" then
-			detonated = detonateBag(player, data, root.Position)
-		else
-			lost = dropBag(player, data, root.Position)
-		end
+		lost = dropBag(player, data, root.Position, cause == "blast")
 	end
 
 	state.exposure = 0
@@ -521,11 +490,11 @@ local function blackout(player: Player, state: State, cause: string, where: Wher
 	blackoutRemote:FireClient(player, {
 		cause = cause,
 		itemsDropped = lost,
-		itemsDetonated = detonated,
+		looted = cause == "blast",
 		stageName = where.stageName,
 		depth = where.depth,
 	})
-	print(`[rads] {player.Name} blacked out ({cause}) — dropped {lost}, detonated {detonated} item(s)`)
+	print(`[rads] {player.Name} blacked out ({cause}) — dropped {lost} item(s)`)
 
 	-- Brief grace so they do not immediately re-accrue while the screen is still white.
 	task.delay(1.5, function()
@@ -653,7 +622,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- treats standing in a crater exactly like aura failure. `failing` is left alone:
 	-- that flag means the AURA gave out, and it has not. The aura does not shield this
 	-- either; it is the air itself, a second ago, at a few thousand degrees.
-	local craterBurn = HazardService.burnAt(root.Position)
+	local craterBurn = HazardService.burnAt(root.Position, stageId ~= nil)
 	reading.healthBurn += craterBurn
 	-- Always taken, even while downed, so a hit that lands on a blackout is dropped
 	-- rather than banked into the next life (HazardService.takeHit).
@@ -699,8 +668,8 @@ local function stepPlayer(player: Player, dt: number)
 
 		if state.health <= 0 then
 			-- Down to a detonation -- its hit this tick, or standing in a crater's orb
-			-- when the health ran out -- is a "blast" death, and the bag goes off with
-			-- you. Aura failure alone is still "burn": radiation, and the bag drops.
+			-- when the health ran out -- is a "blast" death, and the whole bag drops for
+			-- anyone. Aura failure alone is still "burn": radiation, owner-only drop.
 			-- Sickness with the aura holding is the meter's doing: an exposure death.
 			local blasted = blastHit > 0 or craterBurn > 0
 			local reason = if blasted then "blast" elseif reading.healthBurn > 0 then "burn" else "exposure"
@@ -852,6 +821,7 @@ function ExposureService.init()
 	stateRemote = Net.get("ExposureState")
 	blackoutRemote = Net.get("Blackout")
 	droppedBagRemote = Net.get("DroppedBag")
+	noticeRemote = Net.get("Notice")
 end
 
 function ExposureService.start()

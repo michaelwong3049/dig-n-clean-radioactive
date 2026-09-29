@@ -48,6 +48,7 @@ local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 local Bag = require(Shared.Bag)
+local Bombing = require(Shared.Bombing)
 
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
@@ -324,6 +325,14 @@ local function stepPlayer(player: Player)
 		return
 	end
 	lastSignature[player] = signature
+
+	-- THE OVERHEAD STAR BADGE (NameTagController): the average star rating of the
+	-- nukes in this bag, published on the Player so every client can read it. It is
+	-- what a bomber sizes you up by -- a bomb death drops this exact bag for anyone
+	-- (ExposureService) -- so it averages the bag, not the stands.
+	local average, count = Bombing.averageStars(data.carry)
+	player:SetAttribute("BagStars", math.floor(average * 10 + 0.5) / 10)
+	player:SetAttribute("BagNukes", count)
 
 	carryRemote:FireClient(player, {
 		capacity = stats.capacity,
