@@ -1379,8 +1379,10 @@ ItemFx.DEFS = {
 			{ part = "TailPlume", preset = "sparkle", color = Color3.fromHex("FFE08A"), rate = 4 },
 		},
 		spins = {
-			{ parts = { "WingFeather1*" }, pivot = "Shell", axis = "Z", mode = "swing", deg = 12, period = 1.1 },
-			{ parts = { "WingFeather2*" }, pivot = "Shell", axis = "Z", mode = "swing", deg = -12, period = 1.1 },
+			-- Each wing beats as one piece from its root covert: the coverts and sparks
+			-- ride along, or the feathers tear away from them mid-beat.
+			{ parts = { "WingFeather1*", "CovertFeather1*", "WingSpark1*" }, pivot = "CovertFeather11", axis = "Z", mode = "swing", deg = 12, period = 1.1 },
+			{ parts = { "WingFeather2*", "CovertFeather2*", "WingSpark2*" }, pivot = "CovertFeather21", axis = "Z", mode = "swing", deg = -12, period = 1.1 },
 		},
 		anims = {
 			{ kind = "flicker", parts = { "FlameLick", "PlumeTip" }, period = 0.3, min = 0.5, perPart = true },
@@ -1417,7 +1419,8 @@ ItemFx.DEFS = {
 	},
 
 	-- Inferno Nuke. The Anomaly: a white-hot core breaking through its shell,
-	-- fireballs circling, flames roaring, lava glowing and shockwaves rolling out.
+	-- fireballs circling, fins wheeling, horns swaying, chains rippling,
+	-- drips and embers bobbing, lava glowing and shockwaves rolling out.
 	inferno_nuke = {
 		finish = {
 			{ parts = { "WhiteHotCore" }, material = "Neon", color = Color3.fromHex("FFF6DC") },
@@ -1436,6 +1439,12 @@ ItemFx.DEFS = {
 		spins = {
 			{ parts = { "Fireball", "FireballTrail" }, pivot = "WhiteHotCore", axis = "Y", rpm = 18 },
 			{ parts = { "HeatRing" }, pivot = "WhiteHotCore", axis = "Y", rpm = -8 },
+			{ parts = { "FireFin", "FinFlame" }, pivot = "ShellSegment1", axis = "Y", rpm = 10 },
+			{ parts = { "Horn1", "HornVein1", "HornFlame1" }, pivot = "Horn1", axis = "Z", mode = "swing", deg = 6, period = 2.2 },
+			{ parts = { "Horn2", "HornVein2", "HornFlame2" }, pivot = "Horn2", axis = "Z", mode = "swing", deg = -6, period = 2.2 },
+			-- (The chains are appended link by link below the table.)
+			{ parts = { "MoltenDrip" }, pivot = "MoltenDrip1", axis = "Y", mode = "bob", amp = 0.4, period = 1.0 },
+			{ parts = { "Ember" }, pivot = "Ember1", axis = "Y", mode = "bob", amp = 4, period = 3.0 },
 		},
 		anims = {
 			{ kind = "heartbeat", parts = { "WhiteHotCore", "FireGap" }, light = true, period = 1.4, min = 0.55 },
@@ -1446,6 +1455,34 @@ ItemFx.DEFS = {
 		ping = { part = "ScorchedGround", color = Color3.fromHex("FF6A1A"), period = 2.8 },
 	},
 } :: { [string]: ItemFxDef }
+
+-- Inferno's four black chains sway like hanging chain: each link bobs on its own,
+-- a wave running from the shell down to the anchor, the top link barely moving and
+-- the anchor end moving most. Every group pivots on the chain's anchor so `amp`
+-- means the same distance whatever each link's own thickness.
+do
+	local spins = ItemFx.DEFS.inferno_nuke.spins :: { any }
+	local LINKS = 11
+	for chain = 1, 4 do
+		local anchor = `Anchor{chain}`
+		for link = 1, LINKS do
+			local parts = { `ChainLink{chain}_{link}` }
+			if link == LINKS then
+				table.insert(parts, anchor)
+				table.insert(parts, `AnchorGlow{chain}`)
+			end
+			table.insert(spins, {
+				parts = parts,
+				pivot = anchor,
+				axis = "Y",
+				mode = "bob",
+				amp = 0.2 + 1.0 * (link - 1) / (LINKS - 1),
+				period = 2.4,
+				phase = (chain - 1) * 0.27 - link * 0.05,
+			})
+		end
+	end
+end
 
 --- The same effects on a supply crate's imported model (Assets.CrateTemplates), keyed
 --- `crate_<crateId>`. Kept apart from DEFS: Spec checks every DEFS key is a nuke.
