@@ -1379,8 +1379,10 @@ ItemFx.DEFS = {
 			{ part = "TailPlume", preset = "sparkle", color = Color3.fromHex("FFE08A"), rate = 4 },
 		},
 		spins = {
-			{ parts = { "WingFeather1*" }, pivot = "Shell", axis = "Z", mode = "swing", deg = 12, period = 1.1 },
-			{ parts = { "WingFeather2*" }, pivot = "Shell", axis = "Z", mode = "swing", deg = -12, period = 1.1 },
+			-- Each wing beats as one piece from its root covert: the coverts and sparks
+			-- ride along, or the feathers tear away from them mid-beat.
+			{ parts = { "WingFeather1*", "CovertFeather1*", "WingSpark1*" }, pivot = "CovertFeather11", axis = "Z", mode = "swing", deg = 12, period = 1.1 },
+			{ parts = { "WingFeather2*", "CovertFeather2*", "WingSpark2*" }, pivot = "CovertFeather21", axis = "Z", mode = "swing", deg = -12, period = 1.1 },
 		},
 		anims = {
 			{ kind = "flicker", parts = { "FlameLick", "PlumeTip" }, period = 0.3, min = 0.5, perPart = true },
@@ -1417,7 +1419,8 @@ ItemFx.DEFS = {
 	},
 
 	-- Inferno Nuke. The Anomaly: a white-hot core breaking through its shell,
-	-- fireballs circling, flames roaring, lava glowing and shockwaves rolling out.
+	-- fireballs circling, fins wheeling, horns swaying, eruption pillars pumping,
+	-- drips and embers bobbing, lava glowing and shockwaves rolling out.
 	inferno_nuke = {
 		finish = {
 			{ parts = { "WhiteHotCore" }, material = "Neon", color = Color3.fromHex("FFF6DC") },
@@ -1436,6 +1439,16 @@ ItemFx.DEFS = {
 		spins = {
 			{ parts = { "Fireball", "FireballTrail" }, pivot = "WhiteHotCore", axis = "Y", rpm = 18 },
 			{ parts = { "HeatRing" }, pivot = "WhiteHotCore", axis = "Y", rpm = -8 },
+			{ parts = { "FireFin", "FinFlame" }, pivot = "ShellSegment1", axis = "Y", rpm = 10 },
+			{ parts = { "Horn1", "HornVein1", "HornFlame1" }, pivot = "Horn1", axis = "Z", mode = "swing", deg = 6, period = 2.2 },
+			{ parts = { "Horn2", "HornVein2", "HornFlame2" }, pivot = "Horn2", axis = "Z", mode = "swing", deg = -6, period = 2.2 },
+			{ parts = { "EruptionPillar1", "PillarTip1" }, pivot = "EruptionPillar1", axis = "Y", mode = "bob", amp = 0.25, period = 1.4 },
+			{ parts = { "EruptionPillar2", "PillarTip2" }, pivot = "EruptionPillar2", axis = "Y", mode = "bob", amp = 0.2, period = 1.4, phase = 0.2 },
+			{ parts = { "EruptionPillar3", "PillarTip3" }, pivot = "EruptionPillar3", axis = "Y", mode = "bob", amp = 0.15, period = 1.4, phase = 0.4 },
+			{ parts = { "EruptionPillar4", "PillarTip4" }, pivot = "EruptionPillar4", axis = "Y", mode = "bob", amp = 0.25, period = 1.4, phase = 0.6 },
+			{ parts = { "EruptionPillar5", "PillarTip5" }, pivot = "EruptionPillar5", axis = "Y", mode = "bob", amp = 0.2, period = 1.4, phase = 0.8 },
+			{ parts = { "MoltenDrip" }, pivot = "MoltenDrip1", axis = "Y", mode = "bob", amp = 0.4, period = 1.0 },
+			{ parts = { "Ember" }, pivot = "Ember1", axis = "Y", mode = "bob", amp = 4, period = 3.0 },
 		},
 		anims = {
 			{ kind = "heartbeat", parts = { "WhiteHotCore", "FireGap" }, light = true, period = 1.4, min = 0.55 },
