@@ -7,7 +7,7 @@
 	version instead. Each client builds tags for every character, so names remain
 	visible to everyone without replicating UI instances from the server.
 
-	THE STAR BADGE sits over the name: "★ 4.2 · 6 nukes", the average star rating of
+	THE STAR BADGE sits over the name: "★ 4.2", the average star rating of
 	what that player is carrying (the BagStars / BagNukes attributes CarryService
 	publishes on the Player). A bomb death drops the whole bag for anyone to grab
 	(ExposureService), so this is how a bomber sizes up a target (Services/BombService).
@@ -66,7 +66,7 @@ local function addBadge(player: Player, character: Model, head: BasePart)
 		gui.Enabled = nukes > 0
 		if nukes > 0 then
 			local average = if typeof(stars) == "number" then stars else 0
-			label.Text = `\u{2605} {string.format("%.1f", average)}  \u{00B7}  {nukes} {if nukes == 1 then "nuke" else "nukes"}`
+			label.Text = `\u{2605} {string.format("%.1f", average)}`
 		end
 	end
 
