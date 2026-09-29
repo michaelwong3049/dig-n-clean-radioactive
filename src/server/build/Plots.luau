@@ -3737,18 +3737,23 @@ local function buildFloorSign(parent: Instance, origin: CFrame, index: number, f
 	local m = Instance.new("Model")
 	m.Name = `FloorSign{floor}`
 	local base = floorTopY(floor - 1)
-	-- Inside the fence, just behind the gate out to that floor's flight.
-	local x = flightSide(floor - 1) * (HALF_W - 1 - FLOOR.stairW / 2)
-	local z = FLOOR.stairZ + 3
+	-- Hung on the inside of the fence, across the gate out to that floor's flight
+	-- (on request: it used to stand on a post). Turned so its face looks into the base.
+	local sd = flightSide(floor - 1)
+	local railX = HALF_W - RAIL_POST_W / 2
+	local x = sd * (railX - RAIL_BAR_T / 2 - 0.27)
+	local z = (FOOT_GATE.z0 + FOOT_GATE.z1) / 2
+	local face = Kit.ang(0, sd * 90, 0)
 	local price = withCommas(Floors.PRICES[floor] or 0)
 	local subtitle = `+{Floors.UPPER_SLOTS} stands for ${price}`
 
-	build(m, origin, { name = "SignFoot", pos = { x, base + 0.2, z }, size = { 2, 0.4, 2 }, color = C.standGrey, material = "Plastic", studs = true })
-	build(m, origin, { name = "SignPost", pos = { x, base + 2.3, z }, size = { 0.8, 3.8, 0.8 }, color = C.standGreyDark, material = "Plastic", studs = true })
+	-- The accent stripe along the board's top edge doubles as the bar it hangs from,
+	-- resting on the fence's top rail.
 	build(m, origin, {
 		name = "SignStripe",
-		pos = { x, base + 3.85, z },
+		pos = { x, base + RAIL_H + RAIL_BAR_T / 2 + 0.15, z },
 		size = { 5.2, 0.3, 0.7 },
+		rot = face,
 		color = accent,
 		material = "SmoothPlastic",
 		canCollide = false,
@@ -3756,13 +3761,14 @@ local function buildFloorSign(parent: Instance, origin: CFrame, index: number, f
 	})
 	local board = build(m, origin, {
 		name = "SignBoard",
-		pos = { x, base + 5.2, z },
+		pos = { x, base + RAIL_H + RAIL_BAR_T / 2 - 1.2, z },
 		size = { 5, 2.4, 0.5 },
+		rot = face,
 		color = ARCH_SIGN_FILL,
 		material = "SmoothPlastic",
 		attributes = { BuysFloor = floor, PlotIndex = index, SignText = subtitle },
 	})
-	-- Front is -Z: the face you see walking in from the entrance.
+	-- Front is the face turned into the base.
 	Kit.surfaceText(board, Enum.NormalId.Front, `FLOOR {floor}`, C.labelText)
 
 	local prompt = Instance.new("ProximityPrompt")
