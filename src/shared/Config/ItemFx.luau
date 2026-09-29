@@ -2233,6 +2233,229 @@ ItemFx.DEFS = {
 			{ kind = "pulse", parts = { "RiftCore", "CoreOrbit" }, period = 1.8, min = 0.5 },
 		},
 	},
+
+	-- ── STAGE 12: GROUND ZERO ────────────────────────────────────────────────
+
+	-- Fallout Nuke. The beacon blinks and the Geiger dial glows over a crater still
+	-- shedding ash.
+	fallout_nuke = {
+		finish = {
+			{ parts = { "Beacon" }, material = "Neon", color = Color3.fromHex("FF3A2A") },
+			{ parts = { "CounterDial" }, material = "Neon", color = Color3.fromHex("B8FF6A") },
+			{ parts = { "Crack" }, material = "Neon", color = Color3.fromHex("7CFF3A") },
+		},
+		light = { part = "Beacon", color = Color3.fromHex("FF3A2A"), brightness = 1.6, range = 1.1 },
+		particles = {
+			{ part = "Crater", preset = "drift", color = Color3.fromHex("9A9A8A"), rate = 3 },
+		},
+		anims = {
+			{ kind = "blink", parts = { "Beacon" }, light = true, period = 1.2, duty = 0.5, min = 0.2 },
+			{ kind = "flicker", parts = { "CounterDial" }, period = 0.15, min = 0.5 },
+			{ kind = "smoulder", parts = { "Crack" }, period = 3.0, min = 0.4 },
+		},
+	},
+
+	-- Warhead Nuke. Arming lights chase round the shell, the fuse tip pulses and the
+	-- nozzle burns on its launch pad.
+	warhead_nuke = {
+		finish = {
+			{ parts = { "ArmLight" }, material = "Neon", color = Color3.fromHex("FF3A2A") },
+			{ parts = { "FuseTip" }, material = "Neon", color = Color3.fromHex("FFB03A") },
+			{ parts = { "NozzleGlow", "Flame" }, material = "Neon", color = Color3.fromHex("FF7A1A") },
+			{ parts = { "PadLight" }, material = "Neon", color = Color3.fromHex("FFD23A") },
+		},
+		light = { part = "NozzleGlow", color = Color3.fromHex("FF7A1A"), brightness = 1.8, range = 1.1 },
+		particles = {
+			{ part = "Flame", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 5 },
+			{ part = "Pad", preset = "smoke", color = Color3.fromHex("8A8A8A"), rate = 2 },
+		},
+		anims = {
+			{ kind = "blink", parts = { "ArmLight" }, period = 1.2, duty = 0.4, min = 0.2, stagger = true },
+			{ kind = "blink", parts = { "PadLight" }, period = 1.6, duty = 0.5, min = 0.3, stagger = true },
+			{ kind = "pulse", parts = { "FuseTip" }, period = 0.8, min = 0.3 },
+			{ kind = "flicker", parts = { "Flame", "NozzleGlow" }, light = true, period = 0.12, min = 0.5 },
+		},
+	},
+
+	-- Shockwave Nuke. The flash fires, pressure rings ride up and down and the debris
+	-- ring turns round the blast.
+	shockwave_nuke = {
+		finish = {
+			{ parts = { "Flash" }, material = "Neon", color = Color3.fromHex("FFF6D0") },
+			{ parts = { "FlashHalo" }, material = "Neon", color = Color3.fromHex("FFD88A"), transparency = 0.5 },
+			{ parts = { "GlowBand", "Slot" }, material = "Neon", color = Color3.fromHex("FFB03A") },
+			{ parts = { "PressureRing" }, material = "Neon", color = Color3.fromHex("CFEAFF"), transparency = 0.4 },
+		},
+		light = { part = "Flash", color = Color3.fromHex("FFE2A0"), brightness = 2.0, range = 1.3 },
+		particles = {
+			{ part = "Ground", preset = "smoke", color = Color3.fromHex("B89A7A"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "Debris", "DustWall" }, pivot = "Flash", axis = "Y", rpm = 4 },
+			{ parts = { "PressureRing" }, pivot = "Flash", axis = "Y", mode = "bob", amp = 0.6, period = 2.2 },
+		},
+		anims = {
+			{ kind = "flash", parts = { "Flash", "FlashHalo" }, light = true, period = 2.2, min = 0.4 },
+			{ kind = "pulse", parts = { "GlowBand", "Slot" }, period = 1.6, min = 0.5 },
+		},
+		ping = { part = "Flash", color = Color3.fromHex("FFE2A0"), period = 2.2 },
+	},
+
+	-- Mushroom Cloud Nuke. The cap turns, fire smoulders underneath and embers and
+	-- smoke drift off the top.
+	mushroom_cloud_nuke = {
+		finish = {
+			{ parts = { "CapFire", "CapGlow" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+			{ parts = { "StemCore", "NoseBurst" }, material = "Neon", color = Color3.fromHex("FFB03A") },
+			{ parts = { "Ember" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
+		},
+		light = { part = "CapGlow", color = Color3.fromHex("FF7A2A"), brightness = 1.8, range = 1.2 },
+		particles = {
+			{ part = "CapTop", preset = "ember", color = Color3.fromHex("FF8A2A"), rate = 4 },
+			{ part = "CapTop", preset = "smoke", color = Color3.fromHex("6A5A4A"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "CapRoll", "CapFire", "CapInner", "Ember" }, pivot = "StemCore", axis = "Y", rpm = 3 },
+			{ parts = { "VaporRing" }, pivot = "StemCore", axis = "Y", mode = "bob", amp = 0.08, period = 3.0, rpm = -4 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "CapFire", "CapGlow" }, light = true, period = 2.8, min = 0.4 },
+			{ kind = "pulse", parts = { "StemCore", "NoseBurst" }, period = 1.8, min = 0.5 },
+			{ kind = "wink", parts = { "Ember" }, period = 1.2, min = 0.2, perPart = true },
+		},
+	},
+
+	-- Reactor Nuke. The open core glows Cherenkov blue, control rods pump in and out
+	-- in a wave and the corner beacons chase.
+	reactor_core_nuke = {
+		finish = {
+			{ parts = { "Core" }, material = "Neon", color = Color3.fromHex("3AC8FF") },
+			{ parts = { "CutRim" }, material = "Neon", color = Color3.fromHex("8AE6FF") },
+			{ parts = { "Beacon" }, material = "Neon", color = Color3.fromHex("FFB03A") },
+			{ parts = { "Drip" }, material = "Neon", color = Color3.fromHex("7CFF3A") },
+		},
+		light = { part = "Core", color = Color3.fromHex("3AC8FF"), brightness = 2.0, range = 1.3 },
+		particles = {
+			{ part = "Core", preset = "sparkle", color = Color3.fromHex("A8ECFF"), rate = 4 },
+			{ part = "Pad", preset = "steam", color = Color3.fromHex("DDEEFF"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "ControlRod1", "RodCap1" }, pivot = "ControlRod1", axis = "Y", mode = "bob", amp = 0.15, period = 2.4, phase = 0 },
+			{ parts = { "ControlRod2", "RodCap2" }, pivot = "ControlRod2", axis = "Y", mode = "bob", amp = 0.15, period = 2.4, phase = 0.2 },
+			{ parts = { "ControlRod3", "RodCap3" }, pivot = "ControlRod3", axis = "Y", mode = "bob", amp = 0.15, period = 2.4, phase = 0.4 },
+			{ parts = { "ControlRod4", "RodCap4" }, pivot = "ControlRod4", axis = "Y", mode = "bob", amp = 0.15, period = 2.4, phase = 0.6 },
+			{ parts = { "ControlRod5", "RodCap5" }, pivot = "ControlRod5", axis = "Y", mode = "bob", amp = 0.15, period = 2.4, phase = 0.8 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "Core", "CutRim" }, light = true, period = 1.6, min = 0.5 },
+			{ kind = "blink", parts = { "Beacon" }, period = 1.2, duty = 0.3, min = 0.2, stagger = true },
+			{ kind = "wink", parts = { "Drip" }, period = 1.8, min = 0.3, perPart = true },
+		},
+	},
+
+	-- Solar Flare Nuke. A sun in a split shell: granules churn, flares crackle and two
+	-- planets orbit it, each on its own tilted ring.
+	solar_flare_nuke = {
+		finish = {
+			{ parts = { "Sun" }, material = "Neon", color = Color3.fromHex("FFB21A") },
+			{ parts = { "Granule" }, material = "Neon", color = Color3.fromHex("FFD04A") },
+			{ parts = { "Corona", "FlareArc" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+			{ parts = { "Halo" }, material = "Neon", color = Color3.fromHex("FFE08A"), transparency = 0.6 },
+			{ parts = { "CutRim" }, material = "Neon", color = Color3.fromHex("FFC04A") },
+		},
+		light = { part = "Sun", color = Color3.fromHex("FFB03A"), brightness = 2.4, range = 1.5 },
+		particles = {
+			{ part = "Sun", preset = "ember", color = Color3.fromHex("FFB03A"), rate = 5 },
+		},
+		spins = {
+			{ parts = { "Sun", "Granule", "Corona" }, pivot = "Sun", axis = "Y", rpm = 3 },
+			-- Each ring's normal, measured off its planets (Sun is unrotated, so
+			-- pivot-local is the template's own frame).
+			{ parts = { "Planet1*", "OrbitRing1" }, pivot = "Sun", axisVector = Vector3.new(0.195, -0.921, 0.337), rpm = 8 },
+			{ parts = { "Planet2*", "OrbitRing2" }, pivot = "Sun", axisVector = Vector3.new(-0.148, -0.955, -0.256), rpm = -5 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "Sun", "Granule" }, light = true, period = 2.4, min = 0.6 },
+			{ kind = "flicker", parts = { "FlareArc", "Corona" }, period = 0.2, min = 0.4, perPart = true },
+			{ kind = "pulse", parts = { "Halo" }, period = 3.0, min = 0.5 },
+		},
+	},
+
+	-- Ground Zero Nuke. The light pillar breathes over a molten crater, pillar rings
+	-- climb, and chevrons chase down the shell.
+	ground_zero_nuke = {
+		finish = {
+			{ parts = { "LightPillar" }, material = "Neon", color = Color3.fromHex("FFF2C8"), transparency = 0.3 },
+			{ parts = { "PillarRing" }, material = "Neon", color = Color3.fromHex("FFD88A") },
+			{ parts = { "CraterHeart", "Crack" }, material = "Neon", color = Color3.fromHex("FF5A1A") },
+			{ parts = { "CapUnderglow", "NoseFlare" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
+			{ parts = { "Chevron" }, material = "Neon", color = Color3.fromHex("FFD23A") },
+			{ parts = { "Shockwave" }, material = "Neon", color = Color3.fromHex("FFE2A0"), transparency = 0.5 },
+		},
+		light = { part = "CraterHeart", color = Color3.fromHex("FF7A2A"), brightness = 2.2, range = 1.4 },
+		particles = {
+			{ part = "CraterHeart", preset = "ember", color = Color3.fromHex("FF8A2A"), rate = 5 },
+			{ part = "CapDome", preset = "smoke", color = Color3.fromHex("5A4A3A"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "PillarRing" }, pivot = "LightPillar", axis = "Y", mode = "bob", amp = 0.2, period = 2.6, rpm = 6 },
+			{ parts = { "Debris" }, pivot = "CraterHeart", axis = "Y", rpm = 3 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "CraterHeart", "Crack" }, light = true, period = 2.6, min = 0.4 },
+			{ kind = "pulse", parts = { "LightPillar", "CapUnderglow" }, period = 1.8, min = 0.5 },
+			{ kind = "blink", parts = { "Chevron" }, period = 1.4, duty = 0.4, min = 0.3, stagger = true },
+		},
+		ping = { part = "Shockwave", color = Color3.fromHex("FFD88A"), period = 3.0 },
+	},
+
+	-- Atom Nuke. Split open on its nucleus: the nucleons jostle, the whole electron
+	-- cloud turns round it and sparks crackle along the field lines. All three
+	-- orbits turn as one rigid group, so each electron stays on its drawn ring.
+	atom_nuke = {
+		finish = {
+			{ parts = { "NucleusCore" }, material = "Neon", color = Color3.fromHex("7AF0FF") },
+			{ parts = { "Electron" }, material = "Neon", color = Color3.fromHex("FFFFFF") },
+			{ parts = { "Trail" }, material = "Neon", color = Color3.fromHex("6AC8FF"), transparency = 0.4 },
+			{ parts = { "OrbitPath", "FieldLine" }, material = "Neon", color = Color3.fromHex("4A9AFF"), transparency = 0.5 },
+			{ parts = { "CutGlow" }, material = "Neon", color = Color3.fromHex("8AE6FF") },
+			{ parts = { "Spark" }, material = "Neon", color = Color3.fromHex("E0F8FF") },
+		},
+		light = { part = "NucleusCore", color = Color3.fromHex("7AF0FF"), brightness = 2.4, range = 1.5 },
+		particles = {
+			{ part = "NucleusCore", preset = "arcSpark", color = Color3.fromHex("BFF4FF"), rate = 5 },
+		},
+		spins = {
+			{ parts = { "Electron", "Trail", "OrbitPath" }, pivot = "NucleusCore", axis = "Y", rpm = 12 },
+			{ parts = { "Nucleon", "NucleusCore" }, pivot = "NucleusCore", axis = "Y", mode = "bob", amp = 0.05, period = 1.2, rpm = -10 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "NucleusCore", "CutGlow" }, light = true, period = 1.4, min = 0.5 },
+			{ kind = "wink", parts = { "Spark", "Electron" }, period = 0.6, min = 0.1, perPart = true },
+			{ kind = "pulse", parts = { "FieldLine" }, period = 2.0, min = 0.4 },
+		},
+	},
+
+	-- Game Over Nuke. The last one, wheeled out on its cradle: the nose lens stares,
+	-- the side port throbs red, the seams smoulder and the tail smokes.
+	game_over_nuke = {
+		finish = {
+			{ parts = { "NoseLens" }, material = "Neon", color = Color3.fromHex("FF1A1A") },
+			{ parts = { "SidePortGlow", "TailGlow" }, material = "Neon", color = Color3.fromHex("FF3A1A") },
+			{ parts = { "Seam", "SpineSeam", "NoseSeam" }, material = "Neon", color = Color3.fromHex("FF5A2A") },
+		},
+		light = { part = "NoseLens", color = Color3.fromHex("FF2A1A"), brightness = 2.6, range = 1.6 },
+		particles = {
+			{ part = "TailGlow", preset = "smoke", color = Color3.fromHex("4A3A3A"), rate = 3 },
+			{ part = "TailGlow", preset = "ember", color = Color3.fromHex("FF4A1A"), rate = 4 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "NoseLens", "SidePortGlow" }, light = true, period = 1.8, min = 0.3 },
+			{ kind = "smoulder", parts = { "TailGlow" }, period = 2.4, min = 0.4 },
+			{ kind = "pulse", parts = { "Seam", "SpineSeam", "NoseSeam" }, period = 3.2, min = 0.3 },
+		},
+		glint = { parts = { "Body", "NoseDome", "TailSection" }, period = 4.0, sweep = 0.8, color = Color3.fromHex("FFFFFF"), strength = 1.2 },
+	},
 } :: { [string]: ItemFxDef }
 
 -- Inferno's four black chains sway like hanging chain: each link bobs on its own,

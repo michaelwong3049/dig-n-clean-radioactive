@@ -1852,6 +1852,7 @@ Items.DEFS = {
 		rarity = "Anomaly",
 		odds = 800000, -- 1 in N per dig in a stocking stage
 		weight = 500,
+		sizeMult = 5, -- the last one: dwarfs even the Atomic Bomb (3.5)
 		stages = { 12 },
 		appeal = "Collector",
 		sets = {},
