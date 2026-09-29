@@ -49,7 +49,7 @@ export type Field = {
 }
 
 function BiomeKit.field(stageId: number, groundY: number): Field
-	local minX, minZ, maxX, maxZ = Stages.bounds(stageId)
+	local minX, minZ, maxX, maxZ = Stages.decorBounds(stageId)
 	local m = BiomeKit.EDGE_MARGIN
 	return {
 		id = stageId,

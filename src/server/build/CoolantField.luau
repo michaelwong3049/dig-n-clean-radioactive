@@ -1135,8 +1135,7 @@ end
 
 function CoolantField.build(parent: Instance, stageId: number, groundY: number)
 	local palette = paletteFor(stageId)
-	local def = Stages.get(stageId)
-	local cx, cz = def.center[1], def.center[2]
+	local cx, cz = Stages.decorCenter(stageId)
 
 	local folder = Instance.new("Folder")
 	folder.Name = "CoolantField"
@@ -1242,7 +1241,7 @@ function CoolantField.build(parent: Instance, stageId: number, groundY: number)
 		end
 	end
 
-	local minX, minZ, maxX, maxZ = Stages.bounds(stageId)
+	local minX, minZ, maxX, maxZ = Stages.decorBounds(stageId)
 	local bounds: Bounds = {
 		minX = minX + SPILL_MARGIN,
 		minZ = minZ + SPILL_MARGIN,
