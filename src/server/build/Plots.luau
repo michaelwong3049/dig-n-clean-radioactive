@@ -3153,7 +3153,10 @@ local LANE = { aisle = 6, entry = 8, kerb = 0.5, band = 5, lift = 0.06, thick = 
 --- (-1/+1) whose flight climbs up from this floor — the cross band reaches out to its
 --- foot at `footZ` — and `arrive` the side whose flight lands here, where the back
 --- landing reaches over to its head. `inX`/`outX` are a flight's |x| edges.
-type LaneStairs = { depart: number?, arrive: number?, footZ: number, inX: number, outX: number }
+--- `next` is the floor the departing flight leads to: its walkway spur is tagged
+--- `PathFloor` = next and only shows once that floor is bought (Plots.setFloors); the
+--- plain kerb it replaces is tagged `PathFloorUntil` = next and shows until then.
+type LaneStairs = { depart: number?, arrive: number?, next: number?, footZ: number, inX: number, outX: number }
 local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?, entryZ: number?, stairs: LaneStairs?)
 	local pad = Plots.PAD
 	local floorY = topY or pad.topY
@@ -3161,8 +3164,12 @@ local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?
 	local folder = Instance.new("Folder")
 	folder.Name = "GalleryLanes"
 
+	local tag: { [string]: any }? = nil -- attributes for the plates being laid right now
 	local function plate(name: string, x0: number, x1: number, z0: number, z1: number, color: string)
 		build(folder, origin, {
+			attributes = tag,
+			-- Built as a plot with nothing bought: the spur hidden until setFloors.
+			transparency = if tag and tag.PathFloor then 1 else nil,
 			name = name,
 			pos = { (x0 + x1) / 2, floorY + LANE.lift - LANE.thick / 2, (z0 + z1) / 2 },
 			size = { x1 - x0, LANE.thick, z1 - z0 },
@@ -3205,18 +3212,23 @@ local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?
 		local function side(name: string, a: number, b: number, z0: number, z1: number, color: string)
 			plate(name, math.min(sd * a, sd * b), math.max(sd * a, sd * b), z0, z1, color)
 		end
-		if stairs and stairs.depart == sd then
+		local departs = stairs and stairs.depart == sd
+		if departs and stairs then
 			local sIn, sOut, foot = stairs.inX, stairs.outX, stairs.footZ
+			tag = if stairs.next then { PathFloor = stairs.next } else nil
 			side("Lane", outer, sOut, bandFront, bandBack, CREAM)
 			side("Lane", sIn, sOut, bandBack, foot, CREAM)
 			side("Kerb", entryHalf + K, sOut + K, bandFront - K, bandFront, KERB)
 			side("Kerb", sOut, sOut + K, bandFront, foot, KERB)
 			side("Kerb", outer + K, sIn - K, bandBack, bandBack + K, KERB)
 			side("Kerb", sIn - K, sIn, bandBack, foot, KERB)
-		else
+			tag = if stairs.next then { PathFloorUntil = stairs.next } else nil
+		end
+		if not departs or tag then
 			side("Kerb", entryHalf + K, outer + K, bandFront - K, bandFront, KERB)
 			side("Kerb", outer, outer + K, bandFront, bandBack, KERB)
 		end
+		tag = nil
 	end
 
 	-- The two aisles between the stand columns.
@@ -3429,6 +3441,7 @@ end
 local function laneStairs(floor: number): LaneStairs
 	return {
 		depart = if floor < Floors.MAX then flightSide(floor) else nil,
+		next = if floor < Floors.MAX then floor + 1 else nil,
 		arrive = if floor > 1 then flightSide(floor - 1) else nil,
 		footZ = FLOOR.stairZ,
 		-- The walkway corridor along the inside of the fence, out to the gate.
@@ -3876,6 +3889,16 @@ function Plots.setFloors(plot: Instance?, owned: number?, claimed: boolean)
 			local open = gate <= count
 			d.Transparency = if open then 1 else 0
 			d.CanCollide = (not open) and d:GetAttribute("GateCollide") == true
+		end
+		-- The walkway out to a flight shows once its floor is bought; the kerb it
+		-- replaces shows until then.
+		local path, pathUntil = d:GetAttribute("PathFloor"), d:GetAttribute("PathFloorUntil")
+		if d:IsA("BasePart") then
+			if typeof(path) == "number" then
+				d.Transparency = if path <= count then 0 else 1
+			elseif typeof(pathUntil) == "number" then
+				d.Transparency = if pathUntil <= count then 1 else 0
+			end
 		end
 	end
 
