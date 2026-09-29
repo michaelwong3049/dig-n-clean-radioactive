@@ -1447,12 +1447,11 @@ ItemFx.DEFS = {
 			{ parts = { "EruptionPillar3", "PillarTip3" }, pivot = "EruptionPillar3", axis = "Y", mode = "bob", amp = 0.15, period = 1.4, phase = 0.4 },
 			{ parts = { "EruptionPillar4", "PillarTip4" }, pivot = "EruptionPillar4", axis = "Y", mode = "bob", amp = 0.25, period = 1.4, phase = 0.6 },
 			{ parts = { "EruptionPillar5", "PillarTip5" }, pivot = "EruptionPillar5", axis = "Y", mode = "bob", amp = 0.2, period = 1.4, phase = 0.8 },
-			-- The black shell rings rise and fall in a ripple up the body.
-			{ parts = { "ShellSegment1" }, pivot = "ShellSegment1", axis = "Y", mode = "bob", amp = 0.4, period = 2.0 },
-			{ parts = { "ShellSegment2" }, pivot = "ShellSegment2", axis = "Y", mode = "bob", amp = 0.4, period = 2.0, phase = 0.15 },
-			{ parts = { "ShellSegment3" }, pivot = "ShellSegment3", axis = "Y", mode = "bob", amp = 0.4, period = 2.0, phase = 0.3 },
-			{ parts = { "ShellSegment4" }, pivot = "ShellSegment4", axis = "Y", mode = "bob", amp = 0.4, period = 2.0, phase = 0.45 },
-			{ parts = { "ShellSegment5" }, pivot = "ShellSegment5", axis = "Y", mode = "bob", amp = 0.3, period = 2.0, phase = 0.6 },
+			-- The black chains round the nuke rise and fall, anchors and all, in turn.
+			{ parts = { "ChainLink1_*", "Anchor1", "AnchorGlow1" }, pivot = "Anchor1", axis = "Y", mode = "bob", amp = 1.2, period = 2.4 },
+			{ parts = { "ChainLink2_*", "Anchor2", "AnchorGlow2" }, pivot = "Anchor2", axis = "Y", mode = "bob", amp = 1.2, period = 2.4, phase = 0.25 },
+			{ parts = { "ChainLink3_*", "Anchor3", "AnchorGlow3" }, pivot = "Anchor3", axis = "Y", mode = "bob", amp = 1.2, period = 2.4, phase = 0.5 },
+			{ parts = { "ChainLink4_*", "Anchor4", "AnchorGlow4" }, pivot = "Anchor4", axis = "Y", mode = "bob", amp = 1.2, period = 2.4, phase = 0.75 },
 			{ parts = { "MoltenDrip" }, pivot = "MoltenDrip1", axis = "Y", mode = "bob", amp = 0.4, period = 1.0 },
 			{ parts = { "Ember" }, pivot = "Ember1", axis = "Y", mode = "bob", amp = 4, period = 3.0 },
 		},
