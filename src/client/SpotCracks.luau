@@ -42,6 +42,9 @@ type Segment = {
 	-- The last quantised brightness written, so a frame that would not visibly change
 	-- the colour skips the property write. There are up to ~80 strips per spot.
 	level: number,
+	-- Molten Seams: the white-hot line down the middle of a crack's first runs, lit on
+	-- the same level as the glow strip it sits in.
+	core: BasePart?,
 }
 
 -- One ray of the fan. Once grown it stays put and only how lit it is changes -- until
@@ -63,7 +66,25 @@ type Ray = {
 	phase: number,
 	-- The last lit level written (see RAY_LEVELS), to skip no-op property writes.
 	level: number,
+	-- Where the tip grows from (the shared foot, or a crown ray's own foot on the rune
+	-- ring), whether it turns with the fan's spin, which transparency ladder it lights
+	-- on (a shaft or the haze), how fast it breathes against the fan, and how far its
+	-- colour is paled toward white (so an Anomaly recolour can rebuild it).
+	base: Vector3,
+	spins: boolean,
+	seqs: { NumberSequence },
+	rate: number,
+	tint: number,
 }
+
+-- Tier signatures (on request, mockup round 1 "6"): each rarity from Rare up adds one
+-- more thing on the ground, so a spot's tier reads at a glance before its colour does.
+-- Rare: a halo ring. Epic: motes orbiting the rim. Legendary: a turning rune ring with
+-- a crown of rays standing on it. Mythic: a second rune ring turning the other way.
+-- Anomaly: all of it, cycling through the spectrum and glitching.
+-- Adornments, not parts: one CylinderHandleAdornment IS a whole ring (InnerRadius) or
+-- a whole arc (Angle), where a ring of parts is two dozen.
+type RuneRing = { arcs: { CylinderHandleAdornment }, radius: number, speed: number }
 
 export type Burst = {
 	model: Model,
@@ -98,6 +119,20 @@ export type Burst = {
 	rayPump: number,
 	-- How much faster the light runs out along the cracks (Tuning.AURA_CRACKS).
 	crackSpeed: number,
+	-- The scorched disc under it all, faded on its own (it never goes fully opaque).
+	scorch: BasePart,
+	embers: ParticleEmitter,
+	-- Tier signature pieces (see RuneRing); absent below their tier.
+	anchor: BasePart,
+	scale: number,
+	hue: Color3,
+	halo: CylinderHandleAdornment?,
+	runes: { RuneRing },
+	motes: { SphereHandleAdornment },
+	-- Anomaly only: the last hue step written (-1 = never), so the spectrum cycle
+	-- recolours on a step change rather than every frame.
+	anomaly: boolean,
+	hueStep: number,
 }
 
 local GASH = Color3.fromHex("241A10")
@@ -198,6 +233,73 @@ for level = 0, RAY_LEVELS do
 		NumberSequenceKeypoint.new(1, 1),
 	})
 end
+-- The haze never gets past faint, even fully lit: it is air glowing, not a beam.
+local HAZE_SEQUENCES: { NumberSequence } = {}
+for level = 0, RAY_LEVELS do
+	local lit = level / RAY_LEVELS
+	HAZE_SEQUENCES[level + 1] = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1 - lit * 0.22),
+		NumberSequenceKeypoint.new(0.4, 1 - lit * 0.12),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+end
+
+local WHITE = Color3.new(1, 1, 1)
+local SIG_Y = 0.2 -- signature rings sit between the scorch and the gashes
+
+local function rayColor(hue: Color3, tint: number): ColorSequence
+	return ColorSequence.new(hue:Lerp(WHITE, tint), hue:Lerp(WHITE, math.min(tint + 0.3, 1)))
+end
+
+local function ringAdornment(anchor: BasePart, radius: number, width: number, angle: number, color: Color3): CylinderHandleAdornment
+	local ring = Instance.new("CylinderHandleAdornment")
+	ring.Adornee = anchor
+	ring.AlwaysOnTop = false
+	ring.Radius = radius
+	ring.InnerRadius = radius - width
+	ring.Angle = angle
+	ring.Height = 0.02
+	ring.Color3 = color
+	ring.Transparency = 1
+	ring.CFrame = CFrame.new(0, SIG_Y, 0) * CFrame.Angles(math.pi / 2, 0, 0)
+	ring.Parent = anchor
+	return ring
+end
+
+-- MOLTEN SEAMS (on request, mockup round 1 "2"). The rays split into many thin shafts
+-- over a soft haze, rather than a few broad blades; the cracks become wider dark
+-- trenches with a white-hot line down the root runs, and a scorched disc darkens the
+-- ground under the whole spot. Embers drift up off it.
+local SHAFTS_PER_RAY = 2 -- thin shafts per Tuning.AURA_CRACKS ray
+local SHAFT_WIDTH = 0.45 -- of the old ray's width, foot and top
+local HAZE = 3 -- wide faint beams, the "air glowing" over the spot
+local HAZE_FOOT = 1.1
+local HAZE_SPREAD = 3.6
+local HAZE_HEIGHT = 0.6 -- of rayHeight
+local HAZE_RATE = 0.45 -- breathes this much slower than the shafts
+local GASH_WIDEN = 1.35 -- the gash is this much wider than before: the glow sits in a trench
+local CORE_RUNS = 3 -- root runs of a main crack that carry a white-hot core
+local CORE_SHARE = 0.14 -- core width as a share of the gash's
+local CORE_LIFT = 0.016 -- above its glow strip
+local SCORCH = 4.2 -- studs radius at WellScale 1
+local SCORCH_OPACITY = 0.5
+local SCORCH_COLOR = Color3.fromHex("1C130B")
+
+-- Tier signatures (see RuneRing). Radii at WellScale 1.
+local HALO_RADIUS = 3.5
+local HALO_WIDTH = 0.18
+local RUNE_RADII = { 2.4, 3.0 } -- Legendary's ring, then Mythic's
+local RUNE_ARCS = 8
+local RUNE_ARC = 26 -- DEGREES: CylinderHandleAdornment.Angle is in degrees, not radians
+local RUNE_WIDTH = 0.16
+local RUNE_SPEED = 0.7 -- rad/s; the second ring turns the other way, faster
+local MOTES = { Epic = 6, Legendary = 6, Mythic = 10, Anomaly = 10 }
+local MOTE_RADIUS = 2.9
+local MOTE_SIZE = 0.2
+local MOTE_SPEED = 0.9
+local CROWN_RAYS = 4 -- extra rays on top of the fan, standing on the rune ring
+local ANOMALY_CYCLE = 6 -- seconds round the spectrum
+local ANOMALY_STEPS = 24
 
 -- Heights above the surface. Everything has to clear Stage 1's opaque ground skim
 -- (0.06, build/Scenery GROUND_SKIM) and OozePool's rim (0.14) or the cracks vanish on
@@ -316,9 +418,25 @@ end
 function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rarity: string, hue: Color3): Burst
 	local row = Tuning.AURA_CRACKS[rarity] or Tuning.AURA_CRACKS.Common
 	local paths = layout(Random.new(seedFor(surface)), row.count, row.forks)
+	local def = Rarity.DEFS[rarity]
+	local order = if def then def.order else 0
 
 	local model = Instance.new("Model")
 	model.Name = "Cracks"
+
+	-- Everything that is not a crack hangs off one invisible anchor at the surface
+	-- point: the rays' attachments, the embers, the signature adornments.
+	local anchor = flatPart("RayAnchor", GASH)
+	anchor.Size = Vector3.one * 0.2
+	anchor.CFrame = CFrame.new(surface)
+	anchor.Parent = model
+
+	-- Laid flat under everything: a Cylinder's axis is X, so tip it onto its side.
+	local scorch = flatPart("Scorch", SCORCH_COLOR)
+	scorch.Shape = Enum.PartType.Cylinder
+	scorch.Size = Vector3.new(0.05, SCORCH * 2 * scale, SCORCH * 2 * scale)
+	scorch.CFrame = CFrame.new(surface + Vector3.yAxis * 0.1) * CFrame.Angles(0, 0, math.pi / 2)
+	scorch.Parent = model
 
 	local burst: Burst = {
 		model = model,
@@ -326,7 +444,7 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 		-- Dim sinks the strip most of the way into the gash; bright lifts it toward
 		-- white. The pulse sweeps between the two.
 		dim = hue:Lerp(GASH, 0.55),
-		bright = hue:Lerp(Color3.new(1, 1, 1), 0.3),
+		bright = hue:Lerp(WHITE, 0.3),
 		rays = {},
 		crust = {},
 		opacity = -1,
@@ -339,6 +457,16 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 		raySpin = row.raySpin,
 		rayPump = row.rayPump,
 		crackSpeed = row.crackSpeed,
+		scorch = scorch,
+		embers = nil :: any,
+		anchor = anchor,
+		scale = scale,
+		hue = hue,
+		halo = nil,
+		runes = {},
+		motes = {},
+		anomaly = rarity == "Anomaly",
+		hueStep = -1,
 	}
 
 	for _, path in paths do
@@ -350,7 +478,8 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 
 			local gash = flatPart("Gash", GASH)
 			local gy = surface.Y + GASH_Y
-			lay(gash, a + Vector3.yAxis * gy, b + Vector3.yAxis * gy, width, GASH_THICKNESS, width)
+			local gashWidth = width * GASH_WIDEN
+			lay(gash, a + Vector3.yAxis * gy, b + Vector3.yAxis * gy, gashWidth, GASH_THICKNESS, gashWidth)
 			gash.Parent = model
 			table.insert(burst.crust, gash)
 
@@ -361,76 +490,157 @@ function SpotCracks.build(folder: Instance, surface: Vector3, scale: number, rar
 				glow.Parent = model
 				table.insert(burst.crust, glow)
 
+				-- Main cracks only (forks sit on lift), and only near the root: the heat
+				-- is at the hole and cools on the way out.
+				local core: BasePart? = nil
+				if path.lift == 0 and k <= CORE_RUNS then
+					local cy = ly + CORE_LIFT
+					local c = flatPart("Core", burst.dim)
+					lay(c, a + Vector3.yAxis * cy, b + Vector3.yAxis * cy, width * CORE_SHARE, GLOW_THICKNESS, width * CORE_SHARE)
+					c.Parent = model
+					table.insert(burst.crust, c)
+					core = c
+				end
+
 				table.insert(burst.segments, {
 					glow = glow,
 					reach = ((p0 + p1) / 2).Magnitude,
 					level = -1,
+					core = core,
 				})
 			end
 		end
 	end
-
-	-- The fan hangs off one invisible anchor at the surface point, every ray sharing
-	-- one foot attachment. Seeded like the cracks (its own stream off the same seed),
-	-- so it keeps its shape across a rebuild too.
-	local anchor = flatPart("RayAnchor", GASH)
-	anchor.Transparency = 1
-	anchor.Size = Vector3.one * 0.2
-	anchor.CFrame = CFrame.new(surface)
-	anchor.Parent = model
 
 	local foot = Instance.new("Attachment")
 	foot.Position = Vector3.new(0, RAY_BASE_Y, 0)
 	foot.Parent = anchor
 
 	local rng = Random.new(seedFor(surface) + 1)
-	-- The rarity hue at the foot, paling toward the tip.
-	local rayColor = ColorSequence.new(hue, hue:Lerp(Color3.new(1, 1, 1), 0.55))
 	local spin = rng:NextNumber() * 2 * math.pi
-	for i = 1, row.rays do
-		local around = spin + (i - 1) / row.rays * 2 * math.pi + (rng:NextNumber() - 0.5) * 0.6
-		local tilt = RAY_TILT_MIN + rng:NextNumber() * (RAY_TILT_MAX - RAY_TILT_MIN)
-		local height = row.rayHeight * (0.8 + rng:NextNumber() * 0.4)
-		local lean = Vector3.new(math.sin(tilt) * math.cos(around), math.cos(tilt), math.sin(tilt) * math.sin(around))
 
-		-- Starts collapsed onto the foot; stepRays grows it out to `lean * height`.
+	local function addRay(from: Attachment, reach: Vector3, w0: number, w1: number, seqs: { NumberSequence }, rate: number, tint: number, spins: boolean)
+		-- Starts collapsed onto its foot; stepRays grows it out to `reach`.
 		local tip = Instance.new("Attachment")
-		tip.Position = foot.Position
+		tip.Position = from.Position
 		tip.Parent = anchor
 
 		local beam = Instance.new("Beam")
-		beam.Attachment0 = foot
+		beam.Attachment0 = from
 		beam.Attachment1 = tip
 		beam.FaceCamera = true
 		beam.Segments = 1
-		beam.Width0 = RAY_FOOT * row.rayWidth
-		beam.Width1 = RAY_SPREAD * row.rayWidth * (0.7 + rng:NextNumber() * 0.6)
-		beam.Color = rayColor
-		beam.Transparency = RAY_SEQUENCES[1]
-		beam.LightEmission = 0.6
+		beam.Width0 = w0
+		beam.Width1 = w1
+		beam.Color = rayColor(hue, tint)
+		beam.Transparency = seqs[1]
+		-- Dozens of additive beams stack: kept low (the haze lower still) so the fan stays
+		-- rarity-coloured instead of washing out to white on a bright stage.
+		beam.LightEmission = if seqs == HAZE_SEQUENCES then 0.25 else 0.5
 		beam.LightInfluence = 0
-		beam.Brightness = 3
+		beam.Brightness = if seqs == HAZE_SEQUENCES then 1.5 else 2.5
 		beam.Parent = anchor
 
 		table.insert(burst.rays, {
 			beam = beam,
 			tip = tip,
-			reach = lean * height,
+			reach = reach,
 			delay = rng:NextNumber() * RAY_STAGGER,
 			extend = 0,
 			phase = rng:NextNumber() * 2 * math.pi,
 			level = -1,
+			base = from.Position,
+			spins = spins,
+			seqs = seqs,
+			rate = rate,
+			tint = tint,
 		})
 	end
-	-- Drawn after the fan so every ray keeps the shape it had before spin existed.
+
+	local function lean(around: number, tilt: number): Vector3
+		return Vector3.new(math.sin(tilt) * math.cos(around), math.cos(tilt), math.sin(tilt) * math.sin(around))
+	end
+
+	-- The haze first, so the shafts draw over it.
+	for i = 1, HAZE do
+		local around = spin + (i - 1) / HAZE * 2 * math.pi
+		local reach = lean(around, math.rad(6)) * row.rayHeight * HAZE_HEIGHT
+		addRay(foot, reach, HAZE_FOOT * row.rayWidth, HAZE_SPREAD * row.rayWidth, HAZE_SEQUENCES, HAZE_RATE, 0, true)
+	end
+
+	local shafts = row.rays * SHAFTS_PER_RAY
+	for i = 1, shafts do
+		local around = spin + (i - 1) / shafts * 2 * math.pi + (rng:NextNumber() - 0.5) * 0.4
+		local tilt = RAY_TILT_MIN + rng:NextNumber() * (RAY_TILT_MAX - RAY_TILT_MIN)
+		local height = row.rayHeight * (0.7 + rng:NextNumber() * 0.45)
+		local w = RAY_FOOT * row.rayWidth * SHAFT_WIDTH
+		addRay(foot, lean(around, tilt) * height, w, RAY_SPREAD * row.rayWidth * SHAFT_WIDTH * (0.7 + rng:NextNumber() * 0.6), RAY_SEQUENCES, 1, 0, true)
+	end
 	if rng:NextNumber() < 0.5 then
 		burst.raySpin = -burst.raySpin
 	end
 
+	-- Tier signatures.
+	if order >= Rarity.DEFS.Rare.order then
+		burst.halo = ringAdornment(anchor, HALO_RADIUS * scale, HALO_WIDTH * scale, 360, hue)
+	end
+	if order >= Rarity.DEFS.Legendary.order then
+		local rings = if order >= Rarity.DEFS.Mythic.order then 2 else 1
+		for r = 1, rings do
+			local radius = RUNE_RADII[r] * scale
+			local arcs = {}
+			local color = if r == 1 then hue else hue:Lerp(WHITE, 0.35)
+			for _ = 1, RUNE_ARCS do
+				table.insert(arcs, ringAdornment(anchor, radius, RUNE_WIDTH * scale, RUNE_ARC, color))
+			end
+			table.insert(burst.runes, { arcs = arcs, radius = radius, speed = if r == 1 then RUNE_SPEED else -RUNE_SPEED * 1.6 })
+		end
+
+		-- The crown: rays standing on the first rune ring, leaning outward, alternating
+		-- full hue and pale. They do not turn with the fan -- the ring under them does.
+		local radius = RUNE_RADII[1] * scale
+		for i = 1, row.rays + CROWN_RAYS do
+			local around = spin + (i - 0.5) / (row.rays + CROWN_RAYS) * 2 * math.pi
+			local crownFoot = Instance.new("Attachment")
+			crownFoot.Position = Vector3.new(math.cos(around) * radius, RAY_BASE_Y, math.sin(around) * radius)
+			crownFoot.Parent = anchor
+			local height = row.rayHeight * (if i % 2 == 0 then 0.4 else 0.55)
+			local w = RAY_FOOT * row.rayWidth * 0.45
+			addRay(crownFoot, lean(around, math.rad(18)) * height, w, w * 3.5, RAY_SEQUENCES, 1, if i % 2 == 0 then 0.25 else 0, false)
+		end
+	end
+	local moteCount = MOTES[rarity]
+	if moteCount then
+		for _ = 1, moteCount do
+			local mote = Instance.new("SphereHandleAdornment")
+			mote.Adornee = anchor
+			mote.AlwaysOnTop = false
+			mote.Radius = MOTE_SIZE * scale
+			mote.Color3 = hue:Lerp(WHITE, 0.6)
+			mote.Transparency = 1
+			mote.Parent = anchor
+			table.insert(burst.motes, mote)
+		end
+	end
+
+	-- Embers: sparks drifting up off the hole, more for more cracks.
+	local embers = Instance.new("ParticleEmitter")
+	embers.Color = ColorSequence.new(hue:Lerp(WHITE, 0.6), hue)
+	embers.LightEmission = 0.6
+	embers.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.12 * scale), NumberSequenceKeypoint.new(1, 0) })
+	embers.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	embers.Lifetime = NumberRange.new(1.2, 2)
+	embers.Speed = NumberRange.new(1.5, 3.5)
+	embers.SpreadAngle = Vector2.new(25, 25)
+	embers.Acceleration = Vector3.new(0, 0.5, 0)
+	embers.Rate = row.count * 0.8
+	embers.Enabled = false
+	embers.Parent = foot
+	burst.embers = embers
+
 	-- Rare and up shimmers faintly as well as shining. On the anchor, so it is 3D and
 	-- dies with the model; its level follows the spot's own fade in step().
-	local def = Rarity.DEFS[rarity]
-	if def and def.order >= Rarity.DEFS.Rare.order then
+	if order >= Rarity.DEFS.Rare.order then
 		burst.hum = Sfx.loop("rareSpot", anchor)
 	end
 
@@ -467,22 +677,86 @@ local function stepRays(burst: Burst, now: number, age: number, loud: number, al
 			-- Its own surge on a beat off the blink's, so the fan flares unevenly.
 			local surge = 0.5 + 0.5 * math.sin(now * speed * 1.3 + ray.phase * 1.7)
 			local length = math.max(extend * (1 - burst.rayPump * (1 - surge)), 0.01)
-			local reach = if turn then turn:VectorToWorldSpace(ray.reach) else ray.reach
-			ray.tip.Position = Vector3.new(0, RAY_BASE_Y, 0) + reach * length
+			local reach = if turn and ray.spins then turn:VectorToWorldSpace(ray.reach) else ray.reach
+			ray.tip.Position = ray.base + reach * length
 		elseif extend ~= ray.extend then
 			ray.extend = extend
-			ray.tip.Position = Vector3.new(0, RAY_BASE_Y, 0) + ray.reach * math.max(extend, 0.01)
+			ray.tip.Position = ray.base + ray.reach * math.max(extend, 0.01)
 		end
 
-		local breathe = RAY_DIM + (1 - RAY_DIM) * (0.5 + 0.5 * math.sin(now * speed + ray.phase))
+		local breathe = RAY_DIM + (1 - RAY_DIM) * (0.5 + 0.5 * math.sin(now * speed * ray.rate + ray.phase))
 		local flare = 0.9 + 0.1 * math.sin(now * 8 + ray.phase)
 		local lit = (breathe + (flare - breathe) * burst.onIt) * extend
 
 		local level = math.floor(lit * RAY_LEVELS + 0.5)
 		if level ~= ray.level then
 			ray.level = level
-			ray.beam.Transparency = RAY_SEQUENCES[level + 1]
+			ray.beam.Transparency = ray.seqs[level + 1]
 		end
+	end
+end
+
+--- Anomaly: walk the whole spot round the spectrum, one quantised step at a time, so
+--- a recolour (a ColorSequence per ray) happens a few times a second, not per frame.
+local function stepAnomaly(burst: Burst, now: number)
+	local step = math.floor((now / ANOMALY_CYCLE) % 1 * ANOMALY_STEPS)
+	if step == burst.hueStep then
+		return
+	end
+	burst.hueStep = step
+	local hue = Color3.fromHSV(step / ANOMALY_STEPS, 0.85, 1)
+	burst.hue = hue
+	burst.dim = hue:Lerp(GASH, 0.55)
+	burst.bright = hue:Lerp(WHITE, 0.3)
+	for _, segment in burst.segments do
+		segment.level = -1
+	end
+	for _, ray in burst.rays do
+		ray.beam.Color = rayColor(hue, ray.tint)
+	end
+	burst.embers.Color = ColorSequence.new(hue:Lerp(WHITE, 0.6), hue)
+	if burst.halo then
+		burst.halo.Color3 = hue
+	end
+	for r, ring in burst.runes do
+		for _, arc in ring.arcs do
+			arc.Color3 = if r == 1 then hue else hue:Lerp(WHITE, 0.35)
+		end
+	end
+	for _, mote in burst.motes do
+		mote.Color3 = hue:Lerp(WHITE, 0.6)
+	end
+end
+
+--- The tier signature pieces: halo breathing, rune rings turning, motes orbiting --
+--- all faded with the spot. An Anomaly glitches now and then: the rings and motes
+--- jump sideways for a beat.
+local function stepSignature(burst: Burst, now: number, shown: number)
+	local jitter = Vector3.zero
+	if burst.anomaly and math.sin(now * 7) > 0.93 then
+		jitter = Vector3.new((math.random() - 0.5) * 0.6, 0, (math.random() - 0.5) * 0.6) * burst.scale
+	end
+	local flat = CFrame.Angles(math.pi / 2, 0, 0)
+
+	if burst.halo then
+		local breathe = 0.5 + 0.5 * math.sin(now * 1.5)
+		burst.halo.Transparency = 1 - (0.45 + 0.3 * breathe) * shown
+		burst.halo.CFrame = CFrame.new(jitter + Vector3.yAxis * SIG_Y) * flat
+	end
+	for _, ring in burst.runes do
+		local turn = now * ring.speed
+		for i, arc in ring.arcs do
+			arc.Transparency = 1 - 0.75 * shown
+			arc.CFrame = CFrame.new(jitter + Vector3.yAxis * (SIG_Y + 0.005)) * CFrame.Angles(0, turn + (i - 1) / RUNE_ARCS * 2 * math.pi, 0) * flat
+		end
+	end
+	local count = #burst.motes
+	for i, mote in burst.motes do
+		local around = (i - 1) / count * 2 * math.pi + now * MOTE_SPEED
+		local radius = (MOTE_RADIUS + 0.3 * math.sin(now * 2 + i)) * burst.scale
+		local height = 0.8 + 0.5 * math.sin(now * 1.7 + i * 1.3)
+		mote.CFrame = CFrame.new(jitter + Vector3.new(math.cos(around) * radius, height, math.sin(around) * radius))
+		mote.Transparency = 1 - 0.9 * shown
 	end
 end
 
@@ -545,22 +819,35 @@ function SpotCracks.step(burst: Burst, now: number, loud: number, phase: number,
 		for _, part in burst.crust do
 			part.Transparency = transparency
 		end
+		burst.scorch.Transparency = 1 - SCORCH_OPACITY * opacity / OPACITY_LEVELS
+	end
+
+	if burst.anomaly then
+		stepAnomaly(burst, now)
 	end
 
 	local speed = (3 + 2 * loud) * burst.crackSpeed
 	local flicker = 0.85 + 0.15 * math.sin(now * 8 + phase)
+	local hot = burst.bright:Lerp(WHITE, 0.75)
 
 	for _, segment in burst.segments do
-		local pulse = 0.35 + 0.65 * math.max(0, math.sin(now * speed + phase - segment.reach * 2.2))
+		-- Molten: a heat wave rolls out from the hole, and the cracks run hotter near it.
+		local heat = 1 - math.clamp(segment.reach / Tuning.AURA_CRACK_LENGTH, 0, 1) * 0.45
+		local pulse = (0.35 + 0.65 * math.max(0, math.sin(now * speed + phase - segment.reach * 2.2))) * heat
 		local brightness = (pulse + (flicker - pulse) * burst.onIt) * shown
 		local level = math.floor(brightness * LEVELS + 0.5)
 		if level ~= segment.level then
 			segment.level = level
 			segment.glow.Color = burst.dim:Lerp(burst.bright, level / LEVELS)
+			if segment.core then
+				segment.core.Color = burst.dim:Lerp(hot, level / LEVELS)
+			end
 		end
 	end
 
 	stepRays(burst, now, age, loud, alive)
+	stepSignature(burst, now, shown)
+	burst.embers.Enabled = shown > 0.3 and not burst.dying
 
 	if burst.hum then
 		burst.hum:set(shown > 0.01, shown * (0.6 + 0.4 * loud))
