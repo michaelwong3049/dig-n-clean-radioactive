@@ -225,7 +225,7 @@ local function build(): ScreenGui
 		color = STYLE.caption,
 		xAlign = Enum.TextXAlignment.Left,
 		shadow = false,
-		text = "SPEED",
+		text = "WALK SPEED",
 		zIndex = 11,
 	})
 	ui.value = UIKit.label(badge, {
@@ -274,11 +274,11 @@ function Speed.start()
 
 	Net.get("SpeedState").OnClientEvent:Connect(onState)
 
-	-- The counter, every frame. Cheap: one string format, and nothing at all when the
-	-- text would not change (an idle player's number is static).
+	-- The badge shows walk speed, not the Speed total (that lives on the training bar).
+	-- Checked every frame, but only written when it changes.
 	local lastText = ""
 	RunService.RenderStepped:Connect(function()
-		local text = Speed.format(Speed.shownPoints())
+		local text = if view then tostring(view.walk) else "0"
 		if text ~= lastText then
 			lastText = text
 			ui.value.Text = text
