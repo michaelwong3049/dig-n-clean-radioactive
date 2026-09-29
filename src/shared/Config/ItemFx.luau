@@ -1454,6 +1454,279 @@ ItemFx.DEFS = {
 		},
 		ping = { part = "ScorchedGround", color = Color3.fromHex("FF6A1A"), period = 2.8 },
 	},
+
+	-- ── Stage 8: Cobalt Shelf (batch 17) ──
+
+	-- Sunken Nuke. Air bubbles bob up off the shell and the seaweed sways.
+	sunken_nuke = {
+		particles = {
+			{ part = "FuzeCollar", preset = "drift", color = Color3.fromHex("CFEFFF"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "Bubble" }, pivot = "Bubble1", axis = "Y", mode = "bob", amp = 1.5, period = 2.6 },
+			{ parts = { "Seaweed" }, pivot = "Seaweed1", axis = "X", mode = "swing", deg = 10, period = 2.8 },
+		},
+	},
+
+	-- Conch Nuke. A pearly glint runs over the whorl and the spire tip glows.
+	conch_nuke = {
+		finish = {
+			{ parts = { "LipLining" }, reflectance = 0.2 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "SpireTip" }, period = 3.2, min = 0.6 },
+		},
+		glint = { parts = { "Shell", "WhorlRidge", "Lip", "LipLining" }, period = 5, sweep = 0.9, color = Color3.fromHex("FFEFF4"), strength = 1.2 },
+	},
+
+	-- Cobalt Nuke. The ore crystals glow cobalt blue and glitter, the veins breathe.
+	cobalt_nuke = {
+		finish = {
+			{ parts = { "OreCrystal", "NoseCrystal" }, material = "Glass", color = Color3.fromHex("3A7BFF"), transparency = 0.15 },
+			{ parts = { "Vein" }, material = "Neon", color = Color3.fromHex("2F6BFF") },
+		},
+		light = { part = "NoseCrystal", color = Color3.fromHex("4A8BFF"), brightness = 1.0, range = 0.8 },
+		particles = {
+			{ part = "OreCrystal", preset = "sparkle", color = Color3.fromHex("A8C8FF"), rate = 3 },
+		},
+		anims = {
+			{ kind = "smoulder", parts = { "Vein" }, light = true, period = 3.0, min = 0.4 },
+		},
+	},
+
+	-- Pinball Nuke. The bumpers flash in turn, the lane arrows chase, the flippers
+	-- flick and the score blinks.
+	pinball_nuke = {
+		finish = {
+			{ parts = { "BumperCap" }, material = "Neon", color = Color3.fromHex("FF4AA8") },
+			{ parts = { "LaneArrow" }, material = "Neon", color = Color3.fromHex("FFD23A") },
+			{ parts = { "ScoreDigits" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
+			{ parts = { "Pinball" }, reflectance = 0.4 },
+		},
+		light = { part = "BumperCap1", color = Color3.fromHex("FF6AC0"), brightness = 1.0, range = 0.8 },
+		spins = {
+			{ parts = { "Flipper1" }, pivot = "Flipper1", axis = "Y", mode = "twitch", deg = 25, period = 2.2, duration = 0.2 },
+			{ parts = { "Flipper2" }, pivot = "Flipper2", axis = "Y", mode = "twitch", deg = -25, period = 2.6, duration = 0.2 },
+			{ parts = { "Flipper3" }, pivot = "Flipper3", axis = "Y", mode = "twitch", deg = 25, period = 3.0, duration = 0.2 },
+			{ parts = { "Flipper4" }, pivot = "Flipper4", axis = "Y", mode = "twitch", deg = -25, period = 2.4, duration = 0.2 },
+		},
+		anims = {
+			{ kind = "blink", parts = { "BumperCap" }, light = true, period = 1.2, duty = 0.5, min = 0.3, stagger = true },
+			{ kind = "blink", parts = { "LaneArrow" }, period = 0.9, duty = 0.4, min = 0.2, stagger = true },
+			{ kind = "flash", parts = { "ScoreDigits" }, period = 1.8, min = 0.5 },
+		},
+	},
+
+	-- Diving Bell Nuke. The portholes glow from inside, the gauge needle twitches,
+	-- bubbles leak from the valves and the ballast sways on its lines.
+	diving_bell_nuke = {
+		finish = {
+			{ parts = { "PortGlass" }, material = "Neon", color = Color3.fromHex("8FE0FF"), transparency = 0.2 },
+		},
+		light = { part = "PortGlass1", color = Color3.fromHex("8FE0FF"), brightness = 1.0, range = 0.8 },
+		particles = {
+			{ part = "Valve", preset = "drift", color = Color3.fromHex("DDF6FF"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "GaugeNeedle" }, pivot = "GaugeFace", axis = "Z", mode = "twitch", deg = 20, period = 2.5, duration = 0.3 },
+			{ parts = { "Ballast", "BallastLine" }, pivot = "Shell", axis = "X", mode = "swing", deg = 3, period = 3.2 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "PortGlass" }, light = true, period = 2.8, min = 0.5 },
+		},
+	},
+
+	-- Anchor Nuke. The ship's bell rocks with its clapper, and a gold glint crosses
+	-- the bands and the anchor ring.
+	anchor_nuke = {
+		finish = {
+			{ parts = { "ShipBell", "Clapper" }, material = "Metal", color = Color3.fromHex("E0B04A"), reflectance = 0.2 },
+		},
+		spins = {
+			{ parts = { "ShipBell", "Clapper" }, pivot = "BellBracket", axis = "X", mode = "swing", deg = 12, period = 2.4 },
+		},
+		glint = {
+			parts = { "GoldBand", "AnchorRing", "ShipBell" },
+			period = 4,
+			sweep = 0.8,
+			color = GLINT_GOLD,
+			strength = 1.5,
+			stars = 3,
+			starParts = { "ShipBell" },
+		},
+	},
+
+	-- Jellyfish Nuke. Bioluminescent: the rim lights chase, the spots twinkle, the
+	-- core breathes, the tentacles drift and the babies bob alongside.
+	jellyfish_nuke = {
+		finish = {
+			{ parts = { "BellDome", "InnerBell", "BabyBell" }, material = "Glass", color = Color3.fromHex("C08AFF"), transparency = 0.35 },
+			{ parts = { "RimLight", "BioSpot", "CrownGlow" }, material = "Neon", color = Color3.fromHex("7AF0FF") },
+			{ parts = { "Core", "BabyCore", "GonadRing" }, material = "Neon", color = Color3.fromHex("FF7AE0") },
+		},
+		light = { part = "Core", color = Color3.fromHex("B07AFF"), brightness = 1.6, range = 1.1 },
+		particles = {
+			{ part = "BellDome", preset = "drift", color = Color3.fromHex("A8F4FF"), rate = 4 },
+			{ part = "Core", preset = "sparkle", color = Color3.fromHex("FFC0F0"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "Tentacle", "OralArm", "SpiralTentacle", "Stinger" }, pivot = "Core", axis = "Y", mode = "swing", deg = 8, period = 3.4 },
+			{ parts = { "BabyBell1", "BabyCore1", "BabyTentacle1*" }, pivot = "BabyBell1", axis = "Y", mode = "bob", amp = 0.3, period = 2.2 },
+			{ parts = { "BabyBell2", "BabyCore2", "BabyTentacle2*" }, pivot = "BabyBell2", axis = "Y", mode = "bob", amp = 0.3, period = 2.2, phase = 0.33 },
+			{ parts = { "BabyBell3", "BabyCore3", "BabyTentacle3*" }, pivot = "BabyBell3", axis = "Y", mode = "bob", amp = 0.3, period = 2.2, phase = 0.66 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "Core", "BabyCore", "GonadRing" }, light = true, period = 2.6, min = 0.45 },
+			{ kind = "pulse", parts = { "RimLight" }, period = 1.8, min = 0.25, stagger = true },
+			{ kind = "wink", parts = { "BioSpot" }, period = 1.4, min = 0.3, perPart = true },
+		},
+	},
+
+	-- Arcade Nuke. The marquee bulbs chase, the screen sprites flicker, the neon
+	-- trim cycles colour and the token spins over the coin door.
+	arcade_nuke = {
+		finish = {
+			{ parts = { "Screen" }, material = "Neon", color = Color3.fromHex("1A2A5A") },
+			{ parts = { "Sprite", "Pixel", "ScoreDigit" }, material = "Neon", color = Color3.fromHex("6BFF3A") },
+			{ parts = { "MarqueeBulb" }, material = "Neon", color = Color3.fromHex("FFE08A") },
+			{ parts = { "NeonBand", "NeonEdge", "NeonTop", "FinNeon" }, material = "Neon", color = Color3.fromHex("FF3AD8") },
+			{ parts = { "TokenCoin" }, material = "Metal", color = Color3.fromHex("FFC83A"), reflectance = 0.25 },
+		},
+		light = { part = "Screen", color = Color3.fromHex("7A8AFF"), brightness = 1.4, range = 1.0 },
+		particles = {
+			{ part = "Marquee", preset = "sparkle", color = Color3.fromHex("FFE08A"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "TokenCoin", "TokenMark", "TokenRim" }, pivot = "TokenCoin", axis = "Y", rpm = 45 },
+		},
+		anims = {
+			{ kind = "blink", parts = { "MarqueeBulb" }, period = 1.0, duty = 0.5, min = 0.2, stagger = true },
+			{ kind = "flicker", parts = { "Sprite", "Pixel" }, period = 0.4, min = 0.4, perPart = true },
+			{ kind = "colorCycle", parts = { "NeonBand", "NeonEdge", "NeonTop", "FinNeon" }, period = 4.0 },
+			{ kind = "flicker", parts = { "Screen" }, light = true, period = 0.6, min = 0.75 },
+			{ kind = "flash", parts = { "ScoreDigit" }, period = 2.0, min = 0.4 },
+		},
+	},
+
+	-- Circuit Nuke. Current runs the traces in turn, the status LED blinks, the
+	-- chip labels glow and arcs crackle off the capacitors.
+	circuit_nuke = {
+		finish = {
+			{ parts = { "TraceH", "TraceV" }, material = "Neon", color = Color3.fromHex("3AFF8A") },
+			{ parts = { "StatusLED", "FuzeChip" }, material = "Neon", color = Color3.fromHex("FF3A3A") },
+			{ parts = { "ChipLabel" }, material = "Neon", color = Color3.fromHex("7AD8FF") },
+		},
+		light = { part = "StatusLED", color = Color3.fromHex("5AFF9A"), brightness = 1.2, range = 0.9 },
+		particles = {
+			{ part = "Capacitor", preset = "arcSpark", color = Color3.fromHex("8AFFB0"), rate = 3 },
+			{ part = "HeatSinkFin", preset = "steam", color = Color3.fromHex("DDEEE8"), rate = 2 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "TraceH", "TraceV" }, light = true, period = 1.6, min = 0.25, stagger = true },
+			{ kind = "blink", parts = { "StatusLED", "FuzeChip" }, period = 0.8, duty = 0.5, min = 0.15 },
+			{ kind = "pulse", parts = { "ChipLabel" }, period = 2.4, min = 0.4 },
+		},
+		glint = { parts = { "GoldRail", "EdgePad", "Pin" }, period = 3.8, sweep = 0.7, color = GLINT_GOLD, strength = 1.4 },
+	},
+
+	-- Submarine Nuke. The propeller turns inside its shroud, the portholes glow,
+	-- the periscope sweeps, the bow fuze blinks and sonar pings out.
+	submarine_nuke = {
+		finish = {
+			{ parts = { "PortGlass", "PeriscopeLens" }, material = "Neon", color = Color3.fromHex("FFD27A") },
+			{ parts = { "BowFuzeTip" }, material = "Neon", color = Color3.fromHex("FF3A3A") },
+			{ parts = { "HazardBand" }, material = "Neon", color = Color3.fromHex("FFC21A") },
+		},
+		light = { part = "Sail", color = Color3.fromHex("FFD27A"), brightness = 1.4, range = 1.0 },
+		particles = {
+			{ part = "PropHub", preset = "drift", color = Color3.fromHex("DDF6FF"), rate = 6 },
+			{ part = "Antenna", preset = "sparkle", color = Color3.fromHex("BFF6FF"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "PropBlade", "PropHub" }, pivot = "PropHub", axisParts = { "PropShroud", "BowFuze" }, rpm = 50 },
+			{ parts = { "PeriscopeHead", "PeriscopeLens" }, pivot = "Periscope", axis = "Y", mode = "swing", deg = 40, period = 5.0 },
+		},
+		anims = {
+			{ kind = "pulse", parts = { "PortGlass" }, light = true, period = 3.0, min = 0.5, stagger = true },
+			{ kind = "blink", parts = { "BowFuzeTip" }, period = 1.4, duty = 0.3, min = 0.1 },
+			{ kind = "pulse", parts = { "HazardBand" }, period = 2.2, min = 0.4 },
+		},
+		ping = { part = "BowFuzeTip", color = Color3.fromHex("7AE0FF"), period = 1.4 },
+	},
+
+	-- Abyssal Nuke. The Mythic: an anglerfish hull from the deep. The lure glows and
+	-- sways, photophores wink, the viewports and pressure cracks breathe, the fangs
+	-- gleam and a school of little fish circles it.
+	abyssal_nuke = {
+		finish = {
+			{ parts = { "LureOrb", "SubLureOrb", "LureHalo" }, material = "Neon", color = Color3.fromHex("9AFFF0") },
+			{ parts = { "Photophore", "LateralLine", "FishEye" }, material = "Neon", color = Color3.fromHex("3AD8FF") },
+			{ parts = { "ViewportGlow", "PressureCrack", "DeepHalo" }, material = "Neon", color = Color3.fromHex("2A7AFF") },
+			{ parts = { "Maw" }, material = "SmoothPlastic", color = Color3.fromHex("05060A") },
+			{ parts = { "FangU", "FangL" }, material = "Glass", color = Color3.fromHex("EAF6FF"), transparency = 0.1 },
+		},
+		light = { part = "LureOrb", color = Color3.fromHex("8AFFF0"), brightness = 2.2, range = 1.3 },
+		particles = {
+			{ part = "LureOrb", preset = "shrinkMotes", color = Color3.fromHex("BFFFF6"), rate = 10 },
+			{ part = "PressureHull", preset = "drift", color = Color3.fromHex("6AA8FF"), rate = 5 },
+			{ part = "Gill", preset = "drift", color = Color3.fromHex("DDF6FF"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "LureStalk", "LureOrb", "LureHalo" }, pivot = "LureStalk", axis = "X", mode = "swing", deg = 8, period = 2.6 },
+			{ parts = { "SubLure", "SubLureOrb" }, pivot = "PressureHull", axis = "X", mode = "swing", deg = 5, period = 3.1 },
+			{ parts = { "FishBody", "FishTail", "FishEye" }, pivot = "PressureHull", axis = "Y", rpm = 9 },
+			{ parts = { "DeepHalo" }, pivot = "PressureHull", axis = "Y", rpm = -4 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "LureOrb", "LureHalo" }, light = true, period = 2.0, min = 0.5 },
+			{ kind = "wink", parts = { "Photophore", "SubLureOrb" }, period = 1.6, min = 0.25, perPart = true },
+			{ kind = "smoulder", parts = { "ViewportGlow", "PressureCrack", "DeepHalo" }, period = 3.2, min = 0.35 },
+			{ kind = "pulse", parts = { "LateralLine" }, period = 2.0, min = 0.3, stagger = true },
+		},
+		glint = { parts = { "FangU", "FangL" }, period = 3.2, sweep = 0.5, color = Color3.fromHex("EAF8FF"), strength = 1.8, stars = 4 },
+		ping = { part = "LureOrb", color = Color3.fromHex("7AFFE8"), period = 2.0 },
+	},
+
+	-- Kraken Nuke. The Anomaly: a huge eye watching through an armoured mantle. The
+	-- eye glows and its lid twitches, the core window beats, ink clouds and spray
+	-- swirl round it, drips fall, the horn tips chase and lightning arcs from the
+	-- core window to the eye.
+	kraken_nuke = {
+		finish = {
+			{ parts = { "EyeBall" }, material = "Neon", color = Color3.fromHex("FFE06A") },
+			{ parts = { "EyeSlit", "SideSlit" }, material = "SmoothPlastic", color = Color3.fromHex("05060A") },
+			{ parts = { "EyeIris", "SideIris" }, material = "Neon", color = Color3.fromHex("FF8A1A") },
+			{ parts = { "CoreWindow", "GlowBand", "FinStripe" }, material = "Neon", color = Color3.fromHex("3AFFC8") },
+			{ parts = { "HornTip" }, material = "Neon", color = Color3.fromHex("8A5AFF") },
+			{ parts = { "InkCloud" }, material = "SmoothPlastic", color = Color3.fromHex("120A1E"), transparency = 0.35 },
+			{ parts = { "Spray", "Drip" }, material = "Glass", color = Color3.fromHex("9AE8FF"), transparency = 0.3 },
+		},
+		light = { part = "CoreWindow", color = Color3.fromHex("3AFFC8"), brightness = 2.6, range = 1.4 },
+		particles = {
+			{ part = "CoreWindow", preset = "shrinkMotes", color = Color3.fromHex("9AFFE8"), rate = 12 },
+			{ part = "InkCloud", preset = "smoke", color = Color3.fromHex("1A1028"), rate = 5 },
+			{ part = "Spray", preset = "drift", color = Color3.fromHex("DDF6FF"), rate = 6 },
+			{ part = "HornTip", preset = "sparkle", color = Color3.fromHex("C0A0FF"), rate = 4 },
+			{ part = "EyeBall", preset = "arcSpark", color = Color3.fromHex("FFD27A"), rate = 2 },
+		},
+		spins = {
+			{ parts = { "InkCloud" }, pivot = "Mantle", axis = "Y", rpm = 8 },
+			{ parts = { "Spray" }, pivot = "Mantle", axis = "Y", rpm = -5 },
+			{ parts = { "Drip" }, pivot = "Drip1", axis = "Y", mode = "bob", amp = 0.5, period = 1.3 },
+			{ parts = { "EyeLid" }, pivot = "EyeBall", axis = "X", mode = "twitch", deg = 30, period = 4.5, duration = 0.25 },
+		},
+		anims = {
+			{ kind = "heartbeat", parts = { "CoreWindow", "GlowBand" }, light = true, period = 1.5, min = 0.5 },
+			{ kind = "pulse", parts = { "EyeIris", "SideIris" }, period = 2.4, min = 0.45 },
+			{ kind = "pulse", parts = { "EyeBall" }, period = 3.6, min = 0.7 },
+			{ kind = "pulse", parts = { "HornTip" }, period = 1.8, min = 0.3, stagger = true },
+			{ kind = "smoulder", parts = { "FinStripe" }, period = 2.8, min = 0.4 },
+		},
+		bolts = {
+			{ from = "CoreWindow", to = "EyeBall", color = Color3.fromHex("9AFFE8"), period = 2.4, duration = 0.3, segments = 7, jitter = 0.15, width = 0.08 },
+		},
+		ping = { part = "Mantle", color = Color3.fromHex("3AFFC8"), period = 3.0 },
+	},
 } :: { [string]: ItemFxDef }
 
 -- Inferno's four black chains sway like hanging chain: each link bobs on its own,
