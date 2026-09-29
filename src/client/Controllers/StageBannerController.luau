@@ -53,7 +53,6 @@ local Camps = require(Shared.Config.Camps)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
-local Sfx = require(script.Parent.Parent.Sfx)
 
 local StageBannerController = {}
 
@@ -302,7 +301,6 @@ end
 local function showStage(stageId: number)
 	local ok, def = pcall(Stages.get, stageId)
 	if ok and def then
-		Sfx.play("stage")
 		showCard(`STAGE {stageId}`, def.name, accentFor(def.color))
 	end
 end
