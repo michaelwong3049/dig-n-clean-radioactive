@@ -1601,17 +1601,7 @@ local function syncTutorial()
 		{
 			target = parts.header,
 			title = "QUARANTINE LOCKER",
-			body = "Park finds here instead of carrying them. Anything sealed in a tube stops decaying, for good.",
-		},
-		{
-			target = parts.rack,
-			title = "8 TUBES",
-			body = "One find per tube. Under each is the hose that washes it at full speed: green pips are what your hose covers, red is how far short it is.",
-		},
-		{
-			target = parts.action,
-			title = "SEAL IN, TAKE OUT",
-			body = "This button seals the find you picked. Pick a tube instead to take it back out, once there is room in your bag.",
+			body = "Store clean or uncleaned nukes here",
 		},
 	}, function(finished)
 		tutorial = nil
