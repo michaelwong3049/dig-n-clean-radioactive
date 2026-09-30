@@ -3,7 +3,7 @@
 	TraderPanel.luau — the trader's buyback counter, drawn inside StationController's panel.
 
 	PICKED FROM BROWSER MOCKUPS (option 1, "field-kit counter"). It wears the gear shop's
-	field-kit skin -- dark slate, LuckiestGuy/FredokaOne in the cartoon INK outline -- so
+	field-kit skin -- dark slate, Gotham Black in the cartoon INK outline -- so
 	the two panels on the plaza read as one set, with a hazard-striped accent bar for the
 	booth's tape instead of a stall colour.
 
@@ -57,8 +57,8 @@ local SKIN = {
 	crustWell = Color3.fromHex("3A2C1F"),
 	hazard = Color3.fromHex("E8C33C"),
 	ink = Color3.fromHex("1A1A1A"),
-	headline = Enum.Font.LuckiestGuy,
-	label = Enum.Font.FredokaOne,
+	headline = Enum.Font.GothamBlack,
+	label = Enum.Font.GothamBlack,
 }
 
 local COLUMNS = 3

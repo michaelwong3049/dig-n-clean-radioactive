@@ -915,7 +915,7 @@ local function build(): ScreenGui
 	accentBar.Parent = header
 	ui.shopAccent = accentBar
 
-	-- render() upper-cases the track name, so the title reads DETECTOR in any face.
+	-- The track name as written: Detector, Magnet, Cleaner.
 	ui.shopTitle = UIKit.label(header, {
 		name = "ShopTitle",
 		position = UDim2.fromOffset(16, 0),
@@ -1678,7 +1678,7 @@ local function render()
 
 		ui.panelStroke.Color = FIELD.edge
 		ui.shopAccent.BackgroundColor3 = accent
-		ui.shopTitle.Text = string.upper(track)
+		ui.shopTitle.Text = track
 
 		local count = if tiers then #tiers else 0
 

@@ -68,8 +68,8 @@ local SKIN = {
 	needs = Color3.fromHex("FF9B8F"),
 	hazard = Color3.fromHex("E8C33C"),
 	ink = Color3.fromHex("1A1A1A"),
-	headline = Enum.Font.LuckiestGuy,
-	label = Enum.Font.FredokaOne,
+	headline = Enum.Font.GothamBlack,
+	label = Enum.Font.GothamBlack,
 }
 
 --- The widest the locker's panel is allowed to get, padding included. StationController
