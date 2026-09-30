@@ -98,12 +98,12 @@ local LAYOUT = {
 	valueHeight = 68,
 	valueTextSize = 56,
 	valueMinTextSize = 32, -- floor for setValueText's shrink-to-fit
-	valueStroke = 6,
+	valueStroke = 4, -- 6 was asked to be thinner
 	rateTop = 74,
 	rateHeight = 30,
 	rateTextSize = 24,
-	rateStroke = 4,
-	textDrop = Vector2.new(3, 4),
+	rateStroke = 2.5,
+	textDrop = Vector2.new(2, 3),
 }
 
 local COUNT_TWEEN = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -120,8 +120,8 @@ local POPUP = {
 	-- popup instead of stacking a new one on top of it (selling a bag item by item).
 	mergeWindow = 0.35,
 	-- `rotation` is the gain's tilt; a spend tilts the other way.
-	loud = { textSize = 60, stroke = 5.5, rise = 64, rotation = -8, sparkles = true },
-	quiet = { textSize = 30, stroke = 3.5, rise = 28, rotation = 0, sparkles = false },
+	loud = { textSize = 60, stroke = 4, rise = 64, rotation = -8, sparkles = true },
+	quiet = { textSize = 30, stroke = 2.5, rise = 28, rotation = 0, sparkles = false },
 }
 
 local ui = {}
