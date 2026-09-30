@@ -209,7 +209,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 80
+local BUILDER_VERSION = 81
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -3353,7 +3353,8 @@ end
 --- bright SurfaceLight facing down, washing out the stair and rail shadows on the floor
 --- below. A SurfaceLight spreads over its face, so one sheet covers the gallery. NO
 --- SHADOWS of its own: shadow casting is the expensive part of a light.
-local CEILING_LIGHT = { range = 24, brightness = 2.5, color = "FFF6E8" }
+--- Brightness 2.5 -> 1.0 (2026-09-30, "the floor very bright").
+local CEILING_LIGHT = { range = 24, brightness = 1.0, color = "FFF6E8" }
 local function buildCeilingLights(parent: Instance, origin: CFrame, deckTop: number)
 	local pad = Plots.PAD
 	local halfW = pad.width / 2 - 1
