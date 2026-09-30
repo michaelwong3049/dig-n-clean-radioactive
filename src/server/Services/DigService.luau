@@ -108,6 +108,7 @@ local Stages = require(Shared.Config.Stages)
 local StageCraters = require(Shared.Config.StageCraters)
 local Rarity = require(Shared.Config.Rarity)
 local Items = require(Shared.Config.Items)
+local RareDrop = require(Shared.Config.RareDrop)
 local Weight = require(Shared.Config.Weight)
 local Payload = require(Shared.Config.Payload)
 local DetonationConfig = require(Shared.Config.Detonation)
@@ -340,6 +341,12 @@ local function reconcileAuras()
 			-- stamped WellScale). Off the signal's DEFAULT weight: the aura is one
 			-- shared part.
 			local model = SignalAura.create(signal.position, Weight.auraScale(signal.weight))
+			if signal.rareDrop then
+				-- Exposed to everybody, from anywhere (Config/RareDrop.AURA_ATTR). Set
+				-- before parenting: the streaming mode only counts from then on.
+				model:SetAttribute(RareDrop.AURA_ATTR, signal.rarity)
+				model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+			end
 			model.Parent = folder
 			auras[uid] = model
 		elseif auraFadingSince[uid] then

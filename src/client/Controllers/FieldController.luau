@@ -46,6 +46,7 @@ local Workspace = game:GetService("Workspace")
 
 local Tuning = require(ReplicatedStorage.Shared.Config.Tuning)
 local Rarity = require(ReplicatedStorage.Shared.Config.Rarity)
+local RareDrop = require(ReplicatedStorage.Shared.Config.RareDrop)
 local SpotCracks = require(script.Parent.Parent.SpotCracks)
 
 local Field = {}
@@ -157,6 +158,12 @@ type Tracked = {
 	burst: SpotCracks.Burst?,
 	-- Anomaly only: the crack hue step the motes were last recoloured to.
 	moteStep: number,
+	-- The announced drop's rarity, off its aura (Config/RareDrop.AURA_ATTR), else nil.
+	-- Known without a detector reading, so the spot lights for everyone from anywhere.
+	rareDrop: string?,
+	-- The announced drop's pillar of light (buildBeacon): a solid shaft and a wide
+	-- faint glow round it.
+	beacon: { Beam }?,
 }
 local tracked: { [Model]: Tracked } = {}
 
@@ -479,12 +486,67 @@ local function track(instance: Instance)
 		surface = if typeof(surface) == "Vector3" then surface else core.Position,
 		burst = nil,
 		moteStep = -1,
+		rareDrop = (function()
+			local rarity = instance:GetAttribute(RareDrop.AURA_ATTR)
+			return if type(rarity) == "string" then rarity else nil
+		end)(),
+		beacon = nil,
 	}
 end
 
 --- Animate every tracked aura for THIS frame and THIS client: the crack pulse, the
 --- standing-on-it flare — and the rarity, which is per-player. The aura is shared
 --- server geometry, so the tint and the cracks have to come from here, off
+-- THE ANNOUNCED DROP'S PILLAR. A shaft of light standing on the spot, tall enough to
+-- clear the stage walls, so "A Legendary has appeared in Ooze Marsh!" has something to
+-- run at from the far side of the map. Two camera-facing beams: a bright shaft and a
+-- wide faint glow round it, both fading out toward the top.
+local BEACON_HEIGHT = 260
+local BEACON_WIDTH = 3.5
+local BEACON_GLOW_WIDTH = 10
+
+local function buildBeacon(core: BasePart, surface: Vector3, hue: Color3): { Beam }
+	local foot = Instance.new("Attachment")
+	foot.Name = "BeaconFoot"
+	foot.Parent = core
+	foot.WorldPosition = surface
+	local top = Instance.new("Attachment")
+	top.Name = "BeaconTop"
+	top.Parent = core
+	top.WorldPosition = surface + Vector3.yAxis * BEACON_HEIGHT
+
+	local beams = {}
+	for i, spec in {
+		{ width = BEACON_WIDTH, fade = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.1),
+			NumberSequenceKeypoint.new(0.55, 0.45),
+			NumberSequenceKeypoint.new(1, 1),
+		}) },
+		{ width = BEACON_GLOW_WIDTH, fade = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.7),
+			NumberSequenceKeypoint.new(0.4, 0.85),
+			NumberSequenceKeypoint.new(1, 1),
+		}) },
+	} do
+		local beam = Instance.new("Beam")
+		beam.Name = if i == 1 then "BeaconShaft" else "BeaconGlow"
+		beam.Attachment0 = foot
+		beam.Attachment1 = top
+		beam.FaceCamera = true
+		beam.Width0 = spec.width
+		beam.Width1 = spec.width * 0.6
+		beam.Transparency = spec.fade
+		beam.Color = ColorSequence.new(hue)
+		beam.LightEmission = 1
+		beam.LightInfluence = 0
+		beam.Brightness = 2
+		beam.Segments = 1
+		beam.Parent = core
+		table.insert(beams, beam)
+	end
+	return beams
+end
+
 --- DetectorController's per-player contacts read; an aura this client has no reading
 --- for is hidden outright until (if ever) a rarity lands.
 local function stepAuras()
@@ -518,7 +580,9 @@ local function stepAuras()
 		-- never "it changed". So once we have a reading, keep it: a transient miss on
 		-- the position match (the player walked between ticks, a SweepState was dropped)
 		-- must not blink the cracks back out.
-		local read = if DetectorController then DetectorController.contactRarityAt(entry.core.Position) else nil
+		-- The announced drop needs no reading: its rarity is on the aura, for everyone.
+		local read = entry.rareDrop
+			or (if DetectorController then DetectorController.contactRarityAt(entry.core.Position) else nil)
 		if read ~= nil and read ~= entry.rarity and crackFolder then
 			entry.rarity = read
 			local hue = Rarity.get(read).color
@@ -531,6 +595,9 @@ local function stepAuras()
 			entry.burst = SpotCracks.build(crackFolder, entry.surface, entry.scale, read, hue)
 			if entry.motes then
 				entry.motes.Color = ColorSequence.new(hue)
+			end
+			if entry.rareDrop and entry.beacon == nil then
+				entry.beacon = buildBeacon(entry.core, entry.surface, hue)
 			end
 		end
 		local rarity = entry.rarity
@@ -614,6 +681,11 @@ local function stepAuras()
 			if anomaly and burst and burst.hueStep ~= entry.moteStep then
 				entry.moteStep = burst.hueStep
 				entry.motes.Color = ColorSequence.new(burst.hue)
+				if entry.beacon then
+					for _, beam in entry.beacon do
+						beam.Color = entry.motes.Color
+					end
+				end
 			end
 			entry.motes.Rate = (lerp(5, 19, t) + 12 * onIt) * shown
 		end

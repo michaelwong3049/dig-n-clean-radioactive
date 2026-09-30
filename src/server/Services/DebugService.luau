@@ -29,6 +29,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Stages = require(Shared.Config.Stages)
 local Rarity = require(Shared.Config.Rarity)
+local RareDrop = require(Shared.Config.RareDrop)
 local Items = require(Shared.Config.Items)
 local Gear = require(Shared.Config.Gear)
 local Liquids = require(Shared.Config.Liquids)
@@ -762,6 +763,18 @@ COMMANDS["/raredrop"] = {
 		return RareDropService.startDrop(stageId, rarity)
 	end,
 }
+
+-- Shorthands for /raredrop <stage> <rarity>: "/anomaly 6" drops an Anomaly in Stage 6
+-- and fires its announcement. No stage = a random dig stage.
+for _, rarity in RareDrop.TIER_WEIGHTS do
+	local name = rarity.rarity
+	COMMANDS[`/{string.lower(name)}`] = {
+		help = `/{string.lower(name)} [stage] — drop an announced {name} now (same as /raredrop [stage] {name})`,
+		run = function(_player, _sandbox, args)
+			return RareDropService.startDrop(tonumber(args[1]), name)
+		end,
+	}
+end
 
 COMMANDS["/luckboost"] = {
 	-- The Lucky Clover without Robux: exactly the grant a real purchase runs. 0 clears.

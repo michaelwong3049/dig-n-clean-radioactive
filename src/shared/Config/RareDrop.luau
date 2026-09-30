@@ -33,10 +33,16 @@
 local RareDrop = {}
 
 -- Quiet time between one drop ENDING (claimed, blown up or sunk) and the next.
-RareDrop.GAP_MIN = 8 * 60
-RareDrop.GAP_MAX = 12 * 60
+RareDrop.GAP_MIN = 5 * 60
+RareDrop.GAP_MAX = 6 * 60
 -- How long a drop waits for somebody before it sinks back.
 RareDrop.LIFETIME = 4 * 60
+
+-- The drop's aura, as the server builds it, carries its rarity under this attribute
+-- and streams to every client wherever they stand (ModelStreamingMode.Persistent),
+-- so anybody can see it from across the map: the client lights it without waiting for
+-- a detector reading and stands a pillar of light on it (FieldController).
+RareDrop.AURA_ATTR = "RareDrop"
 
 -- Relative weights, before the aurora. ~70 / 24 / 5 / 1 %.
 RareDrop.TIER_WEIGHTS = {
