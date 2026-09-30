@@ -648,11 +648,12 @@ local function stepPlayer(player: Player, dt: number)
 			state.health = math.max(0, state.health - blastHit)
 		end
 
-		-- RADIATION SICKNESS: out in a stage, a high meter stops regen (50%) and then
-		-- drains health (80%+). See Tuning's sickness block for why camps are exempt.
+		-- RADIATION SICKNESS: out in a stage, a high meter stops regen (50%), drains
+		-- health (80%+), and drains it heavily when full (100%) -- a full meter is no
+		-- longer an instant blackout. See Tuning's sickness block for why camps are exempt.
 		local frac = Radiation.exposureFraction(state.exposure)
 		local sick = stageId ~= nil and not showering and not immune[player]
-		sickDrain = if sick then Radiation.sicknessDrain(frac) else 0
+		sickDrain = if sick then Radiation.sicknessDrain(frac, maxHealthOf(player)) else 0
 		local noRegen = sick and frac >= Tuning.SICKNESS_NO_REGEN
 
 		local hpLoss = reading.healthBurn + sickDrain
@@ -680,8 +681,6 @@ local function stepPlayer(player: Player, dt: number)
 			local blasted = blastHit > 0 or craterBurn > 0
 			local reason = if blasted then "blast" elseif reading.healthBurn > 0 then "burn" else "exposure"
 			blackout(player, state, reason, where())
-		elseif state.exposure >= Tuning.EXPOSURE_CAP then
-			blackout(player, state, "exposure", where())
 		end
 	end
 
@@ -705,6 +704,11 @@ local function stepPlayer(player: Player, dt: number)
 	local liveSurvivable = Radiation.survivableSeconds(reading, state.exposure, state.health)
 	if sickDrain > 0 then
 		liveSurvivable = math.min(liveSurvivable, state.health / (reading.healthBurn + sickDrain))
+	end
+	-- In a camp the sickness never lands, so a filling meter is no clock there: only
+	-- a burn (a crater's orb) can count you down.
+	if stageId == nil then
+		liveSurvivable = if reading.healthBurn > 1e-6 then state.health / reading.healthBurn else math.huge
 	end
 	local trulySafe = showering or (reading.net <= 0 and reading.healthBurn <= 0 and sickDrain <= 0)
 	-- The ratchet only holds within ONE kind of clock. A burn clock (seconds of HP) and

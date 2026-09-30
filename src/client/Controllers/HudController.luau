@@ -25,7 +25,7 @@
 	    RAD SICKNESS (red), AURA FAILING (white), CRATER BURN (crater yellow-green);
 	  - top right, where you are and how deep ("BASE CAMP · 0 m" in camp: camp shows
 	    the full readout rather than collapsing, asked for explicitly);
-	  - RADS: a radiation badge and a green bar with notches at EXPOSURE_WARN (black) and
+	  - RADS: a radiation badge (hover or tap it: what 50/80/100% do) and a green bar with notches at EXPOSURE_WARN (black) and
 	    EXPOSURE_DANGER (red), the two lines the escalation above actually happens at,
 	    and the % inside it with arrows instead of "+0.00 r/s": green ▲ filling, blue ▼
 	    draining in a decon shower, one to three of them for how fast;
@@ -213,6 +213,97 @@ local function buildIcon(parent: Instance, name: string, image: string, x: numbe
 	return scale
 end
 
+--- What each notch on the rads bar does, one row per threshold. Read straight off
+--- Tuning so the tooltip can never disagree with ExposureService.
+local function radsTipRows(): { { string } }
+	return {
+		{ string.format("%d%%", math.round(Tuning.SICKNESS_NO_REGEN * 100)), "Health stops regenerating" },
+		{ string.format("%d%%", math.round(Tuning.SICKNESS_DRAIN_AT * 100)), "You start taking damage" },
+		{ "100%", "Heavy damage" },
+	}
+end
+
+--- Hovering the rads badge (or tapping it on a phone) shows what the meter's
+--- thresholds do: a small ink card above the icon, hidden otherwise.
+local function buildRadsTip(parent: Instance, badge: GuiObject)
+	local V = VITALS
+	local rowHeight, width = 18, 236
+	local rows = radsTipRows()
+	local tip = UIKit.panel(parent, {
+		name = "RadsTip",
+		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.fromOffset(0, V.radsY - 6),
+		size = UDim2.fromOffset(width, 30 + #rows * rowHeight + 18),
+		color = INK,
+		transparency = 0.08,
+		cornerRadius = UDim.new(0, 8),
+		strokeColor = STYLE.rads,
+		strokeThickness = 2,
+		zIndex = 20,
+		visible = false,
+	})
+	UIKit.label(tip, {
+		name = "Title",
+		position = UDim2.fromOffset(10, 6),
+		size = UDim2.new(1, -20, 0, 20),
+		font = STYLE.font,
+		textSize = 15,
+		color = STYLE.rads,
+		text = "RADIATION",
+		shadow = false,
+		zIndex = 21,
+	})
+	local tint = { STYLE.radsShine, STYLE.healthShine, STYLE.dangerMark }
+	for i, row in rows do
+		local y = 28 + (i - 1) * rowHeight
+		UIKit.label(tip, {
+			name = "Mark" .. i,
+			position = UDim2.fromOffset(10, y),
+			size = UDim2.fromOffset(44, rowHeight),
+			font = STYLE.font,
+			textSize = 14,
+			color = tint[i],
+			text = row[1],
+			shadow = false,
+			zIndex = 21,
+		})
+		UIKit.label(tip, {
+			name = "Effect" .. i,
+			position = UDim2.fromOffset(54, y),
+			size = UDim2.new(1, -64, 0, rowHeight),
+			font = STYLE.font,
+			textSize = 14,
+			color = STYLE.text,
+			text = row[2],
+			shadow = false,
+			zIndex = 21,
+		})
+	end
+	UIKit.label(tip, {
+		name = "Note",
+		position = UDim2.fromOffset(10, 30 + #rows * rowHeight),
+		size = UDim2.new(1, -20, 0, 14),
+		font = STYLE.font,
+		textSize = 11,
+		color = Color3.fromHex("B8B8B8"),
+		text = "Out in the stages only. Showers flush it.",
+		shadow = false,
+		zIndex = 21,
+	})
+
+	badge.MouseEnter:Connect(function()
+		tip.Visible = true
+	end)
+	badge.MouseLeave:Connect(function()
+		tip.Visible = false
+	end)
+	badge.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.Touch then
+			tip.Visible = not tip.Visible
+		end
+	end)
+end
+
 --- One dark track with a coloured fill (and a flat lighter shine along its top), a hard
 --- ink drop-shadow, and a right-aligned value label. The track is as wide as the vitals
 --- frame minus the icon column (Scale), so a narrow screen just shortens it; setBar
@@ -333,6 +424,7 @@ local function build(): ScreenGui
 
 	-- RADS
 	ui.radsScale = buildIcon(vitals, "RadsBadge", Artwork.IMAGE.radsTrefoil, V.icon / 2, V.radsY + V.icon / 2)
+	buildRadsTip(vitals, ui.radsScale.Parent :: GuiObject)
 	ui.rads = buildBar(vitals, "Rads", V.radsY, STYLE.rads, STYLE.radsShine)
 	notch(ui.rads, Tuning.EXPOSURE_WARN, STYLE.warnMark)
 	notch(ui.rads, Tuning.EXPOSURE_DANGER, STYLE.dangerMark)

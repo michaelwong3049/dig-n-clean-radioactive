@@ -18,7 +18,7 @@ Tuning.TICK_RATE = 10 -- Hz. Exposure, decay and exhibition all run on this one 
 -- accuracy. Running them at 60 Hz costs 6x the CPU for zero perceptible difference.
 
 -- ── Exposure (PLAN §3.1) ──────────────────────────────────────────────────────
-Tuning.EXPOSURE_CAP = 100 -- "rads" to blackout
+Tuning.EXPOSURE_CAP = 100 -- a full meter: heavy sickness (SICKNESS_FULL_METER)
 Tuning.EXPOSURE_WARN = 0.50 -- vignette + click bed
 Tuning.EXPOSURE_DANGER = 0.80 -- distortion, false pings
 Tuning.SHOWER_FLUSH_RATE = 200 -- rads/sec removed while standing in a decon shower
@@ -32,7 +32,12 @@ Tuning.SHOWER_FLUSH_RATE = 200 -- rads/sec removed while standing in a decon sho
 Tuning.SICKNESS_NO_REGEN = Tuning.EXPOSURE_WARN -- 50%
 Tuning.SICKNESS_DRAIN_AT = Tuning.EXPOSURE_DANGER -- 80%
 Tuning.SICKNESS_DRAIN_MIN = 1.0 -- HP/sec at 80%
-Tuning.SICKNESS_DRAIN_MAX = 4.0 -- HP/sec at 100%
+Tuning.SICKNESS_DRAIN_MAX = 4.0 -- HP/sec just under 100%
+-- A FULL meter no longer blacks you out on the spot: it is heavy sickness instead,
+-- this fraction of your MAX health per second (so ~10s from full at any aura tier,
+-- where a flat HP/sec would mean nothing to a late aura's extra health). Same
+-- stages-only rule: a full meter in a camp does nothing until you walk out.
+Tuning.SICKNESS_FULL_METER = 0.10
 
 -- ── Radiation burn / aura failure (PLAN §3.5) ─────────────────────────────────
 -- healthBurn (HP/sec) = BURN_COEF * (ambientRads - auraTolerance) ^ BURN_EXPONENT
