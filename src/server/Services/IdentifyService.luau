@@ -11,7 +11,7 @@
 	THREE WAYS TO LEARN WHAT YOU HAVE, and all three come through here:
 
 	  1. YOU CLEAN IT.        WashService, when the last patch pops. The intended one.
-	  2. YOU SELL IT BLIND.   EconomyService, at 20% (Tuning.DIRTY_SELL_MULTIPLIER).
+	  2. YOU SELL IT BLIND.   EconomyService, at 12% (Tuning.DIRTY_SELL_MULTIPLIER).
 	                          The trader tells you what it was as he takes it — which is
 	                          the gamble: cash now, or the hose and the full price.
 	  3. IT NEEDED NO CLEAN.  DigService, for a Prewar Sealed pull. It came out of the
