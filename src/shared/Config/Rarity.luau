@@ -56,6 +56,27 @@ Rarity.DEFS = {
 	Anomaly = { order = 8, color = Color3.fromHex("FFFFFF"), hardness = 7, fuse = 75, displayYield = 0.75, minValue = 1700000, maxValue = 13300000 },
 } :: { [string]: RarityDef }
 
+-- Anomaly has no single colour: anything that can animate walks it round this
+-- spectrum (the user's pick off the rare-drop font mockup). Red, gold, green, sky,
+-- violet, and back to red. `color` above stays white for anything that cannot move.
+Rarity.ANOMALY_SPECTRUM = {
+	Color3.fromHex("FF5F6D"),
+	Color3.fromHex("FFC371"),
+	Color3.fromHex("7EE06A"),
+	Color3.fromHex("4FC3F7"),
+	Color3.fromHex("B388FF"),
+}
+Rarity.ANOMALY_CYCLE = 6 -- seconds round the whole spectrum
+
+--- The Anomaly colour at `phase` (any number; only its fraction counts), blended
+--- smoothly between neighbouring stops.
+function Rarity.anomalyHue(phase: number): Color3
+	local stops = Rarity.ANOMALY_SPECTRUM
+	local at = (phase % 1) * #stops
+	local i = math.floor(at)
+	return stops[i + 1]:Lerp(stops[(i + 1) % #stops + 1], at - i)
+end
+
 -- Rolled on top of rarity (PLAN §7). fuseMult < 1 means it burns FASTER.
 export type ModifierDef = {
 	valueMult: number,

@@ -298,8 +298,7 @@ local MOTE_RADIUS = 2.9
 local MOTE_SIZE = 0.2
 local MOTE_SPEED = 0.9
 local CROWN_RAYS = 4 -- extra rays on top of the fan, standing on the rune ring
-local ANOMALY_CYCLE = 6 -- seconds round the spectrum
-local ANOMALY_STEPS = 24
+local ANOMALY_STEPS = 24 -- recolours per trip round Rarity.ANOMALY_SPECTRUM
 
 -- Heights above the surface. Everything has to clear Stage 1's opaque ground skim
 -- (0.06, build/Scenery GROUND_SKIM) and OozePool's rim (0.14) or the cracks vanish on
@@ -699,12 +698,12 @@ end
 --- Anomaly: walk the whole spot round the spectrum, one quantised step at a time, so
 --- a recolour (a ColorSequence per ray) happens a few times a second, not per frame.
 local function stepAnomaly(burst: Burst, now: number)
-	local step = math.floor((now / ANOMALY_CYCLE) % 1 * ANOMALY_STEPS)
+	local step = math.floor((now / Rarity.ANOMALY_CYCLE) % 1 * ANOMALY_STEPS)
 	if step == burst.hueStep then
 		return
 	end
 	burst.hueStep = step
-	local hue = Color3.fromHSV(step / ANOMALY_STEPS, 0.85, 1)
+	local hue = Rarity.anomalyHue(step / ANOMALY_STEPS)
 	burst.hue = hue
 	burst.dim = hue:Lerp(GASH, 0.55)
 	burst.bright = hue:Lerp(WHITE, 0.3)
