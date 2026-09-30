@@ -1,15 +1,17 @@
 --[[
-	SpeedController.lua — the persistent SPEED badge, and the one reader of SpeedState.
+	SpeedController.lua — the persistent SPEED row, and the one reader of SpeedState.
 
 	SPEED IS A UNIT NOW (Config/Treadmill): a lifetime total a treadmill pays per
-	second, with one more point of walk speed unlocked at each requirement. This badge is
-	where a player sees it at all times — sat in the left column between the cash badge
-	and the meter (Dock.SPEED_MID_Y), so the two numbers you earn read as one cluster.
+	second, with one more point of walk speed unlocked at each requirement. This row is
+	where a player sees it at all times — the top of the left column, directly over the
+	cash row (Dock.SPEED_MID_Y), so the two numbers you earn read as one cluster.
 
-	THE SAME TOY-SHOP VOICE AS THE CASH BADGE (CashController's header): a thick INK
-	outline on every shape, hard offset shadows, LuckiestGuy numbers. Blue where cash is
-	gold, and a glossy sneaker where cash has a coin, so the two never read as the same
-	counter at a glance. No level is shown: the requirements are levels internally
+	NO BOX, THE SAME AS THE CASH ROW (CashController's header): the glossy sneaker
+	standing on its own with a hard drop shadow, and the number beside it in light blue
+	with a heavy INK outline and drop shadow (UIKit.hudNumber). Light blue where cash is
+	green, and a sneaker where cash has a bundle of notes, so the two never read as the
+	same counter at a glance. The small WALK SPEED caption stays, so the number reads as
+	your speed. No level is shown: the requirements are levels internally
 	(SpeedState still carries `level`), but on screen the player only ever hears about
 	walk speed.
 
@@ -45,36 +47,25 @@ local BADGE_W = Dock.SPEED_SIZE.X.Offset
 --- How far past the last push the local count may run, in seconds of belt time.
 local LEAD_CAP = 1.5
 
-local INK = Color3.fromHex("1A1A1A")
-local WHITE = Color3.new(1, 1, 1)
-
--- Electric blue, never green: green is exposure's colour and nothing else's (PLAN §14).
 local STYLE = {
-	card = Color3.fromHex("33AEFF"),
-	cardShine = Color3.fromHex("8AD4FF"),
-	disc = Color3.fromHex("1C6FE8"),
-	discFace = Color3.fromHex("3D93FF"),
+	value = Color3.fromHex("9FE3FF"),
 	caption = Color3.fromHex("DDF3FF"),
 	valueFont = Enum.Font.LuckiestGuy,
 	captionFont = Enum.Font.FredokaOne,
 }
 
--- Design px inside the Dock.SPEED_SIZE footprint (280 x 68).
+-- Design px inside the Dock.SPEED_SIZE footprint (280 x 60).
 local LAYOUT = {
-	disc = 68,
-	shoe = 60, -- wider than the face, so the sneaker overlaps the disc's rim
-	cardTop = 6,
-	cardHeight = 56, -- same card as CashController's, so the two badges read as a pair
-	cardRadius = 20,
-	shadowDrop = 5,
-	outline = 4,
-	valueLeft = 80,
+	shoe = 58, -- centred over the cash row's 64px bundle, and vertically in the row
+	shoeDrop = Vector2.new(3, 4),
+	valueLeft = 72, -- the same column as the cash balance below
+	captionTop = 4,
 	captionTextSize = 13,
-	valueTextSize = 28,
-	valueStroke = 3.5,
+	valueTop = 18,
+	valueTextSize = 30,
+	valueStroke = 4,
+	textDrop = Vector2.new(2, 3),
 }
-local CARD_LEFT = LAYOUT.disc / 2
-local ROUND = UDim.new(0.5, 0)
 
 local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
@@ -151,28 +142,6 @@ end
 
 -- ── The badge ─────────────────────────────────────────────────────────────
 
-local function blob(parent: Instance, name: string, rect: { number }, color: Color3, zIndex: number, radius: UDim, stroke: number?): Frame
-	local frame = UIKit.panel(parent, {
-		name = name,
-		position = UDim2.fromOffset(rect[1], rect[2]),
-		size = UDim2.fromOffset(rect[3], rect[4]),
-		color = color,
-		transparency = 0,
-		cornerRadius = radius,
-		strokeColor = INK,
-		strokeThickness = stroke or 0,
-		zIndex = zIndex,
-	})
-	return frame
-end
-
-local function setStroke(label: TextLabel, thickness: number)
-	local stroke = label:FindFirstChildOfClass("UIStroke")
-	if stroke then
-		stroke.Thickness = thickness
-	end
-end
-
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "SpeedHud"
@@ -197,28 +166,12 @@ local function build(): ScreenGui
 	ui.punch.Parent = badge
 
 	local L = LAYOUT
-	local cardW = BADGE_W - CARD_LEFT
-	local cardRadius = UDim.new(0, L.cardRadius)
-
-	blob(badge, "CardShadow", { CARD_LEFT, L.cardTop + L.shadowDrop, cardW, L.cardHeight }, INK, 1, cardRadius)
-	local card = blob(badge, "Card", { CARD_LEFT, L.cardTop, cardW, L.cardHeight }, STYLE.card, 2, cardRadius, L.outline)
-	local shineLeft = L.valueLeft - CARD_LEFT - 2
-	blob(card, "Shine", { shineLeft, 6, cardW - shineLeft - 8, 14 }, STYLE.cardShine, 3, ROUND)
-
-	-- The disc, breaking out past the card's left end like the cash coin.
-	local discTop = L.cardTop + L.cardHeight / 2 - L.disc / 2
-	blob(badge, "DiscShadow", { 0, discTop + L.shadowDrop, L.disc, L.disc }, INK, 6, ROUND)
-	local disc = blob(badge, "Disc", { 0, discTop, L.disc, L.disc }, STYLE.disc, 7, ROUND, L.outline)
-	local inset = 7
-	blob(disc, "Face", { inset, inset, L.disc - inset * 2, L.disc - inset * 2 }, STYLE.discFace, 8, ROUND)
-	-- Full colour with its own ink outline baked in, so it stays untinted.
-	local shoe = Artwork.picture(disc, "Shoe", Artwork.IMAGE.speedShoe, L.shoe, WHITE)
-	shoe.Position = UDim2.fromOffset((L.disc - L.shoe) / 2, (L.disc - L.shoe) / 2)
-	shoe.ZIndex = 10
+	local shoe = Artwork.droppedPicture(badge, "Shoe", Artwork.IMAGE.speedShoe, L.shoe, L.shoeDrop, 3)
+	shoe.Position = UDim2.fromOffset((64 - L.shoe) / 2, (Dock.SPEED_SIZE.Y.Offset - L.shoe) / 2)
 
 	UIKit.label(badge, {
 		name = "Caption",
-		position = UDim2.fromOffset(L.valueLeft, L.cardTop + 5),
+		position = UDim2.fromOffset(L.valueLeft + 2, L.captionTop),
 		size = UDim2.fromOffset(120, 16),
 		font = STYLE.captionFont,
 		textSize = L.captionTextSize,
@@ -228,19 +181,17 @@ local function build(): ScreenGui
 		text = "WALK SPEED",
 		zIndex = 11,
 	})
-	ui.value = UIKit.label(badge, {
+	ui.value = UIKit.hudNumber(badge, {
 		name = "Value",
-		position = UDim2.fromOffset(L.valueLeft, L.cardTop + 19),
-		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, 34),
+		position = UDim2.fromOffset(L.valueLeft, L.valueTop),
+		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, 38),
 		font = STYLE.valueFont,
 		textSize = L.valueTextSize,
-		color = WHITE,
+		color = STYLE.value,
 		xAlign = Enum.TextXAlignment.Left,
-		shadow = false,
 		text = "0",
 		zIndex = 11,
-	})
-	setStroke(ui.value, L.valueStroke)
+	}, L.valueStroke, L.textDrop)
 
 	return gui
 end

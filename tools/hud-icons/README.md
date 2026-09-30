@@ -1,6 +1,6 @@
 # HUD symbols
 
-Source drawings for the four right-edge HUD tiles (`HudTile`) and the SPEED badge,
+Source drawings for the right-edge HUD tiles (`HudTile`) and the speed and cash rows,
 uploaded as 256px PNGs. The ids live in `src/client/HudArtwork.luau` (`Artwork.IMAGE`).
 
 | File | Used by | `Artwork.IMAGE` key |
@@ -11,7 +11,8 @@ uploaded as 256px PNGs. The ids live in `src/client/HudArtwork.luau` (`Artwork.I
 | `warp_portal.svg` | Warp tile | `portal` |
 | `gear_toolbox.svg` | Gear tile | `toolbox` |
 | `glow.svg` | the soft glow behind every tile symbol (white, tinted per tile) | `glow` |
-| `speed_shoe.svg` | the SPEED badge's disc (`SpeedController`) | `speedShoe` |
+| `speed_shoe.svg` | the SPEED row's sneaker (`SpeedController`) | `speedShoe` |
+| `cash_bundle.svg` | the cash row's bundle of notes (`CashController`) | `cashBundle` |
 
 To change one: edit the SVG (100x100 viewBox, `#12161d` outline), render it to a
 transparent 256px PNG, upload it (Studio MCP `upload_image`, or Asset Manager), and paste

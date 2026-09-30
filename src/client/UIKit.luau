@@ -604,9 +604,10 @@ Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 -- button — reconsider this the moment that stops being true.
 Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 
--- The LEFT column: cash badge on top, the speed badge just below it (SPEED_SIZE, added
--- with the Speed unit), the stack centred on the vertical (Dock.CASH_MID_Y /
--- Dock.SPEED_MID_Y — defined just below CASH_BOTTOM). The rad meter card used to hang
+-- The LEFT column: the speed row on top (SPEED_SIZE, added with the Speed unit), the
+-- cash row just below it, the stack centred on the vertical (Dock.SPEED_MID_Y /
+-- Dock.CASH_MID_Y — defined just below CASH_BOTTOM). Speed moved over cash when both
+-- lost their cards and became an icon with a number beside it. The rad meter card used to hang
 -- under the speed badge; it is the vitals bars over the hotbar now (VITALS_*). It
 -- was bottom-anchored in the corner until "middle left" was requested. (The
 -- loaded-liquid badge used to top this stack — it is a BillboardGui on the wash pad
@@ -619,34 +620,33 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 -- a hand-picked 216 while the comment here claimed "same width as the meter", which
 -- was false (the meter was 280); deriving it outright is the only way that claim stays
 -- true. Height grew 52 -> 64 alongside CashController's bigger balance text, then
--- 64 -> 86 for the cartoon gold-coin badge, then 86 -> 78 when the card shrank to 56 to
--- match the speed badge's: the card itself is 56 tall, but the
--- "+$/s" income pill hangs off its bottom edge and the column has to reserve that
--- overhang or the pill lands on the speed badge. CASH_BOTTOM is the old bottom-corner
+-- 64 -> 86 for the cartoon gold-coin badge, then 86 -> 78 when the card shrank to 56,
+-- then 78 -> 72 when the card went: now it is the 64px cash bundle plus its drop
+-- shadow, with the balance and the "+$/s" line under it stacked beside the bundle.
+-- CASH_BOTTOM is the old bottom-corner
 -- baseline — kept as the reference point the SIDE_* offsets below are documented
 -- against, and in case the column ever moves back.
-Dock.CASH_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 78)
--- THE SPEED BADGE (SpeedController), under the cash badge: a 56-tall
--- card (the same card as cash's, so the pair match) plus room for the shadow; it once held the level pill hanging off its bottom edge, the same overhang shape as the
--- cash badge's income pill. Same width as the column, SIDE_WIDTH like CASH_SIZE.
-Dock.SPEED_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 68)
+Dock.CASH_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 72)
+-- THE SPEED ROW (SpeedController), over the cash row: the sneaker plus its drop
+-- shadow, with the WALK SPEED caption and the number beside it. Same width as the
+-- column, SIDE_WIDTH like CASH_SIZE.
+Dock.SPEED_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 60)
 Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.GAP
 
 -- MIDDLE-LEFT / MIDDLE-RIGHT PLACEMENT. On request the cash column and the
 -- INDEX button left the bottom corners for the vertical centre of their screen edge.
--- The column stays one rigid stack — cash badge on top, speed badge below it —
+-- The column stays one rigid stack — speed row on top, cash row below it —
 -- placed by each panel's OWN centre (anchorPoint y = 0.5) at a fixed offset from
 -- screen middle, so it packs the same way however either element is resized. These
 -- are offsets from 0.5-scale, negative = above centre.
--- The cash and speed badges sit tighter than the rest of the stack so they read as a
--- pair. Negative because CASH_SIZE reserves the income pill's overhang (and its shadow)
--- below the card; -2 lets the speed card start just clear of that pill's shadow.
-Dock.PAIR_GAP = -2
-Dock.SIDE_STACK_HEIGHT = Dock.CASH_SIZE.Y.Offset
+-- The speed and cash rows sit close so they read as a pair. It was -2 while cash sat
+-- on top, because CASH_SIZE then reserved the income pill's overhang below its card.
+Dock.PAIR_GAP = 4
+Dock.SIDE_STACK_HEIGHT = Dock.SPEED_SIZE.Y.Offset
 	+ Dock.PAIR_GAP
-	+ Dock.SPEED_SIZE.Y.Offset
-Dock.CASH_MID_Y = Dock.CASH_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
-Dock.SPEED_MID_Y = Dock.CASH_SIZE.Y.Offset + Dock.PAIR_GAP + Dock.SPEED_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
+	+ Dock.CASH_SIZE.Y.Offset
+Dock.SPEED_MID_Y = Dock.SPEED_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
+Dock.CASH_MID_Y = Dock.SPEED_SIZE.Y.Offset + Dock.PAIR_GAP + Dock.CASH_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
 -- The column's TOP edge, as the same kind of offset from screen middle. IndexController
 -- hangs the Index tile from it on the right edge, so both sides start on one line.
 --
@@ -898,6 +898,42 @@ function UIKit.label(parent: Instance, props: LabelProps): TextLabel
 		end)
 	end
 
+	return label
+end
+
+--- A big HUD number standing straight on the world with no panel behind it (the cash
+--- and speed rows): an outlined UIKit.label, `stroke` design px thick, over a solid
+--- `outline`-coloured copy of itself (stroke and all) dropped `drop` px down-right.
+---
+--- NOT props.shadow: that shadow copy has no stroke, so under a heavy outline it only
+--- shows as a sliver past the fill and the number still reads as floating. Text,
+--- TextSize, Position and Visible are mirrored live, so a caller only ever touches the
+--- returned label.
+function UIKit.hudNumber(parent: Instance, props: LabelProps, stroke: number, drop: Vector2): TextLabel
+	local own = table.clone(props)
+	own.shadow = false
+	local label = UIKit.label(parent, own)
+	local uiStroke = label:FindFirstChildOfClass("UIStroke")
+	if uiStroke then
+		uiStroke.Thickness = stroke
+	end
+
+	local shadow = label:Clone()
+	shadow.Name = label.Name .. "Shadow"
+	shadow.TextColor3 = UIKit.C.outline
+	shadow.ZIndex = label.ZIndex - 1
+	shadow.Parent = parent
+	local offset = UDim2.fromOffset(drop.X, drop.Y)
+	local function sync()
+		shadow.Text = label.Text
+		shadow.TextSize = label.TextSize
+		shadow.Position = label.Position + offset
+		shadow.Visible = label.Visible
+	end
+	sync()
+	for _, property in { "Text", "TextSize", "Position", "Visible" } do
+		label:GetPropertyChangedSignal(property):Connect(sync)
+	end
 	return label
 end
 

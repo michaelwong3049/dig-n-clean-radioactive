@@ -71,6 +71,9 @@ Artwork.IMAGE = {
 	-- The SPEED badge's disc (SpeedController): a glossy blue sneaker, same family and
 	-- pipeline. tools/hud-icons/speed_shoe.svg.
 	speedShoe = "rbxassetid://74013499057089",
+	-- The cash row's icon (CashController): a banded bundle of green notes in 3/4 view.
+	-- tools/hud-icons/cash_bundle.svg.
+	cashBundle = "rbxassetid://93286856929568",
 	-- The glow behind each tile's symbol: a WHITE disc whose alpha eases from solid to
 	-- nothing at the rim (smoothstep), so a caller tints it with ImageColor3.
 	-- tools/hud-icons/glow.svg.
@@ -96,6 +99,28 @@ function Artwork.picture(parent: Instance, name: string, image: string, size: nu
 	icon.ZIndex = 6
 	icon.Parent = parent
 	return icon
+end
+
+--- A full-colour picture standing straight on the world, with a hard drop shadow: an
+--- INK copy of the same image nudged `drop` design px down-right, under it. Both sit in
+--- a transparent `size` box the caller positions. Returns the box and the picture.
+function Artwork.droppedPicture(parent: Instance, name: string, image: string, size: number, drop: Vector2, zIndex: number): (Frame, ImageLabel)
+	local box = Instance.new("Frame")
+	box.Name = name
+	box.Size = UDim2.fromOffset(size, size)
+	box.BackgroundTransparency = 1
+	box.BorderSizePixel = 0
+	box.ZIndex = zIndex
+	box.Parent = parent
+
+	local shadow = Artwork.picture(box, "Shadow", image, size, Color3.new(0, 0, 0))
+	shadow.Position = UDim2.fromOffset(drop.X, drop.Y)
+	shadow.ImageTransparency = 0.45
+	shadow.ZIndex = zIndex
+
+	local picture = Artwork.picture(box, "Picture", image, size, Color3.new(1, 1, 1))
+	picture.ZIndex = zIndex + 1
+	return box, picture
 end
 
 --- A picture with a hard INK outline, for sitting on a busy coloured fill: eight INK
