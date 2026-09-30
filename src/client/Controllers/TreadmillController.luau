@@ -719,6 +719,7 @@ local function checkTutorial()
 			world = look,
 			title = "YOUR TREADMILL",
 			body = "Gain permanent walk speed by leveling up your speed",
+			low = true,
 		},
 	}
 
