@@ -2300,7 +2300,7 @@ ItemFx.DEFS = {
 	-- ── STAGE 12: GROUND ZERO ────────────────────────────────────────────────
 
 	-- Fallout Nuke. The beacon blinks and the Geiger dial glows over a crater still
-	-- shedding ash.
+	-- shedding ash; the floating ash flakes circle the shell, rising and falling.
 	fallout_nuke = {
 		finish = {
 			{ parts = { "Beacon" }, material = "Neon", color = Color3.fromHex("FF3A2A") },
@@ -2310,6 +2310,9 @@ ItemFx.DEFS = {
 		light = { part = "Beacon", color = Color3.fromHex("FF3A2A"), brightness = 1.6, range = 1.1 },
 		particles = {
 			{ part = "Crater", preset = "drift", color = Color3.fromHex("9A9A8A"), rate = 3 },
+		},
+		spins = {
+			{ parts = { "AshFlake" }, pivot = "Body", axis = "Y", mode = "bob", amp = 0.06, period = 3.4, rpm = 5 },
 		},
 		anims = {
 			{ kind = "blink", parts = { "Beacon" }, light = true, period = 1.2, duty = 0.5, min = 0.2 },
@@ -2337,8 +2340,8 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Shockwave Nuke. The flash fires, pressure rings ride up and down and the debris
-	-- ring turns round the blast.
+	-- Shockwave Nuke. The flash fires, the floating pressure rings ride up and down
+	-- turning as they go, and the floating debris whirls round the blast, bobbing.
 	shockwave_nuke = {
 		finish = {
 			{ parts = { "Flash" }, material = "Neon", color = Color3.fromHex("FFF6D0") },
@@ -2351,8 +2354,10 @@ ItemFx.DEFS = {
 			{ part = "Ground", preset = "smoke", color = Color3.fromHex("B89A7A"), rate = 3 },
 		},
 		spins = {
-			{ parts = { "Debris", "DustWall" }, pivot = "Flash", axis = "Y", rpm = 4 },
-			{ parts = { "PressureRing" }, pivot = "Flash", axis = "Y", mode = "bob", amp = 0.6, period = 2.2 },
+			{ parts = { "Debris" }, pivot = "Flash", axis = "Y", mode = "bob", amp = 0.5, period = 2.6, rpm = 10 },
+			{ parts = { "DustWall" }, pivot = "Flash", axis = "Y", rpm = 4 },
+			{ parts = { "PressureRing" }, pivot = "Flash", axis = "Y", mode = "bob", amp = 0.6, period = 2.2, rpm = -6 },
+			{ parts = { "Wave" }, pivot = "Flash", axis = "Y", rpm = -3 },
 		},
 		anims = {
 			{ kind = "flash", parts = { "Flash", "FlashHalo" }, light = true, period = 2.2, min = 0.4 },
@@ -2361,8 +2366,8 @@ ItemFx.DEFS = {
 		ping = { part = "Flash", color = Color3.fromHex("FFE2A0"), period = 2.2 },
 	},
 
-	-- Mushroom Cloud Nuke. The cap turns, fire smoulders underneath and embers and
-	-- smoke drift off the top.
+	-- Mushroom Cloud Nuke. The cap turns, the stem swirls the other way, the nose
+	-- burst breathes, fire smoulders underneath and embers and smoke drift off the top.
 	mushroom_cloud_nuke = {
 		finish = {
 			{ parts = { "CapFire", "CapGlow" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
@@ -2375,7 +2380,9 @@ ItemFx.DEFS = {
 			{ part = "CapTop", preset = "smoke", color = Color3.fromHex("6A5A4A"), rate = 2 },
 		},
 		spins = {
-			{ parts = { "CapRoll", "CapFire", "CapInner", "Ember" }, pivot = "StemCore", axis = "Y", rpm = 3 },
+			{ parts = { "CapRoll", "CapFire", "CapInner", "CapTop", "CapGlow", "Ember" }, pivot = "StemCore", axis = "Y", rpm = 3 },
+			{ parts = { "Stem" }, pivot = "StemCore", axis = "Y", rpm = -5 },
+			{ parts = { "NoseBurst" }, pivot = "StemCore", axis = "Y", mode = "bob", amp = 0.05, period = 2.0 },
 			{ parts = { "VaporRing" }, pivot = "StemCore", axis = "Y", mode = "bob", amp = 0.08, period = 3.0, rpm = -4 },
 		},
 		anims = {
@@ -2715,6 +2722,7 @@ ItemFx.DEFS = {
 		},
 		spins = {
 			{ parts = { "RingBand", "RingChunk" }, pivot = "Core", axis = "Y", rpm = 5 },
+			{ parts = { "Spire1*", "Spire2*", "Spire3*", "Spire4*", "Spire5*", "Spire6*", "Spire7*", "Spire8*", "SpireArc" }, pivot = "Core", axis = "Y", rpm = -8 },
 			{ parts = { "RisingDrop" }, pivot = "Core", axis = "Y", mode = "bob", amp = 0.3, period = 2.4, rpm = -6 },
 		},
 		anims = {
