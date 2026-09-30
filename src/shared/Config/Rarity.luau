@@ -11,8 +11,8 @@
 -- active sell->buy loop plays at exactly the pace it did before. `displayYield` is the
 -- deliberate exception: it moved x300 (not x6.667), taking per-displayed-item income up
 -- x2000 overall, which is what turns the Exhibition from a rounding error into the
--- primary loop (Bottle Cap: $0.001/sec -> $2.00/sec). Tuning.EXHIBIT_HOURLY_CAP_PER_LEVEL
--- moved x2000 to keep the anti-AFK guard biting exactly as hard as it used to.
+-- primary loop (Bottle Cap: $0.001/sec -> $2.00/sec). The hourly income cap that used
+-- to sit on top of it is gone (balance/economy-pacing-pass); stands pay in full.
 
 export type RarityDef = {
 	order: number,

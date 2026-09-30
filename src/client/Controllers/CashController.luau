@@ -149,7 +149,9 @@ local lastPopup: any = nil
 --- still read at a glance at the values this economy actually reaches (post-rescale an
 --- Anomaly sells up to ~$13M, and a built-out exhibit's banked $/hr runs into billions).
 local function formatCash(amount: number): string
-	if amount >= 1_000_000_000 then
+	if amount >= 1_000_000_000_000 then
+		return string.format("$%.1fT", amount / 1_000_000_000_000)
+	elseif amount >= 1_000_000_000 then
 		return string.format("$%.1fB", amount / 1_000_000_000)
 	elseif amount >= 1_000_000 then
 		return string.format("$%.1fM", amount / 1_000_000)
@@ -162,7 +164,9 @@ end
 --- "+$2.00/s" up to "+$1.2M/s" -- ExhibitService.formatRate's ladder (what the plinth
 --- tags print), carried on into millions and billions like formatCash above.
 local function formatRate(perSecond: number): string
-	if perSecond >= 1_000_000_000 then
+	if perSecond >= 1_000_000_000_000 then
+		return string.format("+$%.1fT/s", perSecond / 1_000_000_000_000)
+	elseif perSecond >= 1_000_000_000 then
 		return string.format("+$%.1fB/s", perSecond / 1_000_000_000)
 	elseif perSecond >= 1_000_000 then
 		return string.format("+$%.1fM/s", perSecond / 1_000_000)

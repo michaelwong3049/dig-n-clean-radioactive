@@ -33,12 +33,12 @@ Floors.UPPER_SLOTS = 12
 Floors.HEIGHT = 33
 
 --- Cash price of each floor, by the floor it buys. Floor 1 is the ground and free.
---- Sized against the gear ladders (Config/Gear, Config/Treadmill): floor 2 lands
---- around a mid-ladder rung, floor 3 around the top rungs — a real goal, not a
---- first-session purchase, because eight more stands is a lot of passive income.
+--- Sized in the economy pacing pass (see Config/Gear's header) with no stand income
+--- cap: floor 2 is a Stage 4 purchase, floor 3 a Stage 8 one. Twelve more stands
+--- doubles or triples passive income, so each is priced like a stage's worth of gear.
 Floors.PRICES = {
-	[2] = 75000,
-	[3] = 400000,
+	[2] = 3200000,
+	[3] = 14000000,
 }
 
 --- Every stand across every floor. Loops that clear or scan "all stands" walk this.

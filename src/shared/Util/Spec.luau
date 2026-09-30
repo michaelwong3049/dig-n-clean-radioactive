@@ -1014,7 +1014,10 @@ function Spec.run(): boolean
 			end
 		end
 		check("§5.1 collapsing a six-belt save refunds exactly what the new belt does not cover", fair)
-		check("§5.1 a maxed six-belt save lands on the top belt", (Treadmill.fromSixRungLadder(6)) == Treadmill.maxTier())
+		-- "A maxed six-belt save lands on the top belt" used to be pinned here. It only held
+		-- while the top belt kept the old ladder's $700k price; the economy pacing pass
+		-- repriced every belt, so a maxed old save now lands lower and takes the rest as
+		-- cash -- still exactly what it spent, which the check above pins.
 		check("§5.1 a free-belt save stays on the free belt with no refund", select(2, Treadmill.fromSixRungLadder(1)) == 0)
 	end
 

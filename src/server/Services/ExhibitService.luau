@@ -22,13 +22,11 @@
 	with a `slot` field on each entry, not a sparse table indexed BY slot. Undisplay
 	removes the entry (`table.remove`); it never sets one to nil.
 
-	THE HOURLY CAP IS APPROXIMATED, NOT TRACKED. PLAN §8.7 wants income "capped per
-	real-time hour" so an early lucky Legendary cannot fund the whole midgame while
-	AFK. A true rolling-window tracker is more bookkeeping than the number is worth
-	right now, so the cap is applied by clamping the RATE itself
-	(`Tuning.EXHIBIT_HOURLY_CAP_PER_LEVEL * level` per hour, converted to per
-	second) — cheaper, and the player-facing result is identical: money never
-	arrives faster than the cap allows, online or offline.
+	NO INCOME CAP, ON REQUEST (balance/economy-pacing-pass). Stands pay exactly what
+	their nukes earn. There used to be an hourly cap (`EXHIBIT_HOURLY_CAP_PER_LEVEL *
+	level`), but `level` never rose past 1, so it pinned every player at ~$139/sec from
+	Stage 3 on. The shop prices in Config/Gear, Config/Floors and Config/Treadmill are
+	sized against the uncapped rate instead.
 ]]
 
 local Players = game:GetService("Players")
@@ -989,14 +987,6 @@ local function rawRatePerSecond(data: any, stats: any): number
 	return total
 end
 
---- The rate, WITH the hourly cap applied. See the header for why this is a clamp
---- on the rate rather than a tracked rolling window.
-local function cappedRatePerSecond(data: any, stats: any): number
-	local raw = rawRatePerSecond(data, stats)
-	local cap = (Tuning.EXHIBIT_HOURLY_CAP_PER_LEVEL * math.max(1, data.level)) / 3600
-	return math.min(raw, cap)
-end
-
 --- Called once, right after a profile loads. Works out what the stands earned while
 --- the player was offline (capped at EXHIBIT_OFFLINE_BANK_HOURS) and hands it to
 --- AwayEarningsService, which holds it for the "While you were away" card's COLLECT
@@ -1016,7 +1006,7 @@ local function bankOffline(player: Player, data: any)
 	end
 
 	local stats = StatResolver.get(data)
-	local offlineRate = cappedRatePerSecond(data, stats) * Tuning.EXHIBIT_OFFLINE_RATE
+	local offlineRate = rawRatePerSecond(data, stats) * Tuning.EXHIBIT_OFFLINE_RATE
 	AwayEarningsService.offer(player, data, offlineRate * elapsed, away, offlineRate)
 end
 
@@ -1051,7 +1041,7 @@ end
 
 --- The last rate IncomeState told each client, so the badge's "+$/s" line is sent on
 --- change only. Checked from the tick rather than hooked into interact/level/stats,
---- because every one of those feeds cappedRatePerSecond and the tick already calls it:
+--- because every one of those feeds rawRatePerSecond and the tick already calls it:
 --- one comparison catches all of them, including ones added later.
 local lastIncome: { [Player]: number } = {}
 
@@ -1075,7 +1065,7 @@ local function tickPlayer(player: Player, dt: number, flush: boolean)
 	end
 
 	local stats = StatResolver.get(data)
-	local rate = cappedRatePerSecond(data, stats)
+	local rate = rawRatePerSecond(data, stats)
 	pushIncome(player, rate)
 	data.exhibit.bankedCash += rate * dt
 	data.exhibit.bankedAt = os.time()
@@ -1278,10 +1268,7 @@ function ExhibitService.nukeList(player: Player): any?
 	return {
 		slots = Floors.slotsFor(data.exhibit.floors),
 		used = #data.exhibit.pedestals,
-		rate = cappedRatePerSecond(data, stats),
-		-- Before the hourly cap: the rows add up to this, so the panel can say when the
-		-- cap is what is holding the total back.
-		raw = rawRatePerSecond(data, stats),
+		rate = rawRatePerSecond(data, stats),
 		displayed = displayed,
 	}
 end

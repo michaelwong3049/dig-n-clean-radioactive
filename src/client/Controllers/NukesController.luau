@@ -84,7 +84,9 @@ local askQueued = false
 
 --- "+$2.00/s" up to "+$1.2M/s" -- CashController.formatRate's ladder.
 local function formatRate(perSecond: number): string
-	if perSecond >= 1_000_000_000 then
+	if perSecond >= 1_000_000_000_000 then
+		return string.format("+$%.1fT/s", perSecond / 1_000_000_000_000)
+	elseif perSecond >= 1_000_000_000 then
 		return string.format("+$%.1fB/s", perSecond / 1_000_000_000)
 	elseif perSecond >= 1_000_000 then
 		return string.format("+$%.1fM/s", perSecond / 1_000_000)
@@ -301,12 +303,6 @@ local function render()
 	end
 
 	ui.count.Text = `ON DISPLAY {list.used}/{list.slots}`
-	-- The rows are pre-cap; when the hourly cap (ExhibitService.cappedRatePerSecond) is
-	-- what holds the total back, say so, or the rows and the total look like they
-	-- disagree.
-	if list.raw and list.raw > list.rate + 1e-6 then
-		ui.count.Text ..= ` \u{00B7} HOURLY CAP`
-	end
 	ui.rate.Text = if list.rate > 0 then formatRate(list.rate) else "+$0/s"
 
 	local order = 0

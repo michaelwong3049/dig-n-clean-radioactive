@@ -121,13 +121,13 @@ function Treadmill.unlockPriceText(): string
 end
 
 --- Rates climb ~2.5x a rung: with no rated-speed falloff left, this ratio is the whole
---- reason to upgrade. The top rung kept the old top rung's price and rate, so the
---- endgame lands where it always did.
+--- reason to upgrade. Prices were re-fitted in the economy pacing pass (Config/Gear's
+--- header): the belts are Stage 3, Stage 6 and Stage 9 purchases.
 Treadmill.TIERS = {
 	{ name = "Scrap Belt", price = 0, rate = 10, model = "t1_basic", blurb = "A conveyor off a dead factory line. It turns. Mostly." },
-	{ name = "Servo Track", price = 25000, rate = 30, model = "t2_green", blurb = "Servo-driven. Reads your stride and outruns it." },
-	{ name = "Reactor Mill", price = 150000, rate = 80, model = "t3_blue", blurb = "Runs off a slug of core. Warm underfoot." },
-	{ name = "Isotope Strider", price = 700000, rate = 190, model = "t4_gold", blurb = "The last belt. Nothing on this map runs faster." },
+	{ name = "Servo Track", price = 950000, rate = 30, model = "t2_green", blurb = "Servo-driven. Reads your stride and outruns it." },
+	{ name = "Reactor Mill", price = 5400000, rate = 80, model = "t3_blue", blurb = "Runs off a slug of core. Warm underfoot." },
+	{ name = "Isotope Strider", price = 38000000, rate = 190, model = "t4_gold", blurb = "The last belt. Nothing on this map runs faster." },
 } :: { TreadmillTier }
 
 --- Lifetime Speed needed to be at `level`, or nil past the top. nil rather than
