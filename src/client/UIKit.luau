@@ -624,12 +624,16 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 -- 64 -> 86 for the cartoon gold-coin badge, then 86 -> 78 when the card shrank to 56,
 -- then 78 -> 72 when the card went, then 72 -> 80 when the balance was pinned level
 -- with the bundle's middle and the "+$/s" line hung under it (it used to lift the
--- balance to make room, which read as the money jumping).
-Dock.CASH_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 80)
+-- balance to make room, which read as the money jumping), then 80 -> 96 when both rows
+-- were asked to be bigger.
+Dock.CASH_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 96)
 -- THE SPEED ROW (SpeedController), over the cash row: the sneaker plus its drop
 -- shadow, with the WALK SPEED caption and the number beside it. Same width as the
--- column, SIDE_WIDTH like CASH_SIZE.
-Dock.SPEED_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 60)
+-- column, SIDE_WIDTH like CASH_SIZE. 60 -> 72 with the cash row's resize.
+Dock.SPEED_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 72)
+-- The width of the icon slot both rows share: the cash bundle fills it, the sneaker is
+-- centred in it, and both numbers start just past it.
+Dock.SIDE_ICON = 76
 -- The speed and cash rows sit close so they read as a pair.
 Dock.PAIR_GAP = 4
 -- Each row's BOTTOM edge as an offset UP from the screen's bottom edge (Position y is

@@ -84,20 +84,20 @@ local STYLE = {
 	rateFont = Enum.Font.GothamBlack,
 }
 
--- Design px inside the Dock.CASH_SIZE footprint (280 x 80).
+-- Design px inside the Dock.CASH_SIZE footprint (280 x 96).
 local LAYOUT = {
-	icon = 64, -- the bundle; left edge on the column margin, top of the footprint
+	icon = Dock.SIDE_ICON, -- the bundle; left edge on the column margin, top of the footprint
 	iconDrop = Vector2.new(3, 4),
-	valueLeft = 72,
-	valueTop = 10, -- the box is centred on the bundle's middle, and never moves
-	valueHeight = 44,
-	valueTextSize = 32,
-	valueMinTextSize = 20, -- floor for setValueText's shrink-to-fit
-	valueStroke = 4,
-	rateTop = 55,
-	rateHeight = 22,
-	rateTextSize = 16,
-	rateStroke = 3,
+	valueLeft = Dock.SIDE_ICON + 10,
+	valueTop = 12, -- the box is centred on the bundle's middle, and never moves
+	valueHeight = 52,
+	valueTextSize = 38,
+	valueMinTextSize = 24, -- floor for setValueText's shrink-to-fit
+	valueStroke = 4.5,
+	rateTop = 66,
+	rateHeight = 26,
+	rateTextSize = 19,
+	rateStroke = 3.5,
 	textDrop = Vector2.new(2, 3),
 }
 
@@ -106,7 +106,7 @@ local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirect
 
 local POPUP = {
 	gap = 12, -- end of the number it comes off -> popup's left edge
-	height = 44, -- the label box; its text is vertically centred in it
+	height = 52, -- the label box; its text is vertically centred in it
 	pop =TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 	riseTime = 1.2,
 	fadeDelay = 0.75,
@@ -115,8 +115,8 @@ local POPUP = {
 	-- popup instead of stacking a new one on top of it (selling a bag item by item).
 	mergeWindow = 0.35,
 	-- `rotation` is the gain's tilt; a spend tilts the other way.
-	loud = { textSize = 36, stroke = 3.5, rise = 46, rotation = -8, sparkles = true },
-	quiet = { textSize = 22, stroke = 2.5, rise = 22, rotation = 0, sparkles = false },
+	loud = { textSize = 42, stroke = 4, rise = 52, rotation = -8, sparkles = true },
+	quiet = { textSize = 25, stroke = 3, rise = 24, rotation = 0, sparkles = false },
 }
 
 local ui = {}
