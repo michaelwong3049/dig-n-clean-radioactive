@@ -962,12 +962,24 @@ ItemFx.DEFS = {
 	},
 
 	-- Clockwork Nuke. The clock doesn't keep time, it just runs: the minute hand
-	-- sweeps, the hour hand creeps, the little subdial hand ticks.
+	-- sweeps, the hour hand creeps, the little subdial hand ticks. The dial sits on
+	-- the curve of the shell, so the hands turn about the face's own normal (face
+	-- centre out through the pin); turning about the model's Z sank them into it.
 	clock_movement = {
 		spins = {
-			{ parts = { "HandMinute" }, pivot = "HandPin", axis = "Z", mode = "tick", rpm = 6, steps = 60 },
-			{ parts = { "HandHour" }, pivot = "HandPin", axis = "Z", rpm = 0.8 },
-			{ parts = { "SubHand" }, pivot = "Subdial", axis = "Z", mode = "tick", rpm = 20, steps = 12 },
+			{ parts = { "HandMinute" }, pivot = "HandPin", axisParts = { "DialFace", "HandPin" }, mode = "tick", rpm = 6, steps = 60 },
+			{ parts = { "HandHour" }, pivot = "HandPin", axisParts = { "DialFace", "HandPin" }, rpm = 0.8 },
+			{ parts = { "SubHand" }, pivot = "Subdial", axisParts = { "DialFace", "HandPin" }, mode = "tick", rpm = 20, steps = 12 },
+		},
+	},
+
+	-- Stopped Nuke. Not so stopped after all: the second hand ticks round, the
+	-- minute hand follows, the hour hand creeps.
+	stopped_watch = {
+		spins = {
+			{ parts = { "HandSecond" }, pivot = "HandPin", axisParts = { "ClockFace", "HandPin" }, mode = "tick", rpm = 10, steps = 60 },
+			{ parts = { "HandMinute" }, pivot = "HandPin", axisParts = { "ClockFace", "HandPin" }, rpm = 1.5 },
+			{ parts = { "HandHour" }, pivot = "HandPin", axisParts = { "ClockFace", "HandPin" }, rpm = 0.3 },
 		},
 	},
 
@@ -1436,6 +1448,26 @@ ItemFx.DEFS = {
 		spins = {
 			{ parts = { "HaloFlame", "FireHalo" }, pivot = "Body", axis = "Y", rpm = 10 },
 			{ parts = { "Ember" }, pivot = "Body", axis = "Y", rpm = -6 },
+			-- Wings flap from their shoulder joints, both together (axis = outward x up,
+			-- so the same angle lifts each side).
+			{
+				parts = { "WingJoint1", "FeatherC1*", "FeatherS1*", "FeatherP1*", "FeatherTipS1*", "FeatherTipP1*" },
+				pivot = "WingJoint1",
+				axisVector = Vector3.new(0.33, 0, 0.91),
+				mode = "swing",
+				deg = 14,
+				period = 1.6,
+			},
+			{
+				parts = { "WingJoint2", "FeatherC2*", "FeatherS2*", "FeatherP2*", "FeatherTipS2*", "FeatherTipP2*" },
+				pivot = "WingJoint2",
+				axisVector = Vector3.new(-0.62, 0, -0.75),
+				mode = "swing",
+				deg = 14,
+				period = 1.6,
+			},
+			-- The tail fan sways side to side.
+			{ parts = { "TailPlume", "TailEye", "TailEyeRing" }, pivot = "Body", axis = "Y", mode = "swing", deg = 7, period = 2.4 },
 		},
 		anims = {
 			{ kind = "flicker", parts = { "BaseFlame", "HaloFlame", "FinFlame" }, period = 0.3, min = 0.5, perPart = true },
