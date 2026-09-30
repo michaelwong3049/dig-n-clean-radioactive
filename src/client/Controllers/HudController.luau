@@ -233,7 +233,7 @@ local function buildRadsTip(parent: Instance, badge: GuiObject)
 		name = "RadsTip",
 		anchorPoint = Vector2.new(0, 1),
 		position = UDim2.fromOffset(0, V.radsY - 6),
-		size = UDim2.fromOffset(width, 30 + #rows * rowHeight + 18),
+		size = UDim2.fromOffset(width, 34 + #rows * rowHeight),
 		color = INK,
 		transparency = 0.08,
 		cornerRadius = UDim.new(0, 8),
@@ -279,17 +279,6 @@ local function buildRadsTip(parent: Instance, badge: GuiObject)
 			zIndex = 21,
 		})
 	end
-	UIKit.label(tip, {
-		name = "Note",
-		position = UDim2.fromOffset(10, 30 + #rows * rowHeight),
-		size = UDim2.new(1, -20, 0, 14),
-		font = STYLE.font,
-		textSize = 11,
-		color = Color3.fromHex("B8B8B8"),
-		text = "Out in the stages only. Showers flush it.",
-		shadow = false,
-		zIndex = 21,
-	})
 
 	badge.MouseEnter:Connect(function()
 		tip.Visible = true
