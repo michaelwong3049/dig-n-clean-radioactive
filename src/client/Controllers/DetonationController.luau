@@ -921,21 +921,66 @@ local function buildCrater(marker: BasePart)
 	scorch.CFrame = CFrame.new(position + Vector3.new(0, 0.07, 0)) * CFrame.Angles(0, 0, math.pi / 2)
 	onGround(scorch, 0.05)
 
-	-- The broken lip: slabs of ground kicked up and left leaning outward round the rim.
-	-- Straight-edged rotated blocks, not a painted ring.
-	local slabs = 10 + order
-	for index = 1, slabs do
-		local angle = (index / slabs) * math.pi * 2 + math.random() * 0.3
-		local slab = fxPart()
-		slab.Material = Enum.Material.Slate
-		slab.Color = SCORCH:Lerp(ASH, math.random())
-		local w = radius * (0.12 + math.random() * 0.1)
-		slab.Size = Vector3.new(w, w * (0.25 + math.random() * 0.25), w * (0.6 + math.random() * 0.5))
-		local at = position + Vector3.new(math.cos(angle), 0, math.sin(angle)) * radius * (0.62 + math.random() * 0.1)
-		slab.CFrame = CFrame.lookAt(at, at + Vector3.new(math.cos(angle), 0, math.sin(angle)))
-			* CFrame.Angles(math.rad(-15 - math.random() * 20), 0, math.rad((math.random() - 0.5) * 20))
-			+ Vector3.new(0, slab.Size.Y * 0.3, 0)
-		onGround(slab, 0)
+	-- The rim: the ground thrown up into one continuous berm round the hole, not a
+	-- ring of loose blocks. Each bearing is a ridge of two wedges back to back -- a
+	-- short steep face down into the crater, a long gentle one out onto the ash -- laid
+	-- edge to edge so the slopes run on round the ring. Its height swells and dips on
+	-- a slow wave, so neighbours never step against each other.
+	local crest = radius * 0.7
+	local inner = radius * 0.12
+	local outer = radius * 0.24
+	local bermHeight = radius * 0.09
+	local bearings = 24
+	local phase1, phase2 = math.random() * math.pi * 2, math.random() * math.pi * 2
+	-- Wide enough to close the gap at the outer foot; the inner ends overlap instead.
+	local bermWidth = 2 * (crest + outer) * math.sin(math.pi / bearings) * 1.05
+	for index = 1, bearings do
+		local angle = (index / bearings) * math.pi * 2
+		local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local h = bermHeight * (1 + 0.3 * math.sin(2 * angle + phase1) + 0.2 * math.sin(3 * angle + phase2))
+
+		-- A WedgePart is full height on its Back (+Z) face and slopes down to its
+		-- Front, so each wedge's Back faces the crest.
+		local face = Instance.new("WedgePart")
+		local back = Instance.new("WedgePart")
+		for _, wedge in { face, back } do
+			wedge.Anchored = true
+			wedge.CanCollide = false
+			wedge.CanQuery = false
+			wedge.CanTouch = false
+			wedge.CastShadow = false
+			wedge.Material = Enum.Material.Slate
+		end
+		face.Color = SCORCH:Lerp(ASH, 0.35)
+		face.Size = Vector3.new(bermWidth, h, inner)
+		local faceAt = position + out * (crest - inner / 2) + Vector3.new(0, h / 2, 0)
+		face.CFrame = CFrame.lookAt(faceAt, faceAt - out)
+		onGround(face, 0)
+
+		back.Color = ASH:Lerp(DUST, 0.25)
+		back.Size = Vector3.new(bermWidth, h, outer)
+		local backAt = position + out * (crest + outer / 2) + Vector3.new(0, h / 2, 0)
+		back.CFrame = CFrame.lookAt(backAt, backAt + out)
+		onGround(back, 0)
+	end
+
+	-- Shards thrown past the berm: small, low, lying where they landed.
+	for _ = 1, 6 + order do
+		local angle = math.random() * math.pi * 2
+		local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local shard = Instance.new("WedgePart")
+		shard.Anchored = true
+		shard.CanCollide = false
+		shard.CanQuery = false
+		shard.CanTouch = false
+		shard.CastShadow = false
+		shard.Material = Enum.Material.Slate
+		shard.Color = ASH:Lerp(DUST, math.random() * 0.6)
+		local s = radius * (0.04 + math.random() * 0.04)
+		shard.Size = Vector3.new(s * (0.8 + math.random() * 0.6), s * 0.35, s * (1 + math.random() * 0.8))
+		local at = position + out * radius * (0.95 + math.random() * 0.2) + Vector3.new(0, shard.Size.Y / 2, 0)
+		shard.CFrame = CFrame.new(at) * CFrame.Angles(0, math.random() * math.pi * 2, 0)
+		onGround(shard, 0)
 	end
 
 	-- Fissures: the ground split open and glowing. Each crack wanders -- a few short
