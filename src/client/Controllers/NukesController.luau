@@ -1,6 +1,6 @@
 --[[
 	NukesController.lua — the Nukes tile, and the panel it opens. The tile is the
-	bottom-left square of the right-edge 2x2 grid, built by HudTile like the other three.
+	middle of the right-edge column (Gear, Nukes, Warp), built by HudTile like the others.
 
 	THE PANEL IS EVERY NUKE ON YOUR STANDS, ON ONE LIST: each with its rarity and what
 	it pays per second, the rate its stand card prints (duplicate damping and all),
@@ -36,9 +36,9 @@ local HudTile = require(script.Parent.Parent.HudTile)
 
 local Nukes = {}
 
--- THE NUKES TILE: bottom left of the right-edge 2x2 grid (HudTile), a hazard-yellow
--- glow behind the mushroom cloud.
-local TILE_SLOT = 1
+-- THE NUKES TILE: middle of the right-edge column (HudTile), a hazard-yellow
+-- glow behind the green nuke.
+local TILE_SLOT = 2
 local TILE_COLOR = Color3.fromRGB(255, 207, 31)
 local TILE_LIGHT = Color3.fromRGB(255, 240, 160)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -580,7 +580,7 @@ local function build(): ScreenGui
 		slot = TILE_SLOT,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
-		image = Artwork.IMAGE.mushroomCloud,
+		image = Artwork.IMAGE.nuke,
 		onActivated = Nukes.toggle,
 	})
 	return gui
