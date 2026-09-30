@@ -77,17 +77,17 @@ local TAB_TEXT: { [string]: string } = {
 	Aura = "AURA",
 }
 
-local PANEL_W = 640
-local PANEL_H = 500
+local PANEL_W = 720
+local PANEL_H = 520
 local PAD = 20
 local HEADER_H = 58
 local TABS_H = 44
 local NOTICE_H = 26
 local LIST_TOP = HEADER_H + TABS_H + NOTICE_H + 8
-local ROW_H = 76
-local ART_W = 112
+local ROW_H = 96
+local ART_W = 132
 local ART_H = ROW_H - 12
-local BUTTON_W = 132
+local BUTTON_W = 140
 local OPEN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local BUSY_TIMEOUT = 2
 
@@ -201,20 +201,20 @@ local function row(parent: Instance, order: number, track: string, entry: any)
 		Name = "Name",
 		Text = entry.name,
 		Font = PANEL.label,
-		TextSize = 21,
+		TextSize = 23,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		Size = UDim2.new(1, textWidth, 0, 24),
-		Position = UDim2.fromOffset(textLeft, 8),
+		Size = UDim2.new(1, textWidth, 0, 28),
+		Position = UDim2.fromOffset(textLeft, 10),
 		ZIndex = 14,
 	})
 	inked(frame, {
 		Name = "Tier",
 		Text = `TIER {entry.tier}`,
 		Font = PANEL.label,
-		TextSize = 14,
+		TextSize = 16,
 		TextColor3 = accent,
-		Size = UDim2.new(1, textWidth, 0, 16),
-		Position = UDim2.fromOffset(textLeft, 32),
+		Size = UDim2.new(1, textWidth, 0, 18),
+		Position = UDim2.fromOffset(textLeft, 40),
 		ZIndex = 14,
 	})
 	inked(frame, {
@@ -225,8 +225,8 @@ local function row(parent: Instance, order: number, track: string, entry: any)
 		TextSize = 16,
 		TextColor3 = PANEL.dim,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		Size = UDim2.new(1, textWidth, 0, 18),
-		Position = UDim2.fromOffset(textLeft, 50),
+		Size = UDim2.new(1, textWidth, 0, 20),
+		Position = UDim2.fromOffset(textLeft, 64),
 		ZIndex = 14,
 	})
 
@@ -235,9 +235,10 @@ local function row(parent: Instance, order: number, track: string, entry: any)
 	button.AutoButtonColor = false
 	button.AnchorPoint = Vector2.new(1, 0.5)
 	button.Position = UDim2.new(1, -12, 0.5, 0)
-	button.Size = UDim2.fromOffset(BUTTON_W, 42)
-	button.Font = PANEL.headline
-	button.TextSize = 19
+	button.Size = UDim2.fromOffset(BUTTON_W, 48)
+	-- EQUIP / IN HAND in the tabs' Gotham Black.
+	button.Font = PANEL.tab
+	button.TextSize = 18
 	button.TextColor3 = PANEL.white
 	button.ZIndex = 15
 	button.Parent = frame
