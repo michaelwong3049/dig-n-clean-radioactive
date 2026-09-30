@@ -49,16 +49,27 @@
 	thing (a buried safe) should also be Rare or better, so the physical slog and the
 	scarcity land together.
 
-	baseValue must sit inside its rarity's band in Rarity.DEFS. Stage 1 deliberately
-	carries a Legendary: that chance is what keeps a new player sweeping. Config/Weight's
-	`valueMult` rides ON TOP of that authored number (like Rarity.MODIFIERS' valueMult
-	already does), so the band rule is about the AUTHORED baseValue only.
+	STAGES 1-6: baseValue sits inside its rarity's band in Rarity.DEFS, with one
+	exception -- the old Scrap-tier items folded into Common (Cardboard, Rusty, Marble,
+	Creaky, the retired Cracked) kept their $20-33 Scrap prices, under Common's $35 floor.
+	Stage 1 deliberately carries a Legendary: that chance is what keeps a new player
+	sweeping. Config/Weight's `valueMult` rides ON TOP of that authored number (like
+	Rarity.MODIFIERS' valueMult already does), so the band rule is about the AUTHORED
+	baseValue only.
+
+	STAGES 7-12 ARE PRICED PAST THE BANDS ON PURPOSE. Each far stage pays ~2.5x the one
+	before it, tier for tier (Stage 7 ~2.5x Stage 6, ... Stage 12 ~2.5x Stage 11), so from
+	Stage 7 up every entry sits above its rarity's band. Rarity still sets the ORDER
+	inside a stage; the stage sets the scale.
+
+	THE LADDER RULE (PR #367): within each stage, a rarer drop (higher `odds`) is never a
+	lower tier, and never sells for less than a more common drop of the same tier.
+	Re-audit after any odds change; odds are the user's and stay put.
 
 	ECONOMY RESCALE (feat/economy-rescale-display-income): every baseValue below was
 	multiplied by 20/3 (~6.667x) and rounded to two significant figures, anchored so the
 	Cardboard Nuke (Common, Stage 1) sells for $20. The rarity bands in Rarity.DEFS moved by
-	the same factor, so every entry still sits inside its band. See Config/Rarity.luau's
-	header for the whole picture.
+	the same factor. See Config/Rarity.luau's header for the whole picture.
 
 	`appeal` (Researcher/Collector/Gearhead) and `sets` are untouched by the retheme --
 	they were already inert, display-only/unconsumed fields and stayed that way.
@@ -529,7 +540,7 @@ Items.DEFS = {
 		stages = { 2 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 55000,
+		baseValue = 150000,
 		model = "ImportedNuke",
 	},
 
@@ -786,7 +797,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 60,
+		baseValue = 120,
 		model = "ImportedNuke",
 	},
 	{
@@ -799,7 +810,7 @@ Items.DEFS = {
 		stages = { 5 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 67,
+		baseValue = 135,
 		model = "ImportedNuke",
 	},
 	{
@@ -968,7 +979,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Researcher",
 		sets = {},
-		baseValue = 47,
+		baseValue = 150,
 		model = "ImportedNuke",
 	},
 	{
@@ -981,7 +992,7 @@ Items.DEFS = {
 		stages = { 6 },
 		appeal = "Gearhead",
 		sets = {},
-		baseValue = 120,
+		baseValue = 170,
 		model = "ImportedNuke",
 	},
 	{
@@ -1156,7 +1167,7 @@ Items.DEFS = {
 		stages = { 7 },
 		appeal = "Collector",
 		sets = {},
-		baseValue = 120,
+		baseValue = 250,
 		model = "ImportedNuke",
 	},
 	{
@@ -1815,7 +1826,7 @@ Items.DEFS = {
 	},
 	{
 		id = "reactor_core_nuke",
-		name = "Reactor Nuke",
+		name = "Meltdown Nuke",
 		flavor = "Control rods pulled, core wide open.",
 		rarity = "Legendary",
 		odds = 14000, -- 1 in N per dig in a stocking stage

@@ -2392,7 +2392,7 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Reactor Nuke. The open core glows Cherenkov blue, control rods pump in and out
+	-- Meltdown Nuke (Stage 12). The open core glows Cherenkov blue, control rods pump in and out
 	-- in a wave and the corner beacons chase.
 	reactor_core_nuke = {
 		finish = {
