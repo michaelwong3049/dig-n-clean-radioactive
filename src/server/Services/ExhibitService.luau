@@ -143,16 +143,10 @@ local function renderName(index: number, owner: Player?)
 	if caption and caption:IsA("TextLabel") then
 		caption.Text = if owner and owner.DisplayName ~= "" then owner.DisplayName else "UNCLAIMED"
 	end
-	-- The entrance arch's sign (build/Plots.buildEntranceArch): the same name in the
-	-- same casing, at eye level.
-	local archName = plot:FindFirstChild("OwnerName", true)
-	if archName and archName:IsA("TextLabel") then
-		archName.Text = if owner and owner.DisplayName ~= "" then `{owner.DisplayName}'s Base` else "UNCLAIMED"
-	end
 end
 
 --- Repaint one plot's accent pieces — the side Trim, the nameplate frame, the
---- cleansing-station lamp, the two station-sign subtitles and the gallery's arch,
+--- cleansing-station lamp, the two station-sign subtitles and the gallery's
 --- plinth bands, fence caps and slot brackets — from the owner's chosen colour
 --- (`data.plotColor`, an "RRGGBB" hex). A claimed plot whose owner has never picked
 --- (an empty string) wears that plot's Plots.DEFAULT_ACCENTS hue instead — chosen
