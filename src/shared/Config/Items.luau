@@ -153,6 +153,9 @@ Items.DEFS = {
 
 	-- ── Common ── $35-170 ─────────────────────────────────────────────────
 	{
+		-- RETIRED, ON REQUEST (see "RETIRED ITEMS" note up top) -- dropped from the
+		-- dig roll and the Index total, but the entry itself stays so old saves
+		-- holding this id don't crash Items.get().
 		id = "tin_can",
 		name = "Dented Nuke",
 		flavor = "Dented like it rolled down a hill.",
@@ -160,7 +163,7 @@ Items.DEFS = {
 		odds = 9, -- 1 in N per dig in a stocking stage
 		weight = 15,
 		sizeMult = 0.8, -- smaller
-		stages = { 1 },
+		stages = {},
 		appeal = "Collector",
 		sets = {},
 		baseValue = 80,
