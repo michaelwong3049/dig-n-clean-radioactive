@@ -1061,11 +1061,11 @@ function Spec.run(): boolean
 		check("§5.1 a free-belt save stays on the free belt with no refund", select(2, Treadmill.fromSixRungLadder(1)) == 0)
 	end
 
-	-- Treadmill ACCESS is bought before any belt: priced above nothing, below the first
-	-- belt upgrade, so it is an early-game purchase and not a second wall.
+	-- Treadmill ACCESS is free on request (it used to cost $1,000): every player starts
+	-- on the Scrap Belt, and only the belt upgrades cost cash.
 	check(
-		string.format("§5.1 unlocking the treadmill costs something, under the first upgrade (%s)", Treadmill.unlockPriceText()),
-		Treadmill.UNLOCK_PRICE > 0 and Treadmill.UNLOCK_PRICE < Treadmill.TIERS[2].price and Treadmill.unlockPriceText() == "$1,000"
+		string.format("§5.1 unlocking the treadmill is free (%s)", Treadmill.unlockPriceText()),
+		Treadmill.UNLOCK_PRICE == 0 and Treadmill.unlockPriceText() == "Free"
 	)
 
 	-- Every belt names the imported model it wears (build/Plots.setTreadmillTier).

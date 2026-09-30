@@ -435,8 +435,9 @@ COMMANDS["/train"] = {
 			return "your save hasn't loaded"
 		end
 
-		-- `/train lock` puts the treadmill back behind its price AND forgets the
-		-- walkthrough, so buying it again replays both; `/train unlock` skips the buy.
+		-- `/train lock` puts the treadmill back behind its (now free) unlock AND forgets
+		-- the walkthrough, so pressing the console again replays both; `/train unlock`
+		-- skips the press. Rejoining unlocks it again (TreadmillService.start).
 		if args[1] == "lock" or args[1] == "unlock" then
 			data.treadmillUnlocked = args[1] == "unlock"
 			if args[1] == "lock" then

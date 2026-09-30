@@ -35,7 +35,7 @@
 	scrolls and the card still works, and nobody sees an error. It is decoration, and
 	decoration is not allowed to be load-bearing.
 
-	3. THE WALKTHROUGH. Buying treadmill access (Treadmill.UNLOCK_PRICE) is owed a short
+	3. THE WALKTHROUGH. Having treadmill access (free now, so from the start) is owed a short
 	   spotlight walkthrough, the Quarantine Locker's (client/LockerTutorial): the
 	   machine, the Speed badge, the console. SpeedState's `tutorial` says it is owed;
 	   it starts once the player's own machine is near and on screen, and finishing or
