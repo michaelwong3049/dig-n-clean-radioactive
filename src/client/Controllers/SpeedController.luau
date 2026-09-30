@@ -56,14 +56,14 @@ local STYLE = {
 
 -- Design px inside the Dock.SPEED_SIZE footprint (280 x 60).
 local LAYOUT = {
-	shoe = 58, -- centred over the cash row's 64px bundle, and vertically in the row
+	shoe = 70, -- centred in the icon slot the cash bundle fills (Dock.SIDE_ICON)
 	shoeDrop = Vector2.new(3, 4),
-	valueLeft = 72, -- the same column as the cash balance below
-	captionTop = 4,
-	captionTextSize = 13,
-	valueTop = 18,
-	valueTextSize = 30,
-	valueStroke = 4,
+	valueLeft = Dock.SIDE_ICON + 10, -- the same column as the cash balance below
+	captionTop = 6,
+	captionTextSize = 15,
+	valueTop = 22,
+	valueTextSize = 36,
+	valueStroke = 4.5,
 	textDrop = Vector2.new(2, 3),
 }
 
@@ -171,12 +171,12 @@ local function build(): ScreenGui
 
 	local L = LAYOUT
 	local shoe = Artwork.droppedPicture(badge, "Shoe", Artwork.IMAGE.speedShoe, L.shoe, L.shoeDrop, 3)
-	shoe.Position = UDim2.fromOffset((64 - L.shoe) / 2, (Dock.SPEED_SIZE.Y.Offset - L.shoe) / 2)
+	shoe.Position = UDim2.fromOffset((Dock.SIDE_ICON - L.shoe) / 2, (Dock.SPEED_SIZE.Y.Offset - L.shoe) / 2)
 
 	UIKit.label(badge, {
 		name = "Caption",
 		position = UDim2.fromOffset(L.valueLeft + 2, L.captionTop),
-		size = UDim2.fromOffset(120, 16),
+		size = UDim2.fromOffset(150, 19),
 		font = STYLE.captionFont,
 		textSize = L.captionTextSize,
 		color = STYLE.caption,
@@ -188,7 +188,7 @@ local function build(): ScreenGui
 	ui.value = UIKit.hudNumber(badge, {
 		name = "Value",
 		position = UDim2.fromOffset(L.valueLeft, L.valueTop),
-		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, 38),
+		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, 44),
 		font = STYLE.valueFont,
 		textSize = L.valueTextSize,
 		color = STYLE.value,
