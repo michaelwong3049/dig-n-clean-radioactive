@@ -692,8 +692,10 @@ Dock.SIDE_TOP_MIN_HEIGHT = 700
 Dock.SIDE_TILE_SIZE = 48
 Dock.SIDE_GRID_COLUMNS = 1
 Dock.SIDE_GRID_ROWS = 3
-Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.GAP
-Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_ROWS - 1) * Dock.GAP
+-- The space between two tiles: wider than the dock's shared GAP, on request.
+Dock.SIDE_TILE_GAP = 22
+Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
+Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
 -- How far the grid sits BELOW the line it is hung from (the cash badge's top, or the
 -- centre on a short screen), on request: level with the badge read as too high.
 Dock.SIDE_GRID_DROP = 40
@@ -722,7 +724,7 @@ end
 function Dock.sideTileCentre(slot: number, height: number): UDim2
 	local column = (slot - 1) % Dock.SIDE_GRID_COLUMNS
 	local row = (slot - 1) // Dock.SIDE_GRID_COLUMNS
-	local step = Dock.SIDE_TILE_SIZE + Dock.GAP
+	local step = Dock.SIDE_TILE_SIZE + Dock.SIDE_TILE_GAP
 	local fromRight = Dock.ROW_SIDE_MARGIN + (Dock.SIDE_GRID_COLUMNS - 1 - column) * step + Dock.SIDE_TILE_SIZE / 2
 	local down = Dock.sideColumnTop(height) + row * step + Dock.SIDE_TILE_SIZE / 2
 	return UDim2.new(1, -fromRight, 0.5, down)
