@@ -267,7 +267,7 @@ local overSignal: { [Player]: boolean } = {} -- standing on one, hauling or not
 local digProgress: { [Player]: number } = {}
 local digTarget: { [Player]: string? } = {}
 -- UserIds whose next dig is the tutorial's safe one (Config/Tutorial.isSafeDig):
--- every signal reads as a plain Common and no fuse lights under their magnet. Keyed by
+-- every signal reads as a plain Common (the fuse still burns). Keyed by
 -- UserId, not Player, because rollFor only has the UserId. Refreshed from the save
 -- every tick in stepPlayer and again in the lock handler.
 local safeDiggers: { [number]: boolean } = {}
@@ -1335,10 +1335,10 @@ local function stepPlayer(player: Player, dt: number)
 	-- so the bang is as big as the thing you were watching come up.
 	-- A CRATE BURNS THE SAME FUSE. It is disguised as its stand-in nuke, and a lump
 	-- that never heated would give it away; if it goes off, the crate is lost with it.
-	-- THE TUTORIAL'S SAFE DIG LIGHTS NOTHING (Config/Tutorial.isSafeDig): no claim, no
-	-- heat, no countdown. Someone else locked onto the same signal still burns it.
+	-- ON REQUEST the tutorial's safe dig burns its fuse like any other (the banner says
+	-- "before it explodes"); it is only the roll that is kept a plain Common.
 	local fuseWindow: number? = nil
-	if isLocked and not safeDiggers[player.UserId] then
+	if isLocked then
 		local item = Items.get(itemId)
 		fuseWindow = Detonation.windowFor(rarity, item.weight, signal.depth, signal.soil, signal.uid)
 		local claim = fuseClaims[signal.uid]
@@ -1477,9 +1477,7 @@ local function stepPlayer(player: Player, dt: number)
 		fuseArmed = lockedTo[player] ~= nil and signal.armed,
 		fuseWindow = if lockedTo[player] ~= nil then shownWindow else nil,
 		fuseLeft = if lockedTo[player] ~= nil then Detonation.secondsLeft(signal.heat, shownWindow) else nil,
-		-- The tutorial's safe dig claims no fuse (see the claim above), so there is no
-		-- window to count down; the panel says "NO FUSE" rather than "0.0s".
-		fuseless = lockedTo[player] ~= nil and safeDiggers[player.UserId] == true,
+		fuseless = false,
 		carrying = Bag.used(data),
 		capacity = stats.capacity,
 	})

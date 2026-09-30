@@ -36,7 +36,7 @@ Tutorial.ORDER = { "stage", "dig", "haul", "clean", "place", "upgrade", "finish"
 Tutorial.STEPS = {
 	stage = { title = "Head to the first stage", hint = "Follow the trail out of camp" },
 	dig = { title = "Find a spot to dig", hint = "Walk onto a glowing spot and hold E" },
-	haul = { title = "Click the nuke to the top", hint = "Click the button or press E" },
+	haul = { title = "Click the nuke to the top before it explodes", hint = "Click the button or press E" },
 	clean = {
 		title = "Clean the nuke",
 		hint = "Take it to your cleansing station",
@@ -56,9 +56,8 @@ Tutorial.UPGRADE_TIER = 2
 
 --- True while this save's first dig should be made safe. That means the walkthrough is
 --- running and nothing has come out of the ground yet (empty bag, no crates, empty
---- stands). DigService then reads every signal as a plain Common for this player and
---- lights no fuse under the magnet. A brand-new player should not be blown up in their
---- first minute. It is a pure read of the save, so the ping, the lock and the haul all
+--- stands). DigService then reads every signal as a plain Common for this player. The
+--- fuse still burns (on request), so the haul step warns before it explodes. It is a pure read of the save, so the ping, the lock and the haul all
 --- give the same answer.
 function Tutorial.isSafeDig(data: any): boolean
 	if data == nil or data.onboarding ~= "active" then
