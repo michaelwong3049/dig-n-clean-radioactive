@@ -32,6 +32,7 @@ local Gear = require(Config.Gear)
 local Liquids = require(Config.Liquids)
 local Treadmill = require(Config.Treadmill)
 local LuckBoost = require(Config.LuckBoost)
+local IndexProgress = require(script.Parent.IndexProgress)
 
 local StatResolver = {}
 
@@ -55,6 +56,9 @@ export type Profile = {
 	-- Banked seconds of the bought Lucky Clover (Config/LuckBoost). Optional for the
 	-- same reason as the two above; absent means no clover running.
 	luckBoostLeft: number?,
+	-- The index's found set (itemId -> true). Optional for the same reason; absent
+	-- means no stage complete, so no index cash bonus.
+	discovered: { [string]: boolean }?,
 }
 
 export type Stats = {
@@ -102,6 +106,9 @@ export type Stats = {
 	-- the dig roll reads it separately because dig luck is applied as a weight on
 	-- Rare+ rather than on the detector's `luck` stat (Config/LuckBoost's header).
 	luckBoost: number,
+	-- The completed-index cash bonus (IndexProgress.cashMultiplier). Already folded
+	-- into BOTH sellMultiplier and yieldMultiplier; carried on its own for display.
+	indexCashMultiplier: number,
 }
 
 --- Is the server-wide Violet Aurora up right now? See the header's one outside read.
@@ -154,6 +161,9 @@ function StatResolver.get(profile: Profile): Stats
 	local luckMultiplier = Gear.luckMultiplier(g.luck or 1)
 	local luckBoost = LuckBoost.multiplier(StatResolver.luckEventActive(), (profile.luckBoostLeft or 0) > 0)
 	local liquidId, liquid = liquidFor(profile)
+	-- A completed stage's index pays in cash (Tuning.INDEX_COMPLETE_CASH), on every
+	-- sale and every stand's income alike -- both multipliers below take it.
+	local indexCash = if profile.discovered then IndexProgress.cashMultiplier(profile.discovered) else 1
 
 	-- Steady Hands (PLAN §9.2) is a PERK on the tool, so it belongs to the permanent
 	-- capability; the liquid bonus is deliberately kept out of `cleanPotency` and
@@ -204,7 +214,7 @@ function StatResolver.get(profile: Profile): Stats
 		liquidXp = liquid.xpMult,
 		effectivePotency = cleanPotency + liquid.potency,
 
-		sellMultiplier = mult(profile, "sell"),
+		sellMultiplier = mult(profile, "sell") * indexCash,
 		-- REPURPOSED, and it used to be inert. This was `mult(profile, "luck")` alone
 		-- -- the PLAN §11 "2x Luck" gamepass slot -- and nothing in the game read it,
 		-- because nothing in the game rolled anything a player could influence. The
@@ -213,8 +223,9 @@ function StatResolver.get(profile: Profile): Stats
 		-- top of it exactly as it was always meant to, and so does 2x luck.
 		luckMultiplier = luckMultiplier * mult(profile, "luck") * luckBoost,
 		-- Curator (PLAN §9.2)
-		yieldMultiplier = mult(profile, "yield") * (if perks.curator then 1.15 else 1),
+		yieldMultiplier = mult(profile, "yield") * (if perks.curator then 1.15 else 1) * indexCash,
 		luckBoost = luckBoost,
+		indexCashMultiplier = indexCash,
 	}
 end
 

@@ -487,4 +487,11 @@ Tuning.WASH_EYE_FORWARD = 0.4
 -- stocked in two stages count toward both.
 Tuning.INDEX_COMPLETE_LUCK = 0.10
 
+--- The CASH half of the same reward: every stage whose index is complete multiplies ALL
+--- cash earned -- sales and stand income alike (and so away earnings) -- by this much.
+--- Unlike the luck it is not tied to the stage: it stacks across stages, multiplied, so
+--- two complete stages are x1.21 and all twelve are about x3.14. Folded into
+--- StatResolver's sellMultiplier and yieldMultiplier via IndexProgress.cashMultiplier.
+Tuning.INDEX_COMPLETE_CASH = 1.1
+
 return Tuning

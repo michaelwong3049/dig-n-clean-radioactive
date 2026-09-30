@@ -4,9 +4,11 @@
 
 	THE DOSSIER LAYOUT (picked from five mockups). Three columns under one header:
 
-	  RAIL    one row per stage: its found/total, a progress bar, and the stage's luck
-	          reward once every nuke in it is identified (Tuning.INDEX_COMPLETE_LUCK,
-	          applied server-side in DigService's rollFor).
+	  RAIL    one row per stage: its found/total, a progress bar, and the stage's
+	          reward once every nuke in it is identified: dig luck there
+	          (Tuning.INDEX_COMPLETE_LUCK, applied in DigService's rollFor) and a cash
+	          multiplier everywhere (Tuning.INDEX_COMPLETE_CASH, via StatResolver). The
+	          hint under the rail shows the cash bonus the player has earned so far.
 	  GRID    the stage's nukes as cards, each a live render of the real model. A nuke
 	          you have not identified is the same render blacked out: a silhouette, so
 	          you know the shape you are hunting and nothing else. Filter chips above it:
@@ -595,14 +597,14 @@ local function buildRail(panel: Frame)
 
 	local hint = text(rail, {
 		name = "Reward",
-		size = UDim2.new(1, 0, 0, 30),
+		size = UDim2.new(1, 0, 0, 46),
 		font = UIKit.Font.body,
 		textSize = 11,
 		color = UIKit.C.dim,
 		wrapped = true,
-		text = string.format("Identify every nuke in a stage for +%.2f dig luck there.", Tuning.INDEX_COMPLETE_LUCK),
 	})
 	hint.LayoutOrder = #Stages.DEFS + 1
+	ui.rewardHint = hint
 end
 
 local function buildMiddle(panel: Frame)
@@ -1078,12 +1080,24 @@ local function renderRail()
 		refs.fill.Size = UDim2.fromScale(if total > 0 then found / total else 0, 1)
 		refs.fill.BackgroundColor3 = if complete then UIKit.C.green else refs.tint
 		if complete then
-			refs.right.Text = string.format("+%.2f LUCK", Tuning.INDEX_COMPLETE_LUCK)
+			refs.right.Text = string.format("x%.1f $  +%.2f LUCK", Tuning.INDEX_COMPLETE_CASH, Tuning.INDEX_COMPLETE_LUCK)
 			refs.right.TextColor3 = UIKit.C.green
 		else
 			refs.right.Text = `{if total > 0 then math.floor(found / total * 100) else 0}%`
 			refs.right.TextColor3 = UIKit.C.dim
 		end
+	end
+
+	-- The same number StatResolver folds into every sale and stand, off the same set.
+	if ui.rewardHint then
+		local cash = IndexProgress.cashMultiplier(discovered)
+		ui.rewardHint.Text = string.format(
+			"Identify every nuke in a stage for x%.1f cash everywhere and +%.2f dig luck there. Cash bonus now: x%.2f",
+			Tuning.INDEX_COMPLETE_CASH,
+			Tuning.INDEX_COMPLETE_LUCK,
+			cash
+		)
+		ui.rewardHint.TextColor3 = if cash > 1 then UIKit.C.green else UIKit.C.dim
 	end
 end
 

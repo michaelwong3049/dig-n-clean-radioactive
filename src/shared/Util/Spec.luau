@@ -297,12 +297,38 @@ function Spec.run(): boolean
 		check("§index identifying everything completes every stocked stage", fullOk)
 		check("§index a stage that stocks nothing never grants its luck", emptyNever)
 
+		-- The cash half: x1 with nothing complete, INDEX_COMPLETE_CASH per complete
+		-- stage, stacked, and resolved into BOTH payout multipliers.
+		local stockedCount = 0
+		for _, stage in Stages.DEFS do
+			if #IndexProgress.stageItems(stage.id) > 0 then
+				stockedCount += 1
+			end
+		end
+		check("§index an empty index earns no cash bonus", IndexProgress.cashMultiplier({}) == 1)
+		check(
+			"§index every complete stage stacks its cash multiplier",
+			math.abs(IndexProgress.cashMultiplier(all) - Tuning.INDEX_COMPLETE_CASH ^ stockedCount) < 1e-9
+		)
+		local bare = StatResolver.get({ level = 1, gear = {}, perks = {} })
+		local done = StatResolver.get({ level = 1, gear = {}, perks = {}, discovered = all })
+		local want = IndexProgress.cashMultiplier(all)
+		check(
+			"§index the cash bonus reaches both sales and stand income",
+			math.abs(done.sellMultiplier - bare.sellMultiplier * want) < 1e-9
+				and math.abs(done.yieldMultiplier - bare.yieldMultiplier * want) < 1e-9
+		)
+
 		local firstStage = Stages.DEFS[1].id
 		local missing = table.clone(all)
 		missing[IndexProgress.stageItems(firstStage)[1].id] = nil
 		check(
 			"§index one missing nuke withholds that stage's luck",
 			IndexProgress.stageLuck(missing)[firstStage] == nil
+		)
+		check(
+			"§index one missing nuke withholds that stage's cash bonus",
+			IndexProgress.cashMultiplier(missing) < want
 		)
 
 		-- Measured from the free starter to the first detector that costs real money
