@@ -1678,7 +1678,7 @@ local function syncBuySpotlight()
 		{
 			target = card.CardBuy :: GuiObject,
 			title = "BUY THE BENT COIL",
-			body = `Click {money(Gear.Detector[Tutorial.UPGRADE_TIER].price)} to upgrade your detector`,
+			body = `Purchase the detector for {money(Gear.Detector[Tutorial.UPGRADE_TIER].price)}`,
 			press = true,
 		},
 	}, function() end)
