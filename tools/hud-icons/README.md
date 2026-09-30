@@ -7,9 +7,9 @@ uploaded as 256px PNGs. The ids live in `src/client/HudArtwork.luau` (`Artwork.I
 | --- | --- | --- |
 | `index_cards.svg` | Index tile | `cards` |
 | `shop_chest.svg` | Shop tile | `chest` |
-| `nukes_cloud.svg` | Nukes tile | `mushroomCloud` |
+| `nukes_bomb.svg` | Nukes tile | `nuke` |
 | `warp_portal.svg` | Warp tile | `portal` |
-| `gear_toolbox.svg` | Gear tile | `toolbox` |
+| `gear_detector.svg` | Gear tile | `detector` |
 | `glow.svg` | the soft glow behind every tile symbol (white, tinted per tile) | `glow` |
 | `speed_shoe.svg` | the SPEED row's sneaker (`SpeedController`) | `speedShoe` |
 | `cash_bundle.svg` | the cash row's bundle of notes (`CashController`) | `cashBundle` |

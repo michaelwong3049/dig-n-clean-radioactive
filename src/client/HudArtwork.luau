@@ -65,9 +65,9 @@ Artwork.IMAGE = {
 	-- the new id here. Full colour, so a caller leaves ImageColor3 white.
 	cards = "rbxassetid://79446288774542", -- Index: fanned rarity cards with a star
 	chest = "rbxassetid://137692103278879", -- Shop: open treasure chest of coins
-	mushroomCloud = "rbxassetid://107094805710382", -- Nukes: mushroom cloud
+	nuke = "rbxassetid://75470880342845", -- Nukes: green finned bomb with a trefoil
 	portal = "rbxassetid://107949254570705", -- Warp: violet-to-cyan portal swirl
-	toolbox = "rbxassetid://123504323746136", -- Gear: red toolbox with a wrench
+	detector = "rbxassetid://98874102960653", -- Gear: metal detector, red coil
 	-- The SPEED badge's disc (SpeedController): a glossy blue sneaker, same family and
 	-- pipeline. tools/hud-icons/speed_shoe.svg.
 	speedShoe = "rbxassetid://97884293509666",

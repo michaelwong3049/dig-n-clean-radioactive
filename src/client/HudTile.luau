@@ -1,19 +1,20 @@
 --[[
-	HudTile — one right-edge HUD tile (Index, Shop, Nukes, Warp): the "glow orb" look.
+	HudTile — one right-edge HUD tile (Gear, Nukes, Warp): the "glow orb" look.
 
 	A small dark square with a soft glow in the tile's own colour behind a full-colour
-	symbol (Artwork.IMAGE), and the tile's name under it in a light tint of that colour. Picked from a
-	mockup round (option 11) when the four 80px column tiles became a 2x2 grid of
-	smaller ones. The four used to be four hand-copied builders, one per controller;
-	they differed only in name, picture and slot, so this builds all of them and each
-	controller keeps its own badge and click handler.
+	symbol (Artwork.IMAGE), picture only: the name caption under it was dropped on request
+	when the tiles went from a 2x2 grid to one smaller column. Index and Shop build the
+	left-column bars through the same function (spec.leftRow), and keep their names.
+	These used to be hand-copied builders, one per controller; they differed only in
+	name, picture and slot, so this builds all of them and each controller keeps its
+	own badge and click handler.
 
 	No radial gradients in Roblox UI, so the glow is a picture: a white disc whose alpha
 	eases from solid in the middle to nothing at the rim (Artwork.IMAGE.glow), tinted to
 	the tile's colour. It was a stack of five see-through discs first; their edges read
 	as rings ("chunky"), which a real gradient doesn't have.
 
-	PLACEMENT IS Dock's: the tile's slot in the grid (1-6, left to right, top to bottom)
+	PLACEMENT IS Dock's: the tile's slot in the column (1-3, top to bottom)
 	goes through Dock.sideTileCentre, re-run on every canvas resize. The button is
 	anchored on its centre so the hover UIScale grows it evenly on every side.
 ]]
@@ -34,17 +35,14 @@ local EDGE_THICKNESS = 1.5
 local EDGE_TRANSPARENCY = 0.55
 local EDGE_TRANSPARENCY_HOVER = 0.15
 
--- The picture's square box and its top inset; the caption owns the bottom band.
--- The drawn symbols run to the edge of their square, so the box is most of the tile.
-local ICON_SIZE = 36
-local ICON_TOP = 4
-local CAPTION_SIZE = 13
-local CAPTION_BOTTOM = 4
+-- The picture's square box, centred in the tile. No caption under it, on request, so
+-- the drawn symbol (which runs to the edge of its square) fills most of the tile.
+local ICON_SIZE = 40
 
 -- The glow picture's diameter and how see-through it is. Its alpha falls to nothing
 -- at the rim, so it can be a little wider than the tile's top band without an edge.
 -- At 0.3 it reads about as strong as the old disc stack did; hover brightens it.
-local GLOW_SIZE = 56
+local GLOW_SIZE = 50
 local GLOW_TRANSPARENCY = 0.3
 local GLOW_TRANSPARENCY_HOVER = 0.12
 
@@ -55,8 +53,9 @@ local TWEEN = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Ou
 export type Spec = {
 	-- The ScreenGui's and the button's name ("IndexButton").
 	name: string,
+	-- The bar's name (leftRow only; a square tile shows no caption).
 	caption: string,
-	-- Where in the grid (two wide): 1-6, left to right, top to bottom.
+	-- Where in the right-edge column: 1-3, top to bottom.
 	slot: number,
 	-- The glow and edge colour, and the lighter caption tint.
 	color: Color3,
@@ -64,7 +63,7 @@ export type Spec = {
 	-- The symbol (Artwork.IMAGE).
 	image: string,
 	-- Design px to drop the symbol below the glow's centre, for a drawing whose weight
-	-- sits high in its square. The glow stays put, so the symbol lands centred on it.
+	-- sits high in its square.
 	iconDrop: number?,
 	-- Optional: a caller that wires its own click (IndexController) leaves it out.
 	onActivated: (() -> ())?,
@@ -169,31 +168,17 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
 		place()
 
-		-- The glow, centred on the picture.
-		local iconCentre = ICON_TOP + ICON_SIZE / 2
+		-- The glow and the picture, both on the tile's centre.
 		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)
 		glow.AnchorPoint = Vector2.new(0.5, 0.5)
-		glow.Position = UDim2.new(0.5, 0, 0, iconCentre)
+		glow.Position = UDim2.fromScale(0.5, 0.5)
 		glow.ImageTransparency = GLOW_TRANSPARENCY
 		glow.ZIndex = 5
 
 		icon = Artwork.picture(button, "Icon", spec.image, ICON_SIZE, Color3.new(1, 1, 1))
 		icon.AnchorPoint = Vector2.new(0.5, 0.5)
-		icon.Position = UDim2.new(0.5, 0, 0, iconCentre + (spec.iconDrop or 0))
+		icon.Position = UDim2.new(0.5, 0, 0.5, spec.iconDrop or 0)
 		icon.ZIndex = 6
-
-		UIKit.label(button, {
-			name = "Caption",
-			anchorPoint = Vector2.new(0.5, 1),
-			position = UDim2.new(0.5, 0, 1, -CAPTION_BOTTOM),
-			size = UDim2.new(1, 0, 0, CAPTION_SIZE),
-			text = spec.caption,
-			font = Enum.Font.FredokaOne,
-			textSize = CAPTION_SIZE,
-			color = spec.light,
-			xAlign = Enum.TextXAlignment.Center,
-			zIndex = 8,
-		})
 	end
 
 	local hovered, pressed = false, false

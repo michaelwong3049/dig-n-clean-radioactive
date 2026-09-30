@@ -1,6 +1,6 @@
 --[[
 	GearController.lua — the Gear tile, and the loadout panel it opens. The tile sits
-	alone on the right-edge grid's third row, under Nukes, built by HudTile like the
+	the top of the right-edge column, above Nukes, built by HudTile like the
 	other four.
 
 	THE PANEL IS EVERY TIER YOU OWN, ON EVERY TRACK, and a button to switch to it from
@@ -34,9 +34,9 @@ local GearArt = require(script.Parent.Parent.GearArt)
 
 local GearPanel = {}
 
--- THE GEAR TILE: the grid's third row, left, under Nukes. An orange glow behind the
--- red toolbox (Index violet, Shop green, Nukes yellow, Warp cyan were taken).
-local TILE_SLOT = 3
+-- THE GEAR TILE: top of the right-edge column, above Nukes. An orange glow behind the
+-- metal detector (Index violet, Shop green, Nukes yellow, Warp cyan were taken).
+local TILE_SLOT = 1
 local TILE_COLOR = Color3.fromRGB(255, 128, 48)
 local TILE_LIGHT = Color3.fromRGB(255, 208, 170)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -514,7 +514,7 @@ function GearPanel.start()
 		slot = TILE_SLOT,
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
-		image = Artwork.IMAGE.toolbox,
+		image = Artwork.IMAGE.detector,
 		onActivated = GearPanel.toggle,
 	})
 	tile.Parent = playerGui
