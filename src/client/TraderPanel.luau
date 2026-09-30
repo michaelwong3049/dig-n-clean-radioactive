@@ -358,7 +358,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		textSize = 20,
 		color = SKIN.paperInk,
 		xAlign = Enum.TextXAlignment.Center,
-		text = "BILL OF SALE",
+		text = "RECEIPT",
 	})
 
 	local function dashes(name: string, y: UDim): TextLabel
@@ -406,7 +406,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		font = SKIN.receipt,
 		textSize = 13,
 		color = SKIN.paperDim,
-		text = "nothing ticked",
+		text = "nothing selected",
 	})
 	nothing.LayoutOrder = 0
 
