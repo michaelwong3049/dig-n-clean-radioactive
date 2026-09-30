@@ -692,7 +692,7 @@ Dock.SIDE_TOP_MIN_HEIGHT = 700
 -- the grid's width (HAULPANEL_RIGHT).
 Dock.SIDE_TILE_SIZE = 62
 Dock.SIDE_GRID_COLUMNS = 2
-Dock.SIDE_GRID_ROWS = 3
+Dock.SIDE_GRID_ROWS = 2
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.GAP
 Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_ROWS - 1) * Dock.GAP
 -- How far the grid sits BELOW the line it is hung from (the cash badge's top, or the
