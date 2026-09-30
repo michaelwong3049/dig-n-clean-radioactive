@@ -2458,22 +2458,14 @@ ItemFx.DEFS = {
 	},
 	-- ── STAGE 10: TOXIC CRYSTAL CAVES ────────────────────────────────────────
 
-	-- Canister Nuke. A rusted drum leaking ooze: the leak glows, drips wink and the
-	-- puddle steams.
+	-- Canister Nuke. A rusted drum leaking ooze: the leak and its drips hold a
+	-- steady glow. No puddle (tweak-stage10-canister drops it from the template) and
+	-- no flicker, on request.
 	canister_nuke = {
 		finish = {
 			{ parts = { "LeakStream", "LeakDrop", "Drip", "DripEnd" }, material = "Neon", color = Color3.fromHex("7CFF3A") },
-			{ parts = { "Puddle" }, material = "Neon", color = Color3.fromHex("4ACF2A") },
-			{ parts = { "Bubble" }, material = "Neon", color = Color3.fromHex("B8FF6A") },
 		},
-		light = { part = "Puddle", color = Color3.fromHex("7CFF3A"), brightness = 1.2, range = 0.9 },
-		particles = {
-			{ part = "Puddle", preset = "steam", color = Color3.fromHex("B8FF8A"), rate = 2 },
-		},
-		anims = {
-			{ kind = "pulse", parts = { "LeakStream", "Puddle" }, light = true, period = 2.2, min = 0.5 },
-			{ kind = "wink", parts = { "Drip", "DripEnd", "LeakDrop", "Bubble" }, period = 1.4, min = 0.2, perPart = true },
-		},
+		light = { part = "LeakStream", color = Color3.fromHex("7CFF3A"), brightness = 1.2, range = 0.9 },
 	},
 
 	-- Stalactite Nuke. Crystal shards at the nose glitter, droplets wink and the pool
@@ -2495,16 +2487,21 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Glowshroom Nuke. Every cap glows toxic green over violet mycelium, and spores
-	-- drift off the crown.
+	-- Glowshroom Nuke. Every cap glows toxic green over violet mycelium, the loose
+	-- spores circle the casing on a slow drift, and the crown cap nods on its stem.
 	glowshroom_nuke = {
 		finish = {
 			{ parts = { "Shroom*", "CrownShroomCap", "FinShroom*", "RootShroom*" }, material = "Neon", color = Color3.fromHex("9AFF4A") },
+			{ parts = { "Spore" }, material = "Neon", color = Color3.fromHex("C8FF8A") },
 			{ parts = { "Mycelium" }, material = "Neon", color = Color3.fromHex("C88AFF") },
 		},
 		light = { part = "CrownShroomCap", color = Color3.fromHex("9AFF4A"), brightness = 1.6, range = 1.1 },
 		particles = {
 			{ part = "CrownShroomCap", preset = "spore", color = Color3.fromHex("C8FF8A"), rate = 4 },
+		},
+		spins = {
+			{ parts = { "Spore" }, pivot = "Body", axis = "Y", mode = "bob", amp = 0.04, period = 3.4, rpm = 5 },
+			{ parts = { "CrownShroom*" }, pivot = "CrownShroomStem", axis = "Z", mode = "swing", deg = 6, period = 3.2 },
 		},
 		anims = {
 			{ kind = "pulse", parts = { "Shroom*", "CrownShroomCap", "FinShroom*", "RootShroom*" }, light = true, period = 2.4, min = 0.4, perPart = true },
@@ -2553,7 +2550,7 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Sludge Nuke. Slime slides off the cap, drops bob and wink, and the splash below
+	-- Sludge Nuke. Slime slides off the cap, drops wink, and the splash below
 	-- steams.
 	sludge_nuke = {
 		finish = {
@@ -2564,9 +2561,6 @@ ItemFx.DEFS = {
 		particles = {
 			{ part = "SlimeCap", preset = "drift", color = Color3.fromHex("8AFF4A"), rate = 3 },
 			{ part = "Splash", preset = "steam", color = Color3.fromHex("C8FF9A"), rate = 2 },
-		},
-		spins = {
-			{ parts = { "SlimeDrop" }, pivot = "Body", axis = "Y", mode = "bob", amp = 0.15, period = 1.6 },
 		},
 		anims = {
 			{ kind = "smoulder", parts = { "SlimeCap", "SlimeDrip" }, light = true, period = 2.6, min = 0.5 },
