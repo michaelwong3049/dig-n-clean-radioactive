@@ -390,6 +390,11 @@ local function stepRings()
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local radius = if DetectorController then DetectorController.radius() else 0
+	-- Holding a nuke or item (ToolService's "HeldItem") puts the detector away: no
+	-- rim, no sweep, until the item is unequipped and it comes straight back.
+	if character and character:FindFirstChild("HeldItem") then
+		radius = 0
+	end
 
 	if root == nil or not root:IsA("BasePart") or radius <= 0 then
 		hideRing(steady)
