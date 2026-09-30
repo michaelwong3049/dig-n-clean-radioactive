@@ -56,9 +56,9 @@
 	the hotbar, far enough down to clear it.
 
 	This is the one thing here that is resolution-DEPENDENT rather than derived: a
-	tall panel on a short viewport can still reach the hotbar. StationHud's
-	DisplayOrder (40) is below DetectorHud's (60), so the hotbar wins that overlap
-	rather than being hidden under the panel.
+	tall panel on a short viewport can still reach the hotbar. fitPanel() shrinks
+	and lifts it clear. StationHud draws OVER the dock (DisplayOrder 102, above
+	RadHud's 100), so the health/rads bars never cut across a card.
 
 	AND THE SHOP IS ALSO A RACK IN THE WORLD NOW, WHICH THIS FILE PAINTS BUT DOES NOT
 	OWN. Every tier of the three tool tracks hangs on the wing beside its stand with a
@@ -747,10 +747,12 @@ local function build(): ScreenGui
 	-- the only one the inset misplaces. With it off, the panel centres in the region
 	-- the player can actually see, below the topbar.
 	gui.IgnoreGuiInset = false
-	-- Below the dock (60) on purpose — see the file header. The rad meter and the
-	-- hotbar never hide, and exposure from a hot bag keeps accruing even while this
-	-- panel is open, so the dock is the one thing that should never end up covered.
-	gui.DisplayOrder = 40
+	-- OVER the health/rads bars (RadHud, 100) and the aura warning (101), on request:
+	-- the bars used to draw across the bottom of the card. Every station is in the
+	-- zero-rad plaza, so nothing on them is changing while this is open. Still under
+	-- the brew/bag panels (105+) and the Index/Shop/Gear/Nukes panels (110). The
+	-- hotbar (60) is under it too; fitPanel() already lifts the panel clear of it.
+	gui.DisplayOrder = 102
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 	local canvas = UIKit.canvas(gui)
@@ -1667,7 +1669,7 @@ local function render()
 	-- list panel it always had, until it was rebuilt as a counter in the shop's skin.
 	-- Still set on every render, because the stroke is repainted per stall below.
 	ui.panel.BackgroundColor3 = FIELD.panel
-	ui.panel.BackgroundTransparency = 0.02
+	ui.panel.BackgroundTransparency = 0 -- solid: it sits over the depth readout and vitals bars now
 
 	if atShop then
 		local offer = state.offer
