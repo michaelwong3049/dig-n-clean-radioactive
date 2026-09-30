@@ -290,6 +290,21 @@ function DeconService.start()
 			if ok then
 				print(`[econ] {player.Name}: {message}`)
 			end
+		elseif request.action == "sellMany" then
+			-- The trader panel's receipt: the uids the player ticked. Bag only, like
+			-- sellAll, and the server re-checks each one is still there.
+			if kind ~= "trader" then
+				resultRemote:FireClient(player, "the trader is the other one")
+				return
+			end
+			if type(request.uids) ~= "table" then
+				return
+			end
+			local ok, message = EconomyService.sellMany(player, request.uids)
+			resultRemote:FireClient(player, message)
+			if ok then
+				print(`[econ] {player.Name}: {message}`)
+			end
 		elseif request.action == "buy" then
 			-- ShopService re-derives the station from the player's position itself,
 			-- so this is not the security boundary -- it is just a better message.

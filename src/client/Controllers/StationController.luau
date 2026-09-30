@@ -2,8 +2,8 @@
 	StationController.lua — the base camp panel.
 
 	Appears at the trader, the shops and your own Quarantine Locker. The trader's body
-	is its own module (client/TraderPanel, the buyback counter: a tile grid of the bag, a
-	detail card with SELL, and SELL ALL CLEAN / SELL ALL ???), and so is the locker's
+	is its own module (client/TraderPanel, the buyback counter: a list of the bag with tick
+	boxes, and a receipt that totals what is ticked above SELL), and so is the locker's
 	(client/LockerPanel, a rack of specimen tubes over your bag); the shop's body is
 	built here. Scrubbing left this file, see below.
 
@@ -1853,13 +1853,10 @@ function Station.start()
 
 	actionRemote = Net.get("StationAction")
 
-	-- The trader's two verbs. The server re-derives the price, the ownership and the
+	-- The trader's one verb, the receipt's SELL. The server re-derives the price, the ownership and the
 	-- station itself (DeconService / EconomyService), so these only ever ask.
-	ui.trader.onSell(function(uid)
-		actionRemote:FireServer({ action = "sell", uid = uid })
-	end)
-	ui.trader.onSellAll(function(which)
-		actionRemote:FireServer({ action = "sellAll", which = which })
+	ui.trader.onSellMany(function(uids)
+		actionRemote:FireServer({ action = "sellMany", uids = uids })
 	end)
 	-- The locker's two, the same way: DeconService re-derives that you are at your own
 	-- rack and that there is room on the other side.

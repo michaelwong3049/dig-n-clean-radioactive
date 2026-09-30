@@ -192,31 +192,27 @@ function EconomyService.sell(player: Player, uid: string): (boolean, string)
 	return true, `sold {name} for ${value}{note}`
 end
 
---- The trader's SELL ALL CLEAN / SELL ALL ???. `which` is "clean" or "dirty", and
---- only the BAG is swept -- the Quarantine Locker is a shelf you chose to keep things
---- on, and a bulk button reaching into it would sell what the player filed away.
+--- The trader's bulk sales. Only the BAG is swept -- the Quarantine Locker is a shelf
+--- you chose to keep things on, and a bulk button reaching into it would sell what the
+--- player filed away.
 ---
 --- Every item goes through the same takeSale as a single SELL, so the price, the 20%
 --- and the "???" reveal cannot drift between the two. The reveals are STAGGERED:
 --- DetectorController's find banner shows one find at a time and the newest replaces
 --- it, so five blind sales announced in one frame would show the player one name and
 --- swallow four. The index learns all of them now; only the banners wait their turn.
-function EconomyService.sellAll(player: Player, which: string): (boolean, string)
-	local data = DataService.data(player)
-	if data == nil then
-		return false, "your save hasn't loaded"
-	end
-	if which ~= "clean" and which ~= "dirty" then
-		return false, "sell what?"
-	end
-
+---
+--- `wants(item, clean)` picks what goes. Returns the count, the total and how many of
+--- them went blind.
+local function sweepBag(player: Player, data: any, wants: (item: any, clean: boolean) -> boolean): (number, number, number)
 	local stats = StatResolver.get(data)
 	local total, count, reveals = 0, 0, 0
-	-- Backwards, so removing an entry never skips the one after it.
+	-- Backwards, so removing an entry never skips the one after it. The reveal delays
+	-- still count up in sale order, so the first blind sale is announced first.
 	for index = #data.carry, 1, -1 do
 		local item = data.carry[index]
 		local _, clean = EconomyService.valueOf(item, stats)
-		if clean ~= (which == "clean") then
+		if not wants(item, clean) then
 			continue
 		end
 		local value, _, _ = takeSale(player, data, item, data.carry, index, stats, reveals * REVEAL_STAGGER)
@@ -226,16 +222,69 @@ function EconomyService.sellAll(player: Player, which: string): (boolean, string
 		total += value
 		count += 1
 	end
-
-	if count == 0 then
-		return false, if which == "clean" then "nothing clean to sell" else "nothing crusted to sell"
+	if count > 0 then
+		EconomyService.pushCash(player, "sellAll")
 	end
-	EconomyService.pushCash(player, "sellAll")
-	local noun = if count == 1 then "item" else "items"
-	local note = if which == "clean" then "" else ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
-	return true, `sold {count} {noun} for ${total}{note}`
+	return count, total, reveals
 end
 
+local function soldMessage(count: number, total: number, blind: number): string
+	local noun = if count == 1 then "item" else "items"
+	local note = if blind == 0
+		then ""
+		elseif blind == count then ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
+		else ` ({blind} dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
+	return `sold {count} {noun} for ${total}{note}`
+end
+
+--- SELL ALL CLEAN / SELL ALL ???, by kind. `which` is "clean" or "dirty".
+function EconomyService.sellAll(player: Player, which: string): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+	if which ~= "clean" and which ~= "dirty" then
+		return false, "sell what?"
+	end
+
+	local wantClean = which == "clean"
+	local count, total, blind = sweepBag(player, data, function(_, clean)
+		return clean == wantClean
+	end)
+	if count == 0 then
+		return false, if wantClean then "nothing clean to sell" else "nothing crusted to sell"
+	end
+	return true, soldMessage(count, total, blind)
+end
+
+--- The trader's receipt: sell exactly these bag items. The client says which uids it
+--- ticked; anything not in the bag (sold already, stored, made up) is simply skipped.
+--- Capped at MAX_RECEIPT uids so a junk request cannot make the server build a huge set.
+local MAX_RECEIPT = 200
+function EconomyService.sellMany(player: Player, uids: { any }): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+
+	local wanted: { [string]: boolean } = {}
+	for index, uid in ipairs(uids) do
+		if index > MAX_RECEIPT then
+			break
+		end
+		if type(uid) == "string" then
+			wanted[uid] = true
+		end
+	end
+
+	local count, total, blind = sweepBag(player, data, function(item, _)
+		return wanted[item.uid] == true
+	end)
+	if count == 0 then
+		return false, "nothing on the receipt is in your bag"
+	end
+	return true, soldMessage(count, total, blind)
+end
 
 --- Take cash off a player, or refuse. THE ONLY DEBIT IN THE GAME.
 ---

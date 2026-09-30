@@ -2,28 +2,24 @@
 --[[
 	TraderPanel.luau — the trader's buyback counter, drawn inside StationController's panel.
 
-	PICKED FROM BROWSER MOCKUPS (option 1, "field-kit counter"). It wears the gear shop's
-	field-kit skin -- dark slate, Gotham Black in the cartoon INK outline -- so
-	the two panels on the plaza read as one set, with a hazard-striped accent bar for the
-	booth's tape instead of a stall colour.
+	PICKED FROM BROWSER MOCKUPS (option 2, "receipt counter"), replacing the field-kit
+	tile grid. Square corners throughout, like the Gear and Nukes panels.
 
-	THREE PIECES, LEFT TO RIGHT, TOP TO BOTTOM:
-	  the bag      a 3-wide grid of item tiles, one per slot up to your capacity, each
-	               with a rarity pill, the item's own model and its sale price. Empty
-	               slots draw as empty tiles so "how full am I" is answered by looking.
-	               It scrolls past three rows: a maxed aura and level carries 40.
-	  the detail   the selected item, big: model, name, rarity and modifier chips,
-	               condition, what it pays, and one SELL button. A crusted "???" also
-	               says what the blind sale is trading away -- and, when the hose you
-	               own cannot crack it at all, what would.
-	  the footer   SELL ALL CLEAN and SELL ALL ???, each carrying its own total.
+	TWO PIECES, LEFT TO RIGHT:
+	  the bag      one row per item in the bag: its model on a grey block, its name in
+	               its rarity colour, rarity and stars under it, a CRUSTED tag while it
+	               is "???", its sale price and a tick box. Clicking a row ticks it.
+	  the receipt  a paper slip listing every ticked item and their total, then SELL,
+	               the only button that actually sells. Under it SELL ALL, SELL ALL CLEAN
+	               and SELL ALL UNCLEAN, which only TICK -- they put that group on the
+	               receipt so the player sees the bill before confirming it.
 
 	THE MODEL IS THE REAL ONE, OR THE CRUST (client/ItemArt, shared with the locker
 	panel): ItemModels' model once the item is identified, ItemCrust.lump seeded on its
-	uid while it is "???". Built once per tile per item, not on every StationState tick.
+	uid while it is "???". Built once per row per item, not on every StationState tick.
 
-	Everything here is presentation. The client asks for a sale by uid, or for a bulk sale
-	by "clean"/"dirty"; EconomyService re-derives the price and the ownership itself.
+	Everything here is presentation. The client asks for a sale by a list of uids;
+	EconomyService re-derives each price and checks each item is still in the bag.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -39,50 +35,50 @@ local ItemArt = require(script.Parent.ItemArt)
 
 local TraderPanel = {}
 
--- The shop panel's FIELD palette, the subset this panel uses. StationController keeps
--- its copy file-local on purpose (see its note), so this is a copy rather than a reach.
+-- The shop panel's FIELD palette, the subset this panel uses, plus the receipt's paper.
+-- StationController keeps its copy file-local on purpose (see its note), so this is a
+-- copy rather than a reach.
 local SKIN = {
-	card = Color3.fromHex("22272C"),
-	well = Color3.fromHex("1A1E22"),
+	row = Color3.fromHex("26292E"),
+	block = Color3.fromHex("3A3E45"),
 	edge = Color3.fromHex("343B42"),
-	rule = Color3.fromHex("30373D"),
 	amber = Color3.fromHex("F2A93B"),
 	text = Color3.new(1, 1, 1),
 	dim = Color3.fromHex("9AA0A6"),
 	muted = Color3.fromHex("6C737A"),
 	button = Color3.fromHex("2A3036"),
-	sell = Color3.fromHex("3FBF5A"),
+	sell = Color3.fromHex("3FB35A"),
+	cash = Color3.fromHex("3FB35A"),
 	crustChip = Color3.fromHex("6B4A2B"),
 	crustText = Color3.fromHex("F3D9B0"),
-	crustWell = Color3.fromHex("3A2C1F"),
-	hazard = Color3.fromHex("E8C33C"),
+	paper = Color3.fromHex("EFE9DC"),
+	paperInk = Color3.fromHex("222222"),
+	paperDim = Color3.fromHex("77716A"),
 	ink = Color3.fromHex("1A1A1A"),
 	headline = Enum.Font.GothamBlack,
 	label = Enum.Font.GothamBlack,
+	receipt = Enum.Font.RobotoMono,
 }
 
-local COLUMNS = 3
-local TILE_W = 136
-local TILE_H = 128
-local TILE_GAP = 10
-local VISIBLE_ROWS = 3
-local SCROLLBAR = 6
-local GRID_W = COLUMNS * TILE_W + (COLUMNS - 1) * TILE_GAP + SCROLLBAR + 6
-local BODY_H = VISIBLE_ROWS * TILE_H + (VISIBLE_ROWS - 1) * TILE_GAP
 local HEADER_H = 58
-local FOOTER_H = 44
-local DETAIL_PAD = 16
-local DETAIL_ART_H = 130
--- The panel's own padding (StationController's PANEL_PAD) and the gap between the grid
--- and the detail card, for the detail well's aspect.
-local PANEL_PAD = 16
 local BODY_GAP = 12
+local BODY_H = 460
+local ROW_H = 62
+local ROW_GAP = 6
+local ART_W = 70
+local TICK = 26
+local SCROLLBAR = 6
+local RECEIPT_W = 280
+local RECEIPT_PAD = 16
+local LINE_H = 18
+local SELL_H = 52
+local BULK_H = 34
+local BULK_GAP = 6
 local WALLET_INSET = 44
 
 --- The widest the trader's panel is allowed to get, padding included. StationController
 --- sets the panel's MaxSize to this in trader mode.
 TraderPanel.WIDTH = 860
-local DETAIL_ART_W = TraderPanel.WIDTH - 2 * PANEL_PAD - GRID_W - BODY_GAP - 2 * DETAIL_PAD
 
 local function money(amount: number): string
 	local grouped = tostring(math.floor(amount))
@@ -102,8 +98,7 @@ local function rarityColor(name: string?): Color3
 end
 
 --- This find's stars: its rarity tier, nudged by its quality and its size roll, then
---- any Merge Reactor stars in their own colour. RichText (both labels that show it
---- have it on).
+--- any Merge Reactor stars in their own colour. RichText.
 local function starText(item: any): string
 	local payload = if type(item.uid) == "string" then Payload.forUid(item.uid) else nil
 	local rating = Rarity.starText(item.rarity, item.modifier, payload)
@@ -114,19 +109,8 @@ local function starText(item: any): string
 	return `{rating} <font color="#{Merge.COLOR:ToHex()}">{Merge.text(merged)}</font>`
 end
 
---- The shop's inkShopText recipe: a rounded INK stroke on the glyphs, scaled to the text.
-local function ink(node: TextLabel | TextButton)
-	local stroke = Instance.new("UIStroke")
-	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-	stroke.LineJoinMode = Enum.LineJoinMode.Round
-	stroke.Color = SKIN.ink
-	stroke.Thickness = math.clamp(node.TextSize / 9, 1.5, 3.5)
-	stroke.Parent = node
-	node.TextStrokeTransparency = 1
-end
-
 local function text(parent: Instance, props: { [string]: any }): TextLabel
-	local label = UIKit.label(parent, {
+	return UIKit.label(parent, {
 		name = props.name,
 		position = props.position,
 		size = props.size,
@@ -142,21 +126,12 @@ local function text(parent: Instance, props: { [string]: any }): TextLabel
 		shadow = false,
 		strokeTransparency = 1,
 	})
-	if props.ink ~= false then
-		ink(label)
-	end
-	return label
-end
-
-local function corner(parent: Instance, radius: number)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius)
-	c.Parent = parent
 end
 
 local function edge(parent: Instance, color: Color3, thickness: number): UIStroke
 	local stroke = Instance.new("UIStroke")
 	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.LineJoinMode = Enum.LineJoinMode.Miter
 	stroke.Color = color
 	stroke.Thickness = thickness
 	stroke.Parent = parent
@@ -167,30 +142,23 @@ local function frame(parent: Instance, name: string, color: Color3?): Frame
 	local f = Instance.new("Frame")
 	f.Name = name
 	f.BorderSizePixel = 0
-	f.BackgroundColor3 = color or SKIN.card
+	f.BackgroundColor3 = color or SKIN.row
 	f.BackgroundTransparency = if color then 0 else 1
 	f.Parent = parent
 	return f
 end
 
---- A rounded chip that grows to its text. Used for rarity and modifier.
-local function chip(parent: Instance, name: string, order: number): TextLabel
-	local label = Instance.new("TextLabel")
-	label.Name = name
-	label.LayoutOrder = order
-	label.AutomaticSize = Enum.AutomaticSize.X
-	label.Size = UDim2.fromOffset(0, 22)
-	label.BorderSizePixel = 0
-	label.Font = SKIN.label
-	label.TextSize = 14
-	label.TextColor3 = SKIN.ink
-	label.Parent = parent
-	corner(label, 11)
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.new(0, 10)
-	pad.PaddingRight = UDim.new(0, 10)
-	pad.Parent = label
-	return label
+local function button(parent: Instance, name: string, color: Color3, textSize: number): TextButton
+	local b = Instance.new("TextButton")
+	b.Name = name
+	b.AutoButtonColor = false
+	b.BorderSizePixel = 0
+	b.BackgroundColor3 = color
+	b.Font = SKIN.headline
+	b.TextSize = textSize
+	b.TextColor3 = SKIN.text
+	b.Parent = parent
+	return b
 end
 
 -- ── Build ───────────────────────────────────────────────────────────────
@@ -198,136 +166,123 @@ end
 export type Panel = {
 	frame: Frame,
 	paint: (state: any) -> (),
-	onSell: (callback: (uid: string) -> ()) -> (),
-	onSellAll: (callback: (which: string) -> ()) -> (),
+	onSellMany: (callback: (uids: { string }) -> ()) -> (),
 }
 
-local function makeTile(parent: Instance, order: number): TextButton
-	local tile = Instance.new("TextButton")
-	tile.Name = `Tile{order}`
-	tile.LayoutOrder = order
-	tile.Text = ""
-	tile.AutoButtonColor = false
-	tile.BorderSizePixel = 0
-	tile.BackgroundColor3 = SKIN.card
-	tile.Parent = parent
-	corner(tile, 14)
-	local stroke = edge(tile, SKIN.edge, 2)
+local function makeRow(parent: Instance, order: number): TextButton
+	local row = Instance.new("TextButton")
+	row.Name = `Row{order}`
+	row.LayoutOrder = order
+	row.Size = UDim2.new(1, -(SCROLLBAR + 6), 0, ROW_H)
+	row.Text = ""
+	row.AutoButtonColor = false
+	row.BorderSizePixel = 0
+	row.BackgroundColor3 = SKIN.row
+	row.Parent = parent
+	local stroke = edge(row, SKIN.sell, 3)
 	stroke.Name = "Edge"
 
-	-- A pill, not a full-width band: Roblox clips to rectangles, so a band would square
-	-- off the tile's rounded top corners.
-	local strip = frame(tile, "RarityStrip", SKIN.dim)
-	strip.Position = UDim2.fromOffset(12, 7)
-	strip.Size = UDim2.new(1, -24, 0, 4)
-	corner(strip, 2)
-
-	local art = frame(tile, "Art")
-	art.Position = UDim2.fromOffset(8, 14)
-	art.Size = UDim2.new(1, -16, 0, 62)
+	local art = frame(row, "Art", SKIN.block)
+	art.Size = UDim2.fromOffset(ART_W, ROW_H)
 	ItemArt.newViewport(art)
 
-	local crusted = text(tile, {
+	local nameLabel = text(row, {
+		name = "ItemName",
+		position = UDim2.fromOffset(ART_W + 12, 9),
+		size = UDim2.new(1, -(ART_W + 12 + 170), 0, 22),
+		textSize = 17,
+	})
+	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+
+	local sub = text(row, {
+		name = "Sub",
+		position = UDim2.fromOffset(ART_W + 12, 33),
+		size = UDim2.new(1, -(ART_W + 12 + 170), 0, 16),
+		textSize = 12,
+	})
+	sub.RichText = true
+
+	local crusted = text(row, {
 		name = "Crusted",
-		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, -7, 0, 15),
-		size = UDim2.fromOffset(62, 16),
+		anchorPoint = Vector2.new(1, 0.5),
+		position = UDim2.new(1, -168, 0.5, 0),
+		size = UDim2.fromOffset(64, 18),
 		textSize = 11,
 		color = SKIN.crustText,
 		xAlign = Enum.TextXAlignment.Center,
 		text = "CRUSTED",
-		ink = false,
 	})
 	crusted.BackgroundColor3 = SKIN.crustChip
 	crusted.BackgroundTransparency = 0
-	crusted.ZIndex = 2
-	corner(crusted, 6)
 
-	-- The star rating, small under the name-side of the art, ink-outlined so it reads on the art.
-	local tileStars = text(tile, {
-		name = "Stars",
-		position = UDim2.fromOffset(8, 16),
-		size = UDim2.fromOffset(70, 14),
-		textSize = 10,
-		color = SKIN.amber,
-	})
-	tileStars.ZIndex = 2
-	tileStars.RichText = true
-
-	text(tile, {
-		name = "ItemName",
-		position = UDim2.new(0, 8, 1, -50),
-		size = UDim2.new(1, -16, 0, 18),
-		textSize = 14,
-		xAlign = Enum.TextXAlignment.Center,
-	}).TextTruncate = Enum.TextTruncate.AtEnd
-
-	text(tile, {
+	text(row, {
 		name = "Price",
-		position = UDim2.new(0, 0, 1, -30),
-		size = UDim2.new(1, 0, 0, 24),
-		font = SKIN.headline,
+		anchorPoint = Vector2.new(1, 0.5),
+		position = UDim2.new(1, -(TICK + 24), 0.5, 0),
+		size = UDim2.fromOffset(110, 24),
 		textSize = 20,
-		color = SKIN.amber,
-		xAlign = Enum.TextXAlignment.Center,
+		color = SKIN.cash,
+		xAlign = Enum.TextXAlignment.Right,
 	})
-	return tile
+
+	-- The tick box. The check is two bars, not a glyph: no game font has U+2713.
+	local tick = frame(row, "Tick", SKIN.sell)
+	tick.AnchorPoint = Vector2.new(1, 0.5)
+	tick.Position = UDim2.new(1, -12, 0.5, 0)
+	tick.Size = UDim2.fromOffset(TICK, TICK)
+	local tickEdge = edge(tick, SKIN.muted, 3)
+	tickEdge.Name = "Edge"
+	local check = frame(tick, "Check")
+	check.Size = UDim2.fromScale(1, 1)
+	local short = frame(check, "Short", SKIN.text)
+	short.AnchorPoint = Vector2.new(0.5, 0.5)
+	short.Position = UDim2.fromOffset(8, 15)
+	short.Size = UDim2.fromOffset(9, 4)
+	short.Rotation = 45
+	local long = frame(check, "Long", SKIN.text)
+	long.AnchorPoint = Vector2.new(0.5, 0.5)
+	long.Position = UDim2.fromOffset(15, 12)
+	long.Size = UDim2.fromOffset(16, 4)
+	long.Rotation = -50
+	return row
 end
 
 function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 	local root = frame(parent, "Trader")
 	root.LayoutOrder = layoutOrder
-	root.Size = UDim2.new(1, 0, 0, HEADER_H + 14 + BODY_H + 12 + FOOTER_H)
+	root.Size = UDim2.new(1, 0, 0, HEADER_H + BODY_GAP + BODY_H)
 	root.Visible = false
 
 	-- ── Header ─────────────────────────────────────────────────────────
 	local header = frame(root, "Header")
 	header.Size = UDim2.new(1, 0, 0, HEADER_H)
 
-	local rule = frame(header, "Rule", SKIN.rule)
-	rule.AnchorPoint = Vector2.new(0, 1)
-	rule.Position = UDim2.fromScale(0, 1)
-	rule.Size = UDim2.new(1, 0, 0, 1)
-
-	-- The booth's hazard tape, as the accent bar the shop gives its stall colour.
-	local tape = frame(header, "HazardBar")
-	tape.AnchorPoint = Vector2.new(0, 0.5)
-	tape.Position = UDim2.new(0, 0, 0.5, -1)
-	tape.Size = UDim2.fromOffset(6, 40)
-	tape.ClipsDescendants = true
-	for index = 0, 5 do
-		local band = frame(tape, `Band{index}`, if index % 2 == 0 then SKIN.hazard else SKIN.ink)
-		band.Position = UDim2.fromOffset(0, index * 7)
-		band.Size = UDim2.fromOffset(6, 7)
-	end
-
 	text(header, {
 		name = "Title",
-		position = UDim2.fromOffset(18, 2),
+		position = UDim2.fromOffset(0, 2),
 		size = UDim2.fromOffset(300, 36),
 		font = SKIN.headline,
-		textSize = 34,
-		text = "TRADER",
+		textSize = 32,
+		text = "Trader",
 	})
 	local subtitle = text(header, {
 		name = "Subtitle",
-		position = UDim2.fromOffset(18, 36),
-		size = UDim2.fromOffset(360, 16),
-		textSize = 14,
+		position = UDim2.fromOffset(0, 36),
+		size = UDim2.fromOffset(420, 16),
+		textSize = 12,
 		color = SKIN.dim,
-		ink = false,
 	})
 
-	-- Inset from the right by the close badge (32px, inset 14 from the panel's edge,
-	-- which sits over this corner) plus a little air.
+	-- Inset from the right by the close badge, which sits over this corner.
 	text(header, {
 		name = "WalletLabel",
 		anchorPoint = Vector2.new(1, 0),
 		position = UDim2.new(1, -WALLET_INSET, 0, 6),
 		size = UDim2.fromOffset(200, 14),
-		textSize = 12,
+		textSize = 11,
+		color = SKIN.dim,
 		xAlign = Enum.TextXAlignment.Right,
-		text = "ON HAND",
+		text = "On hand",
 	})
 	local wallet = text(header, {
 		name = "Wallet",
@@ -335,359 +290,365 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		position = UDim2.new(1, -WALLET_INSET, 0, 21),
 		size = UDim2.fromOffset(240, 30),
 		font = SKIN.headline,
-		textSize = 28,
-		color = SKIN.amber,
+		textSize = 26,
+		color = SKIN.cash,
 		xAlign = Enum.TextXAlignment.Right,
 	})
 
-	-- ── The bag grid ────────────────────────────────────────────────────
-	local grid = Instance.new("ScrollingFrame")
-	grid.Name = "Bag"
-	grid.Position = UDim2.fromOffset(0, HEADER_H + 14)
-	grid.Size = UDim2.fromOffset(GRID_W, BODY_H)
-	grid.BackgroundTransparency = 1
-	grid.BorderSizePixel = 0
-	grid.ScrollingDirection = Enum.ScrollingDirection.Y
-	grid.ScrollBarThickness = SCROLLBAR
-	grid.ScrollBarImageColor3 = SKIN.edge
-	grid.CanvasSize = UDim2.new()
-	grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	grid.Parent = root
+	-- ── The bag list ────────────────────────────────────────────────────
+	local list = Instance.new("ScrollingFrame")
+	list.Name = "Bag"
+	list.Position = UDim2.fromOffset(0, HEADER_H + BODY_GAP)
+	list.Size = UDim2.new(1, -(RECEIPT_W + BODY_GAP), 0, BODY_H)
+	list.BackgroundTransparency = 1
+	list.BorderSizePixel = 0
+	list.ScrollingDirection = Enum.ScrollingDirection.Y
+	list.ScrollBarThickness = SCROLLBAR
+	list.ScrollBarImageColor3 = SKIN.edge
+	list.CanvasSize = UDim2.new()
+	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	list.Parent = root
+	-- Room for the ticked rows' 3px border, which draws outside the row.
+	local listPad = Instance.new("UIPadding")
+	listPad.PaddingTop = UDim.new(0, 3)
+	listPad.PaddingLeft = UDim.new(0, 3)
+	listPad.Parent = list
 
-	local gridLayout = Instance.new("UIGridLayout")
-	gridLayout.CellSize = UDim2.fromOffset(TILE_W, TILE_H)
-	gridLayout.CellPadding = UDim2.fromOffset(TILE_GAP, TILE_GAP)
-	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	gridLayout.Parent = grid
+	local listLayout = Instance.new("UIListLayout")
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.Padding = UDim.new(0, ROW_GAP)
+	listLayout.Parent = list
 
-	local tiles: { TextButton } = {}
-
-	-- ── The detail card ─────────────────────────────────────────────────
-	local detail = frame(root, "Detail", SKIN.card)
-	detail.Position = UDim2.fromOffset(GRID_W + BODY_GAP, HEADER_H + 14)
-	detail.Size = UDim2.new(1, -(GRID_W + BODY_GAP), 0, BODY_H)
-	corner(detail, 14)
-	edge(detail, SKIN.edge, 2)
-
-	local well = frame(detail, "ArtWell", SKIN.well)
-	well.Position = UDim2.fromOffset(DETAIL_PAD, DETAIL_PAD)
-	well.Size = UDim2.new(1, -2 * DETAIL_PAD, 0, DETAIL_ART_H)
-	corner(well, 10)
-	local detailViewport = ItemArt.newViewport(well)
-
-	local detailName = text(detail, {
-		name = "ItemName",
-		position = UDim2.fromOffset(DETAIL_PAD, DETAIL_PAD + DETAIL_ART_H + 8),
-		size = UDim2.new(1, -2 * DETAIL_PAD, 0, 32),
-		font = SKIN.headline,
-		textSize = 28,
-	})
-	detailName.TextTruncate = Enum.TextTruncate.AtEnd
-
-	local chips = frame(detail, "Chips")
-	chips.Position = UDim2.fromOffset(DETAIL_PAD, DETAIL_PAD + DETAIL_ART_H + 44)
-	chips.Size = UDim2.new(1, -2 * DETAIL_PAD, 0, 22)
-	local chipLayout = Instance.new("UIListLayout")
-	chipLayout.FillDirection = Enum.FillDirection.Horizontal
-	chipLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	chipLayout.Padding = UDim.new(0, 6)
-	chipLayout.Parent = chips
-	local rarityChip = chip(chips, "Rarity", 1)
-	local modifierChip = chip(chips, "Modifier", 2)
-	modifierChip.BackgroundColor3 = SKIN.dim
-	local starLabel = text(chips, {
-		name = "Stars",
-		size = UDim2.fromOffset(0, 22),
-		textSize = 16,
-		color = SKIN.amber,
-		ink = false,
-	})
-	starLabel.LayoutOrder = 3
-	starLabel.RichText = true
-	starLabel.AutomaticSize = Enum.AutomaticSize.X
-
-	-- Label on the left, value on the right, three lines.
-	local facts = frame(detail, "Facts")
-	facts.Position = UDim2.fromOffset(DETAIL_PAD, DETAIL_PAD + DETAIL_ART_H + 74)
-	facts.Size = UDim2.new(1, -2 * DETAIL_PAD, 0, 72)
-	local factValues: { TextLabel } = {}
-	for index, name in { "Condition", "Payout", "On a stand" } do
-		local y = (index - 1) * 24
-		text(facts, {
-			name = `{name}Label`,
-			position = UDim2.fromOffset(0, y),
-			size = UDim2.new(0.5, 0, 0, 24),
-			textSize = 15,
-			color = SKIN.dim,
-			text = name,
-			ink = false,
-		})
-		factValues[index] = text(facts, {
-			name = `{name}Value`,
-			anchorPoint = Vector2.new(1, 0),
-			position = UDim2.new(1, 0, 0, y),
-			size = UDim2.new(0.5, 0, 0, 24),
-			textSize = 15,
-			xAlign = Enum.TextXAlignment.Right,
-			ink = false,
-		})
-	end
-
-	-- The crust's warning: what the blind sale gives up, and what would crack it.
-	local warning = text(detail, {
-		name = "Warning",
-		position = UDim2.fromOffset(DETAIL_PAD, DETAIL_PAD + DETAIL_ART_H + 74),
-		size = UDim2.new(1, -2 * DETAIL_PAD, 0, 72),
-		textSize = 14,
-		color = SKIN.crustText,
-		wrapped = true,
-		yAlign = Enum.TextYAlignment.Center,
-		ink = false,
-	})
-	warning.BackgroundColor3 = SKIN.crustWell
-	warning.BackgroundTransparency = 0
-	corner(warning, 8)
-	local warnPad = Instance.new("UIPadding")
-	warnPad.PaddingLeft = UDim.new(0, 10)
-	warnPad.PaddingRight = UDim.new(0, 10)
-	warnPad.Parent = warning
-
-	local sell = Instance.new("TextButton")
-	sell.Name = "Sell"
-	sell.AnchorPoint = Vector2.new(0, 1)
-	sell.Position = UDim2.new(0, DETAIL_PAD, 1, -DETAIL_PAD)
-	sell.Size = UDim2.new(1, -2 * DETAIL_PAD, 0, 58)
-	sell.AutoButtonColor = false
-	sell.BorderSizePixel = 0
-	sell.BackgroundColor3 = SKIN.sell
-	sell.Font = SKIN.headline
-	sell.TextSize = 28
-	sell.TextColor3 = SKIN.text
-	sell.Parent = detail
-	corner(sell, 14)
-	ink(sell)
-	-- The ink stroke on a TextButton outlines the glyphs; the box's own border is a
-	-- second stroke in Border mode.
-	edge(sell, SKIN.ink, 3)
-
-	local empty = text(detail, {
-		name = "Empty",
-		size = UDim2.fromScale(1, 1),
+	local emptyBag = text(root, {
+		name = "EmptyBag",
+		position = UDim2.fromOffset(0, HEADER_H + BODY_GAP),
+		size = UDim2.new(1, -(RECEIPT_W + BODY_GAP), 0, BODY_H),
 		textSize = 18,
 		color = SKIN.dim,
 		xAlign = Enum.TextXAlignment.Center,
-		wrapped = true,
 		text = "Your bag is empty.",
-		ink = false,
 	})
 
-	-- ── Footer ─────────────────────────────────────────────────────────
-	local footer = frame(root, "Footer")
-	footer.AnchorPoint = Vector2.new(0, 1)
-	footer.Position = UDim2.fromScale(0, 1)
-	footer.Size = UDim2.new(1, 0, 0, FOOTER_H)
+	local rows: { TextButton } = {}
 
-	local function footButton(name: string, x: number): TextButton
-		local button = Instance.new("TextButton")
-		button.Name = name
-		button.Position = UDim2.new(x, if x > 0 then 5 else 0, 0, 0)
-		button.Size = UDim2.new(0.5, -5, 1, 0)
-		button.AutoButtonColor = false
-		button.BorderSizePixel = 0
-		button.BackgroundColor3 = SKIN.button
-		button.Font = SKIN.label
-		button.TextSize = 17
-		button.TextColor3 = SKIN.text
-		button.Parent = footer
-		corner(button, 12)
-		edge(button, SKIN.edge, 2)
-		ink(button)
-		return button
+	-- ── The receipt ─────────────────────────────────────────────────────
+	local paper = frame(root, "Receipt", SKIN.paper)
+	paper.AnchorPoint = Vector2.new(1, 0)
+	paper.Position = UDim2.new(1, 0, 0, HEADER_H + BODY_GAP)
+	paper.Size = UDim2.fromOffset(RECEIPT_W, BODY_H)
+	local inner = frame(paper, "Inner")
+	inner.Position = UDim2.fromOffset(RECEIPT_PAD, RECEIPT_PAD)
+	inner.Size = UDim2.new(1, -2 * RECEIPT_PAD, 1, -2 * RECEIPT_PAD)
+
+	text(inner, {
+		name = "Title",
+		size = UDim2.new(1, 0, 0, 24),
+		font = SKIN.headline,
+		textSize = 20,
+		color = SKIN.paperInk,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "BUYBACK",
+	})
+	text(inner, {
+		name = "Stub",
+		position = UDim2.fromOffset(0, 24),
+		size = UDim2.new(1, 0, 0, 14),
+		font = SKIN.receipt,
+		textSize = 11,
+		color = SKIN.paperDim,
+		xAlign = Enum.TextXAlignment.Center,
+		text = "tick what goes, then SELL",
+	})
+
+	local function dashes(name: string, y: UDim): TextLabel
+		local rule = text(inner, {
+			name = name,
+			position = UDim2.new(0, 0, y.Scale, y.Offset),
+			size = UDim2.new(1, 0, 0, 12),
+			font = SKIN.receipt,
+			textSize = 12,
+			color = SKIN.paperDim,
+			xAlign = Enum.TextXAlignment.Center,
+			text = string.rep("- ", 20),
+		})
+		rule.ClipsDescendants = true
+		return rule
 	end
-	local sellClean = footButton("SellAllClean", 0)
-	local sellDirty = footButton("SellAllDirty", 0.5)
+
+	-- Everything under the line list, measured up from the bottom.
+	local bulkBlock = 3 * BULK_H + 2 * BULK_GAP
+	local sellTop = bulkBlock + 10 + SELL_H
+	local totalTop = sellTop + 10 + 26
+	local noteTop = totalTop + 16
+	local lowerRuleTop = noteTop + 14
+
+	dashes("RuleTop", UDim.new(0, 42))
+	local lines = Instance.new("ScrollingFrame")
+	lines.Name = "Lines"
+	lines.Position = UDim2.fromOffset(0, 58)
+	lines.Size = UDim2.new(1, 0, 1, -(58 + lowerRuleTop + 4))
+	lines.BackgroundTransparency = 1
+	lines.BorderSizePixel = 0
+	lines.ScrollingDirection = Enum.ScrollingDirection.Y
+	lines.ScrollBarThickness = 3
+	lines.ScrollBarImageColor3 = SKIN.paperDim
+	lines.CanvasSize = UDim2.new()
+	lines.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	lines.Parent = inner
+	local lineLayout = Instance.new("UIListLayout")
+	lineLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	lineLayout.Parent = lines
+
+	local nothing = text(lines, {
+		name = "Nothing",
+		size = UDim2.new(1, 0, 0, LINE_H),
+		font = SKIN.receipt,
+		textSize = 13,
+		color = SKIN.paperDim,
+		text = "nothing ticked",
+	})
+	nothing.LayoutOrder = 0
+
+	local lineLabels: { Frame } = {}
+	local function lineAt(index: number): Frame
+		local line = lineLabels[index]
+		if line == nil then
+			line = frame(lines, `Line{index}`)
+			line.LayoutOrder = index
+			line.Size = UDim2.new(1, -6, 0, LINE_H)
+			local name = text(line, {
+				name = "ItemName",
+				size = UDim2.new(1, -86, 1, 0),
+				font = SKIN.receipt,
+				textSize = 13,
+				color = SKIN.paperInk,
+			})
+			name.TextTruncate = Enum.TextTruncate.AtEnd
+			text(line, {
+				name = "Price",
+				anchorPoint = Vector2.new(1, 0),
+				position = UDim2.fromScale(1, 0),
+				size = UDim2.new(0, 84, 1, 0),
+				font = SKIN.receipt,
+				textSize = 13,
+				color = SKIN.paperInk,
+				xAlign = Enum.TextXAlignment.Right,
+			})
+			lineLabels[index] = line
+		end
+		return line
+	end
+
+	dashes("RuleBottom", UDim.new(1, -lowerRuleTop))
+	-- Only shown when something crusted is ticked: what the blind sale gives up.
+	local blindNote = text(inner, {
+		name = "BlindNote",
+		position = UDim2.new(0, 0, 1, -noteTop),
+		size = UDim2.new(1, 0, 0, 14),
+		font = SKIN.receipt,
+		textSize = 11,
+		color = SKIN.crustChip,
+	})
+	text(inner, {
+		name = "TotalLabel",
+		position = UDim2.new(0, 0, 1, -totalTop),
+		size = UDim2.new(0.4, 0, 0, 26),
+		font = SKIN.headline,
+		textSize = 20,
+		color = SKIN.paperInk,
+		text = "TOTAL",
+	})
+	local total = text(inner, {
+		name = "Total",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, 0, 1, -totalTop),
+		size = UDim2.new(0.6, 0, 0, 26),
+		font = SKIN.headline,
+		textSize = 22,
+		color = SKIN.paperInk,
+		xAlign = Enum.TextXAlignment.Right,
+	})
+
+	local sell = button(inner, "Sell", SKIN.sell, 24)
+	sell.Position = UDim2.new(0, 0, 1, -sellTop)
+	sell.Size = UDim2.new(1, 0, 0, SELL_H)
+	edge(sell, SKIN.ink, 3)
+
+	local function bulkButton(name: string, index: number): TextButton
+		local b = button(inner, name, SKIN.button, 14)
+		b.AnchorPoint = Vector2.new(0, 1)
+		b.Position = UDim2.new(0, 0, 1, -(2 - index) * (BULK_H + BULK_GAP))
+		b.Size = UDim2.new(1, 0, 0, BULK_H)
+		return b
+	end
+	local bulkAll = bulkButton("SellAll", 0)
+	local bulkClean = bulkButton("SellAllClean", 1)
+	local bulkUnclean = bulkButton("SellAllUnclean", 2)
 
 	-- ── Behaviour ───────────────────────────────────────────────────────
-	local selected: string? = nil
-	local sellCallback: ((uid: string) -> ())? = nil
-	local sellAllCallback: ((which: string) -> ())? = nil
+	-- The ticked uids. Pruned on every paint, so a sold or stored item drops off the
+	-- receipt by itself.
+	local ticked: { [string]: boolean } = {}
+	local sellCallback: ((uids: { string }) -> ())? = nil
 	local lastState: any = nil
 	local paint: (state: any) -> ()
 
-	local function tileAt(index: number): TextButton
-		local tile = tiles[index]
-		if tile == nil then
-			tile = makeTile(grid, index)
-			tiles[index] = tile
-			tile.MouseButton1Click:Connect(function()
-				local uid = tile:GetAttribute("Uid")
+	local function repaint()
+		if lastState then
+			paint(lastState)
+		end
+	end
+
+	local function rowAt(index: number): TextButton
+		local row = rows[index]
+		if row == nil then
+			row = makeRow(list, index)
+			rows[index] = row
+			row.MouseButton1Click:Connect(function()
+				local uid = row:GetAttribute("Uid")
 				if type(uid) == "string" then
-					selected = uid
-					if lastState then
-						paint(lastState)
-					end
+					ticked[uid] = if ticked[uid] then nil else true
+					repaint()
 				end
 			end)
 		end
-		return tile
+		return row
 	end
 
-	local function paintTile(tile: TextButton, item: any?, isSelected: boolean)
-		tile.Visible = true
-		local stroke = tile:FindFirstChild("Edge") :: UIStroke
-		local strip = tile:FindFirstChild("RarityStrip") :: Frame
-		local viewport = (tile:FindFirstChild("Art") :: Frame):FindFirstChild("Model") :: ViewportFrame
-		local crusted = tile:FindFirstChild("Crusted") :: TextLabel
-		local nameLabel = tile:FindFirstChild("ItemName") :: TextLabel
-		local price = tile:FindFirstChild("Price") :: TextLabel
-		local tileStars = tile:FindFirstChild("Stars") :: TextLabel
-
-		if item == nil then
-			tile:SetAttribute("Uid", nil)
-			tile.BackgroundColor3 = SKIN.well
-			tile.Active = false
-			stroke.Color = SKIN.edge
-			stroke.Thickness = 2
-			stroke.Transparency = 0.4
-			strip.Visible = false
-			tileStars.Text = ""
-			crusted.Visible = false
-			nameLabel.Text = ""
-			price.Text = ""
-			ItemArt.clear(viewport)
-			return
-		end
-
-		tile:SetAttribute("Uid", item.uid)
-		tile.BackgroundColor3 = SKIN.card
-		tile.Active = true
-		stroke.Color = if isSelected then SKIN.amber else SKIN.edge
-		stroke.Thickness = if isSelected then 3 else 2
-		stroke.Transparency = 0
-		strip.Visible = true
-		strip.BackgroundColor3 = rarityColor(item.rarity)
-		crusted.Visible = not item.clean
-		tileStars.Text = starText(item)
+	local function paintRow(row: TextButton, item: any)
+		local isTicked = ticked[item.uid] == true
+		row.Visible = true
+		row:SetAttribute("Uid", item.uid)
+		local color = rarityColor(item.rarity)
+		local stroke = row:FindFirstChild("Edge") :: UIStroke
+		stroke.Enabled = isTicked
+		local nameLabel = row:FindFirstChild("ItemName") :: TextLabel
 		nameLabel.Text = item.name
-		price.Text = money(item.value or 0)
-		ItemArt.paint(viewport, item, (TILE_W - 16) / 62)
+		nameLabel.TextColor3 = if item.clean then color else SKIN.crustText
+		local sub = row:FindFirstChild("Sub") :: TextLabel
+		sub.Text = `<font color="#{color:ToHex()}">{item.rarity or ""}</font>  <font color="#{SKIN.amber:ToHex()}">{starText(item)}</font>`
+		;(row:FindFirstChild("Crusted") :: TextLabel).Visible = not item.clean
+		;(row:FindFirstChild("Price") :: TextLabel).Text = money(item.value or 0)
+		local tick = row:FindFirstChild("Tick") :: Frame
+		;(tick:FindFirstChild("Check") :: Frame).Visible = isTicked
+		tick.BackgroundTransparency = if isTicked then 0 else 1
+		;(tick:FindFirstChild("Edge") :: UIStroke).Color = if isTicked then SKIN.sell else SKIN.muted
+		local viewport = (row:FindFirstChild("Art") :: Frame):FindFirstChild("Model") :: ViewportFrame
+		ItemArt.paint(viewport, item, ART_W / ROW_H)
 	end
 
-	local function paintDetail(item: any?)
-		local has = item ~= nil
-		well.Visible = has
-		detailName.Visible = has
-		chips.Visible = has
-		sell.Visible = has
-		empty.Visible = not has
-		if item == nil then
-			facts.Visible = false
-			warning.Visible = false
-			ItemArt.clear(detailViewport)
-			return
-		end
-
-		detailName.Text = item.name
-		detailName.TextColor3 = if item.clean then SKIN.text else SKIN.crustText
-		rarityChip.Text = string.upper(item.rarity or "")
-		rarityChip.BackgroundColor3 = rarityColor(item.rarity)
-		starLabel.Text = starText(item)
-		local modifier = item.modifier
-		modifierChip.Visible = type(modifier) == "string" and modifier ~= "None"
-		modifierChip.Text = if type(modifier) == "string" then string.upper(modifier) else ""
-
-		-- A clean item gets the facts; a crusted one gets the gamble spelt out instead.
-		facts.Visible = item.clean
-		warning.Visible = not item.clean
-		if item.clean then
-			factValues[1].Text = item.condition or "-"
-			factValues[2].Text = "full price"
-			factValues[3].Text = if type(item.perSecond) ~= "number"
-				then "won't earn"
-				elseif item.perSecond < 10 then string.format("$%.1f/s", item.perSecond)
-				else `{money(item.perSecond)}/s`
-		else
-			local percent = math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100 + 0.5)
-			local times = math.floor(1 / Tuning.DIRTY_SELL_MULTIPLIER + 0.5)
-			warning.Text = if item.blockedBy ~= nil and item.needs
-				then `This crust is tougher than your hose: it will wash, slowly, or fast with {item.needs}. Sell it blind for {percent}% and find out what it was.`
-				else `Still crusted. Sell it blind for {percent}% and find out what it was, or wash it at the tub for {times}x this.`
-		end
-
-		sell.Text = `SELL {money(item.value or 0)}`
-		ItemArt.paint(detailViewport, item, DETAIL_ART_W / DETAIL_ART_H)
-	end
-
-	local function paintFootButton(button: TextButton, label: string, count: number, total: number)
+	local function paintBulk(b: TextButton, label: string, count: number)
 		local live = count > 0
-		button.Active = live
-		button.Text = if live then `{label}  ·  {money(total)}` else label
-		button.TextColor3 = if live then SKIN.text else SKIN.muted
-		button.BackgroundTransparency = if live then 0 else 0.5
+		b.Active = live
+		b.Text = if live then `{label} ({count})` else label
+		b.TextColor3 = if live then SKIN.text else SKIN.muted
+		b.BackgroundTransparency = if live then 0 else 0.4
 	end
 
 	paint = function(state: any)
 		lastState = state
 		local items = state.items or {}
 
-		local stillThere = false
+		local present: { [string]: boolean } = {}
 		for _, item in items do
-			if item.uid == selected then
-				stillThere = true
-				break
+			present[item.uid] = true
+		end
+		for uid in ticked do
+			if not present[uid] then
+				ticked[uid] = nil
 			end
 		end
-		if not stillThere then
-			selected = if #items > 0 then items[1].uid else nil
-		end
 
-		local capacity = if type(state.capacity) == "number" then state.capacity else #items
-		local slots = math.max(capacity, #items)
-		local chosen = nil
-		for index = 1, slots do
-			local item = items[index]
-			paintTile(tileAt(index), item, item ~= nil and item.uid == selected)
-			if item and item.uid == selected then
-				chosen = item
-			end
+		for index, item in items do
+			paintRow(rowAt(index), item)
 		end
-		for index = slots + 1, #tiles do
-			tiles[index].Visible = false
-			ItemArt.clear((tiles[index]:FindFirstChild("Art") :: Frame):FindFirstChild("Model") :: ViewportFrame)
+		for index = #items + 1, #rows do
+			rows[index].Visible = false
+			rows[index]:SetAttribute("Uid", nil)
+			ItemArt.clear((rows[index]:FindFirstChild("Art") :: Frame):FindFirstChild("Model") :: ViewportFrame)
 		end
+		emptyBag.Visible = #items == 0
 
-		paintDetail(chosen)
-
-		local cleanCount, cleanTotal, dirtyCount, dirtyTotal = 0, 0, 0, 0
+		-- The receipt, in bag order.
+		local count, sum, blind, cleanCount = 0, 0, 0, 0
 		for _, item in items do
 			if item.clean then
 				cleanCount += 1
-				cleanTotal += item.value or 0
-			else
-				dirtyCount += 1
-				dirtyTotal += item.value or 0
+			end
+			if ticked[item.uid] then
+				count += 1
+				sum += item.value or 0
+				if not item.clean then
+					blind += 1
+				end
+				local line = lineAt(count)
+				line.Visible = true
+				;(line:FindFirstChild("ItemName") :: TextLabel).Text = if item.clean then item.name else "??? (blind)"
+				;(line:FindFirstChild("Price") :: TextLabel).Text = money(item.value or 0)
 			end
 		end
-		paintFootButton(sellClean, "Sell all clean", cleanCount, cleanTotal)
-		paintFootButton(sellDirty, "Sell all ???", dirtyCount, dirtyTotal)
+		for index = count + 1, #lineLabels do
+			lineLabels[index].Visible = false
+		end
+		nothing.Visible = count == 0
+		total.Text = money(sum)
+		blindNote.Visible = blind > 0
+		blindNote.Text = `{blind} crusted, sold blind at {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100 + 0.5)}%`
+
+		sell.Active = count > 0
+		sell.Text = if count > 0 then `SELL {count}` else "SELL"
+		sell.BackgroundColor3 = if count > 0 then SKIN.sell else SKIN.muted
+
+		paintBulk(bulkAll, "Sell all", #items)
+		paintBulk(bulkClean, "Sell all clean", cleanCount)
+		paintBulk(bulkUnclean, "Sell all unclean", #items - cleanCount)
 
 		wallet.Text = money(state.cash or 0)
+		local capacity = if type(state.capacity) == "number" then state.capacity else #items
 		subtitle.Text = `Buyback counter  ·  {#items}/{capacity} in bag`
 	end
 
+	-- The three bulk buttons only put a group on the receipt; SELL is the confirm.
+	local function tickWhere(wants: (item: any) -> boolean)
+		if lastState == nil then
+			return
+		end
+		table.clear(ticked)
+		for _, item in lastState.items or {} do
+			if wants(item) then
+				ticked[item.uid] = true
+			end
+		end
+		repaint()
+	end
+	bulkAll.MouseButton1Click:Connect(function()
+		tickWhere(function()
+			return true
+		end)
+	end)
+	bulkClean.MouseButton1Click:Connect(function()
+		tickWhere(function(item)
+			return item.clean == true
+		end)
+	end)
+	bulkUnclean.MouseButton1Click:Connect(function()
+		tickWhere(function(item)
+			return not item.clean
+		end)
+	end)
+
 	sell.MouseButton1Click:Connect(function()
-		if selected and sellCallback then
-			sellCallback(selected)
+		if sellCallback == nil or lastState == nil then
+			return
 		end
-	end)
-	sellClean.MouseButton1Click:Connect(function()
-		if sellClean.Active and sellAllCallback then
-			sellAllCallback("clean")
+		local uids = {}
+		for _, item in lastState.items or {} do
+			if ticked[item.uid] then
+				table.insert(uids, item.uid)
+			end
 		end
-	end)
-	sellDirty.MouseButton1Click:Connect(function()
-		if sellDirty.Active and sellAllCallback then
-			sellAllCallback("dirty")
+		if #uids > 0 then
+			sellCallback(uids)
 		end
 	end)
 
@@ -696,11 +657,8 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		paint = function(state: any)
 			paint(state)
 		end,
-		onSell = function(callback: (uid: string) -> ())
+		onSellMany = function(callback: (uids: { string }) -> ())
 			sellCallback = callback
-		end,
-		onSellAll = function(callback: (which: string) -> ())
-			sellAllCallback = callback
 		end,
 	}
 end
