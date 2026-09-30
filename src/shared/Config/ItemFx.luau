@@ -712,22 +712,22 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Pearl Nuke. "Strung with pearls, saved for good occasions." A pearl egg sitting
-	-- in an open clam, a strand swagged round it. Pearls have a soft lustre, not a
+	-- Pearl Nuke. "Strung with pearls, saved for good occasions." A silver-banded shell
+	-- under a scallop-fan crown, pearls swagged round it. Pearls have a soft lustre, not a
 	-- hard glint: a gentle band over the cream shell, and a pastel sheen that runs
 	-- round the strand.
 	pearl_necklace = {
 		-- Warm on purpose: the sky's cyan fill turns anything near-white grey-blue,
 		-- and a lilac or mint tint reads as a blue pearl.
 		finish = {
-			{ parts = { "Shell", "Fin", "FinEdge" }, tint = Color3.fromHex("FFE4CC") },
+			{ parts = { "Shell", "FinFan" }, tint = Color3.fromHex("FFE4CC") },
 		},
 		-- These pearls are plain parts (no SurfaceAppearance), so the sheen cycles
 		-- Part.Color directly rather than a tint.
 		anims = {
 			{
 				kind = "colorCycle",
-				parts = { "StrandPearl", "CrownPearl" },
+				parts = { "SwagPearl", "CrownPearl", "TailPearl" },
 				period = 6,
 				colors = {
 					Color3.fromHex("FFF6EA"),
@@ -738,13 +738,13 @@ ItemFx.DEFS = {
 			},
 		},
 		glint = {
-			parts = { "Shell", "ClamLower" },
+			parts = { "Shell", "CrownFan" },
 			period = 5,
 			sweep = 1.1,
 			color = Color3.fromHex("FFF4F0"),
 			strength = 2,
 			stars = 5,
-			starParts = { "StrandPearl", "CrownPearl" },
+			starParts = { "SwagPearl", "CrownPearl" },
 			starColor = Color3.fromHex("FFEAF4"),
 			starSize = 0.4,
 		},
