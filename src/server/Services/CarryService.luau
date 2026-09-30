@@ -162,7 +162,7 @@ function CarryService.describe(item: any, stats: any): any
 	-- and the slot border has shown it ever since.
 	--
 	-- THE VALUE STAYS ON, dirty and all. It is the blind-sale price
-	-- (Tuning.DIRTY_SELL_MULTIPLIER, 20%), and a gamble you cannot see the stake of is
+	-- (Tuning.DIRTY_SELL_MULTIPLIER, 12%), and a gamble you cannot see the stake of is
 	-- not a gamble -- "$41 now, or clean it and find out" is the decision.
 	return {
 		uid = item.uid,

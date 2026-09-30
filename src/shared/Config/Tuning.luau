@@ -442,7 +442,7 @@ Tuning.LIQUID_SPIN_SECONDS = 4
 -- to prevent. Five spins' worth is generous enough that nobody hits it by accident.
 Tuning.LIQUID_MAX_STACK = 5
 
-Tuning.DIRTY_SELL_MULTIPLIER = 0.20
+Tuning.DIRTY_SELL_MULTIPLIER = 0.12
 Tuning.ASSAY_FEE_FRACTION = 0.02
 
 -- ── Exhibition (PLAN §8.2) ────────────────────────────────────────────────────

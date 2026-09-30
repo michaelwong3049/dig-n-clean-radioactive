@@ -156,11 +156,11 @@ local function takeSale(
 	-- SELLING A "???" IS HOW YOU FIND OUT WHAT IT WAS. An item still in its crust has no
 	-- name on any surface (Services/IdentifyService) -- but the trader has to say what he
 	-- just bought, and the moment he does the player knows, so the index has to know too.
-	-- That is the whole shape of the gamble: 20% and an answer, or the hose and the full
+	-- That is the whole shape of the gamble: 12% and an answer, or the hose and the full
 	-- price. Idempotent for a clean item, which was identified at the tub already.
 	--
 	-- A DIRTY SUPPLY CRATE (DigService.unearth) sells as the nuke it was passing for --
-	-- same 20% -- and the trader names the crate rather than its stand-in, which never
+	-- same 12% -- and the trader names the crate rather than its stand-in, which never
 	-- reaches the index.
 	local name = def.name
 	if item.crateId and Crates.has(item.crateId) then
@@ -196,7 +196,7 @@ end
 --- you chose to keep things on, and a bulk button reaching into it would sell what the
 --- player filed away.
 ---
---- Every item goes through the same takeSale as a single SELL, so the price, the 20%
+--- Every item goes through the same takeSale as a single SELL, so the price, the 12%
 --- and the "???" reveal cannot drift between the two. The reveals are STAGGERED:
 --- DetectorController's find banner shows one find at a time and the newest replaces
 --- it, so five blind sales announced in one frame would show the player one name and

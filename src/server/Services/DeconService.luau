@@ -15,7 +15,7 @@
 	THE POTENCY GATE is the other half. A patch harder than your hose comes off slowly
 	(WashService's soak clock). The item is not destroyed and not lost — it can be
 	parked in the Quarantine Locker, labelled with exactly which hose washes it at full
-	speed, or dirty-sold at 20%.
+	speed, or dirty-sold at 12%.
 
 	SCRUBBING LEFT THIS FILE. It used to live here as a timer driven by a HOLD TO
 	SCRUB button on the station panel — you held a button and an item you could not
