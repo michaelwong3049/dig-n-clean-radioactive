@@ -1,6 +1,6 @@
 --[[
-	CashController.lua — the persistent cash badge. Middle-left, stacked directly
-	above the health/rads meter, always on screen.
+	CashController.lua — the persistent cash readout. Middle-left, directly under the
+	speed row, always on screen.
 
 	THERE WAS NO PERSISTENT CASH READOUT BEFORE THIS. data.cash only ever reached the
 	client inside StationState's payload, which fires only while standing at a
@@ -10,8 +10,8 @@
 	change (sell/spend/award, and DebugService's /cash), never per-tick.
 
 	POSITION IS A FORMULA OVER Dock, NOT A FRESH NUMBER (UIKit.luau's own rule) --
-	same left margin and width as the speed badge, sitting directly above it
-	(Dock.CASH_MID_Y / Dock.SPEED_MID_Y place the pair around the
+	same left margin and width as the speed row, sitting directly below it
+	(Dock.SPEED_MID_Y / Dock.CASH_MID_Y place the pair around the
 	vertical centre), so the two read as one stacked instrument cluster on the edge
 	rather than two unrelated floating panels.
 
@@ -22,27 +22,30 @@
 	sense that nothing else builds the badge, but the number itself now lives in Dock
 	so a resize here is not a silent breakage there.
 
-	A CARTOON GOLD COIN CARD, picked from a round of mockups (option A of seven). The
-	charcoal card it replaced matched the dark nav tiles and read as a bank statement.
-	Everything here is the toy-shop voice instead: a thick INK outline on every shape, a
-	hard offset shadow (a black copy dropped a few px, never a blur), a big coin that
-	breaks out past the card's left end, the balance in LuckiestGuy, and the income on
-	an orange pill hanging off the card's bottom edge. The whole Dock.CASH_SIZE footprint
-	is an invisible frame: the coin's left edge sits on the column margin so the meter
-	below still lines up with it, and the card starts at the coin's centre.
+	NO BOX: A CASH BUNDLE AND A GREEN NUMBER. This was a gold coin on a gold card with
+	the income on an orange pill. The user asked for just the icon with the number
+	beside it, picked a banded bundle of green notes (#19 of a mockup round, after a
+	reference picture), and asked for the numbers in green. GREEN IS A DELIBERATE
+	EXCEPTION here: everywhere else green is exposure's colour (PLAN §14), but on the
+	cash row it is money's, by request. Without a card behind it the number has to carry
+	itself over bright sky and dark caves alike, so it gets a heavy INK outline plus a
+	hard INK drop shadow (UIKit.hudNumber), and the bundle a dropped shadow of its own.
+	The whole Dock.CASH_SIZE footprint is an invisible frame: the bundle's left edge sits
+	on the column margin, lined up with the shoe above it.
 
 	A CHANGE IS SHOWN, NOT JUST APPLIED. The balance used to snap straight to its new
 	value, so a $13M sale read exactly like a $5 one. Now the number counts to the new
-	value, a "+$1.2K" / "-$500" pops off the badge's right edge and floats away, and the
+	value, a "+$1.2K" / "-$500" pops off the end of the number and floats away, and the
 	badge gives a small punch. Exhibit payouts (CashState's `source == "exhibit"`, every
 	few seconds while stands are full) get a smaller popup and no punch: they are
 	background income, and a loud pop every five seconds would drown out the sales.
 	The load snapshot sets the number silently -- a returning player's balance is not
 	a gain.
 
-	THE INCOME PILL carries the combined $/s every nuke on your stands is paying
-	(IncomeState, sent on change). It hides at $0/s, so a player with empty stands sees
-	just the coin and the balance.
+	THE INCOME LINE under the balance carries the combined $/s every nuke on your stands
+	is paying (IncomeState, sent on change). It hides at $0/s, and the balance drops to
+	the bundle's middle, so a player with empty stands sees just the bundle and the
+	number.
 ]]
 
 local Players = game:GetService("Players")
@@ -53,14 +56,15 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 
+local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
 local Dock = UIKit.Dock
 local Sfx = require(script.Parent.Parent.Sfx)
 
 local Cash = {}
 
--- Dock.CASH_SIZE, not a local number — see the header. The badge now rides the
--- vertical centre of the left edge (Dock.CASH_MID_Y), stacked directly above the meter.
+-- Dock.CASH_SIZE, not a local number — see the header. The row rides the vertical
+-- centre of the left edge (Dock.CASH_MID_Y), directly under the speed row.
 local BADGE_SIZE = Dock.CASH_SIZE
 local BADGE_W = BADGE_SIZE.X.Offset
 local BADGE_H = BADGE_SIZE.Y.Offset
@@ -69,64 +73,42 @@ local BADGE_H = BADGE_SIZE.Y.Offset
 local INK = Color3.fromHex("1A1A1A")
 local WHITE = Color3.new(1, 1, 1)
 
--- Gold and orange, never green: green is exposure's colour and nothing else's
--- (PLAN §14), however much "money" wants it.
+-- Green for money on this row only (see the header); the spend popup stays red.
 local STYLE = {
-	card = Color3.fromHex("FFCF3A"),
-	cardShine = Color3.fromHex("FFE27F"),
-	coin = Color3.fromHex("FFB81C"),
-	coinFace = Color3.fromHex("FFD34D"),
-	coinRim = Color3.fromHex("D98A00"),
-	coinMark = Color3.fromHex("B36A00"),
-	coinGlint = Color3.fromHex("FFF1B8"),
-	pill = Color3.fromHex("FF7A1A"),
-	gain = Color3.fromHex("FFCF3A"),
+	value = Color3.fromHex("7CF25A"),
+	rate = Color3.fromHex("C8F5AE"),
+	gain = Color3.fromHex("7CF25A"),
 	spend = Color3.fromHex("FF5A4E"),
 	valueFont = Enum.Font.LuckiestGuy,
-	pillFont = Enum.Font.FredokaOne,
+	rateFont = Enum.Font.FredokaOne,
 }
 
--- Design px inside the Dock.CASH_SIZE footprint (280 x 78).
+-- Design px inside the Dock.CASH_SIZE footprint (280 x 72).
 local LAYOUT = {
-	coin = 68, -- diameter; left edge on the column margin, centred on the card
-	coinFace = 49,
-	cardTop = 6,
-	cardHeight = 56, -- 6 + 56 + the pill's overhang = the 78 Dock reserves; matches SpeedController's card
-	cardRadius = 20,
-	shadowDrop = 5,
-	outline = 4,
-	valueLeft = 80,
-	valueTextSize = 28,
-	valueMinTextSize = 18, -- floor for setValueText's shrink-to-fit
-	valueStroke = 3.5,
-	-- LuckiestGuy draws high inside its line box, so a vertically "centred" label
-	-- reads as riding the top edge. Measured in Studio against the card and the coin.
-	valueDrop = 3,
-	markDrop = 5,
-	pillHeight = 28,
-	pillInset = 16, -- pill's right edge in from the card's
-	pillPad = 13,
-	pillMinWidth = 92,
-	pillTextSize = 17,
+	icon = 64, -- the bundle; left edge on the column margin, vertically centred
+	iconDrop = Vector2.new(3, 4),
+	valueLeft = 72,
+	valueHeight = 44,
+	-- The balance's box top with the income line showing, and without it (centred on
+	-- the bundle). LuckiestGuy draws high inside its line box, so both sit a few px
+	-- lower than the arithmetic says.
+	valueTop = 3,
+	valueTopAlone = 17,
+	valueTextSize = 32,
+	valueMinTextSize = 20, -- floor for setValueText's shrink-to-fit
+	valueStroke = 4,
+	rateTop = 45,
+	rateHeight = 22,
+	rateTextSize = 17,
+	rateStroke = 3,
+	textDrop = Vector2.new(2, 3),
 }
-local CARD_LEFT = LAYOUT.coin / 2
-
--- Where each kind of popup is born, as offsets from the footprint's left edge and
--- vertical centre. Sales and spends come off the card beside the balance; stand payouts
--- come off the income pill they are the income of, one lane lower, so a payout landing
--- mid-sale never spawns on top of the sale's popup.
-local LANE = {
-	loud = Vector2.new(BADGE_W, LAYOUT.cardTop + LAYOUT.cardHeight / 2 - BADGE_H / 2),
-	quiet = Vector2.new(BADGE_W - LAYOUT.pillInset, BADGE_H / 2 - LAYOUT.pillHeight / 2),
-}
-
-local ROUND = UDim.new(0.5, 0)
 
 local COUNT_TWEEN = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
 local POPUP = {
-	gap = 12, -- badge's right edge -> popup's left edge
+	gap = 12, -- end of the number it comes off -> popup's left edge
 	height = 44, -- the label box; its text is vertically centred in it
 	pop =TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 	riseTime = 1.2,
@@ -180,32 +162,6 @@ local function formatRate(perSecond: number): string
 	return string.format("+$%.2f/s", perSecond)
 end
 
---- One flat, outlined cartoon shape. `stroke` 0 (the default) is no outline -- the
---- hard shadows and the inner highlights have none.
-local function blob(
-	parent: Instance,
-	name: string,
-	rect: { number },
-	color: Color3,
-	zIndex: number,
-	radius: UDim,
-	stroke: number?,
-	strokeColor: Color3?
-): Frame
-	local frame = UIKit.panel(parent, {
-		name = name,
-		position = UDim2.fromOffset(rect[1], rect[2]),
-		size = UDim2.fromOffset(rect[3], rect[4]),
-		color = color,
-		transparency = 0,
-		cornerRadius = radius,
-		strokeColor = strokeColor or INK,
-		strokeThickness = stroke or 0,
-		zIndex = zIndex,
-	})
-	return frame
-end
-
 local function setStroke(label: TextLabel, thickness: number)
 	local stroke = label:FindFirstChildOfClass("UIStroke")
 	if stroke then
@@ -248,7 +204,7 @@ local function build(): ScreenGui
 	ui.canvas = canvas
 
 	-- The footprint. Invisible; every visible piece is a child, so one UIScale punches
-	-- the card, coin, pill and all their shadows together.
+	-- the bundle, the balance and the income line together.
 	local badge = Instance.new("Frame")
 	badge.Name = "CashBadge"
 	badge.Size = BADGE_SIZE
@@ -261,76 +217,35 @@ local function build(): ScreenGui
 	ui.punch = Instance.new("UIScale")
 	ui.punch.Parent = badge
 
-	-- ZIndex below is sibling order inside the footprint: card shadow, card, pill
-	-- shadow, pill, coin shadow, coin, balance.
 	local L = LAYOUT
-	local cardW = BADGE_W - CARD_LEFT
-	local cardRadius = UDim.new(0, L.cardRadius)
+	local bundle = Artwork.droppedPicture(badge, "Bundle", Artwork.IMAGE.cashBundle, L.icon, L.iconDrop, 3)
+	bundle.Position = UDim2.fromOffset(0, (BADGE_H - L.icon) / 2)
 
-	blob(badge, "CardShadow", { CARD_LEFT, L.cardTop + L.shadowDrop, cardW, L.cardHeight }, INK, 1, cardRadius)
-	local card = blob(badge, "Card", { CARD_LEFT, L.cardTop, cardW, L.cardHeight }, STYLE.card, 2, cardRadius, L.outline)
-	-- The flat lighter band along the top: the cartoon version of a shine, no gradient.
-	local shineLeft = L.valueLeft - CARD_LEFT - 2
-	blob(card, "Shine", { shineLeft, 6, cardW - shineLeft - 8, 14 }, STYLE.cardShine, 3, ROUND)
-
-	-- The pill hangs off the card's bottom edge. Its width follows its text (setRate),
-	-- so it and its shadow are placed there; hidden until something is earning.
-	local pillTop = BADGE_H - L.pillHeight
-	ui.pillShadow = blob(badge, "RateShadow", { 0, pillTop + 4, L.pillMinWidth, L.pillHeight }, INK, 4, ROUND)
-	ui.pill = blob(badge, "RatePill", { 0, pillTop, L.pillMinWidth, L.pillHeight }, STYLE.pill, 5, ROUND, 3)
-	ui.pillShadow.Visible = false
-	ui.pill.Visible = false
-	ui.rate = UIKit.label(ui.pill, {
-		name = "Rate",
-		size = UDim2.fromScale(1, 1),
-		font = STYLE.pillFont,
-		textSize = L.pillTextSize,
-		color = WHITE,
-		xAlign = Enum.TextXAlignment.Center,
-		shadow = false,
-		zIndex = 6,
-	})
-
-	-- The coin, centred on the card's vertical middle and breaking out past its left end.
-	local coinTop = L.cardTop + L.cardHeight / 2 - L.coin / 2
-	blob(badge, "CoinShadow", { 0, coinTop + L.shadowDrop, L.coin, L.coin }, INK, 6, ROUND)
-	local coin = blob(badge, "Coin", { 0, coinTop, L.coin, L.coin }, STYLE.coin, 7, ROUND, L.outline)
-	local faceInset = (L.coin - L.coinFace) / 2
-	blob(coin, "Face", { faceInset, faceInset, L.coinFace, L.coinFace }, STYLE.coinFace, 8, ROUND, 3, STYLE.coinRim)
-	local glint = blob(coin, "Glint", { 14, 15, 13, 7 }, STYLE.coinGlint, 9, ROUND)
-	glint.Rotation = -40
-	UIKit.label(coin, {
-		name = "Mark",
-		size = UDim2.fromScale(1, 1),
-		position = UDim2.fromOffset(0, L.markDrop),
-		text = "$",
-		font = STYLE.valueFont,
-		textSize = 36,
-		color = STYLE.coinMark,
-		xAlign = Enum.TextXAlignment.Center,
-		outline = false,
-		strokeTransparency = 1,
-		shadow = false,
-		zIndex = 10,
-	})
-
-	-- Left-aligned just past the coin, vertically centred on the card (the user asked for
-	-- the number to sit by the coin, not float mid-card). `shadow = false`: UIKit.label's
-	-- drop-shadow is a separate sibling label that would not follow setValueText's
-	-- shrink-to-fit, and the heavy outline already carries it.
-	ui.value = UIKit.label(badge, {
+	-- Starts centred on the bundle; setRate lifts it once there is an income line under it.
+	ui.value = UIKit.hudNumber(badge, {
 		name = "Value",
-		position = UDim2.fromOffset(L.valueLeft, L.cardTop + L.valueDrop),
-		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, L.cardHeight),
+		position = UDim2.fromOffset(L.valueLeft, L.valueTopAlone),
+		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, L.valueHeight),
 		font = STYLE.valueFont,
 		textSize = L.valueTextSize,
-		color = WHITE,
+		color = STYLE.value,
 		xAlign = Enum.TextXAlignment.Left,
-		shadow = false,
 		text = "$0",
 		zIndex = 11,
-	})
-	setStroke(ui.value, L.valueStroke)
+	}, L.valueStroke, L.textDrop)
+
+	-- Hidden until something is earning.
+	ui.rate = UIKit.hudNumber(badge, {
+		name = "Rate",
+		position = UDim2.fromOffset(L.valueLeft + 2, L.rateTop),
+		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, L.rateHeight),
+		font = STYLE.rateFont,
+		textSize = L.rateTextSize,
+		color = STYLE.rate,
+		xAlign = Enum.TextXAlignment.Left,
+		visible = false,
+		zIndex = 11,
+	}, L.rateStroke, Vector2.new(1, 2))
 
 	-- The number the label is currently SHOWING, which lags `balance` while it counts.
 	-- A NumberValue so TweenService can drive it, and a new tween on it simply takes
@@ -420,8 +335,13 @@ local function popup(delta: number, quiet: boolean)
 	end
 
 	local style = if quiet then POPUP.quiet else POPUP.loud
-	local lane = if quiet then LANE.quiet else LANE.loud
-	local start = UDim2.new(0, Dock.ROW_SIDE_MARGIN + lane.X + POPUP.gap, 0.5, Dock.CASH_MID_Y + lane.Y)
+	-- Sales and spends come off the end of the balance; stand payouts come off the end
+	-- of the income line they are the income of, one lane lower, so a payout landing
+	-- mid-sale never spawns on top of the sale's popup.
+	local source: TextLabel = if quiet and ui.rate.Visible then ui.rate else ui.value
+	local textEnd = source.Position.X.Offset + textWidth(source.Text, source.TextSize, source.Font)
+	local middle = source.Position.Y.Offset + source.Size.Y.Offset / 2 - BADGE_H / 2
+	local start = UDim2.new(0, Dock.ROW_SIDE_MARGIN + textEnd + POPUP.gap, 0.5, Dock.CASH_MID_Y + middle)
 
 	local label = UIKit.label(ui.canvas, {
 		name = "CashPopup",
@@ -517,21 +437,13 @@ end
 
 local function setRate(perSecond: number)
 	local earning = perSecond > 0
-	ui.pill.Visible = earning
-	ui.pillShadow.Visible = earning
-	if not earning then
-		return
+	ui.rate.Visible = earning
+	if earning then
+		ui.rate.Text = formatRate(perSecond)
 	end
-
-	local L = LAYOUT
-	local text = formatRate(perSecond)
-	ui.rate.Text = text
-	local width = math.max(L.pillMinWidth, textWidth(text, L.pillTextSize, STYLE.pillFont) + L.pillPad * 2)
-	local left = BADGE_W - L.pillInset - width
-	ui.pill.Size = UDim2.fromOffset(width, L.pillHeight)
-	ui.pill.Position = UDim2.fromOffset(left, ui.pill.Position.Y.Offset)
-	ui.pillShadow.Size = ui.pill.Size
-	ui.pillShadow.Position = UDim2.fromOffset(left, ui.pillShadow.Position.Y.Offset)
+	-- The balance rides the bundle's middle alone, and moves up to make room for the line.
+	local top = if earning then LAYOUT.valueTop else LAYOUT.valueTopAlone
+	ui.value.Position = UDim2.fromOffset(LAYOUT.valueLeft, top)
 end
 
 function Cash.start()

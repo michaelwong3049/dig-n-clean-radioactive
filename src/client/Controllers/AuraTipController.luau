@@ -30,9 +30,9 @@ local function show()
 
 	local card = Instance.new("Frame")
 	card.Name = "Card"
-	-- Just above the cash badge on the left edge (the same Dock formula CashController uses).
+	-- Just above the speed/cash column on the left edge (Dock.SIDE_TOP_Y is its top).
 	card.AnchorPoint = Vector2.new(0, 1)
-	card.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.CASH_MID_Y - Dock.CASH_SIZE.Y.Offset / 2 - 12)
+	card.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.SIDE_TOP_Y - 12)
 	card.Size = UDim2.fromOffset(340, 170)
 	card.BackgroundColor3 = Color3.fromHex("22272C")
 	card.BorderSizePixel = 0
