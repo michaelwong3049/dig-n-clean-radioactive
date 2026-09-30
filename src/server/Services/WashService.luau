@@ -133,7 +133,7 @@ local APPROACH = 1.2
 
 --- The wash stand is a fixed aiming surface, not a trophy case, so every item starts
 --- from the same footprint there regardless of its authored size -- the same normalise-
---- to-a-target-dimension trick ExhibitService's locker and ModelGallery use for
+--- to-a-target-dimension trick ExhibitService's locker uses for
 --- arbitrary item art. This dig's Config/Payload roll and the item's own `sizeMult`
 --- then scale it from there, in full, so a big roll is a big lump on the tub too.
 ---
