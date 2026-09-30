@@ -155,6 +155,8 @@ type Tracked = {
 	scale: number,
 	surface: Vector3,
 	burst: SpotCracks.Burst?,
+	-- Anomaly only: the crack hue step the motes were last recoloured to.
+	moteStep: number,
 }
 local tracked: { [Model]: Tracked } = {}
 
@@ -476,6 +478,7 @@ local function track(instance: Instance)
 		-- own position is a fallback that only puts them a hair high.
 		surface = if typeof(surface) == "Vector3" then surface else core.Position,
 		burst = nil,
+		moteStep = -1,
 	}
 end
 
@@ -568,6 +571,12 @@ local function stepAuras()
 
 		local hue = Rarity.get(rarity).color
 		local t = loudness(rarity)
+		-- An Anomaly has no one colour: the core, the light and the motes walk the
+		-- spectrum in step with its cracks (SpotCracks.stepAnomaly).
+		local anomaly = rarity == "Anomaly"
+		if anomaly then
+			hue = Rarity.anomalyHue(now / Rarity.ANOMALY_CYCLE)
+		end
 
 		-- Standing on it is the moment the player has been walking towards: every crack
 		-- burns near-full and the fan of rays lights up (SpotCracks.step). Stepped FIRST
@@ -592,11 +601,20 @@ local function stepAuras()
 		-- throws four times the Common one's brightness and reaches half again as far,
 		-- so you can pick it out across the field.
 		if entry.light then
+			if anomaly then
+				entry.light.Color = hue
+			end
 			local brightness = lerp(0.7, 2.4, t)
 			entry.light.Brightness = brightness * lerp(1, 1.6, onIt) * shown
 			entry.light.Range = lerp(10, 18, t)
 		end
 		if entry.motes then
+			-- Recoloured only when the cracks take their next hue step, so the
+			-- ColorSequence is not rebuilt every frame.
+			if anomaly and burst and burst.hueStep ~= entry.moteStep then
+				entry.moteStep = burst.hueStep
+				entry.motes.Color = ColorSequence.new(burst.hue)
+			end
 			entry.motes.Rate = (lerp(5, 19, t) + 12 * onIt) * shown
 		end
 	end
