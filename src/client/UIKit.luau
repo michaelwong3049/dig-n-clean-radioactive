@@ -693,12 +693,12 @@ Dock.SIDE_TILE_SIZE = 48
 Dock.SIDE_GRID_COLUMNS = 1
 Dock.SIDE_GRID_ROWS = 3
 -- The space between two tiles: wider than the dock's shared GAP, on request.
-Dock.SIDE_TILE_GAP = 22
+Dock.SIDE_TILE_GAP = 30
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
 Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
 -- How far the grid sits BELOW the line it is hung from (the cash badge's top, or the
--- centre on a short screen), on request: level with the badge read as too high.
-Dock.SIDE_GRID_DROP = 40
+-- centre on a short screen). Was 40; raised to 10 on request (the Gear/Nukes/Warp column).
+Dock.SIDE_GRID_DROP = 10
 -- The Settings gear's bottom edge in the top-right corner (SettingsController: 12 down,
 -- 44 tall), measured from the bottom of the topbar inset, not the screen top.
 Dock.CORNER_BUTTON_BOTTOM = 56
