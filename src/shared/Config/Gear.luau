@@ -518,48 +518,66 @@ end
 --- floor is not zero — `luck` starts at 1.00 (no bonus at all), and a bar drawn from
 --- zero showed the do-nothing starting detector as 40% full.
 ---
+---   color          the stat's own colour: its label and bar on the shop card, its
+---                  text in the Gear panel. One palette (Gear.STAT_COLOR), shared
+---                  across gear, but never two of the same on one gear -- Spec checks.
+---
 --- Util/Spec asserts this table covers every column of every tier, so a new stat
 --- cannot silently fail to appear in the shop the way `clarity` silently appeared in it.
 export type StatMeta = {
 	label: string,
+	color: Color3,
 	kind: string?,
 	lowerIsBetter: boolean?,
 	complement: boolean?,
 	scale: string?,
 }
 
+-- The stat palette. Radius blue, depth red, luck green were asked for by name; the rest
+-- of the tracks reuse these seven, never twice on one gear.
+Gear.STAT_COLOR = {
+	blue = Color3.fromHex("4DA6FF"),
+	red = Color3.fromHex("FF5A5A"),
+	green = Color3.fromHex("5BE37A"),
+	yellow = Color3.fromHex("FFD34D"),
+	purple = Color3.fromHex("B77BFF"),
+	orange = Color3.fromHex("FF9A3D"),
+	cyan = Color3.fromHex("4DE3E0"),
+}
+local C = Gear.STAT_COLOR
+
 Gear.STAT_META = {
 	Detector = {
 		order = { "radius", "depth", "luck" },
 		hidden = { clarity = true },
-		radius = { label = "RADIUS" },
-		depth = { label = "DEPTH" },
-		luck = { label = "LUCK" },
+		radius = { label = "RADIUS", color = C.blue },
+		depth = { label = "DEPTH", color = C.red },
+		luck = { label = "LUCK", color = C.green },
 	},
 	Magnet = {
 		order = { "pullSpeed", "draw", "maxGrip" },
 		hidden = {},
-		pullSpeed = { label = "PULL" },
-		draw = { label = "DRAW" },
-		maxGrip = { label = "GRIP" },
+		pullSpeed = { label = "PULL", color = C.yellow },
+		draw = { label = "DRAW", color = C.cyan },
+		maxGrip = { label = "GRIP", color = C.purple },
 	},
 	Cleaner = {
 		order = { "power", "volume" },
 		hidden = {},
-		power = { label = "POWER" },
-		volume = { label = "VOLUME" },
+		power = { label = "POWER", color = C.orange },
+		volume = { label = "VOLUME", color = C.blue },
 	},
 	Aura = {
 		order = { "reduction", "tolerance", "capacity", "haulPenalty" },
 		hidden = {},
-		reduction = { label = "SHIELD", complement = true, scale = "log" },
-		tolerance = { label = "TOLERANCE" },
-		capacity = { label = "CARRY" },
+		reduction = { label = "SHIELD", color = C.cyan, complement = true, scale = "log" },
+		tolerance = { label = "TOLERANCE", color = C.green },
+		capacity = { label = "CARRY", color = C.yellow },
 		-- Right under CARRY because it is the other half of the same question: how
 		-- much you can take, then how much taking it slows you. `lowerIsBetter` is
 		-- the only use of that flag in the game: 0.20 beats 1.20, and drawn straight
 		-- the bar would empty as the aura got better.
-		haulPenalty = { label = "HAUL", lowerIsBetter = true },
+		haulPenalty = { label = "HAUL", color = C.purple, lowerIsBetter = true },
 	},
 	-- NO BOOTS OR SATCHEL ENTRY. Both tracks are retired (see the RETIRED block above)
 	-- and are not in Gear.TRACKS, which is the table Spec's coverage check and the shop
