@@ -2550,21 +2550,20 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Sludge Nuke. Slime slides off the cap, drops wink, and the splash below
-	-- steams.
+	-- Sludge Nuke. Slime slides off the cap and the drops at the drip ends wink. The
+	-- floating splash blobs are gone (tweak-stage10-sludge drops them from the template).
 	sludge_nuke = {
 		finish = {
 			{ parts = { "SlimeCap", "SlimeDrip" }, material = "Neon", color = Color3.fromHex("6AFF2A") },
-			{ parts = { "SlimeDrop", "Splash" }, material = "Neon", color = Color3.fromHex("A8FF6A") },
+			{ parts = { "SlimeDrop" }, material = "Neon", color = Color3.fromHex("A8FF6A") },
 		},
 		light = { part = "SlimeCap", color = Color3.fromHex("6AFF2A"), brightness = 1.6, range = 1.1 },
 		particles = {
 			{ part = "SlimeCap", preset = "drift", color = Color3.fromHex("8AFF4A"), rate = 3 },
-			{ part = "Splash", preset = "steam", color = Color3.fromHex("C8FF9A"), rate = 2 },
 		},
 		anims = {
 			{ kind = "smoulder", parts = { "SlimeCap", "SlimeDrip" }, light = true, period = 2.6, min = 0.5 },
-			{ kind = "wink", parts = { "SlimeDrop", "Splash" }, period = 1.2, min = 0.2, perPart = true },
+			{ kind = "wink", parts = { "SlimeDrop" }, period = 1.2, min = 0.2, perPart = true },
 		},
 	},
 
