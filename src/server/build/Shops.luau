@@ -195,7 +195,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 57
+local BUILDER_VERSION = 58
 
 local C = Kit.C
 local build = Kit.build
@@ -657,20 +657,11 @@ end
 --- rather than a filled plate, matching the "outline, not fill" read the photo has.
 --- THE OUTLINES GLOW (2026-09-27, on request): Neon bars with a soft SurfaceLight off the
 --- top, so each shop's floor squares read as lit strips. Shared with the Trader's outline.
-local OUTLINE_LIGHT_BRIGHTNESS = 1.2
-local OUTLINE_LIGHT_RANGE = 4
-
+--- LIGHTS REMOVED (2026-09-30, "too much lighting in base camp"): the bars stay Neon,
+--- which already reads as a lit strip, but no longer carry a SurfaceLight each.
 local function glowOutline(bar: BasePart)
 	bar.Material = Enum.Material.Neon
 	bar.CastShadow = false
-	local light = Instance.new("SurfaceLight")
-	light.Face = Enum.NormalId.Top
-	light.Color = bar.Color
-	light.Brightness = OUTLINE_LIGHT_BRIGHTNESS
-	light.Range = OUTLINE_LIGHT_RANGE
-	light.Angle = 90
-	light.Shadows = false
-	light.Parent = bar
 end
 Shops.glowOutline = glowOutline
 
@@ -766,7 +757,7 @@ local FASCIA_RIVET_PITCH = 2
 --- over. The panel is CanQuery false, so it never eats a prompt or a
 --- camera ray the way the invisible WashStand box did.
 local CANOPY_LIGHT_COLOR = "FFE7C2" -- warm lamp white, so the accent colours stay true
-local CANOPY_LIGHT_BRIGHTNESS = 2.4 -- picked live in Studio: 1.6 still read dim, 2.4 lights the deck without washing the colour out
+local CANOPY_LIGHT_BRIGHTNESS = 1.4 -- was 2.4; toned down 2026-09-30, the camp read over-lit
 local CANOPY_LIGHT_RANGE = 14 -- the panel sits ~9.5 up; reaches the deck with room to spare
 
 local function buildCanopyLight(parent: Instance, origin: CFrame, width: number, centerY: number, centerZ: number, depth: number, tiltDegrees: number)
