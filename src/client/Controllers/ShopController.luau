@@ -14,7 +14,7 @@
 	button reads COMING SOON and does nothing.
 
 	Its look is the gear panel's (StationController's FIELD): slate panel, the HUD's
-	cartoon text on it (LuckiestGuy headlines, FredokaOne body, INK outlines), with the
+	text on it (all Gotham Black, INK outlines), with the
 	clover card in the clover's own green: green is x2, and x2 is what it sells
 	(CloverArt's header -- purple is kept for the stacked x4).
 ]]
@@ -57,8 +57,8 @@ local PANEL = {
 	close = Color3.fromHex("E5484D"),
 	ink = Color3.fromHex("1A1A1A"),
 	white = Color3.new(1, 1, 1),
-	headline = Enum.Font.LuckiestGuy,
-	label = Enum.Font.FredokaOne,
+	headline = Enum.Font.GothamBlack,
+	label = Enum.Font.GothamBlack,
 }
 local PANEL_W = 560
 local PANEL_H = 330
