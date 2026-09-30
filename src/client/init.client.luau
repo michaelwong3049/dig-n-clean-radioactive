@@ -18,6 +18,7 @@ local ORDER = {
 	"HudController", -- Phase 2: rad meter, the RadFx damage overlay, distortion, the death screen (DeathScreen)
 	"GeigerController", -- Phase 2: the click bed (reads HudController)
 	"SfxController", -- sound effects no one screen owns: server cues, the mute, other players' dig/haul/hose, aura hums, heartbeat/hurt/warp (reads HudController)
+	"AuraTipController", -- the one-time "upgrade your aura" popup the first time the aura fails; reads ExposureState
 	"AuraWarningController", -- Phase 2: the "UPGRADE AURA" card when an over-tier stage is burning you down; reads ExposureState
 	"BagTrackerController", -- after a blackout: where your dropped bag is and how long it has left; reads DroppedBag
 	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState

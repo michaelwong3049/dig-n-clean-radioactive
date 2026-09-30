@@ -304,6 +304,12 @@ end
 --- Drop the bag where the player fell. `looted` is a blast death: the WHOLE carry
 --- goes and anyone may take it. Otherwise it is a radiation death: only the dirty
 --- items go, and only their owner may take them back (header).
+--- Owed the one-time "upgrade your aura" popup: DeconService's "tutorialSeen" allowlist.
+local function auraTipOwed(player: Player): boolean
+	local data = DataService.data(player)
+	return data ~= nil and table.find(data.tutorialsSeen or {}, "aura") == nil
+end
+
 local function dropBag(player: Player, data: any, position: Vector3, looted: boolean): number
 	-- PLAN §3.1 says you drop your UNCLEANED carry. Read literally: anything you
 	-- already scrubbed clean stays with you. Being generous here is deliberate — a
@@ -747,6 +753,8 @@ local function stepPlayer(player: Player, dt: number)
 		excess = reading.excess,
 		healthBurn = reading.healthBurn,
 		failing = reading.failing,
+		-- Owed the one-time "upgrade your aura" popup (client/AuraTipController)?
+		auraTip = auraTipOwed(player),
 		-- Standing in a detonated nuke's crater (HazardService). Its burn is already in
 		-- healthBurn; this only lets the HUD name the right cause -- "AURA FAILING" and
 		-- its white are the aura's alone (PLAN's one colour rule).
