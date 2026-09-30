@@ -66,8 +66,8 @@ local LAYOUT = {
 	captionTop = 0,
 	captionTextSize = 18,
 	valueTextSize = 52,
-	valueStroke = 6,
-	textDrop = Vector2.new(3, 4),
+	valueStroke = 4, -- matches the cash balance's
+	textDrop = Vector2.new(2, 3),
 }
 
 local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
