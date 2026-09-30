@@ -67,7 +67,7 @@ local Shops = require(script.Parent.Shops)
 
 local BaseCamp = {}
 local BUILDER_SOURCE = "src/server/build/BaseCamp.luau"
-local BUILDER_VERSION = 22
+local BUILDER_VERSION = 23
 
 -- Where the camp sits. Everything else is relative to it, so moving the whole camp
 -- is a one-line change (or an argument to build()). This used to be described as the
