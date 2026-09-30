@@ -25,6 +25,12 @@
 	The layer sits over every HUD (DisplayOrder 115, above the Index/Shop panels at 110)
 	so nothing outside the spotlight is clickable while it is up, and under the wash
 	view (200), which cannot be open at the same time anyway.
+
+	A `press` STEP MAKES THE PLAYER CLICK THE THING ITSELF (the walkthrough's "buy the
+	Bent Coil", StationController). The full-screen catcher goes and the four shades
+	swallow clicks instead, so the hole is the one place a click lands, on whatever is
+	under it. No NEXT or SKIP: the caller ends it with `stop` once the click has done
+	its job.
 ]]
 
 local Players = game:GetService("Players")
@@ -70,6 +76,8 @@ export type Step = {
 	body: string,
 	-- Pin the card near the bottom of the screen instead of hugging the target.
 	low: boolean?,
+	-- Clicks go through the hole to the target, and nowhere else. See the header.
+	press: boolean?,
 }
 
 --- The card's buttons: NEXT (or GOT IT on the last step) and SKIP.
@@ -132,6 +140,8 @@ function LockerTutorial.run(steps: { Step }, onDone: (finished: boolean) -> ()):
 		shade.BorderSizePixel = 0
 		shade.BackgroundColor3 = Color3.new(0, 0, 0)
 		shade.BackgroundTransparency = 1
+		-- Sinks clicks, so on a `press` step (catcher hidden) only the hole passes them.
+		shade.Active = true
 		shade.Parent = gui
 		shades[index] = shade
 		TweenService:Create(shade, TweenInfo.new(0.35), { BackgroundTransparency = DIM }):Play()
@@ -261,7 +271,11 @@ function LockerTutorial.run(steps: { Step }, onDone: (finished: boolean) -> ()):
 		local bounds = TextService:GetTextSize(step.body, BODY_SIZE, SKIN.label, Vector2.new(CARD_W - 2 * CARD_PAD, 1000))
 		body.Size = UDim2.new(1, 0, 0, bounds.Y + 4)
 		nextButton.Text = if index == #steps then "GOT IT" else "NEXT"
-		skip.Visible = index < #steps
+		skip.Visible = index < #steps and not step.press
+		nextButton.Visible = not step.press
+		row.Visible = not step.press
+		catcher.Visible = not step.press
+		counter.Visible = not step.press
 	end
 
 	--- Where the target is right now, relative to this gui, padded. AbsolutePosition is

@@ -107,6 +107,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
 local Net = require(Shared.Net)
+local Tutorial = require(Shared.Config.Tutorial)
 
 -- No `Dock` alias any more: this panel is centred on the screen rather than on the
 -- space above the dock, so it no longer reads Dock.RESERVE. See the header.
@@ -361,6 +362,14 @@ local mergePressedAt = -math.huge
 --- server's flag catches up with the "tutorialSeen" we sent.
 local tutorial: { stop: () -> () }? = nil
 local tutorialDone = false
+
+--- THE WALKTHROUGH'S "UPGRADE YOUR DETECTOR" (Config/Tutorial), ON REQUEST: opening the
+--- Detector shop on that step pins the row on the Bent Coil and dims the whole screen
+--- but its buy button, so the only thing to do is click the $15. The same spotlight as
+--- the locker's, as a `press` step (clicks go through the hole and nowhere else). It
+--- lets go the moment the Bent Coil is owned, the step moves on, or the panel closes.
+local buySpotlight: { stop: () -> () }? = nil
+local buySpotlightCard: Frame? = nil
 
 --- Does THIS shop actually have a browse prompt standing in the world?
 ---
@@ -1563,7 +1572,33 @@ local function paintFocus(animate: boolean)
 	end
 end
 
+--- The card the walkthrough pins the row on, or nil when it is not pinning: the
+--- Detector shop, on the "upgrade" step, with the Bent Coil listed and not yet owned.
+local function tutorialPinnedIndex(): number?
+	local tiers = carousel.tiers
+	if
+		tiers == nil
+		or state.station ~= "shop"
+		or state.stationId ~= "Detector"
+		or dismissed
+		or not Tutorial.isActive(Players.LocalPlayer)
+		or Players.LocalPlayer:GetAttribute("TutorialStep") ~= "upgrade"
+		-- A rack hook's one card: only the Bent Coil's own is pinned, or the row would
+		-- page to a card that is not drawn.
+		or carousel.single and (rackCard == nil or (rackCard :: any).tier ~= Tutorial.UPGRADE_TIER)
+	then
+		return nil
+	end
+	local index = tierIndex(tiers, Tutorial.UPGRADE_TIER)
+	if index == nil or tiers[index].owned then
+		return nil
+	end
+	return index
+end
+
 local function setShopFocus(index: number, animate: boolean)
+	-- Every way of paging ends here, so pinning the row is this one line.
+	index = tutorialPinnedIndex() or index
 	carousel.focus = math.clamp(index, 1, math.max(carousel.count, 1))
 	carousel.drag = 0
 	placeRow(animate)
@@ -1619,8 +1654,39 @@ local function syncTutorial()
 	end)
 end
 
+--- Ring the pinned card's buy button, or let go. Deferred like syncTutorial, so the
+--- card has laid out before the spotlight measures it.
+local function syncBuySpotlight()
+	local index = tutorialPinnedIndex()
+	local card = if index then ui.shopCards[index] else nil
+	if card and not card.Visible then
+		card = nil
+	end
+	if buySpotlight and buySpotlightCard == card then
+		return
+	end
+	if buySpotlight then
+		buySpotlight.stop()
+		buySpotlight = nil
+		buySpotlightCard = nil
+	end
+	if card == nil then
+		return
+	end
+	buySpotlightCard = card
+	buySpotlight = LockerTutorial.run({
+		{
+			target = card.CardBuy :: GuiObject,
+			title = "BUY THE BENT COIL",
+			body = `Click {money(Gear.Detector[Tutorial.UPGRADE_TIER].price)} to upgrade your detector`,
+			press = true,
+		},
+	}, function() end)
+end
+
 local function render()
 	task.defer(syncTutorial)
+	task.defer(syncBuySpotlight)
 	if state.station == nil or dismissed or not PANEL_KINDS[state.station] then
 		ui.panel.Visible = false
 		ui.closeButton.Visible = false
