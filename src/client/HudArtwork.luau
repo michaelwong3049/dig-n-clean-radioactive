@@ -74,6 +74,10 @@ Artwork.IMAGE = {
 	-- The cash row's icon (CashController): a banded bundle of green notes in 3/4 view.
 	-- tools/hud-icons/cash_bundle.svg.
 	cashBundle = "rbxassetid://128764628759725",
+	-- The vitals bars' icons (HudController): a glossy red heart for health and a
+	-- trefoil on a green disc for rads. tools/hud-icons/health_heart.svg, rads_trefoil.svg.
+	healthHeart = "rbxassetid://80065249224141",
+	radsTrefoil = "rbxassetid://99314438299822",
 	-- The glow behind each tile's symbol: a WHITE disc whose alpha eases from solid to
 	-- nothing at the rim (smoothstep), so a caller tints it with ImageColor3.
 	-- tools/hud-icons/glow.svg.

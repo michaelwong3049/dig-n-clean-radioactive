@@ -44,6 +44,7 @@ local Tuning = require(Shared.Config.Tuning)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Artwork = require(script.Parent.Parent.HudArtwork)
 local RadFx = require(script.Parent.Parent.RadFx)
 local DeathScreen = require(script.Parent.Parent.DeathScreen)
 local Dock = UIKit.Dock
@@ -196,71 +197,19 @@ local function blob(
 	return frame
 end
 
---- A square frame centred on (x, y), for shapes built around a centre point.
-local function centred(parent: Instance, name: string, x: number, y: number, w: number, h: number, color: Color3, zIndex: number, radius: UDim?): Frame
-	local frame = blob(parent, name, { x, y, w, h }, color, zIndex, radius or UDim.new(0, 0))
-	frame.AnchorPoint = Vector2.new(0.5, 0.5)
-	return frame
-end
-
---- A heart from primitives: a square turned 45 degrees with a circle on each upper
---- edge. The ink outline is the same heart grown by `edge` (square 2*edge wider,
---- circles `edge` wider, same centres) laid underneath, since a UIStroke per piece
---- would draw the seams between them.
-local function buildHeart(parent: Instance, x: number, y: number): UIScale
-	local box = Instance.new("Frame")
-	box.Name = "Heart"
-	box.AnchorPoint = Vector2.new(0.5, 0.5)
-	box.Position = UDim2.fromOffset(x, y)
-	box.Size = UDim2.fromOffset(VITALS.icon, VITALS.icon)
-	box.BackgroundTransparency = 1
-	box.ZIndex = 5
-	box.Parent = parent
-
-	local side, edge = 11, 2
-	local lobe = side / math.sqrt(2) / 2 -- centre of each upper edge, from the square's centre
-	local cx, cy = VITALS.icon / 2, VITALS.icon / 2 + 1 -- one px low: the lobes make the shape top-heavy
-	for layer, color in { INK, STYLE.health } do
-		local grow = if layer == 1 then edge else 0
-		local z = 5 + layer
-		local square = centred(box, "Square", cx, cy, side + grow * 2, side + grow * 2, color, z)
-		square.Rotation = 45
-		centred(box, "LobeLeft", cx - lobe, cy - lobe, side + grow * 2, side + grow * 2, color, z, ROUND)
-		centred(box, "LobeRight", cx + lobe, cy - lobe, side + grow * 2, side + grow * 2, color, z, ROUND)
-	end
+--- A vitals icon: a full-colour picture (Artwork.IMAGE, drawn with its own ink
+--- outline) centred on (x, y). Pictures, not primitives: the heart and trefoil used to
+--- be rotated Frames, and at ~20 screen px the rotated pieces snapped to different
+--- pixels, which stepped the heart's outline and turned the trefoil's blades ragged.
+--- Returns the UIScale the render loop pulses.
+local function buildIcon(parent: Instance, name: string, image: string, x: number, y: number): UIScale
+	local icon = Artwork.picture(parent, name, image, VITALS.icon, Color3.new(1, 1, 1))
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.Position = UDim2.fromOffset(x, y)
+	icon.ZIndex = 5
 
 	local scale = Instance.new("UIScale")
-	scale.Parent = box
-	return scale
-end
-
---- The radiation trefoil from primitives, on a green badge. Each 60-degree blade is a
---- fan of thin rotated bars from the inner to the outer radius, close enough together
---- to read as a solid wedge at icon size. No picture needed: the Unicode trefoil renders
---- as a colour emoji in Roblox and ignores TextColor3.
-local function buildRadsBadge(parent: Instance, x: number, y: number): UIScale
-	local size = VITALS.icon - 2
-	local badge = centred(parent, "RadsBadge", x, y, size, size, STYLE.rads, 5, ROUND)
-	local stroke = badge:FindFirstChildOfClass("UIStroke")
-	if stroke then
-		stroke.Thickness = 2
-	end
-
-	local centre = size / 2
-	local inner, outer = 2, 7.6
-	local mid, length = (inner + outer) / 2, outer - inner
-	for _, blade in { 90, 210, 330 } do -- one blade pointing down, like the sign
-		for spread = -24, 24, 8 do
-			local angle = blade + spread
-			local rad = math.rad(angle)
-			local ray = centred(badge, "Blade", centre + mid * math.cos(rad), centre + mid * math.sin(rad), length, 1.8, INK, 6)
-			ray.Rotation = angle
-		end
-	end
-	centred(badge, "Hub", centre, centre, 2.8, 2.8, INK, 6, ROUND)
-
-	local scale = Instance.new("UIScale")
-	scale.Parent = badge
+	scale.Parent = icon
 	return scale
 end
 
@@ -383,13 +332,13 @@ local function build(): ScreenGui
 	ui.place = rowLabel("Place", Enum.TextXAlignment.Right)
 
 	-- RADS
-	ui.radsScale = buildRadsBadge(vitals, V.icon / 2, V.radsY + V.icon / 2)
+	ui.radsScale = buildIcon(vitals, "RadsBadge", Artwork.IMAGE.radsTrefoil, V.icon / 2, V.radsY + V.icon / 2)
 	ui.rads = buildBar(vitals, "Rads", V.radsY, STYLE.rads, STYLE.radsShine)
 	notch(ui.rads, Tuning.EXPOSURE_WARN, STYLE.warnMark)
 	notch(ui.rads, Tuning.EXPOSURE_DANGER, STYLE.dangerMark)
 
 	-- HEALTH
-	ui.heartScale = buildHeart(vitals, V.icon / 2, V.healthY + V.icon / 2)
+	ui.heartScale = buildIcon(vitals, "Heart", Artwork.IMAGE.healthHeart, V.icon / 2, V.healthY + V.icon / 2)
 	ui.health = buildBar(vitals, "Health", V.healthY, STYLE.health, STYLE.healthShine)
 
 	return gui
