@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Net = require(ReplicatedStorage.Shared.Net)
 local UIKit = require(script.Parent.Parent.UIKit)
+local Dock = UIKit.Dock
 
 local AuraTipController = {}
 
@@ -29,9 +30,10 @@ local function show()
 
 	local card = Instance.new("Frame")
 	card.Name = "Card"
-	card.AnchorPoint = Vector2.new(0.5, 0.5)
-	card.Position = UDim2.fromScale(0.5, 0.5)
-	card.Size = UDim2.fromOffset(460, 190)
+	-- Just above the cash badge on the left edge (the same Dock formula CashController uses).
+	card.AnchorPoint = Vector2.new(0, 1)
+	card.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.CASH_MID_Y - Dock.CASH_SIZE.Y.Offset / 2 - 12)
+	card.Size = UDim2.fromOffset(340, 170)
 	card.BackgroundColor3 = Color3.fromHex("22272C")
 	card.BorderSizePixel = 0
 	card.Parent = canvas
@@ -46,10 +48,10 @@ local function show()
 
 	UIKit.label(card, {
 		name = "Message",
-		size = UDim2.new(1, -36, 0, 100),
+		size = UDim2.new(1, -36, 0, 84),
 		position = UDim2.fromOffset(18, 18),
 		font = Enum.Font.FredokaOne,
-		textSize = 26,
+		textSize = 24,
 		color = Color3.new(1, 1, 1),
 		wrapped = true,
 		text = MESSAGE,
