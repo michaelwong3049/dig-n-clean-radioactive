@@ -72,16 +72,35 @@ function IndexProgress.isComplete(discovered: { [string]: boolean }, stageId: nu
 	return total > 0 and found == total
 end
 
---- stageId -> the extra dig luck its completed index grants. Stages you have not
---- finished are absent, so `bonus[stageId] or 0` is the whole read.
+--- Does this stage's completed index pay its luck as a multiplier (Stages 7-12) rather
+--- than a flat bonus? See Tuning.INDEX_LUCK_MULT_FROM_STAGE.
+function IndexProgress.luckIsMult(stageId: number): boolean
+	return stageId >= Tuning.INDEX_LUCK_MULT_FROM_STAGE
+end
+
+--- stageId -> the extra dig luck its completed index grants (added). Only the flat-bonus
+--- stages; stages you have not finished, and multiplier stages, are absent, so
+--- `bonus[stageId] or 0` is the whole read.
 function IndexProgress.stageLuck(discovered: { [string]: boolean }): { [number]: number }
 	local bonus = {}
 	for _, stage in Stages.DEFS do
-		if IndexProgress.isComplete(discovered, stage.id) then
+		if not IndexProgress.luckIsMult(stage.id) and IndexProgress.isComplete(discovered, stage.id) then
 			bonus[stage.id] = Tuning.INDEX_COMPLETE_LUCK
 		end
 	end
 	return bonus
+end
+
+--- stageId -> the dig-luck MULTIPLIER its completed index grants (Stages 7-12). Absent
+--- for everything else, so `mult[stageId] or 1` is the whole read.
+function IndexProgress.stageLuckMult(discovered: { [string]: boolean }): { [number]: number }
+	local mult = {}
+	for _, stage in Stages.DEFS do
+		if IndexProgress.luckIsMult(stage.id) and IndexProgress.isComplete(discovered, stage.id) then
+			mult[stage.id] = Tuning.INDEX_COMPLETE_LUCK_MULT
+		end
+	end
+	return mult
 end
 
 --- How many stages have their index complete.

@@ -285,15 +285,29 @@ function Spec.run(): boolean
 		local full = IndexProgress.stageLuck(all)
 		local fullOk = true
 		local emptyNever = true
+		local fullMult = IndexProgress.stageLuckMult(all)
+		local splitOk = true
 		for _, stage in Stages.DEFS do
 			local empty = #IndexProgress.stageItems(stage.id) == 0
-			if not empty and full[stage.id] ~= Tuning.INDEX_COMPLETE_LUCK then
+			local isMult = IndexProgress.luckIsMult(stage.id)
+			local want = if isMult then fullMult[stage.id] else full[stage.id]
+			local wantValue = if isMult then Tuning.INDEX_COMPLETE_LUCK_MULT else Tuning.INDEX_COMPLETE_LUCK
+			if not empty and want ~= wantValue then
 				fullOk = false
 			end
-			if empty and full[stage.id] ~= nil then
+			if empty and (full[stage.id] ~= nil or fullMult[stage.id] ~= nil) then
 				emptyNever = false
 			end
+			-- Each stage pays ONE kind of luck reward, never both.
+			if full[stage.id] ~= nil and fullMult[stage.id] ~= nil then
+				splitOk = false
+			end
 		end
+		check("§index a stage pays a flat OR a multiplied luck reward, never both", splitOk)
+		check(
+			"§index the Stage 7+ luck reward is a real multiplier",
+			Tuning.INDEX_COMPLETE_LUCK_MULT > 1 and next(IndexProgress.stageLuckMult({})) == nil
+		)
 		check("§index identifying everything completes every stocked stage", fullOk)
 		check("§index a stage that stocks nothing never grants its luck", emptyNever)
 

@@ -6,7 +6,8 @@
 
 	  RAIL    one row per stage: its found/total, a progress bar, and the stage's
 	          reward once every nuke in it is identified: dig luck there
-	          (Tuning.INDEX_COMPLETE_LUCK, applied in DigService's rollFor) and a cash
+	          (Tuning.INDEX_COMPLETE_LUCK, or x INDEX_COMPLETE_LUCK_MULT from Stage 7 on,
+	          applied in DigService's rollFor) and a cash
 	          multiplier everywhere (Tuning.INDEX_COMPLETE_CASH, via StatResolver). The
 	          hint under the rail shows the cash bonus the player has earned so far.
 	  GRID    the stage's nukes as cards, each a live render of the real model. A nuke
@@ -597,7 +598,7 @@ local function buildRail(panel: Frame)
 
 	local hint = text(rail, {
 		name = "Reward",
-		size = UDim2.new(1, 0, 0, 46),
+		size = UDim2.new(1, 0, 0, 60),
 		font = UIKit.Font.body,
 		textSize = 11,
 		color = UIKit.C.dim,
@@ -1080,7 +1081,10 @@ local function renderRail()
 		refs.fill.Size = UDim2.fromScale(if total > 0 then found / total else 0, 1)
 		refs.fill.BackgroundColor3 = if complete then UIKit.C.green else refs.tint
 		if complete then
-			refs.right.Text = string.format("x%.1f $  +%.2f LUCK", Tuning.INDEX_COMPLETE_CASH, Tuning.INDEX_COMPLETE_LUCK)
+			local luck = if IndexProgress.luckIsMult(stage.id)
+				then string.format("x%.1f LUCK", Tuning.INDEX_COMPLETE_LUCK_MULT)
+				else string.format("+%.2f LUCK", Tuning.INDEX_COMPLETE_LUCK)
+			refs.right.Text = string.format("x%.1f $  %s", Tuning.INDEX_COMPLETE_CASH, luck)
 			refs.right.TextColor3 = UIKit.C.green
 		else
 			refs.right.Text = `{if total > 0 then math.floor(found / total * 100) else 0}%`
@@ -1092,9 +1096,11 @@ local function renderRail()
 	if ui.rewardHint then
 		local cash = IndexProgress.cashMultiplier(discovered)
 		ui.rewardHint.Text = string.format(
-			"Identify every nuke in a stage for x%.1f cash everywhere and +%.2f dig luck there. Cash bonus now: x%.2f",
+			"Identify every nuke in a stage for x%.1f cash everywhere and +%.2f dig luck there (x%.1f from Stage %d). Cash bonus now: x%.2f",
 			Tuning.INDEX_COMPLETE_CASH,
 			Tuning.INDEX_COMPLETE_LUCK,
+			Tuning.INDEX_COMPLETE_LUCK_MULT,
+			Tuning.INDEX_LUCK_MULT_FROM_STAGE,
 			cash
 		)
 		ui.rewardHint.TextColor3 = if cash > 1 then UIKit.C.green else UIKit.C.dim
