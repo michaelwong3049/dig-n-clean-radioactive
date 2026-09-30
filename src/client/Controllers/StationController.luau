@@ -229,10 +229,10 @@ local RACK_CARD_TWEEN = TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDir
 -- pushed into UIKit.C for the same reason CashController keeps its own STYLE table —
 -- nothing else should reach for these, and a shared palette invites exactly that.
 --
--- THE TEXT IS THE HUD'S CARTOON VOICE, on request, even though the slate is not. It
--- used to be Oswald and RobotoMono, a spec-sheet voice; now it is what the cash badge,
--- the rad meter and the stand cards speak: LuckiestGuy for the headline pieces (the
--- track, the tier's name, the price, the wallet), FredokaOne for everything else, all
+-- THE TEXT IS ALL GOTHAM BLACK, on request: the face the cash/speed HUD and the Gear
+-- panel's tabs speak. It used to be Oswald and RobotoMono (a spec-sheet voice), then
+-- LuckiestGuy + FredokaOne (the cartoon voice). `headline` and `label` are kept as two
+-- keys so the pieces can split again without a hunt, but they are one face today, all
 -- white-ish and all wearing the same rounded INK outline — see inkShopText.
 local FIELD = {
 	panel = Color3.fromHex("1B1F23"),
@@ -258,8 +258,8 @@ local FIELD = {
 	-- The cartoon black every chunky card in the game is outlined in (CashController's
 	-- and StandCardController's INK, Kit.C.hazardBlack).
 	ink = Color3.fromHex("1A1A1A"),
-	headline = Enum.Font.LuckiestGuy,
-	label = Enum.Font.FredokaOne,
+	headline = Enum.Font.GothamBlack,
+	label = Enum.Font.GothamBlack,
 }
 
 --- The stall's own accent, the same three hexes build/Shops paints each stall's
@@ -779,7 +779,7 @@ local function build(): ScreenGui
 	-- both: automaticSizeY, and MaxSize swaps between shop/list widths per mode).
 	--
 	-- A PLAIN "X", NOT U+2715. No font this badge could wear has the multiplication
-	-- cross glyph, so it drew as a missing-glyph box on every panel. LuckiestGuy's X
+	-- cross glyph, so it drew as a missing-glyph box on every panel. Gotham Black's X
 	-- is the Robux shop's close badge (ShopController), so the two read as one.
 	local closeButton, closeInk = UIKit.button(canvas, {
 		name = "Close",
@@ -915,8 +915,7 @@ local function build(): ScreenGui
 	accentBar.Parent = header
 	ui.shopAccent = accentBar
 
-	-- LuckiestGuy is all-caps already; render() upper-cases the track name anyway so
-	-- a font swap never silently turns it back into "Detector".
+	-- render() upper-cases the track name, so the title reads DETECTOR in any face.
 	ui.shopTitle = UIKit.label(header, {
 		name = "ShopTitle",
 		position = UDim2.fromOffset(16, 0),
@@ -1137,7 +1136,7 @@ local function build(): ScreenGui
 	ui.toast = UIKit.label(panel, {
 		name = "Toast",
 		size = UDim2.new(1, 0, 0, 22),
-		font = UIKit.Font.body,
+		font = FIELD.label,
 		textSize = 16,
 		color = COLOR.green,
 	})
