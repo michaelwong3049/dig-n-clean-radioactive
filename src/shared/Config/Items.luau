@@ -2052,6 +2052,16 @@ function Items.has(id: string): boolean
 	return byId[id] ~= nil
 end
 
+--- The lowest stage that stocks this item -- where it "comes from". A retired item
+--- (`stages = {}`) counts as Stage 1.
+function Items.homeStage(item: ItemDef): number
+	local home = math.huge
+	for _, stageId in item.stages do
+		home = math.min(home, stageId)
+	end
+	return if home == math.huge then 1 else home
+end
+
 --- Every item of one rarity that can spawn in one stage. May be empty — Stage 1 has
 --- no Mythic or Anomaly entries, so callers must handle the empty case rather than
 --- assuming a hit.

@@ -1959,6 +1959,26 @@ function Spec.run(): boolean
 			string.format("§fuse a Common nuke going off in your hands is survivable on foot: %.0f of %d health", taken, Tuning.MAX_HEALTH),
 			taken < Tuning.MAX_HEALTH
 		)
+
+		-- Farther stages hit harder, but gently: rarity still decides most of a blast,
+		-- and the Common walk-out above still holds at the last stage.
+		local lastStage = #Stages.DEFS
+		local lastHit, lastRadius = Detonation.stageMults(lastStage)
+		local firstHit, firstRadius = Detonation.stageMults(1)
+		check(
+			"§fuse a farther stage's nuke hits harder and reaches farther, by at most half again",
+			firstHit == 1 and firstRadius == 1 and lastHit > 1 and lastRadius > 1 and lastHit <= 1.5 and lastRadius <= 1.5
+		)
+		local farCommon = Detonation.blastFor("Common", D.SIZE_REF, lastStage)
+		local farTaken, farWalked = farCommon.hit, 0
+		while farWalked < farCommon.orbRadius do
+			farTaken += Detonation.orbBurnAt(farWalked, farCommon.orbRadius, farCommon.orbBurn, 1) * step
+			farWalked += walk * step
+		end
+		check(
+			string.format("§fuse a last-stage Common going off in your hands is survivable on foot: %.0f of %d health", farTaken, Tuning.MAX_HEALTH),
+			farTaken < Tuning.MAX_HEALTH
+		)
 	end
 
 	-- PLAN §7 — DENSITY AND RARITY ARE ONE DECISION, NOT TWO.

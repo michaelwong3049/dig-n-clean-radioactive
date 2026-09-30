@@ -12,6 +12,8 @@ local Config = script.Parent.Config
 local Cfg = require(Config.Bombing)
 local Rarity = require(Config.Rarity)
 local Payload = require(Config.Payload)
+local Items = require(Config.Items)
+local Detonation = require(script.Parent.Detonation)
 
 local Bombing = {}
 
@@ -45,6 +47,19 @@ local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
 end
 
+--- The stage a nuke comes from, for Detonation.stageMults: its item's home stage.
+--- Takes a catalogue def (`stages`) or a bag record (`itemId`); a crusted hotbar copy
+--- has no itemId yet and reads as Stage 1 -- it cannot be dropped until it is clean.
+local function stageOf(item: any): number
+	if item.stages then
+		return Items.homeStage(item)
+	end
+	if item.itemId and Items.has(item.itemId) then
+		return Items.homeStage(Items.get(item.itemId))
+	end
+	return 1
+end
+
 --- The star rating a bag nuke counts as: the same Rarity.stars every other surface
 --- uses (stand card, Nukes panel, trader). Also what the overhead badge averages.
 function Bombing.starsOf(item: any): number
@@ -60,6 +75,7 @@ function Bombing.statsFor(item: any): Stats
 	local size = math.clamp(payload ^ Cfg.SIZE_EXP, Cfg.SIZE_MIN, Cfg.SIZE_MAX)
 	local span = math.max(1, #Cfg.DAMAGE - 1)
 	local through = (stars - 1) / span
+	local hitMult, radiusMult = Detonation.stageMults(stageOf(item))
 
 	local fuse = lerp(Cfg.FUSE_MIN, Cfg.FUSE_MAX, roll("bombfuse:", uid)) + (stars - 1) * Cfg.FUSE_PER_STAR
 	local cooldown = lerp(Cfg.COOLDOWN_MIN, Cfg.COOLDOWN_MAX, through)
@@ -67,18 +83,20 @@ function Bombing.statsFor(item: any): Stats
 
 	return {
 		stars = stars,
-		damage = math.floor(Cfg.DAMAGE[stars] * size * vary("bombdmg:", uid) + 0.5),
-		radius = math.floor(Cfg.RADIUS[stars] * size * vary("bombrad:", uid) * 10 + 0.5) / 10,
+		damage = math.floor(Cfg.DAMAGE[stars] * hitMult * size * vary("bombdmg:", uid) + 0.5),
+		radius = math.floor(Cfg.RADIUS[stars] * radiusMult * size * vary("bombrad:", uid) * 10 + 0.5) / 10,
 		fuse = math.floor(fuse * 10 + 0.5) / 10,
 		cooldown = math.floor(math.clamp(cooldown, Cfg.COOLDOWN_MIN, Cfg.COOLDOWN_MAX) * 10 + 0.5) / 10,
 	}
 end
 
 --- What a typical copy of one nuke does as a bomb (the Index's AVG cells): its rarity's
---- stars at a neutral size roll, no modifier, no per-uid variance.
+--- stars at a neutral size roll, no modifier, no per-uid variance -- but its home
+--- stage's multipliers, like every real copy.
 function Bombing.averageFor(item: any): (number, number)
 	local stars = math.max(1, Rarity.stars(item.rarity, nil, 1))
-	return Cfg.DAMAGE[stars], Cfg.RADIUS[stars]
+	local hitMult, radiusMult = Detonation.stageMults(stageOf(item))
+	return math.floor(Cfg.DAMAGE[stars] * hitMult + 0.5), math.floor(Cfg.RADIUS[stars] * radiusMult * 10 + 0.5) / 10
 end
 
 --- Can this item be dropped as a bomb? Clean nukes only: a crusted lump is still a
