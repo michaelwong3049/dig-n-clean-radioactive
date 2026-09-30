@@ -70,7 +70,14 @@ local seenRemote: any = nil
 -- every roll, so it is worked out when the set changes (load, a first find) rather
 -- than per read. Keyed by UserId because that is what DigService's rollFor holds.
 local stageLuckCache: { [number]: { [number]: number } } = {}
+-- The same, for the multiplier stages (IndexProgress.stageLuckMult, Stages 7-12).
+local stageLuckMultCache: { [number]: { [number]: number } } = {}
 local NO_LUCK: { [number]: number } = table.freeze({})
+
+local function recacheLuck(player: Player, data: any)
+	stageLuckCache[player.UserId] = IndexProgress.stageLuck(data.discovered)
+	stageLuckMultCache[player.UserId] = IndexProgress.stageLuckMult(data.discovered)
+end
 
 -- Called as (player, stageId) the moment a first find completes a stage's index. The
 -- cash bonus needs no push of its own (StatResolver reads `discovered` fresh), but the
@@ -107,7 +114,7 @@ function IdentifyService.identify(player: Player, item: any): (boolean, number?)
 	if first then
 		entry.first = os.time()
 		entry.new = true
-		stageLuckCache[player.UserId] = IndexProgress.stageLuck(data.discovered)
+		recacheLuck(player, data)
 		-- This item was missing a moment ago, so any stage it completes now is newly
 		-- complete. `Items.has` because a stale id in an old save has no def.
 		if Items.has(itemId) then
@@ -218,6 +225,12 @@ function IdentifyService.stageLuck(userId: number): { [number]: number }
 	return stageLuckCache[userId] or NO_LUCK
 end
 
+--- stageId -> dig-luck multiplier from completed Stages 7-12. Empty, never nil, same
+--- as stageLuck.
+function IdentifyService.stageLuckMult(userId: number): { [number]: number }
+	return stageLuckMultCache[userId] or NO_LUCK
+end
+
 --- FILL IN RECORDS FOR FINDS FROM BEFORE THEY WERE KEPT. Every discovered item gets an
 --- entry; the heaviest and the count come from the clean copies still owned (bag,
 --- locker, stands), since those uids still roll their payload. Anything already sold
@@ -275,7 +288,7 @@ function IdentifyService.start()
 	-- on the `index` record each announcement carries.
 	DataService.onLoaded(function(player, data)
 		backfill(data)
-		stageLuckCache[player.UserId] = IndexProgress.stageLuck(data.discovered)
+		recacheLuck(player, data)
 		indexRemote:FireClient(player, { discovered = data.discovered, stats = data.indexStats })
 	end)
 
@@ -294,6 +307,7 @@ function IdentifyService.start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		stageLuckCache[player.UserId] = nil
+		stageLuckMultCache[player.UserId] = nil
 	end)
 end
 

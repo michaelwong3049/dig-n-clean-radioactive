@@ -487,6 +487,14 @@ Tuning.WASH_EYE_FORWARD = 0.4
 -- stocked in two stages count toward both.
 Tuning.INDEX_COMPLETE_LUCK = 0.10
 
+--- FROM THIS STAGE ON, the luck reward is a MULTIPLIER instead: a completed index makes
+--- the detector's luck in that stage x INDEX_COMPLETE_LUCK_MULT, in place of the flat
+--- +INDEX_COMPLETE_LUCK. Stages 7-12 are dug with Twilight detectors (luck 2.80-4.30,
+--- Config/Gear), where +0.10 is a rounding error; x1.1 there is worth +0.28 to +0.43.
+--- Same scope as the flat bonus: that stage's signals only.
+Tuning.INDEX_LUCK_MULT_FROM_STAGE = 7
+Tuning.INDEX_COMPLETE_LUCK_MULT = 1.1
+
 --- The CASH half of the same reward: every stage whose index is complete multiplies ALL
 --- cash earned -- sales and stand income alike (and so away earnings) -- by this much.
 --- Unlike the luck it is not tied to the stage: it stacks across stages, multiplied, so

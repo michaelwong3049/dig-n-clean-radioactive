@@ -440,6 +440,7 @@ local unstockedWarned: { [number]: boolean } = {}
 ---
 --- A COMPLETED INDEX STAGE ADDS ITS LUCK HERE (Tuning.INDEX_COMPLETE_LUCK, via
 --- IdentifyService.stageLuck), on top of the detector's, for signals in that stage only.
+--- Stages 7-12 multiply instead (Tuning.INDEX_COMPLETE_LUCK_MULT, stageLuckMult).
 --- It is the one place every reading goes through, so the ping, the haul and the
 --- unearth cannot disagree about it either.
 ---
@@ -483,7 +484,8 @@ local function rollFor(signal: Signal, stats: StatResolver.Stats, userId: number
 		return cached.itemId, cached.rarity, cached.modifier, cached.crateId
 	end
 
-	local detectorLuck = stats.detectorLuck + (IdentifyService.stageLuck(userId)[signal.stageId] or 0)
+	local detectorLuck = (stats.detectorLuck + (IdentifyService.stageLuck(userId)[signal.stageId] or 0))
+		* (IdentifyService.stageLuckMult(userId)[signal.stageId] or 1)
 	local boost = stats.luckBoost
 	if detectorLuck <= 1 and boost <= 1 then
 		return signal.itemId, signal.rarity, signal.modifier, signal.crateId
