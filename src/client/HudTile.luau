@@ -69,12 +69,12 @@ export type Spec = {
 	-- Optional: a caller that wires its own click (IndexController) leaves it out.
 	onActivated: (() -> ())?,
 	-- Optional: build a wide bar in the LEFT column instead of a grid square, stacked
-	-- above the speed row (1 = right above it, 2 = above that). `slot` is then unused.
+	-- on the left edge's middle (1 = lower, 2 = upper). `slot` is then unused.
 	leftRow: number?,
 }
 
--- THE LEFT-COLUMN BARS (Index, Shop), on request: a rectangle above the cash/speed
--- rows, the picture on its left and the name beside it in the rows' own GothamBlack
+-- THE LEFT-COLUMN BARS (Index, Shop), on request: a solid dark rectangle on the middle
+-- of the left edge, the picture on its left and the name beside it in the rows' own GothamBlack
 -- (UIKit.hudNumber: same outline and drop shadow as the balance).
 local BAR_W = 168
 local BAR_H = 50
@@ -122,10 +122,12 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local glow, icon
 	if bar then
 		local row = spec.leftRow :: number
-		UIKit.onScaleChanged(function()
-			local bottom = Dock.SIDE_COLUMN_TOP + Dock.GAP + (row - 1) * (BAR_H + Dock.GAP) + Dock.sideLift()
-			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 1, -(bottom + BAR_H / 2))
-		end)
+		-- Centred on the left edge's middle as a pair: row 1 just under it, row 2 over.
+		local up = (row - 1.5) * (BAR_H + Dock.GAP)
+		button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -up)
+		-- Solid, a very dark shade of the bar's own colour.
+		button.BackgroundColor3 = spec.color:Lerp(Color3.new(0, 0, 0), 0.8)
+		button.BackgroundTransparency = 0
 
 		local iconCentre = 6 + BAR_ICON / 2
 		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, BAR_GLOW, spec.color)
