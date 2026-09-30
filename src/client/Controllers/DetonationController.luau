@@ -91,9 +91,10 @@ local DUST = Color3.fromHex("6E6456")
 local CHUNK = Color3.fromHex("2B2621")
 local SCORCH = Color3.fromHex("1C1814")
 local ASH = Color3.fromHex("3A332B")
-local RAD_GLOW = Color3.fromHex("A6FF3E") -- fissures and the orb's heart
+local RAD_GLOW = Color3.fromHex("A6FF3E") -- the light pooled in a crater, the fireball's core
 local RAD_AIR = Color3.fromHex("8CFF4A") -- the orb's shell
 local RAD_HAZE = Color3.fromHex("5ED62A")
+local CRACK_GLOW = Color3.fromHex("4FB81F") -- the fissures: dim enough that Neon stays green
 local SCREEN_FLASH = Color3.fromHex("FFE6B8") -- warm; the white screen means aura failure
 local TINT_INSIDE = Color3.fromHex("C9FFB0")
 local FUSE_WARM = Color3.fromHex("F59E0B")
@@ -869,9 +870,9 @@ type CraterFx = {
 	bornAt: number,
 	orb: BasePart,
 	haze: BasePart,
-	heart: BasePart,
 	light: PointLight,
 	motes: ParticleEmitter,
+	glows: { { emitter: ParticleEmitter, rate: number } },
 	fissures: { BasePart },
 	ground: { { part: BasePart, base: number } },
 	rate: number,
@@ -937,24 +938,66 @@ local function buildCrater(marker: BasePart)
 		onGround(slab, 0)
 	end
 
-	-- Fissures: the ground split open and glowing, radiating from the centre.
+	-- Fissures: the ground split open and glowing. Each crack wanders -- a few short
+	-- segments, each turned a little off the last -- and narrows as it goes, starting
+	-- clear of the centre rather than spoking out of one point. Some fork. A dim green,
+	-- not RAD_GLOW: at full brightness Neon blooms into flat yellow lines. OPAQUE, and
+	-- dimmed by colour as the crater cools (stepCraters): a transparent part writes no
+	-- depth, so the glow sprites over the crater floor washed the far cracks out.
 	local fissures: { BasePart } = {}
-	local count = 6 + order
+	local glows: { { emitter: ParticleEmitter, rate: number } } = {}
+	local function crack(from: Vector3, heading: number, length: number, width: number, depth: number)
+		local segments = 3 + math.random(0, 1)
+		local at = from
+		for index = 1, segments do
+			heading += (math.random() - 0.5) * 0.9
+			local step = length / segments * (0.7 + math.random() * 0.6)
+			local w = width * (1 - (index - 1) / segments * 0.7)
+			local direction = Vector3.new(math.cos(heading), 0, math.sin(heading))
+			local to = at + direction * step
+			local mid = (at + to) / 2
+			local segment = fxPart()
+			segment.Material = Enum.Material.Neon
+			segment.Color = CRACK_GLOW
+			-- Long by a width at each end, so the joints overlap instead of gapping.
+			segment.Size = Vector3.new(w, 0.06, step + w)
+			segment.CFrame = CFrame.lookAt(mid, mid + direction) + Vector3.new(0, 0.14, 0)
+			segment.Parent = folder
+			table.insert(fissures, segment)
+
+			-- Every other segment leaks a thread of green vapour along its length.
+			if index % 2 == 1 then
+				local vapour = emitter(segment, {
+					Texture = TEX_SMOKE,
+					Color = colours(0, RAD_HAZE, 1, SMOKE_PALE),
+					LightEmission = 0.3,
+					Size = seq(0, 0.6, 1, 2.2),
+					Transparency = seq(0, 0.8, 0.5, 0.85, 1, 1),
+					Lifetime = NumberRange.new(1.8, 3),
+					Speed = NumberRange.new(0.8, 1.8),
+					SpreadAngle = Vector2.new(10, 10),
+					Rotation = NumberRange.new(0, 360),
+					RotSpeed = NumberRange.new(-20, 20),
+					Rate = 0.8,
+				})
+				table.insert(glows, { emitter = vapour, rate = 0.8 })
+			end
+
+			if depth > 0 and index == 2 and math.random() < 0.5 then
+				crack(to, heading + (if math.random() < 0.5 then 0.7 else -0.7), length * 0.45, w * 0.8, depth - 1)
+			end
+			at = to
+		end
+	end
+	local count = 6 + math.floor(order / 2)
 	for index = 1, count do
-		local angle = (index / count) * math.pi * 2 + (math.random() - 0.5) * 0.5
-		local length = radius * (0.3 + math.random() * 0.4)
-		local fissure = fxPart()
-		fissure.Material = Enum.Material.Neon
-		fissure.Color = RAD_GLOW
-		fissure.Size = Vector3.new(0.18 + math.random() * 0.22, 0.08, length)
-		local mid = position + Vector3.new(math.cos(angle), 0, math.sin(angle)) * (radius * 0.08 + length / 2)
-		fissure.CFrame = CFrame.lookAt(mid, mid + Vector3.new(math.cos(angle), 0, math.sin(angle))) + Vector3.new(0, 0.12, 0)
-		fissure.Parent = folder
-		table.insert(fissures, fissure)
+		local angle = (index / count) * math.pi * 2 + (math.random() - 0.5) * 0.6
+		local start = position + Vector3.new(math.cos(angle), 0, math.sin(angle)) * radius * (0.12 + math.random() * 0.06)
+		crack(start, angle, radius * (0.3 + math.random() * 0.3), 0.45 + math.random() * 0.2, 1)
 	end
 
 	-- THE ORB. A ForceField-material shell reads as a shimmer of hot air rather than a
-	-- solid; a faint haze just inside it gives it a body; a small hot heart on the
+	-- solid; a faint haze just inside it gives it a body; light pooled on the
 	-- ground lights it from within.
 	local orb = fxPart("Ball")
 	orb.Material = Enum.Material.ForceField
@@ -970,20 +1013,52 @@ local function buildCrater(marker: BasePart)
 	haze.CFrame = CFrame.new(position)
 	haze.Parent = folder
 
-	local heart = fxPart("Ball")
-	heart.Material = Enum.Material.Neon
-	heart.Color = RAD_GLOW
-	heart.Transparency = 0.25
-	heart.Size = Vector3.one * math.max(1, radius * 0.16)
-	heart.CFrame = CFrame.new(position + Vector3.new(0, 0.3, 0))
-	heart.Parent = folder
+	-- The hot centre: light pooled on the crater floor and a slow rising glow, not a
+	-- solid ball. The pool is a sprite laid flat (VelocityPerpendicular with a token
+	-- upward speed), soft-edged, breathing as new ones replace old. Heights: scorch top
+	-- 0.13, pool 0.15, fissure tops 0.17 -- above the scorch, under the cracks.
+	local core = fxPart()
+	core.Transparency = 1
+	core.Size = Vector3.one
+	core.CFrame = CFrame.new(position + Vector3.new(0, 0.15, 0))
+	core.Parent = folder
+
+	local pool = emitter(core, {
+		Texture = TEX_SMOKE,
+		Orientation = Enum.ParticleOrientation.VelocityPerpendicular,
+		Color = colours(0, RAD_GLOW, 1, RAD_HAZE),
+		LightEmission = 1,
+		Size = seq(0, cap(radius * 0.4), 1, cap(radius * 0.55)),
+		Transparency = seq(0, 1, 0.3, 0.55, 0.7, 0.6, 1, 1),
+		Lifetime = NumberRange.new(1.6, 2.4),
+		Speed = NumberRange.new(0.01, 0.01),
+		Rotation = NumberRange.new(0, 360),
+		RotSpeed = NumberRange.new(-8, 8),
+		Rate = 2.5,
+	})
+	table.insert(glows, { emitter = pool, rate = 2.5 })
+
+	local rising = emitter(core, {
+		Texture = TEX_SMOKE,
+		Color = colours(0, RAD_GLOW, 0.5, RAD_HAZE, 1, SMOKE_PALE),
+		LightEmission = 0.6,
+		Size = seq(0, cap(radius * 0.12), 1, cap(radius * 0.3)),
+		Transparency = seq(0, 1, 0.2, 0.7, 1, 1),
+		Lifetime = NumberRange.new(2, 3),
+		Speed = NumberRange.new(1, 2.5),
+		SpreadAngle = Vector2.new(15, 15),
+		Rotation = NumberRange.new(0, 360),
+		RotSpeed = NumberRange.new(-25, 25),
+		Rate = 3,
+	})
+	table.insert(glows, { emitter = rising, rate = 3 })
 
 	local light = Instance.new("PointLight")
 	light.Color = RAD_GLOW
 	light.Brightness = 2.5
 	light.Range = math.min(60, radius * 1.6)
 	light.Shadows = false
-	light.Parent = heart
+	light.Parent = core
 
 	local rate = math.clamp(radius * radius * 0.12, 10, 110)
 	local motes = emitter(orb, {
@@ -1010,9 +1085,9 @@ local function buildCrater(marker: BasePart)
 		bornAt = bornAt,
 		orb = orb,
 		haze = haze,
-		heart = heart,
 		light = light,
 		motes = motes,
+		glows = glows,
 		fissures = fissures,
 		ground = ground,
 		rate = rate,
@@ -1047,15 +1122,23 @@ local function stepCraters(now: number, clock: number)
 		fx.haze.Size = Vector3.one * math.max(0.05, radius * 1.94 * breathe)
 		fx.orb.Transparency = if strength <= 0 then 1 else 0
 		fx.haze.Transparency = 1 - 0.1 * strength
-		fx.heart.Transparency = 1 - 0.75 * strength * (0.85 + 0.15 * math.sin(clock * 6))
-		fx.light.Brightness = 2.5 * strength
+		fx.light.Brightness = 2.5 * strength * (0.85 + 0.15 * math.sin(clock * 6))
 		fx.motes.Rate = fx.rate * strength
-		for _, fissure in fx.fissures do
-			fissure.Transparency = 1 - strength * (0.75 + 0.25 * math.sin(clock * 3 + fissure.Size.Z))
+		for _, glow in fx.glows do
+			glow.emitter.Rate = glow.rate * strength
 		end
-		-- The scorch outlives the heat a little, then goes with the marker.
+		-- The scorch outlives the heat a little, then goes with the marker. The cracks
+		-- cool from glowing green to dark as the heat goes, and fade out WITH the scorch
+		-- -- opaque until then, see buildCrater -- or they are left as black lines on
+		-- bare ground.
+		local fade = math.clamp(1 - strength * 1.5, 0, 1)
 		for _, entry in fx.ground do
-			entry.part.Transparency = entry.base + (1 - entry.base) * math.clamp(1 - strength * 1.5, 0, 1)
+			entry.part.Transparency = entry.base + (1 - entry.base) * fade
+		end
+		for _, fissure in fx.fissures do
+			local heat = strength * (0.8 + 0.2 * math.sin(clock * 3 + fissure.Size.Z * 2))
+			fissure.Color = SCORCH:Lerp(CRACK_GLOW, heat)
+			fissure.Transparency = fade
 		end
 
 		if root and radius > 0 then
