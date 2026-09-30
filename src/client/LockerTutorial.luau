@@ -46,8 +46,8 @@ local SKIN = {
 	button = Color3.fromHex("2A3036"),
 	next = Color3.fromHex("3FBF5A"),
 	ink = Color3.fromHex("1A1A1A"),
-	headline = Enum.Font.LuckiestGuy,
-	label = Enum.Font.FredokaOne,
+	headline = Enum.Font.GothamBlack,
+	label = Enum.Font.GothamBlack,
 }
 
 --- How dark the rest of the screen goes: 0 is solid black.

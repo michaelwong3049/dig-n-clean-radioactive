@@ -55,8 +55,8 @@ local SKIN = {
 	locker = Color3.fromHex("A855FF"),
 	hazard = Color3.fromHex("E8C33C"),
 	ink = Color3.fromHex("1A1A1A"),
-	headline = Enum.Font.LuckiestGuy,
-	label = Enum.Font.FredokaOne,
+	headline = Enum.Font.GothamBlack,
+	label = Enum.Font.GothamBlack,
 }
 
 --- The widest the panel is allowed to get, padding included. Same as the trader's.

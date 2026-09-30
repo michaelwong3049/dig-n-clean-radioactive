@@ -550,34 +550,34 @@ Gear.STAT_META = {
 	Detector = {
 		order = { "radius", "depth", "luck" },
 		hidden = { clarity = true },
-		radius = { label = "RADIUS", color = C.blue },
-		depth = { label = "DEPTH", color = C.red },
-		luck = { label = "LUCK", color = C.green },
+		radius = { label = "Radius", color = C.blue },
+		depth = { label = "Depth", color = C.red },
+		luck = { label = "Luck", color = C.green },
 	},
 	Magnet = {
 		order = { "pullSpeed", "draw", "maxGrip" },
 		hidden = {},
-		pullSpeed = { label = "PULL", color = C.yellow },
-		draw = { label = "DRAW", color = C.cyan },
-		maxGrip = { label = "GRIP", color = C.purple },
+		pullSpeed = { label = "Pull", color = C.yellow },
+		draw = { label = "Draw", color = C.cyan },
+		maxGrip = { label = "Grip", color = C.purple },
 	},
 	Cleaner = {
 		order = { "power", "volume" },
 		hidden = {},
-		power = { label = "POWER", color = C.orange },
-		volume = { label = "VOLUME", color = C.blue },
+		power = { label = "Power", color = C.orange },
+		volume = { label = "Volume", color = C.blue },
 	},
 	Aura = {
 		order = { "reduction", "tolerance", "capacity", "haulPenalty" },
 		hidden = {},
-		reduction = { label = "SHIELD", color = C.cyan, complement = true, scale = "log" },
-		tolerance = { label = "TOLERANCE", color = C.green },
-		capacity = { label = "CARRY", color = C.yellow },
+		reduction = { label = "Shield", color = C.cyan, complement = true, scale = "log" },
+		tolerance = { label = "Tolerance", color = C.green },
+		capacity = { label = "Carry", color = C.yellow },
 		-- Right under CARRY because it is the other half of the same question: how
 		-- much you can take, then how much taking it slows you. `lowerIsBetter` is
 		-- the only use of that flag in the game: 0.20 beats 1.20, and drawn straight
 		-- the bar would empty as the aura got better.
-		haulPenalty = { label = "HAUL", color = C.purple, lowerIsBetter = true },
+		haulPenalty = { label = "Haul", color = C.purple, lowerIsBetter = true },
 	},
 	-- NO BOOTS OR SATCHEL ENTRY. Both tracks are retired (see the RETIRED block above)
 	-- and are not in Gear.TRACKS, which is the table Spec's coverage check and the shop
