@@ -4429,8 +4429,7 @@ end
 --- its shoulders flush against the inner shoulders' east face, stopping on the corridor
 --- wall's OUTER face -- and OUTER_WALL_HEIGHT tall, so it rises behind the inner wall as
 --- a stepped cliff. It ends at the Stage 1 corner, where the corridor wall carries on at
---- the inner height. (ModelGallery's yard sits due west at radius RING_OUTER + 24, so it
---- still clears the outer ring's back face at RING_OUTER + 16.)
+--- the inner height.
 local function buildBaseWalls(parent: Instance)
 	local layers: { CampWallLayer } = {
 		{
