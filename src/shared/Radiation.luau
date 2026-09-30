@@ -85,13 +85,25 @@ function Radiation.ambientAt(stageBaseRads: number, hotPocketMult: number?): num
 	return stageBaseRads * (hotPocketMult or 1)
 end
 
+--- Seconds until a filling meter kills you: the time to fill it, plus the heavy
+--- full-meter sickness taking a full health bar (1 / SICKNESS_FULL_METER). An
+--- estimate on purpose: it ignores the lighter 80%+ drain on the way up, which the
+--- server's live clock already takes the min against (ExposureService).
+local function toFullMeterDeath(reading: Reading, exposure: number): number
+	if reading.net <= 1e-6 and exposure < Tuning.EXPOSURE_CAP then
+		return math.huge
+	end
+	local toFull = math.max(0, Tuning.EXPOSURE_CAP - exposure) / math.max(reading.net, 1e-6)
+	return toFull + 1 / Tuning.SICKNESS_FULL_METER
+end
+
 --- Seconds until the player goes down, from either cause. This is the number that
 --- renders as `SURVIVABLE: 0:14` (PLAN §3.5).
 ---
 --- Returning the honest number is a deliberate design choice: a gamble where you
 --- cannot see the odds is a trap, and traps make people quit.
 function Radiation.survivableSeconds(reading: Reading, exposure: number, health: number): number
-	local toBlackout = if reading.net > 1e-6 then (Tuning.EXPOSURE_CAP - exposure) / reading.net else math.huge
+	local toBlackout = toFullMeterDeath(reading, exposure)
 	local toBurnout = if reading.healthBurn > 1e-6 then health / reading.healthBurn else math.huge
 	return math.min(toBlackout, toBurnout)
 end
@@ -99,7 +111,7 @@ end
 --- Which of the two failure states is actually closer. The HUD uses this to pick
 --- its colour language: burn is white, exposure is green. PLAN §14.
 function Radiation.dominantThreat(reading: Reading, exposure: number, health: number): string?
-	local toBlackout = if reading.net > 1e-6 then (Tuning.EXPOSURE_CAP - exposure) / reading.net else math.huge
+	local toBlackout = toFullMeterDeath(reading, exposure)
 	local toBurnout = if reading.healthBurn > 1e-6 then health / reading.healthBurn else math.huge
 	if toBlackout == math.huge and toBurnout == math.huge then
 		return nil
@@ -116,17 +128,21 @@ function Radiation.greedFraction(reading: Reading, stats: Stats): number
 end
 
 --- HP/sec lost to radiation sickness at a given meter fraction (0..1). Zero below
---- SICKNESS_DRAIN_AT, then a straight ramp to SICKNESS_DRAIN_MAX at a full meter.
+--- SICKNESS_DRAIN_AT, then a straight ramp up to SICKNESS_DRAIN_MAX, then a full
+--- meter jumps to SICKNESS_FULL_METER of `maxHealth` per second (heavy damage).
 --- The caller decides WHERE it applies (stages only, see Tuning).
-function Radiation.sicknessDrain(exposureFrac: number): number
+function Radiation.sicknessDrain(exposureFrac: number, maxHealth: number): number
 	if exposureFrac < Tuning.SICKNESS_DRAIN_AT then
 		return 0
+	end
+	if exposureFrac >= 1 then
+		return maxHealth * Tuning.SICKNESS_FULL_METER
 	end
 	local t = math.clamp((exposureFrac - Tuning.SICKNESS_DRAIN_AT) / (1 - Tuning.SICKNESS_DRAIN_AT), 0, 1)
 	return Tuning.SICKNESS_DRAIN_MIN + (Tuning.SICKNESS_DRAIN_MAX - Tuning.SICKNESS_DRAIN_MIN) * t
 end
 
---- 0 = clean, 1 = blackout. Drives the vignette and the audio bed.
+--- 0 = clean, 1 = a full meter (heavy sickness). Drives the vignette and the audio bed.
 function Radiation.exposureFraction(exposure: number): number
 	return math.clamp(exposure / Tuning.EXPOSURE_CAP, 0, 1)
 end
