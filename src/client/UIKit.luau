@@ -644,10 +644,10 @@ Dock.SIDE_ICON = 88
 Dock.SIDE_ICON_MIDDLE = 0.53
 -- NEGATIVE: the rows overlap. Most of the space between them is transparent margin
 -- inside the two pictures (~12px under the sneaker's sole, ~15px over the bundle's top
--- edge at these sizes), so a positive gap reads as a big hole. -4 leaves ~23px of air
--- between the sole and the bundle: -22 (~7px) and then -12 (~15px) were each asked to
--- be a little looser.
-Dock.PAIR_GAP = -4
+-- edge at these sizes), so a positive gap reads as a big hole. -8 leaves ~19px of air
+-- between the sole and the bundle. Tuned by eye in both directions: -22 (~7px) and -12
+-- (~15px) were each "a little looser", then -4 (~23px) "a bit smaller".
+Dock.PAIR_GAP = -8
 -- Each row's BOTTOM edge as an offset UP from the screen's bottom edge (Position y is
 -- 1-scale minus this, anchor y = 1), before Dock.sideLift(). Cash sits on the same
 -- margin as the hotbar; speed stacks on it; SIDE_COLUMN_TOP is the pair's top edge.
