@@ -54,8 +54,7 @@ local PANEL = {
 	tray = Color3.fromHex("17191C"),
 	header = Color3.fromHex("3A3E45"),
 	row = Color3.fromHex("0C0D0F"),
-	well = Color3.fromHex("33373D"),
-	wellGlow = Color3.fromHex("C9CED6"),
+	well = Color3.fromHex("4A4F57"),
 	dim = Color3.fromHex("A9B0B8"),
 	gold = Color3.fromHex("F5C24B"),
 	red = Color3.fromHex("E3201B"),
@@ -77,7 +76,7 @@ local PANEL_H = 470
 -- The pair (tray + Equip Best under it) sits this far above the right edge's middle.
 local RAISE = 30
 local PAD = 10
--- The lighter header box across the tray's top: title left, count + rate right.
+-- The lighter header box across the tray's top: title + rate left, count right.
 local HEADER_H = 48
 local NOTICE_H = 20
 local LIST_TOP = HEADER_H + 4 + NOTICE_H + 4
@@ -91,7 +90,11 @@ local EQUIP_GAP = 18
 local TAB_W = 34
 local TAB_H = 52
 -- Air between the ">" tab and the tray.
-local TAB_GAP = 8
+local TAB_GAP = 16
+-- The names' moving rarity shimmer: how far the bright band lifts the colour toward
+-- white, and seconds per sweep.
+local SHIMMER_LIGHT = 0.75
+local SHIMMER_PERIOD = 2.2
 
 -- The slide: a quick ease out on the way in, a quicker ease in on the way out.
 local SLIDE_IN = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -130,18 +133,13 @@ local function formatRate(perSecond: number): string
 	return string.format("$%.2f/s", perSecond)
 end
 
-local function round(parent: Instance, radius: number)
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, radius)
-	corner.Parent = parent
-end
-
 local function edge(parent: Instance, color: Color3, thickness: number): UIStroke
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = color
 	stroke.Thickness = thickness
 	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	-- Square corners everywhere, on request: mitred, so the outline stays sharp too.
+	stroke.LineJoinMode = Enum.LineJoinMode.Miter
 	stroke.Parent = parent
 	return stroke
 end
@@ -176,7 +174,6 @@ local function chunky(parent: Instance, name: string, text: string, size: Vector
 	button.BorderSizePixel = 0
 	button.Text = ""
 	button.Parent = parent
-	round(button, 6)
 	edge(button, PANEL.ink, 3)
 	-- A lighter lip along the top, the reference's bevel.
 	local lip = Instance.new("Frame")
@@ -187,7 +184,6 @@ local function chunky(parent: Instance, name: string, text: string, size: Vector
 	lip.Position = UDim2.fromOffset(4, 3)
 	lip.Size = UDim2.new(1, -8, 0.32, 0)
 	lip.Parent = button
-	round(lip, 4)
 	inked(button, {
 		Name = "Label",
 		Text = text,
@@ -289,52 +285,50 @@ local function newRow(parent: Instance, uid: string): Row
 	frame.BackgroundColor3 = PANEL.row
 	frame.BorderSizePixel = 0
 	frame.Parent = parent
-	round(frame, 6)
 	edge(frame, PANEL.ink, 2)
 
-	-- The model, on a light well with a soft glow behind it.
+	-- The model on its own grey block, filling the row's left end edge to edge.
 	local well = Instance.new("Frame")
 	well.Name = "Well"
-	well.Position = UDim2.fromOffset(6, 6)
-	well.Size = UDim2.fromOffset(ART_W, ROW_H - 12)
+	well.Size = UDim2.new(0, ART_W, 1, 0)
 	well.BackgroundColor3 = PANEL.well
 	well.BorderSizePixel = 0
 	well.ClipsDescendants = true
 	well.Parent = frame
-	round(well, 5)
 	edge(well, PANEL.ink, 2)
-	local glow = Artwork.picture(well, "Glow", Artwork.IMAGE.glow, ART_W + 10, PANEL.wellGlow)
-	glow.AnchorPoint = Vector2.new(0.5, 0.5)
-	glow.Position = UDim2.fromScale(0.5, 0.5)
-	glow.ImageTransparency = 0.55
 	local art = ItemArt.newViewport(well)
 	art.ZIndex = 2
 
-	local textLeft = 6 + ART_W + 10
+	local textLeft = ART_W + 10
 	local textW = -(textLeft + UNEQUIP_W + 16)
 	local name = inked(frame, {
 		Name = "Name",
 		Text = "",
-		TextSize = 19,
+		TextSize = 21,
 		TextWrapped = true,
 		TextYAlignment = Enum.TextYAlignment.Center,
-		Position = UDim2.fromOffset(textLeft, 6),
-		Size = UDim2.new(1, textW, 0, 50),
+		Position = UDim2.fromOffset(textLeft, 4),
+		Size = UDim2.new(1, textW, 0, 52),
 	})
+	-- The rarity shimmer: the name is white under a gradient in its rarity colour
+	-- with a bright band that sweeps across it (RenderStepped moves `Offset`).
+	local shimmer = Instance.new("UIGradient")
+	shimmer.Name = "Shimmer"
+	shimmer.Parent = name
 	local stars = Instance.new("TextLabel")
 	stars.Name = "Stars"
 	stars.BackgroundTransparency = 1
 	stars.Font = PANEL.font
-	stars.TextSize = 13
+	stars.TextSize = 16
 	stars.TextColor3 = PANEL.gold
 	stars.TextXAlignment = Enum.TextXAlignment.Left
 	stars.TextTruncate = Enum.TextTruncate.AtEnd
 	stars.RichText = true
 	stars.Position = UDim2.fromOffset(textLeft, 56)
-	stars.Size = UDim2.new(1, textW, 0, 18)
+	stars.Size = UDim2.new(1, textW, 0, 20)
 	stars.Parent = frame
 
-	local unequip = chunky(frame, "Unequip", "Unequip", Vector2.new(UNEQUIP_W, UNEQUIP_H), 22, PANEL.red, PANEL.redHover)
+	local unequip = chunky(frame, "Unequip", "Unequip", Vector2.new(UNEQUIP_W, UNEQUIP_H), 27, PANEL.red, PANEL.redHover)
 	unequip.AnchorPoint = Vector2.new(1, 0.5)
 	unequip.Position = UDim2.new(1, -10, 0.5, 0)
 
@@ -366,12 +360,40 @@ local function newRow(parent: Instance, uid: string): Row
 	return row
 end
 
---- The name + rate in the row's rarity colour (Anomaly is repainted every frame).
+--- The name's shimmer gradient: its rarity colour with a lighter band in the middle
+--- (Anomaly: the spectrum itself, re-hued every frame so it keeps cycling).
 local function tint(row: Row, now: number)
-	local color = if row.entry.rarity == "Anomaly"
-		then Rarity.anomalyHue(now / Rarity.ANOMALY_CYCLE)
-		else rarityColor(row.entry.rarity)
-	row.name.TextColor3 = color
+	local shimmer = row.name:FindFirstChild("Shimmer") :: UIGradient
+	if row.entry.rarity == "Anomaly" then
+		local keys = {}
+		for i = 0, 4 do
+			local x = i / 4
+			keys[i + 1] = ColorSequenceKeypoint.new(x, Rarity.anomalyHue(now / Rarity.ANOMALY_CYCLE + x * 0.5))
+		end
+		shimmer.Color = ColorSequence.new(keys)
+		return
+	end
+	local color = rarityColor(row.entry.rarity)
+	local bright = color:Lerp(PANEL.white, SHIMMER_LIGHT)
+	shimmer.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, color),
+		ColorSequenceKeypoint.new(0.32, color),
+		ColorSequenceKeypoint.new(0.5, bright),
+		ColorSequenceKeypoint.new(0.68, color),
+		ColorSequenceKeypoint.new(1, color),
+	})
+end
+
+--- Slide every name's bright band across it, once per SHIMMER_PERIOD. The gradient is
+--- twice the label's width of travel (-1 to 1), so the band enters and leaves cleanly.
+local function sweep(now: number)
+	local offset = ((now / SHIMMER_PERIOD) % 1) * 2 - 1
+	for _, row in rows do
+		local shimmer = row.name:FindFirstChild("Shimmer") :: UIGradient?
+		if shimmer then
+			shimmer.Offset = Vector2.new(if row.entry and row.entry.rarity == "Anomaly" then 0 else offset, 0)
+		end
+	end
 end
 
 local function render()
@@ -492,7 +514,6 @@ local function buildPanel(): ScreenGui
 	tray.BorderSizePixel = 0
 	tray.ZIndex = 2
 	tray.Parent = panel
-	round(tray, 8)
 	edge(tray, PANEL.ink, 4)
 	local padding = Instance.new("UIPadding")
 	padding.PaddingTop = UDim.new(0, PAD)
@@ -501,8 +522,8 @@ local function buildPanel(): ScreenGui
 	padding.PaddingRight = UDim.new(0, PAD)
 	padding.Parent = tray
 
-	-- The header box: a lighter grey plate over the list, title left, how full the
-	-- stands are and what they pay right.
+	-- The header box: a lighter grey plate over the list. The title with what the
+	-- stands pay beside it on the left; how full they are, on its own, on the right.
 	local header = Instance.new("Frame")
 	header.Name = "Header"
 	header.Size = UDim2.new(1, 0, 0, HEADER_H)
@@ -510,37 +531,42 @@ local function buildPanel(): ScreenGui
 	header.BorderSizePixel = 0
 	header.ZIndex = 3
 	header.Parent = tray
-	round(header, 6)
 	edge(header, PANEL.ink, 2)
 
-	inked(header, {
+	local title = inked(header, {
 		Name = "Title",
 		Text = "Nukes",
 		TextSize = 30,
+		AutomaticSize = Enum.AutomaticSize.X,
 		Position = UDim2.fromOffset(12, 0),
-		Size = UDim2.new(0, 140, 1, 0),
-		ZIndex = 4,
-	})
-	local count = inked(header, {
-		Name = "Count",
-		Text = "",
-		TextSize = 14,
-		TextColor3 = PANEL.dim,
-		TextXAlignment = Enum.TextXAlignment.Right,
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 5),
-		Size = UDim2.fromOffset(220, 16),
+		Size = UDim2.fromScale(0, 1),
 		ZIndex = 4,
 	})
 	local rate = inked(header, {
 		Name = "Rate",
 		Text = "",
-		TextSize = 20,
+		TextSize = 22,
 		TextColor3 = PANEL.gold,
+		Position = UDim2.fromOffset(12, 2),
+		Size = UDim2.new(0, 170, 1, 0),
+		ZIndex = 4,
+	})
+	-- Beside the title, however wide the title draws.
+	local function besideTitle()
+		local scale = UIKit.canvasScale(canvas)
+		rate.Position = UDim2.fromOffset(12 + title.AbsoluteSize.X / scale + 10, 2)
+	end
+	title:GetPropertyChangedSignal("AbsoluteSize"):Connect(besideTitle)
+	besideTitle()
+	local count = inked(header, {
+		Name = "Count",
+		Text = "",
+		TextSize = 20,
+		TextColor3 = PANEL.white,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -12, 0, 21),
-		Size = UDim2.fromOffset(220, 22),
+		Position = UDim2.new(1, -12, 0, 2),
+		Size = UDim2.new(0, 170, 1, 0),
 		ZIndex = 4,
 	})
 	local notice = inked(tray, {
@@ -592,7 +618,7 @@ local function buildPanel(): ScreenGui
 	tab.ZIndex = 1
 	tab.Activated:Connect(Nukes.close)
 
-	local equip = chunky(panel, "EquipBest", "Equip Best", Vector2.new(EQUIP_W, EQUIP_H), 30, PANEL.green, PANEL.greenHover)
+	local equip = chunky(panel, "EquipBest", "Equip Best", Vector2.new(EQUIP_W, EQUIP_H), 36, PANEL.green, PANEL.greenHover)
 	equip.AnchorPoint = Vector2.new(1, 0)
 	equip.Position = UDim2.fromOffset(PANEL_W, PANEL_H + EQUIP_GAP)
 	-- A heavier black border than the other buttons, no white rim (on request).
@@ -664,7 +690,8 @@ function Nukes.start()
 	Net.get("CarryState").OnClientEvent:Connect(onChange)
 	Net.get("IncomeState").OnClientEvent:Connect(onChange)
 
-	-- Anomaly names cycle their spectrum; only while the panel is up.
+	-- The names' shimmer sweeps and Anomaly names cycle their spectrum; only while the
+	-- panel is up.
 	RunService.RenderStepped:Connect(function()
 		if not (ui.panel and ui.panel.Visible) then
 			return
@@ -675,6 +702,7 @@ function Nukes.start()
 				tint(row, now)
 			end
 		end
+		sweep(now)
 	end)
 end
 
