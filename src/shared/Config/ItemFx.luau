@@ -1572,17 +1572,25 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Anchor Nuke. The ship's bell rocks with its clapper, and a gold glint crosses
-	-- the bands and the anchor ring.
+	-- Anchor Nuke. The ship's bell rocks on its bracket, the nozzle burns, and a
+	-- gold glint crosses the bands and the fluke tips.
 	anchor_nuke = {
 		finish = {
-			{ parts = { "ShipBell", "Clapper" }, material = "Metal", color = Color3.fromHex("E0B04A"), reflectance = 0.2 },
+			{ parts = { "ShipBell" }, material = "Metal", color = Color3.fromHex("E0B04A"), reflectance = 0.2 },
+			{ parts = { "NozzleGlow", "FlameCore", "Flame" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
+		},
+		light = { part = "NozzleGlow", color = Color3.fromHex("FF8A2A"), brightness = 1.2, range = 0.9 },
+		particles = {
+			{ part = "FlameCore", preset = "ember", color = Color3.fromHex("FFB347"), rate = 3 },
 		},
 		spins = {
-			{ parts = { "ShipBell", "Clapper" }, pivot = "BellBracket", axis = "X", mode = "swing", deg = 12, period = 2.4 },
+			{ parts = { "ShipBell" }, pivot = "BellBracket", axis = "X", mode = "swing", deg = 12, period = 2.4 },
+		},
+		anims = {
+			{ kind = "flicker", parts = { "FlameCore", "Flame", "NozzleGlow" }, light = true, period = 0.12, min = 0.5 },
 		},
 		glint = {
-			parts = { "GoldBand", "AnchorRing", "ShipBell" },
+			parts = { "GoldBand", "FlukeTip", "ShipBell" },
 			period = 4,
 			sweep = 0.8,
 			color = GLINT_GOLD,
@@ -1780,10 +1788,15 @@ ItemFx.DEFS = {
 		finish = {
 			{ parts = { "WarnLamp" }, material = "Neon", color = Color3.fromHex("FFB21A") },
 			{ parts = { "ReflectBand" }, reflectance = 0.4 },
+			{ parts = { "NozzleGlow", "FlameCore", "Flame" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
 		},
 		light = { part = "WarnLamp", color = Color3.fromHex("FFB21A"), brightness = 1.2, range = 0.9 },
+		particles = {
+			{ part = "FlameCore", preset = "ember", color = Color3.fromHex("FFB347"), rate = 3 },
+		},
 		anims = {
 			{ kind = "blink", parts = { "WarnLamp" }, light = true, period = 1.0, duty = 0.5, min = 0.15 },
+			{ kind = "flicker", parts = { "FlameCore", "Flame", "NozzleGlow" }, period = 0.12, min = 0.5 },
 		},
 		glint = { parts = { "ReflectBand" }, period = 4, sweep = 0.7, color = Color3.fromHex("FFFFFF"), strength = 1.3 },
 	},
@@ -2061,23 +2074,21 @@ ItemFx.DEFS = {
 		},
 	},
 
-	-- Chasm Nuke. Chained over the drop: vents and nose glow, embers rise, heat rings turn.
+	-- Chasm Nuke. Chained over the drop: vents and nose glow, the nozzle burns and
+	-- embers drift off the vents.
 	chasm_nuke = {
 		finish = {
-			{ parts = { "NoseGlow", "Vent", "Ember" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
-			{ parts = { "HeatRing" }, material = "Neon", color = Color3.fromHex("FFB23A"), transparency = 0.4 },
+			{ parts = { "NoseGlow", "Vent" }, material = "Neon", color = Color3.fromHex("FF6A1A") },
+			{ parts = { "NozzleGlow", "FlameCore", "Flame" }, material = "Neon", color = Color3.fromHex("FF8A2A") },
 		},
 		light = { part = "NoseGlow", color = Color3.fromHex("FF6A1A"), brightness = 1.4, range = 1.0 },
 		particles = {
 			{ part = "Vent1", preset = "ember", color = Color3.fromHex("FF8A3A"), rate = 3 },
 			{ part = "Vent2", preset = "smoke", color = Color3.fromHex("3A2A2A"), rate = 2 },
 		},
-		spins = {
-			{ parts = { "HeatRing" }, pivot = "Body", axis = "Y", rpm = 5 },
-			{ parts = { "Ember" }, pivot = "Body", axis = "Y", mode = "bob", amp = 0.08, period = 2.6, rpm = -3 },
-		},
 		anims = {
-			{ kind = "smoulder", parts = { "NoseGlow", "Vent", "Ember" }, light = true, period = 2.8, min = 0.4 },
+			{ kind = "smoulder", parts = { "NoseGlow", "Vent" }, light = true, period = 2.8, min = 0.4 },
+			{ kind = "flicker", parts = { "FlameCore", "Flame", "NozzleGlow" }, period = 0.12, min = 0.5 },
 		},
 	},
 
@@ -2256,24 +2267,21 @@ ItemFx.DEFS = {
 	},
 
 	-- Warhead Nuke. Arming lights chase round the shell, the fuse tip pulses and the
-	-- nozzle burns on its launch pad.
+	-- main nozzle and both strap-on boosters burn.
 	warhead_nuke = {
 		finish = {
 			{ parts = { "ArmLight" }, material = "Neon", color = Color3.fromHex("FF3A2A") },
 			{ parts = { "FuseTip" }, material = "Neon", color = Color3.fromHex("FFB03A") },
-			{ parts = { "NozzleGlow", "Flame" }, material = "Neon", color = Color3.fromHex("FF7A1A") },
-			{ parts = { "PadLight" }, material = "Neon", color = Color3.fromHex("FFD23A") },
+			{ parts = { "NozzleGlow", "FlameCore", "Flame", "StrapOn1Flame", "StrapOn2Flame" }, material = "Neon", color = Color3.fromHex("FF7A1A") },
 		},
 		light = { part = "NozzleGlow", color = Color3.fromHex("FF7A1A"), brightness = 1.8, range = 1.1 },
 		particles = {
-			{ part = "Flame", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 5 },
-			{ part = "Pad", preset = "smoke", color = Color3.fromHex("8A8A8A"), rate = 2 },
+			{ part = "FlameCore", preset = "flame", color = Color3.fromHex("FF8A2A"), rate = 5 },
 		},
 		anims = {
 			{ kind = "blink", parts = { "ArmLight" }, period = 1.2, duty = 0.4, min = 0.2, stagger = true },
-			{ kind = "blink", parts = { "PadLight" }, period = 1.6, duty = 0.5, min = 0.3, stagger = true },
 			{ kind = "pulse", parts = { "FuseTip" }, period = 0.8, min = 0.3 },
-			{ kind = "flicker", parts = { "Flame", "NozzleGlow" }, light = true, period = 0.12, min = 0.5 },
+			{ kind = "flicker", parts = { "FlameCore", "Flame", "NozzleGlow", "StrapOn1Flame", "StrapOn2Flame" }, light = true, period = 0.12, min = 0.5 },
 		},
 	},
 
@@ -2468,22 +2476,23 @@ ItemFx.DEFS = {
 		light = { part = "LeakStream", color = Color3.fromHex("7CFF3A"), brightness = 1.2, range = 0.9 },
 	},
 
-	-- Stalactite Nuke. Crystal shards at the nose glitter, droplets wink and the pool
-	-- under the stalagmite glows.
+	-- Stalactite Nuke. Toxic crystals at the nose and vents glow and glitter,
+	-- droplets wink down the flowstone and the nozzle burns pale green.
 	stalactite_nuke = {
 		finish = {
-			{ parts = { "NoseCrystalPrism", "NoseCrystalTip", "NoseShard*" }, material = "Glass", color = Color3.fromHex("9AF5E8") },
-			{ parts = { "StalagmiteGlow", "Pool" }, material = "Neon", color = Color3.fromHex("5AE8C8") },
-			{ parts = { "Droplet", "FinDrop" }, material = "Neon", color = Color3.fromHex("B8FFF0") },
+			{ parts = { "NoseCrystalPrism", "NoseCrystalTip", "VentCrystal*" }, material = "Neon", color = Color3.fromHex("9AFF3A") },
+			{ parts = { "NoseShard*" }, material = "Glass", color = Color3.fromHex("C8FF9A") },
+			{ parts = { "Droplet", "FinDrop" }, material = "Neon", color = Color3.fromHex("9AFF3A") },
+			{ parts = { "NozzleGlow", "FlameCore", "Flame" }, material = "Neon", color = Color3.fromHex("E8FFB0") },
 		},
-		light = { part = "StalagmiteGlow", color = Color3.fromHex("5AE8C8"), brightness = 1.2, range = 1.0 },
+		light = { part = "NoseCrystalPrism", color = Color3.fromHex("9AFF3A"), brightness = 1.2, range = 1.0 },
 		particles = {
-			{ part = "NoseCrystalTip", preset = "sparkle", color = Color3.fromHex("C8FFF4"), rate = 3 },
+			{ part = "NoseCrystalTip", preset = "sparkle", color = Color3.fromHex("D8FFB0"), rate = 3 },
 		},
 		anims = {
-			{ kind = "glitter", parts = { "NoseCrystalPrism", "NoseShard*" }, period = 1.6, min = 0.4 },
-			{ kind = "pulse", parts = { "StalagmiteGlow", "Pool" }, light = true, period = 2.6, min = 0.5 },
+			{ kind = "glitter", parts = { "NoseCrystalPrism", "NoseShard*", "VentCrystal*" }, period = 1.6, min = 0.4 },
 			{ kind = "wink", parts = { "Droplet", "FinDrop" }, period = 1.8, min = 0.2, perPart = true },
+			{ kind = "flicker", parts = { "FlameCore", "Flame", "NozzleGlow" }, light = true, period = 0.12, min = 0.5 },
 		},
 	},
 
