@@ -583,8 +583,12 @@ local function stepAuras()
 		-- the position match (the player walked between ticks, a SweepState was dropped)
 		-- must not blink the cracks back out.
 		-- The announced drop needs no reading: its rarity is on the aura, for everyone.
+		-- So does a spot somebody is locked onto (Tuning.AURA_PULLED_ATTR): the puller's
+		-- reading lights it for everyone, but this client's own reading wins if it has one.
+		local pulled = (model :: any):GetAttribute(Tuning.AURA_PULLED_ATTR)
 		local read = entry.rareDrop
 			or (if DetectorController then DetectorController.contactRarityAt(entry.core.Position) else nil)
+			or (if entry.rarity == nil and type(pulled) == "string" then pulled else nil)
 		if read ~= nil and read ~= entry.rarity and crackFolder then
 			entry.rarity = read
 			local hue = Rarity.get(read).color
