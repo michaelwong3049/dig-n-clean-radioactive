@@ -921,65 +921,129 @@ local function buildCrater(marker: BasePart)
 	scorch.CFrame = CFrame.new(position + Vector3.new(0, 0.07, 0)) * CFrame.Angles(0, 0, math.pi / 2)
 	onGround(scorch, 0.05)
 
+	-- Every crater is rolled from its own seed, taken off the marker: every player sees
+	-- the SAME crater, and no two nukes leave the same one.
+	local rng = Random.new(math.floor(bornAt * 1000) + math.floor(position.X) * 7919 + math.floor(position.Z) * 104729)
+	local function roll(lo: number, hi: number): number
+		return lo + rng:NextNumber() * (hi - lo)
+	end
+
+	local function rock(className: string): BasePart
+		local p = Instance.new(className) :: BasePart
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Material = Enum.Material.Slate
+		return p
+	end
+
 	-- The rim: the ground thrown up into one continuous berm round the hole, not a
 	-- ring of loose blocks. Each bearing is a ridge of two wedges back to back -- a
 	-- short steep face down into the crater, a long gentle one out onto the ash -- laid
-	-- edge to edge so the slopes run on round the ring. Its height swells and dips on
-	-- a slow wave, so neighbours never step against each other.
-	local crest = radius * 0.7
+	-- edge to edge so the slopes run on round the ring.
+	--
+	-- Then roughed up, differently every time: thrown harder one way than the other,
+	-- its line wandering in and out, its height rolling on slow waves, every bearing
+	-- nudged, and a notch or two where the lip slumped or was blown out. The waves stay
+	-- slow so neighbours still meet; the roughness is in the shape, not in steps.
+	local crest = radius * roll(0.66, 0.74)
 	local inner = radius * 0.12
-	local outer = radius * 0.24
-	local bermHeight = radius * 0.09
+	local outer = radius * roll(0.2, 0.28)
+	local bermHeight = radius * 0.09 * roll(0.8, 1.25)
 	local bearings = 24
-	local phase1, phase2 = math.random() * math.pi * 2, math.random() * math.pi * 2
-	-- Wide enough to close the gap at the outer foot; the inner ends overlap instead.
-	local bermWidth = 2 * (crest + outer) * math.sin(math.pi / bearings) * 1.05
+
+	local throwDir = roll(0, math.pi * 2)
+	local throwBias = roll(0, 0.4)
+	local freq1, freq2 = rng:NextInteger(1, 2), rng:NextInteger(3, 4)
+	local amp1, amp2 = roll(0.15, 0.35), roll(0.08, 0.2)
+	local phase1, phase2, phase3 = roll(0, math.pi * 2), roll(0, math.pi * 2), roll(0, math.pi * 2)
+	local wanderFreq = rng:NextInteger(2, 3)
+
+	local slump: { [number]: number } = {}
+	for _ = 1, rng:NextInteger(0, 2) do
+		local at = rng:NextInteger(1, bearings)
+		local depth = roll(0.25, 0.45)
+		slump[at] = math.min(slump[at] or 1, depth)
+		for _, side in { at - 1, at + 1 } do
+			local neighbour = (side - 1) % bearings + 1
+			slump[neighbour] = math.min(slump[neighbour] or 1, (1 + depth) / 2)
+		end
+	end
+
+	-- Wide enough to close the gap at the outer foot even where the line wanders out;
+	-- the inner ends overlap instead.
+	local bermWidth = 2 * (crest * 1.08 + outer) * math.sin(math.pi / bearings) * 1.08
+	local crestTops: { { at: Vector3, h: number } } = {}
 	for index = 1, bearings do
-		local angle = (index / bearings) * math.pi * 2
+		local angle = (index / bearings) * math.pi * 2 + roll(-0.04, 0.04)
 		local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		local h = bermHeight * (1 + 0.3 * math.sin(2 * angle + phase1) + 0.2 * math.sin(3 * angle + phase2))
+		local toward = math.cos(angle - throwDir)
+		local h = bermHeight
+			* (1 + amp1 * math.sin(freq1 * angle + phase1) + amp2 * math.sin(freq2 * angle + phase2))
+			* (1 + throwBias * toward)
+			* roll(0.88, 1.12)
+			* (slump[index] or 1)
+		local r = crest * (1 + 0.05 * math.sin(wanderFreq * angle + phase3) + 0.04 * throwBias * toward)
+		local lean = CFrame.Angles(0, 0, math.rad(roll(-3, 3)))
 
 		-- A WedgePart is full height on its Back (+Z) face and slopes down to its
 		-- Front, so each wedge's Back faces the crest.
-		local face = Instance.new("WedgePart")
-		local back = Instance.new("WedgePart")
-		for _, wedge in { face, back } do
-			wedge.Anchored = true
-			wedge.CanCollide = false
-			wedge.CanQuery = false
-			wedge.CanTouch = false
-			wedge.CastShadow = false
-			wedge.Material = Enum.Material.Slate
-		end
-		face.Color = SCORCH:Lerp(ASH, 0.35)
+		local face = rock("WedgePart")
+		face.Color = SCORCH:Lerp(ASH, roll(0.25, 0.45))
 		face.Size = Vector3.new(bermWidth, h, inner)
-		local faceAt = position + out * (crest - inner / 2) + Vector3.new(0, h / 2, 0)
-		face.CFrame = CFrame.lookAt(faceAt, faceAt - out)
+		local faceAt = position + out * (r - inner / 2) + Vector3.new(0, h / 2, 0)
+		face.CFrame = CFrame.lookAt(faceAt, faceAt - out) * lean
 		onGround(face, 0)
 
-		back.Color = ASH:Lerp(DUST, 0.25)
-		back.Size = Vector3.new(bermWidth, h, outer)
-		local backAt = position + out * (crest + outer / 2) + Vector3.new(0, h / 2, 0)
-		back.CFrame = CFrame.lookAt(backAt, backAt + out)
+		local reach = outer * roll(0.85, 1.15)
+		local back = rock("WedgePart")
+		back.Color = ASH:Lerp(DUST, roll(0.15, 0.35))
+		back.Size = Vector3.new(bermWidth, h, reach)
+		local backAt = position + out * (r + reach / 2) + Vector3.new(0, h / 2, 0)
+		back.CFrame = CFrame.lookAt(backAt, backAt + out) * lean
 		onGround(back, 0)
+
+		table.insert(crestTops, { at = position + out * r, h = h })
+
+		-- Where the lip gave way, its pieces lie in the gap.
+		if slump[index] and slump[index] < 0.5 then
+			for _ = 1, 2 do
+				local chunk = rock("Part")
+				chunk.Color = SCORCH:Lerp(ASH, roll(0.3, 0.7))
+				local c = radius * roll(0.04, 0.07)
+				chunk.Size = Vector3.new(c * roll(0.8, 1.4), c * roll(0.5, 0.8), c * roll(0.8, 1.3))
+				local spot = position + out * (r + roll(-inner, outer * 0.6)) + Vector3.new(0, chunk.Size.Y * 0.3, 0)
+				chunk.CFrame = CFrame.new(spot) * CFrame.Angles(roll(-0.4, 0.4), roll(0, math.pi * 2), roll(-0.4, 0.4))
+				onGround(chunk, 0)
+			end
+		end
 	end
 
-	-- Shards thrown past the berm: small, low, lying where they landed.
+	-- Rocks left sitting on the crest, half sunk into it.
+	for _ = 1, rng:NextInteger(1, 3 + math.floor(order / 2)) do
+		local top = crestTops[rng:NextInteger(1, #crestTops)]
+		local boulder = rock(if rng:NextNumber() < 0.5 then "Part" else "WedgePart")
+		boulder.Color = SCORCH:Lerp(ASH, roll(0.2, 0.6))
+		local b = radius * roll(0.05, 0.09)
+		boulder.Size = Vector3.new(b * roll(0.8, 1.3), b * roll(0.6, 1), b * roll(0.8, 1.3))
+		boulder.CFrame = CFrame.new(top.at + Vector3.new(0, top.h + boulder.Size.Y * 0.15, 0))
+			* CFrame.Angles(roll(-0.35, 0.35), roll(0, math.pi * 2), roll(-0.35, 0.35))
+		onGround(boulder, 0)
+	end
+
+	-- Shards thrown past the berm: small, low, lying where they landed -- more of
+	-- them on the side it was thrown hardest.
 	for _ = 1, 6 + order do
-		local angle = math.random() * math.pi * 2
+		local angle = if rng:NextNumber() < throwBias then throwDir + roll(-0.8, 0.8) else roll(0, math.pi * 2)
 		local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		local shard = Instance.new("WedgePart")
-		shard.Anchored = true
-		shard.CanCollide = false
-		shard.CanQuery = false
-		shard.CanTouch = false
-		shard.CastShadow = false
-		shard.Material = Enum.Material.Slate
-		shard.Color = ASH:Lerp(DUST, math.random() * 0.6)
-		local s = radius * (0.04 + math.random() * 0.04)
-		shard.Size = Vector3.new(s * (0.8 + math.random() * 0.6), s * 0.35, s * (1 + math.random() * 0.8))
-		local at = position + out * radius * (0.95 + math.random() * 0.2) + Vector3.new(0, shard.Size.Y / 2, 0)
-		shard.CFrame = CFrame.new(at) * CFrame.Angles(0, math.random() * math.pi * 2, 0)
+		local shard = rock("WedgePart")
+		shard.Color = ASH:Lerp(DUST, roll(0, 0.6))
+		local size = radius * roll(0.04, 0.08)
+		shard.Size = Vector3.new(size * roll(0.8, 1.4), size * 0.35, size * roll(1, 1.8))
+		local at = position + out * radius * roll(0.95, 1.2) + Vector3.new(0, shard.Size.Y / 2, 0)
+		shard.CFrame = CFrame.new(at) * CFrame.Angles(0, roll(0, math.pi * 2), 0)
 		onGround(shard, 0)
 	end
 
@@ -992,11 +1056,11 @@ local function buildCrater(marker: BasePart)
 	local fissures: { BasePart } = {}
 	local glows: { { emitter: ParticleEmitter, rate: number } } = {}
 	local function crack(from: Vector3, heading: number, length: number, width: number, depth: number)
-		local segments = 3 + math.random(0, 1)
+		local segments = 3 + rng:NextInteger(0, 1)
 		local at = from
 		for index = 1, segments do
-			heading += (math.random() - 0.5) * 0.9
-			local step = length / segments * (0.7 + math.random() * 0.6)
+			heading += roll(-0.45, 0.45)
+			local step = length / segments * roll(0.7, 1.3)
 			local w = width * (1 - (index - 1) / segments * 0.7)
 			local direction = Vector3.new(math.cos(heading), 0, math.sin(heading))
 			local to = at + direction * step
@@ -1028,17 +1092,17 @@ local function buildCrater(marker: BasePart)
 				table.insert(glows, { emitter = vapour, rate = 0.8 })
 			end
 
-			if depth > 0 and index == 2 and math.random() < 0.5 then
-				crack(to, heading + (if math.random() < 0.5 then 0.7 else -0.7), length * 0.45, w * 0.8, depth - 1)
+			if depth > 0 and index == 2 and rng:NextNumber() < 0.5 then
+				crack(to, heading + (if rng:NextNumber() < 0.5 then 0.7 else -0.7), length * 0.45, w * 0.8, depth - 1)
 			end
 			at = to
 		end
 	end
 	local count = 6 + math.floor(order / 2)
 	for index = 1, count do
-		local angle = (index / count) * math.pi * 2 + (math.random() - 0.5) * 0.6
-		local start = position + Vector3.new(math.cos(angle), 0, math.sin(angle)) * radius * (0.12 + math.random() * 0.06)
-		crack(start, angle, radius * (0.3 + math.random() * 0.3), 0.45 + math.random() * 0.2, 1)
+		local angle = (index / count) * math.pi * 2 + roll(-0.3, 0.3)
+		local start = position + Vector3.new(math.cos(angle), 0, math.sin(angle)) * radius * roll(0.12, 0.18)
+		crack(start, angle, radius * roll(0.3, 0.6), roll(0.45, 0.65), 1)
 	end
 
 	-- THE ORB. A ForceField-material shell reads as a shimmer of hot air rather than a
