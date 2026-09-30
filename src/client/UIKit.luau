@@ -520,8 +520,10 @@ Dock.BAGCOUNT_HEIGHT = 18
 
 -- The left column's width (cash + speed badges). It used to be read off the rad meter
 -- card that sat under them (METER_SIZE, 280 wide), until health and rads moved down to
--- the vitals bars above the hotbar.
-Dock.SIDE_WIDTH = 280
+-- the vitals bars above the hotbar. 280 -> 340 when the rows' numbers grew to 48px, so a
+-- "$1.23M" still fits at full size. The vitals bars' left edge stays clear of it on
+-- every screen the HUD scales for (~1330 design px wide at the least).
+Dock.SIDE_WIDTH = 340
 
 -- THE VITALS BARS (HudController): health + rads as two slim cartoon bars, with the
 -- countdown (top left) and stage + depth (top right) on a label row above them.
@@ -624,18 +626,22 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 -- 64 -> 86 for the cartoon gold-coin badge, then 86 -> 78 when the card shrank to 56,
 -- then 78 -> 72 when the card went, then 72 -> 80 when the balance was pinned level
 -- with the bundle's middle and the "+$/s" line hung under it (it used to lift the
--- balance to make room, which read as the money jumping), then 80 -> 96 when both rows
--- were asked to be bigger.
-Dock.CASH_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 96)
+-- balance to make room, which read as the money jumping), then 80 -> 96 -> 102 as both
+-- rows were asked to be bigger (the second ask took the icons to 96).
+Dock.CASH_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 102)
 -- THE SPEED ROW (SpeedController), over the cash row: the sneaker plus its drop
 -- shadow, with the WALK SPEED caption and the number beside it. Same width as the
--- column, SIDE_WIDTH like CASH_SIZE. 60 -> 72 with the cash row's resize.
-Dock.SPEED_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 72)
+-- column, SIDE_WIDTH like CASH_SIZE. 60 -> 72 -> 88 with the cash row's resizes; the
+-- sneaker fills it.
+Dock.SPEED_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 88)
 -- The width of the icon slot both rows share: the cash bundle fills it, the sneaker is
 -- centred in it, and both numbers start just past it.
-Dock.SIDE_ICON = 76
--- The speed and cash rows sit close so they read as a pair.
-Dock.PAIR_GAP = 4
+Dock.SIDE_ICON = 96
+-- NEGATIVE: the rows overlap. Most of the space between them was transparent margin
+-- inside the two pictures (~13px under the sneaker's sole, ~16px over the bundle's top
+-- edge at these sizes), so a positive gap read as a big hole. -22 leaves ~7px of air
+-- between the sole and the bundle. Asked for "a smaller gap".
+Dock.PAIR_GAP = -22
 -- Each row's BOTTOM edge as an offset UP from the screen's bottom edge (Position y is
 -- 1-scale minus this, anchor y = 1), before Dock.sideLift(). Cash sits on the same
 -- margin as the hotbar; speed stacks on it; SIDE_COLUMN_TOP is the pair's top edge.
