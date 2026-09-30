@@ -448,13 +448,8 @@ Tuning.EXHIBIT_UNCRATE_SECONDS = 60
 -- more. How many a given player has unlocked is `Floors.slotsFor(data.exhibit.floors)`
 -- -- this is the ceiling loops that scan "every stand" walk up to.
 Tuning.EXHIBIT_MAX_SLOTS = require(script.Parent.Floors).MAX_SLOTS
--- Hard ceiling on passive income per real hour, as a multiple of Contractor Level.
--- PLAN §16: ship this LOW. Raising an income cap is a beloved patch note.
--- Economy rescale: 250 -> 500000. Item baseValues moved x6.667 and Rarity.displayYield
--- moved x300, so per-displayed-item income rose x2000 overall -- this moved x2000 to
--- match, so the guard still bites exactly as hard as it did before (a lucky early
--- Legendary is clamped ~18x at level 1, un-clamping as you level).
-Tuning.EXHIBIT_HOURLY_CAP_PER_LEVEL = 500000
+-- There is NO hourly cap on stand income any more (balance/economy-pacing-pass): stands
+-- pay exactly what their nukes earn. See ExhibitService's header.
 
 -- How long E has to be held on a stand's own ProximityPrompt (place/take/swap).
 Tuning.EXHIBIT_STAND_HOLD_SECONDS = 0.6
