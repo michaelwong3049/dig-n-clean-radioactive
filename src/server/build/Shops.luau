@@ -195,7 +195,7 @@ local Shops = {}
 Shops.MODEL_NAME = "Shops"
 
 local BUILDER_SOURCE = "src/server/build/Shops.luau"
-local BUILDER_VERSION = 58
+local BUILDER_VERSION = 59
 
 local C = Kit.C
 local build = Kit.build
@@ -757,7 +757,7 @@ local FASCIA_RIVET_PITCH = 2
 --- over. The panel is CanQuery false, so it never eats a prompt or a
 --- camera ray the way the invisible WashStand box did.
 local CANOPY_LIGHT_COLOR = "FFE7C2" -- warm lamp white, so the accent colours stay true
-local CANOPY_LIGHT_BRIGHTNESS = 1.4 -- was 2.4; toned down 2026-09-30, the camp read over-lit
+local CANOPY_LIGHT_BRIGHTNESS = 0.9 -- was 2.4, then 1.4; toned down twice 2026-09-30, the camp read over-lit
 local CANOPY_LIGHT_RANGE = 14 -- the panel sits ~9.5 up; reaches the deck with room to spare
 
 local function buildCanopyLight(parent: Instance, origin: CFrame, width: number, centerY: number, centerZ: number, depth: number, tiltDegrees: number)

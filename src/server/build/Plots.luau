@@ -209,7 +209,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 79
+local BUILDER_VERSION = 80
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -3383,7 +3383,8 @@ end
 --- EDGE LIGHTS — no fixture, just light (same rule as the ceiling sheet). Tiny
 --- invisible anchors carrying a shadowless PointLight each, so the base and the
 --- camp's rim stay lit without adding lamp props.
-local EDGE_LIGHT = { range = 18, brightness = 1.4, color = "FFF1DC", spacing = 22, height = 7 }
+--- Brightness 1.4 -> 1.0 (2026-09-30, "remove a little more lighting in the base camp").
+local EDGE_LIGHT = { range = 18, brightness = 1.0, color = "FFF1DC", spacing = 22, height = 7 }
 local function edgeLight(parent: Instance, cf: CFrame)
 	local p = Instance.new("Part")
 	p.Name = "EdgeLight"
