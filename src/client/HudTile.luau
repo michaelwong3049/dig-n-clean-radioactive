@@ -125,8 +125,8 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		-- Centred on the left edge's middle as a pair: row 1 just under it, row 2 over.
 		local up = (row - 1.5) * (BAR_H + Dock.GAP)
 		button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -up)
-		-- Solid, a very dark shade of the bar's own colour.
-		button.BackgroundColor3 = spec.color:Lerp(Color3.new(0, 0, 0), 0.8)
+		-- Solid, a dark (not near-black) shade of the bar's own colour.
+		button.BackgroundColor3 = spec.color:Lerp(Color3.new(0, 0, 0), 0.6)
 		button.BackgroundTransparency = 0
 
 		local iconCentre = 6 + BAR_ICON / 2
