@@ -1078,6 +1078,37 @@ end
 
 -- ── Actions ───────────────────────────────────────────────────────────────────
 
+--- A plain take: pedestal `index` comes off its stand into the bag. Shared by the stand
+--- prompt (`interact`, holding nothing) and the Nukes panel's Unequip.
+local function takeOff(data: any, plot: number, index: number): (boolean, string)
+	local entry = data.exhibit.pedestals[index]
+	local elapsed = os.time() - entry.placedAt
+	if elapsed < Tuning.EXHIBIT_UNCRATE_SECONDS then
+		return false, `still crating \u{2014} {Tuning.EXHIBIT_UNCRATE_SECONDS - elapsed}s left`
+	end
+	-- A plain take is the one stand action that ADDS a slot (a swap trades one
+	-- for one), so it is the one that has to ask whether there is room.
+	if Bag.used(data) >= StatResolver.get(data).capacity then
+		return false, "inventory full"
+	end
+
+	table.remove(data.exhibit.pedestals, index)
+	table.insert(data.carry, {
+		uid = entry.uid,
+		itemId = entry.itemId,
+		rarity = entry.rarity,
+		modifier = entry.modifier,
+		merge = entry.merge,
+		elapsed = 0,
+		frozen = true,
+		patches = {},
+	})
+
+	renderStand(plot, entry.slot, nil, nil)
+	refreshStandCards(plot, data)
+	return true, `{Items.get(entry.itemId).name} back in your bag`
+end
+
 --- The stand's one ProximityPrompt calls this and only this — `plot`/`slot` come
 --- from the prompt's own closure (which physical stand you reached), never
 --- re-derived from facing or position, so it can never disagree with what the
@@ -1118,32 +1149,7 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 			return false, "hold something first \u{2014} pick it from your bag"
 		end
 
-		local entry = data.exhibit.pedestals[occupiedIndex]
-		local elapsed = os.time() - entry.placedAt
-		if elapsed < Tuning.EXHIBIT_UNCRATE_SECONDS then
-			return false, `still crating \u{2014} {Tuning.EXHIBIT_UNCRATE_SECONDS - elapsed}s left`
-		end
-		-- A plain take is the one stand action that ADDS a slot (a swap trades one
-		-- for one), so it is the one that has to ask whether there is room.
-		if Bag.used(data) >= StatResolver.get(data).capacity then
-			return false, "inventory full"
-		end
-
-		table.remove(data.exhibit.pedestals, occupiedIndex)
-		table.insert(data.carry, {
-			uid = entry.uid,
-			itemId = entry.itemId,
-			rarity = entry.rarity,
-			modifier = entry.modifier,
-			merge = entry.merge,
-			elapsed = 0,
-			frozen = true,
-			patches = {},
-		})
-
-		renderStand(plot, slot, nil, nil)
-		refreshStandCards(plot, data)
-		return true, `{Items.get(entry.itemId).name} back in your bag`
+		return takeOff(data, plot, occupiedIndex)
 	end
 
 	-- Holding something: validate it before worrying about what, if anything, is
@@ -1215,6 +1221,8 @@ type Pick = { item: any, value: number, onStand: boolean }
 local nukeListRemote: any = nil
 local lastEquip: { [Player]: number } = {}
 local EQUIP_COOLDOWN = 1
+local lastUnequip: { [Player]: number } = {}
+local UNEQUIP_COOLDOWN = 0.2
 
 --- Seconds this stand's piece is still crating for (0 = free to come off). The same
 --- clock `interact` refuses a take/swap on.
@@ -1272,6 +1280,25 @@ function ExhibitService.nukeList(player: Player): any?
 		rate = rawRatePerSecond(data, stats),
 		displayed = displayed,
 	}
+end
+
+--- The Nukes panel's Unequip: the piece with `uid` comes off its stand into the bag,
+--- exactly as the stand prompt's plain take (crating clock and bag room included).
+function ExhibitService.unequip(player: Player, uid: string): (boolean, string)
+	local data = DataService.data(player)
+	if data == nil then
+		return false, "your save hasn't loaded"
+	end
+	local plot = plotOf[player]
+	if plot == nil then
+		return false, "you don't have a base yet"
+	end
+	for i, entry in data.exhibit.pedestals do
+		if entry.uid == uid then
+			return takeOff(data, plot, i)
+		end
+	end
+	return false, "that nuke isn't on display"
 end
 
 --- Fill every stand with the best set of nukes the player owns, and swap weaker
@@ -1575,10 +1602,11 @@ function ExhibitService.start()
 		colorRemote:FireClient(player, if data then data.plotColor else "", defaultAccentHex(player))
 	end)
 
-	-- The Nukes panel. "list" answers with a snapshot; "equipBest" does the work and
-	-- answers with the snapshot after it, carrying the outcome as `notice`. Equip Best
-	-- rewrites a whole plot, so it gets a short cooldown the list does not need.
-	Net.get("NukeAction").OnServerEvent:Connect(function(player: Player, action)
+	-- The Nukes panel. "list" answers with a snapshot; "equipBest" and "unequip" (+ uid)
+	-- do the work and answer with the snapshot after it, carrying the outcome as
+	-- `notice`. Equip Best rewrites a whole plot, so it gets a short cooldown the list
+	-- does not need; Unequip a shorter one against a spammed button.
+	Net.get("NukeAction").OnServerEvent:Connect(function(player: Player, action, uid)
 		local notice: string? = nil
 		if action == "equipBest" then
 			local now = os.clock()
@@ -1587,6 +1615,14 @@ function ExhibitService.start()
 			end
 			lastEquip[player] = now
 			local _, message = ExhibitService.equipBest(player)
+			notice = message
+		elseif action == "unequip" then
+			local now = os.clock()
+			if type(uid) ~= "string" or now - (lastUnequip[player] or 0) < UNEQUIP_COOLDOWN then
+				return
+			end
+			lastUnequip[player] = now
+			local _, message = ExhibitService.unequip(player, uid)
 			notice = message
 		elseif action ~= "list" then
 			return
@@ -1647,6 +1683,7 @@ function ExhibitService.start()
 		release(player)
 		lastIncome[player] = nil
 		lastEquip[player] = nil
+		lastUnequip[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, function(dt)

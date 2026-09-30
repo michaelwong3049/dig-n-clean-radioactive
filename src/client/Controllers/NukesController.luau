@@ -2,26 +2,29 @@
 	NukesController.lua — the Nukes tile, and the panel it opens. The tile is the
 	middle of the right-edge column (Gear, Nukes, Warp), built by HudTile like the others.
 
-	THE PANEL IS EVERY NUKE ON YOUR STANDS, ON ONE LIST: each with its rarity and what
-	it pays per second, the rate its stand card prints (duplicate damping and all),
-	best first. The bag is deliberately not listed -- the hotbar already shows it.
+	THE PANEL SLIDES IN FROM THE LEFT EDGE and stays docked there (on request, after a
+	reference picture): a tall grey tray over the Shop / Index bars, one row per nuke
+	on your stands, best first. Each row is the nuke's own model, its name and what it
+	pays per second -- the rate its stand card prints, duplicate damping and all -- in
+	its RARITY COLOUR (Config/Rarity's `color`; Anomaly cycles Rarity.anomalyHue), and a
+	red UNEQUIP that sends it back to the bag (ExhibitService.unequip, the stand
+	prompt's own plain take: crating clock and bag room included). The bag is
+	deliberately not listed -- the hotbar already shows it.
 
-	EQUIP BEST is the panel's one verb (ExhibitService.equipBest): fill every stand
-	with the set that earns the most, swapping weaker pieces back into the bag. It
-	works from anywhere, which is the point of it living on the HUD -- wash a nuke,
-	press it, keep going. The server picks everything; the button sends a bare verb.
+	EQUIP BEST hangs under the tray (ExhibitService.equipBest): fill every stand with the
+	set that earns the most, swapping weaker pieces back into the bag. It works from
+	anywhere, which is the point of it living on the HUD -- wash a nuke, press it, keep
+	going. The server picks everything; the buttons send bare verbs (+ a uid).
 
 	NOTHING IS STREAMED. The list is asked for (NukeAction "list") when the panel opens,
 	and again whenever CarryState or IncomeState says something moved while it is
-	showing. Closed, it costs nothing.
-
-	Its look is the Shop panel's (StationController's FIELD slate, LuckiestGuy /
-	FredokaOne in INK outlines), with each row wearing its rarity colour
-	(Config/Rarity's `color`, the one rarity signal shared across the whole game).
+	showing. Closed, it costs nothing. Rows are keyed by uid and kept across refreshes,
+	so a model is framed once, not on every answer.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
@@ -33,6 +36,7 @@ local Merge = require(Shared.Config.Merge)
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
+local ItemArt = require(script.Parent.Parent.ItemArt)
 
 local Nukes = {}
 
@@ -43,32 +47,51 @@ local TILE_COLOR = Color3.fromRGB(255, 207, 31)
 local TILE_LIGHT = Color3.fromRGB(255, 240, 160)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
+-- The reference's look: a mid-grey tray, darker rows with a light well behind each
+-- model, chunky red / green buttons, every word in FredokaOne with a black outline.
 local PANEL = {
-	panel = Color3.fromHex("1B1F23"),
-	row = Color3.fromHex("252A30"),
-	well = Color3.fromHex("14171A"),
-	light = Color3.fromHex("E6EAF0"),
-	dim = Color3.fromHex("9AA3AD"),
+	tray = Color3.fromHex("3B3F45"),
+	row = Color3.fromHex("2A2D32"),
+	well = Color3.fromHex("474C54"),
+	wellGlow = Color3.fromHex("C9CED6"),
+	dim = Color3.fromHex("A9B0B8"),
 	gold = Color3.fromHex("F5C24B"),
-	buy = Color3.fromHex("3FB35A"),
-	buyHover = Color3.fromHex("52C96C"),
-	off = Color3.fromHex("4A4F55"),
-	close = Color3.fromHex("E5484D"),
-	ink = Color3.fromHex("1A1A1A"),
+	red = Color3.fromHex("E3201B"),
+	redHover = Color3.fromHex("F5433D"),
+	green = Color3.fromHex("33D62F"),
+	greenHover = Color3.fromHex("52E84E"),
+	off = Color3.fromHex("5C6167"),
+	ink = Color3.fromHex("111214"),
 	white = Color3.new(1, 1, 1),
-	headline = Enum.Font.LuckiestGuy,
-	label = Enum.Font.FredokaOne,
+	font = Enum.Font.FredokaOne,
 }
-local PANEL_W = 640
-local PANEL_H = 500
-local PAD = 20
-local HEADER_H = 58
-local SUMMARY_H = 56
-local NOTICE_H = 26
-local LIST_TOP = HEADER_H + SUMMARY_H + NOTICE_H + 8
-local ROW_H = 52
-local CHIP_W = 104
-local OPEN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+-- Design px (UIKit.canvas: a 1280x720 screen).
+local SIDE_MARGIN = 20
+local PANEL_W = 430
+local PANEL_H = 410
+-- The pair (tray + Equip Best under it) sits this far above the left edge's middle.
+local RAISE = 50
+local PAD = 10
+local HEADER_H = 40
+local NOTICE_H = 20
+local LIST_TOP = HEADER_H + NOTICE_H + 4
+local ROW_H = 82
+local ART_W = 86
+local UNEQUIP_W = 138
+local UNEQUIP_H = 54
+local EQUIP_W = 240
+local EQUIP_H = 58
+local EQUIP_GAP = 10
+local TAB_W = 34
+local TAB_H = 52
+
+-- The slide: a quick ease out on the way in, a quicker ease in on the way out.
+local SLIDE_IN = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local SLIDE_OUT = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+local OPEN_POS = UDim2.new(0, SIDE_MARGIN, 0.5, -RAISE)
+local CLOSED_POS = UDim2.new(0, -(PANEL_W + TAB_W + 40), 0.5, -RAISE)
+
 -- The fastest the panel re-asks for its list while CarryState / IncomeState chatter.
 local REFRESH_GAP = 0.5
 
@@ -79,44 +102,26 @@ local receivedAt = 0
 local busy = false
 local lastAsk = 0
 local askQueued = false
+local slideToken = 0
 
 -- ── Helpers ─────────────────────────────────────────────────────────
 
---- "+$2.00/s" up to "+$1.2M/s" -- CashController.formatRate's ladder.
+--- "$2.00/s" up to "$1.2M/s" -- CashController.formatRate's ladder, without the plus.
 local function formatRate(perSecond: number): string
 	if perSecond >= 1_000_000_000_000 then
-		return string.format("+$%.1fT/s", perSecond / 1_000_000_000_000)
+		return string.format("$%.1fT/s", perSecond / 1_000_000_000_000)
 	elseif perSecond >= 1_000_000_000 then
-		return string.format("+$%.1fB/s", perSecond / 1_000_000_000)
+		return string.format("$%.1fB/s", perSecond / 1_000_000_000)
 	elseif perSecond >= 1_000_000 then
-		return string.format("+$%.1fM/s", perSecond / 1_000_000)
+		return string.format("$%.1fM/s", perSecond / 1_000_000)
 	elseif perSecond >= 1000 then
-		return string.format("+$%.1fK/s", perSecond / 1000)
+		return string.format("$%.1fK/s", perSecond / 1000)
 	elseif perSecond >= 100 then
-		return string.format("+$%.0f/s", perSecond)
+		return string.format("$%.0f/s", perSecond)
 	elseif perSecond >= 10 then
-		return string.format("+$%.1f/s", perSecond)
+		return string.format("$%.1f/s", perSecond)
 	end
-	return string.format("+$%.2f/s", perSecond)
-end
-
---- A label in the panel's cartoon voice: white, INK-outlined. `props` are set as-is.
-local function inked(parent: Instance, props: { [string]: any }): TextLabel
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.TextColor3 = PANEL.white
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	for key, value in props do
-		(label :: any)[key] = value
-	end
-	label.TextStrokeTransparency = 1
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = PANEL.ink
-	stroke.Thickness = math.max(2, label.TextSize * 0.1)
-	stroke.LineJoinMode = Enum.LineJoinMode.Round
-	stroke.Parent = label
-	label.Parent = parent
-	return label
+	return string.format("$%.2f/s", perSecond)
 end
 
 local function round(parent: Instance, radius: number)
@@ -125,12 +130,86 @@ local function round(parent: Instance, radius: number)
 	corner.Parent = parent
 end
 
-local function edge(parent: Instance, color: Color3, thickness: number)
+local function edge(parent: Instance, color: Color3, thickness: number): UIStroke
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = color
 	stroke.Thickness = thickness
 	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
 	stroke.Parent = parent
+	return stroke
+end
+
+--- A label in the panel's voice: FredokaOne, black-outlined. `props` are set as-is.
+local function inked(parent: Instance, props: { [string]: any }): TextLabel
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Font = PANEL.font
+	label.TextColor3 = PANEL.white
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	for key, value in props do
+		(label :: any)[key] = value
+	end
+	label.TextStrokeTransparency = 1
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = PANEL.ink
+	stroke.Thickness = math.max(2, label.TextSize * 0.11)
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = label
+	label.Parent = parent
+	return label
+end
+
+--- A chunky button: `fill` face, black outline, outlined white label, hover tint.
+local function chunky(parent: Instance, name: string, text: string, size: Vector2, textSize: number, fill: Color3, hover: Color3): TextButton
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.AutoButtonColor = false
+	button.Size = UDim2.fromOffset(size.X, size.Y)
+	button.BackgroundColor3 = fill
+	button.BorderSizePixel = 0
+	button.Text = ""
+	button.Parent = parent
+	round(button, 6)
+	edge(button, PANEL.ink, 3)
+	-- A lighter lip along the top, the reference's bevel.
+	local lip = Instance.new("Frame")
+	lip.Name = "Lip"
+	lip.BackgroundColor3 = PANEL.white
+	lip.BackgroundTransparency = 0.78
+	lip.BorderSizePixel = 0
+	lip.Position = UDim2.fromOffset(4, 3)
+	lip.Size = UDim2.new(1, -8, 0.32, 0)
+	lip.Parent = button
+	round(lip, 4)
+	inked(button, {
+		Name = "Label",
+		Text = text,
+		TextSize = textSize,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		Size = UDim2.fromScale(1, 1),
+	})
+	button:SetAttribute("Fill", fill)
+	button.MouseEnter:Connect(function()
+		if button.Active then
+			TweenService:Create(button, HOVER, { BackgroundColor3 = hover }):Play()
+		end
+	end)
+	button.MouseLeave:Connect(function()
+		if button.Active then
+			TweenService:Create(button, HOVER, { BackgroundColor3 = button:GetAttribute("Fill") }):Play()
+		end
+	end)
+	return button
+end
+
+--- Grey a chunky button out (or bring it back) and set its label.
+local function setButton(button: TextButton, enabled: boolean, text: string)
+	button.Active = enabled
+	button.AutoButtonColor = false
+	button.BackgroundColor3 = if enabled then button:GetAttribute("Fill") else PANEL.off
+	local label = button:FindFirstChild("Label") :: TextLabel
+	label.Text = text
 end
 
 local function rarityColor(name: string): Color3
@@ -163,199 +242,191 @@ end
 
 -- ── Rows ────────────────────────────────────────────────────────────
 
-type RowSpec = {
-	name: string,
-	rarity: string,
-	modifier: string?,
-	uid: string?,
-	merge: number?, -- Merge Reactor stars (Config/Merge)
-	sub: string,
-	rate: number?,
+type Row = {
+	frame: Frame,
+	art: ViewportFrame,
+	name: TextLabel,
+	stars: TextLabel,
+	unequip: TextButton,
+	entry: any,
+	pending: boolean,
 }
 
---- One nuke: rarity stripe + chip on the left, name over its stand line, rate right.
-local function row(parent: Instance, order: number, spec: RowSpec): TextLabel
-	local color = rarityColor(spec.rarity)
-	local frame = Instance.new("Frame")
-	frame.Name = "Row"
-	frame.Size = UDim2.new(1, -8, 0, ROW_H)
-	frame.BackgroundColor3 = PANEL.row
-	frame.BorderSizePixel = 0
-	frame.LayoutOrder = order
-	frame.ZIndex = 13
-	frame.Parent = parent
-	round(frame, 10)
-	edge(frame, PANEL.ink, 2)
+-- Rows on screen, by uid, kept across refreshes.
+local rows: { [string]: Row } = {}
 
-	local stripe = Instance.new("Frame")
-	stripe.Name = "Stripe"
-	stripe.Size = UDim2.new(0, 8, 1, 0)
-	stripe.BackgroundColor3 = color
-	stripe.BorderSizePixel = 0
-	stripe.ZIndex = 14
-	stripe.Parent = frame
-	round(stripe, 10)
-
-	local chip = Instance.new("TextLabel")
-	chip.Name = "Rarity"
-	chip.Position = UDim2.fromOffset(18, 5)
-	chip.Size = UDim2.fromOffset(CHIP_W, 21)
-	chip.BackgroundColor3 = color
-	chip.BorderSizePixel = 0
-	chip.Font = PANEL.label
-	chip.TextSize = 14
-	chip.TextColor3 = PANEL.ink
-	chip.Text = string.upper(spec.rarity)
-	chip.ZIndex = 14
-	chip.Parent = frame
-	round(chip, 12)
-	edge(chip, PANEL.ink, 2)
-
-	-- The star rating under the chip: rarity tier nudged by quality and size, as on the
-	-- stand card.
-	local stars = Instance.new("TextLabel")
-	stars.Name = "Stars"
-	stars.BackgroundTransparency = 1
-	stars.Position = UDim2.fromOffset(18, 28)
-	stars.Size = UDim2.fromOffset(CHIP_W, 18)
-	stars.Font = PANEL.label
-	stars.TextSize = 12
-	stars.TextScaled = false
-	stars.TextColor3 = PANEL.gold
-	stars.Text = Rarity.starText(spec.rarity, spec.modifier, if spec.uid then Payload.forUid(spec.uid) else nil)
-	-- Merge Reactor stars after the rating, in their own colour.
-	local merged = spec.merge or 0
+--- The stand line under the name: stars, Merge Reactor stars, modifier.
+local function starLine(entry: any): string
+	local text = Rarity.starText(entry.rarity, entry.modifier, Payload.forUid(entry.uid))
+	local merged = entry.merge or 0
 	if merged > 0 then
-		stars.RichText = true
-		stars.Text ..= ` <font color="#{Merge.COLOR:ToHex()}">{Merge.text(merged)}</font>`
+		text ..= ` <font color="#{Merge.COLOR:ToHex()}">{Merge.text(merged)}</font>`
 	end
-	stars.ZIndex = 14
-	stars.Parent = frame
-
-	local textLeft = 18 + CHIP_W + 14
-	inked(frame, {
-		Name = "Name",
-		Text = spec.name,
-		Font = PANEL.label,
-		TextSize = 20,
-		TextColor3 = PANEL.white,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		Size = UDim2.new(1, -textLeft - 130, 0, 24),
-		Position = UDim2.fromOffset(textLeft, 4),
-		ZIndex = 14,
-	})
-	local sub = inked(frame, {
-		Name = "Where",
-		Text = spec.sub,
-		Font = PANEL.label,
-		TextSize = 14,
-		TextColor3 = PANEL.dim,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		Size = UDim2.new(1, -textLeft - 130, 0, 18),
-		Position = UDim2.fromOffset(textLeft, 28),
-		ZIndex = 14,
-	})
-	inked(frame, {
-		Name = "Rate",
-		Text = if spec.rate then formatRate(spec.rate) else "\u{2014}",
-		Font = PANEL.headline,
-		TextSize = 20,
-		TextColor3 = if spec.rate then PANEL.gold else PANEL.dim,
-		TextXAlignment = Enum.TextXAlignment.Right,
-		AnchorPoint = Vector2.new(1, 0.5),
-		Size = UDim2.fromOffset(120, 26),
-		Position = UDim2.new(1, -14, 0.5, 0),
-		ZIndex = 14,
-	})
-	return sub
-end
-
-local function withModifier(text: string, modifier: string?): string
-	if modifier and modifier ~= "None" and modifier ~= "" then
-		return `{text} \u{00B7} {modifier}`
+	if entry.modifier and entry.modifier ~= "None" and entry.modifier ~= "" then
+		text ..= ` <font color="#{PANEL.dim:ToHex()}">{entry.modifier}</font>`
 	end
 	return text
 end
 
---- "Stand 4", "Stand 4 · crating 42s".
-local function standText(entry: any, crating: number): string
-	local text = `Stand {entry.slot}`
-	if crating > 0 then
-		text ..= ` \u{00B7} crating {crating}s`
-	end
-	return withModifier(text, entry.modifier)
+--- Seconds this row's stand is still crating, counted down since the list arrived.
+local function crateLeft(entry: any): number
+	return math.max(0, (entry.crating or 0) - math.floor(os.clock() - receivedAt))
 end
 
--- Rows on stands that are still crating, so the countdown can tick without a redraw.
-local cratingRows: { { label: TextLabel, entry: any } } = {}
+local function paintUnequip(row: Row)
+	if row.pending then
+		setButton(row.unequip, false, "...")
+		return
+	end
+	local left = crateLeft(row.entry)
+	if left > 0 then
+		setButton(row.unequip, false, `{left}s`)
+	else
+		setButton(row.unequip, true, "Unequip")
+	end
+end
+
+local function newRow(parent: Instance, uid: string): Row
+	local frame = Instance.new("Frame")
+	frame.Name = "Row"
+	frame.Size = UDim2.new(1, -10, 0, ROW_H)
+	frame.BackgroundColor3 = PANEL.row
+	frame.BorderSizePixel = 0
+	frame.Parent = parent
+	round(frame, 6)
+	edge(frame, PANEL.ink, 2)
+
+	-- The model, on a light well with a soft glow behind it.
+	local well = Instance.new("Frame")
+	well.Name = "Well"
+	well.Position = UDim2.fromOffset(6, 6)
+	well.Size = UDim2.fromOffset(ART_W, ROW_H - 12)
+	well.BackgroundColor3 = PANEL.well
+	well.BorderSizePixel = 0
+	well.ClipsDescendants = true
+	well.Parent = frame
+	round(well, 5)
+	edge(well, PANEL.ink, 2)
+	local glow = Artwork.picture(well, "Glow", Artwork.IMAGE.glow, ART_W + 10, PANEL.wellGlow)
+	glow.AnchorPoint = Vector2.new(0.5, 0.5)
+	glow.Position = UDim2.fromScale(0.5, 0.5)
+	glow.ImageTransparency = 0.55
+	local art = ItemArt.newViewport(well)
+	art.ZIndex = 2
+
+	local textLeft = 6 + ART_W + 10
+	local textW = -(textLeft + UNEQUIP_W + 16)
+	local name = inked(frame, {
+		Name = "Name",
+		Text = "",
+		TextSize = 19,
+		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		Position = UDim2.fromOffset(textLeft, 6),
+		Size = UDim2.new(1, textW, 0, 50),
+	})
+	local stars = Instance.new("TextLabel")
+	stars.Name = "Stars"
+	stars.BackgroundTransparency = 1
+	stars.Font = PANEL.font
+	stars.TextSize = 13
+	stars.TextColor3 = PANEL.gold
+	stars.TextXAlignment = Enum.TextXAlignment.Left
+	stars.TextTruncate = Enum.TextTruncate.AtEnd
+	stars.RichText = true
+	stars.Position = UDim2.fromOffset(textLeft, 56)
+	stars.Size = UDim2.new(1, textW, 0, 18)
+	stars.Parent = frame
+
+	local unequip = chunky(frame, "Unequip", "Unequip", Vector2.new(UNEQUIP_W, UNEQUIP_H), 26, PANEL.red, PANEL.redHover)
+	unequip.AnchorPoint = Vector2.new(1, 0.5)
+	unequip.Position = UDim2.new(1, -10, 0.5, 0)
+
+	local row: Row = {
+		frame = frame,
+		art = art,
+		name = name,
+		stars = stars,
+		unequip = unequip,
+		entry = nil,
+		pending = false,
+	}
+	unequip.Activated:Connect(function()
+		if not unequip.Active or row.pending or actionRemote == nil then
+			return
+		end
+		row.pending = true
+		paintUnequip(row)
+		actionRemote:FireServer("unequip", uid)
+		-- The answer is a NukeList with `notice`; if the server's cooldown swallowed
+		-- it, the button comes back on its own.
+		task.delay(2, function()
+			if row.pending then
+				row.pending = false
+				paintUnequip(row)
+			end
+		end)
+	end)
+	return row
+end
+
+--- The name + rate in the row's rarity colour (Anomaly is repainted every frame).
+local function tint(row: Row, now: number)
+	local color = if row.entry.rarity == "Anomaly"
+		then Rarity.anomalyHue(now / Rarity.ANOMALY_CYCLE)
+		else rarityColor(row.entry.rarity)
+	row.name.TextColor3 = color
+end
 
 local function render()
 	local list = latest
-	local scroll: ScrollingFrame = ui.scroll
-	for _, child in scroll:GetChildren() do
-		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
-			child:Destroy()
-		end
-	end
-	table.clear(cratingRows)
 	if list == nil then
 		return
 	end
+	local scroll: ScrollingFrame = ui.scroll
 
-	ui.count.Text = `ON DISPLAY {list.used}/{list.slots}`
-	ui.rate.Text = if list.rate > 0 then formatRate(list.rate) else "+$0/s"
-
-	local order = 0
-	local function nextOrder(): number
-		order += 1
-		return order
-	end
+	ui.count.Text = `{list.used}/{list.slots} on display`
+	ui.rate.Text = `+{formatRate(list.rate)}`
 
 	local displayed = table.clone(list.displayed)
 	table.sort(displayed, function(a, b)
 		return a.rate > b.rate
 	end)
-	if #displayed == 0 then
-		inked(scroll, {
-			Name = "Empty",
-			Text = "Nothing on your stands yet",
-			Font = PANEL.label,
-			TextSize = 16,
-			TextColor3 = PANEL.dim,
-			Size = UDim2.new(1, 0, 0, 26),
-			LayoutOrder = nextOrder(),
-			ZIndex = 13,
-		})
-	end
-	for _, entry in displayed do
-		local sub = row(scroll, nextOrder(), {
-			name = entry.name,
-			rarity = entry.rarity,
-			modifier = entry.modifier,
+
+	local keep: { [string]: boolean } = {}
+	for order, entry in displayed do
+		keep[entry.uid] = true
+		local row = rows[entry.uid]
+		if row == nil then
+			row = newRow(scroll, entry.uid)
+			rows[entry.uid] = row
+		end
+		row.entry = entry
+		row.pending = false
+		row.frame.LayoutOrder = order
+		row.name.Text = `{entry.name} ({formatRate(entry.rate)})`
+		row.stars.Text = starLine(entry)
+		tint(row, os.clock())
+		paintUnequip(row)
+		ItemArt.paint(row.art, {
 			uid = entry.uid,
-			merge = entry.merge,
-			sub = standText(entry, entry.crating),
-			rate = entry.rate,
-		})
-		if entry.crating > 0 then
-			table.insert(cratingRows, { label = sub, entry = entry })
+			itemId = entry.itemId,
+			rarity = entry.rarity,
+			identified = true,
+		}, ART_W / (ROW_H - 12))
+	end
+	for uid, row in rows do
+		if not keep[uid] then
+			row.frame:Destroy()
+			rows[uid] = nil
 		end
 	end
-end
-
---- Tick the crating countdowns in place.
-local function tickCrating()
-	local elapsed = math.floor(os.clock() - receivedAt)
-	for _, entry in cratingRows do
-		local left = math.max(0, entry.entry.crating - elapsed)
-		entry.label.Text = standText(entry.entry, left)
-	end
+	ui.empty.Visible = #displayed == 0
 end
 
 local function setBusy(value: boolean)
 	busy = value
-	ui.equip.Text = if value then "..." else "EQUIP BEST"
-	ui.equip.BackgroundColor3 = if value then PANEL.off else PANEL.buy
+	setButton(ui.equip, not value, if value then "..." else "Equip Best")
 end
 
 -- ── Open / close ────────────────────────────────────────────────────
@@ -365,19 +436,28 @@ function Nukes.open()
 	if panel == nil or panel.Visible or HudTile.blocked("Nukes") then
 		return
 	end
+	slideToken += 1
 	ui.notice.Text = ""
+	panel.Position = CLOSED_POS
 	panel.Visible = true
 	ask()
-	if ui.scale then
-		ui.scale.Scale = 0.85
-		TweenService:Create(ui.scale, OPEN, { Scale = 1 }):Play()
-	end
+	TweenService:Create(panel, SLIDE_IN, { Position = OPEN_POS }):Play()
 end
 
 function Nukes.close()
-	if ui.panel then
-		ui.panel.Visible = false
+	local panel = ui.panel
+	if panel == nil or not panel.Visible then
+		return
 	end
+	slideToken += 1
+	local token = slideToken
+	local tween = TweenService:Create(panel, SLIDE_OUT, { Position = CLOSED_POS })
+	tween.Completed:Connect(function()
+		if token == slideToken then
+			panel.Visible = false
+		end
+	end)
+	tween:Play()
 end
 
 function Nukes.toggle()
@@ -392,150 +472,76 @@ local function buildPanel(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "NukesPanel"
 	gui.ResetOnSpawn = false
-	-- Same call as the Shop and Index panels: a centred modal that respects the topbar
-	-- inset and sits over the whole HUD (RadHud is 100).
+	-- Same call as the Shop and Index panels: respects the topbar inset and sits over
+	-- the whole HUD (RadHud is 100).
 	gui.IgnoreGuiInset = false
 	gui.DisplayOrder = 110
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local canvas = UIKit.canvas(gui)
 
+	-- The whole slide: tray, its close tab and Equip Best under it move as one.
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromOffset(PANEL_W, PANEL_H)
-	panel.BackgroundColor3 = PANEL.panel
-	panel.BorderSizePixel = 0
+	panel.AnchorPoint = Vector2.new(0, 0.5)
+	panel.Position = CLOSED_POS
+	panel.Size = UDim2.fromOffset(PANEL_W, PANEL_H + EQUIP_GAP + EQUIP_H)
+	panel.BackgroundTransparency = 1
 	panel.Visible = false
-	panel.ZIndex = 10
 	panel.Parent = canvas
-	round(panel, 20)
-	edge(panel, PANEL.ink, 4)
-	local scale = Instance.new("UIScale")
-	scale.Parent = panel
+
+	local tray = Instance.new("Frame")
+	tray.Name = "Tray"
+	tray.Size = UDim2.fromOffset(PANEL_W, PANEL_H)
+	tray.BackgroundColor3 = PANEL.tray
+	tray.BorderSizePixel = 0
+	tray.ZIndex = 2
+	tray.Parent = panel
+	round(tray, 8)
+	edge(tray, PANEL.ink, 4)
 	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, PAD - 6)
+	padding.PaddingTop = UDim.new(0, PAD)
 	padding.PaddingBottom = UDim.new(0, PAD)
 	padding.PaddingLeft = UDim.new(0, PAD)
 	padding.PaddingRight = UDim.new(0, PAD)
-	padding.Parent = panel
+	padding.Parent = tray
 
-	inked(panel, {
+	inked(tray, {
 		Name = "Title",
-		Text = "NUKES",
-		Font = PANEL.headline,
-		TextSize = 38,
-		Size = UDim2.fromOffset(200, 46),
-		ZIndex = 11,
+		Text = "Nukes",
+		TextSize = 30,
+		Size = UDim2.fromOffset(140, 34),
+		ZIndex = 3,
 	})
-
-	local close = Instance.new("TextButton")
-	close.Name = "Close"
-	close.AutoButtonColor = false
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Position = UDim2.new(1, 0, 0, 2)
-	close.Size = UDim2.fromOffset(40, 40)
-	close.BackgroundColor3 = PANEL.close
-	close.Font = PANEL.headline
-	close.TextSize = 24
-	close.TextColor3 = PANEL.white
-	close.Text = "X"
-	close.ZIndex = 11
-	close.Parent = panel
-	round(close, 12)
-	local closeEdge = Instance.new("UIStroke")
-	closeEdge.Color = PANEL.ink
-	closeEdge.Thickness = 3
-	closeEdge.Parent = close
-	close.Activated:Connect(Nukes.close)
-
-	-- The summary strip: how full the stands are and what they pay, and the button.
-	local summary = Instance.new("Frame")
-	summary.Name = "Summary"
-	summary.Position = UDim2.fromOffset(0, HEADER_H)
-	summary.Size = UDim2.new(1, 0, 0, SUMMARY_H)
-	summary.BackgroundColor3 = PANEL.well
-	summary.BorderSizePixel = 0
-	summary.ZIndex = 11
-	summary.Parent = panel
-	round(summary, 14)
-	edge(summary, PANEL.ink, 3)
-
-	local count = inked(summary, {
+	local count = inked(tray, {
 		Name = "Count",
-		Text = "ON DISPLAY",
-		Font = PANEL.label,
-		TextSize = 16,
+		Text = "",
+		TextSize = 14,
 		TextColor3 = PANEL.dim,
-		Size = UDim2.fromOffset(360, 20),
-		Position = UDim2.fromOffset(16, 6),
-		ZIndex = 12,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -4, 0, 0),
+		Size = UDim2.fromOffset(220, 16),
+		ZIndex = 3,
 	})
-	local rate = inked(summary, {
+	local rate = inked(tray, {
 		Name = "Rate",
 		Text = "",
-		Font = PANEL.headline,
-		TextSize = 24,
+		TextSize = 20,
 		TextColor3 = PANEL.gold,
-		Size = UDim2.fromOffset(260, 26),
-		Position = UDim2.fromOffset(16, 25),
-		ZIndex = 12,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -4, 0, 15),
+		Size = UDim2.fromOffset(220, 22),
+		ZIndex = 3,
 	})
-
-	local equip = Instance.new("TextButton")
-	equip.Name = "EquipBest"
-	equip.AutoButtonColor = false
-	equip.AnchorPoint = Vector2.new(1, 0.5)
-	equip.Position = UDim2.new(1, -8, 0.5, 0)
-	equip.Size = UDim2.fromOffset(190, 42)
-	equip.BackgroundColor3 = PANEL.buy
-	equip.Font = PANEL.headline
-	equip.TextSize = 22
-	equip.TextColor3 = PANEL.white
-	equip.Text = "EQUIP BEST"
-	equip.ZIndex = 13
-	equip.Parent = summary
-	round(equip, 12)
-	local equipEdge = Instance.new("UIStroke")
-	equipEdge.Color = PANEL.ink
-	equipEdge.Thickness = 3
-	equipEdge.LineJoinMode = Enum.LineJoinMode.Round
-	equipEdge.Parent = equip
-	equip.MouseEnter:Connect(function()
-		if not busy then
-			TweenService:Create(equip, HOVER, { BackgroundColor3 = PANEL.buyHover }):Play()
-		end
-	end)
-	equip.MouseLeave:Connect(function()
-		if not busy then
-			TweenService:Create(equip, HOVER, { BackgroundColor3 = PANEL.buy }):Play()
-		end
-	end)
-	equip.Activated:Connect(function()
-		if busy or actionRemote == nil then
-			return
-		end
-		setBusy(true)
-		actionRemote:FireServer("equipBest")
-		-- The answer is a NukeList carrying `notice`; if it never comes (the server's
-		-- cooldown swallowed a double-press) the button comes back on its own.
-		task.delay(2, function()
-			if busy then
-				setBusy(false)
-			end
-		end)
-	end)
-
-	local notice = inked(panel, {
+	local notice = inked(tray, {
 		Name = "Notice",
 		Text = "",
-		Font = PANEL.label,
-		TextSize = 16,
-		TextColor3 = PANEL.light,
-		Size = UDim2.new(1, 0, 0, NOTICE_H - 4),
-		Position = UDim2.fromOffset(4, HEADER_H + SUMMARY_H + 4),
+		TextSize = 14,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 11,
+		Position = UDim2.fromOffset(2, HEADER_H),
+		Size = UDim2.new(1, -4, 0, NOTICE_H),
+		ZIndex = 3,
 	})
 
 	local scroll = Instance.new("ScrollingFrame")
@@ -549,25 +555,71 @@ local function buildPanel(): ScreenGui
 	scroll.CanvasSize = UDim2.new()
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroll.ScrollingDirection = Enum.ScrollingDirection.Y
-	scroll.ZIndex = 12
-	scroll.Parent = panel
+	scroll.ZIndex = 3
+	scroll.Parent = tray
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 6)
+	layout.Padding = UDim.new(0, 8)
 	layout.Parent = scroll
 	local inset = Instance.new("UIPadding")
 	inset.PaddingLeft = UDim.new(0, 2)
 	inset.PaddingTop = UDim.new(0, 2)
 	inset.PaddingBottom = UDim.new(0, 4)
 	inset.Parent = scroll
+	local empty = inked(scroll, {
+		Name = "Empty",
+		Text = "Nothing on your stands yet",
+		TextSize = 16,
+		TextColor3 = PANEL.dim,
+		Size = UDim2.new(1, 0, 0, 26),
+		LayoutOrder = -1,
+		Visible = false,
+	})
+
+	-- The close tab: a red "<" hanging off the tray's right edge, halfway down (clear of
+	-- the chat window, which takes clicks in the top-left corner).
+	local tab = chunky(panel, "Close", "<", Vector2.new(TAB_W, TAB_H), 26, PANEL.red, PANEL.redHover)
+	tab.Position = UDim2.fromOffset(PANEL_W - 2, (PANEL_H - TAB_H) / 2)
+	tab.ZIndex = 1
+	tab.Activated:Connect(Nukes.close)
+
+	local equip = chunky(panel, "EquipBest", "Equip Best", Vector2.new(EQUIP_W, EQUIP_H), 30, PANEL.green, PANEL.greenHover)
+	equip.AnchorPoint = Vector2.new(1, 0)
+	equip.Position = UDim2.fromOffset(PANEL_W, PANEL_H + EQUIP_GAP)
+	-- The reference's white rim inside the black one (one UIStroke per object, so the
+	-- black one goes on a frame just outside the button).
+	local rim = equip:FindFirstChildOfClass("UIStroke") :: UIStroke
+	rim.Color = PANEL.white
+	local rimHolder = Instance.new("Frame")
+	rimHolder.Name = "Rim"
+	rimHolder.BackgroundTransparency = 1
+	rimHolder.Position = UDim2.fromOffset(-3, -3)
+	rimHolder.Size = UDim2.new(1, 6, 1, 6)
+	rimHolder.Parent = equip
+	round(rimHolder, 8)
+	edge(rimHolder, PANEL.ink, 3)
+	equip.Activated:Connect(function()
+		if busy or not equip.Active or actionRemote == nil then
+			return
+		end
+		setBusy(true)
+		actionRemote:FireServer("equipBest")
+		-- The answer is a NukeList carrying `notice`; if it never comes (the server's
+		-- cooldown swallowed a double-press) the button comes back on its own.
+		task.delay(2, function()
+			if busy then
+				setBusy(false)
+			end
+		end)
+	end)
 
 	ui.panel = panel
-	ui.scale = scale
 	ui.count = count
 	ui.rate = rate
 	ui.equip = equip
 	ui.notice = notice
 	ui.scroll = scroll
+	ui.empty = empty
 	return gui
 end
 
@@ -613,11 +665,29 @@ function Nukes.start()
 	Net.get("CarryState").OnClientEvent:Connect(onChange)
 	Net.get("IncomeState").OnClientEvent:Connect(onChange)
 
+	-- Anomaly names cycle their spectrum; only while the panel is up.
+	RunService.RenderStepped:Connect(function()
+		if not (ui.panel and ui.panel.Visible) then
+			return
+		end
+		local now = os.clock()
+		for _, row in rows do
+			if row.entry and row.entry.rarity == "Anomaly" then
+				tint(row, now)
+			end
+		end
+	end)
+
+	-- Crating countdowns on the Unequip buttons.
 	task.spawn(function()
 		while true do
 			task.wait(1)
-			if ui.panel and ui.panel.Visible and #cratingRows > 0 then
-				tickCrating()
+			if ui.panel and ui.panel.Visible then
+				for _, row in rows do
+					if row.entry and (row.entry.crating or 0) > 0 then
+						paintUnequip(row)
+					end
+				end
 			end
 		end
 	end)
