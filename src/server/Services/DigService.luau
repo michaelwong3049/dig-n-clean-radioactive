@@ -220,6 +220,11 @@ type Signal = {
 	-- plant time (no per-player luck re-roll), aura lit for everyone, and it is not
 	-- replaced when it goes -- it was one over the stage's SIGNALS_PER_STAGE.
 	rareDrop: boolean?,
+	-- THE TUTORIAL SPOT (Config/Tutorial.DIG_SPOT_IN): one fixed shallow Common just
+	-- inside Stage 1's entrance. A safe digger registers ONLY this signal, so the
+	-- "Find a spot to dig" step has exactly one answer and nobody wanders off. Nobody
+	-- else registers it. Replanted the tick after it goes.
+	tutorial: boolean?,
 }
 
 local signalsByStage: { [number]: { Signal } } = {}
@@ -645,7 +650,50 @@ local function removeSignal(stageId: number, uid: string)
 	end
 end
 
+local tutorialSignal: Signal? = nil
+
+--- Plant the tutorial spot if it is missing: Stage 1, Tutorial.DIG_SPOT_IN studs in
+--- from the west edge (where the field spawn faces), halfway along it.
+local function ensureTutorialSignal()
+	if tutorialSignal ~= nil and not tutorialSignal.gone then
+		return
+	end
+	local list = signalsByStage[1]
+	if list == nil or stagePart(1) == nil then
+		return
+	end
+	local minX, minZ, _, maxZ = Stages.bounds(1)
+	local itemId = Items.rollItem(1, Stages.get(1).rarityTilt, 1)
+	if itemId == nil then
+		return
+	end
+	local item = Items.get(itemId)
+	local signal: Signal = {
+		uid = HttpService:GenerateGUID(false),
+		stageId = 1,
+		position = Vector3.new(minX + Tutorial.DIG_SPOT_IN, Stages.SURFACE_Y, (minZ + maxZ) / 2),
+		itemId = itemId,
+		rarity = item.rarity,
+		modifier = rollModifier(),
+		depth = DEPTH_BASE, -- shallowest band: the starter detector always reaches it
+		soil = Stages.get(1).soilHardness,
+		weight = item.weight,
+		crateId = nil,
+		rolls = {},
+		heat = 0,
+		armed = false,
+		fuseWindow = 0,
+		fuseRarity = item.rarity,
+		fuseScale = 1,
+		gone = false,
+		tutorial = true,
+	}
+	table.insert(list, signal)
+	tutorialSignal = signal
+end
+
 local function topUpField()
+	ensureTutorialSignal()
 	for stageId, list in signalsByStage do
 		while #list < SIGNALS_PER_STAGE do
 			local before = #list
@@ -670,7 +718,7 @@ local MAX_CONTACTS = 12
 --- Every signal this player's detector actually registers, nearest first. The depth
 --- gate is ABSOLUTE: a signal buried past your detector is invisible, not faint. Rarity
 --- no longer gates the reveal at all -- it only bends the per-player roll (see rollFor).
-local function registeredFor(stageId: number, position: Vector3, stats: any): { Contact }
+local function registeredFor(stageId: number, position: Vector3, stats: any, safe: boolean?): { Contact }
 	local found: { Contact } = {}
 
 	local list = signalsByStage[stageId]
@@ -681,6 +729,10 @@ local function registeredFor(stageId: number, position: Vector3, stats: any): { 
 	local radius = stats.detectorRadius
 
 	for _, signal in list do
+		-- A safe digger sees only the tutorial spot; everyone else never sees it.
+		if (signal.tutorial == true) ~= (safe == true) then
+			continue
+		end
 		if signal.depth > stats.detectorDepth then
 			continue
 		end
@@ -1169,7 +1221,16 @@ local function stepPlayer(player: Player, dt: number)
 		return
 	end
 
-	safeDiggers[player.UserId] = Tutorial.isSafeDig(data) or nil
+	local safe = Tutorial.isSafeDig(data)
+	safeDiggers[player.UserId] = safe or nil
+
+	-- Where the tutorial's one spot is, for the client's guide arrows (TutorialController),
+	-- and its glow stays lit the whole time so it can be seen from the spawn.
+	local spot = if safe and tutorialSignal and not tutorialSignal.gone then tutorialSignal else nil
+	player:SetAttribute("TutorialDigSpot", if spot then spot.position else nil)
+	if spot then
+		revealed[spot.uid] = spot
+	end
 
 	local stats = StatResolver.get(data)
 	local position = root.Position
@@ -1200,7 +1261,7 @@ local function stepPlayer(player: Player, dt: number)
 		return
 	end
 
-	local contacts = registeredFor(stageId, position, stats)
+	local contacts = registeredFor(stageId, position, stats, safe)
 	markRevealed(contacts)
 
 	local nearest = contacts[1]
@@ -1784,7 +1845,7 @@ function DigService.start()
 		-- Same resolution the tick uses, so "what you can lock onto" and "what you can
 		-- haul" can never drift apart into two different answers.
 		local stats = StatResolver.get(data)
-		local nearest = registeredFor(stageId, root.Position, stats)[1]
+		local nearest = registeredFor(stageId, root.Position, stats, Tutorial.isSafeDig(data))[1]
 		if nearest == nil or nearest.distance > DIG_RADIUS then
 			return
 		end
