@@ -714,27 +714,13 @@ local function checkTutorial()
 		return
 	end
 
-	local hud = Players.LocalPlayer.PlayerGui:FindFirstChild("SpeedHud")
-	local badge = hud and hud:FindFirstChild("SpeedBadge", true)
 	local steps: { LockerTutorial.Step } = {
 		{
 			world = look,
 			title = "YOUR TREADMILL",
-			body = "Stand on the belt to train. Every second on it earns Speed, even while you're AFK.",
+			body = "Gain permanent walk speed by leveling up your speed",
 		},
 	}
-	if badge and badge:IsA("GuiObject") then
-		table.insert(steps, {
-			target = badge,
-			title = "SPEED",
-			body = "Your Speed adds up here. The more you have, the faster you walk, for good.",
-		})
-	end
-	table.insert(steps, {
-		world = console,
-		title = "FASTER BELTS",
-		body = "Press E at this screen to upgrade. Each belt earns Speed faster, and looks the part.",
-	})
 
 	local prompt = console:FindFirstChildOfClass("ProximityPrompt")
 	if prompt then
