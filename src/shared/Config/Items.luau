@@ -852,15 +852,18 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 	{
+		-- RETIRED, ON REQUEST (see "RETIRED ITEMS" note up top) -- dropped from the
+		-- dig roll and the Index total, but the entry itself stays so old saves
+		-- holding this id don't crash Items.get().
 		id = "reactor_logbook",
 		name = "Marked Nuke",
 		flavor = "One word on the casing, underlined twice.",
 		rarity = "Uncommon",
 		odds = 50, -- 1 in N per dig in a stocking stage
 		weight = 28,
-		stages = { 5 },
+		stages = {},
 		appeal = "Researcher",
-		sets = { "reactor_control" },
+		sets = {},
 		baseValue = 430,
 		model = "ImportedNuke",
 	},
@@ -1018,13 +1021,16 @@ Items.DEFS = {
 		model = "ImportedNuke",
 	},
 	{
+		-- RETIRED, ON REQUEST (see "RETIRED ITEMS" note up top) -- dropped from the
+		-- dig roll and the Index total, but the entry itself stays so old saves
+		-- holding this id don't crash Items.get().
 		id = "fused_tool_roll",
 		name = "Welded Nuke",
 		flavor = "Every tool on it fused solid.",
 		rarity = "Uncommon",
 		odds = 55, -- 1 in N per dig in a stocking stage
 		weight = 60,
-		stages = { 6 },
+		stages = {},
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 700,
