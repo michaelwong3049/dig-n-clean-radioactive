@@ -79,6 +79,12 @@ end
 --- plaza's green strip, level with the stage's middle and facing into it.
 Tutorial.FIELD_SPAWN_BACK = 24
 
+--- ON REQUEST: the "Find a spot to dig" step has exactly ONE spot, so nobody wanders
+--- off. DigService plants it this many studs in from Stage 1's west edge, level with
+--- the field spawn, and a safe digger registers nothing else. TutorialController points
+--- arrows at it (the `TutorialDigSpot` attribute).
+Tutorial.DIG_SPOT_IN = 18
+
 -- ── What is shut while the walkthrough runs ──────────────────────────────────────
 --
 -- ON REQUEST: nothing the walkthrough does not ask for works until it is over. Your

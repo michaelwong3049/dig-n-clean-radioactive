@@ -704,6 +704,11 @@ local function targetFor(step: Tutorial.StepId, from: Vector3): Vector3?
 			z = target.Z
 		end
 		return Vector3.new(minX + 8, Stages.SURFACE_Y, z)
+	elseif step == "dig" then
+		-- The tutorial's one spot (DigService, Tutorial.DIG_SPOT_IN): it is the only
+		-- signal your detector reads until it is dug, so the arrows lead straight to it.
+		local spot = player:GetAttribute("TutorialDigSpot")
+		return if typeof(spot) == "Vector3" then spot else nil
 	elseif step == "clean" then
 		local plot = plotModel()
 		local spot = plot and (plot:FindFirstChild("WashSpot", true) or plot:FindFirstChild("WashStand", true))
