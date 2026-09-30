@@ -709,6 +709,15 @@ local function build(): ScreenGui
 		haul.Position = UDim2.new(0, math.min(nearCentre, clearOfTiles), 1, -Dock.HAULPANEL_BOTTOM)
 	end
 	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(placeHaul)
+	-- The canvas's AbsoluteSize does NOT move when the HUD scale does (its Size is
+	-- 1/scale, then the UIScale multiplies it back), so a scale that settles after this
+	-- was built left the panel placed off the old design width -- off the right edge on
+	-- the first haul. Re-place on the scale too, and again whenever it is shown.
+	local scaler = canvas:FindFirstChildOfClass("UIScale")
+	if scaler then
+		scaler:GetPropertyChangedSignal("Scale"):Connect(placeHaul)
+	end
+	ui.placeHaul = placeHaul
 	placeHaul()
 
 	-- THE SOIL SHAFT: the picture of the haul. The nuke climbs it on the magnet's cable
@@ -1229,6 +1238,9 @@ local function renderState()
 	-- item surfaced), so the panel closing is always downstream of the lock actually
 	-- being dropped -- it can never linger over a lock the server has already let go
 	-- of, and it can never hide one that is still holding the player's feet.
+	if state.locked and not ui.haul.Visible then
+		ui.placeHaul()
+	end
 	ui.haul.Visible = state.locked
 	if not state.locked then
 		-- So the next lock's bar grows from empty rather than draining from this one's.
