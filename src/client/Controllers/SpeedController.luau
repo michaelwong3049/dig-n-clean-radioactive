@@ -54,17 +54,17 @@ local STYLE = {
 	captionFont = Enum.Font.GothamBlack,
 }
 
--- Design px inside the Dock.SPEED_SIZE footprint (280 x 60).
+-- Design px inside the Dock.SPEED_SIZE footprint (340 x 88).
 local LAYOUT = {
-	shoe = 70, -- centred in the icon slot the cash bundle fills (Dock.SIDE_ICON)
+	shoe = 88, -- centred in the icon slot the cash bundle fills (Dock.SIDE_ICON)
 	shoeDrop = Vector2.new(3, 4),
 	valueLeft = Dock.SIDE_ICON + 10, -- the same column as the cash balance below
-	captionTop = 6,
-	captionTextSize = 15,
-	valueTop = 22,
-	valueTextSize = 36,
-	valueStroke = 4.5,
-	textDrop = Vector2.new(2, 3),
+	captionTop = 10,
+	captionTextSize = 18,
+	valueTop = 30,
+	valueTextSize = 44,
+	valueStroke = 5.5,
+	textDrop = Vector2.new(3, 4),
 }
 
 local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -176,7 +176,7 @@ local function build(): ScreenGui
 	UIKit.label(badge, {
 		name = "Caption",
 		position = UDim2.fromOffset(L.valueLeft + 2, L.captionTop),
-		size = UDim2.fromOffset(150, 19),
+		size = UDim2.fromOffset(180, 22),
 		font = STYLE.captionFont,
 		textSize = L.captionTextSize,
 		color = STYLE.caption,
@@ -188,7 +188,7 @@ local function build(): ScreenGui
 	ui.value = UIKit.hudNumber(badge, {
 		name = "Value",
 		position = UDim2.fromOffset(L.valueLeft, L.valueTop),
-		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, 44),
+		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, 52),
 		font = STYLE.valueFont,
 		textSize = L.valueTextSize,
 		color = STYLE.value,
