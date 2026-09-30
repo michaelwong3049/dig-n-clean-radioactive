@@ -8,7 +8,7 @@
 
 	NO BOX, THE SAME AS THE CASH ROW (CashController's header): the glossy sneaker
 	standing on its own with a hard drop shadow, and the number beside it in light blue
-	in Gotham Bold with a heavy INK outline and drop shadow (UIKit.hudNumber). Light blue where cash is
+	in Gotham Black with a heavy INK outline and drop shadow (UIKit.hudNumber). Light blue where cash is
 	green, and a sneaker where cash has a bundle of notes, so the two never read as the
 	same counter at a glance. The small WALK SPEED caption stays, so the number reads as
 	your speed. No level is shown: the requirements are levels internally
@@ -50,8 +50,8 @@ local LEAD_CAP = 1.5
 local STYLE = {
 	value = Color3.fromHex("9FE3FF"),
 	caption = Color3.fromHex("DDF3FF"),
-	valueFont = Enum.Font.GothamBold,
-	captionFont = Enum.Font.GothamBold,
+	valueFont = Enum.Font.GothamBlack,
+	captionFont = Enum.Font.GothamBlack,
 }
 
 -- Design px inside the Dock.SPEED_SIZE footprint (380 x 80).
@@ -66,7 +66,7 @@ local LAYOUT = {
 	captionTop = 0,
 	captionTextSize = 18,
 	valueTextSize = 52,
-	valueStroke = 5,
+	valueStroke = 6,
 	textDrop = Vector2.new(3, 4),
 }
 
