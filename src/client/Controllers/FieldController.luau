@@ -502,8 +502,8 @@ end
 -- run at from the far side of the map. Two camera-facing beams: a bright shaft and a
 -- wide faint glow round it, both fading out toward the top.
 local BEACON_HEIGHT = 260
-local BEACON_WIDTH = 3.5
-local BEACON_GLOW_WIDTH = 10
+local BEACON_WIDTH = 5
+local BEACON_GLOW_WIDTH = 14
 
 local function buildBeacon(core: BasePart, surface: Vector3, hue: Color3): { Beam }
 	local foot = Instance.new("Attachment")
@@ -517,14 +517,16 @@ local function buildBeacon(core: BasePart, surface: Vector3, hue: Color3): { Bea
 
 	local beams = {}
 	for i, spec in {
-		{ width = BEACON_WIDTH, fade = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.1),
-			NumberSequenceKeypoint.new(0.55, 0.45),
+		-- The shaft is near-solid and barely emissive: a brighter, glowier beam
+		-- washes to white against a daytime sky and the rarity colour is lost.
+		{ width = BEACON_WIDTH, emission = 0.15, fade = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(0.6, 0.3),
 			NumberSequenceKeypoint.new(1, 1),
 		}) },
-		{ width = BEACON_GLOW_WIDTH, fade = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.7),
-			NumberSequenceKeypoint.new(0.4, 0.85),
+		{ width = BEACON_GLOW_WIDTH, emission = 0.6, fade = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.55),
+			NumberSequenceKeypoint.new(0.5, 0.75),
 			NumberSequenceKeypoint.new(1, 1),
 		}) },
 	} do
@@ -537,9 +539,9 @@ local function buildBeacon(core: BasePart, surface: Vector3, hue: Color3): { Bea
 		beam.Width1 = spec.width * 0.6
 		beam.Transparency = spec.fade
 		beam.Color = ColorSequence.new(hue)
-		beam.LightEmission = 1
+		beam.LightEmission = spec.emission
 		beam.LightInfluence = 0
-		beam.Brightness = 2
+		beam.Brightness = 1
 		beam.Segments = 1
 		beam.Parent = core
 		table.insert(beams, beam)
