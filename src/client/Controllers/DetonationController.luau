@@ -4,12 +4,15 @@
 
 	THREE JOBS, all driven by the server and all purely visual except one:
 
-	  1. THE BLAST (the Detonation remote, fired to every client). A flash, a fireball
-	     that rolls straight into smoke, a pressure ring skimming the ground, a wave of
-	     dust thrown outward, chunks of ground flung and falling back, and for the rare
-	     ones a column of smoke that climbs and -- Epic and up -- spreads into a cap.
-	     The boom, the camera shake and a warm screen flash scale with how close you
-	     were. THE ONE NON-VISUAL THING: if YOUR character was inside the blast, this
+	  1. THE BLAST (the Detonation remote, fired to every client). A soft flash that
+	     blows the whole scene out white for a moment; a fireball with a green-white
+	     heart that swells, lifts and rolls over into smoke; a shock dome of rippling
+	     air racing out with dust riding its foot; the ground thrown outward. Rare and
+	     up climb on a narrow stem into a cap whose edge rolls down and back in on
+	     itself -- Epic and up in full, with a pale skirt round the stem -- and the top
+	     rarities are drawn bigger than their blast radius (GRAND_*). The shock front
+	     reaches YOU a beat after the flash, the farther the later: a jolt, the view
+	     punched wide, a smear of blur. THE ONE NON-VISUAL THING: if YOUR character was inside the blast, this
 	     knocks it flat and throws it clear. The server cannot do that reliably -- the
 	     character's physics belongs to its own client -- so every client flings its own.
 	     The health it cost is the server's (HazardService, ExposureService), not ours.
@@ -78,6 +81,12 @@ local SMOKE_LIT = Color3.fromHex("6B4A33") -- the underside of smoke with fire u
 local SMOKE = Color3.fromHex("4A4540")
 local SMOKE_CAP = Color3.fromHex("6E675F") -- the cap is thinner and sunlit; pure SMOKE there read as a black blot
 local SMOKE_PALE = Color3.fromHex("8A847C")
+local EMBER = Color3.fromHex("8E4424") -- smoke still glowing with the fire inside it
+local SKIRT = Color3.fromHex("E3E1DA") -- condensation, not smoke: pale and thin
+local FLASH_RAD = Color3.fromHex("E4FFC4") -- the flash's white, with the rad showing
+local FLASH_TINT = Color3.fromHex("F2FFE4") -- what the scene is tinted as it blows out
+local RAD_WHITE = Color3.fromHex("D8FF8A") -- the hottest point of the fireball's green heart
+local SHOCK_AIR = Color3.fromHex("E9F5DC") -- the shock dome's shimmer
 local DUST = Color3.fromHex("6E6456")
 local CHUNK = Color3.fromHex("2B2621")
 local SCORCH = Color3.fromHex("1C1814")
@@ -91,10 +100,17 @@ local FUSE_WARM = Color3.fromHex("F59E0B")
 local FUSE_ARMED = Color3.fromHex("FF2A1A")
 
 -- ── Tuning (visual only) ────────────────────────────────────────────────
-local COLUMN_FROM = 4 -- Rarity order: Rare and up throw a smoke column
-local CAP_FROM = 5 -- Epic and up spread it into a mushroom cap
-local SHAKE_REACH = 8 -- shake is felt out to this many blast radii
-local FLASH_REACH = 6 -- the screen flash, out to this many blast radii
+local COLUMN_FROM = 4 -- Rarity order: Rare and up climb on a stem into a small cap
+local CAP_FROM = 5 -- Epic and up get the full rolling cap and the skirt
+local GRAND_FROM = 4 -- past this Rarity order the spectacle outgrows the blast radius...
+local GRAND_STEP = 0.18 -- ...by this much per order (Anomaly draws ~1.7x its radius)
+local SHAKE_REACH = 8 -- the shock front is felt out to this many blast radii
+local FLASH_REACH = 2.5 -- the warm screen wash of heat, only this close
+local SCENE_FLASH_REACH = 9 -- the scene-wide flash of light, seen out to this many radii
+local SHOCK_SPEED = 200 -- studs/s: the visible front, and when you feel it arrive
+local SHOCK_REACH = 3.5 -- the visible dome's final radius, in blast radii (grows at the top)
+local FOV_KICK = 9 -- degrees the view is punched wide by a point-blank shock
+local BLUR_KICK = 14 -- BlurEffect size of the same
 local GRAVITY = 70 -- studs/s^2 for thrown chunks; a touch floatier than Workspace's
 local BEEP_WARN_INTERVAL = 0.9
 local BEEP_ARMED_SLOW = 0.45
@@ -105,6 +121,14 @@ local player = Players.LocalPlayer
 
 local fxFolder: Folder = nil :: any
 local shakes: { { amp: number, t0: number, duration: number } } = {}
+local fovKicks: { { amp: number, t0: number, duration: number } } = {}
+local fovBase: number? = nil -- the FOV before our kick, while one is running
+local fovApplied: number? = nil -- what we last set, to notice anyone else changing it
+
+local sceneFlash: ColorCorrectionEffect = nil :: any
+local shockBlur: BlurEffect = nil :: any
+local sceneTween: Tween? = nil
+local blurTween: Tween? = nil
 
 type Chunk = { part: BasePart, from: Vector3, velocity: Vector3, spin: Vector3, t0: number, floor: number, landed: number? }
 local chunks: { Chunk } = {}
@@ -269,81 +293,402 @@ local function throwChunks(position: Vector3, blastRadius: number, count: number
 	end
 end
 
---- The smoke column, and for the biggest ones the cap: a smoke source that climbs out
---- of the fireball and leaves its trail standing behind it, then bursts outward and
---- rolls when it tops out. Particles stay where they were emitted, so the stem draws
---- itself as the source rises.
-local function raiseCloud(position: Vector3, blastRadius: number, withCap: boolean)
-	local height = blastRadius * (if withCap then 2.8 else 1.6)
-	local rise = if withCap then 3.4 else 2.2
+--- How much larger than its blast radius a nuke's spectacle is drawn. The radius that
+--- hurts is the server's and stays put; this only stretches the show, so an Epic's
+--- cloud towers over a Rare's by more than their radii alone would say.
+local function grandeur(order: number): number
+	return 1 + math.max(0, order - GRAND_FROM) * GRAND_STEP
+end
 
-	local riser = fxPart()
-	riser.Transparency = 1
-	riser.Size = Vector3.one
-	riser.CFrame = CFrame.new(position + Vector3.new(0, 1, 0))
-	riser.Parent = fxFolder
-
-	local stem = emitter(riser, {
-		Texture = TEX_SMOKE,
-		Color = colours(0, SMOKE_LIT, 0.25, SMOKE, 1, SMOKE_PALE),
-		LightEmission = 0.05,
-		Size = seq(0, cap(blastRadius * 0.28), 1, cap(blastRadius * 0.6)),
-		Transparency = seq(0, 0.25, 0.7, 0.45, 1, 1),
-		Lifetime = NumberRange.new(5, 7.5),
-		Speed = NumberRange.new(0.5, 2),
-		SpreadAngle = Vector2.new(25, 25),
-		Drag = 1,
-		Rotation = NumberRange.new(0, 360),
-		RotSpeed = NumberRange.new(-20, 20),
-		Rate = 14 + blastRadius * 0.6,
+--- The instant of the flash, seen by the whole scene: everything blown out bright and
+--- bleached, then the colour seeping back. Measured from the CAMERA -- it is light,
+--- and you see it whether or not it can reach you.
+local function flashScene(strength: number)
+	if strength <= 0.01 then
+		return
+	end
+	if sceneTween then
+		sceneTween:Cancel()
+	end
+	sceneFlash.Brightness = math.max(sceneFlash.Brightness, 0.45 * strength)
+	sceneFlash.Contrast = math.max(sceneFlash.Contrast, 0.3 * strength)
+	sceneFlash.Saturation = math.min(sceneFlash.Saturation, -0.6 * strength)
+	sceneFlash.TintColor = Color3.new(1, 1, 1):Lerp(FLASH_TINT, strength)
+	sceneFlash.Enabled = true
+	local tween = TweenService:Create(sceneFlash, TweenInfo.new(0.3 + 1.1 * strength, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Brightness = 0,
+		Contrast = 0,
+		Saturation = 0,
+		TintColor = Color3.new(1, 1, 1),
 	})
-
-	-- Fire still feeding the bottom of the column for its first second.
-	local ember = emitter(riser, {
-		Texture = TEX_FIRE,
-		Color = colours(0, FIRE_HOT, 0.5, FIRE_MID, 1, FIRE_DEEP),
-		LightEmission = 1,
-		Size = seq(0, cap(blastRadius * 0.3), 1, cap(blastRadius * 0.1)),
-		Transparency = seq(0, 0.2, 1, 1),
-		Lifetime = NumberRange.new(0.4, 0.8),
-		Speed = NumberRange.new(1, 4),
-		SpreadAngle = Vector2.new(30, 30),
-		Rate = 20,
-	})
-	task.delay(1.1, function()
-		ember.Enabled = false
-	end)
-
-	TweenService:Create(riser, TweenInfo.new(rise, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		CFrame = CFrame.new(position + Vector3.new(0, height, 0)),
-	}):Play()
-
-	task.delay(rise, function()
-		stem.Enabled = false
-		if withCap then
-			-- The cap: a burst thrown outward and a little down from the top of the
-			-- column, big and slow, so it spreads into a rolling flat head.
-			local head = emitter(riser, {
-				Texture = TEX_SMOKE,
-				Color = colours(0, SMOKE_LIT, 0.25, SMOKE_CAP, 1, SMOKE_PALE),
-				LightEmission = 0.05,
-				Size = seq(0, cap(blastRadius * 0.55), 1, cap(blastRadius * 1.1)),
-				Transparency = seq(0, 0.35, 0.7, 0.55, 1, 1),
-				Lifetime = NumberRange.new(6, 9),
-				Speed = NumberRange.new(blastRadius * 0.25, blastRadius * 0.55),
-				SpreadAngle = Vector2.new(80, 80),
-				Drag = 1.1,
-				Acceleration = Vector3.new(0, -blastRadius * 0.03, 0),
-				Rotation = NumberRange.new(0, 360),
-				RotSpeed = NumberRange.new(-12, 12),
-			})
-			head:Emit(22)
+	tween.Completed:Connect(function(state)
+		if state == Enum.PlaybackState.Completed then
+			sceneFlash.Enabled = false
 		end
 	end)
+	sceneTween = tween
+	tween:Play()
+end
 
-	task.delay(rise + 10, function()
-		riser:Destroy()
+--- The shock front reaching YOU: a hard jolt, the view kicked wide, a smear of blur.
+--- Arrives after the flash by however long the front took to cross the distance.
+local function shockHits(strength: number, order: number)
+	if strength <= 0.01 then
+		return
+	end
+	shake((0.9 + order * 0.3) * strength, 0.45 + order * 0.08)
+	table.insert(fovKicks, { amp = FOV_KICK * strength, t0 = os.clock(), duration = 0.6 })
+	if blurTween then
+		blurTween:Cancel()
+	end
+	shockBlur.Size = math.max(shockBlur.Size, BLUR_KICK * strength)
+	shockBlur.Enabled = true
+	local tween = TweenService:Create(shockBlur, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = 0 })
+	tween.Completed:Connect(function(state)
+		if state == Enum.PlaybackState.Completed then
+			shockBlur.Enabled = false
+		end
 	end)
+	blurTween = tween
+	tween:Play()
+end
+
+--- The shock front: a dome of rippling air racing out at SHOCK_SPEED, thinning as it
+--- goes, with a skim of dust riding its foot. Returns how far it was drawn.
+local function shockwave(host: BasePart, position: Vector3, r: number, order: number): number
+	local reach = r * (SHOCK_REACH + math.max(0, order - GRAND_FROM) * 0.5)
+	local duration = reach / SHOCK_SPEED
+
+	-- ForceField draws as a refracting, shimmering shell -- the closest thing to a
+	-- wall of compressed air the engine has. The ground hides its lower half.
+	local dome = fxPart("Ball")
+	dome.Material = Enum.Material.ForceField
+	dome.Color = SHOCK_AIR
+	dome.Size = Vector3.one * r * 0.4
+	dome.CFrame = CFrame.new(position)
+	dome.Parent = fxFolder
+	TweenService:Create(dome, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
+		Size = Vector3.one * reach * 2,
+	}):Play()
+	TweenService:Create(dome, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		Transparency = 1,
+	}):Play()
+	task.delay(duration + 0.1, function()
+		dome:Destroy()
+	end)
+
+	-- Dust torn off the ground right at the front, moving WITH it -- no drag, so the
+	-- ring of it stays on the dome's foot all the way out.
+	local bearings = 20 + math.max(0, order - GRAND_FROM) * 4
+	for index = 1, bearings do
+		local angle = (index / bearings) * math.pi * 2
+		local bearing = Instance.new("Attachment")
+		bearing.CFrame = CFrame.new(0, 0.8, 0) * CFrame.Angles(0, angle, 0)
+		bearing.Parent = host
+		emitter(bearing, {
+			Texture = TEX_SMOKE,
+			EmissionDirection = Enum.NormalId.Front,
+			Color = colours(0, SMOKE_PALE, 1, DUST),
+			Size = seq(0, cap(r * 0.15), 1, cap(r * 0.45)),
+			Transparency = seq(0, 0.45, 0.7, 0.6, 1, 1),
+			Lifetime = NumberRange.new(duration * 0.85, duration),
+			Speed = NumberRange.new(SHOCK_SPEED * 0.95, SHOCK_SPEED),
+			SpreadAngle = Vector2.new(4, 2),
+			Rotation = NumberRange.new(0, 360),
+			RotSpeed = NumberRange.new(-60, 60),
+		}):Emit(2)
+	end
+
+	return reach
+end
+
+--- The fireball, and what it becomes. One invisible ball carries it all: it swells and
+--- climbs while fire boils on it (locked to it, so the fireball stays one body as it
+--- lifts) around a sickly green heart. As the fire dies it rolls over into smoke.
+--- Small nukes stop there: a lifting, darkening puff. Rare and up keep climbing on a
+--- narrow stem and, at the top, throw a ring of smoke outward that curls down and back
+--- in on itself -- the rolling cap -- lit from underneath by what is left of the fire.
+local function fireballAndCloud(host: BasePart, position: Vector3, r: number, order: number)
+	local g = grandeur(order)
+	local column = order >= COLUMN_FROM
+	local fullCap = order >= CAP_FROM
+	local fr = r * 0.42 * g -- fireball radius
+	local capRadius = r * g * (if fullCap then 0.8 else 0.5)
+	local height = if fullCap then r * g * 2.7 elseif column then r * g * 1.7 else fr * 1.6
+	local rise = if fullCap then 3.2 + (order - CAP_FROM) * 0.35 elseif column then 2.4 else 1.4
+	local burn = if fullCap then 1.9 + (order - CAP_FROM) * 0.2 elseif column then 1.5 else 0.9
+
+	local ball = fxPart("Ball")
+	ball.Transparency = 1
+	ball.Size = Vector3.one * fr * 0.8
+	ball.CFrame = CFrame.new(position + Vector3.new(0, fr * 0.5, 0))
+	ball.Parent = fxFolder
+
+	local fire = emitter(ball, {
+		Texture = TEX_FIRE,
+		Shape = Enum.ParticleEmitterShape.Sphere,
+		ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume,
+		ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward,
+		LockedToPart = true,
+		Color = colours(0, FIRE_HOT, 0.35, FIRE_MID, 1, FIRE_DEEP),
+		LightEmission = 1,
+		Size = seq(0, cap(fr * 0.45), 0.5, cap(fr * 0.6), 1, cap(fr * 0.35)),
+		Transparency = seq(0, 0.05, 0.6, 0.3, 1, 1),
+		Lifetime = NumberRange.new(0.45, 0.9),
+		Speed = NumberRange.new(fr * 0.1, fr * 0.35),
+		Drag = 2,
+		Acceleration = Vector3.new(0, fr * 0.8, 0),
+		Rotation = NumberRange.new(0, 360),
+		RotSpeed = NumberRange.new(-140, 140),
+		Rate = 22 + order * 4,
+	})
+
+	-- Its body: soft, rolling billows of flame, so it reads as one boiling mass and
+	-- not as a burst of spikes.
+	local body = emitter(ball, {
+		Texture = TEX_SMOKE,
+		Shape = Enum.ParticleEmitterShape.Sphere,
+		ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume,
+		ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward,
+		LockedToPart = true,
+		Color = colours(0, FIRE_HOT, 0.4, FIRE_MID, 1, FIRE_DEEP),
+		LightEmission = 0.8,
+		Size = seq(0, cap(fr * 0.5), 1, cap(fr * 0.75)),
+		Transparency = seq(0, 0.1, 0.7, 0.35, 1, 1),
+		Lifetime = NumberRange.new(0.5, 0.9),
+		Speed = NumberRange.new(fr * 0.05, fr * 0.2),
+		Drag = 2,
+		Rotation = NumberRange.new(0, 360),
+		RotSpeed = NumberRange.new(-50, 50),
+		Rate = 30 + order * 5,
+	})
+
+	-- THE RAD TINT: the heart of it burns green-white, drawn a little in front of the
+	-- fire so it shows through as a core rather than a colour cast over everything.
+	local heart = emitter(ball, {
+		Texture = TEX_SMOKE,
+		Shape = Enum.ParticleEmitterShape.Sphere,
+		ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume,
+		LockedToPart = true,
+		Color = colours(0, RAD_WHITE, 0.3, RAD_GLOW, 1, RAD_HAZE),
+		LightEmission = 0.15,
+		Size = seq(0, cap(fr * 0.3), 1, cap(fr * 0.45)),
+		Transparency = seq(0, 0.05, 0.6, 0.3, 1, 1),
+		Lifetime = NumberRange.new(0.3, 0.55),
+		Speed = NumberRange.new(0, fr * 0.1),
+		ZOffset = fr * 0.6,
+		Rotation = NumberRange.new(0, 360),
+		RotSpeed = NumberRange.new(-60, 60),
+		Rate = 20 + order * 4,
+	})
+
+	-- Smoke shed off the fireball's skin and left behind as it lifts: the broad, dirty
+	-- base of the cloud.
+	local shell = emitter(ball, {
+		Texture = TEX_SMOKE,
+		Shape = Enum.ParticleEmitterShape.Sphere,
+		ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface,
+		ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward,
+		Color = colours(0, SMOKE_LIT, 0.3, SMOKE, 1, SMOKE_PALE),
+		LightEmission = 0.05,
+		Size = seq(0, cap(fr * 0.55), 1, cap(fr * 1.0)),
+		Transparency = seq(0, 0.35, 0.15, 0.2, 0.7, 0.45, 1, 1),
+		Lifetime = NumberRange.new(3, 5),
+		Speed = NumberRange.new(fr * 0.05, fr * 0.15),
+		Drag = 1,
+		Rotation = NumberRange.new(0, 360),
+		RotSpeed = NumberRange.new(-25, 25),
+	})
+
+	local light = Instance.new("PointLight")
+	light.Color = FIRE_MID:Lerp(RAD_GLOW, 0.25)
+	light.Brightness = 2.5
+	light.Range = math.min(60, fr * 2.2)
+	light.Shadows = false
+	light.Parent = ball
+	TweenService:Create(light, TweenInfo.new(burn + 0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		Brightness = 0,
+	}):Play()
+
+	TweenService:Create(ball, TweenInfo.new(rise, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		CFrame = CFrame.new(position + Vector3.new(0, height, 0)),
+		Size = Vector3.one * (if column then capRadius * 0.9 else fr * 1.2),
+	}):Play()
+
+	task.delay(burn * 0.4, function()
+		shell.Rate = 10 + order * 2
+	end)
+	task.delay(burn * 0.7, function()
+		heart.Enabled = false
+	end)
+	task.delay(burn, function()
+		fire.Enabled = false
+		body.Enabled = false
+	end)
+	-- A small one keeps shedding smoke as it lifts; a big one hands over to its stem.
+	task.delay(if column then burn else rise + 0.6, function()
+		shell.Enabled = false
+	end)
+
+	if column then
+		-- The stem: much narrower than the head, drawn by the head climbing away from it.
+		local stemAt = Instance.new("Attachment")
+		stemAt.Parent = ball
+		local stem = emitter(stemAt, {
+			Texture = TEX_SMOKE,
+			EmissionDirection = Enum.NormalId.Bottom,
+			Color = colours(0, SMOKE_LIT, 0.3, SMOKE, 1, SMOKE_PALE),
+			LightEmission = 0.05,
+			Size = seq(0, cap(r * g * 0.2), 1, cap(r * g * 0.42)),
+			Transparency = seq(0, 0.3, 0.7, 0.5, 1, 1),
+			Lifetime = NumberRange.new(5, 8),
+			Speed = NumberRange.new(0.5, 2),
+			SpreadAngle = Vector2.new(20, 20),
+			Drag = 1,
+			Rotation = NumberRange.new(0, 360),
+			RotSpeed = NumberRange.new(-20, 20),
+			Rate = 0,
+		})
+
+		-- The head: smoke that travels WITH the ball, so it climbs as one boiling mass
+		-- instead of smearing into a second stem. Starts glowing, cools as it goes.
+		local head = emitter(ball, {
+			Texture = TEX_SMOKE,
+			Shape = Enum.ParticleEmitterShape.Sphere,
+			ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume,
+			ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward,
+			LockedToPart = true,
+			Color = colours(0, SMOKE_LIT, 0.3, SMOKE_CAP, 1, SMOKE_CAP),
+			LightEmission = 0.1,
+			Size = seq(0, cap(capRadius * 0.5), 1, cap(capRadius * 0.8)),
+			Transparency = seq(0, 1, 0.15, 0.3, 0.8, 0.4, 1, 1),
+			Lifetime = NumberRange.new(1.4, 2.2),
+			Speed = NumberRange.new(0.5, 2),
+			Rotation = NumberRange.new(0, 360),
+			RotSpeed = NumberRange.new(-30, 30),
+			Rate = 0,
+		})
+
+		-- What is left of the fire, still glowing through the underside of the cap.
+		local underAt = Instance.new("Attachment")
+		underAt.Position = Vector3.new(0, -capRadius * 0.45, 0)
+		underAt.Parent = ball
+		local underglow = emitter(underAt, {
+			Texture = TEX_SMOKE,
+			LockedToPart = true,
+			Color = colours(0, RAD_HAZE, 1, RAD_HAZE),
+			LightEmission = 0.3,
+			Size = seq(0, cap(capRadius * 0.5), 1, cap(capRadius * 0.8)),
+			Transparency = seq(0, 0.9, 0.4, 0.86, 1, 1),
+			Lifetime = NumberRange.new(1, 1.6),
+			Speed = NumberRange.new(0, 1),
+			SpreadAngle = Vector2.new(180, 180),
+			Rotation = NumberRange.new(0, 360),
+			RotSpeed = NumberRange.new(-20, 20),
+			Rate = 0,
+		})
+
+		task.delay(burn * 0.5, function()
+			head.Rate = 14 + order * 2
+		end)
+		task.delay(burn * 0.6, function()
+			stem.Rate = 16 + order * 3
+			underglow.Rate = 3 + order * 0.5
+		end)
+
+		task.delay(rise, function()
+			stem.Enabled = false
+
+			-- THE CAP: a ring of smoke thrown outward and up from the head, dragged
+			-- back in and down as it goes -- the rolling edge of a real cap, which
+			-- turns over on itself rather than just spreading.
+			local ringCount = if fullCap then 12 else 8
+			for index = 1, ringCount do
+				local angle = (index / ringCount) * math.pi * 2
+				local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
+				local at = out * capRadius * 0.45
+				local edge = Instance.new("Attachment")
+				edge.CFrame = CFrame.lookAt(at, at + (out + Vector3.new(0, 0.55, 0)).Unit)
+				edge.Parent = ball
+				emitter(edge, {
+					Texture = TEX_SMOKE,
+					EmissionDirection = Enum.NormalId.Front,
+					Color = colours(0, EMBER, 0.04, SMOKE_LIT, 0.18, SMOKE_CAP, 1, SMOKE_PALE),
+					LightEmission = 0.1,
+					Size = seq(0, cap(capRadius * 0.5), 1, cap(capRadius * 0.95)),
+					Transparency = seq(0, 0.3, 0.7, 0.5, 1, 1),
+					Lifetime = NumberRange.new(6, 9),
+					Speed = NumberRange.new(capRadius * 0.45, capRadius * 0.7),
+					SpreadAngle = Vector2.new(18, 18),
+					Drag = 0.9,
+					Acceleration = -out * capRadius * 0.06 + Vector3.new(0, -capRadius * 0.05, 0),
+					Rotation = NumberRange.new(0, 360),
+					RotSpeed = NumberRange.new(-12, 12),
+				}):Emit(if fullCap then 5 else 3)
+			end
+
+			-- The crown: the head's own smoke, let go to hang there once it tops out.
+			emitter(ball, {
+				Texture = TEX_SMOKE,
+				Shape = Enum.ParticleEmitterShape.Sphere,
+				ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume,
+				ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward,
+				Color = colours(0, SMOKE_LIT, 0.3, SMOKE_CAP, 1, SMOKE_PALE),
+				LightEmission = 0.05,
+				Size = seq(0, cap(capRadius * 0.6), 1, cap(capRadius * 1.0)),
+				Transparency = seq(0, 0.3, 0.7, 0.5, 1, 1),
+				Lifetime = NumberRange.new(6, 9),
+				Speed = NumberRange.new(capRadius * 0.08, capRadius * 0.18),
+				Drag = 1,
+				Acceleration = Vector3.new(0, capRadius * 0.02, 0),
+				Rotation = NumberRange.new(0, 360),
+				RotSpeed = NumberRange.new(-12, 12),
+			}):Emit(8 + order)
+		end)
+		task.delay(rise + 1.5, function()
+			head.Enabled = false
+		end)
+		task.delay(rise + 2.5, function()
+			underglow.Enabled = false
+		end)
+
+		if fullCap then
+			-- The skirt: a thin pale collar condensing round the stem as the head
+			-- punches up through the air above it.
+			task.delay(rise * 0.55, function()
+				local skirtHeight = height * 0.55
+				local skirts = 10
+				for index = 1, skirts do
+					local angle = (index / skirts) * math.pi * 2
+					local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
+					local at = Vector3.new(0, skirtHeight, 0) + out * r * g * 0.2
+					local collar = Instance.new("Attachment")
+					collar.CFrame = CFrame.lookAt(at, at + out)
+					collar.Parent = host
+					emitter(collar, {
+						Texture = TEX_SMOKE,
+						EmissionDirection = Enum.NormalId.Front,
+						Color = colours(0, SKIRT, 1, SMOKE_PALE),
+						LightEmission = 0.15,
+						Size = seq(0, cap(r * g * 0.2), 1, cap(r * g * 0.45)),
+						Transparency = seq(0, 0.6, 0.5, 0.65, 1, 1),
+						Lifetime = NumberRange.new(2.5, 3.5),
+						Speed = NumberRange.new(r * g * 0.35, r * g * 0.5),
+						SpreadAngle = Vector2.new(10, 4),
+						Drag = 1.2,
+						Rotation = NumberRange.new(0, 360),
+						RotSpeed = NumberRange.new(-15, 15),
+					}):Emit(2)
+				end
+			end)
+		end
+	end
+
+	task.delay(rise + 11, function()
+		ball:Destroy()
+	end)
+
+	return rise
 end
 
 local function blast(info: any)
@@ -351,37 +696,37 @@ local function blast(info: any)
 	local blastRadius: number = info.blastRadius
 	local order = rarityOrder(info.rarity)
 	local r = blastRadius
+	local g = grandeur(order)
 
 	local host = fxPart()
 	host.Transparency = 1
 	host.Size = Vector3.one
 	host.CFrame = CFrame.new(position)
 	host.Parent = fxFolder
+	-- Lifted off the ground: a camera-facing sprite centred on the ground has its
+	-- lower half sliced off by the floor behind it, which reads as a hard half-disc.
 	local centre = Instance.new("Attachment")
-	centre.Position = Vector3.new(0, 1, 0)
+	centre.Position = Vector3.new(0, r * 0.25, 0)
 	centre.Parent = host
 
-	-- THE FLASH: a sphere of light that is gone in a third of a second.
-	local flash = fxPart("Ball")
-	flash.Material = Enum.Material.Neon
-	flash.Color = FLASH
-	flash.Size = Vector3.one * r * 0.4
-	flash.CFrame = CFrame.new(position + Vector3.new(0, 1, 0))
-	flash.Parent = fxFolder
-	TweenService:Create(flash, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Size = Vector3.one * r * 1.1,
-	}):Play()
-	TweenService:Create(flash, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-		Transparency = 1,
-	}):Play()
-	task.delay(0.45, function()
-		flash:Destroy()
-	end)
+	-- THE FLASH: light, not a thing -- soft-edged, gone in a quarter of a second, a
+	-- touch of radioactive green in its white.
+	emitter(centre, {
+		Texture = TEX_SMOKE,
+		Color = colours(0, Color3.new(1, 1, 1), 1, FLASH_RAD),
+		LightEmission = 1,
+		Size = seq(0, cap(r * 0.8 * g), 1, cap(r * 1.5 * g)),
+		Transparency = seq(0, 0, 0.5, 0.3, 1, 1),
+		Lifetime = NumberRange.new(0.18, 0.32),
+		Speed = NumberRange.new(0, 0),
+		ZOffset = r * 0.3,
+		Rotation = NumberRange.new(0, 360),
+	}):Emit(5)
 
 	local light = Instance.new("PointLight")
 	light.Color = FLASH
-	light.Brightness = 10
-	light.Range = math.min(60, r * 3)
+	light.Brightness = 3
+	light.Range = math.min(60, r * 1.8)
 	light.Shadows = false
 	light.Parent = host
 	TweenService:Create(light, TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -389,26 +734,17 @@ local function blast(info: any)
 		Color = FIRE_MID,
 	}):Play()
 
-	-- THE FIREBALL, rolling straight into smoke. Fire first, short and bright; the
-	-- smoke is the same event a second later, dark and slow and much longer-lived.
-	emitter(centre, {
-		Texture = TEX_SMOKE,
-		Color = colours(0, FLASH, 1, FIRE_HOT),
-		LightEmission = 1,
-		Size = seq(0, cap(r * 0.5), 1, cap(r * 0.9)),
-		Transparency = seq(0, 0, 1, 1),
-		Lifetime = NumberRange.new(0.18, 0.3),
-		Speed = NumberRange.new(0, 1),
-	}):Emit(3)
-
+	-- THE POP: the first instant of the fireball, flung out hard and braked by the air,
+	-- with its smoke right behind it. The fireball proper takes over from here.
 	emitter(centre, {
 		Texture = TEX_FIRE,
 		Color = colours(0, FIRE_HOT, 0.35, FIRE_MID, 1, FIRE_DEEP),
 		LightEmission = 1,
-		Size = seq(0, cap(r * 0.3), 0.4, cap(r * 0.55), 1, cap(r * 0.35)),
-		Transparency = seq(0, 0, 0.7, 0.3, 1, 1),
-		Lifetime = NumberRange.new(0.5, 1.0),
+		Size = seq(0, cap(r * 0.25), 0.4, cap(r * 0.45), 1, cap(r * 0.25)),
+		Transparency = seq(0, 0, 0.6, 0.35, 1, 1),
+		Lifetime = NumberRange.new(0.35, 0.7),
 		Speed = NumberRange.new(r * 0.5, r * 1.1),
+		ZOffset = r * 0.3,
 		SpreadAngle = Vector2.new(180, 180),
 		Drag = 5,
 		Acceleration = Vector3.new(0, r * 0.6, 0),
@@ -431,9 +767,8 @@ local function blast(info: any)
 		RotSpeed = NumberRange.new(-25, 25),
 	}):Emit(18 + order * 3)
 
-	-- THE PRESSURE RING: a flat disc of disturbed air skimming out along the ground,
-	-- faster than anything else here. VelocityPerpendicular with a token upward speed
-	-- lays the sprite flat.
+	-- THE PRESSURE RING: a flat disc of disturbed air skimming out along the ground.
+	-- VelocityPerpendicular with a token upward speed lays the sprite flat.
 	local ringAttachment = Instance.new("Attachment")
 	ringAttachment.Position = Vector3.new(0, 0.35, 0)
 	ringAttachment.Parent = host
@@ -449,8 +784,8 @@ local function blast(info: any)
 	}):Emit(1)
 
 	-- THE DUST WAVE: the ground itself thrown outward in a ring, decelerating as it
-	-- goes. One emitter per bearing, each pointing straight out (an emitter under an
-	-- attachment fires along the attachment's own axes).
+	-- goes, well behind the shock front. One emitter per bearing, each pointing
+	-- straight out (an emitter under an attachment fires along its own axes).
 	local bearings = 14
 	for index = 1, bearings do
 		local angle = (index / bearings) * math.pi * 2
@@ -461,9 +796,9 @@ local function blast(info: any)
 			Texture = TEX_SMOKE,
 			EmissionDirection = Enum.NormalId.Front,
 			Color = colours(0, DUST, 1, SMOKE_PALE),
-			Size = seq(0, cap(r * 0.22), 1, cap(r * 0.6)),
+			Size = seq(0, cap(r * 0.22 * g), 1, cap(r * 0.6 * g)),
 			Transparency = seq(0, 0.3, 0.6, 0.5, 1, 1),
-			Lifetime = NumberRange.new(1.3, 2.2),
+			Lifetime = NumberRange.new(1.3, 2.2 + (g - 1) * 2),
 			Speed = NumberRange.new(r * 1.3, r * 1.9),
 			SpreadAngle = Vector2.new(8, 8),
 			Drag = 2.6,
@@ -473,11 +808,9 @@ local function blast(info: any)
 		}):Emit(3)
 	end
 
+	shockwave(host, position, r, order)
+	local rise = fireballAndCloud(host, position, r, order)
 	throwChunks(position, r, 8 + order * 2)
-
-	if order >= COLUMN_FROM then
-		raiseCloud(position, r, order >= CAP_FROM)
-	end
 
 	-- THE BOOM. Deeper for bigger ones, carried a long way.
 	local boom = Instance.new("Sound")
@@ -499,22 +832,31 @@ local function blast(info: any)
 		rumble:Play()
 	end
 
-	task.delay(12, function()
+	task.delay(rise + 12, function()
 		host:Destroy()
 	end)
 
-	-- How close were WE?
+	-- What the CAMERA saw: the flash.
+	local camera = Workspace.CurrentCamera
+	if camera then
+		local seen = (camera.CFrame.Position - position).Magnitude
+		flashScene(math.clamp(1 - seen / (r * g * SCENE_FLASH_REACH), 0, 1) ^ 1.5)
+	end
+
+	-- What WE felt: the warm blast of heat up close, then the shock front arriving
+	-- a beat later the farther away we were.
 	local root = characterRoot()
 	if root then
 		local distance = (root.Position - position).Magnitude
-		local near = math.clamp(1 - distance / (r * SHAKE_REACH), 0, 1)
-		shake((0.6 + order * 0.25) * near ^ 1.5, 0.6 + order * 0.12)
 		flashScreen(math.clamp(1 - distance / (r * FLASH_REACH), 0, 1) ^ 2)
+		local felt = math.clamp(1 - distance / (r * g * SHAKE_REACH), 0, 1) ^ 1.2
+		task.delay(distance / SHOCK_SPEED, shockHits, felt, order)
 		if distance <= r then
 			knockback(position, r)
 		end
 	end
 end
+
 
 -- ── 2. The crater ────────────────────────────────────────────────────────
 
@@ -928,6 +1270,40 @@ end
 
 -- ── Lifecycle ────────────────────────────────────────────────────────
 
+--- The shock's punch on the FOV: snapped wide, eased back. Rides on whatever FOV the
+--- camera already had, and if something else changes it mid-kick (the wash bay's
+--- zoom) theirs becomes the base -- we never restore a stale value over it.
+local function stepFovKick(camera: Camera, clock: number)
+	local kick = 0
+	for index = #fovKicks, 1, -1 do
+		local k = fovKicks[index]
+		local t = (clock - k.t0) / k.duration
+		if t >= 1 then
+			table.remove(fovKicks, index)
+		else
+			local envelope = if t < 0.12 then t / 0.12 else (1 - (t - 0.12) / 0.88) ^ 2
+			kick += k.amp * envelope
+		end
+	end
+
+	if fovApplied ~= nil and math.abs(camera.FieldOfView - fovApplied) > 0.01 then
+		fovBase = nil
+		fovApplied = nil
+	end
+	if kick > 0.01 then
+		local base = fovBase or camera.FieldOfView
+		fovBase = base
+		camera.FieldOfView = math.clamp(base + kick, 1, 120)
+		fovApplied = camera.FieldOfView
+	elseif fovBase ~= nil then
+		if fovApplied ~= nil then
+			camera.FieldOfView = fovBase
+		end
+		fovBase = nil
+		fovApplied = nil
+	end
+end
+
 function DetonationController.start()
 	fxFolder = Instance.new("Folder")
 	fxFolder.Name = "DetonationFx"
@@ -953,6 +1329,17 @@ function DetonationController.start()
 	tint.Name = "CraterTint"
 	tint.Enabled = false
 	tint.Parent = Lighting
+
+	sceneFlash = Instance.new("ColorCorrectionEffect")
+	sceneFlash.Name = "BlastFlash"
+	sceneFlash.Enabled = false
+	sceneFlash.Parent = Lighting
+
+	shockBlur = Instance.new("BlurEffect")
+	shockBlur.Name = "BlastShockBlur"
+	shockBlur.Size = 0
+	shockBlur.Enabled = false
+	shockBlur.Parent = Lighting
 
 	Net.get("Detonation").OnClientEvent:Connect(function(info)
 		local ok, err = pcall(blast, info)
@@ -998,13 +1385,17 @@ function DetonationController.start()
 	CollectionService:GetInstanceAddedSignal(DetonationConfig.HOT_TAG):Connect(trackFuse)
 	CollectionService:GetInstanceRemovedSignal(DetonationConfig.HOT_TAG):Connect(untrackFuse)
 
-	-- Camera shake, after the camera has had its turn so it is an offset on this
-	-- frame's view rather than a fight with the camera script over it.
+	-- Camera shake and the shock's FOV kick, after the camera has had its turn so they
+	-- are an offset on this frame's view rather than a fight with the camera script.
 	RunService:BindToRenderStep("DetonationShake", Enum.RenderPriority.Camera.Value + 2, function()
+		local camera = Workspace.CurrentCamera
+		local clock = os.clock()
+		if camera and (#fovKicks > 0 or fovBase ~= nil) then
+			stepFovKick(camera, clock)
+		end
 		if #shakes == 0 then
 			return
 		end
-		local clock = os.clock()
 		local total = 0
 		for index = #shakes, 1, -1 do
 			local s = shakes[index]
@@ -1015,7 +1406,6 @@ function DetonationController.start()
 				total += s.amp * (1 - t) ^ 2
 			end
 		end
-		local camera = Workspace.CurrentCamera
 		if total > 0 and camera then
 			local rx = math.noise(clock * 22, 0.37) * total
 			local ry = math.noise(0.71, clock * 22) * total
