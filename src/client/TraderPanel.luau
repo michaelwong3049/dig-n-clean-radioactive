@@ -41,6 +41,7 @@ local TraderPanel = {}
 local SKIN = {
 	row = Color3.fromHex("26292E"),
 	block = Color3.fromHex("3A3E45"),
+	header = Color3.fromHex("33383F"),
 	edge = Color3.fromHex("343B42"),
 	amber = Color3.fromHex("F2A93B"),
 	text = Color3.new(1, 1, 1),
@@ -61,6 +62,11 @@ local SKIN = {
 }
 
 local HEADER_H = 58
+-- The header box sits this far up into the panel's top padding.
+local HEADER_LIFT = 8
+local HEADER_PAD = 14
+-- Where the list and the receipt start.
+local BODY_TOP = HEADER_H - HEADER_LIFT + 12
 local BODY_GAP = 12
 local BODY_H = 460
 local ROW_H = 62
@@ -250,16 +256,21 @@ end
 function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 	local root = frame(parent, "Trader")
 	root.LayoutOrder = layoutOrder
-	root.Size = UDim2.new(1, 0, 0, HEADER_H + BODY_GAP + BODY_H)
+	root.Size = UDim2.new(1, 0, 0, BODY_TOP + BODY_H)
 	root.Visible = false
 
 	-- ── Header ─────────────────────────────────────────────────────────
-	local header = frame(root, "Header")
+	-- Title and wallet on their own grey box, like the Nukes panel's header.
+	local header = frame(root, "Header", SKIN.header)
+	header.Position = UDim2.fromOffset(0, -HEADER_LIFT)
 	header.Size = UDim2.new(1, 0, 0, HEADER_H)
+	local headerPad = Instance.new("UIPadding")
+	headerPad.PaddingLeft = UDim.new(0, HEADER_PAD)
+	headerPad.Parent = header
 
 	text(header, {
 		name = "Title",
-		position = UDim2.fromOffset(0, 2),
+		position = UDim2.fromOffset(0, 4),
 		size = UDim2.fromOffset(300, 36),
 		font = SKIN.headline,
 		textSize = 32,
@@ -267,7 +278,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 	})
 	local subtitle = text(header, {
 		name = "Subtitle",
-		position = UDim2.fromOffset(0, 36),
+		position = UDim2.fromOffset(0, 37),
 		size = UDim2.fromOffset(420, 16),
 		textSize = 12,
 		color = SKIN.dim,
@@ -277,7 +288,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 	text(header, {
 		name = "WalletLabel",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, -WALLET_INSET, 0, 6),
+		position = UDim2.new(1, -WALLET_INSET, 0, 8),
 		size = UDim2.fromOffset(200, 14),
 		textSize = 11,
 		color = SKIN.dim,
@@ -287,7 +298,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 	local wallet = text(header, {
 		name = "Wallet",
 		anchorPoint = Vector2.new(1, 0),
-		position = UDim2.new(1, -WALLET_INSET, 0, 21),
+		position = UDim2.new(1, -WALLET_INSET, 0, 22),
 		size = UDim2.fromOffset(240, 30),
 		font = SKIN.headline,
 		textSize = 26,
@@ -298,7 +309,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 	-- ── The bag list ────────────────────────────────────────────────────
 	local list = Instance.new("ScrollingFrame")
 	list.Name = "Bag"
-	list.Position = UDim2.fromOffset(0, HEADER_H + BODY_GAP)
+	list.Position = UDim2.fromOffset(0, BODY_TOP)
 	list.Size = UDim2.new(1, -(RECEIPT_W + BODY_GAP), 0, BODY_H)
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
@@ -321,7 +332,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 
 	local emptyBag = text(root, {
 		name = "EmptyBag",
-		position = UDim2.fromOffset(0, HEADER_H + BODY_GAP),
+		position = UDim2.fromOffset(0, BODY_TOP),
 		size = UDim2.new(1, -(RECEIPT_W + BODY_GAP), 0, BODY_H),
 		textSize = 18,
 		color = SKIN.dim,
@@ -334,7 +345,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 	-- ── The receipt ─────────────────────────────────────────────────────
 	local paper = frame(root, "Receipt", SKIN.paper)
 	paper.AnchorPoint = Vector2.new(1, 0)
-	paper.Position = UDim2.new(1, 0, 0, HEADER_H + BODY_GAP)
+	paper.Position = UDim2.new(1, 0, 0, BODY_TOP)
 	paper.Size = UDim2.fromOffset(RECEIPT_W, BODY_H)
 	local inner = frame(paper, "Inner")
 	inner.Position = UDim2.fromOffset(RECEIPT_PAD, RECEIPT_PAD)
@@ -347,17 +358,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 		textSize = 20,
 		color = SKIN.paperInk,
 		xAlign = Enum.TextXAlignment.Center,
-		text = "BUYBACK",
-	})
-	text(inner, {
-		name = "Stub",
-		position = UDim2.fromOffset(0, 24),
-		size = UDim2.new(1, 0, 0, 14),
-		font = SKIN.receipt,
-		textSize = 11,
-		color = SKIN.paperDim,
-		xAlign = Enum.TextXAlignment.Center,
-		text = "tick what goes, then SELL",
+		text = "BILL OF SALE",
 	})
 
 	local function dashes(name: string, y: UDim): TextLabel
@@ -382,11 +383,11 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 	local noteTop = totalTop + 16
 	local lowerRuleTop = noteTop + 14
 
-	dashes("RuleTop", UDim.new(0, 42))
+	dashes("RuleTop", UDim.new(0, 28))
 	local lines = Instance.new("ScrollingFrame")
 	lines.Name = "Lines"
-	lines.Position = UDim2.fromOffset(0, 58)
-	lines.Size = UDim2.new(1, 0, 1, -(58 + lowerRuleTop + 4))
+	lines.Position = UDim2.fromOffset(0, 44)
+	lines.Size = UDim2.new(1, 0, 1, -(44 + lowerRuleTop + 4))
 	lines.BackgroundTransparency = 1
 	lines.BorderSizePixel = 0
 	lines.ScrollingDirection = Enum.ScrollingDirection.Y
@@ -605,7 +606,7 @@ function TraderPanel.new(parent: Instance, layoutOrder: number): Panel
 
 		wallet.Text = money(state.cash or 0)
 		local capacity = if type(state.capacity) == "number" then state.capacity else #items
-		subtitle.Text = `Buyback counter  ·  {#items}/{capacity} in bag`
+		subtitle.Text = `Trading post  ·  {#items}/{capacity} in bag`
 	end
 
 	-- The three bulk buttons only put a group on the receipt; SELL is the confirm.
