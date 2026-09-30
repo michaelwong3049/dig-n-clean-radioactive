@@ -3,13 +3,17 @@
 	RareDropController.luau — the announced drop on every screen (Config/RareDrop).
 
 	PURE PRESENTATION. The server (RareDropService) decides what, where and who got it;
-	this reads the ReplicatedStorage attributes it publishes and draws ONE card:
+	this reads the ReplicatedStorage attributes it publishes and draws ONE line of text,
+	no box (the user's pick off the font mockup: Gotham Black, whole line in the
+	rarity's colour, dark outline):
 
-	  WHEN A DROP GOES IN  "LEGENDARY DROP!" in the rarity's colour, "Surfaced in Ooze
-	                       Marsh -- first to dig it keeps it" under it. It pops up for
-	                       ANNOUNCE_HOLD (10s, the user's call) and is gone: nothing stays
-	                       on screen while the drop is live, and a late joiner sees nothing.
+	  WHEN A DROP GOES IN  "A Legendary has appeared in Ooze Marsh!" for ANNOUNCE_HOLD
+	                       (10s), then gone: nothing stays on screen while the drop is
+	                       live, and a late joiner sees nothing.
 	  WHEN IT ENDS         who claimed it, or that it blew up, or that it sank back.
+
+	An Anomaly has no single colour: its line runs Rarity.ANOMALY_SPECTRUM across a
+	UIGradient that scrolls while it is up.
 
 	It never says WHERE in the stage. The drop's aura is lit for everyone
 	(DigService), so the stage name plus the glow is the whole hint.
@@ -17,6 +21,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
@@ -31,16 +36,22 @@ local RareDropController = {}
 
 local INK = Color3.fromHex("1A1A1A")
 local WHITE = Color3.new(1, 1, 1)
-local TITLE_FONT = Enum.Font.LuckiestGuy
-local TEXT_FONT = Enum.Font.FredokaOne
+local FONT = UIKit.Font.hero -- Gotham Black
+local TEXT_SIZE = 38
+local STROKE = 3
 
--- The card sits a little under the Violet Aurora's (0.24) so the two never land on
+-- The line sits a little under the Violet Aurora's (0.24) so the two never land on
 -- top of each other. Design px on the 1280x720 canvas.
-local CARD_Y = 0.34
-local CARD_W = 760
-local CARD_H = 130
+local LINE_Y = 0.34
+local LINE_W = 1200
+local LINE_H = 52
 
-local IN = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+-- How much of the Anomaly spectrum spans the line at once, and how many gradient
+-- keypoints carry it.
+local RAINBOW_SPAN = 0.6
+local RAINBOW_KEYS = 8
+
+local IN = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local OUT = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local ANNOUNCE_HOLD = 10
 local OUTCOME_HOLD = 3.6
@@ -48,31 +59,12 @@ local OUTCOME_HOLD = 3.6
 local ui: {
 	card: CanvasGroup,
 	cardScale: UIScale,
-	title: TextLabel,
-	sub: TextLabel,
+	line: TextLabel,
+	rainbow: UIGradient,
 }? = nil
 
 local cardToken = 0
-
-local function ink(label: TextLabel, thickness: number)
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = INK
-	stroke.Thickness = thickness
-	stroke.LineJoinMode = Enum.LineJoinMode.Round
-	stroke.Parent = label
-end
-
-local function text(parent: Instance, name: string, font: Enum.Font, size: number): TextLabel
-	local label = Instance.new("TextLabel")
-	label.Name = name
-	label.BackgroundTransparency = 1
-	label.Font = font
-	label.TextSize = size
-	label.TextColor3 = WHITE
-	label.TextXAlignment = Enum.TextXAlignment.Center
-	label.Parent = parent
-	return label
-end
+local rainbowConn: RBXScriptConnection? = nil
 
 local function colorOf(rarity: string?): Color3
 	local ok, def = pcall(Rarity.get, rarity or "")
@@ -84,6 +76,11 @@ local function stageName(stageId: number?): string
 	return if ok and def then def.name else "the field"
 end
 
+--- "A Legendary", "An Epic", "An Anomaly".
+local function withArticle(rarity: string): string
+	return (if string.find(rarity, "^[AEIOU]") then "An " else "A ") .. rarity
+end
+
 local function build(): ScreenGui
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "RareDrop"
@@ -93,12 +90,12 @@ local function build(): ScreenGui
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local canvas = UIKit.canvas(gui)
 
-	-- A CanvasGroup so the outlines fade with the words.
+	-- A CanvasGroup so the outline fades with the words.
 	local card = Instance.new("CanvasGroup")
 	card.Name = "Card"
 	card.AnchorPoint = Vector2.new(0.5, 0.5)
-	card.Position = UDim2.fromScale(0.5, CARD_Y)
-	card.Size = UDim2.fromOffset(CARD_W, CARD_H)
+	card.Position = UDim2.fromScale(0.5, LINE_Y)
+	card.Size = UDim2.fromOffset(LINE_W, LINE_H + 16)
 	card.BackgroundTransparency = 1
 	card.GroupTransparency = 1
 	card.Visible = false
@@ -106,39 +103,77 @@ local function build(): ScreenGui
 	local cardScale = Instance.new("UIScale")
 	cardScale.Parent = card
 
-	local title = text(card, "Title", TITLE_FONT, 50)
-	title.Size = UDim2.new(1, 0, 0, 62)
-	title.Position = UDim2.fromOffset(0, 6)
-	ink(title, 4.5)
+	local line = Instance.new("TextLabel")
+	line.Name = "Line"
+	line.BackgroundTransparency = 1
+	line.AnchorPoint = Vector2.new(0.5, 0.5)
+	line.Position = UDim2.fromScale(0.5, 0.5)
+	line.Size = UDim2.fromOffset(LINE_W, LINE_H)
+	line.Font = FONT
+	line.TextSize = TEXT_SIZE
+	line.TextColor3 = WHITE
+	line.TextXAlignment = Enum.TextXAlignment.Center
+	line.Parent = card
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = INK
+	stroke.Thickness = STROKE
+	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.Parent = line
 
-	local sub = text(card, "Subtitle", TEXT_FONT, 26)
-	sub.Size = UDim2.new(1, 0, 0, 34)
-	sub.Position = UDim2.fromOffset(0, 72)
-	ink(sub, 3)
-
+	-- Off unless the line is an Anomaly's; the text is white under it so the
+	-- gradient's colours come through as they are.
+	local rainbow = Instance.new("UIGradient")
+	rainbow.Enabled = false
+	rainbow.Parent = line
 
 	ui = {
 		card = card,
 		cardScale = cardScale,
-		title = title,
-		sub = sub,
+		line = line,
+		rainbow = rainbow,
 	}
 	return gui
 end
 
-local function showCard(title: string, subtitle: string, color: Color3, hold: number)
+local function stopRainbow()
+	if rainbowConn then
+		rainbowConn:Disconnect()
+		rainbowConn = nil
+	end
+end
+
+local function startRainbow(gradient: UIGradient)
+	stopRainbow()
+	rainbowConn = RunService.Heartbeat:Connect(function()
+		local phase = os.clock() / Rarity.ANOMALY_CYCLE
+		local keys = table.create(RAINBOW_KEYS)
+		for i = 0, RAINBOW_KEYS - 1 do
+			local x = i / (RAINBOW_KEYS - 1)
+			keys[i + 1] = ColorSequenceKeypoint.new(x, Rarity.anomalyHue(phase + x * RAINBOW_SPAN))
+		end
+		gradient.Color = ColorSequence.new(keys)
+	end)
+end
+
+--- `rainbow` = an Anomaly's line: white text under the scrolling spectrum.
+local function showLine(text: string, color: Color3, rainbow: boolean, hold: number)
 	local u = ui
 	if u == nil then
 		return
 	end
 	cardToken += 1
 	local mine = cardToken
-	u.title.Text = title
-	u.title.TextColor3 = color
-	u.sub.Text = subtitle
+	u.line.Text = text
+	u.line.TextColor3 = if rainbow then WHITE else color
+	u.rainbow.Enabled = rainbow
+	if rainbow then
+		startRainbow(u.rainbow)
+	else
+		stopRainbow()
+	end
 	u.card.Visible = true
 	u.card.GroupTransparency = 1
-	u.cardScale.Scale = 0.6
+	u.cardScale.Scale = 1.12
 	TweenService:Create(u.card, IN, { GroupTransparency = 0 }):Play()
 	TweenService:Create(u.cardScale, IN, { Scale = 1 }):Play()
 	task.delay(hold, function()
@@ -146,10 +181,10 @@ local function showCard(title: string, subtitle: string, color: Color3, hold: nu
 			return
 		end
 		TweenService:Create(u.card, OUT, { GroupTransparency = 1 }):Play()
-		TweenService:Create(u.cardScale, OUT, { Scale = 1.08 }):Play()
 		task.delay(OUT.Time, function()
 			if mine == cardToken then
 				u.card.Visible = false
+				stopRainbow()
 			end
 		end)
 	end)
@@ -166,10 +201,10 @@ local function onLive()
 	local stage = ReplicatedStorage:GetAttribute(RareDrop.STAGE_ATTR)
 	local tier = if type(rarity) == "string" then rarity else "Epic"
 	Sfx.play("rareDrop")
-	showCard(
-		`{string.upper(tier)} DROP!`,
-		`Surfaced in {stageName(if type(stage) == "number" then stage else nil)} — first to dig it keeps it!`,
+	showLine(
+		`{withArticle(tier)} has appeared in {stageName(if type(stage) == "number" then stage else nil)}!`,
 		colorOf(tier),
+		tier == "Anomaly",
 		ANNOUNCE_HOLD
 	)
 end
@@ -180,16 +215,15 @@ local function onOutcome()
 		return
 	end
 	local rarity = ReplicatedStorage:GetAttribute(RareDrop.RARITY_ATTR)
-	local tier = string.upper(if type(rarity) == "string" then rarity else "rare")
-	local color = colorOf(if type(rarity) == "string" then rarity else nil)
+	local tier = if type(rarity) == "string" then rarity else "Rare"
 	local who = string.match(outcome, "^claimed:(.+)$")
 	if who then
 		local you = who == Players.LocalPlayer.DisplayName
-		showCard(if you then "YOU GOT IT!" else `{string.upper(who)} GOT IT!`, `The {tier} drop has been claimed`, color, OUTCOME_HOLD)
+		showLine(`{if you then "You" else who} got the {tier}!`, colorOf(tier), tier == "Anomaly", OUTCOME_HOLD)
 	elseif outcome == "blown" then
-		showCard("KABOOM!", `The {tier} drop blew up in the ground`, Color3.fromHex("FF6B3D"), OUTCOME_HOLD)
+		showLine(`The {tier} blew up in the ground!`, Color3.fromHex("FF6B3D"), false, OUTCOME_HOLD)
 	else
-		showCard("TOO LATE", `The {tier} drop sank back unclaimed`, Color3.fromHex("9AA3AE"), OUTCOME_HOLD)
+		showLine(`The {tier} sank back unclaimed`, Color3.fromHex("9AA3AE"), false, OUTCOME_HOLD)
 	end
 end
 
