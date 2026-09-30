@@ -531,8 +531,8 @@ Dock.SIDE_WIDTH = 380
 -- bottom is one GAP above the hotbar's top. A fixed width, not the hotbar's live
 -- length: a starter suit's 6 slots would make it too short to read. HudController
 -- narrows it on a screen that cannot fit it.
-Dock.VITALS_WIDTH = 600
-Dock.VITALS_HEIGHT = 66 -- label row 18 + 3 + rads 22 + 1 + health 22
+Dock.VITALS_WIDTH = 640
+Dock.VITALS_HEIGHT = 74 -- label row 18 + 3 + rads 26 + 1 + health 26
 
 Dock.STATUS_HEIGHT = 24
 Dock.CARD_SIZE = UDim2.fromOffset(350, 118) -- was 400x136, then 330x116 before that — a size request, on purpose

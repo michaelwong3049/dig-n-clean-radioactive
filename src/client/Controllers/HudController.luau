@@ -82,15 +82,15 @@ local STYLE = {
 local VITALS = {
 	labelHeight = 18,
 	labelTextSize = 15,
-	icon = 22, -- badge diameter
-	barX = 28, -- icon + 6
-	barHeight = 14,
+	icon = 26, -- badge diameter
+	barX = 32, -- icon + 6
+	barHeight = 17,
 	barStroke = 2,
-	barTextSize = 11,
+	barTextSize = 13,
 	valuePad = 6,
 	shadowDrop = 2,
 	radsY = 21, -- row tops; each row is `icon` tall with the bar centred in it
-	healthY = 44,
+	healthY = 48,
 }
 
 -- Under this fraction of max health the heart starts to pulse, faster as it drops.
