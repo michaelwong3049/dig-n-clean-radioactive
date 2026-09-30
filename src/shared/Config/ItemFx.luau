@@ -50,6 +50,8 @@
 	             from a point that far (times the part's size) out from the model's
 	             axis instead of from the part's box: for a part flush on the shell,
 	             whose particles would otherwise be born inside it and never seen.
+	             `direction` (a NormalId name, "Bottom") overrides the preset's
+	             emission face: a rocket nozzle's flame points down, not up.
 	  anims      pulse | flash | heartbeat | blink | flicker | wink | colorCycle |
 	             smoulder | glitter, each a 0..1 wave over `period` seconds, floored
 	             at `min`. `light = true` also drives the light (at most one anim per
@@ -125,6 +127,7 @@ export type Particles = {
 	burstEvery: number?,
 	burstCount: number?,
 	outward: number?,
+	direction: string?,
 }
 
 export type Anim = {
@@ -735,7 +738,7 @@ ItemFx.DEFS = {
 			},
 		},
 		glint = {
-			parts = { "Shell", "ClamUpper" },
+			parts = { "Shell", "ClamLower" },
 			period = 5,
 			sweep = 1.1,
 			color = Color3.fromHex("FFF4F0"),
@@ -946,18 +949,35 @@ ItemFx.DEFS = {
 	},
 	-- ── Motion + shine pass ──────────────────────────────────────────────
 
-	-- Rusty Nuke (Common). "Rusted solid": the whole shell goes to corroded metal,
-	-- the bands and fins a darker, flakier brown, and the modelled corrosion
-	-- patches a raw orange so they read as fresh rust breaking through.
-	steel_rod = {
-		finish = {
-			{ parts = { "Shell", "TailTaper" }, material = "CorrodedMetal", color = Color3.fromHex("9A4A22") },
-			{
-				parts = { "HoopBand", "EquatorSeam", "Fin", "TailCap", "TailShroud", "ShroudFloor" },
-				material = "CorrodedMetal",
-				color = Color3.fromHex("5C2E17"),
-			},
-			{ parts = { "Corrosion" }, material = "CorrodedMetal", color = Color3.fromHex("C8621F") },
+	-- Rocket Nuke. "It never left the pad" -- but the motor's lit anyway: a small
+	-- flame licks down out of the nozzle, with a warm glow under it.
+	model_rocket = {
+		light = { part = "Nozzle", color = Color3.fromHex("FF8A2A"), brightness = 1.4, range = 0.6 },
+		particles = {
+			{ part = "Nozzle", preset = "flame", color = Color3.fromHex("FF7A1A"), rate = 16, direction = "Bottom" },
+		},
+		anims = {
+			{ kind = "flicker", light = true, period = 0.25, min = 0.55 },
+		},
+	},
+
+	-- Clockwork Nuke. The clock doesn't keep time, it just runs: the minute hand
+	-- sweeps, the hour hand creeps, the little subdial hand ticks.
+	clock_movement = {
+		spins = {
+			{ parts = { "HandMinute" }, pivot = "HandPin", axis = "Z", mode = "tick", rpm = 6, steps = 60 },
+			{ parts = { "HandHour" }, pivot = "HandPin", axis = "Z", rpm = 0.8 },
+			{ parts = { "SubHand" }, pivot = "Subdial", axis = "Z", mode = "tick", rpm = 20, steps = 12 },
+		},
+	},
+
+	-- Telltale Nuke. The three gauges on its panel are live: each needle wavers
+	-- round its pin at its own pace, like the readings never settle.
+	radiation_badge = {
+		spins = {
+			{ parts = { "DialANeedle" }, pivot = "DialAPin", axisParts = { "DialAFace", "DialAPin" }, mode = "swing", deg = 40, period = 2.3 },
+			{ parts = { "DialBNeedle" }, pivot = "DialBPin", axisParts = { "DialBFace", "DialBPin" }, mode = "swing", deg = 30, period = 1.7, phase = 0.3 },
+			{ parts = { "DialCNeedle" }, pivot = "DialCPin", axisParts = { "DialCFace", "DialCPin" }, mode = "swing", deg = 50, period = 3.1, phase = 0.6 },
 		},
 	},
 

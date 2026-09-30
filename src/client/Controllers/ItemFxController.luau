@@ -1325,6 +1325,9 @@ local function activate(entry: Entry, now: number)
 		if part and build then
 			local e = build(particles.color, particles.rate, entry.scale)
 			local host: Instance = part
+			if particles.direction then
+				e.EmissionDirection = (Enum.NormalId :: any)[particles.direction]
+			end
 			if particles.outward then
 				-- A part flush on the shell has half its box inside it, and anything
 				-- born there rises into the shell and is never seen. Emit from a point
