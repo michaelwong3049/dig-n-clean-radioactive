@@ -1,6 +1,6 @@
 --[[
-	CashController.lua — the persistent cash readout. Middle-left, directly under the
-	speed row, always on screen.
+	CashController.lua — the persistent cash readout. Bottom-left corner, directly under
+	the speed row, always on screen.
 
 	THERE WAS NO PERSISTENT CASH READOUT BEFORE THIS. data.cash only ever reached the
 	client inside StationState's payload, which fires only while standing at a
@@ -11,9 +11,9 @@
 
 	POSITION IS A FORMULA OVER Dock, NOT A FRESH NUMBER (UIKit.luau's own rule) --
 	same left margin and width as the speed row, sitting directly below it
-	(Dock.SPEED_MID_Y / Dock.CASH_MID_Y place the pair around the
-	vertical centre), so the two read as one stacked instrument cluster on the edge
-	rather than two unrelated floating panels.
+	(Dock.CASH_BOTTOM / Dock.SPEED_BOTTOM stack the pair up from the bottom edge, lifted
+	clear of a phone's thumbstick by Dock.sideLift), so the two read as one instrument
+	cluster in the corner rather than two unrelated floating panels.
 
 	SIZE IS Dock.CASH_SIZE, NOT A LOCAL HERE. It moved into the shared table the moment
 	IndexController needed to measure against this badge — a second file computing its
@@ -30,8 +30,9 @@
 	cash row it is money's, by request. Without a card behind it the number has to carry
 	itself over bright sky and dark caves alike, so it gets a heavy INK outline plus a
 	hard INK drop shadow (UIKit.hudNumber), and the bundle a dropped shadow of its own.
-	The whole Dock.CASH_SIZE footprint is an invisible frame: the bundle's left edge sits
-	on the column margin, lined up with the shoe above it.
+	The numbers are GOTHAM BLACK (picked from a font round, #3 of twelve), replacing
+	LuckiestGuy. The whole Dock.CASH_SIZE footprint is an invisible frame: the
+	bundle's left edge sits on the column margin, lined up with the shoe above it.
 
 	A CHANGE IS SHOWN, NOT JUST APPLIED. The balance used to snap straight to its new
 	value, so a $13M sale read exactly like a $5 one. Now the number counts to the new
@@ -43,9 +44,9 @@
 	a gain.
 
 	THE INCOME LINE under the balance carries the combined $/s every nuke on your stands
-	is paying (IncomeState, sent on change). It hides at $0/s, and the balance drops to
-	the bundle's middle, so a player with empty stands sees just the bundle and the
-	number.
+	is paying (IncomeState, sent on change). It hides at $0/s. The balance never moves
+	for it: it stays level with the bundle's middle and the line hangs below (lifting
+	the balance to make room read as the money jumping).
 ]]
 
 local Players = game:GetService("Players")
@@ -63,8 +64,8 @@ local Sfx = require(script.Parent.Parent.Sfx)
 
 local Cash = {}
 
--- Dock.CASH_SIZE, not a local number — see the header. The row rides the vertical
--- centre of the left edge (Dock.CASH_MID_Y), directly under the speed row.
+-- Dock.CASH_SIZE, not a local number — see the header. The row sits in the bottom-left
+-- corner (Dock.CASH_BOTTOM), directly under the speed row.
 local BADGE_SIZE = Dock.CASH_SIZE
 local BADGE_W = BADGE_SIZE.X.Offset
 local BADGE_H = BADGE_SIZE.Y.Offset
@@ -79,27 +80,23 @@ local STYLE = {
 	rate = Color3.fromHex("C8F5AE"),
 	gain = Color3.fromHex("7CF25A"),
 	spend = Color3.fromHex("FF5A4E"),
-	valueFont = Enum.Font.LuckiestGuy,
-	rateFont = Enum.Font.FredokaOne,
+	valueFont = Enum.Font.GothamBlack,
+	rateFont = Enum.Font.GothamBlack,
 }
 
--- Design px inside the Dock.CASH_SIZE footprint (280 x 72).
+-- Design px inside the Dock.CASH_SIZE footprint (280 x 80).
 local LAYOUT = {
-	icon = 64, -- the bundle; left edge on the column margin, vertically centred
+	icon = 64, -- the bundle; left edge on the column margin, top of the footprint
 	iconDrop = Vector2.new(3, 4),
 	valueLeft = 72,
+	valueTop = 10, -- the box is centred on the bundle's middle, and never moves
 	valueHeight = 44,
-	-- The balance's box top with the income line showing, and without it (centred on
-	-- the bundle). LuckiestGuy draws high inside its line box, so both sit a few px
-	-- lower than the arithmetic says.
-	valueTop = 3,
-	valueTopAlone = 17,
 	valueTextSize = 32,
 	valueMinTextSize = 20, -- floor for setValueText's shrink-to-fit
 	valueStroke = 4,
-	rateTop = 45,
+	rateTop = 55,
 	rateHeight = 22,
-	rateTextSize = 17,
+	rateTextSize = 16,
 	rateStroke = 3,
 	textDrop = Vector2.new(2, 3),
 }
@@ -123,6 +120,7 @@ local POPUP = {
 }
 
 local ui = {}
+local bottom = Dock.CASH_BOTTOM -- the row's bottom edge above the screen's, lift included
 local balance: number? = nil -- last CashState amount; nil until the load snapshot lands
 local lastPopup: any = nil
 
@@ -208,8 +206,7 @@ local function build(): ScreenGui
 	local badge = Instance.new("Frame")
 	badge.Name = "CashBadge"
 	badge.Size = BADGE_SIZE
-	badge.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 0.5, Dock.CASH_MID_Y)
-	badge.AnchorPoint = Vector2.new(0, 0.5)
+	badge.AnchorPoint = Vector2.new(0, 1)
 	badge.BackgroundTransparency = 1
 	badge.ZIndex = 2
 	badge.Parent = canvas
@@ -218,13 +215,18 @@ local function build(): ScreenGui
 	ui.punch.Parent = badge
 
 	local L = LAYOUT
-	local bundle = Artwork.droppedPicture(badge, "Bundle", Artwork.IMAGE.cashBundle, L.icon, L.iconDrop, 3)
-	bundle.Position = UDim2.fromOffset(0, (BADGE_H - L.icon) / 2)
+	-- Re-placed on every viewport change: a phone's thumbstick corner grows and shrinks
+	-- with the screen (Dock.sideLift).
+	UIKit.onScaleChanged(function()
+		bottom = Dock.CASH_BOTTOM + Dock.sideLift()
+		badge.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -bottom)
+	end)
 
-	-- Starts centred on the bundle; setRate lifts it once there is an income line under it.
+	Artwork.droppedPicture(badge, "Bundle", Artwork.IMAGE.cashBundle, L.icon, L.iconDrop, 3)
+
 	ui.value = UIKit.hudNumber(badge, {
 		name = "Value",
-		position = UDim2.fromOffset(L.valueLeft, L.valueTopAlone),
+		position = UDim2.fromOffset(L.valueLeft, L.valueTop),
 		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, L.valueHeight),
 		font = STYLE.valueFont,
 		textSize = L.valueTextSize,
@@ -340,8 +342,8 @@ local function popup(delta: number, quiet: boolean)
 	-- mid-sale never spawns on top of the sale's popup.
 	local source: TextLabel = if quiet and ui.rate.Visible then ui.rate else ui.value
 	local textEnd = source.Position.X.Offset + textWidth(source.Text, source.TextSize, source.Font)
-	local middle = source.Position.Y.Offset + source.Size.Y.Offset / 2 - BADGE_H / 2
-	local start = UDim2.new(0, Dock.ROW_SIDE_MARGIN + textEnd + POPUP.gap, 0.5, Dock.CASH_MID_Y + middle)
+	local middle = source.Position.Y.Offset + source.Size.Y.Offset / 2
+	local start = UDim2.new(0, Dock.ROW_SIDE_MARGIN + textEnd + POPUP.gap, 1, middle - BADGE_H - bottom)
 
 	local label = UIKit.label(ui.canvas, {
 		name = "CashPopup",
@@ -441,9 +443,6 @@ local function setRate(perSecond: number)
 	if earning then
 		ui.rate.Text = formatRate(perSecond)
 	end
-	-- The balance rides the bundle's middle alone, and moves up to make room for the line.
-	local top = if earning then LAYOUT.valueTop else LAYOUT.valueTopAlone
-	ui.value.Position = UDim2.fromOffset(LAYOUT.valueLeft, top)
 end
 
 function Cash.start()

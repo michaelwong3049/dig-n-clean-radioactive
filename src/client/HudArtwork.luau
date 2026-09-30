@@ -70,10 +70,10 @@ Artwork.IMAGE = {
 	toolbox = "rbxassetid://123504323746136", -- Gear: red toolbox with a wrench
 	-- The SPEED badge's disc (SpeedController): a glossy blue sneaker, same family and
 	-- pipeline. tools/hud-icons/speed_shoe.svg.
-	speedShoe = "rbxassetid://74013499057089",
+	speedShoe = "rbxassetid://97884293509666",
 	-- The cash row's icon (CashController): a banded bundle of green notes in 3/4 view.
 	-- tools/hud-icons/cash_bundle.svg.
-	cashBundle = "rbxassetid://93286856929568",
+	cashBundle = "rbxassetid://128764628759725",
 	-- The glow behind each tile's symbol: a WHITE disc whose alpha eases from solid to
 	-- nothing at the rim (smoothstep), so a caller tints it with ImageColor3.
 	-- tools/hud-icons/glow.svg.

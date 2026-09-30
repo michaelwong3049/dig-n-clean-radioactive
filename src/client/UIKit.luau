@@ -486,10 +486,10 @@ end
 --
 -- INDEX MOVED FROM THE SCOPE'S CORNER TO THE CASH BADGE'S COLUMN, THEN TO THE RIGHT
 -- EDGE. It briefly stacked above CashController's badge on the left; it now sits
--- standalone on the MIDDLE-RIGHT as the square Index tile, its top edge level
--- with the top of the cash/speed column (Dock.SIDE_TOP_Y; centred instead on a short
--- screen, Dock.SIDE_TOP_MIN_HEIGHT), which itself moved to the middle-left
--- (Dock.CASH_MID_Y / Dock.SPEED_MID_Y). Its own size lives in IndexController.
+-- standalone on the MIDDLE-RIGHT as the square Index tile, its top edge on
+-- Dock.SIDE_TOP_Y (centred instead on a short screen, Dock.SIDE_TOP_MIN_HEIGHT). The
+-- speed/cash column it once lined up with is in the bottom-left corner now
+-- (Dock.CASH_BOTTOM / Dock.SPEED_BOTTOM). Its own size lives in IndexController.
 --
 -- ONE WIDE BAND, NOT STACKED ROWS. What lives in the band sits side by side inside one
 -- INSTRUMENT_HEIGHT-tall row rather than stacking vertically, which would cost roughly
@@ -604,16 +604,17 @@ Dock.STATUS_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.INSTRUMENT_HEIGHT + Dock.GAP
 -- button — reconsider this the moment that stops being true.
 Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 
--- The LEFT column: the speed row on top (SPEED_SIZE, added with the Speed unit), the
--- cash row just below it, the stack centred on the vertical (Dock.SPEED_MID_Y /
--- Dock.CASH_MID_Y — defined just below CASH_BOTTOM). Speed moved over cash when both
--- lost their cards and became an icon with a number beside it. The rad meter card used to hang
--- under the speed badge; it is the vitals bars over the hotbar now (VITALS_*). It
--- was bottom-anchored in the corner until "middle left" was requested. (The
--- loaded-liquid badge used to top this stack — it is a BillboardGui on the wash pad
--- now, LiquidController — and the index button that briefly replaced it as the top
--- element has since moved to the RIGHT screen edge, IndexController. The left column
--- ends at the cash badge.)
+-- The LEFT column, in the BOTTOM-LEFT CORNER: the speed row on top (SPEED_SIZE, added
+-- with the Speed unit), the cash row under it, both icon-plus-number with no card
+-- behind them. The corner has held this column before (CASH_BOTTOM was its old
+-- baseline), then the vertical centre of the left edge ("middle left" was requested),
+-- and now the corner again, by request, once the cards were gone. The corner is free:
+-- the hotbar and the vitals bars are centred, and every screen the HUD scales for is
+-- at least ~1330 design px wide, which leaves the vitals' left edge well clear of the
+-- column's text. The rad meter card used to hang under the speed badge; it is the
+-- vitals bars over the hotbar now (VITALS_*). (The loaded-liquid badge and then the
+-- index button once topped this column; the first is a BillboardGui on the wash pad
+-- now, LiquidController, and the second a tile on the RIGHT edge, IndexController.)
 --
 -- CASH_SIZE WAS A PRIVATE LOCAL IN CashController until the index button stacked on
 -- top of it here. WIDTH IS A READ OF SIDE_WIDTH, NOT A SEPARATE NUMBER — it used to be
@@ -621,40 +622,43 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 -- was false (the meter was 280); deriving it outright is the only way that claim stays
 -- true. Height grew 52 -> 64 alongside CashController's bigger balance text, then
 -- 64 -> 86 for the cartoon gold-coin badge, then 86 -> 78 when the card shrank to 56,
--- then 78 -> 72 when the card went: now it is the 64px cash bundle plus its drop
--- shadow, with the balance and the "+$/s" line under it stacked beside the bundle.
--- CASH_BOTTOM is the old bottom-corner
--- baseline — kept as the reference point the SIDE_* offsets below are documented
--- against, and in case the column ever moves back.
-Dock.CASH_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 72)
+-- then 78 -> 72 when the card went, then 72 -> 80 when the balance was pinned level
+-- with the bundle's middle and the "+$/s" line hung under it (it used to lift the
+-- balance to make room, which read as the money jumping).
+Dock.CASH_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 80)
 -- THE SPEED ROW (SpeedController), over the cash row: the sneaker plus its drop
 -- shadow, with the WALK SPEED caption and the number beside it. Same width as the
 -- column, SIDE_WIDTH like CASH_SIZE.
 Dock.SPEED_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 60)
-Dock.CASH_BOTTOM = Dock.INSTRUMENT_BOTTOM + Dock.GAP
-
--- MIDDLE-LEFT / MIDDLE-RIGHT PLACEMENT. On request the cash column and the
--- INDEX button left the bottom corners for the vertical centre of their screen edge.
--- The column stays one rigid stack — speed row on top, cash row below it —
--- placed by each panel's OWN centre (anchorPoint y = 0.5) at a fixed offset from
--- screen middle, so it packs the same way however either element is resized. These
--- are offsets from 0.5-scale, negative = above centre.
--- The speed and cash rows sit close so they read as a pair. It was -2 while cash sat
--- on top, because CASH_SIZE then reserved the income pill's overhang below its card.
+-- The speed and cash rows sit close so they read as a pair.
 Dock.PAIR_GAP = 4
-Dock.SIDE_STACK_HEIGHT = Dock.SPEED_SIZE.Y.Offset
-	+ Dock.PAIR_GAP
-	+ Dock.CASH_SIZE.Y.Offset
-Dock.SPEED_MID_Y = Dock.SPEED_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
-Dock.CASH_MID_Y = Dock.SPEED_SIZE.Y.Offset + Dock.PAIR_GAP + Dock.CASH_SIZE.Y.Offset / 2 - Dock.SIDE_STACK_HEIGHT / 2
--- The column's TOP edge, as the same kind of offset from screen middle. IndexController
--- hangs the Index tile from it on the right edge, so both sides start on one line.
+-- Each row's BOTTOM edge as an offset UP from the screen's bottom edge (Position y is
+-- 1-scale minus this, anchor y = 1), before Dock.sideLift(). Cash sits on the same
+-- margin as the hotbar; speed stacks on it; SIDE_COLUMN_TOP is the pair's top edge.
+Dock.CASH_BOTTOM = Dock.MARGIN_BOTTOM
+Dock.SPEED_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.PAIR_GAP
+Dock.SIDE_COLUMN_TOP = Dock.SPEED_BOTTOM + Dock.SPEED_SIZE.Y.Offset
+
+--- How far the left column rises off the bottom edge, in design px: the height of the
+--- thumbstick's corner box on a phone or tablet (UIKit.touchCorner), so the numbers are
+--- never under the stick, and 0 everywhere else. It moves with the viewport, so read it
+--- from UIKit.onScaleChanged.
+function Dock.sideLift(): number
+	return UIKit.touchCorner().Y
+end
+
+-- THE LINE THE RIGHT-EDGE TILES HANG FROM, as an offset from screen middle.
+-- IndexController hangs the Index tile from it. It used to be read off the left column
+-- (the column's top edge, back when the column sat on the vertical centre, so both sides
+-- started level). PINNED AT -68, the value it last had, when the column moved to the
+-- bottom-left corner: the tiles were placed and checked against it, and nothing about
+-- them changed.
 --
 -- TOP-ALIGNED RATHER THAN CENTRED. This was first done so the Index tile would clear
 -- the haul widget's rarity readout, back when the two shared the right edge; the haul
 -- widget now stops short of the tile column entirely (HAULPANEL_RIGHT), but the tiles
--- stay hung from this line so both sides of the screen start level.
-Dock.SIDE_TOP_Y = -Dock.SIDE_STACK_HEIGHT / 2
+-- stay hung from this line.
+Dock.SIDE_TOP_Y = -68
 -- ...and the shortest design screen that line is used on. Below it the hang stops
 -- working in both directions: the readout climbs into it as the screen shortens, and
 -- under ~460 the tile rises into the Settings gear in the corner above. So a shorter
