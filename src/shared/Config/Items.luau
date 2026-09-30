@@ -56,7 +56,7 @@
 
 	ECONOMY RESCALE (feat/economy-rescale-display-income): every baseValue below was
 	multiplied by 20/3 (~6.667x) and rounded to two significant figures, anchored so the
-	Dud Nuke (Common, Stage 1) sells for $20. The rarity bands in Rarity.DEFS moved by
+	Cardboard Nuke (Common, Stage 1) sells for $20. The rarity bands in Rarity.DEFS moved by
 	the same factor, so every entry still sits inside its band. See Config/Rarity.luau's
 	header for the whole picture.
 
@@ -112,8 +112,8 @@ Items.DEFS = {
 	-- ── Common (former Scrap tier, folded in on request) ────────────────────
 	{
 		id = "bottle_cap",
-		name = "Dud Nuke",
-		flavor = "Tiny, dented, and never going off.",
+		name = "Cardboard Nuke",
+		flavor = "Cardboard, tape and a marker-drawn face. Somebody's school project.",
 		rarity = "Common",
 		odds = 5, -- 1 in N per dig in a stocking stage
 		weight = 5,

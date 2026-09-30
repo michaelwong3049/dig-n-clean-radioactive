@@ -6,7 +6,7 @@
 	anything outside Config/. This file requires nothing; Config/Items requires it.
 
 	An item's `weight` is in KILOGRAMS and authored per entry in Config/Items. It is
-	INTRINSIC — a Dud Nuke is always ~5 kg, a buried nuke always ~470 — not a
+	INTRINSIC — a Cardboard Nuke is always ~5 kg, a buried nuke always ~470 — not a
 	per-dig roll. Rarity and weight are ORTHOGONAL: a Diamond Chain is light and
 	precious, a Steel Rod is heavy and worthless. Five things read the mass:
 
@@ -28,7 +28,7 @@
 
 local Weight = {}
 
--- The catalogue's real span. MIN is the floor no nuke may show under (a Dud Nuke);
+-- The catalogue's real span. MIN is the floor no nuke may show under (a Cardboard Nuke);
 -- MAX is the Containment Cylinder. `norm` is LOG between them because mass is
 -- perceived multiplicatively — 10 vs 100 kg reads like 100 vs 1000.
 --
