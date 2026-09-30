@@ -15,7 +15,8 @@
 	  payload           — this dig's OWN random roll (Config/Payload)
 	  value retained    — the decay clock, so the run home has a felt cost (§3.6)
 	  clean / dirty     — the cleaning gate (§2 step 4)
-	then sellMultiplier from rebirth and gamepasses, via StatResolver like everything else.
+	then sellMultiplier from rebirth, gamepasses and completed index stages
+	(Tuning.INDEX_COMPLETE_CASH), via StatResolver like everything else.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

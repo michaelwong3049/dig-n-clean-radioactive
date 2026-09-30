@@ -72,6 +72,11 @@ local seenRemote: any = nil
 local stageLuckCache: { [number]: { [number]: number } } = {}
 local NO_LUCK: { [number]: number } = table.freeze({})
 
+-- Called as (player, stageId) the moment a first find completes a stage's index. The
+-- cash bonus needs no push of its own (StatResolver reads `discovered` fresh), but the
+-- stand cards publish a per-second rate and have to be redrawn -- ExhibitService listens.
+local stageCompleteListeners: { (Player, number) -> () } = {}
+
 local function copyEntry(entry: IndexProgress.Entry?): IndexProgress.Entry?
 	if entry == nil then
 		return nil
@@ -103,6 +108,17 @@ function IdentifyService.identify(player: Player, item: any): (boolean, number?)
 		entry.first = os.time()
 		entry.new = true
 		stageLuckCache[player.UserId] = IndexProgress.stageLuck(data.discovered)
+		-- This item was missing a moment ago, so any stage it completes now is newly
+		-- complete. `Items.has` because a stale id in an old save has no def.
+		if Items.has(itemId) then
+			for _, stageId in Items.get(itemId).stages do
+				if IndexProgress.isComplete(data.discovered, stageId) then
+					for _, listener in stageCompleteListeners do
+						task.spawn(listener, player, stageId)
+					end
+				end
+			end
+		end
 	end
 
 	local previous: number? = nil
@@ -189,6 +205,11 @@ end
 function IdentifyService.entry(player: Player, itemId: string): IndexProgress.Entry?
 	local data = DataService.data(player)
 	return if data then copyEntry(data.indexStats[itemId]) else nil
+end
+
+--- Subscribe to a first find completing a stage's index. See stageCompleteListeners.
+function IdentifyService.onStageComplete(listener: (Player, number) -> ())
+	table.insert(stageCompleteListeners, listener)
 end
 
 --- stageId -> extra dig luck from completed stages. Empty (never nil) for anyone not

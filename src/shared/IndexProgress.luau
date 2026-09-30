@@ -2,7 +2,7 @@
 --[[
 	IndexProgress.luau — what the index knows about you, as pure functions both sides
 	can run: how far through each stage you are, whether that has earned the stage's
-	luck reward, and what a saved record weighs.
+	luck reward and the cash multiplier, and what a saved record weighs.
 
 	THE SERVER OWNS THE RECORDS (IdentifyService writes `data.indexStats`); this file
 	only reads them. It lives in Shared so the client's IndexController and the
@@ -82,6 +82,24 @@ function IndexProgress.stageLuck(discovered: { [string]: boolean }): { [number]:
 		end
 	end
 	return bonus
+end
+
+--- How many stages have their index complete.
+function IndexProgress.completedCount(discovered: { [string]: boolean }): number
+	local count = 0
+	for _, stage in Stages.DEFS do
+		if IndexProgress.isComplete(discovered, stage.id) then
+			count += 1
+		end
+	end
+	return count
+end
+
+--- The cash multiplier completed stages earn: Tuning.INDEX_COMPLETE_CASH per stage,
+--- stacked multiplicatively. 1 with nothing complete. StatResolver folds it into both
+--- sellMultiplier and yieldMultiplier, so every payout reads it from the one place.
+function IndexProgress.cashMultiplier(discovered: { [string]: boolean }): number
+	return Tuning.INDEX_COMPLETE_CASH ^ IndexProgress.completedCount(discovered)
 end
 
 --- A record's weight in kg, or nil when there is no roll on file.

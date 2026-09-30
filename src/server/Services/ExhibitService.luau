@@ -57,6 +57,7 @@ local Stages = require(Shared.Config.Stages)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local AwayEarningsService = require(script.Parent.AwayEarningsService)
+local IdentifyService = require(script.Parent.IdentifyService)
 
 -- THE ONE build/ REQUIRE IN THIS FILE, and it is the same shape as DigService's
 -- require of build/SignalAura: a service that has to change world geometry asks the
@@ -1629,6 +1630,17 @@ function ExhibitService.start()
 		-- picked, so the plot's default hue follows). Same "once on load" timing as the
 		-- PlotState fire inside assign(), which is also what makes plotOf valid here.
 		colorRemote:FireClient(player, data.plotColor, defaultAccentHex(player))
+	end)
+
+	-- A completed index stage raises yieldMultiplier (Tuning.INDEX_COMPLETE_CASH), so
+	-- every stand card's $/s is stale the moment it happens. Income itself needs
+	-- nothing: tickPlayer resolves stats fresh.
+	IdentifyService.onStageComplete(function(player, _stageId)
+		local plot = ExhibitService.plotOf(player)
+		local data = DataService.data(player)
+		if plot and data then
+			refreshStandCards(plot, data)
+		end
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
