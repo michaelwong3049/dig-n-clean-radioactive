@@ -85,6 +85,10 @@ local BAR_TEXT_LEFT = 54
 local BAR_TEXT_SIZE = 28
 local BAR_TEXT_STROKE = 3
 local BAR_TEXT_DROP = Vector2.new(2, 3)
+-- The space between the two bars, and how far the pair sits ABOVE the left edge's
+-- middle, both on request.
+local BAR_GAP = 18
+local BAR_RAISE = 20
 
 --- Builds the tile in its own ScreenGui (IgnoreGuiInset, so the grid measures against
 --- the true screen as the left column does). Returns the gui, unparented, and the button,
@@ -129,8 +133,8 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local glow, icon
 	if bar then
 		local row = spec.leftRow :: number
-		-- Centred on the left edge's middle as a pair: row 1 just under it, row 2 over.
-		local up = (row - 1.5) * (BAR_H + Dock.GAP)
+		-- Centred as a pair BAR_RAISE over the left edge's middle: row 1 under, row 2 over.
+		local up = (row - 1.5) * (BAR_H + BAR_GAP) + BAR_RAISE
 		button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -up)
 		-- Solid, a dark (not near-black) shade of the bar's own colour.
 		button.BackgroundColor3 = spec.color:Lerp(Color3.new(0, 0, 0), 0.6)

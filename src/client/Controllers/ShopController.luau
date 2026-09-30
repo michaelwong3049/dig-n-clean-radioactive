@@ -366,7 +366,7 @@ local function build(): ScreenGui
 		image = Artwork.IMAGE.chest,
 		iconDrop = TILE_ICON_DROP,
 		onActivated = Shop.toggle,
-		leftRow = 1,
+		leftRow = 2,
 	})
 	return gui
 end
