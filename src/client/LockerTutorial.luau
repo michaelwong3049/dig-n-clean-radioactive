@@ -56,9 +56,9 @@ local DIM = 0.3
 local HOLE_PAD = 8
 --- Gap between the cut-out and the card, and the card's margin from the screen edge.
 local CARD_GAP = 14
-local CARD_W = 340
-local CARD_PAD = 14
-local BODY_SIZE = 16
+local CARD_W = 460
+local CARD_PAD = 18
+local BODY_SIZE = 24
 --- How fast the hole eases onto its target (per second, exponential).
 local EASE = 14
 
@@ -68,6 +68,8 @@ export type Step = {
 	world: Instance?,
 	title: string,
 	body: string,
+	-- Pin the card near the bottom of the screen instead of hugging the target.
+	low: boolean?,
 }
 
 --- The card's buttons: NEXT (or GOT IT on the last step) and SKIP.
@@ -191,9 +193,9 @@ function LockerTutorial.run(steps: { Step }, onDone: (finished: boolean) -> ()):
 	counter.LayoutOrder = 1
 	local title = UIKit.label(card, {
 		name = "Title",
-		size = UDim2.new(1, 0, 0, 28),
+		size = UDim2.new(1, 0, 0, 36),
 		font = SKIN.headline,
-		textSize = 26,
+		textSize = 34,
 		color = SKIN.text,
 	})
 	title.LayoutOrder = 2
@@ -355,7 +357,9 @@ function LockerTutorial.run(steps: { Step }, onDone: (finished: boolean) -> ()):
 		local scale = UIKit.canvasScale(canvas)
 		local size = card.AbsoluteSize
 		local top: number
-		if y1 + CARD_GAP + size.Y <= screen.Y - CARD_GAP then
+		if steps[index] and steps[index].low then
+			top = screen.Y - size.Y - 6 * CARD_GAP
+		elseif y1 + CARD_GAP + size.Y <= screen.Y - CARD_GAP then
 			top = y1 + CARD_GAP
 		elseif y0 - CARD_GAP - size.Y >= CARD_GAP then
 			top = y0 - CARD_GAP - size.Y
