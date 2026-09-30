@@ -173,16 +173,24 @@ function Detonation.sizeMult(visualScale: number): number
 	return math.clamp(ratio ^ Cfg.SIZE_EXP, Cfg.SIZE_MIN, Cfg.SIZE_MAX)
 end
 
---- Everything a detonation does, for this rarity at this visual scale.
-function Detonation.blastFor(rarity: string, visualScale: number): Blast
+--- Damage and radius multipliers for a nuke from this stage (Config/Detonation,
+--- STAGE_*). Stage 1, or no stage at all, is (1, 1).
+function Detonation.stageMults(stageId: number?): (number, number)
+	local past = math.max(0, (stageId or 1) - 1)
+	return 1 + past * Cfg.STAGE_HIT_STEP, 1 + past * Cfg.STAGE_RADIUS_STEP
+end
+
+--- Everything a detonation does, for this rarity at this visual scale, dug out of
+--- `stageId` (Stage 1 when omitted).
+function Detonation.blastFor(rarity: string, visualScale: number, stageId: number?): Blast
 	local def = Cfg.BLAST[rarity] or Cfg.BLAST.Common
-	local size = Detonation.sizeMult(visualScale)
-	local orbRadius = def.orbRadius * size
+	local hitMult, radiusMult = Detonation.stageMults(stageId)
+	local orbRadius = def.orbRadius * Detonation.sizeMult(visualScale) * radiusMult
 	return {
-		hit = def.hit,
+		hit = def.hit * hitMult,
 		blastRadius = orbRadius * Cfg.BLAST_REACH,
 		orbRadius = orbRadius,
-		orbBurn = def.orbBurn,
+		orbBurn = def.orbBurn * hitMult,
 		orbLife = def.orbLife,
 	}
 end

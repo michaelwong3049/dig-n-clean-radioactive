@@ -1105,7 +1105,7 @@ local function detonate(signal: Signal)
 		spawnSignal(stageId)
 	end
 
-	HazardService.detonate(position, signal.fuseRarity, signal.fuseScale)
+	HazardService.detonate(position, signal.fuseRarity, signal.fuseScale, { stageId = stageId })
 end
 
 --- Once per tick, after every player has had their turn. Every signal a magnet was on

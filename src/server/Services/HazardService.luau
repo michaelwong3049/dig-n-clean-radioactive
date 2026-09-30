@@ -58,10 +58,12 @@ type Crater = {
 
 --- Optional extras for detonate. A dropped bomb (BombService) brings its own blast
 --- from Shared/Bombing, and a `spares` test that keeps anyone in a camp or base out
---- of the hit -- bombing is a stages-only thing. A dig nuke's fuse passes neither.
+--- of the hit -- bombing is a stages-only thing. A dig nuke's fuse passes neither,
+--- only the `stageId` it was dug in, so a farther stage's crater hits harder.
 export type Options = {
 	blast: Detonation.Blast?,
 	spares: ((player: Player) -> boolean)?,
+	stageId: number?,
 }
 
 local craters: { Crater } = {}
@@ -87,7 +89,9 @@ end
 --- `visualScale` is how big it looked -- Weight.sizeScale * sizeMult * Payload, the
 --- product its haul lump was :ScaleTo'd by.
 function HazardService.detonate(position: Vector3, rarity: string, visualScale: number, options: Options?)
-	local blast = if options and options.blast then options.blast else Detonation.blastFor(rarity, visualScale)
+	local blast = if options and options.blast
+		then options.blast
+		else Detonation.blastFor(rarity, visualScale, if options then options.stageId else nil)
 	local spares = if options then options.spares else nil
 
 	for _, player in Players:GetPlayers() do

@@ -179,6 +179,17 @@ Detonation.SIZE_EXP = 0.5
 Detonation.SIZE_MIN = 0.75
 Detonation.SIZE_MAX = 1.5
 
+-- FARTHER STAGES, BIGGER BANGS. A nuke from Stage N hits (1 + (N-1) * STAGE_HIT_STEP)
+-- times harder and reaches (1 + (N-1) * STAGE_RADIUS_STEP) times farther than the same
+-- rarity from Stage 1 -- ON REQUEST, gentle on purpose: Stage 12 is about +33% damage
+-- and +22% radius, so rarity still decides most of it. Damage covers the blast's hit
+-- and the orb's burn; radius covers the blast and the orb. A dug nuke uses the stage it
+-- came out of; a dropped bomb (Shared/Bombing) uses its item's home stage (the lowest
+-- stage that stocks it). Radius steps slower than damage because area grows with its
+-- square.
+Detonation.STAGE_HIT_STEP = 0.03
+Detonation.STAGE_RADIUS_STEP = 0.02
+
 -- Knockback at ground zero, in studs/sec, falling off linearly to nothing at the
 -- blast's rim. Applied by each client to its OWN character (it owns the physics).
 Detonation.KNOCKBACK_SPEED = 70
