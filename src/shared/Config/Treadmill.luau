@@ -91,12 +91,12 @@ export type TreadmillTier = {
 	model: string,
 }
 
---- What a player pays at the console before ANY belt will train them. On request: the
---- treadmill is bought, not handed out, and buying it runs a short walkthrough
---- (TreadmillController). Until then TreadmillService pays a player standing on a belt
---- nothing, and their own machine stands still with a LOCKED sign. The belt ladder
---- (TIERS) starts after it: the unlock is what puts a player on the Scrap Belt.
-Treadmill.UNLOCK_PRICE = 1000
+--- What a player pays at the console before ANY belt will train them. FREE, on
+--- request: it used to be $1,000, and every save now starts unlocked on the Scrap Belt
+--- (DataService's template; TreadmillService unlocks older saves on load). The lock
+--- machinery stays for `/train lock`, which is the only way a player is locked now,
+--- and a $0 unlock there is one press of the console.
+Treadmill.UNLOCK_PRICE = 0
 
 --- "$25,000": a price as every sign, prompt and notice prints it.
 function Treadmill.priceText(amount: number): string
@@ -115,8 +115,11 @@ function Treadmill.rateText(rate: number): string
 	return tostring(rate * Treadmill.DISPLAY_SCALE)
 end
 
---- "$1,000": the unlock price as every sign, prompt and notice prints it.
+--- "$1,000", or "Free" at $0: the unlock price as every sign, prompt and notice prints it.
 function Treadmill.unlockPriceText(): string
+	if Treadmill.UNLOCK_PRICE <= 0 then
+		return "Free"
+	end
 	return Treadmill.priceText(Treadmill.UNLOCK_PRICE)
 end
 

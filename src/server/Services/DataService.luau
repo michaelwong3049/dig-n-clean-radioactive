@@ -158,9 +158,10 @@ local TEMPLATE = {
 	-- key, is detected before Reconcile like `detectorLadder`, and is collapsed once by
 	-- collapseTreadmillLadder.
 	treadmillLadder = 4,
-	-- Whether this player has bought treadmill access (Treadmill.UNLOCK_PRICE). No belt
-	-- trains them until they have; TreadmillService.buy sells it at the console.
-	treadmillUnlocked = false,
+	-- Whether this player has treadmill access. No belt trains them until they have.
+	-- Free now (Treadmill.UNLOCK_PRICE = 0), so every save starts with it, and
+	-- TreadmillService unlocks older `false` saves on load; only `/train lock` clears it.
+	treadmillUnlocked = true,
 
 	-- The player's chosen base accent colour, "RRGGBB" hex (no leading "#"). "" means
 	-- they have never picked one, which renders the same neutral grey as an unclaimed

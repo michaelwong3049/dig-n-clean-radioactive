@@ -28,10 +28,11 @@
 	six taken, see ExhibitService.assign — can still train at someone else's base
 	instead of being locked out of a whole progression track by a full server.
 
-	BUT ACCESS IS BOUGHT FIRST. On request, a player pays Treadmill.UNLOCK_PRICE at a
-	console before any belt pays them anything, their own or anyone else's -- a lock on
-	only their own machine would be dodged by standing on a neighbour's. The console's
-	first purchase is that unlock (TreadmillService.buy); belt upgrades come after.
+	ACCESS IS FREE. It used to be bought (Treadmill.UNLOCK_PRICE, now 0) before any belt
+	paid a player anything; on request every player now has it from the start, and
+	older saves are unlocked on load (DataService.onLoaded below). The lock itself is
+	kept for `/train lock`: a locked player earns on no belt, their own or anyone
+	else's, and the console's first press unlocks them (TreadmillService.buy).
 
 	WHAT THE UPGRADE BUYS is `rate` — Speed per second (Config/Treadmill) — not Speed
 	itself. Cash cannot buy a single level anywhere in this game; it can only buy a
@@ -205,7 +206,9 @@ function TreadmillService.buy(player: Player): (boolean, string)
 			training[player] = true
 		end
 		push(player)
-		return true, `Treadmill unlocked — step on the belt to train (paid {Treadmill.unlockPriceText()})`
+		return true, if Treadmill.UNLOCK_PRICE > 0
+			then `Treadmill unlocked — step on the belt to train (paid {Treadmill.unlockPriceText()})`
+			else "Treadmill unlocked — step on the belt to train"
 	end
 
 	local tier = math.clamp(math.floor(data.treadmill or 1), 1, Treadmill.maxTier())
@@ -292,6 +295,12 @@ function TreadmillService.start()
 	end)
 
 	DataService.onLoaded(function(player)
+		-- Access is free now: a save from when it cost $1,000 and was never bought
+		-- comes in `false` and is unlocked here, before the first push.
+		local data = DataService.data(player)
+		if data and Treadmill.UNLOCK_PRICE <= 0 then
+			data.treadmillUnlocked = true
+		end
 		-- The belt on their own plot has to wear the rung they own, and plot assignment
 		-- and data load race each other — ExhibitService.refreshTreadmill is a no-op
 		-- until they have a plot, and assign() calls it again from its own side.
