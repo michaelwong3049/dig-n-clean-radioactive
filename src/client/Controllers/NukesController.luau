@@ -2,13 +2,13 @@
 	NukesController.lua — the Nukes tile, and the panel it opens. The tile is the
 	middle of the right-edge column (Gear, Nukes, Warp), built by HudTile like the others.
 
-	THE PANEL SLIDES IN FROM THE RIGHT EDGE and docks just inside the tile column, so
-	the tiles stay clickable (on request, after a reference picture): a tall near-black
-	studded tray, one row per nuke on your stands, best first. Each row is the nuke's own model, its name and what it
-	pays per second -- the rate its stand card prints, duplicate damping and all -- in
-	its RARITY COLOUR (Config/Rarity's `color`; Anomaly cycles Rarity.anomalyHue), and a
-	red UNEQUIP that sends it back to the bag (ExhibitService.unequip, the stand
-	prompt's own plain take: crating clock and bag room included). The bag is
+	THE PANEL SLIDES IN FROM THE RIGHT EDGE and docks a small gap short of it, over the
+	tile column (on request, after a reference picture): a tall near-black tray under a
+	lighter grey header box, one row per nuke on your stands, best first. Each row is
+	the nuke's own model, its name and what it pays per second -- the rate its stand
+	card prints, duplicate damping and all -- in its RARITY COLOUR (Config/Rarity's
+	`color`; Anomaly cycles Rarity.anomalyHue), and a red UNEQUIP that sends it back
+	to the bag (ExhibitService.unequip, the stand prompt's own plain take). The bag is
 	deliberately not listed -- the hotbar already shows it.
 
 	EQUIP BEST hangs under the tray (ExhibitService.equipBest): fill every stand with the
@@ -47,11 +47,12 @@ local TILE_COLOR = Color3.fromRGB(255, 207, 31)
 local TILE_LIGHT = Color3.fromRGB(255, 240, 160)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
--- The reference's look: a near-black studded tray, blacker rows with a grey well
--- behind each model, chunky red / green buttons, every word in FredokaOne with a
--- black outline.
+-- The reference's look: a near-black tray under a lighter grey header box, blacker
+-- rows with a grey well behind each model, chunky red / green buttons, every word in
+-- FredokaOne with a black outline.
 local PANEL = {
 	tray = Color3.fromHex("17191C"),
+	header = Color3.fromHex("3A3E45"),
 	row = Color3.fromHex("0C0D0F"),
 	well = Color3.fromHex("33373D"),
 	wellGlow = Color3.fromHex("C9CED6"),
@@ -68,38 +69,35 @@ local PANEL = {
 }
 
 -- Design px (UIKit.canvas: a 1280x720 screen).
--- In from the right edge: past the tile column (Dock) and a gap, so Gear / Nukes /
--- Warp stay clickable beside it.
-local SIDE_MARGIN = UIKit.Dock.ROW_SIDE_MARGIN + UIKit.Dock.SIDE_TILE_SIZE + 16
+-- Right up to the screen edge, a small gap short of it: open, it covers the tile
+-- column (Gear / Nukes / Warp) on request; the ">" tab closes it.
+local SIDE_MARGIN = 12
 local PANEL_W = 430
-local PANEL_H = 410
--- The stud texture tiled over the tray and rows (a soft white stud with a drop shadow
--- on a clear ground, uploaded for this panel), and how see-through it is on each.
-local STUD_IMAGE = "rbxassetid://119880300884536"
-local STUD_TILE = 22
-local STUD_TRAY = 0.35
-local STUD_ROW = 0.7
+local PANEL_H = 470
 -- The pair (tray + Equip Best under it) sits this far above the right edge's middle.
-local RAISE = 50
+local RAISE = 30
 local PAD = 10
-local HEADER_H = 40
+-- The lighter header box across the tray's top: title left, count + rate right.
+local HEADER_H = 48
 local NOTICE_H = 20
-local LIST_TOP = HEADER_H + NOTICE_H + 4
+local LIST_TOP = HEADER_H + 4 + NOTICE_H + 4
 local ROW_H = 82
 local ART_W = 86
-local UNEQUIP_W = 138
-local UNEQUIP_H = 54
+local UNEQUIP_W = 118
+local UNEQUIP_H = 46
 local EQUIP_W = 240
 local EQUIP_H = 58
-local EQUIP_GAP = 10
+local EQUIP_GAP = 18
 local TAB_W = 34
 local TAB_H = 52
+-- Air between the ">" tab and the tray.
+local TAB_GAP = 8
 
 -- The slide: a quick ease out on the way in, a quicker ease in on the way out.
 local SLIDE_IN = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local SLIDE_OUT = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local OPEN_POS = UDim2.new(1, -SIDE_MARGIN, 0.5, -RAISE)
-local CLOSED_POS = UDim2.new(1, PANEL_W + TAB_W + 40, 0.5, -RAISE)
+local CLOSED_POS = UDim2.new(1, PANEL_W + TAB_W + TAB_GAP + 40, 0.5, -RAISE)
 
 -- The fastest the panel re-asks for its list while CarryState / IncomeState chatter.
 local REFRESH_GAP = 0.5
@@ -107,7 +105,6 @@ local REFRESH_GAP = 0.5
 local actionRemote: RemoteEvent? = nil
 local ui: any = {}
 local latest: any = nil
-local receivedAt = 0
 local busy = false
 local lastAsk = 0
 local askQueued = false
@@ -147,24 +144,6 @@ local function edge(parent: Instance, color: Color3, thickness: number): UIStrok
 	stroke.LineJoinMode = Enum.LineJoinMode.Round
 	stroke.Parent = parent
 	return stroke
-end
-
---- Tile the stud texture across `parent`, under everything else in it. `inset` undoes
---- a UIPadding so the studs still reach the frame's own edge.
-local function studs(parent: GuiObject, transparency: number, radius: number, inset: number?)
-	local pad = inset or 0
-	local texture = Instance.new("ImageLabel")
-	texture.Name = "Studs"
-	texture.BackgroundTransparency = 1
-	texture.Image = STUD_IMAGE
-	texture.ImageTransparency = transparency
-	texture.ScaleType = Enum.ScaleType.Tile
-	texture.TileSize = UDim2.fromOffset(STUD_TILE, STUD_TILE)
-	texture.Position = UDim2.fromOffset(-pad, -pad)
-	texture.Size = UDim2.new(1, pad * 2, 1, pad * 2)
-	texture.ZIndex = 0
-	texture.Parent = parent
-	round(texture, radius)
 end
 
 --- A label in the panel's voice: FredokaOne, black-outlined. `props` are set as-is.
@@ -295,19 +274,9 @@ local function starLine(entry: any): string
 	return text
 end
 
---- Seconds this row's stand is still crating, counted down since the list arrived.
-local function crateLeft(entry: any): number
-	return math.max(0, (entry.crating or 0) - math.floor(os.clock() - receivedAt))
-end
-
 local function paintUnequip(row: Row)
 	if row.pending then
 		setButton(row.unequip, false, "...")
-		return
-	end
-	local left = crateLeft(row.entry)
-	if left > 0 then
-		setButton(row.unequip, false, `{left}s`)
 	else
 		setButton(row.unequip, true, "Unequip")
 	end
@@ -322,7 +291,6 @@ local function newRow(parent: Instance, uid: string): Row
 	frame.Parent = parent
 	round(frame, 6)
 	edge(frame, PANEL.ink, 2)
-	studs(frame, STUD_ROW, 6)
 
 	-- The model, on a light well with a soft glow behind it.
 	local well = Instance.new("Frame")
@@ -366,7 +334,7 @@ local function newRow(parent: Instance, uid: string): Row
 	stars.Size = UDim2.new(1, textW, 0, 18)
 	stars.Parent = frame
 
-	local unequip = chunky(frame, "Unequip", "Unequip", Vector2.new(UNEQUIP_W, UNEQUIP_H), 26, PANEL.red, PANEL.redHover)
+	local unequip = chunky(frame, "Unequip", "Unequip", Vector2.new(UNEQUIP_W, UNEQUIP_H), 22, PANEL.red, PANEL.redHover)
 	unequip.AnchorPoint = Vector2.new(1, 0.5)
 	unequip.Position = UDim2.new(1, -10, 0.5, 0)
 
@@ -532,43 +500,55 @@ local function buildPanel(): ScreenGui
 	padding.PaddingLeft = UDim.new(0, PAD)
 	padding.PaddingRight = UDim.new(0, PAD)
 	padding.Parent = tray
-	studs(tray, STUD_TRAY, 8, PAD)
 
-	inked(tray, {
+	-- The header box: a lighter grey plate over the list, title left, how full the
+	-- stands are and what they pay right.
+	local header = Instance.new("Frame")
+	header.Name = "Header"
+	header.Size = UDim2.new(1, 0, 0, HEADER_H)
+	header.BackgroundColor3 = PANEL.header
+	header.BorderSizePixel = 0
+	header.ZIndex = 3
+	header.Parent = tray
+	round(header, 6)
+	edge(header, PANEL.ink, 2)
+
+	inked(header, {
 		Name = "Title",
 		Text = "Nukes",
 		TextSize = 30,
-		Size = UDim2.fromOffset(140, 34),
-		ZIndex = 3,
+		Position = UDim2.fromOffset(12, 0),
+		Size = UDim2.new(0, 140, 1, 0),
+		ZIndex = 4,
 	})
-	local count = inked(tray, {
+	local count = inked(header, {
 		Name = "Count",
 		Text = "",
 		TextSize = 14,
 		TextColor3 = PANEL.dim,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -4, 0, 0),
+		Position = UDim2.new(1, -12, 0, 5),
 		Size = UDim2.fromOffset(220, 16),
-		ZIndex = 3,
+		ZIndex = 4,
 	})
-	local rate = inked(tray, {
+	local rate = inked(header, {
 		Name = "Rate",
 		Text = "",
 		TextSize = 20,
 		TextColor3 = PANEL.gold,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -4, 0, 15),
+		Position = UDim2.new(1, -12, 0, 21),
 		Size = UDim2.fromOffset(220, 22),
-		ZIndex = 3,
+		ZIndex = 4,
 	})
 	local notice = inked(tray, {
 		Name = "Notice",
 		Text = "",
 		TextSize = 14,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		Position = UDim2.fromOffset(2, HEADER_H),
+		Position = UDim2.fromOffset(2, HEADER_H + 4),
 		Size = UDim2.new(1, -4, 0, NOTICE_H),
 		ZIndex = 3,
 	})
@@ -605,28 +585,19 @@ local function buildPanel(): ScreenGui
 		Visible = false,
 	})
 
-	-- The close tab: a red ">" hanging off the tray's left edge, halfway down, pointing
+	-- The close tab: a red ">" TAB_GAP off the tray's left edge, halfway down, pointing
 	-- the way the tray slides out.
 	local tab = chunky(panel, "Close", ">", Vector2.new(TAB_W, TAB_H), 26, PANEL.red, PANEL.redHover)
-	tab.Position = UDim2.fromOffset(-TAB_W + 2, (PANEL_H - TAB_H) / 2)
+	tab.Position = UDim2.fromOffset(-TAB_W - TAB_GAP, (PANEL_H - TAB_H) / 2)
 	tab.ZIndex = 1
 	tab.Activated:Connect(Nukes.close)
 
 	local equip = chunky(panel, "EquipBest", "Equip Best", Vector2.new(EQUIP_W, EQUIP_H), 30, PANEL.green, PANEL.greenHover)
 	equip.AnchorPoint = Vector2.new(1, 0)
 	equip.Position = UDim2.fromOffset(PANEL_W, PANEL_H + EQUIP_GAP)
-	-- The reference's white rim inside the black one (one UIStroke per object, so the
-	-- black one goes on a frame just outside the button).
-	local rim = equip:FindFirstChildOfClass("UIStroke") :: UIStroke
-	rim.Color = PANEL.white
-	local rimHolder = Instance.new("Frame")
-	rimHolder.Name = "Rim"
-	rimHolder.BackgroundTransparency = 1
-	rimHolder.Position = UDim2.fromOffset(-3, -3)
-	rimHolder.Size = UDim2.new(1, 6, 1, 6)
-	rimHolder.Parent = equip
-	round(rimHolder, 8)
-	edge(rimHolder, PANEL.ink, 3)
+	-- A heavier black border than the other buttons, no white rim (on request).
+	local border = equip:FindFirstChildOfClass("UIStroke") :: UIStroke
+	border.Thickness = 4
 	equip.Activated:Connect(function()
 		if busy or not equip.Active or actionRemote == nil then
 			return
@@ -677,7 +648,6 @@ function Nukes.start()
 	actionRemote = Net.get("NukeAction")
 	Net.get("NukeList").OnClientEvent:Connect(function(list)
 		latest = list
-		receivedAt = os.clock()
 		if list and list.notice then
 			ui.notice.Text = list.notice
 			setBusy(false)
@@ -703,20 +673,6 @@ function Nukes.start()
 		for _, row in rows do
 			if row.entry and row.entry.rarity == "Anomaly" then
 				tint(row, now)
-			end
-		end
-	end)
-
-	-- Crating countdowns on the Unequip buttons.
-	task.spawn(function()
-		while true do
-			task.wait(1)
-			if ui.panel and ui.panel.Visible then
-				for _, row in rows do
-					if row.entry and (row.entry.crating or 0) > 0 then
-						paintUnequip(row)
-					end
-				end
 			end
 		end
 	end)

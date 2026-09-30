@@ -445,7 +445,9 @@ Tuning.EXHIBIT_OFFLINE_RATE = 0.25
 Tuning.EXHIBIT_OFFLINE_BANK_HOURS = 4
 -- Every copy of an item pays in full; the old 100/40/15/5% duplicate damping is gone.
 Tuning.EXHIBIT_DUPLICATE_YIELD = { 1.0 }
-Tuning.EXHIBIT_UNCRATE_SECONDS = 60
+-- The crating lock (a nuke just put up can't come off for this long) is off, on
+-- request: 0 lets a take / swap / Unequip happen straight away.
+Tuning.EXHIBIT_UNCRATE_SECONDS = 0
 -- Every stand a base can ever have, across all of its floors (Config/Floors): the
 -- ground floor's 12 are free from the start, and each floor bought on top adds 8
 -- more. How many a given player has unlocked is `Floors.slotsFor(data.exhibit.floors)`
