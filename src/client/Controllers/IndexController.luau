@@ -417,7 +417,7 @@ local function buildButton(): ScreenGui
 		light = TILE_LIGHT,
 		image = Artwork.IMAGE.cards,
 		iconDrop = TILE_ICON_DROP,
-		leftRow = 2,
+		leftRow = 1,
 	})
 	-- NEW entries waiting to be looked at: a red count on the tile's corner.
 	local badge, badgeText = HudTile.badge(button, COL.newTag, COL.black)
