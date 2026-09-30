@@ -36,7 +36,7 @@ local GearPanel = {}
 
 -- THE GEAR TILE: the grid's third row, left, under Nukes. An orange glow behind the
 -- red toolbox (Index violet, Shop green, Nukes yellow, Warp cyan were taken).
-local TILE_SLOT = 5
+local TILE_SLOT = 3
 local TILE_COLOR = Color3.fromRGB(255, 128, 48)
 local TILE_LIGHT = Color3.fromRGB(255, 208, 170)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)

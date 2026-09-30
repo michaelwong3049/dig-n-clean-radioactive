@@ -38,7 +38,7 @@ local Nukes = {}
 
 -- THE NUKES TILE: bottom left of the right-edge 2x2 grid (HudTile), a hazard-yellow
 -- glow behind the mushroom cloud.
-local TILE_SLOT = 3
+local TILE_SLOT = 1
 local TILE_COLOR = Color3.fromRGB(255, 207, 31)
 local TILE_LIGHT = Color3.fromRGB(255, 240, 160)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)

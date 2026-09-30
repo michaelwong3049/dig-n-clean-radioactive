@@ -68,7 +68,22 @@ export type Spec = {
 	iconDrop: number?,
 	-- Optional: a caller that wires its own click (IndexController) leaves it out.
 	onActivated: (() -> ())?,
+	-- Optional: build a wide bar in the LEFT column instead of a grid square, stacked
+	-- above the speed row (1 = right above it, 2 = above that). `slot` is then unused.
+	leftRow: number?,
 }
+
+-- THE LEFT-COLUMN BARS (Index, Shop), on request: a rectangle above the cash/speed
+-- rows, the picture on its left and the name beside it in the rows' own GothamBlack
+-- (UIKit.hudNumber: same outline and drop shadow as the balance).
+local BAR_W = 168
+local BAR_H = 50
+local BAR_ICON = 38
+local BAR_GLOW = 58
+local BAR_TEXT_LEFT = 54
+local BAR_TEXT_SIZE = 28
+local BAR_TEXT_STROKE = 3
+local BAR_TEXT_DROP = Vector2.new(2, 3)
 
 --- Builds the tile in its own ScreenGui (IgnoreGuiInset, so the grid measures against
 --- the true screen as the left column does). Returns the gui, unparented, and the button,
@@ -85,9 +100,10 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local canvas = UIKit.canvas(gui)
 
+	local bar = spec.leftRow ~= nil
 	local button, edge = UIKit.button(canvas, {
 		name = spec.name,
-		size = UDim2.fromOffset(SIZE, SIZE),
+		size = if bar then UDim2.fromOffset(BAR_W, BAR_H) else UDim2.fromOffset(SIZE, SIZE),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		text = "",
 		textSize = UIKit.TextSize.body,
@@ -103,38 +119,72 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local scale = Instance.new("UIScale")
 	scale.Parent = button
 
-	local function place()
-		local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
-		button.Position = Dock.sideTileCentre(spec.slot, height)
+	local glow, icon
+	if bar then
+		local row = spec.leftRow :: number
+		UIKit.onScaleChanged(function()
+			local bottom = Dock.SIDE_COLUMN_TOP + Dock.GAP + (row - 1) * (BAR_H + Dock.GAP) + Dock.sideLift()
+			button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 1, -(bottom + BAR_H / 2))
+		end)
+
+		local iconCentre = 6 + BAR_ICON / 2
+		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, BAR_GLOW, spec.color)
+		glow.AnchorPoint = Vector2.new(0.5, 0.5)
+		glow.Position = UDim2.new(0, iconCentre, 0.5, 0)
+		glow.ImageTransparency = GLOW_TRANSPARENCY
+		glow.ZIndex = 5
+
+		icon = Artwork.picture(button, "Icon", spec.image, BAR_ICON, Color3.new(1, 1, 1))
+		icon.AnchorPoint = Vector2.new(0.5, 0.5)
+		icon.Position = UDim2.new(0, iconCentre, 0.5, spec.iconDrop or 0)
+		icon.ZIndex = 6
+
+		UIKit.hudNumber(button, {
+			name = "Caption",
+			anchorPoint = Vector2.new(0, 0.5),
+			position = UDim2.new(0, BAR_TEXT_LEFT, 0.5, -1),
+			size = UDim2.new(1, -BAR_TEXT_LEFT - 6, 0, BAR_TEXT_SIZE + 4),
+			text = spec.caption,
+			font = Enum.Font.GothamBlack,
+			textSize = BAR_TEXT_SIZE,
+			color = spec.light,
+			xAlign = Enum.TextXAlignment.Left,
+			zIndex = 8,
+		}, BAR_TEXT_STROKE, BAR_TEXT_DROP)
+	else
+		local function place()
+			local height = canvas.AbsoluteSize.Y / UIKit.canvasScale(canvas)
+			button.Position = Dock.sideTileCentre(spec.slot, height)
+		end
+		canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
+		place()
+
+		-- The glow, centred on the picture.
+		local iconCentre = ICON_TOP + ICON_SIZE / 2
+		glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)
+		glow.AnchorPoint = Vector2.new(0.5, 0.5)
+		glow.Position = UDim2.new(0.5, 0, 0, iconCentre)
+		glow.ImageTransparency = GLOW_TRANSPARENCY
+		glow.ZIndex = 5
+
+		icon = Artwork.picture(button, "Icon", spec.image, ICON_SIZE, Color3.new(1, 1, 1))
+		icon.AnchorPoint = Vector2.new(0.5, 0.5)
+		icon.Position = UDim2.new(0.5, 0, 0, iconCentre + (spec.iconDrop or 0))
+		icon.ZIndex = 6
+
+		UIKit.label(button, {
+			name = "Caption",
+			anchorPoint = Vector2.new(0.5, 1),
+			position = UDim2.new(0.5, 0, 1, -CAPTION_BOTTOM),
+			size = UDim2.new(1, 0, 0, CAPTION_SIZE),
+			text = spec.caption,
+			font = Enum.Font.FredokaOne,
+			textSize = CAPTION_SIZE,
+			color = spec.light,
+			xAlign = Enum.TextXAlignment.Center,
+			zIndex = 8,
+		})
 	end
-	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(place)
-	place()
-
-	-- The glow, centred on the picture.
-	local iconCentre = ICON_TOP + ICON_SIZE / 2
-	local glow = Artwork.picture(button, "Glow", Artwork.IMAGE.glow, GLOW_SIZE, spec.color)
-	glow.AnchorPoint = Vector2.new(0.5, 0.5)
-	glow.Position = UDim2.new(0.5, 0, 0, iconCentre)
-	glow.ImageTransparency = GLOW_TRANSPARENCY
-	glow.ZIndex = 5
-
-	local icon = Artwork.picture(button, "Icon", spec.image, ICON_SIZE, Color3.new(1, 1, 1))
-	icon.AnchorPoint = Vector2.new(0.5, 0.5)
-	icon.Position = UDim2.new(0.5, 0, 0, iconCentre + (spec.iconDrop or 0))
-	icon.ZIndex = 6
-
-	UIKit.label(button, {
-		name = "Caption",
-		anchorPoint = Vector2.new(0.5, 1),
-		position = UDim2.new(0.5, 0, 1, -CAPTION_BOTTOM),
-		size = UDim2.new(1, 0, 0, CAPTION_SIZE),
-		text = spec.caption,
-		font = Enum.Font.FredokaOne,
-		textSize = CAPTION_SIZE,
-		color = spec.light,
-		xAlign = Enum.TextXAlignment.Center,
-		zIndex = 8,
-	})
 
 	local hovered, pressed = false, false
 	local function refresh()

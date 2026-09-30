@@ -44,7 +44,7 @@ local CampWarp = {}
 
 -- THE WARP TILE: bottom right of the right-edge 2x2 grid (HudTile), a cyan glow
 -- behind the portal swirl.
-local TILE_SLOT = 4
+local TILE_SLOT = 2
 local TILE_COLOR = Color3.fromRGB(60, 195, 255)
 local TILE_LIGHT = Color3.fromRGB(183, 236, 255)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
