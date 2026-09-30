@@ -79,6 +79,8 @@ export type Spec = {
 local BAR_W = 168
 local BAR_H = 50
 local BAR_ICON = 38
+local BAR_CORNER = 3
+local BAR_EDGE_THICKNESS = 2.5
 local BAR_GLOW = 58
 local BAR_TEXT_LEFT = 54
 local BAR_TEXT_SIZE = 28
@@ -111,11 +113,17 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		fillTransparency = FILL_TRANSPARENCY,
 		strokeColor = spec.color,
 		strokeThickness = EDGE_THICKNESS,
-		cornerRadius = UDim.new(0, CORNER),
+		cornerRadius = UDim.new(0, if bar then BAR_CORNER else CORNER),
 		zIndex = 4,
 	})
 	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	edge.Transparency = EDGE_TRANSPARENCY
+	if bar then
+		-- A near-square box with a solid black outline, on request.
+		edge.Color = Color3.new(0, 0, 0)
+		edge.Thickness = BAR_EDGE_THICKNESS
+		edge.Transparency = 0
+	end
 	local scale = Instance.new("UIScale")
 	scale.Parent = button
 
@@ -193,7 +201,7 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 		local target = if pressed then PRESS_SCALE elseif hovered then HOVER_SCALE else 1
 		TweenService:Create(scale, TWEEN, { Scale = target }):Play()
 		TweenService:Create(edge, TWEEN, {
-			Transparency = if hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
+			Transparency = if bar then 0 elseif hovered then EDGE_TRANSPARENCY_HOVER else EDGE_TRANSPARENCY,
 		}):Play()
 		TweenService:Create(glow, TWEEN, {
 			ImageTransparency = if hovered then GLOW_TRANSPARENCY_HOVER else GLOW_TRANSPARENCY,
