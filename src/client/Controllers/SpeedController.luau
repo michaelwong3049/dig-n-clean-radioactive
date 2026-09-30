@@ -54,16 +54,19 @@ local STYLE = {
 	captionFont = Enum.Font.GothamBlack,
 }
 
--- Design px inside the Dock.SPEED_SIZE footprint (340 x 88).
+-- Design px inside the Dock.SPEED_SIZE footprint (380 x 80).
 local LAYOUT = {
-	shoe = 88, -- centred in the icon slot the cash bundle fills (Dock.SIDE_ICON)
+	shoe = 80, -- centred in the icon slot the cash bundle fills (Dock.SIDE_ICON)
 	shoeDrop = Vector2.new(3, 4),
 	valueLeft = Dock.SIDE_ICON + 10, -- the same column as the cash balance below
-	captionTop = 10,
+	-- The number is centred on the sneaker's VISIBLE middle (Dock.SIDE_ICON_MIDDLE), the
+	-- same rule as the cash balance; the caption sits in the space above it.
+	valueTop = math.floor(Dock.SPEED_SIZE.Y.Offset * Dock.SIDE_ICON_MIDDLE + 0.5) - 32, -- the sneaker fills the row
+	valueHeight = 64,
+	captionTop = 0,
 	captionTextSize = 18,
-	valueTop = 30,
-	valueTextSize = 44,
-	valueStroke = 5.5,
+	valueTextSize = 52,
+	valueStroke = 6,
 	textDrop = Vector2.new(3, 4),
 }
 
@@ -188,7 +191,7 @@ local function build(): ScreenGui
 	ui.value = UIKit.hudNumber(badge, {
 		name = "Value",
 		position = UDim2.fromOffset(L.valueLeft, L.valueTop),
-		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, 52),
+		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, L.valueHeight),
 		font = STYLE.valueFont,
 		textSize = L.valueTextSize,
 		color = STYLE.value,

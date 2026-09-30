@@ -84,17 +84,21 @@ local STYLE = {
 	rateFont = Enum.Font.GothamBlack,
 }
 
--- Design px inside the Dock.CASH_SIZE footprint (340 x 102).
+-- Design px inside the Dock.CASH_SIZE footprint (380 x 104).
 local LAYOUT = {
 	icon = Dock.SIDE_ICON, -- the bundle; left edge on the column margin, top of the footprint
 	iconDrop = Vector2.new(3, 4),
 	valueLeft = Dock.SIDE_ICON + 10,
-	valueTop = 16, -- the box is centred on the bundle's middle, and never moves
-	valueHeight = 64,
-	valueTextSize = 48,
-	valueMinTextSize = 28, -- floor for setValueText's shrink-to-fit
-	valueStroke = 5.5,
-	rateTop = 72,
+	-- The box is centred on the bundle's VISIBLE middle (Dock.SIDE_ICON_MIDDLE), a
+	-- couple of px low so the digits sit level with the note's face; it never moves.
+	-- Gotham Black's digits centre in their line box (measured in Studio), so the box's
+	-- middle is the digits' middle.
+	valueTop = math.floor(Dock.SIDE_ICON * Dock.SIDE_ICON_MIDDLE + 1.5) - 34,
+	valueHeight = 68,
+	valueTextSize = 56,
+	valueMinTextSize = 32, -- floor for setValueText's shrink-to-fit
+	valueStroke = 6,
+	rateTop = 74,
 	rateHeight = 30,
 	rateTextSize = 24,
 	rateStroke = 4,
@@ -106,7 +110,7 @@ local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirect
 
 local POPUP = {
 	gap = 12, -- end of the number it comes off -> popup's left edge
-	height = 64, -- the label box; its text is vertically centred in it
+	height = 72, -- the label box; its text is vertically centred in it
 	pop =TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 	riseTime = 1.2,
 	fadeDelay = 0.75,
@@ -115,7 +119,7 @@ local POPUP = {
 	-- popup instead of stacking a new one on top of it (selling a bag item by item).
 	mergeWindow = 0.35,
 	-- `rotation` is the gain's tilt; a spend tilts the other way.
-	loud = { textSize = 52, stroke = 5, rise = 60, rotation = -8, sparkles = true },
+	loud = { textSize = 60, stroke = 5.5, rise = 64, rotation = -8, sparkles = true },
 	quiet = { textSize = 30, stroke = 3.5, rise = 28, rotation = 0, sparkles = false },
 }
 
