@@ -1218,8 +1218,17 @@ function Spec.run(): boolean
 			continue
 		end
 
+		local colours = {}
 		for _, key in meta.order do
 			check(`{track}'s "{key}" column has a shop label`, meta[key] ~= nil and meta[key].label ~= nil)
+			-- Every stat has its own colour, and no gear shows the same colour twice.
+			local colour = meta[key] and meta[key].color
+			check(`{track}'s "{key}" column has a stat colour`, typeof(colour) == "Color3")
+			if typeof(colour) == "Color3" then
+				local hex = colour:ToHex()
+				check(`{track}'s "{key}" colour is not shared with another {track} stat`, colours[hex] == nil)
+				colours[hex] = true
+			end
 		end
 
 		for tier = 1, Gear.maxTier(track) do

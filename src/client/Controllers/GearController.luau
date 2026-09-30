@@ -15,7 +15,8 @@
 	panel is up re-asks on the StationResult it produces.
 
 	Its look is the Nukes panel's (the Shop's FIELD slate, LuckiestGuy / FredokaOne in
-	INK outlines), with each tab in its stall's accent.
+	INK outlines, every corner square), with each tab in its stall's accent and its
+	name in the cash/speed HUD's Gotham Black. Each stat is in its own colour.
 ]]
 
 local Players = game:GetService("Players")
@@ -56,6 +57,8 @@ local PANEL = {
 	white = Color3.new(1, 1, 1),
 	headline = Enum.Font.LuckiestGuy,
 	label = Enum.Font.FredokaOne,
+	-- The tabs' "DETECTOR 1": the cash and speed numbers' face (Dock's hudNumber).
+	tab = Enum.Font.GothamBlack,
 }
 
 -- The stall accents (StationController.STALL_ACCENT, build/Shops' awnings), and the
@@ -115,27 +118,28 @@ local function inked(parent: Instance, props: { [string]: any }): TextLabel
 	return label
 end
 
-local function round(parent: Instance, radius: number)
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, radius)
-	corner.Parent = parent
-end
-
 local function edge(parent: Instance, color: Color3, thickness: number): UIStroke
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = color
 	stroke.Thickness = thickness
 	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	stroke.LineJoinMode = Enum.LineJoinMode.Round
+	stroke.LineJoinMode = Enum.LineJoinMode.Miter
 	stroke.Parent = parent
 	return stroke
 end
 
---- "RADIUS 16 · DEPTH 9 · LUCK 1.1" out of the server's stat cells.
-local function statLine(stats: { any }): string
+--- "RADIUS 16 · DEPTH 9 · LUCK 1.1" out of the server's stat cells, each stat in its
+--- own colour (Gear.STAT_META, the same colours as the shop card's chips). RichText.
+local function statLine(track: string, stats: { any }): string
+	local meta = Gear.STAT_META[track] or {}
 	local parts = {}
 	for _, cell in stats do
-		table.insert(parts, `{cell.label} {cell.value}`)
+		local field = meta[cell.key]
+		local text = `{cell.label} {cell.value}`
+		if field and field.color then
+			text = `<font color="#{field.color:ToHex()}">{text}</font>`
+		end
+		table.insert(parts, text)
 	end
 	return table.concat(parts, "  \u{00B7}  ")
 end
@@ -176,7 +180,6 @@ local function row(parent: Instance, order: number, track: string, entry: any)
 	frame.LayoutOrder = order
 	frame.ZIndex = 13
 	frame.Parent = parent
-	round(frame, 12)
 	edge(frame, if entry.current then accent else PANEL.ink, if entry.current then 3 else 2)
 
 	local well = Instance.new("Frame")
@@ -188,7 +191,6 @@ local function row(parent: Instance, order: number, track: string, entry: any)
 	well.ClipsDescendants = true
 	well.ZIndex = 14
 	well.Parent = frame
-	round(well, 9)
 	local viewport = GearArt.viewport(well)
 	viewport.ZIndex = 15
 	GearArt.show(viewport, track, entry.tier, ART_W / ART_H)
@@ -217,12 +219,13 @@ local function row(parent: Instance, order: number, track: string, entry: any)
 	})
 	inked(frame, {
 		Name = "Stats",
-		Text = statLine(entry.stats),
+		Text = statLine(track, entry.stats),
+		RichText = true,
 		Font = PANEL.label,
-		TextSize = 13,
+		TextSize = 16,
 		TextColor3 = PANEL.dim,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		Size = UDim2.new(1, textWidth, 0, 16),
+		Size = UDim2.new(1, textWidth, 0, 18),
 		Position = UDim2.fromOffset(textLeft, 50),
 		ZIndex = 14,
 	})
@@ -238,7 +241,6 @@ local function row(parent: Instance, order: number, track: string, entry: any)
 	button.TextColor3 = PANEL.white
 	button.ZIndex = 15
 	button.Parent = frame
-	round(button, 12)
 	edge(button, PANEL.ink, 3)
 
 	if entry.current then
@@ -388,7 +390,6 @@ local function buildPanel(): ScreenGui
 	panel.Visible = false
 	panel.ZIndex = 10
 	panel.Parent = canvas
-	round(panel, 20)
 	edge(panel, PANEL.ink, 4)
 	local scale = Instance.new("UIScale")
 	scale.Parent = panel
@@ -421,7 +422,6 @@ local function buildPanel(): ScreenGui
 	close.Text = "X"
 	close.ZIndex = 11
 	close.Parent = panel
-	round(close, 12)
 	edge(close, PANEL.ink, 3)
 	close.Activated:Connect(GearPanel.close)
 
@@ -447,12 +447,11 @@ local function buildPanel(): ScreenGui
 		tab.AutoButtonColor = false
 		tab.LayoutOrder = index
 		tab.Size = UDim2.new(1 / count, -8 * (count - 1) / count, 1, 0)
-		tab.Font = PANEL.headline
-		tab.TextSize = 18
+		tab.Font = PANEL.tab
+		tab.TextSize = 17
 		tab.Text = TAB_TEXT[track] or track
 		tab.ZIndex = 12
 		tab.Parent = tabs
-		round(tab, 12)
 		edge(tab, PANEL.ink, 3)
 		tab.Activated:Connect(function()
 			selectTrack(track)

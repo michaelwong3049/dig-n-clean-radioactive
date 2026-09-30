@@ -1181,8 +1181,9 @@ end
 --- A FLAG CELL KEEPS THE BAR'S GEOMETRY AND THROWS AWAY ITS MEANING: a capability is
 --- not an amount, so the chip prints YES/NO and fills its track whole or not at all.
 --- Currently exercised by no track — see makeStatChip.
-local function paintStats(card: Frame, entry, accent: Color3)
+local function paintStats(card: Frame, entry, track: string, dear: boolean)
 	local stats = card.CardStats :: Frame
+	local meta = Gear.STAT_META[track] or {}
 	local count = math.min(#entry.stats, STAT_ROWS)
 	local width = if count > 0 then (CARD_ART_WIDTH - (count - 1) * STAT_CHIP_GAP) / count else 0
 	for index = 1, STAT_ROWS do
@@ -1200,10 +1201,18 @@ local function paintStats(card: Frame, entry, accent: Color3)
 
 		local label = row.StatLabel :: TextLabel
 		local value = row.StatValue :: TextLabel
-		local track = row.StatTrack :: Frame
-		local fill = track.StatFill :: Frame
+		local bar = row.StatTrack :: Frame
+		local fill = bar.StatFill :: Frame
+		-- Each stat in its own colour (Gear.STAT_META), label and bar alike; a rung you
+		-- cannot pay for yet keeps the colour, washed toward grey.
+		local field = meta[cell.key]
+		local colour = if field and field.color then field.color else FIELD.amber
+		if dear then
+			colour = colour:Lerp(FIELD.muted, 0.55)
+		end
 
 		label.Text = cell.label
+		label.TextColor3 = colour
 		value.Text = cell.value
 		-- THE BOTTOM RUNG KEEPS A SLIVER. ShopService measures a bar from the worst
 		-- value on the ladder, so tier 1 is honestly 0.0 on every column — and an
@@ -1215,7 +1224,7 @@ local function paintStats(card: Frame, entry, accent: Color3)
 			shown = math.max(shown, BAR_FLOOR)
 		end
 		fill.Size = UDim2.fromScale(shown, 1)
-		fill.BackgroundColor3 = accent
+		fill.BackgroundColor3 = colour
 		-- An unlit flag is the one cell that should read as absent rather than as low:
 		-- dimming the value keeps "NO" from being mistaken for a small amount.
 		value.TextColor3 = if cell.kind == "flag" and not cell.on then FIELD.muted else FIELD.text
@@ -1251,7 +1260,7 @@ end
 --- NEED $x   buyable, unaffordable. The flag carries the SHORTFALL against your wallet
 ---           rather than the price, because the price is already on the button and the
 ---           gap is the thing you do not know.
-local function paintShopCard(card: Frame, entry, track: string, accent: Color3, cash: number)
+local function paintShopCard(card: Frame, entry, track: string, cash: number)
 	local nameLabel = card.CardStrip.CardName :: TextLabel
 	local flag = card.CardStrip.CardFlag :: TextLabel
 	local buy = card.CardBuy :: TextButton
@@ -1266,10 +1275,7 @@ local function paintShopCard(card: Frame, entry, track: string, accent: Color3, 
 	local affordable = entry.affordable == true
 	local dear = entry.buyable == true and not affordable
 
-	-- The bar colour is the card's whole mood: amber for the one you hold, the stall's
-	-- accent for anything live, grey for a rung you cannot pay for yet.
-	local barColour = if entry.current then FIELD.amber elseif dear then FIELD.muted else accent
-	paintStats(card, entry, barColour)
+	paintStats(card, entry, track, dear)
 
 	nameLabel.TextColor3 = FIELD.text
 
@@ -1686,7 +1692,7 @@ local function render()
 			-- A rack card shows its own tier and nothing either side of it.
 			card.Visible = entry ~= nil and (not single or index == rackIndex)
 			if entry then
-				paintShopCard(card, entry, track, accent, cash)
+				paintShopCard(card, entry, track, cash)
 			end
 		end
 
