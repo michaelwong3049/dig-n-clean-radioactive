@@ -61,6 +61,11 @@ local PANEL = {
 	redHover = Color3.fromHex("F5433D"),
 	green = Color3.fromHex("33D62F"),
 	greenHover = Color3.fromHex("52E84E"),
+	-- Equip Best wears the Gear panel's EQUIP (GearController): its green, square,
+	-- a 3px black edge, plain white Gotham Black caps.
+	equip = Color3.fromHex("3FB35A"),
+	equipHover = Color3.fromHex("52C96C"),
+	equipFont = Enum.Font.GothamBlack,
 	off = Color3.fromHex("5C6167"),
 	ink = Color3.fromHex("111214"),
 	white = Color3.new(1, 1, 1),
@@ -444,7 +449,7 @@ end
 
 local function setBusy(value: boolean)
 	busy = value
-	setButton(ui.equip, not value, if value then "..." else "Equip Best")
+	setButton(ui.equip, not value, if value then "..." else "EQUIP BEST")
 end
 
 -- ── Open / close ────────────────────────────────────────────────────
@@ -618,12 +623,17 @@ local function buildPanel(): ScreenGui
 	tab.ZIndex = 1
 	tab.Activated:Connect(Nukes.close)
 
-	local equip = chunky(panel, "EquipBest", "Equip Best", Vector2.new(EQUIP_W, EQUIP_H), 36, PANEL.green, PANEL.greenHover)
+	local equip = chunky(panel, "EquipBest", "EQUIP BEST", Vector2.new(EQUIP_W, EQUIP_H), 26, PANEL.equip, PANEL.equipHover)
 	equip.AnchorPoint = Vector2.new(1, 0)
 	equip.Position = UDim2.fromOffset(PANEL_W, PANEL_H + EQUIP_GAP)
-	-- A heavier black border than the other buttons, no white rim (on request).
-	local border = equip:FindFirstChildOfClass("UIStroke") :: UIStroke
-	border.Thickness = 4
+	-- The Gear panel's EQUIP look: no bevel lip, no outline on the words.
+	equip.Lip:Destroy()
+	local equipLabel = equip.Label :: TextLabel
+	equipLabel.Font = PANEL.equipFont
+	local wordStroke = equipLabel:FindFirstChildOfClass("UIStroke")
+	if wordStroke then
+		wordStroke:Destroy()
+	end
 	equip.Activated:Connect(function()
 		if busy or not equip.Active or actionRemote == nil then
 			return
