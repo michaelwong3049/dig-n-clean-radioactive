@@ -30,8 +30,9 @@
 	cash row it is money's, by request. Without a card behind it the number has to carry
 	itself over bright sky and dark caves alike, so it gets a heavy INK outline plus a
 	hard INK drop shadow (UIKit.hudNumber), and the bundle a dropped shadow of its own.
-	The numbers are GOTHAM BOLD. Gotham Black was picked from a font round (#3 of twelve,
-	replacing LuckiestGuy), then stepped down a weight as "too bold". The whole Dock.CASH_SIZE footprint is an invisible frame: the
+	The numbers are GOTHAM BLACK, picked from a font round (#3 of twelve), replacing
+	LuckiestGuy. Gotham Bold was tried a step lighter and rejected as ugly. The round's
+	sample was Montserrat Black; Roblox draws the two within a couple of px of each other. The whole Dock.CASH_SIZE footprint is an invisible frame: the
 	bundle's left edge sits on the column margin, lined up with the shoe above it.
 
 	A CHANGE IS SHOWN, NOT JUST APPLIED. The balance used to snap straight to its new
@@ -80,8 +81,8 @@ local STYLE = {
 	rate = Color3.fromHex("C8F5AE"),
 	gain = Color3.fromHex("7CF25A"),
 	spend = Color3.fromHex("FF5A4E"),
-	valueFont = Enum.Font.GothamBold,
-	rateFont = Enum.Font.GothamBold,
+	valueFont = Enum.Font.GothamBlack,
+	rateFont = Enum.Font.GothamBlack,
 }
 
 -- Design px inside the Dock.CASH_SIZE footprint (380 x 104).
@@ -97,11 +98,11 @@ local LAYOUT = {
 	valueHeight = 68,
 	valueTextSize = 56,
 	valueMinTextSize = 32, -- floor for setValueText's shrink-to-fit
-	valueStroke = 5,
+	valueStroke = 6,
 	rateTop = 74,
 	rateHeight = 30,
 	rateTextSize = 24,
-	rateStroke = 3.5,
+	rateStroke = 4,
 	textDrop = Vector2.new(3, 4),
 }
 
@@ -119,8 +120,8 @@ local POPUP = {
 	-- popup instead of stacking a new one on top of it (selling a bag item by item).
 	mergeWindow = 0.35,
 	-- `rotation` is the gain's tilt; a spend tilts the other way.
-	loud = { textSize = 60, stroke = 4.5, rise = 64, rotation = -8, sparkles = true },
-	quiet = { textSize = 30, stroke = 3, rise = 28, rotation = 0, sparkles = false },
+	loud = { textSize = 60, stroke = 5.5, rise = 64, rotation = -8, sparkles = true },
+	quiet = { textSize = 30, stroke = 3.5, rise = 28, rotation = 0, sparkles = false },
 }
 
 local ui = {}
