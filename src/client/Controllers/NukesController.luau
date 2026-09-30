@@ -2,9 +2,9 @@
 	NukesController.lua — the Nukes tile, and the panel it opens. The tile is the
 	middle of the right-edge column (Gear, Nukes, Warp), built by HudTile like the others.
 
-	THE PANEL SLIDES IN FROM THE LEFT EDGE and stays docked there (on request, after a
-	reference picture): a tall grey tray over the Shop / Index bars, one row per nuke
-	on your stands, best first. Each row is the nuke's own model, its name and what it
+	THE PANEL SLIDES IN FROM THE RIGHT EDGE and docks just inside the tile column, so
+	the tiles stay clickable (on request, after a reference picture): a tall near-black
+	studded tray, one row per nuke on your stands, best first. Each row is the nuke's own model, its name and what it
 	pays per second -- the rate its stand card prints, duplicate damping and all -- in
 	its RARITY COLOUR (Config/Rarity's `color`; Anomaly cycles Rarity.anomalyHue), and a
 	red UNEQUIP that sends it back to the bag (ExhibitService.unequip, the stand
@@ -47,12 +47,13 @@ local TILE_COLOR = Color3.fromRGB(255, 207, 31)
 local TILE_LIGHT = Color3.fromRGB(255, 240, 160)
 local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
--- The reference's look: a mid-grey tray, darker rows with a light well behind each
--- model, chunky red / green buttons, every word in FredokaOne with a black outline.
+-- The reference's look: a near-black studded tray, blacker rows with a grey well
+-- behind each model, chunky red / green buttons, every word in FredokaOne with a
+-- black outline.
 local PANEL = {
-	tray = Color3.fromHex("3B3F45"),
-	row = Color3.fromHex("2A2D32"),
-	well = Color3.fromHex("474C54"),
+	tray = Color3.fromHex("17191C"),
+	row = Color3.fromHex("0C0D0F"),
+	well = Color3.fromHex("33373D"),
 	wellGlow = Color3.fromHex("C9CED6"),
 	dim = Color3.fromHex("A9B0B8"),
 	gold = Color3.fromHex("F5C24B"),
@@ -67,10 +68,18 @@ local PANEL = {
 }
 
 -- Design px (UIKit.canvas: a 1280x720 screen).
-local SIDE_MARGIN = 20
+-- In from the right edge: past the tile column (Dock) and a gap, so Gear / Nukes /
+-- Warp stay clickable beside it.
+local SIDE_MARGIN = UIKit.Dock.ROW_SIDE_MARGIN + UIKit.Dock.SIDE_TILE_SIZE + 16
 local PANEL_W = 430
 local PANEL_H = 410
--- The pair (tray + Equip Best under it) sits this far above the left edge's middle.
+-- The stud texture tiled over the tray and rows (a soft white stud with a drop shadow
+-- on a clear ground, uploaded for this panel), and how see-through it is on each.
+local STUD_IMAGE = "rbxassetid://119880300884536"
+local STUD_TILE = 22
+local STUD_TRAY = 0.35
+local STUD_ROW = 0.7
+-- The pair (tray + Equip Best under it) sits this far above the right edge's middle.
 local RAISE = 50
 local PAD = 10
 local HEADER_H = 40
@@ -89,8 +98,8 @@ local TAB_H = 52
 -- The slide: a quick ease out on the way in, a quicker ease in on the way out.
 local SLIDE_IN = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local SLIDE_OUT = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-local OPEN_POS = UDim2.new(0, SIDE_MARGIN, 0.5, -RAISE)
-local CLOSED_POS = UDim2.new(0, -(PANEL_W + TAB_W + 40), 0.5, -RAISE)
+local OPEN_POS = UDim2.new(1, -SIDE_MARGIN, 0.5, -RAISE)
+local CLOSED_POS = UDim2.new(1, PANEL_W + TAB_W + 40, 0.5, -RAISE)
 
 -- The fastest the panel re-asks for its list while CarryState / IncomeState chatter.
 local REFRESH_GAP = 0.5
@@ -138,6 +147,24 @@ local function edge(parent: Instance, color: Color3, thickness: number): UIStrok
 	stroke.LineJoinMode = Enum.LineJoinMode.Round
 	stroke.Parent = parent
 	return stroke
+end
+
+--- Tile the stud texture across `parent`, under everything else in it. `inset` undoes
+--- a UIPadding so the studs still reach the frame's own edge.
+local function studs(parent: GuiObject, transparency: number, radius: number, inset: number?)
+	local pad = inset or 0
+	local texture = Instance.new("ImageLabel")
+	texture.Name = "Studs"
+	texture.BackgroundTransparency = 1
+	texture.Image = STUD_IMAGE
+	texture.ImageTransparency = transparency
+	texture.ScaleType = Enum.ScaleType.Tile
+	texture.TileSize = UDim2.fromOffset(STUD_TILE, STUD_TILE)
+	texture.Position = UDim2.fromOffset(-pad, -pad)
+	texture.Size = UDim2.new(1, pad * 2, 1, pad * 2)
+	texture.ZIndex = 0
+	texture.Parent = parent
+	round(texture, radius)
 end
 
 --- A label in the panel's voice: FredokaOne, black-outlined. `props` are set as-is.
@@ -295,6 +322,7 @@ local function newRow(parent: Instance, uid: string): Row
 	frame.Parent = parent
 	round(frame, 6)
 	edge(frame, PANEL.ink, 2)
+	studs(frame, STUD_ROW, 6)
 
 	-- The model, on a light well with a soft glow behind it.
 	local well = Instance.new("Frame")
@@ -482,7 +510,7 @@ local function buildPanel(): ScreenGui
 	-- The whole slide: tray, its close tab and Equip Best under it move as one.
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0, 0.5)
+	panel.AnchorPoint = Vector2.new(1, 0.5)
 	panel.Position = CLOSED_POS
 	panel.Size = UDim2.fromOffset(PANEL_W, PANEL_H + EQUIP_GAP + EQUIP_H)
 	panel.BackgroundTransparency = 1
@@ -504,6 +532,7 @@ local function buildPanel(): ScreenGui
 	padding.PaddingLeft = UDim.new(0, PAD)
 	padding.PaddingRight = UDim.new(0, PAD)
 	padding.Parent = tray
+	studs(tray, STUD_TRAY, 8, PAD)
 
 	inked(tray, {
 		Name = "Title",
@@ -576,10 +605,10 @@ local function buildPanel(): ScreenGui
 		Visible = false,
 	})
 
-	-- The close tab: a red "<" hanging off the tray's right edge, halfway down (clear of
-	-- the chat window, which takes clicks in the top-left corner).
-	local tab = chunky(panel, "Close", "<", Vector2.new(TAB_W, TAB_H), 26, PANEL.red, PANEL.redHover)
-	tab.Position = UDim2.fromOffset(PANEL_W - 2, (PANEL_H - TAB_H) / 2)
+	-- The close tab: a red ">" hanging off the tray's left edge, halfway down, pointing
+	-- the way the tray slides out.
+	local tab = chunky(panel, "Close", ">", Vector2.new(TAB_W, TAB_H), 26, PANEL.red, PANEL.redHover)
+	tab.Position = UDim2.fromOffset(-TAB_W + 2, (PANEL_H - TAB_H) / 2)
 	tab.ZIndex = 1
 	tab.Activated:Connect(Nukes.close)
 
