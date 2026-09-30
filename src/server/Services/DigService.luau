@@ -359,6 +359,16 @@ local function reconcileAuras()
 
 	local stale: { string } = {}
 	for uid, model in auras do
+		-- A spot someone is LOCKED onto is shown to everyone, whatever their detector
+		-- reads: a haul is a public event. fuseClaims is this tick's set of locked
+		-- signals (filled by stepPlayer, spent by stepFuses after this), and its rarity
+		-- is the puller's own reading.
+		local claim = fuseClaims[uid]
+		local pulled = if claim then claim.rarity else nil
+		if model:GetAttribute(Tuning.AURA_PULLED_ATTR) ~= pulled then
+			model:SetAttribute(Tuning.AURA_PULLED_ATTR, pulled)
+		end
+
 		if revealed[uid] ~= nil then
 			continue
 		end

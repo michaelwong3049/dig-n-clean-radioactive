@@ -329,6 +329,9 @@ Tuning.AURA_FOLDER = "SignalAuras"
 -- is a player walking to nothing.
 Tuning.AURA_LINGER = 1.0 -- seconds an unrevealed aura stays in the world, fading
 Tuning.AURA_FADE_ATTR = "Fading" -- attribute the server stamps on a lingering aura
+-- Stamped with the puller's rarity reading while someone is LOCKED onto the spot, so
+-- every client lights it, detector reading or not (DigService.reconcileAuras).
+Tuning.AURA_PULLED_ATTR = "Pulled"
 
 -- The aura is a STARBURST OF GLOWING CRACKS now (on request; it was a pulsing well
 -- with a dome and ripple rings, and before that a pillar). Flat on the ground: a hot
