@@ -394,7 +394,7 @@ Items.DEFS = {
 		rarity = "Common",
 		odds = 13, -- 1 in N per dig in a stocking stage
 		weight = 15,
-		stages = { 2 },
+		stages = {}, -- retired 2026-09-29 (was { 2 })
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 130,
@@ -704,7 +704,7 @@ Items.DEFS = {
 		rarity = "Epic",
 		odds = 400, -- 1 in N per dig in a stocking stage
 		weight = 470,
-		stages = { 3, 4 },
+		stages = {}, -- retired 2026-09-29 (was { 3, 4 })
 		appeal = "Collector",
 		sets = {},
 		baseValue = 16000,
@@ -1395,6 +1395,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 20000,
+		sizeMult = 1.4, -- bigger
 		model = "ImportedNuke",
 	},
 	{
@@ -1502,6 +1503,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 1800,
+		sizeMult = 1.4, -- bigger
 		model = "ImportedNuke",
 	},
 	{
@@ -1674,6 +1676,7 @@ Items.DEFS = {
 		appeal = "Gearhead",
 		sets = {},
 		baseValue = 2300000,
+		sizeMult = 1.4, -- bigger
 		model = "ImportedNuke",
 	},
 	{
@@ -1781,6 +1784,7 @@ Items.DEFS = {
 		appeal = "Collector",
 		sets = {},
 		baseValue = 5600000,
+		sizeMult = 1.4, -- bigger
 		model = "ImportedNuke",
 	},
 	{
@@ -1900,6 +1904,7 @@ Items.DEFS = {
 		appeal = "Researcher",
 		sets = {},
 		baseValue = 20000,
+		sizeMult = 1.4, -- bigger
 		model = "ImportedNuke",
 	},
 	{
