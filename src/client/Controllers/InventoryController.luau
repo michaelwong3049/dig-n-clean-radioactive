@@ -101,11 +101,15 @@ local BOMB_KEY = Enum.KeyCode.G
 
 -- The bomb card over a hovered slot (Shared/Bombing's stats).
 local CARD_WIDTH = 210
-local CARD_HEIGHT = 162
+local CARD_HEIGHT = 182
 local CARD_PAD = 12
 local CARD_ROW = 20
 local STAR_GOLD = Color3.fromHex("FFD34D")
 local COOL_SHADE = Color3.fromHex("000000")
+-- The "+$X/s" tag over the nuke in your own hands (only you see it).
+local HELD_ITEM_NAME = "HeldItem" -- ToolService's name for whatever is in your hands
+local RATE_TAG_LIFT = 1.2 -- studs above the held model's bounding box
+local RATE_TAG_SIZE = UDim2.fromOffset(200, 34)
 -- Dropping a nuke this rare or better asks "are you sure?" first.
 local CONFIRM_FROM = Rarity.DEFS.Rare.order
 local CONFIRM_WIDTH = 340
@@ -187,6 +191,24 @@ end
 
 local function hasBag(): boolean
 	return state.capacity > HOTBAR_SLOTS
+end
+
+--- "$2.00/s" up to "$1.2M/s" -- the Nukes panel's ladder (NukesController.formatRate).
+local function formatRate(perSecond: number): string
+	if perSecond >= 1_000_000_000_000 then
+		return string.format("$%.1fT/s", perSecond / 1_000_000_000_000)
+	elseif perSecond >= 1_000_000_000 then
+		return string.format("$%.1fB/s", perSecond / 1_000_000_000)
+	elseif perSecond >= 1_000_000 then
+		return string.format("$%.1fM/s", perSecond / 1_000_000)
+	elseif perSecond >= 1000 then
+		return string.format("$%.1fK/s", perSecond / 1000)
+	elseif perSecond >= 100 then
+		return string.format("$%.0f/s", perSecond)
+	elseif perSecond >= 10 then
+		return string.format("$%.1f/s", perSecond)
+	end
+	return string.format("$%.2f/s", perSecond)
 end
 
 local function itemColour(item: any): Color3
@@ -777,7 +799,7 @@ local function buildBombCard(): ScreenGui
 	})
 
 	ui.cardRows = {}
-	for index, caption in { "DAMAGE", "RADIUS", "FUSE", "COOLDOWN" } do
+	for index, caption in { "EARNS", "DAMAGE", "RADIUS", "FUSE", "COOLDOWN" } do
 		local y = 52 + (index - 1) * CARD_ROW
 		UIKit.label(card, {
 			name = `{caption}Caption`,
@@ -953,10 +975,20 @@ showCard = function(slot: any?)
 	ui.cardTitle.TextColor3 = rarityColor(item.rarity)
 	ui.cardStroke.Color = rarityColor(item.rarity)
 	ui.cardStars.Text = string.rep("\u{2605}", stats.stars)
-	ui.cardRows[1].Text = tostring(stats.damage)
-	ui.cardRows[2].Text = `{stats.radius} studs`
-	ui.cardRows[3].Text = `{stats.fuse}s`
-	ui.cardRows[4].Text = `{stats.cooldown}s`
+	-- What it pays on a stand (CarryService's undamped `perSecond`): nil while it is
+	-- still crusted (worth "???" like its name) or Slagged (a stand won't take it).
+	local perSecond = item.perSecond
+	if type(perSecond) == "number" then
+		ui.cardRows[1].Text = formatRate(perSecond)
+		ui.cardRows[1].TextColor3 = COLOR.green
+	else
+		ui.cardRows[1].Text = if unknown then "???" else "NOTHING"
+		ui.cardRows[1].TextColor3 = COLOR.dim
+	end
+	ui.cardRows[2].Text = tostring(stats.damage)
+	ui.cardRows[3].Text = `{stats.radius} studs`
+	ui.cardRows[4].Text = `{stats.fuse}s`
+	ui.cardRows[5].Text = `{stats.cooldown}s`
 	paintCardFooter(item)
 
 	-- Over the slot: its screen position, back into the card canvas's design pixels.
@@ -1419,6 +1451,80 @@ function Inventory.select(index: number)
 	renderSlots()
 end
 
+-- ── Held rate tag ───────────────────────────────────────────────────
+
+--- "+$X/s" over the nuke in YOUR hands. The BillboardGui lives in your PlayerGui and
+--- is adorned to the held model, so nobody else ever sees it. Hidden for crates, for
+--- a crusted find (its worth is "???" until washed) and for anything a stand won't take.
+local function refreshRateTag()
+	local tag = ui.rateTag
+	if tag == nil then
+		return
+	end
+	local character = Players.LocalPlayer.Character
+	local held = if character then character:FindFirstChild(HELD_ITEM_NAME) else nil
+	local uid = if held then held:GetAttribute("Uid") else nil
+	local item = if type(uid) == "string" then itemByUid(uid) else nil
+	local anchor = if held and held:IsA("Model")
+		then held.PrimaryPart or held:FindFirstChildWhichIsA("BasePart", true)
+		else nil
+	if item == nil or item.crateId ~= nil or type(item.perSecond) ~= "number" or anchor == nil then
+		tag.Enabled = false
+		tag.Adornee = nil
+		return
+	end
+
+	-- Over the top of the model, not its pivot: a tall nuke would swallow the tag.
+	local box, size = (held :: Model):GetBoundingBox()
+	local top = box.Position.Y + size.Y / 2
+	tag.Adornee = anchor
+	tag.StudsOffsetWorldSpace = Vector3.new(0, top - anchor.Position.Y + RATE_TAG_LIFT, 0)
+	ui.rateTagText.Text = `+{formatRate(item.perSecond)}`
+	tag.Enabled = true
+end
+
+local function buildRateTag(playerGui: Instance)
+	local tag = Instance.new("BillboardGui")
+	tag.Name = "HeldRateTag"
+	tag.Size = RATE_TAG_SIZE
+	tag.AlwaysOnTop = true
+	tag.LightInfluence = 0
+	tag.ResetOnSpawn = false
+	tag.Enabled = false
+	tag.Parent = playerGui
+	ui.rateTag = tag
+	ui.rateTagText = UIKit.label(tag, {
+		name = "Rate",
+		size = UDim2.fromScale(1, 1),
+		font = UIKit.Font.hero,
+		textSize = 26,
+		color = COLOR.green,
+		xAlign = Enum.TextXAlignment.Center,
+		shadow = false,
+	})
+end
+
+local function watchHeld(character: Model)
+	refreshRateTag()
+	character.ChildAdded:Connect(function(child)
+		if child.Name == HELD_ITEM_NAME then
+			-- StreamingEnabled: parts/attributes can trail the model by a frame.
+			task.defer(refreshRateTag)
+			child:GetAttributeChangedSignal("Uid"):Connect(refreshRateTag)
+			child.DescendantAdded:Connect(function(d)
+				if d:IsA("BasePart") and not ui.rateTag.Enabled then
+					refreshRateTag()
+				end
+			end)
+		end
+	end)
+	character.ChildRemoved:Connect(function(child)
+		if child.Name == HELD_ITEM_NAME then
+			refreshRateTag()
+		end
+	end)
+end
+
 -- ── Lifecycle ───────────────────────────────────────────────────────
 
 function Inventory.start()
@@ -1430,6 +1536,7 @@ function Inventory.start()
 	ui.bagGui.Parent = playerGui
 	ui.cardGui = buildBombCard()
 	ui.cardGui.Parent = playerGui
+	buildRateTag(playerGui)
 
 	-- ROBLOX'S OWN BACKPACK HAS TO GO, AND NOT JUST BECAUSE IT IS REDUNDANT.
 	-- CoreGui binds the number row to its hotbar slots (and ` to its inventory).
@@ -1506,7 +1613,14 @@ function Inventory.start()
 		end
 
 		renderSlots()
+		-- The index multiplier (or a merge) can move the held nuke's rate.
+		refreshRateTag()
 	end)
+
+	if player.Character then
+		watchHeld(player.Character)
+	end
+	player.CharacterAdded:Connect(watchHeld)
 
 	-- New: the row is Scale-based now, so a viewport resize (window resize, phone
 	-- rotation) changes how many pixels slotWidth() has to divide up.
