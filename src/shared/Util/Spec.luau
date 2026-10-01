@@ -573,8 +573,8 @@ function Spec.run(): boolean
 		end
 		check(`§zone the rated drain climbs smoothly, no steps ({detail ~= "" and detail or "ok"})`, smooth)
 		check("§zone a rated aura lasts minutes: >=5m entrance, >=3m at 60%, >=1m at the far edge", ratedOk)
-		check("§zone one tier under: 20-30s at the entrance (15-30s in 7-12), under 3s past 60%", underOk)
-		check("§zone stages 7-12 are harsher than 1-6 one tier under", harsher)
+		check("§zone one tier under: 20-30s at the entrance (15-30s in the harsh stages), under 3s past 60%", underOk)
+		check("§zone the harsh stages (6-12) are harsher than 1-5 one tier under", harsher)
 		check("§zone two tiers under is about a second", Radiation.zoneSurvival(5, 0, 3) <= 1.5)
 		check("§zone an aura above the stage's rating takes no aura damage", Radiation.zoneSurvival(3, 1, 5) == math.huge)
 		local top = Gear.maxTier("Aura")
@@ -601,10 +601,24 @@ function Spec.run(): boolean
 		check(string.format("§3.4 stage 1 unshielded capped at ~9min = %.0fs (want 480-600)", s), s >= 480 and s <= 600)
 	end
 
-	-- PLAN §4 — the Crater never becomes a farm, at any gear level, forever.
-	-- Entrance, same reasoning.
-	local crater = survive(6, 6, 0)
-	check(string.format("§4 Crater with full Rig = %.0fs (want 60-130, a heist)", crater), crater > 60 and crater < 130)
+	-- PLAN §4 — the Crater (Stage 6). Was "never a farm, at any gear level, forever";
+	-- that cap was dropped on request (see Config/Gear's reduction note).
+	-- The Nimbus follows the curve in the Crater now (its heist cap was dropped on
+	-- request), and the far rim bites: the curve has to make it, since the air is flat.
+	do
+		local entrance, rim = survive(6, 6, 0, 0), survive(6, 6, 0, 1)
+		check(string.format("§4 Crater with the Nimbus: %.0fs at the entrance, %.0fs at the far rim (want 300+ then under 90)", entrance, rim), entrance >= 300 and rim < 90)
+	end
+	-- No aura soaks more of the stage than the one below it.
+	do
+		local climbs = true
+		for tier = 2, Gear.maxTier("Aura") do
+			if Gear.tier("Aura", tier).reduction < Gear.tier("Aura", tier - 1).reduction then
+				climbs = false
+			end
+		end
+		check("§4 aura reduction never drops from one rung to the next (except the Nimbus's old dip, now gone)", climbs)
+	end
 	-- TOXIC TWILIGHT'S AURAS THRIVE BELOW THEIR STAGES (Config/Gear's reduction note). The
 	-- old rule was the opposite -- no aura past the Nimbus could farm the Crater -- and it
 	-- capped every Twilight aura at ~90s in Stages 6-7. Now: at least five minutes in

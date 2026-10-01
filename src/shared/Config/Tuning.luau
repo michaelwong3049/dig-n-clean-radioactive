@@ -103,9 +103,11 @@ Tuning.BURN_EXPONENT = 0.75
 -- (above) still stacks on top; this curve is only the aura's share.
 Tuning.ZONE_SURVIVAL = {
 	BREAK = 0.6,
-	HARSH_FROM_STAGE = 7,
-	early = { rated = { 900, 360, 120 }, under = { 30, 3, 1.5 } }, -- stages 1-6
-	late = { rated = { 480, 240, 75 }, under = { 20, 2, 1 } }, -- stages 7-12
+	-- 7 -> 6 on request ("the end of Stage 6 should do more damage"): the Crater's air is
+	-- nearly flat (100 -> 104), so it is the curve that has to make its far rim bite.
+	HARSH_FROM_STAGE = 6,
+	early = { rated = { 900, 360, 120 }, under = { 30, 3, 1.5 } }, -- stages 1-5
+	late = { rated = { 480, 240, 75 }, under = { 20, 2, 1 } }, -- stages 6-12
 	wayUnder = 1,
 	lastAura = { 75, 60, 45 },
 }

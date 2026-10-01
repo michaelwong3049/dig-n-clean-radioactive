@@ -313,7 +313,7 @@ Gear.Aura = {
 	{ name = "Lead Halo", price = 1100000, reduction = 0.9920, tolerance = 13.4, capacity = 10, haulPenalty = 0.72, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
 	{ name = "Ion Shroud", price = 5200000, reduction = 0.9970, tolerance = 38.4, capacity = 14, haulPenalty = 0.52, blurb = "Wound tight around you. The first aura that trusts you." },
 	{ name = "Isotope Mantle", price = 17000000, reduction = 0.9988, tolerance = 98.4, capacity = 18, haulPenalty = 0.35, blurb = "Burns hotter than the air. Walks into the red and back." },
-	{ name = "Containment Nimbus", price = 43000000, reduction = 0.9889, tolerance = 105.0, capacity = 24, haulPenalty = 0.20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
+	{ name = "Containment Nimbus", price = 43000000, reduction = 0.9989, tolerance = 105.0, capacity = 24, haulPenalty = 0.20, blurb = "Made for the Crater. Holds, right up to the far rim." },
 	-- TOXIC TWILIGHT'S FIVE. Sold at that camp's Aura Shop and nowhere else (`camp`,
 	-- Gear.campOf), like its detectors, magnets and hoses. Shapes picked by the user
 	-- from mockup rounds (Shared/AuraLook's aurora / torus / wings / seraph / vortex).
@@ -332,17 +332,20 @@ Gear.Aura = {
 	-- It used to sit at the Nimbus's 0.9889 on every rung ("the Crater is a heist at any
 	-- gear level"), which filled the meter in ~90s in Stage 6-7 air whatever you wore:
 	-- a Crimson Vortex died in Stage 7 as fast as a Toxic Aurora, and in ~36s in its own
-	-- Stage 11. Dropped on request ("Twilight auras should thrive in Stages 5-6"). Each
-	-- rung is fitted so the meter takes ~5 minutes to fill at its own stage's far edge
-	-- (0.333 rads/s at deepRads): its own stage then follows Tuning.ZONE_SURVIVAL
-	-- exactly, and every stage below it lasts longer the higher the aura.
+	-- Stage 11. Dropped on request ("Twilight auras should thrive in Stages 5-6"), and
+	-- the Nimbus followed (its old "ninety seconds in the Crater" heist went with it).
+	-- From the Nimbus up each rung is fitted so the meter takes ~13 minutes to fill at
+	-- its own stage's far edge (100 / (800 * deepRads)), which also keeps every rung's
+	-- reduction above the Isotope Mantle's 0.9988 and climbing: a better aura never
+	-- soaks more rads anywhere. Its own stage then follows Tuning.ZONE_SURVIVAL, and
+	-- every stage below lasts longer the higher the aura.
 	-- `tolerance` is each rung's rated ambient, kept as the shop's stat line; the aura's
 	-- actual damage comes off the zone survival curve (Shared/Radiation.zoneSurvival).
-	{ name = "Toxic Aurora", price = 130000000, reduction = 0.9976, tolerance = 140.0, capacity = 28, haulPenalty = 0.16, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
-	{ name = "Eclipse Veil", price = 330000000, reduction = 0.9982, tolerance = 190.0, capacity = 32, haulPenalty = 0.12, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
-	{ name = "Twilight Singularity", price = 1100000000, reduction = 0.9987, tolerance = 255.0, capacity = 36, haulPenalty = 0.09, blurb = "It lifts the load before you do.", camp = "twilight" },
-	{ name = "Seraph", price = 5300000000, reduction = 0.9990, tolerance = 340.0, capacity = 40, haulPenalty = 0.06, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "twilight" },
-	{ name = "Crimson Vortex", price = 26000000000, reduction = 0.99926, tolerance = 455.0, capacity = 44, haulPenalty = 0.04, blurb = "The last aura. A red storm with you in the eye of it.", camp = "twilight" },
+	{ name = "Toxic Aurora", price = 130000000, reduction = 0.9991, tolerance = 140.0, capacity = 28, haulPenalty = 0.16, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
+	{ name = "Eclipse Veil", price = 330000000, reduction = 0.99934, tolerance = 190.0, capacity = 32, haulPenalty = 0.12, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 1100000000, reduction = 0.99951, tolerance = 255.0, capacity = 36, haulPenalty = 0.09, blurb = "It lifts the load before you do.", camp = "twilight" },
+	{ name = "Seraph", price = 5300000000, reduction = 0.99963, tolerance = 340.0, capacity = 40, haulPenalty = 0.06, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "twilight" },
+	{ name = "Crimson Vortex", price = 26000000000, reduction = 0.99973, tolerance = 455.0, capacity = 44, haulPenalty = 0.04, blurb = "The last aura. A red storm with you in the eye of it.", camp = "twilight" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
