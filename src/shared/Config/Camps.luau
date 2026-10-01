@@ -92,7 +92,7 @@ local TWILIGHT_CENTRE_OFFSET = 165
 
 --- THE WAY ON EAST, ON REQUEST: the disc is cut off at the mirror of the Crater's clip
 --- line, so the next stage opens out of the camp through a mouth exactly as wide as the
---- one the Crater opens in by. Stage 7's west edge belongs here (x = 2374); until it is
+--- one the Crater opens in by. Stage 7's west edge belongs here (x = 2278); until it is
 --- built, build/CampSite stands a COMING SOON barricade across the mouth.
 local TWILIGHT_EXIT_X = CRATER_EAST_X + 2 * TWILIGHT_CENTRE_OFFSET
 
