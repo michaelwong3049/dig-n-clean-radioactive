@@ -476,10 +476,10 @@ local function track(instance: Instance)
 		-- artefact rather than like several separate things breathing.
 		phase = (core.Position.X * 0.7 + core.Position.Z * 1.3) % (2 * math.pi),
 		rarity = nil,
-		-- How much bigger this aura is than a default one — a heavier buried thing gets
-		-- longer, wider cracks (DigService off Config/Weight.auraScale, stamped by
-		-- build/SignalAura). The rarity is per-player (above); this is shared, off the
-		-- signal's default item.
+		-- How much bigger this aura is than a default one — a bigger nuke gets longer,
+		-- wider cracks (DigService off Config/Weight.crackScale). Starts at the shared
+		-- fallback stamped by build/SignalAura (the signal's default item); stepAuras
+		-- swaps in this client's own reading's size, like the rarity.
 		scale = (instance :: any):GetAttribute("WellScale") or 1,
 		-- The ground point the cracks lie on, stamped by build/SignalAura. The core's
 		-- own position is a fallback that only puts them a hair high.
@@ -585,12 +585,29 @@ local function stepAuras()
 		-- The announced drop needs no reading: its rarity is on the aura, for everyone.
 		-- So does a spot somebody is locked onto (Tuning.AURA_PULLED_ATTR): the puller's
 		-- reading lights it for everyone, but this client's own reading wins if it has one.
+		-- The crack SIZE rides the same reading: bigger cracks = the bigger nuke THIS
+		-- client will pull up (Config/Weight.crackScale). Sticky with the rarity.
 		local pulled = (model :: any):GetAttribute(Tuning.AURA_PULLED_ATTR)
-		local read = entry.rareDrop
-			or (if DetectorController then DetectorController.contactRarityAt(entry.core.Position) else nil)
-			or (if entry.rarity == nil and type(pulled) == "string" then pulled else nil)
-		if read ~= nil and read ~= entry.rarity and crackFolder then
+		local contactRarity, contactScale = nil, nil
+		if DetectorController then
+			contactRarity, contactScale = DetectorController.contactRarityAt(entry.core.Position)
+		end
+		local read, readScale = nil, nil
+		if entry.rareDrop then
+			read = entry.rareDrop
+		elseif contactRarity then
+			read, readScale = contactRarity, contactScale
+		elseif entry.rarity == nil and type(pulled) == "string" then
+			read = pulled
+			local pulledScale = (model :: any):GetAttribute(Tuning.AURA_PULLED_SCALE_ATTR)
+			readScale = if type(pulledScale) == "number" then pulledScale else nil
+		end
+		local scaleChanged = readScale ~= nil and readScale ~= entry.scale
+		if read ~= nil and (read ~= entry.rarity or scaleChanged) and crackFolder then
 			entry.rarity = read
+			if readScale ~= nil then
+				entry.scale = readScale
+			end
 			local hue = Rarity.get(read).color
 			-- The crack count and forks ARE the rarity, so a new reading is a new burst.
 			-- Built once per reading, not per frame -- this is also the only place the

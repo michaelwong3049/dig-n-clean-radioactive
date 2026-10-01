@@ -294,6 +294,16 @@ local digRemote: any = nil
 local lockRemote: any = nil
 local unearthedRemote: any = nil
 
+--- The scale a dug item comes up at: per item TYPE (Config/Weight off its kg, times
+--- the authored `sizeMult` nudge) times this dig's OWN roll (Config/Payload, seeded on
+--- the signal's uid). The haul crust, the fuse's bang AND the cracks over the spot
+--- (Weight.crackScale) all read this one number, so a bigger crack is always a bigger
+--- nuke.
+local function sizeOf(itemId: string, uid: string): number
+	local item = Items.get(itemId)
+	return Weight.sizeScale(item.weight) * (item.sizeMult or 1) * Payload.forUid(uid)
+end
+
 -- ── The auras ─────────────────────────────────────────────────────────
 
 local function auraFolder(): Folder
@@ -336,11 +346,12 @@ local function reconcileAuras()
 
 	for uid, signal in revealed do
 		if auras[uid] == nil then
-			-- Heavier buried thing, bigger glow: the hot spot here, and the length and
-			-- width of the cracks the client lays around it (client/SpotCracks, off the
-			-- stamped WellScale). Off the signal's DEFAULT weight: the aura is one
-			-- shared part.
-			local model = SignalAura.create(signal.position, Weight.auraScale(signal.weight))
+			-- Bigger nuke, bigger glow: the hot spot here, and the length and width of
+			-- the cracks the client lays around it (client/SpotCracks, off the stamped
+			-- WellScale). Off the signal's DEFAULT item, because the aura is one shared
+			-- part -- but each client re-lays its cracks at its OWN reading's size
+			-- (contactPayload's `scale`), so this is only the fallback.
+			local model = SignalAura.create(signal.position, Weight.crackScale(sizeOf(signal.itemId, signal.uid)))
 			if signal.rareDrop then
 				-- Exposed to everybody, from anywhere (Config/RareDrop.AURA_ATTR). Set
 				-- before parenting: the streaming mode only counts from then on.
@@ -367,6 +378,11 @@ local function reconcileAuras()
 		local pulled = if claim then claim.rarity else nil
 		if model:GetAttribute(Tuning.AURA_PULLED_ATTR) ~= pulled then
 			model:SetAttribute(Tuning.AURA_PULLED_ATTR, pulled)
+		end
+		-- ...and the puller's nuke's size, so the cracks everyone sees match it.
+		local pulledScale = if claim then Weight.crackScale(claim.scale) else nil
+		if model:GetAttribute(Tuning.AURA_PULLED_SCALE_ATTR) ~= pulledScale then
+			model:SetAttribute(Tuning.AURA_PULLED_SCALE_ATTR, pulledScale)
 		end
 
 		if revealed[uid] ~= nil then
@@ -852,6 +868,10 @@ local function contactPayload(
 			dx = entry.signal.position.X - position.X,
 			dz = entry.signal.position.Z - position.Z,
 			rarity = rarityHint,
+			-- How big THIS player's cracks run: off the size of the nuke they will
+			-- actually pull up (their own reading), not the shared default. Only a
+			-- relative size, never the item -- the crust still hides what it is.
+			scale = Weight.crackScale(sizeOf(itemId, entry.signal.uid)),
 		})
 	end
 
@@ -971,7 +991,6 @@ end
 --- (standInFor), so the lump is that nuke's size and nothing here can tell the two
 --- apart; the crate is only named when the wash takes the crust off.
 local function createHaul(player: Player, signal: Signal, itemId: string, rarityHint: string?, crateId: string?): Haul
-	local item = Items.get(itemId)
 	-- SEEDED ON THE SIGNAL, NOT THE ITEM, and the difference is a tell worth closing:
 	-- seeded on the itemId every Gold Ring in the game would come up wearing the same
 	-- arrangement of rock, and a player who dug two of them would have learned the
@@ -995,7 +1014,7 @@ local function createHaul(player: Player, signal: Signal, itemId: string, rarity
 	--
 	-- `sizeMult` is the per-item visual nudge (Config/Items), for the items whose
 	-- `weight` can't be moved without dragging value/pull/odds along with it.
-	local scale = Weight.sizeScale(item.weight) * (item.sizeMult or 1) * Payload.forUid(signal.uid)
+	local scale = sizeOf(itemId, signal.uid)
 	if scale ~= 1 then
 		model:ScaleTo(scale)
 	end
@@ -1427,7 +1446,7 @@ local function stepPlayer(player: Player, dt: number)
 				signal = signal,
 				window = fuseWindow :: number,
 				rarity = rarity,
-				scale = Weight.sizeScale(item.weight) * (item.sizeMult or 1) * Payload.forUid(signal.uid),
+				scale = sizeOf(itemId, signal.uid),
 			}
 		end
 	end
