@@ -539,6 +539,9 @@ local function showStatTip(card: Instance, chip: Frame?)
 	end
 	local text = tip:FindFirstChild("Text") :: TextLabel
 	text.Text = line
+	-- In the stat's own colour, so the line reads as belonging to the chip under it.
+	local colour = chip:GetAttribute("TipColor")
+	text.TextColor3 = if typeof(colour) == "Color3" then colour else FIELD.text
 	tip:SetAttribute("Chip", chip.Name)
 	tip.Visible = true
 end
@@ -1315,6 +1318,8 @@ local function paintStats(card: Frame, entry, track: string, dear: boolean)
 		label.Text = cell.label
 		label.TextColor3 = colour
 		row:SetAttribute("Tip", if field then field.tip else nil)
+		-- The undimmed colour: the tip explains the stat, not whether you can afford it.
+		row:SetAttribute("TipColor", if field and field.color then field.color else FIELD.amber)
 		value.Text = cell.value
 		-- THE BOTTOM RUNG KEEPS A SLIVER. ShopService measures a bar from the worst
 		-- value on the ladder, so tier 1 is honestly 0.0 on every column — and an
