@@ -744,15 +744,340 @@ local PAIR_MAPS: { [string]: { name: string, map: string } } = {
 	["CBBBE9|D8CBF0"] = { name = "StudCheckerTwilightPath", map = "rbxassetid://104307201753316" },
 	["7C5AB0|8966BD"] = { name = "StudCheckerTwilightPaver", map = "rbxassetid://137642650996250" },
 	["4A3A52|55465C"] = { name = "StudCheckerDeck", map = "rbxassetid://121321642134723" },
+	-- Walls: the camp cliff's brown body, and Toxic Twilight's wall and turf lip.
+	["8D4B2B|9B5331"] = { name = "StudCheckerCliff", map = "rbxassetid://73992162942632" },
+	["3E2A5C|473166"] = { name = "StudCheckerTwilightWall", map = "rbxassetid://137431332067267" },
+	["319585|3AA493"] = { name = "StudCheckerTwilightLip", map = "rbxassetid://101915155414081" },
+	-- Bright stages whose light colour clamps at 255 on a channel, so the pair is not
+	-- 0.877 there: Stage 5 (pink), 9 (ice) and 12 (orange) walls and lips.
+	["E093A7|FFA8BE"] = { name = "StudCheckerStage5Wall", map = "rbxassetid://138323140232675" },
+	["EFABB5|FFC2CE"] = { name = "StudCheckerStage5Lip", map = "rbxassetid://92660618290716" },
+	["ABE1E3|C3FFFF"] = { name = "StudCheckerStage9Wall", map = "rbxassetid://127013463457730" },
+	["EF7F43|FF914D"] = { name = "StudCheckerStage12Wall", map = "rbxassetid://79748730946741" },
+	["EF6318|FF711C"] = { name = "StudCheckerStage12Lip", map = "rbxassetid://70538731759386" },
 }
 
---- The checker MaterialVariant for one (dark, light) pair, or nil if none is made.
+--- The checker MaterialVariant for one (dark, light) pair, or nil if none is made. A
+--- twoTone pair (dark = 0.877 x light on every channel, give or take hex rounding)
+--- wears the shared StudChecker; any other pair needs its own PAIR_MAPS entry.
+local TWO_TONE_RATIO = 0.937 / 1.068
+local function isTwoTone(dark: string, light: string): boolean
+	local d, l = Color3.fromHex(dark), Color3.fromHex(light)
+	for _, ch in { { d.R, l.R }, { d.G, l.G }, { d.B, l.B } } do
+		if ch[2] < 1 / 255 then
+			return false
+		end
+		-- Each hex channel is rounded to 1/255, so a dark channel's ratio can be off by
+		-- about one step over the light value: wide for dark colours, tight for bright.
+		if math.abs(ch[1] / ch[2] - TWO_TONE_RATIO) > 0.006 + 1 / (ch[2] * 255) then
+			return false
+		end
+	end
+	return true
+end
+
 function Kit.checkerMaterialFor(dark: string, light: string): string?
 	local entry = PAIR_MAPS[`{string.upper(dark)}|{string.upper(light)}`]
-	if entry == nil then
-		return nil
+	if entry then
+		return ensureChecker(entry.name, entry.map)
 	end
-	return ensureChecker(entry.name, entry.map)
+	if isTwoTone(dark, light) then
+		return Kit.checkerMaterial()
+	end
+	return nil
+end
+
+-- ── Walls and crowns on the checker material ─────────────────────────────────
+--
+-- Measured in Studio: on a SIDE face the material anchors at the face's TOP edge --
+-- local +X end on a FrontSurface (-Z) face, local -X end on a BackSurface (+Z) face --
+-- with the DARK cell in that corner, same as the top face's (+X, +Z) rule. So a wall
+-- block stays in register with the global checker when its anchor cell (end column on
+-- the anchor side, top row) is dark: (ix + iy) even, the parity every wall builder
+-- already paints by.
+
+local SMOOTH_FACES = { "TopSurface", "BottomSurface", "LeftSurface", "RightSurface", "FrontSurface", "BackSurface" }
+local MATERIAL_FACE_SIGN: { [string]: number } = { FrontSurface = -1, BackSurface = 1 }
+local OPPOSITE: { [string]: string } = { FrontSurface = "BackSurface", BackSurface = "FrontSurface" }
+
+local function materialBlock(parent: Instance, frame: CFrame, name: string, pos: { number }, size: { number }, light: string, variant: string, canCollide: boolean): BasePart
+	local part = Kit.build(parent, frame, {
+		name = name,
+		pos = pos,
+		size = size,
+		color = light,
+		material = "Plastic",
+		canCollide = canCollide,
+	})
+	part.MaterialVariant = variant
+	for _, face in SMOOTH_FACES do
+		(part :: any)[face] = Enum.SurfaceType.Smooth
+	end
+	return part
+end
+
+--- One straight strip of wall columns, laid as material blocks instead of a part per
+--- cell. Returns the indices (into `columns`) of the columns it did NOT lay -- those
+--- whose pair has no material -- for the caller's own per-cell build. Runs simply
+--- break around them.
+---
+---   frameAt(s)  the frame at along-strip coordinate s: local X along the strip, local
+---               Y = world Y, local Z the thickness axis. Every column of one call
+---               shares its orientation.
+---   face        the visible face in that frame: "FrontSurface" (-Z) or "BackSurface".
+---   columns     consecutive { s0, s1, ix }, whole WALL-tile wide, ascending s; ix is
+---               the global column index the checker parity is painted by.
+---   pairAt(ix, iy)  -> (dark, light, grassy) for row iy (foot rows negative). Grass
+---               must be the TOP rows of a column, and the top row is always grass.
+---
+--- The BODY is one block per run of columns sharing a body pair, from the foot to the
+--- top row -- or to one row lower when that puts the anchor cell on dark; the top row is
+--- grass everywhere, so the gap is behind the turf. The GRASS (lip plus whole-tile
+--- drips) is one block per run of columns sharing a pair and a depth, `overhang` proud
+--- of the face and 0.05 short of the back so it never z-fights the body's back face. A
+--- grass run whose anchor cell is light sheds its anchor column, which goes down as its
+--- top cell (a plain studded part) plus a block for the rest.
+export type WallStrip = {
+	name: string,
+	frameAt: (number) -> CFrame,
+	face: string,
+	columns: { { number } },
+	baseY: number,
+	footRows: number,
+	rows: number,
+	tile: number,
+	thick: number,
+	overhang: number,
+	pairAt: (number, number) -> (string, string, boolean),
+}
+
+function Kit.materialWall(parent: Instance, w: WallStrip): { number }
+	local faceSign = MATERIAL_FACE_SIGN[w.face]
+	assert(faceSign, "Kit.materialWall: face must be FrontSurface or BackSurface")
+	local n = #w.columns
+	if n == 0 then
+		return {}
+	end
+
+	-- Which end of a run the material anchors on: local +X for a Front face. A frame
+	-- whose local X runs against s (a yawed shoulder) flips it.
+	local s0 = w.columns[1][1]
+	local first = w.frameAt(s0)
+	local along = (w.frameAt(s0 + 1).Position - first.Position):Dot(first.XVector)
+	local localXWithS = along >= 0
+	local anchorAtHighS = (w.face == "FrontSurface") == localXWithS
+
+	-- Per column: body pair, grass pair and depth, and their materials.
+	type Col = { ok: boolean, s0: number, s1: number, ix: number, bodyD: string, bodyL: string, bodyV: string, grassD: string, grassL: string, grassV: string, depth: number }
+	local cols: { Col } = {}
+	for _, c in w.columns do
+		local ix = c[3]
+		local bodyD, bodyL = w.pairAt(ix, -w.footRows)
+		local depth = 0
+		local grassD, grassL = bodyD, bodyL
+		for iy = w.rows - 1, -w.footRows, -1 do
+			local d, l, grassy = w.pairAt(ix, iy)
+			if not grassy then
+				break
+			end
+			depth += 1
+			grassD, grassL = d, l
+		end
+		local bodyV = Kit.checkerMaterialFor(bodyD, bodyL)
+		local grassV = Kit.checkerMaterialFor(grassD, grassL)
+		table.insert(cols, {
+			ok = bodyV ~= nil and grassV ~= nil and depth > 0,
+			s0 = c[1],
+			s1 = c[2],
+			ix = ix,
+			bodyD = bodyD,
+			bodyL = bodyL,
+			bodyV = bodyV or "",
+			grassD = grassD,
+			grassL = grassL,
+			grassV = grassV or "",
+			depth = depth,
+		})
+	end
+
+	local tile = w.tile
+	local function yOf(iy: number): number
+		return w.baseY + iy * tile
+	end
+	local grassThick = w.thick + w.overhang - 0.05
+	local grassOff = faceSign * (w.overhang + 0.05) / 2
+
+	local function block(a: number, b: number, iyLo: number, iyHi: number, light: string, variant: string, grass: boolean)
+		local sa, sb = cols[a].s0, cols[b].s1
+		local y0, y1 = yOf(iyLo), yOf(iyHi + 1)
+		materialBlock(parent, w.frameAt((sa + sb) / 2), w.name, {
+			0,
+			(y0 + y1) / 2,
+			if grass then grassOff else 0,
+		}, {
+			sb - sa,
+			y1 - y0,
+			if grass then grassThick else w.thick,
+		}, light, variant, true)
+	end
+
+	local function anchorIx(a: number, b: number): number
+		return if anchorAtHighS then cols[b].ix else cols[a].ix
+	end
+
+	local skipped: { number } = {}
+	for i, c in cols do
+		if not c.ok then
+			table.insert(skipped, i)
+		end
+	end
+
+	-- Body runs.
+	local a = 1
+	while a <= n do
+		if not cols[a].ok then
+			a += 1
+			continue
+		end
+		local b = a
+		while b < n and cols[b + 1].ok and cols[b + 1].bodyD == cols[a].bodyD and cols[b + 1].bodyL == cols[a].bodyL do
+			b += 1
+		end
+		local top = w.rows - 1
+		if (anchorIx(a, b) + top) % 2 ~= 0 then
+			top -= 1
+		end
+		block(a, b, -w.footRows, top, cols[a].bodyL, cols[a].bodyV, false)
+		a = b + 1
+	end
+
+	-- Grass runs.
+	a = 1
+	while a <= n do
+		if not cols[a].ok then
+			a += 1
+			continue
+		end
+		local b = a
+		while
+			b < n
+			and cols[b + 1].ok
+			and cols[b + 1].depth == cols[a].depth
+			and cols[b + 1].grassD == cols[a].grassD
+			and cols[b + 1].grassL == cols[a].grassL
+		do
+			b += 1
+		end
+		local c = cols[a]
+		local lo, top = w.rows - c.depth, w.rows - 1
+		if (anchorIx(a, b) + top) % 2 == 0 then
+			block(a, b, lo, top, c.grassL, c.grassV, true)
+		else
+			-- Shed the anchor column: the rest's anchor moves one column, onto dark.
+			local shed = if anchorAtHighS then b else a
+			if b > a then
+				if anchorAtHighS then
+					block(a, b - 1, lo, top, c.grassL, c.grassV, true)
+				else
+					block(a + 1, b, lo, top, c.grassL, c.grassV, true)
+				end
+			end
+			if top - 1 >= lo then
+				block(shed, shed, lo, top - 1, c.grassL, c.grassV, true)
+			end
+			local sc = cols[shed]
+			local cell = Kit.build(parent, w.frameAt((sc.s0 + sc.s1) / 2), {
+				name = w.name,
+				pos = { 0, (yOf(top) + yOf(top + 1)) / 2, grassOff },
+				size = { sc.s1 - sc.s0, tile, grassThick },
+				color = c.grassL,
+				material = "Plastic",
+				canCollide = true,
+			});
+			(cell :: any)[w.face] = Enum.SurfaceType.Studs;
+			(cell :: any)[OPPOSITE[w.face]] = Enum.SurfaceType.Studs
+		end
+		a = b + 1
+	end
+	return skipped
+end
+
+--- A wall crown -- the thin sheet over the wall's top -- as material: one sheet per run
+--- of columns sharing a pair, anchored on its (+X, +Z) top corner (local frame). Cells
+--- run two deep across the crown, iz 0 at local -Z; the cell parity is (ix + iz). A run
+--- whose anchor cell is light sheds its anchor column, which the caller lays as plain
+--- cells: the returned list holds those columns' indices into `columns`, along with
+--- any column whose pair has no material.
+---
+---   columns  { s0, s1, ix } ascending s; pairAt(ix) -> (dark, light)
+---   z0, z1   the crown's depth span in the local frame (overhang included)
+---   y        the crown's centre Y; thick its thickness
+export type CrownStrip = {
+	name: string,
+	frameAt: (number) -> CFrame,
+	columns: { { number } },
+	z0: number,
+	z1: number,
+	y: number,
+	thick: number,
+	pairAt: (number) -> (string, string),
+}
+
+function Kit.materialCrown(parent: Instance, c: CrownStrip): { number }
+	local n = #c.columns
+	if n == 0 then
+		return {}
+	end
+	local s0 = c.columns[1][1]
+	local first = c.frameAt(s0)
+	local along = (c.frameAt(s0 + 1).Position - first.Position):Dot(first.XVector)
+	local anchorAtHighS = along >= 0 -- the top face anchors at local +X
+	-- The +Z cell is iz 1 when the crown is two cells deep from -Z.
+	local anchorIz = 1
+
+	local pairs: { { string } } = {}
+	local shed: { number } = {}
+	for i, col in c.columns do
+		local d, l = c.pairAt(col[3])
+		local v = Kit.checkerMaterialFor(d, l)
+		pairs[i] = { d, l, v or "" }
+		if v == nil then
+			table.insert(shed, i)
+		end
+	end
+
+	local a = 1
+	while a <= n do
+		if pairs[a][3] == "" then
+			a += 1
+			continue
+		end
+		local runEnd = a
+		while runEnd < n and pairs[runEnd + 1][3] ~= "" and pairs[runEnd + 1][1] == pairs[a][1] and pairs[runEnd + 1][2] == pairs[a][2] do
+			runEnd += 1
+		end
+		local lo, hi = a, runEnd
+		local anchorCol = if anchorAtHighS then hi else lo
+		if (c.columns[anchorCol][3] + anchorIz) % 2 ~= 0 then
+			table.insert(shed, anchorCol)
+			if anchorAtHighS then
+				hi -= 1
+			else
+				lo += 1
+			end
+		end
+		if hi >= lo then
+			local sa, sb = c.columns[lo][1], c.columns[hi][2]
+			local part = materialBlock(parent, c.frameAt((sa + sb) / 2), c.name, {
+				0,
+				c.y,
+				(c.z0 + c.z1) / 2,
+			}, { sb - sa, c.thick, c.z1 - c.z0 }, pairs[lo][2], pairs[lo][3], false)
+			part.CanQuery = false
+		end
+		a = runEnd + 1
+	end
+	return shed
 end
 
 --- Replace `Workspace.<name>` with a freshly built version, atomically.
