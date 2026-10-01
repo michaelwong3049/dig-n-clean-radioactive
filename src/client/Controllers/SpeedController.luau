@@ -22,6 +22,12 @@
 	punches the badge. The "+10" and "WALK SPEED 35!" popups float off the training bar
 	instead (TreadmillController), where the player is looking while they earn.
 
+	THE PENCIL PICKS YOUR WALK SPEED. Beside the number, a white edit pencil opens a
+	small picker above the row: a slider from Treadmill.MIN_PICKED_WALK up to what you
+	have trained, and MAX. Letting go sends Net.WalkCap; the server saves it on the
+	profile (`walkCap`, 0 = full speed) and ExposureService walks you at it. The badge
+	shows the speed you WALK at (Treadmill.chosenWalk), not the one you have trained.
+
 	TreadmillController reads `Speed.view()` / `Speed.shownPoints()` / `Speed.onChanged`
 	rather than listening to the remote itself, so the bar and the badge can never
 	disagree about the number.
@@ -31,6 +37,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
@@ -70,12 +78,30 @@ local LAYOUT = {
 	textDrop = Vector2.new(2, 3),
 }
 
+-- The pencil, and the picker it opens (design px).
+local PICKER = {
+	pencil = 34, -- the edit icon, a little smaller than the number's cap height
+	pencilGap = 8, -- between the end of the number and the pencil
+	width = 300,
+	height = 128,
+	gap = 6, -- between the top of the row and the picker
+	trackHeight = 14,
+	knob = 30,
+	fill = Color3.fromHex("9FE3FF"), -- the walk number's light blue
+	track = Color3.fromHex("1E2630"),
+	slab = Color3.fromRGB(18, 20, 24),
+	edge = Color3.fromRGB(49, 53, 61),
+}
+
 local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
 local ui: any = {}
 local view: any = nil
 local receivedAt = 0
 local listeners: { (view: any, previous: any) -> () } = {}
+--- The walk being dragged to, shown on the badge before the server confirms it; nil
+--- when the server's `walkCap` is what to show.
+local pending: number? = nil
 
 -- ── Formatting ────────────────────────────────────────────────────────────
 
@@ -200,7 +226,257 @@ local function build(): ScreenGui
 		zIndex = 11,
 	}, L.valueStroke, L.textDrop)
 
+	-- The pencil rides just past the end of the number, wherever that ends.
+	local pencil = Instance.new("ImageButton")
+	pencil.Name = "EditWalk"
+	pencil.Size = UDim2.fromOffset(PICKER.pencil, PICKER.pencil)
+	pencil.AnchorPoint = Vector2.new(0, 0.5)
+	pencil.BackgroundTransparency = 1
+	pencil.Image = Artwork.IMAGE.editPencil
+	pencil.ScaleType = Enum.ScaleType.Fit
+	pencil.ZIndex = 12
+	pencil.Parent = badge
+	ui.pencil = pencil
+	local pencilScale = Instance.new("UIScale")
+	pencilScale.Parent = pencil
+	pencil.MouseEnter:Connect(function()
+		pencilScale.Scale = 1.12
+	end)
+	pencil.MouseLeave:Connect(function()
+		pencilScale.Scale = 1
+	end)
+	local function placePencil()
+		local width = TextService:GetTextSize(ui.value.Text, L.valueTextSize, STYLE.valueFont, Vector2.new(1000, 200)).X
+		pencil.Position = UDim2.fromOffset(L.valueLeft + width + PICKER.pencilGap, L.valueTop + L.valueHeight / 2)
+	end
+	ui.value:GetPropertyChangedSignal("Text"):Connect(placePencil)
+	placePencil()
+
 	return gui
+end
+
+-- ── The walk-speed picker ─────────────────────────────────────────────────
+
+--- The range the slider covers right now: the floor, and what they have trained.
+local function pickRange(): (number, number)
+	local trained = if view then view.walk else Treadmill.START_WALK
+	return Treadmill.MIN_PICKED_WALK, math.max(trained, Treadmill.MIN_PICKED_WALK)
+end
+
+--- The walk the badge and the slider show: a drag in progress, else the server's
+--- confirmed pick.
+local function shownWalk(): number
+	if view == nil then
+		return 0
+	end
+	return Treadmill.chosenWalk(view.walk, pending or view.walkCap)
+end
+
+local function drawPicker()
+	if ui.picker == nil then
+		return
+	end
+	local low, high = pickRange()
+	local walk = shownWalk()
+	local alpha = if high > low then math.clamp((walk - low) / (high - low), 0, 1) else 1
+	ui.pickFill.Size = UDim2.fromScale(alpha, 1)
+	ui.pickKnob.Position = UDim2.fromScale(alpha, 0.5)
+	ui.pickValue.Text = tostring(walk)
+	ui.pickLow.Text = tostring(low)
+	ui.pickHigh.Text = tostring(high)
+	local atMax = walk >= high
+	ui.pickMax.BackgroundColor3 = if atMax then PICKER.track else PICKER.fill
+	ui.pickMax.TextColor3 = if atMax then UIKit.C.dim else UIKit.C.outline
+end
+
+--- 0 = "full speed", so a pick at the top keeps following the next level up.
+local function send(walk: number)
+	local _, high = pickRange()
+	Net.get("WalkCap"):FireServer(if walk >= high then 0 else walk)
+end
+
+local function caption(parent: Instance, name: string, x: number, xAlign: Enum.TextXAlignment): TextLabel
+	return UIKit.label(parent, {
+		name = name,
+		position = UDim2.fromOffset(x, 90),
+		anchorPoint = Vector2.new(if xAlign == Enum.TextXAlignment.Right then 1 else 0, 0),
+		size = UDim2.fromOffset(60, 18),
+		font = Enum.Font.GothamBlack,
+		textSize = 14,
+		color = UIKit.C.dim,
+		xAlign = xAlign,
+		zIndex = 21,
+	})
+end
+
+local function buildPicker(canvas: Frame)
+	local picker, stroke = UIKit.panel(canvas, {
+		name = "WalkPicker",
+		size = UDim2.fromOffset(PICKER.width, PICKER.height),
+		anchorPoint = Vector2.new(0, 1),
+		color = PICKER.slab,
+		transparency = 0.05,
+		strokeColor = PICKER.edge,
+		strokeThickness = 2,
+		cornerRadius = UDim.new(0, 4),
+		zIndex = 20,
+		visible = false,
+	})
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	picker.Active = true -- a click on the slab is not a click on the world behind it
+	ui.picker = picker
+
+	UIKit.onScaleChanged(function()
+		local bottom = Dock.SPEED_BOTTOM + Dock.sideLift() + Dock.SPEED_SIZE.Y.Offset + PICKER.gap
+		picker.Position = UDim2.new(0, Dock.SIDE_CORNER_X, 1, -bottom)
+	end)
+
+	UIKit.label(picker, {
+		name = "Title",
+		position = UDim2.fromOffset(16, 14),
+		size = UDim2.fromOffset(180, 20),
+		font = Enum.Font.GothamBlack,
+		textSize = 16,
+		color = STYLE.caption,
+		text = "WALK SPEED",
+		zIndex = 21,
+	})
+	ui.pickValue = UIKit.label(picker, {
+		name = "Value",
+		position = UDim2.fromOffset(PICKER.width - 16, 8),
+		anchorPoint = Vector2.new(1, 0),
+		size = UDim2.fromOffset(120, 32),
+		font = Enum.Font.GothamBlack,
+		textSize = 30,
+		color = STYLE.value,
+		xAlign = Enum.TextXAlignment.Right,
+		zIndex = 21,
+	})
+
+	-- The slider. The hit box is taller than the track so a thumb can grab it, and
+	-- inset by half a knob so the knob never hangs off either end.
+	local hit = Instance.new("TextButton")
+	hit.Name = "Slider"
+	hit.Text = ""
+	hit.AutoButtonColor = false
+	hit.BackgroundTransparency = 1
+	hit.Position = UDim2.fromOffset(16 + PICKER.knob / 2, 46)
+	hit.Size = UDim2.fromOffset(PICKER.width - 32 - PICKER.knob, 40)
+	hit.ZIndex = 21
+	hit.Parent = picker
+
+	local track = Instance.new("Frame")
+	track.Name = "Track"
+	track.AnchorPoint = Vector2.new(0, 0.5)
+	track.Position = UDim2.fromScale(0, 0.5)
+	track.Size = UDim2.new(1, 0, 0, PICKER.trackHeight)
+	track.BackgroundColor3 = PICKER.track
+	track.BorderSizePixel = 0
+	track.ZIndex = 21
+	track.Parent = hit
+	Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
+	local trackStroke = Instance.new("UIStroke")
+	trackStroke.Color = UIKit.C.outline
+	trackStroke.Thickness = 2
+	trackStroke.Parent = track
+
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.BackgroundColor3 = PICKER.fill
+	fill.BorderSizePixel = 0
+	fill.ZIndex = 22
+	fill.Parent = track
+	Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+	ui.pickFill = fill
+
+	local knob = Instance.new("Frame")
+	knob.Name = "Knob"
+	knob.AnchorPoint = Vector2.new(0.5, 0.5)
+	knob.Size = UDim2.fromOffset(PICKER.knob, PICKER.knob)
+	knob.BackgroundColor3 = Color3.new(1, 1, 1)
+	knob.BorderSizePixel = 0
+	knob.ZIndex = 23
+	knob.Parent = hit
+	Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+	local knobStroke = Instance.new("UIStroke")
+	knobStroke.Color = UIKit.C.outline
+	knobStroke.Thickness = 3
+	knobStroke.Parent = knob
+	ui.pickKnob = knob
+
+	-- The two ends of the track, under it: the floor and what they have trained.
+	ui.pickLow = caption(picker, "Low", 16, Enum.TextXAlignment.Left)
+	ui.pickHigh = caption(picker, "High", PICKER.width - 16 - 86 - 12, Enum.TextXAlignment.Right)
+
+	local max, maxStroke = UIKit.button(picker, {
+		name = "Max",
+		position = UDim2.fromOffset(PICKER.width - 16, PICKER.height - 10),
+		anchorPoint = Vector2.new(1, 1),
+		size = UDim2.fromOffset(86, 30),
+		font = Enum.Font.GothamBlack,
+		textSize = 16,
+		text = "MAX",
+		fillColor = PICKER.fill,
+		fillTransparency = 0,
+		strokeThickness = 2,
+		cornerRadius = UDim.new(0, 4),
+		zIndex = 21,
+	})
+	-- The ink edge goes round the button, not round its dark text.
+	maxStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	ui.pickMax = max
+	max.Activated:Connect(function()
+		local _, high = pickRange()
+		pending = high
+		send(high)
+		drawPicker()
+	end)
+
+	-- Dragging: the knob follows the pointer in whole studs/sec, and the pick is sent
+	-- once, on release.
+	local dragging: InputObject? = nil
+	local function follow(x: number)
+		local low, high = pickRange()
+		local alpha = math.clamp((x - hit.AbsolutePosition.X) / math.max(hit.AbsoluteSize.X, 1), 0, 1)
+		pending = math.floor(low + alpha * (high - low) + 0.5)
+		drawPicker()
+	end
+	hit.InputBegan:Connect(function(input)
+		local kind = input.UserInputType
+		if kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch then
+			dragging = input
+			follow(input.Position.X)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging ~= nil and (input.UserInputType == Enum.UserInputType.MouseMovement or input == dragging) then
+			follow(input.Position.X)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if dragging ~= nil and (input == dragging or input.UserInputType == Enum.UserInputType.MouseButton1) then
+			dragging = nil
+			if pending ~= nil then
+				send(pending)
+			end
+		end
+	end)
+
+	ui.pencil.Activated:Connect(function()
+		picker.Visible = not picker.Visible
+		drawPicker()
+	end)
+	-- A click out in the world puts it away. A click on any GUI (the slab is Active, so
+	-- that includes it) arrives game-processed and leaves it open; the pencil toggles.
+	UserInputService.InputBegan:Connect(function(input, processed)
+		local kind = input.UserInputType
+		if processed or not picker.Visible then
+			return
+		end
+		if kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch then
+			picker.Visible = false
+		end
+	end)
 end
 
 local function punch()
@@ -215,6 +491,11 @@ local function onState(next: any)
 	local previous = view
 	view = next
 	receivedAt = os.clock()
+	-- Once the server agrees with a sent pick, its word is what shows.
+	if pending ~= nil and Treadmill.chosenWalk(next.walk, next.walkCap) == Treadmill.chosenWalk(next.walk, pending) then
+		pending = nil
+	end
+	drawPicker()
 
 	-- One more point of walk speed. Its popup is the training bar's.
 	if previous ~= nil and next.level > previous.level then
@@ -228,15 +509,17 @@ end
 
 function Speed.start()
 	local gui = build()
+	buildPicker(ui.badge.Parent :: Frame)
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 	Net.get("SpeedState").OnClientEvent:Connect(onState)
 
-	-- The badge shows walk speed, not the Speed total (that lives on the training bar).
-	-- Checked every frame, but only written when it changes.
+	-- The badge shows the walk you WALK at (your pick, under what you have trained), not
+	-- the Speed total (that lives on the training bar). Checked every frame, but only
+	-- written when it changes.
 	local lastText = ""
 	RunService.RenderStepped:Connect(function()
-		local text = if view then tostring(view.walk) else "0"
+		local text = tostring(shownWalk())
 		if text ~= lastText then
 			lastText = text
 			ui.value.Text = text

@@ -64,6 +64,20 @@ local Treadmill = {}
 --- Walk speed at level 1. One level = one stud/sec, with no top level.
 Treadmill.START_WALK = 30
 
+--- The slowest a player can turn themselves down to with the walk-speed picker (the
+--- pencil by the WALK SPEED row). Roblox's own default walk, so "slow" still moves.
+Treadmill.MIN_PICKED_WALK = 16
+
+--- The walk a player has PICKED, clamped to what they have trained. `picked` is the
+--- profile's `walkCap`: 0 (or nil) means "always my full trained speed", which is what
+--- a new save starts on and what MAX sets, so a new level is felt at once.
+function Treadmill.chosenWalk(trained: number, picked: number?): number
+	if type(picked) ~= "number" or picked <= 0 then
+		return trained
+	end
+	return math.clamp(picked, Treadmill.MIN_PICKED_WALK, trained)
+end
+
 --- Where the cap used to be (level 75). Nothing clamps to it any more; it is the
 --- reference point the Spec milestones and the dig-reveal check are measured at.
 Treadmill.ENDGAME_WALK = 100

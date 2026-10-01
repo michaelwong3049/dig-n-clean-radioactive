@@ -71,6 +71,9 @@ Artwork.IMAGE = {
 	-- The SPEED badge's disc (SpeedController): a glossy blue sneaker, same family and
 	-- pipeline. tools/hud-icons/speed_shoe.svg.
 	speedShoe = "rbxassetid://97884293509666",
+	-- The pencil beside it that opens the walk-speed picker: a white edit mark (box +
+	-- pencil) with an ink outline. tools/hud-icons/edit_pencil.svg.
+	editPencil = "rbxassetid://78973083811767",
 	-- The cash row's icon (CashController): a banded bundle of green notes in 3/4 view.
 	-- tools/hud-icons/cash_bundle.svg.
 	cashBundle = "rbxassetid://128764628759725",

@@ -12,6 +12,7 @@ uploaded as 256px PNGs. The ids live in `src/client/HudArtwork.luau` (`Artwork.I
 | `gear_detector.svg` | Gear tile | `detector` |
 | `glow.svg` | the soft glow behind every tile symbol (white, tinted per tile) | `glow` |
 | `speed_shoe.svg` | the SPEED row's sneaker (`SpeedController`) | `speedShoe` |
+| `edit_pencil.svg` | the pencil beside WALK SPEED that opens the walk-speed picker (`SpeedController`) | `editPencil` |
 | `cash_bundle.svg` | the cash row's bundle of notes (`CashController`) | `cashBundle` |
 | `health_heart.svg` | the health bar's heart (`HudController`) | `healthHeart` |
 | `rads_trefoil.svg` | the rads bar's trefoil badge (`HudController`) | `radsTrefoil` |
