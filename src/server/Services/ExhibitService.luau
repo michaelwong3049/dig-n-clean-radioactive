@@ -178,7 +178,7 @@ end
 --- unclaimed plot). The Sign/Title/Subtitle names match build/Plots.buildLuckButton
 --- exactly, the same convention renderBottle uses to name the fluid on the bottle.
 --- Title carries the multiplier, Subtitle the price — Luck has no tier
---- name left to put in Title's place now that a purchase is a flat +0.1x.
+--- name left to put in Title's place now that a purchase is a flat +Gear.LUCK_STEP.
 local function renderLuck(index: number, data: any?)
 	local plot = plotModel(index)
 	if plot == nil then
@@ -191,10 +191,10 @@ local function renderLuck(index: number, data: any?)
 	local subtitle = sign and sign:FindFirstChild("Subtitle")
 	local level = if data then (data.gear.luck or 1) else 1
 	if title then
-		(title :: TextLabel).Text = string.format("LUCK %.1fx", Gear.luckMultiplier(level))
+		(title :: TextLabel).Text = string.format("LUCK %gx", Gear.luckMultiplier(level))
 	end
 	if subtitle then
-		(subtitle :: TextLabel).Text = string.format("+0.1x for $%d", Gear.luckPrice(level))
+		(subtitle :: TextLabel).Text = string.format("+%gx for $%d", Gear.LUCK_STEP, Gear.luckPrice(level))
 	end
 end
 

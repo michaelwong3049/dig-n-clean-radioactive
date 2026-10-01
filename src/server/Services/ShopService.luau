@@ -571,7 +571,7 @@ function ShopService.buyLuck(player: Player): (boolean, string)
 	end
 
 	data.gear.luck = level + 1
-	return true, string.format("Luck -> %.1fx (paid $%d)", Gear.luckMultiplier(data.gear.luck), price)
+	return true, string.format("Luck -> %gx (paid $%d)", Gear.luckMultiplier(data.gear.luck), price)
 end
 
 function ShopService.buy(player: Player, track: string, tier: number?): (boolean, string)

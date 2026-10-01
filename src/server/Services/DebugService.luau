@@ -645,9 +645,10 @@ COMMANDS["/odds"] = {
 		local level = data.gear.luck or 1
 		local lines = {
 			string.format(
-				"luck %.3gx (level %d, next +0.1x for $%d; %dx boost in that)",
+				"luck %.3gx (level %d, next +%gx for $%d; %dx boost in that)",
 				stats.luckMultiplier,
 				level,
+				Gear.LUCK_STEP,
 				Gear.luckPrice(level),
 				stats.luckBoost
 			),

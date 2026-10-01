@@ -426,9 +426,13 @@ Gear.Boots = {
 -- hands out `charges`, a fixed handful of patches, never a permanent capability), so
 -- there is no need for the gain itself to taper — the compounding price is what
 -- keeps one more click from ever being free.
-Gear.LUCK_STEP = 0.1
-Gear.LUCK_START_PRICE = 33500 -- x10 in the economy pacing pass, the same factor Stage 1's gear moved
-Gear.LUCK_PRICE_GROWTH = 1.10
+--
+-- WHOLE STEPS, on request (2026-10-01): each UPGRADE is +1.0x (1x -> 2x -> 3x), cheap
+-- to start and x5 a click after, so the first one or two are an easy buy and every
+-- one past that is a real goal: $10K, $50K, $250K, $1.25M, $6.25M...
+Gear.LUCK_STEP = 1
+Gear.LUCK_START_PRICE = 10000
+Gear.LUCK_PRICE_GROWTH = 5
 
 --- The multiplier a player sits at after `level - 1` purchases (level 1 = 1.0x,
 --- never bought). Matches Liquids.oddsAt's `luck` parameter exactly.

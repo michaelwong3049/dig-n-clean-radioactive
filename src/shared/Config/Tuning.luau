@@ -480,7 +480,7 @@ Tuning.RANGE_SWEEP_COMET = 0.9 -- radians of rim left glowing behind the arm
 -- spins -- dig, wash, sell -- rather than standing at the bottle mashing E until
 -- Stardust lands, and short enough that a spin is always nearly ready when you get
 -- home. `charges` still limits how much value one good spin can be turned into.
-Tuning.LIQUID_SPIN_COOLDOWN = 30 * 60 -- seconds between spins, per player (30 minutes)
+Tuning.LIQUID_SPIN_COOLDOWN = 5 * 60 -- seconds between spins, per player (5 minutes)
 Tuning.LIQUID_INFINITE = true -- rolled fluids never run out (spendCharge is a no-op)
 
 -- How long the spin runs on screen before it lands. The bottle recolours when it
