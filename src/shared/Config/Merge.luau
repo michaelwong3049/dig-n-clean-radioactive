@@ -74,7 +74,7 @@ Merge.COLOR = Color3.fromHex("FF7AC6")
 
 --- Quality modifiers from best to worst, for picking what a merge result wears.
 --- Anything not listed ranks below all of these. Slagged can never be merged.
-Merge.MODIFIER_RANK = { "PrewarSealed", "Pristine", "Irradiated", "Fused", "None", "Cracked" }
+Merge.MODIFIER_RANK = { "Pristine", "Irradiated", "Fused", "None", "Cracked" }
 
 --- A copy's merge level, 0 for anything that has never been merged (the field is
 --- absent on every record written before the reactor existed).

@@ -81,7 +81,6 @@ local MODIFIER_COLOR: { [string]: Color3 } = {
 	Pristine = Color3.fromHex("7DF9FF"),
 	Irradiated = Color3.fromHex("A3FF3C"),
 	Fused = Color3.fromHex("FF8A3D"),
-	PrewarSealed = Color3.fromHex("E3C27A"),
 	Cracked = Color3.fromHex("A7ADB4"),
 }
 -- DetectorController's callout colours, so the sticker matches the dig's own shout.
@@ -212,7 +211,7 @@ local function formatClock(seconds: number): string
 	return string.format("%d:%02d", whole // 60, whole % 60)
 end
 
---- "PREWAR SEALED" from "PrewarSealed", nil for "None".
+--- "PRISTINE" from "Pristine" (a CamelCase name gets its spaces), nil for "None".
 local function modifierLabel(modifier: string?): string?
 	if modifier == nil or modifier == "" or modifier == "None" then
 		return nil

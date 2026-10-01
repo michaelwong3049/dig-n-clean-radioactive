@@ -14,8 +14,8 @@
 	  2. YOU SELL IT BLIND.   EconomyService, at 12% (Tuning.DIRTY_SELL_MULTIPLIER).
 	                          The trader tells you what it was as he takes it — which is
 	                          the gamble: cash now, or the hose and the full price.
-	  3. IT NEEDED NO CLEAN.  DigService, for a Prewar Sealed pull. It came out of the
-	                          ground in its packaging, so there was never a mystery.
+	  3. IT NEEDED NO CLEAN.  DigService, for a modifier with needsCleaning = false
+	                          (none rolls today). There was never a mystery.
 
 	A SUPPLY CRATE CAN BE UNDER THE CRUST TOO (DigService.unearth): it rides in the bag
 	as a "???" with a stand-in nuke's itemId, and the wash or a blind sale is where it

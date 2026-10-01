@@ -92,7 +92,6 @@ Rarity.MODIFIERS = {
 	Pristine = { valueMult = 2.0, fuseMult = 1.0, emissionMult = 1.0, yieldMult = 1.3, needsCleaning = true, weight = 14 },
 	Irradiated = { valueMult = 3.0, fuseMult = 0.6, emissionMult = 2.0, yieldMult = 1.0, needsCleaning = true, weight = 8 },
 	Fused = { valueMult = 2.5, fuseMult = 1.0, emissionMult = 1.0, yieldMult = 1.0, needsCleaning = true, weight = 6 },
-	PrewarSealed = { valueMult = 4.0, fuseMult = math.huge, emissionMult = 0.0, yieldMult = 1.0, needsCleaning = false, weight = 3 },
 	Cracked = { valueMult = 0.4, fuseMult = 1.0, emissionMult = 1.0, yieldMult = 0.6, needsCleaning = true, weight = 20 },
 	-- Not rolled. Applied by CarryService when the clock runs out. PLAN §7.
 	Slagged = { valueMult = 0.1, fuseMult = 1.0, emissionMult = 1.0, yieldMult = 0.0, needsCleaning = true, weight = 0 },
@@ -111,7 +110,6 @@ Rarity.MAX_STARS = #Rarity.ORDER
 
 Rarity.STAR_MODIFIER = {
 	Pristine = 1,
-	PrewarSealed = 1,
 	Cracked = -1,
 	Slagged = -2,
 } :: { [string]: number }

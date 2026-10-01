@@ -116,7 +116,7 @@ end
 --- The small line under a copy: its quality modifier, else its size sticker, else its size.
 local function detailOf(item: any): string
 	if item.modifier and item.modifier ~= "None" then
-		return if item.modifier == "PrewarSealed" then "Prewar Sealed" else item.modifier
+		return item.modifier
 	end
 	local payload = if type(item.uid) == "string" then Payload.forUid(item.uid) else 1
 	return Payload.calloutFor(payload) or string.format("%.1fx", payload)

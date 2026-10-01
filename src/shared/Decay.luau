@@ -37,7 +37,7 @@ end
 function Decay.conditionOf(item: CarriedItem, fuseMult: number): (number, any)
 	local fuse = Decay.fuseFor(item, fuseMult)
 	if fuse == math.huge or fuse <= 0 then
-		return 1, Tuning.DECAY_CONDITIONS[1] -- Prewar Sealed never starts
+		return 1, Tuning.DECAY_CONDITIONS[1] -- an infinite fuse never starts
 	end
 
 	local multiple = item.elapsed / fuse

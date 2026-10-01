@@ -585,7 +585,7 @@ local function fillChips(payload: any): { Frame }
 	end
 	local specs = {}
 	if payload.modifier and payload.modifier ~= "None" then
-		local label = if payload.modifier == "PrewarSealed" then "PREWAR SEALED" else string.upper(payload.modifier)
+		local label = string.upper(payload.modifier)
 		table.insert(specs, { text = label, hot = true })
 	end
 	if type(payload.value) == "number" then
