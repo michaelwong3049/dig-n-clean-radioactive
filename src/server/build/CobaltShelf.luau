@@ -135,11 +135,11 @@ end
 local function puddle(parent: Instance, at: Vector3, rng: Random, palette: Palette, light: boolean, mist: boolean)
 	local model = Instance.new("Model")
 	model.Name = "CoolantPuddle"
-	local size = rng:NextNumber(5, 11)
+	local size = rng:NextNumber(10, 18)
 	K.blob(model, "Stain", at.X, at.Z, at.Y + 0.01, size * 1.35, 0.04, palette.stain, rng)
 	local head = K.blob(model, "Coolant", at.X, at.Z, at.Y + 0.03, size, 0.05, palette.coolant, rng, { neon = true, transparency = 0.15 })
 	if light then
-		K.glow(head, palette.coolant, 12, 1)
+		K.glow(head, palette.coolant, 18, 1)
 	end
 	if mist then
 		local a = K.anchor(model, "MistVent", at + Vector3.new(0, 0.2, 0), Vector3.new(size * 0.6, 0.2, size * 0.6))
@@ -253,7 +253,7 @@ function CobaltShelf.build(parent: Instance, stageId: number, groundY: number)
 		cluster(folder, at, i % 2 == 1 and i <= BIG_CLUSTERS * 2, rng)
 		table.insert(taken, { at.X, at.Z, 9 })
 	end
-	for i, at in K.sites(f, PUDDLES, 20, rng, -12, taken) do
+	for i, at in K.sites(f, PUDDLES, 28, rng, -12, taken) do
 		puddle(folder, at, rng, palette, i <= PUDDLE_LIGHTS, i % 3 == 0 and i <= PUDDLE_MIST * 3)
 	end
 
