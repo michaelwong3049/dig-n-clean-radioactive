@@ -54,19 +54,19 @@ local STYLE = {
 	captionFont = Enum.Font.GothamBlack,
 }
 
--- Design px inside the Dock.SPEED_SIZE footprint (380 x 80).
+-- Design px inside the Dock.SPEED_SIZE footprint (320 x 66).
 local LAYOUT = {
-	shoe = 80, -- centred in the icon slot the cash bundle fills (Dock.SIDE_ICON)
+	shoe = 66, -- centred in the icon slot the cash bundle fills (Dock.SIDE_ICON)
 	shoeDrop = Vector2.new(3, 4),
 	valueLeft = Dock.SIDE_ICON + 10, -- the same column as the cash balance below
 	-- The number is centred on the sneaker's VISIBLE middle (Dock.SIDE_ICON_MIDDLE), the
 	-- same rule as the cash balance; the caption sits in the space above it.
-	valueTop = math.floor(Dock.SPEED_SIZE.Y.Offset * Dock.SIDE_ICON_MIDDLE + 0.5) - 32, -- the sneaker fills the row
-	valueHeight = 64,
+	valueTop = math.floor(Dock.SPEED_SIZE.Y.Offset * Dock.SIDE_ICON_MIDDLE + 0.5) - 27, -- the sneaker fills the row
+	valueHeight = 54,
 	captionTop = 0,
-	captionTextSize = 18,
-	valueTextSize = 52,
-	valueStroke = 4, -- matches the cash balance's
+	captionTextSize = 15,
+	valueTextSize = 42, -- 52 -> 42, "slightly smaller"
+	valueStroke = 3.5, -- matches the cash balance's
 	textDrop = Vector2.new(2, 3),
 }
 
@@ -169,7 +169,7 @@ local function build(): ScreenGui
 
 	-- Stacked on the cash row, and lifted with it clear of a phone's thumbstick.
 	UIKit.onScaleChanged(function()
-		badge.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -(Dock.SPEED_BOTTOM + Dock.sideLift()))
+		badge.Position = UDim2.new(0, Dock.SIDE_CORNER_X, 1, -(Dock.SPEED_BOTTOM + Dock.sideLift()))
 	end)
 
 	local L = LAYOUT
@@ -179,7 +179,7 @@ local function build(): ScreenGui
 	UIKit.label(badge, {
 		name = "Caption",
 		position = UDim2.fromOffset(L.valueLeft + 2, L.captionTop),
-		size = UDim2.fromOffset(180, 22),
+		size = UDim2.fromOffset(160, 18),
 		font = STYLE.captionFont,
 		textSize = L.captionTextSize,
 		color = STYLE.caption,

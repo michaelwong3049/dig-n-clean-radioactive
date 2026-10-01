@@ -120,7 +120,7 @@ local slideToken = 0
 
 -- ── Helpers ─────────────────────────────────────────────────────────
 
---- "$2.00/s" up to "$1.2M/s" -- CashController.formatRate's ladder, without the plus.
+--- "$2.00/s" up to "$1.2M/s" -- ExhibitService.formatRate's ladder, carried into millions and billions.
 local function formatRate(perSecond: number): string
 	if perSecond >= 1_000_000_000_000 then
 		return string.format("$%.1fT/s", perSecond / 1_000_000_000_000)

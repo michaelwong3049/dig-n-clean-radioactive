@@ -32,7 +32,7 @@ local function show()
 	card.Name = "Card"
 	-- Just above the speed/cash column in the bottom-left corner.
 	card.AnchorPoint = Vector2.new(0, 1)
-	card.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -(Dock.SIDE_COLUMN_TOP + Dock.sideLift() + 12))
+	card.Position = UDim2.new(0, Dock.SIDE_CORNER_X, 1, -(Dock.SIDE_COLUMN_TOP + Dock.sideLift() + 12))
 	card.Size = UDim2.fromOffset(340, 170)
 	card.BackgroundColor3 = Color3.fromHex("22272C")
 	card.BorderSizePixel = 0

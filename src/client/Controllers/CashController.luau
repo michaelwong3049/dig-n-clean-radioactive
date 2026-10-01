@@ -10,7 +10,7 @@
 	change (sell/spend/award, and DebugService's /cash), never per-tick.
 
 	POSITION IS A FORMULA OVER Dock, NOT A FRESH NUMBER (UIKit.luau's own rule) --
-	same left margin and width as the speed row, sitting directly below it
+	same left edge (Dock.SIDE_CORNER_X) and width as the speed row, sitting directly below it
 	(Dock.CASH_BOTTOM / Dock.SPEED_BOTTOM stack the pair up from the bottom edge, lifted
 	clear of a phone's thumbstick by Dock.sideLift), so the two read as one instrument
 	cluster in the corner rather than two unrelated floating panels.
@@ -44,10 +44,9 @@
 	The load snapshot sets the number silently -- a returning player's balance is not
 	a gain.
 
-	THE INCOME LINE under the balance carries the combined $/s every nuke on your stands
-	is paying (IncomeState, sent on change). It hides at $0/s. The balance never moves
-	for it: it stays level with the bundle's middle and the line hangs below (lifting
-	the balance to make room read as the money jumping).
+	NO INCOME LINE. A pale-green "+$/s" used to hang under the balance (IncomeState);
+	the user asked for it gone. Stand payouts still pop their small quiet "+$X" off the
+	balance, so the income stays visible as it lands.
 ]]
 
 local Players = game:GetService("Players")
@@ -78,14 +77,12 @@ local WHITE = Color3.new(1, 1, 1)
 -- Green for money on this row only (see the header); the spend popup stays red.
 local STYLE = {
 	value = Color3.fromHex("7CF25A"),
-	rate = Color3.fromHex("C8F5AE"),
 	gain = Color3.fromHex("7CF25A"),
 	spend = Color3.fromHex("FF5A4E"),
 	valueFont = Enum.Font.GothamBlack,
-	rateFont = Enum.Font.GothamBlack,
 }
 
--- Design px inside the Dock.CASH_SIZE footprint (380 x 104).
+-- Design px inside the Dock.CASH_SIZE footprint (320 x 74).
 local LAYOUT = {
 	icon = Dock.SIDE_ICON, -- the bundle; left edge on the column margin, top of the footprint
 	iconDrop = Vector2.new(3, 4),
@@ -94,15 +91,11 @@ local LAYOUT = {
 	-- couple of px low so the digits sit level with the note's face; it never moves.
 	-- Gotham's digits centre in their line box (measured in Studio), so the box's
 	-- middle is the digits' middle.
-	valueTop = math.floor(Dock.SIDE_ICON * Dock.SIDE_ICON_MIDDLE + 1.5) - 34,
-	valueHeight = 68,
-	valueTextSize = 56,
-	valueMinTextSize = 32, -- floor for setValueText's shrink-to-fit
-	valueStroke = 4, -- 6 was asked to be thinner
-	rateTop = 74,
-	rateHeight = 30,
-	rateTextSize = 24,
-	rateStroke = 2.5,
+	valueTop = math.floor(Dock.SIDE_ICON * Dock.SIDE_ICON_MIDDLE + 1.5) - 28,
+	valueHeight = 56,
+	valueTextSize = 46, -- 56 -> 46, "slightly smaller"
+	valueMinTextSize = 28, -- floor for setValueText's shrink-to-fit
+	valueStroke = 3.5, -- 6 was asked to be thinner, then 4 scaled with the text
 	textDrop = Vector2.new(2, 3),
 }
 
@@ -111,7 +104,7 @@ local PUNCH_TWEEN = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirect
 
 local POPUP = {
 	gap = 12, -- end of the number it comes off -> popup's left edge
-	height = 72, -- the label box; its text is vertically centred in it
+	height = 60, -- the label box; its text is vertically centred in it
 	pop =TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 	riseTime = 1.2,
 	fadeDelay = 0.75,
@@ -120,8 +113,8 @@ local POPUP = {
 	-- popup instead of stacking a new one on top of it (selling a bag item by item).
 	mergeWindow = 0.35,
 	-- `rotation` is the gain's tilt; a spend tilts the other way.
-	loud = { textSize = 60, stroke = 4, rise = 64, rotation = -8, sparkles = true },
-	quiet = { textSize = 30, stroke = 2.5, rise = 28, rotation = 0, sparkles = false },
+	loud = { textSize = 50, stroke = 3.5, rise = 56, rotation = -8, sparkles = true },
+	quiet = { textSize = 26, stroke = 2.5, rise = 24, rotation = 0, sparkles = false },
 }
 
 local ui = {}
@@ -144,25 +137,6 @@ local function formatCash(amount: number): string
 		return string.format("$%.1fK", amount / 1_000)
 	end
 	return string.format("$%d", math.floor(amount))
-end
-
---- "+$2.00/s" up to "+$1.2M/s" -- ExhibitService.formatRate's ladder (what the plinth
---- tags print), carried on into millions and billions like formatCash above.
-local function formatRate(perSecond: number): string
-	if perSecond >= 1_000_000_000_000 then
-		return string.format("+$%.1fT/s", perSecond / 1_000_000_000_000)
-	elseif perSecond >= 1_000_000_000 then
-		return string.format("+$%.1fB/s", perSecond / 1_000_000_000)
-	elseif perSecond >= 1_000_000 then
-		return string.format("+$%.1fM/s", perSecond / 1_000_000)
-	elseif perSecond >= 1000 then
-		return string.format("+$%.1fK/s", perSecond / 1000)
-	elseif perSecond >= 100 then
-		return string.format("+$%.0f/s", perSecond)
-	elseif perSecond >= 10 then
-		return string.format("+$%.1f/s", perSecond)
-	end
-	return string.format("+$%.2f/s", perSecond)
 end
 
 local function setStroke(label: TextLabel, thickness: number)
@@ -224,7 +198,7 @@ local function build(): ScreenGui
 	-- with the screen (Dock.sideLift).
 	UIKit.onScaleChanged(function()
 		bottom = Dock.CASH_BOTTOM + Dock.sideLift()
-		badge.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN, 1, -bottom)
+		badge.Position = UDim2.new(0, Dock.SIDE_CORNER_X, 1, -bottom)
 	end)
 
 	Artwork.droppedPicture(badge, "Bundle", Artwork.IMAGE.cashBundle, L.icon, L.iconDrop, 3)
@@ -240,19 +214,6 @@ local function build(): ScreenGui
 		text = "$0",
 		zIndex = 11,
 	}, L.valueStroke, L.textDrop)
-
-	-- Hidden until something is earning.
-	ui.rate = UIKit.hudNumber(badge, {
-		name = "Rate",
-		position = UDim2.fromOffset(L.valueLeft + 2, L.rateTop),
-		size = UDim2.fromOffset(BADGE_W - L.valueLeft - 12, L.rateHeight),
-		font = STYLE.rateFont,
-		textSize = L.rateTextSize,
-		color = STYLE.rate,
-		xAlign = Enum.TextXAlignment.Left,
-		visible = false,
-		zIndex = 11,
-	}, L.rateStroke, Vector2.new(1, 2))
 
 	-- The number the label is currently SHOWING, which lags `balance` while it counts.
 	-- A NumberValue so TweenService can drive it, and a new tween on it simply takes
@@ -342,13 +303,12 @@ local function popup(delta: number, quiet: boolean)
 	end
 
 	local style = if quiet then POPUP.quiet else POPUP.loud
-	-- Sales and spends come off the end of the balance; stand payouts come off the end
-	-- of the income line they are the income of, one lane lower, so a payout landing
-	-- mid-sale never spawns on top of the sale's popup.
-	local source: TextLabel = if quiet and ui.rate.Visible then ui.rate else ui.value
+	-- Everything comes off the end of the balance. A payout landing mid-sale is the
+	-- other kind, so it gets its own popup rather than folding into the sale's.
+	local source: TextLabel = ui.value
 	local textEnd = source.Position.X.Offset + textWidth(source.Text, source.TextSize, source.Font)
 	local middle = source.Position.Y.Offset + source.Size.Y.Offset / 2
-	local start = UDim2.new(0, Dock.ROW_SIDE_MARGIN + textEnd + POPUP.gap, 1, middle - BADGE_H - bottom)
+	local start = UDim2.new(0, Dock.SIDE_CORNER_X + textEnd + POPUP.gap, 1, middle - BADGE_H - bottom)
 
 	local label = UIKit.label(ui.canvas, {
 		name = "CashPopup",
@@ -442,14 +402,6 @@ local function setBalance(amount: number, source: string?)
 	end
 end
 
-local function setRate(perSecond: number)
-	local earning = perSecond > 0
-	ui.rate.Visible = earning
-	if earning then
-		ui.rate.Text = formatRate(perSecond)
-	end
-end
-
 function Cash.start()
 	local player = Players.LocalPlayer
 	local gui = build()
@@ -457,10 +409,6 @@ function Cash.start()
 
 	Net.get("CashState").OnClientEvent:Connect(function(amount: number, source: string?)
 		setBalance(amount or 0, source)
-	end)
-
-	Net.get("IncomeState").OnClientEvent:Connect(function(perSecond: number)
-		setRate(perSecond or 0)
 	end)
 end
 
