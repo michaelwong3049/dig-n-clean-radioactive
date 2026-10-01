@@ -14,6 +14,8 @@
 	          you have not identified is the same render blacked out: a silhouette, so
 	          you know the shape you are hunting and nothing else. Filter chips above it:
 	          All / Missing / Heaviest first, and one per rarity with its found count.
+	          Under it the STAGE REWARD bar: the cash bundle, the stage's x1.1 cash, and a
+	          bar filling to found/total that turns green once the stage is complete.
 	  DETAIL  the selected nuke, turning slowly (drag to spin it), with its HEAVIEST
 	          FOUND block front and centre: the record in kg, the payload roll that set
 	          it, and a meter from the lightest to the heaviest that nuke can come out.
@@ -91,6 +93,8 @@ local RAIL_W = 186
 local DETAIL_W = 300
 local GAP = 14
 local FILTER_H = 30
+-- The stage-reward bar under the grid: the cash bundle, the x1.1, and found/total.
+local REWARD_H = 46
 local CARD_W = 100
 local CARD_H = 128
 local CARD_GAP = 8
@@ -657,7 +661,7 @@ local function buildMiddle(panel: Frame)
 	local grid = Instance.new("ScrollingFrame")
 	grid.Name = "Grid"
 	grid.Position = UDim2.fromOffset(0, FILTER_H + 10)
-	grid.Size = UDim2.new(1, 0, 1, -(FILTER_H + 10))
+	grid.Size = UDim2.new(1, 0, 1, -(FILTER_H + 10 + REWARD_H + 10))
 	grid.BackgroundTransparency = 1
 	grid.BorderSizePixel = 0
 	grid.ScrollingDirection = Enum.ScrollingDirection.Y
@@ -686,6 +690,61 @@ local function buildMiddle(panel: Frame)
 		visible = false,
 	})
 	ui.gridEmpty = empty
+
+	-- THE STAGE REWARD: what finishing this stage's index pays, the cash bundle from
+	-- the cash row beside x1.1, and a bar filling to found/total. Green once earned.
+	local reward = box(mid, "StageReward", UDim2.new(1, 0, 0, REWARD_H), UDim2.new(0, 0, 1, -REWARD_H), COL.well)
+	corner(reward, 12)
+	local rewardEdge = edge(reward, COL.edge, 2)
+
+	local bundle = Instance.new("ImageLabel")
+	bundle.Name = "Bundle"
+	bundle.AnchorPoint = Vector2.new(0, 0.5)
+	bundle.Position = UDim2.new(0, 10, 0.5, 0)
+	bundle.Size = UDim2.fromOffset(34, 34)
+	bundle.BackgroundTransparency = 1
+	bundle.Image = Artwork.IMAGE.cashBundle
+	bundle.ScaleType = Enum.ScaleType.Fit
+	bundle.Parent = reward
+
+	local mult = text(reward, {
+		name = "Mult",
+		position = UDim2.fromOffset(50, 4),
+		size = UDim2.fromOffset(70, 24),
+		font = Enum.Font.GothamBlack,
+		textSize = 20,
+		color = UIKit.C.green,
+		outline = true,
+		text = string.format("x%.1f", Tuning.INDEX_COMPLETE_CASH),
+	})
+	local caption = text(reward, {
+		name = "Caption",
+		position = UDim2.fromOffset(50, 27),
+		size = UDim2.fromOffset(90, 13),
+		font = Enum.Font.GothamBlack,
+		textSize = 10,
+		color = UIKit.C.dim,
+		text = "CASH BONUS",
+	})
+
+	local track = box(reward, "Track", UDim2.new(1, -230, 0, 16), UDim2.new(0, 140, 0.5, 0), COL.track)
+	track.AnchorPoint = Vector2.new(0, 0.5)
+	corner(track, 8)
+	edge(track, COL.black, 2)
+	local fill = box(track, "Fill", UDim2.fromScale(0, 1), nil, UIKit.C.green)
+	corner(fill, 8)
+
+	local count = text(reward, {
+		name = "Count",
+		anchorPoint = Vector2.new(1, 0.5),
+		position = UDim2.new(1, -12, 0.5, 0),
+		size = UDim2.fromOffset(74, 24),
+		font = Enum.Font.GothamBlack,
+		textSize = 18,
+		color = UIKit.C.text,
+		xAlign = Enum.TextXAlignment.Right,
+	})
+	ui.stageReward = { edge = rewardEdge, mult = mult, caption = caption, fill = fill, count = count }
 end
 
 --- One CAPTION / value cell of the detail's 2x3 stat block.
@@ -1125,6 +1184,22 @@ local function renderRail()
 			refs.right.Text = `{if total > 0 then math.floor(found / total * 100) else 0}%`
 			refs.right.TextColor3 = UIKit.C.dim
 		end
+	end
+
+	-- The bar under the grid: the selected stage's progress toward its x1.1.
+	local reward = ui.stageReward
+	if reward then
+		local found, total = IndexProgress.stageCount(discovered, currentStage)
+		local complete = total > 0 and found == total
+		local stage = Stages.get(currentStage)
+		reward.count.Text = `{found}/{total}`
+		reward.count.TextColor3 = if complete then UIKit.C.green else UIKit.C.text
+		reward.fill.Size = UDim2.fromScale(if total > 0 then found / total else 0, 1)
+		reward.fill.BackgroundColor3 = if complete then UIKit.C.green else stageColor(stage)
+		reward.mult.TextColor3 = if complete then UIKit.C.green else UIKit.C.text
+		reward.caption.Text = if complete then "CASH EARNED" else "CASH BONUS"
+		reward.caption.TextColor3 = if complete then UIKit.C.green else UIKit.C.dim
+		reward.edge.Color = if complete then UIKit.C.green else COL.edge
 	end
 
 	-- The same number StatResolver folds into every sale and stand, off the same set.
