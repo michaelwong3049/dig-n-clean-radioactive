@@ -80,8 +80,9 @@ local LAYOUT = {
 
 -- The pencil, and the picker it opens (design px).
 local PICKER = {
-	pencil = 34, -- the edit icon, a little smaller than the number's cap height
-	pencilGap = 8, -- between the end of the number and the pencil
+	pencil = 22, -- the edit icon, small: a superscript on the number, not a second number
+	pencilGap = 14, -- between the end of the number and the pencil
+	pencilRise = 18, -- its top sits this far above the number's middle: up by the digits' top
 	width = 300,
 	height = 128,
 	gap = 6, -- between the top of the row and the picker
@@ -226,11 +227,11 @@ local function build(): ScreenGui
 		zIndex = 11,
 	}, L.valueStroke, L.textDrop)
 
-	-- The pencil rides just past the end of the number, wherever that ends.
+	-- The pencil rides at the number's top-right corner, wherever the number ends.
 	local pencil = Instance.new("ImageButton")
 	pencil.Name = "EditWalk"
 	pencil.Size = UDim2.fromOffset(PICKER.pencil, PICKER.pencil)
-	pencil.AnchorPoint = Vector2.new(0, 0.5)
+	pencil.AnchorPoint = Vector2.new(0, 0)
 	pencil.BackgroundTransparency = 1
 	pencil.Image = Artwork.IMAGE.editPencil
 	pencil.ScaleType = Enum.ScaleType.Fit
@@ -247,7 +248,7 @@ local function build(): ScreenGui
 	end)
 	local function placePencil()
 		local width = TextService:GetTextSize(ui.value.Text, L.valueTextSize, STYLE.valueFont, Vector2.new(1000, 200)).X
-		pencil.Position = UDim2.fromOffset(L.valueLeft + width + PICKER.pencilGap, L.valueTop + L.valueHeight / 2)
+		pencil.Position = UDim2.fromOffset(L.valueLeft + width + PICKER.pencilGap, L.valueTop + L.valueHeight / 2 - PICKER.pencilRise)
 	end
 	ui.value:GetPropertyChangedSignal("Text"):Connect(placePencil)
 	placePencil()
