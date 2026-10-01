@@ -1019,13 +1019,23 @@ local function paintDropButton(left: number)
 end
 
 --- Shade every clean nuke slot for the running cooldown; drops the Heartbeat once done.
+-- byUid is built once here rather than once per slot inside the loop below -- O(items +
+-- slots) instead of O(items * slots), same fix StandCardController's own clock applies.
 local function paintCooldowns()
 	local left = bombSecondsLeft()
 	local through = if bombCooldown > 0 then math.clamp(left / bombCooldown, 0, 1) else 0
 	paintDropButton(left)
+
+	local byUid: { [string]: any } = {}
+	for _, item in state.items do
+		if item.uid then
+			byUid[item.uid] = item
+		end
+	end
+
 	for _, list in { slots, bagCells } do
 		for _, slot in list do
-			local item = itemByUid(slot.uid)
+			local item = if slot.uid then byUid[slot.uid] else nil
 			local cooling = left > 0 and droppable(item)
 			slot.cool.Visible = cooling
 			slot.coolText.Visible = cooling
@@ -1044,11 +1054,26 @@ local function paintCooldowns()
 	end
 end
 
+-- 10Hz is plenty for a one-decimal countdown and a shrinking bar; this used to repaint
+-- every slot on every single rendered frame for as long as a bomb cooldown ran.
+local COOLDOWN_PAINT_INTERVAL = 0.1
+local coolSince = 0
+
+local function onCoolHeartbeat(dt: number)
+	coolSince += dt
+	if coolSince < COOLDOWN_PAINT_INTERVAL then
+		return
+	end
+	coolSince = 0
+	paintCooldowns()
+end
+
 local function startCooldown(readyAt: number, cooldown: number)
 	bombReadyAt = readyAt
 	bombCooldown = math.max(cooldown, 0.1)
 	if coolConnection == nil then
-		coolConnection = RunService.Heartbeat:Connect(paintCooldowns)
+		coolSince = 0
+		coolConnection = RunService.Heartbeat:Connect(onCoolHeartbeat)
 	end
 	paintCooldowns()
 end

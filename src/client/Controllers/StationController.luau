@@ -400,25 +400,34 @@ local buySpotlightCard: Frame? = nil
 --- Checked per station rather than "does this world have any prompts anywhere", so a
 --- half-rebuilt world degrades per shop instead of all-or-nothing. It runs only when
 --- the station fingerprint CHANGES, not on the ~10Hz tick.
+---
+--- CACHED ACROSS CALLS, built once by one pass over Shops rather than rescanning the
+--- whole folder every fingerprint change (walking between stations used to re-walk
+--- every descendant of Shops each time). Left unbuilt (nil, not {}) until Shops is
+--- actually found, so a call that races ahead of world streaming keeps retrying
+--- instead of caching a false "no shops yet" forever.
+local browsePromptCache: { [string]: boolean }? = nil
 local function shopHasBrowsePrompt(stationId: any): boolean
 	if type(stationId) ~= "string" then
 		return false
 	end
-	local shops = Workspace:FindFirstChild("Shops")
-	if shops == nil then
-		return false
-	end
-	for _, d in shops:GetDescendants() do
-		if
-			d:IsA("BasePart")
-			and d:GetAttribute("StationKind") == "shop"
-			and d:GetAttribute("StationId") == stationId
-			and d:FindFirstChild(BROWSE_PROMPT) ~= nil
-		then
-			return true
+	if browsePromptCache == nil then
+		local shops = Workspace:FindFirstChild("Shops")
+		if shops == nil then
+			return false
 		end
+		local cache: { [string]: boolean } = {}
+		for _, d in shops:GetDescendants() do
+			if d:IsA("BasePart") and d:GetAttribute("StationKind") == "shop" and d:FindFirstChild(BROWSE_PROMPT) ~= nil then
+				local id = d:GetAttribute("StationId")
+				if type(id) == "string" then
+					cache[id] = true
+				end
+			end
+		end
+		browsePromptCache = cache
 	end
-	return false
+	return browsePromptCache[stationId] == true
 end
 
 -- ── Build ───────────────────────────────────────────────────────────
