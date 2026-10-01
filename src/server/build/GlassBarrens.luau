@@ -47,9 +47,8 @@ local POOL_LIGHTS = 2
 local FULGURITES = 4
 local RIPPLE_PATCHES = 2
 --- Added on request ("add more things in glass barrens"), off their own seed so nothing
---- placed before them moves: glass sheets, weathered boulders and test-site posts.
+--- placed before them moves: glass sheets and test-site posts (boulders tried and cut: they read as out of place).
 local GLASS_SHEETS = 7
-local BOULDERS = 8
 local INSTRUMENT_POSTS = 5
 
 local CELL = 13
@@ -270,10 +269,6 @@ function GlassBarrens.build(parent: Instance, stageId: number, groundY: number)
 	for _, at in K.sites(f, GLASS_SHEETS, 16, extra, 3, taken) do
 		glassSheet(folder, at, extra)
 		table.insert(taken, { at.X, at.Z, 8 })
-	end
-	for _, at in K.sites(f, BOULDERS, 12, extra, 2, taken) do
-		K.rock(folder, at.X, at.Z, at.Y, extra:NextNumber(3.2, 5.5), FULGURITE, extra, "Boulder")
-		table.insert(taken, { at.X, at.Z, 6 })
 	end
 	for _, at in K.sites(f, INSTRUMENT_POSTS, 24, extra, 4, taken) do
 		instrumentPost(folder, at, extra)
