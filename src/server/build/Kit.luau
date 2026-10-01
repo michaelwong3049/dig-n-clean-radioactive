@@ -740,6 +740,7 @@ local PAIR_MAPS: { [string]: { name: string, map: string } } = {
 	["DCCBA3|EADCBA"] = { name = "StudCheckerPath", map = "rbxassetid://119019800025977" },
 	["C9A37A|D4B088"] = { name = "StudCheckerPaver", map = "rbxassetid://103456859820757" },
 	["9C7A52|A6835B"] = { name = "StudCheckerKerb", map = "rbxassetid://99092311096523" },
+	["2B1A45|331F52"] = { name = "StudCheckerTwilightGround", map = "rbxassetid://129181632415769" },
 	["CBBBE9|D8CBF0"] = { name = "StudCheckerTwilightPath", map = "rbxassetid://104307201753316" },
 	["7C5AB0|8966BD"] = { name = "StudCheckerTwilightPaver", map = "rbxassetid://137642650996250" },
 	["4A3A52|55465C"] = { name = "StudCheckerDeck", map = "rbxassetid://121321642134723" },
