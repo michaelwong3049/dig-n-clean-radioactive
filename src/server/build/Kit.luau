@@ -1089,6 +1089,14 @@ end
 function Kit.swap(name: string, factory: () -> Instance, parent: Instance?): Instance
 	local built = factory()
 	built.Name = name
+	-- Nothing a builder makes casts a shadow. Shadow casters were the biggest render
+	-- cost left after the part-count passes (22.9k of 32.7k parts); characters, held
+	-- items and stand nukes are added at runtime and keep theirs.
+	for _, d in built:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CastShadow = false
+		end
+	end
 
 	local target = parent or Workspace
 	local existing = target:FindFirstChild(name)
