@@ -62,6 +62,12 @@ local lastWarp: { [Player]: number } = {}
 --- same +4 ExhibitService.teleportToSpawn and DebugService's /stage both use.
 local DROP_IN = Vector3.new(0, 4, 0)
 
+--- StreamingEnabled: ask the client to stream the landing in BEFORE the move, so the
+--- player arrives on a loaded area instead of watching the map pop in block by block
+--- around them. Capped, so a slow device still warps -- just with some pop-in.
+local PRELOAD_TIMEOUT = 1.5
+local preloading: { [Player]: boolean } = {}
+
 local function destinationFor(player: Player, dest: string): CFrame?
 	if dest == "shops" then
 		return ExposureService.baseCampCFrame()
@@ -85,6 +91,26 @@ local function destinationFor(player: Player, dest: string): CFrame?
 	return nil
 end
 
+--- Every rule a warp has to pass right now. Checked before the preload and again
+--- after it, since the player can walk into a stage or start a haul while it yields.
+local function allowed(player: Player, dest: string): boolean
+	-- Never out of a live field. See the header.
+	if StageService.stageOf(player) ~= nil then
+		return false
+	end
+	-- HOME / SHOPS unlock with the walkthrough: the tutorial walks you there on foot.
+	if dest == "base" or dest == "shops" then
+		local data = DataService.data(player)
+		if data == nil or data.onboarding == "active" then
+			return false
+		end
+	end
+	-- Rooted mid-haul: DigService releases the lock on every path that can
+	-- invalidate it and a teleport is not one of those paths, so refuse rather than
+	-- strand a rooted player somewhere new.
+	return not DigService.isLocked(player)
+end
+
 local function onWarp(player: Player, payload: any)
 	if typeof(payload) ~= "table" then
 		return
@@ -94,21 +120,7 @@ local function onWarp(player: Player, payload: any)
 		return
 	end
 
-	-- Never out of a live field. See the header.
-	if StageService.stageOf(player) ~= nil then
-		return
-	end
-	-- HOME / SHOPS unlock with the walkthrough: the tutorial walks you there on foot.
-	if dest == "base" or dest == "shops" then
-		local data = DataService.data(player)
-		if data == nil or data.onboarding == "active" then
-			return
-		end
-	end
-	-- Rooted mid-haul: DigService releases the lock on every path that can
-	-- invalidate it and a teleport is not one of those paths, so refuse rather than
-	-- strand a rooted player somewhere new.
-	if DigService.isLocked(player) then
+	if preloading[player] or not allowed(player, dest) then
 		return
 	end
 
@@ -132,6 +144,16 @@ local function onWarp(player: Player, payload: any)
 	end
 
 	lastWarp[player] = now
+	preloading[player] = true
+	pcall(function()
+		player:RequestStreamAroundAsync(target.Position, PRELOAD_TIMEOUT)
+	end)
+	preloading[player] = nil
+
+	-- The world moved on while that yielded: same character, same rules, or no warp.
+	if player.Parent == nil or player.Character ~= character or root.Parent ~= character or not allowed(player, dest) then
+		return
+	end
 	root.CFrame = target
 	root.AssemblyLinearVelocity = Vector3.zero
 end
@@ -148,6 +170,7 @@ function WarpService.start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		lastWarp[player] = nil
+		preloading[player] = nil
 	end)
 end
 
