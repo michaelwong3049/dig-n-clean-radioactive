@@ -38,6 +38,11 @@ local POOL_SMOKE = 2
 local POOL_SPARKS = 2
 local FLOWS = 2
 local COOLED_ROCKS = 6
+--- Added on request ("add more things in ground zero"), off their own seed so nothing
+--- placed before them moves: wreck piles, burnt poles and charred drums.
+local WRECKS = 6
+local POLES = 6
+local DRUM_GROUPS = 5
 
 --- The hypocentre's scorched disc and how many blast-shadow streaks come out of it.
 local SCORCH_RADIUS = 14
@@ -260,6 +265,56 @@ local function lavaFlow(parent: Instance, f: K.Field, from: Vector3, bearing: nu
 	model.Parent = parent
 end
 
+--- A collapsed bit of the tower's base: tilted concrete slabs, a girder thrown across
+--- them and bent rebar poking out.
+local function wreck(parent: Instance, at: Vector3, rng: Random)
+	local yaw = rng:NextNumber(0, 360)
+	for k = 1, rng:NextInteger(2, 3) do
+		local w, d = rng:NextNumber(3, 5.5), rng:NextNumber(2.5, 4)
+		local off = CFrame.Angles(0, math.rad(yaw + k * rng:NextNumber(50, 110)), 0) * CFrame.new(rng:NextNumber(0, 2), 0, 0)
+		local cf = CFrame.new(at) * off * CFrame.new(0, 0.5 + k * 0.35, 0) * CFrame.Angles(math.rad(rng:NextNumber(-22, 22)), 0, math.rad(rng:NextNumber(-22, 22)))
+		local slab = K.block(parent, "Slab", cf, Vector3.new(w, 0.8, d), K.pick(rng, CONCRETE), { material = Enum.Material.Concrete })
+		for _ = 1, rng:NextInteger(1, 3) do
+			local rcf = slab.CFrame * CFrame.new(rng:NextNumber(-w / 2, w / 2) * 0.8, 0.4, rng:NextNumber(-d / 2, d / 2) * 0.8)
+				* CFrame.Angles(math.rad(rng:NextNumber(-35, 35)), 0, math.rad(rng:NextNumber(-35, 35)))
+			local h = rng:NextNumber(1, 2.2)
+			K.block(parent, "Rebar", rcf * CFrame.new(0, h / 2, 0), Vector3.new(0.12, h, 0.12), GIRDER[3], { material = Enum.Material.Metal })
+		end
+	end
+	fallenGirder(parent, at + Vector3.new(rng:NextNumber(-1, 1), 1.1, rng:NextNumber(-1, 1)), yaw + rng:NextNumber(20, 70), rng)
+end
+
+--- A burnt power pole, leaning away from the blast, its crossarm snapped.
+local function pole(parent: Instance, at: Vector3, away: number, rng: Random)
+	local h = rng:NextNumber(9, 13)
+	local base = CFrame.new(at) * CFrame.Angles(0, math.rad(away), 0) * CFrame.Angles(0, 0, math.rad(-rng:NextNumber(8, 24)))
+	K.block(parent, "PoleStub", base * CFrame.new(0, 0.3, 0), Vector3.new(1, 0.6, 1), SCORCH)
+	local top = base * CFrame.new(0, h, 0)
+	K.block(parent, "Pole", base * CFrame.new(0, h / 2, 0), Vector3.new(0.6, h, 0.6), K.pick(rng, CRUST), { material = Enum.Material.Wood })
+	K.block(parent, "Crossarm", top * CFrame.new(0, -0.8, 0) * CFrame.Angles(0, 0, math.rad(rng:NextNumber(-25, 25))), Vector3.new(rng:NextNumber(2.5, 3.6), 0.3, 0.3), K.pick(rng, CRUST), { material = Enum.Material.Wood })
+	-- The snapped-off other half lying at the foot.
+	local arm = CFrame.new(at + Vector3.new(rng:NextNumber(-2, 2), 0.15, rng:NextNumber(-2, 2))) * CFrame.Angles(0, math.rad(rng:NextNumber(0, 360)), 0)
+	K.block(parent, "BrokenArm", arm, Vector3.new(1.6, 0.3, 0.3), K.pick(rng, CRUST), { material = Enum.Material.Wood })
+end
+
+--- Two to four charred drums, some standing, some knocked flat.
+local function drums(parent: Instance, at: Vector3, rng: Random)
+	for _ = 1, rng:NextInteger(2, 4) do
+		local p = at + Vector3.new(rng:NextNumber(-2.5, 2.5), 0, rng:NextNumber(-2.5, 2.5))
+		local yaw = CFrame.Angles(0, math.rad(rng:NextNumber(0, 360)), 0)
+		local color = K.shade(GIRDER[rng:NextInteger(1, #GIRDER)], rng:NextNumber(0.8, 1.1))
+		if rng:NextNumber() < 0.5 then
+			-- Standing: the cylinder's axis turned up.
+			local cf = CFrame.new(p + Vector3.new(0, 1.4, 0)) * yaw * CFrame.Angles(0, 0, math.rad(90 + rng:NextNumber(-6, 6)))
+			K.block(parent, "Drum", cf, Vector3.new(2.8, 1.9, 1.9), color, { shape = Enum.PartType.Cylinder, material = Enum.Material.Metal })
+		else
+			-- Knocked flat on its side.
+			local cf = CFrame.new(p + Vector3.new(0, 0.95, 0)) * yaw
+			K.block(parent, "Drum", cf, Vector3.new(2.8, 1.9, 1.9), color, { shape = Enum.PartType.Cylinder, material = Enum.Material.Metal })
+		end
+	end
+end
+
 local function cooledRock(parent: Instance, at: Vector3, rng: Random, palette: Palette)
 	local s = rng:NextNumber(1.4, 2.6)
 	K.rock(parent, at.X, at.Z, at.Y, s, CRUST, rng, "CooledLava")
@@ -300,6 +355,21 @@ function GroundZero.build(parent: Instance, stageId: number, groundY: number)
 	end
 	for _, at in K.sites(f, COOLED_ROCKS, 12, rng, 0, taken) do
 		cooledRock(folder, at, rng, palette)
+	end
+
+	-- Their own rng: the ground pass below keeps the stage rng it always had.
+	local extra = Random.new(SEED + 500 + stageId)
+	for _, at in K.sites(f, WRECKS, 18, extra, 3, taken) do
+		wreck(folder, at, extra)
+		table.insert(taken, { at.X, at.Z, 8 })
+	end
+	for _, at in K.sites(f, POLES, 22, extra, 4, taken) do
+		local away = math.deg(math.atan2(-(at.Z - hypo.Z), at.X - hypo.X))
+		pole(folder, at, away, extra)
+		table.insert(taken, { at.X, at.Z, 6 })
+	end
+	for _, at in K.sites(f, DRUM_GROUPS, 14, extra, 2, taken) do
+		drums(folder, at, extra)
 	end
 
 	local ground = Instance.new("Folder")
