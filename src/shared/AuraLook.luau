@@ -24,6 +24,10 @@
 	Singularity (beating energy wings). Each is a set of moving curves (CURVE_FORMS),
 	since unlike the atom and helix they change shape as they move.
 
+	TIERS 11-12 ARE STAGES 11 AND 12'S, sold at the same shop, picked from a later round
+	of nine: Seraph (the wings grown up, feathered, under a halo) and the Crimson Vortex
+	(the "Prism Vortex" spiral in the "Supernova" red instead of a rainbow).
+
 	THE COLOURS STAY OFF THE HUD'S TWO RESERVED ONES. PLAN's one colour rule gives pure
 	white to aura failure (UIKit.C.burn) and green to exposure (UIKit.C.green), so no
 	rung may be either — a gold aura is fine, a white or green one would tell a player
@@ -60,7 +64,7 @@ export type Look = {
 	--- "atom": `rings` tilted rings round the chest. "helix": the Nimbus's own shape,
 	--- two strands spiralling feet to head (see HELIX); `rings` is unused. The rest are
 	--- Toxic Twilight's four, each a set of moving curves (see CURVE_FORMS).
-	form: "atom" | "helix" | "corona" | "aurora" | "torus" | "wings",
+	form: "atom" | "helix" | "corona" | "aurora" | "torus" | "wings" | "seraph" | "vortex",
 	color: Color3,
 	rings: number, -- 1..3
 	electrons: number, -- per ring (per strand, for the helix)
@@ -135,6 +139,17 @@ AuraLook.TIERS = {
 	{
 		form = "wings", color = Color3.fromRGB(200, 107, 255), rings = 3, electrons = 6, width = 0.34, transparency = 0.02, speed = 4.8, core = true,
 		sparkle = { dust = 24, shed = 14, embers = 30, burst = 56 },
+	},
+	-- Stages 11 and 12's, picked from a nine-shape round: 4 Seraph, then 7 the Vortex
+	-- recoloured from rainbow to option 5's Supernova red, deepened (was FF4F6D) because
+	-- the glow washed that to pink in daylight.
+	{
+		form = "seraph", color = Color3.fromRGB(255, 227, 154), rings = 3, electrons = 6, width = 0.36, transparency = 0.01, speed = 5.0, core = true,
+		sparkle = { dust = 26, shed = 15, embers = 32, burst = 60 },
+	},
+	{
+		form = "vortex", color = Color3.fromRGB(255, 40, 60), rings = 3, electrons = 4, width = 0.38, transparency = 0, speed = 5.2, core = true,
+		sparkle = { dust = 28, shed = 16, embers = 34, burst = 64 },
 	},
 } :: { Look }
 
@@ -420,11 +435,101 @@ local function wingsForm(): CurveForm
 	}
 end
 
+--- 5. SERAPH: the Singularity's wings grown up. Three pairs, longer and beating
+--- slower, each with four feathers hanging off its arc, and a halo over the head.
+local SERAPH_FEATHERS = 4
+local function seraphWing(side: number, pair: number): (number, number) -> Vector3
+	return function(s: number, t: number): Vector3
+		local flap = 0.6 * math.sin(t * 1.6 + pair * 0.4) * s
+		local spread = 1.15 - 0.15 * pair
+		return Vector3.new(
+			side * (0.5 + s * 4.2 * spread),
+			1.2 + math.sin(s * math.pi * 0.85) * (2.1 - 0.6 * pair) - 0.75 * pair + flap,
+			0.8 + 1.2 * s
+		)
+	end
+end
+local function seraphForm(): CurveForm
+	local curves: { Curve } = {}
+	for _, side in { -1, 1 } do
+		for pair = 0, 2 do
+			local wing = seraphWing(side, pair)
+			table.insert(curves, { beams = 5, closed = false, width = 1.2 - 0.2 * pair, fade = 0, point = wing })
+			for feather = 1, SERAPH_FEATHERS do
+				-- Hangs from its point on the arc, so it rides the beat with the wing.
+				local root = feather / (SERAPH_FEATHERS + 0.6)
+				local drop = (0.9 - 0.12 * pair) * (1.1 - 0.12 * feather)
+				table.insert(curves, {
+					beams = 1,
+					closed = false,
+					width = 0.55,
+					fade = 0.3,
+					point = function(s: number, t: number): Vector3
+						return wing(root, t) + Vector3.new(side * 0.15, -drop, 0.1) * s
+					end,
+				})
+			end
+		end
+	end
+	local halo = flatRing(3.1, 0.9, 0, 6, 1.3)
+	table.insert(curves, halo)
+	table.insert(curves, { beams = 6, closed = true, width = 0.4, fade = 0.45, point = function(s: number, _t: number): Vector3
+		local u = s * TAU
+		return Vector3.new(math.cos(u) * 1.1, 3.1, math.sin(u) * 1.1)
+	end })
+	return {
+		curves = curves,
+		riders = function(t: number): { Vector3 }
+			local out = table.create(6)
+			for _, side in { -1, 1 } do
+				for pair = 0, 2 do
+					table.insert(out, seraphWing(side, pair)(frac(t * 0.5 + pair * 0.3), t))
+				end
+			end
+			return out
+		end,
+		reach = 5.6,
+	}
+end
+
+--- 6. CRIMSON VORTEX: a red tornado. Four strands spiral from a wide base at the feet
+--- to a point over the head, the whole funnel turning; one spark climbs each strand.
+local VORTEX_STRANDS = 4
+local VORTEX_BOTTOM = AuraLook.FEET + 0.4
+local VORTEX_TOP = 3.7
+local function vortexStrand(strand: number): (number, number) -> Vector3
+	return function(s: number, t: number): Vector3
+		local r = 3.4 * (1 - s) + 0.5
+		local u = strand * TAU / VORTEX_STRANDS + s * 7 - t * 2.2
+		return Vector3.new(math.cos(u) * r, VORTEX_BOTTOM + s * (VORTEX_TOP - VORTEX_BOTTOM), math.sin(u) * r)
+	end
+end
+local function vortexForm(): CurveForm
+	local curves: { Curve } = {}
+	for strand = 1, VORTEX_STRANDS do
+		table.insert(curves, { beams = 14, closed = false, width = 1.1, fade = 0, point = vortexStrand(strand) })
+	end
+	table.insert(curves, flatRing(VORTEX_BOTTOM, 3.5, 0, 8, 0.6))
+	return {
+		curves = curves,
+		riders = function(t: number): { Vector3 }
+			local out = table.create(VORTEX_STRANDS)
+			for strand = 1, VORTEX_STRANDS do
+				table.insert(out, vortexStrand(strand)(frac(t * 0.35 + strand / VORTEX_STRANDS), t))
+			end
+			return out
+		end,
+		reach = 4.9,
+	}
+end
+
 local CURVE_FORMS: { [string]: CurveForm } = {
 	corona = coronaForm(),
 	aurora = auroraForm(),
 	torus = torusForm(),
 	wings = wingsForm(),
+	seraph = seraphForm(),
+	vortex = vortexForm(),
 }
 
 --- The moving curves for `look`, or nil for the atom and the helix.

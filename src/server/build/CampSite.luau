@@ -19,7 +19,7 @@
 	six detectors, the south-west slot is its Magnet Shop, selling its five magnets, and
 	the south-east slot is its Hose Shop, selling its five hoses, and its Aura Shop (the
 	Outfitter's building, Shops.buildCampOutfitter) stands west of the Detector Shop in
-	the north row, selling its four auras. Every other stall is Shops.buildStallShell -- the frame and steel roof
+	the north row, selling its six auras. Every other stall is Shops.buildStallShell -- the frame and steel roof
 	with NO station attributes -- because the gear they will sell does not exist yet. They
 	say COMING SOON rather than opening a panel for nothing.
 
@@ -85,7 +85,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 22
+local BUILDER_VERSION = 23
 
 local C = Kit.C
 local build = Kit.build
