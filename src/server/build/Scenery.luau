@@ -108,7 +108,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 55
+local BUILDER_VERSION = 56
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -3533,14 +3533,23 @@ local function buildStageScenery(parent: Instance, id: number)
 	folder.Parent = parent
 end
 
---- Every stage's ground: a studded two-tone checkerboard cap, the same 4-stud board
---- as the plaza and the base pads (`Hub.tileRect`, one shared grid so the tiles stay
---- in register across every edge), painted in each stage's own colour.
+--- Every stage's ground: a studded two-tone checkerboard cap, painted in each stage's
+--- own colour.
 ---
 --- WAS STAGE 1 ONLY (`buildStage1Checkerboard`). Extended to all six on request —
 --- "the same floor texture on every stage". Stages 2-6 used to show their raw plate:
 --- Sand dots, Slate, Glass. Those materials are gone from view now (the plate keeps
 --- them as a fallback under the cap; nothing sees it).
+---
+--- PART BUDGET: ONE MATERIAL SLAB PER STAGE, NOT ONE PART PER CELL. The board used to be
+--- Hub.tileRect's dark base plus a part per light cell, ~1,900 parts a stage and ~22k
+--- across the chain -- the largest single block of parts in the map. It is now a slab
+--- wearing Kit.checkerMaterial (checker colour map + stud normal map), tinted the
+--- pair's LIGHT colour, so a stage's floor is one part (Stage 1: a strip per
+--- Kit.CHECKER_TILE, Stage 6: plus scorch blocks). Same two colours, a stud on every
+--- cell. Chosen on request over a plain Texture, which hid the studs on light cells.
+--- The board is no longer in register with the plaza's grid across x = 100; the
+--- seam tape there covers the join.
 ---
 --- WHY A CAP LAYER AND NOT THE PLATE ITSELF.
 --- The obvious implementation is to cut Workspace.Stages.Stage{id} into coloured
@@ -3548,13 +3557,11 @@ end
 --- folder at 10 Hz and resolves overlaps as "smallest XZ area wins", so extra plates
 --- would quietly decide which stage you are standing in; and DigService.stagePart
 --- looks each stage up BY NAME and would find nothing. One plate per stage, always.
---- The colour goes on top, here, where it is free to be as many parts as it likes.
+--- The colour goes on top, here.
 ---
 --- Thin, CanCollide and CanQuery false, at GROUND_SKIM: a player still stands on
 --- Stages.SURFACE_Y, DigService still buries against it, and FieldController's
---- range-ring raycast passes through to the real plate. `Hub.tileRect` has no option
---- for that (the plaza and pads want solid, queryable tiles), so it is a deliberate
---- after-the-fact override of these folders' own tiles only.
+--- range-ring raycast passes through to the real plate.
 ---
 --- THE TWO SHADES ARE twoTone(def.color) — the stage's one configured colour split
 --- into a near-identical dark/light pair (see twoTone). UNTINTED, on request: the
@@ -3564,12 +3571,18 @@ end
 ---
 --- STAGE 1 KEEPS ITS GRADIENT, the one exception. A flat colour reads as a harder
 --- edge against the plaza than a soft hand-off does, so Stage 1's board fades across
---- its width: the plaza's actual tile colours at the west edge (where a player
---- arrives from camp — that one endpoint stays plaza-tinted, or the x=100 seam
---- snaps), blending to Stage 1's own untinted twoTone at the east edge. Each tile
---- computes its colour from a continuous lerp on its world X, so there is no band
---- count to tune and no seam — the board is already thousands of small tiles. Z
---- never affects colour.
+--- its length: the plaza's actual tile colours at the west edge, blending to Stage 1's
+--- own untinted twoTone at the east edge, one strip per Kit.CHECKER_TILE studs of X
+--- (strips that wide keep every strip's checker in register -- see Kit). Z never
+--- affects colour.
+---
+--- STAGE 6 KEEPS ITS SCORCH: CraterField.groundColorAt darkens the ground round each
+--- crater. Every CHECKER_TILE-square block of the board it touches is its own slab, in
+--- register with the stage slab, tinted by the scorch at the block's centre, and
+--- SCORCH_LIFT proud so it never z-fights the slab under it.
+local FLOOR_CAP = 0.4 -- Hub's tile cap thickness, so the board's top face stays put
+local SCORCH_LIFT = 0.02
+
 local function buildStageCheckerboard(parent: Instance, id: number)
 	local def = Stages.get(id)
 	local minX = def.center[1] - def.size[1] / 2
@@ -3578,60 +3591,64 @@ local function buildStageCheckerboard(parent: Instance, id: number)
 	local maxZ = def.center[2] + def.size[2] / 2
 
 	local stageDark, stageLight = twoTone(def.color) -- Color3 pair, untinted
-
-	local colorAt: ((x: number, z: number) -> (string, string))? = nil
-	local flatDark: string? = nil
-	local flatLight: string? = nil
-
-	if id == 1 then
-		-- West endpoint = the plaza's real tile colours (C.plazaTile* blended toward
-		-- Stage 1's ooze, exactly as Hub's own PLAZA_DARK/LIGHT are), so the board is
-		-- continuous across x = Hub.PLAZA.maxX. East endpoint, and the whole of every
-		-- other stage, is the raw untinted twoTone.
-		local wD = Color3.fromHex(Kit.blendHex(C.plazaTileDark, def.ooze.bright, Stages.GROUND_OOZE_TINT))
-		local wL = Color3.fromHex(Kit.blendHex(C.plazaTileLight, def.ooze.bright, Stages.GROUND_OOZE_TINT))
-		colorAt = function(x: number, _z: number): (string, string)
-			local t = math.clamp((x - minX) / (maxX - minX), 0, 1)
-			return wD:Lerp(stageDark, t):ToHex(), wL:Lerp(stageLight, t):ToHex()
-		end
-	else
-		-- A stage with craters on it (Stage 6) scorches its board round each one;
-		-- every other stage keeps the flat pair.
-		colorAt = CraterField.groundColorAt(id, stageDark, stageLight)
-		if colorAt == nil then
-			flatDark, flatLight = stageDark:ToHex(), stageLight:ToHex()
-		end
-	end
+	local material = Kit.checkerMaterial()
+	local tile = Kit.CHECKER_TILE
+	local topY = Stages.SURFACE_Y + GROUND_SKIM
 
 	local folder = Instance.new("Folder")
 	folder.Name = `Stage{id}`
 
-	-- One dark base under the board (see TileOpts.base): Stage 1's gradient runs along X
-	-- only, so its base is a strip per column; every other stage's is its flat dark, and
-	-- Stage 6's scorched dark tiles still build on top of it.
-	local baseDark = stageDark:ToHex()
-	local stage1ColorAt = if id == 1 then colorAt else nil
-	Hub.tileRect(folder, { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }, {
-		topY = Stages.SURFACE_Y + GROUND_SKIM,
-		colorAt = colorAt,
-		dark = flatDark,
-		light = flatLight,
-		base = function(x: number): string
-			if stage1ColorAt then
-				return (stage1ColorAt(x, 0))
-			end
-			return baseDark
-		end,
-	})
+	-- A slab of board over x0..x1 / z0..z1 in `color` (the light cell's colour). x1 and
+	-- z1 must sit a whole number of tiles off maxX / maxZ, or its checker slips.
+	local function slab(name: string, x0: number, x1: number, z0: number, z1: number, color: string, lift: number)
+		local part = build(folder, CFrame.new(0, 0, 0), {
+			name = name,
+			pos = { (x0 + x1) / 2, topY + lift - FLOOR_CAP / 2, (z0 + z1) / 2 },
+			size = { x1 - x0, FLOOR_CAP, z1 - z0 },
+			color = color,
+			material = "Plastic",
+			canCollide = false,
+		})
+		part.MaterialVariant = material
+		part.TopSurface = Enum.SurfaceType.Smooth -- the material carries the studs
+		part.CanQuery = false
+		part.CastShadow = false
+	end
 
-	-- See this function's header: footing / burial / the range-ring raycast all stay
-	-- on the real plate under this cap, so every tile drops out of physics and
-	-- queries. Hub.tileRect can't do this itself — the plaza and pads want the
-	-- opposite — so it's an override of these folders' tiles only.
-	for _, tile in folder:GetChildren() do
-		if tile:IsA("BasePart") then
-			tile.CanCollide = false
-			tile.CanQuery = false
+	if id == 1 then
+		-- West endpoint = the plaza's real tile colours (C.plazaTile* blended toward
+		-- Stage 1's ooze, exactly as Hub's own PLAZA_LIGHT is), so the board hands off
+		-- from the plaza; east endpoint is the raw untinted twoTone. Strips laid from
+		-- the east edge, so every strip's own (maxX, maxZ) corner is on the board's grid.
+		local wL = Color3.fromHex(Kit.blendHex(C.plazaTileLight, def.ooze.bright, Stages.GROUND_OOZE_TINT))
+		local x1 = maxX
+		while x1 - minX > 1e-3 do
+			local x0 = math.max(x1 - tile, minX)
+			local t = math.clamp(((x0 + x1) / 2 - minX) / (maxX - minX), 0, 1)
+			slab("FloorStrip", x0, x1, minZ, maxZ, wL:Lerp(stageLight, t):ToHex(), 0)
+			x1 = x0
+		end
+	else
+		slab("FloorSlab", minX, maxX, minZ, maxZ, stageLight:ToHex(), 0)
+
+		-- A stage with craters on it (Stage 6) scorches its board round each one.
+		local colorAt = CraterField.groundColorAt(id, stageDark, stageLight)
+		if colorAt then
+			local flat = stageLight:ToHex()
+			local x1 = maxX
+			while x1 - minX > 1e-3 do
+				local x0 = math.max(x1 - tile, minX)
+				local z1 = maxZ
+				while z1 - minZ > 1e-3 do
+					local z0 = math.max(z1 - tile, minZ)
+					local _, light = colorAt((x0 + x1) / 2, (z0 + z1) / 2)
+					if light ~= flat then
+						slab("ScorchBlock", x0, x1, z0, z1, light, SCORCH_LIFT)
+					end
+					z1 = z0
+				end
+				x1 = x0
+			end
 		end
 	end
 

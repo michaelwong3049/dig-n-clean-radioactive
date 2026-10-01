@@ -688,6 +688,40 @@ function Kit.stamp(model: Instance, source: string, version: number)
 	model:SetAttribute("BuilderVersion", version)
 end
 
+--- THE STUDDED CHECKER AS A MATERIAL. One part wearing this MaterialVariant reads as a
+--- whole 4-stud checkerboard with a stud on every cell: ColorMap is white / 0.877 grey
+--- (the dark:light ratio every twoTone floor pair shares, 0.937 / 1.068), NormalMap is
+--- the studs, and the part's own Color tints both cells -- so Color = the pair's LIGHT
+--- colour gives the exact pair. Replaces one part per light cell (PART BUDGET).
+---
+--- Measured in Studio, not documented: the pattern is anchored on each part's (+X, +Z)
+--- top corner, and the cell touching that corner is the DARK one. Two parts stay in
+--- register only when their maxX and maxZ differ by multiples of KIT.CHECKER_TILE.
+--- Set TopSurface Smooth on these parts: the Studs surface would stud them twice.
+Kit.CHECKER_MATERIAL = "StudChecker"
+Kit.CHECKER_TILE = 8 -- studs per repeat: two 4-stud cells
+local CHECKER_COLOR_MAP = "rbxassetid://128199580536085"
+local CHECKER_NORMAL_MAP = "rbxassetid://103372228995272"
+
+--- Make sure MaterialService carries the checker MaterialVariant (it lives in the place
+--- file, like the geometry), and return its name for `part.MaterialVariant`.
+function Kit.checkerMaterial(): string
+	local service = game:GetService("MaterialService")
+	local variant = service:FindFirstChild(Kit.CHECKER_MATERIAL) :: MaterialVariant?
+	if variant == nil then
+		local made = Instance.new("MaterialVariant")
+		made.Name = Kit.CHECKER_MATERIAL
+		made.Parent = service
+		variant = made
+	end
+	local v = variant :: MaterialVariant
+	v.BaseMaterial = Enum.Material.Plastic
+	v.ColorMap = CHECKER_COLOR_MAP
+	v.NormalMap = CHECKER_NORMAL_MAP
+	v.StudsPerTile = Kit.CHECKER_TILE
+	return v.Name
+end
+
 --- Replace `Workspace.<name>` with a freshly built version, atomically.
 ---
 --- `factory` must return a fully-formed, UNPARENTED instance. It is called first
