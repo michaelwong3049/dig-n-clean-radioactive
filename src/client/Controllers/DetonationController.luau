@@ -29,7 +29,12 @@
 	     warms its spot in the ground; past WARN_AT the spot starts ticking; armed, it
 	     flashes red, ticks faster and faster, and hangs a countdown over itself where
 	     everyone can read it -- a spectator knows to back off before it goes. The lump
-	     climbing out of the ground glows with it.
+	     climbing out of the ground glows with it. A DROPPED BOMB (role "bomb") burns
+	     differently: its core heats from dull red to white-hot, throws sparks and
+	     shakes harder towards the end, under a dial whose ring drains white to red
+	     round the whole seconds left. The shake is the one place this writes to a
+	     replicated instance besides the character -- a local PivotTo on the anchored
+	     bomb, which the server never moves and destroys when it goes off.
 
 	REALISTIC OVER STYLISED. The blast is built as the phenomenon, in the order it
 	happens -- flash, fireball, smoke, the ground reacting -- out of particles, rather
@@ -99,6 +104,8 @@ local SCREEN_FLASH = Color3.fromHex("FFE6B8") -- warm; the white screen means au
 local TINT_INSIDE = Color3.fromHex("C9FFB0")
 local FUSE_WARM = Color3.fromHex("F59E0B")
 local FUSE_ARMED = Color3.fromHex("FF2A1A")
+local DIAL_FACE = Color3.fromHex("0C0C0C")
+local DIAL_TRACK = Color3.fromHex("2E2E2E") -- opaque: it doubles as the cover over the drained arc
 
 -- ── Tuning (visual only) ────────────────────────────────────────────────
 local COLUMN_FROM = 4 -- Rarity order: Rare and up climb on a stem into a small cap
@@ -116,6 +123,12 @@ local GRAVITY = 70 -- studs/s^2 for thrown chunks; a touch floatier than Workspa
 local BEEP_WARN_INTERVAL = 0.9
 local BEEP_ARMED_SLOW = 0.45
 local BEEP_ARMED_FAST = 0.08
+local BOMB_SPARK_RATE = 70 -- sparks/s from a dropped bomb in its last instant
+local BOMB_SHAKE = 0.25 -- studs a dropped bomb rattles by at the very end
+local BOMB_DIAL_PX = 76
+local BOMB_RING_PX = 6
+local BOMB_POP = 0.35 -- the seconds dial swells by this on every new second...
+local BOMB_POP_TIME = 0.2 -- ...and settles back over this long
 local TINT_MAX = 0.55
 
 local player = Players.LocalPlayer
@@ -1269,6 +1282,18 @@ end
 
 -- ── 3. The fuse ──────────────────────────────────────────────────────────
 
+-- The bomb dial's rings. Roblox has no arc, so the coloured arc is built from halves
+-- (setArc): `a`/`b` coloured halves over the track, or `full` with the track-coloured
+-- halves `c`/`d` covering what has drained.
+type Dial = {
+	scale: UIScale,
+	full: UIStroke,
+	a: UIStroke,
+	b: UIStroke,
+	c: UIStroke,
+	d: UIStroke,
+}
+
 type FuseFx = {
 	instance: Instance,
 	role: string,
@@ -1280,6 +1305,13 @@ type FuseFx = {
 	highlight: Highlight?,
 	nextTick: number,
 	armedSpan: number?,
+	-- A dropped bomb only (trackBomb):
+	sparks: ParticleEmitter?,
+	dial: Dial?,
+	base: CFrame?, -- the bomb's pivot as the server set it; the shake is around this
+	centre: Vector3?, -- bounding-box centre, relative to `base`
+	popAt: number?,
+	whole: number?,
 }
 
 local fuses: { [Instance]: FuseFx } = {}
@@ -1291,6 +1323,247 @@ local function pivotOf(instance: Instance): Vector3?
 		return instance.Position
 	end
 	return nil
+end
+
+--- One ring of the bomb dial: a circle's stroke. A half ring is cut by a hard-stepped
+--- gradient on the stroke; showHalf turns it.
+local function dialRing(parent: Instance, color: Color3, z: number, half: boolean): UIStroke
+	local ring = Instance.new("Frame")
+	ring.AnchorPoint = Vector2.new(0.5, 0.5)
+	ring.Position = UDim2.fromScale(0.5, 0.5)
+	ring.Size = UDim2.new(1, -BOMB_RING_PX * 3, 1, -BOMB_RING_PX * 3)
+	ring.BackgroundTransparency = 1
+	ring.ZIndex = z
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = ring
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = color
+	stroke.Thickness = BOMB_RING_PX
+	stroke.Parent = ring
+	if half then
+		local gradient = Instance.new("UIGradient")
+		gradient.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(0.499, 0),
+			NumberSequenceKeypoint.new(0.501, 1),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		gradient.Parent = stroke
+	end
+	ring.Parent = parent
+	return stroke
+end
+
+--- Show the half of a ring running clockwise from `from` degrees (0 = the top).
+local function showHalf(stroke: UIStroke, from: number)
+	-- The opaque half sits opposite the gradient's direction, and Rotation 0 points right.
+	(stroke:FindFirstChildOfClass("UIGradient") :: UIGradient).Rotation = (from + 180) % 360
+end
+
+--- The dial's arc: `arc` degrees clockwise from the top. Past half way it is the union
+--- of two coloured halves over the track; under it, a full coloured ring with two
+--- track-coloured halves covering the drained part.
+local function setArc(dial: Dial, arc: number, color: Color3)
+	local long = arc >= 180
+	for _, stroke in { dial.a, dial.b } do
+		(stroke.Parent :: Frame).Visible = long
+		stroke.Color = color
+	end
+	for _, stroke in { dial.c, dial.d } do
+		(stroke.Parent :: Frame).Visible = not long
+	end
+	(dial.full.Parent :: Frame).Visible = not long
+	dial.full.Color = color
+	if long then
+		showHalf(dial.a, 0)
+		showHalf(dial.b, arc - 180)
+	else
+		showHalf(dial.c, 180)
+		showHalf(dial.d, arc)
+	end
+end
+
+local function heatColor(heat: number): Color3
+	if heat < 0.5 then
+		return FIRE_DEEP:Lerp(FIRE_MID, heat * 2)
+	end
+	return FIRE_MID:Lerp(FLASH, (heat - 0.5) * 2)
+end
+
+--- A dropped bomb (Services/BombService): the hot core, its sparks and light, the
+--- tick, and the dial overhead.
+local function trackBomb(fx: FuseFx)
+	local highlight = Instance.new("Highlight")
+	highlight.Adornee = fx.instance
+	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+	highlight.FillColor = FIRE_DEEP
+	highlight.FillTransparency = 1
+	highlight.OutlineColor = FIRE_DEEP
+	highlight.OutlineTransparency = 1
+	highlight.Parent = fxFolder
+	fx.highlight = highlight
+
+	local anchor = fxPart()
+	anchor.Transparency = 1
+	anchor.Size = Vector3.one * 0.2
+	anchor.Parent = fxFolder
+	fx.anchor = anchor
+
+	local light = Instance.new("PointLight")
+	light.Color = FIRE_DEEP
+	light.Brightness = 0
+	light.Range = 10
+	light.Shadows = false
+	light.Parent = anchor
+	fx.light = light
+
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Texture = TEX_SPARKLE
+	sparks.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, FIRE_HOT),
+		ColorSequenceKeypoint.new(0.5, FIRE_MID),
+		ColorSequenceKeypoint.new(1, FIRE_DEEP),
+	})
+	sparks.LightEmission = 1
+	sparks.Size = NumberSequence.new(0.3, 0)
+	sparks.Lifetime = NumberRange.new(0.35, 0.7)
+	sparks.Speed = NumberRange.new(10, 18)
+	sparks.SpreadAngle = Vector2.new(45, 45)
+	sparks.EmissionDirection = Enum.NormalId.Top
+	sparks.Acceleration = Vector3.new(0, -40, 0)
+	sparks.Drag = 1
+	sparks.Rate = 0
+	sparks.Parent = anchor
+	fx.sparks = sparks
+
+	local tick = Instance.new("Sound")
+	tick.SoundId = TICK_SOUND
+	tick.Volume = 0.9
+	tick.RollOffMode = Enum.RollOffMode.InverseTapered
+	tick.RollOffMinDistance = 8
+	tick.RollOffMaxDistance = 90
+	Sfx.adopt(tick)
+	tick.Parent = anchor
+	fx.tick = tick
+
+	local board = Instance.new("BillboardGui")
+	board.Name = "BombDial"
+	board.Adornee = anchor
+	board.Size = UDim2.fromOffset(BOMB_DIAL_PX, BOMB_DIAL_PX)
+	board.StudsOffsetWorldSpace = Vector3.new(0, 5.5, 0)
+	board.MaxDistance = 160
+	board.LightInfluence = 0
+	board.Enabled = false
+	board.Parent = fxFolder
+	fx.board = board
+
+	local face = Instance.new("Frame")
+	face.Size = UDim2.fromScale(1, 1)
+	face.BackgroundColor3 = DIAL_FACE
+	face.BackgroundTransparency = 0.18
+	face.BorderSizePixel = 0
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = face
+	local scale = Instance.new("UIScale")
+	scale.Parent = face
+	face.Parent = board
+
+	dialRing(face, DIAL_TRACK, 1, false)
+	fx.dial = {
+		scale = scale,
+		full = dialRing(face, Color3.new(1, 1, 1), 2, false),
+		a = dialRing(face, Color3.new(1, 1, 1), 3, true),
+		b = dialRing(face, Color3.new(1, 1, 1), 3, true),
+		c = dialRing(face, DIAL_TRACK, 4, true),
+		d = dialRing(face, DIAL_TRACK, 4, true),
+	}
+	fx.label = UIKit.label(face, {
+		name = "Seconds",
+		size = UDim2.fromScale(1, 1),
+		font = UIKit.Font.hero,
+		textSize = 34,
+		color = Color3.new(1, 1, 1),
+		xAlign = Enum.TextXAlignment.Center,
+		zIndex = 5,
+	})
+end
+
+local function stepBomb(fx: FuseFx, now: number, clock: number)
+	local instance = fx.instance
+	if fx.base == nil and instance:IsA("Model") and instance:FindFirstChildWhichIsA("BasePart", true) then
+		local base = instance:GetPivot()
+		local box, extents = instance:GetBoundingBox()
+		fx.base = base
+		fx.centre = box.Position - base.Position
+		local board = fx.board :: BillboardGui
+		board.StudsOffsetWorldSpace = Vector3.new(0, extents.Y / 2 + 3, 0)
+	end
+
+	local armed = instance:GetAttribute(DetonationConfig.ATTR_ARMED) == true
+	local blowsAtValue = instance:GetAttribute(DetonationConfig.ATTR_BLOWS_AT)
+	local left = if armed and typeof(blowsAtValue) == "number" then math.max(0, blowsAtValue - now) else nil
+	if left and fx.armedSpan == nil then
+		fx.armedSpan = math.max(left, 0.1)
+	end
+	local through = if left then 1 - math.clamp(left / (fx.armedSpan or 1), 0, 1) else 0
+	local heat = math.min(1, 0.15 + through * 0.95)
+	local hot = heatColor(heat)
+	local flicker = 0.5 + 0.5 * math.sin(clock * 23)
+
+	-- The core: dull red to white-hot, and the rattle as it gets there.
+	local highlight = fx.highlight :: Highlight
+	highlight.FillColor = hot
+	highlight.FillTransparency = 0.8 - 0.65 * heat + 0.05 * flicker
+	highlight.OutlineColor = hot
+	highlight.OutlineTransparency = 0.7 - 0.5 * heat
+
+	local base = fx.base
+	if base and instance:IsA("Model") then
+		local amp = BOMB_SHAKE * through * through
+		instance:PivotTo(base + Vector3.new(math.sin(clock * 60), 0, math.cos(clock * 53)) * amp)
+	end
+
+	local anchor = fx.anchor :: Part
+	if base then
+		anchor.CFrame = CFrame.new(base.Position + (fx.centre :: Vector3))
+	else
+		local at = pivotOf(instance)
+		if at then
+			anchor.CFrame = CFrame.new(at + Vector3.new(0, 1.2, 0))
+		end
+	end
+	local light = fx.light :: PointLight
+	light.Color = hot
+	light.Brightness = 1 + 5 * heat
+	light.Range = 10 + 14 * heat
+	local sparks = fx.sparks :: ParticleEmitter
+	sparks.Rate = if through > 0.05 then BOMB_SPARK_RATE * through ^ 1.2 else 0
+
+	if left and clock >= fx.nextTick then
+		local tick = fx.tick :: Sound
+		tick.PlaybackSpeed = 1.6
+		tick:Play()
+		fx.nextTick = clock + BEEP_ARMED_SLOW + (BEEP_ARMED_FAST - BEEP_ARMED_SLOW) * through
+	end
+
+	-- The dial: the ring drains white to red, the whole seconds pop as each one starts.
+	local board = fx.board :: BillboardGui
+	board.Enabled = left ~= nil
+	local dial = fx.dial
+	if left and dial then
+		local whole = math.max(1, math.ceil(left))
+		if whole ~= fx.whole then
+			fx.whole = whole
+			fx.popAt = clock
+			local label = fx.label :: TextLabel
+			label.Text = tostring(whole)
+		end
+		local pop = math.max(0, 1 - (clock - (fx.popAt or 0)) / BOMB_POP_TIME)
+		dial.scale.Scale = 1 + BOMB_POP * pop
+		setArc(dial, 360 * (1 - through), Color3.new(1, 1, 1):Lerp(FUSE_ARMED, math.min(1, through * 1.4)))
+	end
 end
 
 local function trackFuse(instance: Instance)
@@ -1306,7 +1579,13 @@ local function trackFuse(instance: Instance)
 		nextTick = 0,
 	}
 
-	if fx.role == "lump" or fx.role == "bomb" then
+	if fx.role == "bomb" then
+		trackBomb(fx)
+		fuses[instance] = fx
+		return
+	end
+
+	if fx.role == "lump" then
 		-- The nuke itself glowing through its crust as it heats. A Highlight rather
 		-- than recolouring the lump: the lump is a replicated server model, and the
 		-- crust's colour is the rarity's.
@@ -1320,7 +1599,7 @@ local function trackFuse(instance: Instance)
 		highlight.Parent = fxFolder
 		fx.highlight = highlight
 	end
-	if fx.role ~= "lump" then
+	if fx.role == "spot" then
 		-- The spot: a local anchor over it carrying the warning light, the tick and the
 		-- countdown, so nothing is parented into the replicated aura.
 		local anchor = fxPart()
@@ -1390,6 +1669,10 @@ local function stepFuses(now: number, clock: number)
 	for instance, fx in fuses do
 		if instance.Parent == nil or not CollectionService:HasTag(instance, DetonationConfig.HOT_TAG) then
 			untrackFuse(instance)
+			continue
+		end
+		if fx.role == "bomb" then
+			stepBomb(fx, now, clock)
 			continue
 		end
 

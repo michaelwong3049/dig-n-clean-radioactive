@@ -22,8 +22,9 @@
 
 	THE BOMB IS A COPY OF THE MODEL IN YOUR HANDS (ToolService's HeldItem), anchored on
 	the ground. It is tagged like a lit dig fuse (Config/Detonation.HOT_TAG, role
-	"bomb") so DetonationController gives it the red glow, the ticking and the
-	countdown every player can read -- a target gets the same warning a digger does.
+	"bomb") so DetonationController heats its core white-hot, throws sparks, ticks
+	and hangs a countdown dial over it that every player can read -- a target gets
+	the warning a digger does.
 ]]
 
 local Players = game:GetService("Players")
