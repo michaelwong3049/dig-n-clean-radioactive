@@ -108,7 +108,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 54
+local BUILDER_VERSION = 55
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build
@@ -120,6 +120,11 @@ local SKIM = 0.26
 --- The stage colour layer sits BELOW the pools, so a pool still reads as spilled on
 --- the ground rather than buried under it. Low enough to be invisible as a step.
 local GROUND_SKIM = 0.06
+-- Light-cell overlays over a dark base (walls, crowns, seam tape -- see wallColumn's
+-- PART BUDGET): proud of the base faces so they never z-fight it, inset from cell
+-- edges shared with a dark neighbour so no side face is coplanar either.
+local OVERLAY_PROUD = 0.05
+local OVERLAY_INSET = 0.01
 
 -- Stage 1 used to keep a clear lane down its centreline (z = 0); on request the
 -- middle is filled now, so the clearance is 0 and the same bushes, snags, grass and
@@ -3650,29 +3655,43 @@ local function buildStageBorderLines(parent: Instance)
 	local y = Stages.SURFACE_Y + SKIM
 	local rowWidth = BORDER_WIDTH / BORDER_ROWS
 
-	-- One strip centred on `seamX`, spanning minZ..maxZ.
+	-- One strip centred on `seamX`, spanning minZ..maxZ. PART BUDGET (see wallColumn):
+	-- one black strip under the whole seam, and only the yellow cells are their own
+	-- parts, OVERLAY_PROUD proud of it. A yellow cell's edge on the strip's outline
+	-- stands proud too, so the tape keeps its full-width checker; edges against a black
+	-- neighbour sit OVERLAY_INSET in.
 	local function strip(seamX: number, minZ: number, maxZ: number, name: string)
 		local x0 = seamX - BORDER_WIDTH / 2
+		local x1 = seamX + BORDER_WIDTH / 2
 		local cols = math.ceil((maxZ - minZ) / BORDER_CELL_Z)
+		local function tape(pos: { number }, size: { number }, color: string)
+			build(folder, CFrame.new(0, 0, 0), {
+				name = name,
+				pos = pos,
+				size = size,
+				color = color,
+				material = "SmoothPlastic", -- matte hazard tape; nothing in the world is Neon any more
+				canCollide = false,
+			})
+		end
+		local function edge(v: number, outline: number, sign: number): number
+			return if math.abs(v - outline) < 1e-3 then v + sign * OVERLAY_PROUD else v - sign * OVERLAY_INSET
+		end
+
+		tape({ seamX, y, (minZ + maxZ) / 2 }, { BORDER_WIDTH, 0.4, maxZ - minZ }, BORDER_BLACK)
 		for ix = 0, BORDER_ROWS - 1 do
 			local cx0 = x0 + ix * rowWidth
+			local cx1 = cx0 + rowWidth
 			for iz = 0, cols - 1 do
 				local z0 = minZ + iz * BORDER_CELL_Z
 				local z1 = math.min(z0 + BORDER_CELL_Z, maxZ)
-				local d = z1 - z0
-				if d <= 1e-3 then
+				if z1 - z0 <= 1e-3 or (ix + iz) % 2 ~= 0 then
 					continue
 				end
 
-				local yellow = (ix + iz) % 2 == 0
-				build(folder, CFrame.new(0, 0, 0), {
-					name = name,
-					pos = { cx0 + rowWidth / 2, y, (z0 + z1) / 2 },
-					size = { rowWidth, 0.4, d },
-					color = if yellow then BORDER_YELLOW else BORDER_BLACK,
-					material = "SmoothPlastic", -- matte hazard tape; nothing in the world is Neon any more
-					canCollide = false,
-				})
+				local a, b = edge(cx0, x0, -1), edge(cx1, x1, 1)
+				local c, d = edge(z0, minZ, -1), edge(z1, maxZ, 1)
+				tape({ (a + b) / 2, y, (c + d) / 2 }, { b - a, 0.4 + 2 * OVERLAY_PROUD, d - c }, BORDER_YELLOW)
 			end
 		end
 	end
@@ -3724,8 +3743,6 @@ end
 --- anything either -- the hairline that exposes is slab, which is dark, and every cell
 --- beside a light one is dark too, so it never shows. Overlays are looks only: the slab
 --- is the barrier, so they drop out of collision, touch and queries.
-local OVERLAY_PROUD = 0.05
-local OVERLAY_INSET = 0.01
 
 type WallSlab = { dark: string, y0: number, y1: number, thick: number, off: number }
 
@@ -3757,7 +3774,10 @@ local function wallColumn(parent: Instance, name: string, frame: CFrame, width: 
 			table.insert(slabs, current :: WallSlab)
 		end
 
-		if (parity0 + iy) % 2 ~= 0 then
+		-- Foot rows (iy < 0) are buried behind the ground on the field side and only
+		-- ever seen from the void outside, so they keep the slab and skip the light
+		-- overlay: ~5.3k parts across every wall (PART BUDGET, above).
+		if iy >= 0 and (parity0 + iy) % 2 ~= 0 then
 			local tile = build(parent, frame, {
 				name = name,
 				pos = { 0, (y0 + y1) / 2, off },
@@ -3872,50 +3892,125 @@ end
 --- over its own wall's lip, the same as Stage 1's always has. Decorative:
 --- `CanCollide`/`CanQuery` false -- nothing stands 55 studs up, and DigService / the
 --- range-ring raycast must never see it.
+--- One crown sheet's worth of cap, PART BUDGET style (see wallColumn): each column's
+--- dark cells are ONE base sheet spanning the whole depth, merged along the run with
+--- every neighbouring column of the same colour and depth, and only the LIGHT cells
+--- are their own parts, laid over it OVERLAY_PROUD proud of the top and bottom. A
+--- light cell's depth edges that are the crown's outer edge (the face sides) also
+--- stand OVERLAY_PROUD out, so the checker still reads on the cap's visible edge;
+--- edges against a dark neighbour sit OVERLAY_INSET in, as on the walls. Roughly
+--- halves the crown's part count with the same look.
+---
+--- `frameAt(s)`: frame at along-run coordinate `s` (local X along the run, local Z the
+--- depth axis, world Y). `columnAt(i)` returns column i's (s0, s1, dark, light, grassy)
+--- or nil past the end. `faceSign` is the field-facing side along local Z: a grassy
+--- column's face-side cell reaches GRASS_OVERHANG out over the turf lip.
+local function capRun(parent: Instance, name: string, frameAt: (number) -> CFrame, capY: number, faceSign: number, columnAt: (number) -> (number?, number?, string?, string?, boolean?))
+	local depthCells = math.ceil(WALL_THICKNESS / WALL_TILE)
+	local open: { s0: number, s1: number, dark: string, z0: number, z1: number }? = nil
+
+	local function flush()
+		local o = open
+		if o == nil then
+			return
+		end
+		local base = build(parent, frameAt((o.s0 + o.s1) / 2), {
+			name = name,
+			pos = { 0, capY, (o.z0 + o.z1) / 2 },
+			size = { o.s1 - o.s0, WALL_CAP_THICKNESS, o.z1 - o.z0 },
+			color = o.dark,
+			material = "Plastic",
+			studs = true,
+			canCollide = false,
+		})
+		base.CanQuery = false
+		open = nil
+	end
+
+	local i = 0
+	while true do
+		local s0, s1, darkHex, lightHex, grassy = columnAt(i)
+		if s0 == nil or s1 == nil or darkHex == nil or lightHex == nil then
+			break
+		end
+		local w = s1 - s0
+		if w > 1e-3 then
+			-- The column's cells, face-side one stretched over the lip when grassy.
+			local cells: { { number } } = {}
+			for iz = 0, depthCells - 1 do
+				local z0 = -WALL_THICKNESS / 2 + iz * WALL_TILE
+				local z1 = math.min(z0 + WALL_TILE, WALL_THICKNESS / 2)
+				if grassy and iz == (if faceSign > 0 then depthCells - 1 else 0) then
+					if faceSign > 0 then
+						z1 += GRASS_OVERHANG
+					else
+						z0 -= GRASS_OVERHANG
+					end
+				end
+				if z1 - z0 > 1e-3 then
+					table.insert(cells, { iz, z0, z1 })
+				end
+			end
+			if #cells > 0 then
+				local zMin, zMax = cells[1][2], cells[#cells][3]
+				local o = open
+				if o and o.dark == darkHex and math.abs(o.z0 - zMin) < 1e-3 and math.abs(o.z1 - zMax) < 1e-3 and math.abs(o.s1 - s0) < 1e-3 then
+					o.s1 = s1
+				else
+					flush()
+					open = { s0 = s0, s1 = s1, dark = darkHex, z0 = zMin, z1 = zMax }
+				end
+
+				for _, cell in cells do
+					local iz, z0, z1 = cell[1], cell[2], cell[3]
+					if (i + iz) % 2 ~= 0 then
+						local a = if math.abs(z0 - zMin) < 1e-3 then z0 - OVERLAY_PROUD else z0 + OVERLAY_INSET
+						local b = if math.abs(z1 - zMax) < 1e-3 then z1 + OVERLAY_PROUD else z1 - OVERLAY_INSET
+						local tile = build(parent, frameAt((s0 + s1) / 2), {
+							name = name,
+							pos = { 0, capY, (a + b) / 2 },
+							size = { w - 2 * OVERLAY_INSET, WALL_CAP_THICKNESS + 2 * OVERLAY_PROUD, b - a },
+							color = lightHex,
+							material = "Plastic",
+							studs = true,
+							canCollide = false,
+						})
+						tile.CanQuery = false
+					end
+				end
+			end
+		end
+		i += 1
+	end
+	flush()
+end
+
+--- A thin studded sheet laid FLAT over a wall's crown -- the ground carried up and
+--- over the wall (requested against a live look: the walls read as raw slabs with a
+--- bare top edge). Runs along X at a fixed Z, `WALL_THICKNESS` deep, the full length
+--- of the chain, on the same `WALL_TILE` grid as the wall face below it so the checker
+--- stays in register looking up the wall. Laid by capRun (base sheet + light overlays).
+---
+--- `pairAt(x)` is that stage's own top colour (wallCapPair via buildBoundaryWalls'
+--- resolver, `grassy` always true), so every stage's crown reaches GRASS_OVERHANG out
+--- over its own wall's lip, the same as Stage 1's always has. Decorative:
+--- `CanCollide`/`CanQuery` false -- nothing stands 55 studs up, and DigService / the
+--- range-ring raycast must never see it.
 local function buildWallCap(parent: Instance, name: string, minX: number, maxX: number, atZ: number, pairAt: (number) -> (string, string, boolean), faceSign: number)
 	local capY = Stages.SURFACE_Y + WALL_HEIGHT + WALL_CAP_THICKNESS / 2 - 0.1
 	local cols = math.ceil((maxX - minX) / WALL_TILE)
-	local depthCells = math.ceil(WALL_THICKNESS / WALL_TILE)
 
-	for ix = 0, cols - 1 do
+	capRun(parent, name, function(s)
+		return CFrame.new(s, 0, atZ)
+	end, capY, faceSign, function(ix)
+		if ix >= cols then
+			return nil
+		end
 		local x0 = minX + ix * WALL_TILE
 		local x1 = math.min(x0 + WALL_TILE, maxX)
-		local w = x1 - x0
-		if w <= 1e-3 then
-			continue
-		end
-
 		local darkHex, lightHex, grassy = pairAt((x0 + x1) / 2)
-
-		for iz = 0, depthCells - 1 do
-			local z0 = -WALL_THICKNESS / 2 + iz * WALL_TILE
-			local z1 = math.min(z0 + WALL_TILE, WALL_THICKNESS / 2)
-			-- A grass crown's field-side cell reaches GRASS_OVERHANG past the face, out
-			-- over the turf lip standing proud below it.
-			if grassy and iz == (if faceSign > 0 then depthCells - 1 else 0) then
-				if faceSign > 0 then
-					z1 += GRASS_OVERHANG
-				else
-					z0 -= GRASS_OVERHANG
-				end
-			end
-			local d = z1 - z0
-			if d <= 1e-3 then
-				continue
-			end
-
-			local tile = build(parent, CFrame.new(0, 0, 0), {
-				name = name,
-				pos = { (x0 + x1) / 2, capY, atZ + (z0 + z1) / 2 },
-				size = { w, WALL_CAP_THICKNESS, d },
-				color = if (ix + iz) % 2 == 0 then darkHex else lightHex,
-				material = "Plastic",
-				studs = true,
-				canCollide = false,
-			})
-			tile.CanQuery = false
-		end
-	end
+		return x0, x1, darkHex, lightHex, grassy
+	end)
 end
 
 --- Bushes along a camp-green wall crown -- the cartoon cliff's turf, so the skyline over
@@ -4174,44 +4269,18 @@ end
 local function buildShoulderCap(parent: Instance, name: string, atX: number, minZ: number, maxZ: number, dark: string, light: string, height: number, faceSign: number)
 	local capY = Stages.SURFACE_Y + height + WALL_CAP_THICKNESS / 2 - 0.1
 	local cols = math.ceil((maxZ - minZ) / WALL_TILE)
-	local depthCells = math.ceil(WALL_THICKNESS / WALL_TILE)
 
-	for iz = 0, cols - 1 do
+	-- Yawed 90 degrees, so local Z (capRun's depth axis) is world +X and faceSign
+	-- carries over unchanged. The whole crown is grass, so every column overhangs.
+	capRun(parent, name, function(s)
+		return CFrame.new(atX, 0, s) * CFrame.Angles(0, math.rad(90), 0)
+	end, capY, faceSign, function(iz)
+		if iz >= cols then
+			return nil
+		end
 		local z0 = minZ + iz * WALL_TILE
-		local z1 = math.min(z0 + WALL_TILE, maxZ)
-		local d = z1 - z0
-		if d <= 1e-3 then
-			continue
-		end
-
-		for ix = 0, depthCells - 1 do
-			local x0 = -WALL_THICKNESS / 2 + ix * WALL_TILE
-			local x1 = math.min(x0 + WALL_TILE, WALL_THICKNESS / 2)
-			-- The face-side cell reaches out over the turf lip (the whole crown is grass).
-			if ix == (if faceSign > 0 then depthCells - 1 else 0) then
-				if faceSign > 0 then
-					x1 += GRASS_OVERHANG
-				else
-					x0 -= GRASS_OVERHANG
-				end
-			end
-			local w = x1 - x0
-			if w <= 1e-3 then
-				continue
-			end
-
-			local tile = build(parent, CFrame.new(0, 0, 0), {
-				name = name,
-				pos = { atX + (x0 + x1) / 2, capY, (z0 + z1) / 2 },
-				size = { w, WALL_CAP_THICKNESS, d },
-				color = if (iz + ix) % 2 == 0 then dark else light,
-				material = "Plastic",
-				studs = true,
-				canCollide = false,
-			})
-			tile.CanQuery = false
-		end
-	end
+		return z0, math.min(z0 + WALL_TILE, maxZ), dark, light, true
+	end)
 end
 
 --- The chain's far east end, where the last stage stops at open void: one straight
