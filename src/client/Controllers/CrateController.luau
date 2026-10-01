@@ -29,8 +29,10 @@
 	THE MESHES ARE PRELOADED BEFORE YOU OPEN ANYTHING. A nuke whose mesh this client has
 	never downloaded draws as nothing the first time it flicks past (the Clockwork and
 	Reactor nukes showed as an empty glow in testing). So the imported nuke templates
-	are warmed with ContentProvider once in the background after you join, and again
-	the moment you pick a crate up -- see preloadNukes.
+	are fetched from the server (they no longer replicate at join, Shared/ItemModels)
+	and warmed with ContentProvider the moment you pick a crate up -- see
+	preloadNukes. A reel entry drawn before its model lands is swapped for the real
+	one on the next tick it shows (`cached`).
 
 	All sizes are 1280x720 design pixels on UIKit.canvas (hud-scale-canvas).
 ]]
@@ -176,7 +178,7 @@ end
 
 --- One model ready for the viewport: centred on the origin (`home`), with the camera
 --- that frames it.
-type Framed = { model: Model, home: CFrame, camera: CFrame }
+type Framed = { model: Model, home: CFrame, camera: CFrame, placeholder: boolean? }
 
 --- Where idle cached models wait, well out of the camera's view.
 local PARKED = CFrame.new(0, -1000, 0)
@@ -248,8 +250,14 @@ end
 local function cached(itemId: string, rarity: string?): Framed
 	ui.cache = ui.cache or {}
 	local framed = ui.cache[itemId]
+	if framed and framed.placeholder and ItemModels.ready(itemId) then
+		framed.model:Destroy()
+		framed = nil
+	end
 	if framed == nil then
+		local placeholder = not ItemModels.ready(itemId)
 		framed = frame(prizeModel(itemId, rarity or "Common"))
+		framed.placeholder = placeholder
 		ui.cache[itemId] = framed
 	end
 	return framed
@@ -762,23 +770,38 @@ end
 
 --- Seconds after joining before the background warm-up, so it never competes with
 --- the first things a player loads.
-local PRELOAD_DELAY = 20
-local preloaded = false
+local warmed: { [string]: boolean } = {}
 
---- Download every imported nuke mesh once, so no reel shows a blank. Idempotent and
---- non-blocking; the templates live in ReplicatedStorage.Assets (Shared/ItemModels).
-local function preloadNukes()
-	if preloaded then
+--- Fetch every nuke `crateId` can roll from the server (Shared/ItemModels) and
+--- download their meshes, so no reel shows a blank. Once per crate type, non-blocking.
+local function preloadNukes(crateId: string)
+	if warmed[crateId] then
 		return
 	end
-	preloaded = true
+	warmed[crateId] = true
+	local ids = {}
+	for itemId in Crates.nukeOdds(crateId) do
+		table.insert(ids, itemId)
+	end
+	if #ids == 0 then
+		return
+	end
+	ItemModels.request(ids)
 	task.spawn(function()
-		local assets = ReplicatedStorage:FindFirstChild("Assets")
-		local templates = assets and assets:FindFirstChild("ImportedNukeTemplates")
-		if templates then
-			pcall(function()
-				ContentProvider:PreloadAsync({ templates })
-			end)
+		local copies = {}
+		for _, itemId in ids do
+			if ItemModels.await(itemId, 10) then
+				local copy = ItemModels.create(Items.get(itemId).model, itemId)
+				if copy then
+					table.insert(copies, copy)
+				end
+			end
+		end
+		pcall(function()
+			ContentProvider:PreloadAsync(copies)
+		end)
+		for _, copy in copies do
+			copy:Destroy()
 		end
 	end)
 end
@@ -805,7 +828,7 @@ local function refreshPrompt(character: Model?)
 		return
 	end
 	-- A crate in hand is about to be opened: make sure the reel's nukes are loaded.
-	preloadNukes()
+	preloadNukes(crateId)
 	if prompt and prompt:GetAttribute("Uid") == uid and prompt.Parent and prompt.Parent:IsDescendantOf(held) then
 		return
 	end
@@ -865,8 +888,6 @@ end
 function CrateController.start()
 	openRemote = Net.get("CrateOpen")
 	Net.get("CrateOpened").OnClientEvent:Connect(play)
-
-	task.delay(PRELOAD_DELAY, preloadNukes)
 
 	local player = Players.LocalPlayer
 	if player.Character then

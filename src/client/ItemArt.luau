@@ -148,6 +148,24 @@ function ItemArt.paint(viewport: ViewportFrame, item: any, aspect: number)
 	local model = modelFor(item)
 	model.Parent = viewport
 	frameModel(viewport.CurrentCamera :: Camera, model, aspect)
+
+	-- Drawn as a placeholder because the server has not sent this nuke's model yet
+	-- (Shared/ItemModels): paint again when it lands, if the well still shows this item.
+	local itemId = item.itemId
+	if
+		item.identified
+		and type(itemId) == "string"
+		and Items.has(itemId)
+		and ItemModels.has(Items.get(itemId).model)
+		and not ItemModels.ready(itemId)
+	then
+		ItemModels.onArrived(itemId, function()
+			if viewport.Parent and viewport:GetAttribute("ArtKey") == key then
+				viewport:SetAttribute("ArtKey", nil)
+				ItemArt.paint(viewport, item, aspect)
+			end
+		end)
+	end
 end
 
 --- Empty `viewport`.

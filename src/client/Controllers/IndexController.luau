@@ -341,6 +341,14 @@ local function itemModel(itemId: string): Model
 	return model
 end
 
+--- `itemModel` drew a placeholder because the server has not sent this nuke yet
+--- (Shared/ItemModels): run `redraw` when it lands.
+local function redrawWhenArrived(itemId: string, redraw: () -> ())
+	if ItemModels.has(Items.get(itemId).model) and not ItemModels.ready(itemId) then
+		ItemModels.onArrived(itemId, redraw)
+	end
+end
+
 local function newViewport(parent: Instance, name: string): ViewportFrame
 	local viewport = Instance.new("ViewportFrame")
 	viewport.Name = name
@@ -1066,6 +1074,12 @@ local function renderHeader()
 		local model = itemModel(itemId)
 		model.Parent = viewport
 		frameStill(viewport.CurrentCamera :: Camera, model, 1)
+		redrawWhenArrived(itemId, function()
+			if ui.recordArt:GetAttribute("ItemId") == itemId then
+				ui.recordArt:SetAttribute("ItemId", nil)
+				renderHeader()
+			end
+		end)
 	end
 end
 
@@ -1218,6 +1232,15 @@ local function buildCard(item: any, order: number)
 	local model = itemModel(item.id)
 	model.Parent = viewport
 	frameStill(viewport.CurrentCamera :: Camera, model, 1)
+	redrawWhenArrived(item.id, function()
+		if viewport.Parent == nil then
+			return
+		end
+		model:Destroy()
+		local fresh = itemModel(item.id)
+		fresh.Parent = viewport
+		frameStill(viewport.CurrentCamera :: Camera, fresh, 1)
+	end)
 
 	text(card, {
 		name = "ItemName",
@@ -1277,6 +1300,12 @@ local function renderGrid(list: { any })
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = ui.grid
 
+	-- One request for the whole page instead of one per card.
+	local ids = {}
+	for _, item in list do
+		table.insert(ids, item.id)
+	end
+	ItemModels.request(ids)
 	for i, item in list do
 		buildCard(item, i)
 	end
@@ -1333,6 +1362,12 @@ local function setSpinModel(itemId: string?, found: boolean)
 	spin.center = frameSpin(d.viewport.CurrentCamera :: Camera, model, (DETAIL_W - 24) / ART_H)
 	spin.yaw = 0
 	spin.model = model
+	redrawWhenArrived(itemId, function()
+		if spin.key == key then
+			spin.key = nil
+			setSpinModel(itemId, found)
+		end
+	end)
 end
 
 local function renderDetail()

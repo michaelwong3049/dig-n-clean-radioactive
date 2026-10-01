@@ -148,6 +148,17 @@ local function play(machine: Model)
 	end
 	local rest = core:GetAttribute("RestSize") :: Vector3
 
+	-- A merge someone else watched may name a nuke this client has never drawn: give
+	-- the server a moment to send its model (Shared/ItemModels) rather than show
+	-- empty hoppers. A newer merge started meanwhile wins.
+	local seq = machine:GetAttribute("MergeSeq")
+	if not ItemModels.ready(itemId) and Items.has(itemId) and ItemModels.has(Items.get(itemId).model) then
+		ItemModels.await(itemId, 1.5)
+		if machine:GetAttribute("MergeSeq") ~= seq then
+			return
+		end
+	end
+
 	local show: Show = { token = (machine:GetAttribute("MergeSeq") :: number?) or 0, bits = {}, conns = {} }
 	shows[machine] = show
 	local function alive(): boolean

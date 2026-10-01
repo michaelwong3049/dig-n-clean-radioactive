@@ -140,8 +140,13 @@ function Spec.run(): boolean
 		for _, item in Items.DEFS do
 			byId[item.id] = item
 		end
-		local templates = game:GetService("ReplicatedStorage"):FindFirstChild("Assets")
-		templates = templates and templates:FindFirstChild("ImportedNukeTemplates")
+		-- ServerStorage once the server has booted (Services/ModelCacheService),
+		-- ReplicatedStorage.Assets as the place is saved.
+		local templates = game:GetService("ServerStorage"):FindFirstChild("ImportedNukeTemplates")
+		if templates == nil then
+			templates = game:GetService("ReplicatedStorage"):FindFirstChild("Assets")
+			templates = templates and templates:FindFirstChild("ImportedNukeTemplates")
+		end
 
 		for itemId, def in ItemFxConfig.DEFS do
 			local item = byId[itemId]
