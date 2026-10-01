@@ -267,8 +267,8 @@ local function stateFor(player: Player, data: any): any
 		held = data.liquids[stats.liquidId] or 0,
 		cooldown = LiquidService.cooldownLeft(player),
 		luck = Gear.luckMultiplier(level),
-		-- What `roll()` actually sees: bought luck times any boost. The panel prices
-		-- its "next +0.1x" jackpot line off this so the odds it shows are the real ones.
+		-- What `roll()` actually sees: bought luck times any boost. The panel shows
+		-- its jackpot odds off this so the odds it shows are the real ones.
 		rollLuck = stats.luckMultiplier,
 		luckLevel = level,
 		luckPrice = Gear.luckPrice(level),

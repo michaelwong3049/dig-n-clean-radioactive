@@ -1366,7 +1366,7 @@ function Spec.run(): boolean
 	-- well into the button notices they stopped seeing Stardust.
 	--
 	-- LUCK HAS NO CEILING ANY MORE (Config/Gear.luau's header) — every purchase is a
-	-- flat +0.1x forever, at a compounding price. 8.0x is not a real cap; it is the
+	-- flat +Gear.LUCK_STEP forever, at a compounding price. 8.0x is not a real cap; it is the
 	-- old seven-tier ladder's top rung, kept here as a fixed, well-understood
 	-- reference point so the invariants below (and the numbers in their own
 	-- descriptions, like "12.5%" and "28.5x") keep meaning the same thing across a

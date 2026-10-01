@@ -162,7 +162,7 @@ function TuningReport.run()
 	local Liquids = require(Config.Liquids)
 
 	-- Luck no longer has fixed tiers (Config/Gear.luau's luckMultiplier is
-	-- continuous, +0.1x per purchase, no ceiling) -- these are reporting checkpoints
+	-- continuous, +Gear.LUCK_STEP per purchase, no ceiling) -- these are reporting checkpoints
 	-- only, kept at the old seven-rung ladder's own values so this table's shape and
 	-- the story it tells don't change out from under whoever reads it.
 	local CHECKPOINTS = { 1.0, 1.5, 2.2, 3.1, 4.3, 6.0, 8.0 }

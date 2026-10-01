@@ -28,10 +28,11 @@
 	THE FLUID PANEL. Walk up to your own bottle and press E ("View") and it slides in to
 	the right of centre:
 	the loaded fluid (a bottle filled to what is left, its tier, name, washes and
-	stats), a BREW button that counts down the cooldown, and the Luck upgrade with what
-	the next +0.1x does to the jackpot's odds (worked out from FluidState's `rollLuck`,
-	the same number the server rolls with). Both buttons send FluidAction; the server
-	checks you are at your bottle. The panel steps aside while a brew is playing.
+	stats, each with a hover explanation), a BREW button that counts down the cooldown,
+	and the Luck UPGRADE with its price and the jackpot's odds now (worked out from
+	FluidState's `rollLuck`, the same number the server rolls with). Both buttons send
+	FluidAction; the server checks you are at your bottle. The panel steps aside while
+	a brew is playing.
 
 	All sizes are 1280x720 design pixels on UIKit.canvas (hud-scale-canvas).
 ]]
@@ -46,7 +47,6 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage.Shared
 local Liquids = require(Shared.Config.Liquids)
 local Rarity = require(Shared.Config.Rarity)
-local Gear = require(Shared.Config.Gear)
 local Tuning = require(Shared.Config.Tuning)
 local Crates = require(Shared.Config.Crates)
 local Net = require(Shared.Net)
@@ -177,26 +177,58 @@ local function chipRow(parent: Instance, name: string, size: UDim2, position: UD
 	return row
 end
 
---- Refill a chip row with a fluid's stats: how fast it scrubs, what it pays, and the
---- potency bonus when it has one. Returns the chips in order, for the reveal's pop-in.
-local function fillChips(row: Frame, def: any, textSize: number, height: number): { Frame }
+--- Refill a chip row with a fluid's stats: how fast it scrubs, and the potency bonus
+--- when it has one. Returns the chips in order, for the reveal's pop-in. `hover`, when
+--- given, is called with a chip and its one-line explanation as the mouse enters it,
+--- and with nil as it leaves -- the panel's tooltip.
+---
+--- NO PAY CHIP. `xpMult` only ever fed data.xp, which nothing spends; a chip selling
+--- a bonus that does nothing was removed on request.
+local function fillChips(row: Frame, def: any, textSize: number, height: number, hover: ((Frame, string?) -> ())?): { Frame }
 	for _, child in row:GetChildren() do
 		if child:IsA("Frame") then
 			child:Destroy()
 		end
 	end
 	local specs = {
-		{ text = string.format("SCRUB x%.2f", def.rateMult), hot = false },
-		{ text = string.format("PAY x%.2f", def.xpMult), hot = false },
+		{
+			text = string.format("SCRUB x%.2f", def.rateMult),
+			tip = string.format("Scrub: crust soaks off x%.2f as fast in your tub.", def.rateMult),
+			hot = false,
+		},
 	}
 	if def.potency > 0 then
-		table.insert(specs, { text = `+{def.potency} CRACK`, hot = true })
+		table.insert(specs, {
+			text = `+{def.potency} CRACK`,
+			tip = `Crack: +{def.potency} hose power. Crust tougher than your hose comes off far faster.`,
+			hot = true,
+		})
 	end
 	local made = {}
 	for index, spec in specs do
 		local chip = pill(row, `Chip{index}`, spec.text, textSize, height, CHIP_FILL, if spec.hot then HOT_TEXT else UIKit.C.text)
 		chip.LayoutOrder = index
 		outline(chip, if spec.hot then HOT_STROKE else CHIP_STROKE, 2)
+		if hover then
+			chip.Active = true
+			chip.MouseEnter:Connect(function()
+				hover(chip, spec.tip)
+			end)
+			chip.MouseLeave:Connect(function()
+				hover(chip, nil)
+			end)
+			-- Touch has no hover: a tap (or click) shows the same line.
+			chip.InputBegan:Connect(function(input)
+				local kind = input.UserInputType
+				if kind == Enum.UserInputType.Touch or kind == Enum.UserInputType.MouseButton1 then
+					hover(chip, spec.tip)
+				end
+				if kind == Enum.UserInputType.Touch then
+					-- No MouseLeave on a finger, so a tapped line goes away by itself.
+					task.delay(3, hover, chip, nil)
+				end
+			end)
+		end
 		table.insert(made, chip)
 	end
 	return made
@@ -956,6 +988,10 @@ end
 --- enough that the wash spot on the far side of the tub (~8 studs away) never opens it.
 local PANEL_REACH = 6.5
 local PANEL_W, PANEL_H = 330, 362
+--- The whole card drawn this much bigger than its design size, on request.
+local PANEL_SCALE = 1.15
+--- The BREW key's flame: the image id behind Creator Store decal 10656056859.
+local FLAME_IMAGE = "rbxassetid://10656056841"
 --- The panel's bottle icon: its scale and the fluid's height at empty and full.
 local ICON_SCALE = 1.4
 local FILL_EMPTY, FILL_FULL = 0.12, 0.78
@@ -1139,22 +1175,27 @@ local function buildPanelBrew(card: Frame)
 	):Play()
 	panel.sheen = sheen
 
-	local flame = plainFrame(brew, "Flame", UDim2.fromOffset(20, 28), UDim2.new(0.5, -64, 0.5, 0), Vector2.new(0.5, 0.5))
+	-- A real cartoon flame picture (Creator Store "Cartoon fire icon", decal 10656056859)
+	-- in place of the two stacked blobs, on request; it flickers while BREW is ready.
+	local flame = Instance.new("ImageLabel")
+	flame.Name = "Flame"
+	flame.BackgroundTransparency = 1
+	flame.Image = FLAME_IMAGE
+	flame.ScaleType = Enum.ScaleType.Fit
+	flame.Size = UDim2.fromOffset(34, 34)
+	flame.Position = UDim2.new(0.5, -62, 0.5, -1)
+	flame.AnchorPoint = Vector2.new(0.5, 0.5)
 	flame.ZIndex = 4
-	for index, spec in { { 18, 26, "FF7A1A" }, { 9, 13, "FFE08A" } } do
-		local blob = Instance.new("Frame")
-		blob.Name = `Blob{index}`
-		blob.BorderSizePixel = 0
-		blob.BackgroundColor3 = Color3.fromHex(spec[3])
-		blob.Size = UDim2.fromOffset(spec[1], spec[2])
-		blob.Position = UDim2.fromScale(0.5, 1)
-		blob.AnchorPoint = Vector2.new(0.5, 1)
-		blob.ZIndex = index
-		blob.Parent = flame
-		round(blob, UDim.new(0.5, 0))
-		outline(blob, UIKit.C.outline, if index == 1 then 2 else 0)
-	end
+	flame.Parent = brew
 	panel.flame = flame
+	RunService.RenderStepped:Connect(function()
+		if flame.Visible and panel.card and panel.card.Visible then
+			local t = os.clock()
+			flame.Rotation = math.sin(t * 7) * 6
+			local s = 34 + math.sin(t * 11) * 2
+			flame.Size = UDim2.fromOffset(s, s)
+		end
+	end)
 
 	local fill = Instance.new("Frame")
 	fill.Name = "Cooldown"
@@ -1213,16 +1254,6 @@ local function buildPanelLuck(card: Frame)
 	local jackpotFit = Instance.new("UITextSizeConstraint")
 	jackpotFit.MaxTextSize = UIKit.TextSize.caption - 1
 	jackpotFit.Parent = panel.jackpot
-	panel.jackpotNext = UIKit.label(card, {
-		name = "JackpotNext",
-		size = UDim2.fromOffset(180, 16),
-		position = UDim2.fromOffset(16, 316),
-		text = "",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption - 1,
-		color = UIKit.C.dim,
-	})
-
 	local upgrade = UIKit.button(card, {
 		name = "Upgrade",
 		size = UDim2.fromOffset(116, 52),
@@ -1237,13 +1268,13 @@ local function buildPanelLuck(card: Frame)
 	upgrade.Activated:Connect(function()
 		send("luck")
 	end)
-	panel.upStep = UIKit.label(upgrade, {
+	UIKit.label(upgrade, {
 		name = "Step",
 		size = UDim2.new(1, 0, 0, 24),
 		position = UDim2.fromOffset(0, 5),
-		text = "+0.1x",
+		text = "Upgrade",
 		font = UIKit.Font.hero,
-		textSize = UIKit.TextSize.header,
+		textSize = UIKit.TextSize.body + 2,
 		xAlign = Enum.TextXAlignment.Center,
 		shadow = false,
 	})
@@ -1253,7 +1284,7 @@ local function buildPanelLuck(card: Frame)
 		position = UDim2.fromOffset(0, 28),
 		text = "$0",
 		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.caption,
+		textSize = UIKit.TextSize.body,
 		color = Color3.fromHex("CFE3FF"),
 		xAlign = Enum.TextXAlignment.Center,
 		shadow = false,
@@ -1269,6 +1300,47 @@ local function buildPanelLuck(card: Frame)
 		color = UIKit.C.amber,
 		xAlign = Enum.TextXAlignment.Center,
 	})
+end
+
+--- The stat chips' hover explanation: a dark slip just under the chip row, over the
+--- top of the BREW key, shown while the mouse is on a chip (fillChips' `hover`).
+local function buildPanelTip(card: Frame)
+	local tip = UIKit.panel(card, {
+		name = "Tip",
+		size = UDim2.new(1, -32, 0, 40),
+		position = UDim2.fromOffset(16, 180),
+		color = Color3.fromHex("0B0E09"),
+		transparency = 0.05,
+		cornerRadius = UDim.new(0, 10),
+		strokeColor = CHIP_STROKE,
+		strokeThickness = 2,
+		visible = false,
+	})
+	tip.ZIndex = 20
+	local text = UIKit.label(tip, {
+		name = "Text",
+		size = UDim2.new(1, -16, 1, -6),
+		position = UDim2.fromOffset(8, 3),
+		text = "",
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.caption,
+		shadow = false,
+	})
+	text.TextWrapped = true
+	text.ZIndex = 21
+	panel.tip = tip
+	panel.tipText = text
+end
+
+--- fillChips' hover for the panel's row: show the chip's line, or hide on leave.
+local function chipHover(_chip: Frame, line: string?)
+	if panel.tip == nil then
+		return
+	end
+	panel.tip.Visible = line ~= nil
+	if line then
+		panel.tipText.Text = line
+	end
 end
 
 local function buildPanel()
@@ -1311,6 +1383,7 @@ local function buildPanel()
 	buildPanelFluid(card)
 	buildPanelBrew(card)
 	buildPanelLuck(card)
+	buildPanelTip(card)
 end
 
 --- Paint everything except the countdown from the last FluidState.
@@ -1338,29 +1411,20 @@ local function paintState()
 	panel.fluid.Size = UDim2.new(1, -8 * ICON_SCALE, FILL_EMPTY + (FILL_FULL - FILL_EMPTY) * full, 0)
 	panel.washFill.BackgroundColor3 = colour
 	panel.washFill.Size = UDim2.fromScale(math.max(full, 0.04), 1)
-	panel.left.Text = if water
-		then "brew for better"
-		elseif Tuning.LIQUID_INFINITE then ""
-		elseif held == 1 then "1 wash left"
-		else `{held} washes left`
-	fillChips(panel.chips, def, UIKit.TextSize.body, 28)
+	panel.left.Text = if water or Tuning.LIQUID_INFINITE then "" elseif held == 1 then "1 wash left" else `{held} washes left`
+	panel.tip.Visible = false
+	fillChips(panel.chips, def, UIKit.TextSize.body, 28, chipHover)
 
 	local luck = tonumber(state.luck) or 1
-	local level = tonumber(state.luckLevel) or 1
-	local nextLuck = Gear.luckMultiplier(level + 1)
-	panel.luck.Text = string.format("LUCK %.1fx", luck)
+	panel.luck.Text = string.format("LUCK %gx", luck)
 	local boost = tonumber(state.boost) or 1
 	panel.boost.Text = if boost > 1 then string.format("x%g BOOST", boost) else ""
 
-	-- The jackpot's odds at the luck the server actually rolls with, and after one
-	-- more purchase (bought luck scales, any boost rides along unchanged).
+	-- The jackpot's odds at the luck the server actually rolls with.
 	local rollLuck = tonumber(state.rollLuck) or luck
 	local jackpot = Liquids.ORDER[#Liquids.ORDER]
 	local now = Liquids.oddsAt(rollLuck)[jackpot] or 0
-	local after = Liquids.oddsAt(rollLuck * nextLuck / luck)[jackpot] or 0
 	panel.jackpot.Text = `{Liquids.get(jackpot).name} {oneIn(now)}`
-	panel.jackpotNext.Text = `next +{string.format("%.1f", nextLuck - luck)}x: {oneIn(after)}`
-	panel.upStep.Text = string.format("+%.1fx", nextLuck - luck)
 	panel.upPrice.Text = formatCash(tonumber(state.luckPrice) or 0)
 end
 
@@ -1402,8 +1466,10 @@ local function setOpen(open: boolean)
 	end
 	panel.card.Visible = open
 	if open then
-		panel.scale.Scale = 0.9
-		tween(panel.scale, 0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
+		panel.scale.Scale = 0.9 * PANEL_SCALE
+		tween(panel.scale, 0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = PANEL_SCALE })
+	else
+		panel.tip.Visible = false
 	end
 end
 
