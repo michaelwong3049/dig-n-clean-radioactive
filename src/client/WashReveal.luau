@@ -129,6 +129,7 @@ type Show = {
 	ring: Frame,
 	ringStroke: UIStroke,
 	valueLabel: TextLabel?,
+	rainbowName: TextLabel?,
 	spot: Part,
 	dof: DepthOfFieldEffect,
 	beats: { Beat },
@@ -474,7 +475,8 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		font = UIKit.Font.hero,
 		textSize = 78,
 		xAlign = Enum.TextXAlignment.Center,
-		color = Color3.new(1, 1, 1),
+		-- In its rarity's colour; an Anomaly's cycles the spectrum (drive).
+		color = colour,
 		visible = false,
 	})
 	local nameScale = scaler(name)
@@ -699,6 +701,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		ring = ring,
 		ringStroke = ringStroke,
 		valueLabel = valueLabel,
+		rainbowName = if found.rarity == "Anomaly" then name else nil,
 		spot = spot,
 		dof = dof,
 		beats = beats,
@@ -779,6 +782,11 @@ function WashReveal.drive(camera: Camera, eye: Vector3, center: Vector3)
 			beat.done = true
 			beat.run()
 		end
+	end
+
+	local rainbowName = current.rainbowName
+	if rainbowName then
+		rainbowName.TextColor3 = Rarity.anomalyHue(os.clock() / Rarity.ANOMALY_CYCLE)
 	end
 
 	local valueLabel = current.valueLabel
