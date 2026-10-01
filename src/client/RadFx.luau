@@ -353,8 +353,9 @@ local function layout()
 	px = size.Y / 720
 
 	-- 1.4x native at 720 tall (about 540 px at 1080p): every hit is a crisp 2-3 px,
-	-- whatever the resolution.
-	local tile = math.round(RadFxArt.SNOW_TILE * px * 1.4)
+	-- whatever the resolution. Floored because Studio can report a 1x1 viewport on
+	-- load, which rounds the tile to 0 and Roblox refuses a zero TileSize.
+	local tile = math.max(16, math.round(RadFxArt.SNOW_TILE * px * 1.4))
 	for _, label in snows do
 		label.TileSize = UDim2.fromOffset(tile, tile)
 		label.Size = UDim2.new(1, tile, 1, tile)
