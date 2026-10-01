@@ -114,6 +114,14 @@ local STAMP_SPOTS = {
 	{ x = 90, y = 0.35, rotation = -12, textSize = 35 },
 	{ x = 115, y = 0.5, rotation = 7, textSize = 29 },
 }
+-- An announced drop (Config/RareDrop) can carry 3 or 4 buffs: a tighter pile that
+-- starts higher, so the last one still clears the name at 0.69.
+local STAMP_SPOTS_STACKED = {
+	{ x = 90, y = 0.25, rotation = -12, textSize = 33 },
+	{ x = 115, y = 0.35, rotation = 7, textSize = 30 },
+	{ x = 95, y = 0.45, rotation = -8, textSize = 28 },
+	{ x = 120, y = 0.55, rotation = 6, textSize = 27 },
+}
 
 type Beat = { at: number, run: () -> (), done: boolean }
 
@@ -176,16 +184,17 @@ end
 
 type StampSpec = { text: string, colour: Color3, mult: number }
 
---- What gets stamped on this find, in slam order: its quality, then its size roll.
---- Either can be missing; a plain find gets no stamps at all.
+--- What gets stamped on this find, in slam order: its qualities (an announced drop
+--- can stack several, Rarity.qualities), then its size roll. Any can be missing; a
+--- plain find gets no stamps at all.
 local function stampsFor(found: any): { StampSpec }
 	local stamps: { StampSpec } = {}
-	local modifier = found.modifier
-	if type(modifier) == "string" and modifier ~= "None" then
-		local def = Rarity.MODIFIERS[modifier]
+	local modifier = if type(found.modifier) == "string" then found.modifier else nil
+	for _, quality in Rarity.qualities(modifier, found.bonus) do
+		local def = Rarity.MODIFIERS[quality]
 		table.insert(stamps, {
-			text = string.upper((string.gsub(modifier, "(%l)(%u)", "%1 %2"))),
-			colour = MODIFIER_COLOR[modifier] or UIKit.C.text,
+			text = string.upper((string.gsub(quality, "(%l)(%u)", "%1 %2"))),
+			colour = MODIFIER_COLOR[quality] or UIKit.C.text,
 			mult = if def then def.valueMult else 1,
 		})
 	end
@@ -514,7 +523,8 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		text = Rarity.starText(
 			found.rarity,
 			found.modifier,
-			if type(found.uid) == "string" then Payload.forUid(found.uid) else nil
+			if type(found.uid) == "string" then Payload.forUid(found.uid) else nil,
+			found.bonus
 		),
 		font = UIKit.Font.hero,
 		textSize = 26,
@@ -541,8 +551,10 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 
 	-- THE STAMPS, built now and slammed down by the beats below once the words are in.
 	local stamps: { { frame: Frame, scale: UIScale } } = {}
-	for index, spec in stampsFor(found) do
-		local spot = STAMP_SPOTS[index]
+	local specs = stampsFor(found)
+	local spots = if #specs > #STAMP_SPOTS then STAMP_SPOTS_STACKED else STAMP_SPOTS
+	for index, spec in specs do
+		local spot = spots[index]
 		if spot then
 			local frame, scale = stamp(canvas, spec, spot)
 			table.insert(stamps, { frame = frame, scale = scale })
@@ -674,7 +686,8 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 	}
 	for index, placed in stamps do
 		table.insert(beats, {
-			at = if index == 1 then T.STAMP_AT else T.SECOND_STAMP_AT,
+			-- One every (SECOND - FIRST) seconds: a stacked drop's 3rd and 4th keep the beat.
+			at = T.STAMP_AT + (index - 1) * (T.SECOND_STAMP_AT - T.STAMP_AT),
 			done = false,
 			-- Comes down from big, like it was brought down on the nuke from the camera.
 			run = function()

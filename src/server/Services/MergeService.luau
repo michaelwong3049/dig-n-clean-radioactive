@@ -32,6 +32,7 @@ local Shared = ReplicatedStorage.Shared
 local Items = require(Shared.Config.Items)
 local Merge = require(Shared.Config.Merge)
 local Payload = require(Shared.Config.Payload)
+local Rarity = require(Shared.Config.Rarity)
 local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
@@ -199,8 +200,24 @@ function MergeService.merge(player: Player, uids: any): (boolean, string)
 				removeUid(input.list, input.item.uid)
 			end
 		end
+		-- An announced drop's stacked qualities survive the merge: every quality of any
+		-- input that carried a `bonus`, best first, minus the one worn as `modifier`.
+		local stacked: { string } = {}
+		for _, input in inputs do
+			if input.item.bonus then
+				for _, quality in Rarity.qualities(input.item.modifier, input.item.bonus) do
+					if quality ~= modifier and not table.find(stacked, quality) then
+						table.insert(stacked, quality)
+					end
+				end
+			end
+		end
+		table.sort(stacked, function(a, b)
+			return Merge.modifierRank(a) < Merge.modifierRank(b)
+		end)
 		keep.uid = bigUid
 		keep.modifier = modifier
+		keep.bonus = if #stacked > 0 then stacked else nil
 		keep.merge = to
 		data.mergePity[itemId] = nil
 	else

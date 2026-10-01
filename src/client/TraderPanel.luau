@@ -107,7 +107,7 @@ end
 --- any Merge Reactor stars in their own colour. RichText.
 local function starText(item: any): string
 	local payload = if type(item.uid) == "string" then Payload.forUid(item.uid) else nil
-	local rating = Rarity.starText(item.rarity, item.modifier, payload)
+	local rating = Rarity.starText(item.rarity, item.modifier, payload, item.bonus)
 	local merged = if type(item.merge) == "number" then item.merge else 0
 	if merged <= 0 then
 		return rating

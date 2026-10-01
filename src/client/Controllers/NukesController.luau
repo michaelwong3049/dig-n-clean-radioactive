@@ -264,13 +264,14 @@ local rows: { [string]: Row } = {}
 
 --- The stand line under the name: stars, Merge Reactor stars, modifier.
 local function starLine(entry: any): string
-	local text = Rarity.starText(entry.rarity, entry.modifier, Payload.forUid(entry.uid))
+	local text = Rarity.starText(entry.rarity, entry.modifier, Payload.forUid(entry.uid), entry.bonus)
 	local merged = entry.merge or 0
 	if merged > 0 then
 		text ..= ` <font color="#{Merge.COLOR:ToHex()}">{Merge.text(merged)}</font>`
 	end
-	if entry.modifier and entry.modifier ~= "None" and entry.modifier ~= "" then
-		text ..= ` <font color="#{PANEL.dim:ToHex()}">{entry.modifier}</font>`
+	local qualities = Rarity.qualities(entry.modifier, entry.bonus)
+	if #qualities > 0 then
+		text ..= ` <font color="#{PANEL.dim:ToHex()}">{table.concat(qualities, " ")}</font>`
 	end
 	return text
 end

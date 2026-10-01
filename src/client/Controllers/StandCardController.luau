@@ -539,10 +539,12 @@ local function draw(card: Card)
 	end
 
 	local modifier = display:GetAttribute(A.modifier)
+	local bonus = Rarity.bonusFrom(display:GetAttribute(A.bonus))
 	local lit = Rarity.stars(
 		rarityId,
 		if type(modifier) == "string" then modifier else nil,
-		if type(payload) == "number" then payload else nil
+		if type(payload) == "number" then payload else nil,
+		bonus
 	)
 	local tiers = Rarity.MAX_STARS
 	-- Merge Reactor stars (Config/Merge) ride on the end of the row in their own colour,
@@ -613,6 +615,16 @@ local function draw(card: Card)
 	if modText then
 		local tint = MODIFIER_COLOR[modifier] or STYLE.foot
 		sticker(body, "ModifierSticker", modText, tint, bannerX + bannerW + L.tailTuck - 18, stickerY, L.stickerTilt)
+	end
+	-- An announced drop's stacked qualities: more stickers up the same tail, tilts
+	-- alternating so the pile reads as slapped on one by one.
+	for i, name in bonus or {} do
+		local label = modifierLabel(name)
+		if label then
+			local tilt = if i % 2 == 1 then -L.stickerTilt / 2 else L.stickerTilt
+			local y = stickerY - i * (L.stickerH + 2)
+			sticker(body, `BonusSticker{i}`, label, MODIFIER_COLOR[name] or STYLE.foot, bannerX + bannerW + L.tailTuck - 22, y, tilt)
+		end
 	end
 
 	-- The pill row: what it pays, and what it weighs.

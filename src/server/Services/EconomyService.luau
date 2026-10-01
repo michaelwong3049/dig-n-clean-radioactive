@@ -76,12 +76,11 @@ end
 --- What this item sells for right now, and whether it is clean.
 function EconomyService.valueOf(item: any, stats: any): (number, boolean)
 	local def = Items.get(item.itemId)
-	local mod = Rarity.MODIFIERS[item.modifier] or Rarity.MODIFIERS.None
 	local clean = Contamination.isClean(item.patches or {})
 	local retained = Decay.valueRetained(item, stats.fuseMult)
 
 	-- Heavier items are worth more (Config/Weight.valueMult). Rides ON TOP of the
-	-- authored baseValue exactly like mod.valueMult does — see Config/Items' header.
+	-- authored baseValue exactly like the quality valueMult does — see Config/Items' header.
 	--
 	-- Payload is this SPECIFIC dig's own random roll (Config/Payload), separate from
 	-- the item's intrinsic weight -- a 0.6x roll sells for 0.6x, a 2.5x "giga nuke"
@@ -89,7 +88,7 @@ function EconomyService.valueOf(item: any, stats: any): (number, boolean)
 	--
 	-- And the Merge Reactor's stars (Config/Merge), x1.5 each, stored on the copy.
 	local value = def.baseValue
-		* mod.valueMult
+		* Rarity.valueMult(item.modifier, item.bonus) -- every quality, stacked ones too
 		* Weight.valueMult(def.weight)
 		* Payload.forUid(item.uid)
 		* Merge.valueMult(Merge.levelOf(item))

@@ -109,7 +109,8 @@ function RareDropService.startDrop(stageId: number?, rarity: string?): string
 		return `stage {stage} stocks no items`
 	end
 
-	local uid = DigService.plantRareDrop(stage, itemId)
+	local buffs = RareDrop.rollBuffs(rng)
+	local uid = DigService.plantRareDrop(stage, itemId, buffs)
 	if uid == nil then
 		-- No open spot this time (crater rims). Try again shortly, not in 8 minutes.
 		nextAt = now() + 5
@@ -121,8 +122,11 @@ function RareDropService.startDrop(stageId: number?, rarity: string?): string
 	endsAt = now() + RareDrop.LIFETIME
 	ReplicatedStorage:SetAttribute(RareDrop.STAGE_ATTR, stage)
 	ReplicatedStorage:SetAttribute(RareDrop.RARITY_ATTR, buried)
+	local words = RareDrop.buffWords(buffs.size, buffs.qualities)
+	ReplicatedStorage:SetAttribute(RareDrop.BUFFS_ATTR, words)
+	-- Last: the client announces on ENDS_ATTR, so everything above is already there.
 	ReplicatedStorage:SetAttribute(RareDrop.ENDS_ATTR, endsAt)
-	local line = `{buried} drop ({itemId}) in stage {stage} {Stages.get(stage).name}, {RareDrop.LIFETIME}s`
+	local line = `{words} {buried} drop ({itemId}) in stage {stage} {Stages.get(stage).name}, {RareDrop.LIFETIME}s`
 	print(`[raredrop] {line}`)
 	return line
 end

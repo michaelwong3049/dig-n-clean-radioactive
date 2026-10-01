@@ -110,13 +110,14 @@ end
 
 local function ratingOf(item: any): number
 	local payload = if type(item.uid) == "string" then Payload.forUid(item.uid) else nil
-	return Rarity.stars(item.rarity, item.modifier, payload)
+	return Rarity.stars(item.rarity, item.modifier, payload, item.bonus)
 end
 
 --- The small line under a copy: its quality modifier, else its size sticker, else its size.
 local function detailOf(item: any): string
-	if item.modifier and item.modifier ~= "None" then
-		return item.modifier
+	local qualities = Rarity.qualities(item.modifier, item.bonus)
+	if #qualities > 0 then
+		return table.concat(qualities, " ")
 	end
 	local payload = if type(item.uid) == "string" then Payload.forUid(item.uid) else 1
 	return Payload.calloutFor(payload) or string.format("%.1fx", payload)

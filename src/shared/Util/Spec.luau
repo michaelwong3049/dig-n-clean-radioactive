@@ -37,6 +37,7 @@ local Payload = require(Config.Payload)
 local Treadmill = require(Config.Treadmill)
 local Floors = require(Config.Floors)
 local LuckBoost = require(Config.LuckBoost)
+local RareDrop = require(Config.RareDrop)
 local Crates = require(Config.Crates)
 local AuraLook = require(script.Parent.Parent.AuraLook)
 local Bag = require(script.Parent.Parent.Bag)
@@ -400,6 +401,40 @@ function Spec.run(): boolean
 			IndexProgress.bestKg(sample.id, { best = 0, count = 1, first = 0, new = false }) == nil
 		)
 	end
+
+	-- §raredrop buffs: an announced drop always carries 1..4 distinct buffs, its
+	-- qualities best first, and every size outcome is reachable inside Payload's band.
+	do
+		local rng = Random.new(7)
+		local ok, seen = true, {}
+		for _ = 1, 4000 do
+			local buffs = RareDrop.rollBuffs(rng)
+			local count = #buffs.qualities + (if buffs.size then 1 else 0)
+			seen[count] = true
+			if count < 1 or count > 4 then
+				ok = false
+			end
+			for i, name in buffs.qualities do
+				if Rarity.MODIFIERS[name] == nil or (i > 1 and Merge.modifierRank(buffs.qualities[i - 1]) >= Merge.modifierRank(name)) then
+					ok = false
+				end
+			end
+		end
+		check("§raredrop every drop rolls 1-4 distinct buffs, best quality first", ok and seen[1] and seen[2] and seen[3] and seen[4] or false)
+		local reach = true
+		for _, size in { "GIGA", "OVERSIZED" } do
+			local range = RareDrop.SIZE_RANGES[size]
+			if range.min >= Payload.MAX or Payload.calloutFor(range.min) ~= size then
+				reach = false
+			end
+		end
+		check("§raredrop each size buff lands on its own Payload callout", reach and Payload.calloutFor(RareDrop.SIZE_RANGES.plain.min) == nil)
+		check(
+			"§raredrop stacked qualities multiply (Pristine + Irradiated = x6)",
+			math.abs(Rarity.valueMult("Pristine", { "Irradiated" }) - 6) < 1e-9 and Rarity.valueMult("None", nil) == 1
+		)
+	end
+
 
 	-- Config/Payload — the per-DIG size/value roll, separate from Weight's per-item-
 	-- TYPE intrinsic. Pins: never outside its own band, deterministic per uid (the

@@ -97,6 +97,53 @@ Rarity.MODIFIERS = {
 	Slagged = { valueMult = 0.1, fuseMult = 1.0, emissionMult = 1.0, yieldMult = 0.0, needsCleaning = true, weight = 0 },
 }
 
+-- EXTRA QUALITIES. A copy's `modifier` is its one rolled quality; a server-announced
+-- drop (Config/RareDrop) can stack more on top, stored as `bonus` -- a list of
+-- MODIFIERS keys, best first. Every quality's valueMult multiplies into the value and
+-- each one nudges the stars; everything else (fuse, emission, crust) reads `modifier`
+-- alone. A record without `bonus` (every ordinary dig) behaves exactly as before.
+
+--- Every quality a copy carries, `modifier` first, "None" left out.
+function Rarity.qualities(modifier: string?, bonus: { string }?): { string }
+	local out = {}
+	if modifier and modifier ~= "" and modifier ~= "None" then
+		table.insert(out, modifier)
+	end
+	if type(bonus) == "table" then
+		for _, name in bonus do
+			if type(name) == "string" and name ~= "None" and not table.find(out, name) then
+				table.insert(out, name)
+			end
+		end
+	end
+	return out
+end
+
+--- The value multiplier of all a copy's qualities together, multiplied.
+function Rarity.valueMult(modifier: string?, bonus: { string }?): number
+	local mult = 1
+	for _, name in Rarity.qualities(modifier, bonus) do
+		mult *= (Rarity.MODIFIERS[name] or Rarity.MODIFIERS.None).valueMult
+	end
+	return mult
+end
+
+--- `bonus` as one attribute-safe string ("Irradiated,Fused"), nil when empty.
+function Rarity.bonusText(bonus: { string }?): string?
+	if type(bonus) ~= "table" or #bonus == 0 then
+		return nil
+	end
+	return table.concat(bonus, ",")
+end
+
+--- The reverse of bonusText, for an attribute read back on the client.
+function Rarity.bonusFrom(text: any): { string }?
+	if type(text) ~= "string" or text == "" then
+		return nil
+	end
+	return string.split(text, ",")
+end
+
 function Rarity.get(name: string): RarityDef
 	local def = Rarity.DEFS[name]
 	assert(def, `unknown rarity "{name}"`)
@@ -124,15 +171,18 @@ Rarity.STAR_SIZE = {
 	{ below = 0.8, stars = -1 },
 } :: { { min: number?, below: number?, stars: number } }
 
---- How many stars a find rates. `modifier` and `payload` are optional: leave them out
---- (a crate, a surface with no uid) and it is the plain rarity tier. 0 for an unknown
---- or missing rarity.
-function Rarity.stars(name: string?, modifier: string?, payload: number?): number
+--- How many stars a find rates. `modifier`, `payload` and `bonus` are optional: leave
+--- them out (a crate, a surface with no uid) and it is the plain rarity tier. 0 for an
+--- unknown or missing rarity.
+function Rarity.stars(name: string?, modifier: string?, payload: number?, bonus: { string }?): number
 	local def = if name then Rarity.DEFS[name] else nil
 	if def == nil then
 		return 0
 	end
-	local stars = def.order + (if modifier then Rarity.STAR_MODIFIER[modifier] or 0 else 0)
+	local stars = def.order
+	for _, quality in Rarity.qualities(modifier, bonus) do
+		stars += Rarity.STAR_MODIFIER[quality] or 0
+	end
 	if payload then
 		for _, band in Rarity.STAR_SIZE do
 			if (band.min and payload >= band.min) or (band.below and payload < band.below) then
@@ -146,8 +196,8 @@ end
 
 --- The star rating as text, one filled star each ("★★★★"). Empty for an unknown or
 --- missing rarity.
-function Rarity.starText(name: string?, modifier: string?, payload: number?): string
-	return string.rep("\u{2605}", Rarity.stars(name, modifier, payload))
+function Rarity.starText(name: string?, modifier: string?, payload: number?, bonus: { string }?): string
+	return string.rep("\u{2605}", Rarity.stars(name, modifier, payload, bonus))
 end
 
 function Rarity.byOrder(order: number): (string, RarityDef)
