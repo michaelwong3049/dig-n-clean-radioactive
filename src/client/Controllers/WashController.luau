@@ -347,6 +347,7 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local WashFluidBar = require(script.Parent.Parent.WashFluidBar)
 local WashReveal = require(script.Parent.Parent.WashReveal)
 local Sfx = require(script.Parent.Parent.Sfx)
+local WashWeakSpots = require(script.Parent.Parent.WashWeakSpots)
 
 local Wash = {}
 
@@ -1600,13 +1601,18 @@ end
 --- The ring and its four ticks. `locked` is "there is a patch under the sight", which
 --- is the single thing a player needs to know before they pull the trigger, and it is
 --- said in the same green the patch itself is wearing.
-local function paintReticle(dt: number, locked: boolean)
+local function paintReticle(dt: number, locked: boolean, crit: boolean?)
 	local sight = reticle
 	if sight == nil or not sight.Visible then
 		return
 	end
 
 	local goal = if locked then RETICLE_GAP_LOCKED else RETICLE_GAP_IDLE
+	-- ON A WEAK POINT the ticks pinch right in and the ring runs hot: this is the shot
+	-- the player is hunting for, and it has to read as different from an ordinary lock.
+	if crit then
+		goal -= 4
+	end
 	if spraying then
 		goal -= 2
 	end
@@ -1615,7 +1621,7 @@ local function paintReticle(dt: number, locked: boolean)
 	-- those reads as broken rather than as responsive.
 	reticleGap += (goal - reticleGap) * math.min(dt * RETICLE_EASE, 1)
 
-	local color = if locked then PATCH_GREEN else UIKit.C.text
+	local color = if crit then WashWeakSpots.CRIT elseif locked then PATCH_GREEN else UIKit.C.text
 	if reticleRing then
 		reticleRing.Color = color
 		reticleRing.Transparency = if locked then 0.05 else 0.35
@@ -2133,16 +2139,29 @@ local function onRender(dt: number)
 
 	local target = patchAt(landing, landingPart)
 
+	-- THE WEAK POINTS (Client/WashWeakSpots): drawn on the crust after the turntable has
+	-- turned, and checked against where the water lands. Water on a blister names that
+	-- blister's chunk outright -- it is sitting on the chunk's surface, so this only ever
+	-- disagrees with `patchAt` across the seam between two chunks.
+	local washItem = if stand then stand:FindFirstChild("WashItem") else nil
+	WashWeakSpots.update(state, washItem, spinPoint, dt)
+	local weakZone, weakId = WashWeakSpots.hit(landing)
+	if weakZone then
+		target = weakZone
+	end
+	local weakChanged = weakId ~= WashWeakSpots.aimed
+	WashWeakSpots.aimed = weakId
+
 	-- EVERY CRUSTED PATCH IS A LOCK NOW. The ring used to stay open on a patch past
 	-- this liquid's potency, because the server banked nothing for it; it banks a slow
 	-- trickle now (WashService.soakTarget), so the water IS shifting grime there, and
 	-- the slate-grey rock eroding at a crawl is what says how slowly.
-	paintReticle(dt, target ~= nil)
+	paintReticle(dt, target ~= nil, weakId ~= nil)
 
-	if target ~= aimedZone then
+	if target ~= aimedZone or weakChanged then
 		aimedZone = target
 		if inputRemote then
-			inputRemote:FireServer({ spraying = spraying, zone = aimedZone })
+			inputRemote:FireServer({ spraying = spraying, zone = aimedZone, weak = WashWeakSpots.aimed })
 		end
 	end
 end
@@ -2243,6 +2262,7 @@ local function teardown()
 
 	restoreNozzle()
 	closeTheStand()
+	WashWeakSpots.clear()
 	if folder then
 		folder:Destroy()
 		folder = nil
@@ -2333,6 +2353,7 @@ function Wash.start()
 		end
 		spraying = false
 		hideJet()
+		WashWeakSpots.clear()
 		if reticle then
 			reticle.Visible = false
 		end
@@ -2393,7 +2414,7 @@ function Wash.start()
 		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
 			spraying = true
-			inputRemote:FireServer({ spraying = true, zone = aimedZone })
+			inputRemote:FireServer({ spraying = true, zone = aimedZone, weak = WashWeakSpots.aimed })
 		end
 	end)
 
@@ -2401,7 +2422,7 @@ function Wash.start()
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then
 			spraying = false
 			if state ~= nil then
-				inputRemote:FireServer({ spraying = false, zone = aimedZone })
+				inputRemote:FireServer({ spraying = false, zone = aimedZone, weak = WashWeakSpots.aimed })
 			end
 		end
 		if input.KeyCode == Enum.KeyCode.Thumbstick2 then

@@ -217,6 +217,17 @@ type Session = {
 	-- straight back in `push` as `targetZone`; `workedIndex` is what turns it into the
 	-- array index the clock is allowed to run against.
 	aimZone: number?,
+	-- WHICH WEAK POINT the client says the water is on (its id, as sent in `push`), or
+	-- nil. Only counts when it names the live blister on `aimZone`'s own chunk.
+	aimWeak: number?,
+	-- ONE BLISTER PER ZONE (Tuning.WASH_WEAK_*). `dir` is a world direction off the
+	-- chunk's anchor at the pose the item was placed in -- the client spins it round the
+	-- turntable the same way it spins the anchor. `on` is seconds of water this blister
+	-- has taken toward popping; `readyAt` holds a freshly rolled one back while it grows.
+	weak: { [number]: { id: number, dir: Vector3, on: number, readyAt: number } },
+	weakSerial: number,
+	-- The item's pivot as placed: what a chunk's outward direction is measured from.
+	centre: Vector3,
 	-- SECONDS OF WATER EACH ZONE HAS TAKEN, banked by zone id so it survives both the
 	-- player looking away and every other patch clearing out from under the array.
 	-- There is no single `elapsed`/`target` pair any more: the old one belonged to a
@@ -560,6 +571,23 @@ end
 --- potency here; it no longer is, because that patch now costs its steep overmatch
 --- price on the server's own clock (`soakTarget`), and naming the slow chunk buys the
 --- client nothing but a slow chunk.
+--- Grow a fresh weak point on a zone's chunk: a new id (so a client still reporting the
+--- old one banks nothing extra) and a new spot, scattered off the chunk's outward side.
+--- Tipped away from straight down -- the rack is under the item and the player looks
+--- down onto it, so a blister on the underside is one nobody can reach.
+local weakRng = Random.new()
+local function rollWeak(session: Session, zoneId: number, delay: number)
+	local anchor = session.zoneAnchor[zoneId]
+	local outward = if anchor then anchor - session.centre else Vector3.zero
+	outward = if outward.Magnitude > 1e-3 then outward.Unit else Vector3.xAxis
+	local scatter = Vector3.new(weakRng:NextNumber(-1, 1), weakRng:NextNumber(-1, 1), weakRng:NextNumber(-1, 1))
+	local dir = outward + scatter * 0.75
+	dir = Vector3.new(dir.X, math.max(dir.Y, -0.15), dir.Z)
+	dir = if dir.Magnitude > 1e-3 then dir.Unit else outward
+	session.weakSerial += 1
+	session.weak[zoneId] = { id = session.weakSerial, dir = dir, on = 0, readyAt = os.clock() + delay }
+end
+
 local function workedIndex(session: Session, item: any): number?
 	if session.aimZone == nil then
 		return nil
@@ -611,12 +639,16 @@ local function push(player: Player, session: Session?, data: any)
 		-- this chunk has over the stream. It still takes water; it just erodes on a clock
 		-- stretched per point (soakTarget), and the rock is drawn tougher to say so.
 		local overmatch = Contamination.overmatch(hardness, stats.effectivePotency)
+		-- THE BLISTER, only once it has grown back: nil while a popped one is respawning,
+		-- so the client has nothing to draw and nothing to aim at for that beat.
+		local weak = session.weak[zoneId]
 		table.insert(patches, {
 			zone = zoneId,
 			hardness = hardness,
 			overmatch = overmatch,
 			anchor = session.zoneAnchor[zoneId],
 			soak = soak,
+			weak = if weak and os.clock() >= weak.readyAt then { id = weak.id, dir = weak.dir } else nil,
 		})
 
 		-- EVERY CHUNK ERODES ON ITS OWN BANK, not just the one under the stream. Guarded
@@ -890,6 +922,10 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		hose = nil,
 		spraying = false,
 		aimZone = nil,
+		aimWeak = nil,
+		weak = {},
+		weakSerial = 0,
+		centre = stand.Position,
 		soaked = {},
 		painted = {},
 		walled = {},
@@ -907,8 +943,12 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 	-- is nothing left to prime here.
 	local model, zones, anchors, lumpRadius, lumpSlide, lumpHeight = placeOnStand(stand, item)
 	session.model, session.zones, session.zoneAnchor = model, zones, anchors
+	-- The crust's own box centre: the anchors were spiralled out from the item's box, and
+	-- the crust round it is near enough symmetric that this lands on the same point.
+	session.centre = model:GetBoundingBox().Position
 	for i = 1, #patches do
 		session.zoneIds[i] = i
+		rollWeak(session, i, 0)
 	end
 
 	session.hose = stationHose(session.station)
@@ -963,9 +1003,9 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		local rescue = Liquids.cheapestWithPotency(blocked - stats.cleanPotency)
 		local hose = CarryService.hoseNameFor(blocked)
 		if rescue then
-			return true, `tough crust \u{2014} slow going. {rescue.name} or the {hose} strips it fast`
+			return true, `tough crust \u{2014} blast the green weak points, or {rescue.name} / the {hose} strips it fast`
 		end
-		return true, `tough crust \u{2014} slow going. The {hose} strips it fast`
+		return true, `tough crust \u{2014} blast the green weak points, or the {hose} strips it fast`
 	end
 	return true, `washing with {Liquids.get(stats.liquidId).name}`
 end
@@ -1032,7 +1072,24 @@ local function stepPlayer(player: Player, dt: number)
 			-- away would make the only viable technique "stare at one spot and never
 			-- move". You still have to put the seconds into every area — the total work is
 			-- identical — you just get to put them in in whatever order you like.
-			local soaked = (session.soaked[zoneId] or 0) + dt
+			-- ON THE BLISTER, the second is worth more (Contamination.weakGain): only the
+			-- live one on THIS chunk counts, named by the id this server rolled, so a client
+			-- reporting a stale or made-up id just gets the plain soak.
+			local gain = 1
+			local weak = session.weak[zoneId]
+			if weak and session.aimWeak == weak.id and os.clock() >= weak.readyAt then
+				gain = Contamination.weakGain(hardness, stats.effectivePotency)
+				weak.on += dt
+				if weak.on >= Tuning.WASH_WEAK_POP then
+					-- POPPED: a last burst of blister-rate soak, then a new one grows elsewhere
+					-- on the chunk. The client sees the id change and bursts the old one.
+					session.soaked[zoneId] = (session.soaked[zoneId] or 0) + Tuning.WASH_WEAK_BURST * gain
+					rollWeak(session, zoneId, Tuning.WASH_WEAK_RESPAWN)
+					session.aimWeak = nil
+				end
+			end
+
+			local soaked = (session.soaked[zoneId] or 0) + dt * gain
 			session.soaked[zoneId] = soaked
 
 			if soaked >= soakTarget(hardness, stats) then
@@ -1077,6 +1134,8 @@ local function stepPlayer(player: Player, dt: number)
 					-- writes for a zone that no longer exists, which is the kind of thing that
 					-- only bites once someone adds re-contamination.
 					session.soaked[zoneId] = nil
+					session.weak[zoneId] = nil
+					session.aimWeak = nil
 					session.painted[zoneId] = nil
 					session.walled[zoneId] = nil
 					session.lockedZone = nil
@@ -1148,6 +1207,7 @@ function WashService.start()
 		end
 		session.spraying = request.spraying == true
 		session.aimZone = if type(request.zone) == "number" then request.zone else nil
+		session.aimWeak = if type(request.weak) == "number" then request.weak else nil
 		setSprayAttr(player, session.spraying and not session.revealing)
 	end)
 

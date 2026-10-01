@@ -268,6 +268,25 @@ Tuning.PULL_GRIP_FALLOFF = 0.5
 -- stopwatch is the lesson. Spec §2 pins it.
 Tuning.WASH_POTENCY_FALLOFF = 0.25
 
+-- ── Weak points (WashService, Client/WashWeakSpots) ────────────────────
+--
+-- Every chunk of crust carries one glowing fallout-green blister on its outer face.
+-- Water ON the blister soaks that chunk WASH_WEAK_MULT times faster, AND treats it as
+-- WASH_WEAK_PIERCE points of hardness softer for the overmatch grind above -- which is
+-- the under-tier hose's way in: a Legendary chunk on a Patched Fire Hose (+3, ~181s)
+-- comes down to ~15s of blister time (181 / 4 / 3). Missing the blister is never worse
+-- than the plain soak, so this is pure upside for aim.
+--
+-- A blister POPS after WASH_WEAK_POP seconds of water (banking an extra
+-- WASH_WEAK_BURST seconds of blister-rate soak as it goes) and a fresh one grows
+-- somewhere else on the same chunk WASH_WEAK_RESPAWN seconds later -- so the speed is
+-- something you chase round the rock, not a spot you park the reticle on.
+Tuning.WASH_WEAK_MULT = 3
+Tuning.WASH_WEAK_PIERCE = 1
+Tuning.WASH_WEAK_POP = 1.5
+Tuning.WASH_WEAK_BURST = 0.4
+Tuning.WASH_WEAK_RESPAWN = 1
+
 -- ── Home-turf Common ease (DigService: `required`) ─────────────────────
 --
 -- The junk you pull most is Common, and in your own rated stage you pull a LOT of

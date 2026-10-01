@@ -137,4 +137,15 @@ function Contamination.secondsFor(hardness: number, scrubRate: number, potency: 
 	return base / Tuning.WASH_POTENCY_FALLOFF ^ Contamination.overmatch(hardness, potency)
 end
 
+--- How many plain-soak seconds one second of water ON A WEAK POINT is worth against
+--- this patch's `secondsFor` clock. Tuning.WASH_WEAK_MULT flat, times the overmatch
+--- penalty for up to Tuning.WASH_WEAK_PIERCE points of it given back -- so a chunk the
+--- hose is rated for gets x3, and one it is over by a tier or more gets x12. Banked as a
+--- multiplier on dt rather than a second clock so a chunk worked half on and half off
+--- its blister still pops exactly when the seconds add up.
+function Contamination.weakGain(hardness: number, potency: number): number
+	local pierced = math.min(Contamination.overmatch(hardness, potency), Tuning.WASH_WEAK_PIERCE)
+	return Tuning.WASH_WEAK_MULT / Tuning.WASH_POTENCY_FALLOFF ^ pierced
+end
+
 return Contamination
