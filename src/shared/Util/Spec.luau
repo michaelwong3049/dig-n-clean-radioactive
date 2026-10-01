@@ -605,17 +605,39 @@ function Spec.run(): boolean
 	-- Entrance, same reasoning.
 	local crater = survive(6, 6, 0)
 	check(string.format("§4 Crater with full Rig = %.0fs (want 60-130, a heist)", crater), crater > 60 and crater < 130)
-	-- "At any gear level, forever": Toxic Twilight's auras (tiers 7+) are past the Nimbus,
-	-- and none of them may turn the Crater into a farm either.
+	-- TOXIC TWILIGHT'S AURAS THRIVE BELOW THEIR STAGES (Config/Gear's reduction note). The
+	-- old rule was the opposite -- no aura past the Nimbus could farm the Crater -- and it
+	-- capped every Twilight aura at ~90s in Stages 6-7. Now: at least five minutes in
+	-- Stages 5-6, and in Stage 7 a higher aura always lasts longer than a lower one.
 	do
-		local farmable: string? = nil
+		local weak: string? = nil
 		for tier = 7, Gear.maxTier("Aura") do
-			local s = survive(6, tier, 0)
-			if s >= 130 then
-				farmable = string.format("%s %.0fs", Gear.tier("Aura", tier).name, s)
+			for stageId = 5, 6 do
+				local s = survive(stageId, tier, 0, 1)
+				if s < 300 then
+					weak = string.format("%s %.0fs in stage %d", Gear.tier("Aura", tier).name, s, stageId)
+				end
 			end
 		end
-		check(`§4 no aura past the Nimbus farms the Crater either ({farmable or "all under 130s"})`, farmable == nil)
+		check(`§4 every Twilight aura thrives in stages 5-6, 5m+ at the far edge ({weak or "ok"})`, weak == nil)
+		local climbs = true
+		for tier = 8, Gear.maxTier("Aura") do
+			if survive(7, tier, 0, 0.6) <= survive(7, tier - 1, 0, 0.6) then
+				climbs = false
+			end
+		end
+		check("§4 in Stage 7, every Twilight aura lasts longer than the one below it", climbs)
+		-- ...and in its own stage the meter never beats the zone curve.
+		local meterFirst: string? = nil
+		for tier = 7, Gear.maxTier("Aura") do
+			local stageId = tier
+			local aura = Gear.tier("Aura", tier)
+			local fill = 100 / (Stages.radsAt(stageId, 1) * (1 - aura.reduction))
+			if fill < 240 then
+				meterFirst = string.format("%s fills in %.0fs", aura.name, fill)
+			end
+		end
+		check(`§4 a Twilight aura's meter takes 4m+ to fill at its own stage's far edge ({meterFirst or "ok"})`, meterFirst == nil)
 	end
 
 	-- THE CRATER'S FAR EDGE IS TOXIC TWILIGHT'S DOORSTEP (Config/Camps). The top aura has

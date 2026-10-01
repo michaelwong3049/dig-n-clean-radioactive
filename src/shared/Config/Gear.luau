@@ -326,15 +326,23 @@ Gear.Aura = {
 	-- lastAura), which is the point -- the deepest stage is a raid, not a farm.
 	--
 	-- WHAT THEY SELL IS THE BAG AND THE STAGE: capacity keeps climbing and the haul
-	-- penalty keeps falling (never to zero, see KEEP THE FLOOR ABOVE ZERO). `reduction`
-	-- DELIBERATELY STAYS AT THE NIMBUS'S 0.9889 (PLAN §4, "at any gear level, forever").
+	-- penalty keeps falling (never to zero, see KEEP THE FLOOR ABOVE ZERO).
+	--
+	-- `reduction` CLIMBS PER RUNG, so the exposure meter never outruns the zone curve.
+	-- It used to sit at the Nimbus's 0.9889 on every rung ("the Crater is a heist at any
+	-- gear level"), which filled the meter in ~90s in Stage 6-7 air whatever you wore:
+	-- a Crimson Vortex died in Stage 7 as fast as a Toxic Aurora, and in ~36s in its own
+	-- Stage 11. Dropped on request ("Twilight auras should thrive in Stages 5-6"). Each
+	-- rung is fitted so the meter takes ~5 minutes to fill at its own stage's far edge
+	-- (0.333 rads/s at deepRads): its own stage then follows Tuning.ZONE_SURVIVAL
+	-- exactly, and every stage below it lasts longer the higher the aura.
 	-- `tolerance` is each rung's rated ambient, kept as the shop's stat line; the aura's
 	-- actual damage comes off the zone survival curve (Shared/Radiation.zoneSurvival).
-	{ name = "Toxic Aurora", price = 130000000, reduction = 0.9889, tolerance = 140.0, capacity = 28, haulPenalty = 0.16, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
-	{ name = "Eclipse Veil", price = 330000000, reduction = 0.9889, tolerance = 190.0, capacity = 32, haulPenalty = 0.12, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
-	{ name = "Twilight Singularity", price = 1100000000, reduction = 0.9889, tolerance = 255.0, capacity = 36, haulPenalty = 0.09, blurb = "It lifts the load before you do.", camp = "twilight" },
-	{ name = "Seraph", price = 5300000000, reduction = 0.9889, tolerance = 340.0, capacity = 40, haulPenalty = 0.06, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "twilight" },
-	{ name = "Crimson Vortex", price = 26000000000, reduction = 0.9889, tolerance = 455.0, capacity = 44, haulPenalty = 0.04, blurb = "The last aura. A red storm with you in the eye of it.", camp = "twilight" },
+	{ name = "Toxic Aurora", price = 130000000, reduction = 0.9976, tolerance = 140.0, capacity = 28, haulPenalty = 0.16, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
+	{ name = "Eclipse Veil", price = 330000000, reduction = 0.9982, tolerance = 190.0, capacity = 32, haulPenalty = 0.12, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 1100000000, reduction = 0.9987, tolerance = 255.0, capacity = 36, haulPenalty = 0.09, blurb = "It lifts the load before you do.", camp = "twilight" },
+	{ name = "Seraph", price = 5300000000, reduction = 0.9990, tolerance = 340.0, capacity = 40, haulPenalty = 0.06, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "twilight" },
+	{ name = "Crimson Vortex", price = 26000000000, reduction = 0.99926, tolerance = 455.0, capacity = 44, haulPenalty = 0.04, blurb = "The last aura. A red storm with you in the eye of it.", camp = "twilight" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
