@@ -486,6 +486,63 @@ local CARD_ART_HEIGHT = CARD_CHIPS_TOP - CARD_ROW_GAP - CARD_ART_TOP
 -- The card also asks for the tier's ToolFX (client/GearArtFx): the sparks, glow and
 -- moving parts a held tool shows, which a ViewportFrame cannot render by itself.
 
+--- Every card's stat tip, so closing the panel can put them all away: a chip that
+--- vanishes under the mouse never gets its MouseLeave.
+local statTips: { Frame } = {}
+
+--- The card's stat explanation: a dark slip along the bottom of the art well, just
+--- over the chip row, showing the hovered chip's Gear.STAT_META `tip`. One per card;
+--- the chips find it through the card. `Chip` names the chip it is showing for, so
+--- paintStats can keep it honest when the stall changes under the mouse.
+local function makeStatTip(card: Frame): Frame
+	local tip = UIKit.panel(card, {
+		name = "StatTip",
+		anchorPoint = Vector2.new(0, 1),
+		position = UDim2.fromOffset(CARD_INSET, CARD_CHIPS_TOP - 6),
+		size = UDim2.fromOffset(CARD_ART_WIDTH, 40),
+		color = FIELD.ink,
+		transparency = 0.05,
+		strokeColor = FIELD.edge,
+		strokeThickness = 2,
+		cornerRadius = UDim.new(0, 9),
+		visible = false,
+	})
+	tip.ZIndex = 20
+	local text = UIKit.label(tip, {
+		name = "Text",
+		position = UDim2.fromOffset(12, 3),
+		size = UDim2.new(1, -24, 1, -6),
+		font = FIELD.label,
+		textSize = 15,
+		color = FIELD.text,
+		xAlign = Enum.TextXAlignment.Left,
+		outline = false,
+		shadow = false,
+	})
+	text.TextWrapped = true
+	text.ZIndex = 21
+	table.insert(statTips, tip)
+	return tip
+end
+
+--- Show `chip`'s tip on its card's slip, or hide the slip when `chip` is nil.
+local function showStatTip(card: Instance, chip: Frame?)
+	local tip = card:FindFirstChild("StatTip") :: Frame?
+	if tip == nil then
+		return
+	end
+	local line = if chip then chip:GetAttribute("Tip") else nil
+	if chip == nil or typeof(line) ~= "string" or line == "" then
+		tip.Visible = false
+		tip:SetAttribute("Chip", nil)
+		return
+	end
+	local text = tip:FindFirstChild("Text") :: TextLabel
+	text.Text = line
+	tip:SetAttribute("Chip", chip.Name)
+	tip.Visible = true
+end
+
 --- One chip of a card's stat row: the label small on top, the value under it, a thin
 --- bar along the bottom. Chips are laid side by side and share the row's width, which
 --- paintStats sets per track once it knows how many columns there are. A flag cell
@@ -554,6 +611,29 @@ local function makeStatChip(parent: Instance, order: number): Frame
 		corner.CornerRadius = UDim.new(0, 3)
 		corner.Parent = bar
 	end
+
+	-- Hover explains the stat (Gear.STAT_META `tip`, stamped on by paintStats). The
+	-- slip lives on the card, two parents up: chip -> CardStats -> card.
+	chip.Active = true
+	chip.MouseEnter:Connect(function()
+		showStatTip(parent.Parent :: Instance, chip)
+	end)
+	chip.MouseLeave:Connect(function()
+		showStatTip(parent.Parent :: Instance, nil)
+	end)
+	-- Touch has no hover: a tap shows the same line, and goes away by itself since a
+	-- finger never sends MouseLeave.
+	chip.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.Touch then
+			showStatTip(parent.Parent :: Instance, chip)
+			task.delay(3, function()
+				local tip = (parent.Parent :: Instance):FindFirstChild("StatTip")
+				if tip and tip:GetAttribute("Chip") == chip.Name then
+					showStatTip(parent.Parent :: Instance, nil)
+				end
+			end)
+		end
+	end)
 
 	return chip
 end
@@ -689,6 +769,7 @@ local function makeShopCard(parent: Instance, order: number): Frame
 	for index = 1, STAT_ROWS do
 		makeStatChip(stats, index)
 	end
+	makeStatTip(card)
 
 	local buy = UIKit.button(card, {
 		name = "CardBuy",
@@ -1233,6 +1314,7 @@ local function paintStats(card: Frame, entry, track: string, dear: boolean)
 
 		label.Text = cell.label
 		label.TextColor3 = colour
+		row:SetAttribute("Tip", if field then field.tip else nil)
 		value.Text = cell.value
 		-- THE BOTTOM RUNG KEEPS A SLIVER. ShopService measures a bar from the worst
 		-- value on the ladder, so tier 1 is honestly 0.0 on every column — and an
@@ -1248,6 +1330,14 @@ local function paintStats(card: Frame, entry, track: string, dear: boolean)
 		-- An unlit flag is the one cell that should read as absent rather than as low:
 		-- dimming the value keeps "NO" from being mistaken for a small amount.
 		value.TextColor3 = if cell.kind == "flag" and not cell.on then FIELD.muted else FIELD.text
+	end
+	-- A repaint under the mouse (the carousel stepping to another track) keeps the open
+	-- tip on the same chip in step with what that chip now shows.
+	local tip = card:FindFirstChild("StatTip")
+	if tip and tip.Visible then
+		local chipName = tip:GetAttribute("Chip")
+		local chip = if typeof(chipName) == "string" then stats:FindFirstChild(chipName) :: Frame? else nil
+		showStatTip(card, if chip and chip.Visible then chip else nil)
 	end
 end
 
@@ -1700,6 +1790,9 @@ local function render()
 	if state.station == nil or dismissed or not PANEL_KINDS[state.station] then
 		ui.panel.Visible = false
 		ui.closeButton.Visible = false
+		for _, tip in statTips do
+			tip.Visible = false
+		end
 		carousel.openedFor = nil
 		carousel.singleFor = nil
 		return
