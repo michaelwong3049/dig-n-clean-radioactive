@@ -43,7 +43,7 @@ local BED_SMOKE = 2
 
 --- The ground grid and its per-cell chances (sum 0.34 — one cell in three).
 local CELL = 13
-local ASH_CHANCE = 0.08
+local ASH_CHANCE = 0.02
 local CINDER_CHANCE = 0.05
 local SPECK_CHANCE = 0.03
 local TWIG_CHANCE = 0.03
