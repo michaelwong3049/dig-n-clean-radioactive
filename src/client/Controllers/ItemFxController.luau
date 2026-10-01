@@ -14,6 +14,15 @@
 	land on the client a moment after the item. After that a crust never comes back
 	on the same model: ToolService builds a new one when the crust count changes.
 
+	DETAIL BY DISTANCE. A base full of exhibits (and the bases beside it) put a
+	hundred nukes in range at once, each spinning, pulsing and lit every frame. So
+	every few frames the active nukes are ranked by distance to the camera: the
+	nearest FULL_BUDGET inside FULL_RANGE run everything every frame; the rest inside
+	MID_RANGE keep their motion and pulses at MID_STEP but drop particles, glint,
+	bolts and ping; past that a nuke holds its last pose and glow. Only the nearest
+	LIGHT_BUDGET keep a PointLight on. Spinning parts move in one BulkMoveTo per
+	frame rather than one CFrame write per part.
+
 	ALL OF IT IS LOCAL. Materials, colours, lights, particles and part motion are
 	written on this client only. The server's parts are untouched, so nothing
 	replicates per frame and each player culls by their own distance.
@@ -84,8 +93,21 @@ local POLL_INTERVAL = 0.5
 --- The light eases up from nothing over this long, so the reveal visibly switches on.
 local IGNITE_TIME = 0.8
 
---- Beyond this distance from the camera, animation stops and emitters switch off.
-local AWAKE_RANGE = 150
+--- Detail levels (see the header). Inside FULL_RANGE the nearest FULL_BUDGET nukes
+--- get every effect every frame.
+local FULL_RANGE = 45
+local FULL_BUDGET = 12
+
+--- Inside this, a nuke that missed the full tier still moves and pulses, MID_STEP
+--- apart. Beyond it, animation stops and emitters switch off.
+local MID_RANGE = 90
+local MID_STEP = 1 / 20
+
+--- Only this many of the nearest moving nukes keep their PointLight on.
+local LIGHT_BUDGET = 8
+
+--- How often the nukes are re-ranked by distance.
+local RETIER_INTERVAL = 0.2
 
 --- How far a fully dimmed glow part drops toward black. Short of 1 so an "off"
 --- lamp still reads as a coloured lens, not a hole.
@@ -237,6 +259,8 @@ type BoltRun = {
 	redrawAt: number,
 }
 
+type Tier = "full" | "mid" | "still"
+
 type Entry = {
 	model: Model,
 	def: Def,
@@ -244,7 +268,14 @@ type Entry = {
 	checkAt: number,
 	startedAt: number,
 	rng: Random,
-	awake: boolean,
+	tier: Tier,
+	-- When this entry's effects last ran (mid-tier entries skip frames), its
+	-- distance from the camera at the last ranking, the part that distance is
+	-- measured from, and whether its parts can go through BulkMoveTo.
+	steppedAt: number,
+	distance: number,
+	anchor: BasePart?,
+	inWorld: boolean,
 	light: PointLight?,
 	lightBase: number,
 	lightRun: AnimRun?,
@@ -268,6 +299,13 @@ type Entry = {
 }
 
 local entries: { [Model]: Entry } = {}
+
+-- This frame's spin moves, flushed in one Workspace:BulkMoveTo.
+local moveParts: { BasePart } = {}
+local moveFrames: { CFrame } = {}
+
+-- Re-rank on the next frame instead of waiting out RETIER_INTERVAL.
+local retierAt = 0
 
 local function buildBolt(def: ItemFxConfig.Bolt, from: BasePart, to: BasePart, scale: number, now: number, rng: Random): BoltRun
 	local segments = def.segments or 6
@@ -983,7 +1021,7 @@ local function spinAngle(group: SpinGroup, t: number, now: number, dt: number, r
 	return group.angle
 end
 
-local function stepSpins(groups: { SpinGroup }, ref: BasePart, t: number, now: number, dt: number, rng: Random)
+local function stepSpins(groups: { SpinGroup }, ref: BasePart, t: number, now: number, dt: number, rng: Random, bulk: boolean)
 	-- Parents come before children in Config (Spec checks it), so each group's
 	-- chain is ready by the time a child asks for it.
 	local chains: { CFrame } = {}
@@ -1001,7 +1039,12 @@ local function stepSpins(groups: { SpinGroup }, ref: BasePart, t: number, now: n
 
 		local base = refFrame * group.pivotOffset * chain
 		for i, part in group.parts do
-			part.CFrame = base * group.rel[i]
+			if bulk then
+				table.insert(moveParts, part)
+				table.insert(moveFrames, base * group.rel[i])
+			else
+				part.CFrame = base * group.rel[i]
+			end
 		end
 	end
 end
@@ -1454,7 +1497,10 @@ local function activate(entry: Entry, now: number)
 
 	entry.active = true
 	entry.startedAt = now
-	entry.awake = true
+	entry.steppedAt = now
+	entry.tier = "full"
+	entry.anchor = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+	retierAt = 0
 end
 
 local function untrack(model: Model)
@@ -1493,7 +1539,11 @@ local function track(instance: Instance)
 		checkAt = now + ACTIVATE_GRACE,
 		startedAt = now,
 		rng = Random.new(seedOf(model)),
-		awake = false,
+		tier = "still",
+		steppedAt = now,
+		distance = math.huge,
+		anchor = nil,
+		inWorld = false,
 		light = nil,
 		lightBase = 0,
 		lightRun = nil,
@@ -1536,7 +1586,83 @@ local function track(instance: Instance)
 	)
 end
 
-local function stepEntry(entry: Entry, now: number, dt: number, cameraPosition: Vector3)
+--- Move an entry between detail levels. Particles, glint, bolts and ping belong to
+--- the full tier only; everything else just stops being stepped.
+local function setTier(entry: Entry, tier: Tier)
+	if tier == entry.tier then
+		return
+	end
+	local wasFull = entry.tier == "full"
+	local full = tier == "full"
+	entry.tier = tier
+	if full == wasFull then
+		return
+	end
+	for _, e in entry.emitters do
+		e.Enabled = full
+	end
+	if not full then
+		if entry.glint then
+			hideGlint(entry.glint)
+		end
+		if entry.pristineGlint then
+			hideGlint(entry.pristineGlint)
+		end
+		for _, bolt in entry.bolts do
+			bolt.litUntil = 0
+			showBolt(bolt, false)
+		end
+		if entry.ping then
+			entry.ping.Transparency = 1
+		end
+	end
+end
+
+local ranked: { Entry } = {}
+
+--- Rank every active entry by distance to the camera and hand out the full tier
+--- and the lights, nearest first.
+local function retier(cameraPosition: Vector3)
+	table.clear(ranked)
+	for _, entry in entries do
+		if entry.active then
+			local anchor = entry.anchor
+			if anchor == nil or not anchor:IsDescendantOf(entry.model) then
+				anchor = entry.model.PrimaryPart or entry.model:FindFirstChildWhichIsA("BasePart", true)
+				entry.anchor = anchor
+			end
+			entry.distance = if anchor then (anchor.Position - cameraPosition).Magnitude else math.huge
+			entry.inWorld = entry.model:IsDescendantOf(Workspace)
+			table.insert(ranked, entry)
+		end
+	end
+	table.sort(ranked, function(a, b)
+		return a.distance < b.distance
+	end)
+
+	local fullLeft, lightsLeft = FULL_BUDGET, LIGHT_BUDGET
+	for _, entry in ranked do
+		local tier: Tier = "still"
+		if entry.distance <= FULL_RANGE and fullLeft > 0 then
+			tier = "full"
+			fullLeft -= 1
+		elseif entry.distance <= MID_RANGE then
+			tier = "mid"
+		end
+		setTier(entry, tier)
+
+		local light = entry.light
+		if light then
+			local on = tier ~= "still" and lightsLeft > 0
+			if on then
+				lightsLeft -= 1
+			end
+			light.Enabled = on
+		end
+	end
+end
+
+local function stepEntry(entry: Entry, now: number, cameraPosition: Vector3)
 	local model = entry.model
 
 	if not entry.active then
@@ -1549,29 +1675,17 @@ local function stepEntry(entry: Entry, now: number, dt: number, cameraPosition: 
 		return
 	end
 
-	local anchor = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
-	local awake = anchor ~= nil and (anchor.Position - cameraPosition).Magnitude <= AWAKE_RANGE
-	if awake ~= entry.awake then
-		entry.awake = awake
-		for _, e in entry.emitters do
-			e.Enabled = awake
-		end
-		if not awake and entry.glint then
-			hideGlint(entry.glint)
-		end
-		if not awake and entry.pristineGlint then
-			hideGlint(entry.pristineGlint)
-		end
-		if not awake then
-			for _, bolt in entry.bolts do
-				bolt.litUntil = 0
-				showBolt(bolt, false)
-			end
-		end
-	end
-	if not awake then
+	local tier = entry.tier
+	if tier == "still" then
 		return
 	end
+	local full = tier == "full"
+	if not full and now - entry.steppedAt < MID_STEP then
+		return
+	end
+	-- Capped so a nuke waking from "still" doesn't lurch through the time it slept.
+	local dt = math.min(now - entry.steppedAt, 0.25)
+	entry.steppedAt = now
 
 	local t = now - entry.startedAt
 	local lightFactor = 1
@@ -1583,21 +1697,34 @@ local function stepEntry(entry: Entry, now: number, dt: number, cameraPosition: 
 	end
 
 	local struck = false
-	for _, bolt in entry.bolts do
-		if stepBolt(bolt, now, entry.rng) then
-			struck = true
+	if full then
+		for _, bolt in entry.bolts do
+			if stepBolt(bolt, now, entry.rng) then
+				struck = true
+			end
 		end
 	end
 
 	local light = entry.light
-	if light then
+	if light and light.Enabled then
 		local flare = if struck then BOLT_FLARE * entry.rng:NextNumber(0.6, 1) else 0
 		light.Brightness = entry.lightBase * (lightFactor + flare) * smoothstep(t / IGNITE_TIME)
 	end
 
 	local ref = entry.spinRef
 	if ref and #entry.spins > 0 then
-		stepSpins(entry.spins, ref, t, now, dt, entry.rng)
+		stepSpins(entry.spins, ref, t, now, dt, entry.rng, entry.inWorld)
+	end
+
+	local seam = entry.seam
+	local seamDef = entry.def.seam
+	if seam and seamDef then
+		local breath = 0.5 - 0.5 * math.cos(t / seamDef.period * TAU)
+		seam.Transparency = 0.55 - 0.5 * breath
+	end
+
+	if not full then
+		return
 	end
 
 	local glint = entry.glint
@@ -1614,13 +1741,6 @@ local function stepEntry(entry: Entry, now: number, dt: number, cameraPosition: 
 			burst.nextAt = now + burst.every * entry.rng:NextNumber(0.8, 1.2)
 			burst.emitter:Emit(burst.count)
 		end
-	end
-
-	local seam = entry.seam
-	local seamDef = entry.def.seam
-	if seam and seamDef then
-		local breath = 0.5 - 0.5 * math.cos(t / seamDef.period * TAU)
-		seam.Transparency = 0.55 - 0.5 * breath
 	end
 
 	local ping = entry.ping
@@ -1655,15 +1775,24 @@ function Controller.start()
 		end
 	end)
 
-	RunService.Heartbeat:Connect(function(dt: number)
+	RunService.Heartbeat:Connect(function()
 		if next(entries) == nil then
 			return
 		end
 		local camera = Workspace.CurrentCamera
 		local cameraPosition = if camera then camera.CFrame.Position else Vector3.zero
 		local now = os.clock()
+		if now >= retierAt then
+			retierAt = now + RETIER_INTERVAL
+			retier(cameraPosition)
+		end
 		for _, entry in entries do
-			stepEntry(entry, now, dt, cameraPosition)
+			stepEntry(entry, now, cameraPosition)
+		end
+		if #moveParts > 0 then
+			Workspace:BulkMoveTo(moveParts, moveFrames, Enum.BulkMoveMode.FireCFrameChanged)
+			table.clear(moveParts)
+			table.clear(moveFrames)
 		end
 	end)
 end
