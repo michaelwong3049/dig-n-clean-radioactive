@@ -26,8 +26,9 @@
 	its halo and foot ring are half-circle pairs like the atom's, and all of it is fixed
 	in the hub: the hub turning is the helix turning. The electrons climb the strands.
 
-	TOXIC TWILIGHT'S FOUR (tiers 7-10) MOVE WITHIN THEMSELVES: the corona's rays breathe,
-	the aurora's ribbons ripple, the torus's loops sweep round, the wings beat. So each
+	TOXIC TWILIGHT'S SIX (tiers 7-12) MOVE WITHIN THEMSELVES: the corona's rays breathe,
+	the aurora's ribbons ripple, the torus's loops sweep round, the wings beat, the
+	vortex spins. So each
 	is AuraLook's curves (`curveForm`), chains of Beams whose Attachments `layCurves`
 	re-lays every frame (Axis on the tangent, CurveSizes from it); the hub only follows
 	the chest. The electrons ride `riders`.

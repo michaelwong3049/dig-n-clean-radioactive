@@ -1520,9 +1520,10 @@ function Spec.run(): boolean
 	end
 	check("Toxic Twilight sells hose tiers 8-12, in the user's order", twilightHosesOk)
 
-	-- Twilight's four auras, pinned by name: AuraLook's shapes (corona, aurora, torus,
-	-- wings) were picked for exactly these rungs, in this order.
-	local twilightAurasWant = { "Dusk Corona", "Toxic Aurora", "Eclipse Veil", "Twilight Singularity" }
+	-- Twilight's six auras, pinned by name: AuraLook's shapes (corona, aurora, torus,
+	-- wings, then Stages 11-12's seraph and vortex) were picked for exactly these rungs,
+	-- in this order.
+	local twilightAurasWant = { "Dusk Corona", "Toxic Aurora", "Eclipse Veil", "Twilight Singularity", "Seraph", "Crimson Vortex" }
 	local twilightAurasHave = Gear.tiersAt("Aura", "twilight")
 	local twilightAurasOk = #twilightAurasHave == #twilightAurasWant
 	for slot, tier in twilightAurasHave do
@@ -1530,7 +1531,7 @@ function Spec.run(): boolean
 			twilightAurasOk = false
 		end
 	end
-	check("Toxic Twilight sells aura tiers 7-10, in the order their shapes were picked", twilightAurasOk)
+	check("Toxic Twilight sells aura tiers 7-12, in the order their shapes were picked", twilightAurasOk)
 
 	-- Revealing is not the same as reaching. If the pull radius ever grows into the
 	-- reveal radius, the walk to the glow disappears and the loop is one button.
