@@ -523,7 +523,8 @@ Dock.BAGCOUNT_HEIGHT = 18
 -- the vitals bars above the hotbar. 280 -> 340 -> 380 as the rows' numbers grew to 56px,
 -- so a "$1.23M" still fits at full size. The vitals bars' left edge stays clear of it on
 -- every screen the HUD scales for (~1330 design px wide at the least).
-Dock.SIDE_WIDTH = 380
+-- 380 -> 320 when the rows shrank ~18% (icons 88 -> 72, numbers 56 -> 46).
+Dock.SIDE_WIDTH = 320
 
 -- THE VITALS BARS (HudController): health + rads as two slim cartoon bars, with the
 -- countdown (top left) and stage + depth (top right) on a label row above them.
@@ -627,16 +628,18 @@ Dock.CARD_BOTTOM = Dock.STATUS_BOTTOM + Dock.GAP
 -- then 78 -> 72 when the card went, then 72 -> 80 when the balance was pinned level
 -- with the bundle's middle and the "+$/s" line hung under it (it used to lift the
 -- balance to make room, which read as the money jumping), then 80 -> 96 -> 102 -> 104 as
--- the rows were resized (icons 64 -> 96 -> 88, balance 32 -> 48 -> 56).
-Dock.CASH_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 104)
+-- the rows were resized (icons 64 -> 96 -> 88, balance 32 -> 48 -> 56), then 104 -> 74
+-- when the "+$/s" line was dropped (the user asked for it gone) and the rows shrank ~18%:
+-- the bundle fills it now.
+Dock.CASH_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 74)
 -- THE SPEED ROW (SpeedController), over the cash row: the sneaker plus its drop
 -- shadow, with the WALK SPEED caption and the number beside it. Same width as the
--- column, SIDE_WIDTH like CASH_SIZE. 60 -> 72 -> 88 -> 80 with the cash row's resizes;
--- the sneaker fills it.
-Dock.SPEED_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 80)
+-- column, SIDE_WIDTH like CASH_SIZE. 60 -> 72 -> 88 -> 80 -> 66 with the cash row's
+-- resizes; the sneaker fills it.
+Dock.SPEED_SIZE = UDim2.fromOffset(Dock.SIDE_WIDTH, 66)
 -- The width of the icon slot both rows share: the cash bundle fills it, the sneaker is
 -- centred in it, and both numbers start just past it.
-Dock.SIDE_ICON = 88
+Dock.SIDE_ICON = 72
 -- Where each picture's visible drawing is centred, as a fraction of its height: both
 -- PNGs carry more transparent margin on top than below (the bundle's art spans 17%..89%,
 -- the sneaker's 21%..85%). Each row centres its number on this line, not on the box,
@@ -646,12 +649,20 @@ Dock.SIDE_ICON_MIDDLE = 0.53
 -- inside the two pictures (~12px under the sneaker's sole, ~15px over the bundle's top
 -- edge at these sizes), so a positive gap reads as a big hole. -8 leaves ~19px of air
 -- between the sole and the bundle. Tuned by eye in both directions: -22 (~7px) and -12
--- (~15px) were each "a little looser", then -4 (~23px) "a bit smaller".
-Dock.PAIR_GAP = -8
+-- (~15px) were each "a little looser", then -4 (~23px) "a bit smaller". -6 after the
+-- ~18% shrink (the margins shrank with the pictures), still ~16px of air.
+Dock.PAIR_GAP = -6
 -- Each row's BOTTOM edge as an offset UP from the screen's bottom edge (Position y is
--- 1-scale minus this, anchor y = 1), before Dock.sideLift(). Cash sits on the same
--- margin as the hotbar; speed stacks on it; SIDE_COLUMN_TOP is the pair's top edge.
-Dock.CASH_BOTTOM = Dock.MARGIN_BOTTOM
+-- 1-scale minus this, anchor y = 1), before Dock.sideLift(). Speed stacks on cash;
+-- SIDE_COLUMN_TOP is the pair's top edge.
+--
+-- TUCKED DEEPER INTO THE CORNER than the hotbar's margins (MARGIN_BOTTOM 18 /
+-- ROW_SIDE_MARGIN 24), as the user asked: the pictures carry their own transparent
+-- margin (~8px under the bundle), so these small offsets still leave the art clear of
+-- the screen edge. SIDE_CORNER_X is the column's left edge; everything on the column
+-- (both rows, the aura tip above them) lines up on it.
+Dock.SIDE_CORNER_X = 8
+Dock.CASH_BOTTOM = 4
 Dock.SPEED_BOTTOM = Dock.CASH_BOTTOM + Dock.CASH_SIZE.Y.Offset + Dock.PAIR_GAP
 Dock.SIDE_COLUMN_TOP = Dock.SPEED_BOTTOM + Dock.SPEED_SIZE.Y.Offset
 
