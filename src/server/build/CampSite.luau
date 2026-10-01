@@ -85,7 +85,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 26
+local BUILDER_VERSION = 27
 
 local C = Kit.C
 local build = Kit.build
@@ -480,6 +480,74 @@ local function wallColumn(
 	end
 end
 
+--- PART BUDGET: a strip of wall columns as checker-material blocks (Kit.materialWall)
+--- instead of a part per cell. `frameAt(s)` has local X along the strip and local Z its
+--- thickness axis; `face` is the visible face in that frame (Front/Back); `columns`
+--- are { s0, s1, col } ascending, `col` the index lipRowsOf and the checker read.
+--- Returns the indices of columns whose pair has no material, for wallColumn instead.
+local function materialWallStrip(folder: Instance, frameAt: (number) -> CFrame, face: string, columns: { { number } }, height: number, p: Camps.Palette, salt: number): { number }
+	local rows = math.ceil(height / WALL_TILE)
+	return Kit.materialWall(folder, {
+		name = "Wall",
+		frameAt = frameAt,
+		face = face,
+		columns = columns,
+		baseY = FLOOR_Y,
+		footRows = WALL_FOOT_ROWS,
+		rows = rows,
+		tile = WALL_TILE,
+		thick = WALL_T,
+		overhang = LIP_OVERHANG,
+		pairAt = function(col: number, row: number)
+			if row >= rows - lipRowsOf(col, salt) then
+				return p.lipDark, p.lipLight, true
+			end
+			return p.wallDark, p.wallLight, false
+		end,
+	})
+end
+
+--- A crown strip on the checker material, two cells deep from local -Z, `reach` the
+--- signed lip overhang along local Z; columns { s0, s1, ix } with (ix + cell) parity.
+--- Columns Kit.materialCrown sheds (or all of them, if the lip pair has no material)
+--- go down as the old studded cell parts.
+local function materialCrownStrip(folder: Instance, frameAt: (number) -> CFrame, columns: { { number } }, capY: number, reach: number, p: Camps.Palette)
+	local shed = Kit.materialCrown(folder, {
+		name = "WallCap",
+		frameAt = frameAt,
+		columns = columns,
+		z0 = -WALL_T / 2 + math.min(reach, 0),
+		z1 = WALL_T / 2 + math.max(reach, 0),
+		y = capY,
+		thick = CAP_T,
+		pairAt = function()
+			return p.lipDark, p.lipLight
+		end,
+	})
+	for _, i in shed do
+		local c = columns[i]
+		for cell = 0, 1 do
+			local z0 = -WALL_T / 2 + cell * WALL_TILE
+			local z1 = z0 + WALL_TILE
+			if reach > 0 and cell == 1 then
+				z1 += reach
+			elseif reach < 0 and cell == 0 then
+				z0 += reach
+			end
+			local cap = build(folder, frameAt((c[1] + c[2]) / 2), {
+				name = "WallCap",
+				pos = { 0, capY, (z0 + z1) / 2 },
+				size = { c[2] - c[1], CAP_T, z1 - z0 },
+				color = if (c[3] + cell) % 2 == 0 then p.lipDark else p.lipLight,
+				material = "Plastic",
+				studs = true,
+				canCollide = false,
+			})
+			cap.CanQuery = false
+		end
+	end
+end
+
 --- Everything that differs between the two wall layers. Each layer is the same pieces:
 --- the arc (split in two by the east mouth when the camp has one) and a pair of short
 --- straight shoulders at each clip line, closing the gap between the arc's end and the
@@ -511,28 +579,37 @@ local function buildShoulders(
 	local p = L.palette
 	local capY = FLOOR_Y + layer.height + CAP_T / 2 - 0.1
 	local n = math.max(1, math.ceil((z1 - z0) / WALL_TILE))
+	-- Yawed 90 degrees so local X runs along z: world Left/Right (the faces a shoulder
+	-- shows the camp) are the frame's Front/Back, and local +Z is world +X.
+	local localFace = if face == "LeftSurface" then "FrontSurface" else "BackSurface"
+	local function frameAt(z: number): CFrame
+		return CFrame.new(x, 0, z) * CFrame.Angles(0, math.rad(90), 0)
+	end
 	for _, sign in { -1, 1 } do
+		local walls: { { number } } = {}
+		local crowns: { { number } } = {}
 		for iz = 0, n - 1 do
 			local a = z0 + (z1 - z0) * iz / n
 			local b = z0 + (z1 - z0) * (iz + 1) / n
-			local mid = sign * (a + b) / 2
-			wallColumn(folder, CFrame.new(x, 0, L.cz + mid), b - a, layer.height, 1000 + iz * sign, p, salt, face, inward)
-			for cell = 0, 1 do
-				-- Two cells across the crown; the camp-side one reaches out over the lip.
-				local side = if cell == 0 then -1 else 1
-				local reachIn = if side == inward.X then LIP_OVERHANG else 0
-				local cap = build(folder, CFrame.new(0, 0, 0), {
-					name = "WallCap",
-					pos = { x + side * WALL_TILE / 2 + inward.X * reachIn / 2, capY, L.cz + mid },
-					size = { WALL_TILE + reachIn, CAP_T, b - a },
-					color = if (iz + cell) % 2 == 0 then p.lipDark else p.lipLight,
-					material = "Plastic",
-					studs = true,
-					canCollide = false,
-				})
-				cap.CanQuery = false
+			local lo, hi = L.cz + sign * a, L.cz + sign * b
+			if lo > hi then
+				lo, hi = hi, lo
 			end
+			table.insert(walls, { lo, hi, 1000 + iz * sign })
+			table.insert(crowns, { lo, hi, iz })
 		end
+		table.sort(walls, function(u, v)
+			return u[1] < v[1]
+		end)
+		table.sort(crowns, function(u, v)
+			return u[1] < v[1]
+		end)
+		for _, i in materialWallStrip(folder, frameAt, localFace, walls, layer.height, p, salt) do
+			local c = walls[i]
+			wallColumn(folder, CFrame.new(x, 0, (c[1] + c[2]) / 2), c[2] - c[1], layer.height, c[3], p, salt, face, inward)
+		end
+		-- Two cells across the crown; the camp-side one reaches out over the lip.
+		materialCrownStrip(folder, frameAt, crowns, capY, inward.X * LIP_OVERHANG, p)
 	end
 end
 
@@ -580,23 +657,16 @@ local function buildWallLayer(parent: Instance, L: Layout, layer: WallLayer)
 			local rMid = rw * math.cos(half)
 			local origin = CFrame.new(L.cx + rMid * math.sin(aMid), 0, L.cz + rMid * math.cos(aMid)) * CFrame.Angles(0, aMid, 0)
 			-- Local -Z points at the centre; its world direction, for the lip's nudge.
-			wallColumn(folder, origin, chord, layer.height, ix, p, layer.salt, "FrontSurface", Vector3.new(0, 0, -1))
-
-			for cell = 0, 1 do
-				local rCell = rMid + (if cell == 0 then -WALL_TILE / 2 else WALL_TILE / 2)
-				local reachIn = if cell == 0 then LIP_OVERHANG else 0
-				local cellOrigin = CFrame.new(L.cx + rCell * math.sin(aMid), 0, L.cz + rCell * math.cos(aMid)) * CFrame.Angles(0, aMid, 0)
-				local cap = build(folder, cellOrigin, {
-					name = "WallCap",
-					pos = { 0, capY, -reachIn / 2 },
-					size = { chord, CAP_T, WALL_TILE + reachIn },
-					color = if (ix + cell) % 2 == 0 then p.lipDark else p.lipLight,
-					material = "Plastic",
-					studs = true,
-					canCollide = false,
-				})
-				cap.CanQuery = false
+			local function columnFrame(): CFrame
+				return origin
 			end
+			if #materialWallStrip(folder, columnFrame, "FrontSurface", { { -chord / 2, chord / 2, ix } }, layer.height, p, layer.salt) > 0 then
+				wallColumn(folder, origin, chord, layer.height, ix, p, layer.salt, "FrontSurface", Vector3.new(0, 0, -1))
+			end
+
+			-- The crown: two radial cells, the inner one reaching over the lip (local -Z
+			-- points at the centre).
+			materialCrownStrip(folder, columnFrame, { { -chord / 2, chord / 2, ix } }, capY, -LIP_OVERHANG, p)
 
 			if ix % CROWN_BUSH_EVERY == 2 and hash01(ix, layer.salt + 18) < CROWN_BUSH_CHANCE then
 				local bx, bz = L.cx + rMid * math.sin(aMid), L.cz + rMid * math.cos(aMid)
