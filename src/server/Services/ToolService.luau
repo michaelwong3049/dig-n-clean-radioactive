@@ -97,6 +97,12 @@ local HELD_MAGNET_DROP = 0.2
 --- readable yet -- out in front at chest height.
 local HELD_MAGNET_FALLBACK = Vector3.new(1, 0.6, -1.8)
 
+--- Child models dropped from the held clone. The T1 magnet art carries a second, tiny
+--- "realistically sized" magnet beside the hero one; build/Shops' rack and GearArt
+--- already strip it (RACK_HIDE_ON_DISPLAY / ART_HIDE), and in hand it read as two
+--- magnets. Matched by name, skipped silently if the art no longer has it.
+local HELD_HIDE = { "Realistically Sized Magnet" }
+
 local equipped: { [Player]: string? } = {}
 
 -- Track name in Assets/Tools -> the key it upgrades under in profile.gear.
@@ -495,6 +501,12 @@ local function equip(character: Model, track: string, tier: number)
 	clone.Name = HELD_NAME
 	clone:SetAttribute("ToolName", track)
 	clone:SetAttribute("Tier", tier)
+	for _, name in HELD_HIDE do
+		local extra = clone:FindFirstChild(name)
+		if extra then
+			extra:Destroy()
+		end
+	end
 
 	local offset = template:GetAttribute("HoldCFrame")
 	if typeof(offset) ~= "CFrame" then
