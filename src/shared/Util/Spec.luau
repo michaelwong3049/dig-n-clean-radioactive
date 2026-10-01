@@ -1020,12 +1020,12 @@ function Spec.run(): boolean
 	-- The Speed unit and its levels (Config/Treadmill). These are the checks that stop
 	-- a retune from quietly turning an 11-hour endgame into a 2-hour one.
 
-	check("§5.1 level 1 walks at the old starting-boots speed", Treadmill.walkSpeedFor(1) == 26)
-	check("§5.1 one level is one stud/sec: level 75 walks at 100, the old cap", Treadmill.walkSpeedFor(75) == Treadmill.ENDGAME_WALK)
+	check("§5.1 level 1 walks at the starting speed, 30", Treadmill.walkSpeedFor(1) == 30)
+	check("§5.1 one level is one stud/sec: level 71 walks at 100, the old cap", Treadmill.walkSpeedFor(71) == Treadmill.ENDGAME_WALK)
 	check("§5.1 level 1 needs no Speed", Treadmill.requirementFor(1) == 0 and Treadmill.levelFor(0) == 1)
 	check(
 		"§5.1 there is no top level: past the old cap still has a next requirement",
-		Treadmill.requirementFor(76) ~= nil and Treadmill.requirementFor(150) ~= nil and Treadmill.walkSpeedFor(150) == 175
+		Treadmill.requirementFor(76) ~= nil and Treadmill.requirementFor(150) ~= nil and Treadmill.walkSpeedFor(150) == 179
 	)
 
 	-- Every requirement is dearer than the last, and holding EXACTLY a requirement
@@ -1082,7 +1082,7 @@ function Spec.run(): boolean
 			return seconds / 3600
 		end
 
-		for _, milestone in { { at = 45, hours = 0.72 }, { at = 70, hours = 2.4 }, { at = 100, hours = 8.6 } } do
+		for _, milestone in { { at = 45, hours = 0.24 }, { at = 70, hours = 1.05 }, { at = 100, hours = 3.7 } } do
 			local actual = hoursTo(milestone.at)
 			check(
 				string.format("§5.1 walk %d is about %.1f h of training (got %.2f h)", milestone.at, milestone.hours, actual),

@@ -17,12 +17,12 @@
 	faster; it never buys a single level. Gear.Boots is still in its file, marked
 	RETIRED, because DataService refunds it.
 
-	NO TOP LEVEL, ONE WALK-SPEED POINT EACH. Level 1 walks at 26 (the old Taped Boots
-	number, so day one feels exactly like it always did), level 75 at 100, and it keeps
+	NO TOP LEVEL, ONE WALK-SPEED POINT EACH. Level 1 walks at 30 (raised from the old
+	Taped Boots 26 on request), level 71 at 100, and it keeps
 	going: the cap was removed on request. Nothing has to hold the line instead, because
 	each level costs `LEVEL_GROWTH` more than the last forever. Even on the top belt a
-	level past 120 costs well over an hour, so the number keeps climbing but never runs
-	away (walk 110 is ~14 h on schedule, 120 ~24 h, 130 ~47 h).
+	level past 120 costs well over half an hour, so the number keeps climbing but never
+	runs away (walk 110 is ~5 h on schedule, 120 ~8.4 h).
 	`ENDGAME_WALK` (100) is where the old cap was. It is what the Spec milestones and the
 	dig-reveal check measure against.
 
@@ -42,11 +42,14 @@
 	WHAT THAT LANDS ON, upgrading roughly on schedule (one belt per 18 levels; checked
 	in Util/Spec, which pins all three):
 
-	      walk 45  ~0.7 h   — intermediate. One session.
-	      walk 70  ~2.4 h   — advanced.
-	      walk 100 ~8.6 h   — endgame. The old cap.
+	      walk 45  ~0.25 h  — intermediate. One session.
+	      walk 70  ~1.0 h   — advanced.
+	      walk 100 ~3.7 h   — endgame. The old cap.
 
-	And the cost of never upgrading: walk 64 is ~2.0 h on schedule, ~5.0 h on the free
+	Every belt's rate was doubled on request (the treadmill trains 2x faster than the
+	first tuning), which is what roughly halves those times.
+
+	And the cost of never upgrading: walk 64 is ~0.8 h on schedule, ~1.75 h on the free
 	belt. Slow enough to make the belts worth buying, finite enough to wall nobody out.
 
 	TUNING. `FIRST_LEVEL_COST` moves the whole curve up and down; `LEVEL_GROWTH` alone
@@ -59,7 +62,7 @@
 local Treadmill = {}
 
 --- Walk speed at level 1. One level = one stud/sec, with no top level.
-Treadmill.START_WALK = 26
+Treadmill.START_WALK = 30
 
 --- Where the cap used to be (level 75). Nothing clamps to it any more; it is the
 --- reference point the Spec milestones and the dig-reveal check are measured at.
@@ -156,13 +159,13 @@ end
 --- reason to upgrade. Prices were re-fitted in the economy pacing pass (Config/Gear's
 --- header): the belts are Stage 3, Stage 6 and Stage 9 purchases.
 Treadmill.TIERS = {
-	{ name = "Scrap Belt", price = 0, rate = 10, model = "t1_basic", blurb = "A conveyor off a dead factory line. It turns. Mostly." },
-	{ name = "Servo Track", price = 950000, rate = 30, model = "t2_green", blurb = "Servo-driven. Reads your stride and outruns it." },
-	{ name = "Reactor Mill", price = 5400000, rate = 80, model = "t3_blue", blurb = "Runs off a slug of core. Warm underfoot." },
-	{ name = "Isotope Strider", price = 38000000, rate = 190, model = "t4_gold", blurb = "Hums like a reactor. Most runners stop here." },
+	{ name = "Scrap Belt", price = 0, rate = 20, model = "t1_basic", blurb = "A conveyor off a dead factory line. It turns. Mostly." },
+	{ name = "Servo Track", price = 950000, rate = 60, model = "t2_green", blurb = "Servo-driven. Reads your stride and outruns it." },
+	{ name = "Reactor Mill", price = 5400000, rate = 160, model = "t3_blue", blurb = "Runs off a slug of core. Warm underfoot." },
+	{ name = "Isotope Strider", price = 38000000, rate = 380, model = "t4_gold", blurb = "Hums like a reactor. Most runners stop here." },
 	-- A Twilight-era buy (priced against the Strata Lance), for the climb past the old
 	-- cap: ~4 h from walk 100 to 110 on it, against ~10 h on the Strider.
-	{ name = "Diamond Drive", price = 2500000000, rate = 450, model = "t5_diamond", blurb = "The last belt. Cut from one crystal. It never wears down." },
+	{ name = "Diamond Drive", price = 2500000000, rate = 900, model = "t5_diamond", blurb = "The last belt. Cut from one crystal. It never wears down." },
 } :: { TreadmillTier }
 
 --- Lifetime Speed needed to be at `level`. There is no top level, so this is always a
