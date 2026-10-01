@@ -15,11 +15,11 @@
 	the same world contract, so the services find them by tag and they simply work here:
 	sell at the counter, dock and shower at the tub, wash what you hold. A stall is real
 	only where Config/Gear sells something at this camp (a rung's `camp` column): Toxic
-	Twilight's north row is the Detector Shop (Shops.buildCampStall), selling that camp's
+	Twilight's north-west slot is the Detector Shop (Shops.buildCampStall), selling that camp's
 	six detectors, the south-west slot is its Magnet Shop, selling its five magnets, and
 	the south-east slot is its Hose Shop, selling its five hoses, and its Aura Shop (the
-	Outfitter's building, Shops.buildCampOutfitter) stands west of the Detector Shop in
-	the north row, selling its six auras. Every other stall is Shops.buildStallShell -- the frame and steel roof
+	Outfitter's building, Shops.buildCampOutfitter) stands in the north-east slot, east of
+	the Detector Shop, selling its six auras. Every other stall is Shops.buildStallShell -- the frame and steel roof
 	with NO station attributes -- because the gear they will sell does not exist yet. They
 	say COMING SOON rather than opening a panel for nothing.
 
@@ -60,7 +60,7 @@
 	                                  magnet rungs at this camp
 	    ...<Key>.Stalls.CleanerShop   the same, in the south-east slot, for hose rungs
 	    ...<Key>.Stalls.AuraShop      its Aura counter carries StationId "Aura" and
-	                                  ShopCamp = <Key>; west of the Detector Shop
+	                                  ShopCamp = <Key>; east of the Detector Shop
 	    ...<Key>.MergeReactor         StationKind = "merge", StationId = <Key>, on the
 	                                  MergeDeck south of the plaza; only where Config/Camps
 	                                  sets `mergeReactor`
@@ -85,7 +85,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 24
+local BUILDER_VERSION = 25
 
 local C = Kit.C
 local build = Kit.build
@@ -124,7 +124,8 @@ local SHOP_HALF_X, SHOP_HALF_Z = 66, 66
 --- The trader stands at the square's middle with the four shops pinwheeled around it on
 --- the diagonals, each facing the kiosk (buildStalls). Slot order = SLOT_ANGLES order;
 --- angles are compass bearings off +Z (north), clockwise toward +X (east).
-local SLOT_TRACKS = { "Aura", "Detector", "Cleaner", "Magnet" }
+--- Aura and Detector swapped places on request (Detector NW, Aura NE).
+local SLOT_TRACKS = { "Detector", "Aura", "Cleaner", "Magnet" }
 local SLOT_ANGLES = { -45, 45, 135, -135 } -- NW, NE, SE, SW
 --- Ring radius = widest shop's half-width + this, so neighbours' front corners never meet.
 --- Was 28. Trimmed when the Aura Shop grew to six mannequins (Seraph, Crimson Vortex):
