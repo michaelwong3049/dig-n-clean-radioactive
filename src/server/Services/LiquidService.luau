@@ -74,8 +74,10 @@ local lastSignature: { [Player]: string } = {}
 --- old colour until the spin lands, so the world behind the popup does not give the
 --- result away first.
 local spinning: { [Player]: boolean } = {}
---- The rolled fluid waiting on a REPLACE / KEEP answer (see grant()).
-local pending: { [Player]: string } = {}
+--- The rolled fluid waiting on a REPLACE / KEEP answer (see grant()), plus exactly how
+--- many charges that roll added -- so discarding it (a later roll, or KEEP) can undo
+--- just that roll's charges instead of the player's whole banked stock of the liquid.
+local pending: { [Player]: { id: string, amount: number } } = {}
 
 -- ── Rolling ───────────────────────────────────────────────────────────
 
@@ -156,29 +158,34 @@ local function grant(player: Player, data: any, id: string): boolean
 	-- Stacking, capped. Kept for the day fluids go finite again (LIQUID_INFINITE off).
 	local ceiling = def.charges * Tuning.LIQUID_MAX_STACK
 	local held = data.liquids[id] or 0
-	data.liquids[id] = math.min(held + def.charges, ceiling)
+	local granted = math.min(held + def.charges, ceiling)
+	local amount = granted - held
+	data.liquids[id] = granted
 
 	local current = LiquidService.equipped(data)
 	if current == id then
 		pending[player] = nil
 		return false
 	end
-	-- A second roll before the first was answered drops the first unanswered one.
+	-- A second roll before the first was answered drops the first unanswered one --
+	-- just the charges that roll added, never the player's pre-existing stock of it.
 	local stale = pending[player]
-	if stale and stale ~= id and stale ~= current then
-		data.liquids[stale] = nil
+	if stale and stale.id ~= id and stale.id ~= current then
+		local left = math.max(0, (data.liquids[stale.id] or 0) - stale.amount)
+		data.liquids[stale.id] = if left > 0 then left else nil
 	end
-	pending[player] = id
+	pending[player] = { id = id, amount = amount }
 	return true
 end
 
 --- Answer the REPLACE / KEEP question. Allowed anywhere: a crate opens far from the
 --- bottle. Keep throws the rolled fluid away; replace loads it and drops the old one.
 local function choose(player: Player, data: any, replace: boolean)
-	local id = pending[player]
-	if id == nil then
+	local pendingRoll = pending[player]
+	if pendingRoll == nil then
 		return
 	end
+	local id = pendingRoll.id
 	pending[player] = nil
 	local current = LiquidService.equipped(data)
 	if replace then
@@ -188,7 +195,10 @@ local function choose(player: Player, data: any, replace: boolean)
 		end
 		print(`[liquid] {player.Name} loaded {Liquids.get(id).name}`)
 	elseif id ~= current then
-		data.liquids[id] = nil
+		-- KEEP: undo just this roll's charges, not whatever the player already had
+		-- banked for `id` before this roll landed.
+		local left = math.max(0, (data.liquids[id] or 0) - pendingRoll.amount)
+		data.liquids[id] = if left > 0 then left else nil
 	end
 	LiquidService.push(player)
 	ExhibitService.refreshBottle(player)
