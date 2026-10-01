@@ -90,16 +90,13 @@ local CALLOUT_COLOR: { [string]: Color3 } = {
 }
 
 -- How each tier's rarity word is filled. "glint" sweeps a pale band across the base
--- colour; "rainbow" rocks a spectrum back and forth. Tiers not listed are flat, Epic
--- gets a still top-to-bottom fade.
+-- colour. Tiers not listed are flat, Epic gets a still top-to-bottom fade, and Anomaly
+-- cycles the spectrum (Rarity.anomalyHue) on its word, ribbon and tails, every frame.
 local SHIMMER: { [string]: { kind: string, glint: Color3? } } = {
 	Epic = { kind = "fade" },
 	Legendary = { kind = "glint", glint = Color3.fromHex("FFF1B8") },
 	Mythic = { kind = "glint", glint = Color3.fromHex("FFD6D6") },
-	Anomaly = { kind = "rainbow" },
 }
-local RAINBOW = { "FF5D5D", "FFCF3A", "5CD65C", "3DB8F5", "A855F7", "FF5D9E" }
-local RIBBON_RAINBOW = { "FF8F8F", "FFD97A", "8FE68F", "7FCAF7", "C89BFA" }
 
 -- Design px on the card's own footprint, fitted to CARD_STUDS. Top to bottom: rarity,
 -- stars, ribbon, pill row, footer. With no footer everything drops FOOTLESS_DROP so
@@ -159,7 +156,6 @@ local MAX_DISTANCE = 120
 
 local POP = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local GLINT_SWEEP = TweenInfo.new(1.6, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1, false, 0.9)
-local RAINBOW_ROCK = TweenInfo.new(2.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
 
 type Card = {
 	display: BasePart,
@@ -167,6 +163,8 @@ type Card = {
 	canvas: Frame, -- L.width x L.height design px, fitted to the gui by its own UIScale
 	root: Frame?,
 	shimmer: Tween?,
+	-- An Anomaly card's parts that take the cycling hue; nil on every other card.
+	anomaly: { word: TextLabel, fill: UIGradient, tails: { Frame } }?,
 	key: string?, -- what is drawn (item + when it went up); a change pops the card
 	primed: boolean, -- false until the first draw, so a stand already full on join never pops
 	queued: boolean,
@@ -229,14 +227,6 @@ end
 
 local function darken(color: Color3, t: number): Color3
 	return color:Lerp(Color3.new(0, 0, 0), t)
-end
-
-local function sequence(hexes: { string }): ColorSequence
-	local points = {}
-	for i, hex in hexes do
-		table.insert(points, ColorSequenceKeypoint.new((i - 1) / (#hexes - 1), Color3.fromHex(hex)))
-	end
-	return ColorSequence.new(points)
 end
 
 -- ── Building blocks ───────────────────────────────────────────────────────────
@@ -317,7 +307,7 @@ end
 --- One notched ribbon tail, drawn in horizontal strips so the V cut is real
 --- transparency, not a patch painted over the world. `mirror` puts the notch on the
 --- right; the end tucked under the ribbon carries no outline, nothing can see it.
-local function tail(parent: Instance, name: string, x: number, y: number, fill: Color3, mirror: boolean)
+local function tail(parent: Instance, name: string, x: number, y: number, fill: Color3, mirror: boolean): { Frame }
 	local root = Instance.new("Frame")
 	root.Name = name
 	root.Position = UDim2.fromOffset(x, y)
@@ -333,7 +323,8 @@ local function tail(parent: Instance, name: string, x: number, y: number, fill: 
 	local function notchAt(rowMid: number): number
 		return L.notch * (1 - math.abs(rowMid - half) / half)
 	end
-	local function strip(top: number, height: number, inset: number, color: Color3, z: number)
+	local fills: { Frame } = {}
+	local function strip(top: number, height: number, inset: number, color: Color3, z: number): Frame
 		local row = Instance.new("Frame")
 		row.BorderSizePixel = 0
 		row.BackgroundColor3 = color
@@ -341,6 +332,7 @@ local function tail(parent: Instance, name: string, x: number, y: number, fill: 
 		row.Size = UDim2.fromOffset(L.tailW - inset, height)
 		row.ZIndex = z
 		row.Parent = root
+		return row
 	end
 
 	local top = 0
@@ -352,9 +344,10 @@ local function tail(parent: Instance, name: string, x: number, y: number, fill: 
 	top = L.stroke
 	while top < L.tailH - L.stroke do
 		local height = math.min(L.strip, L.tailH - L.stroke - top)
-		strip(top, height, notchAt(top + height / 2) + slant, fill, 2)
+		table.insert(fills, strip(top, height, notchAt(top + height / 2) + slant, fill, 2))
 		top += height
 	end
+	return fills
 end
 
 --- CashController's coin, shrunk to sit inside a 28px pill.
@@ -415,12 +408,6 @@ local function paintRarity(label: TextLabel, rarityId: string, color: Color3): T
 		gradient.Rotation = 90
 		gradient.Color = ColorSequence.new(lighten(color, 0.45), color)
 		return nil
-	elseif style.kind == "rainbow" then
-		gradient.Color = sequence(RAINBOW)
-		gradient.Offset = Vector2.new(-0.35, 0)
-		local tween = TweenService:Create(gradient, RAINBOW_ROCK, { Offset = Vector2.new(0.35, 0) })
-		tween:Play()
-		return tween
 	end
 
 	local glint = style.glint or WHITE
@@ -439,7 +426,27 @@ end
 
 -- ── One card ──────────────────────────────────────────────────────────────────
 
+--- The ribbon's top-to-bottom fill for a rarity colour.
+local function ribbonFill(color: Color3): ColorSequence
+	return ColorSequence.new({
+		ColorSequenceKeypoint.new(0, lighten(color, 0.3)),
+		ColorSequenceKeypoint.new(0.6, color),
+		ColorSequenceKeypoint.new(1, darken(color, 0.1)),
+	})
+end
+
+--- Paint an Anomaly card's parts in this frame's spectrum colour.
+local function paintAnomaly(parts: { word: TextLabel, fill: UIGradient, tails: { Frame } }, hue: Color3)
+	parts.word.TextColor3 = hue
+	parts.fill.Color = ribbonFill(hue)
+	local tailFill = darken(hue, 0.3)
+	for _, strip in parts.tails do
+		strip.BackgroundColor3 = tailFill
+	end
+end
+
 local function clear(card: Card)
+	card.anomaly = nil
 	if card.shimmer then
 		card.shimmer:Cancel()
 		card.shimmer = nil
@@ -560,10 +567,11 @@ local function draw(card: Card)
 		nameSize -= 1
 	end
 	local bannerX = mid - bannerW / 2
-	local isRainbow = rarityId == "Anomaly"
-	local tailFill = if isRainbow then Color3.fromHex("C89BFA") else darken(color, 0.3)
-	tail(body, "TailLeft", bannerX - L.tailTuck, L.bannerY + L.tailDrop, tailFill, false)
-	tail(body, "TailRight", bannerX + bannerW + L.tailTuck - L.tailW, L.bannerY + L.tailDrop, tailFill, true)
+	local tailFill = darken(color, 0.3)
+	local tails = tail(body, "TailLeft", bannerX - L.tailTuck, L.bannerY + L.tailDrop, tailFill, false)
+	for _, strip in tail(body, "TailRight", bannerX + bannerW + L.tailTuck - L.tailW, L.bannerY + L.tailDrop, tailFill, true) do
+		table.insert(tails, strip)
+	end
 
 	local banner = shape(body, "Ribbon", bannerX, L.bannerY, bannerW, L.bannerH, WHITE, {
 		radius = UDim.new(0, 6),
@@ -572,17 +580,13 @@ local function draw(card: Card)
 		shadow = L.shadow,
 	})
 	local fill = Instance.new("UIGradient")
-	if isRainbow then
-		fill.Color = sequence(RIBBON_RAINBOW)
-	else
-		fill.Rotation = 90
-		fill.Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, lighten(color, 0.3)),
-			ColorSequenceKeypoint.new(0.6, color),
-			ColorSequenceKeypoint.new(1, darken(color, 0.1)),
-		})
-	end
+	fill.Rotation = 90
+	fill.Color = ribbonFill(color)
 	fill.Parent = banner
+	if rarityId == "Anomaly" then
+		card.anomaly = { word = rarityLabel, fill = fill, tails = tails }
+		paintAnomaly(card.anomaly, Rarity.anomalyHue(os.clock() / Rarity.ANOMALY_CYCLE))
+	end
 	text(banner, "ItemName", def.name, nameSize, WHITE, 3, {
 		font = STYLE.nameFont,
 		position = UDim2.fromOffset(0, L.nameDrop),
@@ -765,6 +769,18 @@ function StandCards.start()
 
 	-- The crating clocks. A few times a second is plenty for a seconds readout; when
 	-- one runs out its card redraws without the footer.
+	-- Anomaly cards cycle the spectrum every frame, in step with every other Anomaly surface.
+	RunService.RenderStepped:Connect(function()
+		local hue: Color3? = nil
+		for _, card in cards do
+			local parts = card.anomaly
+			if parts then
+				hue = hue or Rarity.anomalyHue(os.clock() / Rarity.ANOMALY_CYCLE)
+				paintAnomaly(parts, hue :: Color3)
+			end
+		end
+	end)
+
 	local since = 0
 	RunService.Heartbeat:Connect(function(dt)
 		since += dt
