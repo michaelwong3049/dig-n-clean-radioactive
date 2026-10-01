@@ -43,10 +43,6 @@ local function vary(salt: string, uid: string): number
 	return 1 + (roll(salt, uid) * 2 - 1) * Cfg.VARIANCE
 end
 
-local function lerp(a: number, b: number, t: number): number
-	return a + (b - a) * t
-end
-
 --- The stage a nuke comes from, for Detonation.stageMults: its item's home stage.
 --- Takes a catalogue def (`stages`) or a bag record (`itemId`); a crusted hotbar copy
 --- has no itemId yet and reads as Stage 1 -- it cannot be dropped until it is clean.
@@ -73,20 +69,20 @@ function Bombing.statsFor(item: any): Stats
 	local stars = math.max(1, Bombing.starsOf(item))
 	local payload = Payload.forUid(uid)
 	local size = math.clamp(payload ^ Cfg.SIZE_EXP, Cfg.SIZE_MIN, Cfg.SIZE_MAX)
-	local span = math.max(1, #Cfg.DAMAGE - 1)
-	local through = (stars - 1) / span
 	local hitMult, radiusMult = Detonation.stageMults(stageOf(item))
 
-	local fuse = lerp(Cfg.FUSE_MIN, Cfg.FUSE_MAX, roll("bombfuse:", uid)) + (stars - 1) * Cfg.FUSE_PER_STAR
-	local cooldown = lerp(Cfg.COOLDOWN_MIN, Cfg.COOLDOWN_MAX, through)
-		+ (roll("bombcool:", uid) * 2 - 1) * Cfg.COOLDOWN_JITTER
+	local order = if item.rarity and Rarity.DEFS[item.rarity] then Rarity.DEFS[item.rarity].order else 1
+	local callout = Payload.calloutFor(payload)
+	local fuse = Cfg.FUSE_BY_RARITY[math.clamp(order, 1, #Cfg.FUSE_BY_RARITY)]
+		+ (roll("bombfuse:", uid) * 2 - 1) * Cfg.FUSE_SPREAD
+		+ (if callout then Cfg.FUSE_SIZE_BONUS[callout] or 0 else 0)
 
 	return {
 		stars = stars,
 		damage = math.floor(Cfg.DAMAGE[stars] * hitMult * size * vary("bombdmg:", uid) + 0.5),
 		radius = math.floor(Cfg.RADIUS[stars] * radiusMult * size * vary("bombrad:", uid) * 10 + 0.5) / 10,
 		fuse = math.floor(fuse * 10 + 0.5) / 10,
-		cooldown = math.floor(math.clamp(cooldown, Cfg.COOLDOWN_MIN, Cfg.COOLDOWN_MAX) * 10 + 0.5) / 10,
+		cooldown = Cfg.COOLDOWN,
 	}
 end
 

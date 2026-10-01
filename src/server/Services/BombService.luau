@@ -17,8 +17,8 @@
 	STAGES ONLY. The drop is refused in camps and bases, and the blast spares anyone
 	standing in one (HazardService's `spares`), crater burn included.
 
-	THE COOLDOWN (8-10s, Config/Bombing) is per player and is the dropped bomb's own
-	cooldown stat, so a big bomb costs you a longer wait. It is session state only.
+	THE COOLDOWN (3s, Config/Bombing) is per player, flat for every nuke, and comes
+	back on the dropped bomb's stats. It is session state only.
 
 	THE BOMB IS A COPY OF THE MODEL IN YOUR HANDS (ToolService's HeldItem), anchored on
 	the ground. It is tagged like a lit dig fuse (Config/Detonation.HOT_TAG, role
