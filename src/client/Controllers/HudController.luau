@@ -120,7 +120,7 @@ local state = {
 	healthBurn = 0,
 	ambient = 0,
 	depth = 0, -- metres below base camp's edge; 0 in camp
-	excess = 0,
+	over = 0, -- 0..1, how far out of its depth the aura is (Radiation.resolve)
 	survivable = -1, -- -1 mirrors DebugService's "never" convention
 	sickness = 0, -- HP/sec of radiation sickness (meter 80%+, out in a stage)
 	threat = "",
@@ -138,18 +138,10 @@ local barWidth = Dock.VITALS_WIDTH - VITALS.barX
 --- have killed three of you already" — one flag cannot tell a player which of those
 --- they walked into.
 ---
---- No new field on the wire: ExposureState already carries `ambient` and `excess`,
---- and Radiation.resolve defines excess as ambient minus aura tolerance, so the
---- tolerance is just their difference and the ratio falls out. Divided by three
---- because three times your own tolerance is comfortably past any argument about
---- whether you meant to be here — a Static Veil reaches it in the Ooze Marsh,
---- which is exactly the walk this is meant to punish.
+--- ExposureState carries it as `over`, graded off the zone survival curve
+--- (Radiation.resolve): 0 at a one-tier-under entrance, 1 at a one-second death.
 local function overTier(): number
-	if state.excess <= 0 then
-		return 0
-	end
-	local tolerance = math.max(state.ambient - state.excess, 0.5)
-	return math.clamp(state.excess / tolerance / 3, 0, 1)
+	return math.clamp(state.over, 0, 1)
 end
 
 local function lerp(a: number, b: number, t: number): number
@@ -464,8 +456,8 @@ local function render(dt: number)
 	end
 	-- A failing aura always shows something, but HOW MUCH is graded by how far past
 	-- your rating you are — a flat 0.65 floor here meant one step over the line lit
-	-- the overlay as hard as a nearly-full meter. Lands back on exactly 0.65 at three
-	-- times your tolerance. Same reasoning as RadFx's `failTarget`; the two have to
+	-- the overlay as hard as a nearly-full meter. Lands back on exactly 0.65 at a
+	-- one-second death (Radiation.resolve's `over`). Same reasoning as RadFx's `failTarget`; the two have to
 	-- agree or the grade reappears through this floor.
 	if state.failing then
 		intensity = math.max(intensity, 0.2 + 0.45 * over)
@@ -589,7 +581,7 @@ function Hud.start()
 		state.healthBurn = payload.healthBurn or 0
 		state.ambient = payload.ambient or 0
 		state.depth = payload.depth or 0
-		state.excess = payload.excess or 0
+		state.over = payload.over or 0
 		state.survivable = if payload.survivable ~= nil then payload.survivable else -1
 		state.threat = payload.threat or ""
 		state.inCrater = payload.inCrater == true

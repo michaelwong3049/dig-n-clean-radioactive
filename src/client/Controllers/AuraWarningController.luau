@@ -21,11 +21,11 @@
 	card and the tutorial banner share that strip, and while either is up the warning
 	slides down under it (clearTop).
 
-	NO NEW FIELD ON THE WIRE. ExposureState carries `ambient`, `excess` and `failing`,
-	and Radiation.resolve defines excess as ambient minus aura tolerance. Whether any
-	aura could hold this air is a Gear.Aura rung whose tolerance reaches `ambient`. The
-	burn is recomputed from `excess` rather than read off `healthBurn`, because
-	`healthBurn` also carries a detonated crater's burn, which no aura helps with.
+	READS THE ZONE CURVE OFF THE WIRE. ExposureState carries `auraBurn`, the failing
+	aura's HP/sec alone (Radiation.zoneSurvival) -- not `healthBurn`, which also carries
+	a detonated crater's burn that no aura helps with. Whether any aura could hold this
+	stage is whether Gear.Aura reaches the stage's ratedAuraTier; past the top of the
+	ladder (Stage 12) the warning says to turn back.
 ]]
 
 local Players = game:GetService("Players")
@@ -36,7 +36,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
-local Tuning = require(Shared.Config.Tuning)
+local Stages = require(Shared.Config.Stages)
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
@@ -86,8 +86,8 @@ local ui: any = {}
 local reading = {
 	failing = false,
 	downed = false,
-	ambient = 0,
-	excess = 0,
+	stageId = nil :: number?,
+	auraBurn = 0,
 	health = 100,
 	maxHealth = 100,
 }
@@ -100,10 +100,10 @@ local throb = 0
 
 --- HP/sec from the AURA alone — Radiation.resolve's burn term, without the crater.
 local function auraBurn(): number
-	if not reading.failing or reading.excess <= 0 then
+	if not reading.failing then
 		return 0
 	end
-	return Tuning.BURN_COEF * (reading.excess ^ Tuning.BURN_EXPONENT)
+	return reading.auraBurn
 end
 
 local function isHeavy(): boolean
@@ -118,15 +118,13 @@ local function isHeavy(): boolean
 	return reading.health / burn <= HEAVY_SECONDS or healthFrac <= HEAVY_HEALTH
 end
 
---- Whether any rung of Gear.Aura would hold this air. Past the top of the ladder
+--- Whether any rung of Gear.Aura is rated for this stage. Past the top of the ladder
 --- there is nothing to upgrade to, so the warning says to turn back instead.
-local function anyAuraHolds(ambient: number): boolean
-	for _, tier in Gear.Aura do
-		if tier.tolerance >= ambient then
-			return true
-		end
+local function anyAuraHolds(stageId: number?): boolean
+	if stageId == nil then
+		return true
 	end
-	return false
+	return Stages.get(stageId).ratedAuraTier <= #Gear.Aura
 end
 
 local function textWidth(text: string, size: number): number
@@ -155,7 +153,7 @@ local function layoutRow()
 end
 
 local function refreshText()
-	local text = if anyAuraHolds(reading.ambient) then "UPGRADE AURA" else "TURN BACK"
+	local text = if anyAuraHolds(reading.stageId) then "UPGRADE AURA" else "TURN BACK"
 	if ui.title.Text ~= text then
 		ui.title.Text = text
 		layoutRow()
@@ -365,8 +363,8 @@ function AuraWarningController.start()
 	Net.get("ExposureState").OnClientEvent:Connect(function(payload)
 		reading.failing = payload.failing == true
 		reading.downed = payload.downed == true
-		reading.ambient = payload.ambient or 0
-		reading.excess = payload.excess or 0
+		reading.stageId = payload.stageId
+		reading.auraBurn = payload.auraBurn or 0
 		reading.maxHealth = payload.maxHealth or reading.maxHealth
 		reading.health = payload.health or reading.health
 	end)

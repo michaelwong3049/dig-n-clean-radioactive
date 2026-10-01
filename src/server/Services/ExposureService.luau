@@ -612,13 +612,26 @@ local function stepPlayer(player: Player, dt: number)
 	-- does. Decay still ticks above (conditions/fuses are their own mechanic); the bag
 	-- just stops feeding the exposure meter. Radiation.resolve keeps its `carried`
 	-- input as pure math, so passing 0 here is the whole switch.
-	local reading = Radiation.resolve(ambient, 0, stats)
+	-- The aura's damage comes off the zone survival curve (Radiation.zoneSurvival):
+	-- where you stand in the stage against what your aura is rated for. Camps have no
+	-- zone and take none.
+	local zone: Radiation.Zone? = if stageId
+		then {
+			stageId = stageId,
+			depthFrac = StageService.depthFracFor(player),
+			auraTier = data.gear and data.gear.aura or 1,
+			maxHealth = maxHealthOf(player),
+		}
+		else nil
+	local reading = Radiation.resolve(ambient, 0, stats, zone)
 	-- /immunity: the reading still names the ambient and the bag (the HUD keeps its
 	-- numbers), but none of it lands -- nothing accrues, nothing burns, the aura holds.
 	if immune[player] then
 		reading.net = 0
 		reading.excess = 0
 		reading.healthBurn = 0
+		reading.drain = 0
+		reading.over = 0
 		reading.failing = false
 	end
 
@@ -656,7 +669,7 @@ local function stepPlayer(player: Player, dt: number)
 		sickDrain = if sick then Radiation.sicknessDrain(frac, maxHealthOf(player)) else 0
 		local noRegen = sick and frac >= Tuning.SICKNESS_NO_REGEN
 
-		local hpLoss = reading.healthBurn + sickDrain
+		local hpLoss = reading.healthBurn + reading.drain + sickDrain
 		if hpLoss > 0 then
 			state.health = math.max(0, state.health - hpLoss * dt)
 		elseif not noRegen then
@@ -679,7 +692,7 @@ local function stepPlayer(player: Player, dt: number)
 			-- anyone. Aura failure alone is still "burn": radiation, owner-only drop.
 			-- Sickness with the aura holding is the meter's doing: an exposure death.
 			local blasted = blastHit > 0 or craterBurn > 0
-			local reason = if blasted then "blast" elseif reading.healthBurn > 0 then "burn" else "exposure"
+			local reason = if blasted then "blast" elseif reading.failing then "burn" else "exposure"
 			blackout(player, state, reason, where())
 		end
 	end
@@ -703,14 +716,14 @@ local function stepPlayer(player: Player, dt: number)
 	-- folded into reading.healthBurn, which the HUD reads as "your aura is failing".
 	local liveSurvivable = Radiation.survivableSeconds(reading, state.exposure, state.health)
 	if sickDrain > 0 then
-		liveSurvivable = math.min(liveSurvivable, state.health / (reading.healthBurn + sickDrain))
+		liveSurvivable = math.min(liveSurvivable, state.health / (reading.healthBurn + reading.drain + sickDrain))
 	end
 	-- In a camp the sickness never lands, so a filling meter is no clock there: only
 	-- a burn (a crater's orb) can count you down.
 	if stageId == nil then
 		liveSurvivable = if reading.healthBurn > 1e-6 then state.health / reading.healthBurn else math.huge
 	end
-	local trulySafe = showering or (reading.net <= 0 and reading.healthBurn <= 0 and sickDrain <= 0)
+	local trulySafe = showering or (reading.net <= 0 and reading.healthBurn <= 0 and reading.drain <= 0 and sickDrain <= 0)
 	-- The ratchet only holds within ONE kind of clock. A burn clock (seconds of HP) and
 	-- an exposure clock (seconds of meter) are different numbers: stepping out of the
 	-- burn left the old burn ratchet ticking down to a SURVIVABLE 0:00 that never killed
@@ -756,6 +769,12 @@ local function stepPlayer(player: Player, dt: number)
 		carried = reading.carried,
 		excess = reading.excess,
 		healthBurn = reading.healthBurn,
+		-- The failing aura's HP/sec alone (the crater is folded into healthBurn).
+		auraBurn = reading.healthBurn - craterBurn,
+		-- HP/sec of rated-aura wear: the aura holding, but wearing down (green).
+		zoneDrain = reading.drain,
+		-- 0..1, how far out of its depth the aura is (Radiation.resolve).
+		over = reading.over,
 		failing = reading.failing,
 		-- Owed the one-time "upgrade your aura" popup (client/AuraTipController)?
 		auraTip = auraTipOwed(player),

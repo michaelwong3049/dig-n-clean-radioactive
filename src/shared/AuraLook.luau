@@ -18,10 +18,10 @@
 	electrons shedding sparkles, then embers at the feet, then a glitter burst from the
 	core) and, for tier 6, the double helix over the atom (`form`, HELIX).
 
-	TIERS 7-10 ARE TOXIC TWILIGHT'S, sold only at that camp's Aura Shop. The user picked
-	their shapes from a round of eight: Dusk Corona (a sun halo with breathing rays),
-	Toxic Aurora (rippling ribbons), Eclipse Veil (a field-line torus) and Twilight
-	Singularity (beating energy wings). Each is a set of moving curves (CURVE_FORMS),
+	TIERS 7-11 ARE TOXIC TWILIGHT'S, sold only at that camp's Aura Shop. The user picked
+	their shapes from mockup rounds: Toxic Aurora (rippling ribbons), Eclipse Veil (a
+	field-line torus), Twilight Singularity (beating energy wings), then the Seraph and
+	the Crimson Vortex. (Dusk Corona, the sun halo, was cut and the rest slid down.) Each is a set of moving curves (CURVE_FORMS),
 	since unlike the atom and helix they change shape as they move.
 
 	TIERS 11-12 ARE STAGES 11 AND 12'S, sold at the same shop, picked from a later round
@@ -64,7 +64,7 @@ export type Look = {
 	--- "atom": `rings` tilted rings round the chest. "helix": the Nimbus's own shape,
 	--- two strands spiralling feet to head (see HELIX); `rings` is unused. The rest are
 	--- Toxic Twilight's four, each a set of moving curves (see CURVE_FORMS).
-	form: "atom" | "helix" | "corona" | "aurora" | "torus" | "wings" | "seraph" | "vortex",
+	form: "atom" | "helix" | "aurora" | "torus" | "wings" | "seraph" | "vortex",
 	color: Color3,
 	rings: number, -- 1..3
 	electrons: number, -- per ring (per strand, for the helix)
@@ -121,13 +121,10 @@ AuraLook.TIERS = {
 		form = "helix", color = Color3.fromRGB(255, 208, 72), rings = 3, electrons = 3, width = 0.26, transparency = 0.1, speed = 4.0, core = true,
 		sparkle = { dust = 16, shed = 10, embers = 22, burst = 40 },
 	},
-	-- Toxic Twilight's four (Config/Gear's `camp = "twilight"` rungs), picked by the user
-	-- from a round of eight shapes: 1 corona, 2 aurora ribbons, 4 field torus, 6 energy
-	-- wings. `rings` is unused by these forms; it stays 3 so the ladder never "loses" one.
-	{
-		form = "corona", color = Color3.fromRGB(255, 122, 61), rings = 3, electrons = 4, width = 0.28, transparency = 0.08, speed = 4.2, core = true,
-		sparkle = { dust = 18, shed = 11, embers = 24, burst = 44 },
-	},
+	-- Toxic Twilight's (Config/Gear's `camp = "twilight"` rungs), picked by the user
+	-- from a round of eight shapes: 2 aurora ribbons, 4 field torus, 6 energy wings (1,
+	-- the corona, was cut). `rings` is unused by these forms; it stays 3 so the ladder
+	-- never "loses" one.
 	{
 		form = "aurora", color = Color3.fromRGB(63, 224, 208), rings = 3, electrons = 2, width = 0.30, transparency = 0.06, speed = 4.4, core = true,
 		sparkle = { dust = 20, shed = 12, embers = 26, burst = 48 },
@@ -241,7 +238,7 @@ end
 -- ── Toxic Twilight's forms: moving curves ─────────────────────────────────────
 --
 -- The atom and the helix are rigid shapes the hub turns. Twilight's four MOVE WITHIN
--- THEMSELVES (the corona's rays breathe, the ribbons ripple, the torus's loops sweep
+-- THEMSELVES (the ribbons ripple, the torus's loops sweep
 -- round, the wings beat), so each is a set of curves, `point(s, t)`, that
 -- AuraController re-lays every frame as a chain of Beams, and `icon` samples once.
 
@@ -288,55 +285,7 @@ local function flatRing(y: number, radius: number, wobble: number, beams: number
 	}
 end
 
---- 1. DUSK CORONA: a sun halo standing behind the shoulders with rays that grow and
---- shrink as it turns, and a waist ring the electrons ride.
-local CORONA_CENTRE = Vector3.new(0, 0.9, 1.0)
-local CORONA_RADIUS = 2.7
-local CORONA_RAYS = 14
-local CORONA_WAIST = flatRing(-1.2, 2.6, 0.08, 8, 1)
-local function coronaForm(): CurveForm
-	local curves: { Curve } = {}
-	for _, ring in { { CORONA_RADIUS, 1.2, 0 }, { 2.25, 0.5, 0.35 } } do
-		table.insert(curves, {
-			beams = 8,
-			closed = true,
-			width = ring[2],
-			fade = ring[3],
-			point = function(s: number, _t: number): Vector3
-				local u = s * TAU
-				return CORONA_CENTRE + Vector3.new(math.cos(u) * ring[1], math.sin(u) * ring[1], 0)
-			end,
-		})
-	end
-	for ray = 1, CORONA_RAYS do
-		table.insert(curves, {
-			beams = 1,
-			closed = false,
-			width = 0.8,
-			fade = 0,
-			point = function(s: number, t: number): Vector3
-				local a = ray * TAU / CORONA_RAYS + t * 0.35
-				local length = 0.5 + 0.45 * (0.5 + 0.5 * math.sin(t * 3 + ray * 1.7))
-				local r = CORONA_RADIUS + 0.15 + s * length
-				return CORONA_CENTRE + Vector3.new(math.cos(a) * r, math.sin(a) * r, 0)
-			end,
-		})
-	end
-	table.insert(curves, CORONA_WAIST)
-	return {
-		curves = curves,
-		riders = function(t: number): { Vector3 }
-			local out = table.create(4)
-			for e = 0, 3 do
-				table.insert(out, CORONA_WAIST.point(frac(t * 0.5 + e / 4), t))
-			end
-			return out
-		end,
-		reach = 4.8,
-	}
-end
-
---- 2. TOXIC AURORA: three rippling ribbons at knee, chest and head height, turning in
+--- 1. TOXIC AURORA: three rippling ribbons at knee, chest and head height, turning in
 --- alternate directions, each with a fainter echo just above it.
 local AURORA_HEIGHTS = { -2.0, -0.3, 1.6 }
 local function auroraPoint(ribbon: number, lift: number): (number, number) -> Vector3
@@ -370,7 +319,7 @@ local function auroraForm(): CurveForm
 	}
 end
 
---- 3. ECLIPSE VEIL: magnetic field lines, eight loops from the feet up over the head
+--- 2. ECLIPSE VEIL: magnetic field lines, eight loops from the feet up over the head
 --- and back down through the chest, the whole set sweeping round; sparks ride them up.
 local TORUS_LOOPS = 8
 local function torusPoint(loop: number): (number, number) -> Vector3
@@ -399,7 +348,7 @@ local function torusForm(): CurveForm
 	}
 end
 
---- 4. TWILIGHT SINGULARITY: three pairs of wing arcs sweeping out from the upper back,
+--- 3. TWILIGHT SINGULARITY: three pairs of wing arcs sweeping out from the upper back,
 --- beating slowly, sparks racing to the tips, and a ring at the feet.
 local function wingPoint(side: number, feather: number): (number, number) -> Vector3
 	return function(s: number, t: number): Vector3
@@ -435,7 +384,7 @@ local function wingsForm(): CurveForm
 	}
 end
 
---- 5. SERAPH: the Singularity's wings grown up. Three pairs, longer and beating
+--- 4. SERAPH: the Singularity's wings grown up. Three pairs, longer and beating
 --- slower, each with four feathers hanging off its arc, and a halo over the head.
 local SERAPH_FEATHERS = 4
 local function seraphWing(side: number, pair: number): (number, number) -> Vector3
@@ -492,7 +441,7 @@ local function seraphForm(): CurveForm
 	}
 end
 
---- 6. CRIMSON VORTEX: a red tornado. Four strands spiral from a wide base at the feet
+--- 5. CRIMSON VORTEX: a red tornado. Four strands spiral from a wide base at the feet
 --- to a point over the head, the whole funnel turning; one spark climbs each strand.
 local VORTEX_STRANDS = 4
 local VORTEX_BOTTOM = AuraLook.FEET + 0.4
@@ -524,7 +473,6 @@ local function vortexForm(): CurveForm
 end
 
 local CURVE_FORMS: { [string]: CurveForm } = {
-	corona = coronaForm(),
 	aurora = auroraForm(),
 	torus = torusForm(),
 	wings = wingsForm(),

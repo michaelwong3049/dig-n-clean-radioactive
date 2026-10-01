@@ -314,32 +314,27 @@ Gear.Aura = {
 	{ name = "Ion Shroud", price = 5200000, reduction = 0.9970, tolerance = 38.4, capacity = 14, haulPenalty = 0.52, blurb = "Wound tight around you. The first aura that trusts you." },
 	{ name = "Isotope Mantle", price = 17000000, reduction = 0.9988, tolerance = 98.4, capacity = 18, haulPenalty = 0.35, blurb = "Burns hotter than the air. Walks into the red and back." },
 	{ name = "Containment Nimbus", price = 43000000, reduction = 0.9889, tolerance = 105.0, capacity = 24, haulPenalty = 0.20, blurb = "Ninety seconds in the Crater. Leakier than it looks." },
-	-- TOXIC TWILIGHT'S FOUR. Sold at that camp's Aura Shop and nowhere else (`camp`,
+	-- TOXIC TWILIGHT'S FIVE. Sold at that camp's Aura Shop and nowhere else (`camp`,
 	-- Gear.campOf), like its detectors, magnets and hoses. Shapes picked by the user
-	-- from a mockup round (Shared/AuraLook's corona / aurora / torus / wings).
+	-- from mockup rounds (Shared/AuraLook's aurora / torus / wings / seraph / vortex).
 	--
-	-- WHAT THEY SELL NOW IS THE BAG: capacity keeps climbing and the haul penalty keeps
-	-- falling (never to zero, see KEEP THE FLOOR ABOVE ZERO), so a full bag still drags
-	-- 6.4 / 5.5 / 4.7 / 3.6 studs/sec, easing off the Nimbus's 6.8.
+	-- DUSK CORONA WAS CUT AND THE REST SLID DOWN ONE RUNG, on request. STATS STAYED WITH
+	-- THE SLOT: tier 7 is still the 130M rung with the 28-slot bag, just named Toxic
+	-- Aurora now, and so on up -- so the economy pacing fit (#527) still holds. The old
+	-- top slot (130B, 48 slots) went with it. Stage 12 is now rated past the end of the
+	-- ladder: the Crimson Vortex lasts about a minute there (Tuning.ZONE_SURVIVAL's
+	-- lastAura), which is the point -- the deepest stage is a raid, not a farm.
 	--
-	-- `tolerance` RUNS AHEAD OF THE MAP, the way the camp's magnets' maxGrip does: the
-	-- Crater's worst ambient already sits under the Nimbus's 105, so the extra buys
-	-- nothing until Stage 7 exists. `reduction` DELIBERATELY STAYS AT THE NIMBUS'S 0.9889:
-	-- exposure is what keeps the Crater a heist rather than a farm (PLAN §4, "at any gear
-	-- level, forever"), and Spec pins every rung from the Nimbus up to that window.
-	{ name = "Dusk Corona", price = 130000000, reduction = 0.9889, tolerance = 140.0, capacity = 28, haulPenalty = 0.16, blurb = "A setting sun on your shoulders. The rads burn out before they reach you.", camp = "twilight" },
-	{ name = "Toxic Aurora", price = 330000000, reduction = 0.9889, tolerance = 190.0, capacity = 32, haulPenalty = 0.12, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
-	{ name = "Eclipse Veil", price = 1100000000, reduction = 0.9889, tolerance = 255.0, capacity = 36, haulPenalty = 0.09, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
-	{ name = "Twilight Singularity", price = 5300000000, reduction = 0.9889, tolerance = 340.0, capacity = 40, haulPenalty = 0.06, blurb = "It lifts the load before you do.", camp = "twilight" },
-	-- STAGES 11 AND 12'S AURAS. Both stages already rated these rungs (Config/Stages'
-	-- ratedAuraTier) before they existed; until now Gear.tier clamped them to the
-	-- Singularity. Picked by the user from a mockup round: Seraph (option 4, the wings
-	-- grown up) then the Vortex (option 7, the Prism Vortex in Supernova red). Same
-	-- shape as Twilight's four: `reduction` held at the Nimbus's, tolerance reaching each
-	-- stage's worst ambient, the bag still getting lighter. Prices step x5, the rate the
-	-- Magnet and Cleaner tracks climb between Stages 10 and 12.
-	{ name = "Seraph", price = 26000000000, reduction = 0.9889, tolerance = 455.0, capacity = 44, haulPenalty = 0.04, blurb = "Six wings and a halo. Bloodrock's glow never reaches you.", camp = "twilight" },
-	{ name = "Crimson Vortex", price = 130000000000, reduction = 0.9889, tolerance = 600.0, capacity = 48, haulPenalty = 0.03, blurb = "The last aura. A red storm with you in the eye of it.", camp = "twilight" },
+	-- WHAT THEY SELL IS THE BAG AND THE STAGE: capacity keeps climbing and the haul
+	-- penalty keeps falling (never to zero, see KEEP THE FLOOR ABOVE ZERO). `reduction`
+	-- DELIBERATELY STAYS AT THE NIMBUS'S 0.9889 (PLAN §4, "at any gear level, forever").
+	-- `tolerance` is each rung's rated ambient, kept as the shop's stat line; the aura's
+	-- actual damage comes off the zone survival curve (Shared/Radiation.zoneSurvival).
+	{ name = "Toxic Aurora", price = 130000000, reduction = 0.9889, tolerance = 140.0, capacity = 28, haulPenalty = 0.16, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
+	{ name = "Eclipse Veil", price = 330000000, reduction = 0.9889, tolerance = 190.0, capacity = 32, haulPenalty = 0.12, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 1100000000, reduction = 0.9889, tolerance = 255.0, capacity = 36, haulPenalty = 0.09, blurb = "It lifts the load before you do.", camp = "twilight" },
+	{ name = "Seraph", price = 5300000000, reduction = 0.9889, tolerance = 340.0, capacity = 40, haulPenalty = 0.06, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "twilight" },
+	{ name = "Crimson Vortex", price = 26000000000, reduction = 0.9889, tolerance = 455.0, capacity = 44, haulPenalty = 0.04, blurb = "The last aura. A red storm with you in the eye of it.", camp = "twilight" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
@@ -607,7 +602,7 @@ end
 
 --- The camp whose stall sells this rung. A row with no `camp` is sold at Base Camp,
 --- which is every rung of every track but Toxic Twilight's six detectors, five
---- magnets, five hoses and six auras. It is a
+--- magnets, five hoses and five auras. It is a
 --- Config/Camps key, spelled the way that file spells it ("base" is Camps.BASE).
 ---
 --- WHERE A RUNG IS SOLD AND WHERE YOU CAN USE IT ARE NOT THE SAME QUESTION. This gates

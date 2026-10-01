@@ -1,9 +1,10 @@
 --!strict
 -- Stages.lua — PLAN §4.
 --
--- NOTE: `ratedAuraTier` is documentation, not enforcement. There is no gate anywhere
--- in this codebase that reads it to deny entry. Stages are open (PLAN §3.5); the only
--- thing that stops a player is the arithmetic in Shared/Radiation.lua.
+-- NOTE: `ratedAuraTier` is not a gate. Nothing reads it to deny entry. Stages are open
+-- (PLAN §3.5); what stops a player is the arithmetic in Shared/Radiation.lua, whose
+-- zone survival curve (Radiation.zoneSurvival) is keyed off this rating: the aura's
+-- damage depends on your aura against it and how far across the stage you stand.
 --
 -- ── SPATIAL FIELDS ──────────────────────────────────────────────────────────
 -- `center` / `size` are the stage's footprint in world XZ. They are the source of
@@ -567,7 +568,7 @@ Stages.DEFS = {
 		id = 7,
 		name = "Cinder Fields",
 		baseRads = 105,
-		deepRads = 138, -- Dusk Corona (140) walks it all; the Containment Nimbus (105) burns past the gate
+		deepRads = 138, -- Toxic Aurora (140) walks it all; the Containment Nimbus (105) burns past the gate
 		soilHardness = 7,
 		ratedAuraTier = 7,
 		stationDistance = 150, -- Toxic Twilight's cleansing station, just back through the mouth; est., not walked
@@ -586,7 +587,7 @@ Stages.DEFS = {
 		id = 8,
 		name = "Cobalt Shelf",
 		baseRads = 140,
-		deepRads = 188, -- Toxic Aurora (190)
+		deepRads = 188, -- Eclipse Veil (190)
 		soilHardness = 8,
 		ratedAuraTier = 8,
 		stationDistance = 440,
@@ -604,7 +605,7 @@ Stages.DEFS = {
 		id = 9,
 		name = "Glass Barrens",
 		baseRads = 190,
-		deepRads = 252, -- Eclipse Veil (255)
+		deepRads = 252, -- Twilight Singularity (255)
 		soilHardness = 9,
 		ratedAuraTier = 9,
 		stationDistance = 730,
@@ -622,7 +623,7 @@ Stages.DEFS = {
 		id = 10,
 		name = "Toxic Crystal Caves",
 		baseRads = 255,
-		deepRads = 335, -- Twilight Singularity (340)
+		deepRads = 335, -- Seraph (340)
 		soilHardness = 10,
 		ratedAuraTier = 10,
 		stationDistance = 1020,
@@ -640,7 +641,7 @@ Stages.DEFS = {
 		id = 11,
 		name = "Bloodrock Rift",
 		baseRads = 340,
-		deepRads = 450, -- Seraph (455)
+		deepRads = 450, -- Crimson Vortex (455), the last aura
 		soilHardness = 11,
 		ratedAuraTier = 11,
 		stationDistance = 1310,
@@ -658,7 +659,7 @@ Stages.DEFS = {
 		id = 12,
 		name = "Ground Zero",
 		baseRads = 455,
-		deepRads = 600, -- Crimson Vortex (600), the last aura
+		deepRads = 600, -- past the last aura: the Crimson Vortex lasts ~a minute (Tuning.ZONE_SURVIVAL lastAura)
 		soilHardness = 12,
 		ratedAuraTier = 12,
 		stationDistance = 1600,

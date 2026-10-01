@@ -19,7 +19,7 @@
 	six detectors, the south-west slot is its Magnet Shop, selling its five magnets, and
 	the south-east slot is its Hose Shop, selling its five hoses, and its Aura Shop (the
 	Outfitter's building, Shops.buildCampOutfitter) stands in the north-east slot, east of
-	the Detector Shop, selling its six auras. Every other stall is Shops.buildStallShell -- the frame and steel roof
+	the Detector Shop, selling its five auras. Every other stall is Shops.buildStallShell -- the frame and steel roof
 	with NO station attributes -- because the gear they will sell does not exist yet. They
 	say COMING SOON rather than opening a panel for nothing.
 
