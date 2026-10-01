@@ -580,9 +580,16 @@ local function rollWeak(session: Session, zoneId: number, delay: number)
 	local anchor = session.zoneAnchor[zoneId]
 	local outward = if anchor then anchor - session.centre else Vector3.zero
 	outward = if outward.Magnitude > 1e-3 then outward.Unit else Vector3.xAxis
-	local scatter = Vector3.new(weakRng:NextNumber(-1, 1), weakRng:NextNumber(-1, 1), weakRng:NextNumber(-1, 1))
-	local dir = outward + scatter * 0.75
-	dir = Vector3.new(dir.X, math.max(dir.Y, -0.15), dir.Z)
+	-- KEPT NEAR THE MIDDLE OF THE LUMP, not out on its silhouette: nearly level (the
+	-- shot looks across the stand, so a level spot swings through the centre of the
+	-- frame as the turntable turns) and only lightly scattered off the chunk's own side.
+	-- A chunk on top or underneath has no side to speak of, so it borrows a random one.
+	local flat = Vector3.new(outward.X, 0, outward.Z)
+	if flat.Magnitude < 0.25 then
+		local angle = weakRng:NextNumber(0, 2 * math.pi)
+		flat = Vector3.new(math.cos(angle), 0, math.sin(angle))
+	end
+	local dir = flat.Unit + Vector3.new(weakRng:NextNumber(-0.3, 0.3), weakRng:NextNumber(-0.08, 0.18), weakRng:NextNumber(-0.3, 0.3))
 	dir = if dir.Magnitude > 1e-3 then dir.Unit else outward
 	session.weakSerial += 1
 	session.weak[zoneId] = { id = session.weakSerial, dir = dir, on = 0, readyAt = os.clock() + delay }
