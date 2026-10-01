@@ -150,9 +150,14 @@ local FOOTLESS_DROP = 24
 -- left the rate and kg unreadable from where you normally stand on the pad.
 local CARD_STUDS = 11
 local LIFT = 0.6 -- studs between the nuke's top and the card's bottom edge
--- CAMERA-to-adornee, as the old card had it: every stand on your own pad from anywhere
--- on it, and short of the next plot on the ring.
-local MAX_DISTANCE = 120
+-- CAMERA-to-adornee. Was 120 (the whole pad from its far corner); every card past
+-- this is a gui drawn over a crowd of exhibits, so it now covers the pad from
+-- anywhere near its middle and stops short of the neighbours' stands.
+local MAX_DISTANCE = 90
+
+-- A card past MAX_DISTANCE is not drawn, so its shimmer and Anomaly hue stop too.
+-- Re-checked this often.
+local NEAR_CHECK = 0.25
 
 local POP = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local GLINT_SWEEP = TweenInfo.new(1.6, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1, false, 0.9)
@@ -163,6 +168,7 @@ type Card = {
 	canvas: Frame, -- L.width x L.height design px, fitted to the gui by its own UIScale
 	root: Frame?,
 	shimmer: Tween?,
+	near: boolean, -- inside MAX_DISTANCE at the last check; animations run only then
 	-- An Anomaly card's parts that take the cycling hue; nil on every other card.
 	anomaly: { word: TextLabel, fill: UIGradient, tails: { Frame } }?,
 	key: string?, -- what is drawn (item + when it went up); a change pops the card
@@ -528,6 +534,9 @@ local function draw(card: Card)
 		size = UDim2.new(1, 0, 0, L.rarityH),
 	})
 	card.shimmer = paintRarity(rarityLabel, rarityId, color)
+	if card.shimmer and not card.near then
+		card.shimmer:Pause()
+	end
 
 	local modifier = display:GetAttribute(A.modifier)
 	local lit = Rarity.stars(
@@ -733,6 +742,7 @@ local function track(instance: Instance)
 		canvas = canvas,
 		root = nil,
 		shimmer = nil,
+		near = true,
 		key = nil,
 		primed = false,
 		queued = false,
@@ -774,9 +784,38 @@ function StandCards.start()
 		local hue: Color3? = nil
 		for _, card in cards do
 			local parts = card.anomaly
-			if parts then
+			if parts and card.near then
 				hue = hue or Rarity.anomalyHue(os.clock() / Rarity.ANOMALY_CYCLE)
 				paintAnomaly(parts, hue :: Color3)
+			end
+		end
+	end)
+
+	-- Which cards are close enough to be drawn. The rest hold their shimmer still.
+	local sinceNear = NEAR_CHECK
+	RunService.Heartbeat:Connect(function(dt)
+		sinceNear += dt
+		if sinceNear < NEAR_CHECK then
+			return
+		end
+		sinceNear = 0
+		local camera = Workspace.CurrentCamera
+		if camera == nil then
+			return
+		end
+		local eye = camera.CFrame.Position
+		for _, card in cards do
+			local near = (card.display.Position - eye).Magnitude <= MAX_DISTANCE
+			if near ~= card.near then
+				card.near = near
+				local shimmer = card.shimmer
+				if shimmer then
+					if near then
+						shimmer:Play()
+					else
+						shimmer:Pause()
+					end
+				end
 			end
 		end
 	end)
