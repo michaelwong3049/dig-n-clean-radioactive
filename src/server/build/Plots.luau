@@ -209,7 +209,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 81
+local BUILDER_VERSION = 82
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -4057,7 +4057,6 @@ local function buildPlot(parent: Instance, index: number)
 	buildQuarantineLocker(m, origin, index)
 	buildFluidBottle(m, origin)
 	buildTreadmill(m, origin, accent)
-	buildBaseLights(m, origin)
 
 	-- Every floor above, and the sign that sells each one. All built; the ones this
 	-- plot's owner has not bought are hidden at runtime (Plots.setFloors).
