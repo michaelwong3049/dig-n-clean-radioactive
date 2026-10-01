@@ -65,6 +65,8 @@ local Workspace = game:GetService("Workspace")
 local AuraLook = require(ReplicatedStorage.Shared.AuraLook)
 local Gear = require(ReplicatedStorage.Shared.Config.Gear)
 
+local FastMode = require(script.Parent.Parent.FastMode)
+
 local AuraController = {}
 
 --- Studs from the camera past which an aura is not drawn.
@@ -654,6 +656,18 @@ local function stepIcons(now: number, screenWidth: number)
 end
 
 local function step(dt: number)
+	if FastMode.enabled then
+		-- scan() does not run either, so no new rig gets built for anyone who joins
+		-- while this is on; existing ones are hidden exactly like setShown already
+		-- hides one out of range -- beams off, electrons transparent, light and
+		-- sparkle emitters off. Cheap to leave running: a shown rig is already
+		-- false after the first frame, so every frame after that is one no-op
+		-- check per rig.
+		for _, rig in rigs do
+			setShown(rig, false)
+		end
+		return
+	end
 	sinceScan += dt
 	if sinceScan >= RESCAN then
 		sinceScan = 0

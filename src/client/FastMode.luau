@@ -10,18 +10,21 @@
 	expected to be the real fix, but it costs little to let a player check.
 
 	WHAT IT TOUCHES: every ParticleEmitter already in the world (Enabled forced off,
-	restored to exactly what it was before), and the two purely-ambient motion loops
-	that carry no gameplay meaning at all -- StationMotionController's idle machines
-	(fans, dial needles, ripples, screen pulse) and ToolMotionController's orbiting
-	magnet parts. Both just check FastMode.enabled at the top of their own per-frame
-	step; nothing here reaches into either controller.
+	restored to exactly what it was before), the two purely-ambient motion loops that
+	carry no gameplay meaning at all (StationMotionController's idle machines --
+	fans, dial needles, ripples, screen pulse -- and ToolMotionController's orbiting
+	magnet parts), and AuraController's rings -- every character's aura is fully
+	hidden (beams off, electrons transparent, sparkle emitters off), on request, the
+	same off-state setShown already uses for one out of range. All three just check
+	FastMode.enabled at the top of their own per-frame step; nothing here reaches
+	into any of them.
 
-	WHAT IT DELIBERATELY DOES NOT TOUCH: the radiation damage overlay (RadFx), the
-	aura ring (AuraController) and displayed-item glow (ItemFxController) are read by
-	the player as real state, not decoration, so they stay on even in fast mode. A
-	particle burst a gameplay system triggers fresh WHILE fast mode is already on (a
-	crate reveal, say) still plays -- this sweeps what exists at the moment it is
-	switched on, not a continuous watch on every emitter in the game.
+	WHAT IT DELIBERATELY DOES NOT TOUCH: the radiation damage overlay (RadFx) and
+	displayed-item glow (ItemFxController) are read by the player as real state, not
+	decoration, so they stay on even in fast mode. A particle burst a gameplay system
+	triggers fresh WHILE fast mode is already on (a crate reveal, say) still plays --
+	this sweeps what exists at the moment it is switched on, not a continuous watch
+	on every emitter in the game.
 
 	NOT PERSISTED. A one-session diagnostic switch, not a profile setting -- it
 	defaults off on every join.

@@ -347,7 +347,7 @@ local function buildFastModeRow(section: Instance)
 		font = UIKit.Font.body,
 		textSize = UIKit.TextSize.caption,
 		color = UIKit.C.dim,
-		text = "stops particles and idle machine motion, this session only",
+		text = "stops particles, idle machine motion and aura rings, this session only",
 		zIndex = 12,
 	})
 
