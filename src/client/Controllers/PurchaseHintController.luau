@@ -60,7 +60,12 @@ local TRACK_COLOR: { [string]: Color3 } = {
 }
 
 local cash: number? = nil
+-- Best tier owned per track. Every stat climbs with the tier (see Config/Gear), so
+-- "a higher tier than this" is exactly "better than anything you have".
 local bestOwned: { [string]: number }? = nil
+-- A spend can be a gear purchase, so after one `bestOwned` may be stale until the new
+-- GearList lands. Nothing pops or closes while this is set; it holds the send time.
+local listPendingSince: number? = nil
 local atCamp = false
 local ui: Frame? = nil -- the stack the rows go in
 local tutorialBanner: GuiObject? = nil
@@ -253,6 +258,9 @@ local function pump()
 end
 
 local function refresh()
+	if listPendingSince ~= nil then
+		return
+	end
 	scan()
 	pump()
 end
@@ -296,13 +304,14 @@ function PurchaseHintController.start()
 		end
 		local owned = {}
 		for _, entry in list.tracks do
-			local best = 1
+			local best = math.max(1, entry.equipped or 1)
 			for _, row in entry.owned do
 				best = math.max(best, row.tier)
 			end
 			owned[entry.track] = best
 		end
 		bestOwned = owned
+		listPendingSince = nil
 		refresh()
 	end)
 
@@ -310,6 +319,9 @@ function PurchaseHintController.start()
 		local spent = cash ~= nil and amount < cash
 		cash = amount
 		if spent or bestOwned == nil then
+			if spent then
+				listPendingSince = os.clock()
+			end
 			actionRemote:FireServer("list")
 		end
 		refresh()
@@ -329,6 +341,11 @@ function PurchaseHintController.start()
 		elapsed += dt
 		if elapsed >= 0.5 then
 			elapsed = 0
+			-- A lost GearList reply must not freeze the hints: ask again.
+			if listPendingSince ~= nil and os.clock() - listPendingSince > 3 then
+				listPendingSince = os.clock()
+				actionRemote:FireServer("list")
+			end
 			refresh()
 		end
 	end)
