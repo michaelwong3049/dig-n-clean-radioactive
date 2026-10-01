@@ -85,7 +85,7 @@ local CampSite = {}
 CampSite.MODEL_NAME = Camps.MODEL_NAME
 CampSite.ANCHOR_NAME = Camps.ANCHOR_NAME
 local BUILDER_SOURCE = "src/server/build/CampSite.luau"
-local BUILDER_VERSION = 23
+local BUILDER_VERSION = 24
 
 local C = Kit.C
 local build = Kit.build
@@ -127,7 +127,10 @@ local SHOP_HALF_X, SHOP_HALF_Z = 66, 66
 local SLOT_TRACKS = { "Aura", "Detector", "Cleaner", "Magnet" }
 local SLOT_ANGLES = { -45, 45, 135, -135 } -- NW, NE, SE, SW
 --- Ring radius = widest shop's half-width + this, so neighbours' front corners never meet.
-local RING_AISLE = 28
+--- Was 28. Trimmed when the Aura Shop grew to six mannequins (Seraph, Crimson Vortex):
+--- at 28 its back corner ran 1.5 past the paver square. The ring still sits ~3 further
+--- out than it did, so every aisle is wider than before.
+local RING_AISLE = 25
 local STALL_WIDTH = 24
 local STALL_LABEL = "COMING SOON"
 --- How far west of the kiosk a warp lands you.
