@@ -537,6 +537,8 @@ end
 --- floor is not zero — `luck` starts at 1.00 (no bonus at all), and a bar drawn from
 --- zero showed the do-nothing starting detector as 40% full.
 ---
+---   tip            one plain line on what the stat does, shown when the mouse is over
+---                  its chip on the shop card.
 ---   color          the stat's own colour: its label and bar on the shop card, its
 ---                  text in the Gear panel. One palette (Gear.STAT_COLOR), shared
 ---                  across gear, but never two of the same on one gear -- Spec checks.
@@ -550,6 +552,7 @@ export type StatMeta = {
 	lowerIsBetter: boolean?,
 	complement: boolean?,
 	scale: string?,
+	tip: string?,
 }
 
 -- The stat palette. Radius blue, depth red, luck green were asked for by name; the rest
@@ -569,34 +572,34 @@ Gear.STAT_META = {
 	Detector = {
 		order = { "radius", "depth", "luck" },
 		hidden = { clarity = true },
-		radius = { label = "Radius", color = C.blue },
-		depth = { label = "Depth", color = C.red },
-		luck = { label = "Luck", color = C.green },
+		radius = { label = "Radius", color = C.blue, tip = "How close a buried nuke has to be before its spot lights up." },
+		depth = { label = "Depth", color = C.red, tip = "How deep underground it can find buried nukes." },
+		luck = { label = "Luck", color = C.green, tip = "Tilts what you dig up toward rarer nukes." },
 	},
 	Magnet = {
 		order = { "pullSpeed", "draw", "maxGrip" },
 		hidden = {},
-		pullSpeed = { label = "Pull", color = C.yellow },
-		draw = { label = "Draw", color = C.cyan },
-		maxGrip = { label = "Grip", color = C.purple },
+		pullSpeed = { label = "Pull", color = C.yellow, tip = "How far each click yanks a nuke up. Fewer clicks per pull." },
+		draw = { label = "Draw", color = C.cyan, tip = "Keeps lifting between clicks, so you can click slower." },
+		maxGrip = { label = "Grip", color = C.purple, tip = "How hard a soil it is rated for. Harder soil pulls much slower." },
 	},
 	Cleaner = {
 		order = { "power", "volume" },
 		hidden = {},
-		power = { label = "Power", color = C.orange },
-		volume = { label = "Volume", color = C.blue },
+		power = { label = "Power", color = C.orange, tip = "How tough a crust it can clean. Tougher crust will not come off." },
+		volume = { label = "Volume", color = C.blue, tip = "How much water it sprays. More water cleans faster." },
 	},
 	Aura = {
 		order = { "reduction", "tolerance", "capacity", "haulPenalty" },
 		hidden = {},
-		reduction = { label = "Shield", color = C.cyan, complement = true, scale = "log" },
-		tolerance = { label = "Tolerance", color = C.green },
-		capacity = { label = "Carry", color = C.yellow },
+		reduction = { label = "Shield", color = C.cyan, complement = true, scale = "log", tip = "How much of the radiation around you it blocks." },
+		tolerance = { label = "Tolerance", color = C.green, tip = "How strong the radiation can get before it starts hurting you." },
+		capacity = { label = "Carry", color = C.yellow, tip = "How many nukes you can carry at once." },
 		-- Right under CARRY because it is the other half of the same question: how
 		-- much you can take, then how much taking it slows you. `lowerIsBetter` is
 		-- the only use of that flag in the game: 0.20 beats 1.20, and drawn straight
 		-- the bar would empty as the aura got better.
-		haulPenalty = { label = "Haul", color = C.purple, lowerIsBetter = true },
+		haulPenalty = { label = "Haul", color = C.purple, lowerIsBetter = true, tip = "Walk speed lost per nuke you carry. Lower is better." },
 	},
 	-- NO BOOTS OR SATCHEL ENTRY. Both tracks are retired (see the RETIRED block above)
 	-- and are not in Gear.TRACKS, which is the table Spec's coverage check and the shop
