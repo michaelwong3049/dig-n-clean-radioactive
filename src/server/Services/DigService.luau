@@ -828,16 +828,15 @@ end
 ---
 --- NOTHING HERE IS GATED ANY MORE (on request). Every detector, from the free Bent
 --- Coil up, reads the full ping: rarity (which colours the well and the blip), the
---- modifier, and the "1 in N" odds. This used to escalate with detectorClarity --
+--- and the modifier. NO "1 in N" odds any more (on request): next to the rarity it
+--- named the exact item, so it is not sent at all -- not even over the wire. This used to escalate with detectorClarity --
 --- rarity at >= 1, modifier + odds at >= 3 -- from a time when the roll was shared and
 --- a cheap detector reading it off a rich one's aura was a real leak. Post per-player
 --- roll (rollFor) every reading is derived from THIS player's own contact, so there is
 --- nothing left to gate. `detectorClarity` is now inert -- see its note in
 --- StatResolver and Config/Gear's `clarity` column.
-local function hintFor(rarity: string, modifier: string, itemId: string): (string, string, number)
-	-- shownOdds, not the raw `odds`: the number carries the item's weight penalty
-	-- (Config/Weight.rollBias), the same one that suppressed it in the roll.
-	return rarity, modifier, Items.shownOdds(Items.get(itemId))
+local function hintFor(rarity: string, modifier: string, _itemId: string): (string, string)
+	return rarity, modifier
 end
 
 --- Player-relative XZ offsets, plus this player's reading of each contact. Relative,
@@ -1364,7 +1363,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- A crate reads exactly like its stand-in nuke here (standInFor): same hints, pull,
 	-- lump and fuse. `crateId` only rides through to unearth.
 	local itemId, rarity, modifier, crateId = rollFor(signal, stats, player.UserId)
-	local rarityHint, modifierHint, oddsHint = hintFor(rarity, modifier, itemId)
+	local rarityHint, modifierHint = hintFor(rarity, modifier, itemId)
 
 	-- Reset progress if they wandered off this signal onto another one. While locked
 	-- this never fires, which is the point: the target cannot drift mid-haul.
@@ -1550,7 +1549,6 @@ local function stepPlayer(player: Player, dt: number)
 		newContacts = noteContacts(player, contacts),
 		rarityHint = rarityHint,
 		modifierHint = modifierHint,
-		oddsHint = oddsHint,
 		inRange = inRange,
 		blocked = blocked,
 		-- Stages the soil is over the magnet (0 = rated). The client reads it only to
