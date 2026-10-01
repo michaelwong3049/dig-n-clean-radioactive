@@ -84,14 +84,15 @@
 	character part it has cached. A single write at session start is stamped back to
 	zero on the very next frame, and the player spends the wash looking at the inside
 	of their own skull. Re-asserting it from `onRender`, which is bound at Camera + 1,
-	is what makes it stick. Only the head and its accessories: the ARMS stay, because
-	they are holding the nozzle and they are most of what makes this read as first
-	person at all.
+	is what makes it stick. It is the WHOLE character, not just the head: the arms and
+	body used to stay, posed round the nozzle, but looking down showed a torso and two
+	arms that never quite lined up with a hose that is pivoted near the camera, and
+	the report was to drop them and leave just the hose.
 
 	Camera.Focus is set for the same reason and is not decoration either. That same
 	controller measures the gap between CFrame and Focus to decide how see-through to
-	make the local character, and a Focus left sitting on top of the camera dissolves
-	the arms and the hose along with the head.
+	make the local character, and a Focus left sitting on top of the camera fights the
+	modifier this file writes.
 
 	── THE FURNITURE ─────────────────────────────────────────────────────
 
@@ -1929,31 +1930,25 @@ end
 
 -- ── The first-person view ────────────────────────────────────────────
 
---- The head, and anything hanging off it. Cached because `applyHidden` runs every
---- frame (see the header) and walking every accessory's descendants sixty times a
---- second to write five properties is pure waste.
+--- The whole character: body, arms, legs, accessories and anything else welded on.
+--- The hose is a world model (pivoted near the camera, see `aimNozzle`), never a
+--- child of the character, so it is the only thing left on screen. Cached because
+--- `applyHidden` runs every frame (see the header) and walking the character's
+--- descendants sixty times a second to write the same property is pure waste.
 local function cacheHidden()
 	table.clear(hiddenParts)
 	local character = Players.LocalPlayer.Character
 	if character == nil then
 		return
 	end
-	local head = character:FindFirstChild("Head")
-	if head and head:IsA("BasePart") then
-		table.insert(hiddenParts, head)
-	end
-	for _, thing in character:GetChildren() do
-		if thing:IsA("Accessory") then
-			for _, part in thing:GetDescendants() do
-				if part:IsA("BasePart") then
-					table.insert(hiddenParts, part)
-				end
-			end
+	for _, part in character:GetDescendants() do
+		if part:IsA("BasePart") then
+			table.insert(hiddenParts, part)
 		end
 	end
 end
 
---- Re-assert the head's transparency. See the header: Roblox's own
+--- Re-assert the character's transparency. See the header: Roblox's own
 --- TransparencyController writes this property from RenderPriority.Camera, one step
 --- ahead of `onRender`, so this is not a one-time thing you can do at session start.
 --- The cache is rebuilt whenever it has gone stale, which is what covers an accessory
@@ -2080,7 +2075,7 @@ local function onRender(dt: number)
 
 	camera.CFrame = eye
 	-- Kept well out in front, never on top of the lens. See the header: this is what
-	-- stops TransparencyController dissolving the arms and the hose.
+	-- stops TransparencyController fighting the modifier `applyHidden` writes.
 	camera.Focus = CFrame.new(eye.Position + eye.LookVector * FOCUS_AHEAD)
 	applyHidden(1)
 
