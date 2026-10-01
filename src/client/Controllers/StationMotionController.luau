@@ -31,6 +31,8 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
+local Prefs = require(script.Parent.Parent.Prefs)
+
 local StationMotion = {}
 
 --- Kit.MOTION_TAG. Kit is a server build module, so the string is spelled out here.
@@ -195,6 +197,10 @@ local function pulse(entry: Entry, now: number)
 end
 
 local function step(dt: number)
+	-- Settings' GRAPHICS "low": pure decoration, so it simply holds still.
+	if Prefs.get("graphics") == "low" then
+		return
+	end
 	sinceResort += dt
 	if sinceResort >= RESORT then
 		sinceResort = 0

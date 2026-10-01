@@ -15,6 +15,10 @@
 	An Anomaly has no single colour: its line runs Rarity.ANOMALY_SPECTRUM across a
 	UIGradient that scrolls while it is up.
 
+	Settings' RARE DROP ANNOUNCEMENTS (Config/Prefs rareDrops) filters what is drawn:
+	"all", "mine" (only the line when YOU claim one) or "off". The drop's glow in the
+	field is DigService's and shows either way.
+
 	It never says WHERE in the stage. The drop's aura is lit for everyone
 	(DigService), so the stage name plus the glow is the whole hint.
 ]]
@@ -31,6 +35,7 @@ local Stages = require(Shared.Config.Stages)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
+local Prefs = require(script.Parent.Parent.Prefs)
 
 local RareDropController = {}
 
@@ -242,6 +247,9 @@ end
 --- A fresh drop went in: announce it. Only on a live change, never on join -- the
 --- news is old by then.
 local function onLive()
+	if Prefs.get("rareDrops") ~= "all" then
+		return
+	end
 	local endsAt = ReplicatedStorage:GetAttribute(RareDrop.ENDS_ATTR)
 	if type(endsAt) ~= "number" or endsAt <= 0 then
 		return
@@ -268,8 +276,12 @@ local function onOutcome()
 	local rarity = ReplicatedStorage:GetAttribute(RareDrop.RARITY_ATTR)
 	local tier = if type(rarity) == "string" then rarity else "Rare"
 	local who = string.match(outcome, "^claimed:(.+)$")
+	local you = who ~= nil and who == Players.LocalPlayer.DisplayName
+	local show = Prefs.get("rareDrops")
+	if show == "off" or (show == "mine" and not you) then
+		return
+	end
 	if who then
-		local you = who == Players.LocalPlayer.DisplayName
 		showLine(`{if you then "You" else who} got the {tier}!`, colorOf(tier), tier == "Anomaly", OUTCOME_HOLD)
 	elseif outcome == "blown" then
 		showLine(`The {tier} blew up in the ground!`, Color3.fromHex("FF6B3D"), false, OUTCOME_HOLD)

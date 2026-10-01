@@ -29,6 +29,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local UIKit = require(script.Parent.UIKit)
 local Sfx = require(script.Parent.Sfx)
+local Prefs = require(script.Parent.Prefs)
 
 local DeathScreen = {}
 
@@ -334,7 +335,9 @@ local function render(t: number)
 	local out = 1 - ramp(t, FADE_AT, FADE_TIME)
 
 	ui.background.BackgroundTransparency = fade(0, out)
-	ui.flash.BackgroundTransparency = if playing.cause.flash then fade(0, 1 - ramp(t, 0, FLASH_TIME)) else 1
+	-- Settings' REDUCE FLASHING drops the white-out; the rest of the screen still plays.
+	local flashing = playing.cause.flash and not Prefs.get("reduceFlashing")
+	ui.flash.BackgroundTransparency = if flashing then fade(0, 1 - ramp(t, 0, FLASH_TIME)) else 1
 
 	-- The trace, drawn up to `pen` studs along its whole length.
 	local pen = ui.traceLength * ramp(t, TRACE_AT, TRACE_TIME)

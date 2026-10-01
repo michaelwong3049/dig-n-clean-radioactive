@@ -49,6 +49,11 @@
 	sets the floor (FAIL_FLOOR); `over` carries it to 1. A toe past your rating is a
 	few cracks, not the whole visor.
 
+	REDUCED (Settings' RADIATION EFFECTS, Config/Prefs radFx). Every layer runs at
+	REDUCED strength and the busiest ones (snow, scanlines, motes, blur) stay off. The
+	keyhole only eases to REDUCED_BLIND, never off: it is the soft gate that tells you
+	this air is past your aura, so there is deliberately no "off" setting.
+
 	COST: ~125 GUI objects, built once, and the container is Visible = false below
 	EXPOSURE_WARN. The emitter is off while asleep. Nothing allocates per frame.
 ]]
@@ -83,6 +88,10 @@ local SICK = Color3.fromRGB(170, 240, 150)
 local LIGHT_SPAN = 0.22
 -- How broken the aura reads the instant it starts failing; `over` carries the rest.
 local FAIL_FLOOR = 0.25
+-- Settings' "reduced" radiation effects: what is left of each layer, and of the
+-- keyhole (kept higher so going too deep still visibly narrows your view).
+local REDUCED = 0.5
+local REDUCED_BLIND = 0.7
 
 -- Splats are pinned to the TOP and SIDES so their drips have somewhere to run.
 -- Blood in the middle of your view is a texture; blood running down from the rim is
@@ -102,7 +111,7 @@ local fx = Random.new()
 
 local ui = {}
 local rots, snows, signals, splats, cracks, impacts = {}, {}, {}, {}, {}, {}
-local st = { t = 0, fail = 0, run = 0, over = 0, live = false, built = false }
+local st = { t = 0, fail = 0, run = 0, over = 0, live = false, built = false, reduced = false }
 
 -- Every pixel measurement in this file is quoted against a 720-tall viewport and
 -- scaled at layout time, so the damage does not depend on how big the window is.
@@ -464,6 +473,11 @@ local function sleep()
 	ui.motePart.Parent = nil
 end
 
+--- Settings' RADIATION EFFECTS: true = "reduced" (see the header). Read every frame.
+function RadFx.setReduced(on: boolean)
+	st.reduced = on
+end
+
 --- `intensity` is HudController's own 0..1 escalation ramp (0 below EXPOSURE_WARN),
 --- `failing` is the aura-failure flag, `healthFrac` is 0..1 of max HP, and `over` is
 --- 0..1 of "how far past your aura's rating this air is" — 0 anywhere you are rated
@@ -522,6 +536,14 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	-- starts once `light` has said its piece. Remapped so over = 1 lands on blind = 1.
 	local blind = math.clamp((st.over - LIGHT_SPAN) / (1 - LIGHT_SPAN), 0, 1)
 	local light = math.clamp(st.over / LIGHT_SPAN, 0, 1) * (1 - blind)
+	local reduced = st.reduced
+	if reduced then
+		dose *= REDUCED
+		fail *= REDUCED
+		light *= REDUCED
+		bleed *= REDUCED
+		blind *= REDUCED_BLIND
+	end
 	local breath = 0.5 + 0.5 * math.sin(st.t * (1.1 + dose * 1.6))
 	local rate = 1.0 + dose * 1.9 + fail * 0.8 + light * 0.7 + blind * 1.6
 	local beat = (0.5 + 0.5 * math.sin(st.t * rate * math.pi * 2)) ^ 6
@@ -582,7 +604,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	-- Signal ----------------------------------------------------------
 	-- Light grade only. Hairlines that last one frame, not bars that fade.
 	for _, signal in signals do
-		if light > 0.04 and fx:NextNumber() < light * 0.35 then
+		if not reduced and light > 0.04 and fx:NextNumber() < light * 0.35 then
 			local thick = math.max(1, math.round(px)) * fx:NextInteger(1, 2)
 			signal.line.Visible = true
 			signal.line.Position = UDim2.fromScale(0, fx:NextNumber())
@@ -634,7 +656,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	-- Snow ------------------------------------------------------------
 	-- Up to three tile layers a frame, each at a fresh offset: density comes from how
 	-- many layers land, so a low dose is a few hits and the blind grade is a storm.
-	local snowRate = math.clamp((dose - 0.05) * 0.8 + light * 1.1 + fail * 0.45 + blind, 0, 1)
+	local snowRate = if reduced then 0 else math.clamp((dose - 0.05) * 0.8 + light * 1.1 + fail * 0.45 + blind, 0, 1)
 	local tile = ui.snowTile
 	for k, label in snows do
 		if fx:NextNumber() > snowRate * 1.2 - (k - 1) * 0.33 then
@@ -670,7 +692,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 
 	-- Motes -----------------------------------------------------------
 	local moteAmount = math.clamp(dose * 0.8 + light * 0.6 + fail * 0.3 + blind * 0.4, 0, 1)
-	ui.motes.Rate = 60 * moteAmount
+	ui.motes.Rate = if reduced then 0 else 60 * moteAmount
 	ui.motes.Color = ColorSequence.new(MOTE_TINT:Lerp(BLEACH, fail * 0.6))
 	if camera then
 		ui.motePart.CFrame = camera.CFrame * CFrame.new(0, 0, -16)
@@ -692,7 +714,7 @@ function RadFx.update(dt: number, intensity: number, failing: boolean, healthFra
 	focus.InFocusRadius = 30 - 22 * blind
 	focus.FarIntensity = math.clamp((1.2 * dose + 2.5 * fail + 1.8 * light + 7 * blind) / 8, 0, 1)
 	focus.NearIntensity = math.clamp((0.25 * fail + 3.5 * blind) / 4, 0, 1)
-	ui.blur.Size = 10 * blind
+	ui.blur.Size = if reduced then 0 else 10 * blind
 end
 
 return RadFx

@@ -47,6 +47,7 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local RadFx = require(script.Parent.Parent.RadFx)
 local DeathScreen = require(script.Parent.Parent.DeathScreen)
+local Prefs = require(script.Parent.Parent.Prefs)
 local Dock = UIKit.Dock
 
 local Hud = {}
@@ -347,6 +348,9 @@ local function build(): ScreenGui
 	-- The damage overlay. Not part of the dock — it is the whole screen, under every
 	-- panel (ZIndex 2). The death screen covers it from its own gui (DeathScreen).
 	RadFx.build(gui)
+	Prefs.observe("radFx", function(level)
+		RadFx.setReduced(level == "reduced")
+	end)
 
 	-- Everything else goes on the scaled canvas (UIKit.canvas). RadFx stays beside it,
 	-- straight on the gui: it already sizes every crack and ring off the camera's own
@@ -520,7 +524,8 @@ local function render(dt: number)
 	if humanoid then
 		-- Over-tier always sets `failing` (Radiation.resolve: failing = excess > 0), so
 		-- the blind state is never waiting on the rad meter to catch up to it.
-		if frac >= Tuning.EXPOSURE_DANGER or state.failing then
+		-- Settings' SCREEN SHAKE off skips the wobble; the overlay still says it all.
+		if (frac >= Tuning.EXPOSURE_DANGER or state.failing) and Prefs.get("shake") then
 			shakeSeed += dt * 22
 			local amount = lerp(0, 0.55, math.clamp((frac - Tuning.EXPOSURE_DANGER) / (1 - Tuning.EXPOSURE_DANGER), 0, 1))
 			-- Graded for the same reason as the intensity floor above: a flat 0.3 shove

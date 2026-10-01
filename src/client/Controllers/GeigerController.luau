@@ -53,7 +53,7 @@ function Geiger.start()
 	sound.Name = "GeigerBed"
 	sound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
 	sound.Volume = VOLUME_CALM
-	Sfx.adopt(sound) -- under Settings' SOUND EFFECTS switch
+	Sfx.adopt(sound, "geiger") -- under Settings' SOUND EFFECTS switch and its own GEIGER slider
 	sound.Parent = parent
 
 	RunService.Heartbeat:Connect(function(dt)

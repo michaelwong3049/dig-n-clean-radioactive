@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Gear = require(Shared.Config.Gear)
+local Prefs = require(Shared.Config.Prefs)
 local Treadmill = require(Shared.Config.Treadmill)
 local Decay = require(Shared.Decay)
 
@@ -178,6 +179,11 @@ local TEMPLATE = {
 	-- Settings' SOUND EFFECTS switch. true = the client mutes every effect (Sfx.luau's
 	-- master SoundGroup). Set via Net.SfxMuted -> SfxService.
 	sfxMuted = false,
+
+	-- The rest of the Settings panel (Config/Prefs: graphics, shake, rad effects,
+	-- flashing, volumes, rare drop lines). All client-side in effect; the server only
+	-- stores and echoes them. Set via Net.Prefs -> PrefsService.
+	prefs = Prefs.defaults(),
 
 	-- The walk-speed picker (the pencil by the HUD's WALK SPEED). 0 = walk at your full
 	-- trained speed; a number caps it there (Treadmill.chosenWalk). Set via Net.WalkCap

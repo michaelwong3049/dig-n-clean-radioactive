@@ -64,6 +64,7 @@ local Workspace = game:GetService("Workspace")
 
 local AuraLook = require(ReplicatedStorage.Shared.AuraLook)
 local Gear = require(ReplicatedStorage.Shared.Config.Gear)
+local Prefs = require(script.Parent.Parent.Prefs)
 
 local AuraController = {}
 
@@ -676,7 +677,9 @@ local function step(dt: number)
 		local distance = (chest.Position - eye).Magnitude
 		local downed = rig.humanoid ~= nil and rig.humanoid.Health <= 0
 		local inside = rig.isLocal and distance < rig.reach * rig.scale + 1.5
-		setShown(rig, distance <= FAR and not downed and not inside)
+		-- Settings' GRAPHICS "low" draws only your own aura. Theirs still protects them.
+		local others = rig.isLocal or Prefs.get("graphics") ~= "low"
+		setShown(rig, distance <= FAR and not downed and not inside and others)
 		if not rig.shown then
 			continue
 		end
