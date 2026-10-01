@@ -49,7 +49,7 @@ local BASALT = 4
 local BOULDERS = 7
 
 local CELL = 13
-local DUST_CHANCE = 0.08
+local DUST_CHANCE = 0.02
 local GRIT_CHANCE = 0.05
 local CRACK_CHANCE = 0.03
 
