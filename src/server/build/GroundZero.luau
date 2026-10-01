@@ -302,7 +302,7 @@ local function drums(parent: Instance, at: Vector3, rng: Random)
 	for _ = 1, rng:NextInteger(2, 4) do
 		local p = at + Vector3.new(rng:NextNumber(-2.5, 2.5), 0, rng:NextNumber(-2.5, 2.5))
 		local yaw = CFrame.Angles(0, math.rad(rng:NextNumber(0, 360)), 0)
-		local color = K.shade(GIRDER[rng:NextInteger(1, #GIRDER)], rng:NextNumber(0.8, 1.1))
+		local color = K.shade(GIRDER[rng:NextInteger(1, #GIRDER)], rng:NextNumber(-0.2, 0.05))
 		if rng:NextNumber() < 0.5 then
 			-- Standing: the cylinder's axis turned up.
 			local cf = CFrame.new(p + Vector3.new(0, 1.4, 0)) * yaw * CFrame.Angles(0, 0, math.rad(90 + rng:NextNumber(-6, 6)))

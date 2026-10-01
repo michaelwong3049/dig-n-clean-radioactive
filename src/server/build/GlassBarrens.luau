@@ -46,6 +46,11 @@ local POOLS = 2
 local POOL_LIGHTS = 2
 local FULGURITES = 4
 local RIPPLE_PATCHES = 2
+--- Added on request ("add more things in glass barrens"), off their own seed so nothing
+--- placed before them moves: glass sheets, weathered boulders and test-site posts.
+local GLASS_SHEETS = 7
+local BOULDERS = 8
+local INSTRUMENT_POSTS = 5
 
 local CELL = 13
 local BEAD_CHANCE = 0.02
@@ -125,6 +130,41 @@ local function spire(parent: Instance, at: Vector3, rng: Random, glint: boolean)
 		e.Rotation = NumberRange.new(0, 90)
 		e.Parent = a
 	end
+	model.Parent = parent
+end
+
+--- A big plate of fused glass heaved up out of the sand at a slant, a smaller one
+--- cracked off beside it.
+local function glassSheet(parent: Instance, at: Vector3, rng: Random)
+	local model = Instance.new("Model")
+	model.Name = "GlassSheet"
+	local yaw = rng:NextNumber(0, 360)
+	for k = 1, 2 do
+		local w, h = rng:NextNumber(6, 10) / k, rng:NextNumber(5, 8) / k
+		local off = if k == 1 then Vector3.zero else Vector3.new(rng:NextNumber(-3, 3), 0, rng:NextNumber(-3, 3))
+		local cf = CFrame.new(at + off) * CFrame.Angles(0, math.rad(yaw + (k - 1) * rng:NextNumber(30, 80)), 0)
+			* CFrame.Angles(math.rad(rng:NextNumber(35, 65)), 0, 0) * CFrame.new(0, h / 2 - 0.6, 0)
+		K.block(model, "Sheet", cf, Vector3.new(w, h, 0.35), K.pick(rng, TRINITITE), GLASS)
+	end
+	K.blob(model, "FusedBase", at.X, at.Z, at.Y + 0.01, 8, 0.05, FUSED, rng, { reflectance = 0.06 })
+	model.Parent = parent
+end
+
+--- A steel test-site post: a pole on a footing, an instrument box clamped near the top,
+--- a cable run down to the sand. Leaning a little, sand-scoured.
+local function instrumentPost(parent: Instance, at: Vector3, rng: Random)
+	local model = Instance.new("Model")
+	model.Name = "InstrumentPost"
+	local h = rng:NextNumber(6, 9)
+	local base = CFrame.new(at) * CFrame.Angles(0, math.rad(rng:NextNumber(0, 360)), 0) * CFrame.Angles(math.rad(rng:NextNumber(-8, 8)), 0, math.rad(rng:NextNumber(-8, 8)))
+	K.block(model, "Footing", base * CFrame.new(0, 0.3, 0), Vector3.new(1.6, 0.6, 1.6), K.hex("8E9A98"), { material = Enum.Material.Concrete })
+	K.block(model, "Post", base * CFrame.new(0, h / 2, 0), Vector3.new(0.35, h, 0.35), K.hex("6F7B7A"), { material = Enum.Material.Metal })
+	K.block(model, "Box", base * CFrame.new(0.55, h - 1.2, 0), Vector3.new(0.9, 1.2, 0.8), K.hex("B9A27A"), { material = Enum.Material.Metal })
+	K.block(model, "Lid", base * CFrame.new(0.55, h - 0.55, 0), Vector3.new(1.1, 0.12, 1), K.hex("8C7A5A"), { material = Enum.Material.Metal })
+	local foot = at + Vector3.new(rng:NextNumber(-2.5, 2.5), 0.1, rng:NextNumber(-2.5, 2.5))
+	local top = (base * CFrame.new(0.55, h - 1.8, 0)).Position
+	local mid = (top + foot) / 2
+	K.block(model, "Cable", CFrame.lookAt(mid, foot) , Vector3.new(0.1, 0.1, (top - foot).Magnitude), K.hex("2A2E2E"))
 	model.Parent = parent
 end
 
@@ -223,6 +263,20 @@ function GlassBarrens.build(parent: Instance, stageId: number, groundY: number)
 	-- Ripples lie flat, so they may cross the lane.
 	for _, at in K.sites(f, RIPPLE_PATCHES, 22, rng, -16, taken) do
 		ripples(folder, at, rng, palette)
+	end
+
+	-- Their own rng: the ground pass below keeps the stage rng it always had.
+	local extra = Random.new(SEED + 500 + stageId)
+	for _, at in K.sites(f, GLASS_SHEETS, 16, extra, 3, taken) do
+		glassSheet(folder, at, extra)
+		table.insert(taken, { at.X, at.Z, 8 })
+	end
+	for _, at in K.sites(f, BOULDERS, 12, extra, 2, taken) do
+		K.rock(folder, at.X, at.Z, at.Y, extra:NextNumber(3.2, 5.5), FULGURITE, extra, "Boulder")
+		table.insert(taken, { at.X, at.Z, 6 })
+	end
+	for _, at in K.sites(f, INSTRUMENT_POSTS, 24, extra, 4, taken) do
+		instrumentPost(folder, at, extra)
 	end
 
 	local ground = Instance.new("Folder")
