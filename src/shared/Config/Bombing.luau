@@ -35,17 +35,16 @@ Bombing.SIZE_MAX = 1.15
 -- for damage and radius.
 Bombing.VARIANCE = 0.12
 
--- Seconds from the drop to the bang: a per-uid roll between these. Bigger stars burn
--- a little longer (FUSE_PER_STAR), so the nastiest bombs are the easiest to run from.
-Bombing.FUSE_MIN = 2.5
-Bombing.FUSE_MAX = 4.5
-Bombing.FUSE_PER_STAR = 0.15
+-- Seconds from the drop to the bang: an average per rarity (indexed by Rarity order,
+-- Scrap..Anomaly), so the rarer the nuke the less time to run. Each copy rolls within
+-- FUSE_SPREAD of its rarity's average (per uid), then an OVERSIZED or GIGA size roll
+-- (Payload.calloutFor) burns a little longer.
+Bombing.FUSE_BY_RARITY = { 3.0, 3.0, 2.8, 2.6, 2.4, 2.2, 2.0, 1.8 }
+Bombing.FUSE_SPREAD = 0.2
+Bombing.FUSE_SIZE_BONUS = { OVERSIZED = 0.2, GIGA = 0.4 }
 
--- Seconds before you can drop another bomb, 8-10 on request: 1 star = COOLDOWN_MIN,
--- 8 stars = COOLDOWN_MAX, plus a little per-uid jitter, then clamped back into range.
-Bombing.COOLDOWN_MIN = 8
-Bombing.COOLDOWN_MAX = 10
-Bombing.COOLDOWN_JITTER = 0.4
+-- Seconds before you can drop another bomb, flat for every nuke.
+Bombing.COOLDOWN = 3
 
 -- The crater a bomb leaves is a short flash-burn, not a dig nuke's minute-long orb.
 Bombing.ORB_RADIUS = 0.5 -- x the blast radius

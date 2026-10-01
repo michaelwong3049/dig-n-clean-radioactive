@@ -117,8 +117,8 @@ local RATE_TAG_SIZE = UDim2.fromOffset(200, 34)
 -- Dropping a nuke this rare or better asks "are you sure?" first.
 local CONFIRM_FROM = Rarity.DEFS.Rare.order
 local CONFIRM_WIDTH = 340
--- The DROP button right of the hotbar.
-local DROP_WIDTH = 104
+-- The DROP NUKE button right of the hotbar.
+local DROP_WIDTH = 168
 local DROP_HEIGHT = 50
 local DROP_GAP = 14
 local DROP_IDLE = Color3.fromHex("2A2F35")
@@ -432,7 +432,7 @@ local function buildDropButton(canvas: Frame)
 		name = "DropBomb",
 		anchorPoint = Vector2.new(0, 0.5),
 		size = UDim2.fromOffset(DROP_WIDTH, DROP_HEIGHT),
-		text = "DROP",
+		text = "DROP NUKE",
 		font = UIKit.Font.title,
 		textSize = 22,
 		color = COLOR.text,
@@ -887,7 +887,7 @@ local function buildBombCard(): ScreenGui
 			name = name,
 			anchorPoint = Vector2.new(0.5, 1),
 			position = UDim2.new(x, 0, 1, -14),
-			size = UDim2.fromOffset(130, 42),
+			size = UDim2.fromOffset(140, 42),
 			text = text,
 			font = UIKit.Font.title,
 			textSize = 20,
@@ -902,7 +902,7 @@ local function buildBombCard(): ScreenGui
 	confirmButton("Cancel", "CANCEL", 0.28, COLOR.empty).MouseButton1Click:Connect(function()
 		Inventory.cancelDrop()
 	end)
-	ui.confirmDrop = confirmButton("Drop", "DROP", 0.72, COLOR.red)
+	ui.confirmDrop = confirmButton("Drop", "DROP NUKE", 0.72, COLOR.red)
 	ui.confirmDrop.MouseButton1Click:Connect(function()
 		Inventory.dropBomb(true)
 	end)
@@ -939,7 +939,7 @@ local function paintCardFooter(item: any)
 		footer.Text = `READY IN {string.format("%.1f", left)}s`
 		footer.TextColor3 = COLOR.amber
 	else
-		footer.Text = if UIKit.isTouch() then "TAP DROP TO BOMB" else "PRESS G TO DROP"
+		footer.Text = if UIKit.isTouch() then "TAP DROP NUKE" else "PRESS G TO DROP NUKE"
 		footer.TextColor3 = COLOR.red
 	end
 end
@@ -1001,7 +1001,7 @@ local function paintDropButton(left: number)
 	local ready = droppable(itemByUid(selected))
 	local cooling = left > 0
 	local lit = ready and not cooling
-	button.Text = if cooling then string.format("%.1f", left) else "DROP"
+	button.Text = if cooling then string.format("%.1f", left) else "DROP NUKE"
 	button.BackgroundColor3 = if lit then COLOR.red else DROP_IDLE
 	button.TextColor3 = if lit then COLOR.text elseif cooling then COLOR.amber else COLOR.dim
 end
