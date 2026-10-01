@@ -80,6 +80,10 @@ local BORDER_PADDING = 3
 local SLOT_FILL = Color3.fromHex("090C10")
 local SLOT_SELECTED = Color3.fromHex("18221C")
 local SLOT_BORDER = Color3.fromHex("505B66")
+-- A held item's rarity border: thick enough to read the colour at a glance, thicker
+-- still on the selected slot. Empty slots keep the thin grey 1.5.
+local RARITY_STROKE = 2.5
+local RARITY_STROKE_SELECTED = 3.5
 
 -- The hotbar's length, and exactly the number row: 1-9 then 0. Everything past it
 -- lives in the bag panel.
@@ -263,21 +267,6 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 	art.Parent = slot
 	local viewport = ItemArt.newViewport(art)
 
-	-- An unidentified find keeps its "???" rather than a picture that would name it.
-	local unknown = UIKit.label(slot, {
-		name = "Unknown",
-		anchorPoint = Vector2.new(0.5, 0.5),
-		position = UDim2.new(0.5, 0, 0.5, -4),
-		size = UDim2.new(1, -8, 0, 30),
-		font = UIKit.Font.title,
-		textSize = 26,
-		color = COLOR.text,
-		xAlign = Enum.TextXAlignment.Center,
-		yAlign = Enum.TextYAlignment.Center,
-		text = "???",
-	})
-	unknown.Visible = false
-
 	-- The name over the lower half of the model. `shadow = false`: UIKit's shadow is a
 	-- sibling copy that never hears a Text change, which is what drew the name twice.
 	local name = UIKit.label(slot, {
@@ -355,7 +344,6 @@ local function makeSlot(parent: Instance, index: number, onClick: () -> ())
 		stroke = stroke,
 		key = key,
 		viewport = viewport,
-		unknown = unknown,
 		name = name,
 		kg = kg,
 		cool = cool,
@@ -1184,7 +1172,6 @@ local function paintSlot(slot: any, index: number)
 
 	if item == nil then
 		ItemArt.clear(slot.viewport)
-		slot.unknown.Visible = false
 		slot.name.Text = ""
 		slot.kg.Text = ""
 		slot.button.BackgroundColor3 = SLOT_FILL
@@ -1194,19 +1181,14 @@ local function paintSlot(slot: any, index: number)
 		return
 	end
 
-	local unknown = item.identified == false
-	slot.unknown.Visible = unknown
-	slot.name.Text = if unknown then "" else item.name
-	if unknown then
-		ItemArt.clear(slot.viewport)
-	else
-		ItemArt.paint(slot.viewport, item, 1)
-	end
+	-- An unidentified find draws as its slag lump (ItemArt), with no name under it.
+	slot.name.Text = if item.identified == false then "" else item.name
+	ItemArt.paint(slot.viewport, item, 1)
 	slot.kg.Text = if type(item.weight) == "number" then UIKit.formatKg(item.weight) else ""
 	slot.button.BackgroundColor3 = if item.uid == selected then SLOT_SELECTED else SLOT_FILL
 	slot.button.BackgroundTransparency = 0.05
 	slot.stroke.Color = itemColour(item)
-	slot.stroke.Thickness = if item.uid == selected then 3 else 1.5
+	slot.stroke.Thickness = if item.uid == selected then RARITY_STROKE_SELECTED else RARITY_STROKE
 end
 
 local function renderBagTile()
