@@ -19,6 +19,8 @@ local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
+local FastMode = require(script.Parent.Parent.FastMode)
+
 local ToolMotion = {}
 
 --- Shared/ToolFX's MOTION_TAG.
@@ -94,6 +96,9 @@ local moveParts: { BasePart } = {}
 local moveTo: { CFrame } = {}
 
 local function step(dt: number)
+	if FastMode.enabled then
+		return
+	end
 	sinceResort += dt
 	if sinceResort >= RESORT then
 		sinceResort = 0

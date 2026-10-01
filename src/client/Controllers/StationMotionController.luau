@@ -31,6 +31,8 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
+local FastMode = require(script.Parent.Parent.FastMode)
+
 local StationMotion = {}
 
 --- Kit.MOTION_TAG. Kit is a server build module, so the string is spelled out here.
@@ -195,6 +197,9 @@ local function pulse(entry: Entry, now: number)
 end
 
 local function step(dt: number)
+	if FastMode.enabled then
+		return
+	end
 	sinceResort += dt
 	if sinceResort >= RESORT then
 		sinceResort = 0

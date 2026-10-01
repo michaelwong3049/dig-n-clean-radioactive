@@ -1,6 +1,11 @@
 --[[
-	SettingsController.lua — the player Settings panel. Three settings: the colour of
-	your base, HIDE MY AURA, and SOUND EFFECTS.
+	SettingsController.lua — the player Settings panel. Four settings: the colour of
+	your base, HIDE MY AURA, SOUND EFFECTS, and FAST MODE.
+
+	FAST MODE is FastMode.luau's own switch, not a profile setting — see that file's
+	header for what it touches and why it exists. Unlike the other three it has no
+	server round trip to wait on, so there is no known/pending gate: the switch just
+	reads FastMode.enabled straight back after calling FastMode.set.
 
 	SOUND EFFECTS is the same shape as HIDE MY AURA below: a profile setting
 	(data.sfxMuted) the server owns and echoes on Net.SfxMuted. The mute itself is
@@ -47,6 +52,7 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local FastMode = require(script.Parent.Parent.FastMode)
 
 local Settings = {}
 
@@ -56,7 +62,7 @@ local Settings = {}
 -- formatCash. Keep in step if the server value changes.
 local NEUTRAL = Color3.fromHex("7F8388")
 
-local PANEL_SIZE = Vector2.new(430, 516)
+local PANEL_SIZE = Vector2.new(430, 568)
 -- The base colour section's height; the aura row sits under it.
 local COLOUR_SECTION_H = 300
 local SV_SIZE = Vector2.new(232, 158)
@@ -91,6 +97,10 @@ local sound = {
 	known = false,
 	pending = false,
 }
+
+-- FAST MODE. Unlike the two above, this is FastMode.luau's own local flag, not a
+-- profile setting -- no known/pending gate, since there is no server round trip to
+-- wait on.
 
 local ui = {}
 
@@ -299,6 +309,65 @@ local function buildSoundRow(section: Instance)
 	switch.MouseButton1Click:Connect(toggleSound)
 	ui.soundSwitch = switch
 	applySound()
+end
+
+-- ── Fast mode ───────────────────────────────────────────────────────
+
+local function applyFastMode()
+	local switch = ui.fastModeSwitch
+	if switch == nil then
+		return
+	end
+	local on = FastMode.enabled
+	switch.Text = if on then "ON" else "OFF"
+	switch.BackgroundColor3 = if on then UIKit.C.selected else UIKit.C.empty
+	switch.TextColor3 = if on then UIKit.C.text else UIKit.C.dim
+end
+
+local function toggleFastMode()
+	FastMode.set(not FastMode.enabled)
+	applyFastMode()
+end
+
+local function buildFastModeRow(section: Instance)
+	UIKit.label(section, {
+		name = "SectionTitle",
+		size = UDim2.new(1, -120, 0, 24),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.header,
+		color = UIKit.C.text,
+		text = "FAST MODE",
+		zIndex = 12,
+	})
+
+	UIKit.label(section, {
+		name = "SectionHint",
+		position = UDim2.fromOffset(0, 24),
+		size = UDim2.new(1, -120, 0, 18),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.caption,
+		color = UIKit.C.dim,
+		text = "stops particles and idle machine motion, this session only",
+		zIndex = 12,
+	})
+
+	local switch = UIKit.button(section, {
+		name = "FastModeSwitch",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, 0, 0, 4),
+		size = UDim2.fromOffset(108, 34),
+		text = "OFF",
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.body,
+		color = UIKit.C.dim,
+		fillColor = UIKit.C.empty,
+		fillTransparency = 0,
+		cornerRadius = UIKit.Radius.button,
+		zIndex = 12,
+	})
+	switch.MouseButton1Click:Connect(toggleFastMode)
+	ui.fastModeSwitch = switch
+	applyFastMode()
 end
 
 -- ── Draggable tracks ────────────────────────────────────────────────
@@ -716,6 +785,15 @@ local function build(): ScreenGui
 	soundSection.ZIndex = 11
 	soundSection.Parent = panel
 	buildSoundRow(soundSection)
+
+	local fastModeSection = Instance.new("Frame")
+	fastModeSection.Name = "FastMode"
+	fastModeSection.Position = UDim2.fromOffset(0, 64 + COLOUR_SECTION_H + 8 + 44 + 8 + 44 + 8)
+	fastModeSection.Size = UDim2.new(1, 0, 0, 44)
+	fastModeSection.BackgroundTransparency = 1
+	fastModeSection.ZIndex = 11
+	fastModeSection.Parent = panel
+	buildFastModeRow(fastModeSection)
 
 	local function toggle()
 		panel.Visible = not panel.Visible
