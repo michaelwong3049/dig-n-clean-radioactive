@@ -32,6 +32,7 @@ local Rarity = require(Shared.Config.Rarity)
 local Bag = require(Shared.Bag)
 local StatResolver = require(Shared.StatResolver)
 local Net = require(Shared.Net)
+local Tuning = require(Shared.Config.Tuning)
 
 local DataService = require(script.Parent.DataService)
 local IdentifyService = require(script.Parent.IdentifyService)
@@ -102,7 +103,6 @@ local function openNuke(player: Player, data: any, crateId: string)
 	end
 
 	local value = EconomyService.valueOf(carried, StatResolver.get(data))
-	opening[player] = true
 	openedRemote:FireClient(player, {
 		crate = crateId,
 		reel = reel,
@@ -158,11 +158,20 @@ function CrateService.open(player: Player, uid: string): (boolean, string?)
 	data.heldUid = ""
 	data.stats.cratesOpened = (data.stats.cratesOpened or 0) + 1
 
+	-- Set for BOTH kinds, here rather than inside openNuke, so a liquid crate is
+	-- covered by the "already opening one" guard above too -- it used to only ever be
+	-- set on the nuke branch, letting liquid crates be opened back-to-back with no
+	-- cooldown (and, worse, stomp an unanswered REPLACE/KEEP roll before it was
+	-- answered; see LiquidService.grant/choose).
+	opening[player] = true
 	local def = Crates.get(entry.crateId)
 	if def.kind == "nuke" then
 		openNuke(player, data, entry.crateId)
 	else
 		LiquidService.openCrate(player, data, entry.crateId)
+		task.delay(Tuning.LIQUID_SPIN_SECONDS, function()
+			opening[player] = nil
+		end)
 	end
 	return true, nil
 end

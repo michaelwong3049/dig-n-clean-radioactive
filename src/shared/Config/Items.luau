@@ -2212,14 +2212,19 @@ function Items.rollItem(stageId: number, tilt: number, luck: number, boost: numb
 		return nil
 	end
 
+	-- Each item's weight computed once and kept, not recomputed for the pick below --
+	-- this runs on every dig completion, for every player.
+	local weights = table.create(#pool)
 	local total = 0
-	for _, item in pool do
-		total += Items.effectiveWeight(item, tilt, luck, boost)
+	for i, item in pool do
+		local weight = Items.effectiveWeight(item, tilt, luck, boost)
+		weights[i] = weight
+		total += weight
 	end
 
 	local pick = math.random() * total
-	for _, item in pool do
-		pick -= Items.effectiveWeight(item, tilt, luck, boost)
+	for i, item in pool do
+		pick -= weights[i]
 		if pick <= 0 then
 			return item.id
 		end
