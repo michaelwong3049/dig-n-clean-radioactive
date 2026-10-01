@@ -17,8 +17,11 @@
 	    and a flash of the rarity's colour from Legendary up,
 	  * rays spin out from BEHIND it -- they start outside its silhouette, because a GUI
 	    draws over the world and a ray across the nuke would be a ray on top of it,
-	  * and the words land in the lower third: NEW FIND! (no ribbon on a repeat), the name, rarity
-	    and weight, and the price counting up.
+	  * the words land in the lower third: NEW FIND! (no ribbon on a repeat), the name, rarity
+	    and weight, and the price counting up,
+	  * and once they are down, its quality (Pristine, Cracked...) slams onto the nuke as a
+	    rubber stamp with what it does to the price, and a big size roll (OVERSIZED / GIGA)
+	    slams a second one just under it.
 
 	WashController drives it. `play` is called when a staged ItemIdentified arrives,
 	`drive` from its render step in place of the aim camera, `stop` from teardown -- which
@@ -77,6 +80,8 @@ local T = {
 	VALUE_AT = 0.9,
 	RECORD_AT = 0.6,
 	COUNT_TIME = 0.9,
+	STAMP_AT = 1.25,
+	SECOND_STAMP_AT = 1.55,
 
 	-- Which rarities (by Rarity order) earn the extras.
 	SPARKS_FROM = 5, -- Epic
@@ -86,6 +91,28 @@ local T = {
 	RIBBON_NEW = Color3.fromHex("E0362E"),
 	RIBBON_KNOWN = Color3.fromHex("3A434F"),
 	INK = Color3.fromHex("0B0D10"),
+}
+
+-- The stamps' colours: StandCardController's sticker colours, so a quality reads the
+-- same on the stand as it did here, and DetectorController's callout colours for size.
+local MODIFIER_COLOR: { [string]: Color3 } = {
+	Pristine = Color3.fromHex("7DF9FF"),
+	Irradiated = Color3.fromHex("A3FF3C"),
+	Fused = Color3.fromHex("FF8A3D"),
+	Cracked = Color3.fromHex("A7ADB4"),
+}
+local CALLOUT_COLOR: { [string]: Color3 } = {
+	GIGA = Color3.fromHex("FACC15"),
+	OVERSIZED = Color3.fromHex("F59E0B"),
+}
+
+-- Where each stamp lands on the canvas: X in design px right of centre (the nuke is
+-- centred, so this is "on its right-hand side" on any screen width), Y as a fraction
+-- of the height (the nuke spans roughly 0.2..0.6, see SCREEN_Y/FILL), and its tilt.
+-- The first is the only one most finds get; the second sits under it, tilted the other way.
+local STAMP_SPOTS = {
+	{ x = 90, y = 0.35, rotation = -12, textSize = 35 },
+	{ x = 115, y = 0.5, rotation = 7, textSize = 29 },
 }
 
 type Beat = { at: number, run: () -> (), done: boolean }
@@ -139,12 +166,35 @@ local function formatWeight(kg: number): string
 	return string.format("%d kg", math.floor(kg + 0.5))
 end
 
---- "PRISTINE LEGENDARY", "PREWAR SEALED EPIC", or just "RARE".
-local function rarityLine(found: any): string
-	local modifier = if type(found.modifier) == "string" and found.modifier ~= "None"
-		then string.gsub(found.modifier, "(%l)(%u)", "%1 %2") .. " "
-		else ""
-	return string.upper(modifier .. tostring(found.rarity))
+--- "x2", "x0.4", "x1.8": a value multiplier, to one decimal place at most.
+local function multiplier(mult: number): string
+	local rounded = math.floor(mult * 10 + 0.5) / 10
+	return if rounded == math.floor(rounded) then `x{math.floor(rounded)}` else `x{rounded}`
+end
+
+type StampSpec = { text: string, colour: Color3, mult: number }
+
+--- What gets stamped on this find, in slam order: its quality, then its size roll.
+--- Either can be missing; a plain find gets no stamps at all.
+local function stampsFor(found: any): { StampSpec }
+	local stamps: { StampSpec } = {}
+	local modifier = found.modifier
+	if type(modifier) == "string" and modifier ~= "None" then
+		local def = Rarity.MODIFIERS[modifier]
+		table.insert(stamps, {
+			text = string.upper((string.gsub(modifier, "(%l)(%u)", "%1 %2"))),
+			colour = MODIFIER_COLOR[modifier] or UIKit.C.text,
+			mult = if def then def.valueMult else 1,
+		})
+	end
+	if type(found.uid) == "string" then
+		local size = Payload.forUid(found.uid)
+		local callout = Payload.calloutFor(size)
+		if callout then
+			table.insert(stamps, { text = callout, colour = CALLOUT_COLOR[callout] or T.GOLD, mult = size })
+		end
+	end
+	return stamps
 end
 
 -- ── Building ────────────────────────────────────────────────────────
@@ -245,6 +295,72 @@ local function chip(parent: Instance, text: string, fill: Color3, ink: Color3, y
 		shadow = false,
 	})
 	label.AutomaticSize = Enum.AutomaticSize.X
+
+	return frame, scaler(frame)
+end
+
+--- A rubber stamp: the word and its "x2 VALUE" in `spec`'s colour, inside a border of the
+--- same colour on a dark see-through plate, tilted. Hidden until it slams.
+local function stamp(parent: Instance, spec: StampSpec, spot: typeof(STAMP_SPOTS[1])): (Frame, UIScale)
+	local frame = Instance.new("Frame")
+	frame.Name = "Stamp"
+	frame.AnchorPoint = Vector2.new(0, 0.5)
+	frame.Position = UDim2.new(0.5, spot.x, spot.y, 0)
+	frame.Size = UDim2.fromOffset(0, 0)
+	frame.AutomaticSize = Enum.AutomaticSize.XY
+	frame.Rotation = spot.rotation
+	frame.BackgroundColor3 = Color3.new(0, 0, 0)
+	frame.BackgroundTransparency = 0.6
+	frame.BorderSizePixel = 0
+	frame.Visible = false
+	frame.Parent = parent
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 10)
+	corner.Parent = frame
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = spec.colour
+	stroke.Thickness = 5
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = frame
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, 16)
+	padding.PaddingRight = UDim.new(0, 16)
+	padding.PaddingTop = UDim.new(0, 4)
+	padding.PaddingBottom = UDim.new(0, 6)
+	padding.Parent = frame
+	local list = Instance.new("UIListLayout")
+	list.FillDirection = Enum.FillDirection.Vertical
+	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Padding = UDim.new(0, 0)
+	list.Parent = frame
+
+	local word = UIKit.label(frame, {
+		name = "Word",
+		size = UDim2.fromOffset(0, spot.textSize + 4),
+		text = spec.text,
+		font = UIKit.Font.hero,
+		textSize = spot.textSize,
+		xAlign = Enum.TextXAlignment.Center,
+		color = spec.colour,
+		shadow = false, -- its drop shadow is a sibling label, which the list would stack
+	})
+	word.AutomaticSize = Enum.AutomaticSize.X
+	word.LayoutOrder = 1
+
+	local effect = UIKit.label(frame, {
+		name = "Effect",
+		size = UDim2.fromOffset(0, math.floor(spot.textSize * 0.55)),
+		text = `{multiplier(spec.mult)} VALUE`,
+		font = UIKit.Font.hero,
+		textSize = math.floor(spot.textSize * 0.5),
+		xAlign = Enum.TextXAlignment.Center,
+		color = spec.colour,
+		shadow = false, -- its drop shadow is a sibling label, which the list would stack
+	})
+	effect.AutomaticSize = Enum.AutomaticSize.X
+	effect.LayoutOrder = 2
 
 	return frame, scaler(frame)
 end
@@ -385,7 +501,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		weightScale = scaler(label)
 	end
 
-	local pill, pillScale = chip(canvas, rarityLine(found), colour, T.INK, 0.83)
+	local pill, pillScale = chip(canvas, string.upper(tostring(found.rarity)), colour, T.INK, 0.83)
 	local stars = UIKit.label(canvas, {
 		name = "Stars",
 		size = UDim2.fromOffset(600, 28),
@@ -417,6 +533,16 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 			T.INK,
 			0.205
 		)
+	end
+
+	-- THE STAMPS, built now and slammed down by the beats below once the words are in.
+	local stamps: { { frame: Frame, scale: UIScale } } = {}
+	for index, spec in stampsFor(found) do
+		local spot = STAMP_SPOTS[index]
+		if spot then
+			local frame, scale = stamp(canvas, spec, spot)
+			table.insert(stamps, { frame = frame, scale = scale })
+		end
 	end
 
 	local valueLabel: TextLabel? = nil
@@ -542,6 +668,22 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 			end,
 		},
 	}
+	for index, placed in stamps do
+		table.insert(beats, {
+			at = if index == 1 then T.STAMP_AT else T.SECOND_STAMP_AT,
+			done = false,
+			-- Comes down from big, like it was brought down on the nuke from the camera.
+			run = function()
+				placed.scale.Scale = 2.6
+				placed.frame.Visible = true
+				TweenService:Create(
+					placed.scale,
+					TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+					{ Scale = 1 }
+				):Play()
+			end,
+		})
+	end
 
 	gui.Parent = playerGui
 	show = {
