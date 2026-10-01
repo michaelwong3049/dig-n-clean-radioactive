@@ -885,7 +885,7 @@ function Spec.run(): boolean
 		end
 		check("§5.1 every aura's haul penalty stays above zero (capacity is never free)", floored)
 		check("§5.1 a better aura never drags harder per item", easing)
-		check("§5.1 a new player's first haul drags exactly as it always did (1.20/item)", Gear.tier("Aura", 1).haulPenalty == 1.20)
+		check("§5.1 a new player's first haul drags 0.60/item (halved on request)", Gear.tier("Aura", 1).haulPenalty == 0.60)
 	end
 
 	-- The Aura's look (Shared/AuraLook): one per rung, a ladder you can read off the

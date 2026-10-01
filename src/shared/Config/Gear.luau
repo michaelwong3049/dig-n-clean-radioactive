@@ -283,11 +283,14 @@ Gear.Cleaner = {
 -- and it is the stat that makes capacity a decision rather than a bigger number (PLAN
 -- §5.1). Living on the Aura means one purchase buys the room AND the frame to carry
 -- it, so the ladder is fitted to keep a FULL BAG'S drag roughly level while the bag
--- grows: 7.2 / 9.5 / 10.1 / 10.4 / 9.1 / 6.8 studs/sec, tier 1 to 6. A bigger aura
--- never makes a full bag feel lighter than a smaller full one did, and never much
--- heavier either; the treadmill is what makes that drag a smaller slice of your speed.
--- Tier 1 (1.20) and tier 6 (0.20) are the Satchel's old ends, so a new player's first
--- haul feels exactly as it did.
+-- grows: 2.4 / 3.4 / 3.6 / 3.6 / 3.2 / 2.4 studs/sec at tiers 1 to 6, then
+-- easing off to under 1 across the Twilight rungs. A bigger aura never makes a full
+-- bag feel much heavier than a smaller full one did; the treadmill is what makes that
+-- drag a smaller slice of your speed.
+--
+-- HALVED ON REQUEST ("make hauls less penalty, make it easier on the player"). The
+-- old ladder ran 1.20 -> 0.04 and cost a full bag up to ~7 studs/sec. Every rung was
+-- cut in half, so the ladder still has the same shape.
 --
 -- KEEP THE FLOOR ABOVE ZERO. An aura with no haul penalty turns capacity back into a
 -- free number, and Spec pins every rung above zero and none heavier than the one below.
@@ -308,12 +311,12 @@ Gear.Cleaner = {
 -- informational Z2-Z6 cells below shift with this (Z2 entrance 17s -> ~28s) but no
 -- Spec check pins those.
 Gear.Aura = {
-	{ name = "None", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, haulPenalty = 1.20, blurb = "No aura yet. Buy one to shield yourself from the rads." },
-	{ name = "Static Veil", price = 150000, reduction = 0.9750, tolerance = 4.4, capacity = 7, haulPenalty = 0.95, blurb = "Crackles more than it shields. Shields a little." },
-	{ name = "Lead Halo", price = 1100000, reduction = 0.9920, tolerance = 13.4, capacity = 10, haulPenalty = 0.72, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
-	{ name = "Ion Shroud", price = 5200000, reduction = 0.9970, tolerance = 38.4, capacity = 14, haulPenalty = 0.52, blurb = "Wound tight around you. The first aura that trusts you." },
-	{ name = "Isotope Mantle", price = 17000000, reduction = 0.9988, tolerance = 98.4, capacity = 18, haulPenalty = 0.35, blurb = "Burns hotter than the air. Walks into the red and back." },
-	{ name = "Containment Nimbus", price = 43000000, reduction = 0.9989, tolerance = 105.0, capacity = 24, haulPenalty = 0.20, blurb = "Made for the Crater. Holds, right up to the far rim." },
+	{ name = "None", price = 0, reduction = 0.6296, tolerance = 1.5, capacity = 4, haulPenalty = 0.60, blurb = "No aura yet. Buy one to shield yourself from the rads." },
+	{ name = "Static Veil", price = 150000, reduction = 0.9750, tolerance = 4.4, capacity = 7, haulPenalty = 0.48, blurb = "Crackles more than it shields. Shields a little." },
+	{ name = "Lead Halo", price = 1100000, reduction = 0.9920, tolerance = 13.4, capacity = 10, haulPenalty = 0.36, blurb = "Hums like a lead apron. Feels safe. Nearly is." },
+	{ name = "Ion Shroud", price = 5200000, reduction = 0.9970, tolerance = 38.4, capacity = 14, haulPenalty = 0.26, blurb = "Wound tight around you. The first aura that trusts you." },
+	{ name = "Isotope Mantle", price = 17000000, reduction = 0.9988, tolerance = 98.4, capacity = 18, haulPenalty = 0.18, blurb = "Burns hotter than the air. Walks into the red and back." },
+	{ name = "Containment Nimbus", price = 43000000, reduction = 0.9989, tolerance = 105.0, capacity = 24, haulPenalty = 0.10, blurb = "Made for the Crater. Holds, right up to the far rim." },
 	-- TOXIC TWILIGHT'S FIVE. Sold at that camp's Aura Shop and nowhere else (`camp`,
 	-- Gear.campOf), like its detectors, magnets and hoses. Shapes picked by the user
 	-- from mockup rounds (Shared/AuraLook's aurora / torus / wings / seraph / vortex).
@@ -341,11 +344,11 @@ Gear.Aura = {
 	-- every stage below lasts longer the higher the aura.
 	-- `tolerance` is each rung's rated ambient, kept as the shop's stat line; the aura's
 	-- actual damage comes off the zone survival curve (Shared/Radiation.zoneSurvival).
-	{ name = "Toxic Aurora", price = 130000000, reduction = 0.9991, tolerance = 140.0, capacity = 28, haulPenalty = 0.16, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
-	{ name = "Eclipse Veil", price = 330000000, reduction = 0.99934, tolerance = 190.0, capacity = 32, haulPenalty = 0.12, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
-	{ name = "Twilight Singularity", price = 1100000000, reduction = 0.99951, tolerance = 255.0, capacity = 36, haulPenalty = 0.09, blurb = "It lifts the load before you do.", camp = "twilight" },
-	{ name = "Seraph", price = 5300000000, reduction = 0.99963, tolerance = 340.0, capacity = 40, haulPenalty = 0.06, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "twilight" },
-	{ name = "Crimson Vortex", price = 26000000000, reduction = 0.99973, tolerance = 455.0, capacity = 44, haulPenalty = 0.04, blurb = "The last aura. A red storm with you in the eye of it.", camp = "twilight" },
+	{ name = "Toxic Aurora", price = 130000000, reduction = 0.9991, tolerance = 140.0, capacity = 28, haulPenalty = 0.08, blurb = "Ribbons of sky wrapped round you. Carries more than it should.", camp = "twilight" },
+	{ name = "Eclipse Veil", price = 330000000, reduction = 0.99934, tolerance = 190.0, capacity = 32, haulPenalty = 0.06, blurb = "Field lines from head to heel. The ground's glow slides off.", camp = "twilight" },
+	{ name = "Twilight Singularity", price = 1100000000, reduction = 0.99951, tolerance = 255.0, capacity = 36, haulPenalty = 0.045, blurb = "It lifts the load before you do.", camp = "twilight" },
+	{ name = "Seraph", price = 5300000000, reduction = 0.99963, tolerance = 340.0, capacity = 40, haulPenalty = 0.03, blurb = "Six wings and a halo. The caves' glow never reaches you.", camp = "twilight" },
+	{ name = "Crimson Vortex", price = 26000000000, reduction = 0.99973, tolerance = 455.0, capacity = 44, haulPenalty = 0.02, blurb = "The last aura. A red storm with you in the eye of it.", camp = "twilight" },
 }
 
 -- ── RETIRED ───────────────────────────────────────────────────────────────────
