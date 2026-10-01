@@ -1,15 +1,14 @@
 --!strict
 --[[
-	PurchaseHintController.luau — the quick "You can purchase ...!" pop-ups just under
-	the HOME / SHOPS warp bar.
+	PurchaseHintController.luau — the quick "You can afford a new Aura" pop-ups just
+	under the HOME / SHOPS warp bar.
 
-	EVERY gear rung that becomes affordable gets its own pop-up, once. They all pop at
-	the same time, stacked one under another (cheapest on top, at most MAX_ROWS on
-	screen; the rest wait for room). Each one STAYS until the player clicks its X, or
-	until it stops being true (bought, or cash fell back under the price). "A rung"
-	here is any tier above the best one you own on its track (Detector, Magnet, Hose,
-	Aura) whose price is at or under your cash. A rung you drop back below (you spent
-	money) is forgotten, so it pops up again when you can afford it again.
+	ONE LINE PER GEAR TRACK (Detector, Magnet, Hose, Aura), not per tier: a track pops
+	once when any tier above the best one you own on it comes within your cash, with
+	the track's word in its own colour. They stack one under another (cheapest on top,
+	at most MAX_ROWS on screen). Each one STAYS until the player clicks its X, or until
+	it stops being true (nothing on that track affordable any more). A track that drops
+	back out of reach (you spent money) is forgotten, so it pops up again later.
 
 	SHOWN ONLY WHEN THE WARP BAR IS: standing in no stage and not downed, the same test
 	WarpController makes off ExposureState. It also hides while the tutorial's banner is
@@ -44,8 +43,21 @@ local MAX_ROWS = 8 -- most rows on screen at once, so a big cash jump cannot fil
 local POP = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local FADE = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-local ACCENT = Color3.fromHex("FFE36B")
 local CLOSE_RED = Color3.fromHex("E5484D")
+
+-- What each track is called in the line, and the colour its word is drawn in.
+local TRACK_LABEL: { [string]: string } = {
+	Detector = "Detector",
+	Magnet = "Magnet",
+	Cleaner = "Hose",
+	Aura = "Aura",
+}
+local TRACK_COLOR: { [string]: Color3 } = {
+	Detector = Color3.fromHex("4DA6FF"), -- blue
+	Magnet = Color3.fromHex("FF5A5A"), -- red
+	Cleaner = Color3.fromHex("4DE3E0"), -- cyan
+	Aura = Color3.fromHex("B77BFF"), -- purple
+}
 
 local cash: number? = nil
 local bestOwned: { [string]: number }? = nil
@@ -53,33 +65,46 @@ local atCamp = false
 local ui: Frame? = nil -- the stack the rows go in
 local tutorialBanner: GuiObject? = nil
 
--- "Track:tier" keys already queued or shown while affordable.
+-- Tracks already queued or shown while something on them is affordable.
 local announced: { [string]: boolean } = {}
-type Rung = { track: string, tier: number, price: number }
-local queue: { Rung } = {} -- rungs waiting to pop
+type Rung = { track: string, price: number }
+local queue: { Rung } = {} -- tracks waiting to pop
 local orderSeq = 0
 type Row = { rung: Rung, frame: Frame }
-local rows: { [string]: Row } = {} -- "Track:tier" -> the row on screen
+local rows: { [string]: Row } = {} -- track -> the row on screen
 local rowCount = 0
 
---- Queue every newly affordable rung (cheapest first); forget ones no longer affordable.
+--- Cheapest price of any tier above the best owned on this track, if within cash.
+local function cheapestAffordable(track: string): number?
+	if cash == nil or bestOwned == nil then
+		return nil
+	end
+	local best: number? = nil
+	for tier = (bestOwned[track] or 1) + 1, Gear.maxTier(track) do
+		local price = Gear.tier(track, tier).price
+		if price <= cash and (best == nil or price < best) then
+			best = price
+		end
+	end
+	return best
+end
+
+--- Queue every track that newly has something affordable (cheapest first); forget
+--- tracks with nothing affordable left.
 local function scan()
 	if cash == nil or bestOwned == nil then
 		return
 	end
 	local fresh: { Rung } = {}
 	for _, track in Gear.TRACKS do
-		for tier = (bestOwned[track] or 1) + 1, Gear.maxTier(track) do
-			local def = Gear.tier(track, tier)
-			local key = `{track}:{tier}`
-			if def.price <= cash then
-				if not announced[key] then
-					announced[key] = true
-					table.insert(fresh, { track = track, tier = tier, price = def.price })
-				end
-			else
-				announced[key] = nil
+		local price = cheapestAffordable(track)
+		if price ~= nil then
+			if not announced[track] then
+				announced[track] = true
+				table.insert(fresh, { track = track, price = price })
 			end
+		else
+			announced[track] = nil
 		end
 	end
 	table.sort(fresh, function(a, b)
@@ -91,8 +116,7 @@ local function scan()
 end
 
 local function stillTrue(rung: Rung): boolean
-	local owned = (bestOwned :: any)[rung.track] or 1
-	return rung.tier > owned and cash ~= nil and rung.price <= cash
+	return cheapestAffordable(rung.track) ~= nil
 end
 
 --- Take a row off screen: shrinks away, then is gone. The rung stays announced, so a
@@ -125,7 +149,7 @@ local function tutorialUp(): boolean
 end
 
 --- One pop-up row: springs in and stays until its X is clicked.
-local function popRow(list: Frame, key: string, rung: Rung, name: string, order: number)
+local function popRow(list: Frame, key: string, rung: Rung, order: number)
 	local row = Instance.new("Frame")
 	row.Name = "Hint"
 	row.LayoutOrder = order
@@ -146,7 +170,9 @@ local function popRow(list: Frame, key: string, rung: Rung, name: string, order:
 	label.TextSize = 22
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.RichText = true
-	label.Text = `You can purchase <font color="#{ACCENT:ToHex()}">{name}</font>!`
+	local word = TRACK_LABEL[rung.track] or rung.track
+	local color = TRACK_COLOR[rung.track] or Color3.new(1, 1, 1)
+	label.Text = `You can afford a new <font color="#{color:ToHex()}">{word}</font>`
 	label.Parent = row
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Color3.new(0, 0, 0)
@@ -211,7 +237,7 @@ local function pump()
 		if not stillTrue(rung) then
 			continue
 		end
-		local key = `{rung.track}:{rung.tier}`
+		local key = rung.track
 		if rows[key] then
 			continue
 		end
@@ -220,7 +246,7 @@ local function pump()
 			continue
 		end
 		orderSeq += 1
-		popRow(list, key, rung, Gear.tier(rung.track, rung.tier).name, orderSeq)
+		popRow(list, key, rung, orderSeq)
 		Sfx.play("hint") -- one ding per burst: the cue's cooldown folds a stack of rows
 	end
 	queue = waiting
