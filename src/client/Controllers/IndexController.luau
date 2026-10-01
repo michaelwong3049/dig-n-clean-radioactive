@@ -1553,8 +1553,8 @@ function Index.start()
 	end
 
 	Net.get("ItemIdentified").OnClientEvent:Connect(found)
-	-- Prewar Sealed needs no cleaning, so it is identified where it is dug and the
-	-- discovery rides on the dig payload. Every other pull leaves `itemId` nil.
+	-- A modifier that needs no cleaning (none rolls today) is identified where it is dug
+	-- and the discovery rides on the dig payload. Every other pull leaves `itemId` nil.
 	Net.get("Unearthed").OnClientEvent:Connect(found)
 
 	-- The detail model: turned by drag, or slowly by itself.

@@ -950,11 +950,6 @@ function Spec.run(): boolean
 	check("§3.6 rarer items burn faster", Decay.fuseFor(bagOf("Anomaly", "None", 1, 0)[1], 1) < Decay.fuseFor(bagOf("Common", "None", 1, 0)[1], 1))
 	check("§3.6 Slag still retains a token 10%", math.abs(Decay.valueRetained(leg, 1) - 0.10) < 1e-9)
 
-	-- PLAN §7 — Prewar Sealed is the jackpot: no clean, no clock
-	local sealed = bagOf("Mythic", "PrewarSealed", 1, 99999)[1]
-	check("§7 Prewar Sealed never leaves Fresh", Decay.conditionOf(sealed, 1) == 1)
-	check("§7 Prewar Sealed emits nothing", Decay.emissionOf(sealed, 1) == 0)
-
 	-- PLAN §3.6 — freezing is total and one-way
 	local frozen = bagOf("Mythic", "None", 1, 10)[1]
 	frozen.frozen = true

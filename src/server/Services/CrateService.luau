@@ -51,7 +51,7 @@ local REEL_TAIL = 4
 --- The modifiers a crated nuke can come with. A prize never comes out Cracked or
 --- Slagged; the rest keep their normal relative weights. Explicit order so the roll is
 --- stable (see Liquids.ORDER for why that matters).
-local PRIZE_MODIFIERS = { "None", "Pristine", "Irradiated", "Fused", "PrewarSealed" }
+local PRIZE_MODIFIERS = { "None", "Pristine", "Irradiated", "Fused" }
 
 local openRemote: any = nil
 local openedRemote: any = nil

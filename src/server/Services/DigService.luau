@@ -427,8 +427,8 @@ local function rollModifier(): string
 	return "None"
 end
 
---- A crate's disguise modifier. Anything but one that needs no cleaning: a Prewar
---- Sealed find identifies at the dig, and a crate must never skip the wash.
+--- A crate's disguise modifier. Anything but one that needs no cleaning: such a find
+--- identifies at the dig, and a crate must never skip the wash.
 local function crateModifier(): string
 	for _ = 1, 8 do
 		local modifier = rollModifier()
@@ -983,7 +983,7 @@ end
 ---
 --- ALWAYS FULLY CRUSTED, never graded by the roll. Contamination is not rolled until
 --- unearth(), and sizing the crust by it here would leak the one modifier that needs no
---- cleaning at all -- a Prewar Sealed pull would surface visibly bare, telling the
+--- cleaning at all -- such a pull would surface visibly bare, telling the
 --- player what they had before anything has earned it.
 ---
 --- A SUPPLY CRATE COMES UP THE SAME WAY. Its itemId is a stand-in nuke of its tier
@@ -1056,15 +1056,15 @@ end
 --- server until the crust comes off (Services/IdentifyService), so neither the payload
 --- nor the index gives the answer away, and the wash bay is the only place to get it.
 ---
---- THE ONE EXCEPTION IS AN ITEM THAT NEEDS NO CLEANING. Prewar Sealed comes up in its
---- packaging with zero patches (Contamination.initialCount), so there is no crust to
---- take off and nothing to withhold: it identifies on the spot and the banner names it.
+--- THE ONE EXCEPTION IS AN ITEM THAT NEEDS NO CLEANING (a modifier with needsCleaning =
+--- false; none rolls today). It comes up with zero patches (Contamination.initialCount),
+--- so there is no crust to take off and nothing to withhold: it identifies on the spot.
 ---
 --- A SUPPLY CRATE COMES OUT AS A "???" TOO. It goes into `data.carry` like any crusted
 --- find, carrying `crateId` and its stand-in nuke's itemId, and is indistinguishable
 --- from one on every surface until the wash takes the last patch off -- at which point
 --- WashService moves it to `data.crates` and it becomes a crate you can open. It always
---- has crust (crateModifier never rolls Prewar Sealed), so it can never identify here.
+--- has crust (crateModifier never rolls a no-clean modifier), so it can never identify here.
 local function unearth(player: Player, data: any, signal: Signal, itemId: string, rarity: string, modifier: string, crateId: string?)
 	clearHaul(player)
 	local item = Items.get(itemId)

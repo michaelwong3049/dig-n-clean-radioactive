@@ -25,8 +25,8 @@
 	IT IS ALSO WHAT YOU CARRY. ToolService encases the model in your off hand with a
 	chunk per REMAINING patch, so an item you half-cleaned and walked away from is half
 	emerged in your hand. The lump in the ground (`lump`) is the one deliberate exception
-	— it is always fully crusted, because grading it by the roll would leak Prewar
-	Sealed's "needs no cleaning" before the reveal is supposed to happen at all.
+	— it is always fully crusted, because grading it by the roll would leak a
+	"needs no cleaning" modifier before the reveal is supposed to happen at all.
 
 	RARITY IS THE ONE THING THE ROCK IS ALLOWED TO SAY. The detector already told the
 	player what tier they are hauling and the banner repeats it, so hiding it here would

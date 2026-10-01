@@ -47,7 +47,7 @@ local REMOTES: { [string]: string } = {
 	-- weight -- everything the detector legitimately read -- and NOT the itemId, name or
 	-- flavour, which would be the client holding the answer to a question the wash bay
 	-- is supposed to ask. `identified` is true only for a pull that needed no cleaning
-	-- at all (Prewar Sealed), and only then does an identity ride along.
+	-- at all (none rolls today), and only then does an identity ride along.
 	Unearthed = "RemoteEvent", -- server -> client, the slot-machine moment
 
 	-- The backpack, as the player sees it. Fires only when the bag actually CHANGES

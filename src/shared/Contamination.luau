@@ -36,7 +36,7 @@ function Contamination.initialCount(rarityName: string, modifier: string): numbe
 	local def = Rarity.get(rarityName)
 	local mod = Rarity.MODIFIERS[modifier] or Rarity.MODIFIERS.None
 
-	-- Prewar Sealed is still in its packaging: it sells as-is (PLAN §7).
+	-- A modifier that needs no cleaning sells as-is (PLAN §7). None rolls today.
 	if not mod.needsCleaning then
 		return 0
 	end
