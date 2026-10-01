@@ -27,6 +27,7 @@
 	  washed (data.crates) stay with you; they are not nukes.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local Debris = game:GetService("Debris")
@@ -143,14 +144,24 @@ end
 -- player per tick. That is 10 full-world scans a second per player, against a world
 -- that will eventually hold six stages of scenery — it was fine at 60 parts and would
 -- have quietly become the most expensive thing in the game.
+--
+-- The refresh reads Kit's Shower tag rather than walking Workspace: even once per
+-- 2 s, a full walk of ~177k instances to find 7 showers stalled the server for
+-- 45-90 ms each time — a frame hitch every 2 seconds. The attribute stays the
+-- source of truth; the tag is only the index (same as StationService).
+local SHOWER_TAG = "Shower"
 local showerCache: { { position: Vector3, radius: number } } = {}
 local cacheAge = math.huge
 local CACHE_REFRESH = 2
 
 local function refreshShowerCache()
 	table.clear(showerCache)
-	for _, descendant in Workspace:GetDescendants() do
-		if descendant:IsA("BasePart") and descendant:GetAttribute("Shower") == true then
+	for _, descendant in CollectionService:GetTagged(SHOWER_TAG) do
+		if
+			descendant:IsA("BasePart")
+			and descendant:GetAttribute("Shower") == true
+			and descendant:IsDescendantOf(Workspace)
+		then
 			table.insert(showerCache, {
 				position = descendant.Position,
 				radius = (descendant:GetAttribute("Radius") :: number?) or DEFAULT_SHOWER_RADIUS,
