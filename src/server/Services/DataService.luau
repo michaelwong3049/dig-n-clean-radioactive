@@ -208,7 +208,7 @@ local TEMPLATE = {
 	stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0, rolls = 0, cratesOpened = 0 },
 }
 
-local STORE_VERSION = 1 -- bump to abandon all existing saves
+local STORE_VERSION = 2 -- bump to abandon all existing saves
 local store = ProfileStore.New(`PlayerData_v{STORE_VERSION}`, TEMPLATE)
 
 local profiles: { [Player]: any } = {}
