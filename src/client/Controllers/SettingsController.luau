@@ -1,6 +1,15 @@
 --[[
-	SettingsController.lua — the player Settings panel. Three settings: the colour of
-	your base, HIDE MY AURA, and SOUND EFFECTS.
+	SettingsController.lua — the player Settings panel, in three tabs:
+
+	  GENERAL   base colour, HIDE MY AURA, rare drop announcements
+	  GRAPHICS  graphics level, radiation effects, screen shake, reduce flashing
+	  AUDIO     SOUND EFFECTS (the mute) and the master / effects / UI / Geiger sliders
+
+	EVERYTHING BUT THE FIRST THREE IS A PREF (Config/Prefs, client/Prefs). The rows here
+	only show and set them; each one is applied by the file that owns the effect
+	(ItemFxController, RadFx, DetonationController, Sfx...), off Prefs.observe, so it
+	holds even if this panel never builds. Prefs apply the same frame and save behind;
+	the colour, aura and mute keep their older wait-for-the-echo shape.
 
 	SOUND EFFECTS is the same shape as HIDE MY AURA below: a profile setting
 	(data.sfxMuted) the server owns and echoes on Net.SfxMuted. The mute itself is
@@ -47,6 +56,8 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local Prefs = require(script.Parent.Parent.Prefs)
+local Rarity = require(Shared.Config.Rarity)
 
 local Settings = {}
 
@@ -56,7 +67,16 @@ local Settings = {}
 -- formatCash. Keep in step if the server value changes.
 local NEUTRAL = Color3.fromHex("7F8388")
 
-local PANEL_SIZE = Vector2.new(430, 516)
+local PANEL_SIZE = Vector2.new(430, 556)
+-- Where a tab's rows start (under the title and the tab strip), and a row's height.
+local TABS_Y = 50
+local TABS_H = 34
+local CONTENT_Y = TABS_Y + TABS_H + 14
+local ROW_H = 44
+local ROW_GAP = 10
+-- Settings' REDUCE FLASHING slows the Anomaly colour cycle by this much (every reader
+-- takes Rarity.ANOMALY_CYCLE fresh each frame).
+local ANOMALY_SLOW = 4
 -- The base colour section's height; the aura row sits under it.
 local COLOUR_SECTION_H = 300
 local SV_SIZE = Vector2.new(232, 158)
@@ -299,6 +319,213 @@ local function buildSoundRow(section: Instance)
 	switch.MouseButton1Click:Connect(toggleSound)
 	ui.soundSwitch = switch
 	applySound()
+end
+
+-- ── Pref rows ───────────────────────────────────────────────────────
+
+--- A row's title and hint, on the left, leaving `rightW` for its control.
+local function rowText(row: Instance, title: string, hint: string, rightW: number)
+	UIKit.label(row, {
+		name = "SectionTitle",
+		size = UDim2.new(1, -rightW - 12, 0, 24),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.header,
+		color = UIKit.C.text,
+		text = title,
+		zIndex = 12,
+	})
+	UIKit.label(row, {
+		name = "SectionHint",
+		position = UDim2.fromOffset(0, 24),
+		size = UDim2.new(1, -rightW - 12, 0, 18),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.caption,
+		color = UIKit.C.dim,
+		text = hint,
+		zIndex = 12,
+	})
+end
+
+local function paintSwitch(button: TextButton, on: boolean, text: string)
+	button.Text = text
+	button.BackgroundColor3 = if on then UIKit.C.selected else UIKit.C.empty
+	button.TextColor3 = if on then UIKit.C.text else UIKit.C.dim
+end
+
+local function switchButton(row: Instance, name: string, width: number, x: UDim): TextButton
+	local button = UIKit.button(row, {
+		name = name,
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(x, UDim.new(0, 4)),
+		size = UDim2.fromOffset(width, 34),
+		text = "",
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.body,
+		color = UIKit.C.dim,
+		fillColor = UIKit.C.empty,
+		fillTransparency = 0,
+		cornerRadius = UIKit.Radius.button,
+		zIndex = 12,
+	})
+	return button
+end
+
+--- ON / OFF for a flag pref.
+local function flagRow(row: Instance, key: string, title: string, hint: string)
+	rowText(row, title, hint, 108)
+	local button = switchButton(row, "Switch", 108, UDim.new(1, 0))
+	button.MouseButton1Click:Connect(function()
+		Prefs.set(key, not Prefs.get(key))
+	end)
+	Prefs.observe(key, function(on)
+		paintSwitch(button, on == true, if on then "ON" else "OFF")
+	end)
+end
+
+--- One button per option, side by side; the chosen one lit.
+local function choiceRow(row: Instance, key: string, title: string, hint: string, options: { { string } })
+	local each, gap = 64, 4
+	local width = #options * each + (#options - 1) * gap
+	rowText(row, title, hint, width)
+	local buttons = {}
+	for i, option in options do
+		local value, label = option[1], option[2]
+		local right = (#options - i) * (each + gap)
+		local button = switchButton(row, "Option_" .. value, each, UDim.new(1, -right))
+		button.TextSize = UIKit.TextSize.caption
+		button.MouseButton1Click:Connect(function()
+			Prefs.set(key, value)
+		end)
+		buttons[value] = { button = button, label = label }
+	end
+	Prefs.observe(key, function(current)
+		for value, entry in buttons do
+			paintSwitch(entry.button, value == current, entry.label)
+		end
+	end)
+end
+
+--- A 0..100% slider for a volume pref. Drags apply live (the sound moves under your
+--- finger) and save once, on release.
+local function volumeRow(row: Instance, key: string, title: string)
+	local labelW, valueW = 112, 52
+
+	UIKit.label(row, {
+		name = "SectionTitle",
+		position = UDim2.fromOffset(0, 8),
+		size = UDim2.fromOffset(labelW, 24),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.header,
+		color = UIKit.C.text,
+		text = title,
+		zIndex = 12,
+	})
+	local value = UIKit.label(row, {
+		name = "Value",
+		anchorPoint = Vector2.new(1, 0),
+		position = UDim2.new(1, 0, 0, 8),
+		size = UDim2.fromOffset(valueW, 24),
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.body,
+		color = UIKit.C.dim,
+		text = "",
+		zIndex = 12,
+	})
+	value.TextXAlignment = Enum.TextXAlignment.Right
+
+	-- The hit box is the full row height so a thumb can grab it; the track is thin.
+	local hit = Instance.new("Frame")
+	hit.Name = "Slider"
+	hit.BackgroundTransparency = 1
+	hit.Position = UDim2.fromOffset(labelW + 8, 0)
+	hit.Size = UDim2.new(1, -(labelW + 8 + valueW + 10), 1, 0)
+	hit.ZIndex = 12
+	hit.Parent = row
+
+	local track = Instance.new("Frame")
+	track.Name = "Track"
+	track.AnchorPoint = Vector2.new(0, 0.5)
+	track.Position = UDim2.fromScale(0, 0.5)
+	track.Size = UDim2.new(1, 0, 0, 10)
+	track.BackgroundColor3 = UIKit.C.empty
+	track.BorderSizePixel = 0
+	track.ZIndex = 12
+	track.Parent = hit
+	Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
+	local trackStroke = Instance.new("UIStroke")
+	trackStroke.Color = UIKit.C.outline
+	trackStroke.Thickness = 1.5
+	trackStroke.Parent = track
+
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.BackgroundColor3 = UIKit.C.green
+	fill.BorderSizePixel = 0
+	fill.ZIndex = 13
+	fill.Parent = track
+	Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+
+	local knob = Instance.new("Frame")
+	knob.Name = "Knob"
+	knob.AnchorPoint = Vector2.new(0.5, 0.5)
+	knob.Size = UDim2.fromOffset(20, 20)
+	knob.BackgroundColor3 = UIKit.C.text
+	knob.BorderSizePixel = 0
+	knob.ZIndex = 14
+	knob.Parent = track
+	Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+	local knobStroke = Instance.new("UIStroke")
+	knobStroke.Color = UIKit.C.outline
+	knobStroke.Thickness = 2
+	knobStroke.Parent = knob
+
+	local function paint(alpha: number)
+		fill.Size = UDim2.fromScale(alpha, 1)
+		knob.Position = UDim2.fromScale(alpha, 0.5)
+		value.Text = `{math.round(alpha * 100)}%`
+	end
+
+	local dragging = false
+	local function at(position: Vector3): number
+		local x = (position.X - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1)
+		return math.clamp(x, 0, 1)
+	end
+	hit.InputBegan:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+			return
+		end
+		dragging = true
+		local alpha = at(input.Position)
+		paint(alpha)
+		Prefs.preview(key, alpha)
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if not dragging then
+			return
+		end
+		if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+			return
+		end
+		local alpha = at(input.Position)
+		paint(alpha)
+		Prefs.preview(key, alpha)
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if not dragging then
+			return
+		end
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+			return
+		end
+		dragging = false
+		Prefs.set(key, at(input.Position))
+	end)
+
+	Prefs.observe(key, function(alpha)
+		if not dragging then
+			paint(alpha)
+		end
+	end)
 end
 
 -- ── Draggable tracks ────────────────────────────────────────────────
@@ -659,14 +886,71 @@ local function build(): ScreenGui
 		zIndex = 12,
 	})
 
-	-- The base colour section, then the aura row under it.
-	local section = Instance.new("Frame")
-	section.Name = "BaseColour"
-	section.Position = UDim2.fromOffset(0, 64)
-	section.Size = UDim2.new(1, 0, 0, COLOUR_SECTION_H)
-	section.BackgroundTransparency = 1
-	section.ZIndex = 11
-	section.Parent = panel
+	-- The tab strip, then one page per tab; only the chosen page is visible.
+	local strip = Instance.new("Frame")
+	strip.Name = "Tabs"
+	strip.Position = UDim2.fromOffset(0, TABS_Y)
+	strip.Size = UDim2.new(1, 0, 0, TABS_H)
+	strip.BackgroundTransparency = 1
+	strip.ZIndex = 11
+	strip.Parent = panel
+
+	local TABS = { "GENERAL", "GRAPHICS", "AUDIO" }
+	local pages: { [string]: Frame } = {}
+	local tabButtons: { [string]: TextButton } = {}
+	local function choose(name: string)
+		for tab, page in pages do
+			page.Visible = tab == name
+			paintSwitch(tabButtons[tab], tab == name, tab)
+		end
+	end
+	for i, name in TABS do
+		local tabButton = UIKit.button(strip, {
+			name = name,
+			-- Three equal tabs with a 6px gap between them, flush to both edges.
+			position = UDim2.new((i - 1) / #TABS, (i - 1) * 2, 0, 0),
+			size = UDim2.new(1 / #TABS, -4, 1, 0),
+			text = name,
+			font = UIKit.Font.title,
+			textSize = UIKit.TextSize.body,
+			color = UIKit.C.dim,
+			fillColor = UIKit.C.empty,
+			fillTransparency = 0,
+			cornerRadius = UIKit.Radius.button,
+			zIndex = 12,
+		})
+		tabButton.MouseButton1Click:Connect(function()
+			choose(name)
+		end)
+		tabButtons[name] = tabButton
+
+		local page = Instance.new("Frame")
+		page.Name = name
+		page.Position = UDim2.fromOffset(0, CONTENT_Y)
+		page.Size = UDim2.new(1, 0, 1, -CONTENT_Y)
+		page.BackgroundTransparency = 1
+		page.ZIndex = 11
+		page.Visible = false
+		page.Parent = panel
+		pages[name] = page
+	end
+
+	-- Rows stack down a page from `y`; returns the row frame.
+	local function row(page: Frame, name: string, y: number, height: number?): Frame
+		local frame = Instance.new("Frame")
+		frame.Name = name
+		frame.Position = UDim2.fromOffset(0, y)
+		frame.Size = UDim2.new(1, 0, 0, height or ROW_H)
+		frame.BackgroundTransparency = 1
+		frame.ZIndex = 11
+		frame.Parent = page
+		return frame
+	end
+	local step = ROW_H + ROW_GAP
+
+	-- GENERAL: the base colour, then the aura and rare drop rows under it.
+	local general = pages.GENERAL
+	local section = row(general, "BaseColour", 0, COLOUR_SECTION_H)
 
 	UIKit.label(section, {
 		name = "SectionTitle",
@@ -699,23 +983,47 @@ local function build(): ScreenGui
 
 	buildColorPicker(pickerHost)
 
-	local auraSection = Instance.new("Frame")
-	auraSection.Name = "Aura"
-	auraSection.Position = UDim2.fromOffset(0, 64 + COLOUR_SECTION_H + 8)
-	auraSection.Size = UDim2.new(1, 0, 0, 44)
-	auraSection.BackgroundTransparency = 1
-	auraSection.ZIndex = 11
-	auraSection.Parent = panel
-	buildAuraRow(auraSection)
+	local y = COLOUR_SECTION_H + 8
+	buildAuraRow(row(general, "Aura", y))
+	y += step
+	choiceRow(row(general, "RareDrops", y), "rareDrops", "RARE DROPS", "the drop announcements", {
+		{ "all", "ALL" },
+		{ "mine", "MINE" },
+		{ "off", "OFF" },
+	})
 
-	local soundSection = Instance.new("Frame")
-	soundSection.Name = "Sound"
-	soundSection.Position = UDim2.fromOffset(0, 64 + COLOUR_SECTION_H + 8 + 44 + 8)
-	soundSection.Size = UDim2.new(1, 0, 0, 44)
-	soundSection.BackgroundTransparency = 1
-	soundSection.ZIndex = 11
-	soundSection.Parent = panel
-	buildSoundRow(soundSection)
+	-- GRAPHICS
+	local graphics = pages.GRAPHICS
+	y = 0
+	choiceRow(row(graphics, "Graphics", y), "graphics", "GRAPHICS", "low helps slower devices", {
+		{ "low", "LOW" },
+		{ "med", "MED" },
+		{ "high", "HIGH" },
+	})
+	y += step
+	choiceRow(row(graphics, "RadFx", y), "radFx", "RADIATION FX", "screen effects; damage is unchanged", {
+		{ "reduced", "LESS" },
+		{ "full", "FULL" },
+	})
+	y += step
+	flagRow(row(graphics, "Shake", y), "shake", "SCREEN SHAKE", "blasts and radiation wobble")
+	y += step
+	flagRow(row(graphics, "Flashing", y), "reduceFlashing", "REDUCE FLASHING", "dims screen flashes, slows rainbows")
+
+	-- AUDIO: the mute first (it predates the sliders), then the sliders.
+	local audio = pages.AUDIO
+	y = 0
+	buildSoundRow(row(audio, "Sound", y))
+	y += step
+	volumeRow(row(audio, "Master", y), "volMaster", "MASTER")
+	y += step
+	volumeRow(row(audio, "Effects", y), "volSfx", "EFFECTS")
+	y += step
+	volumeRow(row(audio, "Interface", y), "volUi", "INTERFACE")
+	y += step
+	volumeRow(row(audio, "Geiger", y), "volGeiger", "GEIGER")
+
+	choose("GENERAL")
 
 	local function toggle()
 		panel.Visible = not panel.Visible
@@ -734,6 +1042,13 @@ function Settings.start()
 	gui.Parent = player:WaitForChild("PlayerGui")
 
 	applyPreview()
+
+	-- REDUCE FLASHING's slower Anomaly cycle. Here, not in Prefs, because it is a
+	-- shared Config value every Anomaly reader picks up on its own next frame.
+	local anomalyCycle = Rarity.ANOMALY_CYCLE
+	Prefs.observe("reduceFlashing", function(on)
+		Rarity.ANOMALY_CYCLE = if on then anomalyCycle * ANOMALY_SLOW else anomalyCycle
+	end)
 
 	-- Fired once on load with the saved value, and again after every change as the
 	-- server-confirmed echo — same channel both ways (Shared/Net.PlotColor).

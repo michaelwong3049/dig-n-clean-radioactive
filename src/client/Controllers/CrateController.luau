@@ -53,6 +53,7 @@ local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
+local Prefs = require(script.Parent.Parent.Prefs)
 
 local CrateController = {}
 
@@ -614,7 +615,7 @@ local function reveal(payload: any, token: number)
 
 	ui.viewScale.Scale = 1.2
 	tween(ui.viewScale, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
-	ui.flash.BackgroundTransparency = 0.35
+	ui.flash.BackgroundTransparency = if Prefs.get("reduceFlashing") then 0.9 else 0.35
 	tween(ui.flash, 0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = 1 })
 	for _, bar in ui.rayBars do
 		bar.BackgroundColor3 = colour

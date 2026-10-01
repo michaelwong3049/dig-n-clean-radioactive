@@ -1,0 +1,107 @@
+--!strict
+--[[
+	Prefs.luau — the Settings panel's player preferences: what each one is called, the
+	values it may take, and its default. ONE table so the server's validation
+	(Services/PrefsService), the profile's defaults (DataService `prefs`) and the
+	client's readers (client/Prefs.luau) can never disagree.
+
+	ALL CLIENT-SIDE IN EFFECT. Nothing here changes what the server decides — damage,
+	drops, prices. Every pref only changes what THIS player sees or hears, so the server
+	only stores and echoes them; it never reads one for gameplay.
+
+	TWO SHAPES:
+	  choice  one of `options` (strings), e.g. graphics "low" | "med" | "high".
+	  flag    a boolean.
+	  volume  a number 0..1, snapped to VOLUME_STEP so a slider cannot spam saves of
+	          0.73125 then 0.7315.
+
+	Base colour, HIDE MY AURA, SOUND EFFECTS (the mute) and the walk cap predate this and
+	keep their own remotes; they are not prefs.
+]]
+
+local Prefs = {}
+
+export type Kind = "choice" | "flag" | "volume"
+
+export type Def = {
+	kind: Kind,
+	default: any,
+	options: { string }?,
+}
+
+Prefs.VOLUME_STEP = 0.05
+
+Prefs.DEFS = {
+	-- GRAPHICS. "high" is the game as built. "med" pulls nuke detail in closer and
+	-- halves the lights; "low" also stops ambient machine/magnet motion and draws only
+	-- your own aura (client ItemFxController, StationMotionController,
+	-- ToolMotionController, AuraController).
+	graphics = { kind = "choice", default = "high", options = { "low", "med", "high" } },
+
+	-- SCREEN SHAKE. Off = no blast shake or FOV kick (DetonationController) and no
+	-- radiation camera wobble (HudController).
+	shake = { kind = "flag", default = true },
+
+	-- RADIATION SCREEN EFFECTS (client RadFx). "reduced" softens every layer and drops
+	-- the snow, scanlines, dust and blur. No "off" on purpose: the over-tier keyhole is
+	-- the soft gate that warns you are too deep, so reduced still narrows the view.
+	radFx = { kind = "choice", default = "full", options = { "full", "reduced" } },
+
+	-- REDUCE FLASHING. Full-screen flashes (blast, wash reveal, crate, flask, death)
+	-- are skipped or dimmed and the Anomaly colour cycle slows right down.
+	reduceFlashing = { kind = "flag", default = false },
+
+	-- VOLUME. Master scales everything; the rest are client/Sfx.luau's groups. The
+	-- Geiger clicks have their own because they are the one sound people want quieter.
+	volMaster = { kind = "volume", default = 1 },
+	volSfx = { kind = "volume", default = 1 },
+	volUi = { kind = "volume", default = 1 },
+	volGeiger = { kind = "volume", default = 1 },
+
+	-- RARE DROP ANNOUNCEMENTS (client RareDropController). "mine" keeps only the line
+	-- when YOU claim one. The drop's glow in the field is untouched either way.
+	rareDrops = { kind = "choice", default = "all", options = { "all", "mine", "off" } },
+} :: { [string]: Def }
+
+--- A fresh table of every default, for the profile template and a client that has not
+--- heard from the server yet.
+function Prefs.defaults(): { [string]: any }
+	local out = {}
+	for key, def in Prefs.DEFS do
+		out[key] = def.default
+	end
+	return out
+end
+
+--- `value` made legal for `key`, or nil if it cannot be (unknown key, wrong type, an
+--- option that does not exist). Volumes are clamped and snapped rather than refused.
+function Prefs.sanitize(key: any, value: any): any
+	if type(key) ~= "string" then
+		return nil
+	end
+	local def = Prefs.DEFS[key]
+	if def == nil then
+		return nil
+	end
+	if def.kind == "flag" then
+		return if type(value) == "boolean" then value else nil
+	elseif def.kind == "volume" then
+		if type(value) ~= "number" or value ~= value then
+			return nil
+		end
+		local step = Prefs.VOLUME_STEP
+		return math.clamp(math.round(value / step) * step, 0, 1)
+	else
+		if type(value) ~= "string" then
+			return nil
+		end
+		for _, option in def.options :: { string } do
+			if option == value then
+				return value
+			end
+		end
+		return nil
+	end
+end
+
+return Prefs

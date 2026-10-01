@@ -16,8 +16,9 @@
 	                         and `destroy()` once.
 
 	THE MUTE IS A SOUNDGROUP, NOT A FLAG IN EACH CALLER. Every sound this module makes
-	joins one of three groups (sfx / ui / ambient) under a master group, and the Settings
-	switch (Net.SfxMuted, saved on the profile) zeroes the master. A sound that is
+	joins one of four groups (sfx / ui / ambient / geiger) under a master group, and the
+	Settings switch (Net.SfxMuted, saved on the profile) zeroes the master. The Settings
+	volume sliders (Config/Prefs vol*) set the master and the groups the same way. A sound that is
 	already playing goes quiet the same frame; nothing needs to remember to check.
 
 	The Geiger bed, the detonation boom/fuse and the crate reels keep their own Sound
@@ -35,7 +36,7 @@ local Workspace = game:GetService("Workspace")
 
 local Sfx = {}
 
-export type Group = "sfx" | "ui" | "ambient"
+export type Group = "sfx" | "ui" | "ambient" | "geiger"
 
 type Def = {
 	id: string,
@@ -117,13 +118,15 @@ Sfx.DEFS = DEFS
 
 -- ── Groups ──────────────────────────────────────────────────────────
 
-local GROUP_VOLUME: { [Group]: number } = { sfx = 1, ui = 1, ambient = 1 }
+local GROUP_VOLUME: { [Group]: number } = { sfx = 1, ui = 1, ambient = 1, geiger = 1 }
 
 local folder: Folder? = nil
 local master: SoundGroup? = nil
 local groups: { [string]: SoundGroup } = {}
 local lastPlayed: { [string]: number } = {}
 local muted = false
+-- Settings' master volume (Config/Prefs volMaster); the mute zeroes it on top.
+local masterVolume = 1
 
 local function ensure(): Folder
 	if folder then
@@ -134,7 +137,7 @@ local function ensure(): Folder
 
 	local top = Instance.new("SoundGroup")
 	top.Name = "Master"
-	top.Volume = if muted then 0 else 1
+	top.Volume = if muted then 0 else masterVolume
 	top.Parent = root
 	master = top
 
@@ -161,8 +164,22 @@ function Sfx.setMuted(on: boolean)
 	muted = on
 	ensure()
 	if master then
-		master.Volume = if on then 0 else 1
+		master.Volume = if on then 0 else masterVolume
 	end
+end
+
+--- Settings' volume sliders (Config/Prefs), each 0..1. `ambient` follows the effects
+--- slider: it is the hum and drone under them, not a channel anyone asked for.
+function Sfx.setVolumes(master_: number, sfx: number, ui: number, geiger: number)
+	masterVolume = master_
+	ensure()
+	if master then
+		master.Volume = if muted then 0 else masterVolume
+	end
+	groups.sfx.Volume = sfx
+	groups.ambient.Volume = sfx
+	groups.ui.Volume = ui
+	groups.geiger.Volume = geiger
 end
 
 function Sfx.muted(): boolean

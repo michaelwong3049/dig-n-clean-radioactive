@@ -51,7 +51,7 @@ local ORDER = {
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState
 	"FloorSignController", -- hides a base's "Build Floor N" prompt from anyone but its owner; reads PlotState
 	"OwnStationPromptController", -- hides a base's Wash + Upgrade Treadmill prompts from anyone but its owner; reads PlotState
-	"SettingsController", -- the Settings panel (top-right gear); base-colour picker + HIDE MY AURA + SOUND EFFECTS, reads/writes PlotColor, HideAura and SfxMuted
+	"SettingsController", -- the Settings panel (top-right gear): GENERAL / GRAPHICS / AUDIO tabs; PlotColor, HideAura, SfxMuted + the Prefs rows (client/Prefs)
 	"TutorialController", -- the new-player walkthrough: top banner + ground trail; reads TutorialState
 	"FlyController", -- dev-only free-fly; toggled by DebugService's /fly command via LocalPlayer's FlyMode attribute
 }

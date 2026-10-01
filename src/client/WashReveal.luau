@@ -42,6 +42,7 @@ local Crates = require(Shared.Config.Crates)
 local Tuning = require(Shared.Config.Tuning)
 
 local UIKit = require(script.Parent.UIKit)
+local Prefs = require(script.Parent.Prefs)
 
 local WashReveal = {}
 
@@ -631,7 +632,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 	dof.Parent = Lighting
 	TweenService:Create(dof, TweenInfo.new(T.SWING), { FarIntensity = 0.75 }):Play()
 
-	if order >= T.FLASH_FROM then
+	if order >= T.FLASH_FROM and not Prefs.get("reduceFlashing") then
 		local flash = Instance.new("Frame")
 		flash.Name = "Flash"
 		flash.Size = UDim2.fromScale(1, 1)

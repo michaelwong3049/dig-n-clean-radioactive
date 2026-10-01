@@ -61,6 +61,7 @@ local Net = require(Shared.Net)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
+local Prefs = require(script.Parent.Parent.Prefs)
 
 local DetonationController = {}
 
@@ -219,8 +220,17 @@ end
 
 -- ── 1. The blast ─────────────────────────────────────────────────────────
 
+--- Settings' REDUCE FLASHING (Config/Prefs) keeps this much of every flash: still a
+--- cue that something went off, never a white-out.
+local FLASH_DAMP = 0.2
+
+local function flashScale(): number
+	return if Prefs.get("reduceFlashing") then FLASH_DAMP else 1
+end
+
 local function shake(amplitude: number, duration: number)
-	if amplitude <= 0 then
+	-- Settings' SCREEN SHAKE off: no camera jolt at all (the blur and sound still land).
+	if amplitude <= 0 or not Prefs.get("shake") then
 		return
 	end
 	table.insert(shakes, { amp = amplitude, t0 = os.clock(), duration = duration })
@@ -229,6 +239,7 @@ end
 local screenFlash: Frame = nil :: any
 
 local function flashScreen(strength: number)
+	strength *= flashScale()
 	if strength <= 0 then
 		return
 	end
@@ -318,6 +329,7 @@ end
 --- bleached, then the colour seeping back. Measured from the CAMERA -- it is light,
 --- and you see it whether or not it can reach you.
 local function flashScene(strength: number)
+	strength *= flashScale()
 	if strength <= 0.01 then
 		return
 	end
@@ -351,7 +363,9 @@ local function shockHits(strength: number, order: number)
 		return
 	end
 	shake((0.9 + order * 0.3) * strength, 0.45 + order * 0.08)
-	table.insert(fovKicks, { amp = FOV_KICK * strength, t0 = os.clock(), duration = 0.6 })
+	if Prefs.get("shake") then
+		table.insert(fovKicks, { amp = FOV_KICK * strength, t0 = os.clock(), duration = 0.6 })
+	end
 	if blurTween then
 		blurTween:Cancel()
 	end

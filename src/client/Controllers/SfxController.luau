@@ -34,6 +34,7 @@ local Gear = require(Shared.Config.Gear)
 local Net = require(Shared.Net)
 local Tuning = require(Shared.Config.Tuning)
 
+local Prefs = require(script.Parent.Parent.Prefs)
 local Sfx = require(script.Parent.Parent.Sfx)
 
 local SfxController = {}
@@ -250,6 +251,14 @@ function SfxController.start()
 	Net.get("SfxMuted").OnClientEvent:Connect(function(muted)
 		Sfx.setMuted(muted == true)
 	end)
+	-- The volume sliders (Config/Prefs). Here rather than in the panel, like the mute,
+	-- so they hold even if the Settings panel never builds.
+	local function applyVolumes()
+		Sfx.setVolumes(Prefs.get("volMaster"), Prefs.get("volSfx"), Prefs.get("volUi"), Prefs.get("volGeiger"))
+	end
+	for _, key in { "volMaster", "volSfx", "volUi", "volGeiger" } do
+		Prefs.observe(key, applyVolumes)
+	end
 
 	for _, player in Players:GetPlayers() do
 		watchPlayer(player)

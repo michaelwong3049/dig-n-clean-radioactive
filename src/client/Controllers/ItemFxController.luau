@@ -57,6 +57,7 @@ local ItemFx = require(Shared.ItemFx)
 local ItemCrust = require(Shared.ItemCrust)
 local ItemFxConfig = require(Shared.Config.ItemFx)
 local Sfx = require(script.Parent.Parent.Sfx)
+local Prefs = require(script.Parent.Parent.Prefs)
 
 type Def = ItemFxConfig.ItemFxDef
 type Anim = ItemFxConfig.Anim
@@ -105,6 +106,15 @@ local MID_STEP = 1 / 20
 
 --- Only this many of the nearest moving nukes keep their PointLight on.
 local LIGHT_BUDGET = 8
+
+--- Settings' GRAPHICS (Config/Prefs) picks the numbers above: "high" is them as
+--- tuned, the others pull detail in closer for a slower device. Re-read every retier,
+--- so a change lands within RETIER_INTERVAL.
+local DETAIL = {
+	high = { fullRange = FULL_RANGE, fullBudget = FULL_BUDGET, midRange = MID_RANGE, lights = LIGHT_BUDGET },
+	med = { fullRange = 30, fullBudget = 6, midRange = 60, lights = 4 },
+	low = { fullRange = 20, fullBudget = 2, midRange = 40, lights = 2 },
+}
 
 --- How often the nukes are re-ranked by distance.
 local RETIER_INTERVAL = 0.2
@@ -1640,13 +1650,14 @@ local function retier(cameraPosition: Vector3)
 		return a.distance < b.distance
 	end)
 
-	local fullLeft, lightsLeft = FULL_BUDGET, LIGHT_BUDGET
+	local detail = DETAIL[Prefs.get("graphics")] or DETAIL.high
+	local fullLeft, lightsLeft = detail.fullBudget, detail.lights
 	for _, entry in ranked do
 		local tier: Tier = "still"
-		if entry.distance <= FULL_RANGE and fullLeft > 0 then
+		if entry.distance <= detail.fullRange and fullLeft > 0 then
 			tier = "full"
 			fullLeft -= 1
-		elseif entry.distance <= MID_RANGE then
+		elseif entry.distance <= detail.midRange then
 			tier = "mid"
 		end
 		setTier(entry, tier)

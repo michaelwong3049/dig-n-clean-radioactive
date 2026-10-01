@@ -252,6 +252,13 @@ local REMOTES: { [string]: string } = {
 	Sfx = "RemoteEvent",
 	SfxMuted = "RemoteEvent",
 
+	-- The rest of the Settings panel (Config/Prefs). Server -> client the WHOLE prefs
+	-- table, once on load and again as the confirmed echo after every change. Client ->
+	-- server { key = string, value = any } to change one, or nil to ask for the table
+	-- (the same "ask rather than wait" as SfxMuted). PrefsService sanitizes every value
+	-- against Config/Prefs; a rejected or rate-limited change just echoes what stuck.
+	Prefs = "RemoteEvent",
+
 	-- The walk-speed picker (SpeedController's pencil). Client -> server a number: the
 	-- walk to cap at, or 0 for full speed. The confirmed value comes back on SpeedState
 	-- (`walkCap`), so there is no echo remote of its own.
