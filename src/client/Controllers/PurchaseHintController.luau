@@ -4,15 +4,17 @@
 	the HOME / SHOPS warp bar.
 
 	EVERY gear rung that becomes affordable gets its own pop-up, once. They all pop at
-	the same time, stacked one under another (cheapest on top, at most MAX_ROWS), each
-	holding for HOLD seconds before it shrinks away. "A rung"
+	the same time, stacked one under another (cheapest on top, at most MAX_ROWS on
+	screen; the rest wait for room). Each one STAYS until the player clicks its X, or
+	until it stops being true (bought, or cash fell back under the price). "A rung"
 	here is any tier above the best one you own on its track (Detector, Magnet, Hose,
 	Aura) whose price is at or under your cash. A rung you drop back below (you spent
 	money) is forgotten, so it pops up again when you can afford it again.
 
 	SHOWN ONLY WHEN THE WARP BAR IS: standing in no stage and not downed, the same test
-	WarpController makes off ExposureState. It also waits while the tutorial's banner is
-	up, since that banner sits at the same height. Anything that became affordable meanwhile pops once it is clear.
+	WarpController makes off ExposureState. It also hides while the tutorial's banner is
+	up, since that banner sits at the same height. Rows already up are kept while hidden
+	and come back with the bar; anything that became affordable meanwhile pops then.
 
 	READS CashState (the balance) and GearList (what you own). GearList only answers a
 	GearAction "list", so this asks once on start and again whenever cash goes DOWN —
@@ -37,12 +39,13 @@ local PurchaseHintController = {}
 -- Design px. The warp bar spans y 10..74; this sits a little below it.
 local Y = 84
 local H = 30 -- text row height
-local HOLD = 3.5 -- seconds each pop-up stays up
-local MAX_ROWS = 8 -- most rows popped in one go, so a big cash jump cannot fill the screen
+local CLOSE = 24 -- the X button's square
+local MAX_ROWS = 8 -- most rows on screen at once, so a big cash jump cannot fill it
 local POP = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local FADE = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local ACCENT = Color3.fromHex("FFE36B")
+local CLOSE_RED = Color3.fromHex("E5484D")
 
 local cash: number? = nil
 local bestOwned: { [string]: number }? = nil
@@ -55,6 +58,9 @@ local announced: { [string]: boolean } = {}
 type Rung = { track: string, tier: number, price: number }
 local queue: { Rung } = {} -- rungs waiting to pop
 local orderSeq = 0
+type Row = { rung: Rung, frame: Frame }
+local rows: { [string]: Row } = {} -- "Track:tier" -> the row on screen
+local rowCount = 0
 
 --- Queue every newly affordable rung (cheapest first); forget ones no longer affordable.
 local function scan()
@@ -84,6 +90,30 @@ local function scan()
 	end
 end
 
+local function stillTrue(rung: Rung): boolean
+	local owned = (bestOwned :: any)[rung.track] or 1
+	return rung.tier > owned and cash ~= nil and rung.price <= cash
+end
+
+--- Take a row off screen: shrinks away, then is gone. The rung stays announced, so a
+--- dismissed row does not come back until it drops out of reach and returns.
+local function closeRow(key: string)
+	local entry = rows[key]
+	if entry == nil then
+		return
+	end
+	rows[key] = nil
+	rowCount -= 1
+	local frame = entry.frame
+	local scale = frame:FindFirstChildOfClass("UIScale")
+	if scale then
+		local tween = TweenService:Create(scale, FADE, { Scale = 0 })
+		tween:Play()
+		tween.Completed:Wait()
+	end
+	frame:Destroy()
+end
+
 local function tutorialUp(): boolean
 	if tutorialBanner == nil or tutorialBanner.Parent == nil then
 		local hud = Players.LocalPlayer:FindFirstChild("PlayerGui")
@@ -94,8 +124,8 @@ local function tutorialUp(): boolean
 	return tutorialBanner ~= nil and tutorialBanner.Visible
 end
 
---- One pop-up row: springs in, holds HOLD seconds, shrinks away, then is gone.
-local function popRow(list: Frame, name: string, order: number)
+--- One pop-up row: springs in and stays until its X is clicked.
+local function popRow(list: Frame, key: string, rung: Rung, name: string, order: number)
 	local row = Instance.new("Frame")
 	row.Name = "Hint"
 	row.LayoutOrder = order
@@ -124,38 +154,76 @@ local function popRow(list: Frame, name: string, order: number)
 	stroke.LineJoinMode = Enum.LineJoinMode.Round
 	stroke.Parent = label
 
+	local rowLayout = Instance.new("UIListLayout")
+	rowLayout.FillDirection = Enum.FillDirection.Horizontal
+	rowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	rowLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	rowLayout.Padding = UDim.new(0, 8)
+	rowLayout.Parent = row
+	label.LayoutOrder = 1
+
+	local close = Instance.new("TextButton")
+	close.Name = "Close"
+	close.LayoutOrder = 2
+	close.Size = UDim2.fromOffset(CLOSE, CLOSE)
+	close.BackgroundColor3 = CLOSE_RED
+	close.Font = Enum.Font.GothamBlack
+	close.TextSize = 16
+	close.TextColor3 = Color3.new(1, 1, 1)
+	close.Text = "X"
+	close.Parent = row
+	local closeStroke = Instance.new("UIStroke")
+	closeStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	closeStroke.Color = Color3.new(0, 0, 0)
+	closeStroke.Thickness = 2
+	closeStroke.Parent = close
+	close.Activated:Connect(function()
+		Sfx.play("click")
+		closeRow(key)
+	end)
+
+	rows[key] = { rung = rung, frame = row }
+	rowCount += 1
 	row.Parent = list
 	TweenService:Create(scale, POP, { Scale = 1 }):Play()
-	task.delay(HOLD, function()
-		local tween = TweenService:Create(scale, FADE, { Scale = 0 })
-		tween:Play()
-		tween.Completed:Wait()
-		row:Destroy()
-	end)
 end
 
 --- Pop every queued rung at once, stacked under each other, cheapest on top.
 local function pump()
 	local list = ui
-	if list == nil or #queue == 0 or not atCamp or tutorialUp() then
+	if list == nil or bestOwned == nil then
 		return
 	end
-	local shown = 0
+	-- Rows that stopped being true (bought, or out of reach again) close themselves.
+	for key, entry in rows do
+		if not stillTrue(entry.rung) then
+			task.spawn(closeRow, key)
+		end
+	end
+	local visible = atCamp and not tutorialUp()
+	list.Visible = visible
+	if not visible or #queue == 0 then
+		return
+	end
+	local waiting: { Rung } = {}
 	for _, rung in queue do
 		-- Skip anything bought or no longer affordable since it was queued.
-		local owned = (bestOwned :: any)[rung.track] or 1
-		if rung.tier <= owned or cash == nil or rung.price > cash then
+		if not stillTrue(rung) then
+			continue
+		end
+		local key = `{rung.track}:{rung.tier}`
+		if rows[key] then
+			continue
+		end
+		if rowCount >= MAX_ROWS then
+			table.insert(waiting, rung) -- pops once a row is closed
 			continue
 		end
 		orderSeq += 1
-		shown += 1
-		popRow(list, Gear.tier(rung.track, rung.tier).name, orderSeq)
+		popRow(list, key, rung, Gear.tier(rung.track, rung.tier).name, orderSeq)
 		Sfx.play("hint") -- one ding per burst: the cue's cooldown folds a stack of rows
-		if shown >= MAX_ROWS then
-			break
-		end
 	end
-	table.clear(queue)
+	queue = waiting
 end
 
 local function refresh()
