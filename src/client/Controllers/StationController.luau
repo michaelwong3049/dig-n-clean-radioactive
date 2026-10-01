@@ -294,6 +294,8 @@ local FIT_TOP = 12
 -- Sits this far above dead centre when the screen has the room (never past FIT_TOP),
 -- so the trader and the gear stalls ride a little higher than the true middle.
 local PANEL_LIFT = 32
+-- The trader's counter rides higher still, on request.
+local TRADER_LIFT = 64
 local FIT_BOTTOM = UIKit.Dock.HOTBAR_BOTTOM + UIKit.Dock.HOTBAR_HEIGHT + UIKit.Dock.GAP
 
 local ui = {}
@@ -857,12 +859,14 @@ local function build(): ScreenGui
 		-- that leaves its bottom edge under the hotbar.
 		local overlap = (screenHeight + height * fit) / 2 - (screenHeight - FIT_BOTTOM)
 		local headroom = (screenHeight - height * fit) / 2 - FIT_TOP
-		local lift = math.max(0, overlap, math.min(PANEL_LIFT, headroom))
+		local want = if ui.trader ~= nil and ui.trader.frame.Visible then TRADER_LIFT else PANEL_LIFT
+		local lift = math.max(0, overlap, math.min(want, headroom))
 		panel.Position = UDim2.new(0.5, 0, 0.5, -lift)
 	end
 	panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitPanel)
 	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitPanel)
 	fitPanel()
+	ui.fitPanel = fitPanel
 
 	-- The ceiling half of "viewport minus a margin, but never wider than". render()
 	-- retunes MaxSize.X per mode; MinSize stops a phone-width viewport collapsing the
@@ -1714,6 +1718,7 @@ local function render()
 	ui.locker.frame.Visible = atLocker
 	ui.merge.frame.Visible = atMerge
 	ui.trader.frame.Visible = not atShop and not atLocker and not atMerge
+	ui.fitPanel() -- the trader sits higher than the other modes (TRADER_LIFT)
 
 	-- One rack card, if a rack hook's E opened this and it is for the shop you are at.
 	local offerTiers = if atShop and state.offer then state.offer.tiers else nil
