@@ -1363,18 +1363,16 @@ local function formatWeight(kg: number): string
 	return string.format("%d kg", math.floor(kg + 0.5))
 end
 
---- THE REVEAL BANNER. Fired when a find gets its name: at the wash bay once the crust
---- is off, at the trader on a blind sale, or straight out of the ground for a sealed
---- find with no crust to wash (onUnearthed below). A crusted dig no longer raises it
---- with a "???" -- that only rehearsed this moment, badly, on every pull.
-local function showFind(found, header: string?)
+--- THE REVEAL BANNER. Fired only straight out of the ground for a sealed find with no
+--- crust to wash (onUnearthed below). The wash bay stages its own reveal, a blind sale
+--- shows none, and a crusted dig no longer raises it with a "???".
+local function showFind(found)
 	local def = Rarity.DEFS[found.rarity]
 	local colour = if def then def.color else COLOR.text
 
 	local modifier = if found.modifier == "None" or found.modifier == nil then "" else found.modifier .. " "
 	local heft = if type(found.weight) == "number" then `  \u{00B7}  {formatWeight(found.weight)}` else ""
-	local prefix = if header then header .. `  \u{00B7}  ` else ""
-	ui.bannerRarity.Text = prefix .. string.upper(modifier .. found.rarity) .. heft
+	ui.bannerRarity.Text = string.upper(modifier .. found.rarity) .. heft
 	ui.bannerRarity.TextColor3 = colour
 	ui.bannerName.Text = found.name
 	ui.bannerFlavor.Text = found.flavor or ""
@@ -1605,25 +1603,10 @@ function Detector.start()
 
 	Net.get("Unearthed").OnClientEvent:Connect(onUnearthed)
 
-	-- THE OTHER HALF OF THE SAME BANNER. Fired from the wash bay once the last chunk of
-	-- crust is off (or from the trader, when a find is sold blind and named on its way
-	-- out) -- the "so THAT'S what it was" beat the dig no longer gets to have.
-	Net.get("ItemIdentified").OnClientEvent:Connect(function(found)
-		-- A wash reveal is staged in the bay itself, on the real model (WashReveal), so
-		-- the banner is only for the reveals that happen away from it: a blind sale.
-		if found.staged then
-			return
-		end
-		-- `previousBest` is IdentifyService's word that this one out-weighs the index's
-		-- record for it (never on a first find, which has nothing to beat).
-		-- A dirty supply crate sold blind (EconomyService) was a crate all along.
-		local header = if found.crate
-			then "SUPPLY CRATE"
-			elseif found.firstFind then "NEW FIND"
-			elseif type(found.previousBest) == "number" then "NEW HEAVIEST"
-			else nil
-		showFind(found, header)
-	end)
+	-- No banner on ItemIdentified. The wash bay stages its own reveal (WashReveal), and
+	-- a blind sale at the trader is named on the receipt -- the banner popping up over
+	-- the trader's counter mid-sale read as a random interruption. IndexController still
+	-- listens to the same remote for the index write.
 
 	-- InputBegan only, and no InputEnded partner. Roblox does not auto-repeat a held
 	-- key through InputBegan, so holding E down yields exactly one yank -- which is

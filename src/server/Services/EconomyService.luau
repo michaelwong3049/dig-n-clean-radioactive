@@ -104,35 +104,17 @@ function EconomyService.valueOf(item: any, stats: any): (number, boolean)
 	return math.max(1, math.floor(value + 0.5)), clean
 end
 
---- How far apart a bulk sale's "???" reveals land, in seconds. See sellAll.
-local REVEAL_STAGGER = 1.2
-
---- Name a find sold blind, now or `delay` seconds from now. The index write is never
---- the part that waits -- only the banner does -- so a player who leaves mid-queue has
---- still learnt everything they sold.
-local function revealSold(player: Player, item: any, delay: number)
+--- Name a find sold blind: write it into the index and tell the client, now. The
+--- client shows no banner for a sale (DetectorController); the remote is how the index
+--- GUI learns what was just sold, so it is never held back -- a bulk sale used to
+--- stagger these 1.2 s apart for the old banner, which left the index stale for
+--- seconds after a big SELL ALL ???.
+local function revealSold(player: Player, item: any)
 	if item.crateId and Crates.has(item.crateId) then
-		if delay <= 0 then
-			IdentifyService.announceCrate(player, item.crateId, item.rarity)
-		else
-			task.delay(delay, function()
-				if player.Parent then
-					IdentifyService.announceCrate(player, item.crateId, item.rarity)
-				end
-			end)
-		end
+		IdentifyService.announceCrate(player, item.crateId, item.rarity)
 		return
 	end
-	local first, previous = IdentifyService.identify(player, item)
-	if delay <= 0 then
-		IdentifyService.announce(player, item, first, { previousBest = previous })
-	else
-		task.delay(delay, function()
-			if player.Parent then
-				IdentifyService.announce(player, item, first, { previousBest = previous })
-			end
-		end)
-	end
+	IdentifyService.reveal(player, item)
 end
 
 --- The till itself, shared by SELL and both SELL ALLs: take the item out of `list`,
@@ -144,8 +126,7 @@ local function takeSale(
 	item: any,
 	list: any,
 	index: number,
-	stats: any,
-	revealDelay: number
+	stats: any
 ): (number, boolean, string)
 	local value, clean = EconomyService.valueOf(item, stats)
 	local def = Items.get(item.itemId)
@@ -165,9 +146,9 @@ local function takeSale(
 	local name = def.name
 	if item.crateId and Crates.has(item.crateId) then
 		name = Crates.get(item.crateId).name
-		revealSold(player, item, revealDelay)
+		revealSold(player, item)
 	elseif not clean then
-		revealSold(player, item, revealDelay)
+		revealSold(player, item)
 	end
 	return value, clean, name
 end
@@ -185,7 +166,7 @@ function EconomyService.sell(player: Player, uid: string): (boolean, string)
 		return false, "you aren't carrying that"
 	end
 
-	local value, clean, name = takeSale(player, data, item, list, index, StatResolver.get(data), 0)
+	local value, clean, name = takeSale(player, data, item, list, index, StatResolver.get(data))
 	EconomyService.pushCash(player, "sell")
 
 	local note = if clean then "" else ` (dirty, {math.floor(Tuning.DIRTY_SELL_MULTIPLIER * 100)}%)`
@@ -197,25 +178,21 @@ end
 --- player filed away.
 ---
 --- Every item goes through the same takeSale as a single SELL, so the price, the 12%
---- and the "???" reveal cannot drift between the two. The reveals are STAGGERED:
---- DetectorController's find banner shows one find at a time and the newest replaces
---- it, so five blind sales announced in one frame would show the player one name and
---- swallow four. The index learns all of them now; only the banners wait their turn.
+--- and the "???" reveal cannot drift between the two.
 ---
 --- `wants(item, clean)` picks what goes. Returns the count, the total and how many of
 --- them went blind.
 local function sweepBag(player: Player, data: any, wants: (item: any, clean: boolean) -> boolean): (number, number, number)
 	local stats = StatResolver.get(data)
 	local total, count, reveals = 0, 0, 0
-	-- Backwards, so removing an entry never skips the one after it. The reveal delays
-	-- still count up in sale order, so the first blind sale is announced first.
+	-- Backwards, so removing an entry never skips the one after it.
 	for index = #data.carry, 1, -1 do
 		local item = data.carry[index]
 		local _, clean = EconomyService.valueOf(item, stats)
 		if not wants(item, clean) then
 			continue
 		end
-		local value, _, _ = takeSale(player, data, item, data.carry, index, stats, reveals * REVEAL_STAGGER)
+		local value, _, _ = takeSale(player, data, item, data.carry, index, stats)
 		if not clean then
 			reveals += 1
 		end
