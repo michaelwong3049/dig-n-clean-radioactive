@@ -108,7 +108,7 @@ local GroundZero = require(script.Parent.GroundZero)
 
 local Scenery = {}
 local BUILDER_SOURCE = "src/server/build/Scenery.luau"
-local BUILDER_VERSION = 52
+local BUILDER_VERSION = 53
 
 local C, R = Kit.C, Kit.R
 local build = Kit.build

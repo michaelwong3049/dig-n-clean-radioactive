@@ -35,8 +35,8 @@ local LEDGES = 7
 local CLUSTERS = 6
 --- How many of the clusters get the landmark scale.
 local BIG_CLUSTERS = 3
-local PUDDLES = 2
-local PUDDLE_LIGHTS = 2
+local PUDDLES = 7
+local PUDDLE_LIGHTS = 4
 local PUDDLE_MIST = 1
 
 local CELL = 13
