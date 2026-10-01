@@ -703,23 +703,55 @@ Kit.CHECKER_TILE = 8 -- studs per repeat: two 4-stud cells
 local CHECKER_COLOR_MAP = "rbxassetid://128199580536085"
 local CHECKER_NORMAL_MAP = "rbxassetid://103372228995272"
 
---- Make sure MaterialService carries the checker MaterialVariant (it lives in the place
---- file, like the geometry), and return its name for `part.MaterialVariant`.
-function Kit.checkerMaterial(): string
+--- Make sure MaterialService carries a checker MaterialVariant called `name` wearing
+--- `colorMap` (it lives in the place file, like the geometry), and return the name.
+local function ensureChecker(name: string, colorMap: string): string
 	local service = game:GetService("MaterialService")
-	local variant = service:FindFirstChild(Kit.CHECKER_MATERIAL) :: MaterialVariant?
+	local variant = service:FindFirstChild(name) :: MaterialVariant?
 	if variant == nil then
 		local made = Instance.new("MaterialVariant")
-		made.Name = Kit.CHECKER_MATERIAL
+		made.Name = name
 		made.Parent = service
 		variant = made
 	end
 	local v = variant :: MaterialVariant
 	v.BaseMaterial = Enum.Material.Plastic
-	v.ColorMap = CHECKER_COLOR_MAP
+	v.ColorMap = colorMap
 	v.NormalMap = CHECKER_NORMAL_MAP
 	v.StudsPerTile = Kit.CHECKER_TILE
 	return v.Name
+end
+
+--- The 0.877 checker every stage floor (twoTone) wears.
+function Kit.checkerMaterial(): string
+	return ensureChecker(Kit.CHECKER_MATERIAL, CHECKER_COLOR_MAP)
+end
+
+--- PAIRS THAT ARE NOT 0.877. The base and camp floors (Hub / Plots / CampSite palettes)
+--- each have their own dark:light ratio, and per CHANNEL, so each gets its own colour
+--- map: white light cells, dark cells = dark / light per channel. Tinted with the light
+--- colour, that is the exact pair. Keyed "DARK|LIGHT" (upper-case hex).
+---
+--- A pair with no entry returns nil, and the caller lays plain tiles as before -- so a
+--- palette edit never paints the wrong colours; it only costs parts until a map is made
+--- for the new pair and an entry is added here.
+local PAIR_MAPS: { [string]: { name: string, map: string } } = {
+	["619347|65994B"] = { name = "StudCheckerLawn", map = "rbxassetid://86044813325840" },
+	["DCCBA3|EADCBA"] = { name = "StudCheckerPath", map = "rbxassetid://119019800025977" },
+	["C9A37A|D4B088"] = { name = "StudCheckerPaver", map = "rbxassetid://103456859820757" },
+	["9C7A52|A6835B"] = { name = "StudCheckerKerb", map = "rbxassetid://99092311096523" },
+	["CBBBE9|D8CBF0"] = { name = "StudCheckerTwilightPath", map = "rbxassetid://104307201753316" },
+	["7C5AB0|8966BD"] = { name = "StudCheckerTwilightPaver", map = "rbxassetid://137642650996250" },
+	["4A3A52|55465C"] = { name = "StudCheckerDeck", map = "rbxassetid://121321642134723" },
+}
+
+--- The checker MaterialVariant for one (dark, light) pair, or nil if none is made.
+function Kit.checkerMaterialFor(dark: string, light: string): string?
+	local entry = PAIR_MAPS[`{string.upper(dark)}|{string.upper(light)}`]
+	if entry == nil then
+		return nil
+	end
+	return ensureChecker(entry.name, entry.map)
 end
 
 --- Replace `Workspace.<name>` with a freshly built version, atomically.
