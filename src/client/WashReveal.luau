@@ -130,6 +130,7 @@ type Show = {
 	ringStroke: UIStroke,
 	valueLabel: TextLabel?,
 	rainbowName: TextLabel?,
+	rainbowPill: Frame?,
 	spot: Part,
 	dof: DepthOfFieldEffect,
 	beats: { Beat },
@@ -702,6 +703,7 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 		ringStroke = ringStroke,
 		valueLabel = valueLabel,
 		rainbowName = if found.rarity == "Anomaly" then name else nil,
+		rainbowPill = if found.rarity == "Anomaly" then pill else nil,
 		spot = spot,
 		dof = dof,
 		beats = beats,
@@ -784,9 +786,11 @@ function WashReveal.drive(camera: Camera, eye: Vector3, center: Vector3)
 		end
 	end
 
-	local rainbowName = current.rainbowName
-	if rainbowName then
-		rainbowName.TextColor3 = Rarity.anomalyHue(os.clock() / Rarity.ANOMALY_CYCLE)
+	local rainbowName, rainbowPill = current.rainbowName, current.rainbowPill
+	if rainbowName and rainbowPill then
+		local hue = Rarity.anomalyHue(os.clock() / Rarity.ANOMALY_CYCLE)
+		rainbowName.TextColor3 = hue
+		rainbowPill.BackgroundColor3 = hue
 	end
 
 	local valueLabel = current.valueLabel
