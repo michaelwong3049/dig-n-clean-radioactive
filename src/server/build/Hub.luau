@@ -86,7 +86,7 @@ local Stages = require(ReplicatedStorage.Shared.Config.Stages)
 
 local Hub = {}
 local BUILDER_SOURCE = "src/server/build/Hub.luau"
-local BUILDER_VERSION = 27
+local BUILDER_VERSION = 28
 
 local C = Kit.C
 local build = Kit.build
@@ -676,6 +676,8 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 	local built = 0
 	local ix0 = math.floor((rect.minX - p.minX) / size)
 	local iz0 = math.floor((rect.minZ - p.minZ) / size)
+	local ixMax = math.ceil((rect.maxX - p.minX) / size) - 1
+	local izMax = math.ceil((rect.maxZ - p.minZ) / size) - 1
 
 	-- The open base part: columns x0..x1 so far, all of colour `hex`.
 	local baseRun: { x0: number, x1: number, hex: string }? = nil
@@ -696,7 +698,25 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 		baseRun = nil
 	end
 
-	for ix = ix0, math.ceil((rect.maxX - p.minX) / size) - 1 do
+	local function tile(cx: number, cz: number, w: number, d: number, top: number, color: string)
+		local part = build(parent, origin, {
+			name = "Tile",
+			pos = { cx, top - CAP / 2, cz },
+			size = { w, CAP, d },
+			color = color,
+			material = "Plastic",
+		})
+		part.CastShadow = false -- a 0.4-thick floor cap throws no shadow worth drawing
+		built += 1
+	end
+
+	-- PART BUDGET: whole cells whose pair has a checker material (Kit.checkerMaterialFor)
+	-- are not built in this loop; they are collected by (pair, top) and laid afterwards
+	-- as merged material slabs -- see "Material slabs" below.
+	type Cell = { key: string, light: string, top: number, variant: string }
+	local cells: { [number]: { [number]: Cell } } = {}
+
+	for ix = ix0, ixMax do
 		local x0 = math.max(p.minX + ix * size, rect.minX)
 		local x1 = math.min(p.minX + (ix + 1) * size, rect.maxX)
 		if x1 - x0 < 1e-3 then
@@ -715,7 +735,7 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 			end
 		end
 
-		for iz = iz0, math.ceil((rect.maxZ - p.minZ) / size) - 1 do
+		for iz = iz0, izMax do
 			local z0 = math.max(p.minZ + iz * size, rect.minZ)
 			local z1 = math.min(p.minZ + (iz + 1) * size, rect.maxZ)
 			if z1 - z0 < 1e-3 then
@@ -748,26 +768,120 @@ function Hub.tileRect(parent: Instance, rect: Rect, opts: TileOpts?): number
 				tileTop = topY + lift
 			end
 
+			-- Parity off the GLOBAL index, never the loop counter: ix already counts
+			-- from the plaza's corner, so a rectangle out at the plot ring inherits the
+			-- phase instead of starting its own.
 			local isDark = (ix + iz) % 2 == 0
 			if baseHex and isDark and tileDark == baseHex then
 				continue -- the base under it already is this tile
 			end
 
-			local tile = build(parent, origin, {
-				name = "Tile",
-				pos = { cx, tileTop - CAP / 2, cz },
-				size = { x1 - x0, CAP, z1 - z0 },
-				-- Parity off the GLOBAL index, never the loop counter: ix already
-				-- counts from the plaza's corner, so a rectangle out at the plot ring
-				-- inherits the phase instead of starting its own.
-				color = if isDark then tileDark else tileLight,
-				material = "Plastic",
-			})
-			tile.CastShadow = false -- a 0.4-thick floor cap throws no shadow worth drawing
-			built += 1
+			-- A whole cell on a material pair waits for the material slabs. A clipped
+			-- edge cell stays a plain tile: the material anchors on a part's own corner,
+			-- and a clipped corner is off the grid.
+			local whole = math.abs(x1 - x0 - size) < 1e-3 and math.abs(z1 - z0 - size) < 1e-3
+			local variant = if base == nil and whole then Kit.checkerMaterialFor(tileDark, tileLight) else nil
+			if variant then
+				local column = cells[ix]
+				if column == nil then
+					column = {}
+					cells[ix] = column
+				end
+				column[iz] = { key = `{tileDark}|{tileLight}|{tileTop}`, light = tileLight, top = tileTop, variant = variant }
+				continue
+			end
+
+			tile(cx, cz, x1 - x0, z1 - z0, tileTop, if isDark then tileDark else tileLight)
 		end
 	end
 	flushBase()
+
+	-- ── Material slabs ───────────────────────────────────────────────────────
+	-- Merge the collected cells into rectangles of one key (runs along each row, then
+	-- runs of identical span stacked row on row), and lay each as ONE slab wearing its
+	-- pair's checker material, tinted the light colour. The material anchors on the
+	-- slab's (+X, +Z) corner with the DARK cell there (Kit), and every slab edge is a
+	-- grid line, so the board stays in register with the plain tiles and every other
+	-- slab -- provided that corner cell IS dark on the global parity. When it is light,
+	-- the slab gives up its last column (whose own corner is then dark), that column
+	-- gives up its top cell, and the cell goes down as a plain tile.
+	local function cellAt(ix: number, iz: number): Cell?
+		local column = cells[ix]
+		return if column then column[iz] else nil
+	end
+
+	local function slab(ixA: number, ixB: number, izA: number, izB: number, cell: Cell)
+		local xA, xB = p.minX + ixA * size, p.minX + (ixB + 1) * size
+		local zA, zB = p.minZ + izA * size, p.minZ + (izB + 1) * size
+		local part = build(parent, origin, {
+			name = "TileSlab",
+			pos = { (xA + xB) / 2, cell.top - CAP / 2, (zA + zB) / 2 },
+			size = { xB - xA, CAP, zB - zA },
+			color = cell.light,
+			material = "Plastic",
+		})
+		part.MaterialVariant = cell.variant
+		part.TopSurface = Enum.SurfaceType.Smooth -- the material carries the studs
+		part.CastShadow = false
+		built += 1
+	end
+
+	local function lay(ixA: number, ixB: number, izA: number, izB: number, cell: Cell)
+		if (ixB + izB) % 2 == 0 then
+			slab(ixA, ixB, izA, izB, cell)
+			return
+		end
+		if ixB > ixA then
+			slab(ixA, ixB - 1, izA, izB, cell)
+		end
+		if izB > izA then
+			slab(ixB, ixB, izA, izB - 1, cell)
+		end
+		tile(p.minX + (ixB + 0.5) * size, p.minZ + (izB + 0.5) * size, size, size, cell.top, cell.light)
+	end
+
+	type Run = { ixA: number, ixB: number, izA: number, izB: number, cell: Cell }
+	local open: { [string]: Run } = {} -- "ixA|ixB|key" -> a run still growing in +z
+	for iz = iz0, izMax do
+		local seen: { [string]: boolean } = {}
+		local ix = ix0
+		while ix <= ixMax do
+			local cell = cellAt(ix, iz)
+			if cell == nil then
+				ix += 1
+				continue
+			end
+			local ixB = ix
+			while true do
+				local nextCell = cellAt(ixB + 1, iz)
+				if nextCell == nil or nextCell.key ~= cell.key then
+					break
+				end
+				ixB += 1
+			end
+			local spanKey = `{ix}|{ixB}|{cell.key}`
+			local run = open[spanKey]
+			if run and run.izB == iz - 1 then
+				run.izB = iz
+			else
+				if run then
+					lay(run.ixA, run.ixB, run.izA, run.izB, run.cell)
+				end
+				open[spanKey] = { ixA = ix, ixB = ixB, izA = iz, izB = iz, cell = cell }
+			end
+			seen[spanKey] = true
+			ix = ixB + 1
+		end
+		for spanKey, run in open do
+			if not seen[spanKey] then
+				lay(run.ixA, run.ixB, run.izA, run.izB, run.cell)
+				open[spanKey] = nil
+			end
+		end
+	end
+	for _, run in open do
+		lay(run.ixA, run.ixB, run.izA, run.izB, run.cell)
+	end
 
 	return built
 end
