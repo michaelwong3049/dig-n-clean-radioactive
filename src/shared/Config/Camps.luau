@@ -148,8 +148,10 @@ Camps.DEFS = {
 		-- Mockup #3, picked from six on request: it carries the Crater's violet on into
 		-- the camp instead of snapping back to Base Camp's green.
 		palette = {
-			groundDark = "2F8A7D",
-			groundLight = "379688",
+			-- Dark purple checker floor, on request (was teal 2F8A7D/379688). The wall
+			-- crown's turf keeps its teal lip -- floor only.
+			groundDark = "2B1A45",
+			groundLight = "331F52",
 			lipDark = "319585",
 			lipLight = "3AA493",
 			wallDark = "3E2A5C",
