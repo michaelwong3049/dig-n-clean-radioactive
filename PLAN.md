@@ -980,7 +980,7 @@ pushes players back into stages they've "finished."
 there is no pot to walk over to and no COLLECT button. The plot is a place to build a
 collection and be seen, not a machine to service.
 
-**Offline earnings:** accrue at **25%** of your online rate, banked up to **4 hours**
+**Offline earnings:** accrue at **15%** of your online rate, banked up to **4 hours**
 (8 with a gamepass). Enough that logging in tomorrow is rewarding, capped low enough that
 logging in tomorrow *and playing* is much better. This is the single most valuable retention
 number in the document and should be tuned aggressively in live data.
