@@ -77,6 +77,8 @@ local PANEL = {
 	label = Enum.Font.FredokaOne,
 }
 local PANEL_W = 620
+-- Sits this far above dead centre: a little higher than the true middle, on request.
+local PANEL_LIFT = 40
 local PAD = 20
 local HEADER_H = 50
 local SUB_H = 24
@@ -508,7 +510,7 @@ local function buildPanel(): ScreenGui
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
+	panel.Position = UDim2.new(0.5, 0, 0.5, -PANEL_LIFT)
 	panel.Size = UDim2.fromOffset(PANEL_W, 400)
 	panel.BackgroundColor3 = PANEL.panel
 	panel.BorderSizePixel = 0

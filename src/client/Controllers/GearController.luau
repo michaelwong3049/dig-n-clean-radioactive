@@ -79,6 +79,8 @@ local TAB_TEXT: { [string]: string } = {
 
 local PANEL_W = 720
 local PANEL_H = 520
+-- Sits this far above dead centre: a little higher than the true middle, on request.
+local PANEL_LIFT = 40
 local PAD = 20
 local HEADER_H = 58
 local TABS_H = 44
@@ -384,7 +386,7 @@ local function buildPanel(): ScreenGui
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
+	panel.Position = UDim2.new(0.5, 0, 0.5, -PANEL_LIFT)
 	panel.Size = UDim2.fromOffset(PANEL_W, PANEL_H)
 	panel.BackgroundColor3 = PANEL.panel
 	panel.BorderSizePixel = 0

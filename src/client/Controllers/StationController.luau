@@ -291,6 +291,9 @@ local SCREEN_MARGIN = 24
 -- and lifts it clear of the hotbar. A screen with the room — any desktop at 1280x720
 -- or more — never triggers either, and sees the panel exactly as before.
 local FIT_TOP = 12
+-- Sits this far above dead centre when the screen has the room (never past FIT_TOP),
+-- so the trader and the gear stalls ride a little higher than the true middle.
+local PANEL_LIFT = 32
 local FIT_BOTTOM = UIKit.Dock.HOTBAR_BOTTOM + UIKit.Dock.HOTBAR_HEIGHT + UIKit.Dock.GAP
 
 local ui = {}
@@ -850,9 +853,12 @@ local function build(): ScreenGui
 		if math.abs(fitScale.Scale - fit) > 0.001 then
 			fitScale.Scale = fit
 		end
-		-- Centred as always, unless that leaves its bottom edge under the hotbar.
+		-- Centred, then lifted PANEL_LIFT (as far as FIT_TOP allows), and further still if
+		-- that leaves its bottom edge under the hotbar.
 		local overlap = (screenHeight + height * fit) / 2 - (screenHeight - FIT_BOTTOM)
-		panel.Position = UDim2.new(0.5, 0, 0.5, -math.max(0, overlap))
+		local headroom = (screenHeight - height * fit) / 2 - FIT_TOP
+		local lift = math.max(0, overlap, math.min(PANEL_LIFT, headroom))
+		panel.Position = UDim2.new(0.5, 0, 0.5, -lift)
 	end
 	panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitPanel)
 	canvas:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitPanel)
