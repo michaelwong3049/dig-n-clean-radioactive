@@ -252,6 +252,11 @@ local REMOTES: { [string]: string } = {
 	Sfx = "RemoteEvent",
 	SfxMuted = "RemoteEvent",
 
+	-- The walk-speed picker (SpeedController's pencil). Client -> server a number: the
+	-- walk to cap at, or 0 for full speed. The confirmed value comes back on SpeedState
+	-- (`walkCap`), so there is no echo remote of its own.
+	WalkCap = "RemoteEvent",
+
 	-- Nuke models on demand (Services/ModelCacheService, Shared/ItemModels). The
 	-- templates live in ServerStorage so nobody downloads all 10k parts at join; a
 	-- client names the item ids it is about to draw and the server copies those

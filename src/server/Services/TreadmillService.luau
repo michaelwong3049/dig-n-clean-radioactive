@@ -106,6 +106,8 @@ local function snapshot(player: Player, data: any)
 		points = points,
 		level = level,
 		walk = Treadmill.walkSpeedFor(level),
+		-- The walk-speed picker's cap (0 = full speed). The HUD shows chosenWalk(walk, walkCap).
+		walkCap = if type(data.walkCap) == "number" then data.walkCap else 0,
 		progress = progress,
 		current = Treadmill.requirementFor(level),
 		nextReq = Treadmill.requirementFor(level + 1),
@@ -254,6 +256,32 @@ local function wireConsole(part: Instance)
 	end)
 end
 
+--- The walk-speed picker (Net.WalkCap). A number is the walk to cap at; 0, or anything
+--- at or over what they have trained, saves as 0 = "always full speed", so the next
+--- level they earn is felt at once instead of being held back by an old pick. Always
+--- pushes back, so a refused pick snaps the client's slider to what actually stuck.
+local PICK_COOLDOWN = 0.2
+local lastPick: { [Player]: number } = {}
+
+local function onWalkCap(player: Player, picked: any)
+	local data = DataService.data(player)
+	if data == nil then
+		return
+	end
+	local now = os.clock()
+	if type(picked) == "number" and picked == picked and now - (lastPick[player] or 0) >= PICK_COOLDOWN then
+		lastPick[player] = now
+		local trained = Treadmill.walkFor(data.speedPoints or 0)
+		local walk = math.floor(picked + 0.5)
+		if walk <= 0 or walk >= trained then
+			data.walkCap = 0
+		else
+			data.walkCap = math.max(walk, Treadmill.MIN_PICKED_WALK)
+		end
+	end
+	push(player)
+end
+
 function TreadmillService.init()
 	stateRemote = Net.get("SpeedState")
 	-- The console answers on the same channel every other world purchase does, so a
@@ -292,6 +320,8 @@ function TreadmillService.start()
 		end
 	end)
 
+	Net.get("WalkCap").OnServerEvent:Connect(onWalkCap)
+
 	DataService.onLoaded(function(player)
 		-- Access is free now: a save from when it cost $1,000 and was never bought
 		-- comes in `false` and is unlocked here, before the first push.
@@ -309,6 +339,7 @@ function TreadmillService.start()
 	Players.PlayerRemoving:Connect(function(player)
 		training[player] = nil
 		lastPush[player] = nil
+		lastPick[player] = nil
 	end)
 
 	Ticker.every(Tuning.TICK_RATE, step, "treadmill")

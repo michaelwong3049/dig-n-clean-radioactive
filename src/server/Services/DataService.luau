@@ -179,6 +179,11 @@ local TEMPLATE = {
 	-- master SoundGroup). Set via Net.SfxMuted -> SfxService.
 	sfxMuted = false,
 
+	-- The walk-speed picker (the pencil by the HUD's WALK SPEED). 0 = walk at your full
+	-- trained speed; a number caps it there (Treadmill.chosenWalk). Set via Net.WalkCap
+	-- -> TreadmillService.
+	walkCap = 0,
+
 	railStations = {}, -- stageId -> parts found (PLAN §5.3)
 
 	-- Camp key (Config/Camps) -> true, once this player has stood in that camp on foot.

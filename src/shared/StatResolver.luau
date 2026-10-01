@@ -239,8 +239,12 @@ end
 --- the penalty to Gear.Aura -- and it did not have to notice, so neither did
 --- ExposureService's tick loop, still the only thing in the game that writes
 --- Humanoid.WalkSpeed.
-function StatResolver.effectiveWalkSpeed(stats: Stats, carriedCount: number, sprinting: boolean): number
-	local speed = stats.walkSpeed - (carriedCount * stats.haulPenalty)
+---
+--- `picked` is the walk-speed picker's cap (profile `walkCap`, Treadmill.chosenWalk). It
+--- trims the trained speed BEFORE the haul penalty, so a full bag still slows you down
+--- from the speed you chose.
+function StatResolver.effectiveWalkSpeed(stats: Stats, carriedCount: number, sprinting: boolean, picked: number?): number
+	local speed = Treadmill.chosenWalk(stats.walkSpeed, picked) - (carriedCount * stats.haulPenalty)
 	if sprinting then
 		speed *= Gear.SPRINT_MULTIPLIER
 	end

@@ -585,7 +585,7 @@ local function stepPlayer(player: Player, dt: number)
 			-- the root above: an override still leaves you planted while locked to a
 			-- signal or washing, same as any other speed.
 			local override = speedOverrides[player]
-			humanoid.WalkSpeed = override or StatResolver.effectiveWalkSpeed(stats, #data.carry, false)
+			humanoid.WalkSpeed = override or StatResolver.effectiveWalkSpeed(stats, #data.carry, false, data.walkCap)
 
 			-- Same deal for /jump. JumpPower is DERIVED from the requested height via
 			-- the standard projectile relation (v0 = sqrt(2 * g * h)) rather than a
