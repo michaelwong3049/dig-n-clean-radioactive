@@ -75,17 +75,45 @@ local function spares(player: Player): boolean
 	return StageService.stageOf(player) == nil
 end
 
+--- The stage floor under `point`. Every player's character is skipped (a bomb dropped
+--- toward someone used to land on their head), and so is anything you can walk
+--- through -- held items, bags, decor -- so the ray only stops on solid floor. With
+--- nothing under it, the bomb sits at the dropper's own foot level.
+local function floorBelow(point: Vector3, root: BasePart): Vector3
+	local skip: { Instance } = { folder() }
+	for _, other in Players:GetPlayers() do
+		if other.Character then
+			table.insert(skip, other.Character)
+		end
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = skip
+
+	local from = point + Vector3.new(0, 4, 0)
+	for _ = 1, 8 do
+		local hit = Workspace:Raycast(from, Vector3.new(0, -60, 0), params)
+		if hit == nil then
+			break
+		end
+		if hit.Instance.CanCollide then
+			return hit.Position
+		end
+		params:AddToFilter(hit.Instance)
+	end
+
+	local humanoid = root.Parent and root.Parent:FindFirstChildOfClass("Humanoid")
+	local hip = if humanoid then humanoid.HipHeight else 2
+	return Vector3.new(point.X, root.Position.Y - root.Size.Y / 2 - hip, point.Z)
+end
+
 --- The held model, copied and set down on the ground `DROP_AHEAD` in front of the
 --- player, upright the way it was held. nil if the hands are empty.
 local function placeBomb(character: Model, root: BasePart): (Model?, Vector3)
 	local held = character:FindFirstChild(HELD_ITEM_NAME)
 	local ahead = root.Position + root.CFrame.LookVector * BombingConfig.DROP_AHEAD
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character, folder() }
-	local hit = Workspace:Raycast(ahead + Vector3.new(0, 4, 0), Vector3.new(0, -60, 0), params)
-	local ground = if hit then hit.Position else ahead - Vector3.new(0, 3, 0)
+	local ground = floorBelow(ahead, root)
 
 	if held == nil or not held:IsA("Model") then
 		return nil, ground
