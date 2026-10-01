@@ -21,12 +21,10 @@
 	are not looking at the screen. So the belt never touches the character. Stepping
 	off is walking off.
 
-	WHOSE BELT DOES NOT MATTER. Any treadmill trains any player standing on it, at that
-	PLAYER's own tier — never the plot owner's. This is the rule the cleansing station
-	already set (build/Plots.buildCleansingStation: "washing there still uses the
-	washer's own Cleaner stats"), and it means a player with no plot this session — all
-	six taken, see ExhibitService.assign — can still train at someone else's base
-	instead of being locked out of a whole progression track by a full server.
+	YOUR OWN BELT ONLY. A base's treadmill trains, and sells rungs to, its owner alone
+	(on request — it used to train anyone). StationService treats someone else's belt
+	as no station at all, so stepping on it starts nothing, and wireConsole refuses its
+	console. The cleansing station is gated the same way (WashService.begin).
 
 	ACCESS IS FREE. It used to be bought (Treadmill.UNLOCK_PRICE, now 0) before any belt
 	paid a player anything; on request every player now has it from the start, and
@@ -246,6 +244,10 @@ local function wireConsole(part: Instance)
 
 	prompt.Triggered:Connect(function(player: Player)
 		if not Tutorial.promptOpen(player, prompt) then
+			return
+		end
+		if not ExhibitService.ownsPlotStation(player, ExhibitService.plotIndexOf(part)) then
+			resultRemote:FireClient(player, "that's someone else's treadmill \u{2014} train at your own base")
 			return
 		end
 		local ok, message = TreadmillService.buy(player)
