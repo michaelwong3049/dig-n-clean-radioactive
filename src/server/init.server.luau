@@ -18,6 +18,7 @@ local SERVICES = script.Services
 -- Explicit order. Dependencies first — read this list as the dependency graph,
 -- because it is the only place that graph is written down.
 local ORDER = {
+	"ModelCacheService", -- FIRST: moves the nuke templates out of ReplicatedStorage before anyone joins
 	"DataService", -- everything downstream needs a profile
 	"SfxService", -- one-shot sound cues for one player + the SOUND EFFECTS setting; needs Data
 	"IdentifyService", -- "???" -> a name; the index write lives here and nowhere else

@@ -251,6 +251,12 @@ local REMOTES: { [string]: string } = {
 	-- bare boolean.
 	Sfx = "RemoteEvent",
 	SfxMuted = "RemoteEvent",
+
+	-- Nuke models on demand (Services/ModelCacheService, Shared/ItemModels). The
+	-- templates live in ServerStorage so nobody downloads all 10k parts at join; a
+	-- client names the item ids it is about to draw and the server copies those
+	-- templates into that player's own PlayerGui.NukeModels, once each.
+	NukeModels = "RemoteEvent", -- client -> server, { itemId }
 }
 
 local Net = {}
