@@ -282,8 +282,10 @@ local function paint()
 	local points = Speed.shownPoints()
 
 	local progress = 1
-	if view.level >= view.maxLevel then
-		ui.walk.Text = `WALK SPEED {view.walk}  |  NOTHING LEFT TO TRAIN`
+	if view.nextReq == nil then
+		-- No top level any more (Config/Treadmill), so this is only a readout that has
+		-- not arrived whole. Show the total rather than a bar to nowhere.
+		ui.walk.Text = `WALK SPEED {view.walk}`
 		ui.need.Text = `{Speed.format(points)} SPEED`
 	else
 		local from, to = view.current or 0, view.nextReq or 1

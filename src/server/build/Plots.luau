@@ -2549,6 +2549,7 @@ end
 ---   Servo Track      side rails glow green
 ---   Reactor Mill     side rails + uprights glow blue
 ---   Isotope Strider  side rails + uprights + motor hood + belt slats glow gold
+---   Diamond Drive    its own crystals, neon strips, belt edges + slats glow ice-blue
 ---
 --- Everything is inside `look`, so a swap to the next rung takes the old glow with it.
 local TREADMILL_GLOW: { [number]: { color: string, light: number, parts: { string } } } = {
@@ -2558,6 +2559,23 @@ local TREADMILL_GLOW: { [number]: { color: string, light: number, parts: { strin
 		color = "FFC21A",
 		light = 2.6,
 		parts = { "_side_rail_L", "_side_rail_R", "_upright_L", "_upright_R", "_motor_hood", "Slat" },
+	},
+	-- The diamond model brings its own crystals and neon strips, so those are what glow;
+	-- its uprights and hood keep their texture, which is most of what makes it diamond.
+	[5] = {
+		color = "8EF4FF",
+		light = 3.2,
+		parts = {
+			"_neon_strip_L",
+			"_neon_strip_R",
+			"_belt_edge_L",
+			"_belt_edge_R",
+			"_crystal",
+			"_upright_crystal_L",
+			"_upright_crystal_R",
+			"_halo_arch_glow",
+			"Slat",
+		},
 	},
 }
 
@@ -2722,7 +2740,7 @@ end
 --- nil if this plot has no treadmill to dress (a place file saved before the machine
 --- existed — degrade quietly, exactly as setHoseTier does).
 ---
---- EACH RUNG IS ITS OWN MODEL: the four imported treadmills in
+--- EACH RUNG IS ITS OWN MODEL: the five imported treadmills in
 --- ReplicatedStorage.Assets.TreadmillTemplates, one per Treadmill.TIERS entry. Buying a
 --- belt swaps the machine for the next one (installTreadmillLook). A treadmill built
 --- before the imported models (no `ImportedLook` attribute) keeps its old body and
@@ -2753,7 +2771,6 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	-- Levels are internal: every word a player reads is walk speed.
 	local level, progress = Treadmill.levelFor(points or 0)
 	local walk = Treadmill.walkSpeedFor(level)
-	local maxed = level >= Treadmill.MAX_LEVEL
 	if title then
 		(title :: TextLabel).Text = if locked then "LOCKED" else string.format("WALK SPEED %d", walk)
 	end
@@ -2787,13 +2804,13 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	end
 	local fill = readout and readout:FindFirstChild("Fill", true)
 	if fill and fill:IsA("Frame") then
-		local shown = if points == nil or locked then 0 elseif maxed then 1 else progress
+		local shown = if points == nil or locked then 0 else progress
 		fill.Size = UDim2.fromScale(math.clamp(shown, 0, 1), 1)
 	end
 	if subtitle then
 		(subtitle :: TextLabel).Text = if locked
 			then `{Treadmill.unlockPriceText()} to unlock — then +{Treadmill.rateText(def.rate)} Speed/s`
-			elseif points == nil or maxed
+			elseif points == nil
 			then `{def.name} — +{Treadmill.rateText(def.rate)} Speed/s`
 			else string.format("%s — %d%% to walk speed %d", def.name, math.floor(progress * 100), walk + 1)
 	end

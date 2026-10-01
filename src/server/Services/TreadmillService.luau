@@ -105,7 +105,6 @@ local function snapshot(player: Player, data: any)
 	return {
 		points = points,
 		level = level,
-		maxLevel = Treadmill.MAX_LEVEL,
 		walk = Treadmill.walkSpeedFor(level),
 		progress = progress,
 		current = Treadmill.requirementFor(level),
@@ -141,8 +140,7 @@ end
 --- One tick of Speed for every player currently standing on a belt. The belt is
 --- re-read every tick, so an upgrade bought mid-run pays from the next tick on.
 ---
---- Speed keeps counting past the top level. It is a lifetime total, not a bar, and a
---- maxed player's number still going up is the only thing their belt has left to say.
+--- There is no top level (Config/Treadmill): every level just costs more than the last.
 local function step(dt: number)
 	local now = os.clock()
 	for player in training do
