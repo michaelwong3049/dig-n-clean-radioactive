@@ -80,6 +80,8 @@ local TILE_ICON_DROP = 3
 -- wants a stable measure); the grid takes what is left and reflows its columns.
 -- PANEL_MIN.X is rail + detail + two cards + the gaps and padding.
 local SCREEN_MARGIN = 36
+-- Sits this far above dead centre, eating into the top margin, not the bottom one.
+local PANEL_LIFT = 16
 local PANEL_MAX = Vector2.new(1140, 640)
 local PANEL_MIN = Vector2.new(780, 420)
 local PAD = 18
@@ -952,7 +954,7 @@ local function build(): (ScreenGui, ScreenGui)
 	local panel = UIKit.panel(canvas, {
 		name = "Panel",
 		size = UDim2.new(1, -2 * SCREEN_MARGIN, 1, -2 * SCREEN_MARGIN),
-		position = UDim2.fromScale(0.5, 0.5),
+		position = UDim2.new(0.5, 0, 0.5, -PANEL_LIFT),
 		anchorPoint = Vector2.new(0.5, 0.5),
 		color = UIKit.C.panel,
 		-- Opaque: the hotbar sits under the panel's bottom edge and ghosted through.
