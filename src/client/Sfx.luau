@@ -82,6 +82,8 @@ local DEFS: { [string]: Def } = {
 	pump = { id = asset(9112889082), volume = 0.12, speed = 0.8, group = "ambient", maxDistance = 35, fade = 0.6 },
 	pour = { id = asset(9113555949), volume = 0.45, group = "sfx", cooldown = 0.5 },
 	brew = { id = asset(9125959246), volume = 0.4, group = "sfx", cooldown = 0.5 },
+	-- A weak point bursting under the stream (WashWeakSpots): the flake crack, pitched down and louder.
+	weakPop = { id = asset(9120962232), volume = 0.55, speed = 0.85, jitter = 0.1, group = "sfx", cooldown = 0.08, maxDistance = 40 },
 	cleaned = { id = asset(4612374036), volume = 0.6, group = "sfx", cooldown = 1 },
 
 	-- ── Aura and gear ───────────────────────────────────────────────
