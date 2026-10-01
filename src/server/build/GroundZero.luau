@@ -32,22 +32,22 @@ local GroundZero = {}
 
 local SEED = 12400
 
-local LAVA_POOLS = 7
-local POOL_LIGHTS = 5
+local LAVA_POOLS = 4
+local POOL_LIGHTS = 3
 local POOL_SMOKE = 2
 local POOL_SPARKS = 2
 local FLOWS = 2
-local COOLED_ROCKS = 12
+local COOLED_ROCKS = 6
 
 --- The hypocentre's scorched disc and how many blast-shadow streaks come out of it.
 local SCORCH_RADIUS = 14
-local STREAKS = 34
+local STREAKS = 20
 
 local CELL = 13
-local SCORCH_CHANCE = 0.13
-local ASH_CHANCE = 0.08
-local BEAD_CHANCE = 0.07
-local CRACK_CHANCE = 0.05
+local SCORCH_CHANCE = 0.07
+local ASH_CHANCE = 0.04
+local BEAD_CHANCE = 0.04
+local CRACK_CHANCE = 0.03
 
 local CRUST = { K.hex("2A1A14"), K.hex("1A1614"), K.hex("3A2A22") }
 local SCORCH = K.hex("1C1210")

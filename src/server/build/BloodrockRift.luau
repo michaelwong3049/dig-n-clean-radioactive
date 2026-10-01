@@ -45,13 +45,13 @@ local RIFT_LIGHT_EVERY = 4
 local RIFT_SPARK_EVERY = 9
 
 local SPIRES = 8
-local BASALT = 5
-local BOULDERS = 14
+local BASALT = 4
+local BOULDERS = 7
 
 local CELL = 13
-local DUST_CHANCE = 0.15
-local GRIT_CHANCE = 0.1
-local CRACK_CHANCE = 0.05
+local DUST_CHANCE = 0.08
+local GRIT_CHANCE = 0.05
+local CRACK_CHANCE = 0.03
 
 local ROCK = { K.hex("6E1224"), K.hex("8A1A2E"), K.hex("5A0E1C"), K.hex("B02438") }
 local BASALT_COLORS = { K.hex("2A1216"), K.hex("3A1A1E"), K.hex("22101A") }
