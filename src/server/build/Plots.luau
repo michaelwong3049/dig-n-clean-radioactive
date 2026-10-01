@@ -1974,9 +1974,9 @@ Plots.buildCleansingStation = buildCleansingStation
 --- (WashSpot, plot (20, -32)). Nothing reaches over the tub (crust-fills-the-wash-bay).
 --- Round, so it needs no pivot: every part below is written straight in plot space.
 ---
---- NO PROMPT OF ITS OWN. Walking within reach of your own bottle opens the fluid
---- panel on your screen (LiquidController): the loaded fluid, ROLL, and the Luck
---- upgrade. So the tub's "Wash" E prompt is the only prompt in this corner. The reach
+--- NO PROMPT BUILT HERE. LiquidController hangs a local "View" E prompt on your own
+--- bottle, which opens the fluid panel on your screen: the loaded fluid, BREW, and
+--- the Luck upgrade. The tub's "Wash" E prompt is the only built prompt here. The reach
 --- is kept short (LiquidController's PANEL_REACH) so the wash spot, plot (20, -32),
 --- is well outside it.
 local BOTTLE = {

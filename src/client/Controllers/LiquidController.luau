@@ -25,7 +25,8 @@
 	the pivot sloshes the surface while the glass shakes. A metal collar sits over the
 	place the neck meets the bulb, which hides where the two outlines cross.
 
-	THE FLUID PANEL. Walk up to your own bottle and it slides in to the right of centre:
+	THE FLUID PANEL. Walk up to your own bottle and press E ("View") and it slides in to
+	the right of centre:
 	the loaded fluid (a bottle filled to what is left, its tier, name, washes and
 	stats), a BREW button that counts down the cooldown, and the Luck upgrade with what
 	the next +0.1x does to the jackpot's odds (worked out from FluidState's `rollLuck`,
@@ -1406,9 +1407,47 @@ local function setOpen(open: boolean)
 	end
 end
 
---- Open the panel while the local player stands at their own bottle, and not while a
---- brew is on screen. Polled at 10 Hz rather than per frame: it is a distance check,
---- and a tenth of a second is below what anyone notices walking up to a table.
+--- E TO VIEW. The panel no longer pops up on its own: a "View" prompt hangs on your
+--- own bottle and E opens it (E again closes it). It is made here, locally, so only
+--- the owner ever sees it and the world needs no rebuild.
+local viewPrompt: ProximityPrompt? = nil
+local wantOpen = false
+--- The tub's Wash prompt while the bottle has borrowed E from it (see watch).
+local washStepped: ProximityPrompt? = nil
+
+local function ensurePrompt(bottle: BasePart?)
+	if bottle == nil then
+		if viewPrompt then
+			viewPrompt:Destroy()
+			viewPrompt = nil
+		end
+		return
+	end
+	if viewPrompt and viewPrompt.Parent == bottle then
+		return
+	end
+	if viewPrompt then
+		viewPrompt:Destroy()
+	end
+	local p = Instance.new("ProximityPrompt")
+	p.Name = "FluidViewPrompt"
+	p.ActionText = "View"
+	p.ObjectText = "Brew Station"
+	p.KeyboardKeyCode = Enum.KeyCode.E
+	p.HoldDuration = 0
+	p.MaxActivationDistance = PANEL_REACH
+	p.RequiresLineOfSight = false
+	p.Triggered:Connect(function()
+		wantOpen = not wantOpen
+	end)
+	p.Parent = bottle
+	viewPrompt = p
+end
+
+--- Show the panel once E has asked for it, while the local player is still at their
+--- own bottle and no brew is on screen; walking away closes it. Polled at 10 Hz
+--- rather than per frame: it is a distance check, and a tenth of a second is below
+--- what anyone notices walking away from a table.
 local function watch()
 	local elapsed = 0
 	RunService.Heartbeat:Connect(function(dt)
@@ -1418,14 +1457,38 @@ local function watch()
 		end
 		elapsed = 0
 		local bottle = ownBottle()
+		ensurePrompt(bottle)
 		local character = Players.LocalPlayer.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local near = bottle ~= nil
 			and root ~= nil
 			and root:IsA("BasePart")
 			and (root.Position - bottle.Position).Magnitude <= PANEL_REACH
+		if not near then
+			wantOpen = false
+		end
+		-- The tub's "Wash" prompt reaches 14 studs, over the bottle's table, and only
+		-- one E prompt shows at a time -- it won. At the bottle the bottle gets E: the
+		-- Wash prompt steps aside, locally, until you walk out of reach (the wash spot
+		-- is outside PANEL_REACH, so nobody washing is ever in here).
+		local wash = bottle and plotIndex and Workspace:FindFirstChild("Plots")
+		wash = wash and wash:FindFirstChild(`Plot{plotIndex}`)
+		wash = wash and wash:FindFirstChild("CleansingStation")
+		wash = wash and wash:FindFirstChild("Wash", true)
+		if wash and wash:IsA("ProximityPrompt") then
+			if near and wash.Enabled then
+				wash.Enabled = false
+				washStepped = wash
+			elseif not near and washStepped == wash then
+				wash.Enabled = true
+				washStepped = nil
+			end
+		end
 		local brewing = ui.gui ~= nil and ui.gui.Enabled
-		setOpen(near and state ~= nil and not brewing)
+		setOpen(wantOpen and near and state ~= nil and not brewing)
+		if viewPrompt then
+			viewPrompt.ActionText = if wantOpen then "Close" else "View"
+		end
 		paintBrew()
 	end)
 end
@@ -1449,6 +1512,18 @@ function Liquid.start()
 	Net.get("PlotState").OnClientEvent:Connect(function(index)
 		plotIndex = tonumber(index)
 	end)
+	-- PlotState is fired once on load and a queued remote event only reaches the first
+	-- listener to connect, which may not be us: read our plot off RespawnLocation (the
+	-- plot's PlotSpawn carries PlotIndex) too, as OwnStationPromptController does.
+	local function fromSpawn()
+		local spawn = Players.LocalPlayer.RespawnLocation
+		local index = spawn and spawn:GetAttribute("PlotIndex")
+		if type(index) == "number" then
+			plotIndex = index
+		end
+	end
+	fromSpawn()
+	Players.LocalPlayer:GetPropertyChangedSignal("RespawnLocation"):Connect(fromSpawn)
 	watch()
 end
 
