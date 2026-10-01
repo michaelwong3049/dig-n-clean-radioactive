@@ -293,7 +293,9 @@ local function paint()
 		progress = math.clamp((Speed.smoothPoints() - from) / math.max(to - from, 1), 0, 1)
 		local eta = if view.rate > 0 then `  |  {view.walk + 1} IN {formatEta((to - points) / view.rate)}` else ""
 		ui.walk.Text = `WALK SPEED {view.walk}{eta}`
-		ui.need.Text = `{Speed.format(points)} / {Speed.format(to)}`
+		-- Counted from 0 each level: Speed earned into THIS level over what it costs,
+		-- never the lifetime total.
+		ui.need.Text = `{Speed.format(math.max(points - from, 0))} / {Speed.format(to - from)}`
 	end
 	ui.fill.Size = UDim2.fromScale(progress, 1)
 	-- The shine is inset 8 px each side, so a sliver of fill would turn it inside out.
