@@ -47,13 +47,29 @@ local PULSE_DEPTH = 0.12
 --- How fast the drawn spot chases its target as the chunk under it shrinks.
 local FOLLOW = 18
 
+--- THE MARKER'S LOOK, off the user's reference: a camera-facing target -- pale outer
+--- ring, dark band, thin pale inner ring, hot orange core. The pale is cast toward the
+--- fallout green so it still reads as "the green spot" the tough-crust toast names.
+local RING_PALE = Color3.fromHex("C9FFD6")
+local RING_DARK = Color3.fromHex("10241C")
+local CORE = Color3.fromHex("FF9A3C")
+local CORE_CRIT = Color3.fromHex("FFE7A8")
+--- The marker's diameter as a multiple of `radius` (the old ball's): a target ring has
+--- to be bigger than a blob to read as one, and it is see-through between rings.
+local MARKER_SCALE = 1.3
+--- Pushed out off the rock along its own direction by this share of the marker, so the
+--- depth-tested billboard is not sliced by the crust it sits on.
+local STANDOFF = 0.2
+
 type Spot = {
 	id: number,
 	zone: number,
 	core: BasePart,
-	halo: BasePart,
+	gui: BillboardGui,
+	rings: { pale: { Frame }, coreDot: Frame },
 	born: number,
 	pos: Vector3?,
+	shown: boolean,
 }
 
 local spots: { [number]: Spot } = {}
@@ -93,23 +109,68 @@ local function ball(name: string, parent: Instance): BasePart
 	return part
 end
 
+--- One filled circle of the target, `share` of the marker across, centred.
+local function disc(parent: Instance, share: number, color: Color3, transparency: number, z: number): Frame
+	local frame = Instance.new("Frame")
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Position = UDim2.fromScale(0.5, 0.5)
+	frame.Size = UDim2.fromScale(share, share)
+	frame.BackgroundColor3 = color
+	frame.BackgroundTransparency = transparency
+	frame.BorderSizePixel = 0
+	frame.ZIndex = z
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = frame
+	frame.Parent = parent
+	return frame
+end
+
 local function makeSpot(id: number, zone: number): Spot
 	local root = ensureFolder()
+	-- An invisible anchor: the billboard rides it and the faint light hangs off it.
 	local core = ball(`Weak{zone}`, root)
-	local halo = ball(`Weak{zone}Halo`, root)
-	halo.Transparency = 0.82
+	core.Transparency = 1
 	local light = Instance.new("PointLight")
 	light.Color = GREEN
 	light.Brightness = 0.8
 	light.Range = 2.5
 	light.Shadows = false
 	light.Parent = core
-	return { id = id, zone = zone, core = core, halo = halo, born = os.clock(), pos = nil }
+
+	-- DEPTH-TESTED (AlwaysOnTop off): a marker on the far side of the lump is hidden by
+	-- the rock in front of it, like the reference's marker sitting ON the thing.
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "WeakMarker"
+	gui.AlwaysOnTop = false
+	gui.LightInfluence = 0
+	gui.Size = UDim2.fromScale(0, 0)
+	gui.Adornee = core
+	gui.ResetOnSpawn = false
+	gui.Parent = core
+
+	-- Painted outside-in: each disc covers the middle of the one under it, which is
+	-- what turns stacked circles into rings.
+	local outer = disc(gui, 1, RING_PALE, 0.18, 1)
+	disc(gui, 0.74, RING_DARK, 0.12, 2)
+	local inner = disc(gui, 0.5, RING_PALE, 0.1, 3)
+	disc(gui, 0.4, RING_DARK, 0.25, 4)
+	local coreDot = disc(gui, 0.24, CORE, 0, 5)
+
+	return {
+		id = id,
+		zone = zone,
+		core = core,
+		gui = gui,
+		rings = { pale = { outer, inner }, coreDot = coreDot },
+		born = os.clock(),
+		pos = nil,
+		shown = false,
+	}
 end
 
 local function dropSpot(spot: Spot)
 	spot.core:Destroy()
-	spot.halo:Destroy()
 end
 
 --- The blister bursts: a flash that swells and fades, a spray of green droplets, and a
@@ -207,8 +268,10 @@ function WashWeakSpots.update(state: any, item: Instance?, spinPoint: (Vector3) 
 	end
 
 	local reach = 4
+	local middle: number? = nil
 	if item and item:IsA("Model") then
-		local _, size = item:GetBoundingBox()
+		local box, size = item:GetBoundingBox()
+		middle = box.Position.Y
 		local mean = (size.X + size.Y + size.Z) / 3
 		radius = math.clamp(mean * SIZE_SHARE, SIZE_MIN, SIZE_MAX)
 		reach = math.max(size.X, size.Y, size.Z) + 1
@@ -240,10 +303,18 @@ function WashWeakSpots.update(state: any, item: Instance?, spinPoint: (Vector3) 
 
 		local anchor = spinPoint(patch.anchor)
 		local dir = (spinPoint(patch.anchor + weak.dir) - anchor).Unit
-		local target = surfaceAt(anchor, dir, zone, reach)
+		-- AIMED AT THE LUMP'S MID-HEIGHT FIRST, so spots sit across the middle of the rock
+		-- rather than up on its crown or down at its foot. A chunk that does not reach
+		-- that high (or low) falls back to its own centre.
+		local target: Vector3? = nil
+		if middle then
+			local level = Vector3.new(anchor.X, anchor.Y + (middle - anchor.Y) * 0.75, anchor.Z)
+			target = surfaceAt(level, dir, zone, reach)
+		end
+		target = target or surfaceAt(anchor, dir, zone, reach)
 		if target == nil then
-			current.core.Transparency = 1
-			current.halo.Transparency = 1
+			current.gui.Enabled = false
+			current.shown = false
 			current.pos = nil
 			continue
 		end
@@ -255,14 +326,16 @@ function WashWeakSpots.update(state: any, item: Instance?, spinPoint: (Vector3) 
 		local grow = math.clamp(age / GROW, 0, 1)
 		local throb = 1 + math.sin(age * PULSE_RATE) * PULSE_DEPTH
 		local onIt = WashWeakSpots.aimed == current.id
-		local size = radius * 2 * grow * throb
-		current.core.Transparency = 0
-		current.core.Color = if onIt then WashWeakSpots.CRIT else GREEN
-		current.core.Size = Vector3.one * size
-		current.core.Position = pos
-		current.halo.Transparency = if onIt then 0.65 else 0.82
-		current.halo.Size = Vector3.one * size * 1.6
-		current.halo.Position = pos
+		local size = radius * 2 * MARKER_SCALE * grow * throb
+		current.core.Position = pos + dir * size * STANDOFF
+		current.gui.Enabled = true
+		current.shown = true
+		current.gui.Size = UDim2.fromScale(size, size)
+		-- On target: the rings flash brighter and the core runs white-hot.
+		for _, ring in current.rings.pale do
+			ring.BackgroundColor3 = if onIt then WashWeakSpots.CRIT else RING_PALE
+		end
+		current.rings.coreDot.BackgroundColor3 = if onIt then CORE_CRIT else CORE
 	end
 
 	-- Gone from the payload: either respawning after a pop the server rolled between two
@@ -291,7 +364,7 @@ function WashWeakSpots.hit(point: Vector3): (number?, number?)
 	local bestZone: number?, bestId: number? = nil, nil
 	for zone, spot in spots do
 		local pos = spot.pos
-		if pos and spot.core.Transparency < 1 then
+		if pos and spot.shown then
 			local distance = (pos - point).Magnitude
 			if distance < reach then
 				reach = distance
