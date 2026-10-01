@@ -32,21 +32,21 @@ local CinderField = {}
 
 local SEED = 7700
 
-local SNAGS = 8
-local STUMPS = 12
-local LOGS = 6
-local EMBER_BEDS = 10
+local SNAGS = 6
+local STUMPS = 6
+local LOGS = 3
+local EMBER_BEDS = 6
 --- How many of the beds carry a light, sparks, smoke. The rest glow by Neon alone.
-local BED_LIGHTS = 7
-local BED_SPARKS = 4
-local BED_SMOKE = 3
+local BED_LIGHTS = 4
+local BED_SPARKS = 3
+local BED_SMOKE = 2
 
 --- The ground grid and its per-cell chances (sum 0.34 — one cell in three).
 local CELL = 13
-local ASH_CHANCE = 0.15
-local CINDER_CHANCE = 0.09
-local SPECK_CHANCE = 0.05
-local TWIG_CHANCE = 0.05
+local ASH_CHANCE = 0.08
+local CINDER_CHANCE = 0.05
+local SPECK_CHANCE = 0.03
+local TWIG_CHANCE = 0.03
 
 local WOOD = { K.hex("1E1A1C"), K.hex("2A2426"), K.hex("352C29") }
 local CHAR = K.hex("121012")

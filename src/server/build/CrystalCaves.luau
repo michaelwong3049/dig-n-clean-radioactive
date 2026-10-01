@@ -33,16 +33,16 @@ local SEED = 10200
 
 local ARCHES = 5
 local ARCH_LIGHTS = 3
-local CLUSTERS = 16
-local CLUSTER_LIGHTS = 4
-local GEODES = 7
-local SEEP_POOLS = 6
-local POOL_MOTES = 2
+local CLUSTERS = 9
+local CLUSTER_LIGHTS = 3
+local GEODES = 4
+local SEEP_POOLS = 3
+local POOL_MOTES = 1
 
 local CELL = 13
-local GRIT_CHANCE = 0.12
-local STREAK_CHANCE = 0.1
-local SHARD_CHANCE = 0.09
+local GRIT_CHANCE = 0.06
+local STREAK_CHANCE = 0.05
+local SHARD_CHANCE = 0.05
 
 local BASALT = { K.hex("2B302C"), K.hex("363C37"), K.hex("22271F") }
 local CRYSTAL = { K.hex("7CFF3A"), K.hex("4FE87A"), K.hex("3FE0B0"), K.hex("A6FF4F") }

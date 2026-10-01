@@ -32,18 +32,18 @@ local CobaltShelf = {}
 local SEED = 8800
 
 local LEDGES = 7
-local CLUSTERS = 10
+local CLUSTERS = 6
 --- How many of the clusters get the landmark scale.
-local BIG_CLUSTERS = 4
-local PUDDLES = 9
-local PUDDLE_LIGHTS = 5
-local PUDDLE_MIST = 3
+local BIG_CLUSTERS = 3
+local PUDDLES = 4
+local PUDDLE_LIGHTS = 3
+local PUDDLE_MIST = 1
 
 local CELL = 13
-local GRAVEL_CHANCE = 0.11
-local ORE_CHANCE = 0.06
-local CRUST_CHANCE = 0.1
-local SHARD_CHANCE = 0.04
+local GRAVEL_CHANCE = 0.06
+local ORE_CHANCE = 0.04
+local CRUST_CHANCE = 0.05
+local SHARD_CHANCE = 0.03
 
 local COBALT = { K.hex("1F3FBF"), K.hex("2B4FD8"), K.hex("16308F"), K.hex("3A5FE8") }
 local ROCK = { K.hex("4A5C78"), K.hex("36465E"), K.hex("566A88") }

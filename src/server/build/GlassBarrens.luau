@@ -41,16 +41,16 @@ local SEED = 9900
 
 local SPIRES = 9
 local SPIRE_GLINTS = 4
-local SHARD_CLUSTERS = 16
-local POOLS = 6
-local POOL_LIGHTS = 3
-local FULGURITES = 7
-local RIPPLE_PATCHES = 8
+local SHARD_CLUSTERS = 8
+local POOLS = 3
+local POOL_LIGHTS = 2
+local FULGURITES = 4
+local RIPPLE_PATCHES = 4
 
 local CELL = 13
-local BEAD_CHANCE = 0.13
-local GRIT_CHANCE = 0.08
-local CRUST_CHANCE = 0.1
+local BEAD_CHANCE = 0.07
+local GRIT_CHANCE = 0.04
+local CRUST_CHANCE = 0.05
 
 --- Deeper than the glass is in life: on this pale ice-cyan floor the lighter greens
 --- shot live as barely-there ghosts.
