@@ -264,6 +264,24 @@ local function clearChildren(parent: Instance, keep: { [string]: boolean }?)
 	end
 end
 
+-- ANOMALY CYCLES. Anything painted in a rarity's colour goes through rarityPaint; an
+-- Anomaly's is registered here with the property it was painted on, and the render
+-- step walks the spectrum through it while the panel is open (Rarity.anomalyHue), the
+-- same as every other Anomaly surface. An entry whose target has lost its parent is
+-- dropped, so rebuilt cards fall out on their own. NOT a weak-keyed table: Roblox can
+-- collect an Instance's Lua wrapper while the Instance lives on, which silently drops
+-- the entry and freezes the colour. `when` lets a caller pause it (a selected card's
+-- edge is white, not the rarity).
+type Cycling = { prop: string, darken: number, when: (() -> boolean)? }
+local cycling: { [Instance]: Cycling } = {}
+
+local function rarityPaint(target: Instance, prop: string, rarity: string, darken: number?, when: (() -> boolean)?)
+	local amount = darken or 0
+	local painted: any = target
+	painted[prop] = Rarity.get(rarity).color:Lerp(COL.black, amount)
+	cycling[target] = if rarity == "Anomaly" then { prop = prop, darken = amount, when = when } else nil
+end
+
 --- A vertical fade of `color`, for the rarity glow behind a model.
 local function glow(parent: GuiObject, color: Color3, top: number, radius: number)
 	local g = box(parent, "Glow", UDim2.fromScale(1, 1), nil, color)
@@ -1124,7 +1142,7 @@ local function renderRail()
 	end
 end
 
-local function chip(order: number, id: string, label: string, dot: Color3?)
+local function chip(order: number, id: string, label: string, dotRarity: string?)
 	local on = mode == id
 	local button = Instance.new("TextButton")
 	button.Name = `Chip_{id}`
@@ -1143,8 +1161,9 @@ local function chip(order: number, id: string, label: string, dot: Color3?)
 	pad.PaddingRight = UDim.new(0, 11)
 	pad.Parent = button
 	listLayout(button, Enum.FillDirection.Horizontal, 5)
-	if dot then
-		local d = box(button, "Dot", UDim2.fromOffset(9, 9), nil, dot)
+	if dotRarity then
+		local d = box(button, "Dot", UDim2.fromOffset(9, 9), nil, Rarity.get(dotRarity).color)
+		rarityPaint(d, "BackgroundColor3", dotRarity)
 		d.LayoutOrder = 1
 		corner(d, 5)
 	end
@@ -1187,7 +1206,7 @@ local function renderFilters()
 	for i, rarity in Rarity.ORDER do
 		local c = counts[rarity]
 		if c then
-			chip(10 + i, `rarity:{rarity}`, `{c.found}/{c.total}`, Rarity.get(rarity).color)
+			chip(10 + i, `rarity:{rarity}`, `{c.found}/{c.total}`, rarity)
 		end
 	end
 end
@@ -1219,7 +1238,10 @@ local function buildCard(item: any, order: number)
 	local stroke = edge(card, edgeColor, 2)
 
 	if found then
-		glow(card, rarityColor, 0.72, 12)
+		rarityPaint(glow(card, rarityColor, 0.72, 12), "BackgroundColor3", item.rarity)
+		rarityPaint(stroke, "Color", item.rarity, 0.3, function()
+			return selectedId ~= item.id
+		end)
 	end
 
 	local art = box(card, "Art", UDim2.fromOffset(CARD_ART, CARD_ART), UDim2.new(0.5, 0, 0, 4))
@@ -1242,7 +1264,7 @@ local function buildCard(item: any, order: number)
 		frameStill(viewport.CurrentCamera :: Camera, fresh, 1)
 	end)
 
-	text(card, {
+	local nameLabel = text(card, {
 		name = "ItemName",
 		position = UDim2.fromOffset(4, CARD_ART + 5),
 		size = UDim2.new(1, -8, 0, 22),
@@ -1253,6 +1275,9 @@ local function buildCard(item: any, order: number)
 		wrapped = true,
 		text = if found then item.name else "???",
 	})
+	if found then
+		rarityPaint(nameLabel, "TextColor3", item.rarity)
+	end
 
 	local kg = if found then recordKg(item.id) else nil
 	if kg then
@@ -1320,12 +1345,12 @@ local function renderGrid(list: { any })
 	paintCardSelection()
 end
 
-local function pill(order: number, label: string, fill: Color3, ink: Color3, border: Color3)
+local function pill(order: number, label: string, fill: Color3, ink: Color3, border: Color3): (Frame, UIStroke, TextLabel)
 	local p = box(ui.detail.pills, `Pill{order}`, UDim2.fromOffset(0, 22), nil, fill)
 	p.AutomaticSize = Enum.AutomaticSize.X
 	p.LayoutOrder = order
 	corner(p, 11)
-	edge(p, border, 2)
+	local stroke = edge(p, border, 2)
 	local pad = Instance.new("UIPadding")
 	pad.PaddingLeft = UDim.new(0, 9)
 	pad.PaddingRight = UDim.new(0, 9)
@@ -1339,6 +1364,7 @@ local function pill(order: number, label: string, fill: Color3, ink: Color3, bor
 		text = label,
 	})
 	t.AutomaticSize = Enum.AutomaticSize.X
+	return p, stroke, t
 end
 
 local function setSpinModel(itemId: string?, found: boolean)
@@ -1381,9 +1407,16 @@ local function renderDetail()
 	end
 
 	local rarityColor = Rarity.get(item.rarity).color
-	d.artGlow.BackgroundColor3 = if found then rarityColor else COL.edge
 	d.name.Text = if found then item.name else "UNKNOWN"
-	d.name.TextColor3 = if found then rarityColor else COL.white
+	if found then
+		rarityPaint(d.artGlow, "BackgroundColor3", item.rarity)
+		rarityPaint(d.name, "TextColor3", item.rarity)
+	else
+		cycling[d.artGlow] = nil
+		cycling[d.name] = nil
+		d.artGlow.BackgroundColor3 = COL.edge
+		d.name.TextColor3 = COL.white
+	end
 
 	d.pills.Visible = found
 	d.heavy.Visible = found
@@ -1399,7 +1432,11 @@ local function renderDetail()
 			child:Destroy()
 		end
 	end
-	pill(1, string.upper(item.rarity), rarityColor:Lerp(COL.black, 0.8), rarityColor, rarityColor)
+	local rarityPill, rarityEdge, rarityInk =
+		pill(1, string.upper(item.rarity), rarityColor:Lerp(COL.black, 0.8), rarityColor, rarityColor)
+	rarityPaint(rarityPill, "BackgroundColor3", item.rarity, 0.8)
+	rarityPaint(rarityEdge, "Color", item.rarity)
+	rarityPaint(rarityInk, "TextColor3", item.rarity)
 	for i, stageId in item.stages do
 		local stage = Stages.get(stageId)
 		pill(1 + i, stage.name, Color3.fromHex("0C0F0A"), Color3.fromHex("E8DCCB"), stageColor(stage))
@@ -1572,6 +1609,20 @@ function Index.start()
 		local kind = input.UserInputType
 		if kind == Enum.UserInputType.MouseButton1 or kind == Enum.UserInputType.Touch then
 			spin.dragging = false
+		end
+	end)
+	RunService.RenderStepped:Connect(function()
+		if not ui.panel.Visible or next(cycling) == nil then
+			return
+		end
+		local hue = Rarity.anomalyHue(os.clock() / Rarity.ANOMALY_CYCLE)
+		for target, entry in cycling do
+			if target.Parent == nil then
+				cycling[target] = nil
+			elseif entry.when == nil or entry.when() then
+				local painted: any = target
+				painted[entry.prop] = hue:Lerp(COL.black, entry.darken)
+			end
 		end
 	end)
 	RunService.RenderStepped:Connect(function(dt)
