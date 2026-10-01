@@ -258,10 +258,12 @@ type Session = {
 	zones: { [number]: { BasePart } },
 	zoneAnchor: { [number]: Vector3 },
 	zoneIds: { number },
-	-- HOW MANY PATCHES THIS ITEM STARTED WITH, captured once in begin() before anything
-	-- clears. `item.patches` shrinks as the wash progresses, so this is the only place
-	-- the original count survives -- and it is what `push` normalizes the overall
-	-- clean-percent readout against.
+	-- HOW MANY PATCHES THIS ITEM STARTED WITH, read in begin() from `item.patchTotal`,
+	-- which is stamped the first time the item reaches a tub and SAVED with it.
+	-- `item.patches` shrinks as the wash progresses, so this is the only place the
+	-- original count survives -- and it is what `push` normalizes the overall
+	-- clean-percent readout against. Saved rather than session-only so walking off
+	-- half-done and coming back (or rejoining) resumes at 50%, not at 0%.
 	initialPatchCount: number,
 }
 
@@ -916,6 +918,21 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 
 	local prompt = basin:FindFirstChild("Wash")
 
+	-- PROGRESS IS SAVED ON THE ITEM, NOT THE SESSION. Cleared patches always were (they
+	-- leave `item.patches`), but the banked soak on a half-done patch and the count the
+	-- percent is measured against lived only here, so leaving the tub threw both away.
+	-- `item.soak` runs parallel to `item.patches` -- same index, same table.remove when
+	-- a patch clears -- and holds the raw banked seconds, exactly what `session.soaked`
+	-- holds, so a resumed patch is timed precisely as if the player never left. A length
+	-- mismatch means the patches changed some other way; the bank is reset rather than
+	-- risk crediting soak to the wrong chunk.
+	if type(item.patchTotal) ~= "number" or item.patchTotal < #patches then
+		item.patchTotal = #patches
+	end
+	if type(item.soak) ~= "table" or #item.soak ~= #patches then
+		item.soak = table.create(#patches, 0)
+	end
+
 	local session: Session = {
 		uid = item.uid,
 		stand = stand,
@@ -941,7 +958,7 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 		zones = {},
 		zoneAnchor = {},
 		zoneIds = {},
-		initialPatchCount = #patches,
+		initialPatchCount = item.patchTotal,
 	}
 
 	-- THERE IS NO OPENING `aim` ANY MORE, and its refusal ("nothing you can shift
@@ -955,6 +972,9 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 	session.centre = model:GetBoundingBox().Position
 	for i = 1, #patches do
 		session.zoneIds[i] = i
+		-- Resume the bank. Zone ids start out equal to the patch index, so this lines up.
+		local banked = item.soak[i]
+		session.soaked[i] = if type(banked) == "number" and banked > 0 then banked else nil
 		rollWeak(session, i, 0)
 	end
 
@@ -1098,6 +1118,11 @@ local function stepPlayer(player: Player, dt: number)
 
 			local soaked = (session.soaked[zoneId] or 0) + dt * gain
 			session.soaked[zoneId] = soaked
+			-- Mirrored onto the saved item every tick, not on the way out: a disconnect
+			-- or a crash never gets a clean finish(), and this is a single table write.
+			if item.soak then
+				item.soak[index] = soaked
+			end
 
 			if soaked >= soakTarget(hardness, stats) then
 				-- THE PATCH THAT COMES OFF IS THE ONE THE WATER WAS ON, named by index.
@@ -1129,6 +1154,11 @@ local function stepPlayer(player: Player, dt: number)
 					-- whole feature exists for: the chunk of slag you were pointing at breaks
 					-- off, live, under the stream, and the thing inside starts to be a thing.
 					table.remove(session.zoneIds, removedIndex)
+					-- The saved bank shrinks at the same index too, or every later patch's
+					-- soak would shift onto its neighbour's chunk next session.
+					if item.soak and item.soak[removedIndex] ~= nil then
+						table.remove(item.soak, removedIndex)
+					end
 					-- SHED, NOT STRIPPED: what is left of the chunk tumbles off the item the
 					-- way its flakes already did (CrustController), instead of blinking
 					-- out of existence under the stream.
@@ -1152,6 +1182,9 @@ local function stepPlayer(player: Player, dt: number)
 				end
 
 				if #item.patches == 0 then
+					-- Clean for good: nothing left to resume, so nothing left to save.
+					item.soak = nil
+					item.patchTotal = nil
 					data.stats.itemsCleaned += 1
 					revealAndFinish(player, session, data, item)
 					return
