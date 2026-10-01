@@ -22,7 +22,8 @@
 	a scratch item, and a per-uid monotonic floor so a correction could never push the
 	countdown upward. All of it existed to make one label tick smoothly, and all of it
 	went with the label. The server still owns the clock; nothing here second-guesses
-	it any more, and there is no longer a Heartbeat connection in this file at all.
+	it any more. The only per-frame work left is the bomb cooldown shade and an
+	Anomaly's cycling colour, and each one disconnects when it has nothing to do.
 
 	SLOT COUNT IS `capacity`, NOT THE NUMBER OF ITEMS. Empty slots are the point —
 	they are how a player sees the headroom an aura upgrade bought them, and PLAN §3.4
@@ -217,6 +218,49 @@ end
 
 local function itemColour(item: any): Color3
 	return if item.crateId then Color3.fromHex(Crates.get(item.crateId).color) else rarityColor(item.rarity)
+end
+
+--- The rarity an item's colour comes from, or nil for a crate (which wears its own).
+local function itemRarity(item: any): string?
+	return if item.crateId then nil else item.rarity
+end
+
+-- ANOMALY CYCLES. Every rarity-coloured border and name here goes through `tint`; an
+-- Anomaly's is registered with the property it sits on, and one RenderStepped walks
+-- the spectrum through them (Rarity.anomalyHue), in step with every other Anomaly
+-- surface. It connects only while something is registered. A strong table, not a weak
+-- one: Roblox can collect an Instance's wrapper while the Instance lives, and a weak
+-- key would silently drop it. Anything repainted in another colour unregisters.
+local cycling: { [Instance]: string } = {}
+local cycleConnection: RBXScriptConnection? = nil
+
+local function stepCycling()
+	local hue = Rarity.anomalyHue(os.clock() / Rarity.ANOMALY_CYCLE)
+	for target, prop in cycling do
+		if target.Parent == nil then
+			cycling[target] = nil
+		else
+			local painted: any = target
+			painted[prop] = hue
+		end
+	end
+	if next(cycling) == nil and cycleConnection then
+		cycleConnection:Disconnect()
+		cycleConnection = nil
+	end
+end
+
+local function tint(target: Instance, prop: string, colour: Color3, rarity: string?)
+	local painted: any = target
+	painted[prop] = colour
+	if rarity == "Anomaly" then
+		cycling[target] = prop
+		if cycleConnection == nil then
+			cycleConnection = RunService.RenderStepped:Connect(stepCycling)
+		end
+	else
+		cycling[target] = nil
+	end
 end
 
 -- ── Build ───────────────────────────────────────────────────────────
@@ -960,8 +1004,8 @@ showCard = function(slot: any?)
 	local stats = Bombing.statsFor(item)
 	local unknown = item.identified == false
 	ui.cardTitle.Text = if unknown then "???" else item.name
-	ui.cardTitle.TextColor3 = rarityColor(item.rarity)
-	ui.cardStroke.Color = rarityColor(item.rarity)
+	tint(ui.cardTitle, "TextColor3", rarityColor(item.rarity), item.rarity)
+	tint(ui.cardStroke, "Color", rarityColor(item.rarity), item.rarity)
 	ui.cardStars.Text = string.rep("\u{2605}", stats.stars)
 	-- What it pays on a stand (CarryService's undamped `perSecond`): nil while it is
 	-- still crusted (worth "???" like its name) or Slagged (a stand won't take it).
@@ -1070,8 +1114,8 @@ function Inventory.dropBomb(confirmed: boolean?)
 	if precious and not agreed then
 		confirmUid = held.uid
 		ui.confirmName.Text = held.name
-		ui.confirmName.TextColor3 = rarityColor(held.rarity)
-		ui.confirmStroke.Color = rarityColor(held.rarity)
+		tint(ui.confirmName, "TextColor3", rarityColor(held.rarity), held.rarity)
+		tint(ui.confirmStroke, "Color", rarityColor(held.rarity), held.rarity)
 		ui.confirmStars.Text = `{string.rep("\u{2605}", Bombing.statsFor(held).stars)}  {string.upper(held.rarity)}`
 		ui.confirm.Visible = true
 		return
@@ -1176,7 +1220,7 @@ local function paintSlot(slot: any, index: number)
 		slot.kg.Text = ""
 		slot.button.BackgroundColor3 = SLOT_FILL
 		slot.button.BackgroundTransparency = 0.05
-		slot.stroke.Color = SLOT_BORDER
+		tint(slot.stroke, "Color", SLOT_BORDER)
 		slot.stroke.Thickness = 1.5
 		return
 	end
@@ -1187,7 +1231,7 @@ local function paintSlot(slot: any, index: number)
 	slot.kg.Text = if type(item.weight) == "number" then UIKit.formatKg(item.weight) else ""
 	slot.button.BackgroundColor3 = if item.uid == selected then SLOT_SELECTED else SLOT_FILL
 	slot.button.BackgroundTransparency = 0.05
-	slot.stroke.Color = itemColour(item)
+	tint(slot.stroke, "Color", itemColour(item), itemRarity(item))
 	slot.stroke.Thickness = if item.uid == selected then RARITY_STROKE_SELECTED else RARITY_STROKE
 end
 
@@ -1214,11 +1258,12 @@ local function renderBagTile()
 	end
 	if heldIndex and heldIndex > HOTBAR_SLOTS then
 		tile.BackgroundColor3 = SLOT_SELECTED
-		ui.bagTileStroke.Color = itemColour(state.items[heldIndex])
+		local held = state.items[heldIndex]
+		tint(ui.bagTileStroke, "Color", itemColour(held), itemRarity(held))
 		ui.bagTileStroke.Thickness = 3
 	else
 		tile.BackgroundColor3 = if bagOpen then SLOT_SELECTED else SLOT_FILL
-		ui.bagTileStroke.Color = if bagOpen then COLOR.text else SLOT_BORDER
+		tint(ui.bagTileStroke, "Color", if bagOpen then COLOR.text else SLOT_BORDER)
 		ui.bagTileStroke.Thickness = if bagOpen then 2 else 1.5
 	end
 end
