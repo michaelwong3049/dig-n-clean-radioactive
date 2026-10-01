@@ -1005,23 +1005,25 @@ function Spec.run(): boolean
 	-- a retune from quietly turning an 11-hour endgame into a 2-hour one.
 
 	check("§5.1 level 1 walks at the old starting-boots speed", Treadmill.walkSpeedFor(1) == 26)
-	check("§5.1 the top level walks at 100", Treadmill.walkSpeedFor(Treadmill.MAX_LEVEL) == 100)
-	check("§5.1 one level is one stud/sec: 75 levels from 26 to 100", Treadmill.MAX_LEVEL == 75 and #Treadmill.REQUIREMENTS == 75)
+	check("§5.1 one level is one stud/sec: level 75 walks at 100, the old cap", Treadmill.walkSpeedFor(75) == Treadmill.ENDGAME_WALK)
 	check("§5.1 level 1 needs no Speed", Treadmill.requirementFor(1) == 0 and Treadmill.levelFor(0) == 1)
-	check("§5.1 there is no requirement past the top level", Treadmill.requirementFor(Treadmill.MAX_LEVEL + 1) == nil)
+	check(
+		"§5.1 there is no top level: past the old cap still has a next requirement",
+		Treadmill.requirementFor(76) ~= nil and Treadmill.requirementFor(150) ~= nil and Treadmill.walkSpeedFor(150) == 175
+	)
 
 	-- Every requirement is dearer than the last, and holding EXACTLY a requirement
 	-- reads as that level with an empty bar — never the level below with a full one,
 	-- which is the most visible bug this feature could have.
 	do
 		local rising, exact = true, true
-		for level = 1, Treadmill.MAX_LEVEL do
-			local req = Treadmill.REQUIREMENTS[level]
-			if level > 1 and req <= Treadmill.REQUIREMENTS[level - 1] then
+		for level = 1, 150 do
+			local req = Treadmill.requirementFor(level) :: number
+			if level > 1 and req <= (Treadmill.requirementFor(level - 1) :: number) then
 				rising = false
 			end
 			local got, progress = Treadmill.levelFor(req)
-			if got ~= level or (level < Treadmill.MAX_LEVEL and progress ~= 0) then
+			if got ~= level or progress ~= 0 then
 				exact = false
 			end
 			if level > 1 and Treadmill.levelFor(req - 0.01) ~= level - 1 then
@@ -1030,7 +1032,9 @@ function Spec.run(): boolean
 		end
 		check("§5.1 each level's Speed requirement is higher than the last", rising)
 		check("§5.1 reaching a requirement levels you up exactly on it", exact)
-		check("§5.1 Speed past the top level still reads as the top level", Treadmill.levelFor(1e12) == Treadmill.MAX_LEVEL)
+		-- A huge or broken total still reads as a finite level, not a hang or an error.
+		local huge = Treadmill.levelFor(1e12)
+		check("§5.1 any Speed total reads as a finite level", huge > 75 and huge < 1000 and Treadmill.levelFor(0 / 0) == 1)
 	end
 
 	-- THE BELTS: dearer each rung, and each pays meaningfully more Speed/sec. With no
@@ -1056,7 +1060,7 @@ function Spec.run(): boolean
 			local seconds = 0
 			for level = 1, walk - Treadmill.START_WALK do
 				local tier = if belt then belt(level) else math.min(Treadmill.maxTier(), (level - 1) // 18 + 1)
-				local cost = Treadmill.REQUIREMENTS[level + 1] - Treadmill.REQUIREMENTS[level]
+				local cost = (Treadmill.requirementFor(level + 1) :: number) - (Treadmill.requirementFor(level) :: number)
 				seconds += cost / Treadmill.rateFor(tier)
 			end
 			return seconds / 3600
@@ -1085,7 +1089,7 @@ function Spec.run(): boolean
 	-- walk speed with the same fraction of the bar, at every walk speed.
 	do
 		local kept = true
-		for walk = Treadmill.START_WALK, Treadmill.MAX_WALK - 1 do
+		for walk = Treadmill.START_WALK, Treadmill.ENDGAME_WALK - 1 do
 			local n = walk - Treadmill.START_WALK
 			local base = 110 * (1.068 ^ n - 1) / 0.068
 			local halfway = base + 0.5 * 110 * 1.068 ^ n
@@ -1096,7 +1100,7 @@ function Spec.run(): boolean
 			end
 		end
 		check("§5.1 converting an old save keeps its walk speed and its bar", kept)
-		check("§5.1 a maxed old save converts to the top level", Treadmill.walkFor(Treadmill.fromLegacyXp(1e9)) == Treadmill.MAX_WALK)
+		check("§5.1 a maxed old save converts to walk 100, its old cap", Treadmill.walkFor(Treadmill.fromLegacyXp(1e9)) == Treadmill.ENDGAME_WALK)
 	end
 
 	-- THE FOUR-BELT COLLAPSE LOSES NOBODY A DOLLAR. The ladder went from six belts to
@@ -1617,8 +1621,9 @@ function Spec.run(): boolean
 	--
 	-- *** THIS CHECK FAILS ON PURPOSE, AND IT IS THE THIRD KNOWN FAILURE. ***
 	--
-	-- The ceiling used to be the top Boots rung (36) and is now Treadmill.MAX_WALK
-	-- (100). That is not a rename — it is a real and unsolvable tightening. The gap
+	-- The ceiling used to be the top Boots rung (36), then the treadmill cap (100). There
+	-- is no cap now, so this measures at Treadmill.ENDGAME_WALK (100), the old one.
+	-- That is not a rename — it is a real and unsolvable tightening. The gap
 	-- between the starting detector's reveal edge and DIG_RADIUS is 8 studs; a fully
 	-- trained player crosses it in 0.08s, and client/SpotCracks' REVEAL is 0.4s with
 	-- its own header forbidding anything under ~0.3 ("the reveal stops reading as
@@ -1642,7 +1647,7 @@ function Spec.run(): boolean
 	-- cheaper half" of exactly this fix.
 	do
 		local reach = Gear.tier("Detector", 1).radius - Tuning.DIG_RADIUS
-		local fastest = Treadmill.MAX_WALK
+		local fastest = Treadmill.ENDGAME_WALK
 		check(
 			string.format("§2.1 a spot has time to fade in before you reach it (%.2fs of walk)", reach / fastest),
 			reach / fastest >= 0.2

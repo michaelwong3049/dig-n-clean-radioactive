@@ -428,7 +428,7 @@ COMMANDS["/train"] = {
 	--
 	-- `/train speed <n>` sets the raw total (to test a point just under a requirement),
 	-- `/train belt <n>` moves the RUNG.
-	help = "/train <level 1-75> — set Speed to that level's requirement; /train speed <n>; /train belt <1-4>; /train lock|unlock",
+	help = "/train <level> — set Speed to that level's requirement; /train speed <n>; /train belt <1-5>; /train lock|unlock",
 	run = function(player, _sandbox, args)
 		local data = DataService.data(player)
 		if data == nil then
@@ -472,9 +472,9 @@ COMMANDS["/train"] = {
 		else
 			local wanted = tonumber(args[1])
 			if wanted == nil then
-				return `usage: /train <1-{Treadmill.MAX_LEVEL}>  |  /train speed <n>  |  /train belt <n>`
+				return "usage: /train <level>  |  /train speed <n>  |  /train belt <n>"
 			end
-			wanted = math.clamp(math.floor(wanted), 1, Treadmill.MAX_LEVEL)
+			wanted = math.clamp(math.floor(wanted), 1, 500)
 			data.speedPoints = Treadmill.requirementFor(wanted) :: number
 		end
 		ExhibitService.refreshTreadmill(player)
