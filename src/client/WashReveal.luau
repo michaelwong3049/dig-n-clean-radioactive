@@ -487,12 +487,13 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 	if type(found.weight) == "number" then
 		local label = UIKit.label(canvas, {
 			name = "Weight",
-			size = UDim2.fromOffset(600, 34),
-			position = UDim2.fromScale(0.5, 0.748),
+			-- Sized to fill the gap from the name down to the rarity pill.
+			size = UDim2.fromOffset(600, 62),
+			position = UDim2.fromScale(0.5, 0.772),
 			anchorPoint = Vector2.new(0.5, 0.5),
 			text = string.upper(formatWeight(found.weight)),
 			font = UIKit.Font.hero,
-			textSize = 30,
+			textSize = 56,
 			xAlign = Enum.TextXAlignment.Center,
 			color = Color3.new(1, 1, 1),
 			visible = false,
