@@ -37,7 +37,6 @@ local CollectionService = game:GetService("CollectionService")
 
 local Shared = ReplicatedStorage.Shared
 local Rarity = require(Shared.Config.Rarity)
-local Items = require(Shared.Config.Items)
 local Tuning = require(Shared.Config.Tuning)
 local Payload = require(Shared.Config.Payload)
 local Stages = require(Shared.Config.Stages)
@@ -189,10 +188,6 @@ local state = {
 	-- off the well between ticks.
 	contactOrigin = nil :: Vector3?,
 	rarityHint = nil :: string?,
-	-- The nearest signal's "1 in N" find-rarity (Items.shownOdds). Sent on every
-	-- detector now -- the old clarity gate on it is gone. Display flavour; nil only
-	-- when there is no signal in range.
-	oddsHint = nil :: number?,
 	inRange = false,
 	blocked = nil :: string?,
 	-- Stages the soil outclasses the held magnet (0 = rated for it). Server-sent, read
@@ -908,7 +903,8 @@ local function build(): ScreenGui
 	-- THE READOUT, right-aligned against the shaft: what the detector reads about the
 	-- thing you locked onto, then how far it still has to come. The rarity word is the
 	-- headline and carries the accent tint (in step with the nuke's band and REEL IN's
-	-- outline), the odds sit under it, and below them the metres left -- the number
+	-- outline), and below it the metres left. No "1 in N" odds (on request): with the
+	-- rarity word beside it, the odds named the exact nuke coming up -- the number
 	-- actually being watched, so it is the big one. All of it lands on any detector
 	-- (DigService.hintFor is not clarity-gated), and all of it takes the kit's hard
 	-- outline, because with no panel behind it this text can end up over sunlit sludge.
@@ -919,16 +915,6 @@ local function build(): ScreenGui
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.title,
 		color = COLOR.scope,
-		xAlign = Enum.TextXAlignment.Right,
-	})
-
-	ui.haulOdds = UIKit.label(haul, {
-		name = "Odds",
-		position = UDim2.fromOffset(0, READOUT_TOP + 32),
-		size = UDim2.fromOffset(READOUT_WIDTH, 22),
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.header,
-		color = COLOR.text,
 		xAlign = Enum.TextXAlignment.Right,
 	})
 
@@ -1281,20 +1267,12 @@ local function renderState()
 		HaulShaft.setMagnet(ui.shaft, magnetTier)
 
 		-- The readout spells out what the colour only implies: the rarity word
-		-- (state.rarityHint) and the "1 in N" odds (state.oddsHint), both on any
-		-- detector now -- exactly what DigService.hintFor sent. Two labels stacked
-		-- beside the shaft rather than one joined line, so a long rarity and a
-		-- six-figure odds never have to share a row this narrow.
-		--
-		-- THE ODDS FOLLOW THE RARITY, not their own hint. They are the odds OF the
-		-- rarity above them; printing "1 in 50k" under a blank headline would be a
-		-- number with nothing to attach to, so the "?" branch clears both.
+		-- (state.rarityHint), on any detector -- exactly what DigService.hintFor sent.
+		-- No "1 in N" under it (on request): rarity + odds pinned down the exact nuke.
 		if state.rarityHint then
 			ui.haulTitle.Text = string.upper(state.rarityHint)
-			ui.haulOdds.Text = if state.oddsHint then Items.oddsText(state.oddsHint) else ""
 		else
 			ui.haulTitle.Text = ""
-			ui.haulOdds.Text = ""
 		end
 		ui.haulTitle.TextColor3 = accent
 		ui.haulQuestion.Visible = not state.rarityHint
@@ -1574,7 +1552,6 @@ function Detector.start()
 			state.contactOrigin = root.Position
 		end
 		state.rarityHint = payload.rarityHint
-		state.oddsHint = payload.oddsHint
 		state.inRange = payload.inRange == true
 		-- Stepping onto a signal with no room for it: the refusal gets a thunk, once
 		-- per arrival rather than every tick you stand there.
