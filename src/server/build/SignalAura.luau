@@ -71,8 +71,8 @@ local CORE_THICKNESS = 0.1
 --- Build one aura, unparented. `surface` is the world point on the ground the signal
 --- is buried under — the spot the player has to stand on.
 ---
---- `scale` comes off the buried item's weight (DigService, off Config/Weight.auraScale)
---- — a heavier thing gets a bigger hot spot here and longer, wider cracks on the
+--- `scale` comes off the buried item's size (DigService, off Config/Weight.crackScale)
+--- — a bigger nuke gets a bigger hot spot here and longer, wider cracks on the
 --- client. Both the scale and the surface point are stamped on the model (`WellScale`,
 --- `Surface`) so client/SpotCracks can lay the cracks without guessing either.
 function SignalAura.create(surface: Vector3, scale: number): Model

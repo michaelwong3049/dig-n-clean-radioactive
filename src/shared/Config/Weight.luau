@@ -11,7 +11,8 @@
 	precious, a Steel Rod is heavy and worthless. Five things read the mass:
 
 	  sizeScale   the hauled / displayed model is :ScaleTo'd by this
-	  auraScale   the buried signal's glowing cracks run this much longer and wider
+	  crackScale  the buried signal's glowing cracks run longer and wider -- off the
+              nuke's full SIZE (weight * sizeMult * Payload roll), not weight alone
 	  pullFactor  the mash takes this much longer (depth * this), never a hard gate
 	  valueMult   sale value and $/sec are multiplied by this, layered like a modifier
 	  rollBias    the dig-roll weight is multiplied by this (<= 1): a U-shape that
@@ -78,11 +79,23 @@ function Weight.sizeScale(kg: number): number
 	return lerp(0.55, 3.00, Weight.norm(kg))
 end
 
+-- The span of real nuke sizes `crackScale` maps across: the haul's whole scale
+-- (sizeScale * sizeMult * Payload) from the smallest possible dig (0.55 * 0.8 * 0.6)
+-- up to where the very biggest stop reading any bigger. Past either end it saturates.
+Weight.CRACK_SIZE_MIN = 0.25
+Weight.CRACK_SIZE_MAX = 20
+
 --- How much bigger the buried signal's aura reads (the hot spot, and the cracks'
---- length and width). NOT the pickup radius — that stays Tuning.DIG_RADIUS. Purely
---- "big thing, big glow".
-function Weight.auraScale(kg: number): number
-	return lerp(0.75, 2.40, Weight.norm(kg))
+--- length and width), off the size the NUKE ITSELF comes up at -- `size` is the
+--- haul's full scale (DigService.sizeOf: sizeScale * sizeMult * Payload), never the
+--- weight on its own. Bigger cracks always mean a bigger nuke: a light item that
+--- rolled giga out-cracks a heavy one that rolled small. Log, like `norm`, so the
+--- crowded middle of the range still reads apart. NOT the pickup radius -- that stays
+--- Tuning.DIG_RADIUS.
+function Weight.crackScale(size: number): number
+	local lo, hi = Weight.CRACK_SIZE_MIN, Weight.CRACK_SIZE_MAX
+	local t = clamp01(math.log(math.max(size, lo) / lo) / math.log(hi / lo))
+	return lerp(0.75, 2.40, t)
 end
 
 --- Multiplies the pull's `required` seconds (DigService: PULL_SECONDS_PER_STUD *

@@ -222,7 +222,9 @@ function Spec.run(): boolean
 		local prev = { s = -1, a = -1, p = -1, v = -1 }
 		for i = 0, 40 do
 			local kg = Weight.MIN * (Weight.MAX / Weight.MIN) ^ (i / 40)
-			local s, a, p, v = Weight.sizeScale(kg), Weight.auraScale(kg), Weight.pullFactor(kg), Weight.valueMult(kg)
+			local s, p, v = Weight.sizeScale(kg), Weight.pullFactor(kg), Weight.valueMult(kg)
+			-- Cracks follow the nuke's SIZE, so walk them along the same size curve.
+			local a = Weight.crackScale(s)
 			if s < prev.s - 1e-9 or a < prev.a - 1e-9 or p < prev.p - 1e-9 or v < prev.v - 1e-9 then
 				mono = false
 			end
@@ -231,7 +233,21 @@ function Spec.run(): boolean
 				mono = false
 			end
 		end
-		check("§weight sizeScale/auraScale/pullFactor/valueMult all rise with mass; rollBias never exceeds 1", mono)
+		check("§weight sizeScale/crackScale/pullFactor/valueMult all rise with mass; rollBias never exceeds 1", mono)
+
+		-- Bigger cracks = bigger nuke, STRICTLY, across the whole real size span: two
+		-- nukes that come up at different sizes never show the same or inverted cracks.
+		local strict = true
+		local last = -1
+		for i = 0, 60 do
+			local size = Weight.CRACK_SIZE_MIN * (Weight.CRACK_SIZE_MAX / Weight.CRACK_SIZE_MIN) ^ (i / 60)
+			local c = Weight.crackScale(size)
+			if c <= last then
+				strict = false
+			end
+			last = c
+		end
+		check("§weight crackScale strictly rises with nuke size", strict)
 
 		local mid = math.sqrt(Weight.MIN * Weight.MAX) -- geometric middle == norm 0.5
 		check("§weight the mid of the range is roll-unbiased (rollBias == 1)", math.abs(Weight.rollBias(mid) - 1) < 1e-6)

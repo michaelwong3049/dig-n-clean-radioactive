@@ -175,7 +175,7 @@ local FUSE_COOL = Color3.fromHex("FDE68A")
 local FUSE_FLASH = Color3.fromHex("FFD2C4")
 local FUSE_ARMED_PULSE = 7 -- rad/sec on the armed headline's flash
 
-type Contact = { dx: number, dz: number, rarity: string? }
+type Contact = { dx: number, dz: number, rarity: string?, scale: number? }
 
 local state = {
 	inStage = false,
@@ -1534,21 +1534,24 @@ end
 --- of studs apart, so it cannot bind the wrong one.
 local CONTACT_MATCH_TOLERANCE = 4 -- studs
 
-function Detector.contactRarityAt(worldPosition: Vector3): string?
+---
+--- Second return: the crack scale of THIS client's reading (Config/Weight.crackScale,
+--- off the size its nuke will come up at), or nil when the server sent none.
+function Detector.contactRarityAt(worldPosition: Vector3): (string?, number?)
 	local origin = state.contactOrigin
 	if origin == nil or not state.inStage then
-		return nil
+		return nil, nil
 	end
 	for _, contact in state.contacts do
 		if contact.rarity ~= nil then
 			local dx = (origin.X + contact.dx) - worldPosition.X
 			local dz = (origin.Z + contact.dz) - worldPosition.Z
 			if dx * dx + dz * dz <= CONTACT_MATCH_TOLERANCE * CONTACT_MATCH_TOLERANCE then
-				return contact.rarity
+				return contact.rarity, contact.scale
 			end
 		end
 	end
-	return nil
+	return nil, nil
 end
 
 function Detector.start()
