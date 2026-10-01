@@ -476,7 +476,7 @@ Tuning.DIRTY_SELL_MULTIPLIER = 0.12
 Tuning.ASSAY_FEE_FRACTION = 0.02
 
 -- ── Exhibition (PLAN §8.2) ────────────────────────────────────────────────────
-Tuning.EXHIBIT_OFFLINE_RATE = 0.25
+Tuning.EXHIBIT_OFFLINE_RATE = 0.15
 Tuning.EXHIBIT_OFFLINE_BANK_HOURS = 4
 -- Every copy of an item pays in full; the old 100/40/15/5% duplicate damping is gone.
 Tuning.EXHIBIT_DUPLICATE_YIELD = { 1.0 }

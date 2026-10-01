@@ -3,14 +3,14 @@
 	when your stands earned something while you were offline (Config/AwayEarnings,
 	Services/AwayEarningsService).
 
-	THE GOLD COIN CARD, option 1 of seven mockups: the cash badge's own toy-shop voice
-	(CashController's STYLE), a thick ink outline on every shape, hard offset shadows,
-	an orange ribbon across the top, a spinning coin beside the amount counting up,
-	two pills (time away, offline $/s), and the buttons. A red BANK FULL! sticker
-	shows when the time away ran past the offline cap.
+	THE DARK SLAB, option 1 of eight mockups (it replaced the old gold coin card): a
+	square dark panel in the HUD's voice (Gotham Black, ink outlines, the cash row's
+	green bundle and green money). "WHILE YOU WERE AWAY, YOU EARNED" over the time
+	away, then the bobbing bundle beside the amount counting up, then the buttons. A
+	red BANK FULL! sticker shows when the time away ran past the offline cap.
 
-	COLLECT and DOUBLE IT. The amount waits on the server until COLLECT; the coins fly
-	from the button into the cash badge and the collect request goes out as they land,
+	COLLECT and DOUBLE IT. The amount waits on the server until COLLECT; the bills fly
+	from the button into the cash row's bundle and the collect request goes out as they land,
 	so the badge's own count-up and "+$X" popup (CashState) play as they arrive.
 	DOUBLE IT prompts the Robux product; the card waits for the server to say the
 	receipt was granted (AwayEarnings { collected, doubled }) before paying out, and
@@ -32,6 +32,7 @@ local Shared = ReplicatedStorage.Shared
 local Net = require(Shared.Net)
 local AwayEarnings = require(Shared.Config.AwayEarnings)
 
+local Artwork = require(script.Parent.Parent.HudArtwork)
 local UIKit = require(script.Parent.Parent.UIKit)
 
 local AwayEarningsController = {}
@@ -39,50 +40,45 @@ local AwayEarningsController = {}
 local INK = Color3.fromHex("1A1A1A")
 local WHITE = Color3.new(1, 1, 1)
 
--- CashController's gold, so the card reads as the badge's own.
+-- The dark slab, with CashController's green money.
 local STYLE = {
-	card = Color3.fromHex("FFCF3A"),
-	cardShine = Color3.fromHex("FFE27F"),
-	ribbon = Color3.fromHex("FF7A1A"),
-	coin = Color3.fromHex("FFB81C"),
-	coinFace = Color3.fromHex("FFD34D"),
-	coinRim = Color3.fromHex("D98A00"),
-	coinMark = Color3.fromHex("B36A00"),
-	pillText = Color3.fromHex("FFE27A"),
-	collect = Color3.fromHex("45C845"),
-	collectHover = Color3.fromHex("5CDD5C"),
-	double = Color3.fromHex("3D7BF5"),
-	doubleHover = Color3.fromHex("5A92FF"),
+	card = Color3.fromHex("12161D"),
+	rim = Color3.fromHex("2C3644"),
+	money = Color3.fromHex("7CF25A"),
+	bill = Color3.fromHex("5FCF3F"),
+	sub = Color3.fromHex("C9D3DE"),
+	collect = Color3.fromHex("3FBF3A"),
+	collectHover = Color3.fromHex("58D653"),
+	double = Color3.fromHex("FFB21E"),
+	doubleHover = Color3.fromHex("FFC54D"),
 	off = Color3.fromHex("8A8F96"),
 	sticker = Color3.fromHex("EF4444"),
-	chip = Color3.fromHex("8DFF8D"),
-	title = Enum.Font.LuckiestGuy,
-	body = Enum.Font.FredokaOne,
+	chip = Color3.fromHex("FFE9A8"),
+	title = Enum.Font.GothamBlack,
+	body = Enum.Font.GothamBold,
 }
 
--- Design px. The CanvasGroup is bigger than the card so the ribbon and the sticker,
--- which hang off its edges, are not clipped.
+-- Design px. The CanvasGroup is bigger than the card so the sticker, which hangs off
+-- its corner, is not clipped.
 local L = {
-	groupW = 560,
+	groupW = 600,
 	groupH = 400,
-	cardW = 470,
-	cardH = 316,
-	cardTop = 60,
-	radius = 30,
+	cardW = 500,
+	cardH = 300,
+	cardTop = 50,
 	outline = 4,
+	rim = 4, -- the second, grey frame just outside the ink one
 	shadow = 7,
-	ribbonW = 380,
-	ribbonH = 54,
-	coin = 96,
-	coinGap = 16,
-	amountSize = 58,
+	titleY = 22,
+	titleSize = 26,
+	subY = 60,
+	subSize = 18,
+	bundle = 104,
+	bundleGap = 6,
+	amountSize = 60,
 	amountMin = 30,
-	amountY = 92, -- centre of the coin + amount row, from the card's top
-	pillsY = 162,
-	pillH = 34,
-	pillPad = 16,
-	pillGap = 10,
-	buttonsY = 224,
+	amountY = 138, -- centre of the bundle + amount row, from the card's top
+	buttonsY = 206,
 	buttonH = 62,
 	collectW = 190,
 	doubleW = 230,
@@ -115,20 +111,6 @@ local function formatAmount(amount: number): string
 	local digits = tostring(amount)
 	local grouped = digits:reverse():gsub("(%d%d%d)", "%1,"):reverse()
 	return "$" .. grouped:gsub("^,", "")
-end
-
---- CashController's rate ladder: "+$34.75/s", "+$139/s", "+$1.2K/s".
-local function formatRate(perSecond: number): string
-	if perSecond >= 1_000_000 then
-		return string.format("+$%.1fM/s", perSecond / 1_000_000)
-	elseif perSecond >= 1000 then
-		return string.format("+$%.1fK/s", perSecond / 1000)
-	elseif perSecond >= 100 then
-		return string.format("+$%.0f/s", perSecond)
-	elseif perSecond >= 10 then
-		return string.format("+$%.1f/s", perSecond)
-	end
-	return string.format("+$%.2f/s", perSecond)
 end
 
 --- "3h 12m", "4h", "20m", "45s".
@@ -183,7 +165,7 @@ end
 
 --- A chunky button: ink shadow, coloured face, ink border, outlined caption.
 local function makeButton(parent: Instance, name: string, x: number, y: number, w: number, color: Color3, text: string): (TextButton, TextLabel)
-	local round = UDim.new(0, 18)
+	local round = UDim.new(0, 0)
 	blob(parent, name .. "Shadow", { x, y + 5, w, L.buttonH }, INK, 20, round)
 	local button = Instance.new("TextButton")
 	button.Name = name
@@ -207,20 +189,20 @@ local function makeButton(parent: Instance, name: string, x: number, y: number, 
 		size = UDim2.fromScale(1, 1),
 		position = UDim2.fromOffset(0, 3),
 		text = text,
-		textSize = 28,
+		textSize = 26,
 		stroke = 3,
 		zIndex = 22,
 	})
 	return button, caption
 end
 
--- ── The coin burst ───────────────────────────────────────────────────────────
+-- ── The cash burst ───────────────────────────────────────────────────────────
 
---- Where the cash badge's coin is, in this card's canvas px, so the coins land on it.
+--- Where the cash row's bundle is, in this card's canvas px, so the bills land on it.
 local function badgeTarget(canvas: Frame): Vector2
 	local scale = UIKit.canvasScale(canvas)
 	local hud = Players.LocalPlayer.PlayerGui:FindFirstChild("CashHud")
-	local coin = hud and hud:FindFirstChild("Coin", true)
+	local coin = hud and hud:FindFirstChild("Bundle", true)
 	if coin and coin:IsA("GuiObject") then
 		local centre = coin.AbsolutePosition + coin.AbsoluteSize / 2
 		return (centre - canvas.AbsolutePosition) / scale
@@ -228,18 +210,18 @@ local function badgeTarget(canvas: Frame): Vector2
 	return Vector2.new(60, canvas.AbsoluteSize.Y / scale / 2)
 end
 
---- Coins burst out of `from` and fly into the cash badge. Returns when the first lands.
-local function flyCoins(canvas: Frame, from: GuiObject, count: number): number
+--- Bills burst out of `from` and fly into the cash row. Returns when the first lands.
+local function flyBills(canvas: Frame, from: GuiObject, count: number): number
 	local scale = UIKit.canvasScale(canvas)
 	local start = (from.AbsolutePosition + from.AbsoluteSize / 2 - canvas.AbsolutePosition) / scale
 	local target = badgeTarget(canvas)
 	local rng = Random.new()
 	local burstTime, flyTime, stagger = 0.25, 0.55, 0.04
 	for i = 1, count do
-		local coin = blob(canvas, "FlyingCoin", { 0, 0, 32, 32 }, STYLE.coin, 40, UDim.new(0.5, 0), 3)
+		local coin = blob(canvas, "FlyingBill", { 0, 0, 36, 22 }, STYLE.bill, 40, UDim.new(0, 0), 3)
 		coin.AnchorPoint = Vector2.new(0.5, 0.5)
 		coin.Position = UDim2.fromOffset(start.X, start.Y)
-		blob(coin, "Face", { 6, 6, 20, 20 }, STYLE.coinFace, 41, UDim.new(0.5, 0))
+		coin.Rotation = rng:NextNumber(-40, 40)
 		local out = start + Vector2.new(rng:NextNumber(-110, 110), rng:NextNumber(-110, -30))
 		task.delay((i - 1) * stagger, function()
 			local burst = TweenService:Create(
@@ -252,7 +234,7 @@ local function flyCoins(canvas: Frame, from: GuiObject, count: number): number
 			local fly = TweenService:Create(
 				coin,
 				TweenInfo.new(flyTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-				{ Position = UDim2.fromOffset(target.X, target.Y), Size = UDim2.fromOffset(20, 20) }
+				{ Position = UDim2.fromOffset(target.X, target.Y), Size = UDim2.fromOffset(22, 14) }
 			)
 			fly:Play()
 			fly.Completed:Wait()
@@ -270,8 +252,8 @@ local function close()
 		return
 	end
 	c.closing = true
-	if c.spin then
-		c.spin:Disconnect()
+	if c.bob then
+		c.bob:Disconnect()
 	end
 	TweenService:Create(c.group, POP_OUT, { GroupTransparency = 1 }):Play()
 	TweenService:Create(c.popScale, POP_OUT, { Scale = 0.85 }):Play()
@@ -296,13 +278,13 @@ local function setBusy(busy: boolean)
 	end
 end
 
---- Pay out from `button`: coins to the badge, and `onLand` as the first one arrives.
+--- Pay out from `button`: bills to the cash row, and `onLand` as the first one arrives.
 local function payOut(button: GuiObject, coins: number, onLand: (() -> ())?)
 	local c = card
 	if c == nil or c.closing then
 		return
 	end
-	local land = flyCoins(c.canvas, button, coins)
+	local land = flyBills(c.canvas, button, coins)
 	task.delay(0.12, close)
 	if onLand then
 		task.delay(land, onLand)
@@ -316,38 +298,20 @@ local function setAmount(amount: number)
 	end
 	c.amount = amount
 	local text = formatAmount(amount)
-	local room = L.cardW - 56 - L.coin - L.coinGap
+	local room = L.cardW - 48 - L.bundle - L.bundleGap
 	local size = L.amountSize
 	while size > L.amountMin and textWidth(text, size, STYLE.title) > room do
 		size -= 2
 	end
 	c.amountLabel.TextSize = size
-	-- Centre the coin + number as one group, measured at the final value.
-	local groupW = L.coin + L.coinGap + textWidth(text, size, STYLE.title)
+	-- Centre the bundle + number as one group, measured at the final value.
+	local groupW = L.bundle + L.bundleGap + textWidth(text, size, STYLE.title)
 	local left = (L.cardW - groupW) / 2
-	c.coinHolder.Position = UDim2.fromOffset(left, L.amountY - L.coin / 2)
-	c.amountLabel.Position = UDim2.fromOffset(left + L.coin + L.coinGap, L.amountY - 40)
-	c.amountLabel.Size = UDim2.fromOffset(groupW - L.coin - L.coinGap + 20, 80)
+	c.bundleHome = Vector2.new(left, L.amountY - L.bundle / 2)
+	c.bundle.Position = UDim2.fromOffset(c.bundleHome.X, c.bundleHome.Y)
+	c.amountLabel.Position = UDim2.fromOffset(left + L.bundle + L.bundleGap, L.amountY - 40)
+	c.amountLabel.Size = UDim2.fromOffset(groupW - L.bundle - L.bundleGap + 20, 80)
 	TweenService:Create(c.shown, COUNT, { Value = amount }):Play()
-end
-
-local function pill(parent: Instance, name: string, text: string): Frame
-	local width = textWidth(text, 20, STYLE.body) + L.pillPad * 2
-	local frame = blob(parent, name, { 0, L.pillsY, width, L.pillH }, INK, 12, UDim.new(0.5, 0))
-	UIKit.label(frame, {
-		name = "Text",
-		size = UDim2.fromScale(1, 1),
-		text = text,
-		font = STYLE.body,
-		textSize = 20,
-		color = STYLE.pillText,
-		xAlign = Enum.TextXAlignment.Center,
-		outline = false,
-		strokeTransparency = 1,
-		shadow = false,
-		zIndex = 13,
-	})
-	return frame
 end
 
 local function open(offer: any)
@@ -395,36 +359,46 @@ local function open(offer: any)
 	popScale.Scale = 0.5
 	popScale.Parent = group
 
-	-- The card's own frame inside the group; everything below is placed on it.
+	-- The card's own frame inside the group; everything below is placed on it. Square,
+	-- an ink edge, and a grey rim outside that.
 	local cardX = (L.groupW - L.cardW) / 2
-	local radius = UDim.new(0, L.radius)
-	blob(group, "CardShadow", { cardX, L.cardTop + L.shadow, L.cardW, L.cardH }, INK, 4, radius)
-	local face = blob(group, "Face", { cardX, L.cardTop, L.cardW, L.cardH }, STYLE.card, 5, radius, L.outline)
-	blob(face, "Shine", { 16, 12, L.cardW - 32, 26 }, STYLE.cardShine, 6, UDim.new(0.5, 0))
+	local square = UDim.new(0, 0)
+	blob(group, "CardShadow", { cardX, L.cardTop + L.shadow, L.cardW, L.cardH }, INK, 4, square)
+	blob(group, "Rim", { cardX - L.rim, L.cardTop - L.rim, L.cardW + L.rim * 2, L.cardH + L.rim * 2 }, STYLE.rim, 4, square)
+	local face = blob(group, "Face", { cardX, L.cardTop, L.cardW, L.cardH }, STYLE.card, 5, square, L.outline)
 
-	-- The ribbon across the top edge.
-	local ribbonX = (L.groupW - L.ribbonW) / 2
-	local ribbonY = L.cardTop - L.ribbonH / 2 - 4
-	local ribbonRound = UDim.new(0, 16)
-	blob(group, "RibbonShadow", { ribbonX, ribbonY + 5, L.ribbonW, L.ribbonH }, INK, 30, ribbonRound)
-	local ribbon = blob(group, "Ribbon", { ribbonX, ribbonY, L.ribbonW, L.ribbonH }, STYLE.ribbon, 31, ribbonRound, L.outline)
-	inkLabel(ribbon, {
+	inkLabel(face, {
 		name = "Title",
-		size = UDim2.fromScale(1, 1),
-		position = UDim2.fromOffset(0, 3),
-		text = "WHILE YOU WERE AWAY",
-		textSize = 30,
+		size = UDim2.new(1, 0, 0, 36),
+		position = UDim2.fromOffset(0, L.titleY),
+		text = "WHILE YOU WERE AWAY, YOU EARNED",
+		font = STYLE.title,
+		textSize = L.titleSize,
 		stroke = 3,
-		zIndex = 32,
+		zIndex = 12,
+	})
+	UIKit.label(face, {
+		name = "Away",
+		size = UDim2.new(1, 0, 0, 24),
+		position = UDim2.fromOffset(0, L.subY),
+		text = `Away {formatAway(offer.away)}`,
+		font = STYLE.body,
+		textSize = L.subSize,
+		color = STYLE.sub,
+		xAlign = Enum.TextXAlignment.Center,
+		outline = false,
+		strokeTransparency = 1,
+		shadow = false,
+		zIndex = 12,
 	})
 
 	if offer.capped then
-		local sticker = blob(group, "Sticker", { cardX + L.cardW - 108, L.cardTop + 34, 138, 40 }, STYLE.sticker, 33, UDim.new(0, 12), 3)
+		local sticker = blob(group, "Sticker", { cardX + L.cardW - 100, L.cardTop - 18, 138, 40 }, STYLE.sticker, 33, square, 3)
 		sticker.Rotation = 12
 		inkLabel(sticker, {
 			name = "Text",
 			size = UDim2.fromScale(1, 1),
-			position = UDim2.fromOffset(0, 2),
+			position = UDim2.fromOffset(0, 1),
 			text = "BANK FULL!",
 			textSize = 20,
 			stroke = 2.5,
@@ -432,44 +406,16 @@ local function open(offer: any)
 		})
 	end
 
-	-- The coin: a holder the spin squeezes the coin inside, so it turns in place.
-	local coinHolder = Instance.new("Frame")
-	coinHolder.Name = "CoinHolder"
-	coinHolder.BackgroundTransparency = 1
-	coinHolder.Size = UDim2.fromOffset(L.coin, L.coin)
-	coinHolder.ZIndex = 7
-	coinHolder.Parent = face
-	local coinShadow = blob(coinHolder, "CoinShadow", { 0, 0, L.coin, L.coin }, INK, 7, UDim.new(0.5, 0))
-	local coin = blob(coinHolder, "Coin", { 0, 0, L.coin, L.coin }, STYLE.coin, 8, UDim.new(0.5, 0), L.outline)
-	for _, part in { coinShadow, coin } do
-		part.AnchorPoint = Vector2.new(0.5, 0.5)
-		part.Position = UDim2.new(0.5, 0, 0.5, if part == coinShadow then 5 else 0)
-	end
-	local coinFace = blob(coin, "Face", { 0, 0, 0, 0 }, STYLE.coinFace, 9, UDim.new(0.5, 0), 3)
-	coinFace.AnchorPoint = Vector2.new(0.5, 0.5)
-	coinFace.Position = UDim2.fromScale(0.5, 0.5)
-	coinFace.Size = UDim2.fromScale(0.72, 0.72)
-	coinFace:FindFirstChildOfClass("UIStroke").Color = STYLE.coinRim
-	local mark = UIKit.label(coin, {
-		name = "Mark",
-		size = UDim2.fromScale(1, 1),
-		position = UDim2.fromOffset(0, 6),
-		text = "$",
-		font = STYLE.title,
-		textSize = 50,
-		color = STYLE.coinMark,
-		xAlign = Enum.TextXAlignment.Center,
-		outline = false,
-		strokeTransparency = 1,
-		shadow = false,
-		zIndex = 10,
-	})
+	-- The cash row's own bundle, which bobs while the card is up.
+	local bundle = Artwork.droppedPicture(face, "Bundle", Artwork.IMAGE.cashBundle, L.bundle, Vector2.new(3, 4), 8)
 
 	local amountLabel = inkLabel(face, {
 		name = "Amount",
 		size = UDim2.fromOffset(300, 80),
 		text = "$0",
+		font = STYLE.title,
 		textSize = L.amountSize,
+		color = STYLE.money,
 		stroke = 4,
 		xAlign = Enum.TextXAlignment.Left,
 		zIndex = 11,
@@ -478,14 +424,6 @@ local function open(offer: any)
 	shown.Changed:Connect(function(value: number)
 		amountLabel.Text = formatAmount(value)
 	end)
-
-	-- The pills, centred as a row.
-	local awayPill = pill(face, "AwayPill", `Away {formatAway(offer.away)}`)
-	local ratePill = pill(face, "RatePill", formatRate(offer.rate))
-	local pillsW = awayPill.Size.X.Offset + L.pillGap + ratePill.Size.X.Offset
-	local pillsLeft = (L.cardW - pillsW) / 2
-	awayPill.Position = UDim2.fromOffset(pillsLeft, L.pillsY)
-	ratePill.Position = UDim2.fromOffset(pillsLeft + awayPill.Size.X.Offset + L.pillGap, L.pillsY)
 
 	-- The buttons.
 	local live = AwayEarnings.PRODUCT_ID ~= 0
@@ -501,12 +439,12 @@ local function open(offer: any)
 		if live then "DOUBLE IT" else "COMING SOON"
 	)
 	if not live then
-		doubleCaption.TextSize = 22
+		doubleCaption.TextSize = 20
 	else
 		-- The price chip, filled in from the product itself so a dashboard price change
 		-- never needs a code change.
 		doubleCaption.Size = UDim2.new(1, -70, 1, 0)
-		local chip = blob(double, "Price", { L.doubleW - 74, 15, 62, 32 }, INK, 23, UDim.new(0, 10))
+		local chip = blob(double, "Price", { L.doubleW - 74, 15, 62, 32 }, INK, 23, UDim.new(0, 0))
 		local price = UIKit.label(chip, {
 			name = "Text",
 			size = UDim2.fromScale(1, 1),
@@ -536,7 +474,8 @@ local function open(offer: any)
 		dim = dim,
 		group = group,
 		popScale = popScale,
-		coinHolder = coinHolder,
+		bundle = bundle,
+		bundleHome = Vector2.zero,
 		amountLabel = amountLabel,
 		shown = shown,
 		collect = collect,
@@ -546,17 +485,16 @@ local function open(offer: any)
 		busy = false,
 		buying = false,
 		closing = false,
-		spin = nil :: RBXScriptConnection?,
+		bob = nil :: RBXScriptConnection?,
 	}
 	local c = card
 
-	-- The coin turns: squeeze it to its edge and back, fading the $ as it goes thin.
+	-- The bundle bobs and rocks, like the mockup.
 	local born = os.clock()
-	c.spin = RunService.RenderStepped:Connect(function()
-		local k = math.max(0.1, math.abs(math.cos((os.clock() - born) * 2.4)))
-		coin.Size = UDim2.fromScale(k, 1)
-		coinShadow.Size = coin.Size
-		mark.TextTransparency = if k < 0.45 then 1 else 0
+	c.bob = RunService.RenderStepped:Connect(function()
+		local wave = (1 - math.cos((os.clock() - born) * math.pi * 2 / 1.6)) / 2
+		bundle.Position = UDim2.fromOffset(c.bundleHome.X, c.bundleHome.Y - 6 * wave)
+		bundle.Rotation = -4 * wave
 	end)
 
 	local function hover(button: TextButton, normal: Color3, lit: Color3, isLive: () -> boolean)
@@ -610,7 +548,7 @@ local function onMessage(message: any)
 
 	if message.collected then
 		-- The DOUBLE IT receipt went through (or the server paid out some other way
-		-- while the card was up): fly the coins and close.
+		-- while the card was up): fly the bills and close.
 		local c = card
 		if c and not c.closing then
 			local from = if message.doubled then c.double else c.collect
