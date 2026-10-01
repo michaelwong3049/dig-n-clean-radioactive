@@ -15,7 +15,8 @@
 	  * its aura is ALWAYS lit, for everyone, not only inside somebody's detector
 	    radius. "Surfaced in Ooze Marsh" plus a glow you can spot across the stage is
 	    what makes it a race rather than a needle in 75 haystacks.
-	It still carries crust, a modifier and a pull fuse like any other nuke.
+	It still carries crust and a pull fuse like any other nuke, and always at least
+	one buff (BUFFS below).
 
 	THE ROLL. TIER_WEIGHTS below, and the Violet Aurora (Config/LuckBoost) amplifies
 	it: every rung above Epic is multiplied by the server's luck boost once per rung,
@@ -52,12 +53,103 @@ RareDrop.TIER_WEIGHTS = {
 	{ rarity = "Anomaly", weight = 1 },
 }
 
+-- ── Buffs ──────────────────────────────────────────────────────────────────────
+-- An announced drop is never a plain copy: it always carries at least one buff, and
+-- often more. The buffs are a big size (OVERSIZED or GIGA, Config/Payload's callouts)
+-- and the good qualities (Rarity.MODIFIERS), STACKED -- the first quality is the
+-- copy's `modifier`, the rest ride in its `bonus` list (Rarity.qualities), and every
+-- one multiplies the value. So 4 buffs = GIGA + Pristine + Irradiated + Fused.
+--
+-- How many, by weight: 1 (38%), 2 (50%), 3 (10%), 4 (2%).
+RareDrop.BUFF_COUNT_WEIGHTS = {
+	{ count = 1, weight = 38 },
+	{ count = 2, weight = 50 },
+	{ count = 3, weight = 10 },
+	{ count = 4, weight = 2 },
+}
+-- The qualities a drop can stack, best first (Merge.MODIFIER_RANK's order), so the
+-- best one picked is always the copy's `modifier`.
+RareDrop.QUALITIES = { "Pristine", "Irradiated", "Fused" }
+-- When the size buff is picked, the share of drops that come up GIGA, not OVERSIZED.
+RareDrop.GIGA_SHARE = 0.25
+-- The payload ranges each size outcome lands in (Payload.CALLOUTS' edges). A drop
+-- that did NOT pick the size buff still lands at a full 1x or more -- never a
+-- shrunken copy, and never a size sticker it did not roll.
+RareDrop.SIZE_RANGES = {
+	GIGA = { min = 2.2, max = math.huge },
+	OVERSIZED = { min = 1.6, max = 2.2 },
+	plain = { min = 1.0, max = 1.6 },
+}
+
+export type Buffs = {
+	size: string?, -- "GIGA" / "OVERSIZED", nil for no size buff
+	qualities: { string }, -- best first; [1] is the modifier, the rest the bonus
+}
+
+--- Roll one drop's buffs. `rng` is a Random.
+function RareDrop.rollBuffs(rng: Random): Buffs
+	local total = 0
+	for _, entry in RareDrop.BUFF_COUNT_WEIGHTS do
+		total += entry.weight
+	end
+	local count = 1
+	local pick = rng:NextNumber() * total
+	for _, entry in RareDrop.BUFF_COUNT_WEIGHTS do
+		pick -= entry.weight
+		if pick < 0 then
+			count = entry.count
+			break
+		end
+	end
+
+	-- Draw `count` distinct buffs out of size + every quality.
+	local pool = { "size" }
+	for _, name in RareDrop.QUALITIES do
+		table.insert(pool, name)
+	end
+	local picked: { [string]: boolean } = {}
+	for _ = 1, math.min(count, #pool) do
+		local index = rng:NextInteger(1, #pool)
+		picked[pool[index]] = true
+		table.remove(pool, index)
+	end
+
+	local qualities = {}
+	for _, name in RareDrop.QUALITIES do
+		if picked[name] then
+			table.insert(qualities, name)
+		end
+	end
+	local size = if picked.size then (if rng:NextNumber() < RareDrop.GIGA_SHARE then "GIGA" else "OVERSIZED") else nil
+	return { size = size, qualities = qualities }
+end
+
+--- Whether a payload roll `mult` fits `size` (a Buffs.size; nil = the plain range).
+function RareDrop.sizeFits(size: string?, mult: number): boolean
+	local range = RareDrop.SIZE_RANGES[size or "plain"]
+	return mult >= range.min and mult < range.max
+end
+
+--- The buffs as banner words, size first: "GIGA PRISTINE IRRADIATED".
+function RareDrop.buffWords(size: string?, qualities: { string }): string
+	local words = {}
+	if size then
+		table.insert(words, size)
+	end
+	for _, name in qualities do
+		table.insert(words, string.upper(name))
+	end
+	return table.concat(words, " ")
+end
+
 -- ── Replication (ReplicatedStorage attributes) ─────────────────────────────────
 -- A live drop: its end time (server time, `workspace:GetServerTimeNow()`), stage and
 -- rarity. EndsAt absent / 0 = no drop live.
 RareDrop.ENDS_ATTR = "RareDropEndsAt"
 RareDrop.STAGE_ATTR = "RareDropStage"
 RareDrop.RARITY_ATTR = "RareDropRarity"
+-- Its buffs as banner words (RareDrop.buffWords), "GIGA PRISTINE".
+RareDrop.BUFFS_ATTR = "RareDropBuffs"
 -- How the last drop ended, for the closing banner: "claimed:<name>", "blown", "sunk".
 -- Set once as the drop ends, next to a fresh ENDED_AT so the same outcome twice in a
 -- row still fires a change.

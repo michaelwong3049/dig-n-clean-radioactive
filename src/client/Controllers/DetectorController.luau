@@ -1348,7 +1348,8 @@ local function showFind(found)
 	local def = Rarity.DEFS[found.rarity]
 	local colour = if def then def.color else COLOR.text
 
-	local modifier = if found.modifier == "None" or found.modifier == nil then "" else found.modifier .. " "
+	local qualities = Rarity.qualities(found.modifier, found.bonus)
+	local modifier = if #qualities == 0 then "" else table.concat(qualities, " ") .. " "
 	local heft = if type(found.weight) == "number" then `  \u{00B7}  {formatWeight(found.weight)}` else ""
 	ui.bannerRarity.Text = string.upper(modifier .. found.rarity) .. heft
 	ui.bannerRarity.TextColor3 = colour

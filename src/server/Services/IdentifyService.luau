@@ -166,6 +166,8 @@ function IdentifyService.announce(player: Player, item: any, firstFind: boolean,
 		flavor = def.flavor,
 		rarity = item.rarity,
 		modifier = item.modifier,
+		-- An announced drop's stacked qualities (Rarity.qualities), stamped too.
+		bonus = item.bonus,
 		-- The wash reveal re-derives this dig's size roll off it for the star rating.
 		uid = item.uid,
 		weight = Weight.shownKg(def.weight, mult),

@@ -40,11 +40,24 @@ local FONT = UIKit.Font.hero -- Gotham Black
 local TEXT_SIZE = 38
 local STROKE = 3
 
--- The line sits a little under the Violet Aurora's (0.24) so the two never land on
--- top of each other. Design px on the 1280x720 canvas.
-local LINE_Y = 0.34
+-- The line sits high, above the Violet Aurora's (0.24) so the two never land on top
+-- of each other. Design px on the 1280x720 canvas.
+local LINE_Y = 0.14
 local LINE_W = 1200
 local LINE_H = 52
+
+-- The drop's buffs (Config/RareDrop), one row of words over the line, each in the
+-- colour the wash stamp and stand sticker give it.
+local BUFF_SIZE = 28
+local BUFF_H = 36
+local BUFF_GAP = "  +  "
+local BUFF_COLOR: { [string]: Color3 } = {
+	GIGA = Color3.fromHex("FACC15"),
+	OVERSIZED = Color3.fromHex("F59E0B"),
+	PRISTINE = Color3.fromHex("7DF9FF"),
+	IRRADIATED = Color3.fromHex("A3FF3C"),
+	FUSED = Color3.fromHex("FF8A3D"),
+}
 
 -- How much of the Anomaly spectrum spans the line at once, and how many gradient
 -- keypoints carry it.
@@ -60,6 +73,7 @@ local ui: {
 	card: CanvasGroup,
 	cardScale: UIScale,
 	line: TextLabel,
+	buffs: TextLabel,
 	rainbow: UIGradient,
 }? = nil
 
@@ -95,7 +109,7 @@ local function build(): ScreenGui
 	card.Name = "Card"
 	card.AnchorPoint = Vector2.new(0.5, 0.5)
 	card.Position = UDim2.fromScale(0.5, LINE_Y)
-	card.Size = UDim2.fromOffset(LINE_W, LINE_H + 16)
+	card.Size = UDim2.fromOffset(LINE_W, BUFF_H + LINE_H + 16)
 	card.BackgroundTransparency = 1
 	card.GroupTransparency = 1
 	card.Visible = false
@@ -106,8 +120,8 @@ local function build(): ScreenGui
 	local line = Instance.new("TextLabel")
 	line.Name = "Line"
 	line.BackgroundTransparency = 1
-	line.AnchorPoint = Vector2.new(0.5, 0.5)
-	line.Position = UDim2.fromScale(0.5, 0.5)
+	line.AnchorPoint = Vector2.new(0.5, 1)
+	line.Position = UDim2.new(0.5, 0, 1, -8)
 	line.Size = UDim2.fromOffset(LINE_W, LINE_H)
 	line.Font = FONT
 	line.TextSize = TEXT_SIZE
@@ -120,6 +134,25 @@ local function build(): ScreenGui
 	stroke.LineJoinMode = Enum.LineJoinMode.Round
 	stroke.Parent = line
 
+	local buffs = Instance.new("TextLabel")
+	buffs.Name = "Buffs"
+	buffs.BackgroundTransparency = 1
+	buffs.AnchorPoint = Vector2.new(0.5, 0)
+	buffs.Position = UDim2.new(0.5, 0, 0, 8)
+	buffs.Size = UDim2.fromOffset(LINE_W, BUFF_H)
+	buffs.Font = FONT
+	buffs.TextSize = BUFF_SIZE
+	buffs.TextColor3 = WHITE
+	buffs.RichText = true
+	buffs.TextXAlignment = Enum.TextXAlignment.Center
+	buffs.Visible = false
+	buffs.Parent = card
+	local buffStroke = Instance.new("UIStroke")
+	buffStroke.Color = INK
+	buffStroke.Thickness = STROKE
+	buffStroke.LineJoinMode = Enum.LineJoinMode.Round
+	buffStroke.Parent = buffs
+
 	-- Off unless the line is an Anomaly's; the text is white under it so the
 	-- gradient's colours come through as they are.
 	local rainbow = Instance.new("UIGradient")
@@ -130,6 +163,7 @@ local function build(): ScreenGui
 		card = card,
 		cardScale = cardScale,
 		line = line,
+		buffs = buffs,
 		rainbow = rainbow,
 	}
 	return gui
@@ -155,8 +189,21 @@ local function startRainbow(gradient: UIGradient)
 	end)
 end
 
---- `rainbow` = an Anomaly's line: white text under the scrolling spectrum.
-local function showLine(text: string, color: Color3, rainbow: boolean, hold: number)
+--- "GIGA PRISTINE" -> the buff row's rich text, each word in its own colour.
+local function buffRow(words: string): string
+	local parts = {}
+	for _, word in string.split(words, " ") do
+		if word ~= "" then
+			local color = BUFF_COLOR[word] or WHITE
+			table.insert(parts, `<font color="#{color:ToHex()}">{word}</font>`)
+		end
+	end
+	return table.concat(parts, BUFF_GAP)
+end
+
+--- `rainbow` = an Anomaly's line: white text under the scrolling spectrum. `buffs` =
+--- the drop's buff words for the row above it (announcements only).
+local function showLine(text: string, color: Color3, rainbow: boolean, hold: number, buffs: string?)
 	local u = ui
 	if u == nil then
 		return
@@ -164,6 +211,8 @@ local function showLine(text: string, color: Color3, rainbow: boolean, hold: num
 	cardToken += 1
 	local mine = cardToken
 	u.line.Text = text
+	u.buffs.Visible = buffs ~= nil and buffs ~= ""
+	u.buffs.Text = if buffs then buffRow(buffs) else ""
 	u.line.TextColor3 = if rainbow then WHITE else color
 	u.rainbow.Enabled = rainbow
 	if rainbow then
@@ -199,13 +248,15 @@ local function onLive()
 	end
 	local rarity = ReplicatedStorage:GetAttribute(RareDrop.RARITY_ATTR)
 	local stage = ReplicatedStorage:GetAttribute(RareDrop.STAGE_ATTR)
+	local buffs = ReplicatedStorage:GetAttribute(RareDrop.BUFFS_ATTR)
 	local tier = if type(rarity) == "string" then rarity else "Epic"
 	Sfx.play("rareDrop")
 	showLine(
 		`{withArticle(tier)} has appeared in {stageName(if type(stage) == "number" then stage else nil)}!`,
 		colorOf(tier),
 		tier == "Anomaly",
-		ANNOUNCE_HOLD
+		ANNOUNCE_HOLD,
+		if type(buffs) == "string" then buffs else nil
 	)
 end
 

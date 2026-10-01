@@ -221,6 +221,8 @@ type Signal = {
 	-- plant time (no per-player luck re-roll), aura lit for everyone, and it is not
 	-- replaced when it goes -- it was one over the stage's SIGNALS_PER_STAGE.
 	rareDrop: boolean?,
+	-- A drop's stacked extra qualities (Rarity.qualities), copied onto the dug item.
+	bonus: { string }?,
 	-- THE TUTORIAL SPOT (Config/Tutorial.DIG_SPOT_IN): one fixed shallow Common just
 	-- inside Stage 1's entrance. A safe digger registers ONLY this signal, so the
 	-- "Find a spot to dig" step has exactly one answer and nobody wanders off. Nobody
@@ -1080,6 +1082,8 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 		-- because that is when it picked the dirt up. Extends ARCHITECTURE's CarriedItem.
 		patches = Contamination.rollPatches(rarity, modifier),
 		crateId = crateId,
+		-- An announced drop's stacked qualities (Config/RareDrop's buffs).
+		bonus = if signal.rareDrop then signal.bonus else nil,
 	}
 	if crateId and #carried.patches == 0 then
 		carried.patches = { Rarity.get(rarity).hardness }
@@ -1105,6 +1109,7 @@ local function unearth(player: Player, data: any, signal: Signal, itemId: string
 		flavor = if sealed then item.flavor else nil,
 		rarity = rarity,
 		modifier = modifier,
+		bonus = carried.bonus,
 		weight = item.weight,
 		payload = Payload.forUid(signal.uid),
 		carrying = Bag.used(data),
@@ -1681,7 +1686,7 @@ end
 
 --- Bury the announced drop: `itemId`, fixed, at the shallowest band of a random open
 --- spot in `stageId`. Returns its uid, or nil when no spot could be found.
-function DigService.plantRareDrop(stageId: number, itemId: string): string?
+function DigService.plantRareDrop(stageId: number, itemId: string, buffs: RareDrop.Buffs): string?
 	local part = stagePart(stageId)
 	local list = signalsByStage[stageId]
 	if part == nil or list == nil then
@@ -1699,14 +1704,28 @@ function DigService.plantRareDrop(stageId: number, itemId: string): string?
 		return nil
 	end
 
+	-- The size buff. A payload roll is seeded on the uid (Config/Payload) and never
+	-- stored, so the way to bury a GIGA is to draw uids until one rolls GIGA (~1 in 50).
+	local uid = HttpService:GenerateGUID(false)
+	for _ = 1, 4000 do
+		if RareDrop.sizeFits(buffs.size, Payload.forUid(uid)) then
+			break
+		end
+		uid = HttpService:GenerateGUID(false)
+	end
+
+	local bonus = table.clone(buffs.qualities)
+	local modifier = if #bonus > 0 then table.remove(bonus, 1) :: string else "None"
+
 	local item = Items.get(itemId)
 	local signal: Signal = {
-		uid = HttpService:GenerateGUID(false),
+		uid = uid,
 		stageId = stageId,
 		position = position,
 		itemId = itemId,
 		rarity = item.rarity,
-		modifier = rollModifier(),
+		modifier = modifier,
+		bonus = if #bonus > 0 then bonus else nil,
 		-- Shallow on purpose: the starter detector reaches it (Config/RareDrop).
 		depth = DEPTH_BASE + math.random() * DEPTH_JITTER,
 		soil = Stages.get(stageId).soilHardness,

@@ -141,12 +141,11 @@ function CarryService.describe(item: any, stats: any): any
 	local perSecond: number? = nil
 	if clean and item.modifier ~= "Slagged" then
 		local rarity = Rarity.get(item.rarity)
-		local mod = Rarity.MODIFIERS[item.modifier] or Rarity.MODIFIERS.None
 		-- Same Weight.valueMult/Payload.forUid factors ExhibitService.entryYieldPerSecond
 		-- applies, so the bag's "would earn $/s" preview matches what the pedestal
 		-- actually pays.
 		perSecond = def.baseValue
-			* mod.valueMult
+			* Rarity.valueMult(item.modifier, item.bonus)
 			* Weight.valueMult(def.weight)
 			* Payload.forUid(item.uid)
 			* Merge.valueMult(Merge.levelOf(item))
@@ -180,6 +179,7 @@ function CarryService.describe(item: any, stats: any): any
 			then Crates.get(item.crateId).pullWeight
 			else Weight.shownKg(def.weight, Payload.forUid(item.uid)),
 		modifier = item.modifier,
+		bonus = item.bonus,
 		-- Merge stars (Config/Merge), 0 for a copy never merged.
 		merge = Merge.levelOf(item),
 		patches = table.clone(patches),

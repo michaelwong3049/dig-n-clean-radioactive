@@ -428,12 +428,11 @@ end
 local function entryYieldPerSecond(entry: any, damping: number, stats: any): number
 	local def = Items.get(entry.itemId)
 	local rarity = Rarity.get(entry.rarity)
-	local mod = Rarity.MODIFIERS[entry.modifier] or Rarity.MODIFIERS.None
 	-- Weight.valueMult and Payload.forUid layer in here exactly as they do in
 	-- EconomyService.valueOf, so a heavy/big-rolled piece pays more per second AND
 	-- sells for more, off the same two factors.
 	return def.baseValue
-		* mod.valueMult
+		* Rarity.valueMult(entry.modifier, entry.bonus)
 		* Weight.valueMult(def.weight)
 		* Payload.forUid(entry.uid)
 		* Merge.valueMult(Merge.levelOf(entry))
@@ -447,6 +446,7 @@ type StandCardInfo = {
 	itemId: string,
 	rarity: string,
 	modifier: string,
+	bonus: { string }?,
 	merge: number,
 	rate: number,
 	copy: number,
@@ -467,6 +467,7 @@ local function setStandCard(display: BasePart, card: StandCardInfo?)
 	display:SetAttribute(A.item, if card then card.itemId else "")
 	display:SetAttribute(A.rarity, if card then card.rarity else nil)
 	display:SetAttribute(A.modifier, if card then card.modifier else nil)
+	display:SetAttribute(A.bonus, if card then Rarity.bonusText(card.bonus) else nil)
 	display:SetAttribute(A.merge, if card and card.merge > 0 then card.merge else nil)
 	display:SetAttribute(A.rate, if card then card.rate else nil)
 	display:SetAttribute(A.copy, if card then card.copy else nil)
@@ -513,6 +514,7 @@ local function refreshStandCards(index: number, data: any?)
 				itemId = entry.itemId,
 				rarity = entry.rarity,
 				modifier = entry.modifier or "None",
+				bonus = entry.bonus,
 				merge = Merge.levelOf(entry),
 				rate = entryYieldPerSecond(entry, damping, stats),
 				copy = copyIndex,
@@ -1120,6 +1122,7 @@ local function takeOff(data: any, plot: number, index: number): (boolean, string
 		rarity = entry.rarity,
 		modifier = entry.modifier,
 		merge = entry.merge,
+		bonus = entry.bonus,
 		elapsed = 0,
 		frozen = true,
 		patches = {},
@@ -1210,6 +1213,7 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 			rarity = displaced.rarity,
 			modifier = displaced.modifier,
 			merge = displaced.merge,
+			bonus = displaced.bonus,
 			elapsed = 0,
 			frozen = true,
 			patches = {},
@@ -1223,6 +1227,7 @@ function ExhibitService.interact(player: Player, plot: number, slot: number): (b
 		rarity = item.rarity,
 		modifier = item.modifier,
 		merge = item.merge,
+		bonus = item.bonus,
 		placedAt = os.time(),
 	})
 
@@ -1287,6 +1292,7 @@ function ExhibitService.nukeList(player: Player): any?
 			name = Items.get(entry.itemId).name,
 			rarity = entry.rarity,
 			modifier = entry.modifier or "None",
+			bonus = entry.bonus,
 			merge = Merge.levelOf(entry),
 			rate = entryYieldPerSecond(entry, damping, stats),
 			copy = copyIndex,
@@ -1443,6 +1449,7 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 			rarity = entry.rarity,
 			modifier = entry.modifier,
 			merge = entry.merge,
+			bonus = entry.bonus,
 			elapsed = 0,
 			frozen = true,
 			patches = {},
@@ -1467,6 +1474,7 @@ function ExhibitService.equipBest(player: Player): (boolean, string)
 			rarity = item.rarity,
 			modifier = item.modifier,
 			merge = item.merge,
+			bonus = item.bonus,
 			placedAt = now,
 		}
 		table.insert(stays, entry)

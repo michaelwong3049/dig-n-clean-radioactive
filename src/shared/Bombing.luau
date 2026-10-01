@@ -59,7 +59,7 @@ end
 --- The star rating a bag nuke counts as: the same Rarity.stars every other surface
 --- uses (stand card, Nukes panel, trader). Also what the overhead badge averages.
 function Bombing.starsOf(item: any): number
-	return Rarity.stars(item.rarity, item.modifier, if item.uid then Payload.forUid(item.uid) else nil)
+	return Rarity.stars(item.rarity, item.modifier, if item.uid then Payload.forUid(item.uid) else nil, item.bonus)
 end
 
 --- Everything a nuke does as a bomb. `item` needs rarity, modifier and uid (a bag
