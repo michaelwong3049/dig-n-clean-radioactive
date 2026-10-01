@@ -72,9 +72,22 @@ end
 --- here safely", 1 (deepest) for "what happens if you actually push in" -- see
 --- Stages.radsAt. Defaults to 0 so existing call sites that don't care about depth
 --- keep testing the same "just inside the stage" point they always did.
+---
+--- Resolved WITH a zone, exactly as ExposureService does, so the aura's damage comes
+--- off the zone survival curve (Radiation.zoneSurvival). A flat 100 HP: the curve is
+--- in seconds of a full bar, so max health cancels out.
+local function readingAt(stageId: number, auraTier: number, carried: number, depthFrac: number?)
+	local d = depthFrac or 0
+	return Radiation.resolve(Radiation.ambientAt(Stages.radsAt(stageId, d)), carried, statsFor(auraTier), {
+		stageId = stageId,
+		depthFrac = d,
+		auraTier = auraTier,
+		maxHealth = 100,
+	})
+end
+
 local function survive(stageId: number, auraTier: number, carried: number, depthFrac: number?): number
-	local reading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(stageId, depthFrac or 0)), carried, statsFor(auraTier))
-	return Radiation.survivableSeconds(reading, 0, 100)
+	return Radiation.survivableSeconds(readingAt(stageId, auraTier, carried, depthFrac), 0, 100)
 end
 
 local function bagOf(rarity: string, modifier: string, count: number, elapsed: number)
@@ -511,55 +524,81 @@ function Spec.run(): boolean
 		check("§merge Toxic Twilight stands a Merge Reactor", (Camps.get("twilight") :: any) ~= nil and (Camps.get("twilight") :: any).mergeReactor == true and reactors >= 1)
 	end
 
-	-- PLAN §3.5 — the Dive is ~one dig, in every stage. Tested at the ENTRANCE
-	-- (depthFrac=0), same as before this file's depth-based radiation pass -- this
-	-- check is about "one tier under, at all," and the entrance rate is exactly
-	-- the number these targets were originally fitted against, unchanged by the
-	-- depth pass on purpose (see Stages.luau's header note). Real depth-driven
-	-- danger is checked separately below, directly against Stages.radsAt, rather
-	-- than folded into this already-precisely-tuned survival-time math.
-	--
-	-- BAND TIGHTENED 25-40 -> 18-30 (second pass) -> 8-15 (third pass, BURN_COEF
-	-- 3.0->6.0, Tuning.luau): the dive now lands at ~12s, was ~23s, was ~35s
-	-- originally. This band moved a second time as a direct, unavoidable side
-	-- effect of an explicit Stage 3 unshielded-survival target, NOT an independent
-	-- decision to keep tightening the Dive on its own -- see Tuning.luau's
-	-- BURN_COEF comment for the full reasoning on why the two couldn't be
-	-- decoupled. Still "sprint in, grab one signal, extract, run," just a much
-	-- faster sprint than PLAN §3.5 originally imagined. Band widened 8-15 -> 8-18
-	-- when BURN_COEF eased 6.0 -> 4.8 (dive ~12s -> ~15s).
-	for stageId = 3, 6 do
-		local s = survive(stageId, Stages.get(stageId).ratedAuraTier - 1, 0)
-		check(string.format("§3.5 dive window in stage %d = %.0fs (want 8-18)", stageId, s), s >= 8 and s <= 18)
+	-- THE ZONE SURVIVAL CURVE (Tuning.ZONE_SURVIVAL), pinned to the user's targets.
+	-- Read straight off Radiation.zoneSurvival: the aura's share of the damage only,
+	-- seconds a full health bar lasts. The exposure meter stacks on top of this.
+	--   * your own stage: minimal drain over the first 60%, then steadier and harsher
+	--   * one tier under: 20-30s at the entrance, under 3s past 60%
+	--   * stages 7-12 harsher than 1-6 on both
+	--   * the top aura in Stage 12 (rated past the ladder): about a minute
+	do
+		local Z = Tuning.ZONE_SURVIVAL
+		local smooth, ratedOk, underOk, harsher = true, true, true, true
+		local detail = ""
+		for stageId = 1, #Stages.DEFS do
+			local rated = Stages.get(stageId).ratedAuraTier
+			if rated <= Gear.maxTier("Aura") then
+				-- Rated: never steps -- every 1% further in is at most a few % shorter.
+				local prev = Radiation.zoneSurvival(stageId, 0, rated)
+				for i = 1, 100 do
+					local now = Radiation.zoneSurvival(stageId, i / 100, rated)
+					if now > prev + 1e-6 or now < prev * 0.95 then
+						smooth = false
+						detail = `stage {stageId} at {i}%`
+					end
+					prev = now
+				end
+				local entrance = Radiation.zoneSurvival(stageId, 0, rated)
+				local brk = Radiation.zoneSurvival(stageId, Z.BREAK, rated)
+				local far = Radiation.zoneSurvival(stageId, 1, rated)
+				if not (entrance >= 300 and brk >= 180 and far >= 60 and far < brk) then
+					ratedOk = false
+				end
+			end
+			if rated >= 2 and rated - 1 <= Gear.maxTier("Aura") and rated <= Gear.maxTier("Aura") then
+				local under = rated - 1
+				local entrance = Radiation.zoneSurvival(stageId, 0, under)
+				local past = Radiation.zoneSurvival(stageId, Z.BREAK + 0.01, under)
+				local lo = if stageId >= Z.HARSH_FROM_STAGE then 15 else 20
+				if not (entrance >= lo and entrance <= 30 and past < 3) then
+					underOk = false
+				end
+				if stageId >= Z.HARSH_FROM_STAGE then
+					local early = Radiation.zoneSurvival(2, 0, 1)
+					if not (entrance < early) then
+						harsher = false
+					end
+				end
+			end
+		end
+		check(`§zone the rated drain climbs smoothly, no steps ({detail ~= "" and detail or "ok"})`, smooth)
+		check("§zone a rated aura lasts minutes: >=5m entrance, >=3m at 60%, >=1m at the far edge", ratedOk)
+		check("§zone one tier under: 20-30s at the entrance (15-30s in 7-12), under 3s past 60%", underOk)
+		check("§zone stages 7-12 are harsher than 1-6 one tier under", harsher)
+		check("§zone two tiers under is about a second", Radiation.zoneSurvival(5, 0, 3) <= 1.5)
+		check("§zone an aura above the stage's rating takes no aura damage", Radiation.zoneSurvival(3, 1, 5) == math.huge)
+		local top = Gear.maxTier("Aura")
+		local last = #Stages.DEFS
+		local mid = Radiation.zoneSurvival(last, 0.5, top)
+		check(
+			string.format("§zone the strongest aura (%s) lasts about a minute in Stage %d: %.0fs mid-stage (want 45-75)", Gear.tier("Aura", top).name, last, mid),
+			Stages.get(last).ratedAuraTier > top and mid >= 45 and mid <= 75
+		)
 	end
 
 	-- PLAN §3.4 — a rated aura means you can work, not just survive. Entrance,
-	-- same reasoning as the Dive above.
+	-- same reasoning as the zone checks above: ten minutes at the gate.
 	--
-	-- STAGE 1 IS DELIBERATELY EXCLUDED FROM THIS LOOP as of the third harshening
-	-- pass. Stage 1's rated aura tier IS Faint Glow (the starting/no-gear tier), so
-	-- this check used to mean "a fresh player can stand in Stage 1 forever" -- true
-	-- before this pass (it was exposure-bound at ~33 minutes), no longer true by
-	-- explicit design choice (capped at 9 minutes via Faint Glow's own `reduction`,
-	-- see Gear.luau). Checked on its own immediately below instead of silently
-	-- dropped, so a future change can't quietly regress it back past 15 minutes
-	-- without this file complaining.
+	-- STAGE 1 IS DELIBERATELY EXCLUDED FROM THIS LOOP. Stage 1's rated aura tier IS
+	-- Faint Glow (the starting/no-gear tier), capped at ~9 minutes by its own
+	-- `reduction` (see Gear.luau). Checked on its own immediately below.
 	for stageId = 2, 5 do
-		check(string.format("§3.4 rated aura farmable in stage %d", stageId), survive(stageId, Stages.get(stageId).ratedAuraTier, 0) > 900)
+		local s = survive(stageId, Stages.get(stageId).ratedAuraTier, 0)
+		check(string.format("§3.4 rated aura workable at stage %d's entrance = %.0fs (want >= 600)", stageId, s), s >= 600)
 	end
 	do
 		local s = survive(1, 1, 0)
 		check(string.format("§3.4 stage 1 unshielded capped at ~9min = %.0fs (want 480-600)", s), s >= 480 and s <= 600)
-	end
-
-	-- The ask was "an unshielded player should die fast near Stage 1's own far end" --
-	-- checked at Stage 1's own deepest point (depthFrac=1.0, its worst case for this
-	-- bound, since ambient only climbs further in), tuned via Stage 1's deepRads
-	-- specifically (see Stages.luau's Stage 1 comment for why 1.97 and not higher --
-	-- any higher breaks "Stage 1 is the safest stage" against Stage 2's own entrance).
-	do
-		local s = survive(1, 1, 0, 1.0)
-		check(string.format("§new Stage 1's own deepest point, unshielded dies within 40s = %.0fs", s), s < 40)
 	end
 
 	-- PLAN §4 — the Crater never becomes a farm, at any gear level, forever.
@@ -580,21 +619,13 @@ function Spec.run(): boolean
 	end
 
 	-- THE CRATER'S FAR EDGE IS TOXIC TWILIGHT'S DOORSTEP (Config/Camps). The top aura has
-	-- to be able to walk out into the camp -- no burn at the east edge, where the camp's
-	-- gate is -- and the aura under it must not, or reaching the camp stops being earned.
-	-- Checked against the tolerances directly (burn is ambient-only; see Radiation), then
-	-- as a survival time, so the Nimbus's exposure clock still leaves room for the walk.
+	-- to be able to walk out into the camp -- its aura holding at the east edge, where
+	-- the camp's gate is -- and the aura under it must not, or reaching the camp stops
+	-- being earned. Checked on the zone curve, then as a survival time, so the Nimbus's
+	-- exposure clock still leaves room for the walk.
 	do
-		local nimbus, mantle = Gear.tier("Aura", 6), Gear.tier("Aura", 5)
-		local edge = Stages.radsAt(6, 1)
-		check(
-			string.format("§camp the Crater's east edge (%.0f) is under the Nimbus's tolerance (%.1f) — Toxic Twilight is reachable on foot", edge, nimbus.tolerance),
-			edge < nimbus.tolerance
-		)
-		check(
-			string.format("§camp ...and over the Isotope Mantle's (%.1f) — only the top aura walks in", mantle.tolerance),
-			edge > mantle.tolerance
-		)
+		check("§camp the Nimbus holds at the Crater's east edge — Toxic Twilight is reachable on foot", not readingAt(6, 6, 0, 1).failing)
+		check("§camp ...and the Isotope Mantle fails there — only the top aura walks in", readingAt(6, 5, 0, 1).failing)
 		local walkOut = survive(6, 6, 0, 1.0)
 		check(string.format("§camp full Rig at the Crater's east edge lasts %.0fs (want > 30, time to reach the gate)", walkOut), walkOut > 30)
 	end
@@ -762,14 +793,14 @@ function Spec.run(): boolean
 	local overEmpty = survive(5, 3, 0, 0)
 	local overFull = survive(5, 3, Decay.totalEmission(bagOf("Rare", "None", 8, 0), 1), 0)
 	check("§3.5 over-tier burn is unaffected by what you carry", math.abs(overEmpty - overFull) < 1)
-	local overReading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(5, 0)), 0, statsFor(3))
+	local overReading = readingAt(5, 3, 0, 0)
 	check("§3.5 over-tier flags aura failure", overReading.failing)
 	check("§3.5 over-tier dominant threat is burn", Radiation.dominantThreat(overReading, 0, 100) == "burn")
 
 	-- PLAN §3.3 — the greed dial. Carrying loot is the GREEN threat, never the
 	-- white one. Tested at depthFrac=0, same "safe at the entrance" reasoning.
 	local hotBag = { bagOf("Epic", "None", 1, 0)[1], bagOf("Legendary", "Irradiated", 1, 200)[1] }
-	local hotReading = Radiation.resolve(Radiation.ambientAt(Stages.radsAt(3, 0)), Decay.totalEmission(hotBag, 1), statsFor(3))
+	local hotReading = readingAt(3, 3, Decay.totalEmission(hotBag, 1), 0)
 	check("§3.3 a hot bag does NOT trip aura failure in your rated stage", not hotReading.failing)
 	check("§3.3 a hot bag's threat is exposure, not burn", Radiation.dominantThreat(hotReading, 0, 100) == "exposure")
 	local hotS = Radiation.survivableSeconds(hotReading, 0, 100)
@@ -779,7 +810,7 @@ function Spec.run(): boolean
 	-- PLAN §3.3 — but a normal full bag is comfortable. Greed should be a choice, not a tax.
 	local fullS = survive(3, 3, Decay.totalEmission(bagOf("Rare", "None", 8, 0), 1))
 	check(string.format("§3.3 a full bag of rated loot is comfortable: %.0fs (want 150-330)", fullS), fullS > 150 and fullS < 330)
-	check("§3.3 an empty bag in your rated stage is safe indefinitely", survive(3, 3, 0) > 900)
+	check("§3.3 an empty bag at your rated stage's entrance lasts ten minutes+", survive(3, 3, 0) >= 600)
 
 	-- PLAN §5.1 — the haul penalty lives on the Aura now (the Satchel track is retired,
 	-- Config/Gear's RETIRED block). Every rung still drags a loaded player, and a better
@@ -1520,10 +1551,10 @@ function Spec.run(): boolean
 	end
 	check("Toxic Twilight sells hose tiers 8-12, in the user's order", twilightHosesOk)
 
-	-- Twilight's six auras, pinned by name: AuraLook's shapes (corona, aurora, torus,
-	-- wings, then Stages 11-12's seraph and vortex) were picked for exactly these rungs,
-	-- in this order.
-	local twilightAurasWant = { "Dusk Corona", "Toxic Aurora", "Eclipse Veil", "Twilight Singularity", "Seraph", "Crimson Vortex" }
+	-- Twilight's five auras, pinned by name: AuraLook's shapes (aurora, torus, wings,
+	-- seraph, vortex) are drawn per tier in exactly this order. Dusk Corona was cut
+	-- and the rest slid down one rung (Config/Gear).
+	local twilightAurasWant = { "Toxic Aurora", "Eclipse Veil", "Twilight Singularity", "Seraph", "Crimson Vortex" }
 	local twilightAurasHave = Gear.tiersAt("Aura", "twilight")
 	local twilightAurasOk = #twilightAurasHave == #twilightAurasWant
 	for slot, tier in twilightAurasHave do
@@ -1531,7 +1562,7 @@ function Spec.run(): boolean
 			twilightAurasOk = false
 		end
 	end
-	check("Toxic Twilight sells aura tiers 7-12, in the order their shapes were picked", twilightAurasOk)
+	check("Toxic Twilight sells aura tiers 7-11, in the order their shapes were picked", twilightAurasOk)
 
 	-- Revealing is not the same as reaching. If the pull radius ever grows into the
 	-- reveal radius, the walk to the glow disappears and the loop is one button.

@@ -81,6 +81,34 @@ Tuning.SICKNESS_FULL_METER = 0.10
 -- ~12s -> ~15s; Stage 2 with no aura ~28s -> ~35s. In-tier play is untouched (no burn).
 Tuning.BURN_COEF = 4.8
 Tuning.BURN_EXPONENT = 0.75
+
+-- ── Zone survival curve (Radiation.zoneSurvival) ──────────────────────────────
+-- REPLACES THE TOLERANCE BURN ABOVE AS THE AURA'S DAMAGE. The old burn switched on
+-- the instant the air crossed your aura's tolerance, which landed at a different depth
+-- in every stage and read as sudden jumps. Now the aura's damage is stated directly
+-- as SECONDS A FULL HEALTH BAR LASTS (so the +50 HP per aura tier never skews it),
+-- picked from where you stand and your aura against the stage's ratedAuraTier:
+--
+--   rated   : your aura is the stage's own. Minimal drain over the first BREAK of
+--             the stage, then a steady, harsher one to the far edge. Not "failing".
+--   under   : one tier too weak. 20-30s at the entrance, ~2-3s past BREAK. Failing.
+--   wayUnder: two or more tiers too weak. About a second, anywhere. Failing.
+--   lastAura: the top aura in a stage rated past the end of the ladder (Stage 12).
+--             About a minute, on purpose: the deepest stage is a raid, not a farm.
+--   (an aura ABOVE the stage's rating takes no aura damage at all)
+--
+-- Each row is { at the entrance, at BREAK, at the far edge }, in seconds. Between
+-- points the time is blended geometrically, so the drain climbs smoothly and never
+-- steps. Stages HARSH_FROM_STAGE and on use `late`. The exposure meter's sickness
+-- (above) still stacks on top; this curve is only the aura's share.
+Tuning.ZONE_SURVIVAL = {
+	BREAK = 0.6,
+	HARSH_FROM_STAGE = 7,
+	early = { rated = { 900, 360, 120 }, under = { 30, 3, 1.5 } }, -- stages 1-6
+	late = { rated = { 480, 240, 75 }, under = { 20, 2, 1 } }, -- stages 7-12
+	wayUnder = 1,
+	lastAura = { 75, 60, 45 },
+}
 Tuning.MAX_HEALTH = 100
 -- Every aura level past the first adds this much max health (tier 1 = 100, tier 2 = 150...).
 Tuning.HEALTH_PER_AURA_TIER = 50

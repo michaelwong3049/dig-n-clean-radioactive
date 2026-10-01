@@ -77,24 +77,32 @@ end
 --- and crossing into the next stage resets to a fresh, higher entrance rate. See
 --- Stages.radsAt's header for why this is a separate gradient from the loot-table
 --- Stage system, which happens to run the same direction in Stage 1.
-function StageService.ambientFor(player: Player): number
+--- How far across their current stage the player stands: 0 at the entrance (west)
+--- edge, 1 at the far edge. 0 in camp. Drives both the ambient climb and the aura's
+--- zone survival curve (Radiation.zoneSurvival).
+function StageService.depthFracFor(player: Player): number
 	local id = current[player]
 	if id == nil then
 		return 0
 	end
-
-	local depthFrac = 0
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if root and root:IsA("BasePart") then
 		local minX, _minZ, maxX, _maxZ = Stages.bounds(id)
 		local width = maxX - minX
 		if width > 0 then
-			depthFrac = (root.Position.X - minX) / width
+			return math.clamp((root.Position.X - minX) / width, 0, 1)
 		end
 	end
+	return 0
+end
 
-	return Stages.radsAt(id, depthFrac) * StageService.hotPocketFor(player)
+function StageService.ambientFor(player: Player): number
+	local id = current[player]
+	if id == nil then
+		return 0
+	end
+	return Stages.radsAt(id, StageService.depthFracFor(player)) * StageService.hotPocketFor(player)
 end
 
 --- PLAN §4's roaming high-radiation patches. Phase 4 owns them; until then every

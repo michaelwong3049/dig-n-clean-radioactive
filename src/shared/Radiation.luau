@@ -39,6 +39,8 @@
 ]]
 
 local Config = script.Parent.Config
+local Gear = require(Config.Gear)
+local Stages = require(Config.Stages)
 local Tuning = require(Config.Tuning)
 
 local Radiation = {}
@@ -53,18 +55,107 @@ export type Reading = {
 	ambient: number, -- raw stage rads/sec, before the aura
 	carried: number, -- raw backpack rads/sec, before level resist
 	net: number, -- rads/sec actually accumulating on the exposure meter
-	excess: number, -- ambient rads/sec past aura tolerance (0 = aura holding)
-	healthBurn: number, -- HP/sec
+	excess: number, -- ambient rads/sec past aura tolerance (0 = aura holding); 0 with a Zone
+	healthBurn: number, -- HP/sec from the aura FAILING (white)
+	drain: number, -- HP/sec of rated-aura wear: the aura holding, but not forever (green)
+	over: number, -- 0..1, how far out of its depth the aura is (0 = holding)
 	failing: boolean, -- true = white-screen state, NOT the green one
 }
 
+--- Where a player stands, for the zone survival curve. Without one, resolve falls
+--- back to the old tolerance burn (kept for the offline tuning reports).
+export type Zone = {
+	stageId: number,
+	depthFrac: number, -- 0 = the stage's entrance edge, 1 = its far edge
+	auraTier: number,
+	maxHealth: number,
+}
+
+-- ── The zone survival curve (Tuning.ZONE_SURVIVAL) ─────────────────────────
+
+--- Geometric blend: equal steps of `t` multiply the time by equal factors, so the
+--- drain climbs smoothly with no knee you can feel.
+local function blend(a: number, b: number, t: number): number
+	return a * (b / a) ^ math.clamp(t, 0, 1)
+end
+
+--- { entrance, BREAK, far edge } -> seconds at `depthFrac`.
+local function along(points: { number }, depthFrac: number): number
+	local d = math.clamp(depthFrac, 0, 1)
+	local brk = Tuning.ZONE_SURVIVAL.BREAK
+	if d <= brk then
+		return blend(points[1], points[2], d / brk)
+	end
+	return blend(points[2], points[3], (d - brk) / (1 - brk))
+end
+
+--- "rated" | "under" | "wayUnder" | "lastAura" | nil (an aura above the stage's
+--- rating takes no aura damage).
+function Radiation.zoneCase(stageId: number, auraTier: number): string?
+	local rated = Stages.get(stageId).ratedAuraTier
+	local gap = rated - auraTier
+	if gap <= -1 then
+		return nil
+	elseif gap == 0 then
+		return "rated"
+	elseif gap == 1 and rated > #Gear.Aura and auraTier == #Gear.Aura then
+		return "lastAura"
+	elseif gap == 1 then
+		return "under"
+	end
+	return "wayUnder"
+end
+
+--- Seconds a FULL health bar lasts against the aura's share of the damage here.
+--- math.huge when the aura outclasses the stage.
+function Radiation.zoneSurvival(stageId: number, depthFrac: number, auraTier: number): number
+	local Z = Tuning.ZONE_SURVIVAL
+	local case = Radiation.zoneCase(stageId, auraTier)
+	if case == nil then
+		return math.huge
+	elseif case == "wayUnder" then
+		return Z.wayUnder
+	elseif case == "lastAura" then
+		return along(Z.lastAura, depthFrac)
+	end
+	local band = if stageId >= Z.HARSH_FROM_STAGE then Z.late else Z.early
+	return along(band[case], depthFrac)
+end
+
+--- 0..1 out-of-depth grade for the HUD/RadFx: 0 at the gentlest under-tier time
+--- (30s), 1 at a one-second death. 0 whenever the aura is not failing.
+local function overGrade(seconds: number): number
+	local Z = Tuning.ZONE_SURVIVAL
+	local top = Z.early.under[1]
+	return math.clamp(math.log(top / seconds) / math.log(top / Z.wayUnder), 0, 1)
+end
+
 --- The core resolve. Everything on the HUD and every tick of the exposure meter
 --- comes out of this one function.
-function Radiation.resolve(ambient: number, carried: number, stats: Stats): Reading
+function Radiation.resolve(ambient: number, carried: number, stats: Stats, zone: Zone?): Reading
 	local resist = 1 - math.clamp(stats.levelResist, 0, Tuning.RESIST_CAP)
 
 	local fromStage = ambient * (1 - math.clamp(stats.auraReduction, 0, 1)) * resist
 	local fromBag = carried * resist
+	local net = fromStage + fromBag
+
+	if zone then
+		local seconds = Radiation.zoneSurvival(zone.stageId, zone.depthFrac, zone.auraTier)
+		local case = Radiation.zoneCase(zone.stageId, zone.auraTier)
+		local perSec = if seconds == math.huge then 0 else zone.maxHealth / seconds
+		-- Rated wear is the aura HOLDING, so it stays green; everything under is failing.
+		local failing = case ~= nil and case ~= "rated"
+		return {
+			ambient = ambient,
+			carried = carried,
+			net = net,
+			excess = 0,
+			healthBurn = if failing then perSec else 0,
+			drain = if failing then 0 else perSec,
+			over = if failing then overGrade(seconds) else 0,
+			failing = failing,
+		}
+	end
 
 	-- AMBIENT ONLY. See the header.
 	local excess = math.max(0, ambient - stats.auraTolerance)
@@ -73,9 +164,11 @@ function Radiation.resolve(ambient: number, carried: number, stats: Stats): Read
 	return {
 		ambient = ambient,
 		carried = carried,
-		net = fromStage + fromBag,
+		net = net,
 		excess = excess,
 		healthBurn = healthBurn,
+		drain = 0,
+		over = if excess > 0 then math.clamp(excess / math.max(stats.auraTolerance, 0.5) / 3, 0, 1) else 0,
 		failing = excess > 0,
 	}
 end
@@ -104,7 +197,8 @@ end
 --- cannot see the odds is a trap, and traps make people quit.
 function Radiation.survivableSeconds(reading: Reading, exposure: number, health: number): number
 	local toBlackout = toFullMeterDeath(reading, exposure)
-	local toBurnout = if reading.healthBurn > 1e-6 then health / reading.healthBurn else math.huge
+	local hpLoss = reading.healthBurn + reading.drain
+	local toBurnout = if hpLoss > 1e-6 then health / hpLoss else math.huge
 	return math.min(toBlackout, toBurnout)
 end
 
