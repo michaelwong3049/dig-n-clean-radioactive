@@ -1082,7 +1082,7 @@ function Spec.run(): boolean
 			return seconds / 3600
 		end
 
-		for _, milestone in { { at = 45, hours = 0.84 }, { at = 70, hours = 2.7 }, { at = 100, hours = 10.3 } } do
+		for _, milestone in { { at = 45, hours = 0.72 }, { at = 70, hours = 2.4 }, { at = 100, hours = 8.6 } } do
 			local actual = hoursTo(milestone.at)
 			check(
 				string.format("§5.1 walk %d is about %.1f h of training (got %.2f h)", milestone.at, milestone.hours, actual),

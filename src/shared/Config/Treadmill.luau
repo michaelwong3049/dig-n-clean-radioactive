@@ -42,11 +42,11 @@
 	WHAT THAT LANDS ON, upgrading roughly on schedule (one belt per 18 levels; checked
 	in Util/Spec, which pins all three):
 
-	      walk 45  ~0.8 h   — intermediate. One session.
-	      walk 70  ~2.7 h   — advanced.
-	      walk 100 ~10 h    — endgame. The old cap.
+	      walk 45  ~0.7 h   — intermediate. One session.
+	      walk 70  ~2.4 h   — advanced.
+	      walk 100 ~8.6 h   — endgame. The old cap.
 
-	And the cost of never upgrading: walk 64 is ~2.2 h on schedule, ~5.6 h on the free
+	And the cost of never upgrading: walk 64 is ~2.0 h on schedule, ~5.0 h on the free
 	belt. Slow enough to make the belts worth buying, finite enough to wall nobody out.
 
 	TUNING. `FIRST_LEVEL_COST` moves the whole curve up and down; `LEVEL_GROWTH` alone
@@ -65,10 +65,17 @@ Treadmill.START_WALK = 26
 --- reference point the Spec milestones and the dig-reveal check are measured at.
 Treadmill.ENDGAME_WALK = 100
 
---- Speed it takes to go from level 1 to level 2, and how much dearer each level after
---- that is than the one before it.
-Treadmill.FIRST_LEVEL_COST = 700
+--- Speed it takes to go from level 1 to level 2 on the normal curve, and how much
+--- dearer each level after that is than the one before it. 630 is the old 700 made 10%
+--- easier, on request; every level past the early ramp is 10% cheaper with it.
+Treadmill.FIRST_LEVEL_COST = 630
 Treadmill.LEVEL_GROWTH = 1.091
+
+--- The first five levels, priced by hand and far cheaper than the curve, so a new
+--- player feels the belt work within a minute or two (shown x10: 3,000 / 4,000 /
+--- 5,000 / 6,000 / 7,500). From the sixth level on the normal curve resumes at the
+--- step it would have been on anyway, so the ramp joins it without a jump.
+Treadmill.EARLY_COSTS = { 300, 400, 500, 600, 750 }
 
 --- Three significant figures: 1,530 rather than 1,527.7. Fine enough that no two
 --- levels ever round onto the same requirement (the smallest step is ~8% of the
@@ -97,7 +104,7 @@ local LEVEL_LIMIT = 2000
 local function grow(level: number)
 	local reqs = Treadmill.REQUIREMENTS
 	for next = #reqs + 1, math.min(level, LEVEL_LIMIT) do
-		rawTotal += Treadmill.FIRST_LEVEL_COST * Treadmill.LEVEL_GROWTH ^ (next - 2)
+		rawTotal += Treadmill.EARLY_COSTS[next - 1] or Treadmill.FIRST_LEVEL_COST * Treadmill.LEVEL_GROWTH ^ (next - 2)
 		reqs[next] = roundNice(rawTotal)
 	end
 end
