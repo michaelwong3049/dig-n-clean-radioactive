@@ -85,6 +85,10 @@ local L = {
 	buttonGap = 14,
 }
 
+-- The whole card drawn this much over its design px ("a bit bigger": 1.35x, since
+-- +20% bumps have read as no change before).
+local CARD_SCALE = 1.35
+
 local POP_IN = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local POP_OUT = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 local COUNT = TweenInfo.new(1.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -256,7 +260,7 @@ local function close()
 		c.bob:Disconnect()
 	end
 	TweenService:Create(c.group, POP_OUT, { GroupTransparency = 1 }):Play()
-	TweenService:Create(c.popScale, POP_OUT, { Scale = 0.85 }):Play()
+	TweenService:Create(c.popScale, POP_OUT, { Scale = 0.85 * CARD_SCALE }):Play()
 	TweenService:Create(c.dim, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
 	task.delay(1.6, function()
 		c.gui:Destroy()
@@ -356,7 +360,7 @@ local function open(offer: any)
 	group.ZIndex = 3
 	group.Parent = box
 	local popScale = Instance.new("UIScale")
-	popScale.Scale = 0.5
+	popScale.Scale = 0.5 * CARD_SCALE
 	popScale.Parent = group
 
 	-- The card's own frame inside the group; everything below is placed on it. Square,
@@ -538,7 +542,7 @@ local function open(offer: any)
 	setAmount(offer.amount)
 	TweenService:Create(dim, TweenInfo.new(0.35), { BackgroundTransparency = DIM_ALPHA }):Play()
 	TweenService:Create(group, TweenInfo.new(0.25), { GroupTransparency = 0 }):Play()
-	TweenService:Create(popScale, POP_IN, { Scale = 1 }):Play()
+	TweenService:Create(popScale, POP_IN, { Scale = CARD_SCALE }):Play()
 end
 
 local function onMessage(message: any)
