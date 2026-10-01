@@ -556,6 +556,58 @@ local function buildResult(root: Frame)
 	end
 	ui.replace = choiceButton("Take", 0, UIKit.C.green)
 	ui.keep = choiceButton("Leave", 220, Color3.fromHex("D13B3B"))
+
+	-- The fluid in the hose right now, on request: a side card beside the roll while
+	-- TAKE / LEAVE is up, so the player can weigh the two before swapping.
+	local current = UIKit.panel(root, {
+		name = "Current",
+		size = UDim2.fromOffset(210, 230),
+		position = UDim2.fromOffset(FLASK_X + 410, BULB_Y),
+		anchorPoint = Vector2.new(0, 0.5),
+		color = Color3.fromHex("1B1F24"),
+		transparency = 0.1,
+		cornerRadius = UDim.new(0, 0),
+		strokeColor = UIKit.C.outline,
+		strokeThickness = 2,
+		zIndex = 5,
+	})
+	current.Visible = false
+	ui.current = current
+	UIKit.label(current, {
+		name = "Header",
+		size = UDim2.new(1, 0, 0, 22),
+		position = UDim2.fromOffset(0, 10),
+		text = "YOUR FLUID",
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.caption,
+		color = UIKit.C.dim,
+		xAlign = Enum.TextXAlignment.Center,
+		zIndex = 6,
+	})
+	ui.currentName = UIKit.label(current, {
+		name = "FluidName",
+		size = UDim2.new(1, -16, 0, 30),
+		position = UDim2.fromOffset(8, 34),
+		text = "",
+		font = UIKit.Font.hero,
+		textSize = 24,
+		xAlign = Enum.TextXAlignment.Center,
+		zIndex = 6,
+	})
+	local currentTier = plainFrame(current, "TierBox", UDim2.new(1, 0, 0, 22), UDim2.fromOffset(0, 70), Vector2.zero)
+	currentTier.ZIndex = 6
+	ui.currentTierPill, ui.currentTierText = pill(currentTier, "Tier", "", UIKit.TextSize.caption, 22, UIKit.C.dim, INK)
+	ui.currentTierPill.AnchorPoint = Vector2.new(0.5, 0)
+	ui.currentTierPill.Position = UDim2.fromScale(0.5, 0)
+	local currentChips = plainFrame(current, "Chips", UDim2.new(1, 0, 0, 120), UDim2.fromOffset(0, 104), Vector2.zero)
+	currentChips.ZIndex = 6
+	local stack = Instance.new("UIListLayout")
+	stack.FillDirection = Enum.FillDirection.Vertical
+	stack.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	stack.SortOrder = Enum.SortOrder.LayoutOrder
+	stack.Padding = UDim.new(0, 6)
+	stack.Parent = currentChips
+	ui.currentChips = currentChips
 end
 
 --- Build the brew once. Hidden until a spin arrives.
@@ -756,6 +808,14 @@ local function reveal(payload: any, token: number)
 		ui.replace.Text = "TAKE"
 		ui.keep.Text = "LEAVE"
 		ui.choice.Visible = true
+		local held = Liquids.get(payload.loaded)
+		local heldTier, heldColour = tierOf(held)
+		ui.currentName.Text = held.name
+		ui.currentName.TextColor3 = Color3.fromHex(held.color)
+		ui.currentTierPill.BackgroundColor3 = heldColour
+		ui.currentTierText.Text = heldTier
+		fillChips(ui.currentChips, held, UIKit.TextSize.caption, 30)
+		ui.current.Visible = true
 		local answered = false
 		local function answer(verb: string)
 			if answered or token ~= spinToken then
@@ -763,6 +823,7 @@ local function reveal(payload: any, token: number)
 			end
 			answered = true
 			ui.choice.Visible = false
+			ui.current.Visible = false
 			if verb == "replace" then
 				Sfx.play("pour") -- the new fluid going into the hose tank
 			end
@@ -809,6 +870,7 @@ local function play(payload: any)
 
 	ui.result.Visible = false
 	ui.choice.Visible = false
+	ui.current.Visible = false
 	for _, connection in ui.choiceConnections or {} do
 		connection:Disconnect()
 	end
