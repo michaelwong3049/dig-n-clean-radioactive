@@ -59,6 +59,9 @@ local DigService = require(script.Parent.DigService)
 -- HEALTH, and this loop is the only thing that writes health. HazardService requires
 -- nothing server-side, so this adds no cycle.
 local HazardService = require(script.Parent.HazardService)
+-- Read ONLY to tell a base's shower (owner-only) from a camp one. ExhibitService never
+-- requires this file, so there is no cycle.
+local ExhibitService = require(script.Parent.ExhibitService)
 
 local ExposureService = {}
 
@@ -150,7 +153,7 @@ end
 -- 45-90 ms each time — a frame hitch every 2 seconds. The attribute stays the
 -- source of truth; the tag is only the index (same as StationService).
 local SHOWER_TAG = "Shower"
-local showerCache: { { position: Vector3, radius: number } } = {}
+local showerCache: { { position: Vector3, radius: number, plot: number? } } = {}
 local cacheAge = math.huge
 local CACHE_REFRESH = 2
 
@@ -165,14 +168,19 @@ local function refreshShowerCache()
 			table.insert(showerCache, {
 				position = descendant.Position,
 				radius = (descendant:GetAttribute("Radius") :: number?) or DEFAULT_SHOWER_RADIUS,
+				-- A base's cleansing station flushes its owner only; camp showers are on no plot.
+				plot = ExhibitService.plotIndexOf(descendant),
 			})
 		end
 	end
 end
 
-local function inShower(position: Vector3): boolean
+local function inShower(player: Player, position: Vector3): boolean
 	for _, shower in showerCache do
-		if (shower.position - position).Magnitude <= shower.radius then
+		if
+			(shower.position - position).Magnitude <= shower.radius
+			and ExhibitService.ownsPlotStation(player, shower.plot)
+		then
 			return true
 		end
 	end
@@ -497,9 +505,7 @@ local function blackout(player: Player, state: State, cause: string, where: Wher
 	state.survivableRatchet = nil
 
 	-- Wake up at your own base (its PlotSpawn); the plaza only if you have no plot.
-	-- Required lazily: ExhibitService sits above this service in the require graph.
 	if root and root:IsA("BasePart") then
-		local ExhibitService = require(script.Parent.ExhibitService) :: any
 		local spawn = ExhibitService.plotSpawn(player)
 		root.CFrame = if spawn then spawn.CFrame + Vector3.new(0, 4, 0) else ExposureService.baseCampCFrame()
 	end
@@ -658,7 +664,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- rather than banked into the next life (HazardService.takeHit).
 	local blastHit = HazardService.takeHit(player)
 
-	local showering = inShower(root.Position)
+	local showering = inShower(player, root.Position)
 	local sickDrain = 0
 
 	if not state.downed then

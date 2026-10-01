@@ -753,6 +753,27 @@ function ExhibitService.plotOf(player: Player): number?
 	return plotOf[player]
 end
 
+--- Which plot a world part is built into (Workspace.Plots.Plot<n>), or nil for anything
+--- off the plot ring — the camps' public cleansing stations, shop counters, the trader.
+function ExhibitService.plotIndexOf(part: Instance): number?
+	local row = Workspace:FindFirstChild("Plots")
+	if row == nil or not part:IsDescendantOf(row) then
+		return nil
+	end
+	local node: Instance? = part
+	while node and node.Parent ~= row do
+		node = node.Parent
+	end
+	return if node then tonumber(string.match(node.Name, "^Plot(%d+)$")) else nil
+end
+
+--- May this player use a station that sits on plot `index`? A base's cleansing station
+--- and treadmill are its OWNER's alone (on request — they used to be open to anyone);
+--- `nil` means the station is not on a plot at all, which everyone may use.
+function ExhibitService.ownsPlotStation(player: Player, index: number?): boolean
+	return index == nil or plotOf[player] == index
+end
+
 --- Repaint a player's own luck button to their current multiplier. Called by
 --- ShopService right after a Luck purchase lands, since the button's billboard is
 --- world state ExhibitService already owns (the same object `assign` repaints for a

@@ -42,6 +42,8 @@ local Tuning = require(Shared.Config.Tuning)
 local Ticker = require(Shared.Util.Ticker)
 local Tutorial = require(Shared.Config.Tutorial)
 
+local ExhibitService = require(script.Parent.ExhibitService)
+
 local StationService = {}
 
 local STATION_TAG = "Station"
@@ -62,6 +64,12 @@ local FOOTPRINT_MARGIN = 0.75
 local FOOTPRINT_BELOW = 1
 local FOOTPRINT_ABOVE = 7
 
+--- Kinds that belong to the base they are built on. A plot's cleansing station and
+--- treadmill are its owner's alone: for anyone else they are nowhere, so nothing that
+--- asks kindOf (docking, the hose, belt training) works there. The camps' public
+--- cleansing stations are on no plot and stay open to all (ExhibitService.ownsPlotStation).
+local OWNER_ONLY_KINDS: { [string]: boolean } = { decon = true, treadmill = true }
+
 type Entry = {
 	part: BasePart,
 	position: Vector3,
@@ -69,6 +77,7 @@ type Entry = {
 	kind: string,
 	id: string?,
 	footprint: { cframe: CFrame, half: Vector3 }?,
+	plot: number?,
 }
 
 local cache: { Entry } = {}
@@ -95,17 +104,20 @@ local function refresh()
 					footprint = if FOOTPRINT_KINDS[kind]
 						then { cframe = part.CFrame, half = part.Size / 2 }
 						else nil,
+					plot = if OWNER_ONLY_KINDS[kind] then ExhibitService.plotIndexOf(part) else nil,
 				})
 			end
 		end
 	end
 end
 
---- Nearest station containing `position`, or nil.
-function StationService.at(position: Vector3): (string?, string?, BasePart?)
+--- Nearest station containing `position`, or nil. The fourth value is the plot an
+--- owner-only station sits on (OWNER_ONLY_KINDS), nil for anything anyone may use.
+function StationService.at(position: Vector3): (string?, string?, BasePart?, number?)
 	local bestKind: string? = nil
 	local bestId: string? = nil
 	local bestPart: BasePart? = nil
+	local bestPlot: number? = nil
 	local bestDistance = math.huge
 
 	for _, entry in cache do
@@ -124,11 +136,11 @@ function StationService.at(position: Vector3): (string?, string?, BasePart?)
 				and localPos.Y <= half.Y + FOOTPRINT_ABOVE
 		end
 		if inside and squared < bestDistance then
-			bestKind, bestId, bestPart, bestDistance = entry.kind, entry.id, entry.part, squared
+			bestKind, bestId, bestPart, bestPlot, bestDistance = entry.kind, entry.id, entry.part, entry.plot, squared
 		end
 	end
 
-	return bestKind, bestId, bestPart
+	return bestKind, bestId, bestPart, bestPlot
 end
 
 function StationService.kindOf(player: Player): string?
@@ -172,7 +184,11 @@ local function step(dt: number)
 			continue
 		end
 
-		local kind, id, part = StationService.at(root.Position)
+		local kind, id, part, plot = StationService.at(root.Position)
+		-- Someone else's cleansing station or treadmill is nowhere, the same way.
+		if not ExhibitService.ownsPlotStation(player, plot) then
+			kind, id, part = nil, nil, nil
+		end
 		-- A station the walkthrough keeps shut (Config/Tutorial) is nowhere: no panel
 		-- opens, and nothing that asks kindOf (buying, selling, the locker, the belt) works.
 		if not Tutorial.stationOpen(player, kind, id) then

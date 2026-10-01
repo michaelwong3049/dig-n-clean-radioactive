@@ -112,6 +112,7 @@ local CarryService = require(script.Parent.CarryService)
 local IdentifyService = require(script.Parent.IdentifyService)
 local EconomyService = require(script.Parent.EconomyService)
 local LiquidService = require(script.Parent.LiquidService)
+local ExhibitService = require(script.Parent.ExhibitService)
 
 local WashService = {}
 
@@ -866,6 +867,10 @@ local function begin(player: Player, basin: BasePart): (boolean, string)
 	-- than an assert, in case a prompt somehow stays enabled through a race.
 	if sessions[player] then
 		return false, "already washing"
+	end
+	-- A base's tub is its owner's alone; the camps' public stations are on no plot.
+	if not ExhibitService.ownsPlotStation(player, ExhibitService.plotIndexOf(basin)) then
+		return false, "that's someone else's cleansing station \u{2014} wash at your own base"
 	end
 
 	if data.heldUid == "" then
