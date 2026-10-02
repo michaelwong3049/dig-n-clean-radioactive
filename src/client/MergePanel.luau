@@ -32,6 +32,7 @@ local Merge = require(Shared.Config.Merge)
 local Payload = require(Shared.Config.Payload)
 
 local UIKit = require(script.Parent.UIKit)
+local StarLine = require(script.Parent.StarLine)
 local ItemArt = require(script.Parent.ItemArt)
 
 local MergePanel = {}
@@ -100,13 +101,9 @@ local function hex(color: Color3): string
 	return "#" .. color:ToHex()
 end
 
---- Rating stars in gold, then merge stars in pink, as RichText.
-local function starsRich(rating: number, merge: number): string
-	local out = `<font color="{hex(SKIN.gold)}">{string.rep("\u{2605}", rating)}</font>`
-	if merge > 0 then
-		out ..= ` <font color="{hex(SKIN.pink)}">{Merge.text(merge)}</font>`
-	end
-	return out
+--- Rating stars in gold (half stars drawn by StarLine), then merge stars in pink.
+local function paintStars(label: TextLabel, rating: number, merge: number?)
+	StarLine.set(label, rating, { color = SKIN.gold, trail = merge, trailColor = SKIN.pink })
 end
 
 local function ratingOf(item: any): number
@@ -682,7 +679,7 @@ function MergePanel.new(parent: Instance, layoutOrder: number): Panel
 		slot.button:SetAttribute("Uid", item.uid)
 		slot.stroke.Color = SKIN.purple
 		slot.empty.Visible = false
-		slot.stars.Text = starsRich(ratingOf(item), item.merge or 0)
+		paintStars(slot.stars, ratingOf(item), item.merge or 0)
 		slot.detail.Text = detailOf(item)
 		ItemArt.paint(slot.viewport, item, (SLOT_W - 16) / 104)
 	end
@@ -747,7 +744,7 @@ function MergePanel.new(parent: Instance, layoutOrder: number): Panel
 			tile.stroke.Color = if isSelected then SKIN.purple else SKIN.edge
 			tile.stroke.Thickness = if isSelected then 3 else 2
 			tile.strip.BackgroundColor3 = rarityColor(item.rarity)
-			tile.stars.Text = starsRich(ratingOf(item), item.merge)
+			paintStars(tile.stars, ratingOf(item), item.merge)
 			tile.detail.Text = if maxed then "MAX STARS" else `{item.name} \u{00B7} {detailOf(item)}`
 			tile.where.Text = item.where
 			tile.where.BackgroundColor3 = if item.where == "BAG" then SKIN.bag else SKIN.locker
@@ -798,7 +795,7 @@ function MergePanel.new(parent: Instance, layoutOrder: number): Panel
 
 		cardName.Text = first.name
 		if odds == nil then
-			cardStars.Text = starsRich(ratingOf(first), from)
+			paintStars(cardStars, ratingOf(first), from)
 			cardGain.Text = "Already at max merge stars"
 			bar.Visible = false
 			cardPity.Visible = false
@@ -808,7 +805,7 @@ function MergePanel.new(parent: Instance, layoutOrder: number): Panel
 			return
 		end
 		local rating = Rarity.stars(first.rarity, bestModifier, Payload.forUid(bigUid), nil, Items.stageOf(first.itemId))
-		cardStars.Text = starsRich(rating, odds.target)
+		paintStars(cardStars, rating, odds.target)
 		cardGain.Text = `+1 merge star \u{00B7} x{multText(odds.target)} value & income`
 
 		local critShare = odds.crit
@@ -862,7 +859,7 @@ function MergePanel.new(parent: Instance, layoutOrder: number): Panel
 			elseif outcome == "success" then "SUCCESS! +1"
 			else "FIZZLED"
 		if type(item) == "table" then
-			revealStars.Text = starsRich(ratingOf(item), if type(item.merge) == "number" then item.merge else 0)
+			paintStars(revealStars, ratingOf(item), if type(item.merge) == "number" then item.merge else 0)
 			revealLine.Text = if outcome == "fail"
 				then `Your best {item.name} survived. Next try on this nuke: +{math.floor(Merge.PITY_STEP * 100 + 0.5)}% pity.`
 				else `{item.name} now sells and pays on a stand at x{multText(item.merge or 0)}.`

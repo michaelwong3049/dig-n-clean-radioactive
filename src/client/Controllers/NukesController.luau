@@ -35,6 +35,7 @@ local Payload = require(Shared.Config.Payload)
 local Merge = require(Shared.Config.Merge)
 
 local UIKit = require(script.Parent.Parent.UIKit)
+local StarLine = require(script.Parent.Parent.StarLine)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
 local ItemArt = require(script.Parent.Parent.ItemArt)
@@ -263,18 +264,16 @@ type Row = {
 -- Rows on screen, by uid, kept across refreshes.
 local rows: { [string]: Row } = {}
 
---- The stand line under the name: stars, Merge Reactor stars, modifier.
-local function starLine(entry: any): string
-	local text = Rarity.starText(entry.rarity, entry.modifier, Payload.forUid(entry.uid), entry.bonus, Items.stageOf(entry.itemId))
-	local merged = entry.merge or 0
-	if merged > 0 then
-		text ..= ` <font color="#{Merge.COLOR:ToHex()}">{Merge.text(merged)}</font>`
-	end
+--- The stand line under the name: stars (half stars drawn by StarLine), Merge
+--- Reactor stars, modifier.
+local function paintStarLine(label: TextLabel, entry: any)
+	local rating = Rarity.stars(entry.rarity, entry.modifier, Payload.forUid(entry.uid), entry.bonus, Items.stageOf(entry.itemId))
 	local qualities = Rarity.qualities(entry.modifier, entry.bonus)
-	if #qualities > 0 then
-		text ..= ` <font color="#{PANEL.dim:ToHex()}">{table.concat(qualities, " ")}</font>`
-	end
-	return text
+	StarLine.set(label, rating, {
+		trail = entry.merge or 0,
+		trailColor = Merge.COLOR,
+		after = if #qualities > 0 then `<font color="#{PANEL.dim:ToHex()}">{table.concat(qualities, " ")}</font>` else nil,
+	})
 end
 
 local function paintUnequip(row: Row)
@@ -430,7 +429,7 @@ local function render()
 		row.pending = false
 		row.frame.LayoutOrder = order
 		row.name.Text = `{entry.name} ({formatRate(entry.rate)})`
-		row.stars.Text = starLine(entry)
+		paintStarLine(row.stars, entry)
 		tint(row, os.clock())
 		paintUnequip(row)
 		ItemArt.paint(row.art, {
