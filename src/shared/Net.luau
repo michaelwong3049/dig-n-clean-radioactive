@@ -270,6 +270,12 @@ local REMOTES: { [string]: string } = {
 	-- client names the item ids it is about to draw and the server copies those
 	-- templates into that player's own PlayerGui.NukeModels, once each.
 	NukeModels = "RemoteEvent", -- client -> server, { itemId }
+
+	-- The Masteries panel (Config/Masteries, Services/MasteryService). Server -> client:
+	-- { masteries = { {id, count, tier} }, unlocked = { {id, tier} }? }, whenever a
+	-- counter moves; `unlocked` is a tier reached since the last push (the toast).
+	-- Client -> server, no payload: "send me the panel" (once, when it is built).
+	MasteryState = "RemoteEvent",
 }
 
 local Net = {}

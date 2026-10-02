@@ -71,6 +71,9 @@ Artwork.IMAGE = {
 	-- The Settings button (SettingsController), top-right corner: a steel cog with a
 	-- dark steel hub (no green, on request). tools/hud-icons/settings_gear.svg.
 	settingsGear = "rbxassetid://77565241934943",
+	-- The Masteries bar (MasteriesController), above Shop: a gold star medal on a red and
+	-- blue ribbon. tools/hud-icons/mastery_medal.svg.
+	medal = "rbxassetid://139869106879830",
 	-- The SPEED badge's disc (SpeedController): a glossy blue sneaker, same family and
 	-- pipeline. tools/hud-icons/speed_shoe.svg.
 	speedShoe = "rbxassetid://97884293509666",

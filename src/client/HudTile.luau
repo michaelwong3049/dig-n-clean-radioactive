@@ -71,11 +71,14 @@ export type Spec = {
 	-- the Settings gear in the top-right corner. `slot` is then unused.
 	position: UDim2?,
 	-- Optional: build a wide bar in the LEFT column instead of a grid square, stacked
-	-- on the left edge's middle (1 = lower, 2 = upper). `slot` is then unused.
+	-- up from the left edge's middle (1 = Index, 2 = Shop, 3 = Masteries, bottom to
+	-- top). `slot` is then unused.
 	leftRow: number?,
+	-- Optional: the bar caption's text size, for a name too long for BAR_TEXT_SIZE.
+	captionSize: number?,
 }
 
--- THE LEFT-COLUMN BARS (Index, Shop), on request: a solid dark rectangle on the middle
+-- THE LEFT-COLUMN BARS (Index, Shop, Masteries), on request: a solid dark rectangle on the middle
 -- of the left edge, the picture on its left and the name beside it in the rows' own GothamBlack
 -- (UIKit.hudNumber: same outline and drop shadow as the balance).
 local BAR_W = 168
@@ -136,7 +139,8 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 	local glow, icon
 	if bar then
 		local row = spec.leftRow :: number
-		-- Centred as a pair BAR_RAISE over the left edge's middle: row 1 under, row 2 over.
+		-- Rows 1 and 2 are centred as a pair BAR_RAISE over the left edge's middle, row 1
+		-- under; row 3 (Masteries) stacks on top of them without moving the pair.
 		local up = (row - 1.5) * (BAR_H + BAR_GAP) + BAR_RAISE
 		button.Position = UDim2.new(0, Dock.ROW_SIDE_MARGIN + BAR_W / 2, 0.5, -up)
 		-- Solid, a dark (not near-black) shade of the bar's own colour.
@@ -159,10 +163,10 @@ function HudTile.build(spec: Spec): (ScreenGui, TextButton)
 			name = "Caption",
 			anchorPoint = Vector2.new(0, 0.5),
 			position = UDim2.new(0, BAR_TEXT_LEFT, 0.5, -1),
-			size = UDim2.new(1, -BAR_TEXT_LEFT - 6, 0, BAR_TEXT_SIZE + 4),
+			size = UDim2.new(1, -BAR_TEXT_LEFT - 6, 0, (spec.captionSize or BAR_TEXT_SIZE) + 4),
 			text = spec.caption,
 			font = Enum.Font.GothamBlack,
-			textSize = BAR_TEXT_SIZE,
+			textSize = spec.captionSize or BAR_TEXT_SIZE,
 			color = spec.light,
 			xAlign = Enum.TextXAlignment.Left,
 			zIndex = 8,

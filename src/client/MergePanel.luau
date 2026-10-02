@@ -790,7 +790,8 @@ function MergePanel.new(parent: Instance, layoutOrder: number): Panel
 		local pityTable = if type(state.mergePity) == "table" then state.mergePity else {}
 		local pity = if type(pityTable[first.itemId]) == "number" then pityTable[first.itemId] else 0
 		local luck = if type(state.luck) == "number" then state.luck else 1
-		local odds = Merge.odds(from, pity, luck)
+		local bonus = if type(state.mergeBonus) == "number" then state.mergeBonus else 0
+		local odds = Merge.odds(from, pity, luck, bonus)
 		local fee = Merge.fee(first.itemId, from)
 
 		cardName.Text = first.name

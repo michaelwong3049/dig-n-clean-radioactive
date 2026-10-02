@@ -1036,7 +1036,8 @@ local function bankOffline(player: Player, data: any)
 	end
 
 	local stats = StatResolver.get(data)
-	local offlineRate = rawRatePerSecond(data, stats) * Tuning.EXHIBIT_OFFLINE_RATE
+	-- stats.awayRate is Tuning.EXHIBIT_OFFLINE_RATE, raised by the Tycoon mastery.
+	local offlineRate = rawRatePerSecond(data, stats) * stats.awayRate
 	AwayEarningsService.offer(player, data, offlineRate * elapsed, away, offlineRate)
 end
 

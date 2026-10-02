@@ -38,6 +38,7 @@ local Treadmill = require(Config.Treadmill)
 local Floors = require(Config.Floors)
 local LuckBoost = require(Config.LuckBoost)
 local RareDrop = require(Config.RareDrop)
+local Masteries = require(Config.Masteries)
 local Crates = require(Config.Crates)
 local AuraLook = require(script.Parent.Parent.AuraLook)
 local Bag = require(script.Parent.Parent.Bag)
@@ -1012,6 +1013,76 @@ function Spec.run(): boolean
 	frozen.frozen = true
 	Decay.tick(frozen, 5, 1)
 	check("§3.6 a docked item stops emitting, ticking, and counting down", Decay.totalEmission({ frozen }, 1) == 0 and frozen.elapsed == 10 and Decay.secondsToNextCondition(frozen, 1) == math.huge)
+
+	-- MASTERIES (Config/Masteries) — permanent, tiered, highest tier only
+	do
+		local Mastery = require(script.Parent.Parent.Mastery)
+		local idsOk, goalsOk, valuesOk, baseOk = true, true, true, true
+		local seenIds = {}
+		for _, def in Masteries.LIST do
+			if seenIds[def.id] then
+				idsOk = false
+			end
+			seenIds[def.id] = true
+			if #def.goals ~= #Masteries.TIER_NAMES or #def.values ~= #def.goals then
+				goalsOk = false
+			end
+			for i = 2, #def.goals do
+				if def.goals[i] <= def.goals[i - 1] then
+					goalsOk = false
+				end
+			end
+			local base = Masteries.BASE[def.reward]
+			if base == nil then
+				baseOk = false
+			else
+				-- Every tier moves the reward the same way from base, and further each tier.
+				local sign = if def.values[1] > base then 1 else -1
+				local last = base
+				for _, v in def.values do
+					if (v - last) * sign <= 0 then
+						valuesOk = false
+					end
+					last = v
+				end
+			end
+		end
+		check("§mastery ids are unique", idsOk)
+		check("§mastery every mastery has Bronze/Silver/Gold goals, strictly rising", goalsOk)
+		check("§mastery every reward kind has a base", baseOk)
+		check("§mastery each tier pays more than the one below", valuesOk)
+
+		local scrub = Mastery.get("scrubber") :: any
+		check("§mastery below Bronze is no tier", Mastery.tierFor(scrub, scrub.goals[1] - 1) == 0)
+		check("§mastery exactly the goal reaches the tier", Mastery.tierFor(scrub, scrub.goals[2]) == 2)
+		local fresh = { level = 1, gear = {}, perks = {} }
+		local gold = { level = 1, gear = {}, perks = {}, stats = { itemsCleaned = scrub.goals[3], bagsStolen = 1e9 } }
+		check("§mastery a fresh save pays every reward at base", Mastery.value(fresh, "cash") == 1 and Mastery.value(fresh, "awayRate") == Tuning.EXHIBIT_OFFLINE_RATE)
+		check("§mastery a higher tier REPLACES the lower (Gold Scrubber = its own value)", Mastery.value(gold, "cash") == scrub.values[3])
+		local bare = StatResolver.get(fresh)
+		local rich = StatResolver.get(gold)
+		check(
+			"§mastery the cash reward reaches both sales and stand income",
+			math.abs(rich.sellMultiplier - bare.sellMultiplier * scrub.values[3]) < 1e-9
+				and math.abs(rich.yieldMultiplier - bare.yieldMultiplier * scrub.values[3]) < 1e-9
+		)
+		local thief = Mastery.get("thief") :: any
+		check("§mastery the Thief reward cuts haul drag", math.abs(rich.haulPenalty - bare.haulPenalty * thief.values[3]) < 1e-9)
+		local collector = Mastery.get("collector") :: any
+		local all = {}
+		for _, item in Items.DEFS do
+			all[item.id] = true
+		end
+		check("§mastery the whole index is 100%", Mastery.indexPercent(all) == 100 and Mastery.indexPercent({}) == 0)
+		check(
+			"§mastery Collector Gold adds its bag slots",
+			StatResolver.get({ level = 1, gear = {}, perks = {}, discovered = all }).capacity - bare.capacity == collector.values[3]
+		)
+		check("§mastery the Reactor bonus raises merge odds", (Merge.odds(0, 0, 1, 0.1) :: any).success > (Merge.odds(0, 0, 1) :: any).success)
+		check("§mastery the Brewer can never brew faster than the spin lasts", Tuning.LIQUID_SPIN_COOLDOWN * (Mastery.get("brewer") :: any).values[3] > Tuning.LIQUID_SPIN_SECONDS)
+		check("§mastery reward text reads like a reward", Mastery.rewardText(scrub, 3) == "x2 cash" and Mastery.rewardText(thief, 3) == "-50% haul drag")
+		check("§mastery goals print short", Mastery.goalText(Mastery.get("tycoon") :: any, 1e9) == "$1B" and Mastery.goalText(Mastery.get("runner") :: any, 50000) == "500K")
+	end
 
 	-- PLAN §9.2 / §5.1 — one resolver, perks folded in exactly once
 	local profile = {

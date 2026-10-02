@@ -30,6 +30,11 @@
 	crater is still hot sees it. Timestamps are Workspace:GetServerTimeNow(), which both
 	sides share.
 
+	WHO DID IT. A dropped bomb (BombService) names its `owner`, and every player its
+	blast or its crater hurts remembers that owner for KILL_CREDIT_SECONDS. If they go
+	down inside that window, ExposureService asks killerOf() and credits the kill (the
+	Bomber mastery). Hurting yourself is never remembered. A dig nuke has no owner.
+
 	REQUIRES NOTHING SERVER-SIDE. DigService calls in (detonate) and ExposureService
 	calls in (burnAt, takeHit), and ExposureService already requires DigService -- so
 	this sits below both in the boot ORDER and depends on neither.
@@ -54,6 +59,7 @@ type Crater = {
 	bornAt: number, -- Workspace:GetServerTimeNow()
 	marker: BasePart,
 	stageOnly: boolean, -- a dropped bomb's: burns nobody standing outside a stage
+	owner: Player?, -- who dropped it (a bomb's); nil for a dig nuke's fuse
 }
 
 --- Optional extras for detonate. A dropped bomb (BombService) brings its own blast
@@ -64,6 +70,7 @@ export type Options = {
 	blast: Detonation.Blast?,
 	spares: ((player: Player) -> boolean)?,
 	stageId: number?,
+	owner: Player?,
 }
 
 local craters: { Crater } = {}
@@ -71,6 +78,20 @@ local craters: { Crater } = {}
 -- Blast damage owed to each player, banked by detonate() and paid out by
 -- ExposureService on its next tick (takeHit). Summed, so two blasts on one tick both land.
 local pendingHits: { [Player]: number } = {}
+
+-- How long after a bomb last hurt you a death still counts as that bomber's kill: the
+-- blast lands on the next tick, but a crater's orb can burn the last of your health
+-- off a few seconds later, or you can limp out and fall to the stage itself.
+local KILL_CREDIT_SECONDS = 8
+
+-- The last bomber to hurt each player, and when (os.clock()).
+local lastHurtBy: { [Player]: { owner: Player, at: number } } = {}
+
+local function hurtBy(victim: Player, owner: Player?)
+	if owner and owner ~= victim then
+		lastHurtBy[victim] = { owner = owner, at = os.clock() }
+	end
+end
 
 local detonationRemote: any = nil
 
@@ -93,6 +114,7 @@ function HazardService.detonate(position: Vector3, rarity: string, visualScale: 
 		then options.blast
 		else Detonation.blastFor(rarity, visualScale, if options then options.stageId else nil)
 	local spares = if options then options.spares else nil
+	local owner = if options then options.owner else nil
 
 	for _, player in Players:GetPlayers() do
 		if spares and spares(player) then
@@ -104,6 +126,7 @@ function HazardService.detonate(position: Vector3, rarity: string, visualScale: 
 			local hit = Detonation.hitAt((root.Position - position).Magnitude, blast)
 			if hit > 0 then
 				pendingHits[player] = (pendingHits[player] or 0) + hit
+				hurtBy(player, owner)
 			end
 		end
 	end
@@ -134,6 +157,7 @@ function HazardService.detonate(position: Vector3, rarity: string, visualScale: 
 		bornAt = now,
 		marker = marker,
 		stageOnly = spares ~= nil,
+		owner = owner,
 	})
 
 	detonationRemote:FireAllClients({
@@ -149,7 +173,9 @@ end
 --- Health/sec the craters are burning off whoever stands at `position`. Summed, so
 --- overlapping craters stack -- two nukes gone off side by side are worse than one.
 --- `inStage` false skips a dropped bomb's crater, which never reaches into a camp.
-function HazardService.burnAt(position: Vector3, inStage: boolean?): number
+--- `player`, when given, is who is standing there: a bomb's crater that burns them is
+--- remembered as hurting them (killerOf).
+function HazardService.burnAt(position: Vector3, inStage: boolean?, player: Player?): number
 	if #craters == 0 then
 		return 0
 	end
@@ -163,7 +189,11 @@ function HazardService.burnAt(position: Vector3, inStage: boolean?): number
 		local strength = Detonation.orbStrength(now - crater.bornAt, crater.blast.orbLife)
 		if strength > 0 then
 			local distance = (position - crater.position).Magnitude
-			total += Detonation.orbBurnAt(distance, crater.blast.orbRadius, crater.blast.orbBurn, strength)
+			local burn = Detonation.orbBurnAt(distance, crater.blast.orbRadius, crater.blast.orbBurn, strength)
+			if burn > 0 and player then
+				hurtBy(player, crater.owner)
+			end
+			total += burn
 		end
 	end
 	return total
@@ -181,6 +211,21 @@ function HazardService.takeHit(player: Player): number
 	return hit
 end
 
+--- The bomber who last hurt `victim`, if that was within KILL_CREDIT_SECONDS and
+--- they are still in the server; nil otherwise. Clears the record either way, so one
+--- death credits at most one kill.
+function HazardService.killerOf(victim: Player): Player?
+	local record = lastHurtBy[victim]
+	lastHurtBy[victim] = nil
+	if record == nil or os.clock() - record.at > KILL_CREDIT_SECONDS then
+		return nil
+	end
+	if record.owner.Parent == nil then
+		return nil
+	end
+	return record.owner
+end
+
 function HazardService.init()
 	detonationRemote = Net.get("Detonation")
 
@@ -196,6 +241,7 @@ end
 function HazardService.start()
 	Players.PlayerRemoving:Connect(function(player)
 		pendingHits[player] = nil
+		lastHurtBy[player] = nil
 	end)
 
 	-- Spent craters go, marker and all -- the client tears its visuals down with it.

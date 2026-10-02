@@ -26,6 +26,7 @@ local ORDER = {
 	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
 	"IndexController", -- the item index GUI; Index tile on the right edge, reads IndexState + Unearthed
 	"ShopController", -- the Shop tile, stacked below the Index tile, and the Robux shop panel it opens
+	"MasteriesController", -- the Masteries bar above Shop, its panel and the "Mastery reached" toast; reads MasteryState
 	"NukesController", -- the Nukes tile under Shop: every owned nuke + $/s, and Equip Best; reads NukeList
 	"GearController", -- the Gear tile under Nukes: every owned gear tier, equip from anywhere; reads GearList
 	"CampWarpController", -- the Warp tile under Nukes and its camp list: warp to any camp reached on foot; reads CampState
