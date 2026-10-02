@@ -32,6 +32,7 @@ local CrateService = require(script.Parent.CrateService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
 local CashBoostService = require(script.Parent.CashBoostService)
 local ExhibitService = require(script.Parent.ExhibitService)
+local ProductService = require(script.Parent.ProductService)
 
 local DailyRewardService = {}
 
@@ -76,6 +77,16 @@ local function resolveDays(data: any): { any }
 	return out
 end
 
+--- A streak past RESET_AFTER that has not been restarted yet, and the day it reached.
+local function brokenDay(data: any, now: number): number?
+	local last = tonumber(data.dailyLastAt) or 0
+	local day = math.clamp(tonumber(data.dailyDay) or 1, 1, DailyRewards.DAYS_IN_CYCLE)
+	if last > 0 and now - last > DailyRewards.RESET_AFTER and day > 1 then
+		return day
+	end
+	return nil
+end
+
 local function push(player: Player, data: any, claimed: number?)
 	local now = os.time()
 	local opens = readyAt(data)
@@ -88,6 +99,8 @@ local function push(player: Player, data: any, claimed: number?)
 		resetAt = if last > 0 then last + DailyRewards.RESET_AFTER else 0,
 		days = resolveDays(data),
 		claimed = claimed,
+		-- The day a Restore Streak purchase would bring back (nil = nothing to restore).
+		restoreDay = brokenDay(data, now),
 	})
 end
 
@@ -156,6 +169,20 @@ end
 
 function DailyRewardService.init()
 	remote = Net.get("DailyRewards")
+	-- Restore Streak: backdate the last claim to exactly CLAIM_GAP ago, so the streak
+	-- is unbroken and the day it reached is ready now. Mutates `data`, never yields.
+	ProductService.register(DailyRewards.RESTORE_PRODUCT_ID, function(player, data)
+		local now = os.time()
+		if brokenDay(data, now) then
+			data.dailyLastAt = now - DailyRewards.CLAIM_GAP
+		end
+		task.defer(function()
+			local live = DataService.data(player)
+			if live then
+				push(player, live)
+			end
+		end)
+	end)
 end
 
 function DailyRewardService.start()

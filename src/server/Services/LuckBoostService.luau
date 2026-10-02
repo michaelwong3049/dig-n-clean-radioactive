@@ -36,6 +36,7 @@ local Ticker = require(Shared.Util.Ticker)
 
 local DataService = require(script.Parent.DataService)
 local ProductService = require(script.Parent.ProductService)
+local CrateService = require(script.Parent.CrateService)
 
 local LuckBoostService = {}
 
@@ -69,6 +70,18 @@ function LuckBoostService.startEvent(seconds: number?)
 	eventEndsAt = t + (seconds or LuckBoost.EVENT_SECONDS)
 	ReplicatedStorage:SetAttribute(LuckBoost.EVENT_ATTR, eventEndsAt)
 	print(`[luck] {LuckBoost.EVENT_NAME} is up: {LuckBoost.MULT}x luck for {math.floor(eventEndsAt - t)}s`)
+end
+
+--- Add `seconds` to the aurora (starting it if it is down), capped at
+--- SERVER_MAX_SECONDS left. The Server Luck Boost product. Never yields.
+function LuckBoostService.extendEvent(seconds: number)
+	local t = now()
+	if eventEndsAt <= t then
+		LuckBoostService.startEvent(seconds)
+		return
+	end
+	eventEndsAt = math.min(eventEndsAt + seconds, t + LuckBoost.SERVER_MAX_SECONDS)
+	ReplicatedStorage:SetAttribute(LuckBoost.EVENT_ATTR, eventEndsAt)
 end
 
 --- End the aurora now and roll the quiet gap before the next one.
@@ -151,6 +164,16 @@ function LuckBoostService.init()
 	-- receipt landing before the clover was registered would be bounced.
 	ProductService.register(LuckBoost.PRODUCT_ID, function(player, data)
 		LuckBoostService.grant(player, data, LuckBoost.PRODUCT_SECONDS)
+	end)
+	ProductService.register(LuckBoost.SERVER_PRODUCT_ID, function(player)
+		LuckBoostService.extendEvent(LuckBoost.SERVER_SECONDS)
+		local minutes = math.floor(LuckBoost.SERVER_SECONDS / 60)
+		-- Deferred: the grant must not yield, and the notice is not part of the receipt.
+		task.defer(function()
+			for _, other in Players:GetPlayers() do
+				CrateService.notify(other, `{player.DisplayName} boosted the server: {LuckBoost.MULT}x luck for {minutes} min!`)
+			end
+		end)
 	end)
 end
 

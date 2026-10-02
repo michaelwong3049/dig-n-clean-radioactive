@@ -54,6 +54,7 @@ local Crates = require(Shared.Config.Crates)
 local DataService = require(script.Parent.DataService)
 local ExhibitService = require(script.Parent.ExhibitService)
 local ShopService = require(script.Parent.ShopService)
+local ProductService = require(script.Parent.ProductService)
 
 local LiquidService = {}
 
@@ -555,6 +556,11 @@ function LiquidService.init()
 	stateRemote = Net.get("FluidState")
 	spinRemote = Net.get("FluidSpin")
 	actionRemote = Net.get("FluidAction")
+	-- Skip Brew Timer: forget the last brew, so the next one is ready now. The tick's
+	-- signature carries readiness, so the panel repaints on its own.
+	ProductService.register(Tuning.BREW_SKIP_PRODUCT_ID, function(_player, data)
+		data.lastBrewAt = 0
+	end)
 end
 
 function LiquidService.start()

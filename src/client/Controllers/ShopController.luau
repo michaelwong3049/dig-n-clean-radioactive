@@ -86,6 +86,9 @@ local PANEL_W = 860
 -- The panel's tallest; a short screen gets less, and the body scrolls.
 local PANEL_H = 720
 local CLOVER_H = 220
+local SERVER_BOOST_H = 132
+-- The Violet Aurora's purple, so the card reads as "the server event".
+local SERVER_BOOST_TINT = Color3.fromHex("7A3FC8")
 local SECTION_H = 30
 -- The CASH cards: green with a sunburst behind a picture that grows up the ladder
 -- (bundle, stack, money bag, vault), the amount big over the art's foot and a green R$
@@ -250,7 +253,7 @@ local function buildCloverCard(parent: Frame)
 	local card = Instance.new("Frame")
 	card.Name = "LuckyClover"
 	card.Size = UDim2.new(1, -8, 0, CLOVER_H)
-	card.LayoutOrder = 1
+	card.LayoutOrder = 0
 	card.BackgroundColor3 = PANEL.card
 	card.BorderSizePixel = 0
 	card.ZIndex = 12
@@ -342,6 +345,61 @@ local function buildCloverCard(parent: Frame)
 	buy.TextSize = BUY_TEXT + 4
 	buy.AnchorPoint = Vector2.new(1, 1)
 	buy.Position = UDim2.new(1, -16, 1, -14)
+end
+
+--- The Server Luck Boost card under the clover: everyone on the server gets the
+--- Violet Aurora's luck for SERVER_SECONDS, and the buyer is named to all of them.
+local function buildServerBoostCard(parent: Frame)
+	local card = Instance.new("Frame")
+	card.Name = "ServerLuckBoost"
+	card.Size = UDim2.new(1, -8, 0, SERVER_BOOST_H)
+	card.LayoutOrder = 1
+	card.BackgroundColor3 = SERVER_BOOST_TINT
+	card.BorderSizePixel = 0
+	card.ZIndex = 12
+	card.Parent = parent
+	round(card, 16)
+	edge(card, PANEL.cardEdge, 3)
+	gloss(card)
+
+	local minutes = math.floor(LuckBoost.SERVER_SECONDS / 60)
+	inked(card, {
+		Name = "Name",
+		Text = "SERVER LUCK BOOST",
+		Font = PANEL.headline,
+		TextSize = 30,
+		Size = UDim2.new(1, -280, 0, 36),
+		Position = UDim2.fromOffset(20, 14),
+		ZIndex = 14,
+	})
+	inked(card, {
+		Name = "Pitch",
+		Text = `{LuckBoost.MULT}x LUCK for EVERYONE here, {minutes} minutes`,
+		Font = PANEL.label,
+		TextSize = 20,
+		TextColor3 = PANEL.light,
+		Size = UDim2.new(1, -280, 0, 24),
+		Position = UDim2.fromOffset(20, 52),
+		ZIndex = 14,
+	})
+	inked(card, {
+		Name = "Details",
+		Text = `Starts the {LuckBoost.EVENT_NAME}, or adds {minutes} min to it. Stacks with your clover.`,
+		Font = PANEL.label,
+		TextSize = 16,
+		TextColor3 = PANEL.dim,
+		TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		Size = UDim2.new(1, -280, 0, 40),
+		Position = UDim2.fromOffset(20, 82),
+		ZIndex = 14,
+	})
+
+	local buy = robuxButton(card, LuckBoost.SERVER_PRODUCT_ID)
+	buy.Size = UDim2.fromOffset(230, BUY_H + 4)
+	buy.TextSize = BUY_TEXT + 4
+	buy.AnchorPoint = Vector2.new(1, 0.5)
+	buy.Position = UDim2.new(1, -16, 0.5, 0)
 end
 
 --- A section heading in the body ("CASH", "CRATES").
@@ -907,6 +965,7 @@ local function buildPanel(): ScreenGui
 	buildPacks(body)
 	buildPasses(body)
 	buildCloverCard(body)
+	buildServerBoostCard(body)
 	buildCash(body)
 	buildCrates(body)
 

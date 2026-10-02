@@ -26,6 +26,7 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
 local Sfx = require(script.Parent.Parent.Sfx)
+local RobuxButton = require(script.Parent.Parent.RobuxButton)
 
 local DailyRewardsController = {}
 
@@ -82,7 +83,11 @@ type State = {
 	readyAt: number,
 	resetAt: number,
 	days: { any },
+	restoreDay: number?,
 }
+
+-- The Restore Streak button's width, at the footer's left.
+local RESTORE_W = 170
 
 local cards: { Card } = {}
 local panelFrame: Frame? = nil
@@ -90,6 +95,7 @@ local panelScale: UIScale? = nil
 local claimButton: TextButton? = nil
 local claimEdge: UIStroke? = nil
 local statusLabel: TextLabel? = nil
+local restoreButton: RobuxButton.Button? = nil
 local badge: Frame? = nil
 local remote: any = nil
 local state: State? = nil
@@ -346,6 +352,19 @@ local function paintFooter()
 	else
 		label.Text = `Claim within 24 h of it opening or the streak resets to Day 1.`
 	end
+	-- RESTORE STREAK: offered while a broken streak's Day 1 restart is unclaimed. The
+	-- status line makes room for it.
+	local restore = restoreButton
+	if restore then
+		local day = s.restoreDay
+		restore.button.Visible = day ~= nil
+		if restore.caption and day then
+			restore.caption.Text = `RESTORE DAY {day}`
+		end
+		local room = if day then RESTORE_W + 12 else 0
+		label.Position = UDim2.fromOffset(PAD + 2 + room, label.Position.Y.Offset)
+		label.Size = UDim2.new(1, -PAD * 2 - BIG_W - 16 - room, 0, 50)
+	end
 end
 
 function DailyRewardsController.open()
@@ -489,6 +508,15 @@ local function buildPanel(): ScreenGui
 		ZIndex = 11,
 	})
 
+	local restore = RobuxButton.product(panel, function()
+		return DailyRewards.RESTORE_PRODUCT_ID
+	end, "RESTORE DAY")
+	restore.button.Size = UDim2.fromOffset(RESTORE_W, 50)
+	restore.button.Position = UDim2.fromOffset(PAD, footTop)
+	restore.button.ZIndex = 11
+	restore.button.Visible = false
+	restoreButton = restore
+
 	panelFrame = panel
 	panelScale = scale
 	claimButton = button
@@ -516,6 +544,7 @@ local function onState(payload: any)
 		readyAt = tonumber(payload.readyAt) or 0,
 		resetAt = tonumber(payload.resetAt) or 0,
 		days = payload.days,
+		restoreDay = tonumber(payload.restoreDay),
 	}
 	paint()
 	paintFooter()

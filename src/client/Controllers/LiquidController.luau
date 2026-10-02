@@ -57,6 +57,7 @@ local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
 local Prefs = require(script.Parent.Parent.Prefs)
 local RadFxArt = require(script.Parent.Parent.RadFxArt)
+local RobuxButton = require(script.Parent.Parent.RobuxButton)
 
 local Liquid = {}
 
@@ -1215,6 +1216,8 @@ end
 --- The BREW button: a chunky green key on a darker lip, a flame beside the word, a
 --- sheen that sweeps across it while it is ready, and a bar that fills as the
 --- cooldown runs down.
+local SKIP_W = 104
+
 local function buildPanelBrew(pg: Frame)
 	local lip = UIKit.panel(pg, {
 		name = "BrewLip",
@@ -1311,6 +1314,18 @@ local function buildPanelBrew(pg: Frame)
 	fill.Parent = brew
 	round(fill, UDim.new(1, 0))
 	panel.cooldown = fill
+
+	-- SKIP: a Robux button beside the key while the cooldown runs (Tuning.
+	-- BREW_SKIP_PRODUCT_ID); the key narrows to make room for it.
+	local skip = RobuxButton.product(pg, function()
+		return Tuning.BREW_SKIP_PRODUCT_ID
+	end, "SKIP")
+	skip.button.Size = UDim2.fromOffset(SKIP_W, 60)
+	skip.button.AnchorPoint = Vector2.new(1, 0)
+	skip.button.Position = UDim2.new(1, -16, 0, 156)
+	skip.button.ZIndex = 5
+	skip.button.Visible = false
+	panel.skip = skip.button
 
 	-- One line under the key: your luck and the jackpot's odds at it, so the BREW
 	-- page still says what a roll can reach without opening LUCK.
@@ -1801,6 +1816,10 @@ local function paintBrew()
 		panel.lip.BackgroundColor3 = BREW_LIP
 	end
 	panel.cooldown.Visible = waiting
+	local room = if waiting then SKIP_W + 10 else 0
+	panel.skip.Visible = waiting
+	panel.brew.Size = UDim2.new(1, -32 - room, 0, 60)
+	panel.lip.Size = UDim2.new(1, -32 - room, 0, 60)
 	panel.sheen.Visible = not waiting
 	panel.flame.Visible = not waiting
 	if os.clock() > noticeUntil then
