@@ -529,6 +529,9 @@ Tuning.RANGE_SWEEP_COMET = 0.9 -- radians of rim left glowing behind the arm
 -- Stardust lands, and short enough that a spin is always nearly ready when you get
 -- home. `charges` still limits how much value one good spin can be turned into.
 Tuning.LIQUID_SPIN_COOLDOWN = 5 * 60 -- seconds between spins, per player (5 minutes)
+-- Skip Brew Timer: a Developer Product that ends the brew cooldown now (LiquidService).
+-- 0 = not set up yet; the button under BREW shows SOON.
+Tuning.BREW_SKIP_PRODUCT_ID = 0
 Tuning.LIQUID_INFINITE = true -- rolled fluids never run out (spendCharge is a no-op)
 
 -- How long the spin runs on screen before it lands. The bottle recolours when it
