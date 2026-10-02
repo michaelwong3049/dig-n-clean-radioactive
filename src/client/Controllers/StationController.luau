@@ -98,6 +98,7 @@
 
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
+local MarketplaceService = game:GetService("MarketplaceService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -106,6 +107,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Gear = require(Shared.Config.Gear)
+local GearProducts = require(Shared.Config.GearProducts)
 local Net = require(Shared.Net)
 local Tutorial = require(Shared.Config.Tutorial)
 
@@ -256,6 +258,10 @@ local FIELD = {
 	dearFill = Color3.fromHex("20262B"),
 	-- NEED $x: the cash badge's own spend red, so a shortfall reads as the same money.
 	short = Color3.fromHex("FF5A4E"),
+	-- The Robux button (Config/GearProducts): the one purple thing on the panel, so
+	-- paying real money never looks like the cash price beside it.
+	robux = Color3.fromHex("7B3FE4"),
+	robuxHover = Color3.fromHex("9257F5"),
 	-- The cartoon black every chunky card in the game is outlined in (CashController's
 	-- and StandCardController's INK, Kit.C.hazardBlack).
 	ink = Color3.fromHex("1A1A1A"),
@@ -461,6 +467,10 @@ local CARD_ROW_GAP = 16
 local CARD_BUY_HEIGHT = 52
 local CARD_BUY_BOTTOM = 18
 local CARD_BUY_TOP = CARD_HEIGHT - CARD_BUY_BOTTOM - CARD_BUY_HEIGHT
+-- The purple Robux button splits the buy row on a tier sold for Robux: cash on the
+-- left, this on the right.
+local CARD_ROBUX_WIDTH = 150
+local CARD_ROBUX_GAP = 10
 local CARD_CHIPS_TOP = CARD_BUY_TOP - CARD_ROW_GAP - STAT_CHIP_HEIGHT
 local CARD_ART_WIDTH = CARD_WIDTH - 2 * CARD_INSET
 local CARD_ART_HEIGHT = CARD_CHIPS_TOP - CARD_ROW_GAP - CARD_ART_TOP
@@ -791,6 +801,32 @@ local function makeShopCard(parent: Instance, order: number): Frame
 		shadow = false,
 	})
 	buy.LayoutOrder = 9
+
+	-- Hidden until paintShopCard finds a product for the tier.
+	local robux = UIKit.button(card, {
+		name = "CardRobux",
+		anchorPoint = Vector2.new(1, 1),
+		position = UDim2.new(1, -CARD_INSET, 1, -CARD_BUY_BOTTOM),
+		size = UDim2.fromOffset(CARD_ROBUX_WIDTH, CARD_BUY_HEIGHT),
+		text = "R$",
+		font = FIELD.headline,
+		textSize = 22,
+		color = FIELD.text,
+		fillColor = FIELD.robux,
+		fillTransparency = 0,
+		cornerRadius = UDim.new(0, 8),
+		strokeThickness = 1,
+		outline = false,
+		shadow = false,
+		visible = false,
+	})
+	robux.AutoButtonColor = false
+	robux.MouseEnter:Connect(function()
+		robux.BackgroundColor3 = FIELD.robuxHover
+	end)
+	robux.MouseLeave:Connect(function()
+		robux.BackgroundColor3 = FIELD.robux
+	end)
 
 	local focus = UIKit.button(card, {
 		name = "CardFocus",
@@ -1370,6 +1406,37 @@ local function paintArt(card: Frame, track: string, tier: number)
 	GearArt.show(card.CardArt.CardModel :: ViewportFrame, track, tier, CARD_ART_WIDTH / CARD_ART_HEIGHT, true)
 end
 
+-- Robux prices, read off each product once (so a dashboard price change needs no code
+-- change). `false` = asked and still waiting, or the lookup failed.
+local robuxPrices: { [number]: number | false } = {}
+
+--- "R$ 199", or a bare "R$" until the price arrives. The first ask starts the lookup,
+--- and the answer repaints whichever card is showing that product.
+local function robuxText(productId: number): string
+	local price = robuxPrices[productId]
+	if price then
+		return `R$ {price}`
+	end
+	if price == nil then
+		robuxPrices[productId] = false
+		task.spawn(function()
+			local ok, info = pcall(function()
+				return MarketplaceService:GetProductInfo(productId, Enum.InfoType.Product)
+			end)
+			if not (ok and info and info.PriceInRobux) then
+				return
+			end
+			robuxPrices[productId] = info.PriceInRobux
+			for _, card in ui.shopCards or {} do
+				if card:GetAttribute("ProductId") == productId then
+					(card.CardRobux :: TextButton).Text = `R$ {info.PriceInRobux}`
+				end
+			end
+		end)
+	end
+	return "R$"
+end
+
 --- Four states, and all four are drawn on the same card rather than on four layouts.
 ---
 --- ISSUED    the one in your hands. Amber edge, a ghost button that says so: IN HAND,
@@ -1439,6 +1506,19 @@ local function paintShopCard(card: Frame, entry, track: string, cash: number)
 	-- first and `owned` second, so the equipped tier takes the ISSUED branch even
 	-- though it is also owned, and `buyable` is by construction `not owned` — the
 	-- trailing two branches split that last case on affordability alone.
+
+	-- THE ROBUX HALF. Only on a tier you can still buy that has a product; then the
+	-- cash button gives up the right side of the row to it.
+	local robux = card.CardRobux :: TextButton
+	local productId = if entry.buyable then GearProducts.idFor(track, entry.tier) else nil
+	robux.Visible = productId ~= nil
+	card:SetAttribute("ProductId", productId)
+	if productId then
+		buy.Size = UDim2.new(1, -(2 * CARD_INSET + CARD_ROBUX_WIDTH + CARD_ROBUX_GAP), 0, CARD_BUY_HEIGHT)
+		robux.Text = robuxText(productId)
+	else
+		buy.Size = UDim2.new(1, -2 * CARD_INSET, 0, CARD_BUY_HEIGHT)
+	end
 end
 
 -- ── The rack beside the stand ────────────────────────────────────────────────
@@ -2148,6 +2228,19 @@ function Station.start()
 				if state.stationId ~= "Aura" then
 					Sfx.play("gearEquip")
 				end
+			end
+		end)
+
+		-- The purple half. Roblox's own purchase dialog takes it from here, and the
+		-- grant arrives through ProductService on the server.
+		local robux = card.CardRobux :: TextButton
+		robux.MouseButton1Click:Connect(function()
+			if state.stationId == nil or (dragMoved and not carousel.single) then
+				return
+			end
+			local productId = card:GetAttribute("ProductId")
+			if type(productId) == "number" then
+				MarketplaceService:PromptProductPurchase(Players.LocalPlayer, productId)
 			end
 		end)
 	end
