@@ -66,9 +66,6 @@ local stateRemote: any = nil
 local spinRemote: any = nil
 local actionRemote: any = nil
 
---- Last spin time per player, for the cooldown. Wall clock rather than a tick counter:
---- this is a "how long since a human did a thing" question.
-local lastSpin: { [Player]: number } = {}
 local lastSignature: { [Player]: string } = {}
 --- Set while a player's spin is still playing on their screen. The bottle holds its
 --- old colour until the spin lands, so the world behind the popup does not give the
@@ -137,11 +134,13 @@ end
 
 --- Seconds left on a player's cooldown, 0 when a spin is ready.
 function LiquidService.cooldownLeft(player: Player): number
-	local previous = lastSpin[player]
-	if previous == nil then
+	-- Read from the profile, not server memory, so a rejoin cannot skip the wait.
+	local data = DataService.data(player)
+	local previous = if data then tonumber(data.lastBrewAt) or 0 else 0
+	if previous <= 0 then
 		return 0
 	end
-	return math.max(0, Tuning.LIQUID_SPIN_COOLDOWN - (os.clock() - previous))
+	return math.clamp(Tuning.LIQUID_SPIN_COOLDOWN - (os.time() - previous), 0, Tuning.LIQUID_SPIN_COOLDOWN)
 end
 
 --- Put one roll's worth of `id` in the player's hose. Shared by the bottle and the
@@ -212,7 +211,7 @@ local function pull(player: Player, data: any): (string?, string?, boolean?)
 		local secs = math.ceil(left)
 		return nil, string.format("ready in %d:%02d", secs // 60, secs % 60)
 	end
-	lastSpin[player] = os.clock()
+	data.lastBrewAt = os.time()
 
 	local stats = StatResolver.get(data)
 	local id = roll(stats.luckMultiplier)
@@ -528,7 +527,6 @@ function LiquidService.start()
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
-		lastSpin[player] = nil
 		lastSignature[player] = nil
 		spinning[player] = nil
 		pending[player] = nil
