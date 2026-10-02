@@ -186,7 +186,7 @@ local SIZE_BUMP = 1.25
 -- they do not scale linearly by a shared delta.
 local TIERS = {
 	{ n = 1, ident = "Bent_Coil", name = "Bent Coil", holdY = -0.138 },
-	{ n = 2, ident = "Scavenger_MkI", name = "Scavenger MkI", holdY = -0.015 },
+	{ n = 2, ident = "Scavenger_MkI", name = "Scrap Sweeper", holdY = -0.015 },
 	{ n = 3, ident = "Surplus_Geiger", name = "Surplus Geiger", holdY = 0.167 },
 	{ n = 4, ident = "Pulse_Array", name = "Pulse Array", holdY = 0.353 },
 	{ n = 5, ident = "Isotope_Scanner", name = "Isotope Scanner", holdY = 0.403 },

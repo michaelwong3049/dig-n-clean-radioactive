@@ -140,7 +140,7 @@ local Gear = {}
 Gear.Detector = {
 	{ name = "Rust Bucket", price = 0, radius = 11, luck = 1.00, depth = 5, clarity = 0, blurb = "Found in a ditch. Mostly works." },
 	{ name = "Bent Coil", price = 15, radius = 13, luck = 1.06, depth = 6, clarity = 0, blurb = "A coat hanger with ambition." },
-	{ name = "Scavenger MkI", price = 28000, radius = 16, luck = 1.12, depth = 9, clarity = 0, blurb = "Wider sweep. Still deaf to anything deep." },
+	{ name = "Scrap Sweeper", price = 28000, radius = 16, luck = 1.12, depth = 9, clarity = 0, blurb = "Wider sweep. Still deaf to anything deep." },
 	{ name = "Surplus Geiger", price = 190000, radius = 19, luck = 1.25, depth = 12, clarity = 1, blurb = "Army surplus, and it still clicks true." },
 	{ name = "Pulse Array", price = 1100000, radius = 22, luck = 1.40, depth = 16, clarity = 1, blurb = "Pulses instead of sweeps. Reaches past rubble." },
 	{ name = "Isotope Scanner", price = 3600000, radius = 25, luck = 1.60, depth = 21, clarity = 2, blurb = "Sorts isotopes from scrap before you dig." },

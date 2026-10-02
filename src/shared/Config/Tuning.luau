@@ -586,7 +586,7 @@ Tuning.WASH_EYE_FORWARD = 0.4
 -- THE INDEX'S STAGE REWARD. Identify every nuke a stage stocks and your detector reads
 -- that stage with this much more dig luck, forever (Shared/IndexProgress, applied in
 -- DigService's rollFor). Added to the detector's own `luck`, not multiplied: a tier-1
--- Rust Bucket (1.00) becomes 1.10, just under the Scavenger MkI's 1.12, so a completed
+-- Rust Bucket (1.00) becomes 1.10, just under the Scrap Sweeper's 1.12, so a completed
 -- stage is worth most of the first real detector purchase there and a small nudge on an
 -- Oracle. (The $15 Bent Coil between them is a tutorial step, not a rung this is sized
 -- against -- see Config/Gear.) Items

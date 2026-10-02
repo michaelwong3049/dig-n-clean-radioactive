@@ -786,7 +786,7 @@ plot ships with all 8 display stands usable from the moment it is claimed.
 
 ### Detector line
 
-Bent Coil → Scavenger MkI → Surplus Geiger → Pulse Array → Isotope Scanner →
+Bent Coil → Scrap Sweeper → Surplus Geiger → Pulse Array → Isotope Scanner →
 Resonance Mapper → Deep Core Array → **The Oracle**
 
 ### Magnet line
