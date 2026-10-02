@@ -305,7 +305,8 @@ local function buildChest(): Model
 	local H, D = importedChest(model, base)
 	if H == nil or D == nil then
 		warn(`[groupreward] ServerStorage.{TEMPLATE_NAME} is missing; building the part chest instead`)
-		H, D = partChest(model, base)
+		-- The part chest's lock is on its +Z side, the imported one's front on -Z.
+		H, D = partChest(model, base * CFrame.Angles(0, math.pi, 0))
 	end
 	local W = CHEST_LENGTH
 
