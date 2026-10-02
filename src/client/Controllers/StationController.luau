@@ -1967,13 +1967,16 @@ function Station.start()
 	ui.trader.onSellMany(function(uids)
 		actionRemote:FireServer({ action = "sellMany", uids = uids })
 	end)
-	-- The locker's two, the same way: DeconService re-derives that you are at your own
+	-- The locker's three, the same way: DeconService re-derives that you are at your own
 	-- rack and that there is room on the other side.
 	ui.locker.onStore(function(uid)
 		actionRemote:FireServer({ action = "store", uid = uid })
 	end)
 	ui.locker.onTake(function(uid)
 		actionRemote:FireServer({ action = "take", uid = uid })
+	end)
+	ui.locker.onUpgrade(function()
+		actionRemote:FireServer({ action = "upgradeLocker" })
 	end)
 	-- The reactor's one verb. MergeService re-derives the station, the copies, the fee
 	-- and the roll; MergeResult brings the outcome back for the panel's reveal.

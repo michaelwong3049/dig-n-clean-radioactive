@@ -41,6 +41,18 @@ local ItemArt = require(script.Parent.ItemArt)
 
 local LockerPanel = {}
 
+--- Cash as a short price tag for the upgrade button: $50K, $3M, $1B.
+local function shortMoney(amount: number): string
+	for _, unit in { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } do
+		if amount >= unit[1] then
+			local s = string.format("%.1f", amount / unit[1])
+			s = (string.gsub(s, "%.0$", ""))
+			return `${s}{unit[2]}`
+		end
+	end
+	return `${math.floor(amount)}`
+end
+
 -- TraderPanel's field palette, plus the tube glass and the gauge's two states.
 local SKIN = {
 	card = Color3.fromHex("22272C"),
@@ -236,6 +248,7 @@ export type Panel = {
 	paint: (state: any) -> (),
 	onStore: (callback: (uid: string) -> ()) -> (),
 	onTake: (callback: (uid: string) -> ()) -> (),
+	onUpgrade: (callback: () -> ()) -> (),
 }
 
 type Tube = {
@@ -500,6 +513,25 @@ function LockerPanel.new(parent: Instance, layoutOrder: number): Panel
 		color = SKIN.amber,
 		xAlign = Enum.TextXAlignment.Right,
 	})
+
+	-- The upgrade: +Tuning.LOCKER_UPGRADE_STEP tubes for the next price
+	-- (DeconService.upgradeLocker). Left of the count; hidden once the locker is maxed.
+	local upgrade = Instance.new("TextButton")
+	upgrade.Name = "Upgrade"
+	upgrade.AnchorPoint = Vector2.new(1, 0.5)
+	upgrade.Position = UDim2.new(1, -(WALLET_INSET + 132), 0.5, -1)
+	upgrade.Size = UDim2.fromOffset(176, 40)
+	upgrade.AutoButtonColor = false
+	upgrade.BorderSizePixel = 0
+	upgrade.Font = SKIN.headline
+	upgrade.TextSize = 17
+	upgrade.TextColor3 = SKIN.text
+	upgrade.Visible = false
+	upgrade.Parent = header
+	corner(upgrade, 10)
+	ink(upgrade)
+	edge(upgrade, SKIN.ink, 3)
+	local upgradeCallback: (() -> ())? = nil
 
 	-- ── The rack ───────────────────────────────────────────────────────
 	local rack = Instance.new("ScrollingFrame")
@@ -819,7 +851,25 @@ function LockerPanel.new(parent: Instance, layoutOrder: number): Panel
 		paintAction(chosen, chosenInLocker, #locker >= slots, #items >= capacity)
 		count.Text = `{#locker}/{slots}`
 		count.TextColor3 = if #locker >= slots then SKIN.needs else SKIN.amber
+
+		local price = state.lockerUpgradePrice
+		local step = if type(state.lockerUpgradeStep) == "number" then state.lockerUpgradeStep else 2
+		upgrade.Visible = type(price) == "number"
+		if type(price) == "number" then
+			local cash = if type(state.cash) == "number" then state.cash else 0
+			local affordable = cash >= price
+			upgrade.Text = `+{step} TUBES \u{00B7} {shortMoney(price)}`
+			upgrade.BackgroundColor3 = if affordable then SKIN.take else SKIN.off
+			upgrade.TextColor3 = if affordable then SKIN.text else SKIN.muted
+		end
 	end
+
+	-- Sent even when it looks unaffordable: the server's "you need $X more" is the answer.
+	upgrade.MouseButton1Click:Connect(function()
+		if upgradeCallback then
+			upgradeCallback()
+		end
+	end)
 
 	button.MouseButton1Click:Connect(function()
 		if selected == nil then
@@ -843,6 +893,9 @@ function LockerPanel.new(parent: Instance, layoutOrder: number): Panel
 		end,
 		onTake = function(callback: (uid: string) -> ())
 			takeCallback = callback
+		end,
+		onUpgrade = function(callback: () -> ())
+			upgradeCallback = callback
 		end,
 	}
 end
