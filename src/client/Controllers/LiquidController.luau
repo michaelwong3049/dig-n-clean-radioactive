@@ -27,12 +27,14 @@
 
 	THE FLUID PANEL. Walk up to your own bottle and press E ("View") and it slides in to
 	the right of centre:
-	the loaded fluid (a bottle filled to what is left, its tier, name, washes and
-	stats, each with a hover explanation), a BREW button that counts down the cooldown,
-	and the Luck UPGRADE with its price and the jackpot's odds now (worked out from
-	FluidState's `rollLuck`, the same number the server rolls with). Both buttons send
-	FluidAction; the server checks you are at your bottle. The panel steps aside while
-	a brew is playing.
+	a tabbed terminal (mockup option 5). BREW: the loaded fluid (bottle, tier, name,
+	stats, each with a hover explanation) and a BREW button that counts down the
+	cooldown. FLUIDS: every rollable fluid as a collection grid, unrolled ones dark
+	(FluidState `seen`). LUCK: the UPGRADE with its price and the rarest fluids' odds
+	now and after the purchase (worked out from FluidState's `rollLuck` and
+	`nextRollLuck`, the numbers the server rolls with). Both buttons send FluidAction;
+	the server checks you are at your bottle. The panel steps aside while a brew is
+	playing.
 
 	All sizes are 1280x720 design pixels on UIKit.canvas (hud-scale-canvas).
 ]]
@@ -988,7 +990,7 @@ end
 --- How close to your own bottle the panel opens, in studs from the bottle's body. Short
 --- enough that the wash spot on the far side of the tub (~8 studs away) never opens it.
 local PANEL_REACH = 6.5
-local PANEL_W, PANEL_H = 330, 362
+local PANEL_W, PANEL_H = 340, 350
 --- The whole card drawn this much bigger than its design size, on request.
 local PANEL_SCALE = 1.15
 --- The BREW key's flame: the image id behind Creator Store decal 10656056859.
@@ -1039,86 +1041,70 @@ local function send(verb: string)
 	Net.get("FluidAction"):FireServer(verb)
 end
 
---- Top of the card: header and tier chip, the bottle, name, washes, bar and stats.
-local function buildPanelFluid(card: Frame)
-	UIKit.label(card, {
-		name = "Header",
-		size = UDim2.fromOffset(160, 22),
-		position = UDim2.fromOffset(16, 14),
-		text = "YOUR FLUID",
-		font = UIKit.Font.title,
-		textSize = UIKit.TextSize.caption,
-		color = UIKit.C.dim,
-	})
+--- THE TABBED TERMINAL (mockup option 5). A tab strip across the top of the card and
+--- three pages under it:
+---   BREW   — the loaded fluid (bottle, name, tier, stat chips) and the BREW key.
+---   FLUIDS — all fifteen rollable fluids as a collection grid; ones you have never
+---            rolled are dark ??? bottles (FluidState `seen`).
+---   LUCK   — the Upgrade key, with the top fluids' odds now and after the purchase
+---            (FluidState `rollLuck` and `nextRollLuck`).
+--- The card opens on BREW every time.
+local TAB_TOP, TAB_H = 14, 34
+local PAGE_TOP = TAB_TOP + TAB_H + 12
+local TAB_ORDER = { "brew", "fluids", "luck" }
+local TAB_IDLE = Color3.fromHex("070906")
+--- How many of the rarest fluids the LUCK tab lists, from the top of Liquids.ORDER.
+local LUCK_ROWS = 6
+
+local function page(card: Frame, name: string): Frame
+	return plainFrame(card, name, UDim2.new(1, 0, 1, -PAGE_TOP), UDim2.fromOffset(0, PAGE_TOP), Vector2.zero)
+end
+
+--- BREW page, top: the bottle, name, tier chip and stat chips. No washes line --
+--- fluids never run out (Tuning.LIQUID_INFINITE), so it was removed on request.
+local function buildPanelFluid(pg: Frame)
 	local glow = Instance.new("Frame")
 	glow.Name = "Glow"
 	glow.BorderSizePixel = 0
 	glow.BackgroundTransparency = 0.8
 	glow.Size = UDim2.fromOffset(78, 78)
-	glow.Position = UDim2.fromOffset(52, 100)
+	glow.Position = UDim2.fromOffset(52, 58)
 	glow.AnchorPoint = Vector2.new(0.5, 0.5)
-	glow.Parent = card
+	glow.Parent = pg
 	round(glow, UDim.new(1, 0))
 	panel.glow = glow
-	panel.fluid = bottleIcon(card, UDim2.fromOffset(52, 56), ICON_SCALE, UIKit.C.text)
+	panel.fluid = bottleIcon(pg, UDim2.fromOffset(52, 14), ICON_SCALE, UIKit.C.text)
 
-	local name = UIKit.label(card, {
+	local name = UIKit.label(pg, {
 		name = "FluidName",
-		size = UDim2.fromOffset(214, 32),
-		position = UDim2.fromOffset(100, 42),
+		size = UDim2.fromOffset(PANEL_W - 116, 32),
+		position = UDim2.fromOffset(100, 22),
 		text = "Plain Water",
 		font = UIKit.Font.hero,
 		textSize = 25,
 		shadow = false,
 	})
-	-- "Stardust Rinse" is right at the edge of 214px in GothamBlack; shrink rather
-	-- than clip.
+	-- "Antimatter Tonic" is near the edge in GothamBlack; shrink rather than clip.
 	name.TextScaled = true
 	local fit = Instance.new("UITextSizeConstraint")
 	fit.MaxTextSize = 25
 	fit.Parent = name
 	panel.name = name
 	-- The rarity sits right under the name, on request.
-	panel.tierPill, panel.tierText = pill(card, "Tier", "BASIC", UIKit.TextSize.caption - 1, 20, UIKit.C.dim, INK)
-	panel.tierPill.Position = UDim2.fromOffset(100, 77)
-	panel.left = UIKit.label(card, {
-		name = "Washes",
-		size = UDim2.fromOffset(214, 20),
-		position = UDim2.fromOffset(100, 100),
-		text = "",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.body - 1,
-		color = UIKit.C.dim,
-	})
-	local track = UIKit.panel(card, {
-		name = "WashBar",
-		size = UDim2.fromOffset(214, 10),
-		position = UDim2.fromOffset(100, 124),
-		color = UIKit.C.empty,
-		transparency = 0,
-		cornerRadius = UDim.new(1, 0),
-		strokeThickness = 0,
-	})
-	panel.washFill = UIKit.panel(track, {
-		name = "Fill",
-		size = UDim2.fromScale(1, 1),
-		color = UIKit.C.text,
-		transparency = 0,
-		cornerRadius = UDim.new(1, 0),
-		strokeThickness = 0,
-	})
+	panel.tierPill, panel.tierText = pill(pg, "Tier", "BASIC", UIKit.TextSize.caption - 1, 20, UIKit.C.dim, INK)
+	panel.tierPill.Position = UDim2.fromOffset(100, 60)
 
-	panel.chips = chipRow(card, "Stats", UDim2.new(1, -32, 0, 26), UDim2.fromOffset(16, 150), Vector2.zero, false)
+	panel.chips = chipRow(pg, "Stats", UDim2.new(1, -32, 0, 28), UDim2.fromOffset(16, 112), Vector2.zero, false)
 end
 
 --- The BREW button: a chunky green key on a darker lip, a flame beside the word, a
 --- sheen that sweeps across it while it is ready, and a bar that fills as the
 --- cooldown runs down.
-local function buildPanelBrew(card: Frame)
-	local lip = UIKit.panel(card, {
+local function buildPanelBrew(pg: Frame)
+	local lip = UIKit.panel(pg, {
 		name = "BrewLip",
 		size = UDim2.new(1, -32, 0, 60),
-		position = UDim2.fromOffset(16, 192),
+		position = UDim2.fromOffset(16, 162),
 		color = BREW_LIP,
 		transparency = 0,
 		cornerRadius = UDim.new(0, 16),
@@ -1127,10 +1113,10 @@ local function buildPanelBrew(card: Frame)
 	})
 	panel.lip = lip
 
-	local brew = UIKit.button(card, {
+	local brew = UIKit.button(pg, {
 		name = "Brew",
 		size = UDim2.new(1, -32, 0, 60),
-		position = UDim2.fromOffset(16, 186),
+		position = UDim2.fromOffset(16, 156),
 		text = "BREW",
 		font = UIKit.Font.hero,
 		textSize = 28,
@@ -1210,79 +1196,201 @@ local function buildPanelBrew(card: Frame)
 	fill.Parent = brew
 	round(fill, UDim.new(1, 0))
 	panel.cooldown = fill
+
+	-- One line under the key: your luck and the jackpot's odds at it, so the BREW
+	-- page still says what a roll can reach without opening LUCK.
+	panel.brewOdds = UIKit.label(pg, {
+		name = "Odds",
+		size = UDim2.new(1, -32, 0, 18),
+		position = UDim2.fromOffset(16, 236),
+		text = "",
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.caption,
+		color = Color3.fromHex("FFF3B0"),
+		xAlign = Enum.TextXAlignment.Center,
+	})
 end
 
---- Bottom of the card: Luck, the jackpot's odds now and after the next purchase, the
---- upgrade key, and a line for the server's notices.
-local function buildPanelLuck(card: Frame)
-	local rule = Instance.new("Frame")
-	rule.Name = "Rule"
-	rule.BackgroundColor3 = UIKit.C.stroke
-	rule.BorderSizePixel = 0
-	rule.Size = UDim2.new(1, -32, 0, 2)
-	rule.Position = UDim2.fromOffset(16, 264)
-	rule.Parent = card
+--- FLUIDS page: a 5x3 grid of every rollable fluid, and a discovered count under it.
+local FLUID_TILE = Vector2.new(56, 66)
+local function buildPanelFluids(pg: Frame)
+	local grid = plainFrame(pg, "Grid", UDim2.new(1, -32, 0, 214), UDim2.fromOffset(16, 0), Vector2.zero)
+	local layout = Instance.new("UIGridLayout")
+	layout.CellSize = UDim2.fromOffset(FLUID_TILE.X, FLUID_TILE.Y)
+	layout.CellPadding = UDim2.fromOffset(6, 8)
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = grid
 
-	panel.luck = UIKit.label(card, {
-		name = "Luck",
-		size = UDim2.fromOffset(110, 24),
-		position = UDim2.fromOffset(16, 274),
-		text = "LUCK 1.0x",
-		font = UIKit.Font.hero,
-		textSize = UIKit.TextSize.header + 1,
+	panel.tiles = {}
+	for index, id in Liquids.ORDER do
+		if id == Liquids.WATER then
+			continue
+		end
+		local tile, stroke = UIKit.panel(grid, {
+			name = id,
+			size = UDim2.fromOffset(FLUID_TILE.X, FLUID_TILE.Y),
+			color = Color3.fromHex("151A12"),
+			transparency = 0,
+			cornerRadius = UDim.new(0, 10),
+			strokeColor = CHIP_STROKE,
+			strokeThickness = 2,
+		})
+		tile.LayoutOrder = index
+		local fluid = bottleIcon(tile, UDim2.new(0.5, 0, 0, 5), 0.62, UIKit.C.text)
+		local label = UIKit.label(tile, {
+			name = "FluidName",
+			size = UDim2.new(1, -6, 0, 20),
+			position = UDim2.new(0.5, 0, 0, 43),
+			anchorPoint = Vector2.new(0.5, 0),
+			text = "???",
+			font = UIKit.Font.title,
+			textSize = 11,
+			xAlign = Enum.TextXAlignment.Center,
+			shadow = false,
+		})
+		label.TextWrapped = true
+		label.TextScaled = true
+		local fit = Instance.new("UITextSizeConstraint")
+		fit.MaxTextSize = 11
+		fit.Parent = label
+		panel.tiles[id] = { stroke = stroke, fluid = fluid, label = label }
+	end
+
+	panel.seenCount = UIKit.label(pg, {
+		name = "Count",
+		size = UDim2.new(1, -32, 0, 20),
+		position = UDim2.fromOffset(16, 224),
+		text = "",
+		font = UIKit.Font.title,
+		textSize = UIKit.TextSize.body,
+		color = UIKit.C.dim,
+		xAlign = Enum.TextXAlignment.Center,
 	})
-	panel.boost = UIKit.label(card, {
+end
+
+--- LUCK page: luck now -> after the upgrade, the rarest fluids' odds in two columns,
+--- and the Upgrade key with its price.
+local function buildPanelLuck(pg: Frame)
+	panel.luck = UIKit.label(pg, {
+		name = "Luck",
+		size = UDim2.fromOffset(150, 30),
+		position = UDim2.fromOffset(16, 0),
+		text = "LUCK 1x",
+		font = UIKit.Font.hero,
+		textSize = 26,
+	})
+	panel.nextLuck = UIKit.label(pg, {
+		name = "NextLuck",
+		size = UDim2.fromOffset(150, 30),
+		position = UDim2.new(1, -16, 0, 0),
+		anchorPoint = Vector2.new(1, 0),
+		text = "",
+		font = UIKit.Font.hero,
+		textSize = 26,
+		color = UIKit.C.green,
+		xAlign = Enum.TextXAlignment.Right,
+	})
+	panel.boost = UIKit.label(pg, {
 		name = "Boost",
-		size = UDim2.fromOffset(70, 24),
-		position = UDim2.fromOffset(126, 274),
+		size = UDim2.fromOffset(150, 16),
+		position = UDim2.fromOffset(16, 32),
 		text = "",
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.caption,
 		color = UIKit.C.amber,
 	})
-	panel.jackpot = UIKit.label(card, {
-		name = "Jackpot",
-		size = UDim2.fromOffset(180, 16),
-		position = UDim2.fromOffset(16, 300),
-		text = "",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption - 1,
-		color = Color3.fromHex("FFF3B0"),
-	})
-	-- "Antimatter Tonic 1 in 2308" is right at the edge of 180px; shrink rather
-	-- than clip.
-	panel.jackpot.TextScaled = true
-	local jackpotFit = Instance.new("UITextSizeConstraint")
-	jackpotFit.MaxTextSize = UIKit.TextSize.caption - 1
-	jackpotFit.Parent = panel.jackpot
-	local upgrade = UIKit.button(card, {
+	for _, spec in { { "NOW", 196, UIKit.C.dim }, { "NEXT", 264, UIKit.C.green } } do
+		UIKit.label(pg, {
+			name = `{spec[1]}Head`,
+			size = UDim2.fromOffset(64, 16),
+			position = UDim2.fromOffset(spec[2], 34),
+			text = spec[1],
+			font = UIKit.Font.title,
+			textSize = UIKit.TextSize.caption - 2,
+			color = spec[3],
+			xAlign = Enum.TextXAlignment.Right,
+		})
+	end
+
+	panel.luckRows = {}
+	local first = #Liquids.ORDER - LUCK_ROWS + 1
+	for row = 1, LUCK_ROWS do
+		local id = Liquids.ORDER[first + row - 1]
+		local def = Liquids.get(id)
+		local _, tierColour = tierOf(def)
+		local y = 54 + (row - 1) * 24
+		local dot = UIKit.panel(pg, {
+			name = `Dot{row}`,
+			size = UDim2.fromOffset(12, 12),
+			position = UDim2.fromOffset(16, y + 4),
+			color = Color3.fromHex(def.color),
+			transparency = 0,
+			cornerRadius = UDim.new(1, 0),
+			strokeColor = UIKit.C.outline,
+			strokeThickness = 2,
+		})
+		dot.ZIndex = 2
+		UIKit.label(pg, {
+			name = `Name{row}`,
+			size = UDim2.fromOffset(160, 20),
+			position = UDim2.fromOffset(34, y),
+			text = def.name,
+			font = UIKit.Font.title,
+			textSize = UIKit.TextSize.caption,
+			color = tierColour,
+		})
+		local now = UIKit.label(pg, {
+			name = `Now{row}`,
+			size = UDim2.fromOffset(76, 20),
+			position = UDim2.fromOffset(184, y),
+			text = "",
+			font = UIKit.Font.title,
+			textSize = UIKit.TextSize.caption,
+			color = UIKit.C.dim,
+			xAlign = Enum.TextXAlignment.Right,
+		})
+		local after = UIKit.label(pg, {
+			name = `Next{row}`,
+			size = UDim2.fromOffset(76, 20),
+			position = UDim2.fromOffset(252, y),
+			text = "",
+			font = UIKit.Font.title,
+			textSize = UIKit.TextSize.caption,
+			color = Color3.fromHex("8BE59F"),
+			xAlign = Enum.TextXAlignment.Right,
+		})
+		panel.luckRows[row] = { id = id, now = now, after = after }
+	end
+
+	local upgrade = UIKit.button(pg, {
 		name = "Upgrade",
-		size = UDim2.fromOffset(116, 52),
-		position = UDim2.new(1, -16, 0, 274),
-		anchorPoint = Vector2.new(1, 0),
+		size = UDim2.new(1, -32, 0, 56),
+		position = UDim2.fromOffset(16, 202),
 		text = "",
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.body,
 		fillColor = Color3.fromHex("2F6FB0"),
 		fillTransparency = 0,
+		cornerRadius = UDim.new(0, 14),
 	})
 	upgrade.Activated:Connect(function()
 		send("luck")
 	end)
 	UIKit.label(upgrade, {
 		name = "Step",
-		size = UDim2.new(1, 0, 0, 24),
+		size = UDim2.new(1, 0, 0, 26),
 		position = UDim2.fromOffset(0, 5),
-		text = "Upgrade",
+		text = "Upgrade Luck",
 		font = UIKit.Font.hero,
-		textSize = UIKit.TextSize.body + 2,
+		textSize = UIKit.TextSize.header + 3,
 		xAlign = Enum.TextXAlignment.Center,
 		shadow = false,
 	})
 	panel.upPrice = UIKit.label(upgrade, {
 		name = "Price",
 		size = UDim2.new(1, 0, 0, 18),
-		position = UDim2.fromOffset(0, 28),
+		position = UDim2.fromOffset(0, 31),
 		text = "$0",
 		font = UIKit.Font.title,
 		textSize = UIKit.TextSize.body,
@@ -1290,26 +1398,15 @@ local function buildPanelLuck(card: Frame)
 		xAlign = Enum.TextXAlignment.Center,
 		shadow = false,
 	})
-
-	panel.notice = UIKit.label(card, {
-		name = "Notice",
-		size = UDim2.new(1, -32, 0, 18),
-		position = UDim2.fromOffset(16, 336),
-		text = "",
-		font = UIKit.Font.body,
-		textSize = UIKit.TextSize.caption,
-		color = UIKit.C.amber,
-		xAlign = Enum.TextXAlignment.Center,
-	})
 end
 
 --- The stat chips' hover explanation: a dark slip just under the chip row, over the
 --- top of the BREW key, shown while the mouse is on a chip (fillChips' `hover`).
-local function buildPanelTip(card: Frame)
-	local tip = UIKit.panel(card, {
+local function buildPanelTip(pg: Frame)
+	local tip = UIKit.panel(pg, {
 		name = "Tip",
 		size = UDim2.new(1, -32, 0, 40),
-		position = UDim2.fromOffset(16, 180),
+		position = UDim2.fromOffset(16, 144),
 		color = Color3.fromHex("0B0E09"),
 		transparency = 0.05,
 		cornerRadius = UDim.new(0, 10),
@@ -1342,6 +1439,83 @@ local function chipHover(_chip: Frame, line: string?)
 	if line then
 		panel.tipText.Text = line
 	end
+end
+
+local function selectTab(which: string)
+	panel.tab = which
+	for _, key in TAB_ORDER do
+		local on = key == which
+		panel.pages[key].Visible = on
+		local button = panel.tabs[key]
+		button.BackgroundColor3 = if on then UIKit.C.selected else TAB_IDLE
+		button.BackgroundTransparency = if on then 0 else 1
+		button.TextColor3 = if on then UIKit.C.text else UIKit.C.dim
+	end
+	if panel.tip then
+		panel.tip.Visible = false
+	end
+end
+
+--- The tab strip and the close key across the top of the card.
+local function buildPanelTabs(card: Frame)
+	local strip = UIKit.panel(card, {
+		name = "Tabs",
+		size = UDim2.new(1, -32 - 42, 0, TAB_H),
+		position = UDim2.fromOffset(16, TAB_TOP),
+		color = TAB_IDLE,
+		transparency = 0,
+		cornerRadius = UDim.new(0, 12),
+		strokeColor = UIKit.C.outline,
+		strokeThickness = 2,
+	})
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0, 3)
+	padding.PaddingRight = UDim.new(0, 3)
+	padding.PaddingTop = UDim.new(0, 3)
+	padding.PaddingBottom = UDim.new(0, 3)
+	padding.Parent = strip
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = strip
+
+	panel.tabs = {}
+	for index, key in TAB_ORDER do
+		local button = Instance.new("TextButton")
+		button.Name = key
+		button.LayoutOrder = index
+		button.AutoButtonColor = false
+		button.BorderSizePixel = 0
+		button.Size = UDim2.fromScale(1 / #TAB_ORDER, 1)
+		button.Font = UIKit.Font.hero
+		button.TextSize = UIKit.TextSize.body
+		button.Text = string.upper(key)
+		button.Parent = strip
+		round(button, UDim.new(0, 9))
+		button.Activated:Connect(function()
+			selectTab(key)
+		end)
+		panel.tabs[key] = button
+	end
+
+	local closeKey = UIKit.button(card, {
+		name = "Close",
+		size = UDim2.fromOffset(TAB_H, TAB_H),
+		position = UDim2.new(1, -16, 0, TAB_TOP),
+		anchorPoint = Vector2.new(1, 0),
+		text = "X",
+		font = UIKit.Font.hero,
+		textSize = UIKit.TextSize.header,
+		fillColor = UIKit.C.red,
+		fillTransparency = 0,
+		cornerRadius = UDim.new(0, 10),
+		shadow = false,
+	})
+	closeKey.Activated:Connect(function()
+		if panel.onClose then
+			panel.onClose()
+		end
+	end)
 end
 
 local function buildPanel()
@@ -1381,10 +1555,79 @@ local function buildPanel()
 	scale.Parent = card
 	panel.scale = scale
 
-	buildPanelFluid(card)
-	buildPanelBrew(card)
-	buildPanelLuck(card)
-	buildPanelTip(card)
+	panel.pages = {
+		brew = page(card, "BrewPage"),
+		fluids = page(card, "FluidsPage"),
+		luck = page(card, "LuckPage"),
+	}
+	buildPanelTabs(card)
+	buildPanelFluid(panel.pages.brew)
+	buildPanelBrew(panel.pages.brew)
+	buildPanelTip(panel.pages.brew)
+	buildPanelFluids(panel.pages.fluids)
+	buildPanelLuck(panel.pages.luck)
+
+	-- The server's notices (too poor, not at your bottle) belong to every tab.
+	panel.notice = UIKit.label(card, {
+		name = "Notice",
+		size = UDim2.new(1, -32, 0, 18),
+		position = UDim2.new(0, 16, 1, -26),
+		text = "",
+		font = UIKit.Font.body,
+		textSize = UIKit.TextSize.caption,
+		color = UIKit.C.amber,
+		xAlign = Enum.TextXAlignment.Center,
+	})
+	selectTab("brew")
+end
+
+--- FLUIDS tab: light up every fluid in FluidState `seen`; the rest stay dark ???.
+local function paintFluids()
+	local seen = {}
+	if type(state.seen) == "table" then
+		for _, id in state.seen do
+			seen[id] = true
+		end
+	end
+	local count, total = 0, 0
+	for id, tile in panel.tiles do
+		local def = Liquids.get(id)
+		local known = seen[id] == true
+		local _, tierColour = tierOf(def)
+		total += 1
+		if known then
+			count += 1
+		end
+		tile.fluid.BackgroundColor3 = if known then Color3.fromHex(def.color) else INK
+		tile.stroke.Color = if known then tierColour else CHIP_STROKE
+		tile.label.Text = if known then def.name else "???"
+		tile.label.TextColor3 = if known then UIKit.C.text else UIKit.C.dim
+	end
+	panel.seenCount.Text = `{count} / {total} discovered`
+end
+
+--- LUCK tab: the header, and each row's odds at the luck rolled with now and after
+--- one more Upgrade.
+local function paintLuck()
+	local luck = tonumber(state.luck) or 1
+	local nextLuck = tonumber(state.nextLuck) or (luck + 1)
+	panel.luck.Text = string.format("LUCK %gx", luck)
+	panel.nextLuck.Text = string.format("NEXT %gx", nextLuck)
+	local boost = tonumber(state.boost) or 1
+	panel.boost.Text = if boost > 1 then string.format("x%g BOOST ACTIVE", boost) else ""
+
+	local rollLuck = tonumber(state.rollLuck) or luck
+	local nextRoll = tonumber(state.nextRollLuck) or rollLuck * nextLuck / luck
+	local now = Liquids.oddsAt(rollLuck)
+	local after = Liquids.oddsAt(nextRoll)
+	for _, row in panel.luckRows do
+		row.now.Text = oneIn(now[row.id] or 0)
+		row.after.Text = oneIn(after[row.id] or 0)
+	end
+	panel.upPrice.Text = formatCash(tonumber(state.luckPrice) or 0)
+
+	local jackpot = Liquids.ORDER[#Liquids.ORDER]
+	panel.brewOdds.Text = string.format("LUCK %gx  ·  %s %s", luck, Liquids.get(jackpot).name, oneIn(now[jackpot] or 0))
 end
 
 --- Paint everything except the countdown from the last FluidState.
@@ -1405,28 +1648,16 @@ local function paintState()
 	panel.cardStroke.Color = colour:Lerp(UIKit.C.stroke, 0.35)
 	panel.glow.BackgroundColor3 = colour
 
-	-- A roll can stack past one canister (Tuning.LIQUID_MAX_STACK); the bottle and bar
-	-- read full from one canister up rather than showing a stack as a sliver.
+	-- A roll can stack past one canister (Tuning.LIQUID_MAX_STACK); the bottle reads
+	-- full from one canister up rather than showing a stack as a sliver.
 	local full = if water or Tuning.LIQUID_INFINITE then 1 else math.clamp(held / math.max(def.charges, 1), 0, 1)
 	panel.fluid.BackgroundColor3 = colour
 	panel.fluid.Size = UDim2.new(1, -8 * ICON_SCALE, FILL_EMPTY + (FILL_FULL - FILL_EMPTY) * full, 0)
-	panel.washFill.BackgroundColor3 = colour
-	panel.washFill.Size = UDim2.fromScale(math.max(full, 0.04), 1)
-	panel.left.Text = if water or Tuning.LIQUID_INFINITE then "" elseif held == 1 then "1 wash left" else `{held} washes left`
 	panel.tip.Visible = false
 	fillChips(panel.chips, def, UIKit.TextSize.body, 28, chipHover)
 
-	local luck = tonumber(state.luck) or 1
-	panel.luck.Text = string.format("LUCK %gx", luck)
-	local boost = tonumber(state.boost) or 1
-	panel.boost.Text = if boost > 1 then string.format("x%g BOOST", boost) else ""
-
-	-- The jackpot's odds at the luck the server actually rolls with.
-	local rollLuck = tonumber(state.rollLuck) or luck
-	local jackpot = Liquids.ORDER[#Liquids.ORDER]
-	local now = Liquids.oddsAt(rollLuck)[jackpot] or 0
-	panel.jackpot.Text = `{Liquids.get(jackpot).name} {oneIn(now)}`
-	panel.upPrice.Text = formatCash(tonumber(state.luckPrice) or 0)
+	paintFluids()
+	paintLuck()
 end
 
 --- The BREW key's face: green with the flame and sheen when ready; grey, counting
@@ -1468,6 +1699,7 @@ local function setOpen(open: boolean)
 	end
 	panel.card.Visible = open
 	if open then
+		selectTab("brew")
 		panel.scale.Scale = 0.9 * PANEL_SCALE
 		tween(panel.scale, 0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = PANEL_SCALE })
 	else
@@ -1482,6 +1714,10 @@ local viewPrompt: ProximityPrompt? = nil
 local wantOpen = false
 --- The tub's Wash prompt while the bottle has borrowed E from it (see watch).
 local washStepped: ProximityPrompt? = nil
+--- The card's X does what a second E does.
+panel.onClose = function()
+	wantOpen = false
+end
 
 local function ensurePrompt(bottle: BasePart?)
 	if bottle == nil then

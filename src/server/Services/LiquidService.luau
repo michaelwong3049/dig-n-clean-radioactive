@@ -163,6 +163,8 @@ end
 --- Rolling what is already loaded needs no question. Returns whether one is asked.
 local function grant(player: Player, data: any, id: string): boolean
 	local def = Liquids.get(id)
+	data.fluidsSeen = data.fluidsSeen or {}
+	data.fluidsSeen[id] = true
 
 	-- Stacking, capped. Kept for the day fluids go finite again (LIQUID_INFINITE off).
 	local ceiling = def.charges * Tuning.LIQUID_MAX_STACK
@@ -265,12 +267,26 @@ function LiquidService.spendCharge(data: any): ()
 	end
 end
 
+--- Every fluid this player has rolled, plus whatever they hold or have loaded, so a
+--- save from before `fluidsSeen` existed still shows what it obviously has.
+local function seenList(data: any): { string }
+	local list = {}
+	for _, id in Liquids.ORDER do
+		if (data.fluidsSeen and data.fluidsSeen[id]) or (data.liquids[id] or 0) > 0 or data.equippedLiquid == id then
+			table.insert(list, id)
+		end
+	end
+	return list
+end
+
 --- Everything the fluid panel draws. `cooldown` is seconds left as of now; the client
 --- counts it down itself, and a push lands again the moment it reaches zero (the
 --- signature carries readiness), so the two never drift far.
 local function stateFor(player: Player, data: any): any
 	local stats = StatResolver.get(data)
 	local level = data.gear.luck or 1
+	local luck = Gear.luckMultiplier(level)
+	local nextLuck = Gear.luckMultiplier(level + 1)
 	return {
 		liquid = stats.liquidId,
 		held = data.liquids[stats.liquidId] or 0,
@@ -284,6 +300,12 @@ local function stateFor(player: Player, data: any): any
 		luckLevel = level,
 		luckPrice = Gear.luckPrice(level),
 		boost = stats.luckBoost,
+		-- The LUCK tab's "after upgrade" column: the next level, and the roll luck it
+		-- would give with every other multiplier (boost, mastery) held where it is.
+		nextLuck = nextLuck,
+		nextRollLuck = stats.luckMultiplier * nextLuck / luck,
+		-- The FLUIDS tab's discovered set, as a list of ids.
+		seen = seenList(data),
 	}
 end
 
@@ -297,6 +319,7 @@ local function signatureOf(player: Player, data: any, stats: any): string
 		tostring(stats.luckBoost),
 		tostring(stats.luckMultiplier),
 		tostring(LiquidService.cooldownLeft(player) > 0),
+		tostring(#seenList(data)),
 	}
 	for _, id in Liquids.ORDER do
 		table.insert(parts, `{id}:{data.liquids[id] or 0}`)
