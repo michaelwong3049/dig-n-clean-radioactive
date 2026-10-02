@@ -23,7 +23,7 @@ AwayEarnings.MIN_AWAY_SECONDS = 60
 -- The Developer Product's id from the Creator Dashboard (Monetization -> Developer
 -- Products). 0 = not set up yet: DOUBLE IT shows COMING SOON and is disabled, and
 -- Services/ProductService registers nothing. /away tests the card without it.
-AwayEarnings.PRODUCT_ID = 0
+AwayEarnings.PRODUCT_ID = 3716002498
 
 -- What DOUBLE IT pays, as a multiple of the amount on the card.
 AwayEarnings.DOUBLE_MULT = 2
