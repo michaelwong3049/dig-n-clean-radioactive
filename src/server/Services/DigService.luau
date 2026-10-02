@@ -1387,7 +1387,9 @@ local function stepPlayer(player: Player, dt: number)
 	-- haul (yank + draw) by GRIP_FALLOFF per stage of deficit -- a steep, unspoken
 	-- gradient, not a wall (see this file's header and Tuning.PULL_GRIP_FALLOFF).
 	local gripDeficit = math.max(0, signal.soil - stats.maxGrip)
-	local gripEff = GRIP_FALLOFF ^ gripDeficit
+	-- The 2x Dig Power pass (Config/GamePasses) rides on the same factor: it scales the
+	-- magnet's whole side of the haul, never the drag or the rope.
+	local gripEff = GRIP_FALLOFF ^ gripDeficit * stats.digPower
 
 	-- A full bag is the only thing that BLOCKS a haul now; an under-rated magnet just
 	-- grinds (or, far enough over tier, cannot win at all -- but it still gets to try).

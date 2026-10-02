@@ -37,6 +37,7 @@ local Crates = require(Shared.Config.Crates)
 local Camps = require(Shared.Config.Camps)
 local Treadmill = require(Shared.Config.Treadmill)
 local LuckBoost = require(Shared.Config.LuckBoost)
+local GamePasses = require(Shared.Config.GamePasses)
 local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
@@ -53,6 +54,7 @@ local DigService = require(script.Parent.DigService)
 local CrateService = require(script.Parent.CrateService)
 local CampService = require(script.Parent.CampService)
 local LuckBoostService = require(script.Parent.LuckBoostService)
+local GamePassService = require(script.Parent.GamePassService)
 local RareDropService = require(script.Parent.RareDropService)
 local TreadmillService = require(script.Parent.TreadmillService)
 local AwayEarningsService = require(script.Parent.AwayEarningsService)
@@ -830,6 +832,33 @@ COMMANDS["/luckboost"] = {
 			LuckBoostService.grant(player, data, seconds)
 		end
 		return `clover: {math.floor(data.luckBoostLeft)}s banked, luck boost now {StatResolver.get(data).luckBoost}x`
+	end,
+}
+
+COMMANDS["/pass"] = {
+	-- A game pass without Robux, for this session: the next join's ownership check
+	-- clears it again unless the account really owns it.
+	help = "/pass <key|all> [on|off] — toggle a game pass on yourself (keys: cash luck digPower speed backpack bombDamage instantClean)",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		local key = args[1]
+		local owned = args[2] ~= "off"
+		local keys = {}
+		for _, pass in GamePasses.PASSES do
+			if key == "all" or pass.key == key then
+				table.insert(keys, pass.key)
+			end
+		end
+		if #keys == 0 then
+			return `unknown pass "{tostring(key)}"`
+		end
+		for _, k in keys do
+			GamePassService.set(player, data, k, owned)
+		end
+		return `{table.concat(keys, ", ")} {if owned then "on" else "off"}`
 	end,
 }
 

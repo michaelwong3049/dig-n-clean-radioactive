@@ -32,6 +32,7 @@ local Gear = require(Config.Gear)
 local Liquids = require(Config.Liquids)
 local Treadmill = require(Config.Treadmill)
 local LuckBoost = require(Config.LuckBoost)
+local GamePasses = require(Config.GamePasses)
 local IndexProgress = require(script.Parent.IndexProgress)
 local Mastery = require(script.Parent.Mastery)
 
@@ -64,6 +65,9 @@ export type Profile = {
 	-- Optional for the same reason; absent means nothing reached, every reward at base.
 	stats: { [string]: number }?,
 	cashEarned: number?,
+	-- Permanent Robux passes owned (Config/GamePasses), key -> true. Optional for the
+	-- same reason; absent means none.
+	passes: { [string]: boolean }?,
 }
 
 export type Stats = {
@@ -125,6 +129,10 @@ export type Stats = {
 	mergeBonus: number, -- Config/Merge.odds' success chance
 	brewCooldownMult: number, -- LiquidService
 	awayRate: number, -- ExhibitService's offline share of $/s
+	-- GAME PASSES (Config/GamePasses) that need a field of their own. The rest fold
+	-- into capacity, luckBoost, trainingMult, bombDamageMult and the two cash ones.
+	digPower: number, -- DigService: scales the magnet's side of a haul (yank + draw)
+	instantClean: boolean, -- WashService: a patch breaks the moment water touches it
 }
 
 --- Is the server-wide Violet Aurora up right now? See the header's one outside read.
@@ -175,7 +183,11 @@ function StatResolver.get(profile: Profile): Stats
 	-- is retired (Gear.Boots' header); Config/Treadmill owns the number now.
 	local walkSpeed, speedProgress = Treadmill.walkFor(profile.speedPoints or 0)
 	local luckMultiplier = Gear.luckMultiplier(g.luck or 1)
+	-- The 2x Luck pass is one more source on the same boost, so it reaches the dig
+	-- roll and the wash pad exactly like the aurora and the clover (Config/GamePasses).
 	local luckBoost = LuckBoost.multiplier(StatResolver.luckEventActive(), (profile.luckBoostLeft or 0) > 0)
+		* (if GamePasses.owns(profile, "luck") then GamePasses.LUCK else 1)
+	local passCash = if GamePasses.owns(profile, "cash") then GamePasses.CASH else 1
 	local liquidId, liquid = liquidFor(profile)
 	-- A completed stage's index pays in cash (Tuning.INDEX_COMPLETE_CASH), on every
 	-- sale and every stand's income alike -- both multipliers below take it.
@@ -194,6 +206,7 @@ function StatResolver.get(profile: Profile): Stats
 	local capacity = aura.capacity
 		+ math.floor(profile.level / Tuning.CAPACITY_EVERY_N_LEVELS)
 		+ Mastery.value(profile, "capacity")
+		+ (if GamePasses.owns(profile, "backpack") then GamePasses.BACKPACK_SLOTS else 0)
 
 	return {
 		auraReduction = aura.reduction,
@@ -235,7 +248,7 @@ function StatResolver.get(profile: Profile): Stats
 		liquidXp = liquid.xpMult,
 		effectivePotency = cleanPotency + liquid.potency,
 
-		sellMultiplier = mult(profile, "sell") * indexCash * masteryCash,
+		sellMultiplier = mult(profile, "sell") * indexCash * masteryCash * passCash,
 		-- REPURPOSED, and it used to be inert. This was `mult(profile, "luck")` alone
 		-- -- the PLAN §11 "2x Luck" gamepass slot -- and nothing in the game read it,
 		-- because nothing in the game rolled anything a player could influence. The
@@ -244,17 +257,21 @@ function StatResolver.get(profile: Profile): Stats
 		-- top of it exactly as it was always meant to, and so does 2x luck.
 		luckMultiplier = luckMultiplier * mult(profile, "luck") * luckBoost * Mastery.value(profile, "luck"),
 		-- Curator (PLAN §9.2)
-		yieldMultiplier = mult(profile, "yield") * (if perks.curator then 1.15 else 1) * indexCash * masteryCash,
+		yieldMultiplier = mult(profile, "yield") * (if perks.curator then 1.15 else 1) * indexCash * masteryCash * passCash,
 		luckBoost = luckBoost,
 		indexCashMultiplier = indexCash,
 
 		masteryCash = masteryCash,
-		bombDamageMult = Mastery.value(profile, "bombDamage"),
-		trainingMult = Mastery.value(profile, "training"),
+		bombDamageMult = Mastery.value(profile, "bombDamage")
+			* (if GamePasses.owns(profile, "bombDamage") then GamePasses.BOMB_DAMAGE else 1),
+		trainingMult = Mastery.value(profile, "training") * (if GamePasses.owns(profile, "speed") then GamePasses.SPEED else 1),
 		radDamageMult = Mastery.value(profile, "radDamage"),
 		mergeBonus = Mastery.value(profile, "mergeChance"),
 		brewCooldownMult = Mastery.value(profile, "brewCooldown"),
 		awayRate = Mastery.value(profile, "awayRate"),
+
+		digPower = if GamePasses.owns(profile, "digPower") then GamePasses.DIG_POWER else 1,
+		instantClean = GamePasses.owns(profile, "instantClean"),
 	}
 end
 
