@@ -182,6 +182,37 @@ local function edge(parent: Instance, color: Color3, thickness: number)
 	stroke.Parent = parent
 end
 
+-- One pass over the card, then a rest before the next.
+local SHINE = TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false, 2.6)
+
+--- A white glint that sweeps across `card` on a loop: a rounded white sheet the card's
+--- size, masked to a narrow diagonal band by a gradient whose offset slides across.
+--- `delay` staggers neighbouring cards so they don't all flash at once.
+local function shine(card: GuiObject, corner: number, delay: number)
+	local sheet = Instance.new("Frame")
+	sheet.Name = "Shine"
+	sheet.Size = UDim2.fromScale(1, 1)
+	sheet.BackgroundColor3 = Color3.new(1, 1, 1)
+	sheet.BorderSizePixel = 0
+	sheet.ZIndex = 15
+	sheet.Parent = card
+	round(sheet, corner)
+	local band = Instance.new("UIGradient")
+	band.Rotation = 20
+	band.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.42, 1),
+		NumberSequenceKeypoint.new(0.5, 0.45),
+		NumberSequenceKeypoint.new(0.58, 1),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	band.Offset = Vector2.new(-1, 0)
+	band.Parent = sheet
+	task.delay(delay, function()
+		TweenService:Create(band, SHINE, { Offset = Vector2.new(1, 0) }):Play()
+	end)
+end
+
 --- A purple R$ button for `productId`, parented to `parent`. Its price is read off the
 --- product, so a dashboard change needs no code change; the bare glyph stands in until then. An
 --- id of 0 (not set up on the dashboard) gives a grey COMING SOON that does nothing.
@@ -636,6 +667,7 @@ local function buildPasses(parent: Instance)
 			round(card, 14)
 			edge(card, PANEL.tileEdge, 3)
 			gloss(card)
+			shine(card, 14, index * 0.3)
 			local art = Instance.new("ImageLabel")
 			art.Name = "Art"
 			art.BackgroundTransparency = 1
