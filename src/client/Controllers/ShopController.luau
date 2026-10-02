@@ -3,9 +3,11 @@
 	top-right square of the right-edge 2x2 grid, built by HudTile like the other three.
 
 	THE PANEL IS THE ROBUX SHOP (PLAN §11), not the gear stalls: gear is bought by
-	walking up to a stall on the plaza (StationController), and that stays the only
-	way. Its first and so far only card is the LUCKY CLOVER (Config/LuckBoost): 2x luck
-	for PRODUCT_SECONDS, bought as a repeatable developer product. The client only ever
+	walking up to a stall on the plaza (StationController). One scrolling body, three
+	sections: the LUCKY CLOVER (Config/LuckBoost), 2x luck for PRODUCT_SECONDS; a CASH
+	row of four packs; and a CRATES row with the two Mystery crates (Config/ShopProducts,
+	whose grants live in EconomyService and CrateService). Every buy button is the gear
+	cards' purple R$, so real money always looks the same. The client only ever
 	PROMPTS the purchase -- the grant is ProductService's receipt handler on the server,
 	and the clover in the corner (LuckBoostController) lights up off the attribute that
 	grant writes, so nothing here has to trust or wait on the prompt's own callback.
@@ -26,11 +28,14 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local LuckBoost = require(ReplicatedStorage.Shared.Config.LuckBoost)
+local ShopProducts = require(ReplicatedStorage.Shared.Config.ShopProducts)
+local Crates = require(ReplicatedStorage.Shared.Config.Crates)
 
 local UIKit = require(script.Parent.Parent.UIKit)
 local Artwork = require(script.Parent.Parent.HudArtwork)
 local HudTile = require(script.Parent.Parent.HudTile)
 local CloverArt = require(script.Parent.Parent.CloverArt)
+local ItemArt = require(script.Parent.Parent.ItemArt)
 
 local Shop = {}
 
@@ -51,8 +56,13 @@ local PANEL = {
 	well = Color3.fromHex("21452A"),
 	light = Color3.fromHex("DDF8D2"),
 	dim = Color3.fromHex("A9C9A3"),
-	buy = Color3.fromHex("3FB35A"),
-	buyHover = Color3.fromHex("52C96C"),
+	-- StationController's FIELD.robux: every Robux button in the game is this purple.
+	buy = Color3.fromHex("7B3FE4"),
+	buyHover = Color3.fromHex("9257F5"),
+	-- The cash and crate cards: the panel's slate, a shade up.
+	tile = Color3.fromHex("252A30"),
+	tileEdge = Color3.fromHex("3A4148"),
+	cash = Color3.fromHex("6BE36B"),
 	off = Color3.fromHex("4A4F55"),
 	close = Color3.fromHex("E5484D"),
 	ink = Color3.fromHex("1A1A1A"),
@@ -60,8 +70,14 @@ local PANEL = {
 	headline = Enum.Font.GothamBlack,
 	label = Enum.Font.GothamBlack,
 }
-local PANEL_W = 560
-local PANEL_H = 330
+local PANEL_W = 600
+-- The panel's tallest; a short screen gets less, and the body scrolls.
+local PANEL_H = 720
+local CLOVER_H = 220
+local SECTION_H = 30
+local CASH_H = 168
+local CRATE_H = 200
+local GAP = 12
 -- Sits this far above dead centre: a little higher than the true middle, on request.
 local PANEL_LIFT = 40
 local PAD = 20
@@ -106,12 +122,57 @@ local function edge(parent: Instance, color: Color3, thickness: number)
 	stroke.Parent = parent
 end
 
+--- A purple R$ button for `productId`, parented to `parent`. Its price is read off the
+--- product, so a dashboard change needs no code change; "R$" stands in until then. An
+--- id of 0 (not set up on the dashboard) gives a grey COMING SOON that does nothing.
+local function robuxButton(parent: Instance, productId: number): TextButton
+	local live = productId ~= 0
+	local buy = Instance.new("TextButton")
+	buy.Name = "Buy"
+	buy.AutoButtonColor = false
+	buy.BackgroundColor3 = if live then PANEL.buy else PANEL.off
+	buy.Font = PANEL.headline
+	buy.TextSize = if live then 24 else 18
+	buy.TextColor3 = PANEL.white
+	buy.Text = if live then "R$" else "COMING SOON"
+	buy.ZIndex = 15
+	buy.Parent = parent
+	round(buy, 12)
+	local buyEdge = Instance.new("UIStroke")
+	buyEdge.Color = PANEL.ink
+	buyEdge.Thickness = 3
+	buyEdge.LineJoinMode = Enum.LineJoinMode.Round
+	buyEdge.Parent = buy
+	if not live then
+		return buy
+	end
+
+	task.spawn(function()
+		local ok, info = pcall(function()
+			return MarketplaceService:GetProductInfo(productId, Enum.InfoType.Product)
+		end)
+		if ok and info and info.PriceInRobux then
+			buy.Text = `R$ {info.PriceInRobux}`
+		end
+	end)
+	buy.MouseEnter:Connect(function()
+		TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buyHover }):Play()
+	end)
+	buy.MouseLeave:Connect(function()
+		TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buy }):Play()
+	end)
+	buy.Activated:Connect(function()
+		MarketplaceService:PromptProductPurchase(Players.LocalPlayer, productId)
+	end)
+	return buy
+end
+
 --- The Lucky Clover card: art well on the left, the pitch and the buy button right.
 local function buildCloverCard(parent: Frame)
 	local card = Instance.new("Frame")
 	card.Name = "LuckyClover"
-	card.Size = UDim2.new(1, 0, 1, -HEADER_H)
-	card.Position = UDim2.fromOffset(0, HEADER_H)
+	card.Size = UDim2.new(1, -8, 0, CLOVER_H)
+	card.LayoutOrder = 1
 	card.BackgroundColor3 = PANEL.card
 	card.BorderSizePixel = 0
 	card.ZIndex = 12
@@ -184,27 +245,6 @@ local function buildCloverCard(parent: Frame)
 		ZIndex = 14,
 	})
 
-	local configured = LuckBoost.PRODUCT_ID ~= 0
-	local buy = Instance.new("TextButton")
-	buy.Name = "Buy"
-	buy.AutoButtonColor = false
-	buy.Size = UDim2.fromOffset(170, 46)
-	buy.AnchorPoint = Vector2.new(1, 1)
-	buy.Position = UDim2.new(1, -16, 1, -14)
-	buy.BackgroundColor3 = if configured then PANEL.buy else PANEL.off
-	buy.Font = PANEL.headline
-	buy.TextSize = if configured then 24 else 18
-	buy.TextColor3 = PANEL.white
-	buy.Text = if configured then "BUY" else "COMING SOON"
-	buy.ZIndex = 15
-	buy.Parent = card
-	round(buy, 14)
-	local buyEdge = Instance.new("UIStroke")
-	buyEdge.Color = PANEL.ink
-	buyEdge.Thickness = 3
-	buyEdge.LineJoinMode = Enum.LineJoinMode.Round
-	buyEdge.Parent = buy
-
 	statusLabel = inked(card, {
 		Name = "Status",
 		Text = "",
@@ -218,30 +258,145 @@ local function buildCloverCard(parent: Frame)
 		ZIndex = 14,
 	})
 
-	if not configured then
-		return
+	local buy = robuxButton(card, LuckBoost.PRODUCT_ID)
+	buy.Size = UDim2.fromOffset(170, 46)
+	buy.AnchorPoint = Vector2.new(1, 1)
+	buy.Position = UDim2.new(1, -16, 1, -14)
+end
+
+--- A section heading in the body ("CASH", "CRATES").
+local function section(parent: Instance, order: number, text: string)
+	inked(parent, {
+		Name = `{text}Heading`,
+		Text = text,
+		Font = PANEL.headline,
+		TextSize = 24,
+		Size = UDim2.new(1, -8, 0, SECTION_H),
+		LayoutOrder = order,
+		ZIndex = 12,
+	})
+end
+
+--- A row of `count` equal cards across the body, `height` tall.
+local function row(parent: Instance, order: number, name: string, height: number, count: number): Frame
+	local frame = Instance.new("Frame")
+	frame.Name = name
+	frame.Size = UDim2.new(1, -8, 0, height)
+	frame.BackgroundTransparency = 1
+	frame.LayoutOrder = order
+	frame.Parent = parent
+	local grid = Instance.new("UIGridLayout")
+	grid.CellPadding = UDim2.fromOffset(GAP, 0)
+	grid.CellSize = UDim2.new(1 / count, -GAP * (count - 1) / count, 1, 0)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = frame
+	return frame
+end
+
+--- One card on a row: the slate tile, with its purple button along the bottom.
+local function tile(parent: Instance, order: number, name: string, productId: number): Frame
+	local card = Instance.new("Frame")
+	card.Name = name
+	card.LayoutOrder = order
+	card.BackgroundColor3 = PANEL.tile
+	card.BorderSizePixel = 0
+	card.ZIndex = 12
+	card.Parent = parent
+	round(card, 14)
+	edge(card, PANEL.tileEdge, 2)
+	local buy = robuxButton(card, productId)
+	buy.AnchorPoint = Vector2.new(0.5, 1)
+	buy.Position = UDim2.new(0.5, 0, 1, -10)
+	buy.Size = UDim2.new(1, -20, 0, 40)
+	buy.TextSize = 20
+	return card
+end
+
+--- The four cash packs. The bundle grows with the pack, so the row reads as a ladder.
+local function buildCash(parent: Instance)
+	section(parent, 2, "CASH")
+	local frame = row(parent, 3, "Cash", CASH_H, #ShopProducts.CASH)
+	for index, pack in ShopProducts.CASH do
+		local card = tile(frame, index, `Cash{index}`, pack.id)
+		local icon = Instance.new("ImageLabel")
+		icon.Name = "Bundle"
+		icon.BackgroundTransparency = 1
+		icon.Image = Artwork.IMAGE.cashBundle
+		local size = 44 + index * 8
+		icon.Size = UDim2.fromOffset(size, size)
+		icon.AnchorPoint = Vector2.new(0.5, 0.5)
+		icon.Position = UDim2.new(0.5, 0, 0, 46)
+		icon.ScaleType = Enum.ScaleType.Fit
+		icon.ZIndex = 13
+		icon.Parent = card
+		inked(card, {
+			Name = "Amount",
+			Text = pack.label,
+			Font = PANEL.headline,
+			TextSize = 26,
+			TextColor3 = PANEL.cash,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			Size = UDim2.new(1, 0, 0, 30),
+			Position = UDim2.fromOffset(0, 82),
+			ZIndex = 14,
+		})
 	end
+end
 
-	-- The Robux price comes from the product itself, so a dashboard price change never
-	-- needs a code change. BUY stands in until it arrives (or if it cannot).
-	task.spawn(function()
-		local ok, info = pcall(function()
-			return MarketplaceService:GetProductInfo(LuckBoost.PRODUCT_ID, Enum.InfoType.Product)
-		end)
-		if ok and info and info.PriceInRobux then
-			buy.Text = `R$ {info.PriceInRobux}`
+--- The two Mystery crates. The art is the best crate of the kind: the top of the roll.
+local function buildCrates(parent: Instance)
+	section(parent, 4, "CRATES")
+	local frame = row(parent, 5, "Crates", CRATE_H, #ShopProducts.CRATES)
+	for index, product in ShopProducts.CRATES do
+		local card = tile(frame, index, `Crate{index}`, product.id)
+		local well = Instance.new("Frame")
+		well.Name = "Art"
+		well.BackgroundTransparency = 1
+		well.Size = UDim2.new(1, -20, 0, 92)
+		well.Position = UDim2.fromOffset(10, 8)
+		well.ZIndex = 13
+		well.Parent = card
+		local best = `{product.kind}{#product.weights}`
+		if Crates.has(best) then
+			local viewport = ItemArt.newViewport(well)
+			viewport.ZIndex = 13
+			-- Framed to the well's real aspect, so it is (re)painted whenever the grid
+			-- lays the card out; at build time the well has no width yet.
+			local function paint()
+				local size = well.AbsoluteSize
+				if size.X < 1 or size.Y < 1 then
+					return
+				end
+				ItemArt.clear(viewport)
+				ItemArt.paint(viewport, { uid = `shop-{best}`, crateId = best }, size.X / size.Y)
+			end
+			well:GetPropertyChangedSignal("AbsoluteSize"):Connect(paint)
+			task.defer(paint)
 		end
-	end)
-
-	buy.MouseEnter:Connect(function()
-		TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buyHover }):Play()
-	end)
-	buy.MouseLeave:Connect(function()
-		TweenService:Create(buy, HOVER, { BackgroundColor3 = PANEL.buy }):Play()
-	end)
-	buy.Activated:Connect(function()
-		MarketplaceService:PromptProductPurchase(Players.LocalPlayer, LuckBoost.PRODUCT_ID)
-	end)
+		inked(card, {
+			Name = "CrateName",
+			Text = product.name,
+			Font = PANEL.headline,
+			TextSize = 20,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			Size = UDim2.new(1, -12, 0, 24),
+			Position = UDim2.fromOffset(6, 100),
+			ZIndex = 14,
+		})
+		local first = Crates.get(`{product.kind}1`).short
+		local last = if Crates.has(best) then Crates.get(best).short else first
+		inked(card, {
+			Name = "Range",
+			Text = `Random: {first} to {last}`,
+			Font = PANEL.label,
+			TextSize = 14,
+			TextColor3 = PANEL.dim,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			Size = UDim2.new(1, -12, 0, 18),
+			Position = UDim2.fromOffset(6, 124),
+			ZIndex = 14,
+		})
+	end
 end
 
 --- "Active: 9:42 left" while a bought clover is running, else nothing.
@@ -305,7 +460,10 @@ local function buildPanel(): ScreenGui
 	panel.Name = "Panel"
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
 	panel.Position = UDim2.new(0.5, 0, 0.5, -PANEL_LIFT)
-	panel.Size = UDim2.fromOffset(PANEL_W, PANEL_H)
+	panel.Size = UDim2.new(0, PANEL_W, 1, -110)
+	local cap = Instance.new("UISizeConstraint")
+	cap.MaxSize = Vector2.new(PANEL_W, PANEL_H)
+	cap.Parent = panel
 	panel.BackgroundColor3 = PANEL.panel
 	panel.BorderSizePixel = 0
 	panel.Visible = false
@@ -351,7 +509,33 @@ local function buildPanel(): ScreenGui
 	closeEdge.Parent = close
 	close.Activated:Connect(Shop.close)
 
-	buildCloverCard(panel)
+	-- Everything under the header scrolls, so a short screen loses nothing.
+	local body = Instance.new("ScrollingFrame")
+	body.Name = "Body"
+	body.Position = UDim2.fromOffset(0, HEADER_H)
+	body.Size = UDim2.new(1, 0, 1, -HEADER_H)
+	body.BackgroundTransparency = 1
+	body.BorderSizePixel = 0
+	body.ScrollBarThickness = 6
+	body.ScrollBarImageColor3 = PANEL.tileEdge
+	body.CanvasSize = UDim2.new()
+	body.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	body.ScrollingDirection = Enum.ScrollingDirection.Y
+	body.ZIndex = 11
+	body.Parent = panel
+	local list = Instance.new("UIListLayout")
+	list.Padding = UDim.new(0, GAP)
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Parent = body
+	local bodyPad = Instance.new("UIPadding")
+	bodyPad.PaddingTop = UDim.new(0, 4)
+	bodyPad.PaddingLeft = UDim.new(0, 4)
+	bodyPad.PaddingBottom = UDim.new(0, 4)
+	bodyPad.Parent = body
+
+	buildCloverCard(body)
+	buildCash(body)
+	buildCrates(body)
 
 	panelFrame = panel
 	panelScale = scale
