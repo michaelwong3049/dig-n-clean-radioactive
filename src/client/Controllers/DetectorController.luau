@@ -832,7 +832,7 @@ local function build(): ScreenGui
 		outline = false,
 		strokeTransparency = 1,
 		shadow = false,
-		text = "REEL IN",
+		text = "Reel In",
 	})
 	reelVerb.AutomaticSize = Enum.AutomaticSize.X
 	reelVerb.LayoutOrder = 2
@@ -857,7 +857,7 @@ local function build(): ScreenGui
 		fillTransparency = 0,
 		strokeThickness = UIKit.Stroke.normal,
 		cornerRadius = UDim.new(0, 10),
-		text = "LET GO",
+		text = "Let Go",
 		shadow = false,
 	})
 	ui.releaseButton = releaseButton
@@ -1268,7 +1268,7 @@ local function renderState()
 	-- the button stops offering it rather than silently failing. It still sends if
 	-- pressed -- the server is the judge, and the client must never be the reason a
 	-- release did not go through.
-	ui.releaseButton.Text = if state.fuseArmed then "LOCKED IN" else "LET GO"
+	ui.releaseButton.Text = if state.fuseArmed then "Locked In" else "Let Go"
 	ui.releaseButton.BackgroundColor3 = if state.fuseArmed then COLOR.panel else COLOR.red
 	ui.releaseButton.TextColor3 = if state.fuseArmed then COLOR.red else COLOR.text
 	if state.locked then
