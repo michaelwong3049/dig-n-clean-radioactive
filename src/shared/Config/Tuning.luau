@@ -108,7 +108,12 @@ Tuning.ZONE_SURVIVAL = {
 	-- nearly flat (100 -> 104), so it is the curve that has to make its far rim bite.
 	HARSH_FROM_STAGE = 6,
 	early = { rated = { 900, 360, 120 }, under = { 30, 3, 1.5 } }, -- stages 1-5
-	late = { rated = { 480, 240, 75 }, under = { 20, 2, 1 } }, -- stages 6-12
+	-- `grace` (late only) replaces the flat UNDER_GRACE with one that fades across the
+	-- stage, on request ("the end of Stage 6 doesn't increase damage"): a flat +20s on
+	-- top of a 2s -> 1s curve read as the same ~21-26s everywhere past a third of the
+	-- way in. Same +20s at the entrance; one tier under is now ~10s at BREAK and ~3s at
+	-- the far edge, so walking deeper visibly bites.
+	late = { rated = { 480, 240, 75 }, under = { 20, 2, 1 }, grace = { 20, 8, 2 } }, -- stages 6-12
 	wayUnder = 1,
 	lastAura = { 75, 60, 45 },
 	-- Flat seconds added to every UNDER and WAY-UNDER time, on request ("20 more seconds
