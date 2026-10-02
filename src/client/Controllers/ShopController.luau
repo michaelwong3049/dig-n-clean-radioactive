@@ -330,7 +330,7 @@ local function buildCloverCard(parent: Frame)
 	local card = Instance.new("Frame")
 	card.Name = "LuckyClover"
 	card.Size = UDim2.new(1, -8, 0, CLOVER_H)
-	card.LayoutOrder = 0
+	card.LayoutOrder = -19
 	card.BackgroundColor3 = PANEL.card
 	card.BorderSizePixel = 0
 	card.ZIndex = 12
@@ -430,7 +430,7 @@ local function buildServerBoostCard(parent: Frame)
 	local card = Instance.new("Frame")
 	card.Name = "ServerLuckBoost"
 	card.Size = UDim2.new(1, -8, 0, SERVER_BOOST_H)
-	card.LayoutOrder = 1
+	card.LayoutOrder = -18
 	card.BackgroundColor3 = SERVER_BOOST_TINT
 	card.BorderSizePixel = 0
 	card.ZIndex = 12
@@ -439,14 +439,33 @@ local function buildServerBoostCard(parent: Frame)
 	edge(card, PANEL.cardEdge, 3)
 	gloss(card)
 
+	-- A purple clover in a small well on the left: purple is the server-wide aurora's colour.
+	local wellSize = SERVER_BOOST_H - 28
+	local well = Instance.new("Frame")
+	well.Name = "Art"
+	well.Size = UDim2.fromOffset(wellSize, wellSize)
+	well.Position = UDim2.new(0, 16, 0.5, 0)
+	well.AnchorPoint = Vector2.new(0, 0.5)
+	well.BackgroundColor3 = PANEL.well
+	well.BorderSizePixel = 0
+	well.ZIndex = 13
+	well.Parent = card
+	round(well, 12)
+	edge(well, PANEL.ink, 3)
+	local clover = CloverArt.build(well, wellSize - 20, 14, CloverArt.PURPLE)
+	clover.AnchorPoint = Vector2.new(0.5, 0.5)
+	clover.Position = UDim2.fromScale(0.5, 0.5)
+	clover.Rotation = -8
+	local textLeft = 16 + wellSize + 16
+
 	local minutes = math.floor(LuckBoost.SERVER_SECONDS / 60)
 	inked(card, {
 		Name = "Name",
 		Text = "SERVER LUCK BOOST",
 		Font = PANEL.headline,
 		TextSize = 30,
-		Size = UDim2.new(1, -280, 0, 36),
-		Position = UDim2.fromOffset(20, 14),
+		Size = UDim2.new(1, -textLeft - 260, 0, 36),
+		Position = UDim2.fromOffset(textLeft, 14),
 		ZIndex = 14,
 	})
 	inked(card, {
@@ -455,8 +474,8 @@ local function buildServerBoostCard(parent: Frame)
 		Font = PANEL.label,
 		TextSize = 20,
 		TextColor3 = PANEL.light,
-		Size = UDim2.new(1, -280, 0, 24),
-		Position = UDim2.fromOffset(20, 52),
+		Size = UDim2.new(1, -textLeft - 260, 0, 24),
+		Position = UDim2.fromOffset(textLeft, 52),
 		ZIndex = 14,
 	})
 	inked(card, {
@@ -467,8 +486,8 @@ local function buildServerBoostCard(parent: Frame)
 		TextColor3 = PANEL.dim,
 		TextWrapped = true,
 		TextYAlignment = Enum.TextYAlignment.Top,
-		Size = UDim2.new(1, -280, 0, 40),
-		Position = UDim2.fromOffset(20, 82),
+		Size = UDim2.new(1, -textLeft - 260, 0, 40),
+		Position = UDim2.fromOffset(textLeft, 82),
 		ZIndex = 14,
 	})
 
@@ -692,6 +711,13 @@ local function buildPacks(parent: Instance)
 		player:GetAttributeChangedSignal(attr):Connect(refresh)
 		refresh()
 	end
+end
+
+--- The LUCK BOOST section above the passes: the Lucky Clover, then the Server Luck Boost.
+local function buildLuck(parent: Frame)
+	section(parent, -20, "LUCK BOOST")
+	buildCloverCard(parent)
+	buildServerBoostCard(parent)
 end
 
 --- The seven passes, PASSES_PER_ROW to a row. A bought one keeps its card and swaps
@@ -1098,9 +1124,8 @@ local function buildPanel(): ScreenGui
 	bodyPad.Parent = body
 
 	buildPacks(body)
+	buildLuck(body)
 	buildPasses(body)
-	buildCloverCard(body)
-	buildServerBoostCard(body)
 	buildCash(body)
 	buildSpeed(body)
 	buildCrates(body)
