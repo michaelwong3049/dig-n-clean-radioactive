@@ -228,6 +228,9 @@ local TEMPLATE = {
 	dailyDay = 1,
 	dailyLastAt = 0,
 
+	-- The group chest on Stage 1 (Config/GroupReward): paid out once, ever.
+	groupRewardClaimed = false,
+
 	-- What the stands earned while the player was offline, waiting for COLLECT on the
 	-- "While you were away" card (AwayEarningsService). On the save so leaving with the
 	-- card up loses nothing. `awayLast` is the last amount the card showed, which a
