@@ -826,7 +826,7 @@ local function build(): ScreenGui
 	local reelVerb = UIKit.label(reelRow, {
 		name = "Verb",
 		size = UDim2.fromOffset(0, 30),
-		font = UIKit.Font.title,
+		font = UIKit.Font.hero, -- Gotham Black
 		textSize = HAULBUTTON_TEXT,
 		color = COLOR.text,
 		outline = false,
@@ -855,7 +855,8 @@ local function build(): ScreenGui
 		color = COLOR.text,
 		fillColor = COLOR.red,
 		fillTransparency = 0,
-		strokeThickness = UIKit.Stroke.normal,
+		strokeColor = COLOR.outline, -- black border round the red
+		strokeThickness = UIKit.Stroke.thick,
 		cornerRadius = UDim.new(0, 10),
 		text = "",
 		shadow = false,
@@ -880,7 +881,7 @@ local function build(): ScreenGui
 	local releaseVerb = UIKit.label(releaseRow, {
 		name = "Verb",
 		size = UDim2.fromOffset(0, 30),
-		font = UIKit.Font.title,
+		font = UIKit.Font.hero, -- Gotham Black
 		textSize = HAULBUTTON_TEXT,
 		color = COLOR.text,
 		outline = false,
