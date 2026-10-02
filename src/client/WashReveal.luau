@@ -17,7 +17,8 @@
 	    and a flash of the rarity's colour from Legendary up,
 	  * rays spin out from BEHIND it -- they start outside its silhouette, because a GUI
 	    draws over the world and a ray across the nuke would be a ray on top of it,
-	  * the words land in the lower third: NEW FIND! (no ribbon on a repeat), the name, rarity
+	  * a red award ribbon unfurls up top -- NEW FIND! / FIRST DISCOVERY, forked tails, glints
+	    (none on a repeat) -- and the words land in the lower third: the name, rarity
 	    and weight, and the price counting up,
 	  * and once they are down, its quality (Pristine, Cracked...) slams onto the nuke as a
 	    rubber stamp with what it does to the price, and a big size roll (OVERSIZED / GIGA)
@@ -78,6 +79,7 @@ local T = {
 	RAYS_GROW = 0.45,
 	RING_TIME = 0.7,
 	RIBBON_AT = 0.4,
+	TAILS_AT = 0.65,
 	NAME_AT = 0.5,
 	PILL_AT = 0.75,
 	VALUE_AT = 0.9,
@@ -92,8 +94,24 @@ local T = {
 
 	GOLD = Color3.fromHex("FFD23F"),
 	RIBBON_NEW = Color3.fromHex("E0362E"),
-	RIBBON_KNOWN = Color3.fromHex("3A434F"),
 	INK = Color3.fromHex("0B0D10"),
+
+	-- The award ribbon, in design px: the middle band, and a forked tail tucked behind
+	-- each end, hung a little lower than the band. NOTCH is how deep each fork cuts.
+	RIBBON_SIZE = Vector2.new(460, 80),
+	TAIL_SIZE = Vector2.new(110, 70),
+	TAIL_OUT = 300, -- from the band's centre to a tail's outer end
+	TAIL_DROP = 18,
+	TAIL_TUCK = 80, -- how far behind the band the tails start before they flick out
+	NOTCH = 29,
+	RIBBON_STROKE = 5,
+	-- The glints round the ribbon once it is up: offset from its centre, size, delay.
+	GLINTS = {
+		{ x = -255, y = -55, size = 30, at = 0.8 },
+		{ x = 255, y = -47, size = 30, at = 0.95 },
+		{ x = -190, y = 66, size = 20, at = 1.1 },
+		{ x = 211, y = 64, size = 22, at = 1.2 },
+	},
 }
 
 -- The stamps' colours: StandCardController's sticker colours, so a quality reads the
@@ -313,6 +331,117 @@ local function chip(parent: Instance, text: string, fill: Color3, ink: Color3, y
 	return frame, scaler(frame)
 end
 
+--- A plain filled box, the brick the ribbon's tails are laid from.
+local function block(parent: Instance, position: Vector2, size: Vector2, colour: Color3): Frame
+	local frame = Instance.new("Frame")
+	frame.Position = UDim2.fromOffset(position.X, position.Y)
+	frame.Size = UDim2.fromOffset(size.X, size.Y)
+	frame.BackgroundColor3 = colour
+	frame.BorderSizePixel = 0
+	frame.Parent = parent
+	return frame
+end
+
+--- A box with one triangle cut off it along a corner-to-corner diagonal. A UIGradient
+--- works in the box's own 0..1 space, so at +-45 degrees its halfway line IS a diagonal
+--- whatever the box's shape, and a hard step there in its transparency is a clean
+--- straight cut -- the only way to get a slanted edge out of a Frame.
+local function cutBlock(parent: Instance, position: Vector2, size: Vector2, colour: Color3, rotation: number, cutLow: boolean)
+	local frame = block(parent, position, size, colour)
+	local gradient = Instance.new("UIGradient")
+	gradient.Rotation = rotation
+	local low, high = if cutLow then 1 else 0, if cutLow then 0 else 1
+	gradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, low),
+		NumberSequenceKeypoint.new(0.495, low),
+		NumberSequenceKeypoint.new(0.505, high),
+		NumberSequenceKeypoint.new(1, high),
+	})
+	gradient.Parent = frame
+end
+
+--- One forked ribbon tail filling `size` at `origin`, notched `notch` deep into its
+--- outer end (the left end when `left`). Laid as a box plus two cut corner blocks, one
+--- each side of the fork's point -- 1 px of overlap so no seam shows between them.
+local function forkedTail(parent: Instance, origin: Vector2, size: Vector2, notch: number, colour: Color3, left: boolean)
+	local half = size.Y / 2
+	if left then
+		block(parent, origin + Vector2.new(notch - 1, 0), Vector2.new(size.X - notch + 1, size.Y), colour)
+		cutBlock(parent, origin, Vector2.new(notch, half + 1), colour, -45, true)
+		cutBlock(parent, origin + Vector2.new(0, half), Vector2.new(notch, half), colour, 45, true)
+	else
+		local x = size.X - notch
+		block(parent, origin, Vector2.new(x + 1, size.Y), colour)
+		cutBlock(parent, origin + Vector2.new(x, 0), Vector2.new(notch, half + 1), colour, 45, false)
+		cutBlock(parent, origin + Vector2.new(x, half), Vector2.new(notch, half), colour, -45, false)
+	end
+end
+
+--- A tail with the HUD's black outline: the same fork a stroke wider all round in
+--- black, under the coloured one. Its frame is the tail's own box, for sliding.
+local function outlinedTail(parent: Instance, colour: Color3, left: boolean): Frame
+	local s = T.RIBBON_STROKE
+	local frame = Instance.new("Frame")
+	frame.Name = if left then "TailL" else "TailR"
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Size = UDim2.fromOffset(T.TAIL_SIZE.X, T.TAIL_SIZE.Y)
+	frame.BackgroundTransparency = 1
+	frame.Visible = false
+	frame.Parent = parent
+	forkedTail(frame, Vector2.new(-s, -s), T.TAIL_SIZE + Vector2.new(2 * s, 2 * s), T.NOTCH, UIKit.C.outline, left)
+	-- The tail is a shade of the band: the back of the ribbon, folded behind it.
+	forkedTail(frame, Vector2.zero, T.TAIL_SIZE, T.NOTCH, colour:Lerp(Color3.new(0, 0, 0), 0.4), left)
+	return frame
+end
+
+--- A white glint: two crossed bars, rounded. Hidden until it twinkles.
+local function glint(parent: Instance, position: UDim2, size: number): Frame
+	local frame = Instance.new("Frame")
+	frame.Name = "Glint"
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Position = position
+	frame.Size = UDim2.fromOffset(size, size)
+	frame.BackgroundTransparency = 1
+	frame.ZIndex = 3 -- over the band and its tails
+	frame.Visible = false
+	frame.Parent = parent
+	for _, rotation in { 0, 90 } do
+		local bar = Instance.new("Frame")
+		bar.AnchorPoint = Vector2.new(0.5, 0.5)
+		bar.Position = UDim2.fromScale(0.5, 0.5)
+		bar.Size = UDim2.fromScale(1, 0.22)
+		bar.Rotation = rotation
+		bar.BackgroundColor3 = Color3.new(1, 1, 1)
+		bar.BorderSizePixel = 0
+		bar.Parent = frame
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = bar
+	end
+	scaler(frame)
+	return frame
+end
+
+--- Pop a glint in, turning, and let it shrink away.
+local function twinkle(frame: Frame)
+	local scale = frame:FindFirstChildOfClass("UIScale") :: UIScale
+	scale.Scale = 0
+	frame.Rotation = 0
+	frame.Visible = true
+	TweenService:Create(frame, TweenInfo.new(0.7, Enum.EasingStyle.Linear), { Rotation = 90 }):Play()
+	local grow = TweenService:Create(scale, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1.2 })
+	grow.Completed:Connect(function()
+		local fade = TweenInfo.new(0.42, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		TweenService:Create(scale, fade, { Scale = 0.4 }):Play()
+		for _, bar in frame:GetChildren() do
+			if bar:IsA("Frame") then
+				TweenService:Create(bar, fade, { BackgroundTransparency = 1 }):Play()
+			end
+		end
+	end)
+	grow:Play()
+end
+
 --- A rubber stamp: the word and its "x2 VALUE" in `spec`'s colour, inside a border of the
 --- same colour on a dark see-through plate, tilted. Hidden until it slams.
 local function stamp(parent: Instance, spec: StampSpec, spot: typeof(STAMP_SPOTS[1])): (Frame, UIScale)
@@ -455,29 +584,72 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 	-- The words, on the HUD's design canvas so they scale like everything else.
 	local canvas = UIKit.canvas(root, 2)
 
+	-- THE AWARD RIBBON: a band that unfurls from its middle, a forked tail flicking out
+	-- from behind each end, and glints round it. Always red for a new find, whatever the
+	-- rarity; a dirty supply crate coming clean (WashService) wears its own colour and
+	-- says so. A repeat find has nothing to announce and gets none of it.
+	local announce = crate ~= nil or found.firstFind == true
+	local ribbonColour = if crate then Color3.fromHex(crate.color) else T.RIBBON_NEW
+	local ribbonAt = UDim2.fromScale(0.5, 0.12)
+	local tails = {
+		outlinedTail(canvas, ribbonColour, true),
+		outlinedTail(canvas, ribbonColour, false),
+	}
+	local tailHome = {
+		ribbonAt + UDim2.fromOffset(-T.TAIL_OUT + T.TAIL_SIZE.X / 2, T.TAIL_DROP),
+		ribbonAt + UDim2.fromOffset(T.TAIL_OUT - T.TAIL_SIZE.X / 2, T.TAIL_DROP),
+	}
+
+	-- Built at full size and kept at zero width until it unfurls; it clips its words, so
+	-- they are uncovered from the middle out as it opens.
 	local ribbon = UIKit.panel(canvas, {
 		name = "Ribbon",
-		size = UDim2.fromOffset(300, 58),
-		position = UDim2.fromScale(0.5, 0.12),
+		size = UDim2.fromOffset(0, T.RIBBON_SIZE.Y),
+		position = ribbonAt,
 		anchorPoint = Vector2.new(0.5, 0.5),
-		-- A dirty supply crate coming clean (WashService) wears its own colour and says so.
-		color = if crate then Color3.fromHex(crate.color) elseif found.firstFind then T.RIBBON_NEW else T.RIBBON_KNOWN,
+		color = ribbonColour,
 		transparency = 0,
 		strokeColor = UIKit.C.outline,
-		strokeThickness = 4,
-		cornerRadius = UDim.new(0, 12),
+		strokeThickness = T.RIBBON_STROKE,
+		cornerRadius = UDim.new(0, 4),
+		zIndex = 2, -- over its tails
 		visible = false,
 	})
+	ribbon.ClipsDescendants = true
 	UIKit.label(ribbon, {
 		name = "Text",
-		size = UDim2.fromScale(1, 1),
-		text = if crate then "SUPPLY CRATE!" elseif found.firstFind then "NEW FIND!" else "",
+		size = UDim2.fromOffset(T.RIBBON_SIZE.X, 50),
+		position = UDim2.fromScale(0.5, if crate then 0.5 else 0.4),
+		anchorPoint = Vector2.new(0.5, 0.5),
+		text = if crate then "SUPPLY CRATE!" else "NEW FIND!",
 		font = UIKit.Font.hero,
-		textSize = 32,
+		textSize = 44,
 		xAlign = Enum.TextXAlignment.Center,
 		color = Color3.new(1, 1, 1),
 	})
-	local ribbonScale = scaler(ribbon)
+	if not crate then
+		UIKit.label(ribbon, {
+			name = "Subtitle",
+			size = UDim2.fromOffset(T.RIBBON_SIZE.X, 18),
+			position = UDim2.fromScale(0.5, 0.8),
+			anchorPoint = Vector2.new(0.5, 0.5),
+			text = "FIRST DISCOVERY",
+			font = UIKit.Font.hero,
+			textSize = 15,
+			xAlign = Enum.TextXAlignment.Center,
+			color = UIKit.C.outline,
+			outline = false,
+			shadow = false,
+		})
+	end
+
+	local glints: { { frame: Frame, at: number } } = {}
+	for _, spec in T.GLINTS do
+		table.insert(glints, {
+			frame = glint(canvas, ribbonAt + UDim2.fromOffset(spec.x, spec.y), spec.size),
+			at = spec.at,
+		})
+	end
 
 	local name = UIKit.label(canvas, {
 		name = "ItemName", -- not "Name": that is a property on every Instance
@@ -662,9 +834,30 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 			end,
 		},
 		{ at = T.RIBBON_AT, done = false, run = function()
-			-- A repeat find has nothing to announce, so its ribbon stays hidden.
-			if crate or found.firstFind then
-				pop(ribbon, ribbonScale, 0, 0.35)
+			if not announce then
+				return
+			end
+			ribbon.Visible = true
+			TweenService:Create(
+				ribbon,
+				TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+				{ Size = UDim2.fromOffset(T.RIBBON_SIZE.X, T.RIBBON_SIZE.Y) }
+			):Play()
+		end },
+		{ at = T.TAILS_AT, done = false, run = function()
+			if not announce then
+				return
+			end
+			-- Out from behind the band, where they start tucked away out of sight.
+			for index, tail in tails do
+				local inward = if index == 1 then T.TAIL_TUCK else -T.TAIL_TUCK
+				tail.Position = tailHome[index] + UDim2.fromOffset(inward, 0)
+				tail.Visible = true
+				TweenService:Create(
+					tail,
+					TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+					{ Position = tailHome[index] }
+				):Play()
 			end
 		end },
 		{ at = T.NAME_AT, done = false, run = function()
@@ -692,6 +885,13 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 			end,
 		},
 	}
+	if announce then
+		for _, placed in glints do
+			table.insert(beats, { at = placed.at, done = false, run = function()
+				twinkle(placed.frame)
+			end })
+		end
+	end
 	for index, placed in stamps do
 		table.insert(beats, {
 			-- One every (SECOND - FIRST) seconds: a stacked drop's 3rd and 4th keep the beat.
