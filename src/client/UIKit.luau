@@ -711,8 +711,9 @@ Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_G
 -- centre on a short screen). Was 40; raised to -10 (above the line) on request.
 Dock.SIDE_GRID_DROP = -10
 -- The Settings gear's bottom edge in the top-right corner (SettingsController: 12 down,
--- 44 tall), measured from the bottom of the topbar inset, not the screen top.
-Dock.CORNER_BUTTON_BOTTOM = 56
+-- one SIDE_TILE_SIZE tall), measured from the bottom of the topbar inset, not the
+-- screen top.
+Dock.CORNER_BUTTON_BOTTOM = 12 + Dock.SIDE_TILE_SIZE
 
 --- The right-hand tile grid's TOP edge, in design px from the vertical centre of a
 --- canvas `height` design px tall. Hung SIDE_GRID_DROP under SIDE_TOP_Y on a tall enough screen; below
