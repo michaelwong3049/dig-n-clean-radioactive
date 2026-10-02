@@ -22,8 +22,9 @@ local UIKit = require(script.Parent.UIKit)
 
 local WashRarityBanner = {}
 
---- Design px from the top of the (inset-ignoring) canvas: clear of Roblox's topbar.
-local TOP = 62
+--- Design px from the top of the (inset-ignoring) canvas. Up in the topbar strip:
+--- its buttons sit in the corners, so the centre is free.
+local TOP = 12
 local TEXT_SIZE = 46
 local OUTLINE = 4
 
