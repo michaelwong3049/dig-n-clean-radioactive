@@ -2859,12 +2859,12 @@ end
 --- belt's centre so a runner facing out sees it front-on to their right. Its near
 --- edge stays clear of the diamond rung's body (6.8 studs off the belt's centre line).
 local UPGRADE_SIGN = {
-	x = 10.6, -- off the belt's centre, toward the plot's middle: 0.8 clear of the diamond rung
+	x = 9.7, -- off the belt's centre, toward the plot's middle: 0.4 clear of the diamond rung (on request: closer)
 	z = -3, -- toward the entrance (-Z), ahead of the runner
-	-- Three quarters of the first cut ("make the sign smaller"). The client draws its
-	-- face at the board's own size, so these can change freely.
-	boardW = 6,
-	boardH = 3.3,
+	-- Five sixths of the second cut (on request: slightly smaller again). The client
+	-- draws its face at the board's own size, so these can change freely.
+	boardW = 5,
+	boardH = 2.75,
 	boardT = 1,
 	boardBottom = 2.2, -- above the pad
 	-- The post is exactly as thick as the board and centred under it, so its front
@@ -2902,10 +2902,17 @@ local function placeTreadmill(treadmill: Instance)
 end
 
 --- Put the sign up beside `treadmill` if it isn't there yet. Idempotent and cheap, so
---- setTreadmillTier calls it on every repaint.
+--- setTreadmillTier calls it on every repaint. A sign built to an older UPGRADE_SIGN
+--- (its board a different size) is taken down and put up again to the current one.
 local function ensureUpgradeSign(treadmill: Instance)
-	if treadmill:FindFirstChild("UpgradeSign") then
-		return
+	local existing = treadmill:FindFirstChild("UpgradeSign")
+	if existing then
+		local board = existing:FindFirstChild("Board")
+		local u = UPGRADE_SIGN
+		if board and board:IsA("BasePart") and (board.Size - Vector3.new(u.boardW, u.boardH, u.boardT)).Magnitude < 1e-3 then
+			return
+		end
+		existing:Destroy()
 	end
 	local belt = treadmill:FindFirstChild("Belt")
 	if belt == nil or not belt:IsA("BasePart") then
