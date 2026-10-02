@@ -48,14 +48,16 @@ local MAX_SCORE = 2 ^ 53 -- OrderedDataStore takes integers; keep them exact
 -- face the wall (lower z), Speed on the right.
 local WALL_X_FALLBACK = 96
 local FLOOR_Y_FALLBACK = -1.5
-local BOARD_Z = { 112, 136 }
-local BOARD_W = 20 -- along the wall (world Z)
-local BOARD_H = 30
+local BOARD_Z = { 112, 131 }
+local BOARD_W = 15 -- along the wall (world Z); was 20, "way too big"
+local BOARD_H = 22.5 -- keep W:H at 2:3 so the canvas stays 800 x 1200
 local BOARD_LIFT = 1.5 -- gap between floor and the board's bottom edge
-local RIM = 0.5 -- ink rim showing round the face
-local RIM_DEPTH = 0.6
-local FACE_DEPTH = 0.6
-local PPS = 40 -- SurfaceGui pixels per stud: 800 x 1200
+local RIM = 0.4 -- ink rim showing round the face
+local RIM_DEPTH = 0.5
+local FACE_DEPTH = 0.5
+-- The SurfaceGui layout is drawn on a fixed 800 x 1200 canvas; resizing the board
+-- rescales it rather than reflowing it.
+local PPS = 800 / BOARD_W
 
 -- Style 1 "Dark slab" from the mockup round: the HUD's ink, green cash, blue speed.
 local INK = Color3.fromHex("10141A")
