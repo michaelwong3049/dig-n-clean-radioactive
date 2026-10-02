@@ -144,6 +144,23 @@ function Detonation.windowFor(rarity: string, kg: number, depth: number, soil: n
 	return math.clamp(window, Cfg.MIN_WINDOW, Cfg.MAX_WINDOW)
 end
 
+--- The announced drop's window (Config/Detonation, RARE_DROP_*): rolled per uid in
+--- RARE_DROP_MIN..MAX, lifted to the fairness floor at its `pullMult`-times-longer rope,
+--- capped at RARE_DROP_CAP. No temper bands, no troll.
+function Detonation.rareDropWindowFor(
+	rarity: string,
+	kg: number,
+	depth: number,
+	soil: number,
+	uid: string,
+	pullMult: number
+): number
+	local rng = Random.new(seedOf("rare:" .. uid))
+	local rolled = lerp(Cfg.RARE_DROP_MIN, Cfg.RARE_DROP_MAX, rng:NextNumber())
+	local floor = Detonation.floorFor(rarity, kg, depth, soil) * pullMult
+	return math.min(math.max(rolled, floor), Cfg.RARE_DROP_CAP)
+end
+
 --- One tick of a fuse. `burning` is true while anybody's magnet is on it OR once it
 --- has armed (an armed fuse never cools). Otherwise it cools at COOL_RATE.
 function Detonation.stepHeat(heat: number, dt: number, window: number, burning: boolean): number

@@ -2046,6 +2046,28 @@ function Spec.run(): boolean
 			Detonation.temperFor("spec-uid-a") == Detonation.temperFor("spec-uid-a")
 		)
 
+		-- THE ANNOUNCED DROP's fuse (RARE_DROP_*): far longer than any ordinary one, and
+		-- long enough that the slowest guaranteed pull (MIN_PULL_SECONDS at REF_CPS) lands
+		-- before SAFE_AT of the SHORTEST rare window.
+		local rareHeld, rareSum, rareCount = true, 0, 0
+		for sample = 1, 200 do
+			local window = Detonation.rareDropWindowFor("Legendary", 25, 1.5, 3, `spec:rare:{sample}`, RareDrop.PULL_MULT)
+			rareSum += window
+			rareCount += 1
+			if window < D.RARE_DROP_MIN - 1e-9 or window > D.RARE_DROP_CAP + 1e-9 then
+				rareHeld = false
+			end
+		end
+		check("§fuse an announced drop's fuse stays in RARE_DROP_MIN..RARE_DROP_CAP", rareHeld)
+		check(
+			string.format("§fuse an announced drop's fuse averages way past MAX_WINDOW: %.1fs", rareSum / rareCount),
+			rareSum / rareCount >= 2 * D.MAX_WINDOW
+		)
+		check(
+			"§fuse the announced drop's minimum pull lands before SAFE_AT of its shortest fuse",
+			RareDrop.MIN_PULL_SECONDS <= D.RARE_DROP_MIN * D.SAFE_AT
+		)
+
 		-- THE WINDOWS THEMSELVES. Every stocked item, in every stage it stocks, buried at
 		-- its rarity's DEEPEST (full jitter), across a spread of uids. Independent of
 		-- Detonation's own pieces: the rated pull is re-derived here from Tuning the way
