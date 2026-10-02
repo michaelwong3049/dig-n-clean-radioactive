@@ -22,8 +22,9 @@ local Bombing = {}
 -- 1-star bomb chips a fresh player while an 8-star one flattens anyone short of the
 -- top auras.
 Bombing.DAMAGE = { 30, 45, 65, 90, 120, 160, 210, 280 }
--- Blast radius in studs.
-Bombing.RADIUS = { 10, 12, 14, 17, 20, 24, 28, 34 }
+-- Blast radius in studs. Buffed ~1.8x (was 10..34): small blasts needed a near-direct hit,
+-- now a dropped bomb clears an area. The crater orb (ORB_RADIUS) grows with it.
+Bombing.RADIUS = { 18, 22, 26, 31, 37, 44, 52, 62 }
 
 -- The nuke's size roll (Config/Payload, 0.6-2.5) nudges damage and radius. A
 -- Payload of 1 is neutral. Kept narrow because size already bumps the STAR rating (so
