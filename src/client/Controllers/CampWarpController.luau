@@ -73,8 +73,8 @@ local PANEL = {
 	badge = Color3.fromHex("EF4444"),
 	ink = Color3.fromHex("1A1A1A"),
 	white = Color3.new(1, 1, 1),
-	headline = Enum.Font.LuckiestGuy,
-	label = Enum.Font.FredokaOne,
+	headline = Enum.Font.GothamBlack,
+	label = Enum.Font.GothamBlack,
 }
 local PANEL_W = 620
 -- Sits this far above dead centre: a little higher than the true middle, on request.
@@ -287,11 +287,11 @@ local function warpTo(key: string)
 end
 
 local BUTTON_LOOK: { [Status]: { text: string, fill: Color3, color: Color3 } } = {
-	go = { text = "WARP", fill = PANEL.go, color = PANEL.white },
-	here = { text = "HERE", fill = PANEL.here, color = PANEL.hereText },
-	locked = { text = "LOCKED", fill = PANEL.off, color = PANEL.offText },
-	blocked = { text = "WARP", fill = PANEL.off, color = PANEL.offText },
-	soon = { text = "SOON", fill = PANEL.off, color = PANEL.offText },
+	go = { text = "Warp", fill = PANEL.go, color = PANEL.white },
+	here = { text = "Here", fill = PANEL.here, color = PANEL.hereText },
+	locked = { text = "Locked", fill = PANEL.off, color = PANEL.offText },
+	blocked = { text = "Warp", fill = PANEL.off, color = PANEL.offText },
+	soon = { text = "Soon", fill = PANEL.off, color = PANEL.offText },
 }
 
 --- The row's button, and its hard INK shadow. Only "go" does anything.
@@ -375,7 +375,7 @@ local function row(parent: Instance, order: number, def: Camps.CampDef?, id: num
 	caption.TextSize = 13
 	caption.TextColor3 = if def then Color3.fromHex(def.card.accent) else PANEL.faint
 	caption.TextXAlignment = Enum.TextXAlignment.Left
-	caption.Text = `CAMP {id}`
+	caption.Text = `Camp {id}`
 	caption.ZIndex = 14
 	caption.Parent = frame
 	inked(frame, {
@@ -530,7 +530,7 @@ local function buildPanel(): ScreenGui
 
 	inked(panel, {
 		Name = "Title",
-		Text = "WARP",
+		Text = "Warp",
 		Font = PANEL.headline,
 		TextSize = 38,
 		Size = UDim2.fromOffset(200, 46),

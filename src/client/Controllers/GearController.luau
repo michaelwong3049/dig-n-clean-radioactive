@@ -391,6 +391,10 @@ local function buildPanel(): ScreenGui
 	panel.ZIndex = 10
 	panel.Parent = canvas
 	edge(panel, PANEL.ink, 4)
+	-- Rounded corners so the pop-up reads softer than a hard box.
+	local panelCorner = Instance.new("UICorner")
+	panelCorner.CornerRadius = UDim.new(0, 18)
+	panelCorner.Parent = panel
 	local scale = Instance.new("UIScale")
 	scale.Parent = panel
 	local padding = Instance.new("UIPadding")
@@ -423,6 +427,9 @@ local function buildPanel(): ScreenGui
 	close.ZIndex = 11
 	close.Parent = panel
 	edge(close, PANEL.ink, 3)
+	local closeCorner = Instance.new("UICorner")
+	closeCorner.CornerRadius = UDim.new(0, 10)
+	closeCorner.Parent = close
 	close.Activated:Connect(GearPanel.close)
 
 	-- One tab per track, sharing the row's width.
