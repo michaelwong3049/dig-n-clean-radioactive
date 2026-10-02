@@ -102,6 +102,15 @@ local CASH_CARD = {
 	buyHover = Color3.fromHex("86EC45"),
 	buyEdge = Color3.fromHex("1F6E12"),
 }
+-- The SPEED cards: the cash cards' build in the speed badge's blue.
+local SPEED_CARD = {
+	top = Color3.fromHex("3E8BD6"),
+	middle = Color3.fromHex("6AB8F0"),
+	edge = Color3.fromHex("2B2B33"),
+	buy = Color3.fromHex("2A9BDB"),
+	buyHover = Color3.fromHex("45B2EC"),
+	buyEdge = Color3.fromHex("124A6E"),
+}
 local CRATE_H = 216
 -- Every Robux button: the R$ is Roblox's own Robux glyph (private-use U+E002, which
 -- every Roblox font draws as the hexagon icon), big enough to read across the room.
@@ -794,20 +803,19 @@ local function buildPasses(parent: Instance)
 	end
 end
 
---- The four cash packs, CASH_PER_ROW to a row; the picture grows with the pack, so the
---- cards read as a ladder.
-local function buildCash(parent: Instance)
-	section(parent, 2, "CASH")
-	local packs = ShopProducts.CASH
+--- A row of Robux packs (cash or speed), CASH_PER_ROW to a row, headed `title` at
+--- LayoutOrder `order`. `image(index)` gives each card's picture.
+local function buildPackRows(parent: Instance, order: number, title: string, packs: { ShopProducts.CashPack }, look: typeof(CASH_CARD), image: (number) -> string)
+	section(parent, order, title)
 	local rows = math.ceil(#packs / CASH_PER_ROW)
 	for rowIndex = 1, rows do
 		local first = (rowIndex - 1) * CASH_PER_ROW + 1
 		local last = math.min(first + CASH_PER_ROW - 1, #packs)
-		local frame = row(parent, 2 + rowIndex, `Cash{rowIndex}`, CASH_H, last - first + 1)
+		local frame = row(parent, order + rowIndex, `{title}{rowIndex}`, CASH_H, last - first + 1)
 		for index = first, last do
 			local pack = packs[index]
 			local card = Instance.new("Frame")
-			card.Name = `Cash{index}`
+			card.Name = `{title}{index}`
 			card.LayoutOrder = index
 			card.BackgroundColor3 = Color3.new(1, 1, 1)
 			card.BorderSizePixel = 0
@@ -815,13 +823,13 @@ local function buildCash(parent: Instance)
 			card.ZIndex = 12
 			card.Parent = frame
 			round(card, 14)
-			edge(card, CASH_CARD.edge, 4)
+			edge(card, look.edge, 4)
 			-- Brighter down the middle, where the rays come from.
 			local shade = Instance.new("UIGradient")
 			shade.Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, CASH_CARD.top),
-				ColorSequenceKeypoint.new(0.5, CASH_CARD.middle),
-				ColorSequenceKeypoint.new(1, CASH_CARD.top),
+				ColorSequenceKeypoint.new(0, look.top),
+				ColorSequenceKeypoint.new(0.5, look.middle),
+				ColorSequenceKeypoint.new(1, look.top),
 			})
 			shade.Parent = card
 
@@ -840,7 +848,7 @@ local function buildCash(parent: Instance)
 			local art = Instance.new("ImageLabel")
 			art.Name = "Bundle"
 			art.BackgroundTransparency = 1
-			art.Image = Artwork.IMAGE.shopCash[index] or Artwork.IMAGE.cashBundle
+			art.Image = image(index)
 			art.ScaleType = Enum.ScaleType.Fit
 			art.AnchorPoint = Vector2.new(0.5, 0)
 			art.Position = UDim2.fromScale(0.5, 0)
@@ -859,19 +867,33 @@ local function buildCash(parent: Instance)
 				ZIndex = 14,
 			})
 
-			local buy = robuxButton(card, pack.id, false, CASH_CARD.buy, CASH_CARD.buyHover)
+			local buy = robuxButton(card, pack.id, false, look.buy, look.buyHover)
 			buy.AnchorPoint = Vector2.new(0.5, 1)
 			buy.Position = UDim2.new(0.5, 0, 1, -10)
 			buy.Size = UDim2.new(1, -20, 0, BUY_H)
 			buy.TextSize = BUY_TEXT + 4
 			local box = Instance.new("UIStroke")
-			box.Color = CASH_CARD.buyEdge
+			box.Color = look.buyEdge
 			box.Thickness = 3
 			box.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 			box.Parent = buy
 			gloss(buy)
 		end
 	end
+end
+
+--- The four cash packs; the picture grows with the pack, so the cards read as a ladder.
+local function buildCash(parent: Instance)
+	buildPackRows(parent, 2, "CASH", ShopProducts.CASH, CASH_CARD, function(index)
+		return Artwork.IMAGE.shopCash[index] or Artwork.IMAGE.cashBundle
+	end)
+end
+
+--- The four Speed packs, right under CASH, in blue with the speed badge's shoe.
+local function buildSpeed(parent: Instance)
+	buildPackRows(parent, 6, "SPEED", ShopProducts.SPEED, SPEED_CARD, function()
+		return Artwork.IMAGE.speedShoe
+	end)
 end
 
 --- The two Mystery crates. The art is the best crate of the kind: the top of the roll.
@@ -1073,6 +1095,7 @@ local function buildPanel(): ScreenGui
 	buildCloverCard(body)
 	buildServerBoostCard(body)
 	buildCash(body)
+	buildSpeed(body)
 	buildCrates(body)
 
 	panelFrame = panel

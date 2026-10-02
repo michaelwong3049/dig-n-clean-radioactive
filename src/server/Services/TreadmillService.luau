@@ -60,6 +60,7 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Tutorial = require(Shared.Config.Tutorial) -- the console is shut during the walkthrough
 local Treadmill = require(Shared.Config.Treadmill)
+local ShopProducts = require(Shared.Config.ShopProducts)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
@@ -262,6 +263,19 @@ local function grantRobuxRung(player: Player, data: any, tier: number)
 	end)
 end
 
+--- A Speed pack bought with Robux (ShopProducts.SPEED): raw Speed straight onto the
+--- total. Same receipt rules as a rung: touch `data` only, push in a deferred step.
+local function grantSpeedPack(player: Player, data: any, amount: number)
+	data.speedPoints = (data.speedPoints or 0) + amount
+	task.defer(function()
+		if player.Parent == nil then
+			return
+		end
+		push(player)
+		noticeRemote:FireClient(player, `+{Treadmill.rateText(amount)} SPEED`)
+	end)
+end
+
 -- ── Bootstrap ──────────────────────────────────────────────────────────
 
 --- The plot's upgrade sign board (build/Plots ensureUpgradeSign), or nil.
@@ -343,6 +357,11 @@ function TreadmillService.init()
 	for tier = 2, Treadmill.maxTier() do
 		ProductService.register(Treadmill.productFor(tier), function(player, data)
 			grantRobuxRung(player, data, tier)
+		end)
+	end
+	for _, pack in ShopProducts.SPEED do
+		ProductService.register(pack.id, function(player, data)
+			grantSpeedPack(player, data, pack.amount)
 		end)
 	end
 end

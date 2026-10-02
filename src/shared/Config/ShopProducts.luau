@@ -28,6 +28,16 @@ local CASH: { CashPack } = {
 	{ id = 3716021693, amount = 10_000_000, label = "$10M" },
 }
 
+-- Speed packs: `amount` is raw Speed (data.speedPoints); `label` is as players see it
+-- (Treadmill.DISPLAY_SCALE x10). Fixed amounts, so they matter most early: from walk 30
+-- they reach about 41 / 54 / 71 / 91. Ids are 0 (COMING SOON) until the products exist.
+local SPEED: { CashPack } = {
+	{ id = 0, amount = 10_000, label = "100K" },
+	{ id = 0, amount = 50_000, label = "500K" },
+	{ id = 0, amount = 250_000, label = "2.5M" },
+	{ id = 0, amount = 1_500_000, label = "15M" },
+}
+
 -- `weights` are per Config/Crates variant, worst (1) to best (5).
 local CRATES: { MysteryCrate } = {
 	{ id = 3716022009, kind = "nuke", name = "Mystery Nuke Crate", weights = { 30, 30, 22, 13, 5 } },
@@ -35,6 +45,7 @@ local CRATES: { MysteryCrate } = {
 }
 
 ShopProducts.CASH = CASH
+ShopProducts.SPEED = SPEED
 ShopProducts.CRATES = CRATES
 
 --- Roll a variant (1-5) off `weights`. `roll` is a 0-1 number, so the test can pin it.
