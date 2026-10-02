@@ -812,7 +812,7 @@ local function build(): ScreenGui
 	UIKit.label(reelKey, {
 		name = "Key",
 		size = UDim2.fromScale(1, 1),
-		font = UIKit.Font.title,
+		font = UIKit.Font.hero, -- Gotham Black; Let Go's Q is cloned from this
 		textSize = 17,
 		color = COLOR.panel,
 		xAlign = Enum.TextXAlignment.Center,
@@ -844,9 +844,9 @@ local function build(): ScreenGui
 	-- are the only controls here and hitting the wrong one ends the haul.
 	--
 	-- A solid red plate, same height as REEL IN, right-aligned against the readout. Red
-	-- reads as "stop" without a key hint, so it works the same on touch as on keyboard
-	-- (Q still lets go -- it just isn't printed). Greys out once the fuse arms.
-	local releaseButton = UIKit.button(haul, {
+	-- reads as "stop", with a black border and a Q keycap like REEL IN's E (keyboard
+	-- only; a touch player just taps the plate). Greys out once the fuse arms.
+	local releaseButton, releaseStroke = UIKit.button(haul, {
 		name = "ReleaseButton",
 		position = UDim2.fromOffset(READOUT_WIDTH - RELEASE_WIDTH, HAULBUTTON_Y),
 		size = UDim2.fromOffset(RELEASE_WIDTH, HAULBUTTON_HEIGHT),
@@ -862,6 +862,9 @@ local function build(): ScreenGui
 		shadow = false,
 	})
 	ui.releaseButton = releaseButton
+	-- Border, not Contextual: on a TextButton a Contextual stroke traces the GLYPHS, and
+	-- this button's own Text is empty (the label is a child), so it drew nothing.
+	releaseStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
 	-- Keycap + verb, the same row as REEL IN's E. The keycap hides once the fuse arms:
 	-- Q does nothing then, and "Locked In" needs the room.
