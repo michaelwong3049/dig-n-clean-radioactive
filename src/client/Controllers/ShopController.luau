@@ -120,15 +120,16 @@ local PASS_TINT: { [string]: Color3 } = {
 	bombDamage = Color3.fromHex("D81B60"),
 	instantClean = Color3.fromHex("1E88E5"),
 }
-local PASS_H = 256
+local PASS_H = 200
+local PASS_ART = 140
 -- Each pack's card colour, keyed by Config/Packs key: warm for the cheap one, royal
 -- for the big one.
 local PACK_TINT: { [string]: Color3 } = {
 	starter = Color3.fromHex("F08A12"),
 	pro = Color3.fromHex("7A2FD6"),
 }
-local PACK_H = 300
-local PACK_ART = 132
+local PACK_H = 236
+local PACK_ART = 104
 local PASSES_PER_ROW = 2
 local GAP = 12
 -- Sits this far above dead centre: a little higher than the true middle, on request.
@@ -642,39 +643,39 @@ local function buildPasses(parent: Instance)
 			art.BackgroundTransparency = 1
 			art.Image = pass.image
 			art.ScaleType = Enum.ScaleType.Fit
-			art.AnchorPoint = Vector2.new(0.5, 0)
-			art.Size = UDim2.fromOffset(92, 92)
-			art.Position = UDim2.new(0.5, 0, 0, 8)
+			art.Size = UDim2.fromOffset(PASS_ART, PASS_ART)
+			art.Position = UDim2.fromOffset(10, 46)
 			art.ZIndex = 13
 			art.Parent = card
 			inked(card, {
 				Name = "PassName",
 				Text = pass.name,
 				Font = PANEL.headline,
-				TextSize = 20,
-				TextWrapped = true,
-				TextXAlignment = Enum.TextXAlignment.Center,
-				Size = UDim2.new(1, -12, 0, 26),
-				Position = UDim2.fromOffset(6, 104),
+				TextSize = 30,
+				TextScaled = true,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Size = UDim2.new(1, -24, 0, 34),
+				Position = UDim2.fromOffset(12, 8),
 				ZIndex = 14,
 			})
 			inked(card, {
 				Name = "Blurb",
 				Text = pass.blurb,
 				Font = PANEL.label,
-				TextSize = 15,
+				TextSize = 22,
 				TextWrapped = true,
-				TextColor3 = PANEL.dim,
+				TextColor3 = PANEL.white,
 				TextXAlignment = Enum.TextXAlignment.Center,
-				Size = UDim2.new(1, -12, 0, 34),
-				Position = UDim2.fromOffset(6, 132),
+				Size = UDim2.new(1, -PASS_ART - 30, 0, 70),
+				Position = UDim2.fromOffset(PASS_ART + 20, 52),
 				ZIndex = 14,
 			})
 			local buy = robuxButton(card, pass.id, true)
-			buy.AnchorPoint = Vector2.new(0.5, 1)
-			buy.Position = UDim2.new(0.5, 0, 1, -10)
-			buy.Size = UDim2.new(1, -16, 0, BUY_H)
-			buy.TextSize = BUY_TEXT
+			-- Name top-left, picture down the left, blurb and the R$ button stacked on the right.
+			buy.AnchorPoint = Vector2.new(1, 1)
+			buy.Position = UDim2.new(1, -10, 1, -12)
+			buy.Size = UDim2.new(1, -PASS_ART - 30, 0, BUY_H + 6)
+			buy.TextSize = BUY_TEXT + 4
 			local attr = GamePasses.attr(pass.key)
 			local function refresh()
 				local owned = player:GetAttribute(attr) == true
