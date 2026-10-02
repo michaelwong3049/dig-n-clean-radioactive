@@ -57,8 +57,6 @@ local HOVER = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Ou
 -- everything, and every card in its own saturated colour with a gloss gradient,
 -- instead of the FIELD slate it started as. White ink-outlined text reads on all of it.
 local PANEL = {
-	panelTop = Color3.fromHex("4FB4FF"),
-	panelBottom = Color3.fromHex("8A5CFF"),
 	card = Color3.fromHex("2EA552"),
 	cardEdge = Color3.fromHex("1A1A1A"),
 	well = Color3.fromHex("1E7A3A"),
@@ -69,7 +67,7 @@ local PANEL = {
 	buyHover = Color3.fromHex("9257F5"),
 	-- An owned pass's button: the clover's green, so "you have this" reads at a glance.
 	buyOwned = Color3.fromHex("2F9E4A"),
-	-- Card colours. Passes sit on see-through black; cash is green, crates by kind.
+	-- Card colours. Each pass has its own (PASS_TINT); cash is green, crates by kind.
 	tileEdge = Color3.fromHex("1A1A1A"),
 	cashTile = Color3.fromHex("2EA552"),
 	nukeTile = Color3.fromHex("E8711C"),
@@ -110,6 +108,16 @@ local CRATE_H = 216
 local ROBUX = utf8.char(0xE002)
 local BUY_H = 54
 local BUY_TEXT = 28
+-- Each pass card's colour, keyed by Config/GamePasses key, picked to sit behind its picture.
+local PASS_TINT: { [string]: Color3 } = {
+	cash = Color3.fromHex("2EA552"),
+	luck = Color3.fromHex("17A589"),
+	digPower = Color3.fromHex("E0413A"),
+	speed = Color3.fromHex("F0A20F"),
+	backpack = Color3.fromHex("EE7A1E"),
+	bombDamage = Color3.fromHex("D81B60"),
+	instantClean = Color3.fromHex("1E88E5"),
+}
 local PASS_H = 200
 local PASS_ART = 140
 -- Each pack's card colour, keyed by Config/Packs key: warm for the cheap one, royal
@@ -621,8 +629,7 @@ local function buildPasses(parent: Instance)
 			local card = Instance.new("Frame")
 			card.Name = `Pass_{pass.key}`
 			card.LayoutOrder = slot
-			card.BackgroundColor3 = Color3.new(0, 0, 0)
-			card.BackgroundTransparency = 0.45
+			card.BackgroundColor3 = PASS_TINT[pass.key] or PANEL.cashTile
 			card.BorderSizePixel = 0
 			card.ZIndex = 12
 			card.Parent = frame
@@ -902,11 +909,9 @@ local function buildPanel(): ScreenGui
 	local cap = Instance.new("UISizeConstraint")
 	cap.MaxSize = Vector2.new(PANEL_W, PANEL_H)
 	cap.Parent = panel
-	panel.BackgroundColor3 = Color3.new(1, 1, 1)
-	local wash = Instance.new("UIGradient")
-	wash.Rotation = 90
-	wash.Color = ColorSequence.new(PANEL.panelTop, PANEL.panelBottom)
-	wash.Parent = panel
+	-- See-through black, so the world shows behind the cards.
+	panel.BackgroundColor3 = Color3.new(0, 0, 0)
+	panel.BackgroundTransparency = 0.35
 	panel.BorderSizePixel = 0
 	panel.Visible = false
 	panel.ZIndex = 10
