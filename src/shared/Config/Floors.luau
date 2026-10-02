@@ -36,10 +36,12 @@ Floors.HEIGHT = 33
 --- Sized in the economy pacing pass (see Config/Gear's header) with no stand income
 --- cap: floor 2 is a Stage 4 purchase, floor 3 a Stage 8 one. Twelve more stands
 --- doubles or triples passive income, so each is priced like a stage's worth of gear.
---- Raised on request to 50M (floor 2) and 1B (floor 3).
+--- Raised on request to 50M (floor 2) and 1B (floor 3), then moved with their stages in
+--- the early-easier / late-harder refit (Config/Gear's header): floor 2 is part of the
+--- Stage 5 bill (x0.78 -> 40M), floor 3 of the Stage 9 bill (x1.55 -> 1.5B).
 Floors.PRICES = {
-	[2] = 50000000,
-	[3] = 1000000000,
+	[2] = 40000000,
+	[3] = 1500000000,
 }
 
 --- Every stand across every floor. Loops that clear or scan "all stands" walk this.
