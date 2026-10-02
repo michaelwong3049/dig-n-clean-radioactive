@@ -31,7 +31,6 @@
 	and blows the result up to fill whatever screen it is actually on.
 ]]
 
-local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
@@ -674,32 +673,44 @@ function Dock.sideLift(): number
 	return UIKit.touchCorner().Y
 end
 
--- The square tiles on the right edge: Gear, Nukes, Warp, Daily in ONE column, top to bottom
+-- The square tiles on the right edge: Gear, Nukes, Warp in ONE column, top to bottom
 -- (HudTile builds them; Index and Shop moved to the left-column bars). Picture only, no
 -- caption, on request: it was a 2x2 grid of 62px captioned tiles, and before that one
 -- 80px column. The haul widget measures its clearance against the column's width
 -- (HAULPANEL_RIGHT). 48 -> 58, a little bigger, on request.
 Dock.SIDE_TILE_SIZE = 58
 Dock.SIDE_GRID_COLUMNS = 1
-Dock.SIDE_GRID_ROWS = 4
+Dock.SIDE_GRID_ROWS = 3
 -- The space between two tiles: wider than the dock's shared GAP, on request (30 -> 40).
 Dock.SIDE_TILE_GAP = 40
 Dock.SIDE_GRID_WIDTH = Dock.SIDE_GRID_COLUMNS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_COLUMNS - 1) * Dock.SIDE_TILE_GAP
 Dock.SIDE_GRID_HEIGHT = Dock.SIDE_GRID_ROWS * Dock.SIDE_TILE_SIZE + (Dock.SIDE_GRID_ROWS - 1) * Dock.SIDE_TILE_GAP
--- The Settings gear's bottom edge in the top-right corner (SettingsController: 12 down,
--- one SIDE_TILE_SIZE tall), measured from the bottom of the topbar inset, not the
--- screen top.
-Dock.CORNER_BUTTON_BOTTOM = 12 + Dock.SIDE_TILE_SIZE
+-- THE TOP-RIGHT CORNER ROW, up in the topbar band on request: Settings hard in the
+-- corner, Daily rewards to its left. Same tiles as the column (HudTile), placed by
+-- Dock.cornerButtonCentre and measured from the SCREEN top (their guis ignore the
+-- topbar inset), so they sit level with Roblox's own topbar buttons.
+Dock.CORNER_TOP = 6
+Dock.CORNER_SIDE = 12
+Dock.CORNER_GAP = 12
+-- The corner row's bottom edge, from the screen top.
+Dock.CORNER_BUTTON_BOTTOM = Dock.CORNER_TOP + Dock.SIDE_TILE_SIZE
+
+--- The centre of corner button `index` (1 = Settings in the corner, 2 = Daily left of
+--- it), on a canvas that ignores the topbar inset.
+function Dock.cornerButtonCentre(index: number): UDim2
+	local half = Dock.SIDE_TILE_SIZE / 2
+	local fromRight = Dock.CORNER_SIDE + half + (index - 1) * (Dock.SIDE_TILE_SIZE + Dock.CORNER_GAP)
+	return UDim2.new(1, -fromRight, 0, Dock.CORNER_TOP + half)
+end
 
 --- The right-hand tile grid's TOP edge, in design px from the vertical centre of a
 --- canvas `height` design px tall. CENTRED ON THE RIGHT EDGE, on request (it used to
 --- hang from a fixed line, SIDE_TOP_Y -68, a little above centre) -- but never so high
---- that the top row runs up into the Settings gear in the corner above it, which only
+--- that the top row runs up into the corner buttons above it, which only
 --- bites on a short window or a phone. Every tile places itself from this one line
 --- (Dock.sideTileCentre).
 function Dock.sideColumnTop(height: number): number
-	local inset = GuiService:GetGuiInset().Y / UIKit.scale()
-	local underGear = inset + Dock.CORNER_BUTTON_BOTTOM + Dock.GAP - height / 2
+	local underGear = Dock.CORNER_BUTTON_BOTTOM + Dock.GAP - height / 2
 	return math.max(-Dock.SIDE_GRID_HEIGHT / 2, underGear)
 end
 

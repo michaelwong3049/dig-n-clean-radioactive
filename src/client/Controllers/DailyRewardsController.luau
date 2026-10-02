@@ -1,5 +1,5 @@
 --[[
-	DailyRewardsController — the Daily tile (right column, under Warp), the 7-day
+	DailyRewardsController — the Daily tile (top-right corner, left of Settings), the 7-day
 	calendar it opens, and the CLAIM button. Reads DailyRewards (Services/
 	DailyRewardService). Opens ONLY from the tile, on request: nothing pops up on join;
 	the tile wears a red "!" while a reward is waiting.
@@ -29,8 +29,8 @@ local Sfx = require(script.Parent.Parent.Sfx)
 
 local DailyRewardsController = {}
 
--- Fourth in the right column: Gear, Nukes, Warp, Daily.
-local TILE_SLOT = 4
+-- The top-right corner row, on request: Settings in the corner (1), Daily left of it.
+local CORNER_INDEX = 2
 local TILE_COLOR = Color3.fromRGB(240, 80, 127)
 local TILE_LIGHT = Color3.fromRGB(255, 190, 210)
 
@@ -531,7 +531,8 @@ function DailyRewardsController.start()
 	local tileGui, button = HudTile.build({
 		name = "DailyButton",
 		caption = "Daily",
-		slot = TILE_SLOT,
+		slot = 1,
+		position = UIKit.Dock.cornerButtonCentre(CORNER_INDEX),
 		color = TILE_COLOR,
 		light = TILE_LIGHT,
 		image = Artwork.IMAGE.gift,
