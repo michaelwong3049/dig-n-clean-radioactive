@@ -55,9 +55,9 @@ local PANEL = {
 	close = Color3.fromHex("E5484D"),
 	ink = Color3.fromHex("1A1A1A"),
 	white = Color3.new(1, 1, 1),
-	headline = Enum.Font.LuckiestGuy,
-	label = Enum.Font.FredokaOne,
-	-- The tabs' "DETECTOR 1": the cash and speed numbers' face (Dock's hudNumber).
+	headline = Enum.Font.GothamBlack,
+	label = Enum.Font.GothamBlack,
+	-- The tabs' "Detector 1": the cash and speed numbers' face (Dock's hudNumber).
 	tab = Enum.Font.GothamBlack,
 }
 
@@ -71,10 +71,10 @@ local ACCENT: { [string]: Color3 } = {
 }
 -- What each tab says. The Cleaner rung is the hose on your bay's mast.
 local TAB_TEXT: { [string]: string } = {
-	Detector = "DETECTOR",
-	Magnet = "MAGNET",
-	Cleaner = "HOSE",
-	Aura = "AURA",
+	Detector = "Detector",
+	Magnet = "Magnet",
+	Cleaner = "Hose",
+	Aura = "Aura",
 }
 
 local PANEL_W = 720
@@ -211,7 +211,7 @@ local function row(parent: Instance, order: number, track: string, entry: any)
 	})
 	inked(frame, {
 		Name = "Tier",
-		Text = `TIER {entry.tier}`,
+		Text = `Tier {entry.tier}`,
 		Font = PANEL.label,
 		TextSize = 16,
 		TextColor3 = accent,
@@ -248,14 +248,14 @@ local function row(parent: Instance, order: number, track: string, entry: any)
 
 	if entry.current then
 		-- The one you have: a ghost button that says so, in the track's accent.
-		button.Text = if track == "Aura" then "WEARING" else "IN HAND"
+		button.Text = if track == "Aura" then "Wearing" else "In hand"
 		button.BackgroundColor3 = PANEL.well
 		button.TextColor3 = accent
 		button.Active = false
 		return
 	end
 
-	button.Text = "EQUIP"
+	button.Text = "Equip"
 	button.BackgroundColor3 = PANEL.buy
 	button.MouseEnter:Connect(function()
 		TweenService:Create(button, HOVER, { BackgroundColor3 = PANEL.buyHover }):Play()
@@ -405,7 +405,7 @@ local function buildPanel(): ScreenGui
 
 	inked(panel, {
 		Name = "Title",
-		Text = "GEAR",
+		Text = "Gear",
 		Font = PANEL.headline,
 		TextSize = 38,
 		Size = UDim2.fromOffset(200, 46),
@@ -527,7 +527,7 @@ function GearPanel.start()
 	Net.get("GearList").OnClientEvent:Connect(function(list)
 		latest = list
 		busy = false
-		ui.notice.Text = if list and list.notice then string.upper(list.notice) else ""
+		ui.notice.Text = if list and list.notice then list.notice else ""
 		render()
 	end)
 
