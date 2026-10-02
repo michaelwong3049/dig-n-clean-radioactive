@@ -36,6 +36,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage.Shared
+local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Payload = require(Shared.Config.Payload)
 local Crates = require(Shared.Config.Crates)
@@ -525,7 +526,8 @@ function WashReveal.play(found: any, camera: Camera, center: Vector3, extent: nu
 			found.rarity,
 			found.modifier,
 			if type(found.uid) == "string" then Payload.forUid(found.uid) else nil,
-			found.bonus
+			found.bonus,
+			Items.stageOf(found.itemId)
 		),
 		font = UIKit.Font.hero,
 		textSize = 26,

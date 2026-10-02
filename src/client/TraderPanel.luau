@@ -25,6 +25,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
+local Items = require(Shared.Config.Items)
 local Rarity = require(Shared.Config.Rarity)
 local Payload = require(Shared.Config.Payload)
 local Merge = require(Shared.Config.Merge)
@@ -107,7 +108,7 @@ end
 --- any Merge Reactor stars in their own colour. RichText.
 local function starText(item: any): string
 	local payload = if type(item.uid) == "string" then Payload.forUid(item.uid) else nil
-	local rating = Rarity.starText(item.rarity, item.modifier, payload, item.bonus)
+	local rating = Rarity.starText(item.rarity, item.modifier, payload, item.bonus, Items.stageOf(item.itemId))
 	local merged = if type(item.merge) == "number" then item.merge else 0
 	if merged <= 0 then
 		return rating

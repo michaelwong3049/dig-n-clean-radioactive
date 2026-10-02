@@ -150,10 +150,12 @@ function Rarity.get(name: string): RarityDef
 	return def
 end
 
--- THE STAR RATING, 1..Rarity.MAX_STARS. The rarity tier is the base (Rare = 4); this
--- copy's quality modifier and its per-dig size roll (Config/Payload) then nudge it up or
--- down, and the total is clamped. A modifier left out of STAR_MODIFIER moves nothing.
-Rarity.MAX_STARS = #Rarity.ORDER
+-- THE STAR RATING, 1..Rarity.MAX_STARS (10). The rarity tier is the base (Rare = 4);
+-- this copy's quality modifier, its per-dig size roll (Config/Payload) and the stage it
+-- comes from then nudge it up or down, and the total is clamped. A modifier left out
+-- of STAR_MODIFIER moves nothing. The scale is strict on purpose: a Stage 4 Legendary
+-- Pristine is a good find (6) but 8-10 is kept for rare, late-stage, well-rolled copies.
+Rarity.MAX_STARS = 10
 
 Rarity.STAR_MODIFIER = {
 	Pristine = 1,
@@ -171,10 +173,16 @@ Rarity.STAR_SIZE = {
 	{ below = 0.8, stars = -1 },
 } :: { { min: number?, below: number?, stars: number } }
 
---- How many stars a find rates. `modifier`, `payload` and `bonus` are optional: leave
---- them out (a crate, a surface with no uid) and it is the plain rarity tier. 0 for an
---- unknown or missing rarity.
-function Rarity.stars(name: string?, modifier: string?, payload: number?, bonus: { string }?): number
+-- The nudge for the stage a nuke comes from (its home stage, Items.stageOf), indexed by
+-- stage id; a stage past the end reads the last entry. Early-stage finds rate lower for
+-- being early: Stages 1-3 -2, 4-6 -1, 7-9 none, 10-12 +1. No stage (a crate, a surface
+-- that doesn't know the item) moves nothing.
+Rarity.STAR_STAGE = { -2, -2, -2, -1, -1, -1, 0, 0, 0, 1, 1, 1 } :: { number }
+
+--- How many stars a find rates. `modifier`, `payload`, `bonus` and `stage` are
+--- optional: leave them out (a crate, a surface with no uid) and it is the plain rarity
+--- tier. 0 for an unknown or missing rarity.
+function Rarity.stars(name: string?, modifier: string?, payload: number?, bonus: { string }?, stage: number?): number
 	local def = if name then Rarity.DEFS[name] else nil
 	if def == nil then
 		return 0
@@ -191,13 +199,16 @@ function Rarity.stars(name: string?, modifier: string?, payload: number?, bonus:
 			end
 		end
 	end
+	if type(stage) == "number" and stage >= 1 then
+		stars += Rarity.STAR_STAGE[math.min(math.floor(stage), #Rarity.STAR_STAGE)]
+	end
 	return math.clamp(stars, 1, Rarity.MAX_STARS)
 end
 
 --- The star rating as text, one filled star each ("★★★★"). Empty for an unknown or
 --- missing rarity.
-function Rarity.starText(name: string?, modifier: string?, payload: number?, bonus: { string }?): string
-	return string.rep("\u{2605}", Rarity.stars(name, modifier, payload, bonus))
+function Rarity.starText(name: string?, modifier: string?, payload: number?, bonus: { string }?, stage: number?): string
+	return string.rep("\u{2605}", Rarity.stars(name, modifier, payload, bonus, stage))
 end
 
 function Rarity.byOrder(order: number): (string, RarityDef)
