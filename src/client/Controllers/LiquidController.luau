@@ -7,12 +7,12 @@
 	nothing it could send back to steer a result -- the request is a bare "roll".
 
 	THE FLASK BREW, picked from six mockups (option 5). There is no card: a big
-	round-bottomed flask sits on a burner in the middle of the screen. Its liquid flashes
-	through the fluids of the reel, fast at first, then slower, shaking harder the closer
-	it gets to stopping. When it stops, the flask pops, a flash and a burst of droplets
-	go off in the fluid's colour, light rays turn behind it in the TIER colour
-	(Config/Liquids `tier`, painted from Config/Rarity), and the name slams in over its
-	stats. It closes itself a moment later and never takes input, so you can walk away
+	round-bottomed flask sits on a burner in the middle of the screen. Its liquid blends
+	through the fluids of the reel, fast at first, then slower, the flask swaying gently
+	and settling just before it stops (the "Smooth Flask" pass, mockup option 1). When it
+	stops, the flask pulses, a soft glow blooms and light rays fade in behind it in the
+	TIER colour (Config/Liquids `tier`, painted from Config/Rarity), a shockwave ring
+	goes out, droplets arc out under gravity, and the name eases up over its stats. It closes itself a moment later and never takes input, so you can walk away
 	while it plays. The bottle in the world recolours when it lands (LiquidService holds
 	the repaint until then), so the world does not give the result away first.
 
@@ -56,6 +56,7 @@ local Net = require(Shared.Net)
 local UIKit = require(script.Parent.Parent.UIKit)
 local Sfx = require(script.Parent.Parent.Sfx)
 local Prefs = require(script.Parent.Parent.Prefs)
+local RadFxArt = require(script.Parent.Parent.RadFxArt)
 
 local Liquid = {}
 
@@ -306,6 +307,11 @@ local FADE_SECONDS = 0.25
 --- one" beat.
 local REEL_FROM = 3
 local OVERSHOOT = 0.35
+--- The landing's soft glow: RadFx's white "soft dot with a bright core", tinted.
+local GLOW_IMAGE = RadFxArt.mote
+--- Droplets fall under this (design px/s^2) and lose speed to this drag per second.
+local DROP_GRAVITY = 520
+local DROP_DRAG = 0.35
 
 local ui: any = {}
 --- Bumped on every brew, so a brew that starts while the last one is still closing
@@ -330,9 +336,9 @@ local function buildRays(root: Frame)
 	ui.rayBars = {}
 	local fade = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.3, 0.8),
-		NumberSequenceKeypoint.new(0.5, 0.15),
-		NumberSequenceKeypoint.new(0.7, 0.8),
+		NumberSequenceKeypoint.new(0.25, 0.92),
+		NumberSequenceKeypoint.new(0.5, 0.2),
+		NumberSequenceKeypoint.new(0.75, 0.92),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	for index = 1, RAY_COUNT do
@@ -341,7 +347,7 @@ local function buildRays(root: Frame)
 		bar.BorderSizePixel = 0
 		bar.BackgroundColor3 = Color3.new(1, 1, 1)
 		bar.BackgroundTransparency = 1
-		bar.Size = UDim2.new(0, 36, 1, 0)
+		bar.Size = UDim2.new(0, 26, 1, 0)
 		bar.Position = UDim2.fromScale(0.5, 0.5)
 		bar.AnchorPoint = Vector2.new(0.5, 0.5)
 		bar.Rotation = (index - 1) * 180 / RAY_COUNT
@@ -352,6 +358,36 @@ local function buildRays(root: Frame)
 		gradient.Parent = bar
 		table.insert(ui.rayBars, bar)
 	end
+
+	-- A soft glow behind the flask: the current fluid's colour, faint, while it brews;
+	-- it blooms out in the tier colour on landing.
+	local bloom = Instance.new("ImageLabel")
+	bloom.Name = "Bloom"
+	bloom.BackgroundTransparency = 1
+	bloom.Image = GLOW_IMAGE
+	bloom.ImageTransparency = 1
+	bloom.Size = UDim2.fromOffset(420, 420)
+	bloom.Position = UDim2.fromOffset(FLASK_X, BULB_Y)
+	bloom.AnchorPoint = Vector2.new(0.5, 0.5)
+	-- Under the rays: there is no additive blending, so a glow drawn over them would
+	-- just wash them out.
+	bloom.ZIndex = 0
+	bloom.Parent = root
+	ui.bloom = bloom
+
+	-- The landing's shockwave: an empty circle that grows and thins out.
+	local ring = Instance.new("Frame")
+	ring.Name = "Ring"
+	ring.BackgroundTransparency = 1
+	ring.Size = UDim2.fromOffset(80, 80)
+	ring.Position = UDim2.fromOffset(FLASK_X, BULB_Y)
+	ring.AnchorPoint = Vector2.new(0.5, 0.5)
+	ring.ZIndex = 2
+	ring.Visible = false
+	ring.Parent = root
+	round(ring, UDim.new(1, 0))
+	ui.ring = outline(ring, Color3.new(1, 1, 1), 10)
+	ui.ringFrame = ring
 end
 
 --- The burner the flask sits on, and its flame (three nested blobs that flicker).
@@ -518,6 +554,7 @@ local function buildResult(root: Frame)
 		shadow = false,
 		zIndex = 5,
 	})
+	ui.cycleHome = ui.cycle.Position
 
 	-- The rarity of whatever is flicking past right now, under its name, on request, so
 	-- a Legendary going by reads as one before it lands.
@@ -533,8 +570,10 @@ local function buildResult(root: Frame)
 	result.ZIndex = 5
 	result.Visible = false
 	ui.result = result
+	ui.drops = {}
 
 	local nameBox = plainFrame(result, "NameBox", UDim2.fromOffset(760, 56), UDim2.fromScale(0.5, 0), Vector2.new(0.5, 0))
+	ui.nameBox = nameBox
 	ui.nameScale = Instance.new("UIScale")
 	ui.nameScale.Parent = nameBox
 	ui.name = UIKit.label(nameBox, {
@@ -723,37 +762,66 @@ local function animateAmbient(dt: number, speed: number)
 		end
 		bubble.frame.Position = UDim2.fromOffset(bubble.x + math.sin(bubble.y / 9) * 3, bubble.y)
 	end
-	for _, flame in ui.flames do
-		local flicker = 0.88 + math.random() * 0.28
+	-- Two slow sines per blob instead of a fresh random size every frame: the flame
+	-- breathes rather than strobes.
+	local now = os.clock()
+	for index, flame in ui.flames do
+		local flicker = 1 + 0.12 * (math.sin(now * 9 + index * 1.7) * 0.5 + math.sin(now * 13.3 + index) * 0.5)
 		flame.frame.Size = UDim2.fromOffset(flame.w * (2 - flicker) ^ 0.5, flame.h * flicker)
 	end
 	ui.rays.Rotation = (ui.rays.Rotation + dt * 8) % 360
+
+	-- Droplets from the landing: arcs under gravity, shrinking and fading out.
+	local drops = ui.drops
+	for index = #drops, 1, -1 do
+		local drop = drops[index]
+		drop.life -= drop.decay * dt
+		if drop.life <= 0 then
+			drop.frame:Destroy()
+			table.remove(drops, index)
+			continue
+		end
+		drop.vy += DROP_GRAVITY * dt
+		drop.vx *= DROP_DRAG ^ dt
+		drop.x += drop.vx * dt
+		drop.y += drop.vy * dt
+		local size = drop.size * drop.life + 1
+		drop.frame.Position = UDim2.fromOffset(drop.x, drop.y)
+		drop.frame.Size = UDim2.fromOffset(size, size)
+		drop.frame.BackgroundTransparency = 1 - math.clamp(drop.life, 0, 1)
+	end
 end
 
 --- Droplets flying out of the flask in the fluid's colour (and a few in the tier's).
 local function burst(fluidColour: Color3, tierColour: Color3, count: number, spread: number)
+	-- Stepped in animateAmbient (gravity and drag), so they arc and fall instead of
+	-- sliding out in straight lines.
 	local palette = { fluidColour, fluidColour, tierColour, Color3.new(1, 1, 1) }
+	local originY = BULB_Y - BULB * 0.15
 	for index = 1, count do
-		local size = math.random(6, 18)
+		local size = math.random(6, 16)
 		local drop = Instance.new("Frame")
 		drop.Name = "Drop"
 		drop.BorderSizePixel = 0
 		drop.BackgroundColor3 = palette[(index % #palette) + 1]
 		drop.Size = UDim2.fromOffset(size, size)
 		drop.AnchorPoint = Vector2.new(0.5, 0.5)
-		drop.Position = UDim2.fromOffset(FLASK_X, BULB_Y)
+		drop.Position = UDim2.fromOffset(FLASK_X, originY)
 		drop.ZIndex = 6
 		drop.Parent = ui.root
 		round(drop, UDim.new(1, 0))
 		local angle = math.random() * math.pi * 2
-		local reach = spread * (0.35 + 0.65 * math.random())
-		local seconds = 0.8 + math.random() * 0.6
-		tween(drop, seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, {
-			Position = UDim2.fromOffset(FLASK_X + math.cos(angle) * reach, BULB_Y + math.sin(angle) * reach + 50),
-			Size = UDim2.fromOffset(size * 0.3, size * 0.3),
-			BackgroundTransparency = 1,
+		local speed = spread * (0.4 + 0.6 * math.random())
+		table.insert(ui.drops, {
+			frame = drop,
+			x = FLASK_X,
+			y = originY,
+			vx = math.cos(angle) * speed,
+			vy = math.sin(angle) * speed - spread * 0.35,
+			size = size,
+			life = 1,
+			decay = 0.55 + math.random() * 0.5,
 		})
-		task.delay(seconds, drop.Destroy, drop)
 	end
 end
 
@@ -805,15 +873,31 @@ local function reveal(payload: any, token: number)
 	ui.cycle.Visible = false
 	ui.cycleTier.Visible = false
 
-	ui.flaskScale.Scale = 1.1
-	tween(ui.flaskScale, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
-	ui.flash.BackgroundTransparency = if Prefs.get("reduceFlashing") then 0.9 else 0.45
-	tween(ui.flash, 0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = 1 })
+	-- A soft landing: a gentle pulse of the flask, a faint tint instead of a white
+	-- flash, the glow blooming out in the tier colour, the rays fading in, a
+	-- shockwave ring, and droplets. Rarer lands glow brighter and throw more.
+	ui.flaskScale.Scale = 1.07
+	tween(ui.flaskScale, 0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Scale = 1 })
+	ui.flash.BackgroundColor3 = tierColour
+	ui.flash.BackgroundTransparency = if Prefs.get("reduceFlashing") then 0.95 else 0.82
+	tween(ui.flash, 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = 1 })
+	ui.bloom.ImageColor3 = tierColour
+	tween(ui.bloom, 0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, {
+		ImageTransparency = math.max(0.15, 0.5 - tierRank * 0.05),
+		Size = UDim2.fromOffset(560 + tierRank * 40, 560 + tierRank * 40),
+	})
 	for _, bar in ui.rayBars do
 		bar.BackgroundColor3 = tierColour
-		tween(bar, 0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = 0.35 })
+		tween(bar, 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { BackgroundTransparency = math.max(0.2, 0.55 - tierRank * 0.05) })
 	end
-	burst(colour, tierColour, 22 + tierRank * 6, 220 + tierRank * 30)
+	ui.ringFrame.Size = UDim2.fromOffset(BULB * 0.6, BULB * 0.6)
+	ui.ringFrame.Visible = true
+	ui.ring.Color = tierColour
+	ui.ring.Thickness = 10
+	ui.ring.Transparency = 0.15
+	tween(ui.ringFrame, 0.7, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, { Size = UDim2.fromOffset(BULB * 2.6, BULB * 2.6) })
+	tween(ui.ring, 0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Thickness = 1, Transparency = 1 })
+	burst(colour, tierColour, 20 + tierRank * 7, 240 + tierRank * 25)
 	-- Rarer lands ring higher.
 	ui.land.PlaybackSpeed = 0.85 + 0.07 * tierRank
 	ui.land:Play()
@@ -826,10 +910,23 @@ local function reveal(payload: any, token: number)
 	local chips = fillChips(ui.chips, def, UIKit.TextSize.title, 42)
 	ui.result.Visible = true
 
-	ui.tierScale.Scale = 1.8
-	tween(ui.tierScale, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
-	ui.nameScale.Scale = 1.9
-	tween(ui.nameScale, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
+	-- The name eases up and fades in rather than slamming down from twice its size;
+	-- the tier chip pops in just after it.
+	ui.nameScale.Scale = 1.15
+	tween(ui.nameScale, 0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, { Scale = 1 })
+	ui.nameBox.Position = UDim2.new(0.5, 0, 0, 18)
+	tween(ui.nameBox, 0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out, { Position = UDim2.fromScale(0.5, 0) })
+	ui.name.TextTransparency = 1
+	tween(ui.name, 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { TextTransparency = 0 })
+	local nameStroke = ui.name:FindFirstChildOfClass("UIStroke")
+	if nameStroke then
+		nameStroke.Transparency = 1
+		tween(nameStroke, 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Transparency = 0 })
+	end
+	ui.tierScale.Scale = 0.01
+	task.delay(0.12, function()
+		tween(ui.tierScale, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
+	end)
 	for index, chip in chips do
 		local grow = Instance.new("UIScale")
 		grow.Scale = 0
@@ -921,7 +1018,12 @@ local function play(payload: any)
 	for _, bar in ui.rayBars do
 		bar.BackgroundTransparency = 1
 	end
+	ui.ringFrame.Visible = false
+	ui.flash.BackgroundTransparency = 1
+	ui.bloom.Size = UDim2.fromOffset(420, 420)
+	ui.bloom.ImageTransparency = 0.8
 	paintLiquid(reelAt(from))
+	ui.bloom.ImageColor3 = ui.liquid.BackgroundColor3
 	ui.scale.Scale = 0.92
 	ui.dim.BackgroundTransparency = 1
 	ui.gui.Enabled = true
@@ -954,11 +1056,23 @@ local function play(payload: any)
 			speed = math.abs(position - lastPosition) / math.max(dt, 1 / 240)
 			lastPosition = position
 
+			-- The liquid BLENDS from one fluid into the next as the reel moves instead of
+			-- snapping on every tile.
+			local below = math.clamp(math.floor(position), 1, #reel)
+			local above = math.clamp(below + 1, 1, #reel)
+			local frac = math.clamp(position - math.floor(position), 0, 1)
+			local blend = Color3.fromHex(Liquids.get(reel[below]).color)
+				:Lerp(Color3.fromHex(Liquids.get(reel[above]).color), frac * frac * (3 - 2 * frac))
+			ui.liquid.BackgroundColor3 = blend
+			ui.bloom.ImageColor3 = blend
+
 			local centred = math.clamp(math.floor(position + 0.5), 1, #reel)
 			if centred ~= lastTile then
 				lastTile = centred
 				local def = Liquids.get(reel[centred])
-				paintLiquid(reel[centred])
+				-- The name drops in from just above rather than swapping in place.
+				ui.cycle.Position = ui.cycleHome - UDim2.fromOffset(0, 8)
+				tween(ui.cycle, 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Position = ui.cycleHome })
 				ui.cycle.Text = def.name
 				ui.cycle.TextColor3 = Color3.fromHex(def.color)
 				local tierName, tierColour = tierOf(def)
@@ -968,13 +1082,14 @@ local function play(payload: any)
 				ui.tick:Play()
 			end
 
-			-- Shakes harder the closer it gets to stopping, and the liquid sloshes the
-			-- other way so its surface lags the glass.
-			local progress = elapsed / seconds
-			local amp = if progress > 0.55 then (progress - 0.55) * 14 else 0
-			ui.flask.Rotation = math.sin(elapsed * 36) * amp
-			ui.flask.Position = ui.flaskHome + UDim2.fromOffset(math.sin(elapsed * 52) * amp * 0.6, 0)
-			ui.surface.Rotation = -ui.flask.Rotation * 1.6
+			-- A slow sway that grows as the reel slows, then eases to rest just before it
+			-- lands (no jitter); the liquid tilts the other way so its surface lags the
+			-- glass.
+			local progress = math.clamp(elapsed / seconds, 0, 1)
+			local rest = math.clamp((progress - 0.85) / 0.15, 0, 1)
+			local amp = (2.5 + progress * 4) * (1 - rest * rest * (3 - 2 * rest))
+			ui.flask.Rotation = math.sin(elapsed * 5.5) * amp
+			ui.surface.Rotation = -ui.flask.Rotation * 1.4
 
 			if elapsed >= seconds then
 				landed = true
