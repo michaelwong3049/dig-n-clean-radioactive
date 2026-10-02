@@ -106,7 +106,7 @@ local BARE_CAPTION_GAP = -11
 -- Just wider than "Masteries" at 20.
 local BARE_W = 100
 -- Extra space over the row below, on top of BAR_GAP, on request.
-local BARE_LIFT = 14
+local BARE_LIFT = 28
 
 --- Builds the tile in its own ScreenGui (IgnoreGuiInset, so the grid measures against
 --- the true screen as the left column does). Returns the gui, unparented, and the button,
