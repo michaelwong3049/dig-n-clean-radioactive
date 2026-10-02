@@ -7,9 +7,12 @@
 	keycap that fills amber while you hold, the object's name small and dim, the verb
 	big and white. Chosen from a mockup round ("option 3").
 
-	HOW: every ProximityPrompt that shows up in the world at `Style = Default` is flipped
-	to `Custom` ON THIS CLIENT ONLY, and ProximityPromptService's events drive a card we
-	build ourselves. The prompt object still owns all the input -- key, gamepad button,
+	HOW: the server's PromptStyleService sends every world ProximityPrompt down already
+	`Style = Custom` and tagged GLASS_CARD, and ProximityPromptService's events drive a
+	card we build ourselves. It has to be the server: flipping Default -> Custom here,
+	after the client had loaded, lost a race on live servers -- Roblox's grey prompt had
+	already drawn and stayed up behind the card (two prompts at once). A Default prompt
+	made on this client (crate, fluid bottle) is still flipped here as it is created. The prompt object still owns all the input -- key, gamepad button,
 	hold timing, Exclusivity, the Triggered fire -- so no server code, no world rebuild
 	and no prompt's behaviour changes; only the face does. A prompt that already arrives
 	as `Custom` (the dig pick-up keycap, DetectorController) has its own face and is left
@@ -109,12 +112,15 @@ end
 
 -- ── Restyling ────────────────────────────────────────────────────────
 
+--- Set by the server's PromptStyleService on every prompt whose face is ours.
+local GLASS_CARD = "GlassCard"
+
 local function adopt(inst: Instance)
 	if not inst:IsA("ProximityPrompt") or owned[inst] then
 		return
 	end
-	-- Custom already means someone draws its face on purpose.
-	if inst.Style ~= Enum.ProximityPromptStyle.Default then
+	-- Custom without the tag means someone else draws its face on purpose.
+	if inst.Style ~= Enum.ProximityPromptStyle.Default and inst:GetAttribute(GLASS_CARD) ~= true then
 		return
 	end
 	inst.Style = Enum.ProximityPromptStyle.Custom
@@ -483,7 +489,9 @@ local function triggered(prompt: ProximityPrompt)
 	end)
 end
 
-function PromptController.start()
+-- init, not start: the first controller's init runs before any other controller has
+-- started, which is as early as this client can be listening for PromptShown.
+function PromptController.init()
 	for _, d in Workspace:GetDescendants() do
 		adopt(d)
 	end
