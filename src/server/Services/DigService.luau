@@ -705,8 +705,18 @@ local function ensureTutorialSignal()
 		return
 	end
 	local item = Items.get(itemId)
+	-- The fuse rolls off the uid, so re-roll it until the first nuke is a calm one: no
+	-- troll, no hair-trigger (Detonation.isCalmFuse). ~60% of uids pass; the cap only
+	-- guards against an impossible config.
+	local uid = HttpService:GenerateGUID(false)
+	for _ = 1, 64 do
+		if Detonation.isCalmFuse(uid) then
+			break
+		end
+		uid = HttpService:GenerateGUID(false)
+	end
 	local signal: Signal = {
-		uid = HttpService:GenerateGUID(false),
+		uid = uid,
 		stageId = 1,
 		position = Vector3.new(minX + Tutorial.DIG_SPOT_IN, Stages.SURFACE_Y, (minZ + maxZ) / 2),
 		itemId = itemId,
