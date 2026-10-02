@@ -1720,6 +1720,9 @@ function ExhibitService.start()
 	-- them all); nobody owns anything yet, so strip every plot to its ground floor.
 	for index = 1, PLOT_COUNT do
 		renderFloors(index, nil)
+		-- And every treadmill gets its upgrade sign up (and a saved place's old E
+		-- prompt taken down) before anyone claims it; Plots.setTreadmillTier does both.
+		renderTreadmill(index, nil)
 	end
 
 	DataService.onLoaded(function(player, data)

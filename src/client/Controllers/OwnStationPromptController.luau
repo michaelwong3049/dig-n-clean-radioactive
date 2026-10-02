@@ -1,11 +1,13 @@
 --!strict
 --[[
-	OwnStationPromptController.luau — hides a base's "Wash" (cleansing station) and
-	"Upgrade Treadmill" prompts from everyone but that base's owner.
+	OwnStationPromptController.luau — hides a base's "Wash" (cleansing station) prompt
+	from everyone but that base's owner. (The treadmill's "Upgrade" prompt it used to
+	gate too is gone: TreadmillSignController shows the upgrade sign's buttons to the
+	owner only.)
 
-	THE SERVER ALREADY REFUSES BOTH: StationService treats someone else's tub or belt
-	as no station at all, WashService.begin and TreadmillService's console say "that's
-	someone else's ...". This only stops the prompts that were always going to fail
+	THE SERVER ALREADY REFUSES IT: StationService treats someone else's tub as no
+	station at all, and WashService.begin says "that's someone else's ...". This only
+	stops the prompts that were always going to fail
 	from showing. LOCAL ONLY — the server's prompts are untouched, and the camps' public
 	cleansing stations are not under Workspace.Plots, so they are never touched here.
 
@@ -27,8 +29,9 @@ local Net = require(ReplicatedStorage.Shared.Net)
 
 local OwnStationPromptController = {}
 
---- prompt name -> the part it hangs off (build/Plots.buildCleansingStation, buildTreadmill).
-local GATED: { [string]: string } = { Wash = "Basin", Upgrade = "Console" }
+--- prompt name -> the part it hangs off (build/Plots.buildCleansingStation). The
+--- treadmill's Upgrade prompt is gone: its sign sells to the owner only (TreadmillSignController).
+local GATED: { [string]: string } = { Wash = "Basin" }
 
 local myPlot: number? = nil
 local prompts: { [ProximityPrompt]: number } = {}

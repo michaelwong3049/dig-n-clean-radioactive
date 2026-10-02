@@ -253,6 +253,25 @@ function Treadmill.priceFor(index: number): number?
 	return if next then next.price else nil
 end
 
+--- Every belt you can buy with Robux instead of cash: one Developer Product per rung
+--- (Creator Dashboard -> Monetization -> Developer Products), keyed by the rung's NAME
+--- like Config/GearProducts, so a rung added or moved can't shift an id onto the wrong
+--- belt. 0 = not set up yet: the upgrade sign's purple button reads SOON and does
+--- nothing. The Robux price lives on the product; the sign reads it from there.
+--- Suggested: R$49 / R$99 / R$249 / R$499. The grant is TreadmillService's.
+Treadmill.PRODUCTS = {
+	["Servo Track"] = 0,
+	["Reactor Mill"] = 0,
+	["Isotope Strider"] = 0,
+	["Diamond Drive"] = 0,
+} :: { [string]: number }
+
+--- The Robux product for rung `index`, or 0 when it isn't sold (or isn't set up yet).
+function Treadmill.productFor(index: number): number
+	local def = Treadmill.TIERS[index]
+	return if def then Treadmill.PRODUCTS[def.name] or 0 else 0
+end
+
 -- ── Save conversion ───────────────────────────────────────────────────────
 
 --- The curve saves were banked against before Speed existed: hidden `speedXp`, one

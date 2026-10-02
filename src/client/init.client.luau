@@ -42,6 +42,7 @@ local ORDER = {
 	"WashController", -- the wash bay: camera, patch blobs, the hose stream; reads WashState
 	"CrustController", -- crust on a washed item: eases the server's erode level every frame, tumbles shed pieces off; watches ItemCrust-tagged parts
 	"TreadmillController", -- the speed-training card and the belt's own motion; reads SpeedController
+	"TreadmillSignController", -- the upgrade sign beside each treadmill: "Level 1 > Level 2", red cash + purple Robux buttons; fires TreadmillBuy
 	"StationMotionController", -- base machines moving on their own: fans, dial, gauge needle, tub ripples, screen pulse
 	"MergeReactorController", -- the Merge Reactor's show: nukes into the hoppers, the core charging, the result on the lift; reads the reactor's Merge* attributes
 	"ToolMotionController", -- the top magnets' moving parts (gyros, halos, orbiting diamonds, floating balls); watches ToolMotion-tagged welds from Shared/ToolFX
@@ -54,7 +55,7 @@ local ORDER = {
 	"PurchaseHintController", -- the "You can afford a new <gear>" lines under the warp bar; reads CashState + GearList
 	"BaseMarkerController", -- the "YOUR BASE" avatar beacon over your own plot; reads PlotState
 	"FloorSignController", -- hides a base's "Build Floor N" prompt from anyone but its owner; reads PlotState
-	"OwnStationPromptController", -- hides a base's Wash + Upgrade Treadmill prompts from anyone but its owner; reads PlotState
+	"OwnStationPromptController", -- hides a base's Wash prompt from anyone but its owner; reads PlotState
 	"SettingsController", -- the Settings panel (top-right gear): GENERAL / GRAPHICS / AUDIO tabs; PlotColor, HideAura, SfxMuted + the Prefs rows (client/Prefs)
 	"TutorialController", -- the new-player walkthrough: top banner + ground trail; reads TutorialState
 	"FlyController", -- dev-only free-fly; toggled by DebugService's /fly command via LocalPlayer's FlyMode attribute

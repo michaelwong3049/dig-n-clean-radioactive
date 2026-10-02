@@ -2492,8 +2492,8 @@ end
 -- ── The treadmill ─────────────────────────────────────────────────────────
 --
 -- Where speed comes from, now that the Boots track is retired (Config/Treadmill).
--- Step on the belt and the number climbs; press E on the console to buy a faster
--- belt. Services/TreadmillService owns both halves.
+-- Step on the belt and the number climbs; press the red button on the upgrade sign
+-- beside it to buy a faster belt. Services/TreadmillService owns both halves.
 --
 -- IT SHARES THE ENTRANCE SERVICE STRIP with the cleansing station (+X), and the
 -- clearances here are a CORRECTNESS constraint, not a layout
@@ -2843,6 +2843,69 @@ local function installTreadmillLook(treadmill: Instance, tier: number): boolean
 	return true
 end
 
+--- THE UPGRADE SIGN: a studded navy board on a post beside the belt, the way to buy the
+--- next rung (on request, in place of the console's E prompt). Only the geometry is
+--- built here. What it says, and its red cash and purple Robux buttons, are drawn by
+--- the client (TreadmillSignController) from the treadmill's `Tier` / `Locked`
+--- attributes: buttons on a world gui only take input from a gui under PlayerGui.
+---
+--- PLACED OFF THE BELT, never from plot-local numbers: the sign stands at a fixed
+--- offset from the skeleton `Belt`, whose centre never moves (installTreadmillLook),
+--- on the +X side between the machine and the entrance path, its face turned
+--- `yaw` degrees from +X toward the entrance (-Z) so it reads to someone walking in.
+--- Clear of the widest rung's body (~3.3 studs off the belt's centre line) and the
+--- entrance arch's foot (plot-local x -10, z -47.8).
+local UPGRADE_SIGN = {
+	x = 7.5, -- off the belt's centre, toward the plot's middle
+	z = 0,
+	yaw = 20,
+	boardW = 8,
+	boardH = 4.4,
+	boardT = 1,
+	boardBottom = 2.8, -- above the pad
+	postW = 1.6,
+	color = "1D2B4F",
+}
+
+--- Put the sign up beside `treadmill` if it isn't there yet. Idempotent and cheap, so
+--- setTreadmillTier calls it on every repaint.
+local function ensureUpgradeSign(treadmill: Instance)
+	if treadmill:FindFirstChild("UpgradeSign") then
+		return
+	end
+	local belt = treadmill:FindFirstChild("Belt")
+	if belt == nil or not belt:IsA("BasePart") then
+		return
+	end
+	local u = UPGRADE_SIGN
+	local padTop = belt.Position.Y + belt.Size.Y / 2 - TREADMILL.beltTop
+	local level = belt.CFrame.Rotation + Vector3.new(belt.Position.X, padTop, belt.Position.Z)
+	-- The board's front face (-Z) looks along +X turned `yaw` toward -Z.
+	local frame = level * CFrame.new(u.x, 0, u.z) * CFrame.Angles(0, math.rad(u.yaw) - math.pi / 2, 0)
+
+	local sign = Instance.new("Model")
+	sign.Name = "UpgradeSign"
+	local postH = u.boardBottom + 0.5
+	build(sign, frame, {
+		name = "Post",
+		-- Behind the board, so its face stays one flat panel.
+		pos = { 0, postH / 2, (u.postW - u.boardT) / 2 + 0.2 },
+		size = { u.postW, postH, u.postW },
+		color = u.color,
+		material = "Plastic",
+		studs = true,
+	})
+	build(sign, frame, {
+		name = "Board",
+		pos = { 0, u.boardBottom + u.boardH / 2, 0 },
+		size = { u.boardW, u.boardH, u.boardT },
+		color = u.color,
+		material = "Plastic",
+		studs = true,
+	})
+	sign.Parent = treadmill
+end
+
 --- Dress one plot's treadmill in a belt rung. Returns the tier actually applied, or
 --- nil if this plot has no treadmill to dress (a place file saved before the machine
 --- existed — degrade quietly, exactly as setHoseTier does).
@@ -2887,20 +2950,15 @@ function Plots.setTreadmillTier(treadmill: Instance?, tier: number?, points: num
 	if sign and sign:IsA("BillboardGui") then
 		sign.Enabled = not locked
 	end
+	-- The upgrade sign replaced the console's E prompt (on request). A place saved
+	-- before it still has the prompt, so it goes here, and the sign is put up here
+	-- too: both land on the first repaint, with no world rebuild needed.
 	local console = treadmill:FindFirstChild("Console")
 	local prompt = console and console:FindFirstChild("Upgrade")
 	if prompt and prompt:IsA("ProximityPrompt") then
-		-- The next belt's price rides on the prompt, so walking up to the console says
-		-- what the upgrade costs before you hold E.
-		local nextTier = Treadmill.TIERS[wanted + 1]
-		prompt.ActionText = if locked
-			then `Unlock Treadmill ({Treadmill.unlockPriceText()})`
-			elseif nextTier then `Upgrade Treadmill ({Treadmill.priceText(nextTier.price)})`
-			else "Treadmill Maxed"
-		prompt.ObjectText = if not locked and nextTier
-			then `Next: {nextTier.name} (+{Treadmill.rateText(nextTier.rate)} Speed/s)`
-			else "Treadmill"
+		prompt:Destroy()
 	end
+	ensureUpgradeSign(treadmill)
 
 	-- The console's own screen says the same number to the runner, with the bar to the
 	-- next walk-speed point. Absent when the model has no screen or failed to load.
@@ -2969,15 +3027,6 @@ local function buildTreadmill(parent: Instance, origin: CFrame, accent: string)
 	})
 	console.CanQuery = false
 	console.CanTouch = false
-
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "Upgrade"
-	prompt.ActionText = "Upgrade Treadmill"
-	prompt.ObjectText = "Treadmill"
-	prompt.HoldDuration = 0.4
-	prompt.MaxActivationDistance = 10
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = console
 
 	-- Locked, tier 1 -- the only state that exists before a player has ever claimed
 	-- this plot. ExhibitService.renderTreadmill overwrites both lines the moment real
