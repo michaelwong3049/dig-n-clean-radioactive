@@ -687,6 +687,13 @@ local function stepPlayer(player: Player, dt: number)
 	-- either; it is the air itself, a second ago, at a few thousand degrees.
 	local craterBurn = HazardService.burnAt(root.Position, stageId ~= nil, player)
 	reading.healthBurn += craterBurn
+	-- ...and it is fallout as well as heat: the orb fills the meter fast on top of
+	-- whatever the stage is doing (Tuning.CRATER_RADS_PER_BURN). Kept beside `net`
+	-- rather than in it so the SURVIVABLE clock stays a stage-and-bag number; /immunity
+	-- blocks it like any other radiation, the orb's health burn it does not.
+	local craterRads = if immune[player]
+		then 0
+		else math.min(craterBurn * Tuning.CRATER_RADS_PER_BURN, Tuning.CRATER_RADS_MAX)
 	-- Always taken, even while downed, so a hit that lands on a blackout is dropped
 	-- rather than banked into the next life (HazardService.takeHit).
 	local blastHit = HazardService.takeHit(player)
@@ -698,7 +705,7 @@ local function stepPlayer(player: Player, dt: number)
 		if showering then
 			state.exposure = math.max(0, state.exposure - Tuning.SHOWER_FLUSH_RATE * dt)
 		else
-			state.exposure = math.clamp(state.exposure + reading.net * dt, 0, Tuning.EXPOSURE_CAP)
+			state.exposure = math.clamp(state.exposure + (reading.net + craterRads) * dt, 0, Tuning.EXPOSURE_CAP)
 		end
 
 		if blastHit > 0 then
@@ -815,7 +822,8 @@ local function stepPlayer(player: Player, dt: number)
 		maxHealth = maxHealthOf(player),
 		downed = state.downed,
 
-		net = reading.net,
+		-- The meter's fill rate as the HUD's ▲ arrows read it, a crater's fallout included.
+		net = reading.net + craterRads,
 		carried = reading.carried,
 		excess = reading.excess,
 		healthBurn = reading.healthBurn,
