@@ -40,6 +40,12 @@ local Y = 84
 local H = 30 -- text row height
 local CLOSE = 24 -- the X button's square
 local MAX_ROWS = 8 -- most rows on screen at once, so a big cash jump cannot fill it
+-- Each line sits on a small dark band that fades out at both ends: a mini version of
+-- the tutorial banner's band (TutorialController BANNER_SHADE / BANNER_FADE).
+local BAND_W = 520
+local BAND_H = 36
+local BAND_SHADE = 0.35 -- the band's BackgroundTransparency at its middle
+local BAND_FADE = 0.25 -- fraction of the width each side spends fading out
 local POP = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local FADE = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
@@ -153,19 +159,39 @@ local function tutorialUp(): boolean
 	return tutorialBanner ~= nil and tutorialBanner.Visible
 end
 
---- One pop-up row: springs in and stays until its X is clicked.
+--- One pop-up row on its dark band: springs in and stays until its X is clicked.
 local function popRow(list: Frame, key: string, rung: Rung, order: number)
+	-- The band: dark in the middle, see-through at both ends. A UIGradient only
+	-- touches its own frame's background, so the words and X on top stay solid.
+	local band = Instance.new("Frame")
+	band.Name = "Hint"
+	band.LayoutOrder = order
+	band.Size = UDim2.fromOffset(BAND_W, BAND_H)
+	band.BackgroundColor3 = Color3.new(0, 0, 0)
+	band.BackgroundTransparency = BAND_SHADE
+	band.BorderSizePixel = 0
+	local fade = Instance.new("UIGradient")
+	fade.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(BAND_FADE, 0),
+		NumberSequenceKeypoint.new(1 - BAND_FADE, 0),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	fade.Parent = band
+	local scale = Instance.new("UIScale")
+	scale.Scale = 0.6
+	scale.Parent = band
+
 	local row = Instance.new("Frame")
-	row.Name = "Hint"
-	row.LayoutOrder = order
+	row.Name = "Content"
+	row.AnchorPoint = Vector2.new(0.5, 0.5)
+	row.Position = UDim2.fromScale(0.5, 0.5)
 	row.Size = UDim2.fromOffset(0, H)
 	row.AutomaticSize = Enum.AutomaticSize.X
 	row.BackgroundTransparency = 1
-	local scale = Instance.new("UIScale")
-	scale.Scale = 0.6
-	scale.Parent = row
+	row.Parent = band
 
-	-- No box: just chunky outlined text, like a Roblox game title.
+	-- Chunky outlined text, like a Roblox game title, over the band.
 	local label = Instance.new("TextLabel")
 	label.Name = "Text"
 	label.BackgroundTransparency = 1
@@ -213,9 +239,9 @@ local function popRow(list: Frame, key: string, rung: Rung, order: number)
 		closeRow(key)
 	end)
 
-	rows[key] = { rung = rung, frame = row }
+	rows[key] = { rung = rung, frame = band }
 	rowCount += 1
-	row.Parent = list
+	band.Parent = list
 	TweenService:Create(scale, POP, { Scale = 1 }):Play()
 end
 
