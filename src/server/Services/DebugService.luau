@@ -856,6 +856,22 @@ COMMANDS["/away"] = {
 	end,
 }
 
+COMMANDS["/brewhint"] = {
+	help = "/brewhint — bring back the arrow over your brew station (3 washes, panel unseen)",
+	run = function(player, _sandbox, _args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		data.stats.itemsCleaned = math.max(data.stats.itemsCleaned, 3)
+		local seen = table.find(data.tutorialsSeen, "brew")
+		if seen then
+			table.remove(data.tutorialsSeen, seen)
+		end
+		return `brew hint back on ({data.stats.itemsCleaned} washes)`
+	end,
+}
+
 COMMANDS["/radhelp"] = {
 	help = "/radhelp — list these commands",
 	run = function(_player, _sandbox, _args)

@@ -1863,12 +1863,88 @@ local function ensurePrompt(bottle: BasePart?)
 	viewPrompt = p
 end
 
+--- THE BREW HINT. After your third clean wash (FluidState `brewHint`) a little yellow
+--- arrow bobs and turns over your bottle, pointing down at it, until the panel first
+--- opens. Local parts, so only the owner sees it and the world needs no rebuild.
+local HINT_YELLOW = Color3.fromHex("FFD21F")
+--- Studs above the bottle's top, and how far it bobs either side of that.
+local HINT_LIFT, HINT_BOB = 2.6, 0.35
+local hintModel: Model? = nil
+local hintSent = false
+local hintParts: { { part: BasePart, offset: CFrame } } = {}
+
+local function hintPart(model: Model, class: string, size: Vector3, offset: CFrame, colour: Color3)
+	local p = Instance.new(class) :: BasePart
+	p.Size = size
+	p.Color = colour
+	p.Material = Enum.Material.SmoothPlastic
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Parent = model
+	table.insert(hintParts, { part = p, offset = offset })
+end
+
+--- A down-pointing arrow: a short shaft over a head of four wedges, crossed so the
+--- point reads the same from every side while it turns.
+local function buildHint(): Model
+	local model = Instance.new("Model")
+	model.Name = "BrewHintArrow"
+	hintParts = {}
+	local headW, headH, thick = 1.5, 1.1, 0.32
+	local half = headW / 2
+	hintPart(model, "Part", Vector3.new(0.5, 0.9, 0.5), CFrame.new(0, headH / 2 + 0.45, 0), HINT_YELLOW)
+	for _, turn in { 0, math.pi / 2 } do
+		local spin = CFrame.Angles(0, turn, 0)
+		-- A WedgePart's right angle sits at its bottom back; flipped about Z it sits top
+		-- back, so each one is half the triangle with its upright edge on the centre line.
+		hintPart(model, "WedgePart", Vector3.new(thick, headH, half),
+			spin * CFrame.new(0, 0, -half / 2) * CFrame.Angles(0, 0, math.pi), HINT_YELLOW)
+		hintPart(model, "WedgePart", Vector3.new(thick, headH, half),
+			spin * CFrame.new(0, 0, half / 2) * CFrame.Angles(0, math.pi, math.pi), HINT_YELLOW)
+	end
+	local light = Instance.new("PointLight")
+	light.Color = HINT_YELLOW
+	light.Range = 6
+	light.Brightness = 0.6
+	light.Parent = hintParts[1].part
+	model.Parent = Workspace
+	return model
+end
+
+--- Place (or clear) the arrow for this frame.
+local function paintHint(bottle: BasePart?)
+	local want = bottle ~= nil and state ~= nil and state.brewHint == true and not (panel.card and panel.card.Visible)
+	if not want then
+		if hintModel then
+			hintModel:Destroy()
+			hintModel = nil
+		end
+		return
+	end
+	if hintModel == nil or hintModel.Parent == nil then
+		hintModel = buildHint()
+	end
+	local t = os.clock()
+	local base = CFrame.new(bottle.Position + Vector3.new(0, bottle.Size.Y / 2 + HINT_LIFT + math.sin(t * 3) * HINT_BOB, 0))
+		* CFrame.Angles(0, t * 1.6, 0)
+	for _, entry in hintParts do
+		entry.part.CFrame = base * entry.offset
+	end
+end
+
 --- Show the panel once E has asked for it, while the local player is still at their
 --- own bottle and no brew is on screen; walking away closes it. Polled at 10 Hz
 --- rather than per frame: it is a distance check, and a tenth of a second is below
 --- what anyone notices walking away from a table.
 local function watch()
 	local elapsed = 0
+	local hintBottle: BasePart? = nil
+	RunService.RenderStepped:Connect(function()
+		paintHint(hintBottle)
+	end)
 	RunService.Heartbeat:Connect(function(dt)
 		elapsed += dt
 		if elapsed < 0.1 then
@@ -1876,6 +1952,7 @@ local function watch()
 		end
 		elapsed = 0
 		local bottle = ownBottle()
+		hintBottle = bottle
 		ensurePrompt(bottle)
 		local character = Players.LocalPlayer.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -1905,6 +1982,11 @@ local function watch()
 		end
 		local brewing = ui.gui ~= nil and ui.gui.Enabled
 		setOpen(wantOpen and near and state ~= nil and not brewing)
+		if panel.card and panel.card.Visible and state and state.brewHint and not hintSent then
+			-- Opened it: tell the server once so the arrow never comes back.
+			hintSent = true
+			Net.get("FluidAction"):FireServer("viewed")
+		end
 		if viewPrompt then
 			viewPrompt.ActionText = if wantOpen then "Close" else "View"
 		end

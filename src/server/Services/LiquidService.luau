@@ -279,6 +279,15 @@ local function seenList(data: any): { string }
 	return list
 end
 
+--- THE BREW HINT: a yellow arrow over the bottle once you have washed this many nukes
+--- clean, until you first open the panel. Seen-once rides `data.tutorialsSeen` ("brew").
+local BREW_HINT_WASHES = 3
+
+local function brewHint(data: any): boolean
+	return (data.stats.itemsCleaned or 0) >= BREW_HINT_WASHES
+		and table.find(data.tutorialsSeen or {}, "brew") == nil
+end
+
 --- Everything the fluid panel draws. `cooldown` is seconds left as of now; the client
 --- counts it down itself, and a push lands again the moment it reaches zero (the
 --- signature carries readiness), so the two never drift far.
@@ -306,6 +315,8 @@ local function stateFor(player: Player, data: any): any
 		nextRollLuck = stats.luckMultiplier * nextLuck / luck,
 		-- The FLUIDS tab's discovered set, as a list of ids.
 		seen = seenList(data),
+		-- The arrow over the bottle (BREW_HINT_WASHES).
+		brewHint = brewHint(data),
 	}
 end
 
@@ -320,6 +331,8 @@ local function signatureOf(player: Player, data: any, stats: any): string
 		tostring(stats.luckMultiplier),
 		tostring(LiquidService.cooldownLeft(player) > 0),
 		tostring(#seenList(data)),
+		-- WashService bumps itemsCleaned without calling here; the tick picks it up.
+		tostring(brewHint(data)),
 	}
 	for _, id in Liquids.ORDER do
 		table.insert(parts, `{id}:{data.liquids[id] or 0}`)
@@ -508,6 +521,14 @@ end
 local function onAction(player: Player, verb: any)
 	local data = DataService.data(player)
 	if data == nil then
+		return
+	end
+	if verb == "viewed" then
+		-- The panel opened: the arrow has done its job, for good.
+		if brewHint(data) then
+			table.insert(data.tutorialsSeen, "brew")
+			LiquidService.push(player)
+		end
 		return
 	end
 	if verb == "replace" or verb == "keep" then
