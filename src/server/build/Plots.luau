@@ -108,7 +108,7 @@
 	prompt into the locker panel (client/LockerPanel); see buildQuarantineLocker.
 
 	9 stands: a 3-column (`GRID_COLS`) by 4-row (`GRID_ROWS`) grid with the
-	centre column's front three left out, so the middle is an open walkway to
+	centre column's front three left out, so the middle is open floor up to
 	the back-centre stand. Slot 1 is back-left, slot 3 back-right, slot 9
 	front-right (`GRID_SLOTS`, `slotOffset`). Also slightly bigger than the old
 	plinths (RISER_BASE/RISER_TOP/RISER_RIM all up ~20%), on request. The
@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 88
+local BUILDER_VERSION = 89
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -544,8 +544,8 @@ end
 --- STAND LAYOUT — a 3-column x 4-row grid with the centre column's front three left
 --- out: 9 stands a floor (on request, down from the full 12). The back row keeps all
 --- three; the three rows in front of it keep only their outer pair, so the middle of
---- the floor is one open walkway from the entrance arch to the back-centre stand
---- (buildGalleryLanes runs the walkway spine up it).
+--- the floor is open from the entrance arch to the back-centre stand
+--- (buildGalleryLanes lays its two aisles either side of it).
 ---
 --- GRID_COLS are 3 evenly spaced x's (pitch 20, symmetric about x = 0): ±20
 --- leaves a wide margin to the side Trim (well past the old flanking columns'
@@ -3243,126 +3243,134 @@ end
 
 --- THE GALLERY WALKWAYS — the plaza's cream path carried on into the base, so the deck
 --- reads as a floor plan instead of one brown field (on request, the Gallery pass).
---- A SPINE AND BRANCHES since the floors went to nine stands (on request: the wide
---- cream slab left by the open middle read badly).
+--- Kept as-is when the floors went to nine stands (on request): the open middle in
+--- front of the back-centre stand is plain floor between the two aisles.
 ---
----        ┌──────────────── back ─────────────────┐
----        │   [S]         [S]         [S]    ║    │   ║ corridor to a
----        │   ═══════════ bar ═══════════════╝    │     flight (only on a
----        │   [S] ═══════  ║  ═══════ [S]         │     floor with stairs)
----        │   [S] ═══════  ║  ═══════ [S]         │
----        │   [S] ═══════  ║  ═══════ [S]         │
----        │  ╔═══ band ════║                      │
----        │  ║          spine                     │
----        └───────────────╨─arch─────────────────┘
----
---- The spine runs from the entrance up the open middle to the bar laid in front of the
---- back row; a branch runs off it to the inner face of every outer stand. On a floor
---- with a flight up, the band runs out from the spine just in front of the front row
---- to the flight's foot; on a floor a flight lands on, the bar carries on out to the
---- side and up to the flight's head.
+---        ┌───────────── back landing ─────────────┐
+---        │  [S]  ║     [S]      ║  [S]              │
+---        │  [S]  ║ aisle    aisle║  [S]             │   ║ = aisle between
+---        │  [S]  ║              ║  [S]              │       stand columns
+---        │  [S]  ║              ║  [S]              │
+---        │  ════════ cross band ═══════             │
+---        │  tub        ║entry║        pad           │
+---        └─────────────╨─arch╨──────────────────────┘
 ---
 --- Every rectangle is derived from the stand grid (GRID_COLS / GRID_ROWS / RISER_BASE),
---- so moving a column or a row moves its walkway with it. Lanes only ever share EDGES.
+--- so moving a column or a row moves its walkway with it. Lanes and kerbs only ever
+--- share EDGES, never area, and all share one top height — coplanar overlap is the
+--- z-fighting shimmer, and an edge is not an overlap.
 ---
---- EACH LANE LIES ON ITS OWN KERB. Every lane plate has one kerb plate under it, the
---- lane's rectangle grown by LANE.kerb, whose top sits LANE.kerbLift below the lane's.
---- Where two lanes meet, each covers the other's kerb, so junctions need no special
---- cases; where a stair spur is hidden (PathFloor), the kerb under the lane it joins
---- shows through and closes the edge by itself. The two tops never share a plane, so
---- nothing shimmers.
----
---- Thin plates a hair proud of the floor, not cut into it: PadFloor stays one part.
---- CanCollide off — the floor under them is what a player stands on, so a 0.12 lip
---- never catches a foot.
-local LANE = { spine = 6, branch = 4, gap = 1.05, kerb = 0.5, lift = 0.12, kerbLift = 0.06, thick = 0.12 }
---- `topY` is the floor the lanes lie on and `entryZ` where the spine starts:
+--- Thin plates a hair proud of the floor (LANE_LIFT), not cut into it: PadFloor stays
+--- one part. CanCollide off — the floor under them is what a player stands on, so a
+--- 0.06 lip never catches a foot.
+local LANE = { aisle = 6, entry = 8, kerb = 0.5, band = 5, lift = 0.06, thick = 0.12 }
+--- `topY` is the floor the lanes lie on and `entryZ` where the entry lane starts:
 --- the pad's front edge on the ground, the deck's front rail on an upper floor
 --- (buildFloor), which has the same grid and so the same walkways.
 ---
 --- `stairs` (optional) runs the walkways out to the flights: `depart` is the side
---- (-1/+1) whose flight climbs up from this floor — the band reaches out to its
---- foot at `footZ` — and `arrive` the side whose flight lands here, where the bar
---- reaches over to its head. `inX`/`outX` are the |x| edges of the corridor inside the
---- fence that a flight's gate opens onto. `next` is the floor the departing flight
---- leads to: its walkway spur is tagged `PathFloor` = next and only shows once that
---- floor is bought (Plots.setFloors).
+--- (-1/+1) whose flight climbs up from this floor — the cross band reaches out to its
+--- foot at `footZ` — and `arrive` the side whose flight lands here, where the back
+--- landing reaches over to its head. `inX`/`outX` are a flight's |x| edges.
+--- `next` is the floor the departing flight leads to: its walkway spur is tagged
+--- `PathFloor` = next and only shows once that floor is bought (Plots.setFloors); the
+--- plain kerb it replaces is tagged `PathFloorUntil` = next and shows until then.
 type LaneStairs = { depart: number?, arrive: number?, next: number?, footZ: number, inX: number, outX: number }
 local function buildGalleryLanes(parent: Instance, origin: CFrame, topY: number?, entryZ: number?, stairs: LaneStairs?)
 	local pad = Plots.PAD
 	local floorY = topY or pad.topY
 	local entryFrom = entryZ or pad.minZ
-	local backTo = pad.maxZ - 0.5 - RAIL_POST_W -- the back fence's inner face
 	local folder = Instance.new("Folder")
 	folder.Name = "GalleryLanes"
 
-	local CREAM, KERB = C.baseLane, C.baseLaneKerb
-	local K = LANE.kerb
-
-	local function slab(name: string, x0: number, x1: number, z0: number, z1: number, top: number, color: string, tag: { [string]: any }?)
+	local tag: { [string]: any }? = nil -- attributes for the plates being laid right now
+	local function plate(name: string, x0: number, x1: number, z0: number, z1: number, color: string)
 		build(folder, origin, {
 			attributes = tag,
 			-- Built as a plot with nothing bought: the spur hidden until setFloors.
 			transparency = if tag and tag.PathFloor then 1 else nil,
 			name = name,
-			pos = { (x0 + x1) / 2, floorY + top - LANE.thick / 2, (z0 + z1) / 2 },
+			pos = { (x0 + x1) / 2, floorY + LANE.lift - LANE.thick / 2, (z0 + z1) / 2 },
 			size = { x1 - x0, LANE.thick, z1 - z0 },
 			color = color,
 			material = "Plastic",
 			canCollide = false,
 		})
 	end
-	-- One lane and the kerb under it. Kerbs stop at the entry edge and the back fence.
-	local function lane(x0: number, x1: number, z0: number, z1: number, tag: { [string]: any }?)
-		slab("Kerb", x0 - K, x1 + K, math.max(z0 - K, entryFrom), math.min(z1 + K, backTo), LANE.kerbLift, KERB, tag)
-		slab("Lane", x0, x1, z0, z1, LANE.lift, CREAM, tag)
-	end
-	-- `lane` on side `sd` (-1/+1) of the centre line, from |x| = a to |x| = b.
-	local function side(sd: number, a: number, b: number, z0: number, z1: number, tag: { [string]: any }?)
-		lane(math.min(sd * a, sd * b), math.max(sd * a, sd * b), z0, z1, tag)
+	local function mirrored(name: string, x0: number, x1: number, z0: number, z1: number, color: string)
+		plate(name, x0, x1, z0, z1, color)
+		plate(name, -x1, -x0, z0, z1, color)
 	end
 
+	local K = LANE.kerb
 	local standHalf = RISER_BASE.w / 2
-	local spineHalf = LANE.spine / 2
-	local branchHalf = LANE.branch / 2
-	local outerX = GRID_COLS[#GRID_COLS] -- the outer columns' |x|
+	-- The aisle runs down the middle of the gap between the centre column and each
+	-- outer one; `inner`/`outer` are its two edges.
+	local aisleX = (GRID_COLS[2] + GRID_COLS[3]) / 2
+	local inner, outer = aisleX - LANE.aisle / 2, aisleX + LANE.aisle / 2
+	local entryHalf = LANE.entry / 2
+	-- The cross band stops ~1.5 short of the front row; the landing starts ~1 past the
+	-- back row and runs to the back fence's inner face.
+	local bandBack = GRID_ROWS[#GRID_ROWS] - standHalf - 1.55
+	local bandFront = bandBack - LANE.band
+	local landingFront = GRID_ROWS[1] + standHalf + 1.05
+	local landingBack = pad.maxZ - 0.5 - RAIL_POST_W
 
-	-- The bar in front of the back row, reaching the outer edges of its side stands.
-	local barBack = GRID_ROWS[1] - standHalf - LANE.gap
-	local barFront = barBack - LANE.branch
-	local barHalf = outerX + standHalf
-	lane(-barHalf, barHalf, barFront, barBack)
+	local CREAM, KERB = C.baseLane, C.baseLaneKerb
 
-	-- The spine, from the entry up to the bar.
-	lane(-spineHalf, spineHalf, entryFrom, barFront)
+	-- Entry: from the pad's front edge (under the arch) to the cross band.
+	plate("Lane", -entryHalf, entryHalf, entryFrom, bandFront, CREAM)
+	mirrored("Kerb", entryHalf, entryHalf + K, entryFrom, bandFront, KERB)
 
-	-- A branch to every outer stand in front of the back row, ending short of its plinth.
-	local branchEnd = outerX - standHalf - LANE.gap
-	for row = 2, #GRID_ROWS do
-		local z = GRID_ROWS[row]
-		for _, sd in { -1, 1 } do
-			side(sd, spineHalf, branchEnd, z - branchHalf, z + branchHalf)
+	-- Cross band, joining the entry to both aisles.
+	-- On the departing flight's side it runs on out to the flight's outer edge, then a
+	-- spur turns back along the flight's width to its first step.
+	plate("Lane", -outer, outer, bandFront, bandBack, CREAM)
+	plate("Kerb", -(inner - K), inner - K, bandBack, bandBack + K, KERB)
+	for _, sd in { -1, 1 } do
+		local function side(name: string, a: number, b: number, z0: number, z1: number, color: string)
+			plate(name, math.min(sd * a, sd * b), math.max(sd * a, sd * b), z0, z1, color)
 		end
+		local departs = stairs and stairs.depart == sd
+		if departs and stairs then
+			local sIn, sOut, foot = stairs.inX, stairs.outX, stairs.footZ
+			tag = if stairs.next then { PathFloor = stairs.next } else nil
+			side("Lane", outer, sOut, bandFront, bandBack, CREAM)
+			side("Lane", sIn, sOut, bandBack, foot, CREAM)
+			side("Kerb", entryHalf + K, sOut + K, bandFront - K, bandFront, KERB)
+			side("Kerb", sOut, sOut + K, bandFront, foot, KERB)
+			side("Kerb", outer + K, sIn - K, bandBack, bandBack + K, KERB)
+			side("Kerb", sIn - K, sIn, bandBack, foot, KERB)
+			tag = if stairs.next then { PathFloorUntil = stairs.next } else nil
+		end
+		if not departs or tag then
+			side("Kerb", entryHalf + K, outer + K, bandFront - K, bandFront, KERB)
+			side("Kerb", outer, outer + K, bandFront, bandBack, KERB)
+		end
+		tag = nil
 	end
 
-	if stairs then
-		local sIn, sOut = stairs.inX, stairs.outX
-		-- Out to the departing flight: the band from the spine across the front of the
-		-- front row to the fence corridor, then up the corridor to the flight's foot.
-		local sd = stairs.depart
-		if sd then
-			local tag = if stairs.next then { PathFloor = stairs.next } else nil
-			local bandBack = GRID_ROWS[#GRID_ROWS] - standHalf - 1.55
-			local bandFront = bandBack - LANE.branch
-			side(sd, spineHalf, sIn, bandFront, bandBack, tag)
-			side(sd, sIn, sOut, bandFront, stairs.footZ, tag)
+	-- The two aisles between the stand columns.
+	mirrored("Lane", inner, outer, bandBack, landingFront, CREAM)
+	mirrored("Kerb", inner - K, inner, bandBack, landingFront, KERB)
+	mirrored("Kerb", outer, outer + K, bandBack, landingFront, KERB)
+
+	-- Back landing along the fence, joining the aisles' far ends.
+	-- On the arriving flight's side it reaches over to the flight's head, open where
+	-- the steps meet it.
+	plate("Lane", -outer, outer, landingFront, landingBack, CREAM)
+	plate("Kerb", -(inner - K), inner - K, landingFront - K, landingFront, KERB)
+	for _, sd in { -1, 1 } do
+		local function side(name: string, a: number, b: number, z0: number, z1: number, color: string)
+			plate(name, math.min(sd * a, sd * b), math.max(sd * a, sd * b), z0, z1, color)
 		end
-		-- In from the arriving flight: the bar carried on out to the corridor, then up
-		-- the corridor to the head opening at the back.
-		sd = stairs.arrive
-		if sd then
-			side(sd, barHalf, sIn, barFront, barBack)
-			side(sd, sIn, sOut, barFront, backTo)
+		if stairs and stairs.arrive == sd then
+			local sIn, sOut = stairs.inX, stairs.outX
+			side("Lane", outer, sOut, landingFront, landingBack, CREAM)
+			side("Kerb", outer + K, sIn, landingFront - K, landingFront, KERB)
+			side("Kerb", sOut, sOut + K, landingFront - K, landingBack, KERB)
+		else
+			side("Kerb", outer, outer + K, landingFront, landingBack, KERB)
 		end
 	end
 
