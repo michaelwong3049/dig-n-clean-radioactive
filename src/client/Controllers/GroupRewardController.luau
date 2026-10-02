@@ -340,7 +340,7 @@ local function paintSign()
 	local sign = body and body:FindFirstChild("Sign")
 	local reward = sign and sign:FindFirstChild("Reward") :: TextLabel?
 	if reward then
-		reward.Text = if claimed() then "CLAIMED - thanks for the support!" else "Step in the ring to claim"
+		reward.Text = if claimed() then "CLAIMED - thanks for the support!" else "Join the group + like the game!"
 	end
 end
 
