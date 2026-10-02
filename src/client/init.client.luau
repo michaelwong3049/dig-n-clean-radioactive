@@ -21,6 +21,7 @@ local ORDER = {
 	"AuraTipController", -- the one-time "upgrade your aura" popup the first time the aura fails; reads ExposureState
 	"AuraWarningController", -- Phase 2: the "UPGRADE AURA" card when an over-tier stage is burning you down; reads ExposureState
 	"BagTrackerController", -- after a blackout: where your dropped bag is and how long it has left; reads DroppedBag
+	"DroppedBagController", -- the card over other players' dropped bags (close up only) and Recover/Steal prompt wording
 	"AtmosphereController", -- per-stage fog; reads stageId off ExposureState
 	"StageBannerController", -- the stage-name title card; also reads stageId off ExposureState
 	"IndexController", -- the item index GUI; Index tile on the right edge, reads IndexState + Unearthed

@@ -422,9 +422,9 @@ function DeathScreen.play(info: any)
 	end
 	ui.cause.Text = table.concat(where, "  \u{00B7}  ")
 
-	-- A blast death's bag is up for grabs (ExposureService.dropBag); race them to it.
+	-- Every death's bag is up for grabs (ExposureService.dropBag); race them to it.
 	ui.bag.Text = if dropped > 0 and info.looted
-		then `Your whole bag dropped where you fell  \u{00B7}  {plural(dropped, "item", "items")}, anyone can grab {if dropped == 1 then "it" else "them"}`
+		then `Your whole bag dropped where you fell  \u{00B7}  {plural(dropped, "item", "items")}, anyone can steal {if dropped == 1 then "it" else "them"}`
 		elseif dropped > 0 then `Dropped {plural(dropped, "item", "items")} where you fell  \u{00B7}  1:30 to get {if dropped == 1 then "it" else "them"} back`
 		else "Nothing lost"
 

@@ -12,19 +12,18 @@
 	                        detonated nuke: its blast and its crater (HazardService).
 
 	BLACKOUT IS NOT A DEATH PENALTY. You keep cash, gear, the locker and anything
-	displayed. What happens to the bag depends on what put you down:
+	displayed. The BAG is another matter: however you go down -- radiation, aura
+	failure or a blast -- the WHOLE bag drops where you fell, clean nukes and all, for
+	ninety seconds, and ANYONE can steal it straight away. Getting back to it first is
+	the race. Every take by someone else is reported to the owner by name
+	(Net.DroppedBag stolenBy, BagTrackerController's toast). A bomb kill is still the
+	sharpest way to go after another player's haul (Services/BombService), and the
+	overhead star badge (NameTagController) is how you pick who is worth it. Supply
+	crates that are already washed (data.crates) stay with you; they are not nukes.
 
-	  RADIATION (the green death, or plain aura failure). The dirty part of the bag
-	  drops where you fell for ninety seconds, and only YOU can pick it back up. Washed
-	  work stays with you. PLAN §3.1 is emphatic that this punishes greed rather than
-	  existence, and that losing progress in a casual Roblox digging game kills retention.
-
-	  A BLAST (a detonation's hit, or its crater's orb burning the last of your health).
-	  The WHOLE bag drops, clean nukes and all, and ANYONE can grab it straight away.
-	  That is the prize for bombing someone (Services/BombService): a dropped clean nuke
-	  is how you go after another player's haul, and the overhead star badge
-	  (NameTagController) is how you pick who is worth it. Supply crates that are already
-	  washed (data.crates) stay with you; they are not nukes.
+	THE LABEL OVER THE BAG IS DRAWN BY EACH CLIENT (DroppedBagController), not here, so
+	it can reach the owner from anywhere and everyone else only up close. The bag
+	carries what it needs as attributes: OwnerId, OwnerName, Items, ExpiresAt.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -39,7 +38,6 @@ local Tuning = require(Shared.Config.Tuning)
 local Stages = require(Shared.Config.Stages)
 local Radiation = require(Shared.Radiation)
 local Decay = require(Shared.Decay)
-local Contamination = require(Shared.Contamination)
 local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
@@ -200,15 +198,13 @@ local function tellOwner(bag: BasePart, payload: { [string]: any })
 	end
 end
 
+local function itemsText(n: number): string
+	return if n == 1 then "1 item" else `{n} items`
+end
+
 local function giveBagTo(bag: BasePart, taker: Player)
 	local contents = bagContents[bag]
 	if contents == nil then
-		return
-	end
-
-	-- A radiation drop is the owner's to recover and nobody else's (header).
-	if bag:GetAttribute("OwnerOnly") == true and bag:GetAttribute("OwnerId") ~= taker.UserId then
-		noticeRemote:FireClient(taker, "only its owner can recover that bag")
 		return
 	end
 
@@ -224,25 +220,30 @@ local function giveBagTo(bag: BasePart, taker: Player)
 		taken += 1
 	end
 
-	print(`[bag] {taker.Name} recovered {taken} item(s); {#contents} left in the bag`)
+	if taken == 0 then
+		noticeRemote:FireClient(taker, "your bag is full")
+		return
+	end
+
+	local stolen = bag:GetAttribute("OwnerId") ~= taker.UserId
+	print(`[bag] {taker.Name} {if stolen then "stole" else "recovered"} {taken} item(s); {#contents} left in the bag`)
 
 	-- Keep the label honest. Carry capacity means a full bag usually CANNOT be
-	-- recovered in one go, so "12 item(s)" hovering over a bag holding 8 is an
-	-- outright lie at exactly the moment the player is deciding whether to risk
-	-- another trip out to it.
+	-- emptied in one go, so "12 items" hovering over a bag holding 8 is an outright
+	-- lie at exactly the moment the player is deciding whether to risk another trip
+	-- out to it. The label is the clients' (DroppedBagController); it reads Items.
+	bag:SetAttribute("Items", #contents)
 	local prompt = bag:FindFirstChildOfClass("ProximityPrompt")
 	if prompt then
-		prompt.ObjectText = `{#contents} item(s)`
-	end
-	local billboard = bag:FindFirstChildOfClass("BillboardGui")
-	local label = billboard and billboard:FindFirstChildOfClass("TextLabel")
-	if label then
-		label.Text = `{bag:GetAttribute("OwnerName")}'s bag\n{#contents} item(s)`
-			.. (if bag:GetAttribute("OwnerOnly") == true then "\n(owner only)" else "")
+		prompt.ObjectText = itemsText(#contents)
 	end
 
-	-- The last take is told by the bag's Destroying hook (dropBag), not here.
-	if #contents > 0 then
+	-- A theft is told to the owner by name, even the take that empties the bag (it
+	-- goes out before Destroying's "gone"). The owner's own takes need no news beyond
+	-- the count; Destroying tells them when the bag is gone.
+	if stolen then
+		tellOwner(bag, { items = #contents, stolenBy = taker.DisplayName, stolenCount = taken })
+	elseif #contents > 0 then
 		tellOwner(bag, { items = #contents })
 	end
 
@@ -320,29 +321,20 @@ local function buildSack(root: BasePart, scale: number)
 		Enum.Material.SmoothPlastic
 end
 
---- Drop the bag where the player fell. `looted` is a blast death: the WHOLE carry
---- goes and anyone may take it. Otherwise it is a radiation death: only the dirty
---- items go, and only their owner may take them back (header).
 --- Owed the one-time "upgrade your aura" popup: DeconService's "tutorialSeen" allowlist.
 local function auraTipOwed(player: Player): boolean
 	local data = DataService.data(player)
 	return data ~= nil and table.find(data.tutorialsSeen or {}, "aura") == nil
 end
 
-local function dropBag(player: Player, data: any, position: Vector3, looted: boolean): number
-	-- PLAN §3.1 says you drop your UNCLEANED carry. Read literally: anything you
-	-- already scrubbed clean stays with you. Being generous here is deliberate — a
-	-- cleaned item represents work already done, and taking it back would punish the
-	-- player twice for one mistake. A bomb kill is the exception: the clean haul is
-	-- exactly what the bomber came for.
-	local dropped = {}
-	for index = #data.carry, 1, -1 do
-		local item = data.carry[index]
-		if looted or not Contamination.isClean(item.patches or {}) then
-			table.insert(dropped, item)
-			table.remove(data.carry, index)
-		end
-	end
+--- Drop the WHOLE bag where the player fell, for anyone to take (header).
+local function dropBag(player: Player, data: any, position: Vector3): number
+	-- Every death drops everything, washed nukes too: going down out there is how you
+	-- lose a haul to someone else. (It was the dirty part only, owner-only, on a
+	-- radiation death -- PLAN §3.1 -- until bags became stealable whatever the cause.)
+	-- Emptied in place: other services hold this table.
+	local dropped = table.clone(data.carry)
+	table.clear(data.carry)
 
 	if #dropped == 0 then
 		return 0
@@ -374,33 +366,12 @@ local function dropBag(player: Player, data: any, position: Vector3, looted: boo
 	light.Brightness = 0.8
 	light.Parent = bag
 
-	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.fromOffset(190, 44)
-	billboard.StudsOffsetWorldSpace = Vector3.new(0, 2.4 * scale, 0)
-	billboard.AlwaysOnTop = true
-	billboard.Parent = bag
-
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBold
-	label.TextSize = 16
-	label.TextColor3 = Color3.fromHex("D6FFB0")
-	label.TextStrokeTransparency = 1
-	label.Text = `{player.Name}'s bag\n{#dropped} item(s)` .. (if looted then "" else "\n(owner only)")
-	label.Parent = billboard
-
-	local labelStroke = Instance.new("UIStroke")
-	labelStroke.Color = Color3.fromHex("1A1A1A") -- Kit.C.hazardBlack's value — same cartoon black as every other sign
-	labelStroke.Thickness = 2
-	labelStroke.LineJoinMode = Enum.LineJoinMode.Round
-	labelStroke.Parent = label
-
-	-- A bomb kill's bag is anyone's: that is the point of bombing. A radiation drop is
-	-- the owner's alone, checked in giveBagTo.
+	-- No label here: each client draws its own (DroppedBagController) off the
+	-- attributes set below, so it can reach the owner from anywhere and everyone else
+	-- only up close. That controller also words this prompt per viewer (Recover/Steal).
 	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = if looted then "Grab bag" else "Recover bag"
-	prompt.ObjectText = `{#dropped} item(s)`
+	prompt.ActionText = "Steal bag"
+	prompt.ObjectText = itemsText(#dropped)
 	prompt.HoldDuration = 0.6
 	prompt.MaxActivationDistance = 12
 	prompt.RequiresLineOfSight = false
@@ -416,13 +387,16 @@ local function dropBag(player: Player, data: any, position: Vector3, looted: boo
 	-- a server-clock deadline rather than the part itself: the bag lies where you fell
 	-- and you have just been sent to camp, so the part may not be streamed in on your
 	-- client at all. Emptied or timed out, it goes the same way -- Destroying.
+	local expiresAt = Workspace:GetServerTimeNow() + BAG_LIFETIME
 	bag:SetAttribute("OwnerId", player.UserId)
-	bag:SetAttribute("OwnerName", player.Name)
-	bag:SetAttribute("OwnerOnly", not looted)
+	bag:SetAttribute("OwnerName", player.DisplayName)
+	bag:SetAttribute("Items", #dropped)
+	bag:SetAttribute("ExpiresAt", expiresAt)
 	bag:SetAttribute("BagId", HttpService:GenerateGUID(false))
+	CollectionService:AddTag(bag, "DroppedBag")
 	tellOwner(bag, {
 		position = bag.Position,
-		expiresAt = Workspace:GetServerTimeNow() + BAG_LIFETIME,
+		expiresAt = expiresAt,
 		items = #dropped,
 	})
 	bag.Destroying:Connect(function()
@@ -493,11 +467,10 @@ local function blackout(player: Player, state: State, cause: string, where: Wher
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 
-	-- A blast death drops the whole bag for anyone; any other death drops the dirty
-	-- part of it for its owner only (header).
+	-- Any death drops the whole bag for anyone to steal (header).
 	local lost = 0
 	if data and root and root:IsA("BasePart") then
-		lost = dropBag(player, data, root.Position, cause == "blast")
+		lost = dropBag(player, data, root.Position)
 	end
 
 	state.exposure = 0
@@ -513,7 +486,7 @@ local function blackout(player: Player, state: State, cause: string, where: Wher
 	blackoutRemote:FireClient(player, {
 		cause = cause,
 		itemsDropped = lost,
-		looted = cause == "blast",
+		looted = true,
 		stageName = where.stageName,
 		depth = where.depth,
 	})
