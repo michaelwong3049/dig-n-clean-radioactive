@@ -33,6 +33,7 @@ local Liquids = require(Config.Liquids)
 local Treadmill = require(Config.Treadmill)
 local LuckBoost = require(Config.LuckBoost)
 local IndexProgress = require(script.Parent.IndexProgress)
+local Mastery = require(script.Parent.Mastery)
 
 local StatResolver = {}
 
@@ -59,6 +60,10 @@ export type Profile = {
 	-- The index's found set (itemId -> true). Optional for the same reason; absent
 	-- means no stage complete, so no index cash bonus.
 	discovered: { [string]: boolean }?,
+	-- The lifetime counters the masteries read (Config/Masteries, Shared/Mastery).
+	-- Optional for the same reason; absent means nothing reached, every reward at base.
+	stats: { [string]: number }?,
+	cashEarned: number?,
 }
 
 export type Stats = {
@@ -109,6 +114,17 @@ export type Stats = {
 	-- The completed-index cash bonus (IndexProgress.cashMultiplier). Already folded
 	-- into BOTH sellMultiplier and yieldMultiplier; carried on its own for display.
 	indexCashMultiplier: number,
+	-- MASTERY REWARDS (Config/Masteries) that land outside this function, each read by
+	-- the one service that owns the number it scales. Cash, luck, bag slots and haul
+	-- drag are folded into the fields above instead, so nothing downstream had to learn
+	-- about them; `masteryCash` is carried on its own for display, like indexCash.
+	masteryCash: number,
+	bombDamageMult: number, -- BombService (and the hotbar's card, via MasteryBombDamage)
+	trainingMult: number, -- TreadmillService
+	radDamageMult: number, -- ExposureService: aura wear, aura failure and sickness
+	mergeBonus: number, -- Config/Merge.odds' success chance
+	brewCooldownMult: number, -- LiquidService
+	awayRate: number, -- ExhibitService's offline share of $/s
 }
 
 --- Is the server-wide Violet Aurora up right now? See the header's one outside read.
@@ -164,6 +180,9 @@ function StatResolver.get(profile: Profile): Stats
 	-- A completed stage's index pays in cash (Tuning.INDEX_COMPLETE_CASH), on every
 	-- sale and every stand's income alike -- both multipliers below take it.
 	local indexCash = if profile.discovered then IndexProgress.cashMultiplier(profile.discovered) else 1
+	-- Masteries (Config/Masteries). Cash stacks on the index bonus like everything else
+	-- that multiplies a payout.
+	local masteryCash = Mastery.value(profile, "cash")
 
 	-- Steady Hands (PLAN §9.2) is a PERK on the tool, so it belongs to the permanent
 	-- capability; the liquid bonus is deliberately kept out of `cleanPotency` and
@@ -172,7 +191,9 @@ function StatResolver.get(profile: Profile): Stats
 	-- "what can I clean right now" (the wash bay's).
 	local cleanPotency = cleaner.power + (if perks.steadyHands then 1 else 0)
 
-	local capacity = aura.capacity + math.floor(profile.level / Tuning.CAPACITY_EVERY_N_LEVELS)
+	local capacity = aura.capacity
+		+ math.floor(profile.level / Tuning.CAPACITY_EVERY_N_LEVELS)
+		+ Mastery.value(profile, "capacity")
 
 	return {
 		auraReduction = aura.reduction,
@@ -185,7 +206,7 @@ function StatResolver.get(profile: Profile): Stats
 		-- Sure Footing (PLAN §9.2). Reads off the AURA now -- the perk halves the haul
 		-- penalty wherever that stat lives, and it has moved tracks twice (Boots, then
 		-- Satchel, then Aura) without changing what the perk means.
-		haulPenalty = aura.haulPenalty * (if perks.sureFooting then 0.5 else 1),
+		haulPenalty = aura.haulPenalty * (if perks.sureFooting then 0.5 else 1) * Mastery.value(profile, "haulDrag"),
 
 		detectorRadius = detector.radius,
 		detectorLuck = detector.luck,
@@ -214,18 +235,26 @@ function StatResolver.get(profile: Profile): Stats
 		liquidXp = liquid.xpMult,
 		effectivePotency = cleanPotency + liquid.potency,
 
-		sellMultiplier = mult(profile, "sell") * indexCash,
+		sellMultiplier = mult(profile, "sell") * indexCash * masteryCash,
 		-- REPURPOSED, and it used to be inert. This was `mult(profile, "luck")` alone
 		-- -- the PLAN §11 "2x Luck" gamepass slot -- and nothing in the game read it,
 		-- because nothing in the game rolled anything a player could influence. The
 		-- wash pad does, so the Luck button's own multiplier folds in here where every
 		-- other piece of gear math already lives. The gamepass multiplier stacks on
 		-- top of it exactly as it was always meant to, and so does 2x luck.
-		luckMultiplier = luckMultiplier * mult(profile, "luck") * luckBoost,
+		luckMultiplier = luckMultiplier * mult(profile, "luck") * luckBoost * Mastery.value(profile, "luck"),
 		-- Curator (PLAN §9.2)
-		yieldMultiplier = mult(profile, "yield") * (if perks.curator then 1.15 else 1) * indexCash,
+		yieldMultiplier = mult(profile, "yield") * (if perks.curator then 1.15 else 1) * indexCash * masteryCash,
 		luckBoost = luckBoost,
 		indexCashMultiplier = indexCash,
+
+		masteryCash = masteryCash,
+		bombDamageMult = Mastery.value(profile, "bombDamage"),
+		trainingMult = Mastery.value(profile, "training"),
+		radDamageMult = Mastery.value(profile, "radDamage"),
+		mergeBonus = Mastery.value(profile, "mergeChance"),
+		brewCooldownMult = Mastery.value(profile, "brewCooldown"),
+		awayRate = Mastery.value(profile, "awayRate"),
 	}
 end
 

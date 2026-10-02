@@ -47,6 +47,7 @@ local ORDER = {
 	"ToolService", -- held models; reads DigService + DeconService + WashService state
 	"BombService", -- dropping a held clean nuke as a bomb; copies ToolService's held model, needs Stage + Hazard + Dig
 	"LeaderboardService", -- mirrors data.cash into leaderstats for the player list; needs Data
+	"MasteryService", -- the Masteries panel + "Mastery reached" toast; watches counters other services bump; needs Data + Stage
 	"AuraService", -- the worn aura: stamps each character's AuraTier for the clients to draw; reads Data
 	"TutorialService", -- the new-player walkthrough; reads Stage + Dig + Carry, nudges Carry
 	"DebugService", -- the tuning console; reads the services above

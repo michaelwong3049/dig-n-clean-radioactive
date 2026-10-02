@@ -38,6 +38,7 @@ local DetonationConfig = require(Shared.Config.Detonation)
 local ItemModels = require(Shared.ItemModels)
 local Bombing = require(Shared.Bombing)
 local Contamination = require(Shared.Contamination)
+local StatResolver = require(Shared.StatResolver)
 local Net = require(Shared.Net)
 
 local DataService = require(script.Parent.DataService)
@@ -186,7 +187,10 @@ local function drop(player: Player)
 		return
 	end
 
-	local stats = Bombing.statsFor(item)
+	-- The Bomber mastery's damage (Config/Masteries) rides in here, so the hit that
+	-- lands is the one the hotbar card printed (it reads the same multiplier off the
+	-- MasteryBombDamage attribute).
+	local stats = Bombing.statsFor(item, StatResolver.get(data).bombDamageMult)
 	local bomb, ground = placeBomb(character, root)
 	-- Out of the bag. CarryService notices heldUid is gone and empties the hands.
 	table.remove(data.carry, index)
@@ -223,6 +227,9 @@ local function drop(player: Player)
 				orbLife = BombingConfig.ORB_LIFE,
 			},
 			spares = spares,
+			-- Who dropped it: a player this blast (or its crater) puts down is credited to
+			-- them as a kill (HazardService.killerOf, the Bomber mastery).
+			owner = player,
 		})
 	end)
 end

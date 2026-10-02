@@ -73,8 +73,9 @@ local function powerOf(item: any): number
 end
 
 --- Everything a nuke does as a bomb. `item` needs rarity, modifier and uid (a bag
---- record or the hotbar's described copy of one).
-function Bombing.statsFor(item: any): Stats
+--- record or the hotbar's described copy of one). `damageMult` is the dropper's
+--- Bomber mastery (StatResolver's bombDamageMult; 1 or nil = none).
+function Bombing.statsFor(item: any, damageMult: number?): Stats
 	local uid = tostring(item.uid or "")
 	local stars = math.max(1, Bombing.starsOf(item))
 	local power = powerOf(item)
@@ -90,7 +91,7 @@ function Bombing.statsFor(item: any): Stats
 
 	return {
 		stars = stars,
-		damage = math.floor(Cfg.DAMAGE[power] * hitMult * size * vary("bombdmg:", uid) + 0.5),
+		damage = math.floor(Cfg.DAMAGE[power] * hitMult * size * vary("bombdmg:", uid) * (damageMult or 1) + 0.5),
 		radius = math.floor(Cfg.RADIUS[power] * radiusMult * size * vary("bombrad:", uid) * 10 + 0.5) / 10,
 		fuse = math.floor(fuse * 10 + 0.5) / 10,
 		cooldown = Cfg.COOLDOWN,

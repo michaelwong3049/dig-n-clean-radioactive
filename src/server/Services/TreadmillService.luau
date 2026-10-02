@@ -52,6 +52,7 @@ local Shared = ReplicatedStorage.Shared
 local Tuning = require(Shared.Config.Tuning)
 local Tutorial = require(Shared.Config.Tutorial) -- the console is shut during the walkthrough
 local Treadmill = require(Shared.Config.Treadmill)
+local StatResolver = require(Shared.StatResolver)
 local Ticker = require(Shared.Util.Ticker)
 local Net = require(Shared.Net)
 
@@ -100,6 +101,9 @@ local function snapshot(player: Player, data: any)
 	local points = data.speedPoints or 0
 	local level, progress = Treadmill.levelFor(points)
 	local nextTier = Treadmill.TIERS[tier + 1]
+	-- The Runner mastery (Config/Masteries) speeds every belt, so the card's rates are
+	-- the ones step() really pays.
+	local trainingMult = StatResolver.get(data).trainingMult
 	return {
 		points = points,
 		level = level,
@@ -109,13 +113,13 @@ local function snapshot(player: Player, data: any)
 		progress = progress,
 		current = Treadmill.requirementFor(level),
 		nextReq = Treadmill.requirementFor(level + 1),
-		rate = Treadmill.rateFor(tier),
+		rate = Treadmill.rateFor(tier) * trainingMult,
 		training = training[player] == true,
 		tier = tier,
 		tierName = Treadmill.tier(tier).name,
 		nextCost = if nextTier then nextTier.price else nil,
 		nextName = if nextTier then nextTier.name else nil,
-		nextRate = if nextTier then nextTier.rate else nil,
+		nextRate = if nextTier then nextTier.rate * trainingMult else nil,
 		unlocked = data.treadmillUnlocked == true,
 		unlockPrice = Treadmill.UNLOCK_PRICE,
 		-- Owed the post-unlock walkthrough (TreadmillController)? Marked seen through
@@ -152,7 +156,7 @@ local function step(dt: number)
 		local tier = math.clamp(math.floor(data.treadmill or 1), 1, Treadmill.maxTier())
 		local banked = data.speedPoints or 0
 		local before = Treadmill.levelFor(banked)
-		data.speedPoints = banked + Treadmill.rateFor(tier) * dt
+		data.speedPoints = banked + Treadmill.rateFor(tier) * StatResolver.get(data).trainingMult * dt
 		local after = Treadmill.levelFor(data.speedPoints)
 
 		if after > before then

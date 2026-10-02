@@ -113,15 +113,16 @@ export type Odds = {
 }
 
 --- The odds of one merge whose best input sits at `from`, after `pity` failed merges
---- of this nuke, at luck multiplier `luck` (StatResolver's luckMultiplier; 1 = none).
+--- of this nuke, at luck multiplier `luck` (StatResolver's luckMultiplier; 1 = none),
+--- plus `bonus` flat success chance (the Reactor mastery, StatResolver's mergeBonus).
 --- nil when `from` is already MAX_LEVEL -- nothing left to merge up to.
-function Merge.odds(from: number, pity: number?, luck: number?): Odds?
+function Merge.odds(from: number, pity: number?, luck: number?, bonus: number?): Odds?
 	local target = from + 1
 	local base = Merge.SUCCESS[target]
 	if base == nil then
 		return nil
 	end
-	local success = math.min(base + Merge.PITY_STEP * math.max(pity or 0, 0), Merge.SUCCESS_MAX)
+	local success = math.min(base + Merge.PITY_STEP * math.max(pity or 0, 0) + math.max(bonus or 0, 0), Merge.SUCCESS_MAX)
 	local crit = 0
 	if target + 1 <= Merge.MAX_LEVEL then
 		crit = math.min(Merge.CRIT + Merge.CRIT_PER_LUCK * math.max((luck or 1) - 1, 0), Merge.CRIT_MAX, success)

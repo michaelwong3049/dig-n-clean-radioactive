@@ -10,6 +10,7 @@ uploaded as 256px PNGs. The ids live in `src/client/HudArtwork.luau` (`Artwork.I
 | `nukes_bomb.svg` | Nukes tile | `nuke` |
 | `warp_portal.svg` | Warp tile | `portal` |
 | `gear_detector.svg` | Gear tile | `detector` |
+| `mastery_medal.svg` | the Masteries bar above Shop (`MasteriesController`) | `medal` |
 | `settings_gear.svg` | the Settings button in the top-right corner (`SettingsController`) | `settingsGear` |
 | `glow.svg` | the soft glow behind every tile symbol (white, tinted per tile) | `glow` |
 | `speed_shoe.svg` | the SPEED row's sneaker (`SpeedController`) | `speedShoe` |

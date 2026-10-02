@@ -132,6 +132,15 @@ local function reelFor(luck: number, result: string): { string }
 	return reel
 end
 
+--- The whole cooldown this player waits between brews, in seconds: the stock one,
+--- shortened by the Brewer mastery (Config/Masteries).
+local function cooldownFor(data: any): number
+	if data == nil then
+		return Tuning.LIQUID_SPIN_COOLDOWN
+	end
+	return Tuning.LIQUID_SPIN_COOLDOWN * StatResolver.get(data).brewCooldownMult
+end
+
 --- Seconds left on a player's cooldown, 0 when a spin is ready.
 function LiquidService.cooldownLeft(player: Player): number
 	-- Read from the profile, not server memory, so a rejoin cannot skip the wait.
@@ -140,7 +149,8 @@ function LiquidService.cooldownLeft(player: Player): number
 	if previous <= 0 then
 		return 0
 	end
-	return math.clamp(Tuning.LIQUID_SPIN_COOLDOWN - (os.time() - previous), 0, Tuning.LIQUID_SPIN_COOLDOWN)
+	local total = cooldownFor(data)
+	return math.clamp(total - (os.time() - previous), 0, total)
 end
 
 --- Put one roll's worth of `id` in the player's hose. Shared by the bottle and the
@@ -265,6 +275,8 @@ local function stateFor(player: Player, data: any): any
 		liquid = stats.liquidId,
 		held = data.liquids[stats.liquidId] or 0,
 		cooldown = LiquidService.cooldownLeft(player),
+		-- The whole wait, so the BREW key's bar fills over the Brewer-shortened one.
+		cooldownTotal = cooldownFor(data),
 		luck = Gear.luckMultiplier(level),
 		-- What `roll()` actually sees: bought luck times any boost. The panel shows
 		-- its jackpot odds off this so the odds it shows are the real ones.

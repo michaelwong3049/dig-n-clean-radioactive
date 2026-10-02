@@ -40,6 +40,8 @@ local LuckBoost = require(Shared.Config.LuckBoost)
 local Contamination = require(Shared.Contamination)
 local Decay = require(Shared.Decay)
 local StatResolver = require(Shared.StatResolver)
+local Mastery = require(Shared.Mastery)
+local Masteries = require(Shared.Config.Masteries)
 local Bag = require(Shared.Bag)
 
 local DataService = require(script.Parent.DataService)
@@ -384,6 +386,41 @@ COMMANDS["/cash"] = {
 		-- own mutation paths.
 		EconomyService.pushCash(player)
 		return `cash -> ${data.cash}`
+	end,
+}
+
+COMMANDS["/mastery"] = {
+	help = "/mastery [id] [count] — list your masteries, or set one's counter (scrubber, bomber, runner, prospector, collector*, deepDiver, reactor, thief, brewer, tycoon)",
+	run = function(player, _sandbox, args)
+		local data = DataService.data(player)
+		if data == nil then
+			return "your profile hasn't loaded yet"
+		end
+		local id, count = args[1], tonumber(args[2])
+		if id == nil then
+			local lines = {}
+			for _, def in Masteries.LIST do
+				local n = Mastery.count(data, def)
+				local tier = Mastery.tierFor(def, n)
+				table.insert(lines, `{def.id} {Mastery.goalText(def, n)} -> {if tier > 0 then Masteries.TIER_NAMES[tier] else "none"}`)
+			end
+			return table.concat(lines, "; ")
+		end
+		local def = Mastery.get(id)
+		if def == nil or count == nil then
+			return "usage: /mastery [id] [count]"
+		end
+		-- Counters only. The index (collector) is a share of `discovered`, not a number
+		-- that can be set; /give the nukes instead. Speed and cash are written in place,
+		-- which also moves the walk-speed level and the Top Cash board.
+		if def.source == "indexPercent" then
+			return "collector reads the index; /give nukes to move it"
+		elseif def.source == "speedPoints" or def.source == "cashEarned" then
+			data[def.source] = math.max(0, count)
+		else
+			data.stats[def.source] = math.max(0, math.floor(count))
+		end
+		return `{def.id} -> {Mastery.goalText(def, Mastery.count(data, def))} (tier {Mastery.tierOf(data, def)})`
 	end,
 }
 
@@ -811,7 +848,7 @@ COMMANDS["/away"] = {
 		if rate == nil then
 			ExhibitService.simulateAway(player, seconds)
 		else
-			local offlineRate = rate * Tuning.EXHIBIT_OFFLINE_RATE
+			local offlineRate = rate * StatResolver.get(data).awayRate
 			local counted = math.min(seconds, Tuning.EXHIBIT_OFFLINE_BANK_HOURS * 3600)
 			AwayEarningsService.offer(player, data, offlineRate * counted, seconds, offlineRate)
 		end

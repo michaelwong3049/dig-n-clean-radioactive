@@ -151,7 +151,7 @@ function MergeService.merge(player: Player, uids: any): (boolean, string)
 	end
 	local stats = StatResolver.get(data)
 	local pity = if type(data.mergePity[itemId]) == "number" then data.mergePity[itemId] else 0
-	local odds = Merge.odds(from, pity, stats.luckMultiplier)
+	local odds = Merge.odds(from, pity, stats.luckMultiplier, stats.mergeBonus)
 	if odds == nil then
 		return false, `that {name} is already at max merge stars`
 	end
@@ -220,6 +220,8 @@ function MergeService.merge(player: Player, uids: any): (boolean, string)
 		keep.bonus = if #stacked > 0 then stacked else nil
 		keep.merge = to
 		data.mergePity[itemId] = nil
+		-- The Reactor mastery's counter (Config/Masteries).
+		data.stats.merges = (data.stats.merges or 0) + 1
 	else
 		for _, input in inputs do
 			if input ~= best then

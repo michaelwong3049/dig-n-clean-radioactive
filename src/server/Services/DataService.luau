@@ -223,7 +223,23 @@ local TEMPLATE = {
 	-- of strings; ProductService trims it.
 	receipts = {},
 
-	stats = { deepestStage = 1, itemsCleaned = 0, slagged = 0, dives = 0, rolls = 0, cratesOpened = 0 },
+	-- Lifetime counters. The masteries (Config/Masteries) read most of them: itemsCleaned
+	-- (WashService), kills (ExposureService.creditKill), dug (DigService), deepestStage
+	-- (MasteryService), merges (MergeService), bagsStolen (ExposureService.giveBagTo) and
+	-- rolls (LiquidService). They only ever count up -- a mastery tier is read off them,
+	-- never stored, so a counter going down would take a reward away.
+	stats = {
+		deepestStage = 1,
+		itemsCleaned = 0,
+		slagged = 0,
+		dives = 0,
+		rolls = 0,
+		cratesOpened = 0,
+		kills = 0,
+		dug = 0,
+		merges = 0,
+		bagsStolen = 0,
+	},
 }
 
 local STORE_VERSION = 2 -- bump to abandon all existing saves

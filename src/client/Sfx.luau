@@ -67,6 +67,7 @@ local DEFS: { [string]: Def } = {
 	robux = { id = asset(4612374393), volume = 0.6, group = "ui" },
 	click = { id = asset(8816939097), volume = 0.35, jitter = 0.04, group = "ui", cooldown = 0.04 },
 	hint = { id = asset(107978604605265), volume = 0.35, group = "ui", cooldown = 0.6 },
+	mastery = { id = asset(4612374036), volume = 0.6, speed = 1.1, group = "ui", cooldown = 1 }, -- the "Mastery reached" toast
 
 	-- ── Digging ─────────────────────────────────────────────────────
 	dig = { id = asset(9114083746), volume = 0.45, jitter = 0.12, group = "sfx", cooldown = 0.07, maxDistance = 70 },

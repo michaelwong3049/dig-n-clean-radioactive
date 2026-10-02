@@ -1444,7 +1444,8 @@ local function paintBrew()
 		panel.brew.BackgroundColor3 = UIKit.C.empty
 		panel.brew.TextColor3 = UIKit.C.dim
 		panel.lip.BackgroundColor3 = IDLE_LIP
-		local done = 1 - math.clamp(left / Tuning.LIQUID_SPIN_COOLDOWN, 0, 1)
+		local total = tonumber(state.cooldownTotal) or Tuning.LIQUID_SPIN_COOLDOWN
+		local done = 1 - math.clamp(left / total, 0, 1)
 		panel.cooldown.Size = UDim2.new(done, -12 * done, 0, 6)
 	else
 		panel.brew.Text = "BREW"

@@ -1025,7 +1025,10 @@ showCard = function(slot: any?)
 		return
 	end
 
-	local stats = Bombing.statsFor(item)
+	-- The Bomber mastery's damage, published by MasteryService, so the card reads the
+	-- hit BombService will land.
+	local bomberMult = Players.LocalPlayer:GetAttribute("MasteryBombDamage")
+	local stats = Bombing.statsFor(item, if type(bomberMult) == "number" then bomberMult else nil)
 	local unknown = item.identified == false
 	ui.cardTitle.Text = if unknown then "???" else item.name
 	tint(ui.cardTitle, "TextColor3", rarityColor(item.rarity), item.rarity)

@@ -87,6 +87,42 @@ type State = {
 
 local states: { [Player]: State } = {}
 local bagContents: { [Instance]: { any } } = {}
+-- Who has already taken from each dropped bag that was not theirs, so the Thief
+-- mastery's `bagsStolen` counts a bag once however many trips it takes to empty.
+local bagThieves: { [Instance]: { [Player]: boolean } } = {}
+
+-- ── Kills (the Bomber mastery, Config/Masteries) ─────────────────────────────
+--
+-- A death within a few seconds of a dropped bomb hurting you is that bomber's kill
+-- (HazardService.killerOf). Downing the same player again inside KILL_REPEAT_SECONDS
+-- does not count twice, so two friends cannot trade bombs to farm the mastery.
+local KILL_REPEAT_SECONDS = 5 * 60
+local lastKillOf: { [Player]: { [number]: number } } = {}
+
+local function creditKill(victim: Player)
+	local killer = HazardService.killerOf(victim)
+	if killer == nil then
+		return
+	end
+	local data = DataService.data(killer)
+	if data == nil then
+		return
+	end
+	local mine = lastKillOf[killer]
+	if mine == nil then
+		mine = {}
+		lastKillOf[killer] = mine
+	end
+	local now = os.clock()
+	local previous = mine[victim.UserId]
+	if previous and now - previous < KILL_REPEAT_SECONDS then
+		print(`[kill] {killer.Name} downed {victim.Name} again inside {KILL_REPEAT_SECONDS}s; not counted`)
+		return
+	end
+	mine[victim.UserId] = now
+	data.stats.kills = (data.stats.kills or 0) + 1
+	print(`[kill] {killer.Name} blew up {victim.Name} ({data.stats.kills} kills)`)
+end
 
 -- Debug console only (see DebugService's /speed). A sustained WalkSpeed override:
 -- nil follows the player's trained speed as normal (Config/Treadmill), a number pins
@@ -226,6 +262,17 @@ local function giveBagTo(bag: BasePart, taker: Player)
 	end
 
 	local stolen = bag:GetAttribute("OwnerId") ~= taker.UserId
+	if stolen then
+		local thieves = bagThieves[bag]
+		if thieves == nil then
+			thieves = {}
+			bagThieves[bag] = thieves
+		end
+		if not thieves[taker] then
+			thieves[taker] = true
+			data.stats.bagsStolen = (data.stats.bagsStolen or 0) + 1
+		end
+	end
 	print(`[bag] {taker.Name} {if stolen then "stole" else "recovered"} {taken} item(s); {#contents} left in the bag`)
 
 	-- Keep the label honest. Carry capacity means a full bag usually CANNOT be
@@ -401,6 +448,7 @@ local function dropBag(player: Player, data: any, position: Vector3): number
 	})
 	bag.Destroying:Connect(function()
 		bagContents[bag] = nil
+		bagThieves[bag] = nil
 		tellOwner(bag, { gone = true })
 	end)
 
@@ -462,6 +510,7 @@ type Where = { stageName: string, depth: number }
 
 local function blackout(player: Player, state: State, cause: string, where: Where)
 	state.downed = true
+	creditKill(player)
 
 	local data = DataService.data(player)
 	local character = player.Character
@@ -614,6 +663,11 @@ local function stepPlayer(player: Player, dt: number)
 		}
 		else nil
 	local reading = Radiation.resolve(ambient, 0, stats, zone)
+	-- The Deep Diver mastery (Config/Masteries): less health off the aura wearing and
+	-- failing. Scaled here, on the reading itself, so the HUD's burn colour and the
+	-- SURVIVABLE countdown read the health that is really lost.
+	reading.healthBurn *= stats.radDamageMult
+	reading.drain *= stats.radDamageMult
 	-- /immunity: the reading still names the ambient and the bag (the HUD keeps its
 	-- numbers), but none of it lands -- nothing accrues, nothing burns, the aura holds.
 	if immune[player] then
@@ -631,7 +685,7 @@ local function stepPlayer(player: Player, dt: number)
 	-- treats standing in a crater exactly like aura failure. `failing` is left alone:
 	-- that flag means the AURA gave out, and it has not. The aura does not shield this
 	-- either; it is the air itself, a second ago, at a few thousand degrees.
-	local craterBurn = HazardService.burnAt(root.Position, stageId ~= nil)
+	local craterBurn = HazardService.burnAt(root.Position, stageId ~= nil, player)
 	reading.healthBurn += craterBurn
 	-- Always taken, even while downed, so a hit that lands on a blackout is dropped
 	-- rather than banked into the next life (HazardService.takeHit).
@@ -656,7 +710,7 @@ local function stepPlayer(player: Player, dt: number)
 		-- longer an instant blackout. See Tuning's sickness block for why camps are exempt.
 		local frac = Radiation.exposureFraction(state.exposure)
 		local sick = stageId ~= nil and not showering and not immune[player]
-		sickDrain = if sick then Radiation.sicknessDrain(frac, maxHealthOf(player)) else 0
+		sickDrain = if sick then Radiation.sicknessDrain(frac, maxHealthOf(player)) * stats.radDamageMult else 0
 		local noRegen = sick and frac >= Tuning.SICKNESS_NO_REGEN
 
 		local hpLoss = reading.healthBurn + reading.drain + sickDrain
@@ -870,6 +924,10 @@ function ExposureService.start()
 		speedOverrides[player] = nil
 		jumpOverrides[player] = nil
 		immune[player] = nil
+		lastKillOf[player] = nil
+		for _, thieves in bagThieves do
+			thieves[player] = nil
+		end
 	end)
 
 	-- Resetting (or any real character death) in a stage drops the bag too. Blackout
@@ -882,6 +940,7 @@ function ExposureService.start()
 		humanoid.Died:Connect(function()
 			local data = DataService.data(player)
 			local root = character:FindFirstChild("HumanoidRootPart")
+			creditKill(player)
 			if data and root and root:IsA("BasePart") and StageService.stageOf(player) ~= nil then
 				local lost = dropBag(player, data, root.Position)
 				print(`[rads] {player.Name} died in a stage — dropped {lost} item(s)`)
