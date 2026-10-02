@@ -211,7 +211,7 @@ local Hub = require(script.Parent.Hub)
 
 local Plots = {}
 local BUILDER_SOURCE = "src/server/build/Plots.luau"
-local BUILDER_VERSION = 85
+local BUILDER_VERSION = 86
 
 local C = Kit.C
 local build, light, billboard = Kit.build, Kit.light, Kit.billboard
@@ -2258,6 +2258,94 @@ function Plots.lockerStation(parent: Instance, face: CFrame, index: number): Bas
 	return station
 end
 
+--- THE IMPORTED RACK (the user's own model, Import 3D): ReplicatedStorage.Assets
+--- .QuarantineLocker, a cabinet of two tiers of four tubes, `tube_L0..3` (lower) and
+--- `tube_U0..3` (upper), each holding a `glass` mesh and a `baseGlow` disc. Authored
+--- front -Z like the built rack, tube 0 at +X = the left as you face it. Scaled up from
+--- its ~2.5-stud import; a place without it falls back to the built rack below.
+local LOCKER_TEMPLATE_SCALE = 3.4
+
+local function lockerTemplate(): Model?
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local template = assets and assets:FindFirstChild("QuarantineLocker")
+	return if template and template:IsA("Model") then template else nil
+end
+
+local function firstPart(root: Instance, prefix: string): BasePart?
+	for _, d in root:GetDescendants() do
+		if d:IsA("BasePart") and d.Name:sub(1, #prefix) == prefix then
+			return d
+		end
+	end
+	return nil
+end
+
+--- Stand the imported rack at `face` and give each tube the same LockerTube / LockerGlow
+--- / LockerSlot parts the built rack has, so ExhibitService.renderLocker fills it as is.
+local function placeLockerTemplate(m: Model, template: Model, face: CFrame)
+	local rack = template:Clone()
+	rack.Name = "Rack"
+	rack:ScaleTo(rack:GetScale() * LOCKER_TEMPLATE_SCALE)
+	local cf, size = rack:GetBoundingBox()
+	-- Bounding box centre onto the rack's spot, its feet on the floor.
+	rack:PivotTo(face * CFrame.new(0, size.Y / 2, 0) * cf:Inverse() * rack:GetPivot())
+	for _, d in rack:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide = false
+			d.CastShadow = false
+		end
+	end
+	rack.Parent = m
+
+	local slot = 0
+	for _, tier in { "L", "U" } do
+		for t = 0, LOCKER_TUBES_PER_TIER - 1 do
+			slot += 1
+			local tube = rack:FindFirstChild(`tube_{tier}{t}`)
+			local glass = tube and firstPart(tube, "glass")
+			local disc = tube and firstPart(tube, "baseGlow")
+			if glass == nil or disc == nil then
+				warn(`[plots] imported locker has no tube_{tier}{t} glass/baseGlow; slot {slot} stays empty`)
+				continue
+			end
+			glass.Name = `LockerTube{slot}`
+			glass.Material = Enum.Material.Glass
+			glass.Transparency = 0.72
+			glass.CanCollide = true
+			-- A flat pool laid on the disc: renderLocker tints it, and a textured mesh
+			-- would hide the tint.
+			local floor = disc.CFrame * CFrame.new(0, disc.Size.Y / 2, 0)
+			local glow = Instance.new("Part")
+			glow.Name = `LockerGlow{slot}`
+			glow.Shape = Enum.PartType.Cylinder
+			glow.Size = Vector3.new(0.06, disc.Size.X * 0.92, disc.Size.Z * 0.92)
+			glow.CFrame = floor * CFrame.new(0, 0.03, 0) * CFrame.Angles(0, 0, math.rad(90))
+			glow.Color = Color3.fromHex(C.steelDark)
+			glow.Material = Enum.Material.SmoothPlastic
+			glow.Anchored = true
+			glow.CanCollide = false
+			glow.Parent = m
+			local lamp = Instance.new("PointLight")
+			lamp.Name = "GlowLight"
+			lamp.Range = 5
+			lamp.Brightness = 0.9
+			lamp.Shadows = false
+			lamp.Enabled = false
+			lamp.Parent = glow
+			-- The anchor's bottom face is the pool's top (renderLocker seats on it).
+			local anchor = Instance.new("Part")
+			anchor.Name = `LockerSlot{slot}`
+			anchor.Size = Vector3.new(0.9, 0.9, 0.9)
+			anchor.CFrame = floor * CFrame.new(0, 0.06 + 0.45, 0)
+			anchor.Transparency = 1
+			anchor.Anchored = true
+			anchor.CanCollide = false
+			anchor.Parent = m
+		end
+	end
+end
+
 local function buildQuarantineLocker(parent: Instance, origin: CFrame, index: number)
 	local m = Instance.new("Model")
 	m.Name = "QuarantineLocker"
@@ -2267,6 +2355,13 @@ local function buildQuarantineLocker(parent: Instance, origin: CFrame, index: nu
 	-- Authored facing -Z, long axis along X, centred on the rack; L.yaw turns the front
 	-- to face +X and puts the back against the -X fence.
 	local face = origin * CFrame.new(L.x, floorY, L.z) * CFrame.Angles(0, math.rad(L.yaw), 0)
+	local template = lockerTemplate()
+	if template then
+		placeLockerTemplate(m, template, face)
+		Plots.lockerStation(m, face, index)
+		m.Parent = parent
+		return
+	end
 	local span = LOCKER_TUBES_PER_TIER * L.pitch
 	local width = span + 0.5
 	local HAZ_YELLOW, HAZ_BLACK = "FFC21A", "22252A"

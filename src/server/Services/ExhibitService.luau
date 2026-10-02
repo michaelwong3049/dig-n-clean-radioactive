@@ -73,7 +73,7 @@ local PLOT_COUNT = 6 -- matches build/Plots.Plots.COUNT; not required so Service
 -- Stand display motion: turn rate (radians/sec, ~1 turn per 25s) and bob height (studs).
 local STAND_HOVER = { rate = 0.25, amp = 0.12 }
 local LOCKER_VISIBLE =Tuning.LOCKER_SLOTS -- one per tube; a profile racked past the cap shows the first eight
-local LOCKER_ITEM_SIZE = 1.3 -- longest axis a stored item model is scaled to; the tubes are 1.45 across
+local LOCKER_ITEM_SIZE = 1.2 -- longest axis a stored item model is scaled to; the imported rack's tubes are ~1.36 across
 -- Config/Payload's per-dig roll applies here too, capped the same way WashService
 -- caps it -- the tubes are narrow, no room for a "giga nuke" roll on top of an
 -- already-normalised size.
