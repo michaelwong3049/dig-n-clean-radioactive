@@ -1,6 +1,6 @@
 --!strict
 --[[
-	GroupReward.luau — the chest against Stage 1's brown wall (Services/GroupRewardService,
+	GroupReward.luau — the group chest just outside Stage 1 (Services/GroupRewardService,
 	client GroupRewardController). Join the group (and like the game) for a one-time gift.
 
 	ONLY THE GROUP IS CHECKED. Roblox has no API that tells a game whether a player
@@ -8,6 +8,10 @@
 	membership is the real gate (user's call, 2026-10-02).
 
 	ONCE PER PLAYER, EVER: `data.groupRewardClaimed` on the save.
+
+	STEP IN THE RING. A gold ring on the ground round the chest; standing inside it
+	opens the rewards card (GroupRewardController), whose CLAIM button asks the server.
+	There is no E prompt -- the ring is the one way in.
 ]]
 
 local GroupReward = {}
@@ -18,17 +22,31 @@ GroupReward.CASH = 25_000
 GroupReward.SPEED = 25_000
 GroupReward.LUCK_SECONDS = 5 * 60
 
--- Stage 1 runs X 100..376 with its brown north wall (the one on your LEFT walking in
--- from camp) at Z -89, inner face -85; the field floor's top is Y -1.5. The chest sits
--- near the entrance against that face, its front turned to the field (+Z).
-GroupReward.CHEST_POSITION = Vector3.new(124, -1.5, -82)
+-- On the camp side of the Stage 1 entrance, by the brown shoulder wall that runs out
+-- from the entrance's left corner (its camp-facing face is X 96, from Z -88 outward).
+-- The camp floor's top is Y -1.5. The ring's edge just clears the wall; the chest's
+-- front faces the camp (-X).
+GroupReward.CHEST_POSITION = Vector3.new(86.8, -1.5, -104)
+GroupReward.CHEST_FACING = -math.pi / 2 -- yaw: chest-space +Z (its front) turned to world -X
 
---- Player attribute the client reads to hide the prompt once it has paid out.
+GroupReward.RING_RADIUS = 8.5 -- to the ring's centre line
+GroupReward.RING_WIDTH = 1.2
+
+--- Player attribute the client reads to show the card as claimed.
 GroupReward.CLAIMED_ATTR = "GroupRewardClaimed"
 
 --- The line on the sign and the toast: what the chest pays.
 function GroupReward.rewardText(): string
 	return `$25K Cash  •  25K Speed  •  2x Luck {math.floor(GroupReward.LUCK_SECONDS / 60)} min`
+end
+
+--- Whether a point is standing in the ring (flat distance; a few studs of height either
+--- way so jumping inside it still counts).
+function GroupReward.inRing(position: Vector3): boolean
+	local centre = GroupReward.CHEST_POSITION
+	local flat = Vector3.new(position.X - centre.X, 0, position.Z - centre.Z)
+	return flat.Magnitude <= GroupReward.RING_RADIUS + GroupReward.RING_WIDTH / 2
+		and math.abs(position.Y - centre.Y) < 12
 end
 
 return GroupReward
